@@ -312,34 +312,34 @@ export default function AsesorDashboardPage() {
           )}
         </div>
 
-        {/* Vista escritorio: tabla con scroll horizontal si no cabe */}
+        {/* Vista escritorio: tabla ajustable sin depender de min-width fijo */}
         <div className="hidden sm:block">
           <div className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
-            <table className="w-full min-w-[1100px] divide-y divide-gray-200 lg:min-w-0">
+            <table className="w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
                 <tr>
-                  <th className="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">
+                  <th className="sm:w-[110px] lg:w-auto px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">
                     Creada
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                  <th className="sm:w-[110px] lg:w-auto px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
                     Programa
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                  <th className="sm:w-[120px] lg:w-auto px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
                     NSS
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                  <th className="sm:w-[220px] lg:w-auto px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
                     Cliente
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                  <th className="sm:w-[140px] lg:w-auto px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
                     Teléfono
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                  <th className="sm:w-[120px] lg:w-auto px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
                     Decisión
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                  <th className="sm:w-[240px] md:w-[260px] lg:w-auto px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
                     Notas
                   </th>
-                  <th className="px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
+                  <th className="sm:w-[150px] lg:w-auto px-4 py-3 text-left text-xs font-medium uppercase text-gray-500">
                     Monto aprobado
                   </th>
                 </tr>
@@ -361,19 +361,21 @@ export default function AsesorDashboardPage() {
                     const waHref = digits ? `https://wa.me/52${digits}` : null;
                     return (
                       <tr key={p.id} className="hover:bg-gray-50">
-                        <td className="whitespace-nowrap px-3 py-2 text-xs text-gray-500">
+                        {/* columnas cortas: mantener nowrap */}
+                        <td className="sm:w-[110px] lg:w-auto whitespace-nowrap px-3 py-2 text-xs text-gray-500 align-top">
                           {formatDateTimeMx(p.createdAt)}
                         </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-900">
+                        <td className="sm:w-[110px] lg:w-auto whitespace-nowrap px-3 sm:px-4 py-3 text-sm text-gray-900 align-top">
                           {p.programa}
                         </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">
+                        <td className="sm:w-[120px] lg:w-auto whitespace-nowrap px-3 sm:px-4 py-3 text-sm text-gray-600 align-top">
                           {p.nss}
                         </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">
+                        {/* columnas largas: permitir salto de línea y alinear arriba */}
+                        <td className="sm:w-[220px] lg:w-auto px-3 sm:px-4 py-3 text-sm text-gray-600 align-top">
                           {p.cliente_nombre ?? "—"}
                         </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">
+                        <td className="sm:w-[140px] lg:w-auto px-3 sm:px-4 py-3 text-sm text-gray-600 align-top">
                           {waHref ? (
                             <a
                               href={waHref}
@@ -387,13 +389,14 @@ export default function AsesorDashboardPage() {
                             "—"
                           )}
                         </td>
-                        <td className="whitespace-nowrap px-4 py-3">
+                        <td className="sm:w-[120px] lg:w-auto whitespace-nowrap px-3 sm:px-4 py-3 align-top">
                           <DecisionBadge decision={p.decision} />
                         </td>
-                        <td className="max-w-[200px] truncate px-4 py-3 text-sm text-gray-600">
+                        {/* Notas: dar ancho razonable y truncar */}
+                        <td className="sm:w-[240px] md:w-[260px] lg:w-auto max-w-[260px] truncate px-3 sm:px-4 py-3 text-sm text-gray-600 align-top">
                           {truncateNotas(p.notas_revision)}
                         </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-sm text-gray-600">
+                        <td className="sm:w-[150px] lg:w-auto whitespace-nowrap px-3 sm:px-4 py-3 text-sm text-gray-600 align-top">
                           {p.decision === "no_cumple"
                             ? "—"
                             : p.monto_aprobado != null
