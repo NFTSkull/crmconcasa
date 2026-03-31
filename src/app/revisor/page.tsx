@@ -80,6 +80,10 @@ function RevisorRow({ p, suggestions, asesorMap, updatePrecalificacion }: Reviso
   const persist = (monto: string, notas: string) => {
     const validNum = parseMontoAprobado(monto);
     const decision = computeDecision(monto, notas);
+    console.log("[revisor] monto_aprobado before update", {
+      rawInput: monto,
+      parsed: parseMontoAprobado(monto),
+    });
     updatePrecalificacion(p.id, {
       decision,
       monto_aprobado: validNum,

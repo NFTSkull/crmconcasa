@@ -67,6 +67,10 @@ export function FormEditarPrecalificacion({
     const num = parseMontoAprobado(raw);
     if (raw.trim() !== "" && (num === null || num < 0)) return;
     try {
+      console.log("[form] monto_aprobado before update", {
+        rawInput: raw,
+        parsed: parseMontoAprobado(raw),
+      });
       await repo.update(id, {
         decision,
         monto_aprobado: num,
