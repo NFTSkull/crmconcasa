@@ -19,12 +19,12 @@ import type { Decision } from "@/domain/precalificaciones";
 import { NotesFieldWithSuggestions } from "@/components/NotesFieldWithSuggestions";
 import { getAsesorDisplayMap, getAsesorDisplayLabel } from "@/lib/asesorDisplay";
 import { supabase } from "@/lib/supabaseClient";
+import { parseMontoAprobado } from "@/lib/monto";
 
 function computeDecision(montoStr: string, notasStr: string): Decision {
-  const montoTrim = montoStr.trim();
   const notasTrim = (notasStr ?? "").trim();
-  const num = montoTrim === "" ? null : Number(montoTrim);
-  const hasMonto = num !== null && !Number.isNaN(num) && num >= 0;
+  const num = parseMontoAprobado(montoStr);
+  const hasMonto = num !== null && num >= 0;
   if (hasMonto) return "aprobado";
   if (notasTrim.length > 0) return "no_cumple";
   return "pendiente";
@@ -78,10 +78,7 @@ function RevisorRow({ p, suggestions, asesorMap, updatePrecalificacion }: Reviso
   const notasStr = editingField === "notas" ? draftValue : notasFromP;
 
   const persist = (monto: string, notas: string) => {
-    const montoTrim = monto.trim();
-    const num = montoTrim === "" ? null : Number(montoTrim);
-    const validNum =
-      num !== null && !Number.isNaN(num) && num >= 0 ? num : null;
+    const validNum = parseMontoAprobado(monto);
     const decision = computeDecision(monto, notas);
     updatePrecalificacion(p.id, {
       decision,

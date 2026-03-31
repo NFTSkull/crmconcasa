@@ -9,6 +9,7 @@ import type { Precalificacion, Decision } from "@/domain/precalificaciones";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { NotesFieldWithSuggestions } from "@/components/NotesFieldWithSuggestions";
+import { parseMontoAprobado } from "@/lib/monto";
 
 function computeDecision(montoStr: string, notasStr: string): Decision {
   const montoTrim = montoStr.trim();
@@ -63,8 +64,9 @@ export function FormEditarPrecalificacion({
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const num = monto_aprobado.trim() === "" ? null : Number(monto_aprobado);
-    if (num !== null && (Number.isNaN(num) || num < 0)) return;
+    const raw = monto_aprobado;
+    const num = parseMontoAprobado(raw);
+    if (raw.trim() !== "" && (num === null || num < 0)) return;
     try {
       await repo.update(id, {
         decision,
