@@ -23,13 +23,12 @@ function parseThousandsSeparated(base: string, sep: "," | "."): number | null {
 
 function splitDecimalIfPresent(
   raw: string
-): { base: string; decimalSep: "." | "," | null; hasDecimalPart: boolean } {
-  // Si termina en sep + 2 dígitos, lo tratamos como parte decimal.
-  // Si termina en sep + 3 dígitos (p.ej. "13,000"), lo tratamos como separador de miles.
-  const m = raw.match(/([.,])(\d{2})$/);
-  if (!m) return { base: raw, decimalSep: null, hasDecimalPart: false };
+): { base: string; decimalSep: "." | "," | null; decimalDigits: string | null } {
+  // Parte decimal opcional de 1 o 2 dígitos al final.
+  const m = raw.match(/([.,])(\d{1,2})$/);
+  if (!m) return { base: raw, decimalSep: null, decimalDigits: null };
   const sep = m[1] as "." | ",";
-  return { base: raw.slice(0, -3), decimalSep: sep, hasDecimalPart: true };
+  return { base: raw.slice(0, -(m[0].length)), decimalSep: sep, decimalDigits: m[2] };
 }
 
 /**
@@ -40,52 +39,61 @@ function splitDecimalIfPresent(
  * - "" -> null
  * - acepta enteros puros: "13000"
  * - acepta separadores de miles: "13,000", "13.000", "1,250,000", "1.250.000"
- * - acepta decimales solo si son exactos ".00" o ",00" (se descartan)
- * - rechaza cualquier otro decimal (".50", ",10", etc.)
+ * - acepta decimales con 1 o 2 dígitos (p.ej. "105605.50", "45000.75", "13000,5")
+ * - rechaza más de 2 decimales
  */
 export function parseMontoAprobado(input: string): number | null {
   const raw = stripSpaces(input);
   if (raw === "") return null;
 
-  const { base, decimalSep, hasDecimalPart } = splitDecimalIfPresent(raw);
-  if (hasDecimalPart) {
-    const dec = raw.slice(raw.length - 2);
-    if (dec !== "00") return null;
-    // Si el mismo separador decimal aparece antes (p.ej. "1.250.00"),
-    // es ambiguo (miles y decimales con el mismo símbolo) → inválido.
-    if (decimalSep && base.includes(decimalSep)) return null;
-  }
+  const { base, decimalSep, decimalDigits } = splitDecimalIfPresent(raw);
+  // Si hay separador decimal, no permitimos que el mismo símbolo aparezca en la parte base
+  // (evita ambigüedad miles/decimal como "1.250.50").
+  if (decimalSep && base.includes(decimalSep)) return null;
   if (base === "") return null;
 
-  // Solo dígitos (p.ej. "500000" o "500000.00" ya recortado)
+  // Parse de la parte entera (base) con o sin separadores de miles.
+  let intValue: number | null = null;
   if (/^\d+$/.test(base)) {
-    const num = Number(base);
-    if (!Number.isFinite(num) || !Number.isInteger(num) || num < 0) return null;
-    return num;
+    const n = Number(base);
+    if (!Number.isFinite(n) || !Number.isInteger(n) || n < 0) return null;
+    intValue = n;
+  } else {
+    const hasComma = base.includes(",");
+    const hasDot = base.includes(".");
+
+    // Si hay separador decimal, el separador de miles (si existe) debe ser el otro símbolo.
+    if (decimalSep) {
+      const thousandSep = decimalSep === "." ? "," : ".";
+      if (base.includes(thousandSep)) {
+        intValue = parseThousandsSeparated(base, thousandSep);
+      } else {
+        // Ningún separador de miles válido en base.
+        return null;
+      }
+    } else {
+      // Sin parte decimal: permitimos miles con un solo tipo de separador.
+      if (hasComma && hasDot) return null;
+      if (hasComma) intValue = parseThousandsSeparated(base, ",");
+      else if (hasDot) intValue = parseThousandsSeparated(base, ".");
+      else return null;
+    }
   }
+  if (intValue === null) return null;
 
-  const hasComma = base.includes(",");
-  const hasDot = base.includes(".");
-  if (hasComma && hasDot) {
-    // Permitimos mezcla SOLO cuando había decimales .00 o ,00 (ya recortados),
-    // y el separador usado como decimal es distinto al usado como miles.
-    if (!hasDecimalPart || !decimalSep) return null;
-    const thousandSep = decimalSep === "." ? "," : ".";
-    return parseThousandsSeparated(base, thousandSep);
-  }
-
-  if (hasComma) return parseThousandsSeparated(base, ",");
-  if (hasDot) return parseThousandsSeparated(base, ".");
-
-  return null;
+  if (!decimalDigits) return intValue;
+  // decimalDigits es 1-2 dígitos por regex; construimos el número sin redondear.
+  const frac = Number(decimalDigits) / (decimalDigits.length === 1 ? 10 : 100);
+  const out = intValue + frac;
+  if (!Number.isFinite(out) || out < 0) return null;
+  return out;
 }
 
-const mxnFormatter = new Intl.NumberFormat("es-MX", {
-  maximumFractionDigits: 0,
-  minimumFractionDigits: 0,
-});
-
 export function formatMontoMX(value: number): string {
-  return `$${mxnFormatter.format(value)}`;
+  const hasDecimals = Math.abs(value % 1) > 0;
+  const fmt = hasDecimals
+    ? new Intl.NumberFormat("es-MX", { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    : new Intl.NumberFormat("es-MX", { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+  return `$${fmt.format(value)}`;
 }
 

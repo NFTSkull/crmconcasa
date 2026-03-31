@@ -11,24 +11,15 @@ function safeMontoFromDb(value: unknown): number | null {
 
   if (typeof value === "number") {
     if (!Number.isFinite(value) || value < 0) return null;
-    const n = Math.trunc(value);
-    return Number.isFinite(n) ? n : null;
+    return value;
   }
 
   if (typeof value === "string") {
     const raw = value.trim();
     if (raw === "") return null;
 
-    // Acepta: "13000", "13000.00", "13000.0000", "21745.000000", "500000.0"
-    const m = raw.match(/^(\d+)(?:\.(\d+))?$/);
-    if (!m) return null;
-
-    const intPart = m[1];
-    const fracPart = m[2];
-    if (fracPart != null && !/^0+$/.test(fracPart)) return null;
-
-    const n = Number(intPart);
-    if (!Number.isFinite(n) || !Number.isInteger(n) || n < 0) return null;
+    const n = Number(raw);
+    if (!Number.isFinite(n) || n < 0) return null;
     return n;
   }
 
@@ -163,11 +154,7 @@ export class SupabasePrecalificacionesRepo implements PrecalificacionesRepo {
     validateUpdatePrecalificacion(patch);
     const updatePayload: Record<string, unknown> = {};
     if (patch.decision !== undefined) updatePayload.decision = patch.decision;
-    if (patch.monto_aprobado !== undefined) {
-      const val = patch.monto_aprobado;
-      updatePayload.monto_aprobado =
-        typeof val === "number" ? Math.trunc(val) : val;
-    }
+    if (patch.monto_aprobado !== undefined) updatePayload.monto_aprobado = patch.monto_aprobado;
     if (patch.notas_revision !== undefined) updatePayload.notas_revision = patch.notas_revision;
     if (patch.notas !== undefined) updatePayload.notas = patch.notas;
     const { data, error } = await supabase
