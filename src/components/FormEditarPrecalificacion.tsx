@@ -120,7 +120,8 @@ export function FormEditarPrecalificacion({
           <div className="flex flex-col gap-4">
             <Input
               name="monto_aprobado"
-              type="number"
+              type="text"
+              inputMode="decimal"
               label="Monto aprobado"
               placeholder="Ej. 500000"
               min={0}

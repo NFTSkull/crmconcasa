@@ -135,7 +135,8 @@ function RevisorRow({ p, suggestions, asesorMap, updatePrecalificacion }: Reviso
       </td>
       <td className="min-w-[140px] px-4 py-2">
         <input
-          type="number"
+          type="text"
+          inputMode="decimal"
           min={0}
           step={1}
           placeholder="Monto"
