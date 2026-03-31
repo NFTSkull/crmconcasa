@@ -12,10 +12,9 @@ import { NotesFieldWithSuggestions } from "@/components/NotesFieldWithSuggestion
 import { parseMontoAprobado } from "@/lib/monto";
 
 function computeDecision(montoStr: string, notasStr: string): Decision {
-  const montoTrim = montoStr.trim();
   const notasTrim = (notasStr ?? "").trim();
-  const num = montoTrim === "" ? null : Number(montoTrim);
-  const hasMonto = num !== null && !Number.isNaN(num) && num >= 0;
+  const num = parseMontoAprobado(montoStr);
+  const hasMonto = num !== null && num >= 0;
   if (hasMonto) return "aprobado";
   if (notasTrim.length > 0) return "no_cumple";
   return "pendiente";

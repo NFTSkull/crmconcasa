@@ -1,10 +1,26 @@
 import { supabase } from "@/lib/supabaseClient";
+import { parseMontoAprobado } from "@/lib/monto";
 import type { Precalificacion, CreatePrecalificacionInput } from "./types";
 import type { PrecalificacionesRepo } from "./repo";
 import {
   validateCreatePrecalificacion,
   validateUpdatePrecalificacion,
 } from "./validators";
+
+function safeMontoAprobado(value: unknown): number | null {
+  if (value == null) return null;
+  if (typeof value === "number") {
+    if (!Number.isFinite(value) || value < 0) return null;
+    if (Number.isInteger(value)) return value;
+    if (Number.isInteger(Math.trunc(value)) && value === Math.trunc(value)) return Math.trunc(value);
+    return null;
+  }
+  if (typeof value === "string") {
+    const parsed = parseMontoAprobado(value);
+    return parsed;
+  }
+  return null;
+}
 
 /** Mapea fila de Supabase (camelCase o snake_case) a Precalificacion de dominio */
 function rowToPrecalificacion(row: Record<string, unknown>): Precalificacion {
@@ -17,7 +33,7 @@ function rowToPrecalificacion(row: Record<string, unknown>): Precalificacion {
     telefono_cliente: String(row.telefono_cliente ?? ""),
     fecha_nacimiento: row.fecha_nacimiento != null ? String(row.fecha_nacimiento) : undefined,
     direccion_opcional: String(row.direccion_opcional ?? ""),
-    monto_aprobado: row.monto_aprobado != null ? Number(row.monto_aprobado) : null,
+    monto_aprobado: safeMontoAprobado(row.monto_aprobado),
     notas: String(row.notas ?? ""),
     createdAt: row.created_at != null ? String(row.created_at) : String(row.createdAt ?? ""),
     decision: row.decision as Precalificacion["decision"] | undefined,
