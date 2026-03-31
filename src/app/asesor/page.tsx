@@ -14,6 +14,7 @@ import {
   type FiltersState,
 } from "@/lib/filters";
 import { supabase } from "@/lib/supabaseClient";
+import { formatMontoMX } from "@/lib/monto";
 
 const MAX_NOTAS_LEN = 70;
 
@@ -293,7 +294,7 @@ export default function AsesorDashboardPage() {
                         {p.decision === "no_cumple"
                           ? "—"
                           : p.monto_aprobado != null
-                            ? `$${p.monto_aprobado.toLocaleString("es-MX")}`
+                            ? formatMontoMX(p.monto_aprobado)
                             : "—"}
                       </span>
                     </div>
@@ -400,7 +401,7 @@ export default function AsesorDashboardPage() {
                           {p.decision === "no_cumple"
                             ? "—"
                             : p.monto_aprobado != null
-                              ? `$${p.monto_aprobado.toLocaleString("es-MX")}`
+                              ? formatMontoMX(p.monto_aprobado)
                               : "—"}
                         </td>
                       </tr>

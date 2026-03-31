@@ -163,7 +163,11 @@ export class SupabasePrecalificacionesRepo implements PrecalificacionesRepo {
     validateUpdatePrecalificacion(patch);
     const updatePayload: Record<string, unknown> = {};
     if (patch.decision !== undefined) updatePayload.decision = patch.decision;
-    if (patch.monto_aprobado !== undefined) updatePayload.monto_aprobado = patch.monto_aprobado;
+    if (patch.monto_aprobado !== undefined) {
+      const val = patch.monto_aprobado;
+      updatePayload.monto_aprobado =
+        typeof val === "number" ? Math.trunc(val) : val;
+    }
     if (patch.notas_revision !== undefined) updatePayload.notas_revision = patch.notas_revision;
     if (patch.notas !== undefined) updatePayload.notas = patch.notas;
     const { data, error } = await supabase
