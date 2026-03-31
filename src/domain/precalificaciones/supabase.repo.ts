@@ -1,5 +1,4 @@
 import { supabase } from "@/lib/supabaseClient";
-import { parseMontoAprobado } from "@/lib/monto";
 import type { Precalificacion, CreatePrecalificacionInput } from "./types";
 import type { PrecalificacionesRepo } from "./repo";
 import {
@@ -7,18 +6,32 @@ import {
   validateUpdatePrecalificacion,
 } from "./validators";
 
-function safeMontoAprobado(value: unknown): number | null {
+function safeMontoFromDb(value: unknown): number | null {
   if (value == null) return null;
+
   if (typeof value === "number") {
     if (!Number.isFinite(value) || value < 0) return null;
-    if (Number.isInteger(value)) return value;
-    if (Number.isInteger(Math.trunc(value)) && value === Math.trunc(value)) return Math.trunc(value);
-    return null;
+    const n = Math.trunc(value);
+    return Number.isFinite(n) ? n : null;
   }
+
   if (typeof value === "string") {
-    const parsed = parseMontoAprobado(value);
-    return parsed;
+    const raw = value.trim();
+    if (raw === "") return null;
+
+    // Acepta: "13000", "13000.00", "13000.0000", "21745.000000", "500000.0"
+    const m = raw.match(/^(\d+)(?:\.(\d+))?$/);
+    if (!m) return null;
+
+    const intPart = m[1];
+    const fracPart = m[2];
+    if (fracPart != null && !/^0+$/.test(fracPart)) return null;
+
+    const n = Number(intPart);
+    if (!Number.isFinite(n) || !Number.isInteger(n) || n < 0) return null;
+    return n;
   }
+
   return null;
 }
 
@@ -33,7 +46,7 @@ function rowToPrecalificacion(row: Record<string, unknown>): Precalificacion {
     telefono_cliente: String(row.telefono_cliente ?? ""),
     fecha_nacimiento: row.fecha_nacimiento != null ? String(row.fecha_nacimiento) : undefined,
     direccion_opcional: String(row.direccion_opcional ?? ""),
-    monto_aprobado: safeMontoAprobado(row.monto_aprobado),
+    monto_aprobado: safeMontoFromDb(row.monto_aprobado),
     notas: String(row.notas ?? ""),
     createdAt: row.created_at != null ? String(row.created_at) : String(row.createdAt ?? ""),
     decision: row.decision as Precalificacion["decision"] | undefined,
