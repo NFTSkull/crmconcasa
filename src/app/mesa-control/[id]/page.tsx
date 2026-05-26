@@ -593,22 +593,40 @@ export default function MesaControlExpedientePage() {
       if (!expediente?.operativo.submittedToMesa) return;
       if (!routeExpedienteId) return;
 
+      const motivoRechazoNext =
+        next.subestado === "rechazado" &&
+        next.motivo !== undefined &&
+        next.motivo !== ""
+          ? next.motivo
+          : null;
+      const comentarioRechazoNext =
+        next.subestado === "rechazado"
+          ? next.comentarioRechazo?.trim()
+            ? next.comentarioRechazo
+            : null
+          : null;
+      const fechaCitaNext =
+        next.fechaCita !== undefined
+          ? next.fechaCita
+          : (expediente.operativo.fechaCita ?? null);
+
+      // Guard no-op: abrir/montar la vista no debe tocar `updatedAt` si no hay cambio real.
+      const isNoop =
+        (expediente.operativo.etapaActual ?? null) === (next.etapaActualId ?? null) &&
+        (expediente.operativo.subestado ?? null) === (next.subestado ?? null) &&
+        Boolean(expediente.operativo.submittedToMesa) === true &&
+        (expediente.operativo.motivoRechazo ?? null) === (motivoRechazoNext ?? null) &&
+        (expediente.operativo.comentarioRechazo ?? null) ===
+          (comentarioRechazoNext ?? null) &&
+        (expediente.operativo.fechaCita ?? null) === (fechaCitaNext ?? null);
+      if (isNoop) return;
+
       const patch: Parameters<MockExpedientesRepo["updateOperativo"]>[1] = {
         etapaActual: next.etapaActualId,
         subestado: next.subestado,
         submittedToMesa: true,
-        motivoRechazo:
-          next.subestado === "rechazado" &&
-          next.motivo !== undefined &&
-          next.motivo !== ""
-            ? next.motivo
-            : null,
-        comentarioRechazo:
-          next.subestado === "rechazado"
-            ? next.comentarioRechazo?.trim()
-              ? next.comentarioRechazo
-              : null
-            : null,
+        motivoRechazo: motivoRechazoNext,
+        comentarioRechazo: comentarioRechazoNext,
         ...(next.fechaCita !== undefined ? { fechaCita: next.fechaCita } : {}),
       };
 
@@ -630,7 +648,16 @@ export default function MesaControlExpedientePage() {
         }
       })();
     },
-    [expediente?.operativo.submittedToMesa, routeExpedienteId, repo],
+    [
+      expediente?.operativo.comentarioRechazo,
+      expediente?.operativo.etapaActual,
+      expediente?.operativo.fechaCita,
+      expediente?.operativo.motivoRechazo,
+      expediente?.operativo.subestado,
+      expediente?.operativo.submittedToMesa,
+      routeExpedienteId,
+      repo,
+    ],
   );
 
   const archivosResumenPaquete = useMemo(
