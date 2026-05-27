@@ -11,6 +11,7 @@ export function getClienteDatosCamposFaltantes(d: ClienteDatosFormShape): string
   req("Nombre del cliente", d.nombreCliente);
   req("NSS", d.nss);
   req("CURP", d.curp);
+  req("RFC", d.rfc);
   req("Celular", d.celular);
   req("Correo", d.correo);
   req("Empresa", d.empresa);

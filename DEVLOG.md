@@ -1,5 +1,149 @@
 # Devlog
 
+## 2026-05-27 - B0D6.4: alineación opción A/B retención en Mesa
+
+### Causa
+
+- `getChecklistDocumentos(etapa 8)` exige los 5 tipos `retencion_*` del catálogo (A y B a la vez).
+- Al avanzar, `getBloqueosAvanceMesa` mostraba “Retención · Carta motivo sin sello” aunque la UI decía Opción A.
+
+### Corrección
+
+- `retencionOpcionMesaEfectiva = envio.opcion ?? retencion_opcion` en Mesa y en `handleAprobarYSiguiente`.
+- En etapa 8 se excluyen `retencion_*` del bloqueo genérico de checklist; solo `getBloqueosRetencionAvanceEtapa8Mesa` con la opción efectiva.
+
+## 2026-05-27 - B0D6.3: vista previa retención en Mesa (etapa 8)
+
+### Decisión
+
+- Mismo patrón que documentos cliente: `getArchivoBlob(id)` + `URL.createObjectURL` en modal fijo (`z-65`).
+- El panel lateral de revisión ya cargaba el blob al seleccionar tipo, pero la miniatura queda lejos del bloque Acuse/Aviso.
+- Botón explícito “Ver documento”; abrir preview no llama `updateRevision`.
+
+### Archivos
+
+- `mesa-control/[id]/page.tsx`, `lib/archivoPreviewMime.ts`, tests.
+
+## 2026-05-27 - B0D6.2: validar/rechazar retención en Mesa + corrección al asesor
+
+### Decisión
+
+- Reutilizar `archivosRepo.updateRevision` (`estatus_revision`, `comentario_mesa`); rechazo exige nota (repo + UI).
+- `markCorreccionRequerida` en envío mesa conserva `fechaEnvioMesa` y `opcion`; evento `expediente_retencion_envio_mesa_updated`.
+- UX Mesa: botones inline en sección Acuse/Aviso además del panel lateral (los `retencion_*` no están en la lista documental etapa 2).
+- Asesor: etiqueta de estatus + nota Mesa en docs rechazados; reenvío con `save({ estado: "enviado" })` sin cambiar etapa.
+
+### Archivos
+
+- `envio-mesa.mock-localstorage.repo.ts`, `types.ts`, `retencion-envio-mesa.ts`
+- `mesa-control/[id]/page.tsx`, `SeguimientoOperativoMock.tsx`
+- `retencion-acuse-aviso.ts` (`isRetencionTipoDocumento`)
+- Tests: `retencion-envio-mesa.test.ts`, `envio-mesa.mock-localstorage.repo.test.ts`
+
+## 2026-05-27 - B0D6: envío Acuse/Aviso retención a Mesa (asesor etapa 8)
+
+### Decisión
+
+- Estado aparte en `expediente_retencion_envio_mesa_v1` (no reutilizar `submittedToMesa` de integración).
+- Asesor envía cuando opción + docs completos; reenvío si Mesa rechazó (`correccion_requerida` derivado de `estatus_revision`).
+- Sin cambio de etapa al enviar.
+
+### Archivos
+
+- `expediente-retencion/types.ts`, `envio-mesa.mock-localstorage.repo.ts`, `retencion-envio-mesa.ts`
+- `SeguimientoOperativoMock.tsx`, `mesa-control/[id]/page.tsx`, `retencion-envio-mesa.test.ts`
+
+## 2026-05-27 - B0D5: agenda biométricos → asesor etapa 4
+
+### Decisión
+
+- Mesa no contacta al cliente; el calendario de biométricos sale de `mesa-control/[id]` y queda solo en expediente asesor en **etapa 4**.
+- `canMountAgendaBiometricosUI` → solo rol `asesor`. `canShowAgendaBiometricosForEtapa(4)`.
+- Mesa avanza 3→4 sin cita; bloqueo 4→5 exige cita agendada por asesor.
+- Storage `agenda_config_v1` / `agenda_bookings_v1` y `AgendaBiometricosConfigPanel` sin cambios.
+
+### Archivos
+
+- `agendaFirmasBookingsGuard.ts`, `AgendaBiometricosCard.tsx`, `asesor/expediente/[id]/page.tsx`, `mesa-control/[id]/page.tsx`, `SeguimientoOperativoMock.tsx`, tests guard.
+
+## 2026-05-27 - B0D4: etapa 1 al enviar a Mesa (no saltar a Registro)
+
+### Causa
+
+- `etapaActualParaOperativo` devolvía siempre `2` con `en_validacion_mesa`.
+- `SeguimientoOperativoMock` enviaba `etapaActual: 2` y movía UI a etapa 2 tras el click.
+
+### Corrección
+
+- `en_validacion_mesa` conserva etapa persistida (default 1; no retrocede si ya es >= 2).
+- `etapaAlEnviarAMesaDesdeAsesor` + timeline post-envío en etapa 1.
+- Tests: `enviar-mesa-etapa.test.ts`, actualizado `etapa-validacion-mesa.test.ts`.
+
+### Impacto técnico
+
+- `src/domain/expedientes/mock.repo.ts`
+- `src/components/seguimiento/SeguimientoOperativoMock.tsx`
+- `src/domain/expedientes/enviar-mesa-etapa.test.ts`
+- `src/domain/expedientes/etapa-validacion-mesa.test.ts`
+
+## 2026-05-27 - B0D3B: Acuse / Aviso de retención (mesa-control)
+
+### Decisiones
+
+- Sección propia en `mesa-control/[id]` solo cuando `etapaActualDisplay === 8`; checklist cliente (B0C2/B0C3) intacto.
+- Validar/rechazar: mismo `selectedTipo` + `persistRevision` + panel lateral de “Revisión de documentos”.
+- Bloqueo 8→9: `getBloqueosRetencionAvanceEtapa8Mesa` (exige `validado` en los 4 docs de la opción) dentro de `getBloqueosAvanceMesa` en `SeguimientoOperativoMock`.
+
+### Impacto técnico
+
+- `src/domain/expediente-archivos/retencion-acuse-aviso.ts` (+ tests)
+- `src/components/seguimiento/SeguimientoOperativoMock.tsx` (`getBloqueosAvanceMesa`)
+- `src/app/mesa-control/[id]/page.tsx`
+
+## 2026-05-27 - B0D3A: Acuse / Aviso de retención (solo asesor)
+
+### Decisiones
+
+- Catálogo `retencion_*` con `etapasRequeridas: [8]` para no mezclar con los 6 obligatorios de Integración (etapas 1–2).
+- `retencion_opcion` en `localStorage` clave `expediente_retencion_opcion_v1` (patrón similar a datos cliente).
+- Uploads en IndexedDB vía `MockExpedienteArchivosIndexedDbRepo` (misma mecánica que documentos cliente).
+- UI solo en `SeguimientoOperativoMock` cuando asesor + enviado a mesa + etapa 8 (operativa o seleccionada en timeline).
+- Avance 8→9 lo hace mesa con `handleAprobarYSiguiente`; helper `getBloqueosRetencionAvanceEtapa8` listo, integración en B0D3B.
+
+### Impacto técnico
+
+- `src/domain/expediente-archivos/types.ts`, `retencion-acuse-aviso.ts`, `retencion-acuse-aviso.test.ts`
+- `src/domain/expediente-retencion/types.ts`, `mock-localstorage.repo.ts`
+- `src/components/seguimiento/SeguimientoOperativoMock.tsx`
+
+## 2026-05-27 - B0D2: Semanas Cotizadas e Historial Laboral (opcionales)
+
+### Decisiones
+
+- Reutilizar `obligatorio: "opcional"` del catálogo (misma convención que `asesor_*`).
+- El checklist (`deriveChecklistDocumentosFromResumen` + `soloObligatorios: true`) no incluye opcionales en faltantes ni en el contador de 6 obligatorios.
+- Mesa: `buildClienteItemsRevisionDocumental` une obligatorios del checklist + opcionales con archivo subido; el panel B0C2 “Documentos requeridos” no se modifica.
+
+### Impacto técnico
+
+- `src/domain/expediente-archivos/types.ts`
+- `src/domain/expediente-archivos/checklist.ts`
+- `src/components/seguimiento/SeguimientoOperativoMock.tsx`
+- `src/app/mesa-control/[id]/page.tsx` (solo lista de revisión / validar todos / stats)
+- `src/domain/expediente-archivos/derive-resumen-documental.test.ts`
+
+## 2026-05-26 - B0C2: contador Validados alineado al checklist cliente
+
+### Decisiones
+
+- `docStats` en `mesa-control/[id]` deja de iterar `DOCUMENTO_TIPOS` sobre `archivosResumenPaquete`.
+- Usa el mismo subconjunto que la lista visible: `filterChecklistDocumentoItemsPorOwnerRole(..., "cliente")` + `findRowPorTipoDocumento(archivosResumen, tipo)`.
+- Sin cambios en badges individuales, validación/rechazo, bulk “Validar todos”, ni IndexedDB.
+
+### Impacto técnico
+
+- `src/app/mesa-control/[id]/page.tsx`
+
 ## 2026-05-14 - Limpieza a modo 100% mock (sin Supabase)
 
 ### Decisiones

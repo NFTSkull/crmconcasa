@@ -1,5 +1,31 @@
 # Changelog
 
+## 2026-05-27
+
+- **B0D6.4 — Opción A/B alineada en Mesa:** `retencionOpcionMesaEfectiva` (envío prima sobre selección local); checklist etapa 8 ya no mezcla docs de la opción no elegida al avanzar.
+
+- **B0D6.3 — Vista previa Acuse/Aviso en Mesa:** botón “Ver documento” en etapa 8 abre modal con imagen/PDF vía `getArchivoBlob` (sin cambiar estatus de revisión).
+
+- **B0D6.2 — Validar/rechazar Acuse/Aviso en Mesa:** acciones inline en etapa 8 (Validar/Rechazar con nota obligatoria); al rechazar `retencion_*` persiste `correccion_requerida` en `expediente_retencion_envio_mesa_v1`; asesor ve estado y nota por documento y puede reenviar el bloque.
+
+- **B0D6.1 — Bloqueo 8→9 y envío retención:** `getBloqueosRetencionAvanceEtapa8Mesa` exige `retencion_enviado_a_mesa` (key `expediente_retencion_envio_mesa_v1`); Mesa y `handleAprobarYSiguiente` consultan el repo de envío.
+
+- **B0D6 — Envío Acuse/Aviso retención a Mesa:** botón en asesor (etapa 8) con persistencia `expediente_retencion_envio_mesa_v1`; Mesa ve señal de envío/corrección sin tocar `submittedToMesa` ni cambiar etapa.
+
+- **B0D5 — Agenda biométricos en asesor (etapa 4):** Mesa Control ya no monta `AgendaBiometricosCard`; solo el asesor agenda en etapa 4. Mesa conserva bloque de consulta de cita y configuración Cynthia en bandeja.
+
+- **B0D4 — Etapa al enviar a Mesa:** el envío desde asesor ya no fuerza etapa 2; permanece en Integración (1) con `en_validacion_mesa` hasta que Mesa apruebe y avance. Corregidos `etapaActualParaOperativo`, payload de `onEnviarAMesa` y timeline post-envío.
+
+- **B0D3B — Acuse / Aviso de retención (mesa):** sección en detalle expediente etapa 8, carga `retencion_opcion`, revisión `retencion_*` vía panel existente, bloqueo 8→9 con `getBloqueosRetencionAvanceEtapa8Mesa` en `getBloqueosAvanceMesa`.
+
+- **B0D3A — Acuse / Aviso de retención (asesor):** selector Opción A/B (`retencion_opcion` en `localStorage` `expediente_retencion_opcion_v1`), uploads `retencion_*` en IndexedDB (etapa 8), helper `deriveRetencionAcuseAvisoFaltantes` y panel en seguimiento operativo del asesor. Bloqueo 8→9 en mesa pendiente (B0D3B).
+
+- **B0D2 — Documentos cliente opcionales:** catálogo `cliente_semanas_cotizadas` y `cliente_historial_laboral` (`obligatorio: "opcional"`). Carga en asesor con etiqueta “(opcional)”; no bloquean envío a mesa ni el checklist de 6 obligatorios. Mesa los muestra en revisión documental solo si fueron subidos (`buildClienteItemsRevisionDocumental`).
+
+## 2026-05-26
+
+- **B0C2 — Mesa-control contador Validados:** el resumen “Validados / Pendientes / Correcciones” en revisión documental cuenta los mismos documentos `cliente_*` del checklist lateral (no el paquete legacy `DOCUMENTO_TIPOS` de 4 tipos).
+
 ## 2026-05-14
 
 - **Modo 100% mock (sin Supabase):** se retira el acoplamiento directo a Supabase en sesión, repositorios y utilidades de display de asesor. `useSessionRepo` usa `MockSessionRepo`, `usePrecalificacionesRepo` queda solo mock, se elimina realtime de revisor por canal Postgres y se borran archivos/dependencia de Supabase para simplificar despliegue y evitar errores por variables de entorno faltantes.

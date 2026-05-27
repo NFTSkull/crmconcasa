@@ -11,6 +11,7 @@ export type ExpedienteClienteDatos = {
     nombreCliente: string;
     nss: string;
     curp: string;
+    rfc: string;
     celular: string;
     correo: string;
     empresa: string;

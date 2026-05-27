@@ -7,6 +7,7 @@ import {
   ordenarPorTipoDocumentoCatalogo,
   TIPO_DOCUMENTO_LABEL,
   type DocumentoOwnerRole,
+  type DocumentoStageId,
   type ExpedienteArchivoResumen,
   type TipoDocumento,
   type TipoDocumentoCatalogo,
@@ -186,6 +187,36 @@ export function filterChecklistDocumentoItemsPorOwnerRole(
   ownerRole: DocumentoOwnerRole,
 ): ChecklistDocumentoItem[] {
   return filterItemsPorOwnerRoleCatalogo(items, ownerRole);
+}
+
+/**
+ * Lista de revisión documental del cliente: obligatorios del checklist (completos + faltantes)
+ * más opcionales del catálogo que ya tienen archivo (no se listan si siguen sin subir).
+ */
+export function buildClienteItemsRevisionDocumental(params: {
+  checklist: ChecklistDocumentos;
+  resumen: readonly ExpedienteArchivoResumen[];
+  etapaId: DocumentoStageId;
+}): ChecklistDocumentoItem[] {
+  const { checklist, resumen, etapaId } = params;
+  const obligatorios = [
+    ...filterChecklistDocumentoItemsPorOwnerRole(checklist.completosLista, "cliente"),
+    ...filterChecklistDocumentoItemsPorOwnerRole(checklist.faltantes, "cliente"),
+  ];
+
+  const opcionalesSubidos: ChecklistDocumentoItem[] = [];
+  for (const doc of listDocumentosCatalogoForStage({
+    etapaId,
+    ownerRole: "cliente",
+    soloObligatorios: false,
+  })) {
+    if (doc.obligatorio !== "opcional") continue;
+    const row = findRowPorTipoDocumento(resumen, doc.tipo);
+    if (!row?.id || row.estatus_revision === "faltante") continue;
+    opcionalesSubidos.push({ tipo_documento: doc.tipo, label: doc.label });
+  }
+
+  return ordenarPorTipoDocumentoCatalogo([...obligatorios, ...opcionalesSubidos]);
 }
 
 function isTipoDocumentoBase(value: string): value is TipoDocumento {

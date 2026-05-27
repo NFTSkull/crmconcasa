@@ -18,6 +18,7 @@ function isExpedienteClienteDatosShape(x: unknown): x is ExpedienteClienteDatos 
     typeof d.nombreCliente === "string" &&
     typeof d.nss === "string" &&
     typeof d.curp === "string" &&
+    (typeof d.rfc === "string" || d.rfc === undefined) &&
     typeof d.celular === "string" &&
     typeof d.correo === "string" &&
     typeof d.empresa === "string" &&
@@ -50,6 +51,7 @@ test("ExpedienteClienteDatos: shape mínimo válido", () => {
       nombreCliente: "Juan Pérez",
       nss: "12345678901",
       curp: "PEPJ800101HDFRRN09",
+      rfc: "XAXX010101000",
       celular: "5512345678",
       correo: "juan@example.com",
       empresa: "ACME",

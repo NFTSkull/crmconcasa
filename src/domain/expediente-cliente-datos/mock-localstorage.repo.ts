@@ -76,8 +76,12 @@ function isDatosShape(value: unknown): value is ExpedienteClienteDatos["datos"] 
 function rowToDomain(row: StoredRow): ExpedienteClienteDatos | null {
   const expedienteId = typeof row.expedienteId === "string" ? row.expedienteId : null;
   if (!expedienteId) return null;
-  const datos = isDatosShape(row.datos) ? (row.datos as ExpedienteClienteDatos["datos"]) : null;
-  if (!datos) return null;
+  if (!isDatosShape(row.datos)) return null;
+  const rawDatos = row.datos as Record<string, unknown>;
+  const datos: ExpedienteClienteDatos["datos"] = {
+    ...(row.datos as ExpedienteClienteDatos["datos"]),
+    rfc: typeof rawDatos.rfc === "string" ? rawDatos.rfc : "",
+  };
   const updatedAt = typeof row.updatedAt === "string" ? row.updatedAt : new Date().toISOString();
   const updatedBy = typeof row.updatedBy === "string" ? row.updatedBy : "unknown";
   const comentarioRechazo =

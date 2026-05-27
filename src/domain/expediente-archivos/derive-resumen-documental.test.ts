@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  DOCUMENTO_CATALOGO_MAP,
   deriveResumenDocumental,
   filterItemsPorOwnerRoleCatalogo,
   listDocumentosCatalogoForStage,
@@ -9,7 +10,10 @@ import {
   type TipoDocumentoCatalogo,
   type ExpedienteArchivoResumen,
 } from "./types";
-import { deriveChecklistDocumentosFromResumen } from "./checklist";
+import {
+  buildClienteItemsRevisionDocumental,
+  deriveChecklistDocumentosFromResumen,
+} from "./checklist";
 
 function row(
   tipo: ExpedienteArchivoResumen["tipo_documento"],
@@ -348,6 +352,84 @@ describe("DOCUMENTO_CATALOGO: cliente_* obligatorios en etapa 1", () => {
     for (const t of expected) {
       assert.ok(req.includes(t), `Falta requerido: ${t}`);
     }
+  });
+});
+
+describe("B0D2: documentos cliente opcionales (Semanas Cotizadas, Historial Laboral)", () => {
+  const opcionales = ["cliente_semanas_cotizadas", "cliente_historial_laboral"] as const;
+
+  it("existen en catálogo como cliente opcionales", () => {
+    for (const tipo of opcionales) {
+      const item = DOCUMENTO_CATALOGO_MAP[tipo];
+      assert.equal(item.ownerRole, "cliente");
+      assert.equal(item.obligatorio, "opcional");
+    }
+  });
+
+  it("no aparecen en faltantes requeridos cuando no están subidos", () => {
+    const resumen = [
+      row("cliente_ine_frente", "validado"),
+      row("cliente_ine_reverso", "validado"),
+      row("cliente_comprobante_domicilio", "validado"),
+      row("cliente_estado_cuenta", "validado"),
+      row("cliente_acta_nacimiento", "validado"),
+      row("cliente_constancia_sat", "validado"),
+    ];
+    const checklist = deriveChecklistDocumentosFromResumen({
+      resumen,
+      etapaActual: 1,
+      ownerRole: "cliente",
+      pendienteRevisionCuentaComoCompleto: true,
+    });
+    assert.equal(checklist.faltantes.length, 0);
+    for (const tipo of opcionales) {
+      assert.ok(
+        !checklist.faltantes.some((f) => f.tipo_documento === tipo),
+        `No debe faltar: ${tipo}`,
+      );
+    }
+  });
+
+  it("el checklist obligatorio sigue esperando solo los 6 documentos actuales", () => {
+    const req = listDocumentosCatalogoForStage({
+      etapaId: 1,
+      ownerRole: "cliente",
+      soloObligatorios: true,
+    });
+    assert.equal(req.length, 6);
+    for (const tipo of opcionales) {
+      assert.ok(!req.some((d) => d.tipo === tipo));
+    }
+  });
+
+  it("opcionales subidos aparecen en revisión documental sin bloquear checklist", () => {
+    const resumen = [
+      row("cliente_ine_frente", "validado"),
+      row("cliente_ine_reverso", "validado"),
+      row("cliente_comprobante_domicilio", "validado"),
+      row("cliente_estado_cuenta", "validado"),
+      row("cliente_acta_nacimiento", "validado"),
+      row("cliente_constancia_sat", "validado"),
+      row("cliente_semanas_cotizadas", "subido"),
+    ];
+    const checklist = deriveChecklistDocumentosFromResumen({
+      resumen,
+      etapaActual: 1,
+      ownerRole: "cliente",
+      pendienteRevisionCuentaComoCompleto: true,
+    });
+    const revision = buildClienteItemsRevisionDocumental({
+      checklist,
+      resumen,
+      etapaId: 1,
+    });
+    assert.ok(
+      revision.some((it) => it.tipo_documento === "cliente_semanas_cotizadas"),
+    );
+    assert.ok(
+      !revision.some((it) => it.tipo_documento === "cliente_historial_laboral"),
+    );
+    assert.equal(checklist.faltantes.length, 0);
   });
 });
 

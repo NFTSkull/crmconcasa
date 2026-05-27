@@ -61,12 +61,14 @@ export function canMountAgendaFirmasAgendaUI(): boolean {
   return isMesaControlAdminMockRole();
 }
 
-/** Agenda de biométricos disponible para roles de mesa (admin/interno/externo/legacy). */
+/** Agenda de biométricos editable: solo asesor (Mesa no agenda; solo consulta cita en detalle). */
 export function canMountAgendaBiometricosUI(): boolean {
-  const role = getEffectiveMockRole();
-  if (!role) return false;
-  if (role === "mesa_control") return true;
-  return role.startsWith("mesa_control_");
+  return getEffectiveMockRole() === "asesor";
+}
+
+/** Tarjeta de agenda biométricos en expediente asesor: etapa operativa 4 (Cita agendada). */
+export function canShowAgendaBiometricosForEtapa(etapaActual: number | null | undefined): boolean {
+  return etapaActual === 4;
 }
 
 /**

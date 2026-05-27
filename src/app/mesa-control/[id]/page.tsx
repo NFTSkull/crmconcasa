@@ -14,13 +14,19 @@ import { MockExpedientesRepo, type ExpedienteMock } from "@/domain/expedientes/m
 import {
   DOCUMENTO_TIPOS,
   DOCUMENTO_CATALOGO_MAP,
+  buildClienteItemsRevisionDocumental,
+  deriveRetencionAcuseAvisoFaltantes,
   filterChecklistDocumentoItemsPorOwnerRole,
-  filterResumenPaqueteDocumental,
   findRowPorTipoDocumento,
+  getBloqueosRetencionAvanceEtapa8Mesa,
   getChecklistDocumentosClientePermanente,
   isTipoPaqueteDocumental,
+  labelRetencionOpcion,
   labelTipoDocumentoCatalogo,
+  isRetencionTipoDocumento,
+  listRetencionUploadsForOpcion,
   MockExpedienteArchivosIndexedDbRepo,
+  RETENCION_ETAPA_OPERATIVA_ID,
   type EstatusRevision,
   type ExpedienteArchivoResumen,
   type TipoDocumento,
@@ -30,17 +36,32 @@ import {
   MockExpedienteClienteDatosLocalStorageRepo,
   type ExpedienteClienteDatos,
 } from "@/domain/expediente-cliente-datos";
+import {
+  MockExpedienteRetencionEnvioMesaLocalStorageRepo,
+  RETENCION_ENVIO_MESA_EVENT,
+} from "@/domain/expediente-retencion/envio-mesa.mock-localstorage.repo";
+import { MockExpedienteRetencionOpcionLocalStorageRepo } from "@/domain/expediente-retencion/mock-localstorage.repo";
+import {
+  retencionEnvioEstadoEfectivo,
+  retencionOpcionMesaEfectiva,
+} from "@/domain/expediente-retencion/retencion-envio-mesa";
+import type {
+  ExpedienteRetencionEnvioMesa,
+  RetencionOpcion,
+} from "@/domain/expediente-retencion/types";
 import { cancelBiometricosBookingsForExpediente } from "@/lib/agendaBiometricosMock";
 import {
   readAgendaFirmasBookings,
   readAgendaFirmasConfig,
 } from "@/lib/agendaFirmasMock";
 import {
-  canMountAgendaBiometricosUI,
   canMountAgendaFirmasAgendaUI,
 } from "@/lib/agendaFirmasBookingsGuard";
+import {
+  isArchivoPreviewImageMime,
+  isArchivoPreviewPdfMime,
+} from "@/lib/archivoPreviewMime";
 import { AgendaFirmasCard } from "@/components/mesa-control/AgendaFirmasCard";
-import { AgendaBiometricosCard } from "@/components/asesor/AgendaBiometricosCard";
 import {
   getEffectiveMockRole,
   getEffectiveMockName,
@@ -163,6 +184,14 @@ export default function MesaControlExpedientePage() {
     () => new MockExpedienteClienteDatosLocalStorageRepo(),
     [],
   );
+  const retencionOpcionRepo = useMemo(
+    () => new MockExpedienteRetencionOpcionLocalStorageRepo(),
+    [],
+  );
+  const retencionEnvioMesaRepo = useMemo(
+    () => new MockExpedienteRetencionEnvioMesaLocalStorageRepo(),
+    [],
+  );
   const [expediente, setExpediente] = useState<ExpedienteMock | null | undefined>(undefined);
   const [mesaAccessDenied, setMesaAccessDenied] = useState(false);
   const [summary, setSummary] = useState<SeguimientoOperativoMockSummary | null>(null);
@@ -198,11 +227,24 @@ export default function MesaControlExpedientePage() {
   const [bulkSaving, setBulkSaving] = useState(false);
   const [bulkFeedback, setBulkFeedback] = useState<string | null>(null);
   const [clienteDatos, setClienteDatos] = useState<ExpedienteClienteDatos | null>(null);
+  const [retencionOpcion, setRetencionOpcion] = useState<RetencionOpcion | null>(null);
+  const [retencionEnvioMesa, setRetencionEnvioMesa] =
+    useState<ExpedienteRetencionEnvioMesa | null>(null);
   const [clienteDatosSaving, setClienteDatosSaving] = useState(false);
   const [showRejectDatosModal, setShowRejectDatosModal] = useState(false);
   const [rejectDatosComment, setRejectDatosComment] = useState("");
   const [rejectDatosError, setRejectDatosError] = useState<string | null>(null);
   const [agendaTick, setAgendaTick] = useState(0);
+  const [retencionRejectTipo, setRetencionRejectTipo] =
+    useState<TipoDocumentoCatalogo | null>(null);
+  const [retencionRejectComment, setRetencionRejectComment] = useState("");
+  const [retencionDocPreview, setRetencionDocPreview] = useState<{
+    url: string;
+    mime_type: string;
+    nombre_original: string;
+    label: string;
+  } | null>(null);
+  const [retencionPreviewLoading, setRetencionPreviewLoading] = useState(false);
 
   const load = useCallback(() => {
     if (!routeExpedienteId) return;
@@ -345,6 +387,109 @@ export default function MesaControlExpedientePage() {
     };
   }, [routeExpedienteId, loadClienteDatos]);
 
+  const loadRetencionOpcion = useCallback(() => {
+    if (!routeExpedienteId) return;
+    void retencionOpcionRepo
+      .getByExpedienteId(routeExpedienteId)
+      .then((row) => setRetencionOpcion(row?.retencion_opcion ?? null))
+      .catch(() => setRetencionOpcion(null));
+  }, [retencionOpcionRepo, routeExpedienteId]);
+
+  const loadRetencionEnvioMesa = useCallback(() => {
+    if (!routeExpedienteId) return;
+    void retencionEnvioMesaRepo
+      .getByExpedienteId(routeExpedienteId)
+      .then((row) => setRetencionEnvioMesa(row))
+      .catch(() => setRetencionEnvioMesa(null));
+  }, [retencionEnvioMesaRepo, routeExpedienteId]);
+
+  useEffect(() => {
+    loadRetencionOpcion();
+    loadRetencionEnvioMesa();
+  }, [loadRetencionOpcion, loadRetencionEnvioMesa]);
+
+  useEffect(() => {
+    if (!routeExpedienteId) return;
+    const handler = (e: Event) => {
+      const ce = e as CustomEvent<{ expedienteId?: string }>;
+      if (ce.detail?.expedienteId && ce.detail.expedienteId !== routeExpedienteId) return;
+      loadRetencionOpcion();
+    };
+    window.addEventListener(
+      "expediente_retencion_opcion_updated",
+      handler as EventListener,
+    );
+    return () => {
+      window.removeEventListener(
+        "expediente_retencion_opcion_updated",
+        handler as EventListener,
+      );
+    };
+  }, [routeExpedienteId, loadRetencionOpcion]);
+
+  useEffect(() => {
+    if (!routeExpedienteId) return;
+    const handler = (e: Event) => {
+      const ce = e as CustomEvent<{ expedienteId?: string }>;
+      if (ce.detail?.expedienteId && ce.detail.expedienteId !== routeExpedienteId) return;
+      loadRetencionEnvioMesa();
+    };
+    window.addEventListener(RETENCION_ENVIO_MESA_EVENT, handler as EventListener);
+    return () => {
+      window.removeEventListener(RETENCION_ENVIO_MESA_EVENT, handler as EventListener);
+    };
+  }, [routeExpedienteId, loadRetencionEnvioMesa]);
+
+  const retencionOpcionMesa = useMemo(
+    () => retencionOpcionMesaEfectiva(retencionEnvioMesa, retencionOpcion),
+    [retencionEnvioMesa, retencionOpcion],
+  );
+
+  const retencionFaltantes = useMemo(
+    () =>
+      deriveRetencionAcuseAvisoFaltantes({
+        retencion_opcion: retencionOpcionMesa,
+        archivos: archivosResumen,
+      }),
+    [retencionOpcionMesa, archivosResumen],
+  );
+
+  const retencionBloqueosAvance = useMemo(
+    () =>
+      getBloqueosRetencionAvanceEtapa8Mesa({
+        retencion_opcion: retencionOpcionMesa,
+        archivos: archivosResumen,
+        retencion_enviado_a_mesa: Boolean(retencionEnvioMesa?.enviado),
+      }),
+    [retencionOpcionMesa, archivosResumen, retencionEnvioMesa],
+  );
+
+  const retencionUploadsMesa = useMemo(
+    () => listRetencionUploadsForOpcion(retencionOpcionMesa),
+    [retencionOpcionMesa],
+  );
+
+  const retencionEnvioUiEstado = useMemo(
+    () =>
+      retencionEnvioEstadoEfectivo(
+        retencionEnvioMesa,
+        archivosResumen,
+        retencionOpcion,
+      ),
+    [retencionEnvioMesa, archivosResumen, retencionOpcion],
+  );
+
+  const mostrarSeccionRetencion =
+    etapaActualDisplay === RETENCION_ETAPA_OPERATIVA_ID;
+
+  const selectRetencionDoc = useCallback((tipo: TipoDocumentoCatalogo) => {
+    setSelectedTipo(tipo);
+    setDocPanelCollapsed(false);
+    setDocPreviewUiVisible(true);
+    setRetencionRejectTipo(null);
+    setRetencionRejectComment("");
+  }, []);
+
   useEffect(() => {
     if (!expediente?.id) return;
     let cancelled = false;
@@ -424,6 +569,20 @@ export default function MesaControlExpedientePage() {
         setArchivosResumen([]);
       });
   }, [archivosRepo, routeExpedienteId]);
+
+  const syncTrasRevisionRetencion = useCallback(
+    async (tipo: TipoDocumentoCatalogo, estatus: EstatusRevision, ok: boolean) => {
+      if (!ok || !routeExpedienteId) return;
+      loadArchivos();
+      if (isRetencionTipoDocumento(tipo) && estatus === "rechazado") {
+        const row = await retencionEnvioMesaRepo.markCorreccionRequerida(routeExpedienteId);
+        setRetencionEnvioMesa(row);
+      } else {
+        loadRetencionEnvioMesa();
+      }
+    },
+    [loadArchivos, loadRetencionEnvioMesa, retencionEnvioMesaRepo, routeExpedienteId],
+  );
 
   useEffect(() => {
     if (!routeExpedienteId) return;
@@ -552,6 +711,48 @@ export default function MesaControlExpedientePage() {
     });
   }, []);
 
+  const openRetencionDocPreview = useCallback(
+    async (item: ExpedienteArchivoResumen, docLabel: string) => {
+      if (!item.id || !item.mime_type) return;
+      setRetencionPreviewLoading(true);
+      try {
+        const blob = await archivosRepo.getArchivoBlob(item.id);
+        const url = URL.createObjectURL(blob);
+        setRetencionDocPreview((prev) => {
+          if (prev?.url) URL.revokeObjectURL(prev.url);
+          return {
+            url,
+            mime_type: item.mime_type as string,
+            nombre_original: item.nombre_original ?? "archivo",
+            label: docLabel,
+          };
+        });
+      } catch {
+        window.alert("No se pudo cargar la vista previa del documento.");
+      } finally {
+        setRetencionPreviewLoading(false);
+      }
+    },
+    [archivosRepo],
+  );
+
+  const closeRetencionDocPreview = useCallback(() => {
+    setRetencionDocPreview((prev) => {
+      if (prev?.url) URL.revokeObjectURL(prev.url);
+      return null;
+    });
+  }, []);
+
+  const activateRetencionDocRow = useCallback(
+    (tipo: TipoDocumentoCatalogo, item: ExpedienteArchivoResumen, docLabel: string) => {
+      selectRetencionDoc(tipo);
+      if (item.id && item.mime_type) {
+        void openRetencionDocPreview(item, docLabel);
+      }
+    },
+    [openRetencionDocPreview, selectRetencionDoc],
+  );
+
   const downloadArchivo = useCallback(
     async (item: ExpedienteArchivoResumen) => {
       if (!item.id || !item.nombre_original) return;
@@ -660,20 +861,29 @@ export default function MesaControlExpedientePage() {
     ],
   );
 
-  const archivosResumenPaquete = useMemo(
-    () => filterResumenPaqueteDocumental(archivosResumen),
-    [archivosResumen],
-  );
-
   const docStats = useMemo(() => {
-    const byTipo = new Map(archivosResumenPaquete.map((r) => [r.tipo_documento, r]));
+    const empty = {
+      pendientesMesa: 0,
+      correccionesEnviadas: 0,
+      validados: 0,
+      rechazados: 0,
+      faltantes: 0,
+    };
+    if (!checklist) return empty;
+
+    const clienteItemsRevision = buildClienteItemsRevisionDocumental({
+      checklist,
+      resumen: archivosResumen,
+      etapaId: 2,
+    });
+
     let subido = 0;
     let resubido = 0;
     let validado = 0;
     let rechazado = 0;
     let faltante = 0;
-    for (const t of DOCUMENTO_TIPOS) {
-      const r = byTipo.get(t);
+    for (const it of clienteItemsRevision) {
+      const r = findRowPorTipoDocumento(archivosResumen, it.tipo_documento);
       const s = r?.estatus_revision ?? "faltante";
       if (s === "faltante") faltante += 1;
       else if (s === "subido") subido += 1;
@@ -688,7 +898,7 @@ export default function MesaControlExpedientePage() {
       rechazados: rechazado,
       faltantes: faltante,
     };
-  }, [archivosResumenPaquete]);
+  }, [checklist, archivosResumen]);
 
   const persistRevision = useCallback(
     async (
@@ -774,11 +984,28 @@ export default function MesaControlExpedientePage() {
   }, [allFourValidated]);
 
   const handleValidarTodosPendientes = useCallback(async () => {
-    const pendingItems = archivosResumenPaquete.filter(
-      (x) =>
-        !!x.id &&
-        (x.estatus_revision === "subido" || x.estatus_revision === "resubido"),
-    );
+    if (!checklist) {
+      setBulkFeedback("Cargando documentos…");
+      return;
+    }
+
+    const clienteItemsRevision = buildClienteItemsRevisionDocumental({
+      checklist,
+      resumen: archivosResumen,
+      etapaId: 2,
+    });
+
+    const pendingItems: ExpedienteArchivoResumen[] = [];
+    for (const it of clienteItemsRevision) {
+      const row = findRowPorTipoDocumento(archivosResumen, it.tipo_documento);
+      if (
+        row?.id &&
+        (row.estatus_revision === "subido" || row.estatus_revision === "resubido")
+      ) {
+        pendingItems.push(row);
+      }
+    }
+
     if (pendingItems.length === 0) {
       setBulkFeedback("No hay documentos pendientes por validar.");
       return;
@@ -824,7 +1051,7 @@ export default function MesaControlExpedientePage() {
     }
     setDocPreviewUiVisible(false);
     void loadArchivos();
-  }, [archivosRepo, archivosResumenPaquete, loadArchivos]);
+  }, [archivosRepo, archivosResumen, checklist, loadArchivos]);
 
   const selectedDoc = useMemo((): ExpedienteArchivoResumen | null => {
     if (!selectedTipo) return null;
@@ -848,15 +1075,11 @@ export default function MesaControlExpedientePage() {
 
   useEffect(() => {
     if (selectedTipo !== null || !checklist) return;
-    const completosCliente = filterChecklistDocumentoItemsPorOwnerRole(
-      checklist.completosLista,
-      "cliente",
-    );
-    const faltantesCliente = filterChecklistDocumentoItemsPorOwnerRole(
-      checklist.faltantes,
-      "cliente",
-    );
-    const ordered = [...completosCliente, ...faltantesCliente];
+    const ordered = buildClienteItemsRevisionDocumental({
+      checklist,
+      resumen: archivosResumen,
+      etapaId: 2,
+    });
     const first = ordered.find((it) => {
       const row = findRowPorTipoDocumento(archivosResumen, it.tipo_documento);
       return !!row?.id && row.estatus_revision !== "faltante";
@@ -1221,6 +1444,10 @@ export default function MesaControlExpedientePage() {
                   <dd className="mt-0.5 text-gray-800">{clienteDatos.datos.curp || "—"}</dd>
                 </div>
                 <div>
+                  <dt className="text-xs font-medium uppercase text-gray-500">RFC</dt>
+                  <dd className="mt-0.5 text-gray-800">{clienteDatos.datos.rfc || "—"}</dd>
+                </div>
+                <div>
                   <dt className="text-xs font-medium uppercase text-gray-500">Celular</dt>
                   <dd className="mt-0.5 text-gray-800">{clienteDatos.datos.celular || "—"}</dd>
                 </div>
@@ -1354,6 +1581,272 @@ export default function MesaControlExpedientePage() {
           )}
         </div>
 
+        {mostrarSeccionRetencion ? (
+          <div className="rounded-xl border border-violet-200 bg-white p-4 shadow-sm">
+            <h2 className="text-base font-semibold text-gray-900">
+              Acuse / Aviso de retención
+            </h2>
+            <p className="mt-1 text-xs text-gray-600">
+              Etapa {RETENCION_ETAPA_OPERATIVA_ID}: revisa los documentos según la opción
+              elegida por el asesor. Valida o rechaza cada documento con los botones de esta
+              sección (también disponible en el panel de revisión al seleccionar un archivo).
+            </p>
+
+            <div className="mt-3 rounded-lg border border-gray-100 bg-gray-50 px-3 py-2 text-sm">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                Opción elegida
+              </p>
+              <p className="mt-1 font-medium text-gray-900">
+                {retencionOpcionMesa
+                  ? labelRetencionOpcion(retencionOpcionMesa)
+                  : "Sin opción — el asesor debe elegir Opción A o B"}
+              </p>
+            </div>
+
+            <div
+              role="status"
+              className={`mt-3 rounded-lg border px-3 py-2 text-xs ${
+                retencionEnvioUiEstado === "enviado"
+                  ? "border-violet-300 bg-violet-50 text-violet-950"
+                  : retencionEnvioUiEstado === "correccion_requerida"
+                    ? "border-amber-300 bg-amber-50 text-amber-950"
+                    : "border-gray-200 bg-gray-50 text-gray-800"
+              }`}
+            >
+              <p className="font-semibold">Envío Acuse/Aviso desde asesor</p>
+              {retencionEnvioUiEstado === "no_enviado" ? (
+                <p className="mt-1">
+                  Pendiente: el asesor aún no envía este bloque a Mesa Control para
+                  revisión.
+                </p>
+              ) : null}
+              {retencionEnvioUiEstado === "enviado" ? (
+                <p className="mt-1">
+                  Enviado a Mesa Control para revisión
+                  {retencionEnvioMesa?.fechaEnvioMesa
+                    ? ` (${formatDateTime(retencionEnvioMesa.fechaEnvioMesa)})`
+                    : ""}
+                  .
+                </p>
+              ) : null}
+              {retencionEnvioUiEstado === "correccion_requerida" ? (
+                <p className="mt-1">
+                  Corrección solicitada: hay documentos rechazados. El asesor debe
+                  corregir y reenviar el bloque.
+                </p>
+              ) : null}
+            </div>
+
+            {retencionFaltantes.length > 0 ? (
+              <div
+                role="status"
+                className="mt-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs text-amber-950"
+              >
+                <p className="font-semibold">Pendientes (bloquean avance a etapa 9)</p>
+                <ul className="mt-1 list-inside list-disc space-y-0.5">
+                  {retencionFaltantes.map((f) => (
+                    <li key={f.kind === "opcion" ? "opcion" : f.tipo_documento}>{f.label}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : retencionOpcionMesa ? (
+              <p
+                role="status"
+                className="mt-3 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-xs text-green-900"
+              >
+                Archivos subidos para la opción elegida. Valida cada documento en la lista.
+              </p>
+            ) : null}
+
+            {retencionOpcionMesa && retencionBloqueosAvance.length > 0 ? (
+              <div className="mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-900">
+                <p className="font-semibold">Bloqueos para avanzar a etapa 9</p>
+                <ul className="mt-1 list-inside list-disc space-y-0.5">
+                  {retencionBloqueosAvance.map((b) => (
+                    <li key={b}>{b}</li>
+                  ))}
+                </ul>
+              </div>
+            ) : null}
+
+            {retencionOpcionMesa ? (
+              <div className="mt-3 space-y-1.5" role="list" aria-label="Documentos retención">
+                {retencionUploadsMesa.map(({ tipo, label }) => {
+                  const item =
+                    findRowPorTipoDocumento(archivosResumen, tipo) ??
+                    ({
+                      expediente_id: routeExpedienteId,
+                      tipo_documento: tipo,
+                      id: null,
+                      nombre_original: null,
+                      mime_type: null,
+                      size_bytes: null,
+                      created_at: null,
+                      uploaded_by_role: null,
+                      uploaded_by_email: null,
+                      estatus_revision: "faltante",
+                      comentario_mesa: null,
+                    } satisfies ExpedienteArchivoResumen);
+                  const isSelected = selectedTipo === tipo;
+                  const isSavingRow = item.id ? !!savingById[item.id] : false;
+                  const puedeAbrirPreview = Boolean(item.id && item.mime_type);
+                  return (
+                    <div
+                      key={tipo}
+                      role="listitem"
+                      tabIndex={0}
+                      className={`rounded-lg border p-2 text-left transition-shadow outline-none focus-visible:ring-2 focus-visible:ring-violet-500 ${docRowAccentClass(item.estatus_revision)} ${
+                        puedeAbrirPreview ? "cursor-pointer" : "cursor-default"
+                      } ${
+                        isSelected
+                          ? "border-violet-500 ring-2 ring-violet-400/60 shadow-sm"
+                          : "border-gray-200 hover:border-gray-300"
+                      }`}
+                      onClick={() => activateRetencionDocRow(tipo, item, label)}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter" || e.key === " ") {
+                          e.preventDefault();
+                          activateRetencionDocRow(tipo, item, label);
+                        }
+                      }}
+                    >
+                      <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                        {label}
+                      </p>
+                      <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
+                        <StatusBadge estatus={item.estatus_revision} />
+                        {isSavingRow ? (
+                          <span className="text-[10px] text-blue-700">Guardando…</span>
+                        ) : null}
+                      </div>
+                      <p
+                        className={`mt-0.5 truncate text-xs font-medium text-gray-900 ${
+                          puedeAbrirPreview ? "underline decoration-gray-300 underline-offset-2" : ""
+                        }`}
+                      >
+                        {!item.id ? "Sin archivo" : (item.nombre_original ?? "—")}
+                      </p>
+                      {item.estatus_revision === "rechazado" && item.comentario_mesa ? (
+                        <p className="mt-1 text-[11px] text-red-800">
+                          Nota Mesa: {item.comentario_mesa}
+                        </p>
+                      ) : null}
+                      <div className="mt-2 flex flex-wrap gap-1.5">
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="px-2 py-0.5 text-[11px]"
+                          disabled={
+                            !item.id ||
+                            !item.mime_type ||
+                            retencionPreviewLoading ||
+                            isSavingRow
+                          }
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void openRetencionDocPreview(item, label);
+                          }}
+                        >
+                          {retencionPreviewLoading &&
+                          retencionDocPreview?.nombre_original === item.nombre_original
+                            ? "Cargando…"
+                            : "Ver documento"}
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="px-2 py-0.5 text-[11px]"
+                          disabled={!item.id || item.estatus_revision === "validado" || isSavingRow}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void persistRevision(item.id!, "validado", null).then((ok) =>
+                              syncTrasRevisionRetencion(tipo, "validado", ok),
+                            );
+                          }}
+                        >
+                          Validar
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          className="px-2 py-0.5 text-[11px] text-red-800 border-red-200"
+                          disabled={!item.id || isSavingRow}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setRetencionRejectTipo(tipo);
+                            setRetencionRejectComment(
+                              item.estatus_revision === "rechazado"
+                                ? (item.comentario_mesa ?? "")
+                                : "",
+                            );
+                            selectRetencionDoc(tipo);
+                          }}
+                        >
+                          Rechazar
+                        </Button>
+                      </div>
+                      {retencionRejectTipo === tipo ? (
+                        <div
+                          className="mt-2 space-y-1.5 rounded border border-red-100 bg-red-50/80 p-2"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <label className="block text-[11px] font-medium text-red-900">
+                            Nota de rechazo (obligatoria)
+                          </label>
+                          <textarea
+                            className="w-full rounded border border-red-200 px-2 py-1 text-xs"
+                            rows={2}
+                            value={retencionRejectComment}
+                            onChange={(e) => setRetencionRejectComment(e.target.value)}
+                          />
+                          <div className="flex flex-wrap gap-1.5">
+                            <Button
+                              type="button"
+                              variant="primary"
+                              className="px-2 py-0.5 text-[11px]"
+                              disabled={
+                                retencionRejectComment.trim().length === 0 || isSavingRow
+                              }
+                              onClick={() => {
+                                const c = retencionRejectComment.trim();
+                                if (!item.id || c.length === 0) return;
+                                void persistRevision(item.id, "rechazado", c).then((ok) => {
+                                  if (ok) {
+                                    setRetencionRejectTipo(null);
+                                    setRetencionRejectComment("");
+                                  }
+                                  void syncTrasRevisionRetencion(tipo, "rechazado", ok);
+                                });
+                              }}
+                            >
+                              Guardar rechazo
+                            </Button>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="px-2 py-0.5 text-[11px]"
+                              onClick={() => {
+                                setRetencionRejectTipo(null);
+                                setRetencionRejectComment("");
+                              }}
+                            >
+                              Cancelar
+                            </Button>
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="mt-3 text-xs text-gray-500">
+                Cuando el asesor elija la opción, aquí aparecerán los documentos a revisar.
+              </p>
+            )}
+          </div>
+        ) : null}
+
         <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
           <div className="flex flex-wrap items-center justify-between gap-3">
             <h2 className="text-base font-semibold text-gray-900">Revisión de documentos</h2>
@@ -1434,9 +1927,13 @@ export default function MesaControlExpedientePage() {
               if (selectedDoc?.estatus_revision === "validado") return;
               setRejectEditing(false);
               const tipo = selectedDoc.tipo_documento;
-              void persistRevision(sid, "validado", null).then((ok) =>
-                void afterRevisionPersist(tipo, ok),
-              );
+              void persistRevision(sid, "validado", null).then((ok) => {
+                if (isRetencionTipoDocumento(tipo)) {
+                  void syncTrasRevisionRetencion(tipo, "validado", ok);
+                } else {
+                  void afterRevisionPersist(tipo, ok);
+                }
+              });
             };
             const onRechazado = () => {
               setRejectEditing(true);
@@ -1453,13 +1950,13 @@ export default function MesaControlExpedientePage() {
               setDocPreviewUiVisible(true);
             };
 
-            const completosClienteRevision = checklist
-              ? filterChecklistDocumentoItemsPorOwnerRole(checklist.completosLista, "cliente")
+            const clienteItemsRevision = checklist
+              ? buildClienteItemsRevisionDocumental({
+                  checklist,
+                  resumen: archivosResumen,
+                  etapaId: 2,
+                })
               : [];
-            const faltantesClienteRevision = checklist
-              ? filterChecklistDocumentoItemsPorOwnerRole(checklist.faltantes, "cliente")
-              : [];
-            const clienteItemsRevision = [...completosClienteRevision, ...faltantesClienteRevision];
 
             return (
               <div
@@ -1686,7 +2183,11 @@ export default function MesaControlExpedientePage() {
                                   const tipo = selectedDoc.tipo_documento;
                                   void persistRevision(sid, "rechazado", c).then((ok) => {
                                     if (ok) setRejectEditing(false);
-                                    void afterRevisionPersist(tipo, ok);
+                                    if (isRetencionTipoDocumento(tipo)) {
+                                      void syncTrasRevisionRetencion(tipo, "rechazado", ok);
+                                    } else {
+                                      void afterRevisionPersist(tipo, ok);
+                                    }
                                   });
                                 }}
                               >
@@ -1859,21 +2360,6 @@ export default function MesaControlExpedientePage() {
           </section>
         ) : null}
 
-        {canMountAgendaBiometricosUI() &&
-        expediente.operativo.submittedToMesa &&
-        expediente.operativo.etapaActual != null &&
-        [3, 4].includes(expediente.operativo.etapaActual) ? (
-          <AgendaBiometricosCard
-            expedienteId={String(expediente.id)}
-            submittedToMesa={expediente.operativo.submittedToMesa}
-            etapaActual={expediente.operativo.etapaActual}
-            subestado={expediente.operativo.subestado}
-            fechaCita={expediente.operativo.fechaCita}
-            repo={repo}
-            onUpdated={load}
-          />
-        ) : null}
-
         {canMountAgendaFirmasAgendaUI() && expediente.operativo.etapaActual === 9 ? (
           <AgendaFirmasCard expedienteId={String(expediente.id)} />
         ) : null}
@@ -1914,6 +2400,72 @@ export default function MesaControlExpedientePage() {
         />
       </main>
 
+      {retencionDocPreview ? (
+        <div
+          className="fixed inset-0 z-[65] flex items-center justify-center bg-black/50 p-4"
+          role="presentation"
+          onClick={closeRetencionDocPreview}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-label={`Vista previa: ${retencionDocPreview.label}`}
+            className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-xl border border-gray-200 bg-white shadow-lg"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between gap-2 border-b border-gray-100 px-3 py-2">
+              <div className="min-w-0">
+                <p className="truncate text-sm font-semibold text-gray-900">
+                  {retencionDocPreview.label}
+                </p>
+                <p className="truncate text-xs text-gray-500">
+                  {retencionDocPreview.nombre_original}
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="outline"
+                className="shrink-0 px-2 py-1 text-xs"
+                onClick={closeRetencionDocPreview}
+              >
+                Cerrar
+              </Button>
+            </div>
+            <div className="min-h-0 flex-1 overflow-auto bg-gray-50 p-3">
+              {isArchivoPreviewImageMime(retencionDocPreview.mime_type) ? (
+                <div className="flex justify-center">
+                  {/* eslint-disable-next-line @next/next/no-img-element -- blob URL modal retención */}
+                  <img
+                    src={retencionDocPreview.url}
+                    alt={retencionDocPreview.nombre_original}
+                    className="max-h-[min(70vh,720px)] max-w-full object-contain"
+                  />
+                </div>
+              ) : isArchivoPreviewPdfMime(retencionDocPreview.mime_type) ? (
+                <iframe
+                  title={retencionDocPreview.nombre_original}
+                  src={retencionDocPreview.url}
+                  className="h-[min(70vh,720px)] w-full border-0 bg-white"
+                />
+              ) : (
+                <div className="py-8 text-center">
+                  <p className="text-sm text-gray-600">
+                    Vista previa no disponible para este tipo de archivo.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="primary"
+                    className="mt-3 px-3 py-1.5 text-xs"
+                    onClick={() => openPreviewBlobInNewTab(retencionDocPreview.url)}
+                  >
+                    Abrir archivo
+                  </Button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
       {clienteReqDocPreview ? (
         <div
           className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4"
@@ -1941,7 +2493,7 @@ export default function MesaControlExpedientePage() {
               </Button>
             </div>
             <div className="min-h-0 flex-1 overflow-auto bg-gray-50 p-3">
-              {clienteReqDocPreview.mime_type.startsWith("image/") ? (
+              {isArchivoPreviewImageMime(clienteReqDocPreview.mime_type) ? (
                 <div className="flex justify-center">
                   {/* eslint-disable-next-line @next/next/no-img-element -- blob URL modal */}
                   <img
@@ -1950,16 +2502,26 @@ export default function MesaControlExpedientePage() {
                     className="max-h-[min(70vh,720px)] max-w-full object-contain"
                   />
                 </div>
-              ) : clienteReqDocPreview.mime_type === "application/pdf" ? (
+              ) : isArchivoPreviewPdfMime(clienteReqDocPreview.mime_type) ? (
                 <iframe
                   title={clienteReqDocPreview.nombre_original}
                   src={clienteReqDocPreview.url}
                   className="h-[min(70vh,720px)] w-full border-0 bg-white"
                 />
               ) : (
-                <p className="py-8 text-center text-sm text-gray-600">
-                  Vista previa no disponible para este tipo de archivo.
-                </p>
+                <div className="py-8 text-center">
+                  <p className="text-sm text-gray-600">
+                    Vista previa no disponible para este tipo de archivo.
+                  </p>
+                  <Button
+                    type="button"
+                    variant="primary"
+                    className="mt-3 px-3 py-1.5 text-xs"
+                    onClick={() => openPreviewBlobInNewTab(clienteReqDocPreview.url)}
+                  >
+                    Abrir archivo
+                  </Button>
+                </div>
               )}
             </div>
           </div>

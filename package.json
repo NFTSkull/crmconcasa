@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test src/domain/expediente-archivos/columna-documentacion-asesor.test.ts src/domain/expediente-archivos/derive-resumen-documental.test.ts src/domain/expediente-cliente-datos/mock-localstorage.repo.test.ts src/domain/expedientes/asesor-monto-revisor.test.ts src/domain/expedientes/etapa-validacion-mesa.test.ts src/domain/agenda-biometricos/booking-mutations.test.ts src/lib/adminDashboardStats.test.ts src/lib/agenda-biometricos-mock.test.ts src/lib/agendaFirmasBookingsGuard.test.ts src/lib/asesorTipoMesaMock.test.ts src/lib/clienteDatosFormCompleteness.test.ts src/lib/mesaControlAccess.test.ts src/lib/mesaControlInboxMock.test.ts src/lib/mockUser.test.ts src/lib/subestadoOperativoUi.test.ts"
+    "test": "tsx --test src/domain/expediente-archivos/columna-documentacion-asesor.test.ts src/domain/expediente-archivos/derive-resumen-documental.test.ts src/domain/expediente-archivos/retencion-acuse-aviso.test.ts src/domain/expediente-cliente-datos/mock-localstorage.repo.test.ts src/domain/expediente-retencion/retencion-envio-mesa.test.ts src/domain/expediente-retencion/envio-mesa.mock-localstorage.repo.test.ts src/domain/expedientes/asesor-monto-revisor.test.ts src/domain/expedientes/etapa-validacion-mesa.test.ts src/domain/expedientes/enviar-mesa-etapa.test.ts src/domain/agenda-biometricos/booking-mutations.test.ts src/lib/adminDashboardStats.test.ts src/lib/agenda-biometricos-mock.test.ts src/lib/archivoPreviewMime.test.ts src/lib/agendaFirmasBookingsGuard.test.ts src/lib/asesorTipoMesaMock.test.ts src/lib/clienteDatosFormCompleteness.test.ts src/lib/mesaControlAccess.test.ts src/lib/mesaControlInboxMock.test.ts src/lib/mockUser.test.ts src/lib/subestadoOperativoUi.test.ts",
+    "test:e2e": "playwright test"
   },
   "dependencies": {
     "next": "16.1.6",
@@ -16,6 +17,7 @@
     "react-dom": "19.2.3"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@types/node": "^20",
     "@types/react": "^19",
     "@types/react-dom": "^19",

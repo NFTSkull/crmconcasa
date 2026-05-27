@@ -9,6 +9,7 @@ const vacio: ClienteDatosFormShape = {
   nombreCliente: "",
   nss: "",
   curp: "",
+  rfc: "",
   celular: "",
   correo: "",
   empresa: "",
@@ -26,6 +27,7 @@ const completo: ClienteDatosFormShape = {
   nombreCliente: "Juan",
   nss: "123",
   curp: "CURP123",
+  rfc: "XAXX010101000",
   celular: "5512345678",
   correo: "a@b.co",
   empresa: "ACME",
@@ -60,4 +62,9 @@ test("getClienteDatosCamposFaltantes: trim — solo espacios cuenta como vacío"
     nombreCliente: "   ",
   };
   assert.ok(getClienteDatosCamposFaltantes(soloEspacios).includes("Nombre del cliente"));
+});
+
+test("getClienteDatosCamposFaltantes: RFC vacío es faltante", () => {
+  const sinRfc: ClienteDatosFormShape = { ...completo, rfc: "" };
+  assert.ok(getClienteDatosCamposFaltantes(sinRfc).includes("RFC"));
 });

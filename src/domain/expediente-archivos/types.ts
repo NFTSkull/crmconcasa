@@ -32,6 +32,15 @@ export const TIPO_DOCUMENTO_CATALOGO = [
   "cliente_estado_cuenta",
   "cliente_acta_nacimiento",
   "cliente_constancia_sat",
+  "cliente_semanas_cotizadas",
+  "cliente_historial_laboral",
+
+  // ===== Acuse / Aviso de retención (etapa operativa 8) =====
+  "retencion_acuse_con_sello",
+  "retencion_aviso_retencion",
+  "retencion_ine_frente",
+  "retencion_ine_reverso",
+  "retencion_carta_sin_sello",
 
   // ===== Documentos del asesor (catálogo) =====
   "asesor_ine_frente",
@@ -137,6 +146,56 @@ export const DOCUMENTO_CATALOGO_MAP = Object.freeze({
     ownerRole: "cliente",
     obligatorio: "obligatorio",
     etapasRequeridas: [1, 2],
+  },
+  cliente_semanas_cotizadas: {
+    tipo: "cliente_semanas_cotizadas",
+    label: "Cliente · Semanas cotizadas",
+    ownerRole: "cliente",
+    obligatorio: "opcional",
+    etapasRequeridas: [1, 2],
+  },
+  cliente_historial_laboral: {
+    tipo: "cliente_historial_laboral",
+    label: "Cliente · Historial laboral",
+    ownerRole: "cliente",
+    obligatorio: "opcional",
+    etapasRequeridas: [1, 2],
+  },
+
+  retencion_acuse_con_sello: {
+    tipo: "retencion_acuse_con_sello",
+    label: "Retención · Acuse / documento con sello",
+    ownerRole: "cliente",
+    obligatorio: "obligatorio",
+    etapasRequeridas: [8],
+  },
+  retencion_aviso_retencion: {
+    tipo: "retencion_aviso_retencion",
+    label: "Retención · Aviso de retención",
+    ownerRole: "cliente",
+    obligatorio: "obligatorio",
+    etapasRequeridas: [8],
+  },
+  retencion_ine_frente: {
+    tipo: "retencion_ine_frente",
+    label: "Retención · INE frente (Acuse/Aviso)",
+    ownerRole: "cliente",
+    obligatorio: "obligatorio",
+    etapasRequeridas: [8],
+  },
+  retencion_ine_reverso: {
+    tipo: "retencion_ine_reverso",
+    label: "Retención · INE reverso (Acuse/Aviso)",
+    ownerRole: "cliente",
+    obligatorio: "obligatorio",
+    etapasRequeridas: [8],
+  },
+  retencion_carta_sin_sello: {
+    tipo: "retencion_carta_sin_sello",
+    label: "Retención · Carta motivo sin sello",
+    ownerRole: "cliente",
+    obligatorio: "obligatorio",
+    etapasRequeridas: [8],
   },
 
   // ===== Documentos del asesor (catálogo) =====

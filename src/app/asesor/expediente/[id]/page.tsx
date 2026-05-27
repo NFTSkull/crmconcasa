@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSessionRepo } from "@/domain/session";
 import { AgendaBiometricosCard } from "@/components/asesor/AgendaBiometricosCard";
+import { canMountAgendaBiometricosUI } from "@/lib/agendaFirmasBookingsGuard";
 import { AgendaFirmasAsesorCard } from "@/components/asesor/AgendaFirmasAsesorCard";
 import { Button } from "@/components/ui/Button";
 import { SeguimientoOperativoMock } from "@/components/seguimiento/SeguimientoOperativoMock";
@@ -30,6 +31,7 @@ const EMPTY_CLIENTE_DATOS: ClienteDatosFormState = {
   nombreCliente: "",
   nss: "",
   curp: "",
+  rfc: "",
   celular: "",
   correo: "",
   empresa: "",
@@ -227,7 +229,10 @@ export default function AsesorExpedientePage() {
             setClienteDatosMeta(null);
             return;
           }
-          setClienteDatos(found.datos);
+          setClienteDatos({
+            ...found.datos,
+            rfc: found.datos.rfc ?? "",
+          });
           setClienteDatosMeta({
             estado: found.estado,
             comentarioRechazo: found.comentarioRechazo,
@@ -560,6 +565,16 @@ export default function AsesorExpedientePage() {
                     className="rounded-md border border-gray-300 px-2 py-1 text-sm"
                     value={clienteDatos.curp}
                     onChange={(e) => setClienteDatos((p) => ({ ...p, curp: e.target.value }))}
+                  />
+                </label>
+                <label className="grid gap-1 text-xs text-gray-600">
+                  <span className="font-medium text-gray-800">RFC</span>
+                  <input
+                    className="rounded-md border border-gray-300 px-2 py-1 text-sm uppercase"
+                    value={clienteDatos.rfc}
+                    onChange={(e) =>
+                      setClienteDatos((p) => ({ ...p, rfc: e.target.value.toUpperCase() }))
+                    }
                   />
                 </label>
                 <label className="grid gap-1 text-xs text-gray-600">
@@ -911,15 +926,17 @@ export default function AsesorExpedientePage() {
                 </>
               )}
             </div>
-            <AgendaBiometricosCard
-              expedienteId={String(precal.id)}
-              submittedToMesa={operativo?.submittedToMesa ?? false}
-              etapaActual={operativo?.etapaActual ?? null}
-              subestado={operativo?.subestado}
-              fechaCita={operativo?.fechaCita}
-              repo={repo}
-              onUpdated={() => void loadExpediente()}
-            />
+            {canMountAgendaBiometricosUI() ? (
+              <AgendaBiometricosCard
+                expedienteId={String(precal.id)}
+                submittedToMesa={operativo?.submittedToMesa ?? false}
+                etapaActual={operativo?.etapaActual ?? null}
+                subestado={operativo?.subestado}
+                fechaCita={operativo?.fechaCita}
+                repo={repo}
+                onUpdated={() => void loadExpediente()}
+              />
+            ) : null}
             <AgendaFirmasAsesorCard
               expedienteId={String(precal.id)}
               submittedToMesa={operativo?.submittedToMesa ?? false}

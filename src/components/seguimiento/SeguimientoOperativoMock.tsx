@@ -5,8 +5,13 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import {
+  deriveRetencionAcuseAvisoFaltantes,
   filterChecklistDocumentoItemsPorOwnerRole,
   getChecklistDocumentos,
+  getBloqueosRetencionAvanceEtapa8Mesa,
+  isRetencionTipoDocumento,
+  listRetencionUploadsForOpcion,
+  RETENCION_ETAPA_OPERATIVA_ID,
 } from "@/domain/expediente-archivos";
 import {
   DOCUMENTO_TIPOS,
@@ -15,7 +20,24 @@ import {
   type ExpedienteArchivoResumen,
 } from "@/domain/expediente-archivos";
 import { MockExpedienteClienteDatosLocalStorageRepo } from "@/domain/expediente-cliente-datos";
-import { etapaActualParaOperativo } from "@/domain/expedientes/mock.repo";
+import {
+  MockExpedienteRetencionEnvioMesaLocalStorageRepo,
+  RETENCION_ENVIO_MESA_EVENT,
+} from "@/domain/expediente-retencion/envio-mesa.mock-localstorage.repo";
+import { MockExpedienteRetencionOpcionLocalStorageRepo } from "@/domain/expediente-retencion/mock-localstorage.repo";
+import {
+  retencionEnvioEstadoEfectivo,
+  retencionOpcionMesaEfectiva,
+  retencionPuedeReenviarAMesa,
+} from "@/domain/expediente-retencion/retencion-envio-mesa";
+import type {
+  ExpedienteRetencionEnvioMesa,
+  RetencionOpcion,
+} from "@/domain/expediente-retencion/types";
+import {
+  etapaActualParaOperativo,
+  etapaAlEnviarAMesaDesdeAsesor,
+} from "@/domain/expedientes/mock.repo";
 import { getEffectiveMockRole, isMesaControlMockRole } from "@/lib/mockUser";
 
 type EstadoEtapa =
@@ -28,6 +50,16 @@ type RolMock = "asesor" | "mesa_control";
 
 const MSJ_ESPERA_MONTO_REVISOR =
   "Debes esperar a que el revisor apruebe un monto antes de capturar datos, subir documentos o enviar a mesa.";
+
+function retencionDocEstatusLabel(
+  e: ExpedienteArchivoResumen["estatus_revision"] | undefined,
+): string {
+  if (!e || e === "faltante") return "Faltante";
+  if (e === "subido") return "Pendiente revisión Mesa";
+  if (e === "resubido") return "Resubido — pendiente revisión";
+  if (e === "validado") return "Validado por Mesa";
+  return "Rechazado por Mesa";
+}
 
 interface Etapa {
   id: number;
@@ -61,7 +93,7 @@ type MotivoOption = {
   label: string;
 };
 
-const CLIENTE_DOC_TIPOS = [
+const CLIENTE_DOC_TIPOS_OBLIGATORIOS = [
   { tipo: "cliente_ine_frente" as const, label: "INE frente" },
   { tipo: "cliente_ine_reverso" as const, label: "INE reverso" },
   { tipo: "cliente_comprobante_domicilio" as const, label: "Comprobante de domicilio" },
@@ -69,6 +101,13 @@ const CLIENTE_DOC_TIPOS = [
   { tipo: "cliente_acta_nacimiento" as const, label: "Acta de nacimiento" },
   { tipo: "cliente_constancia_sat" as const, label: "Constancia SAT" },
 ] as const;
+
+const CLIENTE_DOC_TIPOS_OPCIONALES = [
+  { tipo: "cliente_semanas_cotizadas" as const, label: "Semanas Cotizadas (opcional)" },
+  { tipo: "cliente_historial_laboral" as const, label: "Historial Laboral (opcional)" },
+] as const;
+
+const CLIENTE_DOC_TIPOS = [...CLIENTE_DOC_TIPOS_OBLIGATORIOS, ...CLIENTE_DOC_TIPOS_OPCIONALES];
 
 const MOTIVOS_POR_ETAPA: Record<number, MotivoOption[]> = {
   1: [
@@ -162,7 +201,7 @@ type TimelineState = Record<number, EstadoEtapaDetallado>;
 
 const ESTADO_INICIAL: TimelineState = {};
 
-/** Alineado con `etapaActualParaOperativo`: validación mesa ⇒ etapa operativa 2. */
+/** Alineado con `etapaActualParaOperativo`: validación mesa mantiene etapa 1 hasta aprobación. */
 function initialOperativoEtapaIdFromProps(
   etapa: number | undefined | null,
   subestado: EstadoEtapa | undefined,
@@ -318,7 +357,7 @@ export interface SeguimientoOperativoMockProps {
     programa: string;
     asesorNombre: string;
     // Al enviar desde asesor, NO se debe requerir cita.
-    // La cita se captura en mesa-control en etapas específicas (3 y 9).
+    // Biométricos: cita en etapa 4 (asesor). Firma: etapa 9 (mesa admin).
     fechaCita?: string | null;
     etapaActual?: number;
     subestado?: EstadoEtapa;
@@ -360,6 +399,14 @@ export function SeguimientoOperativoMock(props: SeguimientoOperativoMockProps = 
     () => new MockExpedienteClienteDatosLocalStorageRepo(),
     [],
   );
+  const retencionOpcionRepo = useMemo(
+    () => new MockExpedienteRetencionOpcionLocalStorageRepo(),
+    [],
+  );
+  const retencionEnvioMesaRepo = useMemo(
+    () => new MockExpedienteRetencionEnvioMesaLocalStorageRepo(),
+    [],
+  );
 
   const [timeline, setTimeline] = useState<TimelineState>(() => {
     if (initialEtapaActualId != null && initialSubestado != null) {
@@ -381,14 +428,6 @@ export function SeguimientoOperativoMock(props: SeguimientoOperativoMockProps = 
       const now = initialUpdatedAt ?? new Date().toISOString();
       return {
         1: {
-          estado: "aprobado" as EstadoEtapa,
-          motivo: undefined,
-          comentarioRechazo: undefined,
-          fechaCita: undefined,
-          ultimaActualizacion: now,
-          notasInternas: "",
-        },
-        2: {
           estado: "en_validacion_mesa",
           motivo: initialMotivo,
           comentarioRechazo: initialComentarioRechazo ?? undefined,
@@ -448,6 +487,10 @@ export function SeguimientoOperativoMock(props: SeguimientoOperativoMockProps = 
   const [fechaLiberacion, setFechaLiberacion] = useState<string>("");
   const [abogadoAsignado, setAbogadoAsignado] = useState<Abogado | "">("");
   const [aprobadoConMonto, setAprobadoConMonto] = useState<boolean>(false);
+  const [retencionOpcion, setRetencionOpcion] = useState<RetencionOpcion | null>(null);
+  const [retencionEnvioMesa, setRetencionEnvioMesa] =
+    useState<ExpedienteRetencionEnvioMesa | null>(null);
+  const [retencionEnvioSaving, setRetencionEnvioSaving] = useState(false);
 
   /** Rol UI según `mock_user` / `mock_role` (mesa: admin, interno, externo o legacy). */
   useEffect(() => {
@@ -516,6 +559,59 @@ export function SeguimientoOperativoMock(props: SeguimientoOperativoMockProps = 
   }, [archivosRepo, contextPrecalId]);
 
   useEffect(() => {
+    if (typeof window === "undefined" || !contextPrecalId) return;
+    let cancelled = false;
+    void retencionOpcionRepo.getByExpedienteId(contextPrecalId).then((row) => {
+      if (!cancelled) setRetencionOpcion(row?.retencion_opcion ?? null);
+    });
+    const handler = (e: Event) => {
+      const ce = e as CustomEvent<{ expedienteId?: string }>;
+      if (ce.detail?.expedienteId && ce.detail.expedienteId !== contextPrecalId) return;
+      void retencionOpcionRepo.getByExpedienteId(contextPrecalId).then((row) => {
+        if (!cancelled) setRetencionOpcion(row?.retencion_opcion ?? null);
+      });
+    };
+    window.addEventListener(
+      "expediente_retencion_opcion_updated",
+      handler as EventListener,
+    );
+    return () => {
+      cancelled = true;
+      window.removeEventListener(
+        "expediente_retencion_opcion_updated",
+        handler as EventListener,
+      );
+    };
+  }, [contextPrecalId, retencionOpcionRepo]);
+
+  useEffect(() => {
+    if (!contextPrecalId) {
+      setRetencionEnvioMesa(null);
+      return;
+    }
+    let cancelled = false;
+    const loadEnvio = () => {
+      void retencionEnvioMesaRepo.getByExpedienteId(contextPrecalId).then((row) => {
+        if (!cancelled) setRetencionEnvioMesa(row);
+      });
+    };
+    loadEnvio();
+    if (typeof window === "undefined") return () => {
+      cancelled = true;
+    };
+    const onEnvio = (ev: Event) => {
+      const detail = (ev as CustomEvent<{ expedienteId?: string }>).detail;
+      if (detail?.expedienteId && detail.expedienteId !== contextPrecalId) return;
+      loadEnvio();
+    };
+    window.addEventListener(RETENCION_ENVIO_MESA_EVENT, onEnvio);
+    return () => {
+      cancelled = true;
+      window.removeEventListener(RETENCION_ENVIO_MESA_EVENT, onEnvio);
+    };
+  }, [contextPrecalId, retencionEnvioMesaRepo]);
+
+  useEffect(() => {
     if (typeof window === "undefined") return;
     if (!contextPrecalId || currentRole !== "asesor" || submittedToMesa) return;
     let cancelled = false;
@@ -581,7 +677,7 @@ export function SeguimientoOperativoMock(props: SeguimientoOperativoMockProps = 
     }
 
     if (sub === "en_validacion_mesa" && (initialSubmittedToMesa ?? false)) {
-      const id = 2;
+      const id = etapaActualParaOperativo(null, "en_validacion_mesa") ?? 1;
       // eslint-disable-next-line react-hooks/set-state-in-effect
       setOperativoEtapaId(id);
       // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -714,6 +810,46 @@ export function SeguimientoOperativoMock(props: SeguimientoOperativoMockProps = 
 
   const puedeEnviar = faltantesCliente !== null && faltantesCliente.length === 0;
 
+  const mostrarPanelRetencionAsesor =
+    currentRole === "asesor" &&
+    submittedToMesa &&
+    (operativoEtapaId === RETENCION_ETAPA_OPERATIVA_ID ||
+      selectedStageId === RETENCION_ETAPA_OPERATIVA_ID);
+
+  const retencionFaltantes = useMemo(
+    () =>
+      deriveRetencionAcuseAvisoFaltantes({
+        retencion_opcion: retencionOpcion,
+        archivos: archivosResumen,
+      }),
+    [retencionOpcion, archivosResumen],
+  );
+
+  const retencionUploads = useMemo(
+    () => listRetencionUploadsForOpcion(retencionOpcion),
+    [retencionOpcion],
+  );
+
+  const retencionEnvioUiEstado = useMemo(
+    () =>
+      retencionEnvioEstadoEfectivo(
+        retencionEnvioMesa,
+        archivosResumen,
+        retencionOpcion,
+      ),
+    [retencionEnvioMesa, archivosResumen, retencionOpcion],
+  );
+
+  const mostrarBotonEnvioRetencionMesa =
+    mostrarPanelRetencionAsesor &&
+    operativoEtapaId === RETENCION_ETAPA_OPERATIVA_ID &&
+    Boolean(retencionOpcion);
+
+  const puedeClickEnviarRetencionMesa =
+    mostrarBotonEnvioRetencionMesa &&
+    retencionPuedeReenviarAMesa(retencionEnvioUiEstado, retencionFaltantes) &&
+    !retencionEnvioSaving;
+
   const etapaOperativa = useMemo(
     () =>
       operativoEtapaId != null
@@ -797,10 +933,15 @@ export function SeguimientoOperativoMock(props: SeguimientoOperativoMockProps = 
     if (!contextPrecalId || operativoEtapaId == null) return bloqueos;
 
     const checklist = await getChecklistDocumentos(contextPrecalId, operativoEtapaId);
-    const faltantesCliente = filterChecklistDocumentoItemsPorOwnerRole(
+    let faltantesCliente = filterChecklistDocumentoItemsPorOwnerRole(
       checklist.faltantes,
       "cliente",
     );
+    if (operativoEtapaId === RETENCION_ETAPA_OPERATIVA_ID) {
+      faltantesCliente = faltantesCliente.filter(
+        (x) => !isRetencionTipoDocumento(x.tipo_documento),
+      );
+    }
     if (faltantesCliente.length > 0) {
       const labels = faltantesCliente.map((x) => x.label);
       if (labels.length > 0) {
@@ -819,8 +960,32 @@ export function SeguimientoOperativoMock(props: SeguimientoOperativoMockProps = 
       );
     }
 
+    if (operativoEtapaId === RETENCION_ETAPA_OPERATIVA_ID) {
+      const opcionRow = await retencionOpcionRepo.getByExpedienteId(contextPrecalId);
+      const envioRow = await retencionEnvioMesaRepo.getByExpedienteId(contextPrecalId);
+      const resumenArchivos = await archivosRepo.listResumenByExpediente(contextPrecalId);
+      const opcionMesa = retencionOpcionMesaEfectiva(
+        envioRow,
+        opcionRow?.retencion_opcion ?? null,
+      );
+      bloqueos.push(
+        ...getBloqueosRetencionAvanceEtapa8Mesa({
+          retencion_opcion: opcionMesa,
+          archivos: resumenArchivos,
+          retencion_enviado_a_mesa: Boolean(envioRow?.enviado),
+        }),
+      );
+    }
+
     return bloqueos;
-  }, [clienteDatosRepo, contextPrecalId, operativoEtapaId]);
+  }, [
+    archivosRepo,
+    clienteDatosRepo,
+    contextPrecalId,
+    operativoEtapaId,
+    retencionEnvioMesaRepo,
+    retencionOpcionRepo,
+  ]);
 
   useEffect(() => {
     if (!onChangeSummary) return;
@@ -860,22 +1025,12 @@ export function SeguimientoOperativoMock(props: SeguimientoOperativoMockProps = 
       }
     }
 
-    // Reglas de negocio: para avanzar a la etapa de "cita agendada"
-    // primero se debe capturar la cita en la etapa previa.
-    if (operativoEtapaId === 3) {
-      const fechaBio = timeline[3]?.fechaCita;
-      if (!fechaBio) {
-        setOperativoWarning(
-          "Para pasar a la etapa 4 (Cita agendada), el asesor debe agendar la cita de biométricos desde su expediente.",
-        );
-        return;
-      }
-    }
+    // Etapa 4 → 5: la cita de biométricos la agenda el asesor en etapa 4.
     if (operativoEtapaId === 4) {
-      const fc = timeline[4]?.fechaCita;
-      if (!fc) {
+      const fc = timeline[4]?.fechaCita ?? initialFechaCita;
+      if (!fc || String(fc).trim() === "") {
         setOperativoWarning(
-          "No hay fecha de cita registrada en etapa 4. Verifica el agendado con el asesor.",
+          "No hay fecha de cita registrada en etapa 4. El asesor debe agendar biométricos desde su expediente.",
         );
         return;
       }
@@ -1361,6 +1516,236 @@ export function SeguimientoOperativoMock(props: SeguimientoOperativoMockProps = 
                     <p className="mt-0.5">{formatFecha(ultimaActualizacionDisplay)}</p>
                   </div>
                 </div>
+
+                {mostrarPanelRetencionAsesor ? (
+                  <div className="mt-3 rounded-xl border border-violet-200 bg-violet-50/40 p-2">
+                    <p className="text-sm font-semibold text-gray-900">
+                      Acuse / Aviso de retención
+                    </p>
+                    <p className="mt-0.5 text-xs text-gray-600">
+                      Etapa {RETENCION_ETAPA_OPERATIVA_ID}: elige una opción y sube los
+                      documentos requeridos antes de que el expediente pueda avanzar a la
+                      etapa 9.
+                    </p>
+
+                    <fieldset className="mt-2 space-y-1.5">
+                      <legend className="sr-only">Opción de retención</legend>
+                      <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs">
+                        <input
+                          type="radio"
+                          name="retencion_opcion"
+                          className="mt-0.5"
+                          checked={retencionOpcion === "con_sello"}
+                          onChange={() => {
+                            if (!contextPrecalId) return;
+                            void retencionOpcionRepo
+                              .save({
+                                expedienteId: contextPrecalId,
+                                retencion_opcion: "con_sello",
+                              })
+                              .then((saved) =>
+                                setRetencionOpcion(saved.retencion_opcion),
+                              );
+                          }}
+                        />
+                        <span>
+                          <span className="font-semibold text-gray-900">
+                            Opción A — Tiene sello
+                          </span>
+                          <span className="mt-0.5 block text-gray-600">
+                            Acuse con sello, aviso de retención e INE frente/reverso
+                            específicos.
+                          </span>
+                        </span>
+                      </label>
+                      <label className="flex cursor-pointer items-start gap-2 rounded-lg border border-gray-200 bg-white px-2 py-1.5 text-xs">
+                        <input
+                          type="radio"
+                          name="retencion_opcion"
+                          className="mt-0.5"
+                          checked={retencionOpcion === "sin_sello"}
+                          onChange={() => {
+                            if (!contextPrecalId) return;
+                            void retencionOpcionRepo
+                              .save({
+                                expedienteId: contextPrecalId,
+                                retencion_opcion: "sin_sello",
+                              })
+                              .then((saved) =>
+                                setRetencionOpcion(saved.retencion_opcion),
+                              );
+                          }}
+                        />
+                        <span>
+                          <span className="font-semibold text-gray-900">
+                            Opción B — No tiene sello
+                          </span>
+                          <span className="mt-0.5 block text-gray-600">
+                            Carta de motivo, aviso de retención e INE frente/reverso
+                            específicos.
+                          </span>
+                        </span>
+                      </label>
+                    </fieldset>
+
+                    {retencionOpcion ? (
+                      <div className="mt-2 flex flex-col gap-1.5">
+                        {retencionUploads.map(({ tipo, label }) => {
+                          const item =
+                            findRowPorTipoDocumento(archivosAll, tipo) ?? null;
+                          const hasFile = Boolean(item?.id);
+                          const estatus = item?.estatus_revision ?? "faltante";
+                          const rechazado = estatus === "rechazado";
+                          return (
+                            <div
+                              key={tipo}
+                              className={`rounded-lg border p-1.5 ${
+                                rechazado
+                                  ? "border-red-200 bg-red-50/50"
+                                  : "border-gray-100 bg-white"
+                              }`}
+                            >
+                              <div className="flex items-center justify-between gap-2">
+                                <div className="min-w-0">
+                                  <p className="text-[11px] font-semibold uppercase tracking-wide text-gray-500">
+                                    {label}
+                                  </p>
+                                  <p className="mt-1 text-xs text-gray-800">
+                                    <span className="font-medium">
+                                      {retencionDocEstatusLabel(estatus)}
+                                    </span>
+                                  </p>
+                                  {item?.nombre_original ? (
+                                    <p className="mt-0.5 truncate text-sm font-medium text-gray-900">
+                                      {item.nombre_original}
+                                    </p>
+                                  ) : null}
+                                  {rechazado && item?.comentario_mesa ? (
+                                    <p className="mt-1 text-[11px] text-red-900">
+                                      Nota de Mesa: {item.comentario_mesa}
+                                    </p>
+                                  ) : null}
+                                </div>
+                                <FileUploadButton
+                                  accept="image/*,application/pdf"
+                                  label={hasFile ? "Reemplazar" : "Subir"}
+                                  disabled={!contextPrecalId}
+                                  onFile={async (file) => {
+                                    if (!contextPrecalId) return;
+                                    if (
+                                      !file.type.includes("image") &&
+                                      file.type !== "application/pdf"
+                                    ) {
+                                      alert("Solo se permiten imágenes o PDF");
+                                      return;
+                                    }
+                                    await archivosRepo.replaceArchivo({
+                                      expedienteId: contextPrecalId,
+                                      tipo_documento: tipo,
+                                      file,
+                                      uploaded_by_role: "asesor",
+                                      uploaded_by_email: contextAsesorId ?? "asesor",
+                                    });
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ) : (
+                      <p className="mt-2 text-xs text-gray-600">
+                        Selecciona Opción A o B para ver los documentos a subir.
+                      </p>
+                    )}
+
+                    {retencionFaltantes.length > 0 ? (
+                      <div
+                        role="status"
+                        className="mt-2 rounded-lg border border-amber-300 bg-amber-50 px-2 py-1.5 text-xs text-amber-950"
+                      >
+                        <p className="font-semibold">Pendiente para avanzar a etapa 9</p>
+                        <ul className="mt-1 list-inside list-disc space-y-0.5">
+                          {retencionFaltantes.map((f) => (
+                            <li key={f.kind === "opcion" ? "opcion" : f.tipo_documento}>
+                              {f.label}
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : retencionOpcion ? (
+                      <p
+                        role="status"
+                        className="mt-2 rounded-lg border border-green-200 bg-green-50 px-2 py-1.5 text-xs text-green-900"
+                      >
+                        Documentación de Acuse / Aviso completa para la opción elegida.
+                      </p>
+                    ) : null}
+
+                    {retencionEnvioUiEstado === "enviado" ? (
+                      <p
+                        role="status"
+                        className="mt-2 rounded-lg border border-violet-300 bg-violet-100 px-2 py-1.5 text-xs font-medium text-violet-950"
+                      >
+                        Acuse/Aviso enviado a Mesa Control para revisión
+                        {retencionEnvioMesa?.fechaEnvioMesa
+                          ? ` (${formatFecha(retencionEnvioMesa.fechaEnvioMesa)})`
+                          : ""}
+                        .
+                      </p>
+                    ) : null}
+
+                    {retencionEnvioUiEstado === "correccion_requerida" ? (
+                      <p
+                        role="status"
+                        className="mt-2 rounded-lg border border-amber-300 bg-amber-50 px-2 py-1.5 text-xs text-amber-950"
+                      >
+                        Mesa rechazó uno o más documentos. Sustituye los archivos
+                        marcados y vuelve a enviar el bloque a Mesa Control.
+                      </p>
+                    ) : null}
+
+                    {mostrarBotonEnvioRetencionMesa ? (
+                      <div className="mt-3 space-y-1.5">
+                        {retencionFaltantes.length > 0 ? (
+                          <p className="text-xs text-amber-900">
+                            Completa los documentos pendientes antes de enviar a Mesa
+                            Control.
+                          </p>
+                        ) : null}
+                        <Button
+                          type="button"
+                          className="w-full text-xs"
+                          disabled={!puedeClickEnviarRetencionMesa}
+                          onClick={() => {
+                            if (!contextPrecalId || !retencionOpcion) return;
+                            if (!puedeClickEnviarRetencionMesa) return;
+                            setRetencionEnvioSaving(true);
+                            void retencionEnvioMesaRepo
+                              .save({
+                                expedienteId: contextPrecalId,
+                                opcion: retencionOpcion,
+                                estado: "enviado",
+                              })
+                              .then((saved) => setRetencionEnvioMesa(saved))
+                              .catch(() => {
+                                alert(
+                                  "No se pudo enviar Acuse/Aviso a Mesa Control. Intenta de nuevo.",
+                                );
+                              })
+                              .finally(() => setRetencionEnvioSaving(false));
+                          }}
+                        >
+                          {retencionEnvioSaving
+                            ? "Enviando…"
+                            : retencionEnvioUiEstado === "correccion_requerida"
+                              ? "Reenviar Acuse/Aviso a Mesa Control"
+                              : "Enviar Acuse/Aviso a Mesa Control"}
+                        </Button>
+                      </div>
+                    ) : null}
+                  </div>
+                ) : null}
               </div>
             ) : (
               <>
@@ -1387,6 +1772,7 @@ export function SeguimientoOperativoMock(props: SeguimientoOperativoMockProps = 
                       const item =
                         findRowPorTipoDocumento(archivosAll, tipo) ?? null;
                       const hasFile = Boolean(item?.id);
+                      const esOpcional = CLIENTE_DOC_TIPOS_OPCIONALES.some((d) => d.tipo === tipo);
 
                       return (
                         <div
@@ -1399,8 +1785,14 @@ export function SeguimientoOperativoMock(props: SeguimientoOperativoMockProps = 
                                 {label}
                               </p>
                               <p className="mt-1 flex items-center gap-2 text-xs text-gray-800">
-                                <span aria-hidden>{hasFile ? "✔" : "❌"}</span>
-                                <span>{hasFile ? "subido" : "faltante"}</span>
+                                <span aria-hidden>{hasFile ? "✔" : esOpcional ? "○" : "❌"}</span>
+                                <span>
+                                  {hasFile
+                                    ? "subido"
+                                    : esOpcional
+                                      ? "opcional — sin subir"
+                                      : "faltante"}
+                                </span>
                               </p>
                               {item?.nombre_original ? (
                                 <p className="mt-0.5 truncate text-sm font-medium text-gray-900">
@@ -1485,13 +1877,16 @@ export function SeguimientoOperativoMock(props: SeguimientoOperativoMockProps = 
                           }
                           let persistResult: boolean | void;
                           try {
+                            const etapaEnvio = etapaAlEnviarAMesaDesdeAsesor(
+                              operativoEtapaId,
+                            );
                             persistResult = await onEnviarAMesa({
                               id: idPrecal,
                               cliente_nombre: contextClienteNombre ?? "",
                               telefono_cliente: contextTelefono ?? "",
                               programa: contextPrograma ?? "",
                               asesorNombre: contextAsesorId ?? "",
-                              etapaActual: 2,
+                              etapaActual: etapaEnvio,
                               subestado: "en_validacion_mesa",
                               docs,
                             });
@@ -1507,25 +1902,17 @@ export function SeguimientoOperativoMock(props: SeguimientoOperativoMockProps = 
                             return;
                           }
 
-                          // UI post-persistencia: integración (1) cerrada; registro (2) en validación mesa.
+                          // UI post-envío: sigue en Integración (1) con subestado en validación mesa.
                           setSubmittedToMesa(true);
+                          const etapaPostEnvio = etapaAlEnviarAMesaDesdeAsesor(
+                            operativoEtapaId,
+                          );
                           setTimeline((prev) => {
                             const ts = new Date().toISOString();
                             return {
                               ...prev,
-                              1: {
-                                ...(prev[1] ?? {
-                                  notasInternas: "",
-                                  motivo: undefined,
-                                  fechaCita: undefined,
-                                  fechaLiberacion: undefined,
-                                  abogadoAsignado: undefined,
-                                }),
-                                estado: "aprobado" as EstadoEtapa,
-                                ultimaActualizacion: ts,
-                              },
-                              2: {
-                                ...(prev[2] ?? {
+                              [etapaPostEnvio]: {
+                                ...(prev[etapaPostEnvio] ?? {
                                   notasInternas: "",
                                   motivo: undefined,
                                   fechaCita: undefined,
@@ -1537,8 +1924,8 @@ export function SeguimientoOperativoMock(props: SeguimientoOperativoMockProps = 
                               },
                             };
                           });
-                          setOperativoEtapaId(2);
-                          setSelectedStageId(2);
+                          setOperativoEtapaId(etapaPostEnvio);
+                          setSelectedStageId(etapaPostEnvio);
                         }}
                       >
                         {submittedToMesa
@@ -1743,7 +2130,7 @@ export function SeguimientoOperativoMock(props: SeguimientoOperativoMockProps = 
           ) : null}
         </div>
 
-        {/* Modal Agenda eliminado: la cita se captura en mesa-control (etapa 3 y 9). */}
+        {/* Modal Agenda eliminado: biométricos etapa 4 (asesor); firma etapa 9 (mesa admin). */}
       </div>
 
       {showRechazoModal && (

@@ -214,16 +214,31 @@ function normalizeSubestado(value: unknown): OperativoSubestado | null {
 }
 
 /**
- * Regla de producto: en `en_validacion_mesa` la etapa operativa es siempre **2** (Registro),
- * independientemente de valores viejos en `mesa_control_inbox` (`null` o 1).
- * Exportado para tests y para alinear UI mock con el mismo criterio.
+ * Etapa operativa efectiva al leer inbox / persistir `updateOperativo`.
+ *
+ * En `en_validacion_mesa` el envío a Mesa **no** avanza etapa: se conserva la persistida
+ * (típicamente **1** Integración). Solo cuando Mesa aprueba y avanza (`en_proceso` / etapa 2+)
+ * cambia el número guardado en inbox.
  */
 export function etapaActualParaOperativo(
   etapaPersistida: number | null | undefined,
   subestadoNormalizado: OperativoSubestado | null,
 ): number | null {
-  if (subestadoNormalizado === "en_validacion_mesa") return 2;
+  if (subestadoNormalizado === "en_validacion_mesa") {
+    if (typeof etapaPersistida === "number" && etapaPersistida >= 2) {
+      return etapaPersistida;
+    }
+    return 1;
+  }
   return typeof etapaPersistida === "number" ? etapaPersistida : null;
+}
+
+/** Etapa a guardar al enviar a Mesa desde Integración (asesor): no saltar a Registro. */
+export function etapaAlEnviarAMesaDesdeAsesor(
+  etapaPrevia: number | null | undefined,
+): number {
+  if (typeof etapaPrevia === "number" && etapaPrevia >= 2) return etapaPrevia;
+  return 1;
 }
 
 /** Clave estable para cruzar inbox ↔ precal (siempre string; no descarta number u otros tipos JSON). */

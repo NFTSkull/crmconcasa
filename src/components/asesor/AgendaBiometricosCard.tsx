@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import type { MockExpedientesRepo } from "@/domain/expedientes/mock.repo";
+import { canShowAgendaBiometricosForEtapa } from "@/lib/agendaFirmasBookingsGuard";
 import {
   getAvailableTimeLabelsForDate,
   getNextAvailableSlotHints,
@@ -108,20 +109,19 @@ export function AgendaBiometricosCard({
   const tieneCita = Boolean(fechaCita && String(fechaCita).trim() !== "");
   const etapa = etapaActual ?? 0;
 
-  /** Etapa 3 (flujo agendar) o etapa 4 con cita ya guardada (solo resumen / reagendar). */
+  /** Solo etapa 4: el asesor agenda biométricos (Mesa no usa este componente). */
   const mostrarBloque =
-    submittedToMesa && (etapa === 3 || (etapa === 4 && tieneCita));
+    submittedToMesa && canShowAgendaBiometricosForEtapa(etapa);
 
-  /** Regla: formulario de agenda solo en etapa real 3 y sin cita aún. */
+  /** Formulario en etapa 4 sin cita aún. */
   const mostrarFormularioAgendar =
-    etapa === 3 && !tieneCita && !reagendar && mostrarBloque;
+    etapa === 4 && !tieneCita && !reagendar && mostrarBloque;
 
-  const mostrarResumen =
-    mostrarBloque && tieneCita && !reagendar && (etapa === 3 || etapa === 4);
+  const mostrarResumen = mostrarBloque && tieneCita && !reagendar && etapa === 4;
 
   const mostrarFormularioReagendar = mostrarBloque && reagendar && tieneCita;
 
-  const puedeReagendar = tieneCita && (etapa === 3 || etapa === 4);
+  const puedeReagendar = tieneCita && etapa === 4;
 
   const opcionesHora = useMemo(
     () => {
@@ -213,7 +213,7 @@ export function AgendaBiometricosCard({
         updatedAt: new Date().toISOString(),
       });
       setReagendar(false);
-      setSuccessMsg("Cita de biométricos guardada. El expediente pasó a etapa 4.");
+      setSuccessMsg("Cita de biométricos guardada.");
       onUpdated();
     } catch {
       written.rollback();

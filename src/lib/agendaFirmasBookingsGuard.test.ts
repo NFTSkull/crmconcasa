@@ -4,6 +4,7 @@ import type { HhmmTime, YmdDate } from "@/domain/agenda-biometricos";
 import { buildLocalIsoFromDateAndTime } from "@/lib/agendaBiometricosMock";
 import {
   canMountAgendaBiometricosUI,
+  canShowAgendaBiometricosForEtapa,
   hasActiveFirmasBookingForCitaInList,
 } from "@/lib/agendaFirmasBookingsGuard";
 
@@ -73,13 +74,24 @@ test("hasActiveFirmasBookingForCitaInList: false si status no es booked", () => 
   assert.equal(ok, false);
 });
 
-test("canMountAgendaBiometricosUI: permite roles de mesa y bloquea asesor", () => {
+test("canMountAgendaBiometricosUI: solo asesor (mesa no agenda biométricos)", () => {
   installWindowStore({ mock_role: "mesa_control_interno" });
-  assert.equal(canMountAgendaBiometricosUI(), true);
-  installWindowStore({ mock_role: "mesa_control_externo" });
-  assert.equal(canMountAgendaBiometricosUI(), true);
-  installWindowStore({ mock_role: "mesa_control_admin" });
-  assert.equal(canMountAgendaBiometricosUI(), true);
-  installWindowStore({ mock_role: "asesor" });
   assert.equal(canMountAgendaBiometricosUI(), false);
+  installWindowStore({ mock_role: "mesa_control_externo" });
+  assert.equal(canMountAgendaBiometricosUI(), false);
+  installWindowStore({ mock_role: "mesa_control_admin" });
+  assert.equal(canMountAgendaBiometricosUI(), false);
+  installWindowStore({ mock_role: "mesa_control" });
+  assert.equal(canMountAgendaBiometricosUI(), false);
+  installWindowStore({ mock_role: "asesor" });
+  assert.equal(canMountAgendaBiometricosUI(), true);
+});
+
+test("canShowAgendaBiometricosForEtapa: solo etapa 4", () => {
+  assert.equal(canShowAgendaBiometricosForEtapa(4), true);
+  assert.equal(canShowAgendaBiometricosForEtapa(1), false);
+  assert.equal(canShowAgendaBiometricosForEtapa(2), false);
+  assert.equal(canShowAgendaBiometricosForEtapa(3), false);
+  assert.equal(canShowAgendaBiometricosForEtapa(5), false);
+  assert.equal(canShowAgendaBiometricosForEtapa(null), false);
 });
