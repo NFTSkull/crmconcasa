@@ -49,7 +49,10 @@ import type {
   ExpedienteRetencionEnvioMesa,
   RetencionOpcion,
 } from "@/domain/expediente-retencion/types";
-import { cancelBiometricosBookingsForExpediente } from "@/lib/agendaBiometricosMock";
+import {
+  backfillFechaCitaBiometricosInboxIfMissing,
+  cancelBiometricosBookingsForExpediente,
+} from "@/lib/agendaBiometricosMock";
 import {
   readAgendaFirmasBookings,
   readAgendaFirmasConfig,
@@ -249,12 +252,19 @@ export default function MesaControlExpedientePage() {
   const load = useCallback(() => {
     if (!routeExpedienteId) return;
     setMesaAccessDenied(false);
-    void repo
-      .getById(routeExpedienteId)
-      .then((exp) => {
+    void (async () => {
+      try {
+        let exp = await repo.getById(routeExpedienteId);
         if (!exp) {
           setExpediente(null);
           return;
+        }
+        if (exp.operativo.etapaActual === 4) {
+          const synced = await backfillFechaCitaBiometricosInboxIfMissing(
+            repo,
+            routeExpedienteId,
+          );
+          if (synced) exp = synced;
         }
         const mockRole =
           typeof window !== "undefined" ? getEffectiveMockRole() : null;
@@ -264,11 +274,11 @@ export default function MesaControlExpedientePage() {
           return;
         }
         setExpediente(exp);
-      })
-      .catch(() => {
+      } catch {
         setMesaAccessDenied(false);
         setExpediente(null);
-      });
+      }
+    })();
   }, [routeExpedienteId, repo]);
 
   useEffect(() => {
@@ -277,7 +287,10 @@ export default function MesaControlExpedientePage() {
 
   useEffect(() => {
     if (typeof window === "undefined") return;
-    const onAgendaUpdated = () => setAgendaTick((t) => t + 1);
+    const onAgendaUpdated = () => {
+      setAgendaTick((t) => t + 1);
+      load();
+    };
     window.addEventListener("agenda_bookings_updated", onAgendaUpdated);
     window.addEventListener("agenda_config_updated", onAgendaUpdated);
     window.addEventListener("agenda_firmas_bookings_v1_updated", onAgendaUpdated);
@@ -288,7 +301,7 @@ export default function MesaControlExpedientePage() {
       window.removeEventListener("agenda_firmas_bookings_v1_updated", onAgendaUpdated);
       window.removeEventListener("agenda_firmas_config_updated", onAgendaUpdated);
     };
-  }, []);
+  }, [load]);
 
   const etapaActualDisplay = summary?.etapaActualId ?? expediente?.operativo.etapaActual ?? 1;
 

@@ -42,6 +42,7 @@ import {
   etapaAlEnviarAMesaDesdeAsesor,
 } from "@/domain/expedientes/mock.repo";
 import { getEffectiveMockRole, isMesaControlMockRole } from "@/lib/mockUser";
+import { resolveFechaCitaBiometricosOperativa } from "@/lib/agendaBiometricosMock";
 
 type EstadoEtapa =
   | "pendiente"
@@ -637,6 +638,11 @@ export function SeguimientoOperativoMock(props: SeguimientoOperativoMockProps = 
   useEffect(() => {
     const sub = initialSubestado ?? "pendiente";
     const now = initialUpdatedAt ?? new Date().toISOString();
+    const fechaCitaOperativa =
+      resolveFechaCitaBiometricosOperativa(
+        contextPrecalId ?? "",
+        initialFechaCita,
+      ) ?? initialFechaCita;
 
     if (initialEtapaActualId != null) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -655,7 +661,7 @@ export function SeguimientoOperativoMock(props: SeguimientoOperativoMockProps = 
               notasInternas: "",
               fechaCita:
                 etapa.id === 3 || etapa.id === 4 || etapa.id === 9
-                  ? initialFechaCita
+                  ? fechaCitaOperativa
                   : undefined,
               fechaLiberacion: undefined,
               abogadoAsignado: undefined,
@@ -667,7 +673,7 @@ export function SeguimientoOperativoMock(props: SeguimientoOperativoMockProps = 
               motivo: initialMotivo,
               comentarioRechazo: initialComentarioRechazo ?? undefined,
               notasInternas: "",
-              fechaCita: sub === "rechazado" ? undefined : initialFechaCita,
+              fechaCita: sub === "rechazado" ? undefined : fechaCitaOperativa,
               fechaLiberacion: undefined,
               abogadoAsignado: undefined,
               ultimaActualizacion: now,
@@ -697,7 +703,7 @@ export function SeguimientoOperativoMock(props: SeguimientoOperativoMockProps = 
               notasInternas: "",
               fechaCita:
                 etapa.id === 3 || etapa.id === 4 || etapa.id === 9
-                  ? initialFechaCita
+                  ? fechaCitaOperativa
                   : undefined,
               fechaLiberacion: undefined,
               abogadoAsignado: undefined,
@@ -709,7 +715,7 @@ export function SeguimientoOperativoMock(props: SeguimientoOperativoMockProps = 
               motivo: initialMotivo,
               comentarioRechazo: initialComentarioRechazo ?? undefined,
               notasInternas: "",
-              fechaCita: initialFechaCita,
+              fechaCita: fechaCitaOperativa,
               fechaLiberacion: undefined,
               abogadoAsignado: undefined,
               ultimaActualizacion: now,
@@ -723,6 +729,7 @@ export function SeguimientoOperativoMock(props: SeguimientoOperativoMockProps = 
     // no cada tick de `updatedAt` al persistir notas u otros, para no resetear `selectedStageId`.
     // eslint-disable-next-line react-hooks/exhaustive-deps -- `initialUpdatedAt` solo fallback de timestamp; no re-sincronizar por cada persistencia.
   }, [
+    contextPrecalId,
     initialEtapaActualId,
     initialSubestado,
     initialMotivo,
@@ -1042,8 +1049,11 @@ export function SeguimientoOperativoMock(props: SeguimientoOperativoMockProps = 
 
     // Etapa 4 → 5: la cita de biométricos la agenda el asesor en etapa 4.
     if (operativoEtapaId === 4) {
-      const fc = timeline[4]?.fechaCita ?? initialFechaCita;
-      if (!fc || String(fc).trim() === "") {
+      const fc = resolveFechaCitaBiometricosOperativa(
+        contextPrecalId ?? "",
+        timeline[4]?.fechaCita ?? initialFechaCita,
+      );
+      if (!fc) {
         setOperativoWarning(
           "No hay fecha de cita registrada en etapa 4. El asesor debe agendar biométricos desde su expediente.",
         );

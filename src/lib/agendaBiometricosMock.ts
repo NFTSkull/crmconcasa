@@ -19,6 +19,7 @@ import {
   type HhmmTime,
   type YmdDate,
 } from "@/domain/agenda-biometricos";
+import type { ExpedienteMock, MockExpedientesRepo } from "@/domain/expedientes/mock.repo";
 import { getEffectiveMockRole } from "@/lib/mockUser";
 
 /** Clave estable minuto a minuto en hora local (para colisiones). */
@@ -177,6 +178,80 @@ export function readMockBookingActor(): AgendaBiometricosBookingV1["createdBy"] 
     role = "mesa_control";
   }
   return { email, role };
+}
+
+/** Reserva `booked` vigente del expediente en `agenda_bookings_v1` (más reciente). */
+export function getActiveBiometricosBookingForExpediente(
+  expedienteId: string,
+  bookingsRepo?: MockAgendaBiometricosLocalStorageRepo,
+): AgendaBiometricosBookingV1 | null {
+  const idNorm = String(expedienteId).trim();
+  if (!idNorm) return null;
+  const repo = bookingsRepo ?? new MockAgendaBiometricosLocalStorageRepo();
+  const found = [...repo.readBookings().bookings]
+    .reverse()
+    .find(
+      (b) => b.status === "booked" && String(b.expedienteId).trim() === idNorm,
+    );
+  return found ?? null;
+}
+
+/** ISO local a partir de `date` + `time` de una reserva biométrica. */
+export function fechaCitaIsoFromBiometricosBooking(
+  booking: Pick<AgendaBiometricosBookingV1, "date" | "time">,
+): string | null {
+  return buildLocalIsoFromDateAndTime(
+    booking.date as YmdDate,
+    booking.time as HhmmTime,
+  );
+}
+
+/**
+ * Fuente operativa para bloqueo/avance Mesa 4→5: inbox (`fechaCita`) con fallback a
+ * `agenda_bookings_v1` cuando la UI de lectura ya ve cita pero el inbox quedó desincronizado.
+ */
+export function resolveFechaCitaBiometricosOperativa(
+  expedienteId: string,
+  fechaCitaInbox?: string | null,
+): string | null {
+  if (typeof fechaCitaInbox === "string" && fechaCitaInbox.trim() !== "") {
+    return fechaCitaInbox.trim();
+  }
+  const booking = getActiveBiometricosBookingForExpediente(expedienteId);
+  if (!booking) return null;
+  return fechaCitaIsoFromBiometricosBooking(booking);
+}
+
+/** `true` si Mesa puede avanzar etapa 4→5 (existe cita biométrica operativa). */
+export function mesaPuedeAvanzarEtapa4Biometricos(
+  expedienteId: string,
+  fechaCitaInbox?: string | null,
+): boolean {
+  return resolveFechaCitaBiometricosOperativa(expedienteId, fechaCitaInbox) != null;
+}
+
+/**
+ * Si el expediente está en etapa 4 sin `fechaCita` en inbox pero sí hay booking activo,
+ * persiste `fechaCita` en `mesa_control_inbox` (sin cambiar etapa).
+ */
+export async function backfillFechaCitaBiometricosInboxIfMissing(
+  repo: MockExpedientesRepo,
+  expedienteId: string,
+): Promise<ExpedienteMock | null> {
+  const exp = await repo.getById(expedienteId);
+  if (!exp) return null;
+  if (exp.operativo.etapaActual !== 4) return exp;
+  const inboxCita = exp.operativo.fechaCita;
+  if (typeof inboxCita === "string" && inboxCita.trim() !== "") return exp;
+  const resolved = resolveFechaCitaBiometricosOperativa(expedienteId, null);
+  if (!resolved) return exp;
+  return repo.updateOperativo(expedienteId, {
+    etapaActual: 4,
+    subestado: exp.operativo.subestado ?? "en_proceso",
+    fechaCita: resolved,
+    submittedToMesa: exp.operativo.submittedToMesa,
+    updatedAt: new Date().toISOString(),
+  });
 }
 
 export type TryWriteBiometricosBookingResult =

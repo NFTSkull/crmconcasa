@@ -1,5 +1,24 @@
 # Devlog
 
+## 2026-06-15 - B1: Mesa 4→5 tras cita biométrica (asesor)
+
+### Causa
+
+- Mesa mostraba cita desde `agenda_bookings_v1` (`citasAgenda.biometrico`), pero `handleAprobarYSiguiente` solo consultaba `timeline[4]?.fechaCita ?? initialFechaCita` (inbox operativo).
+- Cuando inbox no tenía `fechaCita` sincronizada, el avance 4→5 fallaba en silencio (`setOperativoWarning` sin `alert`).
+
+### Corrección
+
+- Helper `resolveFechaCitaBiometricosOperativa`: inbox primero, fallback booking activo.
+- `SeguimientoOperativoMock`: bloqueo 4→5 y sync de timeline usan el helper.
+- `mesa-control/[id]`: `backfillFechaCitaBiometricosInboxIfMissing` en `load()` y recarga al evento `agenda_bookings_updated`.
+- Tests en `agenda-biometricos-mock.test.ts`.
+
+### No tocado
+
+- B0D5: asesor sigue agendando en etapa 4 sin saltar a 5; Mesa sin calendario biométricos.
+- B0D4/B0D6 retención, rutas, backend Supabase.
+
 ## 2026-06-15 - Fase A1: estabilización localhost/piloto mock
 
 ### Cambios
