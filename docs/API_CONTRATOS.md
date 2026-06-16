@@ -166,7 +166,7 @@ Convenciones:
 
 - Gate: editor aprobado + monto + docs integración + RFC.
 - **NO** incrementar a etapa 2 (`etapaAlEnviarAMesaDesdeAsesor` → 1).
-- `action_log`: `expediente.enviar_mesa`.
+- `action_log`: `expediente.enviar_a_mesa`.
 
 ---
 

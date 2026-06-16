@@ -7,9 +7,19 @@ Migraciones SQL para producción. **No conectadas a la UI mock** en esta fase.
 | Item | Estado |
 |------|--------|
 | `migrations/001`–`004` | ✅ Schema, RLS, auditoría, RPC `update_documento_revision` |
+| `migrations/005_rpc_enviar_a_mesa.sql` | ✅ RPC `enviar_a_mesa` (P2C-3) |
 | Roles `app_role` | `asesor`, `editor`, `mesa_*`, `super_admin` — **sin `revisor`** |
 | Supabase CLI local | `npx supabase start` / `db reset` |
 | UI mock | Sin conexión; `/revisor` legacy redirige a `/editor` |
+
+### RPC `enviar_a_mesa` (P2C-3)
+
+- **Función:** `public.enviar_a_mesa(p_expediente_id uuid) returns jsonb`
+- **Auditoría:** `action_log` → `expediente.enviar_a_mesa`
+- **Rol:** solo `asesor` dueño del expediente (misma organización)
+- **Gates:** decisión editor `aprobado` + `monto_aprobado > 0`; `cliente_datos` con RFC y estado `completo`/`validado`; 10 documentos obligatorios de integración presentes
+- **Efecto:** `submitted_to_mesa = true`, `etapa_actual = 1`, `subestado = en_validacion_mesa` (no avanza a etapa 2)
+- **Tests:** `supabase/tests/rpc_enviar_a_mesa.sql`
 
 ## Aplicar migración (cuando exista CLI)
 
@@ -27,16 +37,25 @@ supabase db reset      # aplica migrations/
 ```
 supabase/
   migrations/
-    001_core_schema.sql   # enums + 14 tablas + RLS enabled
+    001_core_schema.sql
+    002_rls_policies.sql
+    003_audit_and_document_history.sql
+    004_rpc_documento_revision.sql
+    005_rpc_enviar_a_mesa.sql
+  tests/
+    rls_policies.sql
+    audit_document_history.sql
+    rpc_documento_revision.sql
+    rpc_enviar_a_mesa.sql
+  seed.sql
   README.md
 ```
 
-## Próximos archivos (fuera P1)
+## Próximos archivos
 
-- `002_rls_policies.sql` — asesor, editor, mesa interno/externo, admin
-- `003_rpc_operativo.sql` — enviar_mesa, avanzar_etapa, book_biometricos
-- `004_storage.sql` — bucket + policies
-- `seed/dev.sql` — org ConCasa + usuarios prueba (nunca datos mock reales)
+- `avanzar_etapa_operativa` — Mesa avanza etapa operativa (p. ej. 1→2 tras validar integración)
+- `book_biometricos` — agenda biométricos
+- Storage — bucket + policies
 
 ## Referencias
 
