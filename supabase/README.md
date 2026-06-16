@@ -11,6 +11,7 @@ Migraciones SQL para producción. **No conectadas a la UI mock** en esta fase.
 | `migrations/006_rpc_avanzar_etapa_operativa.sql` | ✅ RPC `avanzar_etapa_operativa` (P2C-4) |
 | `migrations/007_rpc_book_biometricos.sql` | ✅ RPC `book_biometricos` (P2C-6) |
 | `migrations/008_rpc_avanzar_etapa_4_5.sql` | ✅ extensión `avanzar_etapa_operativa` 4→5 (P2C-7) |
+| `migrations/009_rpc_biometricos_cancel_reagendar.sql` | ✅ RPC `cancel_biometricos` / `reagendar_biometricos` (P2C-8) |
 | Roles `app_role` | `asesor`, `editor`, `mesa_*`, `super_admin` — **sin `revisor`** |
 | Supabase CLI local | `npx supabase start` / `db reset` |
 | UI mock | Sin conexión; `/revisor` legacy redirige a `/editor` |
@@ -77,6 +78,34 @@ Migraciones SQL para producción. **No conectadas a la UI mock** en esta fase.
 - **Tests:** `supabase/tests/rpc_book_biometricos.sql` (18 pruebas)
 - **Nota:** reglas de cupo por slot/`agenda_config` (min lead days, slots) quedan para fase posterior; P2C-6 valida solo fecha futura
 
+### RPC `cancel_biometricos` / `reagendar_biometricos` (P2C-8)
+
+- **Funciones:**
+
+  ```sql
+  public.cancel_biometricos(
+    p_expediente_id uuid,
+    p_motivo text default null
+  ) returns jsonb
+
+  public.reagendar_biometricos(
+    p_expediente_id uuid,
+    p_scheduled_at timestamptz,
+    p_location_id text,
+    p_note text default null
+  ) returns jsonb
+  ```
+
+- **Alcance:** asesor dueño cancela o reagenda cita biométrica en **etapa 4**; **no** cambia etapa
+- **Roles permitidos:** solo `asesor` (dueño, misma organización)
+- **Roles bloqueados:** `editor`, `mesa_*`, `super_admin` — **`revisor` no existe**
+- **Gates comunes:** expediente activo, enviado a Mesa, `etapa_actual = 4`; booking activo `kind = biometricos`, `status = booked`
+- **Cancelar:** `status → cancelled`, `cancelled_at = now()`, nota con motivo; `expedientes.fecha_cita = null`; libera índice parcial
+- **Reagendar:** cancela booking activo + inserta nuevo `booked` en una transacción; actualiza `fecha_cita`; captura `unique_violation`
+- **Auditoría:** `agenda.biometricos.cancel` / `agenda.biometricos.reagendar`
+- **Tests:** `supabase/tests/rpc_biometricos_cancel_reagendar.sql` (24 pruebas)
+- **Nota:** sin reglas `agenda_config` (cupo/slot) en P2C-8
+
 ## Aplicar migración (cuando exista CLI)
 
 ```bash
@@ -112,6 +141,7 @@ Orden de ejecución (`npm run test:sql`):
 5. `supabase/tests/rpc_avanzar_etapa_operativa.sql`
 6. `supabase/tests/rpc_book_biometricos.sql`
 7. `supabase/tests/rpc_avanzar_etapa_4_5.sql`
+8. `supabase/tests/rpc_biometricos_cancel_reagendar.sql`
 
 Variables opcionales: `SUPABASE_DB_HOST`, `SUPABASE_DB_PORT`, `SUPABASE_DB_USER`, `SUPABASE_DB_PASSWORD`, `SUPABASE_DB_NAME` (defaults: `127.0.0.1:54322`, usuario `postgres`).
 
@@ -128,6 +158,7 @@ supabase/
     006_rpc_avanzar_etapa_operativa.sql
     007_rpc_book_biometricos.sql
     008_rpc_avanzar_etapa_4_5.sql
+    009_rpc_biometricos_cancel_reagendar.sql
   tests/
     rls_policies.sql
     audit_document_history.sql
@@ -136,6 +167,7 @@ supabase/
     rpc_avanzar_etapa_operativa.sql
     rpc_book_biometricos.sql
     rpc_avanzar_etapa_4_5.sql
+    rpc_biometricos_cancel_reagendar.sql
   seed.sql
   README.md
 ```
@@ -143,8 +175,7 @@ supabase/
 ## Próximos archivos
 
 - Extender `book_biometricos` con reglas `agenda_config` (cupo por slot/location, min lead days)
-- Cancelación / reagenda de cita biométrica (RPC separada)
-- Avance etapas **2→3**, **3→4**, **5→6**… (fuera de alcance P2C-7)
+- Avance etapas **2→3**, **3→4**, **5→6**… (fuera de alcance actual)
 - Retención etapa 8 — RPCs de envío/validación retención
 - Storage — bucket + policies
 - Integración UI P3 — `DATA_MODE=mock|supabase`

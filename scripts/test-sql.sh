@@ -26,5 +26,6 @@ run_sql_test "supabase/tests/rpc_enviar_a_mesa.sql"
 run_sql_test "supabase/tests/rpc_avanzar_etapa_operativa.sql"
 run_sql_test "supabase/tests/rpc_book_biometricos.sql"
 run_sql_test "supabase/tests/rpc_avanzar_etapa_4_5.sql"
+run_sql_test "supabase/tests/rpc_biometricos_cancel_reagendar.sql"
 
 echo "SQL tests: ALL PASSED"
