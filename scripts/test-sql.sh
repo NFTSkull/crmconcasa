@@ -24,5 +24,6 @@ run_sql_test "supabase/tests/audit_document_history.sql"
 run_sql_test "supabase/tests/rpc_documento_revision.sql"
 run_sql_test "supabase/tests/rpc_enviar_a_mesa.sql"
 run_sql_test "supabase/tests/rpc_avanzar_etapa_operativa.sql"
+run_sql_test "supabase/tests/rpc_book_biometricos.sql"
 
 echo "SQL tests: ALL PASSED"
