@@ -12,6 +12,7 @@ Migraciones SQL para producción. **No conectadas a la UI mock** en esta fase.
 | `migrations/007_rpc_book_biometricos.sql` | ✅ RPC `book_biometricos` (P2C-6) |
 | `migrations/008_rpc_avanzar_etapa_4_5.sql` | ✅ extensión `avanzar_etapa_operativa` 4→5 (P2C-7) |
 | `migrations/009_rpc_biometricos_cancel_reagendar.sql` | ✅ RPC `cancel_biometricos` / `reagendar_biometricos` (P2C-8) |
+| `migrations/010_rpc_upsert_editor_decision.sql` | ✅ RPC `upsert_editor_decision` (P2C-9) |
 | Roles `app_role` | `asesor`, `editor`, `mesa_*`, `super_admin` — **sin `revisor`** |
 | Supabase CLI local | `npx supabase start` / `db reset` |
 | UI mock | Sin conexión; `/revisor` legacy redirige a `/editor` |
@@ -106,6 +107,28 @@ Migraciones SQL para producción. **No conectadas a la UI mock** en esta fase.
 - **Tests:** `supabase/tests/rpc_biometricos_cancel_reagendar.sql` (24 pruebas)
 - **Nota:** sin reglas `agenda_config` (cupo/slot) en P2C-8
 
+### RPC `upsert_editor_decision` (P2C-9)
+
+- **Función:**
+
+  ```sql
+  public.upsert_editor_decision(
+    p_expediente_id uuid,
+    p_decision public.editor_decision,
+    p_monto_aprobado numeric default null,
+    p_motivo text default null
+  ) returns jsonb
+  ```
+
+- **Alcance:** editor guarda decisión de monto **antes** de envío a Mesa; **no** envía a Mesa ni cambia etapa
+- **Roles permitidos:** solo `editor` (misma organización) — **`super_admin` bloqueado** en P2C-9
+- **Roles bloqueados:** `asesor`, `mesa_*`, `super_admin` — **`revisor` no existe**
+- **Gates:** expediente activo, no soft-deleted, `submitted_to_mesa = false`; `aprobado` exige `monto_aprobado > 0`; otras decisiones dejan `monto_aprobado = null`
+- **Efecto:** upsert en `editor_decisions` (`decided_by`, `notas_revision` desde `p_motivo`)
+- **Auditoría:** `action_log` → `editor.decision.upsert`
+- **Tests:** `supabase/tests/rpc_upsert_editor_decision.sql` (19 pruebas)
+- **Integración:** `enviar_a_mesa` consume decisión `aprobado` + monto creados por esta RPC
+
 ## Aplicar migración (cuando exista CLI)
 
 ```bash
@@ -142,6 +165,7 @@ Orden de ejecución (`npm run test:sql`):
 6. `supabase/tests/rpc_book_biometricos.sql`
 7. `supabase/tests/rpc_avanzar_etapa_4_5.sql`
 8. `supabase/tests/rpc_biometricos_cancel_reagendar.sql`
+9. `supabase/tests/rpc_upsert_editor_decision.sql`
 
 Variables opcionales: `SUPABASE_DB_HOST`, `SUPABASE_DB_PORT`, `SUPABASE_DB_USER`, `SUPABASE_DB_PASSWORD`, `SUPABASE_DB_NAME` (defaults: `127.0.0.1:54322`, usuario `postgres`).
 
@@ -159,6 +183,7 @@ supabase/
     007_rpc_book_biometricos.sql
     008_rpc_avanzar_etapa_4_5.sql
     009_rpc_biometricos_cancel_reagendar.sql
+    010_rpc_upsert_editor_decision.sql
   tests/
     rls_policies.sql
     audit_document_history.sql
@@ -168,12 +193,14 @@ supabase/
     rpc_book_biometricos.sql
     rpc_avanzar_etapa_4_5.sql
     rpc_biometricos_cancel_reagendar.sql
+    rpc_upsert_editor_decision.sql
   seed.sql
   README.md
 ```
 
 ## Próximos archivos
 
+- RPC `save_cliente_datos` (P2C-10)
 - Extender `book_biometricos` con reglas `agenda_config` (cupo por slot/location, min lead days)
 - Avance etapas **2→3**, **3→4**, **5→6**… (fuera de alcance actual)
 - Retención etapa 8 — RPCs de envío/validación retención
