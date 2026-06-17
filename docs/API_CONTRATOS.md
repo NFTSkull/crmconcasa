@@ -273,7 +273,38 @@ Adicional:
 
 ---
 
-## 11. Reenvío retención (asesor)
+## 11. Agendar firma (asesor / mesa_admin) — P2C-18
+
+**Operación:** `POST /agenda/firmas/bookings` · RPC `book_firmas`
+
+### Request
+
+```json
+{
+  "expediente_id": "uuid",
+  "scheduled_at": "ISO-8601",
+  "location_id": "string",
+  "note": "string?"
+}
+```
+
+### Reglas
+
+- Roles: `asesor` (dueño), `mesa_admin`, `super_admin`.
+- Expediente etapa **9**, `subestado = en_proceso`, enviado a Mesa.
+- Valida `agenda_config` (`kind = firmas`): anticipación, día, slot, sede, cupo.
+- Persiste `agenda_bookings` (`kind = firmas`) + `expedientes.fecha_cita`.
+- **NO** cambia `etapa_actual`.
+
+### Pendiente (bloques posteriores)
+
+- `cancel_firmas`, `reagendar_firmas`.
+- Avance Mesa **9→10** (`avanzar_etapa_operativa`).
+- UI / `DATA_MODE` fuera de alcance P2C-18.
+
+---
+
+## 12. Reenvío retención (asesor)
 
 **Operación:** `POST /expedientes/{id}/retencion/reenviar`
 
@@ -284,7 +315,7 @@ Adicional:
 
 ---
 
-## 12. Admin KPIs
+## 13. Admin KPIs
 
 **Operación:** `GET /admin/metrics` · vistas materializadas / RPC read-only
 
@@ -306,7 +337,7 @@ Adicional:
 
 ---
 
-## 13. Descargar documento (signed URL)
+## 14. Descargar documento (signed URL)
 
 **Operación:** `POST /documentos/{id}/signed-url`
 
@@ -326,7 +357,7 @@ Adicional:
 
 ---
 
-## 14. Repos mock existentes (referencia implementación)
+## 15. Repos mock existentes (referencia implementación)
 
 | Interfaz | Archivo |
 |----------|---------|
@@ -340,7 +371,7 @@ Adicional:
 
 ---
 
-## 15. TODO P2
+## 16. TODO P2
 
 - [ ] Formalizar `ExpedientesRepo` interface
 - [ ] Zod schemas por RPC

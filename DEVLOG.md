@@ -1,5 +1,25 @@
 # Devlog
 
+## 2026-06-15 - P2C-18: agenda_config firmas + book_firmas
+
+### Decisión
+
+- Helpers `agenda_firmas_*` separados de biométricos; config canónica JSON con `min_lead_hours`, `locations`, `slots`.
+- `book_firmas`: asesor dueño + `mesa_admin` + `super_admin`; etapa 9; persiste booking + `fecha_cita`; **no** cambia `etapa_actual`.
+- Índice único parcial un `booked` firmas por expediente.
+- Sin `cancel_firmas`, `reagendar_firmas`, avance 9→10, UI, Storage.
+
+### Archivos
+
+- `supabase/migrations/020_agenda_config_firmas_rules.sql`
+- `supabase/migrations/021_rpc_book_firmas.sql`
+- `supabase/tests/rpc_book_firmas.sql` (37 pruebas)
+- `scripts/test-sql.sh`, `supabase/README.md`, `docs/API_CONTRATOS.md`
+
+### No tocado
+
+- UI mock, seed, migraciones 001–019, cancel/reagendar firmas, avance 9→10, Storage, DATA_MODE.
+
 ## 2026-06-15 - P2C-17: avanzar_etapa_operativa 8→9
 
 ### Decisión

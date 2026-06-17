@@ -2,6 +2,8 @@
 
 ## 2026-06-15
 
+- **P2C-18 — Agenda firmas backend base:** reglas `agenda_config` firmas + RPC `book_firmas` (asesor/mesa_admin, etapa 9, sin avance etapa); 37 pruebas SQL. Pendiente: cancel/reagendar y 9→10.
+
 - **P2C-17 — Avance Mesa 8→9:** extiende `avanzar_etapa_operativa` post-retención validada; gates `cliente_datos` validado + `retencion_envios` enviado + docs `validado` por opción A/B; sin modificar retención/documentos/`fecha_cita`/bookings; 38 pruebas SQL.
 
 - **P2C-16 — Retención etapa 8:** RPC `enviar_retencion_mesa` (asesor, opción A/B, reenvío controlado); hook `update_documento_revision` rechazo `retencion_*` → `correccion_requerida`; sin avance 8→9 ni Storage; 36 pruebas SQL.

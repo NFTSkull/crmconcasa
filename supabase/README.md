@@ -22,6 +22,8 @@ Migraciones SQL para producción. **No conectadas a la UI mock** en esta fase.
 | `migrations/017_rpc_enviar_retencion_mesa.sql` | ✅ RPC `enviar_retencion_mesa` (P2C-16) |
 | `migrations/018_rpc_documento_revision_retencion_hook.sql` | ✅ hook rechazo `retencion_*` → `correccion_requerida` (P2C-16) |
 | `migrations/019_rpc_avanzar_etapa_8_9.sql` | ✅ extensión `avanzar_etapa_operativa` 8→9 (P2C-17) |
+| `migrations/020_agenda_config_firmas_rules.sql` | ✅ reglas `agenda_config` firmas (P2C-18) |
+| `migrations/021_rpc_book_firmas.sql` | ✅ RPC `book_firmas` (P2C-18) |
 | Roles `app_role` | `asesor`, `editor`, `mesa_*`, `super_admin` — **sin `revisor`** |
 | Supabase CLI local | `npx supabase start` / `db reset` |
 | UI mock | Sin conexión; `/revisor` legacy redirige a `/editor` |
@@ -127,6 +129,50 @@ Migraciones SQL para producción. **No conectadas a la UI mock** en esta fase.
 - **Auditoría:** `action_log` → `expediente.enviar_retencion_mesa`
 - **Tests:** `supabase/tests/rpc_enviar_retencion_mesa.sql` (36 pruebas)
 
+### RPC `book_firmas` (P2C-18)
+
+- **Función:**
+
+  ```sql
+  public.book_firmas(
+    p_expediente_id uuid,
+    p_scheduled_at timestamptz,
+    p_location_id text default null,
+    p_note text default null
+  ) returns jsonb
+  ```
+
+- **Alcance:** asesor dueño o `mesa_admin` agenda cita firmas en **etapa 9**; **no** avanza a etapa 10
+- **Roles permitidos:** `asesor` (dueño), `mesa_admin`, `super_admin`
+- **Roles bloqueados:** `mesa_interno`, `mesa_externo`, `editor` — **`revisor` no existe**
+- **Gates:** expediente activo, enviado a Mesa, `subestado = en_proceso`, `etapa_actual = 9`; sin booking `firmas` activo; reglas `agenda_config` firmas
+- **Efecto:** inserta `agenda_bookings` (`kind = firmas`); actualiza `expedientes.fecha_cita`; **no** cambia `etapa_actual`
+- **Auditoría:** `action_log` → `agenda.firmas.book`
+- **Tests:** `supabase/tests/rpc_book_firmas.sql` (37 pruebas)
+- **Pendiente:** `cancel_firmas`, `reagendar_firmas`, avance 9→10 (P2C-19+)
+
+### Reglas `agenda_config` firmas (P2C-18)
+
+- **Migración:** `020_agenda_config_firmas_rules.sql`
+- **RPC afectada:** `book_firmas`
+- **Helper:** `agenda_firmas_assert_slot_available(org, scheduled_at, location_id)`
+- **Estructura `config` JSONB (canónica):**
+
+  ```json
+  {
+    "enabled": true,
+    "timezone": "America/Monterrey",
+    "min_lead_hours": 24,
+    "allowed_weekdays": [1, 2, 3, 4, 5],
+    "locations": {
+      "mty-centro": { "enabled": true, "capacity_per_slot": 3 }
+    },
+    "slots": ["09:00", "10:00", "11:00", "12:00", "16:00"]
+  }
+  ```
+
+- **Índice:** `agenda_bookings_one_active_firmas_per_expediente_idx`
+
 ### RPC `book_biometricos` (P2C-6)
 
 - **Función:**
@@ -153,7 +199,7 @@ Migraciones SQL para producción. **No conectadas a la UI mock** en esta fase.
 ### Reglas `agenda_config` biométricos (P2C-11)
 
 - **Migración:** `012_agenda_config_biometricos_rules.sql`
-- **RPCs afectadas:** `book_biometricos`, `reagendar_biometricos` (firmas sin cambios)
+- **RPCs afectadas:** `book_biometricos`, `reagendar_biometricos` (firmas: ver `020` / P2C-18)
 - **Helper:** `agenda_biometricos_assert_slot_available(org, scheduled_at, location_id)`
 - **Estructura `config` JSONB (canónica P2C-11):**
 
@@ -300,6 +346,7 @@ Orden de ejecución (`npm run test:sql`):
 15. `supabase/tests/rpc_avanzar_etapa_7_8.sql`
 16. `supabase/tests/rpc_enviar_retencion_mesa.sql`
 17. `supabase/tests/rpc_avanzar_etapa_8_9.sql`
+18. `supabase/tests/rpc_book_firmas.sql`
 
 Variables opcionales: `SUPABASE_DB_HOST`, `SUPABASE_DB_PORT`, `SUPABASE_DB_USER`, `SUPABASE_DB_PASSWORD`, `SUPABASE_DB_NAME` (defaults: `127.0.0.1:54322`, usuario `postgres`).
 
@@ -327,6 +374,8 @@ supabase/
     017_rpc_enviar_retencion_mesa.sql
     018_rpc_documento_revision_retencion_hook.sql
     019_rpc_avanzar_etapa_8_9.sql
+    020_agenda_config_firmas_rules.sql
+    021_rpc_book_firmas.sql
   tests/
     rls_policies.sql
     audit_document_history.sql
@@ -345,13 +394,15 @@ supabase/
     rpc_avanzar_etapa_7_8.sql
     rpc_enviar_retencion_mesa.sql
     rpc_avanzar_etapa_8_9.sql
+    rpc_book_firmas.sql
   seed.sql
   README.md
 ```
 
 ## Próximos archivos
 
-- Avance etapa **9→10** / agenda firmas (P2C-18)
+- `cancel_firmas` / `reagendar_firmas` (P2C-19)
+- Avance etapa **9→10** (P2C-19)
 - Storage — bucket + policies
 - Integración UI P3 — `DATA_MODE=mock|supabase`
 
