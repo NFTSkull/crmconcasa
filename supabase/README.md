@@ -26,6 +26,7 @@ Migraciones SQL para producción. **No conectadas a la UI mock** en esta fase.
 | `migrations/021_rpc_book_firmas.sql` | ✅ RPC `book_firmas` (P2C-18) |
 | `migrations/022_rpc_firmas_cancel_reagendar.sql` | ✅ RPC `cancel_firmas` / `reagendar_firmas` (P2C-19) |
 | `migrations/023_rpc_avanzar_etapa_9_10.sql` | ✅ extensión `avanzar_etapa_operativa` 9→10 (P2C-20) |
+| `migrations/024_backfill_agenda_config_firmas.sql` | ✅ backfill `agenda_config` firmas por org (P2C-21) |
 | Roles `app_role` | `asesor`, `editor`, `mesa_*`, `super_admin` — **sin `revisor`** |
 | Supabase CLI local | `npx supabase start` / `db reset` |
 | UI mock | Sin conexión; `/revisor` legacy redirige a `/editor` |
@@ -209,6 +210,15 @@ Migraciones SQL para producción. **No conectadas a la UI mock** en esta fase.
 
 - **Índice:** `agenda_bookings_one_active_firmas_per_expediente_idx`
 
+### Backfill `agenda_config` firmas (P2C-21)
+
+- **Migración:** `024_backfill_agenda_config_firmas.sql`
+- **Función:** `public.backfill_agenda_config_firmas() returns jsonb`
+- **Cuándo:** deploy producción — orgs existentes sin fila `kind = firmas` (local `seed.sql` solo tiene biométricos)
+- **Comportamiento:** inserta config canónica normalizada por org; `ON CONFLICT DO NOTHING`; **no** modifica firmas existentes ni biométricos
+- **Re-ejecución:** idempotente (`inserted: 0` si ya cubierto)
+- **Tests:** `supabase/tests/backfill_agenda_config_firmas.sql` (7 pruebas)
+
 ### RPC `book_biometricos` (P2C-6)
 
 - **Función:**
@@ -385,6 +395,7 @@ Orden de ejecución (`npm run test:sql`):
 18. `supabase/tests/rpc_book_firmas.sql`
 19. `supabase/tests/rpc_firmas_cancel_reagendar.sql`
 20. `supabase/tests/rpc_avanzar_etapa_9_10.sql`
+21. `supabase/tests/backfill_agenda_config_firmas.sql`
 
 Variables opcionales: `SUPABASE_DB_HOST`, `SUPABASE_DB_PORT`, `SUPABASE_DB_USER`, `SUPABASE_DB_PASSWORD`, `SUPABASE_DB_NAME` (defaults: `127.0.0.1:54322`, usuario `postgres`).
 
@@ -416,6 +427,7 @@ supabase/
     021_rpc_book_firmas.sql
     022_rpc_firmas_cancel_reagendar.sql
     023_rpc_avanzar_etapa_9_10.sql
+    024_backfill_agenda_config_firmas.sql
   tests/
     rls_policies.sql
     audit_document_history.sql
@@ -437,6 +449,7 @@ supabase/
     rpc_book_firmas.sql
     rpc_firmas_cancel_reagendar.sql
     rpc_avanzar_etapa_9_10.sql
+    backfill_agenda_config_firmas.sql
   seed.sql
   README.md
 ```

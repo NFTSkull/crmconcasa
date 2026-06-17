@@ -1,5 +1,20 @@
 # Devlog
 
+## 2026-06-15 - P2C-21: backfill agenda_config firmas
+
+### Decisión
+
+- Producción: `seed.sql` solo inserta `biometricos`; `book_firmas` / `reagendar_firmas` requieren fila `kind=firmas`.
+- Migración `024`: función `backfill_agenda_config_firmas()` + ejecución inicial idempotente (`ON CONFLICT DO NOTHING`; no UPDATE de existentes).
+- Config canónica vía `agenda_firmas_normalize_config('{}')` (mty-centro, slots 09–16h, min_lead 24h).
+- Sin cambios a `seed.sql`, UI, Storage, DATA_MODE.
+
+### Archivos
+
+- `supabase/migrations/024_backfill_agenda_config_firmas.sql`
+- `supabase/tests/backfill_agenda_config_firmas.sql` (7 pruebas)
+- `scripts/test-sql.sh`, `supabase/README.md`, `docs/API_CONTRATOS.md`
+
 ## 2026-06-15 - P2C-20: avanzar_etapa_operativa 9→10
 
 ### Decisión

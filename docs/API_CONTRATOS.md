@@ -294,6 +294,7 @@ Adicional:
 - Roles: `asesor` (dueño), `mesa_admin`, `super_admin`.
 - Expediente etapa **9**, `subestado = en_proceso`, enviado a Mesa.
 - Valida `agenda_config` (`kind = firmas`): anticipación, día, slot, sede, cupo.
+- **Deploy:** migración `024` ejecuta `backfill_agenda_config_firmas()` para orgs sin fila firmas (idempotente).
 - Persiste `agenda_bookings` (`kind = firmas`) + `expedientes.fecha_cita`.
 - **NO** cambia `etapa_actual`.
 
