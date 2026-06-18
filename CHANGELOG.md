@@ -2,6 +2,8 @@
 
 ## 2026-06-15
 
+- **P3C — Crear expediente real desde `/asesor/nueva`:** RPC `create_expediente` (migración 025); `ExpedientesRepo.createExpediente()`; mock `localStorage` intacto; validación con reglas existentes; sin `listForAsesor` Supabase (P3B.2).
+
 - **P3B.1 — Admin listado read-only Supabase:** `NEXT_PUBLIC_DATA_MODE=supabase` + factory `ExpedientesRepo`; `SupabaseExpedientesRepo.listForAdmin()` con RLS; mapper `expedientes`+`editor_decisions`+asesor → `ExpedienteMock`; mock sigue default.
 
 - **P3A — Auth Supabase mínima:** login/logout real con `NEXT_PUBLIC_USE_SUPABASE_AUTH=true`; lectura de `profiles` (incl. validación `active`); mapeo `app_role`→rol mock UI; puente `mock_user`/`mock_role`/`mock_email`; fallback a login mock si flag off o Supabase no configurado. Sin datos operativos ni migraciones.

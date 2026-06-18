@@ -27,9 +27,20 @@ Migraciones SQL para producción. **No conectadas a la UI mock** en esta fase.
 | `migrations/022_rpc_firmas_cancel_reagendar.sql` | ✅ RPC `cancel_firmas` / `reagendar_firmas` (P2C-19) |
 | `migrations/023_rpc_avanzar_etapa_9_10.sql` | ✅ extensión `avanzar_etapa_operativa` 9→10 (P2C-20) |
 | `migrations/024_backfill_agenda_config_firmas.sql` | ✅ backfill `agenda_config` firmas por org (P2C-21) |
+| `migrations/025_rpc_create_expediente.sql` | ✅ RPC `create_expediente` — asesor crea expediente (P3C) |
 | Roles `app_role` | `asesor`, `editor`, `mesa_*`, `super_admin` — **sin `revisor`** |
 | Supabase CLI local | `npx supabase start` / `db reset` |
 | UI mock | Sin conexión; `/revisor` legacy redirige a `/editor` |
+
+### RPC `create_expediente` (P3C)
+
+- **Migración:** `025_rpc_create_expediente.sql`
+- **Quién:** solo `asesor` activo (no `super_admin` ni mesa/editor).
+- **Origen:** `organization_id`, `asesor_id` y `origen_mesa` desde perfil autenticado; sin confiar en body del cliente.
+- **Estado inicial:** etapa 1, `subestado=pendiente`, `ciclo_estado=activo`, `submitted_to_mesa=false`; crea `editor_decisions` pendiente + `action_log` `expediente.create`.
+- **Duplicado:** rechaza NSS+programa activo en la misma org.
+- **Tests:** `supabase/tests/rpc_create_expediente.sql`
+- **UI:** `/asesor/nueva` con `NEXT_PUBLIC_DATA_MODE=supabase` (sin `listForAsesor` hasta P3B.2).
 
 ### RPC `enviar_a_mesa` (P2C-3)
 
@@ -396,6 +407,7 @@ Orden de ejecución (`npm run test:sql`):
 19. `supabase/tests/rpc_firmas_cancel_reagendar.sql`
 20. `supabase/tests/rpc_avanzar_etapa_9_10.sql`
 21. `supabase/tests/backfill_agenda_config_firmas.sql`
+22. `supabase/tests/rpc_create_expediente.sql`
 
 Variables opcionales: `SUPABASE_DB_HOST`, `SUPABASE_DB_PORT`, `SUPABASE_DB_USER`, `SUPABASE_DB_PASSWORD`, `SUPABASE_DB_NAME` (defaults: `127.0.0.1:54322`, usuario `postgres`).
 
@@ -428,6 +440,7 @@ supabase/
     022_rpc_firmas_cancel_reagendar.sql
     023_rpc_avanzar_etapa_9_10.sql
     024_backfill_agenda_config_firmas.sql
+    025_rpc_create_expediente.sql
   tests/
     rls_policies.sql
     audit_document_history.sql
@@ -450,6 +463,7 @@ supabase/
     rpc_firmas_cancel_reagendar.sql
     rpc_avanzar_etapa_9_10.sql
     backfill_agenda_config_firmas.sql
+    rpc_create_expediente.sql
   seed.sql
   README.md
 ```

@@ -7,15 +7,20 @@ import { SupabaseExpedientesRepo } from "./supabase.repo";
 import type { ExpedientesRepo } from "./repo";
 
 export type { ExpedientesRepo } from "./repo";
+export type { CreateExpedienteInput } from "./create-expediente.input";
 export type { ExpedienteMock } from "./mock.repo";
 export { MockExpedientesRepo } from "./mock.repo";
 export { SupabaseExpedientesRepo, ExpedientesSupabaseError } from "./supabase.repo";
 export {
   mapProgramaDbToUi,
+  mapProgramaUiToDb,
+} from "./map-programa";
+export {
+  mapCreateExpedienteRpcToExpedienteMock,
   mapSupabaseRowToExpedienteMock,
 } from "./map-supabase-row";
 
-/** Factory: mock por defecto; Supabase read-only admin con `NEXT_PUBLIC_DATA_MODE=supabase`. */
+/** Factory: mock por defecto; Supabase con `NEXT_PUBLIC_DATA_MODE=supabase`. */
 export function useExpedientesRepo(): ExpedientesRepo {
   return useMemo(() => {
     if (isDataModeSupabase()) {

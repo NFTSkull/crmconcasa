@@ -1,5 +1,22 @@
 # Devlog
 
+## 2026-06-15 - P3C: crear expediente real desde `/asesor/nueva`
+
+### Decisión
+
+- RPC `create_expediente` SECURITY DEFINER (migración 025): solo rol `asesor` activo; `organization_id` y `asesor_id` desde perfil/JWT; `origen_mesa` desde `profiles.tipo_asesor_origen` (fallback `interno`).
+- Estado inicial: `ciclo_estado=activo`, `etapa_actual=1`, `subestado=pendiente`, `submitted_to_mesa=false`; fila `editor_decisions` pendiente en la misma transacción; `action_log` `expediente.create`.
+- Rechazo duplicado activo `(organization_id, nss, programa)`; sin INSERT directo (RLS).
+- Frontend: `useExpedientesRepo().createExpediente()`; mock sigue escribiendo `precalificaciones_mock`.
+- **Fuera de alcance:** `listForAsesor` Supabase (P3B.2); mesa/editor/agenda/documentos/detalle.
+
+### Archivos
+
+- `supabase/migrations/025_rpc_create_expediente.sql`, `supabase/tests/rpc_create_expediente.sql`
+- `src/domain/expedientes/create-expediente.input.ts`, `map-programa.ts`, `repo.ts`, `mock.repo.ts`, `supabase.repo.ts`, `map-supabase-row.ts`, `index.ts`
+- `src/app/asesor/nueva/page.tsx`
+- Tests: `map-programa.test.ts`, `map-supabase-row.test.ts` (RPC mapper)
+
 ## 2026-06-15 - P3B.1: admin listado read-only Supabase
 
 ### Decisión

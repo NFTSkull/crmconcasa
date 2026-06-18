@@ -8,6 +8,7 @@ import { origenMesaDesdeEmailAsesor } from "@/lib/asesorTipoMesaMock";
 import { hasActiveFirmasBookingForCita } from "@/lib/agendaFirmasBookingsGuard";
 import { getEffectiveMockRole } from "@/lib/mockUser";
 import type { ExpedientesRepo } from "./repo";
+import type { CreateExpedienteInput } from "./create-expediente.input";
 
 export type EditorDecision = "pendiente" | "aprobado" | "no_cumple";
 export type OperativoSubestado =
@@ -385,6 +386,44 @@ export class MockExpedientesRepo implements ExpedientesRepo {
 
   async listForAdmin(): Promise<ExpedienteMock[]> {
     return this.listAll();
+  }
+
+  async createExpediente(input: CreateExpedienteInput): Promise<ExpedienteMock> {
+    if (typeof window === "undefined") {
+      throw new Error("createExpediente mock requiere entorno navegador.");
+    }
+
+    const id = String(
+      typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `mock-${Date.now()}`,
+    );
+    const precal: RawPrecalificacion = {
+      id,
+      programa: input.programa,
+      nss: input.nss.trim(),
+      cliente_nombre: input.cliente_nombre.trim(),
+      telefono_cliente: input.telefono_cliente.trim(),
+      direccion_opcional: input.direccion_opcional.trim(),
+      asesorId: input.asesorEmail.trim() || "mock",
+      createdAt: new Date().toISOString(),
+    };
+
+    const raw = window.localStorage.getItem("precalificaciones_mock");
+    const parsed = safeParseArray(raw);
+    const without = parsed.filter((p) => {
+      if (!p || typeof p !== "object") return true;
+      const obj = p as Record<string, unknown>;
+      return String(obj.id) !== id;
+    });
+    without.push(precal);
+    window.localStorage.setItem("precalificaciones_mock", JSON.stringify(without));
+
+    const created = await this.getById(id);
+    if (!created) {
+      throw new Error("No se pudo recuperar el expediente recién creado (mock).");
+    }
+    return created;
   }
 
   async listForMesa(): Promise<ExpedienteMock[]> {

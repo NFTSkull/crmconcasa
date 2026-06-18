@@ -1,8 +1,14 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useSessionRepo } from "@/domain/session";
+import { useExpedientesRepo } from "@/domain/expedientes";
+import type { CreateExpedienteInput } from "@/domain/expedientes/create-expediente.input";
+import { ExpedientesSupabaseError } from "@/domain/expedientes/supabase.repo";
+import { validateCreatePrecalificacion } from "@/domain/precalificaciones/validators";
+import { isDataModeSupabase } from "@/lib/dataMode";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
@@ -15,12 +21,20 @@ function onlyDigits(s: string): string {
 export default function NuevaPrecalificacionPage() {
   const router = useRouter();
   const { currentUser } = useSessionRepo();
+  const expedientesRepo = useExpedientesRepo();
+  const dataSupabase = isDataModeSupabase();
+  const [submitting, setSubmitting] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
     const form = e.currentTarget;
     const programa = (form.elements.namedItem("programa") as HTMLSelectElement)
-      .value as "Mejoravit" | "Subcuenta" | "Compro tu casa";
+      .value as CreateExpedienteInput["programa"];
     const cliente_nombre = (
       form.elements.namedItem("cliente_nombre") as HTMLInputElement
     ).value.trim();
@@ -33,52 +47,46 @@ export default function NuevaPrecalificacionPage() {
       form.elements.namedItem("direccion_opcional") as HTMLInputElement
     ).value.trim();
 
+    const input: CreateExpedienteInput = {
+      programa,
+      nss,
+      cliente_nombre,
+      telefono_cliente,
+      direccion_opcional,
+      asesorEmail: currentUser?.email ?? "",
+    };
+
     try {
-      const id = String(
-        typeof crypto !== "undefined" && crypto.randomUUID
-          ? crypto.randomUUID()
-          : `mock-${Date.now()}`,
-      );
-      const precal = {
-        id,
-        programa,
-        nss,
-        cliente_nombre,
-        telefono_cliente,
-        direccion_opcional,
-        asesorId: currentUser?.email ?? "mock",
-        createdAt: new Date().toISOString(),
-      };
-      if (typeof window !== "undefined") {
-        try {
-          const raw = window.localStorage.getItem("precalificaciones_mock");
-          const parsed = raw ? (JSON.parse(raw) as unknown[]) : [];
-          const without: unknown[] = parsed.filter((p) => {
-            if (!p || typeof p !== "object") return true;
-            const obj = p as Record<string, unknown>;
-            return String(obj.id) !== id;
-          });
-          without.push(precal);
-          window.localStorage.setItem(
-            "precalificaciones_mock",
-            JSON.stringify(without)
-          );
-          console.log("[diag precal creada]", precal);
-        } catch (err) {
-          console.error(
-            "[asesor/nueva] error guardando precalificaciones_mock:",
-            err
-          );
-        }
-      }
-      router.push(`/asesor`);
+      validateCreatePrecalificacion(input);
     } catch (err) {
-      console.error("[asesor/nueva] error al crear precalificacion mock:", err);
-      alert(
-        err instanceof Error
-          ? err.message
-          : "Error al crear la precalificación (mock)."
+      setErrorMsg(
+        err instanceof Error ? err.message : "Revisa los datos del formulario.",
       );
+      return;
+    }
+
+    setSubmitting(true);
+    try {
+      const created = await expedientesRepo.createExpediente(input);
+      if (dataSupabase) {
+        setSuccessMsg(
+          `Expediente creado correctamente (ID ${created.id.slice(0, 8)}…). ` +
+            "Aún no aparecerá en tu bandeja hasta P3B.2; un administrador puede verlo en /admin.",
+        );
+        window.setTimeout(() => router.push("/asesor"), 1800);
+      } else {
+        router.push("/asesor");
+      }
+    } catch (err) {
+      if (err instanceof ExpedientesSupabaseError) {
+        setErrorMsg(err.message);
+      } else if (err instanceof Error) {
+        setErrorMsg(err.message);
+      } else {
+        setErrorMsg("Error al crear la precalificación.");
+      }
+    } finally {
+      setSubmitting(false);
     }
   }
 
@@ -124,6 +132,27 @@ export default function NuevaPrecalificacionPage() {
           <h2 className="mb-4 text-lg font-medium text-gray-900 sm:mb-6">
             Datos de precalificación
           </h2>
+          {dataSupabase ? (
+            <p className="mb-4 text-sm text-gray-600">
+              Los datos se guardarán en Supabase (expediente real).
+            </p>
+          ) : null}
+          {errorMsg ? (
+            <p
+              role="alert"
+              className="mb-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+            >
+              {errorMsg}
+            </p>
+          ) : null}
+          {successMsg ? (
+            <p
+              role="status"
+              className="mb-4 rounded-md border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800"
+            >
+              {successMsg}
+            </p>
+          ) : null}
           <div className="flex flex-col gap-4">
             <Select
               name="programa"
@@ -168,9 +197,10 @@ export default function NuevaPrecalificacionPage() {
             <Button
               type="submit"
               variant="primary"
+              disabled={submitting}
               className="min-h-[44px] w-full touch-manipulation sm:min-h-0 sm:w-auto"
             >
-              Enviar
+              {submitting ? "Guardando…" : "Enviar"}
             </Button>
             <Link href="/asesor" className="w-full sm:w-auto">
               <Button

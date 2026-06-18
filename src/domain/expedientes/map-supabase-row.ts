@@ -5,6 +5,7 @@ import {
   type ExpedienteMock,
   type OperativoSubestado,
 } from "./mock.repo";
+import { mapProgramaDbToUi } from "./map-programa";
 
 /** Fila anidada de `editor_decisions` (1:1; Supabase puede devolver objeto o array). */
 export type SupabaseEditorDecisionEmbed = Readonly<{
@@ -42,16 +43,25 @@ export type SupabaseExpedienteListRow = Readonly<{
   asesor?: SupabaseAsesorProfileEmbed | SupabaseAsesorProfileEmbed[] | null;
 }>;
 
-const PROGRAMA_DB_TO_UI: Readonly<Record<string, string>> = {
-  mejoravit: "Mejoravit",
-  subcuenta: "Subcuenta",
-  compro_tu_casa: "Compro tu casa",
-};
+export { mapProgramaDbToUi } from "./map-programa";
 
-export function mapProgramaDbToUi(programa: string): string {
-  const key = programa.trim().toLowerCase();
-  return PROGRAMA_DB_TO_UI[key] ?? programa;
-}
+/** Respuesta JSON de RPC `create_expediente`. */
+export type CreateExpedienteRpcResponse = Readonly<{
+  id?: string;
+  organization_id?: string;
+  asesor_id?: string;
+  origen_mesa?: string | null;
+  programa?: string;
+  nss?: string;
+  cliente_nombre?: string;
+  telefono_cliente?: string;
+  direccion_opcional?: string | null;
+  etapa_actual?: number | null;
+  subestado?: string | null;
+  ciclo_estado?: string | null;
+  submitted_to_mesa?: boolean | null;
+  created_at?: string | null;
+}>;
 
 function normalizeEditorDecision(value: unknown): EditorDecision {
   if (value === "aprobado" || value === "no_cumple" || value === "pendiente") {
@@ -147,6 +157,46 @@ export function mapSupabaseRowToExpedienteMock(
       comentarioRechazo: textOrNull(row.comentario_rechazo),
       fechaCita: textOrNull(row.fecha_cita),
       updatedAt: textOrNull(row.updated_at),
+      submittedToMesa,
+    },
+  };
+}
+
+/** Mapea respuesta RPC `create_expediente` → `ExpedienteMock` (P3C). */
+export function mapCreateExpedienteRpcToExpedienteMock(
+  row: CreateExpedienteRpcResponse,
+  asesorEmailFallback = "",
+): ExpedienteMock {
+  const subestado = normalizeSubestado(row.subestado ?? "pendiente");
+  const etapaPersistida =
+    typeof row.etapa_actual === "number" ? row.etapa_actual : 1;
+  const submittedToMesa = Boolean(row.submitted_to_mesa);
+  const origenMesa = normalizeOrigenMesa(row.origen_mesa);
+
+  return {
+    id: row.id ?? "",
+    base: {
+      programa: mapProgramaDbToUi(row.programa ?? ""),
+      nss: row.nss ?? "",
+      cliente_nombre: row.cliente_nombre ?? "",
+      telefono_cliente: row.telefono_cliente ?? "",
+      direccion_opcional: row.direccion_opcional?.trim() ?? "",
+      asesorId: asesorEmailFallback.trim() || row.asesor_id?.trim() || "",
+      createdAt: isoOrNow(row.created_at),
+      origenMesa,
+    },
+    editorDecision: {
+      decision: "pendiente",
+      monto_aprobado: null,
+      notas_revision: "",
+    },
+    operativo: {
+      etapaActual: etapaActualParaOperativo(etapaPersistida, subestado),
+      subestado,
+      motivoRechazo: null,
+      comentarioRechazo: null,
+      fechaCita: null,
+      updatedAt: null,
       submittedToMesa,
     },
   };

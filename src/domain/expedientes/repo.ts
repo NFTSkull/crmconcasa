@@ -1,6 +1,8 @@
+import type { CreateExpedienteInput } from "./create-expediente.input";
 import type { ExpedienteMock } from "./mock.repo";
 
-/** Contrato mínimo P3B.1 — lectura admin; se extiende en fases posteriores. */
+/** Contrato expedientes — lectura admin (P3B) + creación asesor (P3C). */
 export interface ExpedientesRepo {
   listForAdmin(): Promise<ExpedienteMock[]>;
+  createExpediente(input: CreateExpedienteInput): Promise<ExpedienteMock>;
 }

@@ -40,5 +40,6 @@ run_sql_test "supabase/tests/rpc_book_firmas.sql"
 run_sql_test "supabase/tests/rpc_firmas_cancel_reagendar.sql"
 run_sql_test "supabase/tests/rpc_avanzar_etapa_9_10.sql"
 run_sql_test "supabase/tests/backfill_agenda_config_firmas.sql"
+run_sql_test "supabase/tests/rpc_create_expediente.sql"
 
 echo "SQL tests: ALL PASSED"

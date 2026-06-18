@@ -2,9 +2,13 @@
 
 import { isSupabaseConfigured, supabaseBrowser } from "@/lib/supabaseBrowser";
 import type { ExpedientesRepo } from "./repo";
+import type { CreateExpedienteInput } from "./create-expediente.input";
 import type { ExpedienteMock } from "./mock.repo";
+import { mapProgramaUiToDb } from "./map-programa";
 import {
+  mapCreateExpedienteRpcToExpedienteMock,
   mapSupabaseRowToExpedienteMock,
+  type CreateExpedienteRpcResponse,
   type SupabaseExpedienteListRow,
 } from "./map-supabase-row";
 
@@ -37,9 +41,51 @@ export class ExpedientesSupabaseError extends Error {
   }
 }
 
+function mapCreateExpedienteRpcError(error: {
+  code?: string;
+  message?: string;
+  details?: string;
+}): ExpedientesSupabaseError {
+  const msg = `${error.message ?? ""} ${error.details ?? ""}`.toLowerCase();
+
+  if (
+    error.code === "23505" ||
+    msg.includes("mismo nss y programa") ||
+    msg.includes("expedientes_nss_programa_activo_unique")
+  ) {
+    return new ExpedientesSupabaseError(
+      "Ya existe un expediente activo con el mismo NSS y programa.",
+    );
+  }
+
+  if (error.code === "42501" || msg.includes("rol no autorizado") || msg.includes("no autenticado")) {
+    return new ExpedientesSupabaseError(
+      "No tienes permiso para crear expedientes. Inicia sesión como asesor activo.",
+    );
+  }
+
+  if (msg.includes("nss debe tener exactamente 11")) {
+    return new ExpedientesSupabaseError("El NSS (IMSS) debe tener exactamente 11 dígitos.");
+  }
+
+  if (msg.includes("teléfono debe tener exactamente 10")) {
+    return new ExpedientesSupabaseError(
+      "El teléfono del cliente debe tener exactamente 10 dígitos (México).",
+    );
+  }
+
+  if (msg.includes("nombre del cliente es obligatorio")) {
+    return new ExpedientesSupabaseError("El nombre del cliente es requerido.");
+  }
+
+  return new ExpedientesSupabaseError(
+    "No se pudo crear el expediente. Intenta de nuevo más tarde.",
+  );
+}
+
 /**
  * Lectura admin vía RLS (JWT del usuario autenticado).
- * P3B.1: solo `listForAdmin()`.
+ * P3B.1: `listForAdmin()`; P3C: `createExpediente()` vía RPC.
  */
 export class SupabaseExpedientesRepo implements ExpedientesRepo {
   async listForAdmin(): Promise<ExpedienteMock[]> {
@@ -79,6 +125,49 @@ export class SupabaseExpedientesRepo implements ExpedientesRepo {
 
     return data.map((row) =>
       mapSupabaseRowToExpedienteMock(row as SupabaseExpedienteListRow),
+    );
+  }
+
+  async createExpediente(input: CreateExpedienteInput): Promise<ExpedienteMock> {
+    if (!isSupabaseConfigured() || !supabaseBrowser) {
+      throw new ExpedientesSupabaseError(
+        "Supabase no está configurado. Revisa NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY.",
+      );
+    }
+
+    const client = supabaseBrowser;
+    const {
+      data: { session },
+      error: sessionError,
+    } = await client.auth.getSession();
+
+    if (sessionError || !session?.user) {
+      throw new ExpedientesSupabaseError(
+        "No hay sesión de Supabase activa. Inicia sesión de nuevo.",
+      );
+    }
+
+    const { data, error } = await client.rpc("create_expediente", {
+      p_programa: mapProgramaUiToDb(input.programa),
+      p_nss: input.nss.trim(),
+      p_cliente_nombre: input.cliente_nombre.trim(),
+      p_telefono_cliente: input.telefono_cliente.trim(),
+      p_direccion_opcional: input.direccion_opcional.trim(),
+    });
+
+    if (error) {
+      throw mapCreateExpedienteRpcError(error);
+    }
+
+    if (!data || typeof data !== "object") {
+      throw new ExpedientesSupabaseError(
+        "No se pudo crear el expediente. Respuesta vacía del servidor.",
+      );
+    }
+
+    return mapCreateExpedienteRpcToExpedienteMock(
+      data as CreateExpedienteRpcResponse,
+      input.asesorEmail,
     );
   }
 }

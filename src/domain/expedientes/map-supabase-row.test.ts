@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  mapCreateExpedienteRpcToExpedienteMock,
   mapProgramaDbToUi,
   mapSupabaseRowToExpedienteMock,
 } from "@/domain/expedientes/map-supabase-row";
@@ -79,4 +80,32 @@ test("mapSupabaseRowToExpedienteMock: en_validacion_mesa conserva etapa 1", () =
   });
   assert.equal(mock.operativo.etapaActual, 1);
   assert.equal(mock.operativo.subestado, "en_validacion_mesa");
+});
+
+test("mapCreateExpedienteRpcToExpedienteMock: respuesta RPC create", () => {
+  const mock = mapCreateExpedienteRpcToExpedienteMock(
+    {
+      id: "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee",
+      programa: "mejoravit",
+      nss: "88000000001",
+      cliente_nombre: "Nuevo Cliente",
+      telefono_cliente: "5512345678",
+      direccion_opcional: "Calle 1",
+      origen_mesa: "interno",
+      etapa_actual: 1,
+      subestado: "pendiente",
+      submitted_to_mesa: false,
+      created_at: "2026-06-15T10:00:00.000Z",
+    },
+    "asesor@concasa.mx",
+  );
+
+  assert.equal(mock.id, "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
+  assert.equal(mock.base.programa, "Mejoravit");
+  assert.equal(mock.base.asesorId, "asesor@concasa.mx");
+  assert.equal(mock.editorDecision.decision, "pendiente");
+  assert.equal(mock.operativo.etapaActual, 1);
+  assert.equal(mock.operativo.subestado, "pendiente");
+  assert.equal(mock.operativo.submittedToMesa, false);
+  assert.equal(mock.base.origenMesa, "interno");
 });
