@@ -172,6 +172,7 @@ const DAY_PAGE_SIZE = 20;
 export default function AdminDashboardPage() {
   const { sessionRepo, currentUser } = useSessionRepo();
   const repo = useExpedientesRepo();
+  const dataSupabase = isDataModeSupabase();
   const [expedientesMock, setExpedientesMock] = useState<ExpedienteMock[]>([]);
   const [listError, setListError] = useState<string | null>(null);
   const [buscar, setBuscar] = useState("");
@@ -337,7 +338,7 @@ export default function AdminDashboardPage() {
       <header className="border-b border-gray-200 bg-white px-4 py-3">
         <div className="mx-auto flex max-w-6xl items-center justify-between">
           <h1 className="text-lg font-semibold text-gray-900">
-            ConCasa CRM · Administración (mock)
+            ConCasa CRM · Administración{dataSupabase ? "" : " (mock)"}
           </h1>
           <div className="flex items-center gap-3">
             <span className="text-sm text-gray-500">{currentUser.email}</span>
@@ -368,8 +369,9 @@ export default function AdminDashboardPage() {
               Resumen operativo (vista global)
             </h2>
             <p className="mt-0.5 text-xs text-gray-500">
-              KPIs y funnel calculados sobre todos los expedientes mock cargados; el listado inferior
-              sigue respetando filtros.
+              {dataSupabase
+                ? "KPIs y funnel calculados sobre expedientes cargados desde Supabase; el listado inferior sigue respetando filtros."
+                : "KPIs y funnel calculados sobre todos los expedientes mock cargados; el listado inferior sigue respetando filtros."}
             </p>
           </div>
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-8">
@@ -489,11 +491,14 @@ export default function AdminDashboardPage() {
         <section className="space-y-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm sm:p-5">
           <div>
             <h2 className="text-sm font-semibold text-gray-900">
-              Métricas por asesor (mock)
+              Métricas por asesor{dataSupabase ? "" : " (mock)"}
             </h2>
             <p className="mt-0.5 text-xs text-gray-500">
               Agrupación por <span className="font-mono text-[11px]">base.asesorId</span> sobre los
-              mismos expedientes mock. Biométricos y firma solo cuentan si hay envío a mesa y etapa
+              {dataSupabase
+                ? " mismos expedientes cargados desde Supabase."
+                : " mismos expedientes mock."}{" "}
+              Biométricos y firma solo cuentan si hay envío a mesa y etapa
               3–5 o 9–10. Conversión = firmados (etapa ≥ 11) ÷ enviados a mesa; si no hubo envíos a
               mesa se muestra “—”.
             </p>
@@ -535,7 +540,7 @@ export default function AdminDashboardPage() {
                 {metricsByAsesor.length === 0 ? (
                   <tr>
                     <td colSpan={9} className="px-2 py-4 text-center text-gray-500">
-                      Sin expedientes mock.
+                      {dataSupabase ? "Sin expedientes." : "Sin expedientes mock."}
                     </td>
                   </tr>
                 ) : (
@@ -906,7 +911,7 @@ export default function AdminDashboardPage() {
         <section className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
           <div className="border-b border-gray-100 px-4 py-3">
             <h2 className="text-sm font-semibold text-gray-900">
-              Todas las precalificaciones{isDataModeSupabase() ? "" : " (mock)"}
+              Todas las precalificaciones{dataSupabase ? "" : " (mock)"}
             </h2>
             <p className="mt-1 text-xs text-gray-500">
               Total: {filteredList.length} · Página {page} de {totalPages}
@@ -1087,7 +1092,7 @@ export default function AdminDashboardPage() {
                     <td className="whitespace-nowrap px-3 py-2 space-x-2">
                       <Link href={`/admin/${p.id}`}>
                         <Button variant="outline" className="text-xs">
-                          Abrir admin mock
+                          {dataSupabase ? "Abrir detalle" : "Abrir admin mock"}
                         </Button>
                       </Link>
                       {p.etapaActual != null && (
