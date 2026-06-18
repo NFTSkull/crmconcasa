@@ -2,6 +2,8 @@
 
 ## 2026-06-15
 
+- **P3B.2 — Bandeja `/asesor` read-only Supabase:** `ExpedientesRepo.listForAsesor()`; `SupabaseExpedientesRepo` con RLS + filtro `asesor_id`; `/asesor` usa `useExpedientesRepo()`; errores visibles; mock intacto.
+
 - **P3C — Crear expediente real desde `/asesor/nueva`:** RPC `create_expediente` (migración 025); `ExpedientesRepo.createExpediente()`; mock `localStorage` intacto; validación con reglas existentes; sin `listForAsesor` Supabase (P3B.2).
 
 - **P3B.1 — Admin listado read-only Supabase:** `NEXT_PUBLIC_DATA_MODE=supabase` + factory `ExpedientesRepo`; `SupabaseExpedientesRepo.listForAdmin()` con RLS; mapper `expedientes`+`editor_decisions`+asesor → `ExpedienteMock`; mock sigue default.

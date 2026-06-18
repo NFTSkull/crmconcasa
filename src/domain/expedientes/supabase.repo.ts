@@ -1,5 +1,6 @@
 "use client";
 
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { isSupabaseConfigured, supabaseBrowser } from "@/lib/supabaseBrowser";
 import type { ExpedientesRepo } from "./repo";
 import type { CreateExpedienteInput } from "./create-expediente.input";
@@ -12,7 +13,7 @@ import {
   type SupabaseExpedienteListRow,
 } from "./map-supabase-row";
 
-const ADMIN_LIST_SELECT = `
+const EXPEDIENTES_LIST_SELECT = `
   id,
   programa,
   nss,
@@ -83,69 +84,78 @@ function mapCreateExpedienteRpcError(error: {
   );
 }
 
-/**
- * Lectura admin vía RLS (JWT del usuario autenticado).
- * P3B.1: `listForAdmin()`; P3C: `createExpediente()` vía RPC.
- */
-export class SupabaseExpedientesRepo implements ExpedientesRepo {
-  async listForAdmin(): Promise<ExpedienteMock[]> {
-    if (!isSupabaseConfigured() || !supabaseBrowser) {
-      throw new ExpedientesSupabaseError(
-        "Supabase no está configurado. Revisa NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY.",
-      );
-    }
-
-    const client = supabaseBrowser;
-    const {
-      data: { session },
-      error: sessionError,
-    } = await client.auth.getSession();
-
-    if (sessionError || !session?.user) {
-      throw new ExpedientesSupabaseError(
-        "No hay sesión de Supabase activa. Inicia sesión de nuevo.",
-      );
-    }
-
-    const { data, error } = await client
-      .from("expedientes")
-      .select(ADMIN_LIST_SELECT)
-      .is("deleted_at", null)
-      .order("created_at", { ascending: false });
-
-    if (error) {
-      throw new ExpedientesSupabaseError(
-        "No se pudo cargar el listado de expedientes. Intenta de nuevo más tarde.",
-      );
-    }
-
-    if (!data || data.length === 0) {
-      return [];
-    }
-
-    return data.map((row) =>
-      mapSupabaseRowToExpedienteMock(row as SupabaseExpedienteListRow),
+async function requireSupabaseSession(): Promise<{
+  client: SupabaseClient;
+  userId: string;
+}> {
+  if (!isSupabaseConfigured() || !supabaseBrowser) {
+    throw new ExpedientesSupabaseError(
+      "Supabase no está configurado. Revisa NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY.",
     );
   }
 
+  const client = supabaseBrowser;
+  const {
+    data: { session },
+    error: sessionError,
+  } = await client.auth.getSession();
+
+  if (sessionError || !session?.user) {
+    throw new ExpedientesSupabaseError(
+      "No hay sesión de Supabase activa. Inicia sesión de nuevo.",
+    );
+  }
+
+  return { client, userId: session.user.id };
+}
+
+async function fetchExpedientesList(options?: {
+  restrictToAsesor?: boolean;
+}): Promise<ExpedienteMock[]> {
+  const { client, userId } = await requireSupabaseSession();
+
+  let query = client
+    .from("expedientes")
+    .select(EXPEDIENTES_LIST_SELECT)
+    .is("deleted_at", null);
+
+  if (options?.restrictToAsesor) {
+    query = query.eq("asesor_id", userId);
+  }
+
+  const { data, error } = await query.order("created_at", { ascending: false });
+
+  if (error) {
+    throw new ExpedientesSupabaseError(
+      "No se pudo cargar el listado de expedientes. Intenta de nuevo más tarde.",
+    );
+  }
+
+  if (!data || data.length === 0) {
+    return [];
+  }
+
+  return data.map((row) =>
+    mapSupabaseRowToExpedienteMock(row as SupabaseExpedienteListRow),
+  );
+}
+
+/**
+ * Lectura vía RLS (JWT del usuario autenticado).
+ * P3B.1: `listForAdmin()`; P3B.2: `listForAsesor()`; P3C: `createExpediente()` vía RPC.
+ */
+export class SupabaseExpedientesRepo implements ExpedientesRepo {
+  async listForAdmin(): Promise<ExpedienteMock[]> {
+    return fetchExpedientesList();
+  }
+
+  async listForAsesor(_asesorEmail: string): Promise<ExpedienteMock[]> {
+    void _asesorEmail;
+    return fetchExpedientesList({ restrictToAsesor: true });
+  }
+
   async createExpediente(input: CreateExpedienteInput): Promise<ExpedienteMock> {
-    if (!isSupabaseConfigured() || !supabaseBrowser) {
-      throw new ExpedientesSupabaseError(
-        "Supabase no está configurado. Revisa NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY.",
-      );
-    }
-
-    const client = supabaseBrowser;
-    const {
-      data: { session },
-      error: sessionError,
-    } = await client.auth.getSession();
-
-    if (sessionError || !session?.user) {
-      throw new ExpedientesSupabaseError(
-        "No hay sesión de Supabase activa. Inicia sesión de nuevo.",
-      );
-    }
+    const { client } = await requireSupabaseSession();
 
     const { data, error } = await client.rpc("create_expediente", {
       p_programa: mapProgramaUiToDb(input.programa),

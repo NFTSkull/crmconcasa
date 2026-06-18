@@ -1,5 +1,18 @@
 # Devlog
 
+## 2026-06-15 - P3B.2: bandeja `/asesor` read-only Supabase
+
+### Decisión
+
+- `listForAsesor(asesorEmail)` en contrato; mock filtra por email; Supabase usa JWT (`session.user.id`) + RLS + `.eq('asesor_id', userId)`.
+- Reutiliza SELECT/mapper de P3B.1 (`mapSupabaseRowToExpedienteMock`).
+- `/asesor` migra a `useExpedientesRepo()`; `listError` visible; vacío Supabase: "Aún no tienes expedientes."
+- Filtros/KPIs client-side sin cambios; documentación/detalle siguen mock.
+
+### Archivos
+
+- `src/domain/expedientes/repo.ts`, `supabase.repo.ts`, `src/app/asesor/page.tsx`
+
 ## 2026-06-15 - P3C: crear expediente real desde `/asesor/nueva`
 
 ### Decisión

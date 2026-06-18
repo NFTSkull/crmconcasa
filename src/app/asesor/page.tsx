@@ -7,11 +7,15 @@ import { useSessionRepo } from "@/domain/session";
 import { Button } from "@/components/ui/Button";
 import { formatDateTimeMx } from "@/lib/filters";
 import {
-  MockExpedientesRepo,
+  ExpedientesSupabaseError,
+  useExpedientesRepo,
   type ExpedienteMock,
+} from "@/domain/expedientes";
+import {
   deriveResultadoRealExpediente,
   type ResultadoRealExpediente,
 } from "@/domain/expedientes/mock.repo";
+import { isDataModeSupabase } from "@/lib/dataMode";
 import {
   deriveEstadoDocumentacionColumnaAsesor,
   deriveResumenDocumental,
@@ -164,11 +168,13 @@ export default function AsesorDashboardPage() {
   const [filters, setFilters] = useState<AsesorFiltersState>(INITIAL_FILTERS);
   const [quickFilter, setQuickFilter] = useState<QuickFilterAsesor>("todos");
   const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false);
-  const repo = useMemo(() => new MockExpedientesRepo(), []);
+  const repo = useExpedientesRepo();
+  const dataSupabase = isDataModeSupabase();
   const archivosRepo = useMemo(() => new MockExpedienteArchivosIndexedDbRepo(), []);
   const [mockPrecalList, setMockPrecalList] = useState<
     PrecalificacionMockLocal[]
   >([]);
+  const [listError, setListError] = useState<string | null>(null);
   const [resumenArchivosPorId, setResumenArchivosPorId] = useState<
     Record<string, ExpedienteArchivoResumen[] | undefined>
   >({});
@@ -237,12 +243,18 @@ export default function AsesorDashboardPage() {
       .then((list) => {
         const mapped = list.map(mapExpedienteToLegacy);
         setMockPrecalList(mapped);
+        setListError(null);
         expedienteIdsRef.current = mapped.map((p) => p.id);
         void fetchResumenArchivosPorIds(mapped.map((p) => p.id));
       })
-      .catch(() => {
+      .catch((err) => {
         setMockPrecalList([]);
         expedienteIdsRef.current = [];
+        if (err instanceof ExpedientesSupabaseError) {
+          setListError(err.message);
+        } else {
+          setListError("No se pudo cargar el listado de expedientes.");
+        }
       });
   }, [currentUser, repo, mapExpedienteToLegacy, fetchResumenArchivosPorIds]);
 
@@ -451,6 +463,11 @@ export default function AsesorDashboardPage() {
             Mis expedientes
           </h2>
         </div>
+        {listError ? (
+          <p role="alert" className="text-sm text-red-600">
+            {listError}
+          </p>
+        ) : null}
 
         {/* KPIs principales (4); aprobadosEditor, noCumple, correccionEnviada siguen en objeto `kpis` */}
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
@@ -743,7 +760,9 @@ export default function AsesorDashboardPage() {
               <div className="px-4 py-6 text-center">
                 <p className="text-xs text-gray-500 sm:text-sm">
                   {mockPrecalList.length === 0
-                    ? "Aún no hay precalificaciones guardadas para este asesor."
+                    ? dataSupabase
+                      ? "Aún no tienes expedientes."
+                      : "Aún no hay precalificaciones guardadas para este asesor."
                     : "No hay resultados con los filtros aplicados. Pruebe otros criterios o limpie los filtros."}
                 </p>
               </div>
