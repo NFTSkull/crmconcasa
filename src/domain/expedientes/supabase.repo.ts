@@ -140,9 +140,33 @@ async function fetchExpedientesList(options?: {
   );
 }
 
+async function fetchExpedienteById(id: string): Promise<ExpedienteMock | null> {
+  const idNorm = String(id).trim();
+  if (!idNorm) return null;
+
+  const { client } = await requireSupabaseSession();
+
+  const { data, error } = await client
+    .from("expedientes")
+    .select(EXPEDIENTES_LIST_SELECT)
+    .eq("id", idNorm)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (error) {
+    throw new ExpedientesSupabaseError(
+      "No se pudo cargar el expediente. Intenta de nuevo más tarde.",
+    );
+  }
+
+  if (!data) return null;
+
+  return mapSupabaseRowToExpedienteMock(data as SupabaseExpedienteListRow);
+}
+
 /**
  * Lectura vía RLS (JWT del usuario autenticado).
- * P3B.1: `listForAdmin()`; P3B.2: `listForAsesor()`; P3C: `createExpediente()` vía RPC.
+ * P3B.1: `listForAdmin()`; P3B.2: `listForAsesor()`; P3C: `createExpediente()`; P3D: `getById()`.
  */
 export class SupabaseExpedientesRepo implements ExpedientesRepo {
   async listForAdmin(): Promise<ExpedienteMock[]> {
@@ -152,6 +176,10 @@ export class SupabaseExpedientesRepo implements ExpedientesRepo {
   async listForAsesor(_asesorEmail: string): Promise<ExpedienteMock[]> {
     void _asesorEmail;
     return fetchExpedientesList({ restrictToAsesor: true });
+  }
+
+  async getById(id: string): Promise<ExpedienteMock | null> {
+    return fetchExpedienteById(id);
   }
 
   async createExpediente(input: CreateExpedienteInput): Promise<ExpedienteMock> {

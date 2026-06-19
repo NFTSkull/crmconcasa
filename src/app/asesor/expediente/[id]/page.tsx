@@ -10,10 +10,16 @@ import { AgendaFirmasAsesorCard } from "@/components/asesor/AgendaFirmasAsesorCa
 import { Button } from "@/components/ui/Button";
 import { SeguimientoOperativoMock } from "@/components/seguimiento/SeguimientoOperativoMock";
 import {
+  ExpedientesSupabaseError,
+  useExpedientesRepo,
+  type ExpedienteMock,
+} from "@/domain/expedientes";
+import {
   asesorPuedeIntegrarTrasMontoRevisor,
   MockExpedientesRepo,
-  type ExpedienteMock,
 } from "@/domain/expedientes/mock.repo";
+import { isDataModeSupabase } from "@/lib/dataMode";
+import { subestadoOperativoLabel } from "@/lib/subestadoOperativoUi";
 import {
   DOCUMENTO_CATALOGO_MAP,
   filterChecklistDocumentoItemsPorOwnerRole,
@@ -76,6 +82,15 @@ type EstadoEtapa =
 const MSJ_ESPERA_MONTO_REVISOR =
   "Debes esperar a que el editor apruebe un monto antes de capturar datos, subir documentos o enviar a mesa.";
 
+const MSJ_READONLY_SUPABASE =
+  "Vista read-only desde Supabase. Integración, documentos, datos extendidos y agenda se conectarán en fases posteriores.";
+
+function editorDecisionLabel(decision?: string | null): string {
+  if (decision === "aprobado") return "Aprobado";
+  if (decision === "no_cumple") return "No cumple";
+  return "Pendiente";
+}
+
 function formatDateTime(iso: string): string {
   try {
     const d = new Date(iso);
@@ -89,7 +104,9 @@ function formatDateTime(iso: string): string {
 export default function AsesorExpedientePage() {
   const { id } = useParams<{ id: string }>();
   const { currentUser } = useSessionRepo();
-  const repo = useMemo(() => new MockExpedientesRepo(), []);
+  const repo = useExpedientesRepo();
+  const mockRepo = useMemo(() => new MockExpedientesRepo(), []);
+  const dataSupabase = isDataModeSupabase();
   const clienteDatosRepo = useMemo(
     () => new MockExpedienteClienteDatosLocalStorageRepo(),
     [],
@@ -119,6 +136,7 @@ export default function AsesorExpedientePage() {
   const [editorDecision, setEditorDecision] = useState<
     ExpedienteMock["editorDecision"] | null
   >(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
 
   const puedeIntegrar = useMemo(
     () =>
@@ -131,33 +149,46 @@ export default function AsesorExpedientePage() {
     operativo?.subestado ? (operativo.subestado as EstadoEtapa) : undefined;
 
   const loadExpediente = useCallback(async () => {
-    const exp = await repo.getById(id);
-    if (!exp) {
+    try {
+      const exp = await repo.getById(id);
+      if (!exp) {
+        setPrecal(null);
+        setOperativo(null);
+        setEditorDecision(null);
+        setLoadError(null);
+        return;
+      }
+      setLoadError(null);
+      setEditorDecision(exp.editorDecision);
+      setPrecal({
+        id: exp.id,
+        programa: exp.base.programa,
+        nss: exp.base.nss,
+        cliente_nombre: exp.base.cliente_nombre,
+        telefono_cliente: exp.base.telefono_cliente,
+        direccion_opcional: exp.base.direccion_opcional,
+        asesorId: exp.base.asesorId,
+        createdAt: exp.base.createdAt,
+      });
+      setOperativo({
+        etapaActual: exp.operativo.etapaActual,
+        subestado: exp.operativo.subestado,
+        fechaCita: exp.operativo.fechaCita,
+        updatedAt: exp.operativo.updatedAt,
+        motivoRechazo: exp.operativo.motivoRechazo,
+        comentarioRechazo: exp.operativo.comentarioRechazo,
+        submittedToMesa: exp.operativo.submittedToMesa,
+      });
+    } catch (err) {
       setPrecal(null);
       setOperativo(null);
       setEditorDecision(null);
-      return;
+      if (err instanceof ExpedientesSupabaseError) {
+        setLoadError(err.message);
+      } else {
+        setLoadError("No se pudo cargar el expediente.");
+      }
     }
-    setEditorDecision(exp.editorDecision);
-    setPrecal({
-      id: exp.id,
-      programa: exp.base.programa,
-      nss: exp.base.nss,
-      cliente_nombre: exp.base.cliente_nombre,
-      telefono_cliente: exp.base.telefono_cliente,
-      direccion_opcional: exp.base.direccion_opcional,
-      asesorId: exp.base.asesorId,
-      createdAt: exp.base.createdAt,
-    });
-    setOperativo({
-      etapaActual: exp.operativo.etapaActual,
-      subestado: exp.operativo.subestado,
-      fechaCita: exp.operativo.fechaCita,
-      updatedAt: exp.operativo.updatedAt,
-      motivoRechazo: exp.operativo.motivoRechazo,
-      comentarioRechazo: exp.operativo.comentarioRechazo,
-      submittedToMesa: exp.operativo.submittedToMesa,
-    });
   }, [id, repo]);
 
   useEffect(() => {
@@ -167,8 +198,7 @@ export default function AsesorExpedientePage() {
   }, [loadExpediente]);
 
   useEffect(() => {
-    if (!precal?.id) return;
-    // En asesor, el guard de envío valida contra etapa 1 (Integración).
+    if (dataSupabase || !precal?.id) return;
     let cancelled = false;
     const refresh = () => {
       void getChecklistDocumentos(String(precal.id), 1, {
@@ -207,10 +237,10 @@ export default function AsesorExpedientePage() {
         handler as EventListener,
       );
     };
-  }, [precal?.id]);
+  }, [dataSupabase, precal?.id]);
 
   useEffect(() => {
-    if (!precal?.id) return;
+    if (dataSupabase || !precal?.id) return;
     let cancelled = false;
 
     const load = () => {
@@ -276,7 +306,7 @@ export default function AsesorExpedientePage() {
         handler as EventListener,
       );
     };
-  }, [clienteDatosRepo, precal?.cliente_nombre, precal?.id, precal?.nss, precal?.telefono_cliente]);
+  }, [clienteDatosRepo, dataSupabase, precal?.cliente_nombre, precal?.id, precal?.nss, precal?.telefono_cliente]);
 
   useEffect(() => {
     const handler = (e: StorageEvent) => {
@@ -387,7 +417,10 @@ export default function AsesorExpedientePage() {
         </header>
         <main className="mx-auto max-w-6xl space-y-6 px-4 py-8">
           <p className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm font-medium text-red-800">
-            Expediente no encontrado.
+            {loadError ??
+              (dataSupabase
+                ? "Expediente no encontrado o no tienes permiso para verlo."
+                : "Expediente no encontrado.")}
           </p>
           <Link href="/asesor" className="mt-4 inline-block">
             <Button variant="secondary">Volver al dashboard</Button>
@@ -452,6 +485,69 @@ export default function AsesorExpedientePage() {
           </p>
         </div>
 
+        {loadError ? (
+          <p
+            role="alert"
+            className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+          >
+            {loadError}
+          </p>
+        ) : null}
+
+        {dataSupabase ? (
+          <>
+            <div
+              role="status"
+              className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-950"
+            >
+              {MSJ_READONLY_SUPABASE}
+            </div>
+            <div className="rounded-lg border border-gray-200 bg-white p-4 text-sm text-gray-600">
+              <p className="text-sm font-semibold text-gray-900">
+                Estado del expediente
+              </p>
+              <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                <p>
+                  <span className="font-medium text-gray-900">Decisión editor:</span>{" "}
+                  {editorDecisionLabel(editorDecision?.decision)}
+                </p>
+                <p>
+                  <span className="font-medium text-gray-900">Monto aprobado:</span>{" "}
+                  {editorDecision?.decision === "aprobado" &&
+                  typeof editorDecision.monto_aprobado === "number"
+                    ? `$${editorDecision.monto_aprobado.toLocaleString("es-MX")}`
+                    : "—"}
+                </p>
+                <p className="sm:col-span-2">
+                  <span className="font-medium text-gray-900">Notas revisión:</span>{" "}
+                  {editorDecision?.notas_revision?.trim() || "—"}
+                </p>
+                <p>
+                  <span className="font-medium text-gray-900">Etapa:</span>{" "}
+                  {operativo?.etapaActual != null ? operativo.etapaActual : "—"}
+                </p>
+                <p>
+                  <span className="font-medium text-gray-900">Subestado:</span>{" "}
+                  {subestadoOperativoLabel(operativo?.subestado)}
+                </p>
+                <p>
+                  <span className="font-medium text-gray-900">Enviado a mesa:</span>{" "}
+                  {operativo?.submittedToMesa ? "Sí" : "No"}
+                </p>
+                <p>
+                  <span className="font-medium text-gray-900">Fecha cita:</span>{" "}
+                  {operativo?.fechaCita ? formatDateTime(operativo.fechaCita) : "—"}
+                </p>
+                {operativo?.updatedAt ? (
+                  <p className="sm:col-span-2">
+                    <span className="font-medium text-gray-900">Última actualización:</span>{" "}
+                    {formatDateTime(operativo.updatedAt)}
+                  </p>
+                ) : null}
+              </div>
+            </div>
+          </>
+        ) : (
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(260px,300px)] lg:items-start">
           <div className="space-y-6">
             {!puedeIntegrar ? (
@@ -831,7 +927,7 @@ export default function AsesorExpedientePage() {
                 );
                 return false;
               }
-              await repo.enviarAMesa(String(payload.id), {
+              await mockRepo.enviarAMesa(String(payload.id), {
                 cliente_nombre: payload.cliente_nombre,
                 telefono_cliente: payload.telefono_cliente,
                 programa: payload.programa,
@@ -933,7 +1029,7 @@ export default function AsesorExpedientePage() {
                 etapaActual={operativo?.etapaActual ?? null}
                 subestado={operativo?.subestado}
                 fechaCita={operativo?.fechaCita}
-                repo={repo}
+                repo={mockRepo}
                 onUpdated={() => void loadExpediente()}
               />
             ) : null}
@@ -942,11 +1038,12 @@ export default function AsesorExpedientePage() {
               submittedToMesa={operativo?.submittedToMesa ?? false}
               etapaActual={operativo?.etapaActual ?? null}
               fechaCita={operativo?.fechaCita}
-              repo={repo}
+              repo={mockRepo}
               onUpdated={() => void loadExpediente()}
             />
           </aside>
         </div>
+        )}
       </main>
     </div>
   );

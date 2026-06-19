@@ -2,6 +2,8 @@
 
 ## 2026-06-15
 
+- **P3D — Detalle `/asesor/expediente/[id]` read-only Supabase:** `ExpedientesRepo.getById()`; carga real vía RLS; panel estado read-only; secciones mock de integración ocultas en Supabase.
+
 - **P3B.2 — Bandeja `/asesor` read-only Supabase:** `ExpedientesRepo.listForAsesor()`; `SupabaseExpedientesRepo` con RLS + filtro `asesor_id`; `/asesor` usa `useExpedientesRepo()`; errores visibles; mock intacto.
 
 - **P3C — Crear expediente real desde `/asesor/nueva`:** RPC `create_expediente` (migración 025); `ExpedientesRepo.createExpediente()`; mock `localStorage` intacto; validación con reglas existentes; sin `listForAsesor` Supabase (P3B.2).

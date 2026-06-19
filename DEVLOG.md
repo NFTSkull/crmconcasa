@@ -1,5 +1,19 @@
 # Devlog
 
+## 2026-06-15 - P3D: detalle asesor read-only Supabase
+
+### Decisión
+
+- `getById(id)` en contrato; mock sin cambios; Supabase: `.eq('id').maybeSingle()` + mismo SELECT/mapper P3B.
+- RLS decide permiso; 0 filas → `null`; errores → `ExpedientesSupabaseError`.
+- `/asesor/expediente/[id]`: `useExpedientesRepo()`; banner read-only; panel estado (editor + operativo).
+- Modo Supabase oculta SeguimientoOperativoMock, cliente_datos LS, documentos IndexedDB, agenda mock.
+- Mock: página completa intacta.
+
+### Archivos
+
+- `src/domain/expedientes/repo.ts`, `supabase.repo.ts`, `src/app/asesor/expediente/[id]/page.tsx`
+
 ## 2026-06-15 - P3B.2: bandeja `/asesor` read-only Supabase
 
 ### Decisión
