@@ -86,7 +86,10 @@ const MSJ_READONLY_SUPABASE =
   "Integración, documentos, datos extendidos y agenda se conectarán en fases posteriores.";
 
 const MSJ_VALIDACION_ENVIO_MESA_SUPABASE =
-  "La validación final la hace Supabase. Si faltan editor, datos del cliente o documentos reales, el envío será rechazado.";
+  "La validación final la hace Supabase. Si faltan datos del cliente o documentos reales, el envío será rechazado.";
+
+const MSJ_PENDIENTE_EDITOR_ENVIO_MESA =
+  "Pendiente de aprobación del editor y monto aprobado para enviar a Mesa.";
 
 function editorDecisionLabel(decision?: string | null): string {
   if (decision === "aprobado") return "Aprobado";
@@ -204,7 +207,7 @@ export default function AsesorExpedientePage() {
   }, [loadExpediente]);
 
   const handleEnviarAMesaSupabase = useCallback(async () => {
-    if (!precal?.id || enviandoMesa || operativo?.submittedToMesa) return;
+    if (!precal?.id || enviandoMesa || operativo?.submittedToMesa || !puedeIntegrar) return;
 
     const confirmar = window.confirm(
       "¿Confirmas enviar este expediente a Mesa de control? La validación la realiza Supabase.",
@@ -228,7 +231,14 @@ export default function AsesorExpedientePage() {
     } finally {
       setEnviandoMesa(false);
     }
-  }, [enviandoMesa, loadExpediente, operativo?.submittedToMesa, precal?.id, repo]);
+  }, [
+    enviandoMesa,
+    loadExpediente,
+    operativo?.submittedToMesa,
+    puedeIntegrar,
+    precal?.id,
+    repo,
+  ]);
 
   useEffect(() => {
     if (dataSupabase || !precal?.id) return;
@@ -606,11 +616,19 @@ export default function AsesorExpedientePage() {
                   Enviado a Mesa
                 </p>
               ) : (
-                <div className="mt-3">
+                <div className="mt-3 space-y-3">
+                  {!puedeIntegrar ? (
+                    <p
+                      role="status"
+                      className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+                    >
+                      {MSJ_PENDIENTE_EDITOR_ENVIO_MESA}
+                    </p>
+                  ) : null}
                   <Button
                     type="button"
                     variant="primary"
-                    disabled={enviandoMesa}
+                    disabled={!puedeIntegrar || enviandoMesa}
                     onClick={() => void handleEnviarAMesaSupabase()}
                   >
                     {enviandoMesa ? "Enviando a Mesa…" : "Enviar a Mesa"}
