@@ -51,7 +51,7 @@ export const TIPO_DOCUMENTO_CATALOGO = [
 
 export type TipoDocumentoCatalogo = (typeof TIPO_DOCUMENTO_CATALOGO)[number];
 
-export type DocumentoOwnerRole = "cliente" | "asesor" | "sistema";
+export type DocumentoOwnerRole = "cliente" | "asesor" | "sistema" | "mesa";
 
 export type DocumentoObligatorio = "obligatorio" | "opcional";
 
@@ -135,15 +135,15 @@ export const DOCUMENTO_CATALOGO_MAP = Object.freeze({
   },
   cliente_acta_nacimiento: {
     tipo: "cliente_acta_nacimiento",
-    label: "Cliente · Acta de nacimiento",
-    ownerRole: "cliente",
+    label: "Mesa · Acta de nacimiento",
+    ownerRole: "mesa",
     obligatorio: "obligatorio",
     etapasRequeridas: [1, 2],
   },
   cliente_constancia_sat: {
     tipo: "cliente_constancia_sat",
-    label: "Cliente · Constancia SAT",
-    ownerRole: "cliente",
+    label: "Mesa · Constancia SAT",
+    ownerRole: "mesa",
     obligatorio: "obligatorio",
     etapasRequeridas: [1, 2],
   },
@@ -159,7 +159,7 @@ export const DOCUMENTO_CATALOGO_MAP = Object.freeze({
     label: "Cliente · Historial laboral",
     ownerRole: "cliente",
     obligatorio: "opcional",
-    etapasRequeridas: [1, 2],
+    etapasRequeridas: [],
   },
 
   retencion_acuse_con_sello: {

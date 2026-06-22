@@ -108,8 +108,15 @@ ConCasa CRM gestiona el ciclo operativo de precalificaciones / expedientes hipot
 
 ### Obligatorios integración (etapas 1–2)
 
-Paquete base + catálogo `cliente_*` (6 obligatorios cliente).  
-**Opcionales:** `cliente_semanas_cotizadas`, `cliente_historial_laboral` — no bloquean envío.
+**Asesor antes de enviar a Mesa (8):** paquete base (`ine`, `estado_cuenta`, `nss`, `direccion`) + 4 documentos cliente (`cliente_ine_frente`, `cliente_ine_reverso`, `cliente_comprobante_domicilio`, `cliente_estado_cuenta`).
+
+**Mesa de Control (2 adicionales para validación completa):** `cliente_acta_nacimiento`, `cliente_constancia_sat` — los sube Mesa; no bloquean el envío del asesor.
+
+**Validación Mesa 1→2:** 10 documentos con `estatus_revision = validado` (8 asesor + acta + constancia).
+
+**Opcional:** `cliente_semanas_cotizadas` — no bloquea envío.
+
+`cliente_historial_laboral` eliminado del flujo activo (legacy en catálogo/IndexedDB).
 
 ### Estados de revisión
 

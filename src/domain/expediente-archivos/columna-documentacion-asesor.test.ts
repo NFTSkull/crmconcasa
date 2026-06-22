@@ -43,9 +43,13 @@ describe("deriveEstadoDocumentacionColumnaAsesor", () => {
   });
 
   it("etapa 1: un obligatorio sin equivalencias en faltante y el resto subido → faltantes", () => {
-    const resumen = etapa1Obligatorios.map((d) => {
+    const resumen = etapa1Obligatorios
+      .filter((d) => d.ownerRole !== "mesa")
+      .map((d) => {
       const t = d.tipo as ExpedienteArchivoResumen["tipo_documento"];
-      return row(t, t === "cliente_acta_nacimiento" ? "faltante" : "subido");
+      const faltante =
+        t === "direccion" || t === "cliente_comprobante_domicilio";
+      return row(t, faltante ? "faltante" : "subido");
     });
     assert.equal(deriveEstadoDocumentacionColumnaAsesor(resumen, 1), "faltantes");
   });
@@ -65,14 +69,12 @@ describe("deriveEstadoDocumentacionColumnaAsesor", () => {
     assert.equal(deriveEstadoDocumentacionColumnaAsesor(resumen, 1), "pendiente_aprobacion");
   });
 
-  it("paquete base cubierto solo por cliente_* + nss + acta + constancia → pendiente_aprobacion", () => {
+  it("paquete base cubierto solo por cliente_* + nss → pendiente_aprobacion", () => {
     const resumen = [
       row("cliente_ine_frente", "subido"),
       row("cliente_ine_reverso", "subido"),
       row("cliente_estado_cuenta", "subido"),
       row("cliente_comprobante_domicilio", "subido"),
-      row("cliente_acta_nacimiento", "subido"),
-      row("cliente_constancia_sat", "subido"),
       row("nss", "subido"),
     ];
     assert.equal(deriveEstadoDocumentacionColumnaAsesor(resumen, 1), "pendiente_aprobacion");
@@ -89,9 +91,13 @@ describe("deriveEstadoDocumentacionColumnaAsesor", () => {
   });
 
   it("rechazado en grupo sin otra fila mejor cuenta como faltante para la columna", () => {
-    const resumen = etapa1Obligatorios.map((d) => {
+    const resumen = etapa1Obligatorios
+      .filter((d) => d.ownerRole !== "mesa")
+      .map((d) => {
       const t = d.tipo as ExpedienteArchivoResumen["tipo_documento"];
-      return row(t, t === "cliente_constancia_sat" ? "rechazado" : "subido");
+      if (t === "direccion") return row(t, "rechazado");
+      if (t === "cliente_comprobante_domicilio") return row(t, "faltante");
+      return row(t, "subido");
     });
     assert.equal(deriveEstadoDocumentacionColumnaAsesor(resumen, 1), "faltantes");
   });

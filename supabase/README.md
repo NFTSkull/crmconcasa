@@ -28,6 +28,7 @@ Migraciones SQL para producción. **No conectadas a la UI mock** en esta fase.
 | `migrations/023_rpc_avanzar_etapa_9_10.sql` | ✅ extensión `avanzar_etapa_operativa` 9→10 (P2C-20) |
 | `migrations/024_backfill_agenda_config_firmas.sql` | ✅ backfill `agenda_config` firmas por org (P2C-21) |
 | `migrations/025_rpc_create_expediente.sql` | ✅ RPC `create_expediente` — asesor crea expediente (P3C) |
+| `migrations/026_integration_doc_tipos_asesor_envio.sql` | ✅ P3H.1c: 8 docs asesor / 10 validación Mesa |
 | Roles `app_role` | `asesor`, `editor`, `mesa_*`, `super_admin` — **sin `revisor`** |
 | Supabase CLI local | `npx supabase start` / `db reset` |
 | UI mock | Sin conexión; `/revisor` legacy redirige a `/editor` |
@@ -47,9 +48,16 @@ Migraciones SQL para producción. **No conectadas a la UI mock** en esta fase.
 - **Función:** `public.enviar_a_mesa(p_expediente_id uuid) returns jsonb`
 - **Auditoría:** `action_log` → `expediente.enviar_a_mesa`
 - **Rol:** solo `asesor` dueño del expediente (misma organización)
-- **Gates:** decisión editor `aprobado` + `monto_aprobado > 0`; `cliente_datos` con RFC y estado `completo`/`validado`; 10 documentos obligatorios de integración presentes
+- **Gates:** decisión editor `aprobado` + `monto_aprobado > 0`; `cliente_datos` con RFC y estado `completo`/`validado`; **8** documentos del asesor presentes (`integration_doc_tipos_asesor_envio`)
 - **Efecto:** `submitted_to_mesa = true`, `etapa_actual = 1`, `subestado = en_validacion_mesa` (no avanza a etapa 2)
 - **Tests:** `supabase/tests/rpc_enviar_a_mesa.sql`
+
+### P3H.1c — Documentos asesor (8) vs validación Mesa (10)
+
+- **Migración:** `026_integration_doc_tipos_asesor_envio.sql`
+- **`integration_doc_tipos_asesor_envio()`:** 8 tipos que el asesor debe subir antes de `enviar_a_mesa`.
+- **`integration_doc_tipos_obligatorios()`:** 10 tipos (incluye acta + constancia SAT) para `count_integration_docs_validados` y avance 1→2.
+- **Acta / Constancia SAT:** sube Mesa de Control; no bloquean envío asesor.
 
 ### RPC `avanzar_etapa_operativa` (P2C-4 / P2C-7 / P2C-12 / P2C-13 / P2C-14 / P2C-15 / P2C-17 / P2C-20)
 

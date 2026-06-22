@@ -15,12 +15,15 @@ export {
   type SupabaseExpedienteDocumentoRow,
 } from "./map-supabase-expediente-documentos";
 export {
+  INTEGRATION_DOC_TIPOS_ASESOR_ENVIO,
   INTEGRATION_DOC_TIPOS_OBLIGATORIOS,
+  INTEGRATION_DOC_TIPOS_VALIDACION_MESA,
   countIntegrationDocsPresentes,
   deriveIntegrationDocsChecklist,
   estatusCuentaParaIntegracion,
   integrationDocsCompletos,
   integrationDocsResumenFromArchivoResumen,
+  type IntegrationDocAsesorEnvioTipo,
   type IntegrationDocChecklistItem,
   type IntegrationDocTipo,
 } from "./integration-docs-completos";

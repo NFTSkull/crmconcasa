@@ -252,7 +252,7 @@ describe("deriveChecklistDocumentosFromResumen", () => {
     assert.equal(soloCliente.length, 6);
   });
 
-  it("etapa documental cliente base (2): mantiene 6 documentos cliente aunque la etapa operativa sea final", () => {
+  it("etapa documental cliente base (2): mantiene 4 documentos del asesor aunque la etapa operativa sea final", () => {
     const expId = "exp-etapa-final";
     const mk = (
       tipo: TipoDocumentoCatalogo,
@@ -277,15 +277,13 @@ describe("deriveChecklistDocumentosFromResumen", () => {
         mk("cliente_ine_reverso", "validado"),
         mk("cliente_comprobante_domicilio", "validado"),
         mk("cliente_estado_cuenta", "validado"),
-        mk("cliente_acta_nacimiento", "validado"),
-        mk("cliente_constancia_sat", "validado"),
       ],
       etapaActual: 2,
       ownerRole: "cliente",
       pendienteRevisionCuentaComoCompleto: true,
     });
     assert.equal(r.completos, true);
-    assert.equal(r.completosLista.length, 6);
+    assert.equal(r.completosLista.length, 4);
     assert.equal(r.faltantes.length, 0);
   });
 });
@@ -333,7 +331,7 @@ describe("ordenarPorTipoDocumentoCatalogo", () => {
 });
 
 describe("DOCUMENTO_CATALOGO: cliente_* obligatorios en etapa 1", () => {
-  it("incluye 6 documentos personales del cliente como obligatorios", () => {
+  it("incluye 4 documentos personales del cliente que sube el asesor", () => {
     const req = listDocumentosCatalogoForStage({
       etapaId: 1,
       ownerRole: "cliente",
@@ -345,18 +343,17 @@ describe("DOCUMENTO_CATALOGO: cliente_* obligatorios en etapa 1", () => {
       "cliente_ine_reverso",
       "cliente_comprobante_domicilio",
       "cliente_estado_cuenta",
-      "cliente_acta_nacimiento",
-      "cliente_constancia_sat",
     ] as const;
 
     for (const t of expected) {
       assert.ok(req.includes(t), `Falta requerido: ${t}`);
     }
+    assert.equal(req.length, 4);
   });
 });
 
-describe("B0D2: documentos cliente opcionales (Semanas Cotizadas, Historial Laboral)", () => {
-  const opcionales = ["cliente_semanas_cotizadas", "cliente_historial_laboral"] as const;
+describe("B0D2: documentos cliente opcionales (Semanas Cotizadas)", () => {
+  const opcionales = ["cliente_semanas_cotizadas"] as const;
 
   it("existen en catálogo como cliente opcionales", () => {
     for (const tipo of opcionales) {
@@ -372,8 +369,6 @@ describe("B0D2: documentos cliente opcionales (Semanas Cotizadas, Historial Labo
       row("cliente_ine_reverso", "validado"),
       row("cliente_comprobante_domicilio", "validado"),
       row("cliente_estado_cuenta", "validado"),
-      row("cliente_acta_nacimiento", "validado"),
-      row("cliente_constancia_sat", "validado"),
     ];
     const checklist = deriveChecklistDocumentosFromResumen({
       resumen,
@@ -390,16 +385,17 @@ describe("B0D2: documentos cliente opcionales (Semanas Cotizadas, Historial Labo
     }
   });
 
-  it("el checklist obligatorio sigue esperando solo los 6 documentos actuales", () => {
+  it("el checklist obligatorio cliente etapa 1 espera 4 documentos del asesor", () => {
     const req = listDocumentosCatalogoForStage({
       etapaId: 1,
       ownerRole: "cliente",
       soloObligatorios: true,
     });
-    assert.equal(req.length, 6);
+    assert.equal(req.length, 4);
     for (const tipo of opcionales) {
       assert.ok(!req.some((d) => d.tipo === tipo));
     }
+    assert.ok(!req.some((d) => d.tipo === "cliente_historial_laboral"));
   });
 
   it("opcionales subidos aparecen en revisión documental sin bloquear checklist", () => {
@@ -408,8 +404,6 @@ describe("B0D2: documentos cliente opcionales (Semanas Cotizadas, Historial Labo
       row("cliente_ine_reverso", "validado"),
       row("cliente_comprobante_domicilio", "validado"),
       row("cliente_estado_cuenta", "validado"),
-      row("cliente_acta_nacimiento", "validado"),
-      row("cliente_constancia_sat", "validado"),
       row("cliente_semanas_cotizadas", "subido"),
     ];
     const checklist = deriveChecklistDocumentosFromResumen({
@@ -426,15 +420,12 @@ describe("B0D2: documentos cliente opcionales (Semanas Cotizadas, Historial Labo
     assert.ok(
       revision.some((it) => it.tipo_documento === "cliente_semanas_cotizadas"),
     );
-    assert.ok(
-      !revision.some((it) => it.tipo_documento === "cliente_historial_laboral"),
-    );
     assert.equal(checklist.faltantes.length, 0);
   });
 });
 
 describe("DOCUMENTO_CATALOGO: cliente_* obligatorios en etapa 2", () => {
-  it("incluye los mismos 6 documentos del cliente en etapa 2", () => {
+  it("incluye los 4 documentos del cliente que sube el asesor", () => {
     const req = listDocumentosCatalogoForStage({
       etapaId: 2,
       ownerRole: "cliente",
@@ -446,12 +437,21 @@ describe("DOCUMENTO_CATALOGO: cliente_* obligatorios en etapa 2", () => {
       "cliente_ine_reverso",
       "cliente_comprobante_domicilio",
       "cliente_estado_cuenta",
-      "cliente_acta_nacimiento",
-      "cliente_constancia_sat",
     ] as const;
 
     for (const t of expected) {
       assert.ok(req.includes(t), `Falta requerido: ${t}`);
     }
+    assert.equal(req.length, 4);
+  });
+
+  it("acta y constancia SAT son obligatorios Mesa en etapa 2", () => {
+    const req = listDocumentosCatalogoForStage({
+      etapaId: 2,
+      ownerRole: "mesa",
+      soloObligatorios: true,
+    }).map((x) => x.tipo);
+
+    assert.deepEqual(req, ["cliente_acta_nacimiento", "cliente_constancia_sat"]);
   });
 });

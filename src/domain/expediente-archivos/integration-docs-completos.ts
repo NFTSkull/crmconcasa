@@ -6,10 +6,10 @@ import {
 } from "./types";
 
 /**
- * Espejo de `integration_doc_tipos_obligatorios()` en `005_rpc_enviar_a_mesa.sql`.
- * Orden fijo para checklist UI y conteo.
+ * Espejo de `integration_doc_tipos_asesor_envio()` (migración 026).
+ * Documentos que el asesor debe completar antes de `enviar_a_mesa`.
  */
-export const INTEGRATION_DOC_TIPOS_OBLIGATORIOS = [
+export const INTEGRATION_DOC_TIPOS_ASESOR_ENVIO = [
   "ine",
   "estado_cuenta",
   "nss",
@@ -18,11 +18,25 @@ export const INTEGRATION_DOC_TIPOS_OBLIGATORIOS = [
   "cliente_ine_reverso",
   "cliente_comprobante_domicilio",
   "cliente_estado_cuenta",
+] as const;
+
+/**
+ * Espejo de `integration_doc_tipos_obligatorios()` — validación Mesa (10).
+ * Incluye acta y constancia SAT (sube Mesa de Control).
+ */
+export const INTEGRATION_DOC_TIPOS_VALIDACION_MESA = [
+  ...INTEGRATION_DOC_TIPOS_ASESOR_ENVIO,
   "cliente_acta_nacimiento",
   "cliente_constancia_sat",
 ] as const;
 
-export type IntegrationDocTipo = (typeof INTEGRATION_DOC_TIPOS_OBLIGATORIOS)[number];
+/** @deprecated Usar `INTEGRATION_DOC_TIPOS_ASESOR_ENVIO` o `INTEGRATION_DOC_TIPOS_VALIDACION_MESA`. */
+export const INTEGRATION_DOC_TIPOS_OBLIGATORIOS = INTEGRATION_DOC_TIPOS_VALIDACION_MESA;
+
+export type IntegrationDocAsesorEnvioTipo =
+  (typeof INTEGRATION_DOC_TIPOS_ASESOR_ENVIO)[number];
+
+export type IntegrationDocTipo = IntegrationDocAsesorEnvioTipo;
 
 const ESTATUS_CUENTA_INTEGRACION = new Set<ResumenEstatus>([
   "subido",
@@ -31,7 +45,7 @@ const ESTATUS_CUENTA_INTEGRACION = new Set<ResumenEstatus>([
 ]);
 
 export type IntegrationDocChecklistItem = {
-  tipo_documento: IntegrationDocTipo;
+  tipo_documento: IntegrationDocAsesorEnvioTipo;
   label: string;
   estatus_revision: ResumenEstatus;
   completo: boolean;
@@ -52,7 +66,7 @@ export function countIntegrationDocsPresentes(
 ): number {
   const byTipo = new Map(resumen.map((r) => [r.tipo_documento, r.estatus_revision]));
   let count = 0;
-  for (const tipo of INTEGRATION_DOC_TIPOS_OBLIGATORIOS) {
+  for (const tipo of INTEGRATION_DOC_TIPOS_ASESOR_ENVIO) {
     const estatus = byTipo.get(tipo);
     if (estatus && estatusCuentaParaIntegracion(estatus)) {
       count += 1;
@@ -64,7 +78,7 @@ export function countIntegrationDocsPresentes(
 export function integrationDocsCompletos(resumen: IntegrationDocsResumenInput): boolean {
   return (
     countIntegrationDocsPresentes(resumen) ===
-    INTEGRATION_DOC_TIPOS_OBLIGATORIOS.length
+    INTEGRATION_DOC_TIPOS_ASESOR_ENVIO.length
   );
 }
 
@@ -73,7 +87,7 @@ export function deriveIntegrationDocsChecklist(
 ): IntegrationDocChecklistItem[] {
   const byTipo = new Map(resumen.map((r) => [r.tipo_documento, r.estatus_revision]));
 
-  return INTEGRATION_DOC_TIPOS_OBLIGATORIOS.map((tipo) => {
+  return INTEGRATION_DOC_TIPOS_ASESOR_ENVIO.map((tipo) => {
     const estatus_revision = byTipo.get(tipo) ?? "faltante";
     return {
       tipo_documento: tipo,
@@ -84,7 +98,7 @@ export function deriveIntegrationDocsChecklist(
   });
 }
 
-/** Adapta `ExpedienteArchivoResumen[]` al input del checklist de integración. */
+/** Adapta `ExpedienteArchivoResumen[]` al input del checklist de integración asesor. */
 export function integrationDocsResumenFromArchivoResumen(
   resumen: readonly ExpedienteArchivoResumen[],
 ): IntegrationDocsResumenInput {

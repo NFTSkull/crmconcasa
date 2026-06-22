@@ -103,13 +103,10 @@ const CLIENTE_DOC_TIPOS_OBLIGATORIOS = [
   { tipo: "cliente_ine_reverso" as const, label: "INE reverso" },
   { tipo: "cliente_comprobante_domicilio" as const, label: "Comprobante de domicilio" },
   { tipo: "cliente_estado_cuenta" as const, label: "Estado de cuenta" },
-  { tipo: "cliente_acta_nacimiento" as const, label: "Acta de nacimiento" },
-  { tipo: "cliente_constancia_sat" as const, label: "Constancia SAT" },
 ] as const;
 
 const CLIENTE_DOC_TIPOS_OPCIONALES = [
   { tipo: "cliente_semanas_cotizadas" as const, label: "Semanas Cotizadas (opcional)" },
-  { tipo: "cliente_historial_laboral" as const, label: "Historial Laboral (opcional)" },
 ] as const;
 
 const CLIENTE_DOC_TIPOS = [...CLIENTE_DOC_TIPOS_OBLIGATORIOS, ...CLIENTE_DOC_TIPOS_OPCIONALES];

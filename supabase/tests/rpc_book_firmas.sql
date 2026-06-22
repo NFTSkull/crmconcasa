@@ -187,6 +187,7 @@ DECLARE
   v_slot_sun TIMESTAMPTZ;
   v_slot_bad TIMESTAMPTZ;
   v_slot_lead TIMESTAMPTZ;
+  v_slot_bio_regression TIMESTAMPTZ;
   v_norm JSONB;
   v_result JSONB;
   v_etapa_before SMALLINT;
@@ -437,14 +438,21 @@ BEGIN
     'test 34'
   );
 
-  -- 35. regresión book_biometricos (sanity en org seed)
+  -- 35. regresión book_biometricos (sanity en org seed; slot aislado — no colisionar con suites previas)
+  v_slot_bio_regression := public.agenda_biometricos_slot_ts(5, '09:00', 25);
   PERFORM public.__rpc_firmas_test_insert_exp(
     '00000000-0000-4000-9020-000000000099', v_org, v_a1, '92009900099', 4::smallint
   );
+  DELETE FROM public.agenda_bookings
+  WHERE organization_id = v_org
+    AND kind = 'biometricos'
+    AND location_id = 'sede-centro'
+    AND booking_date = (v_slot_bio_regression AT TIME ZONE 'America/Monterrey')::date
+    AND booking_time = (v_slot_bio_regression AT TIME ZONE 'America/Monterrey')::time;
   PERFORM public.__rpc_firmas_test_set_auth(v_a1);
   SELECT public.book_biometricos(
     '00000000-0000-4000-9020-000000000099',
-    public.__rpc_firmas_test_slot_ts(1, '10:00', 3),
+    v_slot_bio_regression,
     'sede-centro'
   ) INTO v_result;
   PERFORM public.__rpc_firmas_test_reset_auth();

@@ -122,6 +122,7 @@ export function deriveEstadoDocumentacionColumnaAsesor(
 
   const requiredFiltrado = requiredCatalog.filter(
     (doc) =>
+      doc.ownerRole !== "mesa" &&
       !DOCUMENTOS_NO_BLOQUEANTES_PARA_COLUMNA_DOCUMENTACION.includes(
         doc.tipo as TipoDocumentoCatalogo,
       ),

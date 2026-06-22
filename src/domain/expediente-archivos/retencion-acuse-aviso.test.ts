@@ -39,19 +39,19 @@ describe("B0D3A: catálogo retención", () => {
     }
   });
 
-  it("Integración etapa 1 sigue con exactamente 6 obligatorios cliente", () => {
+  it("Integración etapa 1 sigue con exactamente 4 obligatorios cliente del asesor", () => {
     const req = listDocumentosCatalogoForStage({
       etapaId: 1,
       ownerRole: "cliente",
       soloObligatorios: true,
     }).map((x) => x.tipo);
-    assert.equal(req.length, 6);
+    assert.equal(req.length, 4);
     for (const t of RETENCION_TIPOS_DOCUMENTO) {
       assert.ok(!req.includes(t));
     }
   });
 
-  it("Semanas Cotizadas e Historial Laboral siguen opcionales en etapa 1", () => {
+  it("Semanas Cotizadas sigue opcional en etapa 1; historial laboral fuera del listado", () => {
     const opc = listDocumentosCatalogoForStage({
       etapaId: 1,
       ownerRole: "cliente",
@@ -59,7 +59,7 @@ describe("B0D3A: catálogo retención", () => {
     }).filter((d) => d.obligatorio === "opcional");
     const tipos = opc.map((d) => d.tipo);
     assert.ok(tipos.includes("cliente_semanas_cotizadas"));
-    assert.ok(tipos.includes("cliente_historial_laboral"));
+    assert.ok(!tipos.includes("cliente_historial_laboral"));
   });
 });
 
@@ -247,13 +247,13 @@ describe("B0D3B: bloqueo mesa avance etapa 8 → 9", () => {
     assert.ok(bloqueos.some((b) => b.includes("pendiente de validar")));
   });
 
-  it("retencion_* no alteran checklist integración (6 obligatorios etapa 1)", () => {
+  it("retencion_* no alteran checklist integración (4 obligatorios cliente etapa 1)", () => {
     const req = listDocumentosCatalogoForStage({
       etapaId: 1,
       ownerRole: "cliente",
       soloObligatorios: true,
     });
-    assert.equal(req.length, 6);
+    assert.equal(req.length, 4);
     for (const t of RETENCION_TIPOS_DOCUMENTO) {
       assert.ok(!req.some((d) => d.tipo === t));
     }

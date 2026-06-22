@@ -217,6 +217,40 @@ BEGIN
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION public.__rpc_enviar_test_insert_docs_asesor_envio(
+  p_expediente_id UUID,
+  p_org_id UUID,
+  p_asesor_id UUID
+)
+RETURNS VOID
+LANGUAGE plpgsql
+AS $$
+DECLARE
+  v_tipo TEXT;
+BEGIN
+  DELETE FROM public.expediente_documentos
+  WHERE expediente_id = p_expediente_id
+    AND (
+      tipo_documento = ANY(public.integration_doc_tipos_obligatorios())
+      OR tipo_documento IN ('cliente_semanas_cotizadas', 'cliente_historial_laboral')
+    );
+
+  FOREACH v_tipo IN ARRAY public.integration_doc_tipos_asesor_envio()
+  LOOP
+    INSERT INTO public.expediente_documentos (
+      organization_id, expediente_id, tipo_documento,
+      storage_path, nombre_original, mime_type, size_bytes,
+      estatus_revision, uploaded_by, uploaded_by_role
+    ) VALUES (
+      p_org_id, p_expediente_id, v_tipo,
+      'dev/enviar/' || p_expediente_id::text || '/' || v_tipo || '.pdf',
+      v_tipo || '.pdf', 'application/pdf', 100,
+      'subido', p_asesor_id, 'asesor'
+    );
+  END LOOP;
+END;
+$$;
+
 -- UUIDs dev (ver seed.sql)
 -- asesor_interno  00000000-0000-4000-8001-000000000001
 -- asesor_externo  00000000-0000-4000-8001-000000000002
@@ -244,6 +278,7 @@ DECLARE
   v_exp_optional UUID := '00000000-0000-4000-9005-000000000070';
   v_exp_double UUID := '00000000-0000-4000-9005-000000000080';
   v_exp_vis UUID := '00000000-0000-4000-9005-000000000090';
+  v_exp_solo_asesor UUID := '00000000-0000-4000-9005-000000000091';
 
   v_result JSONB;
   v_log_before BIGINT;
@@ -314,6 +349,12 @@ BEGIN
   PERFORM public.__rpc_enviar_test_insert_cliente(v_exp_vis, v_org_id);
   PERFORM public.__rpc_enviar_test_insert_docs_obligatorios(v_exp_vis, v_org_id, v_asesor_a1);
 
+  -- Solo 8 docs asesor (sin acta ni constancia SAT)
+  PERFORM public.__rpc_enviar_test_insert_expediente(v_exp_solo_asesor, v_org_id, v_asesor_a1, '90509100091');
+  PERFORM public.__rpc_enviar_test_insert_editor(v_exp_solo_asesor, v_org_id);
+  PERFORM public.__rpc_enviar_test_insert_cliente(v_exp_solo_asesor, v_org_id);
+  PERFORM public.__rpc_enviar_test_insert_docs_asesor_envio(v_exp_solo_asesor, v_org_id, v_asesor_a1);
+
   PERFORM public.__rpc_enviar_test_assert(
     NOT public.__rpc_enviar_test_sees_expediente_as(v_mesa_int, v_exp_vis),
     'pre-envío: mesa_interno no ve borrador no enviado'
@@ -330,8 +371,8 @@ BEGIN
     'test 1: enviado_a_mesa=true'
   );
   PERFORM public.__rpc_enviar_test_assert(
-    (v_result->>'documentos_obligatorios_count')::int = 10,
-    'test 1: 10 documentos obligatorios'
+    (v_result->>'documentos_obligatorios_count')::int = 8,
+    'test 1: 8 documentos asesor para envío'
   );
 
   -- Test 2: asesor no envía expediente ajeno
@@ -457,10 +498,22 @@ BEGIN
     'test 14: mesa_externo no ve expediente interno'
   );
 
-  RAISE NOTICE 'RPC enviar_a_mesa: 14 pruebas OK';
+  -- Test 15: envío con solo 8 docs asesor (sin acta/constancia SAT)
+  v_result := public.__rpc_enviar_test_call_as(v_asesor_a1, v_exp_solo_asesor);
+  PERFORM public.__rpc_enviar_test_assert(
+    (v_result->>'ok')::boolean = true,
+    'test 15: solo 8 docs asesor puede enviar'
+  );
+  PERFORM public.__rpc_enviar_test_assert(
+    (v_result->>'documentos_obligatorios_count')::int = 8,
+    'test 15: documentos_obligatorios_count=8'
+  );
+
+  RAISE NOTICE 'RPC enviar_a_mesa: 15 pruebas OK';
 END;
 $$;
 
+DROP FUNCTION IF EXISTS public.__rpc_enviar_test_insert_docs_asesor_envio(UUID, UUID, UUID);
 DROP FUNCTION IF EXISTS public.__rpc_enviar_test_insert_docs_obligatorios(UUID, UUID, UUID, BOOLEAN);
 DROP FUNCTION IF EXISTS public.__rpc_enviar_test_insert_cliente(UUID, UUID, TEXT, public.cliente_datos_estado);
 DROP FUNCTION IF EXISTS public.__rpc_enviar_test_insert_editor(UUID, UUID, public.editor_decision, NUMERIC);

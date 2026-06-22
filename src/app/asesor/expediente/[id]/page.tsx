@@ -28,6 +28,7 @@ import {
   deriveIntegrationDocsChecklist,
   filterChecklistDocumentoItemsPorOwnerRole,
   getChecklistDocumentos,
+  INTEGRATION_DOC_TIPOS_ASESOR_ENVIO,
   integrationDocsCompletos,
   integrationDocsResumenFromArchivoResumen,
   useExpedienteArchivosRepo,
@@ -789,8 +790,14 @@ export default function AsesorExpedientePage() {
               {!archivosLoading && !archivosError && integrationChecklist ? (
                 <>
                   <p className="mt-2 text-xs text-gray-600">
-                    Progreso: {integrationDocsPresentes} / 10 documentos completos (
-                    {Math.round((integrationDocsPresentes / 10) * 100)}%)
+                    Progreso: {integrationDocsPresentes} /{" "}
+                    {INTEGRATION_DOC_TIPOS_ASESOR_ENVIO.length} documentos completos (
+                    {Math.round(
+                      (integrationDocsPresentes /
+                        INTEGRATION_DOC_TIPOS_ASESOR_ENVIO.length) *
+                        100,
+                    )}
+                    %)
                   </p>
                   <ul className="mt-3 space-y-1.5 text-xs text-gray-800">
                     {integrationChecklist.map((item) => (

@@ -1,5 +1,24 @@
 # Devlog
 
+## 2026-06-15 - P3H.1c: documentos asesor 8 vs validación Mesa 10
+
+### Decisión
+
+- SQL: `integration_doc_tipos_asesor_envio()` (8) para `count_integration_docs_presentes` / `enviar_a_mesa`.
+- `integration_doc_tipos_obligatorios()` (10) intacto para `count_integration_docs_validados` y avance 1→2.
+- Acta y constancia SAT: `ownerRole: mesa` en catálogo; fuera del checklist/upload asesor.
+- `cliente_historial_laboral`: eliminado del listado mock; permanece en catálogo para datos legacy.
+- Migración `026` en repo; **no** aplicada en Cloud en este bloque.
+
+### Archivos
+
+- `supabase/migrations/026_integration_doc_tipos_asesor_envio.sql`
+- `src/domain/expediente-archivos/integration-docs-completos.ts` + tests
+- `src/domain/expediente-archivos/types.ts`, `checklist.ts`
+- `src/components/seguimiento/SeguimientoOperativoMock.tsx`
+- `src/app/asesor/expediente/[id]/page.tsx`
+- `supabase/tests/rpc_enviar_a_mesa.sql`
+
 ## 2026-06-15 - P3H.1: documentos Supabase read-only en asesor
 
 ### Decisión
