@@ -2,6 +2,8 @@
 
 ## 2026-06-15
 
+- **P3H.1 — Documentos Supabase read-only en detalle asesor:** `SupabaseExpedienteArchivosRepo` (SELECT `expediente_documentos`); checklist real de 10 tipos de integración; gate `documentosCompletos` para Enviar a Mesa; sin upload (P3H.2); mock IndexedDB intacto.
+
 - **P3G — Datos generales cliente Supabase en detalle asesor:** `ExpedienteClienteDatosRepo` Supabase (lectura RLS + RPC `save_cliente_datos`); formulario real en `/asesor/expediente/[id]`; checklist Enviar a Mesa (editor + datos + documentos pendiente P3H); mock localStorage intacto.
 
 - **P3F.1b — Layout editor:** tabla `min-w-[1500px]` con anchos fijos; prioridad visual a monto/notas; asesor truncado.

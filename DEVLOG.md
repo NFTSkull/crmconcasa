@@ -1,5 +1,19 @@
 # Devlog
 
+## 2026-06-15 - P3H.1: documentos Supabase read-only en asesor
+
+### Decisión
+
+- Lectura RLS de `expediente_documentos` sin migración ni Storage.
+- Helper `integrationDocsCompletos` espejo de `integration_doc_tipos_obligatorios` + estatus `subido|resubido|validado`.
+- Gate Enviar a Mesa usa cálculo real; upload diferido a P3H.2 (RPC + bucket).
+- Mock IndexedDB y `getChecklistDocumentos` sin cambios de comportamiento.
+
+### Archivos
+
+- `src/domain/expediente-archivos/supabase.repo.ts`, `integration-docs-completos.ts`, mapper + tests
+- `src/app/asesor/expediente/[id]/page.tsx` — panel Documentos requeridos + checklist OK/Falta
+
 ## 2026-06-15 - P3G: datos generales cliente Supabase en asesor
 
 ### Decisión

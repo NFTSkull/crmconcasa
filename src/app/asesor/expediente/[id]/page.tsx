@@ -23,8 +23,17 @@ import { isDataModeSupabase } from "@/lib/dataMode";
 import { subestadoOperativoLabel } from "@/lib/subestadoOperativoUi";
 import {
   DOCUMENTO_CATALOGO_MAP,
+  ExpedienteArchivosSupabaseError,
+  countIntegrationDocsPresentes,
+  deriveIntegrationDocsChecklist,
   filterChecklistDocumentoItemsPorOwnerRole,
   getChecklistDocumentos,
+  integrationDocsCompletos,
+  integrationDocsResumenFromArchivoResumen,
+  useExpedienteArchivosRepo,
+  type ExpedienteArchivoResumen,
+  type IntegrationDocChecklistItem,
+  type ResumenEstatus,
 } from "@/domain/expediente-archivos";
 import {
   ClienteDatosSupabaseError,
@@ -81,14 +90,11 @@ type EstadoEtapa =
   | "aprobado"
   | "rechazado";
 
-/** P3H: pasar a `true` cuando documentos reales estén conectados en Supabase. */
-const DOCUMENTOS_REALES_CONECTADOS = false;
-
 const MSJ_ESPERA_MONTO_REVISOR =
   "Debes esperar a que el editor apruebe un monto antes de capturar datos, subir documentos o enviar a mesa.";
 
-const MSJ_READONLY_SUPABASE_DOCS =
-  "Los documentos reales se conectarán en la fase P3H.";
+const MSJ_UPLOAD_P3H2 =
+  "La carga real de documentos se conectará en P3H.2.";
 
 const MSJ_ENVIO_MESA_REQUISITOS =
   "El envío a Mesa se habilitará cuando editor, datos generales y documentos estén completos.";
@@ -109,6 +115,17 @@ function checklistClass(ok: boolean): string {
     : "text-amber-950 bg-amber-50 border-amber-200";
 }
 
+function estatusDocumentoIntegracionLabel(estatus: ResumenEstatus): string {
+  if (estatus === "faltante") return "faltante";
+  return estatus;
+}
+
+function estatusDocumentoIntegracionIcon(completo: boolean, estatus: ResumenEstatus): string {
+  if (completo) return "🟢";
+  if (estatus === "rechazado") return "🔴";
+  return "🟡";
+}
+
 function formatDateTime(iso: string): string {
   try {
     const d = new Date(iso);
@@ -126,6 +143,7 @@ export default function AsesorExpedientePage() {
   const mockRepo = useMemo(() => new MockExpedientesRepo(), []);
   const dataSupabase = isDataModeSupabase();
   const clienteDatosRepo = useExpedienteClienteDatosRepo();
+  const archivosRepo = useExpedienteArchivosRepo();
   const [precal, setPrecal] = useState<PrecalificacionMock | null | undefined>(
     undefined
   );
@@ -157,6 +175,34 @@ export default function AsesorExpedientePage() {
   const [enviandoMesa, setEnviandoMesa] = useState(false);
   const [enviarMesaError, setEnviarMesaError] = useState<string | null>(null);
   const [enviarMesaExito, setEnviarMesaExito] = useState<string | null>(null);
+  const [archivosResumen, setArchivosResumen] = useState<
+    ExpedienteArchivoResumen[] | null
+  >(null);
+  const [archivosLoading, setArchivosLoading] = useState(false);
+  const [archivosError, setArchivosError] = useState<string | null>(null);
+
+  const integrationDocsInput = useMemo(
+    () =>
+      archivosResumen
+        ? integrationDocsResumenFromArchivoResumen(archivosResumen)
+        : null,
+    [archivosResumen],
+  );
+
+  const integrationChecklist = useMemo((): IntegrationDocChecklistItem[] | null => {
+    if (!integrationDocsInput) return null;
+    return deriveIntegrationDocsChecklist(integrationDocsInput);
+  }, [integrationDocsInput]);
+
+  const integrationDocsPresentes = useMemo(() => {
+    if (!integrationDocsInput) return 0;
+    return countIntegrationDocsPresentes(integrationDocsInput);
+  }, [integrationDocsInput]);
+
+  const documentosCompletos = useMemo(() => {
+    if (!integrationDocsInput) return false;
+    return integrationDocsCompletos(integrationDocsInput);
+  }, [integrationDocsInput]);
 
   const puedeIntegrar = useMemo(
     () =>
@@ -183,9 +229,14 @@ export default function AsesorExpedientePage() {
     () =>
       puedeIntegrar &&
       datosGeneralesCompletos &&
-      DOCUMENTOS_REALES_CONECTADOS &&
+      documentosCompletos &&
       !operativo?.submittedToMesa,
-    [datosGeneralesCompletos, operativo?.submittedToMesa, puedeIntegrar],
+    [
+      datosGeneralesCompletos,
+      documentosCompletos,
+      operativo?.submittedToMesa,
+      puedeIntegrar,
+    ],
   );
 
   const initialSubestado: EstadoEtapa | undefined =
@@ -278,6 +329,40 @@ export default function AsesorExpedientePage() {
     precal?.id,
     repo,
   ]);
+
+  useEffect(() => {
+    if (!dataSupabase || !precal?.id) return;
+    let cancelled = false;
+
+    const loadArchivos = () => {
+      setArchivosLoading(true);
+      setArchivosError(null);
+      void archivosRepo
+        .listResumenByExpediente(String(precal.id))
+        .then((resumen) => {
+          if (cancelled) return;
+          setArchivosResumen(resumen);
+        })
+        .catch((err) => {
+          if (cancelled) return;
+          setArchivosResumen(null);
+          if (err instanceof ExpedienteArchivosSupabaseError) {
+            setArchivosError(err.message);
+          } else {
+            setArchivosError("No se pudieron cargar los documentos.");
+          }
+        })
+        .finally(() => {
+          if (!cancelled) setArchivosLoading(false);
+        });
+    };
+
+    loadArchivos();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [archivosRepo, dataSupabase, precal?.id]);
 
   useEffect(() => {
     if (dataSupabase || !precal?.id) return;
@@ -618,12 +703,6 @@ export default function AsesorExpedientePage() {
 
         {dataSupabase ? (
           <>
-            <div
-              role="status"
-              className="rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-950"
-            >
-              {MSJ_READONLY_SUPABASE_DOCS}
-            </div>
             <div className="rounded-lg border border-gray-200 bg-white p-4 text-sm text-gray-600">
               <p className="text-sm font-semibold text-gray-900">
                 Estado del expediente
@@ -692,6 +771,52 @@ export default function AsesorExpedientePage() {
               esperaMontoMessage={MSJ_ESPERA_MONTO_REVISOR}
             />
             <div className="rounded-lg border border-gray-200 bg-white p-4 text-sm text-gray-600">
+              <p className="text-sm font-semibold text-gray-900">
+                Documentos requeridos
+              </p>
+              <p className="mt-1 text-xs text-gray-500">{MSJ_UPLOAD_P3H2}</p>
+              {archivosLoading ? (
+                <p className="mt-2 text-xs text-gray-500">Cargando documentos…</p>
+              ) : null}
+              {archivosError ? (
+                <p
+                  role="alert"
+                  className="mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800"
+                >
+                  {archivosError}
+                </p>
+              ) : null}
+              {!archivosLoading && !archivosError && integrationChecklist ? (
+                <>
+                  <p className="mt-2 text-xs text-gray-600">
+                    Progreso: {integrationDocsPresentes} / 10 documentos completos (
+                    {Math.round((integrationDocsPresentes / 10) * 100)}%)
+                  </p>
+                  <ul className="mt-3 space-y-1.5 text-xs text-gray-800">
+                    {integrationChecklist.map((item) => (
+                      <li
+                        key={item.tipo_documento}
+                        className="flex items-start gap-2 rounded-md border border-gray-100 bg-gray-50 px-2 py-1.5"
+                      >
+                        <span aria-hidden className="mt-0.5">
+                          {estatusDocumentoIntegracionIcon(
+                            item.completo,
+                            item.estatus_revision,
+                          )}
+                        </span>
+                        <span className="min-w-0 flex-1">
+                          <span className="font-medium text-gray-900">{item.label}</span>
+                          <span className="mt-0.5 block text-gray-600">
+                            {estatusDocumentoIntegracionLabel(item.estatus_revision)}
+                          </span>
+                        </span>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              ) : null}
+            </div>
+            <div className="rounded-lg border border-gray-200 bg-white p-4 text-sm text-gray-600">
               <p className="text-sm font-semibold text-gray-900">Enviar a Mesa</p>
               <p className="mt-2 text-xs text-gray-500">{MSJ_ENVIO_MESA_REQUISITOS}</p>
               <ul className="mt-3 space-y-2 text-xs">
@@ -709,8 +834,12 @@ export default function AsesorExpedientePage() {
                 >
                   Datos generales: {checklistLabel(datosGeneralesCompletos)}
                 </li>
-                <li className="inline-flex rounded-full border border-amber-200 bg-amber-50 px-2.5 py-1 font-medium text-amber-950">
-                  Documentos: Pendiente de conectar
+                <li
+                  className={`inline-flex rounded-full border px-2.5 py-1 font-medium ${checklistClass(
+                    documentosCompletos,
+                  )}`}
+                >
+                  Documentos: {checklistLabel(documentosCompletos)}
                 </li>
               </ul>
               {enviarMesaExito ? (
