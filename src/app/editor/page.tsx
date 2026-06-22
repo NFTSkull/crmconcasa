@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSessionRepo } from "@/domain/session";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -14,9 +14,12 @@ import {
 } from "@/domain/expedientes";
 import { isDataModeSupabase } from "@/lib/dataMode";
 
+const SUPABASE_SAVE_DEBOUNCE_MS = 750;
+
 interface EditorPrecalRow {
   id: string;
   programa: string;
+  nss: string;
   cliente_nombre: string;
   telefono_cliente: string;
   asesorId: string;
@@ -26,15 +29,18 @@ interface EditorPrecalRow {
   notas_revision: string;
 }
 
-type EditorRowDraft = {
-  montoStr: string;
-  notas: string;
+type RowSaveStatus = "idle" | "pending" | "saving" | "saved" | "error";
+
+type RowSaveState = {
+  status: RowSaveStatus;
+  error?: string;
 };
 
 function mapExpedienteToEditorRow(e: ExpedienteMock): EditorPrecalRow {
   return {
     id: e.id,
     programa: e.base.programa,
+    nss: e.base.nss,
     cliente_nombre: e.base.cliente_nombre,
     telefono_cliente: e.base.telefono_cliente,
     asesorId: e.base.asesorId,
@@ -48,18 +54,53 @@ function mapExpedienteToEditorRow(e: ExpedienteMock): EditorPrecalRow {
 function computeDecision(montoStr: string, notasStr: string): EditorDecision {
   const montoTrim = (montoStr ?? "").trim();
   const notasTrim = (notasStr ?? "").trim();
-  const num = montoTrim === "" ? null : Number(montoTrim);
-  const hasMonto = num !== null && !Number.isNaN(num) && num >= 0;
-  if (hasMonto) return "aprobado";
+  if (montoTrim !== "") {
+    const num = Number(montoTrim);
+    if (!Number.isNaN(num) && num > 0) return "aprobado";
+  }
   if (notasTrim.length > 0) return "no_cumple";
   return "pendiente";
 }
 
-function parseMonto(montoStr: string): number | null {
-  const trimmed = montoStr.trim();
-  if (trimmed === "") return null;
-  const num = Number(trimmed);
-  return Number.isNaN(num) ? null : num;
+function buildDecisionPayload(
+  montoStr: string,
+  notasStr: string,
+): {
+  decision: EditorDecision;
+  monto_aprobado: number | null;
+  notas_revision: string;
+} {
+  const montoTrim = montoStr.trim();
+  const notasTrim = notasStr.trim();
+  const num = montoTrim === "" ? null : Number(montoTrim);
+
+  if (num !== null && (Number.isNaN(num) || num < 0)) {
+    throw new Error("El monto aprobado no puede ser negativo.");
+  }
+
+  const decision = computeDecision(montoStr, notasStr);
+
+  if (decision === "aprobado") {
+    return {
+      decision,
+      monto_aprobado: num,
+      notas_revision: notasTrim,
+    };
+  }
+
+  if (decision === "no_cumple") {
+    return {
+      decision,
+      monto_aprobado: null,
+      notas_revision: notasTrim,
+    };
+  }
+
+  return {
+    decision: "pendiente",
+    monto_aprobado: null,
+    notas_revision: "",
+  };
 }
 
 function DecisionBadge({ decision }: { decision?: string }) {
@@ -87,15 +128,48 @@ function DecisionBadge({ decision }: { decision?: string }) {
   );
 }
 
+function RowSaveIndicator({ state }: { state?: RowSaveState }) {
+  if (!state || state.status === "idle") return null;
+
+  if (state.status === "pending") {
+    return (
+      <span className="mt-1 block text-[10px] text-gray-400">Pendiente…</span>
+    );
+  }
+  if (state.status === "saving") {
+    return (
+      <span className="mt-1 block text-[10px] text-blue-600">Guardando…</span>
+    );
+  }
+  if (state.status === "saved") {
+    return (
+      <span className="mt-1 block text-[10px] text-green-600">Guardado</span>
+    );
+  }
+  return (
+    <span className="mt-1 block text-[10px] text-red-600" title={state.error}>
+      Error
+    </span>
+  );
+}
+
 export default function EditorDashboardPage() {
   const { sessionRepo, currentUser } = useSessionRepo();
   const repo = useExpedientesRepo();
   const dataSupabase = isDataModeSupabase();
   const [rows, setRows] = useState<EditorPrecalRow[]>([]);
-  const [drafts, setDrafts] = useState<Record<string, EditorRowDraft>>({});
   const [buscar, setBuscar] = useState("");
   const [globalError, setGlobalError] = useState<string | null>(null);
-  const [savingId, setSavingId] = useState<string | null>(null);
+  const [rowSaveStates, setRowSaveStates] = useState<
+    Record<string, RowSaveState>
+  >({});
+
+  const debounceTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>(
+    {},
+  );
+  const savedClearTimersRef = useRef<
+    Record<string, ReturnType<typeof setTimeout>>
+  >({});
 
   const loadData = useCallback(() => {
     void (async () => {
@@ -108,9 +182,6 @@ export default function EditorDashboardPage() {
               new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
           );
         setRows(combined);
-        if (dataSupabase) {
-          setDrafts({});
-        }
       } catch (err) {
         console.error(
           "[editor] error leyendo expedientes:",
@@ -119,7 +190,7 @@ export default function EditorDashboardPage() {
         setRows([]);
       }
     })();
-  }, [dataSupabase, repo]);
+  }, [repo]);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -148,6 +219,15 @@ export default function EditorDashboardPage() {
     };
   }, [currentUser, dataSupabase, loadData]);
 
+  useEffect(() => {
+    const debounceTimers = debounceTimersRef.current;
+    const savedClearTimers = savedClearTimersRef.current;
+    return () => {
+      Object.values(debounceTimers).forEach(clearTimeout);
+      Object.values(savedClearTimers).forEach(clearTimeout);
+    };
+  }, []);
+
   const persistDecisionMock = (
     expedienteId: string,
     payload: {
@@ -170,88 +250,149 @@ export default function EditorDashboardPage() {
       });
   };
 
-  const getRowDraft = useCallback(
-    (row: EditorPrecalRow): EditorRowDraft => {
-      const draft = drafts[row.id];
-      if (draft) return draft;
-      return {
-        montoStr:
-          row.monto_aprobado != null ? String(row.monto_aprobado) : "",
-        notas: row.notas_revision,
-      };
+  const scheduleSupabaseSave = useCallback(
+    (expedienteId: string, montoStr: string, notasStr: string) => {
+      const existingDebounce = debounceTimersRef.current[expedienteId];
+      if (existingDebounce) clearTimeout(existingDebounce);
+
+      setRowSaveStates((prev) => ({
+        ...prev,
+        [expedienteId]: { status: "pending" },
+      }));
+
+      debounceTimersRef.current[expedienteId] = setTimeout(() => {
+        void (async () => {
+          let payload: ReturnType<typeof buildDecisionPayload>;
+          try {
+            payload = buildDecisionPayload(montoStr, notasStr);
+          } catch (err) {
+            const msg =
+              err instanceof Error
+                ? err.message
+                : "Error al guardar la decisión.";
+            setGlobalError(msg);
+            setRowSaveStates((prev) => ({
+              ...prev,
+              [expedienteId]: { status: "error", error: msg },
+            }));
+            return;
+          }
+
+          setGlobalError(null);
+          setRowSaveStates((prev) => ({
+            ...prev,
+            [expedienteId]: { status: "saving" },
+          }));
+
+          try {
+            const updated = await repo.upsertEditorDecision(
+              expedienteId,
+              payload,
+            );
+            const nextRow = mapExpedienteToEditorRow(updated);
+            setRows((prev) =>
+              prev.map((row) => (row.id === expedienteId ? nextRow : row)),
+            );
+            setRowSaveStates((prev) => ({
+              ...prev,
+              [expedienteId]: { status: "saved" },
+            }));
+
+            const existingSavedClear = savedClearTimersRef.current[expedienteId];
+            if (existingSavedClear) clearTimeout(existingSavedClear);
+            savedClearTimersRef.current[expedienteId] = setTimeout(() => {
+              setRowSaveStates((prev) => {
+                const current = prev[expedienteId];
+                if (!current || current.status !== "saved") return prev;
+                const next = { ...prev };
+                delete next[expedienteId];
+                return next;
+              });
+            }, 2500);
+          } catch (err) {
+            const msg =
+              err instanceof ExpedientesSupabaseError
+                ? err.message
+                : err instanceof Error
+                  ? err.message
+                  : "Error al guardar la decisión.";
+            setGlobalError(msg);
+            setRowSaveStates((prev) => ({
+              ...prev,
+              [expedienteId]: { status: "error", error: msg },
+            }));
+          }
+        })();
+      }, SUPABASE_SAVE_DEBOUNCE_MS);
     },
-    [drafts],
+    [repo],
   );
 
-  const updateRowDraft = (row: EditorPrecalRow, patch: Partial<EditorRowDraft>) => {
-    setDrafts((prevDrafts) => ({
-      ...prevDrafts,
-      [row.id]: {
-        montoStr:
-          patch.montoStr ??
-          prevDrafts[row.id]?.montoStr ??
-          (row.monto_aprobado != null ? String(row.monto_aprobado) : ""),
-        notas:
-          patch.notas ??
-          prevDrafts[row.id]?.notas ??
-          row.notas_revision,
-      },
-    }));
-  };
-
-  const saveSupabaseDecision = async (
-    expedienteId: string,
-    payload: {
-      decision: EditorDecision;
-      monto_aprobado: number | null;
-      notas_revision: string;
-    },
-  ) => {
-    setSavingId(expedienteId);
-    setGlobalError(null);
+  const handleMontoChange = (row: EditorPrecalRow, val: string) => {
     try {
-      const updated = await repo.upsertEditorDecision(expedienteId, payload);
-      const nextRow = mapExpedienteToEditorRow(updated);
+      const nextMonto = val.trim() === "" ? null : Number(val);
+      const nextDecision = computeDecision(val, row.notas_revision);
+
+      if (nextMonto !== null && nextMonto < 0) {
+        throw new Error("El monto aprobado no puede ser negativo.");
+      }
+
       setRows((prev) =>
-        prev.map((row) => (row.id === expedienteId ? nextRow : row)),
+        prev.map((r) =>
+          r.id === row.id
+            ? {
+                ...r,
+                monto_aprobado: nextMonto,
+                decision: nextDecision,
+              }
+            : r,
+        ),
       );
-      setDrafts((prev) => {
-        const next = { ...prev };
-        delete next[expedienteId];
-        return next;
-      });
+
+      const payload = buildDecisionPayload(val, row.notas_revision);
+
+      if (dataSupabase) {
+        scheduleSupabaseSave(row.id, val, row.notas_revision);
+        return;
+      }
+
+      setGlobalError(null);
+      persistDecisionMock(row.id, payload);
     } catch (err) {
       const msg =
-        err instanceof ExpedientesSupabaseError
-          ? err.message
-          : err instanceof Error
-            ? err.message
-            : "Error al guardar la decisión.";
+        err instanceof Error ? err.message : "Error al guardar la decisión.";
       setGlobalError(msg);
-    } finally {
-      setSavingId(null);
     }
   };
 
-  const handleSupabaseSave = async (
-    row: EditorPrecalRow,
-    decision: EditorDecision,
-  ) => {
-    const draft = getRowDraft(row);
-    const monto = parseMonto(draft.montoStr);
-    if (monto !== null && monto < 0) {
-      setGlobalError("El monto aprobado no puede ser negativo.");
-      return;
+  const handleNotasChange = (row: EditorPrecalRow, val: string) => {
+    const montoStr =
+      row.monto_aprobado != null ? String(row.monto_aprobado) : "";
+    const nextDecision = computeDecision(montoStr, val);
+
+    setRows((prev) =>
+      prev.map((r) =>
+        r.id === row.id
+          ? { ...r, notas_revision: val, decision: nextDecision }
+          : r,
+      ),
+    );
+
+    try {
+      const payload = buildDecisionPayload(montoStr, val);
+
+      if (dataSupabase) {
+        scheduleSupabaseSave(row.id, montoStr, val);
+        return;
+      }
+
+      setGlobalError(null);
+      persistDecisionMock(row.id, payload);
+    } catch (err) {
+      const msg =
+        err instanceof Error ? err.message : "Error al guardar la decisión.";
+      setGlobalError(msg);
     }
-    if (decision === "aprobado" && (monto === null || monto <= 0)) {
-      setGlobalError("El monto aprobado debe ser mayor a cero para aprobar.");
-      return;
-    }
-    await saveSupabaseDecision(row.id, {
-      decision,
-      monto_aprobado: decision === "aprobado" ? monto : null,
-      notas_revision: draft.notas.trim(),
-    });
   };
 
   const filteredRows = useMemo(() => {
@@ -262,6 +403,7 @@ export default function EditorDashboardPage() {
         p.cliente_nombre.toLowerCase().includes(q) ||
         p.telefono_cliente.includes(q) ||
         p.programa.toLowerCase().includes(q) ||
+        (p.nss ?? "").includes(q) ||
         (p.asesorId ?? "").toLowerCase().includes(q)
       );
     });
@@ -326,23 +468,17 @@ export default function EditorDashboardPage() {
         <section className="flex flex-wrap items-center justify-between gap-3">
           <h2 className="text-base font-medium text-gray-900 sm:text-lg">
             Precalificaciones para revisión
+            {!dataSupabase ? " (mock)" : ""}
           </h2>
           <div className="w-full max-w-xs sm:w-72">
             <Input
               type="search"
-              placeholder="Buscar (cliente, teléfono, programa, asesor)"
+              placeholder="Buscar (cliente, NSS, teléfono, programa, asesor)"
               value={buscar}
               onChange={(e) => setBuscar(e.target.value)}
             />
           </div>
         </section>
-
-        {dataSupabase ? (
-          <p className="text-xs text-gray-500">
-            Edita monto y notas localmente; guarda con los botones de acción (no
-            se envía a Supabase por cada tecla).
-          </p>
-        ) : null}
 
         {globalError ? (
           <p role="alert" className="text-xs text-red-600">
@@ -358,13 +494,16 @@ export default function EditorDashboardPage() {
                   Creada
                 </th>
                 <th className="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">
+                  Programa
+                </th>
+                <th className="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">
+                  NSS
+                </th>
+                <th className="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">
                   Cliente
                 </th>
                 <th className="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">
                   Teléfono
-                </th>
-                <th className="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">
-                  Programa
                 </th>
                 <th className="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">
                   Asesor
@@ -378,18 +517,13 @@ export default function EditorDashboardPage() {
                 <th className="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">
                   Notas
                 </th>
-                {dataSupabase ? (
-                  <th className="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">
-                    Acciones
-                  </th>
-                ) : null}
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 bg-white">
               {filteredRows.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={dataSupabase ? 10 : 9}
+                    colSpan={9}
                     className="px-4 py-8 text-center text-sm text-gray-500"
                   >
                     No hay expedientes para revisar.
@@ -398,21 +532,20 @@ export default function EditorDashboardPage() {
                 </tr>
               ) : (
                 filteredRows.map((p) => {
-                  const draft = dataSupabase ? getRowDraft(p) : null;
-                  const montoValue = dataSupabase
-                    ? draft!.montoStr
-                    : p.monto_aprobado != null
-                      ? String(p.monto_aprobado)
-                      : "";
-                  const notasValue = dataSupabase
-                    ? draft!.notas
-                    : p.notas_revision;
-                  const rowSaving = savingId === p.id;
+                  const montoValue =
+                    p.monto_aprobado != null ? String(p.monto_aprobado) : "";
+                  const saveState = rowSaveStates[p.id];
 
                   return (
                     <tr key={p.id} className="align-top hover:bg-gray-50">
                       <td className="whitespace-nowrap px-3 py-2 text-xs text-gray-500">
                         {formatDateTimeMx(p.createdAt)}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-600">
+                        {p.programa}
+                      </td>
+                      <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-600">
+                        {p.nss || "—"}
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-900">
                         {p.cliente_nombre || "—"}
@@ -421,13 +554,13 @@ export default function EditorDashboardPage() {
                         {p.telefono_cliente || "—"}
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-600">
-                        {p.programa}
-                      </td>
-                      <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-600">
                         {p.asesorId || "—"}
                       </td>
                       <td className="whitespace-nowrap px-3 py-2">
                         <DecisionBadge decision={p.decision} />
+                        {dataSupabase ? (
+                          <RowSaveIndicator state={saveState} />
+                        ) : null}
                       </td>
                       <td className="whitespace-nowrap px-3 py-2 text-sm text-gray-600">
                         <input
@@ -436,130 +569,18 @@ export default function EditorDashboardPage() {
                           step={1}
                           className="no-spinner w-32 rounded-md border border-gray-300 px-2 py-1 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                           value={montoValue}
-                          disabled={dataSupabase && rowSaving}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            if (dataSupabase) {
-                              updateRowDraft(p, { montoStr: val });
-                              return;
-                            }
-                            try {
-                              const nextMonto =
-                                val.trim() === "" ? null : Number(val);
-                              const nextDecision = computeDecision(
-                                val,
-                                p.notas_revision,
-                              );
-                              if (nextMonto !== null && nextMonto < 0) {
-                                throw new Error(
-                                  "El monto aprobado no puede ser negativo.",
-                                );
-                              }
-                              setRows((prev) =>
-                                prev.map((row) =>
-                                  row.id === p.id
-                                    ? {
-                                        ...row,
-                                        monto_aprobado: nextMonto,
-                                        decision: nextDecision,
-                                      }
-                                    : row,
-                                ),
-                              );
-                              persistDecisionMock(p.id, {
-                                decision: nextDecision,
-                                monto_aprobado: nextMonto,
-                                notas_revision: p.notas_revision,
-                              });
-                            } catch (err) {
-                              const msg =
-                                err instanceof Error
-                                  ? err.message
-                                  : "Error al guardar la decisión.";
-                              setGlobalError(msg);
-                            }
-                          }}
+                          onChange={(e) => handleMontoChange(p, e.target.value)}
                         />
                       </td>
                       <td className="max-w-[260px] px-3 py-2 text-xs text-gray-600">
                         <textarea
                           className="w-full rounded-md border border-gray-300 px-2 py-1 text-xs text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                           rows={2}
-                          value={notasValue}
-                          disabled={dataSupabase && rowSaving}
-                          onChange={(e) => {
-                            const val = e.target.value;
-                            if (dataSupabase) {
-                              updateRowDraft(p, { notas: val });
-                              return;
-                            }
-                            const montoStr =
-                              p.monto_aprobado != null
-                                ? String(p.monto_aprobado)
-                                : "";
-                            const nextDecision = computeDecision(
-                              montoStr,
-                              val,
-                            );
-                            setRows((prev) =>
-                              prev.map((row) =>
-                                row.id === p.id
-                                  ? {
-                                      ...row,
-                                      notas_revision: val,
-                                      decision: nextDecision,
-                                    }
-                                  : row,
-                              ),
-                            );
-                            persistDecisionMock(p.id, {
-                              decision: nextDecision,
-                              monto_aprobado: p.monto_aprobado,
-                              notas_revision: val.trim(),
-                            });
-                          }}
+                          value={p.notas_revision}
+                          onChange={(e) => handleNotasChange(p, e.target.value)}
                           placeholder="Notas de revisión..."
                         />
                       </td>
-                      {dataSupabase ? (
-                        <td className="px-3 py-2">
-                          <div className="flex min-w-[9rem] flex-col gap-1">
-                            <Button
-                              type="button"
-                              variant="primary"
-                              className="text-xs py-1"
-                              disabled={rowSaving}
-                              onClick={() =>
-                                void handleSupabaseSave(p, "aprobado")
-                              }
-                            >
-                              {rowSaving ? "Guardando…" : "Aprobar"}
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              className="text-xs py-1"
-                              disabled={rowSaving}
-                              onClick={() =>
-                                void handleSupabaseSave(p, "no_cumple")
-                              }
-                            >
-                              No cumple
-                            </Button>
-                            <Button
-                              type="button"
-                              variant="outline"
-                              className="text-xs py-1"
-                              disabled={rowSaving}
-                              onClick={() =>
-                                void handleSupabaseSave(p, "pendiente")
-                              }
-                            >
-                              Pendiente
-                            </Button>
-                          </div>
-                        </td>
-                      ) : null}
                     </tr>
                   );
                 })

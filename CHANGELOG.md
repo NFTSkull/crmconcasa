@@ -2,6 +2,8 @@
 
 ## 2026-06-15
 
+- **P3F.1 — UX legacy editor restaurada:** `/editor` vuelve a tabla con inputs monto/notas y decisión automática; sin botones por fila; autosave Supabase con debounce 750ms y estado por fila; mock con guardado inmediato en `onChange`.
+
 - **P3F — Editor decisión real Supabase:** `listForEditor()` + `upsertEditorDecision()` vía RPC `upsert_editor_decision`; `/editor` y `/editor/[id]` con `useExpedientesRepo()`; mock intacto.
 
 - **P3E.1 — Bloqueo UI envío a Mesa sin editor aprobado:** botón deshabilitado hasta `aprobado` + monto > 0 en detalle asesor Supabase.

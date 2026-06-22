@@ -1,5 +1,19 @@
 # Devlog
 
+## 2026-06-15 - P3F.1: restaurar UX legacy editor
+
+### Decisión
+
+- P3F conectó RPC real pero introdujo columna Acciones con botones; producto exige UI tipo lista legacy (monto/notas → decisión automática).
+- Supabase: debounce 750ms por fila antes de `upsertEditorDecision`; indicador por fila (Pendiente… / Guardando… / Guardado / Error); sin RPC por tecla.
+- Mock: mismo flujo legacy — `onChange` actualiza fila y llama `upsertEditorDecision` (delega a `updateDecision` / localStorage).
+- Regla decisión: monto > 0 → `aprobado`; notas sin monto → `no_cumple`; ambos vacíos → `pendiente`.
+- Columnas: creada, programa, NSS, cliente, teléfono, asesor, decisión, monto, notas.
+
+### Archivos
+
+- `src/app/editor/page.tsx`
+
 ## 2026-06-15 - P3F: editor decisión real Supabase
 
 ### Decisión
