@@ -2,6 +2,8 @@
 
 ## 2026-06-15
 
+- **P3H.2 — Upload documentos asesor Supabase:** migración `027` bucket privado `expediente-documentos`, policies Storage y RPC `register_expediente_documento`; `SupabaseExpedienteArchivosRepo` sube a Storage + registra metadata; UI upload/reemplazar 8 documentos en detalle asesor.
+
 - **P3H.1c — Regla documentos asesor 8/10:** migración `026` con `integration_doc_tipos_asesor_envio()` (8) para `enviar_a_mesa`; `integration_doc_tipos_obligatorios()` sigue en 10 para validación Mesa 1→2; acta/constancia SAT `ownerRole: mesa`; historial laboral fuera del listado mock; checklist Supabase 8/8.
 
 - **P3H.1 — Documentos Supabase read-only en detalle asesor:** `SupabaseExpedienteArchivosRepo` (SELECT `expediente_documentos`); checklist real de 10 tipos de integración; gate `documentosCompletos` para Enviar a Mesa; sin upload (P3H.2); mock IndexedDB intacto.

@@ -18,6 +18,12 @@ import {
   type SupabaseExpedienteDocumentoRow,
 } from "./map-supabase-expediente-documentos";
 import { ExpedienteArchivosSupabaseError } from "./supabase.error";
+import { mapRegisterExpedienteDocumentoRpcError } from "./register-expediente-documento-rpc-error";
+import { buildExpedienteDocumentoStoragePath } from "./storage-path";
+import {
+  EXPEDIENTE_DOCUMENTOS_BUCKET,
+  validateExpedienteDocumentoFile,
+} from "./upload-constraints";
 
 const DOCUMENTOS_SELECT = `
   id,
@@ -53,6 +59,29 @@ async function requireSupabaseSession(): Promise<{ client: SupabaseClient }> {
   }
 
   return { client };
+}
+
+async function fetchExpedienteUploadContext(
+  client: SupabaseClient,
+  expedienteId: string,
+): Promise<{ organizationId: string; submittedToMesa: boolean }> {
+  const { data, error } = await client
+    .from("expedientes")
+    .select("organization_id, submitted_to_mesa")
+    .eq("id", expedienteId)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (error || !data?.organization_id) {
+    throw new ExpedienteArchivosSupabaseError(
+      "No se pudo validar el expediente para subir documentos.",
+    );
+  }
+
+  return {
+    organizationId: String(data.organization_id),
+    submittedToMesa: Boolean(data.submitted_to_mesa),
+  };
 }
 
 function buildResumenFromList(
@@ -97,11 +126,11 @@ function buildResumenFromList(
   });
 }
 
-/** P3H.1: lectura RLS de `expediente_documentos`; escritura pendiente P3H.2. */
+/** P3H.2: lectura RLS + upload Storage + RPC `register_expediente_documento`. */
 export class SupabaseExpedienteArchivosRepo implements ExpedienteArchivosRepo {
-  private unsupportedWrite(): never {
+  private unsupportedReadBlob(): never {
     throw new ExpedienteArchivosSupabaseError(
-      "La carga real de documentos se conectará en P3H.2.",
+      "La descarga/preview de documentos se conectará en una fase posterior.",
     );
   }
 
@@ -135,24 +164,94 @@ export class SupabaseExpedienteArchivosRepo implements ExpedienteArchivosRepo {
     return buildResumenFromList(expedienteId, items);
   }
 
+  private async uploadOrReplace(params: UploadArchivoParams): Promise<void> {
+    const expedienteId = String(params.expedienteId).trim();
+    const tipo = params.tipo_documento;
+    if (!expedienteId) {
+      throw new ExpedienteArchivosSupabaseError("Expediente inválido para subir documento.");
+    }
+
+    const validation = validateExpedienteDocumentoFile(params.file);
+    if (!validation.ok) {
+      throw new ExpedienteArchivosSupabaseError(validation.message);
+    }
+
+    const { client } = await requireSupabaseSession();
+    const ctx = await fetchExpedienteUploadContext(client, expedienteId);
+
+    if (ctx.submittedToMesa) {
+      throw new ExpedienteArchivosSupabaseError(
+        "No puedes subir documentos: el expediente ya fue enviado a Mesa.",
+      );
+    }
+
+    const storagePath = buildExpedienteDocumentoStoragePath({
+      organizationId: ctx.organizationId,
+      expedienteId,
+      tipoDocumento: tipo,
+      originalFileName: params.file.name,
+    });
+
+    const { error: uploadError } = await client.storage
+      .from(EXPEDIENTE_DOCUMENTOS_BUCKET)
+      .upload(storagePath, params.file, {
+        contentType: params.file.type,
+        upsert: false,
+      });
+
+    if (uploadError) {
+      throw new ExpedienteArchivosSupabaseError(
+        uploadError.message?.toLowerCase().includes("bucket")
+          ? "No se pudo acceder al almacenamiento de documentos. Contacta soporte."
+          : "No se pudo subir el archivo. Verifica el formato (PDF/JPG/PNG) y el tamaño (máx. 15 MB).",
+      );
+    }
+
+    try {
+      const { error: rpcError } = await client.rpc("register_expediente_documento", {
+        p_expediente_id: expedienteId,
+        p_tipo_documento: tipo,
+        p_storage_path: storagePath,
+        p_nombre_original: params.file.name,
+        p_mime_type: params.file.type,
+        p_size_bytes: params.file.size,
+      });
+
+      if (rpcError) {
+        throw mapRegisterExpedienteDocumentoRpcError(rpcError);
+      }
+    } catch (err) {
+      await client.storage
+        .from(EXPEDIENTE_DOCUMENTOS_BUCKET)
+        .remove([storagePath])
+        .catch(() => undefined);
+      if (err instanceof ExpedienteArchivosSupabaseError) {
+        throw err;
+      }
+      throw new ExpedienteArchivosSupabaseError(
+        "No se pudo registrar el documento después de subirlo. Intenta de nuevo.",
+      );
+    }
+  }
+
   async uploadArchivo(params: UploadArchivoParams): Promise<void> {
-    void params;
-    this.unsupportedWrite();
+    await this.uploadOrReplace(params);
   }
 
   async replaceArchivo(params: ReplaceArchivoParams): Promise<void> {
-    void params;
-    this.unsupportedWrite();
+    await this.uploadOrReplace(params);
   }
 
   async getArchivoBlob(id: string): Promise<Blob> {
     void id;
-    this.unsupportedWrite();
+    this.unsupportedReadBlob();
   }
 
   async updateRevision(id: string, patch: UpdateRevisionPatch): Promise<void> {
     void id;
     void patch;
-    this.unsupportedWrite();
+    throw new ExpedienteArchivosSupabaseError(
+      "La revisión de documentos la realiza Mesa de control.",
+    );
   }
 }

@@ -1,5 +1,24 @@
 # Devlog
 
+## 2026-06-15 - P3H.2: upload documentos asesor (Storage + RPC)
+
+### Decisión
+
+- Bucket privado `expediente-documentos`; path `{org}/{exp}/{tipo}/{uuid}-{nombre}`.
+- Metadata solo vía RPC `register_expediente_documento` (SECURITY DEFINER); sin INSERT directo desde cliente.
+- Versión en DB (`max+1`); UUID en path evita colisión sin leer versión en frontend.
+- Si RPC falla tras upload, cliente intenta `storage.remove` del objeto huérfano.
+- Preview/descarga diferida (P3H.2b).
+- Migración `027` local; **no** Cloud en este bloque.
+
+### Archivos
+
+- `supabase/migrations/027_rpc_register_expediente_documento.sql`
+- `supabase/tests/rpc_register_expediente_documento.sql`
+- `src/domain/expediente-archivos/supabase.repo.ts`, `storage-path.ts`, `upload-constraints.ts`
+- `src/components/asesor/AsesorIntegracionDocsUpload.tsx`
+- `src/app/asesor/expediente/[id]/page.tsx`
+
 ## 2026-06-15 - P3H.1c: documentos asesor 8 vs validación Mesa 10
 
 ### Decisión

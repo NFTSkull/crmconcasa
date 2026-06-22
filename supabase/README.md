@@ -29,6 +29,7 @@ Migraciones SQL para producción. **No conectadas a la UI mock** en esta fase.
 | `migrations/024_backfill_agenda_config_firmas.sql` | ✅ backfill `agenda_config` firmas por org (P2C-21) |
 | `migrations/025_rpc_create_expediente.sql` | ✅ RPC `create_expediente` — asesor crea expediente (P3C) |
 | `migrations/026_integration_doc_tipos_asesor_envio.sql` | ✅ P3H.1c: 8 docs asesor / 10 validación Mesa |
+| `migrations/027_rpc_register_expediente_documento.sql` | ✅ P3H.2: bucket `expediente-documentos` + RPC `register_expediente_documento` |
 | Roles `app_role` | `asesor`, `editor`, `mesa_*`, `super_admin` — **sin `revisor`** |
 | Supabase CLI local | `npx supabase start` / `db reset` |
 | UI mock | Sin conexión; `/revisor` legacy redirige a `/editor` |

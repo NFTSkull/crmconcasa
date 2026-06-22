@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSessionRepo } from "@/domain/session";
 import { AgendaBiometricosCard } from "@/components/asesor/AgendaBiometricosCard";
+import { AsesorIntegracionDocsUpload } from "@/components/asesor/AsesorIntegracionDocsUpload";
 import { canMountAgendaBiometricosUI } from "@/lib/agendaFirmasBookingsGuard";
 import { AgendaFirmasAsesorCard } from "@/components/asesor/AgendaFirmasAsesorCard";
 import { ExpedienteClienteDatosFormSection } from "@/components/asesor/ExpedienteClienteDatosFormSection";
@@ -34,7 +35,6 @@ import {
   useExpedienteArchivosRepo,
   type ExpedienteArchivoResumen,
   type IntegrationDocChecklistItem,
-  type ResumenEstatus,
 } from "@/domain/expediente-archivos";
 import {
   ClienteDatosSupabaseError,
@@ -94,8 +94,8 @@ type EstadoEtapa =
 const MSJ_ESPERA_MONTO_REVISOR =
   "Debes esperar a que el editor apruebe un monto antes de capturar datos, subir documentos o enviar a mesa.";
 
-const MSJ_UPLOAD_P3H2 =
-  "La carga real de documentos se conectará en P3H.2.";
+const MSJ_UPLOAD_FORMATO =
+  "Sube PDF, JPG o PNG (máx. 15 MB) por cada documento requerido.";
 
 const MSJ_ENVIO_MESA_REQUISITOS =
   "El envío a Mesa se habilitará cuando editor, datos generales y documentos estén completos.";
@@ -114,17 +114,6 @@ function checklistClass(ok: boolean): string {
   return ok
     ? "text-green-800 bg-green-50 border-green-200"
     : "text-amber-950 bg-amber-50 border-amber-200";
-}
-
-function estatusDocumentoIntegracionLabel(estatus: ResumenEstatus): string {
-  if (estatus === "faltante") return "faltante";
-  return estatus;
-}
-
-function estatusDocumentoIntegracionIcon(completo: boolean, estatus: ResumenEstatus): string {
-  if (completo) return "🟢";
-  if (estatus === "rechazado") return "🔴";
-  return "🟡";
 }
 
 function formatDateTime(iso: string): string {
@@ -330,6 +319,28 @@ export default function AsesorExpedientePage() {
     precal?.id,
     repo,
   ]);
+
+  const refreshArchivos = useCallback(() => {
+    if (!dataSupabase || !precal?.id) return;
+    setArchivosLoading(true);
+    setArchivosError(null);
+    void archivosRepo
+      .listResumenByExpediente(String(precal.id))
+      .then((resumen) => {
+        setArchivosResumen(resumen);
+      })
+      .catch((err) => {
+        setArchivosResumen(null);
+        if (err instanceof ExpedienteArchivosSupabaseError) {
+          setArchivosError(err.message);
+        } else {
+          setArchivosError("No se pudieron cargar los documentos.");
+        }
+      })
+      .finally(() => {
+        setArchivosLoading(false);
+      });
+  }, [archivosRepo, dataSupabase, precal?.id]);
 
   useEffect(() => {
     if (!dataSupabase || !precal?.id) return;
@@ -775,7 +786,7 @@ export default function AsesorExpedientePage() {
               <p className="text-sm font-semibold text-gray-900">
                 Documentos requeridos
               </p>
-              <p className="mt-1 text-xs text-gray-500">{MSJ_UPLOAD_P3H2}</p>
+              <p className="mt-1 text-xs text-gray-500">{MSJ_UPLOAD_FORMATO}</p>
               {archivosLoading ? (
                 <p className="mt-2 text-xs text-gray-500">Cargando documentos…</p>
               ) : null}
@@ -799,27 +810,13 @@ export default function AsesorExpedientePage() {
                     )}
                     %)
                   </p>
-                  <ul className="mt-3 space-y-1.5 text-xs text-gray-800">
-                    {integrationChecklist.map((item) => (
-                      <li
-                        key={item.tipo_documento}
-                        className="flex items-start gap-2 rounded-md border border-gray-100 bg-gray-50 px-2 py-1.5"
-                      >
-                        <span aria-hidden className="mt-0.5">
-                          {estatusDocumentoIntegracionIcon(
-                            item.completo,
-                            item.estatus_revision,
-                          )}
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="font-medium text-gray-900">{item.label}</span>
-                          <span className="mt-0.5 block text-gray-600">
-                            {estatusDocumentoIntegracionLabel(item.estatus_revision)}
-                          </span>
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
+                  <AsesorIntegracionDocsUpload
+                    expedienteId={String(precal?.id ?? "")}
+                    checklist={integrationChecklist}
+                    archivosResumen={archivosResumen}
+                    puedeSubir={puedeIntegrar && !operativo?.submittedToMesa}
+                    onUploaded={refreshArchivos}
+                  />
                 </>
               ) : null}
             </div>
