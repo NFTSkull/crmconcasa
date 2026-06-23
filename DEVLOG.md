@@ -1,5 +1,21 @@
 # Devlog
 
+## 2026-06-15 - P3I.1: timeline operativo asesor read-only (Supabase)
+
+### Decisión
+
+- Bloque `AsesorSeguimientoOperativo` en `/asesor/expediente/[id]` solo modo Supabase.
+- 12 etapas oficiales; sin acciones Mesa ni documentos legacy.
+- Datos: `etapa_actual`, `subestado`, `submitted_to_mesa`, `fecha_envio_mesa`, `updated_at`, `ciclo_estado`, `origen_mesa`.
+- Sin migraciones ni cambios Cloud.
+
+### Archivos
+
+- `src/components/asesor/AsesorSeguimientoOperativo.tsx`
+- `src/domain/expedientes/asesor-seguimiento-operativo.ts` + tests
+- `src/domain/expedientes/map-supabase-row.ts`, `supabase.repo.ts`
+- `src/app/asesor/expediente/[id]/page.tsx`
+
 ## 2026-06-15 - P3H.2b: catálogo documental sin duplicados
 
 ### Decisión

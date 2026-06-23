@@ -34,6 +34,7 @@ export type SupabaseExpedienteListRow = Readonly<{
   fecha_envio_mesa?: string | null;
   etapa_actual?: number | null;
   subestado?: string | null;
+  ciclo_estado?: string | null;
   motivo_rechazo?: string | null;
   comentario_rechazo?: string | null;
   fecha_cita?: string | null;
@@ -158,6 +159,8 @@ export function mapSupabaseRowToExpedienteMock(
       fechaCita: textOrNull(row.fecha_cita),
       updatedAt: textOrNull(row.updated_at),
       submittedToMesa,
+      fechaEnvioMesa: textOrNull(row.fecha_envio_mesa),
+      cicloEstado: textOrNull(row.ciclo_estado),
     },
   };
 }
@@ -198,6 +201,8 @@ export function mapCreateExpedienteRpcToExpedienteMock(
       fechaCita: null,
       updatedAt: null,
       submittedToMesa,
+      fechaEnvioMesa: null,
+      cicloEstado: textOrNull(row.ciclo_estado),
     },
   };
 }

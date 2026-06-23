@@ -77,9 +77,13 @@ test("mapSupabaseRowToExpedienteMock: en_validacion_mesa conserva etapa 1", () =
     ...BASE_ROW,
     etapa_actual: 1,
     subestado: "en_validacion_mesa",
+    fecha_envio_mesa: "2026-06-10T08:00:00.000Z",
+    ciclo_estado: "activo",
   });
   assert.equal(mock.operativo.etapaActual, 1);
   assert.equal(mock.operativo.subestado, "en_validacion_mesa");
+  assert.equal(mock.operativo.fechaEnvioMesa, "2026-06-10T08:00:00.000Z");
+  assert.equal(mock.operativo.cicloEstado, "activo");
 });
 
 test("mapCreateExpedienteRpcToExpedienteMock: respuesta RPC create", () => {

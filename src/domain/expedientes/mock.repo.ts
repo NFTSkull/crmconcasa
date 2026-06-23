@@ -61,6 +61,8 @@ export interface ExpedienteMock {
     fechaCita: string | null;
     updatedAt: string | null;
     submittedToMesa: boolean;
+    fechaEnvioMesa: string | null;
+    cicloEstado: string | null;
   };
 }
 
@@ -365,6 +367,9 @@ export class MockExpedientesRepo implements ExpedientesRepo {
         fechaCita: typeof op?.fechaCita === "string" ? op.fechaCita : null,
         updatedAt: typeof op?.updatedAt === "string" ? op.updatedAt : null,
         submittedToMesa,
+        fechaEnvioMesa:
+          typeof op?.fechaEnvioMesa === "string" ? op.fechaEnvioMesa : null,
+        cicloEstado: null,
       },
     };
   }

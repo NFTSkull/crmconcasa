@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSessionRepo } from "@/domain/session";
 import { AgendaBiometricosCard } from "@/components/asesor/AgendaBiometricosCard";
 import { AsesorIntegracionDocsUpload } from "@/components/asesor/AsesorIntegracionDocsUpload";
+import { AsesorSeguimientoOperativo } from "@/components/asesor/AsesorSeguimientoOperativo";
 import { canMountAgendaBiometricosUI } from "@/lib/agendaFirmasBookingsGuard";
 import { AgendaFirmasAsesorCard } from "@/components/asesor/AgendaFirmasAsesorCard";
 import { ExpedienteClienteDatosFormSection } from "@/components/asesor/ExpedienteClienteDatosFormSection";
@@ -21,7 +22,6 @@ import {
   MockExpedientesRepo,
 } from "@/domain/expedientes/mock.repo";
 import { isDataModeSupabase } from "@/lib/dataMode";
-import { subestadoOperativoLabel } from "@/lib/subestadoOperativoUi";
 import {
   DOCUMENTO_CATALOGO_MAP,
   ExpedienteArchivosSupabaseError,
@@ -83,6 +83,9 @@ interface OperativoStatus {
   motivoRechazo?: string | null;
   comentarioRechazo?: string | null;
   submittedToMesa: boolean;
+  fechaEnvioMesa?: string | null;
+  cicloEstado?: string | null;
+  origenMesa?: string | null;
 }
 
 type EstadoEtapa =
@@ -268,6 +271,9 @@ export default function AsesorExpedientePage() {
         motivoRechazo: exp.operativo.motivoRechazo,
         comentarioRechazo: exp.operativo.comentarioRechazo,
         submittedToMesa: exp.operativo.submittedToMesa,
+        fechaEnvioMesa: exp.operativo.fechaEnvioMesa,
+        cicloEstado: exp.operativo.cicloEstado,
+        origenMesa: exp.base.origenMesa,
       });
     } catch (err) {
       setPrecal(null);
@@ -723,11 +729,11 @@ export default function AsesorExpedientePage() {
           <>
             <div className="rounded-lg border border-gray-200 bg-white p-4 text-sm text-gray-600">
               <p className="text-sm font-semibold text-gray-900">
-                Estado del expediente
+                Decisión del editor
               </p>
               <div className="mt-3 grid gap-2 sm:grid-cols-2">
                 <p>
-                  <span className="font-medium text-gray-900">Decisión editor:</span>{" "}
+                  <span className="font-medium text-gray-900">Decisión:</span>{" "}
                   {editorDecisionLabel(editorDecision?.decision)}
                 </p>
                 <p>
@@ -741,30 +747,18 @@ export default function AsesorExpedientePage() {
                   <span className="font-medium text-gray-900">Notas revisión:</span>{" "}
                   {editorDecision?.notas_revision?.trim() || "—"}
                 </p>
-                <p>
-                  <span className="font-medium text-gray-900">Etapa:</span>{" "}
-                  {operativo?.etapaActual != null ? operativo.etapaActual : "—"}
-                </p>
-                <p>
-                  <span className="font-medium text-gray-900">Subestado:</span>{" "}
-                  {subestadoOperativoLabel(operativo?.subestado)}
-                </p>
-                <p>
-                  <span className="font-medium text-gray-900">Enviado a mesa:</span>{" "}
-                  {operativo?.submittedToMesa ? "Sí" : "No"}
-                </p>
-                <p>
-                  <span className="font-medium text-gray-900">Fecha cita:</span>{" "}
-                  {operativo?.fechaCita ? formatDateTime(operativo.fechaCita) : "—"}
-                </p>
-                {operativo?.updatedAt ? (
-                  <p className="sm:col-span-2">
-                    <span className="font-medium text-gray-900">Última actualización:</span>{" "}
-                    {formatDateTime(operativo.updatedAt)}
-                  </p>
-                ) : null}
               </div>
             </div>
+            <AsesorSeguimientoOperativo
+              etapaActual={operativo?.etapaActual ?? null}
+              subestado={operativo?.subestado}
+              submittedToMesa={operativo?.submittedToMesa ?? false}
+              fechaEnvioMesa={operativo?.fechaEnvioMesa}
+              updatedAt={operativo?.updatedAt}
+              cicloEstado={operativo?.cicloEstado}
+              origenMesa={operativo?.origenMesa}
+              formatDateTime={formatDateTime}
+            />
             {!puedeIntegrar ? (
               <div
                 role="status"

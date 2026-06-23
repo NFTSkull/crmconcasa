@@ -40,6 +40,8 @@ function exp(
     fechaCita: null,
     updatedAt: null,
     submittedToMesa: false,
+    fechaEnvioMesa: null,
+    cicloEstado: null,
     ...p.operativo,
   };
   return { id: p.id, base, editorDecision, operativo };
@@ -56,6 +58,8 @@ function op(
     fechaCita: null,
     updatedAt: null,
     submittedToMesa: false,
+    fechaEnvioMesa: null,
+    cicloEstado: null,
     ...x,
   };
 }

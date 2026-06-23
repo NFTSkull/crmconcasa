@@ -30,6 +30,7 @@ const EXPEDIENTES_LIST_SELECT = `
   fecha_envio_mesa,
   etapa_actual,
   subestado,
+  ciclo_estado,
   motivo_rechazo,
   comentario_rechazo,
   fecha_cita,
