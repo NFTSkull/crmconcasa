@@ -99,6 +99,7 @@ type MotivoOption = {
 };
 
 const CLIENTE_DOC_TIPOS_OBLIGATORIOS = [
+  { tipo: "nss" as const, label: "NSS" },
   { tipo: "cliente_ine_frente" as const, label: "INE frente" },
   { tipo: "cliente_ine_reverso" as const, label: "INE reverso" },
   { tipo: "cliente_comprobante_domicilio" as const, label: "Comprobante de domicilio" },

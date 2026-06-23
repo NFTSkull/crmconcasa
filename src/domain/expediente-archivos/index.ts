@@ -16,14 +16,19 @@ export {
 } from "./map-supabase-expediente-documentos";
 export {
   INTEGRATION_DOC_TIPOS_ASESOR_ENVIO,
+  INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES,
+  INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD,
   INTEGRATION_DOC_TIPOS_OBLIGATORIOS,
   INTEGRATION_DOC_TIPOS_VALIDACION_MESA,
   countIntegrationDocsPresentes,
   deriveIntegrationDocsChecklist,
+  deriveIntegrationDocsChecklistOpcionales,
   estatusCuentaParaIntegracion,
   integrationDocsCompletos,
   integrationDocsResumenFromArchivoResumen,
   type IntegrationDocAsesorEnvioTipo,
+  type IntegrationDocAsesorOpcionalTipo,
+  type IntegrationDocAsesorUploadTipo,
   type IntegrationDocChecklistItem,
   type IntegrationDocTipo,
 } from "./integration-docs-completos";

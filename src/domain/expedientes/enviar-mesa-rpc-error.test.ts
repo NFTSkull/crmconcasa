@@ -50,7 +50,7 @@ describe("mapEnviarAMesaRpcError", () => {
 
   it("mapea documentos incompletos", () => {
     const err = mapEnviarAMesaRpcError({
-      message: "enviar_a_mesa: faltan documentos obligatorios de integración (3 de 8)",
+      message: "enviar_a_mesa: faltan documentos obligatorios de integración (3 de 5)",
     });
     assert.match(err.message, /documentos obligatorios de integración/i);
   });

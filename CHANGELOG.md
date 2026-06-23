@@ -2,7 +2,9 @@
 
 ## 2026-06-15
 
-- **P3H.2 — Upload documentos asesor Supabase:** migración `027` bucket privado `expediente-documentos`, policies Storage y RPC `register_expediente_documento`; `SupabaseExpedienteArchivosRepo` sube a Storage + registra metadata; UI upload/reemplazar 8 documentos en detalle asesor.
+- **P3H.2b — Catálogo documental sin duplicados:** migración `028` redefine listas asesor (5 oblig / 1 opc / 6 upload / 7 Mesa); elimina legacy `ine`/`estado_cuenta`/`direccion` del panel y gates; `cliente_semanas_cotizadas` upload opcional; acta y constancia SAT solo Mesa de Control (no panel/upload asesor); UI asesor con secciones obligatorios/opcionales; progreso `N/5`.
+
+- **P3H.2 — Upload documentos asesor Supabase:** migración `027` bucket privado `expediente-documentos`, policies Storage y RPC `register_expediente_documento`; `SupabaseExpedienteArchivosRepo` sube a Storage + registra metadata; UI upload/reemplazar en detalle asesor.
 
 - **P3H.1c — Regla documentos asesor 8/10:** migración `026` con `integration_doc_tipos_asesor_envio()` (8) para `enviar_a_mesa`; `integration_doc_tipos_obligatorios()` sigue en 10 para validación Mesa 1→2; acta/constancia SAT `ownerRole: mesa`; historial laboral fuera del listado mock; checklist Supabase 8/8.
 

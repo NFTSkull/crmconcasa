@@ -28,8 +28,9 @@ Migraciones SQL para producción. **No conectadas a la UI mock** en esta fase.
 | `migrations/023_rpc_avanzar_etapa_9_10.sql` | ✅ extensión `avanzar_etapa_operativa` 9→10 (P2C-20) |
 | `migrations/024_backfill_agenda_config_firmas.sql` | ✅ backfill `agenda_config` firmas por org (P2C-21) |
 | `migrations/025_rpc_create_expediente.sql` | ✅ RPC `create_expediente` — asesor crea expediente (P3C) |
-| `migrations/026_integration_doc_tipos_asesor_envio.sql` | ✅ P3H.1c: 8 docs asesor / 10 validación Mesa |
+| `migrations/026_integration_doc_tipos_asesor_envio.sql` | ✅ P3H.1c: listas asesor/Mesa (supersedido por 028) |
 | `migrations/027_rpc_register_expediente_documento.sql` | ✅ P3H.2: bucket `expediente-documentos` + RPC `register_expediente_documento` |
+| `migrations/028_integration_doc_tipos_sin_duplicados.sql` | ✅ P3H.2b: 5 oblig / 1 opc / 6 upload / 7 Mesa |
 | Roles `app_role` | `asesor`, `editor`, `mesa_*`, `super_admin` — **sin `revisor`** |
 | Supabase CLI local | `npx supabase start` / `db reset` |
 | UI mock | Sin conexión; `/revisor` legacy redirige a `/editor` |
@@ -49,16 +50,23 @@ Migraciones SQL para producción. **No conectadas a la UI mock** en esta fase.
 - **Función:** `public.enviar_a_mesa(p_expediente_id uuid) returns jsonb`
 - **Auditoría:** `action_log` → `expediente.enviar_a_mesa`
 - **Rol:** solo `asesor` dueño del expediente (misma organización)
-- **Gates:** decisión editor `aprobado` + `monto_aprobado > 0`; `cliente_datos` con RFC y estado `completo`/`validado`; **8** documentos del asesor presentes (`integration_doc_tipos_asesor_envio`)
+- **Gates:** decisión editor `aprobado` + `monto_aprobado > 0`; `cliente_datos` con RFC y estado `completo`/`validado`; **5** documentos del asesor presentes (`integration_doc_tipos_asesor_envio`)
 - **Efecto:** `submitted_to_mesa = true`, `etapa_actual = 1`, `subestado = en_validacion_mesa` (no avanza a etapa 2)
 - **Tests:** `supabase/tests/rpc_enviar_a_mesa.sql`
 
-### P3H.1c — Documentos asesor (8) vs validación Mesa (10)
+### P3H.2b — Documentos asesor sin duplicados (5 / 6 upload / 7 Mesa)
+
+- **Migración:** `028_integration_doc_tipos_sin_duplicados.sql`
+- **`integration_doc_tipos_asesor_envio()`:** 5 tipos obligatorios para `enviar_a_mesa`.
+- **`integration_doc_tipos_asesor_opcionales()`:** `cliente_semanas_cotizadas` (no bloquea envío).
+- **`integration_doc_tipos_asesor_upload()`:** 6 tipos permitidos en Storage/RPC asesor (excluye acta/constancia SAT).
+- **`integration_doc_tipos_obligatorios()`:** 7 tipos (5 asesor + acta + constancia SAT) para `count_integration_docs_validados` y avance 1→2. **Acta y constancia SAT** las sube **Mesa de Control** por expediente; el asesor no las sube ni aparecen en su panel.
+- **Legacy fuera de gates:** `ine`, `estado_cuenta`, `direccion` (datos históricos pueden existir).
+
+### P3H.1c — Documentos asesor (histórico, supersedido por 028)
 
 - **Migración:** `026_integration_doc_tipos_asesor_envio.sql`
-- **`integration_doc_tipos_asesor_envio()`:** 8 tipos que el asesor debe subir antes de `enviar_a_mesa`.
-- **`integration_doc_tipos_obligatorios()`:** 10 tipos (incluye acta + constancia SAT) para `count_integration_docs_validados` y avance 1→2.
-- **Acta / Constancia SAT:** sube Mesa de Control; no bloquean envío asesor.
+- Reemplazada por P3H.2b (antes 8/10 con duplicados legacy).
 
 ### RPC `avanzar_etapa_operativa` (P2C-4 / P2C-7 / P2C-12 / P2C-13 / P2C-14 / P2C-15 / P2C-17 / P2C-20)
 
@@ -77,7 +85,7 @@ Migraciones SQL para producción. **No conectadas a la UI mock** en esta fase.
 
 **1 → 2 (integración → registro)**
 
-- **Gates:** expediente enviado a Mesa; `etapa_actual = 1`; `subestado = en_validacion_mesa`; `cliente_datos.estado = validado`; 10 documentos obligatorios con `estatus_revision = validado`
+- **Gates:** expediente enviado a Mesa; `etapa_actual = 1`; `subestado = en_validacion_mesa`; `cliente_datos.estado = validado`; 7 documentos obligatorios con `estatus_revision = validado`
 - **Efecto:** `etapa_actual = 2`, `subestado = en_proceso`
 - **Tests:** `supabase/tests/rpc_avanzar_etapa_operativa.sql` (15 pruebas)
 

@@ -1,5 +1,24 @@
 # Devlog
 
+## 2026-06-15 - P3H.2b: catálogo documental sin duplicados
+
+### Decisión
+
+- Gate `enviar_a_mesa`: **5** obligatorios (`nss` + 4 `cliente_*`); sin legacy `ine`/`estado_cuenta`/`direccion`.
+- Upload/RPC/Storage asesor: **6** tipos vía `integration_doc_tipos_asesor_upload()` (5 + `cliente_semanas_cotizadas` opcional). **No** incluye acta ni constancia SAT.
+- Validación Mesa 1→2: **7** validados (5 asesor + acta + constancia SAT). Acta y constancia las sube **Mesa de Control** por expediente; fuera del panel/upload asesor.
+- Tipos legacy permanecen en catálogo TypeScript/DB histórica; fuera de gates y UI Supabase asesor.
+- Migración `028` local; **no** Cloud en este bloque.
+
+### Archivos
+
+- `supabase/migrations/028_integration_doc_tipos_sin_duplicados.sql`
+- `src/domain/expediente-archivos/integration-docs-completos.ts` + tests
+- `src/components/asesor/AsesorIntegracionDocsUpload.tsx`
+- `src/app/asesor/expediente/[id]/page.tsx`
+- `src/components/seguimiento/SeguimientoOperativoMock.tsx`
+- `supabase/tests/rpc_enviar_a_mesa.sql`, `rpc_register_expediente_documento.sql`
+
 ## 2026-06-15 - P3H.2: upload documentos asesor (Storage + RPC)
 
 ### Decisión

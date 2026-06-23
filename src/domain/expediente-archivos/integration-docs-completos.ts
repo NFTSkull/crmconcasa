@@ -6,14 +6,11 @@ import {
 } from "./types";
 
 /**
- * Espejo de `integration_doc_tipos_asesor_envio()` (migración 026).
- * Documentos que el asesor debe completar antes de `enviar_a_mesa`.
+ * Espejo de `integration_doc_tipos_asesor_envio()` (migración 028).
+ * Documentos obligatorios que el asesor debe completar antes de `enviar_a_mesa`.
  */
 export const INTEGRATION_DOC_TIPOS_ASESOR_ENVIO = [
-  "ine",
-  "estado_cuenta",
   "nss",
-  "direccion",
   "cliente_ine_frente",
   "cliente_ine_reverso",
   "cliente_comprobante_domicilio",
@@ -21,7 +18,22 @@ export const INTEGRATION_DOC_TIPOS_ASESOR_ENVIO = [
 ] as const;
 
 /**
- * Espejo de `integration_doc_tipos_obligatorios()` — validación Mesa (10).
+ * Espejo de `integration_doc_tipos_asesor_opcionales()` — no bloquean envío.
+ */
+export const INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES = [
+  "cliente_semanas_cotizadas",
+] as const;
+
+/**
+ * Espejo de `integration_doc_tipos_asesor_upload()` — permitidos en Storage/RPC (6).
+ */
+export const INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD = [
+  ...INTEGRATION_DOC_TIPOS_ASESOR_ENVIO,
+  ...INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES,
+] as const;
+
+/**
+ * Espejo de `integration_doc_tipos_obligatorios()` — validación Mesa (7).
  * Incluye acta y constancia SAT (sube Mesa de Control).
  */
 export const INTEGRATION_DOC_TIPOS_VALIDACION_MESA = [
@@ -36,6 +48,13 @@ export const INTEGRATION_DOC_TIPOS_OBLIGATORIOS = INTEGRATION_DOC_TIPOS_VALIDACI
 export type IntegrationDocAsesorEnvioTipo =
   (typeof INTEGRATION_DOC_TIPOS_ASESOR_ENVIO)[number];
 
+export type IntegrationDocAsesorOpcionalTipo =
+  (typeof INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES)[number];
+
+export type IntegrationDocAsesorUploadTipo =
+  (typeof INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD)[number];
+
+/** @deprecated Usar `IntegrationDocAsesorEnvioTipo` o `IntegrationDocAsesorUploadTipo`. */
 export type IntegrationDocTipo = IntegrationDocAsesorEnvioTipo;
 
 const ESTATUS_CUENTA_INTEGRACION = new Set<ResumenEstatus>([
@@ -45,10 +64,11 @@ const ESTATUS_CUENTA_INTEGRACION = new Set<ResumenEstatus>([
 ]);
 
 export type IntegrationDocChecklistItem = {
-  tipo_documento: IntegrationDocAsesorEnvioTipo;
+  tipo_documento: IntegrationDocAsesorUploadTipo;
   label: string;
   estatus_revision: ResumenEstatus;
   completo: boolean;
+  opcional: boolean;
 };
 
 export type IntegrationDocsResumenInput = ReadonlyArray<{
@@ -82,20 +102,37 @@ export function integrationDocsCompletos(resumen: IntegrationDocsResumenInput): 
   );
 }
 
-export function deriveIntegrationDocsChecklist(
+function mapChecklistItems(
+  tipos: readonly IntegrationDocAsesorUploadTipo[],
   resumen: IntegrationDocsResumenInput,
+  opcional: boolean,
 ): IntegrationDocChecklistItem[] {
   const byTipo = new Map(resumen.map((r) => [r.tipo_documento, r.estatus_revision]));
 
-  return INTEGRATION_DOC_TIPOS_ASESOR_ENVIO.map((tipo) => {
+  return tipos.map((tipo) => {
     const estatus_revision = byTipo.get(tipo) ?? "faltante";
     return {
       tipo_documento: tipo,
       label: DOCUMENTO_CATALOGO_MAP[tipo].label,
       estatus_revision,
       completo: estatusCuentaParaIntegracion(estatus_revision),
+      opcional,
     };
   });
+}
+
+/** Checklist de documentos obligatorios para envío a Mesa (5). */
+export function deriveIntegrationDocsChecklist(
+  resumen: IntegrationDocsResumenInput,
+): IntegrationDocChecklistItem[] {
+  return mapChecklistItems(INTEGRATION_DOC_TIPOS_ASESOR_ENVIO, resumen, false);
+}
+
+/** Checklist de documentos opcionales de upload asesor (no bloquean envío). */
+export function deriveIntegrationDocsChecklistOpcionales(
+  resumen: IntegrationDocsResumenInput,
+): IntegrationDocChecklistItem[] {
+  return mapChecklistItems(INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES, resumen, true);
 }
 
 /** Adapta `ExpedienteArchivoResumen[]` al input del checklist de integración asesor. */

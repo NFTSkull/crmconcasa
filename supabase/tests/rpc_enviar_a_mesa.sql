@@ -349,7 +349,7 @@ BEGIN
   PERFORM public.__rpc_enviar_test_insert_cliente(v_exp_vis, v_org_id);
   PERFORM public.__rpc_enviar_test_insert_docs_obligatorios(v_exp_vis, v_org_id, v_asesor_a1);
 
-  -- Solo 8 docs asesor (sin acta ni constancia SAT)
+  -- Solo 5 docs asesor (sin acta ni constancia SAT)
   PERFORM public.__rpc_enviar_test_insert_expediente(v_exp_solo_asesor, v_org_id, v_asesor_a1, '90509100091');
   PERFORM public.__rpc_enviar_test_insert_editor(v_exp_solo_asesor, v_org_id);
   PERFORM public.__rpc_enviar_test_insert_cliente(v_exp_solo_asesor, v_org_id);
@@ -371,8 +371,8 @@ BEGIN
     'test 1: enviado_a_mesa=true'
   );
   PERFORM public.__rpc_enviar_test_assert(
-    (v_result->>'documentos_obligatorios_count')::int = 8,
-    'test 1: 8 documentos asesor para envío'
+    (v_result->>'documentos_obligatorios_count')::int = 5,
+    'test 1: 5 documentos asesor para envío'
   );
 
   -- Test 2: asesor no envía expediente ajeno
@@ -498,15 +498,15 @@ BEGIN
     'test 14: mesa_externo no ve expediente interno'
   );
 
-  -- Test 15: envío con solo 8 docs asesor (sin acta/constancia SAT)
+  -- Test 15: envío con solo 5 docs asesor (sin acta/constancia SAT)
   v_result := public.__rpc_enviar_test_call_as(v_asesor_a1, v_exp_solo_asesor);
   PERFORM public.__rpc_enviar_test_assert(
     (v_result->>'ok')::boolean = true,
-    'test 15: solo 8 docs asesor puede enviar'
+    'test 15: solo 5 docs asesor puede enviar'
   );
   PERFORM public.__rpc_enviar_test_assert(
-    (v_result->>'documentos_obligatorios_count')::int = 8,
-    'test 15: documentos_obligatorios_count=8'
+    (v_result->>'documentos_obligatorios_count')::int = 5,
+    'test 15: documentos_obligatorios_count=5'
   );
 
   RAISE NOTICE 'RPC enviar_a_mesa: 15 pruebas OK';

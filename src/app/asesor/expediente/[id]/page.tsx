@@ -27,6 +27,7 @@ import {
   ExpedienteArchivosSupabaseError,
   countIntegrationDocsPresentes,
   deriveIntegrationDocsChecklist,
+  deriveIntegrationDocsChecklistOpcionales,
   filterChecklistDocumentoItemsPorOwnerRole,
   getChecklistDocumentos,
   INTEGRATION_DOC_TIPOS_ASESOR_ENVIO,
@@ -95,10 +96,10 @@ const MSJ_ESPERA_MONTO_REVISOR =
   "Debes esperar a que el editor apruebe un monto antes de capturar datos, subir documentos o enviar a mesa.";
 
 const MSJ_UPLOAD_FORMATO =
-  "Sube PDF, JPG o PNG (máx. 15 MB) por cada documento requerido.";
+  "Sube PDF, JPG o PNG (máx. 15 MB) por cada documento del asesor requerido.";
 
 const MSJ_ENVIO_MESA_REQUISITOS =
-  "El envío a Mesa se habilitará cuando editor, datos generales y documentos estén completos.";
+  "El envío a Mesa se habilitará cuando editor, datos generales y los 5 documentos del asesor estén completos. Acta y constancia SAT las sube Mesa después.";
 
 function editorDecisionLabel(decision?: string | null): string {
   if (decision === "aprobado") return "Aprobado";
@@ -179,9 +180,14 @@ export default function AsesorExpedientePage() {
     [archivosResumen],
   );
 
-  const integrationChecklist = useMemo((): IntegrationDocChecklistItem[] | null => {
+  const integrationChecklistObligatorios = useMemo((): IntegrationDocChecklistItem[] | null => {
     if (!integrationDocsInput) return null;
     return deriveIntegrationDocsChecklist(integrationDocsInput);
+  }, [integrationDocsInput]);
+
+  const integrationChecklistOpcionales = useMemo((): IntegrationDocChecklistItem[] | null => {
+    if (!integrationDocsInput) return null;
+    return deriveIntegrationDocsChecklistOpcionales(integrationDocsInput);
   }, [integrationDocsInput]);
 
   const integrationDocsPresentes = useMemo(() => {
@@ -798,11 +804,14 @@ export default function AsesorExpedientePage() {
                   {archivosError}
                 </p>
               ) : null}
-              {!archivosLoading && !archivosError && integrationChecklist ? (
+              {!archivosLoading &&
+              !archivosError &&
+              integrationChecklistObligatorios &&
+              integrationChecklistOpcionales ? (
                 <>
                   <p className="mt-2 text-xs text-gray-600">
-                    Progreso: {integrationDocsPresentes} /{" "}
-                    {INTEGRATION_DOC_TIPOS_ASESOR_ENVIO.length} documentos completos (
+                    Progreso obligatorio: {integrationDocsPresentes} /{" "}
+                    {INTEGRATION_DOC_TIPOS_ASESOR_ENVIO.length} documentos (
                     {Math.round(
                       (integrationDocsPresentes /
                         INTEGRATION_DOC_TIPOS_ASESOR_ENVIO.length) *
@@ -812,7 +821,8 @@ export default function AsesorExpedientePage() {
                   </p>
                   <AsesorIntegracionDocsUpload
                     expedienteId={String(precal?.id ?? "")}
-                    checklist={integrationChecklist}
+                    checklistObligatorios={integrationChecklistObligatorios}
+                    checklistOpcionales={integrationChecklistOpcionales}
                     archivosResumen={archivosResumen}
                     puedeSubir={puedeIntegrar && !operativo?.submittedToMesa}
                     onUploaded={refreshArchivos}

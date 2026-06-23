@@ -124,7 +124,6 @@ DECLARE
   v_exp_replace UUID := '00000000-0000-4000-9030-000000000040';
   v_exp_eight UUID := '00000000-0000-4000-9030-000000000050';
 
-  v_path_ine TEXT;
   v_path_nss TEXT;
   v_result JSONB;
   v_doc_id UUID;
@@ -140,7 +139,6 @@ BEGIN
   PERFORM public.__rpc_regdoc_test_insert_exp(v_exp_replace, v_org, v_a1, '90304000040');
   PERFORM public.__rpc_regdoc_test_insert_exp(v_exp_eight, v_org, v_a1, '90305000050');
 
-  v_path_ine := public.__rpc_regdoc_test_storage_path(v_org, v_exp_ok, 'ine', 'a1-ine.pdf');
   v_path_nss := public.__rpc_regdoc_test_storage_path(v_org, v_exp_ok, 'nss', 'a1-nss.pdf');
 
   DELETE FROM public.expediente_documentos WHERE expediente_id IN (
@@ -148,20 +146,40 @@ BEGIN
   );
 
   -- Test 1: asesor dueño registra OK
-  v_result := public.__rpc_regdoc_test_call(v_a1, v_exp_ok, 'ine', v_path_ine);
+  v_result := public.__rpc_regdoc_test_call(v_a1, v_exp_ok, 'nss', v_path_nss);
   PERFORM public.__rpc_regdoc_test_assert((v_result->>'ok')::boolean = true, 'test 1: ok true');
-  PERFORM public.__rpc_regdoc_test_assert(v_result->>'tipo_documento' = 'ine', 'test 1: tipo ine');
+  PERFORM public.__rpc_regdoc_test_assert(v_result->>'tipo_documento' = 'nss', 'test 1: tipo nss');
   PERFORM public.__rpc_regdoc_test_assert((v_result->>'version')::int = 1, 'test 1: version 1');
   PERFORM public.__rpc_regdoc_test_assert(v_result->>'estatus_revision' = 'subido', 'test 1: estatus subido');
 
-  -- Test 2: tipo inválido rechaza
+  -- Test 2: tipo inválido rechaza (mesa — acta)
   PERFORM public.__rpc_regdoc_test_assert(
     public.__rpc_regdoc_test_expect_fail(
       v_a1, v_exp_ok, 'cliente_acta_nacimiento',
       public.__rpc_regdoc_test_storage_path(v_org, v_exp_ok, 'cliente_acta_nacimiento'),
-      'tipo_documento no permitido'
+      'tipo_documento no permitido para upload asesor'
     ),
-    'test 2: tipo inválido'
+    'test 2: acta nacimiento (Mesa) rechazada en upload asesor'
+  );
+
+  -- Test 2c: constancia SAT (Mesa) rechazada en upload asesor
+  PERFORM public.__rpc_regdoc_test_assert(
+    public.__rpc_regdoc_test_expect_fail(
+      v_a1, v_exp_ok, 'cliente_constancia_sat',
+      public.__rpc_regdoc_test_storage_path(v_org, v_exp_ok, 'cliente_constancia_sat'),
+      'tipo_documento no permitido para upload asesor'
+    ),
+    'test 2c: constancia SAT (Mesa) rechazada en upload asesor'
+  );
+
+  -- Test 2b: legacy ine rechaza
+  PERFORM public.__rpc_regdoc_test_assert(
+    public.__rpc_regdoc_test_expect_fail(
+      v_a1, v_exp_ok, 'ine',
+      public.__rpc_regdoc_test_storage_path(v_org, v_exp_ok, 'ine'),
+      'tipo_documento no permitido para upload asesor'
+    ),
+    'test 2b: legacy ine rechazado'
   );
 
   -- Test 3: rol no asesor rechaza
@@ -177,8 +195,8 @@ BEGIN
   -- Test 4: asesor ajeno rechaza
   PERFORM public.__rpc_regdoc_test_assert(
     public.__rpc_regdoc_test_expect_fail(
-      v_a1, v_exp_owner, 'ine',
-      public.__rpc_regdoc_test_storage_path(v_org, v_exp_owner, 'ine'),
+      v_a1, v_exp_owner, 'nss',
+      public.__rpc_regdoc_test_storage_path(v_org, v_exp_owner, 'nss'),
       'solo el asesor dueño'
     ),
     'test 4: asesor ajeno'
@@ -187,8 +205,8 @@ BEGIN
   -- Test 5: expediente ya enviado a mesa rechaza
   PERFORM public.__rpc_regdoc_test_assert(
     public.__rpc_regdoc_test_expect_fail(
-      v_a1, v_exp_sent, 'ine',
-      public.__rpc_regdoc_test_storage_path(v_org, v_exp_sent, 'ine'),
+      v_a1, v_exp_sent, 'nss',
+      public.__rpc_regdoc_test_storage_path(v_org, v_exp_sent, 'nss'),
       'ya fue enviado a Mesa'
     ),
     'test 5: enviado a mesa'
@@ -196,20 +214,20 @@ BEGIN
 
   -- Test 6: reemplazo soft-delete + version incrementa
   v_result := public.__rpc_regdoc_test_call(
-    v_a1, v_exp_replace, 'direccion',
-    public.__rpc_regdoc_test_storage_path(v_org, v_exp_replace, 'direccion', 'v1.pdf')
+    v_a1, v_exp_replace, 'cliente_comprobante_domicilio',
+    public.__rpc_regdoc_test_storage_path(v_org, v_exp_replace, 'cliente_comprobante_domicilio', 'v1.pdf')
   );
   v_prev_id := (v_result->>'documento_id')::uuid;
   v_result := public.__rpc_regdoc_test_call(
-    v_a1, v_exp_replace, 'direccion',
-    public.__rpc_regdoc_test_storage_path(v_org, v_exp_replace, 'direccion', 'v2.pdf')
+    v_a1, v_exp_replace, 'cliente_comprobante_domicilio',
+    public.__rpc_regdoc_test_storage_path(v_org, v_exp_replace, 'cliente_comprobante_domicilio', 'v2.pdf')
   );
   SELECT count(*) INTO v_active_count
   FROM public.expediente_documentos d
-  WHERE d.expediente_id = v_exp_replace AND d.tipo_documento = 'direccion' AND d.deleted_at IS NULL;
+  WHERE d.expediente_id = v_exp_replace AND d.tipo_documento = 'cliente_comprobante_domicilio' AND d.deleted_at IS NULL;
   SELECT count(*) INTO v_deleted_count
   FROM public.expediente_documentos d
-  WHERE d.expediente_id = v_exp_replace AND d.tipo_documento = 'direccion' AND d.deleted_at IS NOT NULL;
+  WHERE d.expediente_id = v_exp_replace AND d.tipo_documento = 'cliente_comprobante_domicilio' AND d.deleted_at IS NOT NULL;
   PERFORM public.__rpc_regdoc_test_assert(v_active_count = 1, 'test 6: un activo');
   PERFORM public.__rpc_regdoc_test_assert(v_deleted_count >= 1, 'test 6: soft-delete previo');
   PERFORM public.__rpc_regdoc_test_assert((v_result->>'version')::int = 2, 'test 6: version 2');
@@ -220,17 +238,17 @@ BEGIN
     nombre_original, mime_type, size_bytes, version, estatus_revision,
     uploaded_by, uploaded_by_role
   ) VALUES (
-    v_org, v_exp_replace, 'estado_cuenta',
-    public.__rpc_regdoc_test_storage_path(v_org, v_exp_replace, 'estado_cuenta', 'old.pdf'),
+    v_org, v_exp_replace, 'cliente_estado_cuenta',
+    public.__rpc_regdoc_test_storage_path(v_org, v_exp_replace, 'cliente_estado_cuenta', 'old.pdf'),
     'old.pdf', 'application/pdf', 100, 3, 'rechazado', v_a1, 'asesor'
   );
   v_result := public.__rpc_regdoc_test_call(
-    v_a1, v_exp_replace, 'estado_cuenta',
-    public.__rpc_regdoc_test_storage_path(v_org, v_exp_replace, 'estado_cuenta', 'new.pdf')
+    v_a1, v_exp_replace, 'cliente_estado_cuenta',
+    public.__rpc_regdoc_test_storage_path(v_org, v_exp_replace, 'cliente_estado_cuenta', 'new.pdf')
   );
   PERFORM public.__rpc_regdoc_test_assert(v_result->>'estatus_revision' = 'resubido', 'test 7: resubido');
 
-  -- Test 8–9: count presentes y completos con 8 tipos
+  -- Test 8–9: count presentes y completos con 5 tipos obligatorios
   DELETE FROM public.expediente_documentos WHERE expediente_id = v_exp_eight;
   FOREACH v_tipo IN ARRAY public.integration_doc_tipos_asesor_envio()
   LOOP
@@ -240,12 +258,26 @@ BEGIN
     );
   END LOOP;
   PERFORM public.__rpc_regdoc_test_assert(
-    public.count_integration_docs_presentes(v_exp_eight) = 8,
-    'test 8: count presentes 8'
+    public.count_integration_docs_presentes(v_exp_eight) = 5,
+    'test 8: count presentes 5'
   );
   PERFORM public.__rpc_regdoc_test_assert(
     public.integration_docs_completos(v_exp_eight) = true,
     'test 9: integration_docs_completos true'
+  );
+
+  -- Test 9b: opcional semanas no cambia gate
+  v_result := public.__rpc_regdoc_test_call(
+    v_a1, v_exp_eight, 'cliente_semanas_cotizadas',
+    public.__rpc_regdoc_test_storage_path(v_org, v_exp_eight, 'cliente_semanas_cotizadas', 'semanas.pdf')
+  );
+  PERFORM public.__rpc_regdoc_test_assert(
+    (v_result->>'integration_docs_completos')::boolean = true,
+    'test 9b: semanas opcional no cambia gate'
+  );
+  PERFORM public.__rpc_regdoc_test_assert(
+    (v_result->>'integration_docs_presentes')::int = 5,
+    'test 9b: presentes siguen en 5'
   );
 
   -- Test 10: storage_path con expediente distinto rechaza
@@ -287,7 +319,33 @@ BEGIN
     'test 13: sin objeto storage'
   );
 
-  RAISE NOTICE 'RPC register_expediente_documento: 13 pruebas OK';
+  -- Test 14: legacy estado_cuenta, direccion e historial laboral rechazan
+  PERFORM public.__rpc_regdoc_test_assert(
+    public.__rpc_regdoc_test_expect_fail(
+      v_a1, v_exp_ok, 'estado_cuenta',
+      public.__rpc_regdoc_test_storage_path(v_org, v_exp_ok, 'estado_cuenta'),
+      'tipo_documento no permitido para upload asesor'
+    ),
+    'test 14a: legacy estado_cuenta rechazado'
+  );
+  PERFORM public.__rpc_regdoc_test_assert(
+    public.__rpc_regdoc_test_expect_fail(
+      v_a1, v_exp_ok, 'direccion',
+      public.__rpc_regdoc_test_storage_path(v_org, v_exp_ok, 'direccion'),
+      'tipo_documento no permitido para upload asesor'
+    ),
+    'test 14b: legacy direccion rechazado'
+  );
+  PERFORM public.__rpc_regdoc_test_assert(
+    public.__rpc_regdoc_test_expect_fail(
+      v_a1, v_exp_ok, 'cliente_historial_laboral',
+      public.__rpc_regdoc_test_storage_path(v_org, v_exp_ok, 'cliente_historial_laboral'),
+      'tipo_documento no permitido para upload asesor'
+    ),
+    'test 14c: historial laboral rechazado'
+  );
+
+  RAISE NOTICE 'RPC register_expediente_documento: 17 pruebas OK';
 END;
 $$;
 
