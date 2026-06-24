@@ -749,16 +749,6 @@ export default function AsesorExpedientePage() {
                 </p>
               </div>
             </div>
-            <AsesorSeguimientoOperativo
-              etapaActual={operativo?.etapaActual ?? null}
-              subestado={operativo?.subestado}
-              submittedToMesa={operativo?.submittedToMesa ?? false}
-              fechaEnvioMesa={operativo?.fechaEnvioMesa}
-              updatedAt={operativo?.updatedAt}
-              cicloEstado={operativo?.cicloEstado}
-              origenMesa={operativo?.origenMesa}
-              formatDateTime={formatDateTime}
-            />
             {!puedeIntegrar ? (
               <div
                 role="status"
@@ -886,6 +876,16 @@ export default function AsesorExpedientePage() {
                 </div>
               )}
             </div>
+            <AsesorSeguimientoOperativo
+              etapaActual={operativo?.etapaActual ?? null}
+              subestado={operativo?.subestado}
+              submittedToMesa={operativo?.submittedToMesa ?? false}
+              fechaEnvioMesa={operativo?.fechaEnvioMesa}
+              updatedAt={operativo?.updatedAt}
+              cicloEstado={operativo?.cicloEstado}
+              origenMesa={operativo?.origenMesa}
+              formatDateTime={formatDateTime}
+            />
           </>
         ) : (
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(260px,300px)] lg:items-start">
