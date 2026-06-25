@@ -4,7 +4,7 @@
 
 - **P2C-21 — Backfill agenda_config firmas:** función `backfill_agenda_config_firmas()` idempotente por organización; deploy producción sin fila `kind=firmas`; 7 pruebas SQL.
 
-- **P2C-20 — Avance Mesa 9→10:** extiende `avanzar_etapa_operativa` post-cita firmas; gates `fecha_cita` + booking `firmas` activo (`booked`); solo `mesa_admin`/`super_admin`; 14 pruebas SQL.
+- **P2C-20 — Avance Mesa 9→10:** base en `023`; refinamiento en `033` (`CREATE OR REPLACE` sin reescribir `023` publicada): roles Mesa completos + `action_log` con `booking_date`/`booking_time`/`location_id`; gates `fecha_cita` + booking `firmas` activo; 29 pruebas SQL. Numeración `033` evita colisión con P3 (`029`–`032` en `origin/p3-supabase-connection`).
 
 - **P2C-19 — Cancel/reagendar firmas:** RPCs `cancel_firmas` y `reagendar_firmas` (asesor/mesa_admin, etapas 9/10, sin avance etapa); 44 pruebas SQL. Pendiente: avance 9→10.
 

@@ -214,7 +214,7 @@ Convenciones:
 | 1→2 | Docs etapa 1 validados; datos cliente `validado` |
 | 4→5 | Cita biométrica (`fecha_cita` o booking activo) |
 | 8→9 | Retención: opción + envío asesor + docs opción `validado` |
-| 9→10 | Cita firma: `fecha_cita` + booking `firmas` activo (`booked`); solo `mesa_admin`/`super_admin` |
+| 9→10 | Cita firma: `fecha_cita` + booking `firmas` activo (`booked`); roles Mesa + `super_admin`; no compara timezone booking vs `fecha_cita`; base `023`, refinamiento `033` |
 | Rechazo | Nota obligatoria; puede regresar etapa |
 
 - Validación server-side espejo de `getBloqueosAvanceMesa` / helpers retención.

@@ -19,14 +19,19 @@
 
 ### Decisión
 
-- Rama `ELSIF etapa_actual = 9` en `avanzar_etapa_operativa`: solo `mesa_admin` y `super_admin` (no `mesa_interno`/`mesa_externo`).
+- **Base publicada:** `023_rpc_avanzar_etapa_9_10.sql` (no reescribir; ya en remoto).
+- **Refinamiento:** `033_rpc_avanzar_etapa_9_10_refinement.sql` — `CREATE OR REPLACE` función completa 1→10. Numeración `033` porque `origin/p3-supabase-connection` ya usa `029`–`032`.
+- Rama `ELSIF etapa_actual = 9`: roles Mesa (`mesa_admin`, `mesa_interno`, `mesa_externo` con `can_see_expediente`) + `super_admin`; bloqueados `asesor` y `editor` — **`revisor` no existe**.
 - Gates: `fecha_cita IS NOT NULL` + booking `firmas` con `status = booked` (enum real; no existe `scheduled`).
-- Actualiza `etapa_actual = 10`, mantiene `subestado = en_proceso`; **no** modifica `fecha_cita` ni bookings.
+- No comparamos `fecha_cita` vs `booking_date`/`booking_time` por riesgo de timezone (mismo patrón que 4→5 biométricos).
+- Actualiza `etapa_actual = 10`, mantiene `subestado = en_proceso`; **no** modifica `fecha_cita`, bookings, documentos, retención, `cliente_datos` ni `editor_decisions`.
+- `action_log` payload incluye `booking_date`, `booking_time`, `location_id`.
 
 ### Archivos
 
-- `supabase/migrations/023_rpc_avanzar_etapa_9_10.sql`
-- `supabase/tests/rpc_avanzar_etapa_9_10.sql` (14 pruebas)
+- `supabase/migrations/023_rpc_avanzar_etapa_9_10.sql` (base, sin cambios)
+- `supabase/migrations/033_rpc_avanzar_etapa_9_10_refinement.sql`
+- `supabase/tests/rpc_avanzar_etapa_9_10.sql` (29 pruebas)
 - `scripts/test-sql.sh`, `supabase/README.md`, `docs/API_CONTRATOS.md`
 
 ## 2026-06-15 - P2C-19: cancel_firmas + reagendar_firmas

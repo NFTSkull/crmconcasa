@@ -25,8 +25,9 @@ Migraciones SQL para producción. **No conectadas a la UI mock** en esta fase.
 | `migrations/020_agenda_config_firmas_rules.sql` | ✅ reglas `agenda_config` firmas (P2C-18) |
 | `migrations/021_rpc_book_firmas.sql` | ✅ RPC `book_firmas` (P2C-18) |
 | `migrations/022_rpc_firmas_cancel_reagendar.sql` | ✅ RPC `cancel_firmas` / `reagendar_firmas` (P2C-19) |
-| `migrations/023_rpc_avanzar_etapa_9_10.sql` | ✅ extensión `avanzar_etapa_operativa` 9→10 (P2C-20) |
+| `migrations/023_rpc_avanzar_etapa_9_10.sql` | ✅ extensión `avanzar_etapa_operativa` 9→10 (P2C-20 base) |
 | `migrations/024_backfill_agenda_config_firmas.sql` | ✅ backfill `agenda_config` firmas por org (P2C-21) |
+| `migrations/033_rpc_avanzar_etapa_9_10_refinement.sql` | ✅ refinamiento 9→10 roles Mesa + payload booking (P2C-20) |
 | Roles `app_role` | `asesor`, `editor`, `mesa_*`, `super_admin` — **sin `revisor`** |
 | Supabase CLI local | `npx supabase start` / `db reset` |
 | UI mock | Sin conexión; `/revisor` legacy redirige a `/editor` |
@@ -51,7 +52,7 @@ Migraciones SQL para producción. **No conectadas a la UI mock** en esta fase.
   ) returns jsonb
   ```
 
-- **Alcance:** transiciones **1 → 2** (P2C-4), **2 → 3** y **3 → 4** (P2C-12), **4 → 5** (P2C-7), **5 → 6** (P2C-13), **6 → 7** (P2C-14), **7 → 8** (P2C-15), **8 → 9** (P2C-17), **9 → 10** (P2C-20); otras etapas rechazadas
+- **Alcance:** transiciones **1 → 2** (P2C-4), **2 → 3** y **3 → 4** (P2C-12), **4 → 5** (P2C-7), **5 → 6** (P2C-13), **6 → 7** (P2C-14), **7 → 8** (P2C-15), **8 → 9** (P2C-17), **9 → 10** (P2C-20 base en `023`, refinamiento en `033`); otras etapas rechazadas
 - **Roles permitidos:** `mesa_admin`, `mesa_interno`, `mesa_externo`, `super_admin` (vía `can_see_expediente`)
 - **Roles bloqueados:** `asesor`, `editor` — **`revisor` no existe en producción**
 
@@ -109,11 +110,12 @@ Migraciones SQL para producción. **No conectadas a la UI mock** en esta fase.
 
 **9 → 10 (cita firma agendada)**
 
-- **Roles:** solo `mesa_admin` y `super_admin` (bloqueados `mesa_interno`, `mesa_externo`, `asesor`, `editor`)
-- **Gates:** expediente enviado a Mesa; `etapa_actual = 9`; `subestado = en_proceso`; ciclo activo; `fecha_cita IS NOT NULL`; booking `agenda_bookings` con `kind = firmas` y `status = booked`
-- **Efecto:** `etapa_actual = 10`, `subestado = en_proceso`; **no** modifica `fecha_cita` ni bookings
-- **Retorno 9→10:** incluye `booking_id`, `fecha_cita`, `transition: 9_10`, `kind: firmas`
-- **Tests:** `supabase/tests/rpc_avanzar_etapa_9_10.sql` (14 pruebas)
+- **Roles:** `mesa_admin`, `mesa_interno`, `mesa_externo` (con `can_see_expediente`), `super_admin`; bloqueados `asesor`, `editor` — **`revisor` no existe**
+- **Gates:** expediente enviado a Mesa; `etapa_actual = 9`; `subestado = en_proceso`; ciclo activo; visibilidad Mesa; `fecha_cita IS NOT NULL`; booking `agenda_bookings` con `kind = firmas` y `status = booked` (no compara fecha/hora exacta vs booking por timezone; mismo patrón que 4→5)
+- **Efecto:** `etapa_actual = 10`, `subestado = en_proceso`; **no** modifica `fecha_cita`, bookings, documentos, retención, `cliente_datos` ni `editor_decisions`
+- **Retorno 9→10:** incluye `booking_id`, `fecha_cita`, `booking_date`, `booking_time`, `location_id`, `transition: 9_10`, `kind: firmas`
+- **Tests:** `supabase/tests/rpc_avanzar_etapa_9_10.sql` (29 pruebas; regresiones 1→9, book/cancel/reagendar firmas y biométricos vía runner)
+- **Refinamiento:** `migrations/033_rpc_avanzar_etapa_9_10_refinement.sql` — `CREATE OR REPLACE` sin modificar `023` publicada
 
 - **Auditoría (todas las transiciones):** `action_log` → `expediente.avanzar_etapa_operativa` (payload `transition: 2_3 | 3_4 | 5_6 | 6_7 | 7_8 | 8_9 | 9_10` según bloque)
 
@@ -428,6 +430,7 @@ supabase/
     022_rpc_firmas_cancel_reagendar.sql
     023_rpc_avanzar_etapa_9_10.sql
     024_backfill_agenda_config_firmas.sql
+    033_rpc_avanzar_etapa_9_10_refinement.sql
   tests/
     rls_policies.sql
     audit_document_history.sql
