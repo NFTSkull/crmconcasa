@@ -1,5 +1,24 @@
 # Devlog
 
+## 2026-06-25 - P3M.2: agenda biométricos asesor Supabase (etapa 4)
+
+### Decisión
+
+- Rama Supabase de `/asesor/expediente/[id]` monta `AgendaBiometricosSupabaseCard` (no se modifica `AgendaBiometricosCard` mock).
+- Disponibilidad semanal en cliente (`weekly-availability.ts`) espeja reglas de `agenda_biometricos_assert_slot_available`; cupo final lo valida RPC.
+- `book_biometricos` persiste `agenda_bookings` + `expedientes.fecha_cita`; etapa permanece 4.
+- Sin cancel/reagendar UI; sin Cloud deploy.
+
+### Archivos
+
+- `src/components/asesor/AgendaBiometricosSupabaseCard.tsx`
+- `src/domain/agenda-biometricos/supabase-booking.repo.ts`, `weekly-availability.ts`, `book-biometricos-rpc-error.ts`, tests
+- `src/app/asesor/expediente/[id]/page.tsx`
+
+### No tocado
+
+- Mock/localStorage, migraciones, Cloud repair, `033`, avance 4→5, `AgendaBiometricosConfigPanel` (salvo tipos compartidos).
+
 ## 2026-06-25 - P3M.1B: UI config biométricos Supabase (Mesa)
 
 ### Decisión

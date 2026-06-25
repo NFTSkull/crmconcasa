@@ -1,0 +1,110 @@
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+import { emptyAgendaBiometricosWeeklyConfig } from "./map-agenda-config";
+import {
+  buildScheduledAtIso,
+  computeWeeklySlotAvailability,
+  getIsoWeekdayForDate,
+  listBookableDatesInRange,
+} from "./weekly-availability";
+import type { HhmmTime, YmdDate } from "./types";
+
+describe("weekly-availability", () => {
+  it("getIsoWeekdayForDate: lunes en America/Monterrey", () => {
+    assert.equal(getIsoWeekdayForDate("2026-06-29" as YmdDate, "America/Monterrey"), 1);
+  });
+
+  it("buildScheduledAtIso: conserva hora local al formatear en zona", () => {
+    const iso = buildScheduledAtIso(
+      "2026-06-30" as YmdDate,
+      "09:00" as HhmmTime,
+      "America/Monterrey",
+    );
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Monterrey",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+      hourCycle: "h23",
+    })
+      .formatToParts(new Date(iso))
+      .reduce<Record<string, string>>((acc, p) => {
+        acc[p.type] = p.value;
+        return acc;
+      }, {});
+    assert.equal(`${parts.year}-${parts.month}-${parts.day}`, "2026-06-30");
+    assert.equal(`${parts.hour}:${parts.minute}`, "09:00");
+  });
+
+  it("computeWeeklySlotAvailability: resta bookings y respeta capacidad", () => {
+    const config = {
+      ...emptyAgendaBiometricosWeeklyConfig(),
+      enabled: true,
+      timezone: "America/Monterrey",
+      minLeadHours: 0,
+      allowedWeekdays: [1, 2, 3, 4, 5],
+      slots: ["09:00" as HhmmTime],
+      locations: [
+        { id: "apodaca", label: "Apodaca", enabled: true, capacityPerSlot: 2 },
+      ],
+    };
+    const bookedSlots = [
+      {
+        bookingDate: "2026-06-29",
+        bookingTime: "09:00",
+        locationId: "apodaca",
+      },
+    ];
+    const slots = computeWeeklySlotAvailability({
+      config,
+      bookedSlots,
+      date: "2026-06-29" as YmdDate,
+      locationId: "apodaca",
+      now: new Date("2026-06-25T12:00:00.000Z"),
+    });
+    assert.equal(slots.length, 1);
+    assert.equal(slots[0]?.bookedCount, 1);
+    assert.equal(slots[0]?.remaining, 1);
+  });
+
+  it("computeWeeklySlotAvailability: día no permitido devuelve vacío", () => {
+    const config = {
+      ...emptyAgendaBiometricosWeeklyConfig(),
+      allowedWeekdays: [1, 2, 3, 4, 5],
+      locations: [{ id: "apodaca", label: "Apodaca", enabled: true, capacityPerSlot: 1 }],
+      slots: ["09:00" as HhmmTime],
+      minLeadHours: 0,
+    };
+    const slots = computeWeeklySlotAvailability({
+      config,
+      bookedSlots: [],
+      date: "2026-06-27" as YmdDate,
+      locationId: "apodaca",
+      now: new Date("2026-06-20T12:00:00.000Z"),
+    });
+    assert.equal(slots.length, 0);
+  });
+
+  it("listBookableDatesInRange: incluye solo fechas con cupo", () => {
+    const config = {
+      ...emptyAgendaBiometricosWeeklyConfig(),
+      minLeadHours: 0,
+      allowedWeekdays: [1, 2, 3, 4, 5],
+      locations: [{ id: "apodaca", label: "Apodaca", enabled: true, capacityPerSlot: 1 }],
+      slots: ["09:00" as HhmmTime],
+    };
+    const dates = listBookableDatesInRange({
+      config,
+      bookedSlots: [
+        { bookingDate: "2026-06-29", bookingTime: "09:00", locationId: "apodaca" },
+      ],
+      fromDate: "2026-06-29" as YmdDate,
+      toDate: "2026-06-30" as YmdDate,
+      locationId: "apodaca",
+      now: new Date("2026-06-25T12:00:00.000Z"),
+    });
+    assert.deepEqual(dates, ["2026-06-30"]);
+  });
+});

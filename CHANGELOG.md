@@ -2,6 +2,8 @@
 
 ## 2026-06-25
 
+- **P3M.2 — Agenda biométricos asesor (Supabase):** nuevo `AgendaBiometricosSupabaseCard` en expediente asesor etapa 4; repo booking + disponibilidad semanal + RPC `book_biometricos`; mock/localStorage intacto.
+
 - **P3L.2 — Avance operativo Mesa 3→4:** panel generalizado «Avance operativo Mesa» en detalle Supabase; botón «Avanzar a Cita agendada (biométricos)» con copy que aclara que no agenda la cita; gates etapa 3 + `en_proceso` + enviado + ciclo `activo` estricto; RPC `avanzar_etapa_operativa`; recarga tras éxito.
 
 - **P3M.1B — UI config biométricos Supabase (Mesa):** repo Supabase + mapper semanal; panel Cynthia en `DATA_MODE=supabase` vía RPC `upsert_agenda_config_biometricos`; warnings visibles; mock/localStorage intacto.

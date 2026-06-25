@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSessionRepo } from "@/domain/session";
 import { AgendaBiometricosCard } from "@/components/asesor/AgendaBiometricosCard";
+import { AgendaBiometricosSupabaseCard } from "@/components/asesor/AgendaBiometricosSupabaseCard";
 import { AsesorIntegracionDocsUpload } from "@/components/asesor/AsesorIntegracionDocsUpload";
 import { AsesorSeguimientoOperativo } from "@/components/asesor/AsesorSeguimientoOperativo";
 import { canMountAgendaBiometricosUI } from "@/lib/agendaFirmasBookingsGuard";
@@ -898,6 +899,16 @@ export default function AsesorExpedientePage() {
               origenMesa={operativo?.origenMesa}
               formatDateTime={formatDateTime}
             />
+            {canMountAgendaBiometricosUI() &&
+            operativo?.submittedToMesa &&
+            operativo?.etapaActual === 4 &&
+            precal?.id ? (
+              <AgendaBiometricosSupabaseCard
+                expedienteId={String(precal.id)}
+                fechaCita={operativo?.fechaCita}
+                onUpdated={() => void loadExpediente()}
+              />
+            ) : null}
           </>
         ) : (
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(260px,300px)] lg:items-start">
