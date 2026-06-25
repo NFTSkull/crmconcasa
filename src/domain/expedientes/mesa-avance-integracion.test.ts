@@ -6,11 +6,13 @@ import {
 import type { ExpedienteArchivoResumen } from "@/domain/expediente-archivos/types";
 import {
   deriveAvanceOperativo2a3View,
+  deriveAvanceOperativo3a4View,
   deriveBloqueosContinuarIntegracion,
   deriveCierreValidacionDocumentalView,
   etapaTrasAvanceIntegracion1a2,
   puedeContinuarIntegracion,
   puedeMostrarAvanceOperativo2a3,
+  puedeMostrarAvanceOperativo3a4,
   puedeMostrarContinuarIntegracion,
   type MesaAvanceOperativoContext,
   type MesaContinuarIntegracionContext,
@@ -231,6 +233,10 @@ describe("puedeMostrarAvanceOperativo2a3", () => {
   it("no visible si ciclo no activo", () => {
     assert.equal(puedeMostrarAvanceOperativo2a3(avanceCtx({ cicloEstado: "cerrado" })), false);
   });
+
+  it("visible con ciclo null (compat P3L.1; SQL exige activo — deuda técnica)", () => {
+    assert.equal(puedeMostrarAvanceOperativo2a3(avanceCtx({ cicloEstado: null })), true);
+  });
 });
 
 describe("deriveAvanceOperativo2a3View", () => {
@@ -243,6 +249,72 @@ describe("deriveAvanceOperativo2a3View", () => {
 
   it("oculto tras avance a etapa 3", () => {
     const view = deriveAvanceOperativo2a3View(avanceCtx({ etapaActual: 3 }));
+    assert.equal(view.mostrar, false);
+    assert.equal(view.puedeAvanzar, false);
+  });
+});
+
+function avance3a4Ctx(
+  overrides: Partial<MesaAvanceOperativoContext> = {},
+): MesaAvanceOperativoContext {
+  return {
+    submittedToMesa: true,
+    cicloEstado: "activo",
+    etapaActual: 3,
+    subestado: "en_proceso",
+    ...overrides,
+  };
+}
+
+describe("puedeMostrarAvanceOperativo3a4", () => {
+  it("visible en etapa 3 / en_proceso con envío a Mesa y ciclo activo", () => {
+    assert.equal(puedeMostrarAvanceOperativo3a4(avance3a4Ctx()), true);
+  });
+
+  it("no visible en etapa 2", () => {
+    assert.equal(puedeMostrarAvanceOperativo3a4(avance3a4Ctx({ etapaActual: 2 })), false);
+  });
+
+  it("no visible en etapa 4", () => {
+    assert.equal(puedeMostrarAvanceOperativo3a4(avance3a4Ctx({ etapaActual: 4 })), false);
+  });
+
+  it("no visible sin submitted_to_mesa", () => {
+    assert.equal(
+      puedeMostrarAvanceOperativo3a4(avance3a4Ctx({ submittedToMesa: false })),
+      false,
+    );
+  });
+
+  it("no visible si subestado distinto de en_proceso", () => {
+    assert.equal(
+      puedeMostrarAvanceOperativo3a4(avance3a4Ctx({ subestado: "en_validacion_mesa" })),
+      false,
+    );
+  });
+
+  it("no visible si ciclo no activo", () => {
+    assert.equal(
+      puedeMostrarAvanceOperativo3a4(avance3a4Ctx({ cicloEstado: "cerrado" })),
+      false,
+    );
+  });
+
+  it("no visible si ciclo null (espejo SQL estricto)", () => {
+    assert.equal(puedeMostrarAvanceOperativo3a4(avance3a4Ctx({ cicloEstado: null })), false);
+  });
+});
+
+describe("deriveAvanceOperativo3a4View", () => {
+  it("habilita avance cuando gates 3→4 se cumplen", () => {
+    const view = deriveAvanceOperativo3a4View(avance3a4Ctx());
+    assert.equal(view.mostrar, true);
+    assert.equal(view.puedeAvanzar, true);
+    assert.deepEqual(view.bloqueos, []);
+  });
+
+  it("oculto tras avance a etapa 4", () => {
+    const view = deriveAvanceOperativo3a4View(avance3a4Ctx({ etapaActual: 4 }));
     assert.equal(view.mostrar, false);
     assert.equal(view.puedeAvanzar, false);
   });

@@ -2,13 +2,33 @@
 
 import { useCallback, useState } from "react";
 import { Button } from "@/components/ui/Button";
-import type { AvanceOperativo2a3View } from "@/domain/expedientes/mesa-avance-integracion";
+import type { AvanceOperativoEtapaView } from "@/domain/expedientes/mesa-avance-integracion";
 
-const CONFIRMACION_AVANCE_2_3 =
-  "¿Confirmas avanzar este expediente a etapa 3: Listo para cita de biométrico?";
+export type MesaAvanceOperativoCopy = {
+  descripcion: string;
+  etiquetaBoton: string;
+  mensajeConfirmacion: string;
+};
+
+export const MESA_AVANCE_OPERATIVO_2A3_COPY: MesaAvanceOperativoCopy = {
+  descripcion:
+    "El expediente está en Registro (etapa 2). Confirma el avance a Listo para cita de biométrico (etapa 3). No se requiere cita biométrica agendada en este paso.",
+  etiquetaBoton: "Avanzar a Listo para cita de biométrico",
+  mensajeConfirmacion:
+    "¿Confirmas avanzar este expediente a etapa 3: Listo para cita de biométrico?",
+};
+
+export const MESA_AVANCE_OPERATIVO_3A4_COPY: MesaAvanceOperativoCopy = {
+  descripcion:
+    "El expediente está en Listo para cita de biométrico (etapa 3). Confirma el avance a Cita agendada (biométricos) (etapa 4). Este paso no agenda la cita; el asesor la agenda después, cuando el expediente esté en etapa 4.",
+  etiquetaBoton: "Avanzar a Cita agendada (biométricos)",
+  mensajeConfirmacion:
+    "¿Confirmas avanzar este expediente a etapa 4: Cita agendada (biométricos)?",
+};
 
 type Props = {
-  view: AvanceOperativo2a3View;
+  view: AvanceOperativoEtapaView;
+  copy: MesaAvanceOperativoCopy;
   puedeOperar: boolean;
   loading: boolean;
   error: string | null;
@@ -18,6 +38,7 @@ type Props = {
 
 export function MesaAvanceOperativoSection({
   view,
+  copy,
   puedeOperar,
   loading,
   error,
@@ -40,10 +61,7 @@ export function MesaAvanceOperativoSection({
       >
         <header className="border-b border-sky-100 bg-white px-4 py-4">
           <h2 className="text-base font-semibold text-gray-900">Avance operativo Mesa</h2>
-          <p className="mt-1 max-w-2xl text-xs text-gray-500">
-            El expediente está en Registro (etapa 2). Confirma el avance a Listo para cita de
-            biométrico (etapa 3). No se requiere cita biométrica agendada en este paso.
-          </p>
+          <p className="mt-1 max-w-2xl text-xs text-gray-500">{copy.descripcion}</p>
         </header>
 
         <div className="space-y-3 p-4">
@@ -72,7 +90,7 @@ export function MesaAvanceOperativoSection({
                 onClick={() => setConfirmOpen(true)}
                 disabled={!view.puedeAvanzar || loading}
               >
-                {loading ? "Avanzando…" : "Avanzar a Listo para cita de biométrico"}
+                {loading ? "Avanzando…" : copy.etiquetaBoton}
               </Button>
             </div>
           ) : null}
@@ -95,7 +113,7 @@ export function MesaAvanceOperativoSection({
             <h3 id="mesa-avance-operativo-title" className="text-base font-semibold text-gray-900">
               Confirmar avance de etapa
             </h3>
-            <p className="mt-2 text-sm text-gray-600">{CONFIRMACION_AVANCE_2_3}</p>
+            <p className="mt-2 text-sm text-gray-600">{copy.mensajeConfirmacion}</p>
             <div className="mt-5 flex justify-end gap-2">
               <Button
                 type="button"

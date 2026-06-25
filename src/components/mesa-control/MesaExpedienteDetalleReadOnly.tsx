@@ -9,7 +9,7 @@ import {
   type MesaArchivoPreviewState,
 } from "@/components/mesa-control/MesaArchivoPreviewDialog";
 import { MesaClienteDatosReadOnlySection } from "@/components/mesa-control/MesaClienteDatosReadOnlySection";
-import { MesaAvanceOperativoSection } from "@/components/mesa-control/MesaAvanceOperativoSection";
+import { MesaAvanceOperativoSection, MESA_AVANCE_OPERATIVO_2A3_COPY, MESA_AVANCE_OPERATIVO_3A4_COPY } from "@/components/mesa-control/MesaAvanceOperativoSection";
 import { MesaCierreValidacionDocumentalSection } from "@/components/mesa-control/MesaCierreValidacionDocumentalSection";
 import { MesaControlDocumentosComplementariosSection } from "@/components/mesa-control/MesaControlDocumentosComplementariosSection";
 import { MesaDocumentosAsesorSection } from "@/components/mesa-control/MesaDocumentosAsesorSection";
@@ -35,6 +35,7 @@ import {
   ExpedientesSupabaseError,
   useExpedientesRepo,
   deriveAvanceOperativo2a3View,
+  deriveAvanceOperativo3a4View,
   deriveCierreValidacionDocumentalView,
   type ExpedienteMock,
 } from "@/domain/expedientes";
@@ -131,6 +132,9 @@ export function MesaExpedienteDetalleReadOnly() {
   const [avance2a3Loading, setAvance2a3Loading] = useState(false);
   const [avance2a3Error, setAvance2a3Error] = useState<string | null>(null);
   const [avance2a3Success, setAvance2a3Success] = useState<string | null>(null);
+  const [avance3a4Loading, setAvance3a4Loading] = useState(false);
+  const [avance3a4Error, setAvance3a4Error] = useState<string | null>(null);
+  const [avance3a4Success, setAvance3a4Success] = useState<string | null>(null);
 
   const puedeRevisar = puedeRevisarDocumentos(currentUser?.role);
 
@@ -557,6 +561,11 @@ export function MesaExpedienteDetalleReadOnly() {
     [avanceOperativoContext],
   );
 
+  const avanceOperativo3a4View = useMemo(
+    () => deriveAvanceOperativo3a4View(avanceOperativoContext),
+    [avanceOperativoContext],
+  );
+
   const handleAvanzarIntegracion = useCallback(async () => {
     if (!routeExpedienteId || !cierreValidacionView.puedeAvanzar) return;
     setContinuarLoading(true);
@@ -598,6 +607,28 @@ export function MesaExpedienteDetalleReadOnly() {
       setAvance2a3Loading(false);
     }
   }, [avanceOperativo2a3View.puedeAvanzar, expedientesRepo, load, routeExpedienteId]);
+
+  const handleAvanzarOperativo3a4 = useCallback(async () => {
+    if (!routeExpedienteId || !avanceOperativo3a4View.puedeAvanzar) return;
+    setAvance3a4Loading(true);
+    setAvance3a4Error(null);
+    setAvance3a4Success(null);
+    try {
+      await expedientesRepo.avanzarEtapaOperativa(routeExpedienteId);
+      setAvance3a4Success(
+        "Expediente avanzado a etapa 4 (Cita agendada — biométricos)",
+      );
+      load();
+    } catch (err) {
+      setAvance3a4Error(
+        err instanceof ExpedientesSupabaseError
+          ? err.message
+          : "No se pudo avanzar la etapa del expediente.",
+      );
+    } finally {
+      setAvance3a4Loading(false);
+    }
+  }, [avanceOperativo3a4View.puedeAvanzar, expedientesRepo, load, routeExpedienteId]);
 
   if (currentUser === undefined) {
     return (
@@ -793,11 +824,22 @@ export function MesaExpedienteDetalleReadOnly() {
 
       <MesaAvanceOperativoSection
         view={avanceOperativo2a3View}
+        copy={MESA_AVANCE_OPERATIVO_2A3_COPY}
         puedeOperar={puedeRevisar}
         loading={avance2a3Loading}
         error={avance2a3Error}
         success={avance2a3Success}
         onAvanzar={handleAvanzarOperativo2a3}
+      />
+
+      <MesaAvanceOperativoSection
+        view={avanceOperativo3a4View}
+        copy={MESA_AVANCE_OPERATIVO_3A4_COPY}
+        puedeOperar={puedeRevisar}
+        loading={avance3a4Loading}
+        error={avance3a4Error}
+        success={avance3a4Success}
+        onAvanzar={handleAvanzarOperativo3a4}
       />
 
       {preview ? (

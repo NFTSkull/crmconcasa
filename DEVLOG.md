@@ -1,5 +1,22 @@
 # Devlog
 
+## 2026-06-25 - P3L.2: avance operativo Mesa 3→4 (UI Supabase)
+
+### Decisión
+
+- Reutilizar `MesaAvanceOperativoSection` parametrizado con `copy` por transición (2→3 y 3→4).
+- Gates 3→4: etapa 3 + `en_proceso` + `submitted_to_mesa` + `ciclo_estado === 'activo'` (estricto; sin aceptar null).
+- Copy obligatorio: el avance 3→4 no agenda la cita biométrica; el asesor la agenda en etapa 4.
+- Mismo RPC `avanzar_etapa_operativa`; sin optimismo; `load()` tras éxito.
+- **Deuda técnica:** P3L.1 2→3 sigue aceptando `cicloEstado null`; P3L.2 no. Alinear en bloque futuro.
+
+### Archivos
+
+- `src/components/mesa-control/MesaAvanceOperativoSection.tsx`
+- `src/domain/expedientes/mesa-avance-integracion.ts` + tests
+- `src/components/mesa-control/MesaExpedienteDetalleReadOnly.tsx`
+- `src/domain/expedientes/index.ts`
+
 ## 2026-06-25 - P3L.1: avance operativo Mesa 2→3 (UI Supabase)
 
 ### Decisión

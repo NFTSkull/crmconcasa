@@ -178,11 +178,17 @@ export type MesaAvanceOperativoContext = {
   subestado?: string | null;
 };
 
-export type AvanceOperativo2a3View = {
+export type AvanceOperativoEtapaView = {
   mostrar: boolean;
   puedeAvanzar: boolean;
   bloqueos: string[];
 };
+
+/** @deprecated Usar `AvanceOperativoEtapaView`. */
+export type AvanceOperativo2a3View = AvanceOperativoEtapaView;
+
+/** @deprecated Usar `AvanceOperativoEtapaView`. */
+export type AvanceOperativo3a4View = AvanceOperativoEtapaView;
 
 /** Panel visible solo en etapa 2 / en_proceso post-registro (P2C-12). */
 export function puedeMostrarAvanceOperativo2a3(ctx: MesaAvanceOperativoContext): boolean {
@@ -194,8 +200,27 @@ export function puedeMostrarAvanceOperativo2a3(ctx: MesaAvanceOperativoContext):
 
 export function deriveAvanceOperativo2a3View(
   ctx: MesaAvanceOperativoContext,
-): AvanceOperativo2a3View {
+): AvanceOperativoEtapaView {
   const mostrar = puedeMostrarAvanceOperativo2a3(ctx);
+  return {
+    mostrar,
+    puedeAvanzar: mostrar,
+    bloqueos: [],
+  };
+}
+
+/** Panel visible solo en etapa 3 / en_proceso (P2C-12). Ciclo debe ser `activo` (espejo SQL). */
+export function puedeMostrarAvanceOperativo3a4(ctx: MesaAvanceOperativoContext): boolean {
+  if (!ctx.submittedToMesa) return false;
+  if (ctx.cicloEstado !== "activo") return false;
+  if (ctx.etapaActual !== 3) return false;
+  return ctx.subestado === "en_proceso";
+}
+
+export function deriveAvanceOperativo3a4View(
+  ctx: MesaAvanceOperativoContext,
+): AvanceOperativoEtapaView {
+  const mostrar = puedeMostrarAvanceOperativo3a4(ctx);
   return {
     mostrar,
     puedeAvanzar: mostrar,
