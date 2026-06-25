@@ -32,6 +32,9 @@ import {
 import {
   ExpedientesSupabaseError,
   useExpedientesRepo,
+  puedeContinuarIntegracion,
+  puedeMostrarContinuarIntegracion,
+  deriveBloqueosContinuarIntegracion,
   type ExpedienteMock,
 } from "@/domain/expedientes";
 import { useSessionRepo, type Rol } from "@/domain/session";
@@ -121,6 +124,9 @@ export function MesaExpedienteDetalleReadOnly() {
   const [clienteDatosRevisionError, setClienteDatosRevisionError] = useState<string | null>(
     null,
   );
+  const [continuarLoading, setContinuarLoading] = useState(false);
+  const [continuarError, setContinuarError] = useState<string | null>(null);
+  const [continuarSuccess, setContinuarSuccess] = useState<string | null>(null);
 
   const puedeRevisar = puedeRevisarDocumentos(currentUser?.role);
 
@@ -532,6 +538,53 @@ export function MesaExpedienteDetalleReadOnly() {
     [clienteDatos, clienteDatosRepo, currentUser?.email, routeExpedienteId],
   );
 
+  const continuarContext = useMemo(
+    () => ({
+      submittedToMesa: expediente?.operativo.submittedToMesa ?? false,
+      cicloEstado: expediente?.operativo.cicloEstado,
+      etapaActual: expediente?.operativo.etapaActual ?? null,
+      subestado: expediente?.operativo.subestado,
+      clienteDatosEstado: clienteDatos?.estado ?? null,
+      archivosResumen,
+    }),
+    [archivosResumen, clienteDatos?.estado, expediente],
+  );
+
+  const mostrarContinuar = useMemo(
+    () => puedeMostrarContinuarIntegracion(continuarContext),
+    [continuarContext],
+  );
+
+  const bloqueosContinuar = useMemo(
+    () => deriveBloqueosContinuarIntegracion(continuarContext),
+    [continuarContext],
+  );
+
+  const continuarHabilitado = useMemo(
+    () => puedeContinuarIntegracion(continuarContext),
+    [continuarContext],
+  );
+
+  const handleContinuarIntegracion = useCallback(async () => {
+    if (!routeExpedienteId || !continuarHabilitado) return;
+    setContinuarLoading(true);
+    setContinuarError(null);
+    setContinuarSuccess(null);
+    try {
+      await expedientesRepo.avanzarEtapaOperativa(routeExpedienteId);
+      setContinuarSuccess("Expediente avanzado a etapa 2 (Registro)");
+      load();
+    } catch (err) {
+      setContinuarError(
+        err instanceof ExpedientesSupabaseError
+          ? err.message
+          : "No se pudo avanzar la etapa del expediente.",
+      );
+    } finally {
+      setContinuarLoading(false);
+    }
+  }, [continuarHabilitado, expedientesRepo, load, routeExpedienteId]);
+
   if (currentUser === undefined) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-100">
@@ -718,6 +771,49 @@ export function MesaExpedienteDetalleReadOnly() {
         onSubir={handleSubirComplementario}
         onReemplazar={handleReemplazarComplementario}
       />
+
+      {continuarSuccess ? (
+        <p
+          role="status"
+          className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm font-medium text-green-900"
+        >
+          {continuarSuccess}
+        </p>
+      ) : null}
+
+      {mostrarContinuar && puedeRevisar ? (
+        <section className="rounded-lg border border-gray-200 bg-white p-4">
+          <h2 className="text-sm font-semibold text-gray-900">Continuar integración</h2>
+          <p className="mt-2 text-sm text-gray-600">
+            Cuando datos generales y los 7 documentos obligatorios estén validados (incluye acta
+            de nacimiento y constancia SAT), avanza el expediente a Registro (etapa 2).
+          </p>
+          {continuarError ? (
+            <p
+              role="alert"
+              className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+            >
+              {continuarError}
+            </p>
+          ) : null}
+          {bloqueosContinuar.length > 0 ? (
+            <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-amber-950">
+              {bloqueosContinuar.map((bloqueo) => (
+                <li key={bloqueo}>{bloqueo}</li>
+              ))}
+            </ul>
+          ) : null}
+          <div className="mt-4">
+            <Button
+              type="button"
+              onClick={() => void handleContinuarIntegracion()}
+              disabled={!continuarHabilitado || continuarLoading}
+            >
+              {continuarLoading ? "Avanzando…" : "Continuar"}
+            </Button>
+          </div>
+        </section>
+      ) : null}
 
       {preview ? (
         <MesaArchivoPreviewDialog

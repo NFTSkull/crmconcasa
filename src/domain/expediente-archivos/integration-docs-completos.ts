@@ -114,6 +114,34 @@ export function integrationDocsCompletos(resumen: IntegrationDocsResumenInput): 
   );
 }
 
+/** `true` solo si el estatus cuenta para `integration_docs_todos_validados` (Mesa 1→2). */
+export function estatusCuentaComoValidadoMesa(estatus: ResumenEstatus): boolean {
+  return estatus === "validado";
+}
+
+/** Espejo de `count_integration_docs_validados` — lista de 7 tipos obligatorios Mesa. */
+export function countIntegrationDocsValidados(
+  resumen: IntegrationDocsResumenInput,
+): number {
+  const byTipo = new Map(resumen.map((r) => [r.tipo_documento, r.estatus_revision]));
+  let count = 0;
+  for (const tipo of INTEGRATION_DOC_TIPOS_VALIDACION_MESA) {
+    const estatus = byTipo.get(tipo);
+    if (estatus && estatusCuentaComoValidadoMesa(estatus)) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
+/** Espejo de `integration_docs_todos_validados` — gate avance Mesa 1→2. */
+export function integrationDocsTodosValidados(resumen: IntegrationDocsResumenInput): boolean {
+  return (
+    countIntegrationDocsValidados(resumen) ===
+    INTEGRATION_DOC_TIPOS_VALIDACION_MESA.length
+  );
+}
+
 function mapChecklistItems(
   tipos: readonly IntegrationDocAsesorUploadTipo[],
   resumen: IntegrationDocsResumenInput,

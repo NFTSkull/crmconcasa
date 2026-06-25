@@ -2,6 +2,8 @@
 
 ## 2026-06-25
 
+- **P3K.1 — Continuar integración Mesa (1→2):** botón **Continuar** en detalle Mesa Supabase; RPC `avanzar_etapa_operativa`; gates UI espejo SQL (datos `validado` + 7 docs `validado`); recarga etapa/subestado/timeline tras avance.
+
 - **P3J Cloud — Migraciones 029/030/031 en Production:** aplicadas manualmente en Supabase SQL Editor (orden 029 → 030 → 031); verificación post-SQL OK (6 RPCs/helpers + policies Storage INSERT/DELETE con 3 ramas OR). Sin `supabase db push`. Frontend P3J.3–P3J.6 pendiente de deploy.
 
 - **P3J.6 — Corrección asesor post-rechazo Mesa:** RPC `register_expediente_documento_correccion` y `save_cliente_datos_correccion` (migración `031`); parche `save_cliente_datos` con gate `concasa.cliente_datos_correccion`; asesor resube solo documentos rechazados y corrige datos rechazados.

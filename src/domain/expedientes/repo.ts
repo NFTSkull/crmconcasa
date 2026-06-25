@@ -11,6 +11,11 @@ export interface ExpedientesRepo {
   getById(id: string): Promise<ExpedienteMock | null>;
   createExpediente(input: CreateExpedienteInput): Promise<ExpedienteMock>;
   enviarAMesa(expedienteId: string): Promise<ExpedienteMock>;
+  /** P3K.1: Mesa avanza integración 1→2 vía RPC `avanzar_etapa_operativa`. */
+  avanzarEtapaOperativa(
+    expedienteId: string,
+    comentario?: string | null,
+  ): Promise<ExpedienteMock>;
   upsertEditorDecision(
     expedienteId: string,
     input: UpsertEditorDecisionInput,

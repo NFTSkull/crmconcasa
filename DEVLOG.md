@@ -1,5 +1,23 @@
 # Devlog
 
+## 2026-06-25 - P3K.1: Continuar integración Mesa (1→2)
+
+### Decisión
+
+- Sin SQL nuevo: reutilizar `avanzar_etapa_operativa(p_expediente_id, p_comentario?)` ya desplegada en Production.
+- Transición: `etapa_actual=1` + `en_validacion_mesa` → `etapa_actual=2` + `en_proceso`.
+- Gates UI en `mesa-avance-integracion.ts` espejo de RPC: `cliente_datos.validado` + `integration_docs_todos_validados` (7 tipos; acta/SAT por Mesa).
+- `ExpedientesRepo.avanzarEtapaOperativa()` en Supabase + stub mock (`updateOperativo`).
+- UI: `MesaExpedienteDetalleReadOnly` — botón Continuar, lista de bloqueos, éxito verde, `load()` post-RPC.
+
+### Archivos
+
+- `src/domain/expedientes/mesa-avance-integracion.ts`
+- `src/domain/expedientes/avanzar-etapa-rpc-error.ts`
+- `src/domain/expedientes/supabase.repo.ts`
+- `src/components/mesa-control/MesaExpedienteDetalleReadOnly.tsx`
+- `src/domain/expediente-archivos/integration-docs-completos.ts` (`integrationDocsTodosValidados`)
+
 ## 2026-06-25 - P3J Cloud: migraciones 029/030/031 en Supabase Production
 
 ### Decisión

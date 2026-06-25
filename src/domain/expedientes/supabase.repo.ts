@@ -8,6 +8,7 @@ import type { ExpedienteMock } from "./mock.repo";
 import { mapProgramaUiToDb } from "./map-programa";
 import { ExpedientesSupabaseError } from "./supabase.error";
 import { mapEnviarAMesaRpcError } from "./enviar-mesa-rpc-error";
+import { mapAvanzarEtapaRpcError } from "./avanzar-etapa-rpc-error";
 import { mapUpsertEditorDecisionRpcError } from "./upsert-editor-decision-rpc-error";
 import type { UpsertEditorDecisionInput } from "./upsert-editor-decision.input";
 import {
@@ -321,6 +322,51 @@ export class SupabaseExpedientesRepo implements ExpedientesRepo {
     if (!refreshed) {
       throw new ExpedientesSupabaseError(
         "La decisión se guardó, pero no se pudo recargar el expediente.",
+      );
+    }
+
+    return refreshed;
+  }
+
+  async avanzarEtapaOperativa(
+    expedienteId: string,
+    comentario?: string | null,
+  ): Promise<ExpedienteMock> {
+    const idNorm = String(expedienteId).trim();
+    if (!idNorm) {
+      throw new ExpedientesSupabaseError("El identificador del expediente es obligatorio.");
+    }
+
+    const { client } = await requireSupabaseSession();
+
+    const rpcArgs: {
+      p_expediente_id: string;
+      p_comentario?: string;
+    } = {
+      p_expediente_id: idNorm,
+    };
+
+    const comentarioNorm = comentario?.trim();
+    if (comentarioNorm) {
+      rpcArgs.p_comentario = comentarioNorm;
+    }
+
+    const { data, error } = await client.rpc("avanzar_etapa_operativa", rpcArgs);
+
+    if (error) {
+      throw mapAvanzarEtapaRpcError(error);
+    }
+
+    if (!data || typeof data !== "object") {
+      throw new ExpedientesSupabaseError(
+        "No se pudo avanzar la etapa. Respuesta vacía del servidor.",
+      );
+    }
+
+    const refreshed = await fetchExpedienteById(idNorm);
+    if (!refreshed) {
+      throw new ExpedientesSupabaseError(
+        "La etapa se actualizó, pero no se pudo recargar el expediente.",
       );
     }
 

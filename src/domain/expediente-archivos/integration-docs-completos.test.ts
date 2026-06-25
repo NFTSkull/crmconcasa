@@ -10,6 +10,8 @@ import {
   deriveIntegrationDocsChecklistOpcionales,
   estatusCuentaParaIntegracion,
   integrationDocsCompletos,
+  integrationDocsTodosValidados,
+  countIntegrationDocsValidados,
 } from "./integration-docs-completos";
 import type { IntegrationDocsResumenInput } from "./integration-docs-completos";
 
@@ -142,5 +144,31 @@ describe("integrationDocsCompletos", () => {
     assert.equal(checklist[0]?.tipo_documento, "cliente_semanas_cotizadas");
     assert.equal(checklist[0]?.opcional, true);
     assert.equal(checklist[0]?.completo, false);
+  });
+});
+
+describe("integrationDocsTodosValidados", () => {
+  it("requiere 7 validados incluyendo acta y SAT", () => {
+    const soloAsesor = INTEGRATION_DOC_TIPOS_ASESOR_ENVIO.map((tipo) => ({
+      tipo_documento: tipo,
+      estatus_revision: "validado" as const,
+    }));
+    assert.equal(countIntegrationDocsValidados(soloAsesor), 5);
+    assert.equal(integrationDocsTodosValidados(soloAsesor), false);
+
+    const completo = INTEGRATION_DOC_TIPOS_VALIDACION_MESA.map((tipo) => ({
+      tipo_documento: tipo,
+      estatus_revision: "validado" as const,
+    }));
+    assert.equal(countIntegrationDocsValidados(completo), 7);
+    assert.equal(integrationDocsTodosValidados(completo), true);
+  });
+
+  it("resubido no cuenta como validado para Mesa 1→2", () => {
+    const resumen = INTEGRATION_DOC_TIPOS_VALIDACION_MESA.map((tipo, i) => ({
+      tipo_documento: tipo,
+      estatus_revision: i === 0 ? ("resubido" as const) : ("validado" as const),
+    }));
+    assert.equal(integrationDocsTodosValidados(resumen), false);
   });
 });

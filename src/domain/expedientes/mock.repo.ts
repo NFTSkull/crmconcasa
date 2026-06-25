@@ -671,6 +671,23 @@ export class MockExpedientesRepo implements ExpedientesRepo {
     return result;
   }
 
+  async avanzarEtapaOperativa(
+    expedienteId: string,
+    _comentario?: string | null,
+  ): Promise<ExpedienteMock> {
+    void _comentario;
+    const result = await this.updateOperativo(expedienteId, {
+      etapaActual: 2,
+      subestado: "en_proceso",
+    });
+
+    if (!result) {
+      throw new Error("Expediente no encontrado.");
+    }
+
+    return result;
+  }
+
   async enviarAMesaWithPayload(
     id: string,
     payload: EnviarAMesaPayload,
