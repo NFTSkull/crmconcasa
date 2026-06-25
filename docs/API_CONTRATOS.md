@@ -214,6 +214,7 @@ Convenciones:
 | 1→2 | Docs etapa 1 validados; datos cliente `validado` |
 | 4→5 | Cita biométrica (`fecha_cita` + booking `biometricos` activo `booked`) |
 | 5→6 | Etapa 5 + `en_proceso`; `fecha_cita` + booking biométrico activo; **`fecha_cita <= now()`** (cita ya ocurrió; no registra resultado formal en P3N.1) |
+| 6→7 | Etapa 6 + `en_proceso`; enviado a Mesa; ciclo `activo` (sin `fecha_cita` ni booking) |
 | 8→9 | Retención: opción + envío asesor + docs opción `validado` |
 | 9→10 | Cita firma: `fecha_cita` + booking `firmas` activo (`booked`); solo `mesa_admin`/`super_admin` |
 | Rechazo | Nota obligatoria; puede regresar etapa |

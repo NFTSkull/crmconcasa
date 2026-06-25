@@ -27,6 +27,13 @@ describe("mapAvanzarEtapaRpcError", () => {
     assert.match(err.message, /validación por Mesa/i);
   });
 
+  it("mapea subestado debe ser en_proceso", () => {
+    const err = mapAvanzarEtapaRpcError({
+      message: "avanzar_etapa_operativa: subestado debe ser en_proceso (actual: en_validacion_mesa)",
+    });
+    assert.match(err.message, /subestado en proceso/i);
+  });
+
   it("mapea no autorizado por código 42501", () => {
     const err = mapAvanzarEtapaRpcError({
       code: "42501",

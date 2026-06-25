@@ -62,6 +62,12 @@ export function mapAvanzarEtapaRpcError(error: {
     );
   }
 
+  if (msg.includes("subestado debe ser en_proceso")) {
+    return new ExpedientesSupabaseError(
+      "El expediente debe estar en subestado en proceso para avanzar de etapa.",
+    );
+  }
+
   if (msg.includes("solo se permite avanzar desde etapa 1")) {
     return new ExpedientesSupabaseError(
       "Solo se puede continuar desde la etapa de Integración (etapa 1).",

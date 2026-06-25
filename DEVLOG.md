@@ -1,5 +1,19 @@
 # Devlog
 
+## 2026-06-25 - P3N.2: Mesa avance 6→7 Supabase
+
+### Decisión
+
+- Transición **6→7** (Inscripción → Notificación) ya en RPC P2C-14; solo UI Mesa.
+- Gates espejo SQL: etapa 6 + `en_proceso` + `submitted_to_mesa` + ciclo `activo`; sin `fecha_cita` ni booking.
+- Patrón idéntico a P3L.1/P3L.2 (2→3, 3→4); sin mock ni asesor.
+
+### Archivos
+
+- `mesa-avance-integracion.ts` — `deriveAvanceOperativo6a7View`
+- `MesaExpedienteDetalleReadOnly.tsx` — panel + handler
+- `docs/API_CONTRATOS.md` §7 transición 6→7
+
 ## 2026-06-25 - P3N.1: Mesa avance 5→6 post-cita biométrica Supabase
 
 ### Decisión
