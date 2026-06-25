@@ -7,6 +7,7 @@ import { ExpedienteRetencionSupabaseRepo } from "./supabase.repo";
 export * from "./types";
 export * from "./retencion-envio-mesa";
 export * from "./asesor-retencion-panel";
+export * from "./mesa-retencion-docs";
 export { ExpedienteRetencionSupabaseError } from "./supabase.error";
 export { mapRegisterRetencionDocRpcError } from "./register-retencion-doc-rpc-error";
 export { mapEnviarRetencionMesaRpcError } from "./enviar-retencion-mesa-rpc-error";

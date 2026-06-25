@@ -387,6 +387,14 @@ Adicional:
 - Rechazo post-validación permitido.
 - Avance 8→9 consulta `getBloqueosRetencionAvanceEtapa8Mesa`.
 
+### UI Mesa (P3O.3)
+
+- Sección `MesaRetencionAcuseAvisoSection` en `/mesa-control/[id]` Supabase si `etapa_actual = 8`.
+- Lee `retencion_opciones`, `retencion_envios`, docs `retencion_*` (lista según opción A/B).
+- Preview/descarga Storage; validar/rechazar vía RPC `update_documento_revision`.
+- Rechazo obliga comentario; hook SQL pone `retencion_envios.estado = correccion_requerida`.
+- Sin botón 8→9 en esta versión.
+
 ---
 
 ## 11. Agendar firma (asesor / mesa_admin) — P2C-18

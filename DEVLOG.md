@@ -1,5 +1,19 @@
 # Devlog
 
+## 2026-06-25 - P3O.3: Retención etapa 8 Mesa Supabase
+
+### Decisión
+
+- Reutiliza RPC `update_documento_revision` (migración 018 hook retención) — rechazo `retencion_*` marca `retencion_envios.estado = correccion_requerida`.
+- Sección `MesaRetencionAcuseAvisoSection` solo en `MesaExpedienteDetalleReadOnly` etapa 8; asesor sin cambios en P3O.3.
+- Preview/descarga vía `getArchivoBlob` existente; sin botón avance 8→9 (informativo bloqueos).
+- Mock intacto; sin migraciones.
+
+### Archivos
+
+- `mesa-retencion-docs.ts`, `MesaRetencionAcuseAvisoSection.tsx`, wire `MesaExpedienteDetalleReadOnly.tsx`
+- `docs/API_CONTRATOS.md` §10 UI Mesa
+
 ## 2026-06-25 - P3O.2: Retención etapa 8 asesor Supabase
 
 ### Decisión

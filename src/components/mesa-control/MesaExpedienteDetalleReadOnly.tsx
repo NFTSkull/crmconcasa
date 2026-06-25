@@ -14,6 +14,7 @@ import { MesaAvanceOperativoSection, MESA_AVANCE_OPERATIVO_2A3_COPY, MESA_AVANCE
 import { MesaCierreValidacionDocumentalSection } from "@/components/mesa-control/MesaCierreValidacionDocumentalSection";
 import { MesaControlDocumentosComplementariosSection } from "@/components/mesa-control/MesaControlDocumentosComplementariosSection";
 import { MesaDocumentosAsesorSection } from "@/components/mesa-control/MesaDocumentosAsesorSection";
+import { MesaRetencionAcuseAvisoSection } from "@/components/mesa-control/MesaRetencionAcuseAvisoSection";
 import { AsesorSeguimientoOperativo } from "@/components/asesor/AsesorSeguimientoOperativo";
 import { Button } from "@/components/ui/Button";
 import {
@@ -49,6 +50,20 @@ import {
   type AgendaBiometricosActiveBooking,
   type AgendaBiometricosConfigRecord,
 } from "@/domain/agenda-biometricos";
+import {
+  deriveRetencionAcuseAvisoFaltantes,
+  getBloqueosRetencionAvanceEtapa8Mesa,
+  type RetencionTipoDocumento,
+} from "@/domain/expediente-archivos/retencion-acuse-aviso";
+import {
+  buildMesaRetencionDocViews,
+  canShowMesaRetencionSupabaseSection,
+  retencionEnvioEstadoEfectivo,
+  retencionOpcionMesaEfectiva,
+  useExpedienteRetencionSupabaseRepo,
+  type ExpedienteRetencionEnvioMesa,
+  type RetencionOpcion,
+} from "@/domain/expediente-retencion";
 import { useSessionRepo, type Rol } from "@/domain/session";
 import { subestadoOperativoLabel } from "@/lib/subestadoOperativoUi";
 
@@ -112,6 +127,7 @@ export function MesaExpedienteDetalleReadOnly() {
   const archivosRepo = useExpedienteArchivosRepo();
   const clienteDatosRepo = useExpedienteClienteDatosRepo();
   const agendaBookingRepo = useAgendaBiometricosBookingRepo();
+  const retencionRepo = useExpedienteRetencionSupabaseRepo();
 
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -133,6 +149,12 @@ export function MesaExpedienteDetalleReadOnly() {
   const [complementarioArchivoErrorByTipo, setComplementarioArchivoErrorByTipo] = useState<
     Record<string, string>
   >({});
+  const [retencionOpcion, setRetencionOpcion] = useState<RetencionOpcion | null>(null);
+  const [retencionEnvio, setRetencionEnvio] = useState<ExpedienteRetencionEnvioMesa | null>(
+    null,
+  );
+  const [retencionArchivoLoadingTipo, setRetencionArchivoLoadingTipo] =
+    useState<RetencionTipoDocumento | null>(null);
   const [clienteDatosSaving, setClienteDatosSaving] = useState(false);
   const [clienteDatosRevisionError, setClienteDatosRevisionError] = useState<string | null>(
     null,
@@ -239,6 +261,64 @@ export function MesaExpedienteDetalleReadOnly() {
   const documentosComplementarios = useMemo(
     () => buildMesaComplementariosDocViews(archivosResumen, archivosLista),
     [archivosLista, archivosResumen],
+  );
+
+  const refreshRetencionMeta = useCallback(async () => {
+    if (!retencionRepo || !routeExpedienteId) return;
+    try {
+      const [opcion, envio] = await Promise.all([
+        retencionRepo.getOpcionByExpedienteId(routeExpedienteId),
+        retencionRepo.getEnvioByExpedienteId(routeExpedienteId),
+      ]);
+      setRetencionOpcion(opcion?.retencion_opcion ?? null);
+      setRetencionEnvio(envio);
+    } catch {
+      setRetencionOpcion(null);
+      setRetencionEnvio(null);
+    }
+  }, [retencionRepo, routeExpedienteId]);
+
+  useEffect(() => {
+    if (!retencionRepo || !routeExpedienteId) return;
+    void refreshRetencionMeta();
+  }, [retencionRepo, routeExpedienteId, refreshRetencionMeta]);
+
+  const mostrarRetencionMesa = canShowMesaRetencionSupabaseSection({
+    etapaActual: expediente?.operativo.etapaActual,
+  });
+
+  const retencionOpcionMesa = useMemo(
+    () => retencionOpcionMesaEfectiva(retencionEnvio, retencionOpcion),
+    [retencionEnvio, retencionOpcion],
+  );
+
+  const retencionDocumentos = useMemo(
+    () => buildMesaRetencionDocViews(retencionOpcionMesa, archivosResumen, archivosLista),
+    [retencionOpcionMesa, archivosResumen, archivosLista],
+  );
+
+  const retencionEnvioUiEstado = useMemo(
+    () => retencionEnvioEstadoEfectivo(retencionEnvio, archivosResumen, retencionOpcion),
+    [retencionEnvio, archivosResumen, retencionOpcion],
+  );
+
+  const retencionFaltantes = useMemo(
+    () =>
+      deriveRetencionAcuseAvisoFaltantes({
+        retencion_opcion: retencionOpcionMesa,
+        archivos: archivosResumen,
+      }),
+    [retencionOpcionMesa, archivosResumen],
+  );
+
+  const retencionBloqueosAvance = useMemo(
+    () =>
+      getBloqueosRetencionAvanceEtapa8Mesa({
+        retencion_opcion: retencionOpcionMesa,
+        archivos: archivosResumen,
+        retencion_enviado_a_mesa: Boolean(retencionEnvio?.enviado),
+      }),
+    [retencionOpcionMesa, archivosResumen, retencionEnvio],
   );
 
   const closePreview = useCallback(() => {
@@ -362,6 +442,9 @@ export function MesaExpedienteDetalleReadOnly() {
           comentario_mesa,
         });
         await refreshArchivos();
+        if (tipo.startsWith("retencion_")) {
+          await refreshRetencionMeta();
+        }
         return true;
       } catch (err) {
         setRevisionErrorByTipo((prev) => ({
@@ -376,7 +459,7 @@ export function MesaExpedienteDetalleReadOnly() {
         setRevisionSavingTipo(null);
       }
     },
-    [archivosRepo, refreshArchivos],
+    [archivosRepo, refreshArchivos, refreshRetencionMeta],
   );
 
   const handleValidarDocumento = useCallback(
@@ -389,6 +472,87 @@ export function MesaExpedienteDetalleReadOnly() {
   const handleGuardarRechazo = useCallback(
     async (
       tipo: IntegrationDocAsesorUploadTipo,
+      documentoId: string,
+      comentario: string,
+    ): Promise<boolean> => {
+      return persistRevision(tipo, documentoId, "rechazado", comentario);
+    },
+    [persistRevision],
+  );
+
+  const handleVerRetencionDoc = useCallback(
+    async (tipo: RetencionTipoDocumento, archivo: ExpedienteArchivoResumen) => {
+      if (!archivo.id || !archivo.mime_type) return;
+      setRetencionArchivoLoadingTipo(tipo);
+      setArchivoErrorByTipo((prev) => {
+        const next = { ...prev };
+        delete next[tipo];
+        return next;
+      });
+      try {
+        const blob = await fetchArchivoBlob(archivo);
+        const url = URL.createObjectURL(blob);
+        setPreview((prev) => {
+          if (prev?.url) URL.revokeObjectURL(prev.url);
+          return {
+            url,
+            mime_type: archivo.mime_type as string,
+            nombre_original: archivo.nombre_original ?? "archivo",
+          };
+        });
+      } catch (err) {
+        setArchivoErrorByTipo((prev) => ({
+          ...prev,
+          [tipo]: mapArchivoError(err),
+        }));
+      } finally {
+        setRetencionArchivoLoadingTipo(null);
+      }
+    },
+    [fetchArchivoBlob, mapArchivoError],
+  );
+
+  const handleDescargarRetencionDoc = useCallback(
+    async (tipo: RetencionTipoDocumento, archivo: ExpedienteArchivoResumen) => {
+      if (!archivo.id || !archivo.nombre_original) return;
+      setRetencionArchivoLoadingTipo(tipo);
+      setArchivoErrorByTipo((prev) => {
+        const next = { ...prev };
+        delete next[tipo];
+        return next;
+      });
+      try {
+        const blob = await fetchArchivoBlob(archivo);
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = archivo.nombre_original;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 5000);
+      } catch (err) {
+        setArchivoErrorByTipo((prev) => ({
+          ...prev,
+          [tipo]: mapArchivoError(err),
+        }));
+      } finally {
+        setRetencionArchivoLoadingTipo(null);
+      }
+    },
+    [fetchArchivoBlob, mapArchivoError],
+  );
+
+  const handleValidarRetencionDocumento = useCallback(
+    async (tipo: RetencionTipoDocumento, documentoId: string) => {
+      await persistRevision(tipo, documentoId, "validado", null);
+    },
+    [persistRevision],
+  );
+
+  const handleGuardarRechazoRetencion = useCallback(
+    async (
+      tipo: RetencionTipoDocumento,
       documentoId: string,
       comentario: string,
     ): Promise<boolean> => {
@@ -1060,6 +1224,27 @@ export function MesaExpedienteDetalleReadOnly() {
         success={avance7a8Success}
         onAvanzar={handleAvanzarOperativo7a8}
       />
+
+      {mostrarRetencionMesa ? (
+        <MesaRetencionAcuseAvisoSection
+          opcionMesa={retencionOpcionMesa}
+          envioUiEstado={retencionEnvioUiEstado}
+          fechaEnvioMesa={retencionEnvio?.fechaEnvioMesa}
+          documentos={retencionDocumentos}
+          faltantes={retencionFaltantes}
+          bloqueosAvance={retencionBloqueosAvance}
+          puedeRevisar={puedeRevisar}
+          formatDateTime={formatDateTime}
+          archivoLoadingTipo={retencionArchivoLoadingTipo}
+          revisionSavingTipo={revisionSavingTipo as RetencionTipoDocumento | null}
+          archivoErrorByTipo={archivoErrorByTipo}
+          revisionErrorByTipo={revisionErrorByTipo}
+          onVer={(tipo, archivo) => void handleVerRetencionDoc(tipo, archivo)}
+          onDescargar={(tipo, archivo) => void handleDescargarRetencionDoc(tipo, archivo)}
+          onValidar={(tipo, documentoId) => void handleValidarRetencionDocumento(tipo, documentoId)}
+          onGuardarRechazo={handleGuardarRechazoRetencion}
+        />
+      ) : null}
 
       {preview ? (
         <MesaArchivoPreviewDialog
