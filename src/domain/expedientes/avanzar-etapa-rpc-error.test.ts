@@ -49,6 +49,14 @@ describe("mapAvanzarEtapaRpcError", () => {
     assert.match(err.message, /reserva biométrica activa/i);
   });
 
+  it("mapea cita biométrica aún no ha ocurrido", () => {
+    const err = mapAvanzarEtapaRpcError({
+      message: "avanzar_etapa_operativa: cita biométrica aún no ha ocurrido",
+    });
+    assert.match(err.message, /aún no ha ocurrido/i);
+    assert.match(err.message, /inscripción/i);
+  });
+
   it("mapea error inesperado", () => {
     const err = mapAvanzarEtapaRpcError({
       message: "algo totalmente desconocido",

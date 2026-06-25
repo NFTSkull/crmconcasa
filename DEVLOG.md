@@ -1,5 +1,22 @@
 # Devlog
 
+## 2026-06-25 - P3N.1: Mesa avance 5→6 post-cita biométrica Supabase
+
+### Decisión
+
+- Solo UI Mesa (`MesaExpedienteDetalleReadOnly`); reutiliza RPC `avanzar_etapa_operativa` P2C-13 sin migraciones.
+- Gates UI espejan SQL: etapa 5 + `en_proceso` + `fecha_cita <= now()` + booking `biometricos/booked`.
+- P3N.1 **no** registra resultado biométrico formal (aprobado/rechazado/evidencia); copy evita “biometría aprobada”.
+- Resumen cita (`MesaCitaBiometricosResumenSection`) visible en etapas 4 y 5 con indicador cita pendiente/ocurrida.
+- Asesor sin botón de avance; mock intacto.
+
+### Archivos
+
+- `src/domain/expedientes/mesa-avance-integracion.ts` — `deriveAvanceOperativo5a6View`
+- `src/components/mesa-control/MesaCitaBiometricosResumenSection.tsx`
+- `src/components/mesa-control/MesaExpedienteDetalleReadOnly.tsx`
+- `docs/API_CONTRATOS.md` §7 transición 5→6
+
 ## 2026-06-25 - P3M.4: cancel/reagenda biométricos asesor Supabase
 
 ### Decisión

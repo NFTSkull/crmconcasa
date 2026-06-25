@@ -8,6 +8,7 @@ import {
   deriveAvanceOperativo2a3View,
   deriveAvanceOperativo3a4View,
   deriveAvanceOperativo4a5View,
+  deriveAvanceOperativo5a6View,
   deriveBloqueosContinuarIntegracion,
   deriveCierreValidacionDocumentalView,
   etapaTrasAvanceIntegracion1a2,
@@ -15,8 +16,10 @@ import {
   puedeMostrarAvanceOperativo2a3,
   puedeMostrarAvanceOperativo3a4,
   puedeMostrarAvanceOperativo4a5,
+  puedeMostrarAvanceOperativo5a6,
   puedeMostrarContinuarIntegracion,
   type MesaAvanceOperativo4a5Context,
+  type MesaAvanceOperativo5a6Context,
   type MesaAvanceOperativoContext,
   type MesaContinuarIntegracionContext,
 } from "./mesa-avance-integracion";
@@ -409,6 +412,111 @@ describe("deriveAvanceOperativo4a5View", () => {
 
   it("oculto con ciclo no activo", () => {
     const view = deriveAvanceOperativo4a5View(avance4a5Ctx({ cicloEstado: "cerrado" }));
+    assert.equal(view.mostrar, false);
+    assert.equal(view.puedeAvanzar, false);
+  });
+});
+
+const FIXED_NOW_MS = Date.parse("2026-07-10T12:00:00.000Z");
+
+function avance5a6Ctx(
+  overrides: Partial<MesaAvanceOperativo5a6Context> = {},
+): MesaAvanceOperativo5a6Context {
+  return {
+    submittedToMesa: true,
+    cicloEstado: "activo",
+    etapaActual: 5,
+    subestado: "en_proceso",
+    fechaCita: "2026-07-08T16:00:00.000Z",
+    hasActiveBiometricBooking: true,
+    nowMs: FIXED_NOW_MS,
+    ...overrides,
+  };
+}
+
+describe("puedeMostrarAvanceOperativo5a6", () => {
+  it("visible en etapa 5 con ciclo activo y en_proceso", () => {
+    assert.equal(puedeMostrarAvanceOperativo5a6(avance5a6Ctx()), true);
+  });
+
+  it("no visible en etapa 4", () => {
+    assert.equal(puedeMostrarAvanceOperativo5a6(avance5a6Ctx({ etapaActual: 4 })), false);
+  });
+
+  it("no visible en etapa 6", () => {
+    assert.equal(puedeMostrarAvanceOperativo5a6(avance5a6Ctx({ etapaActual: 6 })), false);
+  });
+
+  it("no visible con subestado distinto a en_proceso", () => {
+    assert.equal(
+      puedeMostrarAvanceOperativo5a6(avance5a6Ctx({ subestado: "en_validacion_mesa" })),
+      false,
+    );
+  });
+});
+
+describe("deriveAvanceOperativo5a6View", () => {
+  it("habilita avance con cita pasada y booking activo", () => {
+    const view = deriveAvanceOperativo5a6View(avance5a6Ctx());
+    assert.equal(view.mostrar, true);
+    assert.equal(view.puedeAvanzar, true);
+    assert.deepEqual(view.bloqueos, []);
+  });
+
+  it("bloquea con cita futura", () => {
+    const view = deriveAvanceOperativo5a6View(
+      avance5a6Ctx({ fechaCita: "2026-07-15T16:00:00.000Z" }),
+    );
+    assert.equal(view.mostrar, true);
+    assert.equal(view.puedeAvanzar, false);
+    assert.match(view.bloqueos.join(" "), /aún no ha ocurrido/i);
+  });
+
+  it("bloquea sin fecha de cita", () => {
+    const view = deriveAvanceOperativo5a6View(avance5a6Ctx({ fechaCita: null }));
+    assert.equal(view.mostrar, true);
+    assert.equal(view.puedeAvanzar, false);
+    assert.match(view.bloqueos.join(" "), /falta cita biométrica/i);
+  });
+
+  it("bloquea sin booking activo", () => {
+    const view = deriveAvanceOperativo5a6View(
+      avance5a6Ctx({ hasActiveBiometricBooking: false }),
+    );
+    assert.equal(view.mostrar, true);
+    assert.equal(view.puedeAvanzar, false);
+    assert.match(view.bloqueos.join(" "), /reserva biométrica activa/i);
+  });
+
+  it("oculto con subestado distinto a en_proceso", () => {
+    const view = deriveAvanceOperativo5a6View(
+      avance5a6Ctx({ subestado: "en_validacion_mesa" }),
+    );
+    assert.equal(view.mostrar, false);
+    assert.equal(view.puedeAvanzar, false);
+    assert.deepEqual(view.bloqueos, []);
+  });
+
+  it("oculto en etapa 4", () => {
+    const view = deriveAvanceOperativo5a6View(avance5a6Ctx({ etapaActual: 4 }));
+    assert.equal(view.mostrar, false);
+    assert.equal(view.puedeAvanzar, false);
+  });
+
+  it("oculto en etapa 6", () => {
+    const view = deriveAvanceOperativo5a6View(avance5a6Ctx({ etapaActual: 6 }));
+    assert.equal(view.mostrar, false);
+    assert.equal(view.puedeAvanzar, false);
+  });
+
+  it("oculto sin envío a Mesa", () => {
+    const view = deriveAvanceOperativo5a6View(avance5a6Ctx({ submittedToMesa: false }));
+    assert.equal(view.mostrar, false);
+    assert.equal(view.puedeAvanzar, false);
+  });
+
+  it("oculto con ciclo no activo", () => {
+    const view = deriveAvanceOperativo5a6View(avance5a6Ctx({ cicloEstado: "cerrado" }));
     assert.equal(view.mostrar, false);
     assert.equal(view.puedeAvanzar, false);
   });

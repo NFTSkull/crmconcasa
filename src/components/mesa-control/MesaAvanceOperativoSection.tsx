@@ -35,6 +35,14 @@ export const MESA_AVANCE_OPERATIVO_4A5_COPY: MesaAvanceOperativoCopy = {
   mensajeConfirmacion: "¿Confirmas avanzar este expediente a etapa 5?",
 };
 
+export const MESA_AVANCE_OPERATIVO_5A6_COPY: MesaAvanceOperativoCopy = {
+  titulo: "Avanzar a etapa 6",
+  descripcion:
+    "La cita biométrica ya ocurrió. Confirma el avance a inscripción.",
+  etiquetaBoton: "Avanzar a etapa 6",
+  mensajeConfirmacion: "¿Confirmas avanzar este expediente a etapa 6?",
+};
+
 type Props = {
   view: AvanceOperativoEtapaView;
   copy: MesaAvanceOperativoCopy;

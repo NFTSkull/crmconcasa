@@ -98,6 +98,12 @@ export function mapAvanzarEtapaRpcError(error: {
     );
   }
 
+  if (msg.includes("cita biométrica aún no ha ocurrido")) {
+    return new ExpedientesSupabaseError(
+      "La cita biométrica aún no ha ocurrido. Espera a la fecha programada antes de avanzar a inscripción.",
+    );
+  }
+
   if (msg.includes("transición no soportada") || msg.includes("no soportada para etapa")) {
     return new ExpedientesSupabaseError(
       "No hay una transición de etapa disponible para el estado actual del expediente.",

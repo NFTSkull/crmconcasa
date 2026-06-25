@@ -279,3 +279,72 @@ export function deriveAvanceOperativo4a5View(
     bloqueos,
   };
 }
+
+// —— P3N.1: avance operativo Mesa 5 → 6 ——
+
+export type MesaAvanceOperativo5a6Context = MesaAvanceOperativoContext & {
+  fechaCita?: string | null;
+  hasActiveBiometricBooking: boolean;
+  /** Inyectable en tests unitarios (default `Date.now()`). */
+  nowMs?: number;
+};
+
+/** Espejo SQL: `fecha_cita <= now()`. */
+export function isFechaCitaBiometricaPasada(
+  fechaCita: string | null | undefined,
+  nowMs = Date.now(),
+): boolean {
+  if (typeof fechaCita !== "string" || fechaCita.trim() === "") return false;
+  const t = Date.parse(fechaCita);
+  return !Number.isNaN(t) && t <= nowMs;
+}
+
+/** Panel visible solo en etapa 5 post-cita (P3N.1). */
+export function puedeMostrarAvanceOperativo5a6(ctx: MesaAvanceOperativo5a6Context): boolean {
+  if (!ctx.submittedToMesa) return false;
+  if (ctx.cicloEstado !== "activo") return false;
+  if (ctx.etapaActual !== 5) return false;
+  return ctx.subestado === "en_proceso";
+}
+
+/** Bloqueos alineados con `avanzar_etapa_operativa` transición 5→6. */
+export function deriveBloqueosAvanceOperativo5a6(
+  ctx: MesaAvanceOperativo5a6Context,
+): string[] {
+  if (!puedeMostrarAvanceOperativo5a6(ctx)) {
+    return [];
+  }
+
+  const bloqueos: string[] = [];
+  const hasFecha =
+    typeof ctx.fechaCita === "string" && ctx.fechaCita.trim() !== "";
+  const nowMs = ctx.nowMs ?? Date.now();
+
+  if (!hasFecha) {
+    bloqueos.push("Falta cita biométrica registrada en el expediente.");
+  }
+
+  if (!ctx.hasActiveBiometricBooking) {
+    bloqueos.push("No hay reserva biométrica activa en Supabase.");
+  }
+
+  if (hasFecha && !isFechaCitaBiometricaPasada(ctx.fechaCita, nowMs)) {
+    bloqueos.push(
+      "La cita biométrica aún no ha ocurrido. Espera a la fecha programada antes de avanzar.",
+    );
+  }
+
+  return bloqueos;
+}
+
+export function deriveAvanceOperativo5a6View(
+  ctx: MesaAvanceOperativo5a6Context,
+): AvanceOperativoEtapaView {
+  const mostrar = puedeMostrarAvanceOperativo5a6(ctx);
+  const bloqueos = deriveBloqueosAvanceOperativo5a6(ctx);
+  return {
+    mostrar,
+    puedeAvanzar: mostrar && bloqueos.length === 0,
+    bloqueos,
+  };
+}

@@ -10,7 +10,7 @@ import {
 } from "@/components/mesa-control/MesaArchivoPreviewDialog";
 import { MesaClienteDatosReadOnlySection } from "@/components/mesa-control/MesaClienteDatosReadOnlySection";
 import { MesaCitaBiometricosResumenSection } from "@/components/mesa-control/MesaCitaBiometricosResumenSection";
-import { MesaAvanceOperativoSection, MESA_AVANCE_OPERATIVO_2A3_COPY, MESA_AVANCE_OPERATIVO_3A4_COPY, MESA_AVANCE_OPERATIVO_4A5_COPY } from "@/components/mesa-control/MesaAvanceOperativoSection";
+import { MesaAvanceOperativoSection, MESA_AVANCE_OPERATIVO_2A3_COPY, MESA_AVANCE_OPERATIVO_3A4_COPY, MESA_AVANCE_OPERATIVO_4A5_COPY, MESA_AVANCE_OPERATIVO_5A6_COPY } from "@/components/mesa-control/MesaAvanceOperativoSection";
 import { MesaCierreValidacionDocumentalSection } from "@/components/mesa-control/MesaCierreValidacionDocumentalSection";
 import { MesaControlDocumentosComplementariosSection } from "@/components/mesa-control/MesaControlDocumentosComplementariosSection";
 import { MesaDocumentosAsesorSection } from "@/components/mesa-control/MesaDocumentosAsesorSection";
@@ -38,6 +38,7 @@ import {
   deriveAvanceOperativo2a3View,
   deriveAvanceOperativo3a4View,
   deriveAvanceOperativo4a5View,
+  deriveAvanceOperativo5a6View,
   deriveCierreValidacionDocumentalView,
   type ExpedienteMock,
 } from "@/domain/expedientes";
@@ -150,6 +151,9 @@ export function MesaExpedienteDetalleReadOnly() {
   const [avance4a5Loading, setAvance4a5Loading] = useState(false);
   const [avance4a5Error, setAvance4a5Error] = useState<string | null>(null);
   const [avance4a5Success, setAvance4a5Success] = useState<string | null>(null);
+  const [avance5a6Loading, setAvance5a6Loading] = useState(false);
+  const [avance5a6Error, setAvance5a6Error] = useState<string | null>(null);
+  const [avance5a6Success, setAvance5a6Success] = useState<string | null>(null);
 
   const puedeRevisar = puedeRevisarDocumentos(currentUser?.role);
 
@@ -619,6 +623,23 @@ export function MesaExpedienteDetalleReadOnly() {
     [avanceOperativo4a5Context],
   );
 
+  const avanceOperativo5a6Context = useMemo(
+    () => ({
+      submittedToMesa: expediente?.operativo.submittedToMesa ?? false,
+      cicloEstado: expediente?.operativo.cicloEstado,
+      etapaActual: expediente?.operativo.etapaActual ?? null,
+      subestado: expediente?.operativo.subestado,
+      fechaCita: expediente?.operativo.fechaCita ?? null,
+      hasActiveBiometricBooking: activeBiometricBooking != null,
+    }),
+    [activeBiometricBooking, expediente],
+  );
+
+  const avanceOperativo5a6View = useMemo(
+    () => deriveAvanceOperativo5a6View(avanceOperativo5a6Context),
+    [avanceOperativo5a6Context],
+  );
+
   const handleAvanzarIntegracion = useCallback(async () => {
     if (!routeExpedienteId || !cierreValidacionView.puedeAvanzar) return;
     setContinuarLoading(true);
@@ -702,6 +723,26 @@ export function MesaExpedienteDetalleReadOnly() {
       setAvance4a5Loading(false);
     }
   }, [avanceOperativo4a5View.puedeAvanzar, expedientesRepo, load, routeExpedienteId]);
+
+  const handleAvanzarOperativo5a6 = useCallback(async () => {
+    if (!routeExpedienteId || !avanceOperativo5a6View.puedeAvanzar) return;
+    setAvance5a6Loading(true);
+    setAvance5a6Error(null);
+    setAvance5a6Success(null);
+    try {
+      await expedientesRepo.avanzarEtapaOperativa(routeExpedienteId);
+      setAvance5a6Success("Expediente avanzado a etapa 6 (Inscripción)");
+      load();
+    } catch (err) {
+      setAvance5a6Error(
+        err instanceof ExpedientesSupabaseError
+          ? err.message
+          : "No se pudo avanzar la etapa del expediente.",
+      );
+    } finally {
+      setAvance5a6Loading(false);
+    }
+  }, [avanceOperativo5a6View.puedeAvanzar, expedientesRepo, load, routeExpedienteId]);
 
   if (currentUser === undefined) {
     return (
@@ -930,6 +971,16 @@ export function MesaExpedienteDetalleReadOnly() {
         error={avance4a5Error}
         success={avance4a5Success}
         onAvanzar={handleAvanzarOperativo4a5}
+      />
+
+      <MesaAvanceOperativoSection
+        view={avanceOperativo5a6View}
+        copy={MESA_AVANCE_OPERATIVO_5A6_COPY}
+        puedeOperar={puedeRevisar}
+        loading={avance5a6Loading}
+        error={avance5a6Error}
+        success={avance5a6Success}
+        onAvanzar={handleAvanzarOperativo5a6}
       />
 
       {preview ? (
