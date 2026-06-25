@@ -60,23 +60,33 @@ CREATE OR REPLACE FUNCTION public.__rpc_avanzar_910_test_insert_exp(
   p_etapa SMALLINT DEFAULT 9,
   p_subestado public.operativo_subestado DEFAULT 'en_proceso',
   p_submitted BOOLEAN DEFAULT true,
-  p_fecha_cita TIMESTAMPTZ DEFAULT NULL
+  p_fecha_cita TIMESTAMPTZ DEFAULT NULL,
+  p_origen public.origen_mesa DEFAULT 'interno',
+  p_ciclo public.expediente_ciclo_estado DEFAULT 'activo',
+  p_deleted_at TIMESTAMPTZ DEFAULT NULL
 )
 RETURNS VOID LANGUAGE plpgsql AS $$
 BEGIN
   INSERT INTO public.expedientes (
     id, organization_id, asesor_id, programa, nss, cliente_nombre,
     telefono_cliente, origen_mesa, submitted_to_mesa, fecha_envio_mesa,
-    etapa_actual, subestado, fecha_cita, ciclo_estado
+    etapa_actual, subestado, fecha_cita, ciclo_estado, deleted_at
   ) VALUES (
     p_id, p_org, p_asesor, 'mejoravit', p_nss, 'Fixture Avanzar 9-10',
-    '5555555555', 'interno', p_submitted, CASE WHEN p_submitted THEN NOW() ELSE NULL END,
-    p_etapa, p_subestado, p_fecha_cita, 'activo'
+    '5555555555', p_origen, p_submitted, CASE WHEN p_submitted THEN NOW() ELSE NULL END,
+    p_etapa, p_subestado, p_fecha_cita, p_ciclo, p_deleted_at
   )
   ON CONFLICT (id) DO UPDATE SET
-    organization_id = EXCLUDED.organization_id, etapa_actual = EXCLUDED.etapa_actual,
-    subestado = EXCLUDED.subestado, submitted_to_mesa = EXCLUDED.submitted_to_mesa,
-    fecha_cita = EXCLUDED.fecha_cita, updated_at = NOW();
+    organization_id = EXCLUDED.organization_id,
+    asesor_id = EXCLUDED.asesor_id,
+    origen_mesa = EXCLUDED.origen_mesa,
+    etapa_actual = EXCLUDED.etapa_actual,
+    subestado = EXCLUDED.subestado,
+    submitted_to_mesa = EXCLUDED.submitted_to_mesa,
+    fecha_cita = EXCLUDED.fecha_cita,
+    ciclo_estado = EXCLUDED.ciclo_estado,
+    deleted_at = EXCLUDED.deleted_at,
+    updated_at = NOW();
   DELETE FROM public.agenda_bookings WHERE expediente_id = p_id;
 END; $$;
 
@@ -126,11 +136,14 @@ BEGIN
 END; $$;
 
 CREATE OR REPLACE FUNCTION public.__rpc_avanzar_910_test_setup_listo(
-  p_id UUID, p_org UUID, p_asesor UUID, p_nss CHAR(11), p_slot TIMESTAMPTZ
+  p_id UUID, p_org UUID, p_asesor UUID, p_nss CHAR(11), p_slot TIMESTAMPTZ,
+  p_origen public.origen_mesa DEFAULT 'interno'
 )
 RETURNS JSONB LANGUAGE plpgsql AS $$
 BEGIN
-  PERFORM public.__rpc_avanzar_910_test_insert_exp(p_id, p_org, p_asesor, p_nss);
+  PERFORM public.__rpc_avanzar_910_test_insert_exp(
+    p_id, p_org, p_asesor, p_nss, 9::smallint, 'en_proceso', true, p_slot, p_origen
+  );
   RETURN public.__rpc_avanzar_910_test_book_firmas(p_asesor, p_id, p_slot);
 END; $$;
 
@@ -158,6 +171,15 @@ DECLARE
   v_exp_roles UUID := '00000000-0000-4000-9040-000000000019';
   v_exp_org UUID := '00000000-0000-4000-9040-000000000020';
   v_exp_fx UUID := '00000000-0000-4000-9040-000000000021';
+  v_exp_int UUID := '00000000-0000-4000-9040-000000000022';
+  v_exp_ext UUID := '00000000-0000-4000-9040-000000000023';
+  v_exp_int_block UUID := '00000000-0000-4000-9040-000000000024';
+  v_exp_not_sent UUID := '00000000-0000-4000-9040-000000000025';
+  v_exp_deleted UUID := '00000000-0000-4000-9040-000000000026';
+  v_exp_ciclo UUID := '00000000-0000-4000-9040-000000000027';
+  v_exp_wrong_sub UUID := '00000000-0000-4000-9040-000000000028';
+  v_exp_wrong_book UUID := '00000000-0000-4000-9040-000000000029';
+  v_exp_other_book UUID := '00000000-0000-4000-9040-000000000030';
 
   v_slot TIMESTAMPTZ;
   v_slot2 TIMESTAMPTZ;
@@ -168,6 +190,11 @@ DECLARE
   v_booking_status TEXT;
   v_booking_count INTEGER;
   v_roles_revisor INTEGER;
+  v_etapa_after SMALLINT;
+  v_docs_before INTEGER;
+  v_ret_before INTEGER;
+  v_ed_before INTEGER;
+  v_cd_before INTEGER;
 BEGIN
   INSERT INTO public.organizations (id, slug, name, active)
   VALUES (v_org_other, 'fixture-avanzar-910-other', 'Fixture Avanzar 910 Other', true)
@@ -215,6 +242,28 @@ BEGIN
   PERFORM public.__rpc_avanzar_910_test_setup_listo(v_exp_asesor, v_org, v_a1, '94001800018', public.__rpc_avanzar_910_test_slot_ts(4, '11:00', 20));
   PERFORM public.__rpc_avanzar_910_test_setup_listo(v_exp_roles, v_org, v_a1, '94001900019', public.__rpc_avanzar_910_test_slot_ts(5, '10:00', 20));
 
+  PERFORM public.__rpc_avanzar_910_test_setup_listo(v_exp_int, v_org, v_a1, '94002200022', public.__rpc_avanzar_910_test_slot_ts(1, '09:00', 21), 'interno');
+  PERFORM public.__rpc_avanzar_910_test_setup_listo(v_exp_ext, v_org, v_a2, '94002300023', public.__rpc_avanzar_910_test_slot_ts(2, '09:00', 21), 'externo');
+  PERFORM public.__rpc_avanzar_910_test_setup_listo(v_exp_int_block, v_org, v_a1, '94002400024', public.__rpc_avanzar_910_test_slot_ts(3, '09:00', 21), 'interno');
+
+  PERFORM public.__rpc_avanzar_910_test_setup_listo(v_exp_not_sent, v_org, v_a1, '94002500025', public.__rpc_avanzar_910_test_slot_ts(3, '10:00', 21));
+  UPDATE public.expedientes SET submitted_to_mesa = false, fecha_envio_mesa = NULL WHERE id = v_exp_not_sent;
+
+  PERFORM public.__rpc_avanzar_910_test_setup_listo(v_exp_deleted, v_org, v_a1, '94002600026', public.__rpc_avanzar_910_test_slot_ts(4, '10:00', 21));
+  UPDATE public.expedientes SET deleted_at = NOW() WHERE id = v_exp_deleted;
+
+  PERFORM public.__rpc_avanzar_910_test_setup_listo(v_exp_ciclo, v_org, v_a1, '94002700027', public.__rpc_avanzar_910_test_slot_ts(5, '10:00', 21));
+  UPDATE public.expedientes SET ciclo_estado = 'cerrado' WHERE id = v_exp_ciclo;
+
+  PERFORM public.__rpc_avanzar_910_test_setup_listo(v_exp_wrong_sub, v_org, v_a1, '94002800028', public.__rpc_avanzar_910_test_slot_ts(1, '11:00', 22));
+  UPDATE public.expedientes SET subestado = 'pendiente' WHERE id = v_exp_wrong_sub;
+
+  PERFORM public.__rpc_avanzar_910_test_insert_exp(
+    v_exp_wrong_book, v_org, v_a1, '94002900029', 9::smallint, 'en_proceso', true,
+    public.__rpc_avanzar_910_test_slot_ts(2, '11:00', 22)
+  );
+  PERFORM public.__rpc_avanzar_910_test_setup_listo(v_exp_other_book, v_org, v_a1, '94003000030', public.__rpc_avanzar_910_test_slot_ts(2, '11:00', 22));
+
   PERFORM public.__rpc_avanzar_910_test_insert_exp(
     v_exp_org, v_org_other, v_a1, '94002000020', 9::smallint, 'en_proceso', true,
     public.__rpc_avanzar_910_test_slot_ts(1, '12:00', 20)
@@ -230,8 +279,6 @@ BEGIN
   );
 
   PERFORM public.__rpc_avanzar_910_test_setup_listo(v_exp_fx, v_org, v_a1, '94002100021', public.__rpc_avanzar_910_test_slot_ts(2, '12:00', 20));
-
-  -- 1. mesa_admin happy path
   SELECT fecha_cita INTO v_fecha_before FROM public.expedientes WHERE id = v_exp_ok;
   SELECT id INTO v_booking_before FROM public.agenda_bookings
   WHERE expediente_id = v_exp_ok AND kind = 'firmas' AND status = 'booked' LIMIT 1;
@@ -262,85 +309,146 @@ BEGIN
     'test 1: action_log'
   );
 
-  -- 2. super_admin
-  v_result := public.__rpc_avanzar_910_test_call_as(v_super, v_exp_super);
-  PERFORM public.__rpc_avanzar_910_test_assert((v_result->>'etapa_actual')::int = 10, 'test 2: super_admin');
+  -- 2. mesa_interno visible
+  v_result := public.__rpc_avanzar_910_test_call_as(v_mesa_int, v_exp_int);
+  PERFORM public.__rpc_avanzar_910_test_assert((v_result->>'etapa_actual')::int = 10, 'test 2: mesa_interno');
 
-  -- gates
-  PERFORM public.__rpc_avanzar_910_test_assert(
-    public.__rpc_avanzar_910_test_expect_fail(v_mesa, v_exp_no_fecha, 'fecha de cita de firma'),
-    'test 3: sin fecha_cita'
-  );
-  PERFORM public.__rpc_avanzar_910_test_assert(
-    public.__rpc_avanzar_910_test_expect_fail(v_mesa, v_exp_no_book, 'booking de firma activo'),
-    'test 4: sin booking firmas'
-  );
-  PERFORM public.__rpc_avanzar_910_test_assert(
-    public.__rpc_avanzar_910_test_expect_fail(v_mesa, v_exp_cancel, 'booking de firma activo'),
-    'test 5: booking cancelled'
-  );
-  PERFORM public.__rpc_avanzar_910_test_assert(
-    public.__rpc_avanzar_910_test_expect_fail(v_mesa, v_exp_bio, 'booking de firma activo'),
-    'test 6: solo booking biométrico'
-  );
-  PERFORM public.__rpc_avanzar_910_test_assert(
-    public.__rpc_avanzar_910_test_expect_fail(v_mesa, v_exp_etapa8, 'transición no permitida'),
-    'test 7a: etapa 8'
-  );
-  PERFORM public.__rpc_avanzar_910_test_assert(
-    public.__rpc_avanzar_910_test_expect_fail(v_mesa, v_exp_etapa10, 'transición no permitida'),
-    'test 7b: etapa 10'
-  );
+  -- 3. mesa_externo expediente externo visible
+  v_result := public.__rpc_avanzar_910_test_call_as(v_mesa_ext, v_exp_ext);
+  PERFORM public.__rpc_avanzar_910_test_assert((v_result->>'etapa_actual')::int = 10, 'test 3: mesa_externo externo');
+
+  -- 4. super_admin
+  v_result := public.__rpc_avanzar_910_test_call_as(v_super, v_exp_super);
+  PERFORM public.__rpc_avanzar_910_test_assert((v_result->>'etapa_actual')::int = 10, 'test 4: super_admin');
 
   -- roles bloqueados
   PERFORM public.__rpc_avanzar_910_test_assert(
     public.__rpc_avanzar_910_test_expect_fail(v_a1, v_exp_asesor, 'no autorizado'),
-    'test 8: asesor'
-  );
-  PERFORM public.__rpc_avanzar_910_test_assert(
-    public.__rpc_avanzar_910_test_expect_fail(v_mesa_int, v_exp_roles, 'no autorizado'),
-    'test 9: mesa_interno'
-  );
-  PERFORM public.__rpc_avanzar_910_test_assert(
-    public.__rpc_avanzar_910_test_expect_fail(v_mesa_ext, v_exp_roles, 'no autorizado'),
-    'test 10: mesa_externo'
+    'test 5: asesor'
   );
   PERFORM public.__rpc_avanzar_910_test_assert(
     public.__rpc_avanzar_910_test_expect_fail(v_editor, v_exp_roles, 'no autorizado'),
-    'test 11: editor'
+    'test 6: editor'
   );
-  PERFORM public.__rpc_avanzar_910_test_assert(
-    public.__rpc_avanzar_910_test_expect_fail(v_mesa, v_exp_org, 'fuera de la organización'),
-    'test 12: org distinta mesa_admin'
-  );
-  v_result := public.__rpc_avanzar_910_test_call_as(v_super, v_exp_org);
-  PERFORM public.__rpc_avanzar_910_test_assert((v_result->>'etapa_actual')::int = 10, 'test 12b: super_admin cross-org');
-
   SELECT COUNT(*) INTO v_roles_revisor FROM pg_enum e JOIN pg_type t ON t.oid = e.enumtypid
   WHERE t.typname = 'app_role' AND e.enumlabel = 'revisor';
-  PERFORM public.__rpc_avanzar_910_test_assert(v_roles_revisor = 0, 'test 13: sin revisor');
+  PERFORM public.__rpc_avanzar_910_test_assert(v_roles_revisor = 0, 'test 7: sin revisor');
+  PERFORM public.__rpc_avanzar_910_test_assert(
+    public.__rpc_avanzar_910_test_expect_fail(v_mesa_ext, v_exp_int_block, 'no autorizado'),
+    'test 8: mesa_externo bloqueado en interno'
+  );
 
-  -- efectos: no modifica booking al avanzar
+  -- gates etapa / envío / ciclo / subestado
+  PERFORM public.__rpc_avanzar_910_test_assert(
+    public.__rpc_avanzar_910_test_expect_fail(v_mesa, v_exp_etapa8, 'transición no permitida'),
+    'test 9: etapa distinta de 9 (11)'
+  );
+  PERFORM public.__rpc_avanzar_910_test_assert(
+    public.__rpc_avanzar_910_test_expect_fail(v_mesa, v_exp_etapa10, 'transición no permitida'),
+    'test 10: etapa distinta de 9 (10)'
+  );
+  PERFORM public.__rpc_avanzar_910_test_assert(
+    public.__rpc_avanzar_910_test_expect_fail(v_super, v_exp_not_sent, 'enviado a Mesa'),
+    'test 11: no enviado a Mesa'
+  );
+  PERFORM public.__rpc_avanzar_910_test_assert(
+    public.__rpc_avanzar_910_test_expect_fail(v_mesa, v_exp_deleted, 'no disponible'),
+    'test 12: soft-deleted'
+  );
+  PERFORM public.__rpc_avanzar_910_test_assert(
+    public.__rpc_avanzar_910_test_expect_fail(v_mesa, v_exp_ciclo, 'ciclo activo'),
+    'test 13: ciclo no activo'
+  );
+  PERFORM public.__rpc_avanzar_910_test_assert(
+    public.__rpc_avanzar_910_test_expect_fail(v_mesa, v_exp_wrong_sub, 'en_proceso'),
+    'test 14: subestado distinto'
+  );
+
+  -- gates firmas
+  PERFORM public.__rpc_avanzar_910_test_assert(
+    public.__rpc_avanzar_910_test_expect_fail(v_mesa, v_exp_no_fecha, 'fecha de cita de firma'),
+    'test 15: sin fecha_cita'
+  );
+  PERFORM public.__rpc_avanzar_910_test_assert(
+    public.__rpc_avanzar_910_test_expect_fail(v_mesa, v_exp_no_book, 'booking de firma activo'),
+    'test 16: sin booking firmas'
+  );
+  PERFORM public.__rpc_avanzar_910_test_assert(
+    public.__rpc_avanzar_910_test_expect_fail(v_mesa, v_exp_cancel, 'booking de firma activo'),
+    'test 17: booking cancelled'
+  );
+  PERFORM public.__rpc_avanzar_910_test_assert(
+    public.__rpc_avanzar_910_test_expect_fail(v_mesa, v_exp_bio, 'booking de firma activo'),
+    'test 18: solo booking biométrico'
+  );
+  PERFORM public.__rpc_avanzar_910_test_assert(
+    public.__rpc_avanzar_910_test_expect_fail(v_mesa, v_exp_wrong_book, 'booking de firma activo'),
+    'test 19: booking de otro expediente no cuenta'
+  );
+
+  -- org / cross-org
+  PERFORM public.__rpc_avanzar_910_test_assert(
+    public.__rpc_avanzar_910_test_expect_fail(v_mesa, v_exp_org, 'fuera de la organización'),
+    'test 20: org distinta mesa_admin'
+  );
+  v_result := public.__rpc_avanzar_910_test_call_as(v_super, v_exp_org);
+  PERFORM public.__rpc_avanzar_910_test_assert((v_result->>'etapa_actual')::int = 10, 'test 21: super_admin cross-org');
+
+  -- efectos: etapa, fecha_cita, booking, action_log enriquecido
   SELECT e.fecha_cita, b.id INTO v_fecha_before, v_booking_before
   FROM public.expedientes e
   JOIN public.agenda_bookings b ON b.expediente_id = e.id AND b.kind = 'firmas' AND b.status = 'booked'
   WHERE e.id = v_exp_fx;
-  v_result := public.__rpc_avanzar_910_test_call_as(v_mesa, v_exp_fx);
-  SELECT fecha_cita INTO v_fecha_after FROM public.expedientes WHERE id = v_exp_fx;
+  SELECT COUNT(*) INTO v_docs_before FROM public.expediente_documentos WHERE expediente_id = v_exp_fx;
+  SELECT COUNT(*) INTO v_ret_before FROM public.retencion_envios WHERE expediente_id = v_exp_fx;
+  SELECT COUNT(*) INTO v_ed_before FROM public.editor_decisions WHERE expediente_id = v_exp_fx;
+  SELECT COUNT(*) INTO v_cd_before FROM public.cliente_datos WHERE expediente_id = v_exp_fx;
+  v_result := public.__rpc_avanzar_910_test_call_as(v_mesa, v_exp_fx, 'fx 9-10');
+  SELECT fecha_cita, etapa_actual INTO v_fecha_after, v_etapa_after FROM public.expedientes WHERE id = v_exp_fx;
   SELECT status INTO v_booking_status FROM public.agenda_bookings WHERE id = v_booking_before;
+  PERFORM public.__rpc_avanzar_910_test_assert(v_etapa_after = 10, 'test 22: etapa 10');
   PERFORM public.__rpc_avanzar_910_test_assert(
     v_fecha_after = v_fecha_before AND v_booking_status = 'booked',
-    'test 14: sin cambios en fecha_cita/booking'
+    'test 23-24: fecha_cita y booking intactos'
+  );
+  PERFORM public.__rpc_avanzar_910_test_assert(
+    EXISTS (
+      SELECT 1 FROM public.action_log al
+      WHERE al.entity_id = v_exp_fx AND al.action = 'expediente.avanzar_etapa_operativa'
+        AND al.payload->>'transition' = '9_10'
+        AND al.payload ? 'booking_date'
+        AND al.payload ? 'booking_time'
+        AND al.payload ? 'location_id'
+    ),
+    'test 25: action_log con booking_date/time/location'
+  );
+  PERFORM public.__rpc_avanzar_910_test_assert(
+    (SELECT COUNT(*) FROM public.expediente_documentos WHERE expediente_id = v_exp_fx) = v_docs_before,
+    'test 26: documentos sin cambio'
+  );
+  PERFORM public.__rpc_avanzar_910_test_assert(
+    (SELECT COUNT(*) FROM public.retencion_envios WHERE expediente_id = v_exp_fx) = v_ret_before,
+    'test 27: retención sin cambio'
+  );
+  PERFORM public.__rpc_avanzar_910_test_assert(
+    (SELECT COUNT(*) FROM public.cliente_datos WHERE expediente_id = v_exp_fx) = v_cd_before,
+    'test 28: cliente_datos sin cambio'
+  );
+  PERFORM public.__rpc_avanzar_910_test_assert(
+    (SELECT COUNT(*) FROM public.editor_decisions WHERE expediente_id = v_exp_fx) = v_ed_before,
+    'test 29: editor_decisions sin cambio'
   );
 
-  RAISE NOTICE 'RPC avanzar_etapa_operativa 9→10: 14 pruebas OK (regresiones vía runner)';
+  RAISE NOTICE 'RPC avanzar_etapa_operativa 9→10: 29 pruebas OK (regresiones vía runner)';
 END;
 $$;
 
+DROP FUNCTION IF EXISTS public.__rpc_avanzar_910_test_setup_listo(UUID, UUID, UUID, CHAR, TIMESTAMPTZ, public.origen_mesa);
 DROP FUNCTION IF EXISTS public.__rpc_avanzar_910_test_setup_listo(UUID, UUID, UUID, CHAR, TIMESTAMPTZ);
 DROP FUNCTION IF EXISTS public.__rpc_avanzar_910_test_expect_fail(UUID, UUID, TEXT);
 DROP FUNCTION IF EXISTS public.__rpc_avanzar_910_test_call_as(UUID, UUID, TEXT);
 DROP FUNCTION IF EXISTS public.__rpc_avanzar_910_test_book_firmas(UUID, UUID, TIMESTAMPTZ, TEXT);
+DROP FUNCTION IF EXISTS public.__rpc_avanzar_910_test_insert_exp(UUID, UUID, UUID, CHAR, SMALLINT, public.operativo_subestado, BOOLEAN, TIMESTAMPTZ, public.origen_mesa, public.expediente_ciclo_estado, TIMESTAMPTZ);
 DROP FUNCTION IF EXISTS public.__rpc_avanzar_910_test_insert_exp(UUID, UUID, UUID, CHAR, SMALLINT, public.operativo_subestado, BOOLEAN, TIMESTAMPTZ);
 DROP FUNCTION IF EXISTS public.__rpc_avanzar_910_test_upsert_firmas_config(UUID);
 DROP FUNCTION IF EXISTS public.__rpc_avanzar_910_test_firmas_config();
