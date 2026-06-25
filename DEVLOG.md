@@ -1,5 +1,24 @@
 # Devlog
 
+## 2026-06-25 - P3M.1B: UI config biométricos Supabase (Mesa)
+
+### Decisión
+
+- Bifurcación por `NEXT_PUBLIC_DATA_MODE=supabase`: biométricos usa repo + RPC; mock conserva calendario por día en localStorage.
+- Modelo UI semanal (`AgendaBiometricosWeeklyConfig`) mapeado a JSON canónico SQL vía `map-agenda-config.ts`.
+- Permisos UI: `mesa_admin` (Cynthia → `mesa_control_admin`) y `super_admin`; otros roles solo lectura sin guardado.
+- Firmas permanece mock en P3M.1B; `AgendaBiometricosCard` asesor sin cambios.
+
+### Archivos
+
+- `src/domain/agenda-biometricos/supabase.repo.ts`, `map-agenda-config.ts`, tests
+- `src/components/mesa-control/AgendaBiometricosWeeklySupabaseSection.tsx`
+- `src/components/mesa-control/AgendaBiometricosConfigPanel.tsx`, `src/app/mesa-control/page.tsx`
+
+### No tocado
+
+- Cloud deploy migración `034`, `033`, `AgendaBiometricosCard`, avance 4→5, cancel/reagendar.
+
 ## 2026-06-25 - P3M.1A: RPC upsert_agenda_config_biometricos
 
 ### Decisión

@@ -37,6 +37,7 @@ import {
   getEffectiveMockName,
 } from "@/lib/mockUser";
 import { AgendaBiometricosConfigPanel } from "@/components/mesa-control/AgendaBiometricosConfigPanel";
+import { canEditAgendaBiometricosWeeklyConfig } from "@/domain/agenda-biometricos";
 
 type CasoConDocs = CasoMock & { resumenDocumental?: CategoriaResumenDocumental };
 
@@ -538,7 +539,11 @@ export default function MesaControlPage() {
         ) : null}
 
         <AgendaBiometricosConfigPanel
-          canEdit={mesaMockRole === "mesa_control_admin"}
+          canEdit={
+            isDataModeSupabase()
+              ? canEditAgendaBiometricosWeeklyConfig(mesaMockRole ?? "")
+              : mesaMockRole === "mesa_control_admin"
+          }
           actorEmail={currentUser.email}
         />
 

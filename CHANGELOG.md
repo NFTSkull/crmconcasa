@@ -4,6 +4,8 @@
 
 - **P3L.2 — Avance operativo Mesa 3→4:** panel generalizado «Avance operativo Mesa» en detalle Supabase; botón «Avanzar a Cita agendada (biométricos)» con copy que aclara que no agenda la cita; gates etapa 3 + `en_proceso` + enviado + ciclo `activo` estricto; RPC `avanzar_etapa_operativa`; recarga tras éxito.
 
+- **P3M.1B — UI config biométricos Supabase (Mesa):** repo Supabase + mapper semanal; panel Cynthia en `DATA_MODE=supabase` vía RPC `upsert_agenda_config_biometricos`; warnings visibles; mock/localStorage intacto.
+
 - **P3M.1A — RPC `upsert_agenda_config_biometricos`:** migración `034`; escritura `agenda_config` (`kind = biometricos`) vía `SECURITY DEFINER` para `mesa_admin`/`super_admin`; modelo semanal canónico (`enabled`, `timezone`, `min_lead_hours`, `allowed_weekdays`, `slots`, `locations`); warnings no bloqueantes si reduce disponibilidad con bookings futuros; 18 pruebas SQL. Sin UI ni Cloud deploy.
 
 - **P3L.1 — Avance operativo Mesa 2→3:** panel «Avance operativo Mesa» en detalle Supabase; botón con confirmación vía RPC `avanzar_etapa_operativa`; gates etapa 2 + `en_proceso` + enviado a Mesa; recarga expediente tras éxito.

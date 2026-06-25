@@ -8,6 +8,8 @@ import {
   type HhmmTime,
   type YmdDate,
 } from "@/domain/agenda-biometricos";
+import { isDataModeSupabase } from "@/lib/dataMode";
+import { AgendaBiometricosWeeklySupabaseSection } from "@/components/mesa-control/AgendaBiometricosWeeklySupabaseSection";
 import {
   readAgendaFirmasConfig,
   writeAgendaFirmasConfig,
@@ -209,6 +211,7 @@ function slugFromAny(value: string): string {
 }
 
 export function AgendaBiometricosConfigPanel({ canEdit, actorEmail }: Props) {
+  const dataSupabase = isDataModeSupabase();
   const repo = useMemo(() => new MockAgendaBiometricosLocalStorageRepo(), []);
   const [sourceConfig, setSourceConfig] = useState<AgendaBiometricosConfigV1 | null>(() =>
     repo.readConfig(),
@@ -514,38 +517,55 @@ export function AgendaBiometricosConfigPanel({ canEdit, actorEmail }: Props) {
 
   if (!canEdit) {
     return (
-      <section className="rounded-xl border border-slate-200/90 bg-white p-3 shadow-sm sm:p-4">
-        <h2 className="text-sm font-semibold text-slate-900">Configuración de agendas</h2>
-        {resumen ? (
-          <p className="mt-1 text-xs text-slate-600">
-            Biométricos: configurada por {resumen.updatedBy} (
-            {new Date(resumen.updatedAt).toLocaleString("es-MX")}). Ubicaciones activas:{" "}
-            {resumen.locationsActivas}. Días: {resumen.dias}. Slots activos: {resumen.slotsActivos}.
-          </p>
+      <section className="space-y-4">
+        {dataSupabase ? (
+          <AgendaBiometricosWeeklySupabaseSection canEdit={false} actorEmail={actorEmail} />
         ) : (
-          <p className="mt-1 text-xs text-amber-800">
-            Aún no hay configuración de biométricos (`agenda_config_v1`).
-          </p>
+          <div className="rounded-xl border border-slate-200/90 bg-white p-3 shadow-sm sm:p-4">
+            <h2 className="text-sm font-semibold text-slate-900">Configuración de agendas</h2>
+            {resumen ? (
+              <p className="mt-1 text-xs text-slate-600">
+                Biométricos: configurada por {resumen.updatedBy} (
+                {new Date(resumen.updatedAt).toLocaleString("es-MX")}). Ubicaciones activas:{" "}
+                {resumen.locationsActivas}. Días: {resumen.dias}. Slots activos: {resumen.slotsActivos}.
+              </p>
+            ) : (
+              <p className="mt-1 text-xs text-amber-800">
+                Aún no hay configuración de biométricos (`agenda_config_v1`).
+              </p>
+            )}
+          </div>
         )}
-        {resumenFirmas ? (
-          <p className="mt-1 text-xs text-slate-600">
-            Firmas: configurada por {resumenFirmas.updatedBy} (
-            {new Date(resumenFirmas.updatedAt).toLocaleString("es-MX")}). Ubicaciones activas:{" "}
-            {resumenFirmas.locationsActivas}. Días: {resumenFirmas.dias}. Slots activos:{" "}
-            {resumenFirmas.slotsActivos}.
-          </p>
-        ) : (
-          <p className="mt-1 text-xs text-amber-800">
-            Aún no hay configuración de firmas (`agenda_firmas_config_v1`). Solicita a Mesa Control -
-            Admin (Cynthia) que la configure.
-          </p>
-        )}
+        <div className="rounded-xl border border-slate-200/90 bg-white p-3 shadow-sm sm:p-4">
+          <h2 className="text-sm font-semibold text-slate-900">Configuración de agendas</h2>
+          {resumenFirmas ? (
+            <p className="mt-1 text-xs text-slate-600">
+              Firmas: configurada por {resumenFirmas.updatedBy} (
+              {new Date(resumenFirmas.updatedAt).toLocaleString("es-MX")}). Ubicaciones activas:{" "}
+              {resumenFirmas.locationsActivas}. Días: {resumenFirmas.dias}. Slots activos:{" "}
+              {resumenFirmas.slotsActivos}.
+            </p>
+          ) : (
+            <p className="mt-1 text-xs text-amber-800">
+              Aún no hay configuración de firmas (`agenda_firmas_config_v1`). Solicita a Mesa Control -
+              Admin (Cynthia) que la configure.
+            </p>
+          )}
+        </div>
       </section>
     );
   }
 
   return (
-    <section className="rounded-xl border border-sky-200 bg-sky-50/40 p-3 shadow-sm sm:p-4">
+    <>
+      {dataSupabase ? (
+        <AgendaBiometricosWeeklySupabaseSection canEdit={canEdit} actorEmail={actorEmail} />
+      ) : null}
+      <section
+        className={`rounded-xl border border-sky-200 bg-sky-50/40 p-3 shadow-sm sm:p-4 ${dataSupabase ? "" : ""}`}
+      >
+      {!dataSupabase ? (
+        <>
       <div className="flex flex-wrap items-start justify-between gap-2">
         <div>
           <h2 className="text-sm font-semibold text-slate-900">Configuración de agendas</h2>
@@ -833,8 +853,10 @@ export function AgendaBiometricosConfigPanel({ canEdit, actorEmail }: Props) {
           Guardar biométricos
         </Button>
       </div>
+        </>
+      ) : null}
 
-      <div className="mt-5 border-t border-sky-200 pt-4">
+      <div className={`${dataSupabase ? "" : "mt-5 border-t border-sky-200 pt-4"}`}>
         <div className="flex flex-wrap items-start justify-between gap-2">
           <div>
             <p className="text-[11px] font-semibold text-slate-700">Bloque B: Firmas</p>
@@ -1139,5 +1161,6 @@ export function AgendaBiometricosConfigPanel({ canEdit, actorEmail }: Props) {
         </div>
       </div>
     </section>
+    </>
   );
 }
