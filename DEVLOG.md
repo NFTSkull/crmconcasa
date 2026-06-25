@@ -1,5 +1,39 @@
 # Devlog
 
+## 2026-06-25 - P3J.6: corrección asesor post-rechazo Mesa
+
+### Auditoría (funciones existentes)
+
+- **`register_expediente_documento`:** no tocada; sigue bloqueando `submitted_to_mesa=true` para upload inicial.
+- **`register_mesa_documento`:** no tocada; Mesa complementarios intactos.
+- **`update_documento_revision` / `update_cliente_datos_revision`:** no tocadas; Mesa revalida con las mismas RPCs.
+- **`save_cliente_datos`:** parcheada en migración `031` vía `set_config('concasa.cliente_datos_correccion','1')` para permitir guardado solo cuando datos `rechazado` y expediente enviado; flujo normal pre-envío sin cambios.
+- **Storage policies INSERT/DELETE:** tercera rama OR `expediente_documento_storage_asesor_correccion_allowed` (no amplía upload pre-Mesa ni tipos Mesa).
+
+### Decisión
+
+- Corrección documental: nueva RPC `register_expediente_documento_correccion` — requiere doc activo `estatus_revision='rechazado'`, soft-delete anterior, nueva versión `resubido`, `action_log` `expediente.documento.asesor_correccion`.
+- Corrección datos: wrapper `save_cliente_datos_correccion` delega a `save_cliente_datos` con flag; limpia `comentario_rechazo`/`rejected_*`/`validated_*`; `action_log` `cliente_datos.correccion_post_mesa`.
+- UI asesor: upload bloqueado post-envío salvo ítems rechazados; formulario datos editable solo si `estado='rechazado'`.
+- UI Mesa: etiqueta `resubido` → “Corregido por asesor”; datos `completo` post-envío → “Corregido, pendiente de revisión”.
+- Sin commit/push/Cloud/`db push`.
+
+### Archivos
+
+- `supabase/migrations/031_rpc_correcciones_asesor_post_mesa.sql`
+- `supabase/tests/rpc_correcciones_asesor_post_mesa.sql`
+- `src/domain/expediente-archivos/asesor-correccion-post-mesa.ts`
+- `src/domain/expediente-archivos/register-expediente-documento-correccion-rpc-error.ts`
+- `src/domain/expediente-archivos/supabase.repo.ts` (`correctArchivoRechazado`)
+- `src/domain/expediente-cliente-datos/supabase.repo.ts` (`saveCorreccion`)
+- `src/components/asesor/AsesorIntegracionDocsUpload.tsx`
+- `src/components/asesor/ExpedienteClienteDatosFormSection.tsx`
+- `src/app/asesor/expediente/[id]/page.tsx`
+- `src/components/mesa-control/MesaDocumentosAsesorSection.tsx`
+- `src/components/mesa-control/MesaControlDocumentosComplementariosSection.tsx`
+- `src/components/mesa-control/MesaClienteDatosReadOnlySection.tsx`
+
+
 ## 2026-06-25 - P3J.5: documentos complementarios / upload Mesa
 
 ### Decisión

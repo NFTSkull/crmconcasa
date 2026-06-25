@@ -27,6 +27,7 @@ interface ExpedienteClienteDatosFormSectionProps {
   clienteDatosError: string | null;
   camposFaltantes: string[];
   puedeIntegrar: boolean;
+  submittedToMesa?: boolean;
   dataSupabase: boolean;
   formatDateTime: (iso: string) => string;
   onSave: () => Promise<{ ok: boolean; message?: string }>;
@@ -43,12 +44,22 @@ export function ExpedienteClienteDatosFormSection({
   clienteDatosError,
   camposFaltantes,
   puedeIntegrar,
+  submittedToMesa = false,
   dataSupabase,
   formatDateTime,
   onSave,
   esperaMontoMessage,
 }: ExpedienteClienteDatosFormSectionProps) {
-  const saveLabel = dataSupabase ? "Guardar datos" : "Guardar borrador";
+  const esCorreccionDatos =
+    submittedToMesa && clienteDatosMeta?.estado === "rechazado";
+  const puedeEditar =
+    puedeIntegrar &&
+    (!submittedToMesa || clienteDatosMeta?.estado === "rechazado");
+  const saveLabel = esCorreccionDatos
+    ? "Guardar corrección"
+    : dataSupabase
+      ? "Guardar datos"
+      : "Guardar borrador";
 
   const statusLine = (() => {
     if (dataSupabase && clienteDatosLoading) return "Cargando datos del cliente…";
@@ -67,7 +78,7 @@ export function ExpedienteClienteDatosFormSection({
   return (
     <div className="rounded-lg border border-gray-200 bg-white p-4">
       <fieldset
-        disabled={!puedeIntegrar || clienteDatosLoading}
+        disabled={!puedeEditar || clienteDatosLoading}
         className="min-w-0 border-0 p-0 disabled:opacity-70"
       >
         <div className="flex flex-wrap items-center justify-between gap-2">
@@ -92,7 +103,7 @@ export function ExpedienteClienteDatosFormSection({
             type="button"
             variant="outline"
             className="text-xs"
-            disabled={!puedeIntegrar || clienteDatosSaving || clienteDatosLoading}
+            disabled={!puedeEditar || clienteDatosSaving || clienteDatosLoading}
             onClick={async () => {
               const r = await onSave();
               if (!r.ok && r.message && r.message !== esperaMontoMessage) {
@@ -112,19 +123,24 @@ export function ExpedienteClienteDatosFormSection({
 
         {clienteDatosMeta?.estado === "rechazado" ? (
           <p
-            className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-950"
-            role="status"
+            className="mt-2 rounded-md border border-red-200 bg-red-50 px-2 py-1.5 text-xs text-red-900"
+            role="alert"
           >
-            Los datos fueron rechazados por mesa. Corrige la información.{" "}
+            Los datos fueron rechazados por Mesa. Corrige la información y guarda la corrección.{" "}
             {clienteDatosMeta.comentarioRechazo?.trim() ? (
-              <span className="block pt-1 text-amber-950">
+              <span className="block pt-1 font-medium text-red-950">
                 Motivo: {clienteDatosMeta.comentarioRechazo}
               </span>
             ) : null}
-            <span className="text-amber-900/90">
+            <span className="text-red-800/90">
               (Actualizado: {formatDateTime(clienteDatosMeta.updatedAt)} · Por:{" "}
               {clienteDatosMeta.updatedBy})
             </span>
+          </p>
+        ) : null}
+        {submittedToMesa && clienteDatosMeta?.estado === "completo" ? (
+          <p className="mt-2 rounded-md border border-sky-100 bg-sky-50 px-2 py-1.5 text-xs text-sky-900">
+            Datos guardados — pendiente de revisión por Mesa de control.
           </p>
         ) : null}
         {clienteDatosMeta?.estado === "validado" ? (

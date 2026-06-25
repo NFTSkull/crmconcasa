@@ -8,6 +8,7 @@ import type {
   ExpedienteArchivosRepo,
   ReplaceArchivoParams,
   ReplaceMesaDocumentoParams,
+  CorrectArchivoParams,
   UpdateRevisionPatch,
   UploadArchivoParams,
   UploadMesaDocumentoParams,
@@ -334,6 +335,16 @@ export class MockExpedienteArchivosIndexedDbRepo implements ExpedienteArchivosRe
     }
   }
 
+  async correctArchivoRechazado(params: CorrectArchivoParams): Promise<void> {
+    this.assertAsesorUploadTipo(params.tipo_documento);
+    await this.replaceArchivo({
+      expedienteId: params.expedienteId,
+      tipo_documento: params.tipo_documento,
+      file: params.file,
+      uploaded_by_email: "asesor@mock",
+      uploaded_by_role: "asesor",
+    });
+  }
 
   async deleteArchivo(id: string): Promise<void> {
     if (typeof window === "undefined") return;

@@ -10,6 +10,7 @@ export type { ExpedienteClienteDatosRepo } from "./repo";
 export type {
   ExpedienteClienteDatos,
   ExpedienteClienteDatosEstado,
+  ClienteDatosImagen,
   SaveExpedienteClienteDatosInput,
   UpdateEstadoExpedienteClienteDatosInput,
 } from "./types";
@@ -17,6 +18,7 @@ export { MockExpedienteClienteDatosLocalStorageRepo } from "./mock-localstorage.
 export { SupabaseExpedienteClienteDatosRepo } from "./supabase.repo";
 export { ClienteDatosSupabaseError } from "./supabase.error";
 export { mapSaveClienteDatosRpcError } from "./save-cliente-datos-rpc-error";
+export { mapSaveClienteDatosCorreccionRpcError } from "./save-cliente-datos-correccion-rpc-error";
 export { mapUpdateClienteDatosRevisionRpcError } from "./update-cliente-datos-revision-rpc-error";
 export {
   MESA_CLIENTE_DATOS_RECHAZO_MOTIVOS,

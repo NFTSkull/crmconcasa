@@ -674,6 +674,7 @@ export function MesaExpedienteDetalleReadOnly() {
         <MesaClienteDatosReadOnlySection
           clienteDatos={clienteDatos}
           direccionOpcional={expediente.base.direccion_opcional}
+          submittedToMesa={op.submittedToMesa}
           formatDateTime={formatDateTime}
           puedeRevisar={puedeRevisar}
           saving={clienteDatosSaving}

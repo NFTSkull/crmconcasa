@@ -2,6 +2,8 @@
 
 ## 2026-06-25
 
+- **P3J.6 — Corrección asesor post-rechazo Mesa:** RPC `register_expediente_documento_correccion` y `save_cliente_datos_correccion` (migración `031`); asesor resube solo documentos rechazados y corrige datos rechazados.
+
 - **P3J.5 — Documentos complementarios Mesa:** sección separada en `/mesa-control/[id]`; Mesa sube semanas cotizadas (opcional), acta y constancia SAT vía RPC `register_mesa_documento` (migración `030` local).
 
 - **P3J.4 — Datos generales completos y revisión documental Mesa:** secciones read-only de `cliente_datos` (incl. referencias, beneficiario, evidencias); validar/rechazar documentos vía RPC `update_documento_revision` con motivos sugeridos; validar/rechazar datos generales vía RPC `update_cliente_datos_revision` (migración `029`); panel Mesa rediseñado; asesor ve `comentario_mesa` y `comentario_rechazo` de datos.

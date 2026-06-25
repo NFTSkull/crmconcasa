@@ -15,31 +15,6 @@ export {
   type ExpedienteArchivoListItem,
   type SupabaseExpedienteDocumentoRow,
 } from "./map-supabase-expediente-documentos";
-export { mesaPuedeAbrirArchivo } from "./mesa-archivo-acceso";
-export {
-  MESA_RECHAZO_MOTIVOS_SUGERIDOS,
-  buildComentarioRechazoDocumento,
-  isMotivoOtro,
-  type MesaRechazoMotivoSugerido,
-} from "./mesa-rechazo-motivos";
-export { mapUpdateDocumentoRevisionRpcError } from "./update-documento-revision-rpc-error";
-export {
-  buildMesaIntegrationDocViews,
-  resolveMesaArchivoPorTipo,
-  type MesaIntegrationDocView,
-} from "./mesa-integration-docs";
-export {
-  buildMesaComplementariosDocViews,
-  semanasCotizadasEsOpcionalMesa,
-  type MesaComplementarioDocView,
-  type MesaComplementarioEtiqueta,
-} from "./mesa-complementarios-docs";
-export { mapRegisterMesaDocumentoRpcError } from "./register-mesa-documento-rpc-error";
-export {
-  EXPEDIENTE_DOCUMENTO_ACCEPT_ATTR,
-  EXPEDIENTE_DOCUMENTO_MAX_MB,
-  validateExpedienteDocumentoFile,
-} from "./upload-constraints";
 export {
   INTEGRATION_DOC_TIPOS_ASESOR_ENVIO,
   INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES,
@@ -60,6 +35,41 @@ export {
   type IntegrationDocMesaUploadTipo,
   type IntegrationDocTipo,
 } from "./integration-docs-completos";
+export { mesaPuedeAbrirArchivo } from "./mesa-archivo-acceso";
+export {
+  MESA_RECHAZO_MOTIVOS_SUGERIDOS,
+  buildComentarioRechazoDocumento,
+  isMotivoOtro,
+  type MesaRechazoMotivoSugerido,
+} from "./mesa-rechazo-motivos";
+export { mapUpdateDocumentoRevisionRpcError } from "./update-documento-revision-rpc-error";
+export {
+  buildMesaIntegrationDocViews,
+  resolveMesaArchivoPorTipo,
+  type MesaIntegrationDocView,
+} from "./mesa-integration-docs";
+export {
+  buildMesaComplementariosDocViews,
+  semanasCotizadasEsOpcionalMesa,
+  type MesaComplementarioDocView,
+  type MesaComplementarioEtiqueta,
+} from "./mesa-complementarios-docs";
+export {
+  asesorDebeUsarCorreccionDocumento,
+  asesorDebeUsarCorreccionClienteDatos,
+  asesorDocumentoUploadMode,
+  asesorPuedeCorregirDocumentoRechazado,
+  asesorPuedeEditarClienteDatos,
+  asesorPuedeSubirDocumentoPreMesa,
+  asesorPuedeSubirOCorregirDocumento,
+} from "./asesor-correccion-post-mesa";
+export { mapRegisterExpedienteDocumentoCorreccionRpcError } from "./register-expediente-documento-correccion-rpc-error";
+export { mapRegisterMesaDocumentoRpcError } from "./register-mesa-documento-rpc-error";
+export {
+  EXPEDIENTE_DOCUMENTO_ACCEPT_ATTR,
+  EXPEDIENTE_DOCUMENTO_MAX_MB,
+  validateExpedienteDocumentoFile,
+} from "./upload-constraints";
 export * from "./types";
 export * from "./repo";
 export * from "./checklist";

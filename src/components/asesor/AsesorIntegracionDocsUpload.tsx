@@ -3,6 +3,8 @@
 import { useCallback, useRef, useState, type MutableRefObject } from "react";
 import { Button } from "@/components/ui/Button";
 import {
+  asesorDebeUsarCorreccionDocumento,
+  asesorPuedeSubirOCorregirDocumento,
   ExpedienteArchivosSupabaseError,
   useExpedienteArchivosRepo,
   type ExpedienteArchivoResumen,
@@ -16,7 +18,8 @@ type Props = {
   checklistObligatorios: IntegrationDocChecklistItem[];
   checklistOpcionales: IntegrationDocChecklistItem[];
   archivosResumen: ExpedienteArchivoResumen[] | null;
-  puedeSubir: boolean;
+  puedeIntegrar: boolean;
+  submittedToMesa: boolean;
   onUploaded: () => void;
 };
 
@@ -29,10 +32,20 @@ function nombreArchivoPorTipo(
   return row?.nombre_original ?? null;
 }
 
+function comentarioMesaPorTipo(
+  archivos: ExpedienteArchivoResumen[] | null,
+  tipo: IntegrationDocAsesorUploadTipo,
+): string | null {
+  if (!archivos) return null;
+  const row = archivos.find((a) => a.tipo_documento === tipo);
+  return row?.comentario_mesa ?? null;
+}
+
 function ChecklistUploadList({
   items,
   archivosResumen,
-  puedeSubir,
+  puedeIntegrar,
+  submittedToMesa,
   uploadingTipo,
   errorsByTipo,
   inputRefs,
@@ -41,7 +54,8 @@ function ChecklistUploadList({
 }: {
   items: IntegrationDocChecklistItem[];
   archivosResumen: ExpedienteArchivoResumen[] | null;
-  puedeSubir: boolean;
+  puedeIntegrar: boolean;
+  submittedToMesa: boolean;
   uploadingTipo: IntegrationDocAsesorUploadTipo | null;
   errorsByTipo: Partial<Record<IntegrationDocAsesorUploadTipo, string>>;
   inputRefs: MutableRefObject<
@@ -54,10 +68,18 @@ function ChecklistUploadList({
     <ul className="space-y-2 text-xs text-gray-800">
       {items.map((item) => {
         const nombre = nombreArchivoPorTipo(archivosResumen, item.tipo_documento);
+        const comentarioMesa = comentarioMesaPorTipo(archivosResumen, item.tipo_documento);
         const uploading = uploadingTipo === item.tipo_documento;
         const error = errorsByTipo[item.tipo_documento];
         const tieneArchivo = Boolean(nombre);
-        const disabled = !puedeSubir || uploading;
+        const esCorreccion = asesorDebeUsarCorreccionDocumento(
+          submittedToMesa,
+          item.estatus_revision,
+        );
+        const puedeSubirItem =
+          puedeIntegrar &&
+          asesorPuedeSubirOCorregirDocumento(submittedToMesa, item.estatus_revision);
+        const disabled = !puedeSubirItem || uploading;
 
         return (
           <li
@@ -89,11 +111,11 @@ function ChecklistUploadList({
                     : item.estatus_revision === "subido"
                       ? "Subido — pendiente validación Mesa"
                       : item.estatus_revision === "resubido"
-                        ? "Resubido — pendiente validación Mesa"
+                        ? "Corregido por asesor — pendiente validación Mesa"
                         : item.estatus_revision === "validado"
                           ? "Validado"
                           : item.estatus_revision === "rechazado"
-                            ? "Rechazado — sube una corrección"
+                            ? "Rechazado por Mesa"
                             : item.estatus_revision}
                 </p>
                 {nombre ? (
@@ -101,35 +123,49 @@ function ChecklistUploadList({
                     Archivo: {nombre}
                   </p>
                 ) : null}
+                {item.estatus_revision === "rechazado" && comentarioMesa ? (
+                  <p className="mt-1 rounded border border-red-100 bg-red-50 px-2 py-1 text-red-900">
+                    Motivo Mesa: {comentarioMesa}
+                  </p>
+                ) : null}
                 {error ? (
                   <p role="alert" className="mt-1 text-red-700">
                     {error}
                   </p>
                 ) : null}
-                <div className="mt-2">
-                  <input
-                    ref={(el) => {
-                      inputRefs.current[item.tipo_documento] = el;
-                    }}
-                    type="file"
-                    accept={EXPEDIENTE_DOCUMENTO_ACCEPT_ATTR}
-                    className="sr-only"
-                    disabled={disabled}
-                    onChange={(e) => void onFileChange(item.tipo_documento, e.target.files)}
-                  />
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    disabled={disabled}
-                    onClick={() => onPickFile(item.tipo_documento)}
-                  >
-                    {uploading
-                      ? "Subiendo…"
-                      : tieneArchivo
-                        ? "Reemplazar"
-                        : "Subir archivo"}
-                  </Button>
-                </div>
+                {puedeSubirItem ? (
+                  <div className="mt-2">
+                    <input
+                      ref={(el) => {
+                        inputRefs.current[item.tipo_documento] = el;
+                      }}
+                      type="file"
+                      accept={EXPEDIENTE_DOCUMENTO_ACCEPT_ATTR}
+                      className="sr-only"
+                      disabled={disabled}
+                      onChange={(e) => void onFileChange(item.tipo_documento, e.target.files)}
+                    />
+                    <Button
+                      type="button"
+                      variant={esCorreccion ? "outline" : "secondary"}
+                      className={esCorreccion ? "border-red-200 text-red-900" : undefined}
+                      disabled={disabled}
+                      onClick={() => onPickFile(item.tipo_documento)}
+                    >
+                      {uploading
+                        ? "Subiendo…"
+                        : esCorreccion
+                          ? "Subir corrección"
+                          : tieneArchivo
+                            ? "Reemplazar"
+                            : "Subir archivo"}
+                    </Button>
+                  </div>
+                ) : submittedToMesa && item.estatus_revision !== "rechazado" ? (
+                  <p className="mt-2 text-[11px] text-gray-500">
+                    Enviado a Mesa — no editable salvo rechazo documental.
+                  </p>
+                ) : null}
               </div>
             </div>
           </li>
@@ -144,7 +180,8 @@ export function AsesorIntegracionDocsUpload({
   checklistObligatorios,
   checklistOpcionales,
   archivosResumen,
-  puedeSubir,
+  puedeIntegrar,
+  submittedToMesa,
   onUploaded,
 }: Props) {
   const repo = useExpedienteArchivosRepo();
@@ -177,18 +214,26 @@ export function AsesorIntegracionDocsUpload({
       });
 
       try {
-        const tieneArchivo = Boolean(nombreArchivoPorTipo(archivosResumen, tipo));
-        const params = {
-          expedienteId,
-          tipo_documento: tipo,
-          file,
-          uploaded_by_role: "asesor",
-          uploaded_by_email: "",
-        };
-        if (tieneArchivo) {
-          await repo.replaceArchivo(params);
+        const estatus =
+          archivosResumen?.find((a) => a.tipo_documento === tipo)?.estatus_revision ?? "faltante";
+        const esCorreccion = asesorDebeUsarCorreccionDocumento(submittedToMesa, estatus);
+
+        if (esCorreccion) {
+          await repo.correctArchivoRechazado({ expedienteId, tipo_documento: tipo, file });
         } else {
-          await repo.uploadArchivo(params);
+          const tieneArchivo = Boolean(nombreArchivoPorTipo(archivosResumen, tipo));
+          const params = {
+            expedienteId,
+            tipo_documento: tipo,
+            file,
+            uploaded_by_role: "asesor",
+            uploaded_by_email: "",
+          };
+          if (tieneArchivo) {
+            await repo.replaceArchivo(params);
+          } else {
+            await repo.uploadArchivo(params);
+          }
         }
         onUploaded();
       } catch (err) {
@@ -201,12 +246,13 @@ export function AsesorIntegracionDocsUpload({
         setUploadingTipo(null);
       }
     },
-    [archivosResumen, expedienteId, onUploaded, repo],
+    [archivosResumen, expedienteId, onUploaded, repo, submittedToMesa],
   );
 
   const listProps = {
     archivosResumen,
-    puedeSubir,
+    puedeIntegrar,
+    submittedToMesa,
     uploadingTipo,
     errorsByTipo,
     inputRefs,
@@ -216,6 +262,11 @@ export function AsesorIntegracionDocsUpload({
 
   return (
     <div className="mt-3 space-y-4">
+      {submittedToMesa ? (
+        <p className="rounded-md border border-amber-100 bg-amber-50 px-2 py-1.5 text-xs text-amber-950">
+          Expediente en Mesa de control. Solo puedes subir correcciones en documentos rechazados.
+        </p>
+      ) : null}
       <div>
         <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
           Documentos obligatorios

@@ -22,6 +22,12 @@ export type UploadMesaDocumentoParams = {
 
 export type ReplaceMesaDocumentoParams = UploadMesaDocumentoParams;
 
+export type CorrectArchivoParams = {
+  expedienteId: string;
+  tipo_documento: import("./integration-docs-completos").IntegrationDocAsesorUploadTipo;
+  file: File;
+};
+
 export type UpdateRevisionPatch = {
   estatus_revision: EstatusRevision;
   comentario_mesa?: string | null;
@@ -47,6 +53,8 @@ export interface ExpedienteArchivosRepo {
 
   uploadMesaDocumento(params: UploadMesaDocumentoParams): Promise<void>;
   replaceMesaDocumento(params: ReplaceMesaDocumentoParams): Promise<void>;
+
+  correctArchivoRechazado(params: CorrectArchivoParams): Promise<void>;
 
   getArchivoBlob(id: string): Promise<Blob>;
 

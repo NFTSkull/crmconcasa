@@ -13,6 +13,7 @@ import type {
   UpdateRevisionPatch,
   UploadArchivoParams,
   UploadMesaDocumentoParams,
+  CorrectArchivoParams,
 } from "./repo";
 import {
   mapSupabaseRowToExpedienteArchivoListItem,
@@ -20,6 +21,7 @@ import {
 } from "./map-supabase-expediente-documentos";
 import { ExpedienteArchivosSupabaseError } from "./supabase.error";
 import { mapRegisterExpedienteDocumentoRpcError } from "./register-expediente-documento-rpc-error";
+import { mapRegisterExpedienteDocumentoCorreccionRpcError } from "./register-expediente-documento-correccion-rpc-error";
 import { mapRegisterMesaDocumentoRpcError } from "./register-mesa-documento-rpc-error";
 import { mapUpdateDocumentoRevisionRpcError } from "./update-documento-revision-rpc-error";
 import { buildExpedienteDocumentoStoragePath } from "./storage-path";
@@ -338,6 +340,69 @@ export class SupabaseExpedienteArchivosRepo implements ExpedienteArchivosRepo {
     await this.uploadOrReplaceMesa(params);
   }
 
+  async correctArchivoRechazado(params: CorrectArchivoParams): Promise<void> {
+    const expedienteId = String(params.expedienteId).trim();
+    const tipo = params.tipo_documento;
+    if (!expedienteId) {
+      throw new ExpedienteArchivosSupabaseError("Expediente inválido para corregir documento.");
+    }
+
+    const validation = validateExpedienteDocumentoFile(params.file);
+    if (!validation.ok) {
+      throw new ExpedienteArchivosSupabaseError(validation.message);
+    }
+
+    const { client } = await requireSupabaseSession();
+    const ctx = await fetchExpedienteMesaUploadContext(client, expedienteId);
+
+    const storagePath = buildExpedienteDocumentoStoragePath({
+      organizationId: ctx.organizationId,
+      expedienteId,
+      tipoDocumento: tipo,
+      originalFileName: params.file.name,
+    });
+
+    const { error: uploadError } = await client.storage
+      .from(EXPEDIENTE_DOCUMENTOS_BUCKET)
+      .upload(storagePath, params.file, {
+        contentType: params.file.type,
+        upsert: false,
+      });
+
+    if (uploadError) {
+      throw new ExpedienteArchivosSupabaseError(
+        uploadError.message?.toLowerCase().includes("bucket")
+          ? "No se pudo acceder al almacenamiento de documentos. Contacta soporte."
+          : "No se pudo subir el archivo. Verifica el formato (PDF/JPG/PNG) y el tamaño (máx. 15 MB).",
+      );
+    }
+
+    try {
+      const { error: rpcError } = await client.rpc("register_expediente_documento_correccion", {
+        p_expediente_id: expedienteId,
+        p_tipo_documento: tipo,
+        p_storage_path: storagePath,
+        p_nombre_original: params.file.name,
+        p_mime_type: params.file.type,
+        p_size_bytes: params.file.size,
+      });
+
+      if (rpcError) {
+        throw mapRegisterExpedienteDocumentoCorreccionRpcError(rpcError);
+      }
+    } catch (err) {
+      await client.storage
+        .from(EXPEDIENTE_DOCUMENTOS_BUCKET)
+        .remove([storagePath])
+        .catch(() => undefined);
+      if (err instanceof ExpedienteArchivosSupabaseError) {
+        throw err;
+      }
+      throw new ExpedienteArchivosSupabaseError(
+        "No se pudo registrar la corrección después de subirla. Intenta de nuevo.",
+      );
+    }
+  }
 
   private async fetchStoragePathForDocumento(id: string): Promise<string> {
     const idNorm = String(id).trim();

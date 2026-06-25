@@ -575,11 +575,19 @@ export default function AsesorExpedientePage() {
     setClienteDatosError(null);
     setClienteDatosSaved(false);
     try {
-      const saved = await clienteDatosRepo.save({
-        expedienteId: String(precal.id),
-        datos: clienteDatos,
-        updatedBy: currentUser.email,
-      });
+      const usarCorreccion =
+        Boolean(operativo?.submittedToMesa) && clienteDatosMeta?.estado === "rechazado";
+      const saved = usarCorreccion
+        ? await clienteDatosRepo.saveCorreccion({
+            expedienteId: String(precal.id),
+            datos: clienteDatos,
+            updatedBy: currentUser.email,
+          })
+        : await clienteDatosRepo.save({
+            expedienteId: String(precal.id),
+            datos: clienteDatos,
+            updatedBy: currentUser.email,
+          });
       setClienteDatosMeta({
         estado: saved.estado,
         comentarioRechazo: saved.comentarioRechazo,
@@ -606,9 +614,11 @@ export default function AsesorExpedientePage() {
     }
   }, [
     clienteDatos,
+    clienteDatosMeta?.estado,
     clienteDatosRepo,
     currentUser?.email,
     dataSupabase,
+    operativo?.submittedToMesa,
     precal?.id,
     puedeIntegrar,
   ]);
@@ -767,6 +777,7 @@ export default function AsesorExpedientePage() {
               clienteDatosError={clienteDatosError}
               camposFaltantes={camposFaltantesClienteDatos}
               puedeIntegrar={puedeIntegrar}
+              submittedToMesa={operativo?.submittedToMesa ?? false}
               dataSupabase
               formatDateTime={formatDateTime}
               onSave={handleSaveClienteDatos}
@@ -808,7 +819,8 @@ export default function AsesorExpedientePage() {
                     checklistObligatorios={integrationChecklistObligatorios}
                     checklistOpcionales={integrationChecklistOpcionales}
                     archivosResumen={archivosResumen}
-                    puedeSubir={puedeIntegrar && !operativo?.submittedToMesa}
+                    puedeIntegrar={puedeIntegrar}
+                    submittedToMesa={operativo?.submittedToMesa ?? false}
                     onUploaded={refreshArchivos}
                   />
                 </>

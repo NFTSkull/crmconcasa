@@ -15,7 +15,7 @@ import {
 function estatusRevisionLabel(estatus: IntegrationDocChecklistItem["estatus_revision"]): string {
   if (estatus === "faltante") return "Faltante";
   if (estatus === "subido") return "Pendiente revisión";
-  if (estatus === "resubido") return "Resubido";
+  if (estatus === "resubido") return "Corregido por asesor";
   if (estatus === "validado") return "Validado";
   if (estatus === "rechazado") return "Rechazado";
   return estatus;

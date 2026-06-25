@@ -14,6 +14,7 @@ import {
   type SupabaseClienteDatosRow,
 } from "./map-supabase-cliente-datos";
 import { mapSaveClienteDatosRpcError } from "./save-cliente-datos-rpc-error";
+import { mapSaveClienteDatosCorreccionRpcError } from "./save-cliente-datos-correccion-rpc-error";
 import { mapUpdateClienteDatosRevisionRpcError } from "./update-cliente-datos-revision-rpc-error";
 import { ClienteDatosSupabaseError } from "./supabase.error";
 
@@ -112,6 +113,34 @@ export class SupabaseExpedienteClienteDatosRepo implements ExpedienteClienteDato
     };
   }
 
+  async saveCorreccion(input: SaveExpedienteClienteDatosInput): Promise<ExpedienteClienteDatos> {
+    const idNorm = String(input.expedienteId).trim();
+    if (!idNorm) {
+      throw new ClienteDatosSupabaseError("El identificador del expediente es obligatorio.");
+    }
+
+    const { client } = await requireSupabaseSession();
+    const rpcArgs = buildSaveClienteDatosRpcPayload(idNorm, input.datos);
+    const { p_estado: _omit, ...correccionArgs } = rpcArgs;
+
+    const { error } = await client.rpc("save_cliente_datos_correccion", correccionArgs);
+
+    if (error) {
+      throw mapSaveClienteDatosCorreccionRpcError(error);
+    }
+
+    const saved = await this.getByExpedienteId(idNorm);
+    if (!saved) {
+      throw new ClienteDatosSupabaseError(
+        "Los datos se guardaron pero no pudieron recargarse. Actualiza la página.",
+      );
+    }
+
+    return {
+      ...saved,
+      updatedBy: input.updatedBy || saved.updatedBy,
+    };
+  }
 
   async updateEstado(
     input: UpdateEstadoExpedienteClienteDatosInput,
