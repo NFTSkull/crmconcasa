@@ -369,3 +369,24 @@ export function deriveAvanceOperativo6a7View(
     bloqueos: [],
   };
 }
+
+// —— P3N.3: avance operativo Mesa 7 → 8 ——
+
+/** Panel visible solo en etapa 7 / en_proceso (P2C-15). */
+export function puedeMostrarAvanceOperativo7a8(ctx: MesaAvanceOperativoContext): boolean {
+  if (!ctx.submittedToMesa) return false;
+  if (ctx.cicloEstado !== "activo") return false;
+  if (ctx.etapaActual !== 7) return false;
+  return ctx.subestado === "en_proceso";
+}
+
+export function deriveAvanceOperativo7a8View(
+  ctx: MesaAvanceOperativoContext,
+): AvanceOperativoEtapaView {
+  const mostrar = puedeMostrarAvanceOperativo7a8(ctx);
+  return {
+    mostrar,
+    puedeAvanzar: mostrar,
+    bloqueos: [],
+  };
+}

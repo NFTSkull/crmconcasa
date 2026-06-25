@@ -10,6 +10,7 @@ import {
   deriveAvanceOperativo4a5View,
   deriveAvanceOperativo5a6View,
   deriveAvanceOperativo6a7View,
+  deriveAvanceOperativo7a8View,
   deriveBloqueosContinuarIntegracion,
   deriveCierreValidacionDocumentalView,
   etapaTrasAvanceIntegracion1a2,
@@ -19,6 +20,7 @@ import {
   puedeMostrarAvanceOperativo4a5,
   puedeMostrarAvanceOperativo5a6,
   puedeMostrarAvanceOperativo6a7,
+  puedeMostrarAvanceOperativo7a8,
   puedeMostrarContinuarIntegracion,
   type MesaAvanceOperativo4a5Context,
   type MesaAvanceOperativo5a6Context,
@@ -592,6 +594,80 @@ describe("deriveAvanceOperativo6a7View", () => {
   it("oculto con subestado distinto a en_proceso", () => {
     const view = deriveAvanceOperativo6a7View(
       avance6a7Ctx({ subestado: "en_validacion_mesa" }),
+    );
+    assert.equal(view.mostrar, false);
+    assert.equal(view.puedeAvanzar, false);
+  });
+});
+
+function avance7a8Ctx(
+  overrides: Partial<MesaAvanceOperativoContext> = {},
+): MesaAvanceOperativoContext {
+  return {
+    submittedToMesa: true,
+    cicloEstado: "activo",
+    etapaActual: 7,
+    subestado: "en_proceso",
+    ...overrides,
+  };
+}
+
+describe("puedeMostrarAvanceOperativo7a8", () => {
+  it("visible en etapa 7 con ciclo activo y en_proceso", () => {
+    assert.equal(puedeMostrarAvanceOperativo7a8(avance7a8Ctx()), true);
+  });
+
+  it("no visible en etapa 6", () => {
+    assert.equal(puedeMostrarAvanceOperativo7a8(avance7a8Ctx({ etapaActual: 6 })), false);
+  });
+
+  it("no visible en etapa 8", () => {
+    assert.equal(puedeMostrarAvanceOperativo7a8(avance7a8Ctx({ etapaActual: 8 })), false);
+  });
+
+  it("no visible con subestado distinto a en_proceso", () => {
+    assert.equal(
+      puedeMostrarAvanceOperativo7a8(avance7a8Ctx({ subestado: "en_validacion_mesa" })),
+      false,
+    );
+  });
+});
+
+describe("deriveAvanceOperativo7a8View", () => {
+  it("habilita avance cuando gates 7→8 se cumplen", () => {
+    const view = deriveAvanceOperativo7a8View(avance7a8Ctx());
+    assert.equal(view.mostrar, true);
+    assert.equal(view.puedeAvanzar, true);
+    assert.deepEqual(view.bloqueos, []);
+  });
+
+  it("oculto en etapa 6", () => {
+    const view = deriveAvanceOperativo7a8View(avance7a8Ctx({ etapaActual: 6 }));
+    assert.equal(view.mostrar, false);
+    assert.equal(view.puedeAvanzar, false);
+  });
+
+  it("oculto en etapa 8", () => {
+    const view = deriveAvanceOperativo7a8View(avance7a8Ctx({ etapaActual: 8 }));
+    assert.equal(view.mostrar, false);
+    assert.equal(view.puedeAvanzar, false);
+  });
+
+  it("oculto sin envío a Mesa", () => {
+    const view = deriveAvanceOperativo7a8View(avance7a8Ctx({ submittedToMesa: false }));
+    assert.equal(view.mostrar, false);
+    assert.equal(view.puedeAvanzar, false);
+  });
+
+  it("oculto con ciclo no activo", () => {
+    const view = deriveAvanceOperativo7a8View(avance7a8Ctx({ cicloEstado: "cerrado" }));
+    assert.equal(view.mostrar, false);
+    assert.equal(view.puedeAvanzar, false);
+  });
+
+  it("oculto con subestado distinto a en_proceso", () => {
+    const view = deriveAvanceOperativo7a8View(
+      avance7a8Ctx({ subestado: "en_validacion_mesa" }),
     );
     assert.equal(view.mostrar, false);
     assert.equal(view.puedeAvanzar, false);

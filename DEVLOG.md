@@ -1,5 +1,19 @@
 # Devlog
 
+## 2026-06-25 - P3N.3: Mesa avance 7→8 Supabase
+
+### Decisión
+
+- Transición **7→8** (Notificación → Acuse/Aviso retención) ya en RPC P2C-15; solo UI Mesa.
+- Gates espejo SQL: etapa 7 + `en_proceso` + `submitted_to_mesa` + ciclo `activo`; sin flujo retención ni firmas.
+- Patrón idéntico a P3N.2 (6→7); sin mock ni asesor.
+
+### Archivos
+
+- `mesa-avance-integracion.ts` — `deriveAvanceOperativo7a8View`
+- `MesaExpedienteDetalleReadOnly.tsx` — panel + handler
+- `docs/API_CONTRATOS.md` §7 transición 7→8
+
 ## 2026-06-25 - P3N.2: Mesa avance 6→7 Supabase
 
 ### Decisión

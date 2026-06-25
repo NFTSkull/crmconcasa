@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **P3N.3 — Mesa avance 7→8 notificación→acuse/aviso retención (Supabase):** panel avance etapa 7 con gates UI (`en_proceso`, ciclo activo, enviado a Mesa); reutiliza RPC `avanzar_etapa_operativa`; sin retención ni firmas ni migraciones.
+
 - **P3N.2 — Mesa avance 6→7 inscripción→notificación (Supabase):** panel avance etapa 6 con gates UI (`en_proceso`, ciclo activo, enviado a Mesa); reutiliza RPC `avanzar_etapa_operativa`; sin migraciones ni firmas.
 
 - **P3N.1 — Mesa avance 5→6 biométricos (Supabase):** panel avance etapa 5 con gates UI (`fecha_cita` pasada + booking `booked`); resumen cita visible en etapas 4 y 5; reutiliza RPC `avanzar_etapa_operativa`; sin resultado biométrico formal ni migraciones.

@@ -51,6 +51,14 @@ export const MESA_AVANCE_OPERATIVO_6A7_COPY: MesaAvanceOperativoCopy = {
   mensajeConfirmacion: "¿Confirmas avanzar este expediente a etapa 7?",
 };
 
+export const MESA_AVANCE_OPERATIVO_7A8_COPY: MesaAvanceOperativoCopy = {
+  titulo: "Avanzar a etapa 8",
+  descripcion:
+    "El expediente está en notificación (etapa 7). Confirma el avance a acuse / aviso de retención.",
+  etiquetaBoton: "Avanzar a etapa 8",
+  mensajeConfirmacion: "¿Confirmas avanzar este expediente a etapa 8?",
+};
+
 type Props = {
   view: AvanceOperativoEtapaView;
   copy: MesaAvanceOperativoCopy;
