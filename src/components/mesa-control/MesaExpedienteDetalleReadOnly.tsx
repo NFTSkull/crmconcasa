@@ -9,6 +9,7 @@ import {
   type MesaArchivoPreviewState,
 } from "@/components/mesa-control/MesaArchivoPreviewDialog";
 import { MesaClienteDatosReadOnlySection } from "@/components/mesa-control/MesaClienteDatosReadOnlySection";
+import { MesaControlDocumentosComplementariosSection } from "@/components/mesa-control/MesaControlDocumentosComplementariosSection";
 import { MesaDocumentosAsesorSection } from "@/components/mesa-control/MesaDocumentosAsesorSection";
 import { AsesorSeguimientoOperativo } from "@/components/asesor/AsesorSeguimientoOperativo";
 import { Button } from "@/components/ui/Button";
@@ -19,11 +20,13 @@ import {
 } from "@/domain/expediente-cliente-datos";
 import {
   buildMesaIntegrationDocViews,
+  buildMesaComplementariosDocViews,
   ExpedienteArchivosSupabaseError,
   type EstatusRevision,
   type ExpedienteArchivoListItem,
   type ExpedienteArchivoResumen,
   type IntegrationDocAsesorUploadTipo,
+  type IntegrationDocMesaUploadTipo,
   useExpedienteArchivosRepo,
 } from "@/domain/expediente-archivos";
 import {
@@ -106,6 +109,14 @@ export function MesaExpedienteDetalleReadOnly() {
   const [archivoErrorByTipo, setArchivoErrorByTipo] = useState<Record<string, string>>({});
   const [revisionSavingTipo, setRevisionSavingTipo] = useState<string | null>(null);
   const [revisionErrorByTipo, setRevisionErrorByTipo] = useState<Record<string, string>>({});
+  const [uploadLoadingTipo, setUploadLoadingTipo] =
+    useState<IntegrationDocMesaUploadTipo | null>(null);
+  const [uploadErrorByTipo, setUploadErrorByTipo] = useState<Record<string, string>>({});
+  const [complementarioArchivoLoadingTipo, setComplementarioArchivoLoadingTipo] =
+    useState<IntegrationDocMesaUploadTipo | null>(null);
+  const [complementarioArchivoErrorByTipo, setComplementarioArchivoErrorByTipo] = useState<
+    Record<string, string>
+  >({});
   const [clienteDatosSaving, setClienteDatosSaving] = useState(false);
   const [clienteDatosRevisionError, setClienteDatosRevisionError] = useState<string | null>(
     null,
@@ -168,6 +179,11 @@ export function MesaExpedienteDetalleReadOnly() {
 
   const documentosAsesor = useMemo(
     () => buildMesaIntegrationDocViews(archivosResumen, archivosLista),
+    [archivosLista, archivosResumen],
+  );
+
+  const documentosComplementarios = useMemo(
+    () => buildMesaComplementariosDocViews(archivosResumen, archivosLista),
     [archivosLista, archivosResumen],
   );
 
@@ -325,6 +341,143 @@ export function MesaExpedienteDetalleReadOnly() {
       return persistRevision(tipo, documentoId, "rechazado", comentario);
     },
     [persistRevision],
+  );
+
+  const handleGuardarRechazoComplementario = useCallback(
+    async (
+      tipo: IntegrationDocMesaUploadTipo,
+      documentoId: string,
+      comentario: string,
+    ): Promise<boolean> => {
+      return persistRevision(tipo, documentoId, "rechazado", comentario);
+    },
+    [persistRevision],
+  );
+
+  const handleValidarComplementario = useCallback(
+    async (tipo: IntegrationDocMesaUploadTipo, documentoId: string) => {
+      await persistRevision(tipo, documentoId, "validado", null);
+    },
+    [persistRevision],
+  );
+
+  const handleVerComplementario = useCallback(
+    async (tipo: IntegrationDocMesaUploadTipo, archivo: ExpedienteArchivoResumen) => {
+      if (!archivo.id || !archivo.mime_type) return;
+      setComplementarioArchivoLoadingTipo(tipo);
+      setComplementarioArchivoErrorByTipo((prev) => {
+        const next = { ...prev };
+        delete next[tipo];
+        return next;
+      });
+      try {
+        const blob = await fetchArchivoBlob(archivo);
+        const url = URL.createObjectURL(blob);
+        setPreview((prev) => {
+          if (prev?.url) URL.revokeObjectURL(prev.url);
+          return {
+            url,
+            mime_type: archivo.mime_type as string,
+            nombre_original: archivo.nombre_original ?? "archivo",
+          };
+        });
+      } catch (err) {
+        setComplementarioArchivoErrorByTipo((prev) => ({
+          ...prev,
+          [tipo]: mapArchivoError(err),
+        }));
+      } finally {
+        setComplementarioArchivoLoadingTipo(null);
+      }
+    },
+    [fetchArchivoBlob, mapArchivoError],
+  );
+
+  const handleDescargarComplementario = useCallback(
+    async (tipo: IntegrationDocMesaUploadTipo, archivo: ExpedienteArchivoResumen) => {
+      if (!archivo.id || !archivo.nombre_original) return;
+      setComplementarioArchivoLoadingTipo(tipo);
+      setComplementarioArchivoErrorByTipo((prev) => {
+        const next = { ...prev };
+        delete next[tipo];
+        return next;
+      });
+      try {
+        const blob = await fetchArchivoBlob(archivo);
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = archivo.nombre_original;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        window.setTimeout(() => URL.revokeObjectURL(url), 5000);
+      } catch (err) {
+        setComplementarioArchivoErrorByTipo((prev) => ({
+          ...prev,
+          [tipo]: mapArchivoError(err),
+        }));
+      } finally {
+        setComplementarioArchivoLoadingTipo(null);
+      }
+    },
+    [fetchArchivoBlob, mapArchivoError],
+  );
+
+  const persistMesaUpload = useCallback(
+    async (
+      tipo: IntegrationDocMesaUploadTipo,
+      file: File,
+      mode: "upload" | "replace",
+    ): Promise<void> => {
+      setUploadLoadingTipo(tipo);
+      setUploadErrorByTipo((prev) => {
+        const next = { ...prev };
+        delete next[tipo];
+        return next;
+      });
+      try {
+        if (mode === "upload") {
+          await archivosRepo.uploadMesaDocumento({
+            expedienteId: routeExpedienteId,
+            tipo_documento: tipo,
+            file,
+          });
+        } else {
+          await archivosRepo.replaceMesaDocumento({
+            expedienteId: routeExpedienteId,
+            tipo_documento: tipo,
+            file,
+          });
+        }
+        await refreshArchivos();
+      } catch (err) {
+        setUploadErrorByTipo((prev) => ({
+          ...prev,
+          [tipo]:
+            err instanceof ExpedienteArchivosSupabaseError
+              ? err.message
+              : "No se pudo subir el documento.",
+        }));
+      } finally {
+        setUploadLoadingTipo(null);
+      }
+    },
+    [archivosRepo, refreshArchivos, routeExpedienteId],
+  );
+
+  const handleSubirComplementario = useCallback(
+    async (tipo: IntegrationDocMesaUploadTipo, file: File) => {
+      await persistMesaUpload(tipo, file, "upload");
+    },
+    [persistMesaUpload],
+  );
+
+  const handleReemplazarComplementario = useCallback(
+    async (tipo: IntegrationDocMesaUploadTipo, file: File) => {
+      await persistMesaUpload(tipo, file, "replace");
+    },
+    [persistMesaUpload],
   );
 
   const handleValidarClienteDatos = useCallback(async (): Promise<boolean> => {
@@ -548,6 +701,22 @@ export function MesaExpedienteDetalleReadOnly() {
         onGuardarRechazo={handleGuardarRechazo}
       />
 
+      <MesaControlDocumentosComplementariosSection
+        documentos={documentosComplementarios}
+        puedeOperar={puedeRevisar}
+        archivoLoadingTipo={complementarioArchivoLoadingTipo}
+        uploadLoadingTipo={uploadLoadingTipo}
+        revisionSavingTipo={revisionSavingTipo as IntegrationDocMesaUploadTipo | null}
+        archivoErrorByTipo={complementarioArchivoErrorByTipo}
+        uploadErrorByTipo={uploadErrorByTipo}
+        revisionErrorByTipo={revisionErrorByTipo}
+        onVer={(tipo, archivo) => void handleVerComplementario(tipo, archivo)}
+        onDescargar={(tipo, archivo) => void handleDescargarComplementario(tipo, archivo)}
+        onValidar={(tipo, documentoId) => void handleValidarComplementario(tipo, documentoId)}
+        onGuardarRechazo={handleGuardarRechazoComplementario}
+        onSubir={handleSubirComplementario}
+        onReemplazar={handleReemplazarComplementario}
+      />
 
       {preview ? (
         <MesaArchivoPreviewDialog
@@ -559,8 +728,8 @@ export function MesaExpedienteDetalleReadOnly() {
 
       <AsesorSeguimientoOperativo
         etapaActual={op.etapaActual}
-        submittedToMesa={op.submittedToMesa}
         subestado={op.subestado}
+        submittedToMesa={op.submittedToMesa}
         fechaEnvioMesa={op.fechaEnvioMesa}
         updatedAt={op.updatedAt}
         cicloEstado={op.cicloEstado}

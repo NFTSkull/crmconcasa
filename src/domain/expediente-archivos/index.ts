@@ -29,9 +29,22 @@ export {
   type MesaIntegrationDocView,
 } from "./mesa-integration-docs";
 export {
+  buildMesaComplementariosDocViews,
+  semanasCotizadasEsOpcionalMesa,
+  type MesaComplementarioDocView,
+  type MesaComplementarioEtiqueta,
+} from "./mesa-complementarios-docs";
+export { mapRegisterMesaDocumentoRpcError } from "./register-mesa-documento-rpc-error";
+export {
+  EXPEDIENTE_DOCUMENTO_ACCEPT_ATTR,
+  EXPEDIENTE_DOCUMENTO_MAX_MB,
+  validateExpedienteDocumentoFile,
+} from "./upload-constraints";
+export {
   INTEGRATION_DOC_TIPOS_ASESOR_ENVIO,
   INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES,
   INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD,
+  INTEGRATION_DOC_TIPOS_MESA_UPLOAD,
   INTEGRATION_DOC_TIPOS_OBLIGATORIOS,
   INTEGRATION_DOC_TIPOS_VALIDACION_MESA,
   countIntegrationDocsPresentes,
@@ -44,6 +57,7 @@ export {
   type IntegrationDocAsesorOpcionalTipo,
   type IntegrationDocAsesorUploadTipo,
   type IntegrationDocChecklistItem,
+  type IntegrationDocMesaUploadTipo,
   type IntegrationDocTipo,
 } from "./integration-docs-completos";
 export * from "./types";

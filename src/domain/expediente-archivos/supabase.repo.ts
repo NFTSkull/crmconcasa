@@ -12,6 +12,7 @@ import type {
   ReplaceArchivoParams,
   UpdateRevisionPatch,
   UploadArchivoParams,
+  UploadMesaDocumentoParams,
 } from "./repo";
 import {
   mapSupabaseRowToExpedienteArchivoListItem,
@@ -19,6 +20,7 @@ import {
 } from "./map-supabase-expediente-documentos";
 import { ExpedienteArchivosSupabaseError } from "./supabase.error";
 import { mapRegisterExpedienteDocumentoRpcError } from "./register-expediente-documento-rpc-error";
+import { mapRegisterMesaDocumentoRpcError } from "./register-mesa-documento-rpc-error";
 import { mapUpdateDocumentoRevisionRpcError } from "./update-documento-revision-rpc-error";
 import { buildExpedienteDocumentoStoragePath } from "./storage-path";
 import {
@@ -85,6 +87,31 @@ async function fetchExpedienteUploadContext(
   };
 }
 
+async function fetchExpedienteMesaUploadContext(
+  client: SupabaseClient,
+  expedienteId: string,
+): Promise<{ organizationId: string }> {
+  const { data, error } = await client
+    .from("expedientes")
+    .select("organization_id, submitted_to_mesa")
+    .eq("id", expedienteId)
+    .is("deleted_at", null)
+    .maybeSingle();
+
+  if (error || !data?.organization_id) {
+    throw new ExpedienteArchivosSupabaseError(
+      "No se pudo validar el expediente para subir documentos.",
+    );
+  }
+
+  if (!data.submitted_to_mesa) {
+    throw new ExpedienteArchivosSupabaseError(
+      "Solo puedes subir estos documentos después de que el expediente fue enviado a Mesa.",
+    );
+  }
+
+  return { organizationId: String(data.organization_id) };
+}
 
 function buildResumenFromList(
   expedienteId: string,
@@ -237,6 +264,78 @@ export class SupabaseExpedienteArchivosRepo implements ExpedienteArchivosRepo {
 
   async replaceArchivo(params: ReplaceArchivoParams): Promise<void> {
     await this.uploadOrReplace(params);
+  }
+
+  private async uploadOrReplaceMesa(params: UploadMesaDocumentoParams): Promise<void> {
+    const expedienteId = String(params.expedienteId).trim();
+    const tipo = params.tipo_documento;
+    if (!expedienteId) {
+      throw new ExpedienteArchivosSupabaseError("Expediente inválido para subir documento.");
+    }
+
+    const validation = validateExpedienteDocumentoFile(params.file);
+    if (!validation.ok) {
+      throw new ExpedienteArchivosSupabaseError(validation.message);
+    }
+
+    const { client } = await requireSupabaseSession();
+    const ctx = await fetchExpedienteMesaUploadContext(client, expedienteId);
+
+    const storagePath = buildExpedienteDocumentoStoragePath({
+      organizationId: ctx.organizationId,
+      expedienteId,
+      tipoDocumento: tipo,
+      originalFileName: params.file.name,
+    });
+
+    const { error: uploadError } = await client.storage
+      .from(EXPEDIENTE_DOCUMENTOS_BUCKET)
+      .upload(storagePath, params.file, {
+        contentType: params.file.type,
+        upsert: false,
+      });
+
+    if (uploadError) {
+      throw new ExpedienteArchivosSupabaseError(
+        uploadError.message?.toLowerCase().includes("bucket")
+          ? "No se pudo acceder al almacenamiento de documentos. Contacta soporte."
+          : "No se pudo subir el archivo. Verifica el formato (PDF/JPG/PNG) y el tamaño (máx. 15 MB).",
+      );
+    }
+
+    try {
+      const { error: rpcError } = await client.rpc("register_mesa_documento", {
+        p_expediente_id: expedienteId,
+        p_tipo_documento: tipo,
+        p_storage_path: storagePath,
+        p_nombre_original: params.file.name,
+        p_mime_type: params.file.type,
+        p_size_bytes: params.file.size,
+      });
+
+      if (rpcError) {
+        throw mapRegisterMesaDocumentoRpcError(rpcError);
+      }
+    } catch (err) {
+      await client.storage
+        .from(EXPEDIENTE_DOCUMENTOS_BUCKET)
+        .remove([storagePath])
+        .catch(() => undefined);
+      if (err instanceof ExpedienteArchivosSupabaseError) {
+        throw err;
+      }
+      throw new ExpedienteArchivosSupabaseError(
+        "No se pudo registrar el documento después de subirlo. Intenta de nuevo.",
+      );
+    }
+  }
+
+  async uploadMesaDocumento(params: UploadMesaDocumentoParams): Promise<void> {
+    await this.uploadOrReplaceMesa(params);
+  }
+
+  async replaceMesaDocumento(params: UploadMesaDocumentoParams): Promise<void> {
+    await this.uploadOrReplaceMesa(params);
   }
 
 

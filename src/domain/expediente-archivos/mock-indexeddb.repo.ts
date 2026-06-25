@@ -7,9 +7,12 @@ import { TIPO_DOCUMENTO_CATALOGO } from "./types";
 import type {
   ExpedienteArchivosRepo,
   ReplaceArchivoParams,
+  ReplaceMesaDocumentoParams,
   UpdateRevisionPatch,
   UploadArchivoParams,
+  UploadMesaDocumentoParams,
 } from "./repo";
+import { INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD, INTEGRATION_DOC_TIPOS_MESA_UPLOAD } from "./integration-docs-completos";
 
 const DB_NAME = "concasa-crm-files";
 const DB_VERSION = 1;
@@ -296,6 +299,41 @@ export class MockExpedienteArchivosIndexedDbRepo implements ExpedienteArchivosRe
 
     dispatchUpdated(found.expediente_id);
   }
+
+  private assertMesaUploadTipo(tipo: string): asserts tipo is (typeof INTEGRATION_DOC_TIPOS_MESA_UPLOAD)[number] {
+    if (!(INTEGRATION_DOC_TIPOS_MESA_UPLOAD as readonly string[]).includes(tipo)) {
+      throw new Error("tipo_documento no permitido para Mesa");
+    }
+  }
+
+  async uploadMesaDocumento(params: UploadMesaDocumentoParams): Promise<void> {
+    this.assertMesaUploadTipo(params.tipo_documento);
+    await this.uploadArchivo({
+      expedienteId: params.expedienteId,
+      tipo_documento: params.tipo_documento,
+      file: params.file,
+      uploaded_by_email: "mesa@mock",
+      uploaded_by_role: "mesa_control",
+    });
+  }
+
+  async replaceMesaDocumento(params: ReplaceMesaDocumentoParams): Promise<void> {
+    this.assertMesaUploadTipo(params.tipo_documento);
+    await this.replaceArchivo({
+      expedienteId: params.expedienteId,
+      tipo_documento: params.tipo_documento,
+      file: params.file,
+      uploaded_by_email: "mesa@mock",
+      uploaded_by_role: "mesa_control",
+    });
+  }
+
+  private assertAsesorUploadTipo(tipo: string): asserts tipo is (typeof INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD)[number] {
+    if (!(INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD as readonly string[]).includes(tipo)) {
+      throw new Error("tipo_documento no permitido para asesor");
+    }
+  }
+
 
   async deleteArchivo(id: string): Promise<void> {
     if (typeof window === "undefined") return;

@@ -42,6 +42,18 @@ export const INTEGRATION_DOC_TIPOS_VALIDACION_MESA = [
   "cliente_constancia_sat",
 ] as const;
 
+/**
+ * Espejo de `integration_doc_tipos_mesa_upload()` (migración 030).
+ * Semanas cotizadas (opcional) + acta + constancia SAT.
+ */
+export const INTEGRATION_DOC_TIPOS_MESA_UPLOAD = [
+  "cliente_semanas_cotizadas",
+  "cliente_acta_nacimiento",
+  "cliente_constancia_sat",
+] as const;
+
+export type IntegrationDocMesaUploadTipo = (typeof INTEGRATION_DOC_TIPOS_MESA_UPLOAD)[number];
+
 /** @deprecated Usar `INTEGRATION_DOC_TIPOS_ASESOR_ENVIO` o `INTEGRATION_DOC_TIPOS_VALIDACION_MESA`. */
 export const INTEGRATION_DOC_TIPOS_OBLIGATORIOS = INTEGRATION_DOC_TIPOS_VALIDACION_MESA;
 

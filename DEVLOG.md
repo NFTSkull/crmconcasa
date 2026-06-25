@@ -1,5 +1,21 @@
 # Devlog
 
+## 2026-06-25 - P3J.5: documentos complementarios / upload Mesa
+
+### Decisión
+
+- Nueva migración local `030_rpc_register_mesa_documento.sql`: `integration_doc_tipos_mesa_upload()`, `register_mesa_documento`, policy Storage Mesa.
+- Tipos Mesa: `cliente_semanas_cotizadas`, `cliente_acta_nacimiento`, `cliente_constancia_sat`.
+- UI: `MesaDocumentosAsesorSection` (5 docs) + `MesaControlDocumentosComplementariosSection` (3 docs con upload).
+
+### Archivos
+
+- `supabase/migrations/030_rpc_register_mesa_documento.sql`
+- `src/components/mesa-control/MesaControlDocumentosComplementariosSection.tsx`
+- `src/domain/expediente-archivos/mesa-complementarios-docs.ts`
+- `src/domain/expediente-archivos/register-mesa-documento-rpc-error.ts`
+- `src/domain/expediente-archivos/supabase.repo.ts`
+
 ## 2026-06-15 - P3J.4b: revisión datos generales Mesa + panel rediseñado
 
 ### Decisión
