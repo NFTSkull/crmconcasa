@@ -95,7 +95,8 @@ CREATE OR REPLACE FUNCTION public.__rpc_book_test_insert_expediente(
   p_nss CHAR(11),
   p_etapa SMALLINT DEFAULT 4,
   p_submitted BOOLEAN DEFAULT true,
-  p_deleted_at TIMESTAMPTZ DEFAULT NULL
+  p_deleted_at TIMESTAMPTZ DEFAULT NULL,
+  p_subestado public.operativo_subestado DEFAULT 'en_proceso'
 )
 RETURNS VOID
 LANGUAGE plpgsql
@@ -110,7 +111,7 @@ BEGIN
     'Fixture Book Biometricos', '5577777777', 'interno',
     p_submitted,
     CASE WHEN p_submitted THEN NOW() ELSE NULL END,
-    p_etapa, 'en_proceso', p_deleted_at
+    p_etapa, p_subestado, p_deleted_at
   )
   ON CONFLICT (id) DO UPDATE SET
     asesor_id = EXCLUDED.asesor_id,
@@ -149,6 +150,9 @@ DECLARE
   v_exp_etapa_check UUID := '00000000-0000-4000-9008-000000000110';
   v_exp_db_dup UUID := '00000000-0000-4000-9008-000000000120';
   v_exp_etapa5 UUID := '00000000-0000-4000-9008-000000000130';
+  v_exp_etapa5_nocancel UUID := '00000000-0000-4000-9008-000000000140';
+  v_exp_etapa5_booked UUID := '00000000-0000-4000-9008-000000000141';
+  v_exp_etapa5_badsub UUID := '00000000-0000-4000-9008-000000000142';
 
   v_future TIMESTAMPTZ := public.agenda_biometricos_slot_ts(1, '10:00', 7);
   v_past TIMESTAMPTZ := NOW() - INTERVAL '1 day';
@@ -402,11 +406,59 @@ BEGIN
     'test 19: etapa sigue 5'
   );
 
-  RAISE NOTICE 'RPC book_biometricos: 19 pruebas OK';
+  -- Test 20: etapa 5 sin cancelación previa
+  PERFORM public.__rpc_book_test_insert_expediente(
+    v_exp_etapa5_nocancel, v_org_id, v_asesor_a1, '90814000014', 5::smallint
+  );
+  PERFORM public.__rpc_book_test_assert(
+    public.__rpc_book_test_call_expect_fail(
+      v_asesor_a1, v_exp_etapa5_nocancel, public.agenda_biometricos_slot_ts(1, '11:00', 9)
+    ),
+    'test 20: etapa 5 sin cancelación previa falla'
+  );
+
+  -- Test 21: etapa 5 con último booking no cancelado
+  PERFORM public.__rpc_book_test_insert_expediente(
+    v_exp_etapa5_booked, v_org_id, v_asesor_a1, '90814100015', 5::smallint
+  );
+  INSERT INTO public.agenda_bookings (
+    organization_id, kind, expediente_id, booking_date, booking_time,
+    location_id, status, created_by
+  ) VALUES (
+    v_org_id, 'biometricos', v_exp_etapa5_booked, CURRENT_DATE + 1, '10:00:00',
+    'sede-vieja', 'booked', v_asesor_a1
+  );
+  PERFORM public.__rpc_book_test_assert(
+    public.__rpc_book_test_call_expect_fail(
+      v_asesor_a1, v_exp_etapa5_booked, public.agenda_biometricos_slot_ts(1, '11:00', 10)
+    ),
+    'test 21: etapa 5 último booking no cancelado falla'
+  );
+
+  -- Test 22: etapa 5 subestado distinto de en_proceso
+  PERFORM public.__rpc_book_test_insert_expediente(
+    v_exp_etapa5_badsub, v_org_id, v_asesor_a1, '90814200016', 5::smallint,
+    true, NULL, 'pendiente'::public.operativo_subestado
+  );
+  INSERT INTO public.agenda_bookings (
+    organization_id, kind, expediente_id, booking_date, booking_time,
+    location_id, status, created_by, cancelled_at, note
+  ) VALUES (
+    v_org_id, 'biometricos', v_exp_etapa5_badsub, CURRENT_DATE + 1, '10:00:00',
+    'sede-vieja', 'cancelled', v_asesor_a1, NOW(), 'Cancelado: Mesa solicita reagenda'
+  );
+  PERFORM public.__rpc_book_test_assert(
+    public.__rpc_book_test_call_expect_fail(
+      v_asesor_a1, v_exp_etapa5_badsub, public.agenda_biometricos_slot_ts(1, '11:00', 11)
+    ),
+    'test 22: etapa 5 subestado distinto de en_proceso falla'
+  );
+
+  RAISE NOTICE 'RPC book_biometricos: 22 pruebas OK';
 END;
 $$;
 
-DROP FUNCTION IF EXISTS public.__rpc_book_test_insert_expediente(UUID, UUID, UUID, CHAR, SMALLINT, BOOLEAN, TIMESTAMPTZ);
+DROP FUNCTION IF EXISTS public.__rpc_book_test_insert_expediente(UUID, UUID, UUID, CHAR, SMALLINT, BOOLEAN, TIMESTAMPTZ, public.operativo_subestado);
 DROP FUNCTION IF EXISTS public.__rpc_book_test_call_expect_fail(UUID, UUID, TIMESTAMPTZ, TEXT, TEXT);
 DROP FUNCTION IF EXISTS public.__rpc_book_test_call_as(UUID, UUID, TIMESTAMPTZ, TEXT, TEXT);
 DROP FUNCTION IF EXISTS public.__rpc_book_test_reset_auth();

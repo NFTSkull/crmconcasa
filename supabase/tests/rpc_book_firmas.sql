@@ -183,6 +183,8 @@ DECLARE
   v_exp_cap4 UUID := '00000000-0000-4000-9020-000000000026';
   v_exp_cfg UUID := '00000000-0000-4000-9020-000000000027';
   v_exp_etapa10 UUID := '00000000-0000-4000-9020-000000000028';
+  v_exp_etapa10_nocancel UUID := '00000000-0000-4000-9020-000000000029';
+  v_exp_etapa10_booked UUID := '00000000-0000-4000-9020-000000000030';
 
   v_slot_mon TIMESTAMPTZ;
   v_slot_sun TIMESTAMPTZ;
@@ -485,12 +487,39 @@ BEGIN
     'test 36: etapa sigue 10'
   );
 
-  -- 37–38: cubiertos por suites agenda_config_biometricos_rules y avanzar_* en runner SQL
+  -- 37. etapa 10 sin cancelación previa
+  PERFORM public.__rpc_firmas_test_insert_exp(v_exp_etapa10_nocancel, v_org, v_a1, '92002900029', 10::smallint);
+  PERFORM public.__rpc_firmas_test_assert(
+    public.__rpc_firmas_test_expect_fail(
+      v_a1, v_exp_etapa10_nocancel, public.__rpc_firmas_test_slot_ts(2, '11:00', 5)
+    ),
+    'test 37: etapa 10 sin cancelación previa falla'
+  );
+
+  -- 38. etapa 10 con último booking no cancelado
+  PERFORM public.__rpc_firmas_test_insert_exp(v_exp_etapa10_booked, v_org, v_a1, '92003000030', 10::smallint);
+  INSERT INTO public.agenda_bookings (
+    organization_id, kind, expediente_id, booking_date, booking_time,
+    location_id, status, created_by
+  ) VALUES (
+    v_org, 'firmas', v_exp_etapa10_booked,
+    (public.__rpc_firmas_test_slot_ts(2, '10:00', 5) AT TIME ZONE 'America/Monterrey')::date,
+    (public.__rpc_firmas_test_slot_ts(2, '10:00', 5) AT TIME ZONE 'America/Monterrey')::time,
+    'mty-centro', 'booked', v_a1
+  );
+  PERFORM public.__rpc_firmas_test_assert(
+    public.__rpc_firmas_test_expect_fail(
+      v_a1, v_exp_etapa10_booked, public.__rpc_firmas_test_slot_ts(2, '11:00', 6)
+    ),
+    'test 38: etapa 10 último booking no cancelado falla'
+  );
+
+  -- Regresión agenda_config / avanzar_*: cubierta por otras suites del runner SQL
 
   -- Restaurar config firmas org principal
   PERFORM public.__rpc_firmas_test_upsert_config(v_org, public.__rpc_firmas_test_standard_config());
 
-  RAISE NOTICE 'RPC book_firmas: 38 pruebas OK (37-38 vía runner regresión)';
+  RAISE NOTICE 'RPC book_firmas: 38 pruebas OK';
 END;
 $$;
 

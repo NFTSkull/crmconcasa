@@ -79,6 +79,7 @@ BEGIN
     e.ciclo_estado,
     e.submitted_to_mesa,
     e.etapa_actual,
+    e.subestado,
     e.deleted_at
   INTO v_exp
   FROM public.expedientes e
@@ -128,6 +129,32 @@ BEGIN
   ) THEN
     RAISE EXCEPTION 'book_biometricos: ya existe una cita biométrica activa para este expediente'
       USING ERRCODE = '22023';
+  END IF;
+
+  IF v_exp.etapa_actual = 5 THEN
+    IF v_exp.subestado <> 'en_proceso' THEN
+      RAISE EXCEPTION 'book_biometricos: etapa 5 requiere subestado en_proceso (actual: %)', v_exp.subestado
+        USING ERRCODE = '22023';
+    END IF;
+
+    IF NOT EXISTS (
+      SELECT 1
+      FROM public.agenda_bookings b
+      WHERE b.expediente_id = p_expediente_id
+        AND b.kind = v_kind
+        AND b.status = 'cancelled'
+        AND b.id = (
+          SELECT b2.id
+          FROM public.agenda_bookings b2
+          WHERE b2.expediente_id = p_expediente_id
+            AND b2.kind = v_kind
+          ORDER BY b2.created_at DESC
+          LIMIT 1
+        )
+    ) THEN
+      RAISE EXCEPTION 'book_biometricos: etapa 5 requiere que la última cita biométrica esté cancelada'
+        USING ERRCODE = '22023';
+    END IF;
   END IF;
 
   v_agenda_meta := public.agenda_biometricos_assert_slot_available(
@@ -357,6 +384,27 @@ BEGIN
       USING ERRCODE = '22023';
   END IF;
 
+  IF v_exp.etapa_actual = 10 THEN
+    IF NOT EXISTS (
+      SELECT 1
+      FROM public.agenda_bookings b
+      WHERE b.expediente_id = p_expediente_id
+        AND b.kind = v_kind
+        AND b.status = 'cancelled'
+        AND b.id = (
+          SELECT b2.id
+          FROM public.agenda_bookings b2
+          WHERE b2.expediente_id = p_expediente_id
+            AND b2.kind = v_kind
+          ORDER BY b2.created_at DESC
+          LIMIT 1
+        )
+    ) THEN
+      RAISE EXCEPTION 'book_firmas: etapa 10 requiere que la última cita de firma esté cancelada'
+        USING ERRCODE = '22023';
+    END IF;
+  END IF;
+
   v_agenda_meta := public.agenda_firmas_assert_slot_available(
     v_exp.organization_id,
     p_scheduled_at,
@@ -440,6 +488,6 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.book_biometricos(UUID, TIMESTAMPTZ, TEXT, TEXT) IS
-  'Asesor agenda biométricos etapas 4/5 tras cancel Mesa. No cambia etapa.';
+  'Asesor agenda biométricos etapa 4 (normal) o 5 (tras cancel Mesa: subestado en_proceso + última cita cancelada). No cambia etapa.';
 COMMENT ON FUNCTION public.book_firmas(UUID, TIMESTAMPTZ, TEXT, TEXT) IS
-  'Asesor/mesa agenda firmas etapas 9/10 tras cancel Mesa. No cambia etapa.';
+  'Asesor/mesa agenda firmas etapa 9 (normal) o 10 (tras cancel Mesa: última cita cancelada). No cambia etapa.';

@@ -1,5 +1,14 @@
 # Devlog
 
+## 2026-06-26 - Gate fuerte RPC 038 (book etapa 5/10)
+
+### Decisión
+
+- `book_biometricos` etapa 5: exige `subestado = en_proceso`, sin booking activo y que la **última** cita `biometricos` del expediente esté `cancelled` (`ORDER BY created_at DESC`).
+- `book_firmas` etapa 10: misma validación de última cita `firmas` cancelada (subestado `en_proceso` ya aplicaba a 9/10).
+- Tests SQL negativos: etapa 5/10 sin cancel, último booking no cancelado, bio subestado ≠ `en_proceso`.
+- Sin Cloud / sin `db push`.
+
 ## 2026-06-25 - Asesor reagenda tras cancel Mesa (etapa 5/10)
 
 ### Decisión
