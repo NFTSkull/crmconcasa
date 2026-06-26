@@ -16,6 +16,7 @@ import {
   type CynthiaSedeFormState,
   type CynthiaSedeId,
 } from "@/lib/agendaCynthiaLocations";
+import { mergeAgendaSlotTimes } from "@/lib/agendaCynthiaSlots";
 
 type Props = Readonly<{
   canEdit: boolean;
@@ -112,6 +113,11 @@ export function AgendaBiometricosWeeklySupabaseSection({ canEdit }: Props) {
 
   function addSlot(slot: HhmmTime) {
     setSlots((prev) => [...new Set([...prev, slot])].sort() as HhmmTime[]);
+  }
+
+  function mergeSlots(times: readonly HhmmTime[]) {
+    setSlots((prev) => mergeAgendaSlotTimes(prev, times) as HhmmTime[]);
+    setSlotInputError(null);
   }
 
   function removeSlot(slot: HhmmTime) {
@@ -227,6 +233,7 @@ export function AgendaBiometricosWeeklySupabaseSection({ canEdit }: Props) {
       weekdayOptions={AGENDA_BIOMETRICOS_WEEKDAY_OPTIONS}
       slots={slots}
       onAddSlot={addSlot}
+      onMergeSlots={mergeSlots}
       onRemoveSlot={removeSlot}
       sedes={sedes}
       onSedeChange={patchSede}

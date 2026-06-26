@@ -1,5 +1,18 @@
 # Devlog
 
+## 2026-06-25 - UX Cynthia: horarios rápidos en configuración de agendas
+
+### Decisión
+
+- Horarios con pills de un click (09:00–17:00) + botón «Usar jornada estándar».
+- Input manual secundario; sin error rojo si está vacío; helper hasta primer intento inválido.
+- Lógica pura en `agendaCynthiaSlots.ts` (merge, sort, validación manual).
+- Mismo formulario compartido para biométricos y firmas; sin RPC ni schema.
+
+### Archivos
+
+- `AgendaWeeklyConfigForm.tsx`, `agendaCynthiaSlots.ts` (+ test), secciones biométricos/firmas.
+
 ## 2026-06-25 - UX Cynthia: configuración de agendas (biométricos + firmas)
 
 ### Decisión

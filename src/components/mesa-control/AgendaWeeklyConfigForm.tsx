@@ -5,10 +5,15 @@ import { Button } from "@/components/ui/Button";
 import {
   CYNTHIA_SEDE_APODACA_ID,
   CYNTHIA_SEDE_MONTERREY_ID,
-  parseHhmmSlotInput,
   type CynthiaSedeFormState,
   type CynthiaSedeId,
 } from "@/lib/agendaCynthiaLocations";
+import {
+  CYNTHIA_QUICK_SLOT_TIMES,
+  CYNTHIA_STANDARD_WORKDAY_SLOTS,
+  tryAddManualSlotTime,
+  type CynthiaQuickSlotTime,
+} from "@/lib/agendaCynthiaSlots";
 import type { HhmmTime } from "@/domain/agenda-biometricos";
 
 export type AgendaWeekdayOption = Readonly<{ value: number; label: string }>;
@@ -17,19 +22,23 @@ type Variant = "sky" | "violet";
 
 const VARIANT_STYLES: Record<
   Variant,
-  { card: string; pillOn: string; pillOff: string; accent: string }
+  { card: string; pillOn: string; pillOff: string; accent: string; quickOn: string; quickOff: string }
 > = {
   sky: {
     card: "border-sky-200/80 bg-white",
     pillOn: "border-sky-600 bg-sky-600 text-white shadow-sm",
     pillOff: "border-slate-300 bg-white text-slate-800 hover:border-sky-300",
     accent: "accent-sky-600",
+    quickOn: "border-sky-600 bg-sky-100 text-sky-900",
+    quickOff: "border-slate-300 bg-white text-slate-800 hover:border-sky-400 hover:bg-sky-50",
   },
   violet: {
     card: "border-violet-200/80 bg-white",
     pillOn: "border-violet-600 bg-violet-600 text-white shadow-sm",
     pillOff: "border-slate-300 bg-white text-slate-800 hover:border-violet-300",
     accent: "accent-violet-600",
+    quickOn: "border-violet-600 bg-violet-100 text-violet-900",
+    quickOff: "border-slate-300 bg-white text-slate-800 hover:border-violet-400 hover:bg-violet-50",
   },
 };
 
@@ -46,6 +55,7 @@ export type AgendaWeeklyConfigFormProps = Readonly<{
   weekdayOptions: readonly AgendaWeekdayOption[];
   slots: readonly HhmmTime[];
   onAddSlot: (slot: HhmmTime) => void;
+  onMergeSlots: (slots: readonly HhmmTime[]) => void;
   onRemoveSlot: (slot: HhmmTime) => void;
   sedes: Record<CynthiaSedeId, CynthiaSedeFormState>;
   onSedeChange: (id: CynthiaSedeId, patch: Partial<CynthiaSedeFormState>) => void;
@@ -64,6 +74,11 @@ export type AgendaWeeklyConfigFormProps = Readonly<{
 const INPUT_CLASS =
   "mt-1 w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 shadow-sm placeholder:text-slate-400 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500";
 
+const SLOT_HELPER =
+  "Elige un horario rápido o escribe uno personalizado.";
+const SLOT_INVALID_MSG = "Usa formato de hora válido, por ejemplo 09:00.";
+const SLOT_DUPLICATE_MSG = "Ese horario ya está en la lista.";
+
 export function AgendaWeeklyConfigForm({
   variant,
   agendaKindLabel,
@@ -77,6 +92,7 @@ export function AgendaWeeklyConfigForm({
   weekdayOptions,
   slots,
   onAddSlot,
+  onMergeSlots,
   onRemoveSlot,
   sedes,
   onSedeChange,
@@ -93,18 +109,34 @@ export function AgendaWeeklyConfigForm({
 }: AgendaWeeklyConfigFormProps) {
   const styles = VARIANT_STYLES[variant];
 
-  function handleAddSlot(raw: string) {
-    const parsed = parseHhmmSlotInput(raw);
-    if (!parsed) {
-      onSlotInputError("Usa formato de hora válido, por ejemplo 09:00.");
-      return;
+  function handleQuickSlot(time: CynthiaQuickSlotTime) {
+    if (slots.includes(time)) return;
+    onSlotInputError(null);
+    onAddSlot(time);
+  }
+
+  function handleStandardWorkday() {
+    onSlotInputError(null);
+    onMergeSlots(CYNTHIA_STANDARD_WORKDAY_SLOTS);
+  }
+
+  function handleAddManualSlot(raw: string): boolean {
+    const result = tryAddManualSlotTime(raw, slots);
+    if (result.kind === "empty") {
+      onSlotInputError(null);
+      return false;
     }
-    if (slots.includes(parsed as HhmmTime)) {
-      onSlotInputError("Ese horario ya está en la lista.");
-      return;
+    if (result.kind === "invalid") {
+      onSlotInputError(SLOT_INVALID_MSG);
+      return false;
+    }
+    if (result.kind === "duplicate") {
+      onSlotInputError(SLOT_DUPLICATE_MSG);
+      return false;
     }
     onSlotInputError(null);
-    onAddSlot(parsed as HhmmTime);
+    onAddSlot(result.slot as HhmmTime);
+    return true;
   }
 
   return (
@@ -180,37 +212,94 @@ export function AgendaWeeklyConfigForm({
 
         <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-4">
           <p className="text-sm font-semibold text-slate-900">Horarios disponibles</p>
-          <p className="mt-1 text-xs text-slate-600">Estos horarios aplican para las sedes activas.</p>
+          <p className="mt-1 text-sm text-slate-600">
+            Selecciona horarios rápidos o agrega uno personalizado.
+          </p>
+
           {canEdit ? (
-            <SlotAdder
-              inputClass={INPUT_CLASS}
-              onAdd={handleAddSlot}
-              error={slotInputError}
-            />
-          ) : null}
-          <div className="mt-3 flex flex-wrap gap-2">
-            {slots.map((slot) => (
-              <span
-                key={slot}
-                className="inline-flex items-center gap-1 rounded-full border border-slate-300 bg-white px-3 py-1 text-sm font-medium text-slate-900 shadow-sm"
-              >
-                {slot}
-                {canEdit ? (
-                  <button
-                    type="button"
-                    aria-label={`Quitar horario ${slot}`}
-                    className="ml-0.5 text-slate-500 hover:text-red-600"
-                    onClick={() => onRemoveSlot(slot)}
-                  >
-                    ×
-                  </button>
-                ) : null}
-              </span>
-            ))}
-            {!slots.length ? (
-              <span className="text-sm text-slate-600">Sin horarios configurados.</span>
-            ) : null}
-          </div>
+            <>
+              <div className="mt-4">
+                <p className="text-sm font-medium text-slate-900">Horarios rápidos</p>
+                <div
+                  className="mt-2 flex flex-wrap gap-2"
+                  role="group"
+                  aria-label="Horarios rápidos"
+                >
+                  {CYNTHIA_QUICK_SLOT_TIMES.map((time) => {
+                    const selected = slots.includes(time);
+                    return (
+                      <button
+                        key={time}
+                        type="button"
+                        disabled={selected}
+                        aria-pressed={selected}
+                        onClick={() => handleQuickSlot(time)}
+                        className={`rounded-full border px-3 py-1.5 text-sm font-medium transition-colors disabled:cursor-default ${
+                          selected ? styles.quickOn : styles.quickOff
+                        }`}
+                      >
+                        {time}
+                      </button>
+                    );
+                  })}
+                </div>
+                <div className="mt-3">
+                  <Button type="button" variant="outline" onClick={handleStandardWorkday}>
+                    Usar jornada estándar
+                  </Button>
+                </div>
+              </div>
+
+              <div className="mt-4">
+                <p className="text-sm font-medium text-slate-900">Horarios seleccionados</p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  {slots.map((slot) => (
+                    <span
+                      key={slot}
+                      className="inline-flex items-center gap-1 rounded-full border border-slate-300 bg-white px-3 py-1 text-sm font-medium text-slate-900 shadow-sm"
+                    >
+                      {slot}
+                      <button
+                        type="button"
+                        aria-label={`Quitar horario ${slot}`}
+                        className="ml-0.5 text-slate-500 hover:text-red-600"
+                        onClick={() => onRemoveSlot(slot)}
+                      >
+                        ×
+                      </button>
+                    </span>
+                  ))}
+                  {!slots.length ? (
+                    <span className="text-sm text-slate-600">Sin horarios configurados.</span>
+                  ) : null}
+                </div>
+                <p className="mt-2 text-xs text-slate-600">
+                  Estos horarios aplican para Monterrey y Apodaca en los días seleccionados.
+                </p>
+              </div>
+
+              <ManualSlotAdder
+                inputClass={INPUT_CLASS}
+                helperText={SLOT_HELPER}
+                error={slotInputError}
+                onAdd={handleAddManualSlot}
+              />
+            </>
+          ) : (
+            <div className="mt-3 flex flex-wrap gap-2">
+              {slots.map((slot) => (
+                <span
+                  key={slot}
+                  className="inline-flex items-center rounded-full border border-slate-300 bg-white px-3 py-1 text-sm font-medium text-slate-900 shadow-sm"
+                >
+                  {slot}
+                </span>
+              ))}
+              {!slots.length ? (
+                <span className="text-sm text-slate-600">Sin horarios configurados.</span>
+              ) : null}
+            </div>
+          )}
         </div>
 
         <div className="rounded-lg border border-slate-200 bg-slate-50/50 p-4">
@@ -275,50 +364,55 @@ export function AgendaWeeklyConfigForm({
   );
 }
 
-function SlotAdder({
+function ManualSlotAdder({
   inputClass,
-  onAdd,
+  helperText,
   error,
+  onAdd,
 }: Readonly<{
   inputClass: string;
-  onAdd: (raw: string) => void;
+  helperText: string;
   error: string | null;
+  onAdd: (raw: string) => boolean;
 }>) {
   const [draft, setDraft] = useState("");
   return (
-    <div className="mt-3 flex flex-wrap items-end gap-2">
-      <label className="min-w-[10rem] flex-1 text-sm font-medium text-slate-900">
-        Agregar horario
-        <input
-          type="text"
-          placeholder="Ej. 09:00"
-          value={draft}
-          className={inputClass}
-          onChange={(e) => setDraft(e.target.value)}
-          onKeyDown={(e) => {
-            if (e.key === "Enter") {
-              e.preventDefault();
-              onAdd(draft);
-              setDraft("");
-            }
+    <div className="mt-4 border-t border-slate-200 pt-4">
+      <p className="text-sm font-medium text-slate-900">Horario personalizado</p>
+      <div className="mt-2 flex flex-wrap items-end gap-2">
+        <label className="min-w-[10rem] flex-1 text-sm font-medium text-slate-900">
+          <span className="sr-only">Horario personalizado</span>
+          <input
+            type="text"
+            placeholder="Ej. 13:30"
+            value={draft}
+            className={inputClass}
+            onChange={(e) => setDraft(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                if (onAdd(draft)) setDraft("");
+              }
+            }}
+          />
+        </label>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => {
+            if (onAdd(draft)) setDraft("");
           }}
-        />
-      </label>
-      <Button
-        type="button"
-        variant="outline"
-        onClick={() => {
-          onAdd(draft);
-          setDraft("");
-        }}
-      >
-        Agregar
-      </Button>
+        >
+          Agregar horario personalizado
+        </Button>
+      </div>
       {error ? (
-        <p className="w-full text-xs text-red-600" role="alert">
+        <p className="mt-2 text-xs text-red-600" role="alert">
           {error}
         </p>
-      ) : null}
+      ) : (
+        <p className="mt-2 text-xs text-slate-600">{helperText}</p>
+      )}
     </div>
   );
 }
