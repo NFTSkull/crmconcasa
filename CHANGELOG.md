@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **UX Mesa — ocultar configuración de agendas para Interno/Externo:** solo `mesa_admin` y `super_admin` ven/editan biométricos y firmas en `/mesa-control`; sin bloques en solo lectura para otros roles Mesa.
+
 - **UX asesor — próxima disponibilidad en agenda:** si no hay horarios en la fecha seleccionada, muestra motivo, próxima fecha/hora y botón «Ir a próxima disponibilidad» (45 días); biométricos y firmas; sin RPC.
 
 - **UX asesor — sedes Monterrey/Apodaca en agenda:** dropdown biométricos y firmas normaliza legacy (`mty-centro`, `san-nicolas`, etc.) a solo Monterrey y Apodaca; disponibilidad consolidada; `bookLocationId` canónico si existe en config; sin RPC ni schema.

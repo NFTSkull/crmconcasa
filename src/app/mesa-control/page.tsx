@@ -37,7 +37,7 @@ import {
   getEffectiveMockName,
 } from "@/lib/mockUser";
 import { AgendaBiometricosConfigPanel } from "@/components/mesa-control/AgendaBiometricosConfigPanel";
-import { canEditAgendaBiometricosWeeklyConfig } from "@/domain/agenda-biometricos";
+import { canManageAgendaConfig } from "@/lib/canManageAgendaConfig";
 
 type CasoConDocs = CasoMock & { resumenDocumental?: CategoriaResumenDocumental };
 
@@ -538,14 +538,12 @@ export default function MesaControlPage() {
           </section>
         ) : null}
 
-        <AgendaBiometricosConfigPanel
-          canEdit={
-            isDataModeSupabase()
-              ? canEditAgendaBiometricosWeeklyConfig(mesaMockRole ?? "")
-              : mesaMockRole === "mesa_control_admin"
-          }
-          actorEmail={currentUser.email}
-        />
+        {canManageAgendaConfig(mesaMockRole) ? (
+          <AgendaBiometricosConfigPanel
+            canEdit={canManageAgendaConfig(mesaMockRole ?? "")}
+            actorEmail={currentUser.email}
+          />
+        ) : null}
 
         <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           <div className="rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 to-white p-3 shadow-sm ring-1 ring-sky-100/60">

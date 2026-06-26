@@ -22,9 +22,11 @@ export { canShowBiometricosManageActions } from "./biometricos-booking-actions";
 export { SupabaseAgendaBiometricosConfigRepo } from "./supabase.repo";
 export { SupabaseAgendaBiometricosBookingRepo } from "./supabase-booking.repo";
 
+import { canManageAgendaConfig } from "@/lib/canManageAgendaConfig";
+
 /** Solo `mesa_admin` (UI: mesa_control_admin) y `super_admin` pueden editar config biométrica. */
 export function canEditAgendaBiometricosWeeklyConfig(mockRole: string): boolean {
-  return mockRole === "mesa_control_admin" || mockRole === "super_admin";
+  return canManageAgendaConfig(mockRole);
 }
 
 /** Repo Supabase de config biométrica; `null` en modo mock. */

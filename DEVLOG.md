@@ -1,5 +1,17 @@
 # Devlog
 
+## 2026-06-25 - UX Mesa: ocultar config agendas para Interno/Externo
+
+### Decisión
+
+- `canManageAgendaConfig`: solo `mesa_admin` / `mesa_control_admin`, `super_admin` y legacy `mesa_control`.
+- Mesa Interno/Externo: no montar `AgendaBiometricosConfigPanel` ni bloques read-only.
+- Sin cambios en agenda asesor, RPCs ni schema.
+
+### Archivos
+
+- `canManageAgendaConfig.ts` (+ test), `mesa-control/page.tsx`, panels Supabase, `AgendaBiometricosConfigPanel`.
+
 ## 2026-06-25 - UX asesor: próxima disponibilidad en agenda
 
 ### Decisión

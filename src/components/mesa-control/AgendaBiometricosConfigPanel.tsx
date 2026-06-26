@@ -517,48 +517,7 @@ export function AgendaBiometricosConfigPanel({ canEdit, actorEmail }: Props) {
   }
 
   if (!canEdit) {
-    return (
-      <section className="space-y-4">
-        {dataSupabase ? (
-          <AgendaBiometricosWeeklySupabaseSection canEdit={false} actorEmail={actorEmail} />
-        ) : (
-          <div className="rounded-xl border border-slate-200/90 bg-white p-3 shadow-sm sm:p-4">
-            <h2 className="text-sm font-semibold text-slate-900">Configuración de agendas</h2>
-            {resumen ? (
-              <p className="mt-1 text-xs text-slate-600">
-                Biométricos: configurada por {resumen.updatedBy} (
-                {new Date(resumen.updatedAt).toLocaleString("es-MX")}). Ubicaciones activas:{" "}
-                {resumen.locationsActivas}. Días: {resumen.dias}. Slots activos: {resumen.slotsActivos}.
-              </p>
-            ) : (
-              <p className="mt-1 text-xs text-amber-800">
-                Aún no hay configuración de biométricos (`agenda_config_v1`).
-              </p>
-            )}
-          </div>
-        )}
-        {dataSupabase ? (
-          <AgendaFirmasWeeklySupabaseSection canEdit={false} actorEmail={actorEmail} />
-        ) : (
-        <div className="rounded-xl border border-slate-200/90 bg-white p-3 shadow-sm sm:p-4">
-          <h2 className="text-sm font-semibold text-slate-900">Configuración de agendas</h2>
-          {resumenFirmas ? (
-            <p className="mt-1 text-xs text-slate-600">
-              Firmas: configurada por {resumenFirmas.updatedBy} (
-              {new Date(resumenFirmas.updatedAt).toLocaleString("es-MX")}). Ubicaciones activas:{" "}
-              {resumenFirmas.locationsActivas}. Días: {resumenFirmas.dias}. Slots activos:{" "}
-              {resumenFirmas.slotsActivos}.
-            </p>
-          ) : (
-            <p className="mt-1 text-xs text-amber-800">
-              Aún no hay configuración de firmas (`agenda_firmas_config_v1`). Solicita a Mesa Control -
-              Admin (Cynthia) que la configure.
-            </p>
-          )}
-        </div>
-        )}
-      </section>
-    );
+    return null;
   }
 
   return (
