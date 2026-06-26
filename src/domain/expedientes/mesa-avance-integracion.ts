@@ -9,10 +9,15 @@ import {
   type MesaComplementarioPresencia,
 } from "@/domain/expediente-archivos/mesa-complementarios-docs";
 import {
+  getBloqueosRetencionAvanceEtapa8Mesa,
+  MSG_BLOQUEO_RETENCION_SIN_ENVIO_ASESOR,
+} from "@/domain/expediente-archivos/retencion-acuse-aviso";
+import {
   DOCUMENTO_CATALOGO_MAP,
   type ExpedienteArchivoResumen,
   type ResumenEstatus,
 } from "@/domain/expediente-archivos/types";
+import type { RetencionOpcion } from "@/domain/expediente-retencion/types";
 
 export type MesaContinuarIntegracionContext = {
   submittedToMesa: boolean;
@@ -388,5 +393,73 @@ export function deriveAvanceOperativo7a8View(
     mostrar,
     puedeAvanzar: mostrar,
     bloqueos: [],
+  };
+}
+
+// —— P3N.4: avance operativo Mesa 8 → 9 ——
+
+export type MesaAvanceOperativo8a9Context = MesaAvanceOperativoContext & {
+  clienteDatosEstado?: string | null;
+  archivosResumen: readonly ExpedienteArchivoResumen[];
+  retencionOpcion: RetencionOpcion | null;
+  retencionEnviadoAMesa: boolean;
+  retencionEnvioEstado: "enviado" | "correccion_requerida" | null;
+};
+
+export const MSG_BLOQUEO_RETENCION_CORRECCION_REQUERIDA =
+  "Retención en corrección requerida; el asesor debe corregir y reenviar el bloque.";
+
+/** Panel visible solo en etapa 8 / en_proceso (P2C-17). */
+export function puedeMostrarAvanceOperativo8a9(ctx: MesaAvanceOperativo8a9Context): boolean {
+  if (!ctx.submittedToMesa) return false;
+  if (ctx.cicloEstado !== "activo") return false;
+  if (ctx.etapaActual !== 8) return false;
+  return ctx.subestado === "en_proceso";
+}
+
+/** Bloqueos alineados con `avanzar_etapa_operativa` transición 8→9. */
+export function deriveBloqueosAvanceOperativo8a9(
+  ctx: MesaAvanceOperativo8a9Context,
+): string[] {
+  if (!puedeMostrarAvanceOperativo8a9(ctx)) {
+    return [];
+  }
+
+  const bloqueos: string[] = [];
+
+  if (ctx.clienteDatosEstado !== "validado") {
+    bloqueos.push("Datos generales pendientes de validar por Mesa de control.");
+  }
+
+  if (!ctx.retencionEnviadoAMesa) {
+    bloqueos.push(MSG_BLOQUEO_RETENCION_SIN_ENVIO_ASESOR);
+  } else if (ctx.retencionEnvioEstado === "correccion_requerida") {
+    bloqueos.push(MSG_BLOQUEO_RETENCION_CORRECCION_REQUERIDA);
+  } else if (ctx.retencionEnvioEstado !== "enviado") {
+    bloqueos.push(MSG_BLOQUEO_RETENCION_SIN_ENVIO_ASESOR);
+  }
+
+  const retencionBloqueos = getBloqueosRetencionAvanceEtapa8Mesa({
+    retencion_opcion: ctx.retencionOpcion,
+    archivos: ctx.archivosResumen,
+    retencion_enviado_a_mesa: ctx.retencionEnviadoAMesa,
+  });
+
+  for (const b of retencionBloqueos) {
+    if (!bloqueos.includes(b)) bloqueos.push(b);
+  }
+
+  return bloqueos;
+}
+
+export function deriveAvanceOperativo8a9View(
+  ctx: MesaAvanceOperativo8a9Context,
+): AvanceOperativoEtapaView {
+  const mostrar = puedeMostrarAvanceOperativo8a9(ctx);
+  const bloqueos = deriveBloqueosAvanceOperativo8a9(ctx);
+  return {
+    mostrar,
+    puedeAvanzar: mostrar && bloqueos.length === 0,
+    bloqueos,
   };
 }

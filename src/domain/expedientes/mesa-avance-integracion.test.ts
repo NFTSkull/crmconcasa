@@ -11,6 +11,7 @@ import {
   deriveAvanceOperativo5a6View,
   deriveAvanceOperativo6a7View,
   deriveAvanceOperativo7a8View,
+  deriveAvanceOperativo8a9View,
   deriveBloqueosContinuarIntegracion,
   deriveCierreValidacionDocumentalView,
   etapaTrasAvanceIntegracion1a2,
@@ -21,9 +22,11 @@ import {
   puedeMostrarAvanceOperativo5a6,
   puedeMostrarAvanceOperativo6a7,
   puedeMostrarAvanceOperativo7a8,
+  puedeMostrarAvanceOperativo8a9,
   puedeMostrarContinuarIntegracion,
   type MesaAvanceOperativo4a5Context,
   type MesaAvanceOperativo5a6Context,
+  type MesaAvanceOperativo8a9Context,
   type MesaAvanceOperativoContext,
   type MesaContinuarIntegracionContext,
 } from "./mesa-avance-integracion";
@@ -671,5 +674,125 @@ describe("deriveAvanceOperativo7a8View", () => {
     );
     assert.equal(view.mostrar, false);
     assert.equal(view.puedeAvanzar, false);
+  });
+});
+
+function retencionArchivo(
+  tipo:
+    | "retencion_acuse_con_sello"
+    | "retencion_aviso_retencion"
+    | "retencion_ine_frente"
+    | "retencion_ine_reverso",
+  estatus: ExpedienteArchivoResumen["estatus_revision"],
+): ExpedienteArchivoResumen {
+  return {
+    expediente_id: "exp-1",
+    tipo_documento: tipo,
+    id: `doc-${tipo}`,
+    nombre_original: `${tipo}.pdf`,
+    mime_type: "application/pdf",
+    size_bytes: 100,
+    created_at: "2026-06-25T00:00:00.000Z",
+    uploaded_by_role: "asesor",
+    uploaded_by_email: "asesor@x.com",
+    estatus_revision: estatus,
+    comentario_mesa: estatus === "rechazado" ? "nota" : null,
+  };
+}
+
+function avance8a9Ctx(
+  overrides: Partial<MesaAvanceOperativo8a9Context> = {},
+): MesaAvanceOperativo8a9Context {
+  return {
+    submittedToMesa: true,
+    cicloEstado: "activo",
+    etapaActual: 8,
+    subestado: "en_proceso",
+    clienteDatosEstado: "validado",
+    archivosResumen: [
+      retencionArchivo("retencion_acuse_con_sello", "validado"),
+      retencionArchivo("retencion_aviso_retencion", "validado"),
+      retencionArchivo("retencion_ine_frente", "validado"),
+      retencionArchivo("retencion_ine_reverso", "validado"),
+    ],
+    retencionOpcion: "con_sello",
+    retencionEnviadoAMesa: true,
+    retencionEnvioEstado: "enviado",
+    ...overrides,
+  };
+}
+
+describe("deriveAvanceOperativo8a9View", () => {
+  it("etapa 8 con retención validada puede avanzar", () => {
+    const view = deriveAvanceOperativo8a9View(avance8a9Ctx());
+    assert.equal(view.mostrar, true);
+    assert.equal(view.puedeAvanzar, true);
+    assert.deepEqual(view.bloqueos, []);
+  });
+
+  it("bloquea con documentos pendientes de validar", () => {
+    const view = deriveAvanceOperativo8a9View(
+      avance8a9Ctx({
+        archivosResumen: [
+          retencionArchivo("retencion_acuse_con_sello", "validado"),
+          retencionArchivo("retencion_aviso_retencion", "subido"),
+          retencionArchivo("retencion_ine_frente", "validado"),
+          retencionArchivo("retencion_ine_reverso", "validado"),
+        ],
+      }),
+    );
+    assert.equal(view.mostrar, true);
+    assert.equal(view.puedeAvanzar, false);
+    assert.ok(view.bloqueos.some((b) => /pendiente de validar/i.test(b)));
+  });
+
+  it("bloquea con documento rechazado", () => {
+    const view = deriveAvanceOperativo8a9View(
+      avance8a9Ctx({
+        archivosResumen: [
+          retencionArchivo("retencion_acuse_con_sello", "validado"),
+          retencionArchivo("retencion_aviso_retencion", "rechazado"),
+          retencionArchivo("retencion_ine_frente", "validado"),
+          retencionArchivo("retencion_ine_reverso", "validado"),
+        ],
+      }),
+    );
+    assert.equal(view.puedeAvanzar, false);
+    assert.ok(view.bloqueos.some((b) => /rechazado/i.test(b)));
+  });
+
+  it("bloquea sin envío de retención a Mesa", () => {
+    const view = deriveAvanceOperativo8a9View(
+      avance8a9Ctx({ retencionEnviadoAMesa: false, retencionEnvioEstado: null }),
+    );
+    assert.equal(view.puedeAvanzar, false);
+    assert.ok(view.bloqueos.some((b) => /enviar Acuse/i.test(b)));
+  });
+
+  it("bloquea con corrección requerida", () => {
+    const view = deriveAvanceOperativo8a9View(
+      avance8a9Ctx({ retencionEnvioEstado: "correccion_requerida" }),
+    );
+    assert.equal(view.puedeAvanzar, false);
+    assert.ok(view.bloqueos.some((b) => /corrección requerida/i.test(b)));
+  });
+
+  it("no visible en etapa 7", () => {
+    const view = deriveAvanceOperativo8a9View(avance8a9Ctx({ etapaActual: 7 }));
+    assert.equal(view.mostrar, false);
+    assert.equal(puedeMostrarAvanceOperativo8a9(avance8a9Ctx({ etapaActual: 7 })), false);
+  });
+
+  it("no visible en etapa 9", () => {
+    const view = deriveAvanceOperativo8a9View(avance8a9Ctx({ etapaActual: 9 }));
+    assert.equal(view.mostrar, false);
+  });
+
+  it("bloquea sin cliente_datos validado", () => {
+    const view = deriveAvanceOperativo8a9View(
+      avance8a9Ctx({ clienteDatosEstado: "completo" }),
+    );
+    assert.equal(view.puedeAvanzar, false);
+    assert.ok(view.bloqueos.some((b) => /datos generales/i.test(b)));
   });
 });

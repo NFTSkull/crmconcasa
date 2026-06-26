@@ -10,7 +10,7 @@ import {
 } from "@/components/mesa-control/MesaArchivoPreviewDialog";
 import { MesaClienteDatosReadOnlySection } from "@/components/mesa-control/MesaClienteDatosReadOnlySection";
 import { MesaCitaBiometricosResumenSection } from "@/components/mesa-control/MesaCitaBiometricosResumenSection";
-import { MesaAvanceOperativoSection, MESA_AVANCE_OPERATIVO_2A3_COPY, MESA_AVANCE_OPERATIVO_3A4_COPY, MESA_AVANCE_OPERATIVO_4A5_COPY, MESA_AVANCE_OPERATIVO_5A6_COPY, MESA_AVANCE_OPERATIVO_6A7_COPY, MESA_AVANCE_OPERATIVO_7A8_COPY } from "@/components/mesa-control/MesaAvanceOperativoSection";
+import { MesaAvanceOperativoSection, MESA_AVANCE_OPERATIVO_2A3_COPY, MESA_AVANCE_OPERATIVO_3A4_COPY, MESA_AVANCE_OPERATIVO_4A5_COPY, MESA_AVANCE_OPERATIVO_5A6_COPY, MESA_AVANCE_OPERATIVO_6A7_COPY, MESA_AVANCE_OPERATIVO_7A8_COPY, MESA_AVANCE_OPERATIVO_8A9_COPY } from "@/components/mesa-control/MesaAvanceOperativoSection";
 import { MesaCierreValidacionDocumentalSection } from "@/components/mesa-control/MesaCierreValidacionDocumentalSection";
 import { MesaControlDocumentosComplementariosSection } from "@/components/mesa-control/MesaControlDocumentosComplementariosSection";
 import { MesaDocumentosAsesorSection } from "@/components/mesa-control/MesaDocumentosAsesorSection";
@@ -42,6 +42,7 @@ import {
   deriveAvanceOperativo5a6View,
   deriveAvanceOperativo6a7View,
   deriveAvanceOperativo7a8View,
+  deriveAvanceOperativo8a9View,
   deriveCierreValidacionDocumentalView,
   type ExpedienteMock,
 } from "@/domain/expedientes";
@@ -184,6 +185,9 @@ export function MesaExpedienteDetalleReadOnly() {
   const [avance7a8Loading, setAvance7a8Loading] = useState(false);
   const [avance7a8Error, setAvance7a8Error] = useState<string | null>(null);
   const [avance7a8Success, setAvance7a8Success] = useState<string | null>(null);
+  const [avance8a9Loading, setAvance8a9Loading] = useState(false);
+  const [avance8a9Error, setAvance8a9Error] = useState<string | null>(null);
+  const [avance8a9Success, setAvance8a9Success] = useState<string | null>(null);
 
   const puedeRevisar = puedeRevisarDocumentos(currentUser?.role);
 
@@ -822,6 +826,32 @@ export function MesaExpedienteDetalleReadOnly() {
     [avanceOperativoContext],
   );
 
+  const avanceOperativo8a9Context = useMemo(
+    () => ({
+      submittedToMesa: expediente?.operativo.submittedToMesa ?? false,
+      cicloEstado: expediente?.operativo.cicloEstado,
+      etapaActual: expediente?.operativo.etapaActual ?? null,
+      subestado: expediente?.operativo.subestado,
+      clienteDatosEstado: clienteDatos?.estado ?? null,
+      archivosResumen,
+      retencionOpcion: retencionOpcionMesa,
+      retencionEnviadoAMesa: Boolean(retencionEnvio?.enviado),
+      retencionEnvioEstado: retencionEnvio?.estado ?? null,
+    }),
+    [
+      archivosResumen,
+      clienteDatos?.estado,
+      expediente,
+      retencionEnvio,
+      retencionOpcionMesa,
+    ],
+  );
+
+  const avanceOperativo8a9View = useMemo(
+    () => deriveAvanceOperativo8a9View(avanceOperativo8a9Context),
+    [avanceOperativo8a9Context],
+  );
+
   const handleAvanzarIntegracion = useCallback(async () => {
     if (!routeExpedienteId || !cierreValidacionView.puedeAvanzar) return;
     setContinuarLoading(true);
@@ -965,6 +995,33 @@ export function MesaExpedienteDetalleReadOnly() {
       setAvance7a8Loading(false);
     }
   }, [avanceOperativo7a8View.puedeAvanzar, expedientesRepo, load, routeExpedienteId]);
+
+  const handleAvanzarOperativo8a9 = useCallback(async () => {
+    if (!routeExpedienteId || !avanceOperativo8a9View.puedeAvanzar) return;
+    setAvance8a9Loading(true);
+    setAvance8a9Error(null);
+    setAvance8a9Success(null);
+    try {
+      await expedientesRepo.avanzarEtapaOperativa(routeExpedienteId);
+      setAvance8a9Success("Expediente avanzado a etapa 9 (Agenda de firma)");
+      load();
+      void refreshRetencionMeta();
+    } catch (err) {
+      setAvance8a9Error(
+        err instanceof ExpedientesSupabaseError
+          ? err.message
+          : "No se pudo avanzar la etapa del expediente.",
+      );
+    } finally {
+      setAvance8a9Loading(false);
+    }
+  }, [
+    avanceOperativo8a9View.puedeAvanzar,
+    expedientesRepo,
+    load,
+    refreshRetencionMeta,
+    routeExpedienteId,
+  ]);
 
   if (currentUser === undefined) {
     return (
@@ -1245,6 +1302,16 @@ export function MesaExpedienteDetalleReadOnly() {
           onGuardarRechazo={handleGuardarRechazoRetencion}
         />
       ) : null}
+
+      <MesaAvanceOperativoSection
+        view={avanceOperativo8a9View}
+        copy={MESA_AVANCE_OPERATIVO_8A9_COPY}
+        puedeOperar={puedeRevisar}
+        loading={avance8a9Loading}
+        error={avance8a9Error}
+        success={avance8a9Success}
+        onAvanzar={handleAvanzarOperativo8a9}
+      />
 
       {preview ? (
         <MesaArchivoPreviewDialog

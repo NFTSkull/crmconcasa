@@ -1,5 +1,18 @@
 # Devlog
 
+## 2026-06-25 - P3N.4: Mesa avance 8→9 Supabase
+
+### Decisión
+
+- `deriveAvanceOperativo8a9View` reutiliza `getBloqueosRetencionAvanceEtapa8Mesa` + gates `cliente_datos` y `retencion_envios.estado`.
+- Panel `MesaAvanceOperativoSection` con copy «La retención fue validada…»; confirmación modal; solo Mesa (`puedeRevisar`).
+- RPC existente `avanzar_etapa_operativa` (P2C-17); sin migraciones ni firmas UI.
+
+### Archivos
+
+- `mesa-avance-integracion.ts`, `MesaExpedienteDetalleReadOnly.tsx`, `MesaAvanceOperativoSection.tsx`
+- `docs/API_CONTRATOS.md` §10 avance 8→9
+
 ## 2026-06-25 - P3O.3: Retención etapa 8 Mesa Supabase
 
 ### Decisión

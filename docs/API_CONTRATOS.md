@@ -393,7 +393,13 @@ Adicional:
 - Lee `retencion_opciones`, `retencion_envios`, docs `retencion_*` (lista según opción A/B).
 - Preview/descarga Storage; validar/rechazar vía RPC `update_documento_revision`.
 - Rechazo obliga comentario; hook SQL pone `retencion_envios.estado = correccion_requerida`.
-- Sin botón 8→9 en esta versión.
+
+### UI Mesa avance 8→9 (P3N.4)
+
+- Panel «Avanzar a etapa 9» si `deriveAvanceOperativo8a9View.puedeAvanzar`.
+- Gates: etapa 8, `en_proceso`, enviado a Mesa, ciclo activo, `cliente_datos` validado, `retencion_envios` enviado/estado `enviado`, docs requeridos `validado`.
+- RPC `avanzar_etapa_operativa` → `etapa_actual = 9`, `action_log.transition = 8_9`.
+- Solo Mesa Control; asesor sin botón avance.
 
 ---
 

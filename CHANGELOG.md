@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **P3N.4 — Mesa avance 8→9 retención→agenda firma (Supabase):** panel «Avanzar a etapa 9» con gates espejo backend (`cliente_datos` validado, retención enviada/validada); RPC `avanzar_etapa_operativa`; sin firmas ni migraciones.
+
 - **P3O.3 — Retención etapa 8 Mesa (Supabase):** sección «Acuse / Aviso de retención» en detalle Mesa; preview/validar/rechazar docs `retencion_*` vía `update_documento_revision`; hook `correccion_requerida` en `retencion_envios`; sin botón 8→9.
 
 - **P3O.2 — Retención etapa 8 asesor (Supabase):** `RetencionAcuseAvisoSupabaseCard` en `/asesor/expediente/[id]` (etapa 8 + enviado a Mesa); opción A/B local hasta RPC `enviar_retencion_mesa`; upload Storage + `register_expediente_documento_retencion`; sin UI Mesa validación ni botón 8→9.

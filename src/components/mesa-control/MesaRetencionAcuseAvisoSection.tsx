@@ -182,13 +182,9 @@ export function MesaRetencionAcuseAvisoSection({
         </p>
       ) : null}
 
-      {opcionMesa && bloqueosAvance.length > 0 ? (
+      {opcionMesa && bloqueosAvance.length > 0 && envioUiEstado !== "enviado" ? (
         <div className="mt-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-800">
-          <p className="font-semibold">Avance a etapa 9 (informativo)</p>
-          <p className="mt-0.5 text-gray-600">
-            El avance operativo 8→9 no está disponible en esta versión; estos pendientes aplican
-            cuando se habilite.
-          </p>
+          <p className="font-semibold">Pendientes para avanzar a etapa 9</p>
           <ul className="mt-1 list-inside list-disc space-y-0.5">
             {bloqueosAvance.map((b) => (
               <li key={b}>{b}</li>
