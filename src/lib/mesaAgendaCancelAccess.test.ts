@@ -5,18 +5,88 @@ import {
   canMesaCancelFirmasBooking,
   canMesaRoleCancelAgendaRpc,
   canMesaShowCancelCitaButton,
+  canMesaShowCancelCitaOperativa,
 } from "./mesaAgendaCancelAccess";
 
 describe("canMesaRoleCancelAgendaRpc", () => {
-  it("todos los roles Mesa y super_admin", () => {
+  it("roles Mesa mock y Supabase", () => {
     assert.equal(canMesaRoleCancelAgendaRpc("mesa_control_admin"), true);
     assert.equal(canMesaRoleCancelAgendaRpc("mesa_control_interno"), true);
     assert.equal(canMesaRoleCancelAgendaRpc("mesa_control_externo"), true);
+    assert.equal(canMesaRoleCancelAgendaRpc("mesa_admin"), true);
+    assert.equal(canMesaRoleCancelAgendaRpc("mesa_interno"), true);
+    assert.equal(canMesaRoleCancelAgendaRpc("mesa_externo"), true);
     assert.equal(canMesaRoleCancelAgendaRpc("super_admin"), true);
   });
 
   it("asesor no", () => {
     assert.equal(canMesaRoleCancelAgendaRpc("asesor"), false);
+  });
+});
+
+describe("canMesaShowCancelCitaOperativa", () => {
+  const baseBio = {
+    kind: "biometricos" as const,
+    mockRole: "mesa_admin",
+    submittedToMesa: true,
+    subestado: "en_proceso",
+    cicloEstado: "activo",
+    hasActiveBooking: true,
+  };
+
+  it("etapa 5 biométricos con booking activo", () => {
+    assert.equal(
+      canMesaShowCancelCitaOperativa({ ...baseBio, etapaActual: 5 }),
+      true,
+    );
+  });
+
+  it("etapa 10 firmas con booking activo", () => {
+    assert.equal(
+      canMesaShowCancelCitaOperativa({
+        kind: "firmas",
+        mockRole: "mesa_interno",
+        submittedToMesa: true,
+        subestado: "en_proceso",
+        cicloEstado: "activo",
+        etapaActual: 10,
+        hasActiveBooking: true,
+      }),
+      true,
+    );
+  });
+
+  it("sin subestado en_proceso no muestra", () => {
+    assert.equal(
+      canMesaShowCancelCitaOperativa({
+        ...baseBio,
+        etapaActual: 5,
+        subestado: "pendiente",
+      }),
+      false,
+    );
+  });
+
+  it("sin booking activo no muestra", () => {
+    assert.equal(
+      canMesaShowCancelCitaOperativa({
+        ...baseBio,
+        etapaActual: 5,
+        hasActiveBooking: false,
+      }),
+      false,
+    );
+  });
+
+  it("no enviado a Mesa no muestra", () => {
+    assert.equal(
+      canMesaShowCancelCitaOperativa({
+        ...baseBio,
+        etapaActual: 5,
+        submittedToMesa: false,
+      }),
+      false,
+    );
   });
 });
 

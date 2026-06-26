@@ -1,5 +1,13 @@
 # Devlog
 
+## 2026-06-26 - Cancel cita visible en Decisión Mesa
+
+### Decisión
+
+- Botón cancelar cita en panel **Decisión Mesa** (`MesaAvanceOperativoSection`): biométricos etapas 4/5, firmas 9/10; panel dedicado etapa 10 firmas.
+- Labels: «Cancelar cita biométrica…» / «Cancelar cita de firmas…»; éxito: «Cita cancelada. El asesor puede reagendar.»
+- Gate UI: `submittedToMesa`, `subestado=en_proceso`, booking activo, roles Mesa Supabase (`mesa_admin`, `mesa_interno`, `mesa_externo`).
+
 ## 2026-06-26 - Gate fuerte RPC 038 (book etapa 5/10)
 
 ### Decisión

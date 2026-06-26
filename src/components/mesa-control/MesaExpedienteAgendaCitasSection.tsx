@@ -6,13 +6,17 @@ import type { AgendaBiometricosActiveBooking } from "@/domain/agenda-biometricos
 import type { AgendaFirmasActiveBooking } from "@/domain/agenda-firmas";
 import { MESA_ETAPA_FIRMA_P3Q_NOTA } from "@/domain/expedientes/mesa-decision-ux";
 import {
-  canMesaCancelBiometricosBooking,
-  canMesaCancelFirmasBooking,
+  canMesaShowCancelCitaButton,
+  MESA_CANCEL_BIO_BUTTON_LABEL,
+  MESA_CANCEL_FIRMAS_BUTTON_LABEL,
 } from "@/lib/mesaAgendaCancelAccess";
 
 export type MesaExpedienteAgendaCitasSectionProps = Readonly<{
   etapaActual: number | null;
   fechaCita?: string | null;
+  submittedToMesa?: boolean;
+  subestado?: string | null;
+  cicloEstado?: string | null;
   biometricBooking: AgendaBiometricosActiveBooking | null;
   biometricLocationLabel?: string | null;
   firmasBooking: AgendaFirmasActiveBooking | null;
@@ -103,6 +107,9 @@ function CancelledSummary({
 export function MesaExpedienteAgendaCitasSection({
   etapaActual,
   fechaCita,
+  submittedToMesa = true,
+  subestado = "en_proceso",
+  cicloEstado = "activo",
   biometricBooking,
   biometricLocationLabel,
   firmasBooking,
@@ -128,15 +135,23 @@ export function MesaExpedienteAgendaCitasSection({
     (hasFecha && (etapaActual === 9 || etapaActual === 10)) ||
     Boolean(firmasCancelledMotivo);
 
-  const puedeCancelarBiometricos = canMesaCancelBiometricosBooking({
+  const puedeCancelarBiometricos = canMesaShowCancelCitaButton({
+    kind: "biometricos",
     mockRole,
     etapaActual,
     hasActiveBooking: biometricBooking != null,
+    submittedToMesa,
+    subestado,
+    cicloEstado,
   });
-  const puedeCancelarFirmas = canMesaCancelFirmasBooking({
+  const puedeCancelarFirmas = canMesaShowCancelCitaButton({
+    kind: "firmas",
     mockRole,
     etapaActual,
     hasActiveBooking: firmasBooking != null,
+    submittedToMesa,
+    subestado,
+    cicloEstado,
   });
 
   if (!showBio && !showFirma) {
@@ -190,7 +205,7 @@ export function MesaExpedienteAgendaCitasSection({
                   className="mt-3 w-full text-xs"
                   onClick={onRequestCancelBiometricos}
                 >
-                  Cancelar cita y solicitar reagenda
+                  {MESA_CANCEL_BIO_BUTTON_LABEL}
                 </Button>
               ) : null}
             </>
@@ -259,7 +274,7 @@ export function MesaExpedienteAgendaCitasSection({
                   className="mt-3 w-full text-xs"
                   onClick={onRequestCancelFirmas}
                 >
-                  Cancelar cita y solicitar reagenda
+                  {MESA_CANCEL_FIRMAS_BUTTON_LABEL}
                 </Button>
               ) : null}
             </>

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Mesa cancel cita en Decisión Mesa (UI):** botón «Cancelar cita biométrica/firmas y solicitar reagenda» visible en panel **Decisión Mesa** (etapas 4/5 bio, 9/10 firmas); modal motivo obligatorio; mensaje «Cita cancelada. El asesor puede reagendar.»; gate `en_proceso` + booking activo.
+
 - **Mesa cancelar cita con motivo (037–038):** migración `037` cancel Mesa + `038` book en etapas 5/10; UI asesor reagenda tras cancelación; gates `AsesorAgenda*SupabaseGate`; **sin Cloud**.
 
 - **UX Mesa — detalle expediente con secciones colapsables:** acordeones para datos generales, documentos, complementarios, retención y agenda; consulta en todas las etapas; acciones de validación solo donde aplica; Decisión Mesa / avance operativo sin cambios.

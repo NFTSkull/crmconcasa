@@ -19,7 +19,7 @@ import {
   buildRetencionAccordionSummary,
 } from "@/components/mesa-control/MesaExpedienteDocumentosResumen";
 import { MesaClienteDatosReadOnlySection } from "@/components/mesa-control/MesaClienteDatosReadOnlySection";
-import { MesaAvanceOperativoSection, MESA_AVANCE_OPERATIVO_2A3_COPY, MESA_AVANCE_OPERATIVO_3A4_COPY, MESA_AVANCE_OPERATIVO_4A5_COPY, MESA_AVANCE_OPERATIVO_5A6_COPY, MESA_AVANCE_OPERATIVO_6A7_COPY, MESA_AVANCE_OPERATIVO_7A8_COPY, MESA_AVANCE_OPERATIVO_8A9_COPY, MESA_AVANCE_OPERATIVO_9A10_COPY } from "@/components/mesa-control/MesaAvanceOperativoSection";
+import { MesaAvanceOperativoSection, MESA_AVANCE_OPERATIVO_2A3_COPY, MESA_AVANCE_OPERATIVO_3A4_COPY, MESA_AVANCE_OPERATIVO_4A5_COPY, MESA_AVANCE_OPERATIVO_5A6_COPY, MESA_AVANCE_OPERATIVO_6A7_COPY, MESA_AVANCE_OPERATIVO_7A8_COPY, MESA_AVANCE_OPERATIVO_8A9_COPY, MESA_AVANCE_OPERATIVO_9A10_COPY, MESA_FIRMA_ETAPA10_OPERATIVA_COPY } from "@/components/mesa-control/MesaAvanceOperativoSection";
 import { MesaCierreValidacionDocumentalSection } from "@/components/mesa-control/MesaCierreValidacionDocumentalSection";
 import { MesaControlDocumentosComplementariosSection } from "@/components/mesa-control/MesaControlDocumentosComplementariosSection";
 import { MesaDocumentosAsesorSection } from "@/components/mesa-control/MesaDocumentosAsesorSection";
@@ -79,6 +79,12 @@ import {
 import { parseCancelMotivoFromNote } from "@/lib/agendaCancelNote";
 import { getEffectiveMockRole } from "@/lib/mockUser";
 import type { MesaAgendaCancelKind } from "@/lib/mesaAgendaCancelAccess";
+import {
+  canMesaShowCancelCitaOperativa,
+  MESA_CANCEL_BIO_BUTTON_LABEL,
+  MESA_CANCEL_FIRMAS_BUTTON_LABEL,
+  MESA_CANCEL_SUCCESS_MESSAGE,
+} from "@/lib/mesaAgendaCancelAccess";
 import {
   deriveRetencionAcuseAvisoFaltantes,
   getBloqueosRetencionAvanceEtapa8Mesa,
@@ -963,6 +969,79 @@ export function MesaExpedienteDetalleReadOnly() {
     [avanceOperativo9a10Context],
   );
 
+  const cancelCitaOperativaBase = useMemo(
+    () => ({
+      mockRole: mesaMockRole,
+      submittedToMesa: expediente?.operativo.submittedToMesa ?? false,
+      subestado: expediente?.operativo.subestado ?? null,
+      cicloEstado: expediente?.operativo.cicloEstado ?? null,
+      etapaActual: expediente?.operativo.etapaActual ?? null,
+    }),
+    [expediente, mesaMockRole],
+  );
+
+  const puedeCancelarBioOperativa = useMemo(
+    () =>
+      canMesaShowCancelCitaOperativa({
+        kind: "biometricos",
+        ...cancelCitaOperativaBase,
+        hasActiveBooking: activeBiometricBooking != null,
+      }),
+    [activeBiometricBooking, cancelCitaOperativaBase],
+  );
+
+  const puedeCancelarFirmasOperativa = useMemo(
+    () =>
+      canMesaShowCancelCitaOperativa({
+        kind: "firmas",
+        ...cancelCitaOperativaBase,
+        hasActiveBooking: activeFirmasBooking != null,
+      }),
+    [activeFirmasBooking, cancelCitaOperativaBase],
+  );
+
+  const cancelBioDecisionAction = useMemo(
+    () => ({
+      label: MESA_CANCEL_BIO_BUTTON_LABEL,
+      visible: puedeCancelarBioOperativa,
+      success: biometricosCancelSuccess,
+      cancelledMotivo: biometricosCancelledMotivo,
+      onRequest: () => {
+        setCancelCitaError(null);
+        setCancelCitaKind("biometricos");
+      },
+    }),
+    [
+      biometricosCancelSuccess,
+      biometricosCancelledMotivo,
+      puedeCancelarBioOperativa,
+    ],
+  );
+
+  const cancelFirmasDecisionAction = useMemo(
+    () => ({
+      label: MESA_CANCEL_FIRMAS_BUTTON_LABEL,
+      visible: puedeCancelarFirmasOperativa,
+      success: cancelFirmasSuccess,
+      cancelledMotivo: firmasCancelledMotivo,
+      onRequest: () => {
+        setCancelCitaError(null);
+        setCancelCitaKind("firmas");
+      },
+    }),
+    [cancelFirmasSuccess, firmasCancelledMotivo, puedeCancelarFirmasOperativa],
+  );
+
+  const firmaEtapa10OperativaView = useMemo(
+    () => ({
+      mostrar:
+        cancelCitaOperativaBase.etapaActual === 10 && puedeCancelarFirmasOperativa,
+      puedeAvanzar: false,
+      bloqueos: [] as string[],
+    }),
+    [cancelCitaOperativaBase.etapaActual, puedeCancelarFirmasOperativa],
+  );
+
   const handleAvanzarIntegracion = useCallback(async () => {
     if (!routeExpedienteId || !cierreValidacionView.puedeAvanzar) return;
     setContinuarLoading(true);
@@ -1164,7 +1243,7 @@ export function MesaExpedienteDetalleReadOnly() {
       if (!routeExpedienteId || !cancelCitaKind) return;
       setCancelCitaSaving(true);
       setCancelCitaError(null);
-      const successMsg = "Cita cancelada. El asesor puede reagendar.";
+      const successMsg = MESA_CANCEL_SUCCESS_MESSAGE;
       try {
         if (cancelCitaKind === "firmas") {
           if (!firmasBookingRepo) return;
@@ -1483,6 +1562,9 @@ export function MesaExpedienteDetalleReadOnly() {
           embedded
           etapaActual={etapaActual}
           fechaCita={op.fechaCita}
+          submittedToMesa={expediente?.operativo.submittedToMesa ?? false}
+          subestado={expediente?.operativo.subestado ?? null}
+          cicloEstado={expediente?.operativo.cicloEstado ?? null}
           biometricBooking={activeBiometricBooking}
           biometricLocationLabel={biometricLocationLabel}
           firmasBooking={activeFirmasBooking}
@@ -1549,6 +1631,7 @@ export function MesaExpedienteDetalleReadOnly() {
         error={avance4a5Error}
         success={avance4a5Success}
         onAvanzar={handleAvanzarOperativo4a5}
+        cancelCita={cancelBioDecisionAction}
       />
 
       <MesaAvanceOperativoSection
@@ -1559,6 +1642,7 @@ export function MesaExpedienteDetalleReadOnly() {
         error={avance5a6Error}
         success={avance5a6Success}
         onAvanzar={handleAvanzarOperativo5a6}
+        cancelCita={cancelBioDecisionAction}
       />
 
       <MesaAvanceOperativoSection
@@ -1599,6 +1683,19 @@ export function MesaExpedienteDetalleReadOnly() {
         error={avance9a10Error}
         success={avance9a10Success}
         onAvanzar={handleAvanzarOperativo9a10}
+        cancelCita={cancelFirmasDecisionAction}
+      />
+
+      <MesaAvanceOperativoSection
+        view={firmaEtapa10OperativaView}
+        copy={MESA_FIRMA_ETAPA10_OPERATIVA_COPY}
+        puedeOperar={puedeOperarMesa}
+        loading={false}
+        error={null}
+        success={null}
+        onAvanzar={async () => {}}
+        mostrarBotonAvanzar={false}
+        cancelCita={cancelFirmasDecisionAction}
       />
 
       {preview ? (

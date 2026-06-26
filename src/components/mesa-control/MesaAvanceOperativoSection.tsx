@@ -9,6 +9,14 @@ import {
 } from "@/domain/expedientes/mesa-decision-ux";
 import type { AvanceOperativoEtapaView } from "@/domain/expedientes/mesa-avance-integracion";
 
+export type MesaAvanceCancelCitaAction = Readonly<{
+  label: string;
+  visible: boolean;
+  success: string | null;
+  cancelledMotivo: string | null;
+  onRequest: () => void;
+}>;
+
 export type { MesaAvanceOperativoCopy } from "@/domain/expedientes/mesa-decision-ux";
 
 export {
@@ -20,6 +28,7 @@ export {
   MESA_AVANCE_OPERATIVO_7A8_COPY,
   MESA_AVANCE_OPERATIVO_8A9_COPY,
   MESA_AVANCE_OPERATIVO_9A10_COPY,
+  MESA_FIRMA_ETAPA10_OPERATIVA_COPY,
 } from "@/domain/expedientes/mesa-decision-ux";
 
 type Props = {
@@ -30,6 +39,9 @@ type Props = {
   error: string | null;
   success: string | null;
   onAvanzar: () => Promise<void>;
+  cancelCita?: MesaAvanceCancelCitaAction | null;
+  /** Si false, oculta botón avanzar aunque `view.puedeAvanzar` (p. ej. etapa 10 solo cancel). */
+  mostrarBotonAvanzar?: boolean;
 };
 
 export function MesaAvanceOperativoSection({
@@ -40,6 +52,8 @@ export function MesaAvanceOperativoSection({
   error,
   success,
   onAvanzar,
+  cancelCita = null,
+  mostrarBotonAvanzar = true,
 }: Props) {
   const [confirmOpen, setConfirmOpen] = useState(false);
 
@@ -104,7 +118,36 @@ export function MesaAvanceOperativoSection({
             </p>
           ) : null}
 
-          {puedeOperar ? (
+          {cancelCita?.visible ? (
+            <div className="rounded-lg border border-amber-200 bg-amber-50/90 px-3 py-3">
+              {cancelCita.success ? (
+                <p
+                  role="status"
+                  className="text-sm font-medium text-amber-950"
+                >
+                  {cancelCita.success}
+                </p>
+              ) : null}
+              {cancelCita.cancelledMotivo && !cancelCita.success ? (
+                <p className="text-xs text-amber-900">
+                  <span className="font-medium">Motivo para el asesor:</span>{" "}
+                  {cancelCita.cancelledMotivo}
+                </p>
+              ) : null}
+              {puedeOperar && !cancelCita.success ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="mt-2 w-full text-xs sm:w-auto"
+                  onClick={cancelCita.onRequest}
+                >
+                  {cancelCita.label}
+                </Button>
+              ) : null}
+            </div>
+          ) : null}
+
+          {puedeOperar && mostrarBotonAvanzar && copy.etiquetaBoton ? (
             <div className="border-t border-sky-100 pt-3">
               <Button
                 type="button"
@@ -118,7 +161,7 @@ export function MesaAvanceOperativoSection({
         </div>
       </section>
 
-      {confirmOpen ? (
+      {confirmOpen && mostrarBotonAvanzar && copy.etiquetaBoton ? (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
           role="presentation"
