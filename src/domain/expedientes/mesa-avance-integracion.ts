@@ -463,3 +463,55 @@ export function deriveAvanceOperativo8a9View(
     bloqueos,
   };
 }
+
+// —— P3P.3: avance operativo Mesa 9 → 10 ——
+
+export type MesaAvanceOperativo9a10Context = MesaAvanceOperativoContext & {
+  fechaCita?: string | null;
+  hasActiveFirmasBooking: boolean;
+};
+
+/** Panel visible solo en etapa 9 con cita de firma agendada (P3P.3). */
+export function puedeMostrarAvanceOperativo9a10(ctx: MesaAvanceOperativo9a10Context): boolean {
+  if (!ctx.submittedToMesa) return false;
+  if (ctx.cicloEstado !== "activo") return false;
+  if (ctx.etapaActual !== 9) return false;
+  return ctx.subestado === "en_proceso";
+}
+
+/** Bloqueos alineados con `avanzar_etapa_operativa` transición 9→10. */
+export function deriveBloqueosAvanceOperativo9a10(
+  ctx: MesaAvanceOperativo9a10Context,
+): string[] {
+  if (!puedeMostrarAvanceOperativo9a10(ctx)) {
+    return [];
+  }
+
+  const bloqueos: string[] = [];
+  const hasFecha =
+    typeof ctx.fechaCita === "string" && ctx.fechaCita.trim() !== "";
+
+  if (!hasFecha) {
+    bloqueos.push(
+      "Falta fecha de cita de firma. El asesor debe agendar la cita desde su expediente.",
+    );
+  }
+
+  if (!ctx.hasActiveFirmasBooking) {
+    bloqueos.push("No hay reserva de firma activa en Supabase (kind=firmas, status=booked).");
+  }
+
+  return bloqueos;
+}
+
+export function deriveAvanceOperativo9a10View(
+  ctx: MesaAvanceOperativo9a10Context,
+): AvanceOperativoEtapaView {
+  const mostrar = puedeMostrarAvanceOperativo9a10(ctx);
+  const bloqueos = deriveBloqueosAvanceOperativo9a10(ctx);
+  return {
+    mostrar,
+    puedeAvanzar: mostrar && bloqueos.length === 0,
+    bloqueos,
+  };
+}

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **P3P.3 — Mesa ve cita firma y avanza 9→10 (Supabase, local):** `MesaCitaFirmasResumenSection` + panel `MESA_AVANCE_OPERATIVO_9A10_COPY`; gates `deriveAvanceOperativo9a10View`; RPC `avanzar_etapa_operativa`; sin migraciones ni mock.
+
 - **P3P.2 — Asesor agenda firma etapa 9 Supabase (local):** `AgendaFirmasSupabaseCard` + `SupabaseAgendaFirmasBookingRepo`; disponibilidad semanal real, RPC `book_firmas`/`cancel_firmas`/`reagendar_firmas`; sin avance 9→10 ni migraciones.
 
 - **P3P.1B — UI Cynthia agenda firmas Supabase (local):** `SupabaseAgendaFirmasConfigRepo`, `AgendaFirmasWeeklySupabaseSection`, wire en panel Mesa; oculta mock firmas en `DATA_MODE=supabase`; sin booking asesor ni migraciones.

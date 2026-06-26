@@ -23,10 +23,12 @@ export {
   deriveAvanceOperativo6a7View,
   deriveAvanceOperativo7a8View,
   deriveAvanceOperativo8a9View,
+  deriveAvanceOperativo9a10View,
   deriveBloqueosContinuarIntegracion,
   deriveBloqueosAvanceOperativo8a9,
   deriveBloqueosAvanceOperativo4a5,
   deriveBloqueosAvanceOperativo5a6,
+  deriveBloqueosAvanceOperativo9a10,
   deriveCierreValidacionDocumentalView,
   etapaTrasAvanceIntegracion1a2,
   isFechaCitaBiometricaPasada,
@@ -37,6 +39,7 @@ export {
   puedeMostrarAvanceOperativo6a7,
   puedeMostrarAvanceOperativo7a8,
   puedeMostrarAvanceOperativo8a9,
+  puedeMostrarAvanceOperativo9a10,
   puedeContinuarIntegracion,
   puedeMostrarContinuarIntegracion,
   type AvanceOperativo2a3View,
@@ -47,6 +50,7 @@ export {
   type CierreValidacionDocumentalView,
   type MesaAvanceOperativoContext,
   type MesaAvanceOperativo8a9Context,
+  type MesaAvanceOperativo9a10Context,
   type MesaContinuarIntegracionContext,
 } from "./mesa-avance-integracion";
 export {

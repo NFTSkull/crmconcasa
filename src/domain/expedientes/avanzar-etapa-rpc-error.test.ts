@@ -64,6 +64,20 @@ describe("mapAvanzarEtapaRpcError", () => {
     assert.match(err.message, /inscripción/i);
   });
 
+  it("mapea falta fecha de cita de firma", () => {
+    const err = mapAvanzarEtapaRpcError({
+      message: "avanzar_etapa_operativa: falta fecha de cita de firma",
+    });
+    assert.match(err.message, /fecha de cita de firma/i);
+  });
+
+  it("mapea falta booking de firma activo", () => {
+    const err = mapAvanzarEtapaRpcError({
+      message: "avanzar_etapa_operativa: falta booking de firma activo",
+    });
+    assert.match(err.message, /reserva de firma activa/i);
+  });
+
   it("mapea error inesperado", () => {
     const err = mapAvanzarEtapaRpcError({
       message: "algo totalmente desconocido",

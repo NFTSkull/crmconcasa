@@ -1,5 +1,26 @@
 # Devlog
 
+## 2026-06-25 - P3P.3: Mesa avance 9→10 cita firma Supabase
+
+### Decisión
+
+- Reutilizar RPC `avanzar_etapa_operativa` (033): `fecha_cita` + booking `firmas` `booked`; **no** exige cita pasada.
+- Roles Mesa: `mesa_admin`, `mesa_interno`, `mesa_externo`, `super_admin` (asesor no avanza).
+- UI espejo backend en `deriveAvanceOperativo9a10View`; resumen cita solo etapa 9.
+- Patrón biométricos P3M.3/P3N.1: `MesaCitaFirmasResumenSection` + `MesaAvanceOperativoSection`.
+
+### Archivos
+
+- `src/domain/expedientes/mesa-avance-integracion.ts` (+ tests 9a10)
+- `src/components/mesa-control/MesaCitaFirmasResumenSection.tsx`
+- `src/components/mesa-control/MesaAvanceOperativoSection.tsx` (`MESA_AVANCE_OPERATIVO_9A10_COPY`)
+- `src/components/mesa-control/MesaExpedienteDetalleReadOnly.tsx`
+- `src/domain/expedientes/avanzar-etapa-rpc-error.ts` (+ tests firma)
+
+### No tocado
+
+- Agenda asesor (P3P.2), cancel/reagendar firmas asesor, 10→11, migraciones, mock, biométricos.
+
 ## 2026-06-25 - P3P.2: Asesor agenda firma etapa 9 Supabase
 
 ### Decisión

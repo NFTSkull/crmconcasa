@@ -217,7 +217,7 @@ Convenciones:
 | 6→7 | Etapa 6 + `en_proceso`; enviado a Mesa; ciclo `activo` (sin `fecha_cita` ni booking) |
 | 7→8 | Etapa 7 + `en_proceso`; enviado a Mesa; ciclo `activo` (sin retención ni firmas) |
 | 8→9 | Retención: opción + envío asesor + docs opción `validado` |
-| 9→10 | Cita firma: `fecha_cita` + booking `firmas` activo (`booked`); solo `mesa_admin`/`super_admin` |
+| 9→10 | Etapa 9 + `en_proceso`; `fecha_cita` + booking `firmas` activo (`booked`); roles `mesa_admin`/`mesa_interno`/`mesa_externo`/`super_admin` |
 | Rechazo | Nota obligatoria; puede regresar etapa |
 
 - Validación server-side espejo de `getBloqueosAvanceMesa` / helpers retención.
@@ -488,7 +488,8 @@ Adicional:
 - Persiste `agenda_bookings` (`kind = firmas`) + `expedientes.fecha_cita`.
 - **NO** cambia `etapa_actual`.
 
-- UI asesor: `AgendaFirmasSupabaseCard` en etapa 9 (P3P.2). Avance 9→10: P3P.3.
+- UI asesor: `AgendaFirmasSupabaseCard` en etapa 9 (P3P.2).
+- UI Mesa: resumen cita + avance 9→10 en detalle Supabase (P3P.3).
 
 ---
 

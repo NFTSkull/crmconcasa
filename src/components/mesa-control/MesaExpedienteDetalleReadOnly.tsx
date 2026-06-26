@@ -10,7 +10,8 @@ import {
 } from "@/components/mesa-control/MesaArchivoPreviewDialog";
 import { MesaClienteDatosReadOnlySection } from "@/components/mesa-control/MesaClienteDatosReadOnlySection";
 import { MesaCitaBiometricosResumenSection } from "@/components/mesa-control/MesaCitaBiometricosResumenSection";
-import { MesaAvanceOperativoSection, MESA_AVANCE_OPERATIVO_2A3_COPY, MESA_AVANCE_OPERATIVO_3A4_COPY, MESA_AVANCE_OPERATIVO_4A5_COPY, MESA_AVANCE_OPERATIVO_5A6_COPY, MESA_AVANCE_OPERATIVO_6A7_COPY, MESA_AVANCE_OPERATIVO_7A8_COPY, MESA_AVANCE_OPERATIVO_8A9_COPY } from "@/components/mesa-control/MesaAvanceOperativoSection";
+import { MesaCitaFirmasResumenSection } from "@/components/mesa-control/MesaCitaFirmasResumenSection";
+import { MesaAvanceOperativoSection, MESA_AVANCE_OPERATIVO_2A3_COPY, MESA_AVANCE_OPERATIVO_3A4_COPY, MESA_AVANCE_OPERATIVO_4A5_COPY, MESA_AVANCE_OPERATIVO_5A6_COPY, MESA_AVANCE_OPERATIVO_6A7_COPY, MESA_AVANCE_OPERATIVO_7A8_COPY, MESA_AVANCE_OPERATIVO_8A9_COPY, MESA_AVANCE_OPERATIVO_9A10_COPY } from "@/components/mesa-control/MesaAvanceOperativoSection";
 import { MesaCierreValidacionDocumentalSection } from "@/components/mesa-control/MesaCierreValidacionDocumentalSection";
 import { MesaControlDocumentosComplementariosSection } from "@/components/mesa-control/MesaControlDocumentosComplementariosSection";
 import { MesaDocumentosAsesorSection } from "@/components/mesa-control/MesaDocumentosAsesorSection";
@@ -43,6 +44,7 @@ import {
   deriveAvanceOperativo6a7View,
   deriveAvanceOperativo7a8View,
   deriveAvanceOperativo8a9View,
+  deriveAvanceOperativo9a10View,
   deriveCierreValidacionDocumentalView,
   type ExpedienteMock,
 } from "@/domain/expedientes";
@@ -51,6 +53,11 @@ import {
   type AgendaBiometricosActiveBooking,
   type AgendaBiometricosConfigRecord,
 } from "@/domain/agenda-biometricos";
+import {
+  useAgendaFirmasBookingRepo,
+  type AgendaFirmasActiveBooking,
+  type AgendaFirmasConfigRecord,
+} from "@/domain/agenda-firmas";
 import {
   deriveRetencionAcuseAvisoFaltantes,
   getBloqueosRetencionAvanceEtapa8Mesa,
@@ -128,6 +135,7 @@ export function MesaExpedienteDetalleReadOnly() {
   const archivosRepo = useExpedienteArchivosRepo();
   const clienteDatosRepo = useExpedienteClienteDatosRepo();
   const agendaBookingRepo = useAgendaBiometricosBookingRepo();
+  const firmasBookingRepo = useAgendaFirmasBookingRepo();
   const retencionRepo = useExpedienteRetencionSupabaseRepo();
 
   const [loadState, setLoadState] = useState<LoadState>("loading");
@@ -188,6 +196,12 @@ export function MesaExpedienteDetalleReadOnly() {
   const [avance8a9Loading, setAvance8a9Loading] = useState(false);
   const [avance8a9Error, setAvance8a9Error] = useState<string | null>(null);
   const [avance8a9Success, setAvance8a9Success] = useState<string | null>(null);
+  const [activeFirmasBooking, setActiveFirmasBooking] =
+    useState<AgendaFirmasActiveBooking | null>(null);
+  const [firmasConfig, setFirmasConfig] = useState<AgendaFirmasConfigRecord | null>(null);
+  const [avance9a10Loading, setAvance9a10Loading] = useState(false);
+  const [avance9a10Error, setAvance9a10Error] = useState<string | null>(null);
+  const [avance9a10Success, setAvance9a10Success] = useState<string | null>(null);
 
   const puedeRevisar = puedeRevisarDocumentos(currentUser?.role);
 
@@ -205,11 +219,14 @@ export function MesaExpedienteDetalleReadOnly() {
         setArchivosLista([]);
         setActiveBiometricBooking(null);
         setBiometricosConfig(null);
+        setActiveFirmasBooking(null);
+        setFirmasConfig(null);
         setLoadState("not_found");
           return;
         }
 
-        const [datos, archivos, lista, booking, bioConfig] = await Promise.all([
+        const [datos, archivos, lista, booking, bioConfig, firmasBooking, firmasCfg] =
+          await Promise.all([
           clienteDatosRepo.getByExpedienteId(routeExpedienteId).catch(() => null),
           archivosRepo.listResumenByExpediente(routeExpedienteId).catch(() => []),
           archivosRepo.listByExpediente(routeExpedienteId).catch(() => []),
@@ -219,6 +236,12 @@ export function MesaExpedienteDetalleReadOnly() {
           agendaBookingRepo
             ? agendaBookingRepo.getBiometricosConfig().catch(() => null)
             : Promise.resolve(null),
+          firmasBookingRepo
+            ? firmasBookingRepo.getActiveBooking(routeExpedienteId).catch(() => null)
+            : Promise.resolve(null),
+          firmasBookingRepo
+            ? firmasBookingRepo.getFirmasConfig().catch(() => null)
+            : Promise.resolve(null),
         ]);
 
         setExpediente(exp);
@@ -227,6 +250,8 @@ export function MesaExpedienteDetalleReadOnly() {
         setArchivosLista(lista);
         setActiveBiometricBooking(booking);
         setBiometricosConfig(bioConfig);
+        setActiveFirmasBooking(firmasBooking);
+        setFirmasConfig(firmasCfg);
         setLoadState("ready");
       } catch (err) {
         setExpediente(null);
@@ -235,6 +260,8 @@ export function MesaExpedienteDetalleReadOnly() {
         setArchivosLista([]);
         setActiveBiometricBooking(null);
         setBiometricosConfig(null);
+        setActiveFirmasBooking(null);
+        setFirmasConfig(null);
         setLoadState("error");
         if (err instanceof ExpedientesSupabaseError) {
           setErrorMsg(err.message);
@@ -246,6 +273,7 @@ export function MesaExpedienteDetalleReadOnly() {
   }, [
     archivosRepo,
     agendaBookingRepo,
+    firmasBookingRepo,
     clienteDatosRepo,
     currentUser,
     expedientesRepo,
@@ -852,6 +880,31 @@ export function MesaExpedienteDetalleReadOnly() {
     [avanceOperativo8a9Context],
   );
 
+  const firmasLocationLabel = useMemo(() => {
+    if (!activeFirmasBooking) return null;
+    const loc = firmasConfig?.config.locations.find(
+      (l) => l.id === activeFirmasBooking.locationId,
+    );
+    return loc?.label ?? activeFirmasBooking.locationId;
+  }, [activeFirmasBooking, firmasConfig]);
+
+  const avanceOperativo9a10Context = useMemo(
+    () => ({
+      submittedToMesa: expediente?.operativo.submittedToMesa ?? false,
+      cicloEstado: expediente?.operativo.cicloEstado,
+      etapaActual: expediente?.operativo.etapaActual ?? null,
+      subestado: expediente?.operativo.subestado,
+      fechaCita: expediente?.operativo.fechaCita ?? null,
+      hasActiveFirmasBooking: activeFirmasBooking != null,
+    }),
+    [activeFirmasBooking, expediente],
+  );
+
+  const avanceOperativo9a10View = useMemo(
+    () => deriveAvanceOperativo9a10View(avanceOperativo9a10Context),
+    [avanceOperativo9a10Context],
+  );
+
   const handleAvanzarIntegracion = useCallback(async () => {
     if (!routeExpedienteId || !cierreValidacionView.puedeAvanzar) return;
     setContinuarLoading(true);
@@ -1020,6 +1073,31 @@ export function MesaExpedienteDetalleReadOnly() {
     expedientesRepo,
     load,
     refreshRetencionMeta,
+    routeExpedienteId,
+  ]);
+
+  const handleAvanzarOperativo9a10 = useCallback(async () => {
+    if (!routeExpedienteId || !avanceOperativo9a10View.puedeAvanzar) return;
+    setAvance9a10Loading(true);
+    setAvance9a10Error(null);
+    setAvance9a10Success(null);
+    try {
+      await expedientesRepo.avanzarEtapaOperativa(routeExpedienteId);
+      setAvance9a10Success("Expediente avanzado a etapa 10 (Cita para firma)");
+      load();
+    } catch (err) {
+      setAvance9a10Error(
+        err instanceof ExpedientesSupabaseError
+          ? err.message
+          : "No se pudo avanzar la etapa del expediente.",
+      );
+    } finally {
+      setAvance9a10Loading(false);
+    }
+  }, [
+    avanceOperativo9a10View.puedeAvanzar,
+    expedientesRepo,
+    load,
     routeExpedienteId,
   ]);
 
@@ -1311,6 +1389,23 @@ export function MesaExpedienteDetalleReadOnly() {
         error={avance8a9Error}
         success={avance8a9Success}
         onAvanzar={handleAvanzarOperativo8a9}
+      />
+
+      <MesaCitaFirmasResumenSection
+        etapaActual={op.etapaActual}
+        fechaCita={op.fechaCita}
+        booking={activeFirmasBooking}
+        locationLabel={firmasLocationLabel}
+      />
+
+      <MesaAvanceOperativoSection
+        view={avanceOperativo9a10View}
+        copy={MESA_AVANCE_OPERATIVO_9A10_COPY}
+        puedeOperar={puedeRevisar}
+        loading={avance9a10Loading}
+        error={avance9a10Error}
+        success={avance9a10Success}
+        onAvanzar={handleAvanzarOperativo9a10}
       />
 
       {preview ? (

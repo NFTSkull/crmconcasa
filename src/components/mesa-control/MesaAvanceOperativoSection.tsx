@@ -67,6 +67,15 @@ export const MESA_AVANCE_OPERATIVO_8A9_COPY: MesaAvanceOperativoCopy = {
   mensajeConfirmacion: "¿Confirmas avanzar este expediente a etapa 9: agenda de firma?",
 };
 
+export const MESA_AVANCE_OPERATIVO_9A10_COPY: MesaAvanceOperativoCopy = {
+  titulo: "Avanzar a etapa 10",
+  descripcion:
+    "La cita de firma está agendada. Puedes avanzar el expediente a etapa 10.",
+  etiquetaBoton: "Avanzar a etapa 10",
+  mensajeConfirmacion:
+    "¿Confirmas avanzar este expediente a etapa 10: Cita para firma?",
+};
+
 type Props = {
   view: AvanceOperativoEtapaView;
   copy: MesaAvanceOperativoCopy;

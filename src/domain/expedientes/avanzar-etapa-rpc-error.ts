@@ -104,6 +104,18 @@ export function mapAvanzarEtapaRpcError(error: {
     );
   }
 
+  if (msg.includes("falta fecha de cita de firma")) {
+    return new ExpedientesSupabaseError(
+      "Falta la fecha de cita de firma. El asesor debe agendar la cita antes de avanzar a etapa 10.",
+    );
+  }
+
+  if (msg.includes("falta booking de firma activo")) {
+    return new ExpedientesSupabaseError(
+      "No hay reserva de firma activa. Verifica que la cita siga agendada en Supabase.",
+    );
+  }
+
   if (msg.includes("cita biométrica aún no ha ocurrido")) {
     return new ExpedientesSupabaseError(
       "La cita biométrica aún no ha ocurrido. Espera a la fecha programada antes de avanzar a inscripción.",

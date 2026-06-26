@@ -12,6 +12,7 @@ import {
   deriveAvanceOperativo6a7View,
   deriveAvanceOperativo7a8View,
   deriveAvanceOperativo8a9View,
+  deriveAvanceOperativo9a10View,
   deriveBloqueosContinuarIntegracion,
   deriveCierreValidacionDocumentalView,
   etapaTrasAvanceIntegracion1a2,
@@ -23,10 +24,12 @@ import {
   puedeMostrarAvanceOperativo6a7,
   puedeMostrarAvanceOperativo7a8,
   puedeMostrarAvanceOperativo8a9,
+  puedeMostrarAvanceOperativo9a10,
   puedeMostrarContinuarIntegracion,
   type MesaAvanceOperativo4a5Context,
   type MesaAvanceOperativo5a6Context,
   type MesaAvanceOperativo8a9Context,
+  type MesaAvanceOperativo9a10Context,
   type MesaAvanceOperativoContext,
   type MesaContinuarIntegracionContext,
 } from "./mesa-avance-integracion";
@@ -794,5 +797,69 @@ describe("deriveAvanceOperativo8a9View", () => {
     );
     assert.equal(view.puedeAvanzar, false);
     assert.ok(view.bloqueos.some((b) => /datos generales/i.test(b)));
+  });
+});
+
+function avance9a10Ctx(
+  overrides: Partial<MesaAvanceOperativo9a10Context> = {},
+): MesaAvanceOperativo9a10Context {
+  return {
+    submittedToMesa: true,
+    cicloEstado: "activo",
+    etapaActual: 9,
+    subestado: "en_proceso",
+    fechaCita: "2026-06-26T16:00:00.000Z",
+    hasActiveFirmasBooking: true,
+    ...overrides,
+  };
+}
+
+describe("deriveAvanceOperativo9a10View (P3P.3)", () => {
+  it("etapa 9 con firma booked puede avanzar", () => {
+    const view = deriveAvanceOperativo9a10View(avance9a10Ctx());
+    assert.equal(view.mostrar, true);
+    assert.equal(view.puedeAvanzar, true);
+    assert.equal(view.bloqueos.length, 0);
+  });
+
+  it("etapa 9 sin fecha_cita bloquea", () => {
+    const view = deriveAvanceOperativo9a10View(avance9a10Ctx({ fechaCita: null }));
+    assert.equal(view.mostrar, true);
+    assert.equal(view.puedeAvanzar, false);
+    assert.ok(view.bloqueos.some((b) => /fecha de cita de firma/i.test(b)));
+  });
+
+  it("etapa 9 sin booking firmas activo bloquea", () => {
+    const view = deriveAvanceOperativo9a10View(
+      avance9a10Ctx({ hasActiveFirmasBooking: false }),
+    );
+    assert.equal(view.puedeAvanzar, false);
+    assert.ok(view.bloqueos.some((b) => /reserva de firma activa/i.test(b)));
+  });
+
+  it("etapa 9 con booking cancelado (sin activo) bloquea", () => {
+    const view = deriveAvanceOperativo9a10View(
+      avance9a10Ctx({ hasActiveFirmasBooking: false, fechaCita: "2026-06-26T16:00:00.000Z" }),
+    );
+    assert.equal(view.puedeAvanzar, false);
+    assert.ok(view.bloqueos.some((b) => /reserva de firma activa/i.test(b)));
+  });
+
+  it("no visible en etapa 8 ni 10", () => {
+    assert.equal(deriveAvanceOperativo9a10View(avance9a10Ctx({ etapaActual: 8 })).mostrar, false);
+    assert.equal(deriveAvanceOperativo9a10View(avance9a10Ctx({ etapaActual: 10 })).mostrar, false);
+    assert.equal(puedeMostrarAvanceOperativo9a10(avance9a10Ctx({ etapaActual: 8 })), false);
+    assert.equal(puedeMostrarAvanceOperativo9a10(avance9a10Ctx({ etapaActual: 10 })), false);
+  });
+
+  it("no visible sin submitted_to_mesa o ciclo inactivo", () => {
+    assert.equal(
+      deriveAvanceOperativo9a10View(avance9a10Ctx({ submittedToMesa: false })).mostrar,
+      false,
+    );
+    assert.equal(
+      deriveAvanceOperativo9a10View(avance9a10Ctx({ cicloEstado: "cerrado" })).mostrar,
+      false,
+    );
   });
 });
