@@ -6,6 +6,8 @@ import {
   canMesaRoleCancelAgendaRpc,
   canMesaShowCancelCitaButton,
   canMesaShowCancelCitaOperativa,
+  explainMesaShowCancelCitaOperativa,
+  resolveMesaAgendaCancelRole,
 } from "./mesaAgendaCancelAccess";
 
 describe("canMesaRoleCancelAgendaRpc", () => {
@@ -86,6 +88,51 @@ describe("canMesaShowCancelCitaOperativa", () => {
         submittedToMesa: false,
       }),
       false,
+    );
+  });
+
+  it("fixture Cloud 99903805001: mockRole null + sessionRole mesa_control", () => {
+    const explain = explainMesaShowCancelCitaOperativa({
+      kind: "biometricos",
+      mockRole: null,
+      sessionRole: "mesa_control",
+      submittedToMesa: true,
+      subestado: "en_proceso",
+      cicloEstado: "activo",
+      etapaActual: 5,
+      hasActiveBooking: true,
+      fechaCita: "2026-06-20T15:00:00.000Z",
+    });
+    assert.equal(explain.visible, true, explain.failedChecks.join(", "));
+    assert.equal(explain.failedChecks.length, 0);
+    assert.equal(resolveMesaAgendaCancelRole({ mockRole: null, sessionRole: "mesa_control" }), "mesa_control");
+  });
+
+  it("mockRole null sin sessionRole falla en rol", () => {
+    const explain = explainMesaShowCancelCitaOperativa({
+      kind: "biometricos",
+      mockRole: null,
+      sessionRole: null,
+      submittedToMesa: true,
+      subestado: "en_proceso",
+      cicloEstado: "activo",
+      etapaActual: 5,
+      hasActiveBooking: true,
+      fechaCita: "2026-06-20T15:00:00.000Z",
+    });
+    assert.equal(explain.visible, false);
+    assert.deepEqual(explain.failedChecks, ["rol"]);
+  });
+
+  it("fecha_cita sin booking activo sí muestra", () => {
+    assert.equal(
+      canMesaShowCancelCitaOperativa({
+        ...baseBio,
+        etapaActual: 5,
+        hasActiveBooking: false,
+        fechaCita: "2026-06-20T15:00:00.000Z",
+      }),
+      true,
     );
   });
 });

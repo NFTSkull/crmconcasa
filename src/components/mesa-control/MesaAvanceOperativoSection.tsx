@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import {
   MESA_AVISO_SIN_RECHAZO_DIRECTO,
@@ -8,10 +8,23 @@ import {
   type MesaAvanceOperativoCopy,
 } from "@/domain/expedientes/mesa-decision-ux";
 import type { AvanceOperativoEtapaView } from "@/domain/expedientes/mesa-avance-integracion";
+import {
+  explainMesaShowCancelCitaOperativa,
+  MESA_CANCEL_BIO_BUTTON_LABEL,
+  MESA_CANCEL_FIRMAS_BUTTON_LABEL,
+  type MesaAgendaCancelKind,
+} from "@/lib/mesaAgendaCancelAccess";
 
-export type MesaAvanceCancelCitaAction = Readonly<{
-  label: string;
-  visible: boolean;
+export type MesaAvanceCancelCitaGate = Readonly<{
+  kind: MesaAgendaCancelKind;
+  mockRole: string | null;
+  sessionRole: string | null;
+  submittedToMesa: boolean;
+  subestado: string | null;
+  cicloEstado: string | null;
+  etapaActual: number | null;
+  hasActiveBooking: boolean;
+  fechaCita: string | null;
   success: string | null;
   cancelledMotivo: string | null;
   onRequest: () => void;
@@ -39,10 +52,15 @@ type Props = {
   error: string | null;
   success: string | null;
   onAvanzar: () => Promise<void>;
-  cancelCita?: MesaAvanceCancelCitaAction | null;
+  /** Gate evaluado dentro del panel Decisión Mesa (misma pantalla que avance). */
+  cancelCitaGate?: MesaAvanceCancelCitaGate | null;
   /** Si false, oculta botón avanzar aunque `view.puedeAvanzar` (p. ej. etapa 10 solo cancel). */
   mostrarBotonAvanzar?: boolean;
 };
+
+const DEBUG_MESA_CANCEL =
+  process.env.NEXT_PUBLIC_DEBUG_MESA_CANCEL === "1" ||
+  process.env.NEXT_PUBLIC_DEBUG_MESA_CANCEL === "true";
 
 export function MesaAvanceOperativoSection({
   view,
@@ -52,7 +70,7 @@ export function MesaAvanceOperativoSection({
   error,
   success,
   onAvanzar,
-  cancelCita = null,
+  cancelCitaGate = null,
   mostrarBotonAvanzar = true,
 }: Props) {
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -60,6 +78,33 @@ export function MesaAvanceOperativoSection({
   const handleConfirmar = useCallback(() => {
     void onAvanzar().finally(() => setConfirmOpen(false));
   }, [onAvanzar]);
+
+  const cancelExplain = useMemo(
+    () =>
+      cancelCitaGate
+        ? explainMesaShowCancelCitaOperativa({
+            kind: cancelCitaGate.kind,
+            mockRole: cancelCitaGate.mockRole,
+            sessionRole: cancelCitaGate.sessionRole,
+            submittedToMesa: cancelCitaGate.submittedToMesa,
+            subestado: cancelCitaGate.subestado,
+            cicloEstado: cancelCitaGate.cicloEstado,
+            etapaActual: cancelCitaGate.etapaActual,
+            hasActiveBooking: cancelCitaGate.hasActiveBooking,
+            fechaCita: cancelCitaGate.fechaCita,
+          })
+        : null,
+    [cancelCitaGate],
+  );
+
+  const showCancelPanel = Boolean(
+    cancelCitaGate && cancelExplain?.visible && puedeOperar,
+  );
+
+  const cancelLabel =
+    cancelCitaGate?.kind === "firmas"
+      ? MESA_CANCEL_FIRMAS_BUTTON_LABEL
+      : MESA_CANCEL_BIO_BUTTON_LABEL;
 
   if (!view.mostrar) return null;
 
@@ -70,6 +115,12 @@ export function MesaAvanceOperativoSection({
       <section
         className="overflow-hidden rounded-xl border border-sky-200 bg-gradient-to-b from-sky-50/40 to-white shadow-sm"
         aria-label="Avance operativo Mesa"
+        data-mesa-cancel-visible={showCancelPanel ? "true" : "false"}
+        data-mesa-cancel-failed={
+          cancelExplain && !cancelExplain.visible
+            ? cancelExplain.failedChecks.join(",")
+            : undefined
+        }
       >
         <header className="border-b border-sky-100 bg-white px-4 py-4">
           <h2 className="text-base font-semibold text-gray-900">{titulo}</h2>
@@ -100,6 +151,57 @@ export function MesaAvanceOperativoSection({
             </div>
           ) : null}
 
+          {showCancelPanel ? (
+            <div
+              className="rounded-lg border border-amber-300 bg-amber-50 px-3 py-3"
+              data-testid="mesa-decision-cancel-cita"
+            >
+              {cancelCitaGate?.success ? (
+                <p
+                  role="status"
+                  className="text-sm font-medium text-amber-950"
+                >
+                  {cancelCitaGate.success}
+                </p>
+              ) : (
+                <>
+                  <p className="text-xs text-amber-950">
+                    Si el cliente no puede asistir, cancela la cita y permite que el
+                    asesor reagende.
+                  </p>
+                  {cancelCitaGate?.cancelledMotivo ? (
+                    <p className="mt-2 text-xs text-amber-900">
+                      <span className="font-medium">Motivo para el asesor:</span>{" "}
+                      {cancelCitaGate.cancelledMotivo}
+                    </p>
+                  ) : null}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="mt-3 w-full text-xs sm:w-auto"
+                    onClick={cancelCitaGate?.onRequest}
+                  >
+                    {cancelLabel}
+                  </Button>
+                </>
+              )}
+            </div>
+          ) : null}
+
+          {DEBUG_MESA_CANCEL &&
+          cancelCitaGate &&
+          cancelExplain &&
+          !cancelExplain.visible &&
+          puedeOperar ? (
+            <p
+              className="rounded border border-dashed border-gray-300 bg-gray-50 px-2 py-1 font-mono text-[10px] text-gray-600"
+              data-testid="mesa-cancel-gate-debug"
+            >
+              cancel gate: {cancelExplain.failedChecks.join(", ") || "ok"} · rol=
+              {cancelExplain.resolvedRole ?? "null"}
+            </p>
+          ) : null}
+
           {error ? (
             <p
               role="alert"
@@ -116,35 +218,6 @@ export function MesaAvanceOperativoSection({
             >
               {success}
             </p>
-          ) : null}
-
-          {cancelCita?.visible ? (
-            <div className="rounded-lg border border-amber-200 bg-amber-50/90 px-3 py-3">
-              {cancelCita.success ? (
-                <p
-                  role="status"
-                  className="text-sm font-medium text-amber-950"
-                >
-                  {cancelCita.success}
-                </p>
-              ) : null}
-              {cancelCita.cancelledMotivo && !cancelCita.success ? (
-                <p className="text-xs text-amber-900">
-                  <span className="font-medium">Motivo para el asesor:</span>{" "}
-                  {cancelCita.cancelledMotivo}
-                </p>
-              ) : null}
-              {puedeOperar && !cancelCita.success ? (
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="mt-2 w-full text-xs sm:w-auto"
-                  onClick={cancelCita.onRequest}
-                >
-                  {cancelCita.label}
-                </Button>
-              ) : null}
-            </div>
           ) : null}
 
           {puedeOperar && mostrarBotonAvanzar && copy.etiquetaBoton ? (

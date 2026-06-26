@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Fix Mesa cancel cita — rol sesión (`mesa_control`):** el gate `canMesaShowCancelCitaOperativa` ya no depende solo de `mockRole` en localStorage; usa `sessionRole` (`currentUser.role`) como el botón avanzar. Panel Decisión Mesa evalúa `cancelCitaGate` in situ; acepta booking activo **o** `fecha_cita`. Debug `NEXT_PUBLIC_DEBUG_MESA_CANCEL=1` + test fixture `99903805001`.
+
 - **Mesa cancel cita en Decisión Mesa (UI):** botón «Cancelar cita biométrica/firmas y solicitar reagenda» visible en panel **Decisión Mesa** (etapas 4/5 bio, 9/10 firmas); modal motivo obligatorio; mensaje «Cita cancelada. El asesor puede reagendar.»; gate `en_proceso` + booking activo.
 
 - **Mesa cancelar cita con motivo (037–038):** migración `037` cancel Mesa + `038` book en etapas 5/10; UI asesor reagenda tras cancelación; gates `AsesorAgenda*SupabaseGate`; **sin Cloud**.

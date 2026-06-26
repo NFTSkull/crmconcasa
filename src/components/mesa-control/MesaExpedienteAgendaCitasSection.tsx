@@ -22,6 +22,7 @@ export type MesaExpedienteAgendaCitasSectionProps = Readonly<{
   firmasBooking: AgendaFirmasActiveBooking | null;
   firmasLocationLabel?: string | null;
   mockRole?: string | null;
+  sessionRole?: string | null;
   biometricosCancelSuccess?: string | null;
   biometricosCancelledMotivo?: string | null;
   firmasCancelSuccess?: string | null;
@@ -115,6 +116,7 @@ export function MesaExpedienteAgendaCitasSection({
   firmasBooking,
   firmasLocationLabel,
   mockRole = null,
+  sessionRole = null,
   biometricosCancelSuccess = null,
   biometricosCancelledMotivo = null,
   firmasCancelSuccess = null,
@@ -138,8 +140,10 @@ export function MesaExpedienteAgendaCitasSection({
   const puedeCancelarBiometricos = canMesaShowCancelCitaButton({
     kind: "biometricos",
     mockRole,
+    sessionRole,
     etapaActual,
     hasActiveBooking: biometricBooking != null,
+    fechaCita,
     submittedToMesa,
     subestado,
     cicloEstado,
@@ -147,8 +151,10 @@ export function MesaExpedienteAgendaCitasSection({
   const puedeCancelarFirmas = canMesaShowCancelCitaButton({
     kind: "firmas",
     mockRole,
+    sessionRole,
     etapaActual,
     hasActiveBooking: firmasBooking != null,
+    fechaCita,
     submittedToMesa,
     subestado,
     cicloEstado,

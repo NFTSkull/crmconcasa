@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-06-26 - Fix gate cancel: `mesa_control` vía sesión (no mockRole)
+
+### Decisión
+
+- **Causa raíz Preview `99903805001`:** `canMesaShowCancelCitaOperativa` evaluaba solo `getEffectiveMockRole()`; sin `mock_user` en localStorage → `mockRole=null` → check **`rol`** fallaba. «Aceptar post-cita biométrica» sí aparecía porque usa `currentUser.role === "mesa_control"`.
+- `resolveMesaAgendaCancelRole({ mockRole, sessionRole })`: fallback a rol de sesión Supabase (`mesa_control`, `super_admin`, variantes `mesa_*`).
+- `MesaAvanceOperativoSection` recibe `cancelCitaGate` y evalúa `explainMesaShowCancelCitaOperativa` dentro del panel Decisión Mesa.
+- `mesaHasCitaProgramadaParaCancel`: booking activo **o** `fecha_cita` no vacía.
+- Debug temporal: `NEXT_PUBLIC_DEBUG_MESA_CANCEL=1` → `data-testid="mesa-cancel-gate-debug"` con `failedChecks`.
+- Test explícito fixture Cloud `99903805001` (`mockRole: null`, `sessionRole: "mesa_control"`, etapa 5, booking).
+
 ## 2026-06-26 - Cancel cita visible en Decisión Mesa
 
 ### Decisión
