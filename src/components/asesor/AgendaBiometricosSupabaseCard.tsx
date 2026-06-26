@@ -21,6 +21,10 @@ import {
   mapLocationIdToAdvisorCanonical,
   type AdvisorSedeOption,
 } from "@/lib/agendaAdvisorLocations";
+import {
+  AdvisorAgendaSlotPicker,
+  buildAdvisorDateAvailabilityInsight,
+} from "@/components/asesor/AdvisorAgendaSlotPicker";
 
 export interface AgendaBiometricosSupabaseCardProps {
   expedienteId: string;
@@ -70,103 +74,6 @@ function adjustSlotsForReagendar(
     const remaining = Math.max(0, slot.capacity - bookedCount);
     return { ...slot, bookedCount, remaining };
   });
-}
-
-type SlotPickerProps = {
-  config: AgendaBiometricosWeeklyConfig | null;
-  sedeOptions: readonly AdvisorSedeOption[];
-  sedeCanonicalId: string;
-  dateYmd: YmdDate;
-  timeHhmm: HhmmTime | "";
-  disponibilidadSlots: readonly AgendaBiometricosSlotAvailability[];
-  saving: boolean;
-  onSedeChange: (canonicalId: string) => void;
-  onDateChange: (date: YmdDate) => void;
-  onTimeChange: (time: HhmmTime) => void;
-};
-
-function BiometricosSlotPicker({
-  config,
-  sedeOptions,
-  sedeCanonicalId,
-  dateYmd,
-  timeHhmm,
-  disponibilidadSlots,
-  saving,
-  onSedeChange,
-  onDateChange,
-  onTimeChange,
-}: SlotPickerProps) {
-  return (
-    <div className="mt-3 space-y-3">
-      <label className="block text-[11px] font-semibold text-gray-700">
-        Sede
-        <select
-          className="mt-0.5 w-full rounded-md border border-gray-200 px-2 py-1.5 text-xs text-gray-900"
-          value={sedeCanonicalId}
-          onChange={(e) => onSedeChange(e.target.value)}
-          disabled={!config?.enabled || saving}
-        >
-          {sedeOptions.map((opt) => (
-            <option key={opt.canonicalId} value={opt.canonicalId}>
-              {opt.label}
-            </option>
-          ))}
-        </select>
-      </label>
-
-      <label className="block text-[11px] font-semibold text-gray-700">
-        Fecha
-        <input
-          type="date"
-          className="mt-0.5 w-full rounded-md border border-gray-200 px-2 py-1.5 text-xs"
-          value={dateYmd}
-          min={config ? todayYmdInTimezone(config.timezone) : undefined}
-          onChange={(e) => onDateChange(e.target.value as YmdDate)}
-          disabled={saving || !config?.enabled}
-        />
-      </label>
-
-      <div>
-        <p className="text-[11px] font-semibold text-gray-700">Horario</p>
-        <p className="mt-0.5 text-[10px] text-gray-500">
-          Verde: disponible · Gris: lleno o no permitido
-        </p>
-        <div className="mt-1.5 flex max-h-40 flex-wrap gap-1.5 overflow-y-auto rounded-md border border-gray-100 bg-gray-50/80 p-2">
-          {disponibilidadSlots.length === 0 ? (
-            <span className="text-[11px] text-gray-500">
-              Sin horarios disponibles para esta fecha y sede.
-            </span>
-          ) : (
-            disponibilidadSlots.map((slot) => {
-              const lleno = slot.remaining <= 0;
-              const selected = timeHhmm === slot.time;
-              return (
-                <button
-                  key={slot.time}
-                  type="button"
-                  disabled={lleno || saving}
-                  onClick={() => onTimeChange(slot.time)}
-                  className={`rounded-md border px-2 py-1 text-left text-[11px] font-medium transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 disabled:cursor-not-allowed ${
-                    lleno
-                      ? "border-gray-200 bg-gray-100 text-gray-400"
-                      : selected
-                        ? "border-sky-600 bg-sky-600 text-white shadow-sm"
-                        : "border-emerald-200/80 bg-emerald-50 text-emerald-950 hover:border-emerald-300 hover:bg-emerald-100/80"
-                  }`}
-                >
-                  <span className="block">{slot.time}</span>
-                  <span className="block text-[9px] font-normal opacity-90">
-                    {lleno ? "Lleno" : `${slot.remaining} disp.`}
-                  </span>
-                </button>
-              );
-            })
-          )}
-        </div>
-      </div>
-    </div>
-  );
 }
 
 export function AgendaBiometricosSupabaseCard({
@@ -267,6 +174,16 @@ export function AgendaBiometricosSupabaseCard({
     });
     return adjustSlotsForReagendar(base, reagendar, activeBooking, dateYmd, selectedSede);
   }, [activeBooking, bookedSlots, config, dateYmd, reagendar, selectedSede]);
+
+  const availabilityInsight = useMemo(() => {
+    if (!config || !selectedSede) return null;
+    return buildAdvisorDateAvailabilityInsight({
+      config,
+      bookedSlots,
+      date: dateYmd,
+      sede: selectedSede,
+    });
+  }, [bookedSlots, config, dateYmd, selectedSede]);
 
   const citaIso =
     activeBooking && config
@@ -448,13 +365,15 @@ export function AgendaBiometricosSupabaseCard({
         </p>
       ) : null}
 
-      <BiometricosSlotPicker
+      <AdvisorAgendaSlotPicker
         config={config}
         sedeOptions={advisorSedeOptions}
+        selectedSede={selectedSede}
         sedeCanonicalId={sedeCanonicalId}
         dateYmd={dateYmd}
         timeHhmm={timeHhmm}
         disponibilidadSlots={disponibilidadSlots}
+        availabilityInsight={availabilityInsight}
         saving={saving}
         onSedeChange={(id) => {
           setSedeCanonicalId(id);
@@ -467,6 +386,11 @@ export function AgendaBiometricosSupabaseCard({
           setError(null);
         }}
         onTimeChange={(time) => {
+          setTimeHhmm(time);
+          setError(null);
+        }}
+        onGoToNextAvailability={(date, time) => {
+          setDateYmd(date);
           setTimeHhmm(time);
           setError(null);
         }}

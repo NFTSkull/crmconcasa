@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **UX asesor — próxima disponibilidad en agenda:** si no hay horarios en la fecha seleccionada, muestra motivo, próxima fecha/hora y botón «Ir a próxima disponibilidad» (45 días); biométricos y firmas; sin RPC.
+
 - **UX asesor — sedes Monterrey/Apodaca en agenda:** dropdown biométricos y firmas normaliza legacy (`mty-centro`, `san-nicolas`, etc.) a solo Monterrey y Apodaca; disponibilidad consolidada; `bookLocationId` canónico si existe en config; sin RPC ni schema.
 
 - **UX Cynthia — Horarios rápidos en configuración de agendas:** pills 09:00–17:00, preset «Usar jornada estándar», input personalizado sin error en vacío; helpers `agendaCynthiaSlots`; biométricos y firmas; sin backend.

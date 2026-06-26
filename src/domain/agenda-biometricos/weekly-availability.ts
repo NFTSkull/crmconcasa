@@ -20,7 +20,7 @@ function formatYmd(y: number, mo: number, d: number): YmdDate {
   return `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}` as YmdDate;
 }
 
-function addDaysYmd(dateYmd: YmdDate, days: number): YmdDate {
+export function addDaysYmd(dateYmd: YmdDate, days: number): YmdDate {
   const { y, mo, d } = parseYmd(dateYmd);
   const base = new Date(Date.UTC(y, mo - 1, d, 12, 0, 0));
   base.setUTCDate(base.getUTCDate() + days);
@@ -197,9 +197,12 @@ export function computeAdvisorSlotAvailability(params: {
   sourceLocationIds: readonly string[];
   capacityPerSlot: number;
   now?: Date;
+  /** Si false, incluye horarios bloqueados solo por anticipación mínima (diagnóstico UI). */
+  applyMinLeadHours?: boolean;
 }): AgendaBiometricosSlotAvailability[] {
   const { config, bookedSlots, date, canonicalId, sourceLocationIds, capacityPerSlot } = params;
   const now = params.now ?? new Date();
+  const applyMinLeadHours = params.applyMinLeadHours !== false;
 
   if (!config.enabled) return [];
   if (!sourceLocationIds.length) return [];
@@ -218,7 +221,7 @@ export function computeAdvisorSlotAvailability(params: {
   for (const slot of config.slots) {
     const time = normalizeHhmm(slot);
     if (!time) continue;
-    if (!meetsMinLeadHours(date, time, config.timezone, config.minLeadHours, now)) {
+    if (applyMinLeadHours && !meetsMinLeadHours(date, time, config.timezone, config.minLeadHours, now)) {
       continue;
     }
     const bookedCount = countBookedForSlotAcrossLocations(

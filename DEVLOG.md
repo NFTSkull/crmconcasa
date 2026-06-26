@@ -1,5 +1,19 @@
 # Devlog
 
+## 2026-06-25 - UX asesor: próxima disponibilidad en agenda
+
+### Decisión
+
+- `findNextAvailableAgendaSlot` busca hasta 45 días con `computeAdvisorSlotAvailability`.
+- Diagnóstico de fecha vacía: día no habilitado, anticipación mínima, cupo lleno o sin config.
+- Componente compartido `AdvisorAgendaSlotPicker` para biométricos y firmas.
+- Botón navega a fecha/hora sin cambiar sede.
+
+### Archivos
+
+- `agendaAdvisorNextAvailability.ts` (+ test), `AdvisorAgendaSlotPicker.tsx`
+- Cards biométricos/firmas; `applyMinLeadHours` opcional en disponibilidad asesor.
+
 ## 2026-06-25 - UX asesor: sedes Monterrey/Apodaca en agenda
 
 ### Decisión
