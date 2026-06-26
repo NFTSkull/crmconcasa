@@ -2,79 +2,25 @@
 
 import { useCallback, useState } from "react";
 import { Button } from "@/components/ui/Button";
+import {
+  MESA_AVISO_SIN_RECHAZO_DIRECTO,
+  MESA_DECISION_TITULO_AVANCE,
+  type MesaAvanceOperativoCopy,
+} from "@/domain/expedientes/mesa-decision-ux";
 import type { AvanceOperativoEtapaView } from "@/domain/expedientes/mesa-avance-integracion";
 
-export type MesaAvanceOperativoCopy = {
-  titulo?: string;
-  descripcion: string;
-  etiquetaBoton: string;
-  mensajeConfirmacion: string;
-};
+export type { MesaAvanceOperativoCopy } from "@/domain/expedientes/mesa-decision-ux";
 
-export const MESA_AVANCE_OPERATIVO_2A3_COPY: MesaAvanceOperativoCopy = {
-  descripcion:
-    "El expediente está en Registro (etapa 2). Confirma el avance a Listo para cita de biométrico (etapa 3). No se requiere cita biométrica agendada en este paso.",
-  etiquetaBoton: "Avanzar a Listo para cita de biométrico",
-  mensajeConfirmacion:
-    "¿Confirmas avanzar este expediente a etapa 3: Listo para cita de biométrico?",
-};
-
-export const MESA_AVANCE_OPERATIVO_3A4_COPY: MesaAvanceOperativoCopy = {
-  descripcion:
-    "El expediente está en Listo para cita de biométrico (etapa 3). Confirma el avance a Cita agendada (biométricos) (etapa 4). Este paso no agenda la cita; el asesor la agenda después, cuando el expediente esté en etapa 4.",
-  etiquetaBoton: "Avanzar a Cita agendada (biométricos)",
-  mensajeConfirmacion:
-    "¿Confirmas avanzar este expediente a etapa 4: Cita agendada (biométricos)?",
-};
-
-export const MESA_AVANCE_OPERATIVO_4A5_COPY: MesaAvanceOperativoCopy = {
-  titulo: "Avanzar a etapa 5",
-  descripcion:
-    "Confirma que la cita biométrica está agendada para continuar a resultado biométrico.",
-  etiquetaBoton: "Avanzar a etapa 5",
-  mensajeConfirmacion: "¿Confirmas avanzar este expediente a etapa 5?",
-};
-
-export const MESA_AVANCE_OPERATIVO_5A6_COPY: MesaAvanceOperativoCopy = {
-  titulo: "Avanzar a etapa 6",
-  descripcion:
-    "La cita biométrica ya ocurrió. Confirma el avance a inscripción.",
-  etiquetaBoton: "Avanzar a etapa 6",
-  mensajeConfirmacion: "¿Confirmas avanzar este expediente a etapa 6?",
-};
-
-export const MESA_AVANCE_OPERATIVO_6A7_COPY: MesaAvanceOperativoCopy = {
-  titulo: "Avanzar a etapa 7",
-  descripcion:
-    "El expediente está en inscripción (etapa 6). Confirma el avance a notificación.",
-  etiquetaBoton: "Avanzar a etapa 7",
-  mensajeConfirmacion: "¿Confirmas avanzar este expediente a etapa 7?",
-};
-
-export const MESA_AVANCE_OPERATIVO_7A8_COPY: MesaAvanceOperativoCopy = {
-  titulo: "Avanzar a etapa 8",
-  descripcion:
-    "El expediente está en notificación (etapa 7). Confirma el avance a acuse / aviso de retención.",
-  etiquetaBoton: "Avanzar a etapa 8",
-  mensajeConfirmacion: "¿Confirmas avanzar este expediente a etapa 8?",
-};
-
-export const MESA_AVANCE_OPERATIVO_8A9_COPY: MesaAvanceOperativoCopy = {
-  titulo: "Avanzar a etapa 9",
-  descripcion:
-    "La retención fue validada por Mesa. Puedes avanzar a agenda de firma.",
-  etiquetaBoton: "Avanzar a etapa 9",
-  mensajeConfirmacion: "¿Confirmas avanzar este expediente a etapa 9: agenda de firma?",
-};
-
-export const MESA_AVANCE_OPERATIVO_9A10_COPY: MesaAvanceOperativoCopy = {
-  titulo: "Avanzar a etapa 10",
-  descripcion:
-    "La cita de firma está agendada. Puedes avanzar el expediente a etapa 10.",
-  etiquetaBoton: "Avanzar a etapa 10",
-  mensajeConfirmacion:
-    "¿Confirmas avanzar este expediente a etapa 10: Cita para firma?",
-};
+export {
+  MESA_AVANCE_OPERATIVO_2A3_COPY,
+  MESA_AVANCE_OPERATIVO_3A4_COPY,
+  MESA_AVANCE_OPERATIVO_4A5_COPY,
+  MESA_AVANCE_OPERATIVO_5A6_COPY,
+  MESA_AVANCE_OPERATIVO_6A7_COPY,
+  MESA_AVANCE_OPERATIVO_7A8_COPY,
+  MESA_AVANCE_OPERATIVO_8A9_COPY,
+  MESA_AVANCE_OPERATIVO_9A10_COPY,
+} from "@/domain/expedientes/mesa-decision-ux";
 
 type Props = {
   view: AvanceOperativoEtapaView;
@@ -103,6 +49,8 @@ export function MesaAvanceOperativoSection({
 
   if (!view.mostrar) return null;
 
+  const titulo = copy.titulo ?? MESA_DECISION_TITULO_AVANCE;
+
   return (
     <>
       <section
@@ -110,13 +58,20 @@ export function MesaAvanceOperativoSection({
         aria-label="Avance operativo Mesa"
       >
         <header className="border-b border-sky-100 bg-white px-4 py-4">
-          <h2 className="text-base font-semibold text-gray-900">
-            {copy.titulo ?? "Avance operativo Mesa"}
-          </h2>
+          <h2 className="text-base font-semibold text-gray-900">{titulo}</h2>
           <p className="mt-1 max-w-2xl text-xs text-gray-500">{copy.descripcion}</p>
         </header>
 
         <div className="space-y-3 p-4">
+          {copy.mostrarAvisoSinRechazo ? (
+            <p
+              role="note"
+              className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-700"
+            >
+              {MESA_AVISO_SIN_RECHAZO_DIRECTO}
+            </p>
+          ) : null}
+
           {view.bloqueos.length > 0 ? (
             <div
               role="status"
@@ -177,7 +132,7 @@ export function MesaAvanceOperativoSection({
             onClick={(e) => e.stopPropagation()}
           >
             <h3 id="mesa-avance-operativo-title" className="text-base font-semibold text-gray-900">
-              Confirmar avance de etapa
+              Confirmar aceptación y avance
             </h3>
             <p className="mt-2 text-sm text-gray-600">{copy.mensajeConfirmacion}</p>
             <div className="mt-5 flex justify-end gap-2">
@@ -190,7 +145,7 @@ export function MesaAvanceOperativoSection({
                 Cancelar
               </Button>
               <Button type="button" disabled={loading} onClick={() => void handleConfirmar()}>
-                {loading ? "Avanzando…" : "Confirmar avance"}
+                {loading ? "Avanzando…" : "Confirmar aceptación"}
               </Button>
             </div>
           </div>

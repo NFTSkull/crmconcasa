@@ -49,6 +49,10 @@ import {
   type ExpedienteMock,
 } from "@/domain/expedientes";
 import {
+  mostrarMesaClienteDatosPanel,
+  mostrarMesaIntegracionDocsPanel,
+} from "@/domain/expedientes/mesa-decision-ux";
+import {
   useAgendaBiometricosBookingRepo,
   type AgendaBiometricosActiveBooking,
   type AgendaBiometricosConfigRecord,
@@ -782,6 +786,25 @@ export function MesaExpedienteDetalleReadOnly() {
     [continuarContext],
   );
 
+  const mostrarPanelClienteDatos = useMemo(
+    () =>
+      mostrarMesaClienteDatosPanel({
+        etapaActual: expediente?.operativo.etapaActual ?? null,
+        estado: clienteDatos?.estado ?? null,
+        tieneDatos: Boolean(clienteDatos),
+      }),
+    [clienteDatos, expediente?.operativo.etapaActual],
+  );
+
+  const mostrarPanelIntegracionDocs = useMemo(
+    () =>
+      mostrarMesaIntegracionDocsPanel({
+        etapaActual: expediente?.operativo.etapaActual ?? null,
+        archivosResumen,
+      }),
+    [archivosResumen, expediente?.operativo.etapaActual],
+  );
+
   const avanceOperativoContext = useMemo(
     () => ({
       submittedToMesa: expediente?.operativo.submittedToMesa ?? false,
@@ -1239,7 +1262,7 @@ export function MesaExpedienteDetalleReadOnly() {
         </div>
       </section>
 
-      {clienteDatos ? (
+      {clienteDatos && mostrarPanelClienteDatos ? (
         <MesaClienteDatosReadOnlySection
           clienteDatos={clienteDatos}
           direccionOpcional={expediente.base.direccion_opcional}
@@ -1251,13 +1274,14 @@ export function MesaExpedienteDetalleReadOnly() {
           onValidar={handleValidarClienteDatos}
           onRechazar={handleRechazarClienteDatos}
         />
-      ) : (
+      ) : !clienteDatos ? (
         <section className="rounded-lg border border-gray-200 bg-white p-4 text-sm text-gray-600">
           <h2 className="text-sm font-semibold text-gray-900">Datos generales del cliente</h2>
           <p className="mt-2 text-sm text-gray-500">Sin datos generales registrados todavía.</p>
         </section>
-      )}
+      ) : null}
 
+      {mostrarPanelIntegracionDocs ? (
       <MesaDocumentosAsesorSection
         documentos={documentosAsesor}
         puedeRevisar={puedeRevisar}
@@ -1270,6 +1294,7 @@ export function MesaExpedienteDetalleReadOnly() {
         onValidar={(tipo, documentoId) => void handleValidarDocumento(tipo, documentoId)}
         onGuardarRechazo={handleGuardarRechazo}
       />
+      ) : null}
 
       <MesaControlDocumentosComplementariosSection
         documentos={documentosComplementarios}

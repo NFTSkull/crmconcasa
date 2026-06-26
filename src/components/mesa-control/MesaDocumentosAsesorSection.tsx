@@ -11,6 +11,7 @@ import {
   type IntegrationDocChecklistItem,
   type MesaIntegrationDocView,
 } from "@/domain/expediente-archivos";
+import { MESA_SOLICITAR_CORRECCION_LABEL } from "@/domain/expedientes/mesa-decision-ux";
 
 function estatusRevisionLabel(estatus: IntegrationDocChecklistItem["estatus_revision"]): string {
   if (estatus === "faltante") return "Faltante";
@@ -250,7 +251,7 @@ function DocumentoRow({
                 disabled={busy}
                 onClick={onAbrirRechazo}
               >
-                {item.estatus_revision === "validado" ? "Corregir" : "Rechazar"}
+                {MESA_SOLICITAR_CORRECCION_LABEL}
               </Button>
             </div>
           ) : null}
@@ -449,11 +450,11 @@ export function MesaDocumentosAsesorSection({
           <div
             role="dialog"
             aria-modal="true"
-            aria-label="Rechazar documento"
+            aria-label="Solicitar corrección de documento"
             className="w-full max-w-lg rounded-xl border border-gray-200 bg-white p-4 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-sm font-semibold text-gray-900">Rechazar documento</h3>
+            <h3 className="text-sm font-semibold text-gray-900">Solicitar corrección</h3>
             <p className="mt-1 text-xs text-gray-600">
               <span className="font-medium text-gray-800">{rejectTarget.label}</span>
               {rejectTarget.archivo?.nombre_original ? (

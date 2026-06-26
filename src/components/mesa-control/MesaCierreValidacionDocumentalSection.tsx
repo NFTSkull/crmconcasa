@@ -2,10 +2,8 @@
 
 import { useCallback, useState } from "react";
 import { Button } from "@/components/ui/Button";
+import { MESA_CIERRE_INTEGRACION_COPY } from "@/domain/expedientes/mesa-decision-ux";
 import type { CierreValidacionDocumentalView } from "@/domain/expedientes/mesa-avance-integracion";
-
-const CONFIRMACION_AVANCE =
-  "¿Confirmas avanzar este expediente a etapa 2: Registro?";
 
 function checklistIcon(completo: boolean): string {
   return completo ? "✓" : "○";
@@ -50,11 +48,11 @@ export function MesaCierreValidacionDocumentalSection({
       >
         <header className="border-b border-emerald-100 bg-white px-4 py-4">
           <h2 className="text-base font-semibold text-gray-900">
-            Cierre de validación documental
+            {MESA_CIERRE_INTEGRACION_COPY.titulo}
           </h2>
           <p className="mt-1 max-w-2xl text-xs text-gray-500">
-            Revisa el checklist antes de avanzar el expediente a Registro (etapa 2). Los
-            documentos complementarios no bloquean este avance.
+            {MESA_CIERRE_INTEGRACION_COPY.descripcion} Los documentos complementarios no bloquean
+            este avance.
           </p>
         </header>
 
@@ -157,7 +155,7 @@ export function MesaCierreValidacionDocumentalSection({
                 onClick={() => setConfirmOpen(true)}
                 disabled={!view.puedeAvanzar || loading}
               >
-                {loading ? "Avanzando…" : "Avanzar a Registro"}
+                {loading ? "Avanzando…" : MESA_CIERRE_INTEGRACION_COPY.etiquetaBoton}
               </Button>
             </div>
           ) : null}
@@ -178,9 +176,11 @@ export function MesaCierreValidacionDocumentalSection({
             onClick={(e) => e.stopPropagation()}
           >
             <h3 id="mesa-cierre-avance-title" className="text-base font-semibold text-gray-900">
-              Confirmar avance de etapa
+              Confirmar aceptación y avance
             </h3>
-            <p className="mt-2 text-sm text-gray-600">{CONFIRMACION_AVANCE}</p>
+            <p className="mt-2 text-sm text-gray-600">
+              {MESA_CIERRE_INTEGRACION_COPY.mensajeConfirmacion}
+            </p>
             <div className="mt-5 flex justify-end gap-2">
               <Button
                 type="button"
@@ -191,7 +191,7 @@ export function MesaCierreValidacionDocumentalSection({
                 Cancelar
               </Button>
               <Button type="button" disabled={loading} onClick={() => void handleConfirmar()}>
-                {loading ? "Avanzando…" : "Confirmar avance"}
+                {loading ? "Avanzando…" : "Confirmar aceptación"}
               </Button>
             </div>
           </div>

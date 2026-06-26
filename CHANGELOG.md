@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **P3R.0 — Mesa Decision UX (copy/visibilidad):** botones «Aceptar y avanzar» en transiciones 1→10; «Solicitar corrección» en rechazos reales (integración + retención); aviso en etapas sin rechazo directo; resumen cita firma en etapa 10 (read-only, nota P3Q); ocultar docs integración y datos generales fuera de etapa 1 salvo correcciones/bloqueos; sin migraciones ni backend.
+
 - **Merge `origin/main` (2026-06-25):** exportación CSV admin (vista día + tabla filtrada) sobre listado de expedientes; `formatMontoMX` / `parseMontoAprobado` con locale `es-MX` y decimales; sin cambios Cloud ni migraciones.
 
 - **P3P.3 — Mesa ve cita firma y avanza 9→10 (Supabase, local):** `MesaCitaFirmasResumenSection` + panel `MESA_AVANCE_OPERATIVO_9A10_COPY`; gates `deriveAvanceOperativo9a10View`; RPC `avanzar_etapa_operativa`; sin migraciones ni mock.

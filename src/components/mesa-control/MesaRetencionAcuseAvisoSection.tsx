@@ -22,6 +22,7 @@ import {
   retencionDocPuedeRechazarMesa,
   type RetencionEnvioMesaUiEstado,
 } from "@/domain/expediente-retencion/retencion-envio-mesa";
+import { MESA_SOLICITAR_CORRECCION_LABEL } from "@/domain/expedientes/mesa-decision-ux";
 import type { RetencionOpcion } from "@/domain/expediente-retencion/types";
 
 function docRowAccentClass(estatus: MesaRetencionDocView["estatus_revision"]): string {
@@ -268,7 +269,7 @@ export function MesaRetencionAcuseAvisoSection({
                             disabled={busy || !puedeRechazar}
                             onClick={() => openRejectModal(item)}
                           >
-                            {item.estatus_revision === "validado" ? "Corregir" : "Rechazar"}
+                            {MESA_SOLICITAR_CORRECCION_LABEL}
                           </Button>
                         </>
                       ) : null}
@@ -306,7 +307,7 @@ export function MesaRetencionAcuseAvisoSection({
             onClick={(e) => e.stopPropagation()}
           >
             <h3 id="mesa-retencion-rechazo-title" className="text-sm font-semibold text-gray-900">
-              Rechazar documento — {rejectTarget.label}
+              Solicitar corrección — {rejectTarget.label}
             </h3>
             <p className="mt-1 text-xs text-gray-600">
               El comentario es obligatorio. El asesor verá la nota y deberá corregir el documento.

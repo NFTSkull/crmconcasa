@@ -1,5 +1,19 @@
 # Devlog
 
+## 2026-06-25 - P3R.0: Mesa Decision UX copy/visibilidad
+
+### Decisión
+
+- Copy unificado «Aceptar y avanzar» / «Confirmar aceptación» en paneles de avance existentes (1→10); sin RPC nuevo ni 10→11.
+- «Solicitar corrección» reemplaza «Rechazar» solo donde hay backend real (`update_documento_revision`, `update_cliente_datos_revision`).
+- Gates de visibilidad: docs integración solo etapa 1 o con corrección pendiente; datos generales etapa 1, rechazado, o etapa 8+ sin validar.
+- `MesaCitaFirmasResumenSection` visible en etapas 9 y 10; etapa 10 read-only con nota P3Q.
+- Aviso «sin rechazo directo» en avances operativos 2→3 … 7→8 y 9→10 (no en 8→9 ni cierre integración).
+
+### Archivos
+
+- `mesa-decision-ux.ts` (+ tests), `MesaAvanceOperativoSection`, `MesaCierreValidacionDocumentalSection`, `MesaCitaFirmasResumenSection`, `MesaExpedienteDetalleReadOnly`, secciones rechazo docs/datos/retención.
+
 ## 2026-06-25 - Merge origin/main en p3-supabase-connection
 
 ### Decisión

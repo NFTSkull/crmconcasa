@@ -9,6 +9,7 @@ import {
   type ExpedienteClienteDatos,
   type ExpedienteClienteDatosEstado,
 } from "@/domain/expediente-cliente-datos";
+import { MESA_SOLICITAR_CORRECCION_LABEL } from "@/domain/expedientes/mesa-decision-ux";
 
 function displayValue(value: string | null | undefined): string {
   const trimmed = value?.trim();
@@ -159,7 +160,7 @@ export function MesaClienteDatosReadOnlySection({
                   disabled={saving}
                   onClick={openRejectModal}
                 >
-                  Rechazar datos
+                  {MESA_SOLICITAR_CORRECCION_LABEL}
                 </Button>
               </div>
             ) : null}
@@ -313,11 +314,11 @@ export function MesaClienteDatosReadOnlySection({
           <div
             role="dialog"
             aria-modal="true"
-            aria-label="Rechazar datos generales"
+            aria-label="Solicitar corrección de datos generales"
             className="w-full max-w-lg rounded-xl border border-gray-200 bg-white p-4 shadow-xl"
             onClick={(e) => e.stopPropagation()}
           >
-            <h3 className="text-sm font-semibold text-gray-900">Rechazar datos generales</h3>
+            <h3 className="text-sm font-semibold text-gray-900">Solicitar corrección de datos</h3>
             <p className="mt-1 text-xs text-gray-500">
               El asesor verá este motivo para corregir solo los datos generales.
             </p>
