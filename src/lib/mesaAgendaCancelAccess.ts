@@ -34,6 +34,7 @@ export function canMesaRoleCancelFirmasRpc(mockRole: string | null | undefined):
 
 /**
  * El botón avanzar usa `currentUser.role` (`mesa_control`).
+ * La RPC `cancel_biometricos` (037) lee `profiles.app_role` (`mesa_admin`, etc.), no este alias.
  * Si `mock_user` no está en localStorage, el gate de cancelación debe usar el rol de sesión.
  */
 export function resolveMesaAgendaCancelRole(params: {

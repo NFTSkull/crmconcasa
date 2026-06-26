@@ -9,6 +9,10 @@ import {
   explainMesaShowCancelCitaOperativa,
   resolveMesaAgendaCancelRole,
 } from "./mesaAgendaCancelAccess";
+import {
+  mapAppRoleToMockRole,
+  mapMockRoleToSessionRole,
+} from "@/domain/session/supabase.repo";
 
 describe("canMesaRoleCancelAgendaRpc", () => {
   it("roles Mesa mock y Supabase", () => {
@@ -23,6 +27,38 @@ describe("canMesaRoleCancelAgendaRpc", () => {
 
   it("asesor no", () => {
     assert.equal(canMesaRoleCancelAgendaRpc("asesor"), false);
+  });
+});
+
+describe("alineación gate UI vs RPC cancel_biometricos (037)", () => {
+  const rpcMesaRoles = [
+    "mesa_admin",
+    "mesa_interno",
+    "mesa_externo",
+    "super_admin",
+  ] as const;
+
+  it("app_role Postgres autorizado en RPC pasa gate UI (mockRole y sessionRole)", () => {
+    for (const appRole of rpcMesaRoles) {
+      const mockRole = mapAppRoleToMockRole(appRole);
+      const sessionRole = mapMockRoleToSessionRole(mockRole);
+
+      assert.equal(canMesaRoleCancelAgendaRpc(mockRole), true, appRole);
+      assert.equal(canMesaRoleCancelAgendaRpc(sessionRole), true, `${appRole} session`);
+
+      const explain = explainMesaShowCancelCitaOperativa({
+        kind: "biometricos",
+        mockRole: null,
+        sessionRole,
+        submittedToMesa: true,
+        subestado: "en_proceso",
+        cicloEstado: "activo",
+        etapaActual: 5,
+        hasActiveBooking: true,
+        fechaCita: "2026-06-20T15:00:00.000Z",
+      });
+      assert.equal(explain.visible, true, `${appRole}: ${explain.failedChecks.join(",")}`);
+    }
   });
 });
 
