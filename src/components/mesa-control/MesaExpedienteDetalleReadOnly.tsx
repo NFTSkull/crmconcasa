@@ -8,9 +8,16 @@ import {
   openBlobUrlInNewTab,
   type MesaArchivoPreviewState,
 } from "@/components/mesa-control/MesaArchivoPreviewDialog";
+import { MesaAccordionSection } from "@/components/mesa-control/MesaAccordionSection";
+import { MesaExpedienteAgendaCitasSection } from "@/components/mesa-control/MesaExpedienteAgendaCitasSection";
+import {
+  buildAgendaAccordionSummary,
+  buildClienteDatosAccordionSummary,
+  buildComplementariosAccordionSummary,
+  buildIntegracionDocsAccordionSummary,
+  buildRetencionAccordionSummary,
+} from "@/components/mesa-control/MesaExpedienteDocumentosResumen";
 import { MesaClienteDatosReadOnlySection } from "@/components/mesa-control/MesaClienteDatosReadOnlySection";
-import { MesaCitaBiometricosResumenSection } from "@/components/mesa-control/MesaCitaBiometricosResumenSection";
-import { MesaCitaFirmasResumenSection } from "@/components/mesa-control/MesaCitaFirmasResumenSection";
 import { MesaAvanceOperativoSection, MESA_AVANCE_OPERATIVO_2A3_COPY, MESA_AVANCE_OPERATIVO_3A4_COPY, MESA_AVANCE_OPERATIVO_4A5_COPY, MESA_AVANCE_OPERATIVO_5A6_COPY, MESA_AVANCE_OPERATIVO_6A7_COPY, MESA_AVANCE_OPERATIVO_7A8_COPY, MESA_AVANCE_OPERATIVO_8A9_COPY, MESA_AVANCE_OPERATIVO_9A10_COPY } from "@/components/mesa-control/MesaAvanceOperativoSection";
 import { MesaCierreValidacionDocumentalSection } from "@/components/mesa-control/MesaCierreValidacionDocumentalSection";
 import { MesaControlDocumentosComplementariosSection } from "@/components/mesa-control/MesaControlDocumentosComplementariosSection";
@@ -49,8 +56,12 @@ import {
   type ExpedienteMock,
 } from "@/domain/expedientes";
 import {
-  mostrarMesaClienteDatosPanel,
-  mostrarMesaIntegracionDocsPanel,
+  mesaPuedeRevisarClienteDatos,
+  mesaPuedeRevisarDocumentosIntegracion,
+  mesaPuedeRevisarRetencionDocumentos,
+  mostrarMesaClienteDatosConsulta,
+  mostrarMesaIntegracionDocsConsulta,
+  mostrarMesaRetencionConsulta,
 } from "@/domain/expedientes/mesa-decision-ux";
 import {
   useAgendaBiometricosBookingRepo,
@@ -69,7 +80,6 @@ import {
 } from "@/domain/expediente-archivos/retencion-acuse-aviso";
 import {
   buildMesaRetencionDocViews,
-  canShowMesaRetencionSupabaseSection,
   retencionEnvioEstadoEfectivo,
   retencionOpcionMesaEfectiva,
   useExpedienteRetencionSupabaseRepo,
@@ -124,6 +134,11 @@ function MesaDetalleShell({
       <main className="mx-auto max-w-6xl space-y-6 px-4 py-6">{children}</main>
     </div>
   );
+}
+
+function formatAsesorLabel(asesorId: string | null | undefined): string {
+  const value = String(asesorId ?? "").trim();
+  return value || "—";
 }
 
 function puedeRevisarDocumentos(role: Rol | undefined): boolean {
@@ -207,7 +222,7 @@ export function MesaExpedienteDetalleReadOnly() {
   const [avance9a10Error, setAvance9a10Error] = useState<string | null>(null);
   const [avance9a10Success, setAvance9a10Success] = useState<string | null>(null);
 
-  const puedeRevisar = puedeRevisarDocumentos(currentUser?.role);
+  const puedeOperarMesa = puedeRevisarDocumentos(currentUser?.role);
 
   const load = useCallback(() => {
     if (!routeExpedienteId || !currentUser) return;
@@ -319,8 +334,9 @@ export function MesaExpedienteDetalleReadOnly() {
     void refreshRetencionMeta();
   }, [retencionRepo, routeExpedienteId, refreshRetencionMeta]);
 
-  const mostrarRetencionMesa = canShowMesaRetencionSupabaseSection({
+  const mostrarRetencionMesa = mostrarMesaRetencionConsulta({
     etapaActual: expediente?.operativo.etapaActual,
+    tieneRetencionMeta: Boolean(retencionOpcion || retencionEnvio),
   });
 
   const retencionOpcionMesa = useMemo(
@@ -786,24 +802,9 @@ export function MesaExpedienteDetalleReadOnly() {
     [continuarContext],
   );
 
-  const mostrarPanelClienteDatos = useMemo(
-    () =>
-      mostrarMesaClienteDatosPanel({
-        etapaActual: expediente?.operativo.etapaActual ?? null,
-        estado: clienteDatos?.estado ?? null,
-        tieneDatos: Boolean(clienteDatos),
-      }),
-    [clienteDatos, expediente?.operativo.etapaActual],
-  );
+  const mostrarPanelClienteDatos = mostrarMesaClienteDatosConsulta();
 
-  const mostrarPanelIntegracionDocs = useMemo(
-    () =>
-      mostrarMesaIntegracionDocsPanel({
-        etapaActual: expediente?.operativo.etapaActual ?? null,
-        archivosResumen,
-      }),
-    [archivosResumen, expediente?.operativo.etapaActual],
-  );
+  const mostrarPanelIntegracionDocs = mostrarMesaIntegracionDocsConsulta();
 
   const avanceOperativoContext = useMemo(
     () => ({
@@ -1190,6 +1191,37 @@ export function MesaExpedienteDetalleReadOnly() {
 
   const op = expediente.operativo;
   const ed = expediente.editorDecision;
+  const etapaActual = op.etapaActual;
+
+  const puedeRevisarClienteDatos =
+    puedeOperarMesa && mesaPuedeRevisarClienteDatos(etapaActual);
+  const puedeRevisarDocsIntegracion =
+    puedeOperarMesa && mesaPuedeRevisarDocumentosIntegracion(etapaActual);
+  const puedeRevisarRetencion =
+    puedeOperarMesa &&
+    mesaPuedeRevisarRetencionDocumentos(etapaActual, Boolean(retencionEnvio?.enviado));
+
+  const clienteDatosSummary = buildClienteDatosAccordionSummary({
+    tieneDatos: Boolean(clienteDatos),
+    estado: clienteDatos?.estado ?? null,
+  });
+  const documentosSummary = buildIntegracionDocsAccordionSummary(documentosAsesor);
+  const complementariosSummary = buildComplementariosAccordionSummary(documentosComplementarios);
+  const retencionSummary = buildRetencionAccordionSummary({
+    opcion: retencionOpcionMesa,
+    envioUiEstado: retencionEnvioUiEstado,
+  });
+  const agendaSummary = buildAgendaAccordionSummary({
+    etapaActual,
+    biometricBooking: activeBiometricBooking,
+    firmasBooking: activeFirmasBooking,
+    fechaCita: op.fechaCita,
+  });
+  const editorSummary = `${editorDecisionLabel(ed.decision)}${
+    ed.decision === "aprobado" && typeof ed.monto_aprobado === "number"
+      ? ` · $${ed.monto_aprobado.toLocaleString("es-MX")}`
+      : ""
+  }`;
 
   return (
     <MesaDetalleShell>
@@ -1213,7 +1245,7 @@ export function MesaExpedienteDetalleReadOnly() {
           </p>
           <p>
             <span className="font-medium text-gray-900">Asesor:</span>{" "}
-            {expediente.base.asesorId || "—"}
+            {formatAsesorLabel(expediente.base.asesorId)}
           </p>
           <p>
             <span className="font-medium text-gray-900">Origen Mesa:</span>{" "}
@@ -1242,9 +1274,12 @@ export function MesaExpedienteDetalleReadOnly() {
         </div>
       </section>
 
-      <section className="rounded-lg border border-gray-200 bg-white p-4 text-sm text-gray-600">
-        <h2 className="text-sm font-semibold text-gray-900">Decisión del editor</h2>
-        <div className="mt-3 grid gap-2 sm:grid-cols-2">
+      <MesaAccordionSection
+        id="mesa-editor"
+        title="Decisión del editor"
+        summary={editorSummary}
+      >
+        <div className="space-y-2 px-4 py-3 text-sm text-gray-600">
           <p>
             <span className="font-medium text-gray-900">Decisión:</span>{" "}
             {editorDecisionLabel(ed.decision)}
@@ -1255,63 +1290,125 @@ export function MesaExpedienteDetalleReadOnly() {
               ? `$${ed.monto_aprobado.toLocaleString("es-MX")}`
               : "—"}
           </p>
-          <p className="sm:col-span-2">
+          <p>
             <span className="font-medium text-gray-900">Notas revisión:</span>{" "}
             {ed.notas_revision?.trim() || "—"}
           </p>
         </div>
-      </section>
+      </MesaAccordionSection>
 
-      {clienteDatos && mostrarPanelClienteDatos ? (
-        <MesaClienteDatosReadOnlySection
-          clienteDatos={clienteDatos}
-          direccionOpcional={expediente.base.direccion_opcional}
-          submittedToMesa={op.submittedToMesa}
-          formatDateTime={formatDateTime}
-          puedeRevisar={puedeRevisar}
-          saving={clienteDatosSaving}
-          revisionError={clienteDatosRevisionError}
-          onValidar={handleValidarClienteDatos}
-          onRechazar={handleRechazarClienteDatos}
-        />
-      ) : !clienteDatos ? (
-        <section className="rounded-lg border border-gray-200 bg-white p-4 text-sm text-gray-600">
-          <h2 className="text-sm font-semibold text-gray-900">Datos generales del cliente</h2>
-          <p className="mt-2 text-sm text-gray-500">Sin datos generales registrados todavía.</p>
-        </section>
+      {mostrarPanelClienteDatos ? (
+        <MesaAccordionSection
+          id="mesa-datos-generales"
+          title="Datos generales del cliente"
+          summary={clienteDatosSummary}
+        >
+          {clienteDatos ? (
+            <MesaClienteDatosReadOnlySection
+              embedded
+              clienteDatos={clienteDatos}
+              direccionOpcional={expediente.base.direccion_opcional}
+              submittedToMesa={op.submittedToMesa}
+              formatDateTime={formatDateTime}
+              puedeRevisar={puedeRevisarClienteDatos}
+              saving={clienteDatosSaving}
+              revisionError={clienteDatosRevisionError}
+              onValidar={handleValidarClienteDatos}
+              onRechazar={handleRechazarClienteDatos}
+            />
+          ) : (
+            <p className="px-4 py-3 text-sm text-gray-500">
+              Sin datos generales registrados todavía.
+            </p>
+          )}
+        </MesaAccordionSection>
       ) : null}
 
       {mostrarPanelIntegracionDocs ? (
-      <MesaDocumentosAsesorSection
-        documentos={documentosAsesor}
-        puedeRevisar={puedeRevisar}
-        archivoLoadingTipo={archivoLoadingTipo}
-        revisionSavingTipo={revisionSavingTipo as IntegrationDocAsesorUploadTipo | null}
-        archivoErrorByTipo={archivoErrorByTipo}
-        revisionErrorByTipo={revisionErrorByTipo}
-        onVer={(tipo, archivo) => void handleVerArchivo(tipo, archivo)}
-        onDescargar={(tipo, archivo) => void handleDescargarArchivo(tipo, archivo)}
-        onValidar={(tipo, documentoId) => void handleValidarDocumento(tipo, documentoId)}
-        onGuardarRechazo={handleGuardarRechazo}
-      />
+        <MesaAccordionSection
+          id="mesa-documentos-asesor"
+          title="Documentos e imágenes del cliente"
+          summary={documentosSummary}
+        >
+          <MesaDocumentosAsesorSection
+            embedded
+            documentos={documentosAsesor}
+            puedeRevisar={puedeRevisarDocsIntegracion}
+            archivoLoadingTipo={archivoLoadingTipo}
+            revisionSavingTipo={revisionSavingTipo as IntegrationDocAsesorUploadTipo | null}
+            archivoErrorByTipo={archivoErrorByTipo}
+            revisionErrorByTipo={revisionErrorByTipo}
+            onVer={(tipo, archivo) => void handleVerArchivo(tipo, archivo)}
+            onDescargar={(tipo, archivo) => void handleDescargarArchivo(tipo, archivo)}
+            onValidar={(tipo, documentoId) => void handleValidarDocumento(tipo, documentoId)}
+            onGuardarRechazo={handleGuardarRechazo}
+          />
+        </MesaAccordionSection>
       ) : null}
 
-      <MesaControlDocumentosComplementariosSection
-        documentos={documentosComplementarios}
-        puedeOperar={puedeRevisar}
-        archivoLoadingTipo={complementarioArchivoLoadingTipo}
-        uploadLoadingTipo={uploadLoadingTipo}
-        archivoErrorByTipo={complementarioArchivoErrorByTipo}
-        uploadErrorByTipo={uploadErrorByTipo}
-        onVer={(tipo, archivo) => void handleVerComplementario(tipo, archivo)}
-        onDescargar={(tipo, archivo) => void handleDescargarComplementario(tipo, archivo)}
-        onSubir={handleSubirComplementario}
-        onReemplazar={handleReemplazarComplementario}
-      />
+      <MesaAccordionSection
+        id="mesa-complementarios"
+        title="Documentos complementarios / Mesa Control"
+        summary={complementariosSummary}
+      >
+        <MesaControlDocumentosComplementariosSection
+          embedded
+          documentos={documentosComplementarios}
+          puedeOperar={puedeOperarMesa}
+          archivoLoadingTipo={complementarioArchivoLoadingTipo}
+          uploadLoadingTipo={uploadLoadingTipo}
+          archivoErrorByTipo={complementarioArchivoErrorByTipo}
+          uploadErrorByTipo={uploadErrorByTipo}
+          onVer={(tipo, archivo) => void handleVerComplementario(tipo, archivo)}
+          onDescargar={(tipo, archivo) => void handleDescargarComplementario(tipo, archivo)}
+          onSubir={handleSubirComplementario}
+          onReemplazar={handleReemplazarComplementario}
+        />
+      </MesaAccordionSection>
+
+      {mostrarRetencionMesa ? (
+        <MesaAccordionSection
+          id="mesa-retencion"
+          title="Retención / Acuse / Aviso"
+          summary={retencionSummary}
+        >
+          <MesaRetencionAcuseAvisoSection
+            embedded
+            opcionMesa={retencionOpcionMesa}
+            envioUiEstado={retencionEnvioUiEstado}
+            fechaEnvioMesa={retencionEnvio?.fechaEnvioMesa}
+            documentos={retencionDocumentos}
+            faltantes={retencionFaltantes}
+            bloqueosAvance={retencionBloqueosAvance}
+            puedeRevisar={puedeRevisarRetencion}
+            formatDateTime={formatDateTime}
+            archivoLoadingTipo={retencionArchivoLoadingTipo}
+            revisionSavingTipo={revisionSavingTipo as RetencionTipoDocumento | null}
+            archivoErrorByTipo={archivoErrorByTipo}
+            revisionErrorByTipo={revisionErrorByTipo}
+            onVer={(tipo, archivo) => void handleVerRetencionDoc(tipo, archivo)}
+            onDescargar={(tipo, archivo) => void handleDescargarRetencionDoc(tipo, archivo)}
+            onValidar={(tipo, documentoId) => void handleValidarRetencionDocumento(tipo, documentoId)}
+            onGuardarRechazo={handleGuardarRechazoRetencion}
+          />
+        </MesaAccordionSection>
+      ) : null}
+
+      <MesaAccordionSection id="mesa-agenda" title="Agenda / Citas" summary={agendaSummary}>
+        <MesaExpedienteAgendaCitasSection
+          embedded
+          etapaActual={etapaActual}
+          fechaCita={op.fechaCita}
+          biometricBooking={activeBiometricBooking}
+          biometricLocationLabel={biometricLocationLabel}
+          firmasBooking={activeFirmasBooking}
+          firmasLocationLabel={firmasLocationLabel}
+        />
+      </MesaAccordionSection>
 
       <MesaCierreValidacionDocumentalSection
         view={cierreValidacionView}
-        puedeOperar={puedeRevisar}
+        puedeOperar={puedeOperarMesa}
         loading={continuarLoading}
         error={continuarError}
         success={continuarSuccess}
@@ -1321,7 +1418,7 @@ export function MesaExpedienteDetalleReadOnly() {
       <MesaAvanceOperativoSection
         view={avanceOperativo2a3View}
         copy={MESA_AVANCE_OPERATIVO_2A3_COPY}
-        puedeOperar={puedeRevisar}
+        puedeOperar={puedeOperarMesa}
         loading={avance2a3Loading}
         error={avance2a3Error}
         success={avance2a3Success}
@@ -1331,24 +1428,17 @@ export function MesaExpedienteDetalleReadOnly() {
       <MesaAvanceOperativoSection
         view={avanceOperativo3a4View}
         copy={MESA_AVANCE_OPERATIVO_3A4_COPY}
-        puedeOperar={puedeRevisar}
+        puedeOperar={puedeOperarMesa}
         loading={avance3a4Loading}
         error={avance3a4Error}
         success={avance3a4Success}
         onAvanzar={handleAvanzarOperativo3a4}
       />
 
-      <MesaCitaBiometricosResumenSection
-        etapaActual={op.etapaActual}
-        fechaCita={op.fechaCita}
-        booking={activeBiometricBooking}
-        locationLabel={biometricLocationLabel}
-      />
-
       <MesaAvanceOperativoSection
         view={avanceOperativo4a5View}
         copy={MESA_AVANCE_OPERATIVO_4A5_COPY}
-        puedeOperar={puedeRevisar}
+        puedeOperar={puedeOperarMesa}
         loading={avance4a5Loading}
         error={avance4a5Error}
         success={avance4a5Success}
@@ -1358,7 +1448,7 @@ export function MesaExpedienteDetalleReadOnly() {
       <MesaAvanceOperativoSection
         view={avanceOperativo5a6View}
         copy={MESA_AVANCE_OPERATIVO_5A6_COPY}
-        puedeOperar={puedeRevisar}
+        puedeOperar={puedeOperarMesa}
         loading={avance5a6Loading}
         error={avance5a6Error}
         success={avance5a6Success}
@@ -1368,7 +1458,7 @@ export function MesaExpedienteDetalleReadOnly() {
       <MesaAvanceOperativoSection
         view={avanceOperativo6a7View}
         copy={MESA_AVANCE_OPERATIVO_6A7_COPY}
-        puedeOperar={puedeRevisar}
+        puedeOperar={puedeOperarMesa}
         loading={avance6a7Loading}
         error={avance6a7Error}
         success={avance6a7Success}
@@ -1378,55 +1468,27 @@ export function MesaExpedienteDetalleReadOnly() {
       <MesaAvanceOperativoSection
         view={avanceOperativo7a8View}
         copy={MESA_AVANCE_OPERATIVO_7A8_COPY}
-        puedeOperar={puedeRevisar}
+        puedeOperar={puedeOperarMesa}
         loading={avance7a8Loading}
         error={avance7a8Error}
         success={avance7a8Success}
         onAvanzar={handleAvanzarOperativo7a8}
       />
 
-      {mostrarRetencionMesa ? (
-        <MesaRetencionAcuseAvisoSection
-          opcionMesa={retencionOpcionMesa}
-          envioUiEstado={retencionEnvioUiEstado}
-          fechaEnvioMesa={retencionEnvio?.fechaEnvioMesa}
-          documentos={retencionDocumentos}
-          faltantes={retencionFaltantes}
-          bloqueosAvance={retencionBloqueosAvance}
-          puedeRevisar={puedeRevisar}
-          formatDateTime={formatDateTime}
-          archivoLoadingTipo={retencionArchivoLoadingTipo}
-          revisionSavingTipo={revisionSavingTipo as RetencionTipoDocumento | null}
-          archivoErrorByTipo={archivoErrorByTipo}
-          revisionErrorByTipo={revisionErrorByTipo}
-          onVer={(tipo, archivo) => void handleVerRetencionDoc(tipo, archivo)}
-          onDescargar={(tipo, archivo) => void handleDescargarRetencionDoc(tipo, archivo)}
-          onValidar={(tipo, documentoId) => void handleValidarRetencionDocumento(tipo, documentoId)}
-          onGuardarRechazo={handleGuardarRechazoRetencion}
-        />
-      ) : null}
-
       <MesaAvanceOperativoSection
         view={avanceOperativo8a9View}
         copy={MESA_AVANCE_OPERATIVO_8A9_COPY}
-        puedeOperar={puedeRevisar}
+        puedeOperar={puedeOperarMesa}
         loading={avance8a9Loading}
         error={avance8a9Error}
         success={avance8a9Success}
         onAvanzar={handleAvanzarOperativo8a9}
       />
 
-      <MesaCitaFirmasResumenSection
-        etapaActual={op.etapaActual}
-        fechaCita={op.fechaCita}
-        booking={activeFirmasBooking}
-        locationLabel={firmasLocationLabel}
-      />
-
       <MesaAvanceOperativoSection
         view={avanceOperativo9a10View}
         copy={MESA_AVANCE_OPERATIVO_9A10_COPY}
-        puedeOperar={puedeRevisar}
+        puedeOperar={puedeOperarMesa}
         loading={avance9a10Loading}
         error={avance9a10Error}
         success={avance9a10Success}

@@ -196,6 +196,7 @@ type Props = {
   ) => void;
   onSubir: (tipo: IntegrationDocMesaUploadTipo, file: File) => Promise<void>;
   onReemplazar: (tipo: IntegrationDocMesaUploadTipo, file: File) => Promise<void>;
+  embedded?: boolean;
 };
 
 export function MesaControlDocumentosComplementariosSection({
@@ -209,6 +210,7 @@ export function MesaControlDocumentosComplementariosSection({
   onDescargar,
   onSubir,
   onReemplazar,
+  embedded = false,
 }: Props) {
   const resolveArchivo = useCallback(
     (tipo: IntegrationDocMesaUploadTipo) => {
@@ -218,10 +220,23 @@ export function MesaControlDocumentosComplementariosSection({
     [documentos],
   );
 
-  if (documentos.length === 0) return null;
+  if (documentos.length === 0) {
+    return (
+      <p className={embedded ? "px-4 py-3 text-sm text-gray-500" : "text-sm text-gray-500"}>
+        No hay documentos complementarios configurados.
+      </p>
+    );
+  }
 
   return (
-    <section className="overflow-hidden rounded-xl border border-violet-200 bg-gradient-to-b from-violet-50/40 to-white shadow-sm">
+    <section
+      className={
+        embedded
+          ? "bg-white"
+          : "overflow-hidden rounded-xl border border-violet-200 bg-gradient-to-b from-violet-50/40 to-white shadow-sm"
+      }
+    >
+      {embedded ? null : (
       <header className="border-b border-violet-100 bg-white px-4 py-4">
         <div>
           <h2 className="text-base font-semibold text-gray-900">
@@ -233,8 +248,9 @@ export function MesaControlDocumentosComplementariosSection({
           </p>
         </div>
       </header>
+      )}
 
-      <div className="space-y-2 p-4">
+      <div className={embedded ? "space-y-2 px-4 pb-4" : "space-y-2 p-4"}>
         {documentos.map((item) => (
           <DocumentoRow
             key={item.tipo_documento}

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **UX Mesa — detalle expediente con secciones colapsables:** acordeones para datos generales, documentos, complementarios, retención y agenda; consulta en todas las etapas; acciones de validación solo donde aplica; Decisión Mesa / avance operativo sin cambios.
+
 - **UX Mesa — ocultar configuración de agendas para Interno/Externo:** solo `mesa_admin` y `super_admin` ven/editan biométricos y firmas en `/mesa-control`; sin bloques en solo lectura para otros roles Mesa.
 
 - **UX asesor — próxima disponibilidad en agenda:** si no hay horarios en la fecha seleccionada, muestra motivo, próxima fecha/hora y botón «Ir a próxima disponibilidad» (45 días); biométricos y firmas; sin RPC.

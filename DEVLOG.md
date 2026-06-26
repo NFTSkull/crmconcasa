@@ -1,5 +1,18 @@
 # Devlog
 
+## 2026-06-25 - UX Mesa: detalle expediente colapsable
+
+### Decisión
+
+- `MesaAccordionSection` + resúmenes por bloque; cerrado por default salvo resumen arriba.
+- Consulta datos/documentos en todas las etapas; `mesaPuedeRevisar*` limita acciones (etapa 1 / retención 8 enviada).
+- Agenda unifica biométricos + firma; avance operativo fuera de acordeones.
+
+### Archivos
+
+- `MesaAccordionSection`, `MesaExpedienteDocumentosResumen`, `MesaExpedienteAgendaCitasSection`
+- `MesaExpedienteDetalleReadOnly` + helpers en `mesa-decision-ux.ts`
+
 ## 2026-06-25 - UX Mesa: ocultar config agendas para Interno/Externo
 
 ### Decisión

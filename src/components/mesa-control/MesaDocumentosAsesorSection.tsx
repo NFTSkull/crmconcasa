@@ -330,6 +330,7 @@ type Props = {
     documentoId: string,
     comentario: string,
   ) => Promise<boolean>;
+  embedded?: boolean;
 };
 
 export function MesaDocumentosAsesorSection({
@@ -343,6 +344,7 @@ export function MesaDocumentosAsesorSection({
   onDescargar,
   onValidar,
   onGuardarRechazo,
+  embedded = false,
 }: Props) {
   const resumen = useMemo(() => computeResumen(documentos), [documentos]);
 
@@ -379,15 +381,22 @@ export function MesaDocumentosAsesorSection({
 
   if (documentos.length === 0) {
     return (
-      <section className="rounded-xl border border-gray-200 bg-white p-6 text-center text-sm text-gray-500 shadow-sm">
+      <p className={embedded ? "px-4 py-3 text-sm text-gray-500" : "rounded-xl border border-gray-200 bg-white p-6 text-center text-sm text-gray-500 shadow-sm"}>
         No hay documentos registrados en el checklist de integración.
-      </section>
+      </p>
     );
   }
 
   return (
     <>
-      <section className="overflow-hidden rounded-xl border border-gray-200 bg-gradient-to-b from-slate-50 to-white shadow-sm">
+      <section
+        className={
+          embedded
+            ? "bg-white"
+            : "overflow-hidden rounded-xl border border-gray-200 bg-gradient-to-b from-slate-50 to-white shadow-sm"
+        }
+      >
+        {embedded ? null : (
         <header className="border-b border-gray-200 bg-white px-4 py-4">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>
@@ -413,8 +422,9 @@ export function MesaDocumentosAsesorSection({
             </div>
           </div>
         </header>
+        )}
 
-        <div className="space-y-5 p-4">
+        <div className={embedded ? "space-y-5 px-4 pb-4" : "space-y-5 p-4"}>
           <DocumentoGroup
             title="Checklist de integración"
             subtitle={`${resumen.obligatoriosSubidos} de ${resumen.totalObligatorios} con archivo`}

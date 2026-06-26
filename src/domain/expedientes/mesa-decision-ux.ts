@@ -117,6 +117,46 @@ export function citaFirmaVisibleEnMesa(etapaActual: number | null | undefined): 
   return etapaActual === 9 || etapaActual === 10;
 }
 
+/** Validar/rechazar datos generales: solo etapa documental (1). */
+export function mesaPuedeRevisarClienteDatos(etapaActual: number | null | undefined): boolean {
+  return etapaActual === 1;
+}
+
+/** Validar/rechazar documentos de integración: solo etapa documental (1). */
+export function mesaPuedeRevisarDocumentosIntegracion(
+  etapaActual: number | null | undefined,
+): boolean {
+  return etapaActual === 1;
+}
+
+/** Validar/rechazar retención: etapa 8 con bloque enviado a Mesa. */
+export function mesaPuedeRevisarRetencionDocumentos(
+  etapaActual: number | null | undefined,
+  enviadoAMesa: boolean,
+): boolean {
+  return etapaActual === 8 && enviadoAMesa;
+}
+
+/** Consulta datos generales: visible en todas las etapas. */
+export function mostrarMesaClienteDatosConsulta(): boolean {
+  return true;
+}
+
+/** Consulta documentos integración: visible en todas las etapas. */
+export function mostrarMesaIntegracionDocsConsulta(): boolean {
+  return true;
+}
+
+/** Consulta retención: etapa 8+ o si ya hay opción/envío. */
+export function mostrarMesaRetencionConsulta(params: {
+  etapaActual: number | null | undefined;
+  tieneRetencionMeta: boolean;
+}): boolean {
+  if (params.tieneRetencionMeta) return true;
+  const etapa = params.etapaActual;
+  return typeof etapa === "number" && etapa >= 8;
+}
+
 /**
  * Panel documentos integración: etapa 1 siempre; fuera de 1 solo si hay correcciones pendientes.
  */

@@ -83,6 +83,7 @@ type Props = {
   revisionError: string | null;
   onValidar: () => Promise<boolean>;
   onRechazar: (comentario: string) => Promise<boolean>;
+  embedded?: boolean;
 };
 
 export function MesaClienteDatosReadOnlySection({
@@ -95,6 +96,7 @@ export function MesaClienteDatosReadOnlySection({
   revisionError,
   onValidar,
   onRechazar,
+  embedded = false,
 }: Props) {
   const { datos } = clienteDatos;
   const imagenes = clienteDatos.imagenes ?? [];
@@ -122,21 +124,29 @@ export function MesaClienteDatosReadOnlySection({
 
   return (
     <>
-      <div className="overflow-hidden rounded-xl border border-gray-200 bg-gradient-to-b from-slate-50 to-white shadow-sm">
-        <div className="border-b border-gray-200 bg-white px-4 py-4">
+      <div
+        className={
+          embedded
+            ? "bg-white"
+            : "overflow-hidden rounded-xl border border-gray-200 bg-gradient-to-b from-slate-50 to-white shadow-sm"
+        }
+      >
+        <div className={embedded ? "px-4 py-3" : "border-b border-gray-200 bg-white px-4 py-4"}>
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
-              <div className="flex flex-wrap items-center gap-2">
-                <h2 className="text-base font-semibold text-gray-900">
-                  Datos generales del cliente
-                </h2>
-                <span
-                  className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold ring-1 ${estadoBadgeClass(clienteDatos.estado)}`}
-                >
-                  {estadoCapturaLabel(clienteDatos.estado, submittedToMesa)}
-                </span>
-              </div>
-              <p className="mt-1 text-xs text-gray-500">
+              {embedded ? null : (
+                <div className="flex flex-wrap items-center gap-2">
+                  <h2 className="text-base font-semibold text-gray-900">
+                    Datos generales del cliente
+                  </h2>
+                  <span
+                    className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-semibold ring-1 ${estadoBadgeClass(clienteDatos.estado)}`}
+                  >
+                    {estadoCapturaLabel(clienteDatos.estado, submittedToMesa)}
+                  </span>
+                </div>
+              )}
+              <p className={`text-xs text-gray-500 ${embedded ? "" : "mt-1"}`}>
                 Revisión de captura del asesor · actualizado{" "}
                 {formatDateTime(clienteDatos.updatedAt)}
                 {clienteDatos.updatedBy ? ` · ${clienteDatos.updatedBy}` : ""}
@@ -202,7 +212,7 @@ export function MesaClienteDatosReadOnlySection({
           ) : null}
         </div>
 
-        <div className="space-y-3 p-4">
+        <div className={embedded ? "space-y-3 px-4 pb-4" : "space-y-3 p-4"}>
           <DataCard title="Identificación">
             <DataField label="Nombre completo" value={displayValue(datos.nombreCliente)} />
             <DataField label="NSS" value={displayValue(datos.nss)} />
