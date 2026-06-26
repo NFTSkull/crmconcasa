@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **UX Cynthia — Configuración de agendas (biométricos + firmas):** formulario compartido `AgendaWeeklyConfigForm` con texto legible, días en pills, horarios con chips HH:mm, solo sedes Monterrey (`monterrey`) y Apodaca (`apodaca`); mapeo legacy (`mty-centro`, `san-nicolas`, etc.) vía `agendaCynthiaLocations`; zona fija `America/Monterrey`; mismo RPC `upsert_agenda_config_*`; sin migraciones ni backend.
+
 - **P3R.0 — Mesa Decision UX (copy/visibilidad):** botones «Aceptar y avanzar» en transiciones 1→10; «Solicitar corrección» en rechazos reales (integración + retención); aviso en etapas sin rechazo directo; resumen cita firma en etapa 10 (read-only, nota P3Q); ocultar docs integración y datos generales fuera de etapa 1 salvo correcciones/bloqueos; sin migraciones ni backend.
 
 - **Merge `origin/main` (2026-06-25):** exportación CSV admin (vista día + tabla filtrada) sobre listado de expedientes; `formatMontoMX` / `parseMontoAprobado` con locale `es-MX` y decimales; sin cambios Cloud ni migraciones.

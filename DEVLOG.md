@@ -1,5 +1,20 @@
 # Devlog
 
+## 2026-06-25 - UX Cynthia: configuración de agendas (biométricos + firmas)
+
+### Decisión
+
+- UI orientada a operación: título «Configuración de agendas», subtítulo amigable, sin copy técnico (RPC, Bloque A/B, `location_id`).
+- Sedes canónicas fijas: **Monterrey** (`monterrey`) y **Apodaca** (`apodaca`); al cargar se colapsan IDs legacy conocidos; al guardar solo persisten esas dos.
+- Zona horaria visible fija `America/Monterrey` (no editable en UI).
+- Componente compartido `AgendaWeeklyConfigForm` para biométricos (sky) y firmas (violet).
+- Helpers en `src/lib/agendaCynthiaLocations.ts` + tests; defaults vacíos con ambas sedes activas cupo 5.
+
+### Archivos
+
+- `AgendaWeeklyConfigForm.tsx`, `AgendaBiometricosWeeklySupabaseSection.tsx`, `AgendaFirmasWeeklySupabaseSection.tsx`
+- `agendaCynthiaLocations.ts` (+ test), `map-agenda-config.ts` (defaults sedes)
+
 ## 2026-06-25 - P3R.0: Mesa Decision UX copy/visibilidad
 
 ### Decisión

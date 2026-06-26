@@ -54,7 +54,10 @@ export function emptyAgendaBiometricosWeeklyConfig(): AgendaBiometricosWeeklyCon
     minLeadHours: 24,
     allowedWeekdays: [1, 2, 3, 4, 5],
     slots: ["09:00", "10:00"],
-    locations: [],
+    locations: [
+      { id: "monterrey", label: "Monterrey", enabled: true, capacityPerSlot: 5 },
+      { id: "apodaca", label: "Apodaca", enabled: true, capacityPerSlot: 5 },
+    ],
   };
 }
 
