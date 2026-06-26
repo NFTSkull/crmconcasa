@@ -33,6 +33,7 @@ export type {
 export {
   buildScheduledAtIso,
   computeWeeklySlotAvailability,
+  computeAdvisorSlotAvailability,
   todayYmdInTimezone,
 } from "@/domain/agenda-biometricos/weekly-availability";
 export { canEditAgendaBiometricosWeeklyConfig as canEditAgendaFirmasWeeklyConfig } from "@/domain/agenda-biometricos";

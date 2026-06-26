@@ -114,6 +114,19 @@ function countBookedForSlot(
   return n;
 }
 
+function countBookedForSlotAcrossLocations(
+  bookedSlots: readonly WeeklyBookedSlot[],
+  date: YmdDate,
+  locationIds: readonly string[],
+  time: HhmmTime,
+): number {
+  let n = 0;
+  for (const locationId of locationIds) {
+    n += countBookedForSlot(bookedSlots, date, locationId, time);
+  }
+  return n;
+}
+
 function meetsMinLeadHours(
   dateYmd: YmdDate,
   timeHhmm: HhmmTime,
@@ -165,6 +178,59 @@ export function computeWeeklySlotAvailability(params: {
     out.push({
       date,
       locationId,
+      time,
+      capacity,
+      bookedCount,
+      remaining,
+    });
+  }
+
+  return out;
+}
+
+/** Disponibilidad consolidada para sede asesor (Monterrey/Apodaca) sumando bookings legacy. */
+export function computeAdvisorSlotAvailability(params: {
+  config: AgendaBiometricosWeeklyConfig;
+  bookedSlots: readonly WeeklyBookedSlot[];
+  date: YmdDate;
+  canonicalId: string;
+  sourceLocationIds: readonly string[];
+  capacityPerSlot: number;
+  now?: Date;
+}): AgendaBiometricosSlotAvailability[] {
+  const { config, bookedSlots, date, canonicalId, sourceLocationIds, capacityPerSlot } = params;
+  const now = params.now ?? new Date();
+
+  if (!config.enabled) return [];
+  if (!sourceLocationIds.length) return [];
+
+  const hasEnabledSource = sourceLocationIds.some((id) =>
+    config.locations.some((l) => l.id === id && l.enabled),
+  );
+  if (!hasEnabledSource) return [];
+
+  const isoDow = getIsoWeekdayForDate(date, config.timezone);
+  if (!config.allowedWeekdays.includes(isoDow)) return [];
+
+  const capacity = Math.max(1, Math.trunc(capacityPerSlot || 1));
+  const out: AgendaBiometricosSlotAvailability[] = [];
+
+  for (const slot of config.slots) {
+    const time = normalizeHhmm(slot);
+    if (!time) continue;
+    if (!meetsMinLeadHours(date, time, config.timezone, config.minLeadHours, now)) {
+      continue;
+    }
+    const bookedCount = countBookedForSlotAcrossLocations(
+      bookedSlots,
+      date,
+      sourceLocationIds,
+      time,
+    );
+    const remaining = Math.max(0, capacity - bookedCount);
+    out.push({
+      date,
+      locationId: canonicalId,
       time,
       capacity,
       bookedCount,

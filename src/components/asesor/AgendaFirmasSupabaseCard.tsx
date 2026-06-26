@@ -6,7 +6,7 @@ import {
   AgendaFirmasSupabaseError,
   buildScheduledAtIso,
   canShowFirmasManageActions,
-  computeWeeklySlotAvailability,
+  computeAdvisorSlotAvailability,
   todayYmdInTimezone,
   useAgendaFirmasBookingRepo,
   type AgendaFirmasSlotAvailability,
@@ -14,6 +14,13 @@ import {
   type HhmmTime,
   type YmdDate,
 } from "@/domain/agenda-firmas";
+import {
+  advisorLabelForLocationId,
+  advisorOptionIncludesBookingLocation,
+  buildAdvisorSedeOptions,
+  mapLocationIdToAdvisorCanonical,
+  type AdvisorSedeOption,
+} from "@/lib/agendaAdvisorLocations";
 
 export interface AgendaFirmasSupabaseCardProps {
   expedienteId: string;
@@ -48,10 +55,13 @@ function adjustSlotsForReagendar(
   reagendar: boolean,
   activeBooking: { bookingDate: string; bookingTime: string; locationId: string } | null,
   dateYmd: YmdDate,
-  locationId: string,
+  selectedSede: AdvisorSedeOption | null,
 ): readonly AgendaFirmasSlotAvailability[] {
-  if (!reagendar || !activeBooking) return slots;
-  if (activeBooking.locationId !== locationId || activeBooking.bookingDate !== dateYmd) {
+  if (!reagendar || !activeBooking || !selectedSede) return slots;
+  if (
+    !advisorOptionIncludesBookingLocation(selectedSede, activeBooking.locationId) ||
+    activeBooking.bookingDate !== dateYmd
+  ) {
     return slots;
   }
   return slots.map((slot) => {
@@ -64,26 +74,26 @@ function adjustSlotsForReagendar(
 
 type SlotPickerProps = {
   config: AgendaFirmasWeeklyConfig | null;
-  locationOptions: AgendaFirmasWeeklyConfig["locations"];
-  locationId: string;
+  sedeOptions: readonly AdvisorSedeOption[];
+  sedeCanonicalId: string;
   dateYmd: YmdDate;
   timeHhmm: HhmmTime | "";
   disponibilidadSlots: readonly AgendaFirmasSlotAvailability[];
   saving: boolean;
-  onLocationChange: (id: string) => void;
+  onSedeChange: (canonicalId: string) => void;
   onDateChange: (date: YmdDate) => void;
   onTimeChange: (time: HhmmTime) => void;
 };
 
 function FirmasSlotPicker({
   config,
-  locationOptions,
-  locationId,
+  sedeOptions,
+  sedeCanonicalId,
   dateYmd,
   timeHhmm,
   disponibilidadSlots,
   saving,
-  onLocationChange,
+  onSedeChange,
   onDateChange,
   onTimeChange,
 }: SlotPickerProps) {
@@ -92,14 +102,14 @@ function FirmasSlotPicker({
       <label className="block text-[11px] font-semibold text-gray-700">
         Sede
         <select
-          className="mt-0.5 w-full rounded-md border border-gray-200 px-2 py-1.5 text-xs"
-          value={locationId}
-          onChange={(e) => onLocationChange(e.target.value)}
+          className="mt-0.5 w-full rounded-md border border-gray-200 px-2 py-1.5 text-xs text-gray-900"
+          value={sedeCanonicalId}
+          onChange={(e) => onSedeChange(e.target.value)}
           disabled={!config?.enabled || saving}
         >
-          {locationOptions.map((loc) => (
-            <option key={loc.id} value={loc.id}>
-              {loc.label}
+          {sedeOptions.map((opt) => (
+            <option key={opt.canonicalId} value={opt.canonicalId}>
+              {opt.label}
             </option>
           ))}
         </select>
@@ -175,7 +185,7 @@ export function AgendaFirmasSupabaseCard({
   const [bookedSlots, setBookedSlots] = useState<
     Awaited<ReturnType<NonNullable<typeof repo>["listBookedSlots"]>>
   >([]);
-  const [locationId, setLocationId] = useState("");
+  const [sedeCanonicalId, setSedeCanonicalId] = useState("");
   const [dateYmd, setDateYmd] = useState<YmdDate>("2026-01-01" as YmdDate);
   const [timeHhmm, setTimeHhmm] = useState<HhmmTime | "">("");
   const [reagendar, setReagendar] = useState(false);
@@ -183,14 +193,14 @@ export function AgendaFirmasSupabaseCard({
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
-  const locationOptions = useMemo(
-    () => (config?.locations ?? []).filter((l) => l.enabled),
+  const advisorSedeOptions = useMemo(
+    () => buildAdvisorSedeOptions(config?.locations ?? []),
     [config],
   );
 
-  const selectedLocation = useMemo(
-    () => locationOptions.find((l) => l.id === locationId) ?? null,
-    [locationId, locationOptions],
+  const selectedSede = useMemo(
+    () => advisorSedeOptions.find((o) => o.canonicalId === sedeCanonicalId) ?? null,
+    [advisorSedeOptions, sedeCanonicalId],
   );
 
   const puedeGestionar = canShowFirmasManageActions({
@@ -221,9 +231,11 @@ export function AgendaFirmasSupabaseCard({
       const slots = await repo.listBookedSlots({ fromDate: today, toDate });
       setBookedSlots(slots);
 
-      const firstLocation = weekly?.locations.find((l) => l.enabled)?.id ?? "";
-      setLocationId((prev) =>
-        prev && weekly?.locations.some((l) => l.id === prev && l.enabled) ? prev : firstLocation,
+      const sedeOptions = buildAdvisorSedeOptions(weekly?.locations ?? []);
+      setSedeCanonicalId((prev) =>
+        prev && sedeOptions.some((o) => o.canonicalId === prev)
+          ? prev
+          : (sedeOptions[0]?.canonicalId ?? ""),
       );
       setDateYmd(today);
       setTimeHhmm("");
@@ -243,28 +255,18 @@ export function AgendaFirmasSupabaseCard({
     void load();
   }, [load]);
 
-  useEffect(() => {
-    if (!repo || !config || !locationId) return;
-    const today = todayYmdInTimezone(config.timezone);
-    const toDate = addDaysYmd(today, 60);
-    void repo
-      .listBookedSlots({ fromDate: today, toDate, locationId })
-      .then(setBookedSlots)
-      .catch(() => {
-        /* mantener último snapshot */
-      });
-  }, [config, dateYmd, locationId, repo]);
-
   const disponibilidadSlots = useMemo(() => {
-    if (!config || !locationId) return [];
-    const base = computeWeeklySlotAvailability({
+    if (!config || !selectedSede) return [];
+    const base = computeAdvisorSlotAvailability({
       config,
       bookedSlots,
       date: dateYmd,
-      locationId,
+      canonicalId: selectedSede.canonicalId,
+      sourceLocationIds: selectedSede.sourceLocationIds,
+      capacityPerSlot: selectedSede.capacityPerSlot,
     });
-    return adjustSlotsForReagendar(base, reagendar, activeBooking, dateYmd, locationId);
-  }, [activeBooking, bookedSlots, config, dateYmd, locationId, reagendar]);
+    return adjustSlotsForReagendar(base, reagendar, activeBooking, dateYmd, selectedSede);
+  }, [activeBooking, bookedSlots, config, dateYmd, reagendar, selectedSede]);
 
   const citaIso =
     activeBooking && config
@@ -279,19 +281,21 @@ export function AgendaFirmasSupabaseCard({
 
   const locationLabel =
     activeBooking?.locationId
-      ? config?.locations.find((l) => l.id === activeBooking.locationId)?.label ??
-        activeBooking.locationId
+      ? advisorLabelForLocationId(activeBooking.locationId, config?.locations ?? [])
       : undefined;
 
   const startReagendar = useCallback(() => {
-    if (!activeBooking) return;
+    if (!activeBooking || !config) return;
     setReagendar(true);
     setError(null);
     setSuccessMsg(null);
-    setLocationId(activeBooking.locationId);
+    const canonical =
+      mapLocationIdToAdvisorCanonical(activeBooking.locationId, config.locations) ??
+      sedeCanonicalId;
+    setSedeCanonicalId(canonical);
     setDateYmd(activeBooking.bookingDate as YmdDate);
     setTimeHhmm(activeBooking.bookingTime as HhmmTime);
-  }, [activeBooking]);
+  }, [activeBooking, config, sedeCanonicalId]);
 
   const handleCancel = useCallback(async () => {
     if (!repo || !activeBooking) return;
@@ -321,12 +325,12 @@ export function AgendaFirmasSupabaseCard({
   }, [activeBooking, expedienteId, load, onUpdated, repo]);
 
   const handleBook = useCallback(async () => {
-    if (!repo || !config || !locationId || !timeHhmm) return;
+    if (!repo || !config || !selectedSede || !timeHhmm) return;
     setError(null);
     setSuccessMsg(null);
 
     const confirmar = window.confirm(
-      `¿Confirmas agendar firmas el ${dateYmd} a las ${timeHhmm} en ${selectedLocation?.label ?? locationId}?`,
+      `¿Confirmas agendar firmas el ${dateYmd} a las ${timeHhmm} en ${selectedSede.label}?`,
     );
     if (!confirmar) return;
 
@@ -343,7 +347,7 @@ export function AgendaFirmasSupabaseCard({
       await repo.bookFirmas({
         expedienteId,
         scheduledAt,
-        locationId,
+        locationId: selectedSede.bookLocationId,
       });
       setSuccessMsg("Cita de firmas agendada correctamente.");
       await load();
@@ -362,20 +366,19 @@ export function AgendaFirmasSupabaseCard({
     dateYmd,
     expedienteId,
     load,
-    locationId,
     onUpdated,
     repo,
-    selectedLocation?.label,
+    selectedSede,
     timeHhmm,
   ]);
 
   const handleReagendar = useCallback(async () => {
-    if (!repo || !config || !locationId || !timeHhmm || !activeBooking) return;
+    if (!repo || !config || !selectedSede || !timeHhmm || !activeBooking) return;
     setError(null);
     setSuccessMsg(null);
 
     const confirmar = window.confirm(
-      `¿Confirmas reagendar firmas al ${dateYmd} a las ${timeHhmm} en ${selectedLocation?.label ?? locationId}?`,
+      `¿Confirmas reagendar firmas al ${dateYmd} a las ${timeHhmm} en ${selectedSede.label}?`,
     );
     if (!confirmar) return;
 
@@ -392,7 +395,7 @@ export function AgendaFirmasSupabaseCard({
       await repo.reagendarFirmas({
         expedienteId,
         scheduledAt,
-        locationId,
+        locationId: selectedSede.bookLocationId,
       });
       setSuccessMsg("Cita de firmas reagendada correctamente.");
       await load();
@@ -412,10 +415,9 @@ export function AgendaFirmasSupabaseCard({
     dateYmd,
     expedienteId,
     load,
-    locationId,
     onUpdated,
     repo,
-    selectedLocation?.label,
+    selectedSede,
     timeHhmm,
   ]);
 
@@ -430,7 +432,7 @@ export function AgendaFirmasSupabaseCard({
       <p className="text-sm font-semibold text-gray-900">{title}</p>
       <p className="mt-1 text-[11px] leading-snug text-gray-600">{subtitle}</p>
 
-      {!config || !config.enabled || locationOptions.length === 0 ? (
+      {!config || !config.enabled || advisorSedeOptions.length === 0 ? (
         <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950">
           La agenda firma aún no está configurada o está deshabilitada. Solicita a Mesa Admin
           que configure sedes, días y horarios.
@@ -448,14 +450,14 @@ export function AgendaFirmasSupabaseCard({
 
       <FirmasSlotPicker
         config={config}
-        locationOptions={locationOptions}
-        locationId={locationId}
+        sedeOptions={advisorSedeOptions}
+        sedeCanonicalId={sedeCanonicalId}
         dateYmd={dateYmd}
         timeHhmm={timeHhmm}
         disponibilidadSlots={disponibilidadSlots}
         saving={saving}
-        onLocationChange={(id) => {
-          setLocationId(id);
+        onSedeChange={(id) => {
+          setSedeCanonicalId(id);
           setTimeHhmm("");
           setError(null);
         }}
@@ -485,7 +487,7 @@ export function AgendaFirmasSupabaseCard({
         disabled={
           saving ||
           !config?.enabled ||
-          !locationId ||
+          !selectedSede ||
           !timeHhmm ||
           disponibilidadSlots.every((s) => s.remaining <= 0)
         }

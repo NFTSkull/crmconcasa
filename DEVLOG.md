@@ -1,5 +1,20 @@
 # Devlog
 
+## 2026-06-25 - UX asesor: sedes Monterrey/Apodaca en agenda
+
+### Decisión
+
+- Reutilizar `resolveCanonicalSedeId` vía `agendaAdvisorLocations.ts` para UI asesor.
+- Selector muestra solo labels humanos; valor interno `monterrey`/`apodaca`.
+- Reserva RPC: `bookLocationId` = canónico si está en config, si no primer legacy mapeable.
+- Disponibilidad: cupo = max entre legacy de la ciudad; bookings sumados en todos los `sourceLocationIds`.
+- Biométricos y firmas comparten helpers; sin tocar `agenda_bookings` ni RPC.
+
+### Archivos
+
+- `agendaAdvisorLocations.ts` (+ test), `weekly-availability.ts` (`computeAdvisorSlotAvailability`)
+- `AgendaBiometricosSupabaseCard.tsx`, `AgendaFirmasSupabaseCard.tsx`
+
 ## 2026-06-25 - UX Cynthia: horarios rápidos en configuración de agendas
 
 ### Decisión

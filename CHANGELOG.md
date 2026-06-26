@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **UX asesor — sedes Monterrey/Apodaca en agenda:** dropdown biométricos y firmas normaliza legacy (`mty-centro`, `san-nicolas`, etc.) a solo Monterrey y Apodaca; disponibilidad consolidada; `bookLocationId` canónico si existe en config; sin RPC ni schema.
+
 - **UX Cynthia — Horarios rápidos en configuración de agendas:** pills 09:00–17:00, preset «Usar jornada estándar», input personalizado sin error en vacío; helpers `agendaCynthiaSlots`; biométricos y firmas; sin backend.
 
 - **UX Cynthia — Configuración de agendas (biométricos + firmas):** formulario compartido `AgendaWeeklyConfigForm` con texto legible, días en pills, horarios con chips HH:mm, solo sedes Monterrey (`monterrey`) y Apodaca (`apodaca`); mapeo legacy (`mty-centro`, `san-nicolas`, etc.) vía `agendaCynthiaLocations`; zona fija `America/Monterrey`; mismo RPC `upsert_agenda_config_*`; sin migraciones ni backend.
