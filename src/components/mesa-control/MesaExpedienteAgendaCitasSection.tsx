@@ -1,9 +1,14 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { Button } from "@/components/ui/Button";
 import type { AgendaBiometricosActiveBooking } from "@/domain/agenda-biometricos";
 import type { AgendaFirmasActiveBooking } from "@/domain/agenda-firmas";
 import { MESA_ETAPA_FIRMA_P3Q_NOTA } from "@/domain/expedientes/mesa-decision-ux";
+import {
+  canMesaCancelBiometricosBooking,
+  canMesaCancelFirmasBooking,
+} from "@/lib/mesaAgendaCancelAccess";
 
 export type MesaExpedienteAgendaCitasSectionProps = Readonly<{
   etapaActual: number | null;
@@ -12,6 +17,13 @@ export type MesaExpedienteAgendaCitasSectionProps = Readonly<{
   biometricLocationLabel?: string | null;
   firmasBooking: AgendaFirmasActiveBooking | null;
   firmasLocationLabel?: string | null;
+  mockRole?: string | null;
+  biometricosCancelSuccess?: string | null;
+  biometricosCancelledMotivo?: string | null;
+  firmasCancelSuccess?: string | null;
+  firmasCancelledMotivo?: string | null;
+  onRequestCancelBiometricos?: () => void;
+  onRequestCancelFirmas?: () => void;
   embedded?: boolean;
 }>;
 
@@ -68,6 +80,26 @@ function CitaBlock({
   );
 }
 
+function CancelledSummary({
+  motivo,
+  tone,
+}: {
+  motivo: string | null;
+  tone: "sky" | "violet";
+}) {
+  const textClass = tone === "sky" ? "text-sky-950" : "text-violet-950";
+  return (
+    <div className={`text-xs ${textClass}`}>
+      <p className="font-medium">Cita cancelada</p>
+      {motivo ? (
+        <p className="mt-1">
+          <span className="font-medium">Motivo para el asesor:</span> {motivo}
+        </p>
+      ) : null}
+    </div>
+  );
+}
+
 export function MesaExpedienteAgendaCitasSection({
   etapaActual,
   fechaCita,
@@ -75,15 +107,37 @@ export function MesaExpedienteAgendaCitasSection({
   biometricLocationLabel,
   firmasBooking,
   firmasLocationLabel,
+  mockRole = null,
+  biometricosCancelSuccess = null,
+  biometricosCancelledMotivo = null,
+  firmasCancelSuccess = null,
+  firmasCancelledMotivo = null,
+  onRequestCancelBiometricos,
+  onRequestCancelFirmas,
   embedded = false,
 }: MesaExpedienteAgendaCitasSectionProps) {
   const hasFecha = typeof fechaCita === "string" && fechaCita.trim() !== "";
-  const showBio = Boolean(biometricBooking) || (hasFecha && (etapaActual === 4 || etapaActual === 5));
+  const showBio =
+    Boolean(biometricBooking) ||
+    Boolean(biometricosCancelledMotivo) ||
+    (hasFecha && (etapaActual === 4 || etapaActual === 5));
   const showFirma =
     Boolean(firmasBooking) ||
     etapaActual === 9 ||
     etapaActual === 10 ||
-    (hasFecha && (etapaActual === 9 || etapaActual === 10));
+    (hasFecha && (etapaActual === 9 || etapaActual === 10)) ||
+    Boolean(firmasCancelledMotivo);
+
+  const puedeCancelarBiometricos = canMesaCancelBiometricosBooking({
+    mockRole,
+    etapaActual,
+    hasActiveBooking: biometricBooking != null,
+  });
+  const puedeCancelarFirmas = canMesaCancelFirmasBooking({
+    mockRole,
+    etapaActual,
+    hasActiveBooking: firmasBooking != null,
+  });
 
   if (!showBio && !showFirma) {
     return (
@@ -99,27 +153,49 @@ export function MesaExpedienteAgendaCitasSection({
     <div className={wrapperClass}>
       {showBio ? (
         <CitaBlock title="Cita biométricos" tone="sky">
+          {biometricosCancelSuccess ? (
+            <p
+              role="status"
+              className="mb-3 rounded-md border border-sky-300 bg-white/80 px-3 py-2 text-xs font-medium text-sky-950"
+            >
+              {biometricosCancelSuccess}
+            </p>
+          ) : null}
           {biometricBooking ? (
-            <dl className="grid gap-2 text-xs text-gray-800 sm:grid-cols-2">
-              <div>
-                <dt className="font-medium text-gray-600">Fecha</dt>
-                <dd className="mt-0.5">{formatBookingDate(biometricBooking.bookingDate)}</dd>
-              </div>
-              <div>
-                <dt className="font-medium text-gray-600">Hora</dt>
-                <dd className="mt-0.5">{normalizeBookingTime(biometricBooking.bookingTime)}</dd>
-              </div>
-              <div>
-                <dt className="font-medium text-gray-600">Sede</dt>
-                <dd className="mt-0.5">
-                  {biometricLocationLabel?.trim() || biometricBooking.locationId}
-                </dd>
-              </div>
-              <div>
-                <dt className="font-medium text-gray-600">Estatus</dt>
-                <dd className="mt-0.5 capitalize">{biometricBooking.status}</dd>
-              </div>
-            </dl>
+            <>
+              <dl className="grid gap-2 text-xs text-gray-800 sm:grid-cols-2">
+                <div>
+                  <dt className="font-medium text-gray-600">Fecha</dt>
+                  <dd className="mt-0.5">{formatBookingDate(biometricBooking.bookingDate)}</dd>
+                </div>
+                <div>
+                  <dt className="font-medium text-gray-600">Hora</dt>
+                  <dd className="mt-0.5">{normalizeBookingTime(biometricBooking.bookingTime)}</dd>
+                </div>
+                <div>
+                  <dt className="font-medium text-gray-600">Sede</dt>
+                  <dd className="mt-0.5">
+                    {biometricLocationLabel?.trim() || biometricBooking.locationId}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-medium text-gray-600">Estatus</dt>
+                  <dd className="mt-0.5 capitalize">{biometricBooking.status}</dd>
+                </div>
+              </dl>
+              {puedeCancelarBiometricos && onRequestCancelBiometricos ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="mt-3 w-full text-xs"
+                  onClick={onRequestCancelBiometricos}
+                >
+                  Cancelar cita y solicitar reagenda
+                </Button>
+              ) : null}
+            </>
+          ) : biometricosCancelledMotivo || biometricosCancelSuccess ? (
+            <CancelledSummary motivo={biometricosCancelledMotivo} tone="sky" />
           ) : hasFecha ? (
             <p className="text-xs text-amber-900">
               Fecha en expediente: {formatFechaCitaIso(fechaCita!)}. Sin reserva activa en agenda.
@@ -142,31 +218,53 @@ export function MesaExpedienteAgendaCitasSection({
           {etapaActual === 10 ? (
             <p className="mb-2 text-[11px] leading-snug text-violet-950">{MESA_ETAPA_FIRMA_P3Q_NOTA}</p>
           ) : null}
+          {firmasCancelSuccess ? (
+            <p
+              role="status"
+              className="mb-3 rounded-md border border-violet-300 bg-white/80 px-3 py-2 text-xs font-medium text-violet-950"
+            >
+              {firmasCancelSuccess}
+            </p>
+          ) : null}
           {firmasBooking ? (
-            <dl className="grid gap-2 text-xs text-gray-800 sm:grid-cols-2">
-              <div>
-                <dt className="font-medium text-gray-600">Fecha</dt>
-                <dd className="mt-0.5">{formatBookingDate(firmasBooking.bookingDate)}</dd>
-              </div>
-              <div>
-                <dt className="font-medium text-gray-600">Hora</dt>
-                <dd className="mt-0.5">{normalizeBookingTime(firmasBooking.bookingTime)}</dd>
-              </div>
-              <div>
-                <dt className="font-medium text-gray-600">Sede</dt>
-                <dd className="mt-0.5">{firmasLocationLabel?.trim() || firmasBooking.locationId}</dd>
-              </div>
-              <div>
-                <dt className="font-medium text-gray-600">Estatus</dt>
-                <dd className="mt-0.5 capitalize">{firmasBooking.status}</dd>
-              </div>
-              {hasFecha ? (
-                <div className="sm:col-span-2">
-                  <dt className="font-medium text-gray-600">Fecha en expediente</dt>
-                  <dd className="mt-0.5">{formatFechaCitaIso(fechaCita!)}</dd>
+            <>
+              <dl className="grid gap-2 text-xs text-gray-800 sm:grid-cols-2">
+                <div>
+                  <dt className="font-medium text-gray-600">Fecha</dt>
+                  <dd className="mt-0.5">{formatBookingDate(firmasBooking.bookingDate)}</dd>
                 </div>
+                <div>
+                  <dt className="font-medium text-gray-600">Hora</dt>
+                  <dd className="mt-0.5">{normalizeBookingTime(firmasBooking.bookingTime)}</dd>
+                </div>
+                <div>
+                  <dt className="font-medium text-gray-600">Sede</dt>
+                  <dd className="mt-0.5">{firmasLocationLabel?.trim() || firmasBooking.locationId}</dd>
+                </div>
+                <div>
+                  <dt className="font-medium text-gray-600">Estatus</dt>
+                  <dd className="mt-0.5 capitalize">{firmasBooking.status}</dd>
+                </div>
+                {hasFecha ? (
+                  <div className="sm:col-span-2">
+                    <dt className="font-medium text-gray-600">Fecha en expediente</dt>
+                    <dd className="mt-0.5">{formatFechaCitaIso(fechaCita!)}</dd>
+                  </div>
+                ) : null}
+              </dl>
+              {puedeCancelarFirmas && onRequestCancelFirmas ? (
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="mt-3 w-full text-xs"
+                  onClick={onRequestCancelFirmas}
+                >
+                  Cancelar cita y solicitar reagenda
+                </Button>
               ) : null}
-            </dl>
+            </>
+          ) : firmasCancelledMotivo || firmasCancelSuccess ? (
+            <CancelledSummary motivo={firmasCancelledMotivo} tone="violet" />
           ) : hasFecha ? (
             <p className="text-xs text-amber-900">
               Fecha en expediente: {formatFechaCitaIso(fechaCita!)}. Sin reserva activa en agenda.

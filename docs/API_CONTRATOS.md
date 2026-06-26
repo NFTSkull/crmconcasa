@@ -241,8 +241,8 @@ Convenciones:
 
 ### Reglas (B0D5)
 
-- Solo `asesor`; expediente etapa **4**.
-- Persiste booking + `expedientes.fecha_cita`; **NO** cambia etapa a 5.
+- Solo `asesor`; expediente etapa **4 o 5** (5 tras cancelación Mesa sin booking activo).
+- Persiste booking + `expedientes.fecha_cita`; **NO** cambia etapa.
 - Cupo según `agenda_config` + conflictos.
 
 ---
@@ -262,9 +262,13 @@ Convenciones:
 
 ### Reglas
 
-- Solo `asesor` dueño; expediente etapa **4**; booking activo `kind=biometricos`, `status=booked`.
+- Roles: `asesor` (dueño), `mesa_admin`, `mesa_interno`, `mesa_externo`, `super_admin`.
+- Expediente etapas **4 o 5**, `subestado = en_proceso`, enviado a Mesa, ciclo activo.
+- Asesor puede **agendar** (`book_biometricos`) en etapa 4 o 5 si no hay booking activo (p. ej. tras cancel Mesa).
+- Mesa: `can_see_expediente`; asesor: solo dueño.
+- Motivo **obligatorio** para roles Mesa (`mesa_*`, `super_admin`).
+- Booking activo `kind=biometricos`, `status=booked`.
 - `agenda_bookings.status → cancelled`; `expedientes.fecha_cita = null`; **no** cambia etapa.
-- Libera cupo del slot cancelado.
 
 ---
 
@@ -482,7 +486,7 @@ Adicional:
 ### Reglas
 
 - Roles: `asesor` (dueño), `mesa_admin`, `super_admin`.
-- Expediente etapa **9**, `subestado = en_proceso`, enviado a Mesa.
+- Expediente etapa **9 o 10** (10 tras cancelación Mesa sin booking activo), `subestado = en_proceso`, enviado a Mesa.
 - Valida `agenda_config` (`kind = firmas`): anticipación, día, slot, sede, cupo.
 - **Deploy:** migración `024` ejecuta `backfill_agenda_config_firmas()` para orgs sin fila firmas (idempotente).
 - Persiste `agenda_bookings` (`kind = firmas`) + `expedientes.fecha_cita`.
@@ -508,8 +512,11 @@ Adicional:
 
 ### Reglas
 
-- Roles: `asesor` (dueño), `mesa_admin`, `super_admin`.
-- Expediente etapa **9 o 10**, `subestado = en_proceso`, enviado a Mesa.
+- Roles: `asesor` (dueño), `mesa_admin`, `mesa_interno`, `mesa_externo`, `super_admin`.
+- Expediente etapa **9 o 10**, `subestado = en_proceso`, enviado a Mesa, ciclo activo.
+- Asesor puede **agendar** (`book_firmas`) en etapa 9 o 10 si no hay booking activo (p. ej. tras cancel Mesa).
+- Mesa: `can_see_expediente`; asesor: solo dueño.
+- Motivo **obligatorio** para roles Mesa (`mesa_*`, `super_admin`).
 - Requiere booking `firmas` activo (`status = booked`).
 - Cancela booking (`status = cancelled`, `cancelled_at`); limpia `expedientes.fecha_cita`.
 - **NO** cambia `etapa_actual`.

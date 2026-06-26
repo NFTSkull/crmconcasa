@@ -44,6 +44,17 @@ export type AgendaFirmasActiveBooking = Readonly<{
   note: string | null;
 }>;
 
+export type AgendaFirmasCancelledBooking = Readonly<{
+  id: string;
+  expedienteId: string;
+  bookingDate: string;
+  bookingTime: string;
+  locationId: string;
+  status: "cancelled";
+  note: string | null;
+  cancelledAt: string | null;
+}>;
+
 export type BookFirmasResult = Readonly<{
   ok: true;
   bookingId: string;
@@ -82,6 +93,9 @@ export interface AgendaFirmasBookingRepo {
     locationId?: string;
   }): Promise<readonly AgendaFirmasBookedSlot[]>;
   getActiveBooking(expedienteId: string): Promise<AgendaFirmasActiveBooking | null>;
+  getLastCancelledBooking(
+    expedienteId: string,
+  ): Promise<AgendaFirmasCancelledBooking | null>;
   bookFirmas(params: {
     expedienteId: string;
     scheduledAt: string;

@@ -10,6 +10,7 @@ import {
 } from "@/components/mesa-control/MesaArchivoPreviewDialog";
 import { MesaAccordionSection } from "@/components/mesa-control/MesaAccordionSection";
 import { MesaExpedienteAgendaCitasSection } from "@/components/mesa-control/MesaExpedienteAgendaCitasSection";
+import { MesaCancelarCitaDialog } from "@/components/mesa-control/MesaCancelarCitaDialog";
 import {
   buildAgendaAccordionSummary,
   buildClienteDatosAccordionSummary,
@@ -65,14 +66,19 @@ import {
 } from "@/domain/expedientes/mesa-decision-ux";
 import {
   useAgendaBiometricosBookingRepo,
+  AgendaBiometricosSupabaseError,
   type AgendaBiometricosActiveBooking,
   type AgendaBiometricosConfigRecord,
 } from "@/domain/agenda-biometricos";
 import {
   useAgendaFirmasBookingRepo,
+  AgendaFirmasSupabaseError,
   type AgendaFirmasActiveBooking,
   type AgendaFirmasConfigRecord,
 } from "@/domain/agenda-firmas";
+import { parseCancelMotivoFromNote } from "@/lib/agendaCancelNote";
+import { getEffectiveMockRole } from "@/lib/mockUser";
+import type { MesaAgendaCancelKind } from "@/lib/mesaAgendaCancelAccess";
 import {
   deriveRetencionAcuseAvisoFaltantes,
   getBloqueosRetencionAvanceEtapa8Mesa,
@@ -221,6 +227,16 @@ export function MesaExpedienteDetalleReadOnly() {
   const [avance9a10Loading, setAvance9a10Loading] = useState(false);
   const [avance9a10Error, setAvance9a10Error] = useState<string | null>(null);
   const [avance9a10Success, setAvance9a10Success] = useState<string | null>(null);
+  const [cancelCitaKind, setCancelCitaKind] = useState<MesaAgendaCancelKind | null>(null);
+  const [cancelCitaSaving, setCancelCitaSaving] = useState(false);
+  const [cancelCitaError, setCancelCitaError] = useState<string | null>(null);
+  const [biometricosCancelSuccess, setBiometricosCancelSuccess] = useState<string | null>(null);
+  const [biometricosCancelledMotivo, setBiometricosCancelledMotivo] = useState<string | null>(null);
+  const [cancelFirmasSuccess, setCancelFirmasSuccess] = useState<string | null>(null);
+  const [firmasCancelledMotivo, setFirmasCancelledMotivo] = useState<string | null>(null);
+
+  const mesaMockRole =
+    typeof window !== "undefined" ? getEffectiveMockRole() : null;
 
   const puedeOperarMesa = puedeRevisarDocumentos(currentUser?.role);
 
@@ -244,7 +260,7 @@ export function MesaExpedienteDetalleReadOnly() {
           return;
         }
 
-        const [datos, archivos, lista, booking, bioConfig, firmasBooking, firmasCfg] =
+        const [datos, archivos, lista, booking, bioConfig, firmasBooking, firmasCfg, bioCancelled, firmasCancelled] =
           await Promise.all([
           clienteDatosRepo.getByExpedienteId(routeExpedienteId).catch(() => null),
           archivosRepo.listResumenByExpediente(routeExpedienteId).catch(() => []),
@@ -261,6 +277,12 @@ export function MesaExpedienteDetalleReadOnly() {
           firmasBookingRepo
             ? firmasBookingRepo.getFirmasConfig().catch(() => null)
             : Promise.resolve(null),
+          agendaBookingRepo
+            ? agendaBookingRepo.getLastCancelledBooking(routeExpedienteId).catch(() => null)
+            : Promise.resolve(null),
+          firmasBookingRepo
+            ? firmasBookingRepo.getLastCancelledBooking(routeExpedienteId).catch(() => null)
+            : Promise.resolve(null),
         ]);
 
         setExpediente(exp);
@@ -271,6 +293,16 @@ export function MesaExpedienteDetalleReadOnly() {
         setBiometricosConfig(bioConfig);
         setActiveFirmasBooking(firmasBooking);
         setFirmasConfig(firmasCfg);
+        setBiometricosCancelledMotivo(
+          booking
+            ? null
+            : parseCancelMotivoFromNote(bioCancelled?.note ?? null),
+        );
+        setFirmasCancelledMotivo(
+          firmasBooking
+            ? null
+            : parseCancelMotivoFromNote(firmasCancelled?.note ?? null),
+        );
         setLoadState("ready");
       } catch (err) {
         setExpediente(null);
@@ -281,6 +313,8 @@ export function MesaExpedienteDetalleReadOnly() {
         setBiometricosConfig(null);
         setActiveFirmasBooking(null);
         setFirmasConfig(null);
+        setBiometricosCancelledMotivo(null);
+        setFirmasCancelledMotivo(null);
         setLoadState("error");
         if (err instanceof ExpedientesSupabaseError) {
           setErrorMsg(err.message);
@@ -1125,6 +1159,56 @@ export function MesaExpedienteDetalleReadOnly() {
     routeExpedienteId,
   ]);
 
+  const handleConfirmCancelCita = useCallback(
+    async (motivo: string) => {
+      if (!routeExpedienteId || !cancelCitaKind) return;
+      setCancelCitaSaving(true);
+      setCancelCitaError(null);
+      const successMsg = "Cita cancelada. El asesor puede reagendar.";
+      try {
+        if (cancelCitaKind === "firmas") {
+          if (!firmasBookingRepo) return;
+          await firmasBookingRepo.cancelFirmas({
+            expedienteId: routeExpedienteId,
+            motivo,
+          });
+          setCancelFirmasSuccess(successMsg);
+          setFirmasCancelledMotivo(motivo);
+        } else {
+          if (!agendaBookingRepo) return;
+          await agendaBookingRepo.cancelBiometricos({
+            expedienteId: routeExpedienteId,
+            motivo,
+          });
+          setBiometricosCancelSuccess(successMsg);
+          setBiometricosCancelledMotivo(motivo);
+        }
+        setCancelCitaKind(null);
+        load();
+      } catch (err) {
+        if (cancelCitaKind === "firmas") {
+          setCancelCitaError(
+            err instanceof AgendaFirmasSupabaseError
+              ? err.message
+              : "No se pudo cancelar la cita de firma.",
+          );
+        } else {
+          setCancelCitaError(
+            err instanceof AgendaBiometricosSupabaseError
+              ? err.message
+              : "No se pudo cancelar la cita biométrica.",
+          );
+        }
+      } finally {
+        setCancelCitaSaving(false);
+      }
+    },
+    [agendaBookingRepo, cancelCitaKind, firmasBookingRepo, load, routeExpedienteId],
+  );
+
+  const cancelCitaKindLabel =
+    cancelCitaKind === "firmas" ? "Cita de firma" : "Cita biométrica";
+
   if (currentUser === undefined) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-100">
@@ -1403,8 +1487,30 @@ export function MesaExpedienteDetalleReadOnly() {
           biometricLocationLabel={biometricLocationLabel}
           firmasBooking={activeFirmasBooking}
           firmasLocationLabel={firmasLocationLabel}
+          mockRole={mesaMockRole}
+          biometricosCancelSuccess={biometricosCancelSuccess}
+          biometricosCancelledMotivo={biometricosCancelledMotivo}
+          firmasCancelSuccess={cancelFirmasSuccess}
+          firmasCancelledMotivo={firmasCancelledMotivo}
+          onRequestCancelBiometricos={() => {
+            setCancelCitaError(null);
+            setCancelCitaKind("biometricos");
+          }}
+          onRequestCancelFirmas={() => {
+            setCancelCitaError(null);
+            setCancelCitaKind("firmas");
+          }}
         />
       </MesaAccordionSection>
+
+      <MesaCancelarCitaDialog
+        open={cancelCitaKind != null}
+        kindLabel={cancelCitaKindLabel}
+        saving={cancelCitaSaving}
+        error={cancelCitaError}
+        onClose={() => setCancelCitaKind(null)}
+        onConfirm={handleConfirmCancelCita}
+      />
 
       <MesaCierreValidacionDocumentalSection
         view={cierreValidacionView}

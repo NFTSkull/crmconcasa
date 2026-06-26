@@ -6,10 +6,18 @@ export function canShowFirmasManageActions(params: {
   return params.etapaActual === 9 && params.hasActiveBooking;
 }
 
-/** Card asesor Supabase: solo etapa 9, enviado a Mesa. */
+/** Card asesor Supabase: etapa 9 siempre; etapa 10 solo tras cancelación Mesa sin booking activo. */
 export function canShowAsesorFirmasSupabaseCard(params: {
   submittedToMesa: boolean;
   etapaActual: number | null | undefined;
+  hasActiveBooking?: boolean;
+  hasLastCancelledBooking?: boolean;
 }): boolean {
-  return Boolean(params.submittedToMesa && params.etapaActual === 9);
+  if (!params.submittedToMesa) return false;
+  const etapa = params.etapaActual;
+  if (etapa === 9) return true;
+  if (etapa === 10) {
+    return !params.hasActiveBooking && Boolean(params.hasLastCancelledBooking);
+  }
+  return false;
 }

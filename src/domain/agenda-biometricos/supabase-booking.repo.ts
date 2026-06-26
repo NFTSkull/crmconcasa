@@ -11,6 +11,7 @@ import type {
   AgendaBiometricosActiveBooking,
   AgendaBiometricosBookedSlot,
   AgendaBiometricosBookingRepo,
+  AgendaBiometricosCancelledBooking,
   BookBiometricosResult,
   CancelBiometricosResult,
   ReagendarBiometricosResult,
@@ -23,7 +24,8 @@ const BOOKING_SELECT = `
   booking_time,
   location_id,
   status,
-  note
+  note,
+  cancelled_at
 `;
 
 type BookingRow = Readonly<{
@@ -34,6 +36,7 @@ type BookingRow = Readonly<{
   location_id: string;
   status: string;
   note: string | null;
+  cancelled_at: string | null;
 }>;
 
 type BookRpcRow = Readonly<{
@@ -88,6 +91,19 @@ function mapActiveBooking(row: BookingRow): AgendaBiometricosActiveBooking {
     locationId: String(row.location_id),
     status: "booked",
     note: row.note,
+  };
+}
+
+function mapCancelledBooking(row: BookingRow): AgendaBiometricosCancelledBooking {
+  return {
+    id: row.id,
+    expedienteId: row.expediente_id,
+    bookingDate: String(row.booking_date),
+    bookingTime: normalizeBookingTime(String(row.booking_time)),
+    locationId: String(row.location_id),
+    status: "cancelled",
+    note: row.note,
+    cancelledAt: row.cancelled_at,
   };
 }
 
@@ -199,6 +215,31 @@ export class SupabaseAgendaBiometricosBookingRepo implements AgendaBiometricosBo
 
     if (!data) return null;
     return mapActiveBooking(data as BookingRow);
+  }
+
+  async getLastCancelledBooking(
+    expedienteId: string,
+  ): Promise<AgendaBiometricosCancelledBooking | null> {
+    const { client } = await requireSupabaseSession();
+
+    const { data, error } = await client
+      .from("agenda_bookings")
+      .select(BOOKING_SELECT)
+      .eq("expediente_id", expedienteId)
+      .eq("kind", "biometricos")
+      .eq("status", "cancelled")
+      .order("cancelled_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      throw new AgendaBiometricosSupabaseError(
+        "No se pudo consultar la última cita biométrica cancelada.",
+      );
+    }
+
+    if (!data) return null;
+    return mapCancelledBooking(data as BookingRow);
   }
 
   async bookBiometricos(params: {

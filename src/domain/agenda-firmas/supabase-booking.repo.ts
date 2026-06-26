@@ -11,6 +11,7 @@ import type {
   AgendaFirmasActiveBooking,
   AgendaFirmasBookedSlot,
   AgendaFirmasBookingRepo,
+  AgendaFirmasCancelledBooking,
   BookFirmasResult,
   CancelFirmasResult,
   ReagendarFirmasResult,
@@ -23,7 +24,8 @@ const BOOKING_SELECT = `
   booking_time,
   location_id,
   status,
-  note
+  note,
+  cancelled_at
 `;
 
 type BookingRow = Readonly<{
@@ -34,6 +36,7 @@ type BookingRow = Readonly<{
   location_id: string;
   status: string;
   note: string | null;
+  cancelled_at: string | null;
 }>;
 
 type BookRpcRow = Readonly<{
@@ -91,6 +94,19 @@ function mapActiveBooking(row: BookingRow): AgendaFirmasActiveBooking {
   };
 }
 
+function mapCancelledBooking(row: BookingRow): AgendaFirmasCancelledBooking {
+  return {
+    id: row.id,
+    expedienteId: row.expediente_id,
+    bookingDate: String(row.booking_date),
+    bookingTime: normalizeBookingTime(String(row.booking_time)),
+    locationId: String(row.location_id),
+    status: "cancelled",
+    note: row.note,
+    cancelledAt: row.cancelled_at,
+  };
+}
+
 async function getCurrentOrganizationId(client: SupabaseClient): Promise<string> {
   const {
     data: { user },
@@ -99,7 +115,7 @@ async function getCurrentOrganizationId(client: SupabaseClient): Promise<string>
 
   if (userError || !user?.id) {
     throw new AgendaFirmasSupabaseError(
-      "No hay sesión de Supabase activa. Inicia sesión de nuevo.",
+      "No hay sesi?n de Supabase activa. Inicia sesi?n de nuevo.",
     );
   }
 
@@ -111,7 +127,7 @@ async function getCurrentOrganizationId(client: SupabaseClient): Promise<string>
 
   if (profileError || !profile?.organization_id || profile.active === false) {
     throw new AgendaFirmasSupabaseError(
-      "No se pudo resolver la organización del usuario activo.",
+      "No se pudo resolver la organizaci?n del usuario activo.",
     );
   }
 
@@ -121,7 +137,7 @@ async function getCurrentOrganizationId(client: SupabaseClient): Promise<string>
 async function requireSupabaseSession(): Promise<{ client: SupabaseClient }> {
   if (!isSupabaseConfigured() || !supabaseBrowser) {
     throw new AgendaFirmasSupabaseError(
-      "Supabase no está configurado. Revisa NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY.",
+      "Supabase no est? configurado. Revisa NEXT_PUBLIC_SUPABASE_URL y NEXT_PUBLIC_SUPABASE_ANON_KEY.",
     );
   }
 
@@ -133,14 +149,14 @@ async function requireSupabaseSession(): Promise<{ client: SupabaseClient }> {
 
   if (sessionError || !session?.user) {
     throw new AgendaFirmasSupabaseError(
-      "No hay sesión de Supabase activa. Inicia sesión de nuevo.",
+      "No hay sesi?n de Supabase activa. Inicia sesi?n de nuevo.",
     );
   }
 
   return { client };
 }
 
-/** P3P.2: lectura config + bookings y reserva vía RPC `book_firmas`. */
+/** P3P.2: lectura config + bookings y reserva v?a RPC `book_firmas`. */
 export class SupabaseAgendaFirmasBookingRepo implements AgendaFirmasBookingRepo {
   private readonly configRepo = new SupabaseAgendaFirmasConfigRepo();
 
@@ -173,7 +189,7 @@ export class SupabaseAgendaFirmasBookingRepo implements AgendaFirmasBookingRepo 
 
     if (error) {
       throw new AgendaFirmasSupabaseError(
-        "No se pudieron cargar las reservas de firmas. Intenta de nuevo más tarde.",
+        "No se pudieron cargar las reservas de firmas. Intenta de nuevo m?s tarde.",
       );
     }
 
@@ -201,6 +217,31 @@ export class SupabaseAgendaFirmasBookingRepo implements AgendaFirmasBookingRepo 
     return mapActiveBooking(data as BookingRow);
   }
 
+  async getLastCancelledBooking(
+    expedienteId: string,
+  ): Promise<AgendaFirmasCancelledBooking | null> {
+    const { client } = await requireSupabaseSession();
+
+    const { data, error } = await client
+      .from("agenda_bookings")
+      .select(BOOKING_SELECT)
+      .eq("expediente_id", expedienteId)
+      .eq("kind", "firmas")
+      .eq("status", "cancelled")
+      .order("cancelled_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      throw new AgendaFirmasSupabaseError(
+        "No se pudo consultar la ?ltima cita de firma cancelada.",
+      );
+    }
+
+    if (!data) return null;
+    return mapCancelledBooking(data as BookingRow);
+  }
+
   async bookFirmas(params: {
     expedienteId: string;
     scheduledAt: string;
@@ -222,14 +263,14 @@ export class SupabaseAgendaFirmasBookingRepo implements AgendaFirmasBookingRepo 
 
     if (!data || typeof data !== "object") {
       throw new AgendaFirmasSupabaseError(
-        "Respuesta inválida al agendar la cita de firma.",
+        "Respuesta inv?lida al agendar la cita de firma.",
       );
     }
 
     const row = data as BookRpcRow;
     if (!row.ok) {
       throw new AgendaFirmasSupabaseError(
-        "La RPC no confirmó la reserva de firma.",
+        "La RPC no confirm? la reserva de firma.",
       );
     }
 
@@ -262,14 +303,14 @@ export class SupabaseAgendaFirmasBookingRepo implements AgendaFirmasBookingRepo 
 
     if (!data || typeof data !== "object") {
       throw new AgendaFirmasSupabaseError(
-        "Respuesta inválida al cancelar la cita de firma.",
+        "Respuesta inv?lida al cancelar la cita de firma.",
       );
     }
 
     const row = data as CancelRpcRow;
     if (!row.ok) {
       throw new AgendaFirmasSupabaseError(
-        "La RPC no confirmó la cancelación de firma.",
+        "La RPC no confirm? la cancelaci?n de firma.",
       );
     }
 
@@ -303,14 +344,14 @@ export class SupabaseAgendaFirmasBookingRepo implements AgendaFirmasBookingRepo 
 
     if (!data || typeof data !== "object") {
       throw new AgendaFirmasSupabaseError(
-        "Respuesta inválida al reagendar la cita de firma.",
+        "Respuesta inv?lida al reagendar la cita de firma.",
       );
     }
 
     const row = data as ReagendarRpcRow;
     if (!row.ok) {
       throw new AgendaFirmasSupabaseError(
-        "La RPC no confirmó el reagendado de firma.",
+        "La RPC no confirm? el reagendado de firma.",
       );
     }
 

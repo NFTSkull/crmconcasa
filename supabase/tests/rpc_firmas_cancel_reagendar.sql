@@ -192,6 +192,9 @@ DECLARE
   v_exp_cancel_del UUID := '00000000-0000-4000-9030-000000000009';
   v_exp_cancel_ciclo UUID := '00000000-0000-4000-9030-000000000010';
   v_exp_cancel_sub UUID := '00000000-0000-4000-9030-000000000011';
+  v_exp_cancel_mesa_int UUID := '00000000-0000-4000-9030-000000000012';
+  v_exp_cancel_mesa_ext UUID := '00000000-0000-4000-9030-000000000013';
+  v_exp_cancel_motivo UUID := '00000000-0000-4000-9030-000000000014';
 
   v_exp_reag9 UUID := '00000000-0000-4000-9030-000000000020';
   v_exp_reag10 UUID := '00000000-0000-4000-9030-000000000021';
@@ -257,6 +260,15 @@ BEGIN
   PERFORM public.__rpc_firmas_cr_test_insert_exp(v_exp_cancel_del, v_org, v_a1, '93000900009');
   PERFORM public.__rpc_firmas_cr_test_insert_exp(v_exp_cancel_ciclo, v_org, v_a1, '93001000010');
   PERFORM public.__rpc_firmas_cr_test_insert_exp(v_exp_cancel_sub, v_org, v_a1, '93001100011');
+  PERFORM public.__rpc_firmas_cr_test_insert_exp(
+    v_exp_cancel_mesa_int, v_org, v_a1, '93001200012', 9::smallint, true, 'en_proceso', NULL, 'activo'
+  );
+  UPDATE public.expedientes SET origen_mesa = 'interno' WHERE id = v_exp_cancel_mesa_int;
+  PERFORM public.__rpc_firmas_cr_test_insert_exp(
+    v_exp_cancel_mesa_ext, v_org, v_a1, '93001300013', 9::smallint, true, 'en_proceso', NULL, 'activo'
+  );
+  UPDATE public.expedientes SET origen_mesa = 'externo' WHERE id = v_exp_cancel_mesa_ext;
+  PERFORM public.__rpc_firmas_cr_test_insert_exp(v_exp_cancel_motivo, v_org, v_a1, '93001400014');
 
   -- Fixtures reagendar
   PERFORM public.__rpc_firmas_cr_test_insert_exp(v_exp_reag9, v_org, v_a1, '93002000020');
@@ -306,6 +318,9 @@ BEGIN
   UPDATE public.expedientes SET ciclo_estado = 'cerrado' WHERE id = v_exp_cancel_ciclo;
   PERFORM public.__rpc_firmas_cr_test_book_as(v_a1, v_exp_cancel_sub, public.__rpc_firmas_cr_test_slot_ts(4, '10:00', 3));
   UPDATE public.expedientes SET subestado = 'pendiente' WHERE id = v_exp_cancel_sub;
+  PERFORM public.__rpc_firmas_cr_test_book_as(v_a1, v_exp_cancel_mesa_int, public.__rpc_firmas_cr_test_slot_ts(4, '11:00', 3));
+  PERFORM public.__rpc_firmas_cr_test_book_as(v_a1, v_exp_cancel_mesa_ext, public.__rpc_firmas_cr_test_slot_ts(4, '12:00', 3));
+  PERFORM public.__rpc_firmas_cr_test_book_as(v_a1, v_exp_cancel_motivo, public.__rpc_firmas_cr_test_slot_ts(5, '10:00', 3));
 
   PERFORM public.__rpc_firmas_cr_test_book_as(v_a1, v_exp_reag9, v_slot_wed);
   PERFORM public.__rpc_firmas_cr_test_book_as(v_a1, v_exp_reag10, public.__rpc_firmas_cr_test_slot_ts(1, '16:00', 3));
@@ -357,9 +372,9 @@ BEGIN
   );
 
   -- 3–4. mesa_admin y super_admin
-  v_result := public.__rpc_firmas_cr_test_cancel_as(v_mesa, v_exp_cancel_mesa);
+  v_result := public.__rpc_firmas_cr_test_cancel_as(v_mesa, v_exp_cancel_mesa, 'Mesa admin cancela firma');
   PERFORM public.__rpc_firmas_cr_test_assert((v_result->>'ok')::boolean = true, 'test 3');
-  v_result := public.__rpc_firmas_cr_test_cancel_as(v_super, v_exp_cancel_super);
+  v_result := public.__rpc_firmas_cr_test_cancel_as(v_super, v_exp_cancel_super, 'Super admin cancela firma');
   PERFORM public.__rpc_firmas_cr_test_assert((v_result->>'ok')::boolean = true, 'test 4');
 
   -- 9–17. cancel roles/gates
@@ -367,13 +382,17 @@ BEGIN
     public.__rpc_firmas_cr_test_expect_fail_cancel(v_a1, v_exp_cancel_owner, NULL, 'asesor dueño'),
     'test 9'
   );
-  PERFORM public.__rpc_firmas_cr_test_assert(
-    public.__rpc_firmas_cr_test_expect_fail_cancel(v_mesa_int, v_exp_cancel_roles),
-    'test 10'
+  v_result := public.__rpc_firmas_cr_test_cancel_as(
+    v_mesa_int, v_exp_cancel_mesa_int, 'Mesa interno cancela firma'
   );
+  PERFORM public.__rpc_firmas_cr_test_assert((v_result->>'ok')::boolean = true, 'test 10: mesa_interno');
+  v_result := public.__rpc_firmas_cr_test_cancel_as(
+    v_mesa_ext, v_exp_cancel_mesa_ext, 'Mesa externo cancela firma'
+  );
+  PERFORM public.__rpc_firmas_cr_test_assert((v_result->>'ok')::boolean = true, 'test 11: mesa_externo');
   PERFORM public.__rpc_firmas_cr_test_assert(
-    public.__rpc_firmas_cr_test_expect_fail_cancel(v_mesa_ext, v_exp_cancel_roles),
-    'test 11'
+    public.__rpc_firmas_cr_test_expect_fail_cancel(v_mesa_ext, v_exp_cancel_mesa_int, 'motivo', 'no autorizado'),
+    'test 11b: mesa_externo bloqueado en interno'
   );
   PERFORM public.__rpc_firmas_cr_test_assert(
     public.__rpc_firmas_cr_test_expect_fail_cancel(v_editor, v_exp_cancel_roles),
@@ -398,6 +417,12 @@ BEGIN
   PERFORM public.__rpc_firmas_cr_test_assert(
     public.__rpc_firmas_cr_test_expect_fail_cancel(v_a1, v_exp_cancel_sub),
     'test 17'
+  );
+  PERFORM public.__rpc_firmas_cr_test_assert(
+    public.__rpc_firmas_cr_test_expect_fail_cancel(
+      v_mesa, v_exp_cancel_motivo, '   ', 'motivo es obligatorio'
+    ),
+    'test 17b: motivo vacío bloqueado Mesa firmas'
   );
 
   -- 18–26. reagendar happy path

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Mesa cancelar cita con motivo (037–038):** migración `037` cancel Mesa + `038` book en etapas 5/10; UI asesor reagenda tras cancelación; gates `AsesorAgenda*SupabaseGate`; **sin Cloud**.
+
 - **UX Mesa — detalle expediente con secciones colapsables:** acordeones para datos generales, documentos, complementarios, retención y agenda; consulta en todas las etapas; acciones de validación solo donde aplica; Decisión Mesa / avance operativo sin cambios.
 
 - **UX Mesa — ocultar configuración de agendas para Interno/Externo:** solo `mesa_admin` y `super_admin` ven/editan biométricos y firmas en `/mesa-control`; sin bloques en solo lectura para otros roles Mesa.

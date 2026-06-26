@@ -182,6 +182,7 @@ DECLARE
   v_exp_cap3 UUID := '00000000-0000-4000-9020-000000000025';
   v_exp_cap4 UUID := '00000000-0000-4000-9020-000000000026';
   v_exp_cfg UUID := '00000000-0000-4000-9020-000000000027';
+  v_exp_etapa10 UUID := '00000000-0000-4000-9020-000000000028';
 
   v_slot_mon TIMESTAMPTZ;
   v_slot_sun TIMESTAMPTZ;
@@ -458,12 +459,38 @@ BEGIN
   PERFORM public.__rpc_firmas_test_reset_auth();
   PERFORM public.__rpc_firmas_test_assert((v_result->>'kind') = 'biometricos', 'test 35: book_biometricos sanity');
 
-  -- 36–37: cubiertos por suites agenda_config_biometricos_rules y avanzar_* en runner SQL
+  -- 36. asesor agenda firmas en etapa 10 tras cancelación Mesa
+  PERFORM public.__rpc_firmas_test_insert_exp(v_exp_etapa10, v_org, v_a1, '92002800028', 10::smallint);
+  INSERT INTO public.agenda_bookings (
+    organization_id, kind, expediente_id, booking_date, booking_time,
+    location_id, status, created_by, cancelled_at, note
+  ) VALUES (
+    v_org, 'firmas', v_exp_etapa10,
+    (public.__rpc_firmas_test_slot_ts(2, '10:00', 2) AT TIME ZONE 'America/Monterrey')::date,
+    (public.__rpc_firmas_test_slot_ts(2, '10:00', 2) AT TIME ZONE 'America/Monterrey')::time,
+    'mty-centro', 'cancelled', v_a1, NOW(), 'Cancelado: Mesa solicita reagenda'
+  );
+  v_result := public.__rpc_firmas_test_call(
+    v_a1, v_exp_etapa10, public.__rpc_firmas_test_slot_ts(2, '11:00', 4)
+  );
+  PERFORM public.__rpc_firmas_test_assert(
+    (v_result->>'ok')::boolean = true AND (v_result->>'etapa_actual')::int = 10,
+    'test 36: book firmas etapa 10 tras cancel'
+  );
+  PERFORM public.__rpc_firmas_test_assert(
+    EXISTS (
+      SELECT 1 FROM public.expedientes e
+      WHERE e.id = v_exp_etapa10 AND e.etapa_actual = 10
+    ),
+    'test 36: etapa sigue 10'
+  );
+
+  -- 37–38: cubiertos por suites agenda_config_biometricos_rules y avanzar_* en runner SQL
 
   -- Restaurar config firmas org principal
   PERFORM public.__rpc_firmas_test_upsert_config(v_org, public.__rpc_firmas_test_standard_config());
 
-  RAISE NOTICE 'RPC book_firmas: 37 pruebas OK (36-37 vía runner regresión)';
+  RAISE NOTICE 'RPC book_firmas: 38 pruebas OK (37-38 vía runner regresión)';
 END;
 $$;
 

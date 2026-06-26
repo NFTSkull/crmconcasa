@@ -1,5 +1,48 @@
 # Devlog
 
+## 2026-06-25 - Asesor reagenda tras cancel Mesa (etapa 5/10)
+
+### Decisión
+
+- `canShowAsesorBiometricosSupabaseCard` / `canShowAsesorFirmasSupabaseCard`: etapa 5/10 solo con última cita cancelada y sin booking activo.
+- `AsesorAgendaBiometricosSupabaseGate` / `AsesorAgendaFirmasSupabaseGate` en detalle asesor.
+- `038_rpc_book_citas_post_mesa_cancel.sql`: `book_*` permite etapas 5 y 10 (agendar tras cancel, no reagendar RPC).
+- Sin cambio de etapa; sin Cloud.
+
+## 2026-06-25 - Migración 037: Mesa cancela citas (biométricos + firmas)
+
+### Decisión
+
+- `037_rpc_cancel_citas_mesa.sql`: reemplaza `cancel_biometricos` y `cancel_firmas`.
+- Biométricos: etapas 4/5; firmas: 9/10; roles Mesa + asesor dueño.
+- Motivo obligatorio para `mesa_*` y `super_admin`; opcional para asesor (compat).
+- `can_see_expediente` para Mesa; no cambia etapa ni borra historial bookings.
+- UI: botón biométricos + firmas en `MesaExpedienteAgendaCitasSection`.
+- **Solo local** — sin `db push` Cloud.
+
+### Archivos
+
+- `supabase/migrations/037_rpc_cancel_citas_mesa.sql`
+- Tests SQL biométricos/firmas cancel
+- `mesaAgendaCancelAccess`, `MesaExpedienteDetalleReadOnly`, `API_CONTRATOS.md`
+
+## 2026-06-25 - Mesa cancelar cita y solicitar reagenda (firmas)
+
+### Decisión
+
+- Usar RPC existente `cancel_firmas` (roles `mesa_admin`, `super_admin`; etapas 9/10).
+- **No implementar** cancel biométricos Mesa sin migración: `cancel_biometricos` restringe a asesor dueño etapa 4.
+- Motivo obligatorio en UI; persistido en `agenda_bookings.note` (`Cancelado: …`).
+- Asesor: `getLastCancelledBooking` + `AsesorAgendaCitaCanceladaNotice`; formulario agendar sigue en etapa 9.
+- Sin cambio de etapa, sin `db push`, sin tocar `concasacrm`.
+
+### Archivos
+
+- `MesaCancelarCitaDialog`, `mesaAgendaCancelAccess`, `agendaCancelNote`
+- `MesaExpedienteAgendaCitasSection`, `MesaExpedienteDetalleReadOnly`
+- `AgendaFirmasSupabaseCard`, `AgendaBiometricosSupabaseCard`
+- repos `getLastCancelledBooking` (firmas + biométricos)
+
 ## 2026-06-25 - UX Mesa: detalle expediente colapsable
 
 ### Decisión

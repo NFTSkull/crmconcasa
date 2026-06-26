@@ -18,6 +18,8 @@ import {
   AdvisorAgendaSlotPicker,
   buildAdvisorDateAvailabilityInsight,
 } from "@/components/asesor/AdvisorAgendaSlotPicker";
+import { AsesorAgendaCitaCanceladaNotice } from "@/components/asesor/AsesorAgendaCitaCanceladaNotice";
+import { parseCancelMotivoFromNote } from "@/lib/agendaCancelNote";
 import {
   advisorLabelForLocationId,
   advisorOptionIncludesBookingLocation,
@@ -89,6 +91,9 @@ export function AgendaFirmasSupabaseCard({
   const [activeBooking, setActiveBooking] = useState<Awaited<
     ReturnType<NonNullable<typeof repo>["getActiveBooking"]>
   > | null>(null);
+  const [lastCancelledBooking, setLastCancelledBooking] = useState<Awaited<
+    ReturnType<NonNullable<typeof repo>["getLastCancelledBooking"]>
+  > | null>(null);
   const [bookedSlots, setBookedSlots] = useState<
     Awaited<ReturnType<NonNullable<typeof repo>["listBookedSlots"]>>
   >([]);
@@ -124,13 +129,15 @@ export function AgendaFirmasSupabaseCard({
     setLoading(true);
     setLoadError(null);
     try {
-      const [configRecord, booking] = await Promise.all([
+      const [configRecord, booking, cancelled] = await Promise.all([
         repo.getFirmasConfig(),
         repo.getActiveBooking(expedienteId),
+        repo.getLastCancelledBooking(expedienteId),
       ]);
       const weekly = configRecord?.config ?? null;
       setConfig(weekly);
       setActiveBooking(booking);
+      setLastCancelledBooking(booking ? null : cancelled);
 
       const tz = weekly?.timezone ?? "America/Monterrey";
       const today = todayYmdInTimezone(tz);
@@ -519,20 +526,43 @@ export function AgendaFirmasSupabaseCard({
 
   if (citaIso && !activeBooking) {
     return (
-      <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-4 shadow-sm">
-        <p className="text-sm font-semibold text-amber-950">Cita firma registrada</p>
-        <p className="mt-2 text-xs text-amber-900">
-          Hay fecha de cita ({formatCitaDisplay(citaIso)}), pero no hay reserva activa en Supabase.
-          Agenda de nuevo si corresponde.
-        </p>
+      <div className="space-y-3">
+        {lastCancelledBooking ? (
+          <AsesorAgendaCitaCanceladaNotice
+            motivo={parseCancelMotivoFromNote(lastCancelledBooking.note)}
+          />
+        ) : (
+          <div className="rounded-xl border border-amber-200 bg-amber-50/60 p-4 shadow-sm">
+            <p className="text-sm font-semibold text-amber-950">Cita firma registrada</p>
+            <p className="mt-2 text-xs text-amber-900">
+              Hay fecha de cita ({formatCitaDisplay(citaIso)}), pero no hay reserva activa en Supabase.
+              Agenda de nuevo si corresponde.
+            </p>
+          </div>
+        )}
+        {renderFormShell(
+          "Agendar cita de firma",
+          "Horarios y cupos según la agenda semanal configurada por Mesa en Supabase.",
+          "Agendar firma",
+          handleBook,
+        )}
       </div>
     );
   }
 
-  return renderFormShell(
-    "Agendar cita de firma",
-    "Horarios y cupos según la agenda semanal configurada por Mesa en Supabase.",
-    "Agendar firma",
-    handleBook,
+  return (
+    <div className="space-y-3">
+      {lastCancelledBooking ? (
+        <AsesorAgendaCitaCanceladaNotice
+          motivo={parseCancelMotivoFromNote(lastCancelledBooking.note)}
+        />
+      ) : null}
+      {renderFormShell(
+        "Agendar cita de firma",
+        "Horarios y cupos según la agenda semanal configurada por Mesa en Supabase.",
+        "Agendar firma",
+        handleBook,
+      )}
+    </div>
   );
 }

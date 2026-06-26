@@ -113,11 +113,14 @@ $$;
 CREATE OR REPLACE FUNCTION public.__rpc_bio_cr_test_expect_fail_cancel(
   p_user_id UUID,
   p_expediente_id UUID,
-  p_motivo TEXT DEFAULT NULL
+  p_motivo TEXT DEFAULT NULL,
+  p_contains TEXT DEFAULT NULL
 )
 RETURNS BOOLEAN
 LANGUAGE plpgsql
 AS $$
+DECLARE
+  v_err TEXT;
 BEGIN
   PERFORM public.__rpc_bio_cr_test_set_auth(p_user_id);
   BEGIN
@@ -126,7 +129,11 @@ BEGIN
     RETURN false;
   EXCEPTION
     WHEN OTHERS THEN
+      v_err := SQLERRM;
       PERFORM public.__rpc_bio_cr_test_reset_auth();
+      IF p_contains IS NOT NULL AND position(p_contains IN v_err) = 0 THEN
+        RAISE EXCEPTION 'RPC BIO CR TEST FAIL: cancel esperaba "%", obtuvo: %', p_contains, v_err;
+      END IF;
       RETURN true;
   END;
 END;
@@ -164,7 +171,8 @@ CREATE OR REPLACE FUNCTION public.__rpc_bio_cr_test_insert_expediente(
   p_asesor_id UUID,
   p_nss CHAR(11),
   p_etapa SMALLINT DEFAULT 4,
-  p_fecha_cita TIMESTAMPTZ DEFAULT NULL
+  p_fecha_cita TIMESTAMPTZ DEFAULT NULL,
+  p_origen_mesa public.origen_mesa DEFAULT 'interno'
 )
 RETURNS VOID
 LANGUAGE plpgsql
@@ -176,17 +184,19 @@ BEGIN
     etapa_actual, subestado, fecha_cita
   ) VALUES (
     p_id, p_org_id, p_asesor_id, 'mejoravit', p_nss,
-    'Fixture Bio Cancel Reagendar', '5510101010', 'interno',
+    'Fixture Bio Cancel Reagendar', '5510101010', p_origen_mesa,
     true, NOW(), p_etapa, 'en_proceso', p_fecha_cita
   )
   ON CONFLICT (id) DO UPDATE SET
     asesor_id = EXCLUDED.asesor_id,
     nss = EXCLUDED.nss,
+    origen_mesa = EXCLUDED.origen_mesa,
     etapa_actual = EXCLUDED.etapa_actual,
     fecha_cita = EXCLUDED.fecha_cita,
     deleted_at = NULL,
     ciclo_estado = 'activo',
     submitted_to_mesa = true,
+    subestado = 'en_proceso',
     updated_at = NOW();
 
   DELETE FROM public.agenda_bookings WHERE expediente_id = p_id;
@@ -229,6 +239,8 @@ DECLARE
   v_asesor_a2 UUID := '00000000-0000-4000-8001-000000000002';
   v_editor UUID := '00000000-0000-4000-8002-000000000001';
   v_mesa_admin UUID := '00000000-0000-4000-8003-000000000001';
+  v_mesa_int UUID := '00000000-0000-4000-8004-000000000001';
+  v_mesa_ext UUID := '00000000-0000-4000-8005-000000000001';
   v_super UUID := '00000000-0000-4000-8006-000000000001';
 
   v_fecha_cita TIMESTAMPTZ := public.agenda_biometricos_slot_ts(1, '10:00', 7);
@@ -248,12 +260,21 @@ DECLARE
   v_exp_reagendar_loc UUID := '00000000-0000-4000-9010-000000000110';
   v_exp_reagendar_no_act UUID := '00000000-0000-4000-9010-000000000120';
   v_exp_avanzar_after UUID := '00000000-0000-4000-9010-000000000130';
+  v_exp_mesa_admin UUID := '00000000-0000-4000-9010-000000000140';
+  v_exp_mesa_int_4 UUID := '00000000-0000-4000-9010-000000000141';
+  v_exp_mesa_ext_5 UUID := '00000000-0000-4000-9010-000000000142';
+  v_exp_mesa_super UUID := '00000000-0000-4000-9010-000000000143';
+  v_exp_mesa_no_vis UUID := '00000000-0000-4000-9010-000000000144';
+  v_exp_mesa_motivo UUID := '00000000-0000-4000-9010-000000000145';
+  v_exp_mesa_hist UUID := '00000000-0000-4000-9010-000000000146';
 
   v_result JSONB;
   v_booking_id UUID;
   v_booking_anterior UUID;
   v_booking_nuevo UUID;
   v_cancelled_at TIMESTAMPTZ;
+  v_booking_count INTEGER;
+  v_etapa SMALLINT;
 BEGIN
   -- Fixtures cancelación
   PERFORM public.__rpc_bio_cr_test_insert_expediente(
@@ -322,6 +343,42 @@ BEGIN
   );
   PERFORM public.__rpc_bio_cr_test_insert_booking(v_exp_avanzar_after, v_org_id, v_asesor_a1);
 
+  PERFORM public.__rpc_bio_cr_test_insert_expediente(
+    v_exp_mesa_admin, v_org_id, v_asesor_a1, '91014000014', 4::smallint, v_fecha_cita
+  );
+  PERFORM public.__rpc_bio_cr_test_insert_booking(v_exp_mesa_admin, v_org_id, v_asesor_a1);
+
+  PERFORM public.__rpc_bio_cr_test_insert_expediente(
+    v_exp_mesa_int_4, v_org_id, v_asesor_a1, '91014100014', 4::smallint, v_fecha_cita, 'interno'
+  );
+  PERFORM public.__rpc_bio_cr_test_insert_booking(v_exp_mesa_int_4, v_org_id, v_asesor_a1);
+
+  PERFORM public.__rpc_bio_cr_test_insert_expediente(
+    v_exp_mesa_ext_5, v_org_id, v_asesor_a1, '91014200015', 5::smallint, v_fecha_cita, 'externo'
+  );
+  PERFORM public.__rpc_bio_cr_test_insert_booking(v_exp_mesa_ext_5, v_org_id, v_asesor_a1);
+
+  PERFORM public.__rpc_bio_cr_test_insert_expediente(
+    v_exp_mesa_super, v_org_id, v_asesor_a1, '91014300016', 4::smallint, v_fecha_cita
+  );
+  PERFORM public.__rpc_bio_cr_test_insert_booking(v_exp_mesa_super, v_org_id, v_asesor_a1);
+
+  PERFORM public.__rpc_bio_cr_test_insert_expediente(
+    v_exp_mesa_no_vis, v_org_id, v_asesor_a1, '91014400017', 4::smallint, v_fecha_cita, 'externo'
+  );
+  PERFORM public.__rpc_bio_cr_test_insert_booking(v_exp_mesa_no_vis, v_org_id, v_asesor_a1);
+
+  PERFORM public.__rpc_bio_cr_test_insert_expediente(
+    v_exp_mesa_motivo, v_org_id, v_asesor_a1, '91014500018', 4::smallint, v_fecha_cita
+  );
+  PERFORM public.__rpc_bio_cr_test_insert_booking(v_exp_mesa_motivo, v_org_id, v_asesor_a1);
+
+  PERFORM public.__rpc_bio_cr_test_insert_expediente(
+    v_exp_mesa_hist, v_org_id, v_asesor_a1, '91014600019', 4::smallint, v_fecha_cita
+  );
+  PERFORM public.__rpc_bio_cr_test_insert_booking(v_exp_mesa_hist, v_org_id, v_asesor_a1, 'cancelled');
+  PERFORM public.__rpc_bio_cr_test_insert_booking(v_exp_mesa_hist, v_org_id, v_asesor_a1, 'booked');
+
   -- Test 1: asesor dueño cancela
   v_result := public.__rpc_bio_cr_test_call_cancel_as(v_asesor_a1, v_exp_cancel_ok, 'cliente pidió cambio');
   PERFORM public.__rpc_bio_cr_test_assert(
@@ -345,16 +402,22 @@ BEGIN
     'test 3: editor bloqueado'
   );
 
-  -- Test 4: mesa bloqueada
+  -- Test 4: mesa_admin cancela etapa 4
+  v_result := public.__rpc_bio_cr_test_call_cancel_as(
+    v_mesa_admin, v_exp_mesa_admin, 'Mesa solicita reagenda'
+  );
   PERFORM public.__rpc_bio_cr_test_assert(
-    public.__rpc_bio_cr_test_expect_fail_cancel(v_mesa_admin, v_exp_roles),
-    'test 4: mesa bloqueada'
+    (v_result->>'ok')::boolean = true,
+    'test 4: mesa_admin cancela biométricos etapa 4'
   );
 
-  -- Test 5: super_admin bloqueado
+  -- Test 5: super_admin cancela
+  v_result := public.__rpc_bio_cr_test_call_cancel_as(
+    v_super, v_exp_mesa_super, 'Super admin cancela'
+  );
   PERFORM public.__rpc_bio_cr_test_assert(
-    public.__rpc_bio_cr_test_expect_fail_cancel(v_super, v_exp_roles),
-    'test 5: super_admin bloqueado'
+    (v_result->>'ok')::boolean = true,
+    'test 5: super_admin cancela biométricos'
   );
 
   -- Test 6: sin booking activo falla
@@ -539,14 +602,70 @@ BEGIN
     'test 24: revisor no existe'
   );
 
-  RAISE NOTICE 'RPC biometricos cancel/reagendar: 24 pruebas OK';
+  -- Test 25: mesa_interno cancela biométricos etapa 4 (interno)
+  SELECT etapa_actual INTO v_etapa FROM public.expedientes WHERE id = v_exp_mesa_int_4;
+  v_result := public.__rpc_bio_cr_test_call_cancel_as(
+    v_mesa_int, v_exp_mesa_int_4, 'Cliente no pudo asistir'
+  );
+  PERFORM public.__rpc_bio_cr_test_assert(
+    (v_result->>'ok')::boolean = true AND (v_result->>'etapa_actual')::int = v_etapa,
+    'test 25: mesa_interno cancela etapa 4'
+  );
+
+  -- Test 26: mesa_externo cancela biométricos etapa 5 (externo)
+  SELECT etapa_actual INTO v_etapa FROM public.expedientes WHERE id = v_exp_mesa_ext_5;
+  v_result := public.__rpc_bio_cr_test_call_cancel_as(
+    v_mesa_ext, v_exp_mesa_ext_5, 'Error en sede'
+  );
+  PERFORM public.__rpc_bio_cr_test_assert(
+    (v_result->>'ok')::boolean = true AND (v_result->>'etapa_actual')::int = 5,
+    'test 26: mesa_externo cancela etapa 5'
+  );
+  PERFORM public.__rpc_bio_cr_test_assert(
+    EXISTS (
+      SELECT 1 FROM public.expedientes e
+      WHERE e.id = v_exp_mesa_ext_5 AND e.fecha_cita IS NULL
+    ),
+    'test 26b: fecha_cita limpiada etapa 5'
+  );
+
+  -- Test 27: mesa_interno sin visibilidad en externo bloqueada
+  PERFORM public.__rpc_bio_cr_test_assert(
+    public.__rpc_bio_cr_test_expect_fail_cancel(
+      v_mesa_int, v_exp_mesa_no_vis, 'motivo', 'no autorizado'
+    ),
+    'test 27: mesa_interno sin visibilidad bloqueada'
+  );
+
+  -- Test 28: motivo vacío bloqueado para Mesa
+  PERFORM public.__rpc_bio_cr_test_assert(
+    public.__rpc_bio_cr_test_expect_fail_cancel(
+      v_mesa_admin, v_exp_mesa_motivo, '   ', 'motivo es obligatorio'
+    ),
+    'test 28: motivo vacío bloqueado Mesa'
+  );
+
+  -- Test 29: bookings históricos no se borran
+  SELECT COUNT(*) INTO v_booking_count
+  FROM public.agenda_bookings WHERE expediente_id = v_exp_mesa_hist;
+  PERFORM public.__rpc_bio_cr_test_assert(v_booking_count >= 2, 'test 29: historial previo');
+  v_result := public.__rpc_bio_cr_test_call_cancel_as(
+    v_mesa_admin, v_exp_mesa_hist, 'Reagendar por Mesa'
+  );
+  PERFORM public.__rpc_bio_cr_test_assert((v_result->>'ok')::boolean = true, 'test 29: cancel ok');
+  PERFORM public.__rpc_bio_cr_test_assert(
+    (SELECT COUNT(*) FROM public.agenda_bookings WHERE expediente_id = v_exp_mesa_hist) >= 2,
+    'test 29: bookings históricos conservados'
+  );
+
+  RAISE NOTICE 'RPC biometricos cancel/reagendar: 29 pruebas OK';
 END;
 $$;
 
 DROP FUNCTION IF EXISTS public.__rpc_bio_cr_test_insert_booking(UUID, UUID, UUID, public.booking_status, DATE, TIME, TEXT);
-DROP FUNCTION IF EXISTS public.__rpc_bio_cr_test_insert_expediente(UUID, UUID, UUID, CHAR, SMALLINT, TIMESTAMPTZ);
+DROP FUNCTION IF EXISTS public.__rpc_bio_cr_test_insert_expediente(UUID, UUID, UUID, CHAR, SMALLINT, TIMESTAMPTZ, public.origen_mesa);
 DROP FUNCTION IF EXISTS public.__rpc_bio_cr_test_expect_fail_reagendar(UUID, UUID, TIMESTAMPTZ, TEXT, TEXT);
-DROP FUNCTION IF EXISTS public.__rpc_bio_cr_test_expect_fail_cancel(UUID, UUID, TEXT);
+DROP FUNCTION IF EXISTS public.__rpc_bio_cr_test_expect_fail_cancel(UUID, UUID, TEXT, TEXT);
 DROP FUNCTION IF EXISTS public.__rpc_bio_cr_test_call_avanzar_as(UUID, UUID);
 DROP FUNCTION IF EXISTS public.__rpc_bio_cr_test_call_book_as(UUID, UUID, TIMESTAMPTZ, TEXT);
 DROP FUNCTION IF EXISTS public.__rpc_bio_cr_test_call_reagendar_as(UUID, UUID, TIMESTAMPTZ, TEXT, TEXT);

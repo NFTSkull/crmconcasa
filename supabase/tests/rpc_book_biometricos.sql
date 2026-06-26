@@ -148,6 +148,7 @@ DECLARE
   v_exp_rebook UUID := '00000000-0000-4000-9008-000000000100';
   v_exp_etapa_check UUID := '00000000-0000-4000-9008-000000000110';
   v_exp_db_dup UUID := '00000000-0000-4000-9008-000000000120';
+  v_exp_etapa5 UUID := '00000000-0000-4000-9008-000000000130';
 
   v_future TIMESTAMPTZ := public.agenda_biometricos_slot_ts(1, '10:00', 7);
   v_past TIMESTAMPTZ := NOW() - INTERVAL '1 day';
@@ -375,7 +376,33 @@ BEGIN
     'test 18: solo un booked activo tras intento forzado'
   );
 
-  RAISE NOTICE 'RPC book_biometricos: 18 pruebas OK';
+  -- Test 19: asesor agenda en etapa 5 tras cancelación Mesa
+  PERFORM public.__rpc_book_test_insert_expediente(
+    v_exp_etapa5, v_org_id, v_asesor_a1, '90813000013', 5::smallint
+  );
+  INSERT INTO public.agenda_bookings (
+    organization_id, kind, expediente_id, booking_date, booking_time,
+    location_id, status, created_by, cancelled_at, note
+  ) VALUES (
+    v_org_id, 'biometricos', v_exp_etapa5, CURRENT_DATE + 1, '10:00:00',
+    'sede-vieja', 'cancelled', v_asesor_a1, NOW(), 'Cancelado: Mesa solicita reagenda'
+  );
+  v_result := public.__rpc_book_test_call_as(
+    v_asesor_a1, v_exp_etapa5, public.agenda_biometricos_slot_ts(1, '11:00', 8), 'sede-centro'
+  );
+  PERFORM public.__rpc_book_test_assert(
+    (v_result->>'ok')::boolean = true AND (v_result->>'etapa_actual')::int = 5,
+    'test 19: book biométricos etapa 5 tras cancel'
+  );
+  PERFORM public.__rpc_book_test_assert(
+    EXISTS (
+      SELECT 1 FROM public.expedientes e
+      WHERE e.id = v_exp_etapa5 AND e.etapa_actual = 5
+    ),
+    'test 19: etapa sigue 5'
+  );
+
+  RAISE NOTICE 'RPC book_biometricos: 19 pruebas OK';
 END;
 $$;
 

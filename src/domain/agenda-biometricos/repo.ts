@@ -44,6 +44,17 @@ export type AgendaBiometricosActiveBooking = Readonly<{
   note: string | null;
 }>;
 
+export type AgendaBiometricosCancelledBooking = Readonly<{
+  id: string;
+  expedienteId: string;
+  bookingDate: string;
+  bookingTime: string;
+  locationId: string;
+  status: "cancelled";
+  note: string | null;
+  cancelledAt: string | null;
+}>;
+
 export type BookBiometricosResult = Readonly<{
   ok: true;
   bookingId: string;
@@ -82,6 +93,9 @@ export interface AgendaBiometricosBookingRepo {
     locationId?: string;
   }): Promise<readonly AgendaBiometricosBookedSlot[]>;
   getActiveBooking(expedienteId: string): Promise<AgendaBiometricosActiveBooking | null>;
+  getLastCancelledBooking(
+    expedienteId: string,
+  ): Promise<AgendaBiometricosCancelledBooking | null>;
   bookBiometricos(params: {
     expedienteId: string;
     scheduledAt: string;
