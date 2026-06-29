@@ -91,7 +91,12 @@ export class MesaOpsSupabaseRepo {
         .maybeSingle();
 
       if (error || !data) {
-        console.warn("[mesa-ops] resolveCurrentUserAppRole:", error?.message ?? "sin perfil");
+        if (process.env.NODE_ENV === "development") {
+          console.warn(
+            "[mesa-ops] resolveCurrentUserAppRole:",
+            error?.message ?? "sin perfil",
+          );
+        }
         return null;
       }
 
@@ -99,7 +104,9 @@ export class MesaOpsSupabaseRepo {
       return typeof appRole === "string" && appRole.trim() ? appRole.trim() : null;
     } catch (err) {
       if (err instanceof MesaOpsSupabaseError) {
-        console.warn("[mesa-ops] resolveCurrentUserAppRole:", err.message);
+        if (process.env.NODE_ENV === "development") {
+          console.warn("[mesa-ops] resolveCurrentUserAppRole:", err.message);
+        }
         return null;
       }
       throw err;
@@ -118,14 +125,18 @@ export class MesaOpsSupabaseRepo {
         .in("expediente_id", ids);
 
       if (error) {
-        console.warn("[mesa-ops] listByExpedienteIds:", error.message);
+        if (process.env.NODE_ENV === "development") {
+          console.warn("[mesa-ops] listByExpedienteIds:", error.message);
+        }
         return [];
       }
 
       return (data as OpsDbRow[] | null)?.map(mapOpsRow) ?? [];
     } catch (err) {
       if (err instanceof MesaOpsSupabaseError) {
-        console.warn("[mesa-ops] listByExpedienteIds:", err.message);
+        if (process.env.NODE_ENV === "development") {
+          console.warn("[mesa-ops] listByExpedienteIds:", err.message);
+        }
         return [];
       }
       throw err;

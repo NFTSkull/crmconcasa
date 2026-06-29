@@ -1,5 +1,35 @@
 # Devlog
 
+## 2026-06-29 - Fase 1C-A Mesa Ops: cleanup y estabilidad (sin bloqueo)
+
+### Cambios
+
+- `hasAlertMessage`: no renderizar `role="alert"` sin texto (bandeja + bloque ops).
+- Fallo lectura `mesa_expediente_ops`: bandeja conserva expedientes con `mesaOps: null` → badge «Sin asignar»; warn solo en `development`.
+- Tras take/release en detalle: `mesa_ops_updated` → `loadCasos({ silencioso: true })` en bandeja (mismo patrón que `expediente_archivos_updated`).
+
+### Análisis Fase 1C-B — fila ops en nuevos envíos a Mesa
+
+| Opción | Descripción | Riesgo | Nota |
+|--------|-------------|--------|------|
+| **A** | Dejar como está; `mesa_take_expediente` llama `ensure_mesa_expediente_ops_row` al tomar | Bajo | UI ya trata ausencia como «Sin asignar»; filtros coherentes |
+| **B** | Hook en `enviar_a_mesa` para crear fila ops al enviar | Medio | Toca RPC core; requiere migración + pruebas SQL; mejor observabilidad temprana |
+| **C** | RPC/helper separado (p. ej. `ensure_mesa_ops_row` expuesto o job backfill incremental) | Medio-bajo | Sin tocar `enviar_a_mesa`; más superficie API |
+
+**Recomendación 1C-B:** **Opción A** a corto plazo (suficiente en modo sombra). Valorar **Opción C** si se necesita fila ops en reporting antes del primer take; **Opción B** solo si negocio exige fila garantizada al envío y se autoriza migración.
+
+### Mini guía UX Mesa (propuesta, sin UI aún)
+
+- **Sin asignar:** nadie ha tomado el expediente en Mesa.
+- **Trabajando por ti:** lo tienes marcado como tuyo; aparece en «Mi bandeja».
+- **Trabajando por [nombre] / otro usuario:** otro operador lo tiene; por ahora no bloquea otras acciones.
+- **Mi bandeja:** solo expedientes que tú tomaste.
+- **Todo Mesa:** vista completa (comportamiento histórico de la bandeja).
+
+### Pendiente framework
+
+- Next.js puede insertar `role="alert"` vacío en route announcer; no es de la app. Los alertas de aplicación quedan guardados con `hasAlertMessage`.
+
 ## 2026-06-29 - Fase 1B Mesa: UI modo sombra (asignación operativa)
 
 ### Decisión

@@ -23,6 +23,7 @@ import {
   mesaOpsStatusBadgeClass,
   mesaOpsTakePromptStorageKey,
 } from "@/lib/mesaOpsUi";
+import { hasAlertMessage, notifyMesaOpsUpdated } from "@/lib/hasAlertMessage";
 
 type MesaExpedienteOpsSectionProps = Readonly<{
   expedienteId: string;
@@ -119,6 +120,7 @@ export function MesaExpedienteOpsSection({
       onOpsChange(next);
       setSuccessMessage(MESA_OPS_TAKE_SUCCESS_MESSAGE);
       dismissTakePrompt();
+      notifyMesaOpsUpdated();
     } catch (err) {
       const message =
         err instanceof MesaOpsSupabaseError
@@ -165,6 +167,7 @@ export function MesaExpedienteOpsSection({
       onOpsChange(mapReleaseResultToOpsRow(result));
       setSuccessMessage(MESA_OPS_RELEASE_SUCCESS_MESSAGE);
       setShowReleaseDialog(false);
+      notifyMesaOpsUpdated();
     } catch (err) {
       setActionError(
         err instanceof MesaOpsSupabaseError
@@ -217,9 +220,9 @@ export function MesaExpedienteOpsSection({
         </p>
       ) : null}
 
-      {actionError && !showReleaseDialog ? (
+      {hasAlertMessage(actionError) && !showReleaseDialog ? (
         <p role="alert" className="mt-3 text-sm text-red-700">
-          {actionError}
+          {actionError.trim()}
         </p>
       ) : null}
 
@@ -319,9 +322,9 @@ export function MesaExpedienteOpsSection({
               }
             />
           </div>
-          {actionError ? (
+          {hasAlertMessage(actionError) ? (
             <p role="alert" className="mt-2 text-sm text-red-700">
-              {actionError}
+              {actionError.trim()}
             </p>
           ) : null}
           <div className="mt-3 flex flex-wrap gap-2">

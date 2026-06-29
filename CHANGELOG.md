@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Fase 1C-A Mesa Ops — cleanup y estabilidad (sin bloqueo):** alertas solo con texto real (`hasAlertMessage`); fallback seguro si falla lectura ops; evento `mesa_ops_updated` para refrescar bandeja tras tomar/liberar; logs ops solo en desarrollo.
+
 - **Fase 1B Mesa — UI modo sombra (asignación operativa):** bandeja `/mesa-control` con badge operativo adicional por expediente, chips `Todo Mesa` / `Sin asignar` / `Mi bandeja` / `En trabajo`; detalle con bloque «Responsable Mesa», tomar/liberar vía RPC `mesa_take_expediente` / `mesa_release_expediente`; lectura `mesa_expediente_ops` en segundo plano; sin bloqueos ni cambios a flujos existentes; sin migraciones ni Cloud.
 
 - **Fase 1A Mesa — ops modo sombra (local):** migración `039` tabla `mesa_expediente_ops` (1:1 expediente, estados operativos, backfill idempotente, `GRANT SELECT` + RLS); migración `040` RPCs `mesa_take_expediente` / `mesa_release_expediente` con `action_log`; sin UI, sin bloqueos ni cambios a flujos existentes; tests SQL backfill, RLS y take/release.

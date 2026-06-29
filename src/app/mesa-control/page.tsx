@@ -50,6 +50,7 @@ import {
   type MesaOpsFilter,
 } from "@/lib/mesaOpsUi";
 import { MesaOpsBandejaBadge } from "@/components/mesa-control/MesaExpedienteOpsSection";
+import { hasAlertMessage, MESA_OPS_UPDATED_EVENT } from "@/lib/hasAlertMessage";
 
 type CasoConDocs = CasoMock & {
   resumenDocumental?: CategoriaResumenDocumental;
@@ -292,8 +293,14 @@ export default function MesaControlPage() {
             const opsRows = await mesaOpsRepo.listByExpedienteIds(sorted.map((c) => c.id));
             const opsMap = buildMesaOpsMap(opsRows);
             setCasos(mergeExpedientesWithMesaOps(sorted, opsMap));
-          } catch {
-            setCasos(sorted.map((c) => ({ ...c, mesaOps: null })));
+          } catch (err) {
+            if (process.env.NODE_ENV === "development") {
+              console.warn(
+                "[mesa-control] lectura mesa_expediente_ops falló; bandeja sin badges ops",
+                err,
+              );
+            }
+            setCasos(mergeExpedientesWithMesaOps(sorted, buildMesaOpsMap([])));
           }
         } else {
           setCasos(sorted);
@@ -324,15 +331,18 @@ export default function MesaControlPage() {
     loadCasos();
     if (dataSupabase || typeof window === "undefined") {
       const archivosHandler = () => loadCasos();
+      const mesaOpsHandler = () => loadCasos({ silencioso: true });
       window.addEventListener(
         "expediente_archivos_updated",
         archivosHandler as EventListener,
       );
+      window.addEventListener(MESA_OPS_UPDATED_EVENT, mesaOpsHandler as EventListener);
       return () => {
         window.removeEventListener(
           "expediente_archivos_updated",
           archivosHandler as EventListener,
         );
+        window.removeEventListener(MESA_OPS_UPDATED_EVENT, mesaOpsHandler as EventListener);
       };
     }
 
@@ -342,10 +352,12 @@ export default function MesaControlPage() {
     const customHandler = () => loadCasos();
 
     const archivosHandler = () => loadCasos();
+    const mesaOpsHandler = () => loadCasos({ silencioso: true });
 
     window.addEventListener("storage", storageHandler);
     window.addEventListener("mesa_control_inbox_updated", customHandler);
     window.addEventListener("expediente_archivos_updated", archivosHandler as EventListener);
+    window.addEventListener(MESA_OPS_UPDATED_EVENT, mesaOpsHandler as EventListener);
     return () => {
       window.removeEventListener("storage", storageHandler);
       window.removeEventListener("mesa_control_inbox_updated", customHandler);
@@ -353,6 +365,7 @@ export default function MesaControlPage() {
         "expediente_archivos_updated",
         archivosHandler as EventListener,
       );
+      window.removeEventListener(MESA_OPS_UPDATED_EVENT, mesaOpsHandler as EventListener);
     };
   }, [currentUser, dataSupabase, loadCasos]);
 
@@ -511,12 +524,12 @@ export default function MesaControlPage() {
       </header>
 
       <main className="mx-auto max-w-7xl space-y-5 px-4 py-5">
-        {listError ? (
+        {hasAlertMessage(listError) ? (
           <p
             role="alert"
             className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
           >
-            {listError}
+            {listError.trim()}
           </p>
         ) : null}
         {showAdminOrigenTabs ? (
