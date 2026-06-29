@@ -146,11 +146,20 @@ function origenMesaBadgeClass(o: CasoMock["origenMesa"]): string {
   return "inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600 ring-1 ring-slate-200/80";
 }
 
-function MesaEnMesaHaceBadge({ fechaEnvioMesa }: { fechaEnvioMesa?: string | null }) {
-  const label = formatEnMesaHaceLabel(fechaEnvioMesa);
+function MesaEnMesaHaceBadge({
+  fechaEnvioMesa,
+  createdAt,
+}: {
+  fechaEnvioMesa?: string | null;
+  createdAt?: string | null;
+}) {
+  const label = formatEnMesaHaceLabel(fechaEnvioMesa, new Date(), createdAt);
   if (!label) return null;
   return (
-    <span className="inline-flex rounded-md bg-slate-800/90 px-2 py-0.5 text-[10px] font-medium text-white">
+    <span
+      className="inline-flex shrink-0 items-center rounded-md border border-amber-400/90 bg-amber-100 px-2 py-1 text-[11px] font-semibold leading-tight text-amber-950 ring-1 ring-amber-300/70"
+      data-testid="mesa-bandeja-en-mesa-hace"
+    >
       {label}
     </span>
   );
@@ -666,8 +675,15 @@ export default function MesaControlPage() {
           <div className="mb-4 flex flex-wrap items-end justify-between gap-2">
             <div>
               <h2 className="text-sm font-semibold text-slate-800">Expedientes</h2>
-              <p className="text-xs text-slate-500">
+              <p
+                className="text-xs text-slate-600"
+                data-testid="mesa-bandeja-subtitulo-orden"
+              >
                 Ordenados por antigüedad en Mesa · clic o Enter para abrir
+              </p>
+              <p className="mt-1 text-[11px] text-slate-500">
+                Más antiguos primero según fecha de envío a Mesa. Urgencias en colores y
+                filtros.
               </p>
             </div>
             <p className="text-[11px] tabular-nums text-slate-500">
@@ -701,11 +717,17 @@ export default function MesaControlPage() {
                     <p className="truncate text-sm font-semibold text-slate-900">{c.cliente_nombre}</p>
                     <p className="mt-0.5 text-[11px] text-slate-500">{c.telefono_cliente || "—"}</p>
                   </div>
-                  {showAdminOrigenTabs ? (
-                    <span className={origenMesaBadgeClass(c.origenMesa ?? null)}>
-                      {origenMesaLabel(c.origenMesa ?? null)}
-                    </span>
-                  ) : null}
+                  <div className="flex max-w-[55%] flex-col items-end gap-1.5">
+                    <MesaEnMesaHaceBadge
+                      fechaEnvioMesa={c.fechaEnvioMesa}
+                      createdAt={c.createdAt}
+                    />
+                    {showAdminOrigenTabs ? (
+                      <span className={origenMesaBadgeClass(c.origenMesa ?? null)}>
+                        {origenMesaLabel(c.origenMesa ?? null)}
+                      </span>
+                    ) : null}
+                  </div>
                 </div>
                 <p className="mt-2 text-[11px] text-slate-600">
                   <span className="font-medium text-slate-700">Asesor:</span>{" "}
@@ -720,7 +742,6 @@ export default function MesaControlPage() {
                   </p>
                 ) : null}
                 <div className="mt-3 flex flex-wrap items-center gap-2">
-                  <MesaEnMesaHaceBadge fechaEnvioMesa={c.fechaEnvioMesa} />
                   <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-800">
                     Etapa {c.etapaActual}: {ETAPAS_LABELS[c.etapaActual] ?? "—"}
                   </span>

@@ -28,6 +28,19 @@ export function sortMesaBandejaPorAntiguedad<T extends MesaBandejaOrdenItem>(
   );
 }
 
+/** ISO de envío a Mesa; `createdAt` solo como fallback mock. */
+export function resolveMesaEnvioIso(
+  fechaEnvioMesa: string | null | undefined,
+  createdAt?: string | null,
+): string | null {
+  const fromEnvio =
+    typeof fechaEnvioMesa === "string" ? fechaEnvioMesa.trim() : "";
+  if (fromEnvio) return fromEnvio;
+  const fromCreated =
+    typeof createdAt === "string" ? createdAt.trim() : "";
+  return fromCreated || null;
+}
+
 /**
  * Etiqueta relativa para badge en tarjeta de bandeja.
  * Ej.: «En Mesa hace 4 h», «En Mesa hace 2 días».
@@ -35,8 +48,9 @@ export function sortMesaBandejaPorAntiguedad<T extends MesaBandejaOrdenItem>(
 export function formatEnMesaHaceLabel(
   fechaEnvioMesa: string | null | undefined,
   now: Date = new Date(),
+  createdAt?: string | null,
 ): string | null {
-  const raw = typeof fechaEnvioMesa === "string" ? fechaEnvioMesa.trim() : "";
+  const raw = resolveMesaEnvioIso(fechaEnvioMesa, createdAt);
   if (!raw) return null;
 
   const start = new Date(raw);

@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   formatEnMesaHaceLabel,
   getMesaEnvioSortTimestamp,
+  resolveMesaEnvioIso,
   sortMesaBandejaPorAntiguedad,
 } from "./mesaBandejaOrden";
 
@@ -45,8 +46,24 @@ describe("sortMesaBandejaPorAntiguedad", () => {
   });
 });
 
+describe("resolveMesaEnvioIso", () => {
+  it("prioriza fechaEnvioMesa sobre createdAt", () => {
+    assert.equal(
+      resolveMesaEnvioIso("2026-06-01T00:00:00.000Z", "2026-06-10T00:00:00.000Z"),
+      "2026-06-01T00:00:00.000Z",
+    );
+  });
+});
+
 describe("formatEnMesaHaceLabel", () => {
   const now = new Date("2026-06-25T14:00:00.000Z");
+
+  it("fallback createdAt", () => {
+    assert.equal(
+      formatEnMesaHaceLabel(null, now, "2026-06-23T14:00:00.000Z"),
+      "En Mesa hace 2 días",
+    );
+  });
 
   it("minutos", () => {
     assert.equal(
