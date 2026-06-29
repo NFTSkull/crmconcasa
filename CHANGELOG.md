@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Fase 1C-B Mesa — default Disponibles en bandeja:** filtro operativo inicial `Disponibles` (`sin_asignar`); chips reordenados (operativo primero, `Todo Mesa` al final); texto de ayuda bajo «Asignación operativa»; sin backend ni migraciones.
+
 - **Fase 1C-A Mesa Ops — cleanup y estabilidad (sin bloqueo):** alertas solo con texto real (`hasAlertMessage`); fallback seguro si falla lectura ops; evento `mesa_ops_updated` para refrescar bandeja tras tomar/liberar; logs ops solo en desarrollo.
 
 - **Fase 1B Mesa — UI modo sombra (asignación operativa):** bandeja `/mesa-control` con badge operativo adicional por expediente, chips `Todo Mesa` / `Sin asignar` / `Mi bandeja` / `En trabajo`; detalle con bloque «Responsable Mesa», tomar/liberar vía RPC `mesa_take_expediente` / `mesa_release_expediente`; lectura `mesa_expediente_ops` en segundo plano; sin bloqueos ni cambios a flujos existentes; sin migraciones ni Cloud.

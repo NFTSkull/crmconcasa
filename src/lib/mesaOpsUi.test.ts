@@ -3,10 +3,12 @@ import { describe, it } from "node:test";
 import type { MesaExpedienteOpsRow } from "@/domain/mesa-ops/types";
 import {
   applyMesaOpsFilterSorted,
+  DEFAULT_MESA_OPS_FILTER,
   filterMesaOpsItems,
   getMesaOpsStatusLabel,
   isAssignedToCurrentUser,
   isSinAsignarOps,
+  MESA_OPS_FILTER_CHIPS,
   mergeExpedientesWithMesaOps,
   buildMesaOpsMap,
   resolveMesaOpsAdminCanRelease,
@@ -45,6 +47,13 @@ const items = [
 ] as const;
 
 describe("mesaOpsUi", () => {
+  it("default operativo al cargar bandeja es Disponibles (sin_asignar)", () => {
+    assert.equal(DEFAULT_MESA_OPS_FILTER, "sin_asignar");
+    assert.equal(MESA_OPS_FILTER_CHIPS[0]?.id, "sin_asignar");
+    assert.equal(MESA_OPS_FILTER_CHIPS[0]?.label, "Disponibles");
+    assert.equal(MESA_OPS_FILTER_CHIPS.at(-1)?.id, "todo_mesa");
+  });
+
   it("sin ops → Sin asignar", () => {
     assert.equal(getMesaOpsStatusLabel(null, USER_A), "Sin asignar");
     assert.equal(isSinAsignarOps(null), true);
@@ -97,6 +106,19 @@ describe("mesaOpsUi", () => {
     assert.equal(filterMesaOpsItems(merged, "todo_mesa", USER_A).length, 3);
   });
 
+  it("filtro Disponibles (sin_asignar) excluye assigned_to", () => {
+    const merged = mergeExpedientesWithMesaOps(
+      items,
+      buildMesaOpsMap([
+        ops({ expedienteId: "exp-mid", estadoMesa: "trabajando", assignedTo: USER_A, assignedAt: "x" }),
+        ops({ expedienteId: "exp-old", estadoMesa: "trabajando", assignedTo: USER_B, assignedAt: "x" }),
+      ]),
+    );
+    const filtered = filterMesaOpsItems(merged, "sin_asignar", USER_A);
+    assert.equal(filtered.length, 1);
+    assert.deepEqual(filtered.map((i) => i.id), ["exp-new"]);
+  });
+
   it("filtro Sin asignar", () => {
     const merged = mergeExpedientesWithMesaOps(
       items,
@@ -131,6 +153,15 @@ describe("mesaOpsUi", () => {
     );
     const filtered = filterMesaOpsItems(merged, "en_trabajo", USER_A);
     assert.deepEqual(filtered.map((i) => i.id), ["exp-old"]);
+  });
+
+  it("orden fecha_envio_mesa ASC tras filtrar Disponibles", () => {
+    const merged = mergeExpedientesWithMesaOps(items, buildMesaOpsMap([]));
+    const sorted = applyMesaOpsFilterSorted(merged, DEFAULT_MESA_OPS_FILTER, USER_A);
+    assert.deepEqual(
+      sorted.map((i) => i.id),
+      ["exp-old", "exp-mid", "exp-new"],
+    );
   });
 
   it("orden fecha_envio_mesa ASC tras filtrar", () => {

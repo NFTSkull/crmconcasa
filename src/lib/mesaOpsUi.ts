@@ -3,6 +3,22 @@ import { sortMesaBandejaPorAntiguedad, type MesaBandejaOrdenItem } from "@/lib/m
 
 export type MesaOpsFilter = "todo_mesa" | "sin_asignar" | "mi_bandeja" | "en_trabajo";
 
+/** Filtro operativo al cargar `/mesa-control`: expedientes libres para tomar. */
+export const DEFAULT_MESA_OPS_FILTER: MesaOpsFilter = "sin_asignar";
+
+export const MESA_OPS_FILTER_CHIPS: ReadonlyArray<{
+  id: MesaOpsFilter;
+  label: string;
+}> = [
+  { id: "sin_asignar", label: "Disponibles" },
+  { id: "mi_bandeja", label: "Mi bandeja" },
+  { id: "en_trabajo", label: "En trabajo" },
+  { id: "todo_mesa", label: "Todo Mesa" },
+];
+
+export const MESA_OPS_FILTER_HELP_TEXT =
+  "Disponibles: expedientes libres para tomar. Todo Mesa muestra la vista completa.";
+
 export type MesaOpsStatusKind =
   | "sin_asignar"
   | "trabajando_por_ti"

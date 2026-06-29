@@ -46,6 +46,9 @@ import { useMesaOpsRepo, type MesaExpedienteOpsRow } from "@/domain/mesa-ops";
 import {
   applyMesaOpsFilterSorted,
   buildMesaOpsMap,
+  DEFAULT_MESA_OPS_FILTER,
+  MESA_OPS_FILTER_CHIPS,
+  MESA_OPS_FILTER_HELP_TEXT,
   mergeExpedientesWithMesaOps,
   type MesaOpsFilter,
 } from "@/lib/mesaOpsUi";
@@ -199,7 +202,7 @@ export default function MesaControlPage() {
   const dataSupabase = isDataModeSupabase();
   const [casos, setCasos] = useState<CasoConDocs[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
-  const [mesaOpsFilter, setMesaOpsFilter] = useState<MesaOpsFilter>("todo_mesa");
+  const [mesaOpsFilter, setMesaOpsFilter] = useState<MesaOpsFilter>(DEFAULT_MESA_OPS_FILTER);
   const [listError, setListError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [buscar, setBuscar] = useState("");
@@ -677,19 +680,15 @@ export default function MesaControlPage() {
             <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
               Asignación operativa
             </p>
+            <p className="mb-2 text-[11px] leading-snug text-slate-500">
+              {MESA_OPS_FILTER_HELP_TEXT}
+            </p>
             <div
               className="flex flex-wrap gap-1.5"
               role="tablist"
               aria-label="Filtros de asignación Mesa"
             >
-              {(
-                [
-                  { id: "todo_mesa" as const, label: "Todo Mesa" },
-                  { id: "sin_asignar" as const, label: "Sin asignar" },
-                  { id: "mi_bandeja" as const, label: "Mi bandeja" },
-                  { id: "en_trabajo" as const, label: "En trabajo" },
-                ] satisfies { id: MesaOpsFilter; label: string }[]
-              ).map(({ id, label }) => (
+              {MESA_OPS_FILTER_CHIPS.map(({ id, label }) => (
                 <button
                   key={id}
                   type="button"

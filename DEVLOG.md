@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-06-29 - Fase 1C-B Mesa: default Disponibles en bandeja
+
+### Decisión
+
+- Default operativo al cargar `/mesa-control`: chip **Disponibles** (`sin_asignar`), no `Todo Mesa`.
+- `Todo Mesa` conserva vista completa; `Mi bandeja` y `En trabajo` sin cambio de criterio.
+- Label chip «Disponibles»; badges de fila siguen «Sin asignar» / «Trabajando por…».
+- Orden chips: Disponibles → Mi bandeja → En trabajo → Todo Mesa.
+- Constantes `DEFAULT_MESA_OPS_FILTER`, `MESA_OPS_FILTER_CHIPS`, `MESA_OPS_FILTER_HELP_TEXT` en `mesaOpsUi.ts`.
+- Sin backend, migraciones, RLS, Cloud ni bloqueo operativo.
+
 ## 2026-06-29 - Fase 1C-A Mesa Ops: cleanup y estabilidad (sin bloqueo)
 
 ### Cambios
