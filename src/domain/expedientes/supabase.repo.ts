@@ -150,7 +150,7 @@ async function fetchExpedientesListForMesaControl(): Promise<ExpedienteMock[]> {
     .is("deleted_at", null)
     .eq("submitted_to_mesa", true)
     .eq("ciclo_estado", "activo")
-    .order("fecha_envio_mesa", { ascending: false });
+    .order("fecha_envio_mesa", { ascending: true });
 
   if (error) {
     throw new ExpedientesSupabaseError(

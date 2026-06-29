@@ -1,5 +1,14 @@
 # Devlog
 
+## 2026-06-29 - Fase 0 bandeja Mesa: orden por antigüedad
+
+### Decisión
+
+- Orden default bandeja: `fecha_envio_mesa ASC` (más viejos primero); se elimina reorden por tier documental/subestado en la lista.
+- Badge informativo «En Mesa hace X» en tarjetas; KPIs y filtros rápidos conservan urgencia sin afectar orden.
+- Helpers `mesaBandejaOrden.ts`; query Supabase `listForMesaControl` alineada a ASC.
+- Sin migraciones, sin RPC, sin bloqueos operativos.
+
 ## 2026-06-26 - Fix gate cancel: `mesa_control` vía sesión (no mockRole)
 
 ### Decisión

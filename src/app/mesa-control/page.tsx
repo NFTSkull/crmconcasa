@@ -38,6 +38,10 @@ import {
 } from "@/lib/mockUser";
 import { AgendaBiometricosConfigPanel } from "@/components/mesa-control/AgendaBiometricosConfigPanel";
 import { canManageAgendaConfig } from "@/lib/canManageAgendaConfig";
+import {
+  formatEnMesaHaceLabel,
+  sortMesaBandejaPorAntiguedad,
+} from "@/lib/mesaBandejaOrden";
 
 type CasoConDocs = CasoMock & { resumenDocumental?: CategoriaResumenDocumental };
 
@@ -142,24 +146,14 @@ function origenMesaBadgeClass(o: CasoMock["origenMesa"]): string {
   return "inline-flex rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-600 ring-1 ring-slate-200/80";
 }
 
-/** Prioridad de filas en bandeja mesa (menor = más urgente). Solo afecta orden visual. */
-function getPrioridad(subestado: string | null | undefined): number {
-  const s = String(subestado ?? "").trim();
-
-  if (s === "correccion_requerida") return 1;
-  if (s === "rechazado") return 2;
-  if (s === "en_validacion_mesa") return 3;
-  if (s === "pendiente") return 4;
-  if (s === "en_proceso") return 5;
-  if (s === "cita_agendada") return 6;
-
-  return 99;
-}
-
-function getFechaUrgenciaBandejaMesa(c: CasoMock): number {
-  const iso = c.fechaEnvioMesa ?? c.createdAt ?? c.updatedAt ?? 0;
-  const t = new Date(iso).getTime();
-  return Number.isNaN(t) ? 0 : t;
+function MesaEnMesaHaceBadge({ fechaEnvioMesa }: { fechaEnvioMesa?: string | null }) {
+  const label = formatEnMesaHaceLabel(fechaEnvioMesa);
+  if (!label) return null;
+  return (
+    <span className="inline-flex rounded-md bg-slate-800/90 px-2 py-0.5 text-[10px] font-medium text-white">
+      {label}
+    </span>
+  );
 }
 
 function rowSurfaceClass(c: CasoConDocs): string {
@@ -259,18 +253,8 @@ export default function MesaControlPage() {
             typeof rawFe === "string" && rawFe.trim() !== "" ? rawFe : undefined;
           return fechaEnvioMesa !== undefined ? { ...c, fechaEnvioMesa } : c;
         });
-        const sorted = [...base].sort((a, b) => {
-          const prioridadDiff =
-            getPrioridad(a.subestado) - getPrioridad(b.subestado);
-          if (prioridadDiff !== 0) return prioridadDiff;
-          return getFechaUrgenciaBandejaMesa(a) - getFechaUrgenciaBandejaMesa(b);
-        });
-        if (typeof window === "undefined") {
-          setCasos(sorted);
-          return;
-        }
         const enriched: CasoConDocs[] = await Promise.all(
-          sorted.map(async (c) => {
+          base.map(async (c) => {
             try {
               const r = await archivosRepo.listResumenByExpediente(c.id);
               return { ...c, resumenDocumental: deriveResumenDocumental(r) };
@@ -279,7 +263,7 @@ export default function MesaControlPage() {
             }
           }),
         );
-        setCasos(enriched);
+        setCasos(sortMesaBandejaPorAntiguedad(enriched));
       } catch (err) {
         setCasos([]);
         if (err instanceof ExpedientesSupabaseError) {
@@ -330,41 +314,22 @@ export default function MesaControlPage() {
     };
   }, [currentUser, dataSupabase, loadCasos]);
 
-  const allCasos = useMemo(() => {
-    const list = [...casos];
-
-    const priorityTier = (c: CasoConDocs): number => {
-      if (c.resumenDocumental === "correccion_enviada") return 0;
-      if (c.resumenDocumental === "correccion_requerida") return 1;
-      if (isNuevoEtapa12(c)) return 2;
-      if (isCitaHoy(c)) return 3;
-      return 4;
-    };
-
-    return list.sort((a, b) => {
-      const ta = priorityTier(a);
-      const tb = priorityTier(b);
-      if (ta !== tb) return ta - tb;
-      return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
-    });
-  }, [casos, isCitaHoy]);
-
   const kpis = useMemo(() => {
-    const correccionesEnviadas = allCasos.filter(
+    const correccionesEnviadas = casos.filter(
       (c) => c.resumenDocumental === "correccion_enviada",
     ).length;
-    const nuevosPorRevisar = allCasos.filter((c) => isNuevoEtapa12(c)).length;
-    const citasHoy = allCasos.filter((c) => isCitaHoy(c)).length;
-    const bloqueadosRechazados = allCasos.filter(
+    const nuevosPorRevisar = casos.filter((c) => isNuevoEtapa12(c)).length;
+    const citasHoy = casos.filter((c) => isCitaHoy(c)).length;
+    const bloqueadosRechazados = casos.filter(
       (c) =>
         c.subestado === "rechazado" || c.resumenDocumental === "correccion_requerida",
     ).length;
-    const enProceso = allCasos.filter((c) => c.subestado === "en_proceso").length;
-    const rechazadosOperativo = allCasos.filter((c) => c.subestado === "rechazado").length;
-    const enValidacionMesa = allCasos.filter(
+    const enProceso = casos.filter((c) => c.subestado === "en_proceso").length;
+    const rechazadosOperativo = casos.filter((c) => c.subestado === "rechazado").length;
+    const enValidacionMesa = casos.filter(
       (c) => c.subestado === "en_validacion_mesa",
     ).length;
-    const totalBandeja = allCasos.length;
+    const totalBandeja = casos.length;
     return {
       correccionesEnviadas,
       nuevosPorRevisar,
@@ -375,13 +340,13 @@ export default function MesaControlPage() {
       enValidacionMesa,
       totalBandeja,
     };
-  }, [allCasos, isCitaHoy]);
+  }, [casos, isCitaHoy]);
 
   const showAdminOrigenTabs =
     mesaMockRole === "mesa_control_admin" || mesaMockRole === "mesa_control";
 
   const filteredCasos = useMemo(() => {
-    let list = [...allCasos];
+    let list = [...casos];
     if (showAdminOrigenTabs && adminOrigenTab === "internos") {
       list = list.filter((c) => c.origenMesa === "interno" || c.origenMesa == null);
     } else if (showAdminOrigenTabs && adminOrigenTab === "externos") {
@@ -420,7 +385,7 @@ export default function MesaControlPage() {
 
     return list;
   }, [
-    allCasos,
+    casos,
     adminOrigenTab,
     buscar,
     etapaFilter,
@@ -702,7 +667,7 @@ export default function MesaControlPage() {
             <div>
               <h2 className="text-sm font-semibold text-slate-800">Expedientes</h2>
               <p className="text-xs text-slate-500">
-                Tarjetas por urgencia · clic o Enter para abrir
+                Ordenados por antigüedad en Mesa · clic o Enter para abrir
               </p>
             </div>
             <p className="text-[11px] tabular-nums text-slate-500">
@@ -755,6 +720,7 @@ export default function MesaControlPage() {
                   </p>
                 ) : null}
                 <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <MesaEnMesaHaceBadge fechaEnvioMesa={c.fechaEnvioMesa} />
                   <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-800">
                     Etapa {c.etapaActual}: {ETAPAS_LABELS[c.etapaActual] ?? "—"}
                   </span>

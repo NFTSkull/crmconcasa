@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Fase 0 bandeja Mesa — orden por antigüedad:** bandeja `/mesa-control` ordenada por `fecha_envio_mesa ASC` (más viejos primero); badge «En Mesa hace X»; sin migraciones ni RPC; urgencia documental solo en KPIs/filtros.
+
 - **Fix Mesa cancel cita — rol sesión (`mesa_control`):** el gate `canMesaShowCancelCitaOperativa` ya no depende solo de `mockRole` en localStorage; usa `sessionRole` (`currentUser.role`) como el botón avanzar. Panel Decisión Mesa evalúa `cancelCitaGate` in situ; acepta booking activo **o** `fecha_cita`. Debug `NEXT_PUBLIC_DEBUG_MESA_CANCEL=1` + test fixture `99903805001`.
 
 - **Mesa cancel cita en Decisión Mesa (UI):** botón «Cancelar cita biométrica/firmas y solicitar reagenda» visible en panel **Decisión Mesa** (etapas 4/5 bio, 9/10 firmas); modal motivo obligatorio; mensaje «Cita cancelada. El asesor puede reagendar.»; gate `en_proceso` + booking activo.
