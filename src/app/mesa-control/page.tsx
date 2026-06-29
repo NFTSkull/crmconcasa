@@ -42,7 +42,6 @@ import {
   formatEnMesaHaceLabel,
   sortMesaBandejaPorAntiguedad,
 } from "@/lib/mesaBandejaOrden";
-import { getMesaBandejaBuildMarker } from "@/lib/mesaBandejaBuildMarker";
 
 type CasoConDocs = CasoMock & { resumenDocumental?: CategoriaResumenDocumental };
 
@@ -446,12 +445,6 @@ export default function MesaControlPage() {
               Mesa de control
             </h1>
             <p className="text-xs text-slate-500">Bandeja operativa · ConCasa CRM</p>
-            <p
-              className="mt-1 inline-flex rounded border border-violet-300 bg-violet-50 px-2 py-0.5 font-mono text-[10px] font-semibold text-violet-900"
-              data-testid="mesa-bandeja-build-marker"
-            >
-              {getMesaBandejaBuildMarker()}
-            </p>
           </div>
           <div className="flex shrink-0 items-center gap-2 sm:gap-3">
             <span className="hidden max-w-[220px] flex-col truncate text-right text-xs text-slate-500 sm:flex">

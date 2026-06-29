@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Limpieza Fase 0:** removido marcador temporal de build en bandeja Mesa.
+
 - **Fase 0 bandeja Mesa — orden por antigüedad:** bandeja `/mesa-control` ordenada por `fecha_envio_mesa ASC` (más viejos primero); badge «En Mesa hace X» visible en cabecera de tarjeta; copy de sección Expedientes; sin migraciones ni RPC.
 
 - **Fix Mesa cancel cita — rol sesión (`mesa_control`):** el gate `canMesaShowCancelCitaOperativa` ya no depende solo de `mockRole` en localStorage; usa `sessionRole` (`currentUser.role`) como el botón avanzar. Panel Decisión Mesa evalúa `cancelCitaGate` in situ; acepta booking activo **o** `fecha_cita`. Debug `NEXT_PUBLIC_DEBUG_MESA_CANCEL=1` + test fixture `99903805001`.
