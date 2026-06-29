@@ -64,6 +64,8 @@ CREATE POLICY mesa_expediente_ops_select
   TO authenticated
   USING (public.can_see_expediente(expediente_id));
 
+GRANT SELECT ON TABLE public.mesa_expediente_ops TO authenticated;
+
 -- =============================================================================
 -- backfill_mesa_expediente_ops
 -- =============================================================================

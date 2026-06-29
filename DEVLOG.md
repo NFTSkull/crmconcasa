@@ -10,6 +10,12 @@
 - **Modo sombra:** RPCs no invocadas por flujos existentes; no bloquean avance/cancel/documentos.
 - Sin cambios a `enviar_a_mesa`, `avanzar_etapa_operativa`, cancel/reagenda, RLS de `expedientes`, UI ni Cloud.
 
+### Follow-up GRANT SELECT (pre-merge)
+
+- `039`: `GRANT SELECT ON mesa_expediente_ops TO authenticated` tras policy RLS.
+- Tests `mesa_expediente_ops_rls.sql` (lectura Mesa, RLS `can_see_expediente`, DML denegado).
+- Tests negativos RPC take/release en `rpc_mesa_take_release.sql`.
+
 ### Archivos
 
 - `supabase/migrations/039_mesa_expediente_ops.sql`

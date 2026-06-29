@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- **Fase 1A Mesa — ops modo sombra (local):** migración `039` tabla `mesa_expediente_ops` (1:1 expediente, estados operativos, backfill idempotente); migración `040` RPCs `mesa_take_expediente` / `mesa_release_expediente` con `action_log`; sin UI, sin bloqueos ni cambios a flujos existentes; 13 tests SQL.
+- **Fase 1A Mesa — ops modo sombra (local):** migración `039` tabla `mesa_expediente_ops` (1:1 expediente, estados operativos, backfill idempotente, `GRANT SELECT` + RLS); migración `040` RPCs `mesa_take_expediente` / `mesa_release_expediente` con `action_log`; sin UI, sin bloqueos ni cambios a flujos existentes; tests SQL backfill, RLS y take/release.
 
 - **Limpieza Fase 0:** removido marcador temporal de build en bandeja Mesa.
 

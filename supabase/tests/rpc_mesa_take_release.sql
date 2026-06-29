@@ -39,7 +39,9 @@ CREATE OR REPLACE FUNCTION public.__mesa_tr_test_insert_exp(
   p_org UUID,
   p_asesor UUID,
   p_nss CHAR(11),
-  p_origen public.origen_mesa DEFAULT 'interno'
+  p_origen public.origen_mesa DEFAULT 'interno',
+  p_submitted BOOLEAN DEFAULT true,
+  p_ciclo public.expediente_ciclo_estado DEFAULT 'activo'
 )
 RETURNS VOID
 LANGUAGE plpgsql
@@ -51,13 +53,18 @@ BEGIN
     etapa_actual, subestado, ciclo_estado
   ) VALUES (
     p_id, p_org, p_asesor, 'mejoravit', p_nss, 'Fixture Mesa Take Release',
-    '5511111111', p_origen, true, NOW(), 1, 'en_validacion_mesa', 'activo'
+    '5511111111', p_origen,
+    p_submitted,
+    CASE WHEN p_submitted THEN NOW() ELSE NULL END,
+    1,
+    CASE WHEN p_submitted THEN 'en_validacion_mesa'::public.operativo_subestado ELSE 'pendiente'::public.operativo_subestado END,
+    p_ciclo
   )
   ON CONFLICT (id) DO UPDATE SET
     origen_mesa = EXCLUDED.origen_mesa,
-    submitted_to_mesa = true,
-    fecha_envio_mesa = NOW(),
-    ciclo_estado = 'activo',
+    submitted_to_mesa = EXCLUDED.submitted_to_mesa,
+    fecha_envio_mesa = EXCLUDED.fecha_envio_mesa,
+    ciclo_estado = EXCLUDED.ciclo_estado,
     deleted_at = NULL,
     updated_at = NOW();
 END;
@@ -139,6 +146,7 @@ DECLARE
   v_mesa_admin UUID := '00000000-0000-4000-8003-000000000001';
   v_mesa_int UUID := '00000000-0000-4000-8004-000000000001';
   v_mesa_int_b UUID := '00000000-0000-4000-8004-000000000002';
+  v_super UUID := '00000000-0000-4000-8006-000000000001';
 
   v_exp_take UUID := '00000000-0000-4000-9070-000000000010';
   v_exp_idem UUID := '00000000-0000-4000-9070-000000000020';
@@ -149,6 +157,10 @@ DECLARE
   v_exp_log_take UUID := '00000000-0000-4000-9070-000000000070';
   v_exp_log_rel UUID := '00000000-0000-4000-9070-000000000080';
   v_exp_unique UUID := '00000000-0000-4000-9070-000000000090';
+  v_exp_neg_draft UUID := '00000000-0000-4000-9070-000000000100';
+  v_exp_neg_cerrado UUID := '00000000-0000-4000-9070-000000000110';
+  v_exp_neg_rel_empty UUID := '00000000-0000-4000-9070-000000000120';
+  v_exp_neg_admin_motivo UUID := '00000000-0000-4000-9070-000000000130';
 
   v_result JSONB;
   v_ops public.mesa_expediente_ops;
@@ -181,10 +193,20 @@ BEGIN
   PERFORM public.__mesa_tr_test_insert_exp(v_exp_log_rel, v_org_id, v_asesor, '97080000080');
   PERFORM public.__mesa_tr_test_insert_exp(v_exp_unique, v_org_id, v_asesor, '97090000090');
 
+  PERFORM public.__mesa_tr_test_insert_exp(
+    v_exp_neg_draft, v_org_id, v_asesor, '97100000100', 'interno', false, 'activo'
+  );
+  PERFORM public.__mesa_tr_test_insert_exp(
+    v_exp_neg_cerrado, v_org_id, v_asesor, '97110000110', 'interno', true, 'cerrado'
+  );
+  PERFORM public.__mesa_tr_test_insert_exp(v_exp_neg_rel_empty, v_org_id, v_asesor, '97120000120');
+  PERFORM public.__mesa_tr_test_insert_exp(v_exp_neg_admin_motivo, v_org_id, v_asesor, '97130000130');
+
   DELETE FROM public.mesa_expediente_ops
   WHERE expediente_id IN (
     v_exp_take, v_exp_idem, v_exp_conflict, v_exp_release,
-    v_exp_admin_rel, v_exp_third, v_exp_log_take, v_exp_log_rel, v_exp_unique
+    v_exp_admin_rel, v_exp_third, v_exp_log_take, v_exp_log_rel, v_exp_unique,
+    v_exp_neg_draft, v_exp_neg_cerrado, v_exp_neg_rel_empty, v_exp_neg_admin_motivo
   );
 
   DELETE FROM public.action_log
@@ -279,13 +301,54 @@ BEGIN
     ),
     'test 9b: segundo operador no puede tomar'
   );
+
+  -- test 10: take falla si no enviado a Mesa (super_admin ve el expediente)
+  PERFORM public.__mesa_tr_test_assert(
+    public.__mesa_tr_test_expect_fail(
+      'take', v_super, v_exp_neg_draft, NULL, 'no ha sido enviado a Mesa'
+    ),
+    'test 10: take falla expediente no enviado'
+  );
+
+  -- test 11: take falla si ciclo no activo
+  PERFORM public.__mesa_tr_test_assert(
+    public.__mesa_tr_test_expect_fail(
+      'take', v_super, v_exp_neg_cerrado, NULL, 'no está en ciclo activo'
+    ),
+    'test 11: take falla ciclo inactivo'
+  );
+
+  -- test 12: take falla con rol asesor
+  PERFORM public.__mesa_tr_test_assert(
+    public.__mesa_tr_test_expect_fail(
+      'take', v_asesor, v_exp_take, NULL, 'rol no autorizado'
+    ),
+    'test 12: take falla rol asesor'
+  );
+
+  -- test 13: release falla sin responsable asignado
+  PERFORM public.__mesa_tr_test_assert(
+    public.__mesa_tr_test_expect_fail(
+      'release', v_mesa_int, v_exp_neg_rel_empty, NULL, 'no tiene responsable asignado'
+    ),
+    'test 13: release falla sin asignar'
+  );
+
+  -- test 14: admin libera a otro sin motivo falla
+  PERFORM public.__mesa_tr_test_call_take(v_mesa_int, v_exp_neg_admin_motivo);
+  PERFORM public.__mesa_tr_test_assert(
+    public.__mesa_tr_test_expect_fail(
+      'release', v_mesa_admin, v_exp_neg_admin_motivo, NULL, 'motivo es obligatorio'
+    ),
+    'test 14: release admin sin motivo falla'
+  );
 END;
 $$;
 
 DROP FUNCTION IF EXISTS public.__mesa_tr_test_expect_fail(TEXT, UUID, UUID, TEXT, TEXT);
 DROP FUNCTION IF EXISTS public.__mesa_tr_test_call_release(UUID, UUID, TEXT);
 DROP FUNCTION IF EXISTS public.__mesa_tr_test_call_take(UUID, UUID);
-DROP FUNCTION IF EXISTS public.__mesa_tr_test_insert_exp(UUID, UUID, UUID, CHAR, public.origen_mesa);
+DROP FUNCTION IF EXISTS public.__mesa_tr_test_insert_exp(UUID, UUID, UUID, CHAR, public.origen_mesa, BOOLEAN, public.expediente_ciclo_estado);
 DROP FUNCTION IF EXISTS public.__mesa_tr_test_reset_auth();
 DROP FUNCTION IF EXISTS public.__mesa_tr_test_set_auth(UUID);
 DROP FUNCTION IF EXISTS public.__mesa_tr_test_assert(BOOLEAN, TEXT);
