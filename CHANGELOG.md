@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **Fase 1A Mesa — ops modo sombra (local):** migración `039` tabla `mesa_expediente_ops` (1:1 expediente, estados operativos, backfill idempotente); migración `040` RPCs `mesa_take_expediente` / `mesa_release_expediente` con `action_log`; sin UI, sin bloqueos ni cambios a flujos existentes; 13 tests SQL.
+
 - **Limpieza Fase 0:** removido marcador temporal de build en bandeja Mesa.
 
 - **Fase 0 bandeja Mesa — orden por antigüedad:** bandeja `/mesa-control` ordenada por `fecha_envio_mesa ASC` (más viejos primero); badge «En Mesa hace X» visible en cabecera de tarjeta; copy de sección Expedientes; sin migraciones ni RPC.

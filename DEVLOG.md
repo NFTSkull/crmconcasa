@@ -1,5 +1,22 @@
 # Devlog
 
+## 2026-06-29 - Fase 1A Mesa: ops modo sombra (backend local)
+
+### Decisión
+
+- Nueva tabla `mesa_expediente_ops` 1:1 con `expedientes`; estados `sin_asignar` … `completado`.
+- Backfill idempotente solo para `submitted_to_mesa = true`, `ciclo_estado = activo`, sin fila ops.
+- RPCs `mesa_take_expediente` / `mesa_release_expediente`: roles Mesa + `super_admin`; `can_see_expediente`; lock `FOR UPDATE` en fila ops; `action_log` `mesa.expediente.take|release`.
+- **Modo sombra:** RPCs no invocadas por flujos existentes; no bloquean avance/cancel/documentos.
+- Sin cambios a `enviar_a_mesa`, `avanzar_etapa_operativa`, cancel/reagenda, RLS de `expedientes`, UI ni Cloud.
+
+### Archivos
+
+- `supabase/migrations/039_mesa_expediente_ops.sql`
+- `supabase/migrations/040_rpc_mesa_take_release.sql`
+- `supabase/tests/mesa_expediente_ops_backfill.sql`
+- `supabase/tests/rpc_mesa_take_release.sql`
+
 ## 2026-06-29 - Limpieza marcador build Fase 0
 
 ### Decisión
