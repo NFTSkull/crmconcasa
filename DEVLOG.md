@@ -1,5 +1,24 @@
 # Devlog
 
+## 2026-06-29 - Fase 1B Mesa: UI modo sombra (asignación operativa)
+
+### Decisión
+
+- UI consume `mesa_expediente_ops` y RPCs take/release **sin bloquear** avance, cancel, documentos ni orden Fase 0 (`fecha_envio_mesa ASC`).
+- Lectura ops en bandeja: query expedientes intacta + `listByExpedienteIds`; fallo silencioso → sin badge o «Sin asignar».
+- Filtros operativos chips adicionales (default `Todo Mesa`); KPIs y quick filters existentes sin cambio.
+- Detalle: bloque «Responsable Mesa» + prompt no bloqueante con `sessionStorage`; liberación admin vía `profiles.app_role` primero, `sessionRole` (`super_admin`) y `getEffectiveMockRole()` solo como fallback dev.
+- Helpers puros `mesaOpsUi.ts`; repo `domain/mesa-ops`; mock mode → ops vacíos, sin errores.
+- Sin migraciones, RLS, Cloud ni cambios a RPCs de flujo existente.
+
+### Archivos
+
+- `src/lib/mesaOpsUi.ts`, `src/lib/mesaOpsUi.test.ts`
+- `src/domain/mesa-ops/*`
+- `src/components/mesa-control/MesaExpedienteOpsSection.tsx`
+- `src/app/mesa-control/page.tsx`
+- `src/components/mesa-control/MesaExpedienteDetalleReadOnly.tsx`
+
 ## 2026-06-29 - Fase 1A Mesa: ops modo sombra (backend local)
 
 ### Decisión

@@ -97,6 +97,8 @@ import {
 } from "@/domain/expediente-retencion";
 import { useSessionRepo, type Rol } from "@/domain/session";
 import { subestadoOperativoLabel } from "@/lib/subestadoOperativoUi";
+import { useMesaOpsRepo, type MesaExpedienteOpsRow } from "@/domain/mesa-ops";
+import { MesaExpedienteOpsSection } from "@/components/mesa-control/MesaExpedienteOpsSection";
 
 type LoadState = "loading" | "ready" | "not_found" | "error";
 
@@ -165,6 +167,7 @@ export function MesaExpedienteDetalleReadOnly() {
   const agendaBookingRepo = useAgendaBiometricosBookingRepo();
   const firmasBookingRepo = useAgendaFirmasBookingRepo();
   const retencionRepo = useExpedienteRetencionSupabaseRepo();
+  const mesaOpsRepo = useMesaOpsRepo();
 
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -237,12 +240,25 @@ export function MesaExpedienteDetalleReadOnly() {
   const [biometricosCancelledMotivo, setBiometricosCancelledMotivo] = useState<string | null>(null);
   const [cancelFirmasSuccess, setCancelFirmasSuccess] = useState<string | null>(null);
   const [firmasCancelledMotivo, setFirmasCancelledMotivo] = useState<string | null>(null);
+  const [mesaOps, setMesaOps] = useState<MesaExpedienteOpsRow | null>(null);
+  const [mesaOpsUserId, setMesaOpsUserId] = useState<string | null>(null);
+  const [mesaOpsAppRole, setMesaOpsAppRole] = useState<string | null>(null);
 
   const mesaMockRole =
     typeof window !== "undefined" ? getEffectiveMockRole() : null;
   const mesaSessionRole = currentUser?.role ?? null;
 
   const puedeOperarMesa = puedeRevisarDocumentos(currentUser?.role);
+
+  useEffect(() => {
+    if (!mesaOpsRepo) {
+      setMesaOpsUserId(null);
+      setMesaOpsAppRole(null);
+      return;
+    }
+    void mesaOpsRepo.resolveCurrentUserId().then(setMesaOpsUserId);
+    void mesaOpsRepo.resolveCurrentUserAppRole().then(setMesaOpsAppRole);
+  }, [mesaOpsRepo]);
 
   const load = useCallback(() => {
     if (!routeExpedienteId || !currentUser) return;
@@ -297,6 +313,16 @@ export function MesaExpedienteDetalleReadOnly() {
         setBiometricosConfig(bioConfig);
         setActiveFirmasBooking(firmasBooking);
         setFirmasConfig(firmasCfg);
+        if (mesaOpsRepo) {
+          try {
+            const opsRow = await mesaOpsRepo.getByExpedienteId(routeExpedienteId);
+            setMesaOps(opsRow);
+          } catch {
+            setMesaOps(null);
+          }
+        } else {
+          setMesaOps(null);
+        }
         setBiometricosCancelledMotivo(
           booking
             ? null
@@ -334,6 +360,7 @@ export function MesaExpedienteDetalleReadOnly() {
     clienteDatosRepo,
     currentUser,
     expedientesRepo,
+    mesaOpsRepo,
     routeExpedienteId,
   ]);
 
@@ -1430,6 +1457,18 @@ export function MesaExpedienteDetalleReadOnly() {
           </p>
         </div>
       </section>
+
+      {mesaOpsRepo ? (
+        <MesaExpedienteOpsSection
+          expedienteId={routeExpedienteId}
+          currentUserId={mesaOpsUserId}
+          sessionRole={currentUser?.role ?? null}
+          appRole={mesaOpsAppRole}
+          mockRoleFallback={mesaMockRole}
+          ops={mesaOps}
+          onOpsChange={setMesaOps}
+        />
+      ) : null}
 
       <MesaAccordionSection
         id="mesa-editor"

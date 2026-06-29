@@ -42,8 +42,19 @@ import {
   formatEnMesaHaceLabel,
   sortMesaBandejaPorAntiguedad,
 } from "@/lib/mesaBandejaOrden";
+import { useMesaOpsRepo, type MesaExpedienteOpsRow } from "@/domain/mesa-ops";
+import {
+  applyMesaOpsFilterSorted,
+  buildMesaOpsMap,
+  mergeExpedientesWithMesaOps,
+  type MesaOpsFilter,
+} from "@/lib/mesaOpsUi";
+import { MesaOpsBandejaBadge } from "@/components/mesa-control/MesaExpedienteOpsSection";
 
-type CasoConDocs = CasoMock & { resumenDocumental?: CategoriaResumenDocumental };
+type CasoConDocs = CasoMock & {
+  resumenDocumental?: CategoriaResumenDocumental;
+  mesaOps?: MesaExpedienteOpsRow | null;
+};
 
 type MesaQuickFilter =
   | "todos"
@@ -183,8 +194,11 @@ export default function MesaControlPage() {
   const { sessionRepo, currentUser } = useSessionRepo();
   const repo = useExpedientesRepo();
   const archivosRepo = useExpedienteArchivosRepo();
+  const mesaOpsRepo = useMesaOpsRepo();
   const dataSupabase = isDataModeSupabase();
   const [casos, setCasos] = useState<CasoConDocs[]>([]);
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
+  const [mesaOpsFilter, setMesaOpsFilter] = useState<MesaOpsFilter>("todo_mesa");
   const [listError, setListError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [buscar, setBuscar] = useState("");
@@ -272,7 +286,18 @@ export default function MesaControlPage() {
             }
           }),
         );
-        setCasos(sortMesaBandejaPorAntiguedad(enriched));
+        const sorted = sortMesaBandejaPorAntiguedad(enriched);
+        if (mesaOpsRepo) {
+          try {
+            const opsRows = await mesaOpsRepo.listByExpedienteIds(sorted.map((c) => c.id));
+            const opsMap = buildMesaOpsMap(opsRows);
+            setCasos(mergeExpedientesWithMesaOps(sorted, opsMap));
+          } catch {
+            setCasos(sorted.map((c) => ({ ...c, mesaOps: null })));
+          }
+        } else {
+          setCasos(sorted);
+        }
       } catch (err) {
         setCasos([]);
         if (err instanceof ExpedientesSupabaseError) {
@@ -284,7 +309,15 @@ export default function MesaControlPage() {
         setLoading(false);
       }
     })();
-  }, [archivosRepo, currentUser, dataSupabase, mapExpToCaso, repo]);
+  }, [archivosRepo, currentUser, dataSupabase, mapExpToCaso, mesaOpsRepo, repo]);
+
+  useEffect(() => {
+    if (!mesaOpsRepo) {
+      setCurrentUserId(null);
+      return;
+    }
+    void mesaOpsRepo.resolveCurrentUserId().then(setCurrentUserId);
+  }, [mesaOpsRepo]);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -392,12 +425,14 @@ export default function MesaControlPage() {
       list = list.filter((c) => c.subestado === "rechazado");
     }
 
-    return list;
+    return applyMesaOpsFilterSorted(list, mesaOpsFilter, currentUserId);
   }, [
     casos,
     adminOrigenTab,
     buscar,
+    currentUserId,
     etapaFilter,
+    mesaOpsFilter,
     quickFilter,
     isCitaHoy,
     showAdminOrigenTabs,
@@ -624,6 +659,40 @@ export default function MesaControlPage() {
           </div>
         </section>
 
+        {mesaOpsRepo ? (
+          <section className="rounded-xl border border-slate-200/90 bg-white p-3 shadow-sm sm:p-4">
+            <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              Asignación operativa
+            </p>
+            <div
+              className="flex flex-wrap gap-1.5"
+              role="tablist"
+              aria-label="Filtros de asignación Mesa"
+            >
+              {(
+                [
+                  { id: "todo_mesa" as const, label: "Todo Mesa" },
+                  { id: "sin_asignar" as const, label: "Sin asignar" },
+                  { id: "mi_bandeja" as const, label: "Mi bandeja" },
+                  { id: "en_trabajo" as const, label: "En trabajo" },
+                ] satisfies { id: MesaOpsFilter; label: string }[]
+              ).map(({ id, label }) => (
+                <button
+                  key={id}
+                  type="button"
+                  role="tab"
+                  aria-selected={mesaOpsFilter === id}
+                  onClick={() => setMesaOpsFilter(id)}
+                  className={`${chipBase} ${mesaOpsFilter === id ? chipActive : chipInactive}`}
+                  data-testid={`mesa-ops-filter-${id}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          </section>
+        ) : null}
+
         <section className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-3 sm:p-4">
           <p className="mb-3 text-xs font-medium text-slate-600">Filtros adicionales</p>
           <div className="flex flex-wrap items-end gap-3 sm:gap-4">
@@ -742,6 +811,12 @@ export default function MesaControlPage() {
                   </p>
                 ) : null}
                 <div className="mt-3 flex flex-wrap items-center gap-2">
+                  {mesaOpsRepo ? (
+                    <MesaOpsBandejaBadge
+                      ops={c.mesaOps}
+                      currentUserId={currentUserId}
+                    />
+                  ) : null}
                   <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-800">
                     Etapa {c.etapaActual}: {ETAPAS_LABELS[c.etapaActual] ?? "—"}
                   </span>
