@@ -6,6 +6,7 @@
 
 - Orden default bandeja: `fecha_envio_mesa ASC` (más viejos primero); se elimina reorden por tier documental/subestado en la lista.
 - Badge «En Mesa hace X» en esquina superior de tarjeta (ámbar, `data-testid=mesa-bandeja-en-mesa-hace`); fallback `createdAt` si falta `fecha_envio_mesa`.
+- Marcador build `Fase 0 orden · commit {sha}` en header (`NEXT_PUBLIC_MESA_BANDEJA_BUILD_SHA`) para validar Preview vs producción.
 - Subtítulo Expedientes + línea aclaratoria: antigüedad primero; urgencia en colores/filtros.
 - Helpers `mesaBandejaOrden.ts`; query Supabase `listForMesaControl` alineada a ASC.
 - Sin migraciones, sin RPC, sin bloqueos operativos.
