@@ -772,9 +772,9 @@ export default function MesaControlPage() {
               {filteredCasos.length === 1 ? "caso" : "casos"}
             </p>
           </div>
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+          <div className="flex w-full flex-col gap-3">
             {loading ? (
-              <p className="col-span-full py-10 text-center text-sm text-slate-500">
+              <p className="w-full py-10 text-center text-sm text-slate-500">
                 Cargando expedientes…
               </p>
             ) : null}
@@ -791,7 +791,7 @@ export default function MesaControlPage() {
                   e.preventDefault();
                   goExpediente(c.id);
                 }}
-                className={`cursor-pointer rounded-xl border border-slate-200/90 p-4 text-left shadow-sm transition hover:border-sky-300/80 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 ${rowSurfaceClass(c)}`}
+                className={`w-full cursor-pointer rounded-xl border border-slate-200/90 p-4 text-left shadow-sm transition hover:border-sky-300/80 hover:shadow-md focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1 ${rowSurfaceClass(c)}`}
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
