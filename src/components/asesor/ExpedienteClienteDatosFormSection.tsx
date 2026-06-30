@@ -1,8 +1,9 @@
 "use client";
 
-import type { Dispatch, SetStateAction } from "react";
+import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { Button } from "@/components/ui/Button";
 import type { ExpedienteClienteDatos } from "@/domain/expediente-cliente-datos";
+import type { ClienteDatosFieldErrors, ClienteDatosFieldKey } from "@/lib/clienteDatosValidation";
 
 type ClienteDatosFormState = ExpedienteClienteDatos["datos"];
 
@@ -26,12 +27,47 @@ interface ExpedienteClienteDatosFormSectionProps {
   clienteDatosSaved?: boolean;
   clienteDatosError: string | null;
   camposFaltantes: string[];
+  fieldErrors?: ClienteDatosFieldErrors;
+  showFieldErrors?: boolean;
   puedeIntegrar: boolean;
   submittedToMesa?: boolean;
   dataSupabase: boolean;
   formatDateTime: (iso: string) => string;
   onSave: () => Promise<{ ok: boolean; message?: string }>;
   esperaMontoMessage: string;
+}
+
+function fieldInputClass(hasError: boolean): string {
+  return hasError
+    ? "rounded-md border border-red-400 bg-red-50/40 px-2 py-1 text-sm ring-1 ring-red-200"
+    : "rounded-md border border-gray-300 px-2 py-1 text-sm";
+}
+
+function DatosField({
+  label,
+  fieldKey,
+  error,
+  showError,
+  children,
+}: {
+  label: string;
+  fieldKey: ClienteDatosFieldKey;
+  error?: string;
+  showError?: boolean;
+  children: ReactNode;
+}) {
+  const visible = showError && Boolean(error);
+  return (
+    <label className="grid gap-1 text-xs text-gray-600" data-field={fieldKey}>
+      <span className="font-medium text-gray-800">{label}</span>
+      {children}
+      {visible ? (
+        <span className="text-[11px] text-red-700" role="alert">
+          {error}
+        </span>
+      ) : null}
+    </label>
+  );
 }
 
 export function ExpedienteClienteDatosFormSection({
@@ -43,6 +79,8 @@ export function ExpedienteClienteDatosFormSection({
   clienteDatosSaved = false,
   clienteDatosError,
   camposFaltantes,
+  fieldErrors = {},
+  showFieldErrors = false,
   puedeIntegrar,
   submittedToMesa = false,
   dataSupabase,
@@ -60,6 +98,14 @@ export function ExpedienteClienteDatosFormSection({
     : dataSupabase
       ? "Guardar datos"
       : "Guardar borrador";
+
+  const err = (key: ClienteDatosFieldKey) =>
+    showFieldErrors ? fieldErrors[key] : undefined;
+
+  const validationPreview =
+    showFieldErrors && Object.keys(fieldErrors).length > 0
+      ? Object.values(fieldErrors).slice(0, 5)
+      : [];
 
   const statusLine = (() => {
     if (dataSupabase && clienteDatosLoading) return "Cargando datos del cliente…";
@@ -115,6 +161,35 @@ export function ExpedienteClienteDatosFormSection({
           </Button>
         </div>
 
+        <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] leading-relaxed text-slate-600">
+          <p>
+            Captura información real y verificable. No repitas números telefónicos entre
+            cliente, empresa y referencias. Los datos incompletos, falsos o repetidos pueden
+            causar rechazo del expediente.
+          </p>
+          <p className="mt-2 font-medium text-slate-700">Antes de guardar verifica:</p>
+          <ul className="mt-1 list-inside list-disc space-y-0.5">
+            <li>NSS, CURP y RFC deben corresponder al cliente.</li>
+            <li>Los teléfonos deben ser únicos y de 10 dígitos.</li>
+            <li>Las referencias deben tener números diferentes al celular del cliente.</li>
+            <li>La dirección de empresa debe ser real y completa.</li>
+          </ul>
+        </div>
+
+        {validationPreview.length > 0 ? (
+          <div
+            className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950"
+            role="status"
+          >
+            <p className="font-medium">Revisa los siguientes campos:</p>
+            <ul className="mt-1 list-inside list-disc space-y-0.5">
+              {validationPreview.map((msg) => (
+                <li key={msg}>{msg}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
         {clienteDatosError ? (
           <p className="mt-2 rounded-md border border-red-200 bg-red-50 px-2 py-1.5 text-xs text-red-800">
             {clienteDatosError}
@@ -161,76 +236,70 @@ export function ExpedienteClienteDatosFormSection({
         ) : null}
 
         <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <label className="grid gap-1 text-xs text-gray-600">
-            <span className="font-medium text-gray-800">Nombre del cliente</span>
+          <DatosField label="Nombre del cliente" fieldKey="nombreCliente" error={err("nombreCliente")} showError={showFieldErrors}>
             <input
-              className="rounded-md border border-gray-300 px-2 py-1 text-sm"
+              className={fieldInputClass(Boolean(err("nombreCliente")))}
               value={clienteDatos.nombreCliente}
               onChange={(e) =>
                 setClienteDatos((p) => ({ ...p, nombreCliente: e.target.value }))
               }
             />
-          </label>
-          <label className="grid gap-1 text-xs text-gray-600">
-            <span className="font-medium text-gray-800">NSS</span>
+          </DatosField>
+          <DatosField label="NSS" fieldKey="nss" error={err("nss")} showError={showFieldErrors}>
             <input
-              className="rounded-md border border-gray-300 px-2 py-1 text-sm"
+              className={fieldInputClass(Boolean(err("nss")))}
               value={clienteDatos.nss}
               onChange={(e) => setClienteDatos((p) => ({ ...p, nss: e.target.value }))}
             />
-          </label>
-          <label className="grid gap-1 text-xs text-gray-600">
-            <span className="font-medium text-gray-800">CURP</span>
+          </DatosField>
+          <DatosField label="CURP" fieldKey="curp" error={err("curp")} showError={showFieldErrors}>
             <input
-              className="rounded-md border border-gray-300 px-2 py-1 text-sm"
+              className={`${fieldInputClass(Boolean(err("curp")))} uppercase`}
               value={clienteDatos.curp}
-              onChange={(e) => setClienteDatos((p) => ({ ...p, curp: e.target.value }))}
+              onChange={(e) =>
+                setClienteDatos((p) => ({ ...p, curp: e.target.value.toUpperCase() }))
+              }
             />
-          </label>
-          <label className="grid gap-1 text-xs text-gray-600">
-            <span className="font-medium text-gray-800">RFC</span>
+          </DatosField>
+          <DatosField label="RFC" fieldKey="rfc" error={err("rfc")} showError={showFieldErrors}>
             <input
-              className="rounded-md border border-gray-300 px-2 py-1 text-sm uppercase"
+              className={`${fieldInputClass(Boolean(err("rfc")))} uppercase`}
               value={clienteDatos.rfc}
               onChange={(e) =>
                 setClienteDatos((p) => ({ ...p, rfc: e.target.value.toUpperCase() }))
               }
             />
-          </label>
-          <label className="grid gap-1 text-xs text-gray-600">
-            <span className="font-medium text-gray-800">Celular</span>
+          </DatosField>
+          <DatosField label="Celular" fieldKey="celular" error={err("celular")} showError={showFieldErrors}>
             <input
-              className="rounded-md border border-gray-300 px-2 py-1 text-sm"
+              className={fieldInputClass(Boolean(err("celular")))}
               value={clienteDatos.celular}
               onChange={(e) =>
                 setClienteDatos((p) => ({ ...p, celular: e.target.value }))
               }
             />
-          </label>
-          <label className="grid gap-1 text-xs text-gray-600">
-            <span className="font-medium text-gray-800">Correo</span>
+          </DatosField>
+          <DatosField label="Correo" fieldKey="correo" error={err("correo")} showError={showFieldErrors}>
             <input
-              className="rounded-md border border-gray-300 px-2 py-1 text-sm"
+              className={fieldInputClass(Boolean(err("correo")))}
               value={clienteDatos.correo}
               onChange={(e) =>
                 setClienteDatos((p) => ({ ...p, correo: e.target.value }))
               }
             />
-          </label>
-          <label className="grid gap-1 text-xs text-gray-600">
-            <span className="font-medium text-gray-800">Empresa</span>
+          </DatosField>
+          <DatosField label="Empresa" fieldKey="empresa" error={err("empresa")} showError={showFieldErrors}>
             <input
-              className="rounded-md border border-gray-300 px-2 py-1 text-sm"
+              className={fieldInputClass(Boolean(err("empresa")))}
               value={clienteDatos.empresa}
               onChange={(e) =>
                 setClienteDatos((p) => ({ ...p, empresa: e.target.value }))
               }
             />
-          </label>
-          <label className="grid gap-1 text-xs text-gray-600">
-            <span className="font-medium text-gray-800">Registro patronal</span>
+          </DatosField>
+          <DatosField label="Registro patronal" fieldKey="registroPatronal" error={err("registroPatronal")} showError={showFieldErrors}>
             <input
-              className="rounded-md border border-gray-300 px-2 py-1 text-sm"
+              className={fieldInputClass(Boolean(err("registroPatronal")))}
               value={clienteDatos.registroPatronal}
               onChange={(e) =>
                 setClienteDatos((p) => ({
@@ -239,11 +308,10 @@ export function ExpedienteClienteDatosFormSection({
                 }))
               }
             />
-          </label>
-          <label className="grid gap-1 text-xs text-gray-600">
-            <span className="font-medium text-gray-800">Teléfono empresa</span>
+          </DatosField>
+          <DatosField label="Teléfono empresa" fieldKey="telefonoEmpresa" error={err("telefonoEmpresa")} showError={showFieldErrors}>
             <input
-              className="rounded-md border border-gray-300 px-2 py-1 text-sm"
+              className={fieldInputClass(Boolean(err("telefonoEmpresa")))}
               value={clienteDatos.telefonoEmpresa}
               onChange={(e) =>
                 setClienteDatos((p) => ({
@@ -252,7 +320,7 @@ export function ExpedienteClienteDatosFormSection({
                 }))
               }
             />
-          </label>
+          </DatosField>
         </div>
 
         <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -260,10 +328,16 @@ export function ExpedienteClienteDatosFormSection({
             <p className="text-xs font-semibold text-gray-900">Referencias</p>
             {[0, 1].map((idx) => (
               <div key={idx} className="mt-2 grid grid-cols-1 gap-2">
-                <label className="grid gap-1 text-xs text-gray-600">
-                  <span className="font-medium text-gray-800">Nombre (ref {idx + 1})</span>
+                <DatosField
+                  label={`Nombre (ref ${idx + 1})`}
+                  fieldKey={idx === 0 ? "referencia1Nombre" : "referencia2Nombre"}
+                  error={err(idx === 0 ? "referencia1Nombre" : "referencia2Nombre")}
+                  showError={showFieldErrors}
+                >
                   <input
-                    className="rounded-md border border-gray-300 px-2 py-1 text-sm"
+                    className={fieldInputClass(
+                      Boolean(err(idx === 0 ? "referencia1Nombre" : "referencia2Nombre")),
+                    )}
                     value={clienteDatos.referencias[idx]?.nombre ?? ""}
                     onChange={(e) =>
                       setClienteDatos((p) => {
@@ -273,11 +347,17 @@ export function ExpedienteClienteDatosFormSection({
                       })
                     }
                   />
-                </label>
-                <label className="grid gap-1 text-xs text-gray-600">
-                  <span className="font-medium text-gray-800">Celular (ref {idx + 1})</span>
+                </DatosField>
+                <DatosField
+                  label={`Celular (ref ${idx + 1})`}
+                  fieldKey={idx === 0 ? "referencia1Celular" : "referencia2Celular"}
+                  error={err(idx === 0 ? "referencia1Celular" : "referencia2Celular")}
+                  showError={showFieldErrors}
+                >
                   <input
-                    className="rounded-md border border-gray-300 px-2 py-1 text-sm"
+                    className={fieldInputClass(
+                      Boolean(err(idx === 0 ? "referencia1Celular" : "referencia2Celular")),
+                    )}
                     value={clienteDatos.referencias[idx]?.celular ?? ""}
                     onChange={(e) =>
                       setClienteDatos((p) => {
@@ -287,7 +367,7 @@ export function ExpedienteClienteDatosFormSection({
                       })
                     }
                   />
-                </label>
+                </DatosField>
               </div>
             ))}
           </div>
@@ -295,10 +375,14 @@ export function ExpedienteClienteDatosFormSection({
           <div className="rounded-md border border-gray-200 p-3">
             <p className="text-xs font-semibold text-gray-900">Beneficiario</p>
             <div className="mt-2 grid grid-cols-1 gap-2">
-              <label className="grid gap-1 text-xs text-gray-600">
-                <span className="font-medium text-gray-800">Nombre</span>
+              <DatosField
+                label="Nombre"
+                fieldKey="beneficiarioNombre"
+                error={err("beneficiarioNombre")}
+                showError={showFieldErrors}
+              >
                 <input
-                  className="rounded-md border border-gray-300 px-2 py-1 text-sm"
+                  className={fieldInputClass(Boolean(err("beneficiarioNombre")))}
                   value={clienteDatos.beneficiario.nombre}
                   onChange={(e) =>
                     setClienteDatos((p) => ({
@@ -307,11 +391,15 @@ export function ExpedienteClienteDatosFormSection({
                     }))
                   }
                 />
-              </label>
-              <label className="grid gap-1 text-xs text-gray-600">
-                <span className="font-medium text-gray-800">Parentesco</span>
+              </DatosField>
+              <DatosField
+                label="Parentesco"
+                fieldKey="beneficiarioParentesco"
+                error={err("beneficiarioParentesco")}
+                showError={showFieldErrors}
+              >
                 <input
-                  className="rounded-md border border-gray-300 px-2 py-1 text-sm"
+                  className={fieldInputClass(Boolean(err("beneficiarioParentesco")))}
                   value={clienteDatos.beneficiario.parentesco}
                   onChange={(e) =>
                     setClienteDatos((p) => ({
@@ -320,7 +408,7 @@ export function ExpedienteClienteDatosFormSection({
                     }))
                   }
                 />
-              </label>
+              </DatosField>
             </div>
           </div>
         </div>
@@ -328,10 +416,14 @@ export function ExpedienteClienteDatosFormSection({
         <div className="mt-4 rounded-md border border-gray-200 p-3">
           <p className="text-xs font-semibold text-gray-900">Dirección de la empresa</p>
           <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
-            <label className="grid gap-1 text-xs text-gray-600 sm:col-span-2">
-              <span className="font-medium text-gray-800">Calle</span>
+            <DatosField
+              label="Calle"
+              fieldKey="direccionCalle"
+              error={err("direccionCalle")}
+              showError={showFieldErrors}
+              >
               <input
-                className="rounded-md border border-gray-300 px-2 py-1 text-sm"
+                className={fieldInputClass(Boolean(err("direccionCalle")))}
                 value={clienteDatos.direccionEmpresa.calle}
                 onChange={(e) =>
                   setClienteDatos((p) => ({
@@ -340,11 +432,15 @@ export function ExpedienteClienteDatosFormSection({
                   }))
                 }
               />
-            </label>
-            <label className="grid gap-1 text-xs text-gray-600">
-              <span className="font-medium text-gray-800">Colonia</span>
+            </DatosField>
+            <DatosField
+              label="Colonia"
+              fieldKey="direccionColonia"
+              error={err("direccionColonia")}
+              showError={showFieldErrors}
+            >
               <input
-                className="rounded-md border border-gray-300 px-2 py-1 text-sm"
+                className={fieldInputClass(Boolean(err("direccionColonia")))}
                 value={clienteDatos.direccionEmpresa.colonia}
                 onChange={(e) =>
                   setClienteDatos((p) => ({
@@ -353,11 +449,15 @@ export function ExpedienteClienteDatosFormSection({
                   }))
                 }
               />
-            </label>
-            <label className="grid gap-1 text-xs text-gray-600">
-              <span className="font-medium text-gray-800">Municipio</span>
+            </DatosField>
+            <DatosField
+              label="Municipio"
+              fieldKey="direccionMunicipio"
+              error={err("direccionMunicipio")}
+              showError={showFieldErrors}
+            >
               <input
-                className="rounded-md border border-gray-300 px-2 py-1 text-sm"
+                className={fieldInputClass(Boolean(err("direccionMunicipio")))}
                 value={clienteDatos.direccionEmpresa.municipio}
                 onChange={(e) =>
                   setClienteDatos((p) => ({
@@ -366,11 +466,15 @@ export function ExpedienteClienteDatosFormSection({
                   }))
                 }
               />
-            </label>
-            <label className="grid gap-1 text-xs text-gray-600">
-              <span className="font-medium text-gray-800">CP</span>
+            </DatosField>
+            <DatosField
+              label="CP"
+              fieldKey="direccionCp"
+              error={err("direccionCp")}
+              showError={showFieldErrors}
+            >
               <input
-                className="rounded-md border border-gray-300 px-2 py-1 text-sm"
+                className={fieldInputClass(Boolean(err("direccionCp")))}
                 value={clienteDatos.direccionEmpresa.cp}
                 onChange={(e) =>
                   setClienteDatos((p) => ({
@@ -379,7 +483,7 @@ export function ExpedienteClienteDatosFormSection({
                   }))
                 }
               />
-            </label>
+            </DatosField>
           </div>
         </div>
       </fieldset>

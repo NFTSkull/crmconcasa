@@ -1,5 +1,12 @@
 # Devlog
 
+## 2026-06-25 - feat/cliente-datos-validaciones: Datos Generales
+
+### Decisión
+
+- Validación pura en `clienteDatosValidation.ts`; 19 campos obligatorios alineados con `clienteDatosFormCompleteness`.
+- Guardado Supabase bloqueado con errores por campo; mock permite borrador sin validación completa.
+
 ## 2026-06-29 - Fase 1C-B Mesa: default Disponibles en bandeja
 
 ### Decisión

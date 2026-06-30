@@ -47,6 +47,12 @@ import {
   type ExpedienteClienteDatos,
 } from "@/domain/expediente-cliente-datos";
 import { getClienteDatosCamposFaltantes } from "@/lib/clienteDatosFormCompleteness";
+import {
+  formatClienteDatosValidationSummary,
+  normalizeClienteDatosForSave,
+  validateClienteDatos,
+  type ClienteDatosFieldErrors,
+} from "@/lib/clienteDatosValidation";
 
 type ClienteDatosFormState = ExpedienteClienteDatos["datos"];
 
@@ -166,6 +172,9 @@ export default function AsesorExpedientePage() {
   const [clienteDatosLoading, setClienteDatosLoading] = useState(false);
   const [clienteDatosSaved, setClienteDatosSaved] = useState(false);
   const [clienteDatosError, setClienteDatosError] = useState<string | null>(null);
+  const [clienteDatosFieldErrors, setClienteDatosFieldErrors] =
+    useState<ClienteDatosFieldErrors>({});
+  const [clienteDatosShowValidation, setClienteDatosShowValidation] = useState(false);
   const [editorDecision, setEditorDecision] = useState<
     ExpedienteMock["editorDecision"] | null
   >(null);
@@ -566,32 +575,36 @@ export default function AsesorExpedientePage() {
       return { ok: false, message: MSJ_ESPERA_MONTO_REVISOR };
     }
     if (dataSupabase) {
-      const camposFaltantes = getClienteDatosCamposFaltantes(clienteDatos);
-      if (camposFaltantes.length > 0) {
-        const message = `Completa los datos del cliente antes de guardar:\n\n- ${camposFaltantes.join(
-          "\n- ",
-        )}`;
+      const validation = validateClienteDatos(clienteDatos);
+      if (!validation.isValid) {
+        setClienteDatosShowValidation(true);
+        setClienteDatosFieldErrors(validation.errors);
+        const message = formatClienteDatosValidationSummary(validation);
         setClienteDatosError(message);
         return { ok: false, message };
       }
     }
     setClienteDatosSaving(true);
     setClienteDatosError(null);
+    setClienteDatosFieldErrors({});
+    setClienteDatosShowValidation(false);
     setClienteDatosSaved(false);
+    const datosAGuardar = normalizeClienteDatosForSave(clienteDatos);
     try {
       const usarCorreccion =
         Boolean(operativo?.submittedToMesa) && clienteDatosMeta?.estado === "rechazado";
       const saved = usarCorreccion
         ? await clienteDatosRepo.saveCorreccion({
             expedienteId: String(precal.id),
-            datos: clienteDatos,
+            datos: datosAGuardar,
             updatedBy: currentUser.email,
           })
         : await clienteDatosRepo.save({
             expedienteId: String(precal.id),
-            datos: clienteDatos,
+            datos: datosAGuardar,
             updatedBy: currentUser.email,
           });
+      setClienteDatos(datosAGuardar);
       setClienteDatosMeta({
         estado: saved.estado,
         comentarioRechazo: saved.comentarioRechazo,
@@ -780,6 +793,8 @@ export default function AsesorExpedientePage() {
               clienteDatosSaved={clienteDatosSaved}
               clienteDatosError={clienteDatosError}
               camposFaltantes={camposFaltantesClienteDatos}
+              fieldErrors={clienteDatosFieldErrors}
+              showFieldErrors={clienteDatosShowValidation}
               puedeIntegrar={puedeIntegrar}
               submittedToMesa={operativo?.submittedToMesa ?? false}
               dataSupabase
@@ -954,6 +969,8 @@ export default function AsesorExpedientePage() {
               clienteDatosSaving={clienteDatosSaving}
               clienteDatosError={clienteDatosError}
               camposFaltantes={camposFaltantesClienteDatos}
+              fieldErrors={clienteDatosFieldErrors}
+              showFieldErrors={clienteDatosShowValidation}
               puedeIntegrar={puedeIntegrar}
               dataSupabase={false}
               formatDateTime={formatDateTime}

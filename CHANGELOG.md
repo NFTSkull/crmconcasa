@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **feat/cliente-datos-validaciones — Datos Generales del Cliente:** validación pura `clienteDatosValidation` (requeridos, NSS, CURP, RFC, email, CP, teléfonos, duplicados); errores por campo en formulario asesor; bloqueo de guardado Supabase si hay errores.
+
 - **Fase 1C-B Mesa — default Disponibles en bandeja:** filtro operativo inicial `Disponibles` (`sin_asignar`); chips reordenados (operativo primero, `Todo Mesa` al final); texto de ayuda bajo «Asignación operativa»; sin backend ni migraciones.
 
 - **Fase 1C-A Mesa Ops — cleanup y estabilidad (sin bloqueo):** alertas solo con texto real (`hasAlertMessage`); fallback seguro si falla lectura ops; evento `mesa_ops_updated` para refrescar bandeja tras tomar/liberar; logs ops solo en desarrollo.
