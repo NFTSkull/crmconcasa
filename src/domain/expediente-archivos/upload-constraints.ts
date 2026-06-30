@@ -1,21 +1,15 @@
 /** Límites P3H.2 — espejo de `expediente_documento_max_size_bytes()` y `expediente_documento_mime_permitido()`. */
+import { PDF_ONLY_UPLOAD_MESSAGE, validatePdfFile } from "@/lib/fileUploadValidation";
+
 export const EXPEDIENTE_DOCUMENTO_MAX_BYTES = 15 * 1024 * 1024;
 
 export const EXPEDIENTE_DOCUMENTO_MAX_MB = 15;
 
 export const EXPEDIENTE_DOCUMENTOS_BUCKET = "expediente-documentos";
 
-export const EXPEDIENTE_DOCUMENTO_ALLOWED_MIME_TYPES = [
-  "application/pdf",
-  "image/jpeg",
-  "image/jpg",
-  "image/png",
-] as const;
+export const EXPEDIENTE_DOCUMENTO_ALLOWED_MIME_TYPES = ["application/pdf"] as const;
 
-const ALLOWED_MIME_SET = new Set<string>(EXPEDIENTE_DOCUMENTO_ALLOWED_MIME_TYPES);
-
-export const EXPEDIENTE_DOCUMENTO_ACCEPT_ATTR =
-  ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png";
+export const EXPEDIENTE_DOCUMENTO_ACCEPT_ATTR = "application/pdf,.pdf";
 
 export type ExpedienteDocumentoValidationError =
   | "tipo_invalido"
@@ -30,20 +24,17 @@ export function validateExpedienteDocumentoFile(file: File): {
   code: ExpedienteDocumentoValidationError;
   message: string;
 } {
-  if (!file || file.size <= 0) {
+  const pdfValidation = validatePdfFile(file);
+  if (!pdfValidation.ok) {
     return {
       ok: false,
-      code: "archivo_vacio",
-      message: "Selecciona un archivo válido.",
-    };
-  }
-
-  const mime = (file.type || "").toLowerCase().trim();
-  if (!ALLOWED_MIME_SET.has(mime)) {
-    return {
-      ok: false,
-      code: "mime_no_permitido",
-      message: "Solo se permiten archivos PDF, JPG o PNG.",
+      code: pdfValidation.message === "Selecciona un archivo válido."
+        ? "archivo_vacio"
+        : "mime_no_permitido",
+      message:
+        pdfValidation.message === "Selecciona un archivo válido."
+          ? pdfValidation.message
+          : pdfValidation.message || PDF_ONLY_UPLOAD_MESSAGE,
     };
   }
 

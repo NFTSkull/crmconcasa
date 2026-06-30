@@ -95,6 +95,10 @@ import {
   type ExpedienteRetencionEnvioMesa,
   type RetencionOpcion,
 } from "@/domain/expediente-retencion";
+import {
+  formatPdfUploadRejectionForField,
+  validatePdfFile,
+} from "@/lib/fileUploadValidation";
 import { useSessionRepo, type Rol } from "@/domain/session";
 import { subestadoOperativoLabel } from "@/lib/subestadoOperativoUi";
 import { useMesaOpsRepo, type MesaExpedienteOpsRow } from "@/domain/mesa-ops";
@@ -378,6 +382,14 @@ export function MesaExpedienteDetalleReadOnly() {
     () => buildMesaComplementariosDocViews(archivosResumen, archivosLista),
     [archivosLista, archivosResumen],
   );
+
+  const mesaUploadLabelByTipo = useMemo(() => {
+    const map: Record<string, string> = {};
+    for (const doc of documentosComplementarios) {
+      map[doc.tipo_documento] = doc.label;
+    }
+    return map;
+  }, [documentosComplementarios]);
 
   const refreshRetencionMeta = useCallback(async () => {
     if (!retencionRepo || !routeExpedienteId) return;
@@ -748,6 +760,16 @@ export function MesaExpedienteDetalleReadOnly() {
       file: File,
       mode: "upload" | "replace",
     ): Promise<void> => {
+      const pdfValidation = validatePdfFile(file);
+      if (!pdfValidation.ok) {
+        const label = mesaUploadLabelByTipo[tipo] ?? "Documento";
+        setUploadErrorByTipo((prev) => ({
+          ...prev,
+          [tipo]: formatPdfUploadRejectionForField(label, file),
+        }));
+        return;
+      }
+
       setUploadLoadingTipo(tipo);
       setUploadErrorByTipo((prev) => {
         const next = { ...prev };
@@ -781,7 +803,7 @@ export function MesaExpedienteDetalleReadOnly() {
         setUploadLoadingTipo(null);
       }
     },
-    [archivosRepo, refreshArchivos, routeExpedienteId],
+    [archivosRepo, mesaUploadLabelByTipo, refreshArchivos, routeExpedienteId],
   );
 
   const handleSubirComplementario = useCallback(

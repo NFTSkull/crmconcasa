@@ -12,6 +12,10 @@ import {
   type IntegrationDocChecklistItem,
 } from "@/domain/expediente-archivos";
 import { EXPEDIENTE_DOCUMENTO_ACCEPT_ATTR } from "@/domain/expediente-archivos/upload-constraints";
+import {
+  formatPdfUploadRejectionForField,
+  validatePdfFile,
+} from "@/lib/fileUploadValidation";
 
 type Props = {
   expedienteId: string;
@@ -199,12 +203,31 @@ export function AsesorIntegracionDocsUpload({
     inputRefs.current[tipo]?.click();
   }, []);
 
+  const docLabel = useCallback(
+    (tipo: IntegrationDocAsesorUploadTipo) => {
+      const item = [...checklistObligatorios, ...checklistOpcionales].find(
+        (row) => row.tipo_documento === tipo,
+      );
+      return item?.label ?? "Documento";
+    },
+    [checklistObligatorios, checklistOpcionales],
+  );
+
   const handleFileChange = useCallback(
     async (tipo: IntegrationDocAsesorUploadTipo, fileList: FileList | null) => {
       const file = fileList?.[0];
       const input = inputRefs.current[tipo];
       if (input) input.value = "";
       if (!file) return;
+
+      const pdfValidation = validatePdfFile(file);
+      if (!pdfValidation.ok) {
+        setErrorsByTipo((prev) => ({
+          ...prev,
+          [tipo]: formatPdfUploadRejectionForField(docLabel(tipo), file),
+        }));
+        return;
+      }
 
       setUploadingTipo(tipo);
       setErrorsByTipo((prev) => {
@@ -246,7 +269,7 @@ export function AsesorIntegracionDocsUpload({
         setUploadingTipo(null);
       }
     },
-    [archivosResumen, expedienteId, onUploaded, repo, submittedToMesa],
+    [archivosResumen, docLabel, expedienteId, onUploaded, repo, submittedToMesa],
   );
 
   const listProps = {

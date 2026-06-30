@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-06-25 - feat/cliente-datos-validaciones: solo PDF en uploads
+
+### Decisión
+
+- Todos los **nuevos** uploads de documentos del CRM deben ser PDF (`application/pdf` + extensión `.pdf`).
+- Validación central en `src/lib/fileUploadValidation.ts`; `validateExpedienteDocumentoFile` delega ahí.
+- UI valida antes del repo; repos Supabase y mock IndexedDB validan antes de `.upload()` / persistencia local.
+- No conversión automática; no borrado de archivos existentes; preview de imágenes legacy se mantiene.
+- Sin Cloud, migraciones, RLS ni cambios a Mesa Ops / agenda / avanzar etapa / cancel-reagenda.
+
 ## 2026-06-25 - feat/cliente-datos-validaciones: Datos Generales
 
 ### Decisión

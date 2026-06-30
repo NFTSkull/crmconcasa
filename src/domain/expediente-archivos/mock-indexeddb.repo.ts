@@ -14,6 +14,7 @@ import type {
   UploadMesaDocumentoParams,
 } from "./repo";
 import { INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD, INTEGRATION_DOC_TIPOS_MESA_UPLOAD } from "./integration-docs-completos";
+import { validateExpedienteDocumentoFile } from "./upload-constraints";
 
 const DB_NAME = "concasa-crm-files";
 const DB_VERSION = 1;
@@ -176,6 +177,9 @@ export class MockExpedienteArchivosIndexedDbRepo implements ExpedienteArchivosRe
 
     if (!(file instanceof Blob)) throw new Error("file debe ser un Blob/File");
 
+    const fileValidation = validateExpedienteDocumentoFile(file as File);
+    if (!fileValidation.ok) throw new Error(fileValidation.message);
+
     const db = await getDb();
     const tx = db.transaction(STORE_NAME, "readwrite");
     const store = tx.objectStore(STORE_NAME);
@@ -214,6 +218,9 @@ export class MockExpedienteArchivosIndexedDbRepo implements ExpedienteArchivosRe
     const tipo = ensureTipoDocumentoCatalogo(tipo_documento);
     if (!tipo) throw new Error("tipo_documento inválido");
     if (!(file instanceof Blob)) throw new Error("file debe ser un Blob/File");
+
+    const fileValidation = validateExpedienteDocumentoFile(file as File);
+    if (!fileValidation.ok) throw new Error(fileValidation.message);
 
     const db = await getDb();
     const tx = db.transaction(STORE_NAME, "readwrite");

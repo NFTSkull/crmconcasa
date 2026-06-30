@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **feat/cliente-datos-validaciones — solo PDF en uploads:** helper `fileUploadValidation` (MIME `application/pdf` + extensión `.pdf`); `upload-constraints` restringe a PDF; validación en UI (asesor integración, retención, Mesa complementarios) y en repos Supabase/mock antes de Storage; `accept="application/pdf,.pdf"` en todos los inputs de documentos; documentos existentes no afectados.
+
 - **feat/cliente-datos-validaciones — Datos Generales del Cliente:** validación pura `clienteDatosValidation` (requeridos, NSS, CURP, RFC, email, CP, teléfonos, duplicados); errores por campo en formulario asesor; bloqueo de guardado Supabase si hay errores.
 
 - **Fase 1C-B Mesa — default Disponibles en bandeja:** filtro operativo inicial `Disponibles` (`sin_asignar`); chips reordenados (operativo primero, `Todo Mesa` al final); texto de ayuda bajo «Asignación operativa»; sin backend ni migraciones.

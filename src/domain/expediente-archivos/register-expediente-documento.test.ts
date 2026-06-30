@@ -38,7 +38,14 @@ describe("buildExpedienteDocumentoStoragePath", () => {
 
 describe("validateExpedienteDocumentoFile", () => {
   it("rechaza mime no permitido", () => {
-    const file = { type: "text/plain", size: 100 } as File;
+    const file = { type: "text/plain", size: 100, name: "x.pdf" } as File;
+    const result = validateExpedienteDocumentoFile(file);
+    assert.equal(result.ok, false);
+    if (!result.ok) assert.equal(result.code, "mime_no_permitido");
+  });
+
+  it("rechaza JPG", () => {
+    const file = { type: "image/jpeg", size: 100, name: "foto.jpg" } as File;
     const result = validateExpedienteDocumentoFile(file);
     assert.equal(result.ok, false);
     if (!result.ok) assert.equal(result.code, "mime_no_permitido");
@@ -48,6 +55,7 @@ describe("validateExpedienteDocumentoFile", () => {
     const file = {
       type: "application/pdf",
       size: EXPEDIENTE_DOCUMENTO_MAX_BYTES + 1,
+      name: "grande.pdf",
     } as File;
     const result = validateExpedienteDocumentoFile(file);
     assert.equal(result.ok, false);
@@ -55,7 +63,7 @@ describe("validateExpedienteDocumentoFile", () => {
   });
 
   it("acepta PDF válido", () => {
-    const file = { type: "application/pdf", size: 1024 } as File;
+    const file = { type: "application/pdf", size: 1024, name: "doc.pdf" } as File;
     assert.deepEqual(validateExpedienteDocumentoFile(file), { ok: true });
   });
 });

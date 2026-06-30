@@ -6,6 +6,10 @@ import type { ExpedienteArchivoResumen } from "@/domain/expediente-archivos";
 import { findRowPorTipoDocumento } from "@/domain/expediente-archivos/types";
 import { EXPEDIENTE_DOCUMENTO_ACCEPT_ATTR } from "@/domain/expediente-archivos/upload-constraints";
 import {
+  formatPdfUploadRejectionForField,
+  validatePdfFile,
+} from "@/lib/fileUploadValidation";
+import {
   RETENCION_ETAPA_OPERATIVA_ID,
   labelRetencionOpcion,
   type RetencionTipoDocumento,
@@ -101,12 +105,33 @@ export function RetencionAcuseAvisoSupabaseCard({
     inputRefs.current[tipo]?.click();
   };
 
+  const retencionDocLabelByTipo = useMemo(() => {
+    const map: Partial<Record<RetencionTipoDocumento, string>> = {};
+    for (const row of panel.uploads) {
+      map[row.tipo] = row.label;
+    }
+    return map;
+  }, [panel.uploads]);
+
   const handleFileChange = async (
     tipo: RetencionTipoDocumento,
     fileList: FileList | null,
   ) => {
     if (!repo || !fileList?.[0]) return;
     const file = fileList[0];
+    const input = inputRefs.current[tipo];
+    if (input) input.value = "";
+
+    const pdfValidation = validatePdfFile(file);
+    if (!pdfValidation.ok) {
+      const label = retencionDocLabelByTipo[tipo] ?? "Documento";
+      setUploadErrors((prev) => ({
+        ...prev,
+        [tipo]: formatPdfUploadRejectionForField(label, file),
+      }));
+      return;
+    }
+
     setUploadErrors((prev) => ({ ...prev, [tipo]: undefined }));
     setUploadingTipo(tipo);
     try {

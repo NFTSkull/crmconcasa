@@ -43,6 +43,8 @@ import {
   etapaAlEnviarAMesaDesdeAsesor,
 } from "@/domain/expedientes/mock.repo";
 import { getEffectiveMockRole, isMesaControlMockRole } from "@/lib/mockUser";
+import { EXPEDIENTE_DOCUMENTO_ACCEPT_ATTR } from "@/domain/expediente-archivos/upload-constraints";
+import { validatePdfFile } from "@/lib/fileUploadValidation";
 import { resolveFechaCitaBiometricosOperativa } from "@/lib/agendaBiometricosMock";
 
 type EstadoEtapa =
@@ -1689,16 +1691,14 @@ export function SeguimientoOperativoMock(props: SeguimientoOperativoMockProps = 
                                   ) : null}
                                 </div>
                                 <FileUploadButton
-                                  accept="image/*,application/pdf"
+                                  accept={EXPEDIENTE_DOCUMENTO_ACCEPT_ATTR}
                                   label={hasFile ? "Reemplazar" : "Subir"}
                                   disabled={!contextPrecalId || !puedeReemplazar}
                                   onFile={async (file) => {
                                     if (!contextPrecalId) return;
-                                    if (
-                                      !file.type.includes("image") &&
-                                      file.type !== "application/pdf"
-                                    ) {
-                                      alert("Solo se permiten imágenes o PDF");
+                                    const pdfValidation = validatePdfFile(file);
+                                    if (!pdfValidation.ok) {
+                                      alert(pdfValidation.message);
                                       return;
                                     }
                                     await archivosRepo.replaceArchivo({
@@ -1870,7 +1870,7 @@ export function SeguimientoOperativoMock(props: SeguimientoOperativoMockProps = 
 
                             <div className="flex flex-col items-end justify-center gap-1.5">
                               <FileUploadButton
-                                accept="image/*,application/pdf"
+                                accept={EXPEDIENTE_DOCUMENTO_ACCEPT_ATTR}
                                 label={hasFile ? "Reemplazar" : "Subir"}
                                 disabled={!contextPrecalId || !asesorIntegracionActiva}
                                 onFile={async (file) => {
@@ -1880,11 +1880,9 @@ export function SeguimientoOperativoMock(props: SeguimientoOperativoMockProps = 
                                     }
                                     return;
                                   }
-                                  if (
-                                    !file.type.includes("image") &&
-                                    file.type !== "application/pdf"
-                                  ) {
-                                    alert("Solo se permiten imágenes o PDF");
+                                  const pdfValidation = validatePdfFile(file);
+                                  if (!pdfValidation.ok) {
+                                    alert(pdfValidation.message);
                                     return;
                                   }
                                   await archivosRepo.replaceArchivo({
