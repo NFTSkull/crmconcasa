@@ -169,7 +169,7 @@ export function ExpedienteClienteDatosFormSection({
           </p>
           <p className="mt-2 font-medium text-slate-700">Antes de guardar verifica:</p>
           <ul className="mt-1 list-inside list-disc space-y-0.5">
-            <li>NSS, CURP y RFC deben corresponder al cliente.</li>
+            <li>NSS y CURP deben corresponder al cliente. RFC es opcional.</li>
             <li>Los teléfonos deben ser únicos y de 10 dígitos.</li>
             <li>Las referencias deben tener números diferentes al celular del cliente.</li>
             <li>La dirección de empresa debe ser real y completa.</li>
@@ -261,7 +261,7 @@ export function ExpedienteClienteDatosFormSection({
               }
             />
           </DatosField>
-          <DatosField label="RFC" fieldKey="rfc" error={err("rfc")} showError={showFieldErrors}>
+          <DatosField label="RFC (opcional)" fieldKey="rfc" error={err("rfc")} showError={showFieldErrors}>
             <input
               className={`${fieldInputClass(Boolean(err("rfc")))} uppercase`}
               value={clienteDatos.rfc}

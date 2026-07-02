@@ -217,7 +217,7 @@ export function MesaClienteDatosReadOnlySection({
             <DataField label="Nombre completo" value={displayValue(datos.nombreCliente)} />
             <DataField label="NSS" value={displayValue(datos.nss)} />
             <DataField label="CURP" value={displayValue(datos.curp)} />
-            <DataField label="RFC" value={displayValue(datos.rfc)} />
+            <DataField label="RFC (opcional)" value={displayValue(datos.rfc)} />
           </DataCard>
 
           <DataCard title="Contacto">

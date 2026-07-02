@@ -80,4 +80,31 @@ describe("buildSaveClienteDatosRpcPayload", () => {
     });
     assert.equal(payload.p_datos.nombreCliente, "Marcela");
   });
+
+  it("acepta RFC vacío en payload RPC", () => {
+    const payload = buildSaveClienteDatosRpcPayload("exp-1", {
+      nombreCliente: "Marcela",
+      nss: "12345678901",
+      curp: "CURP123",
+      rfc: "",
+      celular: "5512345678",
+      correo: "marcela@concasa.mx",
+      empresa: "Empresa SA",
+      registroPatronal: "RP-1",
+      telefonoEmpresa: "5599999999",
+      referencias: [
+        { nombre: "Ref 1", celular: "5511111111" },
+        { nombre: "Ref 2", celular: "5522222222" },
+      ],
+      beneficiario: { nombre: "Ben", parentesco: "Hija" },
+      direccionEmpresa: {
+        calle: "Calle 1",
+        colonia: "Centro",
+        municipio: "CDMX",
+        cp: "01000",
+      },
+    });
+
+    assert.equal(payload.p_rfc, "");
+  });
 });
