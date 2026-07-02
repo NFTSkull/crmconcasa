@@ -409,10 +409,11 @@ BEGIN
     'test 6b: decisión no_cumple falla'
   );
 
-  -- Test 7: sin RFC
+  -- Test 7: sin RFC puede enviar
+  v_result := public.__rpc_enviar_test_call_as(v_asesor_a1, v_exp_no_rfc);
   PERFORM public.__rpc_enviar_test_assert(
-    public.__rpc_enviar_test_call_expect_fail(v_asesor_a1, v_exp_no_rfc),
-    'test 7: sin RFC falla'
+    (v_result->>'ok')::boolean = true,
+    'test 7: sin RFC puede enviar'
   );
 
   -- Test 8: sin datos cliente

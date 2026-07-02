@@ -1459,7 +1459,7 @@ function MesaControlExpedienteMockPage() {
                   <dd className="mt-0.5 text-gray-800">{clienteDatos.datos.curp || "—"}</dd>
                 </div>
                 <div>
-                  <dt className="text-xs font-medium uppercase text-gray-500">RFC</dt>
+                  <dt className="text-xs font-medium uppercase text-gray-500">RFC (opcional)</dt>
                   <dd className="mt-0.5 text-gray-800">{clienteDatos.datos.rfc || "—"}</dd>
                 </div>
                 <div>

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT,
   getClienteDatosCamposFaltantes,
   type ClienteDatosFormShape,
 } from "./clienteDatosFormCompleteness";
@@ -64,7 +65,12 @@ test("getClienteDatosCamposFaltantes: trim — solo espacios cuenta como vacío"
   assert.ok(getClienteDatosCamposFaltantes(soloEspacios).includes("Nombre del cliente"));
 });
 
-test("getClienteDatosCamposFaltantes: RFC vacío es faltante", () => {
+test("getClienteDatosCamposFaltantes: RFC vacío no es faltante", () => {
   const sinRfc: ClienteDatosFormShape = { ...completo, rfc: "" };
-  assert.ok(getClienteDatosCamposFaltantes(sinRfc).includes("RFC"));
+  assert.equal(getClienteDatosCamposFaltantes(sinRfc).includes("RFC"), false);
+});
+
+test("getClienteDatosCamposFaltantes: formulario vacío tiene 18 obligatorios", () => {
+  assert.equal(getClienteDatosCamposFaltantes(vacio).length, CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT);
+  assert.equal(CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT, 18);
 });

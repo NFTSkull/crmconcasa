@@ -76,8 +76,8 @@ export function normalizeClienteDatosForSave(
 ): ClienteDatosFormShape {
   return {
     ...d,
-    curp: d.curp.trim().toUpperCase(),
-    rfc: d.rfc.trim().toUpperCase(),
+    curp: String(d.curp ?? "").trim().toUpperCase(),
+    rfc: String(d.rfc ?? "").trim().toUpperCase(),
   };
 }
 
@@ -97,7 +97,6 @@ export function validateClienteDatos(d: ClienteDatosFormShape): ClienteDatosVali
   req("nombreCliente", data.nombreCliente, "Nombre del cliente");
   req("nss", data.nss, "NSS");
   req("curp", data.curp, "CURP");
-  req("rfc", data.rfc, "RFC");
   req("celular", data.celular, "Celular");
   req("correo", data.correo, "Correo");
   req("empresa", data.empresa, "Empresa");
@@ -125,7 +124,7 @@ export function validateClienteDatos(d: ClienteDatosFormShape): ClienteDatosVali
     setError(errors, "curp", "CURP no tiene formato válido.");
   }
 
-  if (!errors.rfc && !isRfcMexicoValido(data.rfc)) {
+  if (data.rfc.trim() && !errors.rfc && !isRfcMexicoValido(data.rfc)) {
     setError(errors, "rfc", "RFC no tiene formato válido.");
   }
 

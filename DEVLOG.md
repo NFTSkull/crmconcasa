@@ -1,5 +1,14 @@
 # Devlog
 
+## 2026-07-02 - fix/cliente-rfc-opcional: RFC opcional en Datos Generales
+
+### Decisión
+
+- RFC se captura/muestra en Datos Generales (asesor editable; Mesa lectura + validar/rechazar).
+- Frontend: `clienteDatosValidation` y `clienteDatosFormCompleteness` sin RFC obligatorio; label `RFC (opcional)` en asesor y Mesa.
+- Backend **sí exigía RFC** en `save_cliente_datos` (011/031) y `enviar_a_mesa` (026); migración **042** local (no Cloud): RFC vacío permitido; formato solo si `v_rfc <> ''`.
+- Tests TS + SQL actualizados; sin Mesa Ops, agenda, RLS, Storage, PDF-only, usuarios ni reportes.
+
 ## 2026-06-25 - fix/pdf-only-backend-and-copy: backend solo PDF
 
 ### Decisión

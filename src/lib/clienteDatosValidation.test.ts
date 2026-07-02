@@ -128,7 +128,27 @@ test("normalizeClienteDatosForSave: CURP y RFC a mayúsculas", () => {
   assert.equal(n.rfc, "PEGJ850101ABC");
 });
 
-test("validateClienteDatos: RFC inválido", () => {
+test("validateClienteDatos: payload válido sin RFC", () => {
+  const r = validateClienteDatos({ ...baseValid, rfc: "" });
+  assert.equal(r.isValid, true);
+  assert.equal(r.errors.rfc, undefined);
+});
+
+test("validateClienteDatos: RFC vacío no genera error", () => {
+  for (const rfc of ["", "   ", null as unknown as string, undefined as unknown as string]) {
+    const data = { ...baseValid, rfc: rfc ?? "" };
+    const r = validateClienteDatos(data);
+    assert.equal(r.errors.rfc, undefined, `rfc=${String(rfc)}`);
+  }
+});
+
+test("validateClienteDatos: RFC válido con valor pasa", () => {
+  const r = validateClienteDatos({ ...baseValid, rfc: "PEGJ850101ABC" });
+  assert.equal(r.isValid, true);
+  assert.equal(r.errors.rfc, undefined);
+});
+
+test("validateClienteDatos: RFC inválido con valor falla", () => {
   const r = validateClienteDatos({ ...baseValid, rfc: "INVALIDO" });
   assert.equal(r.errors.rfc, "RFC no tiene formato válido.");
 });

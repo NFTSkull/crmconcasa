@@ -2,7 +2,10 @@ import type { ExpedienteClienteDatos } from "@/domain/expediente-cliente-datos";
 
 export type ClienteDatosFormShape = ExpedienteClienteDatos["datos"];
 
-/** Etiquetas legibles de campos obligatorios vacíos (trim). */
+/** Campos obligatorios en Datos Generales (RFC es opcional). */
+export const CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT = 18;
+
+/** Etiquetas legibles de campos obligatorios vacíos (trim). RFC no cuenta como faltante. */
 export function getClienteDatosCamposFaltantes(d: ClienteDatosFormShape): string[] {
   const missing: string[] = [];
   const req = (label: string, v: string) => {
@@ -11,7 +14,6 @@ export function getClienteDatosCamposFaltantes(d: ClienteDatosFormShape): string
   req("Nombre del cliente", d.nombreCliente);
   req("NSS", d.nss);
   req("CURP", d.curp);
-  req("RFC", d.rfc);
   req("Celular", d.celular);
   req("Correo", d.correo);
   req("Empresa", d.empresa);

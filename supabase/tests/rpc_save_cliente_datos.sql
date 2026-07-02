@@ -368,11 +368,13 @@ BEGIN
   SELECT * INTO v_row FROM public.cliente_datos WHERE expediente_id = v_exp_rfc;
   PERFORM public.__rpc_scd_test_assert(v_row.datos->>'rfc' = 'XAXX010101000', 'test 3 uppercase');
 
-  -- 4. RFC vacío
-  PERFORM public.__rpc_scd_test_assert(
-    public.__rpc_scd_test_expect_fail(v_asesor_a1, v_exp_rfc, '', '5511111111', '[]'::JSONB, NULL, '{}'::JSONB, 'completo', 'RFC obligatorio'),
-    'test 4'
+  -- 4. RFC vacío permitido
+  v_result := public.__rpc_scd_test_call_as(
+    v_asesor_a1, v_exp_rfc, '', '5511111111'
   );
+  PERFORM public.__rpc_scd_test_assert((v_result->>'ok')::BOOLEAN, 'test 4 rfc vacío ok');
+  SELECT * INTO v_row FROM public.cliente_datos WHERE expediente_id = v_exp_rfc;
+  PERFORM public.__rpc_scd_test_assert(COALESCE(v_row.datos->>'rfc', '') = '', 'test 4 rfc vacío en datos');
 
   -- 5. RFC longitud inválida
   PERFORM public.__rpc_scd_test_assert(
@@ -664,17 +666,15 @@ BEGIN
   v_result := public.__rpc_scd_test_call_enviar_as(v_asesor_a1, v_exp_enviar_ok);
   PERFORM public.__rpc_scd_test_assert((v_result->>'ok')::BOOLEAN, 'test 37');
 
-  -- 38. enviar_a_mesa falla RFC vacío (mutación directa post-save)
+  -- 38. enviar_a_mesa permite RFC vacío (mutación directa post-save)
   PERFORM public.__rpc_scd_test_call_as(v_asesor_a1, v_exp_enviar_rfc, 'XAXX010101000', '5548484848');
   PERFORM public.__rpc_scd_test_insert_editor(v_exp_enviar_rfc, v_org_id);
   PERFORM public.__rpc_scd_test_insert_docs(v_exp_enviar_rfc, v_org_id, v_asesor_a1);
   UPDATE public.cliente_datos
   SET datos = datos - 'rfc' || jsonb_build_object('rfc', '')
   WHERE expediente_id = v_exp_enviar_rfc;
-  PERFORM public.__rpc_scd_test_assert(
-    public.__rpc_scd_test_expect_enviar_fail(v_asesor_a1, v_exp_enviar_rfc),
-    'test 38'
-  );
+  v_result := public.__rpc_scd_test_call_enviar_as(v_asesor_a1, v_exp_enviar_rfc);
+  PERFORM public.__rpc_scd_test_assert((v_result->>'ok')::BOOLEAN, 'test 38 enviar sin RFC');
 
   -- 39. enviar_a_mesa falla estado pendiente
   PERFORM public.__rpc_scd_test_insert_editor(v_exp_enviar_est, v_org_id);
