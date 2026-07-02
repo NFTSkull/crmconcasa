@@ -83,4 +83,11 @@ describe("mapRegisterExpedienteDocumentoRpcError", () => {
     });
     assert.match(err.message, /no corresponde al checklist/i);
   });
+
+  it("mapea mime no permitido a solo PDF", () => {
+    const err = mapRegisterExpedienteDocumentoRpcError({
+      message: "register_expediente_documento: mime_type no permitido (image/png)",
+    });
+    assert.match(err.message, /Solo se permiten archivos PDF/i);
+  });
 });

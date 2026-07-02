@@ -78,7 +78,7 @@ export function mapRegisterRetencionDocRpcError(error: {
   }
 
   if (msg.includes("mime_type no permitido")) {
-    return new ExpedienteRetencionSupabaseError("Solo se permiten archivos PDF, JPG o PNG.");
+    return new ExpedienteRetencionSupabaseError("Solo se permiten archivos PDF.");
   }
 
   if (msg.includes("excede tamaño máximo")) {

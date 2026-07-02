@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **fix/pdf-only-backend-and-copy — go-live solo PDF (backend + copy):** migración `041` restringe `expediente_documento_mime_permitido` y bucket `expediente-documentos` a `application/pdf`; copy UI y mappers RPC sin mención JPG/PNG; tests SQL rechazo `image/png`, `image/jpeg`, DOCX; sin Cloud ni cambios a RLS/Mesa Ops/agenda.
+
 - **feat/cliente-datos-validaciones — solo PDF en uploads:** helper `fileUploadValidation` (MIME `application/pdf` + extensión `.pdf`); `upload-constraints` restringe a PDF; validación en UI (asesor integración, retención, Mesa complementarios) y en repos Supabase/mock antes de Storage; `accept="application/pdf,.pdf"` en todos los inputs de documentos; documentos existentes no afectados.
 
 - **feat/cliente-datos-validaciones — Datos Generales del Cliente:** validación pura `clienteDatosValidation` (requeridos, NSS, CURP, RFC, email, CP, teléfonos, duplicados); errores por campo en formulario asesor; bloqueo de guardado Supabase si hay errores.
