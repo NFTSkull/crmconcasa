@@ -249,8 +249,8 @@ DECLARE
   v_doc_sem_rech UUID := '00000000-0000-4000-9034-000000000050';
   v_doc_sem_sub UUID := '00000000-0000-4000-9034-000000000060';
 
-  v_path_nss TEXT;
-  v_path_nss_v2 TEXT;
+  v_path_ine TEXT;
+  v_path_ine_v2 TEXT;
   v_path_sem TEXT;
   v_path_no_storage TEXT;
   v_path_acta TEXT;
@@ -277,30 +277,30 @@ BEGIN
     v_exp_ok, v_exp_valid, v_exp_subido, v_exp_other, v_exp_semanas
   );
 
-  PERFORM public.__rpc_acpm_test_insert_doc(v_doc_rech, v_org, v_exp_ok, 'nss', 'rechazado', 1);
-  PERFORM public.__rpc_acpm_test_insert_doc(v_doc_val, v_org, v_exp_valid, 'nss', 'validado', 1);
-  PERFORM public.__rpc_acpm_test_insert_doc(v_doc_sub, v_org, v_exp_subido, 'nss', 'subido', 1);
-  PERFORM public.__rpc_acpm_test_insert_doc(v_doc_other, v_org, v_exp_other, 'nss', 'rechazado', 1);
+  PERFORM public.__rpc_acpm_test_insert_doc(v_doc_rech, v_org, v_exp_ok, 'cliente_ine_frente', 'rechazado', 1);
+  PERFORM public.__rpc_acpm_test_insert_doc(v_doc_val, v_org, v_exp_valid, 'cliente_ine_frente', 'validado', 1);
+  PERFORM public.__rpc_acpm_test_insert_doc(v_doc_sub, v_org, v_exp_subido, 'cliente_comprobante_domicilio', 'subido', 1);
+  PERFORM public.__rpc_acpm_test_insert_doc(v_doc_other, v_org, v_exp_other, 'cliente_ine_frente', 'rechazado', 1);
   PERFORM public.__rpc_acpm_test_insert_doc(v_doc_sem_rech, v_org, v_exp_semanas, 'cliente_semanas_cotizadas', 'rechazado', 1);
   PERFORM public.__rpc_acpm_test_insert_doc(v_doc_sem_sub, v_org, v_exp_semanas, 'cliente_ine_frente', 'subido', 1);
 
-  v_path_nss := public.__rpc_acpm_test_storage_path(v_org, v_exp_ok, 'nss', 'corr-v2.pdf');
-  v_path_nss_v2 := public.__rpc_acpm_test_storage_path(v_org, v_exp_ok, 'nss', 'corr-v3.pdf');
+  v_path_ine := public.__rpc_acpm_test_storage_path(v_org, v_exp_ok, 'cliente_ine_frente', 'corr-v2.pdf');
+  v_path_ine_v2 := public.__rpc_acpm_test_storage_path(v_org, v_exp_ok, 'cliente_ine_frente', 'corr-v3.pdf');
   v_path_sem := public.__rpc_acpm_test_storage_path(v_org, v_exp_semanas, 'cliente_semanas_cotizadas', 'sem-corr.pdf');
-  v_path_no_storage := public.__rpc_acpm_test_storage_path(v_org, v_exp_ok, 'nss', 'missing.pdf');
+  v_path_no_storage := public.__rpc_acpm_test_storage_path(v_org, v_exp_ok, 'cliente_ine_frente', 'missing.pdf');
   v_path_acta := public.__rpc_acpm_test_storage_path(v_org, v_exp_ok, 'cliente_acta_nacimiento', 'acta.pdf');
   v_path_sat := public.__rpc_acpm_test_storage_path(v_org, v_exp_ok, 'cliente_constancia_sat', 'sat.pdf');
 
   -- 1. asesor dueño resube documento rechazado con submitted_to_mesa=true
-  v_result := public.__rpc_acpm_test_call_doc(v_asesor, v_exp_ok, 'nss', v_path_nss);
+  v_result := public.__rpc_acpm_test_call_doc(v_asesor, v_exp_ok, 'cliente_ine_frente', v_path_ine);
   PERFORM public.__rpc_acpm_test_assert((v_result->>'ok')::boolean = true, 'test 1: ok');
   PERFORM public.__rpc_acpm_test_assert(v_result->>'estatus_revision' = 'resubido', 'test 1: resubido');
 
   -- 2. asesor NO resube documento validado
   PERFORM public.__rpc_acpm_test_assert(
     public.__rpc_acpm_test_expect_doc_fail(
-      v_asesor, v_exp_valid, 'nss',
-      public.__rpc_acpm_test_storage_path(v_org, v_exp_valid, 'nss', 'fail.pdf'),
+      v_asesor, v_exp_valid, 'cliente_ine_frente',
+      public.__rpc_acpm_test_storage_path(v_org, v_exp_valid, 'cliente_ine_frente', 'fail.pdf'),
       'solo se puede corregir un documento rechazado'
     ),
     'test 2: validado bloqueado'
@@ -309,8 +309,8 @@ BEGIN
   -- 3. asesor NO resube documento subido/no rechazado
   PERFORM public.__rpc_acpm_test_assert(
     public.__rpc_acpm_test_expect_doc_fail(
-      v_asesor, v_exp_subido, 'nss',
-      public.__rpc_acpm_test_storage_path(v_org, v_exp_subido, 'nss', 'fail.pdf'),
+      v_asesor, v_exp_subido, 'cliente_comprobante_domicilio',
+      public.__rpc_acpm_test_storage_path(v_org, v_exp_subido, 'cliente_comprobante_domicilio', 'fail.pdf'),
       'solo se puede corregir un documento rechazado'
     ),
     'test 3: subido bloqueado'
@@ -319,8 +319,8 @@ BEGIN
   -- 4. asesor NO resube documento de otro asesor
   PERFORM public.__rpc_acpm_test_assert(
     public.__rpc_acpm_test_expect_doc_fail(
-      v_asesor, v_exp_other, 'nss',
-      public.__rpc_acpm_test_storage_path(v_org, v_exp_other, 'nss', 'fail.pdf'),
+      v_asesor, v_exp_other, 'cliente_ine_frente',
+      public.__rpc_acpm_test_storage_path(v_org, v_exp_other, 'cliente_ine_frente', 'fail.pdf'),
       'solo el asesor dueño'
     ),
     'test 4: otro asesor bloqueado'
@@ -359,7 +359,7 @@ BEGIN
   -- 7. storage inexistente rechaza
   PERFORM public.__rpc_acpm_test_assert(
     public.__rpc_acpm_test_expect_doc_fail(
-      v_asesor, v_exp_ok, 'nss', v_path_no_storage,
+      v_asesor, v_exp_ok, 'cliente_ine_frente', v_path_no_storage,
       'objeto no encontrado en storage', false
     ),
     'test 7: storage faltante'
@@ -368,22 +368,22 @@ BEGIN
   -- 8. versionado y soft-delete (segunda corrección en v_exp_ok ya tiene resubido activo — usar nuevo rechazo)
   UPDATE public.expediente_documentos
   SET estatus_revision = 'rechazado', comentario_mesa = 'Segundo rechazo', deleted_at = NULL
-  WHERE expediente_id = v_exp_ok AND tipo_documento = 'nss' AND deleted_at IS NULL;
+  WHERE expediente_id = v_exp_ok AND tipo_documento = 'cliente_ine_frente' AND deleted_at IS NULL;
 
   SELECT deleted_at INTO v_prev_deleted FROM public.expediente_documentos WHERE id = v_doc_rech;
   PERFORM public.__rpc_acpm_test_assert(v_prev_deleted IS NOT NULL, 'test 8: doc anterior soft-deleted');
 
-  v_result := public.__rpc_acpm_test_call_doc(v_asesor, v_exp_ok, 'nss', v_path_nss_v2);
+  v_result := public.__rpc_acpm_test_call_doc(v_asesor, v_exp_ok, 'cliente_ine_frente', v_path_ine_v2);
   PERFORM public.__rpc_acpm_test_assert((v_result->>'version')::integer >= 2, 'test 8: version incrementada');
 
   SELECT COUNT(*) INTO v_active_count
   FROM public.expediente_documentos
-  WHERE expediente_id = v_exp_ok AND tipo_documento = 'nss' AND deleted_at IS NULL;
+  WHERE expediente_id = v_exp_ok AND tipo_documento = 'cliente_ine_frente' AND deleted_at IS NULL;
   PERFORM public.__rpc_acpm_test_assert(v_active_count = 1, 'test 8: un activo');
 
   SELECT * INTO v_new_row
   FROM public.expediente_documentos
-  WHERE expediente_id = v_exp_ok AND tipo_documento = 'nss' AND deleted_at IS NULL;
+  WHERE expediente_id = v_exp_ok AND tipo_documento = 'cliente_ine_frente' AND deleted_at IS NULL;
   PERFORM public.__rpc_acpm_test_assert(v_new_row.estatus_revision = 'resubido', 'test 8: activo resubido');
   PERFORM public.__rpc_acpm_test_assert(v_new_row.comentario_mesa IS NULL, 'test 8: sin comentario_mesa');
 

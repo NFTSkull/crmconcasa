@@ -10,7 +10,6 @@ import {
  * Documentos obligatorios que el asesor debe completar antes de `enviar_a_mesa`.
  */
 export const INTEGRATION_DOC_TIPOS_ASESOR_ENVIO = [
-  "nss",
   "cliente_ine_frente",
   "cliente_ine_reverso",
   "cliente_comprobante_domicilio",
@@ -33,7 +32,7 @@ export const INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD = [
 ] as const;
 
 /**
- * Espejo de `integration_doc_tipos_obligatorios()` — validación Mesa y avance 1→2 (5).
+ * Espejo de `integration_doc_tipos_obligatorios()` — validación Mesa y avance 1→2 (4).
  * Complementarios Mesa (semanas/acta/SAT) son opcionales (migración 032).
  */
 export const INTEGRATION_DOC_TIPOS_VALIDACION_MESA = [
@@ -117,7 +116,7 @@ export function estatusCuentaComoValidadoMesa(estatus: ResumenEstatus): boolean 
   return estatus === "validado";
 }
 
-/** Espejo de `count_integration_docs_validados` — lista de 5 tipos obligatorios Mesa. */
+/** Espejo de `count_integration_docs_validados` — lista de 4 tipos obligatorios Mesa. */
 export function countIntegrationDocsValidados(
   resumen: IntegrationDocsResumenInput,
 ): number {
@@ -159,7 +158,7 @@ function mapChecklistItems(
   });
 }
 
-/** Checklist de documentos obligatorios para envío a Mesa (5). */
+/** Checklist de documentos obligatorios para envío a Mesa (4). */
 export function deriveIntegrationDocsChecklist(
   resumen: IntegrationDocsResumenInput,
 ): IntegrationDocChecklistItem[] {

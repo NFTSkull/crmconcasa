@@ -25,12 +25,13 @@ function resumenCompletoAsesor(
 }
 
 describe("INTEGRATION_DOC_TIPOS_VALIDACION_MESA", () => {
-  it("validación Mesa y avance 1→2 solo con 5 documentos del asesor", () => {
-    assert.equal(INTEGRATION_DOC_TIPOS_ASESOR_ENVIO.length, 5);
+  it("validación Mesa y avance 1→2 solo con 4 documentos del asesor", () => {
+    assert.equal(INTEGRATION_DOC_TIPOS_ASESOR_ENVIO.length, 4);
     assert.equal(INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES.length, 1);
-    assert.equal(INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD.length, 6);
-    assert.equal(INTEGRATION_DOC_TIPOS_VALIDACION_MESA.length, 5);
+    assert.equal(INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD.length, 5);
+    assert.equal(INTEGRATION_DOC_TIPOS_VALIDACION_MESA.length, 4);
     assert.deepEqual(INTEGRATION_DOC_TIPOS_VALIDACION_MESA, INTEGRATION_DOC_TIPOS_ASESOR_ENVIO);
+    assert.ok(!(INTEGRATION_DOC_TIPOS_ASESOR_ENVIO as readonly string[]).includes("nss"));
     assert.ok(!(INTEGRATION_DOC_TIPOS_VALIDACION_MESA as readonly string[]).includes("cliente_acta_nacimiento"));
     assert.ok(!(INTEGRATION_DOC_TIPOS_VALIDACION_MESA as readonly string[]).includes("cliente_constancia_sat"));
     assert.ok(!(INTEGRATION_DOC_TIPOS_ASESOR_ENVIO as readonly string[]).includes("ine"));
@@ -73,13 +74,13 @@ describe("estatusCuentaParaIntegracion", () => {
 });
 
 describe("integrationDocsCompletos", () => {
-  it("5/5 con subido cuenta como completo", () => {
+  it("4/4 con subido cuenta como completo", () => {
     const resumen = resumenCompletoAsesor("subido");
-    assert.equal(countIntegrationDocsPresentes(resumen), 5);
+    assert.equal(countIntegrationDocsPresentes(resumen), 4);
     assert.equal(integrationDocsCompletos(resumen), true);
   });
 
-  it("5/5 con validado y resubido cuentan", () => {
+  it("4/4 con validado y resubido cuentan", () => {
     const resumen: IntegrationDocsResumenInput = INTEGRATION_DOC_TIPOS_ASESOR_ENVIO.map(
       (tipo, i) => ({
         tipo_documento: tipo,
@@ -87,7 +88,7 @@ describe("integrationDocsCompletos", () => {
           i % 3 === 0 ? "subido" : i % 3 === 1 ? "resubido" : "validado",
       }),
     );
-    assert.equal(countIntegrationDocsPresentes(resumen), 5);
+    assert.equal(countIntegrationDocsPresentes(resumen), 4);
     assert.equal(integrationDocsCompletos(resumen), true);
   });
 
@@ -105,13 +106,13 @@ describe("integrationDocsCompletos", () => {
       ...resumenCompletoAsesor("subido"),
       { tipo_documento: "cliente_semanas_cotizadas" as const, estatus_revision: "subido" as const },
     ];
-    assert.equal(countIntegrationDocsPresentes(resumen), 5);
+    assert.equal(countIntegrationDocsPresentes(resumen), 4);
     assert.equal(integrationDocsCompletos(resumen), true);
   });
 
-  it("4/5 deja incompleto", () => {
-    const resumen = resumenCompletoAsesor("subido").slice(0, 4);
-    assert.equal(countIntegrationDocsPresentes(resumen), 4);
+  it("3/4 deja incompleto", () => {
+    const resumen = resumenCompletoAsesor("subido").slice(0, 3);
+    assert.equal(countIntegrationDocsPresentes(resumen), 3);
     assert.equal(integrationDocsCompletos(resumen), false);
   });
 
@@ -119,18 +120,19 @@ describe("integrationDocsCompletos", () => {
     const resumen = resumenCompletoAsesor("subido").map((row, i) =>
       i === 0 ? { ...row, estatus_revision: "rechazado" as const } : row,
     );
-    assert.equal(countIntegrationDocsPresentes(resumen), 4);
+    assert.equal(countIntegrationDocsPresentes(resumen), 3);
     assert.equal(integrationDocsCompletos(resumen), false);
   });
 
-  it("deriveIntegrationDocsChecklist lista solo 5 tipos obligatorios", () => {
+  it("deriveIntegrationDocsChecklist lista solo 4 tipos obligatorios sin nss", () => {
     const resumen: IntegrationDocsResumenInput = [
-      { tipo_documento: "nss", estatus_revision: "rechazado" },
-      { tipo_documento: "cliente_ine_frente", estatus_revision: "subido" },
+      { tipo_documento: "cliente_ine_frente", estatus_revision: "rechazado" },
+      { tipo_documento: "cliente_ine_reverso", estatus_revision: "subido" },
     ];
     const checklist = deriveIntegrationDocsChecklist(resumen);
 
-    assert.equal(checklist.length, 5);
+    assert.equal(checklist.length, 4);
+    assert.ok(!(INTEGRATION_DOC_TIPOS_ASESOR_ENVIO as readonly string[]).includes("nss"));
     assert.equal(checklist[0]?.completo, false);
     assert.equal(checklist[0]?.estatus_revision, "rechazado");
     assert.equal(checklist[0]?.opcional, false);
@@ -149,12 +151,12 @@ describe("integrationDocsCompletos", () => {
 });
 
 describe("integrationDocsTodosValidados", () => {
-  it("requiere 5 validados del asesor; acta/SAT no cuentan", () => {
+  it("requiere 4 validados del asesor; acta/SAT no cuentan", () => {
     const soloAsesor = INTEGRATION_DOC_TIPOS_ASESOR_ENVIO.map((tipo) => ({
       tipo_documento: tipo,
       estatus_revision: "validado" as const,
     }));
-    assert.equal(countIntegrationDocsValidados(soloAsesor), 5);
+    assert.equal(countIntegrationDocsValidados(soloAsesor), 4);
     assert.equal(integrationDocsTodosValidados(soloAsesor), true);
 
     const conComplementariosFaltantes = [
@@ -164,7 +166,7 @@ describe("integrationDocsTodosValidados", () => {
     ];
     assert.equal(integrationDocsTodosValidados(conComplementariosFaltantes), true);
 
-    const incompleto = soloAsesor.slice(0, 4);
+    const incompleto = soloAsesor.slice(0, 3);
     assert.equal(integrationDocsTodosValidados(incompleto), false);
   });
 

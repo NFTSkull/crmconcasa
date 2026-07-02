@@ -124,7 +124,7 @@ DECLARE
   v_exp_replace UUID := '00000000-0000-4000-9030-000000000040';
   v_exp_eight UUID := '00000000-0000-4000-9030-000000000050';
 
-  v_path_nss TEXT;
+  v_path_ine TEXT;
   v_result JSONB;
   v_doc_id UUID;
   v_prev_id UUID;
@@ -139,18 +139,28 @@ BEGIN
   PERFORM public.__rpc_regdoc_test_insert_exp(v_exp_replace, v_org, v_a1, '90304000040');
   PERFORM public.__rpc_regdoc_test_insert_exp(v_exp_eight, v_org, v_a1, '90305000050');
 
-  v_path_nss := public.__rpc_regdoc_test_storage_path(v_org, v_exp_ok, 'nss', 'a1-nss.pdf');
+  v_path_ine := public.__rpc_regdoc_test_storage_path(v_org, v_exp_ok, 'cliente_ine_frente', 'a1-ine.pdf');
 
   DELETE FROM public.expediente_documentos WHERE expediente_id IN (
     v_exp_ok, v_exp_owner, v_exp_sent, v_exp_replace, v_exp_eight
   );
 
   -- Test 1: asesor dueño registra OK
-  v_result := public.__rpc_regdoc_test_call(v_a1, v_exp_ok, 'nss', v_path_nss);
+  v_result := public.__rpc_regdoc_test_call(v_a1, v_exp_ok, 'cliente_ine_frente', v_path_ine);
   PERFORM public.__rpc_regdoc_test_assert((v_result->>'ok')::boolean = true, 'test 1: ok true');
-  PERFORM public.__rpc_regdoc_test_assert(v_result->>'tipo_documento' = 'nss', 'test 1: tipo nss');
+  PERFORM public.__rpc_regdoc_test_assert(v_result->>'tipo_documento' = 'cliente_ine_frente', 'test 1: tipo ine frente');
   PERFORM public.__rpc_regdoc_test_assert((v_result->>'version')::int = 1, 'test 1: version 1');
   PERFORM public.__rpc_regdoc_test_assert(v_result->>'estatus_revision' = 'subido', 'test 1: estatus subido');
+
+  -- Test 1b: nss rechazado (archivo NSS ya no permitido para asesor)
+  PERFORM public.__rpc_regdoc_test_assert(
+    public.__rpc_regdoc_test_expect_fail(
+      v_a1, v_exp_ok, 'nss',
+      public.__rpc_regdoc_test_storage_path(v_org, v_exp_ok, 'nss'),
+      'tipo_documento no permitido para upload asesor'
+    ),
+    'test 1b: nss rechazado'
+  );
 
   -- Test 2: tipo inválido rechaza (mesa — acta)
   PERFORM public.__rpc_regdoc_test_assert(
@@ -184,19 +194,19 @@ BEGIN
 
   -- Test 3: rol no asesor rechaza
   PERFORM public.__rpc_regdoc_test_assert(
-    public.__rpc_regdoc_test_expect_fail(v_editor, v_exp_ok, 'nss', v_path_nss, 'rol no autorizado'),
+    public.__rpc_regdoc_test_expect_fail(v_editor, v_exp_ok, 'cliente_ine_frente', v_path_ine, 'rol no autorizado'),
     'test 3: editor bloqueado'
   );
   PERFORM public.__rpc_regdoc_test_assert(
-    public.__rpc_regdoc_test_expect_fail(v_mesa, v_exp_ok, 'nss', v_path_nss, 'rol no autorizado'),
+    public.__rpc_regdoc_test_expect_fail(v_mesa, v_exp_ok, 'cliente_ine_frente', v_path_ine, 'rol no autorizado'),
     'test 3b: mesa bloqueada'
   );
 
   -- Test 4: asesor ajeno rechaza
   PERFORM public.__rpc_regdoc_test_assert(
     public.__rpc_regdoc_test_expect_fail(
-      v_a1, v_exp_owner, 'nss',
-      public.__rpc_regdoc_test_storage_path(v_org, v_exp_owner, 'nss'),
+      v_a1, v_exp_owner, 'cliente_ine_frente',
+      public.__rpc_regdoc_test_storage_path(v_org, v_exp_owner, 'cliente_ine_frente'),
       'solo el asesor dueño'
     ),
     'test 4: asesor ajeno'
@@ -205,8 +215,8 @@ BEGIN
   -- Test 5: expediente ya enviado a mesa rechaza
   PERFORM public.__rpc_regdoc_test_assert(
     public.__rpc_regdoc_test_expect_fail(
-      v_a1, v_exp_sent, 'nss',
-      public.__rpc_regdoc_test_storage_path(v_org, v_exp_sent, 'nss'),
+      v_a1, v_exp_sent, 'cliente_ine_frente',
+      public.__rpc_regdoc_test_storage_path(v_org, v_exp_sent, 'cliente_ine_frente'),
       'ya fue enviado a Mesa'
     ),
     'test 5: enviado a mesa'
@@ -248,7 +258,7 @@ BEGIN
   );
   PERFORM public.__rpc_regdoc_test_assert(v_result->>'estatus_revision' = 'resubido', 'test 7: resubido');
 
-  -- Test 8–9: count presentes y completos con 5 tipos obligatorios
+  -- Test 8–9: count presentes y completos con 4 tipos obligatorios
   DELETE FROM public.expediente_documentos WHERE expediente_id = v_exp_eight;
   FOREACH v_tipo IN ARRAY public.integration_doc_tipos_asesor_envio()
   LOOP
@@ -258,8 +268,8 @@ BEGIN
     );
   END LOOP;
   PERFORM public.__rpc_regdoc_test_assert(
-    public.count_integration_docs_presentes(v_exp_eight) = 5,
-    'test 8: count presentes 5'
+    public.count_integration_docs_presentes(v_exp_eight) = 4,
+    'test 8: count presentes 4'
   );
   PERFORM public.__rpc_regdoc_test_assert(
     public.integration_docs_completos(v_exp_eight) = true,
@@ -276,15 +286,15 @@ BEGIN
     'test 9b: semanas opcional no cambia gate'
   );
   PERFORM public.__rpc_regdoc_test_assert(
-    (v_result->>'integration_docs_presentes')::int = 5,
-    'test 9b: presentes siguen en 5'
+    (v_result->>'integration_docs_presentes')::int = 4,
+    'test 9b: presentes siguen en 4'
   );
 
   -- Test 10: storage_path con expediente distinto rechaza
   PERFORM public.__rpc_regdoc_test_assert(
     public.__rpc_regdoc_test_expect_fail(
-      v_a1, v_exp_ok, 'nss',
-      public.__rpc_regdoc_test_storage_path(v_org, v_exp_owner, 'nss'),
+      v_a1, v_exp_ok, 'cliente_ine_frente',
+      public.__rpc_regdoc_test_storage_path(v_org, v_exp_owner, 'cliente_ine_frente'),
       'storage_path no coincide'
     ),
     'test 10: path expediente inválido'
@@ -293,7 +303,7 @@ BEGIN
   -- Test 11: mime no permitido
   PERFORM public.__rpc_regdoc_test_assert(
     public.__rpc_regdoc_test_expect_fail(
-      v_a1, v_exp_ok, 'nss', v_path_nss, 'mime_type no permitido',
+      v_a1, v_exp_ok, 'cliente_ine_frente', v_path_ine, 'mime_type no permitido',
       'text/plain', 1024, true
     ),
     'test 11: mime inválido'
@@ -302,7 +312,7 @@ BEGIN
   -- Test 11b: image/png rechazado (go-live solo PDF)
   PERFORM public.__rpc_regdoc_test_assert(
     public.__rpc_regdoc_test_expect_fail(
-      v_a1, v_exp_ok, 'nss', v_path_nss, 'mime_type no permitido',
+      v_a1, v_exp_ok, 'cliente_ine_frente', v_path_ine, 'mime_type no permitido',
       'image/png', 1024, true
     ),
     'test 11b: image/png rechazado'
@@ -311,7 +321,7 @@ BEGIN
   -- Test 11c: image/jpeg rechazado (go-live solo PDF)
   PERFORM public.__rpc_regdoc_test_assert(
     public.__rpc_regdoc_test_expect_fail(
-      v_a1, v_exp_ok, 'nss', v_path_nss, 'mime_type no permitido',
+      v_a1, v_exp_ok, 'cliente_ine_frente', v_path_ine, 'mime_type no permitido',
       'image/jpeg', 1024, true
     ),
     'test 11c: image/jpeg rechazado'
@@ -320,7 +330,7 @@ BEGIN
   -- Test 11d: DOCX rechazado (go-live solo PDF)
   PERFORM public.__rpc_regdoc_test_assert(
     public.__rpc_regdoc_test_expect_fail(
-      v_a1, v_exp_ok, 'nss', v_path_nss, 'mime_type no permitido',
+      v_a1, v_exp_ok, 'cliente_ine_frente', v_path_ine, 'mime_type no permitido',
       'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
       1024, true
     ),
@@ -330,7 +340,7 @@ BEGIN
   -- Test 12: tamaño excedido
   PERFORM public.__rpc_regdoc_test_assert(
     public.__rpc_regdoc_test_expect_fail(
-      v_a1, v_exp_ok, 'nss', v_path_nss, 'excede tamaño máximo',
+      v_a1, v_exp_ok, 'cliente_ine_frente', v_path_ine, 'excede tamaño máximo',
       'application/pdf', (16::BIGINT * 1024 * 1024), true
     ),
     'test 12: size excedido'
@@ -339,8 +349,8 @@ BEGIN
   -- Test 13: sin objeto en storage rechaza (anti metadata fantasma)
   PERFORM public.__rpc_regdoc_test_assert(
     public.__rpc_regdoc_test_expect_fail(
-      v_a1, v_exp_ok, 'nss',
-      public.__rpc_regdoc_test_storage_path(v_org, v_exp_ok, 'nss', 'ghost.pdf'),
+      v_a1, v_exp_ok, 'cliente_ine_frente',
+      public.__rpc_regdoc_test_storage_path(v_org, v_exp_ok, 'cliente_ine_frente', 'ghost.pdf'),
       'objeto no encontrado en storage',
       'application/pdf', 1024, false
     ),

@@ -52,7 +52,7 @@ export function resolveMesaArchivoPorTipo(
   return null;
 }
 
-/** Checklist integración asesor (5 obligatorios) + metadata de archivo para Mesa. */
+/** Checklist integración asesor (4 obligatorios) + metadata de archivo para Mesa. */
 export function buildMesaIntegrationDocViews(
   resumenCatalog: readonly ExpedienteArchivoResumen[],
   listaActiva: readonly ExpedienteArchivoListItem[] = [],

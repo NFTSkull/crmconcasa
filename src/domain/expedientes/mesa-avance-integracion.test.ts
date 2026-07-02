@@ -122,9 +122,11 @@ describe("deriveBloqueosContinuarIntegracion", () => {
   });
 
   it("bloqueado si falta documento obligatorio del asesor", () => {
-    const archivos = resumenTodosValidados().filter((a) => a.tipo_documento !== "nss");
+    const archivos = resumenTodosValidados().filter(
+      (a) => a.tipo_documento !== "cliente_ine_frente",
+    );
     const bloqueos = deriveBloqueosContinuarIntegracion(baseCtx({ archivosResumen: archivos }));
-    assert.ok(bloqueos.some((b) => /nss/i.test(b)));
+    assert.ok(bloqueos.some((b) => /INE.*frente/i.test(b)));
     assert.equal(puedeContinuarIntegracion(baseCtx({ archivosResumen: archivos })), false);
   });
 
@@ -153,25 +155,25 @@ describe("deriveBloqueosContinuarIntegracion", () => {
 
   it("bloqueado si hay documento resubido sin validar", () => {
     const archivos = resumenTodosValidados().map((a) =>
-      a.tipo_documento === "nss" ? row("nss", "resubido") : a,
+      a.tipo_documento === "cliente_ine_frente" ? row("cliente_ine_frente", "resubido") : a,
     );
     const bloqueos = deriveBloqueosContinuarIntegracion(baseCtx({ archivosResumen: archivos }));
     assert.ok(bloqueos.some((b) => /resubido/i.test(b)));
     assert.equal(puedeContinuarIntegracion(baseCtx({ archivosResumen: archivos })), false);
   });
 
-  it("habilitado si datos + 5 docs asesor están validados", () => {
+  it("habilitado si datos + 4 docs asesor están validados", () => {
     assert.deepEqual(deriveBloqueosContinuarIntegracion(baseCtx()), []);
     assert.equal(puedeContinuarIntegracion(baseCtx()), true);
   });
 });
 
 describe("deriveCierreValidacionDocumentalView", () => {
-  it("checklist con 5 docs asesor y 3 complementarios informativos", () => {
+  it("checklist con 4 docs asesor y 3 complementarios informativos", () => {
     const view = deriveCierreValidacionDocumentalView(baseCtx());
     assert.equal(view.mostrar, true);
     assert.equal(view.datosGeneralesValidados, true);
-    assert.equal(view.documentosAsesor.length, 5);
+    assert.equal(view.documentosAsesor.length, 4);
     assert.equal(view.complementarios.length, 3);
     assert.ok(view.complementarios.every((c) => /no bloquea/i.test(c.detalle)));
     assert.equal(view.puedeAvanzar, true);
@@ -188,11 +190,11 @@ describe("deriveCierreValidacionDocumentalView", () => {
 
   it("botón deshabilitado si un doc asesor no está validado", () => {
     const archivos = resumenTodosValidados().map((a) =>
-      a.tipo_documento === "nss" ? row("nss", "rechazado") : a,
+      a.tipo_documento === "cliente_ine_frente" ? row("cliente_ine_frente", "rechazado") : a,
     );
     const view = deriveCierreValidacionDocumentalView(baseCtx({ archivosResumen: archivos }));
     assert.equal(view.puedeAvanzar, false);
-    assert.ok(view.documentosAsesor.find((d) => d.tipo === "nss")?.completo === false);
+    assert.ok(view.documentosAsesor.find((d) => d.tipo === "cliente_ine_frente")?.completo === false);
   });
 
   it("complementarios faltantes no impiden puedeAvanzar", () => {

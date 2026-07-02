@@ -73,7 +73,7 @@ export function MesaCierreValidacionDocumentalSection({
 
           <div>
             <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
-              5 documentos del asesor (obligatorios)
+              4 documentos del asesor (obligatorios)
             </p>
             <ul className="space-y-1.5">
               {view.documentosAsesor.map((doc) => (

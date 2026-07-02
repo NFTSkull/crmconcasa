@@ -36,8 +36,8 @@ function listaItem(
   return {
     expediente_id: EXP_ID,
     tipo_documento: tipo,
-    id: "doc-nss-1",
-    nombre_original: "nss.pdf",
+    id: "doc-ine-1",
+    nombre_original: "ine.pdf",
     mime_type: "application/pdf",
     size_bytes: 100,
     created_at: "2026-06-01T00:00:00.000Z",
@@ -50,22 +50,26 @@ function listaItem(
 }
 
 test("resolveMesaArchivoPorTipo: prioriza lista activa con id real", () => {
-  const catalog = [catalogRow("nss", { estatus_revision: "faltante", id: null })];
-  const lista = [listaItem("nss")];
-  const resolved = resolveMesaArchivoPorTipo("nss", catalog, lista);
-  assert.equal(resolved?.id, "doc-nss-1");
-  assert.equal(resolved?.nombre_original, "nss.pdf");
+  const catalog = [
+    catalogRow("cliente_ine_frente", { estatus_revision: "faltante", id: null }),
+  ];
+  const lista = [listaItem("cliente_ine_frente")];
+  const resolved = resolveMesaArchivoPorTipo("cliente_ine_frente", catalog, lista);
+  assert.equal(resolved?.id, "doc-ine-1");
+  assert.equal(resolved?.nombre_original, "ine.pdf");
 });
 
-test("buildMesaIntegrationDocViews: solo 5 documentos del asesor (sin complementarios Mesa)", () => {
+test("buildMesaIntegrationDocViews: solo 4 documentos del asesor (sin nss ni complementarios Mesa)", () => {
   const catalog = [
-    catalogRow("nss"),
+    catalogRow("nss", { estatus_revision: "subido", id: "doc-nss" }),
+    catalogRow("cliente_ine_frente"),
     catalogRow("cliente_semanas_cotizadas", { estatus_revision: "subido", id: "doc-sem" }),
     catalogRow("cliente_acta_nacimiento"),
   ];
   const views = buildMesaIntegrationDocViews(catalog, []);
   const tipos = views.map((v) => v.tipo_documento as string);
-  assert.equal(views.length, 5);
+  assert.equal(views.length, 4);
+  assert.ok(!tipos.includes("nss"));
   assert.ok(!tipos.includes("cliente_semanas_cotizadas"));
   assert.ok(!tipos.includes("cliente_acta_nacimiento"));
   assert.ok(!tipos.includes("cliente_constancia_sat"));
@@ -73,21 +77,21 @@ test("buildMesaIntegrationDocViews: solo 5 documentos del asesor (sin complement
 
 test("buildMesaIntegrationDocViews: subido con id permite abrir; faltante no", () => {
   const catalog = [
-    catalogRow("nss", {
-      id: "doc-nss-cat",
+    catalogRow("cliente_ine_frente", {
+      id: "doc-ine-cat",
       estatus_revision: "subido",
-      nombre_original: "nss-cat.pdf",
+      nombre_original: "ine-cat.pdf",
       mime_type: "application/pdf",
     }),
-    catalogRow("cliente_ine_frente"),
+    catalogRow("cliente_ine_reverso"),
   ];
   const views = buildMesaIntegrationDocViews(catalog, []);
-  const nss = views.find((v) => v.tipo_documento === "nss");
   const ine = views.find((v) => v.tipo_documento === "cliente_ine_frente");
-  assert.ok(nss);
+  const reverso = views.find((v) => v.tipo_documento === "cliente_ine_reverso");
   assert.ok(ine);
-  assert.equal(nss.estatus_revision, "subido");
-  assert.equal(nss.archivo?.id, "doc-nss-cat");
-  assert.equal(ine.estatus_revision, "faltante");
-  assert.equal(ine.archivo, null);
+  assert.ok(reverso);
+  assert.equal(ine.estatus_revision, "subido");
+  assert.equal(ine.archivo?.id, "doc-ine-cat");
+  assert.equal(reverso.estatus_revision, "faltante");
+  assert.equal(reverso.archivo, null);
 });

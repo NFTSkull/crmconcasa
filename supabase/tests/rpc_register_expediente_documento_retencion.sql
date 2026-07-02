@@ -196,18 +196,39 @@ BEGIN
     );
   END;
 
-  -- 4. integración sigue funcionando (nss pre-Mesa)
+  -- 4. integración sigue funcionando (cliente_ine_frente pre-Mesa)
   PERFORM public.__rpc_regret_test_seed_storage(
-    public.__rpc_regret_test_storage_path(v_org, v_exp_int, 'nss', 'int2.pdf')
+    public.__rpc_regret_test_storage_path(v_org, v_exp_int, 'cliente_ine_frente', 'int2.pdf')
   );
   PERFORM public.__rpc_regret_test_set_auth(v_a1);
   SELECT public.register_expediente_documento(
-    v_exp_int, 'nss',
-    public.__rpc_regret_test_storage_path(v_org, v_exp_int, 'nss', 'int2.pdf'),
-    'nss.pdf', 'application/pdf', 1024
+    v_exp_int, 'cliente_ine_frente',
+    public.__rpc_regret_test_storage_path(v_org, v_exp_int, 'cliente_ine_frente', 'int2.pdf'),
+    'ine.pdf', 'application/pdf', 1024
   ) INTO v_result;
   PERFORM public.__rpc_regret_test_reset_auth();
-  PERFORM public.__rpc_regret_test_assert((v_result->>'ok')::boolean = true, 'test 4: integración nss ok');
+  PERFORM public.__rpc_regret_test_assert((v_result->>'ok')::boolean = true, 'test 4: integración ine frente ok');
+
+  -- 4b. nss bloqueado en register integración
+  PERFORM public.__rpc_regret_test_seed_storage(
+    public.__rpc_regret_test_storage_path(v_org, v_exp_int, 'nss', 'nss-block.pdf')
+  );
+  PERFORM public.__rpc_regret_test_set_auth(v_a1);
+  BEGIN
+    PERFORM public.register_expediente_documento(
+      v_exp_int, 'nss',
+      public.__rpc_regret_test_storage_path(v_org, v_exp_int, 'nss', 'nss-block.pdf'),
+      'nss.pdf', 'application/pdf', 1024
+    );
+    PERFORM public.__rpc_regret_test_reset_auth();
+    RAISE EXCEPTION 'RPC REGRET TEST FAIL: test 4b debía rechazar nss en integración';
+  EXCEPTION WHEN OTHERS THEN
+    PERFORM public.__rpc_regret_test_reset_auth();
+    PERFORM public.__rpc_regret_test_assert(
+      position('no permitido para upload asesor' IN SQLERRM) > 0,
+      'test 4b: nss bloqueado en integración'
+    );
+  END;
 
   -- 5. asesor no dueño bloqueado
   PERFORM public.__rpc_regret_test_assert(
