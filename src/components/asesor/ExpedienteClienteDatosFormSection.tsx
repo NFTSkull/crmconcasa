@@ -4,6 +4,12 @@ import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { Button } from "@/components/ui/Button";
 import type { ExpedienteClienteDatos } from "@/domain/expediente-cliente-datos";
 import type { ClienteDatosFieldErrors, ClienteDatosFieldKey } from "@/lib/clienteDatosValidation";
+import {
+  CLIENTE_METODO_PAGO_OPTIONS,
+  calcMontoCalculadoCobro,
+  formatMontoMXN,
+  parsePorcentajeCobroInput,
+} from "@/lib/clienteDatosCobro";
 
 type ClienteDatosFormState = ExpedienteClienteDatos["datos"];
 
@@ -35,6 +41,7 @@ interface ExpedienteClienteDatosFormSectionProps {
   formatDateTime: (iso: string) => string;
   onSave: () => Promise<{ ok: boolean; message?: string }>;
   esperaMontoMessage: string;
+  montoAprobado?: number | null;
 }
 
 function fieldInputClass(hasError: boolean): string {
@@ -87,6 +94,7 @@ export function ExpedienteClienteDatosFormSection({
   formatDateTime,
   onSave,
   esperaMontoMessage,
+  montoAprobado = null,
 }: ExpedienteClienteDatosFormSectionProps) {
   const esCorreccionDatos =
     submittedToMesa && clienteDatosMeta?.estado === "rechazado";
@@ -106,6 +114,10 @@ export function ExpedienteClienteDatosFormSection({
     showFieldErrors && Object.keys(fieldErrors).length > 0
       ? Object.values(fieldErrors).slice(0, 5)
       : [];
+
+  const porcentajeNum = parsePorcentajeCobroInput(clienteDatos.porcentajeCobro);
+  const montoCalculadoPreview = calcMontoCalculadoCobro(montoAprobado, porcentajeNum);
+  const montoCalculadoError = err("montoCalculado");
 
   const statusLine = (() => {
     if (dataSupabase && clienteDatosLoading) return "Cargando datos del cliente…";
@@ -483,6 +495,72 @@ export function ExpedienteClienteDatosFormSection({
                   }))
                 }
               />
+            </DatosField>
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-md border border-gray-200 p-3">
+          <p className="text-xs font-semibold text-gray-900">Información de cobro</p>
+          <p className="mt-1 text-[11px] text-gray-600">
+            Se calcula con base en el monto aprobado por editor
+            {typeof montoAprobado === "number" && montoAprobado > 0
+              ? ` (${formatMontoMXN(montoAprobado)}).`
+              : "."}
+          </p>
+          <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <DatosField
+              label="Porcentaje de cobro"
+              fieldKey="porcentajeCobro"
+              error={err("porcentajeCobro")}
+              showError={showFieldErrors}
+            >
+              <div className="flex items-center gap-1">
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  step="0.01"
+                  className={`${fieldInputClass(Boolean(err("porcentajeCobro")))} w-full`}
+                  value={clienteDatos.porcentajeCobro}
+                  onChange={(e) =>
+                    setClienteDatos((p) => ({ ...p, porcentajeCobro: e.target.value }))
+                  }
+                />
+                <span className="text-sm text-gray-600">%</span>
+              </div>
+            </DatosField>
+            <DatosField
+              label="Monto calculado"
+              fieldKey="montoCalculado"
+              error={montoCalculadoError}
+              showError={showFieldErrors}
+            >
+              <input
+                readOnly
+                className="rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-sm text-gray-800"
+                value={formatMontoMXN(montoCalculadoPreview)}
+              />
+            </DatosField>
+            <DatosField
+              label="Método de pago"
+              fieldKey="metodoPago"
+              error={err("metodoPago")}
+              showError={showFieldErrors}
+            >
+              <select
+                className={fieldInputClass(Boolean(err("metodoPago")))}
+                value={clienteDatos.metodoPago}
+                onChange={(e) =>
+                  setClienteDatos((p) => ({ ...p, metodoPago: e.target.value }))
+                }
+              >
+                <option value="">Selecciona…</option>
+                {CLIENTE_METODO_PAGO_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
             </DatosField>
           </div>
         </div>

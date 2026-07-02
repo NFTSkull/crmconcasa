@@ -22,6 +22,8 @@ const vacio: ClienteDatosFormShape = {
   ],
   beneficiario: { nombre: "", parentesco: "" },
   direccionEmpresa: { calle: "", colonia: "", municipio: "", cp: "" },
+  porcentajeCobro: "",
+  metodoPago: "",
 };
 
 const completo: ClienteDatosFormShape = {
@@ -45,6 +47,8 @@ const completo: ClienteDatosFormShape = {
     municipio: "Mun",
     cp: "01000",
   },
+  porcentajeCobro: "10",
+  metodoPago: "transferencia",
 };
 
 test("getClienteDatosCamposFaltantes: formulario vacío lista muchos campos", () => {
@@ -54,7 +58,10 @@ test("getClienteDatosCamposFaltantes: formulario vacío lista muchos campos", ()
 });
 
 test("getClienteDatosCamposFaltantes: formulario completo no devuelve faltantes", () => {
-  assert.deepEqual(getClienteDatosCamposFaltantes(completo), []);
+  assert.deepEqual(
+    getClienteDatosCamposFaltantes(completo, { montoAprobado: 100_000 }),
+    [],
+  );
 });
 
 test("getClienteDatosCamposFaltantes: trim — solo espacios cuenta como vacío", () => {
@@ -67,10 +74,24 @@ test("getClienteDatosCamposFaltantes: trim — solo espacios cuenta como vacío"
 
 test("getClienteDatosCamposFaltantes: RFC vacío no es faltante", () => {
   const sinRfc: ClienteDatosFormShape = { ...completo, rfc: "" };
-  assert.equal(getClienteDatosCamposFaltantes(sinRfc).includes("RFC"), false);
+  assert.equal(
+    getClienteDatosCamposFaltantes(sinRfc, { montoAprobado: 100_000 }).includes("RFC"),
+    false,
+  );
 });
 
-test("getClienteDatosCamposFaltantes: formulario vacío tiene 18 obligatorios", () => {
+test("getClienteDatosCamposFaltantes: faltan campos de cobro", () => {
+  const sinCobro: ClienteDatosFormShape = {
+    ...completo,
+    porcentajeCobro: "",
+    metodoPago: "",
+  };
+  const faltantes = getClienteDatosCamposFaltantes(sinCobro, { montoAprobado: 100_000 });
+  assert.ok(faltantes.includes("Porcentaje de cobro"));
+  assert.ok(faltantes.includes("Método de pago"));
+});
+
+test("getClienteDatosCamposFaltantes: formulario vacío tiene 21 obligatorios", () => {
   assert.equal(getClienteDatosCamposFaltantes(vacio).length, CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT);
-  assert.equal(CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT, 18);
+  assert.equal(CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT, 21);
 });

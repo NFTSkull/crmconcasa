@@ -54,6 +54,26 @@ export function mapSaveClienteDatosRpcError(error: {
     return new ClienteDatosSupabaseError("El RFC no tiene un formato válido.");
   }
 
+  if (msg.includes("no hay monto aprobado para calcular el cobro")) {
+    return new ClienteDatosSupabaseError(
+      "No hay monto aprobado para calcular el cobro.",
+    );
+  }
+
+  if (msg.includes("porcentaje de cobro es obligatorio")) {
+    return new ClienteDatosSupabaseError("El porcentaje de cobro es obligatorio.");
+  }
+
+  if (msg.includes("porcentaje de cobro inválido")) {
+    return new ClienteDatosSupabaseError(
+      "El porcentaje de cobro debe ser mayor a 0 y menor o igual a 100.",
+    );
+  }
+
+  if (msg.includes("método de pago es obligatorio")) {
+    return new ClienteDatosSupabaseError("El método de pago es obligatorio.");
+  }
+
   if (msg.includes("teléfono obligatorio")) {
     return new ClienteDatosSupabaseError("El celular del cliente es obligatorio.");
   }

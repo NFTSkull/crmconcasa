@@ -84,6 +84,12 @@ export function mapEnviarAMesaRpcError(error: {
     );
   }
 
+  if (msg.includes("faltan datos obligatorios del cliente: porcentaje de cobro")) {
+    return new ExpedientesSupabaseError(
+      "Faltan datos obligatorios del cliente: porcentaje de cobro, monto calculado, método de pago.",
+    );
+  }
+
   if (msg.includes("faltan documentos obligatorios de integración")) {
     return new ExpedientesSupabaseError(
       "Faltan documentos obligatorios de integración. Sube todos los documentos requeridos antes de enviar a Mesa.",

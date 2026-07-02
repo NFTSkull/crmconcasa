@@ -72,6 +72,8 @@ const EMPTY_CLIENTE_DATOS: ClienteDatosFormState = {
   ],
   beneficiario: { nombre: "", parentesco: "" },
   direccionEmpresa: { calle: "", colonia: "", municipio: "", cp: "" },
+  porcentajeCobro: "",
+  metodoPago: "",
 };
 
 interface PrecalificacionMock {
@@ -223,9 +225,17 @@ export default function AsesorExpedientePage() {
     [editorDecision],
   );
 
+  const montoAprobadoEditor = useMemo(() => {
+    const m = editorDecision?.monto_aprobado;
+    return typeof m === "number" && Number.isFinite(m) && m > 0 ? m : null;
+  }, [editorDecision]);
+
   const camposFaltantesClienteDatos = useMemo(
-    () => getClienteDatosCamposFaltantes(clienteDatos),
-    [clienteDatos],
+    () =>
+      getClienteDatosCamposFaltantes(clienteDatos, {
+        montoAprobado: montoAprobadoEditor,
+      }),
+    [clienteDatos, montoAprobadoEditor],
   );
 
   const datosGeneralesCompletos = useMemo(() => {
@@ -462,6 +472,10 @@ export default function AsesorExpedientePage() {
       setClienteDatos({
         ...found.datos,
         rfc: found.datos.rfc ?? "",
+        porcentajeCobro:
+          found.datos.porcentajeCobro ||
+          (found.porcentajeCobro != null ? String(found.porcentajeCobro) : ""),
+        metodoPago: found.datos.metodoPago || found.metodoPago || "",
       });
       setClienteDatosMeta({
         estado: found.estado,
@@ -575,7 +589,9 @@ export default function AsesorExpedientePage() {
       return { ok: false, message: MSJ_ESPERA_MONTO_REVISOR };
     }
     if (dataSupabase) {
-      const validation = validateClienteDatos(clienteDatos);
+      const validation = validateClienteDatos(clienteDatos, {
+        montoAprobado: montoAprobadoEditor,
+      });
       if (!validation.isValid) {
         setClienteDatosShowValidation(true);
         setClienteDatosFieldErrors(validation.errors);
@@ -638,6 +654,7 @@ export default function AsesorExpedientePage() {
     operativo?.submittedToMesa,
     precal?.id,
     puedeIntegrar,
+    montoAprobadoEditor,
   ]);
 
   if (currentUser === undefined) {
@@ -801,6 +818,7 @@ export default function AsesorExpedientePage() {
               formatDateTime={formatDateTime}
               onSave={handleSaveClienteDatos}
               esperaMontoMessage={MSJ_ESPERA_MONTO_REVISOR}
+              montoAprobado={montoAprobadoEditor}
             />
             <div className="rounded-lg border border-gray-200 bg-white p-4 text-sm text-gray-600">
               <p className="text-sm font-semibold text-gray-900">
@@ -976,6 +994,7 @@ export default function AsesorExpedientePage() {
               formatDateTime={formatDateTime}
               onSave={handleSaveClienteDatos}
               esperaMontoMessage={MSJ_ESPERA_MONTO_REVISOR}
+              montoAprobado={montoAprobadoEditor}
             />
 
             <SeguimientoOperativoMock
@@ -990,7 +1009,9 @@ export default function AsesorExpedientePage() {
                 window.alert(MSJ_ESPERA_MONTO_REVISOR);
                 return false;
               }
-              const camposFaltantes = getClienteDatosCamposFaltantes(clienteDatos);
+              const camposFaltantes = getClienteDatosCamposFaltantes(clienteDatos, {
+                montoAprobado: montoAprobadoEditor,
+              });
               if (camposFaltantes.length > 0) {
                 window.alert(
                   `Completa los datos del cliente antes de enviar a mesa:\n\n- ${camposFaltantes.join(

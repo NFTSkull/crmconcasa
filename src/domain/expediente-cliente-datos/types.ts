@@ -39,7 +39,18 @@ export type ExpedienteClienteDatos = {
       municipio: string;
       cp: string;
     };
+    /** Porcentaje de cobro (captura asesor, ej. "12.5"). */
+    porcentajeCobro: string;
+    /** Método de pago (`transferencia`, `efectivo`, `tarjeta`, `otro`). */
+    metodoPago: string;
   };
+
+  /** Columna `porcentaje_cobro` (lectura). */
+  porcentajeCobro?: number | null;
+  /** Columna `monto_calculado` (servidor). */
+  montoCalculado?: number | null;
+  /** Columna `metodo_pago` (lectura). */
+  metodoPago?: string | null;
 
   estado: ExpedienteClienteDatosEstado;
 

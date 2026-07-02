@@ -1,4 +1,12 @@
 import type { ClienteDatosFormShape } from "@/lib/clienteDatosFormCompleteness";
+import {
+  calcMontoCalculadoCobro,
+  parsePorcentajeCobroInput,
+} from "@/lib/clienteDatosCobro";
+
+export type ClienteDatosValidationContext = {
+  montoAprobado?: number | null;
+};
 
 export type ClienteDatosFieldKey =
   | "nombreCliente"
@@ -19,7 +27,10 @@ export type ClienteDatosFieldKey =
   | "direccionCalle"
   | "direccionColonia"
   | "direccionMunicipio"
-  | "direccionCp";
+  | "direccionCp"
+  | "porcentajeCobro"
+  | "montoCalculado"
+  | "metodoPago";
 
 export type ClienteDatosFieldErrors = Partial<Record<ClienteDatosFieldKey, string>>;
 
@@ -78,6 +89,8 @@ export function normalizeClienteDatosForSave(
     ...d,
     curp: String(d.curp ?? "").trim().toUpperCase(),
     rfc: String(d.rfc ?? "").trim().toUpperCase(),
+    porcentajeCobro: String(d.porcentajeCobro ?? "").trim(),
+    metodoPago: String(d.metodoPago ?? "").trim().toLowerCase(),
   };
 }
 
@@ -85,7 +98,10 @@ export function normalizeClienteDatosForSave(
  * Validación cliente-side alineada a campos obligatorios actuales y reglas de formato.
  * No valida duplicados globales entre expedientes (solo dentro del formulario).
  */
-export function validateClienteDatos(d: ClienteDatosFormShape): ClienteDatosValidationResult {
+export function validateClienteDatos(
+  d: ClienteDatosFormShape,
+  ctx: ClienteDatosValidationContext = {},
+): ClienteDatosValidationResult {
   const errors: ClienteDatosFieldErrors = {};
   const data = normalizeClienteDatosForSave(d);
 
@@ -115,6 +131,43 @@ export function validateClienteDatos(d: ClienteDatosFormShape): ClienteDatosVali
   req("direccionColonia", data.direccionEmpresa.colonia, "Colonia de la empresa");
   req("direccionMunicipio", data.direccionEmpresa.municipio, "Municipio de la empresa");
   req("direccionCp", data.direccionEmpresa.cp, "CP");
+
+  req("porcentajeCobro", data.porcentajeCobro, "Porcentaje de cobro");
+  req("metodoPago", data.metodoPago, "Método de pago");
+
+  if (!errors.porcentajeCobro) {
+    const pct = parsePorcentajeCobroInput(data.porcentajeCobro);
+    if (pct == null) {
+      setError(errors, "porcentajeCobro", "Porcentaje de cobro no es válido.");
+    } else if (pct <= 0) {
+      setError(errors, "porcentajeCobro", "Porcentaje de cobro debe ser mayor a 0.");
+    } else if (pct > 100) {
+      setError(errors, "porcentajeCobro", "Porcentaje de cobro no puede ser mayor a 100.");
+    }
+  }
+
+  const montoAprobado = ctx.montoAprobado;
+  const pctVal = parsePorcentajeCobroInput(data.porcentajeCobro);
+  if (
+    !errors.montoCalculado &&
+    pctVal != null &&
+    pctVal > 0 &&
+    (montoAprobado == null || !Number.isFinite(montoAprobado) || montoAprobado <= 0)
+  ) {
+    setError(
+      errors,
+      "montoCalculado",
+      "No hay monto aprobado para calcular el cobro.",
+    );
+  } else if (
+    !errors.montoCalculado &&
+    pctVal != null &&
+    pctVal > 0 &&
+    montoAprobado != null &&
+    calcMontoCalculadoCobro(montoAprobado, pctVal) == null
+  ) {
+    setError(errors, "montoCalculado", "No se pudo calcular el monto de cobro.");
+  }
 
   if (!errors.nss && !/^\d{11}$/.test(data.nss.replace(/\D/g, ""))) {
     setError(errors, "nss", "NSS debe tener 11 dígitos.");

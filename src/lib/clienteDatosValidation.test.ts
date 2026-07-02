@@ -6,6 +6,9 @@ import {
   normalizeTelefonoMexico,
   validateClienteDatos,
 } from "@/lib/clienteDatosValidation";
+import { calcMontoCalculadoCobro } from "@/lib/clienteDatosCobro";
+
+const COBRO_CTX = { montoAprobado: 100_000 };
 
 const baseValid: ClienteDatosFormShape = {
   nombreCliente: "Juan Pérez",
@@ -28,21 +31,23 @@ const baseValid: ClienteDatosFormShape = {
     municipio: "Monterrey",
     cp: "64000",
   },
+  porcentajeCobro: "10",
+  metodoPago: "transferencia",
 };
 
 test("validateClienteDatos: payload válido sin errores", () => {
-  const r = validateClienteDatos(baseValid);
+  const r = validateClienteDatos(baseValid, COBRO_CTX);
   assert.equal(r.isValid, true);
   assert.deepEqual(r.errors, {});
 });
 
 test("validateClienteDatos: requerido faltante", () => {
-  const r = validateClienteDatos({ ...baseValid, nombreCliente: "" });
+  const r = validateClienteDatos({ ...baseValid, nombreCliente: "" }, COBRO_CTX);
   assert.equal(r.errors.nombreCliente, "Nombre del cliente es obligatorio.");
 });
 
 test("validateClienteDatos: NSS inválido", () => {
-  const r = validateClienteDatos({ ...baseValid, nss: "123" });
+  const r = validateClienteDatos({ ...baseValid, nss: "123" }, COBRO_CTX);
   assert.equal(r.errors.nss, "NSS debe tener 11 dígitos.");
 });
 
@@ -52,7 +57,7 @@ test("normalizeTelefonoMexico: espacios y guiones", () => {
 });
 
 test("validateClienteDatos: celular inválido", () => {
-  const r = validateClienteDatos({ ...baseValid, celular: "12345" });
+  const r = validateClienteDatos({ ...baseValid, celular: "12345" }, COBRO_CTX);
   assert.equal(r.errors.celular, "Celular debe tener 10 dígitos.");
 });
 
@@ -64,7 +69,7 @@ test("validateClienteDatos: celular cliente repetido con referencia 1", () => {
       { nombre: "Ref Uno", celular: "81 1908 7564" },
       baseValid.referencias[1],
     ],
-  });
+  }, COBRO_CTX);
   assert.match(
     r.errors.referencia1Celular ?? "",
     /no puede repetirse con celular del cliente/i,
@@ -78,7 +83,7 @@ test("validateClienteDatos: referencia 1 repetida con referencia 2", () => {
       { nombre: "Ref Uno", celular: "8111111111" },
       { nombre: "Ref Dos", celular: "8111111111" },
     ],
-  });
+  }, COBRO_CTX);
   assert.match(
     r.errors.referencia2Celular ?? "",
     /no puede repetirse con referencia 1/i,
@@ -90,7 +95,7 @@ test("validateClienteDatos: teléfono empresa repetido con celular", () => {
     ...baseValid,
     celular: "8119087564",
     telefonoEmpresa: "(81) 1908-7564",
-  });
+  }, COBRO_CTX);
   assert.match(
     r.errors.telefonoEmpresa ?? "",
     /no puede repetirse con celular del cliente/i,
@@ -98,7 +103,7 @@ test("validateClienteDatos: teléfono empresa repetido con celular", () => {
 });
 
 test("validateClienteDatos: correo inválido", () => {
-  const r = validateClienteDatos({ ...baseValid, correo: "no-es-email" });
+  const r = validateClienteDatos({ ...baseValid, correo: "no-es-email" }, COBRO_CTX);
   assert.equal(r.errors.correo, "Correo no tiene formato válido.");
 });
 
@@ -106,7 +111,7 @@ test("validateClienteDatos: CP inválido", () => {
   const r = validateClienteDatos({
     ...baseValid,
     direccionEmpresa: { ...baseValid.direccionEmpresa, cp: "640" },
-  });
+  }, COBRO_CTX);
   assert.equal(r.errors.direccionCp, "CP debe tener 5 dígitos.");
 });
 
@@ -114,7 +119,7 @@ test("validateClienteDatos: CURP minúsculas se validan tras normalizar", () => 
   const r = validateClienteDatos({
     ...baseValid,
     curp: "pegj850101hdfrRN09",
-  });
+  }, COBRO_CTX);
   assert.equal(r.isValid, true);
 });
 
@@ -129,7 +134,7 @@ test("normalizeClienteDatosForSave: CURP y RFC a mayúsculas", () => {
 });
 
 test("validateClienteDatos: payload válido sin RFC", () => {
-  const r = validateClienteDatos({ ...baseValid, rfc: "" });
+  const r = validateClienteDatos({ ...baseValid, rfc: "" }, COBRO_CTX);
   assert.equal(r.isValid, true);
   assert.equal(r.errors.rfc, undefined);
 });
@@ -137,18 +142,56 @@ test("validateClienteDatos: payload válido sin RFC", () => {
 test("validateClienteDatos: RFC vacío no genera error", () => {
   for (const rfc of ["", "   ", null as unknown as string, undefined as unknown as string]) {
     const data = { ...baseValid, rfc: rfc ?? "" };
-    const r = validateClienteDatos(data);
+    const r = validateClienteDatos(data, COBRO_CTX);
     assert.equal(r.errors.rfc, undefined, `rfc=${String(rfc)}`);
   }
 });
 
 test("validateClienteDatos: RFC válido con valor pasa", () => {
-  const r = validateClienteDatos({ ...baseValid, rfc: "PEGJ850101ABC" });
+  const r = validateClienteDatos({ ...baseValid, rfc: "PEGJ850101ABC" }, COBRO_CTX);
   assert.equal(r.isValid, true);
   assert.equal(r.errors.rfc, undefined);
 });
 
 test("validateClienteDatos: RFC inválido con valor falla", () => {
-  const r = validateClienteDatos({ ...baseValid, rfc: "INVALIDO" });
+  const r = validateClienteDatos({ ...baseValid, rfc: "INVALIDO" }, COBRO_CTX);
   assert.equal(r.errors.rfc, "RFC no tiene formato válido.");
+});
+
+test("validateClienteDatos: faltan campos de cobro", () => {
+  const r = validateClienteDatos(
+    { ...baseValid, porcentajeCobro: "", metodoPago: "" },
+    COBRO_CTX,
+  );
+  assert.equal(r.errors.porcentajeCobro, "Porcentaje de cobro es obligatorio.");
+  assert.equal(r.errors.metodoPago, "Método de pago es obligatorio.");
+});
+
+test("validateClienteDatos: porcentaje 0 rechaza", () => {
+  const r = validateClienteDatos({ ...baseValid, porcentajeCobro: "0" }, COBRO_CTX);
+  assert.equal(r.errors.porcentajeCobro, "Porcentaje de cobro debe ser mayor a 0.");
+});
+
+test("validateClienteDatos: porcentaje negativo rechaza", () => {
+  const r = validateClienteDatos({ ...baseValid, porcentajeCobro: "-1" }, COBRO_CTX);
+  assert.equal(r.errors.porcentajeCobro, "Porcentaje de cobro debe ser mayor a 0.");
+});
+
+test("validateClienteDatos: porcentaje mayor a 100 rechaza", () => {
+  const r = validateClienteDatos({ ...baseValid, porcentajeCobro: "101" }, COBRO_CTX);
+  assert.equal(r.errors.porcentajeCobro, "Porcentaje de cobro no puede ser mayor a 100.");
+});
+
+test("validateClienteDatos: porcentaje decimal válido acepta", () => {
+  const r = validateClienteDatos({ ...baseValid, porcentajeCobro: "12.5" }, COBRO_CTX);
+  assert.equal(r.isValid, true);
+});
+
+test("validateClienteDatos: sin monto aprobado bloquea monto calculado", () => {
+  const r = validateClienteDatos(baseValid, { montoAprobado: null });
+  assert.match(r.errors.montoCalculado ?? "", /monto aprobado/i);
+});
+
+test("validateClienteDatos: monto calculado se deriva correctamente", () => {
+  assert.equal(calcMontoCalculadoCobro(100_000, 12.5), 12_500);
 });

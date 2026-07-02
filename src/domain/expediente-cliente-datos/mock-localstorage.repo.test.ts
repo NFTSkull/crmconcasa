@@ -65,6 +65,8 @@ test("ExpedienteClienteDatos: shape mínimo válido", () => {
         municipio: "CDMX",
         cp: "01000",
       },
+      porcentajeCobro: "10",
+      metodoPago: "transferencia",
     },
     estado: "completo",
     updatedAt: new Date().toISOString(),
