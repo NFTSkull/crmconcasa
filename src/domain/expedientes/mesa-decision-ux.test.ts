@@ -51,7 +51,7 @@ describe("mostrarMesaIntegracionDocsPanel", () => {
   it("visible fuera de etapa 1 con doc rechazado", () => {
     const archivos: ExpedienteArchivoResumen[] = [
       {
-        tipo_documento: "nss",
+        tipo_documento: "cliente_ine_frente",
         estatus_revision: "rechazado",
       } as ExpedienteArchivoResumen,
     ];

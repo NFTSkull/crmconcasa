@@ -1,4 +1,4 @@
--- P3K.2: complementarios Mesa opcionales — obligatorios = 5 asesor; mesa_upload = 3 tipos
+-- P3K.2 / P044: complementarios Mesa opcionales — obligatorios = 4 asesor; mesa_upload = 3 tipos
 
 DO $$
 DECLARE
@@ -8,18 +8,21 @@ BEGIN
   v_oblig := public.integration_doc_tipos_obligatorios();
   v_mesa := public.integration_doc_tipos_mesa_upload();
 
-  IF cardinality(v_oblig) <> 5 THEN
-    RAISE EXCEPTION 'mesa_complementarios_opcionales: se esperaban 5 obligatorios, hay %', cardinality(v_oblig);
+  IF cardinality(v_oblig) <> 4 THEN
+    RAISE EXCEPTION 'mesa_complementarios_opcionales: se esperaban 4 obligatorios, hay %', cardinality(v_oblig);
   END IF;
 
   IF NOT (v_oblig @> ARRAY[
-    'nss',
     'cliente_ine_frente',
     'cliente_ine_reverso',
     'cliente_comprobante_domicilio',
     'cliente_estado_cuenta'
   ]::TEXT[]) THEN
     RAISE EXCEPTION 'mesa_complementarios_opcionales: obligatorios no coinciden con asesor_envio';
+  END IF;
+
+  IF 'nss' = ANY(v_oblig) THEN
+    RAISE EXCEPTION 'mesa_complementarios_opcionales: nss no debe ser obligatorio';
   END IF;
 
   IF 'cliente_semanas_cotizadas' = ANY(v_oblig) THEN
@@ -49,6 +52,6 @@ BEGIN
     RAISE EXCEPTION 'mesa_complementarios_opcionales: obligatorios debe igualar asesor_envio';
   END IF;
 
-  RAISE NOTICE 'mesa_complementarios_opcionales: OK (5 obligatorios, 3 mesa_upload)';
+  RAISE NOTICE 'mesa_complementarios_opcionales: OK (4 obligatorios, 3 mesa_upload)';
 END;
 $$;

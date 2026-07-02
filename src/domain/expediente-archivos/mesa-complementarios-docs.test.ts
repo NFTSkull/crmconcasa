@@ -81,7 +81,7 @@ describe("buildMesaComplementariosDocViews", () => {
 
   it("complementarios no están en validación Mesa obligatoria (5 asesor)", () => {
     assert.ok(complementariosMesaSonOpcionales());
-    assert.equal(INTEGRATION_DOC_TIPOS_VALIDACION_MESA.length, 5);
+    assert.equal(INTEGRATION_DOC_TIPOS_VALIDACION_MESA.length, 4);
     for (const tipo of INTEGRATION_DOC_TIPOS_MESA_UPLOAD) {
       assert.ok(
         !(INTEGRATION_DOC_TIPOS_VALIDACION_MESA as readonly string[]).includes(tipo),

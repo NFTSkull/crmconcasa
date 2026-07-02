@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-07-02 - fix/documentos-obligatorios-roles: NSS sin archivo; acta/SAT solo Mesa
+
+### Decisión
+
+- El **NSS** sigue obligatorio como dato en Datos Generales / `expedientes.nss`; se elimina el tipo documental `nss` de listas asesor, gates `enviar_a_mesa` y validación Mesa 1→2.
+- **Acta de nacimiento** y **constancia SAT** ya estaban fuera del upload asesor (028/030); Mesa los sube vía `integration_doc_tipos_mesa_upload` (complementarios opcionales post-032).
+- Migración **044** (local, sin Cloud): redefine `integration_doc_tipos_asesor_envio` a 4 tipos (`cliente_ine_*`, comprobante, estado de cuenta); `integration_doc_tipos_obligatorios` hereda vía 032.
+- Frontend: espejo en `integration-docs-completos.ts`; UI asesor/Mesa sin NSS documental; contadores 4/4.
+- Sin RLS, Storage, agenda, Mesa Ops (salvo copy validación), cancel/reagenda, usuarios ni PR #3 cobro.
+
 ## 2026-07-02 - fix/cliente-rfc-opcional: RFC opcional en Datos Generales
 
 ### Decisión

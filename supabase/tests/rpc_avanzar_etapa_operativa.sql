@@ -322,7 +322,7 @@ BEGIN
   -- Documento rechazado
   PERFORM public.__rpc_avanzar_test_insert_expediente(v_exp_rechazado, v_org_id, v_asesor_a1, '90701800018', 'interno');
   PERFORM public.__rpc_avanzar_test_insert_cliente(v_exp_rechazado, v_org_id);
-  PERFORM public.__rpc_avanzar_test_insert_docs(v_exp_rechazado, v_org_id, v_asesor_a1, 'validado', 'nss', 'rechazado');
+  PERFORM public.__rpc_avanzar_test_insert_docs(v_exp_rechazado, v_org_id, v_asesor_a1, 'validado', 'cliente_ine_frente', 'rechazado');
 
   -- Sin docs opcionales (solo obligatorios validados)
   PERFORM public.__rpc_avanzar_test_insert_expediente(v_exp_optional, v_org_id, v_asesor_a1, '90701900019', 'interno');

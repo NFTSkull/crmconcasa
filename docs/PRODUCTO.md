@@ -108,15 +108,15 @@ ConCasa CRM gestiona el ciclo operativo de precalificaciones / expedientes hipot
 
 ### Obligatorios integración (etapas 1–2)
 
-**Asesor antes de enviar a Mesa (5 obligatorios):** `nss`, `cliente_ine_frente`, `cliente_ine_reverso`, `cliente_comprobante_domicilio`, `cliente_estado_cuenta`.
+**Asesor antes de enviar a Mesa (4 obligatorios):** `cliente_ine_frente`, `cliente_ine_reverso`, `cliente_comprobante_domicilio`, `cliente_estado_cuenta`.
 
 **Asesor opcional (upload, no bloquea envío):** `cliente_semanas_cotizadas`.
 
-**Mesa de Control (2 adicionales para validación completa):** `cliente_acta_nacimiento`, `cliente_constancia_sat` — los sube Mesa; no bloquean el envío del asesor.
+**Mesa de Control (complementarios, no bloquean envío asesor):** `cliente_semanas_cotizadas`, `cliente_acta_nacimiento`, `cliente_constancia_sat` — acta y constancia SAT las sube Mesa; el asesor no las sube.
 
-**Validación Mesa 1→2:** 7 documentos con `estatus_revision = validado` (5 asesor + acta + constancia).
+**Validación Mesa 1→2:** 4 documentos del asesor con `estatus_revision = validado` (sin archivo NSS; el NSS es dato en Datos Generales).
 
-**Legacy fuera del panel asesor (datos históricos pueden existir):** `ine`, `estado_cuenta`, `direccion` (paquete sistema P2); no cuentan para gates.
+**Legacy fuera del panel asesor (datos históricos pueden existir):** `ine`, `estado_cuenta`, `nss`, `direccion` (paquete sistema P2); no cuentan para gates activos.
 
 `cliente_historial_laboral` eliminado del flujo activo (legacy en catálogo/IndexedDB).
 

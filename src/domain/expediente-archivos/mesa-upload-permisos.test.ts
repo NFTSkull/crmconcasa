@@ -14,7 +14,8 @@ describe("permisos upload Mesa vs asesor (contrato de tipos)", () => {
     ]);
   });
 
-  it("asesor NO puede subir acta ni constancia SAT", () => {
+  it("asesor NO puede subir nss, acta ni constancia SAT", () => {
+    assert.ok(!(INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD as readonly string[]).includes("nss"));
     assert.ok(
       !(INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD as readonly string[]).includes(
         "cliente_acta_nacimiento",
@@ -25,8 +26,14 @@ describe("permisos upload Mesa vs asesor (contrato de tipos)", () => {
     );
   });
 
-  it("Mesa NO puede subir documentos del asesor vía tipos Mesa", () => {
-    const asesorOnly = ["nss", "cliente_ine_frente", "cliente_ine_reverso", "cliente_comprobante_domicilio", "cliente_estado_cuenta"];
+  it("Mesa NO puede subir nss ni documentos del asesor vía tipos Mesa", () => {
+    const asesorOnly = [
+      "nss",
+      "cliente_ine_frente",
+      "cliente_ine_reverso",
+      "cliente_comprobante_domicilio",
+      "cliente_estado_cuenta",
+    ];
     for (const tipo of asesorOnly) {
       assert.ok(!(INTEGRATION_DOC_TIPOS_MESA_UPLOAD as readonly string[]).includes(tipo));
     }

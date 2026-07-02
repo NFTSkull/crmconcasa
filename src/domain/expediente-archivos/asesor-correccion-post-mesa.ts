@@ -1,7 +1,7 @@
 import type { ResumenEstatus } from "./types";
 import type { IntegrationDocAsesorUploadTipo } from "./integration-docs-completos";
 
-/** Upload inicial pre-envío a Mesa (5 oblig + opcionales). */
+/** Upload inicial pre-envío a Mesa (4 oblig + opcionales). */
 export function asesorPuedeSubirDocumentoPreMesa(submittedToMesa: boolean): boolean {
   return !submittedToMesa;
 }

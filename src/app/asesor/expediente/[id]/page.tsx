@@ -112,7 +112,7 @@ const MSJ_UPLOAD_FORMATO =
   "Sube el documento en formato PDF (máx. 15 MB) por cada documento del asesor requerido.";
 
 const MSJ_ENVIO_MESA_REQUISITOS =
-  "El envío a Mesa se habilitará cuando editor, datos generales y los 5 documentos del asesor estén completos. Acta y constancia SAT las sube Mesa después.";
+  "El envío a Mesa se habilitará cuando editor, datos generales y los 4 documentos del asesor estén completos. Acta y constancia SAT las sube Mesa después.";
 
 function editorDecisionLabel(decision?: string | null): string {
   if (decision === "aprobado") return "Aprobado";
