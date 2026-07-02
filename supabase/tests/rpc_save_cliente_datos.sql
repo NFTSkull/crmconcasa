@@ -42,7 +42,9 @@ CREATE OR REPLACE FUNCTION public.__rpc_scd_test_call_as(
   p_referencias JSONB DEFAULT '[]'::JSONB,
   p_imagenes JSONB DEFAULT NULL,
   p_datos JSONB DEFAULT '{}'::JSONB,
-  p_estado public.cliente_datos_estado DEFAULT 'completo'
+  p_estado public.cliente_datos_estado DEFAULT 'completo',
+  p_porcentaje_cobro NUMERIC DEFAULT 10,
+  p_metodo_pago TEXT DEFAULT 'transferencia'
 )
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -53,7 +55,7 @@ BEGIN
   PERFORM public.__rpc_scd_test_set_auth(p_user_id);
   SELECT public.save_cliente_datos(
     p_expediente_id, p_rfc, p_telefono, p_referencias,
-    p_imagenes, p_datos, p_estado
+    p_imagenes, p_datos, p_estado, p_porcentaje_cobro, p_metodo_pago
   ) INTO v_result;
   PERFORM public.__rpc_scd_test_reset_auth();
   RETURN v_result;
@@ -69,7 +71,9 @@ CREATE OR REPLACE FUNCTION public.__rpc_scd_test_expect_fail(
   p_imagenes JSONB DEFAULT NULL,
   p_datos JSONB DEFAULT '{}'::JSONB,
   p_estado public.cliente_datos_estado DEFAULT 'completo',
-  p_msg_contains TEXT DEFAULT NULL
+  p_msg_contains TEXT DEFAULT NULL,
+  p_porcentaje_cobro NUMERIC DEFAULT 10,
+  p_metodo_pago TEXT DEFAULT 'transferencia'
 )
 RETURNS BOOLEAN
 LANGUAGE plpgsql
@@ -81,7 +85,7 @@ BEGIN
   BEGIN
     PERFORM public.save_cliente_datos(
       p_expediente_id, p_rfc, p_telefono, p_referencias,
-      p_imagenes, p_datos, p_estado
+      p_imagenes, p_datos, p_estado, p_porcentaje_cobro, p_metodo_pago
     );
     PERFORM public.__rpc_scd_test_reset_auth();
     RETURN false;
@@ -311,6 +315,32 @@ BEGIN
   PERFORM public.__rpc_scd_test_insert_expediente(v_exp_unique_new, v_org_id, v_asesor_a1, '91221000023');
   PERFORM public.__rpc_scd_test_insert_expediente(v_exp_db_unique, v_org_id, v_asesor_a1, '91222000024');
   PERFORM public.__rpc_scd_test_insert_expediente(v_exp_db_unique_b, v_org_id, v_asesor_a1, '91222000025');
+
+  PERFORM public.__rpc_scd_test_insert_editor(v_exp_create, v_org_id);
+  PERFORM public.__rpc_scd_test_insert_editor(v_exp_update, v_org_id);
+  PERFORM public.__rpc_scd_test_insert_editor(v_exp_rfc, v_org_id);
+  PERFORM public.__rpc_scd_test_insert_editor(v_exp_tel, v_org_id);
+  PERFORM public.__rpc_scd_test_insert_editor(v_exp_dup_a, v_org_id);
+  PERFORM public.__rpc_scd_test_insert_editor(v_exp_dup_b, v_org_id);
+  PERFORM public.__rpc_scd_test_insert_editor(v_exp_idem, v_org_id);
+  PERFORM public.__rpc_scd_test_insert_editor(v_exp_ref, v_org_id);
+  PERFORM public.__rpc_scd_test_insert_editor(v_exp_img, v_org_id);
+  PERFORM public.__rpc_scd_test_insert_editor(v_exp_roles, v_org_id);
+  PERFORM public.__rpc_scd_test_insert_editor(v_exp_other_asesor, v_org_id);
+  PERFORM public.__rpc_scd_test_insert_editor(v_exp_other_org, v_org_id);
+  PERFORM public.__rpc_scd_test_insert_editor(v_exp_deleted, v_org_id);
+  PERFORM public.__rpc_scd_test_insert_editor(v_exp_ciclo, v_org_id);
+  PERFORM public.__rpc_scd_test_insert_editor(v_exp_sent, v_org_id);
+  PERFORM public.__rpc_scd_test_insert_editor(v_exp_log, v_org_id);
+  PERFORM public.__rpc_scd_test_insert_editor(v_exp_side, v_org_id);
+  PERFORM public.__rpc_scd_test_insert_editor(v_exp_enviar_ok, v_org_id);
+  PERFORM public.__rpc_scd_test_insert_editor(v_exp_enviar_rfc, v_org_id);
+  PERFORM public.__rpc_scd_test_insert_editor(v_exp_enviar_est, v_org_id);
+  PERFORM public.__rpc_scd_test_insert_editor(v_exp_ref_dup_org, v_org_id);
+  PERFORM public.__rpc_scd_test_insert_editor(v_exp_unique_holder, v_org_id);
+  PERFORM public.__rpc_scd_test_insert_editor(v_exp_unique_new, v_org_id);
+  PERFORM public.__rpc_scd_test_insert_editor(v_exp_db_unique, v_org_id);
+  PERFORM public.__rpc_scd_test_insert_editor(v_exp_db_unique_b, v_org_id);
 
   -- 0. Índice UNIQUE parcial en telefono_normalizado por organización
   SELECT EXISTS (
@@ -695,15 +725,70 @@ BEGIN
   WHERE t.typname = 'app_role' AND e.enumlabel = 'revisor';
   PERFORM public.__rpc_scd_test_assert(v_roles_revisor = 0, 'test 40 no revisor');
 
-  RAISE NOTICE 'RPC save_cliente_datos: 42 pruebas OK';
+  -- 41. Cobro: sin porcentaje falla
+  PERFORM public.__rpc_scd_test_assert(
+    public.__rpc_scd_test_expect_fail(
+      v_asesor_a1, v_exp_create, 'XAXX010101000', '5512345678',
+      '[]'::JSONB, NULL, '{}'::JSONB, 'completo', 'porcentaje de cobro es obligatorio', NULL, 'transferencia'
+    ),
+    'test 41 sin porcentaje'
+  );
+
+  -- 42. Cobro: porcentaje 0 falla
+  PERFORM public.__rpc_scd_test_assert(
+    public.__rpc_scd_test_expect_fail(
+      v_asesor_a1, v_exp_create, 'XAXX010101000', '5512345678',
+      '[]'::JSONB, NULL, '{}'::JSONB, 'completo', 'porcentaje de cobro inválido', 0, 'transferencia'
+    ),
+    'test 42 porcentaje cero'
+  );
+
+  -- 43. Cobro: porcentaje >100 falla
+  PERFORM public.__rpc_scd_test_assert(
+    public.__rpc_scd_test_expect_fail(
+      v_asesor_a1, v_exp_create, 'XAXX010101000', '5512345678',
+      '[]'::JSONB, NULL, '{}'::JSONB, 'completo', 'porcentaje de cobro inválido', 101, 'transferencia'
+    ),
+    'test 43 porcentaje mayor 100'
+  );
+
+  -- 44. Cobro: sin método de pago falla
+  PERFORM public.__rpc_scd_test_assert(
+    public.__rpc_scd_test_expect_fail(
+      v_asesor_a1, v_exp_create, 'XAXX010101000', '5512345678',
+      '[]'::JSONB, NULL, '{}'::JSONB, 'completo', 'método de pago es obligatorio', 10, ''
+    ),
+    'test 44 sin metodo pago'
+  );
+
+  -- 45. Cobro: calcula monto_calculado (15000 * 12.5% = 1875)
+  v_result := public.__rpc_scd_test_call_as(
+    v_asesor_a1, v_exp_create, '', '5512345678', '[]'::JSONB, NULL, '{}'::JSONB, 'completo', 12.5, 'efectivo'
+  );
+  PERFORM public.__rpc_scd_test_assert((v_result->>'ok')::BOOLEAN, 'test 45 cobro ok');
+  SELECT * INTO v_row FROM public.cliente_datos WHERE expediente_id = v_exp_create;
+  PERFORM public.__rpc_scd_test_assert(v_row.monto_calculado = 1875.00, 'test 45 monto calculado');
+  PERFORM public.__rpc_scd_test_assert(v_row.metodo_pago = 'efectivo', 'test 45 metodo pago');
+
+  -- 46. Cobro: sin monto aprobado falla
+  DELETE FROM public.editor_decisions WHERE expediente_id = v_exp_side;
+  PERFORM public.__rpc_scd_test_assert(
+    public.__rpc_scd_test_expect_fail(
+      v_asesor_a1, v_exp_side, 'XAXX010101000', '5511111111',
+      '[]'::JSONB, NULL, '{}'::JSONB, 'completo', 'No hay monto aprobado', 10, 'transferencia'
+    ),
+    'test 46 sin monto aprobado'
+  );
+
+  RAISE NOTICE 'RPC save_cliente_datos: 46 pruebas OK';
 END;
 $$;
 
 DROP FUNCTION IF EXISTS public.__rpc_scd_test_assert(BOOLEAN, TEXT);
 DROP FUNCTION IF EXISTS public.__rpc_scd_test_set_auth(UUID);
 DROP FUNCTION IF EXISTS public.__rpc_scd_test_reset_auth();
-DROP FUNCTION IF EXISTS public.__rpc_scd_test_call_as(UUID, UUID, TEXT, TEXT, JSONB, JSONB, JSONB, public.cliente_datos_estado);
-DROP FUNCTION IF EXISTS public.__rpc_scd_test_expect_fail(UUID, UUID, TEXT, TEXT, JSONB, JSONB, JSONB, public.cliente_datos_estado, TEXT);
+DROP FUNCTION IF EXISTS public.__rpc_scd_test_call_as(UUID, UUID, TEXT, TEXT, JSONB, JSONB, JSONB, public.cliente_datos_estado, NUMERIC, TEXT);
+DROP FUNCTION IF EXISTS public.__rpc_scd_test_expect_fail(UUID, UUID, TEXT, TEXT, JSONB, JSONB, JSONB, public.cliente_datos_estado, TEXT, NUMERIC, TEXT);
 DROP FUNCTION IF EXISTS public.__rpc_scd_test_insert_expediente(UUID, UUID, UUID, CHAR(11), BOOLEAN, public.expediente_ciclo_estado, TIMESTAMPTZ, SMALLINT);
 DROP FUNCTION IF EXISTS public.__rpc_scd_test_insert_editor(UUID, UUID, NUMERIC);
 DROP FUNCTION IF EXISTS public.__rpc_scd_test_insert_docs(UUID, UUID, UUID);

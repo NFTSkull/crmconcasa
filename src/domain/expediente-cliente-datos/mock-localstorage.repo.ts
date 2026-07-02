@@ -81,6 +81,9 @@ function rowToDomain(row: StoredRow): ExpedienteClienteDatos | null {
   const datos: ExpedienteClienteDatos["datos"] = {
     ...(row.datos as ExpedienteClienteDatos["datos"]),
     rfc: typeof rawDatos.rfc === "string" ? rawDatos.rfc : "",
+    porcentajeCobro:
+      typeof rawDatos.porcentajeCobro === "string" ? rawDatos.porcentajeCobro : "",
+    metodoPago: typeof rawDatos.metodoPago === "string" ? rawDatos.metodoPago : "",
   };
   const updatedAt = typeof row.updatedAt === "string" ? row.updatedAt : new Date().toISOString();
   const updatedBy = typeof row.updatedBy === "string" ? row.updatedBy : "unknown";

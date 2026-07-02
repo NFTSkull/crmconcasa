@@ -8,7 +8,17 @@
 - **Acta de nacimiento** y **constancia SAT** ya estaban fuera del upload asesor (028/030); Mesa los sube vía `integration_doc_tipos_mesa_upload` (complementarios opcionales post-032).
 - Migración **044** (local, sin Cloud): redefine `integration_doc_tipos_asesor_envio` a 4 tipos (`cliente_ine_*`, comprobante, estado de cuenta); `integration_doc_tipos_obligatorios` hereda vía 032.
 - Frontend: espejo en `integration-docs-completos.ts`; UI asesor/Mesa sin NSS documental; contadores 4/4.
-- Sin RLS, Storage, agenda, Mesa Ops (salvo copy validación), cancel/reagenda, usuarios ni PR #3 cobro.
+- Sin RLS, Storage, agenda, Mesa Ops (salvo copy validación), cancel/reagenda, usuarios.
+
+## 2026-07-02 - feat/cliente-cobro-fields: cobro en Datos Generales
+
+### Decisión
+
+- Tres campos obligatorios nuevos: `porcentaje_cobro`, `monto_calculado` (calculado en servidor con `monto_aprobado` del editor), `metodo_pago` (texto, sin enum DB).
+- Columnas en `cliente_datos` migración **043**; obligatoriedad en RPC + frontend, no `NOT NULL` en tabla.
+- Contador obligatorios: 18 → 21; RFC opcional intacto.
+- UI asesor: sección «Información de cobro»; Mesa read-only muestra los tres campos.
+- Sin Cloud, RLS, Mesa Ops, agenda, Storage ni usuarios.
 
 ## 2026-07-02 - fix/cliente-rfc-opcional: RFC opcional en Datos Generales
 

@@ -33,10 +33,16 @@ describe("mapSupabaseRowToExpedienteClienteDatos", () => {
         { nombre: "Ref 1", telefono: "5511111111" },
         { nombre: "Ref 2", celular: "5522222222" },
       ],
+      porcentaje_cobro: 12.5,
+      monto_calculado: 1875,
+      metodo_pago: "efectivo",
       updated_by_profile: { email: "asesor@concasa.mx" },
     });
 
     assert.equal(domain.expedienteId, "exp-1");
+    assert.equal(domain.porcentajeCobro, 12.5);
+    assert.equal(domain.montoCalculado, 1875);
+    assert.equal(domain.metodoPago, "efectivo");
     assert.equal(domain.estado, "completo");
     assert.equal(domain.datos.nombreCliente, "Marcela");
     assert.equal(domain.datos.referencias[0]?.celular, "5511111111");
@@ -68,10 +74,14 @@ describe("buildSaveClienteDatosRpcPayload", () => {
         municipio: "CDMX",
         cp: "01000",
       },
+      porcentajeCobro: "10",
+      metodoPago: "transferencia",
     });
 
     assert.equal(payload.p_expediente_id, "exp-1");
     assert.equal(payload.p_rfc, "xaxx010101000");
+    assert.equal(payload.p_porcentaje_cobro, 10);
+    assert.equal(payload.p_metodo_pago, "transferencia");
     assert.equal(payload.p_telefono, "(55) 1234-5678");
     assert.equal(payload.p_estado, "completo");
     assert.deepEqual(payload.p_referencias[0], {
@@ -103,8 +113,11 @@ describe("buildSaveClienteDatosRpcPayload", () => {
         municipio: "CDMX",
         cp: "01000",
       },
+      porcentajeCobro: "10",
+      metodoPago: "transferencia",
     });
 
     assert.equal(payload.p_rfc, "");
+    assert.equal(payload.p_porcentaje_cobro, 10);
   });
 });

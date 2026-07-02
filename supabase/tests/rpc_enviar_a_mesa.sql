@@ -149,23 +149,33 @@ CREATE OR REPLACE FUNCTION public.__rpc_enviar_test_insert_cliente(
   p_expediente_id UUID,
   p_org_id UUID,
   p_rfc TEXT DEFAULT 'XAXX010101000',
-  p_estado public.cliente_datos_estado DEFAULT 'completo'
+  p_estado public.cliente_datos_estado DEFAULT 'completo',
+  p_porcentaje_cobro NUMERIC DEFAULT 10,
+  p_monto_calculado NUMERIC DEFAULT 1500,
+  p_metodo_pago TEXT DEFAULT 'transferencia'
 )
 RETURNS VOID
 LANGUAGE plpgsql
 AS $$
 BEGIN
   INSERT INTO public.cliente_datos (
-    expediente_id, organization_id, datos, estado
+    expediente_id, organization_id, datos, estado,
+    porcentaje_cobro, monto_calculado, metodo_pago
   ) VALUES (
     p_expediente_id,
     p_org_id,
     jsonb_build_object('rfc', p_rfc, 'nombreCliente', 'Fixture Cliente'),
-    p_estado
+    p_estado,
+    p_porcentaje_cobro,
+    p_monto_calculado,
+    p_metodo_pago
   )
   ON CONFLICT (expediente_id) DO UPDATE SET
     datos = EXCLUDED.datos,
     estado = EXCLUDED.estado,
+    porcentaje_cobro = EXCLUDED.porcentaje_cobro,
+    monto_calculado = EXCLUDED.monto_calculado,
+    metodo_pago = EXCLUDED.metodo_pago,
     updated_at = NOW();
 END;
 $$;
@@ -279,6 +289,7 @@ DECLARE
   v_exp_double UUID := '00000000-0000-4000-9005-000000000080';
   v_exp_vis UUID := '00000000-0000-4000-9005-000000000090';
   v_exp_solo_asesor UUID := '00000000-0000-4000-9005-000000000091';
+  v_exp_no_cobro UUID := '00000000-0000-4000-9005-000000000092';
 
   v_result JSONB;
   v_log_before BIGINT;
@@ -354,6 +365,14 @@ BEGIN
   PERFORM public.__rpc_enviar_test_insert_editor(v_exp_solo_asesor, v_org_id);
   PERFORM public.__rpc_enviar_test_insert_cliente(v_exp_solo_asesor, v_org_id);
   PERFORM public.__rpc_enviar_test_insert_docs_asesor_envio(v_exp_solo_asesor, v_org_id, v_asesor_a1);
+
+  PERFORM public.__rpc_enviar_test_insert_expediente(v_exp_no_cobro, v_org_id, v_asesor_a1, '90509200092');
+  PERFORM public.__rpc_enviar_test_insert_editor(v_exp_no_cobro, v_org_id);
+  PERFORM public.__rpc_enviar_test_insert_cliente(v_exp_no_cobro, v_org_id, '', 'completo');
+  UPDATE public.cliente_datos
+  SET porcentaje_cobro = NULL, monto_calculado = NULL, metodo_pago = NULL
+  WHERE expediente_id = v_exp_no_cobro;
+  PERFORM public.__rpc_enviar_test_insert_docs_obligatorios(v_exp_no_cobro, v_org_id, v_asesor_a1);
 
   PERFORM public.__rpc_enviar_test_assert(
     NOT public.__rpc_enviar_test_sees_expediente_as(v_mesa_int, v_exp_vis),
@@ -510,13 +529,19 @@ BEGIN
     'test 15: documentos_obligatorios_count=4'
   );
 
-  RAISE NOTICE 'RPC enviar_a_mesa: 15 pruebas OK';
+  -- Test 16: sin campos de cobro bloquea envío
+  PERFORM public.__rpc_enviar_test_assert(
+    public.__rpc_enviar_test_call_expect_fail(v_asesor_a1, v_exp_no_cobro),
+    'test 16: sin cobro falla'
+  );
+
+  RAISE NOTICE 'RPC enviar_a_mesa: 16 pruebas OK';
 END;
 $$;
 
 DROP FUNCTION IF EXISTS public.__rpc_enviar_test_insert_docs_asesor_envio(UUID, UUID, UUID);
 DROP FUNCTION IF EXISTS public.__rpc_enviar_test_insert_docs_obligatorios(UUID, UUID, UUID, BOOLEAN);
-DROP FUNCTION IF EXISTS public.__rpc_enviar_test_insert_cliente(UUID, UUID, TEXT, public.cliente_datos_estado);
+DROP FUNCTION IF EXISTS public.__rpc_enviar_test_insert_cliente(UUID, UUID, TEXT, public.cliente_datos_estado, NUMERIC, NUMERIC, TEXT);
 DROP FUNCTION IF EXISTS public.__rpc_enviar_test_insert_editor(UUID, UUID, public.editor_decision, NUMERIC);
 DROP FUNCTION IF EXISTS public.__rpc_enviar_test_insert_expediente(UUID, UUID, UUID, CHAR, public.origen_mesa);
 DROP FUNCTION IF EXISTS public.__rpc_enviar_test_sees_expediente_as(UUID, UUID);

@@ -197,7 +197,9 @@ BEGIN
     v_tel,
     '[]'::jsonb,
     NULL,
-    jsonb_build_object('rfc', 'XAXX010101000', 'nombreCliente', 'Corregido ACPM', 'celular', v_tel)
+    jsonb_build_object('rfc', 'XAXX010101000', 'nombreCliente', 'Corregido ACPM', 'celular', v_tel),
+    10,
+    'transferencia'
   ) INTO v_result;
   PERFORM public.__rpc_acpm_test_reset_auth();
   RETURN v_result;
@@ -213,7 +215,8 @@ BEGIN
   BEGIN
     PERFORM public.save_cliente_datos_correccion(
       p_exp, 'XAXX010101000', '5522222222', '[]'::jsonb, NULL,
-      jsonb_build_object('rfc', 'XAXX010101000', 'nombreCliente', 'Fail')
+      jsonb_build_object('rfc', 'XAXX010101000', 'nombreCliente', 'Fail'),
+      10, 'transferencia'
     );
     PERFORM public.__rpc_acpm_test_reset_auth();
     RETURN false;
@@ -271,6 +274,17 @@ BEGIN
   PERFORM public.__rpc_acpm_test_insert_exp(v_exp_datos, v_org, v_asesor, 'interno'::public.origen_mesa, true, '90331000006');
   PERFORM public.__rpc_acpm_test_insert_exp(v_exp_datos_val, v_org, v_asesor, 'interno'::public.origen_mesa, true, '90331000007');
   PERFORM public.__rpc_acpm_test_insert_exp(v_exp_datos_comp, v_org, v_asesor, 'interno'::public.origen_mesa, true, '90331000008');
+
+  INSERT INTO public.editor_decisions (expediente_id, organization_id, decision, monto_aprobado)
+  VALUES
+    (v_exp_datos, v_org, 'aprobado', 15000),
+    (v_exp_datos_val, v_org, 'aprobado', 15000),
+    (v_exp_datos_comp, v_org, 'aprobado', 15000),
+    (v_exp_other, v_org, 'aprobado', 15000)
+  ON CONFLICT (expediente_id) DO UPDATE SET
+    decision = EXCLUDED.decision,
+    monto_aprobado = EXCLUDED.monto_aprobado,
+    updated_at = NOW();
 
   DELETE FROM public.expediente_documentos
   WHERE expediente_id IN (

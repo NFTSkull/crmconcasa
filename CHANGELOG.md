@@ -4,6 +4,8 @@
 
 - **fix/documentos-obligatorios-roles — NSS sin archivo; acta/SAT solo Mesa:** migración `044` quita `nss` de `integration_doc_tipos_asesor_envio` (4 docs asesor); acta y constancia SAT siguen solo en upload Mesa; campo NSS del cliente intacto; tests TS/SQL; sin Cloud.
 
+- **feat/cliente-cobro-fields — Información de cobro en Datos Generales:** porcentaje de cobro, monto calculado (servidor) y método de pago obligatorios; migración `043`; gates en `save_cliente_datos` y `enviar_a_mesa`; UI asesor + lectura Mesa; 21 campos obligatorios (RFC sigue opcional).
+
 - **fix/cliente-rfc-opcional — RFC opcional en Datos Generales:** RFC ya no es obligatorio en asesor ni Mesa Control; validación de formato solo si tiene valor; contador de campos obligatorios 19→18; migración local `042` relaja `save_cliente_datos` y `enviar_a_mesa` (sin Cloud).
 
 - **fix/pdf-only-backend-and-copy — go-live solo PDF (backend + copy):** migración `041` restringe `expediente_documento_mime_permitido` y bucket `expediente-documentos` a `application/pdf`; copy UI y mappers RPC sin mención JPG/PNG; tests SQL rechazo `image/png`, `image/jpeg`, DOCX; sin Cloud ni cambios a RLS/Mesa Ops/agenda.

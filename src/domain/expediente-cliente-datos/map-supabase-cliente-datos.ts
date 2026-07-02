@@ -3,6 +3,7 @@ import type {
   ExpedienteClienteDatos,
   ExpedienteClienteDatosEstado,
 } from "./types";
+import { parsePorcentajeCobroInput } from "@/lib/clienteDatosCobro";
 
 export type SupabaseClienteDatosRow = {
   expediente_id: string;
@@ -14,6 +15,9 @@ export type SupabaseClienteDatosRow = {
   rejected_at?: string | null;
   rejected_by?: string | null;
   telefono_normalizado?: string | null;
+  porcentaje_cobro?: number | string | null;
+  monto_calculado?: number | string | null;
+  metodo_pago?: string | null;
   updated_at: string;
   referencias?: unknown;
   imagenes?: unknown;
@@ -113,6 +117,15 @@ function mapDireccionEmpresa(
   };
 }
 
+function asNumber(value: unknown): number | null {
+  if (typeof value === "number" && Number.isFinite(value)) return value;
+  if (typeof value === "string" && value.trim() !== "") {
+    const n = Number(value);
+    return Number.isFinite(n) ? n : null;
+  }
+  return null;
+}
+
 export function mapSupabaseRowToExpedienteClienteDatos(
   row: SupabaseClienteDatosRow,
 ): ExpedienteClienteDatos {
@@ -133,7 +146,14 @@ export function mapSupabaseRowToExpedienteClienteDatos(
       referencias: mapReferencias(datos, row.referencias),
       beneficiario: mapBeneficiario(datos.beneficiario),
       direccionEmpresa: mapDireccionEmpresa(datos.direccionEmpresa),
+      porcentajeCobro:
+        asString(datos.porcentajeCobro) ||
+        (row.porcentaje_cobro != null ? String(row.porcentaje_cobro) : ""),
+      metodoPago: asString(datos.metodoPago) || asString(row.metodo_pago),
     },
+    porcentajeCobro: asNumber(row.porcentaje_cobro),
+    montoCalculado: asNumber(row.monto_calculado),
+    metodoPago: row.metodo_pago?.trim() || null,
     estado: normalizeEstado(row.estado),
     imagenes: mapImagenes(row.imagenes),
     telefonoNormalizado: row.telefono_normalizado?.trim() || undefined,
@@ -165,7 +185,17 @@ export function buildSaveClienteDatosRpcPayload(
   p_referencias: { nombre: string; telefono: string }[];
   p_datos: Record<string, unknown>;
   p_estado: "completo";
+  p_porcentaje_cobro: number;
+  p_metodo_pago: string;
 } {
+  const pct = parsePorcentajeCobroInput(datos.porcentajeCobro);
+  if (pct == null) {
+    throw new Error("Porcentaje de cobro inválido.");
+  }
+  const metodo = datos.metodoPago.trim().toLowerCase();
+  if (!metodo) {
+    throw new Error("Método de pago es obligatorio.");
+  }
   return {
     p_expediente_id: expedienteId,
     p_rfc: datos.rfc.trim(),
@@ -194,5 +224,7 @@ export function buildSaveClienteDatosRpcPayload(
       },
     },
     p_estado: "completo",
+    p_porcentaje_cobro: pct,
+    p_metodo_pago: metodo,
   };
 }

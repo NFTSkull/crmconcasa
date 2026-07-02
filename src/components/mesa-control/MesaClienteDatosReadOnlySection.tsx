@@ -10,6 +10,7 @@ import {
   type ExpedienteClienteDatosEstado,
 } from "@/domain/expediente-cliente-datos";
 import { MESA_SOLICITAR_CORRECCION_LABEL } from "@/domain/expedientes/mesa-decision-ux";
+import { formatMontoMXN, labelMetodoPago } from "@/lib/clienteDatosCobro";
 
 function displayValue(value: string | null | undefined): string {
   const trimmed = value?.trim();
@@ -227,6 +228,25 @@ export function MesaClienteDatosReadOnlySection({
               value={displayValue(clienteDatos.telefonoNormalizado ?? datos.celular)}
             />
             <DataField label="Correo" value={displayValue(datos.correo)} />
+          </DataCard>
+
+          <DataCard title="Información de cobro">
+            <DataField
+              label="Porcentaje de cobro"
+              value={
+                clienteDatos.porcentajeCobro != null
+                  ? `${clienteDatos.porcentajeCobro}%`
+                  : displayValue(datos.porcentajeCobro)
+              }
+            />
+            <DataField
+              label="Monto calculado"
+              value={formatMontoMXN(clienteDatos.montoCalculado)}
+            />
+            <DataField
+              label="Método de pago"
+              value={labelMetodoPago(clienteDatos.metodoPago ?? datos.metodoPago)}
+            />
           </DataCard>
 
           <DataCard title="Empresa / laboral">

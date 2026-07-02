@@ -169,15 +169,20 @@ LANGUAGE plpgsql
 AS $$
 BEGIN
   INSERT INTO public.cliente_datos (
-    expediente_id, organization_id, datos, estado
+    expediente_id, organization_id, datos, estado,
+    porcentaje_cobro, monto_calculado, metodo_pago
   ) VALUES (
     p_expediente_id, p_org_id,
     jsonb_build_object('rfc', 'XAXX010101000', 'nombreCliente', 'Fixture'),
-    'completo'
+    'completo',
+    10, 1500, 'transferencia'
   )
   ON CONFLICT (expediente_id) DO UPDATE SET
     datos = EXCLUDED.datos,
     estado = EXCLUDED.estado,
+    porcentaje_cobro = EXCLUDED.porcentaje_cobro,
+    monto_calculado = EXCLUDED.monto_calculado,
+    metodo_pago = EXCLUDED.metodo_pago,
     updated_at = NOW();
 END;
 $$;

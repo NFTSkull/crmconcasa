@@ -31,6 +31,9 @@ const CLIENTE_DATOS_SELECT = `
   referencias,
   imagenes,
   telefono_normalizado,
+  porcentaje_cobro,
+  monto_calculado,
+  metodo_pago,
   updated_by_profile:profiles!cliente_datos_updated_by_fkey ( email ),
   validated_by_profile:profiles!cliente_datos_validated_by_fkey ( email ),
   rejected_by_profile:profiles!cliente_datos_rejected_by_fkey ( email )
