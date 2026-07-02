@@ -200,7 +200,7 @@ export class ExpedienteRetencionSupabaseRepo {
       throw new ExpedienteRetencionSupabaseError(
         uploadError.message?.toLowerCase().includes("bucket")
           ? "No se pudo acceder al almacenamiento de documentos. Contacta soporte."
-          : "No se pudo subir el archivo. Verifica el formato (PDF/JPG/PNG) y el tamaño (máx. 15 MB).",
+          : "No se pudo subir el archivo. Verifica el formato (solo PDF) y el tamaño (máx. 15 MB).",
       );
     }
 

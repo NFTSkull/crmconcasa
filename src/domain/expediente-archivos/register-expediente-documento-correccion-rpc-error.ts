@@ -56,7 +56,7 @@ export function mapRegisterExpedienteDocumentoCorreccionRpcError(error: {
   }
 
   if (msg.includes("mime_type no permitido")) {
-    return new ExpedienteArchivosSupabaseError("Solo se permiten archivos PDF, JPG o PNG.");
+    return new ExpedienteArchivosSupabaseError("Solo se permiten archivos PDF.");
   }
 
   if (msg.includes("excede tamaño máximo")) {

@@ -299,6 +299,34 @@ BEGIN
     'test 11: mime inválido'
   );
 
+  -- Test 11b: image/png rechazado (go-live solo PDF)
+  PERFORM public.__rpc_regdoc_test_assert(
+    public.__rpc_regdoc_test_expect_fail(
+      v_a1, v_exp_ok, 'nss', v_path_nss, 'mime_type no permitido',
+      'image/png', 1024, true
+    ),
+    'test 11b: image/png rechazado'
+  );
+
+  -- Test 11c: image/jpeg rechazado (go-live solo PDF)
+  PERFORM public.__rpc_regdoc_test_assert(
+    public.__rpc_regdoc_test_expect_fail(
+      v_a1, v_exp_ok, 'nss', v_path_nss, 'mime_type no permitido',
+      'image/jpeg', 1024, true
+    ),
+    'test 11c: image/jpeg rechazado'
+  );
+
+  -- Test 11d: DOCX rechazado (go-live solo PDF)
+  PERFORM public.__rpc_regdoc_test_assert(
+    public.__rpc_regdoc_test_expect_fail(
+      v_a1, v_exp_ok, 'nss', v_path_nss, 'mime_type no permitido',
+      'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+      1024, true
+    ),
+    'test 11d: docx rechazado'
+  );
+
   -- Test 12: tamaño excedido
   PERFORM public.__rpc_regdoc_test_assert(
     public.__rpc_regdoc_test_expect_fail(
@@ -345,7 +373,7 @@ BEGIN
     'test 14c: historial laboral rechazado'
   );
 
-  RAISE NOTICE 'RPC register_expediente_documento: 17 pruebas OK';
+  RAISE NOTICE 'RPC register_expediente_documento: 20 pruebas OK';
 END;
 $$;
 

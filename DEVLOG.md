@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-06-25 - fix/pdf-only-backend-and-copy: backend solo PDF
+
+### Decisión
+
+- Auditoría go-live: UI ya bloqueaba JPG/PNG pero `expediente_documento_mime_permitido` (027) y bucket Storage aceptaban imágenes.
+- Migración **041** (nueva, no edita 027): función MIME solo `application/pdf`; `UPDATE storage.buckets.allowed_mime_types` a PDF únicamente.
+- RPCs existentes (`register_expediente_documento`, mesa, corrección, retención) siguen llamando la misma función; error DB: `mime_type no permitido (%)`.
+- Copy UI y mappers TS: «Solo se permiten archivos PDF» / «formato PDF»; sin tocar preview de archivos legacy ni columna `imagenes` de datos cliente.
+- Sin Cloud, `db push`, RLS, Mesa Ops, agenda, avanzar etapa, cancel/reagenda, usuarios ni borrado Storage.
+
 ## 2026-06-25 - feat/cliente-datos-validaciones: solo PDF en uploads
 
 ### Decisión
