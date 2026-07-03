@@ -59,7 +59,7 @@ import {
 } from "@/lib/mesaOpsUi";
 import { MesaOpsBandejaBadge } from "@/components/mesa-control/MesaExpedienteOpsSection";
 import { hasAlertMessage, MESA_OPS_UPDATED_EVENT } from "@/lib/hasAlertMessage";
-import { DashboardNotifications } from "@/components/notifications/DashboardNotifications";
+import { NotificationsBell } from "@/components/notifications/NotificationsBell";
 import { buildDashboardNotifications } from "@/lib/dashboardNotifications";
 
 type CasoConDocs = CasoMock & {
@@ -477,6 +477,7 @@ export default function MesaControlPage() {
             ["pendiente", "en_validacion_mesa", "en_proceso"].includes(sub)
           );
         },
+        max: 50,
       },
     );
   }, [casos, todayYMD]);
@@ -585,6 +586,7 @@ export default function MesaControlPage() {
               </span>
               <span className="truncate text-[10px] text-slate-400">{currentUser.email}</span>
             </span>
+            <NotificationsBell notifications={dashboardNotifications} />
             <Button
               variant="outline"
               className="text-xs sm:text-sm"
@@ -650,8 +652,6 @@ export default function MesaControlPage() {
             actorEmail={currentUser.email}
           />
         ) : null}
-
-        <DashboardNotifications items={dashboardNotifications} />
 
         <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           <div className="rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 to-white p-3 shadow-sm ring-1 ring-sky-100/60">

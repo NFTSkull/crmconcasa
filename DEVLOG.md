@@ -1,5 +1,14 @@
 # Devlog
 
+## 2026-07-03 - feat/notifications-bell: campana en header (reemplaza panel grande)
+
+### Decisión
+
+- `NotificationsBell` en header junto a email y «Cerrar sesión» (`/asesor`, `/mesa-control`).
+- Lista compartida en `notifications-ui.tsx`; dropdown máx. 5 ítems, badge con total (build hasta 50).
+- Panel `DashboardNotifications` sobre KPIs **eliminado** de ambos dashboards (componente conservado por si se reutiliza).
+- Sin cambios a `buildDashboardNotifications` ni fuentes de datos.
+
 ## 2026-07-03 - feat/dashboard-notificaciones: panel visual en /asesor y /mesa-control
 
 ### Fuentes de datos (sin `action_log`)

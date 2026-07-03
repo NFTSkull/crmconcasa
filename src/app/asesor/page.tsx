@@ -34,7 +34,7 @@ import {
   subestadoOperativoLabel,
 } from "@/lib/subestadoOperativoUi";
 import { formatMontoMX } from "@/lib/monto";
-import { DashboardNotifications } from "@/components/notifications/DashboardNotifications";
+import { NotificationsBell } from "@/components/notifications/NotificationsBell";
 import { buildDashboardNotifications } from "@/lib/dashboardNotifications";
 
 const CORRECCION_REQUERIDA_BADGE_CLASS =
@@ -500,6 +500,7 @@ export default function AsesorDashboardPage() {
         clienteDatosEstado: clienteDatosEstadoPorId[p.id] ?? null,
       })),
       "asesor",
+      { max: 50 },
     );
   }, [mockPrecalList, resumenDocumentalPorId, clienteDatosEstadoPorId]);
 
@@ -608,6 +609,7 @@ export default function AsesorDashboardPage() {
             <span className="min-w-0 truncate text-sm text-gray-500">
               {currentUser.email}
             </span>
+            <NotificationsBell notifications={dashboardNotifications} />
             <Button
               variant="outline"
               onClick={async () => {
@@ -638,8 +640,6 @@ export default function AsesorDashboardPage() {
             {listError}
           </p>
         ) : null}
-
-        <DashboardNotifications items={dashboardNotifications} />
 
         {/* KPIs principales (4); aprobadosEditor, noCumple, correccionEnviada siguen en objeto `kpis` */}
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">

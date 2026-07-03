@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **feat/notifications-bell — campana en header Asesor/Mesa:** `NotificationsBell` con badge, dropdown (máx. 5 visibles), cierre al clic fuera; se retira panel grande sobre KPIs; reutiliza `dashboardNotifications` sin cambiar derivación.
+
 - **feat/dashboard-notificaciones — alertas visuales en dashboards Asesor y Mesa:** componente `DashboardNotifications` + helper `buildDashboardNotifications` derivado de estado ya cargado (`cliente_datos`, resumen documental, `subestado`, `fecha_cita`, `fecha_envio_mesa`); sin tabla nueva, sin RPC, sin cambio de flujos.
 
 - **fix/asesor-dashboard-correccion-datos — fila dashboard refleja rechazo Datos Generales:** KPI/filtro/resultado/documentación/estatus op. usan `resumenCorreccion` unificado; monto aprobado visible si `> 0`; `deriveResumenExpedienteCorreccion` prioriza `cliente_datos.rechazado`; sin backend/RPC.
