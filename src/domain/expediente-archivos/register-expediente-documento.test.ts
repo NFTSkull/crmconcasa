@@ -44,11 +44,27 @@ describe("validateExpedienteDocumentoFile", () => {
     if (!result.ok) assert.equal(result.code, "mime_no_permitido");
   });
 
-  it("rechaza JPG", () => {
+  it("rechaza JPG en comprobante de domicilio", () => {
     const file = { type: "image/jpeg", size: 100, name: "foto.jpg" } as File;
-    const result = validateExpedienteDocumentoFile(file);
+    const result = validateExpedienteDocumentoFile(file, "cliente_comprobante_domicilio");
     assert.equal(result.ok, false);
     if (!result.ok) assert.equal(result.code, "mime_no_permitido");
+  });
+
+  it("acepta JPG en INE frente", () => {
+    const file = { type: "image/jpeg", size: 100, name: "foto.jpg" } as File;
+    assert.deepEqual(
+      validateExpedienteDocumentoFile(file, "cliente_ine_frente"),
+      { ok: true },
+    );
+  });
+
+  it("acepta PDF en INE reverso", () => {
+    const file = { type: "application/pdf", size: 100, name: "ine.pdf" } as File;
+    assert.deepEqual(
+      validateExpedienteDocumentoFile(file, "cliente_ine_reverso"),
+      { ok: true },
+    );
   });
 
   it("rechaza tamaño excedido", () => {

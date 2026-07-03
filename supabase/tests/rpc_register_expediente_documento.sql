@@ -309,23 +309,21 @@ BEGIN
     'test 11: mime inválido'
   );
 
-  -- Test 11b: image/png rechazado (go-live solo PDF)
-  PERFORM public.__rpc_regdoc_test_assert(
-    public.__rpc_regdoc_test_expect_fail(
-      v_a1, v_exp_ok, 'cliente_ine_frente', v_path_ine, 'mime_type no permitido',
-      'image/png', 1024, true
-    ),
-    'test 11b: image/png rechazado'
+  -- Test 11b: image/png aceptado en INE frente
+  v_result := public.__rpc_regdoc_test_call(
+    v_a1, v_exp_replace, 'cliente_ine_frente',
+    public.__rpc_regdoc_test_storage_path(v_org, v_exp_replace, 'cliente_ine_frente', 'ine.png'),
+    'ine.png', 'image/png', 1024
   );
+  PERFORM public.__rpc_regdoc_test_assert((v_result->>'ok')::boolean = true, 'test 11b: image/png INE frente OK');
 
-  -- Test 11c: image/jpeg rechazado (go-live solo PDF)
-  PERFORM public.__rpc_regdoc_test_assert(
-    public.__rpc_regdoc_test_expect_fail(
-      v_a1, v_exp_ok, 'cliente_ine_frente', v_path_ine, 'mime_type no permitido',
-      'image/jpeg', 1024, true
-    ),
-    'test 11c: image/jpeg rechazado'
+  -- Test 11c: image/jpeg aceptado en INE reverso
+  v_result := public.__rpc_regdoc_test_call(
+    v_a1, v_exp_replace, 'cliente_ine_reverso',
+    public.__rpc_regdoc_test_storage_path(v_org, v_exp_replace, 'cliente_ine_reverso', 'ine.jpg'),
+    'ine.jpg', 'image/jpeg', 1024
   );
+  PERFORM public.__rpc_regdoc_test_assert((v_result->>'ok')::boolean = true, 'test 11c: image/jpeg INE reverso OK');
 
   -- Test 11d: DOCX rechazado (go-live solo PDF)
   PERFORM public.__rpc_regdoc_test_assert(
@@ -335,6 +333,17 @@ BEGIN
       1024, true
     ),
     'test 11d: docx rechazado'
+  );
+
+  -- Test 11e: image/jpeg rechazado en comprobante domicilio
+  PERFORM public.__rpc_regdoc_test_assert(
+    public.__rpc_regdoc_test_expect_fail(
+      v_a1, v_exp_ok, 'cliente_comprobante_domicilio',
+      public.__rpc_regdoc_test_storage_path(v_org, v_exp_ok, 'cliente_comprobante_domicilio', 'foto.jpg'),
+      'mime_type no permitido',
+      'image/jpeg', 1024, true
+    ),
+    'test 11e: image/jpeg comprobante rechazado'
   );
 
   -- Test 12: tamaño excedido

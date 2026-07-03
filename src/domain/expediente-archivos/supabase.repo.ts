@@ -197,7 +197,7 @@ export class SupabaseExpedienteArchivosRepo implements ExpedienteArchivosRepo {
       throw new ExpedienteArchivosSupabaseError("Expediente inválido para subir documento.");
     }
 
-    const validation = validateExpedienteDocumentoFile(params.file);
+    const validation = validateExpedienteDocumentoFile(params.file, params.tipo_documento);
     if (!validation.ok) {
       throw new ExpedienteArchivosSupabaseError(validation.message);
     }
@@ -275,7 +275,7 @@ export class SupabaseExpedienteArchivosRepo implements ExpedienteArchivosRepo {
       throw new ExpedienteArchivosSupabaseError("Expediente inválido para subir documento.");
     }
 
-    const validation = validateExpedienteDocumentoFile(params.file);
+    const validation = validateExpedienteDocumentoFile(params.file, params.tipo_documento);
     if (!validation.ok) {
       throw new ExpedienteArchivosSupabaseError(validation.message);
     }
@@ -347,7 +347,7 @@ export class SupabaseExpedienteArchivosRepo implements ExpedienteArchivosRepo {
       throw new ExpedienteArchivosSupabaseError("Expediente inválido para corregir documento.");
     }
 
-    const validation = validateExpedienteDocumentoFile(params.file);
+    const validation = validateExpedienteDocumentoFile(params.file, params.tipo_documento);
     if (!validation.ok) {
       throw new ExpedienteArchivosSupabaseError(validation.message);
     }

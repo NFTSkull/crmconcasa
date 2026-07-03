@@ -177,7 +177,7 @@ export class MockExpedienteArchivosIndexedDbRepo implements ExpedienteArchivosRe
 
     if (!(file instanceof Blob)) throw new Error("file debe ser un Blob/File");
 
-    const fileValidation = validateExpedienteDocumentoFile(file as File);
+    const fileValidation = validateExpedienteDocumentoFile(file as File, tipo);
     if (!fileValidation.ok) throw new Error(fileValidation.message);
 
     const db = await getDb();
@@ -219,7 +219,7 @@ export class MockExpedienteArchivosIndexedDbRepo implements ExpedienteArchivosRe
     if (!tipo) throw new Error("tipo_documento inválido");
     if (!(file instanceof Blob)) throw new Error("file debe ser un Blob/File");
 
-    const fileValidation = validateExpedienteDocumentoFile(file as File);
+    const fileValidation = validateExpedienteDocumentoFile(file as File, tipo);
     if (!fileValidation.ok) throw new Error(fileValidation.message);
 
     const db = await getDb();

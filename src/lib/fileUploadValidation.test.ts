@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   isPdfFile,
   PDF_ONLY_UPLOAD_MESSAGE,
+  validateExpedienteDocumentoUploadFile,
   validatePdfFile,
 } from "@/lib/fileUploadValidation";
 
@@ -68,4 +69,19 @@ test("mensaje base PDF", () => {
     assert.equal(result.message, '"x.png" no es válido. Solo se permiten archivos PDF.');
   }
   assert.equal(PDF_ONLY_UPLOAD_MESSAGE.includes("PDF"), true);
+});
+
+test("INE frente acepta JPG", () => {
+  const file = mockFile("ine.jpg", "image/jpeg");
+  assert.deepEqual(validateExpedienteDocumentoUploadFile(file, "cliente_ine_frente"), {
+    ok: true,
+  });
+});
+
+test("comprobante domicilio rechaza JPG", () => {
+  const file = mockFile("foto.jpg", "image/jpeg");
+  assert.equal(
+    validateExpedienteDocumentoUploadFile(file, "cliente_comprobante_domicilio").ok,
+    false,
+  );
 });

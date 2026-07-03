@@ -1,5 +1,9 @@
 /** Límites P3H.2 — espejo de `expediente_documento_max_size_bytes()` y `expediente_documento_mime_permitido()`. */
-import { PDF_ONLY_UPLOAD_MESSAGE, validatePdfFile } from "@/lib/fileUploadValidation";
+import {
+  EXPEDIENTE_DOCUMENTO_PDF_ACCEPT_ATTR,
+  PDF_ONLY_UPLOAD_MESSAGE,
+  validateExpedienteDocumentoUploadFile,
+} from "@/lib/fileUploadValidation";
 
 export const EXPEDIENTE_DOCUMENTO_MAX_BYTES = 15 * 1024 * 1024;
 
@@ -9,7 +13,8 @@ export const EXPEDIENTE_DOCUMENTOS_BUCKET = "expediente-documentos";
 
 export const EXPEDIENTE_DOCUMENTO_ALLOWED_MIME_TYPES = ["application/pdf"] as const;
 
-export const EXPEDIENTE_DOCUMENTO_ACCEPT_ATTR = "application/pdf,.pdf";
+/** @deprecated Usar `getExpedienteDocumentoAcceptAttr(tipo)` desde `fileUploadValidation`. */
+export const EXPEDIENTE_DOCUMENTO_ACCEPT_ATTR = EXPEDIENTE_DOCUMENTO_PDF_ACCEPT_ATTR;
 
 export type ExpedienteDocumentoValidationError =
   | "tipo_invalido"
@@ -17,24 +22,27 @@ export type ExpedienteDocumentoValidationError =
   | "mime_no_permitido"
   | "archivo_vacio";
 
-export function validateExpedienteDocumentoFile(file: File): {
+export function validateExpedienteDocumentoFile(
+  file: File,
+  tipoDocumento?: string | null,
+): {
   ok: true;
 } | {
   ok: false;
   code: ExpedienteDocumentoValidationError;
   message: string;
 } {
-  const pdfValidation = validatePdfFile(file);
-  if (!pdfValidation.ok) {
+  const fileValidation = validateExpedienteDocumentoUploadFile(file, tipoDocumento);
+  if (!fileValidation.ok) {
     return {
       ok: false,
-      code: pdfValidation.message === "Selecciona un archivo válido."
+      code: fileValidation.message === "Selecciona un archivo válido."
         ? "archivo_vacio"
         : "mime_no_permitido",
       message:
-        pdfValidation.message === "Selecciona un archivo válido."
-          ? pdfValidation.message
-          : pdfValidation.message || PDF_ONLY_UPLOAD_MESSAGE,
+        fileValidation.message === "Selecciona un archivo válido."
+          ? fileValidation.message
+          : fileValidation.message || PDF_ONLY_UPLOAD_MESSAGE,
     };
   }
 

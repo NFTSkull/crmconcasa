@@ -11,10 +11,10 @@ import {
   type IntegrationDocAsesorUploadTipo,
   type IntegrationDocChecklistItem,
 } from "@/domain/expediente-archivos";
-import { EXPEDIENTE_DOCUMENTO_ACCEPT_ATTR } from "@/domain/expediente-archivos/upload-constraints";
 import {
-  formatPdfUploadRejectionForField,
-  validatePdfFile,
+  formatExpedienteDocumentoUploadRejection,
+  getExpedienteDocumentoAcceptAttr,
+  validateExpedienteDocumentoUploadFile,
 } from "@/lib/fileUploadValidation";
 
 type Props = {
@@ -144,7 +144,7 @@ function ChecklistUploadList({
                         inputRefs.current[item.tipo_documento] = el;
                       }}
                       type="file"
-                      accept={EXPEDIENTE_DOCUMENTO_ACCEPT_ATTR}
+                      accept={getExpedienteDocumentoAcceptAttr(item.tipo_documento)}
                       className="sr-only"
                       disabled={disabled}
                       onChange={(e) => void onFileChange(item.tipo_documento, e.target.files)}
@@ -220,11 +220,11 @@ export function AsesorIntegracionDocsUpload({
       if (input) input.value = "";
       if (!file) return;
 
-      const pdfValidation = validatePdfFile(file);
-      if (!pdfValidation.ok) {
+      const fileValidation = validateExpedienteDocumentoUploadFile(file, tipo);
+      if (!fileValidation.ok) {
         setErrorsByTipo((prev) => ({
           ...prev,
-          [tipo]: formatPdfUploadRejectionForField(docLabel(tipo), file),
+          [tipo]: formatExpedienteDocumentoUploadRejection(docLabel(tipo), file, tipo),
         }));
         return;
       }
