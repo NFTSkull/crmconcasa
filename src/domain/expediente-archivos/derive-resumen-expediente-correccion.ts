@@ -13,8 +13,6 @@ export function deriveResumenExpedienteCorreccion(
   resumen: readonly ExpedienteArchivoResumen[],
   clienteDatosEstado?: ExpedienteClienteDatosEstado | null,
 ): CategoriaResumenDocumental {
-  const documental = deriveResumenDocumental(resumen);
-  if (documental === "faltantes") return "faltantes";
   if (clienteDatosEstado === "rechazado") return "correccion_requerida";
-  return documental;
+  return deriveResumenDocumental(resumen);
 }

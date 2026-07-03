@@ -1,5 +1,21 @@
 # Devlog
 
+## 2026-07-03 - fix/asesor-dashboard-correccion-datos: fila del dashboard alinea con rechazo Datos Generales
+
+### Diagnóstico
+
+- `resumenDocumentalPorId` omitía expedientes sin resumen de archivos cargado (`if (!r) continue`).
+- KPI/filtro sí usaban `deriveResumenExpedienteCorreccion`, pero la **tabla** pintaba columnas con fuentes viejas: `deriveResultadoRealExpediente` → «En trámite», `deriveEstadoDocumentacionColumnaAsesor` → «Pendiente de aprobación», `subestado` → «En validación por mesa».
+- Monto exigía `decision === "aprobado"` aunque `monto_aprobado > 0` (captura asesor post-045).
+
+### Decisión
+
+- Resumen único por fila: `deriveResumenExpedienteCorreccion(resumen ?? [], clienteDatosEstado)`.
+- Helpers de fila (`asesorResultadoFilaBadge`, `asesorDocumentacionFilaBadge`, `asesorEstatusOperativoFilaBadge`) priorizan `correccion_requerida` sobre subestado/resultado documental.
+- `formatMontoAprobadoFila`: muestra monto si `> 0`.
+- `deriveResumenExpedienteCorreccion`: `cliente_datos.rechazado` gana sobre `faltantes` documentales.
+- KPI/filtro «En trámite» excluye corrección requerida/enviada.
+
 ## 2026-07-03 - fix/mesa-rechazo-datos-generales: bandejas reconocen rechazo de Datos Generales
 
 ### Diagnóstico

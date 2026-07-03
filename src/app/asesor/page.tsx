@@ -35,6 +35,106 @@ import {
 } from "@/lib/subestadoOperativoUi";
 import { formatMontoMX } from "@/lib/monto";
 
+const CORRECCION_REQUERIDA_BADGE_CLASS =
+  "inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900 ring-1 ring-amber-300";
+
+function asesorResultadoFilaBadge(
+  resultadoReal: ResultadoRealExpediente,
+  resumenCorreccion?: CategoriaResumenDocumental,
+): { label: string; className: string } {
+  if (resumenCorreccion === "correccion_requerida") {
+    return {
+      label: "Corrección requerida",
+      className: "bg-amber-100 text-amber-900 border border-amber-300",
+    };
+  }
+  if (resumenCorreccion === "correccion_enviada") {
+    return {
+      label: "Corrección enviada",
+      className: "bg-sky-100 text-sky-800 border border-sky-200",
+    };
+  }
+  switch (resultadoReal) {
+    case "rechazado_mesa":
+      return {
+        label: "Rechazado (mesa)",
+        className: "bg-red-100 text-red-800 border border-red-200",
+      };
+    case "en_tramite":
+      return {
+        label: "En trámite",
+        className: "bg-blue-100 text-blue-800 border border-blue-200",
+      };
+    case "no_cumple_editor":
+      return {
+        label: "No cumple (editor)",
+        className: "bg-red-100 text-red-800 border border-red-200",
+      };
+    case "aprobado_editor":
+      return {
+        label: "Aprobado (editor)",
+        className: "bg-green-100 text-green-800 border border-green-200",
+      };
+    case "pendiente_editor":
+    default:
+      return {
+        label: "Pendiente (editor)",
+        className: "bg-amber-100 text-amber-800 border border-amber-200",
+      };
+  }
+}
+
+function asesorDocumentacionFilaBadge(
+  estadoDocumentacion: EstadoDocumentacionColumnaAsesor | undefined,
+  resumenCorreccion?: CategoriaResumenDocumental,
+): { label: string; className: string } {
+  if (resumenCorreccion === "correccion_requerida") {
+    return { label: "Corrección requerida", className: CORRECCION_REQUERIDA_BADGE_CLASS };
+  }
+  if (resumenCorreccion === "correccion_enviada") {
+    return {
+      label: "Corrección enviada",
+      className:
+        "inline-flex rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-800 ring-1 ring-sky-200",
+    };
+  }
+  return {
+    label: documentacionColumnaLabel(estadoDocumentacion),
+    className: documentacionColumnaBadgeClass(estadoDocumentacion),
+  };
+}
+
+function asesorEstatusOperativoFilaBadge(
+  subestado: string | null | undefined,
+  resumenCorreccion?: CategoriaResumenDocumental,
+): { label: string; className: string } {
+  if (resumenCorreccion === "correccion_requerida") {
+    return { label: "Corrección requerida", className: CORRECCION_REQUERIDA_BADGE_CLASS };
+  }
+  if (resumenCorreccion === "correccion_enviada") {
+    return {
+      label: "Corrección enviada",
+      className:
+        "inline-flex rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-800 ring-1 ring-sky-200",
+    };
+  }
+  return {
+    label: subestadoOperativoLabel(subestado),
+    className: `inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${subestadoOperativoBadgeClass(subestado)}`,
+  };
+}
+
+function formatMontoAprobadoFila(
+  montoAprobado: number | null | undefined,
+  decision: string,
+): string {
+  if (typeof montoAprobado === "number" && !Number.isNaN(montoAprobado) && montoAprobado > 0) {
+    return formatMontoMX(montoAprobado);
+  }
+  if (decision === "no_cumple") return "—";
+  return "—";
+}
+
 function documentacionColumnaBadgeClass(c?: EstadoDocumentacionColumnaAsesor): string {
   if (c === "completos") {
     return "inline-flex rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800";
@@ -57,17 +157,6 @@ function documentacionColumnaLabel(c?: EstadoDocumentacionColumnaAsesor): string
   };
   return map[c];
 }
-
-function SubestadoBadge({ subestado }: { subestado?: string | null }) {
-  return (
-    <span
-      className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${subestadoOperativoBadgeClass(subestado)}`}
-    >
-      {subestadoOperativoLabel(subestado)}
-    </span>
-  );
-}
-
 interface PrecalificacionMockLocal {
   id: string;
   programa: string;
@@ -193,10 +282,8 @@ export default function AsesorDashboardPage() {
   const resumenDocumentalPorId = useMemo(() => {
     const out: Record<string, CategoriaResumenDocumental | undefined> = {};
     for (const p of mockPrecalList) {
-      const r = resumenArchivosPorId[p.id];
-      if (!r) continue;
       out[p.id] = deriveResumenExpedienteCorreccion(
-        r,
+        resumenArchivosPorId[p.id] ?? [],
         clienteDatosEstadoPorId[p.id] ?? null,
       );
     }
@@ -346,7 +433,12 @@ export default function AsesorDashboardPage() {
     }
 
     if (quickFilter === "en_tramite") {
-      list = list.filter((p) => p.resultadoReal === "en_tramite");
+      list = list.filter(
+        (p) =>
+          p.resultadoReal === "en_tramite" &&
+          resumenDocumentalPorId[p.id] !== "correccion_requerida" &&
+          resumenDocumentalPorId[p.id] !== "correccion_enviada",
+      );
     } else if (quickFilter === "correccion_requerida") {
       list = list.filter(
         (p) => resumenDocumentalPorId[p.id] === "correccion_requerida",
@@ -366,7 +458,12 @@ export default function AsesorDashboardPage() {
     const total = mockPrecalList.length;
     const aprobadosEditor = mockPrecalList.filter((p) => p.resultadoReal === "aprobado_editor").length;
     const noCumple = mockPrecalList.filter((p) => p.resultadoReal === "no_cumple_editor").length;
-    const enTramite = mockPrecalList.filter((p) => p.resultadoReal === "en_tramite").length;
+    const enTramite = mockPrecalList.filter(
+      (p) =>
+        p.resultadoReal === "en_tramite" &&
+        resumenDocumentalPorId[p.id] !== "correccion_requerida" &&
+        resumenDocumentalPorId[p.id] !== "correccion_enviada",
+    ).length;
     const rechazadosMesa = mockPrecalList.filter((p) => p.resultadoReal === "rechazado_mesa").length;
     let correccionRequerida = 0;
     let correccionEnviada = 0;
@@ -548,7 +645,7 @@ export default function AsesorDashboardPage() {
               {kpis.correccionRequerida}
             </p>
             <p className="mt-0.5 text-[9px] leading-tight text-amber-800/90">
-              Doc. rechazada por mesa
+              Doc. o datos rechazados por mesa
             </p>
           </div>
           <div className="rounded-md border border-red-200/80 bg-red-50/40 px-3 py-2 shadow-sm">
@@ -863,50 +960,17 @@ export default function AsesorDashboardPage() {
                     .map((p) => {
                       const decision = p.decision ?? "pendiente";
                       const resultadoReal = p.resultadoReal;
-                      const montoDisplay =
-                        decision === "no_cumple"
-                          ? "—"
-                          : decision === "aprobado" && p.monto_aprobado != null
-                            ? formatMontoMX(p.monto_aprobado)
-                            : "—";
+                      const resumenCorreccion = resumenDocumentalPorId[p.id];
+                      const montoDisplay = formatMontoAprobadoFila(p.monto_aprobado, decision);
                       const etapaDisplay = etapaActualToTexto(p.etapaActual);
-                      const subestadoDisplay =
-                        p.operativo?.subestado ?? "pendiente";
-                      const resultadoBadge = (() => {
-                        switch (resultadoReal) {
-                          case "rechazado_mesa":
-                            return {
-                              label: "Rechazado (mesa)",
-                              className:
-                                "bg-red-100 text-red-800 border border-red-200",
-                            };
-                          case "en_tramite":
-                            return {
-                              label: "En trámite",
-                              className:
-                                "bg-blue-100 text-blue-800 border border-blue-200",
-                            };
-                          case "no_cumple_editor":
-                            return {
-                              label: "No cumple (editor)",
-                              className:
-                                "bg-red-100 text-red-800 border border-red-200",
-                            };
-                          case "aprobado_editor":
-                            return {
-                              label: "Aprobado (editor)",
-                              className:
-                                "bg-green-100 text-green-800 border border-green-200",
-                            };
-                          case "pendiente_editor":
-                          default:
-                            return {
-                              label: "Pendiente (editor)",
-                              className:
-                                "bg-amber-100 text-amber-800 border border-amber-200",
-                            };
-                        }
-                      })();
+                      const resultadoBadge = asesorResultadoFilaBadge(
+                        resultadoReal,
+                        resumenCorreccion,
+                      );
+                      const estatusOperativoBadge = asesorEstatusOperativoFilaBadge(
+                        p.operativo?.subestado,
+                        resumenCorreccion,
+                      );
                       const updatedDisplay = p.updatedAtOperativo
                         ? formatDateTimeMx(p.updatedAtOperativo)
                         : "—";
@@ -916,6 +980,16 @@ export default function AsesorDashboardPage() {
                         rowsDoc === undefined
                           ? undefined
                           : deriveEstadoDocumentacionColumnaAsesor(rowsDoc, p.etapaActual);
+                      const documentacionBadge = asesorDocumentacionFilaBadge(
+                        estadoDocumentacion,
+                        resumenCorreccion,
+                      );
+                      const rowSurfaceClass =
+                        resumenCorreccion === "correccion_requerida"
+                          ? "cursor-pointer bg-amber-50/40 hover:bg-amber-50/70"
+                          : resumenCorreccion === "correccion_enviada"
+                            ? "cursor-pointer bg-sky-50/30 hover:bg-sky-50/50"
+                            : "cursor-pointer hover:bg-slate-50/80";
 
                       const handleRowOpen = (e: React.MouseEvent<HTMLTableRowElement>) => {
                         const targetEl = e.target as HTMLElement | null;
@@ -934,7 +1008,7 @@ export default function AsesorDashboardPage() {
                       return (
                         <tr
                           key={p.id}
-                          className="cursor-pointer hover:bg-slate-50/80"
+                          className={rowSurfaceClass}
                           tabIndex={0}
                           role="link"
                           onClick={handleRowOpen}
@@ -961,9 +1035,9 @@ export default function AsesorDashboardPage() {
                           </td>
                           <td className="max-w-[140px] px-2 py-1.5 align-top">
                             <span
-                              className={`${documentacionColumnaBadgeClass(estadoDocumentacion)} text-[10px] sm:text-xs`}
+                              className={`${documentacionBadge.className} text-[10px] sm:text-xs`}
                             >
-                              {documentacionColumnaLabel(estadoDocumentacion)}
+                              {documentacionBadge.label}
                             </span>
                           </td>
                           <td className="max-w-[min(200px,28vw)] px-2 py-1.5 align-top text-[10px] leading-snug text-gray-600 sm:text-xs">
@@ -972,7 +1046,9 @@ export default function AsesorDashboardPage() {
                             </span>
                           </td>
                           <td className="whitespace-nowrap px-2 py-1.5">
-                            <SubestadoBadge subestado={subestadoDisplay} />
+                            <span className={estatusOperativoBadge.className}>
+                              {estatusOperativoBadge.label}
+                            </span>
                           </td>
                           <td className="whitespace-nowrap px-2 py-1.5 tabular-nums text-gray-600">
                             {montoDisplay}

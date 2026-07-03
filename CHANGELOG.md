@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **fix/asesor-dashboard-correccion-datos — fila dashboard refleja rechazo Datos Generales:** KPI/filtro/resultado/documentación/estatus op. usan `resumenCorreccion` unificado; monto aprobado visible si `> 0`; `deriveResumenExpedienteCorreccion` prioriza `cliente_datos.rechazado`; sin backend/RPC.
+
 - **fix/mesa-rechazo-datos-generales — rechazo Datos Generales impacta bandejas:** `deriveResumenExpedienteCorreccion` combina resumen documental con `cliente_datos.estado`; bandejas Mesa y Asesor clasifican rechazo de datos como `correccion_requerida`; KPI «En validación mesa» excluye correcciones pendientes; evento `expediente_cliente_datos_updated` desde repo Supabase; batch `listEstadoByExpedienteIds`; sin migración/RPC (mismo patrón que corrección documental); sin tocar 049/INE/cobro/biométricos/firmas/agenda.
 
 - **fix/mesa-asesor-monto-direccion — Mesa muestra asesor/monto; dirección obligatoria:** migración `050` RPC `get_asesor_display_batch` (SECURITY DEFINER, sin RLS general) + `save_cliente_datos` con `p_direccion_opcional` obligatorio; UI Mesa nombre/email asesor y `monto_aprobado` vigente sin condicionar por decisión; formulario Datos Generales con domicilio cliente obligatorio; 22 campos obligatorios; sin tocar 049 NSS, INE, cobro +3000.

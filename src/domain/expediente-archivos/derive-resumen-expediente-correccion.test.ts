@@ -30,13 +30,13 @@ describe("deriveResumenExpedienteCorreccion", () => {
     row("direccion", "validado"),
   ];
 
-  it("prioriza faltantes documentales aunque datos estén rechazados", () => {
+  it("prioriza rechazo de datos generales sobre faltantes documentales", () => {
     assert.equal(
       deriveResumenExpedienteCorreccion(
         [row("ine", "faltante"), row("estado_cuenta", "validado"), row("nss", "validado"), row("direccion", "validado")],
         "rechazado",
       ),
-      "faltantes",
+      "correccion_requerida",
     );
   });
 
