@@ -1,5 +1,17 @@
 # Devlog
 
+## 2026-07-03 - fix/mesa-bandeja-espera-asesor: Disponibles solo accionables
+
+### Problema
+
+- Expedientes con «Corrección req.» (`correccion_requerida`, datos o docs rechazados) seguían en filtro **Disponibles** aunque Mesa no puede actuar hasta corrección del asesor.
+
+### Decisión
+
+- Helper `estaEnEsperaDeAsesor(resumenDocumental)` → `correccion_requerida` (ya unifica rechazo documental + `cliente_datos.rechazado`).
+- Nuevo chip ops **En espera de asesor**; **Disponibles**, **Mi bandeja** y **En trabajo** excluyen esos casos; **Todo Mesa** conserva vista completa.
+- Solo UI/filtros; sin migración, RPC ni cambio de estados.
+
 ## 2026-07-03 - feat/notifications-bell: campana en header (reemplaza panel grande)
 
 ### Decisión

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **fix/mesa-bandeja-espera-asesor — Disponibles excluye corrección requerida:** filtro operativo «En espera de asesor» (`correccion_requerida` vía `deriveResumenExpedienteCorreccion`); Disponibles/Mi bandeja/En trabajo solo expedientes accionables; sin cambio de BD/RPC/RLS.
+
 - **feat/notifications-bell — campana en header Asesor/Mesa:** `NotificationsBell` con badge, dropdown (máx. 5 visibles), cierre al clic fuera; se retira panel grande sobre KPIs; reutiliza `dashboardNotifications` sin cambiar derivación.
 
 - **feat/dashboard-notificaciones — alertas visuales en dashboards Asesor y Mesa:** componente `DashboardNotifications` + helper `buildDashboardNotifications` derivado de estado ya cargado (`cliente_datos`, resumen documental, `subestado`, `fecha_cita`, `fecha_envio_mesa`); sin tabla nueva, sin RPC, sin cambio de flujos.

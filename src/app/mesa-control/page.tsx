@@ -58,6 +58,7 @@ import {
   type MesaOpsFilter,
 } from "@/lib/mesaOpsUi";
 import { MesaOpsBandejaBadge } from "@/components/mesa-control/MesaExpedienteOpsSection";
+import { estaEnEsperaDeAsesor } from "@/lib/mesaBandejaEsperaAsesor";
 import { hasAlertMessage, MESA_OPS_UPDATED_EVENT } from "@/lib/hasAlertMessage";
 import { NotificationsBell } from "@/components/notifications/NotificationsBell";
 import { buildDashboardNotifications } from "@/lib/dashboardNotifications";
@@ -439,6 +440,7 @@ export default function MesaControlPage() {
         c.resumenDocumental !== "correccion_requerida" &&
         c.resumenDocumental !== "correccion_enviada",
     ).length;
+    const enEsperaAsesor = casos.filter((c) => estaEnEsperaDeAsesor(c.resumenDocumental)).length;
     const totalBandeja = casos.length;
     return {
       correccionesEnviadas,
@@ -448,6 +450,7 @@ export default function MesaControlPage() {
       enProceso,
       rechazadosOperativo,
       enValidacionMesa,
+      enEsperaAsesor,
       totalBandeja,
     };
   }, [casos, isCitaHoy]);
@@ -771,7 +774,12 @@ export default function MesaControlPage() {
               role="tablist"
               aria-label="Filtros de asignación Mesa"
             >
-              {MESA_OPS_FILTER_CHIPS.map(({ id, label }) => (
+              {MESA_OPS_FILTER_CHIPS.map(({ id, label }) => {
+                const chipLabel =
+                  id === "en_espera_asesor"
+                    ? `${label} (${kpis.enEsperaAsesor})`
+                    : label;
+                return (
                 <button
                   key={id}
                   type="button"
@@ -781,9 +789,10 @@ export default function MesaControlPage() {
                   className={`${chipBase} ${mesaOpsFilter === id ? chipActive : chipInactive}`}
                   data-testid={`mesa-ops-filter-${id}`}
                 >
-                  {label}
+                  {chipLabel}
                 </button>
-              ))}
+                );
+              })}
             </div>
           </section>
         ) : null}
@@ -946,7 +955,11 @@ export default function MesaControlPage() {
           </div>
           {!loading && filteredCasos.length === 0 ? (
             <p className="py-10 text-center text-sm text-slate-500">
-              No hay casos que coincidan con los filtros.
+              {mesaOpsFilter === "en_espera_asesor"
+                ? "No hay expedientes en espera de corrección del asesor."
+                : mesaOpsFilter === "sin_asignar"
+                  ? "No hay expedientes disponibles para tomar en este momento."
+                  : "No hay casos que coincidan con los filtros."}
             </p>
           ) : null}
         </section>

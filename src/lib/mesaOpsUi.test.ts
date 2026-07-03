@@ -51,6 +51,7 @@ describe("mesaOpsUi", () => {
     assert.equal(DEFAULT_MESA_OPS_FILTER, "sin_asignar");
     assert.equal(MESA_OPS_FILTER_CHIPS[0]?.id, "sin_asignar");
     assert.equal(MESA_OPS_FILTER_CHIPS[0]?.label, "Disponibles");
+    assert.equal(MESA_OPS_FILTER_CHIPS[1]?.id, "en_espera_asesor");
     assert.equal(MESA_OPS_FILTER_CHIPS.at(-1)?.id, "todo_mesa");
   });
 
@@ -117,6 +118,54 @@ describe("mesaOpsUi", () => {
     const filtered = filterMesaOpsItems(merged, "sin_asignar", USER_A);
     assert.equal(filtered.length, 1);
     assert.deepEqual(filtered.map((i) => i.id), ["exp-new"]);
+  });
+
+  it("filtro Disponibles excluye correccion_requerida (en espera de asesor)", () => {
+    const merged = mergeExpedientesWithMesaOps(
+      [
+        { ...items[0], resumenDocumental: "correccion_requerida" as const },
+        { ...items[2], resumenDocumental: "pendiente_revision_documental" as const },
+      ],
+      buildMesaOpsMap([]),
+    );
+    const filtered = filterMesaOpsItems(merged, "sin_asignar", USER_A);
+    assert.deepEqual(filtered.map((i) => i.id), ["exp-new"]);
+  });
+
+  it("filtro En espera de asesor solo muestra correccion_requerida", () => {
+    const merged = mergeExpedientesWithMesaOps(
+      [
+        { ...items[0], resumenDocumental: "correccion_requerida" as const },
+        { ...items[1], resumenDocumental: "correccion_enviada" as const },
+        { ...items[2], resumenDocumental: "correccion_requerida" as const },
+      ],
+      buildMesaOpsMap([
+        ops({ expedienteId: "exp-old", estadoMesa: "trabajando", assignedTo: USER_A, assignedAt: "x" }),
+      ]),
+    );
+    const filtered = filterMesaOpsItems(merged, "en_espera_asesor", USER_A);
+    assert.deepEqual(filtered.map((i) => i.id), ["exp-old", "exp-new"]);
+  });
+
+  it("Mi bandeja y En trabajo excluyen correccion_requerida", () => {
+    const merged = mergeExpedientesWithMesaOps(
+      [
+        { ...items[0], resumenDocumental: "correccion_requerida" as const },
+        { ...items[2], resumenDocumental: "pendiente_revision_documental" as const },
+      ],
+      buildMesaOpsMap([
+        ops({ expedienteId: "exp-old", estadoMesa: "trabajando", assignedTo: USER_A, assignedAt: "x" }),
+        ops({ expedienteId: "exp-new", estadoMesa: "trabajando", assignedTo: USER_A, assignedAt: "x" }),
+      ]),
+    );
+    assert.deepEqual(
+      filterMesaOpsItems(merged, "mi_bandeja", USER_A).map((i) => i.id),
+      ["exp-new"],
+    );
+    assert.deepEqual(
+      filterMesaOpsItems(merged, "en_trabajo", USER_A).map((i) => i.id),
+      ["exp-new"],
+    );
   });
 
   it("filtro Sin asignar", () => {

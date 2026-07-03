@@ -1,7 +1,14 @@
+import type { CategoriaResumenDocumental } from "@/domain/expediente-archivos/types";
 import type { MesaExpedienteEstado, MesaExpedienteOpsRow } from "@/domain/mesa-ops/types";
+import { estaEnEsperaDeAsesor } from "@/lib/mesaBandejaEsperaAsesor";
 import { sortMesaBandejaPorAntiguedad, type MesaBandejaOrdenItem } from "@/lib/mesaBandejaOrden";
 
-export type MesaOpsFilter = "todo_mesa" | "sin_asignar" | "mi_bandeja" | "en_trabajo";
+export type MesaOpsFilter =
+  | "todo_mesa"
+  | "sin_asignar"
+  | "en_espera_asesor"
+  | "mi_bandeja"
+  | "en_trabajo";
 
 /** Filtro operativo al cargar `/mesa-control`: expedientes libres para tomar. */
 export const DEFAULT_MESA_OPS_FILTER: MesaOpsFilter = "sin_asignar";
@@ -11,13 +18,14 @@ export const MESA_OPS_FILTER_CHIPS: ReadonlyArray<{
   label: string;
 }> = [
   { id: "sin_asignar", label: "Disponibles" },
+  { id: "en_espera_asesor", label: "En espera de asesor" },
   { id: "mi_bandeja", label: "Mi bandeja" },
   { id: "en_trabajo", label: "En trabajo" },
   { id: "todo_mesa", label: "Todo Mesa" },
 ];
 
 export const MESA_OPS_FILTER_HELP_TEXT =
-  "Disponibles: expedientes libres para tomar. Todo Mesa muestra la vista completa.";
+  "Disponibles: expedientes accionables y libres para tomar. En espera de asesor: corrección pendiente del asesor. Todo Mesa muestra la vista completa.";
 
 export type MesaOpsStatusKind =
   | "sin_asignar"
@@ -140,6 +148,7 @@ export type MesaOpsFilterableItem = MesaBandejaOrdenItem &
   Readonly<{
     id: string;
     mesaOps?: MesaExpedienteOpsRow | null;
+    resumenDocumental?: CategoriaResumenDocumental | null;
   }>;
 
 export function filterMesaOpsItems<T extends MesaOpsFilterableItem>(
@@ -149,16 +158,30 @@ export function filterMesaOpsItems<T extends MesaOpsFilterableItem>(
 ): T[] {
   if (filter === "todo_mesa") return [...items];
 
+  if (filter === "en_espera_asesor") {
+    return items.filter((item) => estaEnEsperaDeAsesor(item.resumenDocumental));
+  }
+
   if (filter === "sin_asignar") {
-    return items.filter((item) => isSinAsignarOps(item.mesaOps));
+    return items.filter(
+      (item) =>
+        isSinAsignarOps(item.mesaOps) && !estaEnEsperaDeAsesor(item.resumenDocumental),
+    );
   }
 
   if (filter === "mi_bandeja") {
-    return items.filter((item) => isAssignedToCurrentUser(item.mesaOps, currentUserId));
+    return items.filter(
+      (item) =>
+        isAssignedToCurrentUser(item.mesaOps, currentUserId) &&
+        !estaEnEsperaDeAsesor(item.resumenDocumental),
+    );
   }
 
   if (filter === "en_trabajo") {
-    return items.filter((item) => Boolean(item.mesaOps?.assignedTo));
+    return items.filter(
+      (item) =>
+        Boolean(item.mesaOps?.assignedTo) && !estaEnEsperaDeAsesor(item.resumenDocumental),
+    );
   }
 
   return [...items];
