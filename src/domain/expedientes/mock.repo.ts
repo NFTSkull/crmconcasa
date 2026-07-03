@@ -108,12 +108,11 @@ export function estatusPrecalificacionDesdeEditor(
   return "aprobado";
 }
 
-/** El asesor solo puede integrar (datos, documentos, envío a mesa) con aprobación y monto numérico > 0. */
+/** El asesor solo puede integrar (datos, documentos, envío a mesa) con monto numérico > 0. */
 export function asesorPuedeIntegrarTrasMontoRevisor(
   ed: ExpedienteMock["editorDecision"],
 ): boolean {
   return (
-    ed.decision === "aprobado" &&
     typeof ed.monto_aprobado === "number" &&
     !Number.isNaN(ed.monto_aprobado) &&
     ed.monto_aprobado > 0
@@ -507,6 +506,31 @@ export class MockExpedientesRepo implements ExpedientesRepo {
       decision: input.decision,
       monto_aprobado: input.monto_aprobado,
       notas_revision: input.notas_revision ?? "",
+    });
+
+    if (!result) {
+      throw new Error("Expediente no encontrado.");
+    }
+
+    return result;
+  }
+
+  async asesorUpdateMontoAprobado(
+    expedienteId: string,
+    montoAprobado: number,
+  ): Promise<ExpedienteMock> {
+    const exp = await this.getById(expedienteId);
+    if (!exp) {
+      throw new Error("Expediente no encontrado.");
+    }
+    if (!Number.isFinite(montoAprobado) || montoAprobado <= 0) {
+      throw new Error("El monto aprobado debe ser mayor a cero.");
+    }
+
+    const result = await this.updateDecision(expedienteId, {
+      decision: exp.editorDecision.decision,
+      monto_aprobado: montoAprobado,
+      notas_revision: exp.editorDecision.notas_revision,
     });
 
     if (!result) {

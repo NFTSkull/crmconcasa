@@ -21,7 +21,6 @@ import {
   type ExpedienteMock,
 } from "@/domain/expedientes";
 import {
-  asesorPuedeIntegrarTrasMontoRevisor,
   MockExpedientesRepo,
 } from "@/domain/expedientes/mock.repo";
 import { isDataModeSupabase } from "@/lib/dataMode";
@@ -108,7 +107,7 @@ type EstadoEtapa =
   | "rechazado";
 
 const MSJ_ESPERA_MONTO_REVISOR =
-  "Debes esperar a que el editor apruebe un monto antes de capturar datos, subir documentos o enviar a mesa.";
+  "Registra un monto aprobado mayor a cero para capturar datos, subir documentos o enviar a Mesa.";
 
 const MSJ_UPLOAD_FORMATO =
   "Sube el documento en formato PDF (máx. 15 MB) por cada documento del asesor requerido.";
@@ -184,6 +183,10 @@ export default function AsesorExpedientePage() {
   const [enviandoMesa, setEnviandoMesa] = useState(false);
   const [enviarMesaError, setEnviarMesaError] = useState<string | null>(null);
   const [enviarMesaExito, setEnviarMesaExito] = useState<string | null>(null);
+  const [montoAprobadoInput, setMontoAprobadoInput] = useState("");
+  const [montoSaving, setMontoSaving] = useState(false);
+  const [montoError, setMontoError] = useState<string | null>(null);
+  const [montoExito, setMontoExito] = useState<string | null>(null);
   const [archivosResumen, setArchivosResumen] = useState<
     ExpedienteArchivoResumen[] | null
   >(null);
@@ -218,10 +221,8 @@ export default function AsesorExpedientePage() {
     return integrationDocsCompletos(integrationDocsInput);
   }, [integrationDocsInput]);
 
-  const puedeIntegrar = useMemo(
-    () =>
-      editorDecision !== null &&
-      asesorPuedeIntegrarTrasMontoRevisor(editorDecision),
+  const hasMontoAprobado = useMemo(
+    () => Number(editorDecision?.monto_aprobado ?? 0) > 0,
     [editorDecision],
   );
 
@@ -249,15 +250,15 @@ export default function AsesorExpedientePage() {
 
   const puedeEnviarAMesaSupabase = useMemo(
     () =>
-      puedeIntegrar &&
+      hasMontoAprobado &&
       datosGeneralesCompletos &&
       documentosCompletos &&
       !operativo?.submittedToMesa,
     [
       datosGeneralesCompletos,
       documentosCompletos,
+      hasMontoAprobado,
       operativo?.submittedToMesa,
-      puedeIntegrar,
     ],
   );
 
@@ -313,6 +314,51 @@ export default function AsesorExpedientePage() {
   useEffect(() => {
     void loadExpediente();
   }, [loadExpediente]);
+
+  useEffect(() => {
+    const m = editorDecision?.monto_aprobado;
+    if (typeof m === "number" && Number.isFinite(m) && m > 0) {
+      setMontoAprobadoInput(String(m));
+    } else {
+      setMontoAprobadoInput("");
+    }
+  }, [editorDecision?.monto_aprobado]);
+
+  const handleGuardarMontoAprobado = useCallback(async () => {
+    if (!precal?.id || montoSaving || operativo?.submittedToMesa) return;
+
+    const parsed = Number(String(montoAprobadoInput).replace(/,/g, "").trim());
+    if (!Number.isFinite(parsed) || parsed <= 0) {
+      setMontoError("El monto aprobado debe ser mayor a cero.");
+      setMontoExito(null);
+      return;
+    }
+
+    setMontoSaving(true);
+    setMontoError(null);
+    setMontoExito(null);
+
+    try {
+      await repo.asesorUpdateMontoAprobado(String(precal.id), parsed);
+      await loadExpediente();
+      setMontoExito("Monto aprobado guardado correctamente.");
+    } catch (err) {
+      if (err instanceof ExpedientesSupabaseError) {
+        setMontoError(err.message);
+      } else {
+        setMontoError("No se pudo guardar el monto aprobado.");
+      }
+    } finally {
+      setMontoSaving(false);
+    }
+  }, [
+    loadExpediente,
+    montoAprobadoInput,
+    montoSaving,
+    operativo?.submittedToMesa,
+    precal?.id,
+    repo,
+  ]);
 
   const handleEnviarAMesaSupabase = useCallback(async () => {
     if (
@@ -584,7 +630,7 @@ export default function AsesorExpedientePage() {
     if (!currentUser?.email) {
       return { ok: false, message: "Sesión inválida." };
     }
-    if (!puedeIntegrar) {
+    if (!hasMontoAprobado) {
       window.alert(MSJ_ESPERA_MONTO_REVISOR);
       return { ok: false, message: MSJ_ESPERA_MONTO_REVISOR };
     }
@@ -653,7 +699,7 @@ export default function AsesorExpedientePage() {
     dataSupabase,
     operativo?.submittedToMesa,
     precal?.id,
-    puedeIntegrar,
+    hasMontoAprobado,
     montoAprobadoEditor,
   ]);
 
@@ -782,8 +828,7 @@ export default function AsesorExpedientePage() {
                 </p>
                 <p>
                   <span className="font-medium text-gray-900">Monto aprobado:</span>{" "}
-                  {editorDecision?.decision === "aprobado" &&
-                  typeof editorDecision.monto_aprobado === "number"
+                  {hasMontoAprobado && typeof editorDecision?.monto_aprobado === "number"
                     ? `$${editorDecision.monto_aprobado.toLocaleString("es-MX")}`
                     : "—"}
                 </p>
@@ -792,8 +837,54 @@ export default function AsesorExpedientePage() {
                   {editorDecision?.notas_revision?.trim() || "—"}
                 </p>
               </div>
+              {!operativo?.submittedToMesa ? (
+                <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-end">
+                  <label className="flex-1 text-xs text-gray-600">
+                    <span className="mb-1 block font-medium text-gray-900">
+                      Monto aprobado (MXN)
+                    </span>
+                    <input
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      value={montoAprobadoInput}
+                      onChange={(e) => {
+                        setMontoAprobadoInput(e.target.value);
+                        setMontoError(null);
+                        setMontoExito(null);
+                      }}
+                      className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm text-gray-900"
+                      placeholder="Ej. 250000"
+                    />
+                  </label>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    disabled={montoSaving}
+                    onClick={() => void handleGuardarMontoAprobado()}
+                  >
+                    {montoSaving ? "Guardando…" : "Guardar monto"}
+                  </Button>
+                </div>
+              ) : null}
+              {montoExito ? (
+                <p
+                  role="status"
+                  className="mt-3 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-900"
+                >
+                  {montoExito}
+                </p>
+              ) : null}
+              {montoError ? (
+                <p
+                  role="alert"
+                  className="mt-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
+                >
+                  {montoError}
+                </p>
+              ) : null}
             </div>
-            {!puedeIntegrar ? (
+            {!hasMontoAprobado ? (
               <div
                 role="status"
                 className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950"
@@ -812,7 +903,7 @@ export default function AsesorExpedientePage() {
               camposFaltantes={camposFaltantesClienteDatos}
               fieldErrors={clienteDatosFieldErrors}
               showFieldErrors={clienteDatosShowValidation}
-              puedeIntegrar={puedeIntegrar}
+              puedeIntegrar={hasMontoAprobado}
               submittedToMesa={operativo?.submittedToMesa ?? false}
               dataSupabase
               formatDateTime={formatDateTime}
@@ -856,7 +947,7 @@ export default function AsesorExpedientePage() {
                     checklistObligatorios={integrationChecklistObligatorios}
                     checklistOpcionales={integrationChecklistOpcionales}
                     archivosResumen={archivosResumen}
-                    puedeIntegrar={puedeIntegrar}
+                    puedeIntegrar={hasMontoAprobado}
                     submittedToMesa={operativo?.submittedToMesa ?? false}
                     onUploaded={refreshArchivos}
                   />
@@ -869,10 +960,10 @@ export default function AsesorExpedientePage() {
               <ul className="mt-3 space-y-2 text-xs">
                 <li
                   className={`inline-flex rounded-full border px-2.5 py-1 font-medium ${checklistClass(
-                    puedeIntegrar,
+                    hasMontoAprobado,
                   )}`}
                 >
-                  Editor aprobado: {checklistLabel(puedeIntegrar)}
+                  Monto aprobado: {checklistLabel(hasMontoAprobado)}
                 </li>
                 <li
                   className={`inline-flex rounded-full border px-2.5 py-1 font-medium ${checklistClass(
@@ -971,7 +1062,7 @@ export default function AsesorExpedientePage() {
         ) : (
         <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_minmax(260px,300px)] lg:items-start">
           <div className="space-y-6">
-            {!puedeIntegrar ? (
+            {!hasMontoAprobado ? (
               <div
                 role="status"
                 className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950"
@@ -989,7 +1080,7 @@ export default function AsesorExpedientePage() {
               camposFaltantes={camposFaltantesClienteDatos}
               fieldErrors={clienteDatosFieldErrors}
               showFieldErrors={clienteDatosShowValidation}
-              puedeIntegrar={puedeIntegrar}
+              puedeIntegrar={hasMontoAprobado}
               dataSupabase={false}
               formatDateTime={formatDateTime}
               onSave={handleSaveClienteDatos}
@@ -998,14 +1089,14 @@ export default function AsesorExpedientePage() {
             />
 
             <SeguimientoOperativoMock
-              asesorIntegracionHabilitada={puedeIntegrar}
+              asesorIntegracionHabilitada={hasMontoAprobado}
               contextPrecalId={String(precal.id)}
               contextClienteNombre={precal.cliente_nombre}
               contextTelefono={precal.telefono_cliente}
               contextPrograma={precal.programa}
               contextAsesorId={precal.asesorId}
               onEnviarAMesa={async (payload) => {
-              if (!puedeIntegrar) {
+              if (!hasMontoAprobado) {
                 window.alert(MSJ_ESPERA_MONTO_REVISOR);
                 return false;
               }

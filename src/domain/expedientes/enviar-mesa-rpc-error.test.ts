@@ -4,19 +4,19 @@ import { mapEnviarAMesaRpcError } from "./enviar-mesa-rpc-error";
 import { ExpedientesSupabaseError } from "./supabase.error";
 
 describe("mapEnviarAMesaRpcError", () => {
-  it("mapea editor pendiente", () => {
+  it("mapea monto faltante (legado decisión pendiente)", () => {
     const err = mapEnviarAMesaRpcError({
       message: "enviar_a_mesa: decisión del editor debe ser aprobado (actual: pendiente)",
     });
     assert.ok(err instanceof ExpedientesSupabaseError);
-    assert.match(err.message, /decisión del editor debe ser aprobada/i);
+    assert.match(err.message, /monto aprobado/i);
   });
 
   it("mapea falta decisión del editor", () => {
     const err = mapEnviarAMesaRpcError({
       message: "enviar_a_mesa: falta decisión del editor",
     });
-    assert.match(err.message, /falta la decisión del editor/i);
+    assert.match(err.message, /monto aprobado/i);
   });
 
   it("mapea monto faltante", () => {

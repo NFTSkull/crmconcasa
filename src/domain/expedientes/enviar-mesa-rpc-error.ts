@@ -50,13 +50,13 @@ export function mapEnviarAMesaRpcError(error: {
 
   if (msg.includes("falta decisión del editor")) {
     return new ExpedientesSupabaseError(
-      "Falta la decisión del editor. Debe aprobar el expediente antes del envío.",
+      "Falta registrar un monto aprobado mayor a cero antes del envío.",
     );
   }
 
   if (msg.includes("decisión del editor debe ser aprobado")) {
     return new ExpedientesSupabaseError(
-      "La decisión del editor debe ser aprobada antes de enviar a Mesa.",
+      "Debe registrar un monto aprobado mayor a cero antes de enviar a Mesa.",
     );
   }
 

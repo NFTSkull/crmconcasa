@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-07-03 - feat/asesor-monto-aprobado: monto desbloquea flujo asesor
+
+### Decisión
+
+- La llave operativa para captura de datos, documentos y envío a Mesa pasa de `editor_decisions.decision = 'aprobado'` a `monto_aprobado > 0`.
+- El asesor dueño puede registrar/editar `monto_aprobado` vía RPC `asesor_update_monto_aprobado` aunque la decisión visible siga siendo `no_cumple`; no se modifican `decision` ni `notas_revision`.
+- Migración **045** (local, sin Cloud): RPC nuevo + parche mínimo en `save_cliente_datos` y `enviar_a_mesa`; `action_log` `asesor.monto_aprobado.update`.
+- Frontend: `hasMontoAprobado` único para gating; sección «Decisión del editor» con input y botón «Guardar monto».
+- Sin cambios a Mesa, biométricos, firmas, cobro (salvo gate previo), documentos especiales, agenda, roles, auth ni RLS general.
+
 ## 2026-07-02 - fix/documentos-obligatorios-roles: NSS sin archivo; acta/SAT solo Mesa
 
 ### Decisión

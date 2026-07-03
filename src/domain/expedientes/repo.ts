@@ -20,4 +20,9 @@ export interface ExpedientesRepo {
     expedienteId: string,
     input: UpsertEditorDecisionInput,
   ): Promise<ExpedienteMock>;
+  /** Asesor dueño registra monto_aprobado sin cambiar decision del editor. */
+  asesorUpdateMontoAprobado(
+    expedienteId: string,
+    montoAprobado: number,
+  ): Promise<ExpedienteMock>;
 }

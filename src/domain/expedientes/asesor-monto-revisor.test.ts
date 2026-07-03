@@ -6,7 +6,18 @@ import {
 } from "./mock.repo";
 
 describe("asesorPuedeIntegrarTrasMontoRevisor", () => {
-  it("true solo con aprobado y monto > 0", () => {
+  it("true con monto > 0 aunque decision sea no_cumple", () => {
+    assert.equal(
+      asesorPuedeIntegrarTrasMontoRevisor({
+        decision: "no_cumple",
+        monto_aprobado: 100,
+        notas_revision: "",
+      }),
+      true,
+    );
+  });
+
+  it("true con aprobado y monto > 0", () => {
     assert.equal(
       asesorPuedeIntegrarTrasMontoRevisor({
         decision: "aprobado",
@@ -15,6 +26,9 @@ describe("asesorPuedeIntegrarTrasMontoRevisor", () => {
       }),
       true,
     );
+  });
+
+  it("false con monto 0 o null", () => {
     assert.equal(
       asesorPuedeIntegrarTrasMontoRevisor({
         decision: "aprobado",
@@ -25,16 +39,19 @@ describe("asesorPuedeIntegrarTrasMontoRevisor", () => {
     );
     assert.equal(
       asesorPuedeIntegrarTrasMontoRevisor({
-        decision: "aprobado",
+        decision: "no_cumple",
         monto_aprobado: null,
         notas_revision: "",
       }),
       false,
     );
+  });
+
+  it("false con pendiente sin monto", () => {
     assert.equal(
       asesorPuedeIntegrarTrasMontoRevisor({
         decision: "pendiente",
-        monto_aprobado: 100,
+        monto_aprobado: null,
         notas_revision: "",
       }),
       false,

@@ -315,12 +315,12 @@ BEGIN
 
   -- Decisión pendiente / rechazada
   PERFORM public.__rpc_enviar_test_insert_expediente(v_exp_editor_pend, v_org_id, v_asesor_a1, '90503100031');
-  PERFORM public.__rpc_enviar_test_insert_editor(v_exp_editor_pend, v_org_id, 'pendiente', 100);
+  PERFORM public.__rpc_enviar_test_insert_editor(v_exp_editor_pend, v_org_id, 'pendiente', NULL);
   PERFORM public.__rpc_enviar_test_insert_cliente(v_exp_editor_pend, v_org_id);
   PERFORM public.__rpc_enviar_test_insert_docs_obligatorios(v_exp_editor_pend, v_org_id, v_asesor_a1);
 
   PERFORM public.__rpc_enviar_test_insert_expediente(v_exp_editor_rech, v_org_id, v_asesor_a1, '90503200032');
-  PERFORM public.__rpc_enviar_test_insert_editor(v_exp_editor_rech, v_org_id, 'no_cumple', 100);
+  PERFORM public.__rpc_enviar_test_insert_editor(v_exp_editor_rech, v_org_id, 'no_cumple', NULL);
   PERFORM public.__rpc_enviar_test_insert_cliente(v_exp_editor_rech, v_org_id);
   PERFORM public.__rpc_enviar_test_insert_docs_obligatorios(v_exp_editor_rech, v_org_id, v_asesor_a1);
 
@@ -418,14 +418,24 @@ BEGIN
     'test 5: sin decisión editor falla'
   );
 
-  -- Test 6: decisión pendiente / rechazada
+  -- Test 6: decisión pendiente / no_cumple sin monto
   PERFORM public.__rpc_enviar_test_assert(
     public.__rpc_enviar_test_call_expect_fail(v_asesor_a1, v_exp_editor_pend),
-    'test 6a: decisión pendiente falla'
+    'test 6a: decisión pendiente sin monto falla'
   );
   PERFORM public.__rpc_enviar_test_assert(
     public.__rpc_enviar_test_call_expect_fail(v_asesor_a1, v_exp_editor_rech),
-    'test 6b: decisión no_cumple falla'
+    'test 6b: no_cumple sin monto falla'
+  );
+
+  -- Test 6c: no_cumple con monto > 0 sí puede enviar
+  UPDATE public.editor_decisions
+  SET monto_aprobado = 100, updated_at = now()
+  WHERE expediente_id = v_exp_editor_rech;
+  v_result := public.__rpc_enviar_test_call_as(v_asesor_a1, v_exp_editor_rech);
+  PERFORM public.__rpc_enviar_test_assert(
+    (v_result->>'ok')::boolean = true,
+    'test 6c: no_cumple con monto aprobado puede enviar'
   );
 
   -- Test 7: sin RFC puede enviar

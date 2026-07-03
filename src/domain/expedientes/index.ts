@@ -13,6 +13,7 @@ export type { ExpedienteMock, EditorDecision } from "./mock.repo";
 export { MockExpedientesRepo } from "./mock.repo";
 export { SupabaseExpedientesRepo, ExpedientesSupabaseError } from "./supabase.repo";
 export { mapEnviarAMesaRpcError } from "./enviar-mesa-rpc-error";
+export { mapAsesorUpdateMontoAprobadoRpcError } from "./asesor-update-monto-aprobado-rpc-error";
 export { mapAvanzarEtapaRpcError } from "./avanzar-etapa-rpc-error";
 export { mapUpsertEditorDecisionRpcError } from "./upsert-editor-decision-rpc-error";
 export {

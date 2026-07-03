@@ -9,6 +9,7 @@ import { mapProgramaUiToDb } from "./map-programa";
 import { ExpedientesSupabaseError } from "./supabase.error";
 import { mapEnviarAMesaRpcError } from "./enviar-mesa-rpc-error";
 import { mapAvanzarEtapaRpcError } from "./avanzar-etapa-rpc-error";
+import { mapAsesorUpdateMontoAprobadoRpcError } from "./asesor-update-monto-aprobado-rpc-error";
 import { mapUpsertEditorDecisionRpcError } from "./upsert-editor-decision-rpc-error";
 import type { UpsertEditorDecisionInput } from "./upsert-editor-decision.input";
 import {
@@ -367,6 +368,45 @@ export class SupabaseExpedientesRepo implements ExpedientesRepo {
     if (!refreshed) {
       throw new ExpedientesSupabaseError(
         "La etapa se actualizó, pero no se pudo recargar el expediente.",
+      );
+    }
+
+    return refreshed;
+  }
+
+  async asesorUpdateMontoAprobado(
+    expedienteId: string,
+    montoAprobado: number,
+  ): Promise<ExpedienteMock> {
+    const idNorm = String(expedienteId).trim();
+    if (!idNorm) {
+      throw new ExpedientesSupabaseError("El identificador del expediente es obligatorio.");
+    }
+    if (!Number.isFinite(montoAprobado) || montoAprobado <= 0) {
+      throw new ExpedientesSupabaseError("El monto aprobado debe ser mayor a cero.");
+    }
+
+    const { client } = await requireSupabaseSession();
+
+    const { data, error } = await client.rpc("asesor_update_monto_aprobado", {
+      p_expediente_id: idNorm,
+      p_monto_aprobado: montoAprobado,
+    });
+
+    if (error) {
+      throw mapAsesorUpdateMontoAprobadoRpcError(error);
+    }
+
+    if (!data || typeof data !== "object") {
+      throw new ExpedientesSupabaseError(
+        "No se pudo guardar el monto aprobado. Respuesta vacía del servidor.",
+      );
+    }
+
+    const refreshed = await fetchExpedienteById(idNorm);
+    if (!refreshed) {
+      throw new ExpedientesSupabaseError(
+        "El monto se guardó, pero no se pudo recargar el expediente.",
       );
     }
 
