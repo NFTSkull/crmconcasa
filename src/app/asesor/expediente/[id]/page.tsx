@@ -524,6 +524,8 @@ export default function AsesorExpedientePage() {
       setClienteDatos({
         ...found.datos,
         rfc: found.datos.rfc ?? "",
+        montoMejoravit: found.datos.montoMejoravit ?? "",
+        plazo: found.datos.plazo ?? "",
         porcentajeCobro:
           found.datos.porcentajeCobro ||
           (found.porcentajeCobro != null ? String(found.porcentajeCobro) : ""),
@@ -643,18 +645,16 @@ export default function AsesorExpedientePage() {
       window.alert(MSJ_ESPERA_MONTO_REVISOR);
       return { ok: false, message: MSJ_ESPERA_MONTO_REVISOR };
     }
-    if (dataSupabase) {
-      const validation = validateClienteDatos(clienteDatos, {
-        montoAprobado: montoAprobadoEditor,
-        direccionOpcional,
-      });
-      if (!validation.isValid) {
-        setClienteDatosShowValidation(true);
-        setClienteDatosFieldErrors(validation.errors);
-        const message = formatClienteDatosValidationSummary(validation);
-        setClienteDatosError(message);
-        return { ok: false, message };
-      }
+    const validation = validateClienteDatos(clienteDatos, {
+      montoAprobado: montoAprobadoEditor,
+      direccionOpcional,
+    });
+    if (!validation.isValid) {
+      setClienteDatosShowValidation(true);
+      setClienteDatosFieldErrors(validation.errors);
+      const message = formatClienteDatosValidationSummary(validation);
+      setClienteDatosError(message);
+      return { ok: false, message };
     }
     setClienteDatosSaving(true);
     setClienteDatosError(null);
@@ -710,7 +710,6 @@ export default function AsesorExpedientePage() {
     clienteDatosMeta?.estado,
     clienteDatosRepo,
     currentUser?.email,
-    dataSupabase,
     direccionOpcional,
     operativo?.submittedToMesa,
     precal?.id,
@@ -1131,11 +1130,21 @@ export default function AsesorExpedientePage() {
                 );
                 return false;
               }
+              const validation = validateClienteDatos(clienteDatos, {
+                montoAprobado: montoAprobadoEditor,
+                direccionOpcional,
+              });
+              if (!validation.isValid) {
+                setClienteDatosShowValidation(true);
+                setClienteDatosFieldErrors(validation.errors);
+                window.alert(formatClienteDatosValidationSummary(validation));
+                return false;
+              }
               if (!currentUser?.email) {
                 window.alert("Sesión inválida.");
                 return false;
               }
-              const datosFormularioActuales = clienteDatos;
+              const datosFormularioActuales = normalizeClienteDatosForSave(clienteDatos);
               try {
                 const saved = await clienteDatosRepo.save({
                   expedienteId: String(precal.id),

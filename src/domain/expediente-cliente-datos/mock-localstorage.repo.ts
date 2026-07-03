@@ -8,6 +8,10 @@ import type {
   UpdateEstadoExpedienteClienteDatosInput,
 } from "./types";
 import { parseMontoCalculadoInput } from "@/lib/clienteDatosCobro";
+import {
+  readClienteDatosMontoMejoravit,
+  readClienteDatosPlazo,
+} from "./map-supabase-cliente-datos";
 import { emitExpedienteClienteDatosUpdated } from "./emit-updated";
 
 const STORAGE_KEY = "expediente_cliente_datos";
@@ -88,9 +92,8 @@ function rowToDomain(row: StoredRow): ExpedienteClienteDatos | null {
     montoCalculado:
       typeof rawDatos.montoCalculado === "string" ? rawDatos.montoCalculado : "",
     metodoPago: typeof rawDatos.metodoPago === "string" ? rawDatos.metodoPago : "",
-    montoMejoravit:
-      typeof rawDatos.montoMejoravit === "string" ? rawDatos.montoMejoravit : "",
-    plazo: typeof rawDatos.plazo === "string" ? rawDatos.plazo : "",
+    montoMejoravit: readClienteDatosMontoMejoravit(rawDatos),
+    plazo: readClienteDatosPlazo(rawDatos),
   };
   const montoParsed = parseMontoCalculadoInput(datos.montoCalculado);
   const updatedAt = typeof row.updatedAt === "string" ? row.updatedAt : new Date().toISOString();

@@ -4,6 +4,7 @@ import {
   buildSaveClienteDatosRpcPayload,
   mapSupabaseRowToExpedienteClienteDatos,
 } from "./map-supabase-cliente-datos";
+import type { ExpedienteClienteDatos } from "./types";
 
 describe("mapSupabaseRowToExpedienteClienteDatos", () => {
   it("mapea fila Supabase a dominio UI", () => {
@@ -53,6 +54,20 @@ describe("mapSupabaseRowToExpedienteClienteDatos", () => {
     assert.equal(domain.datos.plazo, "18 meses");
     assert.equal(domain.datos.montoCalculado, "1875");
     assert.equal(domain.updatedBy, "asesor@concasa.mx");
+  });
+  it("mapea montoMejoravit numérico y alias monto_mejoravit", () => {
+    const domain = mapSupabaseRowToExpedienteClienteDatos({
+      expediente_id: "exp-2",
+      estado: "completo",
+      updated_at: "2026-06-15T12:00:00.000Z",
+      datos: {
+        nombreCliente: "Ana",
+        monto_mejoravit: 250000,
+        plazo: 24,
+      },
+    });
+    assert.equal(domain.datos.montoMejoravit, "250000");
+    assert.equal(domain.datos.plazo, "24");
   });
 });
 
@@ -133,5 +148,44 @@ describe("buildSaveClienteDatosRpcPayload", () => {
 
     assert.equal(payload.p_rfc, "");
     assert.equal(payload.p_porcentaje_cobro, 10);
+  });
+
+  it("rechaza payload sin monto Mejoravit o plazo", () => {
+    const base = {
+      nombreCliente: "Marcela",
+      nss: "12345678901",
+      curp: "CURP123",
+      rfc: "",
+      celular: "5512345678",
+      correo: "marcela@concasa.mx",
+      empresa: "Empresa SA",
+      registroPatronal: "RP-1",
+      telefonoEmpresa: "5599999999",
+      referencias: [
+        { nombre: "Ref 1", celular: "5511111111" },
+        { nombre: "Ref 2", celular: "5522222222" },
+      ],
+      beneficiario: { nombre: "Ben", parentesco: "Hija" },
+      direccionEmpresa: {
+        calle: "Calle 1",
+        colonia: "Centro",
+        municipio: "CDMX",
+        cp: "01000",
+      },
+      montoMejoravit: "150000",
+      plazo: "12 meses",
+      porcentajeCobro: "10",
+      montoCalculado: "1500",
+      metodoPago: "transferencia",
+    } as ExpedienteClienteDatos["datos"];
+
+    assert.throws(
+      () => buildSaveClienteDatosRpcPayload("exp-1", { ...base, montoMejoravit: "" }, "Dir"),
+      /monto Mejoravit/,
+    );
+    assert.throws(
+      () => buildSaveClienteDatosRpcPayload("exp-1", { ...base, plazo: "" }, "Dir"),
+      /plazo/,
+    );
   });
 });

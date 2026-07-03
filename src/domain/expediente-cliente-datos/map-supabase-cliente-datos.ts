@@ -3,7 +3,7 @@ import type {
   ExpedienteClienteDatos,
   ExpedienteClienteDatosEstado,
 } from "./types";
-import { parsePorcentajeCobroInput } from "@/lib/clienteDatosCobro";
+import { parseMontoCalculadoInput, parsePorcentajeCobroInput } from "@/lib/clienteDatosCobro";
 
 export type SupabaseClienteDatosRow = {
   expediente_id: string;
@@ -46,6 +46,25 @@ function normalizeEstado(value: unknown): ExpedienteClienteDatosEstado {
 
 function asString(value: unknown): string {
   return typeof value === "string" ? value : "";
+}
+
+/** Texto en JSON `datos` (acepta número serializado). */
+function asDatosTextField(value: unknown): string {
+  if (typeof value === "string") return value;
+  if (typeof value === "number" && Number.isFinite(value)) return String(value);
+  return "";
+}
+
+export function readClienteDatosMontoMejoravit(
+  datos: Record<string, unknown>,
+): string {
+  const camel = asDatosTextField(datos.montoMejoravit);
+  if (camel.trim()) return camel;
+  return asDatosTextField(datos.monto_mejoravit);
+}
+
+export function readClienteDatosPlazo(datos: Record<string, unknown>): string {
+  return asDatosTextField(datos.plazo);
 }
 
 function mapReferencias(
@@ -146,8 +165,8 @@ export function mapSupabaseRowToExpedienteClienteDatos(
       referencias: mapReferencias(datos, row.referencias),
       beneficiario: mapBeneficiario(datos.beneficiario),
       direccionEmpresa: mapDireccionEmpresa(datos.direccionEmpresa),
-      montoMejoravit: asString(datos.montoMejoravit),
-      plazo: asString(datos.plazo),
+      montoMejoravit: readClienteDatosMontoMejoravit(datos),
+      plazo: readClienteDatosPlazo(datos),
       porcentajeCobro:
         asString(datos.porcentajeCobro) ||
         (row.porcentaje_cobro != null ? String(row.porcentaje_cobro) : ""),
@@ -203,6 +222,17 @@ export function buildSaveClienteDatosRpcPayload(
   if (!metodo) {
     throw new Error("Método de pago es obligatorio.");
   }
+
+  const montoMejoravitRaw = datos.montoMejoravit.trim();
+  const montoMejoravit = parseMontoCalculadoInput(montoMejoravitRaw);
+  if (!montoMejoravitRaw || montoMejoravit == null || montoMejoravit <= 0) {
+    throw new Error("El monto Mejoravit es obligatorio.");
+  }
+  const plazo = datos.plazo.trim();
+  if (!plazo) {
+    throw new Error("El plazo es obligatorio.");
+  }
+
   return {
     p_expediente_id: expedienteId,
     p_rfc: datos.rfc.trim(),
@@ -229,8 +259,8 @@ export function buildSaveClienteDatosRpcPayload(
         municipio: datos.direccionEmpresa.municipio.trim(),
         cp: datos.direccionEmpresa.cp.trim(),
       },
-      montoMejoravit: datos.montoMejoravit.trim(),
-      plazo: datos.plazo.trim(),
+      montoMejoravit: montoMejoravitRaw,
+      plazo,
     },
     p_estado: "completo",
     p_porcentaje_cobro: pct,
