@@ -1,5 +1,14 @@
 # Devlog
 
+## 2026-07-03 - fix/monto-calculado-automatico: fórmula con +$3,000
+
+### Decisión
+
+- Se revierte la captura manual de `monto_calculado` (P046 commiteada en `main`, no desplegada en Cloud).
+- Migración **048** (Cloud): `save_cliente_datos` calcula `round(monto_aprobado * porcentaje / 100 + 3000, 2)`; sin parámetro `p_monto_calculado`.
+- Frontend: campo readOnly; `calcMontoCalculadoCobro` comparte la misma fórmula; texto «El monto calculado es el porcentaje del monto aprobado más $3,000.»
+- Sin cambios a decisión del editor, monto aprobado asesor, Mesa, RLS.
+
 ## 2026-07-03 - feat/asesor-monto-aprobado: monto desbloquea flujo asesor
 
 ### Decisión

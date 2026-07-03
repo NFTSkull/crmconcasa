@@ -199,8 +199,7 @@ BEGIN
     NULL,
     jsonb_build_object('rfc', 'XAXX010101000', 'nombreCliente', 'Corregido ACPM', 'celular', v_tel),
     10,
-    'transferencia',
-    1500
+    'transferencia'
   ) INTO v_result;
   PERFORM public.__rpc_acpm_test_reset_auth();
   RETURN v_result;
@@ -217,7 +216,7 @@ BEGIN
     PERFORM public.save_cliente_datos_correccion(
       p_exp, 'XAXX010101000', '5522222222', '[]'::jsonb, NULL,
       jsonb_build_object('rfc', 'XAXX010101000', 'nombreCliente', 'Fail'),
-      10, 'transferencia', 1500
+      10, 'transferencia'
     );
     PERFORM public.__rpc_acpm_test_reset_auth();
     RETURN false;

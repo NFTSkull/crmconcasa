@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **fix/monto-calculado-automatico — monto calculado automático (+$3,000):** migración `048` revierte captura manual P046 en Cloud; fórmula `(monto_aprobado * porcentaje_cobro / 100) + 3000` en `save_cliente_datos` y frontend readOnly; tests TS/SQL.
+
 - **feat/asesor-monto-aprobado — monto aprobado desbloquea integración asesor:** migración `045` RPC `asesor_update_monto_aprobado` (asesor dueño, sin cambiar `decision`); gates `save_cliente_datos` y `enviar_a_mesa` por `monto_aprobado > 0` (no `decision = aprobado`); UI input «Guardar monto» en decisión del editor; tests TS/SQL; sin Cloud.
 
 - **fix/documentos-obligatorios-roles — NSS sin archivo; acta/SAT solo Mesa:** migración `044` quita `nss` de `integration_doc_tipos_asesor_envio` (4 docs asesor); acta y constancia SAT siguen solo en upload Mesa; campo NSS del cliente intacto; tests TS/SQL; sin Cloud.

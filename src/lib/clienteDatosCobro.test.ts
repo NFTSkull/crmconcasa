@@ -17,9 +17,10 @@ test("parseMontoCalculadoInput acepta montos", () => {
   assert.equal(parseMontoCalculadoInput(""), null);
 });
 
-test("calcMontoCalculadoCobro deriva monto", () => {
-  assert.equal(calcMontoCalculadoCobro(100000, 10), 10000);
-  assert.equal(calcMontoCalculadoCobro(25000, 12.5), 3125);
+test("calcMontoCalculadoCobro deriva monto con base fija", () => {
+  assert.equal(calcMontoCalculadoCobro(100000, 10), 13000);
+  assert.equal(calcMontoCalculadoCobro(25000, 12.5), 6125);
+  assert.equal(calcMontoCalculadoCobro(166100.12, 10), 19610.01);
 });
 
 test("calcMontoCalculadoCobro sin monto aprobado devuelve null", () => {

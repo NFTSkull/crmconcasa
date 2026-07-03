@@ -83,7 +83,6 @@ describe("buildSaveClienteDatosRpcPayload", () => {
     assert.equal(payload.p_expediente_id, "exp-1");
     assert.equal(payload.p_rfc, "xaxx010101000");
     assert.equal(payload.p_porcentaje_cobro, 10);
-    assert.equal(payload.p_monto_calculado, 2500);
     assert.equal(payload.p_metodo_pago, "transferencia");
     assert.equal(payload.p_telefono, "(55) 1234-5678");
     assert.equal(payload.p_estado, "completo");
@@ -123,6 +122,5 @@ describe("buildSaveClienteDatosRpcPayload", () => {
 
     assert.equal(payload.p_rfc, "");
     assert.equal(payload.p_porcentaje_cobro, 10);
-    assert.equal(payload.p_monto_calculado, 1500);
   });
 });

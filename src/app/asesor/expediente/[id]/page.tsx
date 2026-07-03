@@ -913,6 +913,7 @@ export default function AsesorExpedientePage() {
               formatDateTime={formatDateTime}
               onSave={handleSaveClienteDatos}
               esperaMontoMessage={MSJ_ESPERA_MONTO_REVISOR}
+              montoAprobado={montoAprobadoEditor}
             />
             <div className="rounded-lg border border-gray-200 bg-white p-4 text-sm text-gray-600">
               <p className="text-sm font-semibold text-gray-900">
@@ -1088,6 +1089,7 @@ export default function AsesorExpedientePage() {
               formatDateTime={formatDateTime}
               onSave={handleSaveClienteDatos}
               esperaMontoMessage={MSJ_ESPERA_MONTO_REVISOR}
+              montoAprobado={montoAprobadoEditor}
             />
 
             <SeguimientoOperativoMock

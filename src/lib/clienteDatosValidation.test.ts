@@ -188,16 +188,15 @@ test("validateClienteDatos: porcentaje decimal válido acepta", () => {
   assert.equal(r.isValid, true);
 });
 
-test("validateClienteDatos: sin monto calculado rechaza", () => {
-  const r = validateClienteDatos({ ...baseValid, montoCalculado: "" }, COBRO_CTX);
-  assert.equal(r.errors.montoCalculado, "Monto calculado es obligatorio.");
+test("validateClienteDatos: sin monto aprobado rechaza monto calculado", () => {
+  const r = validateClienteDatos(
+    { ...baseValid, montoCalculado: "" },
+    { montoAprobado: null },
+  );
+  assert.equal(r.errors.montoCalculado, "No hay monto aprobado para calcular el cobro.");
 });
 
-test("validateClienteDatos: monto calculado inválido rechaza", () => {
-  const r = validateClienteDatos({ ...baseValid, montoCalculado: "0" }, COBRO_CTX);
-  assert.equal(r.errors.montoCalculado, "Monto calculado debe ser mayor a 0.");
-});
-
-test("validateClienteDatos: monto calculado se deriva correctamente", () => {
-  assert.equal(calcMontoCalculadoCobro(100_000, 12.5), 12_500);
+test("validateClienteDatos: monto calculado se deriva con base fija", () => {
+  assert.equal(calcMontoCalculadoCobro(166_100.12, 10), 19_610.01);
+  assert.equal(calcMontoCalculadoCobro(100_000, 12.5), 15_500);
 });

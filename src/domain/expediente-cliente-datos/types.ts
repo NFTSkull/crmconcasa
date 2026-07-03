@@ -41,7 +41,7 @@ export type ExpedienteClienteDatos = {
     };
     /** Porcentaje de cobro (captura asesor, ej. "12.5"). */
     porcentajeCobro: string;
-    /** Monto de cobro capturado por asesor (columna `monto_calculado`). */
+    /** Monto calculado derivado (columna `monto_calculado`, solo lectura en UI). */
     montoCalculado: string;
     /** Método de pago (`transferencia`, `efectivo`, `tarjeta`, `otro`). */
     metodoPago: string;

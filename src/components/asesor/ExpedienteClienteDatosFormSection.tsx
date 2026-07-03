@@ -6,6 +6,9 @@ import type { ExpedienteClienteDatos } from "@/domain/expediente-cliente-datos";
 import type { ClienteDatosFieldErrors, ClienteDatosFieldKey } from "@/lib/clienteDatosValidation";
 import {
   CLIENTE_METODO_PAGO_OPTIONS,
+  calcMontoCalculadoCobro,
+  formatMontoMXN,
+  parsePorcentajeCobroInput,
 } from "@/lib/clienteDatosCobro";
 
 type ClienteDatosFormState = ExpedienteClienteDatos["datos"];
@@ -38,6 +41,7 @@ interface ExpedienteClienteDatosFormSectionProps {
   formatDateTime: (iso: string) => string;
   onSave: () => Promise<{ ok: boolean; message?: string }>;
   esperaMontoMessage: string;
+  montoAprobado?: number | null;
 }
 
 function fieldInputClass(hasError: boolean): string {
@@ -90,6 +94,7 @@ export function ExpedienteClienteDatosFormSection({
   formatDateTime,
   onSave,
   esperaMontoMessage,
+  montoAprobado = null,
 }: ExpedienteClienteDatosFormSectionProps) {
   const esCorreccionDatos =
     submittedToMesa && clienteDatosMeta?.estado === "rechazado";
@@ -110,6 +115,8 @@ export function ExpedienteClienteDatosFormSection({
       ? Object.values(fieldErrors).slice(0, 5)
       : [];
 
+  const porcentajeNum = parsePorcentajeCobroInput(clienteDatos.porcentajeCobro);
+  const montoCalculadoPreview = calcMontoCalculadoCobro(montoAprobado, porcentajeNum);
   const montoCalculadoError = err("montoCalculado");
 
   const statusLine = (() => {
@@ -495,7 +502,7 @@ export function ExpedienteClienteDatosFormSection({
         <div className="mt-4 rounded-md border border-gray-200 p-3">
           <p className="text-xs font-semibold text-gray-900">Información de cobro</p>
           <p className="mt-1 text-[11px] text-gray-600">
-            Captura el porcentaje, el monto de cobro y el método de pago.
+            El monto calculado es el porcentaje del monto aprobado más $3,000.
           </p>
           <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
             <DatosField
@@ -526,15 +533,9 @@ export function ExpedienteClienteDatosFormSection({
               showError={showFieldErrors}
             >
               <input
-                type="number"
-                min={0}
-                step="0.01"
-                className={fieldInputClass(Boolean(montoCalculadoError))}
-                value={clienteDatos.montoCalculado}
-                onChange={(e) =>
-                  setClienteDatos((p) => ({ ...p, montoCalculado: e.target.value }))
-                }
-                placeholder="Ej. 2500"
+                readOnly
+                className="rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-sm text-gray-800"
+                value={formatMontoMXN(montoCalculadoPreview)}
               />
             </DatosField>
             <DatosField

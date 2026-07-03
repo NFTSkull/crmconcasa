@@ -27,7 +27,9 @@ export function parseMontoCalculadoInput(raw: string): number | null {
   return n;
 }
 
-/** monto_aprobado × porcentaje / 100, redondeado a 2 decimales. */
+/** monto_aprobado × porcentaje / 100 + $3,000, redondeado a 2 decimales. */
+export const MONTO_CALCULADO_COBRO_BASE_FIJA = 3000;
+
 export function calcMontoCalculadoCobro(
   montoAprobado: number | null | undefined,
   porcentajeCobro: number | null | undefined,
@@ -42,7 +44,11 @@ export function calcMontoCalculadoCobro(
   ) {
     return null;
   }
-  return Math.round(montoAprobado * porcentajeCobro * 100) / 10000;
+  return (
+    Math.round(
+      ((montoAprobado * porcentajeCobro) / 100 + MONTO_CALCULADO_COBRO_BASE_FIJA) * 100,
+    ) / 100
+  );
 }
 
 export function formatMontoMXN(value: number | null | undefined): string {

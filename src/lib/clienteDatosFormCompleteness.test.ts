@@ -60,7 +60,10 @@ test("getClienteDatosCamposFaltantes: formulario vacío lista muchos campos", ()
 });
 
 test("getClienteDatosCamposFaltantes: formulario completo no devuelve faltantes", () => {
-  assert.deepEqual(getClienteDatosCamposFaltantes(completo), []);
+  assert.deepEqual(
+    getClienteDatosCamposFaltantes(completo, { montoAprobado: 100_000 }),
+    [],
+  );
 });
 
 test("getClienteDatosCamposFaltantes: trim — solo espacios cuenta como vacío", () => {
@@ -83,10 +86,9 @@ test("getClienteDatosCamposFaltantes: faltan campos de cobro", () => {
   const sinCobro: ClienteDatosFormShape = {
     ...completo,
     porcentajeCobro: "",
-    montoCalculado: "",
     metodoPago: "",
   };
-  const faltantes = getClienteDatosCamposFaltantes(sinCobro);
+  const faltantes = getClienteDatosCamposFaltantes(sinCobro, { montoAprobado: 100_000 });
   assert.ok(faltantes.includes("Porcentaje de cobro"));
   assert.ok(faltantes.includes("Monto calculado"));
   assert.ok(faltantes.includes("Método de pago"));
