@@ -2,12 +2,19 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   calcMontoCalculadoCobro,
+  parseMontoCalculadoInput,
   parsePorcentajeCobroInput,
 } from "./clienteDatosCobro";
 
 test("parsePorcentajeCobroInput acepta decimales", () => {
   assert.equal(parsePorcentajeCobroInput("12.5"), 12.5);
   assert.equal(parsePorcentajeCobroInput("10"), 10);
+});
+
+test("parseMontoCalculadoInput acepta montos", () => {
+  assert.equal(parseMontoCalculadoInput("2500"), 2500);
+  assert.equal(parseMontoCalculadoInput("$2,500.50"), 2500.5);
+  assert.equal(parseMontoCalculadoInput(""), null);
 });
 
 test("calcMontoCalculadoCobro deriva monto", () => {

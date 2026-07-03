@@ -3,7 +3,7 @@ import type {
   ExpedienteClienteDatos,
   ExpedienteClienteDatosEstado,
 } from "./types";
-import { parsePorcentajeCobroInput } from "@/lib/clienteDatosCobro";
+import { parseMontoCalculadoInput, parsePorcentajeCobroInput } from "@/lib/clienteDatosCobro";
 
 export type SupabaseClienteDatosRow = {
   expediente_id: string;
@@ -149,6 +149,9 @@ export function mapSupabaseRowToExpedienteClienteDatos(
       porcentajeCobro:
         asString(datos.porcentajeCobro) ||
         (row.porcentaje_cobro != null ? String(row.porcentaje_cobro) : ""),
+      montoCalculado:
+        asString(datos.montoCalculado) ||
+        (row.monto_calculado != null ? String(row.monto_calculado) : ""),
       metodoPago: asString(datos.metodoPago) || asString(row.metodo_pago),
     },
     porcentajeCobro: asNumber(row.porcentaje_cobro),
@@ -187,10 +190,15 @@ export function buildSaveClienteDatosRpcPayload(
   p_estado: "completo";
   p_porcentaje_cobro: number;
   p_metodo_pago: string;
+  p_monto_calculado: number;
 } {
   const pct = parsePorcentajeCobroInput(datos.porcentajeCobro);
   if (pct == null) {
     throw new Error("Porcentaje de cobro inválido.");
+  }
+  const monto = parseMontoCalculadoInput(datos.montoCalculado);
+  if (monto == null || monto <= 0) {
+    throw new Error("Monto calculado inválido.");
   }
   const metodo = datos.metodoPago.trim().toLowerCase();
   if (!metodo) {
@@ -226,5 +234,6 @@ export function buildSaveClienteDatosRpcPayload(
     p_estado: "completo",
     p_porcentaje_cobro: pct,
     p_metodo_pago: metodo,
+    p_monto_calculado: monto,
   };
 }

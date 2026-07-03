@@ -47,6 +47,7 @@ describe("mapSupabaseRowToExpedienteClienteDatos", () => {
     assert.equal(domain.datos.nombreCliente, "Marcela");
     assert.equal(domain.datos.referencias[0]?.celular, "5511111111");
     assert.equal(domain.datos.referencias[1]?.celular, "5522222222");
+    assert.equal(domain.datos.montoCalculado, "1875");
     assert.equal(domain.updatedBy, "asesor@concasa.mx");
   });
 });
@@ -75,12 +76,14 @@ describe("buildSaveClienteDatosRpcPayload", () => {
         cp: "01000",
       },
       porcentajeCobro: "10",
+      montoCalculado: "2500",
       metodoPago: "transferencia",
     });
 
     assert.equal(payload.p_expediente_id, "exp-1");
     assert.equal(payload.p_rfc, "xaxx010101000");
     assert.equal(payload.p_porcentaje_cobro, 10);
+    assert.equal(payload.p_monto_calculado, 2500);
     assert.equal(payload.p_metodo_pago, "transferencia");
     assert.equal(payload.p_telefono, "(55) 1234-5678");
     assert.equal(payload.p_estado, "completo");
@@ -114,10 +117,12 @@ describe("buildSaveClienteDatosRpcPayload", () => {
         cp: "01000",
       },
       porcentajeCobro: "10",
+      montoCalculado: "1500",
       metodoPago: "transferencia",
     });
 
     assert.equal(payload.p_rfc, "");
     assert.equal(payload.p_porcentaje_cobro, 10);
+    assert.equal(payload.p_monto_calculado, 1500);
   });
 });

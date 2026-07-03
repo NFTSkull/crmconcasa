@@ -44,7 +44,8 @@ CREATE OR REPLACE FUNCTION public.__rpc_scd_test_call_as(
   p_datos JSONB DEFAULT '{}'::JSONB,
   p_estado public.cliente_datos_estado DEFAULT 'completo',
   p_porcentaje_cobro NUMERIC DEFAULT 10,
-  p_metodo_pago TEXT DEFAULT 'transferencia'
+  p_metodo_pago TEXT DEFAULT 'transferencia',
+  p_monto_calculado NUMERIC DEFAULT 1500
 )
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -55,7 +56,7 @@ BEGIN
   PERFORM public.__rpc_scd_test_set_auth(p_user_id);
   SELECT public.save_cliente_datos(
     p_expediente_id, p_rfc, p_telefono, p_referencias,
-    p_imagenes, p_datos, p_estado, p_porcentaje_cobro, p_metodo_pago
+    p_imagenes, p_datos, p_estado, p_porcentaje_cobro, p_metodo_pago, p_monto_calculado
   ) INTO v_result;
   PERFORM public.__rpc_scd_test_reset_auth();
   RETURN v_result;
@@ -73,7 +74,8 @@ CREATE OR REPLACE FUNCTION public.__rpc_scd_test_expect_fail(
   p_estado public.cliente_datos_estado DEFAULT 'completo',
   p_msg_contains TEXT DEFAULT NULL,
   p_porcentaje_cobro NUMERIC DEFAULT 10,
-  p_metodo_pago TEXT DEFAULT 'transferencia'
+  p_metodo_pago TEXT DEFAULT 'transferencia',
+  p_monto_calculado NUMERIC DEFAULT 1500
 )
 RETURNS BOOLEAN
 LANGUAGE plpgsql
@@ -85,7 +87,7 @@ BEGIN
   BEGIN
     PERFORM public.save_cliente_datos(
       p_expediente_id, p_rfc, p_telefono, p_referencias,
-      p_imagenes, p_datos, p_estado, p_porcentaje_cobro, p_metodo_pago
+      p_imagenes, p_datos, p_estado, p_porcentaje_cobro, p_metodo_pago, p_monto_calculado
     );
     PERFORM public.__rpc_scd_test_reset_auth();
     RETURN false;
@@ -761,13 +763,13 @@ BEGIN
     'test 44 sin metodo pago'
   );
 
-  -- 45. Cobro: calcula monto_calculado (15000 * 12.5% = 1875)
+  -- 45. Cobro: guarda monto_calculado enviado por asesor
   v_result := public.__rpc_scd_test_call_as(
-    v_asesor_a1, v_exp_create, '', '5512345678', '[]'::JSONB, NULL, '{}'::JSONB, 'completo', 12.5, 'efectivo'
+    v_asesor_a1, v_exp_create, '', '5512345678', '[]'::JSONB, NULL, '{}'::JSONB, 'completo', 12.5, 'efectivo', 2500
   );
   PERFORM public.__rpc_scd_test_assert((v_result->>'ok')::BOOLEAN, 'test 45 cobro ok');
   SELECT * INTO v_row FROM public.cliente_datos WHERE expediente_id = v_exp_create;
-  PERFORM public.__rpc_scd_test_assert(v_row.monto_calculado = 1875.00, 'test 45 monto calculado');
+  PERFORM public.__rpc_scd_test_assert(v_row.monto_calculado = 2500.00, 'test 45 monto calculado manual');
   PERFORM public.__rpc_scd_test_assert(v_row.metodo_pago = 'efectivo', 'test 45 metodo pago');
 
   -- 46. Cobro: sin monto aprobado falla

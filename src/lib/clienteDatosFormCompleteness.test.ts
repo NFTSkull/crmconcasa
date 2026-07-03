@@ -23,6 +23,7 @@ const vacio: ClienteDatosFormShape = {
   beneficiario: { nombre: "", parentesco: "" },
   direccionEmpresa: { calle: "", colonia: "", municipio: "", cp: "" },
   porcentajeCobro: "",
+  montoCalculado: "",
   metodoPago: "",
 };
 
@@ -48,6 +49,7 @@ const completo: ClienteDatosFormShape = {
     cp: "01000",
   },
   porcentajeCobro: "10",
+  montoCalculado: "10000",
   metodoPago: "transferencia",
 };
 
@@ -58,10 +60,7 @@ test("getClienteDatosCamposFaltantes: formulario vacío lista muchos campos", ()
 });
 
 test("getClienteDatosCamposFaltantes: formulario completo no devuelve faltantes", () => {
-  assert.deepEqual(
-    getClienteDatosCamposFaltantes(completo, { montoAprobado: 100_000 }),
-    [],
-  );
+  assert.deepEqual(getClienteDatosCamposFaltantes(completo), []);
 });
 
 test("getClienteDatosCamposFaltantes: trim — solo espacios cuenta como vacío", () => {
@@ -75,7 +74,7 @@ test("getClienteDatosCamposFaltantes: trim — solo espacios cuenta como vacío"
 test("getClienteDatosCamposFaltantes: RFC vacío no es faltante", () => {
   const sinRfc: ClienteDatosFormShape = { ...completo, rfc: "" };
   assert.equal(
-    getClienteDatosCamposFaltantes(sinRfc, { montoAprobado: 100_000 }).includes("RFC"),
+    getClienteDatosCamposFaltantes(sinRfc).includes("RFC"),
     false,
   );
 });
@@ -84,10 +83,12 @@ test("getClienteDatosCamposFaltantes: faltan campos de cobro", () => {
   const sinCobro: ClienteDatosFormShape = {
     ...completo,
     porcentajeCobro: "",
+    montoCalculado: "",
     metodoPago: "",
   };
-  const faltantes = getClienteDatosCamposFaltantes(sinCobro, { montoAprobado: 100_000 });
+  const faltantes = getClienteDatosCamposFaltantes(sinCobro);
   assert.ok(faltantes.includes("Porcentaje de cobro"));
+  assert.ok(faltantes.includes("Monto calculado"));
   assert.ok(faltantes.includes("Método de pago"));
 });
 

@@ -1,6 +1,6 @@
 import type { ClienteDatosFormShape } from "@/lib/clienteDatosFormCompleteness";
 import {
-  calcMontoCalculadoCobro,
+  parseMontoCalculadoInput,
   parsePorcentajeCobroInput,
 } from "@/lib/clienteDatosCobro";
 
@@ -90,6 +90,7 @@ export function normalizeClienteDatosForSave(
     curp: String(d.curp ?? "").trim().toUpperCase(),
     rfc: String(d.rfc ?? "").trim().toUpperCase(),
     porcentajeCobro: String(d.porcentajeCobro ?? "").trim(),
+    montoCalculado: String(d.montoCalculado ?? "").trim(),
     metodoPago: String(d.metodoPago ?? "").trim().toLowerCase(),
   };
 }
@@ -133,6 +134,7 @@ export function validateClienteDatos(
   req("direccionCp", data.direccionEmpresa.cp, "CP");
 
   req("porcentajeCobro", data.porcentajeCobro, "Porcentaje de cobro");
+  req("montoCalculado", data.montoCalculado, "Monto calculado");
   req("metodoPago", data.metodoPago, "Método de pago");
 
   if (!errors.porcentajeCobro) {
@@ -146,28 +148,16 @@ export function validateClienteDatos(
     }
   }
 
-  const montoAprobado = ctx.montoAprobado;
-  const pctVal = parsePorcentajeCobroInput(data.porcentajeCobro);
-  if (
-    !errors.montoCalculado &&
-    pctVal != null &&
-    pctVal > 0 &&
-    (montoAprobado == null || !Number.isFinite(montoAprobado) || montoAprobado <= 0)
-  ) {
-    setError(
-      errors,
-      "montoCalculado",
-      "No hay monto aprobado para calcular el cobro.",
-    );
-  } else if (
-    !errors.montoCalculado &&
-    pctVal != null &&
-    pctVal > 0 &&
-    montoAprobado != null &&
-    calcMontoCalculadoCobro(montoAprobado, pctVal) == null
-  ) {
-    setError(errors, "montoCalculado", "No se pudo calcular el monto de cobro.");
+  if (!errors.montoCalculado) {
+    const monto = parseMontoCalculadoInput(data.montoCalculado);
+    if (monto == null) {
+      setError(errors, "montoCalculado", "Monto calculado no es válido.");
+    } else if (monto <= 0) {
+      setError(errors, "montoCalculado", "Monto calculado debe ser mayor a 0.");
+    }
   }
+
+  void ctx;
 
   if (!errors.nss && !/^\d{11}$/.test(data.nss.replace(/\D/g, ""))) {
     setError(errors, "nss", "NSS debe tener 11 dígitos.");

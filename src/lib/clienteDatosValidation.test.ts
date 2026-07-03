@@ -32,6 +32,7 @@ const baseValid: ClienteDatosFormShape = {
     cp: "64000",
   },
   porcentajeCobro: "10",
+  montoCalculado: "10000",
   metodoPago: "transferencia",
 };
 
@@ -187,9 +188,14 @@ test("validateClienteDatos: porcentaje decimal válido acepta", () => {
   assert.equal(r.isValid, true);
 });
 
-test("validateClienteDatos: sin monto aprobado bloquea monto calculado", () => {
-  const r = validateClienteDatos(baseValid, { montoAprobado: null });
-  assert.match(r.errors.montoCalculado ?? "", /monto aprobado/i);
+test("validateClienteDatos: sin monto calculado rechaza", () => {
+  const r = validateClienteDatos({ ...baseValid, montoCalculado: "" }, COBRO_CTX);
+  assert.equal(r.errors.montoCalculado, "Monto calculado es obligatorio.");
+});
+
+test("validateClienteDatos: monto calculado inválido rechaza", () => {
+  const r = validateClienteDatos({ ...baseValid, montoCalculado: "0" }, COBRO_CTX);
+  assert.equal(r.errors.montoCalculado, "Monto calculado debe ser mayor a 0.");
 });
 
 test("validateClienteDatos: monto calculado se deriva correctamente", () => {

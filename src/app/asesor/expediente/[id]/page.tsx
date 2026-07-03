@@ -72,6 +72,7 @@ const EMPTY_CLIENTE_DATOS: ClienteDatosFormState = {
   beneficiario: { nombre: "", parentesco: "" },
   direccionEmpresa: { calle: "", colonia: "", municipio: "", cp: "" },
   porcentajeCobro: "",
+  montoCalculado: "",
   metodoPago: "",
 };
 
@@ -521,6 +522,9 @@ export default function AsesorExpedientePage() {
         porcentajeCobro:
           found.datos.porcentajeCobro ||
           (found.porcentajeCobro != null ? String(found.porcentajeCobro) : ""),
+        montoCalculado:
+          found.datos.montoCalculado ||
+          (found.montoCalculado != null ? String(found.montoCalculado) : ""),
         metodoPago: found.datos.metodoPago || found.metodoPago || "",
       });
       setClienteDatosMeta({
@@ -909,7 +913,6 @@ export default function AsesorExpedientePage() {
               formatDateTime={formatDateTime}
               onSave={handleSaveClienteDatos}
               esperaMontoMessage={MSJ_ESPERA_MONTO_REVISOR}
-              montoAprobado={montoAprobadoEditor}
             />
             <div className="rounded-lg border border-gray-200 bg-white p-4 text-sm text-gray-600">
               <p className="text-sm font-semibold text-gray-900">
@@ -1085,7 +1088,6 @@ export default function AsesorExpedientePage() {
               formatDateTime={formatDateTime}
               onSave={handleSaveClienteDatos}
               esperaMontoMessage={MSJ_ESPERA_MONTO_REVISOR}
-              montoAprobado={montoAprobadoEditor}
             />
 
             <SeguimientoOperativoMock

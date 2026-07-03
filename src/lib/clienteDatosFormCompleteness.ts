@@ -1,8 +1,5 @@
 import type { ExpedienteClienteDatos } from "@/domain/expediente-cliente-datos";
-import {
-  calcMontoCalculadoCobro,
-  parsePorcentajeCobroInput,
-} from "@/lib/clienteDatosCobro";
+import { parseMontoCalculadoInput } from "@/lib/clienteDatosCobro";
 
 export type ClienteDatosFormShape = ExpedienteClienteDatos["datos"];
 
@@ -41,13 +38,16 @@ export function getClienteDatosCamposFaltantes(
   req("Dirección empresa — municipio", d.direccionEmpresa.municipio);
   req("Dirección empresa — CP", d.direccionEmpresa.cp);
   req("Porcentaje de cobro", d.porcentajeCobro);
+  req("Monto calculado", d.montoCalculado);
   req("Método de pago", d.metodoPago);
 
-  const pct = parsePorcentajeCobroInput(d.porcentajeCobro);
-  const monto = calcMontoCalculadoCobro(ctx.montoAprobado, pct);
-  if (monto == null || monto <= 0) {
-    missing.push("Monto calculado");
+  if (String(d.montoCalculado).trim()) {
+    const monto = parseMontoCalculadoInput(d.montoCalculado);
+    if (monto == null || monto <= 0) {
+      missing.push("Monto calculado");
+    }
   }
 
+  void ctx;
   return missing;
 }

@@ -7,6 +7,7 @@ import type {
   SaveExpedienteClienteDatosInput,
   UpdateEstadoExpedienteClienteDatosInput,
 } from "./types";
+import { parseMontoCalculadoInput } from "@/lib/clienteDatosCobro";
 
 const STORAGE_KEY = "expediente_cliente_datos";
 const EVENT_NAME = "expediente_cliente_datos_updated";
@@ -83,8 +84,11 @@ function rowToDomain(row: StoredRow): ExpedienteClienteDatos | null {
     rfc: typeof rawDatos.rfc === "string" ? rawDatos.rfc : "",
     porcentajeCobro:
       typeof rawDatos.porcentajeCobro === "string" ? rawDatos.porcentajeCobro : "",
+    montoCalculado:
+      typeof rawDatos.montoCalculado === "string" ? rawDatos.montoCalculado : "",
     metodoPago: typeof rawDatos.metodoPago === "string" ? rawDatos.metodoPago : "",
   };
+  const montoParsed = parseMontoCalculadoInput(datos.montoCalculado);
   const updatedAt = typeof row.updatedAt === "string" ? row.updatedAt : new Date().toISOString();
   const updatedBy = typeof row.updatedBy === "string" ? row.updatedBy : "unknown";
   const comentarioRechazo =
@@ -110,6 +114,13 @@ function rowToDomain(row: StoredRow): ExpedienteClienteDatos | null {
   return {
     expedienteId,
     datos,
+    porcentajeCobro:
+      typeof row.porcentajeCobro === "number" ? row.porcentajeCobro : null,
+    montoCalculado:
+      montoParsed ??
+      (typeof row.montoCalculado === "number" ? row.montoCalculado : null),
+    metodoPago:
+      typeof row.metodoPago === "string" ? row.metodoPago : datos.metodoPago || null,
     estado: normalizeEstado(row.estado),
     comentarioRechazo,
     validatedAt,
@@ -157,9 +168,12 @@ export class MockExpedienteClienteDatosLocalStorageRepo implements ExpedienteCli
     }) as StoredRow | undefined;
     const existingDomain = existing ? rowToDomain(existing) : null;
 
+    const montoParsed = parseMontoCalculadoInput(input.datos.montoCalculado);
+
     const next: ExpedienteClienteDatos = {
       expedienteId: input.expedienteId,
       datos: input.datos,
+      montoCalculado: montoParsed,
       estado: "completo",
       comentarioRechazo: existingDomain?.comentarioRechazo,
       validatedAt: existingDomain?.validatedAt,

@@ -16,6 +16,17 @@ export function parsePorcentajeCobroInput(raw: string): number | null {
   return n;
 }
 
+export function parseMontoCalculadoInput(raw: string): number | null {
+  const v = String(raw ?? "")
+    .trim()
+    .replace(/\$/g, "")
+    .replace(/,/g, "");
+  if (!v) return null;
+  const n = Number(v);
+  if (!Number.isFinite(n)) return null;
+  return n;
+}
+
 /** monto_aprobado × porcentaje / 100, redondeado a 2 decimales. */
 export function calcMontoCalculadoCobro(
   montoAprobado: number | null | undefined,

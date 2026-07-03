@@ -66,6 +66,7 @@ test("ExpedienteClienteDatos: shape mínimo válido", () => {
         cp: "01000",
       },
       porcentajeCobro: "10",
+      montoCalculado: "1500",
       metodoPago: "transferencia",
     },
     estado: "completo",

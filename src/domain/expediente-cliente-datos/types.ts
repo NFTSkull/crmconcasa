@@ -41,13 +41,15 @@ export type ExpedienteClienteDatos = {
     };
     /** Porcentaje de cobro (captura asesor, ej. "12.5"). */
     porcentajeCobro: string;
+    /** Monto de cobro capturado por asesor (columna `monto_calculado`). */
+    montoCalculado: string;
     /** Método de pago (`transferencia`, `efectivo`, `tarjeta`, `otro`). */
     metodoPago: string;
   };
 
   /** Columna `porcentaje_cobro` (lectura). */
   porcentajeCobro?: number | null;
-  /** Columna `monto_calculado` (servidor). */
+  /** Columna `monto_calculado` (lectura). */
   montoCalculado?: number | null;
   /** Columna `metodo_pago` (lectura). */
   metodoPago?: string | null;
