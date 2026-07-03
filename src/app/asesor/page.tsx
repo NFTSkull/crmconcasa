@@ -272,6 +272,8 @@ export default function AsesorDashboardPage() {
       list = list.filter(
         (p) =>
           (p.cliente_nombre ?? "").toLowerCase().includes(term) ||
+          (p.nss ?? "").replace(/\D/g, "").includes(term.replace(/\D/g, "")) ||
+          (p.nss ?? "").toLowerCase().includes(term) ||
           (p.telefono_cliente ?? "")
             .replace(/\D/g, "")
             .includes(term.replace(/\D/g, "")) ||
@@ -525,7 +527,7 @@ export default function AsesorDashboardPage() {
                 onChange={(e) =>
                   setFilters((prev) => ({ ...prev, buscar: e.target.value }))
                 }
-                placeholder="Buscar cliente, teléfono o programa…"
+                placeholder="Buscar cliente, NSS, teléfono o programa..."
                 className="w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
             </div>
@@ -768,11 +770,14 @@ export default function AsesorDashboardPage() {
                 </p>
               </div>
             ) : (
-              <table className="min-w-[760px] w-full divide-y divide-gray-200 text-xs">
+              <table className="min-w-[820px] w-full divide-y divide-gray-200 text-xs">
                 <thead className="bg-gray-50">
                   <tr>
                     <th className="px-2 py-1.5 text-left font-semibold uppercase tracking-wide text-gray-500">
                       Cliente
+                    </th>
+                    <th className="px-2 py-1.5 text-left font-semibold uppercase tracking-wide text-gray-500">
+                      NSS
                     </th>
                     <th className="px-2 py-1.5 text-left font-semibold uppercase tracking-wide text-gray-500">
                       Programa
@@ -888,6 +893,9 @@ export default function AsesorDashboardPage() {
                         >
                           <td className="max-w-[140px] truncate px-2 py-1.5 font-medium text-gray-900">
                             {p.cliente_nombre || "—"}
+                          </td>
+                          <td className="whitespace-nowrap px-2 py-1.5 font-mono text-[10px] tabular-nums text-gray-600 sm:text-xs">
+                            {p.nss?.trim() || "—"}
                           </td>
                           <td className="max-w-[100px] truncate px-2 py-1.5 text-gray-600">
                             {p.programa}
