@@ -8,6 +8,7 @@ import type {
   UpdateEstadoExpedienteClienteDatosInput,
 } from "./types";
 import { parseMontoCalculadoInput } from "@/lib/clienteDatosCobro";
+import { emitExpedienteClienteDatosUpdated } from "./emit-updated";
 
 const STORAGE_KEY = "expediente_cliente_datos";
 const EVENT_NAME = "expediente_cliente_datos_updated";
@@ -133,12 +134,7 @@ function rowToDomain(row: StoredRow): ExpedienteClienteDatos | null {
 }
 
 function dispatchUpdated(expedienteId: string): void {
-  if (typeof window === "undefined") return;
-  window.dispatchEvent(
-    new CustomEvent(EVENT_NAME, {
-      detail: { expedienteId },
-    }),
-  );
+  emitExpedienteClienteDatosUpdated(expedienteId);
 }
 
 export class MockExpedienteClienteDatosLocalStorageRepo implements ExpedienteClienteDatosRepo {
@@ -152,6 +148,27 @@ export class MockExpedienteClienteDatosLocalStorageRepo implements ExpedienteCli
       return obj.expedienteId === expedienteId;
     }) as StoredRow | undefined;
     return found ? rowToDomain(found) : null;
+  }
+
+  async listEstadoByExpedienteIds(
+    expedienteIds: readonly string[],
+  ): Promise<Record<string, ExpedienteClienteDatosEstado>> {
+    const wanted = new Set(
+      expedienteIds.map((id) => String(id).trim()).filter(Boolean),
+    );
+    if (wanted.size === 0 || typeof window === "undefined") return {};
+
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const arr = safeParseArray(raw);
+    const out: Record<string, ExpedienteClienteDatosEstado> = {};
+    for (const x of arr) {
+      if (!x || typeof x !== "object") continue;
+      const obj = x as StoredRow;
+      const expedienteId = typeof obj.expedienteId === "string" ? obj.expedienteId : null;
+      if (!expedienteId || !wanted.has(expedienteId)) continue;
+      out[expedienteId] = normalizeEstado(obj.estado);
+    }
+    return out;
   }
 
   async save(input: SaveExpedienteClienteDatosInput): Promise<ExpedienteClienteDatos> {

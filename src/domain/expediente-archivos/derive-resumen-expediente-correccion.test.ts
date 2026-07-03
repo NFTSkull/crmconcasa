@@ -1,0 +1,63 @@
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+import { deriveResumenExpedienteCorreccion } from "./derive-resumen-expediente-correccion";
+import type { ExpedienteArchivoResumen } from "./types";
+
+function row(
+  tipo: ExpedienteArchivoResumen["tipo_documento"],
+  estatus: ExpedienteArchivoResumen["estatus_revision"],
+): ExpedienteArchivoResumen {
+  return {
+    expediente_id: "exp-1",
+    tipo_documento: tipo,
+    id: `${estatus}-${tipo}`,
+    nombre_original: "x",
+    mime_type: "application/pdf",
+    size_bytes: 1,
+    created_at: new Date().toISOString(),
+    uploaded_by_role: "asesor",
+    uploaded_by_email: "a@b.c",
+    estatus_revision: estatus,
+    comentario_mesa: null,
+  };
+}
+
+describe("deriveResumenExpedienteCorreccion", () => {
+  const todosValidados = [
+    row("ine", "validado"),
+    row("estado_cuenta", "validado"),
+    row("nss", "validado"),
+    row("direccion", "validado"),
+  ];
+
+  it("prioriza faltantes documentales aunque datos estén rechazados", () => {
+    assert.equal(
+      deriveResumenExpedienteCorreccion(
+        [row("ine", "faltante"), row("estado_cuenta", "validado"), row("nss", "validado"), row("direccion", "validado")],
+        "rechazado",
+      ),
+      "faltantes",
+    );
+  });
+
+  it("marca corrección requerida cuando datos generales están rechazados", () => {
+    assert.equal(
+      deriveResumenExpedienteCorreccion(todosValidados, "rechazado"),
+      "correccion_requerida",
+    );
+  });
+
+  it("delega al resumen documental si datos no están rechazados", () => {
+    assert.equal(
+      deriveResumenExpedienteCorreccion(todosValidados, "completo"),
+      "documentos_validados",
+    );
+    assert.equal(
+      deriveResumenExpedienteCorreccion(
+        [row("ine", "rechazado"), ...todosValidados.slice(1)],
+        "completo",
+      ),
+      "correccion_requerida",
+    );
+  });
+});

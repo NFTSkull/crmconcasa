@@ -75,6 +75,7 @@ export {
   EXPEDIENTE_DOCUMENTO_MAX_MB,
   validateExpedienteDocumentoFile,
 } from "./upload-constraints";
+export { deriveResumenExpedienteCorreccion } from "./derive-resumen-expediente-correccion";
 export * from "./types";
 export * from "./repo";
 export * from "./checklist";

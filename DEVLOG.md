@@ -1,5 +1,21 @@
 # Devlog
 
+## 2026-07-03 - fix/mesa-rechazo-datos-generales: bandejas reconocen rechazo de Datos Generales
+
+### Diagnóstico
+
+- `update_cliente_datos_revision` solo actualiza `cliente_datos` (estado `rechazado`, motivo, `action_log`); **no** cambia `expedientes.subestado`.
+- Bandejas Mesa/Asesor derivan corrección con `deriveResumenDocumental` (solo documentos base); rechazo de datos quedaba huérfano: detalle Mesa sí lo mostraba, KPIs/filtros no.
+
+### Decisión
+
+- Mismo patrón que corrección documental (DEVLOG P3J): **no** mover `subestado` del expediente; extender derivación con `deriveResumenExpedienteCorreccion(resumen, clienteDatosEstado)`.
+- `cliente_datos.estado === 'rechazado'` → categoría `correccion_requerida` para KPIs/filtros/estilo de fila.
+- «En validación mesa» excluye `correccion_requerida` y `correccion_enviada` (alineado con intención documental).
+- Lectura batch `listEstadoByExpedienteIds` en repos mock/Supabase; Supabase emite `expediente_cliente_datos_updated` tras `updateEstado` / `save` / `saveCorreccion`.
+- Dashboard asesor usa `useExpedienteArchivosRepo` (antes forzaba mock IndexedDB en Supabase).
+- Sin migración ni cambio a RPC `update_cliente_datos_revision`; flujo asesor `save_cliente_datos_correccion` intacto.
+
 ## 2026-07-03 - fix/mesa-asesor-monto-direccion: etiqueta asesor, monto vigente, dirección obligatoria
 
 ### Decisión

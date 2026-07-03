@@ -23,10 +23,13 @@ import {
   type ExpedienteMock,
 } from "@/domain/expedientes";
 import {
-  deriveResumenDocumental,
+  deriveResumenExpedienteCorreccion,
   useExpedienteArchivosRepo,
   type CategoriaResumenDocumental,
+  type ExpedienteArchivoResumen,
 } from "@/domain/expediente-archivos";
+import { useExpedienteClienteDatosRepo } from "@/domain/expediente-cliente-datos";
+import { EXPEDIENTE_CLIENTE_DATOS_UPDATED_EVENT } from "@/domain/expediente-cliente-datos/emit-updated";
 import { isDataModeSupabase } from "@/lib/dataMode";
 import {
   subestadoOperativoBadgeClass,
@@ -199,6 +202,7 @@ export default function MesaControlPage() {
   const { sessionRepo, currentUser } = useSessionRepo();
   const repo = useExpedientesRepo();
   const archivosRepo = useExpedienteArchivosRepo();
+  const clienteDatosRepo = useExpedienteClienteDatosRepo();
   const mesaOpsRepo = useMesaOpsRepo();
   const dataSupabase = isDataModeSupabase();
   const [casos, setCasos] = useState<CasoConDocs[]>([]);
@@ -285,16 +289,33 @@ export default function MesaControlPage() {
             typeof rawFe === "string" && rawFe.trim() !== "" ? rawFe : undefined;
           return fechaEnvioMesa !== undefined ? { ...c, fechaEnvioMesa } : c;
         });
-        const enriched: CasoConDocs[] = await Promise.all(
-          base.map(async (c) => {
-            try {
-              const r = await archivosRepo.listResumenByExpediente(c.id);
-              return { ...c, resumenDocumental: deriveResumenDocumental(r) };
-            } catch {
-              return { ...c, resumenDocumental: "faltantes" };
-            }
-          }),
-        );
+        const enriched: CasoConDocs[] = await (async () => {
+          const resumenEntries = await Promise.all(
+            base.map(async (c) => {
+              try {
+                const r = await archivosRepo.listResumenByExpediente(c.id);
+                return [c.id, r] as const;
+              } catch {
+                return [c.id, [] as ExpedienteArchivoResumen[]] as const;
+              }
+            }),
+          );
+          let estadosPorId: Record<string, import("@/domain/expediente-cliente-datos/types").ExpedienteClienteDatosEstado> =
+            {};
+          try {
+            estadosPorId = await clienteDatosRepo.listEstadoByExpedienteIds(base.map((c) => c.id));
+          } catch {
+            estadosPorId = {};
+          }
+          const resumenMap = new Map(resumenEntries);
+          return base.map((c) => ({
+            ...c,
+            resumenDocumental: deriveResumenExpedienteCorreccion(
+              resumenMap.get(c.id) ?? [],
+              estadosPorId[c.id] ?? null,
+            ),
+          }));
+        })();
         const sorted = sortMesaBandejaPorAntiguedad(enriched);
         if (mesaOpsRepo) {
           try {
@@ -324,7 +345,7 @@ export default function MesaControlPage() {
         setLoading(false);
       }
     })();
-  }, [archivosRepo, currentUser, dataSupabase, mapExpToCaso, mesaOpsRepo, repo]);
+  }, [archivosRepo, clienteDatosRepo, currentUser, dataSupabase, mapExpToCaso, mesaOpsRepo, repo]);
 
   useEffect(() => {
     if (!mesaOpsRepo) {
@@ -339,16 +360,25 @@ export default function MesaControlPage() {
     loadCasos();
     if (dataSupabase || typeof window === "undefined") {
       const archivosHandler = () => loadCasos();
+      const clienteDatosHandler = () => loadCasos({ silencioso: true });
       const mesaOpsHandler = () => loadCasos({ silencioso: true });
       window.addEventListener(
         "expediente_archivos_updated",
         archivosHandler as EventListener,
+      );
+      window.addEventListener(
+        EXPEDIENTE_CLIENTE_DATOS_UPDATED_EVENT,
+        clienteDatosHandler as EventListener,
       );
       window.addEventListener(MESA_OPS_UPDATED_EVENT, mesaOpsHandler as EventListener);
       return () => {
         window.removeEventListener(
           "expediente_archivos_updated",
           archivosHandler as EventListener,
+        );
+        window.removeEventListener(
+          EXPEDIENTE_CLIENTE_DATOS_UPDATED_EVENT,
+          clienteDatosHandler as EventListener,
         );
         window.removeEventListener(MESA_OPS_UPDATED_EVENT, mesaOpsHandler as EventListener);
       };
@@ -360,11 +390,16 @@ export default function MesaControlPage() {
     const customHandler = () => loadCasos();
 
     const archivosHandler = () => loadCasos();
+    const clienteDatosHandler = () => loadCasos({ silencioso: true });
     const mesaOpsHandler = () => loadCasos({ silencioso: true });
 
     window.addEventListener("storage", storageHandler);
     window.addEventListener("mesa_control_inbox_updated", customHandler);
     window.addEventListener("expediente_archivos_updated", archivosHandler as EventListener);
+    window.addEventListener(
+      EXPEDIENTE_CLIENTE_DATOS_UPDATED_EVENT,
+      clienteDatosHandler as EventListener,
+    );
     window.addEventListener(MESA_OPS_UPDATED_EVENT, mesaOpsHandler as EventListener);
     return () => {
       window.removeEventListener("storage", storageHandler);
@@ -372,6 +407,10 @@ export default function MesaControlPage() {
       window.removeEventListener(
         "expediente_archivos_updated",
         archivosHandler as EventListener,
+      );
+      window.removeEventListener(
+        EXPEDIENTE_CLIENTE_DATOS_UPDATED_EVENT,
+        clienteDatosHandler as EventListener,
       );
       window.removeEventListener(MESA_OPS_UPDATED_EVENT, mesaOpsHandler as EventListener);
     };
@@ -390,7 +429,10 @@ export default function MesaControlPage() {
     const enProceso = casos.filter((c) => c.subestado === "en_proceso").length;
     const rechazadosOperativo = casos.filter((c) => c.subestado === "rechazado").length;
     const enValidacionMesa = casos.filter(
-      (c) => c.subestado === "en_validacion_mesa",
+      (c) =>
+        c.subestado === "en_validacion_mesa" &&
+        c.resumenDocumental !== "correccion_requerida" &&
+        c.resumenDocumental !== "correccion_enviada",
     ).length;
     const totalBandeja = casos.length;
     return {
@@ -609,7 +651,7 @@ export default function MesaControlPage() {
               {kpis.bloqueadosRechazados}
             </p>
             <p className="mt-0.5 text-[10px] text-red-800/75">
-              Rechazo mesa o corrección doc. requerida
+              Rechazo mesa o corrección doc./datos requerida
             </p>
           </div>
           <div className="rounded-xl border border-purple-200/70 bg-gradient-to-br from-purple-50/70 to-white p-3 shadow-sm ring-1 ring-purple-100/50">

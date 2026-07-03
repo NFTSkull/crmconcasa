@@ -17,6 +17,8 @@ import { mapSaveClienteDatosRpcError } from "./save-cliente-datos-rpc-error";
 import { mapSaveClienteDatosCorreccionRpcError } from "./save-cliente-datos-correccion-rpc-error";
 import { mapUpdateClienteDatosRevisionRpcError } from "./update-cliente-datos-revision-rpc-error";
 import { ClienteDatosSupabaseError } from "./supabase.error";
+import { emitExpedienteClienteDatosUpdated } from "./emit-updated";
+import type { ExpedienteClienteDatosEstado } from "./types";
 
 const CLIENTE_DATOS_SELECT = `
   expediente_id,
@@ -88,6 +90,44 @@ export class SupabaseExpedienteClienteDatosRepo implements ExpedienteClienteDato
     return mapSupabaseRowToExpedienteClienteDatos(data as SupabaseClienteDatosRow);
   }
 
+  async listEstadoByExpedienteIds(
+    expedienteIds: readonly string[],
+  ): Promise<Record<string, ExpedienteClienteDatosEstado>> {
+    const ids = [
+      ...new Set(expedienteIds.map((id) => String(id).trim()).filter(Boolean)),
+    ];
+    if (ids.length === 0) return {};
+
+    const { client } = await requireSupabaseSession();
+    const { data, error } = await client
+      .from("cliente_datos")
+      .select("expediente_id, estado")
+      .in("expediente_id", ids);
+
+    if (error) {
+      throw new ClienteDatosSupabaseError(
+        "No se pudieron cargar los estados de datos del cliente.",
+      );
+    }
+
+    const out: Record<string, ExpedienteClienteDatosEstado> = {};
+    for (const row of data ?? []) {
+      const expId = String((row as { expediente_id?: unknown }).expediente_id ?? "").trim();
+      const estado = (row as { estado?: unknown }).estado;
+      if (
+        !expId ||
+        (estado !== "pendiente" &&
+          estado !== "completo" &&
+          estado !== "validado" &&
+          estado !== "rechazado")
+      ) {
+        continue;
+      }
+      out[expId] = estado;
+    }
+    return out;
+  }
+
   async save(input: SaveExpedienteClienteDatosInput): Promise<ExpedienteClienteDatos> {
     const idNorm = String(input.expedienteId).trim();
     if (!idNorm) {
@@ -113,6 +153,8 @@ export class SupabaseExpedienteClienteDatosRepo implements ExpedienteClienteDato
         "Los datos se guardaron pero no pudieron recargarse. Actualiza la página.",
       );
     }
+
+    emitExpedienteClienteDatosUpdated(idNorm);
 
     return {
       ...saved,
@@ -146,6 +188,8 @@ export class SupabaseExpedienteClienteDatosRepo implements ExpedienteClienteDato
         "Los datos se guardaron pero no pudieron recargarse. Actualiza la página.",
       );
     }
+
+    emitExpedienteClienteDatosUpdated(idNorm);
 
     return {
       ...saved,
@@ -186,6 +230,8 @@ export class SupabaseExpedienteClienteDatosRepo implements ExpedienteClienteDato
     if (error) {
       throw mapUpdateClienteDatosRevisionRpcError(error);
     }
+
+    emitExpedienteClienteDatosUpdated(idNorm);
 
     return this.getByExpedienteId(idNorm);
   }

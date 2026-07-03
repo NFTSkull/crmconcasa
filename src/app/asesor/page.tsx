@@ -18,12 +18,17 @@ import {
 import { isDataModeSupabase } from "@/lib/dataMode";
 import {
   deriveEstadoDocumentacionColumnaAsesor,
-  deriveResumenDocumental,
-  MockExpedienteArchivosIndexedDbRepo,
+  deriveResumenExpedienteCorreccion,
+  useExpedienteArchivosRepo,
   type CategoriaResumenDocumental,
   type EstadoDocumentacionColumnaAsesor,
   type ExpedienteArchivoResumen,
 } from "@/domain/expediente-archivos";
+import {
+  useExpedienteClienteDatosRepo,
+  type ExpedienteClienteDatosEstado,
+} from "@/domain/expediente-cliente-datos";
+import { EXPEDIENTE_CLIENTE_DATOS_UPDATED_EVENT } from "@/domain/expediente-cliente-datos/emit-updated";
 import {
   subestadoOperativoBadgeClass,
   subestadoOperativoLabel,
@@ -171,13 +176,17 @@ export default function AsesorDashboardPage() {
   const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false);
   const repo = useExpedientesRepo();
   const dataSupabase = isDataModeSupabase();
-  const archivosRepo = useMemo(() => new MockExpedienteArchivosIndexedDbRepo(), []);
+  const archivosRepo = useExpedienteArchivosRepo();
+  const clienteDatosRepo = useExpedienteClienteDatosRepo();
   const [mockPrecalList, setMockPrecalList] = useState<
     PrecalificacionMockLocal[]
   >([]);
   const [listError, setListError] = useState<string | null>(null);
   const [resumenArchivosPorId, setResumenArchivosPorId] = useState<
     Record<string, ExpedienteArchivoResumen[] | undefined>
+  >({});
+  const [clienteDatosEstadoPorId, setClienteDatosEstadoPorId] = useState<
+    Record<string, ExpedienteClienteDatosEstado | undefined>
   >({});
   const expedienteIdsRef = useRef<string[]>([]);
 
@@ -186,10 +195,13 @@ export default function AsesorDashboardPage() {
     for (const p of mockPrecalList) {
       const r = resumenArchivosPorId[p.id];
       if (!r) continue;
-      out[p.id] = deriveResumenDocumental(r);
+      out[p.id] = deriveResumenExpedienteCorreccion(
+        r,
+        clienteDatosEstadoPorId[p.id] ?? null,
+      );
     }
     return out;
-  }, [mockPrecalList, resumenArchivosPorId]);
+  }, [mockPrecalList, resumenArchivosPorId, clienteDatosEstadoPorId]);
 
   const mapExpedienteToLegacy = useCallback((e: ExpedienteMock): PrecalificacionMockLocal => {
     return {
@@ -237,6 +249,25 @@ export default function AsesorDashboardPage() {
     [archivosRepo],
   );
 
+  const fetchClienteDatosEstadoPorIds = useCallback(
+    async (ids: string[]) => {
+      if (typeof window === "undefined" || ids.length === 0) return;
+      try {
+        const estados = await clienteDatosRepo.listEstadoByExpedienteIds(ids);
+        setClienteDatosEstadoPorId((prev) => {
+          const next = { ...prev };
+          for (const id of ids) {
+            next[id] = estados[id];
+          }
+          return next;
+        });
+      } catch {
+        // Sin estados: la bandeja sigue con resumen solo documental.
+      }
+    },
+    [clienteDatosRepo],
+  );
+
   const reloadPrecalificaciones = useCallback(() => {
     if (!currentUser) return;
     void repo
@@ -246,7 +277,9 @@ export default function AsesorDashboardPage() {
         setMockPrecalList(mapped);
         setListError(null);
         expedienteIdsRef.current = mapped.map((p) => p.id);
-        void fetchResumenArchivosPorIds(mapped.map((p) => p.id));
+        const ids = mapped.map((p) => p.id);
+        void fetchResumenArchivosPorIds(ids);
+        void fetchClienteDatosEstadoPorIds(ids);
       })
       .catch((err) => {
         setMockPrecalList([]);
@@ -257,7 +290,7 @@ export default function AsesorDashboardPage() {
           setListError("No se pudo cargar el listado de expedientes.");
         }
       });
-  }, [currentUser, repo, mapExpedienteToLegacy, fetchResumenArchivosPorIds]);
+  }, [currentUser, repo, mapExpedienteToLegacy, fetchResumenArchivosPorIds, fetchClienteDatosEstadoPorIds]);
 
   const programasUnicos = useMemo(() => {
     const set = new Set(mockPrecalList.map((p) => (p.programa ?? "").trim()).filter(Boolean));
@@ -395,10 +428,23 @@ export default function AsesorDashboardPage() {
         void fetchResumenArchivosPorIds(expedienteIdsRef.current);
       }
     };
+    const clienteDatosHandler = (e: Event) => {
+      const ce = e as CustomEvent<{ expedienteId?: string | null }>;
+      const expId = ce.detail?.expedienteId;
+      if (expId) {
+        void fetchClienteDatosEstadoPorIds([expId]);
+      } else {
+        void fetchClienteDatosEstadoPorIds(expedienteIdsRef.current);
+      }
+    };
     window.addEventListener("storage", storageHandler);
     window.addEventListener("decisions_mock_updated", customHandler);
     window.addEventListener("mesa_control_inbox_updated", customHandler);
     window.addEventListener("expediente_archivos_updated", archivosHandler as EventListener);
+    window.addEventListener(
+      EXPEDIENTE_CLIENTE_DATOS_UPDATED_EVENT,
+      clienteDatosHandler as EventListener,
+    );
     return () => {
       window.removeEventListener("storage", storageHandler);
       window.removeEventListener("decisions_mock_updated", customHandler);
@@ -407,8 +453,12 @@ export default function AsesorDashboardPage() {
         "expediente_archivos_updated",
         archivosHandler as EventListener,
       );
+      window.removeEventListener(
+        EXPEDIENTE_CLIENTE_DATOS_UPDATED_EVENT,
+        clienteDatosHandler as EventListener,
+      );
     };
-  }, [reloadPrecalificaciones, fetchResumenArchivosPorIds]);
+  }, [reloadPrecalificaciones, fetchResumenArchivosPorIds, fetchClienteDatosEstadoPorIds]);
 
   if (currentUser === undefined) {
     return (
