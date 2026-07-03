@@ -48,6 +48,12 @@ export function mapEnviarAMesaRpcError(error: {
     return new ExpedientesSupabaseError("Este expediente ya fue enviado a Mesa.");
   }
 
+  if (msg.includes("nss_ya_bloqueado") || msg.includes("nss ya tiene un expediente enviado a mesa")) {
+    return new ExpedientesSupabaseError(
+      "Este NSS ya tiene un expediente enviado a Mesa.",
+    );
+  }
+
   if (msg.includes("falta decisión del editor")) {
     return new ExpedientesSupabaseError(
       "Falta registrar un monto aprobado mayor a cero antes del envío.",

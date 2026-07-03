@@ -1,5 +1,13 @@
 # Devlog
 
+## 2026-07-03 - fix/nss-lock-after-mesa: NSS libre hasta envío a Mesa
+
+### Decisión
+
+- Un NSS solo bloquea creación/envío cuando **otro** expediente activo con mismo NSS/programa tiene `cliente_datos` y `submitted_to_mesa = true`.
+- Migración **049**: `normalize_nss_mexico`, `nss_bloqueado_en_mesa`; reemplaza índice `expedientes_nss_programa_activo_unique` por uno parcial solo en enviados a Mesa.
+- Sin cambios a UI salvo mapeo de error en repos; sin documentos, cobro, INE, Mesa ops, RLS.
+
 ## 2026-07-03 - fix/monto-calculado-automatico: fórmula con +$3,000
 
 ### Decisión

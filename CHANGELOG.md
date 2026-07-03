@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **fix/nss-lock-after-mesa — NSS bloqueado solo tras datos generales + envío a Mesa:** migración `049` helpers `normalize_nss_mexico` y `nss_bloqueado_en_mesa`; `create_expediente` y `enviar_a_mesa` con nueva regla; índice único solo para `submitted_to_mesa = true`; tests SQL A–E.
+
 - **fix/monto-calculado-automatico — monto calculado automático (+$3,000):** migración `048` revierte captura manual P046 en Cloud; fórmula `(monto_aprobado * porcentaje_cobro / 100) + 3000` en `save_cliente_datos` y frontend readOnly; tests TS/SQL.
 
 - **feat/asesor-monto-aprobado — monto aprobado desbloquea integración asesor:** migración `045` RPC `asesor_update_monto_aprobado` (asesor dueño, sin cambiar `decision`); gates `save_cliente_datos` y `enviar_a_mesa` por `monto_aprobado > 0` (no `decision = aprobado`); UI input «Guardar monto» en decisión del editor; tests TS/SQL; sin Cloud.

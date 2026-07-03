@@ -54,10 +54,11 @@ function mapCreateExpedienteRpcError(error: {
   if (
     error.code === "23505" ||
     msg.includes("mismo nss y programa") ||
-    msg.includes("expedientes_nss_programa_activo_unique")
+    msg.includes("expedientes_nss_programa_activo_unique") ||
+    msg.includes("enviado a mesa")
   ) {
     return new ExpedientesSupabaseError(
-      "Ya existe un expediente activo con el mismo NSS y programa.",
+      "Este NSS ya tiene un expediente enviado a Mesa.",
     );
   }
 

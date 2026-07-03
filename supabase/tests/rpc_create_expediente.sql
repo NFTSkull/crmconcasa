@@ -216,14 +216,13 @@ BEGIN
     'nombre vacío debe fallar'
   );
 
-  -- 7) duplicado activo NSS+programa falla
+  -- 7) mismo NSS activo sin envío a Mesa: segundo expediente permitido (P049)
   PERFORM public.__rpc_ce_test_cleanup(v_nss_dup, 'mejoravit');
   PERFORM public.__rpc_ce_test_call_as(
     v_asesor_int, 'mejoravit', v_nss_dup, 'Cliente Dup 1', '5588000011'
   );
-  PERFORM public.__rpc_ce_test_assert(
-    public.__rpc_ce_test_expect_fail(v_asesor_int, 'mejoravit', v_nss_dup, 'Cliente Dup 2', '5588000011'),
-    'duplicado activo NSS+programa debe fallar'
+  PERFORM public.__rpc_ce_test_call_as(
+    v_asesor_int, 'mejoravit', v_nss_dup, 'Cliente Dup 2', '5588000012'
   );
 
   -- 8) roles no asesor rechazados
