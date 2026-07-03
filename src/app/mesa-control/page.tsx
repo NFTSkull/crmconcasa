@@ -29,6 +29,7 @@ import {
   type ExpedienteArchivoResumen,
 } from "@/domain/expediente-archivos";
 import { useExpedienteClienteDatosRepo } from "@/domain/expediente-cliente-datos";
+import type { ExpedienteClienteDatosEstado } from "@/domain/expediente-cliente-datos/types";
 import { EXPEDIENTE_CLIENTE_DATOS_UPDATED_EVENT } from "@/domain/expediente-cliente-datos/emit-updated";
 import { isDataModeSupabase } from "@/lib/dataMode";
 import {
@@ -58,9 +59,12 @@ import {
 } from "@/lib/mesaOpsUi";
 import { MesaOpsBandejaBadge } from "@/components/mesa-control/MesaExpedienteOpsSection";
 import { hasAlertMessage, MESA_OPS_UPDATED_EVENT } from "@/lib/hasAlertMessage";
+import { DashboardNotifications } from "@/components/notifications/DashboardNotifications";
+import { buildDashboardNotifications } from "@/lib/dashboardNotifications";
 
 type CasoConDocs = CasoMock & {
   resumenDocumental?: CategoriaResumenDocumental;
+  clienteDatosEstado?: ExpedienteClienteDatosEstado | null;
   mesaOps?: MesaExpedienteOpsRow | null;
 };
 
@@ -314,6 +318,7 @@ export default function MesaControlPage() {
               resumenMap.get(c.id) ?? [],
               estadosPorId[c.id] ?? null,
             ),
+            clienteDatosEstado: estadosPorId[c.id] ?? null,
           }));
         })();
         const sorted = sortMesaBandejaPorAntiguedad(enriched);
@@ -446,6 +451,35 @@ export default function MesaControlPage() {
       totalBandeja,
     };
   }, [casos, isCitaHoy]);
+
+  const dashboardNotifications = useMemo(() => {
+    return buildDashboardNotifications(
+      casos.map((c) => ({
+        expedienteId: c.id,
+        clienteNombre: c.cliente_nombre,
+        etapaActual: c.etapaActual,
+        subestado: c.subestado,
+        submittedToMesa: c.submittedToMesa,
+        fechaCita: c.fechaCita,
+        fechaEnvioMesa: c.fechaEnvioMesa,
+        updatedAt: c.updatedAt,
+        resumenCorreccion: c.resumenDocumental ?? null,
+        clienteDatosEstado: c.clienteDatosEstado ?? null,
+      })),
+      "mesa",
+      {
+        todayYMD: todayYMD,
+        isNuevoEtapa12: (source) => {
+          const et = Number(source.etapaActual) || 0;
+          const sub = String(source.subestado ?? "pendiente");
+          return (
+            [1, 2].includes(et) &&
+            ["pendiente", "en_validacion_mesa", "en_proceso"].includes(sub)
+          );
+        },
+      },
+    );
+  }, [casos, todayYMD]);
 
   const showAdminOrigenTabs =
     mesaMockRole === "mesa_control_admin" || mesaMockRole === "mesa_control";
@@ -616,6 +650,8 @@ export default function MesaControlPage() {
             actorEmail={currentUser.email}
           />
         ) : null}
+
+        <DashboardNotifications items={dashboardNotifications} />
 
         <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           <div className="rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 to-white p-3 shadow-sm ring-1 ring-sky-100/60">

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **feat/dashboard-notificaciones — alertas visuales en dashboards Asesor y Mesa:** componente `DashboardNotifications` + helper `buildDashboardNotifications` derivado de estado ya cargado (`cliente_datos`, resumen documental, `subestado`, `fecha_cita`, `fecha_envio_mesa`); sin tabla nueva, sin RPC, sin cambio de flujos.
+
 - **fix/asesor-dashboard-correccion-datos — fila dashboard refleja rechazo Datos Generales:** KPI/filtro/resultado/documentación/estatus op. usan `resumenCorreccion` unificado; monto aprobado visible si `> 0`; `deriveResumenExpedienteCorreccion` prioriza `cliente_datos.rechazado`; sin backend/RPC.
 
 - **fix/mesa-rechazo-datos-generales — rechazo Datos Generales impacta bandejas:** `deriveResumenExpedienteCorreccion` combina resumen documental con `cliente_datos.estado`; bandejas Mesa y Asesor clasifican rechazo de datos como `correccion_requerida`; KPI «En validación mesa» excluye correcciones pendientes; evento `expediente_cliente_datos_updated` desde repo Supabase; batch `listEstadoByExpedienteIds`; sin migración/RPC (mismo patrón que corrección documental); sin tocar 049/INE/cobro/biométricos/firmas/agenda.

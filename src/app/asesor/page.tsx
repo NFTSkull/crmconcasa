@@ -34,6 +34,8 @@ import {
   subestadoOperativoLabel,
 } from "@/lib/subestadoOperativoUi";
 import { formatMontoMX } from "@/lib/monto";
+import { DashboardNotifications } from "@/components/notifications/DashboardNotifications";
+import { buildDashboardNotifications } from "@/lib/dashboardNotifications";
 
 const CORRECCION_REQUERIDA_BADGE_CLASS =
   "inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900 ring-1 ring-amber-300";
@@ -483,6 +485,24 @@ export default function AsesorDashboardPage() {
     };
   }, [mockPrecalList, resumenDocumentalPorId]);
 
+  const dashboardNotifications = useMemo(() => {
+    return buildDashboardNotifications(
+      mockPrecalList.map((p) => ({
+        expedienteId: p.id,
+        clienteNombre: p.cliente_nombre || "—",
+        etapaActual: p.etapaActual,
+        subestado: p.operativo?.subestado,
+        submittedToMesa: p.submittedToMesa,
+        fechaCita: p.fechaCita,
+        fechaEnvioMesa: p.operativo?.fechaEnvioMesa,
+        updatedAt: p.updatedAtOperativo,
+        resumenCorreccion: resumenDocumentalPorId[p.id] ?? null,
+        clienteDatosEstado: clienteDatosEstadoPorId[p.id] ?? null,
+      })),
+      "asesor",
+    );
+  }, [mockPrecalList, resumenDocumentalPorId, clienteDatosEstadoPorId]);
+
   const hasActiveFilters =
     quickFilter !== "todos" ||
     filters.buscar !== "" ||
@@ -618,6 +638,8 @@ export default function AsesorDashboardPage() {
             {listError}
           </p>
         ) : null}
+
+        <DashboardNotifications items={dashboardNotifications} />
 
         {/* KPIs principales (4); aprobadosEditor, noCumple, correccionEnviada siguen en objeto `kpis` */}
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">

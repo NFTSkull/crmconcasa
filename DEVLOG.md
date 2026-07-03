@@ -1,5 +1,19 @@
 # Devlog
 
+## 2026-07-03 - feat/dashboard-notificaciones: panel visual en /asesor y /mesa-control
+
+### Fuentes de datos (sin `action_log`)
+
+- **Asesor:** expedientes de `listForAsesor` + `cliente_datos.estado` (`listEstadoByExpedienteIds`) + `deriveResumenExpedienteCorreccion` (documentos base + datos).
+- **Mesa:** bandeja `casos` con `resumenDocumental`, `clienteDatosEstado`, `subestado`, `fechaEnvioMesa`, `fechaCita`, `updatedAt`.
+- **No** se lee `action_log` (asesor sin RLS; evita RPC nuevo). Avance de etapa histórico y reagenda exacta quedan fuera de alcance v1.
+
+### Decisión
+
+- Una alerta por expediente (mayor prioridad): corrección → rechazo → corrección enviada → nuevo/pendiente → envío Mesa → citas.
+- Máximo 5 en dashboard; link directo al detalle.
+- Solo UI; no altera estados ni flujos operativos.
+
 ## 2026-07-03 - fix/asesor-dashboard-correccion-datos: fila del dashboard alinea con rechazo Datos Generales
 
 ### Diagnóstico
