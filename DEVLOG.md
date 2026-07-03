@@ -1,5 +1,14 @@
 # Devlog
 
+## 2026-07-03 - feat/cliente-datos-mejoravit-plazo: Monto Mejoravit y Plazo en Datos Generales
+
+### Decisión
+
+- `montoMejoravit` y `plazo` en JSON `cliente_datos.datos` (mismo patrón que `beneficiario`, `direccionEmpresa`); sin columna nueva ni migración — `save_cliente_datos` persiste `p_datos` como JSONB flexible.
+- `direccion_opcional` sin cambio de columna/payload; solo copy UI → «Domicilio real del cliente».
+- Validación frontend obligatoria; monto Mejoravit > 0 con `parseMontoCalculadoInput`; no interfiere con cobro ni `monto_aprobado`.
+- Contador obligatorios 22 → 24.
+
 ## 2026-07-03 - fix/mesa-bandeja-espera-asesor: Disponibles solo accionables
 
 ### Problema

@@ -22,13 +22,15 @@ describe("mapSupabaseRowToExpedienteClienteDatos", () => {
         registroPatronal: "RP-1",
         telefonoEmpresa: "5599999999",
         beneficiario: { nombre: "Ben", parentesco: "Hija" },
-        direccionEmpresa: {
-          calle: "Calle 1",
-          colonia: "Centro",
-          municipio: "CDMX",
-          cp: "01000",
-        },
+      direccionEmpresa: {
+        calle: "Calle 1",
+        colonia: "Centro",
+        municipio: "CDMX",
+        cp: "01000",
       },
+      montoMejoravit: "175000",
+      plazo: "18 meses",
+    },
       referencias: [
         { nombre: "Ref 1", telefono: "5511111111" },
         { nombre: "Ref 2", celular: "5522222222" },
@@ -47,6 +49,8 @@ describe("mapSupabaseRowToExpedienteClienteDatos", () => {
     assert.equal(domain.datos.nombreCliente, "Marcela");
     assert.equal(domain.datos.referencias[0]?.celular, "5511111111");
     assert.equal(domain.datos.referencias[1]?.celular, "5522222222");
+    assert.equal(domain.datos.montoMejoravit, "175000");
+    assert.equal(domain.datos.plazo, "18 meses");
     assert.equal(domain.datos.montoCalculado, "1875");
     assert.equal(domain.updatedBy, "asesor@concasa.mx");
   });
@@ -75,6 +79,8 @@ describe("buildSaveClienteDatosRpcPayload", () => {
         municipio: "CDMX",
         cp: "01000",
       },
+      montoMejoravit: "150000",
+      plazo: "12 meses",
       porcentajeCobro: "10",
       montoCalculado: "2500",
       metodoPago: "transferencia",
@@ -87,6 +93,8 @@ describe("buildSaveClienteDatosRpcPayload", () => {
     assert.equal(payload.p_direccion_opcional, "Av. Cliente 100");
     assert.equal(payload.p_telefono, "(55) 1234-5678");
     assert.equal(payload.p_estado, "completo");
+    assert.equal(payload.p_datos.montoMejoravit, "150000");
+    assert.equal(payload.p_datos.plazo, "12 meses");
     assert.deepEqual(payload.p_referencias[0], {
       nombre: "Ref 1",
       telefono: "5511111111",
@@ -116,6 +124,8 @@ describe("buildSaveClienteDatosRpcPayload", () => {
         municipio: "CDMX",
         cp: "01000",
       },
+      montoMejoravit: "100000",
+      plazo: "6 meses",
       porcentajeCobro: "10",
       montoCalculado: "1500",
       metodoPago: "transferencia",

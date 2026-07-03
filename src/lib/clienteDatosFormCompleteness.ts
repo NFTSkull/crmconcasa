@@ -1,6 +1,7 @@
 import type { ExpedienteClienteDatos } from "@/domain/expediente-cliente-datos";
 import {
   calcMontoCalculadoCobro,
+  parseMontoCalculadoInput,
   parsePorcentajeCobroInput,
 } from "@/lib/clienteDatosCobro";
 
@@ -12,7 +13,7 @@ export type ClienteDatosCompletenessContext = {
 };
 
 /** Campos obligatorios en Datos Generales (RFC es opcional). */
-export const CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT = 22;
+export const CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT = 24;
 
 /** Etiquetas legibles de campos obligatorios vacíos (trim). RFC no cuenta como faltante. */
 export function getClienteDatosCamposFaltantes(
@@ -42,8 +43,13 @@ export function getClienteDatosCamposFaltantes(
   req("Dirección empresa — municipio", d.direccionEmpresa.municipio);
   req("Dirección empresa — CP", d.direccionEmpresa.cp);
   if (!String(ctx.direccionOpcional ?? "").trim()) {
-    missing.push("Dirección del cliente");
+    missing.push("Domicilio real del cliente");
   }
+  const montoMejoravit = parseMontoCalculadoInput(d.montoMejoravit);
+  if (montoMejoravit == null || montoMejoravit <= 0) {
+    missing.push("Monto Mejoravit");
+  }
+  req("Plazo", d.plazo);
   req("Porcentaje de cobro", d.porcentajeCobro);
   req("Método de pago", d.metodoPago);
 

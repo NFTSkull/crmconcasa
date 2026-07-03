@@ -31,19 +31,36 @@ const baseValid: ClienteDatosFormShape = {
     municipio: "Monterrey",
     cp: "64000",
   },
+  montoMejoravit: "150000",
+  plazo: "12 meses",
   porcentajeCobro: "10",
   montoCalculado: "10000",
   metodoPago: "transferencia",
 };
 
-test("validateClienteDatos: dirección obligatoria", () => {
+test("validateClienteDatos: domicilio real del cliente obligatorio", () => {
   const r = validateClienteDatos(baseValid, { ...COBRO_CTX, direccionOpcional: "" });
-  assert.equal(r.errors.direccionOpcional, "La dirección es obligatoria.");
+  assert.equal(r.errors.direccionOpcional, "El domicilio real del cliente es obligatorio.");
 });
 
-test("validateClienteDatos: dirección con solo espacios rechaza", () => {
+test("validateClienteDatos: domicilio con solo espacios rechaza", () => {
   const r = validateClienteDatos(baseValid, { ...COBRO_CTX, direccionOpcional: "   " });
-  assert.equal(r.errors.direccionOpcional, "La dirección es obligatoria.");
+  assert.equal(r.errors.direccionOpcional, "El domicilio real del cliente es obligatorio.");
+});
+
+test("validateClienteDatos: monto Mejoravit obligatorio", () => {
+  const r = validateClienteDatos({ ...baseValid, montoMejoravit: "" }, COBRO_CTX);
+  assert.equal(r.errors.montoMejoravit, "El monto Mejoravit es obligatorio.");
+});
+
+test("validateClienteDatos: monto Mejoravit debe ser mayor a 0", () => {
+  const r = validateClienteDatos({ ...baseValid, montoMejoravit: "0" }, COBRO_CTX);
+  assert.equal(r.errors.montoMejoravit, "El monto Mejoravit es obligatorio.");
+});
+
+test("validateClienteDatos: plazo obligatorio", () => {
+  const r = validateClienteDatos({ ...baseValid, plazo: "" }, COBRO_CTX);
+  assert.equal(r.errors.plazo, "El plazo es obligatorio.");
 });
 
 test("validateClienteDatos: payload válido sin errores", () => {

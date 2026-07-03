@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **feat/cliente-datos-mejoravit-plazo — Monto Mejoravit y Plazo obligatorios:** campos en JSON `cliente_datos.datos`; label «Domicilio real del cliente»; validación/completitud 24 campos; vista read-only Mesa; sin migración/RPC/cobro.
+
 - **fix/mesa-bandeja-espera-asesor — Disponibles excluye corrección requerida:** filtro operativo «En espera de asesor» (`correccion_requerida` vía `deriveResumenExpedienteCorreccion`); Disponibles/Mi bandeja/En trabajo solo expedientes accionables; sin cambio de BD/RPC/RLS.
 
 - **feat/notifications-bell — campana en header Asesor/Mesa:** `NotificationsBell` con badge, dropdown (máx. 5 visibles), cierre al clic fuera; se retira panel grande sobre KPIs; reutiliza `dashboardNotifications` sin cambiar derivación.

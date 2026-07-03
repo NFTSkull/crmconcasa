@@ -1,6 +1,7 @@
 import type { ClienteDatosFormShape } from "@/lib/clienteDatosFormCompleteness";
 import {
   calcMontoCalculadoCobro,
+  parseMontoCalculadoInput,
   parsePorcentajeCobroInput,
 } from "@/lib/clienteDatosCobro";
 
@@ -30,6 +31,8 @@ export type ClienteDatosFieldKey =
   | "direccionMunicipio"
   | "direccionCp"
   | "direccionOpcional"
+  | "montoMejoravit"
+  | "plazo"
   | "porcentajeCobro"
   | "montoCalculado"
   | "metodoPago";
@@ -94,6 +97,8 @@ export function normalizeClienteDatosForSave(
     porcentajeCobro: String(d.porcentajeCobro ?? "").trim(),
     montoCalculado: String(d.montoCalculado ?? "").trim(),
     metodoPago: String(d.metodoPago ?? "").trim().toLowerCase(),
+    montoMejoravit: String(d.montoMejoravit ?? "").trim(),
+    plazo: String(d.plazo ?? "").trim(),
   };
 }
 
@@ -137,7 +142,22 @@ export function validateClienteDatos(
 
   const direccion = String(ctx.direccionOpcional ?? "").trim();
   if (!direccion) {
-    setError(errors, "direccionOpcional", "La dirección es obligatoria.");
+    setError(errors, "direccionOpcional", "El domicilio real del cliente es obligatorio.");
+  }
+
+  const montoMejoravitRaw = String(data.montoMejoravit ?? "").trim();
+  if (!montoMejoravitRaw) {
+    setError(errors, "montoMejoravit", "El monto Mejoravit es obligatorio.");
+  } else {
+    const montoMejoravit = parseMontoCalculadoInput(montoMejoravitRaw);
+    if (montoMejoravit == null || montoMejoravit <= 0) {
+      setError(errors, "montoMejoravit", "El monto Mejoravit es obligatorio.");
+    }
+  }
+
+  const plazo = String(data.plazo ?? "").trim();
+  if (!plazo) {
+    setError(errors, "plazo", "El plazo es obligatorio.");
   }
 
   req("porcentajeCobro", data.porcentajeCobro, "Porcentaje de cobro");

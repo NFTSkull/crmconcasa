@@ -39,6 +39,10 @@ export type ExpedienteClienteDatos = {
       municipio: string;
       cp: string;
     };
+    /** Monto Mejoravit (JSON `datos.montoMejoravit`; no afecta cobro). */
+    montoMejoravit: string;
+    /** Plazo del crédito (JSON `datos.plazo`). */
+    plazo: string;
     /** Porcentaje de cobro (captura asesor, ej. "12.5"). */
     porcentajeCobro: string;
     /** Monto calculado derivado (columna `monto_calculado`, solo lectura en UI). */

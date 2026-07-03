@@ -71,6 +71,8 @@ const EMPTY_CLIENTE_DATOS: ClienteDatosFormState = {
   ],
   beneficiario: { nombre: "", parentesco: "" },
   direccionEmpresa: { calle: "", colonia: "", municipio: "", cp: "" },
+  montoMejoravit: "",
+  plazo: "",
   porcentajeCobro: "",
   montoCalculado: "",
   metodoPago: "",

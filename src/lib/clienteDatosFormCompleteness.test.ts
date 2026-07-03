@@ -22,6 +22,8 @@ const vacio: ClienteDatosFormShape = {
   ],
   beneficiario: { nombre: "", parentesco: "" },
   direccionEmpresa: { calle: "", colonia: "", municipio: "", cp: "" },
+  montoMejoravit: "",
+  plazo: "",
   porcentajeCobro: "",
   montoCalculado: "",
   metodoPago: "",
@@ -48,6 +50,8 @@ const completo: ClienteDatosFormShape = {
     municipio: "Mun",
     cp: "01000",
   },
+  montoMejoravit: "200000",
+  plazo: "24 meses",
   porcentajeCobro: "10",
   montoCalculado: "10000",
   metodoPago: "transferencia",
@@ -97,7 +101,7 @@ test("getClienteDatosCamposFaltantes: faltan campos de cobro", () => {
   assert.ok(faltantes.includes("Método de pago"));
 });
 
-test("getClienteDatosCamposFaltantes: formulario vacío tiene 22 obligatorios", () => {
+test("getClienteDatosCamposFaltantes: formulario vacío tiene 24 obligatorios", () => {
   assert.equal(getClienteDatosCamposFaltantes(vacio).length, CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT);
-  assert.equal(CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT, 22);
+  assert.equal(CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT, 24);
 });

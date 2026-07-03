@@ -146,6 +146,8 @@ export function mapSupabaseRowToExpedienteClienteDatos(
       referencias: mapReferencias(datos, row.referencias),
       beneficiario: mapBeneficiario(datos.beneficiario),
       direccionEmpresa: mapDireccionEmpresa(datos.direccionEmpresa),
+      montoMejoravit: asString(datos.montoMejoravit),
+      plazo: asString(datos.plazo),
       porcentajeCobro:
         asString(datos.porcentajeCobro) ||
         (row.porcentaje_cobro != null ? String(row.porcentaje_cobro) : ""),
@@ -227,6 +229,8 @@ export function buildSaveClienteDatosRpcPayload(
         municipio: datos.direccionEmpresa.municipio.trim(),
         cp: datos.direccionEmpresa.cp.trim(),
       },
+      montoMejoravit: datos.montoMejoravit.trim(),
+      plazo: datos.plazo.trim(),
     },
     p_estado: "completo",
     p_porcentaje_cobro: pct,

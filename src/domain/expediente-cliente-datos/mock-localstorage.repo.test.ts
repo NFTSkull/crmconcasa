@@ -35,6 +35,8 @@ function isExpedienteClienteDatosShape(x: unknown): x is ExpedienteClienteDatos 
     typeof (d.direccionEmpresa as Record<string, unknown>).colonia === "string" &&
     typeof (d.direccionEmpresa as Record<string, unknown>).municipio === "string" &&
     typeof (d.direccionEmpresa as Record<string, unknown>).cp === "string" &&
+    typeof d.montoMejoravit === "string" &&
+    typeof d.plazo === "string" &&
     (o.estado === "pendiente" ||
       o.estado === "completo" ||
       o.estado === "validado" ||
@@ -65,6 +67,8 @@ test("ExpedienteClienteDatos: shape mínimo válido", () => {
         municipio: "CDMX",
         cp: "01000",
       },
+      montoMejoravit: "150000",
+      plazo: "12 meses",
       porcentajeCobro: "10",
       montoCalculado: "1500",
       metodoPago: "transferencia",

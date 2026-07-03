@@ -430,10 +430,46 @@ export function ExpedienteClienteDatosFormSection({
         </div>
 
         <div className="mt-4 rounded-md border border-gray-200 p-3">
+          <p className="text-xs font-semibold text-gray-900">Crédito Mejoravit</p>
+          <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <DatosField
+              label="Monto Mejoravit"
+              fieldKey="montoMejoravit"
+              error={err("montoMejoravit")}
+              showError={showFieldErrors}
+            >
+              <input
+                type="text"
+                inputMode="decimal"
+                className={fieldInputClass(Boolean(err("montoMejoravit")))}
+                value={clienteDatos.montoMejoravit}
+                onChange={(e) =>
+                  setClienteDatos((p) => ({ ...p, montoMejoravit: e.target.value }))
+                }
+                placeholder="Ej. 150000"
+              />
+            </DatosField>
+            <DatosField
+              label="Plazo"
+              fieldKey="plazo"
+              error={err("plazo")}
+              showError={showFieldErrors}
+            >
+              <input
+                className={fieldInputClass(Boolean(err("plazo")))}
+                value={clienteDatos.plazo}
+                onChange={(e) => setClienteDatos((p) => ({ ...p, plazo: e.target.value }))}
+                placeholder="Ej. 12 meses"
+              />
+            </DatosField>
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-md border border-gray-200 p-3">
           <p className="text-xs font-semibold text-gray-900">Domicilio del cliente</p>
           <div className="mt-2 grid grid-cols-1 gap-2">
             <DatosField
-              label="Dirección"
+              label="Domicilio real del cliente"
               fieldKey="direccionOpcional"
               error={err("direccionOpcional")}
               showError={showFieldErrors}

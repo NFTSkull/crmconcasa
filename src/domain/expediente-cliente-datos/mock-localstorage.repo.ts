@@ -88,6 +88,9 @@ function rowToDomain(row: StoredRow): ExpedienteClienteDatos | null {
     montoCalculado:
       typeof rawDatos.montoCalculado === "string" ? rawDatos.montoCalculado : "",
     metodoPago: typeof rawDatos.metodoPago === "string" ? rawDatos.metodoPago : "",
+    montoMejoravit:
+      typeof rawDatos.montoMejoravit === "string" ? rawDatos.montoMejoravit : "",
+    plazo: typeof rawDatos.plazo === "string" ? rawDatos.plazo : "",
   };
   const montoParsed = parseMontoCalculadoInput(datos.montoCalculado);
   const updatedAt = typeof row.updatedAt === "string" ? row.updatedAt : new Date().toISOString();
