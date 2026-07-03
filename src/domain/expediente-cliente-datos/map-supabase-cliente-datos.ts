@@ -181,6 +181,7 @@ export function mapSupabaseRowToExpedienteClienteDatos(
 export function buildSaveClienteDatosRpcPayload(
   expedienteId: string,
   datos: ExpedienteClienteDatos["datos"],
+  direccionOpcional: string,
 ): {
   p_expediente_id: string;
   p_rfc: string;
@@ -190,6 +191,7 @@ export function buildSaveClienteDatosRpcPayload(
   p_estado: "completo";
   p_porcentaje_cobro: number;
   p_metodo_pago: string;
+  p_direccion_opcional: string;
 } {
   const pct = parsePorcentajeCobroInput(datos.porcentajeCobro);
   if (pct == null) {
@@ -229,5 +231,6 @@ export function buildSaveClienteDatosRpcPayload(
     p_estado: "completo",
     p_porcentaje_cobro: pct,
     p_metodo_pago: metodo,
+    p_direccion_opcional: direccionOpcional.trim(),
   };
 }

@@ -43,6 +43,10 @@ export interface ExpedienteMock {
     telefono_cliente: string;
     direccion_opcional: string;
     asesorId: string;
+    /** Nombre del perfil asesor (si disponible). */
+    asesorNombre?: string | null;
+    /** Email del perfil asesor (si disponible). */
+    asesorEmail?: string | null;
     createdAt: string;
     /** Definido al enviar a mesa (inbox); `null` si aún no existe en datos persistidos. */
     origenMesa: OrigenMesa | null;

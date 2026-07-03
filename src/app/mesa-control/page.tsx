@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSessionRepo } from "@/domain/session";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { formatAsesorExpedienteLabel } from "@/lib/asesorDisplay";
 import { Select } from "@/components/ui/Select";
 import {
   mergeMesaControlInboxByLatestUpdated,
@@ -236,7 +237,11 @@ export default function MesaControlPage() {
       telefono_cliente: exp.base.telefono_cliente,
       programa: exp.base.programa,
       nss: exp.base.nss || undefined,
-      asesorNombre: exp.base.asesorId,
+      asesorNombre: formatAsesorExpedienteLabel({
+        fullName: exp.base.asesorNombre,
+        email: exp.base.asesorEmail ?? (exp.base.asesorId.includes("@") ? exp.base.asesorId : null),
+        fallbackId: exp.base.asesorId,
+      }),
       etapaActual: exp.operativo.etapaActual ?? 1,
       subestado: exp.operativo.subestado ?? "pendiente",
       motivoRechazo: exp.operativo.motivoRechazo ?? undefined,

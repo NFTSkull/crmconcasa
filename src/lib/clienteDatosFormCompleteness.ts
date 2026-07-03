@@ -8,10 +8,11 @@ export type ClienteDatosFormShape = ExpedienteClienteDatos["datos"];
 
 export type ClienteDatosCompletenessContext = {
   montoAprobado?: number | null;
+  direccionOpcional?: string | null;
 };
 
 /** Campos obligatorios en Datos Generales (RFC es opcional). */
-export const CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT = 21;
+export const CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT = 22;
 
 /** Etiquetas legibles de campos obligatorios vacíos (trim). RFC no cuenta como faltante. */
 export function getClienteDatosCamposFaltantes(
@@ -40,6 +41,9 @@ export function getClienteDatosCamposFaltantes(
   req("Dirección empresa — colonia", d.direccionEmpresa.colonia);
   req("Dirección empresa — municipio", d.direccionEmpresa.municipio);
   req("Dirección empresa — CP", d.direccionEmpresa.cp);
+  if (!String(ctx.direccionOpcional ?? "").trim()) {
+    missing.push("Dirección del cliente");
+  }
   req("Porcentaje de cobro", d.porcentajeCobro);
   req("Método de pago", d.metodoPago);
 

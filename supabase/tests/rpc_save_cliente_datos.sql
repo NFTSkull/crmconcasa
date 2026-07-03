@@ -44,7 +44,8 @@ CREATE OR REPLACE FUNCTION public.__rpc_scd_test_call_as(
   p_datos JSONB DEFAULT '{}'::JSONB,
   p_estado public.cliente_datos_estado DEFAULT 'completo',
   p_porcentaje_cobro NUMERIC DEFAULT 10,
-  p_metodo_pago TEXT DEFAULT 'transferencia'
+  p_metodo_pago TEXT DEFAULT 'transferencia',
+  p_direccion_opcional TEXT DEFAULT 'Calle Test 123'
 )
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -55,7 +56,7 @@ BEGIN
   PERFORM public.__rpc_scd_test_set_auth(p_user_id);
   SELECT public.save_cliente_datos(
     p_expediente_id, p_rfc, p_telefono, p_referencias,
-    p_imagenes, p_datos, p_estado, p_porcentaje_cobro, p_metodo_pago
+    p_imagenes, p_datos, p_estado, p_porcentaje_cobro, p_metodo_pago, p_direccion_opcional
   ) INTO v_result;
   PERFORM public.__rpc_scd_test_reset_auth();
   RETURN v_result;
@@ -73,7 +74,8 @@ CREATE OR REPLACE FUNCTION public.__rpc_scd_test_expect_fail(
   p_estado public.cliente_datos_estado DEFAULT 'completo',
   p_msg_contains TEXT DEFAULT NULL,
   p_porcentaje_cobro NUMERIC DEFAULT 10,
-  p_metodo_pago TEXT DEFAULT 'transferencia'
+  p_metodo_pago TEXT DEFAULT 'transferencia',
+  p_direccion_opcional TEXT DEFAULT 'Calle Test 123'
 )
 RETURNS BOOLEAN
 LANGUAGE plpgsql
@@ -85,7 +87,7 @@ BEGIN
   BEGIN
     PERFORM public.save_cliente_datos(
       p_expediente_id, p_rfc, p_telefono, p_referencias,
-      p_imagenes, p_datos, p_estado, p_porcentaje_cobro, p_metodo_pago
+      p_imagenes, p_datos, p_estado, p_porcentaje_cobro, p_metodo_pago, p_direccion_opcional
     );
     PERFORM public.__rpc_scd_test_reset_auth();
     RETURN false;
@@ -789,7 +791,15 @@ BEGIN
     'test 46 sin monto aprobado'
   );
 
-  RAISE NOTICE 'RPC save_cliente_datos: 47 pruebas OK';
+  PERFORM public.__rpc_scd_test_assert(
+    public.__rpc_scd_test_expect_fail(
+      v_asesor_a1, v_exp_update, 'XAXX010101000', '5512345678',
+      '[]'::JSONB, NULL, '{}'::JSONB, 'completo', 'La dirección es obligatoria', 10, 'transferencia', ''
+    ),
+    'test 48 dirección obligatoria'
+  );
+
+  RAISE NOTICE 'RPC save_cliente_datos: 48 pruebas OK';
 END;
 $$;
 

@@ -74,6 +74,10 @@ export function mapSaveClienteDatosRpcError(error: {
     return new ClienteDatosSupabaseError("El método de pago es obligatorio.");
   }
 
+  if (msg.includes("la dirección es obligatoria")) {
+    return new ClienteDatosSupabaseError("La dirección es obligatoria.");
+  }
+
   if (msg.includes("teléfono obligatorio")) {
     return new ClienteDatosSupabaseError("El celular del cliente es obligatorio.");
   }

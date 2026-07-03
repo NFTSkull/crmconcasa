@@ -1,5 +1,14 @@
 # Devlog
 
+## 2026-07-03 - fix/mesa-asesor-monto-direccion: etiqueta asesor, monto vigente, dirección obligatoria
+
+### Decisión
+
+- Mesa no puede leer `profiles` del asesor por RLS (`profiles_select_own`); en lugar de ampliar RLS, RPC `get_asesor_display_batch` SECURITY DEFINER filtra por `can_see_expediente`.
+- `monto_aprobado` se muestra en resumen Mesa si `> 0`, independiente de `decision` (incluye captura asesor con `no_cumple`).
+- Dirección del cliente = columna `expedientes.direccion_opcional`; obligatoria en validación frontend y en `save_cliente_datos` (migración **050**); campo en formulario Datos Generales, no en JSON `cliente_datos.datos`.
+- Sin tocar 049 NSS, INE/documentos, fórmula cobro +3000, biométricos, firmas, agenda ni RLS general.
+
 ## 2026-07-03 - fix/nss-lock-after-mesa: NSS libre hasta envío a Mesa
 
 ### Decisión

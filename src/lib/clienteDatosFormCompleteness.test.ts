@@ -61,7 +61,10 @@ test("getClienteDatosCamposFaltantes: formulario vacío lista muchos campos", ()
 
 test("getClienteDatosCamposFaltantes: formulario completo no devuelve faltantes", () => {
   assert.deepEqual(
-    getClienteDatosCamposFaltantes(completo, { montoAprobado: 100_000 }),
+    getClienteDatosCamposFaltantes(completo, {
+      montoAprobado: 100_000,
+      direccionOpcional: "Calle Principal 123",
+    }),
     [],
   );
 });
@@ -94,7 +97,7 @@ test("getClienteDatosCamposFaltantes: faltan campos de cobro", () => {
   assert.ok(faltantes.includes("Método de pago"));
 });
 
-test("getClienteDatosCamposFaltantes: formulario vacío tiene 21 obligatorios", () => {
+test("getClienteDatosCamposFaltantes: formulario vacío tiene 22 obligatorios", () => {
   assert.equal(getClienteDatosCamposFaltantes(vacio).length, CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT);
-  assert.equal(CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT, 21);
+  assert.equal(CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT, 22);
 });

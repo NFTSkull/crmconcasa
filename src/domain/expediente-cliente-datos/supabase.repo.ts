@@ -95,7 +95,11 @@ export class SupabaseExpedienteClienteDatosRepo implements ExpedienteClienteDato
     }
 
     const { client } = await requireSupabaseSession();
-    const rpcArgs = buildSaveClienteDatosRpcPayload(idNorm, input.datos);
+    const rpcArgs = buildSaveClienteDatosRpcPayload(
+      idNorm,
+      input.datos,
+      input.direccionOpcional,
+    );
 
     const { error } = await client.rpc("save_cliente_datos", rpcArgs);
 
@@ -123,7 +127,11 @@ export class SupabaseExpedienteClienteDatosRepo implements ExpedienteClienteDato
     }
 
     const { client } = await requireSupabaseSession();
-    const rpcArgs = buildSaveClienteDatosRpcPayload(idNorm, input.datos);
+    const rpcArgs = buildSaveClienteDatosRpcPayload(
+      idNorm,
+      input.datos,
+      input.direccionOpcional,
+    );
     const { p_estado: _omit, ...correccionArgs } = rpcArgs;
 
     const { error } = await client.rpc("save_cliente_datos_correccion", correccionArgs);

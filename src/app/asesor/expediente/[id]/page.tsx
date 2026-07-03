@@ -177,6 +177,7 @@ export default function AsesorExpedientePage() {
   const [clienteDatosFieldErrors, setClienteDatosFieldErrors] =
     useState<ClienteDatosFieldErrors>({});
   const [clienteDatosShowValidation, setClienteDatosShowValidation] = useState(false);
+  const [direccionOpcional, setDireccionOpcional] = useState("");
   const [editorDecision, setEditorDecision] = useState<
     ExpedienteMock["editorDecision"] | null
   >(null);
@@ -236,8 +237,9 @@ export default function AsesorExpedientePage() {
     () =>
       getClienteDatosCamposFaltantes(clienteDatos, {
         montoAprobado: montoAprobadoEditor,
+        direccionOpcional,
       }),
-    [clienteDatos, montoAprobadoEditor],
+    [clienteDatos, direccionOpcional, montoAprobadoEditor],
   );
 
   const datosGeneralesCompletos = useMemo(() => {
@@ -288,6 +290,7 @@ export default function AsesorExpedientePage() {
         asesorId: exp.base.asesorId,
         createdAt: exp.base.createdAt,
       });
+      setDireccionOpcional(exp.base.direccion_opcional ?? "");
       setOperativo({
         etapaActual: exp.operativo.etapaActual,
         subestado: exp.operativo.subestado,
@@ -641,6 +644,7 @@ export default function AsesorExpedientePage() {
     if (dataSupabase) {
       const validation = validateClienteDatos(clienteDatos, {
         montoAprobado: montoAprobadoEditor,
+        direccionOpcional,
       });
       if (!validation.isValid) {
         setClienteDatosShowValidation(true);
@@ -659,18 +663,22 @@ export default function AsesorExpedientePage() {
     try {
       const usarCorreccion =
         Boolean(operativo?.submittedToMesa) && clienteDatosMeta?.estado === "rechazado";
+      const saveInput = {
+        expedienteId: String(precal.id),
+        datos: datosAGuardar,
+        direccionOpcional,
+        updatedBy: currentUser.email,
+      };
       const saved = usarCorreccion
-        ? await clienteDatosRepo.saveCorreccion({
-            expedienteId: String(precal.id),
-            datos: datosAGuardar,
-            updatedBy: currentUser.email,
-          })
-        : await clienteDatosRepo.save({
-            expedienteId: String(precal.id),
-            datos: datosAGuardar,
-            updatedBy: currentUser.email,
-          });
+        ? await clienteDatosRepo.saveCorreccion(saveInput)
+        : await clienteDatosRepo.save(saveInput);
       setClienteDatos(datosAGuardar);
+      setDireccionOpcional(direccionOpcional.trim());
+      setPrecal((prev) =>
+        prev
+          ? { ...prev, direccion_opcional: direccionOpcional.trim() }
+          : prev,
+      );
       setClienteDatosMeta({
         estado: saved.estado,
         comentarioRechazo: saved.comentarioRechazo,
@@ -701,6 +709,7 @@ export default function AsesorExpedientePage() {
     clienteDatosRepo,
     currentUser?.email,
     dataSupabase,
+    direccionOpcional,
     operativo?.submittedToMesa,
     precal?.id,
     hasMontoAprobado,
@@ -899,6 +908,8 @@ export default function AsesorExpedientePage() {
             <ExpedienteClienteDatosFormSection
               clienteDatos={clienteDatos}
               setClienteDatos={setClienteDatos}
+              direccionOpcional={direccionOpcional}
+              setDireccionOpcional={setDireccionOpcional}
               clienteDatosMeta={clienteDatosMeta}
               clienteDatosSaving={clienteDatosSaving}
               clienteDatosLoading={clienteDatosLoading}
@@ -1078,6 +1089,8 @@ export default function AsesorExpedientePage() {
             <ExpedienteClienteDatosFormSection
               clienteDatos={clienteDatos}
               setClienteDatos={setClienteDatos}
+              direccionOpcional={direccionOpcional}
+              setDireccionOpcional={setDireccionOpcional}
               clienteDatosMeta={clienteDatosMeta}
               clienteDatosSaving={clienteDatosSaving}
               clienteDatosError={clienteDatosError}
@@ -1106,6 +1119,7 @@ export default function AsesorExpedientePage() {
               }
               const camposFaltantes = getClienteDatosCamposFaltantes(clienteDatos, {
                 montoAprobado: montoAprobadoEditor,
+                direccionOpcional,
               });
               if (camposFaltantes.length > 0) {
                 window.alert(
@@ -1124,6 +1138,7 @@ export default function AsesorExpedientePage() {
                 const saved = await clienteDatosRepo.save({
                   expedienteId: String(precal.id),
                   datos: datosFormularioActuales,
+                  direccionOpcional,
                   updatedBy: currentUser.email,
                 });
                 setClienteDatosMeta({

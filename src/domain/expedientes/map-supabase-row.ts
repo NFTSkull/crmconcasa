@@ -122,9 +122,10 @@ function resolveAsesorId(
 /** Mapea fila Supabase → `ExpedienteMock` para dashboards admin (read-only P3B.1). */
 export function mapSupabaseRowToExpedienteMock(
   row: SupabaseExpedienteListRow,
+  asesorProfileOverride?: SupabaseAsesorProfileEmbed | null,
 ): ExpedienteMock {
   const editor = unwrapEmbed(row.editor_decisions);
-  const asesor = unwrapEmbed(row.asesor);
+  const asesor = unwrapEmbed(row.asesor) ?? asesorProfileOverride ?? null;
   const subestado = normalizeSubestado(row.subestado ?? "pendiente");
   const etapaPersistida =
     typeof row.etapa_actual === "number" ? row.etapa_actual : null;
@@ -142,6 +143,8 @@ export function mapSupabaseRowToExpedienteMock(
       telefono_cliente: row.telefono_cliente ?? "",
       direccion_opcional: row.direccion_opcional?.trim() ?? "",
       asesorId: resolveAsesorId(row, asesor),
+      asesorNombre: textOrNull(asesor?.full_name),
+      asesorEmail: textOrNull(asesor?.email),
       createdAt: isoOrNow(row.created_at),
       origenMesa,
     },

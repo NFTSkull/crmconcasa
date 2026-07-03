@@ -27,6 +27,10 @@ import { MesaRetencionAcuseAvisoSection } from "@/components/mesa-control/MesaRe
 import { AsesorSeguimientoOperativo } from "@/components/asesor/AsesorSeguimientoOperativo";
 import { Button } from "@/components/ui/Button";
 import {
+  formatAsesorExpedienteLabel,
+  formatMontoAprobadoVigente,
+} from "@/lib/asesorDisplay";
+import {
   useExpedienteClienteDatosRepo,
   ClienteDatosSupabaseError,
   type ExpedienteClienteDatos,
@@ -151,9 +155,12 @@ function MesaDetalleShell({
   );
 }
 
-function formatAsesorLabel(asesorId: string | null | undefined): string {
-  const value = String(asesorId ?? "").trim();
-  return value || "—";
+function formatAsesorLabelFromExpediente(expediente: ExpedienteMock): string {
+  return formatAsesorExpedienteLabel({
+    fullName: expediente.base.asesorNombre,
+    email: expediente.base.asesorEmail ?? (expediente.base.asesorId.includes("@") ? expediente.base.asesorId : null),
+    fallbackId: expediente.base.asesorId,
+  });
 }
 
 function puedeRevisarDocumentos(role: Rol | undefined): boolean {
@@ -1424,8 +1431,8 @@ export function MesaExpedienteDetalleReadOnly() {
     fechaCita: op.fechaCita,
   });
   const editorSummary = `${editorDecisionLabel(ed.decision)}${
-    ed.decision === "aprobado" && typeof ed.monto_aprobado === "number"
-      ? ` · $${ed.monto_aprobado.toLocaleString("es-MX")}`
+    typeof ed.monto_aprobado === "number" && ed.monto_aprobado > 0
+      ? ` · ${formatMontoAprobadoVigente(ed.monto_aprobado)}`
       : ""
   }`;
 
@@ -1451,7 +1458,11 @@ export function MesaExpedienteDetalleReadOnly() {
           </p>
           <p>
             <span className="font-medium text-gray-900">Asesor:</span>{" "}
-            {formatAsesorLabel(expediente.base.asesorId)}
+            {formatAsesorLabelFromExpediente(expediente)}
+          </p>
+          <p>
+            <span className="font-medium text-gray-900">Monto aprobado:</span>{" "}
+            {formatMontoAprobadoVigente(ed.monto_aprobado)}
           </p>
           <p>
             <span className="font-medium text-gray-900">Origen Mesa:</span>{" "}
@@ -1504,9 +1515,7 @@ export function MesaExpedienteDetalleReadOnly() {
           </p>
           <p>
             <span className="font-medium text-gray-900">Monto aprobado:</span>{" "}
-            {ed.decision === "aprobado" && typeof ed.monto_aprobado === "number"
-              ? `$${ed.monto_aprobado.toLocaleString("es-MX")}`
-              : "—"}
+            {formatMontoAprobadoVigente(ed.monto_aprobado)}
           </p>
           <p>
             <span className="font-medium text-gray-900">Notas revisión:</span>{" "}

@@ -77,6 +77,8 @@ export type ExpedienteClienteDatos = {
 export type SaveExpedienteClienteDatosInput = {
   expedienteId: string;
   datos: ExpedienteClienteDatos["datos"];
+  /** Dirección del cliente (`expedientes.direccion_opcional`). */
+  direccionOpcional: string;
   updatedBy: string;
 };
 

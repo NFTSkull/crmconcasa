@@ -8,7 +8,7 @@ import {
 } from "@/lib/clienteDatosValidation";
 import { calcMontoCalculadoCobro } from "@/lib/clienteDatosCobro";
 
-const COBRO_CTX = { montoAprobado: 100_000 };
+const COBRO_CTX = { montoAprobado: 100_000, direccionOpcional: "Calle Principal 123" };
 
 const baseValid: ClienteDatosFormShape = {
   nombreCliente: "Juan Pérez",
@@ -35,6 +35,16 @@ const baseValid: ClienteDatosFormShape = {
   montoCalculado: "10000",
   metodoPago: "transferencia",
 };
+
+test("validateClienteDatos: dirección obligatoria", () => {
+  const r = validateClienteDatos(baseValid, { ...COBRO_CTX, direccionOpcional: "" });
+  assert.equal(r.errors.direccionOpcional, "La dirección es obligatoria.");
+});
+
+test("validateClienteDatos: dirección con solo espacios rechaza", () => {
+  const r = validateClienteDatos(baseValid, { ...COBRO_CTX, direccionOpcional: "   " });
+  assert.equal(r.errors.direccionOpcional, "La dirección es obligatoria.");
+});
 
 test("validateClienteDatos: payload válido sin errores", () => {
   const r = validateClienteDatos(baseValid, COBRO_CTX);

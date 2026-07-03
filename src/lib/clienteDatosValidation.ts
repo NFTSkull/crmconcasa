@@ -6,6 +6,7 @@ import {
 
 export type ClienteDatosValidationContext = {
   montoAprobado?: number | null;
+  direccionOpcional?: string | null;
 };
 
 export type ClienteDatosFieldKey =
@@ -28,6 +29,7 @@ export type ClienteDatosFieldKey =
   | "direccionColonia"
   | "direccionMunicipio"
   | "direccionCp"
+  | "direccionOpcional"
   | "porcentajeCobro"
   | "montoCalculado"
   | "metodoPago";
@@ -132,6 +134,11 @@ export function validateClienteDatos(
   req("direccionColonia", data.direccionEmpresa.colonia, "Colonia de la empresa");
   req("direccionMunicipio", data.direccionEmpresa.municipio, "Municipio de la empresa");
   req("direccionCp", data.direccionEmpresa.cp, "CP");
+
+  const direccion = String(ctx.direccionOpcional ?? "").trim();
+  if (!direccion) {
+    setError(errors, "direccionOpcional", "La dirección es obligatoria.");
+  }
 
   req("porcentajeCobro", data.porcentajeCobro, "Porcentaje de cobro");
   req("metodoPago", data.metodoPago, "Método de pago");

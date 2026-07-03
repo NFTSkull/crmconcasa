@@ -7,6 +7,7 @@ import { MesaExpedienteDetalleReadOnly } from "@/components/mesa-control/MesaExp
 import { useSessionRepo } from "@/domain/session";
 import { Button } from "@/components/ui/Button";
 import { isDataModeSupabase } from "@/lib/dataMode";
+import { formatAsesorExpedienteLabel } from "@/lib/asesorDisplay";
 import {
   SeguimientoOperativoMock,
   type SeguimientoOperativoMockSummary,
@@ -1278,7 +1279,15 @@ function MesaControlExpedienteMockPage() {
                   Asesor
                 </p>
                 <p className="mt-1 break-all text-sm font-semibold text-gray-900">
-                  {expediente.base.asesorId}
+                  {formatAsesorExpedienteLabel({
+                    fullName: expediente.base.asesorNombre,
+                    email:
+                      expediente.base.asesorEmail ??
+                      (expediente.base.asesorId.includes("@")
+                        ? expediente.base.asesorId
+                        : null),
+                    fallbackId: expediente.base.asesorId,
+                  })}
                 </p>
               </div>
               <div className="min-w-[10rem] flex-1 rounded-xl border border-gray-100 bg-white/95 p-3 shadow-sm sm:flex-initial">

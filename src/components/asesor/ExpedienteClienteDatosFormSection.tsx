@@ -27,6 +27,8 @@ type ClienteDatosMeta = {
 interface ExpedienteClienteDatosFormSectionProps {
   clienteDatos: ClienteDatosFormState;
   setClienteDatos: Dispatch<SetStateAction<ClienteDatosFormState>>;
+  direccionOpcional: string;
+  setDireccionOpcional: Dispatch<SetStateAction<string>>;
   clienteDatosMeta: ClienteDatosMeta | null;
   clienteDatosSaving: boolean;
   clienteDatosLoading?: boolean;
@@ -80,6 +82,8 @@ function DatosField({
 export function ExpedienteClienteDatosFormSection({
   clienteDatos,
   setClienteDatos,
+  direccionOpcional,
+  setDireccionOpcional,
   clienteDatosMeta,
   clienteDatosSaving,
   clienteDatosLoading = false,
@@ -422,6 +426,25 @@ export function ExpedienteClienteDatosFormSection({
                 />
               </DatosField>
             </div>
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-md border border-gray-200 p-3">
+          <p className="text-xs font-semibold text-gray-900">Domicilio del cliente</p>
+          <div className="mt-2 grid grid-cols-1 gap-2">
+            <DatosField
+              label="Dirección"
+              fieldKey="direccionOpcional"
+              error={err("direccionOpcional")}
+              showError={showFieldErrors}
+            >
+              <input
+                className={fieldInputClass(Boolean(err("direccionOpcional")))}
+                value={direccionOpcional}
+                onChange={(e) => setDireccionOpcional(e.target.value)}
+                placeholder="Calle, número, colonia, municipio"
+              />
+            </DatosField>
           </div>
         </div>
 

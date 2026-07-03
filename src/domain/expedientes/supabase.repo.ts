@@ -16,6 +16,7 @@ import {
   mapCreateExpedienteRpcToExpedienteMock,
   mapSupabaseRowToExpedienteMock,
   type CreateExpedienteRpcResponse,
+  type SupabaseAsesorProfileEmbed,
   type SupabaseExpedienteListRow,
 } from "./map-supabase-row";
 
@@ -43,6 +44,59 @@ const EXPEDIENTES_LIST_SELECT = `
 `;
 
 export { ExpedientesSupabaseError } from "./supabase.error";
+
+type AsesorDisplayRow = Readonly<{
+  asesor_id: string;
+  full_name: string | null;
+  email: string | null;
+}>;
+
+async function fetchAsesorDisplayMap(
+  client: SupabaseClient,
+  asesorIds: string[],
+): Promise<Map<string, SupabaseAsesorProfileEmbed>> {
+  const unique = [...new Set(asesorIds.map((id) => id.trim()).filter(Boolean))];
+  const map = new Map<string, SupabaseAsesorProfileEmbed>();
+  if (unique.length === 0) return map;
+
+  const { data, error } = await client.rpc("get_asesor_display_batch", {
+    p_asesor_ids: unique,
+  });
+
+  if (error) {
+    return map;
+  }
+
+  for (const row of (data ?? []) as AsesorDisplayRow[]) {
+    const id = String(row.asesor_id ?? "").trim();
+    if (!id) continue;
+    map.set(id, {
+      full_name: row.full_name,
+      email: row.email,
+    });
+  }
+
+  return map;
+}
+
+function mapRowsToExpedienteMocks(
+  rows: SupabaseExpedienteListRow[],
+  asesorMap: Map<string, SupabaseAsesorProfileEmbed>,
+): ExpedienteMock[] {
+  return rows.map((row) => {
+    const embed = row.asesor;
+    const embedded =
+      embed && !Array.isArray(embed)
+        ? embed
+        : Array.isArray(embed)
+          ? embed[0]
+          : null;
+    const hasEmbed =
+      Boolean(embedded?.email?.trim()) || Boolean(embedded?.full_name?.trim());
+    const override = hasEmbed ? null : asesorMap.get(row.asesor_id) ?? null;
+    return mapSupabaseRowToExpedienteMock(row, override);
+  });
+}
 
 function mapCreateExpedienteRpcError(error: {
   code?: string;
@@ -138,9 +192,12 @@ async function fetchExpedientesList(options?: {
     return [];
   }
 
-  return data.map((row) =>
-    mapSupabaseRowToExpedienteMock(row as SupabaseExpedienteListRow),
+  const rows = data as SupabaseExpedienteListRow[];
+  const asesorMap = await fetchAsesorDisplayMap(
+    client,
+    rows.map((row) => row.asesor_id),
   );
+  return mapRowsToExpedienteMocks(rows, asesorMap);
 }
 
 async function fetchExpedientesListForMesaControl(): Promise<ExpedienteMock[]> {
@@ -164,9 +221,12 @@ async function fetchExpedientesListForMesaControl(): Promise<ExpedienteMock[]> {
     return [];
   }
 
-  return data.map((row) =>
-    mapSupabaseRowToExpedienteMock(row as SupabaseExpedienteListRow),
+  const rows = data as SupabaseExpedienteListRow[];
+  const asesorMap = await fetchAsesorDisplayMap(
+    client,
+    rows.map((row) => row.asesor_id),
   );
+  return mapRowsToExpedienteMocks(rows, asesorMap);
 }
 
 async function fetchExpedienteById(id: string): Promise<ExpedienteMock | null> {
@@ -190,7 +250,9 @@ async function fetchExpedienteById(id: string): Promise<ExpedienteMock | null> {
 
   if (!data) return null;
 
-  return mapSupabaseRowToExpedienteMock(data as SupabaseExpedienteListRow);
+  const row = data as SupabaseExpedienteListRow;
+  const asesorMap = await fetchAsesorDisplayMap(client, [row.asesor_id]);
+  return mapSupabaseRowToExpedienteMock(row, asesorMap.get(row.asesor_id) ?? null);
 }
 
 /**
