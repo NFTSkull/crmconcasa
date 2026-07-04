@@ -10,6 +10,13 @@ import { getEffectiveMockRole } from "@/lib/mockUser";
 import type { ExpedientesRepo } from "./repo";
 import type { CreateExpedienteInput } from "./create-expediente.input";
 import type { UpsertEditorDecisionInput } from "./upsert-editor-decision.input";
+import {
+  matchesEditorListSearch,
+  normalizeEditorListPage,
+  sortEditorListItems,
+  type EditorListPage,
+  type EditorListQuery,
+} from "./editor-list-query";
 
 export type EditorDecision = "pendiente" | "aprobado" | "no_cumple";
 export type OperativoSubestado =
@@ -389,8 +396,21 @@ export class MockExpedientesRepo implements ExpedientesRepo {
     return all.filter((e) => e.base.asesorId === asesorId);
   }
 
-  async listForEditor(): Promise<ExpedienteMock[]> {
-    return this.listAll();
+  async listForEditor(query: EditorListQuery): Promise<EditorListPage> {
+    const { page, pageSize, from, to } = normalizeEditorListPage(
+      query.page,
+      query.pageSize,
+    );
+    const all = sortEditorListItems(await this.listAll());
+    const filtered = all.filter((e) =>
+      matchesEditorListSearch(e, query.search ?? ""),
+    );
+    return {
+      items: filtered.slice(from, to + 1),
+      total: filtered.length,
+      page,
+      pageSize,
+    };
   }
 
   async listForAdmin(): Promise<ExpedienteMock[]> {

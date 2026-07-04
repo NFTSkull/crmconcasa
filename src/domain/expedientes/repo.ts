@@ -1,12 +1,13 @@
 import type { CreateExpedienteInput } from "./create-expediente.input";
 import type { UpsertEditorDecisionInput } from "./upsert-editor-decision.input";
+import type { EditorListPage, EditorListQuery } from "./editor-list-query";
 import type { ExpedienteMock } from "./mock.repo";
 
 /** Contrato expedientes — lectura admin/asesor/detalle (P3B/P3D) + creación asesor (P3C) + envío Mesa (P3E) + editor (P3F) + bandeja Mesa (P3J.1). */
 export interface ExpedientesRepo {
   listForAdmin(): Promise<ExpedienteMock[]>;
   listForAsesor(asesorEmail: string): Promise<ExpedienteMock[]>;
-  listForEditor(): Promise<ExpedienteMock[]>;
+  listForEditor(query: EditorListQuery): Promise<EditorListPage>;
   listForMesaControl(): Promise<ExpedienteMock[]>;
   getById(id: string): Promise<ExpedienteMock | null>;
   createExpediente(input: CreateExpedienteInput): Promise<ExpedienteMock>;

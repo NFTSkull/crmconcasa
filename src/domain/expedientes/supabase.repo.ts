@@ -13,6 +13,12 @@ import { mapAsesorUpdateMontoAprobadoRpcError } from "./asesor-update-monto-apro
 import { mapUpsertEditorDecisionRpcError } from "./upsert-editor-decision-rpc-error";
 import type { UpsertEditorDecisionInput } from "./upsert-editor-decision.input";
 import {
+  buildEditorListOrFilter,
+  normalizeEditorListPage,
+  type EditorListPage,
+  type EditorListQuery,
+} from "./editor-list-query";
+import {
   mapCreateExpedienteRpcToExpedienteMock,
   mapSupabaseRowToExpedienteMock,
   type CreateExpedienteRpcResponse,
@@ -200,6 +206,50 @@ async function fetchExpedientesList(options?: {
   return mapRowsToExpedienteMocks(rows, asesorMap);
 }
 
+async function fetchExpedientesListForEditor(
+  query: EditorListQuery,
+): Promise<EditorListPage> {
+  const { client } = await requireSupabaseSession();
+  const { page, pageSize, from, to } = normalizeEditorListPage(
+    query.page,
+    query.pageSize,
+  );
+  const orFilter = buildEditorListOrFilter(query.search ?? "");
+
+  let dbQuery = client
+    .from("expedientes")
+    .select(EXPEDIENTES_LIST_SELECT, { count: "exact" })
+    .is("deleted_at", null);
+
+  if (orFilter) {
+    dbQuery = dbQuery.or(orFilter);
+  }
+
+  const { data, error, count } = await dbQuery
+    .order("updated_at", { ascending: false })
+    .order("created_at", { ascending: false })
+    .range(from, to);
+
+  if (error) {
+    throw new ExpedientesSupabaseError(
+      "No se pudo cargar el listado de expedientes. Intenta de nuevo más tarde.",
+    );
+  }
+
+  const rows = (data ?? []) as SupabaseExpedienteListRow[];
+  const asesorMap = await fetchAsesorDisplayMap(
+    client,
+    rows.map((row) => row.asesor_id),
+  );
+
+  return {
+    items: mapRowsToExpedienteMocks(rows, asesorMap),
+    total: count ?? rows.length,
+    page,
+    pageSize,
+  };
+}
+
 async function fetchExpedientesListForMesaControl(): Promise<ExpedienteMock[]> {
   const { client } = await requireSupabaseSession();
 
@@ -264,8 +314,8 @@ export class SupabaseExpedientesRepo implements ExpedientesRepo {
     return fetchExpedientesList();
   }
 
-  async listForEditor(): Promise<ExpedienteMock[]> {
-    return fetchExpedientesList();
+  async listForEditor(query: EditorListQuery): Promise<EditorListPage> {
+    return fetchExpedientesListForEditor(query);
   }
 
   async listForMesaControl(): Promise<ExpedienteMock[]> {

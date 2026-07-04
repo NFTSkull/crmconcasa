@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useSessionRepo } from "@/domain/session";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -9,6 +9,7 @@ import { formatDateTimeMx } from "@/lib/filters";
 import {
   ExpedientesSupabaseError,
   useExpedientesRepo,
+  EDITOR_LIST_PAGE_SIZE,
   type EditorDecision,
   type ExpedienteMock,
 } from "@/domain/expedientes";
@@ -16,6 +17,7 @@ import { isDataModeSupabase } from "@/lib/dataMode";
 import { parseMontoAprobado } from "@/lib/monto";
 
 const SUPABASE_SAVE_DEBOUNCE_MS = 750;
+const SEARCH_DEBOUNCE_MS = 300;
 
 interface EditorPrecalRow {
   id: string;
@@ -162,7 +164,11 @@ export default function EditorDashboardPage() {
   const repo = useExpedientesRepo();
   const dataSupabase = isDataModeSupabase();
   const [rows, setRows] = useState<EditorPrecalRow[]>([]);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [loading, setLoading] = useState(false);
   const [buscar, setBuscar] = useState("");
+  const [buscarDebounced, setBuscarDebounced] = useState("");
   const [globalError, setGlobalError] = useState<string | null>(null);
   const [rowSaveStates, setRowSaveStates] = useState<
     Record<string, RowSaveState>
@@ -174,27 +180,48 @@ export default function EditorDashboardPage() {
   const savedClearTimersRef = useRef<
     Record<string, ReturnType<typeof setTimeout>>
   >({});
+  const lastBuscarRef = useRef(buscar);
 
   const loadData = useCallback(() => {
     void (async () => {
+      setLoading(true);
+      setGlobalError(null);
       try {
-        const list = await repo.listForEditor();
-        const combined = list
-          .map(mapExpedienteToEditorRow)
-          .sort(
-            (a, b) =>
-              new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-          );
-        setRows(combined);
+        const result = await repo.listForEditor({
+          page,
+          pageSize: EDITOR_LIST_PAGE_SIZE,
+          search: buscarDebounced,
+        });
+        setRows(result.items.map(mapExpedienteToEditorRow));
+        setTotal(result.total);
       } catch (err) {
         console.error(
           "[editor] error leyendo expedientes:",
           err instanceof Error ? err.message : String(err),
         );
         setRows([]);
+        setTotal(0);
+        setGlobalError(
+          err instanceof ExpedientesSupabaseError
+            ? err.message
+            : "No se pudo cargar el listado de expedientes.",
+        );
+      } finally {
+        setLoading(false);
       }
     })();
-  }, [repo]);
+  }, [repo, page, buscarDebounced]);
+
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      if (lastBuscarRef.current !== buscar) {
+        lastBuscarRef.current = buscar;
+        setPage(1);
+      }
+      setBuscarDebounced(buscar);
+    }, SEARCH_DEBOUNCE_MS);
+    return () => clearTimeout(timer);
+  }, [buscar]);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -403,19 +430,9 @@ export default function EditorDashboardPage() {
     }
   };
 
-  const filteredRows = useMemo(() => {
-    const q = buscar.trim().toLowerCase();
-    if (!q) return rows;
-    return rows.filter((p) => {
-      return (
-        p.cliente_nombre.toLowerCase().includes(q) ||
-        p.telefono_cliente.includes(q) ||
-        p.programa.toLowerCase().includes(q) ||
-        (p.nss ?? "").includes(q) ||
-        (p.asesorId ?? "").toLowerCase().includes(q)
-      );
-    });
-  }, [rows, buscar]);
+  const totalPages = Math.max(1, Math.ceil(total / EDITOR_LIST_PAGE_SIZE));
+  const rangeStart = total === 0 ? 0 : (page - 1) * EDITOR_LIST_PAGE_SIZE + 1;
+  const rangeEnd = Math.min(page * EDITOR_LIST_PAGE_SIZE, total);
 
   if (currentUser === undefined) {
     return (
@@ -474,10 +491,19 @@ export default function EditorDashboardPage() {
 
       <main className="mx-auto w-full max-w-[min(100%,96rem)] space-y-4 px-4 py-4 sm:space-y-6 sm:py-6">
         <section className="flex flex-wrap items-center justify-between gap-3">
-          <h2 className="text-base font-medium text-gray-900 sm:text-lg">
-            Precalificaciones para revisión
-            {!dataSupabase ? " (mock)" : ""}
-          </h2>
+          <div className="space-y-1">
+            <h2 className="text-base font-medium text-gray-900 sm:text-lg">
+              Precalificaciones para revisión
+              {!dataSupabase ? " (mock)" : ""}
+            </h2>
+            <p className="text-xs text-gray-500">
+              {loading
+                ? "Cargando expedientes…"
+                : total === 0
+                  ? "Sin resultados"
+                  : `Mostrando ${rangeStart}–${rangeEnd} de ${total}`}
+            </p>
+          </div>
           <div className="w-full max-w-xs sm:w-72">
             <Input
               type="search"
@@ -539,7 +565,16 @@ export default function EditorDashboardPage() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200 bg-white">
-              {filteredRows.length === 0 ? (
+              {loading && rows.length === 0 ? (
+                <tr>
+                  <td
+                    colSpan={9}
+                    className="px-4 py-8 text-center text-sm text-gray-500"
+                  >
+                    Cargando expedientes…
+                  </td>
+                </tr>
+              ) : rows.length === 0 ? (
                 <tr>
                   <td
                     colSpan={9}
@@ -550,7 +585,7 @@ export default function EditorDashboardPage() {
                   </td>
                 </tr>
               ) : (
-                filteredRows.map((p) => {
+                rows.map((p) => {
                   const montoValue =
                     p.monto_aprobado != null ? String(p.monto_aprobado) : "";
                   const saveState = rowSaveStates[p.id];
@@ -615,6 +650,30 @@ export default function EditorDashboardPage() {
               )}
             </tbody>
           </table>
+        </section>
+
+        <section className="flex flex-wrap items-center justify-between gap-3">
+          <p className="text-xs text-gray-500">
+            Página {page} de {totalPages}
+          </p>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              disabled={loading || page <= 1}
+              onClick={() => setPage((p) => Math.max(1, p - 1))}
+              className="min-h-[36px] touch-manipulation sm:min-h-0"
+            >
+              Anterior
+            </Button>
+            <Button
+              variant="outline"
+              disabled={loading || page >= totalPages}
+              onClick={() => setPage((p) => p + 1)}
+              className="min-h-[36px] touch-manipulation sm:min-h-0"
+            >
+              Siguiente
+            </Button>
+          </div>
         </section>
       </main>
     </div>
