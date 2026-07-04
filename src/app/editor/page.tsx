@@ -11,103 +11,22 @@ import {
   useExpedientesRepo,
   EDITOR_LIST_PAGE_SIZE,
   type EditorDecision,
-  type ExpedienteMock,
 } from "@/domain/expedientes";
 import { isDataModeSupabase } from "@/lib/dataMode";
 import { parseMontoAprobado } from "@/lib/monto";
+import {
+  buildDecisionPayload,
+  clearRowSaveUiState,
+  computeDecision,
+  formatMontoInputValue,
+  formatRowSaveErrorLabel,
+  mapExpedienteToEditorRow,
+  type EditorPrecalRow,
+  type RowSaveState,
+} from "./editor-decision";
 
 const SUPABASE_SAVE_DEBOUNCE_MS = 750;
 const SEARCH_DEBOUNCE_MS = 300;
-
-interface EditorPrecalRow {
-  id: string;
-  programa: string;
-  nss: string;
-  cliente_nombre: string;
-  telefono_cliente: string;
-  asesorId: string;
-  createdAt: string;
-  decision: string;
-  monto_aprobado: number | null;
-  notas_revision: string;
-}
-
-type RowSaveStatus = "idle" | "pending" | "saving" | "saved" | "error";
-
-type RowSaveState = {
-  status: RowSaveStatus;
-  error?: string;
-};
-
-function mapExpedienteToEditorRow(e: ExpedienteMock): EditorPrecalRow {
-  return {
-    id: e.id,
-    programa: e.base.programa,
-    nss: e.base.nss,
-    cliente_nombre: e.base.cliente_nombre,
-    telefono_cliente: e.base.telefono_cliente,
-    asesorId: e.base.asesorId,
-    createdAt: e.base.createdAt,
-    decision: e.editorDecision.decision,
-    monto_aprobado: e.editorDecision.monto_aprobado,
-    notas_revision: e.editorDecision.notas_revision,
-  };
-}
-
-function computeDecision(montoStr: string, notasStr: string): EditorDecision {
-  const montoTrim = (montoStr ?? "").trim();
-  const notasTrim = (notasStr ?? "").trim();
-  if (montoTrim !== "") {
-    const num = parseMontoAprobado(montoTrim);
-    if (num !== null && num > 0) return "aprobado";
-  }
-  if (notasTrim.length > 0) return "no_cumple";
-  return "pendiente";
-}
-
-function buildDecisionPayload(
-  montoStr: string,
-  notasStr: string,
-): {
-  decision: EditorDecision;
-  monto_aprobado: number | null;
-  notas_revision: string;
-} {
-  const montoTrim = montoStr.trim();
-  const notasTrim = notasStr.trim();
-  const num = montoTrim === "" ? null : parseMontoAprobado(montoTrim);
-
-  if (montoTrim !== "" && num === null) {
-    throw new Error("Formato de monto aprobado inválido.");
-  }
-  if (num !== null && num < 0) {
-    throw new Error("El monto aprobado no puede ser negativo.");
-  }
-
-  const decision = computeDecision(montoStr, notasStr);
-
-  if (decision === "aprobado") {
-    return {
-      decision,
-      monto_aprobado: num,
-      notas_revision: notasTrim,
-    };
-  }
-
-  if (decision === "no_cumple") {
-    return {
-      decision,
-      monto_aprobado: null,
-      notas_revision: notasTrim,
-    };
-  }
-
-  return {
-    decision: "pendiente",
-    monto_aprobado: null,
-    notas_revision: "",
-  };
-}
 
 function DecisionBadge({ decision }: { decision?: string }) {
   const d = decision ?? "pendiente";
@@ -154,7 +73,7 @@ function RowSaveIndicator({ state }: { state?: RowSaveState }) {
   }
   return (
     <span className="mt-1 block text-[10px] text-red-600" title={state.error}>
-      Error
+      {formatRowSaveErrorLabel(state.error)}
     </span>
   );
 }
@@ -180,10 +99,22 @@ export default function EditorDashboardPage() {
   const savedClearTimersRef = useRef<
     Record<string, ReturnType<typeof setTimeout>>
   >({});
+  const listGenerationRef = useRef(0);
   const lastBuscarRef = useRef(buscar);
+
+  const resetRowSaveUi = useCallback(() => {
+    setRowSaveStates(
+      clearRowSaveUiState({
+        debounceTimers: debounceTimersRef.current,
+        savedClearTimers: savedClearTimersRef.current,
+      }),
+    );
+  }, []);
 
   const loadData = useCallback(() => {
     void (async () => {
+      const loadGeneration = ++listGenerationRef.current;
+      resetRowSaveUi();
       setLoading(true);
       setGlobalError(null);
       try {
@@ -192,9 +123,11 @@ export default function EditorDashboardPage() {
           pageSize: EDITOR_LIST_PAGE_SIZE,
           search: buscarDebounced,
         });
+        if (loadGeneration !== listGenerationRef.current) return;
         setRows(result.items.map(mapExpedienteToEditorRow));
         setTotal(result.total);
       } catch (err) {
+        if (loadGeneration !== listGenerationRef.current) return;
         console.error(
           "[editor] error leyendo expedientes:",
           err instanceof Error ? err.message : String(err),
@@ -207,10 +140,12 @@ export default function EditorDashboardPage() {
             : "No se pudo cargar el listado de expedientes.",
         );
       } finally {
-        setLoading(false);
+        if (loadGeneration === listGenerationRef.current) {
+          setLoading(false);
+        }
       }
     })();
-  }, [repo, page, buscarDebounced]);
+  }, [repo, page, buscarDebounced, resetRowSaveUi]);
 
   useEffect(() => {
     const timer = setTimeout(() => {
@@ -283,6 +218,7 @@ export default function EditorDashboardPage() {
 
   const scheduleSupabaseSave = useCallback(
     (expedienteId: string, montoStr: string, notasStr: string) => {
+      const saveGeneration = listGenerationRef.current;
       const existingDebounce = debounceTimersRef.current[expedienteId];
       if (existingDebounce) clearTimeout(existingDebounce);
 
@@ -293,10 +229,13 @@ export default function EditorDashboardPage() {
 
       debounceTimersRef.current[expedienteId] = setTimeout(() => {
         void (async () => {
+          if (saveGeneration !== listGenerationRef.current) return;
+
           let payload: ReturnType<typeof buildDecisionPayload>;
           try {
             payload = buildDecisionPayload(montoStr, notasStr);
           } catch (err) {
+            if (saveGeneration !== listGenerationRef.current) return;
             const msg =
               err instanceof Error
                 ? err.message
@@ -320,6 +259,7 @@ export default function EditorDashboardPage() {
               expedienteId,
               payload,
             );
+            if (saveGeneration !== listGenerationRef.current) return;
             const nextRow = mapExpedienteToEditorRow(updated);
             setRows((prev) =>
               prev.map((row) => (row.id === expedienteId ? nextRow : row)),
@@ -332,6 +272,7 @@ export default function EditorDashboardPage() {
             const existingSavedClear = savedClearTimersRef.current[expedienteId];
             if (existingSavedClear) clearTimeout(existingSavedClear);
             savedClearTimersRef.current[expedienteId] = setTimeout(() => {
+              if (saveGeneration !== listGenerationRef.current) return;
               setRowSaveStates((prev) => {
                 const current = prev[expedienteId];
                 if (!current || current.status !== "saved") return prev;
@@ -341,6 +282,7 @@ export default function EditorDashboardPage() {
               });
             }, 2500);
           } catch (err) {
+            if (saveGeneration !== listGenerationRef.current) return;
             const msg =
               err instanceof ExpedientesSupabaseError
                 ? err.message
@@ -359,7 +301,18 @@ export default function EditorDashboardPage() {
     [repo],
   );
 
+  const clearRowSaveError = useCallback((expedienteId: string) => {
+    setRowSaveStates((prev) => {
+      const current = prev[expedienteId];
+      if (!current || current.status !== "error") return prev;
+      const next = { ...prev };
+      delete next[expedienteId];
+      return next;
+    });
+  }, []);
+
   const handleMontoChange = (row: EditorPrecalRow, val: string) => {
+    clearRowSaveError(row.id);
     try {
       const trimmed = val.trim();
       const nextMonto = trimmed === "" ? null : parseMontoAprobado(trimmed);
@@ -397,12 +350,18 @@ export default function EditorDashboardPage() {
       const msg =
         err instanceof Error ? err.message : "Error al guardar la decisión.";
       setGlobalError(msg);
+      if (dataSupabase) {
+        setRowSaveStates((prev) => ({
+          ...prev,
+          [row.id]: { status: "error", error: msg },
+        }));
+      }
     }
   };
 
   const handleNotasChange = (row: EditorPrecalRow, val: string) => {
-    const montoStr =
-      row.monto_aprobado != null ? String(row.monto_aprobado) : "";
+    clearRowSaveError(row.id);
+    const montoStr = formatMontoInputValue(row.monto_aprobado);
     const nextDecision = computeDecision(montoStr, val);
 
     setRows((prev) =>
@@ -427,6 +386,12 @@ export default function EditorDashboardPage() {
       const msg =
         err instanceof Error ? err.message : "Error al guardar la decisión.";
       setGlobalError(msg);
+      if (dataSupabase) {
+        setRowSaveStates((prev) => ({
+          ...prev,
+          [row.id]: { status: "error", error: msg },
+        }));
+      }
     }
   };
 
@@ -586,8 +551,7 @@ export default function EditorDashboardPage() {
                 </tr>
               ) : (
                 rows.map((p) => {
-                  const montoValue =
-                    p.monto_aprobado != null ? String(p.monto_aprobado) : "";
+                  const montoValue = formatMontoInputValue(p.monto_aprobado);
                   const saveState = rowSaveStates[p.id];
 
                   return (
@@ -627,12 +591,13 @@ export default function EditorDashboardPage() {
                       </td>
                       <td className="bg-blue-50/30 px-3 py-2">
                         <input
-                          type="number"
-                          min={0}
-                          step={1}
-                          className="no-spinner w-full min-w-[160px] max-w-[180px] rounded-md border border-gray-300 px-2 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          type="text"
+                          inputMode="decimal"
+                          autoComplete="off"
+                          className="w-full min-w-[160px] max-w-[180px] rounded-md border border-gray-300 px-2 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                           value={montoValue}
                           onChange={(e) => handleMontoChange(p, e.target.value)}
+                          onWheel={(e) => e.currentTarget.blur()}
                         />
                       </td>
                       <td className="bg-blue-50/30 px-3 py-2">
