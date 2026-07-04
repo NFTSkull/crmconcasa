@@ -13,6 +13,7 @@ import {
   type ExpedienteMock,
 } from "@/domain/expedientes";
 import { isDataModeSupabase } from "@/lib/dataMode";
+import { parseMontoAprobado } from "@/lib/monto";
 
 const SUPABASE_SAVE_DEBOUNCE_MS = 750;
 
@@ -55,8 +56,8 @@ function computeDecision(montoStr: string, notasStr: string): EditorDecision {
   const montoTrim = (montoStr ?? "").trim();
   const notasTrim = (notasStr ?? "").trim();
   if (montoTrim !== "") {
-    const num = Number(montoTrim);
-    if (!Number.isNaN(num) && num > 0) return "aprobado";
+    const num = parseMontoAprobado(montoTrim);
+    if (num !== null && num > 0) return "aprobado";
   }
   if (notasTrim.length > 0) return "no_cumple";
   return "pendiente";
@@ -72,9 +73,12 @@ function buildDecisionPayload(
 } {
   const montoTrim = montoStr.trim();
   const notasTrim = notasStr.trim();
-  const num = montoTrim === "" ? null : Number(montoTrim);
+  const num = montoTrim === "" ? null : parseMontoAprobado(montoTrim);
 
-  if (num !== null && (Number.isNaN(num) || num < 0)) {
+  if (montoTrim !== "" && num === null) {
+    throw new Error("Formato de monto aprobado inválido.");
+  }
+  if (num !== null && num < 0) {
     throw new Error("El monto aprobado no puede ser negativo.");
   }
 
@@ -330,7 +334,11 @@ export default function EditorDashboardPage() {
 
   const handleMontoChange = (row: EditorPrecalRow, val: string) => {
     try {
-      const nextMonto = val.trim() === "" ? null : Number(val);
+      const trimmed = val.trim();
+      const nextMonto = trimmed === "" ? null : parseMontoAprobado(trimmed);
+      if (trimmed !== "" && nextMonto === null) {
+        throw new Error("Formato de monto aprobado inválido.");
+      }
       const nextDecision = computeDecision(val, row.notas_revision);
 
       if (nextMonto !== null && nextMonto < 0) {

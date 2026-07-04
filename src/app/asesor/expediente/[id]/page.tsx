@@ -24,6 +24,7 @@ import {
   MockExpedientesRepo,
 } from "@/domain/expedientes/mock.repo";
 import { isDataModeSupabase } from "@/lib/dataMode";
+import { parseMontoAprobado } from "@/lib/monto";
 import { canShowAsesorRetencionSupabasePanel } from "@/domain/expediente-retencion";
 import {
   DOCUMENTO_CATALOGO_MAP,
@@ -333,8 +334,8 @@ export default function AsesorExpedientePage() {
   const handleGuardarMontoAprobado = useCallback(async () => {
     if (!precal?.id || montoSaving || operativo?.submittedToMesa) return;
 
-    const parsed = Number(String(montoAprobadoInput).replace(/,/g, "").trim());
-    if (!Number.isFinite(parsed) || parsed <= 0) {
+    const parsed = parseMontoAprobado(String(montoAprobadoInput).trim());
+    if (parsed === null || parsed <= 0) {
       setMontoError("El monto aprobado debe ser mayor a cero.");
       setMontoExito(null);
       return;

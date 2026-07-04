@@ -11,6 +11,7 @@ import {
   ExpedientesSupabaseError,
   useExpedientesRepo,
 } from "@/domain/expedientes";
+import { parseMontoAprobado } from "@/lib/monto";
 
 type Decision = "pendiente" | "aprobado" | "no_cumple";
 
@@ -108,8 +109,10 @@ export default function EditorExpedientePage() {
         throw new Error("Decisión inválida");
       }
       const montoTrim = montoStr.trim();
-      const num =
-        montoTrim === "" ? null : Number.isNaN(Number(montoTrim)) ? null : Number(montoTrim);
+      const num = montoTrim === "" ? null : parseMontoAprobado(montoTrim);
+      if (montoTrim !== "" && num === null) {
+        throw new Error("Formato de monto aprobado inválido.");
+      }
       if (num !== null && num < 0) {
         throw new Error("El monto aprobado no puede ser negativo.");
       }
