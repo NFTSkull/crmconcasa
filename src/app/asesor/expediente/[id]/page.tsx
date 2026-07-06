@@ -59,9 +59,11 @@ import {
   type ClienteDatosFieldErrors,
 } from "@/lib/clienteDatosValidation";
 import {
+  applyMontoCalculadoSugeridoSiNoBloqueado,
   applyMontoCalculadoSugeridoSiNoEditado,
   applyMontoMejoravitSugeridoSiVacio,
   calcMontoCalculadoCobro,
+  cobroInputsAfectanMontoCalculado,
   isMontoCalculadoManualRespectoAuto,
   isMontoMejoravitGuardado,
   isProgramaMejoravitDb,
@@ -282,9 +284,19 @@ export default function AsesorExpedientePage() {
     (value: SetStateAction<ClienteDatosFormState>) => {
       hasUserEditedClienteDatos.current = true;
       setClienteDatosHasUnsavedChanges(true);
-      setClienteDatos(value);
+      setClienteDatos((prev) => {
+        const next = typeof value === "function" ? value(prev) : value;
+        if (montoCalculadoLockedRef.current) return next;
+        if (!cobroInputsAfectanMontoCalculado(prev, next)) return next;
+        return applyMontoCalculadoSugeridoSiNoBloqueado(
+          next,
+          montoAprobadoEditor,
+          programaDb,
+          false,
+        );
+      });
     },
-    [],
+    [montoAprobadoEditor, programaDb],
   );
 
   const clearClienteDatosLocalDraft = useCallback(
@@ -327,7 +339,21 @@ export default function AsesorExpedientePage() {
       }
 
       if (shouldRestore) {
-        setClienteDatos(draft.clienteDatos);
+        const autoDraft = calcMontoCalculadoCobro(
+          montoAprobadoEditor,
+          parsePorcentajeCobroInput(draft.clienteDatos.porcentajeCobro),
+          { programaDb, montoMejoravitForm: draft.clienteDatos.montoMejoravit },
+        );
+        montoCalculadoLockedRef.current =
+          autoDraft != null &&
+          isMontoCalculadoManualRespectoAuto(draft.clienteDatos.montoCalculado, autoDraft);
+        const draftConAuto = applyMontoCalculadoSugeridoSiNoBloqueado(
+          draft.clienteDatos,
+          montoAprobadoEditor,
+          programaDb,
+          montoCalculadoLockedRef.current,
+        );
+        setClienteDatos(draftConAuto);
         setClienteDatosLocalDraftSaved(true);
         setClienteDatosLocalDraftRestored(true);
         setClienteDatosHasUnsavedChanges(false);
@@ -338,7 +364,7 @@ export default function AsesorExpedientePage() {
         suppressDraftAutosave.current = false;
       });
     },
-    [currentUser?.email],
+    [currentUser?.email, montoAprobadoEditor, programaDb],
   );
 
   useEffect(() => {
@@ -465,24 +491,31 @@ export default function AsesorExpedientePage() {
       return;
     }
     if (montoMejoravitLockedRef.current) return;
-    setClienteDatos((prev) =>
-      applyMontoMejoravitSugeridoSiVacio(prev, programaDb, montoAprobadoEditor),
-    );
+    setClienteDatos((prev) => {
+      const withMejoravit = applyMontoMejoravitSugeridoSiVacio(
+        prev,
+        programaDb,
+        montoAprobadoEditor,
+      );
+      if (montoCalculadoLockedRef.current) return withMejoravit;
+      return applyMontoCalculadoSugeridoSiNoEditado(
+        withMejoravit,
+        montoAprobadoEditor,
+        programaDb,
+      );
+    });
   }, [programaDb, montoAprobadoEditor]);
 
   const handleMontoMejoravitEdited = useCallback(() => {
     montoMejoravitLockedRef.current = true;
   }, []);
 
-  const porcentajeCobroForm = clienteDatos.porcentajeCobro;
-  const montoMejoravitForm = clienteDatos.montoMejoravit;
-
   useEffect(() => {
     if (montoCalculadoLockedRef.current) return;
     setClienteDatos((prev) =>
       applyMontoCalculadoSugeridoSiNoEditado(prev, montoAprobadoEditor, programaDb),
     );
-  }, [programaDb, montoAprobadoEditor, porcentajeCobroForm, montoMejoravitForm]);
+  }, [programaDb, montoAprobadoEditor]);
 
   const handleMontoCalculadoEdited = useCallback(() => {
     montoCalculadoLockedRef.current = true;
@@ -705,10 +738,9 @@ export default function AsesorExpedientePage() {
         found.datos.montoCalculado ||
         (found.montoCalculado != null ? String(found.montoCalculado) : "");
       montoCalculadoLockedRef.current =
-        montoAutoCargado != null
-          ? isMontoCalculadoManualRespectoAuto(montoCalculadoCargado, montoAutoCargado)
-          : false;
-      setClienteDatos({
+        montoAutoCargado != null &&
+        isMontoCalculadoManualRespectoAuto(montoCalculadoCargado, montoAutoCargado);
+      const datosCargados = {
         ...found.datos,
         rfc: found.datos.rfc ?? "",
         montoMejoravit: found.datos.montoMejoravit ?? "",
@@ -718,7 +750,15 @@ export default function AsesorExpedientePage() {
           (found.porcentajeCobro != null ? String(found.porcentajeCobro) : ""),
         montoCalculado: montoCalculadoCargado,
         metodoPago: found.datos.metodoPago || found.metodoPago || "",
-      });
+      };
+      setClienteDatos(
+        applyMontoCalculadoSugeridoSiNoBloqueado(
+          datosCargados,
+          montoAprobadoEditor,
+          programaDb,
+          montoCalculadoLockedRef.current,
+        ),
+      );
       setClienteDatosMeta({
         estado: found.estado,
         comentarioRechazo: found.comentarioRechazo,

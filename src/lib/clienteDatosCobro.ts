@@ -163,8 +163,29 @@ export function isMontoCalculadoManualRespectoAuto(
 ): boolean {
   const saved = parseMontoCalculadoInput(String(montoForm ?? ""));
   if (saved == null || saved <= 0) return false;
-  if (montoAuto == null) return true;
+  if (montoAuto == null) return false;
   return !montosCalculadosEquivalentes(saved, montoAuto);
+}
+
+export function cobroInputsAfectanMontoCalculado(
+  prev: ClienteDatosFormShape,
+  next: ClienteDatosFormShape,
+): boolean {
+  return (
+    prev.porcentajeCobro !== next.porcentajeCobro ||
+    prev.montoMejoravit !== next.montoMejoravit
+  );
+}
+
+/** Aplica monto calculado sugerido si el asesor no lo bloqueó manualmente. */
+export function applyMontoCalculadoSugeridoSiNoBloqueado(
+  datos: ClienteDatosFormShape,
+  montoEditor: number | null | undefined,
+  programaDb: string | null | undefined,
+  bloqueadoManual: boolean,
+): ClienteDatosFormShape {
+  if (bloqueadoManual) return datos;
+  return applyMontoCalculadoSugeridoSiNoEditado(datos, montoEditor, programaDb);
 }
 
 export function formatMontoCalculadoSugerido(value: number | null | undefined): string {

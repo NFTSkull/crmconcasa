@@ -2,12 +2,15 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { ClienteDatosFormShape } from "@/lib/clienteDatosFormCompleteness";
 import {
+  applyMontoCalculadoSugeridoSiNoBloqueado,
   applyMontoCalculadoSugeridoSiNoEditado,
   applyMontoMejoravitSugeridoSiVacio,
   calcBaseCobro,
   calcBaseCobroDesdeMontoEditor,
   calcMontoCalculadoCobro,
   calcMontoMejoravitDesdeEditor,
+  cobroInputsAfectanMontoCalculado,
+  isMontoCalculadoManualRespectoAuto,
   isMontoMejoravitGuardado,
   parseMontoCalculadoInput,
   parsePorcentajeCobroInput,
@@ -141,10 +144,11 @@ test("P055: resolveMontoCalculadoManualForRpc manual 17000", () => {
 });
 
 test("P055: applyMontoCalculadoSugeridoSiNoEditado respeta valor distinto al auto", () => {
-  const conManual = applyMontoCalculadoSugeridoSiNoEditado(
+  const conManual = applyMontoCalculadoSugeridoSiNoBloqueado(
     { ...BASE_DATOS, porcentajeCobro: "10", montoCalculado: "17000" },
     150000,
     "compro_tu_casa",
+    true,
   );
   assert.equal(conManual.montoCalculado, "17000");
 });
@@ -156,4 +160,121 @@ test("P055: applyMontoCalculadoSugeridoSiNoEditado autopuebla 18000", () => {
     "compro_tu_casa",
   );
   assert.equal(auto.montoCalculado, "18000");
+});
+
+test("P055.1: porcentaje 10 con montoMejoravit 150000 autopuebla 18000", () => {
+  const auto = applyMontoCalculadoSugeridoSiNoEditado(
+    {
+      ...BASE_DATOS,
+      porcentajeCobro: "10",
+      montoMejoravit: "150000",
+      montoCalculado: "",
+    },
+    200000,
+    "mejoravit",
+  );
+  assert.equal(auto.montoCalculado, "18000");
+});
+
+test("P055.1: porcentaje 25 con montoMejoravit 150000 autopuebla 40500", () => {
+  const auto = applyMontoCalculadoSugeridoSiNoEditado(
+    {
+      ...BASE_DATOS,
+      porcentajeCobro: "25",
+      montoMejoravit: "150000",
+      montoCalculado: "",
+    },
+    200000,
+    "mejoravit",
+  );
+  assert.equal(auto.montoCalculado, "40500");
+});
+
+test("P055.1: applyMontoCalculadoSugeridoSiNoBloqueado respeta lock manual", () => {
+  const datos = {
+    ...BASE_DATOS,
+    porcentajeCobro: "10",
+    montoMejoravit: "150000",
+    montoCalculado: "17000",
+  };
+  const bloqueado = applyMontoCalculadoSugeridoSiNoBloqueado(
+    { ...datos, porcentajeCobro: "25" },
+    200000,
+    "mejoravit",
+    true,
+  );
+  assert.equal(bloqueado.montoCalculado, "17000");
+});
+
+test("P055.1: vacío + porcentaje recalcula al cambiar base", () => {
+  const vacioPct10 = applyMontoCalculadoSugeridoSiNoEditado(
+    {
+      ...BASE_DATOS,
+      porcentajeCobro: "10",
+      montoMejoravit: "150000",
+      montoCalculado: "",
+    },
+    200000,
+    "mejoravit",
+  );
+  assert.equal(vacioPct10.montoCalculado, "18000");
+
+  const pct25 = applyMontoCalculadoSugeridoSiNoEditado(
+    { ...vacioPct10, porcentajeCobro: "25" },
+    200000,
+    "mejoravit",
+  );
+  assert.equal(pct25.montoCalculado, "40500");
+});
+
+test("P055.1: montoMejoravit cambia recalcula si no hay lock", () => {
+  const base = {
+    ...BASE_DATOS,
+    porcentajeCobro: "10",
+    montoMejoravit: "150000",
+    montoCalculado: "18000",
+  };
+  const recalculado = applyMontoCalculadoSugeridoSiNoBloqueado(
+    { ...base, montoMejoravit: "169000" },
+    200000,
+    "mejoravit",
+    false,
+  );
+  assert.equal(recalculado.montoCalculado, "19900");
+});
+
+test("P055.1: montoMejoravit cambia no pisa manual bloqueado", () => {
+  const manual = applyMontoCalculadoSugeridoSiNoBloqueado(
+    {
+      ...BASE_DATOS,
+      porcentajeCobro: "10",
+      montoMejoravit: "169000",
+      montoCalculado: "17000",
+    },
+    200000,
+    "mejoravit",
+    true,
+  );
+  assert.equal(manual.montoCalculado, "17000");
+});
+
+test("P055.1: isMontoCalculadoManualRespectoAuto no bloquea sin auto comparable", () => {
+  assert.equal(isMontoCalculadoManualRespectoAuto("17000", null), false);
+  assert.equal(isMontoCalculadoManualRespectoAuto("", null), false);
+});
+
+test("P055.1: cobroInputsAfectanMontoCalculado detecta porcentaje y montoMejoravit", () => {
+  const prev = { ...BASE_DATOS, porcentajeCobro: "10", montoMejoravit: "150000" };
+  assert.equal(
+    cobroInputsAfectanMontoCalculado(prev, { ...prev, porcentajeCobro: "25" }),
+    true,
+  );
+  assert.equal(
+    cobroInputsAfectanMontoCalculado(prev, { ...prev, montoMejoravit: "169000" }),
+    true,
+  );
+  assert.equal(
+    cobroInputsAfectanMontoCalculado(prev, { ...prev, nombreCliente: "Ana" }),
+    false,
+  );
 });
