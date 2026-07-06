@@ -3,6 +3,11 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isSupabaseConfigured, supabaseBrowser } from "@/lib/supabaseBrowser";
 import type { ExpedientesRepo } from "./repo";
+import {
+  normalizeAsesorPaginationOptions,
+  type ListForAsesorPaginatedOptions,
+  type PaginatedExpedientesResult,
+} from "./list-for-asesor-paginated";
 import type { CreateExpedienteInput } from "./create-expediente.input";
 import type { ExpedienteMock } from "./mock.repo";
 import { mapProgramaUiToDb } from "./map-programa";
@@ -206,6 +211,38 @@ async function fetchExpedientesList(options?: {
   return mapRowsToExpedienteMocks(rows, asesorMap);
 }
 
+async function fetchExpedientesListPaginatedForAsesor(
+  options: ListForAsesorPaginatedOptions,
+): Promise<PaginatedExpedientesResult> {
+  const { client, userId } = await requireSupabaseSession();
+  const { from, to } = normalizeAsesorPaginationOptions(options);
+
+  const { data, error, count } = await client
+    .from("expedientes")
+    .select(EXPEDIENTES_LIST_SELECT, { count: "exact" })
+    .is("deleted_at", null)
+    .eq("asesor_id", userId)
+    .order("created_at", { ascending: false })
+    .range(from, to);
+
+  if (error) {
+    throw new ExpedientesSupabaseError(
+      "No se pudo cargar el listado de expedientes. Intenta de nuevo más tarde.",
+    );
+  }
+
+  const rows = (data ?? []) as SupabaseExpedienteListRow[];
+  const asesorMap = await fetchAsesorDisplayMap(
+    client,
+    rows.map((row) => row.asesor_id),
+  );
+
+  return {
+    items: mapRowsToExpedienteMocks(rows, asesorMap),
+    totalCount: count ?? rows.length,
+  };
+}
+
 async function fetchExpedientesListForEditor(
   query: EditorListQuery,
 ): Promise<EditorListPage> {
@@ -325,6 +362,14 @@ export class SupabaseExpedientesRepo implements ExpedientesRepo {
   async listForAsesor(_asesorEmail: string): Promise<ExpedienteMock[]> {
     void _asesorEmail;
     return fetchExpedientesList({ restrictToAsesor: true });
+  }
+
+  async listForAsesorPaginated(
+    _asesorEmail: string,
+    options: ListForAsesorPaginatedOptions,
+  ): Promise<PaginatedExpedientesResult> {
+    void _asesorEmail;
+    return fetchExpedientesListPaginatedForAsesor(options);
   }
 
   async getById(id: string): Promise<ExpedienteMock | null> {

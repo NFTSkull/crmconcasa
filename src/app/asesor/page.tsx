@@ -259,6 +259,8 @@ type QuickFilterAsesor =
   | "correccion_enviada"
   | "rechazados_mesa";
 
+const PAGE_SIZE = 50;
+
 export default function AsesorDashboardPage() {
   const { sessionRepo, currentUser } = useSessionRepo();
   const router = useRouter();
@@ -272,6 +274,8 @@ export default function AsesorDashboardPage() {
   const [mockPrecalList, setMockPrecalList] = useState<
     PrecalificacionMockLocal[]
   >([]);
+  const [totalCount, setTotalCount] = useState(0);
+  const [page, setPage] = useState(1);
   const [listError, setListError] = useState<string | null>(null);
   const [resumenArchivosPorId, setResumenArchivosPorId] = useState<
     Record<string, ExpedienteArchivoResumen[] | undefined>
@@ -360,10 +364,16 @@ export default function AsesorDashboardPage() {
   const reloadPrecalificaciones = useCallback(() => {
     if (!currentUser) return;
     void repo
-      .listForAsesor(currentUser.email)
-      .then((list) => {
-        const mapped = list.map(mapExpedienteToLegacy);
+      .listForAsesorPaginated(currentUser.email, { page, pageSize: PAGE_SIZE })
+      .then(({ items, totalCount: total }) => {
+        const maxPage = Math.max(1, Math.ceil(total / PAGE_SIZE));
+        if (page > maxPage) {
+          setPage(maxPage);
+          return;
+        }
+        const mapped = items.map(mapExpedienteToLegacy);
         setMockPrecalList(mapped);
+        setTotalCount(total);
         setListError(null);
         expedienteIdsRef.current = mapped.map((p) => p.id);
         const ids = mapped.map((p) => p.id);
@@ -372,6 +382,7 @@ export default function AsesorDashboardPage() {
       })
       .catch((err) => {
         setMockPrecalList([]);
+        setTotalCount(0);
         expedienteIdsRef.current = [];
         if (err instanceof ExpedientesSupabaseError) {
           setListError(err.message);
@@ -379,7 +390,14 @@ export default function AsesorDashboardPage() {
           setListError("No se pudo cargar el listado de expedientes.");
         }
       });
-  }, [currentUser, repo, mapExpedienteToLegacy, fetchResumenArchivosPorIds, fetchClienteDatosEstadoPorIds]);
+  }, [
+    currentUser,
+    repo,
+    page,
+    mapExpedienteToLegacy,
+    fetchResumenArchivosPorIds,
+    fetchClienteDatosEstadoPorIds,
+  ]);
 
   const programasUnicos = useMemo(() => {
     const set = new Set(mockPrecalList.map((p) => (p.programa ?? "").trim()).filter(Boolean));
@@ -457,7 +475,7 @@ export default function AsesorDashboardPage() {
   }, [mockPrecalList, filters, quickFilter, resumenDocumentalPorId]);
 
   const kpis = useMemo(() => {
-    const total = mockPrecalList.length;
+    const total = totalCount;
     const aprobadosEditor = mockPrecalList.filter((p) => p.resultadoReal === "aprobado_editor").length;
     const noCumple = mockPrecalList.filter((p) => p.resultadoReal === "no_cumple_editor").length;
     const enTramite = mockPrecalList.filter(
@@ -483,7 +501,12 @@ export default function AsesorDashboardPage() {
       correccionRequerida,
       correccionEnviada,
     };
-  }, [mockPrecalList, resumenDocumentalPorId]);
+  }, [mockPrecalList, resumenDocumentalPorId, totalCount]);
+
+  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
+  const safePage = Math.max(1, Math.min(page, totalPages));
+  const canPrevious = safePage > 1;
+  const canNext = safePage < totalPages;
 
   const dashboardNotifications = useMemo(() => {
     return buildDashboardNotifications(
@@ -518,6 +541,7 @@ export default function AsesorDashboardPage() {
   const handleClearFilters = () => {
     setFilters(INITIAL_FILTERS);
     setQuickFilter("todos");
+    setPage(1);
   };
 
   useEffect(() => {
@@ -641,9 +665,9 @@ export default function AsesorDashboardPage() {
           </p>
         ) : null}
 
-        {/* KPIs principales (4); aprobadosEditor, noCumple, correccionEnviada siguen en objeto `kpis` */}
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-          <div className="rounded-md border border-gray-200 bg-white px-3 py-2 shadow-sm">
+        {/* KPI Total global; demás tarjetas = resumen de la página cargada */}
+        <div className="space-y-2">
+          <div className="max-w-[10rem] rounded-md border border-gray-200 bg-white px-3 py-2 shadow-sm sm:max-w-xs">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
               Total
             </p>
@@ -651,35 +675,40 @@ export default function AsesorDashboardPage() {
               {kpis.total}
             </p>
           </div>
-          <div className="rounded-md border border-blue-200/80 bg-blue-50/40 px-3 py-2 shadow-sm">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-blue-800">
-              En trámite
-            </p>
-            <p className="mt-0.5 text-xl font-semibold tabular-nums text-blue-900">
-              {kpis.enTramite}
-            </p>
-          </div>
-          <div className="rounded-md border border-amber-200/80 bg-amber-50/50 px-3 py-2 shadow-sm">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-900">
-              Corrección requerida
-            </p>
-            <p className="mt-0.5 text-xl font-semibold tabular-nums text-amber-950">
-              {kpis.correccionRequerida}
-            </p>
-            <p className="mt-0.5 text-[9px] leading-tight text-amber-800/90">
-              Doc. o datos rechazados por mesa
-            </p>
-          </div>
-          <div className="rounded-md border border-red-200/80 bg-red-50/40 px-3 py-2 shadow-sm">
-            <p className="text-[10px] font-semibold uppercase tracking-wide text-red-800">
-              Rechazados por mesa
-            </p>
-            <p className="mt-0.5 text-xl font-semibold tabular-nums text-red-900">
-              {kpis.rechazadosMesa}
-            </p>
-            <p className="mt-0.5 text-[9px] leading-tight text-red-800/85">
-              Operativo del trámite
-            </p>
+          <p className="text-[10px] font-medium text-gray-500">
+            Resumen de esta página
+          </p>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+            <div className="rounded-md border border-blue-200/80 bg-blue-50/40 px-3 py-2 shadow-sm">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-blue-800">
+                En trámite
+              </p>
+              <p className="mt-0.5 text-xl font-semibold tabular-nums text-blue-900">
+                {kpis.enTramite}
+              </p>
+            </div>
+            <div className="rounded-md border border-amber-200/80 bg-amber-50/50 px-3 py-2 shadow-sm">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-900">
+                Corrección requerida
+              </p>
+              <p className="mt-0.5 text-xl font-semibold tabular-nums text-amber-950">
+                {kpis.correccionRequerida}
+              </p>
+              <p className="mt-0.5 text-[9px] leading-tight text-amber-800/90">
+                Doc. o datos rechazados por mesa
+              </p>
+            </div>
+            <div className="col-span-2 rounded-md border border-red-200/80 bg-red-50/40 px-3 py-2 shadow-sm sm:col-span-1">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-red-800">
+                Rechazados por mesa
+              </p>
+              <p className="mt-0.5 text-xl font-semibold tabular-nums text-red-900">
+                {kpis.rechazadosMesa}
+              </p>
+              <p className="mt-0.5 text-[9px] leading-tight text-red-800/85">
+                Operativo del trámite
+              </p>
+            </div>
           </div>
         </div>
 
@@ -699,6 +728,9 @@ export default function AsesorDashboardPage() {
                 placeholder="Buscar cliente, NSS, teléfono o programa..."
                 className="w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
+              <p className="mt-1 text-[10px] leading-snug text-gray-500">
+                Los filtros se aplican sobre los expedientes visibles en esta página.
+              </p>
             </div>
             <Link href="/asesor/nueva" className="shrink-0">
               <Button
@@ -931,11 +963,11 @@ export default function AsesorDashboardPage() {
             {filteredMockList.length === 0 ? (
               <div className="px-4 py-6 text-center">
                 <p className="text-xs text-gray-500 sm:text-sm">
-                  {mockPrecalList.length === 0
+                  {totalCount === 0
                     ? dataSupabase
                       ? "Aún no tienes expedientes."
                       : "Aún no hay precalificaciones guardadas para este asesor."
-                    : "No hay resultados con los filtros aplicados. Pruebe otros criterios o limpie los filtros."}
+                    : "No hay resultados con los filtros aplicados en esta página. Pruebe otros criterios o limpie los filtros."}
                 </p>
               </div>
             ) : (
@@ -1085,6 +1117,36 @@ export default function AsesorDashboardPage() {
               </table>
             )}
           </div>
+          {totalCount > 0 ? (
+            <div className="border-t border-gray-100 px-3 py-2.5 text-xs text-gray-600 sm:px-4">
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <span>
+                  Página {safePage} de {totalPages} · Total: {totalCount}
+                  {hasActiveFilters && filteredMockList.length !== mockPrecalList.length
+                    ? ` · ${filteredMockList.length} en esta página con filtros`
+                    : null}
+                </span>
+                <div className="flex gap-2">
+                  <Button
+                    variant="outline"
+                    className="text-xs"
+                    disabled={!canPrevious}
+                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                  >
+                    Anterior
+                  </Button>
+                  <Button
+                    variant="outline"
+                    className="text-xs"
+                    disabled={!canNext}
+                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                  >
+                    Siguiente
+                  </Button>
+                </div>
+              </div>
+            </div>
+          ) : null}
         </section>
       </main>
     </div>

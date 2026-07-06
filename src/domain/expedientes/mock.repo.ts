@@ -11,6 +11,12 @@ import type { ExpedientesRepo } from "./repo";
 import type { CreateExpedienteInput } from "./create-expediente.input";
 import type { UpsertEditorDecisionInput } from "./upsert-editor-decision.input";
 import {
+  paginateSortedExpedientes,
+  sortExpedientesByCreatedAtDesc,
+  type ListForAsesorPaginatedOptions,
+  type PaginatedExpedientesResult,
+} from "./list-for-asesor-paginated";
+import {
   matchesEditorListSearch,
   normalizeEditorListPage,
   sortEditorListItems,
@@ -394,6 +400,15 @@ export class MockExpedientesRepo implements ExpedientesRepo {
   async listForAsesor(asesorId: string): Promise<ExpedienteMock[]> {
     const all = await this.listAll();
     return all.filter((e) => e.base.asesorId === asesorId);
+  }
+
+  async listForAsesorPaginated(
+    asesorId: string,
+    options: ListForAsesorPaginatedOptions,
+  ): Promise<PaginatedExpedientesResult> {
+    const mine = await this.listForAsesor(asesorId);
+    const sorted = sortExpedientesByCreatedAtDesc(mine);
+    return paginateSortedExpedientes(sorted, options);
   }
 
   async listForEditor(query: EditorListQuery): Promise<EditorListPage> {

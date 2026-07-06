@@ -7,6 +7,15 @@ import { SupabaseExpedientesRepo } from "./supabase.repo";
 import type { ExpedientesRepo } from "./repo";
 
 export type { ExpedientesRepo } from "./repo";
+export type {
+  ListForAsesorPaginatedOptions,
+  PaginatedExpedientesResult,
+} from "./list-for-asesor-paginated";
+export {
+  normalizeAsesorPaginationOptions,
+  paginateSortedExpedientes,
+  sortExpedientesByCreatedAtDesc,
+} from "./list-for-asesor-paginated";
 export type { CreateExpedienteInput } from "./create-expediente.input";
 export type { UpsertEditorDecisionInput } from "./upsert-editor-decision.input";
 export type { EditorListPage, EditorListQuery } from "./editor-list-query";
