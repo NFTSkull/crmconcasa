@@ -142,11 +142,6 @@ export function validateClienteDatos(
   req("direccionMunicipio", data.direccionEmpresa.municipio, "Municipio de la empresa");
   req("direccionCp", data.direccionEmpresa.cp, "CP");
 
-  const direccion = String(ctx.direccionOpcional ?? "").trim();
-  if (!direccion) {
-    setError(errors, "direccionOpcional", "El domicilio real del cliente es obligatorio.");
-  }
-
   const esMejoravit = isProgramaMejoravitDb(ctx.programaDb);
   if (esMejoravit) {
     const montoMejoravitRaw = String(data.montoMejoravit ?? "").trim();

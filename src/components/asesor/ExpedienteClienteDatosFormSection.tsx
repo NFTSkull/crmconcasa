@@ -485,7 +485,7 @@ export function ExpedienteClienteDatosFormSection({
           <p className="text-xs font-semibold text-gray-900">Domicilio del cliente</p>
           <div className="mt-2 grid grid-cols-1 gap-2">
             <DatosField
-              label="Domicilio real del cliente"
+              label="Domicilio real del cliente (opcional)"
               fieldKey="direccionOpcional"
               error={err("direccionOpcional")}
               showError={showFieldErrors}

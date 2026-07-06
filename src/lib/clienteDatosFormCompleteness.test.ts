@@ -64,6 +64,17 @@ test("getClienteDatosCamposFaltantes: formulario vacío lista muchos campos", ()
   assert.ok(m.some((x) => x.includes("Nombre del cliente")));
 });
 
+test("getClienteDatosCamposFaltantes: formulario completo sin domicilio real pasa", () => {
+  assert.deepEqual(
+    getClienteDatosCamposFaltantes(completo, {
+      montoAprobado: 100_000,
+      direccionOpcional: "",
+      programaDb: "mejoravit",
+    }),
+    [],
+  );
+});
+
 test("getClienteDatosCamposFaltantes: formulario completo no devuelve faltantes", () => {
   assert.deepEqual(
     getClienteDatosCamposFaltantes(completo, {
@@ -103,12 +114,12 @@ test("getClienteDatosCamposFaltantes: faltan campos de cobro", () => {
   assert.ok(faltantes.includes("Método de pago"));
 });
 
-test("getClienteDatosCamposFaltantes: formulario vacío tiene 24 obligatorios en mejoravit", () => {
+test("getClienteDatosCamposFaltantes: formulario vacío tiene 23 obligatorios en mejoravit", () => {
   assert.equal(
     getClienteDatosCamposFaltantes(vacio, { programaDb: "mejoravit" }).length,
     CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT_MEJORAVIT,
   );
-  assert.equal(CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT_MEJORAVIT, 24);
+  assert.equal(CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT_MEJORAVIT, 23);
 });
 
 test("getClienteDatosCamposFaltantes: compro_tu_casa sin sección Mejoravit", () => {
@@ -116,5 +127,5 @@ test("getClienteDatosCamposFaltantes: compro_tu_casa sin sección Mejoravit", ()
     getClienteDatosCamposFaltantes(vacio, { programaDb: "compro_tu_casa" }).length,
     CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT_DEFAULT,
   );
-  assert.equal(CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT_DEFAULT, 22);
+  assert.equal(CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT_DEFAULT, 21);
 });

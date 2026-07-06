@@ -725,11 +725,17 @@ export default function AsesorExpedientePage() {
         montoMejoravitLockedRef.current = true;
       }
       setDireccionOpcional(direccionOpcional.trim());
+      const nombreGuardado = datosAGuardar.nombreCliente.trim();
       setPrecal((prev) =>
         prev
-          ? { ...prev, direccion_opcional: direccionOpcional.trim() }
+          ? {
+              ...prev,
+              direccion_opcional: direccionOpcional.trim(),
+              cliente_nombre: nombreGuardado || prev.cliente_nombre,
+            }
           : prev,
       );
+      await loadExpediente();
       setClienteDatosMeta({
         estado: saved.estado,
         comentarioRechazo: saved.comentarioRechazo,
@@ -765,6 +771,7 @@ export default function AsesorExpedientePage() {
     hasMontoAprobado,
     montoAprobadoEditor,
     programaDb,
+    loadExpediente,
   ]);
 
   if (currentUser === undefined) {
@@ -1221,6 +1228,16 @@ export default function AsesorExpedientePage() {
                   updatedAt: saved.updatedAt,
                   updatedBy: saved.updatedBy,
                 });
+                const nombreGuardado = datosFormularioActuales.nombreCliente.trim();
+                setPrecal((prev) =>
+                  prev
+                    ? {
+                        ...prev,
+                        cliente_nombre: nombreGuardado || prev.cliente_nombre,
+                      }
+                    : prev,
+                );
+                await loadExpediente();
               } catch (err) {
                 const message =
                   err instanceof Error

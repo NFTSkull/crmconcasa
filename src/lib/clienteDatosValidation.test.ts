@@ -42,14 +42,17 @@ const baseValid: ClienteDatosFormShape = {
   metodoPago: "transferencia",
 };
 
-test("validateClienteDatos: domicilio real del cliente obligatorio", () => {
-  const r = validateClienteDatos(baseValid, { ...COBRO_CTX, direccionOpcional: "" });
-  assert.equal(r.errors.direccionOpcional, "El domicilio real del cliente es obligatorio.");
-});
+test("validateClienteDatos: domicilio real del cliente es opcional", () => {
+  const sinDomicilio = validateClienteDatos(baseValid, { ...COBRO_CTX, direccionOpcional: "" });
+  assert.equal(sinDomicilio.errors.direccionOpcional, undefined);
+  assert.equal(sinDomicilio.isValid, true);
 
-test("validateClienteDatos: domicilio con solo espacios rechaza", () => {
-  const r = validateClienteDatos(baseValid, { ...COBRO_CTX, direccionOpcional: "   " });
-  assert.equal(r.errors.direccionOpcional, "El domicilio real del cliente es obligatorio.");
+  const conDomicilio = validateClienteDatos(baseValid, {
+    ...COBRO_CTX,
+    direccionOpcional: "Calle Principal 123",
+  });
+  assert.equal(conDomicilio.errors.direccionOpcional, undefined);
+  assert.equal(conDomicilio.isValid, true);
 });
 
 test("validateClienteDatos: monto Mejoravit obligatorio solo en mejoravit", () => {

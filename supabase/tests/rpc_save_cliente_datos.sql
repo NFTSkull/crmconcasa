@@ -792,11 +792,11 @@ BEGIN
   );
 
   PERFORM public.__rpc_scd_test_assert(
-    public.__rpc_scd_test_expect_fail(
-      v_asesor_a1, v_exp_update, 'XAXX010101000', '5512345678',
-      '[]'::JSONB, NULL, '{}'::JSONB, 'completo', 'La dirección es obligatoria', 10, 'transferencia', ''
-    ),
-    'test 48 dirección obligatoria'
+    (public.__rpc_scd_test_call_as(
+      v_asesor_a1, v_exp_update, 'XAXX010101000', '5594800048',
+      '[]'::JSONB, NULL, '{}'::JSONB, 'completo', 10, 'transferencia', ''
+    )->>'ok')::BOOLEAN,
+    'test 48 domicilio opcional vacío'
   );
 
   RAISE NOTICE 'RPC save_cliente_datos: 48 pruebas OK';
