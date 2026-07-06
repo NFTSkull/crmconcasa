@@ -8,6 +8,8 @@ import {
   CLIENTE_METODO_PAGO_OPTIONS,
   calcMontoCalculadoCobro,
   formatMontoMXN,
+  isProgramaMejoravitDb,
+  parseMontoCalculadoInput,
   parsePorcentajeCobroInput,
 } from "@/lib/clienteDatosCobro";
 
@@ -44,6 +46,8 @@ interface ExpedienteClienteDatosFormSectionProps {
   onSave: () => Promise<{ ok: boolean; message?: string }>;
   esperaMontoMessage: string;
   montoAprobado?: number | null;
+  programaDb?: string | null;
+  onMontoMejoravitEdited?: () => void;
 }
 
 function fieldInputClass(hasError: boolean): string {
@@ -99,7 +103,10 @@ export function ExpedienteClienteDatosFormSection({
   onSave,
   esperaMontoMessage,
   montoAprobado = null,
+  programaDb = null,
+  onMontoMejoravitEdited,
 }: ExpedienteClienteDatosFormSectionProps) {
+  const esMejoravit = isProgramaMejoravitDb(programaDb);
   const esCorreccionDatos =
     submittedToMesa && clienteDatosMeta?.estado === "rechazado";
   const puedeEditar =
@@ -120,7 +127,10 @@ export function ExpedienteClienteDatosFormSection({
       : [];
 
   const porcentajeNum = parsePorcentajeCobroInput(clienteDatos.porcentajeCobro);
-  const montoCalculadoPreview = calcMontoCalculadoCobro(montoAprobado, porcentajeNum);
+  const montoCalculadoPreview = calcMontoCalculadoCobro(montoAprobado, porcentajeNum, {
+    programaDb,
+    montoMejoravitForm: clienteDatos.montoMejoravit,
+  });
   const montoCalculadoError = err("montoCalculado");
 
   const statusLine = (() => {
@@ -429,8 +439,12 @@ export function ExpedienteClienteDatosFormSection({
           </div>
         </div>
 
+        {esMejoravit ? (
         <div className="mt-4 rounded-md border border-gray-200 p-3">
           <p className="text-xs font-semibold text-gray-900">Crédito Mejoravit</p>
+          <p className="mt-1 text-[11px] text-gray-600">
+            Se sugiere desde la subcuenta de vivienda (−11%, tope $169,000). Puedes ajustarlo.
+          </p>
           <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
             <DatosField
               label="Monto Mejoravit"
@@ -443,10 +457,11 @@ export function ExpedienteClienteDatosFormSection({
                 inputMode="decimal"
                 className={fieldInputClass(Boolean(err("montoMejoravit")))}
                 value={clienteDatos.montoMejoravit}
-                onChange={(e) =>
-                  setClienteDatos((p) => ({ ...p, montoMejoravit: e.target.value }))
-                }
-                placeholder="Ej. 150000"
+                onChange={(e) => {
+                  onMontoMejoravitEdited?.();
+                  setClienteDatos((p) => ({ ...p, montoMejoravit: e.target.value }));
+                }}
+                placeholder="Ej. 169000"
               />
             </DatosField>
             <DatosField
@@ -464,6 +479,7 @@ export function ExpedienteClienteDatosFormSection({
             </DatosField>
           </div>
         </div>
+        ) : null}
 
         <div className="mt-4 rounded-md border border-gray-200 p-3">
           <p className="text-xs font-semibold text-gray-900">Domicilio del cliente</p>
@@ -561,7 +577,9 @@ export function ExpedienteClienteDatosFormSection({
         <div className="mt-4 rounded-md border border-gray-200 p-3">
           <p className="text-xs font-semibold text-gray-900">Información de cobro</p>
           <p className="mt-1 text-[11px] text-gray-600">
-            El monto calculado es el porcentaje del monto aprobado más $3,000.
+            {esMejoravit
+              ? "El monto calculado usa el Monto Mejoravit del formulario (editable) más $3,000."
+              : "El monto calculado es el porcentaje del monto aprobado más $3,000."}
           </p>
           <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
             <DatosField

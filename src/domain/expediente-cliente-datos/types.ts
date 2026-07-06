@@ -39,7 +39,7 @@ export type ExpedienteClienteDatos = {
       municipio: string;
       cp: string;
     };
-    /** Monto Mejoravit (JSON `datos.montoMejoravit`; no afecta cobro). */
+    /** Monto Mejoravit derivado del editor (JSON `datos.montoMejoravit`; solo Mejoravit). */
     montoMejoravit: string;
     /** Plazo del crédito (JSON `datos.plazo`). */
     plazo: string;
@@ -84,6 +84,8 @@ export type SaveExpedienteClienteDatosInput = {
   /** Dirección del cliente (`expedientes.direccion_opcional`). */
   direccionOpcional: string;
   updatedBy: string;
+  /** Programa DB (`mejoravit`, `compro_tu_casa`, …) para validar payload. */
+  programaDb?: string | null;
 };
 
 export type UpdateEstadoExpedienteClienteDatosInput = {

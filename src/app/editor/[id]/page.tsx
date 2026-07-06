@@ -10,6 +10,7 @@ import { formatDateTimeMx } from "@/lib/filters";
 import {
   ExpedientesSupabaseError,
   useExpedientesRepo,
+  isProgramaMejoravit,
 } from "@/domain/expedientes";
 import { parseMontoAprobado } from "@/lib/monto";
 
@@ -139,6 +140,8 @@ export default function EditorExpedientePage() {
       setSaving(false);
     }
   };
+
+  const esMejoravit = precal ? isProgramaMejoravit(precal.programa) : false;
 
   if (currentUser === undefined) {
     return (
@@ -280,7 +283,7 @@ export default function EditorExpedientePage() {
               type="number"
               min={0}
               step={1}
-              label="Monto aprobado"
+              label={esMejoravit ? "Subcuenta de vivienda" : "Monto aprobado"}
               value={montoStr}
               onChange={(e) => setMontoStr(e.target.value)}
             />

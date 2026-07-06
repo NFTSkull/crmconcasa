@@ -3,7 +3,11 @@ import type {
   ExpedienteClienteDatos,
   ExpedienteClienteDatosEstado,
 } from "./types";
-import { parseMontoCalculadoInput, parsePorcentajeCobroInput } from "@/lib/clienteDatosCobro";
+import {
+  isProgramaMejoravitDb,
+  parseMontoCalculadoInput,
+  parsePorcentajeCobroInput,
+} from "@/lib/clienteDatosCobro";
 
 export type SupabaseClienteDatosRow = {
   expediente_id: string;
@@ -203,6 +207,7 @@ export function buildSaveClienteDatosRpcPayload(
   expedienteId: string,
   datos: ExpedienteClienteDatos["datos"],
   direccionOpcional: string,
+  programaDb?: string | null,
 ): {
   p_expediente_id: string;
   p_rfc: string;
@@ -223,14 +228,43 @@ export function buildSaveClienteDatosRpcPayload(
     throw new Error("Método de pago es obligatorio.");
   }
 
-  const montoMejoravitRaw = datos.montoMejoravit.trim();
-  const montoMejoravit = parseMontoCalculadoInput(montoMejoravitRaw);
-  if (!montoMejoravitRaw || montoMejoravit == null || montoMejoravit <= 0) {
-    throw new Error("El monto Mejoravit es obligatorio.");
+  const esMejoravit = isProgramaMejoravitDb(programaDb);
+  let montoMejoravitRaw = "";
+  let plazo = "";
+  if (esMejoravit) {
+    montoMejoravitRaw = datos.montoMejoravit.trim();
+    const montoMejoravit = parseMontoCalculadoInput(montoMejoravitRaw);
+    if (!montoMejoravitRaw || montoMejoravit == null || montoMejoravit <= 0) {
+      throw new Error("El monto Mejoravit es obligatorio.");
+    }
+    plazo = datos.plazo.trim();
+    if (!plazo) {
+      throw new Error("El plazo es obligatorio.");
+    }
   }
-  const plazo = datos.plazo.trim();
-  if (!plazo) {
-    throw new Error("El plazo es obligatorio.");
+
+  const p_datos: Record<string, unknown> = {
+    nombreCliente: datos.nombreCliente.trim(),
+    nss: datos.nss.trim(),
+    curp: datos.curp.trim(),
+    correo: datos.correo.trim(),
+    empresa: datos.empresa.trim(),
+    registroPatronal: datos.registroPatronal.trim(),
+    telefonoEmpresa: datos.telefonoEmpresa.trim(),
+    beneficiario: {
+      nombre: datos.beneficiario.nombre.trim(),
+      parentesco: datos.beneficiario.parentesco.trim(),
+    },
+    direccionEmpresa: {
+      calle: datos.direccionEmpresa.calle.trim(),
+      colonia: datos.direccionEmpresa.colonia.trim(),
+      municipio: datos.direccionEmpresa.municipio.trim(),
+      cp: datos.direccionEmpresa.cp.trim(),
+    },
+  };
+  if (esMejoravit) {
+    p_datos.montoMejoravit = montoMejoravitRaw;
+    p_datos.plazo = plazo;
   }
 
   return {
@@ -241,27 +275,7 @@ export function buildSaveClienteDatosRpcPayload(
       nombre: ref.nombre.trim(),
       telefono: ref.celular.trim(),
     })),
-    p_datos: {
-      nombreCliente: datos.nombreCliente.trim(),
-      nss: datos.nss.trim(),
-      curp: datos.curp.trim(),
-      correo: datos.correo.trim(),
-      empresa: datos.empresa.trim(),
-      registroPatronal: datos.registroPatronal.trim(),
-      telefonoEmpresa: datos.telefonoEmpresa.trim(),
-      beneficiario: {
-        nombre: datos.beneficiario.nombre.trim(),
-        parentesco: datos.beneficiario.parentesco.trim(),
-      },
-      direccionEmpresa: {
-        calle: datos.direccionEmpresa.calle.trim(),
-        colonia: datos.direccionEmpresa.colonia.trim(),
-        municipio: datos.direccionEmpresa.municipio.trim(),
-        cp: datos.direccionEmpresa.cp.trim(),
-      },
-      montoMejoravit: montoMejoravitRaw,
-      plazo,
-    },
+    p_datos,
     p_estado: "completo",
     p_porcentaje_cobro: pct,
     p_metodo_pago: metodo,

@@ -99,7 +99,7 @@ describe("buildSaveClienteDatosRpcPayload", () => {
       porcentajeCobro: "10",
       montoCalculado: "2500",
       metodoPago: "transferencia",
-    }, "Av. Cliente 100");
+    }, "Av. Cliente 100", "mejoravit");
 
     assert.equal(payload.p_expediente_id, "exp-1");
     assert.equal(payload.p_rfc, "xaxx010101000");
@@ -144,7 +144,7 @@ describe("buildSaveClienteDatosRpcPayload", () => {
       porcentajeCobro: "10",
       montoCalculado: "1500",
       metodoPago: "transferencia",
-    }, "Av. Cliente 100");
+    }, "Av. Cliente 100", "mejoravit");
 
     assert.equal(payload.p_rfc, "");
     assert.equal(payload.p_porcentaje_cobro, 10);
@@ -180,12 +180,56 @@ describe("buildSaveClienteDatosRpcPayload", () => {
     } as ExpedienteClienteDatos["datos"];
 
     assert.throws(
-      () => buildSaveClienteDatosRpcPayload("exp-1", { ...base, montoMejoravit: "" }, "Dir"),
+      () =>
+        buildSaveClienteDatosRpcPayload(
+          "exp-1",
+          { ...base, montoMejoravit: "" },
+          "Dir",
+          "mejoravit",
+        ),
       /monto Mejoravit/,
     );
     assert.throws(
-      () => buildSaveClienteDatosRpcPayload("exp-1", { ...base, plazo: "" }, "Dir"),
+      () =>
+        buildSaveClienteDatosRpcPayload("exp-1", { ...base, plazo: "" }, "Dir", "mejoravit"),
       /plazo/,
     );
+  });
+
+  it("compro_tu_casa omite montoMejoravit y plazo del payload", () => {
+    const payload = buildSaveClienteDatosRpcPayload(
+      "exp-1",
+      {
+        nombreCliente: "Marcela",
+        nss: "12345678901",
+        curp: "CURP123",
+        rfc: "",
+        celular: "5512345678",
+        correo: "marcela@concasa.mx",
+        empresa: "Empresa SA",
+        registroPatronal: "RP-1",
+        telefonoEmpresa: "5599999999",
+        referencias: [
+          { nombre: "Ref 1", celular: "5511111111" },
+          { nombre: "Ref 2", celular: "5522222222" },
+        ],
+        beneficiario: { nombre: "Ben", parentesco: "Hija" },
+        direccionEmpresa: {
+          calle: "Calle 1",
+          colonia: "Centro",
+          municipio: "CDMX",
+          cp: "01000",
+        },
+        montoMejoravit: "",
+        plazo: "",
+        porcentajeCobro: "10",
+        montoCalculado: "1500",
+        metodoPago: "transferencia",
+      },
+      "Dir",
+      "compro_tu_casa",
+    );
+    assert.equal(payload.p_datos.montoMejoravit, undefined);
+    assert.equal(payload.p_datos.plazo, undefined);
   });
 });

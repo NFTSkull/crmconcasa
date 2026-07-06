@@ -17,6 +17,10 @@ export function mapProgramaDbToUi(programa: string): string {
   return PROGRAMA_DB_TO_UI[key] ?? programa;
 }
 
+export function isProgramaMejoravit(programa: string): boolean {
+  return mapProgramaUiToDb(programa) === "mejoravit";
+}
+
 export function mapProgramaUiToDb(programa: string): string {
   const trimmed = programa.trim();
   if (trimmed in PROGRAMA_UI_TO_DB) {

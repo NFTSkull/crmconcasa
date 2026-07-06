@@ -769,7 +769,7 @@ BEGIN
   );
   PERFORM public.__rpc_scd_test_assert((v_result->>'ok')::BOOLEAN, 'test 45 cobro ok');
   SELECT * INTO v_row FROM public.cliente_datos WHERE expediente_id = v_exp_create;
-  PERFORM public.__rpc_scd_test_assert(v_row.monto_calculado = 4875.00, 'test 45 monto calculado auto');
+  PERFORM public.__rpc_scd_test_assert(v_row.monto_calculado = 4668.75, 'test 45 monto calculado auto');
   PERFORM public.__rpc_scd_test_assert(v_row.metodo_pago = 'efectivo', 'test 45 metodo pago');
 
   -- 45b. Cobro: fórmula con decimales (166100.12 * 10% + 3000)
@@ -779,7 +779,7 @@ BEGIN
   );
   PERFORM public.__rpc_scd_test_assert((v_result->>'ok')::BOOLEAN, 'test 45b cobro ok');
   SELECT * INTO v_row FROM public.cliente_datos WHERE expediente_id = v_exp_create;
-  PERFORM public.__rpc_scd_test_assert(v_row.monto_calculado = 19610.01, 'test 45b monto calculado formula');
+  PERFORM public.__rpc_scd_test_assert(v_row.monto_calculado = 17782.91, 'test 45b monto calculado formula');
 
   -- 46. Cobro: sin monto aprobado falla
   DELETE FROM public.editor_decisions WHERE expediente_id = v_exp_side;

@@ -8,7 +8,11 @@ import {
 } from "@/lib/clienteDatosValidation";
 import { calcMontoCalculadoCobro } from "@/lib/clienteDatosCobro";
 
-const COBRO_CTX = { montoAprobado: 100_000, direccionOpcional: "Calle Principal 123" };
+const COBRO_CTX = {
+  montoAprobado: 100_000,
+  direccionOpcional: "Calle Principal 123",
+  programaDb: "mejoravit",
+};
 
 const baseValid: ClienteDatosFormShape = {
   nombreCliente: "Juan Pérez",
@@ -48,9 +52,21 @@ test("validateClienteDatos: domicilio con solo espacios rechaza", () => {
   assert.equal(r.errors.direccionOpcional, "El domicilio real del cliente es obligatorio.");
 });
 
-test("validateClienteDatos: monto Mejoravit obligatorio", () => {
-  const r = validateClienteDatos({ ...baseValid, montoMejoravit: "" }, COBRO_CTX);
+test("validateClienteDatos: monto Mejoravit obligatorio solo en mejoravit", () => {
+  const r = validateClienteDatos(
+    { ...baseValid, montoMejoravit: "" },
+    { ...COBRO_CTX, programaDb: "mejoravit" },
+  );
   assert.equal(r.errors.montoMejoravit, "El monto Mejoravit es obligatorio.");
+});
+
+test("validateClienteDatos: compro_tu_casa no exige monto Mejoravit", () => {
+  const r = validateClienteDatos(
+    { ...baseValid, montoMejoravit: "", plazo: "" },
+    { ...COBRO_CTX, programaDb: "compro_tu_casa" },
+  );
+  assert.equal(r.errors.montoMejoravit, undefined);
+  assert.equal(r.errors.plazo, undefined);
 });
 
 test("validateClienteDatos: monto Mejoravit debe ser mayor a 0", () => {
@@ -224,6 +240,13 @@ test("validateClienteDatos: sin monto aprobado rechaza monto calculado", () => {
 });
 
 test("validateClienteDatos: monto calculado se deriva con base fija", () => {
-  assert.equal(calcMontoCalculadoCobro(166_100.12, 10), 19_610.01);
-  assert.equal(calcMontoCalculadoCobro(100_000, 12.5), 15_500);
+  assert.equal(calcMontoCalculadoCobro(166_100.12, 10, "compro_tu_casa"), 19_610.01);
+  assert.equal(calcMontoCalculadoCobro(100_000, 12.5, "subcuenta"), 15_500);
+  assert.equal(
+    calcMontoCalculadoCobro(200_000, 10, {
+      programaDb: "mejoravit",
+      montoMejoravitForm: "150000",
+    }),
+    18_000,
+  );
 });

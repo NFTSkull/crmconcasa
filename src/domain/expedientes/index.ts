@@ -59,6 +59,7 @@ export {
 export {
   mapProgramaDbToUi,
   mapProgramaUiToDb,
+  isProgramaMejoravit,
 } from "./map-programa";
 export {
   mapCreateExpedienteRpcToExpedienteMock,

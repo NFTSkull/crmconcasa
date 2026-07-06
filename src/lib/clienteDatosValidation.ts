@@ -1,6 +1,7 @@
 import type { ClienteDatosFormShape } from "@/lib/clienteDatosFormCompleteness";
 import {
   calcMontoCalculadoCobro,
+  isProgramaMejoravitDb,
   parseMontoCalculadoInput,
   parsePorcentajeCobroInput,
 } from "@/lib/clienteDatosCobro";
@@ -8,6 +9,7 @@ import {
 export type ClienteDatosValidationContext = {
   montoAprobado?: number | null;
   direccionOpcional?: string | null;
+  programaDb?: string | null;
 };
 
 export type ClienteDatosFieldKey =
@@ -145,19 +147,22 @@ export function validateClienteDatos(
     setError(errors, "direccionOpcional", "El domicilio real del cliente es obligatorio.");
   }
 
-  const montoMejoravitRaw = String(data.montoMejoravit ?? "").trim();
-  if (!montoMejoravitRaw) {
-    setError(errors, "montoMejoravit", "El monto Mejoravit es obligatorio.");
-  } else {
-    const montoMejoravit = parseMontoCalculadoInput(montoMejoravitRaw);
-    if (montoMejoravit == null || montoMejoravit <= 0) {
+  const esMejoravit = isProgramaMejoravitDb(ctx.programaDb);
+  if (esMejoravit) {
+    const montoMejoravitRaw = String(data.montoMejoravit ?? "").trim();
+    if (!montoMejoravitRaw) {
       setError(errors, "montoMejoravit", "El monto Mejoravit es obligatorio.");
+    } else {
+      const montoMejoravit = parseMontoCalculadoInput(montoMejoravitRaw);
+      if (montoMejoravit == null || montoMejoravit <= 0) {
+        setError(errors, "montoMejoravit", "El monto Mejoravit es obligatorio.");
+      }
     }
-  }
 
-  const plazo = String(data.plazo ?? "").trim();
-  if (!plazo) {
-    setError(errors, "plazo", "El plazo es obligatorio.");
+    const plazo = String(data.plazo ?? "").trim();
+    if (!plazo) {
+      setError(errors, "plazo", "El plazo es obligatorio.");
+    }
   }
 
   req("porcentajeCobro", data.porcentajeCobro, "Porcentaje de cobro");
@@ -176,25 +181,29 @@ export function validateClienteDatos(
 
   const montoAprobado = ctx.montoAprobado;
   const pctVal = parsePorcentajeCobroInput(data.porcentajeCobro);
-  if (
-    !errors.montoCalculado &&
-    pctVal != null &&
-    pctVal > 0 &&
-    (montoAprobado == null || !Number.isFinite(montoAprobado) || montoAprobado <= 0)
-  ) {
-    setError(
-      errors,
-      "montoCalculado",
-      "No hay monto aprobado para calcular el cobro.",
-    );
-  } else if (
-    !errors.montoCalculado &&
-    pctVal != null &&
-    pctVal > 0 &&
-    montoAprobado != null &&
-    calcMontoCalculadoCobro(montoAprobado, pctVal) == null
-  ) {
-    setError(errors, "montoCalculado", "No se pudo calcular el monto de cobro.");
+  if (!errors.montoCalculado && pctVal != null && pctVal > 0) {
+    if (esMejoravit) {
+      if (
+        calcMontoCalculadoCobro(montoAprobado, pctVal, {
+          programaDb: ctx.programaDb,
+          montoMejoravitForm: data.montoMejoravit,
+        }) == null
+      ) {
+        setError(errors, "montoCalculado", "No se pudo calcular el monto de cobro.");
+      }
+    } else if (
+      montoAprobado == null ||
+      !Number.isFinite(montoAprobado) ||
+      montoAprobado <= 0
+    ) {
+      setError(
+        errors,
+        "montoCalculado",
+        "No hay monto aprobado para calcular el cobro.",
+      );
+    } else if (calcMontoCalculadoCobro(montoAprobado, pctVal, ctx.programaDb) == null) {
+      setError(errors, "montoCalculado", "No se pudo calcular el monto de cobro.");
+    }
   }
 
   if (!errors.nss && !/^\d{11}$/.test(data.nss.replace(/\D/g, ""))) {

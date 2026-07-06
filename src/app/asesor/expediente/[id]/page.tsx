@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSessionRepo } from "@/domain/session";
 import { AgendaBiometricosCard } from "@/components/asesor/AgendaBiometricosCard";
 import { AsesorAgendaBiometricosSupabaseGate } from "@/components/asesor/AsesorAgendaBiometricosSupabaseGate";
@@ -18,6 +18,8 @@ import { SeguimientoOperativoMock } from "@/components/seguimiento/SeguimientoOp
 import {
   ExpedientesSupabaseError,
   useExpedientesRepo,
+  isProgramaMejoravit,
+  mapProgramaUiToDb,
   type ExpedienteMock,
 } from "@/domain/expedientes";
 import {
@@ -53,6 +55,11 @@ import {
   validateClienteDatos,
   type ClienteDatosFieldErrors,
 } from "@/lib/clienteDatosValidation";
+import {
+  applyMontoMejoravitSugeridoSiVacio,
+  isMontoMejoravitGuardado,
+  isProgramaMejoravitDb,
+} from "@/lib/clienteDatosCobro";
 
 type ClienteDatosFormState = ExpedienteClienteDatos["datos"];
 
@@ -180,6 +187,7 @@ export default function AsesorExpedientePage() {
   const [clienteDatosFieldErrors, setClienteDatosFieldErrors] =
     useState<ClienteDatosFieldErrors>({});
   const [clienteDatosShowValidation, setClienteDatosShowValidation] = useState(false);
+  const montoMejoravitLockedRef = useRef(false);
   const [direccionOpcional, setDireccionOpcional] = useState("");
   const [editorDecision, setEditorDecision] = useState<
     ExpedienteMock["editorDecision"] | null
@@ -236,13 +244,24 @@ export default function AsesorExpedientePage() {
     return typeof m === "number" && Number.isFinite(m) && m > 0 ? m : null;
   }, [editorDecision]);
 
+  const programaDb = useMemo(
+    () => (precal?.programa ? mapProgramaUiToDb(precal.programa) : null),
+    [precal?.programa],
+  );
+
+  const esMejoravit = useMemo(
+    () => (precal?.programa ? isProgramaMejoravit(precal.programa) : false),
+    [precal?.programa],
+  );
+
   const camposFaltantesClienteDatos = useMemo(
     () =>
       getClienteDatosCamposFaltantes(clienteDatos, {
         montoAprobado: montoAprobadoEditor,
         direccionOpcional,
+        programaDb,
       }),
-    [clienteDatos, direccionOpcional, montoAprobadoEditor],
+    [clienteDatos, direccionOpcional, montoAprobadoEditor, programaDb],
   );
 
   const datosGeneralesCompletos = useMemo(() => {
@@ -330,6 +349,26 @@ export default function AsesorExpedientePage() {
       setMontoAprobadoInput("");
     }
   }, [editorDecision?.monto_aprobado]);
+
+  useEffect(() => {
+    if (!isProgramaMejoravitDb(programaDb)) {
+      montoMejoravitLockedRef.current = false;
+      setClienteDatos((prev) =>
+        prev.montoMejoravit === "" && prev.plazo === ""
+          ? prev
+          : { ...prev, montoMejoravit: "", plazo: "" },
+      );
+      return;
+    }
+    if (montoMejoravitLockedRef.current) return;
+    setClienteDatos((prev) =>
+      applyMontoMejoravitSugeridoSiVacio(prev, programaDb, montoAprobadoEditor),
+    );
+  }, [programaDb, montoAprobadoEditor]);
+
+  const handleMontoMejoravitEdited = useCallback(() => {
+    montoMejoravitLockedRef.current = true;
+  }, []);
 
   const handleGuardarMontoAprobado = useCallback(async () => {
     if (!precal?.id || montoSaving || operativo?.submittedToMesa) return;
@@ -513,6 +552,7 @@ export default function AsesorExpedientePage() {
     const applyFound = (found: ExpedienteClienteDatos | null) => {
       if (cancelled) return;
       if (!found) {
+        montoMejoravitLockedRef.current = false;
         setClienteDatos((prev) => ({
           ...prev,
           nombreCliente: prev.nombreCliente || precal.cliente_nombre || "",
@@ -522,6 +562,9 @@ export default function AsesorExpedientePage() {
         setClienteDatosMeta(null);
         return;
       }
+      montoMejoravitLockedRef.current = isMontoMejoravitGuardado(
+        found.datos.montoMejoravit ?? "",
+      );
       setClienteDatos({
         ...found.datos,
         rfc: found.datos.rfc ?? "",
@@ -649,6 +692,7 @@ export default function AsesorExpedientePage() {
     const validation = validateClienteDatos(clienteDatos, {
       montoAprobado: montoAprobadoEditor,
       direccionOpcional,
+      programaDb,
     });
     if (!validation.isValid) {
       setClienteDatosShowValidation(true);
@@ -671,11 +715,15 @@ export default function AsesorExpedientePage() {
         datos: datosAGuardar,
         direccionOpcional,
         updatedBy: currentUser.email,
+        programaDb,
       };
       const saved = usarCorreccion
         ? await clienteDatosRepo.saveCorreccion(saveInput)
         : await clienteDatosRepo.save(saveInput);
       setClienteDatos(datosAGuardar);
+      if (isMontoMejoravitGuardado(datosAGuardar.montoMejoravit)) {
+        montoMejoravitLockedRef.current = true;
+      }
       setDireccionOpcional(direccionOpcional.trim());
       setPrecal((prev) =>
         prev
@@ -716,6 +764,7 @@ export default function AsesorExpedientePage() {
     precal?.id,
     hasMontoAprobado,
     montoAprobadoEditor,
+    programaDb,
   ]);
 
   if (currentUser === undefined) {
@@ -842,7 +891,9 @@ export default function AsesorExpedientePage() {
                   {editorDecisionLabel(editorDecision?.decision)}
                 </p>
                 <p>
-                  <span className="font-medium text-gray-900">Monto aprobado:</span>{" "}
+                  <span className="font-medium text-gray-900">
+                    {esMejoravit ? "Subcuenta de vivienda:" : "Monto aprobado:"}
+                  </span>{" "}
                   {hasMontoAprobado && typeof editorDecision?.monto_aprobado === "number"
                     ? `$${editorDecision.monto_aprobado.toLocaleString("es-MX")}`
                     : "—"}
@@ -856,7 +907,7 @@ export default function AsesorExpedientePage() {
                 <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-end">
                   <label className="flex-1 text-xs text-gray-600">
                     <span className="mb-1 block font-medium text-gray-900">
-                      Monto aprobado (MXN)
+                      {esMejoravit ? "Subcuenta de vivienda (MXN)" : "Monto aprobado (MXN)"}
                     </span>
                     <input
                       type="number"
@@ -927,6 +978,8 @@ export default function AsesorExpedientePage() {
               onSave={handleSaveClienteDatos}
               esperaMontoMessage={MSJ_ESPERA_MONTO_REVISOR}
               montoAprobado={montoAprobadoEditor}
+              programaDb={programaDb}
+              onMontoMejoravitEdited={handleMontoMejoravitEdited}
             />
             <div className="rounded-lg border border-gray-200 bg-white p-4 text-sm text-gray-600">
               <p className="text-sm font-semibold text-gray-900">
@@ -1105,6 +1158,8 @@ export default function AsesorExpedientePage() {
               onSave={handleSaveClienteDatos}
               esperaMontoMessage={MSJ_ESPERA_MONTO_REVISOR}
               montoAprobado={montoAprobadoEditor}
+              programaDb={programaDb}
+              onMontoMejoravitEdited={handleMontoMejoravitEdited}
             />
 
             <SeguimientoOperativoMock
@@ -1122,6 +1177,7 @@ export default function AsesorExpedientePage() {
               const camposFaltantes = getClienteDatosCamposFaltantes(clienteDatos, {
                 montoAprobado: montoAprobadoEditor,
                 direccionOpcional,
+                programaDb,
               });
               if (camposFaltantes.length > 0) {
                 window.alert(
@@ -1134,6 +1190,7 @@ export default function AsesorExpedientePage() {
               const validation = validateClienteDatos(clienteDatos, {
                 montoAprobado: montoAprobadoEditor,
                 direccionOpcional,
+                programaDb,
               });
               if (!validation.isValid) {
                 setClienteDatosShowValidation(true);
@@ -1152,6 +1209,7 @@ export default function AsesorExpedientePage() {
                   datos: datosFormularioActuales,
                   direccionOpcional,
                   updatedBy: currentUser.email,
+                  programaDb,
                 });
                 setClienteDatosMeta({
                   estado: saved.estado,

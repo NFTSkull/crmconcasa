@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  isProgramaMejoravit,
   mapProgramaDbToUi,
   mapProgramaUiToDb,
 } from "@/domain/expedientes/map-programa";
@@ -22,4 +23,11 @@ test("mapProgramaUiToDb ↔ mapProgramaDbToUi roundtrip", () => {
   for (const ui of uiValues) {
     assert.equal(mapProgramaDbToUi(mapProgramaUiToDb(ui)), ui);
   }
+});
+
+test("isProgramaMejoravit", () => {
+  assert.equal(isProgramaMejoravit("Mejoravit"), true);
+  assert.equal(isProgramaMejoravit("mejoravit"), true);
+  assert.equal(isProgramaMejoravit("Compro tu casa"), false);
+  assert.equal(isProgramaMejoravit("compro_tu_casa"), false);
 });
