@@ -14,6 +14,19 @@ export type ClienteDatosCompletenessContext = {
   programaDb?: string | null;
 };
 
+export const CLIENTE_DATOS_NOTA_MESA_MAX_LENGTH = 1000;
+
+/** Error si la nota opcional supera el límite; vacía no genera error. */
+export function getNotaMesaLongitudError(
+  nota: string | undefined,
+): string | null {
+  const len = (nota ?? "").length;
+  if (len > CLIENTE_DATOS_NOTA_MESA_MAX_LENGTH) {
+    return `La nota para Mesa no puede superar ${CLIENTE_DATOS_NOTA_MESA_MAX_LENGTH} caracteres.`;
+  }
+  return null;
+}
+
 /** Campos obligatorios en Datos Generales para Mejoravit (RFC y domicilio real opcionales). */
 export const CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT_MEJORAVIT = 23;
 

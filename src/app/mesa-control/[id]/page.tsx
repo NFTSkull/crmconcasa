@@ -1531,6 +1531,12 @@ function MesaControlExpedienteMockPage() {
                       })}
                   </dd>
                 </div>
+                <div className="sm:col-span-2">
+                  <dt className="text-xs font-medium uppercase text-gray-500">Notas del asesor</dt>
+                  <dd className="mt-0.5 whitespace-pre-wrap text-gray-800">
+                    {clienteDatos.datos.notaMesa?.trim() || "Sin notas"}
+                  </dd>
+                </div>
               </dl>
             </>
           )}

@@ -4,6 +4,7 @@ import {
   CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT_DEFAULT,
   CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT_MEJORAVIT,
   getClienteDatosCamposFaltantes,
+  getNotaMesaLongitudError,
   type ClienteDatosFormShape,
 } from "./clienteDatosFormCompleteness";
 
@@ -128,4 +129,21 @@ test("getClienteDatosCamposFaltantes: compro_tu_casa sin sección Mejoravit", ()
     CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT_DEFAULT,
   );
   assert.equal(CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT_DEFAULT, 21);
+});
+
+test("getClienteDatosCamposFaltantes: notaMesa vacía no es faltante", () => {
+  assert.deepEqual(getClienteDatosCamposFaltantes({ ...completo, notaMesa: "" }), []);
+  assert.deepEqual(
+    getClienteDatosCamposFaltantes({ ...completo, notaMesa: undefined }),
+    [],
+  );
+});
+
+test("getNotaMesaLongitudError: vacía no genera error", () => {
+  assert.equal(getNotaMesaLongitudError(""), null);
+  assert.equal(getNotaMesaLongitudError(undefined), null);
+});
+
+test("getNotaMesaLongitudError: supera límite", () => {
+  assert.ok(getNotaMesaLongitudError("x".repeat(1001)));
 });

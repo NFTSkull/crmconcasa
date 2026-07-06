@@ -48,7 +48,10 @@ import {
   useExpedienteClienteDatosRepo,
   type ExpedienteClienteDatos,
 } from "@/domain/expediente-cliente-datos";
-import { getClienteDatosCamposFaltantes } from "@/lib/clienteDatosFormCompleteness";
+import {
+  getClienteDatosCamposFaltantes,
+  getNotaMesaLongitudError,
+} from "@/lib/clienteDatosFormCompleteness";
 import {
   formatClienteDatosValidationSummary,
   normalizeClienteDatosForSave,
@@ -90,6 +93,7 @@ const EMPTY_CLIENTE_DATOS: ClienteDatosFormState = {
   porcentajeCobro: "",
   montoCalculado: "",
   metodoPago: "",
+  notaMesa: "",
 };
 
 interface PrecalificacionMock {
@@ -798,6 +802,11 @@ export default function AsesorExpedientePage() {
       window.alert(MSJ_ESPERA_MONTO_REVISOR);
       return { ok: false, message: MSJ_ESPERA_MONTO_REVISOR };
     }
+    const notaError = getNotaMesaLongitudError(clienteDatos.notaMesa);
+    if (notaError) {
+      setClienteDatosError(notaError);
+      return { ok: false, message: notaError };
+    }
     const validation = validateClienteDatos(clienteDatos, {
       montoAprobado: montoAprobadoEditor,
       direccionOpcional,
@@ -809,6 +818,7 @@ export default function AsesorExpedientePage() {
       const message = formatClienteDatosValidationSummary(validation);
       setClienteDatosError(message);
       return { ok: false, message };
+    }
     }
     setClienteDatosSaving(true);
     setClienteDatosError(null);

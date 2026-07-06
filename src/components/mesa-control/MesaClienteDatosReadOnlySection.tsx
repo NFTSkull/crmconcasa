@@ -298,6 +298,12 @@ export function MesaClienteDatosReadOnlySection({
             ))}
           </DataCard>
 
+          <DataCard title="Notas del asesor">
+            <p className="sm:col-span-2 whitespace-pre-wrap text-sm text-gray-900">
+              {datos.notaMesa?.trim() ? datos.notaMesa.trim() : "Sin notas"}
+            </p>
+          </DataCard>
+
           <DataCard title="Evidencias / imágenes">
             {imagenes.length > 0 ? (
               <ul className="sm:col-span-2 divide-y divide-gray-100 rounded-md border border-gray-100">

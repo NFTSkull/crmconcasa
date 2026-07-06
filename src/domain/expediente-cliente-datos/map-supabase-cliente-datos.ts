@@ -178,6 +178,7 @@ export function mapSupabaseRowToExpedienteClienteDatos(
         asString(datos.montoCalculado) ||
         (row.monto_calculado != null ? String(row.monto_calculado) : ""),
       metodoPago: asString(datos.metodoPago) || asString(row.metodo_pago),
+      notaMesa: asString(datos.notaMesa) || undefined,
     },
     porcentajeCobro: asNumber(row.porcentaje_cobro),
     montoCalculado: asNumber(row.monto_calculado),
@@ -265,6 +266,9 @@ export function buildSaveClienteDatosRpcPayload(
   if (esMejoravit) {
     p_datos.montoMejoravit = montoMejoravitRaw;
     p_datos.plazo = plazo;
+  }
+  if (datos.notaMesa?.trim()) {
+    p_datos.notaMesa = datos.notaMesa.trim();
   }
 
   return {

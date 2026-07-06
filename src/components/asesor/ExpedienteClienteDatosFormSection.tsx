@@ -12,6 +12,7 @@ import {
   parseMontoCalculadoInput,
   parsePorcentajeCobroInput,
 } from "@/lib/clienteDatosCobro";
+import { CLIENTE_DATOS_NOTA_MESA_MAX_LENGTH } from "@/lib/clienteDatosFormCompleteness";
 
 type ClienteDatosFormState = ExpedienteClienteDatos["datos"];
 
@@ -659,6 +660,26 @@ export function ExpedienteClienteDatosFormSection({
               </select>
             </DatosField>
           </div>
+        </div>
+
+        <div className="mt-4 rounded-md border border-gray-200 p-3">
+          <p className="text-xs font-semibold text-gray-900">Notas para Mesa Control</p>
+          <p className="mt-0.5 text-[11px] text-gray-500">Opcional · visible para Mesa al revisar el expediente</p>
+          <label className="mt-2 grid gap-1 text-xs text-gray-600">
+            <textarea
+              className="min-h-[88px] rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+              rows={4}
+              maxLength={CLIENTE_DATOS_NOTA_MESA_MAX_LENGTH}
+              placeholder="Escribe aquí cualquier observación importante para Mesa Control…"
+              value={clienteDatos.notaMesa ?? ""}
+              onChange={(e) =>
+                setClienteDatos((p) => ({ ...p, notaMesa: e.target.value }))
+              }
+            />
+            <span className="text-[11px] text-gray-400">
+              {(clienteDatos.notaMesa ?? "").length}/{CLIENTE_DATOS_NOTA_MESA_MAX_LENGTH}
+            </span>
+          </label>
         </div>
       </fieldset>
     </div>

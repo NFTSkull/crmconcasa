@@ -23,11 +23,13 @@ describe("mapSupabaseRowToExpedienteClienteDatos", () => {
         registroPatronal: "RP-1",
         telefonoEmpresa: "5599999999",
         beneficiario: { nombre: "Ben", parentesco: "Hija" },
-      direccionEmpresa: {
-        calle: "Calle 1",
-        colonia: "Centro",
-        municipio: "CDMX",
-        cp: "01000",
+        direccionEmpresa: {
+          calle: "Calle 1",
+          colonia: "Centro",
+          municipio: "CDMX",
+          cp: "01000",
+        },
+        notaMesa: "Cliente prefiere cita matutina.",
       },
       montoMejoravit: "175000",
       plazo: "18 meses",
@@ -53,6 +55,7 @@ describe("mapSupabaseRowToExpedienteClienteDatos", () => {
     assert.equal(domain.datos.montoMejoravit, "175000");
     assert.equal(domain.datos.plazo, "18 meses");
     assert.equal(domain.datos.montoCalculado, "1875");
+    assert.equal(domain.datos.notaMesa, "Cliente prefiere cita matutina.");
     assert.equal(domain.updatedBy, "asesor@concasa.mx");
   });
   it("mapea montoMejoravit numérico y alias monto_mejoravit", () => {
@@ -99,6 +102,7 @@ describe("buildSaveClienteDatosRpcPayload", () => {
       porcentajeCobro: "10",
       montoCalculado: "2500",
       metodoPago: "transferencia",
+      notaMesa: "  Observación Mesa  ",
     }, "Av. Cliente 100", "mejoravit");
 
     assert.equal(payload.p_expediente_id, "exp-1");
@@ -115,6 +119,40 @@ describe("buildSaveClienteDatosRpcPayload", () => {
       telefono: "5511111111",
     });
     assert.equal(payload.p_datos.nombreCliente, "Marcela");
+    assert.equal(payload.p_datos.notaMesa, "Observación Mesa");
+  });
+
+  it("omite notaMesa vacía del payload RPC", () => {
+    const payload = buildSaveClienteDatosRpcPayload("exp-1", {
+      nombreCliente: "Marcela",
+      nss: "12345678901",
+      curp: "CURP123",
+      rfc: "xaxx010101000",
+      celular: "5512345678",
+      correo: "marcela@concasa.mx",
+      empresa: "Empresa SA",
+      registroPatronal: "RP-1",
+      telefonoEmpresa: "5599999999",
+      referencias: [
+        { nombre: "Ref 1", celular: "5511111111" },
+        { nombre: "Ref 2", celular: "5522222222" },
+      ],
+      beneficiario: { nombre: "Ben", parentesco: "Hija" },
+      direccionEmpresa: {
+        calle: "Calle 1",
+        colonia: "Centro",
+        municipio: "CDMX",
+        cp: "01000",
+      },
+      montoMejoravit: "150000",
+      plazo: "12 meses",
+      porcentajeCobro: "10",
+      montoCalculado: "2500",
+      metodoPago: "transferencia",
+      notaMesa: "   ",
+    }, "Av. Cliente 100", "mejoravit");
+
+    assert.equal("notaMesa" in payload.p_datos, false);
   });
 
   it("acepta RFC vacío en payload RPC", () => {
