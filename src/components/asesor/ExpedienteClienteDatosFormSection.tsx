@@ -13,6 +13,10 @@ import {
   parsePorcentajeCobroInput,
 } from "@/lib/clienteDatosCobro";
 import { CLIENTE_DATOS_NOTA_MESA_MAX_LENGTH } from "@/lib/clienteDatosFormCompleteness";
+import {
+  asesorEsCorreccionRechazoClienteDatos,
+  asesorPuedeEditarClienteDatos,
+} from "@/domain/expediente-archivos/asesor-correccion-post-mesa";
 
 type ClienteDatosFormState = ExpedienteClienteDatos["datos"];
 
@@ -114,16 +118,23 @@ export function ExpedienteClienteDatosFormSection({
   onMontoMejoravitEdited,
 }: ExpedienteClienteDatosFormSectionProps) {
   const esMejoravit = isProgramaMejoravitDb(programaDb);
-  const esCorreccionDatos =
-    submittedToMesa && clienteDatosMeta?.estado === "rechazado";
+  const esCorreccionRechazo = asesorEsCorreccionRechazoClienteDatos(
+    submittedToMesa,
+    clienteDatosMeta?.estado ?? "pendiente",
+  );
   const puedeEditar =
     puedeIntegrar &&
-    (!submittedToMesa || clienteDatosMeta?.estado === "rechazado");
-  const saveLabel = esCorreccionDatos
+    asesorPuedeEditarClienteDatos(
+      submittedToMesa,
+      clienteDatosMeta?.estado ?? "pendiente",
+    );
+  const saveLabel = esCorreccionRechazo
     ? "Guardar corrección"
-    : dataSupabase
-      ? "Guardar datos"
-      : "Guardar borrador";
+    : submittedToMesa && clienteDatosMeta
+      ? "Guardar cambios"
+      : dataSupabase
+        ? "Guardar datos"
+        : "Guardar borrador";
 
   const err = (key: ClienteDatosFieldKey) =>
     showFieldErrors ? fieldErrors[key] : undefined;
@@ -260,6 +271,15 @@ export function ExpedienteClienteDatosFormSection({
               (Actualizado: {formatDateTime(clienteDatosMeta.updatedAt)} · Por:{" "}
               {clienteDatosMeta.updatedBy})
             </span>
+          </p>
+        ) : null}
+        {submittedToMesa && puedeIntegrar ? (
+          <p
+            className="mt-2 rounded-md border border-sky-100 bg-sky-50 px-2 py-1.5 text-xs text-sky-900"
+            role="status"
+          >
+            Este expediente ya fue enviado a Mesa. Si haces cambios, Mesa Control verá la
+            información actualizada.
           </p>
         ) : null}
         {submittedToMesa && clienteDatosMeta?.estado === "completo" ? (

@@ -62,6 +62,7 @@ export {
 export {
   asesorDebeUsarCorreccionDocumento,
   asesorDebeUsarCorreccionClienteDatos,
+  asesorEsCorreccionRechazoClienteDatos,
   asesorDocumentoUploadMode,
   asesorPuedeCorregirDocumentoRechazado,
   asesorPuedeEditarClienteDatos,

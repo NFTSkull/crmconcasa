@@ -1,7 +1,7 @@
 import type { ResumenEstatus } from "./types";
 import type { IntegrationDocAsesorUploadTipo } from "./integration-docs-completos";
 
-/** Upload inicial pre-envío a Mesa (4 oblig + opcionales). */
+/** Upload inicial pre-envío a Mesa (5 oblig + opcionales). */
 export function asesorPuedeSubirDocumentoPreMesa(submittedToMesa: boolean): boolean {
   return !submittedToMesa;
 }
@@ -41,14 +41,22 @@ export function asesorDocumentoUploadMode(
 }
 
 export function asesorPuedeEditarClienteDatos(
-  submittedToMesa: boolean,
-  estado: "pendiente" | "completo" | "validado" | "rechazado",
+  _submittedToMesa: boolean,
+  _estado: "pendiente" | "completo" | "validado" | "rechazado",
 ): boolean {
-  if (!submittedToMesa) return true;
-  return estado === "rechazado";
+  return true;
 }
 
+/** Post-envío a Mesa: guardar vía RPC de corrección/actualización (no `save` inicial). */
 export function asesorDebeUsarCorreccionClienteDatos(
+  submittedToMesa: boolean,
+  tieneDatosGuardados: boolean,
+): boolean {
+  return submittedToMesa && tieneDatosGuardados;
+}
+
+/** Corrección tras rechazo explícito de Mesa (limpia rechazo y vuelve a completo). */
+export function asesorEsCorreccionRechazoClienteDatos(
   submittedToMesa: boolean,
   estado: "pendiente" | "completo" | "validado" | "rechazado",
 ): boolean {

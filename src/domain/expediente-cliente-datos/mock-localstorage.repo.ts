@@ -218,16 +218,31 @@ export class MockExpedienteClienteDatosLocalStorageRepo implements ExpedienteCli
   }
 
   async saveCorreccion(input: SaveExpedienteClienteDatosInput): Promise<ExpedienteClienteDatos> {
+    const existing = await this.getByExpedienteId(input.expedienteId);
     const saved = await this.save(input);
-    return {
-      ...saved,
-      estado: "completo",
-      comentarioRechazo: undefined,
-      rejectedAt: undefined,
-      rejectedBy: undefined,
-      validatedAt: undefined,
-      validatedBy: undefined,
-    };
+    if (existing?.estado === "rechazado") {
+      return {
+        ...saved,
+        estado: "completo",
+        comentarioRechazo: undefined,
+        rejectedAt: undefined,
+        rejectedBy: undefined,
+        validatedAt: undefined,
+        validatedBy: undefined,
+      };
+    }
+    if (existing) {
+      return {
+        ...saved,
+        estado: existing.estado,
+        comentarioRechazo: existing.comentarioRechazo,
+        validatedAt: existing.validatedAt,
+        validatedBy: existing.validatedBy,
+        rejectedAt: existing.rejectedAt,
+        rejectedBy: existing.rejectedBy,
+      };
+    }
+    return saved;
   }
 
   async updateEstado(

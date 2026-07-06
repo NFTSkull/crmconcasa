@@ -4,6 +4,7 @@ import {
   asesorDebeUsarCorreccionClienteDatos,
   asesorDebeUsarCorreccionDocumento,
   asesorDocumentoUploadMode,
+  asesorEsCorreccionRechazoClienteDatos,
   asesorPuedeCorregirDocumentoRechazado,
   asesorPuedeEditarClienteDatos,
   asesorPuedeSubirDocumentoPreMesa,
@@ -30,12 +31,15 @@ describe("asesor corrección post-Mesa (helpers UI)", () => {
     assert.equal(asesorDocumentoUploadMode(true, "validado"), null);
   });
 
-  it("datos generales editables solo si rechazados post-envío", () => {
+  it("datos generales editables post-envío (cualquier estado)", () => {
     assert.equal(asesorPuedeEditarClienteDatos(false, "completo"), true);
-    assert.equal(asesorPuedeEditarClienteDatos(true, "completo"), false);
-    assert.equal(asesorPuedeEditarClienteDatos(true, "validado"), false);
+    assert.equal(asesorPuedeEditarClienteDatos(true, "completo"), true);
+    assert.equal(asesorPuedeEditarClienteDatos(true, "validado"), true);
     assert.equal(asesorPuedeEditarClienteDatos(true, "rechazado"), true);
-    assert.equal(asesorDebeUsarCorreccionClienteDatos(true, "rechazado"), true);
-    assert.equal(asesorDebeUsarCorreccionClienteDatos(true, "completo"), false);
+    assert.equal(asesorDebeUsarCorreccionClienteDatos(true, true), true);
+    assert.equal(asesorDebeUsarCorreccionClienteDatos(true, false), false);
+    assert.equal(asesorDebeUsarCorreccionClienteDatos(false, true), false);
+    assert.equal(asesorEsCorreccionRechazoClienteDatos(true, "rechazado"), true);
+    assert.equal(asesorEsCorreccionRechazoClienteDatos(true, "completo"), false);
   });
 });

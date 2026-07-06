@@ -183,13 +183,27 @@ BEGIN
   END;
 END; $$;
 
-CREATE OR REPLACE FUNCTION public.__rpc_acpm_test_call_datos(p_user UUID, p_exp UUID)
+CREATE OR REPLACE FUNCTION public.__rpc_acpm_test_call_datos(
+  p_user UUID,
+  p_exp UUID,
+  p_nombre TEXT DEFAULT 'Corregido ACPM',
+  p_nota TEXT DEFAULT NULL
+)
 RETURNS JSONB LANGUAGE plpgsql AS $$
 DECLARE
   v_result JSONB;
   v_tel TEXT;
+  v_datos JSONB;
 BEGIN
   v_tel := '55' || right(replace(p_exp::text, '-', ''), 8);
+  v_datos := jsonb_strip_nulls(
+    jsonb_build_object(
+      'rfc', 'XAXX010101000',
+      'nombreCliente', p_nombre,
+      'celular', v_tel,
+      'notaMesa', p_nota
+    )
+  );
   PERFORM public.__rpc_acpm_test_set_auth(p_user);
   SELECT public.save_cliente_datos_correccion(
     p_exp,
@@ -197,7 +211,7 @@ BEGIN
     v_tel,
     '[]'::jsonb,
     NULL,
-    jsonb_build_object('rfc', 'XAXX010101000', 'nombreCliente', 'Corregido ACPM', 'celular', v_tel),
+    v_datos,
     10,
     'transferencia',
     'Calle Test ACPM'
@@ -266,6 +280,10 @@ DECLARE
   v_new_row public.expediente_documentos%ROWTYPE;
   v_log_count INTEGER;
   v_cd public.cliente_datos%ROWTYPE;
+  v_exp_row public.expedientes%ROWTYPE;
+  v_editor public.editor_decisions%ROWTYPE;
+  v_doc_count_before INTEGER;
+  v_doc_count_after INTEGER;
 BEGIN
   PERFORM public.__rpc_acpm_test_insert_exp(v_exp_ok, v_org, v_asesor, 'interno'::public.origen_mesa, true, '90331000001');
   PERFORM public.__rpc_acpm_test_insert_exp(v_exp_valid, v_org, v_asesor, 'interno'::public.origen_mesa, true, '90331000002');
@@ -414,17 +432,62 @@ BEGIN
   v_result := public.__rpc_acpm_test_call_datos(v_asesor, v_exp_datos);
   PERFORM public.__rpc_acpm_test_assert((v_result->>'estado') = 'completo', 'test 10: estado completo');
 
-  -- 11. NO corrige si validado o completo
-  PERFORM public.__rpc_acpm_test_insert_cliente(v_exp_datos_val, v_org, 'validado', NULL);
-  PERFORM public.__rpc_acpm_test_assert(
-    public.__rpc_acpm_test_expect_datos_fail(v_asesor, v_exp_datos_val, 'estado rechazado'),
-    'test 11a: validado bloqueado'
+  -- 11. asesor actualiza datos validados y completos post-Mesa (sin exigir rechazo)
+  PERFORM public.__rpc_acpm_test_insert_cliente(v_exp_datos_val, v_org, 'validado', NULL, '90331000007');
+  v_result := public.__rpc_acpm_test_call_datos(
+    v_asesor,
+    v_exp_datos_val,
+    'Nombre Validado Actualizado',
+    'Nota para Mesa post-envío'
   );
-  PERFORM public.__rpc_acpm_test_insert_cliente(v_exp_datos_comp, v_org, 'completo', NULL);
+  PERFORM public.__rpc_acpm_test_assert((v_result->>'estado') = 'validado', 'test 11a: conserva validado');
+  SELECT * INTO v_cd FROM public.cliente_datos WHERE expediente_id = v_exp_datos_val;
+  PERFORM public.__rpc_acpm_test_assert(v_cd.estado = 'validado', 'test 11a: estado validado en fila');
   PERFORM public.__rpc_acpm_test_assert(
-    public.__rpc_acpm_test_expect_datos_fail(v_asesor, v_exp_datos_comp, 'estado rechazado'),
-    'test 11b: completo bloqueado'
+    v_cd.datos->>'notaMesa' = 'Nota para Mesa post-envío',
+    'test 11a: notaMesa persistida'
   );
+  SELECT * INTO v_exp_row FROM public.expedientes WHERE id = v_exp_datos_val;
+  PERFORM public.__rpc_acpm_test_assert(
+    v_exp_row.cliente_nombre = 'Nombre Validado Actualizado',
+    'test 11a: cliente_nombre sincronizado'
+  );
+  SELECT COUNT(*) INTO v_log_count
+  FROM public.action_log
+  WHERE action = 'cliente_datos.actualizado_post_mesa'
+    AND entity_id = v_exp_datos_val;
+  PERFORM public.__rpc_acpm_test_assert(v_log_count >= 1, 'test 11a: action_log actualizacion');
+
+  PERFORM public.__rpc_acpm_test_insert_cliente(v_exp_datos_comp, v_org, 'completo', NULL, '90331000008');
+  v_result := public.__rpc_acpm_test_call_datos(v_asesor, v_exp_datos_comp, 'Nombre Completo Actualizado');
+  PERFORM public.__rpc_acpm_test_assert((v_result->>'estado') = 'completo', 'test 11b: conserva completo');
+
+  -- 11c. no altera decisión editor, monto, etapa ni submitted_to_mesa
+  UPDATE public.editor_decisions
+  SET decision = 'aprobado',
+      monto_aprobado = 150000.50,
+      notas_revision = 'Fixture editor',
+      updated_at = NOW()
+  WHERE expediente_id = v_exp_datos_val;
+
+  SELECT COUNT(*) INTO v_doc_count_before
+  FROM public.expediente_documentos
+  WHERE expediente_id = v_exp_datos_val AND deleted_at IS NULL;
+
+  PERFORM public.__rpc_acpm_test_call_datos(v_asesor, v_exp_datos_val, 'Otro nombre', NULL);
+
+  SELECT * INTO v_editor FROM public.editor_decisions WHERE expediente_id = v_exp_datos_val;
+  PERFORM public.__rpc_acpm_test_assert(v_editor.decision = 'aprobado', 'test 11c: decision editor intacta');
+  PERFORM public.__rpc_acpm_test_assert(v_editor.monto_aprobado = 150000.50, 'test 11c: monto intacto');
+
+  SELECT * INTO v_exp_row FROM public.expedientes WHERE id = v_exp_datos_val;
+  PERFORM public.__rpc_acpm_test_assert(v_exp_row.etapa_actual = 1, 'test 11c: etapa sin cambio');
+  PERFORM public.__rpc_acpm_test_assert(v_exp_row.submitted_to_mesa IS TRUE, 'test 11c: submitted_to_mesa intacto');
+
+  SELECT COUNT(*) INTO v_doc_count_after
+  FROM public.expediente_documentos
+  WHERE expediente_id = v_exp_datos_val AND deleted_at IS NULL;
+  PERFORM public.__rpc_acpm_test_assert(v_doc_count_before = v_doc_count_after, 'test 11c: documentos sin cambio');
 
   -- 12. NO corrige datos de otro expediente (asesor1 intenta exp de asesor2)
   PERFORM public.__rpc_acpm_test_insert_cliente(v_exp_other, v_org, 'rechazado', 'Otro asesor');
@@ -451,6 +514,8 @@ BEGIN
     v_exp_ok, v_exp_valid, v_exp_subido, v_exp_other, v_exp_semanas,
     v_exp_datos, v_exp_datos_val, v_exp_datos_comp
   );
+  DELETE FROM public.editor_decisions
+  WHERE expediente_id IN (v_exp_datos_val);
   DELETE FROM public.expediente_documentos
   WHERE expediente_id IN (
     v_exp_ok, v_exp_valid, v_exp_subido, v_exp_other, v_exp_semanas
@@ -466,6 +531,7 @@ END;
 $$;
 
 DROP FUNCTION IF EXISTS public.__rpc_acpm_test_expect_datos_fail(UUID, UUID, TEXT);
+DROP FUNCTION IF EXISTS public.__rpc_acpm_test_call_datos(UUID, UUID, TEXT, TEXT);
 DROP FUNCTION IF EXISTS public.__rpc_acpm_test_call_datos(UUID, UUID);
 DROP FUNCTION IF EXISTS public.__rpc_acpm_test_expect_doc_fail(UUID, UUID, TEXT, TEXT, TEXT, BOOLEAN);
 DROP FUNCTION IF EXISTS public.__rpc_acpm_test_call_doc(UUID, UUID, TEXT, TEXT, BOOLEAN);

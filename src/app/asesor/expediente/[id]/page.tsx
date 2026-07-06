@@ -69,6 +69,7 @@ import {
   removeClienteDatosDraft,
   writeClienteDatosDraft,
 } from "@/lib/clienteDatosDraftLocalStorage";
+import { asesorDebeUsarCorreccionClienteDatos } from "@/domain/expediente-archivos/asesor-correccion-post-mesa";
 
 type ClienteDatosFormState = ExpedienteClienteDatos["datos"];
 
@@ -819,7 +820,6 @@ export default function AsesorExpedientePage() {
       setClienteDatosError(message);
       return { ok: false, message };
     }
-    }
     setClienteDatosSaving(true);
     setClienteDatosError(null);
     setClienteDatosFieldErrors({});
@@ -827,8 +827,10 @@ export default function AsesorExpedientePage() {
     setClienteDatosSaved(false);
     const datosAGuardar = normalizeClienteDatosForSave(clienteDatos);
     try {
-      const usarCorreccion =
-        Boolean(operativo?.submittedToMesa) && clienteDatosMeta?.estado === "rechazado";
+      const usarCorreccion = asesorDebeUsarCorreccionClienteDatos(
+        Boolean(operativo?.submittedToMesa),
+        clienteDatosMeta !== null,
+      );
       const saveInput = {
         expedienteId: String(precal.id),
         datos: datosAGuardar,
