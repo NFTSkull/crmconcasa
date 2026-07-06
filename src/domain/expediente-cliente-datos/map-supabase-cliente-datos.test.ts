@@ -109,6 +109,7 @@ describe("buildSaveClienteDatosRpcPayload", () => {
     assert.equal(payload.p_porcentaje_cobro, 10);
     assert.equal(payload.p_metodo_pago, "transferencia");
     assert.equal(payload.p_direccion_opcional, "Av. Cliente 100");
+    assert.equal(payload.p_monto_calculado_manual, null);
     assert.equal(payload.p_telefono, "(55) 1234-5678");
     assert.equal(payload.p_estado, "completo");
     assert.equal(payload.p_datos.montoMejoravit, "150000");
@@ -268,5 +269,43 @@ describe("buildSaveClienteDatosRpcPayload", () => {
     );
     assert.equal(payload.p_datos.montoMejoravit, undefined);
     assert.equal(payload.p_datos.plazo, undefined);
+  });
+
+  it("P055: envía p_monto_calculado_manual solo si es edición manual", () => {
+    const base = {
+      nombreCliente: "Marcela",
+      nss: "12345678901",
+      curp: "CURP123",
+      rfc: "",
+      celular: "5512345678",
+      correo: "marcela@concasa.mx",
+      empresa: "Empresa SA",
+      registroPatronal: "RP-1",
+      telefonoEmpresa: "5599999999",
+      referencias: [
+        { nombre: "Ref 1", celular: "5511111111" },
+        { nombre: "Ref 2", celular: "5522222222" },
+      ],
+      beneficiario: { nombre: "Ben", parentesco: "Hija" },
+      direccionEmpresa: {
+        calle: "Calle 1",
+        colonia: "Centro",
+        municipio: "CDMX",
+        cp: "01000",
+      },
+      montoMejoravit: "",
+      plazo: "",
+      porcentajeCobro: "10",
+      montoCalculado: "17000",
+      metodoPago: "transferencia",
+    } as ExpedienteClienteDatos["datos"];
+
+    const auto = buildSaveClienteDatosRpcPayload("exp-1", base, "Dir", "compro_tu_casa");
+    assert.equal(auto.p_monto_calculado_manual, null);
+
+    const manual = buildSaveClienteDatosRpcPayload("exp-1", base, "Dir", "compro_tu_casa", {
+      montoCalculadoEsManual: true,
+    });
+    assert.equal(manual.p_monto_calculado_manual, 17000);
   });
 });

@@ -7,6 +7,7 @@ import {
   isProgramaMejoravitDb,
   parseMontoCalculadoInput,
   parsePorcentajeCobroInput,
+  resolveMontoCalculadoManualForRpc,
 } from "@/lib/clienteDatosCobro";
 
 export type SupabaseClienteDatosRow = {
@@ -209,6 +210,7 @@ export function buildSaveClienteDatosRpcPayload(
   datos: ExpedienteClienteDatos["datos"],
   direccionOpcional: string,
   programaDb?: string | null,
+  options?: { montoCalculadoEsManual?: boolean },
 ): {
   p_expediente_id: string;
   p_rfc: string;
@@ -219,6 +221,7 @@ export function buildSaveClienteDatosRpcPayload(
   p_porcentaje_cobro: number;
   p_metodo_pago: string;
   p_direccion_opcional: string;
+  p_monto_calculado_manual: number | null;
 } {
   const pct = parsePorcentajeCobroInput(datos.porcentajeCobro);
   if (pct == null) {
@@ -284,5 +287,9 @@ export function buildSaveClienteDatosRpcPayload(
     p_porcentaje_cobro: pct,
     p_metodo_pago: metodo,
     p_direccion_opcional: direccionOpcional.trim(),
+    p_monto_calculado_manual: resolveMontoCalculadoManualForRpc(
+      datos.montoCalculado,
+      Boolean(options?.montoCalculadoEsManual),
+    ),
   };
 }

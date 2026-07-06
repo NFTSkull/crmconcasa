@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-07-06 - feat/p055-monto-calculado-editable: monto calculado editable
+
+### Decisión
+
+- Fórmula automática sin cambio: `round((base_cobro * porcentaje / 100) + 3000, 2)`.
+- Base cobro: Mejoravit usa `montoMejoravit` del JSON; otros programas usan `editor_decisions.monto_aprobado`.
+- RPC: `p_monto_calculado_manual` opcional al final de `save_cliente_datos` y `save_cliente_datos_correccion` (desde P054).
+- Frontend: `montoCalculadoLockedRef` + `onMontoCalculadoEdited`; si no editado → `null` al RPC (servidor calcula); si editado → valor manual.
+- Detección manual vs auto al cargar: comparar valor guardado con auto actual (`isMontoCalculadoManualRespectoAuto`).
+- P054/P053/P052 sin cambio de contrato salvo nuevo parámetro opcional.
+
 ## 2026-07-03 - feat/cliente-datos-mejoravit-plazo: Monto Mejoravit y Plazo en Datos Generales
 
 ### Decisión

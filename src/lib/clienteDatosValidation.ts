@@ -176,28 +176,47 @@ export function validateClienteDatos(
 
   const montoAprobado = ctx.montoAprobado;
   const pctVal = parsePorcentajeCobroInput(data.porcentajeCobro);
-  if (!errors.montoCalculado && pctVal != null && pctVal > 0) {
-    if (esMejoravit) {
-      if (
-        calcMontoCalculadoCobro(montoAprobado, pctVal, {
-          programaDb: ctx.programaDb,
-          montoMejoravitForm: data.montoMejoravit,
-        }) == null
-      ) {
-        setError(errors, "montoCalculado", "No se pudo calcular el monto de cobro.");
+  if (!errors.montoCalculado) {
+    const montoVal = parseMontoCalculadoInput(data.montoCalculado);
+    if (montoVal == null || montoVal <= 0) {
+      const auto =
+        pctVal != null && pctVal > 0
+          ? calcMontoCalculadoCobro(montoAprobado, pctVal, {
+              programaDb: ctx.programaDb,
+              montoMejoravitForm: data.montoMejoravit,
+            })
+          : null;
+      if (auto == null) {
+        if (esMejoravit) {
+          setError(
+            errors,
+            "montoCalculado",
+            "Captura el monto calculado o permite que se calcule automáticamente.",
+          );
+        } else if (
+          montoAprobado == null ||
+          !Number.isFinite(montoAprobado) ||
+          montoAprobado <= 0
+        ) {
+          setError(
+            errors,
+            "montoCalculado",
+            "No hay monto aprobado para calcular el cobro.",
+          );
+        } else {
+          setError(
+            errors,
+            "montoCalculado",
+            "Captura el monto calculado o permite que se calcule automáticamente.",
+          );
+        }
+      } else {
+        setError(
+          errors,
+          "montoCalculado",
+          "Captura el monto calculado o permite que se calcule automáticamente.",
+        );
       }
-    } else if (
-      montoAprobado == null ||
-      !Number.isFinite(montoAprobado) ||
-      montoAprobado <= 0
-    ) {
-      setError(
-        errors,
-        "montoCalculado",
-        "No hay monto aprobado para calcular el cobro.",
-      );
-    } else if (calcMontoCalculadoCobro(montoAprobado, pctVal, ctx.programaDb) == null) {
-      setError(errors, "montoCalculado", "No se pudo calcular el monto de cobro.");
     }
   }
 

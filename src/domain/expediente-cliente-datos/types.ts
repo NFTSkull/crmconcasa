@@ -45,7 +45,7 @@ export type ExpedienteClienteDatos = {
     plazo: string;
     /** Porcentaje de cobro (captura asesor, ej. "12.5"). */
     porcentajeCobro: string;
-    /** Monto calculado derivado (columna `monto_calculado`, solo lectura en UI). */
+    /** Monto calculado (columna `monto_calculado`; editable con default automático). */
     montoCalculado: string;
     /** Método de pago (`transferencia`, `efectivo`, `tarjeta`, `otro`). */
     metodoPago: string;
@@ -88,6 +88,8 @@ export type SaveExpedienteClienteDatosInput = {
   updatedBy: string;
   /** Programa DB (`mejoravit`, `compro_tu_casa`, …) para validar payload. */
   programaDb?: string | null;
+  /** Si true, envía p_monto_calculado_manual; si false, el servidor recalcula automático. */
+  montoCalculadoEsManual?: boolean;
 };
 
 export type UpdateEstadoExpedienteClienteDatosInput = {

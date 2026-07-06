@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { ClienteDatosFormShape } from "@/lib/clienteDatosFormCompleteness";
 import {
+  applyMontoCalculadoSugeridoSiNoEditado,
   applyMontoMejoravitSugeridoSiVacio,
   calcBaseCobro,
   calcBaseCobroDesdeMontoEditor,
@@ -10,6 +11,7 @@ import {
   isMontoMejoravitGuardado,
   parseMontoCalculadoInput,
   parsePorcentajeCobroInput,
+  resolveMontoCalculadoManualForRpc,
 } from "./clienteDatosCobro";
 
 const BASE_DATOS: ClienteDatosFormShape = {
@@ -127,4 +129,31 @@ test("calcBaseCobro — Mejoravit desde formulario", () => {
 test("calcMontoCalculadoCobro sin monto aprobado devuelve null en no-Mejoravit", () => {
   assert.equal(calcMontoCalculadoCobro(null, 10, "compro_tu_casa"), null);
   assert.equal(calcMontoCalculadoCobro(0, 10, "compro_tu_casa"), null);
+});
+
+test("P055: default automático base 150000 porcentaje 10 → 18000", () => {
+  assert.equal(calcMontoCalculadoCobro(150000, 10, "compro_tu_casa"), 18000);
+});
+
+test("P055: resolveMontoCalculadoManualForRpc manual 17000", () => {
+  assert.equal(resolveMontoCalculadoManualForRpc("17000", true), 17000);
+  assert.equal(resolveMontoCalculadoManualForRpc("17000", false), null);
+});
+
+test("P055: applyMontoCalculadoSugeridoSiNoEditado respeta valor distinto al auto", () => {
+  const conManual = applyMontoCalculadoSugeridoSiNoEditado(
+    { ...BASE_DATOS, porcentajeCobro: "10", montoCalculado: "17000" },
+    150000,
+    "compro_tu_casa",
+  );
+  assert.equal(conManual.montoCalculado, "17000");
+});
+
+test("P055: applyMontoCalculadoSugeridoSiNoEditado autopuebla 18000", () => {
+  const auto = applyMontoCalculadoSugeridoSiNoEditado(
+    { ...BASE_DATOS, porcentajeCobro: "10", montoCalculado: "" },
+    150000,
+    "compro_tu_casa",
+  );
+  assert.equal(auto.montoCalculado, "18000");
 });

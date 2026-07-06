@@ -59,9 +59,13 @@ import {
   type ClienteDatosFieldErrors,
 } from "@/lib/clienteDatosValidation";
 import {
+  applyMontoCalculadoSugeridoSiNoEditado,
   applyMontoMejoravitSugeridoSiVacio,
+  calcMontoCalculadoCobro,
+  isMontoCalculadoManualRespectoAuto,
   isMontoMejoravitGuardado,
   isProgramaMejoravitDb,
+  parsePorcentajeCobroInput,
 } from "@/lib/clienteDatosCobro";
 import {
   isDraftNewerThanOfficial,
@@ -199,6 +203,7 @@ export default function AsesorExpedientePage() {
     useState<ClienteDatosFieldErrors>({});
   const [clienteDatosShowValidation, setClienteDatosShowValidation] = useState(false);
   const montoMejoravitLockedRef = useRef(false);
+  const montoCalculadoLockedRef = useRef(false);
   const [direccionOpcional, setDireccionOpcional] = useState("");
   const [clienteDatosLocalDraftSaved, setClienteDatosLocalDraftSaved] =
     useState(false);
@@ -469,6 +474,20 @@ export default function AsesorExpedientePage() {
     montoMejoravitLockedRef.current = true;
   }, []);
 
+  const porcentajeCobroForm = clienteDatos.porcentajeCobro;
+  const montoMejoravitForm = clienteDatos.montoMejoravit;
+
+  useEffect(() => {
+    if (montoCalculadoLockedRef.current) return;
+    setClienteDatos((prev) =>
+      applyMontoCalculadoSugeridoSiNoEditado(prev, montoAprobadoEditor, programaDb),
+    );
+  }, [programaDb, montoAprobadoEditor, porcentajeCobroForm, montoMejoravitForm]);
+
+  const handleMontoCalculadoEdited = useCallback(() => {
+    montoCalculadoLockedRef.current = true;
+  }, []);
+
   const handleGuardarMontoAprobado = useCallback(async () => {
     if (!precal?.id || montoSaving || operativo?.submittedToMesa) return;
 
@@ -657,6 +676,7 @@ export default function AsesorExpedientePage() {
       setClienteDatosHasUnsavedChanges(false);
       if (!found) {
         montoMejoravitLockedRef.current = false;
+        montoCalculadoLockedRef.current = false;
         setClienteDatos((prev) => ({
           ...prev,
           nombreCliente: prev.nombreCliente || precal.cliente_nombre || "",
@@ -673,6 +693,21 @@ export default function AsesorExpedientePage() {
       montoMejoravitLockedRef.current = isMontoMejoravitGuardado(
         found.datos.montoMejoravit ?? "",
       );
+      const pctCargado = parsePorcentajeCobroInput(
+        found.datos.porcentajeCobro ||
+          (found.porcentajeCobro != null ? String(found.porcentajeCobro) : ""),
+      );
+      const montoAutoCargado = calcMontoCalculadoCobro(montoAprobadoEditor, pctCargado, {
+        programaDb,
+        montoMejoravitForm: found.datos.montoMejoravit ?? "",
+      });
+      const montoCalculadoCargado =
+        found.datos.montoCalculado ||
+        (found.montoCalculado != null ? String(found.montoCalculado) : "");
+      montoCalculadoLockedRef.current =
+        montoAutoCargado != null
+          ? isMontoCalculadoManualRespectoAuto(montoCalculadoCargado, montoAutoCargado)
+          : false;
       setClienteDatos({
         ...found.datos,
         rfc: found.datos.rfc ?? "",
@@ -681,9 +716,7 @@ export default function AsesorExpedientePage() {
         porcentajeCobro:
           found.datos.porcentajeCobro ||
           (found.porcentajeCobro != null ? String(found.porcentajeCobro) : ""),
-        montoCalculado:
-          found.datos.montoCalculado ||
-          (found.montoCalculado != null ? String(found.montoCalculado) : ""),
+        montoCalculado: montoCalculadoCargado,
         metodoPago: found.datos.metodoPago || found.metodoPago || "",
       });
       setClienteDatosMeta({
@@ -837,6 +870,7 @@ export default function AsesorExpedientePage() {
         direccionOpcional,
         updatedBy: currentUser.email,
         programaDb,
+        montoCalculadoEsManual: montoCalculadoLockedRef.current,
       };
       const saved = usarCorreccion
         ? await clienteDatosRepo.saveCorreccion(saveInput)
@@ -1113,6 +1147,7 @@ export default function AsesorExpedientePage() {
               montoAprobado={montoAprobadoEditor}
               programaDb={programaDb}
               onMontoMejoravitEdited={handleMontoMejoravitEdited}
+              onMontoCalculadoEdited={handleMontoCalculadoEdited}
             />
             <div className="rounded-lg border border-gray-200 bg-white p-4 text-sm text-gray-600">
               <p className="text-sm font-semibold text-gray-900">
@@ -1296,6 +1331,7 @@ export default function AsesorExpedientePage() {
               montoAprobado={montoAprobadoEditor}
               programaDb={programaDb}
               onMontoMejoravitEdited={handleMontoMejoravitEdited}
+              onMontoCalculadoEdited={handleMontoCalculadoEdited}
             />
 
             <SeguimientoOperativoMock

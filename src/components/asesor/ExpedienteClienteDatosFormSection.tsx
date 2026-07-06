@@ -6,10 +6,7 @@ import type { ExpedienteClienteDatos } from "@/domain/expediente-cliente-datos";
 import type { ClienteDatosFieldErrors, ClienteDatosFieldKey } from "@/lib/clienteDatosValidation";
 import {
   CLIENTE_METODO_PAGO_OPTIONS,
-  calcMontoCalculadoCobro,
-  formatMontoMXN,
   isProgramaMejoravitDb,
-  parseMontoCalculadoInput,
   parsePorcentajeCobroInput,
 } from "@/lib/clienteDatosCobro";
 import { CLIENTE_DATOS_NOTA_MESA_MAX_LENGTH } from "@/lib/clienteDatosFormCompleteness";
@@ -56,6 +53,7 @@ interface ExpedienteClienteDatosFormSectionProps {
   montoAprobado?: number | null;
   programaDb?: string | null;
   onMontoMejoravitEdited?: () => void;
+  onMontoCalculadoEdited?: () => void;
 }
 
 function fieldInputClass(hasError: boolean): string {
@@ -116,6 +114,7 @@ export function ExpedienteClienteDatosFormSection({
   montoAprobado = null,
   programaDb = null,
   onMontoMejoravitEdited,
+  onMontoCalculadoEdited,
 }: ExpedienteClienteDatosFormSectionProps) {
   const esMejoravit = isProgramaMejoravitDb(programaDb);
   const esCorreccionRechazo = asesorEsCorreccionRechazoClienteDatos(
@@ -145,10 +144,6 @@ export function ExpedienteClienteDatosFormSection({
       : [];
 
   const porcentajeNum = parsePorcentajeCobroInput(clienteDatos.porcentajeCobro);
-  const montoCalculadoPreview = calcMontoCalculadoCobro(montoAprobado, porcentajeNum, {
-    programaDb,
-    montoMejoravitForm: clienteDatos.montoMejoravit,
-  });
   const montoCalculadoError = err("montoCalculado");
 
   const statusLine = (() => {
@@ -620,9 +615,8 @@ export function ExpedienteClienteDatosFormSection({
         <div className="mt-4 rounded-md border border-gray-200 p-3">
           <p className="text-xs font-semibold text-gray-900">Información de cobro</p>
           <p className="mt-1 text-[11px] text-gray-600">
-            {esMejoravit
-              ? "El monto calculado usa el Monto Mejoravit del formulario (editable) más $3,000."
-              : "El monto calculado es el porcentaje del monto aprobado más $3,000."}
+            Se calcula automáticamente con el porcentaje + $3,000, pero puedes ajustarlo si es
+            necesario.
           </p>
           <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
             <DatosField
@@ -653,9 +647,17 @@ export function ExpedienteClienteDatosFormSection({
               showError={showFieldErrors}
             >
               <input
-                readOnly
-                className="rounded-md border border-gray-200 bg-gray-50 px-2 py-1 text-sm text-gray-800"
-                value={formatMontoMXN(montoCalculadoPreview)}
+                type="text"
+                inputMode="decimal"
+                className={fieldInputClass(Boolean(montoCalculadoError))}
+                value={clienteDatos.montoCalculado}
+                onChange={(e) => {
+                  onMontoCalculadoEdited?.();
+                  setClienteDatos((p) => ({ ...p, montoCalculado: e.target.value }));
+                }}
+                placeholder={
+                  porcentajeNum != null && porcentajeNum > 0 ? "Ej. 18000" : "Captura porcentaje primero"
+                }
               />
             </DatosField>
             <DatosField

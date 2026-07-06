@@ -147,6 +147,61 @@ export function applyMontoMejoravitSugeridoSiVacio(
   };
 }
 
+export function isMontoCalculadoGuardado(raw: string | null | undefined): boolean {
+  const n = parseMontoCalculadoInput(String(raw ?? ""));
+  return n != null && n > 0;
+}
+
+export function montosCalculadosEquivalentes(a: number, b: number): boolean {
+  return Math.abs(a - b) < 0.005;
+}
+
+/** True si el valor guardado difiere del cálculo automático actual (edición manual). */
+export function isMontoCalculadoManualRespectoAuto(
+  montoForm: string | null | undefined,
+  montoAuto: number | null,
+): boolean {
+  const saved = parseMontoCalculadoInput(String(montoForm ?? ""));
+  if (saved == null || saved <= 0) return false;
+  if (montoAuto == null) return true;
+  return !montosCalculadosEquivalentes(saved, montoAuto);
+}
+
+export function formatMontoCalculadoSugerido(value: number | null | undefined): string {
+  if (value == null || !Number.isFinite(value) || value <= 0) return "";
+  return String(value);
+}
+
+/** Sugiere monto calculado automático si el asesor no lo editó manualmente. */
+export function applyMontoCalculadoSugeridoSiNoEditado(
+  datos: ClienteDatosFormShape,
+  montoEditor: number | null | undefined,
+  programaDb: string | null | undefined,
+): ClienteDatosFormShape {
+  const pct = parsePorcentajeCobroInput(datos.porcentajeCobro);
+  const auto = calcMontoCalculadoCobro(montoEditor, pct, {
+    programaDb,
+    montoMejoravitForm: datos.montoMejoravit,
+  });
+  if (auto == null) {
+    return datos;
+  }
+  const sugerido = formatMontoCalculadoSugerido(auto);
+  if (datos.montoCalculado === sugerido) return datos;
+  return { ...datos, montoCalculado: sugerido };
+}
+
+/** Valor a enviar como p_monto_calculado_manual (null = usar automático en servidor). */
+export function resolveMontoCalculadoManualForRpc(
+  montoForm: string,
+  esManual: boolean,
+): number | null {
+  if (!esManual) return null;
+  const manual = parseMontoCalculadoInput(montoForm);
+  if (manual == null || manual <= 0) return null;
+  return manual;
+}
+
 export function formatMontoMXN(value: number | null | undefined): string {
   if (value == null || !Number.isFinite(value)) return "—";
   return new Intl.NumberFormat("es-MX", {

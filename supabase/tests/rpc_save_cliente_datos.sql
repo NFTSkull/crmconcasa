@@ -45,7 +45,8 @@ CREATE OR REPLACE FUNCTION public.__rpc_scd_test_call_as(
   p_estado public.cliente_datos_estado DEFAULT 'completo',
   p_porcentaje_cobro NUMERIC DEFAULT 10,
   p_metodo_pago TEXT DEFAULT 'transferencia',
-  p_direccion_opcional TEXT DEFAULT 'Calle Test 123'
+  p_direccion_opcional TEXT DEFAULT 'Calle Test 123',
+  p_monto_calculado_manual NUMERIC DEFAULT NULL
 )
 RETURNS JSONB
 LANGUAGE plpgsql
@@ -56,7 +57,8 @@ BEGIN
   PERFORM public.__rpc_scd_test_set_auth(p_user_id);
   SELECT public.save_cliente_datos(
     p_expediente_id, p_rfc, p_telefono, p_referencias,
-    p_imagenes, p_datos, p_estado, p_porcentaje_cobro, p_metodo_pago, p_direccion_opcional
+    p_imagenes, p_datos, p_estado, p_porcentaje_cobro, p_metodo_pago, p_direccion_opcional,
+    p_monto_calculado_manual
   ) INTO v_result;
   PERFORM public.__rpc_scd_test_reset_auth();
   RETURN v_result;

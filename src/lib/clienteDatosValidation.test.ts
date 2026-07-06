@@ -234,6 +234,17 @@ test("validateClienteDatos: porcentaje decimal válido acepta", () => {
   assert.equal(r.isValid, true);
 });
 
+test("validateClienteDatos: sin monto calculado rechaza con mensaje P055", () => {
+  const r = validateClienteDatos(
+    { ...baseValid, montoCalculado: "" },
+    COBRO_CTX,
+  );
+  assert.equal(
+    r.errors.montoCalculado,
+    "Captura el monto calculado o permite que se calcule automáticamente.",
+  );
+});
+
 test("validateClienteDatos: sin monto aprobado rechaza monto calculado", () => {
   const r = validateClienteDatos(
     { ...baseValid, montoCalculado: "" },
