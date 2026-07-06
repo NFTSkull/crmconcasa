@@ -36,6 +36,9 @@ interface ExpedienteClienteDatosFormSectionProps {
   clienteDatosLoading?: boolean;
   clienteDatosSaved?: boolean;
   clienteDatosError: string | null;
+  localDraftSaved?: boolean;
+  localDraftRestored?: boolean;
+  hasUnsavedLocalChanges?: boolean;
   camposFaltantes: string[];
   fieldErrors?: ClienteDatosFieldErrors;
   showFieldErrors?: boolean;
@@ -93,6 +96,9 @@ export function ExpedienteClienteDatosFormSection({
   clienteDatosLoading = false,
   clienteDatosSaved = false,
   clienteDatosError,
+  localDraftSaved = false,
+  localDraftRestored = false,
+  hasUnsavedLocalChanges = false,
   camposFaltantes,
   fieldErrors = {},
   showFieldErrors = false,
@@ -168,6 +174,22 @@ export function ExpedienteClienteDatosFormSection({
               <p className="mt-1 text-xs text-gray-400">
                 Al enviar a mesa se guardan automáticamente si el formulario está
                 completo.
+              </p>
+            ) : null}
+            {localDraftRestored ? (
+              <p
+                className="mt-1 text-xs text-sky-800"
+                role="status"
+              >
+                Se recuperó un borrador local. Recuerda presionar Guardar para
+                enviarlo al sistema.
+              </p>
+            ) : null}
+            {localDraftSaved || hasUnsavedLocalChanges ? (
+              <p className="mt-1 text-xs text-gray-500" role="status">
+                {localDraftSaved ? "Borrador local guardado" : null}
+                {localDraftSaved && hasUnsavedLocalChanges ? " · " : null}
+                {hasUnsavedLocalChanges ? "Tienes cambios sin guardar" : null}
               </p>
             ) : null}
           </div>

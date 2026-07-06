@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type SetStateAction } from "react";
 import { useSessionRepo } from "@/domain/session";
 import { AgendaBiometricosCard } from "@/components/asesor/AgendaBiometricosCard";
 import { AsesorAgendaBiometricosSupabaseGate } from "@/components/asesor/AsesorAgendaBiometricosSupabaseGate";
@@ -60,6 +60,12 @@ import {
   isMontoMejoravitGuardado,
   isProgramaMejoravitDb,
 } from "@/lib/clienteDatosCobro";
+import {
+  isDraftNewerThanOfficial,
+  readClienteDatosDraft,
+  removeClienteDatosDraft,
+  writeClienteDatosDraft,
+} from "@/lib/clienteDatosDraftLocalStorage";
 
 type ClienteDatosFormState = ExpedienteClienteDatos["datos"];
 
@@ -189,6 +195,14 @@ export default function AsesorExpedientePage() {
   const [clienteDatosShowValidation, setClienteDatosShowValidation] = useState(false);
   const montoMejoravitLockedRef = useRef(false);
   const [direccionOpcional, setDireccionOpcional] = useState("");
+  const [clienteDatosLocalDraftSaved, setClienteDatosLocalDraftSaved] =
+    useState(false);
+  const [clienteDatosLocalDraftRestored, setClienteDatosLocalDraftRestored] =
+    useState(false);
+  const [clienteDatosHasUnsavedChanges, setClienteDatosHasUnsavedChanges] =
+    useState(false);
+  const hasUserEditedClienteDatos = useRef(false);
+  const suppressDraftAutosave = useRef(false);
   const [editorDecision, setEditorDecision] = useState<
     ExpedienteMock["editorDecision"] | null
   >(null);
@@ -253,6 +267,86 @@ export default function AsesorExpedientePage() {
     () => (precal?.programa ? isProgramaMejoravit(precal.programa) : false),
     [precal?.programa],
   );
+
+  const handleClienteDatosChange = useCallback(
+    (value: SetStateAction<ClienteDatosFormState>) => {
+      hasUserEditedClienteDatos.current = true;
+      setClienteDatosHasUnsavedChanges(true);
+      setClienteDatos(value);
+    },
+    [],
+  );
+
+  const clearClienteDatosLocalDraft = useCallback(
+    (expedienteId: string) => {
+      if (currentUser?.email) {
+        removeClienteDatosDraft(currentUser.email, expedienteId);
+      }
+      setClienteDatosLocalDraftSaved(false);
+      setClienteDatosLocalDraftRestored(false);
+      setClienteDatosHasUnsavedChanges(false);
+      hasUserEditedClienteDatos.current = false;
+    },
+    [currentUser?.email],
+  );
+
+  const tryRestoreClienteDatosDraft = useCallback(
+    (expedienteId: string, found: ExpedienteClienteDatos | null) => {
+      const userEmail = currentUser?.email;
+      if (!userEmail) return;
+
+      const draft = readClienteDatosDraft(userEmail, expedienteId);
+      if (!draft) return;
+
+      if (
+        !isDraftNewerThanOfficial(draft.updatedAt, found?.updatedAt ?? null)
+      ) {
+        removeClienteDatosDraft(userEmail, expedienteId);
+        return;
+      }
+
+      suppressDraftAutosave.current = true;
+
+      let shouldRestore = false;
+      if (!found) {
+        shouldRestore = true;
+      } else {
+        shouldRestore = window.confirm(
+          "Tienes un borrador sin guardar. ¿Quieres recuperarlo?",
+        );
+      }
+
+      if (shouldRestore) {
+        setClienteDatos(draft.clienteDatos);
+        setClienteDatosLocalDraftSaved(true);
+        setClienteDatosLocalDraftRestored(true);
+        setClienteDatosHasUnsavedChanges(false);
+        hasUserEditedClienteDatos.current = false;
+      }
+
+      queueMicrotask(() => {
+        suppressDraftAutosave.current = false;
+      });
+    },
+    [currentUser?.email],
+  );
+
+  useEffect(() => {
+    if (suppressDraftAutosave.current) return;
+    if (!hasUserEditedClienteDatos.current) return;
+    if (!precal?.id || !currentUser?.email) return;
+
+    const timer = window.setTimeout(() => {
+      writeClienteDatosDraft(
+        currentUser.email,
+        String(precal.id),
+        clienteDatos,
+      );
+      setClienteDatosLocalDraftSaved(true);
+    }, 600);
+
+    return () => window.clearTimeout(timer);
+  }, [clienteDatos, currentUser?.email, precal?.id]);
 
   const camposFaltantesClienteDatos = useMemo(
     () =>
@@ -551,6 +645,11 @@ export default function AsesorExpedientePage() {
 
     const applyFound = (found: ExpedienteClienteDatos | null) => {
       if (cancelled) return;
+      hasUserEditedClienteDatos.current = false;
+      suppressDraftAutosave.current = true;
+      setClienteDatosLocalDraftSaved(false);
+      setClienteDatosLocalDraftRestored(false);
+      setClienteDatosHasUnsavedChanges(false);
       if (!found) {
         montoMejoravitLockedRef.current = false;
         setClienteDatos((prev) => ({
@@ -560,6 +659,10 @@ export default function AsesorExpedientePage() {
           celular: prev.celular || precal.telefono_cliente || "",
         }));
         setClienteDatosMeta(null);
+        tryRestoreClienteDatosDraft(String(precal.id), null);
+        queueMicrotask(() => {
+          suppressDraftAutosave.current = false;
+        });
         return;
       }
       montoMejoravitLockedRef.current = isMontoMejoravitGuardado(
@@ -587,6 +690,10 @@ export default function AsesorExpedientePage() {
         rejectedBy: found.rejectedBy,
         updatedAt: found.updatedAt,
         updatedBy: found.updatedBy,
+      });
+      tryRestoreClienteDatosDraft(String(precal.id), found);
+      queueMicrotask(() => {
+        suppressDraftAutosave.current = false;
       });
     };
 
@@ -643,11 +750,13 @@ export default function AsesorExpedientePage() {
     };
   }, [
     clienteDatosRepo,
+    currentUser?.email,
     dataSupabase,
     precal?.cliente_nombre,
     precal?.id,
     precal?.nss,
     precal?.telefono_cliente,
+    tryRestoreClienteDatosDraft,
   ]);
 
   useEffect(() => {
@@ -747,6 +856,7 @@ export default function AsesorExpedientePage() {
         updatedBy: saved.updatedBy,
       });
       setClienteDatosSaved(true);
+      clearClienteDatosLocalDraft(String(precal.id));
       return { ok: true };
     } catch (err) {
       const message =
@@ -761,6 +871,7 @@ export default function AsesorExpedientePage() {
       setClienteDatosSaving(false);
     }
   }, [
+    clearClienteDatosLocalDraft,
     clienteDatos,
     clienteDatosMeta?.estado,
     clienteDatosRepo,
@@ -967,7 +1078,7 @@ export default function AsesorExpedientePage() {
             ) : null}
             <ExpedienteClienteDatosFormSection
               clienteDatos={clienteDatos}
-              setClienteDatos={setClienteDatos}
+              setClienteDatos={handleClienteDatosChange}
               direccionOpcional={direccionOpcional}
               setDireccionOpcional={setDireccionOpcional}
               clienteDatosMeta={clienteDatosMeta}
@@ -975,6 +1086,9 @@ export default function AsesorExpedientePage() {
               clienteDatosLoading={clienteDatosLoading}
               clienteDatosSaved={clienteDatosSaved}
               clienteDatosError={clienteDatosError}
+              localDraftSaved={clienteDatosLocalDraftSaved}
+              localDraftRestored={clienteDatosLocalDraftRestored}
+              hasUnsavedLocalChanges={clienteDatosHasUnsavedChanges}
               camposFaltantes={camposFaltantesClienteDatos}
               fieldErrors={clienteDatosFieldErrors}
               showFieldErrors={clienteDatosShowValidation}
@@ -1150,12 +1264,15 @@ export default function AsesorExpedientePage() {
 
             <ExpedienteClienteDatosFormSection
               clienteDatos={clienteDatos}
-              setClienteDatos={setClienteDatos}
+              setClienteDatos={handleClienteDatosChange}
               direccionOpcional={direccionOpcional}
               setDireccionOpcional={setDireccionOpcional}
               clienteDatosMeta={clienteDatosMeta}
               clienteDatosSaving={clienteDatosSaving}
               clienteDatosError={clienteDatosError}
+              localDraftSaved={clienteDatosLocalDraftSaved}
+              localDraftRestored={clienteDatosLocalDraftRestored}
+              hasUnsavedLocalChanges={clienteDatosHasUnsavedChanges}
               camposFaltantes={camposFaltantesClienteDatos}
               fieldErrors={clienteDatosFieldErrors}
               showFieldErrors={clienteDatosShowValidation}
@@ -1238,6 +1355,7 @@ export default function AsesorExpedientePage() {
                     : prev,
                 );
                 await loadExpediente();
+                clearClienteDatosLocalDraft(String(precal.id));
               } catch (err) {
                 const message =
                   err instanceof Error
