@@ -259,6 +259,38 @@ type QuickFilterAsesor =
   | "correccion_enviada"
   | "rechazados_mesa";
 
+type QuickFilterChipConfig = {
+  id: QuickFilterAsesor;
+  label: string;
+  count?: number;
+  warnIfPositive?: boolean;
+};
+
+function quickFilterChipClassName(
+  chip: QuickFilterChipConfig,
+  isSelected: boolean,
+): string {
+  const base =
+    "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors";
+  const warn = chip.warnIfPositive === true && (chip.count ?? 0) > 0;
+  if (isSelected) {
+    if (warn) {
+      return `${base} border-amber-700 bg-amber-600 text-white shadow-sm`;
+    }
+    return `${base} border-blue-600 bg-blue-600 text-white`;
+  }
+  if (warn) {
+    return `${base} border-amber-400 bg-amber-50 text-amber-950 hover:bg-amber-100 ring-1 ring-inset ring-amber-200`;
+  }
+  return `${base} border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100`;
+}
+
+function quickFilterChipLabel(chip: QuickFilterChipConfig): string {
+  if (chip.count === undefined) return chip.label;
+  if (chip.warnIfPositive === true && chip.count > 0) return chip.label;
+  return `${chip.label} (${chip.count})`;
+}
+
 const PAGE_SIZE = 50;
 
 export default function AsesorDashboardPage() {
@@ -562,6 +594,29 @@ export default function AsesorDashboardPage() {
     setPage(1);
   };
 
+  const quickFilterChips = useMemo((): QuickFilterChipConfig[] => {
+    return [
+      { id: "todos", label: "Todos" },
+      { id: "en_tramite", label: "En trámite", count: kpis.enTramite },
+      {
+        id: "correccion_requerida",
+        label: "Corrección requerida",
+        count: kpis.correccionRequerida,
+        warnIfPositive: true,
+      },
+      {
+        id: "correccion_enviada",
+        label: "Corrección enviada",
+        count: kpis.correccionEnviada,
+      },
+      {
+        id: "rechazados_mesa",
+        label: "Rechazados por mesa",
+        count: kpis.rechazadosMesa,
+      },
+    ];
+  }, [kpis]);
+
   useEffect(() => {
     reloadPrecalificaciones();
   }, [reloadPrecalificaciones]);
@@ -761,36 +816,47 @@ export default function AsesorDashboardPage() {
               role="tablist"
               aria-label="Filtros rápidos"
             >
-              {(
-                [
-                  { id: "todos" as const, label: "Todos" },
-                  { id: "en_tramite" as const, label: "En trámite" },
-                  {
-                    id: "correccion_requerida" as const,
-                    label: "Corrección requerida",
-                  },
-                  {
-                    id: "correccion_enviada" as const,
-                    label: `Corrección enviada (${kpis.correccionEnviada})`,
-                  },
-                  { id: "rechazados_mesa" as const, label: "Rechazados por mesa" },
-                ] satisfies { id: QuickFilterAsesor; label: string }[]
-              ).map(({ id, label }) => (
-                <button
-                  key={id}
-                  type="button"
-                  role="tab"
-                  aria-selected={quickFilter === id}
-                  onClick={() => handleQuickFilterChange(id)}
-                  className={`rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
-                    quickFilter === id
-                      ? "border-blue-600 bg-blue-600 text-white"
-                      : "border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
+              {quickFilterChips.map((chip) => {
+                const isSelected = quickFilter === chip.id;
+                const showWarning =
+                  chip.warnIfPositive === true && (chip.count ?? 0) > 0;
+                const displayLabel = quickFilterChipLabel(chip);
+                return (
+                  <button
+                    key={chip.id}
+                    type="button"
+                    role="tab"
+                    aria-selected={isSelected}
+                    aria-label={
+                      chip.count !== undefined
+                        ? `${chip.label}, ${chip.count} expedientes`
+                        : chip.label
+                    }
+                    onClick={() => handleQuickFilterChange(chip.id)}
+                    className={quickFilterChipClassName(chip, isSelected)}
+                  >
+                    {showWarning && !isSelected ? (
+                      <span
+                        className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-600"
+                        aria-hidden
+                      />
+                    ) : null}
+                    <span>{displayLabel}</span>
+                    {showWarning ? (
+                      <span
+                        className={`inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1 tabular-nums text-[10px] font-bold leading-none ${
+                          isSelected
+                            ? "bg-amber-800/40 text-white"
+                            : "bg-amber-200 text-amber-950 ring-1 ring-amber-300"
+                        }`}
+                        aria-hidden
+                      >
+                        {chip.count}
+                      </span>
+                    ) : null}
+                  </button>
+                );
+              })}
             </div>
             {hasActiveFilters && (
               <button
