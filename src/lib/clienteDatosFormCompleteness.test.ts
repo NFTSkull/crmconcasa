@@ -132,9 +132,14 @@ test("getClienteDatosCamposFaltantes: compro_tu_casa sin sección Mejoravit", ()
 });
 
 test("getClienteDatosCamposFaltantes: notaMesa vacía no es faltante", () => {
-  assert.deepEqual(getClienteDatosCamposFaltantes({ ...completo, notaMesa: "" }), []);
+  const ctx = {
+    montoAprobado: 100_000,
+    direccionOpcional: "",
+    programaDb: "mejoravit",
+  };
+  assert.deepEqual(getClienteDatosCamposFaltantes({ ...completo, notaMesa: "" }, ctx), []);
   assert.deepEqual(
-    getClienteDatosCamposFaltantes({ ...completo, notaMesa: undefined }),
+    getClienteDatosCamposFaltantes({ ...completo, notaMesa: undefined }, ctx),
     [],
   );
 });

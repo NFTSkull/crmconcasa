@@ -30,10 +30,9 @@ describe("mapSupabaseRowToExpedienteClienteDatos", () => {
           cp: "01000",
         },
         notaMesa: "Cliente prefiere cita matutina.",
+        montoMejoravit: "175000",
+        plazo: "18 meses",
       },
-      montoMejoravit: "175000",
-      plazo: "18 meses",
-    },
       referencias: [
         { nombre: "Ref 1", telefono: "5511111111" },
         { nombre: "Ref 2", celular: "5522222222" },
