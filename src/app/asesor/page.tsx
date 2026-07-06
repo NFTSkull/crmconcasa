@@ -364,16 +364,11 @@ export default function AsesorDashboardPage() {
   const reloadPrecalificaciones = useCallback(() => {
     if (!currentUser) return;
     void repo
-      .listForAsesorPaginated(currentUser.email, { page, pageSize: PAGE_SIZE })
-      .then(({ items, totalCount: total }) => {
-        const maxPage = Math.max(1, Math.ceil(total / PAGE_SIZE));
-        if (page > maxPage) {
-          setPage(maxPage);
-          return;
-        }
-        const mapped = items.map(mapExpedienteToLegacy);
+      .listForAsesor(currentUser.email)
+      .then((list) => {
+        const mapped = list.map(mapExpedienteToLegacy);
         setMockPrecalList(mapped);
-        setTotalCount(total);
+        setTotalCount(mapped.length);
         setListError(null);
         expedienteIdsRef.current = mapped.map((p) => p.id);
         const ids = mapped.map((p) => p.id);
@@ -393,7 +388,6 @@ export default function AsesorDashboardPage() {
   }, [
     currentUser,
     repo,
-    page,
     mapExpedienteToLegacy,
     fetchResumenArchivosPorIds,
     fetchClienteDatosEstadoPorIds,
@@ -404,7 +398,7 @@ export default function AsesorDashboardPage() {
     return Array.from(set).sort((a, b) => a.localeCompare(b));
   }, [mockPrecalList]);
 
-  const filteredMockList = useMemo(() => {
+  const expedientesFiltrados = useMemo(() => {
     let list = mockPrecalList;
 
     const term = (filters.buscar ?? "").trim().toLowerCase();
@@ -474,6 +468,23 @@ export default function AsesorDashboardPage() {
     return list;
   }, [mockPrecalList, filters, quickFilter, resumenDocumentalPorId]);
 
+  const filteredTotalCount = expedientesFiltrados.length;
+  const totalPages = Math.max(1, Math.ceil(filteredTotalCount / PAGE_SIZE));
+  const safePage = Math.max(1, Math.min(page, totalPages));
+  const canPrevious = safePage > 1;
+  const canNext = safePage < totalPages;
+
+  const expedientesPagina = useMemo(() => {
+    const sorted = expedientesFiltrados
+      .slice()
+      .sort(
+        (a, b) =>
+          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+      );
+    const from = (safePage - 1) * PAGE_SIZE;
+    return sorted.slice(from, from + PAGE_SIZE);
+  }, [expedientesFiltrados, safePage]);
+
   const kpis = useMemo(() => {
     const total = totalCount;
     const aprobadosEditor = mockPrecalList.filter((p) => p.resultadoReal === "aprobado_editor").length;
@@ -502,11 +513,6 @@ export default function AsesorDashboardPage() {
       correccionEnviada,
     };
   }, [mockPrecalList, resumenDocumentalPorId, totalCount]);
-
-  const totalPages = Math.max(1, Math.ceil(totalCount / PAGE_SIZE));
-  const safePage = Math.max(1, Math.min(page, totalPages));
-  const canPrevious = safePage > 1;
-  const canNext = safePage < totalPages;
 
   const dashboardNotifications = useMemo(() => {
     return buildDashboardNotifications(
@@ -541,6 +547,18 @@ export default function AsesorDashboardPage() {
   const handleClearFilters = () => {
     setFilters(INITIAL_FILTERS);
     setQuickFilter("todos");
+    setPage(1);
+  };
+
+  const updateFilters = (
+    updater: (prev: AsesorFiltersState) => AsesorFiltersState,
+  ) => {
+    setFilters(updater);
+    setPage(1);
+  };
+
+  const handleQuickFilterChange = (id: QuickFilterAsesor) => {
+    setQuickFilter(id);
     setPage(1);
   };
 
@@ -665,7 +683,6 @@ export default function AsesorDashboardPage() {
           </p>
         ) : null}
 
-        {/* KPI Total global; demás tarjetas = resumen de la página cargada */}
         <div className="space-y-2">
           <div className="max-w-[10rem] rounded-md border border-gray-200 bg-white px-3 py-2 shadow-sm sm:max-w-xs">
             <p className="text-[10px] font-semibold uppercase tracking-wide text-gray-500">
@@ -676,7 +693,7 @@ export default function AsesorDashboardPage() {
             </p>
           </div>
           <p className="text-[10px] font-medium text-gray-500">
-            Resumen de esta página
+            Resumen de tus expedientes
           </p>
           <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
             <div className="rounded-md border border-blue-200/80 bg-blue-50/40 px-3 py-2 shadow-sm">
@@ -723,14 +740,11 @@ export default function AsesorDashboardPage() {
                 type="search"
                 value={filters.buscar}
                 onChange={(e) =>
-                  setFilters((prev) => ({ ...prev, buscar: e.target.value }))
+                  updateFilters((prev) => ({ ...prev, buscar: e.target.value }))
                 }
                 placeholder="Buscar cliente, NSS, teléfono o programa..."
                 className="w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
-              <p className="mt-1 text-[10px] leading-snug text-gray-500">
-                Los filtros se aplican sobre los expedientes visibles en esta página.
-              </p>
             </div>
             <Link href="/asesor/nueva" className="shrink-0">
               <Button
@@ -767,7 +781,7 @@ export default function AsesorDashboardPage() {
                   type="button"
                   role="tab"
                   aria-selected={quickFilter === id}
-                  onClick={() => setQuickFilter(id)}
+                  onClick={() => handleQuickFilterChange(id)}
                   className={`rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${
                     quickFilter === id
                       ? "border-blue-600 bg-blue-600 text-white"
@@ -813,7 +827,7 @@ export default function AsesorDashboardPage() {
                     id="asesor-decision"
                     value={filters.decision}
                     onChange={(e) =>
-                      setFilters((prev) => ({ ...prev, decision: e.target.value }))
+                      updateFilters((prev) => ({ ...prev, decision: e.target.value }))
                     }
                     className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   >
@@ -835,7 +849,7 @@ export default function AsesorDashboardPage() {
                     id="asesor-resultado-real"
                     value={filters.resultadoReal}
                     onChange={(e) =>
-                      setFilters((prev) => ({
+                      updateFilters((prev) => ({
                         ...prev,
                         resultadoReal: e.target.value,
                       }))
@@ -860,7 +874,7 @@ export default function AsesorDashboardPage() {
                     id="asesor-programa"
                     value={filters.programa}
                     onChange={(e) =>
-                      setFilters((prev) => ({ ...prev, programa: e.target.value }))
+                      updateFilters((prev) => ({ ...prev, programa: e.target.value }))
                     }
                     className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   >
@@ -883,7 +897,7 @@ export default function AsesorDashboardPage() {
                     id="asesor-etapa-exacta"
                     value={filters.etapaExacta}
                     onChange={(e) =>
-                      setFilters((prev) => ({ ...prev, etapaExacta: e.target.value }))
+                      updateFilters((prev) => ({ ...prev, etapaExacta: e.target.value }))
                     }
                     className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   >
@@ -905,7 +919,7 @@ export default function AsesorDashboardPage() {
                     id="asesor-estatus"
                     value={filters.estatusOperativo}
                     onChange={(e) =>
-                      setFilters((prev) => ({
+                      updateFilters((prev) => ({
                         ...prev,
                         estatusOperativo: e.target.value,
                       }))
@@ -931,7 +945,7 @@ export default function AsesorDashboardPage() {
                     type="date"
                     value={filters.fechaDesde}
                     onChange={(e) =>
-                      setFilters((prev) => ({ ...prev, fechaDesde: e.target.value }))
+                      updateFilters((prev) => ({ ...prev, fechaDesde: e.target.value }))
                     }
                     className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   />
@@ -948,7 +962,7 @@ export default function AsesorDashboardPage() {
                     type="date"
                     value={filters.fechaHasta}
                     onChange={(e) =>
-                      setFilters((prev) => ({ ...prev, fechaHasta: e.target.value }))
+                      updateFilters((prev) => ({ ...prev, fechaHasta: e.target.value }))
                     }
                     className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   />
@@ -960,14 +974,14 @@ export default function AsesorDashboardPage() {
 
         <section className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
           <div className="overflow-x-auto px-2 py-1.5 sm:px-3 sm:py-2">
-            {filteredMockList.length === 0 ? (
+            {expedientesPagina.length === 0 ? (
               <div className="px-4 py-6 text-center">
                 <p className="text-xs text-gray-500 sm:text-sm">
                   {totalCount === 0
                     ? dataSupabase
                       ? "Aún no tienes expedientes."
                       : "Aún no hay precalificaciones guardadas para este asesor."
-                    : "No hay resultados con los filtros aplicados en esta página. Pruebe otros criterios o limpie los filtros."}
+                    : "No hay resultados con los filtros aplicados. Pruebe otros criterios o limpie los filtros."}
                 </p>
               </div>
             ) : (
@@ -1004,14 +1018,7 @@ export default function AsesorDashboardPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {filteredMockList
-                    .slice()
-                    .sort(
-                      (a, b) =>
-                        new Date(b.createdAt).getTime() -
-                        new Date(a.createdAt).getTime()
-                    )
-                    .map((p) => {
+                  {expedientesPagina.map((p) => {
                       const decision = p.decision ?? "pendiente";
                       const resultadoReal = p.resultadoReal;
                       const resumenCorreccion = resumenDocumentalPorId[p.id];
@@ -1122,16 +1129,14 @@ export default function AsesorDashboardPage() {
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span>
                   Página {safePage} de {totalPages} · Total: {totalCount}
-                  {hasActiveFilters && filteredMockList.length !== mockPrecalList.length
-                    ? ` · ${filteredMockList.length} en esta página con filtros`
-                    : null}
+                  {hasActiveFilters ? ` · ${filteredTotalCount} con filtros` : null}
                 </span>
                 <div className="flex gap-2">
                   <Button
                     variant="outline"
                     className="text-xs"
                     disabled={!canPrevious}
-                    onClick={() => setPage((p) => Math.max(1, p - 1))}
+                    onClick={() => setPage(Math.max(1, safePage - 1))}
                   >
                     Anterior
                   </Button>
@@ -1139,7 +1144,7 @@ export default function AsesorDashboardPage() {
                     variant="outline"
                     className="text-xs"
                     disabled={!canNext}
-                    onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
+                    onClick={() => setPage(Math.min(totalPages, safePage + 1))}
                   >
                     Siguiente
                   </Button>

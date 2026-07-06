@@ -1,5 +1,19 @@
 # Devlog
 
+## 2026-07-06 - fix/asesor-dashboard-filtros-globales
+
+### Diagnóstico
+
+- Fase A paginación (`listForAsesorPaginated`) cargaba solo la página actual; filtros se aplicaban sobre esa porción → «Corrección requerida» en página 2 mostraba 1 de 67 en lugar de todos los coincidentes.
+
+### Decisión
+
+- Volver a `listForAsesor` (lista completa en cliente).
+- Orden: filtrar globalmente → paginar con `PAGE_SIZE=50` sobre `expedientesFiltrados`.
+- Reset de página a 1 al cambiar cualquier filtro (handlers, no `useEffect`).
+- `safePage` acota página cuando el resultado filtrado tiene menos páginas.
+- Sin tocar RPC, migraciones ni backend.
+
 ## 2026-07-06 - feat/p055-monto-calculado-editable: monto calculado editable
 
 ### Decisión
