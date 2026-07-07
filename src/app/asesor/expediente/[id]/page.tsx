@@ -59,6 +59,7 @@ import {
   type ClienteDatosFieldErrors,
 } from "@/lib/clienteDatosValidation";
 import {
+  applyClienteDatosCobroRecalc,
   applyMontoCalculadoSugeridoSiNoBloqueado,
   applyMontoCalculadoSugeridoSiNoEditado,
   applyMontoMejoravitSugeridoSiVacio,
@@ -67,6 +68,7 @@ import {
   isMontoCalculadoManualRespectoAuto,
   isMontoMejoravitGuardado,
   isProgramaMejoravitDb,
+  montoCalculadoFieldCambio,
   parsePorcentajeCobroInput,
 } from "@/lib/clienteDatosCobro";
 import {
@@ -295,14 +297,19 @@ export default function AsesorExpedientePage() {
       setClienteDatosHasUnsavedChanges(true);
       setClienteDatos((prev) => {
         const next = typeof value === "function" ? value(prev) : value;
-        if (montoCalculadoLockedRef.current) return next;
-        if (!cobroInputsAfectanMontoCalculado(prev, next)) return next;
-        return applyMontoCalculadoSugeridoSiNoBloqueado(
+        if (!cobroInputsAfectanMontoCalculado(prev, next) &&
+            !montoCalculadoFieldCambio(prev, next)) {
+          return next;
+        }
+        const recalc = applyClienteDatosCobroRecalc({
+          prev,
           next,
-          montoAprobadoEditor,
+          montoEditor: montoAprobadoEditor,
           programaDb,
-          false,
-        );
+          bloqueadoManual: montoCalculadoLockedRef.current,
+        });
+        montoCalculadoLockedRef.current = recalc.bloqueadoManual;
+        return recalc.datos;
       });
     },
     [montoAprobadoEditor, programaDb],

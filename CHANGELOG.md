@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **fix/monto-calculado-auto-cobro — recálculo automático por porcentaje:** corrige lock manual que bloqueaba recalcular al escribir porcentaje; borrar monto desbloquea auto; fórmula `(monto_aprobado × % / 100) + 3000`; campo sigue editable; payload manual vía `p_monto_calculado_manual` sin cambio SQL.
+
 - **fix/upload-storage-post-mesa — subida documentos asesor rota:** Storage RLS bloqueaba uploads post-Mesa (RPC 057/059 sin policy); migración `060`; PDF con `text/plain` + `.pdf` aceptado; mensajes Storage distinguen RLS/MIME/tamaño (sin falso «15 MB y PDF»).
 
 - **feat/asesor-reemplazo-documento-post-mesa — reemplazo documentos tras envío a Mesa:** asesor puede reemplazar documentos ya subidos post-Mesa (obligatorios y opcionales existentes); bloquea creación de obligatorios faltantes; opcionales faltantes siguen habilitados (057); migración `059` en `register_expediente_documento`; Mesa ve versión vigente al refrescar; sin reenvío, etapa, `submitted_to_mesa` ni RLS.

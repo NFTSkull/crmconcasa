@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { ClienteDatosFormShape } from "@/lib/clienteDatosFormCompleteness";
 import {
+  applyClienteDatosCobroRecalc,
   applyMontoCalculadoSugeridoSiNoBloqueado,
   applyMontoCalculadoSugeridoSiNoEditado,
   applyMontoMejoravitSugeridoSiVacio,
@@ -277,4 +278,88 @@ test("P055.1: cobroInputsAfectanMontoCalculado detecta porcentaje y montoMejorav
     cobroInputsAfectanMontoCalculado(prev, { ...prev, nombreCliente: "Ana" }),
     false,
   );
+});
+
+test("ejemplo 169000 porcentaje 12 → 23280", () => {
+  assert.equal(calcMontoCalculadoCobro(169000, 12, "compro_tu_casa"), 23280);
+});
+
+test("applyClienteDatosCobroRecalc: porcentaje recalcula aunque haya lock manual", () => {
+  const prev = {
+    ...BASE_DATOS,
+    porcentajeCobro: "10",
+    montoCalculado: "17000",
+  };
+  const next = { ...prev, porcentajeCobro: "12" };
+  const { datos, bloqueadoManual } = applyClienteDatosCobroRecalc({
+    prev,
+    next,
+    montoEditor: 169000,
+    programaDb: "compro_tu_casa",
+    bloqueadoManual: true,
+  });
+  assert.equal(datos.montoCalculado, "23280");
+  assert.equal(bloqueadoManual, false);
+});
+
+test("applyClienteDatosCobroRecalc: manual se respeta si solo cambia otro campo", () => {
+  const prev = {
+    ...BASE_DATOS,
+    porcentajeCobro: "10",
+    montoCalculado: "17000",
+  };
+  const next = { ...prev, nombreCliente: "Ana" };
+  const { datos } = applyClienteDatosCobroRecalc({
+    prev,
+    next,
+    montoEditor: 169000,
+    programaDb: "compro_tu_casa",
+    bloqueadoManual: true,
+  });
+  assert.equal(datos.montoCalculado, "17000");
+});
+
+test("applyClienteDatosCobroRecalc: borrar monto y cambiar porcentaje recalcula", () => {
+  const prev = {
+    ...BASE_DATOS,
+    porcentajeCobro: "10",
+    montoCalculado: "17000",
+  };
+  const vacio = { ...prev, montoCalculado: "" };
+  const { bloqueadoManual: unlocked } = applyClienteDatosCobroRecalc({
+    prev,
+    next: vacio,
+    montoEditor: 169000,
+    programaDb: "compro_tu_casa",
+    bloqueadoManual: true,
+  });
+  assert.equal(unlocked, false);
+
+  const next = { ...vacio, porcentajeCobro: "12" };
+  const { datos } = applyClienteDatosCobroRecalc({
+    prev: vacio,
+    next,
+    montoEditor: 169000,
+    programaDb: "compro_tu_casa",
+    bloqueadoManual: false,
+  });
+  assert.equal(datos.montoCalculado, "23280");
+});
+
+test("applyClienteDatosCobroRecalc: montoMejoravit no pisa manual bloqueado", () => {
+  const prev = {
+    ...BASE_DATOS,
+    porcentajeCobro: "10",
+    montoMejoravit: "150000",
+    montoCalculado: "17000",
+  };
+  const next = { ...prev, montoMejoravit: "169000" };
+  const { datos } = applyClienteDatosCobroRecalc({
+    prev,
+    next,
+    montoEditor: 200000,
+    programaDb: "mejoravit",
+    bloqueadoManual: true,
+  });
+  assert.equal(datos.montoCalculado, "17000");
 });

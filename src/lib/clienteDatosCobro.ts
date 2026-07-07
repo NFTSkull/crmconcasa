@@ -177,6 +177,67 @@ export function cobroInputsAfectanMontoCalculado(
   );
 }
 
+export function porcentajeCobroCambio(
+  prev: ClienteDatosFormShape,
+  next: ClienteDatosFormShape,
+): boolean {
+  return prev.porcentajeCobro !== next.porcentajeCobro;
+}
+
+export function montoCalculadoFieldCambio(
+  prev: ClienteDatosFormShape,
+  next: ClienteDatosFormShape,
+): boolean {
+  return prev.montoCalculado !== next.montoCalculado;
+}
+
+/**
+ * Recalcula monto calculado tras editar cobro, respetando override manual salvo
+ * cambio de porcentaje o borrado del campo.
+ */
+export function applyClienteDatosCobroRecalc(params: {
+  prev: ClienteDatosFormShape;
+  next: ClienteDatosFormShape;
+  montoEditor: number | null | undefined;
+  programaDb: string | null | undefined;
+  bloqueadoManual: boolean;
+}): { datos: ClienteDatosFormShape; bloqueadoManual: boolean } {
+  let bloqueado = params.bloqueadoManual;
+
+  if (
+    montoCalculadoFieldCambio(params.prev, params.next) &&
+    !isMontoCalculadoGuardado(params.next.montoCalculado)
+  ) {
+    bloqueado = false;
+  }
+
+  if (porcentajeCobroCambio(params.prev, params.next)) {
+    bloqueado = false;
+    return {
+      datos: applyMontoCalculadoSugeridoSiNoEditado(
+        params.next,
+        params.montoEditor,
+        params.programaDb,
+      ),
+      bloqueadoManual: bloqueado,
+    };
+  }
+
+  if (params.prev.montoMejoravit !== params.next.montoMejoravit) {
+    return {
+      datos: applyMontoCalculadoSugeridoSiNoBloqueado(
+        params.next,
+        params.montoEditor,
+        params.programaDb,
+        bloqueado,
+      ),
+      bloqueadoManual: bloqueado,
+    };
+  }
+
+  return { datos: params.next, bloqueadoManual: bloqueado };
+}
+
 /** Aplica monto calculado sugerido si el asesor no lo bloqueó manualmente. */
 export function applyMontoCalculadoSugeridoSiNoBloqueado(
   datos: ClienteDatosFormShape,

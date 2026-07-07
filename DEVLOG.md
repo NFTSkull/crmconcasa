@@ -1,5 +1,19 @@
 # Devlog
 
+## 2026-07-07 - fix/monto-calculado-auto-cobro
+
+### Diagnóstico
+
+- `handleClienteDatosChange` devolvía `next` sin recalcular si `montoCalculadoLockedRef` era true, **antes** de evaluar cambio de porcentaje.
+- Tras editar manualmente el monto (o hidratar valor distinto al auto), escribir porcentaje no recalculaba.
+- Borrar el campo monto no desbloqueaba el lock.
+- Backend (055): acepta `p_monto_calculado_manual`; sin cambio SQL requerido.
+- `monto_aprobado` viene de `editorDecision.monto_aprobado` (`montoAprobadoEditor`).
+
+### Decisión
+
+- Helper `applyClienteDatosCobroRecalc`: porcentaje → siempre recalc; borrar monto → unlock; montoMejoravit → respeta lock manual.
+
 ## 2026-07-07 - fix/upload-storage-post-mesa
 
 ### Diagnóstico
