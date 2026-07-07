@@ -29,6 +29,7 @@ import {
   EXPEDIENTE_DOCUMENTOS_BUCKET,
   validateExpedienteDocumentoFile,
 } from "./upload-constraints";
+import { INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES } from "./integration-docs-completos";
 
 const DOCUMENTOS_SELECT = `
   id,
@@ -206,9 +207,21 @@ export class SupabaseExpedienteArchivosRepo implements ExpedienteArchivosRepo {
     const ctx = await fetchExpedienteUploadContext(client, expedienteId);
 
     if (ctx.submittedToMesa) {
-      throw new ExpedienteArchivosSupabaseError(
-        "No puedes subir documentos: el expediente ya fue enviado a Mesa.",
-      );
+      const esOpcionalAsesor = (
+        INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES as readonly string[]
+      ).includes(tipo);
+      if (!esOpcionalAsesor) {
+        throw new ExpedienteArchivosSupabaseError(
+          "No puedes subir documentos: el expediente ya fue enviado a Mesa.",
+        );
+      }
+      const resumen = await this.listResumenByExpediente(expedienteId);
+      const row = resumen.find((r) => r.tipo_documento === tipo);
+      if (!row || row.estatus_revision !== "faltante" || row.id) {
+        throw new ExpedienteArchivosSupabaseError(
+          "Solo puedes subir documentos opcionales que aún no se enviaron a Mesa.",
+        );
+      }
     }
 
     const storagePath = buildExpedienteDocumentoStoragePath({

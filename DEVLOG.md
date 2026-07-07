@@ -1,5 +1,20 @@
 # Devlog
 
+## 2026-07-07 - feat/asesor-docs-visibilidad
+
+### Diagnóstico
+
+- Documentos se registran en Storage + `expediente_documentos`; `enviar_a_mesa` solo marca flags (no mueve archivos).
+- Asesor no tenía Ver/Descargar (Mesa sí usa `getArchivoBlob` + preview).
+- Post-Mesa: UI y RPC bloqueaban todo upload, incluidos opcionales faltantes (`cliente_carta_empresa`, `cliente_semanas_cotizadas`).
+
+### Decisión
+
+- Resumen «Documentos que se enviarán a Mesa» / «Documentos enviados a Mesa» + badges.
+- Reutilizar `MesaArchivoPreviewDialog` y patrón blob del detalle Mesa.
+- `asesorPuedeSubirOpcionalFaltantePostMesa` + migración `057` para primer upload opcional post-envío.
+- Obligatorios 4/4, correcciones rechazadas y validaciones MIME sin cambio.
+
 ## 2026-07-07 - fix/asesor-datos-generales-borrador-local
 
 ### Diagnóstico (producción)

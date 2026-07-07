@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **feat/asesor-docs-visibilidad — vista documentos asesor:** resumen pre/post Mesa; badges Subido/Enviado/Faltante/Opcional; Ver/Descargar vía `getArchivoBlob`; opcionales faltantes habilitados tras envío; migración `057` excepción RPC opcionales post-Mesa; sin cambio 4/4 ni obligatorios.
+
 - **fix/asesor-datos-generales-borrador-local — borrador localStorage Datos Generales:** corrige autosave tras hidratación (`hasHydratedClienteDatosRef`); compara contenido del borrador vs oficial en lugar de solo `updatedAt`; evita borrado automático por desfase de reloj; flush en `pagehide`/`beforeunload`; deps del efecto de carga reducidas para no cancelar debounce; sin migración/RPC.
 
 - **feat/asesor-datos-generales-borrador-local — borrador localStorage Datos Generales:** autosave con debounce 400ms por asesor+expediente; aviso Restaurar/Descartar; limpia al guardar; sin persistencia Supabase automática.

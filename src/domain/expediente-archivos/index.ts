@@ -39,6 +39,7 @@ export {
   type IntegrationDocChecklistItem,
   type IntegrationDocMesaUploadTipo,
   type IntegrationDocTipo,
+  isIntegrationDocAsesorOpcionalTipo,
 } from "./integration-docs-completos";
 export { mesaPuedeAbrirArchivo } from "./mesa-archivo-acceso";
 export {
@@ -70,6 +71,7 @@ export {
   asesorPuedeEditarClienteDatos,
   asesorPuedeSubirDocumentoPreMesa,
   asesorPuedeSubirOCorregirDocumento,
+  asesorPuedeSubirOpcionalFaltantePostMesa,
 } from "./asesor-correccion-post-mesa";
 export { mapRegisterExpedienteDocumentoCorreccionRpcError } from "./register-expediente-documento-correccion-rpc-error";
 export { mapRegisterMesaDocumentoRpcError } from "./register-mesa-documento-rpc-error";

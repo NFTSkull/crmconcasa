@@ -8,6 +8,7 @@ import {
   asesorPuedeCorregirDocumentoRechazado,
   asesorPuedeEditarClienteDatos,
   asesorPuedeSubirDocumentoPreMesa,
+  asesorPuedeSubirOpcionalFaltantePostMesa,
   asesorPuedeSubirOCorregirDocumento,
 } from "./asesor-correccion-post-mesa";
 
@@ -29,6 +30,45 @@ describe("asesor corrección post-Mesa (helpers UI)", () => {
     assert.equal(asesorPuedeSubirOCorregirDocumento(true, "subido"), false);
     assert.equal(asesorDocumentoUploadMode(true, "rechazado"), "correccion");
     assert.equal(asesorDocumentoUploadMode(true, "validado"), null);
+  });
+
+  it("post-envío permite primer upload de opcional faltante", () => {
+    assert.equal(
+      asesorPuedeSubirOpcionalFaltantePostMesa(
+        true,
+        "faltante",
+        "cliente_carta_empresa",
+      ),
+      true,
+    );
+    assert.equal(
+      asesorPuedeSubirOpcionalFaltantePostMesa(
+        true,
+        "faltante",
+        "cliente_semanas_cotizadas",
+      ),
+      true,
+    );
+    assert.equal(
+      asesorPuedeSubirOpcionalFaltantePostMesa(
+        true,
+        "faltante",
+        "cliente_ine_frente",
+      ),
+      false,
+    );
+    assert.equal(
+      asesorPuedeSubirOCorregirDocumento(true, "faltante", "cliente_carta_empresa"),
+      true,
+    );
+    assert.equal(
+      asesorPuedeSubirOCorregirDocumento(true, "subido", "cliente_carta_empresa"),
+      false,
+    );
+    assert.equal(
+      asesorDocumentoUploadMode(true, "faltante", "cliente_carta_empresa"),
+      "normal",
+    );
   });
 
   it("datos generales editables post-envío (cualquier estado)", () => {

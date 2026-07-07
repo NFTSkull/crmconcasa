@@ -1,5 +1,8 @@
 import type { ResumenEstatus } from "./types";
-import type { IntegrationDocAsesorUploadTipo } from "./integration-docs-completos";
+import {
+  isIntegrationDocAsesorOpcionalTipo,
+  type IntegrationDocAsesorUploadTipo,
+} from "./integration-docs-completos";
 
 /** Upload inicial pre-envío a Mesa (5 oblig + opcionales). */
 export function asesorPuedeSubirDocumentoPreMesa(submittedToMesa: boolean): boolean {
@@ -14,12 +17,39 @@ export function asesorPuedeCorregirDocumentoRechazado(
   return submittedToMesa && estatusRevision === "rechazado";
 }
 
+/** Post-Mesa: primer upload de opcional que no se envió antes del envío. */
+export function asesorPuedeSubirOpcionalFaltantePostMesa(
+  submittedToMesa: boolean,
+  estatusRevision: ResumenEstatus,
+  tipoDocumento: IntegrationDocAsesorUploadTipo,
+): boolean {
+  return (
+    submittedToMesa &&
+    estatusRevision === "faltante" &&
+    isIntegrationDocAsesorOpcionalTipo(tipoDocumento)
+  );
+}
+
 export function asesorPuedeSubirOCorregirDocumento(
   submittedToMesa: boolean,
   estatusRevision: ResumenEstatus,
+  tipoDocumento?: IntegrationDocAsesorUploadTipo,
 ): boolean {
   if (!submittedToMesa) return true;
-  return asesorPuedeCorregirDocumentoRechazado(submittedToMesa, estatusRevision);
+  if (asesorPuedeCorregirDocumentoRechazado(submittedToMesa, estatusRevision)) {
+    return true;
+  }
+  if (
+    tipoDocumento &&
+    asesorPuedeSubirOpcionalFaltantePostMesa(
+      submittedToMesa,
+      estatusRevision,
+      tipoDocumento,
+    )
+  ) {
+    return true;
+  }
+  return false;
 }
 
 export function asesorDebeUsarCorreccionDocumento(
@@ -34,9 +64,20 @@ export type AsesorDocumentoUploadMode = "normal" | "correccion";
 export function asesorDocumentoUploadMode(
   submittedToMesa: boolean,
   estatusRevision: ResumenEstatus,
+  tipoDocumento?: IntegrationDocAsesorUploadTipo,
 ): AsesorDocumentoUploadMode | null {
   if (!submittedToMesa) return "normal";
   if (estatusRevision === "rechazado") return "correccion";
+  if (
+    tipoDocumento &&
+    asesorPuedeSubirOpcionalFaltantePostMesa(
+      submittedToMesa,
+      estatusRevision,
+      tipoDocumento,
+    )
+  ) {
+    return "normal";
+  }
   return null;
 }
 

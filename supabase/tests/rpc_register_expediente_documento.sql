@@ -212,14 +212,35 @@ BEGIN
     'test 4: asesor ajeno'
   );
 
-  -- Test 5: expediente ya enviado a mesa rechaza
+  -- Test 5: expediente ya enviado a mesa rechaza obligatorio
   PERFORM public.__rpc_regdoc_test_assert(
     public.__rpc_regdoc_test_expect_fail(
       v_a1, v_exp_sent, 'cliente_ine_frente',
       public.__rpc_regdoc_test_storage_path(v_org, v_exp_sent, 'cliente_ine_frente'),
       'ya fue enviado a Mesa'
     ),
-    'test 5: enviado a mesa'
+    'test 5: enviado a mesa obligatorio'
+  );
+
+  -- Test 15a: post-Mesa permite primer upload de opcional faltante
+  v_result := public.__rpc_regdoc_test_call(
+    v_a1, v_exp_sent, 'cliente_carta_empresa',
+    public.__rpc_regdoc_test_storage_path(v_org, v_exp_sent, 'cliente_carta_empresa', 'carta.pdf')
+  );
+  PERFORM public.__rpc_regdoc_test_assert((v_result->>'ok')::boolean = true, 'test 15a: opcional post-mesa ok');
+  PERFORM public.__rpc_regdoc_test_assert(
+    v_result->>'tipo_documento' = 'cliente_carta_empresa',
+    'test 15a: tipo carta empresa'
+  );
+
+  -- Test 15b: post-Mesa rechaza segundo upload del mismo opcional
+  PERFORM public.__rpc_regdoc_test_assert(
+    public.__rpc_regdoc_test_expect_fail(
+      v_a1, v_exp_sent, 'cliente_carta_empresa',
+      public.__rpc_regdoc_test_storage_path(v_org, v_exp_sent, 'cliente_carta_empresa', 'carta2.pdf'),
+      'opcional ya registrado'
+    ),
+    'test 15b: opcional duplicado post-mesa'
   );
 
   -- Test 6: reemplazo soft-delete + version incrementa
@@ -406,7 +427,7 @@ BEGIN
     'test 14c: historial laboral rechazado'
   );
 
-  RAISE NOTICE 'RPC register_expediente_documento: 20 pruebas OK';
+  RAISE NOTICE 'RPC register_expediente_documento: 22 pruebas OK';
 END;
 $$;
 

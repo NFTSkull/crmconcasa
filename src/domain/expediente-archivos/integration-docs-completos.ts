@@ -72,6 +72,12 @@ export type IntegrationDocAsesorOpcionalTipo =
 export type IntegrationDocAsesorUploadTipo =
   (typeof INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD)[number];
 
+export function isIntegrationDocAsesorOpcionalTipo(
+  tipo: IntegrationDocAsesorUploadTipo,
+): tipo is IntegrationDocAsesorOpcionalTipo {
+  return (INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES as readonly string[]).includes(tipo);
+}
+
 /** @deprecated Usar `IntegrationDocAsesorEnvioTipo` o `IntegrationDocAsesorUploadTipo`. */
 export type IntegrationDocTipo = IntegrationDocAsesorEnvioTipo;
 
