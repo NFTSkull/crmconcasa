@@ -2,11 +2,16 @@ import type { ExpedienteClienteDatos } from "@/domain/expediente-cliente-datos";
 
 export const CLIENTE_DATOS_DRAFT_VERSION = 1;
 
+/** Debounce recomendado para autosave en UI del asesor. */
+export const CLIENTE_DATOS_DRAFT_DEBOUNCE_MS = 400;
+
 export type ClienteDatosDraft = {
   expedienteId: string;
   updatedAt: string;
   draftVersion: number;
   clienteDatos: ExpedienteClienteDatos["datos"];
+  /** Domicilio real del cliente (`expedientes.direccion_opcional`), fuera del JSON datos. */
+  direccionOpcional?: string;
 };
 
 export function buildClienteDatosDraftKey(
@@ -32,6 +37,8 @@ export function parseClienteDatosDraft(raw: string): ClienteDatosDraft | null {
       updatedAt: o.updatedAt,
       draftVersion: o.draftVersion,
       clienteDatos: o.clienteDatos as ExpedienteClienteDatos["datos"],
+      direccionOpcional:
+        typeof o.direccionOpcional === "string" ? o.direccionOpcional : undefined,
     };
   } catch {
     return null;
@@ -74,12 +81,15 @@ export function writeClienteDatosDraft(
   userKey: string,
   expedienteId: string,
   clienteDatos: ExpedienteClienteDatos["datos"],
+  direccionOpcional?: string,
 ): ClienteDatosDraft {
   const draft: ClienteDatosDraft = {
     expedienteId: String(expedienteId),
     updatedAt: new Date().toISOString(),
     draftVersion: CLIENTE_DATOS_DRAFT_VERSION,
     clienteDatos,
+    direccionOpcional:
+      typeof direccionOpcional === "string" ? direccionOpcional : undefined,
   };
   if (typeof window !== "undefined") {
     const key = buildClienteDatosDraftKey(userKey, expedienteId);

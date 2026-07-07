@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **feat/asesor-datos-generales-borrador-local — borrador localStorage Datos Generales:** autosave con debounce 400ms por asesor+expediente; aviso Restaurar/Descartar; limpia al guardar; sin persistencia Supabase automática.
+
 - **feat/cliente-carta-empresa-opcional — Carta de la empresa (opcional) en integración asesor:** tipo `cliente_carta_empresa` PDF; no bloquea envío (progreso 4/4); visible en asesor opcionales y Mesa documentos del cliente; migración `056`.
 
 - **fix/asesor-dashboard-filtros-globales — filtros del dashboard asesor sobre todos los expedientes:** carga completa con `listForAsesor`; búsqueda, filtros rápidos y avanzados sobre la lista global; paginación cliente (50/página) sobre el resultado filtrado; KPIs y resúmenes documentales sobre todos los IDs; sin cambio de RPC/migraciones.

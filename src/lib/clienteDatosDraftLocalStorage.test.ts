@@ -44,6 +44,18 @@ test("parseClienteDatosDraft: shape válido", () => {
   assert.equal(draft?.clienteDatos.nombreCliente, "Ana");
 });
 
+test("parseClienteDatosDraft: incluye direccionOpcional opcional", () => {
+  const raw = JSON.stringify({
+    expedienteId: "exp-2",
+    updatedAt: "2026-07-07T10:00:00.000Z",
+    draftVersion: 1,
+    clienteDatos: { nombreCliente: "Luis" },
+    direccionOpcional: "Calle 123",
+  });
+  const draft = parseClienteDatosDraft(raw);
+  assert.equal(draft?.direccionOpcional, "Calle 123");
+});
+
 test("isDraftNewerThanOfficial: sin oficial → true", () => {
   assert.equal(
     isDraftNewerThanOfficial("2026-07-06T12:00:00.000Z", null),

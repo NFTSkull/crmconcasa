@@ -70,10 +70,12 @@ import {
   parsePorcentajeCobroInput,
 } from "@/lib/clienteDatosCobro";
 import {
+  CLIENTE_DATOS_DRAFT_DEBOUNCE_MS,
   isDraftNewerThanOfficial,
   readClienteDatosDraft,
   removeClienteDatosDraft,
   writeClienteDatosDraft,
+  type ClienteDatosDraft,
 } from "@/lib/clienteDatosDraftLocalStorage";
 import { asesorDebeUsarCorreccionClienteDatos } from "@/domain/expediente-archivos/asesor-correccion-post-mesa";
 
@@ -211,6 +213,8 @@ export default function AsesorExpedientePage() {
     useState(false);
   const [clienteDatosLocalDraftRestored, setClienteDatosLocalDraftRestored] =
     useState(false);
+  const [clienteDatosPendingDraft, setClienteDatosPendingDraft] =
+    useState<ClienteDatosDraft | null>(null);
   const [clienteDatosHasUnsavedChanges, setClienteDatosHasUnsavedChanges] =
     useState(false);
   const hasUserEditedClienteDatos = useRef(false);
@@ -299,11 +303,21 @@ export default function AsesorExpedientePage() {
     [montoAprobadoEditor, programaDb],
   );
 
+  const handleDireccionOpcionalChange = useCallback(
+    (value: SetStateAction<string>) => {
+      hasUserEditedClienteDatos.current = true;
+      setClienteDatosHasUnsavedChanges(true);
+      setDireccionOpcional(value);
+    },
+    [],
+  );
+
   const clearClienteDatosLocalDraft = useCallback(
     (expedienteId: string) => {
       if (currentUser?.email) {
         removeClienteDatosDraft(currentUser.email, expedienteId);
       }
+      setClienteDatosPendingDraft(null);
       setClienteDatosLocalDraftSaved(false);
       setClienteDatosLocalDraftRestored(false);
       setClienteDatosHasUnsavedChanges(false);
@@ -312,60 +326,70 @@ export default function AsesorExpedientePage() {
     [currentUser?.email],
   );
 
-  const tryRestoreClienteDatosDraft = useCallback(
+  const applyClienteDatosDraftToForm = useCallback(
+    (draft: ClienteDatosDraft) => {
+      suppressDraftAutosave.current = true;
+      const autoDraft = calcMontoCalculadoCobro(
+        montoAprobadoEditor,
+        parsePorcentajeCobroInput(draft.clienteDatos.porcentajeCobro),
+        { programaDb, montoMejoravitForm: draft.clienteDatos.montoMejoravit },
+      );
+      montoCalculadoLockedRef.current =
+        autoDraft != null &&
+        isMontoCalculadoManualRespectoAuto(draft.clienteDatos.montoCalculado, autoDraft);
+      const draftConAuto = applyMontoCalculadoSugeridoSiNoBloqueado(
+        draft.clienteDatos,
+        montoAprobadoEditor,
+        programaDb,
+        montoCalculadoLockedRef.current,
+      );
+      setClienteDatos(draftConAuto);
+      if (draft.direccionOpcional !== undefined) {
+        setDireccionOpcional(draft.direccionOpcional);
+      }
+      setClienteDatosLocalDraftRestored(true);
+      setClienteDatosHasUnsavedChanges(true);
+      hasUserEditedClienteDatos.current = true;
+      queueMicrotask(() => {
+        suppressDraftAutosave.current = false;
+      });
+    },
+    [montoAprobadoEditor, programaDb],
+  );
+
+  const offerClienteDatosDraftIfNewer = useCallback(
     (expedienteId: string, found: ExpedienteClienteDatos | null) => {
       const userEmail = currentUser?.email;
       if (!userEmail) return;
 
       const draft = readClienteDatosDraft(userEmail, expedienteId);
-      if (!draft) return;
-
-      if (
-        !isDraftNewerThanOfficial(draft.updatedAt, found?.updatedAt ?? null)
-      ) {
-        removeClienteDatosDraft(userEmail, expedienteId);
+      if (!draft) {
+        setClienteDatosPendingDraft(null);
         return;
       }
 
-      suppressDraftAutosave.current = true;
-
-      let shouldRestore = false;
-      if (!found) {
-        shouldRestore = true;
-      } else {
-        shouldRestore = window.confirm(
-          "Tienes un borrador sin guardar. ¿Quieres recuperarlo?",
-        );
+      if (!isDraftNewerThanOfficial(draft.updatedAt, found?.updatedAt ?? null)) {
+        removeClienteDatosDraft(userEmail, expedienteId);
+        setClienteDatosPendingDraft(null);
+        return;
       }
 
-      if (shouldRestore) {
-        const autoDraft = calcMontoCalculadoCobro(
-          montoAprobadoEditor,
-          parsePorcentajeCobroInput(draft.clienteDatos.porcentajeCobro),
-          { programaDb, montoMejoravitForm: draft.clienteDatos.montoMejoravit },
-        );
-        montoCalculadoLockedRef.current =
-          autoDraft != null &&
-          isMontoCalculadoManualRespectoAuto(draft.clienteDatos.montoCalculado, autoDraft);
-        const draftConAuto = applyMontoCalculadoSugeridoSiNoBloqueado(
-          draft.clienteDatos,
-          montoAprobadoEditor,
-          programaDb,
-          montoCalculadoLockedRef.current,
-        );
-        setClienteDatos(draftConAuto);
-        setClienteDatosLocalDraftSaved(true);
-        setClienteDatosLocalDraftRestored(true);
-        setClienteDatosHasUnsavedChanges(false);
-        hasUserEditedClienteDatos.current = false;
-      }
-
-      queueMicrotask(() => {
-        suppressDraftAutosave.current = false;
-      });
+      setClienteDatosPendingDraft(draft);
     },
-    [currentUser?.email, montoAprobadoEditor, programaDb],
+    [currentUser?.email],
   );
+
+  const handleRestoreClienteDatosDraft = useCallback(() => {
+    if (!clienteDatosPendingDraft) return;
+    applyClienteDatosDraftToForm(clienteDatosPendingDraft);
+    setClienteDatosPendingDraft(null);
+    setClienteDatosLocalDraftSaved(true);
+  }, [applyClienteDatosDraftToForm, clienteDatosPendingDraft]);
+
+  const handleDiscardClienteDatosDraft = useCallback(() => {
+    if (!precal?.id) return;
+    clearClienteDatosLocalDraft(String(precal.id));
+  }, [clearClienteDatosLocalDraft, precal?.id]);
 
   useEffect(() => {
     if (suppressDraftAutosave.current) return;
@@ -377,12 +401,23 @@ export default function AsesorExpedientePage() {
         currentUser.email,
         String(precal.id),
         clienteDatos,
+        direccionOpcional,
       );
       setClienteDatosLocalDraftSaved(true);
-    }, 600);
+    }, CLIENTE_DATOS_DRAFT_DEBOUNCE_MS);
 
     return () => window.clearTimeout(timer);
-  }, [clienteDatos, currentUser?.email, precal?.id]);
+  }, [clienteDatos, direccionOpcional, currentUser?.email, precal?.id]);
+
+  useEffect(() => {
+    if (!clienteDatosHasUnsavedChanges && !clienteDatosLocalDraftSaved) return;
+    const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      event.preventDefault();
+      event.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [clienteDatosHasUnsavedChanges, clienteDatosLocalDraftSaved]);
 
   const camposFaltantesClienteDatos = useMemo(
     () =>
@@ -707,6 +742,7 @@ export default function AsesorExpedientePage() {
       setClienteDatosLocalDraftSaved(false);
       setClienteDatosLocalDraftRestored(false);
       setClienteDatosHasUnsavedChanges(false);
+      setClienteDatosPendingDraft(null);
       if (!found) {
         montoMejoravitLockedRef.current = false;
         montoCalculadoLockedRef.current = false;
@@ -717,7 +753,7 @@ export default function AsesorExpedientePage() {
           celular: prev.celular || precal.telefono_cliente || "",
         }));
         setClienteDatosMeta(null);
-        tryRestoreClienteDatosDraft(String(precal.id), null);
+        offerClienteDatosDraftIfNewer(String(precal.id), null);
         queueMicrotask(() => {
           suppressDraftAutosave.current = false;
         });
@@ -769,7 +805,7 @@ export default function AsesorExpedientePage() {
         updatedAt: found.updatedAt,
         updatedBy: found.updatedBy,
       });
-      tryRestoreClienteDatosDraft(String(precal.id), found);
+      offerClienteDatosDraftIfNewer(String(precal.id), found);
       queueMicrotask(() => {
         suppressDraftAutosave.current = false;
       });
@@ -834,7 +870,7 @@ export default function AsesorExpedientePage() {
     precal?.id,
     precal?.nss,
     precal?.telefono_cliente,
-    tryRestoreClienteDatosDraft,
+    offerClienteDatosDraftIfNewer,
   ]);
 
   useEffect(() => {
@@ -1162,11 +1198,39 @@ export default function AsesorExpedientePage() {
                 {MSJ_ESPERA_MONTO_REVISOR}
               </div>
             ) : null}
+            {clienteDatosPendingDraft ? (
+              <div
+                role="status"
+                className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+              >
+                <p className="font-medium">
+                  Hay un borrador sin guardar de Datos Generales.
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="primary"
+                    className="text-xs"
+                    onClick={handleRestoreClienteDatosDraft}
+                  >
+                    Restaurar borrador
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="text-xs"
+                    onClick={handleDiscardClienteDatosDraft}
+                  >
+                    Descartar borrador
+                  </Button>
+                </div>
+              </div>
+            ) : null}
             <ExpedienteClienteDatosFormSection
               clienteDatos={clienteDatos}
               setClienteDatos={handleClienteDatosChange}
               direccionOpcional={direccionOpcional}
-              setDireccionOpcional={setDireccionOpcional}
+              setDireccionOpcional={handleDireccionOpcionalChange}
               clienteDatosMeta={clienteDatosMeta}
               clienteDatosSaving={clienteDatosSaving}
               clienteDatosLoading={clienteDatosLoading}
@@ -1349,11 +1413,40 @@ export default function AsesorExpedientePage() {
               </div>
             ) : null}
 
+            {clienteDatosPendingDraft ? (
+              <div
+                role="status"
+                className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+              >
+                <p className="font-medium">
+                  Hay un borrador sin guardar de Datos Generales.
+                </p>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="primary"
+                    className="text-xs"
+                    onClick={handleRestoreClienteDatosDraft}
+                  >
+                    Restaurar borrador
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="text-xs"
+                    onClick={handleDiscardClienteDatosDraft}
+                  >
+                    Descartar borrador
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+
             <ExpedienteClienteDatosFormSection
               clienteDatos={clienteDatos}
               setClienteDatos={handleClienteDatosChange}
               direccionOpcional={direccionOpcional}
-              setDireccionOpcional={setDireccionOpcional}
+              setDireccionOpcional={handleDireccionOpcionalChange}
               clienteDatosMeta={clienteDatosMeta}
               clienteDatosSaving={clienteDatosSaving}
               clienteDatosError={clienteDatosError}

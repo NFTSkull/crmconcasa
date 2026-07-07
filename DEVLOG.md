@@ -1,5 +1,17 @@
 # Devlog
 
+## 2026-07-07 - feat/asesor-datos-generales-borrador-local
+
+### Diagnóstico
+
+- Ya existía `clienteDatosDraftLocalStorage.ts` con autosave parcial (600ms, solo `clienteDatos`, `window.confirm`).
+
+### Decisión
+
+- Extender borrador con `direccionOpcional`; debounce `400ms`; banner «Restaurar borrador» / «Descartar borrador» en lugar de confirm nativo.
+- `beforeunload` si hay cambios sin guardar o borrador local activo.
+- Limpiar borrador tras Guardar datos / Guardar corrección exitosos (sin cambiar RPCs ni flujo Supabase).
+
 ## 2026-07-07 - feat/cliente-carta-empresa-opcional
 
 ### Diagnóstico
