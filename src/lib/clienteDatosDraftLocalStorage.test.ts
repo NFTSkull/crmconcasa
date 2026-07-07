@@ -2,8 +2,11 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   buildClienteDatosDraftKey,
+  clienteDatosDraftDiffersFromOfficial,
   isDraftNewerThanOfficial,
   parseClienteDatosDraft,
+  shouldOfferClienteDatosDraftRestore,
+  type ClienteDatosDraft,
 } from "./clienteDatosDraftLocalStorage";
 
 test("buildClienteDatosDraftKey: incluye user y expediente normalizados", () => {
@@ -78,6 +81,64 @@ test("isDraftNewerThanOfficial: oficial más reciente → false", () => {
     isDraftNewerThanOfficial(
       "2026-07-06T12:00:00.000Z",
       "2026-07-06T13:00:00.000Z",
+    ),
+    false,
+  );
+});
+
+test("clienteDatosDraftDiffersFromOfficial: detecta domicilio distinto", () => {
+  const base = {
+    expedienteId: "exp-2",
+    updatedAt: "2026-07-07T11:00:00.000Z",
+    draftVersion: 1,
+    clienteDatos: {
+      nombreCliente: "Ana",
+    } as ClienteDatosDraft["clienteDatos"],
+    direccionOpcional: "Calle nueva 456",
+  };
+  const official = { ...base.clienteDatos };
+  assert.equal(
+    shouldOfferClienteDatosDraftRestore(base, official, ""),
+    true,
+  );
+  assert.equal(
+    shouldOfferClienteDatosDraftRestore(base, official, "Calle nueva 456"),
+    false,
+  );
+});
+
+test("clienteDatosDraftDiffersFromOfficial: detecta montoMejoravit distinto", () => {
+  const base = {
+    expedienteId: "exp-1",
+    updatedAt: "2026-07-07T10:00:00.000Z",
+    draftVersion: 1,
+    clienteDatos: {
+      nombreCliente: "Ana",
+      montoMejoravit: "150000",
+      plazo: "12",
+      porcentajeCobro: "",
+      montoCalculado: "",
+      metodoPago: "",
+    } as ClienteDatosDraft["clienteDatos"],
+    direccionOpcional: "Calle 1",
+  };
+  const official = {
+    ...base.clienteDatos,
+    montoMejoravit: "",
+  };
+  assert.equal(
+    clienteDatosDraftDiffersFromOfficial(base, official, "Calle 1"),
+    true,
+  );
+  assert.equal(
+    shouldOfferClienteDatosDraftRestore(base, official, "Calle 1"),
+    true,
+  );
+  assert.equal(
+    shouldOfferClienteDatosDraftRestore(
+      base,
+      { ...official, montoMejoravit: "150000" },
+      "Calle 1",
     ),
     false,
   );

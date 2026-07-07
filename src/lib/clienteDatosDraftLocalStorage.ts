@@ -1,4 +1,5 @@
 import type { ExpedienteClienteDatos } from "@/domain/expediente-cliente-datos";
+import { normalizeClienteDatosForSave } from "./clienteDatosValidation";
 
 export const CLIENTE_DATOS_DRAFT_VERSION = 1;
 
@@ -56,6 +57,43 @@ export function isDraftNewerThanOfficial(
   if (Number.isNaN(draftMs)) return false;
   if (Number.isNaN(officialMs)) return true;
   return draftMs > officialMs;
+}
+
+function draftSnapshotKey(
+  datos: ExpedienteClienteDatos["datos"],
+  direccionOpcional: string,
+): string {
+  return JSON.stringify({
+    datos: normalizeClienteDatosForSave(datos),
+    direccionOpcional: direccionOpcional.trim(),
+  });
+}
+
+/** Compara contenido del borrador vs estado oficial ya hidratado en el formulario. */
+export function clienteDatosDraftDiffersFromOfficial(
+  draft: ClienteDatosDraft,
+  officialDatos: ExpedienteClienteDatos["datos"],
+  officialDireccionOpcional: string,
+): boolean {
+  const draftKey = draftSnapshotKey(
+    draft.clienteDatos,
+    draft.direccionOpcional ?? "",
+  );
+  const officialKey = draftSnapshotKey(officialDatos, officialDireccionOpcional);
+  return draftKey !== officialKey;
+}
+
+/** Ofrecer restaurar si el borrador difiere del oficial cargado (no depende solo del reloj). */
+export function shouldOfferClienteDatosDraftRestore(
+  draft: ClienteDatosDraft,
+  officialDatos: ExpedienteClienteDatos["datos"],
+  officialDireccionOpcional: string,
+): boolean {
+  return clienteDatosDraftDiffersFromOfficial(
+    draft,
+    officialDatos,
+    officialDireccionOpcional,
+  );
 }
 
 export function readClienteDatosDraft(

@@ -1,5 +1,22 @@
 # Devlog
 
+## 2026-07-07 - fix/asesor-datos-generales-borrador-local
+
+### Diagnóstico (producción)
+
+- Commit `7f1deb1` sí en `main`; el borrador no persistía/restauraba por:
+  1. `isDraftNewerThanOfficial` borraba el draft al cargar si `cliente_datos.updated_at` del servidor era más reciente (desfase reloj).
+  2. El efecto de hidratación re-ejecutaba por deps `precal.cliente_nombre/nss/telefono`, reseteando `hasUserEdited` y cancelando el debounce.
+  3. Autosave corría durante hidratación y podía sobrescribir el draft con datos oficiales/vacíos.
+  4. Refresh antes de 400ms perdía datos (sin flush síncrono).
+
+### Decisión
+
+- `shouldOfferClienteDatosDraftRestore`: comparar contenido normalizado, no solo timestamp.
+- `hasHydratedClienteDatosRef` + `suppressDraftAutosave`: autosave solo tras hidratación y edición real del usuario.
+- `persistClienteDatosDraftNow` + `pagehide`/`beforeunload` para flush inmediato.
+- Deps del efecto de carga: `precal?.id` (no campos derivados del expediente).
+
 ## 2026-07-07 - feat/asesor-datos-generales-borrador-local
 
 ### Diagnóstico

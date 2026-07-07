@@ -71,9 +71,9 @@ import {
 } from "@/lib/clienteDatosCobro";
 import {
   CLIENTE_DATOS_DRAFT_DEBOUNCE_MS,
-  isDraftNewerThanOfficial,
   readClienteDatosDraft,
   removeClienteDatosDraft,
+  shouldOfferClienteDatosDraftRestore,
   writeClienteDatosDraft,
   type ClienteDatosDraft,
 } from "@/lib/clienteDatosDraftLocalStorage";
@@ -219,6 +219,11 @@ export default function AsesorExpedientePage() {
     useState(false);
   const hasUserEditedClienteDatos = useRef(false);
   const suppressDraftAutosave = useRef(false);
+  const hasHydratedClienteDatosRef = useRef(false);
+  const clienteDatosDraftFlushRef = useRef({
+    clienteDatos: EMPTY_CLIENTE_DATOS,
+    direccionOpcional: "",
+  });
   const [editorDecision, setEditorDecision] = useState<
     ExpedienteMock["editorDecision"] | null
   >(null);
@@ -312,10 +317,28 @@ export default function AsesorExpedientePage() {
     [],
   );
 
+  const clienteDatosDraftUserKey = currentUser?.email?.trim().toLowerCase() ?? "";
+
+  const persistClienteDatosDraftNow = useCallback(() => {
+    if (!hasHydratedClienteDatosRef.current) return;
+    if (!hasUserEditedClienteDatos.current) return;
+    if (suppressDraftAutosave.current) return;
+    if (!precal?.id || !clienteDatosDraftUserKey) return;
+    const { clienteDatos: datos, direccionOpcional: domicilio } =
+      clienteDatosDraftFlushRef.current;
+    writeClienteDatosDraft(
+      clienteDatosDraftUserKey,
+      String(precal.id),
+      datos,
+      domicilio,
+    );
+    setClienteDatosLocalDraftSaved(true);
+  }, [clienteDatosDraftUserKey, precal?.id]);
+
   const clearClienteDatosLocalDraft = useCallback(
     (expedienteId: string) => {
-      if (currentUser?.email) {
-        removeClienteDatosDraft(currentUser.email, expedienteId);
+      if (clienteDatosDraftUserKey) {
+        removeClienteDatosDraft(clienteDatosDraftUserKey, expedienteId);
       }
       setClienteDatosPendingDraft(null);
       setClienteDatosLocalDraftSaved(false);
@@ -323,7 +346,48 @@ export default function AsesorExpedientePage() {
       setClienteDatosHasUnsavedChanges(false);
       hasUserEditedClienteDatos.current = false;
     },
-    [currentUser?.email],
+    [clienteDatosDraftUserKey],
+  );
+
+  const finishClienteDatosHydration = useCallback(() => {
+    queueMicrotask(() => {
+      hasHydratedClienteDatosRef.current = true;
+      suppressDraftAutosave.current = false;
+    });
+  }, []);
+
+  const offerClienteDatosDraftIfPending = useCallback(
+    (
+      expedienteId: string,
+      hydratedDatos: ClienteDatosFormState,
+      hydratedDireccion: string,
+    ) => {
+      if (!clienteDatosDraftUserKey) {
+        setClienteDatosPendingDraft(null);
+        return;
+      }
+
+      const draft = readClienteDatosDraft(clienteDatosDraftUserKey, expedienteId);
+      if (!draft) {
+        setClienteDatosPendingDraft(null);
+        return;
+      }
+
+      if (
+        !shouldOfferClienteDatosDraftRestore(
+          draft,
+          hydratedDatos,
+          hydratedDireccion,
+        )
+      ) {
+        removeClienteDatosDraft(clienteDatosDraftUserKey, expedienteId);
+        setClienteDatosPendingDraft(null);
+        return;
+      }
+
+      setClienteDatosPendingDraft(draft);
+    },
+    [clienteDatosDraftUserKey],
   );
 
   const applyClienteDatosDraftToForm = useCallback(
@@ -357,28 +421,6 @@ export default function AsesorExpedientePage() {
     [montoAprobadoEditor, programaDb],
   );
 
-  const offerClienteDatosDraftIfNewer = useCallback(
-    (expedienteId: string, found: ExpedienteClienteDatos | null) => {
-      const userEmail = currentUser?.email;
-      if (!userEmail) return;
-
-      const draft = readClienteDatosDraft(userEmail, expedienteId);
-      if (!draft) {
-        setClienteDatosPendingDraft(null);
-        return;
-      }
-
-      if (!isDraftNewerThanOfficial(draft.updatedAt, found?.updatedAt ?? null)) {
-        removeClienteDatosDraft(userEmail, expedienteId);
-        setClienteDatosPendingDraft(null);
-        return;
-      }
-
-      setClienteDatosPendingDraft(draft);
-    },
-    [currentUser?.email],
-  );
-
   const handleRestoreClienteDatosDraft = useCallback(() => {
     if (!clienteDatosPendingDraft) return;
     applyClienteDatosDraftToForm(clienteDatosPendingDraft);
@@ -392,32 +434,48 @@ export default function AsesorExpedientePage() {
   }, [clearClienteDatosLocalDraft, precal?.id]);
 
   useEffect(() => {
-    if (suppressDraftAutosave.current) return;
+    clienteDatosDraftFlushRef.current = { clienteDatos, direccionOpcional };
+  }, [clienteDatos, direccionOpcional]);
+
+  useEffect(() => {
+    if (!hasHydratedClienteDatosRef.current) return;
     if (!hasUserEditedClienteDatos.current) return;
-    if (!precal?.id || !currentUser?.email) return;
+    if (!precal?.id || !clienteDatosDraftUserKey) return;
 
     const timer = window.setTimeout(() => {
-      writeClienteDatosDraft(
-        currentUser.email,
-        String(precal.id),
-        clienteDatos,
-        direccionOpcional,
-      );
-      setClienteDatosLocalDraftSaved(true);
+      persistClienteDatosDraftNow();
     }, CLIENTE_DATOS_DRAFT_DEBOUNCE_MS);
 
     return () => window.clearTimeout(timer);
-  }, [clienteDatos, direccionOpcional, currentUser?.email, precal?.id]);
+  }, [
+    clienteDatos,
+    direccionOpcional,
+    clienteDatosDraftUserKey,
+    persistClienteDatosDraftNow,
+    precal?.id,
+  ]);
 
   useEffect(() => {
     if (!clienteDatosHasUnsavedChanges && !clienteDatosLocalDraftSaved) return;
+    const onPageHide = () => {
+      persistClienteDatosDraftNow();
+    };
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
+      persistClienteDatosDraftNow();
       event.preventDefault();
       event.returnValue = "";
     };
+    window.addEventListener("pagehide", onPageHide);
     window.addEventListener("beforeunload", onBeforeUnload);
-    return () => window.removeEventListener("beforeunload", onBeforeUnload);
-  }, [clienteDatosHasUnsavedChanges, clienteDatosLocalDraftSaved]);
+    return () => {
+      window.removeEventListener("pagehide", onPageHide);
+      window.removeEventListener("beforeunload", onBeforeUnload);
+    };
+  }, [
+    clienteDatosHasUnsavedChanges,
+    clienteDatosLocalDraftSaved,
+    persistClienteDatosDraftNow,
+  ]);
 
   const camposFaltantesClienteDatos = useMemo(
     () =>
@@ -738,25 +796,30 @@ export default function AsesorExpedientePage() {
     const applyFound = (found: ExpedienteClienteDatos | null) => {
       if (cancelled) return;
       hasUserEditedClienteDatos.current = false;
+      hasHydratedClienteDatosRef.current = false;
       suppressDraftAutosave.current = true;
       setClienteDatosLocalDraftSaved(false);
       setClienteDatosLocalDraftRestored(false);
       setClienteDatosHasUnsavedChanges(false);
       setClienteDatosPendingDraft(null);
+      const domicilioOficial = precal.direccion_opcional ?? "";
       if (!found) {
         montoMejoravitLockedRef.current = false;
         montoCalculadoLockedRef.current = false;
-        setClienteDatos((prev) => ({
-          ...prev,
-          nombreCliente: prev.nombreCliente || precal.cliente_nombre || "",
-          nss: prev.nss || precal.nss || "",
-          celular: prev.celular || precal.telefono_cliente || "",
-        }));
+        const datosSinOficial = {
+          ...EMPTY_CLIENTE_DATOS,
+          nombreCliente: precal.cliente_nombre || "",
+          nss: precal.nss || "",
+          celular: precal.telefono_cliente || "",
+        };
+        setClienteDatos(datosSinOficial);
         setClienteDatosMeta(null);
-        offerClienteDatosDraftIfNewer(String(precal.id), null);
-        queueMicrotask(() => {
-          suppressDraftAutosave.current = false;
-        });
+        offerClienteDatosDraftIfPending(
+          String(precal.id),
+          datosSinOficial,
+          domicilioOficial,
+        );
+        finishClienteDatosHydration();
         return;
       }
       montoMejoravitLockedRef.current = isMontoMejoravitGuardado(
@@ -787,14 +850,13 @@ export default function AsesorExpedientePage() {
         montoCalculado: montoCalculadoCargado,
         metodoPago: found.datos.metodoPago || found.metodoPago || "",
       };
-      setClienteDatos(
-        applyMontoCalculadoSugeridoSiNoBloqueado(
-          datosCargados,
-          montoAprobadoEditor,
-          programaDb,
-          montoCalculadoLockedRef.current,
-        ),
+      const datosHidratados = applyMontoCalculadoSugeridoSiNoBloqueado(
+        datosCargados,
+        montoAprobadoEditor,
+        programaDb,
+        montoCalculadoLockedRef.current,
       );
+      setClienteDatos(datosHidratados);
       setClienteDatosMeta({
         estado: found.estado,
         comentarioRechazo: found.comentarioRechazo,
@@ -805,10 +867,12 @@ export default function AsesorExpedientePage() {
         updatedAt: found.updatedAt,
         updatedBy: found.updatedBy,
       });
-      offerClienteDatosDraftIfNewer(String(precal.id), found);
-      queueMicrotask(() => {
-        suppressDraftAutosave.current = false;
-      });
+      offerClienteDatosDraftIfPending(
+        String(precal.id),
+        datosHidratados,
+        domicilioOficial,
+      );
+      finishClienteDatosHydration();
     };
 
     const load = () => {
@@ -866,11 +930,11 @@ export default function AsesorExpedientePage() {
     clienteDatosRepo,
     currentUser?.email,
     dataSupabase,
-    precal?.cliente_nombre,
+    finishClienteDatosHydration,
+    montoAprobadoEditor,
+    offerClienteDatosDraftIfPending,
     precal?.id,
-    precal?.nss,
-    precal?.telefono_cliente,
-    offerClienteDatosDraftIfNewer,
+    programaDb,
   ]);
 
   useEffect(() => {

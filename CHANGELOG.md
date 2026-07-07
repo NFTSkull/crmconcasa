@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **fix/asesor-datos-generales-borrador-local — borrador localStorage Datos Generales:** corrige autosave tras hidratación (`hasHydratedClienteDatosRef`); compara contenido del borrador vs oficial en lugar de solo `updatedAt`; evita borrado automático por desfase de reloj; flush en `pagehide`/`beforeunload`; deps del efecto de carga reducidas para no cancelar debounce; sin migración/RPC.
+
 - **feat/asesor-datos-generales-borrador-local — borrador localStorage Datos Generales:** autosave con debounce 400ms por asesor+expediente; aviso Restaurar/Descartar; limpia al guardar; sin persistencia Supabase automática.
 
 - **feat/cliente-carta-empresa-opcional — Carta de la empresa (opcional) en integración asesor:** tipo `cliente_carta_empresa` PDF; no bloquea envío (progreso 4/4); visible en asesor opcionales y Mesa documentos del cliente; migración `056`.
