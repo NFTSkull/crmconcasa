@@ -38,10 +38,15 @@ describe("buildExpedienteDocumentoStoragePath", () => {
 
 describe("validateExpedienteDocumentoFile", () => {
   it("rechaza mime no permitido", () => {
-    const file = { type: "text/plain", size: 100, name: "x.pdf" } as File;
+    const file = { type: "text/plain", size: 100, name: "x.txt" } as File;
     const result = validateExpedienteDocumentoFile(file);
     assert.equal(result.ok, false);
     if (!result.ok) assert.equal(result.code, "mime_no_permitido");
+  });
+
+  it("acepta PDF con text/plain y extensión .pdf", () => {
+    const file = { type: "text/plain", size: 100, name: "x.pdf" } as File;
+    assert.deepEqual(validateExpedienteDocumentoFile(file, "cliente_estado_cuenta"), { ok: true });
   });
 
   it("rechaza JPG en comprobante de domicilio", () => {

@@ -1,5 +1,20 @@
 # Devlog
 
+## 2026-07-07 - fix/upload-storage-post-mesa
+
+### Diagnóstico
+
+- Mensaje usuario «Verifica que sea PDF y que no supere 15 MB» = fallback de `mapSupabaseStorageUploadError` (cc8dcd5).
+- Causa real post-Mesa: RPC `register_expediente_documento` (057/059) permitía upload/reemplazo, pero **Storage RLS** `expediente_documento_storage_asesor_upload_allowed` sigue con `submitted_to_mesa = true → false`. Solo pasaban corrección (rechazado) o pre-Mesa.
+- Causa adicional pre-Mesa: `isPdfLikeFile` rechazaba `.pdf` con MIME `text/plain` (común en macOS/escáner) → validación frontend o MIME vacío a Storage.
+- Bucket Cloud OK: 15 MB, MIME PDF + imágenes.
+
+### Decisión
+
+- Migración `060`: `expediente_documento_storage_asesor_post_mesa_upload_allowed` + OR en policies INSERT/DELETE (mínimo, espejo RPC 059).
+- `isPdfLikeFile`: confiar en extensión `.pdf` salvo `image/*`.
+- `mapSupabaseStorageUploadError`: detectar RLS/policy; mensaje por tipo; sin falso positivo `max`.
+
 ## 2026-07-07 - feat/asesor-reemplazo-documento-post-mesa
 
 ### Diagnóstico

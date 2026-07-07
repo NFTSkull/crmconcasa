@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **fix/upload-storage-post-mesa — subida documentos asesor rota:** Storage RLS bloqueaba uploads post-Mesa (RPC 057/059 sin policy); migración `060`; PDF con `text/plain` + `.pdf` aceptado; mensajes Storage distinguen RLS/MIME/tamaño (sin falso «15 MB y PDF»).
+
 - **feat/asesor-reemplazo-documento-post-mesa — reemplazo documentos tras envío a Mesa:** asesor puede reemplazar documentos ya subidos post-Mesa (obligatorios y opcionales existentes); bloquea creación de obligatorios faltantes; opcionales faltantes siguen habilitados (057); migración `059` en `register_expediente_documento`; Mesa ve versión vigente al refrescar; sin reenvío, etapa, `submitted_to_mesa` ni RLS.
 
 - **fix/carta-empresa-pdf-imagen — Carta de la empresa PDF o imagen:** `cliente_carta_empresa` acepta PDF + JPG/PNG/WEBP/HEIC; migración `058`; bucket ya permitía imágenes; obligatorios 4/4 sin cambio; comprobante/estado cuenta siguen PDF only.

@@ -1,9 +1,11 @@
 import { EXPEDIENTE_DOCUMENTO_MAX_MB } from "./upload-constraints";
 import { ExpedienteArchivosSupabaseError } from "./supabase.error";
+import { isPdfOrImageDocumentTipo } from "@/lib/fileUploadValidation";
 
 /** Mensajes claros para fallos de `storage.upload` (MIME vs tamaño vs genérico). */
 export function mapSupabaseStorageUploadError(
   message: string | undefined,
+  tipoDocumento?: string | null,
 ): ExpedienteArchivosSupabaseError {
   const msg = (message ?? "").toLowerCase();
 
@@ -14,8 +16,26 @@ export function mapSupabaseStorageUploadError(
   }
 
   if (
+    msg.includes("row-level security") ||
+    msg.includes("rls") ||
+    msg.includes("policy") ||
+    msg.includes("permission denied") ||
+    msg.includes("not authorized") ||
+    msg.includes("unauthorized")
+  ) {
+    return new ExpedienteArchivosSupabaseError(
+      "No tienes permiso para subir este documento en el estado actual del expediente. Si ya fue enviado a Mesa, intenta reemplazar el archivo existente.",
+    );
+  }
+
+  if (msg.includes("already exists") || msg.includes("duplicate")) {
+    return new ExpedienteArchivosSupabaseError(
+      "El archivo ya existe en almacenamiento. Intenta subir de nuevo.",
+    );
+  }
+
+  if (
     msg.includes("maximum") ||
-    msg.includes("max") ||
     msg.includes("too large") ||
     msg.includes("exceed") ||
     msg.includes("payload") ||
@@ -33,12 +53,17 @@ export function mapSupabaseStorageUploadError(
     msg.includes("not allowed") ||
     msg.includes("invalid file type")
   ) {
+    if (isPdfOrImageDocumentTipo(tipoDocumento)) {
+      return new ExpedienteArchivosSupabaseError(
+        "Formato no permitido. Para este documento sube PDF o imagen (JPG, PNG, WEBP, HEIC).",
+      );
+    }
     return new ExpedienteArchivosSupabaseError(
       "Formato no permitido. Para este documento sube un archivo PDF válido.",
     );
   }
 
   return new ExpedienteArchivosSupabaseError(
-    "No se pudo subir el archivo. Verifica que sea PDF y que no supere 15 MB.",
+    `No se pudo subir el archivo (${message?.trim() || "error de almacenamiento"}). Intenta de nuevo.`,
   );
 }

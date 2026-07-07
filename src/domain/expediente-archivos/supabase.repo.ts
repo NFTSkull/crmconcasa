@@ -235,6 +235,11 @@ export class SupabaseExpedienteArchivosRepo implements ExpedienteArchivosRepo {
     });
 
     const uploadMime = resolveExpedienteDocumentoUploadMime(params.file, tipo);
+    if (!uploadMime) {
+      throw new ExpedienteArchivosSupabaseError(
+        "No se pudo determinar el formato del archivo. Usa PDF o imagen según el tipo de documento.",
+      );
+    }
 
     const { error: uploadError } = await client.storage
       .from(EXPEDIENTE_DOCUMENTOS_BUCKET)
@@ -244,7 +249,7 @@ export class SupabaseExpedienteArchivosRepo implements ExpedienteArchivosRepo {
       });
 
     if (uploadError) {
-      throw mapSupabaseStorageUploadError(uploadError.message);
+      throw mapSupabaseStorageUploadError(uploadError.message, tipo);
     }
 
     try {
@@ -305,6 +310,11 @@ export class SupabaseExpedienteArchivosRepo implements ExpedienteArchivosRepo {
     });
 
     const uploadMime = resolveExpedienteDocumentoUploadMime(params.file, tipo);
+    if (!uploadMime) {
+      throw new ExpedienteArchivosSupabaseError(
+        "No se pudo determinar el formato del archivo. Usa PDF o imagen según el tipo de documento.",
+      );
+    }
 
     const { error: uploadError } = await client.storage
       .from(EXPEDIENTE_DOCUMENTOS_BUCKET)
@@ -314,7 +324,7 @@ export class SupabaseExpedienteArchivosRepo implements ExpedienteArchivosRepo {
       });
 
     if (uploadError) {
-      throw mapSupabaseStorageUploadError(uploadError.message);
+      throw mapSupabaseStorageUploadError(uploadError.message, tipo);
     }
 
     try {
@@ -375,6 +385,11 @@ export class SupabaseExpedienteArchivosRepo implements ExpedienteArchivosRepo {
     });
 
     const uploadMime = resolveExpedienteDocumentoUploadMime(params.file, tipo);
+    if (!uploadMime) {
+      throw new ExpedienteArchivosSupabaseError(
+        "No se pudo determinar el formato del archivo. Usa PDF o imagen según el tipo de documento.",
+      );
+    }
 
     const { error: uploadError } = await client.storage
       .from(EXPEDIENTE_DOCUMENTOS_BUCKET)
@@ -384,7 +399,7 @@ export class SupabaseExpedienteArchivosRepo implements ExpedienteArchivosRepo {
       });
 
     if (uploadError) {
-      throw mapSupabaseStorageUploadError(uploadError.message);
+      throw mapSupabaseStorageUploadError(uploadError.message, tipo);
     }
 
     try {

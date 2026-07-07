@@ -4,6 +4,7 @@ import {
   CARTA_EMPRESA_DOCUMENT_TIPO,
   isPdfFile,
   PDF_ONLY_UPLOAD_MESSAGE,
+  resolveExpedienteDocumentoUploadMime,
   validateExpedienteDocumentoUploadFile,
   validatePdfFile,
 } from "@/lib/fileUploadValidation";
@@ -63,6 +64,16 @@ test("extensión .pdf con MIME vacío aceptado", () => {
   const file = mockFile("carta empresa.pdf", "", 1_500_000);
   assert.equal(isPdfFile(file), true);
   assert.deepEqual(validatePdfFile(file), { ok: true });
+});
+
+test("extensión .pdf con text/plain aceptado (macOS/escáner)", () => {
+  const file = mockFile("documento.pdf", "text/plain", 800_000);
+  assert.equal(isPdfFile(file), true);
+  assert.deepEqual(
+    validateExpedienteDocumentoUploadFile(file, "cliente_comprobante_domicilio"),
+    { ok: true },
+  );
+  assert.equal(resolveExpedienteDocumentoUploadMime(file, "cliente_comprobante_domicilio"), "application/pdf");
 });
 
 test("carta empresa: extensión .pdf con application/octet-stream aceptado", () => {

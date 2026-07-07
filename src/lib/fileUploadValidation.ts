@@ -124,18 +124,24 @@ function hasConflictingNonPdfExtension(name: string): boolean {
   return CONFLICTING_NON_PDF_EXTENSIONS.some((ext) => lower.endsWith(ext));
 }
 
-/** PDF reconocible por MIME canónico o por extensión `.pdf` (p. ej. `application/octet-stream`). */
+/** PDF reconocible por MIME canónico o por extensión `.pdf` (p. ej. `application/octet-stream`, `text/plain`). */
 export function isPdfLikeFile(file: File): boolean {
   if (!file || file.size <= 0) return false;
   const mime = (file.type || "").toLowerCase().trim();
   const name = fileName(file);
   if (hasPdfExtension(name)) {
-    return !mime || mime === "application/octet-stream" || isPdfMime(mime);
+    if (mime.startsWith("image/")) return false;
+    return true;
   }
   if (isPdfMime(mime)) {
     return !hasConflictingNonPdfExtension(name);
   }
   return false;
+}
+
+function normalizeUploadMime(mime: string): string {
+  if (mime === "image/jpg") return "image/jpeg";
+  return mime;
 }
 
 /** MIME a enviar a Storage/RPC; normaliza PDFs e imágenes con tipo vacío u octet-stream. */
@@ -146,9 +152,10 @@ export function resolveExpedienteDocumentoUploadMime(
   if (isPdfLikeFile(file)) return "application/pdf";
   if (isPdfOrImageDocumentTipo(tipoDocumento)) {
     const imageMime = resolveImageMimeForUpload(file);
-    if (imageMime) return imageMime;
+    if (imageMime) return normalizeUploadMime(imageMime);
   }
-  return (file.type || "").toLowerCase().trim();
+  const raw = normalizeUploadMime((file.type || "").toLowerCase().trim());
+  return raw;
 }
 
 /** @deprecated Usar `isPdfLikeFile`. */
