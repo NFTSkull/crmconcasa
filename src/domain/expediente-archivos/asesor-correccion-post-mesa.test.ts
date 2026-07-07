@@ -7,10 +7,18 @@ import {
   asesorEsCorreccionRechazoClienteDatos,
   asesorPuedeCorregirDocumentoRechazado,
   asesorPuedeEditarClienteDatos,
+  asesorPuedeReemplazarDocumentoExistentePostMesa,
   asesorPuedeSubirDocumentoPreMesa,
   asesorPuedeSubirOpcionalFaltantePostMesa,
   asesorPuedeSubirOCorregirDocumento,
 } from "./asesor-correccion-post-mesa";
+import {
+  INTEGRATION_DOC_TIPOS_ASESOR_ENVIO,
+  integrationDocsCompletos,
+} from "./integration-docs-completos";
+import {
+  validateExpedienteDocumentoUploadFile,
+} from "@/lib/fileUploadValidation";
 
 describe("asesor corrección post-Mesa (helpers UI)", () => {
   it("pre-Mesa permite upload normal de cualquier documento", () => {
@@ -20,16 +28,42 @@ describe("asesor corrección post-Mesa (helpers UI)", () => {
     assert.equal(asesorDebeUsarCorreccionDocumento(false, "rechazado"), false);
   });
 
-  it("post-envío solo permite upload en documentos rechazados", () => {
+  it("post-envío permite corrección en documentos rechazados", () => {
     assert.equal(asesorPuedeSubirDocumentoPreMesa(true), false);
     assert.equal(asesorPuedeCorregirDocumentoRechazado(true, "rechazado"), true);
     assert.equal(asesorPuedeCorregirDocumentoRechazado(true, "validado"), false);
-    assert.equal(asesorPuedeCorregirDocumentoRechazado(true, "subido"), false);
-    assert.equal(asesorPuedeCorregirDocumentoRechazado(true, "resubido"), false);
     assert.equal(asesorPuedeSubirOCorregirDocumento(true, "rechazado"), true);
-    assert.equal(asesorPuedeSubirOCorregirDocumento(true, "subido"), false);
     assert.equal(asesorDocumentoUploadMode(true, "rechazado"), "correccion");
-    assert.equal(asesorDocumentoUploadMode(true, "validado"), null);
+  });
+
+  it("post-envío permite reemplazo de documento existente (obligatorio u opcional)", () => {
+    assert.equal(asesorPuedeReemplazarDocumentoExistentePostMesa(true, "subido"), true);
+    assert.equal(asesorPuedeReemplazarDocumentoExistentePostMesa(true, "validado"), true);
+    assert.equal(asesorPuedeReemplazarDocumentoExistentePostMesa(true, "resubido"), true);
+    assert.equal(asesorPuedeReemplazarDocumentoExistentePostMesa(true, "faltante"), false);
+    assert.equal(asesorPuedeReemplazarDocumentoExistentePostMesa(true, "rechazado"), false);
+    assert.equal(asesorPuedeSubirOCorregirDocumento(true, "subido", "cliente_ine_frente"), true);
+    assert.equal(
+      asesorPuedeSubirOCorregirDocumento(true, "validado", "cliente_comprobante_domicilio"),
+      true,
+    );
+    assert.equal(
+      asesorPuedeSubirOCorregirDocumento(true, "subido", "cliente_carta_empresa"),
+      true,
+    );
+    assert.equal(asesorDocumentoUploadMode(true, "subido", "cliente_ine_frente"), "normal");
+  });
+
+  it("post-envío bloquea creación de obligatorio faltante", () => {
+    assert.equal(
+      asesorPuedeSubirOCorregirDocumento(true, "faltante", "cliente_ine_frente"),
+      false,
+    );
+    assert.equal(
+      asesorPuedeSubirOCorregirDocumento(true, "faltante", "cliente_comprobante_domicilio"),
+      false,
+    );
+    assert.equal(asesorDocumentoUploadMode(true, "faltante", "cliente_ine_frente"), null);
   });
 
   it("post-envío permite primer upload de opcional faltante", () => {
@@ -62,13 +96,41 @@ describe("asesor corrección post-Mesa (helpers UI)", () => {
       true,
     );
     assert.equal(
-      asesorPuedeSubirOCorregirDocumento(true, "subido", "cliente_carta_empresa"),
-      false,
-    );
-    assert.equal(
       asesorDocumentoUploadMode(true, "faltante", "cliente_carta_empresa"),
       "normal",
     );
+  });
+
+  it("reemplazo post-Mesa respeta formatos por tipo", () => {
+    const pdf = { name: "ine.pdf", type: "application/pdf", size: 1000 } as File;
+    const jpg = { name: "ine.jpg", type: "image/jpeg", size: 1000 } as File;
+    const cartaJpg = { name: "carta.jpg", type: "image/jpeg", size: 1000 } as File;
+    const comprobanteJpg = { name: "foto.jpg", type: "image/jpeg", size: 1000 } as File;
+
+    assert.deepEqual(validateExpedienteDocumentoUploadFile(pdf, "cliente_ine_frente"), {
+      ok: true,
+    });
+    assert.deepEqual(validateExpedienteDocumentoUploadFile(jpg, "cliente_ine_frente"), {
+      ok: true,
+    });
+    assert.deepEqual(
+      validateExpedienteDocumentoUploadFile(cartaJpg, "cliente_carta_empresa"),
+      { ok: true },
+    );
+    assert.equal(
+      validateExpedienteDocumentoUploadFile(comprobanteJpg, "cliente_comprobante_domicilio")
+        .ok,
+      false,
+    );
+  });
+
+  it("obligatorios siguen siendo 4 y envío no cambia gate", () => {
+    assert.equal(INTEGRATION_DOC_TIPOS_ASESOR_ENVIO.length, 4);
+    const resumen = INTEGRATION_DOC_TIPOS_ASESOR_ENVIO.map((tipo) => ({
+      tipo_documento: tipo,
+      estatus_revision: "subido" as const,
+    }));
+    assert.equal(integrationDocsCompletos(resumen), true);
   });
 
   it("datos generales editables post-envío (cualquier estado)", () => {

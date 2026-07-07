@@ -123,6 +123,7 @@ DECLARE
   v_exp_sent UUID := '00000000-0000-4000-9030-000000000030';
   v_exp_replace UUID := '00000000-0000-4000-9030-000000000040';
   v_exp_eight UUID := '00000000-0000-4000-9030-000000000050';
+  v_exp_post_rep UUID := '00000000-0000-4000-9030-000000000060';
 
   v_path_ine TEXT;
   v_result JSONB;
@@ -138,11 +139,12 @@ BEGIN
   PERFORM public.__rpc_regdoc_test_insert_exp(v_exp_sent, v_org, v_a1, '90303000030', true);
   PERFORM public.__rpc_regdoc_test_insert_exp(v_exp_replace, v_org, v_a1, '90304000040');
   PERFORM public.__rpc_regdoc_test_insert_exp(v_exp_eight, v_org, v_a1, '90305000050');
+  PERFORM public.__rpc_regdoc_test_insert_exp(v_exp_post_rep, v_org, v_a1, '90306000060', true);
 
   v_path_ine := public.__rpc_regdoc_test_storage_path(v_org, v_exp_ok, 'cliente_ine_frente', 'a1-ine.pdf');
 
   DELETE FROM public.expediente_documentos WHERE expediente_id IN (
-    v_exp_ok, v_exp_owner, v_exp_sent, v_exp_replace, v_exp_eight
+    v_exp_ok, v_exp_owner, v_exp_sent, v_exp_replace, v_exp_eight, v_exp_post_rep
   );
 
   -- Test 1: asesor dueño registra OK
@@ -233,14 +235,49 @@ BEGIN
     'test 15a: tipo carta empresa'
   );
 
-  -- Test 15b: post-Mesa rechaza segundo upload del mismo opcional
+  -- Test 15b: post-Mesa permite reemplazo de opcional ya registrado
+  v_result := public.__rpc_regdoc_test_call(
+    v_a1, v_exp_sent, 'cliente_carta_empresa',
+    public.__rpc_regdoc_test_storage_path(v_org, v_exp_sent, 'cliente_carta_empresa', 'carta2.pdf'),
+    'carta2.pdf'
+  );
+  PERFORM public.__rpc_regdoc_test_assert((v_result->>'ok')::boolean = true, 'test 15b: opcional reemplazo post-mesa ok');
+  PERFORM public.__rpc_regdoc_test_assert((v_result->>'version')::int = 2, 'test 15b: version 2');
+  PERFORM public.__rpc_regdoc_test_assert(
+    v_result->>'estatus_revision' = 'subido',
+    'test 15b: estatus subido tras reemplazo'
+  );
+
+  -- Test 17a: post-Mesa permite reemplazo de obligatorio existente
+  INSERT INTO public.expediente_documentos (
+    organization_id, expediente_id, tipo_documento, storage_path,
+    nombre_original, mime_type, size_bytes, version, estatus_revision,
+    uploaded_by, uploaded_by_role
+  ) VALUES (
+    v_org, v_exp_post_rep, 'cliente_ine_frente',
+    public.__rpc_regdoc_test_storage_path(v_org, v_exp_post_rep, 'cliente_ine_frente', 'v1.pdf'),
+    'v1.pdf', 'application/pdf', 100, 1, 'validado', v_a1, 'asesor'
+  );
+  v_result := public.__rpc_regdoc_test_call(
+    v_a1, v_exp_post_rep, 'cliente_ine_frente',
+    public.__rpc_regdoc_test_storage_path(v_org, v_exp_post_rep, 'cliente_ine_frente', 'v2.pdf'),
+    'v2.pdf', 'image/jpeg', 2048
+  );
+  PERFORM public.__rpc_regdoc_test_assert((v_result->>'ok')::boolean = true, 'test 17a: obligatorio reemplazo post-mesa ok');
+  PERFORM public.__rpc_regdoc_test_assert((v_result->>'version')::int = 2, 'test 17a: version 2');
+  PERFORM public.__rpc_regdoc_test_assert(
+    v_result->>'estatus_revision' = 'subido',
+    'test 17a: validado vuelve a subido tras reemplazo'
+  );
+
+  -- Test 17b: post-Mesa rechaza crear obligatorio faltante
   PERFORM public.__rpc_regdoc_test_assert(
     public.__rpc_regdoc_test_expect_fail(
-      v_a1, v_exp_sent, 'cliente_carta_empresa',
-      public.__rpc_regdoc_test_storage_path(v_org, v_exp_sent, 'cliente_carta_empresa', 'carta2.pdf'),
-      'opcional ya registrado'
+      v_a1, v_exp_post_rep, 'cliente_comprobante_domicilio',
+      public.__rpc_regdoc_test_storage_path(v_org, v_exp_post_rep, 'cliente_comprobante_domicilio'),
+      'ya fue enviado a Mesa'
     ),
-    'test 15b: opcional duplicado post-mesa'
+    'test 17b: obligatorio faltante post-mesa bloqueado'
   );
 
   -- Test 6: reemplazo soft-delete + version incrementa
@@ -450,7 +487,7 @@ BEGIN
     'test 16b: comprobante jpeg rechazado'
   );
 
-  RAISE NOTICE 'RPC register_expediente_documento: 24 pruebas OK';
+  RAISE NOTICE 'RPC register_expediente_documento: 27 pruebas OK';
 END;
 $$;
 

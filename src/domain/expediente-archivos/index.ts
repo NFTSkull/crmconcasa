@@ -72,6 +72,7 @@ export {
   asesorPuedeSubirDocumentoPreMesa,
   asesorPuedeSubirOCorregirDocumento,
   asesorPuedeSubirOpcionalFaltantePostMesa,
+  asesorPuedeReemplazarDocumentoExistentePostMesa,
 } from "./asesor-correccion-post-mesa";
 export { mapRegisterExpedienteDocumentoCorreccionRpcError } from "./register-expediente-documento-correccion-rpc-error";
 export { mapRegisterMesaDocumentoRpcError } from "./register-mesa-documento-rpc-error";

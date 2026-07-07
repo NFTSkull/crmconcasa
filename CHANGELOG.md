@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **feat/asesor-reemplazo-documento-post-mesa — reemplazo documentos tras envío a Mesa:** asesor puede reemplazar documentos ya subidos post-Mesa (obligatorios y opcionales existentes); bloquea creación de obligatorios faltantes; opcionales faltantes siguen habilitados (057); migración `059` en `register_expediente_documento`; Mesa ve versión vigente al refrescar; sin reenvío, etapa, `submitted_to_mesa` ni RLS.
+
 - **fix/carta-empresa-pdf-imagen — Carta de la empresa PDF o imagen:** `cliente_carta_empresa` acepta PDF + JPG/PNG/WEBP/HEIC; migración `058`; bucket ya permitía imágenes; obligatorios 4/4 sin cambio; comprobante/estado cuenta siguen PDF only.
 
 - **fix/asesor-carta-empresa-upload — Carta empresa PDF <15 MB rechazada:** acepta `.pdf` con MIME vacío/`octet-stream`; normaliza `contentType` a `application/pdf` en Storage/RPC; mensajes Storage distinguen tamaño vs formato; límite sigue 15 MB.

@@ -9,6 +9,7 @@ import {
 } from "@/components/mesa-control/MesaArchivoPreviewDialog";
 import {
   asesorDebeUsarCorreccionDocumento,
+  asesorPuedeReemplazarDocumentoExistentePostMesa,
   asesorPuedeSubirOCorregirDocumento,
   asesorPuedeSubirOpcionalFaltantePostMesa,
   ExpedienteArchivosSupabaseError,
@@ -148,6 +149,10 @@ function ChecklistUploadList({
           item.estatus_revision,
           item.tipo_documento,
         );
+        const esReemplazoPostMesa = asesorPuedeReemplazarDocumentoExistentePostMesa(
+          submittedToMesa,
+          item.estatus_revision,
+        );
         const puedeSubirItem =
           puedeIntegrar &&
           asesorPuedeSubirOCorregirDocumento(
@@ -195,6 +200,12 @@ function ChecklistUploadList({
                 {esOpcionalPendientePostMesa ? (
                   <p className="mt-1 rounded border border-sky-100 bg-sky-50 px-2 py-1 text-sky-900">
                     Documento opcional no enviado. Puedes subirlo para que Mesa lo vea.
+                  </p>
+                ) : null}
+                {esReemplazoPostMesa && tieneArchivo ? (
+                  <p className="mt-1 rounded border border-violet-100 bg-violet-50 px-2 py-1 text-violet-900">
+                    Este documento ya fue enviado a Mesa. Puedes reemplazarlo; Mesa verá la
+                    versión actualizada.
                   </p>
                 ) : null}
                 {error ? (
@@ -247,14 +258,17 @@ function ChecklistUploadList({
                         ? "Subiendo…"
                         : esCorreccion
                           ? "Subir corrección"
-                          : tieneArchivo
-                            ? "Reemplazar"
-                            : "Subir archivo"}
+                          : esReemplazoPostMesa && tieneArchivo
+                            ? "Reemplazar archivo"
+                            : tieneArchivo
+                              ? "Reemplazar"
+                              : "Subir archivo"}
                     </Button>
                   </div>
                 ) : submittedToMesa &&
                   item.estatus_revision !== "rechazado" &&
-                  !esOpcionalPendientePostMesa ? (
+                  !esOpcionalPendientePostMesa &&
+                  !esReemplazoPostMesa ? (
                   <p className="mt-2 text-[11px] text-gray-500">
                     Enviado a Mesa — no editable salvo rechazo documental.
                   </p>
@@ -489,8 +503,8 @@ export function AsesorIntegracionDocsUpload({
 
       {submittedToMesa ? (
         <p className="rounded-md border border-amber-100 bg-amber-50 px-2 py-1.5 text-xs text-amber-950">
-          Expediente en Mesa de control. Puedes corregir documentos rechazados y subir
-          opcionales que no enviaste antes.
+          Expediente en Mesa de control. Puedes reemplazar documentos ya enviados, corregir
+          rechazados y subir opcionales que no enviaste antes.
         </p>
       ) : null}
 

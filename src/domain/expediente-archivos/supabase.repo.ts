@@ -209,19 +209,20 @@ export class SupabaseExpedienteArchivosRepo implements ExpedienteArchivosRepo {
     const ctx = await fetchExpedienteUploadContext(client, expedienteId);
 
     if (ctx.submittedToMesa) {
+      const resumen = await this.listResumenByExpediente(expedienteId);
+      const row = resumen.find((r) => r.tipo_documento === tipo);
+      const tieneDocumentoActivo = Boolean(row?.id);
       const esOpcionalAsesor = (
         INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES as readonly string[]
       ).includes(tipo);
-      if (!esOpcionalAsesor) {
+      const esOpcionalFaltante =
+        esOpcionalAsesor && (!row || row.estatus_revision === "faltante" || !row.id);
+
+      if (tieneDocumentoActivo || esOpcionalFaltante) {
+        // Reemplazo post-Mesa o primer upload de opcional faltante.
+      } else {
         throw new ExpedienteArchivosSupabaseError(
-          "No puedes subir documentos: el expediente ya fue enviado a Mesa.",
-        );
-      }
-      const resumen = await this.listResumenByExpediente(expedienteId);
-      const row = resumen.find((r) => r.tipo_documento === tipo);
-      if (!row || row.estatus_revision !== "faltante" || row.id) {
-        throw new ExpedienteArchivosSupabaseError(
-          "Solo puedes subir documentos opcionales que aún no se enviaron a Mesa.",
+          "No puedes crear documentos obligatorios faltantes: el expediente ya fue enviado a Mesa.",
         );
       }
     }

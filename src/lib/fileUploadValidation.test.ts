@@ -14,6 +14,7 @@ import {
 } from "@/domain/expediente-archivos/integration-docs-completos";
 import {
   asesorPuedeSubirOpcionalFaltantePostMesa,
+  asesorPuedeSubirOCorregirDocumento,
 } from "@/domain/expediente-archivos/asesor-correccion-post-mesa";
 
 function mockFile(name: string, type: string, size = 1024): File {
@@ -179,6 +180,13 @@ test("carta empresa sigue opcional", () => {
 test("carta empresa habilitada post-Mesa si falta", () => {
   assert.equal(
     asesorPuedeSubirOpcionalFaltantePostMesa(true, "faltante", CARTA),
+    true,
+  );
+});
+
+test("carta empresa existente puede reemplazarse post-Mesa", () => {
+  assert.equal(
+    asesorPuedeSubirOCorregirDocumento(true, "subido", CARTA),
     true,
   );
 });

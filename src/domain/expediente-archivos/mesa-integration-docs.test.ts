@@ -59,6 +59,32 @@ test("resolveMesaArchivoPorTipo: prioriza lista activa con id real", () => {
   assert.equal(resolved?.nombre_original, "ine.pdf");
 });
 
+test("resolveMesaArchivoPorTipo: elige el más reciente por created_at", () => {
+  const catalog = [
+    catalogRow("cliente_ine_frente", {
+      id: "doc-old-cat",
+      estatus_revision: "subido",
+      nombre_original: "viejo.pdf",
+      created_at: "2026-06-01T00:00:00.000Z",
+    }),
+  ];
+  const lista = [
+    listaItem("cliente_ine_frente", {
+      id: "doc-old",
+      nombre_original: "viejo.pdf",
+      created_at: "2026-06-01T00:00:00.000Z",
+    }),
+    listaItem("cliente_ine_frente", {
+      id: "doc-new",
+      nombre_original: "nuevo.pdf",
+      created_at: "2026-07-01T00:00:00.000Z",
+    }),
+  ];
+  const resolved = resolveMesaArchivoPorTipo("cliente_ine_frente", catalog, lista);
+  assert.equal(resolved?.id, "doc-new");
+  assert.equal(resolved?.nombre_original, "nuevo.pdf");
+});
+
 test("buildMesaIntegrationDocViews: 4 obligatorios + opcionales solo asesor (sin complementarios Mesa)", () => {
   const catalog = [
     catalogRow("nss", { estatus_revision: "subido", id: "doc-nss" }),

@@ -1,5 +1,22 @@
 # Devlog
 
+## 2026-07-07 - feat/asesor-reemplazo-documento-post-mesa
+
+### Diagnóstico
+
+- UI (`AsesorIntegracionDocsUpload`): `asesorPuedeSubirOCorregirDocumento` solo permitía post-Mesa rechazados u opcionales faltantes; mensaje «no editable salvo rechazo».
+- Repo (`uploadOrReplace`): bloqueaba todo upload post-Mesa salvo opcional faltante; rechazaba reemplazo de opcional existente.
+- RPC `register_expediente_documento` (057): post-Mesa bloqueaba obligatorios y segundo upload de opcional.
+- Reemplazo: soft-delete fila previa + INSERT nueva versión; RLS solo expone `deleted_at IS NULL`.
+- Mesa: `latestByTipo` y `resolveMesaArchivoPorTipo` ya priorizan `created_at` más reciente.
+
+### Decisión
+
+- Helper `asesorPuedeReemplazarDocumentoExistentePostMesa` (estatus ≠ faltante/rechazado).
+- Migración `059`: post-Mesa permite si existe doc activo del tipo, o primer upload opcional faltante; bloquea obligatorio faltante.
+- Reemplazo vuelve estatus a `subido` (o `resubido` si previo rechazado — flujo corrección RPC separado).
+- Sin tocar envío Mesa, etapas, RLS, 4/4.
+
 ## 2026-07-07 - fix/carta-empresa-pdf-imagen
 
 ### Diagnóstico

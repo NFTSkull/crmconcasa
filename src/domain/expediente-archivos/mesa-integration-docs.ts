@@ -9,6 +9,7 @@ import { mesaPuedeAbrirArchivo } from "./mesa-archivo-acceso";
 import type { ExpedienteArchivoListItem } from "./map-supabase-expediente-documentos";
 import {
   findRowPorTipoDocumento,
+  rowMasRecientePorTipoDocumento,
   type ExpedienteArchivoResumen,
   type TipoDocumentoCatalogo,
 } from "./types";
@@ -40,7 +41,10 @@ export function resolveMesaArchivoPorTipo(
   resumenCatalog: readonly ExpedienteArchivoResumen[],
   listaActiva: readonly ExpedienteArchivoListItem[] = [],
 ): ExpedienteArchivoResumen | null {
-  const fromLista = findRowPorTipoDocumento(listaActiva, tipo as TipoDocumentoCatalogo);
+  const fromLista = rowMasRecientePorTipoDocumento(
+    listaActiva,
+    tipo as TipoDocumentoCatalogo,
+  );
   if (fromLista) {
     return listItemToResumen(fromLista);
   }

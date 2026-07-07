@@ -30,6 +30,18 @@ export function asesorPuedeSubirOpcionalFaltantePostMesa(
   );
 }
 
+/** Post-Mesa: reemplazar documento ya registrado (sin reenviar expediente). */
+export function asesorPuedeReemplazarDocumentoExistentePostMesa(
+  submittedToMesa: boolean,
+  estatusRevision: ResumenEstatus,
+): boolean {
+  return (
+    submittedToMesa &&
+    estatusRevision !== "faltante" &&
+    estatusRevision !== "rechazado"
+  );
+}
+
 export function asesorPuedeSubirOCorregirDocumento(
   submittedToMesa: boolean,
   estatusRevision: ResumenEstatus,
@@ -47,6 +59,9 @@ export function asesorPuedeSubirOCorregirDocumento(
       tipoDocumento,
     )
   ) {
+    return true;
+  }
+  if (asesorPuedeReemplazarDocumentoExistentePostMesa(submittedToMesa, estatusRevision)) {
     return true;
   }
   return false;
@@ -76,6 +91,9 @@ export function asesorDocumentoUploadMode(
       tipoDocumento,
     )
   ) {
+    return "normal";
+  }
+  if (asesorPuedeReemplazarDocumentoExistentePostMesa(submittedToMesa, estatusRevision)) {
     return "normal";
   }
   return null;
