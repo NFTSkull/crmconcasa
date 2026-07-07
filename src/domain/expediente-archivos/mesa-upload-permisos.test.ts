@@ -39,6 +39,15 @@ describe("permisos upload Mesa vs asesor (contrato de tipos)", () => {
     }
   });
 
+  it("carta empresa es opcional del asesor y no la sube Mesa vía complementarios", () => {
+    assert.ok(
+      (INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD as readonly string[]).includes("cliente_carta_empresa"),
+    );
+    assert.ok(
+      !(INTEGRATION_DOC_TIPOS_MESA_UPLOAD as readonly string[]).includes("cliente_carta_empresa"),
+    );
+  });
+
   it("semanas cotizadas es opcional del asesor pero Mesa también la sube", () => {
     assert.ok(
       (INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD as readonly string[]).includes("cliente_semanas_cotizadas"),

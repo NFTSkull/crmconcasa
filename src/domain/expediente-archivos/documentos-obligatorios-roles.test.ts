@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   deriveIntegrationDocsChecklist,
   INTEGRATION_DOC_TIPOS_ASESOR_ENVIO,
+  INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES_SOLO_ASESOR,
   INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD,
   INTEGRATION_DOC_TIPOS_MESA_UPLOAD,
   integrationDocsCompletos,
@@ -28,7 +29,11 @@ describe("documentos obligatorios por rol (P044)", () => {
     const views = buildMesaIntegrationDocViews([], []);
     const tipos = views.map((v) => v.tipo_documento as string);
     assert.ok(!tipos.includes("nss"));
-    assert.equal(views.length, INTEGRATION_DOC_TIPOS_ASESOR_ENVIO.length);
+    assert.equal(
+      views.length,
+      INTEGRATION_DOC_TIPOS_ASESOR_ENVIO.length +
+        INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES_SOLO_ASESOR.length,
+    );
   });
 
   it("Mesa sí ve Acta de nacimiento y Constancia SAT como complementarios", () => {

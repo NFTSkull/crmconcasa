@@ -1,5 +1,6 @@
 import {
   deriveIntegrationDocsChecklist,
+  deriveIntegrationDocsChecklistOpcionalesSoloAsesor,
   integrationDocsResumenFromArchivoResumen,
   type IntegrationDocAsesorUploadTipo,
   type IntegrationDocChecklistItem,
@@ -52,13 +53,16 @@ export function resolveMesaArchivoPorTipo(
   return null;
 }
 
-/** Checklist integración asesor (4 obligatorios) + metadata de archivo para Mesa. */
+/** Checklist integración asesor (4 obligatorios + opcionales solo asesor) + metadata de archivo para Mesa. */
 export function buildMesaIntegrationDocViews(
   resumenCatalog: readonly ExpedienteArchivoResumen[],
   listaActiva: readonly ExpedienteArchivoListItem[] = [],
 ): MesaIntegrationDocView[] {
   const input = integrationDocsResumenFromArchivoResumen(resumenCatalog);
-  const checklist = deriveIntegrationDocsChecklist(input);
+  const checklist = [
+    ...deriveIntegrationDocsChecklist(input),
+    ...deriveIntegrationDocsChecklistOpcionalesSoloAsesor(input),
+  ];
 
   return checklist.map((item) => {
     const archivo = resolveMesaArchivoPorTipo(item.tipo_documento, resumenCatalog, listaActiva);

@@ -59,20 +59,25 @@ test("resolveMesaArchivoPorTipo: prioriza lista activa con id real", () => {
   assert.equal(resolved?.nombre_original, "ine.pdf");
 });
 
-test("buildMesaIntegrationDocViews: solo 4 documentos del asesor (sin nss ni complementarios Mesa)", () => {
+test("buildMesaIntegrationDocViews: 4 obligatorios + opcionales solo asesor (sin complementarios Mesa)", () => {
   const catalog = [
     catalogRow("nss", { estatus_revision: "subido", id: "doc-nss" }),
     catalogRow("cliente_ine_frente"),
     catalogRow("cliente_semanas_cotizadas", { estatus_revision: "subido", id: "doc-sem" }),
+    catalogRow("cliente_carta_empresa", { estatus_revision: "subido", id: "doc-carta" }),
     catalogRow("cliente_acta_nacimiento"),
   ];
   const views = buildMesaIntegrationDocViews(catalog, []);
   const tipos = views.map((v) => v.tipo_documento as string);
-  assert.equal(views.length, 4);
+  assert.equal(views.length, 5);
   assert.ok(!tipos.includes("nss"));
   assert.ok(!tipos.includes("cliente_semanas_cotizadas"));
+  assert.ok(tipos.includes("cliente_carta_empresa"));
   assert.ok(!tipos.includes("cliente_acta_nacimiento"));
   assert.ok(!tipos.includes("cliente_constancia_sat"));
+  const carta = views.find((v) => v.tipo_documento === "cliente_carta_empresa");
+  assert.equal(carta?.opcional, true);
+  assert.equal(carta?.archivo?.id, "doc-carta");
 });
 
 test("buildMesaIntegrationDocViews: subido con id permite abrir; faltante no", () => {

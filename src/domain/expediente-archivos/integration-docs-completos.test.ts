@@ -27,8 +27,8 @@ function resumenCompletoAsesor(
 describe("INTEGRATION_DOC_TIPOS_VALIDACION_MESA", () => {
   it("validación Mesa y avance 1→2 solo con 4 documentos del asesor", () => {
     assert.equal(INTEGRATION_DOC_TIPOS_ASESOR_ENVIO.length, 4);
-    assert.equal(INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES.length, 1);
-    assert.equal(INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD.length, 5);
+    assert.equal(INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES.length, 2);
+    assert.equal(INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD.length, 6);
     assert.equal(INTEGRATION_DOC_TIPOS_VALIDACION_MESA.length, 4);
     assert.deepEqual(INTEGRATION_DOC_TIPOS_VALIDACION_MESA, INTEGRATION_DOC_TIPOS_ASESOR_ENVIO);
     assert.ok(!(INTEGRATION_DOC_TIPOS_ASESOR_ENVIO as readonly string[]).includes("nss"));
@@ -110,6 +110,15 @@ describe("integrationDocsCompletos", () => {
     assert.equal(integrationDocsCompletos(resumen), true);
   });
 
+  it("carta empresa opcional no cuenta para gate asesor", () => {
+    const resumen = [
+      ...resumenCompletoAsesor("subido"),
+      { tipo_documento: "cliente_carta_empresa" as const, estatus_revision: "subido" as const },
+    ];
+    assert.equal(countIntegrationDocsPresentes(resumen), 4);
+    assert.equal(integrationDocsCompletos(resumen), true);
+  });
+
   it("3/4 deja incompleto", () => {
     const resumen = resumenCompletoAsesor("subido").slice(0, 3);
     assert.equal(countIntegrationDocsPresentes(resumen), 3);
@@ -141,12 +150,14 @@ describe("integrationDocsCompletos", () => {
     assert.equal(checklist[2]?.completo, false);
   });
 
-  it("deriveIntegrationDocsChecklistOpcionales lista semanas cotizadas", () => {
+  it("deriveIntegrationDocsChecklistOpcionales lista semanas y carta empresa", () => {
     const checklist = deriveIntegrationDocsChecklistOpcionales([]);
-    assert.equal(checklist.length, 1);
+    assert.equal(checklist.length, 2);
     assert.equal(checklist[0]?.tipo_documento, "cliente_semanas_cotizadas");
+    assert.equal(checklist[1]?.tipo_documento, "cliente_carta_empresa");
     assert.equal(checklist[0]?.opcional, true);
-    assert.equal(checklist[0]?.completo, false);
+    assert.equal(checklist[1]?.opcional, true);
+    assert.equal(checklist[1]?.completo, false);
   });
 });
 

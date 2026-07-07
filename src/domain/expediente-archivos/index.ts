@@ -18,6 +18,7 @@ export {
 export {
   INTEGRATION_DOC_TIPOS_ASESOR_ENVIO,
   INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES,
+  INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES_SOLO_ASESOR,
   INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD,
   INTEGRATION_DOC_TIPOS_MESA_UPLOAD,
   INTEGRATION_DOC_TIPOS_OBLIGATORIOS,
@@ -26,6 +27,7 @@ export {
   countIntegrationDocsValidados,
   deriveIntegrationDocsChecklist,
   deriveIntegrationDocsChecklistOpcionales,
+  deriveIntegrationDocsChecklistOpcionalesSoloAsesor,
   estatusCuentaParaIntegracion,
   estatusCuentaComoValidadoMesa,
   integrationDocsCompletos,

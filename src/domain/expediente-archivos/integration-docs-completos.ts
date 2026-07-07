@@ -21,6 +21,7 @@ export const INTEGRATION_DOC_TIPOS_ASESOR_ENVIO = [
  */
 export const INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES = [
   "cliente_semanas_cotizadas",
+  "cliente_carta_empresa",
 ] as const;
 
 /**
@@ -48,6 +49,14 @@ export const INTEGRATION_DOC_TIPOS_MESA_UPLOAD = [
   "cliente_acta_nacimiento",
   "cliente_constancia_sat",
 ] as const;
+
+/**
+ * Opcionales asesor que Mesa no lista en complementarios (semanas/acta/SAT van ahí).
+ */
+export const INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES_SOLO_ASESOR =
+  INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES.filter(
+    (tipo) => !(INTEGRATION_DOC_TIPOS_MESA_UPLOAD as readonly string[]).includes(tipo),
+  );
 
 export type IntegrationDocMesaUploadTipo = (typeof INTEGRATION_DOC_TIPOS_MESA_UPLOAD)[number];
 
@@ -170,6 +179,17 @@ export function deriveIntegrationDocsChecklistOpcionales(
   resumen: IntegrationDocsResumenInput,
 ): IntegrationDocChecklistItem[] {
   return mapChecklistItems(INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES, resumen, true);
+}
+
+/** Opcionales asesor visibles en Mesa documentos del cliente (excluye complementarios Mesa). */
+export function deriveIntegrationDocsChecklistOpcionalesSoloAsesor(
+  resumen: IntegrationDocsResumenInput,
+): IntegrationDocChecklistItem[] {
+  return mapChecklistItems(
+    INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES_SOLO_ASESOR,
+    resumen,
+    true,
+  );
 }
 
 /** Adapta `ExpedienteArchivoResumen[]` al input del checklist de integración asesor. */

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **feat/cliente-carta-empresa-opcional — Carta de la empresa (opcional) en integración asesor:** tipo `cliente_carta_empresa` PDF; no bloquea envío (progreso 4/4); visible en asesor opcionales y Mesa documentos del cliente; migración `056`.
+
 - **fix/asesor-dashboard-filtros-globales — filtros del dashboard asesor sobre todos los expedientes:** carga completa con `listForAsesor`; búsqueda, filtros rápidos y avanzados sobre la lista global; paginación cliente (50/página) sobre el resultado filtrado; KPIs y resúmenes documentales sobre todos los IDs; sin cambio de RPC/migraciones.
 
 - **feat/p055-monto-calculado-editable — Monto calculado editable con default automático (+$3,000):** migración `055` parámetro `p_monto_calculado_manual` en `save_cliente_datos` / `save_cliente_datos_correccion`; fórmula automática conservada; UI asesor editable con ref de edición manual; tests TS/SQL; sin Cloud.

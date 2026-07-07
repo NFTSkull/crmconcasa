@@ -1,5 +1,21 @@
 # Devlog
 
+## 2026-07-07 - feat/cliente-carta-empresa-opcional
+
+### Diagnóstico
+
+- Catálogo TS en `types.ts` + listas espejo en `integration-docs-completos.ts`.
+- RPC `register_expediente_documento` valida contra `integration_doc_tipos_asesor_upload()` (SQL).
+- Opcional existente: `cliente_semanas_cotizadas` en `integration_doc_tipos_asesor_opcionales()`.
+
+### Decisión
+
+- Nuevo tipo `cliente_carta_empresa`, label «Cliente · Carta de la empresa», `obligatorio: opcional`.
+- Agregar a `INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES` y migración `056` (mínima: solo función opcionales).
+- Progreso envío sigue 0–4/4 (`count_integration_docs_presentes` solo `asesor_envio`).
+- Mesa: `buildMesaIntegrationDocViews` incluye opcionales solo-asesor (excluye semanas/acta/SAT en complementarios).
+- PDF only (mismo límite 15 MB); sin cambio INE/cobro/NSS.
+
 ## 2026-07-06 - fix/asesor-dashboard-filtros-globales
 
 ### Diagnóstico

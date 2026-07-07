@@ -290,6 +290,20 @@ BEGIN
     'test 9b: presentes siguen en 4'
   );
 
+  -- Test 9c: opcional carta empresa no cambia gate
+  v_result := public.__rpc_regdoc_test_call(
+    v_a1, v_exp_eight, 'cliente_carta_empresa',
+    public.__rpc_regdoc_test_storage_path(v_org, v_exp_eight, 'cliente_carta_empresa', 'carta.pdf')
+  );
+  PERFORM public.__rpc_regdoc_test_assert(
+    (v_result->>'integration_docs_completos')::boolean = true,
+    'test 9c: carta empresa opcional no cambia gate'
+  );
+  PERFORM public.__rpc_regdoc_test_assert(
+    (v_result->>'integration_docs_presentes')::int = 4,
+    'test 9c: presentes siguen en 4'
+  );
+
   -- Test 10: storage_path con expediente distinto rechaza
   PERFORM public.__rpc_regdoc_test_assert(
     public.__rpc_regdoc_test_expect_fail(
