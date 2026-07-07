@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **fix/carta-empresa-pdf-imagen — Carta de la empresa PDF o imagen:** `cliente_carta_empresa` acepta PDF + JPG/PNG/WEBP/HEIC; migración `058`; bucket ya permitía imágenes; obligatorios 4/4 sin cambio; comprobante/estado cuenta siguen PDF only.
+
+- **fix/asesor-carta-empresa-upload — Carta empresa PDF <15 MB rechazada:** acepta `.pdf` con MIME vacío/`octet-stream`; normaliza `contentType` a `application/pdf` en Storage/RPC; mensajes Storage distinguen tamaño vs formato; límite sigue 15 MB.
+
 - **feat/asesor-docs-visibilidad — vista documentos asesor:** resumen pre/post Mesa; badges Subido/Enviado/Faltante/Opcional; Ver/Descargar vía `getArchivoBlob`; opcionales faltantes habilitados tras envío; migración `057` excepción RPC opcionales post-Mesa; sin cambio 4/4 ni obligatorios.
 
 - **fix/asesor-datos-generales-borrador-local — borrador localStorage Datos Generales:** corrige autosave tras hidratación (`hasHydratedClienteDatosRef`); compara contenido del borrador vs oficial en lugar de solo `updatedAt`; evita borrado automático por desfase de reloj; flush en `pagehide`/`beforeunload`; deps del efecto de carga reducidas para no cancelar debounce; sin migración/RPC.

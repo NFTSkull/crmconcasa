@@ -140,7 +140,7 @@ const MSJ_ESPERA_MONTO_REVISOR =
   "Registra un monto aprobado mayor a cero para capturar datos, subir documentos o enviar a Mesa.";
 
 const MSJ_UPLOAD_FORMATO =
-  "INE frente y reverso: PDF o imagen. Resto de documentos del asesor: PDF. Máx. 15 MB por archivo.";
+  "INE y Carta de la empresa: PDF o imagen. Resto de documentos: PDF. Máximo 15 MB.";
 
 const MSJ_ENVIO_MESA_REQUISITOS =
   "El envío a Mesa se habilitará cuando editor, datos generales y los 4 documentos del asesor estén completos. Acta y constancia SAT las sube Mesa después.";

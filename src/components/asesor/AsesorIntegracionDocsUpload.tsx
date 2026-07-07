@@ -14,14 +14,13 @@ import {
   ExpedienteArchivosSupabaseError,
   mesaPuedeAbrirArchivo,
   useExpedienteArchivosRepo,
+  validateExpedienteDocumentoFile,
   type ExpedienteArchivoResumen,
   type IntegrationDocAsesorUploadTipo,
   type IntegrationDocChecklistItem,
 } from "@/domain/expediente-archivos";
 import {
-  formatExpedienteDocumentoUploadRejection,
   getExpedienteDocumentoAcceptAttr,
-  validateExpedienteDocumentoUploadFile,
 } from "@/lib/fileUploadValidation";
 
 type Props = {
@@ -302,16 +301,6 @@ export function AsesorIntegracionDocsUpload({
     inputRefs.current[tipo]?.click();
   }, []);
 
-  const docLabel = useCallback(
-    (tipo: IntegrationDocAsesorUploadTipo) => {
-      const item = [...checklistObligatorios, ...checklistOpcionales].find(
-        (row) => row.tipo_documento === tipo,
-      );
-      return item?.label ?? "Documento";
-    },
-    [checklistObligatorios, checklistOpcionales],
-  );
-
   const mapArchivoError = useCallback((err: unknown): string => {
     if (err instanceof ExpedienteArchivosSupabaseError) return err.message;
     return "No se pudo abrir el archivo. Intenta de nuevo.";
@@ -393,11 +382,11 @@ export function AsesorIntegracionDocsUpload({
       if (input) input.value = "";
       if (!file) return;
 
-      const fileValidation = validateExpedienteDocumentoUploadFile(file, tipo);
+      const fileValidation = validateExpedienteDocumentoFile(file, tipo);
       if (!fileValidation.ok) {
         setErrorsByTipo((prev) => ({
           ...prev,
-          [tipo]: formatExpedienteDocumentoUploadRejection(docLabel(tipo), file, tipo),
+          [tipo]: fileValidation.message,
         }));
         return;
       }
@@ -455,7 +444,7 @@ export function AsesorIntegracionDocsUpload({
         setUploadingTipo(null);
       }
     },
-    [archivosResumen, docLabel, expedienteId, onUploaded, repo, submittedToMesa],
+    [archivosResumen, expedienteId, onUploaded, repo, submittedToMesa],
   );
 
   const allItems = [...checklistObligatorios, ...checklistOpcionales];

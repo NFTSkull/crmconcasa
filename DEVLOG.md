@@ -1,5 +1,35 @@
 # Devlog
 
+## 2026-07-07 - fix/carta-empresa-pdf-imagen
+
+### Diagnóstico
+
+- Frontend: `cliente_carta_empresa` pasaba por `validatePdfFile` (solo PDF).
+- SQL `expediente_documento_mime_permitido`: imágenes solo en INE frente/reverso.
+- Bucket `expediente-documentos` en Cloud ya incluye `image/jpeg`, `image/png`, `image/webp`, `image/heic`, `image/heif` (migración 047) — sin cambio de bucket.
+
+### Decisión
+
+- Tratar carta empresa como PDF-or-imagen en `fileUploadValidation` (mismo accept que INE).
+- Migración `058`: ampliar `expediente_documento_mime_permitido` para `cliente_carta_empresa`.
+- Copy: «INE y Carta de la empresa: PDF o imagen…».
+- Sin tocar obligatorios, envío Mesa, semanas cotizadas (sigue PDF).
+
+## 2026-07-07 - fix/asesor-carta-empresa-upload
+
+### Diagnóstico
+
+- Cloud: bucket `expediente-documentos` con `file_size_limit = 15728640` (15 MB); RPC `expediente_documento_max_size_bytes()` = 15 MB.
+- No había límite de 2 MB en código ni BD.
+- Causa: validación PDF exigía **MIME `application/pdf` y extensión `.pdf` a la vez**; muchos PDFs reales (macOS/escáner) llegan como `application/octet-stream` o MIME vacío.
+- Storage rechazaba `contentType` inválido; el mensaje genérico mezclaba formato y tamaño → el asesor lo interpretaba como “muy pesado”.
+
+### Decisión
+
+- `isPdfLikeFile`: aceptar `.pdf` con MIME vacío/octet-stream, o MIME PDF canónico.
+- `resolveExpedienteDocumentoUploadMime`: normalizar a `application/pdf` en upload.
+- `mapSupabaseStorageUploadError`: separar errores MIME vs tamaño.
+
 ## 2026-07-07 - feat/asesor-docs-visibilidad
 
 ### Diagnóstico

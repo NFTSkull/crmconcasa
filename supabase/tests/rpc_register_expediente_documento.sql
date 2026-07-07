@@ -427,7 +427,30 @@ BEGIN
     'test 14c: historial laboral rechazado'
   );
 
-  RAISE NOTICE 'RPC register_expediente_documento: 22 pruebas OK';
+  -- Test 16a: carta empresa acepta image/jpeg
+  v_result := public.__rpc_regdoc_test_call(
+    v_a1, v_exp_replace, 'cliente_carta_empresa',
+    public.__rpc_regdoc_test_storage_path(v_org, v_exp_replace, 'cliente_carta_empresa', 'carta.jpg'),
+    'carta.jpg', 'image/jpeg', 2048
+  );
+  PERFORM public.__rpc_regdoc_test_assert((v_result->>'ok')::boolean = true, 'test 16a: carta empresa jpeg ok');
+  PERFORM public.__rpc_regdoc_test_assert(
+    v_result->>'estatus_revision' = 'subido',
+    'test 16a: estatus subido'
+  );
+
+  -- Test 16b: comprobante domicilio sigue rechazando image/jpeg
+  PERFORM public.__rpc_regdoc_test_assert(
+    public.__rpc_regdoc_test_expect_fail(
+      v_a1, v_exp_ok, 'cliente_comprobante_domicilio',
+      public.__rpc_regdoc_test_storage_path(v_org, v_exp_ok, 'cliente_comprobante_domicilio', 'foto.jpg'),
+      'mime_type no permitido',
+      'image/jpeg', 1024, true
+    ),
+    'test 16b: comprobante jpeg rechazado'
+  );
+
+  RAISE NOTICE 'RPC register_expediente_documento: 24 pruebas OK';
 END;
 $$;
 

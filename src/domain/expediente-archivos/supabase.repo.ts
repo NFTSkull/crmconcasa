@@ -30,6 +30,8 @@ import {
   validateExpedienteDocumentoFile,
 } from "./upload-constraints";
 import { INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES } from "./integration-docs-completos";
+import { mapSupabaseStorageUploadError } from "./map-storage-upload-error";
+import { resolveExpedienteDocumentoUploadMime } from "@/lib/fileUploadValidation";
 
 const DOCUMENTOS_SELECT = `
   id,
@@ -231,19 +233,17 @@ export class SupabaseExpedienteArchivosRepo implements ExpedienteArchivosRepo {
       originalFileName: params.file.name,
     });
 
+    const uploadMime = resolveExpedienteDocumentoUploadMime(params.file, tipo);
+
     const { error: uploadError } = await client.storage
       .from(EXPEDIENTE_DOCUMENTOS_BUCKET)
       .upload(storagePath, params.file, {
-        contentType: params.file.type,
+        contentType: uploadMime,
         upsert: false,
       });
 
     if (uploadError) {
-      throw new ExpedienteArchivosSupabaseError(
-        uploadError.message?.toLowerCase().includes("bucket")
-          ? "No se pudo acceder al almacenamiento de documentos. Contacta soporte."
-          : "No se pudo subir el archivo. Verifica el formato (solo PDF) y el tamaño (máx. 15 MB).",
-      );
+      throw mapSupabaseStorageUploadError(uploadError.message);
     }
 
     try {
@@ -252,7 +252,7 @@ export class SupabaseExpedienteArchivosRepo implements ExpedienteArchivosRepo {
         p_tipo_documento: tipo,
         p_storage_path: storagePath,
         p_nombre_original: params.file.name,
-        p_mime_type: params.file.type,
+        p_mime_type: uploadMime,
         p_size_bytes: params.file.size,
       });
 
@@ -303,19 +303,17 @@ export class SupabaseExpedienteArchivosRepo implements ExpedienteArchivosRepo {
       originalFileName: params.file.name,
     });
 
+    const uploadMime = resolveExpedienteDocumentoUploadMime(params.file, tipo);
+
     const { error: uploadError } = await client.storage
       .from(EXPEDIENTE_DOCUMENTOS_BUCKET)
       .upload(storagePath, params.file, {
-        contentType: params.file.type,
+        contentType: uploadMime,
         upsert: false,
       });
 
     if (uploadError) {
-      throw new ExpedienteArchivosSupabaseError(
-        uploadError.message?.toLowerCase().includes("bucket")
-          ? "No se pudo acceder al almacenamiento de documentos. Contacta soporte."
-          : "No se pudo subir el archivo. Verifica el formato (solo PDF) y el tamaño (máx. 15 MB).",
-      );
+      throw mapSupabaseStorageUploadError(uploadError.message);
     }
 
     try {
@@ -324,7 +322,7 @@ export class SupabaseExpedienteArchivosRepo implements ExpedienteArchivosRepo {
         p_tipo_documento: tipo,
         p_storage_path: storagePath,
         p_nombre_original: params.file.name,
-        p_mime_type: params.file.type,
+        p_mime_type: uploadMime,
         p_size_bytes: params.file.size,
       });
 
@@ -375,19 +373,17 @@ export class SupabaseExpedienteArchivosRepo implements ExpedienteArchivosRepo {
       originalFileName: params.file.name,
     });
 
+    const uploadMime = resolveExpedienteDocumentoUploadMime(params.file, tipo);
+
     const { error: uploadError } = await client.storage
       .from(EXPEDIENTE_DOCUMENTOS_BUCKET)
       .upload(storagePath, params.file, {
-        contentType: params.file.type,
+        contentType: uploadMime,
         upsert: false,
       });
 
     if (uploadError) {
-      throw new ExpedienteArchivosSupabaseError(
-        uploadError.message?.toLowerCase().includes("bucket")
-          ? "No se pudo acceder al almacenamiento de documentos. Contacta soporte."
-          : "No se pudo subir el archivo. Verifica el formato (solo PDF) y el tamaño (máx. 15 MB).",
-      );
+      throw mapSupabaseStorageUploadError(uploadError.message);
     }
 
     try {
@@ -396,7 +392,7 @@ export class SupabaseExpedienteArchivosRepo implements ExpedienteArchivosRepo {
         p_tipo_documento: tipo,
         p_storage_path: storagePath,
         p_nombre_original: params.file.name,
-        p_mime_type: params.file.type,
+        p_mime_type: uploadMime,
         p_size_bytes: params.file.size,
       });
 

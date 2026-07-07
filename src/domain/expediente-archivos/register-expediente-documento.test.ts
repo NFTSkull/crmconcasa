@@ -82,6 +82,41 @@ describe("validateExpedienteDocumentoFile", () => {
     const file = { type: "application/pdf", size: 1024, name: "doc.pdf" } as File;
     assert.deepEqual(validateExpedienteDocumentoFile(file), { ok: true });
   });
+
+  it("acepta PDF válido con octet-stream y extensión .pdf (carta empresa)", () => {
+    const file = {
+      type: "application/octet-stream",
+      size: 1_500_000,
+      name: "carta.pdf",
+    } as File;
+    assert.deepEqual(
+      validateExpedienteDocumentoFile(file, "cliente_carta_empresa"),
+      { ok: true },
+    );
+  });
+
+  it("acepta image/jpeg en carta empresa", () => {
+    const file = {
+      type: "image/jpeg",
+      size: 800_000,
+      name: "carta.jpg",
+    } as File;
+    assert.deepEqual(
+      validateExpedienteDocumentoFile(file, "cliente_carta_empresa"),
+      { ok: true },
+    );
+  });
+
+  it("rechaza image/jpeg en comprobante domicilio", () => {
+    const file = {
+      type: "image/jpeg",
+      size: 800_000,
+      name: "foto.jpg",
+    } as File;
+    const result = validateExpedienteDocumentoFile(file, "cliente_comprobante_domicilio");
+    assert.equal(result.ok, false);
+    if (!result.ok) assert.equal(result.code, "mime_no_permitido");
+  });
 });
 
 describe("mapRegisterExpedienteDocumentoRpcError", () => {
