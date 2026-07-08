@@ -27,11 +27,11 @@ export function getNotaMesaLongitudError(
   return null;
 }
 
-/** Campos obligatorios en Datos Generales para Mejoravit (RFC y domicilio real opcionales). */
-export const CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT_MEJORAVIT = 23;
+/** Campos obligatorios en Datos Generales para Mejoravit (RFC opcional). */
+export const CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT_MEJORAVIT = 24;
 
-/** Campos obligatorios sin sección Crédito Mejoravit (domicilio real opcional). */
-export const CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT_DEFAULT = 21;
+/** Campos obligatorios sin sección Crédito Mejoravit. */
+export const CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT_DEFAULT = 22;
 
 /** Etiquetas legibles de campos obligatorios vacíos (trim). RFC no cuenta como faltante. */
 export function getClienteDatosCamposFaltantes(
@@ -60,6 +60,7 @@ export function getClienteDatosCamposFaltantes(
   req("Dirección empresa — colonia", d.direccionEmpresa.colonia);
   req("Dirección empresa — municipio", d.direccionEmpresa.municipio);
   req("Dirección empresa — CP", d.direccionEmpresa.cp);
+  req("Domicilio real del cliente", String(ctx.direccionOpcional ?? ""));
 
   const esMejoravit = isProgramaMejoravitDb(ctx.programaDb);
   if (esMejoravit) {

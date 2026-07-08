@@ -65,15 +65,13 @@ test("getClienteDatosCamposFaltantes: formulario vacío lista muchos campos", ()
   assert.ok(m.some((x) => x.includes("Nombre del cliente")));
 });
 
-test("getClienteDatosCamposFaltantes: formulario completo sin domicilio real pasa", () => {
-  assert.deepEqual(
-    getClienteDatosCamposFaltantes(completo, {
-      montoAprobado: 100_000,
-      direccionOpcional: "",
-      programaDb: "mejoravit",
-    }),
-    [],
-  );
+test("getClienteDatosCamposFaltantes: formulario completo sin domicilio real falla", () => {
+  const m = getClienteDatosCamposFaltantes(completo, {
+    montoAprobado: 100_000,
+    direccionOpcional: "",
+    programaDb: "mejoravit",
+  });
+  assert.ok(m.includes("Domicilio real del cliente"));
 });
 
 test("getClienteDatosCamposFaltantes: formulario completo no devuelve faltantes", () => {
@@ -115,12 +113,12 @@ test("getClienteDatosCamposFaltantes: faltan campos de cobro", () => {
   assert.ok(faltantes.includes("Método de pago"));
 });
 
-test("getClienteDatosCamposFaltantes: formulario vacío tiene 23 obligatorios en mejoravit", () => {
+test("getClienteDatosCamposFaltantes: formulario vacío tiene 24 obligatorios en mejoravit", () => {
   assert.equal(
     getClienteDatosCamposFaltantes(vacio, { programaDb: "mejoravit" }).length,
     CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT_MEJORAVIT,
   );
-  assert.equal(CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT_MEJORAVIT, 23);
+  assert.equal(CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT_MEJORAVIT, 24);
 });
 
 test("getClienteDatosCamposFaltantes: compro_tu_casa sin sección Mejoravit", () => {
@@ -128,13 +126,13 @@ test("getClienteDatosCamposFaltantes: compro_tu_casa sin sección Mejoravit", ()
     getClienteDatosCamposFaltantes(vacio, { programaDb: "compro_tu_casa" }).length,
     CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT_DEFAULT,
   );
-  assert.equal(CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT_DEFAULT, 21);
+  assert.equal(CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT_DEFAULT, 22);
 });
 
 test("getClienteDatosCamposFaltantes: notaMesa vacía no es faltante", () => {
   const ctx = {
     montoAprobado: 100_000,
-    direccionOpcional: "",
+    direccionOpcional: "Calle Principal 123",
     programaDb: "mejoravit",
   };
   assert.deepEqual(getClienteDatosCamposFaltantes({ ...completo, notaMesa: "" }, ctx), []);

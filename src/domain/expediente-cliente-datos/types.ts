@@ -4,6 +4,13 @@ export type ExpedienteClienteDatosEstado =
   | "validado"
   | "rechazado";
 
+/** Lectura batch para bandeja Mesa (estado + fechas de corrección). */
+export type ClienteDatosEstadoBatch = Readonly<{
+  estado: ExpedienteClienteDatosEstado;
+  updatedAt: string | null;
+  validatedAt: string | null;
+}>;
+
 /** Metadata de evidencia en columna `cliente_datos.imagenes` (sin rutas Storage en UI). */
 export type ClienteDatosImagen = {
   tipo?: string;

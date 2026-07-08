@@ -42,10 +42,13 @@ const baseValid: ClienteDatosFormShape = {
   metodoPago: "transferencia",
 };
 
-test("validateClienteDatos: domicilio real del cliente es opcional", () => {
+test("validateClienteDatos: domicilio real del cliente es obligatorio", () => {
   const sinDomicilio = validateClienteDatos(baseValid, { ...COBRO_CTX, direccionOpcional: "" });
-  assert.equal(sinDomicilio.errors.direccionOpcional, undefined);
-  assert.equal(sinDomicilio.isValid, true);
+  assert.equal(
+    sinDomicilio.errors.direccionOpcional,
+    "El domicilio real del cliente es obligatorio.",
+  );
+  assert.equal(sinDomicilio.isValid, false);
 
   const conDomicilio = validateClienteDatos(baseValid, {
     ...COBRO_CTX,

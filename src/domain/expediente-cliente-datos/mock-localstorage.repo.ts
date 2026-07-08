@@ -177,6 +177,33 @@ export class MockExpedienteClienteDatosLocalStorageRepo implements ExpedienteCli
     return out;
   }
 
+  async listEstadoBatchByExpedienteIds(
+    expedienteIds: readonly string[],
+  ): Promise<Record<string, import("./types").ClienteDatosEstadoBatch>> {
+    const wanted = new Set(
+      expedienteIds.map((id) => String(id).trim()).filter(Boolean),
+    );
+    if (wanted.size === 0 || typeof window === "undefined") return {};
+
+    const raw = window.localStorage.getItem(STORAGE_KEY);
+    const arr = safeParseArray(raw);
+    const out: Record<string, import("./types").ClienteDatosEstadoBatch> = {};
+    for (const x of arr) {
+      if (!x || typeof x !== "object") continue;
+      const obj = x as StoredRow;
+      const expedienteId = typeof obj.expedienteId === "string" ? obj.expedienteId : null;
+      if (!expedienteId || !wanted.has(expedienteId)) continue;
+      const domain = rowToDomain(obj);
+      if (!domain) continue;
+      out[expedienteId] = {
+        estado: domain.estado,
+        updatedAt: domain.updatedAt ?? null,
+        validatedAt: domain.validatedAt ?? null,
+      };
+    }
+    return out;
+  }
+
   async save(input: SaveExpedienteClienteDatosInput): Promise<ExpedienteClienteDatos> {
     if (typeof window === "undefined") {
       throw new Error("save solo disponible en cliente");

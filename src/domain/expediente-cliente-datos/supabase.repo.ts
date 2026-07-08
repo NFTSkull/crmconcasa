@@ -19,6 +19,7 @@ import { mapUpdateClienteDatosRevisionRpcError } from "./update-cliente-datos-re
 import { ClienteDatosSupabaseError } from "./supabase.error";
 import { emitExpedienteClienteDatosUpdated } from "./emit-updated";
 import type { ExpedienteClienteDatosEstado } from "./types";
+import type { ClienteDatosEstadoBatch } from "./types";
 
 const CLIENTE_DATOS_SELECT = `
   expediente_id,
@@ -124,6 +125,50 @@ export class SupabaseExpedienteClienteDatosRepo implements ExpedienteClienteDato
         continue;
       }
       out[expId] = estado;
+    }
+    return out;
+  }
+
+  async listEstadoBatchByExpedienteIds(
+    expedienteIds: readonly string[],
+  ): Promise<Record<string, ClienteDatosEstadoBatch>> {
+    const ids = [
+      ...new Set(expedienteIds.map((id) => String(id).trim()).filter(Boolean)),
+    ];
+    if (ids.length === 0) return {};
+
+    const { client } = await requireSupabaseSession();
+    const { data, error } = await client
+      .from("cliente_datos")
+      .select("expediente_id, estado, updated_at, validated_at")
+      .in("expediente_id", ids);
+
+    if (error) {
+      throw new ClienteDatosSupabaseError(
+        "No se pudieron cargar los estados de datos del cliente.",
+      );
+    }
+
+    const out: Record<string, ClienteDatosEstadoBatch> = {};
+    for (const row of data ?? []) {
+      const expId = String((row as { expediente_id?: unknown }).expediente_id ?? "").trim();
+      const estado = (row as { estado?: unknown }).estado;
+      if (
+        !expId ||
+        (estado !== "pendiente" &&
+          estado !== "completo" &&
+          estado !== "validado" &&
+          estado !== "rechazado")
+      ) {
+        continue;
+      }
+      const updatedAt = (row as { updated_at?: unknown }).updated_at;
+      const validatedAt = (row as { validated_at?: unknown }).validated_at;
+      out[expId] = {
+        estado,
+        updatedAt: typeof updatedAt === "string" ? updatedAt : null,
+        validatedAt: typeof validatedAt === "string" ? validatedAt : null,
+      };
     }
     return out;
   }

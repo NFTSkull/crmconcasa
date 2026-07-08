@@ -106,6 +106,7 @@ import {
 import { useSessionRepo, type Rol } from "@/domain/session";
 import { subestadoOperativoLabel } from "@/lib/subestadoOperativoUi";
 import { useMesaOpsRepo, type MesaExpedienteOpsRow } from "@/domain/mesa-ops";
+import { recordMesaExpedienteOpened } from "@/lib/mesaExpedienteOpenedStorage";
 import { MesaExpedienteOpsSection } from "@/components/mesa-control/MesaExpedienteOpsSection";
 
 type LoadState = "loading" | "ready" | "not_found" | "error";
@@ -270,6 +271,11 @@ export function MesaExpedienteDetalleReadOnly() {
     void mesaOpsRepo.resolveCurrentUserId().then(setMesaOpsUserId);
     void mesaOpsRepo.resolveCurrentUserAppRole().then(setMesaOpsAppRole);
   }, [mesaOpsRepo]);
+
+  useEffect(() => {
+    if (!routeExpedienteId || loadState !== "ready") return;
+    recordMesaExpedienteOpened(routeExpedienteId, mesaOpsUserId);
+  }, [loadState, mesaOpsUserId, routeExpedienteId]);
 
   const load = useCallback(() => {
     if (!routeExpedienteId || !currentUser) return;

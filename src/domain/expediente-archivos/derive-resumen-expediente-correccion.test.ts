@@ -47,7 +47,19 @@ describe("deriveResumenExpedienteCorreccion", () => {
     );
   });
 
-  it("delega al resumen documental si datos no están rechazados", () => {
+  it("datos generales corregidos marcan correccion_enviada", () => {
+    assert.equal(
+      deriveResumenExpedienteCorreccion(todosValidados, {
+        clienteDatosEstado: "completo",
+        clienteDatosUpdatedAt: "2026-07-08T15:00:00.000Z",
+        clienteDatosValidatedAt: null,
+        fechaEnvioMesa: "2026-07-01T10:00:00.000Z",
+      }),
+      "correccion_enviada",
+    );
+  });
+
+  it("delega al resumen documental si datos no están rechazados ni corregidos", () => {
     assert.equal(
       deriveResumenExpedienteCorreccion(todosValidados, "completo"),
       "documentos_validados",

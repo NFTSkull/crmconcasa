@@ -6,6 +6,9 @@ import {
   parsePorcentajeCobroInput,
 } from "@/lib/clienteDatosCobro";
 
+export const MSJ_DOMICILIO_REAL_OBLIGATORIO =
+  "El domicilio real del cliente es obligatorio.";
+
 export type ClienteDatosValidationContext = {
   montoAprobado?: number | null;
   direccionOpcional?: string | null;
@@ -141,6 +144,11 @@ export function validateClienteDatos(
   req("direccionColonia", data.direccionEmpresa.colonia, "Colonia de la empresa");
   req("direccionMunicipio", data.direccionEmpresa.municipio, "Municipio de la empresa");
   req("direccionCp", data.direccionEmpresa.cp, "CP");
+
+  const domicilioReal = String(ctx.direccionOpcional ?? "").trim();
+  if (!domicilioReal) {
+    setError(errors, "direccionOpcional", MSJ_DOMICILIO_REAL_OBLIGATORIO);
+  }
 
   const esMejoravit = isProgramaMejoravitDb(ctx.programaDb);
   if (esMejoravit) {

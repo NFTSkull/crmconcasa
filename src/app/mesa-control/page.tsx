@@ -29,7 +29,10 @@ import {
   type ExpedienteArchivoResumen,
 } from "@/domain/expediente-archivos";
 import { useExpedienteClienteDatosRepo } from "@/domain/expediente-cliente-datos";
-import type { ExpedienteClienteDatosEstado } from "@/domain/expediente-cliente-datos/types";
+import type {
+  ClienteDatosEstadoBatch,
+  ExpedienteClienteDatosEstado,
+} from "@/domain/expediente-cliente-datos/types";
 import { EXPEDIENTE_CLIENTE_DATOS_UPDATED_EVENT } from "@/domain/expediente-cliente-datos/emit-updated";
 import { isDataModeSupabase } from "@/lib/dataMode";
 import {
@@ -47,6 +50,18 @@ import {
   formatEnMesaHaceLabel,
   sortMesaBandejaPorAntiguedad,
 } from "@/lib/mesaBandejaOrden";
+import {
+  deriveMesaCorreccionLecturaEstado,
+  deriveUltimaCorreccionEnviadaAt,
+  mesaCorreccionLecturaBadgeClass,
+  mesaCorreccionLecturaLabel,
+  resolveFechaEntradaMesaActual,
+  type MesaCorreccionLecturaEstado,
+} from "@/lib/mesaCorreccionEntrada";
+import {
+  getMesaExpedienteLastOpenedAt,
+  MESA_EXPEDIENTE_OPENED_UPDATED_EVENT,
+} from "@/lib/mesaExpedienteOpenedStorage";
 import { useMesaOpsRepo, type MesaExpedienteOpsRow } from "@/domain/mesa-ops";
 import {
   applyMesaOpsFilterSorted,
@@ -66,6 +81,9 @@ import { buildDashboardNotifications } from "@/lib/dashboardNotifications";
 type CasoConDocs = CasoMock & {
   resumenDocumental?: CategoriaResumenDocumental;
   clienteDatosEstado?: ExpedienteClienteDatosEstado | null;
+  fechaEntradaMesaActual?: string | null;
+  ultimaCorreccionEnviadaAt?: string | null;
+  correccionLecturaEstado?: MesaCorreccionLecturaEstado;
   mesaOps?: MesaExpedienteOpsRow | null;
 };
 
@@ -173,11 +191,18 @@ function origenMesaBadgeClass(o: CasoMock["origenMesa"]): string {
 function MesaEnMesaHaceBadge({
   fechaEnvioMesa,
   createdAt,
+  fechaEntradaMesaActual,
 }: {
   fechaEnvioMesa?: string | null;
   createdAt?: string | null;
+  fechaEntradaMesaActual?: string | null;
 }) {
-  const label = formatEnMesaHaceLabel(fechaEnvioMesa, new Date(), createdAt);
+  const label = formatEnMesaHaceLabel(
+    fechaEnvioMesa,
+    new Date(),
+    createdAt,
+    fechaEntradaMesaActual,
+  );
   if (!label) return null;
   return (
     <span
@@ -194,12 +219,35 @@ function rowSurfaceClass(c: CasoConDocs): string {
     return "border-l-[3px] border-l-red-400 bg-red-50/50 hover:bg-red-50/80";
   }
   if (c.resumenDocumental === "correccion_enviada") {
-    return "border-l-[3px] border-l-sky-500 bg-sky-50/40 hover:bg-sky-50/70";
+    if (c.correccionLecturaEstado === "nueva") {
+      return "border-l-[3px] border-l-sky-600 bg-sky-50/55 hover:bg-sky-50/80 ring-1 ring-sky-200/60";
+    }
+    return "border-l-[3px] border-l-slate-400 bg-slate-50/50 hover:bg-slate-50/75";
   }
   if (c.resumenDocumental === "correccion_requerida") {
     return "border-l-[3px] border-l-amber-400 bg-amber-50/35 hover:bg-amber-50/55";
   }
   return "border-l-[3px] border-l-transparent hover:bg-slate-50/90";
+}
+
+function MesaCorreccionLecturaBadge({
+  estado,
+}: {
+  estado?: MesaCorreccionLecturaEstado;
+}) {
+  if (!estado || estado === "no_aplica") return null;
+  const label = mesaCorreccionLecturaLabel(estado);
+  if (!label) return null;
+  return (
+    <span
+      className={mesaCorreccionLecturaBadgeClass(estado)}
+      data-testid={
+        estado === "nueva" ? "mesa-correccion-nueva" : "mesa-correccion-abierta"
+      }
+    >
+      {label}
+    </span>
+  );
 }
 
 export default function MesaControlPage() {
@@ -305,22 +353,55 @@ export default function MesaControlPage() {
               }
             }),
           );
-          let estadosPorId: Record<string, import("@/domain/expediente-cliente-datos/types").ExpedienteClienteDatosEstado> =
-            {};
+          let estadosPorId: Record<string, ClienteDatosEstadoBatch> = {};
           try {
-            estadosPorId = await clienteDatosRepo.listEstadoByExpedienteIds(base.map((c) => c.id));
+            estadosPorId = await clienteDatosRepo.listEstadoBatchByExpedienteIds(
+              base.map((c) => c.id),
+            );
           } catch {
             estadosPorId = {};
           }
           const resumenMap = new Map(resumenEntries);
-          return base.map((c) => ({
-            ...c,
-            resumenDocumental: deriveResumenExpedienteCorreccion(
-              resumenMap.get(c.id) ?? [],
-              estadosPorId[c.id] ?? null,
-            ),
-            clienteDatosEstado: estadosPorId[c.id] ?? null,
-          }));
+          const mesaUserId = currentUserId;
+          return base.map((c) => {
+            const resumen = resumenMap.get(c.id) ?? [];
+            const clienteBatch = estadosPorId[c.id] ?? null;
+            const resumenDocumental = deriveResumenExpedienteCorreccion(resumen, {
+              clienteDatosEstado: clienteBatch?.estado ?? null,
+              clienteDatosUpdatedAt: clienteBatch?.updatedAt ?? null,
+              clienteDatosValidatedAt: clienteBatch?.validatedAt ?? null,
+              fechaEnvioMesa: c.fechaEnvioMesa ?? null,
+            });
+            const ultimaCorreccionEnviadaAt = deriveUltimaCorreccionEnviadaAt({
+              resumen,
+              clienteDatos: clienteBatch
+                ? {
+                    estado: clienteBatch.estado,
+                    updatedAt: clienteBatch.updatedAt,
+                    validatedAt: clienteBatch.validatedAt,
+                  }
+                : null,
+              fechaEnvioMesa: c.fechaEnvioMesa ?? null,
+            });
+            const fechaEntradaMesaActual = resolveFechaEntradaMesaActual(
+              c.fechaEnvioMesa ?? null,
+              ultimaCorreccionEnviadaAt,
+              c.createdAt ?? null,
+            );
+            const correccionLecturaEstado = deriveMesaCorreccionLecturaEstado(
+              resumenDocumental,
+              ultimaCorreccionEnviadaAt,
+              getMesaExpedienteLastOpenedAt(c.id, mesaUserId),
+            );
+            return {
+              ...c,
+              resumenDocumental,
+              clienteDatosEstado: clienteBatch?.estado ?? null,
+              fechaEntradaMesaActual,
+              ultimaCorreccionEnviadaAt,
+              correccionLecturaEstado,
+            };
+          });
         })();
         const sorted = sortMesaBandejaPorAntiguedad(enriched);
         if (mesaOpsRepo) {
@@ -351,7 +432,7 @@ export default function MesaControlPage() {
         setLoading(false);
       }
     })();
-  }, [archivosRepo, clienteDatosRepo, currentUser, dataSupabase, mapExpToCaso, mesaOpsRepo, repo]);
+  }, [archivosRepo, clienteDatosRepo, currentUser, currentUserId, dataSupabase, mapExpToCaso, mesaOpsRepo, repo]);
 
   useEffect(() => {
     if (!mesaOpsRepo) {
@@ -377,6 +458,10 @@ export default function MesaControlPage() {
         clienteDatosHandler as EventListener,
       );
       window.addEventListener(MESA_OPS_UPDATED_EVENT, mesaOpsHandler as EventListener);
+      window.addEventListener(
+        MESA_EXPEDIENTE_OPENED_UPDATED_EVENT,
+        mesaOpsHandler as EventListener,
+      );
       return () => {
         window.removeEventListener(
           "expediente_archivos_updated",
@@ -387,6 +472,10 @@ export default function MesaControlPage() {
           clienteDatosHandler as EventListener,
         );
         window.removeEventListener(MESA_OPS_UPDATED_EVENT, mesaOpsHandler as EventListener);
+        window.removeEventListener(
+          MESA_EXPEDIENTE_OPENED_UPDATED_EVENT,
+          mesaOpsHandler as EventListener,
+        );
       };
     }
 
@@ -407,6 +496,10 @@ export default function MesaControlPage() {
       clienteDatosHandler as EventListener,
     );
     window.addEventListener(MESA_OPS_UPDATED_EVENT, mesaOpsHandler as EventListener);
+    window.addEventListener(
+      MESA_EXPEDIENTE_OPENED_UPDATED_EVENT,
+      mesaOpsHandler as EventListener,
+    );
     return () => {
       window.removeEventListener("storage", storageHandler);
       window.removeEventListener("mesa_control_inbox_updated", customHandler);
@@ -419,6 +512,10 @@ export default function MesaControlPage() {
         clienteDatosHandler as EventListener,
       );
       window.removeEventListener(MESA_OPS_UPDATED_EVENT, mesaOpsHandler as EventListener);
+      window.removeEventListener(
+        MESA_EXPEDIENTE_OPENED_UPDATED_EVENT,
+        mesaOpsHandler as EventListener,
+      );
     };
   }, [currentUser, dataSupabase, loadCasos]);
 
@@ -894,7 +991,9 @@ export default function MesaControlPage() {
                     <MesaEnMesaHaceBadge
                       fechaEnvioMesa={c.fechaEnvioMesa}
                       createdAt={c.createdAt}
+                      fechaEntradaMesaActual={c.fechaEntradaMesaActual}
                     />
+                    <MesaCorreccionLecturaBadge estado={c.correccionLecturaEstado} />
                     {showAdminOrigenTabs ? (
                       <span className={origenMesaBadgeClass(c.origenMesa ?? null)}>
                         {origenMesaLabel(c.origenMesa ?? null)}

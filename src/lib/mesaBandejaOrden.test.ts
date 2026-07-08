@@ -44,6 +44,26 @@ describe("sortMesaBandejaPorAntiguedad", () => {
     sortMesaBandejaPorAntiguedad(items);
     assert.deepEqual(items, copy);
   });
+
+  it("ordena por fechaEntradaMesaActual cuando existe", () => {
+    const items = [
+      {
+        id: "viejo-primer-envio",
+        fechaEnvioMesa: "2026-06-01T00:00:00.000Z",
+        fechaEntradaMesaActual: "2026-06-01T00:00:00.000Z",
+      },
+      {
+        id: "correccion-reciente",
+        fechaEnvioMesa: "2026-06-01T00:00:00.000Z",
+        fechaEntradaMesaActual: "2026-07-08T00:00:00.000Z",
+      },
+    ];
+    const sorted = sortMesaBandejaPorAntiguedad(items);
+    assert.deepEqual(
+      sorted.map((x) => x.id),
+      ["viejo-primer-envio", "correccion-reciente"],
+    );
+  });
 });
 
 describe("resolveMesaEnvioIso", () => {
@@ -83,6 +103,19 @@ describe("formatEnMesaHaceLabel", () => {
     assert.equal(
       formatEnMesaHaceLabel("2026-06-23T14:00:00.000Z", now),
       "En Mesa hace 2 días",
+    );
+  });
+
+  it("fechaEntradaMesaActual reinicia contador tras corrección", () => {
+    const now = new Date("2026-07-08T18:00:00.000Z");
+    assert.equal(
+      formatEnMesaHaceLabel(
+        "2026-07-01T10:00:00.000Z",
+        now,
+        null,
+        "2026-07-08T12:00:00.000Z",
+      ),
+      "En Mesa hace 6 h",
     );
   });
 

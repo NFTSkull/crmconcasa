@@ -1,16 +1,23 @@
 /** Item mínimo para ordenar bandeja Mesa por antigüedad de envío. */
 export type MesaBandejaOrdenItem = Readonly<{
   fechaEnvioMesa?: string | null;
+  /** Fecha efectiva (última corrección o primer envío); prioriza sobre `fechaEnvioMesa`. */
+  fechaEntradaMesaActual?: string | null;
   createdAt?: string | null;
 }>;
 
 /**
  * Timestamp de entrada a Mesa para ordenar.
- * `fecha_envio_mesa` es la fuente canónica; `createdAt` solo como fallback mock.
+ * `fechaEntradaMesaActual` o `fecha_envio_mesa`; `createdAt` solo como fallback mock.
  * Sin fecha válida → al final de la lista.
  */
 export function getMesaEnvioSortTimestamp(item: MesaBandejaOrdenItem): number {
+  const efectiva =
+    typeof item.fechaEntradaMesaActual === "string"
+      ? item.fechaEntradaMesaActual.trim()
+      : "";
   const raw =
+    efectiva ||
     (typeof item.fechaEnvioMesa === "string" && item.fechaEnvioMesa.trim()) ||
     (typeof item.createdAt === "string" && item.createdAt.trim()) ||
     "";
@@ -49,8 +56,11 @@ export function formatEnMesaHaceLabel(
   fechaEnvioMesa: string | null | undefined,
   now: Date = new Date(),
   createdAt?: string | null,
+  fechaEntradaMesaActual?: string | null,
 ): string | null {
-  const raw = resolveMesaEnvioIso(fechaEnvioMesa, createdAt);
+  const efectiva =
+    typeof fechaEntradaMesaActual === "string" ? fechaEntradaMesaActual.trim() : "";
+  const raw = efectiva || resolveMesaEnvioIso(fechaEnvioMesa, createdAt);
   if (!raw) return null;
 
   const start = new Date(raw);

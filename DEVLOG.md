@@ -1,5 +1,26 @@
 # Devlog
 
+## 2026-07-08 - fix/mesa-correccion-revision-domicilio
+
+### Diagnóstico domicilio
+
+- Migración **050** exigía `p_direccion_opcional`; **053/055** lo relajó (`NULLIF`, sin `RAISE` si vacío).
+- Frontend (validation/completeness) lo trataba como opcional desde 053.
+- `enviar_a_mesa` no valida domicilio en columna expedientes.
+
+### Diagnóstico corrección Mesa
+
+- Orden/badge usaban solo `fecha_envio_mesa` (`mesaBandejaOrden`, `listForMesaControl`).
+- Documentos corregidos: `estatus_revision = resubido` → `correccion_enviada`; `created_at` del documento.
+- Datos generales: `save_cliente_datos_correccion` → `cliente_datos.correccion_post_mesa` en `action_log`; estado pasa a `completo`; no impactaba bandeja.
+- No existe `mesa.expediente.open` ni tabla de lectura; solo `mesa.expediente.take|release`.
+
+### Decisión
+
+- **Solo frontend:** validación domicilio; helpers `mesaCorreccionEntrada`; batch `listEstadoBatchByExpedienteIds`; apertura en localStorage por usuario Mesa.
+- **Sin SQL/RPC** en este bloque. Re-hacer obligatorio en backend requeriría migración mínima (revertir lógica 050 en `save_cliente_datos`).
+- Migración futura opcional: `ultima_correccion_enviada_at` + `mesa_expediente_reads` si se necesita lectura multi-dispositivo sin localStorage.
+
 ## 2026-07-07 - fix/monto-calculado-auto-cobro
 
 ### Diagnóstico

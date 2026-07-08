@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **fix/mesa-correccion-revision-domicilio — domicilio obligatorio y corrección como nueva revisión Mesa:** domicilio real obligatorio en validación frontend (guardar/corrección/enviar); `fechaEntradaMesaActual` desde última corrección (docs `resubido` + datos `completo` actualizado post-envío); badge «En Mesa hace X» y orden usan fecha efectiva; corrección nueva/abierta vía localStorage por usuario Mesa; `deriveResumenExpedienteCorreccion` incluye corrección de Datos Generales; sin migración/RPC (backend domicilio sigue opcional en 053/055 — reportado).
+
 - **fix/monto-calculado-auto-cobro — recálculo automático por porcentaje:** corrige lock manual que bloqueaba recalcular al escribir porcentaje; borrar monto desbloquea auto; fórmula `(monto_aprobado × % / 100) + 3000`; campo sigue editable; payload manual vía `p_monto_calculado_manual` sin cambio SQL.
 
 - **fix/upload-storage-post-mesa — subida documentos asesor rota:** Storage RLS bloqueaba uploads post-Mesa (RPC 057/059 sin policy); migración `060`; PDF con `text/plain` + `.pdf` aceptado; mensajes Storage distinguen RLS/MIME/tamaño (sin falso «15 MB y PDF»).
