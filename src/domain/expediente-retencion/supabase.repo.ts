@@ -186,6 +186,7 @@ export class ExpedienteRetencionSupabaseRepo {
       organizationId: ctx.organizationId,
       expedienteId,
       tipoDocumento: tipo,
+      mimeType: params.file.type,
       originalFileName: params.file.name,
     });
 

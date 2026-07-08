@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **fix/storage-key-ine-filename — Invalid key al subir INE con nombre real:** path Storage usa `{org}/{exp}/{tipo}/{uuid}.{ext}` sin `file.name` crudo; extensión desde MIME; `p_nombre_original` intacto para UI; mensaje claro si `Invalid key`; sin SQL/RPC ni migración de paths existentes.
+
 - **fix/mesa-entrada-lectura-todos — abierto/no abierto para todo ingreso a Mesa:** `deriveMesaCorreccionLecturaEstado` compara `fechaEntradaMesaActual` vs localStorage (primer envío y correcciones); badges «Nuevo en Mesa»/«Abierto» o «Corrección nueva»/«Corrección abierta»; sin SQL/RPC.
 
 - **fix/mesa-correccion-revision-domicilio — domicilio obligatorio y corrección como nueva revisión Mesa:** domicilio real obligatorio en validación frontend (guardar/corrección/enviar); `fechaEntradaMesaActual` desde última corrección (docs `resubido` + datos `completo` actualizado post-envío); badge «En Mesa hace X» y orden usan fecha efectiva; corrección nueva/abierta vía localStorage por usuario Mesa; `deriveResumenExpedienteCorreccion` incluye corrección de Datos Generales; sin migración/RPC (backend domicilio sigue opcional en 053/055 — reportado).

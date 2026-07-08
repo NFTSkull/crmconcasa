@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   buildExpedienteDocumentoStoragePath,
+  inferStorageFileExtension,
   sanitizeExpedienteDocumentoFileName,
+  storageObjectKeyLooksSafe,
 } from "./storage-path";
 import {
   EXPEDIENTE_DOCUMENTO_MAX_BYTES,
@@ -13,7 +15,7 @@ import { ExpedienteArchivosSupabaseError } from "./supabase.error";
 
 describe("sanitizeExpedienteDocumentoFileName", () => {
   it("elimina barras y caracteres peligrosos", () => {
-    assert.equal(sanitizeExpedienteDocumentoFileName("  ../ine/foto.jpg  "), "ine_foto.jpg");
+    assert.equal(sanitizeExpedienteDocumentoFileName("  ../ine/foto.jpg  "), "_ine_foto.jpg");
   });
 
   it("fallback si queda vacío", () => {
@@ -21,18 +23,83 @@ describe("sanitizeExpedienteDocumentoFileName", () => {
   });
 });
 
-describe("buildExpedienteDocumentoStoragePath", () => {
-  it("genera prefijo org/exp/tipo", () => {
-    const path = buildExpedienteDocumentoStoragePath({
-      organizationId: "00000000-0000-4000-8000-000000000001",
-      expedienteId: "00000000-0000-4000-9001-000000000001",
-      tipoDocumento: "ine",
-      originalFileName: "mi ine.pdf",
-    });
-    assert.match(
-      path,
-      /^00000000-0000-4000-8000-000000000001\/00000000-0000-4000-9001-000000000001\/ine\/.+-mi ine\.pdf$/,
+describe("inferStorageFileExtension", () => {
+  it("mapea MIME conocidos", () => {
+    assert.equal(inferStorageFileExtension("image/jpeg"), "jpg");
+    assert.equal(inferStorageFileExtension("image/png"), "png");
+    assert.equal(inferStorageFileExtension("application/pdf"), "pdf");
+    assert.equal(inferStorageFileExtension("image/heic"), "heic");
+  });
+
+  it("usa extensión del nombre si falta MIME", () => {
+    assert.equal(
+      inferStorageFileExtension(null, "JOHNNY - INE (FRENTE A).jpg"),
+      "jpg",
     );
+  });
+});
+
+const ORG = "00000000-0000-4000-8000-000000000001";
+const EXP = "00000000-0000-4000-9001-000000000001";
+
+function buildPath(
+  tipo: string,
+  mimeType: string,
+  originalFileName: string,
+): string {
+  return buildExpedienteDocumentoStoragePath({
+    organizationId: ORG,
+    expedienteId: EXP,
+    tipoDocumento: tipo,
+    mimeType,
+    originalFileName,
+  });
+}
+
+describe("buildExpedienteDocumentoStoragePath", () => {
+  it("INE frente JPG con nombre largo y paréntesis genera key segura", () => {
+    const original =
+      "JOHNNY JAVIER VICENCIO ZUNIGA - INE (FRENTE A).jpg";
+    const path = buildPath("cliente_ine_frente", "image/jpeg", original);
+    assert.match(path, new RegExp(`^${ORG}/${EXP}/cliente_ine_frente/.+\\.jpg$`));
+    assert.doesNotMatch(path, /[ ()áéíóúÁÉÍÓÚñÑ]/);
+    assert.doesNotMatch(path, new RegExp(original.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")));
+    assert.equal(storageObjectKeyLooksSafe(path), true);
+  });
+
+  it("INE reverso JPG con espacios y paréntesis", () => {
+    const path = buildPath(
+      "cliente_ine_reverso",
+      "image/jpeg",
+      "INE (REVERSO) escaneo 2024.jpg",
+    );
+    assert.match(path, /\.jpg$/);
+    assert.doesNotMatch(path, /[ ()]/);
+    assert.equal(storageObjectKeyLooksSafe(path), true);
+  });
+
+  it("PDF con nombre largo y espacios", () => {
+    const path = buildPath(
+      "cliente_estado_cuenta",
+      "application/pdf",
+      "Estado de Cuenta Banco - Marzo 2026 (final).pdf",
+    );
+    assert.match(path, /\.pdf$/);
+    assert.doesNotMatch(path, /[ ()]/);
+  });
+
+  it("PDF con acentos en nombre original no afecta la key", () => {
+    const original = "José Pérez - comprobante (final).pdf";
+    const path = buildPath("cliente_comprobante_domicilio", "application/pdf", original);
+    const fileSegment = path.split("/").pop() ?? "";
+    assert.match(path, /\.pdf$/);
+    assert.doesNotMatch(fileSegment, /[ ()áéíóúñ]/i);
+    assert.doesNotMatch(fileSegment, /José|Pérez|final/i);
+  });
+
+  it("genera prefijo org/exp/tipo sin nombre original en path", () => {
+    const path = buildPath("ine", "application/pdf", "mi ine.pdf");
+    assert.match(path, new RegExp(`^${ORG}/${EXP}/ine/[0-9a-f-]{36}\\.pdf$`, "i"));
   });
 });
 

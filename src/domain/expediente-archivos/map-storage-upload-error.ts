@@ -34,6 +34,12 @@ export function mapSupabaseStorageUploadError(
     );
   }
 
+  if (msg.includes("invalid key")) {
+    return new ExpedienteArchivosSupabaseError(
+      "No se pudo generar una ruta válida para el archivo. Intenta renombrarlo o vuelve a subirlo.",
+    );
+  }
+
   if (
     msg.includes("maximum") ||
     msg.includes("too large") ||

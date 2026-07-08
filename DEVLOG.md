@@ -1,5 +1,18 @@
 # Devlog
 
+## 2026-07-08 - fix/storage-key-ine-filename
+
+### Diagnóstico
+
+- `buildExpedienteDocumentoStoragePath` concatenaba `uuid-{safeFileName}` donde `sanitizeExpedienteDocumentoFileName` **conservaba espacios y paréntesis**.
+- Supabase Storage rechaza keys con esos caracteres → `Invalid key` en INE JPG con nombre de escáner/celular.
+
+### Decisión
+
+- Key: `{org}/{exp}/{tipo}/{uuid}.{ext}`; extensión desde MIME (`inferStorageFileExtension`).
+- `p_nombre_original` sigue siendo `file.name` en RPC (UI sin cambio).
+- Paths ya subidos no se migran.
+
 ## 2026-07-08 - fix/mesa-entrada-lectura-todos
 
 ### Diagnóstico

@@ -27,3 +27,11 @@ test("mapSupabaseStorageUploadError: MIME comprobante solo PDF", () => {
   assert.match(err.message, /PDF/i);
   assert.doesNotMatch(err.message, /imagen/i);
 });
+
+test("mapSupabaseStorageUploadError: Invalid key mensaje claro", () => {
+  const err = mapSupabaseStorageUploadError(
+    'Invalid key: org/exp/cliente_ine_frente/uuid-JOHNNY (FRENTE).jpg',
+    "cliente_ine_frente",
+  );
+  assert.match(err.message, /ruta válida/i);
+});

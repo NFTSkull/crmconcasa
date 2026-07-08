@@ -227,19 +227,20 @@ export class SupabaseExpedienteArchivosRepo implements ExpedienteArchivosRepo {
       }
     }
 
-    const storagePath = buildExpedienteDocumentoStoragePath({
-      organizationId: ctx.organizationId,
-      expedienteId,
-      tipoDocumento: tipo,
-      originalFileName: params.file.name,
-    });
-
     const uploadMime = resolveExpedienteDocumentoUploadMime(params.file, tipo);
     if (!uploadMime) {
       throw new ExpedienteArchivosSupabaseError(
         "No se pudo determinar el formato del archivo. Usa PDF o imagen según el tipo de documento.",
       );
     }
+
+    const storagePath = buildExpedienteDocumentoStoragePath({
+      organizationId: ctx.organizationId,
+      expedienteId,
+      tipoDocumento: tipo,
+      mimeType: uploadMime,
+      originalFileName: params.file.name,
+    });
 
     const { error: uploadError } = await client.storage
       .from(EXPEDIENTE_DOCUMENTOS_BUCKET)
@@ -302,19 +303,20 @@ export class SupabaseExpedienteArchivosRepo implements ExpedienteArchivosRepo {
     const { client } = await requireSupabaseSession();
     const ctx = await fetchExpedienteMesaUploadContext(client, expedienteId);
 
-    const storagePath = buildExpedienteDocumentoStoragePath({
-      organizationId: ctx.organizationId,
-      expedienteId,
-      tipoDocumento: tipo,
-      originalFileName: params.file.name,
-    });
-
     const uploadMime = resolveExpedienteDocumentoUploadMime(params.file, tipo);
     if (!uploadMime) {
       throw new ExpedienteArchivosSupabaseError(
         "No se pudo determinar el formato del archivo. Usa PDF o imagen según el tipo de documento.",
       );
     }
+
+    const storagePath = buildExpedienteDocumentoStoragePath({
+      organizationId: ctx.organizationId,
+      expedienteId,
+      tipoDocumento: tipo,
+      mimeType: uploadMime,
+      originalFileName: params.file.name,
+    });
 
     const { error: uploadError } = await client.storage
       .from(EXPEDIENTE_DOCUMENTOS_BUCKET)
@@ -377,19 +379,20 @@ export class SupabaseExpedienteArchivosRepo implements ExpedienteArchivosRepo {
     const { client } = await requireSupabaseSession();
     const ctx = await fetchExpedienteMesaUploadContext(client, expedienteId);
 
-    const storagePath = buildExpedienteDocumentoStoragePath({
-      organizationId: ctx.organizationId,
-      expedienteId,
-      tipoDocumento: tipo,
-      originalFileName: params.file.name,
-    });
-
     const uploadMime = resolveExpedienteDocumentoUploadMime(params.file, tipo);
     if (!uploadMime) {
       throw new ExpedienteArchivosSupabaseError(
         "No se pudo determinar el formato del archivo. Usa PDF o imagen según el tipo de documento.",
       );
     }
+
+    const storagePath = buildExpedienteDocumentoStoragePath({
+      organizationId: ctx.organizationId,
+      expedienteId,
+      tipoDocumento: tipo,
+      mimeType: uploadMime,
+      originalFileName: params.file.name,
+    });
 
     const { error: uploadError } = await client.storage
       .from(EXPEDIENTE_DOCUMENTOS_BUCKET)
