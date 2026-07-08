@@ -1,5 +1,18 @@
 # Devlog
 
+## 2026-07-08 - fix/mesa-entrada-lectura-todos
+
+### Diagnóstico
+
+- `deriveMesaCorreccionLecturaEstado` retornaba `no_aplica` salvo `resumenDocumental === correccion_enviada`.
+- Primer envío a Mesa no mostraba badge ni color no abierto.
+
+### Decisión
+
+- Comparar siempre `fechaEntradaMesaActual` vs `mesaExpedienteOpenedStorage`.
+- `mesaEntradaEsPorCorreccion` elige copy corrección vs primer envío.
+- `rowSurfaceClass` usa estado lectura, no solo categoría documental.
+
 ## 2026-07-08 - fix/mesa-correccion-revision-domicilio
 
 ### Diagnóstico domicilio

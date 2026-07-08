@@ -6,6 +6,8 @@ import {
   deriveMesaCorreccionLecturaEstado,
   deriveUltimaCorreccionDocumentoAt,
   deriveUltimaCorreccionEnviadaAt,
+  mesaCorreccionLecturaLabel,
+  mesaEntradaEsPorCorreccion,
   resolveFechaEntradaMesaActual,
 } from "./mesaCorreccionEntrada";
 
@@ -90,37 +92,49 @@ describe("mesaCorreccionEntrada", () => {
     assert.equal(at, "2026-07-08T15:00:00.000Z");
   });
 
-  it("deriveMesaCorreccionLecturaEstado: nueva si no abierta después de corrección", () => {
+  it("primer envío a Mesa sin apertura → no abierto", () => {
+    const fechaEntrada = resolveFechaEntradaMesaActual("2026-07-01T10:00:00.000Z", null);
     assert.equal(
-      deriveMesaCorreccionLecturaEstado(
-        "correccion_enviada",
-        "2026-07-08T12:00:00.000Z",
-        "2026-07-07T10:00:00.000Z",
-      ),
+      deriveMesaCorreccionLecturaEstado(fechaEntrada, null),
       "nueva",
     );
-    assert.equal(
-      deriveMesaCorreccionLecturaEstado(
-        "correccion_enviada",
-        "2026-07-08T12:00:00.000Z",
-        "2026-07-08T13:00:00.000Z",
-      ),
-      "abierta",
-    );
-    assert.equal(
-      deriveMesaCorreccionLecturaEstado("documentos_validados", "2026-07-08T12:00:00.000Z", null),
-      "no_aplica",
-    );
+    assert.equal(mesaCorreccionLecturaLabel("nueva", false), "Nuevo en Mesa");
+    assert.equal(mesaEntradaEsPorCorreccion(fechaEntrada, null), false);
   });
 
-  it("segunda corrección vuelve a marcar nueva si apertura es anterior", () => {
+  it("primer envío a Mesa con apertura posterior → abierto", () => {
+    const fechaEntrada = "2026-07-01T10:00:00.000Z";
     assert.equal(
-      deriveMesaCorreccionLecturaEstado(
-        "correccion_enviada",
-        "2026-07-10T09:00:00.000Z",
-        "2026-07-08T13:00:00.000Z",
-      ),
+      deriveMesaCorreccionLecturaEstado(fechaEntrada, "2026-07-01T11:00:00.000Z"),
+      "abierta",
+    );
+    assert.equal(mesaCorreccionLecturaLabel("abierta", false), "Abierto");
+  });
+
+  it("corrección posterior a apertura → vuelve a no abierto", () => {
+    const ultimaCorreccion = "2026-07-10T09:00:00.000Z";
+    const fechaEntrada = resolveFechaEntradaMesaActual(
+      "2026-07-01T10:00:00.000Z",
+      ultimaCorreccion,
+    );
+    assert.equal(
+      deriveMesaCorreccionLecturaEstado(fechaEntrada, "2026-07-08T13:00:00.000Z"),
       "nueva",
     );
+    assert.equal(mesaEntradaEsPorCorreccion(fechaEntrada, ultimaCorreccion), true);
+    assert.equal(mesaCorreccionLecturaLabel("nueva", true), "Corrección nueva");
+  });
+
+  it("apertura posterior a corrección → abierto", () => {
+    const fechaEntrada = "2026-07-08T12:00:00.000Z";
+    assert.equal(
+      deriveMesaCorreccionLecturaEstado(fechaEntrada, "2026-07-08T13:00:00.000Z"),
+      "abierta",
+    );
+    assert.equal(mesaCorreccionLecturaLabel("abierta", true), "Corrección abierta");
+  });
+
+  it("sin fechaEntradaMesaActual → no_aplica", () => {
+    assert.equal(deriveMesaCorreccionLecturaEstado(null, null), "no_aplica");
   });
 });

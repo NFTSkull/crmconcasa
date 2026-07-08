@@ -55,6 +55,7 @@ import {
   deriveUltimaCorreccionEnviadaAt,
   mesaCorreccionLecturaBadgeClass,
   mesaCorreccionLecturaLabel,
+  mesaEntradaEsPorCorreccion,
   resolveFechaEntradaMesaActual,
   type MesaCorreccionLecturaEstado,
 } from "@/lib/mesaCorreccionEntrada";
@@ -83,6 +84,7 @@ type CasoConDocs = CasoMock & {
   clienteDatosEstado?: ExpedienteClienteDatosEstado | null;
   fechaEntradaMesaActual?: string | null;
   ultimaCorreccionEnviadaAt?: string | null;
+  entradaLecturaEsCorreccion?: boolean;
   correccionLecturaEstado?: MesaCorreccionLecturaEstado;
   mesaOps?: MesaExpedienteOpsRow | null;
 };
@@ -218,10 +220,10 @@ function rowSurfaceClass(c: CasoConDocs): string {
   if (c.subestado === "rechazado") {
     return "border-l-[3px] border-l-red-400 bg-red-50/50 hover:bg-red-50/80";
   }
-  if (c.resumenDocumental === "correccion_enviada") {
-    if (c.correccionLecturaEstado === "nueva") {
-      return "border-l-[3px] border-l-sky-600 bg-sky-50/55 hover:bg-sky-50/80 ring-1 ring-sky-200/60";
-    }
+  if (c.correccionLecturaEstado === "nueva") {
+    return "border-l-[3px] border-l-sky-600 bg-sky-50/55 hover:bg-sky-50/80 ring-1 ring-sky-200/60";
+  }
+  if (c.correccionLecturaEstado === "abierta") {
     return "border-l-[3px] border-l-slate-400 bg-slate-50/50 hover:bg-slate-50/75";
   }
   if (c.resumenDocumental === "correccion_requerida") {
@@ -232,19 +234,24 @@ function rowSurfaceClass(c: CasoConDocs): string {
 
 function MesaCorreccionLecturaBadge({
   estado,
+  esCorreccion = false,
 }: {
   estado?: MesaCorreccionLecturaEstado;
+  esCorreccion?: boolean;
 }) {
   if (!estado || estado === "no_aplica") return null;
-  const label = mesaCorreccionLecturaLabel(estado);
+  const label = mesaCorreccionLecturaLabel(estado, esCorreccion);
   if (!label) return null;
+  const testId =
+    estado === "nueva"
+      ? esCorreccion
+        ? "mesa-correccion-nueva"
+        : "mesa-nuevo-en-mesa"
+      : esCorreccion
+        ? "mesa-correccion-abierta"
+        : "mesa-entrada-abierta";
   return (
-    <span
-      className={mesaCorreccionLecturaBadgeClass(estado)}
-      data-testid={
-        estado === "nueva" ? "mesa-correccion-nueva" : "mesa-correccion-abierta"
-      }
-    >
+    <span className={mesaCorreccionLecturaBadgeClass(estado)} data-testid={testId}>
       {label}
     </span>
   );
@@ -389,9 +396,12 @@ export default function MesaControlPage() {
               c.createdAt ?? null,
             );
             const correccionLecturaEstado = deriveMesaCorreccionLecturaEstado(
-              resumenDocumental,
-              ultimaCorreccionEnviadaAt,
+              fechaEntradaMesaActual,
               getMesaExpedienteLastOpenedAt(c.id, mesaUserId),
+            );
+            const entradaLecturaEsCorreccion = mesaEntradaEsPorCorreccion(
+              fechaEntradaMesaActual,
+              ultimaCorreccionEnviadaAt,
             );
             return {
               ...c,
@@ -399,6 +409,7 @@ export default function MesaControlPage() {
               clienteDatosEstado: clienteBatch?.estado ?? null,
               fechaEntradaMesaActual,
               ultimaCorreccionEnviadaAt,
+              entradaLecturaEsCorreccion,
               correccionLecturaEstado,
             };
           });
@@ -993,7 +1004,10 @@ export default function MesaControlPage() {
                       createdAt={c.createdAt}
                       fechaEntradaMesaActual={c.fechaEntradaMesaActual}
                     />
-                    <MesaCorreccionLecturaBadge estado={c.correccionLecturaEstado} />
+                    <MesaCorreccionLecturaBadge
+                      estado={c.correccionLecturaEstado}
+                      esCorreccion={c.entradaLecturaEsCorreccion}
+                    />
                     {showAdminOrigenTabs ? (
                       <span className={origenMesaBadgeClass(c.origenMesa ?? null)}>
                         {origenMesaLabel(c.origenMesa ?? null)}

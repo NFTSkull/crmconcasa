@@ -1,8 +1,5 @@
 import type { ExpedienteClienteDatosEstado } from "@/domain/expediente-cliente-datos/types";
-import type {
-  CategoriaResumenDocumental,
-  ExpedienteArchivoResumen,
-} from "@/domain/expediente-archivos/types";
+import type { ExpedienteArchivoResumen } from "@/domain/expediente-archivos/types";
 
 export type MesaCorreccionLecturaEstado = "no_aplica" | "nueva" | "abierta";
 
@@ -109,34 +106,60 @@ export function resolveFechaEntradaMesaActual(
   return created || null;
 }
 
-export function deriveMesaCorreccionLecturaEstado(
-  resumenDocumental: CategoriaResumenDocumental | null | undefined,
+export function mesaEntradaEsPorCorreccion(
+  fechaEntradaMesaActual: string | null | undefined,
   ultimaCorreccionEnviadaAt: string | null | undefined,
-  lastOpenedAt: string | null | undefined,
-): MesaCorreccionLecturaEstado {
-  if (resumenDocumental !== "correccion_enviada") return "no_aplica";
-
+): boolean {
   const correccion =
     typeof ultimaCorreccionEnviadaAt === "string"
       ? ultimaCorreccionEnviadaAt.trim()
       : "";
-  if (!correccion) return "nueva";
+  if (!correccion) return false;
 
-  const opened =
-    typeof lastOpenedAt === "string" ? lastOpenedAt.trim() : "";
-  if (!opened) return "nueva";
+  const entrada =
+    typeof fechaEntradaMesaActual === "string" ? fechaEntradaMesaActual.trim() : "";
+  if (!entrada) return false;
 
   const correccionMs = new Date(correccion).getTime();
-  const openedMs = new Date(opened).getTime();
-  if (Number.isNaN(correccionMs)) return "nueva";
-  if (Number.isNaN(openedMs)) return "nueva";
+  const entradaMs = new Date(entrada).getTime();
+  if (Number.isNaN(correccionMs) || Number.isNaN(entradaMs)) return false;
 
-  return openedMs >= correccionMs ? "abierta" : "nueva";
+  return entradaMs === correccionMs;
 }
 
-export function mesaCorreccionLecturaLabel(estado: MesaCorreccionLecturaEstado): string | null {
-  if (estado === "nueva") return "Corrección nueva";
-  if (estado === "abierta") return "Corrección abierta";
+/**
+ * Abierto / no abierto para cualquier entrada a revisión en Mesa.
+ * Compara `fechaEntradaMesaActual` vs última apertura en localStorage.
+ */
+export function deriveMesaCorreccionLecturaEstado(
+  fechaEntradaMesaActual: string | null | undefined,
+  lastOpenedAt: string | null | undefined,
+): MesaCorreccionLecturaEstado {
+  const entrada =
+    typeof fechaEntradaMesaActual === "string" ? fechaEntradaMesaActual.trim() : "";
+  if (!entrada) return "no_aplica";
+
+  const opened = typeof lastOpenedAt === "string" ? lastOpenedAt.trim() : "";
+  if (!opened) return "nueva";
+
+  const entradaMs = new Date(entrada).getTime();
+  const openedMs = new Date(opened).getTime();
+  if (Number.isNaN(entradaMs)) return "nueva";
+  if (Number.isNaN(openedMs)) return "nueva";
+
+  return openedMs >= entradaMs ? "abierta" : "nueva";
+}
+
+export function mesaCorreccionLecturaLabel(
+  estado: MesaCorreccionLecturaEstado,
+  esCorreccion = false,
+): string | null {
+  if (estado === "nueva") {
+    return esCorreccion ? "Corrección nueva" : "Nuevo en Mesa";
+  }
+  if (estado === "abierta") {
+    return esCorreccion ? "Corrección abierta" : "Abierto";
+  }
   return null;
 }
 
