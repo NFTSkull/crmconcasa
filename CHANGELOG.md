@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **feat/asesor-dashboard-tareas-pendientes — filtros rápidos de tareas asesor:** chips `Agendar biométricos (N)`, `Agendar firma (N)` y `Subir acuse (N)` con contador global (lista completa, pre-paginación); clasificación UI reutilizando gates de agenda/retención; hints de booking/retención vía lectura frontend (sin SQL/RPC); estilos índigo/morado/ámbar; empty states dedicados; sin cambio Mesa/cobro/NSS/monto.
+
 - **fix/storage-key-ine-filename — Invalid key al subir INE con nombre real:** path Storage usa `{org}/{exp}/{tipo}/{uuid}.{ext}` sin `file.name` crudo; extensión desde MIME; `p_nombre_original` intacto para UI; mensaje claro si `Invalid key`; sin SQL/RPC ni migración de paths existentes.
 
 - **fix/mesa-entrada-lectura-todos — abierto/no abierto para todo ingreso a Mesa:** `deriveMesaCorreccionLecturaEstado` compara `fechaEntradaMesaActual` vs localStorage (primer envío y correcciones); badges «Nuevo en Mesa»/«Abierto» o «Corrección nueva»/«Corrección abierta»; sin SQL/RPC.

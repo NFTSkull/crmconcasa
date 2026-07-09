@@ -36,6 +36,28 @@ import {
 import { formatMontoMX } from "@/lib/monto";
 import { NotificationsBell } from "@/components/notifications/NotificationsBell";
 import { buildDashboardNotifications } from "@/lib/dashboardNotifications";
+import {
+  useAgendaBiometricosBookingRepo,
+} from "@/domain/agenda-biometricos";
+import type { AgendaBiometricosBookingRepo } from "@/domain/agenda-biometricos/repo";
+import {
+  useAgendaFirmasBookingRepo,
+} from "@/domain/agenda-firmas";
+import type { AgendaFirmasBookingRepo } from "@/domain/agenda-firmas/repo";
+import {
+  useExpedienteRetencionSupabaseRepo,
+} from "@/domain/expediente-retencion";
+import {
+  ASESOR_TAREAS_ETAPA_RETENCION,
+  ASESOR_TAREAS_ETAPAS_AGENDA,
+  buildAsesorTareaExpedienteInput,
+  countAsesorTareasPendientes,
+  isAsesorPendienteAgendarBiometricos,
+  isAsesorPendienteAgendarFirma,
+  isAsesorPendienteSubirAcuse,
+  type AsesorAgendaBookingHints,
+  type AsesorRetencionHints,
+} from "@/lib/asesorTareasPendientes";
 
 const CORRECCION_REQUERIDA_BADGE_CLASS =
   "inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900 ring-1 ring-amber-300";
@@ -257,14 +279,30 @@ type QuickFilterAsesor =
   | "en_tramite"
   | "correccion_requerida"
   | "correccion_enviada"
-  | "rechazados_mesa";
+  | "rechazados_mesa"
+  | "agendar_biometricos"
+  | "agendar_firma"
+  | "subir_acuse";
+
+type QuickFilterChipTone = "default" | "warn" | "indigo" | "violet" | "amber";
 
 type QuickFilterChipConfig = {
   id: QuickFilterAsesor;
   label: string;
   count?: number;
   warnIfPositive?: boolean;
+  tone?: QuickFilterChipTone;
 };
+
+type AsesorTareasHintsPorId = Record<
+  string,
+  | {
+      agendaBiometricos?: AsesorAgendaBookingHints;
+      agendaFirmas?: AsesorAgendaBookingHints;
+      retencion?: AsesorRetencionHints;
+    }
+  | undefined
+>;
 
 function quickFilterChipClassName(
   chip: QuickFilterChipConfig,
@@ -272,23 +310,141 @@ function quickFilterChipClassName(
 ): string {
   const base =
     "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-xs font-medium transition-colors";
-  const warn = chip.warnIfPositive === true && (chip.count ?? 0) > 0;
+  const count = chip.count ?? 0;
+  const warn = chip.warnIfPositive === true && count > 0;
+  const tone = chip.tone ?? "default";
+
   if (isSelected) {
-    if (warn) {
+    if (warn || tone === "warn") {
       return `${base} border-amber-700 bg-amber-600 text-white shadow-sm`;
+    }
+    if (tone === "indigo") {
+      return `${base} border-indigo-700 bg-indigo-600 text-white shadow-sm`;
+    }
+    if (tone === "violet") {
+      return `${base} border-violet-700 bg-violet-600 text-white shadow-sm`;
+    }
+    if (tone === "amber") {
+      return `${base} border-orange-700 bg-orange-600 text-white shadow-sm`;
     }
     return `${base} border-blue-600 bg-blue-600 text-white`;
   }
+
   if (warn) {
     return `${base} border-amber-400 bg-amber-50 text-amber-950 hover:bg-amber-100 ring-1 ring-inset ring-amber-200`;
   }
+  if (tone === "indigo" && count > 0) {
+    return `${base} border-indigo-400 bg-indigo-50 text-indigo-950 hover:bg-indigo-100 ring-1 ring-inset ring-indigo-200`;
+  }
+  if (tone === "violet" && count > 0) {
+    return `${base} border-violet-400 bg-violet-50 text-violet-950 hover:bg-violet-100 ring-1 ring-inset ring-violet-200`;
+  }
+  if (tone === "amber" && count > 0) {
+    return `${base} border-orange-400 bg-orange-50 text-orange-950 hover:bg-orange-100 ring-1 ring-inset ring-orange-200`;
+  }
   return `${base} border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100`;
+}
+
+function quickFilterChipDotClass(chip: QuickFilterChipConfig): string | null {
+  const count = chip.count ?? 0;
+  if (count <= 0) return null;
+  const tone = chip.tone ?? "default";
+  if (chip.warnIfPositive) return "bg-amber-600";
+  if (tone === "indigo") return "bg-indigo-600";
+  if (tone === "violet") return "bg-violet-600";
+  if (tone === "amber") return "bg-orange-600";
+  return null;
+}
+
+function quickFilterChipCountBadgeClass(
+  chip: QuickFilterChipConfig,
+  isSelected: boolean,
+): string {
+  const tone = chip.tone ?? "default";
+  if (chip.warnIfPositive || tone === "warn") {
+    return isSelected ? "bg-amber-800/40 text-white" : "bg-amber-200 text-amber-950";
+  }
+  if (tone === "indigo") {
+    return isSelected ? "bg-indigo-800/40 text-white" : "bg-indigo-200 text-indigo-950";
+  }
+  if (tone === "violet") {
+    return isSelected ? "bg-violet-800/40 text-white" : "bg-violet-200 text-violet-950";
+  }
+  if (tone === "amber") {
+    return isSelected ? "bg-orange-800/40 text-white" : "bg-orange-200 text-orange-950";
+  }
+  return isSelected ? "bg-blue-500/30 text-white" : "bg-gray-200 text-gray-800";
+}
+
+function quickFilterEmptyMessage(filter: QuickFilterAsesor): string | null {
+  switch (filter) {
+    case "agendar_biometricos":
+      return "No tienes expedientes pendientes por agendar biométricos.";
+    case "agendar_firma":
+      return "No tienes expedientes pendientes por agendar firma.";
+    case "subir_acuse":
+      return "No tienes expedientes pendientes por subir acuse.";
+    default:
+      return null;
+  }
+}
+
+async function fetchAgendaBookingHints(
+  expedienteId: string,
+  biometricosRepo: AgendaBiometricosBookingRepo | null,
+  firmasRepo: AgendaFirmasBookingRepo | null,
+): Promise<{
+  agendaBiometricos?: AsesorAgendaBookingHints;
+  agendaFirmas?: AsesorAgendaBookingHints;
+}> {
+  const [bioActive, bioCancelled, firmaActive, firmaCancelled] = await Promise.all([
+    biometricosRepo?.getActiveBooking(expedienteId) ?? Promise.resolve(null),
+    biometricosRepo?.getLastCancelledBooking(expedienteId) ?? Promise.resolve(null),
+    firmasRepo?.getActiveBooking(expedienteId) ?? Promise.resolve(null),
+    firmasRepo?.getLastCancelledBooking(expedienteId) ?? Promise.resolve(null),
+  ]);
+
+  return {
+    agendaBiometricos: {
+      hasActiveBooking: bioActive != null,
+      hasLastCancelledBooking: bioCancelled != null,
+    },
+    agendaFirmas: {
+      hasActiveBooking: firmaActive != null,
+      hasLastCancelledBooking: firmaCancelled != null,
+    },
+  };
+}
+
+async function fetchRetencionHints(
+  expedienteId: string,
+  retencionRepo: ReturnType<typeof useExpedienteRetencionSupabaseRepo>,
+): Promise<AsesorRetencionHints> {
+  if (!retencionRepo) {
+    return { opcion: null, envio: null };
+  }
+  const [opcionRow, envioRow] = await Promise.all([
+    retencionRepo.getOpcionByExpedienteId(expedienteId),
+    retencionRepo.getEnvioByExpedienteId(expedienteId),
+  ]);
+  return {
+    opcion: opcionRow?.retencion_opcion ?? null,
+    envio: envioRow,
+  };
 }
 
 function quickFilterChipLabel(chip: QuickFilterChipConfig): string {
   if (chip.count === undefined) return chip.label;
   if (chip.warnIfPositive === true && chip.count > 0) return chip.label;
   return `${chip.label} (${chip.count})`;
+}
+
+function quickFilterChipEmphasize(chip: QuickFilterChipConfig): boolean {
+  const count = chip.count ?? 0;
+  if (count <= 0) return false;
+  if (chip.warnIfPositive === true) return true;
+  const tone = chip.tone ?? "default";
+  return tone === "indigo" || tone === "violet" || tone === "amber";
 }
 
 const PAGE_SIZE = 50;
@@ -303,6 +459,9 @@ export default function AsesorDashboardPage() {
   const dataSupabase = isDataModeSupabase();
   const archivosRepo = useExpedienteArchivosRepo();
   const clienteDatosRepo = useExpedienteClienteDatosRepo();
+  const biometricosBookingRepo = useAgendaBiometricosBookingRepo();
+  const firmasBookingRepo = useAgendaFirmasBookingRepo();
+  const retencionRepo = useExpedienteRetencionSupabaseRepo();
   const [mockPrecalList, setMockPrecalList] = useState<
     PrecalificacionMockLocal[]
   >([]);
@@ -315,6 +474,7 @@ export default function AsesorDashboardPage() {
   const [clienteDatosEstadoPorId, setClienteDatosEstadoPorId] = useState<
     Record<string, ExpedienteClienteDatosEstado | undefined>
   >({});
+  const [tareasHintsPorId, setTareasHintsPorId] = useState<AsesorTareasHintsPorId>({});
   const expedienteIdsRef = useRef<string[]>([]);
 
   const resumenDocumentalPorId = useMemo(() => {
@@ -327,6 +487,32 @@ export default function AsesorDashboardPage() {
     }
     return out;
   }, [mockPrecalList, resumenArchivosPorId, clienteDatosEstadoPorId]);
+
+  const tareaInputs = useMemo(() => {
+    return mockPrecalList.map((p) =>
+      buildAsesorTareaExpedienteInput({
+        expedienteId: p.id,
+        submittedToMesa: p.submittedToMesa,
+        etapaActual: p.etapaActual,
+        fechaCita: p.fechaCita,
+        archivos: resumenArchivosPorId[p.id] ?? [],
+        agendaBiometricos: tareasHintsPorId[p.id]?.agendaBiometricos ?? null,
+        agendaFirmas: tareasHintsPorId[p.id]?.agendaFirmas ?? null,
+        retencion: tareasHintsPorId[p.id]?.retencion ?? null,
+        dataModeSupabase: dataSupabase,
+      }),
+    );
+  }, [mockPrecalList, resumenArchivosPorId, tareasHintsPorId, dataSupabase]);
+
+  const tareaInputPorId = useMemo(() => {
+    const out: Record<string, (typeof tareaInputs)[number]> = {};
+    for (let i = 0; i < mockPrecalList.length; i += 1) {
+      const row = mockPrecalList[i];
+      const input = tareaInputs[i];
+      if (row && input) out[row.id] = input;
+    }
+    return out;
+  }, [mockPrecalList, tareaInputs]);
 
   const mapExpedienteToLegacy = useCallback((e: ExpedienteMock): PrecalificacionMockLocal => {
     return {
@@ -393,6 +579,94 @@ export default function AsesorDashboardPage() {
     [clienteDatosRepo],
   );
 
+  const fetchTareasHintsPorIds = useCallback(
+    async (rows: readonly PrecalificacionMockLocal[]) => {
+      if (typeof window === "undefined" || rows.length === 0) {
+        setTareasHintsPorId({});
+        return;
+      }
+
+      const agendaCandidates = rows.filter(
+        (p) =>
+          p.submittedToMesa &&
+          ASESOR_TAREAS_ETAPAS_AGENDA.includes(
+            (p.etapaActual ?? 0) as (typeof ASESOR_TAREAS_ETAPAS_AGENDA)[number],
+          ),
+      );
+      const retencionCandidates = rows.filter(
+        (p) => p.submittedToMesa && p.etapaActual === ASESOR_TAREAS_ETAPA_RETENCION,
+      );
+
+      const agendaHintsById = new Map<
+        string,
+        { agendaBiometricos: AsesorAgendaBookingHints; agendaFirmas: AsesorAgendaBookingHints }
+      >();
+      if ((biometricosBookingRepo || firmasBookingRepo) && agendaCandidates.length > 0) {
+        const agendaEntries = await Promise.all(
+          agendaCandidates.map(async (p) => {
+            try {
+              const agenda = await fetchAgendaBookingHints(
+                p.id,
+                biometricosBookingRepo,
+                firmasBookingRepo,
+              );
+              return [
+                p.id,
+                {
+                  agendaBiometricos: agenda.agendaBiometricos ?? {
+                    hasActiveBooking: false,
+                    hasLastCancelledBooking: false,
+                  },
+                  agendaFirmas: agenda.agendaFirmas ?? {
+                    hasActiveBooking: false,
+                    hasLastCancelledBooking: false,
+                  },
+                },
+              ] as const;
+            } catch {
+              return null;
+            }
+          }),
+        );
+        for (const entry of agendaEntries) {
+          if (entry) agendaHintsById.set(entry[0], entry[1]);
+        }
+      }
+
+      const retencionHintsById = new Map<string, AsesorRetencionHints>();
+      if (retencionRepo && retencionCandidates.length > 0) {
+        const retencionEntries = await Promise.all(
+          retencionCandidates.map(async (p) => {
+            try {
+              const hints = await fetchRetencionHints(p.id, retencionRepo);
+              return [p.id, hints] as const;
+            } catch {
+              return [p.id, { opcion: null, envio: null }] as const;
+            }
+          }),
+        );
+        for (const [id, hints] of retencionEntries) {
+          retencionHintsById.set(id, hints);
+        }
+      }
+
+      setTareasHintsPorId(() => {
+        const next: AsesorTareasHintsPorId = {};
+        for (const p of rows) {
+          const agenda = agendaHintsById.get(p.id);
+          const retencion = retencionHintsById.get(p.id);
+          if (!agenda && !retencion) continue;
+          next[p.id] = {
+            ...(agenda ?? {}),
+            ...(retencion ? { retencion } : {}),
+          };
+        }
+        return next;
+      });
+    },
+    [biometricosBookingRepo, firmasBookingRepo, retencionRepo],
+  );
+
   const reloadPrecalificaciones = useCallback(() => {
     if (!currentUser) return;
     void repo
@@ -406,6 +680,7 @@ export default function AsesorDashboardPage() {
         const ids = mapped.map((p) => p.id);
         void fetchResumenArchivosPorIds(ids);
         void fetchClienteDatosEstadoPorIds(ids);
+        void fetchTareasHintsPorIds(mapped);
       })
       .catch((err) => {
         setMockPrecalList([]);
@@ -423,6 +698,7 @@ export default function AsesorDashboardPage() {
     mapExpedienteToLegacy,
     fetchResumenArchivosPorIds,
     fetchClienteDatosEstadoPorIds,
+    fetchTareasHintsPorIds,
   ]);
 
   const programasUnicos = useMemo(() => {
@@ -495,10 +771,25 @@ export default function AsesorDashboardPage() {
       );
     } else if (quickFilter === "rechazados_mesa") {
       list = list.filter((p) => p.resultadoReal === "rechazado_mesa");
+    } else if (quickFilter === "agendar_biometricos") {
+      list = list.filter((p) => {
+        const input = tareaInputPorId[p.id];
+        return input ? isAsesorPendienteAgendarBiometricos(input) : false;
+      });
+    } else if (quickFilter === "agendar_firma") {
+      list = list.filter((p) => {
+        const input = tareaInputPorId[p.id];
+        return input ? isAsesorPendienteAgendarFirma(input) : false;
+      });
+    } else if (quickFilter === "subir_acuse") {
+      list = list.filter((p) => {
+        const input = tareaInputPorId[p.id];
+        return input ? isAsesorPendienteSubirAcuse(input) : false;
+      });
     }
 
     return list;
-  }, [mockPrecalList, filters, quickFilter, resumenDocumentalPorId]);
+  }, [mockPrecalList, filters, quickFilter, resumenDocumentalPorId, tareaInputPorId]);
 
   const filteredTotalCount = expedientesFiltrados.length;
   const totalPages = Math.max(1, Math.ceil(filteredTotalCount / PAGE_SIZE));
@@ -535,6 +826,7 @@ export default function AsesorDashboardPage() {
       if (doc === "correccion_requerida") correccionRequerida += 1;
       if (doc === "correccion_enviada") correccionEnviada += 1;
     }
+    const tareas = countAsesorTareasPendientes(tareaInputs);
     return {
       total,
       aprobadosEditor,
@@ -543,8 +835,11 @@ export default function AsesorDashboardPage() {
       rechazadosMesa,
       correccionRequerida,
       correccionEnviada,
+      agendarBiometricos: tareas.agendarBiometricos,
+      agendarFirma: tareas.agendarFirma,
+      subirAcuse: tareas.subirAcuse,
     };
-  }, [mockPrecalList, resumenDocumentalPorId, totalCount]);
+  }, [mockPrecalList, resumenDocumentalPorId, totalCount, tareaInputs]);
 
   const dashboardNotifications = useMemo(() => {
     return buildDashboardNotifications(
@@ -613,6 +908,24 @@ export default function AsesorDashboardPage() {
         id: "rechazados_mesa",
         label: "Rechazados por mesa",
         count: kpis.rechazadosMesa,
+      },
+      {
+        id: "agendar_biometricos",
+        label: "Agendar biométricos",
+        count: kpis.agendarBiometricos,
+        tone: "indigo",
+      },
+      {
+        id: "agendar_firma",
+        label: "Agendar firma",
+        count: kpis.agendarFirma,
+        tone: "violet",
+      },
+      {
+        id: "subir_acuse",
+        label: "Subir acuse",
+        count: kpis.subirAcuse,
+        tone: "amber",
       },
     ];
   }, [kpis]);
@@ -818,8 +1131,8 @@ export default function AsesorDashboardPage() {
             >
               {quickFilterChips.map((chip) => {
                 const isSelected = quickFilter === chip.id;
-                const showWarning =
-                  chip.warnIfPositive === true && (chip.count ?? 0) > 0;
+                const emphasize = quickFilterChipEmphasize(chip);
+                const dotClass = quickFilterChipDotClass(chip);
                 const displayLabel = quickFilterChipLabel(chip);
                 return (
                   <button
@@ -835,20 +1148,16 @@ export default function AsesorDashboardPage() {
                     onClick={() => handleQuickFilterChange(chip.id)}
                     className={quickFilterChipClassName(chip, isSelected)}
                   >
-                    {showWarning && !isSelected ? (
+                    {emphasize && !isSelected && dotClass ? (
                       <span
-                        className="h-1.5 w-1.5 shrink-0 rounded-full bg-amber-600"
+                        className={`h-1.5 w-1.5 shrink-0 rounded-full ${dotClass}`}
                         aria-hidden
                       />
                     ) : null}
                     <span>{displayLabel}</span>
-                    {showWarning ? (
+                    {emphasize && chip.warnIfPositive ? (
                       <span
-                        className={`inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1 tabular-nums text-[10px] font-bold leading-none ${
-                          isSelected
-                            ? "bg-amber-800/40 text-white"
-                            : "bg-amber-200 text-amber-950 ring-1 ring-amber-300"
-                        }`}
+                        className={`inline-flex min-w-[1.25rem] items-center justify-center rounded-full px-1 tabular-nums text-[10px] font-bold leading-none ${quickFilterChipCountBadgeClass(chip, isSelected)}`}
                         aria-hidden
                       >
                         {chip.count}
@@ -1047,7 +1356,8 @@ export default function AsesorDashboardPage() {
                     ? dataSupabase
                       ? "Aún no tienes expedientes."
                       : "Aún no hay precalificaciones guardadas para este asesor."
-                    : "No hay resultados con los filtros aplicados. Pruebe otros criterios o limpie los filtros."}
+                    : (quickFilterEmptyMessage(quickFilter) ??
+                      "No hay resultados con los filtros aplicados. Pruebe otros criterios o limpie los filtros.")}
                 </p>
               </div>
             ) : (

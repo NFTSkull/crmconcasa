@@ -1,5 +1,18 @@
 # Devlog
 
+## 2026-07-09 - feat/asesor-dashboard-tareas-pendientes
+
+### Diagnóstico (condiciones reales)
+
+- **Agendar biométricos:** `submittedToMesa` + `canShowAsesorBiometricosSupabaseCard` (etapa 4 siempre; etapa 5 solo con último booking cancelado y sin activo) + sin booking activo (`agenda_bookings` / `fecha_cita`).
+- **Agendar firma:** análogo en etapas 9/10 vía `canShowAsesorFirmasSupabaseCard`.
+- **Subir acuse:** etapa 8 + enviado a Mesa + `deriveRetencionAcuseAvisoFaltantes` > 0 o docs rechazados en `correccion_requerida` (tipos `retencion_*`).
+
+### Decisión
+
+- Helper puro `asesorTareasPendientes.ts`; dashboard carga hints de booking/retención en frontend (lectura) para candidatos etapa 4/5/9/10 y 8.
+- Filtros y KPIs sobre lista global antes de paginar; sin SQL/RPC/RLS.
+
 ## 2026-07-08 - fix/storage-key-ine-filename
 
 ### Diagnóstico
