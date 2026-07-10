@@ -1,5 +1,13 @@
 # Devlog
 
+## 2026-07-10 - fix/mesa-notificacion-extraordinaria-ui
+
+### Decisión
+
+- Notificación **no** va dentro de «Agenda / Citas» ni se resume como biométricos.
+- Acordeón propio «Notificación extraordinaria» en detalle; bandeja con bloque ámbar en etapa 3 + booking activo.
+- «Agendada por» desde `agenda_bookings.created_by` + `get_asesor_display_batch` (solo UI; sin migración).
+
 ## 2026-07-10 - feat/notificacion-etapa3-agenda
 
 ### Diagnóstico

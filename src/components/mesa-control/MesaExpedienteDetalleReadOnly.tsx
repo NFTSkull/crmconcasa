@@ -10,6 +10,7 @@ import {
 } from "@/components/mesa-control/MesaArchivoPreviewDialog";
 import { MesaAccordionSection } from "@/components/mesa-control/MesaAccordionSection";
 import { MesaExpedienteAgendaCitasSection } from "@/components/mesa-control/MesaExpedienteAgendaCitasSection";
+import { MesaNotificacionExtraordinariaSection } from "@/components/mesa-control/MesaNotificacionExtraordinariaSection";
 import { MesaCancelarCitaDialog } from "@/components/mesa-control/MesaCancelarCitaDialog";
 import {
   buildAgendaAccordionSummary,
@@ -81,7 +82,13 @@ import {
   type AgendaFirmasActiveBooking,
   type AgendaFirmasConfigRecord,
 } from "@/domain/agenda-firmas";
+import {
+  buildNotificacionExtraordinariaAccordionSummary,
+  MESA_NOTIFICACION_EXTRAORDINARIA_TITLE,
+  resolveProfileDisplayLabel,
+} from "@/lib/mesaNotificacionExtraordinariaUi";
 import { parseCancelMotivoFromNote } from "@/lib/agendaCancelNote";
+import { isSupabaseConfigured, supabaseBrowser } from "@/lib/supabaseBrowser";
 import { getEffectiveMockRole } from "@/lib/mockUser";
 import type { MesaAgendaCancelKind } from "@/lib/mesaAgendaCancelAccess";
 import {
@@ -255,6 +262,7 @@ export function MesaExpedienteDetalleReadOnly() {
   const [biometricosCancelledMotivo, setBiometricosCancelledMotivo] = useState<string | null>(null);
   const [notificacionCancelSuccess, setNotificacionCancelSuccess] = useState<string | null>(null);
   const [notificacionCancelledMotivo, setNotificacionCancelledMotivo] = useState<string | null>(null);
+  const [notificacionAgendadoPorLabel, setNotificacionAgendadoPorLabel] = useState("—");
   const [cancelFirmasSuccess, setCancelFirmasSuccess] = useState<string | null>(null);
   const [firmasCancelledMotivo, setFirmasCancelledMotivo] = useState<string | null>(null);
   const [mesaOps, setMesaOps] = useState<MesaExpedienteOpsRow | null>(null);
@@ -396,6 +404,33 @@ export function MesaExpedienteDetalleReadOnly() {
     if (!currentUser) return;
     load();
   }, [currentUser, load]);
+
+  useEffect(() => {
+    const createdById = activeNotificacionBooking?.createdById?.trim();
+    if (!createdById || !isSupabaseConfigured() || !supabaseBrowser) {
+      setNotificacionAgendadoPorLabel("—");
+      return;
+    }
+    void (async () => {
+      const { data } = await supabaseBrowser.rpc("get_asesor_display_batch", {
+        p_asesor_ids: [createdById],
+      });
+      const row = (data ?? [])[0] as
+        | { full_name?: string | null; email?: string | null; asesor_id?: string }
+        | undefined;
+      if (!row) {
+        setNotificacionAgendadoPorLabel("—");
+        return;
+      }
+      setNotificacionAgendadoPorLabel(
+        resolveProfileDisplayLabel({
+          fullName: row.full_name,
+          email: row.email,
+          fallbackId: row.asesor_id ?? createdById,
+        }),
+      );
+    })();
+  }, [activeNotificacionBooking?.createdById]);
 
   const documentosAsesor = useMemo(
     () => buildMesaIntegrationDocViews(archivosResumen, archivosLista),
@@ -1505,10 +1540,14 @@ export function MesaExpedienteDetalleReadOnly() {
   const agendaSummary = buildAgendaAccordionSummary({
     etapaActual,
     biometricBooking: activeBiometricBooking,
-    notificacionBooking: activeNotificacionBooking,
+    hasActiveNotificacionBooking: activeNotificacionBooking != null,
     firmasBooking: activeFirmasBooking,
     fechaCita: op.fechaCita,
   });
+  const notificacionSummary = buildNotificacionExtraordinariaAccordionSummary(
+    activeNotificacionBooking,
+  );
+  const asesorDueñoLabel = expediente ? formatAsesorLabelFromExpediente(expediente) : "—";
   const editorSummary = `${editorDecisionLabel(ed.decision)}${
     typeof ed.monto_aprobado === "number" && ed.monto_aprobado > 0
       ? ` · ${formatMontoAprobadoVigente(ed.monto_aprobado)}`
@@ -1700,6 +1739,33 @@ export function MesaExpedienteDetalleReadOnly() {
         </MesaAccordionSection>
       ) : null}
 
+      {activeNotificacionBooking ? (
+        <MesaAccordionSection
+          id="mesa-notificacion-extraordinaria"
+          title={MESA_NOTIFICACION_EXTRAORDINARIA_TITLE}
+          summary={notificacionSummary}
+        >
+          <MesaNotificacionExtraordinariaSection
+            embedded
+            booking={activeNotificacionBooking}
+            asesorDueñoLabel={asesorDueñoLabel}
+            agendadoPorLabel={notificacionAgendadoPorLabel}
+            etapaActual={etapaActual}
+            fechaCita={op.fechaCita}
+            submittedToMesa={expediente?.operativo.submittedToMesa ?? false}
+            subestado={expediente?.operativo.subestado ?? null}
+            cicloEstado={expediente?.operativo.cicloEstado ?? null}
+            mockRole={mesaMockRole}
+            sessionRole={mesaSessionRole}
+            cancelSuccess={notificacionCancelSuccess}
+            onRequestCancel={() => {
+              setCancelCitaError(null);
+              setCancelCitaKind("notificacion");
+            }}
+          />
+        </MesaAccordionSection>
+      ) : null}
+
       <MesaAccordionSection id="mesa-agenda" title="Agenda / Citas" summary={agendaSummary}>
         <MesaExpedienteAgendaCitasSection
           embedded
@@ -1708,8 +1774,8 @@ export function MesaExpedienteDetalleReadOnly() {
           submittedToMesa={expediente?.operativo.submittedToMesa ?? false}
           subestado={expediente?.operativo.subestado ?? null}
           cicloEstado={expediente?.operativo.cicloEstado ?? null}
+          hasActiveNotificacionBooking={activeNotificacionBooking != null}
           biometricBooking={activeBiometricBooking}
-          notificacionBooking={activeNotificacionBooking}
           biometricLocationLabel={biometricLocationLabel}
           firmasBooking={activeFirmasBooking}
           firmasLocationLabel={firmasLocationLabel}
@@ -1719,11 +1785,6 @@ export function MesaExpedienteDetalleReadOnly() {
           biometricosCancelledMotivo={biometricosCancelledMotivo}
           firmasCancelSuccess={cancelFirmasSuccess}
           firmasCancelledMotivo={firmasCancelledMotivo}
-          notificacionCancelSuccess={notificacionCancelSuccess}
-          onRequestCancelNotificacion={() => {
-            setCancelCitaError(null);
-            setCancelCitaKind("notificacion");
-          }}
           onRequestCancelBiometricos={() => {
             setCancelCitaError(null);
             setCancelCitaKind("biometricos");

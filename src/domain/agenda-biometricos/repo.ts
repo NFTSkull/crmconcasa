@@ -51,6 +51,7 @@ export type AgendaNotificacionActiveBooking = Readonly<{
   bookingTime: string;
   status: "booked";
   note: string | null;
+  createdById: string | null;
 }>;
 
 export type BookNotificacionResult = Readonly<{
@@ -137,6 +138,9 @@ export interface AgendaBiometricosBookingRepo {
   getActiveNotificacionBooking(
     expedienteId: string,
   ): Promise<AgendaNotificacionActiveBooking | null>;
+  listActiveNotificacionByExpedienteIds(
+    expedienteIds: readonly string[],
+  ): Promise<Map<string, AgendaNotificacionActiveBooking>>;
   getLastCancelledBooking(
     expedienteId: string,
   ): Promise<AgendaBiometricosCancelledBooking | null>;

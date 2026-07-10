@@ -78,6 +78,13 @@ import { estaEnEsperaDeAsesor } from "@/lib/mesaBandejaEsperaAsesor";
 import { hasAlertMessage, MESA_OPS_UPDATED_EVENT } from "@/lib/hasAlertMessage";
 import { NotificationsBell } from "@/components/notifications/NotificationsBell";
 import { buildDashboardNotifications } from "@/lib/dashboardNotifications";
+import { MesaBandejaNotificacionResumen } from "@/components/mesa-control/MesaBandejaNotificacionResumen";
+import {
+  useAgendaBiometricosBookingRepo,
+  type AgendaNotificacionActiveBooking,
+} from "@/domain/agenda-biometricos";
+import { resolveProfileDisplayLabel } from "@/lib/mesaNotificacionExtraordinariaUi";
+import { isSupabaseConfigured, supabaseBrowser } from "@/lib/supabaseBrowser";
 
 type CasoConDocs = CasoMock & {
   resumenDocumental?: CategoriaResumenDocumental;
@@ -87,6 +94,8 @@ type CasoConDocs = CasoMock & {
   entradaLecturaEsCorreccion?: boolean;
   correccionLecturaEstado?: MesaCorreccionLecturaEstado;
   mesaOps?: MesaExpedienteOpsRow | null;
+  notificacionBooking?: AgendaNotificacionActiveBooking | null;
+  notificacionAgendadoPorLabel?: string;
 };
 
 type MesaQuickFilter =
@@ -264,6 +273,7 @@ export default function MesaControlPage() {
   const archivosRepo = useExpedienteArchivosRepo();
   const clienteDatosRepo = useExpedienteClienteDatosRepo();
   const mesaOpsRepo = useMesaOpsRepo();
+  const agendaBookingRepo = useAgendaBiometricosBookingRepo();
   const dataSupabase = isDataModeSupabase();
   const [casos, setCasos] = useState<CasoConDocs[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
@@ -414,7 +424,67 @@ export default function MesaControlPage() {
             };
           });
         })();
-        const sorted = sortMesaBandejaPorAntiguedad(enriched);
+        let withNotificacion: CasoConDocs[] = enriched;
+        if (dataSupabase && agendaBookingRepo) {
+          try {
+            const etapa3Ids = enriched
+              .filter((c) => c.etapaActual === 3)
+              .map((c) => c.id);
+            const notificacionMap =
+              await agendaBookingRepo.listActiveNotificacionByExpedienteIds(etapa3Ids);
+            const creatorIds = [
+              ...new Set(
+                [...notificacionMap.values()]
+                  .map((b) => b.createdById?.trim())
+                  .filter((id): id is string => Boolean(id)),
+              ),
+            ];
+            const agendadoPorLabels = new Map<string, string>();
+            if (
+              creatorIds.length > 0 &&
+              isSupabaseConfigured() &&
+              supabaseBrowser
+            ) {
+              const { data } = await supabaseBrowser.rpc("get_asesor_display_batch", {
+                p_asesor_ids: creatorIds,
+              });
+              for (const row of (data ?? []) as Array<{
+                asesor_id?: string;
+                full_name?: string | null;
+                email?: string | null;
+              }>) {
+                const id = String(row.asesor_id ?? "").trim();
+                if (!id) continue;
+                agendadoPorLabels.set(
+                  id,
+                  resolveProfileDisplayLabel({
+                    fullName: row.full_name,
+                    email: row.email,
+                    fallbackId: id,
+                  }),
+                );
+              }
+            }
+            withNotificacion = enriched.map((c) => {
+              const booking = notificacionMap.get(c.id) ?? null;
+              return {
+                ...c,
+                notificacionBooking: booking,
+                notificacionAgendadoPorLabel: booking?.createdById
+                  ? agendadoPorLabels.get(booking.createdById) ?? "—"
+                  : undefined,
+              };
+            });
+          } catch (err) {
+            if (process.env.NODE_ENV === "development") {
+              console.warn(
+                "[mesa-control] lectura notificaciones bandeja falló; sin resumen notificación",
+                err,
+              );
+            }
+          }
+        }
+        const sorted = sortMesaBandejaPorAntiguedad(withNotificacion);
         if (mesaOpsRepo) {
           try {
             const opsRows = await mesaOpsRepo.listByExpedienteIds(sorted.map((c) => c.id));
@@ -443,7 +513,7 @@ export default function MesaControlPage() {
         setLoading(false);
       }
     })();
-  }, [archivosRepo, clienteDatosRepo, currentUser, currentUserId, dataSupabase, mapExpToCaso, mesaOpsRepo, repo]);
+  }, [agendaBookingRepo, archivosRepo, clienteDatosRepo, currentUser, currentUserId, dataSupabase, mapExpToCaso, mesaOpsRepo, repo]);
 
   useEffect(() => {
     if (!mesaOpsRepo) {
@@ -1057,8 +1127,19 @@ export default function MesaControlPage() {
                     {c.motivoRechazo}
                   </p>
                 ) : null}
+                {c.notificacionBooking ? (
+                  <MesaBandejaNotificacionResumen
+                    booking={c.notificacionBooking}
+                    agendadoPorLabel={c.notificacionAgendadoPorLabel ?? "—"}
+                    asesorDueñoLabel={c.asesorNombre || "—"}
+                  />
+                ) : null}
                 <div className="mt-3 flex flex-wrap justify-between gap-2 border-t border-slate-100/80 pt-2 text-[10px] text-slate-500">
-                  <span>Cita: {formatDate(c.fechaCita)}</span>
+                  <span>
+                    {c.notificacionBooking
+                      ? "Cita biométrica/firma: —"
+                      : `Cita: ${formatDate(c.fechaCita)}`}
+                  </span>
                   <span>Envío Mesa: {formatDate(c.fechaEnvioMesa ?? undefined)}</span>
                   <span className="tabular-nums">Actualizado: {formatDateTime(c.updatedAt)}</span>
                 </div>

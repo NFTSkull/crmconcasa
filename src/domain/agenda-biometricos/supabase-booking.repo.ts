@@ -33,7 +33,8 @@ const BOOKING_SELECT = `
   location_id,
   status,
   note,
-  cancelled_at
+  cancelled_at,
+  created_by
 `;
 
 type BookingRow = Readonly<{
@@ -45,6 +46,7 @@ type BookingRow = Readonly<{
   status: string;
   note: string | null;
   cancelled_at: string | null;
+  created_by: string | null;
 }>;
 
 type BookRpcRow = Readonly<{
@@ -126,6 +128,7 @@ function mapNotificacionActiveBooking(row: BookingRow): AgendaNotificacionActive
     bookingTime: normalizeBookingTime(String(row.booking_time)),
     status: "booked",
     note: row.note,
+    createdById: row.created_by,
   };
 }
 
@@ -254,6 +257,35 @@ export class SupabaseAgendaBiometricosBookingRepo implements AgendaBiometricosBo
     const data = await getActiveBookingByKind(client, expedienteId, "notificacion");
     if (!data) return null;
     return mapNotificacionActiveBooking(data);
+  }
+
+  async listActiveNotificacionByExpedienteIds(
+    expedienteIds: readonly string[],
+  ): Promise<Map<string, AgendaNotificacionActiveBooking>> {
+    const uniqueIds = [...new Set(expedienteIds.map((id) => id.trim()).filter(Boolean))];
+    const result = new Map<string, AgendaNotificacionActiveBooking>();
+    if (uniqueIds.length === 0) return result;
+
+    const { client } = await requireSupabaseSession();
+    const { data, error } = await client
+      .from("agenda_bookings")
+      .select(BOOKING_SELECT)
+      .in("expediente_id", uniqueIds)
+      .eq("kind", "notificacion")
+      .eq("status", "booked");
+
+    if (error) {
+      throw new AgendaBiometricosSupabaseError(
+        "No se pudo consultar las notificaciones activas de la bandeja.",
+      );
+    }
+
+    for (const row of (data ?? []) as BookingRow[]) {
+      const booking = mapNotificacionActiveBooking(row);
+      result.set(booking.expedienteId, booking);
+    }
+
+    return result;
   }
 
   async getLastCancelledBooking(
