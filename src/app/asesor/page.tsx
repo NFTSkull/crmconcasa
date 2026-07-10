@@ -306,6 +306,7 @@ type AsesorTareasHintsPorId = Record<
   | {
       agendaBiometricos?: AsesorAgendaBookingHints;
       agendaFirmas?: AsesorAgendaBookingHints;
+      hasActiveNotificacionBooking?: boolean;
       retencion?: AsesorRetencionHints;
     }
   | undefined
@@ -506,6 +507,8 @@ export default function AsesorDashboardPage() {
         submittedToMesa: p.submittedToMesa,
         etapaActual: p.etapaActual,
         fechaCita: p.fechaCita,
+        hasActiveNotificacionBooking:
+          tareasHintsPorId[p.id]?.hasActiveNotificacionBooking ?? false,
         archivos: resumenArchivosPorId[p.id] ?? [],
         agendaBiometricos: tareasHintsPorId[p.id]?.agendaBiometricos ?? null,
         agendaFirmas: tareasHintsPorId[p.id]?.agendaFirmas ?? null,
@@ -604,13 +607,33 @@ export default function AsesorDashboardPage() {
             (p.etapaActual ?? 0) as (typeof ASESOR_TAREAS_ETAPAS_AGENDA)[number],
           ),
       );
+      const notificacionCandidates = rows.filter(
+        (p) => p.submittedToMesa && p.etapaActual === 3,
+      );
       const retencionCandidates = rows.filter(
         (p) => p.submittedToMesa && p.etapaActual === ASESOR_TAREAS_ETAPA_RETENCION,
       );
 
+      let activeNotificacionIds = new Set<string>();
+      if (biometricosBookingRepo && notificacionCandidates.length > 0) {
+        try {
+          const activeNotificacionById =
+            await biometricosBookingRepo.listActiveNotificacionByExpedienteIds(
+              notificacionCandidates.map((p) => p.id),
+            );
+          activeNotificacionIds = new Set(activeNotificacionById.keys());
+        } catch {
+          activeNotificacionIds = new Set();
+        }
+      }
+
       const agendaHintsById = new Map<
         string,
-        { agendaBiometricos: AsesorAgendaBookingHints; agendaFirmas: AsesorAgendaBookingHints }
+        {
+          agendaBiometricos?: AsesorAgendaBookingHints;
+          agendaFirmas?: AsesorAgendaBookingHints;
+          hasActiveNotificacionBooking: boolean;
+        }
       >();
       if ((biometricosBookingRepo || firmasBookingRepo) && agendaCandidates.length > 0) {
         const agendaEntries = await Promise.all(
@@ -632,6 +655,7 @@ export default function AsesorDashboardPage() {
                     hasActiveBooking: false,
                     hasLastCancelledBooking: false,
                   },
+                  hasActiveNotificacionBooking: activeNotificacionIds.has(p.id),
                 },
               ] as const;
             } catch {
@@ -642,6 +666,13 @@ export default function AsesorDashboardPage() {
         for (const entry of agendaEntries) {
           if (entry) agendaHintsById.set(entry[0], entry[1]);
         }
+      }
+      for (const p of notificacionCandidates) {
+        const agenda = agendaHintsById.get(p.id);
+        agendaHintsById.set(p.id, {
+          ...(agenda ?? {}),
+          hasActiveNotificacionBooking: activeNotificacionIds.has(p.id),
+        });
       }
 
       const retencionHintsById = new Map<string, AsesorRetencionHints>();

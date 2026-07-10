@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-07-10 - fix/asesor-chip-biometricos-notificacion
+
+### Diagnóstico
+
+- P065 mantiene el expediente en etapa 3 cuando existe un booking activo `kind=notificacion`; el helper de tareas solo conocía el booking biométrico y por eso lo contaba en «Agendar biométricos».
+
+### Decisión
+
+- El helper del chip exige etapa 3, envío a Mesa, ausencia de booking biométrico activo y ausencia de Notificación activa.
+- `/asesor` reutiliza `listActiveNotificacionByExpedienteIds` para candidatos de etapa 3; la consulta usa la sesión JWT y RLS existentes. Sin SQL, RPC ni mutaciones.
+
 ## 2026-07-10 - feat/asesor-export-precalificaciones-excel
 
 ### Diagnóstico

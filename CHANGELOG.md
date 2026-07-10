@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **fix/asesor-chip-biometricos-notificacion — Notificación activa excluye tarea de biométricos:** el chip/filtro «Agendar biométricos» solo incluye expedientes enviados a Mesa en etapa 3, sin booking biométrico activo y sin booking `notificacion` activo; reutiliza lectura batch sujeta a RLS; sin SQL/RPC.
+
 - **feat/asesor-export-precalificaciones-excel — descarga Excel por programa en `/asesor`:** selector Mejoravit / Compra de casa / Ambos + botón «Descargar Excel»; exporta todo `listForAsesor` (sin paginación ni búsqueda); columnas nombre, NSS, teléfono, programa, monto aprobado; librería `xlsx`; NSS/teléfono como texto; sanitización fórmulas Excel.
 
 - **fix/mesa-notificacion-extraordinaria-ui — Notificación separada de Biométricos en Mesa:** acordeón independiente «Notificación extraordinaria» en detalle; bandeja muestra bloque ámbar con fecha, 12:00 PM, agendada por, asesor dueño y estado; «Agenda / Citas» solo biométricos/firma; batch `listActiveNotificacionByExpedienteIds` + `created_by` en lectura frontend; sin SQL/RPC Cloud.

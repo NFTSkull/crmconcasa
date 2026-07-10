@@ -1,4 +1,3 @@
-import { canShowAsesorBiometricosSupabaseCard } from "@/domain/agenda-biometricos/biometricos-booking-actions";
 import { canShowAsesorFirmasSupabaseCard } from "@/domain/agenda-firmas/firmas-booking-actions";
 import type { ExpedienteArchivoResumen } from "@/domain/expediente-archivos";
 import {
@@ -37,6 +36,7 @@ export type AsesorTareaExpedienteInput = Readonly<{
   submittedToMesa: boolean;
   etapaActual?: number | null;
   fechaCita?: string | null;
+  hasActiveNotificacionBooking?: boolean;
   archivos?: readonly ExpedienteArchivoResumen[];
   agendaBiometricos?: AsesorAgendaBookingHints | null;
   agendaFirmas?: AsesorAgendaBookingHints | null;
@@ -96,32 +96,17 @@ function findActiveFirmasBooking(
 }
 
 /**
- * Pendiente agendar biométricos: card visible para asesor y sin reserva activa.
- * Supabase: etapa 4 sin booking; etapa 5 solo tras cancelación Mesa (último booking cancelado).
+ * Pendiente del chip «Agendar biométricos»: etapa 3 enviada a Mesa,
+ * sin reserva biométrica activa y sin Notificación activa.
  */
 export function isAsesorPendienteAgendarBiometricos(
   input: AsesorTareaExpedienteInput,
 ): boolean {
   if (!input.submittedToMesa) return false;
+  if (input.etapaActual !== 3) return false;
+  if (input.hasActiveNotificacionBooking === true) return false;
 
   const hints = resolveBiometricosHints(input);
-  const cardVisible = canShowAsesorBiometricosSupabaseCard({
-    submittedToMesa: true,
-    etapaActual: input.etapaActual,
-    hasActiveBooking: hints.hasActiveBooking,
-    hasLastCancelledBooking: hints.hasLastCancelledBooking,
-  });
-
-  if (!cardVisible) {
-    if (
-      input.dataModeSupabase === false &&
-      (input.etapaActual === 3 || input.etapaActual === 4)
-    ) {
-      return !hints.hasActiveBooking;
-    }
-    return false;
-  }
-
   return !hints.hasActiveBooking;
 }
 
@@ -213,6 +198,7 @@ export function buildAsesorTareaExpedienteInput(params: {
   submittedToMesa: boolean;
   etapaActual?: number | null;
   fechaCita?: string | null;
+  hasActiveNotificacionBooking?: boolean;
   archivos?: readonly ExpedienteArchivoResumen[];
   agendaBiometricos?: AsesorAgendaBookingHints | null;
   agendaFirmas?: AsesorAgendaBookingHints | null;
@@ -224,6 +210,7 @@ export function buildAsesorTareaExpedienteInput(params: {
     submittedToMesa: params.submittedToMesa,
     etapaActual: params.etapaActual,
     fechaCita: params.fechaCita,
+    hasActiveNotificacionBooking: params.hasActiveNotificacionBooking,
     archivos: params.archivos,
     agendaBiometricos: params.agendaBiometricos,
     agendaFirmas: params.agendaFirmas,

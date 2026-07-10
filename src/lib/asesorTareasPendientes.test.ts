@@ -48,46 +48,37 @@ describe("isAsesorPendienteAgendarBiometricos", () => {
     );
   });
 
-  it("etapa 4 enviado a Mesa sin booking activo", () => {
+  it("etapa 3 con Notificación activa no cuenta", () => {
     assert.equal(
       isAsesorPendienteAgendarBiometricos(
         baseInput({
-          etapaActual: 4,
+          etapaActual: 3,
+          hasActiveNotificacionBooking: true,
           agendaBiometricos: { hasActiveBooking: false, hasLastCancelledBooking: false },
-        }),
-      ),
-      true,
-    );
-  });
-
-  it("etapa 4 con booking activo no cuenta", () => {
-    assert.equal(
-      isAsesorPendienteAgendarBiometricos(
-        baseInput({
-          etapaActual: 4,
-          fechaCita: "2026-07-10T16:00:00.000Z",
-          agendaBiometricos: { hasActiveBooking: true, hasLastCancelledBooking: false },
         }),
       ),
       false,
     );
   });
 
-  it("etapa 5 solo tras cancelación Mesa sin booking activo", () => {
+  it("etapa 4 no cuenta aunque no tenga booking activo", () => {
+    assert.equal(
+      isAsesorPendienteAgendarBiometricos(
+        baseInput({
+          etapaActual: 4,
+          agendaBiometricos: { hasActiveBooking: false, hasLastCancelledBooking: false },
+        }),
+      ),
+      false,
+    );
+  });
+
+  it("etapa 5 no cuenta aunque exista cancelación previa", () => {
     assert.equal(
       isAsesorPendienteAgendarBiometricos(
         baseInput({
           etapaActual: 5,
           agendaBiometricos: { hasActiveBooking: false, hasLastCancelledBooking: true },
-        }),
-      ),
-      true,
-    );
-    assert.equal(
-      isAsesorPendienteAgendarBiometricos(
-        baseInput({
-          etapaActual: 5,
-          agendaBiometricos: { hasActiveBooking: false, hasLastCancelledBooking: false },
         }),
       ),
       false,
@@ -238,7 +229,13 @@ describe("countAsesorTareasPendientes y filtros globales", () => {
     const items = [
       baseInput({
         expedienteId: "bio-1",
-        etapaActual: 4,
+        etapaActual: 3,
+        agendaBiometricos: { hasActiveBooking: false, hasLastCancelledBooking: false },
+      }),
+      baseInput({
+        expedienteId: "notificacion-1",
+        etapaActual: 3,
+        hasActiveNotificacionBooking: true,
         agendaBiometricos: { hasActiveBooking: false, hasLastCancelledBooking: false },
       }),
       baseInput({
@@ -268,7 +265,7 @@ describe("countAsesorTareasPendientes y filtros globales", () => {
 describe("compatibilidad corrección requerida / enviada", () => {
   it("expediente en corrección documental no altera reglas de agenda", () => {
     const bio = baseInput({
-      etapaActual: 4,
+      etapaActual: 3,
       agendaBiometricos: { hasActiveBooking: false, hasLastCancelledBooking: false },
     });
     assert.equal(isAsesorPendienteAgendarBiometricos(bio), true);
@@ -278,14 +275,14 @@ describe("compatibilidad corrección requerida / enviada", () => {
     const items = [
       baseInput({
         expedienteId: "bio-juan",
-        etapaActual: 4,
+        etapaActual: 3,
         agendaBiometricos: { hasActiveBooking: false, hasLastCancelledBooking: false },
       }),
       baseInput({
         expedienteId: "bio-pedro",
-        etapaActual: 4,
-        agendaBiometricos: { hasActiveBooking: true, hasLastCancelledBooking: false },
-        fechaCita: "2026-07-10T16:00:00.000Z",
+        etapaActual: 3,
+        hasActiveNotificacionBooking: true,
+        agendaBiometricos: { hasActiveBooking: false, hasLastCancelledBooking: false },
       }),
     ];
     const nombres = new Map([
