@@ -24,7 +24,7 @@ export function mapReagendarBiometricosRpcError(error: {
 
   if (msg.includes("conflicto al crear la nueva cita biométrica")) {
     return new AgendaBiometricosSupabaseError(
-      "Ese horario ya no tiene cupo. Elige otro horario o fecha.",
+      "Este horario ya fue apartado. Selecciona otro horario.",
     );
   }
 

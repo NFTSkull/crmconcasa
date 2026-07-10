@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **fix/agenda-disponibilidad-org-wide — slots ocupados visibles para todos los asesores:** `listBookedSlots` usa RPC `get_asesor_agenda_calendar` (org-wide) en lugar de SELECT con RLS; biométricos y firmas mantienen cupos separados por `kind`; backend `assert_slot_available` ya bloqueaba doble booking; mensaje claro al agotar cupo.
+
 - **feat/asesor-calendario-citas-readonly — calendario org-wide asesor:** botón junto a campana en `/asesor`; modal solo lectura con citas biométricos/firmas por día; muestra hora, tipo, asesor y ubicación (sin cliente); filtros Todos/Biométricos/Firma; migración `064` RPC `get_asesor_agenda_calendar`; mock localStorage en dev; sin editar/cancelar bookings.
 
 - **feat/biometricos-etapa3-flujo-11-pasos — biométricos desde etapa 3 sin paso 4 visual:** IDs internos 1–12; timeline asesor 11 pasos (oculta etapa 4 legacy); asesor agenda biométricos en etapa 3 sin cambiar etapa; Mesa ve cita en etapa 3; avance Mesa 3→5 con booking activo; legacy 4→5 intacto; migración `063` (`book_biometricos`, `cancel_biometricos`, `reagendar_biometricos`, `avanzar_etapa_operativa`); sin firmas/acuses/cobro/NSS/migración masiva de datos.

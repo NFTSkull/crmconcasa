@@ -145,7 +145,7 @@ function meetsMinLeadHours(
 }
 
 /**
- * Disponibilidad por fecha/sede según config semanal canónica y bookings `booked` visibles vía RLS.
+ * Disponibilidad por fecha/sede según config semanal y bookings `booked` org-wide.
  */
 export function computeWeeklySlotAvailability(params: {
   config: AgendaBiometricosWeeklyConfig;

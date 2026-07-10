@@ -96,3 +96,41 @@ export async function fetchAsesorAgendaCalendarEntries(params: {
   const rows = (data ?? []) as CalendarRpcRow[];
   return rows.map(mapRpcRow).filter((row): row is AsesorAgendaCalendarEntry => row != null);
 }
+
+/** Slot ocupado org-wide (sin PII) para calcular disponibilidad en cards de agenda. */
+export type OrgAgendaBookedSlot = Readonly<{
+  bookingDate: string;
+  bookingTime: string;
+  locationId: string;
+}>;
+
+export function mapCalendarEntriesToOrgBookedSlots(
+  entries: readonly AsesorAgendaCalendarEntry[],
+  kind: AgendaCalendarKind,
+  locationId?: string,
+): OrgAgendaBookedSlot[] {
+  const locFilter = locationId?.trim();
+  return entries
+    .filter((e) => e.kind === kind && e.status === "booked")
+    .filter((e) => !locFilter || e.locationId === locFilter)
+    .map((e) => ({
+      bookingDate: e.bookingDate,
+      bookingTime: e.bookingTime,
+      locationId: e.locationId,
+    }));
+}
+
+/** Citas activas org-wide vía RPC (evita RLS limitado por expediente del asesor). */
+export async function fetchOrgAgendaBookedSlots(params: {
+  fromDate: string;
+  toDate: string;
+  kind: AgendaCalendarKind;
+  locationId?: string;
+}): Promise<readonly OrgAgendaBookedSlot[]> {
+  const entries = await fetchAsesorAgendaCalendarEntries({
+    startDate: params.fromDate,
+    endDate: params.toDate,
+    includeCancelled: false,
+  });
+  return mapCalendarEntriesToOrgBookedSlots(entries, params.kind, params.locationId);
+}

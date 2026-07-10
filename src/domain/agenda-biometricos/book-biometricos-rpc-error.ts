@@ -48,7 +48,7 @@ export function mapBookBiometricosRpcError(error: {
 
   if (msg.includes("cupo agotado") || msg.includes("capacity")) {
     return new AgendaBiometricosSupabaseError(
-      "Ese horario ya no tiene cupo. Elige otro horario o fecha.",
+      "Este horario ya fue apartado. Selecciona otro horario.",
     );
   }
 

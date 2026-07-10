@@ -1,5 +1,18 @@
 # Devlog
 
+## 2026-07-10 - fix/agenda-disponibilidad-org-wide
+
+### Diagnóstico
+
+- **Backend OK:** `book_biometricos` / `book_firmas` llaman `agenda_*_assert_slot_available`, que cuenta org-wide (`agenda_*_count_slot_booked`) con advisory lock; cupos separados por `kind`.
+- **UI rota:** `listBookedSlots` hacía SELECT a `agenda_bookings` sujeto a RLS (`can_see_expediente`) → cada asesor solo veía sus bookings → `remaining` no bajaba al agendar otro asesor.
+- **Constraint slot:** no hay unique parcial por slot; protección es lock + assert en RPC (capacidad configurable por sede).
+
+### Decisión
+
+- Reutilizar RPC `get_asesor_agenda_calendar` (064) en `listBookedSlots` biométricos/firmas vía `fetchOrgAgendaBookedSlots`.
+- Sin migración nueva; sin tocar bookings existentes.
+
 ## 2026-07-10 - feat/asesor-calendario-citas-readonly
 
 ### Diagnóstico

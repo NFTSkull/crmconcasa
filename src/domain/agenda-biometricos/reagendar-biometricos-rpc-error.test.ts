@@ -21,13 +21,19 @@ describe("mapReagendarBiometricosRpcError", () => {
     const err = mapReagendarBiometricosRpcError({
       message: "reagendar_biometricos: conflicto al crear la nueva cita biométrica",
     });
-    assert.match(err.message, /cupo/i);
+    assert.equal(
+      err.message,
+      "Este horario ya fue apartado. Selecciona otro horario.",
+    );
   });
 
   it("delega cupo agotado de agenda_config al mapper de book", () => {
     const err = mapReagendarBiometricosRpcError({
       message: "reagendar_biometricos: agenda_config: cupo agotado",
     });
-    assert.match(err.message, /cupo/i);
+    assert.equal(
+      err.message,
+      "Este horario ya fue apartado. Selecciona otro horario.",
+    );
   });
 });

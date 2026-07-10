@@ -36,7 +36,10 @@ describe("mapBookBiometricosRpcError", () => {
     const err = mapBookBiometricosRpcError({
       message: "agenda_config: cupo agotado",
     });
-    assert.match(err.message, /cupo/i);
+    assert.equal(
+      err.message,
+      "Este horario ya fue apartado. Selecciona otro horario.",
+    );
   });
 
   it("mapea anticipación mínima", () => {

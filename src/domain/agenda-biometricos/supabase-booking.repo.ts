@@ -5,6 +5,7 @@ import { isSupabaseConfigured, supabaseBrowser } from "@/lib/supabaseBrowser";
 import { mapBookBiometricosRpcError } from "./book-biometricos-rpc-error";
 import { mapCancelBiometricosRpcError } from "./cancel-biometricos-rpc-error";
 import { mapReagendarBiometricosRpcError } from "./reagendar-biometricos-rpc-error";
+import { fetchOrgAgendaBookedSlots } from "@/domain/agenda-calendar/supabase.repo";
 import { SupabaseAgendaBiometricosConfigRepo } from "./supabase.repo";
 import { AgendaBiometricosSupabaseError } from "./supabase.error";
 import type {
@@ -169,31 +170,18 @@ export class SupabaseAgendaBiometricosBookingRepo implements AgendaBiometricosBo
     toDate: string;
     locationId?: string;
   }): Promise<readonly AgendaBiometricosBookedSlot[]> {
-    const { client } = await requireSupabaseSession();
-    const organizationId = await getCurrentOrganizationId(client);
-
-    let query = client
-      .from("agenda_bookings")
-      .select(BOOKING_SELECT)
-      .eq("organization_id", organizationId)
-      .eq("kind", "biometricos")
-      .eq("status", "booked")
-      .gte("booking_date", params.fromDate)
-      .lte("booking_date", params.toDate);
-
-    if (params.locationId) {
-      query = query.eq("location_id", params.locationId);
-    }
-
-    const { data, error } = await query;
-
-    if (error) {
-      throw new AgendaBiometricosSupabaseError(
-        "No se pudieron cargar las reservas biométricas. Intenta de nuevo más tarde.",
-      );
-    }
-
-    return (data ?? []).map((row) => mapBookedSlot(row as BookingRow));
+    await requireSupabaseSession();
+    const slots = await fetchOrgAgendaBookedSlots({
+      fromDate: params.fromDate,
+      toDate: params.toDate,
+      kind: "biometricos",
+      locationId: params.locationId,
+    });
+    return slots.map((row) => mapBookedSlot({
+      booking_date: row.bookingDate,
+      booking_time: row.bookingTime,
+      location_id: row.locationId,
+    } as BookingRow));
   }
 
   async getActiveBooking(expedienteId: string): Promise<AgendaBiometricosActiveBooking | null> {
