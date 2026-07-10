@@ -30,6 +30,7 @@ describe("asesorAgendaCalendar helpers", () => {
   it("normaliza hora HH:mm", () => {
     assert.equal(normalizeBookingTime("10:00:00"), "10:00");
     assert.equal(normalizeBookingTime("09:30"), "09:30");
+    assert.equal(normalizeBookingTime("8:00"), "08:00");
   });
 
   it("ordena por fecha y hora", () => {

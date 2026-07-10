@@ -1,5 +1,18 @@
 # Devlog
 
+## 2026-07-10 - fix/agenda-disponibilidad-slot-count
+
+### Diagnóstico
+
+- RPC 064 y `listBookedSlots` org-wide OK; calendario muestra 3 citas correctas.
+- Bug en `computeAdvisorSlotAvailability`: `countBookedForSlotAcrossLocations` comparaba `location_id` exacto vs `sourceLocationIds`.
+- Bookings legacy (`sede-centro`, `mty-centro`, …) no coincidían con config canónica solo `monterrey` → subconteo en 08:00.
+- Conteo correcto: una pasada por booking, sede vía `mapLocationIdToAdvisorCanonical`, clave `fecha + hora + sede canónica`.
+
+### Decisión
+
+- `countBookedForAdvisorSede` + `bookingBelongsToAdvisorSede`; normalizar fecha/hora en map RPC.
+
 ## 2026-07-10 - fix/agenda-disponibilidad-org-wide
 
 ### Diagnóstico

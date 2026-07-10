@@ -28,9 +28,23 @@ export type AsesorAgendaCalendarFilters = Readonly<{
 
 const MAX_RANGE_DAYS = 62;
 
+/** Fecha YYYY-MM-DD desde DATE o ISO datetime. */
+export function normalizeBookingDate(value: string): string {
+  const m = /^(\d{4}-\d{2}-\d{2})/.exec(String(value).trim());
+  return m ? m[1]! : String(value).trim();
+}
+
+/** Hora HH:mm desde TIME (`08:00:00`), HH:mm o H:mm. */
 export function normalizeBookingTime(value: string): string {
-  const m = /^(\d{2}):(\d{2})/.exec(String(value).trim());
-  return m ? `${m[1]}:${m[2]}` : String(value).trim();
+  const raw = String(value).trim();
+  const m = /^(\d{1,2}):(\d{2})(?::\d{2})?/.exec(raw);
+  if (!m) return raw;
+  const h = Number(m[1]);
+  const min = Number(m[2]);
+  if (!Number.isInteger(h) || !Number.isInteger(min) || h < 0 || h > 23 || min < 0 || min > 59) {
+    return raw;
+  }
+  return `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`;
 }
 
 export function formatAgendaCalendarKindLabel(kind: AgendaCalendarKind): string {

@@ -27,6 +27,7 @@ import {
   mapLocationIdToAdvisorCanonical,
   type AdvisorSedeOption,
 } from "@/lib/agendaAdvisorLocations";
+import type { WeeklyLocationLike } from "@/lib/agendaCynthiaLocations";
 
 export interface AgendaFirmasSupabaseCardProps {
   expedienteId: string;
@@ -62,10 +63,11 @@ function adjustSlotsForReagendar(
   activeBooking: { bookingDate: string; bookingTime: string; locationId: string } | null,
   dateYmd: YmdDate,
   selectedSede: AdvisorSedeOption | null,
+  locations: readonly WeeklyLocationLike[],
 ): readonly AgendaFirmasSlotAvailability[] {
   if (!reagendar || !activeBooking || !selectedSede) return slots;
   if (
-    !advisorOptionIncludesBookingLocation(selectedSede, activeBooking.locationId) ||
+    !advisorOptionIncludesBookingLocation(selectedSede, activeBooking.locationId, locations) ||
     activeBooking.bookingDate !== dateYmd
   ) {
     return slots;
@@ -179,7 +181,14 @@ export function AgendaFirmasSupabaseCard({
       sourceLocationIds: selectedSede.sourceLocationIds,
       capacityPerSlot: selectedSede.capacityPerSlot,
     });
-    return adjustSlotsForReagendar(base, reagendar, activeBooking, dateYmd, selectedSede);
+    return adjustSlotsForReagendar(
+      base,
+      reagendar,
+      activeBooking,
+      dateYmd,
+      selectedSede,
+      config.locations,
+    );
   }, [activeBooking, bookedSlots, config, dateYmd, reagendar, selectedSede]);
 
   const availabilityInsight = useMemo(() => {

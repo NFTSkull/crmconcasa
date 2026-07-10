@@ -117,6 +117,18 @@ export function advisorLabelForLocationId(
 export function advisorOptionIncludesBookingLocation(
   option: AdvisorSedeOption,
   bookingLocationId: string,
+  locations: readonly WeeklyLocationLike[] = [],
 ): boolean {
-  return option.sourceLocationIds.includes(bookingLocationId);
+  if (option.sourceLocationIds.includes(bookingLocationId)) return true;
+  const bookingCanonical = mapLocationIdToAdvisorCanonical(bookingLocationId, locations);
+  return bookingCanonical != null && bookingCanonical === option.canonicalId;
+}
+
+/** True si el booking pertenece a la sede asesor (canónica o legacy mapeable). */
+export function bookingBelongsToAdvisorSede(
+  bookingLocationId: string,
+  option: AdvisorSedeOption,
+  locations: readonly WeeklyLocationLike[],
+): boolean {
+  return advisorOptionIncludesBookingLocation(option, bookingLocationId, locations);
 }

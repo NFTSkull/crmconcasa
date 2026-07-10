@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **fix/agenda-disponibilidad-slot-count — conteo por sede canónica y hora normalizada:** `computeAdvisorSlotAvailability` cuenta bookings por `kind + sede canónica + fecha + hora` (legacy `sede-centro` etc. mapean a Monterrey); normalización HH:mm/H:mm y YYYY-MM-DD en pipeline calendario.
+
 - **fix/agenda-disponibilidad-org-wide — slots ocupados visibles para todos los asesores:** `listBookedSlots` usa RPC `get_asesor_agenda_calendar` (org-wide) en lugar de SELECT con RLS; biométricos y firmas mantienen cupos separados por `kind`; backend `assert_slot_available` ya bloqueaba doble booking; mensaje claro al agotar cupo.
 
 - **feat/asesor-calendario-citas-readonly — calendario org-wide asesor:** botón junto a campana en `/asesor`; modal solo lectura con citas biométricos/firmas por día; muestra hora, tipo, asesor y ubicación (sin cliente); filtros Todos/Biométricos/Firma; migración `064` RPC `get_asesor_agenda_calendar`; mock localStorage en dev; sin editar/cancelar bookings.

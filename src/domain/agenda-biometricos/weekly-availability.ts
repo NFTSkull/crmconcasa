@@ -1,3 +1,6 @@
+import { normalizeBookingDate, normalizeBookingTime } from "@/lib/asesorAgendaCalendar";
+import { bookingBelongsToAdvisorSede } from "@/lib/agendaAdvisorLocations";
+import type { AdvisorSedeOption } from "@/lib/agendaAdvisorLocations";
 import type { AgendaBiometricosWeeklyConfig } from "./map-agenda-config";
 import type {
   AgendaBiometricosSlotAvailability,
@@ -28,9 +31,13 @@ export function addDaysYmd(dateYmd: YmdDate, days: number): YmdDate {
 }
 
 function normalizeHhmm(time: string): HhmmTime | null {
-  const m = /^(\d{2}):(\d{2})(?::\d{2})?$/.exec(time.trim());
-  if (!m) return null;
-  return `${m[1]}:${m[2]}` as HhmmTime;
+  const normalized = normalizeBookingTime(time);
+  return /^\d{2}:\d{2}$/.test(normalized) ? (normalized as HhmmTime) : null;
+}
+
+function normalizeYmdDate(date: string): YmdDate | null {
+  const normalized = normalizeBookingDate(date);
+  return /^\d{4}-\d{2}-\d{2}$/.test(normalized) ? (normalized as YmdDate) : null;
 }
 
 const WEEKDAY_SHORT_TO_ISO: Record<string, number> = {
@@ -105,7 +112,8 @@ function countBookedForSlot(
 ): number {
   let n = 0;
   for (const row of bookedSlots) {
-    if (row.bookingDate !== date) continue;
+    const rowDate = normalizeYmdDate(row.bookingDate);
+    if (rowDate !== date) continue;
     if (row.locationId !== locationId) continue;
     const rowTime = normalizeHhmm(row.bookingTime);
     if (rowTime !== time) continue;
@@ -114,15 +122,23 @@ function countBookedForSlot(
   return n;
 }
 
-function countBookedForSlotAcrossLocations(
+function countBookedForAdvisorSede(
   bookedSlots: readonly WeeklyBookedSlot[],
   date: YmdDate,
-  locationIds: readonly string[],
   time: HhmmTime,
+  sede: Pick<AdvisorSedeOption, "canonicalId" | "sourceLocationIds">,
+  locations: AgendaBiometricosWeeklyConfig["locations"],
 ): number {
   let n = 0;
-  for (const locationId of locationIds) {
-    n += countBookedForSlot(bookedSlots, date, locationId, time);
+  for (const row of bookedSlots) {
+    const rowDate = normalizeYmdDate(row.bookingDate);
+    if (rowDate !== date) continue;
+    const rowTime = normalizeHhmm(row.bookingTime);
+    if (rowTime !== time) continue;
+    if (!bookingBelongsToAdvisorSede(row.locationId, sede as AdvisorSedeOption, locations)) {
+      continue;
+    }
+    n += 1;
   }
   return n;
 }
@@ -216,6 +232,10 @@ export function computeAdvisorSlotAvailability(params: {
   if (!config.allowedWeekdays.includes(isoDow)) return [];
 
   const capacity = Math.max(1, Math.trunc(capacityPerSlot || 1));
+  const sede: Pick<AdvisorSedeOption, "canonicalId" | "sourceLocationIds"> = {
+    canonicalId: canonicalId as AdvisorSedeOption["canonicalId"],
+    sourceLocationIds,
+  };
   const out: AgendaBiometricosSlotAvailability[] = [];
 
   for (const slot of config.slots) {
@@ -224,11 +244,12 @@ export function computeAdvisorSlotAvailability(params: {
     if (applyMinLeadHours && !meetsMinLeadHours(date, time, config.timezone, config.minLeadHours, now)) {
       continue;
     }
-    const bookedCount = countBookedForSlotAcrossLocations(
+    const bookedCount = countBookedForAdvisorSede(
       bookedSlots,
       date,
-      sourceLocationIds,
       time,
+      sede,
+      config.locations,
     );
     const remaining = Math.max(0, capacity - bookedCount);
     out.push({

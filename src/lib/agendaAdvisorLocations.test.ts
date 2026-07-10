@@ -113,6 +113,20 @@ describe("advisorOptionIncludesBookingLocation", () => {
     assert.equal(advisorOptionIncludesBookingLocation(monterrey, "sede-centro"), true);
     assert.equal(advisorOptionIncludesBookingLocation(monterrey, "san-nicolas"), false);
   });
+
+  it("mapea booking legacy aunque no esté en sourceLocationIds exactos", () => {
+    const locations = [{ id: "monterrey", label: "Monterrey", enabled: true, capacityPerSlot: 16 }];
+    const [monterrey] = buildAdvisorSedeOptions(locations);
+    assert.ok(monterrey);
+    assert.equal(
+      advisorOptionIncludesBookingLocation(monterrey, "sede-centro", locations),
+      true,
+    );
+    assert.equal(
+      advisorOptionIncludesBookingLocation(monterrey, "monterrey", locations),
+      true,
+    );
+  });
 });
 
 describe("computeAdvisorSlotAvailability", () => {
@@ -151,5 +165,40 @@ describe("computeAdvisorSlotAvailability", () => {
     assert.equal(slots[0]?.bookedCount, 2);
     assert.equal(slots[0]?.remaining, 3);
     assert.equal(slots[0]?.locationId, "monterrey");
+  });
+
+  it("cuenta bookings legacy cuando config solo tiene sede canónica", () => {
+    const config = {
+      ...emptyAgendaBiometricosWeeklyConfig(),
+      enabled: true,
+      timezone: "America/Monterrey",
+      minLeadHours: 0,
+      allowedWeekdays: [1, 2, 3, 4, 5, 6, 7],
+      slots: ["08:00" as HhmmTime, "10:00" as HhmmTime],
+      locations: [{ id: "monterrey", label: "Monterrey", enabled: true, capacityPerSlot: 16 }],
+    };
+    const [monterrey] = buildAdvisorSedeOptions(config.locations);
+    assert.ok(monterrey);
+
+    const slots = computeAdvisorSlotAvailability({
+      config,
+      bookedSlots: [
+        { bookingDate: "2026-07-14", bookingTime: "08:00:00", locationId: "monterrey" },
+        { bookingDate: "2026-07-14", bookingTime: "08:00", locationId: "sede-centro" },
+        { bookingDate: "2026-07-14", bookingTime: "10:00:00", locationId: "monterrey" },
+      ],
+      date: "2026-07-14" as YmdDate,
+      canonicalId: monterrey.canonicalId,
+      sourceLocationIds: monterrey.sourceLocationIds,
+      capacityPerSlot: monterrey.capacityPerSlot,
+      now: new Date("2026-01-01"),
+    });
+
+    const s08 = slots.find((s) => s.time === "08:00");
+    const s10 = slots.find((s) => s.time === "10:00");
+    assert.equal(s08?.bookedCount, 2);
+    assert.equal(s08?.remaining, 14);
+    assert.equal(s10?.bookedCount, 1);
+    assert.equal(s10?.remaining, 15);
   });
 });
