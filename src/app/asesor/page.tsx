@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSessionRepo } from "@/domain/session";
 import { Button } from "@/components/ui/Button";
+import { Select } from "@/components/ui/Select";
 import { formatDateTimeMx } from "@/lib/filters";
 import {
   ExpedientesSupabaseError,
@@ -59,6 +60,11 @@ import {
   type AsesorAgendaBookingHints,
   type AsesorRetencionHints,
 } from "@/lib/asesorTareasPendientes";
+import {
+  ASESOR_EXPORT_PROGRAMA_OPTIONS,
+  downloadAsesorPrecalificacionesExcel,
+  type AsesorExportProgramaFilter,
+} from "@/lib/exportAsesorPrecalificacionesExcel";
 
 const CORRECCION_REQUERIDA_BADGE_CLASS =
   "inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900 ring-1 ring-amber-300";
@@ -476,6 +482,10 @@ export default function AsesorDashboardPage() {
     Record<string, ExpedienteClienteDatosEstado | undefined>
   >({});
   const [tareasHintsPorId, setTareasHintsPorId] = useState<AsesorTareasHintsPorId>({});
+  const [exportProgramaFilter, setExportProgramaFilter] =
+    useState<AsesorExportProgramaFilter>("ambos");
+  const [exportExcelLoading, setExportExcelLoading] = useState(false);
+  const [exportExcelMessage, setExportExcelMessage] = useState<string | null>(null);
   const expedienteIdsRef = useRef<string[]>([]);
 
   const resumenDocumentalPorId = useMemo(() => {
@@ -701,6 +711,37 @@ export default function AsesorDashboardPage() {
     fetchClienteDatosEstadoPorIds,
     fetchTareasHintsPorIds,
   ]);
+
+  const handleDescargarExcel = useCallback(() => {
+    if (!currentUser?.email) {
+      setExportExcelMessage("No se pudo identificar al asesor autenticado.");
+      return;
+    }
+    setExportExcelLoading(true);
+    setExportExcelMessage(null);
+    try {
+      const result = downloadAsesorPrecalificacionesExcel(
+        mockPrecalList.map((p) => ({
+          id: p.id,
+          asesorId: p.asesorId,
+          cliente_nombre: p.cliente_nombre,
+          nss: p.nss,
+          telefono_cliente: p.telefono_cliente,
+          programa: p.programa,
+          monto_aprobado: p.monto_aprobado,
+        })),
+        exportProgramaFilter,
+        currentUser.email,
+      );
+      if (!result.ok) {
+        setExportExcelMessage("No hay precalificaciones para el programa seleccionado.");
+      }
+    } catch {
+      setExportExcelMessage("No se pudo generar el archivo Excel. Intenta de nuevo.");
+    } finally {
+      setExportExcelLoading(false);
+    }
+  }, [currentUser?.email, exportProgramaFilter, mockPrecalList]);
 
   const programasUnicos = useMemo(() => {
     const set = new Set(mockPrecalList.map((p) => (p.programa ?? "").trim()).filter(Boolean));
@@ -1125,6 +1166,34 @@ export default function AsesorDashboardPage() {
               </Button>
             </Link>
           </div>
+          <div className="mt-2.5 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-end">
+            <Select
+              id="asesor-export-programa"
+              label="Programa para exportar"
+              value={exportProgramaFilter}
+              onChange={(e) => {
+                setExportProgramaFilter(e.target.value as AsesorExportProgramaFilter);
+                setExportExcelMessage(null);
+              }}
+              options={[...ASESOR_EXPORT_PROGRAMA_OPTIONS]}
+              className="min-w-[12rem] py-1.5 text-sm"
+              disabled={exportExcelLoading}
+            />
+            <Button
+              type="button"
+              variant="outline"
+              className="h-[42px] whitespace-nowrap px-3 text-sm sm:self-end"
+              disabled={exportExcelLoading || mockPrecalList.length === 0}
+              onClick={handleDescargarExcel}
+            >
+              {exportExcelLoading ? "Generando Excel..." : "Descargar Excel"}
+            </Button>
+          </div>
+          {exportExcelMessage ? (
+            <p role="status" className="mt-2 text-xs text-amber-800">
+              {exportExcelMessage}
+            </p>
+          ) : null}
           <div className="mt-2.5 flex flex-wrap items-center gap-2">
             <div
               className="flex flex-wrap gap-1.5"

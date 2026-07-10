@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **feat/asesor-export-precalificaciones-excel — descarga Excel por programa en `/asesor`:** selector Mejoravit / Compra de casa / Ambos + botón «Descargar Excel»; exporta todo `listForAsesor` (sin paginación ni búsqueda); columnas nombre, NSS, teléfono, programa, monto aprobado; librería `xlsx`; NSS/teléfono como texto; sanitización fórmulas Excel.
+
 - **fix/mesa-notificacion-extraordinaria-ui — Notificación separada de Biométricos en Mesa:** acordeón independiente «Notificación extraordinaria» en detalle; bandeja muestra bloque ámbar con fecha, 12:00 PM, agendada por, asesor dueño y estado; «Agenda / Citas» solo biométricos/firma; batch `listActiveNotificacionByExpedienteIds` + `created_by` en lectura frontend; sin SQL/RPC Cloud.
 
 - **feat/notificacion-etapa3-agenda — rama extraordinaria Notificación + cancel/reagendar:** pestañas Biométricos/Notificación; RPC `book/cancel/reagendar_notificacion_etapa3`; Mesa aprueba 3→5; biométricos book 3→4 + Mesa 4→5; migraciones `065` (enum) + `066` (RPC/parches); cancel Mesa solo `mesa_admin`/`super_admin`.

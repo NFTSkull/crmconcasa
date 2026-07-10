@@ -1,5 +1,18 @@
 # Devlog
 
+## 2026-07-10 - feat/asesor-export-precalificaciones-excel
+
+### Diagnóstico
+
+- Bandeja `/asesor` carga con `repo.listForAsesor(currentUser.email)` → lista completa en `mockPrecalList`; paginación cliente (`PAGE_SIZE=50`) sobre `expedientesFiltrados`.
+- Programas DB: `mejoravit`, `compro_tu_casa`, `subcuenta`; UI «Compro tu casa». «Compra de casa» en export = `compro_tu_casa`. «Ambos» = mejoravit + compro_tu_casa (excluye Subcuenta).
+- Campos listado: `cliente_nombre`, `nss`, `telefono_cliente`, `programa`, `monto_aprobado` (editor). No hay monto_solicitado/precalificado/mejoravit en el modelo de lista.
+- Sin librería Excel previa; se agrega `xlsx` (SheetJS) para `.xlsx` real.
+
+### Decisión
+
+- Helper `exportAsesorPrecalificacionesExcel.ts`; filtro solo por programa; defensa `asesorId === currentUser.email`; sin tocar RLS/RPC.
+
 ## 2026-07-10 - fix/mesa-notificacion-extraordinaria-ui
 
 ### Decisión
