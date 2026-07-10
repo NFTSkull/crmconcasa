@@ -35,6 +35,7 @@ import {
 } from "@/lib/subestadoOperativoUi";
 import { formatMontoMX } from "@/lib/monto";
 import { NotificationsBell } from "@/components/notifications/NotificationsBell";
+import { AsesorAgendaCalendarButton } from "@/components/asesor/AsesorAgendaCalendarButton";
 import { buildDashboardNotifications } from "@/lib/dashboardNotifications";
 import {
   useAgendaBiometricosBookingRepo,
@@ -1020,6 +1021,7 @@ export default function AsesorDashboardPage() {
               {currentUser.email}
             </span>
             <NotificationsBell notifications={dashboardNotifications} />
+            <AsesorAgendaCalendarButton />
             <Button
               variant="outline"
               onClick={async () => {

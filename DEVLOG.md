@@ -1,5 +1,19 @@
 # Devlog
 
+## 2026-07-10 - feat/asesor-calendario-citas-readonly
+
+### Diagnóstico
+
+- Header asesor: `NotificationsBell` en `src/app/asesor/page.tsx` (zona superior derecha).
+- `agenda_bookings`: `kind`, `status`, `booking_date`, `booking_time`, `location_id`, `created_by`, `expediente_id`; asesor visible vía `expedientes.asesor_id`.
+- RLS `agenda_bookings_select` usa `can_see_expediente` → asesor solo ve bookings de **sus** expedientes; lectura directa no sirve para calendario org-wide.
+- Campos seguros: hora, tipo, asesor (nombre/email), ubicación, estatus. **Sin** `cliente_nombre` ni `expediente_id` en RPC.
+
+### Decisión
+
+- RPC read-only `get_asesor_agenda_calendar(start, end, include_cancelled)` SECURITY DEFINER; roles `asesor|mesa_admin|super_admin`; rango máx 62 días.
+- UI modal junto a campana; filtros y selector de día; mock localStorage cuando `DATA_MODE!=supabase`.
+
 ## 2026-07-10 - feat/biometricos-etapa3-flujo-11-pasos (P063)
 
 ### Diagnóstico aplicado
