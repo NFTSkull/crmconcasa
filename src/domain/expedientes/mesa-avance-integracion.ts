@@ -230,9 +230,15 @@ export function deriveAvanceOperativo3a4View(
   };
 }
 
-// —— P063: avance operativo Mesa 3 → 5 (cita biométrica activa) ——
+// —— P065: avance operativo Mesa 3 → 5 (notificación activa) ——
 
-/** Panel visible en etapa 3 con cita agendada por asesor (flujo 11 pasos). */
+export type MesaAvanceOperativo4a5Context = MesaAvanceOperativoContext & {
+  fechaCita?: string | null;
+  hasActiveBiometricBooking: boolean;
+  hasActiveNotificacionBooking?: boolean;
+};
+
+/** Panel visible en etapa 3 con notificación agendada. */
 export function puedeMostrarAvanceOperativo3a5(ctx: MesaAvanceOperativo4a5Context): boolean {
   if (!ctx.submittedToMesa) return false;
   if (ctx.cicloEstado !== "activo") return false;
@@ -240,7 +246,7 @@ export function puedeMostrarAvanceOperativo3a5(ctx: MesaAvanceOperativo4a5Contex
   return ctx.subestado === "en_proceso";
 }
 
-/** Bloqueos alineados con `avanzar_etapa_operativa` transición 3→5. */
+/** Bloqueos alineados con `avanzar_etapa_operativa` transición 3→5 (notificación). */
 export function deriveBloqueosAvanceOperativo3a5(
   ctx: MesaAvanceOperativo4a5Context,
 ): string[] {
@@ -254,12 +260,18 @@ export function deriveBloqueosAvanceOperativo3a5(
 
   if (!hasFecha) {
     bloqueos.push(
-      "Falta cita biométrica. El asesor debe agendar la cita desde su expediente.",
+      "Falta fecha de notificación. El asesor debe agendar la notificación desde su expediente.",
     );
   }
 
-  if (!ctx.hasActiveBiometricBooking) {
-    bloqueos.push("No hay reserva biométrica activa en Supabase.");
+  if (!ctx.hasActiveNotificacionBooking) {
+    bloqueos.push("No hay notificación activa en Supabase.");
+  }
+
+  if (ctx.hasActiveBiometricBooking) {
+    bloqueos.push(
+      "Hay una cita biométrica activa; la aprobación 3→5 solo aplica a notificación.",
+    );
   }
 
   return bloqueos;
@@ -277,12 +289,7 @@ export function deriveAvanceOperativo3a5View(
   };
 }
 
-// —— P3M.3: avance operativo Mesa 4 → 5 (legacy) ——
-
-export type MesaAvanceOperativo4a5Context = MesaAvanceOperativoContext & {
-  fechaCita?: string | null;
-  hasActiveBiometricBooking: boolean;
-};
+// —— P3M.3: avance operativo Mesa 4 → 5 (biométricos normal) ——
 
 /** Panel visible solo en etapa 4 post-cita biométrica (P3M.3). */
 export function puedeMostrarAvanceOperativo4a5(ctx: MesaAvanceOperativo4a5Context): boolean {

@@ -12,6 +12,7 @@ import {
   explainMesaShowCancelCitaOperativa,
   MESA_CANCEL_BIO_BUTTON_LABEL,
   MESA_CANCEL_FIRMAS_BUTTON_LABEL,
+  MESA_CANCEL_NOTIFICACION_BUTTON_LABEL,
   type MesaAgendaCancelKind,
 } from "@/lib/mesaAgendaCancelAccess";
 
@@ -105,7 +106,9 @@ export function MesaAvanceOperativoSection({
   const cancelLabel =
     cancelCitaGate?.kind === "firmas"
       ? MESA_CANCEL_FIRMAS_BUTTON_LABEL
-      : MESA_CANCEL_BIO_BUTTON_LABEL;
+      : cancelCitaGate?.kind === "notificacion"
+        ? MESA_CANCEL_NOTIFICACION_BUTTON_LABEL
+        : MESA_CANCEL_BIO_BUTTON_LABEL;
 
   if (!view.mostrar) return null;
 

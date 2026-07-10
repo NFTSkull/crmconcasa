@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **feat/notificacion-etapa3-agenda — rama extraordinaria Notificación + cancel/reagendar:** pestañas Biométricos/Notificación; RPC `book/cancel/reagendar_notificacion_etapa3`; Mesa aprueba 3→5; biométricos book 3→4 + Mesa 4→5; migraciones `065` (enum) + `066` (RPC/parches); cancel Mesa solo `mesa_admin`/`super_admin`.
+
 - **fix/agenda-disponibilidad-slot-count — conteo por sede canónica y hora normalizada:** `computeAdvisorSlotAvailability` cuenta bookings por `kind + sede canónica + fecha + hora` (legacy `sede-centro` etc. mapean a Monterrey); normalización HH:mm/H:mm y YYYY-MM-DD en pipeline calendario.
 
 - **fix/agenda-disponibilidad-org-wide — slots ocupados visibles para todos los asesores:** `listBookedSlots` usa RPC `get_asesor_agenda_calendar` (org-wide) en lugar de SELECT con RLS; biométricos y firmas mantienen cupos separados por `kind`; backend `assert_slot_available` ya bloqueaba doble booking; mensaje claro al agotar cupo.

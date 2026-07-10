@@ -195,25 +195,36 @@ $$;
 CREATE OR REPLACE FUNCTION public.__rpc_avanzar_234_test_insert_booking(
   p_expediente_id UUID,
   p_org_id UUID,
-  p_created_by UUID
+  p_created_by UUID,
+  p_kind public.booking_kind DEFAULT 'notificacion'
 )
 RETURNS UUID
 LANGUAGE plpgsql
 AS $$
 DECLARE
   v_id UUID;
+  v_booking_time TIME;
+  v_location_id TEXT;
 BEGIN
+  IF p_kind = 'notificacion' THEN
+    v_booking_time := TIME '12:00';
+    v_location_id := 'notificacion';
+  ELSE
+    v_booking_time := TIME '10:00';
+    v_location_id := 'sede-centro';
+  END IF;
+
   INSERT INTO public.agenda_bookings (
     organization_id, kind, expediente_id, booking_date, booking_time,
     location_id, status, created_by
   ) VALUES (
-    p_org_id, 'biometricos', p_expediente_id, CURRENT_DATE + 7, '10:00:00',
-    'sede-centro', 'booked', p_created_by
+    p_org_id, p_kind, p_expediente_id, CURRENT_DATE + 7, v_booking_time,
+    v_location_id, 'booked', p_created_by
   )
   RETURNING id INTO v_id;
 
   UPDATE public.expedientes
-  SET fecha_cita = ((CURRENT_DATE + 7)::timestamp + TIME '10:00') AT TIME ZONE 'UTC'
+  SET fecha_cita = ((CURRENT_DATE + 7)::timestamp + v_booking_time) AT TIME ZONE 'UTC'
   WHERE id = p_expediente_id;
 
   RETURN v_id;
@@ -360,7 +371,7 @@ BEGIN
     v_exp_reg_45, v_org_id, v_asesor_a1, '91404400044', 'interno', true, 4::smallint,
     'en_proceso', v_fecha_cita
   );
-  PERFORM public.__rpc_avanzar_234_test_insert_booking(v_exp_reg_45, v_org_id, v_asesor_a1);
+  PERFORM public.__rpc_avanzar_234_test_insert_booking(v_exp_reg_45, v_org_id, v_asesor_a1, 'biometricos');
 
   -- === Transición 2→3 ===
 
@@ -525,22 +536,22 @@ BEGIN
         AND al.action = 'expediente.avanzar_etapa_operativa'
         AND (al.payload->>'etapa_anterior')::int = 3
         AND (al.payload->>'etapa_nueva')::int = 5
-        AND al.payload->>'transition' = '3_5'
+        AND al.payload->>'transition' = '3_5_notificacion'
     ),
     'test 20: action_log 3→5'
   );
 
-  -- 21. book_biometricos en etapa 3 y luego avance 3→5
+  -- 21. book_biometricos en etapa 3 avanza a etapa 4; Mesa 4→5
   v_slot := public.agenda_biometricos_slot_ts(2, '12:00', 10);
   v_result := public.__rpc_avanzar_234_test_call_book(v_asesor_a1, v_exp_34_book, v_slot, 'sede-centro');
   PERFORM public.__rpc_avanzar_234_test_assert(
-    (v_result->>'ok')::boolean = true,
-    'test 21a: book_biometricos en etapa 3'
+    (v_result->>'ok')::boolean = true AND (v_result->>'etapa_actual')::int = 4,
+    'test 21a: book_biometricos en etapa 3 avanza a etapa 4'
   );
   v_result := public.__rpc_avanzar_234_test_call_as(v_mesa_admin, v_exp_34_book);
   PERFORM public.__rpc_avanzar_234_test_assert(
     (v_result->>'etapa_actual')::int = 5,
-    'test 21b: avanzar 3→5 tras book en etapa 3'
+    'test 21b: avanzar 4→5 tras book biométricos en etapa 3'
   );
 
   -- === Regresiones ===
@@ -589,7 +600,7 @@ BEGIN
 END;
 $$;
 
-DROP FUNCTION IF EXISTS public.__rpc_avanzar_234_test_insert_booking(UUID, UUID, UUID);
+DROP FUNCTION IF EXISTS public.__rpc_avanzar_234_test_insert_booking(UUID, UUID, UUID, public.booking_kind);
 DROP FUNCTION IF EXISTS public.__rpc_avanzar_234_test_insert_docs(UUID, UUID, UUID);
 DROP FUNCTION IF EXISTS public.__rpc_avanzar_234_test_insert_cliente(UUID, UUID, public.cliente_datos_estado);
 DROP FUNCTION IF EXISTS public.__rpc_avanzar_234_test_insert_expediente(UUID, UUID, UUID, CHAR, public.origen_mesa, BOOLEAN, SMALLINT, public.operativo_subestado, TIMESTAMPTZ, TIMESTAMPTZ, public.expediente_ciclo_estado);

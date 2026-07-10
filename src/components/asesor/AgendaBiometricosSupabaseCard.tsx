@@ -22,10 +22,8 @@ import {
   type AdvisorSedeOption,
 } from "@/lib/agendaAdvisorLocations";
 import type { WeeklyLocationLike } from "@/lib/agendaCynthiaLocations";
-import {
-  AdvisorAgendaSlotPicker,
-  buildAdvisorDateAvailabilityInsight,
-} from "@/components/asesor/AdvisorAgendaSlotPicker";
+import { AdvisorAgendaSlotPicker, buildAdvisorDateAvailabilityInsight } from "@/components/asesor/AdvisorAgendaSlotPicker";
+import { AgendaNotificacionSupabaseTab } from "@/components/asesor/AgendaNotificacionSupabaseTab";
 import { AsesorAgendaCitaCanceladaNotice } from "@/components/asesor/AsesorAgendaCitaCanceladaNotice";
 import { parseCancelMotivoFromNote } from "@/lib/agendaCancelNote";
 
@@ -80,6 +78,8 @@ function adjustSlotsForReagendar(
   });
 }
 
+type AgendaEtapa3Tab = "biometricos" | "notificacion";
+
 export function AgendaBiometricosSupabaseCard({
   expedienteId,
   etapaActual = 4,
@@ -93,6 +93,10 @@ export function AgendaBiometricosSupabaseCard({
   const [activeBooking, setActiveBooking] = useState<Awaited<
     ReturnType<NonNullable<typeof repo>["getActiveBooking"]>
   > | null>(null);
+  const [activeNotificacion, setActiveNotificacion] = useState<Awaited<
+    ReturnType<NonNullable<typeof repo>["getActiveNotificacionBooking"]>
+  > | null>(null);
+  const [agendaTab, setAgendaTab] = useState<AgendaEtapa3Tab>("biometricos");
   const [lastCancelledBooking, setLastCancelledBooking] = useState<Awaited<
     ReturnType<NonNullable<typeof repo>["getLastCancelledBooking"]>
   > | null>(null);
@@ -131,15 +135,19 @@ export function AgendaBiometricosSupabaseCard({
     setLoading(true);
     setLoadError(null);
     try {
-      const [configRecord, booking, cancelled] = await Promise.all([
+      const [configRecord, booking, notificacion, cancelled] = await Promise.all([
         repo.getBiometricosConfig(),
         repo.getActiveBooking(expedienteId),
+        repo.getActiveNotificacionBooking(expedienteId),
         repo.getLastCancelledBooking(expedienteId),
       ]);
       const weekly = configRecord?.config ?? null;
       setConfig(weekly);
       setActiveBooking(booking);
-      setLastCancelledBooking(booking ? null : cancelled);
+      setActiveNotificacion(notificacion);
+      setLastCancelledBooking(booking || notificacion ? null : cancelled);
+      if (notificacion && !booking) setAgendaTab("notificacion");
+      if (booking) setAgendaTab("biometricos");
 
       const tz = weekly?.timezone ?? "America/Monterrey";
       const today = todayYmdInTimezone(tz);
@@ -354,6 +362,8 @@ export function AgendaBiometricosSupabaseCard({
     timeHhmm,
   ]);
 
+  const showEtapa3Tabs = etapaActual === 3 && !activeBooking && !activeNotificacion;
+
   const renderFormShell = (
     title: string,
     subtitle: string,
@@ -365,6 +375,49 @@ export function AgendaBiometricosSupabaseCard({
       <p className="text-sm font-semibold text-gray-900">{title}</p>
       <p className="mt-1 text-[11px] leading-snug text-gray-600">{subtitle}</p>
 
+      {showEtapa3Tabs ? (
+        <div className="mt-3 flex gap-1 border-b border-gray-100 pb-2">
+          {(
+            [
+              ["biometricos", "Biométricos"],
+              ["notificacion", "Notificación"],
+            ] as const
+          ).map(([id, label]) => (
+            <button
+              key={id}
+              type="button"
+              onClick={() => {
+                setAgendaTab(id);
+                setError(null);
+                setSuccessMsg(null);
+              }}
+              className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition ${
+                agendaTab === id
+                  ? "bg-sky-600 text-white"
+                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+              }`}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+      ) : null}
+
+      {showEtapa3Tabs && agendaTab === "notificacion" && repo ? (
+        <div className="mt-3">
+          <AgendaNotificacionSupabaseTab
+            expedienteId={expedienteId}
+            config={config}
+            repo={repo}
+            activeNotificacion={activeNotificacion}
+            onUpdated={() => {
+              void load();
+              onUpdated();
+            }}
+          />
+        </div>
+      ) : (
+        <>
       {!config || !config.enabled || advisorSedeOptions.length === 0 ? (
         <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950">
           La agenda biométrica aún no está configurada o está deshabilitada. Solicita a Mesa Admin
@@ -435,6 +488,8 @@ export function AgendaBiometricosSupabaseCard({
       >
         {saving ? "Guardando…" : submitLabel}
       </Button>
+        </>
+      )}
     </div>
   );
 
@@ -453,6 +508,35 @@ export function AgendaBiometricosSupabaseCard({
         className="rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-800"
       >
         {loadError}
+      </div>
+    );
+  }
+
+  if (etapaActual === 3 && activeNotificacion && !activeBooking) {
+    return (
+      <div className="space-y-3">
+        {lastCancelledBooking ? (
+          <AsesorAgendaCitaCanceladaNotice
+            motivo={parseCancelMotivoFromNote(lastCancelledBooking.note)}
+          />
+        ) : null}
+        <div className="rounded-xl border border-sky-200 bg-white p-4 shadow-sm">
+          <p className="text-sm font-semibold text-gray-900">Agenda biométricos</p>
+          <div className="mt-3">
+            {repo ? (
+              <AgendaNotificacionSupabaseTab
+                expedienteId={expedienteId}
+                config={config}
+                repo={repo}
+                activeNotificacion={activeNotificacion}
+                onUpdated={() => {
+                  void load();
+                  onUpdated();
+                }}
+              />
+            ) : null}
+          </div>
+        </div>
       </div>
     );
   }

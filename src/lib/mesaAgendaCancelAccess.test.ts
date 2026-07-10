@@ -268,3 +268,43 @@ describe("canMesaCancelBiometricosBooking", () => {
     );
   });
 });
+
+describe("cancel notificación Mesa", () => {
+  it("mesa_admin puede cancelar notificación en etapa 3", () => {
+    assert.equal(
+      canMesaShowCancelCitaButton({
+        kind: "notificacion",
+        mockRole: "mesa_admin",
+        etapaActual: 3,
+        hasActiveBooking: true,
+      }),
+      true,
+    );
+  });
+
+  it("mesa_interno no puede cancelar notificación", () => {
+    const explain = explainMesaShowCancelCitaOperativa({
+      kind: "notificacion",
+      mockRole: "mesa_interno",
+      submittedToMesa: true,
+      subestado: "en_proceso",
+      cicloEstado: "activo",
+      etapaActual: 3,
+      hasActiveBooking: true,
+    });
+    assert.equal(explain.visible, false);
+    assert.ok(explain.failedChecks.includes("rol"));
+  });
+
+  it("notificación solo cancelable en etapa 3", () => {
+    assert.equal(
+      canMesaShowCancelCitaButton({
+        kind: "notificacion",
+        mockRole: "mesa_admin",
+        etapaActual: 4,
+        hasActiveBooking: true,
+      }),
+      false,
+    );
+  });
+});

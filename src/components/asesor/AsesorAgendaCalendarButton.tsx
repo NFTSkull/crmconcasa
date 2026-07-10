@@ -44,9 +44,13 @@ function CalendarIcon({ className }: { className?: string }) {
 }
 
 function kindBadgeClass(kind: AsesorAgendaCalendarEntry["kind"]): string {
-  return kind === "biometricos"
-    ? "bg-indigo-50 text-indigo-800 ring-1 ring-indigo-200"
-    : "bg-violet-50 text-violet-800 ring-1 ring-violet-200";
+  if (kind === "biometricos") {
+    return "bg-indigo-50 text-indigo-800 ring-1 ring-indigo-200";
+  }
+  if (kind === "notificacion") {
+    return "bg-amber-50 text-amber-900 ring-1 ring-amber-200";
+  }
+  return "bg-violet-50 text-violet-800 ring-1 ring-violet-200";
 }
 
 function statusBadgeClass(status: AsesorAgendaCalendarEntry["status"]): string {
@@ -209,6 +213,7 @@ export function AsesorAgendaCalendarDialog({ open, onClose }: AsesorAgendaCalend
                 ["all", "Todos"],
                 ["biometricos", "Biométricos"],
                 ["firmas", "Firma"],
+                ["notificacion", "Notificación"],
               ] as const
             ).map(([id, label]) => (
               <button

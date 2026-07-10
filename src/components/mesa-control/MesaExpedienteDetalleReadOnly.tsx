@@ -73,6 +73,7 @@ import {
   AgendaBiometricosSupabaseError,
   type AgendaBiometricosActiveBooking,
   type AgendaBiometricosConfigRecord,
+  type AgendaNotificacionActiveBooking,
 } from "@/domain/agenda-biometricos";
 import {
   useAgendaFirmasBookingRepo,
@@ -222,6 +223,8 @@ export function MesaExpedienteDetalleReadOnly() {
   const [avance3a5Success, setAvance3a5Success] = useState<string | null>(null);
   const [activeBiometricBooking, setActiveBiometricBooking] =
     useState<AgendaBiometricosActiveBooking | null>(null);
+  const [activeNotificacionBooking, setActiveNotificacionBooking] =
+    useState<AgendaNotificacionActiveBooking | null>(null);
   const [biometricosConfig, setBiometricosConfig] =
     useState<AgendaBiometricosConfigRecord | null>(null);
   const [avance4a5Loading, setAvance4a5Loading] = useState(false);
@@ -250,6 +253,8 @@ export function MesaExpedienteDetalleReadOnly() {
   const [cancelCitaError, setCancelCitaError] = useState<string | null>(null);
   const [biometricosCancelSuccess, setBiometricosCancelSuccess] = useState<string | null>(null);
   const [biometricosCancelledMotivo, setBiometricosCancelledMotivo] = useState<string | null>(null);
+  const [notificacionCancelSuccess, setNotificacionCancelSuccess] = useState<string | null>(null);
+  const [notificacionCancelledMotivo, setNotificacionCancelledMotivo] = useState<string | null>(null);
   const [cancelFirmasSuccess, setCancelFirmasSuccess] = useState<string | null>(null);
   const [firmasCancelledMotivo, setFirmasCancelledMotivo] = useState<string | null>(null);
   const [mesaOps, setMesaOps] = useState<MesaExpedienteOpsRow | null>(null);
@@ -290,6 +295,7 @@ export function MesaExpedienteDetalleReadOnly() {
         setArchivosResumen([]);
         setArchivosLista([]);
         setActiveBiometricBooking(null);
+        setActiveNotificacionBooking(null);
         setBiometricosConfig(null);
         setActiveFirmasBooking(null);
         setFirmasConfig(null);
@@ -297,13 +303,16 @@ export function MesaExpedienteDetalleReadOnly() {
           return;
         }
 
-        const [datos, archivos, lista, booking, bioConfig, firmasBooking, firmasCfg, bioCancelled, firmasCancelled] =
+        const [datos, archivos, lista, booking, notificacionBooking, bioConfig, firmasBooking, firmasCfg, bioCancelled, firmasCancelled] =
           await Promise.all([
           clienteDatosRepo.getByExpedienteId(routeExpedienteId).catch(() => null),
           archivosRepo.listResumenByExpediente(routeExpedienteId).catch(() => []),
           archivosRepo.listByExpediente(routeExpedienteId).catch(() => []),
           agendaBookingRepo
             ? agendaBookingRepo.getActiveBooking(routeExpedienteId).catch(() => null)
+            : Promise.resolve(null),
+          agendaBookingRepo
+            ? agendaBookingRepo.getActiveNotificacionBooking(routeExpedienteId).catch(() => null)
             : Promise.resolve(null),
           agendaBookingRepo
             ? agendaBookingRepo.getBiometricosConfig().catch(() => null)
@@ -327,6 +336,7 @@ export function MesaExpedienteDetalleReadOnly() {
         setArchivosResumen(archivos);
         setArchivosLista(lista);
         setActiveBiometricBooking(booking);
+        setActiveNotificacionBooking(notificacionBooking);
         setBiometricosConfig(bioConfig);
         setActiveFirmasBooking(firmasBooking);
         setFirmasConfig(firmasCfg);
@@ -357,6 +367,7 @@ export function MesaExpedienteDetalleReadOnly() {
         setArchivosResumen([]);
         setArchivosLista([]);
         setActiveBiometricBooking(null);
+        setActiveNotificacionBooking(null);
         setBiometricosConfig(null);
         setActiveFirmasBooking(null);
         setFirmasConfig(null);
@@ -929,8 +940,9 @@ export function MesaExpedienteDetalleReadOnly() {
       subestado: expediente?.operativo.subestado,
       fechaCita: expediente?.operativo.fechaCita ?? null,
       hasActiveBiometricBooking: activeBiometricBooking != null,
+      hasActiveNotificacionBooking: activeNotificacionBooking != null,
     }),
-    [activeBiometricBooking, expediente],
+    [activeBiometricBooking, activeNotificacionBooking, expediente],
   );
 
   const avanceOperativo3a5View = useMemo(
@@ -1069,6 +1081,36 @@ export function MesaExpedienteDetalleReadOnly() {
     expediente,
     mesaMockRole,
     mesaSessionRole,
+  ]);
+
+  const notificacionCancelCitaGate = useMemo((): MesaAvanceCancelCitaGate | null => {
+    if (!expediente) return null;
+    const etapa = expediente.operativo.etapaActual ?? null;
+    if (etapa !== 3) return null;
+    return {
+      kind: "notificacion",
+      mockRole: mesaMockRole,
+      sessionRole: mesaSessionRole,
+      submittedToMesa: expediente.operativo.submittedToMesa ?? false,
+      subestado: expediente.operativo.subestado ?? null,
+      cicloEstado: expediente.operativo.cicloEstado ?? null,
+      etapaActual: etapa,
+      hasActiveBooking: activeNotificacionBooking != null,
+      fechaCita: expediente.operativo.fechaCita ?? null,
+      success: notificacionCancelSuccess,
+      cancelledMotivo: notificacionCancelledMotivo,
+      onRequest: () => {
+        setCancelCitaError(null);
+        setCancelCitaKind("notificacion");
+      },
+    };
+  }, [
+    activeNotificacionBooking,
+    expediente,
+    mesaMockRole,
+    mesaSessionRole,
+    notificacionCancelSuccess,
+    notificacionCancelledMotivo,
   ]);
 
   const firmasCancelCitaGate = useMemo((): MesaAvanceCancelCitaGate | null => {
@@ -1321,6 +1363,14 @@ export function MesaExpedienteDetalleReadOnly() {
           });
           setCancelFirmasSuccess(successMsg);
           setFirmasCancelledMotivo(motivo);
+        } else if (cancelCitaKind === "notificacion") {
+          if (!agendaBookingRepo) return;
+          await agendaBookingRepo.cancelNotificacionEtapa3({
+            expedienteId: routeExpedienteId,
+            motivo,
+          });
+          setNotificacionCancelSuccess(successMsg);
+          setNotificacionCancelledMotivo(motivo);
         } else {
           if (!agendaBookingRepo) return;
           await agendaBookingRepo.cancelBiometricos({
@@ -1339,6 +1389,12 @@ export function MesaExpedienteDetalleReadOnly() {
               ? err.message
               : "No se pudo cancelar la cita de firma.",
           );
+        } else if (cancelCitaKind === "notificacion") {
+          setCancelCitaError(
+            err instanceof AgendaBiometricosSupabaseError
+              ? err.message
+              : "No se pudo cancelar la notificación.",
+          );
         } else {
           setCancelCitaError(
             err instanceof AgendaBiometricosSupabaseError
@@ -1354,7 +1410,11 @@ export function MesaExpedienteDetalleReadOnly() {
   );
 
   const cancelCitaKindLabel =
-    cancelCitaKind === "firmas" ? "Cita de firma" : "Cita biométrica";
+    cancelCitaKind === "firmas"
+      ? "Cita de firma"
+      : cancelCitaKind === "notificacion"
+        ? "Notificación"
+        : "Cita biométrica";
 
   if (currentUser === undefined) {
     return (
@@ -1445,6 +1505,7 @@ export function MesaExpedienteDetalleReadOnly() {
   const agendaSummary = buildAgendaAccordionSummary({
     etapaActual,
     biometricBooking: activeBiometricBooking,
+    notificacionBooking: activeNotificacionBooking,
     firmasBooking: activeFirmasBooking,
     fechaCita: op.fechaCita,
   });
@@ -1648,6 +1709,7 @@ export function MesaExpedienteDetalleReadOnly() {
           subestado={expediente?.operativo.subestado ?? null}
           cicloEstado={expediente?.operativo.cicloEstado ?? null}
           biometricBooking={activeBiometricBooking}
+          notificacionBooking={activeNotificacionBooking}
           biometricLocationLabel={biometricLocationLabel}
           firmasBooking={activeFirmasBooking}
           firmasLocationLabel={firmasLocationLabel}
@@ -1657,6 +1719,11 @@ export function MesaExpedienteDetalleReadOnly() {
           biometricosCancelledMotivo={biometricosCancelledMotivo}
           firmasCancelSuccess={cancelFirmasSuccess}
           firmasCancelledMotivo={firmasCancelledMotivo}
+          notificacionCancelSuccess={notificacionCancelSuccess}
+          onRequestCancelNotificacion={() => {
+            setCancelCitaError(null);
+            setCancelCitaKind("notificacion");
+          }}
           onRequestCancelBiometricos={() => {
             setCancelCitaError(null);
             setCancelCitaKind("biometricos");
@@ -1704,7 +1771,7 @@ export function MesaExpedienteDetalleReadOnly() {
         error={avance3a5Error}
         success={avance3a5Success}
         onAvanzar={handleAvanzarOperativo3a5}
-        cancelCitaGate={bioCancelCitaGate}
+        cancelCitaGate={notificacionCancelCitaGate}
       />
 
       <MesaAvanceOperativoSection

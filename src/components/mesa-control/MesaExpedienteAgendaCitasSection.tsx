@@ -2,13 +2,18 @@
 
 import type { ReactNode } from "react";
 import { Button } from "@/components/ui/Button";
-import type { AgendaBiometricosActiveBooking } from "@/domain/agenda-biometricos";
+import type {
+  AgendaBiometricosActiveBooking,
+  AgendaNotificacionActiveBooking,
+} from "@/domain/agenda-biometricos";
+import { NOTIFICACION_FIXED_TIME_DISPLAY } from "@/domain/agenda-biometricos/notificacion-constants";
 import type { AgendaFirmasActiveBooking } from "@/domain/agenda-firmas";
 import { MESA_ETAPA_FIRMA_P3Q_NOTA } from "@/domain/expedientes/mesa-decision-ux";
 import {
   canMesaShowCancelCitaButton,
   MESA_CANCEL_BIO_BUTTON_LABEL,
   MESA_CANCEL_FIRMAS_BUTTON_LABEL,
+  MESA_CANCEL_NOTIFICACION_BUTTON_LABEL,
 } from "@/lib/mesaAgendaCancelAccess";
 
 export type MesaExpedienteAgendaCitasSectionProps = Readonly<{
@@ -18,6 +23,7 @@ export type MesaExpedienteAgendaCitasSectionProps = Readonly<{
   subestado?: string | null;
   cicloEstado?: string | null;
   biometricBooking: AgendaBiometricosActiveBooking | null;
+  notificacionBooking?: AgendaNotificacionActiveBooking | null;
   biometricLocationLabel?: string | null;
   firmasBooking: AgendaFirmasActiveBooking | null;
   firmasLocationLabel?: string | null;
@@ -28,7 +34,9 @@ export type MesaExpedienteAgendaCitasSectionProps = Readonly<{
   firmasCancelSuccess?: string | null;
   firmasCancelledMotivo?: string | null;
   onRequestCancelBiometricos?: () => void;
+  onRequestCancelNotificacion?: () => void;
   onRequestCancelFirmas?: () => void;
+  notificacionCancelSuccess?: string | null;
   embedded?: boolean;
 }>;
 
@@ -112,6 +120,7 @@ export function MesaExpedienteAgendaCitasSection({
   subestado = "en_proceso",
   cicloEstado = "activo",
   biometricBooking,
+  notificacionBooking = null,
   biometricLocationLabel,
   firmasBooking,
   firmasLocationLabel,
@@ -122,14 +131,19 @@ export function MesaExpedienteAgendaCitasSection({
   firmasCancelSuccess = null,
   firmasCancelledMotivo = null,
   onRequestCancelBiometricos,
+  onRequestCancelNotificacion,
   onRequestCancelFirmas,
+  notificacionCancelSuccess = null,
   embedded = false,
 }: MesaExpedienteAgendaCitasSectionProps) {
   const hasFecha = typeof fechaCita === "string" && fechaCita.trim() !== "";
+  const showNotificacion = Boolean(notificacionBooking);
   const showBio =
     Boolean(biometricBooking) ||
     Boolean(biometricosCancelledMotivo) ||
-    (hasFecha && (etapaActual === 3 || etapaActual === 4 || etapaActual === 5));
+    (hasFecha &&
+      !notificacionBooking &&
+      (etapaActual === 3 || etapaActual === 4 || etapaActual === 5));
   const showFirma =
     Boolean(firmasBooking) ||
     etapaActual === 9 ||
@@ -160,10 +174,22 @@ export function MesaExpedienteAgendaCitasSection({
     cicloEstado,
   });
 
-  if (!showBio && !showFirma) {
+  const puedeCancelarNotificacion = canMesaShowCancelCitaButton({
+    kind: "notificacion",
+    mockRole,
+    sessionRole,
+    etapaActual,
+    hasActiveBooking: notificacionBooking != null,
+    fechaCita,
+    submittedToMesa,
+    subestado,
+    cicloEstado,
+  });
+
+  if (!showBio && !showFirma && !showNotificacion) {
     return (
       <p className={embedded ? "px-4 py-3 text-sm text-gray-500" : "text-sm text-gray-500"}>
-        No hay citas biométricas ni de firma registradas en este expediente.
+        No hay citas biométricas, de notificación ni de firma registradas en este expediente.
       </p>
     );
   }
@@ -172,6 +198,43 @@ export function MesaExpedienteAgendaCitasSection({
 
   return (
     <div className={wrapperClass}>
+      {showNotificacion && notificacionBooking ? (
+        <CitaBlock title="Notificación agendada" tone="amber">
+          {notificacionCancelSuccess ? (
+            <p
+              role="status"
+              className="mb-3 rounded-md border border-amber-300 bg-white/80 px-3 py-2 text-xs font-medium text-amber-950"
+            >
+              {notificacionCancelSuccess}
+            </p>
+          ) : null}
+          <dl className="grid gap-2 text-xs text-gray-800 sm:grid-cols-2">
+            <div>
+              <dt className="font-medium text-gray-600">Fecha</dt>
+              <dd className="mt-0.5">{formatBookingDate(notificacionBooking.bookingDate)}</dd>
+            </div>
+            <div>
+              <dt className="font-medium text-gray-600">Hora</dt>
+              <dd className="mt-0.5">{NOTIFICACION_FIXED_TIME_DISPLAY}</dd>
+            </div>
+            <div>
+              <dt className="font-medium text-gray-600">Estatus</dt>
+              <dd className="mt-0.5 capitalize">{notificacionBooking.status}</dd>
+            </div>
+          </dl>
+          {puedeCancelarNotificacion && onRequestCancelNotificacion ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="mt-3 w-full text-xs"
+              onClick={onRequestCancelNotificacion}
+            >
+              {MESA_CANCEL_NOTIFICACION_BUTTON_LABEL}
+            </Button>
+          ) : null}
+        </CitaBlock>
+      ) : null}
+
       {showBio ? (
         <CitaBlock title="Cita biométricos" tone="sky">
           {biometricosCancelSuccess ? (

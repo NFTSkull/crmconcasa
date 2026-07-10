@@ -1,7 +1,10 @@
-export type MesaAgendaCancelKind = "biometricos" | "firmas";
+export type MesaAgendaCancelKind = "biometricos" | "firmas" | "notificacion";
 
 export const MESA_CANCEL_BIO_BUTTON_LABEL =
   "Cancelar cita biométrica y solicitar reagenda";
+
+export const MESA_CANCEL_NOTIFICACION_BUTTON_LABEL =
+  "Cancelar notificación y solicitar reagenda";
 
 export const MESA_CANCEL_FIRMAS_BUTTON_LABEL =
   "Cancelar cita de firmas y solicitar reagenda";
@@ -20,6 +23,18 @@ const MESA_CANCEL_AGENDA_ROLES = new Set([
   /** Rol de sesión colapsado (Supabase Mesa). */
   "mesa_control",
 ]);
+
+const MESA_CANCEL_NOTIFICACION_ROLES = new Set([
+  "mesa_admin",
+  "mesa_control_admin",
+  "super_admin",
+]);
+
+/** Roles que pueden cancelar notificación desde Mesa (más restrictivo que biométricos). */
+export function canMesaRoleCancelNotificacionRpc(role: string | null | undefined): boolean {
+  const normalized = String(role ?? "").trim();
+  return MESA_CANCEL_NOTIFICACION_ROLES.has(normalized);
+}
 
 /** Roles mock/Supabase que pueden llamar cancel_* como Mesa (037). */
 export function canMesaRoleCancelAgendaRpc(role: string | null | undefined): boolean {
@@ -98,15 +113,23 @@ export function explainMesaShowCancelCitaOperativa(
   ) {
     failedChecks.push("citaProgramada");
   }
-  if (!canMesaRoleCancelAgendaRpc(resolvedRole)) {
+  if (params.kind === "notificacion") {
+    if (!canMesaRoleCancelNotificacionRpc(resolvedRole)) {
+      failedChecks.push("rol");
+    }
+  } else if (!canMesaRoleCancelAgendaRpc(resolvedRole)) {
     failedChecks.push("rol");
   }
 
   const etapa = params.etapaActual;
-  const etapaOk =
-    params.kind === "firmas"
-      ? etapa === 9 || etapa === 10
-      : etapa === 3 || etapa === 4 || etapa === 5;
+  let etapaOk = false;
+  if (params.kind === "firmas") {
+    etapaOk = etapa === 9 || etapa === 10;
+  } else if (params.kind === "notificacion") {
+    etapaOk = etapa === 3;
+  } else {
+    etapaOk = etapa === 3 || etapa === 4 || etapa === 5;
+  }
   if (!etapaOk) failedChecks.push("etapa");
 
   return {

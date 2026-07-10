@@ -77,6 +77,19 @@ describe("asesorAgendaCalendar helpers", () => {
     assert.equal(rows[0]?.bookingId, "fir");
   });
 
+  it("filtra notificación del día", () => {
+    const rows = filterCalendarEntries(
+      [
+        entry({ bookingId: "bio", kind: "biometricos" }),
+        entry({ bookingId: "notif", kind: "notificacion", bookingTime: "12:00" }),
+      ],
+      { kind: "notificacion", includeCancelled: false, selectedDate: "2026-07-10" },
+    );
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0]?.bookingId, "notif");
+    assert.equal(rows[0]?.bookingTime, "12:00");
+  });
+
   it("excluye canceladas por defecto", () => {
     const rows = filterCalendarEntries(
       [

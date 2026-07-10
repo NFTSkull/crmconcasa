@@ -32,7 +32,7 @@ type CalendarRpcRow = Readonly<{
 function mapRpcRow(row: CalendarRpcRow): AsesorAgendaCalendarEntry | null {
   const bookingDate = row.booking_date ? normalizeBookingDate(String(row.booking_date)) : "";
   const bookingTime = row.booking_time ? normalizeBookingTime(String(row.booking_time)) : "";
-  const kind = row.kind === "firmas" ? "firmas" : row.kind === "biometricos" ? "biometricos" : null;
+  const kind = row.kind === "firmas" ? "firmas" : row.kind === "notificacion" ? "notificacion" : row.kind === "biometricos" ? "biometricos" : null;
   const status = row.status === "cancelled" ? "cancelled" : row.status === "booked" ? "booked" : null;
   if (!bookingDate || !bookingTime || !kind || !status) return null;
   return {

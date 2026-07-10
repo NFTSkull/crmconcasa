@@ -18,6 +18,15 @@ export { mapUpsertAgendaConfigBiometricosRpcError } from "./upsert-agenda-config
 export { mapBookBiometricosRpcError } from "./book-biometricos-rpc-error";
 export { mapCancelBiometricosRpcError } from "./cancel-biometricos-rpc-error";
 export { mapReagendarBiometricosRpcError } from "./reagendar-biometricos-rpc-error";
+export { mapBookNotificacionRpcError } from "./book-notificacion-rpc-error";
+export { mapCancelNotificacionRpcError } from "./cancel-notificacion-rpc-error";
+export { mapReagendarNotificacionRpcError } from "./reagendar-notificacion-rpc-error";
+export {
+  NOTIFICACION_FIXED_TIME,
+  NOTIFICACION_FIXED_TIME_DISPLAY,
+  NOTIFICACION_LOCATION_ID,
+  NOTIFICACION_UI_HINT,
+} from "./notificacion-constants";
 export { canShowBiometricosManageActions, canShowAsesorBiometricosSupabaseCard } from "./biometricos-booking-actions";
 export { SupabaseAgendaBiometricosConfigRepo } from "./supabase.repo";
 export { SupabaseAgendaBiometricosBookingRepo } from "./supabase-booking.repo";

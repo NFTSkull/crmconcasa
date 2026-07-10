@@ -1,5 +1,20 @@
 # Devlog
 
+## 2026-07-10 - feat/notificacion-etapa3-agenda
+
+### Diagnóstico
+
+- Flujo biométricos normal (pre-065): `book_biometricos` en etapas 3/4/5; P063 permitía Mesa 3→5 con booking biométricos.
+- Requerimiento: rama **Notificación** separada (`kind=notificacion`), sin cupo, hora 12:00, expediente permanece etapa 3; Mesa 3→5 solo con notificación.
+- Biométricos normal debe volver a: agendar en etapa 3 → etapa 4 → Mesa 4→5.
+
+### Decisión
+
+- Migraciones **`065_booking_kind_notificacion`** (solo enum) + **`066_notificacion_etapa3_agenda`** (book/cancel/reagendar + parches book/avanzar biométricos).
+- RPC `cancel_notificacion_etapa3`: asesor dueño o `mesa_admin`/`super_admin`; solo etapa 3; historial `cancelled`.
+- RPC `reagendar_notificacion_etapa3`: solo asesor dueño; cancel+insert; 12:00 fijo; sin cupo.
+- Cancel Mesa notificación más restrictivo que biométricos (sin mesa_interno/externo).
+
 ## 2026-07-10 - fix/agenda-disponibilidad-slot-count
 
 ### Diagnóstico

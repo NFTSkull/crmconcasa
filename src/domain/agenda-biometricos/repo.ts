@@ -44,6 +44,26 @@ export type AgendaBiometricosActiveBooking = Readonly<{
   note: string | null;
 }>;
 
+export type AgendaNotificacionActiveBooking = Readonly<{
+  id: string;
+  expedienteId: string;
+  bookingDate: string;
+  bookingTime: string;
+  status: "booked";
+  note: string | null;
+}>;
+
+export type BookNotificacionResult = Readonly<{
+  ok: true;
+  bookingId: string;
+  expedienteId: string;
+  scheduledAt: string;
+  bookingDate: string;
+  bookingTime: string;
+  locationId: string;
+  etapaActual: number;
+}>;
+
 export type AgendaBiometricosCancelledBooking = Readonly<{
   id: string;
   expedienteId: string;
@@ -63,6 +83,27 @@ export type BookBiometricosResult = Readonly<{
   bookingDate: string;
   bookingTime: string;
   locationId: string;
+  etapaActual: number;
+}>;
+
+export type CancelNotificacionResult = Readonly<{
+  ok: true;
+  expedienteId: string;
+  bookingId: string;
+  status: "cancelled";
+  etapaActual: number;
+}>;
+
+export type ReagendarNotificacionResult = Readonly<{
+  ok: true;
+  expedienteId: string;
+  bookingAnteriorId: string;
+  bookingNuevoId: string;
+  scheduledAt: string;
+  bookingDate: string;
+  bookingTime: string;
+  status: "booked";
+  kind: "notificacion";
   etapaActual: number;
 }>;
 
@@ -93,6 +134,9 @@ export interface AgendaBiometricosBookingRepo {
     locationId?: string;
   }): Promise<readonly AgendaBiometricosBookedSlot[]>;
   getActiveBooking(expedienteId: string): Promise<AgendaBiometricosActiveBooking | null>;
+  getActiveNotificacionBooking(
+    expedienteId: string,
+  ): Promise<AgendaNotificacionActiveBooking | null>;
   getLastCancelledBooking(
     expedienteId: string,
   ): Promise<AgendaBiometricosCancelledBooking | null>;
@@ -102,6 +146,20 @@ export interface AgendaBiometricosBookingRepo {
     locationId: string;
     note?: string | null;
   }): Promise<BookBiometricosResult>;
+  bookNotificacionEtapa3(params: {
+    expedienteId: string;
+    bookingDate: string;
+    note?: string | null;
+  }): Promise<BookNotificacionResult>;
+  cancelNotificacionEtapa3(params: {
+    expedienteId: string;
+    motivo?: string | null;
+  }): Promise<CancelNotificacionResult>;
+  reagendarNotificacionEtapa3(params: {
+    expedienteId: string;
+    bookingDate: string;
+    note?: string | null;
+  }): Promise<ReagendarNotificacionResult>;
   cancelBiometricos(params: {
     expedienteId: string;
     motivo?: string | null;

@@ -193,15 +193,21 @@ BEGIN
     'test 1: status booked'
   );
 
-  -- Test 1b: P063 asesor dueño agenda en etapa 3
-  v_result := public.__rpc_book_test_call_as(v_asesor_a1, v_exp_etapa3, v_future, 'sede-centro', 'cita etapa 3');
+  -- Test 1b: P065 asesor dueño agenda en etapa 3 avanza a etapa 4
+  v_result := public.__rpc_book_test_call_as(
+    v_asesor_a1,
+    v_exp_etapa3,
+    public.agenda_biometricos_slot_ts(1, '11:00', 7),
+    'sede-centro',
+    'cita etapa 3'
+  );
   PERFORM public.__rpc_book_test_assert(
     (v_result->>'ok')::boolean = true,
     'test 1b: book en etapa 3 ok'
   );
   PERFORM public.__rpc_book_test_assert(
-    (v_result->>'etapa_actual')::int = 3,
-    'test 1b: etapa sigue en 3 tras book'
+    (v_result->>'etapa_actual')::int = 4,
+    'test 1b: etapa avanza a 4 tras book en etapa 3'
   );
 
   -- Test 2: asesor no agenda expediente ajeno

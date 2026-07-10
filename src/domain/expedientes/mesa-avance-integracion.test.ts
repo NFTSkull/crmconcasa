@@ -324,28 +324,50 @@ describe("puedeMostrarAvanceOperativo3a5", () => {
 });
 
 describe("deriveAvanceOperativo3a5View", () => {
-  it("habilita avance 3→5 con cita y booking activo", () => {
-    const view = deriveAvanceOperativo3a5View(avance4a5Ctx({ etapaActual: 3 }));
+  it("habilita avance 3→5 con cita y notificación activa", () => {
+    const view = deriveAvanceOperativo3a5View(
+      avance4a5Ctx({
+        etapaActual: 3,
+        hasActiveNotificacionBooking: true,
+        hasActiveBiometricBooking: false,
+      }),
+    );
     assert.equal(view.mostrar, true);
     assert.equal(view.puedeAvanzar, true);
     assert.deepEqual(view.bloqueos, []);
   });
 
-  it("bloquea 3→5 sin booking activo", () => {
+  it("bloquea 3→5 sin notificación activa", () => {
     const view = deriveAvanceOperativo3a5View(
-      avance4a5Ctx({ etapaActual: 3, hasActiveBiometricBooking: false }),
+      avance4a5Ctx({ etapaActual: 3, hasActiveNotificacionBooking: false }),
     );
     assert.equal(view.mostrar, true);
     assert.equal(view.puedeAvanzar, false);
-    assert.ok(view.bloqueos.some((b) => b.includes("reserva biométrica activa")));
+    assert.ok(view.bloqueos.some((b) => b.includes("notificación activa")));
+  });
+
+  it("bloquea 3→5 con biométricos activos", () => {
+    const view = deriveAvanceOperativo3a5View(
+      avance4a5Ctx({
+        etapaActual: 3,
+        hasActiveNotificacionBooking: true,
+        hasActiveBiometricBooking: true,
+      }),
+    );
+    assert.equal(view.puedeAvanzar, false);
+    assert.ok(view.bloqueos.some((b) => b.includes("biométrica activa")));
   });
 
   it("bloquea 3→5 sin fecha_cita", () => {
     const view = deriveAvanceOperativo3a5View(
-      avance4a5Ctx({ etapaActual: 3, fechaCita: null }),
+      avance4a5Ctx({
+        etapaActual: 3,
+        hasActiveNotificacionBooking: true,
+        fechaCita: null,
+      }),
     );
     assert.equal(view.puedeAvanzar, false);
-    assert.ok(view.bloqueos.some((b) => b.includes("Falta cita biométrica")));
+    assert.ok(view.bloqueos.some((b) => b.includes("Falta fecha de notificación")));
   });
 });
 
@@ -359,6 +381,7 @@ function avance4a5Ctx(
     subestado: "en_proceso",
     fechaCita: "2026-06-29T16:00:00.000Z",
     hasActiveBiometricBooking: true,
+    hasActiveNotificacionBooking: false,
     ...overrides,
   };
 }

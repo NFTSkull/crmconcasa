@@ -4,7 +4,7 @@ import type { ExpedienteClienteDatosEstado } from "@/domain/expediente-cliente-d
 import type { RetencionEnvioMesaUiEstado } from "@/domain/expediente-retencion/retencion-envio-mesa";
 import type { RetencionOpcion } from "@/domain/expediente-retencion/types";
 import { labelRetencionOpcion } from "@/domain/expediente-archivos/retencion-acuse-aviso";
-import type { AgendaBiometricosActiveBooking } from "@/domain/agenda-biometricos";
+import type { AgendaBiometricosActiveBooking, AgendaNotificacionActiveBooking } from "@/domain/agenda-biometricos";
 import type { AgendaFirmasActiveBooking } from "@/domain/agenda-firmas";
 
 export type IntegracionDocsResumenCounts = Readonly<{
@@ -95,13 +95,21 @@ export function buildRetencionAccordionSummary(params: {
 export function buildAgendaAccordionSummary(params: {
   etapaActual: number | null;
   biometricBooking: AgendaBiometricosActiveBooking | null;
+  notificacionBooking?: AgendaNotificacionActiveBooking | null;
   firmasBooking: AgendaFirmasActiveBooking | null;
   fechaCita: string | null | undefined;
 }): string {
   const parts: string[] = [];
+  if (params.notificacionBooking) {
+    parts.push(`Notificación ${params.notificacionBooking.bookingDate} 12:00 PM`);
+  }
   if (params.biometricBooking) {
     parts.push(`Biométricos ${params.biometricBooking.bookingDate} ${params.biometricBooking.bookingTime}`);
-  } else if (params.fechaCita && (params.etapaActual === 3 || params.etapaActual === 4 || params.etapaActual === 5)) {
+  } else if (
+    params.fechaCita &&
+    !params.notificacionBooking &&
+    (params.etapaActual === 3 || params.etapaActual === 4 || params.etapaActual === 5)
+  ) {
     parts.push("Biométricos registrados en expediente");
   }
   if (params.firmasBooking) {

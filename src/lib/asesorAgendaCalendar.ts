@@ -4,7 +4,7 @@ import {
   type FirmasBookingRow,
 } from "@/lib/agendaFirmasBookingsGuard";
 
-export type AgendaCalendarKind = "biometricos" | "firmas";
+export type AgendaCalendarKind = "biometricos" | "firmas" | "notificacion";
 export type AgendaCalendarStatus = "booked" | "cancelled";
 export type AgendaCalendarKindFilter = "all" | AgendaCalendarKind;
 
@@ -48,7 +48,9 @@ export function normalizeBookingTime(value: string): string {
 }
 
 export function formatAgendaCalendarKindLabel(kind: AgendaCalendarKind): string {
-  return kind === "biometricos" ? "Biométricos" : "Firma";
+  if (kind === "biometricos") return "Biométricos";
+  if (kind === "notificacion") return "Notificación";
+  return "Firma";
 }
 
 export function formatAgendaCalendarStatusLabel(status: AgendaCalendarStatus): string {

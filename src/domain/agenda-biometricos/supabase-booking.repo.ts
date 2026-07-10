@@ -2,6 +2,9 @@
 
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isSupabaseConfigured, supabaseBrowser } from "@/lib/supabaseBrowser";
+import { mapCancelNotificacionRpcError } from "./cancel-notificacion-rpc-error";
+import { mapReagendarNotificacionRpcError } from "./reagendar-notificacion-rpc-error";
+import { mapBookNotificacionRpcError } from "./book-notificacion-rpc-error";
 import { mapBookBiometricosRpcError } from "./book-biometricos-rpc-error";
 import { mapCancelBiometricosRpcError } from "./cancel-biometricos-rpc-error";
 import { mapReagendarBiometricosRpcError } from "./reagendar-biometricos-rpc-error";
@@ -13,9 +16,13 @@ import type {
   AgendaBiometricosBookedSlot,
   AgendaBiometricosBookingRepo,
   AgendaBiometricosCancelledBooking,
+  AgendaNotificacionActiveBooking,
   BookBiometricosResult,
+  BookNotificacionResult,
   CancelBiometricosResult,
+  CancelNotificacionResult,
   ReagendarBiometricosResult,
+  ReagendarNotificacionResult,
 } from "./repo";
 
 const BOOKING_SELECT = `
@@ -62,8 +69,11 @@ type CancelRpcRow = Readonly<{
 type ReagendarRpcRow = Readonly<{
   ok?: boolean;
   expediente_id?: string;
+  booking_id?: string;
   booking_anterior_id?: string;
   booking_nuevo_id?: string;
+  booking_date?: string;
+  booking_time?: string;
   scheduled_at?: string;
   status?: string;
   kind?: string;
@@ -106,6 +116,52 @@ function mapCancelledBooking(row: BookingRow): AgendaBiometricosCancelledBooking
     note: row.note,
     cancelledAt: row.cancelled_at,
   };
+}
+
+function mapNotificacionActiveBooking(row: BookingRow): AgendaNotificacionActiveBooking {
+  return {
+    id: row.id,
+    expedienteId: row.expediente_id,
+    bookingDate: String(row.booking_date),
+    bookingTime: normalizeBookingTime(String(row.booking_time)),
+    status: "booked",
+    note: row.note,
+  };
+}
+
+type NotificacionRpcRow = Readonly<{
+  ok?: boolean;
+  booking_id?: string;
+  expediente_id?: string;
+  scheduled_at?: string;
+  booking_date?: string;
+  booking_time?: string;
+  location_id?: string;
+  etapa_actual?: number;
+}>;
+
+async function getActiveBookingByKind(
+  client: SupabaseClient,
+  expedienteId: string,
+  kind: "biometricos" | "notificacion",
+): Promise<BookingRow | null> {
+  const { data, error } = await client
+    .from("agenda_bookings")
+    .select(BOOKING_SELECT)
+    .eq("expediente_id", expedienteId)
+    .eq("kind", kind)
+    .eq("status", "booked")
+    .maybeSingle();
+
+  if (error) {
+    throw new AgendaBiometricosSupabaseError(
+      kind === "notificacion"
+        ? "No se pudo consultar la notificación activa."
+        : "No se pudo consultar la cita biométrica activa.",
+    );
+  }
+
+  return data ? (data as BookingRow) : null;
 }
 
 async function getCurrentOrganizationId(client: SupabaseClient): Promise<string> {
@@ -186,23 +242,18 @@ export class SupabaseAgendaBiometricosBookingRepo implements AgendaBiometricosBo
 
   async getActiveBooking(expedienteId: string): Promise<AgendaBiometricosActiveBooking | null> {
     const { client } = await requireSupabaseSession();
-
-    const { data, error } = await client
-      .from("agenda_bookings")
-      .select(BOOKING_SELECT)
-      .eq("expediente_id", expedienteId)
-      .eq("kind", "biometricos")
-      .eq("status", "booked")
-      .maybeSingle();
-
-    if (error) {
-      throw new AgendaBiometricosSupabaseError(
-        "No se pudo consultar la cita biométrica activa.",
-      );
-    }
-
+    const data = await getActiveBookingByKind(client, expedienteId, "biometricos");
     if (!data) return null;
-    return mapActiveBooking(data as BookingRow);
+    return mapActiveBooking(data);
+  }
+
+  async getActiveNotificacionBooking(
+    expedienteId: string,
+  ): Promise<AgendaNotificacionActiveBooking | null> {
+    const { client } = await requireSupabaseSession();
+    const data = await getActiveBookingByKind(client, expedienteId, "notificacion");
+    if (!data) return null;
+    return mapNotificacionActiveBooking(data);
   }
 
   async getLastCancelledBooking(
@@ -271,6 +322,129 @@ export class SupabaseAgendaBiometricosBookingRepo implements AgendaBiometricosBo
       bookingTime: normalizeBookingTime(String(row.booking_time ?? "")),
       locationId: String(row.location_id ?? params.locationId),
       etapaActual: Number(row.etapa_actual ?? 4),
+    };
+  }
+
+  async bookNotificacionEtapa3(params: {
+    expedienteId: string;
+    bookingDate: string;
+    note?: string | null;
+  }): Promise<BookNotificacionResult> {
+    const { client } = await requireSupabaseSession();
+
+    const { data, error } = await client.rpc("book_notificacion_etapa3", {
+      p_expediente_id: params.expedienteId,
+      p_booking_date: params.bookingDate,
+      p_note: params.note ?? null,
+    });
+
+    if (error) {
+      throw mapBookNotificacionRpcError(error);
+    }
+
+    if (!data || typeof data !== "object") {
+      throw new AgendaBiometricosSupabaseError(
+        "Respuesta inválida al agendar la notificación.",
+      );
+    }
+
+    const row = data as NotificacionRpcRow;
+    if (!row.ok) {
+      throw new AgendaBiometricosSupabaseError(
+        "La RPC no confirmó la notificación.",
+      );
+    }
+
+    return {
+      ok: true,
+      bookingId: String(row.booking_id ?? ""),
+      expedienteId: String(row.expediente_id ?? params.expedienteId),
+      scheduledAt: String(row.scheduled_at ?? ""),
+      bookingDate: String(row.booking_date ?? params.bookingDate),
+      bookingTime: normalizeBookingTime(String(row.booking_time ?? "12:00")),
+      locationId: String(row.location_id ?? "notificacion"),
+      etapaActual: Number(row.etapa_actual ?? 3),
+    };
+  }
+
+  async cancelNotificacionEtapa3(params: {
+    expedienteId: string;
+    motivo?: string | null;
+  }): Promise<CancelNotificacionResult> {
+    const { client } = await requireSupabaseSession();
+
+    const { data, error } = await client.rpc("cancel_notificacion_etapa3", {
+      p_expediente_id: params.expedienteId,
+      p_motivo: params.motivo?.trim() || null,
+    });
+
+    if (error) {
+      throw mapCancelNotificacionRpcError(error);
+    }
+
+    if (!data || typeof data !== "object") {
+      throw new AgendaBiometricosSupabaseError(
+        "Respuesta inválida al cancelar la notificación.",
+      );
+    }
+
+    const row = data as CancelRpcRow;
+    if (!row.ok) {
+      throw new AgendaBiometricosSupabaseError(
+        "La RPC no confirmó la cancelación de notificación.",
+      );
+    }
+
+    return {
+      ok: true,
+      expedienteId: String(row.expediente_id ?? params.expedienteId),
+      bookingId: String(row.booking_id ?? ""),
+      status: "cancelled",
+      etapaActual: Number(row.etapa_actual ?? 3),
+    };
+  }
+
+  async reagendarNotificacionEtapa3(params: {
+    expedienteId: string;
+    bookingDate: string;
+    note?: string | null;
+  }): Promise<ReagendarNotificacionResult> {
+    const { client } = await requireSupabaseSession();
+
+    const { data, error } = await client.rpc("reagendar_notificacion_etapa3", {
+      p_expediente_id: params.expedienteId,
+      p_booking_date: params.bookingDate,
+      p_note: params.note ?? null,
+    });
+
+    if (error) {
+      throw mapReagendarNotificacionRpcError(error);
+    }
+
+    if (!data || typeof data !== "object") {
+      throw new AgendaBiometricosSupabaseError(
+        "Respuesta inválida al reagendar la notificación.",
+      );
+    }
+
+    const row = data as ReagendarRpcRow;
+    if (!row.ok) {
+      throw new AgendaBiometricosSupabaseError(
+        "La RPC no confirmó el reagendado de notificación.",
+      );
+    }
+
+    return {
+      ok: true,
+      expedienteId: String(row.expediente_id ?? params.expedienteId),
+      bookingAnteriorId: String(row.booking_anterior_id ?? ""),
+      bookingNuevoId: String(row.booking_nuevo_id ?? row.booking_id ?? ""),
+      scheduledAt: String(row.scheduled_at ?? ""),
+      bookingDate: String(row.booking_date ?? params.bookingDate),
+      bookingTime: normalizeBookingTime(String(row.booking_time ?? "12:00")),
+      status: "booked",
+      kind: "notificacion",
+      etapaActual: Number(row.etapa_actual ?? 3),
     };
   }
 
