@@ -148,6 +148,7 @@ DECLARE
   v_exp_dup UUID := '00000000-0000-4000-9008-000000000090';
   v_exp_rebook UUID := '00000000-0000-4000-9008-000000000100';
   v_exp_etapa_check UUID := '00000000-0000-4000-9008-000000000110';
+  v_exp_etapa3 UUID := '00000000-0000-4000-9008-000000000115';
   v_exp_db_dup UUID := '00000000-0000-4000-9008-000000000120';
   v_exp_etapa5 UUID := '00000000-0000-4000-9008-000000000130';
   v_exp_etapa5_nocancel UUID := '00000000-0000-4000-9008-000000000140';
@@ -174,6 +175,7 @@ BEGIN
   PERFORM public.__rpc_book_test_insert_expediente(v_exp_dup, v_org_id, v_asesor_a1, '90809000009');
   PERFORM public.__rpc_book_test_insert_expediente(v_exp_rebook, v_org_id, v_asesor_a1, '90810000010');
   PERFORM public.__rpc_book_test_insert_expediente(v_exp_etapa_check, v_org_id, v_asesor_a1, '90811000011');
+  PERFORM public.__rpc_book_test_insert_expediente(v_exp_etapa3, v_org_id, v_asesor_a1, '90811500015', 3::smallint);
   PERFORM public.__rpc_book_test_insert_expediente(v_exp_db_dup, v_org_id, v_asesor_a1, '90812000012');
 
   -- Test 1: asesor dueño agenda en etapa 4
@@ -189,6 +191,17 @@ BEGIN
   PERFORM public.__rpc_book_test_assert(
     v_result->>'status' = 'booked',
     'test 1: status booked'
+  );
+
+  -- Test 1b: P063 asesor dueño agenda en etapa 3
+  v_result := public.__rpc_book_test_call_as(v_asesor_a1, v_exp_etapa3, v_future, 'sede-centro', 'cita etapa 3');
+  PERFORM public.__rpc_book_test_assert(
+    (v_result->>'ok')::boolean = true,
+    'test 1b: book en etapa 3 ok'
+  );
+  PERFORM public.__rpc_book_test_assert(
+    (v_result->>'etapa_actual')::int = 3,
+    'test 1b: etapa sigue en 3 tras book'
   );
 
   -- Test 2: asesor no agenda expediente ajeno
@@ -215,10 +228,10 @@ BEGIN
     'test 5: super_admin bloqueado'
   );
 
-  -- Test 6: etapa distinta de 4
+  -- Test 6: etapa distinta de 3/4/5
   PERFORM public.__rpc_book_test_assert(
     public.__rpc_book_test_call_expect_fail(v_asesor_a1, v_exp_wrong_etapa, v_future),
-    'test 6: etapa != 4 falla'
+    'test 6: etapa != 3/4/5 falla'
   );
 
   -- Test 7: no enviado a Mesa

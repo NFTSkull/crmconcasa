@@ -214,26 +214,70 @@ export function deriveAvanceOperativo2a3View(
   };
 }
 
-/** Panel visible solo en etapa 3 / en_proceso (P2C-12). Ciclo debe ser `activo` (espejo SQL). */
+/** @deprecated Flujo nuevo: Mesa avanza 3→5. Panel 3→4 deshabilitado en UI. */
 export function puedeMostrarAvanceOperativo3a4(ctx: MesaAvanceOperativoContext): boolean {
+  void ctx;
+  return false;
+}
+
+export function deriveAvanceOperativo3a4View(
+  ctx: MesaAvanceOperativoContext,
+): AvanceOperativoEtapaView {
+  return {
+    mostrar: false,
+    puedeAvanzar: false,
+    bloqueos: [],
+  };
+}
+
+// —— P063: avance operativo Mesa 3 → 5 (cita biométrica activa) ——
+
+/** Panel visible en etapa 3 con cita agendada por asesor (flujo 11 pasos). */
+export function puedeMostrarAvanceOperativo3a5(ctx: MesaAvanceOperativo4a5Context): boolean {
   if (!ctx.submittedToMesa) return false;
   if (ctx.cicloEstado !== "activo") return false;
   if (ctx.etapaActual !== 3) return false;
   return ctx.subestado === "en_proceso";
 }
 
-export function deriveAvanceOperativo3a4View(
-  ctx: MesaAvanceOperativoContext,
+/** Bloqueos alineados con `avanzar_etapa_operativa` transición 3→5. */
+export function deriveBloqueosAvanceOperativo3a5(
+  ctx: MesaAvanceOperativo4a5Context,
+): string[] {
+  if (!puedeMostrarAvanceOperativo3a5(ctx)) {
+    return [];
+  }
+
+  const bloqueos: string[] = [];
+  const hasFecha =
+    typeof ctx.fechaCita === "string" && ctx.fechaCita.trim() !== "";
+
+  if (!hasFecha) {
+    bloqueos.push(
+      "Falta cita biométrica. El asesor debe agendar la cita desde su expediente.",
+    );
+  }
+
+  if (!ctx.hasActiveBiometricBooking) {
+    bloqueos.push("No hay reserva biométrica activa en Supabase.");
+  }
+
+  return bloqueos;
+}
+
+export function deriveAvanceOperativo3a5View(
+  ctx: MesaAvanceOperativo4a5Context,
 ): AvanceOperativoEtapaView {
-  const mostrar = puedeMostrarAvanceOperativo3a4(ctx);
+  const mostrar = puedeMostrarAvanceOperativo3a5(ctx);
+  const bloqueos = deriveBloqueosAvanceOperativo3a5(ctx);
   return {
     mostrar,
-    puedeAvanzar: mostrar,
-    bloqueos: [],
+    puedeAvanzar: mostrar && bloqueos.length === 0,
+    bloqueos,
   };
 }
 
-// —— P3M.3: avance operativo Mesa 4 → 5 ——
+// —— P3M.3: avance operativo Mesa 4 → 5 (legacy) ——
 
 export type MesaAvanceOperativo4a5Context = MesaAvanceOperativoContext & {
   fechaCita?: string | null;

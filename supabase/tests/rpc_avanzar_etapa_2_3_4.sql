@@ -1,4 +1,4 @@
--- ConCasa CRM — pruebas P2C-12 RPC avanzar_etapa_operativa (transiciones 2→3 y 3→4)
+-- ConCasa CRM — pruebas P2C-12 / P063 RPC avanzar_etapa_operativa (transiciones 2→3 y 3→5)
 -- Uso: PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -f supabase/tests/rpc_avanzar_etapa_2_3_4.sql
 
 \set ON_ERROR_STOP on
@@ -212,6 +212,10 @@ BEGIN
   )
   RETURNING id INTO v_id;
 
+  UPDATE public.expedientes
+  SET fecha_cita = ((CURRENT_DATE + 7)::timestamp + TIME '10:00') AT TIME ZONE 'UTC'
+  WHERE id = p_expediente_id;
+
   RETURN v_id;
 END;
 $$;
@@ -241,7 +245,7 @@ DECLARE
   v_exp_23_fecha UUID := '00000000-0000-4000-9014-000000000019';
   v_exp_23_log UUID := '00000000-0000-4000-9014-000000000020';
 
-  -- 3→4 fixtures (etapa 3)
+  -- 3→5 fixtures (etapa 3)
   v_exp_34_admin UUID := '00000000-0000-4000-9014-000000000030';
   v_exp_34_int UUID := '00000000-0000-4000-9014-000000000031';
   v_exp_34_ext UUID := '00000000-0000-4000-9014-000000000032';
@@ -327,6 +331,14 @@ BEGIN
   PERFORM public.__rpc_avanzar_234_test_insert_expediente(
     v_exp_34_book, v_org_id, v_asesor_a1, '91403700037', 'interno', true, 3::smallint
   );
+
+  -- Bookings activos para avance 3→5
+  PERFORM public.__rpc_avanzar_234_test_insert_booking(v_exp_34_admin, v_org_id, v_asesor_a1);
+  PERFORM public.__rpc_avanzar_234_test_insert_booking(v_exp_34_int, v_org_id, v_asesor_a1);
+  PERFORM public.__rpc_avanzar_234_test_insert_booking(v_exp_34_ext, v_org_id, v_asesor_a2);
+  PERFORM public.__rpc_avanzar_234_test_insert_booking(v_exp_34_ok, v_org_id, v_asesor_a1);
+  PERFORM public.__rpc_avanzar_234_test_insert_booking(v_exp_34_fecha, v_org_id, v_asesor_a1);
+  PERFORM public.__rpc_avanzar_234_test_insert_booking(v_exp_34_log, v_org_id, v_asesor_a1);
 
   PERFORM public.__rpc_avanzar_234_test_insert_expediente(
     v_exp_skip_24, v_org_id, v_asesor_a1, '91404000040', 'interno', true, 2::smallint
@@ -448,49 +460,49 @@ BEGIN
     'test 12: action_log 2→3'
   );
 
-  -- === Transición 3→4 ===
+  -- === Transición 3→5 ===
 
   -- 13. mesa_admin
   v_result := public.__rpc_avanzar_234_test_call_as(v_mesa_admin, v_exp_34_admin);
   PERFORM public.__rpc_avanzar_234_test_assert(
-    (v_result->>'etapa_actual')::int = 4,
-    'test 13: mesa_admin 3→4'
+    (v_result->>'etapa_actual')::int = 5,
+    'test 13: mesa_admin 3→5'
   );
 
   -- 14. mesa_interno
   v_result := public.__rpc_avanzar_234_test_call_as(v_mesa_int, v_exp_34_int);
   PERFORM public.__rpc_avanzar_234_test_assert(
     (v_result->>'ok')::boolean = true,
-    'test 14: mesa_interno 3→4'
+    'test 14: mesa_interno 3→5'
   );
 
   -- 15. mesa_externo externo
   v_result := public.__rpc_avanzar_234_test_call_as(v_mesa_ext, v_exp_34_ext);
   PERFORM public.__rpc_avanzar_234_test_assert(
     (v_result->>'ok')::boolean = true,
-    'test 15: mesa_externo 3→4 externo'
+    'test 15: mesa_externo 3→5 externo'
   );
 
   -- 16. asesor bloqueado
   PERFORM public.__rpc_avanzar_234_test_assert(
     public.__rpc_avanzar_234_test_call_expect_fail(v_asesor_a1, v_exp_34_roles),
-    'test 16: asesor bloqueado 3→4'
+    'test 16: asesor bloqueado 3→5'
   );
 
   -- 17. editor bloqueado
   PERFORM public.__rpc_avanzar_234_test_assert(
     public.__rpc_avanzar_234_test_call_expect_fail(v_editor, v_exp_34_roles),
-    'test 17: editor bloqueado 3→4'
+    'test 17: editor bloqueado 3→5'
   );
 
-  -- 18. actualiza etapa a 4
+  -- 18. actualiza etapa a 5
   v_result := public.__rpc_avanzar_234_test_call_as(v_mesa_admin, v_exp_34_ok);
   PERFORM public.__rpc_avanzar_234_test_assert(
     EXISTS (
       SELECT 1 FROM public.expedientes e
-      WHERE e.id = v_exp_34_ok AND e.etapa_actual = 4
+      WHERE e.id = v_exp_34_ok AND e.etapa_actual = 5
     ),
-    'test 18: etapa 4 tras 3→4'
+    'test 18: etapa 5 tras 3→5'
   );
 
   -- 19. conserva fecha_cita
@@ -501,34 +513,34 @@ BEGIN
       SELECT 1 FROM public.expedientes e
       WHERE e.id = v_exp_34_fecha AND e.fecha_cita = v_fecha_before
     ),
-    'test 19: fecha_cita conservada 3→4'
+    'test 19: fecha_cita conservada 3→5'
   );
 
-  -- 20. action_log 3→4
-  v_result := public.__rpc_avanzar_234_test_call_as(v_mesa_admin, v_exp_34_log, 'avance 3-4');
+  -- 20. action_log 3→5
+  v_result := public.__rpc_avanzar_234_test_call_as(v_mesa_admin, v_exp_34_log, 'avance 3-5');
   PERFORM public.__rpc_avanzar_234_test_assert(
     EXISTS (
       SELECT 1 FROM public.action_log al
       WHERE al.entity_id = v_exp_34_log
         AND al.action = 'expediente.avanzar_etapa_operativa'
         AND (al.payload->>'etapa_anterior')::int = 3
-        AND (al.payload->>'etapa_nueva')::int = 4
-        AND al.payload->>'transition' = '3_4'
+        AND (al.payload->>'etapa_nueva')::int = 5
+        AND al.payload->>'transition' = '3_5'
     ),
-    'test 20: action_log 3→4'
+    'test 20: action_log 3→5'
   );
 
-  -- 21. tras 3→4 book_biometricos puede agendar
-  v_result := public.__rpc_avanzar_234_test_call_as(v_mesa_admin, v_exp_34_book);
-  PERFORM public.__rpc_avanzar_234_test_assert(
-    (v_result->>'etapa_actual')::int = 4,
-    'test 21a: 3→4 ok para book'
-  );
+  -- 21. book_biometricos en etapa 3 y luego avance 3→5
   v_slot := public.agenda_biometricos_slot_ts(2, '12:00', 10);
   v_result := public.__rpc_avanzar_234_test_call_book(v_asesor_a1, v_exp_34_book, v_slot, 'sede-centro');
   PERFORM public.__rpc_avanzar_234_test_assert(
     (v_result->>'ok')::boolean = true,
-    'test 21b: book_biometricos tras 3→4'
+    'test 21a: book_biometricos en etapa 3'
+  );
+  v_result := public.__rpc_avanzar_234_test_call_as(v_mesa_admin, v_exp_34_book);
+  PERFORM public.__rpc_avanzar_234_test_assert(
+    (v_result->>'etapa_actual')::int = 5,
+    'test 21b: avanzar 3→5 tras book en etapa 3'
   );
 
   -- === Regresiones ===
@@ -554,11 +566,10 @@ BEGIN
     'test 24: una llamada desde 2 llega a 3 no a 4'
   );
 
-  -- 25. no salto 3→5 en una llamada
-  v_result := public.__rpc_avanzar_234_test_call_as(v_mesa_admin, v_exp_skip_25);
+  -- 25. sin booking bloquea 3→5
   PERFORM public.__rpc_avanzar_234_test_assert(
-    (v_result->>'etapa_actual')::int = 4,
-    'test 25: una llamada desde 3 llega a 4 no a 5'
+    public.__rpc_avanzar_234_test_call_expect_fail(v_mesa_admin, v_exp_skip_25),
+    'test 25: etapa 3 sin booking bloquea 3→5'
   );
 
   -- 26. no permite 5→6
@@ -574,7 +585,7 @@ BEGIN
   WHERE t.typname = 'app_role' AND e.enumlabel = 'revisor';
   PERFORM public.__rpc_avanzar_234_test_assert(v_roles_revisor = 0, 'test 27: no revisor');
 
-  RAISE NOTICE 'RPC avanzar_etapa_operativa 2→3/3→4: 27 pruebas OK';
+  RAISE NOTICE 'RPC avanzar_etapa_operativa 2→3/3→5: 27 pruebas OK';
 END;
 $$;
 

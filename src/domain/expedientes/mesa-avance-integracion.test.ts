@@ -7,6 +7,7 @@ import type { ExpedienteArchivoResumen } from "@/domain/expediente-archivos/type
 import {
   deriveAvanceOperativo2a3View,
   deriveAvanceOperativo3a4View,
+  deriveAvanceOperativo3a5View,
   deriveAvanceOperativo4a5View,
   deriveAvanceOperativo5a6View,
   deriveAvanceOperativo6a7View,
@@ -19,6 +20,7 @@ import {
   puedeContinuarIntegracion,
   puedeMostrarAvanceOperativo2a3,
   puedeMostrarAvanceOperativo3a4,
+  puedeMostrarAvanceOperativo3a5,
   puedeMostrarAvanceOperativo4a5,
   puedeMostrarAvanceOperativo5a6,
   puedeMostrarAvanceOperativo6a7,
@@ -285,56 +287,65 @@ function avance3a4Ctx(
 }
 
 describe("puedeMostrarAvanceOperativo3a4", () => {
-  it("visible en etapa 3 / en_proceso con envío a Mesa y ciclo activo", () => {
-    assert.equal(puedeMostrarAvanceOperativo3a4(avance3a4Ctx()), true);
-  });
-
-  it("no visible en etapa 2", () => {
-    assert.equal(puedeMostrarAvanceOperativo3a4(avance3a4Ctx({ etapaActual: 2 })), false);
-  });
-
-  it("no visible en etapa 4", () => {
-    assert.equal(puedeMostrarAvanceOperativo3a4(avance3a4Ctx({ etapaActual: 4 })), false);
-  });
-
-  it("no visible sin submitted_to_mesa", () => {
-    assert.equal(
-      puedeMostrarAvanceOperativo3a4(avance3a4Ctx({ submittedToMesa: false })),
-      false,
-    );
-  });
-
-  it("no visible si subestado distinto de en_proceso", () => {
-    assert.equal(
-      puedeMostrarAvanceOperativo3a4(avance3a4Ctx({ subestado: "en_validacion_mesa" })),
-      false,
-    );
-  });
-
-  it("no visible si ciclo no activo", () => {
-    assert.equal(
-      puedeMostrarAvanceOperativo3a4(avance3a4Ctx({ cicloEstado: "cerrado" })),
-      false,
-    );
-  });
-
-  it("no visible si ciclo null (espejo SQL estricto)", () => {
-    assert.equal(puedeMostrarAvanceOperativo3a4(avance3a4Ctx({ cicloEstado: null })), false);
+  it("deprecado: nunca visible en flujo 11 pasos", () => {
+    assert.equal(puedeMostrarAvanceOperativo3a4(avance3a4Ctx()), false);
+    assert.equal(puedeMostrarAvanceOperativo3a4(avance3a4Ctx({ etapaActual: 3 })), false);
   });
 });
 
 describe("deriveAvanceOperativo3a4View", () => {
-  it("habilita avance cuando gates 3→4 se cumplen", () => {
+  it("siempre oculto tras deprecación 3→4", () => {
     const view = deriveAvanceOperativo3a4View(avance3a4Ctx());
+    assert.equal(view.mostrar, false);
+    assert.equal(view.puedeAvanzar, false);
+  });
+});
+
+describe("puedeMostrarAvanceOperativo3a5", () => {
+  it("visible en etapa 3 / en_proceso con envío a Mesa y ciclo activo", () => {
+    assert.equal(
+      puedeMostrarAvanceOperativo3a5({
+        ...avance4a5Ctx({ etapaActual: 3 }),
+      }),
+      true,
+    );
+  });
+
+  it("no visible en etapa 4 legacy", () => {
+    assert.equal(puedeMostrarAvanceOperativo3a5(avance4a5Ctx()), false);
+  });
+
+  it("no visible sin submitted_to_mesa", () => {
+    assert.equal(
+      puedeMostrarAvanceOperativo3a5(avance4a5Ctx({ etapaActual: 3, submittedToMesa: false })),
+      false,
+    );
+  });
+});
+
+describe("deriveAvanceOperativo3a5View", () => {
+  it("habilita avance 3→5 con cita y booking activo", () => {
+    const view = deriveAvanceOperativo3a5View(avance4a5Ctx({ etapaActual: 3 }));
     assert.equal(view.mostrar, true);
     assert.equal(view.puedeAvanzar, true);
     assert.deepEqual(view.bloqueos, []);
   });
 
-  it("oculto tras avance a etapa 4", () => {
-    const view = deriveAvanceOperativo3a4View(avance3a4Ctx({ etapaActual: 4 }));
-    assert.equal(view.mostrar, false);
+  it("bloquea 3→5 sin booking activo", () => {
+    const view = deriveAvanceOperativo3a5View(
+      avance4a5Ctx({ etapaActual: 3, hasActiveBiometricBooking: false }),
+    );
+    assert.equal(view.mostrar, true);
     assert.equal(view.puedeAvanzar, false);
+    assert.ok(view.bloqueos.some((b) => b.includes("reserva biométrica activa")));
+  });
+
+  it("bloquea 3→5 sin fecha_cita", () => {
+    const view = deriveAvanceOperativo3a5View(
+      avance4a5Ctx({ etapaActual: 3, fechaCita: null }),
+    );
+    assert.equal(view.puedeAvanzar, false);
+    assert.ok(view.bloqueos.some((b) => b.includes("Falta cita biométrica")));
   });
 });
 

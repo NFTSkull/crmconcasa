@@ -106,7 +106,7 @@ export function explainMesaShowCancelCitaOperativa(
   const etapaOk =
     params.kind === "firmas"
       ? etapa === 9 || etapa === 10
-      : etapa === 4 || etapa === 5;
+      : etapa === 3 || etapa === 4 || etapa === 5;
   if (!etapaOk) failedChecks.push("etapa");
 
   return {

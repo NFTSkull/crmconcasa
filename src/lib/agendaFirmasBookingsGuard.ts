@@ -66,9 +66,9 @@ export function canMountAgendaBiometricosUI(): boolean {
   return getEffectiveMockRole() === "asesor";
 }
 
-/** Tarjeta de agenda biométricos en expediente asesor: etapa operativa 4 (Cita agendada). */
+/** Tarjeta de agenda biométricos en expediente asesor: etapa 3 (flujo nuevo) o 4 (legacy). */
 export function canShowAgendaBiometricosForEtapa(etapaActual: number | null | undefined): boolean {
-  return etapaActual === 4;
+  return etapaActual === 3 || etapaActual === 4;
 }
 
 /**

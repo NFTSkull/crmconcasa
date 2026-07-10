@@ -218,7 +218,15 @@ describe("canMesaCancelFirmasBooking", () => {
 });
 
 describe("canMesaCancelBiometricosBooking", () => {
-  it("etapa 4/5 con booking activo", () => {
+  it("etapa 3/4/5 con booking activo", () => {
+    assert.equal(
+      canMesaCancelBiometricosBooking({
+        mockRole: "mesa_control_admin",
+        etapaActual: 3,
+        hasActiveBooking: true,
+      }),
+      true,
+    );
     assert.equal(
       canMesaCancelBiometricosBooking({
         mockRole: "mesa_control_admin",

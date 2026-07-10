@@ -1,16 +1,18 @@
 "use client";
 
 import {
-  ETAPAS_OPERATIVAS_ASESOR,
+  ETAPAS_VISUALES_OPERATIVAS,
   MSJ_SEGUIMIENTO_PRE_ENVIO,
+  TOTAL_PASOS_VISUALES_OPERATIVOS,
   asesorSubestadoOperativoLabel,
   estadoEnvioMesaLabel,
   etapaTimelineBadgeClass,
   etapaTimelineCardClass,
   etapaTimelineCircleClass,
-  getEtapaOperativaNombre,
   getEtapaTimelineBadgeLabel,
-  getEtapaTimelineVisual,
+  getEtapaTimelineVisualPorPasoVisual,
+  getEtapaVisualNombre,
+  mapEtapaInternaAPasoVisual,
   resolveEtapaActualOperativa,
 } from "@/domain/expedientes/asesor-seguimiento-operativo";
 
@@ -43,6 +45,7 @@ export function AsesorSeguimientoOperativo({
   formatDateTime,
 }: AsesorSeguimientoOperativoProps) {
   const etapaResuelta = resolveEtapaActualOperativa(etapaActual);
+  const pasoVisualActual = mapEtapaInternaAPasoVisual(etapaResuelta);
   const subestadoLabel = asesorSubestadoOperativoLabel(subestado, submittedToMesa);
   const envioLabel = estadoEnvioMesaLabel(submittedToMesa);
   const cicloLabel = cicloEstadoLabel(cicloEstado);
@@ -72,7 +75,8 @@ export function AsesorSeguimientoOperativo({
             Etapa actual
           </p>
           <p className="mt-1 text-sm font-semibold text-gray-900">
-            {etapaResuelta}. {getEtapaOperativaNombre(etapaResuelta)}
+            Paso {pasoVisualActual} de {TOTAL_PASOS_VISUALES_OPERATIVOS} —{" "}
+            {getEtapaVisualNombre(etapaResuelta)}
           </p>
         </div>
 
@@ -115,20 +119,25 @@ export function AsesorSeguimientoOperativo({
       ) : null}
 
       <div className="mt-4">
-        <p className="text-sm font-medium text-gray-800">Timeline / Etapas</p>
+        <p className="text-sm font-medium text-gray-800">
+          Timeline / Etapas ({TOTAL_PASOS_VISUALES_OPERATIVOS} pasos)
+        </p>
         <ol className="mt-2 max-h-[320px] space-y-1 overflow-y-auto pr-1 text-sm">
-          {ETAPAS_OPERATIVAS_ASESOR.map((etapa) => {
-            const visual = getEtapaTimelineVisual(etapa.id, etapaResuelta);
+          {ETAPAS_VISUALES_OPERATIVAS.map((etapa) => {
+            const visual = getEtapaTimelineVisualPorPasoVisual(
+              etapa.pasoVisual,
+              etapaResuelta,
+            );
             const badgeLabel = getEtapaTimelineBadgeLabel(
               visual,
-              etapa.id,
+              etapa.etapaInterna,
               subestado,
               submittedToMesa,
             );
 
             return (
               <li
-                key={etapa.id}
+                key={etapa.etapaInterna}
                 className={`flex items-start justify-between gap-3 rounded-lg border px-3 py-2 ${etapaTimelineCardClass(visual)}`}
               >
                 <div className="flex min-w-0 items-start gap-2">
@@ -136,7 +145,7 @@ export function AsesorSeguimientoOperativo({
                     className={`mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${etapaTimelineCircleClass(visual)}`}
                     aria-hidden
                   >
-                    {etapa.id}
+                    {etapa.pasoVisual}
                   </span>
                   <div className="min-w-0">
                     <p className="font-medium text-gray-900">{etapa.nombre}</p>

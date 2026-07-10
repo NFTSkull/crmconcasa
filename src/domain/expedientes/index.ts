@@ -30,6 +30,7 @@ export { mapUpsertEditorDecisionRpcError } from "./upsert-editor-decision-rpc-er
 export {
   deriveAvanceOperativo2a3View,
   deriveAvanceOperativo3a4View,
+  deriveAvanceOperativo3a5View,
   deriveAvanceOperativo4a5View,
   deriveAvanceOperativo5a6View,
   deriveAvanceOperativo6a7View,
@@ -38,6 +39,7 @@ export {
   deriveAvanceOperativo9a10View,
   deriveBloqueosContinuarIntegracion,
   deriveBloqueosAvanceOperativo8a9,
+  deriveBloqueosAvanceOperativo3a5,
   deriveBloqueosAvanceOperativo4a5,
   deriveBloqueosAvanceOperativo5a6,
   deriveBloqueosAvanceOperativo9a10,
@@ -46,6 +48,7 @@ export {
   isFechaCitaBiometricaPasada,
   puedeMostrarAvanceOperativo2a3,
   puedeMostrarAvanceOperativo3a4,
+  puedeMostrarAvanceOperativo3a5,
   puedeMostrarAvanceOperativo4a5,
   puedeMostrarAvanceOperativo5a6,
   puedeMostrarAvanceOperativo6a7,

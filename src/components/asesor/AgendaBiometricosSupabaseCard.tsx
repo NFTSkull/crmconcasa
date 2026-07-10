@@ -481,7 +481,7 @@ export function AgendaBiometricosSupabaseCard({
           {formatCitaDisplay(citaIso, locationLabel)}
         </p>
         <p className="mt-1 text-xs text-emerald-800">
-          <span className="font-medium">Estatus:</span> Cita agendada — etapa 4 (sin avance automático)
+          <span className="font-medium">Estatus:</span> Cita agendada — sin avance automático de etapa
         </p>
 
         {successMsg ? (

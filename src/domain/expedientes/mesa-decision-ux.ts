@@ -46,10 +46,20 @@ export const MESA_AVANCE_OPERATIVO_2A3_COPY: MesaAvanceOperativoCopy = {
 export const MESA_AVANCE_OPERATIVO_3A4_COPY: MesaAvanceOperativoCopy = {
   titulo: MESA_DECISION_TITULO_AVANCE,
   descripcion:
-    "El expediente está en Listo cita biométricos (etapa 3). Confirma el avance a Cita biométricos (etapa 4). El asesor agenda la cita después.",
+    "Deprecado: el flujo nuevo agenda biométricos en etapa 3 y avanza 3→5 con cita activa.",
   etiquetaBoton: "Aceptar y avanzar a Cita biométricos",
   mensajeConfirmacion:
     "¿Confirmas aceptar y avanzar este expediente a etapa 4: Cita agendada (biométricos)?",
+  mostrarAvisoSinRechazo: true,
+};
+
+export const MESA_AVANCE_OPERATIVO_3A5_COPY: MesaAvanceOperativoCopy = {
+  titulo: MESA_DECISION_TITULO_AVANCE,
+  descripcion:
+    "El expediente está en Listo cita biométricos (etapa 3) con cita agendada. Confirma el avance a resultado biométrico (etapa 5).",
+  etiquetaBoton: "Aceptar cita biométrica y avanzar a resultado",
+  mensajeConfirmacion:
+    "¿Confirmas aceptar la cita biométrica y avanzar este expediente a etapa 5: Biometría (resultado)?",
   mostrarAvisoSinRechazo: true,
 };
 

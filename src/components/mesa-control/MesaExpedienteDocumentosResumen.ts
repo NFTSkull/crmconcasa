@@ -101,7 +101,7 @@ export function buildAgendaAccordionSummary(params: {
   const parts: string[] = [];
   if (params.biometricBooking) {
     parts.push(`Biométricos ${params.biometricBooking.bookingDate} ${params.biometricBooking.bookingTime}`);
-  } else if (params.fechaCita && (params.etapaActual === 4 || params.etapaActual === 5)) {
+  } else if (params.fechaCita && (params.etapaActual === 3 || params.etapaActual === 4 || params.etapaActual === 5)) {
     parts.push("Biométricos registrados en expediente");
   }
   if (params.firmasBooking) {

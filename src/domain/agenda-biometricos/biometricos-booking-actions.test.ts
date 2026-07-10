@@ -6,6 +6,13 @@ import {
 } from "./biometricos-booking-actions";
 
 describe("canShowBiometricosManageActions", () => {
+  it("muestra acciones en etapa 3 con booking activo", () => {
+    assert.equal(
+      canShowBiometricosManageActions({ etapaActual: 3, hasActiveBooking: true }),
+      true,
+    );
+  });
+
   it("muestra acciones en etapa 4 con booking activo", () => {
     assert.equal(
       canShowBiometricosManageActions({ etapaActual: 4, hasActiveBooking: true }),
@@ -27,15 +34,22 @@ describe("canShowBiometricosManageActions", () => {
     );
   });
 
-  it("oculta acciones en etapa 3", () => {
+  it("oculta acciones en etapa 3 sin booking activo", () => {
     assert.equal(
-      canShowBiometricosManageActions({ etapaActual: 3, hasActiveBooking: true }),
+      canShowBiometricosManageActions({ etapaActual: 3, hasActiveBooking: false }),
       false,
     );
   });
 });
 
 describe("canShowAsesorBiometricosSupabaseCard", () => {
+  it("etapa 3 siempre si enviado a Mesa", () => {
+    assert.equal(
+      canShowAsesorBiometricosSupabaseCard({ submittedToMesa: true, etapaActual: 3 }),
+      true,
+    );
+  });
+
   it("etapa 4 siempre si enviado a Mesa", () => {
     assert.equal(
       canShowAsesorBiometricosSupabaseCard({ submittedToMesa: true, etapaActual: 4 }),

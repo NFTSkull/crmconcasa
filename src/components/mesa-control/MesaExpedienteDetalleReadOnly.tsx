@@ -19,7 +19,7 @@ import {
   buildRetencionAccordionSummary,
 } from "@/components/mesa-control/MesaExpedienteDocumentosResumen";
 import { MesaClienteDatosReadOnlySection } from "@/components/mesa-control/MesaClienteDatosReadOnlySection";
-import { MesaAvanceOperativoSection, MESA_AVANCE_OPERATIVO_2A3_COPY, MESA_AVANCE_OPERATIVO_3A4_COPY, MESA_AVANCE_OPERATIVO_4A5_COPY, MESA_AVANCE_OPERATIVO_5A6_COPY, MESA_AVANCE_OPERATIVO_6A7_COPY, MESA_AVANCE_OPERATIVO_7A8_COPY, MESA_AVANCE_OPERATIVO_8A9_COPY, MESA_AVANCE_OPERATIVO_9A10_COPY, MESA_FIRMA_ETAPA10_OPERATIVA_COPY, type MesaAvanceCancelCitaGate } from "@/components/mesa-control/MesaAvanceOperativoSection";
+import { MesaAvanceOperativoSection, MESA_AVANCE_OPERATIVO_2A3_COPY, MESA_AVANCE_OPERATIVO_3A5_COPY, MESA_AVANCE_OPERATIVO_4A5_COPY, MESA_AVANCE_OPERATIVO_5A6_COPY, MESA_AVANCE_OPERATIVO_6A7_COPY, MESA_AVANCE_OPERATIVO_7A8_COPY, MESA_AVANCE_OPERATIVO_8A9_COPY, MESA_AVANCE_OPERATIVO_9A10_COPY, MESA_FIRMA_ETAPA10_OPERATIVA_COPY, type MesaAvanceCancelCitaGate } from "@/components/mesa-control/MesaAvanceOperativoSection";
 import { MesaCierreValidacionDocumentalSection } from "@/components/mesa-control/MesaCierreValidacionDocumentalSection";
 import { MesaControlDocumentosComplementariosSection } from "@/components/mesa-control/MesaControlDocumentosComplementariosSection";
 import { MesaDocumentosAsesorSection } from "@/components/mesa-control/MesaDocumentosAsesorSection";
@@ -50,7 +50,7 @@ import {
   ExpedientesSupabaseError,
   useExpedientesRepo,
   deriveAvanceOperativo2a3View,
-  deriveAvanceOperativo3a4View,
+  deriveAvanceOperativo3a5View,
   deriveAvanceOperativo4a5View,
   deriveAvanceOperativo5a6View,
   deriveAvanceOperativo6a7View,
@@ -217,9 +217,9 @@ export function MesaExpedienteDetalleReadOnly() {
   const [avance2a3Loading, setAvance2a3Loading] = useState(false);
   const [avance2a3Error, setAvance2a3Error] = useState<string | null>(null);
   const [avance2a3Success, setAvance2a3Success] = useState<string | null>(null);
-  const [avance3a4Loading, setAvance3a4Loading] = useState(false);
-  const [avance3a4Error, setAvance3a4Error] = useState<string | null>(null);
-  const [avance3a4Success, setAvance3a4Success] = useState<string | null>(null);
+  const [avance3a5Loading, setAvance3a5Loading] = useState(false);
+  const [avance3a5Error, setAvance3a5Error] = useState<string | null>(null);
+  const [avance3a5Success, setAvance3a5Success] = useState<string | null>(null);
   const [activeBiometricBooking, setActiveBiometricBooking] =
     useState<AgendaBiometricosActiveBooking | null>(null);
   const [biometricosConfig, setBiometricosConfig] =
@@ -921,9 +921,21 @@ export function MesaExpedienteDetalleReadOnly() {
     [avanceOperativoContext],
   );
 
-  const avanceOperativo3a4View = useMemo(
-    () => deriveAvanceOperativo3a4View(avanceOperativoContext),
-    [avanceOperativoContext],
+  const avanceOperativo3a5Context = useMemo(
+    () => ({
+      submittedToMesa: expediente?.operativo.submittedToMesa ?? false,
+      cicloEstado: expediente?.operativo.cicloEstado,
+      etapaActual: expediente?.operativo.etapaActual ?? null,
+      subestado: expediente?.operativo.subestado,
+      fechaCita: expediente?.operativo.fechaCita ?? null,
+      hasActiveBiometricBooking: activeBiometricBooking != null,
+    }),
+    [activeBiometricBooking, expediente],
+  );
+
+  const avanceOperativo3a5View = useMemo(
+    () => deriveAvanceOperativo3a5View(avanceOperativo3a5Context),
+    [avanceOperativo3a5Context],
   );
 
   const biometricLocationLabel = useMemo(() => {
@@ -1032,7 +1044,7 @@ export function MesaExpedienteDetalleReadOnly() {
   const bioCancelCitaGate = useMemo((): MesaAvanceCancelCitaGate | null => {
     if (!expediente) return null;
     const etapa = expediente.operativo.etapaActual ?? null;
-    if (etapa !== 4 && etapa !== 5) return null;
+    if (etapa !== 3 && etapa !== 4 && etapa !== 5) return null;
     return {
       kind: "biometricos",
       mockRole: mesaMockRole,
@@ -1140,27 +1152,27 @@ export function MesaExpedienteDetalleReadOnly() {
     }
   }, [avanceOperativo2a3View.puedeAvanzar, expedientesRepo, load, routeExpedienteId]);
 
-  const handleAvanzarOperativo3a4 = useCallback(async () => {
-    if (!routeExpedienteId || !avanceOperativo3a4View.puedeAvanzar) return;
-    setAvance3a4Loading(true);
-    setAvance3a4Error(null);
-    setAvance3a4Success(null);
+  const handleAvanzarOperativo3a5 = useCallback(async () => {
+    if (!routeExpedienteId || !avanceOperativo3a5View.puedeAvanzar) return;
+    setAvance3a5Loading(true);
+    setAvance3a5Error(null);
+    setAvance3a5Success(null);
     try {
       await expedientesRepo.avanzarEtapaOperativa(routeExpedienteId);
-      setAvance3a4Success(
-        "Expediente avanzado a etapa 4 (Cita agendada — biométricos)",
+      setAvance3a5Success(
+        "Expediente avanzado a etapa 5 (Biometría — resultado)",
       );
       load();
     } catch (err) {
-      setAvance3a4Error(
+      setAvance3a5Error(
         err instanceof ExpedientesSupabaseError
           ? err.message
           : "No se pudo avanzar la etapa del expediente.",
       );
     } finally {
-      setAvance3a4Loading(false);
+      setAvance3a5Loading(false);
     }
-  }, [avanceOperativo3a4View.puedeAvanzar, expedientesRepo, load, routeExpedienteId]);
+  }, [avanceOperativo3a5View.puedeAvanzar, expedientesRepo, load, routeExpedienteId]);
 
   const handleAvanzarOperativo4a5 = useCallback(async () => {
     if (!routeExpedienteId || !avanceOperativo4a5View.puedeAvanzar) return;
@@ -1685,13 +1697,14 @@ export function MesaExpedienteDetalleReadOnly() {
       />
 
       <MesaAvanceOperativoSection
-        view={avanceOperativo3a4View}
-        copy={MESA_AVANCE_OPERATIVO_3A4_COPY}
+        view={avanceOperativo3a5View}
+        copy={MESA_AVANCE_OPERATIVO_3A5_COPY}
         puedeOperar={puedeOperarMesa}
-        loading={avance3a4Loading}
-        error={avance3a4Error}
-        success={avance3a4Success}
-        onAvanzar={handleAvanzarOperativo3a4}
+        loading={avance3a5Loading}
+        error={avance3a5Error}
+        success={avance3a5Success}
+        onAvanzar={handleAvanzarOperativo3a5}
+        cancelCitaGate={bioCancelCitaGate}
       />
 
       <MesaAvanceOperativoSection

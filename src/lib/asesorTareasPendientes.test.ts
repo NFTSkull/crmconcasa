@@ -23,6 +23,31 @@ function baseInput(
 }
 
 describe("isAsesorPendienteAgendarBiometricos", () => {
+  it("etapa 3 enviado a Mesa sin booking activo", () => {
+    assert.equal(
+      isAsesorPendienteAgendarBiometricos(
+        baseInput({
+          etapaActual: 3,
+          agendaBiometricos: { hasActiveBooking: false, hasLastCancelledBooking: false },
+        }),
+      ),
+      true,
+    );
+  });
+
+  it("etapa 3 con booking activo no cuenta", () => {
+    assert.equal(
+      isAsesorPendienteAgendarBiometricos(
+        baseInput({
+          etapaActual: 3,
+          fechaCita: "2026-07-10T16:00:00.000Z",
+          agendaBiometricos: { hasActiveBooking: true, hasLastCancelledBooking: false },
+        }),
+      ),
+      false,
+    );
+  });
+
   it("etapa 4 enviado a Mesa sin booking activo", () => {
     assert.equal(
       isAsesorPendienteAgendarBiometricos(

@@ -87,11 +87,11 @@ test("canMountAgendaBiometricosUI: solo asesor (mesa no agenda biométricos)", (
   assert.equal(canMountAgendaBiometricosUI(), true);
 });
 
-test("canShowAgendaBiometricosForEtapa: solo etapa 4", () => {
+test("canShowAgendaBiometricosForEtapa: etapa 3 o 4 (legacy)", () => {
+  assert.equal(canShowAgendaBiometricosForEtapa(3), true);
   assert.equal(canShowAgendaBiometricosForEtapa(4), true);
   assert.equal(canShowAgendaBiometricosForEtapa(1), false);
   assert.equal(canShowAgendaBiometricosForEtapa(2), false);
-  assert.equal(canShowAgendaBiometricosForEtapa(3), false);
   assert.equal(canShowAgendaBiometricosForEtapa(5), false);
   assert.equal(canShowAgendaBiometricosForEtapa(null), false);
 });

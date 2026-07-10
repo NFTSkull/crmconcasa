@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **feat/biometricos-etapa3-flujo-11-pasos — biométricos desde etapa 3 sin paso 4 visual:** IDs internos 1–12; timeline asesor 11 pasos (oculta etapa 4 legacy); asesor agenda biométricos en etapa 3 sin cambiar etapa; Mesa ve cita en etapa 3; avance Mesa 3→5 con booking activo; legacy 4→5 intacto; migración `063` (`book_biometricos`, `cancel_biometricos`, `reagendar_biometricos`, `avanzar_etapa_operativa`); sin firmas/acuses/cobro/NSS/migración masiva de datos.
+
 - **feat/cliente-acta-nacimiento-digital-opcional — Acta de nacimiento digital (opcional) asesor:** tipo `cliente_acta_nacimiento_digital` PDF/imagen; no bloquea envío (4/4); visible en asesor opcionales y Mesa documentos del cliente; migración `062`; sin cambio obligatorios/retención/cobro.
 
 - **feat/asesor-dashboard-tareas-pendientes — filtros rápidos de tareas asesor:** chips `Agendar biométricos (N)`, `Agendar firma (N)` y `Subir acuse (N)` con contador global (lista completa, pre-paginación); clasificación UI reutilizando gates de agenda/retención; hints de booking/retención vía lectura frontend (sin SQL/RPC); estilos índigo/morado/ámbar; empty states dedicados; sin cambio Mesa/cobro/NSS/monto.

@@ -1,6 +1,12 @@
 /**
- * P3I.1 — Timeline operativo read-only para asesor (12 etapas).
+ * P3I.1 — Timeline operativo read-only para asesor.
+ * IDs internos 1–12; visualización de 11 pasos (etapa 4 legacy omitida).
  */
+
+/** Etapa interna legacy: cita agendada antes del flujo 11 pasos. */
+export const ETAPA_INTERNA_LEGACY_CITA_BIOMETRICOS = 4;
+
+export const TOTAL_PASOS_VISUALES_OPERATIVOS = 11;
 
 export const ETAPAS_OPERATIVAS_ASESOR = [
   { id: 1, nombre: "Integración" },
@@ -16,6 +22,22 @@ export const ETAPAS_OPERATIVAS_ASESOR = [
   { id: 11, nombre: "Firmado" },
   { id: 12, nombre: "Pago a ConCasa" },
 ] as const;
+
+export type EtapaVisualOperativa = {
+  pasoVisual: number;
+  etapaInterna: number;
+  nombre: string;
+};
+
+/** Timeline asesor: 11 pasos visibles (sin etapa interna 4). */
+export const ETAPAS_VISUALES_OPERATIVAS: readonly EtapaVisualOperativa[] =
+  ETAPAS_OPERATIVAS_ASESOR.filter((e) => e.id !== ETAPA_INTERNA_LEGACY_CITA_BIOMETRICOS).map(
+    (e, idx) => ({
+      pasoVisual: idx + 1,
+      etapaInterna: e.id,
+      nombre: e.nombre,
+    }),
+  );
 
 export type EtapaOperativaId = (typeof ETAPAS_OPERATIVAS_ASESOR)[number]["id"];
 
@@ -34,6 +56,26 @@ export function resolveEtapaActualOperativa(etapaActual: number | null | undefin
   return 1;
 }
 
+/** Mapea etapa interna DB al paso visual 1–11 (etapa 4 legacy → paso 3). */
+export function mapEtapaInternaAPasoVisual(etapaInterna: number): number {
+  if (etapaInterna <= 3) return etapaInterna;
+  if (etapaInterna === ETAPA_INTERNA_LEGACY_CITA_BIOMETRICOS) return 3;
+  return etapaInterna - 1;
+}
+
+export function getEtapaVisualNombre(etapaInterna: number | null | undefined): string {
+  const resolved = resolveEtapaActualOperativa(etapaInterna);
+  if (resolved === ETAPA_INTERNA_LEGACY_CITA_BIOMETRICOS) {
+    return (
+      ETAPAS_OPERATIVAS_ASESOR.find((e) => e.id === 3)?.nombre ??
+      "Listo para cita de biométrico"
+    );
+  }
+  const paso = mapEtapaInternaAPasoVisual(resolved);
+  const entry = ETAPAS_VISUALES_OPERATIVAS.find((e) => e.pasoVisual === paso);
+  return entry?.nombre ?? getEtapaOperativaNombre(resolved);
+}
+
 export function getEtapaTimelineVisual(
   etapaId: number,
   etapaActual: number | null | undefined,
@@ -41,6 +83,18 @@ export function getEtapaTimelineVisual(
   const actual = resolveEtapaActualOperativa(etapaActual);
   if (etapaId < actual) return "completado";
   if (etapaId === actual) return "actual";
+  return "pendiente";
+}
+
+export function getEtapaTimelineVisualPorPasoVisual(
+  pasoVisual: number,
+  etapaActualInterna: number | null | undefined,
+): EtapaTimelineVisual {
+  const actualPaso = mapEtapaInternaAPasoVisual(
+    resolveEtapaActualOperativa(etapaActualInterna),
+  );
+  if (pasoVisual < actualPaso) return "completado";
+  if (pasoVisual === actualPaso) return "actual";
   return "pendiente";
 }
 

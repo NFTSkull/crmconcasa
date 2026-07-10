@@ -1,5 +1,26 @@
 # Devlog
 
+## 2026-07-10 - feat/biometricos-etapa3-flujo-11-pasos (P063)
+
+### Diagnóstico aplicado
+
+- Etapa 4 era solo “cita agendada” intermedia; gates repartidos en UI asesor, RPC `book_biometricos` (4/5), Mesa `3→4` sin cita y acordeón agenda oculto en etapa 3.
+- Renumerar IDs = alto riesgo para expedientes vivos y dashboards.
+
+### Decisiones operativas (aprobadas)
+
+1. Tras `book_biometricos` en etapa 3 el expediente **permanece en 3** (sin avance automático).
+2. Mesa avanza **3→5** solo con `fecha_cita` + booking `biometricos/booked`; UI reemplaza panel 3→4.
+3. Etapa 4 **legacy**: 4→5, book/cancel/reagendar en 4/5 sin migración de datos.
+
+### Implementación
+
+- **B0:** `ETAPAS_VISUALES_OPERATIVAS` (11 pasos), `mapEtapaInternaAPasoVisual`, stepper asesor.
+- **B1:** gates asesor etapa 3; chip “Agendar biométricos”; mock `canShowAgendaBiometricosForEtapa`.
+- **B2/B4 SQL:** migración `063` — `book/cancel/reagendar_biometricos` aceptan etapa 3; `avanzar_etapa_operativa` reemplaza `3_4` por `3_5` con gates de cita.
+- **B3:** Mesa `showBio` etapa 3; panel `3A5`; cancel biométricos etapa 3.
+- Tests TS + SQL (`rpc_avanzar_etapa_2_3_4`, `rpc_book_biometricos`).
+
 ## 2026-07-10 - feat/cliente-acta-nacimiento-digital-opcional
 
 ### Diagnóstico

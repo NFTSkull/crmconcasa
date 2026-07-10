@@ -129,7 +129,7 @@ export function MesaExpedienteAgendaCitasSection({
   const showBio =
     Boolean(biometricBooking) ||
     Boolean(biometricosCancelledMotivo) ||
-    (hasFecha && (etapaActual === 4 || etapaActual === 5));
+    (hasFecha && (etapaActual === 3 || etapaActual === 4 || etapaActual === 5));
   const showFirma =
     Boolean(firmasBooking) ||
     etapaActual === 9 ||

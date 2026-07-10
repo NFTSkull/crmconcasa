@@ -113,7 +113,10 @@ export function isAsesorPendienteAgendarBiometricos(
   });
 
   if (!cardVisible) {
-    if (input.dataModeSupabase === false && input.etapaActual === 4) {
+    if (
+      input.dataModeSupabase === false &&
+      (input.etapaActual === 3 || input.etapaActual === 4)
+    ) {
       return !hints.hasActiveBooking;
     }
     return false;
@@ -247,5 +250,5 @@ export function countAsesorTareasPendientes(
   return { agendarBiometricos, agendarFirma, subirAcuse };
 }
 
-export const ASESOR_TAREAS_ETAPAS_AGENDA = [4, 5, 9, 10] as const;
+export const ASESOR_TAREAS_ETAPAS_AGENDA = [3, 4, 5, 9, 10] as const;
 export const ASESOR_TAREAS_ETAPA_RETENCION = RETENCION_ETAPA_OPERATIVA_ID;
