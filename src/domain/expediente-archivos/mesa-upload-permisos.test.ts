@@ -48,6 +48,27 @@ describe("permisos upload Mesa vs asesor (contrato de tipos)", () => {
     );
   });
 
+  it("acta nacimiento digital es opcional del asesor y no la sube Mesa vía complementarios", () => {
+    assert.ok(
+      (INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD as readonly string[]).includes(
+        "cliente_acta_nacimiento_digital",
+      ),
+    );
+    assert.ok(
+      !(INTEGRATION_DOC_TIPOS_MESA_UPLOAD as readonly string[]).includes(
+        "cliente_acta_nacimiento_digital",
+      ),
+    );
+    assert.ok(
+      !(INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD as readonly string[]).includes(
+        "cliente_acta_nacimiento",
+      ),
+    );
+    assert.ok(
+      (INTEGRATION_DOC_TIPOS_MESA_UPLOAD as readonly string[]).includes("cliente_acta_nacimiento"),
+    );
+  });
+
   it("semanas cotizadas es opcional del asesor pero Mesa también la sube", () => {
     assert.ok(
       (INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD as readonly string[]).includes("cliente_semanas_cotizadas"),

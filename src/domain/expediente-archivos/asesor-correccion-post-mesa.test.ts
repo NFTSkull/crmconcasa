@@ -87,6 +87,14 @@ describe("asesor corrección post-Mesa (helpers UI)", () => {
       asesorPuedeSubirOpcionalFaltantePostMesa(
         true,
         "faltante",
+        "cliente_acta_nacimiento_digital",
+      ),
+      true,
+    );
+    assert.equal(
+      asesorPuedeSubirOpcionalFaltantePostMesa(
+        true,
+        "faltante",
         "cliente_ine_frente",
       ),
       false,
@@ -115,6 +123,10 @@ describe("asesor corrección post-Mesa (helpers UI)", () => {
     });
     assert.deepEqual(
       validateExpedienteDocumentoUploadFile(cartaJpg, "cliente_carta_empresa"),
+      { ok: true },
+    );
+    assert.deepEqual(
+      validateExpedienteDocumentoUploadFile(cartaJpg, "cliente_acta_nacimiento_digital"),
       { ok: true },
     );
     assert.equal(

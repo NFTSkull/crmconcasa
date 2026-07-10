@@ -1,5 +1,20 @@
 # Devlog
 
+## 2026-07-10 - feat/cliente-acta-nacimiento-digital-opcional
+
+### Diagnóstico
+
+- Patrón idéntico a `cliente_carta_empresa` (056/058): `integration_doc_tipos_asesor_opcionales()` + catálogo TS + `PDF_OR_IMAGE_DOCUMENT_TIPOS`.
+- `integration_doc_tipos_asesor_upload()` = envío (4) || opcionales — no requiere función aparte.
+- Mesa ve opcionales solo-asesor vía `deriveIntegrationDocsChecklistOpcionalesSoloAsesor` (excluye semanas/acta/SAT complementarios).
+- Distinto de `cliente_acta_nacimiento` (Mesa complementario).
+
+### Decisión
+
+- Migración `062`: opcional asesor + MIME PDF/imagen en `expediente_documento_mime_permitido`.
+- Frontend: catálogo, checklist opcionales, validación upload compartida con carta/INE.
+- Sin cambio 4/4, RLS ni bucket.
+
 ## 2026-07-09 - feat/asesor-dashboard-tareas-pendientes
 
 ### Diagnóstico (condiciones reales)

@@ -22,10 +22,11 @@ export const INTEGRATION_DOC_TIPOS_ASESOR_ENVIO = [
 export const INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES = [
   "cliente_semanas_cotizadas",
   "cliente_carta_empresa",
+  "cliente_acta_nacimiento_digital",
 ] as const;
 
 /**
- * Espejo de `integration_doc_tipos_asesor_upload()` — permitidos en Storage/RPC (6).
+ * Espejo de `integration_doc_tipos_asesor_upload()` — permitidos en Storage/RPC (7).
  */
 export const INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD = [
   ...INTEGRATION_DOC_TIPOS_ASESOR_ENVIO,

@@ -91,19 +91,29 @@ test("buildMesaIntegrationDocViews: 4 obligatorios + opcionales solo asesor (sin
     catalogRow("cliente_ine_frente"),
     catalogRow("cliente_semanas_cotizadas", { estatus_revision: "subido", id: "doc-sem" }),
     catalogRow("cliente_carta_empresa", { estatus_revision: "subido", id: "doc-carta" }),
+    catalogRow("cliente_acta_nacimiento_digital", {
+      estatus_revision: "subido",
+      id: "doc-acta-digital",
+    }),
     catalogRow("cliente_acta_nacimiento"),
   ];
   const views = buildMesaIntegrationDocViews(catalog, []);
   const tipos = views.map((v) => v.tipo_documento as string);
-  assert.equal(views.length, 5);
+  assert.equal(views.length, 6);
   assert.ok(!tipos.includes("nss"));
   assert.ok(!tipos.includes("cliente_semanas_cotizadas"));
   assert.ok(tipos.includes("cliente_carta_empresa"));
+  assert.ok(tipos.includes("cliente_acta_nacimiento_digital"));
   assert.ok(!tipos.includes("cliente_acta_nacimiento"));
   assert.ok(!tipos.includes("cliente_constancia_sat"));
   const carta = views.find((v) => v.tipo_documento === "cliente_carta_empresa");
   assert.equal(carta?.opcional, true);
   assert.equal(carta?.archivo?.id, "doc-carta");
+  const actaDigital = views.find(
+    (v) => v.tipo_documento === "cliente_acta_nacimiento_digital",
+  );
+  assert.equal(actaDigital?.opcional, true);
+  assert.equal(actaDigital?.archivo?.id, "doc-acta-digital");
 });
 
 test("buildMesaIntegrationDocViews: subido con id permite abrir; faltante no", () => {

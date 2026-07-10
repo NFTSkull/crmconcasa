@@ -179,6 +179,18 @@ describe("validateExpedienteDocumentoFile", () => {
     );
   });
 
+  it("acepta image/jpeg en acta nacimiento digital", () => {
+    const file = {
+      type: "image/jpeg",
+      size: 800_000,
+      name: "acta.jpg",
+    } as File;
+    assert.deepEqual(
+      validateExpedienteDocumentoFile(file, "cliente_acta_nacimiento_digital"),
+      { ok: true },
+    );
+  });
+
   it("rechaza image/jpeg en comprobante domicilio", () => {
     const file = {
       type: "image/jpeg",

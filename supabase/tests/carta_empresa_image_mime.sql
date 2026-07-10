@@ -36,6 +36,18 @@ BEGIN
     RAISE EXCEPTION 'carta_empresa_image_mime: semanas no debe aceptar jpeg';
   END IF;
 
+  IF NOT public.expediente_documento_mime_permitido('application/pdf', 'cliente_acta_nacimiento_digital') THEN
+    RAISE EXCEPTION 'acta_digital_image_mime: pdf debe ser true';
+  END IF;
+
+  IF NOT public.expediente_documento_mime_permitido('image/jpeg', 'cliente_acta_nacimiento_digital') THEN
+    RAISE EXCEPTION 'acta_digital_image_mime: jpeg debe ser true';
+  END IF;
+
+  IF NOT public.expediente_documento_mime_permitido('image/heif', 'cliente_acta_nacimiento_digital') THEN
+    RAISE EXCEPTION 'acta_digital_image_mime: heif debe ser true';
+  END IF;
+
   RAISE NOTICE 'carta_empresa_image_mime: OK';
 END;
 $$;

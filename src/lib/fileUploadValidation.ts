@@ -17,9 +17,12 @@ export const INE_IMAGE_DOCUMENT_TIPOS = new Set([
 
 export const CARTA_EMPRESA_DOCUMENT_TIPO = "cliente_carta_empresa";
 
+export const ACTA_NACIMIENTO_DIGITAL_DOCUMENT_TIPO = "cliente_acta_nacimiento_digital";
+
 export const PDF_OR_IMAGE_DOCUMENT_TIPOS = new Set([
   ...INE_IMAGE_DOCUMENT_TIPOS,
   CARTA_EMPRESA_DOCUMENT_TIPO,
+  ACTA_NACIMIENTO_DIGITAL_DOCUMENT_TIPO,
 ]);
 
 const INE_IMAGE_EXTENSIONS_BY_MIME: Record<string, readonly string[]> = {

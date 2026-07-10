@@ -353,7 +353,11 @@ describe("DOCUMENTO_CATALOGO: cliente_* obligatorios en etapa 1", () => {
 });
 
 describe("B0D2: documentos cliente opcionales (Semanas Cotizadas, Carta empresa)", () => {
-  const opcionales = ["cliente_semanas_cotizadas", "cliente_carta_empresa"] as const;
+  const opcionales = [
+    "cliente_semanas_cotizadas",
+    "cliente_carta_empresa",
+    "cliente_acta_nacimiento_digital",
+  ] as const;
 
   it("existen en catálogo como cliente opcionales", () => {
     for (const tipo of opcionales) {

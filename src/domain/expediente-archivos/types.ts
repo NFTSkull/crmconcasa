@@ -35,6 +35,7 @@ export const TIPO_DOCUMENTO_CATALOGO = [
   "cliente_semanas_cotizadas",
   "cliente_historial_laboral",
   "cliente_carta_empresa",
+  "cliente_acta_nacimiento_digital",
 
   // ===== Acuse / Aviso de retención (etapa operativa 8) =====
   "retencion_acuse_con_sello",
@@ -165,6 +166,13 @@ export const DOCUMENTO_CATALOGO_MAP = Object.freeze({
   cliente_carta_empresa: {
     tipo: "cliente_carta_empresa",
     label: "Cliente · Carta de la empresa",
+    ownerRole: "cliente",
+    obligatorio: "opcional",
+    etapasRequeridas: [1, 2],
+  },
+  cliente_acta_nacimiento_digital: {
+    tipo: "cliente_acta_nacimiento_digital",
+    label: "Cliente · Acta de nacimiento digital",
     ownerRole: "cliente",
     obligatorio: "opcional",
     etapasRequeridas: [1, 2],

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **feat/cliente-acta-nacimiento-digital-opcional — Acta de nacimiento digital (opcional) asesor:** tipo `cliente_acta_nacimiento_digital` PDF/imagen; no bloquea envío (4/4); visible en asesor opcionales y Mesa documentos del cliente; migración `062`; sin cambio obligatorios/retención/cobro.
+
 - **feat/asesor-dashboard-tareas-pendientes — filtros rápidos de tareas asesor:** chips `Agendar biométricos (N)`, `Agendar firma (N)` y `Subir acuse (N)` con contador global (lista completa, pre-paginación); clasificación UI reutilizando gates de agenda/retención; hints de booking/retención vía lectura frontend (sin SQL/RPC); estilos índigo/morado/ámbar; empty states dedicados; sin cambio Mesa/cobro/NSS/monto.
 
 - **fix/storage-key-ine-filename — Invalid key al subir INE con nombre real:** path Storage usa `{org}/{exp}/{tipo}/{uuid}.{ext}` sin `file.name` crudo; extensión desde MIME; `p_nombre_original` intacto para UI; mensaje claro si `Invalid key`; sin SQL/RPC ni migración de paths existentes.
