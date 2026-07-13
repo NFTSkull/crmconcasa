@@ -165,7 +165,7 @@ export function mesaCorreccionLecturaLabel(
 
 export function mesaCorreccionLecturaBadgeClass(estado: MesaCorreccionLecturaEstado): string {
   if (estado === "nueva") {
-    return "inline-flex rounded-md border border-indigo-400/90 bg-indigo-100 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-950 ring-1 ring-indigo-300/80";
+    return "inline-flex rounded-md border border-teal-500 bg-teal-200 px-1.5 py-0.5 text-[10px] font-bold text-teal-950 ring-1 ring-teal-400/90";
   }
   if (estado === "abierta") {
     return "inline-flex rounded-md border border-slate-300 bg-slate-100 px-1.5 py-0.5 text-[10px] font-medium text-slate-700 ring-1 ring-slate-200/80";
