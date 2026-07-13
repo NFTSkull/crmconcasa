@@ -12,14 +12,23 @@ import {
   formatMesaAgendaKind,
   formatMesaAgendaStatus,
   hasMesaAgendaHistoryGroup,
+  mesaAgendaActionExpedienteCellClass,
+  MESA_AGENDA_ACTION_CANCEL_CLASS,
+  MESA_AGENDA_ACTION_EXPEDIENTE_CLASS,
+  MESA_AGENDA_ACTION_REAGENDAR_CLASS,
+  mesaAgendaActionsLayoutClass,
+  mesaAgendaActionsRowBusy,
+  mesaAgendaCancelActionLabel,
+  mesaAgendaDriveActionClass,
+  mesaAgendaDriveActionLabel,
   mesaAgendaDriveValidatedBadgeClass,
   mesaAgendaDriveValidatedRowClass,
   mesaAgendaHistoryBadgeClass,
   mesaAgendaKindBadgeClass,
+  mesaAgendaReagendarActionLabel,
   mesaAgendaStatusBadgeClass,
-  MESA_DRIVE_CLEAR_BUTTON,
-  MESA_DRIVE_VALIDATE_BUTTON,
   MESA_DRIVE_VALIDATED_BADGE,
+  resolveMesaAgendaVisibleActions,
   type MesaAgendaHistoryLabel,
 } from "@/lib/mesaAgendaCitasUi";
 
@@ -138,85 +147,76 @@ export function MesaAgendaEntryActions({
   onRequestReagendar,
   onToggleDriveValidation,
 }: MesaAgendaEntryActionsProps) {
-  const linkClass = compact
-    ? "inline-flex w-full justify-center rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
-    : "font-medium text-blue-700 hover:text-blue-900";
+  const visible = resolveMesaAgendaVisibleActions({
+    status: entry.status,
+    showDriveValidation: Boolean(showDriveValidation && onToggleDriveValidation),
+    showReagendar: Boolean(showReagendar && onRequestReagendar),
+    showCancel: Boolean(showCancel && onRequestCancel),
+  });
+  const onlyExpediente = visible.length === 1 && visible[0] === "expediente";
+  const rowBusy = mesaAgendaActionsRowBusy({
+    cancelPending,
+    reagendarPending,
+    drivePending,
+  });
 
-  const driveLabel = entry.driveValidated
-    ? MESA_DRIVE_CLEAR_BUTTON
-    : MESA_DRIVE_VALIDATE_BUTTON;
+  return (
+    <div className={mesaAgendaActionsLayoutClass(compact)}>
+      {visible.includes("expediente") ? (
+        <Link
+          href={buildMesaExpedienteDetailHref(entry.expedienteId)}
+          className={[
+            MESA_AGENDA_ACTION_EXPEDIENTE_CLASS,
+            rowBusy ? "pointer-events-none opacity-50" : "",
+            mesaAgendaActionExpedienteCellClass(compact, onlyExpediente),
+          ]
+            .filter(Boolean)
+            .join(" ")}
+          aria-disabled={rowBusy || undefined}
+          tabIndex={rowBusy ? -1 : undefined}
+          onClick={(e) => {
+            if (rowBusy) e.preventDefault();
+          }}
+        >
+          Ver expediente
+        </Link>
+      ) : null}
 
-  const mutationButtons = (
-    <>
-      {showDriveValidation && onToggleDriveValidation ? (
+      {visible.includes("drive") && onToggleDriveValidation ? (
         <button
           type="button"
-          aria-label={`${driveLabel} — ${entry.clienteNombre || "cliente"}`}
-          disabled={drivePending}
+          aria-label={`${mesaAgendaDriveActionLabel(entry.driveValidated, false)} — ${entry.clienteNombre || "cliente"}`}
+          disabled={rowBusy}
           onClick={() => onToggleDriveValidation(entry)}
-          className={
-            compact
-              ? entry.driveValidated
-                ? "inline-flex w-full justify-center rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-xs font-medium text-emerald-900 hover:bg-emerald-50 disabled:opacity-50"
-                : "inline-flex w-full justify-center rounded-lg border border-emerald-300 bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
-              : entry.driveValidated
-                ? "text-left text-xs font-medium text-emerald-800 hover:text-emerald-950 disabled:opacity-50"
-                : "text-left text-xs font-medium text-emerald-700 hover:text-emerald-900 disabled:opacity-50"
-          }
+          className={mesaAgendaDriveActionClass(entry.driveValidated)}
         >
-          {drivePending ? "Guardando…" : driveLabel}
+          {mesaAgendaDriveActionLabel(entry.driveValidated, drivePending)}
         </button>
       ) : null}
-      {showReagendar && onRequestReagendar ? (
+
+      {visible.includes("reagendar") && onRequestReagendar ? (
         <button
           type="button"
           aria-label={`Reagendar cita de ${entry.clienteNombre || "cliente"}`}
-          disabled={reagendarPending}
+          disabled={rowBusy}
           onClick={() => onRequestReagendar(entry)}
-          className={
-            compact
-              ? "inline-flex w-full justify-center rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-medium text-indigo-800 hover:bg-indigo-100 disabled:opacity-50"
-              : "text-left text-xs font-medium text-indigo-700 hover:text-indigo-900 disabled:opacity-50"
-          }
+          className={MESA_AGENDA_ACTION_REAGENDAR_CLASS}
         >
-          {reagendarPending ? "Reagendando…" : "Reagendar"}
+          {mesaAgendaReagendarActionLabel(reagendarPending)}
         </button>
       ) : null}
-      {showCancel && onRequestCancel ? (
+
+      {visible.includes("cancelar") && onRequestCancel ? (
         <button
           type="button"
           aria-label={`Cancelar cita de ${entry.clienteNombre || "cliente"}`}
-          disabled={cancelPending}
+          disabled={rowBusy}
           onClick={() => onRequestCancel(entry)}
-          className={
-            compact
-              ? "inline-flex w-full justify-center rounded-lg border border-red-200 bg-red-50 px-3 py-1.5 text-xs font-medium text-red-800 hover:bg-red-100 disabled:opacity-50"
-              : "text-left text-xs font-medium text-red-700 hover:text-red-900 disabled:opacity-50"
-          }
+          className={MESA_AGENDA_ACTION_CANCEL_CLASS}
         >
-          {cancelPending ? "Cancelando…" : "Cancelar"}
+          {mesaAgendaCancelActionLabel(cancelPending)}
         </button>
       ) : null}
-    </>
-  );
-
-  if (compact) {
-    return (
-      <div className="mt-3 flex flex-col gap-2">
-        <Link href={buildMesaExpedienteDetailHref(entry.expedienteId)} className={linkClass}>
-          Ver expediente
-        </Link>
-        {mutationButtons}
-      </div>
-    );
-  }
-
-  return (
-    <div className="flex flex-col gap-1">
-      <Link href={buildMesaExpedienteDetailHref(entry.expedienteId)} className={linkClass}>
-        Ver expediente
-      </Link>
-      {mutationButtons}
     </div>
   );
 }

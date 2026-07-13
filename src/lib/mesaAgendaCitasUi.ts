@@ -807,6 +807,94 @@ export function formatMesaAgendaCreatedAt(value: string): string {
 export const MESA_DRIVE_VALIDATED_BADGE = "Validado en Drive";
 export const MESA_DRIVE_VALIDATE_BUTTON = "Validar en Drive";
 export const MESA_DRIVE_CLEAR_BUTTON = "Quitar validación";
+export const MESA_DRIVE_VALIDATE_LOADING = "Validando...";
+export const MESA_DRIVE_CLEAR_LOADING = "Quitando validación...";
+export const MESA_AGENDA_REAGENDAR_LOADING = "Reagendando...";
+export const MESA_AGENDA_CANCEL_LOADING = "Cancelando...";
+
+/** Clase base compartida por botones de acción en `/mesa-control/citas`. */
+export const MESA_AGENDA_ACTION_BASE_CLASS =
+  "inline-flex h-9 w-full items-center justify-center gap-2 whitespace-nowrap rounded-md border px-3 text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50";
+
+export const MESA_AGENDA_ACTION_EXPEDIENTE_CLASS = `${MESA_AGENDA_ACTION_BASE_CLASS} border-blue-600 bg-blue-600 text-white hover:border-blue-700 hover:bg-blue-700 focus-visible:ring-blue-500`;
+
+export const MESA_AGENDA_ACTION_DRIVE_VALIDATE_CLASS = `${MESA_AGENDA_ACTION_BASE_CLASS} border-emerald-600 bg-white text-emerald-700 hover:bg-emerald-50 focus-visible:ring-emerald-500`;
+
+export const MESA_AGENDA_ACTION_DRIVE_CLEAR_CLASS = `${MESA_AGENDA_ACTION_BASE_CLASS} border-emerald-600 bg-emerald-600 text-white hover:border-emerald-700 hover:bg-emerald-700 focus-visible:ring-emerald-500`;
+
+export const MESA_AGENDA_ACTION_REAGENDAR_CLASS = `${MESA_AGENDA_ACTION_BASE_CLASS} border-indigo-300 bg-indigo-50 text-indigo-800 hover:border-indigo-400 hover:bg-indigo-100 focus-visible:ring-indigo-500`;
+
+export const MESA_AGENDA_ACTION_CANCEL_CLASS = `${MESA_AGENDA_ACTION_BASE_CLASS} border-red-300 bg-white text-red-700 hover:border-red-400 hover:bg-red-50 focus-visible:ring-red-500`;
+
+/** Orden fijo de acciones en columna Acción / cards. */
+export const MESA_AGENDA_ACTION_ORDER = [
+  "expediente",
+  "drive",
+  "reagendar",
+  "cancelar",
+] as const;
+
+export type MesaAgendaActionKey = (typeof MESA_AGENDA_ACTION_ORDER)[number];
+
+export function mesaAgendaActionsLayoutClass(compact: boolean): string {
+  if (compact) return "mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2";
+  return "flex min-w-[160px] flex-col gap-2";
+}
+
+export function mesaAgendaActionExpedienteCellClass(
+  compact: boolean,
+  onlyExpediente: boolean,
+): string {
+  if (compact && onlyExpediente) return "sm:col-span-2";
+  return "";
+}
+
+export function mesaAgendaDriveActionClass(driveValidated: boolean): string {
+  return driveValidated
+    ? MESA_AGENDA_ACTION_DRIVE_CLEAR_CLASS
+    : MESA_AGENDA_ACTION_DRIVE_VALIDATE_CLASS;
+}
+
+export function mesaAgendaDriveActionLabel(
+  driveValidated: boolean,
+  drivePending: boolean,
+): string {
+  if (drivePending) {
+    return driveValidated ? MESA_DRIVE_CLEAR_LOADING : MESA_DRIVE_VALIDATE_LOADING;
+  }
+  return driveValidated ? MESA_DRIVE_CLEAR_BUTTON : MESA_DRIVE_VALIDATE_BUTTON;
+}
+
+export function mesaAgendaReagendarActionLabel(pending: boolean): string {
+  return pending ? MESA_AGENDA_REAGENDAR_LOADING : "Reagendar";
+}
+
+export function mesaAgendaCancelActionLabel(pending: boolean): string {
+  return pending ? MESA_AGENDA_CANCEL_LOADING : "Cancelar";
+}
+
+/** Visibilidad UI de acciones (presentation); gates reales siguen en props show*. */
+export function resolveMesaAgendaVisibleActions(params: {
+  status: MesaAgendaBookingEntry["status"];
+  showDriveValidation: boolean;
+  showReagendar: boolean;
+  showCancel: boolean;
+}): readonly MesaAgendaActionKey[] {
+  const keys: MesaAgendaActionKey[] = ["expediente"];
+  if (params.status === "cancelled") return keys;
+  if (params.showDriveValidation) keys.push("drive");
+  if (params.showReagendar) keys.push("reagendar");
+  if (params.showCancel) keys.push("cancelar");
+  return keys;
+}
+
+export function mesaAgendaActionsRowBusy(params: {
+  cancelPending: boolean;
+  reagendarPending: boolean;
+  drivePending: boolean;
+}): boolean {
+  return params.cancelPending || params.reagendarPending || params.drivePending;
+}
 
 /**
  * Botón Validar/Quitar Drive: solo citas `booked`.

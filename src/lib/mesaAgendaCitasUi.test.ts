@@ -48,6 +48,19 @@ import {
   validateMesaAgendaDateRange,
   canMesaShowDriveValidationActions,
   mesaAgendaDriveValidatedRowClass,
+  mesaAgendaActionsLayoutClass,
+  mesaAgendaActionExpedienteCellClass,
+  mesaAgendaActionsRowBusy,
+  mesaAgendaDriveActionClass,
+  mesaAgendaDriveActionLabel,
+  mesaAgendaReagendarActionLabel,
+  mesaAgendaCancelActionLabel,
+  resolveMesaAgendaVisibleActions,
+  MESA_AGENDA_ACTION_ORDER,
+  MESA_AGENDA_ACTION_BASE_CLASS,
+  MESA_AGENDA_ACTION_CANCEL_CLASS,
+  MESA_DRIVE_VALIDATE_LOADING,
+  MESA_DRIVE_CLEAR_LOADING,
 } from "./mesaAgendaCitasUi";
 
 function entry(
@@ -780,5 +793,96 @@ describe("mesaAgendaCitasUi drive validation", () => {
       entry({ bookingId: "1", driveValidated: true }),
     );
     assert.match(cls, /emerald/);
+  });
+});
+
+describe("mesaAgendaCitasUi action buttons presentation", () => {
+  it("orden fijo: expediente → drive → reagendar → cancelar", () => {
+    assert.deepEqual([...MESA_AGENDA_ACTION_ORDER], [
+      "expediente",
+      "drive",
+      "reagendar",
+      "cancelar",
+    ]);
+    const visible = resolveMesaAgendaVisibleActions({
+      status: "booked",
+      showDriveValidation: true,
+      showReagendar: true,
+      showCancel: true,
+    });
+    assert.deepEqual([...visible], ["expediente", "drive", "reagendar", "cancelar"]);
+  });
+
+  it("cita cancelada solo muestra Ver expediente", () => {
+    assert.deepEqual(
+      [...resolveMesaAgendaVisibleActions({
+        status: "cancelled",
+        showDriveValidation: true,
+        showReagendar: true,
+        showCancel: true,
+      })],
+      ["expediente"],
+    );
+  });
+
+  it("gates ocultan acciones no permitidas sin huecos", () => {
+    assert.deepEqual(
+      [...resolveMesaAgendaVisibleActions({
+        status: "booked",
+        showDriveValidation: false,
+        showReagendar: true,
+        showCancel: false,
+      })],
+      ["expediente", "reagendar"],
+    );
+  });
+
+  it("desktop usa columna vertical min-w-160; compact usa grid responsive", () => {
+    assert.match(mesaAgendaActionsLayoutClass(false), /min-w-\[160px\]/);
+    assert.match(mesaAgendaActionsLayoutClass(false), /flex-col/);
+    assert.match(mesaAgendaActionsLayoutClass(true), /grid/);
+    assert.match(mesaAgendaActionsLayoutClass(true), /sm:grid-cols-2/);
+  });
+
+  it("solo Ver expediente ocupa ancho completo en compact sm+", () => {
+    assert.equal(mesaAgendaActionExpedienteCellClass(true, true), "sm:col-span-2");
+    assert.equal(mesaAgendaActionExpedienteCellClass(true, false), "");
+    assert.equal(mesaAgendaActionExpedienteCellClass(false, true), "");
+  });
+
+  it("loading deshabilita fila y labels Drive/reagenda/cancel", () => {
+    assert.equal(
+      mesaAgendaActionsRowBusy({
+        cancelPending: false,
+        reagendarPending: false,
+        drivePending: true,
+      }),
+      true,
+    );
+    assert.equal(mesaAgendaDriveActionLabel(false, true), MESA_DRIVE_VALIDATE_LOADING);
+    assert.equal(mesaAgendaDriveActionLabel(true, true), MESA_DRIVE_CLEAR_LOADING);
+    assert.equal(mesaAgendaReagendarActionLabel(true), "Reagendando...");
+    assert.equal(mesaAgendaCancelActionLabel(true), "Cancelando...");
+  });
+
+  it("Cancelar no usa fondo rojo sólido; base compartida; Drive cambia por estado", () => {
+    assert.match(MESA_AGENDA_ACTION_BASE_CLASS, /whitespace-nowrap/);
+    assert.match(MESA_AGENDA_ACTION_CANCEL_CLASS, /bg-white/);
+    assert.doesNotMatch(MESA_AGENDA_ACTION_CANCEL_CLASS, /bg-red-6/);
+    assert.match(mesaAgendaDriveActionClass(false), /bg-white/);
+    assert.match(mesaAgendaDriveActionClass(true), /bg-emerald-600/);
+  });
+
+  it("EntryParts reutiliza helpers y no reimplementa gates", () => {
+    const src = readFileSync(
+      join(process.cwd(), "src/components/mesa-control/MesaAgendaCitasEntryParts.tsx"),
+      "utf8",
+    );
+    assert.match(src, /resolveMesaAgendaVisibleActions/);
+    assert.match(src, /mesaAgendaActionsLayoutClass/);
+    assert.match(src, /MESA_AGENDA_ACTION_EXPEDIENTE_CLASS/);
+    assert.match(src, /buildMesaExpedienteDetailHref/);
+    assert.match(src, /<Link/);
+    assert.doesNotMatch(src, /text-blue-700 hover:text-blue-900/);
   });
 });
