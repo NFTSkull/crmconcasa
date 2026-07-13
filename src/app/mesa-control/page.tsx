@@ -230,7 +230,7 @@ function rowSurfaceClass(c: CasoConDocs): string {
     return "border-l-[3px] border-l-red-400 bg-red-50/50 hover:bg-red-50/80";
   }
   if (c.correccionLecturaEstado === "nueva") {
-    return "border-l-[3px] border-l-sky-600 bg-sky-50/55 hover:bg-sky-50/80 ring-1 ring-sky-200/60";
+    return "border border-indigo-300 border-l-4 border-l-indigo-600 bg-indigo-50 ring-1 ring-indigo-200 shadow-sm hover:border-indigo-400 hover:bg-indigo-100/70";
   }
   if (c.correccionLecturaEstado === "abierta") {
     return "border-l-[3px] border-l-slate-400 bg-slate-50/50 hover:bg-slate-50/75";
