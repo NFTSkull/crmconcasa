@@ -8,6 +8,8 @@ import { mapBookNotificacionRpcError } from "./book-notificacion-rpc-error";
 import { mapBookBiometricosRpcError } from "./book-biometricos-rpc-error";
 import { mapCancelBiometricosRpcError } from "./cancel-biometricos-rpc-error";
 import { mapReagendarBiometricosRpcError } from "./reagendar-biometricos-rpc-error";
+import { mapMesaReagendarBiometricosRpcError } from "./mesa-reagendar-biometricos-rpc-error";
+import { mapMesaReagendarNotificacionRpcError } from "./mesa-reagendar-notificacion-rpc-error";
 import { fetchOrgAgendaBookedSlots } from "@/domain/agenda-calendar/supabase.repo";
 import { SupabaseAgendaBiometricosConfigRepo } from "./supabase.repo";
 import { AgendaBiometricosSupabaseError } from "./supabase.error";
@@ -558,6 +560,96 @@ export class SupabaseAgendaBiometricosBookingRepo implements AgendaBiometricosBo
       status: "booked",
       kind: "biometricos",
       etapaActual: Number(row.etapa_actual ?? 4),
+    };
+  }
+
+  async mesaReagendarBiometricos(params: {
+    expedienteId: string;
+    bookingDate: string;
+    bookingTime: string;
+    locationId: string;
+    note?: string | null;
+  }): Promise<ReagendarBiometricosResult> {
+    const { client } = await requireSupabaseSession();
+
+    const { data, error } = await client.rpc("mesa_reagendar_biometricos", {
+      p_expediente_id: params.expedienteId,
+      p_booking_date: params.bookingDate,
+      p_booking_time: params.bookingTime,
+      p_location_id: params.locationId,
+      p_note: params.note ?? null,
+    });
+
+    if (error) {
+      throw mapMesaReagendarBiometricosRpcError(error);
+    }
+
+    if (!data || typeof data !== "object") {
+      throw new AgendaBiometricosSupabaseError(
+        "Respuesta inválida al reagendar la cita biométrica desde Mesa.",
+      );
+    }
+
+    const row = data as ReagendarRpcRow;
+    if (!row.ok) {
+      throw new AgendaBiometricosSupabaseError(
+        "La RPC no confirmó el reagendado biométrico desde Mesa.",
+      );
+    }
+
+    return {
+      ok: true,
+      expedienteId: String(row.expediente_id ?? params.expedienteId),
+      bookingAnteriorId: String(row.booking_anterior_id ?? ""),
+      bookingNuevoId: String(row.booking_nuevo_id ?? ""),
+      scheduledAt: String(row.scheduled_at ?? ""),
+      status: "booked",
+      kind: "biometricos",
+      etapaActual: Number(row.etapa_actual ?? 3),
+    };
+  }
+
+  async mesaReagendarNotificacion(params: {
+    expedienteId: string;
+    bookingDate: string;
+    note?: string | null;
+  }): Promise<ReagendarNotificacionResult> {
+    const { client } = await requireSupabaseSession();
+
+    const { data, error } = await client.rpc("mesa_reagendar_notificacion", {
+      p_expediente_id: params.expedienteId,
+      p_booking_date: params.bookingDate,
+      p_note: params.note ?? null,
+    });
+
+    if (error) {
+      throw mapMesaReagendarNotificacionRpcError(error);
+    }
+
+    if (!data || typeof data !== "object") {
+      throw new AgendaBiometricosSupabaseError(
+        "Respuesta inválida al reagendar la notificación desde Mesa.",
+      );
+    }
+
+    const row = data as ReagendarRpcRow;
+    if (!row.ok) {
+      throw new AgendaBiometricosSupabaseError(
+        "La RPC no confirmó el reagendado de notificación desde Mesa.",
+      );
+    }
+
+    return {
+      ok: true,
+      expedienteId: String(row.expediente_id ?? params.expedienteId),
+      bookingAnteriorId: String(row.booking_anterior_id ?? ""),
+      bookingNuevoId: String(row.booking_nuevo_id ?? row.booking_id ?? ""),
+      scheduledAt: String(row.scheduled_at ?? ""),
+      bookingDate: String(row.booking_date ?? params.bookingDate),
+      bookingTime: normalizeBookingTime(String(row.booking_time ?? "12:00")),
+      status: "booked",
+      kind: "notificacion",
+      etapaActual: Number(row.etapa_actual ?? 3),
     };
   }
 }

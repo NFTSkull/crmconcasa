@@ -1,5 +1,68 @@
 # Devlog
 
+## 2026-07-13 - feat/mesa-agenda-bookings-read (B6)
+
+### Decisión
+
+- Pulido UI `/mesa-control/citas`: vistas Lista (default), Día y Semana sin cambiar RPC/SQL/permisos.
+- Resúmenes, chips de filtros activos, orden cliente-side y historial inferido (`expedienteId + kind`) sobre conjunto filtrado.
+- Navegación de fechas por vista; rango RPC sigue máx. 62 días vía `resolveMesaAgendaFetchRange`.
+- Badges por tipo/estado/historial; modales con Escape; responsive tabla/cards.
+
+## 2026-07-13 - feat/mesa-agenda-bookings-read (B5.1 revisión)
+
+### Decisión
+
+- `mesa_control_admin` es alias UI de `app_role.mesa_admin` (`mapAppRoleToMockRole`); no existe en enum Postgres.
+- Gate reagenda normaliza alias → `mesa_admin` | `super_admin` antes de mostrar botón; RPC 068 sin ampliación.
+- `mesa_control` colapsado no autoriza reagenda admin (solo lectura/cancel interno según B4).
+- RPC 068: cancel → assert cupo → insert en una transacción; fallo de cupo hace rollback total (test 10).
+
+## 2026-07-13 - feat/mesa-agenda-bookings-read (B5)
+
+### Decisión
+
+- Reagenda admin solo para `mesa_admin`, `mesa_control_admin`, `super_admin` (roles explícitos; sin `mesa_interno`/`externo`).
+- Biométricos y notificación: RPC nuevas en `068` (`mesa_reagendar_biometricos`, `mesa_reagendar_notificacion`); firma reutiliza `reagendar_firmas` (ya permite `mesa_admin`/`super_admin`).
+- Patrón transaccional: cancel booking activo → insert nuevo `booked`; actualiza `fecha_cita`; no cambia etapa.
+- UI: `MesaReagendarCitaDialog` con slot picker bio/firma; notificación solo fecha (12:00 backend).
+
+## 2026-07-13 - feat/mesa-agenda-bookings-read (B4)
+
+### Decisión
+
+- Cancelación desde `/mesa-control/citas` reutiliza repos existentes y RPCs 037/063/066 (sin SQL nuevo).
+- Gate por fila: `canMesaCancelAgendaListEntry` → `canMesaShowCancelCitaButton` (mismas reglas que Decisión Mesa).
+- Notificación: solo `mesa_admin` / `mesa_control_admin` / `super_admin`; biométricos/firmas: roles Mesa amplios.
+- Motivo obligatorio en modal; historial vía RPC (`status=cancelled`, `note`); lista se refresca con `fetchMesaAgendaBookings`.
+- Sin reagenda, editar sede ni cambiar fecha en B4.
+
+## 2026-07-13 - feat/mesa-agenda-bookings-read (B3)
+
+### Decisión
+
+- Ruta `/mesa-control/citas` con `MesaAgendaCitasClient` + helpers `mesaAgendaCitasUi`.
+- Solo lectura: única acción «Ver expediente» → `/mesa-control/[id]`.
+- `kind` e `includeCancelled` al RPC; sede/asesor/búsqueda en cliente sobre el conjunto cargado.
+- Sin `MesaCancelarCitaDialog` ni botones de mutación.
+
+## 2026-07-13 - feat/mesa-agenda-bookings-read (B2)
+
+### Decisión
+
+- Dominio en `src/domain/agenda-calendar/`: `mesa.types`, `mesa.mapper`, `mesa.repo`.
+- Reutiliza `normalizeBookingDate/Time` y `assertCalendarDateRange` del calendario asesor.
+- `fetchMesaAgendaBookings` usa `supabaseBrowser` + JWT; sin service role.
+- Objeto anidado `asesor` vs `createdBy` para la futura UI «Ver citas».
+
+## 2026-07-13 - feat/mesa-agenda-bookings-read (B1)
+
+### Decisión
+
+- Nueva RPC `get_mesa_agenda_bookings` (067) en lugar de extender 064: roles mesa_interno/externo, `expediente_id`, PII condicionada y `created_by` requieren contrato distinto.
+- Solo lectura; sin tocar RLS, book/cancel/reagendar ni bookings existentes.
+- PII (`cliente_nombre`, `nss`) solo cuando `can_see_expediente` (filtro en WHERE + CASE defensivo).
+
 ## 2026-07-10 - fix/asesor-chip-biometricos-notificacion
 
 ### Diagnóstico

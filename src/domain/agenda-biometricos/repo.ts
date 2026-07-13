@@ -174,4 +174,16 @@ export interface AgendaBiometricosBookingRepo {
     locationId: string;
     note?: string | null;
   }): Promise<ReagendarBiometricosResult>;
+  mesaReagendarBiometricos(params: {
+    expedienteId: string;
+    bookingDate: string;
+    bookingTime: string;
+    locationId: string;
+    note?: string | null;
+  }): Promise<ReagendarBiometricosResult>;
+  mesaReagendarNotificacion(params: {
+    expedienteId: string;
+    bookingDate: string;
+    note?: string | null;
+  }): Promise<ReagendarNotificacionResult>;
 }

@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- **feat/mesa-agenda-bookings-read — pulido `/mesa-control/citas` (B6):** vistas Lista/Día/Semana; navegación de fechas por vista; tarjetas resumen; chips filtros activos + limpiar; orden cliente-side; historial visible con badges inferidos; responsive y accesibilidad (Escape en modales); sin cambios RPC/SQL/permisos.
+
+- **feat/mesa-agenda-bookings-read — reagenda desde lista `/mesa-control/citas` (B5):** botón «Reagendar» para `mesa_admin`/`mesa_control_admin`/`super_admin`; RPC nuevas `mesa_reagendar_biometricos` y `mesa_reagendar_notificacion` (068); firma reutiliza `reagendar_firmas`; historial cancel+insert; refresco de lista.
+
+- **feat/mesa-agenda-bookings-read — cancelación desde lista `/mesa-control/citas` (B4):** botón «Cancelar» por fila agendada con gate `canMesaShowCancelCitaButton`; reutiliza RPCs `cancel_biometricos`, `cancel_firmas`, `cancel_notificacion_etapa3`; motivo obligatorio vía `MesaCancelarCitaDialog`; refresco de lista tras cancelar; sin reagenda.
+
+- **feat/mesa-agenda-bookings-read — página `/mesa-control/citas` lectura (B3):** botón «Ver citas» en header Mesa; filtros tipo/estado/sede/asesor/búsqueda; rango mensual default (máx. 62 días); tabla desktop + cards mobile; solo «Ver expediente»; sin cancel/reagenda.
+
+- **feat/mesa-agenda-bookings-read — capa TS Mesa agenda (B2):** tipos `MesaAgendaBookingEntry`, mapper RPC→dominio (22 columnas, asesor vs `createdBy`), repo `fetchMesaAgendaBookings` con sesión JWT; errores controlados; tests mapper/repo.
+
+- **feat/mesa-agenda-bookings-read — RPC read-only `get_mesa_agenda_bookings` (P067):** consulta Mesa de citas biométricos/firmas/notificación por rango (máx. 62 días); filtra organización + `can_see_expediente`; devuelve expediente, PII permitida, asesor dueño y `created_by`; roles mesa_* y super_admin; tests SQL (20 casos).
+
 - **fix/asesor-chip-biometricos-notificacion — Notificación activa excluye tarea de biométricos:** el chip/filtro «Agendar biométricos» solo incluye expedientes enviados a Mesa en etapa 3, sin booking biométrico activo y sin booking `notificacion` activo; reutiliza lectura batch sujeta a RLS; sin SQL/RPC.
 
 - **feat/asesor-export-precalificaciones-excel — descarga Excel por programa en `/asesor`:** selector Mejoravit / Compra de casa / Ambos + botón «Descargar Excel»; exporta todo `listForAsesor` (sin paginación ni búsqueda); columnas nombre, NSS, teléfono, programa, monto aprobado; librería `xlsx`; NSS/teléfono como texto; sanitización fórmulas Excel.

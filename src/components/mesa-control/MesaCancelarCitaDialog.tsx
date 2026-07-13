@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { validateMesaCancelMotivo } from "@/lib/agendaCancelNote";
 
@@ -41,6 +41,15 @@ export function MesaCancelarCitaDialog({
     await onConfirm(motivo.trim());
     setMotivo("");
   }, [motivo, onConfirm]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") handleClose();
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [open, handleClose]);
 
   if (!open) return null;
 

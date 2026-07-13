@@ -21,6 +21,8 @@ export { mapReagendarBiometricosRpcError } from "./reagendar-biometricos-rpc-err
 export { mapBookNotificacionRpcError } from "./book-notificacion-rpc-error";
 export { mapCancelNotificacionRpcError } from "./cancel-notificacion-rpc-error";
 export { mapReagendarNotificacionRpcError } from "./reagendar-notificacion-rpc-error";
+export { mapMesaReagendarBiometricosRpcError } from "./mesa-reagendar-biometricos-rpc-error";
+export { mapMesaReagendarNotificacionRpcError } from "./mesa-reagendar-notificacion-rpc-error";
 export {
   NOTIFICACION_FIXED_TIME,
   NOTIFICACION_FIXED_TIME_DISPLAY,

@@ -768,6 +768,25 @@ export default function MesaControlPage() {
               <span className="truncate text-[10px] text-slate-400">{currentUser.email}</span>
             </span>
             <NotificationsBell notifications={dashboardNotifications} />
+            <Link
+              href="/mesa-control/citas"
+              className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 sm:text-sm"
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.75"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-4 w-4"
+                aria-hidden
+              >
+                <rect x="3" y="4" width="18" height="18" rx="2" />
+                <path d="M16 2v4M8 2v4M3 10h18" />
+              </svg>
+              Ver citas
+            </Link>
             <Button
               variant="outline"
               className="text-xs sm:text-sm"
