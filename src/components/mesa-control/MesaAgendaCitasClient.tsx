@@ -11,7 +11,7 @@ import {
   useAgendaFirmasBookingRepo,
   AgendaFirmasSupabaseError,
 } from "@/domain/agenda-firmas";
-import { fetchMesaAgendaBookings } from "@/domain/agenda-calendar/mesa.repo";
+import { fetchMesaAgendaBookings, setMesaAgendaDriveValidation } from "@/domain/agenda-calendar/mesa.repo";
 import type { MesaAgendaBookingEntry } from "@/domain/agenda-calendar/mesa.types";
 import {
   MesaAgendaCitasBackLink,
@@ -44,6 +44,7 @@ import {
   canAccessMesaAgendaCitasPage,
   canMesaCancelAgendaListEntry,
   canMesaReagendarAgendaListEntry,
+  canMesaShowDriveValidationActions,
   clearMesaAgendaClientFilters,
   defaultMesaAgendaClientFilters,
   defaultMesaAgendaMonthRange,
@@ -67,6 +68,8 @@ import {
   type MesaAgendaCitasViewMode,
   type MesaAgendaFilterChip,
 } from "@/lib/mesaAgendaCitasUi";
+import { MesaAgendaBookingsSupabaseError } from "@/domain/agenda-calendar/mesa.mapper";
+import { mapMesaAgendaDriveValidationRpcError } from "@/domain/agenda-calendar/mesa-drive-validation-rpc-error";
 
 export function MesaAgendaCitasClient() {
   const { sessionRepo, currentUser } = useSessionRepo();
@@ -96,6 +99,9 @@ export function MesaAgendaCitasClient() {
   const [reagendarSaving, setReagendarSaving] = useState(false);
   const [reagendarError, setReagendarError] = useState<string | null>(null);
   const [reagendarSuccess, setReagendarSuccess] = useState<string | null>(null);
+  const [drivePendingBookingId, setDrivePendingBookingId] = useState<string | null>(null);
+  const [driveError, setDriveError] = useState<string | null>(null);
+  const [driveSuccess, setDriveSuccess] = useState<string | null>(null);
 
   const canAccess = canAccessMesaAgendaCitasPage(currentUser?.role);
   const mockRole = getEffectiveMockRole();
@@ -130,6 +136,13 @@ export function MesaAgendaCitasClient() {
     (entry: MesaAgendaBookingEntry) =>
       canMesaReagendarAgendaListEntry(entry, cancelRoleParams).allowed,
     [cancelRoleParams],
+  );
+
+  const canDriveValidateEntry = useCallback(
+    (entry: MesaAgendaBookingEntry) =>
+      canMesaShowDriveValidationActions(entry, mockRole) ||
+      canMesaShowDriveValidationActions(entry, sessionRole),
+    [mockRole, sessionRole],
   );
 
   const loadEntries = useCallback(async () => {
@@ -251,8 +264,42 @@ export function MesaAgendaCitasClient() {
     setReagendarError(null);
     setReagendarSuccess(null);
     setCancelSuccess(null);
+    setDriveSuccess(null);
     setReagendarTarget(entry);
   }, []);
+
+  const handleToggleDriveValidation = useCallback(
+    async (entry: MesaAgendaBookingEntry) => {
+      if (drivePendingBookingId) return;
+      setDriveError(null);
+      setDriveSuccess(null);
+      setCancelSuccess(null);
+      setReagendarSuccess(null);
+      setDrivePendingBookingId(entry.bookingId);
+      const nextValidated = !entry.driveValidated;
+      try {
+        await setMesaAgendaDriveValidation({
+          bookingId: entry.bookingId,
+          validated: nextValidated,
+        });
+        setDriveSuccess(
+          nextValidated
+            ? "Cita marcada como Validado en Drive."
+            : "Se quitó la validación en Drive.",
+        );
+        await loadEntries();
+      } catch (err) {
+        if (err instanceof MesaAgendaBookingsSupabaseError) {
+          setDriveError(err.message);
+        } else {
+          setDriveError(mapMesaAgendaDriveValidationRpcError(err as { message?: string }).message);
+        }
+      } finally {
+        setDrivePendingBookingId(null);
+      }
+    },
+    [drivePendingBookingId, loadEntries],
+  );
 
   const handleCloseCancelDialog = useCallback(() => {
     if (cancelSaving) return;
@@ -374,10 +421,15 @@ export function MesaAgendaCitasClient() {
     historyGroups,
     canCancelEntry,
     canReagendarEntry,
+    canDriveValidateEntry,
     cancelPendingBookingId: cancelSaving ? cancelTarget?.bookingId ?? null : null,
     reagendarPendingBookingId: reagendarSaving ? reagendarTarget?.bookingId ?? null : null,
+    drivePendingBookingId,
     onRequestCancel: handleRequestCancel,
     onRequestReagendar: handleRequestReagendar,
+    onToggleDriveValidation: (entry: MesaAgendaBookingEntry) => {
+      void handleToggleDriveValidation(entry);
+    },
   };
 
   const hasVisibleEntries =
@@ -535,6 +587,21 @@ export function MesaAgendaCitasClient() {
             className="rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3 text-sm text-indigo-900"
           >
             {reagendarSuccess}
+          </p>
+        ) : null}
+
+        {driveSuccess ? (
+          <p
+            role="status"
+            className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
+          >
+            {driveSuccess}
+          </p>
+        ) : null}
+
+        {driveError ? (
+          <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+            {driveError}
           </p>
         ) : null}
       </div>

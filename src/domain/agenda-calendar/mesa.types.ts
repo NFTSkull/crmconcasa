@@ -29,6 +29,9 @@ export type MesaAgendaBookingEntry = Readonly<{
   submittedToMesa: boolean;
   asesor: MesaAgendaBookingPerson;
   createdBy: MesaAgendaBookingPerson;
+  driveValidated: boolean;
+  driveValidatedAt: string | null;
+  driveValidatedBy: MesaAgendaBookingPerson | null;
 }>;
 
 export type FetchMesaAgendaBookingsParams = Readonly<{

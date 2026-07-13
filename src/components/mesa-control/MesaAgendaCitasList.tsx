@@ -8,13 +8,17 @@ import {
   deriveMesaAgendaHistoryLabel,
   formatMesaAgendaCreatedAt,
   formatMesaAgendaDateTime,
+  formatMesaAgendaDriveValidatedMeta,
   formatMesaAgendaKind,
   formatMesaAgendaStatus,
   hasMesaAgendaHistoryGroup,
+  mesaAgendaDriveValidatedBadgeClass,
+  mesaAgendaDriveValidatedRowClass,
   mesaAgendaHistoryBadgeClass,
   mesaAgendaHistoryGroupKey,
   mesaAgendaKindBadgeClass,
   mesaAgendaStatusBadgeClass,
+  MESA_DRIVE_VALIDATED_BADGE,
   type MesaAgendaCitasSortOption,
 } from "@/lib/mesaAgendaCitasUi";
 
@@ -33,10 +37,13 @@ type MesaAgendaCitasListProps = Readonly<{
   onSortChange: (value: MesaAgendaCitasSortOption) => void;
   canCancelEntry: (entry: MesaAgendaBookingEntry) => boolean;
   canReagendarEntry: (entry: MesaAgendaBookingEntry) => boolean;
+  canDriveValidateEntry: (entry: MesaAgendaBookingEntry) => boolean;
   cancelPendingBookingId?: string | null;
   reagendarPendingBookingId?: string | null;
+  drivePendingBookingId?: string | null;
   onRequestCancel?: (entry: MesaAgendaBookingEntry) => void;
   onRequestReagendar?: (entry: MesaAgendaBookingEntry) => void;
+  onToggleDriveValidation?: (entry: MesaAgendaBookingEntry) => void;
 }>;
 
 function historyGroupFor(
@@ -53,10 +60,13 @@ export function MesaAgendaCitasList({
   onSortChange,
   canCancelEntry,
   canReagendarEntry,
+  canDriveValidateEntry,
   cancelPendingBookingId = null,
   reagendarPendingBookingId = null,
+  drivePendingBookingId = null,
   onRequestCancel,
   onRequestReagendar,
+  onToggleDriveValidation,
 }: MesaAgendaCitasListProps) {
   return (
     <>
@@ -89,10 +99,18 @@ export function MesaAgendaCitasList({
               const historyGroup = historyGroupFor(entry, historyGroups);
               const historyLabel = deriveMesaAgendaHistoryLabel(entry, historyGroup);
               const showHistoryIndicator = hasMesaAgendaHistoryGroup(historyGroup);
+              const driveMeta = formatMesaAgendaDriveValidatedMeta(entry);
+              const driveRow = mesaAgendaDriveValidatedRowClass(entry);
               return (
                 <tr
                   key={entry.bookingId}
-                  className={`text-slate-800 ${entry.status === "cancelled" ? "bg-gray-50/80" : ""}`}
+                  className={`text-slate-800 ${
+                    driveRow
+                      ? driveRow
+                      : entry.status === "cancelled"
+                        ? "bg-gray-50/80"
+                        : ""
+                  }`}
                 >
                   <td className="px-4 py-3 whitespace-nowrap">
                     <div>{formatMesaAgendaDateTime(entry)}</div>
@@ -100,6 +118,9 @@ export function MesaAgendaCitasList({
                       <div className="text-xs text-slate-500">
                         Cancelada: {formatMesaAgendaCreatedAt(entry.cancelledAt)}
                       </div>
+                    ) : null}
+                    {driveMeta ? (
+                      <div className="text-xs text-emerald-800">Drive: {driveMeta}</div>
                     ) : null}
                   </td>
                   <td className="px-4 py-3">
@@ -133,6 +154,11 @@ export function MesaAgendaCitasList({
                       >
                         {formatMesaAgendaStatus(entry.status)}
                       </span>
+                      {entry.driveValidated ? (
+                        <span className={mesaAgendaDriveValidatedBadgeClass()}>
+                          {MESA_DRIVE_VALIDATED_BADGE}
+                        </span>
+                      ) : null}
                       {historyLabel ? (
                         <span
                           className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${mesaAgendaHistoryBadgeClass(historyLabel)}`}
@@ -152,10 +178,13 @@ export function MesaAgendaCitasList({
                       entry={entry}
                       showCancel={canCancelEntry(entry)}
                       showReagendar={canReagendarEntry(entry)}
+                      showDriveValidation={canDriveValidateEntry(entry)}
                       cancelPending={cancelPendingBookingId === entry.bookingId}
                       reagendarPending={reagendarPendingBookingId === entry.bookingId}
+                      drivePending={drivePendingBookingId === entry.bookingId}
                       onRequestCancel={onRequestCancel}
                       onRequestReagendar={onRequestReagendar}
+                      onToggleDriveValidation={onToggleDriveValidation}
                     />
                   </td>
                 </tr>
@@ -173,10 +202,13 @@ export function MesaAgendaCitasList({
             historyGroup={historyGroupFor(entry, historyGroups)}
             showCancel={canCancelEntry(entry)}
             showReagendar={canReagendarEntry(entry)}
+            showDriveValidation={canDriveValidateEntry(entry)}
             cancelPending={cancelPendingBookingId === entry.bookingId}
             reagendarPending={reagendarPendingBookingId === entry.bookingId}
+            drivePending={drivePendingBookingId === entry.bookingId}
             onRequestCancel={onRequestCancel}
             onRequestReagendar={onRequestReagendar}
+            onToggleDriveValidation={onToggleDriveValidation}
           />
         ))}
       </div>
@@ -189,10 +221,13 @@ export function MesaAgendaCitasList({
             historyGroup={historyGroupFor(entry, historyGroups)}
             showCancel={canCancelEntry(entry)}
             showReagendar={canReagendarEntry(entry)}
+            showDriveValidation={canDriveValidateEntry(entry)}
             cancelPending={cancelPendingBookingId === entry.bookingId}
             reagendarPending={reagendarPendingBookingId === entry.bookingId}
+            drivePending={drivePendingBookingId === entry.bookingId}
             onRequestCancel={onRequestCancel}
             onRequestReagendar={onRequestReagendar}
+            onToggleDriveValidation={onToggleDriveValidation}
           />
         ))}
       </div>

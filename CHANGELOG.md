@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **feat/mesa-agenda-drive-validation — Validado en Drive (P069):** columnas `drive_validated/_at/_by` en `agenda_bookings`; RPC `mesa_set_agenda_drive_validation`; `get_mesa_agenda_bookings` expone campos; UI en `/mesa-control/citas` (fila verde + badge + Validar/Quitar); persistencia por `booking_id`; sin tocar status/etapa/cupos.
+
 - **feat/mesa-agenda-bookings-read — pulido `/mesa-control/citas` (B6):** vistas Lista/Día/Semana; navegación de fechas por vista; tarjetas resumen; chips filtros activos + limpiar; orden cliente-side; historial visible con badges inferidos; responsive y accesibilidad (Escape en modales); sin cambios RPC/SQL/permisos.
 
 - **feat/mesa-agenda-bookings-read — reagenda desde lista `/mesa-control/citas` (B5):** botón «Reagendar» para `mesa_admin`/`mesa_control_admin`/`super_admin`; RPC nuevas `mesa_reagendar_biometricos` y `mesa_reagendar_notificacion` (068); firma reutiliza `reagendar_firmas`; historial cancel+insert; refresco de lista.

@@ -804,6 +804,42 @@ export function formatMesaAgendaCreatedAt(value: string): string {
   }
 }
 
+export const MESA_DRIVE_VALIDATED_BADGE = "Validado en Drive";
+export const MESA_DRIVE_VALIDATE_BUTTON = "Validar en Drive";
+export const MESA_DRIVE_CLEAR_BUTTON = "Quitar validación";
+
+/**
+ * Botón Validar/Quitar Drive: solo citas `booked`.
+ * Roles: los mismos que pueden ver `/mesa-control/citas`.
+ */
+export function canMesaShowDriveValidationActions(
+  entry: MesaAgendaBookingEntry,
+  role: string | null | undefined,
+): boolean {
+  if (entry.status !== "booked") return false;
+  return canAccessMesaAgendaCitasPage(role);
+}
+
+export function mesaAgendaDriveValidatedRowClass(entry: MesaAgendaBookingEntry): string {
+  if (!entry.driveValidated) return "";
+  return "border-emerald-400 bg-emerald-50 ring-1 ring-emerald-200 shadow-sm";
+}
+
+export function mesaAgendaDriveValidatedBadgeClass(): string {
+  return "inline-flex rounded-full bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-900 ring-1 ring-emerald-300";
+}
+
+export function formatMesaAgendaDriveValidatedMeta(entry: MesaAgendaBookingEntry): string | null {
+  if (!entry.driveValidated) return null;
+  const who = entry.driveValidatedBy
+    ? mesaAgendaBookingPersonDisplayName(entry.driveValidatedBy)
+    : "Mesa";
+  const when = entry.driveValidatedAt
+    ? formatMesaAgendaCreatedAt(entry.driveValidatedAt)
+    : "—";
+  return `${who} · ${when}`;
+}
+
 export function normalizeMesaAgendaBookingTimeForDisplay(
   kind: MesaAgendaBookingKind,
   bookingTime: string,

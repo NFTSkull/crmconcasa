@@ -36,6 +36,11 @@ export type MesaAgendaBookingRpcRow = Readonly<{
   created_by?: string | null;
   created_by_full_name?: string | null;
   created_by_email?: string | null;
+  drive_validated?: boolean | null;
+  drive_validated_at?: string | null;
+  drive_validated_by?: string | null;
+  drive_validated_by_full_name?: string | null;
+  drive_validated_by_email?: string | null;
 }>;
 
 function parseKind(value: string | undefined): MesaAgendaBookingKind | null {
@@ -105,6 +110,15 @@ export function mapMesaAgendaBookingRpcRow(
     submittedToMesa: row.submitted_to_mesa === true,
     asesor: mapPerson(row.asesor_id, row.asesor_full_name, row.asesor_email),
     createdBy: mapPerson(row.created_by, row.created_by_full_name, row.created_by_email),
+    driveValidated: row.drive_validated === true,
+    driveValidatedAt: normalizeIsoTimestamp(row.drive_validated_at),
+    driveValidatedBy: row.drive_validated === true
+      ? mapPerson(
+          row.drive_validated_by,
+          row.drive_validated_by_full_name,
+          row.drive_validated_by_email,
+        )
+      : null,
   };
 }
 

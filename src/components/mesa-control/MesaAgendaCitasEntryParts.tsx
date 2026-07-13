@@ -8,12 +8,18 @@ import {
   deriveMesaAgendaHistoryLabel,
   formatMesaAgendaCreatedAt,
   formatMesaAgendaDateTime,
+  formatMesaAgendaDriveValidatedMeta,
   formatMesaAgendaKind,
   formatMesaAgendaStatus,
   hasMesaAgendaHistoryGroup,
+  mesaAgendaDriveValidatedBadgeClass,
+  mesaAgendaDriveValidatedRowClass,
   mesaAgendaHistoryBadgeClass,
   mesaAgendaKindBadgeClass,
   mesaAgendaStatusBadgeClass,
+  MESA_DRIVE_CLEAR_BUTTON,
+  MESA_DRIVE_VALIDATE_BUTTON,
+  MESA_DRIVE_VALIDATED_BADGE,
   type MesaAgendaHistoryLabel,
 } from "@/lib/mesaAgendaCitasUi";
 
@@ -38,6 +44,9 @@ export function MesaAgendaEntryBadges({
       >
         {formatMesaAgendaStatus(entry.status)}
       </span>
+      {entry.driveValidated ? (
+        <span className={mesaAgendaDriveValidatedBadgeClass()}>{MESA_DRIVE_VALIDATED_BADGE}</span>
+      ) : null}
       {historyLabel ? (
         <span
           className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${mesaAgendaHistoryBadgeClass(historyLabel)}`}
@@ -57,6 +66,7 @@ export function MesaAgendaEntryBadges({
 export function MesaAgendaEntryDetails({
   entry,
 }: Readonly<{ entry: MesaAgendaBookingEntry }>) {
+  const driveMeta = formatMesaAgendaDriveValidatedMeta(entry);
   return (
     <dl className="grid gap-1 text-xs text-slate-600">
       <div>
@@ -85,6 +95,12 @@ export function MesaAgendaEntryDetails({
           <dd className="inline">{formatMesaAgendaCreatedAt(entry.cancelledAt)}</dd>
         </div>
       ) : null}
+      {driveMeta ? (
+        <div>
+          <dt className="inline font-medium text-emerald-800">Drive: </dt>
+          <dd className="inline text-emerald-900">{driveMeta}</dd>
+        </div>
+      ) : null}
       {entry.note ? (
         <div>
           <dt className="inline font-medium text-slate-700">Nota: </dt>
@@ -99,29 +115,58 @@ type MesaAgendaEntryActionsProps = Readonly<{
   entry: MesaAgendaBookingEntry;
   showCancel: boolean;
   showReagendar: boolean;
+  showDriveValidation: boolean;
   cancelPending: boolean;
   reagendarPending: boolean;
+  drivePending: boolean;
   compact?: boolean;
   onRequestCancel?: (entry: MesaAgendaBookingEntry) => void;
   onRequestReagendar?: (entry: MesaAgendaBookingEntry) => void;
+  onToggleDriveValidation?: (entry: MesaAgendaBookingEntry) => void;
 }>;
 
 export function MesaAgendaEntryActions({
   entry,
   showCancel,
   showReagendar,
+  showDriveValidation,
   cancelPending,
   reagendarPending,
+  drivePending,
   compact = false,
   onRequestCancel,
   onRequestReagendar,
+  onToggleDriveValidation,
 }: MesaAgendaEntryActionsProps) {
   const linkClass = compact
     ? "inline-flex w-full justify-center rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50"
     : "font-medium text-blue-700 hover:text-blue-900";
 
+  const driveLabel = entry.driveValidated
+    ? MESA_DRIVE_CLEAR_BUTTON
+    : MESA_DRIVE_VALIDATE_BUTTON;
+
   const mutationButtons = (
     <>
+      {showDriveValidation && onToggleDriveValidation ? (
+        <button
+          type="button"
+          aria-label={`${driveLabel} — ${entry.clienteNombre || "cliente"}`}
+          disabled={drivePending}
+          onClick={() => onToggleDriveValidation(entry)}
+          className={
+            compact
+              ? entry.driveValidated
+                ? "inline-flex w-full justify-center rounded-lg border border-emerald-300 bg-white px-3 py-1.5 text-xs font-medium text-emerald-900 hover:bg-emerald-50 disabled:opacity-50"
+                : "inline-flex w-full justify-center rounded-lg border border-emerald-300 bg-emerald-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-emerald-700 disabled:opacity-50"
+              : entry.driveValidated
+                ? "text-left text-xs font-medium text-emerald-800 hover:text-emerald-950 disabled:opacity-50"
+                : "text-left text-xs font-medium text-emerald-700 hover:text-emerald-900 disabled:opacity-50"
+          }
+        >
+          {drivePending ? "Guardando…" : driveLabel}
+        </button>
+      ) : null}
       {showReagendar && onRequestReagendar ? (
         <button
           type="button"
@@ -181,27 +226,38 @@ export function MesaAgendaCitaCard({
   historyGroup,
   showCancel,
   showReagendar,
+  showDriveValidation,
   cancelPending,
   reagendarPending,
+  drivePending,
   onRequestCancel,
   onRequestReagendar,
+  onToggleDriveValidation,
 }: Readonly<{
   entry: MesaAgendaBookingEntry;
   historyGroup: readonly MesaAgendaBookingEntry[];
   showCancel: boolean;
   showReagendar: boolean;
+  showDriveValidation: boolean;
   cancelPending: boolean;
   reagendarPending: boolean;
+  drivePending: boolean;
   onRequestCancel?: (entry: MesaAgendaBookingEntry) => void;
   onRequestReagendar?: (entry: MesaAgendaBookingEntry) => void;
+  onToggleDriveValidation?: (entry: MesaAgendaBookingEntry) => void;
 }>) {
   const historyLabel = deriveMesaAgendaHistoryLabel(entry, historyGroup);
   const showHistoryIndicator = hasMesaAgendaHistoryGroup(historyGroup);
+  const driveRow = mesaAgendaDriveValidatedRowClass(entry);
 
   return (
     <article
-      className={`rounded-xl border bg-white p-4 shadow-sm ${
-        entry.status === "cancelled" ? "border-gray-200 opacity-90" : "border-slate-200"
+      className={`rounded-xl border p-4 shadow-sm ${
+        driveRow
+          ? driveRow
+          : entry.status === "cancelled"
+            ? "border-gray-200 bg-white opacity-90"
+            : "border-slate-200 bg-white"
       }`}
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -223,11 +279,14 @@ export function MesaAgendaCitaCard({
         entry={entry}
         showCancel={showCancel}
         showReagendar={showReagendar}
+        showDriveValidation={showDriveValidation}
         cancelPending={cancelPending}
         reagendarPending={reagendarPending}
+        drivePending={drivePending}
         compact
         onRequestCancel={onRequestCancel}
         onRequestReagendar={onRequestReagendar}
+        onToggleDriveValidation={onToggleDriveValidation}
       />
     </article>
   );

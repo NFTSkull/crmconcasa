@@ -16,11 +16,14 @@ type MesaAgendaCitasWeekViewProps = Readonly<{
   historyGroups: ReadonlyMap<string, readonly MesaAgendaBookingEntry[]>;
   canCancelEntry: (entry: MesaAgendaBookingEntry) => boolean;
   canReagendarEntry: (entry: MesaAgendaBookingEntry) => boolean;
+  canDriveValidateEntry: (entry: MesaAgendaBookingEntry) => boolean;
   cancelPendingBookingId?: string | null;
   reagendarPendingBookingId?: string | null;
+  drivePendingBookingId?: string | null;
   onSelectDay: (date: string) => void;
   onRequestCancel?: (entry: MesaAgendaBookingEntry) => void;
   onRequestReagendar?: (entry: MesaAgendaBookingEntry) => void;
+  onToggleDriveValidation?: (entry: MesaAgendaBookingEntry) => void;
 }>;
 
 function WeekDayCard({
@@ -73,11 +76,14 @@ export function MesaAgendaCitasWeekView({
   historyGroups,
   canCancelEntry,
   canReagendarEntry,
+  canDriveValidateEntry,
   cancelPendingBookingId = null,
   reagendarPendingBookingId = null,
+  drivePendingBookingId = null,
   onSelectDay,
   onRequestCancel,
   onRequestReagendar,
+  onToggleDriveValidation,
 }: MesaAgendaCitasWeekViewProps) {
   const summaries = deriveMesaAgendaWeekDaySummaries(entries, weekDays);
   const detailDay = selectedDetailDay ?? weekDays.find((day) =>
@@ -108,10 +114,13 @@ export function MesaAgendaCitasWeekView({
             historyGroups={historyGroups}
             canCancelEntry={canCancelEntry}
             canReagendarEntry={canReagendarEntry}
+            canDriveValidateEntry={canDriveValidateEntry}
             cancelPendingBookingId={cancelPendingBookingId}
             reagendarPendingBookingId={reagendarPendingBookingId}
+            drivePendingBookingId={drivePendingBookingId}
             onRequestCancel={onRequestCancel}
             onRequestReagendar={onRequestReagendar}
+            onToggleDriveValidation={onToggleDriveValidation}
           />
         </section>
       ) : null}

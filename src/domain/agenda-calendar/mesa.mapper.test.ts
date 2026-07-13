@@ -40,6 +40,22 @@ function fullRpcRow(
 }
 
 describe("mapMesaAgendaBookingRpcRow", () => {
+  it("mapea columnas RPC incl. drive_validated", () => {
+    const entry = mapMesaAgendaBookingRpcRow(
+      fullRpcRow({
+        drive_validated: true,
+        drive_validated_at: "2026-07-10T15:00:00.000Z",
+        drive_validated_by: "m4444444-4444-4444-8444-444444444444",
+        drive_validated_by_full_name: "Mesa Admin",
+        drive_validated_by_email: "mesa@concasa.test",
+      }),
+    );
+    assert.ok(entry);
+    assert.equal(entry.driveValidated, true);
+    assert.equal(entry.driveValidatedAt, "2026-07-10T15:00:00.000Z");
+    assert.equal(entry.driveValidatedBy?.fullName, "Mesa Admin");
+  });
+
   it("mapea las 22 columnas y normaliza fecha/hora", () => {
     const entry = mapMesaAgendaBookingRpcRow(fullRpcRow());
     assert.ok(entry);
@@ -48,6 +64,8 @@ describe("mapMesaAgendaBookingRpcRow", () => {
     assert.equal(entry.bookingDate, "2026-07-15");
     assert.equal(entry.bookingTime, "10:30");
     assert.equal(entry.kind, "biometricos");
+    assert.equal(entry.driveValidated, false);
+    assert.equal(entry.driveValidatedBy, null);
     assert.equal(entry.status, "booked");
     assert.equal(entry.locationId, "sede-centro");
     assert.equal(entry.note, "nota prueba");

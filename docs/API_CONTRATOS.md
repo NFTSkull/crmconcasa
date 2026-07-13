@@ -603,6 +603,32 @@ Adicional:
 
 ---
 
+## 17b. Validar en Drive (Mesa agenda citas) — P069
+
+**Operación:** RPC `mesa_set_agenda_drive_validation`  
+**Lectura:** campos `drive_*` en `get_mesa_agenda_bookings`
+
+### Request
+
+```json
+{
+  "p_booking_id": "uuid",
+  "p_validated": true
+}
+```
+
+### Reglas
+
+- Validación por `agenda_bookings.id` (no por expediente).
+- Roles: `mesa_admin`, `mesa_interno`, `mesa_externo`, `super_admin`.
+- `p_validated = true` solo si `status = booked`.
+- Solo actualiza `drive_validated`, `drive_validated_at`, `drive_validated_by`.
+- No cambia `status`, fechas, `kind`, `expediente_id`, etapa, cupos ni historial.
+- Reagenda crea nuevo booking → inicia `drive_validated = false`.
+- Auditoría: `agenda.drive_validation.set` / `agenda.drive_validation.clear`.
+
+---
+
 ## 17. Repos mock existentes (referencia implementación)
 
 | Interfaz | Archivo |

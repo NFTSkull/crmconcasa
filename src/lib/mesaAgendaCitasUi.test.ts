@@ -46,6 +46,8 @@ import {
   shiftMesaAgendaDayYmd,
   sortMesaAgendaEntries,
   validateMesaAgendaDateRange,
+  canMesaShowDriveValidationActions,
+  mesaAgendaDriveValidatedRowClass,
 } from "./mesaAgendaCitasUi";
 
 function entry(
@@ -68,6 +70,9 @@ function entry(
     submittedToMesa: true,
     asesor: { id: "asesor-1", fullName: "Ana Asesor", email: "ana@test.c" },
     createdBy: { id: "mesa-1", fullName: "Mesa Admin", email: "mesa@test.c" },
+    driveValidated: false,
+    driveValidatedAt: null,
+    driveValidatedBy: null,
     ...overrides,
   };
 }
@@ -737,7 +742,8 @@ describe("mesaAgendaCitasUi B6 regresiones", () => {
       "utf8",
     );
     assert.match(src, /fetchMesaAgendaBookings/);
-    assert.doesNotMatch(src, /\.update\(/);
+    assert.match(src, /setMesaAgendaDriveValidation/);
+    assert.doesNotMatch(src, /\.from\(["']agenda_bookings["']\)\.update/);
   });
 
   it("mobile y desktop comparten gates en List", () => {
@@ -747,5 +753,32 @@ describe("mesaAgendaCitasUi B6 regresiones", () => {
     );
     assert.match(src, /canCancelEntry\(entry\)/);
     assert.match(src, /canReagendarEntry\(entry\)/);
+    assert.match(src, /canDriveValidateEntry\(entry\)/);
+  });
+});
+
+describe("mesaAgendaCitasUi drive validation", () => {
+  it("solo booked muestra acción Drive", () => {
+    assert.equal(
+      canMesaShowDriveValidationActions(
+        entry({ bookingId: "1", status: "booked" }),
+        "mesa_control_admin",
+      ),
+      true,
+    );
+    assert.equal(
+      canMesaShowDriveValidationActions(
+        entry({ bookingId: "2", status: "cancelled" }),
+        "mesa_control_admin",
+      ),
+      false,
+    );
+  });
+
+  it("fila validada usa clase verde", () => {
+    const cls = mesaAgendaDriveValidatedRowClass(
+      entry({ bookingId: "1", driveValidated: true }),
+    );
+    assert.match(cls, /emerald/);
   });
 });

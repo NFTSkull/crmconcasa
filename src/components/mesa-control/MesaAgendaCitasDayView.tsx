@@ -10,6 +10,7 @@ import {
   deriveMesaAgendaHistoryLabel,
   groupMesaAgendaEntriesByTime,
   hasMesaAgendaHistoryGroup,
+  mesaAgendaDriveValidatedRowClass,
   mesaAgendaHistoryGroupKey,
 } from "@/lib/mesaAgendaCitasUi";
 
@@ -18,10 +19,13 @@ type MesaAgendaCitasDayViewProps = Readonly<{
   historyGroups: ReadonlyMap<string, readonly MesaAgendaBookingEntry[]>;
   canCancelEntry: (entry: MesaAgendaBookingEntry) => boolean;
   canReagendarEntry: (entry: MesaAgendaBookingEntry) => boolean;
+  canDriveValidateEntry: (entry: MesaAgendaBookingEntry) => boolean;
   cancelPendingBookingId?: string | null;
   reagendarPendingBookingId?: string | null;
+  drivePendingBookingId?: string | null;
   onRequestCancel?: (entry: MesaAgendaBookingEntry) => void;
   onRequestReagendar?: (entry: MesaAgendaBookingEntry) => void;
+  onToggleDriveValidation?: (entry: MesaAgendaBookingEntry) => void;
 }>;
 
 function historyGroupFor(
@@ -36,10 +40,13 @@ export function MesaAgendaCitasDayView({
   historyGroups,
   canCancelEntry,
   canReagendarEntry,
+  canDriveValidateEntry,
   cancelPendingBookingId = null,
   reagendarPendingBookingId = null,
+  drivePendingBookingId = null,
   onRequestCancel,
   onRequestReagendar,
+  onToggleDriveValidation,
 }: MesaAgendaCitasDayViewProps) {
   const groups = groupMesaAgendaEntriesByTime(entries);
 
@@ -70,8 +77,12 @@ export function MesaAgendaCitasDayView({
               const historyGroup = historyGroupFor(entry, historyGroups);
               const historyLabel = deriveMesaAgendaHistoryLabel(entry, historyGroup);
               const showHistoryIndicator = hasMesaAgendaHistoryGroup(historyGroup);
+              const driveRow = mesaAgendaDriveValidatedRowClass(entry);
               return (
-                <div key={entry.bookingId} className="px-4 py-3">
+                <div
+                  key={entry.bookingId}
+                  className={`px-4 py-3 ${driveRow ? `${driveRow} rounded-none` : ""}`}
+                >
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div>
                       <p className="font-medium text-slate-900">{entry.clienteNombre || "—"}</p>
@@ -94,10 +105,13 @@ export function MesaAgendaCitasDayView({
                       entry={entry}
                       showCancel={canCancelEntry(entry)}
                       showReagendar={canReagendarEntry(entry)}
+                      showDriveValidation={canDriveValidateEntry(entry)}
                       cancelPending={cancelPendingBookingId === entry.bookingId}
                       reagendarPending={reagendarPendingBookingId === entry.bookingId}
+                      drivePending={drivePendingBookingId === entry.bookingId}
                       onRequestCancel={onRequestCancel}
                       onRequestReagendar={onRequestReagendar}
+                      onToggleDriveValidation={onToggleDriveValidation}
                     />
                   </div>
                 </div>

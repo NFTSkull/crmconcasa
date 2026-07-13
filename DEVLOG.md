@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-07-13 - feat/mesa-agenda-drive-validation (P069)
+
+### Decisión
+
+- Validación Drive pertenece a `agenda_bookings.id`, no al expediente: reagenda = nuevo booking sin validar.
+- Columnas `drive_validated`, `drive_validated_at`, `drive_validated_by`; RPC única `mesa_set_agenda_drive_validation(p_booking_id, p_validated)`.
+- Roles alineados con lectura Mesa (`mesa_*` + `super_admin`). Validar exige `booked`.
+- UPDATE solo columnas drive_*; `get_mesa_agenda_bookings` se recrea con return ampliado (DROP+CREATE).
+- UI verde + badge + botón Validar/Quitar; sin localStorage.
+
 ## 2026-07-13 - feat/mesa-agenda-bookings-read (B6)
 
 ### Decisión
