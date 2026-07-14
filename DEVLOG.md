@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-07-14 - feat/asesor-convert-biometricos-to-notificacion (P070)
+
+### Decisión
+
+- Conversión extraordinaria atómica en RPC (no cancel+book desde frontend).
+- Cancel bio + insert notif nueva (no mutar kind); etapa 4→3; legacy etapa 3 + bio booked también permitido (datos Cloud reales).
+- Hora fija 12:00 / sin cupo; Mesa sigue aprobando 3→5.
+- UI en tarjeta verde de bio activa; una llamada `convertBiometricosToNotificacion`.
+- Endurecimiento: tests SQL amplios (auth/estado/Drive/rollback/regresiones); Drive del bio se conserva cancelado; Notificación inicia sin validar Drive; `REVOKE anon`.
+
 ## 2026-07-13 - feat/mesa-agenda-drive-validation (P069)
 
 ### Decisión

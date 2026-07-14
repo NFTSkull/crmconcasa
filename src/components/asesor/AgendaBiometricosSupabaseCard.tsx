@@ -6,6 +6,7 @@ import {
   AgendaBiometricosSupabaseError,
   buildScheduledAtIso,
   canShowBiometricosManageActions,
+  canShowConvertBiometricosToNotificacion,
   computeAdvisorSlotAvailability,
   todayYmdInTimezone,
   useAgendaBiometricosBookingRepo,
@@ -107,6 +108,8 @@ export function AgendaBiometricosSupabaseCard({
   const [dateYmd, setDateYmd] = useState<YmdDate>("2026-01-01" as YmdDate);
   const [timeHhmm, setTimeHhmm] = useState<HhmmTime | "">("");
   const [reagendar, setReagendar] = useState(false);
+  const [convertMode, setConvertMode] = useState(false);
+  const [convertDateYmd, setConvertDateYmd] = useState<YmdDate>("2026-01-01" as YmdDate);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -124,6 +127,11 @@ export function AgendaBiometricosSupabaseCard({
   const puedeGestionar = canShowBiometricosManageActions({
     etapaActual,
     hasActiveBooking: activeBooking != null,
+  });
+
+  const puedeConvertir = canShowConvertBiometricosToNotificacion({
+    etapaActual,
+    hasActiveBiometricosBooking: activeBooking != null,
   });
 
   const load = useCallback(async () => {
@@ -164,6 +172,8 @@ export function AgendaBiometricosSupabaseCard({
       setDateYmd(today);
       setTimeHhmm("");
       setReagendar(false);
+      setConvertMode(false);
+      setConvertDateYmd(today);
     } catch (err) {
       setLoadError(
         err instanceof AgendaBiometricosSupabaseError
@@ -360,6 +370,47 @@ export function AgendaBiometricosSupabaseCard({
     repo,
     selectedSede,
     timeHhmm,
+  ]);
+
+  const handleConvertToNotificacion = useCallback(async () => {
+    if (!repo || !config || !convertDateYmd || !activeBooking) return;
+    setError(null);
+    setSuccessMsg(null);
+
+    const confirmar = window.confirm(
+      `¿Confirmas cambiar a Notificación extraordinaria el ${convertDateYmd} a las 12:00 PM?\n\nLa cita biométrica actual será cancelada. El expediente volverá a etapa 3 para que Mesa apruebe 3→5.`,
+    );
+    if (!confirmar) return;
+
+    setSaving(true);
+    try {
+      await repo.convertBiometricosToNotificacion({
+        expedienteId,
+        bookingDate: convertDateYmd,
+      });
+      setSuccessMsg(
+        "Convertido a Notificación extraordinaria. El expediente quedó en etapa 3.",
+      );
+      setConvertMode(false);
+      await load();
+      onUpdated();
+    } catch (err) {
+      setError(
+        err instanceof AgendaBiometricosSupabaseError
+          ? err.message
+          : "No se pudo convertir a notificación. Intenta de nuevo.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  }, [
+    activeBooking,
+    config,
+    convertDateYmd,
+    expedienteId,
+    load,
+    onUpdated,
+    repo,
   ]);
 
   const showEtapa3Tabs = etapaActual === 3 && !activeBooking && !activeNotificacion;
@@ -592,26 +643,93 @@ export function AgendaBiometricosSupabaseCard({
           </p>
         ) : null}
 
-        <div className="mt-3 flex flex-col gap-2 sm:flex-row">
-          <Button
-            type="button"
-            variant="outline"
-            className="flex-1 text-xs"
-            disabled={saving}
-            onClick={() => void startReagendar()}
-          >
-            Reagendar cita
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            className="flex-1 text-xs"
-            disabled={saving}
-            onClick={() => void handleCancel()}
-          >
-            {saving ? "Procesando…" : "Cancelar cita"}
-          </Button>
-        </div>
+        {convertMode && puedeConvertir ? (
+          <div className="mt-3 space-y-3 rounded-lg border border-amber-300 bg-amber-50/80 p-3">
+            <p className="text-xs font-semibold text-amber-950">
+              Cambiar a Notificación extraordinaria
+            </p>
+            <p className="text-[11px] leading-snug text-amber-900">
+              Se cancelará la cita biométrica actual y se creará una Notificación con hora fija
+              12:00 PM. El expediente quedará en etapa 3 para que Mesa apruebe 3→5.
+            </p>
+            <label className="block text-[11px] font-semibold text-gray-700">
+              Fecha de notificación
+              <input
+                type="date"
+                className="mt-0.5 w-full rounded-md border border-gray-200 px-2 py-1.5 text-xs text-gray-900"
+                value={convertDateYmd}
+                min={config ? todayYmdInTimezone(config.timezone) : undefined}
+                onChange={(e) => setConvertDateYmd(e.target.value as YmdDate)}
+                disabled={saving || !config?.enabled}
+              />
+            </label>
+            <div className="rounded-md border border-gray-200 bg-white/70 px-3 py-2 text-xs text-gray-800">
+              Hora: <span className="font-semibold">12:00 PM</span> (fija)
+            </div>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button
+                type="button"
+                variant="primary"
+                className="flex-1 text-xs"
+                disabled={saving || !config?.enabled || !convertDateYmd}
+                onClick={() => void handleConvertToNotificacion()}
+              >
+                {saving ? "Convirtiendo…" : "Confirmar conversión"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1 text-xs"
+                disabled={saving}
+                onClick={() => {
+                  setConvertMode(false);
+                  setError(null);
+                }}
+              >
+                Cancelar
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-3 flex flex-col gap-2">
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <Button
+                type="button"
+                variant="outline"
+                className="flex-1 text-xs"
+                disabled={saving}
+                onClick={() => void startReagendar()}
+              >
+                Reagendar cita
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                className="flex-1 text-xs"
+                disabled={saving}
+                onClick={() => void handleCancel()}
+              >
+                {saving ? "Procesando…" : "Cancelar cita"}
+              </Button>
+            </div>
+            {puedeConvertir ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="w-full border-amber-400 text-xs text-amber-950 hover:bg-amber-50"
+                disabled={saving}
+                onClick={() => {
+                  setError(null);
+                  setSuccessMsg(null);
+                  setConvertMode(true);
+                  if (config) setConvertDateYmd(todayYmdInTimezone(config.timezone));
+                }}
+              >
+                Cambiar a Notificación extraordinaria
+              </Button>
+            ) : null}
+          </div>
+        )}
       </div>
     );
   }

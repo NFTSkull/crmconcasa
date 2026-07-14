@@ -629,6 +629,41 @@ Adicional:
 
 ---
 
+## 17c. Convertir Biométricos → Notificación (asesor) — P070
+
+**Operación:** RPC `convert_biometricos_to_notificacion`  
+**Firma:** `convert_biometricos_to_notificacion(p_expediente_id uuid, p_booking_date date, p_note text default null) → jsonb`  
+**SECURITY:** `DEFINER`, `search_path=public`, `REVOKE` PUBLIC/anon, `GRANT EXECUTE` authenticated
+
+### Request
+
+```json
+{
+  "p_expediente_id": "uuid",
+  "p_booking_date": "YYYY-MM-DD",
+  "p_note": null
+}
+```
+
+### Reglas
+
+- Solo `asesor` dueño (profile activo), org propia, expediente no eliminado, `submitted_to_mesa`, ciclo `activo`, `subestado=en_proceso`.
+- Etapas permitidas: **4** (flujo normal) o **3** (legacy con biométricos `booked`).
+- Requiere booking `biometricos` `booked` (`FOR UPDATE`); bloquea si ya hay `notificacion` `booked`.
+- Fecha de notificación futura (noon en TZ de agenda biométrica).
+- **Operación atómica (misma transacción / misma función):**
+  1. CANCEL biométricos → `status=cancelled`, `cancelled_at=now()`, nota conversión; **conserva** `kind`, fecha/hora/sede y columnas Drive.
+  2. INSERT notificación → `kind=notificacion`, `status=booked`, `booking_time=12:00`, `drive_validated=false` (default).
+  3. Expediente → `etapa_actual=3`, `fecha_cita` = noon de la nueva fecha, `subestado` permanece `en_proceso`.
+- **No** `UPDATE agenda_bookings SET kind='notificacion'`.
+- **No hereda Drive validation** a la Notificación nueva.
+- Sin validación de cupo.
+- Rollback completo si falla el INSERT (bio, etapa y `fecha_cita` quedan como antes).
+- Auditoría: `agenda.biometricos.convert_to_notificacion` (booking anterior/nuevo, etapa anterior/nueva).
+- Frontend: **una sola** llamada RPC (no `cancel_biometricos` + `book_notificacion` separados).
+
+---
+
 ## 17. Repos mock existentes (referencia implementación)
 
 | Interfaz | Archivo |

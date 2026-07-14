@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   canShowAsesorBiometricosSupabaseCard,
   canShowBiometricosManageActions,
+  canShowConvertBiometricosToNotificacion,
 } from "./biometricos-booking-actions";
 
 describe("canShowBiometricosManageActions", () => {
@@ -88,6 +89,45 @@ describe("canShowAsesorBiometricosSupabaseCard", () => {
         etapaActual: 5,
         hasActiveBooking: true,
         hasLastCancelledBooking: true,
+      }),
+      false,
+    );
+  });
+});
+
+describe("canShowConvertBiometricosToNotificacion", () => {
+  it("muestra en etapa 4 con bio activo", () => {
+    assert.equal(
+      canShowConvertBiometricosToNotificacion({
+        etapaActual: 4,
+        hasActiveBiometricosBooking: true,
+      }),
+      true,
+    );
+  });
+
+  it("muestra en etapa 3 legacy con bio activo", () => {
+    assert.equal(
+      canShowConvertBiometricosToNotificacion({
+        etapaActual: 3,
+        hasActiveBiometricosBooking: true,
+      }),
+      true,
+    );
+  });
+
+  it("oculta sin bio o en etapa 5", () => {
+    assert.equal(
+      canShowConvertBiometricosToNotificacion({
+        etapaActual: 4,
+        hasActiveBiometricosBooking: false,
+      }),
+      false,
+    );
+    assert.equal(
+      canShowConvertBiometricosToNotificacion({
+        etapaActual: 5,
+        hasActiveBiometricosBooking: true,
       }),
       false,
     );

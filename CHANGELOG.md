@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **feat/asesor-convert-biometricos-to-notificacion — P070:** RPC atómica `convert_biometricos_to_notificacion`; cancela bio → notif 12:00; etapa 4→3 (legacy 3 se mantiene); UI «Cambiar a Notificación extraordinaria»; un solo booking activo; sin Cloud.
+
 - **feat/mesa-agenda-drive-validation — Validado en Drive (P069):** columnas `drive_validated/_at/_by` en `agenda_bookings`; RPC `mesa_set_agenda_drive_validation`; `get_mesa_agenda_bookings` expone campos; UI en `/mesa-control/citas` (fila verde + badge + Validar/Quitar); persistencia por `booking_id`; sin tocar status/etapa/cupos.
 
 - **feat/mesa-agenda-bookings-read — pulido `/mesa-control/citas` (B6):** vistas Lista/Día/Semana; navegación de fechas por vista; tarjetas resumen; chips filtros activos + limpiar; orden cliente-side; historial visible con badges inferidos; responsive y accesibilidad (Escape en modales); sin cambios RPC/SQL/permisos.

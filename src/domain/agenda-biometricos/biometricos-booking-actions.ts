@@ -8,6 +8,18 @@ export function canShowBiometricosManageActions(params: {
 }
 
 /**
+ * P070: conversión extraordinaria bio → notificación.
+ * Visible con bio activo en etapa 4 (flujo actual) o etapa 3 (legacy).
+ */
+export function canShowConvertBiometricosToNotificacion(params: {
+  etapaActual: number | null | undefined;
+  hasActiveBiometricosBooking: boolean;
+}): boolean {
+  const etapa = params.etapaActual;
+  return (etapa === 3 || etapa === 4) && params.hasActiveBiometricosBooking;
+}
+
+/**
  * Card asesor Supabase: etapa 3 o 4 (legacy); etapa 5 solo tras cancelación Mesa sin booking activo.
  */
 export function canShowAsesorBiometricosSupabaseCard(params: {

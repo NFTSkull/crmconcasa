@@ -5,6 +5,7 @@ import { isSupabaseConfigured, supabaseBrowser } from "@/lib/supabaseBrowser";
 import { mapCancelNotificacionRpcError } from "./cancel-notificacion-rpc-error";
 import { mapReagendarNotificacionRpcError } from "./reagendar-notificacion-rpc-error";
 import { mapBookNotificacionRpcError } from "./book-notificacion-rpc-error";
+import { mapConvertBiometricosToNotificacionRpcError } from "./convert-biometricos-to-notificacion-rpc-error";
 import { mapBookBiometricosRpcError } from "./book-biometricos-rpc-error";
 import { mapCancelBiometricosRpcError } from "./cancel-biometricos-rpc-error";
 import { mapReagendarBiometricosRpcError } from "./reagendar-biometricos-rpc-error";
@@ -21,6 +22,7 @@ import type {
   AgendaNotificacionActiveBooking,
   BookBiometricosResult,
   BookNotificacionResult,
+  ConvertBiometricosToNotificacionResult,
   CancelBiometricosResult,
   CancelNotificacionResult,
   ReagendarBiometricosResult,
@@ -397,6 +399,49 @@ export class SupabaseAgendaBiometricosBookingRepo implements AgendaBiometricosBo
       bookingDate: String(row.booking_date ?? params.bookingDate),
       bookingTime: normalizeBookingTime(String(row.booking_time ?? "12:00")),
       locationId: String(row.location_id ?? "notificacion"),
+      etapaActual: Number(row.etapa_actual ?? 3),
+    };
+  }
+
+  async convertBiometricosToNotificacion(params: {
+    expedienteId: string;
+    bookingDate: string;
+    note?: string | null;
+  }): Promise<ConvertBiometricosToNotificacionResult> {
+    const { client } = await requireSupabaseSession();
+
+    const { data, error } = await client.rpc("convert_biometricos_to_notificacion", {
+      p_expediente_id: params.expedienteId,
+      p_booking_date: params.bookingDate,
+      p_note: params.note ?? null,
+    });
+
+    if (error) {
+      throw mapConvertBiometricosToNotificacionRpcError(error);
+    }
+
+    if (!data || typeof data !== "object") {
+      throw new AgendaBiometricosSupabaseError(
+        "Respuesta inválida al convertir biométricos a notificación.",
+      );
+    }
+
+    const row = data as Record<string, unknown>;
+    if (!row.ok) {
+      throw new AgendaBiometricosSupabaseError(
+        "La RPC no confirmó la conversión a notificación.",
+      );
+    }
+
+    return {
+      ok: true,
+      expedienteId: String(row.expediente_id ?? params.expedienteId),
+      biometricosBookingId: String(row.biometricos_booking_id ?? ""),
+      notificacionBookingId: String(row.notificacion_booking_id ?? ""),
+      scheduledAt: String(row.scheduled_at ?? ""),
+      bookingDate: String(row.booking_date ?? params.bookingDate),
+      bookingTime: normalizeBookingTime(String(row.booking_time ?? "12:00")),
+      etapaAnterior: Number(row.etapa_anterior ?? 4),
       etapaActual: Number(row.etapa_actual ?? 3),
     };
   }

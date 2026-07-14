@@ -65,6 +65,18 @@ export type BookNotificacionResult = Readonly<{
   etapaActual: number;
 }>;
 
+export type ConvertBiometricosToNotificacionResult = Readonly<{
+  ok: true;
+  expedienteId: string;
+  biometricosBookingId: string;
+  notificacionBookingId: string;
+  scheduledAt: string;
+  bookingDate: string;
+  bookingTime: string;
+  etapaAnterior: number;
+  etapaActual: number;
+}>;
+
 export type AgendaBiometricosCancelledBooking = Readonly<{
   id: string;
   expedienteId: string;
@@ -155,6 +167,11 @@ export interface AgendaBiometricosBookingRepo {
     bookingDate: string;
     note?: string | null;
   }): Promise<BookNotificacionResult>;
+  convertBiometricosToNotificacion(params: {
+    expedienteId: string;
+    bookingDate: string;
+    note?: string | null;
+  }): Promise<ConvertBiometricosToNotificacionResult>;
   cancelNotificacionEtapa3(params: {
     expedienteId: string;
     motivo?: string | null;
