@@ -1,5 +1,26 @@
 # Devlog
 
+## 2026-07-15 - fix/mesa-bandeja-filtros (filtros Mesa Control + acceso directo a citas, local)
+
+### Causa
+
+- `quickFilter` («Vista rápida») y `mesaOpsFilter` («Asignación operativa») eran estados independientes que se intersectaban en `filteredCasos`; el default de asignación es `sin_asignar` («Disponibles»), así que pulsar `En proceso (84)` mostraba `en_proceso ∩ Disponibles` (menos resultados o vacío) mientras el contador se calculaba globalmente sobre `casos`. La misma intersección oculta explicaba que búsqueda/etapa/subestado «no funcionaran»: sí filtraban, pero sobre la lista ya recortada por «Disponibles».
+- La búsqueda de teléfono usaba `telefono_cliente.includes(q)` sin normalizar dígitos: «81 1234 5678» no encontraba «8112345678».
+- El chip «Citas hoy» filtraba la bandeja en lugar de abrir la pantalla de citas existente.
+- No hay paginación en esta bandeja: `listForMesaControl()` trae el conjunto completo visible (RLS + `submitted_to_mesa` + ciclo activo) y todo se filtra en memoria; el contador «N casos» sale de la misma lista filtrada, por lo que no existía un bug de «filtrar después de paginar».
+
+### Decisiones
+
+- Predicados y transiciones centralizados en `src/lib/mesaBandejaFiltros.ts`: `matchesMesaQuickFilter`/`contarVistaRapida` (misma definición para contador y lista), `seleccionarVistaRapida` (fuerza `todo_mesa`), `seleccionarAsignacion` (regresa vista rápida a `todos`), `coincideBusquedaClienteTelefono` (nombre case-insensitive + teléfono por dígitos), `esCitaHoy`/`toYMDLocal` (día calendario local; fechas `YYYY-MM-DD` no se corren por timezone) y `aplicarFiltrosBandejaMesa` (orden: vista rápida → búsqueda → etapa → subestado → citas hoy).
+- Los filtros adicionales (búsqueda/etapa/subestado/citas hoy) se conservan al cambiar de chip porque son visibles en pantalla; solo «Limpiar filtros» los restablece. Al limpiar, la asignación queda en `todo_mesa` (no en el default «Disponibles») para que la limpieza muestre el conjunto completo.
+- «Citas hoy» dejó de ser filtro: `MesaQuickFilter` ya no incluye `citas_hoy` y el chip hace `router.push("/mesa-control/citas")` (constante `MESA_CITAS_ROUTE`, la misma ruta del botón «Ver citas»). El checkbox «Solo citas de hoy» se mantiene para refinar la bandeja por `fecha_cita`.
+- No se agregó debounce ni protección de respuestas obsoletas a la búsqueda: es 100 % en memoria sobre la lista ya cargada (no dispara consultas por tecla), y no hay parámetros de URL en esta pantalla (patrón inexistente; no se amplió el alcance). Sin cambios en repos/SQL: la visibilidad sigue viniendo de RLS + `filterExpedientesByRole` (modo mock).
+- Estado vacío: «No hay expedientes que coincidan con los filtros seleccionados.» + botón «Limpiar filtros» (solo si hay filtros activos); se conservan los mensajes específicos de «Disponibles»/«En espera de asesor».
+
+### Verificación local
+
+- `src/lib/mesaBandejaFiltros.test.ts` (22 casos): exclusividad de selección principal, coherencia contador/lista por chip, búsqueda nombre/teléfono con y sin espacios, cadena vacía sin filtro, filtros sobre el conjunto completo (no una página), etapa/subestado/combinados, citas hoy local e ISO, limpiar filtros. `npm test`, lint, typecheck y build en verde; sin cambios SQL ni Cloud.
+
 ## 2026-07-15 - fix/mesa-movimiento-manual-pendiente (P076, corrección urgente local)
 
 ### Causa

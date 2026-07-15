@@ -75,6 +75,17 @@ import {
 } from "@/lib/mesaOpsUi";
 import { MesaOpsBandejaBadge } from "@/components/mesa-control/MesaExpedienteOpsSection";
 import { estaEnEsperaDeAsesor } from "@/lib/mesaBandejaEsperaAsesor";
+import {
+  aplicarFiltrosBandejaMesa,
+  contarVistaRapida,
+  esNuevoEtapa12,
+  limpiarFiltrosBandeja,
+  MESA_CITAS_HOY_CHIP_ID,
+  MESA_CITAS_ROUTE,
+  seleccionarAsignacion,
+  seleccionarVistaRapida,
+  type MesaQuickFilter,
+} from "@/lib/mesaBandejaFiltros";
 import { hasAlertMessage, MESA_OPS_UPDATED_EVENT } from "@/lib/hasAlertMessage";
 import { NotificationsBell } from "@/components/notifications/NotificationsBell";
 import { buildDashboardNotifications } from "@/lib/dashboardNotifications";
@@ -98,24 +109,7 @@ type CasoConDocs = CasoMock & {
   notificacionAgendadoPorLabel?: string;
 };
 
-type MesaQuickFilter =
-  | "todos"
-  | "correccion_enviada"
-  | "nuevos"
-  | "en_proceso"
-  | "citas_hoy"
-  | "rechazados";
-
 type AdminOrigenTab = "todos" | "internos" | "externos";
-
-function isNuevoEtapa12(c: CasoConDocs): boolean {
-  const et = Number(c.etapaActual) || 0;
-  const sub = (c.subestado ?? "pendiente") as string;
-  return (
-    [1, 2].includes(et) &&
-    ["pendiente", "en_validacion_mesa", "en_proceso"].includes(sub)
-  );
-}
 
 function resumenDocumentalBadgeClass(c?: CategoriaResumenDocumental): string {
   if (c === "correccion_enviada") {
@@ -292,15 +286,6 @@ export default function MesaControlPage() {
   const mesaMockRole =
     typeof window !== "undefined" ? getEffectiveMockRole() : null;
 
-  function toYMD(iso?: string | null): string | null {
-    if (!iso) return null;
-    const d = new Date(iso);
-    if (Number.isNaN(d.getTime())) return null;
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(
-      d.getDate(),
-    ).padStart(2, "0")}`;
-  }
-
   const mapExpToCaso = useCallback((exp: ExpedienteMock): CasoMock => {
     const rawFe = exp.operativo.fechaEnvioMesa;
     const fechaEnvioMesa =
@@ -327,11 +312,6 @@ export default function MesaControlPage() {
       fechaEnvioMesa,
     };
   }, []);
-
-  const isCitaHoy = useCallback(
-    (c: CasoMock) => toYMD(c.fechaCita) === todayYMD,
-    [todayYMD],
-  );
 
   const loadCasos = useCallback((opciones?: { silencioso?: boolean }) => {
     if (!currentUser) return;
@@ -601,17 +581,17 @@ export default function MesaControlPage() {
   }, [currentUser, dataSupabase, loadCasos]);
 
   const kpis = useMemo(() => {
-    const correccionesEnviadas = casos.filter(
-      (c) => c.resumenDocumental === "correccion_enviada",
-    ).length;
-    const nuevosPorRevisar = casos.filter((c) => isNuevoEtapa12(c)).length;
-    const citasHoy = casos.filter((c) => isCitaHoy(c)).length;
+    // Contadores de Vista rápida centralizados: misma definición que la lista.
+    const vistaRapida = contarVistaRapida(casos, todayYMD);
+    const correccionesEnviadas = vistaRapida.correccionesEnviadas;
+    const nuevosPorRevisar = vistaRapida.nuevos;
+    const citasHoy = vistaRapida.citasHoy;
     const bloqueadosRechazados = casos.filter(
       (c) =>
         c.subestado === "rechazado" || c.resumenDocumental === "correccion_requerida",
     ).length;
-    const enProceso = casos.filter((c) => c.subestado === "en_proceso").length;
-    const rechazadosOperativo = casos.filter((c) => c.subestado === "rechazado").length;
+    const enProceso = vistaRapida.enProceso;
+    const rechazadosOperativo = vistaRapida.rechazados;
     const enValidacionMesa = casos.filter(
       (c) =>
         c.subestado === "en_validacion_mesa" &&
@@ -631,7 +611,7 @@ export default function MesaControlPage() {
       enEsperaAsesor,
       totalBandeja,
     };
-  }, [casos, isCitaHoy]);
+  }, [casos, todayYMD]);
 
   const dashboardNotifications = useMemo(() => {
     return buildDashboardNotifications(
@@ -650,14 +630,11 @@ export default function MesaControlPage() {
       "mesa",
       {
         todayYMD: todayYMD,
-        isNuevoEtapa12: (source) => {
-          const et = Number(source.etapaActual) || 0;
-          const sub = String(source.subestado ?? "pendiente");
-          return (
-            [1, 2].includes(et) &&
-            ["pendiente", "en_validacion_mesa", "en_proceso"].includes(sub)
-          );
-        },
+        isNuevoEtapa12: (source) =>
+          esNuevoEtapa12({
+            etapaActual: Number(source.etapaActual) || 0,
+            subestado: String(source.subestado ?? "pendiente"),
+          }),
         max: 50,
       },
     );
@@ -667,43 +644,25 @@ export default function MesaControlPage() {
     mesaMockRole === "mesa_control_admin" || mesaMockRole === "mesa_control";
 
   const filteredCasos = useMemo(() => {
+    // Orden: rol/visibilidad ya aplicados en carga → origen (solo admin) →
+    // vista rápida → búsqueda → etapa → subestado → citas hoy → asignación + orden.
     let list = [...casos];
     if (showAdminOrigenTabs && adminOrigenTab === "internos") {
       list = list.filter((c) => c.origenMesa === "interno" || c.origenMesa == null);
     } else if (showAdminOrigenTabs && adminOrigenTab === "externos") {
       list = list.filter((c) => c.origenMesa === "externo");
     }
-    if (buscar.trim()) {
-      const q = buscar.trim().toLowerCase();
-      list = list.filter(
-        (c) =>
-          c.cliente_nombre.toLowerCase().includes(q) ||
-          c.telefono_cliente.includes(q),
-      );
-    }
-    if (etapaFilter !== "todas") {
-      const etapa = Number(etapaFilter);
-      list = list.filter((c) => c.etapaActual === etapa);
-    }
-    if (subestadoFilter !== "todas") {
-      list = list.filter((c) => c.subestado === subestadoFilter);
-    }
-    if (soloCitasHoy) {
-      list = list.filter((c) => isCitaHoy(c));
-    }
-
-    if (quickFilter === "correccion_enviada") {
-      list = list.filter((c) => c.resumenDocumental === "correccion_enviada");
-    } else if (quickFilter === "nuevos") {
-      list = list.filter((c) => isNuevoEtapa12(c));
-    } else if (quickFilter === "en_proceso") {
-      list = list.filter((c) => c.subestado === "en_proceso");
-    } else if (quickFilter === "citas_hoy") {
-      list = list.filter((c) => isCitaHoy(c));
-    } else if (quickFilter === "rechazados") {
-      list = list.filter((c) => c.subestado === "rechazado");
-    }
-
+    list = aplicarFiltrosBandejaMesa(
+      list,
+      {
+        quickFilter,
+        buscar,
+        etapa: etapaFilter,
+        subestado: subestadoFilter,
+        soloCitasHoy,
+      },
+      todayYMD,
+    );
     return applyMesaOpsFilterSorted(list, mesaOpsFilter, currentUserId);
   }, [
     casos,
@@ -713,11 +672,44 @@ export default function MesaControlPage() {
     etapaFilter,
     mesaOpsFilter,
     quickFilter,
-    isCitaHoy,
     showAdminOrigenTabs,
     soloCitasHoy,
     subestadoFilter,
+    todayYMD,
   ]);
+
+  const hayFiltrosActivos =
+    quickFilter !== "todos" ||
+    mesaOpsFilter !== "todo_mesa" ||
+    buscar.trim() !== "" ||
+    etapaFilter !== "todas" ||
+    subestadoFilter !== "todas" ||
+    soloCitasHoy;
+
+  const handleQuickFilterSelect = useCallback(
+    (id: MesaQuickFilter) => {
+      const next = seleccionarVistaRapida(id);
+      setQuickFilter(next.quickFilter);
+      setMesaOpsFilter(next.opsFilter);
+    },
+    [],
+  );
+
+  const handleOpsFilterSelect = useCallback((id: MesaOpsFilter) => {
+    const next = seleccionarAsignacion(id);
+    setQuickFilter(next.quickFilter);
+    setMesaOpsFilter(next.opsFilter);
+  }, []);
+
+  const handleLimpiarFiltros = useCallback(() => {
+    const next = limpiarFiltrosBandeja();
+    setQuickFilter(next.quickFilter);
+    setMesaOpsFilter(next.opsFilter);
+    setBuscar(next.buscar);
+    setEtapaFilter(next.etapa);
+    setSubestadoFilter(next.subestado);
+    setSoloCitasHoy(next.soloCitasHoy);
+  }, []);
 
   const goExpediente = useCallback(
     (id: string) => {
@@ -935,10 +927,6 @@ export default function MesaControlPage() {
                   label: `En proceso (${kpis.enProceso})`,
                 },
                 {
-                  id: "citas_hoy" as const,
-                  label: `Citas hoy (${kpis.citasHoy})`,
-                },
-                {
                   id: "rechazados" as const,
                   label: `Rechazados (${kpis.rechazadosOperativo})`,
                 },
@@ -949,13 +937,42 @@ export default function MesaControlPage() {
                 type="button"
                 role="tab"
                 aria-selected={quickFilter === id}
-                onClick={() => setQuickFilter(id)}
-                className={`${chipBase} ${quickFilter === id ? chipActive : chipInactive}`}
+                onClick={() => handleQuickFilterSelect(id)}
+                className={`${chipBase} ${
+                  quickFilter === id ? chipActive : chipInactive
+                }`}
+                data-testid={`mesa-quick-filter-${id}`}
               >
                 {label}
               </button>
             ))}
+            <button
+              type="button"
+              onClick={() => router.push(MESA_CITAS_ROUTE)}
+              className={`${chipBase} ${chipInactive} inline-flex items-center gap-1`}
+              data-testid={`mesa-quick-filter-${MESA_CITAS_HOY_CHIP_ID}`}
+              title="Abre la pantalla de citas de Mesa"
+            >
+              Citas hoy ({kpis.citasHoy})
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                className="h-3 w-3"
+                aria-hidden
+              >
+                <path d="M7 17L17 7M9 7h8v8" />
+              </svg>
+            </button>
           </div>
+          <p className="mt-2 text-[11px] text-slate-500">
+            Al elegir una vista rápida, la asignación operativa cambia a «Todo Mesa»
+            para que la lista coincida con el contador. «Citas hoy» abre la pantalla
+            de citas.
+          </p>
         </section>
 
         {mesaOpsRepo ? (
@@ -982,7 +999,7 @@ export default function MesaControlPage() {
                   type="button"
                   role="tab"
                   aria-selected={mesaOpsFilter === id}
-                  onClick={() => setMesaOpsFilter(id)}
+                  onClick={() => handleOpsFilterSelect(id)}
                   className={`${chipBase} ${mesaOpsFilter === id ? chipActive : chipInactive}`}
                   data-testid={`mesa-ops-filter-${id}`}
                 >
@@ -1167,13 +1184,25 @@ export default function MesaControlPage() {
               : null}
           </div>
           {!loading && filteredCasos.length === 0 ? (
-            <p className="py-10 text-center text-sm text-slate-500">
-              {mesaOpsFilter === "en_espera_asesor"
-                ? "No hay expedientes en espera de corrección del asesor."
-                : mesaOpsFilter === "sin_asignar"
-                  ? "No hay expedientes disponibles para tomar en este momento."
-                  : "No hay casos que coincidan con los filtros."}
-            </p>
+            <div className="flex flex-col items-center gap-3 py-10 text-center">
+              <p className="text-sm text-slate-500">
+                {mesaOpsFilter === "en_espera_asesor"
+                  ? "No hay expedientes en espera de corrección del asesor."
+                  : mesaOpsFilter === "sin_asignar"
+                    ? "No hay expedientes disponibles para tomar en este momento."
+                    : "No hay expedientes que coincidan con los filtros seleccionados."}
+              </p>
+              {hayFiltrosActivos ? (
+                <Button
+                  variant="outline"
+                  className="text-xs"
+                  onClick={handleLimpiarFiltros}
+                  data-testid="mesa-limpiar-filtros"
+                >
+                  Limpiar filtros
+                </Button>
+              ) : null}
+            </div>
           ) : null}
         </section>
       </main>
