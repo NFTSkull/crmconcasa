@@ -72,7 +72,7 @@ const MESA_MOVE_MESSAGES: Readonly<Record<string, string>> = {
   MESA_MOVE_NOT_SUBMITTED: "El expediente todavía no fue enviado a Mesa.",
   MESA_MOVE_CYCLE_NOT_ACTIVE: "El ciclo del expediente no está activo.",
   MESA_MOVE_BAD_SUBSTATE:
-    "El expediente debe estar en validación de Mesa o en proceso.",
+    "El expediente debe estar pendiente, en validación de Mesa o en proceso.",
   MESA_MOVE_BAD_DESTINATION: "Selecciona una etapa válida entre 1 y 12.",
   MESA_MOVE_SAME_STAGE: "Selecciona una etapa diferente de la actual.",
   MESA_MOVE_REASON_REQUIRED: "El motivo del movimiento es obligatorio.",
@@ -110,27 +110,93 @@ export function getMesaMovimientoDireccion(
   return etapaDestino > etapaOrigen ? "avance" : "retroceso";
 }
 
+const MESA_MOVIMIENTO_ROLES_PERMITIDOS: readonly string[] = [
+  "mesa_admin",
+  "mesa_interno",
+  "mesa_externo",
+  "super_admin",
+  "mesa_control_admin",
+  "mesa_control_interno",
+  "mesa_control_externo",
+  "mesa_control",
+];
+
+/** Subestados elegibles para movimiento manual (alineados con SQL 076). */
+export const MESA_MOVIMIENTO_SUBESTADOS_ELEGIBLES: readonly string[] = [
+  "pendiente",
+  "en_validacion_mesa",
+  "en_proceso",
+];
+
+export type MesaControlManualEstado = Readonly<{
+  /** El panel se renderiza (rol Mesa/super_admin). */
+  visible: boolean;
+  /** El expediente es elegible para mover manualmente. */
+  habilitado: boolean;
+  /** Razón exacta cuando visible pero no habilitado. */
+  razon: string | null;
+}>;
+
+export function getMesaControlManualEstado(input: {
+  role: string | null | undefined;
+  submittedToMesa: boolean;
+  cicloEstado: string | null | undefined;
+  subestado: string | null | undefined;
+}): MesaControlManualEstado {
+  if (!MESA_MOVIMIENTO_ROLES_PERMITIDOS.includes(String(input.role ?? ""))) {
+    return { visible: false, habilitado: false, razon: null };
+  }
+  if (!input.submittedToMesa) {
+    return {
+      visible: true,
+      habilitado: false,
+      razon: "El expediente no ha sido enviado a Mesa.",
+    };
+  }
+  if (input.cicloEstado === "cerrado") {
+    return { visible: true, habilitado: false, razon: "El ciclo está cerrado." };
+  }
+  if (input.cicloEstado === "cancelado") {
+    return {
+      visible: true,
+      habilitado: false,
+      razon: "El ciclo está cancelado.",
+    };
+  }
+  if (input.cicloEstado !== "activo") {
+    return {
+      visible: true,
+      habilitado: false,
+      razon: "El ciclo del expediente no está activo.",
+    };
+  }
+  if (input.subestado === "rechazado") {
+    return {
+      visible: true,
+      habilitado: false,
+      razon:
+        "El expediente está rechazado y requiere una reactivación explícita.",
+    };
+  }
+  if (!MESA_MOVIMIENTO_SUBESTADOS_ELEGIBLES.includes(input.subestado ?? "")) {
+    return {
+      visible: true,
+      habilitado: false,
+      razon:
+        "El expediente debe estar pendiente, en validación de Mesa o en proceso.",
+    };
+  }
+  return { visible: true, habilitado: true, razon: null };
+}
+
 export function puedeMostrarControlManualMesa(input: {
   role: string | null | undefined;
   submittedToMesa: boolean;
   cicloEstado: string | null | undefined;
   subestado: string | null | undefined;
 }): boolean {
-  return (
-    [
-      "mesa_admin",
-      "mesa_interno",
-      "mesa_externo",
-      "super_admin",
-      "mesa_control_admin",
-      "mesa_control_interno",
-      "mesa_control_externo",
-      "mesa_control",
-    ].includes(String(input.role ?? "")) &&
-    input.submittedToMesa &&
-    input.cicloEstado === "activo" &&
-    ["en_validacion_mesa", "en_proceso"].includes(input.subestado ?? "")
-  );
+  const estado = getMesaControlManualEstado(input);
+  return estado.visible && estado.habilitado;
 }
 
 export function deriveMesaMovimientoAdvertencias(input: {

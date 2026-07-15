@@ -4,10 +4,10 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import {
   deriveMesaMovimientoAdvertencias,
+  getMesaControlManualEstado,
   getMesaMovimientoDireccion,
   mesaMovimientoInputSchema,
   puedeConfirmarMovimientoMesa,
-  puedeMostrarControlManualMesa,
   useExpedientesRepo,
   type MesaMovimientoHistorialRow,
 } from "@/domain/expedientes";
@@ -71,12 +71,14 @@ export function MesaControlManualEtapaSection({
     [],
   );
 
-  const visible = puedeMostrarControlManualMesa({
+  const estado = getMesaControlManualEstado({
     role,
     submittedToMesa,
     cicloEstado,
     subestado,
   });
+  const visible = estado.visible;
+  const habilitado = estado.habilitado;
 
   const loadHistory = useCallback(async () => {
     if (!visible) return;
@@ -128,15 +130,18 @@ export function MesaControlManualEtapaSection({
     etapaEsperada: etapaActual,
     motivo,
   });
-  const canConfirm = puedeConfirmarMovimientoMesa({
-    etapaActual,
-    etapaDestino: destino,
-    motivo,
-    saving,
-  });
+  const canConfirm =
+    habilitado &&
+    puedeConfirmarMovimientoMesa({
+      etapaActual,
+      etapaDestino: destino,
+      motivo,
+      saving,
+    });
+  const controlsDisabled = saving || !habilitado;
 
   async function handleConfirm() {
-    if (!parsedInput.success || !canConfirm) return;
+    if (!habilitado || !parsedInput.success || !canConfirm) return;
     setSaving(true);
     setError(null);
     setSuccess(null);
@@ -165,23 +170,42 @@ export function MesaControlManualEtapaSection({
   }
 
   return (
-    <section className="rounded-xl border border-amber-300 bg-amber-50 p-4">
+    <section
+      id="mesa-movimiento-manual"
+      data-testid="mesa-movimiento-manual"
+      className="scroll-mt-4 rounded-xl border border-amber-300 bg-amber-50 p-4"
+    >
       <div>
         <h2 className="text-base font-semibold text-amber-950">
-          Control manual de etapa
+          Movimiento manual de Mesa
         </h2>
         <p className="mt-1 text-xs text-amber-900">
+          Esta opción permite cambiar la etapa sin cumplir los requisitos del
+          avance normal. No elimina documentos, citas, bookings, montos ni
+          historial.
+        </p>
+        <p className="mt-2 text-xs font-medium text-amber-950">
           Etapa actual: {etapaActual}. {etapaNombre(etapaActual)}
         </p>
       </div>
+
+      {!habilitado && estado.razon ? (
+        <p
+          role="status"
+          data-testid="mesa-movimiento-manual-razon"
+          className="mt-3 rounded-md border border-gray-300 bg-gray-100 px-3 py-2 text-sm font-medium text-gray-800"
+        >
+          Movimiento manual no disponible: {estado.razon}
+        </p>
+      ) : null}
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <label className="text-sm font-medium text-gray-800">
           Etapa destino
           <select
-            className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2"
+            className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 disabled:cursor-not-allowed disabled:bg-gray-100"
             value={destino}
-            disabled={saving}
+            disabled={controlsDisabled}
             onChange={(event) => {
               setDestino(Number(event.target.value));
               setConfirming(false);
@@ -209,10 +233,10 @@ export function MesaControlManualEtapaSection({
       <label className="mt-3 block text-sm font-medium text-gray-800">
         Motivo obligatorio
         <textarea
-          className="mt-1 min-h-20 w-full rounded-md border border-gray-300 bg-white px-3 py-2"
+          className="mt-1 min-h-20 w-full rounded-md border border-gray-300 bg-white px-3 py-2 disabled:cursor-not-allowed disabled:bg-gray-100"
           maxLength={500}
           value={motivo}
-          disabled={saving}
+          disabled={controlsDisabled}
           onChange={(event) => {
             setMotivo(event.target.value);
             setConfirming(false);
@@ -241,7 +265,7 @@ export function MesaControlManualEtapaSection({
           disabled={!canConfirm}
           onClick={() => setConfirming(true)}
         >
-          Revisar movimiento
+          Mover manualmente de etapa
         </Button>
       ) : (
         <div className="mt-3 rounded-md border border-red-200 bg-red-50 p-3">

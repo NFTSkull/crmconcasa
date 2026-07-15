@@ -49,6 +49,7 @@ import {
 } from "@/domain/expediente-archivos";
 import {
   ExpedientesSupabaseError,
+  getMesaControlManualEstado,
   useExpedientesRepo,
   deriveAvanceOperativo2a3View,
   deriveAvanceOperativo3a5View,
@@ -1527,6 +1528,15 @@ export function MesaExpedienteDetalleReadOnly() {
   const ed = expediente.editorDecision;
   const etapaActual = op.etapaActual;
 
+  const controlManualEstado = getMesaControlManualEstado({
+    role: mesaOpsAppRole ?? mesaSessionRole ?? mesaMockRole,
+    submittedToMesa: op.submittedToMesa ?? false,
+    cicloEstado: op.cicloEstado ?? null,
+    subestado: op.subestado ?? null,
+  });
+  const mostrarAtajoManual =
+    controlManualEstado.visible && controlManualEstado.habilitado;
+
   const puedeRevisarClienteDatos =
     puedeOperarMesa && mesaPuedeRevisarClienteDatos(etapaActual);
   const puedeRevisarDocsIntegracion =
@@ -1827,30 +1837,6 @@ export function MesaExpedienteDetalleReadOnly() {
         onConfirm={handleConfirmCancelCita}
       />
 
-      <MesaControlManualEtapaSection
-        expedienteId={routeExpedienteId}
-        etapaActual={etapaActual ?? 1}
-        role={mesaOpsAppRole ?? mesaSessionRole ?? mesaMockRole}
-        submittedToMesa={expediente.operativo.submittedToMesa ?? false}
-        cicloEstado={expediente.operativo.cicloEstado ?? null}
-        subestado={expediente.operativo.subestado ?? null}
-        hasBiometricBooking={activeBiometricBooking != null}
-        hasFirmasBooking={activeFirmasBooking != null}
-        hasMonto={
-          typeof expediente.editorDecision.monto_aprobado === "number" &&
-          expediente.editorDecision.monto_aprobado > 0
-        }
-        hasMissingDocuments={archivosResumen.some(
-          (archivo) => archivo.estatus_revision !== "validado",
-        )}
-        hasRetencion={retencionEnvio != null || retencionOpcionMesa != null}
-        hasValidatedData={
-          clienteDatos?.estado === "validado" ||
-          archivosResumen.some((archivo) => archivo.estatus_revision === "validado")
-        }
-        onRefresh={load}
-      />
-
       <MesaCierreValidacionDocumentalSection
         view={cierreValidacionView}
         puedeOperar={puedeOperarMesa}
@@ -1879,6 +1865,7 @@ export function MesaExpedienteDetalleReadOnly() {
         success={avance3a5Success}
         onAvanzar={handleAvanzarOperativo3a5}
         cancelCitaGate={notificacionCancelCitaGate}
+        mostrarAtajoMovimientoManual={mostrarAtajoManual}
       />
 
       <MesaAvanceOperativoSection
@@ -1890,6 +1877,7 @@ export function MesaExpedienteDetalleReadOnly() {
         success={avance4a5Success}
         onAvanzar={handleAvanzarOperativo4a5}
         cancelCitaGate={bioCancelCitaGate}
+        mostrarAtajoMovimientoManual={mostrarAtajoManual}
       />
 
       <MesaAvanceOperativoSection
@@ -1901,6 +1889,7 @@ export function MesaExpedienteDetalleReadOnly() {
         success={avance5a6Success}
         onAvanzar={handleAvanzarOperativo5a6}
         cancelCitaGate={bioCancelCitaGate}
+        mostrarAtajoMovimientoManual={mostrarAtajoManual}
       />
 
       <MesaAvanceOperativoSection
@@ -1931,6 +1920,7 @@ export function MesaExpedienteDetalleReadOnly() {
         error={avance8a9Error}
         success={avance8a9Success}
         onAvanzar={handleAvanzarOperativo8a9}
+        mostrarAtajoMovimientoManual={mostrarAtajoManual}
       />
 
       <MesaAvanceOperativoSection
@@ -1942,6 +1932,7 @@ export function MesaExpedienteDetalleReadOnly() {
         success={avance9a10Success}
         onAvanzar={handleAvanzarOperativo9a10}
         cancelCitaGate={firmasCancelCitaGate}
+        mostrarAtajoMovimientoManual={mostrarAtajoManual}
       />
 
       <MesaAvanceOperativoSection
@@ -1954,6 +1945,31 @@ export function MesaExpedienteDetalleReadOnly() {
         onAvanzar={async () => {}}
         mostrarBotonAvanzar={false}
         cancelCitaGate={firmasCancelCitaGate}
+        mostrarAtajoMovimientoManual={mostrarAtajoManual}
+      />
+
+      <MesaControlManualEtapaSection
+        expedienteId={routeExpedienteId}
+        etapaActual={etapaActual ?? 1}
+        role={mesaOpsAppRole ?? mesaSessionRole ?? mesaMockRole}
+        submittedToMesa={op.submittedToMesa ?? false}
+        cicloEstado={op.cicloEstado ?? null}
+        subestado={op.subestado ?? null}
+        hasBiometricBooking={activeBiometricBooking != null}
+        hasFirmasBooking={activeFirmasBooking != null}
+        hasMonto={
+          typeof expediente.editorDecision.monto_aprobado === "number" &&
+          expediente.editorDecision.monto_aprobado > 0
+        }
+        hasMissingDocuments={archivosResumen.some(
+          (archivo) => archivo.estatus_revision !== "validado",
+        )}
+        hasRetencion={retencionEnvio != null || retencionOpcionMesa != null}
+        hasValidatedData={
+          clienteDatos?.estado === "validado" ||
+          archivosResumen.some((archivo) => archivo.estatus_revision === "validado")
+        }
+        onRefresh={load}
       />
 
       {preview ? (

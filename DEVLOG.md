@@ -1,5 +1,22 @@
 # Devlog
 
+## 2026-07-15 - fix/mesa-movimiento-manual-pendiente (P076, corrección urgente local)
+
+### Causa
+
+- El panel `MesaControlManualEtapaSection` retornaba `null` cuando `puedeMostrarControlManualMesa` era `false`; ese helper exigía `subestado ∈ {en_validacion_mesa, en_proceso}`, por lo que un expediente enviado a Mesa con `subestado='pendiente'` no mostraba ningún control manual (desaparecía silenciosamente). SQL 074 tenía el mismo gate (`MESA_MOVE_BAD_SUBSTATE` para `pendiente`), es decir frontend y SQL estaban alineados entre sí pero ambos excluían `pendiente`.
+
+### Decisiones
+
+- Las migraciones publicadas 001–075 no se editan: el cambio SQL va en la migración nueva `076_mesa_mover_etapa_allow_pending.sql`, que redefine únicamente `mesa_mover_etapa_operativa(uuid, smallint, smallint, text)` agregando `'pendiente'` al gate de subestado (diff verificado contra 074: una línea + comentario). Firma, `SECURITY DEFINER`, `search_path=''`, `FOR UPDATE`, auditoría, `action_log` y ACL idénticos; `rechazado`, `aprobado`, ciclos no activos, eliminados, no enviados y no visibles siguen bloqueados.
+- Nuevo helper de dominio `getMesaControlManualEstado` devuelve `{visible, habilitado, razon}`: el panel se oculta solo para roles sin permiso (asesor/editor); para roles Mesa/super_admin siempre se renderiza y, si el expediente no es elegible, se deshabilita mostrando la razón exacta. `puedeMostrarControlManualMesa` se reimplementa encima y ahora incluye `pendiente`.
+- El panel se renombró «Movimiento manual de Mesa», se movió después de los bloques «Decisión Mesa» y antes de «Seguimiento operativo», y los bloques de avance normal muestran (solo cuando hay bloqueos y el movimiento manual está habilitado) el atajo «También puedes usar el movimiento manual de Mesa para continuar sin cita.» con scroll al ancla `#mesa-movimiento-manual`. El bloque normal y sus gates quedan intactos.
+- Destino 1 sigue derivando `en_validacion_mesa` y 2–12 `en_proceso`, de modo que un `pendiente` movido queda normalizado.
+
+### Verificación local
+
+- Suite SQL `rpc_mesa_mover_etapa_operativa.sql` ampliada: pendiente→5 queda `en_proceso` sin cita/booking/documentos; pendiente→1 queda `en_validacion_mesa`; el movimiento registra actor y subestados; los casos bloqueados y la preservación de datos relacionados se mantienen. Runner aislado aplica 001–076 (omite 061) con regresión completa; frontend con `npm test`, lint, typecheck y build.
+
 ## 2026-07-15 - feat/mesa-libertad-operativa (P074/P075, Fase C local)
 
 ### Decisiones

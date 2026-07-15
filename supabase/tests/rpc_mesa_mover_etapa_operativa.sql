@@ -1,4 +1,5 @@
--- ConCasa CRM — pruebas P074 mesa_mover_etapa_operativa
+-- ConCasa CRM — pruebas P074/P076 mesa_mover_etapa_operativa
+-- P076: el movimiento manual acepta además subestado 'pendiente'.
 \set ON_ERROR_STOP on
 
 BEGIN;
@@ -140,6 +141,7 @@ DECLARE
   v_exp_rejected UUID := '00000000-0000-4000-9074-000000000108';
   v_exp_approved UUID := '00000000-0000-4000-9074-000000000109';
   v_exp_pending UUID := '00000000-0000-4000-9074-000000000110';
+  v_exp_pending2 UUID := '00000000-0000-4000-9074-000000000116';
   v_exp_double UUID := '00000000-0000-4000-9074-000000000111';
   v_exp_rollback UUID := '00000000-0000-4000-9074-000000000112';
   v_exp_normal_gate UUID := '00000000-0000-4000-9074-000000000113';
@@ -200,6 +202,7 @@ BEGIN
   PERFORM public.__p074_insert_exp(v_exp_rejected, v_org, v_asesor, '90740000108', 5, 'rechazado');
   PERFORM public.__p074_insert_exp(v_exp_approved, v_org, v_asesor, '90740000109', 10, 'aprobado');
   PERFORM public.__p074_insert_exp(v_exp_pending, v_org, v_asesor, '90740000110', 1, 'pendiente');
+  PERFORM public.__p074_insert_exp(v_exp_pending2, v_org, v_asesor, '90740000116', 2, 'pendiente');
   PERFORM public.__p074_insert_exp(v_exp_double, v_org, v_asesor, '90740000111', 2);
   PERFORM public.__p074_insert_exp(v_exp_rollback, v_org, v_asesor, '90740000112', 3);
   PERFORM public.__p074_insert_exp(v_exp_normal_gate, v_org, v_asesor, '90740000113', 1, 'en_validacion_mesa');
@@ -248,13 +251,63 @@ BEGIN
   PERFORM public.__p074_expect_fail(v_mesa, v_exp_cancelled, 7, 6, 'Cancelado', 'MESA_MOVE_CYCLE_NOT_ACTIVE');
   PERFORM public.__p074_expect_fail(v_mesa, v_exp_rejected, 6, 5, 'Rechazado', 'MESA_MOVE_BAD_SUBSTATE');
   PERFORM public.__p074_expect_fail(v_mesa, v_exp_approved, 11, 10, 'Aprobado', 'MESA_MOVE_BAD_SUBSTATE');
-  PERFORM public.__p074_expect_fail(v_mesa, v_exp_pending, 2, 1, 'Pendiente', 'MESA_MOVE_BAD_SUBSTATE');
   PERFORM public.__p074_expect_fail(v_mesa, v_exp_main, 0, 12, 'Destino 0', 'MESA_MOVE_BAD_DESTINATION');
   PERFORM public.__p074_expect_fail(v_mesa, v_exp_main, 13, 12, 'Destino 13', 'MESA_MOVE_BAD_DESTINATION');
   PERFORM public.__p074_expect_fail(v_mesa, v_exp_main, 12, 12, 'Misma', 'MESA_MOVE_SAME_STAGE');
   PERFORM public.__p074_expect_fail(v_mesa, v_exp_main, 2, 12, ' ', 'MESA_MOVE_REASON_REQUIRED');
   PERFORM public.__p074_expect_fail(v_mesa, v_exp_main, 2, 12, repeat('x', 501), 'MESA_MOVE_REASON_TOO_LONG');
   PERFORM public.__p074_expect_fail(v_mesa, v_exp_main, 2, 11, 'Pantalla obsoleta', 'MESA_MOVE_STAGE_CONFLICT');
+
+  -- P076: expediente activo, enviado y 'pendiente' puede moverse manualmente,
+  -- sin cita biométrica, sin booking biométrico y sin booking de firmas.
+  PERFORM public.__p074_assert(
+    (SELECT fecha_cita IS NULL FROM public.expedientes WHERE id = v_exp_pending)
+    AND NOT EXISTS (
+      SELECT 1 FROM public.agenda_bookings WHERE expediente_id = v_exp_pending
+    ),
+    'fixture pendiente inicia sin cita ni bookings'
+  );
+  v_result := public.__p074_call(v_mesa, v_exp_pending, 5, 1, 'Pendiente movido sin cita');
+  PERFORM public.__p074_assert(
+    v_result->>'subestado_anterior' = 'pendiente'
+      AND v_result->>'subestado' = 'en_proceso',
+    'pendiente a etapa 5 queda en_proceso'
+  );
+  PERFORM public.__p074_assert(
+    (SELECT etapa_actual = 5 AND subestado = 'en_proceso'
+     FROM public.expedientes WHERE id = v_exp_pending),
+    'pendiente avanza sin cita biométrica ni bookings'
+  );
+  PERFORM public.__p074_assert(
+    (SELECT fecha_cita IS NULL FROM public.expedientes WHERE id = v_exp_pending)
+    AND NOT EXISTS (
+      SELECT 1 FROM public.agenda_bookings WHERE expediente_id = v_exp_pending
+    )
+    AND NOT EXISTS (
+      SELECT 1 FROM public.expediente_documentos WHERE expediente_id = v_exp_pending
+    ),
+    'movimiento desde pendiente no crea cita, bookings ni documentos'
+  );
+  PERFORM public.__p074_assert(
+    EXISTS (
+      SELECT 1 FROM public.expediente_movimientos_mesa m
+      WHERE m.id = (v_result->>'movimiento_id')::UUID
+        AND m.actor_id = v_mesa
+        AND m.actor_role = 'mesa_admin'
+        AND m.subestado_origen = 'pendiente'
+        AND m.subestado_destino = 'en_proceso'
+        AND m.etapa_origen = 1
+        AND m.etapa_destino = 5
+    ),
+    'movimiento desde pendiente registra actor y subestados'
+  );
+
+  v_result := public.__p074_call(v_mesa, v_exp_pending2, 1, 2, 'Pendiente a validación');
+  PERFORM public.__p074_assert(
+    (SELECT etapa_actual = 1 AND subestado = 'en_validacion_mesa'
+     FROM public.expedientes WHERE id = v_exp_pending2),
+    'pendiente a etapa 1 queda en_validacion_mesa'
+  );
 
   -- Doble request: el segundo usa etapa esperada obsoleta y no duplica evento.
   PERFORM public.__p074_call(v_mesa, v_exp_double, 7, 2, 'Primer request');
@@ -467,4 +520,4 @@ $$;
 
 ROLLBACK;
 
-\echo 'P074 mesa_mover_etapa_operativa: OK'
+\echo 'P074/P076 mesa_mover_etapa_operativa: OK'

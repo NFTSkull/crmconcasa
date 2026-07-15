@@ -21,15 +21,18 @@ export type { UpsertEditorDecisionInput } from "./upsert-editor-decision.input";
 export type { EditorListPage, EditorListQuery } from "./editor-list-query";
 export {
   deriveMesaMovimientoAdvertencias,
+  getMesaControlManualEstado,
   getMesaMovimientoDireccion,
   getMesaMovimientoErrorCode,
   mapMesaMovimientoRpcError,
   mesaEtapaSchema,
+  MESA_MOVIMIENTO_SUBESTADOS_ELEGIBLES,
   mesaMovimientoHistorialRowSchema,
   mesaMovimientoInputSchema,
   mesaMovimientoResultadoSchema,
   puedeConfirmarMovimientoMesa,
   puedeMostrarControlManualMesa,
+  type MesaControlManualEstado,
   type MesaMovimientoHistorialRow,
   type MesaMovimientoInput,
   type MesaMovimientoResultado,

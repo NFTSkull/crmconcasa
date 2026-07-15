@@ -58,7 +58,14 @@ type Props = {
   cancelCitaGate?: MesaAvanceCancelCitaGate | null;
   /** Si false, oculta botón avanzar aunque `view.puedeAvanzar` (p. ej. etapa 10 solo cancel). */
   mostrarBotonAvanzar?: boolean;
+  /** Si true, muestra atajo al panel «Movimiento manual de Mesa» cuando el avance está bloqueado. */
+  mostrarAtajoMovimientoManual?: boolean;
 };
+
+export const MESA_ATAJO_MOVIMIENTO_MANUAL_TEXTO =
+  "También puedes usar el movimiento manual de Mesa para continuar sin cita.";
+
+export const MESA_MOVIMIENTO_MANUAL_ANCHOR_ID = "mesa-movimiento-manual";
 
 const DEBUG_MESA_CANCEL =
   process.env.NEXT_PUBLIC_DEBUG_MESA_CANCEL === "1" ||
@@ -74,6 +81,7 @@ export function MesaAvanceOperativoSection({
   onAvanzar,
   cancelCitaGate = null,
   mostrarBotonAvanzar = true,
+  mostrarAtajoMovimientoManual = false,
 }: Props) {
   const [confirmOpen, setConfirmOpen] = useState(false);
 
@@ -152,6 +160,26 @@ export function MesaAvanceOperativoSection({
                   <li key={bloqueo}>{bloqueo}</li>
                 ))}
               </ul>
+              {mostrarAtajoMovimientoManual ? (
+                <div
+                  className="mt-2 border-t border-amber-200 pt-2"
+                  data-testid="mesa-atajo-movimiento-manual"
+                >
+                  <p className="text-xs">{MESA_ATAJO_MOVIMIENTO_MANUAL_TEXTO}</p>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="mt-2 text-xs"
+                    onClick={() =>
+                      document
+                        .getElementById(MESA_MOVIMIENTO_MANUAL_ANCHOR_ID)
+                        ?.scrollIntoView({ behavior: "smooth", block: "start" })
+                    }
+                  >
+                    Ir al movimiento manual de Mesa
+                  </Button>
+                </div>
+              ) : null}
             </div>
           ) : null}
 

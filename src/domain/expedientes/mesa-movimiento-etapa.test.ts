@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   deriveMesaMovimientoAdvertencias,
+  getMesaControlManualEstado,
   getMesaMovimientoDireccion,
   getMesaMovimientoErrorCode,
   mesaMovimientoInputSchema,
@@ -66,12 +67,114 @@ test("control manual solo se muestra a Mesa con estado elegible", () => {
   );
 });
 
+test("control manual habilitado para subestado pendiente (P076)", () => {
+  for (const role of [
+    "mesa_admin",
+    "mesa_interno",
+    "mesa_externo",
+    "super_admin",
+  ]) {
+    assert.deepEqual(
+      getMesaControlManualEstado({
+        role,
+        submittedToMesa: true,
+        cicloEstado: "activo",
+        subestado: "pendiente",
+      }),
+      { visible: true, habilitado: true, razon: null },
+    );
+  }
+  assert.equal(
+    puedeMostrarControlManualMesa({
+      role: "mesa_admin",
+      submittedToMesa: true,
+      cicloEstado: "activo",
+      subestado: "pendiente",
+    }),
+    true,
+  );
+});
+
+test("panel deshabilitado con razón exacta, no oculto, para no elegibles", () => {
+  const base = {
+    role: "mesa_admin",
+    submittedToMesa: true,
+    cicloEstado: "activo",
+    subestado: "en_proceso",
+  };
+
+  const noEnviado = getMesaControlManualEstado({
+    ...base,
+    submittedToMesa: false,
+  });
+  assert.equal(noEnviado.visible, true);
+  assert.equal(noEnviado.habilitado, false);
+  assert.equal(noEnviado.razon, "El expediente no ha sido enviado a Mesa.");
+
+  const cerrado = getMesaControlManualEstado({
+    ...base,
+    cicloEstado: "cerrado",
+  });
+  assert.equal(cerrado.visible, true);
+  assert.equal(cerrado.habilitado, false);
+  assert.equal(cerrado.razon, "El ciclo está cerrado.");
+
+  const cancelado = getMesaControlManualEstado({
+    ...base,
+    cicloEstado: "cancelado",
+  });
+  assert.equal(cancelado.visible, true);
+  assert.equal(cancelado.habilitado, false);
+  assert.equal(cancelado.razon, "El ciclo está cancelado.");
+
+  const rechazado = getMesaControlManualEstado({
+    ...base,
+    subestado: "rechazado",
+  });
+  assert.equal(rechazado.visible, true);
+  assert.equal(rechazado.habilitado, false);
+  assert.equal(
+    rechazado.razon,
+    "El expediente está rechazado y requiere una reactivación explícita.",
+  );
+
+  const aprobado = getMesaControlManualEstado({
+    ...base,
+    subestado: "aprobado",
+  });
+  assert.equal(aprobado.visible, true);
+  assert.equal(aprobado.habilitado, false);
+  assert.equal(
+    aprobado.razon,
+    "El expediente debe estar pendiente, en validación de Mesa o en proceso.",
+  );
+});
+
+test("asesor y editor no ven el control manual (panel oculto)", () => {
+  for (const role of ["asesor", "editor", null, undefined, ""]) {
+    const estado = getMesaControlManualEstado({
+      role,
+      submittedToMesa: true,
+      cicloEstado: "activo",
+      subestado: "pendiente",
+    });
+    assert.equal(estado.visible, false);
+    assert.equal(estado.habilitado, false);
+  }
+});
+
 test("extrae códigos estables sin depender del texto posterior", () => {
   assert.equal(
     getMesaMovimientoErrorCode({
       message: "MESA_MOVE_STAGE_CONFLICT: etapa actual 7, esperada 6",
     }),
     "MESA_MOVE_STAGE_CONFLICT",
+  );
+  assert.equal(
+    getMesaMovimientoErrorCode({
+      message: "MESA_MOVE_BAD_SUBSTATE: subestado no elegible (aprobado)",
+    }),
+    "MESA_MOVE_BAD_SUBSTATE",
   );
 });
 
