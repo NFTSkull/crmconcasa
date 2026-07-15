@@ -19,6 +19,21 @@ export {
 export type { CreateExpedienteInput } from "./create-expediente.input";
 export type { UpsertEditorDecisionInput } from "./upsert-editor-decision.input";
 export type { EditorListPage, EditorListQuery } from "./editor-list-query";
+export {
+  biometricosCondicionSchema,
+  esExpedienteReingreso,
+  getReingresoErrorCode,
+  iniciarReingresoResponseSchema,
+  mapReingresoRpcError,
+  puedeConsultarReingresoPostBiometricos,
+  rechazoOperativoInputSchema,
+  reingresoElegibilidadSchema,
+  reingresoExpedienteIdSchema,
+  type BiometricosCondicion,
+  type IniciarReingresoResponse,
+  type RechazoOperativoInput,
+  type ReingresoElegibilidad,
+} from "./reingreso-post-biometricos";
 export { EDITOR_LIST_PAGE_SIZE } from "./editor-list-query";
 export type { ExpedienteMock, EditorDecision } from "./mock.repo";
 export { MockExpedientesRepo } from "./mock.repo";

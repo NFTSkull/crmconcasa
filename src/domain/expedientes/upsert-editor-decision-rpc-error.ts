@@ -9,6 +9,12 @@ export function mapUpsertEditorDecisionRpcError(error: {
   const raw = `${error.message ?? ""} ${error.details ?? ""}`.trim();
   const msg = raw.toLowerCase();
 
+  if (raw.includes("REENTRY_AMOUNT_PENDING")) {
+    return new ExpedientesSupabaseError(
+      "El monto aprobado del reingreso debe ser mayor a cero.",
+    );
+  }
+
   if (
     error.code === "42501" ||
     msg.includes("usuario no autenticado") ||

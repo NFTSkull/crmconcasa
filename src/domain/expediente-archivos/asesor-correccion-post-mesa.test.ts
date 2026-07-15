@@ -9,6 +9,7 @@ import {
   asesorPuedeEditarClienteDatos,
   asesorPuedeReemplazarDocumentoExistentePostMesa,
   asesorPuedeSubirDocumentoPreMesa,
+  asesorPuedeSubirDocumentoNuevoReingreso,
   asesorPuedeSubirOpcionalFaltantePostMesa,
   asesorPuedeSubirOCorregirDocumento,
 } from "./asesor-correccion-post-mesa";
@@ -64,6 +65,41 @@ describe("asesor corrección post-Mesa (helpers UI)", () => {
       false,
     );
     assert.equal(asesorDocumentoUploadMode(true, "faltante", "cliente_ine_frente"), null);
+  });
+
+  it("reingreso etapa 6 abre solo domicilio y estado de cuenta faltantes", () => {
+    for (const tipo of [
+      "cliente_comprobante_domicilio",
+      "cliente_estado_cuenta",
+    ] as const) {
+      assert.equal(
+        asesorPuedeSubirDocumentoNuevoReingreso(
+          true,
+          "faltante",
+          tipo,
+          true,
+        ),
+        true,
+      );
+      assert.equal(
+        asesorPuedeSubirOCorregirDocumento(
+          true,
+          "faltante",
+          tipo,
+          true,
+        ),
+        true,
+      );
+    }
+    assert.equal(
+      asesorPuedeSubirOCorregirDocumento(
+        true,
+        "faltante",
+        "cliente_ine_frente",
+        true,
+      ),
+      false,
+    );
   });
 
   it("post-envío permite primer upload de opcional faltante", () => {

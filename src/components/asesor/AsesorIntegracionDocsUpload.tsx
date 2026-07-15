@@ -10,6 +10,7 @@ import {
 import {
   asesorDebeUsarCorreccionDocumento,
   asesorPuedeReemplazarDocumentoExistentePostMesa,
+  asesorPuedeSubirDocumentoNuevoReingreso,
   asesorPuedeSubirOCorregirDocumento,
   asesorPuedeSubirOpcionalFaltantePostMesa,
   ExpedienteArchivosSupabaseError,
@@ -31,6 +32,7 @@ type Props = {
   archivosResumen: ExpedienteArchivoResumen[] | null;
   puedeIntegrar: boolean;
   submittedToMesa: boolean;
+  esReingresoEtapa6?: boolean;
   onUploaded: () => void;
 };
 
@@ -102,6 +104,7 @@ function ChecklistUploadList({
   archivosResumen,
   puedeIntegrar,
   submittedToMesa,
+  esReingresoEtapa6,
   uploadingTipo,
   archivoLoadingTipo,
   errorsByTipo,
@@ -115,6 +118,7 @@ function ChecklistUploadList({
   archivosResumen: ExpedienteArchivoResumen[] | null;
   puedeIntegrar: boolean;
   submittedToMesa: boolean;
+  esReingresoEtapa6: boolean;
   uploadingTipo: IntegrationDocAsesorUploadTipo | null;
   archivoLoadingTipo: IntegrationDocAsesorUploadTipo | null;
   errorsByTipo: Partial<Record<IntegrationDocAsesorUploadTipo, string>>;
@@ -149,16 +153,24 @@ function ChecklistUploadList({
           item.estatus_revision,
           item.tipo_documento,
         );
+        const esDocumentoNuevoReingreso =
+          asesorPuedeSubirDocumentoNuevoReingreso(
+            submittedToMesa,
+            item.estatus_revision,
+            item.tipo_documento,
+            esReingresoEtapa6,
+          );
         const esReemplazoPostMesa = asesorPuedeReemplazarDocumentoExistentePostMesa(
           submittedToMesa,
           item.estatus_revision,
         );
         const puedeSubirItem =
-          puedeIntegrar &&
+          (puedeIntegrar || esDocumentoNuevoReingreso) &&
           asesorPuedeSubirOCorregirDocumento(
             submittedToMesa,
             item.estatus_revision,
             item.tipo_documento,
+            esReingresoEtapa6,
           );
         const disabled = !puedeSubirItem || uploading;
         const fechaSubida = formatUploadDate(archivo?.created_at);
@@ -268,7 +280,8 @@ function ChecklistUploadList({
                 ) : submittedToMesa &&
                   item.estatus_revision !== "rechazado" &&
                   !esOpcionalPendientePostMesa &&
-                  !esReemplazoPostMesa ? (
+                  !esReemplazoPostMesa &&
+                  !esDocumentoNuevoReingreso ? (
                   <p className="mt-2 text-[11px] text-gray-500">
                     Enviado a Mesa — no editable salvo rechazo documental.
                   </p>
@@ -289,6 +302,7 @@ export function AsesorIntegracionDocsUpload({
   archivosResumen,
   puedeIntegrar,
   submittedToMesa,
+  esReingresoEtapa6 = false,
   onUploaded,
 }: Props) {
   const repo = useExpedienteArchivosRepo();
@@ -469,6 +483,7 @@ export function AsesorIntegracionDocsUpload({
     archivosResumen,
     puedeIntegrar,
     submittedToMesa,
+    esReingresoEtapa6,
     uploadingTipo,
     archivoLoadingTipo,
     errorsByTipo,

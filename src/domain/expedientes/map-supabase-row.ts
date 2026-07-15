@@ -20,6 +20,14 @@ export type SupabaseAsesorProfileEmbed = Readonly<{
   full_name?: string | null;
 }>;
 
+export type SupabaseReingresoRechazoEmbed = Readonly<{
+  etapa?: number | null;
+  motivo?: string | null;
+  comentario?: string | null;
+  biometricos_condicion?: string | null;
+  biometricos_razon?: string | null;
+}>;
+
 /** Fila de listado admin desde `expedientes` + joins. */
 export type SupabaseExpedienteListRow = Readonly<{
   id: string;
@@ -40,7 +48,13 @@ export type SupabaseExpedienteListRow = Readonly<{
   fecha_cita?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
+  expediente_anterior_id?: string | null;
+  reingreso_rechazo_id?: string | null;
   editor_decisions?: SupabaseEditorDecisionEmbed | SupabaseEditorDecisionEmbed[] | null;
+  reingreso_rechazo?:
+    | SupabaseReingresoRechazoEmbed
+    | SupabaseReingresoRechazoEmbed[]
+    | null;
   asesor?: SupabaseAsesorProfileEmbed | SupabaseAsesorProfileEmbed[] | null;
 }>;
 
@@ -125,6 +139,7 @@ export function mapSupabaseRowToExpedienteMock(
   asesorProfileOverride?: SupabaseAsesorProfileEmbed | null,
 ): ExpedienteMock {
   const editor = unwrapEmbed(row.editor_decisions);
+  const rechazo = unwrapEmbed(row.reingreso_rechazo);
   const asesor = unwrapEmbed(row.asesor) ?? asesorProfileOverride ?? null;
   const subestado = normalizeSubestado(row.subestado ?? "pendiente");
   const etapaPersistida =
@@ -165,6 +180,21 @@ export function mapSupabaseRowToExpedienteMock(
       fechaEnvioMesa: textOrNull(row.fecha_envio_mesa),
       cicloEstado: textOrNull(row.ciclo_estado),
     },
+    reingreso:
+      row.reingreso_rechazo_id || row.expediente_anterior_id
+        ? {
+            expedienteAnteriorId: textOrNull(row.expediente_anterior_id),
+            rechazoId: textOrNull(row.reingreso_rechazo_id),
+            rechazoEtapa:
+              typeof rechazo?.etapa === "number" ? rechazo.etapa : null,
+            rechazoMotivo: textOrNull(rechazo?.motivo),
+            rechazoComentario: textOrNull(rechazo?.comentario),
+            biometricosCondicion: textOrNull(
+              rechazo?.biometricos_condicion,
+            ),
+            biometricosRazon: textOrNull(rechazo?.biometricos_razon),
+          }
+        : undefined,
   };
 }
 

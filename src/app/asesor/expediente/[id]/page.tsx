@@ -13,6 +13,7 @@ import { AsesorSeguimientoOperativo } from "@/components/asesor/AsesorSeguimient
 import { canMountAgendaBiometricosUI } from "@/lib/agendaFirmasBookingsGuard";
 import { AgendaFirmasAsesorCard } from "@/components/asesor/AgendaFirmasAsesorCard";
 import { ExpedienteClienteDatosFormSection } from "@/components/asesor/ExpedienteClienteDatosFormSection";
+import { AsesorReingresoPostBiometricosCard } from "@/components/asesor/AsesorReingresoPostBiometricosCard";
 import { Button } from "@/components/ui/Button";
 import { SeguimientoOperativoMock } from "@/components/seguimiento/SeguimientoOperativoMock";
 import {
@@ -229,6 +230,8 @@ export default function AsesorExpedientePage() {
   const [editorDecision, setEditorDecision] = useState<
     ExpedienteMock["editorDecision"] | null
   >(null);
+  const [reingreso, setReingreso] =
+    useState<ExpedienteMock["reingreso"]>(undefined);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [enviandoMesa, setEnviandoMesa] = useState(false);
   const [enviarMesaError, setEnviarMesaError] = useState<string | null>(null);
@@ -527,11 +530,13 @@ export default function AsesorExpedientePage() {
         setPrecal(null);
         setOperativo(null);
         setEditorDecision(null);
+        setReingreso(undefined);
         setLoadError(null);
         return;
       }
       setLoadError(null);
       setEditorDecision(exp.editorDecision);
+      setReingreso(exp.reingreso);
       setPrecal({
         id: exp.id,
         programa: exp.base.programa,
@@ -559,6 +564,7 @@ export default function AsesorExpedientePage() {
       setPrecal(null);
       setOperativo(null);
       setEditorDecision(null);
+      setReingreso(undefined);
       if (err instanceof ExpedientesSupabaseError) {
         setLoadError(err.message);
       } else {
@@ -1190,6 +1196,15 @@ export default function AsesorExpedientePage() {
           </p>
         ) : null}
 
+        <AsesorReingresoPostBiometricosCard
+          expedienteId={String(precal.id)}
+          dataModeSupabase={dataSupabase}
+          etapaActual={operativo?.etapaActual}
+          subestado={operativo?.subestado}
+          cicloEstado={operativo?.cicloEstado}
+          reingreso={reingreso}
+        />
+
         {dataSupabase ? (
           <>
             <div className="rounded-lg border border-gray-200 bg-white p-4 text-sm text-gray-600">
@@ -1362,6 +1377,11 @@ export default function AsesorExpedientePage() {
                     archivosResumen={archivosResumen}
                     puedeIntegrar={hasMontoAprobado}
                     submittedToMesa={operativo?.submittedToMesa ?? false}
+                    esReingresoEtapa6={Boolean(
+                      reingreso?.expedienteAnteriorId &&
+                        reingreso?.rechazoId &&
+                        operativo?.etapaActual === 6,
+                    )}
                     onUploaded={refreshArchivos}
                   />
                 </>

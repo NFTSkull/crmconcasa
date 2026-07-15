@@ -10,6 +10,10 @@ import { getEffectiveMockRole } from "@/lib/mockUser";
 import type { ExpedientesRepo } from "./repo";
 import type { CreateExpedienteInput } from "./create-expediente.input";
 import type { UpsertEditorDecisionInput } from "./upsert-editor-decision.input";
+import type {
+  RechazoOperativoInput,
+  ReingresoElegibilidad,
+} from "./reingreso-post-biometricos";
 import {
   paginateSortedExpedientes,
   sortExpedientesByCreatedAtDesc,
@@ -80,6 +84,15 @@ export interface ExpedienteMock {
     submittedToMesa: boolean;
     fechaEnvioMesa: string | null;
     cicloEstado: string | null;
+  };
+  reingreso?: {
+    expedienteAnteriorId: string | null;
+    rechazoId: string | null;
+    rechazoEtapa: number | null;
+    rechazoMotivo: string | null;
+    rechazoComentario: string | null;
+    biometricosCondicion: string | null;
+    biometricosRazon: string | null;
   };
 }
 
@@ -808,6 +821,43 @@ export class MockExpedientesRepo implements ExpedientesRepo {
     window.dispatchEvent(new Event("mesa_control_inbox_updated"));
 
     return this.getById(idStr);
+  }
+
+  async rechazarEtapaOperativa(
+    _expedienteId: string,
+    _input: RechazoOperativoInput,
+  ): Promise<ExpedienteMock> {
+    void _expedienteId;
+    void _input;
+    throw new Error(
+      "El rechazo operativo con clasificación biométrica solo está disponible en modo Supabase.",
+    );
+  }
+
+  async getReingresoPostBiometricosElegibilidad(
+    _expedienteId: string,
+  ): Promise<ReingresoElegibilidad> {
+    void _expedienteId;
+    return {
+      eligible: false,
+      reason_code: "REENTRY_NO_CLASSIFIED_REJECTION",
+      reason_message:
+        "El reingreso post-biométricos solo está disponible en modo Supabase.",
+      rechazo_id: null,
+      biometricos_condicion: null,
+      existing_child_id: null,
+    };
+  }
+
+  async iniciarReingresoPostBiometricos(
+    _expedienteAnteriorId: string,
+    _nota?: string | null,
+  ): Promise<ExpedienteMock> {
+    void _expedienteAnteriorId;
+    void _nota;
+    throw new Error(
+      "El reingreso post-biométricos solo está disponible en modo Supabase.",
+    );
   }
 }
 

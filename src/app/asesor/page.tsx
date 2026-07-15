@@ -207,6 +207,7 @@ interface PrecalificacionMockLocal {
   operativo: ExpedienteMock["operativo"];
   fechaCita?: string | null;
   updatedAtOperativo?: string | null;
+  esReingreso: boolean;
 }
 
 const DECISION_OPTIONS = [
@@ -547,6 +548,9 @@ export default function AsesorDashboardPage() {
       operativo: e.operativo,
       fechaCita: e.operativo.fechaCita,
       updatedAtOperativo: e.operativo.updatedAt,
+      esReingreso: Boolean(
+        e.reingreso?.expedienteAnteriorId && e.reingreso?.rechazoId,
+      ),
     };
   }, []);
 
@@ -825,6 +829,10 @@ export default function AsesorDashboardPage() {
       const hasta = new Date(filters.fechaHasta);
       hasta.setHours(23, 59, 59, 999);
       list = list.filter((p) => new Date(p.createdAt) <= hasta);
+    }
+
+    if (quickFilter !== "todos") {
+      list = list.filter((p) => p.operativo.cicloEstado !== "cerrado");
     }
 
     if (quickFilter === "en_tramite") {
@@ -1554,8 +1562,19 @@ export default function AsesorDashboardPage() {
                           onKeyDown={handleRowKeyDown}
                           aria-label={`Abrir expediente ${p.id}`}
                         >
-                          <td className="max-w-[140px] truncate px-2 py-1.5 font-medium text-gray-900">
-                            {p.cliente_nombre || "—"}
+                          <td className="max-w-[140px] px-2 py-1.5 font-medium text-gray-900">
+                            <span className="block truncate">
+                              {p.cliente_nombre || "—"}
+                            </span>
+                            {p.esReingreso ? (
+                              <span className="mt-0.5 inline-flex rounded-full bg-violet-100 px-1.5 py-0.5 text-[9px] font-semibold text-violet-800">
+                                Reingreso
+                              </span>
+                            ) : p.operativo.cicloEstado === "cerrado" ? (
+                              <span className="mt-0.5 inline-flex rounded-full bg-gray-100 px-1.5 py-0.5 text-[9px] font-medium text-gray-600">
+                                Ciclo histórico
+                              </span>
+                            ) : null}
                           </td>
                           <td className="whitespace-nowrap px-2 py-1.5 font-mono text-[10px] tabular-nums text-gray-600 sm:text-xs">
                             {p.nss?.trim() || "—"}

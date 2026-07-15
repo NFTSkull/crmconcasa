@@ -12,6 +12,7 @@ export interface EditorPrecalRow {
   decision: string;
   monto_aprobado: number | null;
   notas_revision: string;
+  esReingreso: boolean;
 }
 
 export type RowSaveStatus = "idle" | "pending" | "saving" | "saved" | "error";
@@ -33,6 +34,9 @@ export function mapExpedienteToEditorRow(e: ExpedienteMock): EditorPrecalRow {
     decision: e.editorDecision.decision,
     monto_aprobado: e.editorDecision.monto_aprobado,
     notas_revision: e.editorDecision.notas_revision,
+    esReingreso: Boolean(
+      e.reingreso?.expedienteAnteriorId && e.reingreso?.rechazoId,
+    ),
   };
 }
 

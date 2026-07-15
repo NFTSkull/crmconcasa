@@ -70,6 +70,7 @@ export {
   asesorPuedeCorregirDocumentoRechazado,
   asesorPuedeEditarClienteDatos,
   asesorPuedeSubirDocumentoPreMesa,
+  asesorPuedeSubirDocumentoNuevoReingreso,
   asesorPuedeSubirOCorregirDocumento,
   asesorPuedeSubirOpcionalFaltantePostMesa,
   asesorPuedeReemplazarDocumentoExistentePostMesa,

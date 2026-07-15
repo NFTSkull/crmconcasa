@@ -102,6 +102,18 @@ ConCasa CRM gestiona el ciclo operativo de precalificaciones / expedientes hipot
 4. Mesa puede **rechazar documento ya validado** (corrección por error).
 5. Avance **8→9** requiere: envío asesor + todos los docs de la opción en `validado`.
 
+### 6.4 Reingreso / Reinscripción post-biométricos
+
+1. Mesa rechaza un expediente en etapa 5 o 6 y registra una decisión explícita sobre sus biométricos.
+2. Solo una decisión `reutilizables`, respaldada por un intento biométrico pasado, habilita al asesor dueño.
+3. El asesor inicia una acción atómica: el expediente anterior queda como ciclo histórico cerrado y se crea un expediente hijo activo en etapa 6.
+4. El hijo no repite biométricos ni recibe una cita nueva. Conserva enlace al padre y al rechazo que lo originó.
+5. El editor debe aprobar un monto nuevo. El sistema recalcula el cobro con el porcentaje precargado.
+6. Comprobante de domicilio y estado de cuenta se capturan y validan de nuevo. Solo evidencia estable validada de la lista blanca puede reutilizarse.
+7. Mesa avanza 6→7 únicamente con monto nuevo aprobado y los dos documentos nuevos validados.
+
+La UI identifica al hijo como **Reingreso / Reinscripción** y **Biométricos reutilizados**. El padre sale de filtros operativos, pero permanece accesible como historial.
+
 ---
 
 ## 7. Documentos

@@ -18,6 +18,15 @@ import { mapAsesorUpdateMontoAprobadoRpcError } from "./asesor-update-monto-apro
 import { mapUpsertEditorDecisionRpcError } from "./upsert-editor-decision-rpc-error";
 import type { UpsertEditorDecisionInput } from "./upsert-editor-decision.input";
 import {
+  iniciarReingresoResponseSchema,
+  mapReingresoRpcError,
+  rechazoOperativoInputSchema,
+  reingresoExpedienteIdSchema,
+  reingresoElegibilidadSchema,
+  type RechazoOperativoInput,
+  type ReingresoElegibilidad,
+} from "./reingreso-post-biometricos";
+import {
   buildEditorListOrFilter,
   normalizeEditorListPage,
   type EditorListPage,
@@ -50,7 +59,16 @@ const EXPEDIENTES_LIST_SELECT = `
   fecha_cita,
   created_at,
   updated_at,
+  expediente_anterior_id,
+  reingreso_rechazo_id,
   editor_decisions ( decision, monto_aprobado, notas_revision ),
+  reingreso_rechazo:expediente_rechazos_operativos!expedientes_reingreso_rechazo_padre_fk (
+    etapa,
+    motivo,
+    comentario,
+    biometricos_condicion,
+    biometricos_razon
+  ),
   asesor:profiles!expedientes_asesor_id_fkey ( email, full_name )
 `;
 
@@ -569,5 +587,126 @@ export class SupabaseExpedientesRepo implements ExpedientesRepo {
     }
 
     return refreshed;
+  }
+
+  async rechazarEtapaOperativa(
+    expedienteId: string,
+    input: RechazoOperativoInput,
+  ): Promise<ExpedienteMock> {
+    const idResult = reingresoExpedienteIdSchema.safeParse(expedienteId);
+    const inputResult = rechazoOperativoInputSchema.safeParse(input);
+    if (!idResult.success) {
+      throw new ExpedientesSupabaseError(
+        "El identificador del expediente no es válido.",
+      );
+    }
+    if (!inputResult.success) {
+      throw new ExpedientesSupabaseError(
+        inputResult.error.issues[0]?.message ??
+          "Los datos del rechazo no son válidos.",
+      );
+    }
+
+    const { client } = await requireSupabaseSession();
+    const value = inputResult.data;
+    const { data, error } = await client.rpc("rechazar_etapa_operativa", {
+      p_expediente_id: idResult.data,
+      p_motivo: value.motivo,
+      p_comentario: value.comentario || null,
+      p_biometricos_condicion: value.biometricosCondicion,
+      p_biometricos_razon: value.biometricosRazon || null,
+      p_biometricos_booking_id: value.biometricosBookingId || null,
+    });
+
+    if (error) {
+      throw mapReingresoRpcError(
+        error,
+        "No se pudo registrar el rechazo operativo.",
+      );
+    }
+    if (!data || typeof data !== "object") {
+      throw new ExpedientesSupabaseError(
+        "El rechazo se registró sin una respuesta válida.",
+      );
+    }
+
+    const refreshed = await fetchExpedienteById(idResult.data);
+    if (!refreshed) {
+      throw new ExpedientesSupabaseError(
+        "El rechazo se registró, pero no se pudo recargar el expediente.",
+      );
+    }
+    return refreshed;
+  }
+
+  async getReingresoPostBiometricosElegibilidad(
+    expedienteId: string,
+  ): Promise<ReingresoElegibilidad> {
+    const idResult = reingresoExpedienteIdSchema.safeParse(expedienteId);
+    if (!idResult.success) {
+      throw new ExpedientesSupabaseError(
+        "El identificador del expediente no es válido.",
+      );
+    }
+
+    const { client } = await requireSupabaseSession();
+    const { data, error } = await client.rpc(
+      "get_reingreso_post_biometricos_elegibilidad",
+      { p_expediente_id: idResult.data },
+    );
+    if (error) {
+      throw mapReingresoRpcError(
+        error,
+        "No se pudo consultar la elegibilidad del reingreso.",
+      );
+    }
+
+    const parsed = reingresoElegibilidadSchema.safeParse(data);
+    if (!parsed.success) {
+      throw new ExpedientesSupabaseError(
+        "La elegibilidad recibió una respuesta inválida del servidor.",
+      );
+    }
+    return parsed.data;
+  }
+
+  async iniciarReingresoPostBiometricos(
+    expedienteAnteriorId: string,
+    nota?: string | null,
+  ): Promise<ExpedienteMock> {
+    const idResult =
+      reingresoExpedienteIdSchema.safeParse(expedienteAnteriorId);
+    if (!idResult.success) {
+      throw new ExpedientesSupabaseError(
+        "El identificador del expediente no es válido.",
+      );
+    }
+
+    const { client } = await requireSupabaseSession();
+    const { data, error } = await client.rpc(
+      "iniciar_reingreso_post_biometricos",
+      {
+        p_expediente_anterior_id: idResult.data,
+        p_nota: nota?.trim() || null,
+      },
+    );
+    if (error) {
+      throw mapReingresoRpcError(error);
+    }
+
+    const parsed = iniciarReingresoResponseSchema.safeParse(data);
+    if (!parsed.success) {
+      throw new ExpedientesSupabaseError(
+        "El reingreso recibió una respuesta inválida del servidor.",
+      );
+    }
+
+    const child = await fetchExpedienteById(parsed.data.expediente_id);
+    if (!child) {
+      throw new ExpedientesSupabaseError(
+        "El reingreso se creó, pero no se pudo cargar el expediente nuevo.",
+      );
+    }
+    return child;
   }
 }

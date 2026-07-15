@@ -25,6 +25,8 @@ interface PrecalInfo {
   direccion_opcional: string;
   asesorId: string;
   createdAt: string;
+  esReingreso: boolean;
+  expedienteAnteriorId: string | null;
 }
 
 function DecisionBadge({ decision }: { decision?: string }) {
@@ -82,6 +84,11 @@ export default function EditorExpedientePage() {
         direccion_opcional: exp.base.direccion_opcional,
         asesorId: exp.base.asesorId,
         createdAt: exp.base.createdAt,
+        esReingreso: Boolean(
+          exp.reingreso?.expedienteAnteriorId && exp.reingreso?.rechazoId,
+        ),
+        expedienteAnteriorId:
+          exp.reingreso?.expedienteAnteriorId ?? null,
       });
 
       setDecision(exp.editorDecision.decision);
@@ -219,6 +226,14 @@ export default function EditorExpedientePage() {
           <h2 className="mb-2 text-sm font-semibold text-gray-900">
             Datos de la precalificación
           </h2>
+          {precal.esReingreso ? (
+            <p className="mb-3 rounded-md border border-violet-200 bg-violet-50 px-3 py-2 text-xs font-semibold text-violet-900">
+              Reingreso / Reinscripción: registra una nueva decisión de monto.
+              {precal.expedienteAnteriorId
+                ? ` Expediente anterior: ${precal.expedienteAnteriorId}.`
+                : ""}
+            </p>
+          ) : null}
           <p>
             <span className="font-medium text-gray-900">Programa:</span>{" "}
             {precal.programa}

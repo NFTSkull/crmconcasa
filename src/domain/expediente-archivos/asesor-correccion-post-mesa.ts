@@ -30,6 +30,21 @@ export function asesorPuedeSubirOpcionalFaltantePostMesa(
   );
 }
 
+export function asesorPuedeSubirDocumentoNuevoReingreso(
+  submittedToMesa: boolean,
+  estatusRevision: ResumenEstatus,
+  tipoDocumento: IntegrationDocAsesorUploadTipo,
+  esReingresoEtapa6: boolean,
+): boolean {
+  return (
+    submittedToMesa &&
+    esReingresoEtapa6 &&
+    estatusRevision === "faltante" &&
+    (tipoDocumento === "cliente_comprobante_domicilio" ||
+      tipoDocumento === "cliente_estado_cuenta")
+  );
+}
+
 /** Post-Mesa: reemplazar documento ya registrado (sin reenviar expediente). */
 export function asesorPuedeReemplazarDocumentoExistentePostMesa(
   submittedToMesa: boolean,
@@ -46,9 +61,21 @@ export function asesorPuedeSubirOCorregirDocumento(
   submittedToMesa: boolean,
   estatusRevision: ResumenEstatus,
   tipoDocumento?: IntegrationDocAsesorUploadTipo,
+  esReingresoEtapa6 = false,
 ): boolean {
   if (!submittedToMesa) return true;
   if (asesorPuedeCorregirDocumentoRechazado(submittedToMesa, estatusRevision)) {
+    return true;
+  }
+  if (
+    tipoDocumento &&
+    asesorPuedeSubirDocumentoNuevoReingreso(
+      submittedToMesa,
+      estatusRevision,
+      tipoDocumento,
+      esReingresoEtapa6,
+    )
+  ) {
     return true;
   }
   if (
@@ -80,6 +107,7 @@ export function asesorDocumentoUploadMode(
   submittedToMesa: boolean,
   estatusRevision: ResumenEstatus,
   tipoDocumento?: IntegrationDocAsesorUploadTipo,
+  esReingresoEtapa6 = false,
 ): AsesorDocumentoUploadMode | null {
   if (!submittedToMesa) return "normal";
   if (estatusRevision === "rechazado") return "correccion";
@@ -89,6 +117,17 @@ export function asesorDocumentoUploadMode(
       submittedToMesa,
       estatusRevision,
       tipoDocumento,
+    )
+  ) {
+    return "normal";
+  }
+  if (
+    tipoDocumento &&
+    asesorPuedeSubirDocumentoNuevoReingreso(
+      submittedToMesa,
+      estatusRevision,
+      tipoDocumento,
+      esReingresoEtapa6,
     )
   ) {
     return "normal";

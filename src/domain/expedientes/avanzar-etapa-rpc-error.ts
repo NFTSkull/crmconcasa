@@ -9,6 +9,18 @@ export function mapAvanzarEtapaRpcError(error: {
   const raw = `${error.message ?? ""} ${error.details ?? ""}`.trim();
   const msg = raw.toLowerCase();
 
+  if (raw.includes("REENTRY_AMOUNT_PENDING")) {
+    return new ExpedientesSupabaseError(
+      "Falta la nueva aprobación de monto del reingreso.",
+    );
+  }
+
+  if (raw.includes("REENTRY_DOCUMENTS_PENDING")) {
+    return new ExpedientesSupabaseError(
+      "Faltan el comprobante de domicilio y el estado de cuenta nuevos validados.",
+    );
+  }
+
   if (
     error.code === "42501" ||
     msg.includes("usuario no autenticado") ||

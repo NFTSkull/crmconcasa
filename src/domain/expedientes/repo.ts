@@ -3,6 +3,10 @@ import type { UpsertEditorDecisionInput } from "./upsert-editor-decision.input";
 import type { EditorListPage, EditorListQuery } from "./editor-list-query";
 import type { ExpedienteMock } from "./mock.repo";
 import type {
+  RechazoOperativoInput,
+  ReingresoElegibilidad,
+} from "./reingreso-post-biometricos";
+import type {
   ListForAsesorPaginatedOptions,
   PaginatedExpedientesResult,
 } from "./list-for-asesor-paginated";
@@ -38,5 +42,16 @@ export interface ExpedientesRepo {
   asesorUpdateMontoAprobado(
     expedienteId: string,
     montoAprobado: number,
+  ): Promise<ExpedienteMock>;
+  rechazarEtapaOperativa(
+    expedienteId: string,
+    input: RechazoOperativoInput,
+  ): Promise<ExpedienteMock>;
+  getReingresoPostBiometricosElegibilidad(
+    expedienteId: string,
+  ): Promise<ReingresoElegibilidad>;
+  iniciarReingresoPostBiometricos(
+    expedienteAnteriorId: string,
+    nota?: string | null,
   ): Promise<ExpedienteMock>;
 }

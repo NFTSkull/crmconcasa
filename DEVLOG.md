@@ -1,5 +1,62 @@
 # Devlog
 
+## 2026-07-15 - fix/reingreso-internas-acl (P073, Fase D.2)
+
+- 071/072 aplicadas en Cloud (Fase D.1) con hashes intactos; los default ACL de Cloud (`ALTER DEFAULT PRIVILEGES … GRANT EXECUTE … TO service_role`) dejaron `service_role=X` en las 3 internas de reingreso porque 072 solo revocaba `PUBLIC/anon/authenticated` ahí.
+- Regla: cualquier corrección post-aplicación va en migración nueva; 073 contiene solo 3 `REVOKE ALL … FROM PUBLIC, anon, authenticated, service_role` con firmas exactas (`UUID`, `()`, `UUID, UUID`). Sin cambios de cuerpo/firma/SECURITY DEFINER/RLS.
+- Runner aislado ampliado con probe de internas (`anon/auth/service=false`, `postgres=true`); 72 migraciones aplicadas (061 omitida), todas las suites verdes.
+- Post-073 en Cloud: internas cerradas para roles de aplicación; públicas, respaldos `*_pre_reingreso` y P070 intactos; conteos sin mutación (delta natural por uso real del CRM entre D.1 y D.2: +1 booking, +1 cliente_datos, +4 documentos).
+
+## 2026-07-15 - feat/reingreso-post-biometricos (P071/P072, Fase C local)
+
+### Preflight seguridad `*_pre_reingreso` (antes de Cloud)
+
+- Riesgo: al renombrar, PostgreSQL conserva ACLs. Si `authenticated`/`service_role` conservaran `EXECUTE` sobre `*_pre_reingreso`, podrían saltar gates de monto/documentos del hijo.
+- Hallazgo local (antes de refuerzo de texto): `proacl={postgres=X/postgres}` y `has_function_privilege(...)=false` para anon/authenticated/service_role — el riesgo no estaba activo en la DB ya aplicada, pero 072 solo revocaba `PUBLIC, anon, authenticated` y **omitía `service_role`**.
+- Corrección en 072: `REVOKE ALL … FROM PUBLIC, anon, authenticated, service_role` en las tres firmas de respaldo.
+- No existe `expediente_documento_storage_asesor_post_mesa_upload_allowed_pre_reingreso` (072 hace `CREATE OR REPLACE` in-place).
+- Pruebas nuevas: llamadas directas authenticated a `avanzar/upsert/register_*_pre_reingreso` fallan por `insufficient_privilege`; tras gates válidos la pública `avanzar_etapa_operativa` sí avanza 6→7.
+- Runner aislado `scripts/preflight-reingreso-isolated.sh`: DB descartable, omite 061, aplica 001–070+071+072, seed limpio (4 expedientes), RLS PASS, suites P070/071/072/Storage/editor/avance PASS; destruye la DB.
+
+### Decisión
+
+- Un ciclo operativo = un expediente. El reingreso crea hijo enlazado (`expediente_anterior_id` + `reingreso_rechazo_id`) y cierra sólo `ciclo_estado` del padre.
+- FK compuesta `(reingreso_rechazo_id, expediente_anterior_id) → expediente_rechazos_operativos(id, expediente_id)` garantiza pertenencia del rechazo al padre.
+- Índice de hijo activo acotado a reingresos reales (`expediente_anterior_id` y `reingreso_rechazo_id` no nulos).
+- Condiciones `reutilizables|repetir|invalidos` exigen booking + razón. Bookings futuros `booked` bloquean; bookings históricos no se mutan.
+- Elegibilidad e inicio comparten `reingreso_post_biometricos_elegibilidad_interna` (sin EXECUTE al cliente).
+- Excepciones 072 se activan solo con el conjunto completo de señales de reingreso válido.
+
+### Matriz exacta `cliente_datos` del hijo
+
+Copian (precarga editable):
+
+- JSON `datos`: `nombreCliente`, `nss`, `curp`, `rfc`, `celular`, `telefono`, `correo`, `empresa`, `registroPatronal`, `telefonoEmpresa`, `referencias`, `beneficiario`, `direccionEmpresa`, `plazo`, `notaMesa`.
+- Columnas: `referencias`, `imagenes`, `porcentaje_cobro`, `metodo_pago`.
+- `estado='completo'` solo si el padre no estaba `pendiente` (significa capturado, no aprobado por Mesa).
+
+Reinician:
+
+- `validated_at`, `validated_by`, `rejected_at`, `rejected_by`, `comentario_rechazo`.
+- `telefono_normalizado = NULL` (evita choque con índice único/migración 061 rota).
+- `monto_calculado = NULL`.
+- JSON eliminado explícitamente del payload copiado: `montoMejoravit` / `monto_mejoravit`, `montoCalculado` / `monto_calculado`, y cualquier clave fuera del modelo.
+- `editor_decisions` del hijo nace `pendiente` / monto `NULL`.
+
+Recalculan:
+
+- Tras `upsert_editor_decision` aprobado en el hijo: fórmula productiva base Mejoravit `least(monto*0.89, 169000)` o monto directo; luego `round(base * porcentaje_cobro / 100 + 3000, 2)`.
+
+Plazo:
+
+- Se precarga como valor editable, no como revalidación silenciosa. Mejoravit sigue exigiendo confirmarlo antes de guardar datos del ciclo nuevo; el gate 6→7 no usa el plazo antiguo como aprobación.
+
+### UI
+
+- Asesor: card de elegibilidad/inicio + badges de hijo; dashboard marca reingreso y oculta ciclos `cerrado` fuera del filtro «Todos».
+- Mesa: badge genealógico + card de rechazo operativo (sin alterar bookings).
+- Editor: etiqueta «Reingreso · revalidar monto». No había guard frontend por `submitted_to_mesa`; la excepción vive en RPC.
+
 ## 2026-07-14 - feat/asesor-convert-biometricos-to-notificacion (P070)
 
 ### Decisión

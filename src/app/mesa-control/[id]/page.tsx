@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { MesaExpedienteDetalleReadOnly } from "@/components/mesa-control/MesaExpedienteDetalleReadOnly";
+import { MesaRechazoOperativoPostBiometricosCard } from "@/components/mesa-control/MesaRechazoOperativoPostBiometricosCard";
 import { useSessionRepo } from "@/domain/session";
 import { Button } from "@/components/ui/Button";
 import { isDataModeSupabase } from "@/lib/dataMode";
@@ -1305,6 +1306,67 @@ function MesaControlExpedienteMockPage() {
             </div>
           </div>
         </section>
+
+        {expediente.reingreso?.expedienteAnteriorId &&
+        expediente.reingreso.rechazoId ? (
+          <section className="rounded-xl border border-violet-300 bg-violet-50 p-4 text-sm text-violet-950">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="inline-flex rounded-full bg-violet-700 px-2.5 py-1 text-xs font-semibold text-white">
+                Reingreso / Reinscripción
+              </span>
+              <span className="inline-flex rounded-full bg-emerald-100 px-2.5 py-1 text-xs font-semibold text-emerald-900">
+                Biométricos reutilizados
+              </span>
+            </div>
+            <dl className="mt-3 grid gap-2 sm:grid-cols-2">
+              <div>
+                <dt className="text-xs font-semibold uppercase text-violet-700">
+                  Expediente anterior
+                </dt>
+                <dd>
+                  <Link
+                    href={`/mesa-control/${expediente.reingreso.expedienteAnteriorId}`}
+                    className="font-medium underline"
+                  >
+                    {expediente.reingreso.expedienteAnteriorId}
+                  </Link>
+                </dd>
+              </div>
+              <div>
+                <dt className="text-xs font-semibold uppercase text-violet-700">
+                  Rechazo previo
+                </dt>
+                <dd>
+                  Etapa {expediente.reingreso.rechazoEtapa ?? "—"} ·{" "}
+                  {expediente.reingreso.rechazoMotivo ?? "Sin motivo"}
+                </dd>
+              </div>
+              {expediente.reingreso.biometricosRazon ? (
+                <div className="sm:col-span-2">
+                  <dt className="text-xs font-semibold uppercase text-violet-700">
+                    Decisión biométrica
+                  </dt>
+                  <dd>{expediente.reingreso.biometricosRazon}</dd>
+                </div>
+              ) : null}
+            </dl>
+            <p className="mt-3 text-xs">
+              Pendiente del ciclo nuevo: aprobación de monto, comprobante de
+              domicilio y estado de cuenta validados.
+            </p>
+          </section>
+        ) : null}
+
+        <MesaRechazoOperativoPostBiometricosCard
+          expedienteId={expediente.id}
+          etapaActual={expediente.operativo.etapaActual}
+          subestado={expediente.operativo.subestado}
+          cicloEstado={expediente.operativo.cicloEstado}
+          submittedToMesa={expediente.operativo.submittedToMesa}
+          fechaCita={expediente.operativo.fechaCita}
+          dataModeSupabase={isDataModeSupabase()}
+          onUpdated={load}
+        />
 
         <div className="rounded-xl border border-gray-200 bg-white p-6 shadow-sm">
           <h2 className="mb-4 text-base font-semibold text-gray-900">Resumen operativo</h2>

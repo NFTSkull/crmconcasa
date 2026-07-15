@@ -664,6 +664,50 @@ Adicional:
 
 ---
 
+## 17d. Rechazo operativo y reingreso post-biométricos — P071/P072
+
+### Rechazo operativo
+
+**Operación:** RPC `rechazar_etapa_operativa`  
+**Firma:** `rechazar_etapa_operativa(p_expediente_id uuid, p_motivo text, p_comentario text, p_biometricos_condicion biometricos_condicion, p_biometricos_razon text default null, p_biometricos_booking_id uuid default null) → jsonb`
+
+- Solo Mesa autorizada; expediente visible, activo, enviado y exactamente en etapa 5 o 6.
+- `reutilizables`, `repetir` e `invalidos` exigen booking biométrico del expediente, cita pasada y razón no vacía.
+- Un booking `cancelled` solo acredita intento si `cancelled_at` es posterior a la cita. Un booking futuro `booked` bloquea.
+- Registra una fila append-only en `expediente_rechazos_operativos`, cambia únicamente el subestado operativo a `rechazado` y escribe `action_log`.
+- No cancela, reactiva ni modifica bookings, `fecha_cita` o notas históricas.
+
+### Elegibilidad
+
+**Operación:** RPC read-only `get_reingreso_post_biometricos_elegibilidad`  
+**Firma:** `get_reingreso_post_biometricos_elegibilidad(p_expediente_id uuid) → jsonb`
+
+- Solo el asesor dueño consulta.
+- Reutiliza `reingreso_post_biometricos_elegibilidad_interna(uuid, uuid)`, sin grant al cliente.
+- Respuesta: `eligible`, `reason_code`, `reason_message`, `rechazo_id`, `biometricos_condicion`, `existing_child_id`.
+
+### Creación atómica
+
+**Operación:** RPC `iniciar_reingreso_post_biometricos`  
+**Firma:** `iniciar_reingreso_post_biometricos(p_expediente_anterior_id uuid, p_nota text default null) → jsonb`
+
+- Bloquea el padre y reevalúa dentro de la transacción la misma elegibilidad.
+- Cierra únicamente el ciclo del padre y crea un hijo enlazado en etapa 6, `en_proceso`, activo y enviado a Mesa, sin booking.
+- El hijo inicia una decisión de editor pendiente; la aprobación nueva recalcula el cobro con la fórmula productiva.
+- Reutiliza solo documentos validados de la lista blanca. Domicilio y estado de cuenta siempre son nuevos.
+- El avance especial 6→7 exige nueva aprobación con monto positivo y ambos documentos nuevos activos/validados.
+- Errores estables `REENTRY_*`; Zod valida inputs/outputs en dominio.
+
+### Seguridad e integridad
+
+- `SECURITY DEFINER`, `search_path=public`, referencias calificadas, `REVOKE` PUBLIC/anon y grants explícitos a `authenticated`, `service_role`, `postgres`.
+- FK compuesta `(reingreso_rechazo_id, expediente_anterior_id)` garantiza que el rechazo pertenezca al padre.
+- Índices parciales impiden reutilizar un rechazo o crear más de un hijo de reingreso activo.
+- `reutilizado_de_documento_id` conserva genealogía; lectura Storage se permite por un hijo visible sin ampliar escritura.
+- Auditoría en `action_log` y en la tabla especializada append-only.
+
+---
+
 ## 17. Repos mock existentes (referencia implementación)
 
 | Interfaz | Archivo |

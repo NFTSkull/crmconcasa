@@ -88,6 +88,29 @@ test("mapSupabaseRowToExpedienteMock: en_validacion_mesa conserva etapa 1", () =
   assert.equal(mock.operativo.cicloEstado, "activo");
 });
 
+test("mapSupabaseRowToExpedienteMock: mapea genealogía y rechazo de reingreso", () => {
+  const mock = mapSupabaseRowToExpedienteMock({
+    ...BASE_ROW,
+    etapa_actual: 6,
+    expediente_anterior_id: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+    reingreso_rechazo_id: "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb",
+    reingreso_rechazo: {
+      etapa: 5,
+      motivo: "Proceso detenido",
+      comentario: "Puede reinscribirse",
+      biometricos_condicion: "reutilizables",
+      biometricos_razon: "Mesa confirmó el intento",
+    },
+  });
+
+  assert.equal(
+    mock.reingreso?.expedienteAnteriorId,
+    "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+  );
+  assert.equal(mock.reingreso?.rechazoEtapa, 5);
+  assert.equal(mock.reingreso?.biometricosCondicion, "reutilizables");
+});
+
 test("mapCreateExpedienteRpcToExpedienteMock: respuesta RPC create", () => {
   const mock = mapCreateExpedienteRpcToExpedienteMock(
     {

@@ -573,6 +573,11 @@ export default function EditorDashboardPage() {
                         title={p.cliente_nombre || undefined}
                       >
                         {p.cliente_nombre || "—"}
+                        {p.esReingreso ? (
+                          <span className="mt-1 block w-fit rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-semibold text-violet-800">
+                            Reingreso · revalidar monto
+                          </span>
+                        ) : null}
                       </td>
                       <td className="truncate px-3 py-2 text-sm text-gray-600">
                         {p.telefono_cliente || "—"}

@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **fix/reingreso-internas-acl — P073:** `REVOKE ALL … FROM PUBLIC, anon, authenticated, service_role` sobre las 3 funciones internas de reingreso (`es_reingreso_post_biometricos_valido`, `reingreso_documentos_reutilizables`, `reingreso_post_biometricos_elegibilidad_interna`); cierra el EXECUTE que el default ACL de Cloud otorgó a `service_role`; solo ACL, idempotente; aplicada en Cloud (Fase D.2).
+
+- **feat/reingreso-post-biometricos — Fase C local (P071/P072):** rechazo operativo append-only con `biometricos_condicion`; RPC atómica de reingreso creando expediente hijo; elegibilidad compartida; whitelist documental; excepciones estrechas de editor/upload/Storage/avance 6→7; UI asesor/Mesa/editor; sin Cloud/commit/push. **Preflight seguridad:** `REVOKE ALL … FROM PUBLIC, anon, authenticated, service_role` sobre `*_pre_reingreso`; prueba de bypass directo; runner aislado omitiendo 061.
+
 - **feat/asesor-convert-biometricos-to-notificacion — P070:** RPC atómica `convert_biometricos_to_notificacion`; cancela bio → notif 12:00; etapa 4→3 (legacy 3 se mantiene); UI «Cambiar a Notificación extraordinaria»; un solo booking activo; sin Cloud.
 
 - **feat/mesa-agenda-drive-validation — Validado en Drive (P069):** columnas `drive_validated/_at/_by` en `agenda_bookings`; RPC `mesa_set_agenda_drive_validation`; `get_mesa_agenda_bookings` expone campos; UI en `/mesa-control/citas` (fila verde + badge + Validar/Quitar); persistencia por `booking_id`; sin tocar status/etapa/cupos.
