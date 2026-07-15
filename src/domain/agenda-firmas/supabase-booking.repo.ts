@@ -17,6 +17,21 @@ import type {
   CancelFirmasResult,
   ReagendarFirmasResult,
 } from "./repo";
+import {
+  mapMesaFirmasRpcError,
+  mesaBookFirmasInputSchema,
+  mesaBookFirmasResponseSchema,
+  mesaCancelFirmasInputSchema,
+  mesaCancelFirmasResponseSchema,
+  mesaReagendarFirmasInputSchema,
+  mesaReagendarFirmasResponseSchema,
+  type MesaBookFirmasInput,
+  type MesaBookFirmasResponse,
+  type MesaCancelFirmasInput,
+  type MesaCancelFirmasResponse,
+  type MesaReagendarFirmasInput,
+  type MesaReagendarFirmasResponse,
+} from "./mesa-firmas";
 
 const BOOKING_SELECT = `
   id,
@@ -353,5 +368,85 @@ export class SupabaseAgendaFirmasBookingRepo implements AgendaFirmasBookingRepo 
       kind: "firmas",
       etapaActual: Number(row.etapa_actual ?? 9),
     };
+  }
+
+  async mesaBookFirmas(
+    params: MesaBookFirmasInput,
+  ): Promise<MesaBookFirmasResponse> {
+    const input = mesaBookFirmasInputSchema.safeParse(params);
+    if (!input.success) {
+      throw new AgendaFirmasSupabaseError(
+        input.error.issues[0]?.message ?? "Los datos de la cita no son válidos.",
+      );
+    }
+    const { client } = await requireSupabaseSession();
+    const { data, error } = await client.rpc("mesa_book_firmas", {
+      p_expediente_id: input.data.expedienteId,
+      p_booking_at: input.data.bookingAt,
+      p_timezone: input.data.timezone,
+      p_location_id: input.data.locationId,
+      p_nota: input.data.nota ?? null,
+    });
+    if (error) throw mapMesaFirmasRpcError(error);
+    const parsed = mesaBookFirmasResponseSchema.safeParse(data);
+    if (!parsed.success) {
+      throw new AgendaFirmasSupabaseError(
+        "Respuesta inválida al agendar firmas desde Mesa.",
+      );
+    }
+    return parsed.data;
+  }
+
+  async mesaReagendarFirmas(
+    params: MesaReagendarFirmasInput,
+  ): Promise<MesaReagendarFirmasResponse> {
+    const input = mesaReagendarFirmasInputSchema.safeParse(params);
+    if (!input.success) {
+      throw new AgendaFirmasSupabaseError(
+        input.error.issues[0]?.message ??
+          "Los datos de la reagenda no son válidos.",
+      );
+    }
+    const { client } = await requireSupabaseSession();
+    const { data, error } = await client.rpc("mesa_reagendar_firmas", {
+      p_expediente_id: input.data.expedienteId,
+      p_booking_at: input.data.bookingAt,
+      p_timezone: input.data.timezone,
+      p_location_id: input.data.locationId,
+      p_motivo: input.data.motivo,
+    });
+    if (error) throw mapMesaFirmasRpcError(error);
+    const parsed = mesaReagendarFirmasResponseSchema.safeParse(data);
+    if (!parsed.success) {
+      throw new AgendaFirmasSupabaseError(
+        "Respuesta inválida al reagendar firmas desde Mesa.",
+      );
+    }
+    return parsed.data;
+  }
+
+  async mesaCancelFirmas(
+    params: MesaCancelFirmasInput,
+  ): Promise<MesaCancelFirmasResponse> {
+    const input = mesaCancelFirmasInputSchema.safeParse(params);
+    if (!input.success) {
+      throw new AgendaFirmasSupabaseError(
+        input.error.issues[0]?.message ??
+          "Los datos de cancelación no son válidos.",
+      );
+    }
+    const { client } = await requireSupabaseSession();
+    const { data, error } = await client.rpc("mesa_cancel_firmas", {
+      p_expediente_id: input.data.expedienteId,
+      p_motivo: input.data.motivo,
+    });
+    if (error) throw mapMesaFirmasRpcError(error);
+    const parsed = mesaCancelFirmasResponseSchema.safeParse(data);
+    if (!parsed.success) {
+      throw new AgendaFirmasSupabaseError(
+        "Respuesta inválida al cancelar firmas desde Mesa.",
+      );
+    }
+    return parsed.data;
   }
 }

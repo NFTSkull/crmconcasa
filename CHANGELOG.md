@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **feat/mesa-libertad-operativa — P074/P075 (Fase C local):** RPC exclusiva `mesa_mover_etapa_operativa` con lock optimista, movimiento 1–12 sin gates del flujo normal, subestado derivado, auditoría append-only/RLS y preservación de documentos, citas, bookings, montos, retención y genealogía; RPCs Mesa para alta/reagenda/cancelación explícita de firmas (`p_location_id` + timezone) para los cuatro roles Mesa visibles; UI de control manual, historial, advertencias y gestión de firmas; sin Cloud/commit/push/deploy. **Fase C.1:** runner aislado corre la regresión SQL completa con verificación md5 de RPCs núcleo antes/después de 074/075; reparación de fixtures preexistentes (`origen_mesa` faltante en `rpc_get_asesor_agenda_calendar.sql`; conflicto de slug/NSS en `rpc_get_mesa_agenda_bookings.sql`) reproducidos en baseline sin 074/075.
+
 - **fix/reingreso-internas-acl — P073:** `REVOKE ALL … FROM PUBLIC, anon, authenticated, service_role` sobre las 3 funciones internas de reingreso (`es_reingreso_post_biometricos_valido`, `reingreso_documentos_reutilizables`, `reingreso_post_biometricos_elegibilidad_interna`); cierra el EXECUTE que el default ACL de Cloud otorgó a `service_role`; solo ACL, idempotente; aplicada en Cloud (Fase D.2).
 
 - **feat/reingreso-post-biometricos — Fase C local (P071/P072):** rechazo operativo append-only con `biometricos_condicion`; RPC atómica de reingreso creando expediente hijo; elegibilidad compartida; whitelist documental; excepciones estrechas de editor/upload/Storage/avance 6→7; UI asesor/Mesa/editor; sin Cloud/commit/push. **Preflight seguridad:** `REVOKE ALL … FROM PUBLIC, anon, authenticated, service_role` sobre `*_pre_reingreso`; prueba de bypass directo; runner aislado omitiendo 061.

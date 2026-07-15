@@ -27,6 +27,11 @@ import {
   type EditorListPage,
   type EditorListQuery,
 } from "./editor-list-query";
+import type {
+  MesaMovimientoHistorialRow,
+  MesaMovimientoInput,
+  MesaMovimientoResultado,
+} from "./mesa-movimiento-etapa";
 
 export type EditorDecision = "pendiente" | "aprobado" | "no_cumple";
 export type OperativoSubestado =
@@ -762,6 +767,24 @@ export class MockExpedientesRepo implements ExpedientesRepo {
     }
 
     return result;
+  }
+
+  async mesaMoverEtapaOperativa(
+    _expedienteId: string,
+    _input: MesaMovimientoInput,
+  ): Promise<MesaMovimientoResultado> {
+    void _expedienteId;
+    void _input;
+    throw new Error(
+      "El movimiento manual de Mesa solo está disponible en modo Supabase.",
+    );
+  }
+
+  async listMesaMovimientos(
+    _expedienteId: string,
+  ): Promise<readonly MesaMovimientoHistorialRow[]> {
+    void _expedienteId;
+    return [];
   }
 
   async enviarAMesaWithPayload(

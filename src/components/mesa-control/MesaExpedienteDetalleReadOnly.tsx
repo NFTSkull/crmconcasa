@@ -77,6 +77,7 @@ import {
   type AgendaNotificacionActiveBooking,
 } from "@/domain/agenda-biometricos";
 import {
+  getMesaFirmasUiAccess,
   useAgendaFirmasBookingRepo,
   AgendaFirmasSupabaseError,
   type AgendaFirmasActiveBooking,
@@ -116,6 +117,8 @@ import { subestadoOperativoLabel } from "@/lib/subestadoOperativoUi";
 import { useMesaOpsRepo, type MesaExpedienteOpsRow } from "@/domain/mesa-ops";
 import { recordMesaExpedienteOpened } from "@/lib/mesaExpedienteOpenedStorage";
 import { MesaExpedienteOpsSection } from "@/components/mesa-control/MesaExpedienteOpsSection";
+import { MesaControlManualEtapaSection } from "@/components/mesa-control/MesaControlManualEtapaSection";
+import { MesaGestionFirmasSection } from "@/components/mesa-control/MesaGestionFirmasSection";
 
 type LoadState = "loading" | "ready" | "not_found" | "error";
 
@@ -274,6 +277,11 @@ export function MesaExpedienteDetalleReadOnly() {
   const mesaSessionRole = currentUser?.role ?? null;
 
   const puedeOperarMesa = puedeRevisarDocumentos(currentUser?.role);
+  const firmasMesaUiAccess = getMesaFirmasUiAccess({
+    role: mesaOpsAppRole ?? mesaSessionRole ?? mesaMockRole,
+    etapaActual: expediente?.operativo.etapaActual ?? null,
+    hasActiveBooking: activeFirmasBooking != null,
+  });
 
   useEffect(() => {
     if (!mesaOpsRepo) {
@@ -1392,7 +1400,7 @@ export function MesaExpedienteDetalleReadOnly() {
       try {
         if (cancelCitaKind === "firmas") {
           if (!firmasBookingRepo) return;
-          await firmasBookingRepo.cancelFirmas({
+          await firmasBookingRepo.mesaCancelFirmas({
             expedienteId: routeExpedienteId,
             motivo,
           });
@@ -1796,6 +1804,20 @@ export function MesaExpedienteDetalleReadOnly() {
         />
       </MesaAccordionSection>
 
+      {firmasMesaUiAccess.visible ? (
+        <MesaGestionFirmasSection
+          expedienteId={routeExpedienteId}
+          etapaActual={etapaActual ?? 1}
+          activeBooking={activeFirmasBooking}
+          config={firmasConfig}
+          onRefresh={load}
+          onRequestCancel={() => {
+            setCancelCitaError(null);
+            setCancelCitaKind("firmas");
+          }}
+        />
+      ) : null}
+
       <MesaCancelarCitaDialog
         open={cancelCitaKind != null}
         kindLabel={cancelCitaKindLabel}
@@ -1803,6 +1825,30 @@ export function MesaExpedienteDetalleReadOnly() {
         error={cancelCitaError}
         onClose={() => setCancelCitaKind(null)}
         onConfirm={handleConfirmCancelCita}
+      />
+
+      <MesaControlManualEtapaSection
+        expedienteId={routeExpedienteId}
+        etapaActual={etapaActual ?? 1}
+        role={mesaOpsAppRole ?? mesaSessionRole ?? mesaMockRole}
+        submittedToMesa={expediente.operativo.submittedToMesa ?? false}
+        cicloEstado={expediente.operativo.cicloEstado ?? null}
+        subestado={expediente.operativo.subestado ?? null}
+        hasBiometricBooking={activeBiometricBooking != null}
+        hasFirmasBooking={activeFirmasBooking != null}
+        hasMonto={
+          typeof expediente.editorDecision.monto_aprobado === "number" &&
+          expediente.editorDecision.monto_aprobado > 0
+        }
+        hasMissingDocuments={archivosResumen.some(
+          (archivo) => archivo.estatus_revision !== "validado",
+        )}
+        hasRetencion={retencionEnvio != null || retencionOpcionMesa != null}
+        hasValidatedData={
+          clienteDatos?.estado === "validado" ||
+          archivosResumen.some((archivo) => archivo.estatus_revision === "validado")
+        }
+        onRefresh={load}
       />
 
       <MesaCierreValidacionDocumentalSection

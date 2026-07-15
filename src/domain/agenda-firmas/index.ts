@@ -13,6 +13,23 @@ export { mapBookFirmasRpcError } from "./book-firmas-rpc-error";
 export { mapCancelFirmasRpcError } from "./cancel-firmas-rpc-error";
 export { mapReagendarFirmasRpcError } from "./reagendar-firmas-rpc-error";
 export {
+  getMesaFirmasUiAccess,
+  getMesaFirmasErrorCode,
+  mapMesaFirmasRpcError,
+  mesaBookFirmasInputSchema,
+  mesaBookFirmasResponseSchema,
+  mesaCancelFirmasInputSchema,
+  mesaCancelFirmasResponseSchema,
+  mesaReagendarFirmasInputSchema,
+  mesaReagendarFirmasResponseSchema,
+  type MesaBookFirmasInput,
+  type MesaBookFirmasResponse,
+  type MesaCancelFirmasInput,
+  type MesaCancelFirmasResponse,
+  type MesaReagendarFirmasInput,
+  type MesaReagendarFirmasResponse,
+} from "./mesa-firmas";
+export {
   canShowAsesorFirmasSupabaseCard,
   canShowFirmasManageActions,
 } from "./firmas-booking-actions";

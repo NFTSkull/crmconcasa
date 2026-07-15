@@ -170,7 +170,7 @@ BEGIN
 
   INSERT INTO public.organizations (id, slug, name, active)
   VALUES (v_org_other, 'org-otra-mesa-bookings', 'Org Otra Mesa Bookings', true)
-  ON CONFLICT (slug) DO UPDATE SET active = true, updated_at = NOW();
+  ON CONFLICT (id) DO UPDATE SET active = true, updated_at = NOW();
 
   INSERT INTO public.profiles (
     id, organization_id, email, full_name, app_role, tipo_mesa, tipo_asesor_origen, active
@@ -190,7 +190,7 @@ BEGIN
     updated_at = NOW();
 
   PERFORM public.__rpc_mesa_bookings_test_insert_expediente(
-    v_exp_int, v_org, v_asesor_int, '90701000001', 'interno'::public.origen_mesa, 'Cliente Interno Mesa', 3::smallint
+    v_exp_int, v_org, v_asesor_int, '90751000001', 'interno'::public.origen_mesa, 'Cliente Interno Mesa', 3::smallint
   );
   PERFORM public.__rpc_mesa_bookings_test_insert_expediente(
     v_exp_ext, v_org, v_asesor_ext, '90702000002', 'externo'::public.origen_mesa, 'Cliente Externo Mesa', 9::smallint
@@ -340,7 +340,7 @@ BEGIN
   WHERE booking_id = v_bio_id
     AND expediente_id = v_exp_int
     AND cliente_nombre = 'Cliente Interno Mesa'
-    AND nss = '90701000001';
+    AND nss = '90751000001';
   PERFORM public.__rpc_mesa_bookings_test_assert(v_rows = 1, 'test 15-16: expediente_id cliente y NSS');
   PERFORM public.__rpc_mesa_bookings_test_reset_auth();
 

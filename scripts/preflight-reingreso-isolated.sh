@@ -144,6 +144,17 @@ BEGIN
 END$$;
 SQL
 
+capture_core_fn_hashes() {
+  psql_iso -At -c "
+    SELECT p.proname || '|' || pg_get_function_identity_arguments(p.oid)
+           || '|' || md5(pg_get_functiondef(p.oid)) || '|' || COALESCE(p.proacl::text, '')
+    FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname = 'public' AND p.proname IN (
+      'avanzar_etapa_operativa','book_firmas','reagendar_firmas',
+      'cancel_firmas','convert_biometricos_to_notificacion'
+    ) ORDER BY p.proname;"
+}
+
 echo "==> Applying productive migrations (skip ${SKIP_MIGRATION_PREFIX}*)"
 APPLIED=()
 SKIPPED=()
@@ -155,6 +166,10 @@ for mig in supabase/migrations/*.sql; do
     echo "    SKIP  $base"
     continue
   fi
+  if [[ "$base" == 074_* ]]; then
+    echo "    (hash snapshot of core RPCs before 074/075)"
+    capture_core_fn_hashes > "$TMP_DIR/core_fn_hashes_before.txt"
+  fi
   echo "    APPLY $base"
   if ! psql_iso -f "$mig" >>"$LOG_FILE" 2>&1; then
     echo "ERROR applying $base — see $LOG_FILE"
@@ -163,6 +178,16 @@ for mig in supabase/migrations/*.sql; do
   fi
   APPLIED+=("$base")
 done
+
+echo "==> Core RPC hash check after 074/075"
+capture_core_fn_hashes > "$TMP_DIR/core_fn_hashes_after.txt"
+if diff "$TMP_DIR/core_fn_hashes_before.txt" "$TMP_DIR/core_fn_hashes_after.txt"; then
+  echo "    CORE RPC BODIES/ACL UNCHANGED by 074/075"
+  cp "$TMP_DIR/core_fn_hashes_after.txt" /tmp/preflight-core-fn-hashes.txt
+else
+  echo "    ERROR: core RPCs changed by 074/075"
+  FAILED=1
+fi
 
 echo "==> Applied ${#APPLIED[@]} migrations; skipped ${#SKIPPED[@]}"
 printf '    APPLIED: %s\n' "${APPLIED[@]}"
@@ -190,27 +215,19 @@ run_suite() {
   fi
 }
 
-echo "==> SQL suites (clean isolated DB)"
-# Captura detallada de RLS antes de continuar.
-echo "==> Running supabase/tests/rls_policies.sql (capturing full output)"
-if psql_iso -f "supabase/tests/rls_policies.sql" | tee "$TMP_DIR/rls_policies.out"; then
-  echo "    PASS supabase/tests/rls_policies.sql"
-  cp "$TMP_DIR/rls_policies.out" /tmp/preflight-rls-policies.out
+echo "==> SQL suites (clean isolated DB): full regression via scripts/test-sql.sh"
+# Cada suite corre una sola vez sobre el seed limpio (las suites no son
+# re-ejecutables entre sí porque mutan datos del seed).
+if SUPABASE_DB_HOST="$DB_HOST" SUPABASE_DB_PORT="$DB_PORT" \
+   SUPABASE_DB_USER="$DB_USER" SUPABASE_DB_PASSWORD="$DB_PASSWORD" \
+   SUPABASE_DB_NAME="$ISOLATED_DB" ./scripts/test-sql.sh | tee "$TMP_DIR/sql_suites.out"; then
+  echo "    PASS full SQL regression (scripts/test-sql.sh)"
+  cp "$TMP_DIR/sql_suites.out" /tmp/preflight-sql-suites.out
 else
-  echo "    FAIL supabase/tests/rls_policies.sql"
+  echo "    FAIL full SQL regression (scripts/test-sql.sh)"
   FAILED=1
-  cp "$TMP_DIR/rls_policies.out" /tmp/preflight-rls-policies.out 2>/dev/null || true
+  cp "$TMP_DIR/sql_suites.out" /tmp/preflight-sql-suites.out 2>/dev/null || true
 fi
-
-run_suite "supabase/tests/rpc_rechazar_etapa_operativa.sql"
-run_suite "supabase/tests/rpc_reingreso_post_biometricos.sql"
-run_suite "supabase/tests/rpc_register_expediente_documento.sql"
-run_suite "supabase/tests/rpc_register_expediente_documento_retencion.sql"
-run_suite "supabase/tests/rpc_convert_biometricos_to_notificacion.sql"
-run_suite "supabase/tests/rpc_upsert_editor_decision.sql"
-run_suite "supabase/tests/rpc_avanzar_etapa_5_6.sql"
-run_suite "supabase/tests/rpc_avanzar_etapa_6_7.sql"
-run_suite "supabase/tests/rpc_avanzar_etapa_operativa.sql"
 
 echo "==> Privilege probe after suites"
 psql_iso <<'SQL' | tee /tmp/preflight-pre-reingreso-privileges.out

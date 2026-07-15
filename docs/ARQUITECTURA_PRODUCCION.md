@@ -118,6 +118,13 @@ Migración inicial: `supabase/migrations/001_core_schema.sql`
 
 Mock hoy: sin persistencia; producción: **obligatorio** en cada RPC de mutación (P6).
 
+### 8.1 Movimiento manual de Mesa
+
+- `expediente_movimientos_mesa` conserva el evento append-only sin PII y se lee por RLS con `can_see_expediente`.
+- `mesa_mover_etapa_operativa` usa `SECURITY DEFINER`, `search_path=''`, referencias calificadas, lock de fila y etapa esperada.
+- La RPC no reutiliza funciones de transición normal: la separación evita que la excepción Mesa relaje gates globales.
+- Las RPC `mesa_*_firmas` reutilizan únicamente la validación canónica de disponibilidad/cupo; no cambian etapa y no amplían las RPC compartidas del asesor.
+
 ---
 
 ## 9. Estrategia de migración P1–P9

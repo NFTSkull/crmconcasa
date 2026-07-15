@@ -1,5 +1,29 @@
 # Devlog
 
+## 2026-07-15 - feat/mesa-libertad-operativa (P074/P075, Fase C local)
+
+### Decisiones
+
+- El movimiento manual es una RPC separada; nunca llama ni relaja `avanzar_etapa_operativa`. Solo actualiza `etapa_actual`, `subestado` derivado y `updated_at`.
+- `p_etapa_esperada` es obligatorio y se valida bajo `SELECT … FOR UPDATE`; una pantalla obsoleta recibe `MESA_MOVE_STAGE_CONFLICT`.
+- El historial especializado `expediente_movimientos_mesa` es append-only, sin PII, con FKs `RESTRICT`, lectura RLS por `can_see_expediente` y escritura únicamente desde la RPC `SECURITY DEFINER`.
+- Etapa 1 deriva `en_validacion_mesa`; etapas 2–12 derivan `en_proceso`. Entrar a 11/12 no firma, paga, aprueba ni cierra.
+- La firma propuesta necesitó `p_location_id`: `agenda_bookings.location_id` es obligatorio y el cupo se calcula por sede. Se conserva además `p_timezone`, que debe coincidir con `agenda_config`.
+- No se amplían `book_firmas`/`reagendar_firmas` del asesor. P075 crea RPCs Mesa para los cuatro roles. Se agregó `mesa_cancel_firmas` porque `cancel_firmas` compartida bloquea fuera de 9/10, pero el producto exige cancelación explícita de un booking conservado tras un movimiento manual.
+- `mesa_cancel_firmas` no cambia etapa y solo limpia `fecha_cita` si no queda otro booking activo del expediente.
+
+### Fase C.1 — preflight final (2026-07-15)
+
+- El runner aislado ahora ejecuta la regresión SQL completa (`scripts/test-sql.sh`) sobre el seed limpio en lugar de una lista parcial duplicada: las suites no son re-ejecutables entre sí porque mutan datos del seed. Además captura md5 de `avanzar_etapa_operativa`, `book_firmas`, `reagendar_firmas`, `cancel_firmas` y `convert_biometricos_to_notificacion` antes y después de aplicar 074/075 y falla si cambian (quedaron idénticos).
+- Dos fallos preexistentes de fixtures se reprodujeron en baseline 001–073 (sin 074/075) y se corrigieron solo en tests, sin tocar migraciones ni expectativas: `rpc_get_asesor_agenda_calendar.sql` insertaba expedientes sin `origen_mesa` (NOT NULL desde 001; se agrega parámetro explícito interno/externo según el asesor del seed) y `rpc_get_mesa_agenda_bookings.sql` usaba `ON CONFLICT (slug)` para una org cuyo id ya existía con otro slug y reutilizaba el NSS `90701000001` ya ocupado por la suite de avanzar (se cambia a `ON CONFLICT (id)` y NSS `90751000001`). Ambos tests pasan en baseline y con 074/075.
+
+### Verificación local
+
+- Runner aislado aplica 001–075, omite únicamente 061 conforme al preflight existente y ejecuta la regresión SQL completa (RLS, P070/P071/P072, 074/075, agenda, documentos, editor, retención y avances normales) en verde.
+- P074 prueba roles/origen/org, estados excluidos, concurrencia, rollback forzado, inmutabilidad y preservación de datos relacionados.
+- P075 prueba alta/reagenda/cancelación, etapas 9/10, conservación al mover, cancelación fuera de etapa y regresión de `book_firmas` original.
+- UI valida con Zod entradas/respuestas, bloquea doble clic durante `saving`, refresca en conflicto y muestra advertencias no bloqueantes.
+
 ## 2026-07-15 - fix/reingreso-internas-acl (P073, Fase D.2)
 
 - 071/072 aplicadas en Cloud (Fase D.1) con hashes intactos; los default ACL de Cloud (`ALTER DEFAULT PRIVILEGES … GRANT EXECUTE … TO service_role`) dejaron `service_role=X` en las 3 internas de reingreso porque 072 solo revocaba `PUBLIC/anon/authenticated` ahí.

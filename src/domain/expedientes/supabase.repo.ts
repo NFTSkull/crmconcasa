@@ -39,6 +39,15 @@ import {
   type SupabaseAsesorProfileEmbed,
   type SupabaseExpedienteListRow,
 } from "./map-supabase-row";
+import {
+  mapMesaMovimientoRpcError,
+  mesaMovimientoHistorialRowSchema,
+  mesaMovimientoInputSchema,
+  mesaMovimientoResultadoSchema,
+  type MesaMovimientoHistorialRow,
+  type MesaMovimientoInput,
+  type MesaMovimientoResultado,
+} from "./mesa-movimiento-etapa";
 
 const EXPEDIENTES_LIST_SELECT = `
   id,
@@ -548,6 +557,79 @@ export class SupabaseExpedientesRepo implements ExpedientesRepo {
     }
 
     return refreshed;
+  }
+
+  async mesaMoverEtapaOperativa(
+    expedienteId: string,
+    input: MesaMovimientoInput,
+  ): Promise<MesaMovimientoResultado> {
+    const idResult = reingresoExpedienteIdSchema.safeParse(expedienteId);
+    const inputResult = mesaMovimientoInputSchema.safeParse(input);
+    if (!idResult.success) {
+      throw new ExpedientesSupabaseError(
+        "El identificador del expediente no es válido.",
+      );
+    }
+    if (!inputResult.success) {
+      throw new ExpedientesSupabaseError(
+        inputResult.error.issues[0]?.message ??
+          "Los datos del movimiento manual no son válidos.",
+      );
+    }
+
+    const { client } = await requireSupabaseSession();
+    const { data, error } = await client.rpc("mesa_mover_etapa_operativa", {
+      p_expediente_id: idResult.data,
+      p_etapa_destino: inputResult.data.etapaDestino,
+      p_etapa_esperada: inputResult.data.etapaEsperada,
+      p_motivo: inputResult.data.motivo,
+    });
+
+    if (error) throw mapMesaMovimientoRpcError(error);
+
+    const parsed = mesaMovimientoResultadoSchema.safeParse(data);
+    if (!parsed.success) {
+      throw new ExpedientesSupabaseError(
+        "La etapa cambió, pero la respuesta del servidor no es válida.",
+      );
+    }
+    return parsed.data;
+  }
+
+  async listMesaMovimientos(
+    expedienteId: string,
+  ): Promise<readonly MesaMovimientoHistorialRow[]> {
+    const idResult = reingresoExpedienteIdSchema.safeParse(expedienteId);
+    if (!idResult.success) {
+      throw new ExpedientesSupabaseError(
+        "El identificador del expediente no es válido.",
+      );
+    }
+
+    const { client } = await requireSupabaseSession();
+    const { data, error } = await client
+      .from("expediente_movimientos_mesa")
+      .select(
+        "id, organization_id, expediente_id, etapa_origen, etapa_destino, subestado_origen, subestado_destino, motivo, actor_id, actor_role, created_at",
+      )
+      .eq("expediente_id", idResult.data)
+      .order("created_at", { ascending: false });
+
+    if (error) {
+      throw new ExpedientesSupabaseError(
+        "No se pudo consultar el historial de movimientos manuales.",
+      );
+    }
+
+    return (data ?? []).map((row) => {
+      const parsed = mesaMovimientoHistorialRowSchema.safeParse(row);
+      if (!parsed.success) {
+        throw new ExpedientesSupabaseError(
+          "El historial de movimientos contiene una respuesta inválida.",
+        );
+      }
+      return parsed.data;
+    });
   }
 
   async asesorUpdateMontoAprobado(

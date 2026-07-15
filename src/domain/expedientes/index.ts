@@ -20,6 +20,21 @@ export type { CreateExpedienteInput } from "./create-expediente.input";
 export type { UpsertEditorDecisionInput } from "./upsert-editor-decision.input";
 export type { EditorListPage, EditorListQuery } from "./editor-list-query";
 export {
+  deriveMesaMovimientoAdvertencias,
+  getMesaMovimientoDireccion,
+  getMesaMovimientoErrorCode,
+  mapMesaMovimientoRpcError,
+  mesaEtapaSchema,
+  mesaMovimientoHistorialRowSchema,
+  mesaMovimientoInputSchema,
+  mesaMovimientoResultadoSchema,
+  puedeConfirmarMovimientoMesa,
+  puedeMostrarControlManualMesa,
+  type MesaMovimientoHistorialRow,
+  type MesaMovimientoInput,
+  type MesaMovimientoResultado,
+} from "./mesa-movimiento-etapa";
+export {
   biometricosCondicionSchema,
   esExpedienteReingreso,
   getReingresoErrorCode,

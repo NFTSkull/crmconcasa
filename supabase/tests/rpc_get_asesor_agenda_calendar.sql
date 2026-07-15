@@ -5,17 +5,18 @@ CREATE OR REPLACE FUNCTION public.__rpc_calendar_test_insert_expediente(
   p_id UUID,
   p_org UUID,
   p_asesor UUID,
-  p_nss TEXT
+  p_nss TEXT,
+  p_origen public.origen_mesa
 ) RETURNS VOID
 LANGUAGE plpgsql
 AS $$
 BEGIN
   INSERT INTO public.expedientes (
     id, organization_id, asesor_id, programa, nss, cliente_nombre,
-    telefono_cliente, submitted_to_mesa, etapa_actual, subestado, ciclo_estado
+    telefono_cliente, origen_mesa, submitted_to_mesa, etapa_actual, subestado, ciclo_estado
   ) VALUES (
     p_id, p_org, p_asesor, 'mejoravit', p_nss, 'Cliente test',
-    '8110000000', true, 4, 'en_proceso', 'activo'
+    '8110000000', p_origen, true, 4, 'en_proceso', 'activo'
   )
   ON CONFLICT (id) DO UPDATE SET
     asesor_id = EXCLUDED.asesor_id,
@@ -40,8 +41,8 @@ DECLARE
   v_rows INTEGER;
   v_direct INTEGER;
 BEGIN
-  PERFORM public.__rpc_calendar_test_insert_expediente(v_exp_a1, v_org, v_asesor_a1, '90100000001');
-  PERFORM public.__rpc_calendar_test_insert_expediente(v_exp_a2, v_org, v_asesor_a2, '90100000002');
+  PERFORM public.__rpc_calendar_test_insert_expediente(v_exp_a1, v_org, v_asesor_a1, '90100000001', 'interno');
+  PERFORM public.__rpc_calendar_test_insert_expediente(v_exp_a2, v_org, v_asesor_a2, '90100000002', 'externo');
 
   DELETE FROM public.agenda_bookings
   WHERE expediente_id IN (v_exp_a1, v_exp_a2)
@@ -132,4 +133,4 @@ BEGIN
 END;
 $$;
 
-DROP FUNCTION IF EXISTS public.__rpc_calendar_test_insert_expediente(UUID, UUID, UUID, TEXT);
+DROP FUNCTION IF EXISTS public.__rpc_calendar_test_insert_expediente(UUID, UUID, UUID, TEXT, public.origen_mesa);

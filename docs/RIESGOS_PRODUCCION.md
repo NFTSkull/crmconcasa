@@ -34,6 +34,7 @@
 | Riesgo | Impacto | Mitigación |
 |--------|---------|------------|
 | Dos operadores Mesa avanzan etapa | Medio | Optimistic lock `updated_at` / `version` en RPC |
+| Dos operadores realizan movimiento manual | Alto | `SELECT FOR UPDATE` + `p_etapa_esperada`; conflicto estable sin evento parcial |
 | Doble booking mismo slot | Medio | UNIQUE parcial agenda + transacción |
 | Doble envío mesa | Bajo | Idempotency key + estado `submitted_to_mesa` |
 
@@ -66,6 +67,7 @@
 | Mutación sin `action_log` | Alto compliance | Trigger/RPC obligatorio P6 |
 | `audit_events` mutable | Alto | REVOKE UPDATE/DELETE |
 | Cliente falsifica actor | Crítico | Actor = `auth.uid()` server-side |
+| Movimiento manual borra evidencia | Crítico | RPC acotada a etapa/subestado/updated_at + suite de preservación y tabla append-only |
 
 ---
 

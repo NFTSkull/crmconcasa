@@ -1,4 +1,12 @@
 import type { AgendaBiometricosWeeklyConfig } from "@/domain/agenda-biometricos/map-agenda-config";
+import type {
+  MesaBookFirmasInput,
+  MesaBookFirmasResponse,
+  MesaCancelFirmasInput,
+  MesaCancelFirmasResponse,
+  MesaReagendarFirmasInput,
+  MesaReagendarFirmasResponse,
+} from "./mesa-firmas";
 
 export type AgendaFirmasWeeklyConfig = AgendaBiometricosWeeklyConfig;
 
@@ -112,4 +120,11 @@ export interface AgendaFirmasBookingRepo {
     locationId: string;
     note?: string | null;
   }): Promise<ReagendarFirmasResult>;
+  mesaBookFirmas(params: MesaBookFirmasInput): Promise<MesaBookFirmasResponse>;
+  mesaReagendarFirmas(
+    params: MesaReagendarFirmasInput,
+  ): Promise<MesaReagendarFirmasResponse>;
+  mesaCancelFirmas(
+    params: MesaCancelFirmasInput,
+  ): Promise<MesaCancelFirmasResponse>;
 }

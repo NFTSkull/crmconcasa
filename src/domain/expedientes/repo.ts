@@ -10,6 +10,11 @@ import type {
   ListForAsesorPaginatedOptions,
   PaginatedExpedientesResult,
 } from "./list-for-asesor-paginated";
+import type {
+  MesaMovimientoHistorialRow,
+  MesaMovimientoInput,
+  MesaMovimientoResultado,
+} from "./mesa-movimiento-etapa";
 
 export type {
   ListForAsesorPaginatedOptions,
@@ -34,6 +39,13 @@ export interface ExpedientesRepo {
     expedienteId: string,
     comentario?: string | null,
   ): Promise<ExpedienteMock>;
+  mesaMoverEtapaOperativa(
+    expedienteId: string,
+    input: MesaMovimientoInput,
+  ): Promise<MesaMovimientoResultado>;
+  listMesaMovimientos(
+    expedienteId: string,
+  ): Promise<readonly MesaMovimientoHistorialRow[]>;
   upsertEditorDecision(
     expedienteId: string,
     input: UpsertEditorDecisionInput,

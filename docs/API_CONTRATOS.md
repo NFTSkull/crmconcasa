@@ -708,6 +708,34 @@ Adicional:
 
 ---
 
+## 17e. Libertad operativa y firmas por Mesa — P074/P075
+
+### Movimiento manual
+
+**RPC:** `mesa_mover_etapa_operativa(p_expediente_id uuid, p_etapa_destino smallint, p_etapa_esperada smallint, p_motivo text) → jsonb`
+
+- Roles: `mesa_admin`, `mesa_interno`, `mesa_externo`, `super_admin`; organización/origen siempre por `can_see_expediente`.
+- Requiere expediente no eliminado, enviado, ciclo activo y subestado `en_validacion_mesa|en_proceso`.
+- Destino 1 deriva `en_validacion_mesa`; 2–12 deriva `en_proceso`.
+- Solo muta etapa/subestado/updated_at. Escribe `expediente_movimientos_mesa` y `action_log`.
+- Errores estables `MESA_MOVE_*`; `p_etapa_esperada` evita sobrescritura concurrente.
+
+### Firmas exclusivas de Mesa
+
+**Alta:** `mesa_book_firmas(p_expediente_id uuid, p_booking_at timestamptz, p_timezone text, p_location_id text, p_nota text default null) → jsonb`
+
+**Reagenda:** `mesa_reagendar_firmas(p_expediente_id uuid, p_booking_at timestamptz, p_timezone text, p_location_id text, p_motivo text) → jsonb`
+
+**Cancelación:** `mesa_cancel_firmas(p_expediente_id uuid, p_motivo text) → jsonb`
+
+- Alta/reagenda: cuatro roles Mesa, expediente visible, activo/enviado, etapa 9/10, fecha futura, timezone y sede de `agenda_config`.
+- Cancelación: explícita sobre booking activo visible; permitida fuera de 9/10 para resolver bookings conservados por movimiento manual.
+- Ninguna operación cambia etapa. Alta/reagenda actualizan `fecha_cita`; cancelación la limpia solo si no queda otro booking activo.
+- Las RPC compartidas `book_firmas`, `reagendar_firmas` y `cancel_firmas` conservan sus contratos.
+- Seguridad: `SECURITY DEFINER`, `search_path=''`, referencias calificadas, `REVOKE PUBLIC/anon`, grants explícitos.
+
+---
+
 ## 17. Repos mock existentes (referencia implementación)
 
 | Interfaz | Archivo |
