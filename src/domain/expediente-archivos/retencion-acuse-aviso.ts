@@ -62,20 +62,45 @@ function filaTieneArchivo(row: ArchivoRowMin | undefined): boolean {
   return row.estatus_revision !== "faltante";
 }
 
-/** Faltantes del punto Acuse / Aviso (etapa 8): opción no elegida o documentos de la opción activa. */
+/**
+ * Documento listo para `enviar_retencion_mesa` (espejo del RPC):
+ * id persistido + estatus `subido` | `resubido` | `validado`.
+ * No cuenta File local, faltante, rechazado ni soft-deleted.
+ */
+export function retencionDocListoParaEnvioMesa(
+  row: ArchivoRowMin | undefined,
+): boolean {
+  if (!row?.id) return false;
+  const e = row.estatus_revision;
+  return e === "subido" || e === "resubido" || e === "validado";
+}
+
+export const MSG_RETENCION_FALTA_OPCION_ENVIO =
+  "Selecciona si el trámite tiene sello o no tiene sello.";
+
+export const MSG_RETENCION_OPCION_AMBIGUA_ENVIO =
+  "Hay documentos de ambas opciones. Selecciona cuál enviarás a Mesa Control.";
+
+export const MSG_RETENCION_FALTAN_DOCS_ENVIO_PREFIX =
+  "Faltan documentos para enviar a Mesa Control:";
+
+export const MSG_RETENCION_REFETCH_FALLIDO =
+  "El archivo se guardó, pero no fue posible actualizar la vista. Recarga el expediente.";
+
+/** Faltantes del punto Acuse / Aviso (etapa 8): opción no elegida o docs no listos para envío. */
 export function deriveRetencionAcuseAvisoFaltantes(params: {
   retencion_opcion: RetencionOpcion | null | undefined;
   archivos: readonly ArchivoRowMin[];
 }): RetencionFaltanteItem[] {
   const { retencion_opcion, archivos } = params;
   if (!retencion_opcion) {
-    return [{ kind: "opcion", label: "Seleccionar opción A o B (tiene sello / no tiene sello)" }];
+    return [{ kind: "opcion", label: MSG_RETENCION_FALTA_OPCION_ENVIO }];
   }
 
   const faltantes: RetencionFaltanteItem[] = [];
   for (const tipo of tiposRequeridosRetencion(retencion_opcion)) {
     const row = findRowPorTipoDocumento(archivos, tipo);
-    if (!filaTieneArchivo(row)) {
+    if (!retencionDocListoParaEnvioMesa(row)) {
       faltantes.push({
         kind: "documento",
         tipo_documento: tipo,

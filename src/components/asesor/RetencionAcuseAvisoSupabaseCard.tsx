@@ -10,12 +10,14 @@ import {
   validatePdfFile,
 } from "@/lib/fileUploadValidation";
 import {
+  MSG_RETENCION_REFETCH_FALLIDO,
   RETENCION_ETAPA_OPERATIVA_ID,
   labelRetencionOpcion,
   type RetencionTipoDocumento,
 } from "@/domain/expediente-archivos/retencion-acuse-aviso";
 import {
   ExpedienteRetencionSupabaseError,
+  copyMotivoDeshabilitarEnvioRetencion,
   deriveAsesorRetencionPanelView,
   readRetencionOpcionDraft,
   retencionDocEstatusLabelAsesor,
@@ -30,7 +32,8 @@ import {
 export interface RetencionAcuseAvisoSupabaseCardProps {
   expedienteId: string;
   archivosResumen: ExpedienteArchivoResumen[] | null;
-  onUpdated: () => void;
+  /** Refetch canónico de documentos (y meta expediente). Debe rechazar si falla. */
+  onUpdated: () => void | Promise<void>;
 }
 
 function formatFechaEnvio(iso: string | undefined): string {
@@ -59,12 +62,15 @@ export function RetencionAcuseAvisoSupabaseCard({
   const [opcionRecord, setOpcionRecord] = useState<ExpedienteRetencionOpcion | null>(null);
   const [envio, setEnvio] = useState<ExpedienteRetencionEnvioMesa | null>(null);
   const [uploadingTipo, setUploadingTipo] = useState<RetencionTipoDocumento | null>(null);
+  const [refetching, setRefetching] = useState(false);
   const [uploadErrors, setUploadErrors] = useState<
     Partial<Record<RetencionTipoDocumento, string>>
   >({});
   const [enviando, setEnviando] = useState(false);
   const [envioError, setEnvioError] = useState<string | null>(null);
+  const [vistaStaleError, setVistaStaleError] = useState<string | null>(null);
   const inputRefs = useRef<Partial<Record<RetencionTipoDocumento, HTMLInputElement | null>>>({});
+  const enviandoLock = useRef(false);
 
   const archivos = useMemo(() => archivosResumen ?? [], [archivosResumen]);
 
@@ -115,6 +121,11 @@ export function RetencionAcuseAvisoSupabaseCard({
     [opcionDraft, opcionSessionDraft, opcionRecord, envio, archivos],
   );
 
+  const busyUi =
+    uploadingTipo !== null || refetching || enviando || loadingMeta;
+  const botonHabilitado = panel.puedeEnviarAMesa && !busyUi;
+  const motivoCopy = copyMotivoDeshabilitarEnvioRetencion(panel.motivoDeshabilitar);
+
   const handlePickFile = (tipo: RetencionTipoDocumento) => {
     inputRefs.current[tipo]?.click();
   };
@@ -126,6 +137,20 @@ export function RetencionAcuseAvisoSupabaseCard({
     }
     return map;
   }, [panel.uploads]);
+
+  const refetchCanonico = useCallback(async () => {
+    setRefetching(true);
+    setVistaStaleError(null);
+    try {
+      await onUpdated();
+      await loadMeta();
+    } catch {
+      setVistaStaleError(MSG_RETENCION_REFETCH_FALLIDO);
+      throw new Error("retencion_refetch_failed");
+    } finally {
+      setRefetching(false);
+    }
+  }, [onUpdated, loadMeta]);
 
   const handleFileChange = async (
     tipo: RetencionTipoDocumento,
@@ -148,13 +173,18 @@ export function RetencionAcuseAvisoSupabaseCard({
 
     setUploadErrors((prev) => ({ ...prev, [tipo]: undefined }));
     setUploadingTipo(tipo);
+    setVistaStaleError(null);
     try {
       await repo.uploadRetencionDocumento({
         expedienteId,
         tipo_documento: tipo,
         file,
       });
-      onUpdated();
+      try {
+        await refetchCanonico();
+      } catch {
+        // Upload OK; vista stale — mensaje ya en vistaStaleError.
+      }
     } catch (err) {
       setUploadErrors((prev) => ({
         ...prev,
@@ -165,19 +195,37 @@ export function RetencionAcuseAvisoSupabaseCard({
       }));
     } finally {
       setUploadingTipo(null);
-      const input = inputRefs.current[tipo];
-      if (input) input.value = "";
+      const el = inputRefs.current[tipo];
+      if (el) el.value = "";
     }
   };
 
   const handleEnviarAMesa = async () => {
-    if (!repo || !panel.opcionPanel) return;
+    if (!repo || !panel.opcionPanel || enviandoLock.current) return;
+    if (!panel.puedeEnviarAMesa) return;
+
+    enviandoLock.current = true;
     setEnvioError(null);
     setEnviando(true);
     try {
+      const recheck = deriveAsesorRetencionPanelView({
+        opcionDraft,
+        opcionSessionDraft,
+        opcionPersistida: opcionRecord,
+        envio,
+        archivos,
+      });
+      if (!recheck.puedeEnviarAMesa || !recheck.opcionPanel) {
+        setEnvioError(
+          copyMotivoDeshabilitarEnvioRetencion(recheck.motivoDeshabilitar) ??
+            "Completa la opción y los documentos antes de enviar.",
+        );
+        return;
+      }
+
       const saved = await repo.enviarRetencionAMesa({
         expedienteId,
-        retencion_opcion: panel.opcionPanel,
+        retencion_opcion: recheck.opcionPanel,
       });
       setEnvio(saved);
       setOpcionRecord({
@@ -187,7 +235,11 @@ export function RetencionAcuseAvisoSupabaseCard({
       });
       setOpcionDraft(saved.opcion);
       writeRetencionOpcionDraft(expedienteId, saved.opcion);
-      onUpdated();
+      try {
+        await refetchCanonico();
+      } catch {
+        // Envío OK; estado local ya refleja envío. Refetch fallido avisado.
+      }
     } catch (err) {
       setEnvioError(
         err instanceof ExpedienteRetencionSupabaseError
@@ -196,6 +248,7 @@ export function RetencionAcuseAvisoSupabaseCard({
       );
     } finally {
       setEnviando(false);
+      enviandoLock.current = false;
     }
   };
 
@@ -387,7 +440,7 @@ export function RetencionAcuseAvisoSupabaseCard({
                           type="button"
                           variant="secondary"
                           className="text-xs"
-                          disabled={!puedeReemplazar || uploading}
+                          disabled={!puedeReemplazar || uploading || refetching || enviando}
                           onClick={() => handlePickFile(tipo)}
                         >
                           {uploading ? "Subiendo…" : hasFile ? "Reemplazar" : "Subir"}
@@ -404,13 +457,6 @@ export function RetencionAcuseAvisoSupabaseCard({
             </p>
           )}
 
-          {panel.faltantes.length > 0 && panel.opcionPanel ? (
-            <p className="mt-2 text-xs text-gray-600">
-              Pendiente:{" "}
-              {panel.faltantes.map((f) => (f.kind === "opcion" ? f.label : f.label)).join(", ")}
-            </p>
-          ) : null}
-
           {panel.uiEstado === "correccion_requerida" ? (
             <p
               role="status"
@@ -418,6 +464,15 @@ export function RetencionAcuseAvisoSupabaseCard({
             >
               Mesa solicitó corrección en uno o más documentos. Reemplaza los rechazados y
               reenvía el bloque cuando estén listos.
+            </p>
+          ) : null}
+
+          {vistaStaleError ? (
+            <p
+              role="alert"
+              className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950"
+            >
+              {vistaStaleError}
             </p>
           ) : null}
 
@@ -430,19 +485,30 @@ export function RetencionAcuseAvisoSupabaseCard({
             </p>
           ) : null}
 
-          {panel.puedeEnviarAMesa ? (
+          {panel.mostrarBotonEnviar ? (
             <div className="mt-3">
+              {panel.motivoDeshabilitar ? (
+                <div
+                  role="status"
+                  className="mb-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950"
+                >
+                  <p className="font-semibold">{motivoCopy}</p>
+                  {panel.motivoDeshabilitar.kind === "documentos" ? (
+                    <ul className="mt-1 list-inside list-disc space-y-0.5">
+                      {panel.motivoDeshabilitar.labels.map((label) => (
+                        <li key={label}>{label}</li>
+                      ))}
+                    </ul>
+                  ) : null}
+                </div>
+              ) : null}
               <Button
                 type="button"
                 variant="primary"
-                disabled={enviando}
+                disabled={!botonHabilitado}
                 onClick={() => void handleEnviarAMesa()}
               >
-                {enviando
-                  ? "Enviando a Mesa…"
-                  : panel.uiEstado === "correccion_requerida"
-                    ? "Reenviar a Mesa"
-                    : "Enviar a Mesa"}
+                {enviando ? "Enviando a Mesa Control…" : panel.botonEnviarLabel}
               </Button>
               <p className="mt-1 text-[10px] text-gray-500">
                 Al enviar, Mesa revisará los documentos. Esto no avanza el expediente a etapa 9.

@@ -55,7 +55,7 @@ describe("canShowAsesorRetencionSupabasePanel", () => {
 });
 
 describe("deriveAsesorRetencionPanelView", () => {
-  it("sin opción: no puede enviar y lista vacía de uploads", () => {
+  it("sin opción: botón visible deshabilitado y lista vacía de uploads", () => {
     const view = deriveAsesorRetencionPanelView({
       opcionDraft: null,
       opcionPersistida: null,
@@ -63,7 +63,10 @@ describe("deriveAsesorRetencionPanelView", () => {
       archivos: [],
     });
     assert.equal(view.opcionPanel, null);
+    assert.equal(view.mostrarBotonEnviar, true);
     assert.equal(view.puedeEnviarAMesa, false);
+    assert.equal(view.motivoDeshabilitar?.kind, "opcion");
+    assert.equal(view.botonEnviarLabel, "Enviar a Mesa Control");
     assert.equal(view.uploads.length, 0);
     assert.equal(view.uiEstado, "no_enviado");
   });
@@ -93,6 +96,9 @@ describe("deriveAsesorRetencionPanelView", () => {
       view.uploads.some((u) => u.tipo === "retencion_acuse_con_sello"),
     );
     assert.equal(view.uiEstado, "no_enviado");
+    assert.equal(view.mostrarBotonEnviar, true);
+    assert.equal(view.puedeEnviarAMesa, false);
+    assert.equal(view.motivoDeshabilitar?.kind, "documentos");
   });
 
   it("inferencia desde docs activos prevalece sobre sessionStorage del expediente", () => {
@@ -123,7 +129,7 @@ describe("deriveAsesorRetencionPanelView", () => {
     assert.equal(view.opcionPanel, "sin_sello");
   });
 
-  it("ambigüedad A+B activos: no infiere y marca panel ambiguo", () => {
+  it("ambigüedad A+B sin selección explícita: botón visible y deshabilitado", () => {
     const view = deriveAsesorRetencionPanelView({
       opcionDraft: null,
       opcionSessionDraft: "con_sello",
@@ -143,7 +149,31 @@ describe("deriveAsesorRetencionPanelView", () => {
       ],
     });
     assert.equal(view.opcionAmbigua, true);
+    assert.equal(view.opcionExplicita, false);
     assert.equal(view.opcionPanel, "con_sello");
+    assert.equal(view.mostrarBotonEnviar, true);
+    assert.equal(view.puedeEnviarAMesa, false);
+    assert.equal(view.motivoDeshabilitar?.kind, "ambigua");
+  });
+
+  it("ambigüedad A+B con radio explícito y docs A listos: puede enviar", () => {
+    const view = deriveAsesorRetencionPanelView({
+      opcionDraft: "con_sello",
+      opcionSessionDraft: null,
+      opcionPersistida: null,
+      envio: null,
+      archivos: [
+        { tipo_documento: "retencion_acuse_con_sello", id: "1", estatus_revision: "subido" },
+        { tipo_documento: "retencion_carta_sin_sello", id: "2", estatus_revision: "subido" },
+        { tipo_documento: "retencion_aviso_retencion", id: "3", estatus_revision: "subido" },
+        { tipo_documento: "retencion_ine_frente", id: "4", estatus_revision: "subido" },
+        { tipo_documento: "retencion_ine_reverso", id: "5", estatus_revision: "subido" },
+      ],
+    });
+    assert.equal(view.opcionAmbigua, true);
+    assert.equal(view.opcionExplicita, true);
+    assert.equal(view.puedeEnviarAMesa, true);
+    assert.equal(view.motivoDeshabilitar, null);
   });
 
   it("opción A con docs completos: puede enviar", () => {
@@ -159,10 +189,29 @@ describe("deriveAsesorRetencionPanelView", () => {
       ],
     });
     assert.equal(view.puedeEnviarAMesa, true);
+    assert.equal(view.mostrarBotonEnviar, true);
+    assert.equal(view.botonEnviarLabel, "Enviar a Mesa Control");
     assert.equal(view.uploads.length, 4);
   });
 
-  it("enviado bloquea opción y envío hasta corrección", () => {
+  it("rechazado no cuenta como listo para envío", () => {
+    const view = deriveAsesorRetencionPanelView({
+      opcionDraft: "con_sello",
+      opcionPersistida: null,
+      envio: null,
+      archivos: [
+        { tipo_documento: "retencion_acuse_con_sello", id: "1", estatus_revision: "rechazado" },
+        { tipo_documento: "retencion_aviso_retencion", id: "2", estatus_revision: "subido" },
+        { tipo_documento: "retencion_ine_frente", id: "3", estatus_revision: "subido" },
+        { tipo_documento: "retencion_ine_reverso", id: "4", estatus_revision: "subido" },
+      ],
+    });
+    assert.equal(view.puedeEnviarAMesa, false);
+    assert.equal(view.mostrarBotonEnviar, true);
+    assert.equal(view.motivoDeshabilitar?.kind, "documentos");
+  });
+
+  it("enviado oculta botón de envío", () => {
     const view = deriveAsesorRetencionPanelView({
       opcionDraft: "sin_sello",
       opcionPersistida: null,
@@ -174,6 +223,7 @@ describe("deriveAsesorRetencionPanelView", () => {
     assert.equal(view.opcionEditable, false);
     assert.equal(view.opcionPanel, "con_sello");
     assert.equal(view.puedeEnviarAMesa, false);
+    assert.equal(view.mostrarBotonEnviar, false);
     assert.equal(view.uiEstado, "enviado");
   });
 
@@ -195,6 +245,8 @@ describe("deriveAsesorRetencionPanelView", () => {
     });
     assert.equal(view.uiEstado, "correccion_requerida");
     assert.equal(view.puedeEnviarAMesa, true);
+    assert.equal(view.mostrarBotonEnviar, true);
+    assert.equal(view.botonEnviarLabel, "Reenviar a Mesa Control");
     assert.equal(view.opcionEditable, true);
   });
 });

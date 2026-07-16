@@ -73,6 +73,24 @@ describe("B0D3A: deriveRetencionAcuseAvisoFaltantes", () => {
     });
     assert.equal(f.length, 1);
     assert.equal(f[0].kind, "opcion");
+    assert.match(f[0].label, /sello/i);
+  });
+
+  it("rechazado o sin id no cuenta como listo para envío", () => {
+    const f = deriveRetencionAcuseAvisoFaltantes({
+      retencion_opcion: "con_sello",
+      archivos: [
+        { tipo_documento: "retencion_acuse_con_sello", id: "1", estatus_revision: "rechazado" },
+        archivo("retencion_aviso_retencion", true),
+        archivo("retencion_ine_frente", true),
+        archivo("retencion_ine_reverso", true),
+      ],
+    });
+    assert.equal(f.length, 1);
+    assert.equal(f[0].kind, "documento");
+    if (f[0].kind === "documento") {
+      assert.equal(f[0].tipo_documento, "retencion_acuse_con_sello");
+    }
   });
 
   it("opción A requiere exactamente 4 documentos", () => {

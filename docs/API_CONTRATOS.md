@@ -441,7 +441,7 @@ Convenciones:
 - Reemplazo asesor: antes de enviar el bloque (`no_enviado`) puede subir/reemplazar PDFs no validados; con bloque `enviado` no reemplaza; en `correccion_requerida` solo `rechazado`; siempre bloqueado si `validado` (espejo del RPC).
 - MIME de retención se normaliza a `application/pdf` en el cliente (igual que integración) para PDFs con tipo vacío/`octet-stream`.
 - Opción A/B: borrador en `sessionStorage` (`retencion-opcion:<expedienteId>`) + inferencia desde docs `retencion_*` activos tras reload; orden: DB → inferencia → sessionStorage → default (la fila `retencion_opciones` solo se escribe al enviar a Mesa).
-- Botón «Enviar a Mesa» si checklist completo y `retencionPuedeReenviarAMesa`.
+- Botón «Enviar a Mesa Control» siempre visible en `no_enviado` / `correccion_requerida` (deshabilitado con lista de faltantes); habilitado solo con opción explícita y docs `subido|resubido|validado` de la opción. Textetch canónico tras upload/envío.
 - Sin botón 8→9 ni validación Mesa (P3O.3).
 
 ---

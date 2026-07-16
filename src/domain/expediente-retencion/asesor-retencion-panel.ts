@@ -2,6 +2,9 @@ import {
   deriveRetencionAcuseAvisoFaltantes,
   inferRetencionOpcionFromArchivos,
   listRetencionUploadsForOpcion,
+  MSG_RETENCION_FALTA_OPCION_ENVIO,
+  MSG_RETENCION_FALTAN_DOCS_ENVIO_PREFIX,
+  MSG_RETENCION_OPCION_AMBIGUA_ENVIO,
   retencionOpcionAmbiguaFromArchivos,
   RETENCION_ETAPA_OPERATIVA_ID,
   type RetencionFaltanteItem,
@@ -91,6 +94,69 @@ export function asesorRetencionBloqueEstadoLabel(
   return "Enviado a Mesa — pendiente de revisión";
 }
 
+/** Visible mientras el bloque aún no está en revisión Mesa. */
+export function mostrarBotonEnviarRetencionAMesa(
+  uiEstado: RetencionEnvioMesaUiEstado,
+): boolean {
+  return uiEstado === "no_enviado" || uiEstado === "correccion_requerida";
+}
+
+export function labelBotonEnviarRetencionAMesa(
+  uiEstado: RetencionEnvioMesaUiEstado,
+): string {
+  return uiEstado === "correccion_requerida"
+    ? "Reenviar a Mesa Control"
+    : "Enviar a Mesa Control";
+}
+
+export type MotivoDeshabilitarEnvioRetencion =
+  | { kind: "opcion" }
+  | { kind: "ambigua" }
+  | { kind: "documentos"; labels: readonly string[] }
+  | null;
+
+/**
+ * Motivo canónico para deshabilitar el botón (sin busy de UI).
+ * Misma regla que faltantes + ambigüedad sin selección explícita.
+ */
+export function motivoDeshabilitarEnvioRetencion(params: {
+  opcionPanel: RetencionOpcion | null;
+  opcionAmbigua: boolean;
+  opcionExplicita: boolean;
+  faltantes: readonly RetencionFaltanteItem[];
+  uiEstado: RetencionEnvioMesaUiEstado;
+}): MotivoDeshabilitarEnvioRetencion {
+  if (!mostrarBotonEnviarRetencionAMesa(params.uiEstado)) return null;
+  if (params.opcionAmbigua && !params.opcionExplicita) {
+    return { kind: "ambigua" };
+  }
+  if (!params.opcionPanel) {
+    return { kind: "opcion" };
+  }
+  const docLabels = params.faltantes
+    .filter(
+      (f): f is Extract<RetencionFaltanteItem, { kind: "documento" }> =>
+        f.kind === "documento",
+    )
+    .map((f) => f.label);
+  if (params.faltantes.some((f) => f.kind === "opcion")) {
+    return { kind: "opcion" };
+  }
+  if (docLabels.length > 0) {
+    return { kind: "documentos", labels: docLabels };
+  }
+  return null;
+}
+
+export function copyMotivoDeshabilitarEnvioRetencion(
+  motivo: MotivoDeshabilitarEnvioRetencion,
+): string | null {
+  if (!motivo) return null;
+  if (motivo.kind === "opcion") return MSG_RETENCION_FALTA_OPCION_ENVIO;
+  if (motivo.kind === "ambigua") return MSG_RETENCION_OPCION_AMBIGUA_ENVIO;
+  return MSG_RETENCION_FALTAN_DOCS_ENVIO_PREFIX;
+}
+
 type ArchivoRowMin = Pick<
   ExpedienteArchivoResumen,
   "tipo_documento" | "id" | "estatus_revision"
@@ -99,11 +165,17 @@ type ArchivoRowMin = Pick<
 export type AsesorRetencionPanelView = Readonly<{
   opcionPanel: RetencionOpcion | null;
   opcionAmbigua: boolean;
+  opcionExplicita: boolean;
   opcionEditable: boolean;
   uiEstado: RetencionEnvioMesaUiEstado;
   bloqueEstadoLabel: string;
   faltantes: readonly RetencionFaltanteItem[];
+  /** Completo y reenviable (sin busy de UI). */
   puedeEnviarAMesa: boolean;
+  /** Mostrar botón aunque falten docs (no_enviado | correccion_requerida). */
+  mostrarBotonEnviar: boolean;
+  botonEnviarLabel: string;
+  motivoDeshabilitar: MotivoDeshabilitarEnvioRetencion;
   uploads: ReturnType<typeof listRetencionUploadsForOpcion>;
 }>;
 
@@ -134,23 +206,39 @@ export function deriveAsesorRetencionPanelView(params: {
     params.opcionDraft ??
     null;
   const opcionEditable = retencionOpcionAsesorEditable(uiEstado);
+  /** Selección explícita: radio de la sesión o fila DB (no solo inferencia/session). */
+  const opcionExplicita = Boolean(params.opcionDraft || opcionDb);
+  const opcionAmbigua = retencionOpcionAmbiguaFromArchivos(params.archivos);
   const faltantes = deriveRetencionAcuseAvisoFaltantes({
     retencion_opcion: opcionPanel,
     archivos: params.archivos,
   });
+  const motivoDeshabilitar = motivoDeshabilitarEnvioRetencion({
+    opcionPanel,
+    opcionAmbigua,
+    opcionExplicita,
+    faltantes,
+    uiEstado,
+  });
   const puedeEnviarAMesa =
+    mostrarBotonEnviarRetencionAMesa(uiEstado) &&
+    motivoDeshabilitar === null &&
     opcionPanel !== null &&
     retencionPuedeReenviarAMesa(uiEstado, faltantes) &&
     puedeEnviarRetencionAcuseAvisoAMesa(faltantes);
 
   return {
     opcionPanel,
-    opcionAmbigua: retencionOpcionAmbiguaFromArchivos(params.archivos),
+    opcionAmbigua,
+    opcionExplicita,
     opcionEditable,
     uiEstado,
     bloqueEstadoLabel: asesorRetencionBloqueEstadoLabel(uiEstado),
     faltantes,
     puedeEnviarAMesa,
+    mostrarBotonEnviar: mostrarBotonEnviarRetencionAMesa(uiEstado),
+    botonEnviarLabel: labelBotonEnviarRetencionAMesa(uiEstado),
+    motivoDeshabilitar,
     uploads: listRetencionUploadsForOpcion(opcionPanel),
   };
 }

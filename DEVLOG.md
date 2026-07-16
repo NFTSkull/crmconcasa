@@ -1,5 +1,25 @@
 # Devlog
 
+## 2026-07-16 - fix/asesor-retencion-enviar-mesa-ux (botón Enviar a Mesa Control, local)
+
+### Causa
+
+- El botón de envío se ocultaba cuando faltaban documentos (`panel.puedeEnviarAMesa ? … : null`), así que el asesor no veía qué faltaba para habilitarlo.
+- `deriveRetencionAcuseAvisoFaltantes` contaba cualquier fila con `id` (incl. `rechazado`) como presente; el RPC `enviar_retencion_mesa` exige `subido|resubido|validado`.
+- Tras el último upload, el refetch de `archivosResumen` era fire-and-forget; el botón no se recalculaba de forma fiable sin recarga manual.
+
+### Decisiones
+
+- Botón siempre visible en `no_enviado` / `correccion_requerida`; deshabilitado con copy canónico (opción / ambigüedad / lista de faltantes). Labels: «Enviar a Mesa Control» / «Reenviar a Mesa Control».
+- Predicado único `retencionDocListoParaEnvioMesa` alimenta faltantes, habilitación y tests (espejo del RPC).
+- Ambigüedad A+B sin radio/DB explícitos bloquea envío; con selección explícita se permite si los docs de esa opción están listos.
+- `onUpdated` async: tras upload/envío se espera `listResumenByExpediente` + meta; si el refetch falla, mensaje stale sin re-subir.
+- Sin migración ni cambio de RPC.
+
+### Verificación
+
+- Tests de panel (botón visible/deshabilitado, ambigüedad, rechazado, labels) + faltantes; lint/typecheck/npm test.
+
 ## 2026-07-16 - fix/asesor-retencion-pdf-persistencia (Acuse/Aviso etapa 8, local)
 
 ### Causa

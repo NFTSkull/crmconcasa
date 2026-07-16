@@ -704,26 +704,24 @@ export default function AsesorExpedientePage() {
     repo,
   ]);
 
-  const refreshArchivos = useCallback(() => {
+  const refreshArchivos = useCallback(async () => {
     if (!dataSupabase || !precal?.id) return;
     setArchivosLoading(true);
     setArchivosError(null);
-    void archivosRepo
-      .listResumenByExpediente(String(precal.id))
-      .then((resumen) => {
-        setArchivosResumen(resumen);
-      })
-      .catch((err) => {
-        setArchivosResumen(null);
-        if (err instanceof ExpedienteArchivosSupabaseError) {
-          setArchivosError(err.message);
-        } else {
-          setArchivosError("No se pudieron cargar los documentos.");
-        }
-      })
-      .finally(() => {
-        setArchivosLoading(false);
-      });
+    try {
+      const resumen = await archivosRepo.listResumenByExpediente(String(precal.id));
+      setArchivosResumen(resumen);
+    } catch (err) {
+      setArchivosResumen(null);
+      if (err instanceof ExpedienteArchivosSupabaseError) {
+        setArchivosError(err.message);
+      } else {
+        setArchivosError("No se pudieron cargar los documentos.");
+      }
+      throw err;
+    } finally {
+      setArchivosLoading(false);
+    }
   }, [archivosRepo, dataSupabase, precal?.id]);
 
   useEffect(() => {
@@ -1485,9 +1483,9 @@ export default function AsesorExpedientePage() {
               <RetencionAcuseAvisoSupabaseCard
                 expedienteId={String(precal.id)}
                 archivosResumen={archivosResumen}
-                onUpdated={() => {
-                  refreshArchivos();
-                  void loadExpediente();
+                onUpdated={async () => {
+                  await refreshArchivos();
+                  await loadExpediente();
                 }}
               />
             ) : null}
