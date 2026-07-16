@@ -5,6 +5,7 @@ import {
   canShowAsesorRetencionSupabasePanel,
   deriveAsesorRetencionPanelView,
   retencionDocEstatusLabelAsesor,
+  retencionOpcionDraftStorageKey,
 } from "./asesor-retencion-panel";
 import type { ExpedienteRetencionEnvioMesa } from "./types";
 
@@ -67,6 +68,84 @@ describe("deriveAsesorRetencionPanelView", () => {
     assert.equal(view.uiEstado, "no_enviado");
   });
 
+  it("sin draft ni DB: restaura opción A desde acuse persistido tras reload", () => {
+    const view = deriveAsesorRetencionPanelView({
+      opcionDraft: null,
+      opcionPersistida: null,
+      envio: null,
+      archivos: [
+        {
+          tipo_documento: "retencion_acuse_con_sello",
+          id: "1",
+          estatus_revision: "subido",
+        },
+        {
+          tipo_documento: "retencion_aviso_retencion",
+          id: "2",
+          estatus_revision: "subido",
+        },
+      ],
+    });
+    assert.equal(view.opcionPanel, "con_sello");
+    assert.equal(view.opcionAmbigua, false);
+    assert.equal(view.uploads.length, 4);
+    assert.ok(
+      view.uploads.some((u) => u.tipo === "retencion_acuse_con_sello"),
+    );
+    assert.equal(view.uiEstado, "no_enviado");
+  });
+
+  it("inferencia desde docs activos prevalece sobre sessionStorage del expediente", () => {
+    const view = deriveAsesorRetencionPanelView({
+      opcionDraft: null,
+      opcionSessionDraft: "sin_sello",
+      opcionPersistida: null,
+      envio: null,
+      archivos: [
+        {
+          tipo_documento: "retencion_acuse_con_sello",
+          id: "1",
+          estatus_revision: "subido",
+        },
+      ],
+    });
+    assert.equal(view.opcionPanel, "con_sello");
+  });
+
+  it("sessionStorage solo aplica cuando no hay DB ni inferencia", () => {
+    const view = deriveAsesorRetencionPanelView({
+      opcionDraft: null,
+      opcionSessionDraft: "sin_sello",
+      opcionPersistida: null,
+      envio: null,
+      archivos: [],
+    });
+    assert.equal(view.opcionPanel, "sin_sello");
+  });
+
+  it("ambigüedad A+B activos: no infiere y marca panel ambiguo", () => {
+    const view = deriveAsesorRetencionPanelView({
+      opcionDraft: null,
+      opcionSessionDraft: "con_sello",
+      opcionPersistida: null,
+      envio: null,
+      archivos: [
+        {
+          tipo_documento: "retencion_acuse_con_sello",
+          id: "1",
+          estatus_revision: "subido",
+        },
+        {
+          tipo_documento: "retencion_carta_sin_sello",
+          id: "2",
+          estatus_revision: "subido",
+        },
+      ],
+    });
+    assert.equal(view.opcionAmbigua, true);
+    assert.equal(view.opcionPanel, "con_sello");
+  });
+
   it("opción A con docs completos: puede enviar", () => {
     const view = deriveAsesorRetencionPanelView({
       opcionDraft: "con_sello",
@@ -121,6 +200,13 @@ describe("deriveAsesorRetencionPanelView", () => {
 });
 
 describe("copy asesor retención", () => {
+  it("clave sessionStorage incluye expedienteId", () => {
+    assert.equal(
+      retencionOpcionDraftStorageKey("exp-42"),
+      "retencion-opcion:exp-42",
+    );
+  });
+
   it("estatus documento evita afirmar validación Mesa salvo validado", () => {
     assert.match(retencionDocEstatusLabelAsesor("subido"), /Mesa revisará/i);
     assert.match(retencionDocEstatusLabelAsesor("validado"), /Aceptado por Mesa/i);

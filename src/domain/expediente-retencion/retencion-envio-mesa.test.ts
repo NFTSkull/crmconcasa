@@ -146,11 +146,28 @@ describe("B0D6: envío Acuse/Aviso retención a Mesa", () => {
     assert.equal(retencionDocPuedeRechazarMesa("faltante"), false);
   });
 
-  it("asesor solo reemplaza rechazados o sube faltantes", () => {
-    assert.equal(retencionDocPuedeReemplazarAsesor("rechazado", true), true);
-    assert.equal(retencionDocPuedeReemplazarAsesor("validado", true), false);
-    assert.equal(retencionDocPuedeReemplazarAsesor("subido", true), false);
-    assert.equal(retencionDocPuedeReemplazarAsesor("faltante", false), true);
+  it("asesor puede reemplazar subido/resubido antes de enviar; bloqueado tras envío o si validado", () => {
+    assert.equal(retencionDocPuedeReemplazarAsesor("faltante", false, "no_enviado"), true);
+    assert.equal(retencionDocPuedeReemplazarAsesor("subido", true, "no_enviado"), true);
+    assert.equal(retencionDocPuedeReemplazarAsesor("resubido", true, "no_enviado"), true);
+    assert.equal(retencionDocPuedeReemplazarAsesor("rechazado", true, "no_enviado"), true);
+    assert.equal(retencionDocPuedeReemplazarAsesor("validado", true, "no_enviado"), false);
+
+    assert.equal(retencionDocPuedeReemplazarAsesor("subido", true, "enviado"), false);
+    assert.equal(retencionDocPuedeReemplazarAsesor("rechazado", true, "enviado"), false);
+
+    assert.equal(
+      retencionDocPuedeReemplazarAsesor("rechazado", true, "correccion_requerida"),
+      true,
+    );
+    assert.equal(
+      retencionDocPuedeReemplazarAsesor("subido", true, "correccion_requerida"),
+      false,
+    );
+    assert.equal(
+      retencionDocPuedeReemplazarAsesor("validado", true, "correccion_requerida"),
+      false,
+    );
   });
 
   it("rechazo post-validación activa correccion_requerida y bloquea 8→9", () => {

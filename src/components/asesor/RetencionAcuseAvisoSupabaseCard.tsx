@@ -17,9 +17,11 @@ import {
 import {
   ExpedienteRetencionSupabaseError,
   deriveAsesorRetencionPanelView,
+  readRetencionOpcionDraft,
   retencionDocEstatusLabelAsesor,
   retencionDocPuedeReemplazarAsesor,
   useExpedienteRetencionSupabaseRepo,
+  writeRetencionOpcionDraft,
   type ExpedienteRetencionEnvioMesa,
   type ExpedienteRetencionOpcion,
   type RetencionOpcion,
@@ -51,6 +53,9 @@ export function RetencionAcuseAvisoSupabaseCard({
   const [loadingMeta, setLoadingMeta] = useState(true);
   const [metaError, setMetaError] = useState<string | null>(null);
   const [opcionDraft, setOpcionDraft] = useState<RetencionOpcion | null>(null);
+  const [opcionSessionDraft] = useState<RetencionOpcion | null>(() =>
+    readRetencionOpcionDraft(expedienteId),
+  );
   const [opcionRecord, setOpcionRecord] = useState<ExpedienteRetencionOpcion | null>(null);
   const [envio, setEnvio] = useState<ExpedienteRetencionEnvioMesa | null>(null);
   const [uploadingTipo, setUploadingTipo] = useState<RetencionTipoDocumento | null>(null);
@@ -90,15 +95,24 @@ export function RetencionAcuseAvisoSupabaseCard({
     void loadMeta();
   }, [loadMeta]);
 
+  const selectOpcion = useCallback(
+    (opcion: RetencionOpcion) => {
+      setOpcionDraft(opcion);
+      writeRetencionOpcionDraft(expedienteId, opcion);
+    },
+    [expedienteId],
+  );
+
   const panel = useMemo(
     () =>
       deriveAsesorRetencionPanelView({
         opcionDraft,
+        opcionSessionDraft,
         opcionPersistida: opcionRecord,
         envio,
         archivos,
       }),
-    [opcionDraft, opcionRecord, envio, archivos],
+    [opcionDraft, opcionSessionDraft, opcionRecord, envio, archivos],
   );
 
   const handlePickFile = (tipo: RetencionTipoDocumento) => {
@@ -172,6 +186,7 @@ export function RetencionAcuseAvisoSupabaseCard({
         updatedAt: saved.fechaEnvioMesa,
       });
       setOpcionDraft(saved.opcion);
+      writeRetencionOpcionDraft(expedienteId, saved.opcion);
       onUpdated();
     } catch (err) {
       setEnvioError(
@@ -236,7 +251,7 @@ export function RetencionAcuseAvisoSupabaseCard({
                 className="mt-0.5"
                 checked={panel.opcionPanel === "con_sello"}
                 disabled={!panel.opcionEditable}
-                onChange={() => setOpcionDraft("con_sello")}
+                onChange={() => selectOpcion("con_sello")}
               />
               <span>
                 <span className="font-semibold text-gray-900">Opción A — Tiene sello</span>
@@ -256,7 +271,7 @@ export function RetencionAcuseAvisoSupabaseCard({
                 className="mt-0.5"
                 checked={panel.opcionPanel === "sin_sello"}
                 disabled={!panel.opcionEditable}
-                onChange={() => setOpcionDraft("sin_sello")}
+                onChange={() => selectOpcion("sin_sello")}
               />
               <span>
                 <span className="font-semibold text-gray-900">Opción B — No tiene sello</span>
@@ -279,6 +294,16 @@ export function RetencionAcuseAvisoSupabaseCard({
             </p>
           ) : null}
 
+          {panel.opcionAmbigua ? (
+            <p
+              role="status"
+              className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950"
+            >
+              Hay un acuse con sello y una carta sin sello activos al mismo tiempo. Selecciona
+              manualmente la opción A o B; no se eliminará ningún documento automáticamente.
+            </p>
+          ) : null}
+
           {panel.opcionPanel ? (
             <div className="mt-3 flex flex-col gap-2">
               {panel.uploads.map(({ tipo, label }) => {
@@ -286,7 +311,11 @@ export function RetencionAcuseAvisoSupabaseCard({
                 const hasFile = Boolean(item?.id);
                 const estatus = item?.estatus_revision ?? "faltante";
                 const rechazado = estatus === "rechazado";
-                const puedeReemplazar = retencionDocPuedeReemplazarAsesor(estatus, hasFile);
+                const puedeReemplazar = retencionDocPuedeReemplazarAsesor(
+                  estatus,
+                  hasFile,
+                  panel.uiEstado,
+                );
                 const uploading = uploadingTipo === tipo;
                 const uploadError = uploadErrors[tipo];
 
@@ -308,7 +337,11 @@ export function RetencionAcuseAvisoSupabaseCard({
                           </span>
                         </p>
                         {item?.nombre_original ? (
-                          <p className="mt-0.5 truncate text-sm font-medium text-gray-900">
+                          <p
+                            className="mt-0.5 truncate text-sm font-medium text-gray-900"
+                            data-testid={`retencion-doc-nombre-${tipo}`}
+                            title={item.nombre_original}
+                          >
                             {item.nombre_original}
                           </p>
                         ) : null}
@@ -324,7 +357,14 @@ export function RetencionAcuseAvisoSupabaseCard({
                         ) : null}
                         {!puedeReemplazar && hasFile && estatus !== "validado" ? (
                           <p className="mt-1 text-[10px] text-gray-500">
-                            En revisión por Mesa; espera validación o rechazo.
+                            {panel.uiEstado === "enviado"
+                              ? "En revisión por Mesa; espera validación o rechazo."
+                              : "Este documento no se puede reemplazar en el estado actual."}
+                          </p>
+                        ) : null}
+                        {puedeReemplazar && hasFile && panel.uiEstado === "no_enviado" ? (
+                          <p className="mt-1 text-[10px] text-gray-500">
+                            Puedes reemplazar el PDF antes de enviar el bloque a Mesa.
                           </p>
                         ) : null}
                         {uploadError ? (

@@ -172,7 +172,8 @@ export class SupabaseExpedienteArchivosRepo implements ExpedienteArchivosRepo {
     const { data, error } = await client
       .from("expediente_documentos")
       .select(DOCUMENTOS_SELECT)
-      .eq("expediente_id", idNorm);
+      .eq("expediente_id", idNorm)
+      .is("deleted_at", null);
 
     if (error) {
       throw new ExpedienteArchivosSupabaseError(

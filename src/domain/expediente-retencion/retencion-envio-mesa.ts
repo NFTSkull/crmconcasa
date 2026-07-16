@@ -72,13 +72,32 @@ export function retencionDocPuedeRechazarMesa(
   return estatus === "subido" || estatus === "resubido" || estatus === "validado" || estatus === "rechazado";
 }
 
-/** Asesor solo reemplaza documentos rechazados o faltantes (no los ya validados por Mesa). */
+/** Asesor puede subir/reemplazar según estado del bloque y del documento.
+ * - `validado`: nunca.
+ * - Bloque `enviado` (en revisión Mesa): no reemplaza.
+ * - Bloque `correccion_requerida`: solo `rechazado`.
+ * - Bloque `no_enviado`: puede subir faltantes y reemplazar `subido`/`resubido`/`rechazado`
+ *   (alineado con el RPC, que solo bloquea `validado`).
+ */
 export function retencionDocPuedeReemplazarAsesor(
   estatus: string | undefined,
   hasFile: boolean,
+  uiEstado: RetencionEnvioMesaUiEstado = "no_enviado",
 ): boolean {
-  if (!estatus || estatus === "faltante") return !hasFile;
-  return estatus === "rechazado";
+  if (estatus === "validado") return false;
+  // `faltante` o sin estatus: permitir Subir (o recuperar fila inconsistente con archivo).
+  if (!estatus || estatus === "faltante") return true;
+  if (uiEstado === "enviado") return false;
+  if (uiEstado === "correccion_requerida") return estatus === "rechazado";
+  // no_enviado: puede corregir PDF antes de enviar el bloque a Mesa.
+  if (
+    estatus === "subido" ||
+    estatus === "resubido" ||
+    estatus === "rechazado"
+  ) {
+    return true;
+  }
+  return !hasFile;
 }
 
 /** Tras envío en revisión, el asesor no debe cambiar A/B hasta corrección o reenvío. */

@@ -8,6 +8,7 @@ import {
   EXPEDIENTE_DOCUMENTOS_BUCKET,
   validateExpedienteDocumentoFile,
 } from "@/domain/expediente-archivos/upload-constraints";
+import { resolveExpedienteDocumentoUploadMime } from "@/lib/fileUploadValidation";
 import { ExpedienteRetencionSupabaseError } from "./supabase.error";
 import { mapRegisterRetencionDocRpcError } from "./register-retencion-doc-rpc-error";
 import { mapEnviarRetencionMesaRpcError } from "./enviar-retencion-mesa-rpc-error";
@@ -174,9 +175,16 @@ export class ExpedienteRetencionSupabaseRepo {
       throw new ExpedienteRetencionSupabaseError("Expediente inválido para subir documento.");
     }
 
-    const validation = validateExpedienteDocumentoFile(params.file);
+    const validation = validateExpedienteDocumentoFile(params.file, tipo);
     if (!validation.ok) {
       throw new ExpedienteRetencionSupabaseError(validation.message);
+    }
+
+    const uploadMime = resolveExpedienteDocumentoUploadMime(params.file, tipo);
+    if (!uploadMime || uploadMime !== "application/pdf") {
+      throw new ExpedienteRetencionSupabaseError(
+        "Solo se permiten archivos PDF. Convierte el documento a PDF antes de subirlo.",
+      );
     }
 
     const { client } = await requireSupabaseSession();
@@ -186,14 +194,14 @@ export class ExpedienteRetencionSupabaseRepo {
       organizationId: ctx.organizationId,
       expedienteId,
       tipoDocumento: tipo,
-      mimeType: params.file.type,
+      mimeType: uploadMime,
       originalFileName: params.file.name,
     });
 
     const { error: uploadError } = await client.storage
       .from(EXPEDIENTE_DOCUMENTOS_BUCKET)
       .upload(storagePath, params.file, {
-        contentType: params.file.type,
+        contentType: uploadMime,
         upsert: false,
       });
 
@@ -211,7 +219,7 @@ export class ExpedienteRetencionSupabaseRepo {
         p_tipo_documento: tipo,
         p_storage_path: storagePath,
         p_nombre_original: params.file.name,
-        p_mime_type: params.file.type,
+        p_mime_type: uploadMime,
         p_size_bytes: params.file.size,
       });
 

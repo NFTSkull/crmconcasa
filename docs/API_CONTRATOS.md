@@ -438,7 +438,9 @@ Convenciones:
 - Panel `RetencionAcuseAvisoSupabaseCard` en `/asesor/expediente/[id]` si `DATA_MODE=supabase`, `etapa_actual = 8`, `submitted_to_mesa`.
 - Opción A/B en estado local hasta envío; persistencia vía RPC al enviar.
 - Upload: Storage `expediente-documentos` + RPC `register_expediente_documento_retencion`.
-- Reemplazo asesor solo `faltante` / `rechazado`; bloqueado si `validado`.
+- Reemplazo asesor: antes de enviar el bloque (`no_enviado`) puede subir/reemplazar PDFs no validados; con bloque `enviado` no reemplaza; en `correccion_requerida` solo `rechazado`; siempre bloqueado si `validado` (espejo del RPC).
+- MIME de retención se normaliza a `application/pdf` en el cliente (igual que integración) para PDFs con tipo vacío/`octet-stream`.
+- Opción A/B: borrador en `sessionStorage` (`retencion-opcion:<expedienteId>`) + inferencia desde docs `retencion_*` activos tras reload; orden: DB → inferencia → sessionStorage → default (la fila `retencion_opciones` solo se escribe al enviar a Mesa).
 - Botón «Enviar a Mesa» si checklist completo y `retencionPuedeReenviarAMesa`.
 - Sin botón 8→9 ni validación Mesa (P3O.3).
 

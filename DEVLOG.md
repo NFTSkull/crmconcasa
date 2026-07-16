@@ -1,5 +1,25 @@
 # Devlog
 
+## 2026-07-16 - fix/asesor-retencion-pdf-persistencia (Acuse/Aviso etapa 8, local)
+
+### Causa
+
+- `ExpedienteRetencionSupabaseRepo.uploadRetencionDocumento` enviaba `params.file.type` crudo a Storage y a `register_expediente_documento_retencion`. La UI aceptaba PDF por extensión (`validatePdfFile` / `isPdfLikeFile`), pero un MIME vacío o `application/octet-stream` hacía fallar el bucket o el gate SQL `expediente_documento_mime_permitido`; el catch borraba el objeto de Storage y el documento no quedaba en `expediente_documentos`. El nombre podía verse un instante si el refresh parcial o el picker mostraba el archivo local antes del fallo / al recuperar un intento previo.
+- La opción A/B vivía solo en estado React (`opcionDraft`) hasta `enviar_retencion_mesa`. Tras recargar, `opcionPanel` quedaba `null` y la lista de uploads desaparecía aunque los PDF ya estuvieran persistidos.
+- `retencionDocPuedeReemplazarAsesor` bloqueaba `subido` siempre y la UI decía «En revisión por Mesa» antes del envío, contradiciendo el RPC (solo bloquea `validado`).
+
+### Decisiones
+
+- Reutilizar `resolveExpedienteDocumentoUploadMime` (igual que integración) y forzar `application/pdf` en path, `contentType` y `p_mime_type`.
+- Restaurar opción: `sessionStorage` por expediente + `inferRetencionOpcionFromArchivos` (acuse → A, carta → B) dentro de `deriveAsesorRetencionPanelView`.
+- Reemplazo: `no_enviado` permite corregir no-validados; `enviado` congela; `correccion_requerida` solo `rechazado`; `validado` nunca.
+- `listByExpediente` añade `.is("deleted_at", null)` de forma explícita (RLS ya lo filtraba).
+- Sin migración nueva ni Cloud: el RPC 035 sigue aceptando PDF con el overload MIME de un argumento (default NULL post-047).
+
+### Verificación
+
+- Tests de dominio: inferencia A/B, restauración de panel tras reload, reglas de reemplazo por `uiEstado`; suite completa lint/typecheck/build.
+
 ## 2026-07-15 - fix/mesa-bandeja-filtros (filtros Mesa Control + acceso directo a citas, local)
 
 ### Causa

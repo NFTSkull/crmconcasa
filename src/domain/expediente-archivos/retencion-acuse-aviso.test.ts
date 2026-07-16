@@ -4,9 +4,11 @@ import {
   deriveRetencionAcuseAvisoFaltantes,
   getBloqueosRetencionAvanceEtapa8,
   getBloqueosRetencionAvanceEtapa8Mesa,
+  inferRetencionOpcionFromArchivos,
   listRetencionUploadsForOpcion,
   MSG_BLOQUEO_RETENCION_SIN_ENVIO_ASESOR,
   MSG_BLOQUEO_RETENCION_SIN_OPCION,
+  retencionOpcionAmbiguaFromArchivos,
   RETENCION_TIPOS_DOCUMENTO,
   retencionAcuseAvisoCompleto,
   retencionListoParaAvanceMesa,
@@ -257,5 +259,35 @@ describe("B0D3B: bloqueo mesa avance etapa 8 → 9", () => {
     for (const t of RETENCION_TIPOS_DOCUMENTO) {
       assert.ok(!req.some((d) => d.tipo === t));
     }
+  });
+});
+
+describe("inferRetencionOpcionFromArchivos", () => {
+  it("infiere con_sello desde acuse persistido y sin_sello desde carta", () => {
+    assert.equal(
+      inferRetencionOpcionFromArchivos([archivo("retencion_acuse_con_sello", true)]),
+      "con_sello",
+    );
+    assert.equal(
+      inferRetencionOpcionFromArchivos([archivo("retencion_carta_sin_sello", true)]),
+      "sin_sello",
+    );
+  });
+
+  it("no inventa opción con docs compartidos o sin documentos", () => {
+    assert.equal(
+      inferRetencionOpcionFromArchivos([archivo("retencion_aviso_retencion", true)]),
+      null,
+    );
+    assert.equal(inferRetencionOpcionFromArchivos([]), null);
+  });
+
+  it("ambigüedad A+B juntos no elige automáticamente", () => {
+    const archivos = [
+      archivo("retencion_acuse_con_sello", true),
+      archivo("retencion_carta_sin_sello", true),
+    ];
+    assert.equal(inferRetencionOpcionFromArchivos(archivos), null);
+    assert.equal(retencionOpcionAmbiguaFromArchivos(archivos), true);
   });
 });

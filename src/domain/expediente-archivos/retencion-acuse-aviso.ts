@@ -183,6 +183,38 @@ export function listRetencionUploadsForOpcion(
   }));
 }
 
+/**
+ * Infiera la opción A/B a partir de documentos `retencion_*` ya persistidos.
+ * Sirve para restaurar la bandeja tras recargar cuando la opción aún no se
+ * guardó en `retencion_opciones` (solo se persiste al enviar a Mesa).
+ */
+export function inferRetencionOpcionFromArchivos(
+  archivos: readonly ArchivoRowMin[],
+): RetencionOpcion | null {
+  const hasAcuse = filaTieneArchivo(
+    findRowPorTipoDocumento(archivos, "retencion_acuse_con_sello"),
+  );
+  const hasCarta = filaTieneArchivo(
+    findRowPorTipoDocumento(archivos, "retencion_carta_sin_sello"),
+  );
+  if (hasAcuse && !hasCarta) return "con_sello";
+  if (hasCarta && !hasAcuse) return "sin_sello";
+  return null;
+}
+
+/** Ambos tipos principales activos: no inferir A/B automáticamente. */
+export function retencionOpcionAmbiguaFromArchivos(
+  archivos: readonly ArchivoRowMin[],
+): boolean {
+  const hasAcuse = filaTieneArchivo(
+    findRowPorTipoDocumento(archivos, "retencion_acuse_con_sello"),
+  );
+  const hasCarta = filaTieneArchivo(
+    findRowPorTipoDocumento(archivos, "retencion_carta_sin_sello"),
+  );
+  return hasAcuse && hasCarta;
+}
+
 export function assertRetencionCatalogo(): void {
   for (const tipo of RETENCION_TIPOS_DOCUMENTO) {
     const item = DOCUMENTO_CATALOGO_MAP[tipo];
