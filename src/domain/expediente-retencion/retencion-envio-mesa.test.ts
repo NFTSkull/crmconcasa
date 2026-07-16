@@ -65,7 +65,7 @@ describe("B0D6: envío Acuse/Aviso retención a Mesa", () => {
     assert.equal(
       retencionEnvioEstadoEfectivo(envioBase, [
         {
-          tipo_documento: "retencion_aviso_retencion",
+          tipo_documento: "retencion_acuse_con_sello",
           estatus_revision: "rechazado",
         },
       ], "con_sello"),
@@ -85,21 +85,6 @@ describe("B0D6: envío Acuse/Aviso retención a Mesa", () => {
         tipo_documento: "retencion_acuse_con_sello" as const,
         id: "a1",
         estatus_revision: "rechazado",
-      },
-      {
-        tipo_documento: "retencion_aviso_retencion" as const,
-        id: "a2",
-        estatus_revision: "validado",
-      },
-      {
-        tipo_documento: "retencion_ine_frente" as const,
-        id: "a3",
-        estatus_revision: "validado",
-      },
-      {
-        tipo_documento: "retencion_ine_reverso" as const,
-        id: "a4",
-        estatus_revision: "validado",
       },
     ];
     const bloqueos = getBloqueosRetencionAvanceEtapa8Mesa({
@@ -172,10 +157,7 @@ describe("B0D6: envío Acuse/Aviso retención a Mesa", () => {
 
   it("rechazo post-validación activa correccion_requerida y bloquea 8→9", () => {
     const archivosValidados = [
-      { tipo_documento: "retencion_acuse_con_sello" as const, estatus_revision: "validado", id: "a1" },
-      { tipo_documento: "retencion_aviso_retencion" as const, estatus_revision: "validado", id: "a2" },
-      { tipo_documento: "retencion_ine_frente" as const, estatus_revision: "validado", id: "a3" },
-      { tipo_documento: "retencion_ine_reverso" as const, estatus_revision: "rechazado", id: "a4" },
+      { tipo_documento: "retencion_acuse_con_sello" as const, estatus_revision: "rechazado", id: "a1" },
     ];
     assert.equal(
       retencionEnvioEstadoEfectivo(envioBase, archivosValidados, "con_sello"),

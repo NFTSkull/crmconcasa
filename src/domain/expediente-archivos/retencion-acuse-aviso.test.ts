@@ -33,10 +33,25 @@ function archivo(
 
 describe("B0D3A: catálogo retención", () => {
   it("tipos retención existen en catálogo con etapa 8", () => {
-    for (const tipo of RETENCION_TIPOS_DOCUMENTO) {
+    const principales = [
+      "retencion_acuse_con_sello",
+      "retencion_carta_sin_sello",
+    ] as const;
+    const historicosOpcionales = [
+      "retencion_aviso_retencion",
+      "retencion_ine_frente",
+      "retencion_ine_reverso",
+    ] as const;
+    for (const tipo of principales) {
       const item = DOCUMENTO_CATALOGO_MAP[tipo];
       assert.ok(item);
       assert.equal(item.obligatorio, "obligatorio");
+      assert.ok(item.etapasRequeridas.includes(8));
+    }
+    for (const tipo of historicosOpcionales) {
+      const item = DOCUMENTO_CATALOGO_MAP[tipo];
+      assert.ok(item);
+      assert.equal(item.obligatorio, "opcional");
       assert.ok(item.etapasRequeridas.includes(8));
     }
   });
@@ -93,50 +108,42 @@ describe("B0D3A: deriveRetencionAcuseAvisoFaltantes", () => {
     }
   });
 
-  it("opción A requiere exactamente 4 documentos", () => {
+  it("opción A requiere únicamente el acuse con sello", () => {
     const tipos = tiposRequeridosRetencion("con_sello");
-    assert.deepEqual(tipos, [
-      "retencion_acuse_con_sello",
-      "retencion_aviso_retencion",
-      "retencion_ine_frente",
-      "retencion_ine_reverso",
-    ]);
+    assert.deepEqual(tipos, ["retencion_acuse_con_sello"]);
     const uploads = listRetencionUploadsForOpcion("con_sello");
-    assert.equal(uploads.length, 4);
+    assert.equal(uploads.length, 1);
+    assert.equal(uploads[0]?.tipo, "retencion_acuse_con_sello");
   });
 
-  it("opción B requiere exactamente 4 documentos (carta + comunes)", () => {
+  it("opción B requiere únicamente la carta sin sello", () => {
     const tipos = tiposRequeridosRetencion("sin_sello");
-    assert.deepEqual(tipos, [
-      "retencion_carta_sin_sello",
-      "retencion_aviso_retencion",
-      "retencion_ine_frente",
-      "retencion_ine_reverso",
-    ]);
+    assert.deepEqual(tipos, ["retencion_carta_sin_sello"]);
   });
 
-  it("opción A incompleta lista documentos faltantes", () => {
-    const archivos = [
-      archivo("retencion_acuse_con_sello", true),
-      archivo("retencion_aviso_retencion", false),
-      archivo("retencion_ine_frente", false),
-      archivo("retencion_ine_reverso", false),
-    ];
+  it("opción A incompleta lista el documento principal faltante", () => {
     const f = deriveRetencionAcuseAvisoFaltantes({
       retencion_opcion: "con_sello",
-      archivos,
+      archivos: [],
     });
-    assert.equal(f.length, 3);
-    assert.ok(f.every((x) => x.kind === "documento"));
+    assert.equal(f.length, 1);
+    assert.equal(f[0].kind, "documento");
+    if (f[0].kind === "documento") {
+      assert.equal(f[0].tipo_documento, "retencion_acuse_con_sello");
+    }
+  });
+
+  it("opción A completa solo con acuse (aviso/INE no bloquean)", () => {
+    assert.ok(
+      retencionAcuseAvisoCompleto({
+        retencion_opcion: "con_sello",
+        archivos: [archivo("retencion_acuse_con_sello", true)],
+      }),
+    );
   });
 
   it("opción B completa no tiene faltantes", () => {
-    const archivos = [
-      archivo("retencion_carta_sin_sello", true),
-      archivo("retencion_aviso_retencion", true),
-      archivo("retencion_ine_frente", true),
-      archivo("retencion_ine_reverso", true),
-    ];
+    const archivos = [archivo("retencion_carta_sin_sello", true)];
     assert.ok(
       retencionAcuseAvisoCompleto({
         retencion_opcion: "sin_sello",
@@ -192,16 +199,11 @@ describe("B0D3B: bloqueo mesa avance etapa 8 → 9", () => {
       archivos: [],
       retencion_enviado_a_mesa: true,
     });
-    assert.equal(bloqueos.length, 4);
+    assert.equal(bloqueos.length, 1);
   });
 
-  it("opción A con los 4 documentos validados y envío asesor permite avance mesa", () => {
-    const archivos = [
-      archivoEstatus("retencion_acuse_con_sello", "validado"),
-      archivoEstatus("retencion_aviso_retencion", "validado"),
-      archivoEstatus("retencion_ine_frente", "validado"),
-      archivoEstatus("retencion_ine_reverso", "validado"),
-    ];
+  it("opción A con documento principal validado y envío asesor permite avance mesa", () => {
+    const archivos = [archivoEstatus("retencion_acuse_con_sello", "validado")];
     assert.deepEqual(
       getBloqueosRetencionAvanceEtapa8Mesa({
         retencion_opcion: "con_sello",
@@ -219,13 +221,8 @@ describe("B0D3B: bloqueo mesa avance etapa 8 → 9", () => {
     );
   });
 
-  it("opción B con los 4 documentos validados y envío asesor permite avance mesa", () => {
-    const archivos = [
-      archivoEstatus("retencion_carta_sin_sello", "validado"),
-      archivoEstatus("retencion_aviso_retencion", "validado"),
-      archivoEstatus("retencion_ine_frente", "validado"),
-      archivoEstatus("retencion_ine_reverso", "validado"),
-    ];
+  it("opción B con documento principal validado y envío asesor permite avance mesa", () => {
+    const archivos = [archivoEstatus("retencion_carta_sin_sello", "validado")];
     assert.deepEqual(
       getBloqueosRetencionAvanceEtapa8Mesa({
         retencion_opcion: "sin_sello",
@@ -236,13 +233,8 @@ describe("B0D3B: bloqueo mesa avance etapa 8 → 9", () => {
     );
   });
 
-  it("B0D6.1: opción A + 4 validados sin envío asesor bloquea 8→9", () => {
-    const archivos = [
-      archivoEstatus("retencion_acuse_con_sello", "validado"),
-      archivoEstatus("retencion_aviso_retencion", "validado"),
-      archivoEstatus("retencion_ine_frente", "validado"),
-      archivoEstatus("retencion_ine_reverso", "validado"),
-    ];
+  it("B0D6.1: opción A + principal validado sin envío asesor bloquea 8→9", () => {
+    const archivos = [archivoEstatus("retencion_acuse_con_sello", "validado")];
     const bloqueos = getBloqueosRetencionAvanceEtapa8Mesa({
       retencion_opcion: "con_sello",
       archivos,

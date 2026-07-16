@@ -19,7 +19,7 @@ describe("buildMesaRetencionDocViews", () => {
     assert.equal(buildMesaRetencionDocViews(null, []).length, 0);
   });
 
-  it("opción A lista 4 documentos con archivo resuelto", () => {
+  it("opción A lista 1 documento principal con archivo resuelto", () => {
     const views = buildMesaRetencionDocViews("con_sello", [
       {
         expediente_id: "e1",
@@ -35,11 +35,10 @@ describe("buildMesaRetencionDocViews", () => {
         comentario_mesa: null,
       },
     ]);
-    assert.equal(views.length, 4);
+    assert.equal(views.length, 1);
     assert.equal(views[0]?.tipo_documento, "retencion_acuse_con_sello");
     assert.equal(views[0]?.estatus_revision, "subido");
     assert.equal(views[0]?.puedeAbrir, true);
-    assert.equal(views[1]?.estatus_revision, "faltante");
   });
 });
 

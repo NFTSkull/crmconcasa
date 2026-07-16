@@ -445,8 +445,8 @@ BEGIN
   v_result := public.__rpc_avanzar_89_test_call_as(v_mesa_admin, v_exp_docs_a_ok);
   PERFORM public.__rpc_avanzar_89_test_assert(
     (v_result->>'etapa_actual')::int = 9
-      AND jsonb_array_length(v_result->'required_documentos') = 4,
-    'test 23: 4 docs opción A validados'
+      AND jsonb_array_length(v_result->'required_documentos') = 1,
+    'test 23: documento principal opción A validado'
   );
 
   -- 24–26. documentos opción B
@@ -458,7 +458,7 @@ BEGIN
   );
   v_result := public.__rpc_avanzar_89_test_call_as(v_mesa_admin, v_exp_docs_b_ok);
   PERFORM public.__rpc_avanzar_89_test_assert(
-    (v_result->>'etapa_actual')::int = 9, 'test 26: 4 docs opción B validados'
+    (v_result->>'etapa_actual')::int = 9, 'test 26: documento principal opción B validado'
   );
 
   -- 27. actualiza etapa 9
@@ -509,7 +509,7 @@ BEGIN
     'test 30-31: retención intacta'
   );
   PERFORM public.__rpc_avanzar_89_test_assert(
-    v_doc_count_after = v_doc_count_before AND v_doc_count_before = 4, 'test 32: documentos'
+    v_doc_count_after = v_doc_count_before AND v_doc_count_before = 1, 'test 32: documentos'
   );
   PERFORM public.__rpc_avanzar_89_test_assert(
     EXISTS (

@@ -120,9 +120,6 @@ CREATE OR REPLACE FUNCTION public.__rpc_ret_test_insert_con_sello_docs(
 RETURNS VOID LANGUAGE plpgsql AS $$
 BEGIN
   PERFORM public.__rpc_ret_test_insert_doc(gen_random_uuid(), p_org, p_exp, p_asesor, 'retencion_acuse_con_sello', p_estatus);
-  PERFORM public.__rpc_ret_test_insert_doc(gen_random_uuid(), p_org, p_exp, p_asesor, 'retencion_aviso_retencion', p_estatus);
-  PERFORM public.__rpc_ret_test_insert_doc(gen_random_uuid(), p_org, p_exp, p_asesor, 'retencion_ine_frente', p_estatus);
-  PERFORM public.__rpc_ret_test_insert_doc(gen_random_uuid(), p_org, p_exp, p_asesor, 'retencion_ine_reverso', p_estatus);
 END; $$;
 
 CREATE OR REPLACE FUNCTION public.__rpc_ret_test_insert_sin_sello_docs(
@@ -131,9 +128,6 @@ CREATE OR REPLACE FUNCTION public.__rpc_ret_test_insert_sin_sello_docs(
 RETURNS VOID LANGUAGE plpgsql AS $$
 BEGIN
   PERFORM public.__rpc_ret_test_insert_doc(gen_random_uuid(), p_org, p_exp, p_asesor, 'retencion_carta_sin_sello', p_estatus);
-  PERFORM public.__rpc_ret_test_insert_doc(gen_random_uuid(), p_org, p_exp, p_asesor, 'retencion_aviso_retencion', p_estatus);
-  PERFORM public.__rpc_ret_test_insert_doc(gen_random_uuid(), p_org, p_exp, p_asesor, 'retencion_ine_frente', p_estatus);
-  PERFORM public.__rpc_ret_test_insert_doc(gen_random_uuid(), p_org, p_exp, p_asesor, 'retencion_ine_reverso', p_estatus);
 END; $$;
 
 DO $$
@@ -210,14 +204,14 @@ BEGIN
   PERFORM public.__rpc_ret_test_insert_con_sello_docs(v_org, v_exp_bad_sub, v_a1);
 
   PERFORM public.__rpc_ret_test_insert_exp(v_exp_no_aviso, v_org, v_a1, '91801900019');
-  PERFORM public.__rpc_ret_test_insert_doc(gen_random_uuid(), v_org, v_exp_no_aviso, v_a1, 'retencion_acuse_con_sello');
+  -- Sin documento principal: solo históricos (aviso/INE) → debe fallar
+  PERFORM public.__rpc_ret_test_insert_doc(gen_random_uuid(), v_org, v_exp_no_aviso, v_a1, 'retencion_aviso_retencion');
   PERFORM public.__rpc_ret_test_insert_doc(gen_random_uuid(), v_org, v_exp_no_aviso, v_a1, 'retencion_ine_frente');
   PERFORM public.__rpc_ret_test_insert_doc(gen_random_uuid(), v_org, v_exp_no_aviso, v_a1, 'retencion_ine_reverso');
 
   PERFORM public.__rpc_ret_test_insert_exp(v_exp_no_ine, v_org, v_a1, '91802000020');
+  -- Solo principal (sin aviso/INE) → debe pasar
   PERFORM public.__rpc_ret_test_insert_doc(gen_random_uuid(), v_org, v_exp_no_ine, v_a1, 'retencion_acuse_con_sello');
-  PERFORM public.__rpc_ret_test_insert_doc(gen_random_uuid(), v_org, v_exp_no_ine, v_a1, 'retencion_aviso_retencion');
-  PERFORM public.__rpc_ret_test_insert_doc(gen_random_uuid(), v_org, v_exp_no_ine, v_a1, 'retencion_ine_reverso');
 
   PERFORM public.__rpc_ret_test_insert_exp(v_exp_rech, v_org, v_a1, '91802100021');
   PERFORM public.__rpc_ret_test_insert_con_sello_docs(v_org, v_exp_rech, v_a1, 'rechazado');
@@ -232,25 +226,20 @@ BEGIN
   PERFORM public.__rpc_ret_test_insert_con_sello_docs(v_org, v_exp_valid, v_a1, 'validado');
 
   PERFORM public.__rpc_ret_test_insert_exp(v_exp_del_doc, v_org, v_a1, '91802500025');
-  PERFORM public.__rpc_ret_test_insert_doc(v_doc_del, v_org, v_exp_del_doc, v_a1, 'retencion_aviso_retencion', 'subido', NOW());
-  PERFORM public.__rpc_ret_test_insert_doc(gen_random_uuid(), v_org, v_exp_del_doc, v_a1, 'retencion_acuse_con_sello');
+  -- Principal soft-deleted → debe fallar (históricos activos no cuentan)
+  PERFORM public.__rpc_ret_test_insert_doc(v_doc_del, v_org, v_exp_del_doc, v_a1, 'retencion_acuse_con_sello', 'subido', NOW());
+  PERFORM public.__rpc_ret_test_insert_doc(gen_random_uuid(), v_org, v_exp_del_doc, v_a1, 'retencion_aviso_retencion');
   PERFORM public.__rpc_ret_test_insert_doc(gen_random_uuid(), v_org, v_exp_del_doc, v_a1, 'retencion_ine_frente');
   PERFORM public.__rpc_ret_test_insert_doc(gen_random_uuid(), v_org, v_exp_del_doc, v_a1, 'retencion_ine_reverso');
 
   PERFORM public.__rpc_ret_test_insert_exp(v_exp_resend, v_org, v_a1, '91802600026');
-  PERFORM public.__rpc_ret_test_insert_doc(v_doc_resend, v_org, v_exp_resend, v_a1, 'retencion_aviso_retencion', 'subido');
-  PERFORM public.__rpc_ret_test_insert_doc(gen_random_uuid(), v_org, v_exp_resend, v_a1, 'retencion_acuse_con_sello', 'subido');
-  PERFORM public.__rpc_ret_test_insert_doc(gen_random_uuid(), v_org, v_exp_resend, v_a1, 'retencion_ine_frente', 'subido');
-  PERFORM public.__rpc_ret_test_insert_doc(gen_random_uuid(), v_org, v_exp_resend, v_a1, 'retencion_ine_reverso', 'subido');
+  PERFORM public.__rpc_ret_test_insert_doc(v_doc_resend, v_org, v_exp_resend, v_a1, 'retencion_acuse_con_sello', 'subido');
 
   PERFORM public.__rpc_ret_test_insert_exp(v_exp_double, v_org, v_a1, '91802700027');
   PERFORM public.__rpc_ret_test_insert_con_sello_docs(v_org, v_exp_double, v_a1);
 
   PERFORM public.__rpc_ret_test_insert_exp(v_exp_hook, v_org, v_a1, '91802800028');
-  PERFORM public.__rpc_ret_test_insert_doc(v_doc_hook, v_org, v_exp_hook, v_a1, 'retencion_aviso_retencion', 'subido');
-  PERFORM public.__rpc_ret_test_insert_doc(gen_random_uuid(), v_org, v_exp_hook, v_a1, 'retencion_acuse_con_sello', 'subido');
-  PERFORM public.__rpc_ret_test_insert_doc(gen_random_uuid(), v_org, v_exp_hook, v_a1, 'retencion_ine_frente', 'subido');
-  PERFORM public.__rpc_ret_test_insert_doc(gen_random_uuid(), v_org, v_exp_hook, v_a1, 'retencion_ine_reverso', 'subido');
+  PERFORM public.__rpc_ret_test_insert_doc(v_doc_hook, v_org, v_exp_hook, v_a1, 'retencion_acuse_con_sello', 'subido');
 
   PERFORM public.__rpc_ret_test_insert_exp(v_exp_hook_no, v_org, v_a1, '91802900029');
   PERFORM public.__rpc_ret_test_insert_doc(v_doc_hook_no, v_org, v_exp_hook_no, v_a1, 'retencion_aviso_retencion', 'subido');
@@ -295,9 +284,10 @@ BEGIN
   PERFORM public.__rpc_ret_test_assert(public.__rpc_ret_test_enviar_expect_fail(v_a1, v_exp_ciclo, 'con_sello'), 'test 14');
   PERFORM public.__rpc_ret_test_assert(public.__rpc_ret_test_enviar_expect_fail(v_a1, v_exp_bad_sub, 'con_sello'), 'test 15');
 
-  -- 16-22: documentos
-  PERFORM public.__rpc_ret_test_assert(public.__rpc_ret_test_enviar_expect_fail(v_a1, v_exp_no_aviso, 'con_sello'), 'test 16');
-  PERFORM public.__rpc_ret_test_assert(public.__rpc_ret_test_enviar_expect_fail(v_a1, v_exp_no_ine, 'con_sello'), 'test 17');
+  -- 16-22: documentos (P077: solo principal requerido)
+  PERFORM public.__rpc_ret_test_assert(public.__rpc_ret_test_enviar_expect_fail(v_a1, v_exp_no_aviso, 'con_sello'), 'test 16 sin principal');
+  v_result := public.__rpc_ret_test_enviar(v_a1, v_exp_no_ine, 'con_sello');
+  PERFORM public.__rpc_ret_test_assert((v_result->>'ok')::boolean = true, 'test 17 solo principal');
   PERFORM public.__rpc_ret_test_assert(public.__rpc_ret_test_enviar_expect_fail(v_a1, v_exp_rech, 'con_sello'), 'test 18');
   v_result := public.__rpc_ret_test_enviar(v_a1, v_exp_subido, 'con_sello');
   PERFORM public.__rpc_ret_test_assert((v_result->>'ok')::boolean = true, 'test 19');
@@ -305,7 +295,7 @@ BEGIN
   PERFORM public.__rpc_ret_test_assert((v_result->>'ok')::boolean = true, 'test 20');
   v_result := public.__rpc_ret_test_enviar(v_a1, v_exp_valid, 'con_sello');
   PERFORM public.__rpc_ret_test_assert((v_result->>'ok')::boolean = true, 'test 21');
-  PERFORM public.__rpc_ret_test_assert(public.__rpc_ret_test_enviar_expect_fail(v_a1, v_exp_del_doc, 'con_sello'), 'test 22');
+  PERFORM public.__rpc_ret_test_assert(public.__rpc_ret_test_enviar_expect_fail(v_a1, v_exp_del_doc, 'con_sello'), 'test 22 principal deleted');
 
   -- 23-28: reenvío
   v_result := public.__rpc_ret_test_enviar(v_a1, v_exp_resend, 'con_sello');
@@ -322,7 +312,7 @@ BEGIN
   );
 
   SELECT re.fecha_envio_mesa INTO v_fecha1 FROM public.retencion_envios re WHERE re.expediente_id = v_exp_resend;
-  v_result := public.__rpc_ret_test_revision(v_mesa, v_doc_resend, 'rechazado', 'Corregir aviso');
+  v_result := public.__rpc_ret_test_revision(v_mesa, v_doc_resend, 'rechazado', 'Corregir acuse');
   PERFORM public.__rpc_ret_test_assert(
     EXISTS (SELECT 1 FROM public.retencion_envios re WHERE re.expediente_id = v_exp_resend AND re.estado = 'correccion_requerida'),
     'test 25'

@@ -429,7 +429,10 @@ Convenciones:
 
 ### Reglas
 
-- Etapa 8; todos los docs de la opción subidos (no necesariamente validados).
+- Etapa 8; documento principal de la opción subido (no necesariamente validado).
+  - Opción A: `retencion_acuse_con_sello`
+  - Opción B: `retencion_carta_sin_sello`
+- Aviso/INE históricos no son requeridos para envío ni avance 8→9.
 - Upsert `retencion_envios` (`enviado`, `estado = enviado`).
 - Bloquea cambio opción A/B mientras `estado = enviado` (corrección libera).
 
@@ -441,7 +444,7 @@ Convenciones:
 - Reemplazo asesor: antes de enviar el bloque (`no_enviado`) puede subir/reemplazar PDFs no validados; con bloque `enviado` no reemplaza; en `correccion_requerida` solo `rechazado`; siempre bloqueado si `validado` (espejo del RPC).
 - MIME de retención se normaliza a `application/pdf` en el cliente (igual que integración) para PDFs con tipo vacío/`octet-stream`.
 - Opción A/B: borrador en `sessionStorage` (`retencion-opcion:<expedienteId>`) + inferencia desde docs `retencion_*` activos tras reload; orden: DB → inferencia → sessionStorage → default (la fila `retencion_opciones` solo se escribe al enviar a Mesa).
-- Botón «Enviar a Mesa Control» siempre visible en `no_enviado` / `correccion_requerida` (deshabilitado con lista de faltantes); habilitado solo con opción explícita y docs `subido|resubido|validado` de la opción. Textetch canónico tras upload/envío.
+- Botón «Enviar a Mesa Control» siempre visible en `no_enviado` / `correccion_requerida` (deshabilitado con lista de faltantes); habilitado solo con opción explícita y el documento principal `subido|resubido|validado`. Refetch canónico tras upload/envío.
 - Sin botón 8→9 ni validación Mesa (P3O.3).
 
 ---
@@ -464,7 +467,7 @@ Adicional:
 ### UI Mesa avance 8→9 (P3N.4)
 
 - Panel «Avanzar a etapa 9» si `deriveAvanceOperativo8a9View.puedeAvanzar`.
-- Gates: etapa 8, `en_proceso`, enviado a Mesa, ciclo activo, `cliente_datos` validado, `retencion_envios` enviado/estado `enviado`, docs requeridos `validado`.
+- Gates: etapa 8, `en_proceso`, enviado a Mesa, ciclo activo, `cliente_datos` validado, `retencion_envios` enviado/estado `enviado`, documento principal `validado`.
 - RPC `avanzar_etapa_operativa` → `etapa_actual = 9`, `action_log.transition = 8_9`.
 - Solo Mesa Control; asesor sin botón avance.
 

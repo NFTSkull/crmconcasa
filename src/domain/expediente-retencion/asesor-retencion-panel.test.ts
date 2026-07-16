@@ -91,14 +91,14 @@ describe("deriveAsesorRetencionPanelView", () => {
     });
     assert.equal(view.opcionPanel, "con_sello");
     assert.equal(view.opcionAmbigua, false);
-    assert.equal(view.uploads.length, 4);
+    assert.equal(view.uploads.length, 1);
     assert.ok(
       view.uploads.some((u) => u.tipo === "retencion_acuse_con_sello"),
     );
     assert.equal(view.uiEstado, "no_enviado");
     assert.equal(view.mostrarBotonEnviar, true);
-    assert.equal(view.puedeEnviarAMesa, false);
-    assert.equal(view.motivoDeshabilitar?.kind, "documentos");
+    assert.equal(view.puedeEnviarAMesa, true);
+    assert.equal(view.motivoDeshabilitar, null);
   });
 
   it("inferencia desde docs activos prevalece sobre sessionStorage del expediente", () => {
@@ -165,9 +165,6 @@ describe("deriveAsesorRetencionPanelView", () => {
       archivos: [
         { tipo_documento: "retencion_acuse_con_sello", id: "1", estatus_revision: "subido" },
         { tipo_documento: "retencion_carta_sin_sello", id: "2", estatus_revision: "subido" },
-        { tipo_documento: "retencion_aviso_retencion", id: "3", estatus_revision: "subido" },
-        { tipo_documento: "retencion_ine_frente", id: "4", estatus_revision: "subido" },
-        { tipo_documento: "retencion_ine_reverso", id: "5", estatus_revision: "subido" },
       ],
     });
     assert.equal(view.opcionAmbigua, true);
@@ -183,15 +180,12 @@ describe("deriveAsesorRetencionPanelView", () => {
       envio: null,
       archivos: [
         { tipo_documento: "retencion_acuse_con_sello", id: "1", estatus_revision: "subido" },
-        { tipo_documento: "retencion_aviso_retencion", id: "2", estatus_revision: "subido" },
-        { tipo_documento: "retencion_ine_frente", id: "3", estatus_revision: "subido" },
-        { tipo_documento: "retencion_ine_reverso", id: "4", estatus_revision: "subido" },
       ],
     });
     assert.equal(view.puedeEnviarAMesa, true);
     assert.equal(view.mostrarBotonEnviar, true);
     assert.equal(view.botonEnviarLabel, "Enviar a Mesa Control");
-    assert.equal(view.uploads.length, 4);
+    assert.equal(view.uploads.length, 1);
   });
 
   it("rechazado no cuenta como listo para envío", () => {
@@ -201,9 +195,6 @@ describe("deriveAsesorRetencionPanelView", () => {
       envio: null,
       archivos: [
         { tipo_documento: "retencion_acuse_con_sello", id: "1", estatus_revision: "rechazado" },
-        { tipo_documento: "retencion_aviso_retencion", id: "2", estatus_revision: "subido" },
-        { tipo_documento: "retencion_ine_frente", id: "3", estatus_revision: "subido" },
-        { tipo_documento: "retencion_ine_reverso", id: "4", estatus_revision: "subido" },
       ],
     });
     assert.equal(view.puedeEnviarAMesa, false);
@@ -238,9 +229,6 @@ describe("deriveAsesorRetencionPanelView", () => {
       envio: { ...envioEnviado, estado: "correccion_requerida" },
       archivos: [
         { tipo_documento: "retencion_acuse_con_sello", id: "1", estatus_revision: "resubido" },
-        { tipo_documento: "retencion_aviso_retencion", id: "2", estatus_revision: "validado" },
-        { tipo_documento: "retencion_ine_frente", id: "3", estatus_revision: "validado" },
-        { tipo_documento: "retencion_ine_reverso", id: "4", estatus_revision: "validado" },
       ],
     });
     assert.equal(view.uiEstado, "correccion_requerida");

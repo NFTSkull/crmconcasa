@@ -93,15 +93,15 @@ ConCasa CRM gestiona el ciclo operativo de precalificaciones / expedientes hipot
 
 | Opción | Documentos requeridos |
 |--------|----------------------|
-| **A — con sello** | Acuse con sello, Aviso retención, INE frente/reverso. |
-| **B — sin sello** | Carta sin sello, Aviso retención, INE frente/reverso. |
+| **A — con sello** | Único obligatorio: Acuse con sello (`retencion_acuse_con_sello`). |
+| **B — sin sello** | Único obligatorio: Carta sin sello (`retencion_carta_sin_sello`). |
 
-1. Asesor elige A/B y sube documentos.
+1. Asesor elige A/B y sube el documento principal.
 2. Asesor **envía bloque a Mesa** (`retencion_envios`).
 3. Mesa valida/rechaza **con nota obligatoria** en rechazo.
 4. Mesa puede **rechazar documento ya validado** (corrección por error).
-5. Avance **8→9** requiere: envío asesor + todos los docs de la opción en `validado`.
-
+5. Avance **8→9** requiere: envío asesor + documento principal de la opción en `validado`.
+6. Aviso/INE históricos (`retencion_aviso_retencion`, `retencion_ine_*`) no son obligatorios ni bloquean; no se borran ni se hace backfill.
 ### 6.4 Reingreso / Reinscripción post-biométricos
 
 1. Mesa rechaza un expediente en etapa 5 o 6 y registra una decisión explícita sobre sus biométricos.

@@ -1,5 +1,22 @@
 # Devlog
 
+## 2026-07-16 - fix/retencion-solo-documento-principal (P077, local)
+
+### Causa
+
+- El bloque Acuse/Aviso exigía 4 documentos por opción (acuse/carta + aviso + INE frente/reverso), aunque el flujo operativo solo necesita el documento principal.
+
+### Decisiones
+
+- Fuente de verdad TS: `tiposRequeridosRetencion` → 1 tipo por opción; uploads asesor/Mesa y gates 8→9 consumen esa lista.
+- Catálogo: aviso/INE → `opcional` (históricos intactos; upload SQL `retencion_doc_tipos_asesor_upload` sin cambio).
+- SQL: migración `077` redefine `retencion_doc_tipos_requeridos` (consumida por `enviar_retencion_mesa` y avance 8→9).
+- Sin backfill, sin soft-delete de filas históricas, sin Cloud/commit/push/deploy.
+
+### Verificación
+
+- Tests domain/UI + suite SQL local `rpc_enviar_retencion_mesa` tras aplicar 077; lint/typecheck/npm test.
+
 ## 2026-07-16 - fix/asesor-retencion-enviar-mesa-ux (botón Enviar a Mesa Control, local)
 
 ### Causa

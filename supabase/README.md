@@ -161,12 +161,14 @@ Migraciones SQL para producción. **No conectadas a la UI mock** en esta fase.
 - **Roles permitidos:** solo `asesor` (dueño, misma organización)
 - **Roles bloqueados:** `mesa_*`, `editor`, `super_admin` — **`revisor` no existe**
 - **Gates:** expediente activo, enviado a Mesa, `etapa_actual = 8`, `subestado = en_proceso`; docs requeridos de la opción con `estatus_revision` en `subido` | `resubido` | `validado` (no `rechazado` ni `faltante`)
-- **Opción A (`con_sello`):** `retencion_acuse_con_sello`, `retencion_aviso_retencion`, `retencion_ine_frente`, `retencion_ine_reverso`
-- **Opción B (`sin_sello`):** `retencion_carta_sin_sello`, `retencion_aviso_retencion`, `retencion_ine_frente`, `retencion_ine_reverso`
+- **Opción A (`con_sello`):** `retencion_acuse_con_sello` (único obligatorio)
+- **Opción B (`sin_sello`):** `retencion_carta_sin_sello` (único obligatorio)
+- **Históricos no obligatorios:** `retencion_aviso_retencion`, `retencion_ine_frente`, `retencion_ine_reverso` (upload permitido; no bloquean envío ni avance 8→9)
 - **Reenvío:** permitido solo si `retencion_envios.estado = correccion_requerida`; bloqueado si ya `enviado`
 - **Efecto:** upsert `retencion_opciones` + `retencion_envios` (`enviado = true`, `estado = enviado`, `fecha_envio_mesa = now()`)
 - **Hook Mesa:** `update_documento_revision` rechazo `retencion_*` → `retencion_envios.estado = correccion_requerida` (si existe fila)
 - **Auditoría:** `action_log` → `expediente.enviar_retencion_mesa`
+- **Migración:** `077_retencion_doc_tipos_requeridos_solo_principal.sql` redefine `retencion_doc_tipos_requeridos`
 - **Tests:** `supabase/tests/rpc_enviar_retencion_mesa.sql` (36 pruebas)
 
 ### RPC `book_firmas` (P2C-18)

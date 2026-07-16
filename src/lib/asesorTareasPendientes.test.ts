@@ -154,9 +154,6 @@ function archivoRow(
 describe("isAsesorPendienteSubirAcuse", () => {
   const archivosCompletos: ExpedienteArchivoResumen[] = [
     archivoRow("retencion_acuse_con_sello", "subido"),
-    archivoRow("retencion_aviso_retencion", "subido"),
-    archivoRow("retencion_ine_frente", "subido"),
-    archivoRow("retencion_ine_reverso", "subido"),
   ];
 
   it("etapa 8 sin opción elegida", () => {

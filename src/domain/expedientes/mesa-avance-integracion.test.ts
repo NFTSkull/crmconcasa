@@ -719,6 +719,7 @@ describe("deriveAvanceOperativo7a8View", () => {
 function retencionArchivo(
   tipo:
     | "retencion_acuse_con_sello"
+    | "retencion_carta_sin_sello"
     | "retencion_aviso_retencion"
     | "retencion_ine_frente"
     | "retencion_ine_reverso",
@@ -750,9 +751,6 @@ function avance8a9Ctx(
     clienteDatosEstado: "validado",
     archivosResumen: [
       retencionArchivo("retencion_acuse_con_sello", "validado"),
-      retencionArchivo("retencion_aviso_retencion", "validado"),
-      retencionArchivo("retencion_ine_frente", "validado"),
-      retencionArchivo("retencion_ine_reverso", "validado"),
     ],
     retencionOpcion: "con_sello",
     retencionEnviadoAMesa: true,
@@ -773,10 +771,7 @@ describe("deriveAvanceOperativo8a9View", () => {
     const view = deriveAvanceOperativo8a9View(
       avance8a9Ctx({
         archivosResumen: [
-          retencionArchivo("retencion_acuse_con_sello", "validado"),
-          retencionArchivo("retencion_aviso_retencion", "subido"),
-          retencionArchivo("retencion_ine_frente", "validado"),
-          retencionArchivo("retencion_ine_reverso", "validado"),
+          retencionArchivo("retencion_acuse_con_sello", "subido"),
         ],
       }),
     );
@@ -789,15 +784,26 @@ describe("deriveAvanceOperativo8a9View", () => {
     const view = deriveAvanceOperativo8a9View(
       avance8a9Ctx({
         archivosResumen: [
-          retencionArchivo("retencion_acuse_con_sello", "validado"),
-          retencionArchivo("retencion_aviso_retencion", "rechazado"),
-          retencionArchivo("retencion_ine_frente", "validado"),
-          retencionArchivo("retencion_ine_reverso", "validado"),
+          retencionArchivo("retencion_acuse_con_sello", "rechazado"),
         ],
       }),
     );
     assert.equal(view.puedeAvanzar, false);
     assert.ok(view.bloqueos.some((b) => /rechazado/i.test(b)));
+  });
+
+  it("aviso/INE históricos no bloquean avance 8→9", () => {
+    const view = deriveAvanceOperativo8a9View(
+      avance8a9Ctx({
+        archivosResumen: [
+          retencionArchivo("retencion_acuse_con_sello", "validado"),
+          retencionArchivo("retencion_aviso_retencion", "subido"),
+          retencionArchivo("retencion_ine_frente", "rechazado"),
+        ],
+      }),
+    );
+    assert.equal(view.puedeAvanzar, true);
+    assert.deepEqual(view.bloqueos, []);
   });
 
   it("bloquea sin envío de retención a Mesa", () => {

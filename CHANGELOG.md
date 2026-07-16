@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **fix/retencion-solo-documento-principal — P077 (local):** en Acuse/Aviso de retención (etapa 8) solo es obligatorio el documento principal según opción A (`retencion_acuse_con_sello`) o B (`retencion_carta_sin_sello`); aviso e INE dejan de ser requeridos (catálogo `opcional`, siguen uploadables); migración `077_retencion_doc_tipos_requeridos_solo_principal.sql`; envío a Mesa, revisión Mesa y avance 8→9 alineados; sin borrar históricos ni backfill; sin Cloud/commit/push/deploy.
+
 - **fix/asesor-retencion-enviar-mesa-ux (local):** el botón «Enviar a Mesa Control» permanece visible en `no_enviado`/`correccion_requerida` (deshabilitado con faltantes/opción/ambigüedad); completitud alineada al RPC (`subido|resubido|validado`); refetch canónico tras upload/envío para habilitar al instante y refrescar meta; sin Cloud/commit/push/deploy.
 
 - **fix/asesor-retencion-pdf-persistencia (local):** el upload de Acuse/Aviso de retención (etapa 8) normaliza el MIME a `application/pdf` antes de Storage/RPC (corrige PDFs con tipo vacío/`octet-stream` que pasaban la validación UI pero fallaban al registrar); la opción A/B se restaura tras recargar vía `sessionStorage` + inferencia desde docs `retencion_*` ya persistidos; el asesor puede reemplazar PDFs `subido`/`resubido` mientras el bloque no esté enviado a Mesa (alineado al RPC que solo bloquea `validado`); lista de documentos filtra `deleted_at`; sin Cloud/commit/push/deploy.

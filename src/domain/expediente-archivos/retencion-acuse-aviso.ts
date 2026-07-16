@@ -25,18 +25,13 @@ export const RETENCION_DOC_LABEL: Record<RetencionTipoDocumento, string> = {
   retencion_carta_sin_sello: "Carta de motivo por falta de sello",
 };
 
+/** Único documento obligatorio por opción (aviso/INE históricos ya no son requeridos). */
 const TIPOS_OPCION_CON_SELLO = [
   "retencion_acuse_con_sello",
-  "retencion_aviso_retencion",
-  "retencion_ine_frente",
-  "retencion_ine_reverso",
 ] as const satisfies readonly RetencionTipoDocumento[];
 
 const TIPOS_OPCION_SIN_SELLO = [
   "retencion_carta_sin_sello",
-  "retencion_aviso_retencion",
-  "retencion_ine_frente",
-  "retencion_ine_reverso",
 ] as const satisfies readonly RetencionTipoDocumento[];
 
 export type RetencionFaltanteItem =
