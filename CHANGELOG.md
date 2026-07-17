@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- **fix/admin-montos-corruptos — P084 (Cloud aplicado):** repara 2 snaps + 1 `monto_aprobado_snapshot_no_recuperable`; KPI responsive; SHA `33158391de8d90d39025d8627b560853cac725efb8afad6be008110ae14a1cf2`.
+- **fix/admin-kpi-monto-nowrap (local):** KPI «Monto aprobado Mejoravit» en una sola línea (`whitespace-nowrap` + `clamp` + `sm:col-span-2`); solo presentación.
 
 - **fix/admin-precal-diarias-mejoravit — P083 (local):** periodo default Hoy; bloque Precalificaciones con chips Total/Aprobadas/No cumple/Pendientes/Monto·Promedio Mejoravit; lista paginada de decisiones del periodo (`aprobado_at` o `updated_at`); KPI superior y por asesor con monto solo Mejoravit aprobado; migración `083_…sql` ampliada (no Cloud); sin commit/push/deploy.
 

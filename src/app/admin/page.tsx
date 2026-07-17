@@ -389,7 +389,7 @@ export default function AdminDashboardPage() {
           <p className="text-gray-700">Cargando producción…</p>
         ) : (
           <>
-            <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
+            <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
               {[
                 {
                   title: "Expedientes enviados a Mesa",
@@ -421,7 +421,11 @@ export default function AdminDashboardPage() {
                 return (
                 <div
                   key={card.title}
-                  className="min-w-0 rounded-lg border border-slate-200 bg-white p-4"
+                  className={
+                    isMontoKpi
+                      ? "min-w-0 rounded-lg border border-slate-200 bg-white p-4 sm:col-span-2"
+                      : "min-w-0 rounded-lg border border-slate-200 bg-white p-4"
+                  }
                 >
                   <p className="text-xs uppercase tracking-wide text-gray-700">
                     {card.title}
@@ -429,7 +433,7 @@ export default function AdminDashboardPage() {
                   <p
                     className={
                       isMontoKpi
-                        ? "mt-2 break-words text-lg font-semibold leading-tight tabular-nums text-gray-900 sm:text-xl lg:text-2xl"
+                        ? "mt-2 whitespace-nowrap font-semibold leading-none tabular-nums text-gray-900 text-[clamp(0.95rem,2.5vw,1.5rem)]"
                         : "mt-2 text-2xl font-semibold text-gray-900"
                     }
                     title={isMontoKpi && typeof card.value === "string" ? card.value : undefined}
