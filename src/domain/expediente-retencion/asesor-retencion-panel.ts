@@ -63,7 +63,7 @@ export function writeRetencionOpcionDraft(
   }
 }
 
-/** Panel retención asesor Supabase: etapa 8 y expediente ya enviado a Mesa. */
+/** Panel retención asesor: etapa 8 (envío) y etapa 9 (confirmación post-envío P079). */
 export function canShowAsesorRetencionSupabasePanel(params: {
   dataModeSupabase: boolean;
   etapaActual: number | null | undefined;
@@ -71,8 +71,9 @@ export function canShowAsesorRetencionSupabasePanel(params: {
 }): boolean {
   return (
     params.dataModeSupabase &&
-    params.etapaActual === RETENCION_ETAPA_OPERATIVA_ID &&
-    params.submittedToMesa === true
+    params.submittedToMesa === true &&
+    (params.etapaActual === RETENCION_ETAPA_OPERATIVA_ID ||
+      params.etapaActual === RETENCION_ETAPA_OPERATIVA_ID + 1)
   );
 }
 
@@ -80,10 +81,10 @@ export function retencionDocEstatusLabelAsesor(
   e: ExpedienteArchivoResumen["estatus_revision"] | undefined,
 ): string {
   if (!e || e === "faltante") return "Faltante";
-  if (e === "subido") return "Subido — Mesa revisará después del envío";
-  if (e === "resubido") return "Resubido — Mesa revisará de nuevo";
-  if (e === "validado") return "Aceptado por Mesa";
-  return "Rechazado por Mesa";
+  if (e === "subido") return "Subido — listo para enviar";
+  if (e === "resubido") return "Resubido — listo para reenviar";
+  if (e === "validado") return "Documento listo";
+  return "Rechazado — reemplazar antes de enviar";
 }
 
 export function asesorRetencionBloqueEstadoLabel(
@@ -91,8 +92,12 @@ export function asesorRetencionBloqueEstadoLabel(
 ): string {
   if (uiEstado === "no_enviado") return "Pendiente de envío a Mesa";
   if (uiEstado === "correccion_requerida") return "Corrección requerida";
-  return "Enviado a Mesa — pendiente de revisión";
+  return "Acuse enviado. El expediente está listo para agendar firma.";
 }
+
+export const MSG_RETENCION_ENVIADA_LISTA_FIRMA =
+  "Acuse enviado. El expediente está listo para agendar firma.";
+
 
 /** Visible mientras el bloque aún no está en revisión Mesa. */
 export function mostrarBotonEnviarRetencionAMesa(

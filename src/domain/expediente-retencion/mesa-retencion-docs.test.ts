@@ -7,8 +7,9 @@ import {
 } from "./mesa-retencion-docs";
 
 describe("canShowMesaRetencionSupabaseSection", () => {
-  it("visible solo en etapa 8", () => {
+  it("visible en etapa 8+", () => {
     assert.equal(canShowMesaRetencionSupabaseSection({ etapaActual: 8 }), true);
+    assert.equal(canShowMesaRetencionSupabaseSection({ etapaActual: 9 }), true);
     assert.equal(canShowMesaRetencionSupabaseSection({ etapaActual: 7 }), false);
     assert.equal(canShowMesaRetencionSupabaseSection({ etapaActual: null }), false);
   });
@@ -43,8 +44,8 @@ describe("buildMesaRetencionDocViews", () => {
 });
 
 describe("mesaRetencionDocEstatusLabel", () => {
-  it("copy operativo Mesa", () => {
-    assert.match(mesaRetencionDocEstatusLabel("subido"), /Pendiente de revisión/i);
-    assert.equal(mesaRetencionDocEstatusLabel("validado"), "Validado");
+  it("copy operativo Mesa (P079: sin pendiente de revisión)", () => {
+    assert.match(mesaRetencionDocEstatusLabel("subido"), /Recibido/i);
+    assert.match(mesaRetencionDocEstatusLabel("validado"), /Recibido/i);
   });
 });

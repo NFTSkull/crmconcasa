@@ -260,10 +260,27 @@ BEGIN
     'test 3'
   );
   SELECT e.etapa_actual INTO v_etapa FROM public.expedientes e WHERE e.id = v_exp_a;
-  PERFORM public.__rpc_ret_test_assert(v_etapa = 8, 'test 4');
+  PERFORM public.__rpc_ret_test_assert(v_etapa = 9, 'test 4 etapa 9');
   PERFORM public.__rpc_ret_test_assert(
     EXISTS (SELECT 1 FROM public.action_log al WHERE al.entity_id = v_exp_a AND al.action = 'expediente.enviar_retencion_mesa'),
     'test 5'
+  );
+  PERFORM public.__rpc_ret_test_assert(
+    NOT EXISTS (
+      SELECT 1 FROM public.agenda_bookings b
+      WHERE b.expediente_id = v_exp_a AND b.kind = 'firmas'
+    ),
+    'test 5b sin booking'
+  );
+  PERFORM public.__rpc_ret_test_assert(
+    EXISTS (
+      SELECT 1 FROM public.expediente_documentos d
+      WHERE d.expediente_id = v_exp_a
+        AND d.tipo_documento = 'retencion_acuse_con_sello'
+        AND d.estatus_revision = 'subido'
+        AND d.deleted_at IS NULL
+    ),
+    'test 5c estatus documental intacto'
   );
 
   -- 6-7: opción B
@@ -306,10 +323,16 @@ BEGIN
 
   v_result := public.__rpc_ret_test_enviar(v_a1, v_exp_double, 'con_sello');
   PERFORM public.__rpc_ret_test_assert((v_result->>'ok')::boolean = true, 'test 24 setup');
+  -- P079: reintento en etapa 9 es idempotente (no avanza a 10, no falla)
+  v_result := public.__rpc_ret_test_enviar(v_a1, v_exp_double, 'con_sello');
   PERFORM public.__rpc_ret_test_assert(
-    public.__rpc_ret_test_enviar_expect_fail(v_a1, v_exp_double, 'con_sello'),
-    'test 24'
+    (v_result->>'ok')::boolean = true
+      AND (v_result->>'idempotent')::boolean = true
+      AND (v_result->>'etapa_actual')::int = 9,
+    'test 24 idempotente etapa 9'
   );
+  SELECT e.etapa_actual INTO v_etapa FROM public.expedientes e WHERE e.id = v_exp_double;
+  PERFORM public.__rpc_ret_test_assert(v_etapa = 9, 'test 24 no avanza a 10');
 
   SELECT re.fecha_envio_mesa INTO v_fecha1 FROM public.retencion_envios re WHERE re.expediente_id = v_exp_resend;
   v_result := public.__rpc_ret_test_revision(v_mesa, v_doc_resend, 'rechazado', 'Corregir acuse');
@@ -335,6 +358,8 @@ BEGIN
     EXISTS (SELECT 1 FROM public.retencion_envios re WHERE re.expediente_id = v_exp_resend AND re.estado = 'enviado'),
     'test 27'
   );
+  SELECT e.etapa_actual INTO v_etapa FROM public.expedientes e WHERE e.id = v_exp_resend;
+  PERFORM public.__rpc_ret_test_assert(v_etapa = 9, 'test 27b reenvío queda etapa 9');
   PERFORM public.__rpc_ret_test_assert(
     EXISTS (SELECT 1 FROM public.retencion_opciones ro WHERE ro.expediente_id = v_exp_resend AND ro.retencion_opcion = 'sin_sello')
     AND EXISTS (SELECT 1 FROM public.retencion_envios re WHERE re.expediente_id = v_exp_resend AND re.opcion = 'sin_sello'),

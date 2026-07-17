@@ -124,12 +124,16 @@ DECLARE
   v_cancel_int UUID := '00000000-0000-4000-9075-000000000111';
   v_cancel_ext UUID := '00000000-0000-4000-9075-000000000112';
   v_cancel_super UUID := '00000000-0000-4000-9075-000000000113';
+  v_hist_fecha UUID := '00000000-0000-4000-9075-000000000114';
 
   v_slot TIMESTAMPTZ := public.__p075_slot(7, 10);
   v_slot2 TIMESTAMPTZ := public.__p075_slot(8, 11);
+  v_slot_hist TIMESTAMPTZ := public.__p075_slot(9, 10);
   v_result JSONB;
   v_booking UUID;
   v_fecha TIMESTAMPTZ;
+  v_fecha_hist TIMESTAMPTZ := TIMESTAMPTZ '2025-01-15 16:00:00+00';
+  v_fecha_after TIMESTAMPTZ;
 BEGIN
   INSERT INTO public.organizations (id, slug, name, active) VALUES
     (v_org, 'p075-org', 'P075 Org', true),
@@ -187,6 +191,11 @@ BEGIN
   PERFORM public.__p075_insert_exp(v_cancel_int, v_org, v_asesor, '90750000111', 9, 'interno');
   PERFORM public.__p075_insert_exp(v_cancel_ext, v_org, v_asesor, '90750000112', 9, 'externo');
   PERFORM public.__p075_insert_exp(v_cancel_super, v_other_org, v_other_asesor, '90750000113', 9);
+  PERFORM public.__p075_insert_exp(v_hist_fecha, v_org, v_asesor, '90750000114', 9);
+  -- P079: fecha_cita histórica sin booking activo no bloquea mesa_book_firmas.
+  UPDATE public.expedientes
+  SET fecha_cita = v_fecha_hist, updated_at = NOW()
+  WHERE id = v_hist_fecha;
 
   -- Alta por todos los roles Mesa y etapas 9/10.
   v_result := public.__p075_call_book(v_admin, v_admin9, v_slot);
@@ -309,6 +318,30 @@ BEGIN
       RAISE EXCEPTION 'P075 TEST FAIL: error original inesperado: %', SQLERRM;
     END IF;
   END;
+
+  -- P079/P080: etapa 9 + fecha_cita histórica + sin booking → Mesa puede agendar.
+  PERFORM public.__p075_assert(
+    (SELECT fecha_cita = v_fecha_hist AND etapa_actual = 9 FROM public.expedientes WHERE id = v_hist_fecha)
+    AND NOT EXISTS (
+      SELECT 1 FROM public.agenda_bookings b
+      WHERE b.expediente_id = v_hist_fecha AND b.kind = 'firmas' AND b.status = 'booked'
+    ),
+    'fixture histórica: etapa 9, fecha previa, sin booking'
+  );
+  v_result := public.__p075_call_book(v_admin, v_hist_fecha, v_slot_hist);
+  SELECT fecha_cita INTO v_fecha_after FROM public.expedientes WHERE id = v_hist_fecha;
+  PERFORM public.__p075_assert(
+    (v_result->>'ok')::boolean = true
+    AND (SELECT count(*) = 1 FROM public.agenda_bookings
+         WHERE expediente_id = v_hist_fecha AND kind = 'firmas' AND status = 'booked')
+    AND (SELECT count(*) = 0 FROM public.agenda_bookings
+         WHERE expediente_id = v_hist_fecha AND kind = 'firmas' AND status = 'booked'
+           AND id IS DISTINCT FROM (v_result->>'booking_id')::UUID)
+    AND v_fecha_after IS NOT DISTINCT FROM v_slot_hist
+    AND (SELECT etapa_actual = 9 FROM public.expedientes WHERE id = v_hist_fecha),
+    'P079: fecha_cita histórica no bloquea mesa_book_firmas; un booking y fecha normalizada'
+  );
+  PERFORM public.__p075_expect_book_fail(v_admin, v_hist_fecha, v_slot2, 'MESA_SIGNATURE_ALREADY_BOOKED');
 
   PERFORM public.__p075_assert(
     EXISTS (

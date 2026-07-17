@@ -182,15 +182,14 @@ describe("B0D3B: bloqueo mesa avance etapa 8 → 9", () => {
     assert.ok(getBloqueosRetencionAvanceEtapa8({ retencion_opcion: null, archivos: [] }).length > 0);
   });
 
-  it("opción A sin todos los documentos subidos bloquea avance mesa", () => {
+  it("P079: opción A con principal subido y envío permite avance mesa", () => {
     const archivos = [archivoEstatus("retencion_acuse_con_sello", "subido")];
     const bloqueos = getBloqueosRetencionAvanceEtapa8Mesa({
       retencion_opcion: "con_sello",
       archivos,
       retencion_enviado_a_mesa: true,
     });
-    assert.ok(bloqueos.length > 0);
-    assert.ok(bloqueos.some((b) => b.includes("pendiente de validar") || b.includes("falta documento")));
+    assert.deepEqual(bloqueos, []);
   });
 
   it("opción B sin documentos bloquea avance mesa", () => {
@@ -248,7 +247,7 @@ describe("B0D3B: bloqueo mesa avance etapa 8 → 9", () => {
     }));
   });
 
-  it("B0D6.1: envío asesor pero documentos no validados bloquea", () => {
+  it("P079: envío asesor + principal subido no exige validado", () => {
     const archivos = [archivoEstatus("retencion_acuse_con_sello", "subido")];
     const bloqueos = getBloqueosRetencionAvanceEtapa8Mesa({
       retencion_opcion: "con_sello",
@@ -256,7 +255,7 @@ describe("B0D3B: bloqueo mesa avance etapa 8 → 9", () => {
       retencion_enviado_a_mesa: true,
     });
     assert.ok(!bloqueos.includes(MSG_BLOQUEO_RETENCION_SIN_ENVIO_ASESOR));
-    assert.ok(bloqueos.some((b) => b.includes("pendiente de validar")));
+    assert.equal(bloqueos.length, 0);
   });
 
   it("retencion_* no alteran checklist integración (4 obligatorios cliente etapa 1)", () => {

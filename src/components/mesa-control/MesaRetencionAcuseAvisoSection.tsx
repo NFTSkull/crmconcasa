@@ -132,8 +132,9 @@ export function MesaRetencionAcuseAvisoSection({
         <>
       <h2 className="text-base font-semibold text-gray-900">Acuse / Aviso de retención</h2>
       <p className="mt-1 text-xs text-gray-600">
-        Etapa {RETENCION_ETAPA_OPERATIVA_ID}: revisa los documentos según la opción elegida por el
-        asesor. Valida o rechaza cada documento; el rechazo solicita corrección al asesor.
+        Etapa {RETENCION_ETAPA_OPERATIVA_ID}+: consulta el Acuse enviado por el asesor. En etapa 9
+        el expediente queda listo para agendar firma; no se requiere validar ni rechazar este
+        documento.
       </p>
         </>
       )}
@@ -156,7 +157,7 @@ export function MesaRetencionAcuseAvisoSection({
         ) : null}
         {envioUiEstado === "enviado" ? (
           <p className="mt-1">
-            Enviado a Mesa Control para revisión
+            Acuse recibido — listo para agendar firma
             {fechaEnvioMesa ? ` (${formatDateTime(fechaEnvioMesa)})` : ""}.
           </p>
         ) : null}
@@ -185,13 +186,13 @@ export function MesaRetencionAcuseAvisoSection({
           role="status"
           className="mt-3 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-xs text-green-900"
         >
-          Archivos subidos para la opción elegida. Valida cada documento en la lista.
+          Acuse recibido — listo para agendar firma.
         </p>
       ) : null}
 
-      {opcionMesa && bloqueosAvance.length > 0 && envioUiEstado !== "enviado" ? (
+      {opcionMesa && bloqueosAvance.length > 0 && envioUiEstado === "no_enviado" ? (
         <div className="mt-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-800">
-          <p className="font-semibold">Pendientes para avanzar a etapa 9</p>
+          <p className="font-semibold">Pendientes del bloque</p>
           <ul className="mt-1 list-inside list-disc space-y-0.5">
             {bloqueosAvance.map((b) => (
               <li key={b}>{b}</li>

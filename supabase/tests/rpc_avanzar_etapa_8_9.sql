@@ -432,12 +432,13 @@ BEGIN
     (v_result->>'etapa_actual')::int = 9, 'test 19: opción desde retencion_envios.opcion (sin retencion_opciones)'
   );
 
-  -- 20–23. documentos opción A
+  -- 20–23. documentos opción A (P079: subido/resubido permiten avance)
   PERFORM public.__rpc_avanzar_89_test_assert(
     public.__rpc_avanzar_89_test_call_expect_fail(v_mesa_admin, v_exp_falta_acuse), 'test 20: falta acuse'
   );
+  v_result := public.__rpc_avanzar_89_test_call_as(v_mesa_admin, v_exp_acuse_subido);
   PERFORM public.__rpc_avanzar_89_test_assert(
-    public.__rpc_avanzar_89_test_call_expect_fail(v_mesa_admin, v_exp_acuse_subido), 'test 21: acuse subido'
+    (v_result->>'etapa_actual')::int = 9, 'test 21: acuse subido permite 8→9'
   );
   PERFORM public.__rpc_avanzar_89_test_assert(
     public.__rpc_avanzar_89_test_call_expect_fail(v_mesa_admin, v_exp_acuse_rech), 'test 22: acuse rechazado'
@@ -453,8 +454,9 @@ BEGIN
   PERFORM public.__rpc_avanzar_89_test_assert(
     public.__rpc_avanzar_89_test_call_expect_fail(v_mesa_admin, v_exp_falta_carta), 'test 24: falta carta'
   );
+  v_result := public.__rpc_avanzar_89_test_call_as(v_mesa_admin, v_exp_carta_subido);
   PERFORM public.__rpc_avanzar_89_test_assert(
-    public.__rpc_avanzar_89_test_call_expect_fail(v_mesa_admin, v_exp_carta_subido), 'test 25: carta resubido'
+    (v_result->>'etapa_actual')::int = 9, 'test 25: carta resubido permite 8→9'
   );
   v_result := public.__rpc_avanzar_89_test_call_as(v_mesa_admin, v_exp_docs_b_ok);
   PERFORM public.__rpc_avanzar_89_test_assert(

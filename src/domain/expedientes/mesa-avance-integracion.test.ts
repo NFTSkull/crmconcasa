@@ -767,7 +767,7 @@ describe("deriveAvanceOperativo8a9View", () => {
     assert.deepEqual(view.bloqueos, []);
   });
 
-  it("bloquea con documentos pendientes de validar", () => {
+  it("P079: principal subido con envío permite avanzar 8→9", () => {
     const view = deriveAvanceOperativo8a9View(
       avance8a9Ctx({
         archivosResumen: [
@@ -776,8 +776,8 @@ describe("deriveAvanceOperativo8a9View", () => {
       }),
     );
     assert.equal(view.mostrar, true);
-    assert.equal(view.puedeAvanzar, false);
-    assert.ok(view.bloqueos.some((b) => /pendiente de validar/i.test(b)));
+    assert.equal(view.puedeAvanzar, true);
+    assert.deepEqual(view.bloqueos, []);
   });
 
   it("bloquea con documento rechazado", () => {

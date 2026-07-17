@@ -139,8 +139,8 @@ export const MSG_BLOQUEO_RETENCION_SIN_ENVIO_ASESOR =
   "Falta enviar Acuse/Aviso a Mesa Control desde asesor.";
 
 /**
- * Bloqueo mesa 8→9: opción elegida + envío asesor (`expediente_retencion_envio_mesa_v1`)
- * + cada documento requerido en `validado`.
+ * Bloqueo mesa 8→9 (P079): opción + envío asesor + documento principal activo
+ * en `subido|resubido|validado` (ya no exige validación Mesa).
  */
 export function getBloqueosRetencionAvanceEtapa8Mesa(params: {
   retencion_opcion: RetencionOpcion | null | undefined;
@@ -168,11 +168,11 @@ export function getBloqueosRetencionAvanceEtapa8Mesa(params: {
       bloqueos.push(`Acuse / Aviso: documento rechazado — ${label}`);
       continue;
     }
-    if (row.estatus_revision === "subido" || row.estatus_revision === "resubido") {
-      bloqueos.push(`Acuse / Aviso: pendiente de validar — ${label}`);
-      continue;
-    }
-    if (row.estatus_revision !== "validado") {
+    if (
+      row.estatus_revision !== "subido" &&
+      row.estatus_revision !== "resubido" &&
+      row.estatus_revision !== "validado"
+    ) {
       bloqueos.push(`Acuse / Aviso: documento incompleto — ${label}`);
     }
   }

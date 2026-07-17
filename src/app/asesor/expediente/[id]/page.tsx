@@ -1483,6 +1483,7 @@ export default function AsesorExpedientePage() {
               <RetencionAcuseAvisoSupabaseCard
                 expedienteId={String(precal.id)}
                 archivosResumen={archivosResumen}
+                etapaActual={operativo?.etapaActual}
                 onUpdated={async () => {
                   await refreshArchivos();
                   await loadExpediente();

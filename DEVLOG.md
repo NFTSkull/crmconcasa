@@ -1,5 +1,25 @@
 # Devlog
 
+## 2026-07-17 - feat/retencion-envio-auto-firma (P079, local)
+
+### Causa
+
+- Tras enviar el Acuse, Mesa seguía exigiendo validación documental (`validado`) en el gate 8→9; el envío no avanzaba etapa y bloqueaba agendar firma.
+
+### Decisiones
+
+- `enviar_retencion_mesa` (misma firma/ACL/SECURITY DEFINER/`search_path`) registra envío + `UPDATE` atómico 8→9; no toca estatus documental; no crea booking/`fecha_cita`.
+- Idempotencia: reintento en etapa 9 + enviado → OK sin mutar ni avanzar a 10.
+- Gate `avanzar_etapa_operativa_pre_reingreso` 8→9 acepta principal `subido|resubido|validado`.
+- UI: Mesa deja de exponer Validar/corrección del Acuse (`mesaPuedeRevisarRetencionDocumentos` → false); asesor copy «listo para agendar firma» + refetch canónico.
+- P080 backfill Cohorte A preparado en `080_…sql` + rollback condicional en `scripts/rollback/`; no aplicado en Cloud.
+- Snapshots pre-P079 en `scripts/rollback/p079_pre_*.sql`.
+
+### Verificación
+
+- Runner aislado + npm test/lint/typecheck/build (ver reporte entrega).
+- Cloud RO cohortes A/B/C/D sin PII; sin mutación Cloud/commit/push/deploy.
+
 ## 2026-07-17 - feat/login-alias-asesor-mejoravit (local)
 
 ### Causa

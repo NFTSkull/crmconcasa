@@ -17,6 +17,7 @@ import {
 } from "@/domain/expediente-archivos/retencion-acuse-aviso";
 import {
   ExpedienteRetencionSupabaseError,
+  MSG_RETENCION_ENVIADA_LISTA_FIRMA,
   copyMotivoDeshabilitarEnvioRetencion,
   deriveAsesorRetencionPanelView,
   readRetencionOpcionDraft,
@@ -32,6 +33,8 @@ import {
 export interface RetencionAcuseAvisoSupabaseCardProps {
   expedienteId: string;
   archivosResumen: ExpedienteArchivoResumen[] | null;
+  /** Etapa operativa canónica (8 envío / 9 confirmación post-envío). */
+  etapaActual?: number | null;
   /** Refetch canónico de documentos (y meta expediente). Debe rechazar si falla. */
   onUpdated: () => void | Promise<void>;
 }
@@ -50,6 +53,7 @@ function formatFechaEnvio(iso: string | undefined): string {
 export function RetencionAcuseAvisoSupabaseCard({
   expedienteId,
   archivosResumen,
+  etapaActual = RETENCION_ETAPA_OPERATIVA_ID,
   onUpdated,
 }: RetencionAcuseAvisoSupabaseCardProps) {
   const repo = useExpedienteRetencionSupabaseRepo();
@@ -238,7 +242,9 @@ export function RetencionAcuseAvisoSupabaseCard({
       try {
         await refetchCanonico();
       } catch {
-        // Envío OK; estado local ya refleja envío. Refetch fallido avisado.
+        setVistaStaleError(
+          "El Acuse se envió y el expediente avanzó, pero no se pudo refrescar la vista. Recarga la página para ver la etapa 9.",
+        );
       }
     } catch (err) {
       setEnvioError(
@@ -254,13 +260,15 @@ export function RetencionAcuseAvisoSupabaseCard({
 
   if (!repo) return null;
 
+  const enEtapaFirma = etapaActual === RETENCION_ETAPA_OPERATIVA_ID + 1;
+
   return (
     <div className="rounded-lg border border-violet-200 bg-violet-50/40 p-4 text-sm text-gray-700">
       <p className="text-sm font-semibold text-gray-900">Acuse / Aviso de retención</p>
       <p className="mt-1 text-xs text-gray-600">
-        Etapa {RETENCION_ETAPA_OPERATIVA_ID}: elige la opción A o B, sube los documentos
-        requeridos y envía el bloque a Mesa Control. Mesa revisará los documentos después del
-        envío; el avance a etapa 9 queda pendiente de esa validación.
+        {enEtapaFirma
+          ? "El Acuse ya fue enviado. Mesa puede agendar la firma; no se requiere validación documental adicional."
+          : `Etapa ${RETENCION_ETAPA_OPERATIVA_ID}: elige la opción A o B, sube el documento principal y envía a Mesa Control. Al enviar, el expediente avanza a etapa 9 (listo para agendar firma).`}
       </p>
 
       {loadingMeta ? (
@@ -411,7 +419,7 @@ export function RetencionAcuseAvisoSupabaseCard({
                         {!puedeReemplazar && hasFile && estatus !== "validado" ? (
                           <p className="mt-1 text-[10px] text-gray-500">
                             {panel.uiEstado === "enviado"
-                              ? "En revisión por Mesa; espera validación o rechazo."
+                              ? "Acuse enviado; el expediente está listo para agendar firma."
                               : "Este documento no se puede reemplazar en el estado actual."}
                           </p>
                         ) : null}
@@ -511,9 +519,19 @@ export function RetencionAcuseAvisoSupabaseCard({
                 {enviando ? "Enviando a Mesa Control…" : panel.botonEnviarLabel}
               </Button>
               <p className="mt-1 text-[10px] text-gray-500">
-                Al enviar, Mesa revisará los documentos. Esto no avanza el expediente a etapa 9.
+                Al enviar, el expediente avanza a etapa 9 para que Mesa agende la firma. No se crea
+                la cita automáticamente.
               </p>
             </div>
+          ) : null}
+
+          {panel.uiEstado === "enviado" ? (
+            <p
+              role="status"
+              className="mt-3 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-xs text-green-900"
+            >
+              {MSG_RETENCION_ENVIADA_LISTA_FIRMA}
+            </p>
           ) : null}
         </>
       ) : null}

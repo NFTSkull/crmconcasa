@@ -76,7 +76,7 @@ describe("mesa expediente detalle — acciones por etapa", () => {
   });
 
   it("validar retención solo etapa 8 enviada", () => {
-    assert.equal(mesaPuedeRevisarRetencionDocumentos(8, true), true);
+    assert.equal(mesaPuedeRevisarRetencionDocumentos(8, true), false);
     assert.equal(mesaPuedeRevisarRetencionDocumentos(8, false), false);
     assert.equal(mesaPuedeRevisarRetencionDocumentos(9, true), false);
     assert.equal(mesaPuedeRevisarRetencionDocumentos(10, true), false);

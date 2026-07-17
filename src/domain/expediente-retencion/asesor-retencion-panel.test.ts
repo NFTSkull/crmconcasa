@@ -18,11 +18,19 @@ const envioEnviado: ExpedienteRetencionEnvioMesa = {
 };
 
 describe("canShowAsesorRetencionSupabasePanel", () => {
-  it("visible solo supabase + etapa 8 + enviado a Mesa", () => {
+  it("visible supabase + etapa 8/9 + enviado a Mesa", () => {
     assert.equal(
       canShowAsesorRetencionSupabasePanel({
         dataModeSupabase: true,
         etapaActual: 8,
+        submittedToMesa: true,
+      }),
+      true,
+    );
+    assert.equal(
+      canShowAsesorRetencionSupabasePanel({
+        dataModeSupabase: true,
+        etapaActual: 9,
         submittedToMesa: true,
       }),
       true,
@@ -247,14 +255,14 @@ describe("copy asesor retención", () => {
     );
   });
 
-  it("estatus documento evita afirmar validación Mesa salvo validado", () => {
-    assert.match(retencionDocEstatusLabelAsesor("subido"), /Mesa revisará/i);
-    assert.match(retencionDocEstatusLabelAsesor("validado"), /Aceptado por Mesa/i);
+  it("estatus documento orienta a envío sin validación Mesa", () => {
+    assert.match(retencionDocEstatusLabelAsesor("subido"), /listo para enviar/i);
+    assert.match(retencionDocEstatusLabelAsesor("validado"), /Documento listo/i);
   });
 
   it("bloque estado operativo", () => {
     assert.match(asesorRetencionBloqueEstadoLabel("no_enviado"), /Pendiente de envío/i);
-    assert.match(asesorRetencionBloqueEstadoLabel("enviado"), /pendiente de revisión/i);
+    assert.match(asesorRetencionBloqueEstadoLabel("enviado"), /listo para agendar firma/i);
     assert.match(asesorRetencionBloqueEstadoLabel("correccion_requerida"), /Corrección/i);
   });
 });

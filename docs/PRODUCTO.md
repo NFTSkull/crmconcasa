@@ -89,19 +89,20 @@ ConCasa CRM gestiona el ciclo operativo de precalificaciones / expedientes hipot
 2. **Mesa no agenda** biométricos; solo consulta cita en lectura.
 3. Mesa **4→5** bloqueado sin cita registrada.
 
-### 6.3 Retención (etapa 8)
+### 6.3 Retención (etapa 8 → 9)
 
 | Opción | Documentos requeridos |
 |--------|----------------------|
 | **A — con sello** | Único obligatorio: Acuse con sello (`retencion_acuse_con_sello`). |
 | **B — sin sello** | Único obligatorio: Carta sin sello (`retencion_carta_sin_sello`). |
 
-1. Asesor elige A/B y sube el documento principal.
-2. Asesor **envía bloque a Mesa** (`retencion_envios`).
-3. Mesa valida/rechaza **con nota obligatoria** en rechazo.
-4. Mesa puede **rechazar documento ya validado** (corrección por error).
-5. Avance **8→9** requiere: envío asesor + documento principal de la opción en `validado`.
+1. Asesor elige A/B y sube el documento principal (`subido`/`resubido`/`validado`).
+2. Asesor **envía bloque a Mesa** (`enviar_retencion_mesa`): registra envío **y** avanza atómicamente **8→9**.
+3. Mesa **no** valida ni rechaza el Acuse para este flujo; consulta en lectura y agenda firma en etapa 9.
+4. El documento **no** se marca como `validado` por el envío; puede permanecer `subido`/`resubido`/`validado`.
+5. **No** se crea booking ni `fecha_cita` al enviar.
 6. Aviso/INE históricos (`retencion_aviso_retencion`, `retencion_ine_*`) no son obligatorios ni bloquean; no se borran ni se hace backfill.
+7. Gate normal 8→9 (recuperación) exige envío + principal activo en `subido|resubido|validado`.
 ### 6.4 Reingreso / Reinscripción post-biométricos
 
 1. Mesa rechaza un expediente en etapa 5 o 6 y registra una decisión explícita sobre sus biométricos.

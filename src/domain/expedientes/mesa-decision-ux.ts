@@ -106,7 +106,7 @@ export const MESA_AVANCE_OPERATIVO_7A8_COPY: MesaAvanceOperativoCopy = {
 export const MESA_AVANCE_OPERATIVO_8A9_COPY: MesaAvanceOperativoCopy = {
   titulo: MESA_DECISION_TITULO_AVANCE,
   descripcion:
-    "La retención fue validada por Mesa. Puedes aceptar y avanzar a agenda de firma (etapa 9).",
+    "El Acuse ya fue enviado por el asesor. Puedes aceptar y avanzar a agenda de firma (etapa 9) si el expediente aún está en etapa 8.",
   etiquetaBoton: "Aceptar retención y avanzar a Firma",
   mensajeConfirmacion:
     "¿Confirmas aceptar la retención y avanzar este expediente a etapa 9: Listo agendar firma?",
@@ -149,12 +149,17 @@ export function mesaPuedeRevisarDocumentosIntegracion(
   return etapaActual === 1;
 }
 
-/** Validar/rechazar retención: etapa 8 con bloque enviado a Mesa. */
+/**
+ * Validar/rechazar retención (P079): Mesa ya no valida el Acuse;
+ * el envío del asesor avanza 8→9. Se conserva la función por compatibilidad UI.
+ */
 export function mesaPuedeRevisarRetencionDocumentos(
   etapaActual: number | null | undefined,
   enviadoAMesa: boolean,
 ): boolean {
-  return etapaActual === 8 && enviadoAMesa;
+  void etapaActual;
+  void enviadoAMesa;
+  return false;
 }
 
 /** Consulta datos generales: visible en todas las etapas. */

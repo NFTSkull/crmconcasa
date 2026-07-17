@@ -17,6 +17,8 @@ DB_PASSWORD="${SUPABASE_DB_PASSWORD:-postgres}"
 ADMIN_DB="${SUPABASE_ADMIN_DB:-postgres}"
 ISOLATED_DB="${ISOLATED_DB_NAME:-crm_preflight_reingreso_$$}"
 SKIP_MIGRATION_PREFIX="061_"
+# P078 es bootstrap Cloud (Auth UID productivo); en runner aislado no aplica.
+SKIP_MIGRATION_EXACT=("078_profile_asesor_mejoravit.sql")
 TMP_DIR="$(mktemp -d /tmp/crm-preflight-XXXXXX)"
 BASE_SCHEMA_DUMP="$TMP_DIR/base_schemas.sql"
 LOG_FILE="$TMP_DIR/runner.log"
@@ -166,6 +168,18 @@ for mig in supabase/migrations/*.sql; do
     echo "    SKIP  $base"
     continue
   fi
+  skip_exact=0
+  for exact in "${SKIP_MIGRATION_EXACT[@]}"; do
+    if [[ "$base" == "$exact" ]]; then
+      SKIPPED+=("$base")
+      echo "    SKIP  $base (cloud-only bootstrap)"
+      skip_exact=1
+      break
+    fi
+  done
+  if [[ "$skip_exact" -eq 1 ]]; then
+    continue
+  fi
   if [[ "$base" == 074_* ]]; then
     echo "    (hash snapshot of core RPCs before 074/075)"
     capture_core_fn_hashes > "$TMP_DIR/core_fn_hashes_before.txt"
@@ -191,7 +205,11 @@ fi
 
 echo "==> Applied ${#APPLIED[@]} migrations; skipped ${#SKIPPED[@]}"
 printf '    APPLIED: %s\n' "${APPLIED[@]}"
-printf '    SKIPPED: %s\n' "${SKIPPED[@]}"
+if ((${#SKIPPED[@]})); then
+  printf '    SKIPPED: %s\n' "${SKIPPED[@]}"
+else
+  echo "    SKIPPED: (none)"
+fi
 
 echo "==> Loading seed.sql"
 psql_iso -f supabase/seed.sql >>"$LOG_FILE" 2>&1

@@ -334,7 +334,7 @@ BEGIN
   PERFORM public.__rpc_regret_test_reset_auth();
   PERFORM public.__rpc_regret_test_assert((v_result->>'ok')::boolean = true, 'test 12: enviar_retencion_mesa ok');
 
-  -- 13. avanzar 8→9 bloqueado con docs solo subidos (sin validar)
+  -- 13. P079: enviar_retencion_mesa ya avanzó a etapa 9; estatus documental intacto
   PERFORM public.__rpc_regret_test_insert_cliente(v_exp_flow, v_org);
   PERFORM public.__rpc_regret_test_assert(
     EXISTS (
@@ -343,22 +343,37 @@ BEGIN
     ),
     'test 13: envío persistido'
   );
-
-  PERFORM public.__rpc_regret_test_set_auth(v_mesa);
-  BEGIN
-    PERFORM public.avanzar_etapa_operativa(v_exp_flow);
-    PERFORM public.__rpc_regret_test_reset_auth();
-    RAISE EXCEPTION 'RPC REGRET TEST FAIL: test 13 debía fallar avance 8→9';
-  EXCEPTION WHEN OTHERS THEN
-    PERFORM public.__rpc_regret_test_reset_auth();
-    PERFORM public.__rpc_regret_test_assert(
-      position('documentos de retención no validados' IN SQLERRM) > 0
-        OR position('documento de retención faltante' IN SQLERRM) > 0,
-      'test 13: avance 8→9 bloqueado sin validar'
-    );
-  END;
+  PERFORM public.__rpc_regret_test_assert(
+    EXISTS (
+      SELECT 1 FROM public.expedientes e
+      WHERE e.id = v_exp_flow AND e.etapa_actual = 9
+    ),
+    'test 13: envío avanza atómicamente a etapa 9'
+  );
+  PERFORM public.__rpc_regret_test_assert(
+    EXISTS (
+      SELECT 1 FROM public.expediente_documentos d
+      WHERE d.expediente_id = v_exp_flow
+        AND d.tipo_documento = 'retencion_acuse_con_sello'
+        AND d.deleted_at IS NULL
+        AND d.estatus_revision = 'subido'
+    ),
+    'test 13: estatus documental no marcado validado'
+  );
+  PERFORM public.__rpc_regret_test_assert(
+    NOT EXISTS (
+      SELECT 1 FROM public.agenda_bookings b
+      WHERE b.expediente_id = v_exp_flow AND b.kind = 'firmas'
+    ),
+    'test 13: sin booking automático'
+  );
 
   -- 14. hook retención: rechazo mesa no rompe register resubida
+  -- (register de retención sigue anclado a etapa 8; se restaura etapa para el fixture)
+  UPDATE public.expedientes
+  SET etapa_actual = 8, updated_at = NOW()
+  WHERE id = v_exp_flow;
+
   SELECT id INTO v_doc_id
   FROM public.expediente_documentos
   WHERE expediente_id = v_exp_flow

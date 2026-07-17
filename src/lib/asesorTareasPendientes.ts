@@ -150,8 +150,12 @@ function retencionTieneDocumentoRechazado(
 /**
  * Pendiente subir acuse: etapa 8 con panel retención visible y faltan uploads
  * (opción no elegida, documentos faltantes o rechazados por Mesa).
+ * Etapa 9 (post-envío P079) no cuenta como pendiente de subida.
  */
 export function isAsesorPendienteSubirAcuse(input: AsesorTareaExpedienteInput): boolean {
+  if (input.etapaActual !== RETENCION_ETAPA_OPERATIVA_ID) {
+    return false;
+  }
   if (
     !canShowAsesorRetencionSupabasePanel({
       dataModeSupabase: input.dataModeSupabase === true,

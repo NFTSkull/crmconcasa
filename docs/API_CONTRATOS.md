@@ -430,47 +430,45 @@ Convenciones:
 
 ### Reglas
 
-- Etapa 8; documento principal de la opción subido (no necesariamente validado).
+- Etapa 8 (primer envío) o etapa 8/9 con `correccion_requerida` (reenvío); documento principal de la opción en `subido|resubido|validado`.
   - Opción A: `retencion_acuse_con_sello`
   - Opción B: `retencion_carta_sin_sello`
 - Aviso/INE históricos no son requeridos para envío ni avance 8→9.
-- Upsert `retencion_envios` (`enviado`, `estado = enviado`).
+- Upsert `retencion_envios` (`enviado`, `estado = enviado`) **y** avance atómico `etapa_actual` 8→9 (`subestado = en_proceso`).
+- No marca el documento como `validado`; no crea `agenda_bookings` ni `fecha_cita`.
+- Reintento con expediente ya en etapa 9 + bloque enviado: respuesta idempotente (`idempotent: true`), sin avanzar a 10.
 - Bloquea cambio opción A/B mientras `estado = enviado` (corrección libera).
 
-### UI asesor (P3O.2)
+### UI asesor (P079)
 
-- Panel `RetencionAcuseAvisoSupabaseCard` en `/asesor/expediente/[id]` si `DATA_MODE=supabase`, `etapa_actual = 8`, `submitted_to_mesa`.
+- Panel `RetencionAcuseAvisoSupabaseCard` en `/asesor/expediente/[id]` si `DATA_MODE=supabase`, `etapa_actual ∈ {8,9}`, `submitted_to_mesa`.
 - Opción A/B en estado local hasta envío; persistencia vía RPC al enviar.
 - Upload: Storage `expediente-documentos` + RPC `register_expediente_documento_retencion`.
 - Reemplazo asesor: antes de enviar el bloque (`no_enviado`) puede subir/reemplazar PDFs no validados; con bloque `enviado` no reemplaza; en `correccion_requerida` solo `rechazado`; siempre bloqueado si `validado` (espejo del RPC).
 - MIME de retención se normaliza a `application/pdf` en el cliente (igual que integración) para PDFs con tipo vacío/`octet-stream`.
 - Opción A/B: borrador en `sessionStorage` (`retencion-opcion:<expedienteId>`) + inferencia desde docs `retencion_*` activos tras reload; orden: DB → inferencia → sessionStorage → default (la fila `retencion_opciones` solo se escribe al enviar a Mesa).
-- Botón «Enviar a Mesa Control» siempre visible en `no_enviado` / `correccion_requerida` (deshabilitado con lista de faltantes); habilitado solo con opción explícita y el documento principal `subido|resubido|validado`. Refetch canónico tras upload/envío.
-- Sin botón 8→9 ni validación Mesa (P3O.3).
+- Botón «Enviar a Mesa Control» visible en `no_enviado` / `correccion_requerida`; al éxito copy «Acuse enviado. El expediente está listo para agendar firma.» + refetch canónico a etapa 9.
+- Sin validación Mesa del Acuse; Mesa agenda firma en etapa 9.
 
 ---
 
-## 10. Validar / rechazar retención (Mesa)
+## 10. Retención en Mesa (lectura + agenda firma)
 
-Mismo contrato que **§6** sobre tipos `retencion_*`.
+`update_documento_revision` sigue existiendo para otros documentos; **P079** no expone Validar / Solicitar corrección sobre el bloque Acuse.
 
-Adicional:
-- Rechazo post-validación permitido.
-- Avance 8→9 consulta `getBloqueosRetencionAvanceEtapa8Mesa`.
+### UI Mesa (P079)
 
-### UI Mesa (P3O.3)
+- Sección `MesaRetencionAcuseAvisoSection` en `/mesa-control/[id]` Supabase si `etapa_actual >= 8`.
+- Lee `retencion_opciones`, `retencion_envios`, docs `retencion_*` (lista según opción A/B) en modo lectura.
+- Preview/descarga Storage; copy «Acuse recibido — listo para agendar firma.»
+- Agenda firmas vía controles etapa 9 (`mesa_book_firmas` / P075); el envío del Acuse **no** crea booking.
 
-- Sección `MesaRetencionAcuseAvisoSection` en `/mesa-control/[id]` Supabase si `etapa_actual = 8`.
-- Lee `retencion_opciones`, `retencion_envios`, docs `retencion_*` (lista según opción A/B).
-- Preview/descarga Storage; validar/rechazar vía RPC `update_documento_revision`.
-- Rechazo obliga comentario; hook SQL pone `retencion_envios.estado = correccion_requerida`.
+### UI Mesa avance 8→9 (recuperación / gate coherente)
 
-### UI Mesa avance 8→9 (P3N.4)
-
-- Panel «Avanzar a etapa 9» si `deriveAvanceOperativo8a9View.puedeAvanzar`.
-- Gates: etapa 8, `en_proceso`, enviado a Mesa, ciclo activo, `cliente_datos` validado, `retencion_envios` enviado/estado `enviado`, documento principal `validado`.
+- Panel «Avanzar a etapa 9» si `deriveAvanceOperativo8a9View.puedeAvanzar` (casos residuales en etapa 8).
+- Gates: etapa 8, `en_proceso`, enviado a Mesa, ciclo activo, `cliente_datos` validado, `retencion_envios` enviado/estado `enviado`, documento principal en `subido|resubido|validado`.
 - RPC `avanzar_etapa_operativa` → `etapa_actual = 9`, `action_log.transition = 8_9`.
-- Solo Mesa Control; asesor sin botón avance.
+- Flujo normal post-P079: el asesor ya dejó el expediente en etapa 9 al enviar.
 
 ---
 

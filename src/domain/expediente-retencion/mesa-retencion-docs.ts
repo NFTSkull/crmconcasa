@@ -51,18 +51,19 @@ function resolveRetencionArchivo(
   return null;
 }
 
-/** Sección Mesa retención: solo etapa operativa 8 en detalle Supabase. */
+/** Sección Mesa retención: etapa 8 (envío) y 9+ (lectura / agendar firma). */
 export function canShowMesaRetencionSupabaseSection(params: {
   etapaActual: number | null | undefined;
 }): boolean {
-  return params.etapaActual === RETENCION_ETAPA_OPERATIVA_ID;
+  const etapa = params.etapaActual;
+  return typeof etapa === "number" && etapa >= RETENCION_ETAPA_OPERATIVA_ID;
 }
 
 export function mesaRetencionDocEstatusLabel(estatus: ResumenEstatus | undefined): string {
   if (!estatus || estatus === "faltante") return "Faltante";
-  if (estatus === "subido") return "Pendiente de revisión";
-  if (estatus === "resubido") return "Resubido — pendiente de revisión";
-  if (estatus === "validado") return "Validado";
+  if (estatus === "subido") return "Recibido";
+  if (estatus === "resubido") return "Recibido (reenviado)";
+  if (estatus === "validado") return "Recibido";
   return "Rechazado";
 }
 
