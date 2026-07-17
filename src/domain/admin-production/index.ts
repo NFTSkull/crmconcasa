@@ -41,5 +41,7 @@ export {
   computePrecalMontosMejoravit,
   nextNoCumpleAt,
   resolvePrecalVisibleFecha,
+  MONTO_SNAPSHOT_NO_RECUPERABLE_LABEL,
+  formatPrecalMontoAlAprobarDisplay,
 } from "./metrics";
 export { getEtapaOperativaNombre } from "@/domain/expedientes/asesor-seguimiento-operativo";

@@ -80,6 +80,7 @@ function mapPrecalItem(raw: Record<string, unknown>): AdminPrecalEvent {
       raw.monto_aprobado_al_aprobar == null ? null : num(raw.monto_aprobado_al_aprobar),
     montoAprobadoActual:
       raw.monto_aprobado_actual == null ? null : num(raw.monto_aprobado_actual),
+    montoSnapshotNoRecuperable: Boolean(raw.monto_aprobado_snapshot_no_recuperable),
     programa: str(raw.programa),
   };
 }

@@ -1,5 +1,28 @@
 # Devlog
 
+## 2026-07-17 - P084 reparación snapshots monto + KPI responsive
+
+### Causa
+
+- SUM Admin correcto; 3 snaps Mejoravit > $100M por 1ª aprobación tipográfica + bounce a pendiente (~2s).
+- **Reparables:** 2 con re-aprobación válida → reemplazar snap por `monto_nuevo` de re-aprobación.
+- **No recuperable:** 1 sin re-aprobación → `monto_aprobado_al_aprobar=NULL` + `monto_aprobado_snapshot_no_recuperable=true` (conserva `aprobado_at`; CHECK P081 ampliado en P084).
+- Cloud RO confirmó: 1 sola aprobación, bounce→pendiente→no_cumple, 0 montos razonables en action_log, actual null.
+- Precondición migración: 0 (noop) o exactamente **3** (2+1).
+- Trigger `editor_decisions_clear_no_recuperable`: solo `true→false` si monto > 0.
+- SHA final: `33158391de8d90d39025d8627b560853cac725efb8afad6be008110ae14a1cf2` (reemplaza `1699496e…`).
+- Sin máximo oficial de `monto_aprobado`.
+
+### Rango monto aprobado
+
+- Contrato vigente escritura: `> 0`, `NUMERIC(14,2)`, round 2.
+- `169000` = tope de **base cobro** Mejoravit (−11%), **no** máximo de `monto_aprobado`.
+- Sin máximo canónico comprobable para aprobación → no se inventa validación max.
+
+### Observado Cloud (Mejoravit snaps >0)
+
+- n≈997; p50≈33.6k; p99≈302k; gt_169k=40; gt_1m=4; gt_100m=3.
+
 ## 2026-07-17 - P083 cierre: preservación updated_at + publicación
 
 ### Backfill Cloud

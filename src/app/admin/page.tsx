@@ -15,6 +15,7 @@ import {
   resolveAdminPeriodBounds,
   labelEditorDecision,
   decisionBadgeClass,
+  formatPrecalMontoAlAprobarDisplay,
   type AdminPeriodPreset,
   type AdminEstadoFilter,
   type AdminPrecalDecisionFilter,
@@ -415,20 +416,30 @@ export default function AdminDashboardPage() {
                   value: formatMontoMX(summary?.montoAprobadoTotal ?? 0),
                   hint: "aprobado · Mejoravit",
                 },
-              ].map((card) => (
+              ].map((card) => {
+                const isMontoKpi = card.title === "Monto aprobado Mejoravit";
+                return (
                 <div
                   key={card.title}
-                  className="rounded-lg border border-slate-200 bg-white p-4"
+                  className="min-w-0 rounded-lg border border-slate-200 bg-white p-4"
                 >
                   <p className="text-xs uppercase tracking-wide text-gray-700">
                     {card.title}
                   </p>
-                  <p className="mt-2 text-2xl font-semibold text-gray-900">
+                  <p
+                    className={
+                      isMontoKpi
+                        ? "mt-2 break-words text-lg font-semibold leading-tight tabular-nums text-gray-900 sm:text-xl lg:text-2xl"
+                        : "mt-2 text-2xl font-semibold text-gray-900"
+                    }
+                    title={isMontoKpi && typeof card.value === "string" ? card.value : undefined}
+                  >
                     {card.value}
                   </p>
                   <p className="mt-1 text-xs text-gray-700">{card.hint}</p>
                 </div>
-              ))}
+                );
+              })}
             </section>
 
             <section className="rounded-lg border border-slate-200 bg-white p-4">
@@ -494,7 +505,7 @@ export default function AdminDashboardPage() {
                           <td className="py-2 pr-3 text-gray-900">{a.precalificacionesAprobadas}</td>
                           <td className="py-2 pr-3 text-gray-900">{a.precalificacionesNoCumple}</td>
                           <td className="py-2 pr-3 text-gray-900">{a.aprobadasMayorA20000}</td>
-                          <td className="py-2 pr-3 text-gray-900">
+                          <td className="max-w-[10rem] break-words py-2 pr-3 text-gray-900 tabular-nums">
                             {formatMontoMX(a.montoAprobadoTotal)}
                           </td>
                           <td className="py-2 pr-3 text-xs text-gray-700">
@@ -663,10 +674,13 @@ export default function AdminDashboardPage() {
                   ].map((card) => (
                     <div
                       key={card.label}
-                      className="rounded-md border border-gray-200 bg-white px-3 py-2"
+                      className="min-w-0 rounded-md border border-gray-200 bg-white px-3 py-2"
                     >
                       <p className="text-xs font-medium text-gray-700">{card.label}</p>
-                      <p className="mt-1 text-base font-semibold text-gray-900">
+                      <p
+                        className="mt-1 break-words text-base font-semibold leading-tight tabular-nums text-gray-900"
+                        title={card.value}
+                      >
                         {card.value}
                       </p>
                     </div>
@@ -711,10 +725,15 @@ export default function AdminDashboardPage() {
                               {labelEditorDecision(r.decision)}
                             </span>
                           </td>
-                          <td className="py-2 pr-3 text-gray-900">
-                            {r.montoAprobadoAlAprobar != null
-                              ? formatMontoMX(r.montoAprobadoAlAprobar)
-                              : "—"}
+                          <td className="max-w-[14rem] break-words py-2 pr-3 text-gray-900">
+                            {formatPrecalMontoAlAprobarDisplay(
+                              {
+                                montoAprobadoAlAprobar: r.montoAprobadoAlAprobar,
+                                montoSnapshotNoRecuperable:
+                                  r.montoSnapshotNoRecuperable,
+                              },
+                              formatMontoMX,
+                            )}
                           </td>
                           <td className="py-2 text-gray-900">{r.programa}</td>
                         </tr>

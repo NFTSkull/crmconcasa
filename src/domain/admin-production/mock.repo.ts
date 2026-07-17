@@ -75,6 +75,10 @@ function mapPrecal(e: ExpedienteMock): AdminPrecalEvent {
     decision,
     montoAprobadoAlAprobar: monto,
     montoAprobadoActual: e.editorDecision.monto_aprobado,
+    montoSnapshotNoRecuperable: Boolean(
+      (e.editorDecision as { montoSnapshotNoRecuperable?: boolean })
+        .montoSnapshotNoRecuperable,
+    ),
     programa: e.base.programa,
   };
 }

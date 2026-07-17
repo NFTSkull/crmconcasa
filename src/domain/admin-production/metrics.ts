@@ -43,8 +43,33 @@ export type AdminPrecalEvent = Readonly<{
   decision: string;
   montoAprobadoAlAprobar: number | null;
   montoAprobadoActual: number | null;
+  /** P084: aprobado_at histórico sin monto recuperable. */
+  montoSnapshotNoRecuperable?: boolean;
   programa: string;
 }>;
+
+export const MONTO_SNAPSHOT_NO_RECUPERABLE_LABEL =
+  "Aprobación histórica con monto no recuperable";
+
+/** Texto visible de monto al aprobar (Admin/Excel). */
+export function formatPrecalMontoAlAprobarDisplay(
+  input: {
+    montoAprobadoAlAprobar: number | null | undefined;
+    montoSnapshotNoRecuperable?: boolean;
+  },
+  formatMonto: (n: number) => string,
+): string {
+  if (input.montoSnapshotNoRecuperable) {
+    return MONTO_SNAPSHOT_NO_RECUPERABLE_LABEL;
+  }
+  if (
+    typeof input.montoAprobadoAlAprobar === "number" &&
+    Number.isFinite(input.montoAprobadoAlAprobar)
+  ) {
+    return formatMonto(input.montoAprobadoAlAprobar);
+  }
+  return "—";
+}
 
 /** Etiquetas visibles de `editor_decisions.decision` (valores DB intactos). */
 export function labelEditorDecision(decision: string): string {

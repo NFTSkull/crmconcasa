@@ -2,7 +2,7 @@
 
 ## Unreleased
 
-- **fix/admin-precal-metrics — P083 (Cloud aplicado):** `no_cumple_at` canónico + backfill 595 con DISABLE/ENABLE `editor_decisions_set_updated_at`; Admin Hoy/Resueltas; KPIs No cumple + Monto Mejoravit; Excel por lotes sin tope 5000. SHA `06024c6aa2b59e20b7288c05a517c83a3b2f23cb6bd15a161b63c6bf6a3665d0`.
+- **fix/admin-montos-corruptos — P084 (Cloud aplicado):** repara 2 snaps + 1 `monto_aprobado_snapshot_no_recuperable`; KPI responsive; SHA `33158391de8d90d39025d8627b560853cac725efb8afad6be008110ae14a1cf2`.
 
 - **fix/admin-precal-diarias-mejoravit — P083 (local):** periodo default Hoy; bloque Precalificaciones con chips Total/Aprobadas/No cumple/Pendientes/Monto·Promedio Mejoravit; lista paginada de decisiones del periodo (`aprobado_at` o `updated_at`); KPI superior y por asesor con monto solo Mejoravit aprobado; migración `083_…sql` ampliada (no Cloud); sin commit/push/deploy.
 

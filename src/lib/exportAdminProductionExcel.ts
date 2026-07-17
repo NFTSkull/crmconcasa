@@ -1,7 +1,8 @@
 import * as XLSX from "xlsx";
 import { getEtapaOperativaNombre } from "@/domain/expedientes/asesor-seguimiento-operativo";
 import { formatAsesorExpedienteLabel } from "@/lib/asesorDisplay";
-import { labelEditorDecision } from "@/domain/admin-production/metrics";
+import { formatMontoMX } from "@/lib/monto";
+import { labelEditorDecision, formatPrecalMontoAlAprobarDisplay } from "@/domain/admin-production/metrics";
 import type { AdminPeriodBounds } from "@/domain/admin-production/period";
 import type {
   AdminAsesorProductionRow,
@@ -92,7 +93,17 @@ export function buildAdminProductionWorkbook(input: {
       sanitize(r.clienteNombre),
       sanitize(asesorLabel(r.asesorNombre, r.asesorEmail, r.asesorId)),
       sanitize(labelEditorDecision(r.decision)),
-      r.decision === "aprobado" ? r.montoAprobadoAlAprobar : null,
+      r.montoSnapshotNoRecuperable
+        ? formatPrecalMontoAlAprobarDisplay(
+            {
+              montoAprobadoAlAprobar: r.montoAprobadoAlAprobar,
+              montoSnapshotNoRecuperable: true,
+            },
+            formatMontoMX,
+          )
+        : r.decision === "aprobado"
+          ? r.montoAprobadoAlAprobar
+          : null,
       sanitize(r.programa),
     ]),
   ];
