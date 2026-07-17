@@ -1,5 +1,31 @@
 # Devlog
 
+## 2026-07-17 - feat/login-alias-asesor-mejoravit (local)
+
+### Causa
+
+- Se necesita un login corto `asesor.mejoravit` sin abrir un sistema general de usernames, vinculando un Auth user ya creado al perfil CRM.
+
+### Auditoría
+
+- `public.profiles` es la fuente de rol (`app_role`), org (`organization_id`) y `active`; no hay `handle_new_user` ni alta automática de perfil.
+- Cloud: el UID `6e48ff6b-…` y el email interno no tenían fila en `profiles`.
+- Org única piloto: `ConCasa` / slug `concasa` / `50beae49-…` (23 asesores activos; mayoría `tipo_asesor_origen=interno`).
+
+### Decisiones
+
+- Helper puro `normalizeLoginIdentifier`: trim + lowercase; alias exacto `asesor.mejoravit` → email interno; `@` = correo normal; resto sin `@` se rechaza.
+- Integración solo en `SupabaseSessionRepo.login` + label/input del formulario (`type=text` para permitir username).
+- Perfil vía migración `078` (INSERT `profiles`, no `auth.users`, no `user_metadata`); rol `asesor`, activo, org ConCasa, origen `interno`.
+- `078` endurecida: verifica Auth UID/email, org ConCasa, no-op si perfil idéntico, error si incompatible; sin `ON CONFLICT DO UPDATE`.
+- Origen `interno`: sin metadata Auth de origen; dominio técnico `@usuarios.concasa.mx`; sin evidencia de `externo`; resultado pedido explícito.
+
+### Verificación
+
+- Tests del helper; lint/typecheck/npm test.
+- Cloud (2026-07-17): `078` aplicada en proyecto linked `fvtqbxukqlajezyyvwzy` (ConCasa CRM); perfil verificado.
+- Publicación: un commit + push + deploy frontend; sin reaplicar 078; sin smoke automatizado.
+
 ## 2026-07-16 - fix/retencion-solo-documento-principal (P077, local)
 
 ### Causa

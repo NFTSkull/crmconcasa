@@ -9,6 +9,7 @@ Convenciones:
 - `organization_id`: UUID (single org ConCasa en piloto)
 - Errores: `{ code, message, details? }`
 - Auth: Bearer JWT Supabase; rol desde `profiles`, no del body
+- Login UI: correo normal o alias exacto controlado `asesor.mejoravit` → `asesor.mejoravit@usuarios.concasa.mx` (`normalizeLoginIdentifier`); sin sistema general de usernames
 
 ---
 

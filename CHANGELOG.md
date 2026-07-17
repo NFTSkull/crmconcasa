@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **feat/login-alias-asesor-mejoravit:** el login Supabase acepta el usuario exacto `asesor.mejoravit` (alias → `asesor.mejoravit@usuarios.concasa.mx`) vía `normalizeLoginIdentifier`; label «Correo o usuario»; login por correo intacto; migración `078_profile_asesor_mejoravit.sql` (defensiva) vincula el Auth UID existente a `profiles` como `asesor` activo en org ConCasa (`tipo_asesor_origen=interno`); perfil Cloud ya aplicado; frontend publicado en esta entrega.
+
 - **fix/retencion-solo-documento-principal — P077 (local):** en Acuse/Aviso de retención (etapa 8) solo es obligatorio el documento principal según opción A (`retencion_acuse_con_sello`) o B (`retencion_carta_sin_sello`); aviso e INE dejan de ser requeridos (catálogo `opcional`, siguen uploadables); migración `077_retencion_doc_tipos_requeridos_solo_principal.sql`; envío a Mesa, revisión Mesa y avance 8→9 alineados; sin borrar históricos ni backfill; sin Cloud/commit/push/deploy.
 
 - **fix/asesor-retencion-enviar-mesa-ux (local):** el botón «Enviar a Mesa Control» permanece visible en `no_enviado`/`correccion_requerida` (deshabilitado con faltantes/opción/ambigüedad); completitud alineada al RPC (`subido|resubido|validado`); refetch canónico tras upload/envío para habilitar al instante y refrescar meta; sin Cloud/commit/push/deploy.

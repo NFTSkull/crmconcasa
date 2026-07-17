@@ -4,6 +4,7 @@ import type { SupabaseClient } from "@supabase/supabase-js";
 import type { MockStoreContextValue } from "@/context/MockStoreContext";
 import type { Rol as MockStoreRol } from "@/lib/mock-store";
 import { persistMockUser, clearMockUser } from "@/lib/mockUser";
+import { normalizeLoginIdentifier } from "@/lib/normalizeLoginIdentifier";
 import { supabaseBrowser } from "@/lib/supabaseBrowser";
 import type { SessionRepo } from "./repo";
 import type { Rol, UserSession } from "./types";
@@ -183,16 +184,26 @@ export class SupabaseSessionRepo implements SessionRepo {
 
   async login(email: string, password: string): Promise<UserSession> {
     const client = getClient();
-    const trimmedEmail = email.trim();
     const trimmedPassword = password;
 
-    if (!trimmedEmail || !trimmedPassword) {
-      throw new SupabaseSessionError("Correo y contraseña son obligatorios.");
+    if (!String(email ?? "").trim() || !trimmedPassword) {
+      throw new SupabaseSessionError("Correo o usuario y contraseña son obligatorios.");
+    }
+
+    let normalizedEmail: string;
+    try {
+      normalizedEmail = normalizeLoginIdentifier(email);
+    } catch (err) {
+      throw new SupabaseSessionError(
+        err instanceof Error
+          ? err.message
+          : "Usuario no reconocido. Usa tu correo o el usuario autorizado.",
+      );
     }
 
     const { data: signInData, error: signInError } =
       await client.auth.signInWithPassword({
-        email: trimmedEmail,
+        email: normalizedEmail,
         password: trimmedPassword,
       });
 

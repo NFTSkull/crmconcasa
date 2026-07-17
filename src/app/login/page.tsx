@@ -56,7 +56,7 @@ export default function LoginPage() {
 
     if (supabaseAuth) {
       if (!emailRaw || !password) {
-        setLoginError("Correo y contraseña son obligatorios.");
+        setLoginError("Correo o usuario y contraseña son obligatorios.");
         return;
       }
       setSubmitting(true);
@@ -118,11 +118,11 @@ export default function LoginPage() {
         <form onSubmit={handleSubmit} className="mt-6 flex flex-col gap-4">
           <Input
             name="email"
-            type={supabaseAuth ? "email" : "text"}
-            label={supabaseAuth ? "Correo" : "Correo (opcional)"}
+            type="text"
+            label={supabaseAuth ? "Correo o usuario" : "Correo (opcional)"}
             placeholder={
               supabaseAuth
-                ? "tu.correo@concasa.com"
+                ? "tu.correo@concasa.com o usuario autorizado"
                 : "cynthia@concasa.test · vacío = anon@mock.local"
             }
             autoComplete="username"
