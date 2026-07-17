@@ -1,5 +1,18 @@
 # Devlog
 
+## 2026-07-17 - P086 B2.4.2: Producción por asesor siempre montada
+
+### Decisión
+
+- Eliminación completa del ocultamiento por etapa (`showProduccionPorAsesor` / gate P085).
+- La sección queda **fuera** del ternario global `{loading ? …}` del dashboard: el refetch de KPIs/Mesa/Precal puede seguir, pero no desmonta Producción por asesor.
+- Estados propios: carga inicial, «Actualizando…», error, vacío, tabla.
+- Sin SQL, RPC, RLS, Cloud ni cambios de seguimiento Mesa.
+
+### Relación con P085
+
+- P085 había decidido ocultar la sección con etapa activa (ver entrada «P085 filtros globales…» más abajo: comportamiento **anterior**, reemplazado por P086).
+
 ## 2026-07-17 - P085 §16A–§21: privacidad asesor, timeline, Excel, rendimiento
 
 ### Decisión
@@ -169,7 +182,7 @@ Excluidos a propósito: login, autosave, updates genéricos, cambio de monto, no
 
 - Migración nueva `085_admin_list_production_by_asesor_filter.sql` (no toca 070–084): DROP firma 3-args + CREATE con `p_asesor_id UUID DEFAULT NULL`.
 - Repo TS pasa `p_asesor_id`; mock filtra por UUID.
-- UI: opciones del select desde lista sin filtro; tabla/Excel con filtro; tarjetas etapa = `<button aria-pressed>`; scroll/foco a `#admin-mesa-expedientes`; ocultar producción por asesor con etapa activa.
+- UI: opciones del select desde lista sin filtro; tabla/Excel con filtro; tarjetas etapa = `<button aria-pressed>`; scroll/foco a `#admin-mesa-expedientes`; ~~ocultar producción por asesor con etapa activa~~ (**P085; reemplazado en P086** — la sección permanece siempre visible/montada).
 - **Pendiente:** columnas de seguimiento Mesa (última actividad real, correcciones, tiempos, motivo rechazo, siguiente acción) — el prompt llegó truncado tras el bloque de scroll; no inventar contrato SQL/UI.
 
 ## 2026-07-17 - P084 reparación snapshots monto + KPI responsive
