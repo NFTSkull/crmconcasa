@@ -29,5 +29,17 @@ export {
   isMontoMayorA20000,
   ADMIN_MONTO_MAYOR_A,
 } from "./period";
-export type { AdminProductionSummary, AdminMesaEnvioEvent, AdminPrecalEvent } from "./metrics";
+export type {
+  AdminProductionSummary,
+  AdminMesaEnvioEvent,
+  AdminPrecalEvent,
+} from "./metrics";
+export {
+  labelEditorDecision,
+  decisionBadgeClass,
+  isProgramaMejoravit,
+  computePrecalMontosMejoravit,
+  nextNoCumpleAt,
+  resolvePrecalVisibleFecha,
+} from "./metrics";
 export { getEtapaOperativaNombre } from "@/domain/expedientes/asesor-seguimiento-operativo";

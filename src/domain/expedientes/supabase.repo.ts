@@ -70,7 +70,7 @@ const EXPEDIENTES_LIST_SELECT = `
   updated_at,
   expediente_anterior_id,
   reingreso_rechazo_id,
-  editor_decisions ( decision, monto_aprobado, notas_revision, aprobado_at, monto_aprobado_al_aprobar ),
+  editor_decisions ( decision, monto_aprobado, notas_revision, aprobado_at, monto_aprobado_al_aprobar, no_cumple_at ),
   reingreso_rechazo:expediente_rechazos_operativos!expedientes_reingreso_rechazo_padre_fk (
     etapa,
     motivo,

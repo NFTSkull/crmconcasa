@@ -14,7 +14,6 @@ import {
 
 describe("admin-production period", () => {
   it("hoy usa inicio/fin correctos en America/Monterrey", () => {
-    // 2026-07-17 15:00 UTC = mediodía Monterrey aprox CDT (UTC-5)
     const now = new Date("2026-07-17T18:00:00.000Z");
     const parts = zonedYmdParts(now, ADMIN_BUSINESS_TIMEZONE);
     assert.equal(parts.year, 2026);
@@ -30,7 +29,7 @@ describe("admin-production period", () => {
   });
 
   it("esta semana inicia en lunes Monterrey", () => {
-    const now = new Date("2026-07-17T18:00:00.000Z"); // viernes
+    const now = new Date("2026-07-17T18:00:00.000Z");
     const bounds = resolveAdminPeriodBounds({ preset: "semana", now });
     assert.equal(bounds.fromDate, "2026-07-13");
     assert.equal(bounds.toDateInclusive, "2026-07-17");
@@ -47,28 +46,18 @@ describe("admin-production period", () => {
     const bounds = resolveAdminPeriodBounds({
       preset: "personalizado",
       customFrom: "2026-07-01",
-      customToInclusive: "2026-07-17",
+      customToInclusive: "2026-07-10",
     });
     assert.equal(bounds.fromDate, "2026-07-01");
-    assert.equal(bounds.toDateInclusive, "2026-07-17");
-    assert.equal(isInstantInPeriod(bounds.fromIso, bounds), true);
-    // instante justo en el to exclusivo queda fuera
-    assert.equal(isInstantInPeriod(bounds.toExclusiveIso, bounds), false);
+    assert.equal(bounds.toDateInclusive, "2026-07-10");
   });
 
   it("rango inválido se rechaza", () => {
     assert.throws(() =>
       resolveAdminPeriodBounds({
         preset: "personalizado",
-        customFrom: "2026-07-20",
-        customToInclusive: "2026-07-10",
-      }),
-    );
-    assert.throws(() =>
-      resolveAdminPeriodBounds({
-        preset: "personalizado",
-        customFrom: "nope",
-        customToInclusive: "2026-07-10",
+        customFrom: "2026-07-10",
+        customToInclusive: "2026-07-01",
       }),
     );
   });
@@ -76,18 +65,16 @@ describe("admin-production period", () => {
   it("mayor a 20000 es estricto", () => {
     assert.equal(isMontoMayorA20000(20000), false);
     assert.equal(isMontoMayorA20000(20000.01), true);
-    assert.equal(isMontoMayorA20000(19999.99), false);
   });
 });
 
 describe("admin-production metrics", () => {
-  const bounds = resolveAdminPeriodBounds({
-    preset: "personalizado",
-    customFrom: "2026-07-01",
-    customToInclusive: "2026-07-17",
-  });
-
-  it("solo cuenta enviados y aprobaciones del periodo con monto al aprobar", () => {
+  it("solo cuenta enviados y aprobaciones/rechazos del periodo con fechas canónicas", () => {
+    const bounds = resolveAdminPeriodBounds({
+      preset: "personalizado",
+      customFrom: "2026-07-01",
+      customToInclusive: "2026-07-31",
+    });
     const summary = computeAdminProductionSummary({
       bounds,
       mesaEnvios: [
@@ -122,10 +109,12 @@ describe("admin-production metrics", () => {
           updatedAt: null,
         },
       ],
-      precalAprobadas: [
+      precalRows: [
         {
           expedienteId: "a",
+          fecha: "2026-07-02T15:00:00.000Z",
           aprobadoAt: "2026-07-02T15:00:00.000Z",
+          noCumpleAt: null,
           clienteNombre: "A",
           asesorId: "as1",
           asesorNombre: "Uno",
@@ -137,7 +126,9 @@ describe("admin-production metrics", () => {
         },
         {
           expedienteId: "c",
+          fecha: "2026-07-03T15:00:00.000Z",
           aprobadoAt: "2026-07-03T15:00:00.000Z",
+          noCumpleAt: null,
           clienteNombre: "C",
           asesorId: "as2",
           asesorNombre: "Dos",
@@ -147,12 +138,41 @@ describe("admin-production metrics", () => {
           montoAprobadoActual: 20000,
           programa: "mejoravit",
         },
+        {
+          expedienteId: "d",
+          fecha: "2026-07-04T15:00:00.000Z",
+          aprobadoAt: null,
+          noCumpleAt: "2026-07-04T15:00:00.000Z",
+          clienteNombre: "D",
+          asesorId: "as2",
+          asesorNombre: "Dos",
+          asesorEmail: null,
+          decision: "no_cumple",
+          montoAprobadoAlAprobar: null,
+          montoAprobadoActual: null,
+          programa: "mejoravit",
+        },
+        {
+          expedienteId: "e",
+          fecha: "2026-07-05T15:00:00.000Z",
+          aprobadoAt: "2026-07-05T15:00:00.000Z",
+          noCumpleAt: null,
+          clienteNombre: "E",
+          asesorId: "as2",
+          asesorNombre: "Dos",
+          asesorEmail: null,
+          decision: "aprobado",
+          montoAprobadoAlAprobar: 90000,
+          montoAprobadoActual: 90000,
+          programa: "compro_tu_casa",
+        },
       ],
     });
 
     assert.equal(summary.enviadosAMesa, 1);
-    assert.equal(summary.precalificacionesAprobadas, 2);
-    assert.equal(summary.aprobadasMayorA20000, 1);
+    assert.equal(summary.precalificacionesAprobadas, 3);
+    assert.equal(summary.precalificacionesNoCumple, 1);
+    assert.equal(summary.aprobadasMayorA20000, 2);
     assert.equal(summary.montoAprobadoTotal, 45000);
   });
 

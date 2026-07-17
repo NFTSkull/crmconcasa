@@ -1,8 +1,12 @@
 import * as XLSX from "xlsx";
 import { getEtapaOperativaNombre } from "@/domain/expedientes/asesor-seguimiento-operativo";
 import { formatAsesorExpedienteLabel } from "@/lib/asesorDisplay";
+import { labelEditorDecision } from "@/domain/admin-production/metrics";
 import type { AdminPeriodBounds } from "@/domain/admin-production/period";
-import type { AdminAsesorProductionRow } from "@/domain/admin-production/repo";
+import type {
+  AdminAsesorProductionRow,
+  AdminPrecalSummary,
+} from "@/domain/admin-production/repo";
 import type {
   AdminMesaEnvioEvent,
   AdminPrecalEvent,
@@ -22,6 +26,7 @@ function asesorLabel(nombre: string | null, email: string | null, id: string): s
 export function buildAdminProductionWorkbook(input: {
   bounds: AdminPeriodBounds;
   summary: AdminProductionSummary;
+  precalSummary: AdminPrecalSummary;
   mesaEnvios: readonly AdminMesaEnvioEvent[];
   precalificaciones: readonly AdminPrecalEvent[];
   asesores: readonly AdminAsesorProductionRow[];
@@ -31,10 +36,19 @@ export function buildAdminProductionWorkbook(input: {
   const resumen = XLSX.utils.aoa_to_sheet([
     ["Periodo desde", input.bounds.fromDate],
     ["Periodo hasta", input.bounds.toDateInclusive],
-    ["Enviados a Mesa", input.summary.enviadosAMesa],
+    ["Expedientes enviados a Mesa", input.summary.enviadosAMesa],
     ["Precalificaciones aprobadas", input.summary.precalificacionesAprobadas],
+    ["Rechazadas (No cumple)", input.summary.precalificacionesNoCumple],
     ["Aprobadas mayores a 20000", input.summary.aprobadasMayorA20000],
-    ["Monto aprobado total", input.summary.montoAprobadoTotal],
+    ["Monto aprobado Mejoravit", input.summary.montoAprobadoTotal],
+    [],
+    ["Resumen bloque Precalificaciones"],
+    ["Resueltas", input.precalSummary.resueltasCount],
+    ["Aprobadas", input.precalSummary.aprobadasCount],
+    ["Rechazadas (No cumple)", input.precalSummary.noCumpleCount],
+    ["Pendientes actuales", input.precalSummary.pendientesActualesCount],
+    ["Monto aprobado Mejoravit", input.precalSummary.montoMejoravitTotal],
+    ["Promedio aprobado Mejoravit", input.precalSummary.montoMejoravitPromedio],
   ]);
   XLSX.utils.book_append_sheet(wb, resumen, "Resumen");
 
@@ -49,7 +63,6 @@ export function buildAdminProductionWorkbook(input: {
       "Estado/subestado",
       "Monto aprobado al aprobar",
       "Monto aprobado actual",
-      "Fecha última actualización",
     ],
     ...input.mesaEnvios.map((r) => [
       r.fechaEnvioMesa,
@@ -61,29 +74,26 @@ export function buildAdminProductionWorkbook(input: {
       sanitize(`${r.cicloEstado} / ${r.subestado}`),
       r.montoAprobadoAlAprobar,
       r.montoAprobadoActual,
-      r.updatedAt,
     ]),
   ];
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(expAoa), "Expedientes");
 
   const preAoa: (string | number | null)[][] = [
     [
-      "Fecha",
+      "Fecha canónica",
       "Cliente",
       "Asesor",
-      "Programa",
       "Decisión",
-      "Monto aprobado al aprobar",
-      "Monto aprobado actual",
+      "Monto al aprobar",
+      "Programa",
     ],
     ...input.precalificaciones.map((r) => [
-      r.aprobadoAt,
+      r.decision === "pendiente" ? null : r.fecha,
       sanitize(r.clienteNombre),
       sanitize(asesorLabel(r.asesorNombre, r.asesorEmail, r.asesorId)),
+      sanitize(labelEditorDecision(r.decision)),
+      r.decision === "aprobado" ? r.montoAprobadoAlAprobar : null,
       sanitize(r.programa),
-      sanitize(r.decision),
-      r.montoAprobadoAlAprobar,
-      r.montoAprobadoActual,
     ]),
   ];
   XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(preAoa), "Precalificaciones");
@@ -93,13 +103,15 @@ export function buildAdminProductionWorkbook(input: {
       "Asesor",
       "Enviados a Mesa",
       "Precalificaciones aprobadas",
+      "Rechazadas (No cumple)",
       "Aprobadas >20000",
-      "Monto aprobado total",
+      "Monto aprobado Mejoravit",
     ],
     ...input.asesores.map((r) => [
       sanitize(asesorLabel(r.asesorNombre, r.asesorEmail, r.asesorId)),
       r.enviadosAMesa,
       r.precalificacionesAprobadas,
+      r.precalificacionesNoCumple,
       r.aprobadasMayorA20000,
       r.montoAprobadoTotal,
     ]),
@@ -115,4 +127,38 @@ export function downloadAdminProductionWorkbook(
 ): void {
   const name = `produccion-concasa-${bounds.fromDate}_a_${bounds.toDateInclusive}.xlsx`;
   XLSX.writeFile(wb, name);
+}
+
+/** Acumula páginas hasta totalCount; falla si hay mismatch (sin truncar). */
+export async function accumulatePaginatedExport<T>(input: {
+  totalCount: number;
+  firstPageItems: readonly T[];
+  fetchPage: (page: number) => Promise<readonly T[]>;
+  label: string;
+}): Promise<T[]> {
+  const items: T[] = [...input.firstPageItems];
+  let page = 2;
+  while (items.length < input.totalCount) {
+    const next = await input.fetchPage(page);
+    if (next.length === 0) break;
+    items.push(...next);
+    page += 1;
+  }
+  if (items.length !== input.totalCount) {
+    throw new Error(
+      `Exportación incompleta de ${input.label}: recuperadas ${items.length} de ${input.totalCount}. Reintenta.`,
+    );
+  }
+  return items;
+}
+
+export function assertExportHasNoPii(sheetValues: unknown[][]): void {
+  const banned = /\b(nss|telefono|uuid|http)\b/i;
+  for (const row of sheetValues) {
+    for (const cell of row) {
+      if (typeof cell === "string" && banned.test(cell)) {
+        throw new Error(`Excel contiene PII o campo prohibido: ${cell}`);
+      }
+    }
+  }
 }

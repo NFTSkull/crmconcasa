@@ -2,16 +2,17 @@ import type { ExpedientesRepo } from "@/domain/expedientes/repo";
 import type { ExpedienteMock } from "@/domain/expedientes/mock.repo";
 import { formatAsesorExpedienteLabel } from "@/lib/asesorDisplay";
 import {
+  computeAdminPrecalSummary,
   computeAdminProductionSummary,
   groupMesaEnviosByEtapaActual,
+  resolvePrecalVisibleFecha,
   type AdminMesaEnvioEvent,
   type AdminPrecalEvent,
 } from "./metrics";
-import { isInstantInPeriod, isMontoMayorA20000 } from "./period";
+import { isInstantInPeriod } from "./period";
 import type {
   AdminAsesorProductionRow,
   AdminPaginated,
-  AdminPrecalSummary,
   AdminProductionFilters,
   AdminProductionRepo,
 } from "./repo";
@@ -53,18 +54,25 @@ function mapMesa(e: ExpedienteMock): AdminMesaEnvioEvent | null {
   };
 }
 
-function mapPrecal(e: ExpedienteMock): AdminPrecalEvent | null {
-  const at = e.editorDecision.aprobadoAt;
-  const monto = e.editorDecision.montoAprobadoAlAprobar;
-  if (!at || typeof monto !== "number" || !(monto > 0)) return null;
+function mapPrecal(e: ExpedienteMock): AdminPrecalEvent {
+  const decision = e.editorDecision.decision;
+  const aprobadoAt = e.editorDecision.aprobadoAt ?? null;
+  const noCumpleAt = e.editorDecision.noCumpleAt ?? null;
+  const montoRaw = e.editorDecision.montoAprobadoAlAprobar;
+  const monto =
+    typeof montoRaw === "number" && Number.isFinite(montoRaw) && montoRaw > 0
+      ? montoRaw
+      : null;
   return {
     expedienteId: e.id,
-    aprobadoAt: at,
+    fecha: resolvePrecalVisibleFecha({ decision, aprobadoAt, noCumpleAt }),
+    aprobadoAt,
+    noCumpleAt,
     clienteNombre: e.base.cliente_nombre,
     asesorId: e.base.asesorId,
     asesorNombre: e.base.asesorNombre ?? null,
     asesorEmail: e.base.asesorEmail ?? null,
-    decision: e.editorDecision.decision,
+    decision,
     montoAprobadoAlAprobar: monto,
     montoAprobadoActual: e.editorDecision.monto_aprobado,
     programa: e.base.programa,
@@ -85,6 +93,31 @@ function paginate<T>(items: readonly T[], page: number, pageSize: number): Admin
     page: p,
     pageSize: size,
   };
+}
+
+function matchesPrecalFilter(
+  r: AdminPrecalEvent,
+  dec: NonNullable<AdminProductionFilters["precalDecision"]>,
+  bounds: AdminProductionFilters["bounds"],
+): boolean {
+  if (dec === "pendientes") return r.decision === "pendiente";
+
+  const isAprobadaPeriodo =
+    r.decision === "aprobado" &&
+    !!r.aprobadoAt &&
+    isInstantInPeriod(r.aprobadoAt, bounds);
+  const isNoCumplePeriodo =
+    r.decision === "no_cumple" &&
+    !!r.noCumpleAt &&
+    isInstantInPeriod(r.noCumpleAt, bounds);
+
+  if (dec === "aprobadas") return isAprobadaPeriodo;
+  if (dec === "no_cumple") return isNoCumplePeriodo;
+  if (dec === "resueltas") return isAprobadaPeriodo || isNoCumplePeriodo;
+  if (dec === "todas") {
+    return isAprobadaPeriodo || isNoCumplePeriodo || r.decision === "pendiente";
+  }
+  return isAprobadaPeriodo || isNoCumplePeriodo;
 }
 
 export class MockAdminProductionRepo implements AdminProductionRepo {
@@ -132,12 +165,11 @@ export class MockAdminProductionRepo implements AdminProductionRepo {
     filters: AdminProductionFilters,
   ): AdminPrecalEvent[] {
     const buscar = filters.buscar?.trim().toLowerCase() ?? "";
-    const dec = filters.precalDecision ?? "todas";
+    const dec = filters.precalDecision ?? "resueltas";
     return all
       .map(mapPrecal)
-      .filter((r): r is AdminPrecalEvent => r != null)
-      .filter((r) => isInstantInPeriod(r.aprobadoAt, filters.bounds))
       .filter((r) => !filters.asesorId || r.asesorId === filters.asesorId)
+      .filter((r) => matchesPrecalFilter(r, dec, filters.bounds))
       .filter((r) => {
         if (!buscar) return true;
         const label = asesorLabel(r.asesorNombre, r.asesorEmail, r.asesorId).toLowerCase();
@@ -147,14 +179,11 @@ export class MockAdminProductionRepo implements AdminProductionRepo {
           r.programa.toLowerCase().includes(buscar)
         );
       })
-      .filter((r) => {
-        if (dec === "todas" || dec === "aprobadas") return true;
-        if (dec === "aprobadas_mayor_20000") return isMontoMayorA20000(r.montoAprobadoAlAprobar);
-        if (dec === "no_cumple") return r.decision === "no_cumple";
-        if (dec === "pendientes") return r.decision === "pendiente";
-        return true;
-      })
-      .sort((a, b) => Date.parse(b.aprobadoAt) - Date.parse(a.aprobadoAt));
+      .sort((a, b) => {
+        const ta = a.fecha ? Date.parse(a.fecha) : 0;
+        const tb = b.fecha ? Date.parse(b.fecha) : 0;
+        return tb - ta;
+      });
   }
 
   async getSummary(filters: AdminProductionFilters) {
@@ -162,7 +191,7 @@ export class MockAdminProductionRepo implements AdminProductionRepo {
     return computeAdminProductionSummary({
       bounds: filters.bounds,
       mesaEnvios: this.filterMesa(all, { ...filters, etapaActual: filters.etapaActual }),
-      precalAprobadas: this.filterPrecal(all, { ...filters, precalDecision: "aprobadas" }),
+      precalRows: all.map(mapPrecal),
       asesorId: filters.asesorId,
       etapaActual: filters.etapaActual,
     });
@@ -180,11 +209,7 @@ export class MockAdminProductionRepo implements AdminProductionRepo {
   async listByAsesor(filters: AdminProductionFilters) {
     const all = await this.loadAll();
     const mesa = this.filterMesa(all, { ...filters, asesorId: null, etapaActual: null });
-    const precal = this.filterPrecal(all, {
-      ...filters,
-      asesorId: null,
-      precalDecision: "aprobadas",
-    });
+    const precal = all.map(mapPrecal);
     const map = new Map<string, AdminAsesorProductionRow>();
 
     const ensure = (id: string, nombre: string | null, email: string | null) => {
@@ -196,6 +221,7 @@ export class MockAdminProductionRepo implements AdminProductionRepo {
           asesorEmail: email,
           enviadosAMesa: 0,
           precalificacionesAprobadas: 0,
+          precalificacionesNoCumple: 0,
           aprobadasMayorA20000: 0,
           montoAprobadoTotal: 0,
           etapas: {},
@@ -207,25 +233,39 @@ export class MockAdminProductionRepo implements AdminProductionRepo {
 
     for (const r of mesa) {
       const row = ensure(r.asesorId, r.asesorNombre, r.asesorEmail);
-      const next = {
+      map.set(r.asesorId, {
         ...row,
         enviadosAMesa: row.enviadosAMesa + 1,
         etapas: {
           ...row.etapas,
           [String(r.etapaActual)]: (row.etapas[String(r.etapaActual)] ?? 0) + 1,
         },
-      };
-      map.set(r.asesorId, next);
+      });
     }
+
+    const summaryByAsesor = new Map<string, ReturnType<typeof computeAdminProductionSummary>>();
     for (const r of precal) {
-      const row = ensure(r.asesorId, r.asesorNombre, r.asesorEmail);
-      map.set(r.asesorId, {
+      ensure(r.asesorId, r.asesorNombre, r.asesorEmail);
+      if (!summaryByAsesor.has(r.asesorId)) {
+        summaryByAsesor.set(
+          r.asesorId,
+          computeAdminProductionSummary({
+            bounds: filters.bounds,
+            mesaEnvios: [],
+            precalRows: precal.filter((x) => x.asesorId === r.asesorId),
+          }),
+        );
+      }
+    }
+    for (const [id, s] of summaryByAsesor) {
+      const row = map.get(id);
+      if (!row) continue;
+      map.set(id, {
         ...row,
-        precalificacionesAprobadas: row.precalificacionesAprobadas + 1,
-        aprobadasMayorA20000:
-          row.aprobadasMayorA20000 + (isMontoMayorA20000(r.montoAprobadoAlAprobar) ? 1 : 0),
-        montoAprobadoTotal:
-          Math.round((row.montoAprobadoTotal + r.montoAprobadoAlAprobar) * 100) / 100,
+        precalificacionesAprobadas: s.precalificacionesAprobadas,
+        precalificacionesNoCumple: s.precalificacionesNoCumple,
+        aprobadasMayorA20000: s.aprobadasMayorA20000,
+        montoAprobadoTotal: s.montoAprobadoTotal,
       });
     }
 
@@ -243,34 +283,19 @@ export class MockAdminProductionRepo implements AdminProductionRepo {
   async listPrecalificacionesPage(filters: AdminProductionFilters) {
     const rows = this.filterPrecal(await this.loadAll(), filters);
     const page = paginate(rows, filters.page ?? 1, filters.pageSize ?? 25);
-    const summary: AdminPrecalSummary = {
-      total: rows.length,
-      aprobadas: rows.length,
-      aprobadasMayorA20000: rows.filter((r) => isMontoMayorA20000(r.montoAprobadoAlAprobar))
-        .length,
-      noCumple: rows.filter((r) => r.decision === "no_cumple").length,
-      pendientes: rows.filter((r) => r.decision === "pendiente").length,
-      montoAprobadoTotal:
-        Math.round(rows.reduce((s, r) => s + r.montoAprobadoAlAprobar, 0) * 100) / 100,
-      montoPromedioAprobado:
-        rows.length === 0
-          ? 0
-          : Math.round(
-              (rows.reduce((s, r) => s + r.montoAprobadoAlAprobar, 0) / rows.length) * 100,
-            ) / 100,
-    };
-    return { ...page, summary };
+    return { ...page, summary: computeAdminPrecalSummary(rows) };
   }
 
   async exportAll(filters: AdminProductionFilters) {
     const all = await this.loadAll();
-    const mesaEnvios = this.filterMesa(all, filters).slice(0, 5000);
+    const mesaEnvios = this.filterMesa(all, filters);
     const precalificaciones = this.filterPrecal(all, {
       ...filters,
-      precalDecision: filters.precalDecision ?? "todas",
-    }).slice(0, 5000);
+      precalDecision: filters.precalDecision ?? "resueltas",
+    });
     const asesores = await this.listByAsesor(filters);
     const summary = await this.getSummary(filters);
-    return { mesaEnvios, precalificaciones, asesores, summary };
+    const precalSummary = computeAdminPrecalSummary(precalificaciones);
+    return { mesaEnvios, precalificaciones, asesores, summary, precalSummary };
   }
 }

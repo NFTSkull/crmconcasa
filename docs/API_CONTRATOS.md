@@ -577,8 +577,16 @@ Convenciones:
 | Precalificaciones aprobadas | `editor_decisions.aprobado_at` (1ª transición) | `monto_aprobado_al_aprobar` |
 
 - Zona de negocio: `America/Monterrey` (cortes Hoy/semana/mes en cliente → bounds `[from, toExclusive)`).
+- Periodo predeterminado en UI: **Hoy**.
 - `monto_aprobado` actual permanece mutable; no se usa para KPIs de periodo.
 - Mayor a $20,000: `monto_aprobado_al_aprobar > 20000` (estricto).
+- Fechas canónicas Precal: `aprobado_at` (aprobadas) y `no_cumple_at` (No cumple). **No** `updated_at`.
+- KPI superior: Enviados Mesa, Aprobadas, No cumple, Aprobadas >$20k, Monto Mejoravit.
+- KPI / columna `monto_aprobado_total`: solo `decision = aprobado` + programa `mejoravit` + `monto_aprobado_al_aprobar`.
+- Bloque Precalificaciones:
+  - Filtro default **Resueltas** (Aprobadas ∪ No cumple del periodo).
+  - Pendientes = estado actual (etiqueta «Pendiente actual»), sin inventar `pendiente_at` ni usar `updated_at`.
+  - Summary: Total resueltas, Aprobadas, No cumple, Pendientes actuales, Monto/Promedio Mejoravit.
 
 ### Reglas
 

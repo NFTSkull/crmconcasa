@@ -73,5 +73,6 @@ run_sql_test "supabase/tests/rpc_nss_lock_after_mesa.sql"
 run_sql_test "supabase/tests/mesa_expediente_ops_backfill.sql"
 run_sql_test "supabase/tests/mesa_expediente_ops_rls.sql"
 run_sql_test "supabase/tests/rpc_mesa_take_release.sql"
+run_sql_test "supabase/tests/admin_no_cumple_at_backfill.sql"
 
 echo "SQL tests: ALL PASSED"

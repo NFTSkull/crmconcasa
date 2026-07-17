@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **fix/admin-precal-metrics — P083 (Cloud aplicado):** `no_cumple_at` canónico + backfill 595 con DISABLE/ENABLE `editor_decisions_set_updated_at`; Admin Hoy/Resueltas; KPIs No cumple + Monto Mejoravit; Excel por lotes sin tope 5000. SHA `06024c6aa2b59e20b7288c05a517c83a3b2f23cb6bd15a161b63c6bf6a3665d0`.
+
+- **fix/admin-precal-diarias-mejoravit — P083 (local):** periodo default Hoy; bloque Precalificaciones con chips Total/Aprobadas/No cumple/Pendientes/Monto·Promedio Mejoravit; lista paginada de decisiones del periodo (`aprobado_at` o `updated_at`); KPI superior y por asesor con monto solo Mejoravit aprobado; migración `083_…sql` ampliada (no Cloud); sin commit/push/deploy.
+
+- **fix/admin-precal-contrast-mejoravit-total (local):** contraste legible en bloque Precalificaciones de `/admin`; Total $ y Promedio del resumen solo Mejoravit aprobado (`monto_aprobado_al_aprobar`); migración `083_admin_precal_summary_mejoravit_only.sql` (no aplicada en Cloud); sin commit/push/deploy.
+
 - **feat/admin-production-dashboard — P081/P082 (Cloud aplicado):** columnas `aprobado_at`/`monto_aprobado_al_aprobar`, backfill histórico (1036 snapshots), RPCs Admin RO; SHA 081 `ae74f5e1…b990`, 082 `67097420…288d`. Frontend/local pendientes de publicación. Sin commit/push/deploy/smoke.
 
 - **feat/admin-production-dashboard — P081/P082 (local):** Admin solo lectura por periodo (`America/Monterrey`). Columnas canónicas `editor_decisions.aprobado_at` + `monto_aprobado_al_aprobar` (1ª transición a aprobado; inmutables); escritura en `upsert_editor_decision` (+ pre-reingreso); backfill desde `action_log`; índices por periodo; RPCs RO `admin_*` (summary, cohort etapa, asesores, páginas Mesa/precal); UI `/admin` reconstruida (4 KPIs, estado actual, asesores, tablas paginadas, Excel `.xlsx` sin NSS/tel/UUID); sin Cloud/commit/push/deploy.

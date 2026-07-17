@@ -2,10 +2,11 @@ import type { AdminPeriodBounds } from "./period";
 import type { AdminMesaEnvioEvent, AdminPrecalEvent, AdminProductionSummary } from "./metrics";
 
 export type AdminEstadoFilter = "todos" | "activos" | "finalizados" | "rechazados";
+/** Filtro tabla Precal: default UX = resueltas (aprobadas + no_cumple del periodo). */
 export type AdminPrecalDecisionFilter =
+  | "resueltas"
   | "todas"
   | "aprobadas"
-  | "aprobadas_mayor_20000"
   | "no_cumple"
   | "pendientes";
 
@@ -26,6 +27,7 @@ export type AdminAsesorProductionRow = Readonly<{
   asesorEmail: string | null;
   enviadosAMesa: number;
   precalificacionesAprobadas: number;
+  precalificacionesNoCumple: number;
   aprobadasMayorA20000: number;
   montoAprobadoTotal: number;
   etapas: Readonly<Record<string, number>>;
@@ -45,13 +47,14 @@ export type AdminPaginated<T> = Readonly<{
 }>;
 
 export type AdminPrecalSummary = Readonly<{
-  total: number;
-  aprobadas: number;
-  aprobadasMayorA20000: number;
-  noCumple: number;
-  pendientes: number;
-  montoAprobadoTotal: number;
-  montoPromedioAprobado: number;
+  resueltasCount: number;
+  aprobadasCount: number;
+  noCumpleCount: number;
+  pendientesActualesCount: number;
+  mayores20000Count: number;
+  mejoravitAprobadasCount: number;
+  montoMejoravitTotal: number;
+  montoMejoravitPromedio: number;
 }>;
 
 export interface AdminProductionRepo {
@@ -66,11 +69,12 @@ export interface AdminProductionRepo {
   listPrecalificacionesPage(
     filters: AdminProductionFilters,
   ): Promise<AdminPaginated<AdminPrecalEvent> & { summary: AdminPrecalSummary }>;
-  /** Exporta todos los resultados filtrados (no solo la página). Máx. 5000 por hoja. */
+  /** Exporta todos los resultados filtrados vía paginación RPC hasta total_count. */
   exportAll(filters: AdminProductionFilters): Promise<{
     mesaEnvios: readonly AdminMesaEnvioEvent[];
     precalificaciones: readonly AdminPrecalEvent[];
     asesores: readonly AdminAsesorProductionRow[];
     summary: AdminProductionSummary;
+    precalSummary: AdminPrecalSummary;
   }>;
 }

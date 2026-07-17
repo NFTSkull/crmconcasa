@@ -1,5 +1,10 @@
 import { isSupabaseConfigured, supabaseBrowser } from "@/lib/supabaseBrowser";
-import type { AdminMesaEnvioEvent, AdminPrecalEvent, AdminProductionSummary } from "./metrics";
+import {
+  resolvePrecalVisibleFecha,
+  type AdminMesaEnvioEvent,
+  type AdminPrecalEvent,
+  type AdminProductionSummary,
+} from "./metrics";
 import type {
   AdminAsesorProductionRow,
   AdminEtapaBucket,
@@ -55,15 +60,24 @@ function mapMesaItem(raw: Record<string, unknown>): AdminMesaEnvioEvent {
 }
 
 function mapPrecalItem(raw: Record<string, unknown>): AdminPrecalEvent {
+  const decision = str(raw.decision);
+  const aprobadoAt = strOrNull(raw.aprobado_at);
+  const noCumpleAt = strOrNull(raw.no_cumple_at);
+  const fecha =
+    strOrNull(raw.fecha) ??
+    resolvePrecalVisibleFecha({ decision, aprobadoAt, noCumpleAt });
   return {
     expedienteId: str(raw.expediente_id),
-    aprobadoAt: str(raw.aprobado_at),
+    fecha,
+    aprobadoAt,
+    noCumpleAt,
     clienteNombre: str(raw.cliente_nombre),
     asesorId: str(raw.asesor_id),
     asesorNombre: strOrNull(raw.asesor_nombre),
     asesorEmail: strOrNull(raw.asesor_email),
-    decision: str(raw.decision),
-    montoAprobadoAlAprobar: num(raw.monto_aprobado_al_aprobar),
+    decision,
+    montoAprobadoAlAprobar:
+      raw.monto_aprobado_al_aprobar == null ? null : num(raw.monto_aprobado_al_aprobar),
     montoAprobadoActual:
       raw.monto_aprobado_actual == null ? null : num(raw.monto_aprobado_actual),
     programa: str(raw.programa),
@@ -90,6 +104,7 @@ export class SupabaseAdminProductionRepo implements AdminProductionRepo {
     return {
       enviadosAMesa: num(row.enviados_a_mesa),
       precalificacionesAprobadas: num(row.precalificaciones_aprobadas),
+      precalificacionesNoCumple: num(row.precalificaciones_no_cumple),
       aprobadasMayorA20000: num(row.aprobadas_mayor_a_20000),
       montoAprobadoTotal: num(row.monto_aprobado_total),
     };
@@ -133,6 +148,7 @@ export class SupabaseAdminProductionRepo implements AdminProductionRepo {
         asesorEmail: strOrNull(r.asesor_email),
         enviadosAMesa: num(r.enviados_a_mesa),
         precalificacionesAprobadas: num(r.precalificaciones_aprobadas),
+        precalificacionesNoCumple: num(r.precalificaciones_no_cumple),
         aprobadasMayorA20000: num(r.aprobadas_mayor_a_20000),
         montoAprobadoTotal: num(r.monto_aprobado_total),
         etapas,
@@ -175,20 +191,21 @@ export class SupabaseAdminProductionRepo implements AdminProductionRepo {
       p_page: filters.page ?? 1,
       p_page_size: filters.pageSize ?? 25,
       p_asesor_id: filters.asesorId ?? null,
-      p_decision_filter: filters.precalDecision ?? "todas",
+      p_decision_filter: filters.precalDecision ?? "resueltas",
       p_buscar: filters.buscar ?? null,
     });
     if (error) throw new Error(error.message || "No se pudo cargar precalificaciones");
     const row = (data ?? {}) as Record<string, unknown>;
     const sum = (row.summary ?? {}) as Record<string, unknown>;
     const summary: AdminPrecalSummary = {
-      total: num(sum.total),
-      aprobadas: num(sum.aprobadas),
-      aprobadasMayorA20000: num(sum.aprobadas_mayor_a_20000),
-      noCumple: num(sum.no_cumple),
-      pendientes: num(sum.pendientes),
-      montoAprobadoTotal: num(sum.monto_aprobado_total),
-      montoPromedioAprobado: num(sum.monto_promedio_aprobado),
+      resueltasCount: num(sum.resueltas_count),
+      aprobadasCount: num(sum.aprobadas_count),
+      noCumpleCount: num(sum.no_cumple_count),
+      pendientesActualesCount: num(sum.pendientes_actuales_count),
+      mayores20000Count: num(sum.mayores_20000_count),
+      mejoravitAprobadasCount: num(sum.mejoravit_aprobadas_count),
+      montoMejoravitTotal: num(sum.monto_mejoravit_total),
+      montoMejoravitPromedio: num(sum.monto_mejoravit_promedio),
     };
     const items = (Array.isArray(row.items) ? row.items : []).map((x) =>
       mapPrecalItem(x as Record<string, unknown>),
@@ -203,43 +220,52 @@ export class SupabaseAdminProductionRepo implements AdminProductionRepo {
   }
 
   async exportAll(filters: AdminProductionFilters) {
-    const [summary, asesores, mesaPage, precalPage] = await Promise.all([
+    const pageSize = 100;
+    const [summary, asesores, mesaFirst, precalFirst] = await Promise.all([
       this.getSummary(filters),
       this.listByAsesor(filters),
-      this.listMesaEnviosPage({ ...filters, page: 1, pageSize: 100 }),
-      this.listPrecalificacionesPage({ ...filters, page: 1, pageSize: 100 }),
+      this.listMesaEnviosPage({ ...filters, page: 1, pageSize }),
+      this.listPrecalificacionesPage({ ...filters, page: 1, pageSize }),
     ]);
 
-    const mesaEnvios: AdminMesaEnvioEvent[] = [...mesaPage.items];
-    let page = 2;
-    while (mesaEnvios.length < mesaPage.totalCount && mesaEnvios.length < 5000) {
-      const next = await this.listMesaEnviosPage({ ...filters, page, pageSize: 100 });
-      if (next.items.length === 0) break;
-      mesaEnvios.push(...next.items);
-      page += 1;
-    }
-
-    const precalificaciones: AdminPrecalEvent[] = [...precalPage.items];
-    page = 2;
-    while (
-      precalificaciones.length < precalPage.totalCount &&
-      precalificaciones.length < 5000
-    ) {
-      const next = await this.listPrecalificacionesPage({
-        ...filters,
-        page,
-        pageSize: 100,
-      });
-      if (next.items.length === 0) break;
-      precalificaciones.push(...next.items);
-      page += 1;
-    }
+    const mesaEnvios = await this.fetchAllPages(
+      mesaFirst,
+      (page) => this.listMesaEnviosPage({ ...filters, page, pageSize }),
+      "enviados a Mesa",
+    );
+    const precalificaciones = await this.fetchAllPages(
+      precalFirst,
+      (page) => this.listPrecalificacionesPage({ ...filters, page, pageSize }),
+      "precalificaciones",
+    );
 
     return {
       summary,
       asesores,
-      mesaEnvios: mesaEnvios.slice(0, 5000),
-      precalificaciones: precalificaciones.slice(0, 5000),
+      mesaEnvios,
+      precalificaciones,
+      precalSummary: precalFirst.summary,
     };
+  }
+
+  private async fetchAllPages<T>(
+    first: AdminPaginated<T>,
+    fetchPage: (page: number) => Promise<AdminPaginated<T>>,
+    label: string,
+  ): Promise<T[]> {
+    const items: T[] = [...first.items];
+    let page = 2;
+    while (items.length < first.totalCount) {
+      const next = await fetchPage(page);
+      if (next.items.length === 0) break;
+      items.push(...next.items);
+      page += 1;
+    }
+    if (items.length !== first.totalCount) {
+      throw new Error(
+        `Exportación incompleta de ${label}: recuperadas ${items.length} de ${first.totalCount}. Reintenta.`,
+      );
+    }
+    return items;
   }
 }

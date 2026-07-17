@@ -13,6 +13,8 @@ import { getEtapaOperativaNombre } from "@/domain/expedientes/asesor-seguimiento
 import {
   useAdminProductionRepo,
   resolveAdminPeriodBounds,
+  labelEditorDecision,
+  decisionBadgeClass,
   type AdminPeriodPreset,
   type AdminEstadoFilter,
   type AdminPrecalDecisionFilter,
@@ -59,7 +61,7 @@ export default function AdminDashboardPage() {
   const { sessionRepo, currentUser } = useSessionRepo();
   const repo = useAdminProductionRepo();
 
-  const [preset, setPreset] = useState<AdminPeriodPreset>("mes");
+  const [preset, setPreset] = useState<AdminPeriodPreset>("hoy");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
   const [asesorId, setAsesorId] = useState<string>("");
@@ -67,7 +69,7 @@ export default function AdminDashboardPage() {
   const [estado, setEstado] = useState<AdminEstadoFilter>("todos");
   const [buscar, setBuscar] = useState("");
   const [precalDecision, setPrecalDecision] =
-    useState<AdminPrecalDecisionFilter>("todas");
+    useState<AdminPrecalDecisionFilter>("resueltas");
   const [mesaPage, setMesaPage] = useState(1);
   const [precalPage, setPrecalPage] = useState(1);
 
@@ -151,14 +153,14 @@ export default function AdminDashboardPage() {
   }, [currentUser, load]);
 
   const clearFilters = () => {
-    setPreset("mes");
+    setPreset("hoy");
     setCustomFrom("");
     setCustomTo("");
     setAsesorId("");
     setEtapaActual("todas");
     setEstado("todos");
     setBuscar("");
-    setPrecalDecision("todas");
+    setPrecalDecision("resueltas");
     setMesaPage(1);
     setPrecalPage(1);
   };
@@ -186,7 +188,7 @@ export default function AdminDashboardPage() {
   if (currentUser === undefined) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-slate-100">
-        <p className="text-slate-500">Cargando...</p>
+        <p className="text-gray-700">Cargando...</p>
       </div>
     );
   }
@@ -296,7 +298,7 @@ export default function AdminDashboardPage() {
           <p className="mt-3 text-sm font-medium text-slate-800">
             Periodo activo: {periodoLabel}
           </p>
-          <p className="mt-1 text-xs text-slate-500">
+          <p className="mt-1 text-xs text-gray-700">
             Las fechas determinan qué expedientes se incluyen. Las etapas muestran
             su estado actual.
           </p>
@@ -383,20 +385,25 @@ export default function AdminDashboardPage() {
         )}
 
         {loading ? (
-          <p className="text-slate-500">Cargando producción…</p>
+          <p className="text-gray-700">Cargando producción…</p>
         ) : (
           <>
-            <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
               {[
                 {
-                  title: "Enviados a Mesa",
+                  title: "Expedientes enviados a Mesa",
                   value: summary?.enviadosAMesa ?? 0,
                   hint: periodoLabel,
                 },
                 {
                   title: "Precalificaciones aprobadas",
                   value: summary?.precalificacionesAprobadas ?? 0,
-                  hint: periodoLabel,
+                  hint: "por aprobado_at",
+                },
+                {
+                  title: "Rechazadas (No cumple)",
+                  value: summary?.precalificacionesNoCumple ?? 0,
+                  hint: "por no_cumple_at",
                 },
                 {
                   title: "Aprobadas > $20,000",
@@ -404,22 +411,22 @@ export default function AdminDashboardPage() {
                   hint: "monto al aprobar",
                 },
                 {
-                  title: "Monto aprobado total",
+                  title: "Monto aprobado Mejoravit",
                   value: formatMontoMX(summary?.montoAprobadoTotal ?? 0),
-                  hint: periodoLabel,
+                  hint: "aprobado · Mejoravit",
                 },
               ].map((card) => (
                 <div
                   key={card.title}
                   className="rounded-lg border border-slate-200 bg-white p-4"
                 >
-                  <p className="text-xs uppercase tracking-wide text-slate-500">
+                  <p className="text-xs uppercase tracking-wide text-gray-700">
                     {card.title}
                   </p>
-                  <p className="mt-2 text-2xl font-semibold text-slate-900">
+                  <p className="mt-2 text-2xl font-semibold text-gray-900">
                     {card.value}
                   </p>
-                  <p className="mt-1 text-xs text-slate-500">{card.hint}</p>
+                  <p className="mt-1 text-xs text-gray-700">{card.hint}</p>
                 </div>
               ))}
             </section>
@@ -444,7 +451,7 @@ export default function AdminDashboardPage() {
                     <p className="text-sm font-medium">
                       {getEtapaOperativaNombre(b.etapa)}
                     </p>
-                    <p className="text-xs opacity-80">
+                    <p className="text-xs text-gray-700">
                       {b.count} expedientes · {b.pct}%
                     </p>
                   </button>
@@ -457,17 +464,18 @@ export default function AdminDashboardPage() {
                 Producción por asesor
               </h2>
               {asesores.length === 0 ? (
-                <p className="mt-3 text-sm text-slate-500">Sin resultados.</p>
+                <p className="mt-3 text-sm text-gray-700">Sin resultados.</p>
               ) : (
                 <div className="mt-3 overflow-x-auto">
-                  <table className="min-w-full text-left text-sm">
-                    <thead className="border-b text-xs uppercase text-slate-500">
+                  <table className="min-w-full text-left text-sm text-gray-900">
+                    <thead className="border-b text-xs uppercase text-gray-700">
                       <tr>
                         <th className="py-2 pr-3">Asesor</th>
                         <th className="py-2 pr-3">Enviados</th>
                         <th className="py-2 pr-3">Aprobadas</th>
+                        <th className="py-2 pr-3">No cumple</th>
                         <th className="py-2 pr-3">&gt;$20k</th>
-                        <th className="py-2 pr-3">Monto</th>
+                        <th className="py-2 pr-3">Monto Mejoravit</th>
                         <th className="py-2 pr-3">Estado actual</th>
                         <th className="py-2">Acción</th>
                       </tr>
@@ -475,20 +483,21 @@ export default function AdminDashboardPage() {
                     <tbody>
                       {asesores.map((a) => (
                         <tr key={a.asesorId} className="border-b border-slate-100">
-                          <td className="py-2 pr-3 font-medium text-slate-800">
+                          <td className="py-2 pr-3 font-medium text-gray-900">
                             {formatAsesorExpedienteLabel({
                               fullName: a.asesorNombre,
                               email: a.asesorEmail,
                               fallbackId: a.asesorId,
                             })}
                           </td>
-                          <td className="py-2 pr-3">{a.enviadosAMesa}</td>
-                          <td className="py-2 pr-3">{a.precalificacionesAprobadas}</td>
-                          <td className="py-2 pr-3">{a.aprobadasMayorA20000}</td>
-                          <td className="py-2 pr-3">
+                          <td className="py-2 pr-3 text-gray-900">{a.enviadosAMesa}</td>
+                          <td className="py-2 pr-3 text-gray-900">{a.precalificacionesAprobadas}</td>
+                          <td className="py-2 pr-3 text-gray-900">{a.precalificacionesNoCumple}</td>
+                          <td className="py-2 pr-3 text-gray-900">{a.aprobadasMayorA20000}</td>
+                          <td className="py-2 pr-3 text-gray-900">
                             {formatMontoMX(a.montoAprobadoTotal)}
                           </td>
-                          <td className="py-2 pr-3 text-xs text-slate-600">
+                          <td className="py-2 pr-3 text-xs text-gray-700">
                             {compactEtapas(a.etapas)}
                           </td>
                           <td className="py-2">
@@ -517,11 +526,11 @@ export default function AdminDashboardPage() {
                 Expedientes enviados a Mesa
               </h2>
               {mesaItems.length === 0 ? (
-                <p className="mt-3 text-sm text-slate-500">Sin resultados.</p>
+                <p className="mt-3 text-sm text-gray-700">Sin resultados.</p>
               ) : (
                 <div className="mt-3 overflow-x-auto">
-                  <table className="min-w-full text-left text-sm">
-                    <thead className="border-b text-xs uppercase text-slate-500">
+                  <table className="min-w-full text-left text-sm text-gray-900">
+                    <thead className="border-b text-xs uppercase text-gray-700">
                       <tr>
                         <th className="py-2 pr-3">Envío</th>
                         <th className="py-2 pr-3">Cliente</th>
@@ -568,8 +577,8 @@ export default function AdminDashboardPage() {
                   </table>
                 </div>
               )}
-              <div className="mt-3 flex items-center justify-between text-sm text-slate-600">
-                <span>
+              <div className="mt-3 flex items-center justify-between text-sm text-gray-700">
+                <span className="text-gray-900">
                   {mesaTotal} resultado{mesaTotal === 1 ? "" : "s"}
                 </span>
                 <div className="flex gap-2">
@@ -596,80 +605,126 @@ export default function AdminDashboardPage() {
               </div>
             </section>
 
-            <section className="rounded-lg border border-slate-200 bg-white p-4">
+            <section className="rounded-lg border border-gray-200 bg-white p-4 text-gray-900">
               <div className="flex flex-wrap items-end justify-between gap-3">
-                <h2 className="text-base font-semibold text-slate-900">
-                  Precalificaciones
-                </h2>
+                <div>
+                  <h2 className="text-base font-semibold text-gray-900">
+                    Precalificaciones
+                  </h2>
+                  <p className="mt-1 text-sm text-gray-700">
+                    El periodo aplica a aprobadas y rechazadas; pendientes muestra
+                    el estado actual.
+                  </p>
+                </div>
                 <Select
                   label="Decisión"
+                  className="text-gray-900"
                   value={precalDecision}
                   onChange={(e) => {
                     setPrecalDecision(e.target.value as AdminPrecalDecisionFilter);
                     setPrecalPage(1);
                   }}
                   options={[
-                    { value: "todas", label: "Todas" },
+                    { value: "resueltas", label: "Resueltas" },
                     { value: "aprobadas", label: "Aprobadas" },
-                    {
-                      value: "aprobadas_mayor_20000",
-                      label: "Aprobadas > $20,000",
-                    },
-                    { value: "no_cumple", label: "No cumple" },
-                    { value: "pendientes", label: "Pendientes" },
+                    { value: "no_cumple", label: "Rechazadas (No cumple)" },
+                    { value: "pendientes", label: "Pendientes actuales" },
+                    { value: "todas", label: "Todas" },
                   ]}
                 />
               </div>
               {precalSummary && (
-                <p className="mt-2 text-xs text-slate-600">
-                  Aprobadas {precalSummary.aprobadas} · &gt;$20k{" "}
-                  {precalSummary.aprobadasMayorA20000} · Total{" "}
-                  {formatMontoMX(precalSummary.montoAprobadoTotal)} · Promedio{" "}
-                  {formatMontoMX(precalSummary.montoPromedioAprobado)}
-                </p>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
+                  {[
+                    {
+                      label: "Resueltas",
+                      value: String(precalSummary.resueltasCount),
+                    },
+                    {
+                      label: "Aprobadas",
+                      value: String(precalSummary.aprobadasCount),
+                    },
+                    {
+                      label: "Rechazadas (No cumple)",
+                      value: String(precalSummary.noCumpleCount),
+                    },
+                    {
+                      label: "Pendientes actuales",
+                      value: String(precalSummary.pendientesActualesCount),
+                    },
+                    {
+                      label: "Monto aprobado Mejoravit",
+                      value: formatMontoMX(precalSummary.montoMejoravitTotal),
+                    },
+                    {
+                      label: "Promedio aprobado Mejoravit",
+                      value: formatMontoMX(precalSummary.montoMejoravitPromedio),
+                    },
+                  ].map((card) => (
+                    <div
+                      key={card.label}
+                      className="rounded-md border border-gray-200 bg-white px-3 py-2"
+                    >
+                      <p className="text-xs font-medium text-gray-700">{card.label}</p>
+                      <p className="mt-1 text-base font-semibold text-gray-900">
+                        {card.value}
+                      </p>
+                    </div>
+                  ))}
+                </div>
               )}
               {precalItems.length === 0 ? (
-                <p className="mt-3 text-sm text-slate-500">Sin resultados.</p>
+                <p className="mt-3 text-sm text-gray-700">Sin resultados.</p>
               ) : (
                 <div className="mt-3 overflow-x-auto">
-                  <table className="min-w-full text-left text-sm">
-                    <thead className="border-b text-xs uppercase text-slate-500">
+                  <table className="min-w-full text-left text-sm text-gray-900">
+                    <thead className="border-b border-gray-200 text-xs uppercase text-gray-700">
                       <tr>
-                        <th className="py-2 pr-3">Fecha</th>
-                        <th className="py-2 pr-3">Cliente</th>
-                        <th className="py-2 pr-3">Asesor</th>
-                        <th className="py-2 pr-3">Decisión</th>
-                        <th className="py-2 pr-3">Monto al aprobar</th>
-                        <th className="py-2">Programa</th>
+                        <th className="py-2 pr-3 font-semibold">Fecha</th>
+                        <th className="py-2 pr-3 font-semibold">Cliente</th>
+                        <th className="py-2 pr-3 font-semibold">Asesor</th>
+                        <th className="py-2 pr-3 font-semibold">Decisión</th>
+                        <th className="py-2 pr-3 font-semibold">Monto al aprobar</th>
+                        <th className="py-2 font-semibold">Programa</th>
                       </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="text-gray-900">
                       {precalItems.map((r) => (
-                        <tr key={r.expedienteId} className="border-b border-slate-100">
-                          <td className="py-2 pr-3 whitespace-nowrap">
-                            {formatDateTimeMx(r.aprobadoAt)}
+                        <tr key={r.expedienteId} className="border-b border-gray-100">
+                          <td className="py-2 pr-3 whitespace-nowrap text-gray-900">
+                            {r.decision === "pendiente"
+                              ? "—"
+                              : r.fecha
+                                ? formatDateTimeMx(r.fecha)
+                                : "—"}
                           </td>
-                          <td className="py-2 pr-3">{r.clienteNombre}</td>
-                          <td className="py-2 pr-3">
+                          <td className="py-2 pr-3 text-gray-900">{r.clienteNombre}</td>
+                          <td className="py-2 pr-3 text-gray-900">
                             {formatAsesorExpedienteLabel({
                               fullName: r.asesorNombre,
                               email: r.asesorEmail,
                               fallbackId: r.asesorId,
                             })}
                           </td>
-                          <td className="py-2 pr-3">{r.decision}</td>
-                          <td className="py-2 pr-3">
-                            {formatMontoMX(r.montoAprobadoAlAprobar)}
+                          <td className="py-2 pr-3 text-gray-900">
+                            <span className={decisionBadgeClass(r.decision)}>
+                              {labelEditorDecision(r.decision)}
+                            </span>
                           </td>
-                          <td className="py-2">{r.programa}</td>
+                          <td className="py-2 pr-3 text-gray-900">
+                            {r.montoAprobadoAlAprobar != null
+                              ? formatMontoMX(r.montoAprobadoAlAprobar)
+                              : "—"}
+                          </td>
+                          <td className="py-2 text-gray-900">{r.programa}</td>
                         </tr>
                       ))}
                     </tbody>
                   </table>
                 </div>
               )}
-              <div className="mt-3 flex items-center justify-between text-sm text-slate-600">
-                <span>
+              <div className="mt-3 flex items-center justify-between text-sm text-gray-700">
+                <span className="text-gray-900">
                   {precalTotal} resultado{precalTotal === 1 ? "" : "s"}
                 </span>
                 <div className="flex gap-2">
@@ -681,7 +736,7 @@ export default function AdminDashboardPage() {
                   >
                     Anterior
                   </Button>
-                  <span>
+                  <span className="text-gray-900">
                     Página {precalPage} /{" "}
                     {Math.max(1, Math.ceil(precalTotal / PAGE_SIZE))}
                   </span>
@@ -695,8 +750,7 @@ export default function AdminDashboardPage() {
                   </Button>
                 </div>
               </div>
-            </section>
-          </>
+            </section>          </>
         )}
       </main>
     </div>

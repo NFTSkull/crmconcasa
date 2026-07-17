@@ -1,5 +1,71 @@
 # Devlog
 
+## 2026-07-17 - P083 cierre: preservación updated_at + publicación
+
+### Backfill Cloud
+
+- Universo: **595** filas con `no_cumple_at` (594 actuales + 1 hoy aprobada).
+- DISABLE/ENABLE solo `editor_decisions_set_updated_at` (transaccional); trigger post=`O`.
+- Prueba de ventana apply: **0/595** filas con `updated_at` en [19:33,19:34Z]; checksum global pre/post difiere por tráfico concurrente (2 filas ajenas en ventana), no por el backfill.
+- Apply: `2026-07-17T19:33:47Z` → `19:33:52Z`, exit 0, proyecto `fvtqbxukqlajezyyvwzy`.
+
+### SHA
+
+- `06024c6aa2b59e20b7288c05a517c83a3b2f23cb6bd15a161b63c6bf6a3665d0` (invalidó `5258f2d5…`).
+
+## 2026-07-17 - P083 canónico: no_cumple_at (pre-Cloud)
+
+### Auditoría Cloud RO (agregados)
+
+- Actuales `no_cumple`: **594**
+- Eventos `decision_nueva=no_cumple`: **707**
+- Transiciones confiables: **599** (595 expedientes únicos)
+- Actuales con ≥1 transición: **594** (100%)
+- Sin evidencia recuperable: **0**
+- Varias transiciones: **4**
+- Huérfanos: **0**
+- `updated_at` > último evento decisión: **9** (confirma que updated_at no es canónico)
+- Payload distingue anterior/nueva: **100%**
+- Rango transiciones: 2026-07-03 → 2026-07-17 UTC
+
+### Decisión UX
+
+- Filtro default **Resueltas** (más coherente que “Todas” mezclando pendientes sin fecha de producción).
+- Pendientes: etiqueta «Pendiente actual»; no usan `updated_at` como día de producción.
+
+### No hecho
+
+- Aplicar 083 en Cloud / commit / push / deploy / smoke.
+
+## 2026-07-17 - P083 ampliado: Precal diarias + KPI Mejoravit
+
+### Producto
+
+- Default periodo UI: `Hoy`.
+- Tabla Precalificaciones: todas las decisiones del periodo (`aprobado` / `no_cumple` / `pendiente`) con paginación real.
+- Fecha de inclusión: `aprobado_at` si aprobado; `updated_at` si No cumple/Pendiente.
+- Resumen en 6 chips (no línea comprimida).
+- KPI superior + monto por asesor: solo Mejoravit aprobado (`monto_aprobado_al_aprobar`).
+
+### No hecho
+
+- Aplicar `083` en Cloud / commit / push / deploy.
+
+## 2026-07-17 - Admin Precalificaciones: contraste + Total Mejoravit
+
+### Causa texto claro
+
+- En `src/app/admin/page.tsx` el bloque usaba `text-slate-500` / `text-slate-600` / `text-xs` en resumen, encabezados y pie; celdas sin color explícito. Sin opacity padre; no era `disabled` en el select (ya `text-gray-900` en `Select`).
+
+### Causa Total incorrecto
+
+- `admin_list_precalificaciones_page` (082) y mock sumaban `monto_aprobado_al_aprobar` de **todos** los programas del set filtrado.
+- Ajuste: Total/Promedio solo `decision=aprobado` + `programa` normalizado `mejoravit`; `>$20k` sin cambio de regla.
+
+### No hecho
+
+- Aplicar `083` en Cloud / commit / push / deploy.
+
 ## 2026-07-17 - P081/P082 aplicados en Cloud (Admin producción)
 
 ### Preflight

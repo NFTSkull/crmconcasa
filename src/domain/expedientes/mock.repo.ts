@@ -81,6 +81,8 @@ export interface ExpedienteMock {
     aprobadoAt?: string | null;
     /** P081: monto en la primera aprobación (inmutable). */
     montoAprobadoAlAprobar?: number | null;
+    /** P083: primera transición a no_cumple (inmutable). */
+    noCumpleAt?: string | null;
   };
   operativo: {
     etapaActual: number | null;
@@ -399,6 +401,10 @@ export class MockExpedientesRepo implements ExpedientesRepo {
             ?.monto_aprobado_al_aprobar === "number"
             ? Number((d as { monto_aprobado_al_aprobar: number }).monto_aprobado_al_aprobar)
             : null,
+        noCumpleAt:
+          typeof (d as { no_cumple_at?: unknown } | undefined)?.no_cumple_at === "string"
+            ? String((d as { no_cumple_at: string }).no_cumple_at)
+            : null,
       },
       operativo: {
         etapaActual: etapaActualParaOperativo(
@@ -562,11 +568,20 @@ export class MockExpedientesRepo implements ExpedientesRepo {
         ?.monto_aprobado_al_aprobar === "number"
         ? Number((existing as { monto_aprobado_al_aprobar: number }).monto_aprobado_al_aprobar)
         : null;
+    const prevNoCumpleAt =
+      typeof (existing as { no_cumple_at?: unknown } | undefined)?.no_cumple_at === "string"
+        ? String((existing as { no_cumple_at: string }).no_cumple_at)
+        : null;
 
     const isFirstApproval =
       nextDecision === "aprobado" &&
       prevAprobadoAt == null &&
       prevDecision !== "aprobado";
+
+    const isFirstNoCumple =
+      nextDecision === "no_cumple" &&
+      prevNoCumpleAt == null &&
+      prevDecision !== "no_cumple";
 
     const entry = {
       idPrecal: id,
@@ -584,6 +599,9 @@ export class MockExpedientesRepo implements ExpedientesRepo {
       monto_aprobado_al_aprobar: isFirstApproval
         ? nextMonto
         : prevMontoAlAprobar,
+      no_cumple_at: isFirstNoCumple
+        ? new Date().toISOString()
+        : prevNoCumpleAt,
     };
 
     without.unshift(entry);
