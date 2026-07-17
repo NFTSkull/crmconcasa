@@ -32,9 +32,12 @@ import {
   type AdminMesaTimelineEvent,
 } from "@/domain/admin-production/mesa-seguimiento";
 import {
+  fetchProduccionAsesorPlan,
   mesaPageAfterEtapaChange,
   nextEtapaFilterFromCard,
   pagesAfterAsesorChange,
+  planProduccionAsesorFetch,
+  produccionAsesorProductionKey,
 } from "@/domain/admin-production/admin-ui-filters";
 import type { AdminEtapaBucket, AdminPrecalSummary } from "@/domain/admin-production/repo";
 import {
@@ -120,6 +123,13 @@ export default function AdminDashboardPage() {
   const [asesorOptions, setAsesorOptions] = useState<
     readonly AdminAsesorProductionRow[]
   >([]);
+  const [produccionAsesorLoading, setProduccionAsesorLoading] = useState(false);
+  const [produccionAsesorError, setProduccionAsesorError] = useState<string | null>(
+    null,
+  );
+  const optionsKeyLoadedRef = useRef<string | null>(null);
+  const produccionFetchGenRef = useRef(0);
+  const productionKeyLoadedRef = useRef<string | null>(null);
   const [mesaItems, setMesaItems] = useState<readonly AdminMesaEnvioEvent[]>([]);
   const [mesaTotal, setMesaTotal] = useState(0);
   const [precalItems, setPrecalItems] = useState<readonly AdminPrecalEvent[]>([]);
@@ -176,7 +186,6 @@ export default function AdminDashboardPage() {
   }, [asesorId, asesorOptions, asesores]);
 
   const etapaFiltroActiva = etapaActual !== "todas";
-  const showProduccionPorAsesor = !etapaFiltroActiva;
 
   const focusMesaExpedientes = useCallback(() => {
     const el = mesaExpedientesRef.current;
@@ -274,6 +283,51 @@ export default function AdminDashboardPage() {
     return () => window.removeEventListener("keydown", onKey);
   }, [timelineOpen, closeTimeline]);
 
+  const loadProduccionAsesor = useCallback(async () => {
+    if (!bounds) return;
+
+    const productionKey = produccionAsesorProductionKey(
+      bounds,
+      estado,
+      asesorId || null,
+    );
+    if (productionKeyLoadedRef.current === productionKey) return;
+
+    const gen = ++produccionFetchGenRef.current;
+    const plan = planProduccionAsesorFetch({
+      bounds,
+      estado,
+      asesorId: asesorId || null,
+      optionsKeyLoaded: optionsKeyLoadedRef.current,
+    });
+
+    setProduccionAsesorLoading(true);
+    setProduccionAsesorError(null);
+    try {
+      const result = await fetchProduccionAsesorPlan(plan, (f) =>
+        repo.listByAsesor(f),
+      );
+      if (gen !== produccionFetchGenRef.current) return;
+      setAsesores(result.asesores);
+      if (result.asesorOptions) {
+        setAsesorOptions(result.asesorOptions);
+      }
+      if (result.nextOptionsKey) {
+        optionsKeyLoadedRef.current = result.nextOptionsKey;
+      }
+      productionKeyLoadedRef.current = productionKey;
+    } catch (e) {
+      if (gen !== produccionFetchGenRef.current) return;
+      setProduccionAsesorError(
+        e instanceof Error ? e.message : "Error al cargar producción por asesor",
+      );
+    } finally {
+      if (gen === produccionFetchGenRef.current) {
+        setProduccionAsesorLoading(false);
+      }
+    }
+  }, [bounds, estado, asesorId, repo]);
+
   const load = useCallback(async () => {
     if (!filtersBase) {
       setError("Rango de fechas inválido");
@@ -283,12 +337,9 @@ export default function AdminDashboardPage() {
     setLoading(true);
     setError(null);
     try {
-      const filtersSinAsesor = { ...filtersBase, asesorId: null };
-      const [s, cohort, as, asOpts, mesa, precal] = await Promise.all([
+      const [s, cohort, mesa, precal] = await Promise.all([
         repo.getSummary(filtersBase),
         repo.getMesaCohortByEtapa(filtersBase),
-        repo.listByAsesor(filtersBase),
-        repo.listByAsesor(filtersSinAsesor),
         repo.listMesaEnviosPage({
           ...filtersBase,
           page: mesaPage,
@@ -302,8 +353,6 @@ export default function AdminDashboardPage() {
       ]);
       setSummary(s);
       setByEtapa(cohort.byEtapa);
-      setAsesores(as);
-      setAsesorOptions(asOpts);
       setMesaItems(mesa.items);
       setMesaTotal(mesa.totalCount);
       setPrecalItems(precal.items);
@@ -319,6 +368,10 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     if (currentUser?.role === "super_admin") void load();
   }, [currentUser, load]);
+
+  useEffect(() => {
+    if (currentUser?.role === "super_admin") void loadProduccionAsesor();
+  }, [currentUser, loadProduccionAsesor]);
 
   const clearFilters = () => {
     setPreset("hoy");
@@ -819,71 +872,87 @@ export default function AdminDashboardPage() {
                 </div>
               </div>
             </section>
+          </>
+        )}
 
-            {showProduccionPorAsesor ? (
-              <section className="rounded-lg border border-slate-200 bg-white p-4">
-                <h2 className="text-base font-semibold text-slate-900">
-                  {produccionTitle}
-                </h2>
-                {asesores.length === 0 ? (
-                  <p className="mt-3 text-sm text-gray-700">
-                    {asesorId
-                      ? "No hay producción para este asesor en el periodo seleccionado."
-                      : "Sin resultados."}
-                  </p>
-                ) : (
-                  <div className="mt-3 overflow-x-auto">
-                    <table className="min-w-full text-left text-sm text-gray-900">
-                      <thead className="border-b text-xs uppercase text-gray-700">
-                        <tr>
-                          <th className="py-2 pr-3">Asesor</th>
-                          <th className="py-2 pr-3">Enviados</th>
-                          <th className="py-2 pr-3">Aprobadas</th>
-                          <th className="py-2 pr-3">No cumple</th>
-                          <th className="py-2 pr-3">&gt;$20k</th>
-                          <th className="py-2 pr-3">Monto Mejoravit</th>
-                          <th className="py-2 pr-3">Estado actual</th>
-                          <th className="py-2">Acción</th>
+            <section
+              data-testid="admin-produccion-por-asesor"
+              className="rounded-lg border border-slate-200 bg-white p-4"
+              aria-busy={produccionAsesorLoading}
+            >
+              <h2 className="text-base font-semibold text-slate-900">
+                {produccionTitle}
+              </h2>
+              {produccionAsesorError ? (
+                <p className="mt-3 text-sm text-red-700">{produccionAsesorError}</p>
+              ) : null}
+              {produccionAsesorLoading && asesores.length === 0 ? (
+                <p className="mt-3 text-sm text-gray-700">
+                  Cargando producción por asesor…
+                </p>
+              ) : asesores.length === 0 ? (
+                <p className="mt-3 text-sm text-gray-700">
+                  {asesorId
+                    ? "No hay producción para este asesor en el periodo seleccionado."
+                    : "Sin resultados."}
+                </p>
+              ) : (
+                <div className="mt-3 overflow-x-auto">
+                  <table className="min-w-full text-left text-sm text-gray-900">
+                    <thead className="border-b text-xs uppercase text-gray-700">
+                      <tr>
+                        <th className="py-2 pr-3">Asesor</th>
+                        <th className="py-2 pr-3">Enviados</th>
+                        <th className="py-2 pr-3">Aprobadas</th>
+                        <th className="py-2 pr-3">No cumple</th>
+                        <th className="py-2 pr-3">&gt;$20k</th>
+                        <th className="py-2 pr-3">Monto Mejoravit</th>
+                        <th className="py-2 pr-3">Estado actual</th>
+                        <th className="py-2">Acción</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {asesores.map((a) => (
+                        <tr key={a.asesorId} className="border-b border-slate-100">
+                          <td className="py-2 pr-3 font-medium text-gray-900">
+                            {formatAsesorExpedienteLabel({
+                              fullName: a.asesorNombre,
+                              email: a.asesorEmail,
+                              fallbackId: a.asesorId,
+                            })}
+                          </td>
+                          <td className="py-2 pr-3 text-gray-900">{a.enviadosAMesa}</td>
+                          <td className="py-2 pr-3 text-gray-900">{a.precalificacionesAprobadas}</td>
+                          <td className="py-2 pr-3 text-gray-900">{a.precalificacionesNoCumple}</td>
+                          <td className="py-2 pr-3 text-gray-900">{a.aprobadasMayorA20000}</td>
+                          <td className="max-w-[10rem] break-words py-2 pr-3 text-gray-900 tabular-nums">
+                            {formatMontoMX(a.montoAprobadoTotal)}
+                          </td>
+                          <td className="py-2 pr-3 text-xs text-gray-700">
+                            {compactEtapas(a.etapas)}
+                          </td>
+                          <td className="py-2">
+                            <button
+                              type="button"
+                              className="text-blue-700 underline"
+                              onClick={() => applyAsesorFilter(a.asesorId)}
+                            >
+                              Ver producción
+                            </button>
+                          </td>
                         </tr>
-                      </thead>
-                      <tbody>
-                        {asesores.map((a) => (
-                          <tr key={a.asesorId} className="border-b border-slate-100">
-                            <td className="py-2 pr-3 font-medium text-gray-900">
-                              {formatAsesorExpedienteLabel({
-                                fullName: a.asesorNombre,
-                                email: a.asesorEmail,
-                                fallbackId: a.asesorId,
-                              })}
-                            </td>
-                            <td className="py-2 pr-3 text-gray-900">{a.enviadosAMesa}</td>
-                            <td className="py-2 pr-3 text-gray-900">{a.precalificacionesAprobadas}</td>
-                            <td className="py-2 pr-3 text-gray-900">{a.precalificacionesNoCumple}</td>
-                            <td className="py-2 pr-3 text-gray-900">{a.aprobadasMayorA20000}</td>
-                            <td className="max-w-[10rem] break-words py-2 pr-3 text-gray-900 tabular-nums">
-                              {formatMontoMX(a.montoAprobadoTotal)}
-                            </td>
-                            <td className="py-2 pr-3 text-xs text-gray-700">
-                              {compactEtapas(a.etapas)}
-                            </td>
-                            <td className="py-2">
-                              <button
-                                type="button"
-                                className="text-blue-700 underline"
-                                onClick={() => applyAsesorFilter(a.asesorId)}
-                              >
-                                Ver producción
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </section>
-            ) : null}
+                      ))}
+                    </tbody>
+                  </table>
+                  {produccionAsesorLoading ? (
+                    <p className="mt-2 text-xs text-gray-600">Actualizando…</p>
+                  ) : null}
+                </div>
+              )}
+            </section>
 
+        {!loading ? (
+          <>
             <section className="rounded-lg border border-gray-200 bg-white p-4 text-gray-900">
               <div className="flex flex-wrap items-end justify-between gap-3">
                 <div>
@@ -1039,7 +1108,7 @@ export default function AdminDashboardPage() {
               </div>
             </section>
           </>
-        )}
+        ) : null}
       </main>
 
       {timelineOpen ? (

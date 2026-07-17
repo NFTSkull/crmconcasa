@@ -575,7 +575,7 @@ Convenciones:
 - `admin_list_production_by_asesor(p_from, p_to_exclusive, p_estado, p_asesor_id DEFAULT NULL)`:
   - sin `p_asesor_id` → producción de todos los asesores del periodo;
   - con `p_asesor_id` → una sola fila (o vacío si no hay producción).
-- UI `/admin`: tarjetas de etapa filtran `etapa_actual`, sincronizan el select, hacen scroll a `#admin-mesa-expedientes` y ocultan temporalmente «Producción por asesor» mientras hay etapa activa.
+- UI `/admin`: tarjetas de etapa filtran `etapa_actual`, sincronizan el select y hacen scroll a `#admin-mesa-expedientes`. **P086:** «Producción por asesor» permanece siempre visible/montada independientemente del filtro de etapa de Mesa; los filtros de Mesa no controlan su montaje; la sección administra carga, actualización, error y vacío con estados propios (fuera del gate global `loading` del dashboard).
 - Orden de secciones: Filtros → KPIs → Etapas → Expedientes Mesa → Producción por asesor → Precalificaciones.
 - **Seguimiento Mesa (P085):** `admin_list_mesa_envios_page` → **1 fila/expediente** con resumen RO (`situacion_*`, `siguiente_accion_*`, correcciones por elemento, espera, rechazo operativo, reingreso, última actividad Mesa). **Sin** timeline embebido. Timeline: `admin_get_expediente_mesa_timeline(p_expediente_id, p_limit, p_offset)` bajo demanda («Ver seguimiento»).
 - **Privacidad asesor Mesa:** respuesta **sin** `asesor_email`. Display: `asesor_nombre` o `Asesor sin nombre registrado` (nunca correo). Búsqueda puede usar email internamente en SQL sin devolverlo.
