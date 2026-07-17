@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- **feat/admin-production-dashboard — P081/P082 (Cloud aplicado):** columnas `aprobado_at`/`monto_aprobado_al_aprobar`, backfill histórico (1036 snapshots), RPCs Admin RO; SHA 081 `ae74f5e1…b990`, 082 `67097420…288d`. Frontend/local pendientes de publicación. Sin commit/push/deploy/smoke.
+
+- **feat/admin-production-dashboard — P081/P082 (local):** Admin solo lectura por periodo (`America/Monterrey`). Columnas canónicas `editor_decisions.aprobado_at` + `monto_aprobado_al_aprobar` (1ª transición a aprobado; inmutables); escritura en `upsert_editor_decision` (+ pre-reingreso); backfill desde `action_log`; índices por periodo; RPCs RO `admin_*` (summary, cohort etapa, asesores, páginas Mesa/precal); UI `/admin` reconstruida (4 KPIs, estado actual, asesores, tablas paginadas, Excel `.xlsx` sin NSS/tel/UUID); sin Cloud/commit/push/deploy.
+
 - **feat/retencion-envio-auto-firma — P079 (local):** al pulsar «Enviar a Mesa Control» en etapa 8, `enviar_retencion_mesa` registra el envío **y** avanza atómicamente a etapa 9; gate 8→9 acepta principal `subido|resubido|validado` (sin exigir validación Mesa); UI asesor/Mesa sin Validar/corrección del Acuse; copy «listo para agendar firma»; no crea booking ni marca `validado`; migración `079_retencion_envio_auto_avanza_firmas.sql`; `080_backfill_retencion_enviada_a_etapa_9.sql` preparada (solo Cohorte A, no aplicada en Cloud); sin commit/push/deploy.
 
 - **feat/login-alias-asesor-mejoravit:** el login Supabase acepta el usuario exacto `asesor.mejoravit` (alias → `asesor.mejoravit@usuarios.concasa.mx`) vía `normalizeLoginIdentifier`; label «Correo o usuario»; login por correo intacto; migración `078_profile_asesor_mejoravit.sql` (defensiva) vincula el Auth UID existente a `profiles` como `asesor` activo en org ConCasa (`tipo_asesor_origen=interno`); perfil Cloud ya aplicado; frontend publicado en esta entrega.

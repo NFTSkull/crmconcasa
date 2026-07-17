@@ -1,5 +1,58 @@
 # Devlog
 
+## 2026-07-17 - P081/P082 aplicados en Cloud (Admin producción)
+
+### Preflight
+
+- Semántica backfill: primera transición a `aprobado` **sin** filtrar `decision` actual; conserva histórico si hoy es `no_cumple`/`pendiente`.
+- SHA-256 081: `ae74f5e1e1cbca7ce5f576277c962711ce43d47bd21ff855409e89f38b1eb990`
+- SHA-256 082: `67097420f5e0ba4f821090882ea503f77244164c22acd8548445e9523b7c288d`
+- Cohortes RO: actualmente aprobadas 1034; alguna vez 1049; hoy no aprobadas con historial 2; varias transiciones 8; sin monto 0; sin evento 0.
+
+### Aplicación
+
+- 081 y 082 vía `supabase db query --linked` (proyecto `fvtqbxukqlajezyyvwzy`).
+- Backfill: **1036** snapshots (1049 − 13 eventos huérfanos sin fila `editor_decisions`).
+- Post: columnas/constraint/índices OK; aprobadas sin snapshot 0; pares incompletos 0; RPCs Admin presentes; `__admin_require_super_admin` sin EXECUTE a authenticated; RPCs públicas con EXECUTE authenticated (service_role por default ACL Cloud, gate de rol en cuerpo).
+
+### No hecho
+
+- commit / push / deploy / smoke UI.
+
+## 2026-07-17 - feat/admin-production-dashboard (P081/P082, local)
+
+### Auditoría Cloud RO (agregados, sin PII)
+
+- `editor_decisions`: 1645 filas; 1034 `decision=aprobado`.
+- Eventos `editor.decision.upsert` con `decision_nueva=aprobado`: 1079; transiciones confiables: 1057.
+- Aprobadas con ≥1 evento: 1034; sin evento utilizable: **0**.
+- Eventos con `monto_nuevo` válido >0: 1079; inválidos: 0.
+- Varios eventos de aprobación: 13; varias transiciones: 7.
+- Payload distingue `decision_anterior` / `decision_nueva` / `monto_nuevo`.
+- Rango eventos: 2026-06-22 → 2026-07-17 (UTC).
+
+### Decisiones de producto
+
+- C + M1: `aprobado_at` = primera transición a `aprobado`; `monto_aprobado_al_aprobar` snapshot inmutable.
+- Métricas periodo: `aprobado_at` + `monto_aprobado_al_aprobar` (`> 20000` estricto).
+- Envíos Mesa: `fecha_envio_mesa`.
+- TZ: `America/Monterrey`.
+- Etiquetas etapa: `ETAPAS_OPERATIVAS_ASESOR` (canónicas).
+- Admin observador: sin acciones de mutación; sin enlace a `/admin/[id]` mock.
+- Nombre admin: email temporal (helper `full_name` pendiente en otra rama).
+
+### SQL
+
+- `081_admin_production_canonical_approval.sql`: columnas, constraint, índices, upsert ambos caminos, backfill, ACL.
+- `082_admin_production_dashboard_rpcs.sql`: RPCs RO solo `super_admin`.
+- Test SQL `rpc_p081_canonical_approval.sql`.
+- **No aplicadas en Cloud.**
+
+### Frontend
+
+- Dominio `src/domain/admin-production/*` + Excel `exportAdminProductionExcel.ts`.
+- `/admin` reconstruido; paginación real vía RPC (mock pagina en memoria sobre listado admin).
+
 ## 2026-07-17 - feat/retencion-envio-auto-firma (P079, local)
 
 ### Causa

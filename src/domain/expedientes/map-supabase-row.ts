@@ -12,6 +12,8 @@ export type SupabaseEditorDecisionEmbed = Readonly<{
   decision?: string | null;
   monto_aprobado?: number | string | null;
   notas_revision?: string | null;
+  aprobado_at?: string | null;
+  monto_aprobado_al_aprobar?: number | string | null;
 }>;
 
 /** Perfil asesor embebido vía FK `asesor_id`. */
@@ -168,6 +170,8 @@ export function mapSupabaseRowToExpedienteMock(
       monto_aprobado: parseMontoAprobado(editor?.monto_aprobado),
       notas_revision:
         typeof editor?.notas_revision === "string" ? editor.notas_revision : "",
+      aprobadoAt: textOrNull(editor?.aprobado_at),
+      montoAprobadoAlAprobar: parseMontoAprobado(editor?.monto_aprobado_al_aprobar),
     },
     operativo: {
       etapaActual: etapaActualParaOperativo(etapaPersistida, subestado),

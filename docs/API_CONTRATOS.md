@@ -565,25 +565,29 @@ Convenciones:
 
 ---
 
-## 15. Admin KPIs
+## 15. Admin KPIs / Producción (P081–P082)
 
-**Operación:** `GET /admin/metrics` · vistas materializadas / RPC read-only
+**Operación:** RPCs read-only `admin_get_production_summary`, `admin_get_mesa_cohort_by_etapa`, `admin_list_production_by_asesor`, `admin_list_mesa_envios_page`, `admin_list_precalificaciones_page`
 
-### Response (conceptual)
+### Fechas canónicas
 
-```json
-{
-  "operativo_kpis": {},
-  "funnel_by_etapa": [],
-  "metrics_by_asesor": [],
-  "time_metrics": {}
-}
-```
+| Métrica | Fecha | Monto |
+|---|---|---|
+| Enviados a Mesa | `expedientes.fecha_envio_mesa` | — |
+| Precalificaciones aprobadas | `editor_decisions.aprobado_at` (1ª transición) | `monto_aprobado_al_aprobar` |
+
+- Zona de negocio: `America/Monterrey` (cortes Hoy/semana/mes en cliente → bounds `[from, toExclusive)`).
+- `monto_aprobado` actual permanece mutable; no se usa para KPIs de periodo.
+- Mayor a $20,000: `monto_aprobado_al_aprobar > 20000` (estricto).
 
 ### Reglas
 
 - Rol `super_admin` únicamente.
-- P7: reemplaza agregación client-side (`adminDashboardStats.ts`).
+- Solo lectura; sin mutaciones desde Admin.
+- Paginación server-side con `total_count` exacto (page size ≤ 100).
+- Export Excel respeta filtros; máx. 5000 filas por hoja; sin NSS/teléfono/UUID.
+- Cohorte Mesa: fechas filtran envíos; etapas muestran **estado actual**.
+- Reemplaza agregación client-side legacy (`adminDashboardStats.ts`) en `/admin`.
 
 ---
 

@@ -77,6 +77,10 @@ export interface ExpedienteMock {
     decision: EditorDecision;
     monto_aprobado: number | null;
     notas_revision: string;
+    /** P081: primera transición a aprobado (mock/supabase). */
+    aprobadoAt?: string | null;
+    /** P081: monto en la primera aprobación (inmutable). */
+    montoAprobadoAlAprobar?: number | null;
   };
   operativo: {
     etapaActual: number | null;
@@ -386,6 +390,15 @@ export class MockExpedientesRepo implements ExpedientesRepo {
         monto_aprobado:
           typeof d?.monto_aprobado === "number" ? d.monto_aprobado : null,
         notas_revision: typeof d?.notas_revision === "string" ? d?.notas_revision : "",
+        aprobadoAt:
+          typeof (d as { aprobado_at?: unknown } | undefined)?.aprobado_at === "string"
+            ? String((d as { aprobado_at: string }).aprobado_at)
+            : null,
+        montoAprobadoAlAprobar:
+          typeof (d as { monto_aprobado_al_aprobar?: unknown } | undefined)
+            ?.monto_aprobado_al_aprobar === "number"
+            ? Number((d as { monto_aprobado_al_aprobar: number }).monto_aprobado_al_aprobar)
+            : null,
       },
       operativo: {
         etapaActual: etapaActualParaOperativo(
@@ -531,21 +544,46 @@ export class MockExpedientesRepo implements ExpedientesRepo {
       return !(idPrecal === id || _id === id);
     });
 
+    const prevDecision = normalizeDecision(existing?.decision);
+    const nextDecision = normalizeDecision(patch.decision ?? existing?.decision);
+    const nextMonto =
+      patch.monto_aprobado !== undefined
+        ? patch.monto_aprobado
+        : typeof existing?.monto_aprobado === "number"
+          ? existing!.monto_aprobado
+          : null;
+
+    const prevAprobadoAt =
+      typeof (existing as { aprobado_at?: unknown } | undefined)?.aprobado_at === "string"
+        ? String((existing as { aprobado_at: string }).aprobado_at)
+        : null;
+    const prevMontoAlAprobar =
+      typeof (existing as { monto_aprobado_al_aprobar?: unknown } | undefined)
+        ?.monto_aprobado_al_aprobar === "number"
+        ? Number((existing as { monto_aprobado_al_aprobar: number }).monto_aprobado_al_aprobar)
+        : null;
+
+    const isFirstApproval =
+      nextDecision === "aprobado" &&
+      prevAprobadoAt == null &&
+      prevDecision !== "aprobado";
+
     const entry = {
       idPrecal: id,
-      decision: normalizeDecision(patch.decision ?? existing?.decision),
-      monto_aprobado:
-        patch.monto_aprobado !== undefined
-          ? patch.monto_aprobado
-          : typeof existing?.monto_aprobado === "number"
-            ? existing!.monto_aprobado
-            : null,
+      decision: nextDecision,
+      monto_aprobado: nextMonto,
       notas_revision:
         patch.notas_revision !== undefined
           ? patch.notas_revision
           : typeof existing?.notas_revision === "string"
             ? existing!.notas_revision
             : "",
+      aprobado_at: isFirstApproval
+        ? new Date().toISOString()
+        : prevAprobadoAt,
+      monto_aprobado_al_aprobar: isFirstApproval
+        ? nextMonto
+        : prevMontoAlAprobar,
     };
 
     without.unshift(entry);
