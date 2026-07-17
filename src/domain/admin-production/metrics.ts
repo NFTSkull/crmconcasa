@@ -19,16 +19,73 @@ export type AdminMesaEnvioEvent = Readonly<{
   fechaEnvioMesa: string;
   clienteNombre: string;
   asesorId: string;
+  /** Nombre visible; nunca correo (fallback UI: «Asesor sin nombre registrado»). */
   asesorNombre: string | null;
-  asesorEmail: string | null;
+  programa: string;
   etapaActual: number;
+  etapaLabel: string;
   subestado: string;
   cicloEstado: string;
-  programa: string;
-  montoAprobadoActual: number | null;
-  montoAprobadoAlAprobar: number | null;
-  updatedAt: string | null;
+  situacionCode: string;
+  situacionLabel: string;
+  siguienteAccionLabel: string;
+  siguienteAccionActor: string;
+  ultimaActividadMesaCode: string | null;
+  ultimaActividadMesaLabel: string | null;
+  ultimaActividadMesaAt: string | null;
+  correccionesAbiertasCount: number;
+  correccionAbiertaDesde: string | null;
+  correccionesReenviadasCount: number;
+  correccionReenviadaDesde: string | null;
+  esperaTipo: string | null;
+  esperaLabel: string | null;
+  esperaDesde: string | null;
+  rechazoOperativo: boolean;
+  rechazoAt: string | null;
+  rechazoClasificacion: string | null;
+  rechazoMotivo: string | null;
+  reingresoActivo: boolean;
 }>;
+
+/** Defaults RO para fixtures/tests. */
+export function emptyAdminMesaSeguimientoFields(
+  _fechaEnvioMesa: string,
+): Omit<
+  AdminMesaEnvioEvent,
+  | "expedienteId"
+  | "fechaEnvioMesa"
+  | "clienteNombre"
+  | "asesorId"
+  | "asesorNombre"
+  | "programa"
+  | "etapaActual"
+  | "subestado"
+  | "cicloEstado"
+> {
+  return {
+    etapaLabel: "Registro",
+    situacionCode: "continuar_etapa",
+    situacionLabel: "Continuar etapa actual",
+    siguienteAccionLabel: "Continuar etapa actual",
+    siguienteAccionActor: "Mesa",
+    ultimaActividadMesaCode: null,
+    ultimaActividadMesaLabel: null,
+    ultimaActividadMesaAt: null,
+    correccionesAbiertasCount: 0,
+    correccionAbiertaDesde: null,
+    correccionesReenviadasCount: 0,
+    correccionReenviadaDesde: null,
+    esperaTipo: null,
+    esperaLabel: null,
+    esperaDesde: null,
+    rechazoOperativo: false,
+    rechazoAt: null,
+    rechazoClasificacion: null,
+    rechazoMotivo: null,
+    reingresoActivo: false,
+  };
+}
+
 
 export type AdminPrecalEvent = Readonly<{
   expedienteId: string;

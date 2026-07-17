@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSessionRepo } from "@/domain/session";
 import { Button } from "@/components/ui/Button";
@@ -24,6 +24,18 @@ import {
   type AdminMesaEnvioEvent,
   type AdminPrecalEvent,
 } from "@/domain/admin-production";
+import {
+  labelAdminMesaAction,
+  formatAdminMesaAsesorLabel,
+  formatAdminMesaEsperaLabel,
+  sanitizeAdminMotivo,
+  type AdminMesaTimelineEvent,
+} from "@/domain/admin-production/mesa-seguimiento";
+import {
+  mesaPageAfterEtapaChange,
+  nextEtapaFilterFromCard,
+  pagesAfterAsesorChange,
+} from "@/domain/admin-production/admin-ui-filters";
 import type { AdminEtapaBucket, AdminPrecalSummary } from "@/domain/admin-production/repo";
 import {
   buildAdminProductionWorkbook,
@@ -58,9 +70,35 @@ function compactEtapas(etapas: Readonly<Record<string, number>>): string {
     .join(" · ") || "—";
 }
 
+function formatCorreccionCell(r: AdminMesaEnvioEvent): string {
+  const parts: string[] = [];
+  if (r.correccionesAbiertasCount > 0) {
+    const desde = r.correccionAbiertaDesde
+      ? ` desde ${formatDateTimeMx(r.correccionAbiertaDesde)}`
+      : "";
+    parts.push(`${r.correccionesAbiertasCount} pendiente(s)${desde}`);
+  }
+  if (r.correccionesReenviadasCount > 0) {
+    const desde = r.correccionReenviadaDesde
+      ? ` desde ${formatDateTimeMx(r.correccionReenviadaDesde)}`
+      : "";
+    parts.push(`${r.correccionesReenviadasCount} reenviada(s)${desde}`);
+  }
+  return parts.length > 0 ? parts.join(" · ") : "No";
+}
+
+function formatRechazoCell(r: AdminMesaEnvioEvent): string {
+  if (!r.rechazoOperativo) return "No";
+  const when = r.rechazoAt ? formatDateTimeMx(r.rechazoAt) : "—";
+  const motivo = sanitizeAdminMotivo(r.rechazoMotivo);
+  const clasif = r.rechazoClasificacion ? ` · ${r.rechazoClasificacion}` : "";
+  return `${when}${clasif} · ${motivo}`;
+}
+
 export default function AdminDashboardPage() {
   const { sessionRepo, currentUser } = useSessionRepo();
   const repo = useAdminProductionRepo();
+  const mesaExpedientesRef = useRef<HTMLElement | null>(null);
 
   const [preset, setPreset] = useState<AdminPeriodPreset>("hoy");
   const [customFrom, setCustomFrom] = useState("");
@@ -79,12 +117,26 @@ export default function AdminDashboardPage() {
   const [summary, setSummary] = useState<AdminProductionSummary | null>(null);
   const [byEtapa, setByEtapa] = useState<readonly AdminEtapaBucket[]>([]);
   const [asesores, setAsesores] = useState<readonly AdminAsesorProductionRow[]>([]);
+  const [asesorOptions, setAsesorOptions] = useState<
+    readonly AdminAsesorProductionRow[]
+  >([]);
   const [mesaItems, setMesaItems] = useState<readonly AdminMesaEnvioEvent[]>([]);
   const [mesaTotal, setMesaTotal] = useState(0);
   const [precalItems, setPrecalItems] = useState<readonly AdminPrecalEvent[]>([]);
   const [precalTotal, setPrecalTotal] = useState(0);
   const [precalSummary, setPrecalSummary] = useState<AdminPrecalSummary | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [timelineOpen, setTimelineOpen] = useState(false);
+  const [timelineTarget, setTimelineTarget] = useState<AdminMesaEnvioEvent | null>(null);
+  const [timelineItems, setTimelineItems] = useState<readonly AdminMesaTimelineEvent[]>([]);
+  const [timelineLoading, setTimelineLoading] = useState(false);
+  const [timelineError, setTimelineError] = useState<string | null>(null);
+  const [timelineHasMore, setTimelineHasMore] = useState(false);
+  const [timelineOffset, setTimelineOffset] = useState(0);
+  const [timelineTotal, setTimelineTotal] = useState(0);
+  const [timelineLoadingMore, setTimelineLoadingMore] = useState(false);
+  const timelineTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const timelineDialogRef = useRef<HTMLDivElement | null>(null);
 
   const bounds = useMemo(() => {
     try {
@@ -110,6 +162,118 @@ export default function AdminDashboardPage() {
     };
   }, [bounds, asesorId, etapaActual, estado, buscar, precalDecision]);
 
+  const selectedAsesorLabel = useMemo(() => {
+    if (!asesorId) return null;
+    const row =
+      asesorOptions.find((a) => a.asesorId === asesorId) ??
+      asesores.find((a) => a.asesorId === asesorId);
+    if (!row) return null;
+    return formatAsesorExpedienteLabel({
+      fullName: row.asesorNombre,
+      email: row.asesorEmail,
+      fallbackId: row.asesorId,
+    });
+  }, [asesorId, asesorOptions, asesores]);
+
+  const etapaFiltroActiva = etapaActual !== "todas";
+  const showProduccionPorAsesor = !etapaFiltroActiva;
+
+  const focusMesaExpedientes = useCallback(() => {
+    const el = mesaExpedientesRef.current;
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+    requestAnimationFrame(() => {
+      el.focus({ preventScroll: true });
+    });
+  }, []);
+
+  const closeTimeline = useCallback(() => {
+    setTimelineOpen(false);
+    setTimelineTarget(null);
+    setTimelineItems([]);
+    setTimelineError(null);
+    setTimelineLoading(false);
+    setTimelineHasMore(false);
+    setTimelineOffset(0);
+    setTimelineTotal(0);
+    setTimelineLoadingMore(false);
+    const trigger = timelineTriggerRef.current;
+    timelineTriggerRef.current = null;
+    requestAnimationFrame(() => {
+      trigger?.focus();
+    });
+  }, []);
+
+  const openTimeline = useCallback(
+    async (row: AdminMesaEnvioEvent, trigger: HTMLButtonElement | null) => {
+      timelineTriggerRef.current = trigger;
+      setTimelineTarget(row);
+      setTimelineOpen(true);
+      setTimelineLoading(true);
+      setTimelineError(null);
+      setTimelineItems([]);
+      setTimelineHasMore(false);
+      setTimelineOffset(0);
+      setTimelineTotal(0);
+      try {
+        const page = await repo.getExpedienteMesaTimeline({
+          expedienteId: row.expedienteId,
+          limit: 10,
+          offset: 0,
+        });
+        setTimelineItems(page.items);
+        setTimelineHasMore(page.hasMore);
+        setTimelineOffset(page.items.length);
+        setTimelineTotal(page.totalCount);
+      } catch (e) {
+        setTimelineError(
+          e instanceof Error ? e.message : "No se pudo cargar el seguimiento",
+        );
+      } finally {
+        setTimelineLoading(false);
+        requestAnimationFrame(() => {
+          timelineDialogRef.current?.focus();
+        });
+      }
+    },
+    [repo],
+  );
+
+  const loadMoreTimeline = useCallback(async () => {
+    if (!timelineTarget || timelineLoadingMore || !timelineHasMore) return;
+    setTimelineLoadingMore(true);
+    setTimelineError(null);
+    try {
+      const page = await repo.getExpedienteMesaTimeline({
+        expedienteId: timelineTarget.expedienteId,
+        limit: 10,
+        offset: timelineOffset,
+      });
+      setTimelineItems((prev) => [...prev, ...page.items]);
+      setTimelineHasMore(page.hasMore);
+      setTimelineOffset((prev) => prev + page.items.length);
+      setTimelineTotal(page.totalCount);
+    } catch (e) {
+      setTimelineError(
+        e instanceof Error ? e.message : "No se pudo cargar más eventos",
+      );
+    } finally {
+      setTimelineLoadingMore(false);
+    }
+  }, [repo, timelineTarget, timelineLoadingMore, timelineHasMore, timelineOffset]);
+
+  useEffect(() => {
+    if (!timelineOpen) return;
+    const onKey = (ev: KeyboardEvent) => {
+      if (ev.key === "Escape") {
+        ev.preventDefault();
+        closeTimeline();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [timelineOpen, closeTimeline]);
+
   const load = useCallback(async () => {
     if (!filtersBase) {
       setError("Rango de fechas inválido");
@@ -119,10 +283,12 @@ export default function AdminDashboardPage() {
     setLoading(true);
     setError(null);
     try {
-      const [s, cohort, as, mesa, precal] = await Promise.all([
+      const filtersSinAsesor = { ...filtersBase, asesorId: null };
+      const [s, cohort, as, asOpts, mesa, precal] = await Promise.all([
         repo.getSummary(filtersBase),
         repo.getMesaCohortByEtapa(filtersBase),
         repo.listByAsesor(filtersBase),
+        repo.listByAsesor(filtersSinAsesor),
         repo.listMesaEnviosPage({
           ...filtersBase,
           page: mesaPage,
@@ -137,6 +303,7 @@ export default function AdminDashboardPage() {
       setSummary(s);
       setByEtapa(cohort.byEtapa);
       setAsesores(as);
+      setAsesorOptions(asOpts);
       setMesaItems(mesa.items);
       setMesaTotal(mesa.totalCount);
       setPrecalItems(precal.items);
@@ -170,6 +337,27 @@ export default function AdminDashboardPage() {
     setPreset(p);
     setMesaPage(1);
     setPrecalPage(1);
+  };
+
+  const clearEtapaFilter = () => {
+    setEtapaActual("todas");
+    setMesaPage(1);
+  };
+
+  const onEtapaCardPress = (etapa: number) => {
+    const next = nextEtapaFilterFromCard(etapaActual, etapa);
+    setEtapaActual(next);
+    setMesaPage(mesaPageAfterEtapaChange());
+    if (next !== "todas") {
+      requestAnimationFrame(() => focusMesaExpedientes());
+    }
+  };
+
+  const applyAsesorFilter = (id: string) => {
+    setAsesorId(id);
+    const pages = pagesAfterAsesorChange();
+    setMesaPage(pages.mesaPage);
+    setPrecalPage(pages.precalPage);
   };
 
   const exportExcel = async () => {
@@ -212,6 +400,15 @@ export default function AdminDashboardPage() {
   const periodoLabel = bounds
     ? `${bounds.fromDate} — ${bounds.toDateInclusive}`
     : "—";
+
+  const produccionTitle = selectedAsesorLabel
+    ? `Producción de ${selectedAsesorLabel}`
+    : "Producción por asesor";
+
+  const etapaFiltroNombre =
+    etapaFiltroActiva && Number.isFinite(Number(etapaActual))
+      ? getEtapaOperativaNombre(Number(etapaActual))
+      : null;
 
   return (
     <div className="min-h-screen bg-slate-100">
@@ -308,14 +505,10 @@ export default function AdminDashboardPage() {
             <Select
               label="Asesor"
               value={asesorId}
-              onChange={(e) => {
-                setAsesorId(e.target.value);
-                setMesaPage(1);
-                setPrecalPage(1);
-              }}
+              onChange={(e) => applyAsesorFilter(e.target.value)}
               options={[
                 { value: "", label: "Todos los asesores" },
-                ...asesores.map((a) => ({
+                ...asesorOptions.map((a) => ({
                   value: a.asesorId,
                   label: formatAsesorExpedienteLabel({
                     fullName: a.asesorNombre,
@@ -450,141 +643,148 @@ export default function AdminDashboardPage() {
               <h2 className="text-base font-semibold text-slate-900">
                 Estado actual de los expedientes enviados a Mesa
               </h2>
+              <p className="mt-1 text-sm text-gray-700">
+                Pulsa una etapa para filtrar el listado de expedientes.
+              </p>
               <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                {byEtapa.map((b) => (
-                  <button
-                    key={b.etapa}
-                    type="button"
-                    onClick={() => {
-                      setEtapaActual(String(b.etapa));
-                      setMesaPage(1);
-                    }}
-                    className={`rounded-md border px-3 py-2 text-left ${etapaTone(b.etapa)} ${
-                      etapaActual === String(b.etapa) ? "ring-2 ring-slate-900" : ""
-                    }`}
-                  >
-                    <p className="text-sm font-medium">
-                      {getEtapaOperativaNombre(b.etapa)}
-                    </p>
-                    <p className="text-xs text-gray-700">
-                      {b.count} expedientes · {b.pct}%
-                    </p>
-                  </button>
-                ))}
+                {byEtapa.map((b) => {
+                  const pressed = etapaActual === String(b.etapa);
+                  const empty = b.count === 0;
+                  return (
+                    <button
+                      key={b.etapa}
+                      type="button"
+                      aria-pressed={pressed}
+                      onClick={() => onEtapaCardPress(b.etapa)}
+                      className={`rounded-md border px-3 py-2 text-left transition ${etapaTone(b.etapa)} ${
+                        pressed
+                          ? "border-slate-900 bg-white shadow-sm ring-2 ring-slate-900 ring-offset-1"
+                          : "hover:border-slate-400"
+                      } ${empty && !pressed ? "opacity-70" : ""}`}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="text-sm font-medium">
+                          {getEtapaOperativaNombre(b.etapa)}
+                        </p>
+                        {pressed ? (
+                          <span
+                            aria-hidden="true"
+                            className="mt-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-sm bg-slate-900 px-1 text-[10px] font-semibold uppercase tracking-wide text-white"
+                          >
+                            Activa
+                          </span>
+                        ) : null}
+                      </div>
+                      <p className="text-xs text-gray-700">
+                        {b.count === 0
+                          ? "0 expedientes"
+                          : `${b.count} expediente${b.count === 1 ? "" : "s"} · ${b.pct}%`}
+                      </p>
+                    </button>
+                  );
+                })}
               </div>
             </section>
 
-            <section className="rounded-lg border border-slate-200 bg-white p-4">
-              <h2 className="text-base font-semibold text-slate-900">
-                Producción por asesor
-              </h2>
-              {asesores.length === 0 ? (
-                <p className="mt-3 text-sm text-gray-700">Sin resultados.</p>
-              ) : (
-                <div className="mt-3 overflow-x-auto">
-                  <table className="min-w-full text-left text-sm text-gray-900">
-                    <thead className="border-b text-xs uppercase text-gray-700">
-                      <tr>
-                        <th className="py-2 pr-3">Asesor</th>
-                        <th className="py-2 pr-3">Enviados</th>
-                        <th className="py-2 pr-3">Aprobadas</th>
-                        <th className="py-2 pr-3">No cumple</th>
-                        <th className="py-2 pr-3">&gt;$20k</th>
-                        <th className="py-2 pr-3">Monto Mejoravit</th>
-                        <th className="py-2 pr-3">Estado actual</th>
-                        <th className="py-2">Acción</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {asesores.map((a) => (
-                        <tr key={a.asesorId} className="border-b border-slate-100">
-                          <td className="py-2 pr-3 font-medium text-gray-900">
-                            {formatAsesorExpedienteLabel({
-                              fullName: a.asesorNombre,
-                              email: a.asesorEmail,
-                              fallbackId: a.asesorId,
-                            })}
-                          </td>
-                          <td className="py-2 pr-3 text-gray-900">{a.enviadosAMesa}</td>
-                          <td className="py-2 pr-3 text-gray-900">{a.precalificacionesAprobadas}</td>
-                          <td className="py-2 pr-3 text-gray-900">{a.precalificacionesNoCumple}</td>
-                          <td className="py-2 pr-3 text-gray-900">{a.aprobadasMayorA20000}</td>
-                          <td className="max-w-[10rem] break-words py-2 pr-3 text-gray-900 tabular-nums">
-                            {formatMontoMX(a.montoAprobadoTotal)}
-                          </td>
-                          <td className="py-2 pr-3 text-xs text-gray-700">
-                            {compactEtapas(a.etapas)}
-                          </td>
-                          <td className="py-2">
-                            <button
-                              type="button"
-                              className="text-blue-700 underline"
-                              onClick={() => {
-                                setAsesorId(a.asesorId);
-                                setMesaPage(1);
-                                setPrecalPage(1);
-                              }}
-                            >
-                              Ver producción
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              )}
-            </section>
-
-            <section className="rounded-lg border border-slate-200 bg-white p-4">
-              <h2 className="text-base font-semibold text-slate-900">
+            <section
+              id="admin-mesa-expedientes"
+              ref={mesaExpedientesRef}
+              tabIndex={-1}
+              aria-labelledby="admin-mesa-expedientes-title"
+              className="rounded-lg border border-slate-200 bg-white p-4 outline-none focus-visible:ring-2 focus-visible:ring-slate-900"
+            >
+              <h2
+                id="admin-mesa-expedientes-title"
+                className="text-base font-semibold text-slate-900"
+              >
                 Expedientes enviados a Mesa
               </h2>
+              {etapaFiltroNombre ? (
+                <div className="mt-3 flex flex-wrap items-center gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800">
+                  <span>
+                    Mostrando expedientes en:{" "}
+                    <strong className="font-semibold">{etapaFiltroNombre}</strong>
+                  </span>
+                  <Button type="button" variant="secondary" onClick={clearEtapaFilter}>
+                    Quitar filtro de etapa
+                  </Button>
+                </div>
+              ) : null}
               {mesaItems.length === 0 ? (
-                <p className="mt-3 text-sm text-gray-700">Sin resultados.</p>
+                <p className="mt-3 text-sm text-gray-700">
+                  {etapaFiltroNombre
+                    ? `No hay expedientes en ${etapaFiltroNombre} con los filtros actuales.`
+                    : "Sin resultados."}
+                </p>
               ) : (
                 <div className="mt-3 overflow-x-auto">
                   <table className="min-w-full text-left text-sm text-gray-900">
                     <thead className="border-b text-xs uppercase text-gray-700">
                       <tr>
-                        <th className="py-2 pr-3">Envío</th>
+                        <th className="py-2 pr-3">Enviado a Mesa</th>
                         <th className="py-2 pr-3">Cliente</th>
                         <th className="py-2 pr-3">Asesor</th>
-                        <th className="py-2 pr-3">Etapa</th>
-                        <th className="py-2 pr-3">Estado</th>
-                        <th className="py-2 pr-3">Programa</th>
-                        <th className="py-2 pr-3">Monto</th>
-                        <th className="py-2">Actualizado</th>
+                        <th className="py-2 pr-3">Etapa actual</th>
+                        <th className="py-2 pr-3">Situación actual</th>
+                        <th className="py-2 pr-3">Desde envío</th>
+                        <th className="py-2 pr-3">Última actividad Mesa</th>
+                        <th className="py-2 pr-3">Espera actual</th>
+                        <th className="py-2">Seguimiento</th>
                       </tr>
                     </thead>
                     <tbody>
                       {mesaItems.map((r) => (
-                        <tr key={r.expedienteId} className="border-b border-slate-100">
+                        <tr key={r.expedienteId} className="border-b border-slate-100 align-top">
                           <td className="py-2 pr-3 whitespace-nowrap">
                             {formatDateTimeMx(r.fechaEnvioMesa)}
                           </td>
                           <td className="py-2 pr-3">{r.clienteNombre}</td>
                           <td className="py-2 pr-3">
-                            {formatAsesorExpedienteLabel({
-                              fullName: r.asesorNombre,
-                              email: r.asesorEmail,
-                              fallbackId: r.asesorId,
+                            {formatAdminMesaAsesorLabel(r.asesorNombre)}
+                          </td>
+                          <td className="py-2 pr-3">
+                            {r.etapaLabel || getEtapaOperativaNombre(r.etapaActual)}
+                          </td>
+                          <td className="py-2 pr-3">
+                            <p className="font-medium text-gray-900">{r.situacionLabel}</p>
+                          </td>
+                          <td className="py-2 pr-3 whitespace-nowrap text-xs">
+                            {formatDateTimeMx(r.fechaEnvioMesa)}
+                          </td>
+                          <td className="py-2 pr-3">
+                            {r.ultimaActividadMesaAt ? (
+                              <>
+                                <span className="whitespace-nowrap">
+                                  {formatDateTimeMx(r.ultimaActividadMesaAt)}
+                                </span>
+                                <p className="mt-0.5 text-xs text-gray-700">
+                                  {r.ultimaActividadMesaLabel ||
+                                    labelAdminMesaAction(r.ultimaActividadMesaCode)}
+                                </p>
+                              </>
+                            ) : (
+                              "Sin actividad de Mesa registrada"
+                            )}
+                          </td>
+                          <td className="py-2 pr-3 text-xs">
+                            {formatAdminMesaEsperaLabel({
+                              esperaLabel: r.esperaLabel,
+                              esperaDesde: r.esperaDesde,
                             })}
+                            {r.esperaDesde ? (
+                              <p className="mt-0.5 text-gray-700">
+                                {formatDateTimeMx(r.esperaDesde)}
+                              </p>
+                            ) : null}
                           </td>
-                          <td className="py-2 pr-3">
-                            {getEtapaOperativaNombre(r.etapaActual)}
-                          </td>
-                          <td className="py-2 pr-3">
-                            {r.cicloEstado} / {subestadoOperativoLabel(r.subestado)}
-                          </td>
-                          <td className="py-2 pr-3">{r.programa}</td>
-                          <td className="py-2 pr-3">
-                            {r.montoAprobadoAlAprobar != null
-                              ? formatMontoMX(r.montoAprobadoAlAprobar)
-                              : "—"}
-                          </td>
-                          <td className="py-2 whitespace-nowrap">
-                            {r.updatedAt ? formatDateTimeMx(r.updatedAt) : "—"}
+                          <td className="py-2">
+                            <button
+                              type="button"
+                              className="text-blue-700 underline"
+                              onClick={(e) => void openTimeline(r, e.currentTarget)}
+                            >
+                              Ver seguimiento
+                            </button>
                           </td>
                         </tr>
                       ))}
@@ -619,6 +819,70 @@ export default function AdminDashboardPage() {
                 </div>
               </div>
             </section>
+
+            {showProduccionPorAsesor ? (
+              <section className="rounded-lg border border-slate-200 bg-white p-4">
+                <h2 className="text-base font-semibold text-slate-900">
+                  {produccionTitle}
+                </h2>
+                {asesores.length === 0 ? (
+                  <p className="mt-3 text-sm text-gray-700">
+                    {asesorId
+                      ? "No hay producción para este asesor en el periodo seleccionado."
+                      : "Sin resultados."}
+                  </p>
+                ) : (
+                  <div className="mt-3 overflow-x-auto">
+                    <table className="min-w-full text-left text-sm text-gray-900">
+                      <thead className="border-b text-xs uppercase text-gray-700">
+                        <tr>
+                          <th className="py-2 pr-3">Asesor</th>
+                          <th className="py-2 pr-3">Enviados</th>
+                          <th className="py-2 pr-3">Aprobadas</th>
+                          <th className="py-2 pr-3">No cumple</th>
+                          <th className="py-2 pr-3">&gt;$20k</th>
+                          <th className="py-2 pr-3">Monto Mejoravit</th>
+                          <th className="py-2 pr-3">Estado actual</th>
+                          <th className="py-2">Acción</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {asesores.map((a) => (
+                          <tr key={a.asesorId} className="border-b border-slate-100">
+                            <td className="py-2 pr-3 font-medium text-gray-900">
+                              {formatAsesorExpedienteLabel({
+                                fullName: a.asesorNombre,
+                                email: a.asesorEmail,
+                                fallbackId: a.asesorId,
+                              })}
+                            </td>
+                            <td className="py-2 pr-3 text-gray-900">{a.enviadosAMesa}</td>
+                            <td className="py-2 pr-3 text-gray-900">{a.precalificacionesAprobadas}</td>
+                            <td className="py-2 pr-3 text-gray-900">{a.precalificacionesNoCumple}</td>
+                            <td className="py-2 pr-3 text-gray-900">{a.aprobadasMayorA20000}</td>
+                            <td className="max-w-[10rem] break-words py-2 pr-3 text-gray-900 tabular-nums">
+                              {formatMontoMX(a.montoAprobadoTotal)}
+                            </td>
+                            <td className="py-2 pr-3 text-xs text-gray-700">
+                              {compactEtapas(a.etapas)}
+                            </td>
+                            <td className="py-2">
+                              <button
+                                type="button"
+                                className="text-blue-700 underline"
+                                onClick={() => applyAsesorFilter(a.asesorId)}
+                              >
+                                Ver producción
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </section>
+            ) : null}
 
             <section className="rounded-lg border border-gray-200 bg-white p-4 text-gray-900">
               <div className="flex flex-wrap items-end justify-between gap-3">
@@ -773,9 +1037,138 @@ export default function AdminDashboardPage() {
                   </Button>
                 </div>
               </div>
-            </section>          </>
+            </section>
+          </>
         )}
       </main>
+
+      {timelineOpen ? (
+        <div
+          className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 p-4 sm:items-center"
+          role="presentation"
+          onClick={closeTimeline}
+        >
+          <div
+            ref={timelineDialogRef}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="admin-mesa-timeline-title"
+            tabIndex={-1}
+            className="max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-lg border border-slate-200 bg-white p-4 shadow-lg outline-none"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2
+                  id="admin-mesa-timeline-title"
+                  className="text-base font-semibold text-slate-900"
+                >
+                  Seguimiento de Mesa
+                </h2>
+                <p className="mt-1 text-xs text-gray-600">Más reciente primero · solo lectura</p>
+              </div>
+              <Button type="button" variant="secondary" onClick={closeTimeline}>
+                Cerrar
+              </Button>
+            </div>
+            {timelineTarget ? (
+              <dl className="mt-3 grid grid-cols-1 gap-2 text-sm text-gray-800 sm:grid-cols-2">
+                <div>
+                  <dt className="text-xs text-gray-600">Cliente</dt>
+                  <dd className="font-medium">{timelineTarget.clienteNombre}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-gray-600">Asesor</dt>
+                  <dd>{formatAdminMesaAsesorLabel(timelineTarget.asesorNombre)}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-gray-600">Etapa</dt>
+                  <dd>
+                    {timelineTarget.etapaLabel ||
+                      getEtapaOperativaNombre(timelineTarget.etapaActual)}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-gray-600">Situación</dt>
+                  <dd>{timelineTarget.situacionLabel}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-gray-600">Enviado a Mesa</dt>
+                  <dd>{formatDateTimeMx(timelineTarget.fechaEnvioMesa)}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-gray-600">Espera</dt>
+                  <dd>
+                    {formatAdminMesaEsperaLabel({
+                      esperaLabel: timelineTarget.esperaLabel,
+                      esperaDesde: timelineTarget.esperaDesde,
+                    })}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-gray-600">Siguiente acción</dt>
+                  <dd>{timelineTarget.siguienteAccionLabel}</dd>
+                </div>
+                <div>
+                  <dt className="text-xs text-gray-600">Actor esperado</dt>
+                  <dd>{timelineTarget.siguienteAccionActor}</dd>
+                </div>
+              </dl>
+            ) : null}
+            {timelineLoading ? (
+              <p className="mt-4 text-sm text-gray-700">Cargando seguimiento…</p>
+            ) : timelineError ? (
+              <p className="mt-4 text-sm text-red-700">{timelineError}</p>
+            ) : timelineItems.length === 0 ? (
+              <p className="mt-4 text-sm text-gray-700">
+                No hay eventos de seguimiento para este expediente.
+              </p>
+            ) : (
+              <>
+                <ol className="mt-4 list-decimal space-y-3 pl-5 text-sm text-gray-800">
+                  {timelineItems.map((ev, idx) => {
+                    const doc = ev.summary.tipo_documento?.trim();
+                    const motivo = sanitizeAdminMotivo(ev.summary.motivo);
+                    const showMotivo = Boolean(ev.summary.motivo?.trim());
+                    return (
+                      <li key={`${ev.at}-${ev.action}-${idx}`}>
+                        <span className="whitespace-nowrap font-medium text-gray-900">
+                          {formatDateTimeMx(ev.at)}
+                        </span>
+                        {" · "}
+                        <span>{labelAdminMesaAction(ev.action)}</span>
+                        {ev.actorGeneral ? (
+                          <span className="text-xs text-gray-600"> ({ev.actorGeneral})</span>
+                        ) : null}
+                        {doc ? (
+                          <p className="mt-0.5 text-xs text-gray-700">Documento: {doc}</p>
+                        ) : null}
+                        {showMotivo ? (
+                          <p className="mt-0.5 text-xs text-gray-700">Motivo: {motivo}</p>
+                        ) : null}
+                      </li>
+                    );
+                  })}
+                </ol>
+                {timelineHasMore ? (
+                  <div className="mt-4">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      disabled={timelineLoadingMore}
+                      onClick={() => void loadMoreTimeline()}
+                    >
+                      {timelineLoadingMore
+                        ? "Cargando…"
+                        : `Cargar más (${timelineOffset}/${timelineTotal})`}
+                    </Button>
+                  </div>
+                ) : null}
+              </>
+            )}
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -43,5 +43,21 @@ export {
   resolvePrecalVisibleFecha,
   MONTO_SNAPSHOT_NO_RECUPERABLE_LABEL,
   formatPrecalMontoAlAprobarDisplay,
+  emptyAdminMesaSeguimientoFields,
 } from "./metrics";
+export {
+  labelAdminMesaAction,
+  ADMIN_MESA_LAST_ACTIVITY_ACTIONS,
+  ADMIN_MESA_TIMELINE_ACTIONS,
+  ADMIN_MESA_TIMELINE_SUMMARY_KEYS,
+  sanitizeAdminSafeText,
+  sanitizeAdminMotivo,
+  sanitizeAdminTimelineSummary,
+  formatAdminMesaAsesorLabel,
+  formatAdminMesaEsperaLabel,
+} from "./mesa-seguimiento";
+export type {
+  AdminMesaTimelineEvent,
+  AdminMesaCorreccionTipo,
+} from "./mesa-seguimiento";
 export { getEtapaOperativaNombre } from "@/domain/expedientes/asesor-seguimiento-operativo";

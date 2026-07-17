@@ -1,5 +1,6 @@
 import type { AdminPeriodBounds } from "./period";
 import type { AdminMesaEnvioEvent, AdminPrecalEvent, AdminProductionSummary } from "./metrics";
+import type { AdminMesaTimelineEvent } from "./mesa-seguimiento";
 
 export type AdminEstadoFilter = "todos" | "activos" | "finalizados" | "rechazados";
 /** Filtro tabla Precal: default UX = resueltas (aprobadas + no_cumple del periodo). */
@@ -57,6 +58,15 @@ export type AdminPrecalSummary = Readonly<{
   montoMejoravitPromedio: number;
 }>;
 
+export type AdminMesaTimelinePage = Readonly<{
+  expedienteId: string;
+  totalCount: number;
+  limit: number;
+  offset: number;
+  hasMore: boolean;
+  items: readonly AdminMesaTimelineEvent[];
+}>;
+
 export interface AdminProductionRepo {
   getSummary(filters: AdminProductionFilters): Promise<AdminProductionSummary>;
   getMesaCohortByEtapa(
@@ -69,6 +79,12 @@ export interface AdminProductionRepo {
   listPrecalificacionesPage(
     filters: AdminProductionFilters,
   ): Promise<AdminPaginated<AdminPrecalEvent> & { summary: AdminPrecalSummary }>;
+  /** Timeline detallado bajo demanda (no embebido en el listado). */
+  getExpedienteMesaTimeline(input: {
+    expedienteId: string;
+    limit?: number;
+    offset?: number;
+  }): Promise<AdminMesaTimelinePage>;
   /** Exporta todos los resultados filtrados vía paginación RPC hasta total_count. */
   exportAll(filters: AdminProductionFilters): Promise<{
     mesaEnvios: readonly AdminMesaEnvioEvent[];

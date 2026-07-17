@@ -5,6 +5,10 @@ import {
   type AdminPrecalEvent,
   type AdminProductionSummary,
 } from "./metrics";
+import {
+  sanitizeAdminMotivo,
+  sanitizeAdminTimelineSummary,
+} from "./mesa-seguimiento";
 import type {
   AdminAsesorProductionRow,
   AdminEtapaBucket,
@@ -46,16 +50,32 @@ function mapMesaItem(raw: Record<string, unknown>): AdminMesaEnvioEvent {
     clienteNombre: str(raw.cliente_nombre),
     asesorId: str(raw.asesor_id),
     asesorNombre: strOrNull(raw.asesor_nombre),
-    asesorEmail: strOrNull(raw.asesor_email),
+    programa: str(raw.programa),
     etapaActual: num(raw.etapa_actual) || 1,
+    etapaLabel: str(raw.etapa_label) || String(raw.etapa_actual ?? ""),
     subestado: str(raw.subestado) || "pendiente",
     cicloEstado: str(raw.ciclo_estado) || "activo",
-    programa: str(raw.programa),
-    montoAprobadoActual:
-      raw.monto_aprobado_actual == null ? null : num(raw.monto_aprobado_actual),
-    montoAprobadoAlAprobar:
-      raw.monto_aprobado_al_aprobar == null ? null : num(raw.monto_aprobado_al_aprobar),
-    updatedAt: strOrNull(raw.updated_at),
+    situacionCode: str(raw.situacion_code) || "continuar_etapa",
+    situacionLabel: str(raw.situacion_label) || "Continuar etapa actual",
+    siguienteAccionLabel: str(raw.siguiente_accion_label) || "Continuar etapa actual",
+    siguienteAccionActor: str(raw.siguiente_accion_actor) || "Mesa",
+    ultimaActividadMesaCode: strOrNull(raw.ultima_actividad_mesa_code),
+    ultimaActividadMesaLabel: strOrNull(raw.ultima_actividad_mesa_label),
+    ultimaActividadMesaAt: strOrNull(raw.ultima_actividad_mesa_at),
+    correccionesAbiertasCount: num(raw.correcciones_abiertas_count),
+    correccionAbiertaDesde: strOrNull(raw.correccion_abierta_desde),
+    correccionesReenviadasCount: num(raw.correcciones_reenviadas_count),
+    correccionReenviadaDesde: strOrNull(raw.correccion_reenviada_desde),
+    esperaTipo: strOrNull(raw.espera_tipo),
+    esperaLabel: strOrNull(raw.espera_label),
+    esperaDesde: strOrNull(raw.espera_desde),
+    rechazoOperativo: Boolean(raw.rechazo_operativo),
+    rechazoAt: strOrNull(raw.rechazo_at),
+    rechazoClasificacion: strOrNull(raw.rechazo_clasificacion),
+    rechazoMotivo: raw.rechazo_operativo
+      ? sanitizeAdminMotivo(raw.rechazo_motivo)
+      : strOrNull(raw.rechazo_motivo),
+    reingresoActivo: Boolean(raw.reingreso_activo),
   };
 }
 
@@ -135,6 +155,7 @@ export class SupabaseAdminProductionRepo implements AdminProductionRepo {
       p_from: filters.bounds.fromIso,
       p_to_exclusive: filters.bounds.toExclusiveIso,
       p_estado: estadoParam(filters),
+      p_asesor_id: filters.asesorId ?? null,
     });
     if (error) throw new Error(error.message || "No se pudo cargar producción por asesor");
     const arr = Array.isArray(data) ? data : [];
@@ -220,6 +241,42 @@ export class SupabaseAdminProductionRepo implements AdminProductionRepo {
     };
   }
 
+  async getExpedienteMesaTimeline(input: {
+    expedienteId: string;
+    limit?: number;
+    offset?: number;
+  }) {
+    const client = requireClient();
+    const { data, error } = await client.rpc("admin_get_expediente_mesa_timeline", {
+      p_expediente_id: input.expedienteId,
+      p_limit: input.limit ?? 10,
+      p_offset: input.offset ?? 0,
+    });
+    if (error) throw new Error(error.message || "No se pudo cargar el seguimiento");
+    const row = (data ?? {}) as Record<string, unknown>;
+    const itemsRaw = Array.isArray(row.items) ? row.items : [];
+    return {
+      expedienteId: str(row.expediente_id) || input.expedienteId,
+      totalCount: num(row.total_count),
+      limit: num(row.limit) || (input.limit ?? 10),
+      offset: num(row.offset) || (input.offset ?? 0),
+      hasMore: Boolean(row.has_more),
+      items: itemsRaw.map((item) => {
+        const r = item as Record<string, unknown>;
+        const summaryRaw =
+          r.summary && typeof r.summary === "object" && !Array.isArray(r.summary)
+            ? (r.summary as Record<string, unknown>)
+            : {};
+        return {
+          at: str(r.at),
+          action: str(r.action),
+          actorGeneral: strOrNull(r.actor_general),
+          summary: sanitizeAdminTimelineSummary(summaryRaw),
+        };
+      }),
+    };
+  }
+
   async exportAll(filters: AdminProductionFilters) {
     const pageSize = 100;
     const [summary, asesores, mesaFirst, precalFirst] = await Promise.all([
@@ -254,17 +311,26 @@ export class SupabaseAdminProductionRepo implements AdminProductionRepo {
     fetchPage: (page: number) => Promise<AdminPaginated<T>>,
     label: string,
   ): Promise<T[]> {
+    const expected = first.totalCount;
     const items: T[] = [...first.items];
     let page = 2;
-    while (items.length < first.totalCount) {
+    while (items.length < expected) {
       const next = await fetchPage(page);
+      if (next.totalCount !== expected) {
+        throw new Error(
+          `Exportación abortada de ${label}: total_count cambió (${expected}→${next.totalCount}). Reintenta.`,
+        );
+      }
       if (next.items.length === 0) break;
       items.push(...next.items);
       page += 1;
+      if (page > 10_000) {
+        throw new Error(`Exportación abortada de ${label}: demasiadas páginas.`);
+      }
     }
-    if (items.length !== first.totalCount) {
+    if (items.length !== expected) {
       throw new Error(
-        `Exportación incompleta de ${label}: recuperadas ${items.length} de ${first.totalCount}. Reintenta.`,
+        `Exportación incompleta de ${label}: recuperadas ${items.length} de ${expected}. Reintenta.`,
       );
     }
     return items;

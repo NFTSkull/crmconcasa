@@ -569,6 +569,23 @@ Convenciones:
 
 **Operación:** RPCs read-only `admin_get_production_summary`, `admin_get_mesa_cohort_by_etapa`, `admin_list_production_by_asesor`, `admin_list_mesa_envios_page`, `admin_list_precalificaciones_page`
 
+### P085 — filtro global por asesor
+
+- Todas las consultas Admin aceptan el mismo `asesor_id` UUID estable (nunca nombre/email).
+- `admin_list_production_by_asesor(p_from, p_to_exclusive, p_estado, p_asesor_id DEFAULT NULL)`:
+  - sin `p_asesor_id` → producción de todos los asesores del periodo;
+  - con `p_asesor_id` → una sola fila (o vacío si no hay producción).
+- UI `/admin`: tarjetas de etapa filtran `etapa_actual`, sincronizan el select, hacen scroll a `#admin-mesa-expedientes` y ocultan temporalmente «Producción por asesor» mientras hay etapa activa.
+- Orden de secciones: Filtros → KPIs → Etapas → Expedientes Mesa → Producción por asesor → Precalificaciones.
+- **Seguimiento Mesa (P085):** `admin_list_mesa_envios_page` → **1 fila/expediente** con resumen RO (`situacion_*`, `siguiente_accion_*`, correcciones por elemento, espera, rechazo operativo, reingreso, última actividad Mesa). **Sin** timeline embebido. Timeline: `admin_get_expediente_mesa_timeline(p_expediente_id, p_limit, p_offset)` bajo demanda («Ver seguimiento»).
+- **Privacidad asesor Mesa:** respuesta **sin** `asesor_email`. Display: `asesor_nombre` o `Asesor sin nombre registrado` (nunca correo). Búsqueda puede usar email internamente en SQL sin devolverlo.
+- **Timeline paginación:** `p_limit` NULL→10, ≤0→1, >100→100; `p_offset` NULL/−→0; orden `created_at DESC, id DESC` (id no expuesto); `has_more`; total_count independiente del limit.
+- **Listado rendimiento:** cohorte filtrada → page_ids → seguimiento pesado solo de la página.
+- **Última actividad Mesa:** solo whitelist de `action_log.action` de flujo Mesa (no `actor_role`, no reinterpretar por `super_admin`).
+- **Correcciones:** identidad por documento/sección (`rechazado` / `resubido` / `cliente_datos.rechazado` / `retencion_envios.correccion_requerida`); no se cierra una corrección por cambios en otro elemento.
+- **Rechazo operativo:** solo `expediente_rechazos_operativos` (+ espejo `subestado=rechazado`); motivo fallback `Sin motivo registrado`; sin UUID/actor/payload en API.
+- Campos fila (seguros): `expediente_id` (solo interno timeline), `fecha_envio_mesa`, `etapa_actual`, `etapa_label`, `subestado`, `situacion_code/label`, `siguiente_accion_label/actor`, `ultima_actividad_mesa_*`, `correcciones_*`, `espera_*`, `rechazo_*`, `reingreso_activo`, `total_count`. Display UI también incluye `cliente_nombre` / `asesor_nombre` (no exportar UUID ni email).
+
 ### Fechas canónicas
 
 | Métrica | Fecha | Monto |

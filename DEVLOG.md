@@ -1,5 +1,177 @@
 # Devlog
 
+## 2026-07-17 - P085 §16A–§21: privacidad asesor, timeline, Excel, rendimiento
+
+### Decisión
+
+- Contrato Mesa visible: `asesor_nombre → «Asesor sin nombre registrado»`. **Nunca** correo como fallback (listado, diálogo, timeline, Excel Expedientes, tipos públicos).
+- Selector global / producción por asesor / precal **sí** pueden usar email (fuera del contrato Mesa).
+- Listado: `count cohorte` → `v_page_ids` (orden+paginación) → `unnest(v_page_ids)` + laterales pesados (actividad/correcciones/rechazos/bookings) **solo de la página**.
+- Timeline: `limit` NULL→10, ≤0→1, >100→100; `offset` NULL/−→0; orden `created_at DESC, id DESC` (id interno, no expuesto); `has_more`; inexistente ≡ fuera de alcance.
+- Excel Expedientes: columnas §20; aborta si `total_count` cambia o filas ≠ count (sin archivo parcial).
+- UI: orden Filtros→KPIs→Etapas→Mesa→Producción→Precal; diálogo a11y + Cargar más; 0 llamadas timeline al cargar `/admin`.
+
+### Arquitectura SQL listado (`admin_list_mesa_envios_page`)
+
+| Paso | Sección |
+|---|---|
+| Cohorte + filtros | `WHERE` sobre `expedientes` (+ join `profiles` solo para búsqueda) |
+| Count total | `SELECT count(*) …` → `v_total` |
+| Página | `array_agg(e.id) … OFFSET/LIMIT` → `v_page_ids` |
+| Actividad Mesa | `LEFT JOIN LATERAL` action_log whitelist sobre `unnest(v_page_ids)` |
+| Correcciones | `LEFT JOIN LATERAL` docs/datos/retención sobre page ids |
+| Rechazos | `LEFT JOIN LATERAL` `expediente_rechazos_operativos` sobre page ids |
+| Bookings | `LEFT JOIN LATERAL` agenda sobre page ids |
+| Resultado | `jsonb_agg(to_jsonb(t) …)` sin `asesor_email` |
+
+### EXPLAIN (DB aislada, 30 expedientes / timeline denso)
+
+| Caso | Execution |
+|---|---|
+| listado sin filtros | ~15.6 ms |
+| listado asesor | ~11.6 ms |
+| listado etapa | ~8.8 ms |
+| asesor + etapa | ~7.8 ms |
+| búsqueda | ~8.6 ms |
+| página alta | ~7.0 ms |
+| timeline p1 | ~0.6 ms |
+| timeline p2 | ~0.3 ms |
+
+Arquitectura page-first confirmada; costos estables en fixture. Cloud sigue bloqueado hasta autorización explícita post-§21.
+
+## 2026-07-17 - P085 §16 sanitización / privacidad
+
+### Decisión
+
+- Motivos: `trim` + `left(...,500)` + fallback `Sin motivo registrado` (SQL + TS + Excel).
+- Timeline summary: allowlist fija de claves; sin payload completo; sin `actor_role`/`actor_id`.
+- Etiquetas: códigos desconocidos → `Actividad` (no exponer clave técnica).
+- UI: texto React normal; sin `dangerouslySetInnerHTML`.
+- UUID asesor: `formatAsesorExpedienteLabel` ya enmascara a `—`.
+- `expediente_id` solo interno para RPC timeline; no Excel.
+
+## 2026-07-17 - P085 §7–§12: whitelist, situación, correcciones por elemento
+
+### Decisión
+
+- Última actividad Mesa / actor «Mesa» **solo** por código de acción de flujo Mesa (nunca `actor_role` ni rol actual del actor).
+- Situación ≠ etapa: se muestran por separado; prioridad rechazo → reingreso → corrección abierta → reenviada → cita cancelada → etapa/booking → cerrado.
+- Correcciones por elemento (doc/sección); casos A–F + unicidad 1 fila en `supabase/tests/admin_mesa_correcciones_por_elemento.sql`.
+- Rechazo operativo exclusivo de `expediente_rechazos_operativos`; motivo `Sin motivo registrado` si vacío.
+- Etapa 12 → situación `Pago a ConCasa` (no confundir con cerrado de ciclo).
+- Sin Cloud/commit/push/deploy.
+
+### Whitelist de eventos (implementada)
+
+| Evento interno | Etiqueta visible | Actor general | Resumen listado | Timeline |
+|---|---|---|---|---|
+| `documento.revision.update` | Revisión documental Mesa | Mesa | Última act. Mesa | Sí |
+| `cliente_datos.revision.update` | Revisión de datos generales Mesa | Mesa | Última act. Mesa | Sí |
+| `expediente.avanzar_etapa_operativa` | Avance de etapa | Mesa | Última act. Mesa | Sí |
+| `mesa.expediente.mover_etapa` | Movimiento manual de etapa | Mesa | Última act. Mesa | Sí |
+| `mesa.expediente.take` | Mesa tomó el expediente | Mesa | Última act. Mesa | Sí |
+| `mesa.expediente.release` | Mesa liberó el expediente | Mesa | Última act. Mesa | Sí |
+| `expediente.documento.mesa_register` | Mesa registró documento | Mesa | Última act. Mesa | Sí |
+| `expediente.rechazo_operativo` | Rechazo operativo | Mesa | Última act. Mesa | Sí |
+| `agenda.biometricos.mesa_reagendar` | Mesa reagendó biométricos | Mesa | Última act. Mesa | Sí |
+| `agenda.notificacion.mesa_reagendar` | Mesa reagendó notificación | Mesa | Última act. Mesa | Sí |
+| `agenda.firmas.mesa_book` | Mesa agendó firma | Mesa | Última act. Mesa | Sí |
+| `agenda.firmas.mesa_reagendar` | Mesa reagendó firma | Mesa | Última act. Mesa | Sí |
+| `agenda.firmas.mesa_cancel` | Mesa canceló firma | Mesa | Última act. Mesa | Sí |
+| `agenda.drive_validation.set` | Validado en Drive | Mesa | Última act. Mesa | Sí |
+| `agenda.drive_validation.clear` | Validación Drive quitada | Mesa | Última act. Mesa | Sí |
+| `expediente.enviar_a_mesa` | Enviado a Mesa | Asesor | No (no es act. Mesa) | Sí |
+| `expediente.documento.asesor_correccion` | Asesor reenvió documento | Asesor | Correcciones reenviadas | Sí |
+| `cliente_datos.correccion_post_mesa` | Asesor corrigió datos generales | Asesor | Correcciones reenviadas | Sí |
+| `expediente.enviar_retencion_mesa` | Envío de retención a Mesa | Asesor | Correcciones / Acuse | Sí |
+| `expediente.reingreso.crear` | Reingreso creado | Asesor | Reingreso activo | Sí |
+| `expediente.reingreso.cerrar_anterior` | Ciclo anterior cerrado por reingreso | Asesor | Reingreso | Sí |
+| `agenda.biometricos.book` | Cita biométricos agendada | Asesor | Situación por booking | Sí |
+| `agenda.biometricos.cancel` | Cita biométricos cancelada | Asesor | Situación cancelada | Sí |
+| `agenda.biometricos.reagendar` | Cita biométricos reagendada | Asesor | Situación booking | Sí |
+| `agenda.firmas.book` | Cita de firma agendada | Asesor | Situación booking | Sí |
+| `agenda.firmas.cancel` | Cita de firma cancelada | Asesor | Situación cancelada | Sí |
+| `agenda.firmas.reagendar` | Cita de firma reagendada | Asesor | Situación booking | Sí |
+
+Excluidos a propósito: login, autosave, updates genéricos, cambio de monto, notas, cargas irrelevantes, payload completo.
+
+### Matriz de situación (prioridad)
+
+| Prioridad | Situación visible | Fuente | Espera desde |
+|---:|---|---|---|
+| 1 | Rechazado operativamente | `expediente_rechazos_operativos` + `subestado=rechazado` | — |
+| 2 | En reingreso | `reingreso_rechazo_id` | — |
+| 3 | Corrección pendiente del asesor | docs `rechazado` / datos / retención `correccion_requerida` | min revisión/rechazo del elemento |
+| 4 | Corrección reenviada; esperando Mesa | docs `resubido` / datos post-envío / retención `enviado`+`is_resend` | max evento canónico del elemento |
+| 5 | Cita biométrica/firma cancelada; requiere reagenda | bookings cancelled sin booked | — |
+| 6 | Situación por etapa/subestado/booking | `etapa_actual` + bookings | `fecha_envio_mesa` si en revisión Mesa |
+| 7 | Cerrado | `ciclo_estado` cerrado/cancelado | — |
+
+### Matriz siguiente acción (RPC)
+
+| Situación | Siguiente acción | Actor esperado | Fuente del permiso |
+|---|---|---|---|
+| Corrección pendiente del asesor | Corregir y reenviar | Asesor | corrección post-mesa / upload |
+| Corrección reenviada; esperando Mesa | Revisar corrección | Mesa | `documento.revision.update` / datos |
+| En revisión de Mesa | Validar integración | Mesa | revisión / `avanzar_etapa_operativa` |
+| Listo para cita de biométrico | Agendar biométricos | Asesor | `book_biometricos` |
+| Cita biométrica cancelada | Reagendar biométricos | Asesor | `book_biometricos` / reagendar |
+| Pendiente de Acuse | Cargar y enviar Acuse | Asesor | `enviar_retencion_mesa` |
+| Listo para agendar firma | Agendar firma | Mesa | `mesa_book_firmas` (+ `book_firmas` asesor) |
+| Firma cancelada | Reagendar firma | Asesor | `book_firmas` post-cancel |
+| Firma agendada | Realizar o registrar firma | Mesa | `avanzar_etapa_operativa` |
+| Rechazado operativamente | Revisar reingreso | Asesor | `iniciar_reingreso_post_biometricos` |
+| Resto | Continuar etapa actual | Mesa | etapa canónica |
+
+## 2026-07-17 - P085 seguimiento: timeline bajo demanda
+
+### Decisión
+
+- `admin_list_mesa_envios_page` **ya no** embebe `timeline` por fila (solo resumen).
+- Nueva RPC RO `admin_get_expediente_mesa_timeline(p_expediente_id, p_limit, p_offset)`.
+- UI: botón «Ver seguimiento» → diálogo con carga bajo demanda, Escape, restauración de foco.
+- SHA migración 085 recalculado tras el cambio.
+
+## 2026-07-17 - P085 seguimiento transparente Mesa (ampliación)
+
+### Auditoría canónica (fuentes)
+
+| Señal | Fuente |
+|---|---|
+| Envío a Mesa | `expedientes.fecha_envio_mesa` (+ `expediente.enviar_a_mesa`) |
+| Etapa / situación | `etapa_actual` + `situacion_*` (separados) |
+| Última actividad Mesa | whitelist de `action` (flujo Mesa) — **no** rol ni `updated_at` |
+| Corrección por elemento | docs `rechazado`/`resubido`; `cliente_datos`; `retencion_envios` |
+| Rechazo operativo | solo `expediente_rechazos_operativos` |
+| Reingreso | `reingreso_rechazo_id` |
+| Siguiente acción | CASE por `situacion_code` |
+| Timeline | RPC bajo demanda, payload redactado |
+
+### Decisión
+
+- Ampliada migración `085_…sql` (sin P086): redefine `admin_list_mesa_envios_page` con campos de seguimiento.
+- UI/Excel Admin solo lectura; sin mutaciones.
+
+## 2026-07-17 - P085 filtros globales + navegación por etapa (parcial)
+
+### Auditoría filtro asesor
+
+| Sección | Recibe asesor_id | Lo aplica | Problema |
+|---|---|---|---|
+| KPIs | sí → `admin_get_production_summary` | sí | OK |
+| Etapas actuales | sí → `admin_get_mesa_cohort_by_etapa` | sí | OK |
+| Producción por asesor | **antes NO** | **antes NO** | RPC sin `p_asesor_id`; UI listaba todos |
+| Expedientes enviados | sí | sí | OK |
+| Precalificaciones | sí | sí | OK |
+| Excel | vía `listByAsesor` | heredaba bug | exportaba todos los asesores |
+
+### Decisión
+
+- Migración nueva `085_admin_list_production_by_asesor_filter.sql` (no toca 070–084): DROP firma 3-args + CREATE con `p_asesor_id UUID DEFAULT NULL`.
+- Repo TS pasa `p_asesor_id`; mock filtra por UUID.
+- UI: opciones del select desde lista sin filtro; tabla/Excel con filtro; tarjetas etapa = `<button aria-pressed>`; scroll/foco a `#admin-mesa-expedientes`; ocultar producción por asesor con etapa activa.
+- **Pendiente:** columnas de seguimiento Mesa (última actividad real, correcciones, tiempos, motivo rechazo, siguiente acción) — el prompt llegó truncado tras el bloque de scroll; no inventar contrato SQL/UI.
+
 ## 2026-07-17 - P084 reparación snapshots monto + KPI responsive
 
 ### Causa

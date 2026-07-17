@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **fix/admin-mesa-seguimiento — P085 §16A–§21 + Cloud:** contrato Mesa sin `asesor_email`; listado page-first; timeline paginado; UI/Excel/a11y; EXPLAIN OK; Cloud `fvtqbxukqlajezyyvwzy` aplicado con SHA `bfc95dff46992d7e6b017f7f3d2eb32a5f1a850ce74f42a8f577035736060d6e` (793/33695); núcleos P070–P082 MD5 intactos; commit/push/deploy en curso.
+
+- **fix/admin-mesa-seguimiento — P085 §7–§16 (local):** whitelist/situación/correcciones; privacidad (motivo ≤500, summary allowlist, sin HTML/payload); migración `085_…sql` SHA `f76a118d263edc5a3ec85f2776a7b813dee3a7de44b89dd0e45ae92d70415a30` (805 líneas / 33616 bytes); sin Cloud/commit/push/deploy.
+
+- **fix/admin-filtros-etapa-scroll — P085 (local):** filtro asesor UUID global; etapas navegables; orden secciones; resumen Mesa RO; timeline bajo demanda vía `admin_get_expediente_mesa_timeline` + «Ver seguimiento»; migración `085_…sql` ampliada; sin Cloud/commit/push/deploy.
+
 - **fix/admin-kpi-monto-nowrap (local):** KPI «Monto aprobado Mejoravit» en una sola línea (`whitespace-nowrap` + `clamp` + `sm:col-span-2`); solo presentación.
 
 - **fix/admin-precal-diarias-mejoravit — P083 (local):** periodo default Hoy; bloque Precalificaciones con chips Total/Aprobadas/No cumple/Pendientes/Monto·Promedio Mejoravit; lista paginada de decisiones del periodo (`aprobado_at` o `updated_at`); KPI superior y por asesor con monto solo Mejoravit aprobado; migración `083_…sql` ampliada (no Cloud); sin commit/push/deploy.

@@ -4,11 +4,13 @@ import { formatAsesorExpedienteLabel } from "@/lib/asesorDisplay";
 import {
   computeAdminPrecalSummary,
   computeAdminProductionSummary,
+  emptyAdminMesaSeguimientoFields,
   groupMesaEnviosByEtapaActual,
   resolvePrecalVisibleFecha,
   type AdminMesaEnvioEvent,
   type AdminPrecalEvent,
 } from "./metrics";
+import { formatAdminMesaAsesorLabel } from "./mesa-seguimiento";
 import { isInstantInPeriod } from "./period";
 import type {
   AdminAsesorProductionRow,
@@ -37,20 +39,34 @@ function matchesEstado(
 function mapMesa(e: ExpedienteMock): AdminMesaEnvioEvent | null {
   const fecha = e.operativo.fechaEnvioMesa;
   if (!e.operativo.submittedToMesa || !fecha) return null;
+  const subestado = e.operativo.subestado ?? "pendiente";
+  const cicloEstado = e.operativo.cicloEstado ?? "activo";
+  const etapaActual = e.operativo.etapaActual ?? 1;
+  const rechazoOperativo = subestado === "rechazado";
+  const defaults = emptyAdminMesaSeguimientoFields(fecha);
   return {
     expedienteId: e.id,
     fechaEnvioMesa: fecha,
     clienteNombre: e.base.cliente_nombre,
     asesorId: e.base.asesorId,
     asesorNombre: e.base.asesorNombre ?? null,
-    asesorEmail: e.base.asesorEmail ?? null,
-    etapaActual: e.operativo.etapaActual ?? 1,
-    subestado: e.operativo.subestado ?? "pendiente",
-    cicloEstado: e.operativo.cicloEstado ?? "activo",
     programa: e.base.programa,
-    montoAprobadoActual: e.editorDecision.monto_aprobado,
-    montoAprobadoAlAprobar: e.editorDecision.montoAprobadoAlAprobar ?? null,
-    updatedAt: e.operativo.updatedAt,
+    etapaActual,
+    subestado,
+    cicloEstado,
+    ...defaults,
+    rechazoOperativo,
+    rechazoMotivo: rechazoOperativo
+      ? (e.operativo.motivoRechazo ?? "Sin motivo registrado")
+      : null,
+    situacionCode: rechazoOperativo ? "rechazo_operativo" : defaults.situacionCode,
+    situacionLabel: rechazoOperativo
+      ? "Rechazado operativamente"
+      : defaults.situacionLabel,
+    siguienteAccionLabel: rechazoOperativo
+      ? "Revisar reingreso"
+      : defaults.siguienteAccionLabel,
+    siguienteAccionActor: rechazoOperativo ? "Asesor" : defaults.siguienteAccionActor,
   };
 }
 
@@ -154,7 +170,7 @@ export class MockAdminProductionRepo implements AdminProductionRepo {
       )
       .filter((r) => {
         if (!buscar) return true;
-        const label = asesorLabel(r.asesorNombre, r.asesorEmail, r.asesorId).toLowerCase();
+        const label = formatAdminMesaAsesorLabel(r.asesorNombre).toLowerCase();
         return (
           r.clienteNombre.toLowerCase().includes(buscar) ||
           label.includes(buscar) ||
@@ -212,8 +228,10 @@ export class MockAdminProductionRepo implements AdminProductionRepo {
 
   async listByAsesor(filters: AdminProductionFilters) {
     const all = await this.loadAll();
-    const mesa = this.filterMesa(all, { ...filters, asesorId: null, etapaActual: null });
-    const precal = all.map(mapPrecal);
+    const mesa = this.filterMesa(all, { ...filters, etapaActual: null });
+    const precal = all
+      .map(mapPrecal)
+      .filter((r) => !filters.asesorId || r.asesorId === filters.asesorId);
     const map = new Map<string, AdminAsesorProductionRow>();
 
     const ensure = (id: string, nombre: string | null, email: string | null) => {
@@ -231,12 +249,19 @@ export class MockAdminProductionRepo implements AdminProductionRepo {
           etapas: {},
         };
         map.set(id, row);
+      } else if ((email && !row.asesorEmail) || (nombre && !row.asesorNombre)) {
+        row = {
+          ...row,
+          asesorNombre: row.asesorNombre ?? nombre,
+          asesorEmail: row.asesorEmail ?? email,
+        };
+        map.set(id, row);
       }
       return row;
     };
 
     for (const r of mesa) {
-      const row = ensure(r.asesorId, r.asesorNombre, r.asesorEmail);
+      const row = ensure(r.asesorId, r.asesorNombre, null);
       map.set(r.asesorId, {
         ...row,
         enviadosAMesa: row.enviadosAMesa + 1,
@@ -273,7 +298,11 @@ export class MockAdminProductionRepo implements AdminProductionRepo {
       });
     }
 
-    return [...map.values()].sort((a, b) => b.enviadosAMesa - a.enviadosAMesa);
+    let rows = [...map.values()].sort((a, b) => b.enviadosAMesa - a.enviadosAMesa);
+    if (filters.asesorId) {
+      rows = rows.filter((r) => r.asesorId === filters.asesorId);
+    }
+    return rows;
   }
 
   async listMesaEnviosPage(filters: AdminProductionFilters) {
@@ -288,6 +317,38 @@ export class MockAdminProductionRepo implements AdminProductionRepo {
     const rows = this.filterPrecal(await this.loadAll(), filters);
     const page = paginate(rows, filters.page ?? 1, filters.pageSize ?? 25);
     return { ...page, summary: computeAdminPrecalSummary(rows) };
+  }
+
+  async getExpedienteMesaTimeline(input: {
+    expedienteId: string;
+    limit?: number;
+    offset?: number;
+  }) {
+    const all = await this.loadAll();
+    const exp = all.find((e) => e.id === input.expedienteId);
+    const fecha = exp?.operativo.fechaEnvioMesa ?? null;
+    const items =
+      fecha && exp?.operativo.submittedToMesa
+        ? [
+            {
+              at: fecha,
+              action: "expediente.enviar_a_mesa",
+              actorGeneral: "Asesor",
+              summary: {} as Record<string, string | null>,
+            },
+          ]
+        : [];
+    const limit = Math.min(100, Math.max(1, input.limit ?? 10));
+    const offset = Math.max(0, input.offset ?? 0);
+    const pageItems = items.slice(offset, offset + limit);
+    return {
+      expedienteId: input.expedienteId,
+      totalCount: items.length,
+      limit,
+      offset,
+      hasMore: offset + pageItems.length < items.length,
+      items: pageItems,
+    };
   }
 
   async exportAll(filters: AdminProductionFilters) {
