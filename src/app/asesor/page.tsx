@@ -16,6 +16,7 @@ import {
   deriveResultadoRealExpediente,
   type ResultadoRealExpediente,
 } from "@/domain/expedientes/mock.repo";
+import { matchesAsesorSearch } from "@/domain/expedientes/asesor-list-search";
 import { isDataModeSupabase } from "@/lib/dataMode";
 import {
   deriveEstadoDocumentacionColumnaAsesor,
@@ -786,18 +787,9 @@ export default function AsesorDashboardPage() {
   const expedientesFiltrados = useMemo(() => {
     let list = mockPrecalList;
 
-    const term = (filters.buscar ?? "").trim().toLowerCase();
+    const term = (filters.buscar ?? "").trim();
     if (term) {
-      list = list.filter(
-        (p) =>
-          (p.cliente_nombre ?? "").toLowerCase().includes(term) ||
-          (p.nss ?? "").replace(/\D/g, "").includes(term.replace(/\D/g, "")) ||
-          (p.nss ?? "").toLowerCase().includes(term) ||
-          (p.telefono_cliente ?? "")
-            .replace(/\D/g, "")
-            .includes(term.replace(/\D/g, "")) ||
-          (p.programa ?? "").toLowerCase().includes(term)
-      );
+      list = list.filter((p) => matchesAsesorSearch(p, term));
     }
 
     if (filters.decision) {

@@ -1,5 +1,18 @@
 # Devlog
 
+## 2026-07-18 - P088: corrección de búsqueda por NSS en `/asesor`
+
+### Causa raíz
+
+- El OR de búsqueda en `expedientesFiltrados` comparaba `nss`/`telefono` normalizados a dígitos contra `term.replace(/\D/g, "")` sin verificar que el término tuviera dígitos. Con un término alfabético, el término numérico quedaba vacío y `"12345678901".includes("")` devuelve `true`, por lo que **cualquier búsqueda sin dígitos coincidía con todos los expedientes** (la búsqueda por nombre/programa parecía no filtrar y ocultaba resultados relevantes entre 50+ filas paginadas).
+
+### Decisión
+
+- Helper puro `matchesAsesorSearch` en `src/domain/expedientes/asesor-list-search.ts`: normalización de texto (`trim` + `toLocaleLowerCase("es-MX")`) y de dígitos; la rama numérica (NSS/teléfono) solo se evalúa cuando `digitsTerm.length > 0`.
+- `page.tsx` solo reemplaza el bloque de coincidencia textual; el flujo búsqueda → filtros avanzados → filtros rápidos → orden → paginación no cambia. `updateFilters` sigue regresando a página 1 y `Limpiar filtros` restaura búsqueda, chips y página.
+- La intersección con chips/filtros avanzados se conserva intencionalmente: un NSS de un expediente rechazado con chip «En trámite» activo sigue sin aparecer (probado explícitamente; no es fallo del NSS).
+- Sin SQL, sin RPC, sin cambios de página o KPIs; tests de comportamiento del helper + estructurales mínimos de `page.tsx` registrados en `npm test`.
+
 ## 2026-07-17 - P085 §16A–§21: privacidad asesor, timeline, Excel, rendimiento
 
 ### Decisión
