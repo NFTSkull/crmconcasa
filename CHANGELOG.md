@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **feat/mesa-citas-bulk-advance — P089 B3 (local):** acción masiva «Pasar a siguiente etapa» en `/mesa-control/citas` reutilizando `avanzar_etapa_operativa` vía `expedientesRepo.avanzarEtapaOperativa` (una llamada por expediente único); dedupe/conflictos por expediente; agrupación por transición; concurrencia máx. 5; resultados parciales; exitosos se deseleccionan (todos los bookings del expediente); fallidos permanecen; un solo refetch; Drive no es requisito; sin SQL/RPC batch/permisos.
+
+- **feat/mesa-citas-bulk-drive — P089 B2 (local):** acción masiva «Validar en Drive» en `/mesa-control/citas` reutilizando `mesa_set_agenda_drive_validation` (`p_validated=true`) vía `setMesaAgendaDriveValidation`; concurrencia máx. 5; confirmación + resultados parciales; exitosos se deseleccionan; fallidos permanecen; un solo refetch al terminar; no avanza etapas; sin SQL ni permisos.
+
+- **feat/mesa-citas-bulk-selection — P089 B0–B1 (local):** selección múltiple local en `/mesa-control/citas` por `bookingId` (límite 100), elegibilidad predictiva separada para «Validar en Drive» y avance de etapa, deduplicación por `expedienteId` en el resumen. Sin ejecución masiva, sin SQL ni cambios de permisos.
+
 - **fix/admin-precal-snapshot-flag — P087 B4.3 (local):** restaura `monto_aprobado_snapshot_no_recuperable` en items de `admin_list_precalificaciones_page` dentro de `086_…sql` (omitido al basarse en 083 sin el delta P084). Tope `LEAST(...,169000)` intacto. Sin Cloud en este commit.
 
 - **fix/admin-monto-mejoravit-cap — P087 (local):** en agregados Admin, cada precalificación Mejoravit aporta como máximo `$169,000` al SUM/AVG (`LEAST(snapshot, 169000)` por expediente). El total puede superar `$169,000`. Snapshots e individuales intactos. RPC: `admin_get_production_summary`, `admin_list_production_by_asesor`, `admin_list_precalificaciones_page` (migración `086_…sql`, no Cloud). Paridad mock TS. Sin backfill/commit/push/deploy.

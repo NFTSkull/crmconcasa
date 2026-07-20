@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSessionRepo } from "@/domain/session";
 import {
@@ -23,6 +23,11 @@ import { MesaAgendaCitasDayView } from "@/components/mesa-control/MesaAgendaCita
 import { MesaAgendaCitasWeekView } from "@/components/mesa-control/MesaAgendaCitasWeekView";
 import { MesaAgendaCitasSummary } from "@/components/mesa-control/MesaAgendaCitasSummary";
 import { MesaAgendaCitasViewControls } from "@/components/mesa-control/MesaAgendaCitasViewControls";
+import { MesaAgendaBulkSelectionBar } from "@/components/mesa-control/MesaAgendaBulkSelectionBar";
+import { MesaAgendaBulkDriveConfirmDialog } from "@/components/mesa-control/MesaAgendaBulkDriveConfirmDialog";
+import { MesaAgendaBulkDriveResultPanel } from "@/components/mesa-control/MesaAgendaBulkDriveResultPanel";
+import { MesaAgendaBulkAdvanceConfirmDialog } from "@/components/mesa-control/MesaAgendaBulkAdvanceConfirmDialog";
+import { MesaAgendaBulkAdvanceResultPanel } from "@/components/mesa-control/MesaAgendaBulkAdvanceResultPanel";
 import { MesaCancelarCitaDialog } from "@/components/mesa-control/MesaCancelarCitaDialog";
 import {
   MesaReagendarCitaDialog,
@@ -30,6 +35,7 @@ import {
 } from "@/components/mesa-control/MesaReagendarCitaDialog";
 import { NotificationsBell } from "@/components/notifications/NotificationsBell";
 import { Button } from "@/components/ui/Button";
+import { useExpedientesRepo, ExpedientesSupabaseError } from "@/domain/expedientes";
 import { getEffectiveMockName, getEffectiveMockRole } from "@/lib/mockUser";
 import {
   MESA_CANCEL_SUCCESS_MESSAGE,
@@ -70,9 +76,28 @@ import {
 } from "@/lib/mesaAgendaCitasUi";
 import { MesaAgendaBookingsSupabaseError } from "@/domain/agenda-calendar/mesa.mapper";
 import { mapMesaAgendaDriveValidationRpcError } from "@/domain/agenda-calendar/mesa-drive-validation-rpc-error";
+import {
+  buildBulkSelectionSummary,
+  executeBulkDriveValidation,
+  executeBulkStageAdvance,
+  formatBulkNotSelectableReason,
+  isBulkSelectable,
+  planBulkDriveValidation,
+  planBulkStageAdvance,
+  reconcileBulkSelection,
+  removeSuccessfulBookingsFromSelection,
+  removeSuccessfulExpedientesFromSelection,
+  selectAllEligibleVisible,
+  toggleBookingInSelection,
+  type BulkAdvancePlan,
+  type BulkDrivePlan,
+  type BulkDriveValidationSummary,
+  type BulkStageAdvanceSummary,
+} from "@/domain/agenda-calendar/mesa-bulk-actions";
 
 export function MesaAgendaCitasClient() {
   const { sessionRepo, currentUser } = useSessionRepo();
+  const expedientesRepo = useExpedientesRepo();
   const agendaBookingRepo = useAgendaBiometricosBookingRepo();
   const firmasBookingRepo = useAgendaFirmasBookingRepo();
   const defaultRange = useMemo(() => defaultMesaAgendaMonthRange(), []);
@@ -102,10 +127,28 @@ export function MesaAgendaCitasClient() {
   const [drivePendingBookingId, setDrivePendingBookingId] = useState<string | null>(null);
   const [driveError, setDriveError] = useState<string | null>(null);
   const [driveSuccess, setDriveSuccess] = useState<string | null>(null);
+  const [selectedBookingIds, setSelectedBookingIds] = useState<ReadonlySet<string>>(
+    () => new Set(),
+  );
+  const [bulkLimitNotice, setBulkLimitNotice] = useState<string | null>(null);
+  const [bulkBusy, setBulkBusy] = useState(false);
+  const [bulkProgressLabel, setBulkProgressLabel] = useState<string | null>(null);
+  const [bulkDriveConfirmOpen, setBulkDriveConfirmOpen] = useState(false);
+  const [bulkDrivePlan, setBulkDrivePlan] = useState<BulkDrivePlan | null>(null);
+  const [bulkDriveResult, setBulkDriveResult] = useState<BulkDriveValidationSummary | null>(
+    null,
+  );
+  const [bulkAdvanceConfirmOpen, setBulkAdvanceConfirmOpen] = useState(false);
+  const [bulkAdvancePlan, setBulkAdvancePlan] = useState<BulkAdvancePlan | null>(null);
+  const [bulkAdvanceResult, setBulkAdvanceResult] = useState<BulkStageAdvanceSummary | null>(
+    null,
+  );
+  const bulkBusyRef = useRef(false);
 
   const canAccess = canAccessMesaAgendaCitasPage(currentUser?.role);
   const mockRole = getEffectiveMockRole();
   const sessionRole = currentUser?.role ?? null;
+  const bulkRole = mockRole || sessionRole;
 
   const weekRange = useMemo(() => buildMesaAgendaWeekRange(weekAnchor), [weekAnchor]);
 
@@ -195,6 +238,87 @@ export function MesaAgendaCitasClient() {
     [visibleEntries, selectedDay],
   );
 
+  const weekDetailEntries = useMemo(() => {
+    const detailDay =
+      weekDetailDay ??
+      weekRange.days.find(
+        (day) => filterMesaAgendaEntriesForDay(visibleEntries, day).length > 0,
+      ) ??
+      weekRange.days[0] ??
+      null;
+    return detailDay
+      ? filterMesaAgendaEntriesForDay(visibleEntries, detailDay)
+      : visibleEntries;
+  }, [visibleEntries, weekDetailDay, weekRange.days]);
+
+  /** Citas renderizadas en la vista actual (alcance de «Seleccionar elegibles visibles»). */
+  const selectionScopeEntries = useMemo(() => {
+    if (viewMode === "dia") return dayViewEntries;
+    if (viewMode === "semana") return weekDetailEntries;
+    return visibleEntries;
+  }, [viewMode, dayViewEntries, weekDetailEntries, visibleEntries]);
+
+  const selectionClearKey = useMemo(
+    () =>
+      [
+        viewMode,
+        listaStartDate,
+        listaEndDate,
+        selectedDay,
+        weekAnchor,
+        weekDetailDay ?? "",
+        filters.kindUi,
+        String(filters.includeCancelled),
+        filters.locationId,
+        filters.asesorId,
+        filters.search,
+      ].join("|"),
+    [
+      viewMode,
+      listaStartDate,
+      listaEndDate,
+      selectedDay,
+      weekAnchor,
+      weekDetailDay,
+      filters.kindUi,
+      filters.includeCancelled,
+      filters.locationId,
+      filters.asesorId,
+      filters.search,
+    ],
+  );
+
+  useEffect(() => {
+    setSelectedBookingIds(new Set());
+    setBulkLimitNotice(null);
+  }, [selectionClearKey]);
+
+  useEffect(() => {
+    setSelectedBookingIds((prev) => {
+      if (prev.size === 0) return prev;
+      const next = reconcileBulkSelection(prev, loadedEntries, bulkRole);
+      if (next.size === prev.size) {
+        let same = true;
+        for (const id of prev) {
+          if (!next.has(id)) {
+            same = false;
+            break;
+          }
+        }
+        if (same) return prev;
+      }
+      return next;
+    });
+  }, [loadedEntries, bulkRole]);
+
+  const bulkSummary = useMemo(
+    () => buildBulkSelectionSummary(selectionScopeEntries, selectedBookingIds, bulkRole),
+    [selectionScopeEntries, selectedBookingIds, bulkRole],
+  );
+
+  const showBulkBar =
+    bulkSummary.eligibleVisibleCount > 0 || selectedBookingIds.size > 0;
+
   const summary = useMemo(() => deriveMesaAgendaSummary(visibleEntries), [visibleEntries]);
 
   const historyGroups = useMemo(() => {
@@ -222,6 +346,209 @@ export function MesaAgendaCitasClient() {
   const handleClearAllFilters = useCallback(() => {
     setFilters(clearMesaAgendaClientFilters());
   }, []);
+
+  const handleBulkRowCheckedChange = useCallback(
+    (entry: MesaAgendaBookingEntry, checked: boolean) => {
+      if (bulkBusyRef.current) return;
+      setSelectedBookingIds((prev) => toggleBookingInSelection(prev, entry.bookingId, checked));
+      setBulkLimitNotice(null);
+    },
+    [],
+  );
+
+  const handleSelectAllEligible = useCallback(() => {
+    if (bulkBusyRef.current) return;
+    const result = selectAllEligibleVisible(selectionScopeEntries, bulkRole);
+    setSelectedBookingIds(result.nextSelected);
+    setBulkLimitNotice(result.limitNotice);
+  }, [selectionScopeEntries, bulkRole]);
+
+  const handleClearBulkSelection = useCallback(() => {
+    if (bulkBusyRef.current) return;
+    setSelectedBookingIds(new Set());
+    setBulkLimitNotice(null);
+  }, []);
+
+  const handleBulkHeaderCheckedChange = useCallback(
+    (checked: boolean) => {
+      if (bulkBusyRef.current) return;
+      if (checked) {
+        const result = selectAllEligibleVisible(selectionScopeEntries, bulkRole);
+        setSelectedBookingIds(result.nextSelected);
+        setBulkLimitNotice(result.limitNotice);
+      } else {
+        setSelectedBookingIds(new Set());
+        setBulkLimitNotice(null);
+      }
+    },
+    [selectionScopeEntries, bulkRole],
+  );
+
+  const handleRequestBulkDriveValidate = useCallback(() => {
+    if (bulkBusyRef.current) return;
+    const plan = planBulkDriveValidation(selectedBookingIds, loadedEntries, bulkRole);
+    if (plan.eligibleEntries.length === 0) return;
+    setBulkDriveResult(null);
+    setBulkAdvanceResult(null);
+    setDriveError(null);
+    setDriveSuccess(null);
+    setBulkDrivePlan(plan);
+    setBulkDriveConfirmOpen(true);
+  }, [selectedBookingIds, loadedEntries, bulkRole]);
+
+  const handleCloseBulkDriveConfirm = useCallback(() => {
+    if (bulkBusyRef.current) return;
+    setBulkDriveConfirmOpen(false);
+    setBulkDrivePlan(null);
+    setBulkProgressLabel(null);
+  }, []);
+
+  const handleConfirmBulkDriveValidate = useCallback(async () => {
+    if (bulkBusyRef.current) return;
+    bulkBusyRef.current = true;
+    setBulkBusy(true);
+    setBulkProgressLabel("Validando 0 de …");
+    setDriveError(null);
+    setDriveSuccess(null);
+    setCancelSuccess(null);
+    setReagendarSuccess(null);
+    setBulkDriveResult(null);
+    setBulkAdvanceResult(null);
+
+    const selectedSnapshot = new Set(selectedBookingIds);
+    try {
+      const summary = await executeBulkDriveValidation({
+        selectedBookingIds: selectedSnapshot,
+        loadedEntries,
+        role: bulkRole,
+        validate: async (bookingId) => {
+          await setMesaAgendaDriveValidation({
+            bookingId,
+            validated: true,
+          });
+        },
+        onProgress: (done, total) => {
+          setBulkProgressLabel(`Validando ${done} de ${total}…`);
+        },
+      });
+
+      setSelectedBookingIds((prev) =>
+        removeSuccessfulBookingsFromSelection(prev, summary),
+      );
+      setBulkDriveResult(summary);
+      setBulkDriveConfirmOpen(false);
+      setBulkDrivePlan(null);
+      setBulkProgressLabel(null);
+      await loadEntries();
+    } catch (err) {
+      const message =
+        err instanceof Error && err.message.trim()
+          ? err.message.trim()
+          : "No se pudo completar la validación masiva en Drive.";
+      setDriveError(message);
+      setBulkDriveConfirmOpen(false);
+      setBulkDrivePlan(null);
+      setBulkProgressLabel(null);
+    } finally {
+      bulkBusyRef.current = false;
+      setBulkBusy(false);
+    }
+  }, [selectedBookingIds, loadedEntries, bulkRole, loadEntries]);
+
+  const handleRequestBulkStageAdvance = useCallback(() => {
+    if (bulkBusyRef.current) return;
+    const plan = planBulkStageAdvance(selectedBookingIds, loadedEntries, bulkRole);
+    if (plan.eligibleExpedientes === 0) return;
+    setBulkAdvanceResult(null);
+    setBulkDriveResult(null);
+    setDriveError(null);
+    setDriveSuccess(null);
+    setBulkAdvancePlan(plan);
+    setBulkAdvanceConfirmOpen(true);
+  }, [selectedBookingIds, loadedEntries, bulkRole]);
+
+  const handleCloseBulkAdvanceConfirm = useCallback(() => {
+    if (bulkBusyRef.current) return;
+    setBulkAdvanceConfirmOpen(false);
+    setBulkAdvancePlan(null);
+    setBulkProgressLabel(null);
+  }, []);
+
+  const handleConfirmBulkStageAdvance = useCallback(async () => {
+    if (bulkBusyRef.current) return;
+    const preview = planBulkStageAdvance(selectedBookingIds, loadedEntries, bulkRole);
+    if (preview.eligibleExpedientes === 0) {
+      setBulkAdvanceConfirmOpen(false);
+      setBulkAdvancePlan(null);
+      return;
+    }
+
+    bulkBusyRef.current = true;
+    setBulkBusy(true);
+    setBulkProgressLabel("Avanzando 0 de …");
+    setDriveError(null);
+    setDriveSuccess(null);
+    setCancelSuccess(null);
+    setReagendarSuccess(null);
+    setBulkDriveResult(null);
+    setBulkAdvanceResult(null);
+
+    const selectedSnapshot = new Set(selectedBookingIds);
+    try {
+      const summary = await executeBulkStageAdvance({
+        selectedBookingIds: selectedSnapshot,
+        loadedEntries,
+        role: bulkRole,
+        advance: async (expedienteId) => {
+          await expedientesRepo.avanzarEtapaOperativa(expedienteId);
+        },
+        onProgress: (done, total) => {
+          setBulkProgressLabel(`Avanzando ${done} de ${total} expedientes…`);
+        },
+      });
+
+      setSelectedBookingIds((prev) =>
+        removeSuccessfulExpedientesFromSelection(prev, summary),
+      );
+      setBulkAdvanceResult(summary);
+      setBulkAdvanceConfirmOpen(false);
+      setBulkAdvancePlan(null);
+      setBulkProgressLabel(null);
+      await loadEntries();
+    } catch (err) {
+      const message =
+        err instanceof ExpedientesSupabaseError
+          ? err.message
+          : err instanceof Error && err.message.trim()
+            ? err.message.trim()
+            : "No se pudo completar el avance masivo de etapa.";
+      setDriveError(message);
+      setBulkAdvanceConfirmOpen(false);
+      setBulkAdvancePlan(null);
+      setBulkProgressLabel(null);
+    } finally {
+      bulkBusyRef.current = false;
+      setBulkBusy(false);
+    }
+  }, [selectedBookingIds, loadedEntries, bulkRole, expedientesRepo, loadEntries]);
+
+  const entriesByBookingId = useMemo(() => {
+    const map = new Map<string, MesaAgendaBookingEntry>();
+    for (const entry of loadedEntries) {
+      map.set(entry.bookingId, entry);
+    }
+    return map;
+  }, [loadedEntries]);
+
+  const isBulkRowSelectableCb = useCallback(
+    (entry: MesaAgendaBookingEntry) => isBulkSelectable(entry, bulkRole),
+    [bulkRole],
+  );
+
+  const bulkNotSelectableReasonCb = useCallback(
+    (entry: MesaAgendaBookingEntry) => formatBulkNotSelectableReason(entry, bulkRole),
+    [bulkRole],
+  );
 
   const handleViewModeChange = useCallback((mode: MesaAgendaCitasViewMode) => {
     setViewMode(mode);
@@ -270,11 +597,12 @@ export function MesaAgendaCitasClient() {
 
   const handleToggleDriveValidation = useCallback(
     async (entry: MesaAgendaBookingEntry) => {
-      if (drivePendingBookingId) return;
+      if (drivePendingBookingId || bulkBusyRef.current) return;
       setDriveError(null);
       setDriveSuccess(null);
       setCancelSuccess(null);
       setReagendarSuccess(null);
+      setBulkDriveResult(null);
       setDrivePendingBookingId(entry.bookingId);
       const nextValidated = !entry.driveValidated;
       try {
@@ -430,6 +758,11 @@ export function MesaAgendaCitasClient() {
     onToggleDriveValidation: (entry: MesaAgendaBookingEntry) => {
       void handleToggleDriveValidation(entry);
     },
+    selectedBookingIds,
+    isBulkRowSelectable: isBulkRowSelectableCb,
+    bulkNotSelectableReason: bulkNotSelectableReasonCb,
+    onBulkRowCheckedChange: handleBulkRowCheckedChange,
+    bulkBusy,
   };
 
   const hasVisibleEntries =
@@ -512,6 +845,38 @@ export function MesaAgendaCitasClient() {
           <MesaAgendaCitasSummary
             summary={summary}
             includeCancelled={filters.includeCancelled}
+          />
+        ) : null}
+
+        {showBulkBar && !loading && !error && !rangeError ? (
+          <MesaAgendaBulkSelectionBar
+            summary={{
+              ...bulkSummary,
+              limitNotice: bulkLimitNotice ?? bulkSummary.limitNotice,
+            }}
+            busy={bulkBusy}
+            progressLabel={bulkProgressLabel}
+            onSelectAllEligible={handleSelectAllEligible}
+            onClearSelection={handleClearBulkSelection}
+            onHeaderCheckedChange={handleBulkHeaderCheckedChange}
+            onRequestBulkDriveValidate={handleRequestBulkDriveValidate}
+            onRequestBulkStageAdvance={handleRequestBulkStageAdvance}
+          />
+        ) : null}
+
+        {bulkDriveResult ? (
+          <MesaAgendaBulkDriveResultPanel
+            summary={bulkDriveResult}
+            entriesByBookingId={entriesByBookingId}
+            onDismiss={() => setBulkDriveResult(null)}
+          />
+        ) : null}
+
+        {bulkAdvanceResult ? (
+          <MesaAgendaBulkAdvanceResultPanel
+            summary={bulkAdvanceResult}
+            entriesByBookingId={entriesByBookingId}
+            onDismiss={() => setBulkAdvanceResult(null)}
           />
         ) : null}
 
@@ -626,6 +991,28 @@ export function MesaAgendaCitasClient() {
         error={reagendarError}
         onClose={handleCloseReagendarDialog}
         onConfirm={handleConfirmReagendar}
+      />
+
+      <MesaAgendaBulkDriveConfirmDialog
+        open={bulkDriveConfirmOpen}
+        plan={bulkDrivePlan}
+        saving={bulkBusy}
+        progressLabel={bulkProgressLabel}
+        onClose={handleCloseBulkDriveConfirm}
+        onConfirm={() => {
+          void handleConfirmBulkDriveValidate();
+        }}
+      />
+
+      <MesaAgendaBulkAdvanceConfirmDialog
+        open={bulkAdvanceConfirmOpen}
+        plan={bulkAdvancePlan}
+        saving={bulkBusy}
+        progressLabel={bulkProgressLabel}
+        onClose={handleCloseBulkAdvanceConfirm}
+        onConfirm={() => {
+          void handleConfirmBulkStageAdvance();
+        }}
       />
     </MesaAgendaCitasShell>
   );

@@ -6,6 +6,7 @@ import {
   MesaAgendaEntryActions,
   MesaAgendaEntryBadges,
 } from "@/components/mesa-control/MesaAgendaCitasEntryParts";
+import { MesaAgendaBulkRowCheckbox } from "@/components/mesa-control/MesaAgendaBulkSelectionBar";
 import {
   deriveMesaAgendaHistoryLabel,
   groupMesaAgendaEntriesByTime,
@@ -26,7 +27,13 @@ type MesaAgendaCitasDayViewProps = Readonly<{
   onRequestCancel?: (entry: MesaAgendaBookingEntry) => void;
   onRequestReagendar?: (entry: MesaAgendaBookingEntry) => void;
   onToggleDriveValidation?: (entry: MesaAgendaBookingEntry) => void;
+  selectedBookingIds?: ReadonlySet<string>;
+  isBulkRowSelectable?: (entry: MesaAgendaBookingEntry) => boolean;
+  bulkNotSelectableReason?: (entry: MesaAgendaBookingEntry) => string;
+  onBulkRowCheckedChange?: (entry: MesaAgendaBookingEntry, checked: boolean) => void;
+  bulkBusy?: boolean;
 }>;
+
 
 function historyGroupFor(
   entry: MesaAgendaBookingEntry,
@@ -47,8 +54,14 @@ export function MesaAgendaCitasDayView({
   onRequestCancel,
   onRequestReagendar,
   onToggleDriveValidation,
+  selectedBookingIds,
+  isBulkRowSelectable,
+  bulkNotSelectableReason,
+  onBulkRowCheckedChange,
+  bulkBusy = false,
 }: MesaAgendaCitasDayViewProps) {
   const groups = groupMesaAgendaEntriesByTime(entries);
+  const showBulk = Boolean(selectedBookingIds && onBulkRowCheckedChange && isBulkRowSelectable);
 
   if (groups.length === 0) {
     return (
@@ -78,21 +91,42 @@ export function MesaAgendaCitasDayView({
               const historyLabel = deriveMesaAgendaHistoryLabel(entry, historyGroup);
               const showHistoryIndicator = hasMesaAgendaHistoryGroup(historyGroup);
               const driveRow = mesaAgendaDriveValidatedRowClass(entry);
+              const selectable = showBulk ? Boolean(isBulkRowSelectable?.(entry)) : false;
+              const checked = Boolean(selectedBookingIds?.has(entry.bookingId));
+              const reason =
+                showBulk && !selectable
+                  ? bulkNotSelectableReason?.(entry) ?? "No disponible para acciones masivas."
+                  : "Seleccionar cita";
               return (
                 <div
                   key={entry.bookingId}
                   className={`px-4 py-3 ${driveRow ? `${driveRow} rounded-none` : ""}`}
                 >
                   <div className="flex flex-wrap items-start justify-between gap-2">
-                    <div>
-                      <p className="font-medium text-slate-900">{entry.clienteNombre || "—"}</p>
-                      {entry.nss ? (
-                        <p className="text-xs text-slate-500">NSS: {entry.nss}</p>
+                    <div className="flex items-start gap-2">
+                      {showBulk ? (
+                        <MesaAgendaBulkRowCheckbox
+                          bookingId={entry.bookingId}
+                          checked={checked}
+                          disabled={!selectable || bulkBusy}
+                          title={
+                            bulkBusy
+                              ? "Operación masiva en curso"
+                              : reason
+                          }
+                          onCheckedChange={(next) => onBulkRowCheckedChange?.(entry, next)}
+                        />
                       ) : null}
-                      <p className="mt-1 text-xs text-slate-600">
-                        {mesaAgendaBookingPersonDisplayName(entry.asesor)} ·{" "}
-                        {entry.locationId ?? "—"}
-                      </p>
+                      <div>
+                        <p className="font-medium text-slate-900">{entry.clienteNombre || "—"}</p>
+                        {entry.nss ? (
+                          <p className="text-xs text-slate-500">NSS: {entry.nss}</p>
+                        ) : null}
+                        <p className="mt-1 text-xs text-slate-600">
+                          {mesaAgendaBookingPersonDisplayName(entry.asesor)} ·{" "}
+                          {entry.locationId ?? "—"}
+                        </p>
+                      </div>
                     </div>
                     <MesaAgendaEntryBadges
                       entry={entry}
@@ -108,7 +142,9 @@ export function MesaAgendaCitasDayView({
                       showDriveValidation={canDriveValidateEntry(entry)}
                       cancelPending={cancelPendingBookingId === entry.bookingId}
                       reagendarPending={reagendarPendingBookingId === entry.bookingId}
-                      drivePending={drivePendingBookingId === entry.bookingId}
+                      drivePending={
+                        drivePendingBookingId === entry.bookingId || bulkBusy
+                      }
                       onRequestCancel={onRequestCancel}
                       onRequestReagendar={onRequestReagendar}
                       onToggleDriveValidation={onToggleDriveValidation}

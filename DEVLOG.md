@@ -1,5 +1,51 @@
 # Devlog
 
+## 2026-07-20 - P089 B3: Pasar a siguiente etapa masivo
+
+### Decisión
+
+- Reutilizar `expedientesRepo.avanzarEtapaOperativa` → RPC `avanzar_etapa_operativa` **una vez por expediente único**.
+- Dedupe por `expedienteId`; si hay transiciones distintas en la selección → omitir con razón explícita (sin adivinar).
+- Drive **no** es gate; no se llama validación Drive antes del avance.
+- Concurrencia máx. **5** expedientes (`runWithConcurrencyLimit`); sin reintentos; fallos parciales; un solo `loadEntries()` al final.
+- Éxitos: quitar todos los `bookingId` del expediente de la selección. Fallidos/omitidos: conservar si siguen seleccionables.
+- Sin SQL, sin RPC batch, sin cambios de permisos. El lote **no** es atómico entre expedientes.
+
+### Archivos
+
+- Dominio: `planBulkStageAdvance`, `executeBulkStageAdvance`, `groupBulkAdvancePlanByTransition`, `removeSuccessfulExpedientesFromSelection` (+ tests)
+- UI: `MesaAgendaBulkAdvanceConfirmDialog`, `MesaAgendaBulkAdvanceResultPanel`, botón en barra, cableado en `MesaAgendaCitasClient`
+
+## 2026-07-20 - P089 B2: Validar en Drive masivo (resultados parciales)
+
+### Decisión
+
+- Reutilizar el wrapper individual `setMesaAgendaDriveValidation` → RPC `mesa_set_agenda_drive_validation` con `p_validated=true`. Sin RPC batch, sin SQL, sin permisos.
+- Concurrencia cliente máx. **5** (`runWithConcurrencyLimit`); sin reintentos; un fallo no cancela el resto.
+- Confirmación obligatoria (diálogo accesible); recalcula elegibilidad justo antes de escribir (`planBulkDriveValidation` / `executeBulkDriveValidation`).
+- Post-lote: un solo `loadEntries()`; deseleccionar exitosos; conservar fallidos/omitidos seleccionables; reconciliación existente limpia IDs ausentes.
+- Copy y UI dejan claro: **no avanza etapas**. Avance masivo queda para bloque posterior.
+
+### Archivos
+
+- Dominio: `mesa-bulk-actions.ts` (+ tests de plan/concurrencia/ejecución/selección)
+- UI: `MesaAgendaBulkSelectionBar`, `MesaAgendaBulkDriveConfirmDialog`, `MesaAgendaBulkDriveResultPanel`, cableado en `MesaAgendaCitasClient` + List/Day/Week
+
+## 2026-07-20 - P089 B0–B1: elegibilidad y selección múltiple en Citas Mesa
+
+### Decisión
+
+- Selección local por `bookingId` (Drive es por cita). Límite **100**.
+- «Seleccionar elegibles visibles» = bookings elegibles del alcance renderizado (Lista filtrada / Día / detalle Día de Semana).
+- Elegibilidad predictiva separada: Drive vs avance; **Drive no es gate** de avance.
+- Avance: espejo conservador de transiciones 3→5 / 4→5 / 5→6 / 9→10; sin `cicloEstado` en el listado (residual; la RPC sigue siendo autoridad).
+- Sin escrituras masivas en este bloque (barra informativa solamente).
+
+### Archivos
+
+- `src/domain/agenda-calendar/mesa-bulk-actions.ts` (+ tests)
+- UI: `MesaAgendaCitasClient`, List/Day/Week/EntryParts, `MesaAgendaBulkSelectionBar`
+
 ## 2026-07-20 - P087 B4.3: restaurar `monto_aprobado_snapshot_no_recuperable` en 086
 
 ### Hallazgo

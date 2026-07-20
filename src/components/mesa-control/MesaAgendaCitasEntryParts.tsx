@@ -3,6 +3,7 @@
 import Link from "next/link";
 import type { MesaAgendaBookingEntry } from "@/domain/agenda-calendar/mesa.types";
 import { mesaAgendaBookingPersonDisplayName } from "@/domain/agenda-calendar/mesa.mapper";
+import { MesaAgendaBulkRowCheckbox } from "@/components/mesa-control/MesaAgendaBulkSelectionBar";
 import {
   buildMesaExpedienteDetailHref,
   deriveMesaAgendaHistoryLabel,
@@ -233,6 +234,10 @@ export function MesaAgendaCitaCard({
   onRequestCancel,
   onRequestReagendar,
   onToggleDriveValidation,
+  bulkSelected = false,
+  bulkSelectable = false,
+  bulkDisabledReason,
+  onBulkCheckedChange,
 }: Readonly<{
   entry: MesaAgendaBookingEntry;
   historyGroup: readonly MesaAgendaBookingEntry[];
@@ -245,10 +250,15 @@ export function MesaAgendaCitaCard({
   onRequestCancel?: (entry: MesaAgendaBookingEntry) => void;
   onRequestReagendar?: (entry: MesaAgendaBookingEntry) => void;
   onToggleDriveValidation?: (entry: MesaAgendaBookingEntry) => void;
+  bulkSelected?: boolean;
+  bulkSelectable?: boolean;
+  bulkDisabledReason?: string;
+  onBulkCheckedChange?: (entry: MesaAgendaBookingEntry, checked: boolean) => void;
 }>) {
   const historyLabel = deriveMesaAgendaHistoryLabel(entry, historyGroup);
   const showHistoryIndicator = hasMesaAgendaHistoryGroup(historyGroup);
   const driveRow = mesaAgendaDriveValidatedRowClass(entry);
+  const showBulk = Boolean(onBulkCheckedChange);
 
   return (
     <article
@@ -261,10 +271,25 @@ export function MesaAgendaCitaCard({
       }`}
     >
       <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <p className="text-sm font-semibold text-slate-900">{formatMesaAgendaDateTime(entry)}</p>
-          <p className="mt-1 text-sm text-slate-800">{entry.clienteNombre || "—"}</p>
-          {entry.nss ? <p className="text-xs text-slate-500">NSS: {entry.nss}</p> : null}
+        <div className="flex items-start gap-2">
+          {showBulk ? (
+            <MesaAgendaBulkRowCheckbox
+              bookingId={entry.bookingId}
+              checked={bulkSelected}
+              disabled={!bulkSelectable}
+              title={
+                bulkSelectable
+                  ? "Seleccionar cita"
+                  : bulkDisabledReason ?? "No disponible para acciones masivas."
+              }
+              onCheckedChange={(next) => onBulkCheckedChange?.(entry, next)}
+            />
+          ) : null}
+          <div>
+            <p className="text-sm font-semibold text-slate-900">{formatMesaAgendaDateTime(entry)}</p>
+            <p className="mt-1 text-sm text-slate-800">{entry.clienteNombre || "—"}</p>
+            {entry.nss ? <p className="text-xs text-slate-500">NSS: {entry.nss}</p> : null}
+          </div>
         </div>
         <MesaAgendaEntryBadges
           entry={entry}

@@ -222,6 +222,7 @@ Convenciones:
 | Rechazo | Nota obligatoria; puede regresar etapa |
 
 - Validación server-side espejo de `getBloqueosAvanceMesa` / helpers retención.
+- **UI P089 (acciones masivas):** «Pasar a siguiente etapa» en `/mesa-control/citas` reutiliza **esta misma RPC** una vez por `expediente_id` elegible (dedupe por expediente; concurrencia limitada en cliente). No existe RPC batch; Drive no es requisito de avance.
 
 ---
 
@@ -662,6 +663,7 @@ Convenciones:
 - No cambia `status`, fechas, `kind`, `expediente_id`, etapa, cupos ni historial.
 - Reagenda crea nuevo booking → inicia `drive_validated = false`.
 - Auditoría: `agenda.drive_validation.set` / `agenda.drive_validation.clear`.
+- **UI P089 (acciones masivas):** «Validar en Drive» en `/mesa-control/citas` reutiliza **esta misma RPC** por cada `booking_id` elegible (`p_validated=true`), con concurrencia limitada en cliente. No existe RPC batch nueva; no avanza etapas.
 
 ---
 
