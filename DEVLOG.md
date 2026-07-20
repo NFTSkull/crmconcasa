@@ -1,5 +1,18 @@
 # Devlog
 
+## 2026-07-20 - P087 B4.3: restaurar `monto_aprobado_snapshot_no_recuperable` en 086
+
+### Hallazgo
+
+- Cloud pre-086 (`/tmp/p087_cloud_rpc_before_086.sql`) exponía en **items** de `admin_list_precalificaciones_page` la columna booleana `ed.monto_aprobado_snapshot_no_recuperable` (origen P084).
+- La 086 inicial se basó en 083/085 y omitió ese campo; al `CREATE OR REPLACE` en Cloud se perdió el contrato.
+- Consumidores: `supabase.repo.ts` → `montoSnapshotNoRecuperable`; UI Admin etiqueta; Excel Precalificaciones; docs P084.
+
+### Decisión
+
+- Restaurar **exactamente** `ed.monto_aprobado_snapshot_no_recuperable` en el SELECT de items de 086, sin tocar `LEAST`/agregados ni otras claves JSON.
+- No reparar historial `schema_migrations`; no Cloud en este commit (aplicación correctiva pendiente de aprobación).
+
 ## 2026-07-20 - P087: tope $169,000 por expediente en agregados Admin
 
 ### Decisión
@@ -19,7 +32,7 @@ Migración `086_admin_monto_aprobado_mejoravit_cap_aggregate.sql` redefine:
 
 - `admin_get_production_summary` (base 083) → `monto_aprobado_total`
 - `admin_list_production_by_asesor` (base 085) → `monto_aprobado_total`
-- `admin_list_precalificaciones_page` (base 083) → `monto_mejoravit_total` / `monto_mejoravit_promedio`
+- `admin_list_precalificaciones_page` (base 083+P084) → `monto_mejoravit_total` / `monto_mejoravit_promedio` + items con `monto_aprobado_snapshot_no_recuperable`
 
 Sin `UPDATE`, sin backfill, sin Cloud en esta entrega.
 
@@ -29,7 +42,7 @@ Sin `UPDATE`, sin backfill, sin Cloud en esta entrega.
 
 ### Rollback
 
-Restaurar cuerpos 083/085 con `sum`/`avg` sin `LEAST` (documentado al final de 086).
+Restaurar cuerpos 083/084/085 con `sum`/`avg` sin `LEAST` (documentado al final de 086).
 
 ### Verificación SQL local (sin Cloud)
 

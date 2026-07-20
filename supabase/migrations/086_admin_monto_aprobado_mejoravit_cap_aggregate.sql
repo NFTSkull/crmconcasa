@@ -1,9 +1,10 @@
 -- ConCasa CRM — P087: tope $169,000 por expediente en agregados Admin
 -- No modifica tablas ni snapshots. Solo redefine 3 RPC Admin RO.
--- Base: 083 (summary + precal page) y 085 (producción por asesor).
+-- Base: 083 (summary + precal page) + P084 (items: monto_aprobado_snapshot_no_recuperable)
+--       y 085 (producción por asesor).
 -- Regla: aportación = LEAST(COALESCE(monto_aprobado_al_aprobar,0), 169000) antes de SUM/AVG.
 -- El total agregado puede superar 169000. Filas individuales sin tope.
--- Rollback: restaurar cuerpos 083/085 con sum/avg sin LEAST (ver comentarios finales).
+-- Rollback: restaurar cuerpos 083/084/085 con sum/avg sin LEAST (ver comentarios finales).
 
 
 CREATE OR REPLACE FUNCTION public.admin_get_production_summary(
@@ -392,6 +393,7 @@ BEGIN
       ed.decision::text AS decision,
       ed.monto_aprobado_al_aprobar,
       ed.monto_aprobado AS monto_aprobado_actual,
+      ed.monto_aprobado_snapshot_no_recuperable,
       e.programa::text AS programa
     FROM public.editor_decisions ed
     JOIN public.expedientes e ON e.id = ed.expediente_id
@@ -450,9 +452,9 @@ REVOKE ALL ON FUNCTION public.admin_list_precalificaciones_page(TIMESTAMPTZ, TIM
 GRANT EXECUTE ON FUNCTION public.admin_list_precalificaciones_page(TIMESTAMPTZ, TIMESTAMPTZ, INTEGER, INTEGER, UUID, TEXT, TEXT) TO authenticated;
 
 COMMENT ON FUNCTION public.admin_list_precalificaciones_page(TIMESTAMPTZ, TIMESTAMPTZ, INTEGER, INTEGER, UUID, TEXT, TEXT) IS
-  'P082/P083/P087 Admin RO: montos Mejoravit con LEAST(snapshot,169000) por expediente en total/promedio; filas individuales sin tope.';
+  'P082/P083/P084/P087 Admin RO: montos Mejoravit con LEAST(snapshot,169000) por expediente en total/promedio; items incluyen monto_aprobado_snapshot_no_recuperable; filas individuales sin tope.';
 
 -- Rollback (no ejecutar en apply normal):
---   Reaplicar cuerpos de 083 (admin_get_production_summary + admin_list_precalificaciones_page)
+--   Reaplicar cuerpos de 083/084 (summary + precal page con snapshot_no_recuperable)
 --   y 085 (admin_list_production_by_asesor) con sum(ed.monto_aprobado_al_aprobar) /
 --   avg(ed.monto_aprobado_al_aprobar) sin LEAST.

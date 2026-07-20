@@ -8,6 +8,8 @@ import {
 import {
   computeAdminProductionSummary,
   computePrecalMontosMejoravit,
+  formatPrecalMontoAlAprobarDisplay,
+  MONTO_SNAPSHOT_NO_RECUPERABLE_LABEL,
   type AdminPrecalEvent,
 } from "./metrics";
 import { resolveAdminPeriodBounds } from "./period";
@@ -42,6 +44,7 @@ function precal(
     decision: partial.decision ?? "aprobado",
     montoAprobadoAlAprobar: partial.montoAprobadoAlAprobar,
     montoAprobadoActual: partial.montoAprobadoActual ?? partial.montoAprobadoAlAprobar,
+    montoSnapshotNoRecuperable: partial.montoSnapshotNoRecuperable,
     programa: partial.programa ?? "mejoravit",
   };
 }
@@ -91,6 +94,36 @@ test("filas originales conservan snapshot real > 169000", () => {
   assert.equal(montos.montoAprobadoTotal, 169_000);
   assert.equal(rows[0]!.montoAprobadoAlAprobar, 250_000);
   assert.equal(row.montoAprobadoAlAprobar, 250_000);
+});
+
+test("caso Walter — snapshot 256121.69 aporta 169000; fila intacta", () => {
+  const row = precal({
+    expedienteId: "walter",
+    montoAprobadoAlAprobar: 256_121.69,
+    montoAprobadoActual: 256_121.69,
+    montoSnapshotNoRecuperable: false,
+  });
+  const montos = computePrecalMontosMejoravit([row]);
+  assert.equal(montos.montoAprobadoTotal, 169_000);
+  assert.equal(montos.montoPromedioAprobado, 169_000);
+  assert.equal(row.montoAprobadoAlAprobar, 256_121.69);
+  assert.equal(row.montoSnapshotNoRecuperable, false);
+});
+
+test("snapshot no recuperable — semántica P084 en display; no aporta a agregados", () => {
+  const row = precal({
+    expedienteId: "nr",
+    montoAprobadoAlAprobar: null,
+    montoAprobadoActual: null,
+    montoSnapshotNoRecuperable: true,
+  });
+  assert.equal(
+    formatPrecalMontoAlAprobarDisplay(row, (n) => String(n)),
+    MONTO_SNAPSHOT_NO_RECUPERABLE_LABEL,
+  );
+  const montos = computePrecalMontosMejoravit([row]);
+  assert.equal(montos.montoAprobadoTotal, 0);
+  assert.equal(montos.montoPromedioAprobado, 0);
 });
 
 test("computeAdminProductionSummary aplica el mismo tope por expediente", () => {

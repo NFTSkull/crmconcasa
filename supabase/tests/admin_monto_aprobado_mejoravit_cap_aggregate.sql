@@ -100,6 +100,10 @@ BEGIN
     position('avg(least(coalesce(ed.monto_aprobado_al_aprobar, 0), 169000))' in lower(v_src)) > 0,
     'precal: AVG(LEAST(...169000)) presente'
   );
+  PERFORM public.__p087_assert(
+    position('ed.monto_aprobado_snapshot_no_recuperable' in lower(v_src)) > 0,
+    'precal: items exponen ed.monto_aprobado_snapshot_no_recuperable (contrato P084)'
+  );
 
   -- --- Fixtures ---
   FOREACH v_id IN ARRAY v_ids LOOP
@@ -254,6 +258,88 @@ BEGIN
     (v_item->>'monto_aprobado_al_aprobar')::NUMERIC = 250000,
     'fila individual E sigue en 250000'
   );
+  PERFORM public.__p087_assert(
+    v_item ? 'monto_aprobado_snapshot_no_recuperable',
+    'item E incluye monto_aprobado_snapshot_no_recuperable'
+  );
+  PERFORM public.__p087_assert(
+    jsonb_typeof(v_item->'monto_aprobado_snapshot_no_recuperable') = 'boolean',
+    'monto_aprobado_snapshot_no_recuperable es boolean'
+  );
+  PERFORM public.__p087_assert(
+    (v_item->>'monto_aprobado_snapshot_no_recuperable')::BOOLEAN = false,
+    'item E snapshot_no_recuperable=false por defecto'
+  );
+
+  -- Caso tipo Cloud Walter: snapshot 256121.69 aporta 169000; flag intacta
+  PERFORM public.__p087_reset_auth();
+  UPDATE public.editor_decisions
+  SET monto_aprobado = 256121.69,
+      monto_aprobado_al_aprobar = 256121.69,
+      monto_aprobado_snapshot_no_recuperable = false
+  WHERE expediente_id = v_ids[5];
+  PERFORM public.__p087_set_auth(v_admin);
+
+  v_sum := public.admin_get_production_summary(v_from, v_to, v_asesor1, NULL, NULL);
+  -- A 50 + B 169 + E 169 = 388000 (mismo tope que con 250000)
+  PERFORM public.__p087_assert(
+    (v_sum->>'monto_aprobado_total')::NUMERIC = 388000,
+    'Walter-like: KPI asesor1 sigue 388000 con snapshot 256121.69'
+  );
+
+  v_precal := public.admin_list_precalificaciones_page(
+    v_from, v_to, 1, 100, v_asesor1, 'aprobadas', NULL
+  );
+  SELECT elem INTO v_item
+  FROM jsonb_array_elements(v_precal->'items') elem
+  WHERE elem->>'expediente_id' = v_ids[5]::text;
+  PERFORM public.__p087_assert(
+    (v_item->>'monto_aprobado_al_aprobar')::NUMERIC = 256121.69,
+    'fila individual Walter-like 256121.69'
+  );
+  PERFORM public.__p087_assert(
+    (v_item->>'monto_aprobado_snapshot_no_recuperable')::BOOLEAN = false,
+    'Walter-like: snapshot_no_recuperable=false'
+  );
+
+  -- Semántica P084: true + monto NULL (no aporta a agregados Mejoravit)
+  PERFORM public.__p087_reset_auth();
+  UPDATE public.editor_decisions
+  SET monto_aprobado_al_aprobar = NULL,
+      monto_aprobado_snapshot_no_recuperable = true
+  WHERE expediente_id = v_ids[5];
+  PERFORM public.__p087_set_auth(v_admin);
+
+  v_precal := public.admin_list_precalificaciones_page(
+    v_from, v_to, 1, 100, v_asesor1, 'aprobadas', NULL
+  );
+  SELECT elem INTO v_item
+  FROM jsonb_array_elements(v_precal->'items') elem
+  WHERE elem->>'expediente_id' = v_ids[5]::text;
+  PERFORM public.__p087_assert(
+    v_item->>'monto_aprobado_al_aprobar' IS NULL,
+    'no_recuperable: monto_aprobado_al_aprobar NULL en item'
+  );
+  PERFORM public.__p087_assert(
+    (v_item->>'monto_aprobado_snapshot_no_recuperable')::BOOLEAN = true,
+    'no_recuperable: flag true en item'
+  );
+
+  v_sum := public.admin_get_production_summary(v_from, v_to, v_asesor1, NULL, NULL);
+  -- Sin E: A 50 + B 169 = 219000
+  PERFORM public.__p087_assert(
+    (v_sum->>'monto_aprobado_total')::NUMERIC = 219000,
+    'no_recuperable: E no aporta al KPI asesor1'
+  );
+
+  -- Restaurar E para limpieza coherente
+  PERFORM public.__p087_reset_auth();
+  UPDATE public.editor_decisions
+  SET monto_aprobado = 250000,
+      monto_aprobado_al_aprobar = 250000,
+      monto_aprobado_snapshot_no_recuperable = false
+  WHERE expediente_id = v_ids[5];
+  PERFORM public.__p087_set_auth(v_admin);
 
   -- 12: fuera de periodo excluido
   v_sum := public.admin_get_production_summary(
