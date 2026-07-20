@@ -13,7 +13,10 @@ import type {
   UploadArchivoParams,
   UploadMesaDocumentoParams,
 } from "./repo";
-import { INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD, INTEGRATION_DOC_TIPOS_MESA_UPLOAD } from "./integration-docs-completos";
+import {
+  INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD,
+  INTEGRATION_DOC_TIPOS_MESA_REGISTER,
+} from "./integration-docs-completos";
 import { validateExpedienteDocumentoFile } from "./upload-constraints";
 
 const DB_NAME = "concasa-crm-files";
@@ -111,9 +114,11 @@ export class MockExpedienteArchivosIndexedDbRepo implements ExpedienteArchivosRe
       nombre_original: r.nombre_original,
       mime_type: r.mime_type,
       size_bytes: r.size_bytes,
+      version: 1,
       created_at: r.created_at,
       uploaded_by_role: r.uploaded_by_role,
       uploaded_by_email: r.uploaded_by_email,
+      uploaded_by_name: r.uploaded_by_email || null,
       estatus_revision: r.estatus_revision,
       comentario_mesa: r.comentario_mesa,
     }));
@@ -308,8 +313,8 @@ export class MockExpedienteArchivosIndexedDbRepo implements ExpedienteArchivosRe
     dispatchUpdated(found.expediente_id);
   }
 
-  private assertMesaUploadTipo(tipo: string): asserts tipo is (typeof INTEGRATION_DOC_TIPOS_MESA_UPLOAD)[number] {
-    if (!(INTEGRATION_DOC_TIPOS_MESA_UPLOAD as readonly string[]).includes(tipo)) {
+  private assertMesaUploadTipo(tipo: string): asserts tipo is (typeof INTEGRATION_DOC_TIPOS_MESA_REGISTER)[number] {
+    if (!(INTEGRATION_DOC_TIPOS_MESA_REGISTER as readonly string[]).includes(tipo)) {
       throw new Error("tipo_documento no permitido para Mesa");
     }
   }

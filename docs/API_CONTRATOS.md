@@ -106,6 +106,75 @@ Convenciones:
 - Rol `asesor` (expediente propio).
 - **RFC obligatorio** antes de envío integración (`getClienteDatosCamposFaltantes`).
 - Estado inicial `pendiente` → `completo` al guardar campos mínimos.
+- **P090 — base de cobro Mejoravit:** si existe `cliente_datos.monto_mejoravit_actualizado`, tiene prioridad sobre `datos.montoMejoravit` y sobre el fallback editor (−11% / tope $169,000). El guardado del asesor **no** acepta ni borra el override Mesa (`monto_mejoravit_actualizado*`). Fórmula de cobro automática: `ROUND(base × % / 100 + 3000, 2)`.
+
+---
+
+## 3bis. Monto actualizado Mejoravit (Mesa) — P090 B0–B1
+
+**Sin UI en este bloque.** Backend local únicamente.
+
+### Escritura
+
+**RPC:** `mesa_actualizar_monto_mejoravit(p_expediente_id uuid, p_monto_nuevo numeric, p_motivo text) → jsonb`
+
+- Roles: `mesa_admin` | `mesa_interno` | `mesa_externo` | `super_admin` (+ aliases mesa vigentes); org + `can_see_expediente`; expediente activo, no eliminado, enviado a Mesa.
+- Redondea `p_monto_nuevo` a 2 decimales; debe ser > 0 y distinto del monto operativo vigente.
+- Motivo: `btrim`, no vacío, ≤ 500.
+- Exige `porcentaje_cobro`; **no** exige `metodo_pago`.
+- Base anterior: `COALESCE(monto_mejoravit_actualizado, JSON montoMejoravit válido, LEAST(ROUND(monto_aprobado×0.89,2),169000))`.
+- Cobro nuevo: `ROUND(monto_nuevo × porcentaje_cobro / 100 + 3000, 2)`.
+- Escribe historial `expediente_monto_mejoravit_actualizaciones` (append-only) + columnas operativas en `cliente_datos` + `monto_calculado`. **No** toca `datos`, `%`, método, snapshots, etapa/subestado.
+- Auditoría: `action_log` acción `mesa.monto_mejoravit.updated`.
+- Concurrencia: `FOR UPDATE` expediente → `cliente_datos` en la misma transacción.
+- Retorno estable: `expediente_id`, `monto_original_operativo`, `monto_anterior`, `monto_nuevo`, `diferencia`, `porcentaje_cobro`, `monto_cobro_anterior`, `monto_cobro_nuevo`, `motivo`, `updated_by`, `updated_at`.
+
+### Lectura
+
+**RPC:** `get_expediente_monto_mejoravit_context(p_expediente_id uuid) → jsonb`
+
+- Sesión + org + `can_see_expediente` (Mesa visible, asesor dueño, super_admin según patrón vigente).
+- Campos: `expediente_id`, `monto_aprobado_editor`, `monto_snapshot_primera_aprobacion`, `monto_mejoravit_datos_generales`, `monto_mejoravit_actualizado`, `monto_operativo_vigente`, `monto_original_operativo`, `porcentaje_cobro`, `cargo_fijo` (= **3000**), `monto_calculado`, `ultima_actualizacion`, `historial` (DESC por `created_at`), `can_update`.
+- `can_update=true` solo Mesa operable (activo, enviado, visible); asesor siempre `false`.
+- Historial: `id`, montos, diferencia, `%`, cobros, motivo, `created_at`, `created_by`, `created_by_name` (si disponible sin PII sensible).
+
+### P087 / Pagaré
+
+- Agregados Admin **no** usan `monto_mejoravit_actualizado`.
+- Pagaré (`cliente_pagare`): P090 B3 backend + B4 UI Mesa/asesor RO vía `register_mesa_documento`; no obligatorio / no gate.
+
+### UI B2 (frontend)
+
+- Mesa: sección independiente (no dentro de Datos Generales) + diálogo «Actualizar monto Mejoravit» con vista previa de cobro.
+- Asesor: RO cuando hay override Mesa; sin botón ni formulario.
+- Wrappers TS: `getExpedienteMontoMejoravitContext` / `actualizarMontoMejoravitMesa` — solo RPCs P090; sin `save_cliente_datos` ni updates directos.
+
+### 3ter. Pagaré (`cliente_pagare`) — P090 B3 backend + B4 UI
+
+**RPC:** `register_mesa_documento` (misma firma) con tipo `cliente_pagare`. Sin RPC nueva.
+
+| Regla | Valor |
+|-------|--------|
+| Roles escritura | `mesa_admin`, `mesa_interno`, `mesa_externo`, `super_admin` + `can_see_expediente` |
+| Etapa mínima | `etapa_actual >= 7` |
+| Error etapa | `El Pagaré solo puede cargarse después de concluir la inscripción.` |
+| MIME | `application/pdf`, `image/jpeg`, `image/png` |
+| Tamaño | ≤ `expediente_documento_max_size_bytes()` = 15×1024×1024 |
+| Versionado | soft-delete del vigente + versión N+1; unique activo `(expediente_id, tipo)` |
+| Path | `{org}/{expediente}/cliente_pagare/{uuid}.{ext}` |
+| Asesor | SELECT vía `can_see_expediente` (solo vigentes `deleted_at IS NULL`); sin register |
+| Gate avance | **No** — no bloquea 6→7 ni ninguna transición |
+| Reingreso | sin herencia automática |
+| Auditoría | `expediente.documento.mesa_register` + payload (`tipo`, `version`, `reemplazo`, …) |
+
+**UI B4:**
+
+- Mesa: `MesaPagareSection` (+ diálogo confirmación) en `MesaExpedienteDetalleReadOnly` — upload/reemplazo → Storage + `register_mesa_documento`; preview/descarga vía `getArchivoBlob` (URL blob local; sin bucket público). Cleanup best-effort del objeto nuevo si la RPC falla.
+- Asesor: `AsesorPagareSection` RO desde etapa 7 — solo listado activo + Ver/Descargar.
+- Contrato TS: `CLIENTE_PAGARE_DOCUMENT_CONTRACT`. Allowlist UI complementarios **sin** `cliente_pagare` (evita duplicado); registro SQL en `INTEGRATION_DOC_TIPOS_MESA_REGISTER`.
+- No modifica etapa, monto, cobro ni Datos Generales. Sin notificaciones.
+
+Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 
 ---
 

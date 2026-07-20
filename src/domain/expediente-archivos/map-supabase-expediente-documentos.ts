@@ -8,11 +8,15 @@ export type SupabaseExpedienteDocumentoRow = {
   nombre_original: string;
   mime_type: string;
   size_bytes: number;
+  version?: number | null;
   estatus_revision: string;
   comentario_mesa: string | null;
   uploaded_by_role: string;
   created_at: string;
-  uploaded_by_profile?: { email?: string | null } | null;
+  uploaded_by_profile?: {
+    email?: string | null;
+    full_name?: string | null;
+  } | null;
 };
 
 export type ExpedienteArchivoListItem = {
@@ -22,9 +26,11 @@ export type ExpedienteArchivoListItem = {
   nombre_original: string;
   mime_type: string;
   size_bytes: number;
+  version: number;
   created_at: string;
   uploaded_by_role: string;
   uploaded_by_email: string;
+  uploaded_by_name: string | null;
   estatus_revision: EstatusRevision;
   comentario_mesa: string | null;
 };
@@ -64,9 +70,17 @@ export function mapSupabaseRowToExpedienteArchivoListItem(
     nombre_original: row.nombre_original,
     mime_type: row.mime_type,
     size_bytes: row.size_bytes,
+    version:
+      typeof row.version === "number" && Number.isFinite(row.version) && row.version >= 1
+        ? row.version
+        : 1,
     created_at: row.created_at,
     uploaded_by_role: row.uploaded_by_role,
     uploaded_by_email: row.uploaded_by_profile?.email?.trim() || "asesor",
+    uploaded_by_name:
+      row.uploaded_by_profile?.full_name?.trim() ||
+      row.uploaded_by_profile?.email?.trim() ||
+      null,
     estatus_revision: normalizeEstatusRevision(row.estatus_revision),
     comentario_mesa: row.comentario_mesa,
   };

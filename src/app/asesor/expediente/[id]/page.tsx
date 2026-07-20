@@ -13,6 +13,8 @@ import { AsesorSeguimientoOperativo } from "@/components/asesor/AsesorSeguimient
 import { canMountAgendaBiometricosUI } from "@/lib/agendaFirmasBookingsGuard";
 import { AgendaFirmasAsesorCard } from "@/components/asesor/AgendaFirmasAsesorCard";
 import { ExpedienteClienteDatosFormSection } from "@/components/asesor/ExpedienteClienteDatosFormSection";
+import { AsesorMontoMejoravitActualizadoSection } from "@/components/asesor/AsesorMontoMejoravitActualizadoSection";
+import { AsesorPagareSection } from "@/components/asesor/AsesorPagareSection";
 import { AsesorReingresoPostBiometricosCard } from "@/components/asesor/AsesorReingresoPostBiometricosCard";
 import { Button } from "@/components/ui/Button";
 import { SeguimientoOperativoMock } from "@/components/seguimiento/SeguimientoOperativoMock";
@@ -1337,6 +1339,17 @@ export default function AsesorExpedientePage() {
               onMontoMejoravitEdited={handleMontoMejoravitEdited}
               onMontoCalculadoEdited={handleMontoCalculadoEdited}
             />
+            {esMejoravit && dataSupabase && precal?.id ? (
+              <AsesorMontoMejoravitActualizadoSection
+                expedienteId={String(precal.id)}
+              />
+            ) : null}
+            {dataSupabase && precal?.id ? (
+              <AsesorPagareSection
+                expedienteId={String(precal.id)}
+                etapaActual={operativo?.etapaActual ?? null}
+              />
+            ) : null}
             <div className="rounded-lg border border-gray-200 bg-white p-4 text-sm text-gray-600">
               <p className="text-sm font-semibold text-gray-900">
                 Documentos requeridos

@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- **feat/mesa-monto-pagare — P090 B0–B5 (local commit):** Monto actualizado Mejoravit (087 + UI Mesa/asesor RO) y Pagaré `cliente_pagare` (088 + UI Mesa/asesor RO); cobro `%+$3,000`; sin gate/obligatorio Pagaré; P087/P089 intactos; sin Cloud/push/PR.
+
+- **feat/mesa-pagare-ui — P090 B4 (local):** UI Pagaré en Mesa (subir/reemplazar/ver/descargar desde etapa 7) y asesor RO (pendiente/cargado); reutiliza Storage + `register_mesa_documento`; sin SQL/RPC nuevas; sin gate/obligatorio/complementarios duplicados; sin Cloud/commit.
+
+- **feat/mesa-pagare-backend — P090 B3 (local):** tipo `cliente_pagare` en allowlist Mesa; MIME PDF/JPEG/PNG; gate `etapa_actual >= 7` en `register_mesa_documento`; versionado soft-delete vigente; contrato TS preparatorio sin UI; migración `088_…sql`; sin Cloud/commit.
+
+- **feat/mesa-monto-mejoravit-ui — P090 B2 (local):** UI Mesa (sección + diálogo + historial) y asesor RO para Monto actualizado Mejoravit; wrappers `get_expediente_monto_mejoravit_context` / `mesa_actualizar_monto_mejoravit`; vista previa cobro `%+$3,000`; sin Pagaré/SQL nuevo/Cloud/commit.
+
+- **feat/mesa-monto-mejoravit-actualizado — P090 B0–B1 (local):** columnas operativas `monto_mejoravit_actualizado*` en `cliente_datos`; historial append-only `expediente_monto_mejoravit_actualizaciones`; RPCs `mesa_actualizar_monto_mejoravit` / `get_expediente_monto_mejoravit_context`; precedencia operativa en `save_cliente_datos` y `upsert_editor_decision` (reingreso); cobro `ROUND(monto×%/100+3000,2)`; P087 intacto; sin UI/Pagaré/Cloud/commit.
+
 - **feat/mesa-citas-bulk-advance — P089 B3 (local):** acción masiva «Pasar a siguiente etapa» en `/mesa-control/citas` reutilizando `avanzar_etapa_operativa` vía `expedientesRepo.avanzarEtapaOperativa` (una llamada por expediente único); dedupe/conflictos por expediente; agrupación por transición; concurrencia máx. 5; resultados parciales; exitosos se deseleccionan (todos los bookings del expediente); fallidos permanecen; un solo refetch; Drive no es requisito; sin SQL/RPC batch/permisos.
 
 - **feat/mesa-citas-bulk-drive — P089 B2 (local):** acción masiva «Validar en Drive» en `/mesa-control/citas` reutilizando `mesa_set_agenda_drive_validation` (`p_validated=true`) vía `setMesaAgendaDriveValidation`; concurrencia máx. 5; confirmación + resultados parciales; exitosos se deseleccionan; fallidos permanecen; un solo refetch al terminar; no avanza etapas; sin SQL ni permisos.

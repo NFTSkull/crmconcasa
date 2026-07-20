@@ -1,5 +1,88 @@
 # Devlog
 
+## 2026-07-20 - P090 B5: Auditoría integral + commit local
+
+### Decisión
+
+- Auditoría completa B0–B4 sin ampliar alcance: migraciones 087/088, UI Monto + Pagaré, precedencia cobro, P087/P089 intactos.
+- Residuales **aceptados** (no se resuelven en B5):
+  1. Formulario editable de Datos Generales del asesor puede seguir mostrando `datos.montoMejoravit`; la sección P090 es el monto operativo autoritativo.
+  2. Posible objeto Storage huérfano si falla el cleanup best-effort tras RPC de Pagaré.
+  3. Históricos soft-deleted del Pagaré no visibles en UI (RLS normal solo vigente).
+  4. Migraciones 087/088 aplicadas manualmente en DB local; fuente de verdad = archivos de migración; **no** Cloud; no se repara `schema_migrations` local.
+- Un único commit local; sin push/PR/deploy/smoke/Cloud.
+
+## 2026-07-20 - P090 B4: UI Pagaré (Mesa + asesor RO)
+
+### Decisión
+
+- Sección Mesa dedicada `MesaPagareSection` (acordeón hermana), no dentro de complementarios ni Datos Generales / Monto.
+- `cliente_pagare` permanece fuera de `INTEGRATION_DOC_TIPOS_MESA_UPLOAD` para evitar botón duplicado; registro tipado vía `IntegrationDocMesaRegisterTipo`.
+- Reutiliza `uploadMesaDocumento` / `replaceMesaDocumento` → Storage + `register_mesa_documento` + cleanup best-effort del objeto nuevo si RPC falla.
+- Preview/descarga: `getArchivoBlob` + `MesaArchivoPreviewDialog` (PDF e imagen); sin URLs públicas.
+- Asesor: `AsesorPagareSection` solo lectura desde etapa 7; no importa upload/RPC de escritura.
+- Un refetch documental por operación Mesa; no toca etapa/monto/cobro/Admin.
+- Residual: si Storage sube y cleanup falla tras RPC, queda objeto huérfano (mismo patrón complementarios); sin UI de versiones históricas (RLS solo vigente).
+
+### Archivos
+
+- Dominio: `cliente-pagare.ts` (+ tests), mapper `version`/`full_name`, repo Mesa register tipo
+- UI: `MesaPagareSection`/`UploadDialog`, `AsesorPagareSection`, cableado detalle Mesa/asesor
+- Docs: PRODUCTO, API_CONTRATOS, CHANGELOG
+
+## 2026-07-20 - P090 B3: Backend Pagaré (`cliente_pagare`)
+
+### Decisión
+
+- Reutilizar `register_mesa_documento` (sin tabla paralela).
+- Allowlist Mesa +4: `cliente_pagare`.
+- MIME específico: PDF/JPEG/PNG; acta/SAT/semanas siguen PDF-only.
+- Gate solo Pagaré: `etapa_actual >= 7`; mensaje fijo de inscripción.
+- UI complementarios (`INTEGRATION_DOC_TIPOS_MESA_UPLOAD`) **sin** pagaré aún; allowlist SQL completa en `INTEGRATION_DOC_TIPOS_MESA_REGISTER`.
+- Asesor: RLS SELECT vigente; sin escritura.
+- Sin gate de avance, sin checklist, sin herencia reingreso, sin UI B4.
+
+### Archivos
+
+- `supabase/migrations/088_mesa_pagare_expediente.sql`
+- `supabase/tests/rpc_mesa_pagare_expediente.sql`
+- Catálogo TS + tests; docs
+
+## 2026-07-20 - P090 B2: UI Monto actualizado Mejoravit
+
+### Decisión
+
+- Sección Mesa **hermana** de Datos Generales (acordeón propio); no se embebe en `MesaClienteDatosReadOnlySection`.
+- Escritura exclusiva RPC `mesa_actualizar_monto_mejoravit`; lectura `get_expediente_monto_mejoravit_context`.
+- Asesor: sección RO solo si `montoMejoravitActualizado != null`; sin controles.
+- Vista previa cobro = `% + cargo_fijo(3000)`; backend autoridad final.
+- Tras éxito: 1 refetch contexto + 1 `load` del detalle padre (cobro en Datos Generales).
+- Sin Pagaré, sin SQL nuevo, sin Admin/P087.
+
+### Archivos
+
+- Dominio: `src/domain/monto-mejoravit-actualizado/*` (+ tests)
+- UI: `MesaMontoMejoravitActualizadoSection/Dialog`, `AsesorMontoMejoravitActualizadoSection`
+- Cableado: `MesaExpedienteDetalleReadOnly`, `asesor/expediente/[id]/page`
+
+## 2026-07-20 - P090 B0–B1: Monto actualizado Mejoravit (backend)
+
+### Decisión
+
+- Tres capas: editorial (`monto_aprobado`), snapshot (`monto_aprobado_al_aprobar` / P087), operativo (`COALESCE(actualizado, JSON válido, fallback −11%/169k)`).
+- **No** mutar `datos.montoMejoravit`; Datos Generales permanece editorial del asesor.
+- Cobro Mesa: `ROUND(nuevo × % / 100 + 3000, 2)`; bloquea sin `%`; método opcional; mismo monto (2 dec) bloqueado.
+- Historial append-only por expediente; `created_at` vía `clock_timestamp()` para orden estable intra-transacción.
+- Lectura: `get_expediente_monto_mejoravit_context`; `cargo_fijo=3000`; asesor `can_update=false`.
+- `save_cliente_datos` / reingreso editor respetan override; no herencia padre↔hijo.
+- P087 intacto (Admin solo snapshot). Pagaré documentado, **no** implementado. Sin UI.
+
+### Archivos
+
+- `supabase/migrations/087_mesa_monto_mejoravit_actualizado.sql`
+- `supabase/tests/rpc_mesa_monto_mejoravit_actualizado.sql`
+- Docs: `PRODUCTO.md`, `API_CONTRATOS.md`, `CHANGELOG.md`
+
 ## 2026-07-20 - P089 B3: Pasar a siguiente etapa masivo
 
 ### Decisión

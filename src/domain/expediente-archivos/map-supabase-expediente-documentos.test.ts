@@ -23,6 +23,27 @@ describe("mapSupabaseRowToExpedienteArchivoListItem", () => {
     assert.equal(item?.tipo_documento, "cliente_ine_frente");
     assert.equal(item?.estatus_revision, "subido");
     assert.equal(item?.uploaded_by_email, "asesor@concasa.mx");
+    assert.equal(item?.version, 1);
+    assert.equal(item?.uploaded_by_name, "asesor@concasa.mx");
+  });
+
+  it("mapea version y full_name cuando vienen en la fila", () => {
+    const item = mapSupabaseRowToExpedienteArchivoListItem({
+      id: "doc-2",
+      expediente_id: "exp-1",
+      tipo_documento: "cliente_pagare",
+      nombre_original: "pagare.pdf",
+      mime_type: "application/pdf",
+      size_bytes: 2048,
+      version: 3,
+      estatus_revision: "subido",
+      comentario_mesa: null,
+      uploaded_by_role: "mesa_control",
+      created_at: "2026-07-20T12:00:00.000Z",
+      uploaded_by_profile: { email: "mesa@concasa.mx", full_name: "Mesa Uno" },
+    });
+    assert.equal(item?.version, 3);
+    assert.equal(item?.uploaded_by_name, "Mesa Uno");
   });
 
   it("retorna null para tipo fuera del catálogo", () => {

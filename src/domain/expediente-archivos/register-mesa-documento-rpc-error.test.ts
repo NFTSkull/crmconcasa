@@ -20,8 +20,18 @@ describe("mapRegisterMesaDocumentoRpcError", () => {
     assert.match(err.message, /enviado a Mesa/i);
   });
 
-  it("mapea RPC no desplegada", () => {
-    const err = mapRegisterMesaDocumentoRpcError({ message: "could not find the function register_mesa_documento" });
-    assert.match(err.message, /aún no está disponible/i);
+  it("mapea gate de etapa Pagaré", () => {
+    const err = mapRegisterMesaDocumentoRpcError({
+      message:
+        "register_mesa_documento: El Pagaré solo puede cargarse después de concluir la inscripción.",
+    });
+    assert.match(err.message, /después de concluir la inscripción/i);
+  });
+
+  it("mapea MIME no permitido sin asumir solo PDF", () => {
+    const err = mapRegisterMesaDocumentoRpcError({
+      message: "register_mesa_documento: mime_type no permitido (image/gif)",
+    });
+    assert.match(err.message, /formato/i);
   });
 });

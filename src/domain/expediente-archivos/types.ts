@@ -36,6 +36,7 @@ export const TIPO_DOCUMENTO_CATALOGO = [
   "cliente_historial_laboral",
   "cliente_carta_empresa",
   "cliente_acta_nacimiento_digital",
+  "cliente_pagare",
 
   // ===== Acuse / Aviso de retención (etapa operativa 8) =====
   "retencion_acuse_con_sello",
@@ -176,6 +177,14 @@ export const DOCUMENTO_CATALOGO_MAP = Object.freeze({
     ownerRole: "cliente",
     obligatorio: "opcional",
     etapasRequeridas: [1, 2],
+  },
+  /** P090: Pagaré — Mesa escribe desde etapa 7; asesor solo lectura. No obligatorio / no gate. */
+  cliente_pagare: {
+    tipo: "cliente_pagare",
+    label: "Pagaré",
+    ownerRole: "mesa",
+    obligatorio: "opcional",
+    etapasRequeridas: [],
   },
 
   retencion_acuse_con_sello: {

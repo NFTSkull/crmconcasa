@@ -123,6 +123,50 @@ La UI identifica al hijo como **Reingreso / Reinscripción** y **Biométricos re
 - Etapa 1 queda `en_validacion_mesa`; etapas 2–12 quedan `en_proceso`. Etapas 11/12 son posición operativa y no registran firma/pago ni cierran el ciclo.
 - Los cuatro roles Mesa pueden agendar/reagendar firmas en etapas 9/10 de expedientes visibles. Un booking conservado fuera de esas etapas puede cancelarse explícitamente, nunca automáticamente.
 
+### 6.6 Monto actualizado Mejoravit (P090 — backend; sin UI aún)
+
+Tres montos distintos (no confundir):
+
+| Concepto | Fuente | Uso |
+|----------|--------|-----|
+| **Editorial** | `editor_decisions.monto_aprobado` | Decisión del editor; no lo reescribe Mesa. |
+| **Snapshot 1ª aprobación** | `editor_decisions.monto_aprobado_al_aprobar` | Inmutable; base de KPIs Admin (P087). |
+| **Operativo vigente** | Precedencia abajo | Base de cobro Mejoravit en el expediente. |
+
+**Precedencia del monto operativo:**
+
+1. `cliente_datos.monto_mejoravit_actualizado` (override Mesa), si existe y es > 0;
+2. `cliente_datos.datos.montoMejoravit` JSON válido (> 0);
+3. Fallback productivo: `LEAST(ROUND(monto_aprobado_editor × 0.89, 2), 169000)`.
+
+La sección Datos Generales y el JSON `datos.montoMejoravit` **no** se modifican al actualizar desde Mesa. El asesor puede seguir editando Datos Generales; eso no borra el override Mesa.
+
+**Cobro al actualizar desde Mesa:**
+
+`ROUND(monto_nuevo × porcentaje_cobro / 100 + 3000, 2)` — los $3,000 se suman una sola vez. Se conserva `%` y método de pago; se reemplaza `monto_calculado`. Sin `%` → bloquea. Sin método de pago → no bloquea. Mismo monto (tras redondeo a 2 decimales) → bloquea.
+
+**Quién puede escribir:** `mesa_admin`, `mesa_interno`, `mesa_externo`, `super_admin` (+ aliases vigentes de mesa), misma org, `can_see_expediente`, activo, no eliminado, enviado a Mesa. El asesor es solo lector (UI en B2). Historial append-only por expediente; **sin** herencia padre↔hijo en reingreso.
+
+**P087 intacto:** agregados Admin siguen usando `monto_aprobado_al_aprobar` con tope individual $169,000; no consultan el monto actualizado de Mesa.
+
+**Pagaré (P090 B4 UI):** tipo `cliente_pagare`; desde `etapa_actual >= 7`; no es gate; PDF/JPG/JPEG/PNG ≤ 15 MB; un vigente versionado; Mesa puede subir/reemplazar/ver/descargar; asesor RO ver/descargar; sin herencia en reingresos; no aparece en complementarios UI.
+
+### UI B2 (local)
+
+- **Mesa Control (detalle):** acordeón hermana de Datos Generales con sección `Monto actualizado Mejoravit`, historial DESC, diálogo de actualización y vista previa de cobro (`% + $3,000`). Escritura solo vía `mesa_actualizar_monto_mejoravit`; botón solo si `can_update`.
+- **Asesor (detalle):** sección RO visible **solo** si existe `monto_mejoravit_actualizado`; sin controles de edición; lectura vía `get_expediente_monto_mejoravit_context`.
+- Datos Generales y su JSON permanecen intactos. P087 y Admin sin cambios.
+
+### 6.7 Pagaré (P090 B4 — UI Mesa + asesor RO)
+
+- Tipo técnico: `cliente_pagare` (label: Pagaré).
+- **Mesa (detalle):** acordeón hermana «Pagaré» (después de Monto Mejoravit, antes de documentos). Etapa menor a 7: visible deshabilitada (`Disponible después de Inscripción`). Etapa ≥ 7: subir / reemplazar / ver / descargar documento vigente (versión, nombre, formato, fecha, quien cargó). Sin eliminar, sin historial de versiones en UI, sin gate ni avance desde la sección.
+- **Asesor (detalle):** sección RO solo si `etapa_actual >= 7`. Sin archivo: `Pendiente de Mesa`. Con archivo: badge `Cargado por Mesa` + Ver/Descargar. Sin Subir/Reemplazar/Eliminar/Validar.
+- Carga/reemplazo solo Mesa vía Storage `expediente-documentos` + `register_mesa_documento` (backend B3). Confirmaciones explícitas; un refetch documental por operación.
+- Formatos: PDF, JPG/JPEG, PNG. Máx. 15 MB. Path `{org}/{exp}/cliente_pagare/{uuid}.{ext}`.
+- **No** obligatorio, **no** gate de avance, **no** checklist/faltantes, **sin** notificaciones nuevas, **sin** herencia padre↔hijo.
+- No se lista en Documentos complementarios (`INTEGRATION_DOC_TIPOS_MESA_UPLOAD`); sección dedicada única.
+
 ---
 
 ## 7. Documentos

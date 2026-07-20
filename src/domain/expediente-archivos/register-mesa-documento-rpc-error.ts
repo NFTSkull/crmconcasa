@@ -47,6 +47,12 @@ export function mapRegisterMesaDocumentoRpcError(error: {
     );
   }
 
+  if (msg.includes("después de concluir la inscripción") || msg.includes("pagaré solo puede")) {
+    return new ExpedienteArchivosSupabaseError(
+      "El Pagaré solo puede cargarse después de concluir la inscripción.",
+    );
+  }
+
   if (msg.includes("tipo_documento no permitido")) {
     return new ExpedienteArchivosSupabaseError(
       "Este tipo de documento no puede subirlo Mesa de control.",
@@ -60,11 +66,24 @@ export function mapRegisterMesaDocumentoRpcError(error: {
   }
 
   if (msg.includes("mime_type no permitido")) {
-    return new ExpedienteArchivosSupabaseError("Solo se permiten archivos PDF.");
+    return new ExpedienteArchivosSupabaseError(
+      "El formato del archivo no está permitido para este documento.",
+    );
   }
 
   if (msg.includes("excede tamaño máximo")) {
     return new ExpedienteArchivosSupabaseError("El archivo excede el tamaño máximo permitido (15 MB).");
+  }
+
+  if (
+    msg.includes("concurrent") ||
+    msg.includes("cambió mientras") ||
+    msg.includes("versión activa") ||
+    msg.includes("documento vigente")
+  ) {
+    return new ExpedienteArchivosSupabaseError(
+      "El documento cambió mientras realizabas la operación. Actualiza la sección e inténtalo nuevamente.",
+    );
   }
 
   if (msg.includes("could not find the function") || msg.includes("schema cache")) {

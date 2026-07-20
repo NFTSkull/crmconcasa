@@ -20,6 +20,8 @@ import {
   buildRetencionAccordionSummary,
 } from "@/components/mesa-control/MesaExpedienteDocumentosResumen";
 import { MesaClienteDatosReadOnlySection } from "@/components/mesa-control/MesaClienteDatosReadOnlySection";
+import { MesaMontoMejoravitActualizadoSection } from "@/components/mesa-control/MesaMontoMejoravitActualizadoSection";
+import { MesaPagareSection } from "@/components/mesa-control/MesaPagareSection";
 import { MesaAvanceOperativoSection, MESA_AVANCE_OPERATIVO_2A3_COPY, MESA_AVANCE_OPERATIVO_3A5_COPY, MESA_AVANCE_OPERATIVO_4A5_COPY, MESA_AVANCE_OPERATIVO_5A6_COPY, MESA_AVANCE_OPERATIVO_6A7_COPY, MESA_AVANCE_OPERATIVO_7A8_COPY, MESA_AVANCE_OPERATIVO_8A9_COPY, MESA_AVANCE_OPERATIVO_9A10_COPY, MESA_FIRMA_ETAPA10_OPERATIVA_COPY, type MesaAvanceCancelCitaGate } from "@/components/mesa-control/MesaAvanceOperativoSection";
 import { MesaCierreValidacionDocumentalSection } from "@/components/mesa-control/MesaCierreValidacionDocumentalSection";
 import { MesaControlDocumentosComplementariosSection } from "@/components/mesa-control/MesaControlDocumentosComplementariosSection";
@@ -120,6 +122,7 @@ import { recordMesaExpedienteOpened } from "@/lib/mesaExpedienteOpenedStorage";
 import { MesaExpedienteOpsSection } from "@/components/mesa-control/MesaExpedienteOpsSection";
 import { MesaControlManualEtapaSection } from "@/components/mesa-control/MesaControlManualEtapaSection";
 import { MesaGestionFirmasSection } from "@/components/mesa-control/MesaGestionFirmasSection";
+import { isProgramaMejoravit } from "@/domain/expedientes/map-programa";
 
 type LoadState = "loading" | "ready" | "not_found" | "error";
 
@@ -1686,6 +1689,38 @@ export function MesaExpedienteDetalleReadOnly() {
           )}
         </MesaAccordionSection>
       ) : null}
+
+      {isProgramaMejoravit(expediente.base.programa) ? (
+        <MesaAccordionSection
+          id="mesa-monto-mejoravit-actualizado"
+          title="Monto actualizado Mejoravit"
+          summary="Operativo independiente de Datos Generales"
+        >
+          <div className="px-2 py-2 sm:px-3">
+            <MesaMontoMejoravitActualizadoSection
+              expedienteId={routeExpedienteId}
+              onParentRefresh={load}
+            />
+          </div>
+        </MesaAccordionSection>
+      ) : null}
+
+      <MesaAccordionSection
+        id="mesa-pagare"
+        title="Pagaré"
+        summary={
+          typeof etapaActual === "number" && etapaActual < 7
+            ? "Disponible después de Inscripción"
+            : "Carga y consulta por Mesa Control"
+        }
+      >
+        <MesaPagareSection
+          expedienteId={routeExpedienteId}
+          etapaActual={etapaActual}
+          puedeOperar={puedeOperarMesa}
+          submittedToMesa={op.submittedToMesa ?? false}
+        />
+      </MesaAccordionSection>
 
       {mostrarPanelIntegracionDocs ? (
         <MesaAccordionSection

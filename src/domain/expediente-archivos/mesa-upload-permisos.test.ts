@@ -77,4 +77,14 @@ describe("permisos upload Mesa vs asesor (contrato de tipos)", () => {
       (INTEGRATION_DOC_TIPOS_MESA_UPLOAD as readonly string[]).includes("cliente_semanas_cotizadas"),
     );
   });
+
+  it("Pagaré: registrable Mesa (SQL) pero no en UI complementarios ni upload asesor", () => {
+    assert.ok(
+      !(INTEGRATION_DOC_TIPOS_MESA_UPLOAD as readonly string[]).includes("cliente_pagare"),
+      "UI complementarios sin botón Pagaré aún (B4)",
+    );
+    assert.ok(
+      !(INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD as readonly string[]).includes("cliente_pagare"),
+    );
+  });
 });
