@@ -76,6 +76,7 @@ run_sql_test "supabase/tests/rpc_mesa_take_release.sql"
 run_sql_test "supabase/tests/admin_no_cumple_at_backfill.sql"
 run_sql_test "supabase/tests/admin_repair_corrupt_monto_snapshots.sql"
 run_sql_test "supabase/tests/admin_list_production_by_asesor_filter.sql"
+run_sql_test "supabase/tests/admin_monto_aprobado_mejoravit_cap_aggregate.sql"
 run_sql_test "supabase/tests/admin_mesa_correcciones_por_elemento.sql"
 run_sql_test "supabase/tests/admin_mesa_timeline_pagination.sql"
 
