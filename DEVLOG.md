@@ -1,5 +1,47 @@
 # Devlog
 
+## 2026-07-20 - P087: tope $169,000 por expediente en agregados Admin
+
+### Decisión
+
+- Alcance **solo Admin agregados**. No asesor, Mesa, editor, cobro ni `cliente_datos`.
+- Fuente intacta: `editor_decisions.monto_aprobado_al_aprobar` (snapshot real).
+- Aportación al indicador «Monto aprobado Mejoravit»:
+  `LEAST(COALESCE(monto_aprobado_al_aprobar, 0), 169000)` **por expediente antes** de `SUM`/`AVG`.
+- El total agregado **puede superar** $169,000 (no `LEAST` sobre el total).
+- El promedio usa la misma base limitada (`AVG(LEAST(...))`).
+- Filas individuales / Excel hoja Precalificaciones: monto crudo sin tope.
+- Excel Resumen/Asesores: consume agregados RPC ya limitados (sin re-suma).
+
+### RPCs
+
+Migración `086_admin_monto_aprobado_mejoravit_cap_aggregate.sql` redefine:
+
+- `admin_get_production_summary` (base 083) → `monto_aprobado_total`
+- `admin_list_production_by_asesor` (base 085) → `monto_aprobado_total`
+- `admin_list_precalificaciones_page` (base 083) → `monto_mejoravit_total` / `monto_mejoravit_promedio`
+
+Sin `UPDATE`, sin backfill, sin Cloud en esta entrega.
+
+### Mock TS
+
+`aportacionMontoAprobadoMejoravitAdmin` en `monto-aportacion-admin.ts`; usada solo en `computeAdminProductionSummary` y `computePrecalMontosMejoravit`.
+
+### Rollback
+
+Restaurar cuerpos 083/085 con `sum`/`avg` sin `LEAST` (documentado al final de 086).
+
+### Verificación SQL local (sin Cloud)
+
+`npx supabase db reset` puede fallar en `078_profile_asesor_mejoravit.sql` (UID Auth ausente en local). Eso **no** se automatiza en `scripts/test-sql.sh` (solo se registró el archivo de prueba P087). Procedimiento seguro usado:
+
+1. DB local con migraciones ≥077 (o reset hasta donde aplique).
+2. Aplicar a mano `079`…`086` con `psql` local (`127.0.0.1:54322`).
+3. `psql -f supabase/seed.sql` una vez si faltan perfiles/org.
+4. `psql -f supabase/tests/admin_monto_aprobado_mejoravit_cap_aggregate.sql`.
+
+No aplica migraciones a Cloud ni convierte fallos en éxito.
+
 ## 2026-07-17 - P085 §16A–§21: privacidad asesor, timeline, Excel, rendimiento
 
 ### Decisión

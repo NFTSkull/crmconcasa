@@ -4,13 +4,17 @@ import {
   isMontoMayorA20000,
   type AdminPeriodBounds,
 } from "./period";
+import { aportacionMontoAprobadoMejoravitAdmin } from "./monto-aportacion-admin";
 
 export type AdminProductionSummary = Readonly<{
   enviadosAMesa: number;
   precalificacionesAprobadas: number;
   precalificacionesNoCumple: number;
   aprobadasMayorA20000: number;
-  /** Suma canónica Mejoravit aprobado (`monto_aprobado_al_aprobar`). */
+  /**
+   * Suma Admin Mejoravit: por expediente aporta
+   * `min(monto_aprobado_al_aprobar, 169000)` (P087). Snapshot real intacto.
+   */
   montoAprobadoTotal: number;
 }>;
 
@@ -237,7 +241,7 @@ export function computeAdminProductionSummary(input: {
         aprobadasMayorA20000 += 1;
       }
       if (isProgramaMejoravit(row.programa) && hasMontoValido(monto)) {
-        montoAprobadoTotal += monto;
+        montoAprobadoTotal += aportacionMontoAprobadoMejoravitAdmin(monto);
       }
     }
 
@@ -288,7 +292,11 @@ export function computePrecalMontosMejoravit(
       isProgramaMejoravit(r.programa) &&
       hasMontoValido(r.montoAprobadoAlAprobar),
   );
-  const sum = subset.reduce((s, r) => s + (r.montoAprobadoAlAprobar as number), 0);
+  const sum = subset.reduce(
+    (s, r) =>
+      s + aportacionMontoAprobadoMejoravitAdmin(r.montoAprobadoAlAprobar as number),
+    0,
+  );
   return {
     montoAprobadoTotal: Math.round(sum * 100) / 100,
     montoPromedioAprobado:

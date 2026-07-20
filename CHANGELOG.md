@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **fix/admin-monto-mejoravit-cap — P087 (local):** en agregados Admin, cada precalificación Mejoravit aporta como máximo `$169,000` al SUM/AVG (`LEAST(snapshot, 169000)` por expediente). El total puede superar `$169,000`. Snapshots e individuales intactos. RPC: `admin_get_production_summary`, `admin_list_production_by_asesor`, `admin_list_precalificaciones_page` (migración `086_…sql`, no Cloud). Paridad mock TS. Sin backfill/commit/push/deploy.
+
 - **fix/admin-mesa-seguimiento — P085 §16A–§21 + Cloud:** contrato Mesa sin `asesor_email`; listado page-first; timeline paginado; UI/Excel/a11y; EXPLAIN OK; Cloud `fvtqbxukqlajezyyvwzy` aplicado con SHA `bfc95dff46992d7e6b017f7f3d2eb32a5f1a850ce74f42a8f577035736060d6e` (793/33695); núcleos P070–P082 MD5 intactos; commit/push/deploy en curso.
 
 - **fix/admin-mesa-seguimiento — P085 §7–§16 (local):** whitelist/situación/correcciones; privacidad (motivo ≤500, summary allowlist, sin HTML/payload); migración `085_…sql` SHA `f76a118d263edc5a3ec85f2776a7b813dee3a7de44b89dd0e45ae92d70415a30` (805 líneas / 33616 bytes); sin Cloud/commit/push/deploy.

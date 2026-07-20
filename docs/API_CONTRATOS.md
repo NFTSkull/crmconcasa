@@ -600,8 +600,9 @@ Convenciones:
 - Fechas canónicas Precal: `aprobado_at` (aprobadas) y `no_cumple_at` (No cumple). **No** `updated_at`.
 - KPI superior: Enviados Mesa, Aprobadas, No cumple, Aprobadas >$20k, Monto Mejoravit.
 - KPI / columna `monto_aprobado_total`: solo `decision = aprobado` + programa `mejoravit` + `monto_aprobado_al_aprobar`.
+- **P087:** en agregados Admin (`monto_aprobado_total`, `monto_mejoravit_total`, `monto_mejoravit_promedio`) cada expediente aporta `LEAST(COALESCE(monto_aprobado_al_aprobar,0), 169000)` **antes** del `SUM`/`AVG`. El total puede superar `$169,000`. El snapshot y las filas individuales (`monto_aprobado_al_aprobar`) **no** se modifican ni se topan en UI/Excel de detalle. Migración `086_…sql` (no implica UPDATE de datos).
 - **P084:** excepción controlada que repara snapshots demostrablemente corruptos (1ª aprobación absurda + bounce <60s) desde `action_log`; no redefine la inmutabilidad ordinaria ni cambia `aprobado_at`. Caso sin re-aprobación: `monto_aprobado_snapshot_no_recuperable=true` + `monto_aprobado_al_aprobar=NULL` (etiqueta «Aprobación histórica con monto no recuperable»).
-- Escritura `monto_aprobado` (aprobación): `> 0` + `NUMERIC(14,2)`. **No** hay máximo canónico de aprobación; `169000` es tope de base cobro Mejoravit, no del monto editor.
+- Escritura `monto_aprobado` (aprobación): `> 0` + `NUMERIC(14,2)`. **No** hay máximo canónico de aprobación del editor; el tope `$169,000` de P087 aplica **solo** a la aportación en agregados Admin, no al valor almacenado ni a la base de cobro Mejoravit.
 - Bloque Precalificaciones:
   - Filtro default **Resueltas** (Aprobadas ∪ No cumple del periodo).
   - Pendientes = estado actual (etiqueta «Pendiente actual»), sin inventar `pendiente_at` ni usar `updated_at`.
