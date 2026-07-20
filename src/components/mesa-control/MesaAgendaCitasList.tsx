@@ -3,6 +3,7 @@
 import type { MesaAgendaBookingEntry } from "@/domain/agenda-calendar/mesa.types";
 import { mesaAgendaBookingPersonDisplayName } from "@/domain/agenda-calendar/mesa.mapper";
 import { MesaAgendaCitaCard, MesaAgendaEntryActions } from "@/components/mesa-control/MesaAgendaCitasEntryParts";
+import { MesaAgendaBulkRowCheckbox } from "@/components/mesa-control/MesaAgendaBulkSelectionBar";
 import { Select } from "@/components/ui/Select";
 import {
   deriveMesaAgendaHistoryLabel,
@@ -44,7 +45,13 @@ type MesaAgendaCitasListProps = Readonly<{
   onRequestCancel?: (entry: MesaAgendaBookingEntry) => void;
   onRequestReagendar?: (entry: MesaAgendaBookingEntry) => void;
   onToggleDriveValidation?: (entry: MesaAgendaBookingEntry) => void;
+  selectedBookingIds?: ReadonlySet<string>;
+  isBulkRowSelectable?: (entry: MesaAgendaBookingEntry) => boolean;
+  bulkNotSelectableReason?: (entry: MesaAgendaBookingEntry) => string;
+  onBulkRowCheckedChange?: (entry: MesaAgendaBookingEntry, checked: boolean) => void;
+  bulkBusy?: boolean;
 }>;
+
 
 function historyGroupFor(
   entry: MesaAgendaBookingEntry,
@@ -67,7 +74,13 @@ export function MesaAgendaCitasList({
   onRequestCancel,
   onRequestReagendar,
   onToggleDriveValidation,
+  selectedBookingIds,
+  isBulkRowSelectable,
+  bulkNotSelectableReason,
+  onBulkRowCheckedChange,
+  bulkBusy = false,
 }: MesaAgendaCitasListProps) {
+  const showBulk = Boolean(selectedBookingIds && onBulkRowCheckedChange && isBulkRowSelectable);
   return (
     <>
       <div className="mb-3 max-w-xs">
@@ -84,6 +97,7 @@ export function MesaAgendaCitasList({
         <table className="min-w-full divide-y divide-slate-200 text-sm">
           <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
             <tr>
+              {showBulk ? <th className="px-3 py-3 w-10">Sel.</th> : null}
               <th className="px-4 py-3">Fecha y hora</th>
               <th className="px-4 py-3">Tipo</th>
               <th className="px-4 py-3">Cliente / NSS</th>
@@ -101,6 +115,12 @@ export function MesaAgendaCitasList({
               const showHistoryIndicator = hasMesaAgendaHistoryGroup(historyGroup);
               const driveMeta = formatMesaAgendaDriveValidatedMeta(entry);
               const driveRow = mesaAgendaDriveValidatedRowClass(entry);
+              const selectable = showBulk ? Boolean(isBulkRowSelectable?.(entry)) : false;
+              const checked = Boolean(selectedBookingIds?.has(entry.bookingId));
+              const reason =
+                showBulk && !selectable
+                  ? bulkNotSelectableReason?.(entry) ?? "No disponible para acciones masivas."
+                  : "Seleccionar cita";
               return (
                 <tr
                   key={entry.bookingId}
@@ -112,6 +132,21 @@ export function MesaAgendaCitasList({
                         : ""
                   }`}
                 >
+                  {showBulk ? (
+                    <td className="px-3 py-3 align-middle">
+                      <MesaAgendaBulkRowCheckbox
+                        bookingId={entry.bookingId}
+                        checked={checked}
+                        disabled={!selectable || bulkBusy}
+                        title={
+                          bulkBusy
+                            ? "Operación masiva en curso"
+                            : reason
+                        }
+                        onCheckedChange={(next) => onBulkRowCheckedChange?.(entry, next)}
+                      />
+                    </td>
+                  ) : null}
                   <td className="px-4 py-3 whitespace-nowrap">
                     <div>{formatMesaAgendaDateTime(entry)}</div>
                     {entry.status === "cancelled" && entry.cancelledAt ? (
@@ -181,7 +216,9 @@ export function MesaAgendaCitasList({
                       showDriveValidation={canDriveValidateEntry(entry)}
                       cancelPending={cancelPendingBookingId === entry.bookingId}
                       reagendarPending={reagendarPendingBookingId === entry.bookingId}
-                      drivePending={drivePendingBookingId === entry.bookingId}
+                      drivePending={
+                        drivePendingBookingId === entry.bookingId || bulkBusy
+                      }
                       onRequestCancel={onRequestCancel}
                       onRequestReagendar={onRequestReagendar}
                       onToggleDriveValidation={onToggleDriveValidation}
@@ -205,10 +242,20 @@ export function MesaAgendaCitasList({
             showDriveValidation={canDriveValidateEntry(entry)}
             cancelPending={cancelPendingBookingId === entry.bookingId}
             reagendarPending={reagendarPendingBookingId === entry.bookingId}
-            drivePending={drivePendingBookingId === entry.bookingId}
+            drivePending={
+                        drivePendingBookingId === entry.bookingId || bulkBusy
+                      }
             onRequestCancel={onRequestCancel}
             onRequestReagendar={onRequestReagendar}
             onToggleDriveValidation={onToggleDriveValidation}
+            bulkSelected={Boolean(selectedBookingIds?.has(entry.bookingId))}
+            bulkSelectable={Boolean(isBulkRowSelectable?.(entry)) && !bulkBusy}
+            bulkDisabledReason={
+              bulkBusy
+                ? "Operación masiva en curso"
+                : bulkNotSelectableReason?.(entry)
+            }
+            onBulkCheckedChange={onBulkRowCheckedChange}
           />
         ))}
       </div>
@@ -224,10 +271,20 @@ export function MesaAgendaCitasList({
             showDriveValidation={canDriveValidateEntry(entry)}
             cancelPending={cancelPendingBookingId === entry.bookingId}
             reagendarPending={reagendarPendingBookingId === entry.bookingId}
-            drivePending={drivePendingBookingId === entry.bookingId}
+            drivePending={
+                        drivePendingBookingId === entry.bookingId || bulkBusy
+                      }
             onRequestCancel={onRequestCancel}
             onRequestReagendar={onRequestReagendar}
             onToggleDriveValidation={onToggleDriveValidation}
+            bulkSelected={Boolean(selectedBookingIds?.has(entry.bookingId))}
+            bulkSelectable={Boolean(isBulkRowSelectable?.(entry)) && !bulkBusy}
+            bulkDisabledReason={
+              bulkBusy
+                ? "Operación masiva en curso"
+                : bulkNotSelectableReason?.(entry)
+            }
+            onBulkCheckedChange={onBulkRowCheckedChange}
           />
         ))}
       </div>

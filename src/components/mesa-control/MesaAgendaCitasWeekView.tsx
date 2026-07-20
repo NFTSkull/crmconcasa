@@ -24,6 +24,11 @@ type MesaAgendaCitasWeekViewProps = Readonly<{
   onRequestCancel?: (entry: MesaAgendaBookingEntry) => void;
   onRequestReagendar?: (entry: MesaAgendaBookingEntry) => void;
   onToggleDriveValidation?: (entry: MesaAgendaBookingEntry) => void;
+  selectedBookingIds?: ReadonlySet<string>;
+  isBulkRowSelectable?: (entry: MesaAgendaBookingEntry) => boolean;
+  bulkNotSelectableReason?: (entry: MesaAgendaBookingEntry) => string;
+  onBulkRowCheckedChange?: (entry: MesaAgendaBookingEntry, checked: boolean) => void;
+  bulkBusy?: boolean;
 }>;
 
 function WeekDayCard({
@@ -84,6 +89,11 @@ export function MesaAgendaCitasWeekView({
   onRequestCancel,
   onRequestReagendar,
   onToggleDriveValidation,
+  selectedBookingIds,
+  isBulkRowSelectable,
+  bulkNotSelectableReason,
+  onBulkRowCheckedChange,
+  bulkBusy = false,
 }: MesaAgendaCitasWeekViewProps) {
   const summaries = deriveMesaAgendaWeekDaySummaries(entries, weekDays);
   const detailDay = selectedDetailDay ?? weekDays.find((day) =>
@@ -121,6 +131,11 @@ export function MesaAgendaCitasWeekView({
             onRequestCancel={onRequestCancel}
             onRequestReagendar={onRequestReagendar}
             onToggleDriveValidation={onToggleDriveValidation}
+            selectedBookingIds={selectedBookingIds}
+            isBulkRowSelectable={isBulkRowSelectable}
+            bulkNotSelectableReason={bulkNotSelectableReason}
+            onBulkRowCheckedChange={onBulkRowCheckedChange}
+            bulkBusy={bulkBusy}
           />
         </section>
       ) : null}
