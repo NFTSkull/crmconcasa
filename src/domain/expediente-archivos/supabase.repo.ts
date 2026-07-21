@@ -40,11 +40,12 @@ const DOCUMENTOS_SELECT = `
   nombre_original,
   mime_type,
   size_bytes,
+  version,
   estatus_revision,
   comentario_mesa,
   uploaded_by_role,
   created_at,
-  uploaded_by_profile:profiles!expediente_documentos_uploaded_by_fkey ( email )
+  uploaded_by_profile:profiles!expediente_documentos_uploaded_by_fkey ( email, full_name )
 `;
 
 async function requireSupabaseSession(): Promise<{ client: SupabaseClient }> {

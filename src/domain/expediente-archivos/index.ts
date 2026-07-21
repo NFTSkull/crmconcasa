@@ -21,6 +21,9 @@ export {
   INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES_SOLO_ASESOR,
   INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD,
   INTEGRATION_DOC_TIPOS_MESA_UPLOAD,
+  INTEGRATION_DOC_TIPOS_MESA_REGISTER,
+  CLIENTE_PAGARE_DOCUMENT_TIPO,
+  CLIENTE_PAGARE_DOCUMENT_CONTRACT,
   INTEGRATION_DOC_TIPOS_OBLIGATORIOS,
   INTEGRATION_DOC_TIPOS_VALIDACION_MESA,
   countIntegrationDocsPresentes,
@@ -38,9 +41,26 @@ export {
   type IntegrationDocAsesorUploadTipo,
   type IntegrationDocChecklistItem,
   type IntegrationDocMesaUploadTipo,
+  type IntegrationDocMesaRegisterTipo,
   type IntegrationDocTipo,
   isIntegrationDocAsesorOpcionalTipo,
 } from "./integration-docs-completos";
+export {
+  CLIENTE_PAGARE_ACCEPT_ATTR,
+  buildClientePagareStoragePath,
+  canMesaOperatePagare,
+  findClientePagareFromList,
+  formatBytesLabel,
+  formatPagareMimeLabel,
+  mesaPagareWriteEnabled,
+  resolveClientePagareUploadMime,
+  resolveMesaPagareUiMode,
+  shouldShowAsesorPagareSection,
+  validateClientePagareFile,
+  type ClientePagareDocumento,
+  type ClientePagareMime,
+  type MesaPagareUiMode,
+} from "./cliente-pagare";
 export { mesaPuedeAbrirArchivo } from "./mesa-archivo-acceso";
 export {
   MESA_RECHAZO_MOTIVOS_SUGERIDOS,

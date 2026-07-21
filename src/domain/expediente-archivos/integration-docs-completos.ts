@@ -42,14 +42,47 @@ export const INTEGRATION_DOC_TIPOS_VALIDACION_MESA = [
 ] as const;
 
 /**
- * Espejo de `integration_doc_tipos_mesa_upload()` (migración 030).
- * Semanas, acta y constancia SAT — opcionales; Mesa puede subirlos.
+ * Espejo de `integration_doc_tipos_mesa_upload()` **para UI de complementarios**
+ * (semanas, acta, SAT). El Pagaré (`cliente_pagare`) está en la allowlist SQL Mesa
+ * pero se renderiza en sección propia (B4); no se lista aquí para no mostrar botones aún.
  */
 export const INTEGRATION_DOC_TIPOS_MESA_UPLOAD = [
   "cliente_semanas_cotizadas",
   "cliente_acta_nacimiento",
   "cliente_constancia_sat",
 ] as const;
+
+/** Tipo técnico Pagaré (P090). Registro vía `register_mesa_documento`; etapa mínima 7. */
+export const CLIENTE_PAGARE_DOCUMENT_TIPO = "cliente_pagare" as const;
+
+export type ClientePagareDocumentTipo = typeof CLIENTE_PAGARE_DOCUMENT_TIPO;
+
+/** Allowlist SQL completa Mesa (complementarios UI + Pagaré). */
+export const INTEGRATION_DOC_TIPOS_MESA_REGISTER = [
+  ...INTEGRATION_DOC_TIPOS_MESA_UPLOAD,
+  CLIENTE_PAGARE_DOCUMENT_TIPO,
+] as const;
+
+export type IntegrationDocMesaRegisterTipo =
+  (typeof INTEGRATION_DOC_TIPOS_MESA_REGISTER)[number];
+
+/** Contrato Pagaré (P090 B4 UI Mesa + asesor RO). */
+export const CLIENTE_PAGARE_DOCUMENT_CONTRACT = Object.freeze({
+  tipo: CLIENTE_PAGARE_DOCUMENT_TIPO,
+  label: "Pagaré",
+  origen: "Mesa" as const,
+  formatos: ["PDF", "JPG", "JPEG", "PNG"] as const,
+  mimePermitidos: [
+    "application/pdf",
+    "image/jpeg",
+    "image/png",
+  ] as const,
+  maxBytes: 15 * 1024 * 1024,
+  etapaMinima: 7,
+  obligatorio: false,
+  esGateAvance: false,
+});
+
 
 /**
  * Opcionales asesor que Mesa no lista en complementarios (semanas/acta/SAT van ahí).

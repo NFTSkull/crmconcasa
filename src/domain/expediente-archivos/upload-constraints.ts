@@ -34,23 +34,27 @@ export function validateExpedienteDocumentoFile(
 } {
   const fileValidation = validateExpedienteDocumentoUploadFile(file, tipoDocumento);
   if (!fileValidation.ok) {
-    return {
-      ok: false,
-      code: fileValidation.message === "Selecciona un archivo válido."
-        ? "archivo_vacio"
-        : "mime_no_permitido",
-      message:
-        fileValidation.message === "Selecciona un archivo válido."
-          ? fileValidation.message
-          : fileValidation.message || PDF_ONLY_UPLOAD_MESSAGE,
-    };
+    const message = fileValidation.message || PDF_ONLY_UPLOAD_MESSAGE;
+    if (
+      message.includes("vacío") ||
+      message === "Selecciona un archivo válido."
+    ) {
+      return { ok: false, code: "archivo_vacio", message };
+    }
+    if (message.includes("15 MB") || message.includes("supera el límite")) {
+      return { ok: false, code: "tamano_excedido", message };
+    }
+    return { ok: false, code: "mime_no_permitido", message };
   }
 
   if (file.size > EXPEDIENTE_DOCUMENTO_MAX_BYTES) {
     return {
       ok: false,
       code: "tamano_excedido",
-      message: `El archivo no puede superar ${EXPEDIENTE_DOCUMENTO_MAX_MB} MB.`,
+      message:
+        String(tipoDocumento ?? "").trim() === "cliente_pagare"
+          ? "El archivo supera el límite de 15 MB."
+          : `El archivo no puede superar ${EXPEDIENTE_DOCUMENTO_MAX_MB} MB.`,
     };
   }
 

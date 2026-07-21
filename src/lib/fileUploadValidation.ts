@@ -1,3 +1,8 @@
+import {
+  resolveClientePagareUploadMime,
+  validateClientePagareFile,
+} from "@/domain/expediente-archivos/cliente-pagare";
+
 export const ALLOWED_UPLOAD_MIME_TYPES = ["application/pdf"] as const;
 
 export const ALLOWED_UPLOAD_EXTENSIONS = [".pdf"] as const;
@@ -103,6 +108,9 @@ export function isPdfOrImageDocumentTipo(tipoDocumento?: string | null): boolean
 export function getExpedienteDocumentoAcceptAttr(
   tipoDocumento?: string | null,
 ): string {
+  if (String(tipoDocumento ?? "").trim() === "cliente_pagare") {
+    return ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png";
+  }
   return isPdfOrImageDocumentTipo(tipoDocumento)
     ? EXPEDIENTE_DOCUMENTO_INE_ACCEPT_ATTR
     : EXPEDIENTE_DOCUMENTO_PDF_ACCEPT_ATTR;
@@ -152,6 +160,9 @@ export function resolveExpedienteDocumentoUploadMime(
   file: File,
   tipoDocumento?: string | null,
 ): string {
+  if (String(tipoDocumento ?? "").trim() === "cliente_pagare") {
+    return resolveClientePagareUploadMime(file) ?? "";
+  }
   if (isPdfLikeFile(file)) return "application/pdf";
   if (isPdfOrImageDocumentTipo(tipoDocumento)) {
     const imageMime = resolveImageMimeForUpload(file);
@@ -220,6 +231,11 @@ export function validateExpedienteDocumentoUploadFile(
   file: File | null | undefined,
   tipoDocumento?: string | null,
 ): { ok: true } | { ok: false; message: string } {
+  if (String(tipoDocumento ?? "").trim() === "cliente_pagare") {
+    const result = validateClientePagareFile(file);
+    if (result.ok) return { ok: true };
+    return { ok: false, message: result.error };
+  }
   if (!file || file.size <= 0) {
     return { ok: false, message: "Selecciona un archivo válido." };
   }

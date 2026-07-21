@@ -16,7 +16,7 @@ export type ReplaceArchivoParams = UploadArchivoParams;
 
 export type UploadMesaDocumentoParams = {
   expedienteId: string;
-  tipo_documento: import("./integration-docs-completos").IntegrationDocMesaUploadTipo;
+  tipo_documento: import("./integration-docs-completos").IntegrationDocMesaRegisterTipo;
   file: File;
 };
 
@@ -41,9 +41,11 @@ export interface ExpedienteArchivosRepo {
     nombre_original: string;
     mime_type: string;
     size_bytes: number;
+    version: number;
     created_at: string;
     uploaded_by_role: string;
     uploaded_by_email: string;
+    uploaded_by_name: string | null;
     estatus_revision: EstatusRevision;
     comentario_mesa: string | null;
   }[]>;
