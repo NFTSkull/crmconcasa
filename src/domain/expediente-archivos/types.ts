@@ -38,6 +38,7 @@ export const TIPO_DOCUMENTO_CATALOGO = [
   "cliente_acta_nacimiento_digital",
   "cliente_pagare",
   "cliente_notificacion",
+  "cliente_solicitud",
 
   // ===== Acuse / Aviso de retención (etapa operativa 8) =====
   "retencion_acuse_con_sello",
@@ -194,6 +195,17 @@ export const DOCUMENTO_CATALOGO_MAP = Object.freeze({
   cliente_notificacion: {
     tipo: "cliente_notificacion",
     label: "Notificación",
+    ownerRole: "mesa",
+    obligatorio: "opcional",
+    etapasRequeridas: [],
+  },
+  /**
+   * P096: documento Solicitud (`cliente_solicitud`) — Mesa desde etapa 7; asesor RO.
+   * Nunca usar tipo corto `solicitud`. No obligatorio / no gate.
+   */
+  cliente_solicitud: {
+    tipo: "cliente_solicitud",
+    label: "Solicitud",
     ownerRole: "mesa",
     obligatorio: "opcional",
     etapasRequeridas: [],

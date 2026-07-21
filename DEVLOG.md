@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-07-21 - P096: Solicitud documento (`cliente_solicitud`)
+
+### Decisión
+- Clonar patrón P092 Notificación: tipo `cliente_solicitud` (nunca `solicitud`); etapa ≥ 7; roles Mesa `mesa_admin|mesa_interno|mesa_externo|super_admin`; PDF/JPEG/PNG ≤ 15 MiB; versionado soft-delete; no gate; sin herencia reingreso.
+- Migración `092_mesa_solicitud_documento_expediente.sql` (sin Cloud): allowlist + MIME + gate en `register_mesa_documento`; conserva Pagaré/Notificación.
+- UI orden: Pagaré → Notificación → Solicitud (Mesa acordeón + Asesor RO).
+
+### Verificación
+- Tests TS cableados; suite SQL preparada; lint/typecheck/test/build.
+- Cloud: `092` vía `db query --linked` (sin `db push`/repair); publish a `main`/Producción; sin smoke.
+
 ## 2026-07-21 - P095 B4: Publicación controlada (push + PR, sin merge)
 
 ### Alcance

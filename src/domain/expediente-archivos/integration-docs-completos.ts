@@ -43,9 +43,8 @@ export const INTEGRATION_DOC_TIPOS_VALIDACION_MESA = [
 
 /**
  * Espejo de `integration_doc_tipos_mesa_upload()` **para UI de complementarios**
- * (semanas, acta, SAT). Pagaré (`cliente_pagare`) y Notificación (`cliente_notificacion`)
- * están en la allowlist SQL Mesa (B1+) pero se renderizan en secciones propias; no se
- * listan aquí para no duplicar botones en complementarios.
+ * (semanas, acta, SAT). Pagaré, Notificación y Solicitud están en la allowlist SQL Mesa
+ * pero se renderizan en secciones propias; no se listan aquí para no duplicar botones.
  */
 export const INTEGRATION_DOC_TIPOS_MESA_UPLOAD = [
   "cliente_semanas_cotizadas",
@@ -67,11 +66,20 @@ export const CLIENTE_NOTIFICACION_DOCUMENT_TIPO = "cliente_notificacion" as cons
 export type ClienteNotificacionDocumentTipo =
   typeof CLIENTE_NOTIFICACION_DOCUMENT_TIPO;
 
-/** Allowlist SQL completa Mesa (complementarios UI + Pagaré + Notificación doc). */
+/**
+ * Tipo técnico documento Solicitud (P096).
+ * Nunca usar el tipo corto `solicitud`. Independiente de Pagaré y Notificación.
+ */
+export const CLIENTE_SOLICITUD_DOCUMENT_TIPO = "cliente_solicitud" as const;
+
+export type ClienteSolicitudDocumentTipo = typeof CLIENTE_SOLICITUD_DOCUMENT_TIPO;
+
+/** Allowlist SQL completa Mesa (complementarios UI + Pagaré + Notificación + Solicitud). */
 export const INTEGRATION_DOC_TIPOS_MESA_REGISTER = [
   ...INTEGRATION_DOC_TIPOS_MESA_UPLOAD,
   CLIENTE_PAGARE_DOCUMENT_TIPO,
   CLIENTE_NOTIFICACION_DOCUMENT_TIPO,
+  CLIENTE_SOLICITUD_DOCUMENT_TIPO,
 ] as const;
 
 export type IntegrationDocMesaRegisterTipo =
@@ -115,6 +123,25 @@ export const CLIENTE_NOTIFICACION_DOCUMENT_CONTRACT = Object.freeze({
   esGateAvance: false,
 });
 
+/**
+ * Contrato documento Solicitud (P096). Independiente de Pagaré/Notificación.
+ * Storage: `{orgId}/{expedienteId}/cliente_solicitud/{uuid}.{ext}` (bucket privado).
+ */
+export const CLIENTE_SOLICITUD_DOCUMENT_CONTRACT = Object.freeze({
+  tipo: CLIENTE_SOLICITUD_DOCUMENT_TIPO,
+  label: "Solicitud",
+  origen: "Mesa" as const,
+  formatos: ["PDF", "JPG", "JPEG", "PNG"] as const,
+  mimePermitidos: [
+    "application/pdf",
+    "image/jpeg",
+    "image/png",
+  ] as const,
+  maxBytes: 15 * 1024 * 1024,
+  etapaMinima: 7,
+  obligatorio: false,
+  esGateAvance: false,
+});
 
 /**
  * Opcionales asesor que Mesa no lista en complementarios (semanas/acta/SAT van ahí).

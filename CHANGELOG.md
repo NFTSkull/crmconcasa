@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **feat/mesa-solicitud-doc — P096 (Cloud + publish):** documento `cliente_solicitud` (label Solicitud) clon de Notificación: etapa ≥7; Mesa sube/reemplaza/ver/descarga; asesor RO; PDF/JPEG/PNG ≤15 MiB; migración `092_…sql` aplicada vía `db query --linked`; UI Pagaré→Notificación→Solicitud; sin smoke.
+
 - **ops/publish-citas-mesa-excel — P095 B4 (push + PR, sin merge):** publicación controlada rama `p095-citas-mesa-excel` (hoy Monterrey + Excel Fecha|NSS|Nombre); Preview Vercel; sin SQL/RPC/Cloud/deps nuevas; sin merge/smoke/Producción.
 
 - **feat/citas-mesa-excel-ui — P095 B3/B3.1 (local commit):** botón `Descargar Excel` en `/mesa-control/citas`; día + filtros; loading/errores/doble clic; independiente de P089; tests wiring; sin RPC/Cloud/push.

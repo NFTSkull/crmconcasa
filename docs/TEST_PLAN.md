@@ -1,5 +1,13 @@
 # ConCasa CRM — Plan de pruebas
 
+## P096 — Solicitud documento (`cliente_solicitud`)
+
+- [x] Tipo técnico `cliente_solicitud` (nunca `solicitud`); etapa ≥ 7; roles Mesa iguales a Notificación.
+- [x] Mesa: subir/reemplazar/ver/descargar; Asesor: RO ver/descargar.
+- [x] MIME PDF/JPEG/PNG ≤ 15 MiB; versionado; independiente de Pagaré/Notificación; sin gate; sin reingreso automático.
+- [x] Migración `092_…sql` local + Cloud `db query --linked`; UI orden Pagaré → Notificación → Solicitud.
+- [x] Publish producción (sin smoke).
+
 ## P095 — Citas Mesa: día operativo + Excel
 
 ### B0 / B0.1 (contrato)

@@ -53,7 +53,8 @@ export function validateExpedienteDocumentoFile(
       code: "tamano_excedido",
       message:
         String(tipoDocumento ?? "").trim() === "cliente_pagare" ||
-        String(tipoDocumento ?? "").trim() === "cliente_notificacion"
+        String(tipoDocumento ?? "").trim() === "cliente_notificacion" ||
+        String(tipoDocumento ?? "").trim() === "cliente_solicitud"
           ? "El archivo supera el límite de 15 MB."
           : `El archivo no puede superar ${EXPEDIENTE_DOCUMENTO_MAX_MB} MB.`,
     };
