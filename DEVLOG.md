@@ -1,5 +1,19 @@
 # Devlog
 
+## 2026-07-21 - P091: Buscador y contraste filtros `/asesor`
+
+### Decisión
+
+- Causa del «no filtra por nombre»: `term.replace(/\D/g,"")` vacío + `nssDigits.includes("")` === true → todas las filas pasaban. Extraído `matchesAsesorListadoBusqueda` (solo match por dígitos si hay dígitos).
+- Contraste: inputs nativos heredaban `--foreground` claro (dark OS) sobre `bg-white`; forzar `text-gray-900` / `placeholder:text-gray-500` / labels `text-gray-700`.
+- Paginación: `updateFilters` ya hacía `setPage(1)`; se conserva.
+- Alcance quirúrgico: solo listado `/asesor` + helper/tests; sin producción/SQL/Supabase/otros módulos.
+
+### Resultado
+
+- Helper + tests P088 (NSS/tel) y P091 (nombre no matchea todos).
+- UI contraste buscador + filtros avanzados; mensaje vacío específico con búsqueda.
+
 ## 2026-07-21 - P090 B7: Cloud apply controlado 087 → 088 (`fvtqbxukqlajezyyvwzy`)
 
 ### Decisión

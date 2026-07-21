@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **fix/asesor-buscador-filtros-visibles — P091 (local):** contraste legible en buscador y filtros avanzados de `/asesor`; búsqueda por nombre/programa vuelve a filtrar (evita `includes("")` en dígitos NSS/tel); conserva match NSS/tel por dígitos (P088); vacío sin coincidencias; `setPage(1)` al buscar; sin SQL/Cloud/otros módulos.
+
 - **feat/mesa-monto-pagare — P090 B0–B5 (local commit):** Monto actualizado Mejoravit (087 + UI Mesa/asesor RO) y Pagaré `cliente_pagare` (088 + UI Mesa/asesor RO); cobro `%+$3,000`; sin gate/obligatorio Pagaré; P087/P089 intactos; sin Cloud/push/PR.
 
 - **feat/mesa-pagare-ui — P090 B4 (local):** UI Pagaré en Mesa (subir/reemplazar/ver/descargar desde etapa 7) y asesor RO (pendiente/cargado); reutiliza Storage + `register_mesa_documento`; sin SQL/RPC nuevas; sin gate/obligatorio/complementarios duplicados; sin Cloud/commit.

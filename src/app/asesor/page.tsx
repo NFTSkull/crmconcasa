@@ -35,6 +35,7 @@ import {
   subestadoOperativoLabel,
 } from "@/lib/subestadoOperativoUi";
 import { formatMontoMX } from "@/lib/monto";
+import { matchesAsesorListadoBusqueda } from "@/lib/asesorListadoBusqueda";
 import { NotificationsBell } from "@/components/notifications/NotificationsBell";
 import { AsesorAgendaCalendarButton } from "@/components/asesor/AsesorAgendaCalendarButton";
 import { buildDashboardNotifications } from "@/lib/dashboardNotifications";
@@ -786,18 +787,11 @@ export default function AsesorDashboardPage() {
   const expedientesFiltrados = useMemo(() => {
     let list = mockPrecalList;
 
-    const term = (filters.buscar ?? "").trim().toLowerCase();
-    if (term) {
-      list = list.filter(
-        (p) =>
-          (p.cliente_nombre ?? "").toLowerCase().includes(term) ||
-          (p.nss ?? "").replace(/\D/g, "").includes(term.replace(/\D/g, "")) ||
-          (p.nss ?? "").toLowerCase().includes(term) ||
-          (p.telefono_cliente ?? "")
-            .replace(/\D/g, "")
-            .includes(term.replace(/\D/g, "")) ||
-          (p.programa ?? "").toLowerCase().includes(term)
-      );
+    const term = filters.buscar ?? "";
+    if (term.trim()) {
+      // P091: no usar includes("") en dígitos NSS/tel (rompe búsqueda por nombre).
+      // P088: match por dígitos de NSS/teléfono se conserva en matchesAsesorListadoBusqueda.
+      list = list.filter((p) => matchesAsesorListadoBusqueda(p, term));
     }
 
     if (filters.decision) {
@@ -1193,7 +1187,7 @@ export default function AsesorDashboardPage() {
                   updateFilters((prev) => ({ ...prev, buscar: e.target.value }))
                 }
                 placeholder="Buscar cliente, NSS, teléfono o programa..."
-                className="w-full rounded-md border border-gray-300 px-2.5 py-1.5 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                className="w-full rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-sm text-gray-900 shadow-sm placeholder:text-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
             </div>
             <Link href="/asesor/nueva" className="shrink-0">
@@ -1290,11 +1284,11 @@ export default function AsesorDashboardPage() {
           <button
             type="button"
             onClick={() => setAdvancedFiltersOpen((o) => !o)}
-            className="mt-2 flex w-full items-center justify-between rounded-md border border-dashed border-gray-200 bg-gray-50/50 px-2 py-1.5 text-left text-xs font-medium text-gray-700 hover:bg-gray-100"
+            className="mt-2 flex w-full items-center justify-between rounded-md border border-dashed border-gray-300 bg-gray-50 px-2 py-1.5 text-left text-xs font-medium text-gray-900 hover:bg-gray-100"
             aria-expanded={advancedFiltersOpen}
           >
             <span>Filtros avanzados</span>
-            <span className="text-gray-400" aria-hidden>
+            <span className="text-gray-600" aria-hidden>
               {advancedFiltersOpen ? "▲" : "▼"}
             </span>
           </button>
@@ -1304,7 +1298,7 @@ export default function AsesorDashboardPage() {
                 <div className="min-w-0">
                   <label
                     htmlFor="asesor-decision"
-                    className="mb-0.5 block text-[11px] font-medium text-gray-600"
+                    className="mb-0.5 block text-[11px] font-medium text-gray-700"
                   >
                     Decisión
                   </label>
@@ -1314,7 +1308,7 @@ export default function AsesorDashboardPage() {
                     onChange={(e) =>
                       updateFilters((prev) => ({ ...prev, decision: e.target.value }))
                     }
-                    className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   >
                     {DECISION_OPTIONS.map((o) => (
                       <option key={o.value || "all"} value={o.value}>
@@ -1326,7 +1320,7 @@ export default function AsesorDashboardPage() {
                 <div className="min-w-0">
                   <label
                     htmlFor="asesor-resultado-real"
-                    className="mb-0.5 block text-[11px] font-medium text-gray-600"
+                    className="mb-0.5 block text-[11px] font-medium text-gray-700"
                   >
                     Resultado real
                   </label>
@@ -1339,7 +1333,7 @@ export default function AsesorDashboardPage() {
                         resultadoReal: e.target.value,
                       }))
                     }
-                    className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   >
                     {RESULTADO_REAL_OPTIONS.map((o) => (
                       <option key={o.value || "all"} value={o.value}>
@@ -1351,7 +1345,7 @@ export default function AsesorDashboardPage() {
                 <div className="min-w-0">
                   <label
                     htmlFor="asesor-programa"
-                    className="mb-0.5 block text-[11px] font-medium text-gray-600"
+                    className="mb-0.5 block text-[11px] font-medium text-gray-700"
                   >
                     Programa
                   </label>
@@ -1361,7 +1355,7 @@ export default function AsesorDashboardPage() {
                     onChange={(e) =>
                       updateFilters((prev) => ({ ...prev, programa: e.target.value }))
                     }
-                    className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   >
                     <option value="">Todos</option>
                     {programasUnicos.map((prog) => (
@@ -1374,7 +1368,7 @@ export default function AsesorDashboardPage() {
                 <div className="min-w-0">
                   <label
                     htmlFor="asesor-etapa-exacta"
-                    className="mb-0.5 block text-[11px] font-medium text-gray-600"
+                    className="mb-0.5 block text-[11px] font-medium text-gray-700"
                   >
                     Etapa exacta
                   </label>
@@ -1384,7 +1378,7 @@ export default function AsesorDashboardPage() {
                     onChange={(e) =>
                       updateFilters((prev) => ({ ...prev, etapaExacta: e.target.value }))
                     }
-                    className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   >
                     {ETAPA_EXACTA_OPTIONS.map((o) => (
                       <option key={o.value || "all"} value={o.value}>
@@ -1396,7 +1390,7 @@ export default function AsesorDashboardPage() {
                 <div className="min-w-0">
                   <label
                     htmlFor="asesor-estatus"
-                    className="mb-0.5 block text-[11px] font-medium text-gray-600"
+                    className="mb-0.5 block text-[11px] font-medium text-gray-700"
                   >
                     Estatus operativo
                   </label>
@@ -1409,7 +1403,7 @@ export default function AsesorDashboardPage() {
                         estatusOperativo: e.target.value,
                       }))
                     }
-                    className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   >
                     {ESTATUS_OPTIONS.map((o) => (
                       <option key={o.value || "all"} value={o.value}>
@@ -1421,7 +1415,7 @@ export default function AsesorDashboardPage() {
                 <div className="min-w-0">
                   <label
                     htmlFor="asesor-fecha-desde"
-                    className="mb-0.5 block text-[11px] font-medium text-gray-600"
+                    className="mb-0.5 block text-[11px] font-medium text-gray-700"
                   >
                     Fecha desde
                   </label>
@@ -1432,13 +1426,13 @@ export default function AsesorDashboardPage() {
                     onChange={(e) =>
                       updateFilters((prev) => ({ ...prev, fechaDesde: e.target.value }))
                     }
-                    className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   />
                 </div>
                 <div className="min-w-0">
                   <label
                     htmlFor="asesor-fecha-hasta"
-                    className="mb-0.5 block text-[11px] font-medium text-gray-600"
+                    className="mb-0.5 block text-[11px] font-medium text-gray-700"
                   >
                     Fecha hasta
                   </label>
@@ -1449,7 +1443,7 @@ export default function AsesorDashboardPage() {
                     onChange={(e) =>
                       updateFilters((prev) => ({ ...prev, fechaHasta: e.target.value }))
                     }
-                    className="w-full rounded-md border border-gray-300 px-2 py-1.5 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                    className="w-full rounded-md border border-gray-300 bg-white px-2 py-1.5 text-sm text-gray-900 shadow-sm focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
                   />
                 </div>
               </div>
@@ -1461,13 +1455,15 @@ export default function AsesorDashboardPage() {
           <div className="overflow-x-auto px-2 py-1.5 sm:px-3 sm:py-2">
             {expedientesPagina.length === 0 ? (
               <div className="px-4 py-6 text-center">
-                <p className="text-xs text-gray-500 sm:text-sm">
+                <p className="text-xs text-gray-600 sm:text-sm">
                   {totalCount === 0
                     ? dataSupabase
                       ? "Aún no tienes expedientes."
                       : "Aún no hay precalificaciones guardadas para este asesor."
                     : (quickFilterEmptyMessage(quickFilter) ??
-                      "No hay resultados con los filtros aplicados. Pruebe otros criterios o limpie los filtros.")}
+                      (filters.buscar.trim()
+                        ? "No hay coincidencias con la búsqueda. Pruebe otro término o limpie los filtros."
+                        : "No hay resultados con los filtros aplicados. Pruebe otros criterios o limpie los filtros."))}
                 </p>
               </div>
             ) : (
