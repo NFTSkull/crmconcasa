@@ -2,19 +2,21 @@
 
 ## P095 — Citas Mesa: día operativo + Excel
 
-### B0 / B0.1 (auditoría + contrato cerrado)
+### B0 / B0.1 (contrato)
 
-- [x] Ruta `/mesa-control/citas`, cliente `MesaAgendaCitasClient`, RPC `get_mesa_agenda_bookings`.
-- [x] Gap actual: default `lista` = mes; `todayMesaAgendaYmd` = TZ local (no Monterrey).
-- [x] Contrato: apertura = hoy Monterrey, solo ese día; cambio de fecha limpia selección P089 y conserva filtros.
-- [x] Contrato Excel: `citas-mesa-YYYY-MM-DD.xlsx` / hoja `Citas` / Fecha|NSS|Nombre; in-memory; sin selección; sin límite 100; sin RPC/Storage.
-- [x] Decisiones pendientes cerradas en docs; sin código app.
+- [x] Contrato: hoy Monterrey, solo ese día; Excel Fecha|NSS|Nombre in-memory; P089 intacto.
 
-### B1+ (pendiente — no iniciar en B0.1)
+### B1 (fecha — local, sin Excel/commit)
 
-- [ ] Implementar TZ Monterrey + default un día.
-- [ ] Botón `Descargar Excel` según contrato.
-- [ ] Regresión P089 Drive/avance masivo; sin RPC/Cloud.
+- [x] `todayMesaAgendaYmd` / `defaultMesaAgendaDayRange` en `America/Monterrey`.
+- [x] Apertura vista `lista` con from=to=selectedDay=hoy; sin mes completo.
+- [x] Cambio de fecha sincroniza from/to/selectedDay; conserva filtros; limpia selección.
+- [x] Tests TZ + sync + fetch range un día.
+- [ ] Sin botón Excel / `.xlsx` / deps nuevas / SQL / Cloud.
+
+### B2+ (pendiente)
+
+- [ ] `Descargar Excel` según contrato B0.
 
 ## P094 — Rechazados vs Cancelados
 

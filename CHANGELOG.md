@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **feat/citas-mesa-hoy — P095 B1 (local, sin commit):** apertura `/mesa-control/citas` en vista `lista` con hoy `America/Monterrey` (from=to=selectedDay); sync de fecha; sin Excel/RPC/Cloud.
+
 - **docs/citas-mesa-excel — P095 B0/B0.1 (local commit docs):** contrato cerrado `/mesa-control/citas`: hoy Monterrey, solo ese día; Excel Fecha\|NSS\|Nombre in-memory (sin selección/límite 100/Storage/RPC); P089 intacto; sin código app/Cloud/push.
 
 - **ops/cloud-p094 — P094 B6 (Cloud `fvtqbxukqlajezyyvwzy`, sin merge):** aplicadas 090→091 vía `db query --linked` (sin `db push`/repair); conteos negocio intactos; PR #14 OPEN.

@@ -739,27 +739,18 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 
 ---
 
-## 17a-bis. Mesa Citas — fecha del día + export Excel (P095 — contrato B0 cerrado)
+## 17a-bis. Mesa Citas — fecha del día + export Excel (P095)
 
-**UI:** `/mesa-control/citas` · componente `MesaAgendaCitasClient`.
+**UI:** `/mesa-control/citas` · `MesaAgendaCitasClient` · vista default `lista`.
 
-**Lectura existente (sin cambio de contrato RPC en P095):**
-- RPC `get_mesa_agenda_bookings(p_start_date, p_end_date, p_include_cancelled, p_kind)`.
-- Cliente: `fetchMesaAgendaBookings` → `MesaAgendaBookingEntry` (`bookingDate`, `nss`, `clienteNombre`, …).
-- La RPC **no pagina**; filtros sede/asesor/búsqueda son **cliente**. Kind + incluir canceladas también llegan a RPC.
+**Lectura:** RPC `get_mesa_agenda_bookings` (sin cambio de firma). Cliente `fetchMesaAgendaBookings`.
 
-**Fecha operativa (contrato):**
-- Zona: `America/Monterrey` (patrón Admin `ADMIN_BUSINESS_TIMEZONE` / `zonedYmdParts`).
-- Apertura: `p_start_date = p_end_date = hoy Monterrey` → solo citas del día; **prohibido** default mes completo / `toISOString` UTC.
-- Cambio de fecha: nuevo fetch del día; limpia selección masiva; conserva filtros compatibles.
+**Fecha (B1):**
+- `MESA_AGENDA_BUSINESS_TIMEZONE` = `America/Monterrey` vía `zonedYmdParts`.
+- Apertura: `defaultMesaAgendaDayRange()` → `p_start_date = p_end_date = hoy`.
+- Cambio de fecha: `syncMesaAgendaSingleDay(ymd)` alinea `listaStartDate`/`listaEndDate`/`selectedDay`; refetch; selección P089 se limpia por `selectionClearKey`; filtros UI se conservan.
 
-**Export Excel (cliente, contrato):**
-- Pipeline in-memory: filtros activos → día seleccionado → filas `{ Fecha, NSS, Nombre completo }`.
-- **Independiente** de checkboxes / selección P089; **ignora** el límite de 100 de acciones masivas.
-- Archivo `citas-mesa-YYYY-MM-DD.xlsx`; hoja `Citas`; NSS como texto sanitizado.
-- **Sin** RPC nueva, **sin** Storage, **sin** mutar bookings, **sin** columnas extra.
-
-**Fuera de alcance P095:** Asesor, Admin, book/cancel/reagendar RPC, cambios a lógica P089 (solo coexistir en la pantalla).
+**Export Excel:** pendiente B2+ (contrato B0 intacto: Fecha|NSS|Nombre; in-memory; sin RPC/Storage).
 
 ---
 

@@ -1,5 +1,19 @@
 # Devlog
 
+## 2026-07-21 - P095 B1: Citas Mesa abre en hoy (America/Monterrey)
+
+### Decisión
+
+- Vista default sigue **`lista`** (no forzar `dia`) para no alterar el flujo P089.
+- `todayMesaAgendaYmd` usa `zonedYmdParts` + `America/Monterrey` (mismo criterio Admin).
+- Apertura: `defaultMesaAgendaDayRange()` → from=to=selectedDay=hoy; fetch un solo día.
+- Cambio de fecha: `syncMesaAgendaSingleDay` / `applySingleDay` alinea los tres campos; selección masiva se limpia vía `selectionClearKey` existente; filtros intactos.
+- Sin Excel, deps, SQL, RPC, Cloud ni commit B1.
+
+### Resultado
+
+- Helpers + Client/ViewControls + tests TZ/sync; docs B1.
+
 ## 2026-07-21 - P095 B0/B0.1: Contrato cerrado Citas Mesa + Excel
 
 ### Decisión (cerrada)

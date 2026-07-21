@@ -6,6 +6,10 @@ import {
   normalizeBookingTime,
 } from "@/lib/asesorAgendaCalendar";
 import {
+  ADMIN_BUSINESS_TIMEZONE,
+  zonedYmdParts,
+} from "@/domain/admin-production/period";
+import {
   compareMesaAgendaBookingEntries,
   mesaAgendaBookingPersonDisplayName,
 } from "@/domain/agenda-calendar/mesa.mapper";
@@ -23,6 +27,9 @@ import {
 export const MESA_AGENDA_CITAS_ROUTE = "/mesa-control/citas";
 
 export const MESA_AGENDA_MAX_RANGE_DAYS = 62;
+
+/** Zona de negocio para “hoy” y cortes diarios en Citas Mesa (P095). */
+export const MESA_AGENDA_BUSINESS_TIMEZONE = ADMIN_BUSINESS_TIMEZONE;
 
 export type MesaAgendaCitasKindUiFilter = "all" | MesaAgendaBookingKind;
 
@@ -58,6 +65,32 @@ export function defaultMesaAgendaMonthRange(date: Date = new Date()): {
   endDate: string;
 } {
   return computeCalendarMonthRange(date.getFullYear(), date.getMonth());
+}
+
+/** Rango inicial P095: un solo día (hoy Monterrey). Vista `lista` conserva P089. */
+export function defaultMesaAgendaDayRange(now: Date = new Date()): {
+  startDate: string;
+  endDate: string;
+} {
+  const ymd = todayMesaAgendaYmd(now);
+  return { startDate: ymd, endDate: ymd };
+}
+
+/**
+ * Sincroniza date_from / date_to / selectedDay al mismo YMD (consulta un solo día).
+ * No toca filtros ni muta citas.
+ */
+export function syncMesaAgendaSingleDay(ymd: string): {
+  listaStartDate: string;
+  listaEndDate: string;
+  selectedDay: string;
+} {
+  const day = ymd.trim();
+  return {
+    listaStartDate: day,
+    listaEndDate: day,
+    selectedDay: day,
+  };
 }
 
 export function validateMesaAgendaDateRange(
@@ -272,8 +305,10 @@ export function formatMesaAgendaYmd(date: Date): string {
   return `${date.getFullYear()}-${padYmdPart(date.getMonth() + 1)}-${padYmdPart(date.getDate())}`;
 }
 
+/** “Hoy” operativo en America/Monterrey (no UTC / no solo TZ del navegador). */
 export function todayMesaAgendaYmd(date: Date = new Date()): string {
-  return formatMesaAgendaYmd(date);
+  const parts = zonedYmdParts(date, MESA_AGENDA_BUSINESS_TIMEZONE);
+  return `${parts.year}-${padYmdPart(parts.month)}-${padYmdPart(parts.day)}`;
 }
 
 export function parseMesaAgendaYmd(ymd: string): Date {

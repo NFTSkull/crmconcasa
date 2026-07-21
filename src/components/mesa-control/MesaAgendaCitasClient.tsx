@@ -53,7 +53,7 @@ import {
   canMesaShowDriveValidationActions,
   clearMesaAgendaClientFilters,
   defaultMesaAgendaClientFilters,
-  defaultMesaAgendaMonthRange,
+  defaultMesaAgendaDayRange,
   deriveMesaAgendaSummary,
   filterMesaAgendaEntriesForDay,
   groupMesaAgendaHistory,
@@ -67,6 +67,7 @@ import {
   MESA_REAGENDAR_SUCCESS_MESSAGE,
   resolveMesaAgendaFetchRange,
   shiftMesaAgendaDayYmd,
+  syncMesaAgendaSingleDay,
   todayMesaAgendaYmd,
   validateMesaAgendaDateRange,
   type MesaAgendaCitasClientFilters,
@@ -100,14 +101,14 @@ export function MesaAgendaCitasClient() {
   const expedientesRepo = useExpedientesRepo();
   const agendaBookingRepo = useAgendaBiometricosBookingRepo();
   const firmasBookingRepo = useAgendaFirmasBookingRepo();
-  const defaultRange = useMemo(() => defaultMesaAgendaMonthRange(), []);
+  const defaultRange = useMemo(() => defaultMesaAgendaDayRange(), []);
 
   const [viewMode, setViewMode] = useState<MesaAgendaCitasViewMode>(MESA_AGENDA_DEFAULT_VIEW);
   const [sortBy, setSortBy] = useState<MesaAgendaCitasSortOption>(MESA_AGENDA_DEFAULT_SORT);
   const [listaStartDate, setListaStartDate] = useState(defaultRange.startDate);
   const [listaEndDate, setListaEndDate] = useState(defaultRange.endDate);
-  const [selectedDay, setSelectedDay] = useState(() => todayMesaAgendaYmd());
-  const [weekAnchor, setWeekAnchor] = useState(() => todayMesaAgendaYmd());
+  const [selectedDay, setSelectedDay] = useState(defaultRange.startDate);
+  const [weekAnchor, setWeekAnchor] = useState(defaultRange.startDate);
   const [weekDetailDay, setWeekDetailDay] = useState<string | null>(null);
   const [filters, setFilters] = useState<MesaAgendaCitasClientFilters>(
     defaultMesaAgendaClientFilters(),
@@ -552,6 +553,10 @@ export function MesaAgendaCitasClient() {
 
   const handleViewModeChange = useCallback((mode: MesaAgendaCitasViewMode) => {
     setViewMode(mode);
+    if (mode === "lista") {
+      setListaStartDate(selectedDay);
+      setListaEndDate(selectedDay);
+    }
     if (mode === "dia") {
       setSelectedDay((prev) => prev || todayMesaAgendaYmd());
     }
@@ -559,21 +564,34 @@ export function MesaAgendaCitasClient() {
       setWeekAnchor((prev) => prev || todayMesaAgendaYmd());
       setWeekDetailDay(null);
     }
+  }, [selectedDay]);
+
+  /** P095: un solo día operativo — sincroniza from/to/selectedDay. */
+  const applySingleDay = useCallback((ymd: string) => {
+    const day = ymd.trim();
+    if (!day) return;
+    const synced = syncMesaAgendaSingleDay(day);
+    setListaStartDate(synced.listaStartDate);
+    setListaEndDate(synced.listaEndDate);
+    setSelectedDay(synced.selectedDay);
   }, []);
 
   const handleGoToday = useCallback(() => {
     const today = todayMesaAgendaYmd();
-    if (viewMode === "dia") {
-      setSelectedDay(today);
-    } else if (viewMode === "semana") {
+    if (viewMode === "semana") {
       setWeekAnchor(today);
       setWeekDetailDay(today);
+      return;
     }
-  }, [viewMode]);
+    applySingleDay(today);
+  }, [viewMode, applySingleDay]);
 
-  const handleShiftDay = useCallback((delta: number) => {
-    setSelectedDay((prev) => shiftMesaAgendaDayYmd(prev, delta));
-  }, []);
+  const handleShiftDay = useCallback(
+    (delta: number) => {
+      applySingleDay(shiftMesaAgendaDayYmd(selectedDay, delta));
+    },
+    [applySingleDay, selectedDay],
+  );
 
   const handleShiftWeek = useCallback((delta: number) => {
     setWeekAnchor((prev) => shiftMesaAgendaDayYmd(prev, delta * 7));
@@ -818,9 +836,9 @@ export function MesaAgendaCitasClient() {
           weekDays={weekRange.days}
           loading={loading}
           onViewModeChange={handleViewModeChange}
-          onStartDateChange={setListaStartDate}
-          onEndDateChange={setListaEndDate}
-          onSelectedDayChange={setSelectedDay}
+          onStartDateChange={applySingleDay}
+          onEndDateChange={applySingleDay}
+          onSelectedDayChange={applySingleDay}
           onShiftDay={handleShiftDay}
           onShiftWeek={handleShiftWeek}
           onGoToday={handleGoToday}
