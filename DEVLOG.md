@@ -4,16 +4,18 @@
 
 ### Decisión
 
-- Aplicación directa vía `npx supabase db query --linked -f` (sin `db push` / `migration up` / `migration repair` / tocar `schema_migrations`).
+- Aplicación directa vía `npx supabase db query --linked -f <archivo>` (sin `db push` / `migration up` / `migration repair`).
 - Orden: **087** (Monto Mejoravit) → verificación → **088** (Pagaré) → verificación.
 - Backup previo de defs Cloud en `/tmp/p090-cloud-backup-b7-20260721T101518/` (`save_cliente_datos`, `upsert_editor_decision`, `integration_doc_tipos_mesa_upload`, `expediente_documento_mime_permitido`, `register_mesa_documento`).
-- Conteos de negocio **sin cambio**: cliente_datos=156, expedientes=2109, expediente_documentos=993, editor_decisions=2109; historial monto=0; docs `cliente_pagare`=0.
-- Sin smoke, sin abrir UI nuevas, sin merge del PR #9.
+- Conteos de negocio **iguales antes y después**: cliente_datos=156, expedientes=2109, expediente_documentos=993, editor_decisions=2109.
+- Overrides de monto: **0**; historial de monto: **0**; documentos `cliente_pagare`: **0**; sin backfill ni mutación de datos.
+- Sin smoke, sin abrir UI nuevas, sin merge del PR #9 en B7.
+- Residual: `schema_migrations` Cloud sigue truncado hasta **040**; 087/088 **no** se registraron ahí y **no** se reparó.
 
 ### Resultado
 
-- 087: columnas override + historial RLS + RPCs monto + `save`/`upsert` con precedencia. Apply ~16:15:47–16:15:51Z UTC, exit 0.
-- 088: allowlist + MIME Pagaré + gate etapa≥7 en `register_mesa_documento`. Apply ~16:16:40–16:16:44Z UTC, exit 0.
+- 087 (~16:15:47–16:15:51Z UTC, exit 0): columnas override + historial RLS + RPCs monto + `save`/`upsert` con precedencia verificados.
+- 088 (~16:16:40–16:16:44Z UTC, exit 0): allowlist + MIME Pagaré + gate etapa≥7 en `register_mesa_documento` verificados.
 - SHA archivos locales: 087 `d2948000…de93`; 088 `232ce8d6…a33c`.
 
 ## 2026-07-20 - P090 B5: Auditoría integral + commit local
