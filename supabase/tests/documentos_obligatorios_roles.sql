@@ -34,10 +34,14 @@ BEGIN
   IF 'cliente_acta_nacimiento' = ANY(v_envio)
      OR 'cliente_constancia_sat' = ANY(v_envio)
      OR 'cliente_pagare' = ANY(v_envio)
+     OR 'cliente_notificacion' = ANY(v_envio)
+     OR 'cliente_solicitud' = ANY(v_envio)
      OR 'cliente_acta_nacimiento' = ANY(v_upload)
      OR 'cliente_constancia_sat' = ANY(v_upload)
-     OR 'cliente_pagare' = ANY(v_upload) THEN
-    RAISE EXCEPTION 'documentos_obligatorios_roles: acta/SAT/pagaré no deben estar en listas asesor';
+     OR 'cliente_pagare' = ANY(v_upload)
+     OR 'cliente_notificacion' = ANY(v_upload)
+     OR 'cliente_solicitud' = ANY(v_upload) THEN
+    RAISE EXCEPTION 'documentos_obligatorios_roles: acta/SAT/pagaré/notif/solicitud no deben estar en listas asesor';
   END IF;
 
   IF v_oblig <> v_envio THEN
@@ -48,12 +52,16 @@ BEGIN
     'cliente_acta_nacimiento' = ANY(v_mesa)
     AND 'cliente_constancia_sat' = ANY(v_mesa)
     AND 'cliente_pagare' = ANY(v_mesa)
+    AND 'cliente_notificacion' = ANY(v_mesa)
+    AND 'cliente_solicitud' = ANY(v_mesa)
   ) THEN
-    RAISE EXCEPTION 'documentos_obligatorios_roles: mesa_upload debe incluir acta, SAT y pagaré';
+    RAISE EXCEPTION 'documentos_obligatorios_roles: mesa_upload debe incluir acta, SAT, pagaré, notif y solicitud';
   END IF;
 
-  IF 'cliente_pagare' = ANY(v_oblig) THEN
-    RAISE EXCEPTION 'documentos_obligatorios_roles: pagaré no debe ser obligatorio';
+  IF 'cliente_pagare' = ANY(v_oblig)
+     OR 'cliente_notificacion' = ANY(v_oblig)
+     OR 'cliente_solicitud' = ANY(v_oblig) THEN
+    RAISE EXCEPTION 'documentos_obligatorios_roles: pagaré/notif/solicitud no deben ser obligatorios';
   END IF;
 
   RAISE NOTICE 'documentos_obligatorios_roles: catálogos OK';

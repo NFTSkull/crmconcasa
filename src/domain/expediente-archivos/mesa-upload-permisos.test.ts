@@ -105,4 +105,22 @@ describe("permisos upload Mesa vs asesor (contrato de tipos)", () => {
       "nunca tipo corto notificacion en complementarios",
     );
   });
+
+  it("Solicitud documento: registrable Mesa pero no en UI complementarios ni upload asesor", () => {
+    assert.ok(
+      !(INTEGRATION_DOC_TIPOS_MESA_UPLOAD as readonly string[]).includes(
+        "cliente_solicitud",
+      ),
+      "UI complementarios sin botón Solicitud",
+    );
+    assert.ok(
+      !(INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD as readonly string[]).includes(
+        "cliente_solicitud",
+      ),
+    );
+    assert.ok(
+      !(INTEGRATION_DOC_TIPOS_MESA_UPLOAD as readonly string[]).includes("solicitud"),
+      "nunca tipo corto solicitud en complementarios",
+    );
+  });
 });

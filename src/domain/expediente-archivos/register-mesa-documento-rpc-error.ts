@@ -48,6 +48,16 @@ export function mapRegisterMesaDocumentoRpcError(error: {
   }
 
   if (msg.includes("después de concluir la inscripción") || msg.includes("pagaré solo puede")) {
+    if (msg.includes("documento solicitud")) {
+      return new ExpedienteArchivosSupabaseError(
+        "El documento Solicitud solo puede cargarse después de concluir la inscripción.",
+      );
+    }
+    if (msg.includes("documento notificación") || msg.includes("documento notificacion")) {
+      return new ExpedienteArchivosSupabaseError(
+        "El documento Notificación solo puede cargarse después de concluir la inscripción.",
+      );
+    }
     return new ExpedienteArchivosSupabaseError(
       "El Pagaré solo puede cargarse después de concluir la inscripción.",
     );

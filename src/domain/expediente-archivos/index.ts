@@ -26,6 +26,8 @@ export {
   CLIENTE_PAGARE_DOCUMENT_CONTRACT,
   CLIENTE_NOTIFICACION_DOCUMENT_TIPO,
   CLIENTE_NOTIFICACION_DOCUMENT_CONTRACT,
+  CLIENTE_SOLICITUD_DOCUMENT_TIPO,
+  CLIENTE_SOLICITUD_DOCUMENT_CONTRACT,
   INTEGRATION_DOC_TIPOS_OBLIGATORIOS,
   INTEGRATION_DOC_TIPOS_VALIDACION_MESA,
   countIntegrationDocsPresentes,
@@ -78,6 +80,21 @@ export {
   type ClienteNotificacionMime,
   type MesaNotificacionDocumentoUiMode,
 } from "./cliente-notificacion";
+export {
+  CLIENTE_SOLICITUD_ACCEPT_ATTR,
+  buildClienteSolicitudStoragePath,
+  canMesaOperateSolicitudDocumento,
+  findClienteSolicitudFromList,
+  formatSolicitudDocumentoMimeLabel,
+  mesaSolicitudDocumentoWriteEnabled,
+  resolveClienteSolicitudUploadMime,
+  resolveMesaSolicitudDocumentoUiMode,
+  shouldShowAsesorSolicitudDocumentoSection,
+  validateClienteSolicitudFile,
+  type ClienteSolicitudDocumento,
+  type ClienteSolicitudMime,
+  type MesaSolicitudDocumentoUiMode,
+} from "./cliente-solicitud";
 export { mesaPuedeAbrirArchivo } from "./mesa-archivo-acceso";
 export {
   MESA_RECHAZO_MOTIVOS_SUGERIDOS,

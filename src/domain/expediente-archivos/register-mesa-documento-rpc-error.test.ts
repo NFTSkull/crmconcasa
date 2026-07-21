@@ -25,6 +25,16 @@ describe("mapRegisterMesaDocumentoRpcError", () => {
       message:
         "register_mesa_documento: El Pagaré solo puede cargarse después de concluir la inscripción.",
     });
+    assert.match(err.message, /Pagaré/i);
+    assert.match(err.message, /después de concluir la inscripción/i);
+  });
+
+  it("mapea gate de etapa Solicitud", () => {
+    const err = mapRegisterMesaDocumentoRpcError({
+      message:
+        "register_mesa_documento: El documento Solicitud solo puede cargarse después de concluir la inscripción.",
+    });
+    assert.match(err.message, /Solicitud/i);
     assert.match(err.message, /después de concluir la inscripción/i);
   });
 

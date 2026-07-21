@@ -6,6 +6,10 @@ import {
   resolveClienteNotificacionUploadMime,
   validateClienteNotificacionFile,
 } from "@/domain/expediente-archivos/cliente-notificacion";
+import {
+  resolveClienteSolicitudUploadMime,
+  validateClienteSolicitudFile,
+} from "@/domain/expediente-archivos/cliente-solicitud";
 
 export const ALLOWED_UPLOAD_MIME_TYPES = ["application/pdf"] as const;
 
@@ -113,7 +117,7 @@ export function getExpedienteDocumentoAcceptAttr(
   tipoDocumento?: string | null,
 ): string {
   const tipo = String(tipoDocumento ?? "").trim();
-  if (tipo === "cliente_pagare" || tipo === "cliente_notificacion") {
+  if (tipo === "cliente_pagare" || tipo === "cliente_notificacion" || tipo === "cliente_solicitud") {
     return ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png";
   }
   return isPdfOrImageDocumentTipo(tipoDocumento)
@@ -171,6 +175,9 @@ export function resolveExpedienteDocumentoUploadMime(
   }
   if (tipo === "cliente_notificacion") {
     return resolveClienteNotificacionUploadMime(file) ?? "";
+  }
+  if (tipo === "cliente_solicitud") {
+    return resolveClienteSolicitudUploadMime(file) ?? "";
   }
   if (isPdfLikeFile(file)) return "application/pdf";
   if (isPdfOrImageDocumentTipo(tipoDocumento)) {
@@ -248,6 +255,11 @@ export function validateExpedienteDocumentoUploadFile(
   }
   if (tipo === "cliente_notificacion") {
     const result = validateClienteNotificacionFile(file);
+    if (result.ok) return { ok: true };
+    return { ok: false, message: result.error };
+  }
+  if (tipo === "cliente_solicitud") {
+    const result = validateClienteSolicitudFile(file);
     if (result.ok) return { ok: true };
     return { ok: false, message: result.error };
   }
