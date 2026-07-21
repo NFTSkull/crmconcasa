@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **ops/cloud-p094 — P094 B6 (Cloud `fvtqbxukqlajezyyvwzy`, sin merge):** aplicadas 090→091 vía `db query --linked` (sin `db push`/repair); conteos negocio intactos; PR #14 OPEN.
+
 - **feat/admin-estado-rechazados-cancelados — P094 B4 (local, sin commit):** migración `091_…sql` separa `p_estado` Rechazados (`subestado=rechazado∧ciclo=activo`) vs Cancelados (`ciclo=cancelado`) en summary/cohort/by_asesor/mesa_envios; suite SQL + frontend nativo; sin Cloud/push.
 
 - **feat/asesor-admin-rechazados-cancelados — P094 B3/B3.1 (local commit):** Asesor `cancelado` vs `rechazado_mesa` (ciclo activo); KPI/filtro/detalle RO; Admin Rechazados ≠ Cancelados (mock + split cliente Supabase sobre bucket legado 082–086); tests cableados; sin SQL nuevo/Cloud/push.

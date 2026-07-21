@@ -1,5 +1,22 @@
 # Devlog
 
+## 2026-07-21 - P094 B6: Cloud apply controlado 090 → 091 (`fvtqbxukqlajezyyvwzy`)
+
+### Decisión
+
+- Aplicación directa vía `npx supabase db query --linked -f <archivo>` (sin `db push` / `migration up` / `migration repair`).
+- Orden: **090** (cancelación terminal) → verificación → **091** (Admin `p_estado` disjunto) → verificación.
+- Backup previo de defs Admin en `/tmp/p094-cloud-backup-b6-20260721T210216Z/`.
+- Conteos de negocio **iguales antes y después**: expedientes=2153, expediente_documentos=1017, agenda_bookings=119, editor_decisions=2153, cliente_datos=156; `expediente_cancelaciones`=0; expedientes `ciclo=cancelado`=0.
+- Residual aceptado: `schema_migrations` Cloud sigue truncado hasta **040**; 090/091 **no** se registraron ahí y **no** se reparó.
+- Sin smoke, sin abrir Preview/Producción, sin merge del PR #14.
+
+### Resultado
+
+- 090 (~21:02:41–21:02:45Z UTC, exit 0): tabla RLS `expediente_cancelaciones` + RPC `cancelar_expediente_operativo` (SECURITY DEFINER; authenticated EXECUTE; anon sin EXECUTE).
+- 091 (~21:03:19–21:03:22Z UTC, exit 0): 4 RPC Admin con ramas `rechazados`/`cancelados` disjuntas; mezcla legada ausente; P087 `LEAST(...,169000)` intacto en summary/by_asesor.
+- SHA archivos: 090 `e06c41de…2415`; 091 `41a1c65b…ad785`.
+
 ## 2026-07-21 - P094 B4: Admin RPC p_estado rechazados vs cancelados
 
 ### Decisión
