@@ -52,6 +52,7 @@ import {
 } from "@/domain/expediente-archivos";
 import {
   ExpedientesSupabaseError,
+  esExpedienteCancelado,
   getMesaControlManualEstado,
   useExpedientesRepo,
   deriveAvanceOperativo2a3View,
@@ -63,6 +64,7 @@ import {
   deriveAvanceOperativo8a9View,
   deriveAvanceOperativo9a10View,
   deriveCierreValidacionDocumentalView,
+  type ExpedienteCancelacionRow,
   type ExpedienteMock,
 } from "@/domain/expedientes";
 import {
@@ -123,6 +125,8 @@ import { recordMesaExpedienteOpened } from "@/lib/mesaExpedienteOpenedStorage";
 import { MesaExpedienteOpsSection } from "@/components/mesa-control/MesaExpedienteOpsSection";
 import { MesaControlManualEtapaSection } from "@/components/mesa-control/MesaControlManualEtapaSection";
 import { MesaRechazoOperativoPostBiometricosCard } from "@/components/mesa-control/MesaRechazoOperativoPostBiometricosCard";
+import { MesaCancelarExpedienteCard } from "@/components/mesa-control/MesaCancelarExpedienteCard";
+import { MesaExpedienteCanceladoBanner } from "@/components/mesa-control/MesaExpedienteCanceladoBanner";
 import { MesaGestionFirmasSection } from "@/components/mesa-control/MesaGestionFirmasSection";
 import { isProgramaMejoravit } from "@/domain/expedientes/map-programa";
 import {
@@ -132,7 +136,8 @@ import {
 
 type LoadState = "loading" | "ready" | "not_found" | "error";
 
-function formatDateTime(iso: string): string {
+function formatDateTime(iso: string | null | undefined): string {
+  if (!iso) return "—";
   try {
     const d = new Date(iso);
     if (Number.isNaN(d.getTime())) return "—";
@@ -281,12 +286,20 @@ export function MesaExpedienteDetalleReadOnly() {
   const [mesaOps, setMesaOps] = useState<MesaExpedienteOpsRow | null>(null);
   const [mesaOpsUserId, setMesaOpsUserId] = useState<string | null>(null);
   const [mesaOpsAppRole, setMesaOpsAppRole] = useState<string | null>(null);
+  const [cancelacionOperativa, setCancelacionOperativa] =
+    useState<ExpedienteCancelacionRow | null>(null);
 
   const mesaMockRole =
     typeof window !== "undefined" ? getEffectiveMockRole() : null;
   const mesaSessionRole = currentUser?.role ?? null;
 
   const puedeOperarMesa = puedeRevisarDocumentos(currentUser?.role);
+  const cicloOperativoActivo =
+    (expediente?.operativo.cicloEstado ?? "activo") === "activo";
+  const puedeOperarMesaActivo = puedeOperarMesa && cicloOperativoActivo;
+  const expedienteCancelado = esExpedienteCancelado(
+    expediente?.operativo.cicloEstado,
+  );
   const firmasMesaUiAccess = getMesaFirmasUiAccess({
     role: mesaOpsAppRole ?? mesaSessionRole ?? mesaMockRole,
     etapaActual: expediente?.operativo.etapaActual ?? null,
@@ -325,11 +338,12 @@ export function MesaExpedienteDetalleReadOnly() {
         setBiometricosConfig(null);
         setActiveFirmasBooking(null);
         setFirmasConfig(null);
+        setCancelacionOperativa(null);
         setLoadState("not_found");
           return;
         }
 
-        const [datos, archivos, lista, booking, notificacionBooking, bioConfig, firmasBooking, firmasCfg, bioCancelled, firmasCancelled] =
+        const [datos, archivos, lista, booking, notificacionBooking, bioConfig, firmasBooking, firmasCfg, bioCancelled, firmasCancelled, cancelacion] =
           await Promise.all([
           clienteDatosRepo.getByExpedienteId(routeExpedienteId).catch(() => null),
           archivosRepo.listResumenByExpediente(routeExpedienteId).catch(() => []),
@@ -355,6 +369,11 @@ export function MesaExpedienteDetalleReadOnly() {
           firmasBookingRepo
             ? firmasBookingRepo.getLastCancelledBooking(routeExpedienteId).catch(() => null)
             : Promise.resolve(null),
+          exp.operativo.cicloEstado === "cancelado"
+            ? expedientesRepo
+                .getUltimaCancelacionOperativa(routeExpedienteId)
+                .catch(() => null)
+            : Promise.resolve(null),
         ]);
 
         setExpediente(exp);
@@ -366,6 +385,7 @@ export function MesaExpedienteDetalleReadOnly() {
         setBiometricosConfig(bioConfig);
         setActiveFirmasBooking(firmasBooking);
         setFirmasConfig(firmasCfg);
+        setCancelacionOperativa(cancelacion);
         if (mesaOpsRepo) {
           try {
             const opsRow = await mesaOpsRepo.getByExpedienteId(routeExpedienteId);
@@ -399,6 +419,7 @@ export function MesaExpedienteDetalleReadOnly() {
         setFirmasConfig(null);
         setBiometricosCancelledMotivo(null);
         setFirmasCancelledMotivo(null);
+        setCancelacionOperativa(null);
         setLoadState("error");
         if (err instanceof ExpedientesSupabaseError) {
           setErrorMsg(err.message);
@@ -1547,11 +1568,11 @@ export function MesaExpedienteDetalleReadOnly() {
     controlManualEstado.visible && controlManualEstado.habilitado;
 
   const puedeRevisarClienteDatos =
-    puedeOperarMesa && mesaPuedeRevisarClienteDatos(etapaActual);
+    puedeOperarMesaActivo && mesaPuedeRevisarClienteDatos(etapaActual);
   const puedeRevisarDocsIntegracion =
-    puedeOperarMesa && mesaPuedeRevisarDocumentosIntegracion(etapaActual);
+    puedeOperarMesaActivo && mesaPuedeRevisarDocumentosIntegracion(etapaActual);
   const puedeRevisarRetencion =
-    puedeOperarMesa &&
+    puedeOperarMesaActivo &&
     mesaPuedeRevisarRetencionDocumentos(etapaActual, Boolean(retencionEnvio?.enviado));
 
   const clienteDatosSummary = buildClienteDatosAccordionSummary({
@@ -1583,6 +1604,12 @@ export function MesaExpedienteDetalleReadOnly() {
 
   return (
     <MesaDetalleShell>
+      {expedienteCancelado ? (
+        <MesaExpedienteCanceladoBanner
+          cancelacion={cancelacionOperativa}
+          formatDateTime={formatDateTime}
+        />
+      ) : null}
       <section className="rounded-lg border border-gray-200 bg-white p-4 text-sm text-gray-600">
         <h2 className="text-sm font-semibold text-gray-900">Resumen del expediente</h2>
         <div className="mt-3 grid gap-2 sm:grid-cols-2">
@@ -1738,7 +1765,7 @@ export function MesaExpedienteDetalleReadOnly() {
         <MesaPagareSection
           expedienteId={routeExpedienteId}
           etapaActual={etapaActual}
-          puedeOperar={puedeOperarMesa}
+          puedeOperar={puedeOperarMesaActivo}
           submittedToMesa={op.submittedToMesa ?? false}
         />
       </MesaAccordionSection>
@@ -1755,7 +1782,7 @@ export function MesaExpedienteDetalleReadOnly() {
         <MesaNotificacionDocumentoSection
           expedienteId={routeExpedienteId}
           etapaActual={etapaActual}
-          puedeOperar={puedeOperarMesa}
+          puedeOperar={puedeOperarMesaActivo}
           submittedToMesa={op.submittedToMesa ?? false}
         />
       </MesaAccordionSection>
@@ -1790,7 +1817,7 @@ export function MesaExpedienteDetalleReadOnly() {
         <MesaControlDocumentosComplementariosSection
           embedded
           documentos={documentosComplementarios}
-          puedeOperar={puedeOperarMesa}
+          puedeOperar={puedeOperarMesaActivo}
           archivoLoadingTipo={complementarioArchivoLoadingTipo}
           uploadLoadingTipo={uploadLoadingTipo}
           archivoErrorByTipo={complementarioArchivoErrorByTipo}
@@ -1912,7 +1939,7 @@ export function MesaExpedienteDetalleReadOnly() {
 
       <MesaCierreValidacionDocumentalSection
         view={cierreValidacionView}
-        puedeOperar={puedeOperarMesa}
+        puedeOperar={puedeOperarMesaActivo}
         loading={continuarLoading}
         error={continuarError}
         success={continuarSuccess}
@@ -1922,7 +1949,7 @@ export function MesaExpedienteDetalleReadOnly() {
       <MesaAvanceOperativoSection
         view={avanceOperativo2a3View}
         copy={MESA_AVANCE_OPERATIVO_2A3_COPY}
-        puedeOperar={puedeOperarMesa}
+        puedeOperar={puedeOperarMesaActivo}
         loading={avance2a3Loading}
         error={avance2a3Error}
         success={avance2a3Success}
@@ -1932,7 +1959,7 @@ export function MesaExpedienteDetalleReadOnly() {
       <MesaAvanceOperativoSection
         view={avanceOperativo3a5View}
         copy={MESA_AVANCE_OPERATIVO_3A5_COPY}
-        puedeOperar={puedeOperarMesa}
+        puedeOperar={puedeOperarMesaActivo}
         loading={avance3a5Loading}
         error={avance3a5Error}
         success={avance3a5Success}
@@ -1944,7 +1971,7 @@ export function MesaExpedienteDetalleReadOnly() {
       <MesaAvanceOperativoSection
         view={avanceOperativo4a5View}
         copy={MESA_AVANCE_OPERATIVO_4A5_COPY}
-        puedeOperar={puedeOperarMesa}
+        puedeOperar={puedeOperarMesaActivo}
         loading={avance4a5Loading}
         error={avance4a5Error}
         success={avance4a5Success}
@@ -1956,7 +1983,7 @@ export function MesaExpedienteDetalleReadOnly() {
       <MesaAvanceOperativoSection
         view={avanceOperativo5a6View}
         copy={MESA_AVANCE_OPERATIVO_5A6_COPY}
-        puedeOperar={puedeOperarMesa}
+        puedeOperar={puedeOperarMesaActivo}
         loading={avance5a6Loading}
         error={avance5a6Error}
         success={avance5a6Success}
@@ -1968,7 +1995,7 @@ export function MesaExpedienteDetalleReadOnly() {
       <MesaAvanceOperativoSection
         view={avanceOperativo6a7View}
         copy={MESA_AVANCE_OPERATIVO_6A7_COPY}
-        puedeOperar={puedeOperarMesa}
+        puedeOperar={puedeOperarMesaActivo}
         loading={avance6a7Loading}
         error={avance6a7Error}
         success={avance6a7Success}
@@ -1978,7 +2005,7 @@ export function MesaExpedienteDetalleReadOnly() {
       <MesaAvanceOperativoSection
         view={avanceOperativo7a8View}
         copy={MESA_AVANCE_OPERATIVO_7A8_COPY}
-        puedeOperar={puedeOperarMesa}
+        puedeOperar={puedeOperarMesaActivo}
         loading={avance7a8Loading}
         error={avance7a8Error}
         success={avance7a8Success}
@@ -1988,7 +2015,7 @@ export function MesaExpedienteDetalleReadOnly() {
       <MesaAvanceOperativoSection
         view={avanceOperativo8a9View}
         copy={MESA_AVANCE_OPERATIVO_8A9_COPY}
-        puedeOperar={puedeOperarMesa}
+        puedeOperar={puedeOperarMesaActivo}
         loading={avance8a9Loading}
         error={avance8a9Error}
         success={avance8a9Success}
@@ -1999,7 +2026,7 @@ export function MesaExpedienteDetalleReadOnly() {
       <MesaAvanceOperativoSection
         view={avanceOperativo9a10View}
         copy={MESA_AVANCE_OPERATIVO_9A10_COPY}
-        puedeOperar={puedeOperarMesa}
+        puedeOperar={puedeOperarMesaActivo}
         loading={avance9a10Loading}
         error={avance9a10Error}
         success={avance9a10Success}
@@ -2011,7 +2038,7 @@ export function MesaExpedienteDetalleReadOnly() {
       <MesaAvanceOperativoSection
         view={firmaEtapa10OperativaView}
         copy={MESA_FIRMA_ETAPA10_OPERATIVA_COPY}
-        puedeOperar={puedeOperarMesa}
+        puedeOperar={puedeOperarMesaActivo}
         loading={false}
         error={null}
         success={null}
@@ -2032,6 +2059,15 @@ export function MesaExpedienteDetalleReadOnly() {
         onUpdated={load}
       />
 
+      <MesaCancelarExpedienteCard
+        expedienteId={routeExpedienteId}
+        cicloEstado={op.cicloEstado ?? null}
+        submittedToMesa={op.submittedToMesa ?? false}
+        dataModeSupabase
+        onUpdated={load}
+      />
+
+      {!expedienteCancelado ? (
       <MesaControlManualEtapaSection
         expedienteId={routeExpedienteId}
         etapaActual={etapaActual ?? 1}
@@ -2055,6 +2091,7 @@ export function MesaExpedienteDetalleReadOnly() {
         }
         onRefresh={load}
       />
+      ) : null}
 
       {preview ? (
         <MesaArchivoPreviewDialog

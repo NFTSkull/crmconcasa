@@ -1,7 +1,7 @@
 # ConCasa CRM — Contratos de API (producción)
 
-**Fase:** P1 — contratos conceptuales (sin implementación HTTP aún)  
-**Validación:** Zod en server/RPC (P2+)  
+**Fase:** P1 — contratos conceptuales (sin implementación HTTP aún)
+**Validación:** Zod en server/RPC (P2+)
 **Auditoría:** cada mutación escribe `action_log`
 
 Convenciones:
@@ -741,7 +741,7 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 
 ## 17b. Validar en Drive (Mesa agenda citas) — P069
 
-**Operación:** RPC `mesa_set_agenda_drive_validation`  
+**Operación:** RPC `mesa_set_agenda_drive_validation`
 **Lectura:** campos `drive_*` en `get_mesa_agenda_bookings`
 
 ### Request
@@ -768,8 +768,8 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 
 ## 17c. Convertir Biométricos → Notificación (asesor) — P070
 
-**Operación:** RPC `convert_biometricos_to_notificacion`  
-**Firma:** `convert_biometricos_to_notificacion(p_expediente_id uuid, p_booking_date date, p_note text default null) → jsonb`  
+**Operación:** RPC `convert_biometricos_to_notificacion`
+**Firma:** `convert_biometricos_to_notificacion(p_expediente_id uuid, p_booking_date date, p_note text default null) → jsonb`
 **SECURITY:** `DEFINER`, `search_path=public`, `REVOKE` PUBLIC/anon, `GRANT EXECUTE` authenticated
 
 ### Request
@@ -805,7 +805,7 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 
 ### Rechazo operativo
 
-**Operación:** RPC `rechazar_etapa_operativa`  
+**Operación:** RPC `rechazar_etapa_operativa`
 **Firma:** `rechazar_etapa_operativa(p_expediente_id uuid, p_motivo text, p_comentario text, p_biometricos_condicion biometricos_condicion, p_biometricos_razon text default null, p_biometricos_booking_id uuid default null) → jsonb`
 
 - Solo Mesa autorizada; expediente visible, activo, enviado y exactamente en etapa 5 o 6.
@@ -816,7 +816,7 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 
 ### Elegibilidad
 
-**Operación:** RPC read-only `get_reingreso_post_biometricos_elegibilidad`  
+**Operación:** RPC read-only `get_reingreso_post_biometricos_elegibilidad`
 **Firma:** `get_reingreso_post_biometricos_elegibilidad(p_expediente_id uuid) → jsonb`
 
 - Solo el asesor dueño consulta.
@@ -825,7 +825,7 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 
 ### Creación atómica
 
-**Operación:** RPC `iniciar_reingreso_post_biometricos`  
+**Operación:** RPC `iniciar_reingreso_post_biometricos`
 **Firma:** `iniciar_reingreso_post_biometricos(p_expediente_anterior_id uuid, p_nota text default null) → jsonb`
 
 - Bloquea el padre y reevalúa dentro de la transacción la misma elegibilidad.
@@ -872,6 +872,83 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 - Ninguna operación cambia etapa. Alta/reagenda actualizan `fecha_cita`; cancelación la limpia solo si no queda otro booking activo.
 - Las RPC compartidas `book_firmas`, `reagendar_firmas` y `cancel_firmas` conservan sus contratos.
 - Seguridad: `SECURITY DEFINER`, `search_path=''`, referencias calificadas, `REVOKE PUBLIC/anon`, grants explícitos.
+
+---
+
+## 17f. Cancelación operativa de expediente — P094 (B1 SQL)
+
+**Objetivo:** cierre terminal cuando el cliente no continúa. Separado del rechazo operativo (17d).
+
+### Señal canónica
+
+| Campo | Valor |
+|-------|--------|
+| `ciclo_estado` | `cancelado` (enum ya existente en core) |
+| `subestado` | **no** se fuerza a `rechazado`; se conserva el subestado previo (auditoría de dónde estaba) |
+| Historial | Tabla append-only `expediente_cancelaciones` (espejo de `expediente_rechazos_operativos`): motivo, comentario, actor, timestamps; más `action_log` |
+| `etapa_actual` | No cambia |
+| Agenda | No cancela bookings automáticamente (igual filosofía que rechazo P071) |
+
+### RPC (B1)
+
+**Operación:** `cancelar_expediente_operativo`
+**Firma:** `cancelar_expediente_operativo(p_expediente_id uuid, p_motivo text, p_comentario text default null) → jsonb`
+**Migración:** `090_cancelar_expediente_operativo.sql`
+
+- Roles Mesa (`mesa_admin|mesa_interno|mesa_externo|super_admin`) + `can_see_expediente`.
+- Requiere: no eliminado, enviado a Mesa, `ciclo_estado = activo`.
+- Permite cancelar aunque `subestado = rechazado` (abandono antes de reingreso) → tras cancelar, reingreso queda inelegible (`ciclo ≠ activo`).
+- **No** crear fila en `expediente_rechazos_operativos`.
+- **No** inferir cancelación desde motivo de movimiento manual.
+- Errores estables `MESA_CANCEL_EXP_*`; `action_log` `expediente.cancelacion_operativa` (payload con `sin_efectos_agenda`).
+- Respuesta: `ok`, `expediente_id`, `ciclo_estado='cancelado'`, `cancelacion_id`, `subestado` (previo, sin mutar), `etapa`.
+- Tabla: SELECT vía RLS `can_see_expediente`; INSERT/UPDATE/DELETE revocados a `authenticated` (solo la RPC escribe).
+
+### Gates posteriores
+
+Con `ciclo_estado = cancelado` (cubierto por predicados `≠ activo` existentes + suite P094):
+
+- Sin avance, movimiento manual, rechazo operativo, reingreso, book/reagendar citas.
+- Uploads asesor/Mesa: `register_*` ya exigen `ciclo = activo` (B1 sin huecos nuevos).
+- UI (B2): chip «Rechazos y cancelaciones» + subvistas; acción Cancelar en detalle; banner RO si `ciclo=cancelado`; acciones write gated por ciclo activo.
+
+### Reapertura administrativa
+
+**Fuera de P094.** Si negocio la pide después: RPC admin auditada `cancelado → activo` sin borrar historial de cancelación.
+
+### UI / filtros (diseño)
+
+**Mesa — Vista rápida:**
+
+```text
+Todos | Correcciones enviadas | Nuevos | En proceso | Rechazos y cancelaciones | Citas hoy
+```
+
+- Chip «Rechazos y cancelaciones»: contador =
+  `count(subestado=rechazado ∧ ciclo_estado=activo)` + `count(ciclo_estado=cancelado)`.
+- Subvistas disjuntas:
+  - **Rechazados:** `subestado=rechazado` ∧ `ciclo_estado=activo`
+  - **Cancelados:** `ciclo_estado=cancelado`
+- Carga de bandeja: hoy solo `ciclo=activo`; cancelados requieren ampliar query (o fetch dedicado) **sin** mezclarlos en «En proceso» ni en «Todos» operativo si «Todos» sigue siendo ciclo activo (política: «Todos» = activos enviados; cancelados solo vía el chip agrupado).
+
+**Asesor:**
+
+- `rechazado_mesa` = enviado ∧ `subestado=rechazado` ∧ `ciclo_estado=activo` (recuperable).
+- Estado `cancelado` = `ciclo_estado=cancelado` (prioridad sobre `en_tramite` y sobre `rechazado_mesa`).
+- KPI/chip «Cancelados» independiente; detalle RO con banner terminal (sin write operativo).
+
+**Admin (seguimiento) — B3 UI + B4 SQL:**
+
+- Filtro `estado=rechazados`: `subestado=rechazado` ∧ `ciclo_estado=activo`.
+- Filtro `estado=cancelados`: `ciclo_estado=cancelado` (opción UI explícita).
+- Migración `091_admin_estado_rechazados_cancelados.sql`: redefine summary, cohort, by_asesor y mesa_envios_page con predicados disjuntos; firmas/SECURITY/P087 intactos.
+- Frontend: `adminEstadoRpcParam` pasa `cancelados` nativo; sin split cliente.
+
+### Relación con rechazo (17d) — intacto en P094 B0
+
+- `rechazar_etapa_operativa` sigue siendo el único rechazo canónico (etapas 5/6, biométricos).
+- Reingreso P072 exige `subestado=rechazado` ∧ `ciclo=activo` → incompatible con cancelado.
+- Ampliar rechazo a otras etapas **no** es alcance de P094.
 
 ---
 

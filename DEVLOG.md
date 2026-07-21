@@ -1,5 +1,140 @@
 # Devlog
 
+## 2026-07-21 - P094 B6: Cloud apply controlado 090 → 091 (`fvtqbxukqlajezyyvwzy`)
+
+### Decisión
+
+- Aplicación directa vía `npx supabase db query --linked -f <archivo>` (sin `db push` / `migration up` / `migration repair`).
+- Orden: **090** (cancelación terminal) → verificación → **091** (Admin `p_estado` disjunto) → verificación.
+- Backup previo de defs Admin en `/tmp/p094-cloud-backup-b6-20260721T210216Z/`.
+- Conteos de negocio **iguales antes y después**: expedientes=2153, expediente_documentos=1017, agenda_bookings=119, editor_decisions=2153, cliente_datos=156; `expediente_cancelaciones`=0; expedientes `ciclo=cancelado`=0.
+- Residual aceptado: `schema_migrations` Cloud sigue truncado hasta **040**; 090/091 **no** se registraron ahí y **no** se reparó.
+- Sin smoke, sin abrir Preview/Producción, sin merge del PR #14.
+
+### Resultado
+
+- 090 (~21:02:41–21:02:45Z UTC, exit 0): tabla RLS `expediente_cancelaciones` + RPC `cancelar_expediente_operativo` (SECURITY DEFINER; authenticated EXECUTE; anon sin EXECUTE).
+- 091 (~21:03:19–21:03:22Z UTC, exit 0): 4 RPC Admin con ramas `rechazados`/`cancelados` disjuntas; mezcla legada ausente; P087 `LEAST(...,169000)` intacto en summary/by_asesor.
+- SHA archivos: 090 `e06c41de…2415`; 091 `41a1c65b…ad785`.
+
+## 2026-07-21 - P094 B4: Admin RPC p_estado rechazados vs cancelados
+
+### Decisión
+
+- Predicados server-side canónicos: rechazados = `subestado=rechazado ∧ ciclo=activo`; cancelados = `ciclo=cancelado`.
+- Migración 091 redefine las 4 RPC Admin de filtro operativo (summary, cohort, by_asesor, mesa_envios); firmas/SECURITY/P087 intactos.
+- Frontend retira split cliente B3.1; `adminEstadoRpcParam('cancelados')='cancelados'`; mock TS exige ciclo activo para rechazados.
+- Sin Cloud/push/commit aún.
+
+### Resultado
+
+- Suite SQL `admin_estado_rechazados_cancelados.sql` + verificador `verify-p094-b4-sql.sh`; lint/typecheck/test frontend.
+
+## 2026-07-21 - P094 B3.1: Auditoría final + commit Asesor/Admin
+
+### Decisión
+
+- Gates críticos: (1) Asesor separa `cancelado` vs `rechazado_mesa`; (2) Admin no muestra mezcla bajo etiquetas Rechazados/Cancelados.
+- Hallazgo: tests B3 nuevos no estaban en `package.json` (no corrían en `npm test`).
+- Hallazgo: post-filtro de una sola página Supabase contaminaba `totalCount`/paginación y dejaba KPI/cohorte/asesor mezclados vía RPC 082–086.
+- Cierre Gate Admin: split cliente — cargar bucket legado `rechazados`, filtrar, recalcular envíos/cohorte/asesor/paginación; normalizar labels cancelado.
+- Conteo tests: B2 `test` script = 980; B3 sin cablear = 982 (+2 notifications); con suites B3 cableadas = 991. No hubo pérdida real 983→982 (983 no era baseline del script `test`).
+
+### Resultado
+
+- Commit B3 local único; sin SQL/Cloud/push.
+
+## 2026-07-21 - P094 B3: Asesor Cancelados + Admin desacople
+
+### Decisión
+
+- `deriveResultadoRealExpediente`: `ciclo=cancelado` → `cancelado` (prioridad); `rechazado_mesa` exige enviado ∧ `subestado=rechazado` ∧ ciclo activo/null.
+- Asesor: KPI/chip/filtro Cancelados independientes; notificaciones `cancelado` vs `rechazado_mesa`; detalle banner RO + `puedeIntegrar`/envío/agenda/retención apagados.
+- Admin: predicados `matchesAdminEstadoFilter` disjuntos; UI «Rechazados» y «Cancelados»; mock correcto; Supabase listado post-filtra (RPC legado mezcla en `p_estado=rechazados`); summary/cohort residual documentado hasta follow-up SQL.
+- Sin SQL/migración/RPC nuevas; sin reapertura; sin commit/Cloud/push.
+
+### Resultado
+
+- Código + tests + docs locales; verificación lint/typecheck/test del bloque.
+
+## 2026-07-21 - P094 B2.1: Auditoría final + commit local UI Mesa
+
+### Decisión
+
+- Contadores y lista comparten `matchesMesaQuickFilter` / `esRechazadoOperativoActivo` / `esCanceladoOperativo`; subvistas disjuntas.
+- «Todos» y chips operativos excluyen `ciclo=cancelado`; cancelados solo vía chip agrupado.
+- UI terminal: banner RO + `puedeOperarMesaActivo`; cancel card solo con ciclo activo; rechazo 5/6 intacto.
+- Sin Asesor/Admin (B3); SQL 071/072/090 sin tocar en este commit; sin Cloud/push.
+
+### Resultado
+
+- Un commit B2 sobre B0+B1; working tree limpio; ahead 3 de `origin/main`.
+
+## 2026-07-21 - P094 B2: UI Mesa rechazos vs cancelaciones
+
+### Decisión
+
+- Chip agrupado `rechazos_cancelaciones`; contador = rechazados activos + cancelados; subvistas disjuntas.
+- «Todos»/En proceso/etc. excluyen `ciclo=cancelado`; listado Supabase/mock incluye cancelados para el chip.
+- Cancelar: card dedicada (motivo + confirmación) → `cancelarExpedienteOperativo`; rechazo 5/6 intacto.
+- Cancelado: banner RO con historial; `puedeOperarMesaActivo` apaga writes; sin movimiento manual.
+
+### Resultado
+
+- Dominio `mesa-cancelacion-operativa`, filtros/tests, detalle Mesa, docs. Sin Asesor/Admin/Cloud/commit.
+
+## 2026-07-21 - P094 B1.1: Auditoría final + commit local SQL
+
+### Decisión
+
+- Cancelado es terminal: único writer `cancelar_expediente_operativo` → `ciclo=cancelado` + fila `expediente_cancelaciones`; UPDATE solo `ciclo_estado`/`updated_at`; no muta `subestado`/etapa/bookings ni escribe `expediente_rechazos_operativos`.
+- Gates post-cancel: predicados `ciclo ≠ activo` existentes (avance, mover, rechazo, reingreso, book, uploads); suite cubre avance/mover/rechazo/reingreso/book.
+- Rechazo P071 y reingreso P072: migraciones 071/072 intactas; suites focales PASS.
+- Sin UI/`src`; sin Cloud/push; no se atienden colisiones NSS de suites ajenas en el preflight completo.
+
+### Resultado
+
+- Un solo commit B1 sobre el documental B0; working tree limpio; ahead 2 de `origin/main`.
+
+## 2026-07-21 - P094 B1: SQL cancelación terminal
+
+### Decisión
+
+- Cancelado = `ciclo_estado=cancelado` + fila `expediente_cancelaciones`; **no** reutilizar `subestado=rechazado`.
+- RPC `cancelar_expediente_operativo`: Mesa + `can_see_expediente`; requiere enviado y ciclo activo; permite cancelar sobre rechazado; no toca etapa/subestado/agenda; `action_log` `expediente.cancelacion_operativa`.
+- Escritura solo vía RPC (REVOKE INSERT a authenticated). Gates normales ya exigen `ciclo=activo` (avance/mover/rechazo/reingreso/book/uploads); B1 los cubre con suite, sin reescribir esas RPCs.
+- Reapertura admin y UI fuera de B1.
+
+### Resultado
+
+- Migración `090_cancelar_expediente_operativo.sql` + suite `rpc_cancelar_expediente_operativo.sql` + cableado `test-sql.sh`; docs API §17f / PRODUCTO / TEST_PLAN / CHANGELOG.
+- Verificación SQL focal: `scripts/verify-p094-b1-sql.sh` (090 + P071/P072 + complementarios). Suite completa `preflight-reingreso-isolated` sigue con colisiones NSS entre fixtures de suites no relacionadas (preexistente).
+- Ajuste menor: `mesa_complementarios_opcionales.sql` espera 5 `mesa_upload` (pagaré + notificación P090/P092).
+- Sin UI/Cloud/commit/push.
+
+## 2026-07-21 - P094 B0.1: Auditoría final + commit documental
+
+### Decisión
+
+- Solo docs; sin SQL/UI/RPC. Cierre de ambigüedades: historial = `expediente_cancelaciones`; predicados chip/subvistas explícitos; `rechazado_mesa` exige ciclo activo; reapertura admin fuera de P094.
+
+### Resultado
+
+- Commit documental único B0; sin push/PR/B1.
+
+## 2026-07-21 - P094 B0: Auditoría Rechazados vs Cancelados
+
+### Decisión
+
+- Rechazo canónico vigente (P071): `subestado=rechazado`, ciclo **activo**, tabla `expediente_rechazos_operativos`, etapas 5/6; reingreso P072 exige ese par.
+- `ciclo_estado=cancelado` existe en enum desde 001 pero **sin RPC de escritura** ni UI; Admin mezcla rechazado∨cancelado.
+- Diseño: Cancelado = `ciclo=cancelado` (terminal); no usar `subestado=rechazado` para cancelar; chip Mesa «Rechazos y cancelaciones» con subvistas; RPC tentativa `cancelar_expediente_operativo` en API §17f.
+- Reapertura admin fuera de P094. Sin inferencia por texto. Sin implementación SQL/UI en B0.
+
+### Resultado
+
+- Docs PRODUCTO §6.6, API §17f, TEST_PLAN, RIESGOS, CHANGELOG. Worktree `p094-rechazados-vs-cancelados` @ `a1a6ae4`.
+
 ## 2026-07-21 - P093 B2.1: Auditoría final + commit local numeración
 
 ### Decisión

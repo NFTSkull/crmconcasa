@@ -544,7 +544,8 @@ export default function AdminDashboardPage() {
                 { value: "todos", label: "Todos" },
                 { value: "activos", label: "Activos" },
                 { value: "finalizados", label: "Finalizados" },
-                { value: "rechazados", label: "Rechazados/cerrados" },
+                { value: "rechazados", label: "Rechazados" },
+                { value: "cancelados", label: "Cancelados" },
               ]}
             />
             <label className="text-sm text-slate-600">

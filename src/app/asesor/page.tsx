@@ -87,6 +87,11 @@ function asesorResultadoFilaBadge(
     };
   }
   switch (resultadoReal) {
+    case "cancelado":
+      return {
+        label: "Cancelado",
+        className: "bg-slate-200 text-slate-900 border border-slate-400",
+      };
     case "rechazado_mesa":
       return {
         label: "Rechazado (mesa)",
@@ -139,7 +144,15 @@ function asesorDocumentacionFilaBadge(
 function asesorEstatusOperativoFilaBadge(
   subestado: string | null | undefined,
   resumenCorreccion?: CategoriaResumenDocumental,
+  cicloEstado?: string | null,
 ): { label: string; className: string } {
+  if (cicloEstado === "cancelado") {
+    return {
+      label: "Cancelado",
+      className:
+        "inline-flex rounded-full bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-900 ring-1 ring-slate-400",
+    };
+  }
   if (resumenCorreccion === "correccion_requerida") {
     return { label: "Corrección requerida", className: CORRECCION_REQUERIDA_BADGE_CLASS };
   }
@@ -234,6 +247,7 @@ const RESULTADO_REAL_OPTIONS = [
   { value: "pendiente_editor", label: "Pendiente (editor)" },
   { value: "en_tramite", label: "En trámite" },
   { value: "rechazado_mesa", label: "Rechazado (mesa)" },
+  { value: "cancelado", label: "Cancelado" },
 ] as const;
 
 const ETAPA_EXACTA_OPTIONS = [
@@ -289,11 +303,12 @@ type QuickFilterAsesor =
   | "correccion_requerida"
   | "correccion_enviada"
   | "rechazados_mesa"
+  | "cancelados"
   | "agendar_biometricos"
   | "agendar_firma"
   | "subir_acuse";
 
-type QuickFilterChipTone = "default" | "warn" | "indigo" | "violet" | "amber";
+type QuickFilterChipTone = "default" | "warn" | "indigo" | "violet" | "amber" | "slate";
 
 type QuickFilterChipConfig = {
   id: QuickFilterAsesor;
@@ -337,6 +352,9 @@ function quickFilterChipClassName(
     if (tone === "amber") {
       return `${base} border-orange-700 bg-orange-600 text-white shadow-sm`;
     }
+    if (tone === "slate") {
+      return `${base} border-slate-700 bg-slate-600 text-white shadow-sm`;
+    }
     return `${base} border-blue-600 bg-blue-600 text-white`;
   }
 
@@ -352,6 +370,9 @@ function quickFilterChipClassName(
   if (tone === "amber" && count > 0) {
     return `${base} border-orange-400 bg-orange-50 text-orange-950 hover:bg-orange-100 ring-1 ring-inset ring-orange-200`;
   }
+  if (tone === "slate" && count > 0) {
+    return `${base} border-slate-400 bg-slate-100 text-slate-900 hover:bg-slate-200 ring-1 ring-inset ring-slate-300`;
+  }
   return `${base} border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100`;
 }
 
@@ -363,6 +384,7 @@ function quickFilterChipDotClass(chip: QuickFilterChipConfig): string | null {
   if (tone === "indigo") return "bg-indigo-600";
   if (tone === "violet") return "bg-violet-600";
   if (tone === "amber") return "bg-orange-600";
+  if (tone === "slate") return "bg-slate-600";
   return null;
 }
 
@@ -383,6 +405,9 @@ function quickFilterChipCountBadgeClass(
   if (tone === "amber") {
     return isSelected ? "bg-orange-800/40 text-white" : "bg-orange-200 text-orange-950";
   }
+  if (tone === "slate") {
+    return isSelected ? "bg-slate-800/40 text-white" : "bg-slate-300 text-slate-950";
+  }
   return isSelected ? "bg-blue-500/30 text-white" : "bg-gray-200 text-gray-800";
 }
 
@@ -394,6 +419,10 @@ function quickFilterEmptyMessage(filter: QuickFilterAsesor): string | null {
       return "No tienes expedientes pendientes por agendar firma.";
     case "subir_acuse":
       return "No tienes expedientes pendientes por subir acuse.";
+    case "cancelados":
+      return "No tienes expedientes cancelados.";
+    case "rechazados_mesa":
+      return "No tienes expedientes rechazados por Mesa (recuperables).";
     default:
       return null;
   }
@@ -454,7 +483,7 @@ function quickFilterChipEmphasize(chip: QuickFilterChipConfig): boolean {
   if (count <= 0) return false;
   if (chip.warnIfPositive === true) return true;
   const tone = chip.tone ?? "default";
-  return tone === "indigo" || tone === "violet" || tone === "amber";
+  return tone === "indigo" || tone === "violet" || tone === "amber" || tone === "slate";
 }
 
 const PAGE_SIZE = 50;
@@ -846,6 +875,8 @@ export default function AsesorDashboardPage() {
       );
     } else if (quickFilter === "rechazados_mesa") {
       list = list.filter((p) => p.resultadoReal === "rechazado_mesa");
+    } else if (quickFilter === "cancelados") {
+      list = list.filter((p) => p.resultadoReal === "cancelado");
     } else if (quickFilter === "agendar_biometricos") {
       list = list.filter((p) => {
         const input = tareaInputPorId[p.id];
@@ -894,6 +925,7 @@ export default function AsesorDashboardPage() {
         resumenDocumentalPorId[p.id] !== "correccion_enviada",
     ).length;
     const rechazadosMesa = mockPrecalList.filter((p) => p.resultadoReal === "rechazado_mesa").length;
+    const cancelados = mockPrecalList.filter((p) => p.resultadoReal === "cancelado").length;
     let correccionRequerida = 0;
     let correccionEnviada = 0;
     for (const p of mockPrecalList) {
@@ -908,6 +940,7 @@ export default function AsesorDashboardPage() {
       noCumple,
       enTramite,
       rechazadosMesa,
+      cancelados,
       correccionRequerida,
       correccionEnviada,
       agendarBiometricos: tareas.agendarBiometricos,
@@ -923,6 +956,7 @@ export default function AsesorDashboardPage() {
         clienteNombre: p.cliente_nombre || "—",
         etapaActual: p.etapaActual,
         subestado: p.operativo?.subestado,
+        cicloEstado: p.operativo?.cicloEstado,
         submittedToMesa: p.submittedToMesa,
         fechaCita: p.fechaCita,
         fechaEnvioMesa: p.operativo?.fechaEnvioMesa,
@@ -983,6 +1017,12 @@ export default function AsesorDashboardPage() {
         id: "rechazados_mesa",
         label: "Rechazados por mesa",
         count: kpis.rechazadosMesa,
+      },
+      {
+        id: "cancelados",
+        label: "Cancelados",
+        count: kpis.cancelados,
+        tone: "slate",
       },
       {
         id: "agendar_biometricos",
@@ -1139,7 +1179,7 @@ export default function AsesorDashboardPage() {
           <p className="text-[10px] font-medium text-gray-500">
             Resumen de tus expedientes
           </p>
-          <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
             <div className="rounded-md border border-blue-200/80 bg-blue-50/40 px-3 py-2 shadow-sm">
               <p className="text-[10px] font-semibold uppercase tracking-wide text-blue-800">
                 En trámite
@@ -1159,7 +1199,7 @@ export default function AsesorDashboardPage() {
                 Doc. o datos rechazados por mesa
               </p>
             </div>
-            <div className="col-span-2 rounded-md border border-red-200/80 bg-red-50/40 px-3 py-2 shadow-sm sm:col-span-1">
+            <div className="rounded-md border border-red-200/80 bg-red-50/40 px-3 py-2 shadow-sm">
               <p className="text-[10px] font-semibold uppercase tracking-wide text-red-800">
                 Rechazados por mesa
               </p>
@@ -1167,7 +1207,18 @@ export default function AsesorDashboardPage() {
                 {kpis.rechazadosMesa}
               </p>
               <p className="mt-0.5 text-[9px] leading-tight text-red-800/85">
-                Operativo del trámite
+                Recuperables (reingreso)
+              </p>
+            </div>
+            <div className="rounded-md border border-slate-300 bg-slate-100/70 px-3 py-2 shadow-sm">
+              <p className="text-[10px] font-semibold uppercase tracking-wide text-slate-800">
+                Cancelados
+              </p>
+              <p className="mt-0.5 text-xl font-semibold tabular-nums text-slate-900">
+                {kpis.cancelados}
+              </p>
+              <p className="mt-0.5 text-[9px] leading-tight text-slate-700/90">
+                Terminales (solo lectura)
               </p>
             </div>
           </div>
@@ -1513,6 +1564,7 @@ export default function AsesorDashboardPage() {
                       const estatusOperativoBadge = asesorEstatusOperativoFilaBadge(
                         p.operativo?.subestado,
                         resumenCorreccion,
+                        p.operativo?.cicloEstado,
                       );
                       const updatedDisplay = p.updatedAtOperativo
                         ? formatDateTimeMx(p.updatedAtOperativo)
@@ -1565,6 +1617,10 @@ export default function AsesorDashboardPage() {
                             {p.esReingreso ? (
                               <span className="mt-0.5 inline-flex rounded-full bg-violet-100 px-1.5 py-0.5 text-[9px] font-semibold text-violet-800">
                                 Reingreso
+                              </span>
+                            ) : p.operativo.cicloEstado === "cancelado" ? (
+                              <span className="mt-0.5 inline-flex rounded-full bg-slate-200 px-1.5 py-0.5 text-[9px] font-semibold text-slate-900">
+                                Cancelado
                               </span>
                             ) : p.operativo.cicloEstado === "cerrado" ? (
                               <span className="mt-0.5 inline-flex rounded-full bg-gray-100 px-1.5 py-0.5 text-[9px] font-medium text-gray-600">

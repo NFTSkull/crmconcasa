@@ -13,6 +13,8 @@ import type { MesaOpsFilter } from "@/lib/mesaOpsUi";
  * - El chip "Citas hoy" no filtra la bandeja: navega a la pantalla de citas
  *   (`MESA_CITAS_ROUTE`), la misma que abre la acción "Ver citas".
  * - Contador y lista comparten exactamente los mismos predicados de este módulo.
+ * - P094: «Todos» / operativos = ciclo activo; cancelados solo vía
+ *   «Rechazos y cancelaciones» + subvista Cancelados.
  *
  * La bandeja de Mesa carga el conjunto completo visible (RLS + rol) sin paginación,
  * por lo que estos filtros se aplican en memoria sobre la totalidad de expedientes
@@ -25,7 +27,12 @@ export type MesaQuickFilter =
   | "correccion_enviada"
   | "nuevos"
   | "en_proceso"
-  | "rechazados";
+  | "rechazos_cancelaciones";
+
+/** Subvista dentro del chip agrupado P094. */
+export type MesaRechazosCancelacionesSubfiltro =
+  | "rechazados"
+  | "cancelados";
 
 /** Identificador del chip "Citas hoy": navega, no filtra. */
 export const MESA_CITAS_HOY_CHIP_ID = "citas_hoy" as const;
@@ -38,12 +45,16 @@ export type MesaBandejaFiltroItem = Readonly<{
   telefono_cliente: string;
   etapaActual: number;
   subestado: string;
+  /** Ciclo operativo; `null`/`undefined` se tratan como activo (legacy mock). */
+  cicloEstado?: string | null;
   fechaCita?: string | null;
   resumenDocumental?: CategoriaResumenDocumental | null;
 }>;
 
 export type MesaBandejaFiltrosState = Readonly<{
   quickFilter: MesaQuickFilter;
+  /** Solo aplica cuando `quickFilter === "rechazos_cancelaciones"`. */
+  rechazosCancelacionesSubfiltro: MesaRechazosCancelacionesSubfiltro;
   buscar: string;
   etapa: string;
   subestado: string;
@@ -54,20 +65,59 @@ export type MesaBandejaFiltrosState = Readonly<{
 export type MesaBandejaSeleccionPrincipal = Readonly<{
   quickFilter: MesaQuickFilter;
   opsFilter: MesaOpsFilter;
+  rechazosCancelacionesSubfiltro: MesaRechazosCancelacionesSubfiltro;
 }>;
+
+function cicloActivo(
+  item: Pick<MesaBandejaFiltroItem, "cicloEstado">,
+): boolean {
+  const ciclo = item.cicloEstado ?? "activo";
+  return ciclo === "activo";
+}
+
+/** Rechazado canónico vigente (permite reingreso). */
+export function esRechazadoOperativoActivo(
+  item: Pick<MesaBandejaFiltroItem, "subestado" | "cicloEstado">,
+): boolean {
+  return item.subestado === "rechazado" && cicloActivo(item);
+}
+
+/** Cancelación terminal. */
+export function esCanceladoOperativo(
+  item: Pick<MesaBandejaFiltroItem, "cicloEstado">,
+): boolean {
+  return item.cicloEstado === "cancelado";
+}
+
+/** Chip agrupado: rechazados activos + cancelados. */
+export function esRechazoOCancelacion(
+  item: Pick<MesaBandejaFiltroItem, "subestado" | "cicloEstado">,
+): boolean {
+  return esRechazadoOperativoActivo(item) || esCanceladoOperativo(item);
+}
 
 /** Al elegir un chip de Vista rápida, la asignación pasa a "Todo Mesa". */
 export function seleccionarVistaRapida(
   id: MesaQuickFilter,
+  subfiltro: MesaRechazosCancelacionesSubfiltro = "rechazados",
 ): MesaBandejaSeleccionPrincipal {
-  return { quickFilter: id, opsFilter: "todo_mesa" };
+  return {
+    quickFilter: id,
+    opsFilter: "todo_mesa",
+    rechazosCancelacionesSubfiltro:
+      id === "rechazos_cancelaciones" ? subfiltro : "rechazados",
+  };
 }
 
 /** Al elegir un chip de Asignación operativa, la vista rápida vuelve a "Todos". */
 export function seleccionarAsignacion(
   id: MesaOpsFilter,
 ): MesaBandejaSeleccionPrincipal {
-  return { quickFilter: "todos", opsFilter: id };
+  return {
+    quickFilter: "todos",
+    opsFilter: id,
+    rechazosCancelacionesSubfiltro: "rechazados",
+  };
 }
 
 /**
@@ -79,6 +129,7 @@ export function limpiarFiltrosBandeja(): MesaBandejaFiltrosState &
   Readonly<{ opsFilter: MesaOpsFilter }> {
   return {
     quickFilter: "todos",
+    rechazosCancelacionesSubfiltro: "rechazados",
     opsFilter: "todo_mesa",
     buscar: "",
     etapa: "todas",
@@ -110,8 +161,9 @@ export function esCitaHoy(
 
 /** Expediente "nuevo por revisar": etapas 1–2 y subestado operativo activo. */
 export function esNuevoEtapa12(
-  item: Pick<MesaBandejaFiltroItem, "etapaActual" | "subestado">,
+  item: Pick<MesaBandejaFiltroItem, "etapaActual" | "subestado" | "cicloEstado">,
 ): boolean {
+  if (!cicloActivo(item) || esCanceladoOperativo(item)) return false;
   const et = Number(item.etapaActual) || 0;
   const sub = String(item.subestado || "pendiente");
   return (
@@ -127,16 +179,27 @@ export function matchesMesaQuickFilter(
 ): boolean {
   switch (filter) {
     case "todos":
-      return true;
+      // Política P094: «Todos» = ciclo activo (cancelados solo vía chip agrupado).
+      return cicloActivo(item);
     case "correccion_enviada":
-      return item.resumenDocumental === "correccion_enviada";
+      return (
+        cicloActivo(item) && item.resumenDocumental === "correccion_enviada"
+      );
     case "nuevos":
       return esNuevoEtapa12(item);
     case "en_proceso":
-      return item.subestado === "en_proceso";
-    case "rechazados":
-      return item.subestado === "rechazado";
+      return cicloActivo(item) && item.subestado === "en_proceso";
+    case "rechazos_cancelaciones":
+      return esRechazoOCancelacion(item);
   }
+}
+
+export function matchesRechazosCancelacionesSubfiltro(
+  item: MesaBandejaFiltroItem,
+  subfiltro: MesaRechazosCancelacionesSubfiltro,
+): boolean {
+  if (subfiltro === "rechazados") return esRechazadoOperativoActivo(item);
+  return esCanceladoOperativo(item);
 }
 
 export function soloDigitos(value: string): string {
@@ -165,7 +228,10 @@ export type MesaVistaRapidaCounts = Readonly<{
   nuevos: number;
   enProceso: number;
   citasHoy: number;
+  /** Contador del chip agrupado (rechazados activos + cancelados). */
+  rechazosCancelaciones: number;
   rechazados: number;
+  cancelados: number;
 }>;
 
 /** Contadores globales de Vista rápida; misma definición que la lista filtrada. */
@@ -173,19 +239,28 @@ export function contarVistaRapida(
   items: readonly MesaBandejaFiltroItem[],
   todayYMD: string,
 ): MesaVistaRapidaCounts {
+  const rechazados = items.filter((c) => esRechazadoOperativoActivo(c)).length;
+  const cancelados = items.filter((c) => esCanceladoOperativo(c)).length;
   return {
     correccionesEnviadas: items.filter((c) =>
       matchesMesaQuickFilter(c, "correccion_enviada"),
     ).length,
     nuevos: items.filter((c) => matchesMesaQuickFilter(c, "nuevos")).length,
-    enProceso: items.filter((c) => matchesMesaQuickFilter(c, "en_proceso")).length,
-    citasHoy: items.filter((c) => esCitaHoy(c.fechaCita, todayYMD)).length,
-    rechazados: items.filter((c) => matchesMesaQuickFilter(c, "rechazados")).length,
+    enProceso: items.filter((c) => matchesMesaQuickFilter(c, "en_proceso"))
+      .length,
+    citasHoy: items.filter(
+      (c) => cicloActivo(c) && esCitaHoy(c.fechaCita, todayYMD),
+    ).length,
+    rechazosCancelaciones: items.filter((c) =>
+      matchesMesaQuickFilter(c, "rechazos_cancelaciones"),
+    ).length,
+    rechazados,
+    cancelados,
   };
 }
 
 /**
- * Aplica en orden: vista rápida → búsqueda → etapa → subestado → solo citas hoy.
+ * Aplica en orden: vista rápida → subvista P094 → búsqueda → etapa → subestado → solo citas hoy.
  * Opera sobre el conjunto completo visible; el filtro de asignación operativa y
  * el ordenamiento se aplican después con `applyMesaOpsFilterSorted`.
  */
@@ -195,6 +270,14 @@ export function aplicarFiltrosBandejaMesa<T extends MesaBandejaFiltroItem>(
   todayYMD: string,
 ): T[] {
   let list = items.filter((c) => matchesMesaQuickFilter(c, state.quickFilter));
+  if (state.quickFilter === "rechazos_cancelaciones") {
+    list = list.filter((c) =>
+      matchesRechazosCancelacionesSubfiltro(
+        c,
+        state.rechazosCancelacionesSubfiltro,
+      ),
+    );
+  }
   if (state.buscar.trim()) {
     list = list.filter((c) => coincideBusquedaClienteTelefono(c, state.buscar));
   }

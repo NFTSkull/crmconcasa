@@ -127,7 +127,26 @@ La UI identifica al hijo como **Reingreso / Reinscripción** y **Biométricos re
 - Etapa 1 queda `en_validacion_mesa`; etapas 2–12 quedan `en_proceso`. Etapas 11/12 son posición operativa y no registran firma/pago ni cierran el ciclo.
 - Los cuatro roles Mesa pueden agendar/reagendar firmas en etapas 9/10 de expedientes visibles. Un booking conservado fuera de esas etapas puede cancelarse explícitamente, nunca automáticamente.
 
-### 6.6 Monto actualizado Mejoravit (P090 — backend; sin UI aún)
+### 6.6 Rechazado vs Cancelado (P094 — diseño B0)
+
+Dos resultados operativos distintos; **no** inferir por texto libre ni por movimiento manual.
+
+| | **Rechazado** | **Cancelado** |
+|--|---------------|---------------|
+| Significado | Mesa rechaza por causa operativa | El cliente no continuará el trámite |
+| Señal canónica | `subestado = rechazado` + fila en `expediente_rechazos_operativos` | `ciclo_estado = cancelado` + fila en `expediente_cancelaciones` |
+| Ciclo | Permanece `activo` (habilita reingreso P071/P072) | Terminal: `cancelado` |
+| Sale de «En proceso» | Sí (chip operativo) | Sí |
+| Mesa UI | Dentro de «Rechazos y cancelaciones» → subvista **Rechazados** | Misma entrada → subvista **Cancelados** |
+| Asesor | KPI/filtro «Rechazados por Mesa» | Estado visible **Cancelado** (no es `rechazado_mesa`) |
+| Continuación | Reingreso post-biométricos cuando aplique (P072) | **No** flujo normal; solo futura acción admin explícita (fuera de P094 si negocio la pide) |
+| Prohibido | Confundir con corrección documental | Avance, citas, movimiento, rechazo, reingreso común, uploads operativos |
+
+**Estado actual (B4 SQL Admin local):** rechazo canónico + cancelación SQL (090) + UI Mesa/Asesor/Admin (B2–B3) + RPC Admin `p_estado` disjuntos (091). Sin reapertura/Cloud/push.
+
+**No es:** corrección requerida (docs/datos), `booking_status=cancelled` (citas), `ciclo=cerrado` (historial de reingreso / cierre de ciclo distinto).
+
+### 6.7 Monto actualizado Mejoravit (P090 — backend; sin UI aún)
 
 Tres montos distintos (no confundir):
 
@@ -163,7 +182,7 @@ La sección Datos Generales y el JSON `datos.montoMejoravit` **no** se modifican
 - **Asesor (detalle):** sección RO visible **solo** si existe `monto_mejoravit_actualizado`; sin controles de edición; lectura vía `get_expediente_monto_mejoravit_context`.
 - Datos Generales y su JSON permanecen intactos. P087 y Admin sin cambios.
 
-### 6.7 Pagaré (P090 B4 — UI Mesa + asesor RO)
+### 6.8 Pagaré (P090 B4 — UI Mesa + asesor RO)
 
 - Tipo técnico: `cliente_pagare` (label: Pagaré).
 - **Mesa (detalle):** acordeón hermana «Pagaré» (después de Monto Mejoravit, antes de documentos). Etapa menor a 7: visible deshabilitada (`Disponible después de Inscripción`). Etapa ≥ 7: subir / reemplazar / ver / descargar documento vigente (versión, nombre, formato, fecha, quien cargó). Sin eliminar, sin historial de versiones en UI, sin gate ni avance desde la sección.
@@ -173,7 +192,7 @@ La sección Datos Generales y el JSON `datos.montoMejoravit` **no** se modifican
 - **No** obligatorio, **no** gate de avance, **no** checklist/faltantes, **sin** notificaciones nuevas, **sin** herencia padre↔hijo.
 - No se lista en Documentos complementarios (`INTEGRATION_DOC_TIPOS_MESA_UPLOAD`); sección dedicada única.
 
-### 6.8 Notificación documento (`cliente_notificacion`) — P092
+### 6.9 Notificación documento (`cliente_notificacion`) — P092
 
 **Separación de conceptos**
 

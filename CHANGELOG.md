@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- **ops/cloud-p094 — P094 B6 (Cloud `fvtqbxukqlajezyyvwzy`, sin merge):** aplicadas 090→091 vía `db query --linked` (sin `db push`/repair); conteos negocio intactos; PR #14 OPEN.
+
+- **feat/admin-estado-rechazados-cancelados — P094 B4 (local, sin commit):** migración `091_…sql` separa `p_estado` Rechazados (`subestado=rechazado∧ciclo=activo`) vs Cancelados (`ciclo=cancelado`) en summary/cohort/by_asesor/mesa_envios; suite SQL + frontend nativo; sin Cloud/push.
+
+- **feat/asesor-admin-rechazados-cancelados — P094 B3/B3.1 (local commit):** Asesor `cancelado` vs `rechazado_mesa` (ciclo activo); KPI/filtro/detalle RO; Admin Rechazados ≠ Cancelados (mock + split cliente Supabase sobre bucket legado 082–086); tests cableados; sin SQL nuevo/Cloud/push.
+
+- **feat/mesa-rechazos-cancelaciones-ui — P094 B2/B2.1 (local commit):** chip Mesa «Rechazos y cancelaciones» con subvistas; listado incluye `ciclo=cancelado` solo vía el chip; acción Cancelar + banner RO; wrapper Zod/RPC; sin Asesor/Admin/Cloud/push.
+
+- **feat/cancelar-expediente — P094 B1/B1.1 (local commit):** migración `090_…sql` con tabla append-only `expediente_cancelaciones` + RPC `cancelar_expediente_operativo` (`ciclo=cancelado`, sin mutar `subestado`/etapa/bookings); suite SQL + `test-sql.sh` + verificador focal; gates por `≠ activo`; sin UI/Cloud/push.
+
+- **docs/rechazados-vs-cancelados — P094 B0/B0.1 (local commit):** auditoría y diseño cerrado: Rechazado vs Cancelado; RPC `cancelar_expediente_operativo` + tabla `expediente_cancelaciones`; chip Mesa «Rechazos y cancelaciones»; sin SQL/UI/Cloud/push.
+
 - **fix/numeracion-etapas-ux — P093 B2/B2.1 (local commit):** helpers `etapa-numeracion-ux` + labels Mesa/Asesor con correspondencia paso visual ↔ etapa interna; UI bandeja/detalle/seguimiento; sin cambiar `etapa_actual`/RPC/SQL/filtros; sin push.
 
 - **fix/mesa-falsos-rechazos-ux — P093 B1/B1.1 (local commit):** copy y advertencia en «Movimiento manual de Mesa» (motivo `rechaz*` no rechaza); atajo a rechazo canónico en etapas 5/6; tarjeta `MesaRechazoOperativoPostBiometricosCard` montada en detalle Supabase (`#mesa-rechazo-operativo`); helpers + tests; sin RPC/SQL/filtros/Cloud/push.

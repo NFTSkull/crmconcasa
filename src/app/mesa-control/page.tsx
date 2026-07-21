@@ -86,6 +86,7 @@ import {
   seleccionarAsignacion,
   seleccionarVistaRapida,
   type MesaQuickFilter,
+  type MesaRechazosCancelacionesSubfiltro,
 } from "@/lib/mesaBandejaFiltros";
 import { hasAlertMessage, MESA_OPS_UPDATED_EVENT } from "@/lib/hasAlertMessage";
 import { NotificationsBell } from "@/components/notifications/NotificationsBell";
@@ -280,6 +281,8 @@ export default function MesaControlPage() {
   const [subestadoFilter, setSubestadoFilter] = useState<string>("todas");
   const [soloCitasHoy, setSoloCitasHoy] = useState(false);
   const [quickFilter, setQuickFilter] = useState<MesaQuickFilter>("todos");
+  const [rechazosCancelacionesSubfiltro, setRechazosCancelacionesSubfiltro] =
+    useState<MesaRechazosCancelacionesSubfiltro>("rechazados");
   const [adminOrigenTab, setAdminOrigenTab] = useState<AdminOrigenTab>("todos");
 
   const todayYMD = getTodayYMD();
@@ -304,6 +307,7 @@ export default function MesaControlPage() {
       }),
       etapaActual: exp.operativo.etapaActual ?? 1,
       subestado: exp.operativo.subestado ?? "pendiente",
+      cicloEstado: exp.operativo.cicloEstado ?? "activo",
       motivoRechazo: exp.operativo.motivoRechazo ?? undefined,
       fechaCita: exp.operativo.fechaCita ?? undefined,
       createdAt: exp.base.createdAt,
@@ -592,15 +596,20 @@ export default function MesaControlPage() {
         c.subestado === "rechazado" || c.resumenDocumental === "correccion_requerida",
     ).length;
     const enProceso = vistaRapida.enProceso;
-    const rechazadosOperativo = vistaRapida.rechazados;
+    const rechazadosOperativo = vistaRapida.rechazosCancelaciones;
+    const rechazadosActivos = vistaRapida.rechazados;
+    const canceladosOperativo = vistaRapida.cancelados;
     const enValidacionMesa = casos.filter(
       (c) =>
+        (c.cicloEstado ?? "activo") === "activo" &&
         c.subestado === "en_validacion_mesa" &&
         c.resumenDocumental !== "correccion_requerida" &&
         c.resumenDocumental !== "correccion_enviada",
     ).length;
     const enEsperaAsesor = casos.filter((c) => estaEnEsperaDeAsesor(c.resumenDocumental)).length;
-    const totalBandeja = casos.length;
+    const totalBandeja = casos.filter(
+      (c) => (c.cicloEstado ?? "activo") === "activo",
+    ).length;
     return {
       correccionesEnviadas,
       nuevosPorRevisar,
@@ -608,6 +617,8 @@ export default function MesaControlPage() {
       bloqueadosRechazados,
       enProceso,
       rechazadosOperativo,
+      rechazadosActivos,
+      canceladosOperativo,
       enValidacionMesa,
       enEsperaAsesor,
       totalBandeja,
@@ -657,6 +668,7 @@ export default function MesaControlPage() {
       list,
       {
         quickFilter,
+        rechazosCancelacionesSubfiltro,
         buscar,
         etapa: etapaFilter,
         subestado: subestadoFilter,
@@ -673,6 +685,7 @@ export default function MesaControlPage() {
     etapaFilter,
     mesaOpsFilter,
     quickFilter,
+    rechazosCancelacionesSubfiltro,
     showAdminOrigenTabs,
     soloCitasHoy,
     subestadoFilter,
@@ -692,6 +705,7 @@ export default function MesaControlPage() {
       const next = seleccionarVistaRapida(id);
       setQuickFilter(next.quickFilter);
       setMesaOpsFilter(next.opsFilter);
+      setRechazosCancelacionesSubfiltro(next.rechazosCancelacionesSubfiltro);
     },
     [],
   );
@@ -700,11 +714,13 @@ export default function MesaControlPage() {
     const next = seleccionarAsignacion(id);
     setQuickFilter(next.quickFilter);
     setMesaOpsFilter(next.opsFilter);
+    setRechazosCancelacionesSubfiltro(next.rechazosCancelacionesSubfiltro);
   }, []);
 
   const handleLimpiarFiltros = useCallback(() => {
     const next = limpiarFiltrosBandeja();
     setQuickFilter(next.quickFilter);
+    setRechazosCancelacionesSubfiltro(next.rechazosCancelacionesSubfiltro);
     setMesaOpsFilter(next.opsFilter);
     setBuscar(next.buscar);
     setEtapaFilter(next.etapa);
@@ -928,8 +944,8 @@ export default function MesaControlPage() {
                   label: `En proceso (${kpis.enProceso})`,
                 },
                 {
-                  id: "rechazados" as const,
-                  label: `Rechazados (${kpis.rechazadosOperativo})`,
+                  id: "rechazos_cancelaciones" as const,
+                  label: `Rechazos y cancelaciones (${kpis.rechazadosOperativo})`,
                 },
               ] satisfies { id: MesaQuickFilter; label: string }[]
             ).map(({ id, label }) => (
@@ -969,10 +985,50 @@ export default function MesaControlPage() {
               </svg>
             </button>
           </div>
+          {quickFilter === "rechazos_cancelaciones" ? (
+            <div
+              className="mt-3 flex flex-wrap gap-1.5"
+              role="tablist"
+              aria-label="Subvista rechazos o cancelaciones"
+              data-testid="mesa-rechazos-cancelaciones-subfiltro"
+            >
+              {(
+                [
+                  {
+                    id: "rechazados" as const,
+                    label: `Rechazados (${kpis.rechazadosActivos})`,
+                  },
+                  {
+                    id: "cancelados" as const,
+                    label: `Cancelados (${kpis.canceladosOperativo})`,
+                  },
+                ] satisfies {
+                  id: MesaRechazosCancelacionesSubfiltro;
+                  label: string;
+                }[]
+              ).map(({ id, label }) => (
+                <button
+                  key={id}
+                  type="button"
+                  role="tab"
+                  aria-selected={rechazosCancelacionesSubfiltro === id}
+                  onClick={() => setRechazosCancelacionesSubfiltro(id)}
+                  className={`${chipBase} ${
+                    rechazosCancelacionesSubfiltro === id
+                      ? chipActive
+                      : chipInactive
+                  }`}
+                  data-testid={`mesa-rechazos-cancelaciones-${id}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+          ) : null}
           <p className="mt-2 text-[11px] text-slate-500">
             Al elegir una vista rápida, la asignación operativa cambia a «Todo Mesa»
             para que la lista coincida con el contador. «Citas hoy» abre la pantalla
-            de citas.
+            de citas. Los cancelados solo aparecen en «Rechazos y cancelaciones».
           </p>
         </section>
 

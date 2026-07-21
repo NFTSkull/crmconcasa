@@ -17,6 +17,7 @@ import { AsesorMontoMejoravitActualizadoSection } from "@/components/asesor/Ases
 import { AsesorPagareSection } from "@/components/asesor/AsesorPagareSection";
 import { AsesorNotificacionDocumentoSection } from "@/components/asesor/AsesorNotificacionDocumentoSection";
 import { AsesorReingresoPostBiometricosCard } from "@/components/asesor/AsesorReingresoPostBiometricosCard";
+import { AsesorExpedienteCanceladoBanner } from "@/components/asesor/AsesorExpedienteCanceladoBanner";
 import { Button } from "@/components/ui/Button";
 import { SeguimientoOperativoMock } from "@/components/seguimiento/SeguimientoOperativoMock";
 import {
@@ -24,6 +25,7 @@ import {
   useExpedientesRepo,
   isProgramaMejoravit,
   mapProgramaUiToDb,
+  type ExpedienteCancelacionRow,
   type ExpedienteMock,
 } from "@/domain/expedientes";
 import {
@@ -248,6 +250,8 @@ export default function AsesorExpedientePage() {
   >(null);
   const [archivosLoading, setArchivosLoading] = useState(false);
   const [archivosError, setArchivosError] = useState<string | null>(null);
+  const [cancelacionOperativa, setCancelacionOperativa] =
+    useState<ExpedienteCancelacionRow | null>(null);
 
   const integrationDocsInput = useMemo(
     () =>
@@ -509,19 +513,26 @@ export default function AsesorExpedientePage() {
     );
   }, [camposFaltantesClienteDatos, clienteDatosMeta]);
 
+  const expedienteCancelado = operativo?.cicloEstado === "cancelado";
+
   const puedeEnviarAMesaSupabase = useMemo(
     () =>
       hasMontoAprobado &&
       datosGeneralesCompletos &&
       documentosCompletos &&
-      !operativo?.submittedToMesa,
+      !operativo?.submittedToMesa &&
+      !expedienteCancelado,
     [
       datosGeneralesCompletos,
       documentosCompletos,
       hasMontoAprobado,
       operativo?.submittedToMesa,
+      expedienteCancelado,
     ],
   );
+
+  const puedeIntegrarAsesor =
+    hasMontoAprobado && !expedienteCancelado;
 
   const initialSubestado: EstadoEtapa | undefined =
     operativo?.subestado ? (operativo.subestado as EstadoEtapa) : undefined;
@@ -534,6 +545,7 @@ export default function AsesorExpedientePage() {
         setOperativo(null);
         setEditorDecision(null);
         setReingreso(undefined);
+        setCancelacionOperativa(null);
         setLoadError(null);
         return;
       }
@@ -563,11 +575,20 @@ export default function AsesorExpedientePage() {
         cicloEstado: exp.operativo.cicloEstado,
         origenMesa: exp.base.origenMesa,
       });
+      if (exp.operativo.cicloEstado === "cancelado") {
+        const cancelacion = await repo
+          .getUltimaCancelacionOperativa(exp.id)
+          .catch(() => null);
+        setCancelacionOperativa(cancelacion);
+      } else {
+        setCancelacionOperativa(null);
+      }
     } catch (err) {
       setPrecal(null);
       setOperativo(null);
       setEditorDecision(null);
       setReingreso(undefined);
+      setCancelacionOperativa(null);
       if (err instanceof ExpedientesSupabaseError) {
         setLoadError(err.message);
       } else {
@@ -1197,6 +1218,13 @@ export default function AsesorExpedientePage() {
           </p>
         ) : null}
 
+        {expedienteCancelado ? (
+          <AsesorExpedienteCanceladoBanner
+            cancelacion={cancelacionOperativa}
+            formatDateTime={(iso) => (iso ? formatDateTime(iso) : "—")}
+          />
+        ) : null}
+
         <AsesorReingresoPostBiometricosCard
           expedienteId={String(precal.id)}
           dataModeSupabase={dataSupabase}
@@ -1230,7 +1258,7 @@ export default function AsesorExpedientePage() {
                   {editorDecision?.notas_revision?.trim() || "—"}
                 </p>
               </div>
-              {!operativo?.submittedToMesa ? (
+              {!operativo?.submittedToMesa && !expedienteCancelado ? (
                 <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:items-end">
                   <label className="flex-1 text-xs text-gray-600">
                     <span className="mb-1 block font-medium text-gray-900">
@@ -1329,7 +1357,7 @@ export default function AsesorExpedientePage() {
               camposFaltantes={camposFaltantesClienteDatos}
               fieldErrors={clienteDatosFieldErrors}
               showFieldErrors={clienteDatosShowValidation}
-              puedeIntegrar={hasMontoAprobado}
+              puedeIntegrar={puedeIntegrarAsesor}
               submittedToMesa={operativo?.submittedToMesa ?? false}
               dataSupabase
               formatDateTime={formatDateTime}
@@ -1393,7 +1421,7 @@ export default function AsesorExpedientePage() {
                     checklistObligatorios={integrationChecklistObligatorios}
                     checklistOpcionales={integrationChecklistOpcionales}
                     archivosResumen={archivosResumen}
-                    puedeIntegrar={hasMontoAprobado}
+                    puedeIntegrar={puedeIntegrarAsesor}
                     submittedToMesa={operativo?.submittedToMesa ?? false}
                     esReingresoEtapa6={Boolean(
                       reingreso?.expedienteAnteriorId &&
@@ -1477,7 +1505,7 @@ export default function AsesorExpedientePage() {
               origenMesa={operativo?.origenMesa}
               formatDateTime={formatDateTime}
             />
-            {canMountAgendaBiometricosUI() && precal?.id ? (
+            {canMountAgendaBiometricosUI() && precal?.id && !expedienteCancelado ? (
               <AsesorAgendaBiometricosSupabaseGate
                 expedienteId={String(precal.id)}
                 submittedToMesa={operativo?.submittedToMesa ?? false}
@@ -1486,7 +1514,7 @@ export default function AsesorExpedientePage() {
                 onUpdated={() => void loadExpediente()}
               />
             ) : null}
-            {canMountAgendaBiometricosUI() && precal?.id ? (
+            {canMountAgendaBiometricosUI() && precal?.id && !expedienteCancelado ? (
               <AsesorAgendaFirmasSupabaseGate
                 expedienteId={String(precal.id)}
                 submittedToMesa={operativo?.submittedToMesa ?? false}
@@ -1499,7 +1527,9 @@ export default function AsesorExpedientePage() {
               dataModeSupabase: isDataModeSupabase(),
               etapaActual: operativo?.etapaActual,
               submittedToMesa: operativo?.submittedToMesa ?? false,
-            }) && precal?.id ? (
+            }) &&
+            precal?.id &&
+            !expedienteCancelado ? (
               <RetencionAcuseAvisoSupabaseCard
                 expedienteId={String(precal.id)}
                 archivosResumen={archivosResumen}
@@ -1566,7 +1596,7 @@ export default function AsesorExpedientePage() {
               camposFaltantes={camposFaltantesClienteDatos}
               fieldErrors={clienteDatosFieldErrors}
               showFieldErrors={clienteDatosShowValidation}
-              puedeIntegrar={hasMontoAprobado}
+              puedeIntegrar={puedeIntegrarAsesor}
               dataSupabase={false}
               formatDateTime={formatDateTime}
               onSave={handleSaveClienteDatos}

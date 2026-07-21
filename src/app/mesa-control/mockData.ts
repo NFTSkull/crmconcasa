@@ -14,6 +14,8 @@ export interface CasoMock {
   asesorNombre: string;
   etapaActual: number;
   subestado: Subestado;
+  /** Ciclo operativo; default activo si se omite (mock legacy). */
+  cicloEstado?: string | null;
   motivoRechazo?: string;
   fechaCita?: string;
   /** Alta del expediente (precalificación); fallback de urgencia si no hay `fechaEnvioMesa`. */

@@ -18,23 +18,7 @@ import type {
   AdminProductionFilters,
   AdminProductionRepo,
 } from "./repo";
-
-function matchesEstado(
-  row: { cicloEstado: string; subestado: string; etapaActual: number },
-  estado: AdminProductionFilters["estado"],
-): boolean {
-  if (!estado || estado === "todos") return true;
-  if (estado === "activos") {
-    return row.cicloEstado === "activo" && row.subestado !== "rechazado";
-  }
-  if (estado === "finalizados") {
-    return row.cicloEstado === "cerrado" || row.etapaActual >= 11;
-  }
-  if (estado === "rechazados") {
-    return row.subestado === "rechazado" || row.cicloEstado === "cancelado";
-  }
-  return true;
-}
+import { matchesAdminEstadoFilter } from "./admin-estado-filter";
 
 function mapMesa(e: ExpedienteMock): AdminMesaEnvioEvent | null {
   const fecha = e.operativo.fechaEnvioMesa;
@@ -42,7 +26,8 @@ function mapMesa(e: ExpedienteMock): AdminMesaEnvioEvent | null {
   const subestado = e.operativo.subestado ?? "pendiente";
   const cicloEstado = e.operativo.cicloEstado ?? "activo";
   const etapaActual = e.operativo.etapaActual ?? 1;
-  const rechazoOperativo = subestado === "rechazado";
+  const cancelado = cicloEstado === "cancelado";
+  const rechazoOperativo = !cancelado && subestado === "rechazado";
   const defaults = emptyAdminMesaSeguimientoFields(fecha);
   return {
     expedienteId: e.id,
@@ -59,14 +44,26 @@ function mapMesa(e: ExpedienteMock): AdminMesaEnvioEvent | null {
     rechazoMotivo: rechazoOperativo
       ? (e.operativo.motivoRechazo ?? "Sin motivo registrado")
       : null,
-    situacionCode: rechazoOperativo ? "rechazo_operativo" : defaults.situacionCode,
-    situacionLabel: rechazoOperativo
-      ? "Rechazado operativamente"
-      : defaults.situacionLabel,
-    siguienteAccionLabel: rechazoOperativo
-      ? "Revisar reingreso"
-      : defaults.siguienteAccionLabel,
-    siguienteAccionActor: rechazoOperativo ? "Asesor" : defaults.siguienteAccionActor,
+    situacionCode: cancelado
+      ? "cancelado_operativo"
+      : rechazoOperativo
+        ? "rechazo_operativo"
+        : defaults.situacionCode,
+    situacionLabel: cancelado
+      ? "Cancelado (terminal)"
+      : rechazoOperativo
+        ? "Rechazado operativamente"
+        : defaults.situacionLabel,
+    siguienteAccionLabel: cancelado
+      ? "Sin acción operativa"
+      : rechazoOperativo
+        ? "Revisar reingreso"
+        : defaults.siguienteAccionLabel,
+    siguienteAccionActor: cancelado
+      ? "—"
+      : rechazoOperativo
+        ? "Asesor"
+        : defaults.siguienteAccionActor,
   };
 }
 
@@ -159,7 +156,7 @@ export class MockAdminProductionRepo implements AdminProductionRepo {
       .filter((r) => !filters.asesorId || r.asesorId === filters.asesorId)
       .filter((r) => filters.etapaActual == null || r.etapaActual === filters.etapaActual)
       .filter((r) =>
-        matchesEstado(
+        matchesAdminEstadoFilter(
           {
             cicloEstado: r.cicloEstado,
             subestado: r.subestado,

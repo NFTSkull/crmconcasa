@@ -77,4 +77,32 @@ describe("dashboardNotifications", () => {
     assert.equal(fechaToYMD("2026-07-03"), "2026-07-03");
     assert.equal(fechaToYMD("2026-07-03T18:00:00.000Z"), "2026-07-03");
   });
+
+  it("P094: cancelado no emite rechazado_mesa", () => {
+    const item = buildBestDashboardNotification(
+      {
+        expedienteId: "exp-cancel",
+        clienteNombre: "Cancelado",
+        subestado: "rechazado",
+        cicloEstado: "cancelado",
+        submittedToMesa: true,
+      },
+      "asesor",
+    );
+    assert.equal(item?.kind, "cancelado");
+  });
+
+  it("P094: rechazo recuperable sigue siendo rechazado_mesa", () => {
+    const item = buildBestDashboardNotification(
+      {
+        expedienteId: "exp-rech",
+        clienteNombre: "Rechazado",
+        subestado: "rechazado",
+        cicloEstado: "activo",
+        submittedToMesa: true,
+      },
+      "asesor",
+    );
+    assert.equal(item?.kind, "rechazado_mesa");
+  });
 });

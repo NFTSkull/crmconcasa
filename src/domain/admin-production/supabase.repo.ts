@@ -17,6 +17,7 @@ import type {
   AdminProductionFilters,
   AdminProductionRepo,
 } from "./repo";
+import { adminEstadoRpcParam } from "./admin-estado-filter";
 
 function requireClient() {
   if (!isSupabaseConfigured() || !supabaseBrowser) {
@@ -44,6 +45,9 @@ function strOrNull(v: unknown): string | null {
 }
 
 function mapMesaItem(raw: Record<string, unknown>): AdminMesaEnvioEvent {
+  const cicloEstado = str(raw.ciclo_estado) || "activo";
+  const cancelado = cicloEstado === "cancelado";
+  const rechazoOperativo = !cancelado && Boolean(raw.rechazo_operativo);
   return {
     expedienteId: str(raw.expediente_id),
     fechaEnvioMesa: str(raw.fecha_envio_mesa),
@@ -54,11 +58,19 @@ function mapMesaItem(raw: Record<string, unknown>): AdminMesaEnvioEvent {
     etapaActual: num(raw.etapa_actual) || 1,
     etapaLabel: str(raw.etapa_label) || String(raw.etapa_actual ?? ""),
     subestado: str(raw.subestado) || "pendiente",
-    cicloEstado: str(raw.ciclo_estado) || "activo",
-    situacionCode: str(raw.situacion_code) || "continuar_etapa",
-    situacionLabel: str(raw.situacion_label) || "Continuar etapa actual",
-    siguienteAccionLabel: str(raw.siguiente_accion_label) || "Continuar etapa actual",
-    siguienteAccionActor: str(raw.siguiente_accion_actor) || "Mesa",
+    cicloEstado,
+    situacionCode: cancelado
+      ? "cancelado_operativo"
+      : str(raw.situacion_code) || "continuar_etapa",
+    situacionLabel: cancelado
+      ? "Cancelado (terminal)"
+      : str(raw.situacion_label) || "Continuar etapa actual",
+    siguienteAccionLabel: cancelado
+      ? "Sin acción operativa"
+      : str(raw.siguiente_accion_label) || "Continuar etapa actual",
+    siguienteAccionActor: cancelado
+      ? "—"
+      : str(raw.siguiente_accion_actor) || "Mesa",
     ultimaActividadMesaCode: strOrNull(raw.ultima_actividad_mesa_code),
     ultimaActividadMesaLabel: strOrNull(raw.ultima_actividad_mesa_label),
     ultimaActividadMesaAt: strOrNull(raw.ultima_actividad_mesa_at),
@@ -69,13 +81,15 @@ function mapMesaItem(raw: Record<string, unknown>): AdminMesaEnvioEvent {
     esperaTipo: strOrNull(raw.espera_tipo),
     esperaLabel: strOrNull(raw.espera_label),
     esperaDesde: strOrNull(raw.espera_desde),
-    rechazoOperativo: Boolean(raw.rechazo_operativo),
-    rechazoAt: strOrNull(raw.rechazo_at),
-    rechazoClasificacion: strOrNull(raw.rechazo_clasificacion),
-    rechazoMotivo: raw.rechazo_operativo
+    rechazoOperativo,
+    rechazoAt: rechazoOperativo ? strOrNull(raw.rechazo_at) : null,
+    rechazoClasificacion: rechazoOperativo
+      ? strOrNull(raw.rechazo_clasificacion)
+      : null,
+    rechazoMotivo: rechazoOperativo
       ? sanitizeAdminMotivo(raw.rechazo_motivo)
-      : strOrNull(raw.rechazo_motivo),
-    reingresoActivo: Boolean(raw.reingreso_activo),
+      : null,
+    reingresoActivo: !cancelado && Boolean(raw.reingreso_activo),
   };
 }
 
@@ -106,8 +120,7 @@ function mapPrecalItem(raw: Record<string, unknown>): AdminPrecalEvent {
 }
 
 function estadoParam(filters: AdminProductionFilters): string | null {
-  if (!filters.estado || filters.estado === "todos") return null;
-  return filters.estado;
+  return adminEstadoRpcParam(filters.estado);
 }
 
 export class SupabaseAdminProductionRepo implements AdminProductionRepo {

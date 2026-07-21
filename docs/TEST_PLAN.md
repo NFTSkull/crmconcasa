@@ -1,5 +1,42 @@
 # ConCasa CRM — Plan de pruebas
 
+## P094 — Rechazados vs Cancelados
+
+### B0 (auditoría + diseño)
+
+- Confirmar: rechazo = `subestado=rechazado` + `expediente_rechazos_operativos` + ciclo `activo`; cancelado enum sin writer.
+- Contrato docs: PRODUCTO §6.6, API §17f (`cancelar_expediente_operativo` + `expediente_cancelaciones`); UI chip «Rechazos y cancelaciones» con subvistas disjuntas.
+- Decisiones cerradas B0.1: historial = tabla append-only; predicados Rechazados/Cancelados explícitos; reapertura admin fuera de P094.
+- Sin SQL/UI/Cloud/commit de implementación.
+
+### B1 (SQL — local)
+
+- Migración `090_cancelar_expediente_operativo.sql`: tabla append-only `expediente_cancelaciones` + RPC `cancelar_expediente_operativo`.
+- Suite `rpc_cancelar_expediente_operativo.sql`: happy path, cancelar sobre rechazado, bookings intactos, auth/validaciones, gates post-cancel (avance/mover/rechazo/reingreso/book), RLS sin INSERT directo, `action_log`.
+- Cableado en `scripts/test-sql.sh`; regresiones P071 rechazo + P072 reingreso.
+- Sin UI/chip/selector/asesor/Admin/Cloud.
+
+### B2 (UI Mesa — local)
+
+- Chip «Rechazos y cancelaciones» + subvistas Rechazados | Cancelados (predicados disjuntos).
+- Query bandeja incluye `ciclo=cancelado`; «Todos»/operativos excluyen cancelados.
+- Acción `MesaCancelarExpedienteCard` → RPC `cancelar_expediente_operativo`; banner RO si cancelado.
+- Tests TS filtros + dominio cancelación; sin Asesor/Admin/Cloud.
+
+### B3 (UI Asesor + Admin — local)
+
+- Asesor: `deriveResultadoRealExpediente` → `cancelado` (prioridad) vs `rechazado_mesa` (ciclo activo); KPI/chip/filtro Cancelados; detalle banner RO + writes apagados.
+- Admin: `matchesAdminEstadoFilter` — Rechazados ≠ Cancelados; UI opciones separadas; mock + split cliente Supabase (listado/KPI envíos/cohorte/asesor); sin migración/RPC nuevas.
+- Tests cableados: derive, admin-estado-filter, admin mock listado, notifications.
+- Sin reapertura, backfill, SQL, Cloud, commit, push.
+
+### B4 (SQL Admin p_estado — local)
+
+- Migración `091_admin_estado_rechazados_cancelados.sql`: `rechazados` = `subestado=rechazado ∧ ciclo=activo`; `cancelados` = `ciclo=cancelado`.
+- RPCs: `admin_get_production_summary`, `admin_get_mesa_cohort_by_etapa`, `admin_list_production_by_asesor`, `admin_list_mesa_envios_page`.
+- Suite `admin_estado_rechazados_cancelados.sql` + `scripts/verify-p094-b4-sql.sh`; frontend pasa `p_estado=cancelados` nativo.
+- Sin Cloud/push; reapertura admin fuera de P094.
+
 ## P093 — Separación UX rechazo vs movimiento manual
 
 ### B0 (auditoría RO)

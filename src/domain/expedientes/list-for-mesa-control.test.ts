@@ -44,12 +44,12 @@ function filterListForMesaControl(items: ExpedienteMock[]): ExpedienteMock[] {
     .filter((e) => e.operativo.submittedToMesa)
     .filter((e) => {
       const ciclo = e.operativo.cicloEstado;
-      return ciclo == null || ciclo === "activo";
+      return ciclo == null || ciclo === "activo" || ciclo === "cancelado";
     });
 }
 
 describe("listForMesaControl (filtro mock)", () => {
-  it("incluye enviados a mesa con ciclo activo o sin ciclo", () => {
+  it("incluye enviados a mesa con ciclo activo, cancelado o sin ciclo", () => {
     const items = [
       baseExp({ id: "a" }),
       baseExp({
@@ -64,11 +64,18 @@ describe("listForMesaControl (filtro mock)", () => {
         id: "d",
         operativo: { ...baseExp({ id: "x" }).operativo, cicloEstado: "cerrado" },
       }),
+      baseExp({
+        id: "e",
+        operativo: {
+          ...baseExp({ id: "x" }).operativo,
+          cicloEstado: "cancelado",
+        },
+      }),
     ];
     const out = filterListForMesaControl(items);
     assert.deepEqual(
       out.map((x) => x.id),
-      ["a", "b"],
+      ["a", "b", "e"],
     );
   });
 });

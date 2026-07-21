@@ -7,6 +7,10 @@ import type {
   ReingresoElegibilidad,
 } from "./reingreso-post-biometricos";
 import type {
+  CancelacionOperativaInput,
+  ExpedienteCancelacionRow,
+} from "./mesa-cancelacion-operativa";
+import type {
   ListForAsesorPaginatedOptions,
   PaginatedExpedientesResult,
 } from "./list-for-asesor-paginated";
@@ -59,6 +63,13 @@ export interface ExpedientesRepo {
     expedienteId: string,
     input: RechazoOperativoInput,
   ): Promise<ExpedienteMock>;
+  cancelarExpedienteOperativo(
+    expedienteId: string,
+    input: CancelacionOperativaInput,
+  ): Promise<ExpedienteMock>;
+  getUltimaCancelacionOperativa(
+    expedienteId: string,
+  ): Promise<ExpedienteCancelacionRow | null>;
   getReingresoPostBiometricosElegibilidad(
     expedienteId: string,
   ): Promise<ReingresoElegibilidad>;

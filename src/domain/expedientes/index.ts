@@ -50,6 +50,20 @@ export {
   motivoManualPareceRechazo,
 } from "./mesa-rechazo-operativo-ux";
 export {
+  cancelacionOperativaInputSchema,
+  cancelacionOperativaResponseSchema,
+  esElegibleCancelacionOperativa,
+  esExpedienteCancelado,
+  getMesaCancelacionErrorCode,
+  mapMesaCancelacionRpcError,
+  MESA_CANCELACION_OPERATIVA_ANCHOR_ID,
+  MESA_CANCELACION_OPERATIVA_CARD_BADGE,
+  MESA_CANCELACION_OPERATIVA_CARD_INTRO,
+  type CancelacionOperativaInput,
+  type CancelacionOperativaResponse,
+  type ExpedienteCancelacionRow,
+} from "./mesa-cancelacion-operativa";
+export {
   biometricosCondicionSchema,
   esExpedienteReingreso,
   getReingresoErrorCode,
