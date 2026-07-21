@@ -6,17 +6,21 @@
 
 - [x] Contrato: hoy Monterrey, solo ese día; Excel Fecha|NSS|Nombre in-memory; P089 intacto.
 
-### B1 (fecha — local, sin Excel/commit)
+### B1 (fecha — local)
 
 - [x] `todayMesaAgendaYmd` / `defaultMesaAgendaDayRange` en `America/Monterrey`.
 - [x] Apertura vista `lista` con from=to=selectedDay=hoy; sin mes completo.
 - [x] Cambio de fecha sincroniza from/to/selectedDay; conserva filtros; limpia selección.
-- [x] Tests TZ + sync + fetch range un día.
-- [ ] Sin botón Excel / `.xlsx` / deps nuevas / SQL / Cloud.
 
-### B2+ (pendiente)
+### B2 (Excel util — local, sin UI)
 
-- [ ] `Descargar Excel` según contrato B0.
+- [x] `exportMesaCitasExcel`: `citas-mesa-YYYY-MM-DD.xlsx` / hoja `Citas` / Fecha|NSS|Nombre.
+- [x] In-memory + filtros activos; >100 filas; sin selección P089; sin botón UI.
+- [ ] Cablear `Descargar Excel` en pantalla (B3).
+
+### B3+ (pendiente)
+
+- [ ] Botón UI + descarga local; regresión P089; sin RPC/Cloud.
 
 ## P094 — Rechazados vs Cancelados
 

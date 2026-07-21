@@ -137,9 +137,9 @@ La UI identifica al hijo como **Reingreso / Reinscripción** y **Biométricos re
 - Fecha operativa = **hoy** `America/Monterrey`; `date_from` = `date_to` = `selectedDay` = ese YMD.
 - Fetch inicial: un solo día (no mes completo). Cambio de fecha resincroniza los tres al mismo YMD y limpia selección masiva; conserva filtros compatibles.
 
-**Exportación Excel (contrato; pendiente B2+):**
-- Botón `Descargar Excel` → `.xlsx`; hoja `Citas`; archivo `citas-mesa-YYYY-MM-DD.xlsx`.
-- Columnas únicas: `Fecha` | `NSS` | `Nombre completo`; in-memory; sin selección/límite 100/Storage/RPC.
+**Exportación Excel (B2 util; botón UI pendiente):**
+- Util `exportMesaCitasExcel` genera `.xlsx` hoja `Citas`; archivo `citas-mesa-YYYY-MM-DD.xlsx`.
+- Columnas únicas: `Fecha` | `NSS` | `Nombre completo`; in-memory + filtros; sin selección/límite 100/Storage/RPC.
 
 **Intacto:** P089, cancel/reagendar individual, RPC `get_mesa_agenda_bookings`.
 

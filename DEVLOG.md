@@ -1,5 +1,18 @@
 # Devlog
 
+## 2026-07-21 - P095 B2: Utilidad Excel citas Mesa (sin UI)
+
+### Decisión
+
+- Nueva util `src/lib/exportMesaCitasExcel.ts` (testeable): `prepareMesaCitasExport` / workbook hoja `Citas`.
+- Columnas solo Fecha|NSS|Nombre; filename `citas-mesa-YYYY-MM-DD.xlsx`; título + subtítulo MX; NSS texto; sanitización fórmula.
+- Alcance in-memory: día + filtros (kind/canceladas/sede/asesor/search); sin selección P089 ni límite 100; sin Storage/RPC.
+- Sin cablear botón en `MesaAgendaCitasClient` (B3).
+
+### Resultado
+
+- Suite `exportMesaCitasExcel.test.ts` cableada en `package.json`.
+
 ## 2026-07-21 - P095 B1: Citas Mesa abre en hoy (America/Monterrey)
 
 ### Decisión
