@@ -15,6 +15,7 @@ import { AgendaFirmasAsesorCard } from "@/components/asesor/AgendaFirmasAsesorCa
 import { ExpedienteClienteDatosFormSection } from "@/components/asesor/ExpedienteClienteDatosFormSection";
 import { AsesorMontoMejoravitActualizadoSection } from "@/components/asesor/AsesorMontoMejoravitActualizadoSection";
 import { AsesorPagareSection } from "@/components/asesor/AsesorPagareSection";
+import { AsesorNotificacionDocumentoSection } from "@/components/asesor/AsesorNotificacionDocumentoSection";
 import { AsesorReingresoPostBiometricosCard } from "@/components/asesor/AsesorReingresoPostBiometricosCard";
 import { Button } from "@/components/ui/Button";
 import { SeguimientoOperativoMock } from "@/components/seguimiento/SeguimientoOperativoMock";
@@ -1346,6 +1347,12 @@ export default function AsesorExpedientePage() {
             ) : null}
             {dataSupabase && precal?.id ? (
               <AsesorPagareSection
+                expedienteId={String(precal.id)}
+                etapaActual={operativo?.etapaActual ?? null}
+              />
+            ) : null}
+            {dataSupabase && precal?.id ? (
+              <AsesorNotificacionDocumentoSection
                 expedienteId={String(precal.id)}
                 etapaActual={operativo?.etapaActual ?? null}
               />

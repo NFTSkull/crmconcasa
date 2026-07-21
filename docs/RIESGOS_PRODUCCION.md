@@ -93,7 +93,22 @@
 
 ---
 
-## 9. NSS y duplicados
+## 9. Notificación documento vs agenda (P092)
+
+| Riesgo | Impacto | Mitigación |
+|--------|---------|------------|
+| Usar tipo documental `notificacion` (colisión con `agenda_bookings.kind`) | Alto — rompe agenda/P070 | Tipo obligatorio `cliente_notificacion`; contrato + tests; docs de separación |
+| Listar Notificación en Documentos complementarios | Medio — UX duplicada | Fuera de `INTEGRATION_DOC_TIPOS_MESA_UPLOAD`; sección dedicada |
+| Compartir estado React con Pagaré | Medio — reemplazos cruzados | Componentes/estado independientes; paths Storage distintos |
+| Soft-delete / register falla → Storage huérfano | Medio | Cleanup best-effort del objeto nuevo (patrón Pagaré) |
+| Históricos soft-delete no visibles en UI | Bajo (aceptado) | Solo vigente; sin historial de versiones en UI |
+| Hacer obligatorio o gate de avance | Alto operativo | `obligatorio: false`, `esGateAvance: false`; no tocar `avanzar_etapa_operativa` |
+| Ampliar MIME de acta/SAT/semanas | Medio | MIME imagen solo para tipos Pagaré/Notificación en B1 |
+| Modificar agenda / P070 / monto P090 | Alto | Fuera de alcance explícito |
+
+---
+
+## 10. NSS y duplicados
 
 | Riesgo | Impacto | Mitigación |
 |--------|---------|------------|
@@ -102,7 +117,7 @@
 
 ---
 
-## 10. Origen interno/externo
+## 11. Origen interno/externo
 
 | Riesgo | Impacto | Mitigación |
 |--------|---------|------------|
@@ -111,7 +126,7 @@
 
 ---
 
-## 11. Checklist salida a piloto (P8)
+## 12. Checklist salida a piloto (P8)
 
 - [ ] RLS tests green (asesor, mesa interno, mesa externo, editor, admin)
 - [ ] Storage signed URL tests
@@ -125,7 +140,7 @@
 
 ---
 
-## 12. Deuda mock conocida (no llevar a prod)
+## 13. Deuda mock conocida (no llevar a prod)
 
 1. Doble persistencia `MockPrecalificacionesRepo` (memoria) vs `precalificaciones_mock`.
 2. Permisos 100% client-side.

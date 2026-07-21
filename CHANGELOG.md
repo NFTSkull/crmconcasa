@@ -2,6 +2,12 @@
 
 ## Unreleased
 
+- **feat/mesa-notificacion-doc — P092 B2 (local):** UI Mesa (`MesaNotificacionDocumentoSection`) + asesor RO; upload/reemplazo/preview/descarga; estado React independiente del Pagaré; helpers + tests; sin Cloud/commit.
+
+- **feat/mesa-notificacion-doc — P092 B1 (local):** migración `089_…sql` allowlist/MIME/gate etapa≥7 para `cliente_notificacion`; suite SQL + `test-sql.sh`; conserva Pagaré; no agenda/`notificacion`; sin UI/Cloud/commit.
+
+- **feat/mesa-notificacion-doc — P092 B0 (local):** contrato TS `CLIENTE_NOTIFICACION_DOCUMENT_CONTRACT` (`cliente_notificacion`, etapa ≥7, PDF/JPEG/PNG ≤15 MiB, no gate); docs PRODUCTO/API/TEST_PLAN/RIESGOS; separado de agenda `kind=notificacion` y de `cliente_pagare`; sin SQL/UI/Cloud/commit.
+
 - **fix/asesor-buscador-filtros-visibles — P091 (local):** contraste legible en buscador y filtros avanzados de `/asesor`; búsqueda por nombre/programa vuelve a filtrar (evita `includes("")` en dígitos NSS/tel); conserva match NSS/tel por dígitos (P088); vacío sin coincidencias; `setPage(1)` al buscar; sin SQL/Cloud/otros módulos.
 
 - **feat/mesa-monto-pagare — P090 B0–B5 (local commit):** Monto actualizado Mejoravit (087 + UI Mesa/asesor RO) y Pagaré `cliente_pagare` (088 + UI Mesa/asesor RO); cobro `%+$3,000`; sin gate/obligatorio Pagaré; P087/P089 intactos; sin Cloud/push/PR.

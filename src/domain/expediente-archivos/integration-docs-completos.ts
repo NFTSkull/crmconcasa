@@ -43,8 +43,9 @@ export const INTEGRATION_DOC_TIPOS_VALIDACION_MESA = [
 
 /**
  * Espejo de `integration_doc_tipos_mesa_upload()` **para UI de complementarios**
- * (semanas, acta, SAT). El Pagaré (`cliente_pagare`) está en la allowlist SQL Mesa
- * pero se renderiza en sección propia (B4); no se lista aquí para no mostrar botones aún.
+ * (semanas, acta, SAT). Pagaré (`cliente_pagare`) y Notificación (`cliente_notificacion`)
+ * están en la allowlist SQL Mesa (B1+) pero se renderizan en secciones propias; no se
+ * listan aquí para no duplicar botones en complementarios.
  */
 export const INTEGRATION_DOC_TIPOS_MESA_UPLOAD = [
   "cliente_semanas_cotizadas",
@@ -57,10 +58,20 @@ export const CLIENTE_PAGARE_DOCUMENT_TIPO = "cliente_pagare" as const;
 
 export type ClientePagareDocumentTipo = typeof CLIENTE_PAGARE_DOCUMENT_TIPO;
 
-/** Allowlist SQL completa Mesa (complementarios UI + Pagaré). */
+/**
+ * Tipo técnico documento Notificación (P092).
+ * Distinto de `agenda_bookings.kind = 'notificacion'` (agenda/P070 — intacto).
+ */
+export const CLIENTE_NOTIFICACION_DOCUMENT_TIPO = "cliente_notificacion" as const;
+
+export type ClienteNotificacionDocumentTipo =
+  typeof CLIENTE_NOTIFICACION_DOCUMENT_TIPO;
+
+/** Allowlist SQL completa Mesa (complementarios UI + Pagaré + Notificación doc). */
 export const INTEGRATION_DOC_TIPOS_MESA_REGISTER = [
   ...INTEGRATION_DOC_TIPOS_MESA_UPLOAD,
   CLIENTE_PAGARE_DOCUMENT_TIPO,
+  CLIENTE_NOTIFICACION_DOCUMENT_TIPO,
 ] as const;
 
 export type IntegrationDocMesaRegisterTipo =
@@ -70,6 +81,27 @@ export type IntegrationDocMesaRegisterTipo =
 export const CLIENTE_PAGARE_DOCUMENT_CONTRACT = Object.freeze({
   tipo: CLIENTE_PAGARE_DOCUMENT_TIPO,
   label: "Pagaré",
+  origen: "Mesa" as const,
+  formatos: ["PDF", "JPG", "JPEG", "PNG"] as const,
+  mimePermitidos: [
+    "application/pdf",
+    "image/jpeg",
+    "image/png",
+  ] as const,
+  maxBytes: 15 * 1024 * 1024,
+  etapaMinima: 7,
+  obligatorio: false,
+  esGateAvance: false,
+});
+
+/**
+ * Contrato documento Notificación (P092 B0 preparatorio; SQL B1; UI B2).
+ * Independiente de `CLIENTE_PAGARE_DOCUMENT_CONTRACT`. No usa el string `notificacion`.
+ * Storage (B1+): `{orgId}/{expedienteId}/cliente_notificacion/{uuid}.{ext}` (bucket privado).
+ */
+export const CLIENTE_NOTIFICACION_DOCUMENT_CONTRACT = Object.freeze({
+  tipo: CLIENTE_NOTIFICACION_DOCUMENT_TIPO,
+  label: "Notificación",
   origen: "Mesa" as const,
   formatos: ["PDF", "JPG", "JPEG", "PNG"] as const,
   mimePermitidos: [

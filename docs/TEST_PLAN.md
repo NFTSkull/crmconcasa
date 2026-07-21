@@ -1,5 +1,32 @@
 # ConCasa CRM — Plan de pruebas
 
+## P092 — Notificación documento (`cliente_notificacion`)
+
+### Separación
+
+- Documento: `cliente_notificacion` ≠ agenda `kind=notificacion` (P070). Tests no deben usar el string corto `notificacion` como tipo documental.
+
+### B0 (contrato TS)
+
+- `cliente-notificacion-contract.test.ts`: tipo, label, etapa 7, MIME PDF/JPEG/PNG, máx. 15 728 640, independencia vs Pagaré, fuera de complementarios UI / obligatorios / upload asesor.
+
+### B1 (SQL)
+
+- Migración `089_mesa_notificacion_documento_expediente.sql`: allowlist + MIME PDF/JPEG/PNG + gate etapa ≥ 7 en `register_mesa_documento`.
+- Suite `rpc_mesa_notificacion_documento_expediente.sql`: allowlist (nunca `notificacion` corto), MIME, etapa 6/7, versionado, tamaño 15 MiB, permisos, RLS asesor, independencia vs `cliente_pagare`, path mismatch, `action_log`, enum agenda intacto.
+- Cableado en `scripts/test-sql.sh`.
+
+### B2 (UI)
+
+- Mesa: `MesaNotificacionDocumentoSection` + upload dialog; acordeón dedicado; estado React independiente del Pagaré.
+- Asesor: `AsesorNotificacionDocumentoSection` RO (estatus / Ver / Descargar) desde etapa 7.
+- Helpers `cliente-notificacion.ts` + tests; validación MIME en `fileUploadValidation` / `upload-constraints`.
+- Fuera de Documentos complementarios.
+
+### Regresión
+
+- Pagaré (`cliente_pagare`) intacto; P070/agenda intactos; sin ampliar MIME de acta/SAT/semanas.
+
 ## Libertad operativa de Mesa (P074/P075)
 
 ### SQL

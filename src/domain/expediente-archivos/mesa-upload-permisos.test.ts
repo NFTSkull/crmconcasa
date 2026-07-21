@@ -87,4 +87,22 @@ describe("permisos upload Mesa vs asesor (contrato de tipos)", () => {
       !(INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD as readonly string[]).includes("cliente_pagare"),
     );
   });
+
+  it("Notificación documento: registrable Mesa pero no en UI complementarios ni upload asesor", () => {
+    assert.ok(
+      !(INTEGRATION_DOC_TIPOS_MESA_UPLOAD as readonly string[]).includes(
+        "cliente_notificacion",
+      ),
+      "UI complementarios sin botón Notificación documento",
+    );
+    assert.ok(
+      !(INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD as readonly string[]).includes(
+        "cliente_notificacion",
+      ),
+    );
+    assert.ok(
+      !(INTEGRATION_DOC_TIPOS_MESA_UPLOAD as readonly string[]).includes("notificacion"),
+      "nunca tipo corto notificacion en complementarios",
+    );
+  });
 });

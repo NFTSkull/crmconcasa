@@ -37,6 +37,7 @@ export const TIPO_DOCUMENTO_CATALOGO = [
   "cliente_carta_empresa",
   "cliente_acta_nacimiento_digital",
   "cliente_pagare",
+  "cliente_notificacion",
 
   // ===== Acuse / Aviso de retención (etapa operativa 8) =====
   "retencion_acuse_con_sello",
@@ -182,6 +183,17 @@ export const DOCUMENTO_CATALOGO_MAP = Object.freeze({
   cliente_pagare: {
     tipo: "cliente_pagare",
     label: "Pagaré",
+    ownerRole: "mesa",
+    obligatorio: "opcional",
+    etapasRequeridas: [],
+  },
+  /**
+   * P092: documento Notificación (`cliente_notificacion`) — Mesa desde etapa 7; asesor RO.
+   * Distinto de agenda `kind=notificacion`. No obligatorio / no gate.
+   */
+  cliente_notificacion: {
+    tipo: "cliente_notificacion",
+    label: "Notificación",
     ownerRole: "mesa",
     obligatorio: "opcional",
     etapasRequeridas: [],

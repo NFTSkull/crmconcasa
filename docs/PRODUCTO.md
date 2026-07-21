@@ -151,6 +151,8 @@ La sección Datos Generales y el JSON `datos.montoMejoravit` **no** se modifican
 
 **Pagaré (P090 B4 UI):** tipo `cliente_pagare`; desde `etapa_actual >= 7`; no es gate; PDF/JPG/JPEG/PNG ≤ 15 MB; un vigente versionado; Mesa puede subir/reemplazar/ver/descargar; asesor RO ver/descargar; sin herencia en reingresos; no aparece en complementarios UI.
 
+**Notificación documento (P092):** tipo `cliente_notificacion` (label «Notificación»). Distinto de `agenda_bookings.kind = 'notificacion'` (agenda/P070, intacto). Mismo perfil que Pagaré: etapa ≥ 7; Mesa carga/reemplaza; asesor RO; PDF/JPEG/PNG ≤ 15 MiB; no obligatorio; no gate; sección dedicada. Contrato TS B0; SQL B1; UI B2.
+
 ### UI B2 (local)
 
 - **Mesa Control (detalle):** acordeón hermana de Datos Generales con sección `Monto actualizado Mejoravit`, historial DESC, diálogo de actualización y vista previa de cobro (`% + $3,000`). Escritura solo vía `mesa_actualizar_monto_mejoravit`; botón solo si `can_update`.
@@ -166,6 +168,27 @@ La sección Datos Generales y el JSON `datos.montoMejoravit` **no** se modifican
 - Formatos: PDF, JPG/JPEG, PNG. Máx. 15 MB. Path `{org}/{exp}/cliente_pagare/{uuid}.{ext}`.
 - **No** obligatorio, **no** gate de avance, **no** checklist/faltantes, **sin** notificaciones nuevas, **sin** herencia padre↔hijo.
 - No se lista en Documentos complementarios (`INTEGRATION_DOC_TIPOS_MESA_UPLOAD`); sección dedicada única.
+
+### 6.8 Notificación documento (`cliente_notificacion`) — P092
+
+**Separación de conceptos**
+
+| Concepto | Significado |
+|----------|-------------|
+| `cliente_notificacion` | Documento de expediente cargado por Mesa; lectura asesor |
+| `notificacion` | `agenda_bookings.kind` (cita Notificación extraordinaria / P070) — **intacto** |
+
+- Tipo técnico: `cliente_notificacion` (label: Notificación). **Nunca** usar `notificacion` como tipo de documento.
+- Disponible desde `etapa_actual >= 7` (misma fase que Pagaré).
+- **Mesa (detalle):** acordeón hermana «Notificación» (`id=mesa-notificacion-documento`, después de Pagaré). Etapa &lt; 7: deshabilitada. Etapa ≥ 7: subir / reemplazar / ver / descargar. Estado React **independiente** del Pagaré (`MesaNotificacionDocumentoSection`).
+- **Asesor (detalle):** `AsesorNotificacionDocumentoSection` RO solo si `etapa_actual >= 7`. Sin archivo: `Pendiente de Mesa`. Con archivo: `Cargado por Mesa` + Ver/Descargar.
+- Carga/reemplazo solo Mesa vía Storage + `register_mesa_documento` (migración 089). Confirmaciones explícitas; un refetch documental por operación.
+- MIME: `application/pdf`, `image/jpeg`, `image/png`. Extensiones `.pdf` / `.jpg` / `.jpeg` / `.png`. Máx. 15 728 640 bytes (15 MiB).
+- Una versión activa por `(expediente, tipo)`; anteriores soft-delete; sin historial de versiones en UI.
+- Path Storage: `{orgId}/{expedienteId}/cliente_notificacion/{uuid}.{ext}` — bucket privado; UUID generado; extensión validada; nombre original **no** es la ruta; separado de `cliente_pagare`.
+- **No** obligatorio, **no** gate de avance, **sin** herencia en reingresos, **sin** notificaciones automáticas, **sin** cambios de agenda/etapa/P070/P090 monto.
+- Fuera de `INTEGRATION_DOC_TIPOS_MESA_UPLOAD` (complementarios); sección dedicada independiente del Pagaré (estado React separado).
+- Contrato TS: `CLIENTE_NOTIFICACION_DOCUMENT_CONTRACT` (B0). Helpers: `cliente-notificacion.ts` (B2).
 
 ---
 

@@ -2,6 +2,10 @@ import {
   resolveClientePagareUploadMime,
   validateClientePagareFile,
 } from "@/domain/expediente-archivos/cliente-pagare";
+import {
+  resolveClienteNotificacionUploadMime,
+  validateClienteNotificacionFile,
+} from "@/domain/expediente-archivos/cliente-notificacion";
 
 export const ALLOWED_UPLOAD_MIME_TYPES = ["application/pdf"] as const;
 
@@ -108,7 +112,8 @@ export function isPdfOrImageDocumentTipo(tipoDocumento?: string | null): boolean
 export function getExpedienteDocumentoAcceptAttr(
   tipoDocumento?: string | null,
 ): string {
-  if (String(tipoDocumento ?? "").trim() === "cliente_pagare") {
+  const tipo = String(tipoDocumento ?? "").trim();
+  if (tipo === "cliente_pagare" || tipo === "cliente_notificacion") {
     return ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png";
   }
   return isPdfOrImageDocumentTipo(tipoDocumento)
@@ -160,8 +165,12 @@ export function resolveExpedienteDocumentoUploadMime(
   file: File,
   tipoDocumento?: string | null,
 ): string {
-  if (String(tipoDocumento ?? "").trim() === "cliente_pagare") {
+  const tipo = String(tipoDocumento ?? "").trim();
+  if (tipo === "cliente_pagare") {
     return resolveClientePagareUploadMime(file) ?? "";
+  }
+  if (tipo === "cliente_notificacion") {
+    return resolveClienteNotificacionUploadMime(file) ?? "";
   }
   if (isPdfLikeFile(file)) return "application/pdf";
   if (isPdfOrImageDocumentTipo(tipoDocumento)) {
@@ -231,8 +240,14 @@ export function validateExpedienteDocumentoUploadFile(
   file: File | null | undefined,
   tipoDocumento?: string | null,
 ): { ok: true } | { ok: false; message: string } {
-  if (String(tipoDocumento ?? "").trim() === "cliente_pagare") {
+  const tipo = String(tipoDocumento ?? "").trim();
+  if (tipo === "cliente_pagare") {
     const result = validateClientePagareFile(file);
+    if (result.ok) return { ok: true };
+    return { ok: false, message: result.error };
+  }
+  if (tipo === "cliente_notificacion") {
+    const result = validateClienteNotificacionFile(file);
     if (result.ok) return { ok: true };
     return { ok: false, message: result.error };
   }
