@@ -114,7 +114,8 @@ export function MesaAgendaCitasViewControls({
             disabled={loading}
             onChange={(e) => onEndDateChange(e.target.value)}
           />
-          <div className="flex items-end sm:col-span-2">
+          <div className="flex flex-wrap items-end gap-2 sm:col-span-2">
+            <NavButton label="Hoy" disabled={loading} onClick={onGoToday} />
             <button
               type="button"
               disabled={loading}
@@ -125,6 +126,15 @@ export function MesaAgendaCitasViewControls({
               {loading ? "Actualizando…" : "Actualizar citas"}
             </button>
           </div>
+          {startDate === endDate && startDate === today ? (
+            <p className="text-xs text-slate-500 sm:col-span-2 lg:col-span-4">
+              Mostrando citas de hoy (America/Monterrey).
+            </p>
+          ) : startDate === endDate ? (
+            <p className="text-xs text-slate-500 sm:col-span-2 lg:col-span-4">
+              Consulta de un solo día: {startDate}.
+            </p>
+          ) : null}
         </div>
       ) : null}
 

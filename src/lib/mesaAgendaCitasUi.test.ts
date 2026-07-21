@@ -16,6 +16,7 @@ import {
   canMesaReagendarAgendaListEntry,
   clearMesaAgendaClientFilters,
   defaultMesaAgendaClientFilters,
+  defaultMesaAgendaDayRange,
   defaultMesaAgendaMonthRange,
   deriveMesaAgendaHistoryLabel,
   deriveMesaAgendaSummary,
@@ -34,6 +35,7 @@ import {
   mesaAgendaHasReagendaActions,
   mesaAgendaKindUiToRpcFilter,
   mesaReagendarGateMatchesRpcRole,
+  MESA_AGENDA_BUSINESS_TIMEZONE,
   MESA_AGENDA_CITAS_ROUTE,
   MESA_AGENDA_DEFAULT_SORT,
   MESA_AGENDA_DEFAULT_VIEW,
@@ -45,6 +47,8 @@ import {
   resolveMesaReagendarAdminRole,
   shiftMesaAgendaDayYmd,
   sortMesaAgendaEntries,
+  syncMesaAgendaSingleDay,
+  todayMesaAgendaYmd,
   validateMesaAgendaDateRange,
   canMesaShowDriveValidationActions,
   mesaAgendaDriveValidatedRowClass,
@@ -104,10 +108,46 @@ describe("mesaAgendaCitasUi navegación", () => {
 });
 
 describe("mesaAgendaCitasUi rango", () => {
-  it("usa rango mensual por default", () => {
+  it("usa rango mensual helper (legacy; no es default de apertura P095)", () => {
     const range = defaultMesaAgendaMonthRange(new Date(2026, 6, 15));
     assert.equal(range.startDate, "2026-07-01");
     assert.equal(range.endDate, "2026-07-31");
+  });
+
+  it("P095 default de apertura es un solo día Monterrey", () => {
+    assert.equal(MESA_AGENDA_BUSINESS_TIMEZONE, "America/Monterrey");
+    // Monterrey sin DST: UTC-6. 05:30Z = aún 21 jul; 06:00Z = medianoche 22 jul.
+    const still21 = defaultMesaAgendaDayRange(new Date("2026-07-22T05:30:00.000Z"));
+    assert.equal(still21.startDate, "2026-07-21");
+    assert.equal(still21.endDate, "2026-07-21");
+    const day22 = defaultMesaAgendaDayRange(new Date("2026-07-22T06:00:00.000Z"));
+    assert.equal(day22.startDate, "2026-07-22");
+    assert.equal(day22.endDate, "2026-07-22");
+  });
+
+  it("todayMesaAgendaYmd no usa UTC calendar day", () => {
+    assert.equal(todayMesaAgendaYmd(new Date("2026-07-22T05:59:59.000Z")), "2026-07-21");
+    assert.equal(todayMesaAgendaYmd(new Date("2026-07-22T06:00:00.000Z")), "2026-07-22");
+  });
+
+  it("syncMesaAgendaSingleDay alinea from/to/selectedDay", () => {
+    const synced = syncMesaAgendaSingleDay("2026-07-18");
+    assert.deepEqual(synced, {
+      listaStartDate: "2026-07-18",
+      listaEndDate: "2026-07-18",
+      selectedDay: "2026-07-18",
+    });
+  });
+
+  it("lista fetch range de un día consulta solo ese día", () => {
+    const range = resolveMesaAgendaFetchRange({
+      viewMode: "lista",
+      listaStartDate: "2026-07-21",
+      listaEndDate: "2026-07-21",
+      selectedDay: "2026-07-21",
+      weekAnchor: "2026-07-21",
+    });
+    assert.deepEqual(range, { startDate: "2026-07-21", endDate: "2026-07-21" });
   });
 
   it("rango nunca excede 62 días", () => {

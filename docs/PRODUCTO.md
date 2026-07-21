@@ -51,6 +51,7 @@ ConCasa CRM gestiona el ciclo operativo de precalificaciones / expedientes hipot
 | `/editor` | Editor | Bandeja global; monto y decisión. |
 | `/editor/[id]` | Editor | Detalle editor. |
 | `/mesa-control` | Mesa* | Bandeja operativa. |
+| `/mesa-control/citas` | Mesa* | Agenda de citas (lectura + cancel/reagendar/Drive/P089 masivo; P095 fecha día + Excel). |
 | `/mesa-control/[id]` | Mesa* | Revisión documental, avance etapas, retención, lectura citas. |
 | `/admin` | Super admin | KPIs y métricas. |
 | `/revisor`, `/revisor/[id]` | Legacy mock | Redirigen a `/editor`; **no** es rol de producción. |
@@ -126,6 +127,22 @@ La UI identifica al hijo como **Reingreso / Reinscripción** y **Biométricos re
 - **Rechazo canónico (etapas 5/6):** UI «Rechazo operativo post-biométricos» → RPC `rechazar_etapa_operativa`. La UI advierte si el motivo del movimiento parece un rechazo y ofrece atajo a esa acción cuando el expediente es elegible.
 - Etapa 1 queda `en_validacion_mesa`; etapas 2–12 quedan `en_proceso`. Etapas 11/12 son posición operativa y no registran firma/pago ni cierran el ciclo.
 - Los cuatro roles Mesa pueden agendar/reagendar firmas en etapas 9/10 de expedientes visibles. Un booking conservado fuera de esas etapas puede cancelarse explícitamente, nunca automáticamente.
+
+### 6.5b Agenda de citas Mesa — fecha del día + Excel (P095)
+
+**Pantalla:** `/mesa-control/citas` (`MesaAgendaCitasClient`). Alcance exclusivo Mesa Citas; no Asesor/Admin/creación de citas/RPC/Cloud en P095.
+
+**Apertura (B1 implementado):**
+- Vista inicial permanece **`lista`** (P089 intacto).
+- Fecha operativa = **hoy** `America/Monterrey`; `date_from` = `date_to` = `selectedDay` = ese YMD.
+- Fetch inicial: un solo día (no mes completo). Cambio de fecha resincroniza los tres al mismo YMD y limpia selección masiva; conserva filtros compatibles.
+
+**Exportación Excel (B2 util + B3 UI):**
+- Botón `Descargar Excel` en `/mesa-control/citas`; exporta el día operativo (`lista`→`listaStartDate`, `dia`→`selectedDay`, `semana`→`weekDetailDay ?? selectedDay`) con filtros activos.
+- Util `exportMesaCitasExcel` genera `.xlsx` hoja `Citas`; archivo `citas-mesa-YYYY-MM-DD.xlsx`.
+- Columnas únicas: `Fecha` | `NSS` | `Nombre completo`; in-memory; estados Generando/éxito/vacío/error; bloqueo doble clic; sin selección/límite 100/Storage/RPC.
+
+**Intacto:** P089, cancel/reagendar individual, RPC `get_mesa_agenda_bookings`.
 
 ### 6.6 Rechazado vs Cancelado (P094 — diseño B0)
 

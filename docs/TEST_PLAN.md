@@ -1,5 +1,35 @@
 # ConCasa CRM — Plan de pruebas
 
+## P095 — Citas Mesa: día operativo + Excel
+
+### B0 / B0.1 (contrato)
+
+- [x] Contrato: hoy Monterrey, solo ese día; Excel Fecha|NSS|Nombre in-memory; P089 intacto.
+
+### B1 (fecha — local)
+
+- [x] `todayMesaAgendaYmd` / `defaultMesaAgendaDayRange` en `America/Monterrey`.
+- [x] Apertura vista `lista` con from=to=selectedDay=hoy; sin mes completo.
+- [x] Cambio de fecha sincroniza from/to/selectedDay; conserva filtros; limpia selección.
+
+### B2 (Excel util — local, sin UI)
+
+- [x] `exportMesaCitasExcel`: `citas-mesa-YYYY-MM-DD.xlsx` / hoja `Citas` / Fecha|NSS|Nombre.
+- [x] In-memory + filtros activos; >100 filas; sin selección P089; sin botón UI.
+
+### B3 / B3.1 (UI Descargar Excel — local commit)
+
+- [x] Botón `Descargar Excel` en `MesaAgendaCitasClient`; día operativo + filtros.
+- [x] Estados Generando / mensaje éxito-vacío-error; `exportExcelBusyRef` anti doble clic.
+- [x] Independiente de selección/acciones masivas P089 (`loadedEntries`, no `selectedBookingIds`).
+- [x] Tests helpers B3 + wiring `MesaAgendaCitasClient.excel.test.ts`; sin RPC/Cloud.
+- [x] Auditoría B3.1: sin refetch/mutación en export; lint/typecheck/test/build; commit local.
+
+### B4 (publicación — push + PR, sin merge)
+
+- [x] `origin/main` compatible (`7b339c5`); sin SQL/RPC/Cloud/deps nuevas.
+- [x] Validación final + push + Preview READY + PR abierto; sin merge/smoke/Producción.
+
 ## P094 — Rechazados vs Cancelados
 
 ### B0 (auditoría + diseño)

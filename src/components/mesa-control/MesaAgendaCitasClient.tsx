@@ -53,7 +53,7 @@ import {
   canMesaShowDriveValidationActions,
   clearMesaAgendaClientFilters,
   defaultMesaAgendaClientFilters,
-  defaultMesaAgendaMonthRange,
+  defaultMesaAgendaDayRange,
   deriveMesaAgendaSummary,
   filterMesaAgendaEntriesForDay,
   groupMesaAgendaHistory,
@@ -67,6 +67,7 @@ import {
   MESA_REAGENDAR_SUCCESS_MESSAGE,
   resolveMesaAgendaFetchRange,
   shiftMesaAgendaDayYmd,
+  syncMesaAgendaSingleDay,
   todayMesaAgendaYmd,
   validateMesaAgendaDateRange,
   type MesaAgendaCitasClientFilters,
@@ -94,20 +95,25 @@ import {
   type BulkDriveValidationSummary,
   type BulkStageAdvanceSummary,
 } from "@/domain/agenda-calendar/mesa-bulk-actions";
+import {
+  downloadMesaCitasExcel,
+  mapMesaCitasExportUserMessage,
+  resolveMesaCitasExportDayYmd,
+} from "@/lib/exportMesaCitasExcel";
 
 export function MesaAgendaCitasClient() {
   const { sessionRepo, currentUser } = useSessionRepo();
   const expedientesRepo = useExpedientesRepo();
   const agendaBookingRepo = useAgendaBiometricosBookingRepo();
   const firmasBookingRepo = useAgendaFirmasBookingRepo();
-  const defaultRange = useMemo(() => defaultMesaAgendaMonthRange(), []);
+  const defaultRange = useMemo(() => defaultMesaAgendaDayRange(), []);
 
   const [viewMode, setViewMode] = useState<MesaAgendaCitasViewMode>(MESA_AGENDA_DEFAULT_VIEW);
   const [sortBy, setSortBy] = useState<MesaAgendaCitasSortOption>(MESA_AGENDA_DEFAULT_SORT);
   const [listaStartDate, setListaStartDate] = useState(defaultRange.startDate);
   const [listaEndDate, setListaEndDate] = useState(defaultRange.endDate);
-  const [selectedDay, setSelectedDay] = useState(() => todayMesaAgendaYmd());
-  const [weekAnchor, setWeekAnchor] = useState(() => todayMesaAgendaYmd());
+  const [selectedDay, setSelectedDay] = useState(defaultRange.startDate);
+  const [weekAnchor, setWeekAnchor] = useState(defaultRange.startDate);
   const [weekDetailDay, setWeekDetailDay] = useState<string | null>(null);
   const [filters, setFilters] = useState<MesaAgendaCitasClientFilters>(
     defaultMesaAgendaClientFilters(),
@@ -143,7 +149,10 @@ export function MesaAgendaCitasClient() {
   const [bulkAdvanceResult, setBulkAdvanceResult] = useState<BulkStageAdvanceSummary | null>(
     null,
   );
+  const [exportExcelLoading, setExportExcelLoading] = useState(false);
+  const [exportExcelMessage, setExportExcelMessage] = useState<string | null>(null);
   const bulkBusyRef = useRef(false);
+  const exportExcelBusyRef = useRef(false);
 
   const canAccess = canAccessMesaAgendaCitasPage(currentUser?.role);
   const mockRole = getEffectiveMockRole();
@@ -291,6 +300,7 @@ export function MesaAgendaCitasClient() {
   useEffect(() => {
     setSelectedBookingIds(new Set());
     setBulkLimitNotice(null);
+    setExportExcelMessage(null);
   }, [selectionClearKey]);
 
   useEffect(() => {
@@ -346,6 +356,39 @@ export function MesaAgendaCitasClient() {
   const handleClearAllFilters = useCallback(() => {
     setFilters(clearMesaAgendaClientFilters());
   }, []);
+
+  const exportDayYmd = useMemo(
+    () =>
+      resolveMesaCitasExportDayYmd({
+        viewMode,
+        selectedDay,
+        weekDetailDay,
+        listaStartDate,
+      }),
+    [viewMode, selectedDay, weekDetailDay, listaStartDate],
+  );
+
+  const handleDescargarExcel = useCallback(() => {
+    if (exportExcelBusyRef.current || loading || bulkBusyRef.current) return;
+    exportExcelBusyRef.current = true;
+    setExportExcelLoading(true);
+    setExportExcelMessage(null);
+    try {
+      // Exporta el día filtrado completo; no usa la selección masiva ni el tope de 100.
+      const result = downloadMesaCitasExcel(
+        loadedEntries,
+        exportDayYmd,
+        filters,
+        sortBy,
+      );
+      setExportExcelMessage(mapMesaCitasExportUserMessage(result));
+    } catch {
+      setExportExcelMessage("No se pudo generar el archivo Excel. Intenta de nuevo.");
+    } finally {
+      exportExcelBusyRef.current = false;
+      setExportExcelLoading(false);
+    }
+  }, [loading, loadedEntries, exportDayYmd, filters, sortBy]);
 
   const handleBulkRowCheckedChange = useCallback(
     (entry: MesaAgendaBookingEntry, checked: boolean) => {
@@ -552,6 +595,10 @@ export function MesaAgendaCitasClient() {
 
   const handleViewModeChange = useCallback((mode: MesaAgendaCitasViewMode) => {
     setViewMode(mode);
+    if (mode === "lista") {
+      setListaStartDate(selectedDay);
+      setListaEndDate(selectedDay);
+    }
     if (mode === "dia") {
       setSelectedDay((prev) => prev || todayMesaAgendaYmd());
     }
@@ -559,21 +606,34 @@ export function MesaAgendaCitasClient() {
       setWeekAnchor((prev) => prev || todayMesaAgendaYmd());
       setWeekDetailDay(null);
     }
+  }, [selectedDay]);
+
+  /** P095: un solo día operativo — sincroniza from/to/selectedDay. */
+  const applySingleDay = useCallback((ymd: string) => {
+    const day = ymd.trim();
+    if (!day) return;
+    const synced = syncMesaAgendaSingleDay(day);
+    setListaStartDate(synced.listaStartDate);
+    setListaEndDate(synced.listaEndDate);
+    setSelectedDay(synced.selectedDay);
   }, []);
 
   const handleGoToday = useCallback(() => {
     const today = todayMesaAgendaYmd();
-    if (viewMode === "dia") {
-      setSelectedDay(today);
-    } else if (viewMode === "semana") {
+    if (viewMode === "semana") {
       setWeekAnchor(today);
       setWeekDetailDay(today);
+      return;
     }
-  }, [viewMode]);
+    applySingleDay(today);
+  }, [viewMode, applySingleDay]);
 
-  const handleShiftDay = useCallback((delta: number) => {
-    setSelectedDay((prev) => shiftMesaAgendaDayYmd(prev, delta));
-  }, []);
+  const handleShiftDay = useCallback(
+    (delta: number) => {
+      applySingleDay(shiftMesaAgendaDayYmd(selectedDay, delta));
+    },
+    [applySingleDay, selectedDay],
+  );
 
   const handleShiftWeek = useCallback((delta: number) => {
     setWeekAnchor((prev) => shiftMesaAgendaDayYmd(prev, delta * 7));
@@ -818,9 +878,9 @@ export function MesaAgendaCitasClient() {
           weekDays={weekRange.days}
           loading={loading}
           onViewModeChange={handleViewModeChange}
-          onStartDateChange={setListaStartDate}
-          onEndDateChange={setListaEndDate}
-          onSelectedDayChange={setSelectedDay}
+          onStartDateChange={applySingleDay}
+          onEndDateChange={applySingleDay}
+          onSelectedDayChange={applySingleDay}
           onShiftDay={handleShiftDay}
           onShiftWeek={handleShiftWeek}
           onGoToday={handleGoToday}
@@ -840,6 +900,31 @@ export function MesaAgendaCitasClient() {
           onClearChip={handleClearChip}
           onClearAll={handleClearAllFilters}
         />
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            className="h-[42px] whitespace-nowrap px-3 text-sm"
+            disabled={exportExcelLoading || loading || Boolean(rangeError)}
+            onClick={handleDescargarExcel}
+            aria-label="Descargar Excel de citas del día"
+          >
+            {exportExcelLoading ? "Generando Excel…" : "Descargar Excel"}
+          </Button>
+          {exportExcelMessage ? (
+            <p
+              role="status"
+              className={`text-xs ${
+                exportExcelMessage.startsWith("Se descargó")
+                  ? "text-emerald-800"
+                  : "text-amber-800"
+              }`}
+            >
+              {exportExcelMessage}
+            </p>
+          ) : null}
+        </div>
 
         {!loading && !error && !rangeError ? (
           <MesaAgendaCitasSummary

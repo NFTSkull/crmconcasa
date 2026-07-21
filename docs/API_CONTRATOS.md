@@ -739,6 +739,25 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 
 ---
 
+## 17a-bis. Mesa Citas — fecha del día + export Excel (P095)
+
+**UI:** `/mesa-control/citas` · `MesaAgendaCitasClient` · vista default `lista`.
+
+**Lectura:** RPC `get_mesa_agenda_bookings` (sin cambio de firma). Cliente `fetchMesaAgendaBookings`.
+
+**Fecha (B1):**
+- `MESA_AGENDA_BUSINESS_TIMEZONE` = `America/Monterrey` vía `zonedYmdParts`.
+- Apertura: `defaultMesaAgendaDayRange()` → `p_start_date = p_end_date = hoy`.
+- Cambio de fecha: `syncMesaAgendaSingleDay(ymd)` alinea `listaStartDate`/`listaEndDate`/`selectedDay`; refetch; selección P089 se limpia por `selectionClearKey`; filtros UI se conservan.
+
+**Export Excel (B2 util + B3 UI local):**
+- UI: botón `Descargar Excel` → `downloadMesaCitasExcel(loadedEntries, exportDayYmd, filters, sortBy)`; día vía `resolveMesaCitasExportDayYmd`; independiente de `selectedBookingIds` / límite 100.
+- `prepareMesaCitasExport(entries, fechaYmd, filters, sortBy)` → workbook in-memory.
+- Archivo `citas-mesa-YYYY-MM-DD.xlsx`; hoja `Citas`; columnas `Fecha` | `NSS` | `Nombre completo`.
+- Título `CITAS MESA DE CONTROL` + subtítulo fecha `es-MX`; NSS texto; sin RPC/Storage/selección P089.
+
+---
+
 ## 17b. Validar en Drive (Mesa agenda citas) — P069
 
 **Operación:** RPC `mesa_set_agenda_drive_validation`

@@ -2,6 +2,16 @@
 
 ## Unreleased
 
+- **ops/publish-citas-mesa-excel — P095 B4 (push + PR, sin merge):** publicación controlada rama `p095-citas-mesa-excel` (hoy Monterrey + Excel Fecha|NSS|Nombre); Preview Vercel; sin SQL/RPC/Cloud/deps nuevas; sin merge/smoke/Producción.
+
+- **feat/citas-mesa-excel-ui — P095 B3/B3.1 (local commit):** botón `Descargar Excel` en `/mesa-control/citas`; día + filtros; loading/errores/doble clic; independiente de P089; tests wiring; sin RPC/Cloud/push.
+
+- **feat/citas-mesa-excel-util — P095 B2 (local commit):** utilidad `exportMesaCitasExcel` → `citas-mesa-YYYY-MM-DD.xlsx` hoja `Citas` (Fecha|NSS|Nombre); in-memory + filtros; sin botón UI/RPC/Cloud.
+
+- **feat/citas-mesa-hoy — P095 B1 (local commit):** apertura `/mesa-control/citas` en vista `lista` con hoy `America/Monterrey` (from=to=selectedDay); sync de fecha; sin Excel/RPC/Cloud.
+
+- **docs/citas-mesa-excel — P095 B0/B0.1 (local commit docs):** contrato cerrado `/mesa-control/citas`: hoy Monterrey, solo ese día; Excel Fecha\|NSS\|Nombre in-memory (sin selección/límite 100/Storage/RPC); P089 intacto; sin código app/Cloud/push.
+
 - **ops/cloud-p094 — P094 B6 (Cloud `fvtqbxukqlajezyyvwzy`, sin merge):** aplicadas 090→091 vía `db query --linked` (sin `db push`/repair); conteos negocio intactos; PR #14 OPEN.
 
 - **feat/admin-estado-rechazados-cancelados — P094 B4 (local, sin commit):** migración `091_…sql` separa `p_estado` Rechazados (`subestado=rechazado∧ciclo=activo`) vs Cancelados (`ciclo=cancelado`) en summary/cohort/by_asesor/mesa_envios; suite SQL + frontend nativo; sin Cloud/push.

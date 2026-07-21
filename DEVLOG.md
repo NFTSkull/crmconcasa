@@ -1,5 +1,84 @@
 # Devlog
 
+## 2026-07-21 - P095 B4: Publicación controlada (push + PR, sin merge)
+
+### Alcance
+- Push rama `p095-citas-mesa-excel` + PR a `main`; Preview Vercel READY.
+- Sin merge, sin smoke, sin abrir Preview app, sin Producción, sin Cloud/SQL/RPC.
+
+### Preflight
+- `origin/main` = `7b339c5` (merge-base); ahead 4; sin deps nuevas; sin archivos SQL/migración.
+
+### Verificación final
+- lint / typecheck / test / build PASS antes de push.
+
+## 2026-07-21 - P095 B3.1: Auditoría final Excel UI + commit local
+
+### Auditoría
+- Día + filtros: `resolveMesaCitasExportDayYmd` + `downloadMesaCitasExcel(loadedEntries, exportDayYmd, filters, sortBy)`.
+- Sin P089: handler no lee `selectedBookingIds` / `executeBulk`; util ignora selección y tope 100.
+- Doble clic: `exportExcelBusyRef` + `disabled` mientras Generando; retorno temprano si busy/loading/bulk.
+- Mensajes: éxito `Se descargó…`, vacío filtros/día, catch genérico; invalid_date mapeado.
+- Sin refetch/mutación en export (no `loadEntries`/RPC/Storage).
+- Sin SQL/deps nuevas; solo cableado test en `package.json`.
+
+### Verificación
+- lint / typecheck / test / build PASS → commit B3 local único; sin push/PR/Cloud/smoke.
+
+## 2026-07-21 - P095 B3: UI Descargar Excel en Mesa Citas
+
+### Decisión
+- Cablear `Descargar Excel` en `MesaAgendaCitasClient` sobre util B2; sin tocar P089 ni RPC.
+- Día export: `resolveMesaCitasExportDayYmd` (lista→`listaStartDate`, dia→`selectedDay`, semana→`weekDetailDay ?? selectedDay`).
+- Descarga: `downloadMesaCitasExcel(loadedEntries, …)` + Blob/anchor; `exportExcelBusyRef` + disabled mientras Generando; mensaje vacío/éxito/error.
+- Independencia P089: no lee `selectedBookingIds`; limpia mensaje con `selectionClearKey` (fecha/filtros).
+
+### Verificación
+- Tests helpers B3 + `MesaAgendaCitasClient.excel.test.ts` cableados.
+- Sin commit/push/PR/Cloud en este bloque.
+
+## 2026-07-21 - P095 B2: Utilidad Excel citas Mesa (sin UI)
+
+### Decisión
+
+- Nueva util `src/lib/exportMesaCitasExcel.ts` (testeable): `prepareMesaCitasExport` / workbook hoja `Citas`.
+- Columnas solo Fecha|NSS|Nombre; filename `citas-mesa-YYYY-MM-DD.xlsx`; título + subtítulo MX; NSS texto; sanitización fórmula.
+- Alcance in-memory: día + filtros (kind/canceladas/sede/asesor/search); sin selección P089 ni límite 100; sin Storage/RPC.
+- Sin cablear botón en `MesaAgendaCitasClient` (B3).
+
+### Resultado
+
+- Suite `exportMesaCitasExcel.test.ts` cableada en `package.json`.
+
+## 2026-07-21 - P095 B1: Citas Mesa abre en hoy (America/Monterrey)
+
+### Decisión
+
+- Vista default sigue **`lista`** (no forzar `dia`) para no alterar el flujo P089.
+- `todayMesaAgendaYmd` usa `zonedYmdParts` + `America/Monterrey` (mismo criterio Admin).
+- Apertura: `defaultMesaAgendaDayRange()` → from=to=selectedDay=hoy; fetch un solo día.
+- Cambio de fecha: `syncMesaAgendaSingleDay` / `applySingleDay` alinea los tres campos; selección masiva se limpia vía `selectionClearKey` existente; filtros intactos.
+- Sin Excel, deps, SQL, RPC, Cloud ni commit B1.
+
+### Resultado
+
+- Helpers + Client/ViewControls + tests TZ/sync; docs B1.
+
+## 2026-07-21 - P095 B0/B0.1: Contrato cerrado Citas Mesa + Excel
+
+### Decisión (cerrada)
+
+- Worktree `crmconcasa-p095-citas-mesa-excel` desde `origin/main` (`7b339c5`).
+- Gap actual: apertura `lista` = mes; `todayMesaAgendaYmd` = TZ local (no Monterrey).
+- Contrato apertura: hoy `America/Monterrey`, solo ese día; cambio de fecha limpia selección P089 y conserva filtros.
+- Contrato Excel: `citas-mesa-YYYY-MM-DD.xlsx` / hoja `Citas` / columnas Fecha|NSS|Nombre; in-memory; independiente de selección y del límite 100; sin RPC/Storage/mutación.
+- Residual UI: estilos Excel best-effort con `xlsx`.
+- Sin B1 aún; sin push/Cloud/deploy/smoke.
+
+### Resultado
+
+- Docs alineados al contrato aprobado; un commit documental B0.1. Sin código app.
+
 ## 2026-07-21 - P094 B6: Cloud apply controlado 090 → 091 (`fvtqbxukqlajezyyvwzy`)
 
 ### Decisión
