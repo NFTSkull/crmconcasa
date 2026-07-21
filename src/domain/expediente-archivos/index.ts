@@ -24,6 +24,8 @@ export {
   INTEGRATION_DOC_TIPOS_MESA_REGISTER,
   CLIENTE_PAGARE_DOCUMENT_TIPO,
   CLIENTE_PAGARE_DOCUMENT_CONTRACT,
+  CLIENTE_NOTIFICACION_DOCUMENT_TIPO,
+  CLIENTE_NOTIFICACION_DOCUMENT_CONTRACT,
   INTEGRATION_DOC_TIPOS_OBLIGATORIOS,
   INTEGRATION_DOC_TIPOS_VALIDACION_MESA,
   countIntegrationDocsPresentes,
@@ -61,6 +63,21 @@ export {
   type ClientePagareMime,
   type MesaPagareUiMode,
 } from "./cliente-pagare";
+export {
+  CLIENTE_NOTIFICACION_ACCEPT_ATTR,
+  buildClienteNotificacionStoragePath,
+  canMesaOperateNotificacionDocumento,
+  findClienteNotificacionFromList,
+  formatNotificacionDocumentoMimeLabel,
+  mesaNotificacionDocumentoWriteEnabled,
+  resolveClienteNotificacionUploadMime,
+  resolveMesaNotificacionDocumentoUiMode,
+  shouldShowAsesorNotificacionDocumentoSection,
+  validateClienteNotificacionFile,
+  type ClienteNotificacionDocumento,
+  type ClienteNotificacionMime,
+  type MesaNotificacionDocumentoUiMode,
+} from "./cliente-notificacion";
 export { mesaPuedeAbrirArchivo } from "./mesa-archivo-acceso";
 export {
   MESA_RECHAZO_MOTIVOS_SUGERIDOS,

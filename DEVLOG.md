@@ -1,5 +1,61 @@
 # Devlog
 
+## 2026-07-21 - P092 B3: Auditoría final B0–B2 + commit local
+
+### Decisión
+
+- Diff quirúrgico: contrato/docs/SQL 089/UI Mesa+asesor; sin agenda/`kind=notificacion`; Pagaré (`cliente-pagare*`) sin tocar.
+- Verificación: SQL `P092 NOTIF DOC OK` + regresión Pagaré; `npm test` 983; lint/typecheck/build OK.
+- Un solo commit local; sin push/PR/Cloud/smoke.
+
+### Resultado
+
+- Commit local de P092 B0–B2.
+
+## 2026-07-21 - P092 B2: UI Mesa + asesor RO (`cliente_notificacion`)
+
+### Decisión
+
+- Secciones dedicadas espejo Pagaré pero **archivos/estado independientes**: `MesaNotificacionDocumentoSection`, `AsesorNotificacionDocumentoSection`, helpers `cliente-notificacion.ts`.
+- Acordeón Mesa `mesa-notificacion-documento` después de Pagaré; label UI «Notificación»; tipo técnico siempre `cliente_notificacion` (nunca `notificacion`).
+- Reutiliza Storage + `register_mesa_documento` / `getArchivoBlob`; cleanup best-effort heredado del repo Mesa.
+- `fileUploadValidation` y `upload-constraints` aceptan el mismo perfil MIME/tamaño que Pagaré para este tipo.
+- Sin compartir state React con Pagaré; sin listar en complementarios; sin agenda/P070.
+
+### Resultado
+
+- UI + tests dominio. Sin commit/Cloud/smoke.
+
+## 2026-07-21 - P092 B1: SQL `cliente_notificacion`
+
+### Decisión
+
+- Migración `089_mesa_notificacion_documento_expediente.sql` espejo de 088: allowlist + MIME + gate etapa en `register_mesa_documento`.
+- Tipo documental `cliente_notificacion` (nunca `notificacion`); error etapa: «El documento Notificación solo puede cargarse…».
+- MIME JPEG/PNG compartido con Pagaré vía `v_tipo IN ('cliente_pagare','cliente_notificacion')`; acta/SAT/semanas siguen PDF-only.
+- Versionado/RLS/tamaño reutilizan infraestructura existente; sin RPC nueva; sin UI; sin Cloud.
+- Suite SQL con fixtures 9092* (no colisionan con P090 9091*); prueba independencia Pagaré↔Notificación doc; enum `booking_kind.notificacion` intacto.
+
+### Resultado
+
+- Migración 089 aplicada en Postgres local; suite `rpc_mesa_notificacion_documento_expediente.sql` → `P092 NOTIF DOC OK`; regresión Pagaré → `P090 PAGARE OK`.
+- Sin UI / Cloud / commit. Residual B2: UI Mesa + asesor RO.
+
+## 2026-07-21 - P092 B0: Contrato TS Notificación documento
+
+### Decisión
+
+- Tipo técnico obligatorio: `cliente_notificacion` (nunca `notificacion`, reservado a `agenda_bookings.kind` / P070).
+- Contrato espejo de Pagaré en `integration-docs-completos.ts` (`Object.freeze`, mismas claves: `tipo`, `label`, `origen`, `formatos`, `mimePermitidos`, `maxBytes`, `etapaMinima`, `obligatorio`, `esGateAvance`) — objetos **independientes**.
+- En `INTEGRATION_DOC_TIPOS_MESA_REGISTER` (espejo SQL B1) pero **fuera** de `INTEGRATION_DOC_TIPOS_MESA_UPLOAD` (complementarios UI).
+- Catálogo `DOCUMENTO_CATALOGO_MAP.cliente_notificacion`; sin helpers upload/UI (B2); sin migración (B1).
+- Storage documentado: `{org}/{exp}/cliente_notificacion/{uuid}.{ext}` bucket privado.
+- Riesgos: colisión semántica agenda vs documento; duplicado en complementarios; estado React compartido con Pagaré; soft-delete huérfanos; ampliar MIME de otros tipos.
+
+### Resultado
+
+- Docs + contrato + `cliente-notificacion-contract.test.ts`. Sin SQL/UI/Cloud/commit.
+
 ## 2026-07-21 - P091: Buscador y contraste filtros `/asesor`
 
 ### Decisión

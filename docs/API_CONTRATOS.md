@@ -174,6 +174,36 @@ Convenciones:
 - Contrato TS: `CLIENTE_PAGARE_DOCUMENT_CONTRACT`. Allowlist UI complementarios **sin** `cliente_pagare` (evita duplicado); registro SQL en `INTEGRATION_DOC_TIPOS_MESA_REGISTER`.
 - No modifica etapa, monto, cobro ni Datos Generales. Sin notificaciones.
 
+### 3quater. Notificación documento (`cliente_notificacion`) — P092 B0–B2
+
+**Separación:** `cliente_notificacion` = documento de expediente. `notificacion` = `agenda_bookings.kind` (agenda/P070) — **no** reutilizar como tipo documental.
+
+**RPC (B1):** `register_mesa_documento` (misma firma) con tipo `cliente_notificacion`. Sin RPC nueva. Sin cambios a agenda. Migración `089_mesa_notificacion_documento_expediente.sql`.
+
+| Regla | Valor |
+|-------|--------|
+| Roles escritura | `mesa_admin`, `mesa_interno`, `mesa_externo`, `super_admin` + `can_see_expediente` |
+| Etapa mínima | `etapa_actual >= 7` |
+| Error etapa | `El documento Notificación solo puede cargarse después de concluir la inscripción.` |
+| MIME | `application/pdf`, `image/jpeg`, `image/png` |
+| Tamaño | ≤ 15 728 640 bytes (`expediente_documento_max_size_bytes()`) |
+| Versionado | soft-delete del vigente + versión N+1; unique activo `(expediente_id, tipo)` |
+| Path | `{org}/{expediente}/cliente_notificacion/{uuid}.{ext}` (bucket privado; UUID; sin nombre original en path) |
+| Asesor | SELECT vía `can_see_expediente` (vigentes); sin register |
+| Gate avance | **No** |
+| Reingreso | sin herencia automática |
+| Obligatorio | **No** |
+| Independencia | no comparte estado ni path con `cliente_pagare` |
+| Auditoría | `expediente.documento.mesa_register` + payload (`tipo`, `version`, `reemplazo`, …) |
+
+**UI B2:**
+
+- Mesa: `MesaNotificacionDocumentoSection` (+ diálogo) en `MesaExpedienteDetalleReadOnly` — acordeón `mesa-notificacion-documento` después de Pagaré; estado React propio.
+- Asesor: `AsesorNotificacionDocumentoSection` RO desde etapa 7.
+- Contrato TS: `CLIENTE_NOTIFICACION_DOCUMENT_CONTRACT`. Allowlist UI complementarios **sin** `cliente_notificacion`.
+
+**Fuera de alcance:** notificaciones automáticas, mensajes al asesor, agenda/citas, cambios de etapa, requisitos documentales, reingresos, P070, monto Mejoravit P090.
+
 Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 
 ---
