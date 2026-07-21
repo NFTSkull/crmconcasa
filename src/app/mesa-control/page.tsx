@@ -22,6 +22,7 @@ import {
   useExpedientesRepo,
   type ExpedienteMock,
 } from "@/domain/expedientes";
+import { formatEtapaMesaBandejaBadge } from "@/domain/expedientes/etapa-numeracion-ux";
 import {
   deriveResumenExpedienteCorreccion,
   useExpedienteArchivosRepo,
@@ -1140,9 +1141,27 @@ export default function MesaControlPage() {
                       currentUserId={currentUserId}
                     />
                   ) : null}
-                  <span className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-800">
-                    Etapa {c.etapaActual}: {ETAPAS_LABELS[c.etapaActual] ?? "—"}
-                  </span>
+                  {(() => {
+                    const badge = formatEtapaMesaBandejaBadge(c.etapaActual);
+                    return (
+                      <span
+                        className="rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-medium text-slate-800"
+                        title={
+                          badge.hintAsesor
+                            ? `${badge.principal} · ${badge.hintAsesor}`
+                            : badge.principal
+                        }
+                        data-testid="mesa-bandeja-etapa-badge"
+                      >
+                        {badge.principal}
+                        {badge.hintAsesor ? (
+                          <span className="ml-1 font-normal text-slate-600">
+                            · {badge.hintAsesor}
+                          </span>
+                        ) : null}
+                      </span>
+                    );
+                  })()}
                   {c.subestado === "rechazado" ? (
                     <span className="inline-flex rounded-md bg-red-100 px-1.5 py-0.5 text-[10px] font-medium text-red-900 ring-1 ring-red-200/80">
                       Rechazado

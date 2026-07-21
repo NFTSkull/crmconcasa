@@ -18,6 +18,10 @@ import {
   type MesaMovimientoHistorialRow,
 } from "@/domain/expedientes";
 import { ETAPAS_OPERATIVAS_ASESOR } from "@/domain/expedientes/asesor-seguimiento-operativo";
+import {
+  formatEtapaMesaCorrespondenciaAsesor,
+  formatEtapaMesaLabel,
+} from "@/domain/expedientes/etapa-numeracion-ux";
 
 type Props = Readonly<{
   expedienteId: string;
@@ -99,6 +103,8 @@ export function MesaControlManualEtapaSection({
     etapaActual,
   });
   const motivoPareceRechazo = motivoManualPareceRechazo(motivo);
+  const correspondenciaAsesor =
+    formatEtapaMesaCorrespondenciaAsesor(etapaActual);
 
   const loadHistory = useCallback(async () => {
     if (!visible) return;
@@ -212,8 +218,11 @@ export function MesaControlManualEtapaSection({
           {MESA_MOVIMIENTO_NO_ES_RECHAZO_COPY}
         </p>
         <p className="mt-2 text-xs font-medium text-amber-950">
-          Etapa actual: {etapaActual}. {etapaNombre(etapaActual)}
+          Etapa actual: {formatEtapaMesaLabel(etapaActual)}
         </p>
+        {correspondenciaAsesor ? (
+          <p className="mt-1 text-xs text-amber-900">{correspondenciaAsesor}</p>
+        ) : null}
       </div>
 
       {!habilitado && estado.razon ? (

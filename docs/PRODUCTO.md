@@ -64,13 +64,15 @@ ConCasa CRM gestiona el ciclo operativo de precalificaciones / expedientes hipot
 | 1 | Integración | Envío a Mesa **permanece en etapa 1** (`en_validacion_mesa`) hasta aprobación Mesa. |
 | 2 | Registro | Mesa avanza 1→2 tras validar integración. |
 | 3 | Listo para cita biométrico | — |
-| 4 | Cita agendada (biométricos) | **Asesor** agenda; expediente **no** salta a 5 automáticamente. |
+| 4 | Cita agendada (biométricos) | **Asesor** agenda; expediente **no** salta a 5 automáticamente. **Legacy en timeline asesor:** el paso visual 3 absorbe esta etapa. |
 | 5 | Biometría (resultado) | Mesa avanza 4→5 **solo si existe cita** (`fecha_cita` / booking). |
 | 6–7 | Inscripción / Notificación | — |
 | 8 | Acuse / Aviso retención | Opción A (`con_sello`) o B (`sin_sello`); envío asesor + validación Mesa. |
 | 9–10 | Firma | Agenda firmas (admin/asesor según reglas mock actuales). |
 | 11 | Firmado | — |
 | 12 | Pago a ConCasa | Cierre de ciclo. |
+
+**Numeración Mesa vs Asesor (P093 B2):** ambas vistas leen el mismo `etapa_actual` (1–12). Mesa muestra «Etapa N». El asesor muestra «Paso K de 11» omitiendo la etapa interna 4 del timeline visual (`mapEtapaInternaAPasoVisual`: 5→paso 4, etc.). La UI muestra la correspondencia; no hay desfase de datos.
 
 ---
 

@@ -11,10 +11,13 @@ import {
   etapaTimelineCircleClass,
   getEtapaTimelineBadgeLabel,
   getEtapaTimelineVisualPorPasoVisual,
-  getEtapaVisualNombre,
-  mapEtapaInternaAPasoVisual,
   resolveEtapaActualOperativa,
 } from "@/domain/expedientes/asesor-seguimiento-operativo";
+import {
+  formatEtapaAsesorCorrespondenciaMesa,
+  formatEtapaAsesorPasoLabel,
+  NOTA_NUMERACION_ETAPAS,
+} from "@/domain/expedientes/etapa-numeracion-ux";
 
 export interface AsesorSeguimientoOperativoProps {
   etapaActual: number | null;
@@ -45,7 +48,6 @@ export function AsesorSeguimientoOperativo({
   formatDateTime,
 }: AsesorSeguimientoOperativoProps) {
   const etapaResuelta = resolveEtapaActualOperativa(etapaActual);
-  const pasoVisualActual = mapEtapaInternaAPasoVisual(etapaResuelta);
   const subestadoLabel = asesorSubestadoOperativoLabel(subestado, submittedToMesa);
   const envioLabel = estadoEnvioMesaLabel(submittedToMesa);
   const cicloLabel = cicloEstadoLabel(cicloEstado);
@@ -75,8 +77,13 @@ export function AsesorSeguimientoOperativo({
             Etapa actual
           </p>
           <p className="mt-1 text-sm font-semibold text-gray-900">
-            Paso {pasoVisualActual} de {TOTAL_PASOS_VISUALES_OPERATIVOS} —{" "}
-            {getEtapaVisualNombre(etapaResuelta)}
+            {formatEtapaAsesorPasoLabel(etapaResuelta)}
+          </p>
+          <p
+            className="mt-1 text-xs text-gray-500"
+            data-testid="asesor-etapa-correspondencia-mesa"
+          >
+            {formatEtapaAsesorCorrespondenciaMesa(etapaResuelta)}
           </p>
         </div>
 
@@ -122,6 +129,7 @@ export function AsesorSeguimientoOperativo({
         <p className="text-sm font-medium text-gray-800">
           Timeline / Etapas ({TOTAL_PASOS_VISUALES_OPERATIVOS} pasos)
         </p>
+        <p className="mt-0.5 text-xs text-gray-500">{NOTA_NUMERACION_ETAPAS}</p>
         <ol className="mt-2 max-h-[320px] space-y-1 overflow-y-auto pr-1 text-sm">
           {ETAPAS_VISUALES_OPERATIVAS.map((etapa) => {
             const visual = getEtapaTimelineVisualPorPasoVisual(
@@ -149,6 +157,11 @@ export function AsesorSeguimientoOperativo({
                   </span>
                   <div className="min-w-0">
                     <p className="font-medium text-gray-900">{etapa.nombre}</p>
+                    {etapa.pasoVisual !== etapa.etapaInterna ? (
+                      <p className="text-[11px] text-gray-500">
+                        Etapa interna {etapa.etapaInterna}
+                      </p>
+                    ) : null}
                   </div>
                 </div>
                 <span
