@@ -1,4 +1,5 @@
--- P3K.2 / P044 / P090: complementarios Mesa opcionales — obligatorios = 4 asesor; mesa_upload = 4 tipos (incl. pagaré)
+-- P3K.2 / P044 / P090 / P092: complementarios Mesa opcionales —
+-- obligatorios = 4 asesor; mesa_upload = 5 tipos (pagaré + notificación).
 
 DO $$
 DECLARE
@@ -35,15 +36,16 @@ BEGIN
     RAISE EXCEPTION 'mesa_complementarios_opcionales: SAT no debe ser obligatorio';
   END IF;
 
-  IF cardinality(v_mesa) <> 4 THEN
-    RAISE EXCEPTION 'mesa_complementarios_opcionales: se esperaban 4 mesa_upload, hay %', cardinality(v_mesa);
+  IF cardinality(v_mesa) <> 5 THEN
+    RAISE EXCEPTION 'mesa_complementarios_opcionales: se esperaban 5 mesa_upload, hay %', cardinality(v_mesa);
   END IF;
 
   IF NOT (v_mesa @> ARRAY[
     'cliente_semanas_cotizadas',
     'cliente_acta_nacimiento',
     'cliente_constancia_sat',
-    'cliente_pagare'
+    'cliente_pagare',
+    'cliente_notificacion'
   ]::TEXT[]) THEN
     RAISE EXCEPTION 'mesa_complementarios_opcionales: mesa_upload incompleto';
   END IF;
@@ -52,11 +54,15 @@ BEGIN
     RAISE EXCEPTION 'mesa_complementarios_opcionales: pagaré no debe ser obligatorio';
   END IF;
 
+  IF 'cliente_notificacion' = ANY(v_oblig) THEN
+    RAISE EXCEPTION 'mesa_complementarios_opcionales: notificación no debe ser obligatorio';
+  END IF;
+
   IF public.integration_doc_tipos_obligatorios()
     <> public.integration_doc_tipos_asesor_envio() THEN
     RAISE EXCEPTION 'mesa_complementarios_opcionales: obligatorios debe igualar asesor_envio';
   END IF;
 
-  RAISE NOTICE 'mesa_complementarios_opcionales: OK (4 obligatorios, 4 mesa_upload incl. pagaré)';
+  RAISE NOTICE 'mesa_complementarios_opcionales: OK (4 obligatorios, 5 mesa_upload incl. pagaré+notif)';
 END;
 $$;

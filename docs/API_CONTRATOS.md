@@ -875,11 +875,11 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 
 ---
 
-## 17f. Cancelación operativa de expediente — P094 (diseño B0; sin RPC aún)
+## 17f. Cancelación operativa de expediente — P094 (B1 SQL)
 
 **Objetivo:** cierre terminal cuando el cliente no continúa. Separado del rechazo operativo (17d).
 
-### Señal canónica (diseño)
+### Señal canónica
 
 | Campo | Valor |
 |-------|--------|
@@ -889,26 +889,28 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 | `etapa_actual` | No cambia |
 | Agenda | No cancela bookings automáticamente (igual filosofía que rechazo P071) |
 
-### RPC propuesta (B1+)
+### RPC (B1)
 
 **Operación:** `cancelar_expediente_operativo`
 **Firma:** `cancelar_expediente_operativo(p_expediente_id uuid, p_motivo text, p_comentario text default null) → jsonb`
+**Migración:** `090_cancelar_expediente_operativo.sql`
 
 - Roles Mesa (`mesa_admin|mesa_interno|mesa_externo|super_admin`) + `can_see_expediente`.
 - Requiere: no eliminado, enviado a Mesa, `ciclo_estado = activo`.
 - Permite cancelar aunque `subestado = rechazado` (abandono antes de reingreso) → tras cancelar, reingreso queda inelegible (`ciclo ≠ activo`).
 - **No** crear fila en `expediente_rechazos_operativos`.
 - **No** inferir cancelación desde motivo de movimiento manual.
-- Errores estables `MESA_CANCEL_EXP_*`; Zod en dominio; `action_log` `expediente.cancelacion_operativa`.
-- Respuesta: `ok`, `expediente_id`, `ciclo_estado='cancelado'`, `cancelacion_id`, `subestado` (previo, sin mutar).
+- Errores estables `MESA_CANCEL_EXP_*`; `action_log` `expediente.cancelacion_operativa` (payload con `sin_efectos_agenda`).
+- Respuesta: `ok`, `expediente_id`, `ciclo_estado='cancelado'`, `cancelacion_id`, `subestado` (previo, sin mutar), `etapa`.
+- Tabla: SELECT vía RLS `can_see_expediente`; INSERT/UPDATE/DELETE revocados a `authenticated` (solo la RPC escribe).
 
-### Gates posteriores (obligatorios al implementar)
+### Gates posteriores
 
-Con `ciclo_estado = cancelado` (ya parcialmente cubierto por `≠ activo`):
+Con `ciclo_estado = cancelado` (cubierto por predicados `≠ activo` existentes + suite P094):
 
 - Sin avance, movimiento manual, rechazo operativo, reingreso, book/reagendar citas.
-- Uploads asesor/Mesa: exigir `ciclo = activo` de forma uniforme (auditar huecos en B1).
-- UI: ocultar acciones operativas; solo lectura + motivo/fecha/actor.
+- Uploads asesor/Mesa: `register_*` ya exigen `ciclo = activo` (B1 sin huecos nuevos).
+- UI (B2+): ocultar acciones operativas; solo lectura + motivo/fecha/actor.
 
 ### Reapertura administrativa
 

@@ -9,12 +9,18 @@
 - Decisiones cerradas B0.1: historial = tabla append-only; predicados Rechazados/Cancelados explícitos; reapertura admin fuera de P094.
 - Sin SQL/UI/Cloud/commit de implementación.
 
-### B1+ (plan)
+### B1 (SQL — local)
 
-- B1 SQL: RPC cancelación + historial + gates uploads/action_log.
+- Migración `090_cancelar_expediente_operativo.sql`: tabla append-only `expediente_cancelaciones` + RPC `cancelar_expediente_operativo`.
+- Suite `rpc_cancelar_expediente_operativo.sql`: happy path, cancelar sobre rechazado, bookings intactos, auth/validaciones, gates post-cancel (avance/mover/rechazo/reingreso/book), RLS sin INSERT directo, `action_log`.
+- Cableado en `scripts/test-sql.sh`; regresiones P071 rechazo + P072 reingreso.
+- Sin UI/chip/selector/asesor/Admin/Cloud.
+
+### B2+ (plan)
+
 - B2 UI Mesa: chip agrupado + subfiltros + acción cancelar.
 - B3 UI Asesor + desacople Admin.
-- Tests SQL + TS; sin inferencia por texto libre.
+- Tests TS UI; sin inferencia por texto libre.
 
 ## P093 — Separación UX rechazo vs movimiento manual
 

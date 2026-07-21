@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **feat/cancelar-expediente — P094 B1/B1.1 (local commit):** migración `090_…sql` con tabla append-only `expediente_cancelaciones` + RPC `cancelar_expediente_operativo` (`ciclo=cancelado`, sin mutar `subestado`/etapa/bookings); suite SQL + `test-sql.sh` + verificador focal; gates por `≠ activo`; sin UI/Cloud/push.
+
 - **docs/rechazados-vs-cancelados — P094 B0/B0.1 (local commit):** auditoría y diseño cerrado: Rechazado vs Cancelado; RPC `cancelar_expediente_operativo` + tabla `expediente_cancelaciones`; chip Mesa «Rechazos y cancelaciones»; sin SQL/UI/Cloud/push.
 
 - **fix/numeracion-etapas-ux — P093 B2/B2.1 (local commit):** helpers `etapa-numeracion-ux` + labels Mesa/Asesor con correspondencia paso visual ↔ etapa interna; UI bandeja/detalle/seguimiento; sin cambiar `etapa_actual`/RPC/SQL/filtros; sin push.
