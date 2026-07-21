@@ -8,6 +8,7 @@ export type DashboardNotificationAudience = "asesor" | "mesa";
 export type DashboardNotificationKind =
   | "correccion_requerida"
   | "rechazado_mesa"
+  | "cancelado"
   | "correccion_enviada"
   | "nuevo_por_revisar"
   | "pendiente_revision"
@@ -33,6 +34,8 @@ export type DashboardNotificationExpedienteSource = {
   clienteNombre: string;
   etapaActual?: number | null;
   subestado?: string | null;
+  /** P094: ciclo cancelado no genera alerta de rechazo recuperable. */
+  cicloEstado?: string | null;
   submittedToMesa?: boolean;
   fechaCita?: string | null;
   fechaEnvioMesa?: string | null;
@@ -93,6 +96,19 @@ function buildCandidates(
   const datosRechazados = source.clienteDatosEstado === "rechazado";
   const docsRechazados = source.resumenCorreccion === "correccion_requerida";
   const sub = String(source.subestado ?? "pendiente").trim();
+  const ciclo = String(source.cicloEstado ?? "").trim();
+  const cancelado = ciclo === "cancelado";
+
+  if (cancelado) {
+    out.push({
+      kind: "cancelado",
+      prioridad: 1,
+      tipoLabel: "Expediente cancelado",
+      mensaje: "Expediente cancelado (terminal) — solo lectura",
+      fecha,
+    });
+    return out;
+  }
 
   if (datosRechazados && docsRechazados) {
     out.push({

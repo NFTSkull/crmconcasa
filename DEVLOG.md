@@ -1,5 +1,32 @@
 # Devlog
 
+## 2026-07-21 - P094 B3.1: Auditoría final + commit Asesor/Admin
+
+### Decisión
+
+- Gates críticos: (1) Asesor separa `cancelado` vs `rechazado_mesa`; (2) Admin no muestra mezcla bajo etiquetas Rechazados/Cancelados.
+- Hallazgo: tests B3 nuevos no estaban en `package.json` (no corrían en `npm test`).
+- Hallazgo: post-filtro de una sola página Supabase contaminaba `totalCount`/paginación y dejaba KPI/cohorte/asesor mezclados vía RPC 082–086.
+- Cierre Gate Admin: split cliente — cargar bucket legado `rechazados`, filtrar, recalcular envíos/cohorte/asesor/paginación; normalizar labels cancelado.
+- Conteo tests: B2 `test` script = 980; B3 sin cablear = 982 (+2 notifications); con suites B3 cableadas = 991. No hubo pérdida real 983→982 (983 no era baseline del script `test`).
+
+### Resultado
+
+- Commit B3 local único; sin SQL/Cloud/push.
+
+## 2026-07-21 - P094 B3: Asesor Cancelados + Admin desacople
+
+### Decisión
+
+- `deriveResultadoRealExpediente`: `ciclo=cancelado` → `cancelado` (prioridad); `rechazado_mesa` exige enviado ∧ `subestado=rechazado` ∧ ciclo activo/null.
+- Asesor: KPI/chip/filtro Cancelados independientes; notificaciones `cancelado` vs `rechazado_mesa`; detalle banner RO + `puedeIntegrar`/envío/agenda/retención apagados.
+- Admin: predicados `matchesAdminEstadoFilter` disjuntos; UI «Rechazados» y «Cancelados»; mock correcto; Supabase listado post-filtra (RPC legado mezcla en `p_estado=rechazados`); summary/cohort residual documentado hasta follow-up SQL.
+- Sin SQL/migración/RPC nuevas; sin reapertura; sin commit/Cloud/push.
+
+### Resultado
+
+- Código + tests + docs locales; verificación lint/typecheck/test del bloque.
+
 ## 2026-07-21 - P094 B2.1: Auditoría final + commit local UI Mesa
 
 ### Decisión

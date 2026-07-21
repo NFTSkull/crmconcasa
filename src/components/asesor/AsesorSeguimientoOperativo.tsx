@@ -33,6 +33,7 @@ export interface AsesorSeguimientoOperativoProps {
 function cicloEstadoLabel(cicloEstado: string | null | undefined): string | null {
   const v = String(cicloEstado ?? "").trim();
   if (v === "cerrado") return "Ciclo cerrado";
+  if (v === "cancelado") return "Cancelado (terminal)";
   if (v === "activo") return null;
   return v ? v : null;
 }

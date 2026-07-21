@@ -23,10 +23,17 @@
 - Acción `MesaCancelarExpedienteCard` → RPC `cancelar_expediente_operativo`; banner RO si cancelado.
 - Tests TS filtros + dominio cancelación; sin Asesor/Admin/Cloud.
 
-### B3+ (plan)
+### B3 (UI Asesor + Admin — local)
 
-- B3 UI Asesor + desacople Admin.
-- Tests TS UI adicionales; sin inferencia por texto libre.
+- Asesor: `deriveResultadoRealExpediente` → `cancelado` (prioridad) vs `rechazado_mesa` (ciclo activo); KPI/chip/filtro Cancelados; detalle banner RO + writes apagados.
+- Admin: `matchesAdminEstadoFilter` — Rechazados ≠ Cancelados; UI opciones separadas; mock + split cliente Supabase (listado/KPI envíos/cohorte/asesor); sin migración/RPC nuevas.
+- Tests cableados: derive, admin-estado-filter, admin mock listado, notifications.
+- Sin reapertura, backfill, SQL, Cloud, commit, push.
+
+### B4+ (plan)
+
+- Follow-up SQL Admin RPCs para `p_estado=cancelados` nativo (summary/cohort sin residual).
+- Reapertura admin fuera de P094 si negocio la pide.
 
 ## P093 — Separación UX rechazo vs movimiento manual
 

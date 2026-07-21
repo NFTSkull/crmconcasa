@@ -2,7 +2,13 @@ import type { AdminPeriodBounds } from "./period";
 import type { AdminMesaEnvioEvent, AdminPrecalEvent, AdminProductionSummary } from "./metrics";
 import type { AdminMesaTimelineEvent } from "./mesa-seguimiento";
 
-export type AdminEstadoFilter = "todos" | "activos" | "finalizados" | "rechazados";
+export type AdminEstadoFilter =
+  | "todos"
+  | "activos"
+  | "finalizados"
+  | "rechazados"
+  /** P094: ciclo_estado=cancelado (separado de rechazados). */
+  | "cancelados";
 /** Filtro tabla Precal: default UX = resueltas (aprobadas + no_cumple del periodo). */
 export type AdminPrecalDecisionFilter =
   | "resueltas"

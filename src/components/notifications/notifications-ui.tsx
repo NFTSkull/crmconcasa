@@ -6,6 +6,9 @@ export function kindBadgeClass(kind: DashboardNotificationItem["kind"]): string 
   if (kind === "correccion_requerida" || kind === "rechazado_mesa") {
     return "bg-amber-100 text-amber-950 ring-amber-200";
   }
+  if (kind === "cancelado") {
+    return "bg-slate-200 text-slate-900 ring-slate-400";
+  }
   if (kind === "correccion_enviada" || kind === "enviado_mesa") {
     return "bg-sky-100 text-sky-900 ring-sky-200";
   }

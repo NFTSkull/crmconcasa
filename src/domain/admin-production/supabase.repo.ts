@@ -1,5 +1,6 @@
 import { isSupabaseConfigured, supabaseBrowser } from "@/lib/supabaseBrowser";
 import {
+  groupMesaEnviosByEtapaActual,
   resolvePrecalVisibleFecha,
   type AdminMesaEnvioEvent,
   type AdminPrecalEvent,
@@ -17,6 +18,10 @@ import type {
   AdminProductionFilters,
   AdminProductionRepo,
 } from "./repo";
+import {
+  adminEstadoRpcParam,
+  matchesAdminEstadoFilter,
+} from "./admin-estado-filter";
 
 function requireClient() {
   if (!isSupabaseConfigured() || !supabaseBrowser) {
@@ -44,6 +49,9 @@ function strOrNull(v: unknown): string | null {
 }
 
 function mapMesaItem(raw: Record<string, unknown>): AdminMesaEnvioEvent {
+  const cicloEstado = str(raw.ciclo_estado) || "activo";
+  const cancelado = cicloEstado === "cancelado";
+  const rechazoOperativo = !cancelado && Boolean(raw.rechazo_operativo);
   return {
     expedienteId: str(raw.expediente_id),
     fechaEnvioMesa: str(raw.fecha_envio_mesa),
@@ -54,11 +62,19 @@ function mapMesaItem(raw: Record<string, unknown>): AdminMesaEnvioEvent {
     etapaActual: num(raw.etapa_actual) || 1,
     etapaLabel: str(raw.etapa_label) || String(raw.etapa_actual ?? ""),
     subestado: str(raw.subestado) || "pendiente",
-    cicloEstado: str(raw.ciclo_estado) || "activo",
-    situacionCode: str(raw.situacion_code) || "continuar_etapa",
-    situacionLabel: str(raw.situacion_label) || "Continuar etapa actual",
-    siguienteAccionLabel: str(raw.siguiente_accion_label) || "Continuar etapa actual",
-    siguienteAccionActor: str(raw.siguiente_accion_actor) || "Mesa",
+    cicloEstado,
+    situacionCode: cancelado
+      ? "cancelado_operativo"
+      : str(raw.situacion_code) || "continuar_etapa",
+    situacionLabel: cancelado
+      ? "Cancelado (terminal)"
+      : str(raw.situacion_label) || "Continuar etapa actual",
+    siguienteAccionLabel: cancelado
+      ? "Sin acción operativa"
+      : str(raw.siguiente_accion_label) || "Continuar etapa actual",
+    siguienteAccionActor: cancelado
+      ? "—"
+      : str(raw.siguiente_accion_actor) || "Mesa",
     ultimaActividadMesaCode: strOrNull(raw.ultima_actividad_mesa_code),
     ultimaActividadMesaLabel: strOrNull(raw.ultima_actividad_mesa_label),
     ultimaActividadMesaAt: strOrNull(raw.ultima_actividad_mesa_at),
@@ -69,13 +85,15 @@ function mapMesaItem(raw: Record<string, unknown>): AdminMesaEnvioEvent {
     esperaTipo: strOrNull(raw.espera_tipo),
     esperaLabel: strOrNull(raw.espera_label),
     esperaDesde: strOrNull(raw.espera_desde),
-    rechazoOperativo: Boolean(raw.rechazo_operativo),
-    rechazoAt: strOrNull(raw.rechazo_at),
-    rechazoClasificacion: strOrNull(raw.rechazo_clasificacion),
-    rechazoMotivo: raw.rechazo_operativo
+    rechazoOperativo,
+    rechazoAt: rechazoOperativo ? strOrNull(raw.rechazo_at) : null,
+    rechazoClasificacion: rechazoOperativo
+      ? strOrNull(raw.rechazo_clasificacion)
+      : null,
+    rechazoMotivo: rechazoOperativo
       ? sanitizeAdminMotivo(raw.rechazo_motivo)
-      : strOrNull(raw.rechazo_motivo),
-    reingresoActivo: Boolean(raw.reingreso_activo),
+      : null,
+    reingresoActivo: !cancelado && Boolean(raw.reingreso_activo),
   };
 }
 
@@ -106,32 +124,129 @@ function mapPrecalItem(raw: Record<string, unknown>): AdminPrecalEvent {
 }
 
 function estadoParam(filters: AdminProductionFilters): string | null {
-  if (!filters.estado || filters.estado === "todos") return null;
-  return filters.estado;
+  return adminEstadoRpcParam(filters.estado);
+}
+
+/** P094: filtros que el SQL legado mezcla y deben resolverse en cliente. */
+function needsAdminEstadoClientSplit(
+  estado: AdminProductionFilters["estado"],
+): boolean {
+  return estado === "rechazados" || estado === "cancelados";
+}
+
+function applyAdminEstadoClientFilter<
+  T extends { cicloEstado: string; subestado: string; etapaActual: number },
+>(items: T[], estado: AdminProductionFilters["estado"]): T[] {
+  if (!needsAdminEstadoClientSplit(estado)) return items;
+  return items.filter((r) =>
+    matchesAdminEstadoFilter(
+      {
+        cicloEstado: r.cicloEstado,
+        subestado: r.subestado,
+        etapaActual: r.etapaActual,
+      },
+      estado,
+    ),
+  );
+}
+
+function paginateClient<T>(
+  items: readonly T[],
+  page: number,
+  pageSize: number,
+): AdminPaginated<T> {
+  const p = Math.max(1, page || 1);
+  const size = Math.min(100, Math.max(1, pageSize || 25));
+  const from = (p - 1) * size;
+  return {
+    items: items.slice(from, from + size),
+    totalCount: items.length,
+    page: p,
+    pageSize: size,
+  };
+}
+
+function buildAsesorRowsFromMesa(
+  mesa: readonly AdminMesaEnvioEvent[],
+  baseRows: readonly AdminAsesorProductionRow[],
+  asesorId: string | null | undefined,
+): AdminAsesorProductionRow[] {
+  const map = new Map<string, AdminAsesorProductionRow>();
+  for (const b of baseRows) {
+    map.set(b.asesorId, {
+      ...b,
+      enviadosAMesa: 0,
+      etapas: {},
+    });
+  }
+  for (const r of mesa) {
+    const prev = map.get(r.asesorId);
+    if (!prev) {
+      map.set(r.asesorId, {
+        asesorId: r.asesorId,
+        asesorNombre: r.asesorNombre,
+        asesorEmail: null,
+        enviadosAMesa: 1,
+        precalificacionesAprobadas: 0,
+        precalificacionesNoCumple: 0,
+        aprobadasMayorA20000: 0,
+        montoAprobadoTotal: 0,
+        etapas: { [String(r.etapaActual)]: 1 },
+      });
+      continue;
+    }
+    map.set(r.asesorId, {
+      ...prev,
+      asesorNombre: prev.asesorNombre ?? r.asesorNombre,
+      enviadosAMesa: prev.enviadosAMesa + 1,
+      etapas: {
+        ...prev.etapas,
+        [String(r.etapaActual)]: (prev.etapas[String(r.etapaActual)] ?? 0) + 1,
+      },
+    });
+  }
+  let rows = [...map.values()].sort((a, b) => b.enviadosAMesa - a.enviadosAMesa);
+  if (asesorId) rows = rows.filter((r) => r.asesorId === asesorId);
+  return rows;
 }
 
 export class SupabaseAdminProductionRepo implements AdminProductionRepo {
   async getSummary(filters: AdminProductionFilters): Promise<AdminProductionSummary> {
     const client = requireClient();
+    // Precal KPIs no usan p_estado; solo enviados_a_mesa se filtra por estado.
+    // Para rechazados/cancelados: precal sin mezcla + enviados desde listado filtrado.
+    const rpcEstado = needsAdminEstadoClientSplit(filters.estado)
+      ? null
+      : estadoParam(filters);
     const { data, error } = await client.rpc("admin_get_production_summary", {
       p_from: filters.bounds.fromIso,
       p_to_exclusive: filters.bounds.toExclusiveIso,
       p_asesor_id: filters.asesorId ?? null,
       p_etapa_actual: filters.etapaActual ?? null,
-      p_estado: estadoParam(filters),
+      p_estado: rpcEstado,
     });
     if (error) throw new Error(error.message || "No se pudo cargar el resumen Admin");
     const row = (data ?? {}) as Record<string, unknown>;
-    return {
+    const base: AdminProductionSummary = {
       enviadosAMesa: num(row.enviados_a_mesa),
       precalificacionesAprobadas: num(row.precalificaciones_aprobadas),
       precalificacionesNoCumple: num(row.precalificaciones_no_cumple),
       aprobadasMayorA20000: num(row.aprobadas_mayor_a_20000),
       montoAprobadoTotal: num(row.monto_aprobado_total),
     };
+    if (!needsAdminEstadoClientSplit(filters.estado)) return base;
+    const mesa = await this.listAllMesaEnviosSplit(filters);
+    return { ...base, enviadosAMesa: mesa.length };
   }
 
   async getMesaCohortByEtapa(filters: AdminProductionFilters) {
+    if (needsAdminEstadoClientSplit(filters.estado)) {
+      const rows = await this.listAllMesaEnviosSplit({
+        ...filters,
+        etapaActual: null,
+      });
+      return { total: rows.length, byEtapa: groupMesaEnviosByEtapaActual(rows) };
+    }
     const client = requireClient();
     const { data, error } = await client.rpc("admin_get_mesa_cohort_by_etapa", {
       p_from: filters.bounds.fromIso,
@@ -151,15 +266,18 @@ export class SupabaseAdminProductionRepo implements AdminProductionRepo {
 
   async listByAsesor(filters: AdminProductionFilters): Promise<AdminAsesorProductionRow[]> {
     const client = requireClient();
+    const rpcEstado = needsAdminEstadoClientSplit(filters.estado)
+      ? null
+      : estadoParam(filters);
     const { data, error } = await client.rpc("admin_list_production_by_asesor", {
       p_from: filters.bounds.fromIso,
       p_to_exclusive: filters.bounds.toExclusiveIso,
-      p_estado: estadoParam(filters),
+      p_estado: rpcEstado,
       p_asesor_id: filters.asesorId ?? null,
     });
     if (error) throw new Error(error.message || "No se pudo cargar producción por asesor");
     const arr = Array.isArray(data) ? data : [];
-    return arr.map((item) => {
+    const baseRows: AdminAsesorProductionRow[] = arr.map((item) => {
       const r = item as Record<string, unknown>;
       const etapasRaw = (r.etapas ?? {}) as Record<string, unknown>;
       const etapas: Record<string, number> = {};
@@ -176,11 +294,21 @@ export class SupabaseAdminProductionRepo implements AdminProductionRepo {
         etapas,
       };
     });
+    if (!needsAdminEstadoClientSplit(filters.estado)) return baseRows;
+    const mesa = await this.listAllMesaEnviosSplit({
+      ...filters,
+      etapaActual: null,
+    });
+    return buildAsesorRowsFromMesa(mesa, baseRows, filters.asesorId);
   }
 
   async listMesaEnviosPage(
     filters: AdminProductionFilters,
   ): Promise<AdminPaginated<AdminMesaEnvioEvent>> {
+    if (needsAdminEstadoClientSplit(filters.estado)) {
+      const all = await this.listAllMesaEnviosSplit(filters);
+      return paginateClient(all, filters.page ?? 1, filters.pageSize ?? 25);
+    }
     const client = requireClient();
     const { data, error } = await client.rpc("admin_list_mesa_envios_page", {
       p_from: filters.bounds.fromIso,
@@ -304,6 +432,53 @@ export class SupabaseAdminProductionRepo implements AdminProductionRepo {
       precalificaciones,
       precalSummary: precalFirst.summary,
     };
+  }
+
+  /**
+   * Carga el bucket legado SQL `rechazados` (mezcla) y aplica predicado P094
+   * en cliente. Usado solo para filtros `rechazados` / `cancelados`.
+   */
+  private async listAllMesaEnviosSplit(
+    filters: AdminProductionFilters,
+  ): Promise<AdminMesaEnvioEvent[]> {
+    const raw = await this.fetchAllMesaEnviosRaw(filters, "rechazados");
+    return applyAdminEstadoClientFilter(raw, filters.estado);
+  }
+
+  private async fetchAllMesaEnviosRaw(
+    filters: AdminProductionFilters,
+    rpcEstado: string | null,
+  ): Promise<AdminMesaEnvioEvent[]> {
+    const client = requireClient();
+    const pageSize = 100;
+    const all: AdminMesaEnvioEvent[] = [];
+    let page = 1;
+    let expected = Infinity;
+    while (all.length < expected) {
+      const { data, error } = await client.rpc("admin_list_mesa_envios_page", {
+        p_from: filters.bounds.fromIso,
+        p_to_exclusive: filters.bounds.toExclusiveIso,
+        p_page: page,
+        p_page_size: pageSize,
+        p_asesor_id: filters.asesorId ?? null,
+        p_etapa_actual: filters.etapaActual ?? null,
+        p_estado: rpcEstado,
+        p_buscar: filters.buscar ?? null,
+      });
+      if (error) throw new Error(error.message || "No se pudo cargar enviados a Mesa");
+      const row = (data ?? {}) as Record<string, unknown>;
+      expected = num(row.total_count);
+      const batch = (Array.isArray(row.items) ? row.items : []).map((x) =>
+        mapMesaItem(x as Record<string, unknown>),
+      );
+      if (batch.length === 0) break;
+      all.push(...batch);
+      page += 1;
+      if (page > 10_000) {
+        throw new Error("Listado Mesa Admin: demasiadas páginas al separar estado.");
+      }
+    }
+    return all;
   }
 
   private async fetchAllPages<T>(

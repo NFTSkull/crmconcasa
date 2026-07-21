@@ -50,7 +50,9 @@ export type ResultadoRealExpediente =
   | "no_cumple_editor"
   | "aprobado_editor"
   | "en_tramite"
-  | "rechazado_mesa";
+  | "rechazado_mesa"
+  /** P094: ciclo terminal; prioridad sobre rechazo recuperable. */
+  | "cancelado";
 
 /** Origen del expediente para reglas de Mesa (interno / externo). */
 export type OrigenMesa = "interno" | "externo";
@@ -114,15 +116,24 @@ export interface ExpedienteMock {
 /**
  * Deriva el "resultado real" del expediente, separando:
  * - decisión del editor: `editorDecision.decision`
- * - resultado operativo real: `operativo.submittedToMesa` + `operativo.subestado`
+ * - resultado operativo real: ciclo + `submittedToMesa` + `subestado`
  *
  * Regla mínima (prioridad):
- * 1. Si está enviado a mesa y está rechazado => rechazado_mesa
- * 2. Si está enviado a mesa y no está rechazado => en_tramite
- * 3. Si no está enviado a mesa => depende solo del editor
+ * 1. Si `ciclo_estado = cancelado` => cancelado (terminal; P094)
+ * 2. Si enviado a mesa ∧ subestado rechazado ∧ ciclo activo => rechazado_mesa
+ * 3. Si enviado a mesa y no rechazado recuperable => en_tramite
+ * 4. Si no enviado a mesa => depende solo del editor
  */
 export function deriveResultadoRealExpediente(exp: ExpedienteMock): ResultadoRealExpediente {
-  if (exp.operativo.submittedToMesa && exp.operativo.subestado === "rechazado") {
+  if (exp.operativo.cicloEstado === "cancelado") {
+    return "cancelado";
+  }
+
+  if (
+    exp.operativo.submittedToMesa &&
+    exp.operativo.subestado === "rechazado" &&
+    (exp.operativo.cicloEstado == null || exp.operativo.cicloEstado === "activo")
+  ) {
     return "rechazado_mesa";
   }
 
