@@ -125,6 +125,10 @@ import { MesaControlManualEtapaSection } from "@/components/mesa-control/MesaCon
 import { MesaRechazoOperativoPostBiometricosCard } from "@/components/mesa-control/MesaRechazoOperativoPostBiometricosCard";
 import { MesaGestionFirmasSection } from "@/components/mesa-control/MesaGestionFirmasSection";
 import { isProgramaMejoravit } from "@/domain/expedientes/map-programa";
+import {
+  formatEtapaMesaCorrespondenciaAsesor,
+  formatEtapaMesaLabel,
+} from "@/domain/expedientes/etapa-numeracion-ux";
 
 type LoadState = "loading" | "ready" | "not_found" | "error";
 
@@ -1609,10 +1613,25 @@ export function MesaExpedienteDetalleReadOnly() {
             <span className="font-medium text-gray-900">Origen Mesa:</span>{" "}
             {origenMesaLabel(expediente.base.origenMesa)}
           </p>
-          <p>
+          <p data-testid="mesa-etapa-actual-label">
             <span className="font-medium text-gray-900">Etapa actual:</span>{" "}
-            {op.etapaActual ?? "—"}
+            {typeof op.etapaActual === "number"
+              ? formatEtapaMesaLabel(op.etapaActual)
+              : "—"}
           </p>
+          {typeof op.etapaActual === "number" ? (
+            (() => {
+              const hint = formatEtapaMesaCorrespondenciaAsesor(op.etapaActual);
+              return hint ? (
+                <p
+                  className="text-xs text-gray-500 sm:col-span-2"
+                  data-testid="mesa-etapa-correspondencia-asesor"
+                >
+                  {hint}
+                </p>
+              ) : null;
+            })()
+          ) : null}
           <p>
             <span className="font-medium text-gray-900">Subestado:</span>{" "}
             {subestadoOperativoLabel(op.subestado ?? "pendiente")}

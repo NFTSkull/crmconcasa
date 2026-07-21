@@ -13,6 +13,12 @@
 - Tarjeta `MesaRechazoOperativoPostBiometricosCard` montada en detalle Supabase (`MesaExpedienteDetalleReadOnly`) con mayor visibilidad; ancla estable.
 - Sin cambios RPC/SQL/filtros/Cloud.
 
+### B2 (numeración Mesa/Asesor)
+
+- Helpers `etapa-numeracion-ux`: correspondencia etapa interna ↔ paso visual; labels Mesa/Asesor + hint bandeja.
+- UI: detalle Mesa, bandeja, movimiento manual y seguimiento asesor muestran la conversión; timeline asesor indica etapa interna cuando difiere.
+- Sin cambiar `etapa_actual`, IDs 1–12, avance, filtros, RPC ni SQL.
+
 ## P092 — Notificación documento (`cliente_notificacion`)
 
 ### Separación

@@ -1,5 +1,28 @@
 # Devlog
 
+## 2026-07-21 - P093 B2.1: Auditoría final + commit local numeración
+
+### Decisión
+
+- Diff solo presentación/docs/tests; `mapEtapaInternaAPasoVisual` y `etapa_actual` intactos; sin SQL/RPC/filtros/avance.
+- Helpers `etapa-numeracion-ux` reutilizan el mapeo existente; UI muestra correspondencia Mesa↔Asesor.
+
+### Resultado
+
+- Commit local único B2; sin push/PR/Cloud/smoke.
+
+## 2026-07-21 - P093 B2: Numeración Mesa vs Asesor (solo UX)
+
+### Decisión
+
+- Misma `etapa_actual` DB; Mesa numera 1–12; asesor timeline omite legacy 4 → 11 pasos.
+- Helpers de presentación (`etapa-numeracion-ux`) + copy de correspondencia en detalle Mesa, bandeja, movimiento manual y seguimiento asesor.
+- Sin mutar IDs, avance, filtros, RPC, SQL ni datos.
+
+### Resultado
+
+- Worktree `crmconcasa-p093-numeracion-etapas-mesa-asesor` desde `d89a209`; sin commit.
+
 ## 2026-07-21 - P093 B1.1: Auditoría final + commit local UX rechazo
 
 ### Decisión
