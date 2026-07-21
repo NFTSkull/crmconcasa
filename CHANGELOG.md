@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **ops/publish-citas-mesa-excel — P095 B4 (push + PR, sin merge):** publicación controlada rama `p095-citas-mesa-excel` (hoy Monterrey + Excel Fecha|NSS|Nombre); Preview Vercel; sin SQL/RPC/Cloud/deps nuevas; sin merge/smoke/Producción.
+
 - **feat/citas-mesa-excel-ui — P095 B3/B3.1 (local commit):** botón `Descargar Excel` en `/mesa-control/citas`; día + filtros; loading/errores/doble clic; independiente de P089; tests wiring; sin RPC/Cloud/push.
 
 - **feat/citas-mesa-excel-util — P095 B2 (local commit):** utilidad `exportMesaCitasExcel` → `citas-mesa-YYYY-MM-DD.xlsx` hoja `Citas` (Fecha|NSS|Nombre); in-memory + filtros; sin botón UI/RPC/Cloud.

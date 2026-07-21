@@ -1,5 +1,17 @@
 # Devlog
 
+## 2026-07-21 - P095 B4: Publicación controlada (push + PR, sin merge)
+
+### Alcance
+- Push rama `p095-citas-mesa-excel` + PR a `main`; Preview Vercel READY.
+- Sin merge, sin smoke, sin abrir Preview app, sin Producción, sin Cloud/SQL/RPC.
+
+### Preflight
+- `origin/main` = `7b339c5` (merge-base); ahead 4; sin deps nuevas; sin archivos SQL/migración.
+
+### Verificación final
+- lint / typecheck / test / build PASS antes de push.
+
 ## 2026-07-21 - P095 B3.1: Auditoría final Excel UI + commit local
 
 ### Auditoría

@@ -25,6 +25,11 @@
 - [x] Tests helpers B3 + wiring `MesaAgendaCitasClient.excel.test.ts`; sin RPC/Cloud.
 - [x] Auditoría B3.1: sin refetch/mutación en export; lint/typecheck/test/build; commit local.
 
+### B4 (publicación — push + PR, sin merge)
+
+- [x] `origin/main` compatible (`7b339c5`); sin SQL/RPC/Cloud/deps nuevas.
+- [x] Validación final + push + Preview READY + PR abierto; sin merge/smoke/Producción.
+
 ## P094 — Rechazados vs Cancelados
 
 ### B0 (auditoría + diseño)
