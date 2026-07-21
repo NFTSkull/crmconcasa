@@ -1,5 +1,31 @@
 # Devlog
 
+## 2026-07-21 - P093 B1.1: Auditoría final + commit local UX rechazo
+
+### Decisión
+
+- Diff solo UX/docs/tests; sin migraciones, RPC, filtros, contadores ni Cloud.
+- Montaje seguro: `MesaRechazoOperativoPostBiometricosCard` en `MesaExpedienteDetalleReadOnly` (path Supabase) con gates existentes (enviado, ciclo activo, no rechazado, etapas 5/6). Path mock conserva `dataModeSupabase={isDataModeSupabase()}` (tarjeta oculta en mock).
+- Heurística `rechaz*` informativa: no bloquea movimiento ni ejecuta rechazo.
+- Autorización sigue en RPC `rechazar_etapa_operativa` (sin ampliar etapas/roles en UI helpers).
+
+### Resultado
+
+- Commit local único B1; sin push/PR/deploy/smoke/numeración.
+
+## 2026-07-21 - P093 B1: UX anti falsos rechazos (movimiento manual)
+
+### Decisión
+
+- B0: el caso «RECHAZO, BURO…» fue `mesa_mover_etapa_operativa`, no `rechazar_etapa_operativa`. Filtros correctos.
+- B1 solo UX: copy explícito, advertencia heurística `rechaz*` (informativa, no bloquea ni ejecuta rechazo), atajo a `#mesa-rechazo-operativo` si elegible (5/6).
+- Hallazgo: la tarjeta de rechazo canónico existía pero **no** estaba montada en `MesaExpedienteDetalleReadOnly` (path Supabase). Se monta antes del movimiento manual con mayor visibilidad.
+- Sin cambios RPC/SQL/filtros/contadores/Cloud; sin backfill de motivos.
+
+### Resultado
+
+- Helpers `mesa-rechazo-operativo-ux` + tests; docs PRODUCTO/API/TEST_PLAN/RIESGOS/CHANGELOG.
+
 ## 2026-07-21 - P092 B3: Auditoría final B0–B2 + commit local
 
 ### Decisión

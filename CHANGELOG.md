@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **fix/mesa-falsos-rechazos-ux — P093 B1/B1.1 (local commit):** copy y advertencia en «Movimiento manual de Mesa» (motivo `rechaz*` no rechaza); atajo a rechazo canónico en etapas 5/6; tarjeta `MesaRechazoOperativoPostBiometricosCard` montada en detalle Supabase (`#mesa-rechazo-operativo`); helpers + tests; sin RPC/SQL/filtros/Cloud/push.
+
 - **feat/mesa-notificacion-doc — P092 B2 (local):** UI Mesa (`MesaNotificacionDocumentoSection`) + asesor RO; upload/reemplazo/preview/descarga; estado React independiente del Pagaré; helpers + tests; sin Cloud/commit.
 
 - **feat/mesa-notificacion-doc — P092 B1 (local):** migración `089_…sql` allowlist/MIME/gate etapa≥7 para `cliente_notificacion`; suite SQL + `test-sql.sh`; conserva Pagaré; no agenda/`notificacion`; sin UI/Cloud/commit.

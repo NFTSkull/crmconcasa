@@ -4,6 +4,10 @@ import { useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import {
   biometricosCondicionSchema,
+  esElegibleRechazoOperativoPostBiometricos,
+  MESA_RECHAZO_OPERATIVO_ANCHOR_ID,
+  MESA_RECHAZO_OPERATIVO_CARD_BADGE,
+  MESA_RECHAZO_OPERATIVO_CARD_INTRO,
   type BiometricosCondicion,
   useExpedientesRepo,
 } from "@/domain/expedientes";
@@ -60,10 +64,12 @@ export function MesaRechazoOperativoPostBiometricosCard({
 
   const visible =
     dataModeSupabase &&
-    submittedToMesa &&
-    cicloEstado === "activo" &&
-    subestado !== "rechazado" &&
-    (etapaActual === 5 || etapaActual === 6);
+    esElegibleRechazoOperativoPostBiometricos({
+      submittedToMesa,
+      cicloEstado,
+      subestado,
+      etapaActual,
+    });
 
   useEffect(() => {
     if (!visible || !open || !fechaCita) return;
@@ -137,19 +143,31 @@ export function MesaRechazoOperativoPostBiometricosCard({
   };
 
   return (
-    <section className="rounded-xl border border-red-200 bg-red-50/50 p-4">
-      <h2 className="text-sm font-semibold text-red-950">
-        Rechazo operativo post-biométricos
-      </h2>
+    <section
+      id={MESA_RECHAZO_OPERATIVO_ANCHOR_ID}
+      data-testid="mesa-rechazo-operativo"
+      className="scroll-mt-4 rounded-xl border-2 border-red-400 bg-red-50 p-4 shadow-md ring-2 ring-red-200"
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="inline-flex rounded-md bg-red-700 px-2.5 py-1 text-xs font-semibold text-white">
+          {MESA_RECHAZO_OPERATIVO_CARD_BADGE}
+        </span>
+        <h2 className="text-sm font-semibold text-red-950">
+          Rechazo operativo post-biométricos
+        </h2>
+      </div>
+      <p className="mt-2 text-xs font-medium text-red-950">
+        {MESA_RECHAZO_OPERATIVO_CARD_INTRO}
+      </p>
       <p className="mt-1 text-xs text-red-900">
         Registra la decisión humana sobre los biométricos sin cancelar ni
-        alterar la cita histórica.
+        alterar la cita histórica. Disponible en etapas 5 y 6.
       </p>
       {!open ? (
         <Button
           type="button"
           variant="outline"
-          className="mt-3 border-red-300 text-red-800"
+          className="mt-3 border-red-400 bg-white text-red-900 hover:bg-red-100"
           onClick={() => setOpen(true)}
         >
           Rechazar etapa y clasificar biométricos

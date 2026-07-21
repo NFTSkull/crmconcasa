@@ -856,6 +856,7 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 - Destino 1 deriva `en_validacion_mesa`; 2–12 deriva `en_proceso`.
 - Solo muta etapa/subestado/updated_at. Escribe `expediente_movimientos_mesa` y `action_log`.
 - Errores estables `MESA_MOVE_*`; `p_etapa_esperada` evita sobrescritura concurrente.
+- **P093 B1 (UI):** el panel «Movimiento manual de Mesa» aclara que **no** es rechazo; si el motivo contiene `rechaz*` muestra advertencia informativa (no bloquea ni ejecuta rechazo); en etapas 5/6 ofrece atajo a `#mesa-rechazo-operativo`. El rechazo canónico sigue siendo solo `rechazar_etapa_operativa` (17d).
 
 ### Firmas exclusivas de Mesa
 

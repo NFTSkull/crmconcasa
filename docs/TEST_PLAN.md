@@ -1,5 +1,18 @@
 # ConCasa CRM — Plan de pruebas
 
+## P093 — Separación UX rechazo vs movimiento manual
+
+### B0 (auditoría RO)
+
+- Caso índice y flota Cloud: movimiento manual con motivo «RECHAZO…» ≠ `subestado=rechazado`; filtros correctos; numeración Asesor paso visual ≠ etiqueta Mesa interna.
+
+### B1 (UI)
+
+- Helpers `mesa-rechazo-operativo-ux`: `motivoManualPareceRechazo`, `esElegibleRechazoOperativoPostBiometricos`, mensajes; tests unitarios.
+- Panel movimiento manual: copy «no es rechazo»; advertencia si motivo parece rechazo (no bloquea / no ejecuta rechazo); atajo a `#mesa-rechazo-operativo` en etapas 5/6.
+- Tarjeta `MesaRechazoOperativoPostBiometricosCard` montada en detalle Supabase (`MesaExpedienteDetalleReadOnly`) con mayor visibilidad; ancla estable.
+- Sin cambios RPC/SQL/filtros/Cloud.
+
 ## P092 — Notificación documento (`cliente_notificacion`)
 
 ### Separación

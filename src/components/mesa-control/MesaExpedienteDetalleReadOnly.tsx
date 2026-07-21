@@ -122,6 +122,7 @@ import { useMesaOpsRepo, type MesaExpedienteOpsRow } from "@/domain/mesa-ops";
 import { recordMesaExpedienteOpened } from "@/lib/mesaExpedienteOpenedStorage";
 import { MesaExpedienteOpsSection } from "@/components/mesa-control/MesaExpedienteOpsSection";
 import { MesaControlManualEtapaSection } from "@/components/mesa-control/MesaControlManualEtapaSection";
+import { MesaRechazoOperativoPostBiometricosCard } from "@/components/mesa-control/MesaRechazoOperativoPostBiometricosCard";
 import { MesaGestionFirmasSection } from "@/components/mesa-control/MesaGestionFirmasSection";
 import { isProgramaMejoravit } from "@/domain/expedientes/map-programa";
 
@@ -1999,6 +2000,17 @@ export function MesaExpedienteDetalleReadOnly() {
         mostrarBotonAvanzar={false}
         cancelCitaGate={firmasCancelCitaGate}
         mostrarAtajoMovimientoManual={mostrarAtajoManual}
+      />
+
+      <MesaRechazoOperativoPostBiometricosCard
+        expedienteId={routeExpedienteId}
+        etapaActual={etapaActual ?? null}
+        subestado={op.subestado ?? null}
+        cicloEstado={op.cicloEstado ?? null}
+        submittedToMesa={op.submittedToMesa ?? false}
+        fechaCita={op.fechaCita ?? null}
+        dataModeSupabase
+        onUpdated={load}
       />
 
       <MesaControlManualEtapaSection
