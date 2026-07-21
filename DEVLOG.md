@@ -1,5 +1,30 @@
 # Devlog
 
+## 2026-07-21 - P095 B3.1: Auditoría final Excel UI + commit local
+
+### Auditoría
+- Día + filtros: `resolveMesaCitasExportDayYmd` + `downloadMesaCitasExcel(loadedEntries, exportDayYmd, filters, sortBy)`.
+- Sin P089: handler no lee `selectedBookingIds` / `executeBulk`; util ignora selección y tope 100.
+- Doble clic: `exportExcelBusyRef` + `disabled` mientras Generando; retorno temprano si busy/loading/bulk.
+- Mensajes: éxito `Se descargó…`, vacío filtros/día, catch genérico; invalid_date mapeado.
+- Sin refetch/mutación en export (no `loadEntries`/RPC/Storage).
+- Sin SQL/deps nuevas; solo cableado test en `package.json`.
+
+### Verificación
+- lint / typecheck / test / build PASS → commit B3 local único; sin push/PR/Cloud/smoke.
+
+## 2026-07-21 - P095 B3: UI Descargar Excel en Mesa Citas
+
+### Decisión
+- Cablear `Descargar Excel` en `MesaAgendaCitasClient` sobre util B2; sin tocar P089 ni RPC.
+- Día export: `resolveMesaCitasExportDayYmd` (lista→`listaStartDate`, dia→`selectedDay`, semana→`weekDetailDay ?? selectedDay`).
+- Descarga: `downloadMesaCitasExcel(loadedEntries, …)` + Blob/anchor; `exportExcelBusyRef` + disabled mientras Generando; mensaje vacío/éxito/error.
+- Independencia P089: no lee `selectedBookingIds`; limpia mensaje con `selectionClearKey` (fecha/filtros).
+
+### Verificación
+- Tests helpers B3 + `MesaAgendaCitasClient.excel.test.ts` cableados.
+- Sin commit/push/PR/Cloud en este bloque.
+
 ## 2026-07-21 - P095 B2: Utilidad Excel citas Mesa (sin UI)
 
 ### Decisión

@@ -137,9 +137,10 @@ La UI identifica al hijo como **Reingreso / Reinscripción** y **Biométricos re
 - Fecha operativa = **hoy** `America/Monterrey`; `date_from` = `date_to` = `selectedDay` = ese YMD.
 - Fetch inicial: un solo día (no mes completo). Cambio de fecha resincroniza los tres al mismo YMD y limpia selección masiva; conserva filtros compatibles.
 
-**Exportación Excel (B2 util; botón UI pendiente):**
+**Exportación Excel (B2 util + B3 UI):**
+- Botón `Descargar Excel` en `/mesa-control/citas`; exporta el día operativo (`lista`→`listaStartDate`, `dia`→`selectedDay`, `semana`→`weekDetailDay ?? selectedDay`) con filtros activos.
 - Util `exportMesaCitasExcel` genera `.xlsx` hoja `Citas`; archivo `citas-mesa-YYYY-MM-DD.xlsx`.
-- Columnas únicas: `Fecha` | `NSS` | `Nombre completo`; in-memory + filtros; sin selección/límite 100/Storage/RPC.
+- Columnas únicas: `Fecha` | `NSS` | `Nombre completo`; in-memory; estados Generando/éxito/vacío/error; bloqueo doble clic; sin selección/límite 100/Storage/RPC.
 
 **Intacto:** P089, cancel/reagendar individual, RPC `get_mesa_agenda_bookings`.
 

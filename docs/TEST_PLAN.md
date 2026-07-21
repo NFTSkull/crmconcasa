@@ -16,11 +16,14 @@
 
 - [x] `exportMesaCitasExcel`: `citas-mesa-YYYY-MM-DD.xlsx` / hoja `Citas` / Fecha|NSS|Nombre.
 - [x] In-memory + filtros activos; >100 filas; sin selección P089; sin botón UI.
-- [ ] Cablear `Descargar Excel` en pantalla (B3).
 
-### B3+ (pendiente)
+### B3 / B3.1 (UI Descargar Excel — local commit)
 
-- [ ] Botón UI + descarga local; regresión P089; sin RPC/Cloud.
+- [x] Botón `Descargar Excel` en `MesaAgendaCitasClient`; día operativo + filtros.
+- [x] Estados Generando / mensaje éxito-vacío-error; `exportExcelBusyRef` anti doble clic.
+- [x] Independiente de selección/acciones masivas P089 (`loadedEntries`, no `selectedBookingIds`).
+- [x] Tests helpers B3 + wiring `MesaAgendaCitasClient.excel.test.ts`; sin RPC/Cloud.
+- [x] Auditoría B3.1: sin refetch/mutación en export; lint/typecheck/test/build; commit local.
 
 ## P094 — Rechazados vs Cancelados
 

@@ -95,6 +95,11 @@ import {
   type BulkDriveValidationSummary,
   type BulkStageAdvanceSummary,
 } from "@/domain/agenda-calendar/mesa-bulk-actions";
+import {
+  downloadMesaCitasExcel,
+  mapMesaCitasExportUserMessage,
+  resolveMesaCitasExportDayYmd,
+} from "@/lib/exportMesaCitasExcel";
 
 export function MesaAgendaCitasClient() {
   const { sessionRepo, currentUser } = useSessionRepo();
@@ -144,7 +149,10 @@ export function MesaAgendaCitasClient() {
   const [bulkAdvanceResult, setBulkAdvanceResult] = useState<BulkStageAdvanceSummary | null>(
     null,
   );
+  const [exportExcelLoading, setExportExcelLoading] = useState(false);
+  const [exportExcelMessage, setExportExcelMessage] = useState<string | null>(null);
   const bulkBusyRef = useRef(false);
+  const exportExcelBusyRef = useRef(false);
 
   const canAccess = canAccessMesaAgendaCitasPage(currentUser?.role);
   const mockRole = getEffectiveMockRole();
@@ -292,6 +300,7 @@ export function MesaAgendaCitasClient() {
   useEffect(() => {
     setSelectedBookingIds(new Set());
     setBulkLimitNotice(null);
+    setExportExcelMessage(null);
   }, [selectionClearKey]);
 
   useEffect(() => {
@@ -347,6 +356,39 @@ export function MesaAgendaCitasClient() {
   const handleClearAllFilters = useCallback(() => {
     setFilters(clearMesaAgendaClientFilters());
   }, []);
+
+  const exportDayYmd = useMemo(
+    () =>
+      resolveMesaCitasExportDayYmd({
+        viewMode,
+        selectedDay,
+        weekDetailDay,
+        listaStartDate,
+      }),
+    [viewMode, selectedDay, weekDetailDay, listaStartDate],
+  );
+
+  const handleDescargarExcel = useCallback(() => {
+    if (exportExcelBusyRef.current || loading || bulkBusyRef.current) return;
+    exportExcelBusyRef.current = true;
+    setExportExcelLoading(true);
+    setExportExcelMessage(null);
+    try {
+      // Exporta el día filtrado completo; no usa la selección masiva ni el tope de 100.
+      const result = downloadMesaCitasExcel(
+        loadedEntries,
+        exportDayYmd,
+        filters,
+        sortBy,
+      );
+      setExportExcelMessage(mapMesaCitasExportUserMessage(result));
+    } catch {
+      setExportExcelMessage("No se pudo generar el archivo Excel. Intenta de nuevo.");
+    } finally {
+      exportExcelBusyRef.current = false;
+      setExportExcelLoading(false);
+    }
+  }, [loading, loadedEntries, exportDayYmd, filters, sortBy]);
 
   const handleBulkRowCheckedChange = useCallback(
     (entry: MesaAgendaBookingEntry, checked: boolean) => {
@@ -858,6 +900,31 @@ export function MesaAgendaCitasClient() {
           onClearChip={handleClearChip}
           onClearAll={handleClearAllFilters}
         />
+
+        <div className="flex flex-wrap items-center gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            className="h-[42px] whitespace-nowrap px-3 text-sm"
+            disabled={exportExcelLoading || loading || Boolean(rangeError)}
+            onClick={handleDescargarExcel}
+            aria-label="Descargar Excel de citas del día"
+          >
+            {exportExcelLoading ? "Generando Excel…" : "Descargar Excel"}
+          </Button>
+          {exportExcelMessage ? (
+            <p
+              role="status"
+              className={`text-xs ${
+                exportExcelMessage.startsWith("Se descargó")
+                  ? "text-emerald-800"
+                  : "text-amber-800"
+              }`}
+            >
+              {exportExcelMessage}
+            </p>
+          ) : null}
+        </div>
 
         {!loading && !error && !rangeError ? (
           <MesaAgendaCitasSummary

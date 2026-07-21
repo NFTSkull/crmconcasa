@@ -12,10 +12,12 @@ import {
   collectMesaCitasForExport,
   formatMesaCitasExcelSubtitleDate,
   mapMesaCitaToExcelRow,
+  mapMesaCitasExportUserMessage,
   MESA_CITAS_EXCEL_HEADERS,
   MESA_CITAS_EXCEL_SHEET_NAME,
   MESA_CITAS_EXCEL_TITLE,
   prepareMesaCitasExport,
+  resolveMesaCitasExportDayYmd,
   workbookToMesaCitasXlsxArrayBuffer,
 } from "@/lib/exportMesaCitasExcel";
 
@@ -135,6 +137,70 @@ describe("exportMesaCitasExcel — alcance día + filtros", () => {
   it("vacío → empty", () => {
     const prepared = prepareMesaCitasExport(rows, "2026-07-23");
     assert.deepEqual(prepared, { ok: false, reason: "empty" });
+  });
+});
+
+describe("exportMesaCitasExcel — UI helpers B3", () => {
+  it("resolveMesaCitasExportDayYmd: lista/dia usan selected/lista; semana usa detail", () => {
+    assert.equal(
+      resolveMesaCitasExportDayYmd({
+        viewMode: "lista",
+        selectedDay: "2026-07-21",
+        weekDetailDay: "2026-07-22",
+        listaStartDate: "2026-07-21",
+      }),
+      "2026-07-21",
+    );
+    assert.equal(
+      resolveMesaCitasExportDayYmd({
+        viewMode: "dia",
+        selectedDay: "2026-07-18",
+        weekDetailDay: null,
+        listaStartDate: "2026-07-01",
+      }),
+      "2026-07-18",
+    );
+    assert.equal(
+      resolveMesaCitasExportDayYmd({
+        viewMode: "semana",
+        selectedDay: "2026-07-21",
+        weekDetailDay: "2026-07-23",
+        listaStartDate: "2026-07-21",
+      }),
+      "2026-07-23",
+    );
+  });
+
+  it("mensajes de usuario para empty/success", () => {
+    assert.equal(
+      mapMesaCitasExportUserMessage({ ok: false, reason: "empty" }),
+      "No hay citas para exportar con la fecha y filtros actuales.",
+    );
+    assert.equal(
+      mapMesaCitasExportUserMessage({
+        ok: true,
+        filename: "citas-mesa-2026-07-21.xlsx",
+        rowCount: 2,
+      }),
+      "Se descargó citas-mesa-2026-07-21.xlsx (2 citas).",
+    );
+  });
+
+  it("prepare no usa selección ni límite 100 (integración contrato)", () => {
+    const many = Array.from({ length: 105 }, (_, i) =>
+      entry({
+        bookingId: `sel-${i}`,
+        bookingDate: "2026-07-21",
+        nss: String(10000000000 + i),
+        clienteNombre: `N${i}`,
+      }),
+    );
+    // Simula selección parcial: export ignora cualquier subset y toma todas del día.
+    const selectedOnly = new Set(many.slice(0, 3).map((r) => r.bookingId));
+    assert.equal(selectedOnly.size, 3);
+    const prepared = prepareMesaCitasExport(many, "2026-07-21");
+    assert.equal(prepared.ok, true);
+    if (prepared.ok) assert.equal(prepared.rowCount, 105);
   });
 });
 

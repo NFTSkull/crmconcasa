@@ -750,7 +750,8 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 - Apertura: `defaultMesaAgendaDayRange()` → `p_start_date = p_end_date = hoy`.
 - Cambio de fecha: `syncMesaAgendaSingleDay(ymd)` alinea `listaStartDate`/`listaEndDate`/`selectedDay`; refetch; selección P089 se limpia por `selectionClearKey`; filtros UI se conservan.
 
-**Export Excel (B2 util local; UI pendiente B3):**
+**Export Excel (B2 util + B3 UI local):**
+- UI: botón `Descargar Excel` → `downloadMesaCitasExcel(loadedEntries, exportDayYmd, filters, sortBy)`; día vía `resolveMesaCitasExportDayYmd`; independiente de `selectedBookingIds` / límite 100.
 - `prepareMesaCitasExport(entries, fechaYmd, filters, sortBy)` → workbook in-memory.
 - Archivo `citas-mesa-YYYY-MM-DD.xlsx`; hoja `Citas`; columnas `Fecha` | `NSS` | `Nombre completo`.
 - Título `CITAS MESA DE CONTROL` + subtítulo fecha `es-MX`; NSS texto; sin RPC/Storage/selección P089.

@@ -157,3 +157,61 @@ export function prepareMesaCitasExport(
     workbook,
   };
 }
+
+/** Día operativo a exportar según la vista activa (independiente de selección P089). */
+export function resolveMesaCitasExportDayYmd(params: Readonly<{
+  viewMode: "lista" | "dia" | "semana";
+  selectedDay: string;
+  weekDetailDay: string | null;
+  listaStartDate: string;
+}>): string {
+  if (params.viewMode === "semana") {
+    return (params.weekDetailDay ?? params.selectedDay).trim();
+  }
+  if (params.viewMode === "lista") {
+    return (params.listaStartDate || params.selectedDay).trim();
+  }
+  return params.selectedDay.trim();
+}
+
+export function mapMesaCitasExportUserMessage(
+  result: PrepareMesaCitasExportResult | { ok: true; filename: string; rowCount: number },
+): string | null {
+  if (result.ok) {
+    return `Se descargó ${result.filename} (${result.rowCount} cita${result.rowCount === 1 ? "" : "s"}).`;
+  }
+  if (result.reason === "empty") {
+    return "No hay citas para exportar con la fecha y filtros actuales.";
+  }
+  return "La fecha seleccionada no es válida para exportar.";
+}
+
+export function downloadMesaCitasExcel(
+  entries: readonly MesaAgendaBookingEntry[],
+  fechaYmd: string,
+  filters: MesaAgendaCitasClientFilters = defaultMesaAgendaClientFilters(),
+  sortBy: MesaAgendaCitasSortOption = MESA_AGENDA_DEFAULT_SORT,
+): PrepareMesaCitasExportResult {
+  const prepared = prepareMesaCitasExport(entries, fechaYmd, filters, sortBy);
+  if (!prepared.ok) return prepared;
+
+  if (typeof window === "undefined" || typeof document === "undefined") {
+    throw new Error("La descarga de Excel solo está disponible en el navegador.");
+  }
+
+  const buffer = workbookToMesaCitasXlsxArrayBuffer(prepared.workbook);
+  const blob = new Blob([buffer], {
+    type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+  });
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = prepared.filename;
+  anchor.rel = "noopener";
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+
+  return prepared;
+}

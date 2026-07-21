@@ -2,7 +2,9 @@
 
 ## Unreleased
 
-- **feat/citas-mesa-excel-util — P095 B2 (local, sin UI/commit):** utilidad `exportMesaCitasExcel` → `citas-mesa-YYYY-MM-DD.xlsx` hoja `Citas` (Fecha|NSS|Nombre); in-memory + filtros; sin botón UI/RPC/Cloud.
+- **feat/citas-mesa-excel-ui — P095 B3/B3.1 (local commit):** botón `Descargar Excel` en `/mesa-control/citas`; día + filtros; loading/errores/doble clic; independiente de P089; tests wiring; sin RPC/Cloud/push.
+
+- **feat/citas-mesa-excel-util — P095 B2 (local commit):** utilidad `exportMesaCitasExcel` → `citas-mesa-YYYY-MM-DD.xlsx` hoja `Citas` (Fecha|NSS|Nombre); in-memory + filtros; sin botón UI/RPC/Cloud.
 
 - **feat/citas-mesa-hoy — P095 B1 (local commit):** apertura `/mesa-control/citas` en vista `lista` con hoy `America/Monterrey` (from=to=selectedDay); sync de fecha; sin Excel/RPC/Cloud.
 
