@@ -120,6 +120,8 @@ La UI identifica al hijo como **Reingreso / Reinscripción** y **Biométricos re
 - Los roles `mesa_admin`, `mesa_interno`, `mesa_externo` y `super_admin` pueden mover un expediente visible entre etapas 1–12 mediante una acción manual auditada.
 - Solo aplica a expedientes activos, enviados a Mesa y en `en_validacion_mesa`/`en_proceso`; no reactiva rechazos, aprobados, pendientes ni ciclos cerrados/cancelados.
 - El movimiento omite gates normales, pero no borra ni crea documentos, citas, bookings, montos, cobro, retención, decisiones o genealogía.
+- **P093:** el movimiento manual **no** es un rechazo. No pone `subestado=rechazado`, no crea fila en `expediente_rechazos_operativos` ni alimenta filtros «Rechazados». Escribir «RECHAZO…» en el motivo no rechaza.
+- **Rechazo canónico (etapas 5/6):** UI «Rechazo operativo post-biométricos» → RPC `rechazar_etapa_operativa`. La UI advierte si el motivo del movimiento parece un rechazo y ofrece atajo a esa acción cuando el expediente es elegible.
 - Etapa 1 queda `en_validacion_mesa`; etapas 2–12 quedan `en_proceso`. Etapas 11/12 son posición operativa y no registran firma/pago ni cierran el ciclo.
 - Los cuatro roles Mesa pueden agendar/reagendar firmas en etapas 9/10 de expedientes visibles. Un booking conservado fuera de esas etapas puede cancelarse explícitamente, nunca automáticamente.
 

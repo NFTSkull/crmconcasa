@@ -4,9 +4,15 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import {
   deriveMesaMovimientoAdvertencias,
+  esElegibleRechazoOperativoPostBiometricos,
   getMesaControlManualEstado,
   getMesaMovimientoDireccion,
   mesaMovimientoInputSchema,
+  mensajeAdvertenciaMotivoPareceRechazo,
+  motivoManualPareceRechazo,
+  MESA_MOVIMIENTO_NO_ES_RECHAZO_COPY,
+  MESA_RECHAZO_OPERATIVO_ANCHOR_ID,
+  MESA_RECHAZO_OPERATIVO_ATAJO_LABEL,
   puedeConfirmarMovimientoMesa,
   useExpedientesRepo,
   type MesaMovimientoHistorialRow,
@@ -45,6 +51,12 @@ function formatCreatedAt(value: string): string {
   });
 }
 
+function scrollToRechazoOperativo() {
+  document
+    .getElementById(MESA_RECHAZO_OPERATIVO_ANCHOR_ID)
+    ?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
 export function MesaControlManualEtapaSection({
   expedienteId,
   etapaActual,
@@ -79,6 +91,14 @@ export function MesaControlManualEtapaSection({
   });
   const visible = estado.visible;
   const habilitado = estado.habilitado;
+
+  const elegibleRechazoOperativo = esElegibleRechazoOperativoPostBiometricos({
+    submittedToMesa,
+    cicloEstado,
+    subestado,
+    etapaActual,
+  });
+  const motivoPareceRechazo = motivoManualPareceRechazo(motivo);
 
   const loadHistory = useCallback(async () => {
     if (!visible) return;
@@ -184,6 +204,13 @@ export function MesaControlManualEtapaSection({
           avance normal. No elimina documentos, citas, bookings, montos ni
           historial.
         </p>
+        <p
+          role="note"
+          data-testid="mesa-movimiento-no-es-rechazo"
+          className="mt-2 rounded-md border border-amber-400 bg-white px-3 py-2 text-xs font-medium text-amber-950"
+        >
+          {MESA_MOVIMIENTO_NO_ES_RECHAZO_COPY}
+        </p>
         <p className="mt-2 text-xs font-medium text-amber-950">
           Etapa actual: {etapaActual}. {etapaNombre(etapaActual)}
         </p>
@@ -245,6 +272,53 @@ export function MesaControlManualEtapaSection({
         <span className="text-xs text-gray-500">{motivo.length}/500</span>
       </label>
 
+      {motivoPareceRechazo ? (
+        <div
+          role="status"
+          data-testid="mesa-movimiento-motivo-parece-rechazo"
+          className="mt-3 rounded-md border border-red-300 bg-red-50 p-3"
+        >
+          <p className="text-xs font-semibold text-red-950">
+            Advertencia: esto no es un rechazo
+          </p>
+          <p className="mt-1 text-xs text-red-900">
+            {mensajeAdvertenciaMotivoPareceRechazo(elegibleRechazoOperativo)}
+          </p>
+          {elegibleRechazoOperativo ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="mt-2 border-red-300 text-xs text-red-800"
+              data-testid="mesa-movimiento-atajo-rechazo"
+              onClick={scrollToRechazoOperativo}
+            >
+              {MESA_RECHAZO_OPERATIVO_ATAJO_LABEL}
+            </Button>
+          ) : null}
+        </div>
+      ) : null}
+
+      {elegibleRechazoOperativo && !motivoPareceRechazo ? (
+        <div
+          data-testid="mesa-movimiento-atajo-rechazo-disponible"
+          className="mt-3 rounded-md border border-red-200 bg-white p-3"
+        >
+          <p className="text-xs text-gray-800">
+            Si debes rechazar el expediente en etapa {etapaActual}, usa el
+            rechazo operativo canónico (no este movimiento).
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            className="mt-2 border-red-300 text-xs text-red-800"
+            data-testid="mesa-movimiento-atajo-rechazo"
+            onClick={scrollToRechazoOperativo}
+          >
+            {MESA_RECHAZO_OPERATIVO_ATAJO_LABEL}
+          </Button>
+        </div>
+      ) : null}
+
       {warnings.length > 0 ? (
         <div className="mt-3 rounded-md border border-amber-300 bg-white p-3">
           <p className="text-xs font-semibold text-amber-950">
@@ -273,6 +347,19 @@ export function MesaControlManualEtapaSection({
             Este movimiento manual omitirá los requisitos normales de la etapa.
             No se borrarán documentos, citas, bookings, montos ni historial.
           </p>
+          <p className="mt-1 text-xs text-red-800">
+            Tampoco registrará un rechazo operativo ni cambiará el subestado a
+            «rechazado».
+          </p>
+          {motivoPareceRechazo ? (
+            <p
+              role="status"
+              data-testid="mesa-movimiento-confirm-parece-rechazo"
+              className="mt-2 rounded-md border border-red-300 bg-white px-2 py-1.5 text-xs font-medium text-red-900"
+            >
+              {mensajeAdvertenciaMotivoPareceRechazo(elegibleRechazoOperativo)}
+            </p>
+          ) : null}
           {destino === 11 || destino === 12 ? (
             <p className="mt-1 text-xs text-red-800">
               Cambiar la etapa no registra automáticamente una firma o un pago.

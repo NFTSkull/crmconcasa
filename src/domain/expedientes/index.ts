@@ -38,6 +38,18 @@ export {
   type MesaMovimientoResultado,
 } from "./mesa-movimiento-etapa";
 export {
+  esElegibleRechazoOperativoPostBiometricos,
+  mensajeAdvertenciaMotivoPareceRechazo,
+  MESA_MOTIVO_PARECE_RECHAZO_SIN_ELEGIBILIDAD_WARNING,
+  MESA_MOTIVO_PARECE_RECHAZO_WARNING,
+  MESA_MOVIMIENTO_NO_ES_RECHAZO_COPY,
+  MESA_RECHAZO_OPERATIVO_ANCHOR_ID,
+  MESA_RECHAZO_OPERATIVO_ATAJO_LABEL,
+  MESA_RECHAZO_OPERATIVO_CARD_BADGE,
+  MESA_RECHAZO_OPERATIVO_CARD_INTRO,
+  motivoManualPareceRechazo,
+} from "./mesa-rechazo-operativo-ux";
+export {
   biometricosCondicionSchema,
   esExpedienteReingreso,
   getReingresoErrorCode,
