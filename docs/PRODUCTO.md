@@ -142,7 +142,7 @@ Dos resultados operativos distintos; **no** inferir por texto libre ni por movim
 | Continuación | Reingreso post-biométricos cuando aplique (P072) | **No** flujo normal; solo futura acción admin explícita (fuera de P094 si negocio la pide) |
 | Prohibido | Confundir con corrección documental | Avance, citas, movimiento, rechazo, reingreso común, uploads operativos |
 
-**Estado actual (B1 SQL local):** el rechazo canónico (`rechazar_etapa_operativa`, etapas 5/6) existe. Cancelación terminal: RPC `cancelar_expediente_operativo` + tabla `expediente_cancelaciones` (migración `090_…sql`). UI Mesa/asesor/Admin (chip, pestañas, desacople Admin) pendiente B2/B3. Admin sigue mezclando `subestado=rechazado OR ciclo=cancelado` bajo «Rechazados/cerrados» hasta B3.
+**Estado actual (B2 UI Mesa local):** rechazo canónico + cancelación SQL (090) + UI Mesa: chip «Rechazos y cancelaciones» con subvistas, acción Cancelar y banner RO. Asesor/Admin (desacople) pendiente B3.
 
 **No es:** corrección requerida (docs/datos), `booking_status=cancelled` (citas), `ciclo=cerrado` (historial de reingreso / cierre de ciclo distinto).
 

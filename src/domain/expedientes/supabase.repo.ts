@@ -27,6 +27,12 @@ import {
   type ReingresoElegibilidad,
 } from "./reingreso-post-biometricos";
 import {
+  cancelacionOperativaInputSchema,
+  mapMesaCancelacionRpcError,
+  type CancelacionOperativaInput,
+  type ExpedienteCancelacionRow,
+} from "./mesa-cancelacion-operativa";
+import {
   buildEditorListOrFilter,
   normalizeEditorListPage,
   type EditorListPage,
@@ -322,7 +328,8 @@ async function fetchExpedientesListForMesaControl(): Promise<ExpedienteMock[]> {
     .select(EXPEDIENTES_LIST_SELECT)
     .is("deleted_at", null)
     .eq("submitted_to_mesa", true)
-    .eq("ciclo_estado", "activo")
+    // P094: incluye cancelados para el chip agrupado; «Todos» los excluye en UI.
+    .in("ciclo_estado", ["activo", "cancelado"])
     .order("fecha_envio_mesa", { ascending: true });
 
   if (error) {
@@ -719,6 +726,93 @@ export class SupabaseExpedientesRepo implements ExpedientesRepo {
       );
     }
     return refreshed;
+  }
+
+  async cancelarExpedienteOperativo(
+    expedienteId: string,
+    input: CancelacionOperativaInput,
+  ): Promise<ExpedienteMock> {
+    const idResult = reingresoExpedienteIdSchema.safeParse(expedienteId);
+    const inputResult = cancelacionOperativaInputSchema.safeParse(input);
+    if (!idResult.success) {
+      throw new ExpedientesSupabaseError(
+        "El identificador del expediente no es válido.",
+      );
+    }
+    if (!inputResult.success) {
+      throw new ExpedientesSupabaseError(
+        inputResult.error.issues[0]?.message ??
+          "Los datos de la cancelación no son válidos.",
+      );
+    }
+
+    const { client } = await requireSupabaseSession();
+    const value = inputResult.data;
+    const { data, error } = await client.rpc("cancelar_expediente_operativo", {
+      p_expediente_id: idResult.data,
+      p_motivo: value.motivo,
+      p_comentario: value.comentario || null,
+    });
+
+    if (error) {
+      throw mapMesaCancelacionRpcError(
+        error,
+        "No se pudo registrar la cancelación operativa.",
+      );
+    }
+    if (!data || typeof data !== "object") {
+      throw new ExpedientesSupabaseError(
+        "La cancelación se registró sin una respuesta válida.",
+      );
+    }
+
+    const refreshed = await fetchExpedienteById(idResult.data);
+    if (!refreshed) {
+      throw new ExpedientesSupabaseError(
+        "La cancelación se registró, pero no se pudo recargar el expediente.",
+      );
+    }
+    return refreshed;
+  }
+
+  async getUltimaCancelacionOperativa(
+    expedienteId: string,
+  ): Promise<ExpedienteCancelacionRow | null> {
+    const idResult = reingresoExpedienteIdSchema.safeParse(expedienteId);
+    if (!idResult.success) {
+      throw new ExpedientesSupabaseError(
+        "El identificador del expediente no es válido.",
+      );
+    }
+    const { client } = await requireSupabaseSession();
+    const { data, error } = await client
+      .from("expediente_cancelaciones")
+      .select(
+        "id, expediente_id, etapa, subestado_anterior, motivo, comentario, decidido_por, decidido_por_rol, created_at",
+      )
+      .eq("expediente_id", idResult.data)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (error) {
+      throw new ExpedientesSupabaseError(
+        "No se pudo cargar el historial de cancelación.",
+      );
+    }
+    if (!data) return null;
+    return {
+      id: String(data.id),
+      expedienteId: String(data.expediente_id),
+      etapa: Number(data.etapa),
+      subestadoAnterior: String(data.subestado_anterior),
+      motivo: String(data.motivo),
+      comentario:
+        data.comentario == null ? null : String(data.comentario),
+      decididoPor: String(data.decidido_por),
+      decididoPorRol: String(data.decidido_por_rol),
+      createdAt: String(data.created_at),
+    };
   }
 
   async getReingresoPostBiometricosElegibilidad(

@@ -14,6 +14,10 @@ import type {
   RechazoOperativoInput,
   ReingresoElegibilidad,
 } from "./reingreso-post-biometricos";
+import type {
+  CancelacionOperativaInput,
+  ExpedienteCancelacionRow,
+} from "./mesa-cancelacion-operativa";
 import {
   paginateSortedExpedientes,
   sortExpedientesByCreatedAtDesc,
@@ -516,7 +520,7 @@ export class MockExpedientesRepo implements ExpedientesRepo {
     const mesa = await this.listForMesa();
     return mesa.filter((e) => {
       const ciclo = e.operativo.cicloEstado;
-      return ciclo == null || ciclo === "activo";
+      return ciclo == null || ciclo === "activo" || ciclo === "cancelado";
     });
   }
 
@@ -911,6 +915,24 @@ export class MockExpedientesRepo implements ExpedientesRepo {
     throw new Error(
       "El rechazo operativo con clasificación biométrica solo está disponible en modo Supabase.",
     );
+  }
+
+  async cancelarExpedienteOperativo(
+    _expedienteId: string,
+    _input: CancelacionOperativaInput,
+  ): Promise<ExpedienteMock> {
+    void _expedienteId;
+    void _input;
+    throw new Error(
+      "La cancelación operativa solo está disponible en modo Supabase.",
+    );
+  }
+
+  async getUltimaCancelacionOperativa(
+    _expedienteId: string,
+  ): Promise<ExpedienteCancelacionRow | null> {
+    void _expedienteId;
+    return null;
   }
 
   async getReingresoPostBiometricosElegibilidad(

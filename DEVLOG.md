@@ -1,5 +1,31 @@
 # Devlog
 
+## 2026-07-21 - P094 B2.1: Auditoría final + commit local UI Mesa
+
+### Decisión
+
+- Contadores y lista comparten `matchesMesaQuickFilter` / `esRechazadoOperativoActivo` / `esCanceladoOperativo`; subvistas disjuntas.
+- «Todos» y chips operativos excluyen `ciclo=cancelado`; cancelados solo vía chip agrupado.
+- UI terminal: banner RO + `puedeOperarMesaActivo`; cancel card solo con ciclo activo; rechazo 5/6 intacto.
+- Sin Asesor/Admin (B3); SQL 071/072/090 sin tocar en este commit; sin Cloud/push.
+
+### Resultado
+
+- Un commit B2 sobre B0+B1; working tree limpio; ahead 3 de `origin/main`.
+
+## 2026-07-21 - P094 B2: UI Mesa rechazos vs cancelaciones
+
+### Decisión
+
+- Chip agrupado `rechazos_cancelaciones`; contador = rechazados activos + cancelados; subvistas disjuntas.
+- «Todos»/En proceso/etc. excluyen `ciclo=cancelado`; listado Supabase/mock incluye cancelados para el chip.
+- Cancelar: card dedicada (motivo + confirmación) → `cancelarExpedienteOperativo`; rechazo 5/6 intacto.
+- Cancelado: banner RO con historial; `puedeOperarMesaActivo` apaga writes; sin movimiento manual.
+
+### Resultado
+
+- Dominio `mesa-cancelacion-operativa`, filtros/tests, detalle Mesa, docs. Sin Asesor/Admin/Cloud/commit.
+
 ## 2026-07-21 - P094 B1.1: Auditoría final + commit local SQL
 
 ### Decisión

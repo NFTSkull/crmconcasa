@@ -16,11 +16,17 @@
 - Cableado en `scripts/test-sql.sh`; regresiones P071 rechazo + P072 reingreso.
 - Sin UI/chip/selector/asesor/Admin/Cloud.
 
-### B2+ (plan)
+### B2 (UI Mesa — local)
 
-- B2 UI Mesa: chip agrupado + subfiltros + acción cancelar.
+- Chip «Rechazos y cancelaciones» + subvistas Rechazados | Cancelados (predicados disjuntos).
+- Query bandeja incluye `ciclo=cancelado`; «Todos»/operativos excluyen cancelados.
+- Acción `MesaCancelarExpedienteCard` → RPC `cancelar_expediente_operativo`; banner RO si cancelado.
+- Tests TS filtros + dominio cancelación; sin Asesor/Admin/Cloud.
+
+### B3+ (plan)
+
 - B3 UI Asesor + desacople Admin.
-- Tests TS UI; sin inferencia por texto libre.
+- Tests TS UI adicionales; sin inferencia por texto libre.
 
 ## P093 — Separación UX rechazo vs movimiento manual
 

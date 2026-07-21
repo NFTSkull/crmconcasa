@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **feat/mesa-rechazos-cancelaciones-ui — P094 B2/B2.1 (local commit):** chip Mesa «Rechazos y cancelaciones» con subvistas; listado incluye `ciclo=cancelado` solo vía el chip; acción Cancelar + banner RO; wrapper Zod/RPC; sin Asesor/Admin/Cloud/push.
+
 - **feat/cancelar-expediente — P094 B1/B1.1 (local commit):** migración `090_…sql` con tabla append-only `expediente_cancelaciones` + RPC `cancelar_expediente_operativo` (`ciclo=cancelado`, sin mutar `subestado`/etapa/bookings); suite SQL + `test-sql.sh` + verificador focal; gates por `≠ activo`; sin UI/Cloud/push.
 
 - **docs/rechazados-vs-cancelados — P094 B0/B0.1 (local commit):** auditoría y diseño cerrado: Rechazado vs Cancelado; RPC `cancelar_expediente_operativo` + tabla `expediente_cancelaciones`; chip Mesa «Rechazos y cancelaciones»; sin SQL/UI/Cloud/push.

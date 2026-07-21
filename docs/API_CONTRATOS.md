@@ -910,7 +910,7 @@ Con `ciclo_estado = cancelado` (cubierto por predicados `≠ activo` existentes 
 
 - Sin avance, movimiento manual, rechazo operativo, reingreso, book/reagendar citas.
 - Uploads asesor/Mesa: `register_*` ya exigen `ciclo = activo` (B1 sin huecos nuevos).
-- UI (B2+): ocultar acciones operativas; solo lectura + motivo/fecha/actor.
+- UI (B2): chip «Rechazos y cancelaciones» + subvistas; acción Cancelar en detalle; banner RO si `ciclo=cancelado`; acciones write gated por ciclo activo.
 
 ### Reapertura administrativa
 

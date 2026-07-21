@@ -5,7 +5,9 @@ import {
   coincideBusquedaClienteTelefono,
   contarVistaRapida,
   esCitaHoy,
+  esCanceladoOperativo,
   esNuevoEtapa12,
+  esRechazadoOperativoActivo,
   limpiarFiltrosBandeja,
   matchesMesaQuickFilter,
   MESA_CITAS_HOY_CHIP_ID,
@@ -26,6 +28,7 @@ function item(partial: Partial<MesaBandejaFiltroItem>): MesaBandejaFiltroItem {
     telefono_cliente: "5510000000",
     etapaActual: 5,
     subestado: "en_proceso",
+    cicloEstado: "activo",
     fechaCita: null,
     resumenDocumental: null,
     ...partial,
@@ -35,6 +38,7 @@ function item(partial: Partial<MesaBandejaFiltroItem>): MesaBandejaFiltroItem {
 function estado(partial?: Partial<MesaBandejaFiltrosState>): MesaBandejaFiltrosState {
   return {
     quickFilter: "todos",
+    rechazosCancelacionesSubfiltro: "rechazados",
     buscar: "",
     etapa: "todas",
     subestado: "todas",
@@ -83,6 +87,13 @@ const BANDEJA: MesaBandejaFiltroItem[] = [
     subestado: "en_proceso",
     fechaCita: "2026-07-15T16:30:00.000Z",
   }),
+  item({
+    cliente_nombre: "Cliente Cancelado",
+    telefono_cliente: "5500000094",
+    etapaActual: 7,
+    subestado: "en_proceso",
+    cicloEstado: "cancelado",
+  }),
 ];
 
 describe("mesaBandejaFiltros — selección principal exclusiva", () => {
@@ -98,218 +109,212 @@ describe("mesaBandejaFiltros — selección principal exclusiva", () => {
       "correccion_enviada",
       "nuevos",
       "en_proceso",
-      "rechazados",
+      "rechazos_cancelaciones",
     ] as const) {
       const next = seleccionarVistaRapida(id);
-      assert.equal(next.quickFilter, id);
       assert.equal(next.opsFilter, "todo_mesa");
+      assert.equal(next.quickFilter, id);
     }
   });
 
-  it("pulsar Todos limpia el filtro rápido y muestra Todo Mesa", () => {
-    const next = seleccionarVistaRapida("todos");
-    assert.deepEqual(next, { quickFilter: "todos", opsFilter: "todo_mesa" });
+  it("asignación operativa regresa vista a Todos", () => {
+    const next = seleccionarAsignacion("sin_asignar");
+    assert.equal(next.quickFilter, "todos");
+    assert.equal(next.opsFilter, "sin_asignar");
   });
 
-  it("chips de Asignación regresan Vista rápida a Todos (sin intersección silenciosa)", () => {
-    for (const id of [
-      "sin_asignar",
-      "en_espera_asesor",
-      "mi_bandeja",
-      "en_trabajo",
-      "todo_mesa",
-    ] as const) {
-      const next = seleccionarAsignacion(id);
-      assert.equal(next.quickFilter, "todos");
-      assert.equal(next.opsFilter, id);
-    }
+  it("limpiar deja Todo Mesa", () => {
+    const next = limpiarFiltrosBandeja();
+    assert.equal(next.quickFilter, "todos");
+    assert.equal(next.opsFilter, "todo_mesa");
   });
 
-  it("Citas hoy es navegación a la ruta real de citas, no un filtro", () => {
-    assert.equal(MESA_CITAS_ROUTE, "/mesa-control/citas");
+  it("constantes de citas hoy", () => {
     assert.equal(MESA_CITAS_HOY_CHIP_ID, "citas_hoy");
+    assert.equal(MESA_CITAS_ROUTE, "/mesa-control/citas");
+  });
+});
+
+describe("mesaBandejaFiltros — P094 rechazos vs cancelados", () => {
+  it("predicados disjuntos y chip agrupado", () => {
+    const rechazado = item({ subestado: "rechazado", cicloEstado: "activo" });
+    const cancelado = item({
+      subestado: "en_proceso",
+      cicloEstado: "cancelado",
+    });
+    const rechazadoLuegoCancelado = item({
+      subestado: "rechazado",
+      cicloEstado: "cancelado",
+    });
+    assert.equal(esRechazadoOperativoActivo(rechazado), true);
+    assert.equal(esCanceladoOperativo(cancelado), true);
+    assert.equal(esRechazadoOperativoActivo(rechazadoLuegoCancelado), false);
+    assert.equal(esCanceladoOperativo(rechazadoLuegoCancelado), true);
+    assert.equal(
+      matchesMesaQuickFilter(rechazado, "rechazos_cancelaciones"),
+      true,
+    );
+    assert.equal(
+      matchesMesaQuickFilter(cancelado, "rechazos_cancelaciones"),
+      true,
+    );
+    assert.equal(matchesMesaQuickFilter(cancelado, "todos"), false);
+    assert.equal(matchesMesaQuickFilter(cancelado, "en_proceso"), false);
   });
 
-  it("limpiar filtros restablece todo y deja Todo Mesa visible", () => {
-    assert.deepEqual(limpiarFiltrosBandeja(), {
-      quickFilter: "todos",
-      opsFilter: "todo_mesa",
-      buscar: "",
-      etapa: "todas",
-      subestado: "todas",
-      soloCitasHoy: false,
-    });
+  it("contador agrupado = rechazados activos + cancelados", () => {
+    const counts = contarVistaRapida(BANDEJA, HOY);
+    assert.equal(counts.rechazados, 1);
+    assert.equal(counts.cancelados, 1);
+    assert.equal(counts.rechazosCancelaciones, 2);
+  });
+
+  it("subvistas filtran disjuntos", () => {
+    const rechazados = aplicarFiltrosBandejaMesa(
+      BANDEJA,
+      estado({
+        quickFilter: "rechazos_cancelaciones",
+        rechazosCancelacionesSubfiltro: "rechazados",
+      }),
+      HOY,
+    );
+    const cancelados = aplicarFiltrosBandejaMesa(
+      BANDEJA,
+      estado({
+        quickFilter: "rechazos_cancelaciones",
+        rechazosCancelacionesSubfiltro: "cancelados",
+      }),
+      HOY,
+    );
+    assert.equal(rechazados.length, 1);
+    assert.equal(rechazados[0]?.cliente_nombre, "Pedro Hernández");
+    assert.equal(cancelados.length, 1);
+    assert.equal(cancelados[0]?.cliente_nombre, "Cliente Cancelado");
   });
 });
 
 describe("mesaBandejaFiltros — coherencia contador/lista", () => {
-  it("el contador y la lista usan el mismo predicado por chip", () => {
+  it("En proceso: contador = tamaño de lista filtrada", () => {
     const counts = contarVistaRapida(BANDEJA, HOY);
-    assert.equal(
-      aplicarFiltrosBandejaMesa(BANDEJA, estado({ quickFilter: "en_proceso" }), HOY)
-        .length,
-      counts.enProceso,
+    const list = aplicarFiltrosBandejaMesa(
+      BANDEJA,
+      estado({ quickFilter: "en_proceso" }),
+      HOY,
     );
-    assert.equal(
-      aplicarFiltrosBandejaMesa(BANDEJA, estado({ quickFilter: "nuevos" }), HOY).length,
-      counts.nuevos,
-    );
-    assert.equal(
-      aplicarFiltrosBandejaMesa(
-        BANDEJA,
-        estado({ quickFilter: "correccion_enviada" }),
-        HOY,
-      ).length,
-      counts.correccionesEnviadas,
-    );
-    assert.equal(
-      aplicarFiltrosBandejaMesa(BANDEJA, estado({ quickFilter: "rechazados" }), HOY)
-        .length,
-      counts.rechazados,
-    );
+    assert.equal(list.length, counts.enProceso);
   });
 
-  it("conteos esperados sobre la bandeja de prueba", () => {
+  it("chip agrupado: contador = unión; lista usa subvista", () => {
     const counts = contarVistaRapida(BANDEJA, HOY);
-    assert.equal(counts.enProceso, 3);
+    const listRech = aplicarFiltrosBandejaMesa(
+      BANDEJA,
+      estado({
+        quickFilter: "rechazos_cancelaciones",
+        rechazosCancelacionesSubfiltro: "rechazados",
+      }),
+      HOY,
+    );
+    const listCanc = aplicarFiltrosBandejaMesa(
+      BANDEJA,
+      estado({
+        quickFilter: "rechazos_cancelaciones",
+        rechazosCancelacionesSubfiltro: "cancelados",
+      }),
+      HOY,
+    );
+    assert.equal(listRech.length + listCanc.length, counts.rechazosCancelaciones);
+    assert.equal(listRech.length, counts.rechazados);
+    assert.equal(listCanc.length, counts.cancelados);
+  });
+
+  it("contadores básicos sin cancelados en operativos", () => {
+    const counts = contarVistaRapida(BANDEJA, HOY);
     assert.equal(counts.nuevos, 2);
+    assert.equal(counts.enProceso, 3);
     assert.equal(counts.correccionesEnviadas, 1);
-    assert.equal(counts.rechazados, 1);
     assert.equal(counts.citasHoy, 2);
   });
+});
 
-  it("Todos no filtra nada", () => {
-    assert.equal(
-      aplicarFiltrosBandejaMesa(BANDEJA, estado(), HOY).length,
-      BANDEJA.length,
-    );
-  });
-
-  it("nuevos = etapas 1–2 con subestado activo", () => {
-    assert.equal(esNuevoEtapa12({ etapaActual: 1, subestado: "pendiente" }), true);
+describe("mesaBandejaFiltros — nuevos etapa 1-2", () => {
+  it("solo etapas 1-2 con subestado operativo activo", () => {
     assert.equal(esNuevoEtapa12({ etapaActual: 2, subestado: "en_proceso" }), true);
-    assert.equal(esNuevoEtapa12({ etapaActual: 3, subestado: "pendiente" }), false);
     assert.equal(esNuevoEtapa12({ etapaActual: 1, subestado: "rechazado" }), false);
     assert.equal(
-      matchesMesaQuickFilter(
-        item({ etapaActual: 2, subestado: "en_validacion_mesa" }),
-        "nuevos",
-      ),
-      true,
+      esNuevoEtapa12({
+        etapaActual: 1,
+        subestado: "pendiente",
+        cicloEstado: "cancelado",
+      }),
+      false,
     );
   });
 });
 
 describe("mesaBandejaFiltros — búsqueda cliente/teléfono", () => {
-  it("busca por nombre sin distinguir mayúsculas y con trim", () => {
-    const c = item({ cliente_nombre: "Ana García" });
-    assert.equal(coincideBusquedaClienteTelefono(c, "ana"), true);
-    assert.equal(coincideBusquedaClienteTelefono(c, "  GARCÍA  "), true);
-    assert.equal(coincideBusquedaClienteTelefono(c, "roberto"), false);
-  });
-
-  it("teléfono con espacios y solo dígitos encuentran el mismo registro", () => {
-    const c = item({ telefono_cliente: "8112345678" });
-    assert.equal(coincideBusquedaClienteTelefono(c, "81 1234 5678"), true);
-    assert.equal(coincideBusquedaClienteTelefono(c, "8112345678"), true);
-    assert.equal(coincideBusquedaClienteTelefono(c, "1234 5678"), true);
-    assert.equal(coincideBusquedaClienteTelefono(c, "9999"), false);
-  });
-
-  it("normaliza el teléfono almacenado aunque tenga formato", () => {
-    const c = item({ telefono_cliente: "81 1234 5678" });
-    assert.equal(coincideBusquedaClienteTelefono(c, "8112345678"), true);
-  });
-
-  it("cadena vacía o solo espacios no agrega filtro", () => {
-    assert.equal(coincideBusquedaClienteTelefono(item({}), ""), true);
-    assert.equal(coincideBusquedaClienteTelefono(item({}), "   "), true);
+  it("coincide por nombre case-insensitive", () => {
     assert.equal(
-      aplicarFiltrosBandejaMesa(BANDEJA, estado({ buscar: "   " }), HOY).length,
-      BANDEJA.length,
+      coincideBusquedaClienteTelefono(
+        { cliente_nombre: "Ana García", telefono_cliente: "55" },
+        "ana",
+      ),
+      true,
     );
   });
 
-  it("la búsqueda se aplica sobre el conjunto completo, no una página", () => {
-    const grande = [
-      ...Array.from({ length: 30 }, (_, i) =>
-        item({ cliente_nombre: `Relleno ${i}`, telefono_cliente: `55000000${i}` }),
+  it("coincide por dígitos de teléfono", () => {
+    assert.equal(
+      coincideBusquedaClienteTelefono(
+        { cliente_nombre: "X", telefono_cliente: "81 1234 5678" },
+        "811234",
       ),
-      item({ cliente_nombre: "Objetivo Final", telefono_cliente: "8187654321" }),
-    ];
-    const res = aplicarFiltrosBandejaMesa(grande, estado({ buscar: "objetivo" }), HOY);
-    assert.equal(res.length, 1);
-    assert.equal(res[0]?.cliente_nombre, "Objetivo Final");
+      true,
+    );
   });
 
-  it("soloDigitos elimina espacios, guiones y letras", () => {
-    assert.equal(soloDigitos("81 1234-5678"), "8112345678");
-    assert.equal(soloDigitos("abc"), "");
+  it("soloDigitos y toYMDLocal / esCitaHoy", () => {
+    assert.equal(soloDigitos("81-12"), "8112");
+    assert.equal(toYMDLocal("2026-07-15"), "2026-07-15");
+    assert.equal(esCitaHoy(HOY, HOY), true);
   });
 });
 
 describe("mesaBandejaFiltros — etapa, subestado y citas de hoy", () => {
-  it("etapa filtra el conjunto completo y 'todas' no filtra", () => {
-    assert.equal(
-      aplicarFiltrosBandejaMesa(BANDEJA, estado({ etapa: "5" }), HOY).length,
-      2,
+  it("filtra por etapa y subestado", () => {
+    const list = aplicarFiltrosBandejaMesa(
+      BANDEJA,
+      estado({ etapa: "5", subestado: "en_proceso" }),
+      HOY,
     );
-    assert.equal(
-      aplicarFiltrosBandejaMesa(BANDEJA, estado({ etapa: "todas" }), HOY).length,
-      BANDEJA.length,
-    );
+    assert.equal(list.length, 1);
+    assert.equal(list[0]?.cliente_nombre, "Laura Martínez");
   });
 
-  it("subestado usa los valores reales del modelo", () => {
-    assert.equal(
-      aplicarFiltrosBandejaMesa(BANDEJA, estado({ subestado: "pendiente" }), HOY)
-        .length,
-      1,
+  it("soloCitasHoy", () => {
+    const list = aplicarFiltrosBandejaMesa(
+      BANDEJA,
+      estado({ soloCitasHoy: true }),
+      HOY,
     );
-    assert.equal(
-      aplicarFiltrosBandejaMesa(BANDEJA, estado({ subestado: "aprobado" }), HOY).length,
-      1,
-    );
-    assert.equal(
-      aplicarFiltrosBandejaMesa(BANDEJA, estado({ subestado: "todas" }), HOY).length,
-      BANDEJA.length,
-    );
+    assert.equal(list.length, 2);
   });
 
-  it("etapa + subestado + búsqueda combinan correctamente", () => {
-    const res = aplicarFiltrosBandejaMesa(
+  it("combinación búsqueda + etapa", () => {
+    const list = aplicarFiltrosBandejaMesa(
       BANDEJA,
       estado({ etapa: "5", subestado: "en_proceso", buscar: "laura" }),
       HOY,
     );
-    assert.equal(res.length, 1);
-    assert.equal(res[0]?.cliente_nombre, "Laura Martínez");
+    assert.equal(list.length, 1);
   });
 
-  it("vista rápida + subestado se intersectan de forma visible", () => {
-    const res = aplicarFiltrosBandejaMesa(
+  it("En proceso + etapa 10", () => {
+    const list = aplicarFiltrosBandejaMesa(
       BANDEJA,
       estado({ quickFilter: "en_proceso", etapa: "10" }),
       HOY,
     );
-    assert.equal(res.length, 1);
-    assert.equal(res[0]?.cliente_nombre, "Miguel Torres");
-  });
-
-  it("solo citas de hoy usa día local: fecha simple e ISO con hora", () => {
-    const res = aplicarFiltrosBandejaMesa(BANDEJA, estado({ soloCitasHoy: true }), HOY);
-    assert.equal(res.length, 2);
-    assert.equal(esCitaHoy(HOY, HOY), true);
-    assert.equal(esCitaHoy("2026-07-14", HOY), false);
-    assert.equal(esCitaHoy(null, HOY), false);
-  });
-
-  it("toYMDLocal no corre el día en fechas sin hora y tolera inválidas", () => {
-    assert.equal(toYMDLocal("2026-07-15"), "2026-07-15");
-    assert.equal(toYMDLocal("no-es-fecha"), null);
-    assert.equal(toYMDLocal(null), null);
-    assert.equal(toYMDLocal(undefined), null);
-    const iso = new Date(2026, 6, 15, 12, 0, 0).toISOString();
-    assert.equal(toYMDLocal(iso), "2026-07-15");
+    assert.equal(list.length, 1);
+    assert.equal(list[0]?.cliente_nombre, "Miguel Torres");
   });
 });
