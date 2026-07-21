@@ -1,5 +1,28 @@
 # Devlog
 
+## 2026-07-21 - P094 B0.1: Auditoría final + commit documental
+
+### Decisión
+
+- Solo docs; sin SQL/UI/RPC. Cierre de ambigüedades: historial = `expediente_cancelaciones`; predicados chip/subvistas explícitos; `rechazado_mesa` exige ciclo activo; reapertura admin fuera de P094.
+
+### Resultado
+
+- Commit documental único B0; sin push/PR/B1.
+
+## 2026-07-21 - P094 B0: Auditoría Rechazados vs Cancelados
+
+### Decisión
+
+- Rechazo canónico vigente (P071): `subestado=rechazado`, ciclo **activo**, tabla `expediente_rechazos_operativos`, etapas 5/6; reingreso P072 exige ese par.
+- `ciclo_estado=cancelado` existe en enum desde 001 pero **sin RPC de escritura** ni UI; Admin mezcla rechazado∨cancelado.
+- Diseño: Cancelado = `ciclo=cancelado` (terminal); no usar `subestado=rechazado` para cancelar; chip Mesa «Rechazos y cancelaciones» con subvistas; RPC tentativa `cancelar_expediente_operativo` en API §17f.
+- Reapertura admin fuera de P094. Sin inferencia por texto. Sin implementación SQL/UI en B0.
+
+### Resultado
+
+- Docs PRODUCTO §6.6, API §17f, TEST_PLAN, RIESGOS, CHANGELOG. Worktree `p094-rechazados-vs-cancelados` @ `a1a6ae4`.
+
 ## 2026-07-21 - P093 B2.1: Auditoría final + commit local numeración
 
 ### Decisión

@@ -1,5 +1,21 @@
 # ConCasa CRM — Plan de pruebas
 
+## P094 — Rechazados vs Cancelados
+
+### B0 (auditoría + diseño)
+
+- Confirmar: rechazo = `subestado=rechazado` + `expediente_rechazos_operativos` + ciclo `activo`; cancelado enum sin writer.
+- Contrato docs: PRODUCTO §6.6, API §17f (`cancelar_expediente_operativo` + `expediente_cancelaciones`); UI chip «Rechazos y cancelaciones» con subvistas disjuntas.
+- Decisiones cerradas B0.1: historial = tabla append-only; predicados Rechazados/Cancelados explícitos; reapertura admin fuera de P094.
+- Sin SQL/UI/Cloud/commit de implementación.
+
+### B1+ (plan)
+
+- B1 SQL: RPC cancelación + historial + gates uploads/action_log.
+- B2 UI Mesa: chip agrupado + subfiltros + acción cancelar.
+- B3 UI Asesor + desacople Admin.
+- Tests SQL + TS; sin inferencia por texto libre.
+
 ## P093 — Separación UX rechazo vs movimiento manual
 
 ### B0 (auditoría RO)
