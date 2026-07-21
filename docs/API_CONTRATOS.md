@@ -739,6 +739,30 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 
 ---
 
+## 17a-bis. Mesa Citas — fecha del día + export Excel (P095 — contrato B0 cerrado)
+
+**UI:** `/mesa-control/citas` · componente `MesaAgendaCitasClient`.
+
+**Lectura existente (sin cambio de contrato RPC en P095):**
+- RPC `get_mesa_agenda_bookings(p_start_date, p_end_date, p_include_cancelled, p_kind)`.
+- Cliente: `fetchMesaAgendaBookings` → `MesaAgendaBookingEntry` (`bookingDate`, `nss`, `clienteNombre`, …).
+- La RPC **no pagina**; filtros sede/asesor/búsqueda son **cliente**. Kind + incluir canceladas también llegan a RPC.
+
+**Fecha operativa (contrato):**
+- Zona: `America/Monterrey` (patrón Admin `ADMIN_BUSINESS_TIMEZONE` / `zonedYmdParts`).
+- Apertura: `p_start_date = p_end_date = hoy Monterrey` → solo citas del día; **prohibido** default mes completo / `toISOString` UTC.
+- Cambio de fecha: nuevo fetch del día; limpia selección masiva; conserva filtros compatibles.
+
+**Export Excel (cliente, contrato):**
+- Pipeline in-memory: filtros activos → día seleccionado → filas `{ Fecha, NSS, Nombre completo }`.
+- **Independiente** de checkboxes / selección P089; **ignora** el límite de 100 de acciones masivas.
+- Archivo `citas-mesa-YYYY-MM-DD.xlsx`; hoja `Citas`; NSS como texto sanitizado.
+- **Sin** RPC nueva, **sin** Storage, **sin** mutar bookings, **sin** columnas extra.
+
+**Fuera de alcance P095:** Asesor, Admin, book/cancel/reagendar RPC, cambios a lógica P089 (solo coexistir en la pantalla).
+
+---
+
 ## 17b. Validar en Drive (Mesa agenda citas) — P069
 
 **Operación:** RPC `mesa_set_agenda_drive_validation`

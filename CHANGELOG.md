@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **docs/citas-mesa-excel — P095 B0/B0.1 (local commit docs):** contrato cerrado `/mesa-control/citas`: hoy Monterrey, solo ese día; Excel Fecha\|NSS\|Nombre in-memory (sin selección/límite 100/Storage/RPC); P089 intacto; sin código app/Cloud/push.
+
 - **ops/cloud-p094 — P094 B6 (Cloud `fvtqbxukqlajezyyvwzy`, sin merge):** aplicadas 090→091 vía `db query --linked` (sin `db push`/repair); conteos negocio intactos; PR #14 OPEN.
 
 - **feat/admin-estado-rechazados-cancelados — P094 B4 (local, sin commit):** migración `091_…sql` separa `p_estado` Rechazados (`subestado=rechazado∧ciclo=activo`) vs Cancelados (`ciclo=cancelado`) en summary/cohort/by_asesor/mesa_envios; suite SQL + frontend nativo; sin Cloud/push.

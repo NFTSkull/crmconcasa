@@ -95,6 +95,18 @@
 
 ---
 
+## 8b. Citas Mesa fecha/Excel vs P089 (P095)
+
+| Riesgo | Mitigación |
+|--------|------------|
+| Desfase ±1 día por UTC / TZ navegador | “Hoy” y navegación con `America/Monterrey` (`zonedYmdParts`); nunca `toISOString` para YMD. |
+| Export incompleto / mezclado con P089 | Export = día + filtros sobre memoria; **no** checkboxes; **no** límite 100 de bulk. |
+| Romper P089 (selección/Drive/avance) | No tocar `mesa-bulk-actions*`; al cambiar fecha limpiar selección; botón export RO. |
+| NSS como número / `NNS` | Columna `NSS` texto sanitizado; nunca `NNS`. |
+| Subida accidental a Storage | Descarga local solamente; sin RPC/Storage. |
+| Estilos Excel vs `xlsx` | Residual: best-effort; extra dep solo si el bloque UI lo exige; sin macros. |
+| Ampliar a Asesor/Admin/RPC/Cloud | Fuera de P095. |
+
 ## 9. Notificación documento vs agenda (P092)
 
 | Riesgo | Impacto | Mitigación |

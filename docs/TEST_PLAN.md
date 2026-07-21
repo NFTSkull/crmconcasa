@@ -1,5 +1,21 @@
 # ConCasa CRM — Plan de pruebas
 
+## P095 — Citas Mesa: día operativo + Excel
+
+### B0 / B0.1 (auditoría + contrato cerrado)
+
+- [x] Ruta `/mesa-control/citas`, cliente `MesaAgendaCitasClient`, RPC `get_mesa_agenda_bookings`.
+- [x] Gap actual: default `lista` = mes; `todayMesaAgendaYmd` = TZ local (no Monterrey).
+- [x] Contrato: apertura = hoy Monterrey, solo ese día; cambio de fecha limpia selección P089 y conserva filtros.
+- [x] Contrato Excel: `citas-mesa-YYYY-MM-DD.xlsx` / hoja `Citas` / Fecha|NSS|Nombre; in-memory; sin selección; sin límite 100; sin RPC/Storage.
+- [x] Decisiones pendientes cerradas en docs; sin código app.
+
+### B1+ (pendiente — no iniciar en B0.1)
+
+- [ ] Implementar TZ Monterrey + default un día.
+- [ ] Botón `Descargar Excel` según contrato.
+- [ ] Regresión P089 Drive/avance masivo; sin RPC/Cloud.
+
 ## P094 — Rechazados vs Cancelados
 
 ### B0 (auditoría + diseño)

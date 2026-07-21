@@ -1,5 +1,20 @@
 # Devlog
 
+## 2026-07-21 - P095 B0/B0.1: Contrato cerrado Citas Mesa + Excel
+
+### Decisión (cerrada)
+
+- Worktree `crmconcasa-p095-citas-mesa-excel` desde `origin/main` (`7b339c5`).
+- Gap actual: apertura `lista` = mes; `todayMesaAgendaYmd` = TZ local (no Monterrey).
+- Contrato apertura: hoy `America/Monterrey`, solo ese día; cambio de fecha limpia selección P089 y conserva filtros.
+- Contrato Excel: `citas-mesa-YYYY-MM-DD.xlsx` / hoja `Citas` / columnas Fecha|NSS|Nombre; in-memory; independiente de selección y del límite 100; sin RPC/Storage/mutación.
+- Residual UI: estilos Excel best-effort con `xlsx`.
+- Sin B1 aún; sin push/Cloud/deploy/smoke.
+
+### Resultado
+
+- Docs alineados al contrato aprobado; un commit documental B0.1. Sin código app.
+
 ## 2026-07-21 - P094 B6: Cloud apply controlado 090 → 091 (`fvtqbxukqlajezyyvwzy`)
 
 ### Decisión

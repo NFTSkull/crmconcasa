@@ -51,6 +51,7 @@ ConCasa CRM gestiona el ciclo operativo de precalificaciones / expedientes hipot
 | `/editor` | Editor | Bandeja global; monto y decisión. |
 | `/editor/[id]` | Editor | Detalle editor. |
 | `/mesa-control` | Mesa* | Bandeja operativa. |
+| `/mesa-control/citas` | Mesa* | Agenda de citas (lectura + cancel/reagendar/Drive/P089 masivo; P095 fecha día + Excel). |
 | `/mesa-control/[id]` | Mesa* | Revisión documental, avance etapas, retención, lectura citas. |
 | `/admin` | Super admin | KPIs y métricas. |
 | `/revisor`, `/revisor/[id]` | Legacy mock | Redirigen a `/editor`; **no** es rol de producción. |
@@ -126,6 +127,26 @@ La UI identifica al hijo como **Reingreso / Reinscripción** y **Biométricos re
 - **Rechazo canónico (etapas 5/6):** UI «Rechazo operativo post-biométricos» → RPC `rechazar_etapa_operativa`. La UI advierte si el motivo del movimiento parece un rechazo y ofrece atajo a esa acción cuando el expediente es elegible.
 - Etapa 1 queda `en_validacion_mesa`; etapas 2–12 quedan `en_proceso`. Etapas 11/12 son posición operativa y no registran firma/pago ni cierran el ciclo.
 - Los cuatro roles Mesa pueden agendar/reagendar firmas en etapas 9/10 de expedientes visibles. Un booking conservado fuera de esas etapas puede cancelarse explícitamente, nunca automáticamente.
+
+### 6.5b Agenda de citas Mesa — fecha del día + Excel (P095 — diseño B0 cerrado)
+
+**Pantalla:** `/mesa-control/citas` (`MesaAgendaCitasClient`). Alcance exclusivo Mesa Citas; no Asesor/Admin/creación de citas/RPC/Cloud en P095.
+
+**Apertura (contrato):**
+- Fecha operativa inicial = **hoy** en zona `America/Monterrey` (no UTC ni solo reloj del navegador).
+- Mostrar **únicamente** citas del día actual; **no** cargar el mes completo por defecto.
+- Mesa puede cambiar la fecha: recarga ese día; **limpia selección masiva P089**; **conserva filtros compatibles**; sin mutar citas ni disparar acciones operativas.
+
+**Exportación Excel (contrato, bloques posteriores):**
+- Botón `Descargar Excel` → `.xlsx` (no CSV); hoja `Citas`; archivo `citas-mesa-YYYY-MM-DD.xlsx`.
+- Columnas **únicas**: `Fecha` | `NSS` | `Nombre completo` (nunca `NNS`; NSS siempre texto).
+- Alcance: **todas** las citas del día seleccionado que coincidan con filtros activos, desde registros **ya en memoria**.
+- **No** depende de selección múltiple; **no** usa el límite de 100 de P089; **sin** RPC nueva; **sin** subir a Storage; **sin** mutar citas.
+- Título `CITAS MESA DE CONTROL` + fecha mexicana; sin fórmulas/macros/imágenes/datos ocultos.
+
+**Decisiones B0 cerradas:** (1) TZ = Monterrey; (2) default = un solo día; (3) export in-memory independiente de P089; (4) sin Cloud/RPC. Residual UI: estilos Excel best-effort con `xlsx` (extra dep solo si el bloque UI lo exige).
+
+**Intacto:** P089 (Drive / avance masivo), cancel/reagendar individual, RPC `get_mesa_agenda_bookings`.
 
 ### 6.6 Rechazado vs Cancelado (P094 — diseño B0)
 
