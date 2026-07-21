@@ -937,13 +937,12 @@ Todos | Correcciones enviadas | Nuevos | En proceso | Rechazos y cancelaciones |
 - Estado `cancelado` = `ciclo_estado=cancelado` (prioridad sobre `en_tramite` y sobre `rechazado_mesa`).
 - KPI/chip «Cancelados» independiente; detalle RO con banner terminal (sin write operativo).
 
-**Admin (seguimiento) — B3 TS:**
+**Admin (seguimiento) — B3 UI + B4 SQL:**
 
-- Filtro `estado=rechazados`: solo `subestado=rechazado` ∧ `ciclo ≠ cancelado`.
-- Filtro `estado=cancelados`: solo `ciclo_estado=cancelado` (opción UI explícita).
-- Mock: predicados `matchesAdminEstadoFilter` en todos los agregados/listados.
-- Supabase: RPCs 082–086 siguen mezclando en SQL (`rechazado OR cancelado`); el cliente, para `rechazados`/`cancelados`, carga el bucket legado, aplica predicados P094 y recalcula KPI `enviados_a_mesa`, cohorte por etapa, producción por asesor (envíos) y paginación del listado Mesa. Etiquetas de fila cancelada se normalizan a «Cancelado (terminal)» (no «Rechazado»).
-- Residual SQL real: la mezcla permanece **dentro** de las funciones SQL hasta un follow-up de migración; la UI Admin ya no muestra datos mezclados bajo esas etiquetas.
+- Filtro `estado=rechazados`: `subestado=rechazado` ∧ `ciclo_estado=activo`.
+- Filtro `estado=cancelados`: `ciclo_estado=cancelado` (opción UI explícita).
+- Migración `091_admin_estado_rechazados_cancelados.sql`: redefine summary, cohort, by_asesor y mesa_envios_page con predicados disjuntos; firmas/SECURITY/P087 intactos.
+- Frontend: `adminEstadoRpcParam` pasa `cancelados` nativo; sin split cliente.
 
 ### Relación con rechazo (17d) — intacto en P094 B0
 

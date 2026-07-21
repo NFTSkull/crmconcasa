@@ -30,10 +30,12 @@
 - Tests cableados: derive, admin-estado-filter, admin mock listado, notifications.
 - Sin reapertura, backfill, SQL, Cloud, commit, push.
 
-### B4+ (plan)
+### B4 (SQL Admin p_estado — local)
 
-- Follow-up SQL Admin RPCs para `p_estado=cancelados` nativo (summary/cohort sin residual).
-- Reapertura admin fuera de P094 si negocio la pide.
+- Migración `091_admin_estado_rechazados_cancelados.sql`: `rechazados` = `subestado=rechazado ∧ ciclo=activo`; `cancelados` = `ciclo=cancelado`.
+- RPCs: `admin_get_production_summary`, `admin_get_mesa_cohort_by_etapa`, `admin_list_production_by_asesor`, `admin_list_mesa_envios_page`.
+- Suite `admin_estado_rechazados_cancelados.sql` + `scripts/verify-p094-b4-sql.sh`; frontend pasa `p_estado=cancelados` nativo.
+- Sin Cloud/push; reapertura admin fuera de P094.
 
 ## P093 — Separación UX rechazo vs movimiento manual
 

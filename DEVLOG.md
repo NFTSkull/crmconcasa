@@ -1,5 +1,18 @@
 # Devlog
 
+## 2026-07-21 - P094 B4: Admin RPC p_estado rechazados vs cancelados
+
+### Decisión
+
+- Predicados server-side canónicos: rechazados = `subestado=rechazado ∧ ciclo=activo`; cancelados = `ciclo=cancelado`.
+- Migración 091 redefine las 4 RPC Admin de filtro operativo (summary, cohort, by_asesor, mesa_envios); firmas/SECURITY/P087 intactos.
+- Frontend retira split cliente B3.1; `adminEstadoRpcParam('cancelados')='cancelados'`; mock TS exige ciclo activo para rechazados.
+- Sin Cloud/push/commit aún.
+
+### Resultado
+
+- Suite SQL `admin_estado_rechazados_cancelados.sql` + verificador `verify-p094-b4-sql.sh`; lint/typecheck/test frontend.
+
 ## 2026-07-21 - P094 B3.1: Auditoría final + commit Asesor/Admin
 
 ### Decisión

@@ -1,6 +1,6 @@
 /**
  * Predicados de filtro Estado en Admin producción (P094).
- * Rechazados ≠ Cancelados: señales disjuntas.
+ * Rechazados ≠ Cancelados: señales disjuntas (paridad SQL 091).
  */
 
 export type AdminEstadoFilterValue =
@@ -16,9 +16,9 @@ export type AdminEstadoRow = {
   etapaActual: number;
 };
 
-/** Rechazo canónico recuperable: subestado rechazado y ciclo no cancelado. */
+/** Rechazo canónico recuperable: subestado rechazado y ciclo activo. */
 export function esAdminRechazadoOperativo(row: AdminEstadoRow): boolean {
-  return row.subestado === "rechazado" && row.cicloEstado !== "cancelado";
+  return row.subestado === "rechazado" && row.cicloEstado === "activo";
 }
 
 export function esAdminCanceladoOperativo(row: AdminEstadoRow): boolean {
@@ -45,14 +45,10 @@ export function matchesAdminEstadoFilter(
   return true;
 }
 
-/**
- * Mapeo a `p_estado` de RPCs Admin (082–086) aún sin valor `cancelados`.
- * `cancelados` pide el bucket legado `rechazados` (mezcla) y el cliente filtra.
- */
+/** Mapeo directo a `p_estado` de RPCs Admin (091+). */
 export function adminEstadoRpcParam(
   estado: AdminEstadoFilterValue | null | undefined,
 ): string | null {
   if (!estado || estado === "todos") return null;
-  if (estado === "cancelados") return "rechazados";
   return estado;
 }

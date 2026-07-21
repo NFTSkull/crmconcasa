@@ -142,7 +142,7 @@ Dos resultados operativos distintos; **no** inferir por texto libre ni por movim
 | Continuación | Reingreso post-biométricos cuando aplique (P072) | **No** flujo normal; solo futura acción admin explícita (fuera de P094 si negocio la pide) |
 | Prohibido | Confundir con corrección documental | Avance, citas, movimiento, rechazo, reingreso común, uploads operativos |
 
-**Estado actual (B3 Asesor/Admin local):** rechazo canónico + cancelación SQL (090) + UI Mesa (B2) + Asesor (`cancelado` / `rechazado_mesa` disjuntos, detalle RO) + Admin filtro Rechazados ≠ Cancelados (mock + split cliente Supabase). Sin reapertura/Cloud/push.
+**Estado actual (B4 SQL Admin local):** rechazo canónico + cancelación SQL (090) + UI Mesa/Asesor/Admin (B2–B3) + RPC Admin `p_estado` disjuntos (091). Sin reapertura/Cloud/push.
 
 **No es:** corrección requerida (docs/datos), `booking_status=cancelled` (citas), `ciclo=cerrado` (historial de reingreso / cierre de ciclo distinto).
 

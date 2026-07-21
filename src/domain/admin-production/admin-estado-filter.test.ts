@@ -29,9 +29,17 @@ describe("admin-estado-filter — P094", () => {
     etapaActual: 2,
   };
 
-  it("rechazados no incluye cancelados (aunque subestado=rechazado)", () => {
+  it("rechazados solo ciclo activo (no cerrado ni cancelado)", () => {
     assert.equal(esAdminRechazadoOperativo(activoRechazado), true);
     assert.equal(esAdminRechazadoOperativo(canceladoConRechazo), false);
+    assert.equal(
+      esAdminRechazadoOperativo({
+        cicloEstado: "cerrado",
+        subestado: "rechazado",
+        etapaActual: 5,
+      }),
+      false,
+    );
     assert.equal(matchesAdminEstadoFilter(activoRechazado, "rechazados"), true);
     assert.equal(matchesAdminEstadoFilter(canceladoConRechazo, "rechazados"), false);
     assert.equal(matchesAdminEstadoFilter(cancelado, "rechazados"), false);
@@ -51,8 +59,8 @@ describe("admin-estado-filter — P094", () => {
     assert.equal(matchesAdminEstadoFilter(cancelado, "activos"), false);
   });
 
-  it("RPC param: cancelados usa bucket legado rechazados para post-filtro", () => {
-    assert.equal(adminEstadoRpcParam("cancelados"), "rechazados");
+  it("RPC param: cancelados nativo (091)", () => {
+    assert.equal(adminEstadoRpcParam("cancelados"), "cancelados");
     assert.equal(adminEstadoRpcParam("rechazados"), "rechazados");
     assert.equal(adminEstadoRpcParam("todos"), null);
     assert.equal(adminEstadoRpcParam(null), null);
