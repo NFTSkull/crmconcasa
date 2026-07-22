@@ -373,21 +373,25 @@ export function MesaAgendaCitasClient() {
     exportExcelBusyRef.current = true;
     setExportExcelLoading(true);
     setExportExcelMessage(null);
-    try {
-      // Exporta el día filtrado completo; no usa la selección masiva ni el tope de 100.
-      const result = downloadMesaCitasExcel(
-        loadedEntries,
-        exportDayYmd,
-        filters,
-        sortBy,
-      );
-      setExportExcelMessage(mapMesaCitasExportUserMessage(result));
-    } catch {
-      setExportExcelMessage("No se pudo generar el archivo Excel. Intenta de nuevo.");
-    } finally {
-      exportExcelBusyRef.current = false;
-      setExportExcelLoading(false);
-    }
+    void (async () => {
+      try {
+        // Exporta el día filtrado completo; no usa la selección masiva ni el tope de 100.
+        const result = await downloadMesaCitasExcel(
+          loadedEntries,
+          exportDayYmd,
+          filters,
+          sortBy,
+        );
+        setExportExcelMessage(mapMesaCitasExportUserMessage(result));
+      } catch {
+        setExportExcelMessage(
+          "No se pudo generar el archivo Excel. Intenta de nuevo.",
+        );
+      } finally {
+        exportExcelBusyRef.current = false;
+        setExportExcelLoading(false);
+      }
+    })();
   }, [loading, loadedEntries, exportDayYmd, filters, sortBy]);
 
   const handleBulkRowCheckedChange = useCallback(

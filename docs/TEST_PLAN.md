@@ -1,5 +1,12 @@
 # ConCasa CRM — Plan de pruebas
 
+## P107 — Formato oficial Excel citas Mesa
+
+- [x] Plantilla carga desde `public/templates/reporte-citas-mesa.xlsx`.
+- [x] Título `CITAS DEL DÍA — DD/MM/YYYY`; encabezados Fecha|NSS|Nombre (…); datos desde fila 3.
+- [x] Solo 3 columnas; NSS texto con ceros; estilos tras round-trip; dimensión ajustada.
+- [x] Filtros/filename/orden por hora/P095 intactos; cero citas → empty; sin SQL/RPC/Cloud.
+
 ## P108A — Rechazo 1–12 + reactivación segura
 
 - [x] `rechazar_etapa_operativa` permite internas 1–12; motivo/nota; conserva etapa; `subestado=rechazado`; ciclo activo.

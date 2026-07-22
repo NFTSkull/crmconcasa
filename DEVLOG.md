@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-07-22 - P107: Formato oficial Excel citas Mesa
+
+### Objetivo
+Alinear la descarga de `/mesa-control/citas` a la plantilla visual oficial sin cambiar filtros ni lógica P095.
+
+### Solución
+- Plantilla `public/templates/reporte-citas-mesa.xlsx` (generador `scripts/generate-reporte-citas-mesa-template.mjs`).
+- Export con ExcelJS: carga plantilla, título `CITAS DEL DÍA — DD/MM/YYYY`, encabezados fila 2, datos desde fila 3.
+- NSS como texto (`numFmt @`); solo 3 columnas; filas alternadas/bordes/anchos de plantilla; dimensión recortada.
+- Dependencia `exceljs` para preservar estilos (SheetJS community no los escribe).
+
 ## 2026-07-22 - P108A: Rechazo 1–12 + reactivación segura
 
 ### Causa
