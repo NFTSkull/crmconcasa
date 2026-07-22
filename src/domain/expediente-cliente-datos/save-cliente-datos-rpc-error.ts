@@ -88,6 +88,20 @@ export function mapSaveClienteDatosRpcError(error: {
     );
   }
 
+  // Intra-payload primero (más específico). Cross-expediente ya no se bloquea (P098);
+  // el mensaje legacy solo aplica si Cloud aún no tiene la migración 093.
+  if (msg.includes("teléfono repetido en referencias")) {
+    return new ClienteDatosSupabaseError(
+      "El celular del cliente no puede repetirse en las referencias.",
+    );
+  }
+
+  if (msg.includes("teléfono de referencia repetido")) {
+    return new ClienteDatosSupabaseError(
+      "Hay teléfonos repetidos entre las referencias.",
+    );
+  }
+
   if (msg.includes("teléfono repetido")) {
     return new ClienteDatosSupabaseError(
       "Ese teléfono ya está registrado en otro expediente de la organización.",
@@ -101,18 +115,6 @@ export function mapSaveClienteDatosRpcError(error: {
   if (msg.includes("teléfono de referencia inválido")) {
     return new ClienteDatosSupabaseError(
       "Cada referencia debe tener un celular válido de 10 dígitos.",
-    );
-  }
-
-  if (msg.includes("teléfono repetido en referencias")) {
-    return new ClienteDatosSupabaseError(
-      "El celular del cliente no puede repetirse en las referencias.",
-    );
-  }
-
-  if (msg.includes("teléfono de referencia repetido")) {
-    return new ClienteDatosSupabaseError(
-      "Hay teléfonos repetidos entre las referencias.",
     );
   }
 

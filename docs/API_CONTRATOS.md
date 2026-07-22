@@ -106,6 +106,7 @@ Convenciones:
 - Rol `asesor` (expediente propio).
 - **RFC obligatorio** antes de envío integración (`getClienteDatosCamposFaltantes`).
 - Estado inicial `pendiente` → `completo` al guardar campos mínimos.
+- **P098 — teléfonos repetidos:** el mismo número (normalizado a 10 dígitos) puede existir en varios expedientes/precalificaciones. Identidad canónica = `expediente_id` (PK de `cliente_datos`); el teléfono no es UNIQUE, ni upsert key, ni identificador del cliente. Sigue prohibido repetir teléfono **dentro del mismo payload** (cliente ↔ referencias; referencias entre sí). NSS / `nss_bloqueado_en_mesa` intactos.
 - **P090 — base de cobro Mejoravit:** si existe `cliente_datos.monto_mejoravit_actualizado`, tiene prioridad sobre `datos.montoMejoravit` y sobre el fallback editor (−11% / tope $169,000). El guardado del asesor **no** acepta ni borra el override Mesa (`monto_mejoravit_actualizado*`). Fórmula de cobro automática: `ROUND(base × % / 100 + 3000, 2)`.
 
 ---

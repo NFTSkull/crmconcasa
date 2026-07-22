@@ -21,6 +21,7 @@ ConCasa CRM gestiona el ciclo operativo de precalificaciones / expedientes hipot
 | **1 expediente = 1 precalificación = 1 ciclo operativo** | Etapas 1–12, decisiones editor, documentos, retención, agendas. |
 | **Nuevo trámite del mismo cliente** | Se crea **otro expediente** (`expediente_anterior_id` opcional). No se reutiliza el ciclo cerrado. |
 | **NSS** | No único global. Evitar duplicados **activos** por `nss + programa + organization_id`. Historial permitido en ciclos cerrados. |
+| **Teléfono (P098)** | Puede repetirse entre expedientes y precalificaciones. No es llave única ni identidad del cliente. Unicidad solo intra-formulario (cliente ≠ refs). Identidad: `expediente_id`. |
 | **Piloto productivo** | Base **limpia**. No migrar mock/IndexedDB salvo seeds de prueba controlados. |
 
 ---
