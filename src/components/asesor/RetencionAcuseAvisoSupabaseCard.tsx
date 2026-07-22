@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
+import { DocumentDropzone } from "@/components/documents/DocumentDropzone";
 import type { ExpedienteArchivoResumen } from "@/domain/expediente-archivos";
 import { findRowPorTipoDocumento } from "@/domain/expediente-archivos/types";
 import { EXPEDIENTE_DOCUMENTO_ACCEPT_ATTR } from "@/domain/expediente-archivos/upload-constraints";
@@ -73,7 +74,6 @@ export function RetencionAcuseAvisoSupabaseCard({
   const [enviando, setEnviando] = useState(false);
   const [envioError, setEnvioError] = useState<string | null>(null);
   const [vistaStaleError, setVistaStaleError] = useState<string | null>(null);
-  const inputRefs = useRef<Partial<Record<RetencionTipoDocumento, HTMLInputElement | null>>>({});
   const enviandoLock = useRef(false);
 
   const archivos = useMemo(() => archivosResumen ?? [], [archivosResumen]);
@@ -130,9 +130,6 @@ export function RetencionAcuseAvisoSupabaseCard({
   const botonHabilitado = panel.puedeEnviarAMesa && !busyUi;
   const motivoCopy = copyMotivoDeshabilitarEnvioRetencion(panel.motivoDeshabilitar);
 
-  const handlePickFile = (tipo: RetencionTipoDocumento) => {
-    inputRefs.current[tipo]?.click();
-  };
 
   const retencionDocLabelByTipo = useMemo(() => {
     const map: Partial<Record<RetencionTipoDocumento, string>> = {};
@@ -158,12 +155,10 @@ export function RetencionAcuseAvisoSupabaseCard({
 
   const handleFileChange = async (
     tipo: RetencionTipoDocumento,
-    fileList: FileList | null,
+    files: File[],
   ) => {
-    if (!repo || !fileList?.[0]) return;
-    const file = fileList[0];
-    const input = inputRefs.current[tipo];
-    if (input) input.value = "";
+    if (!repo || !files[0]) return;
+    const file = files[0];
 
     const pdfValidation = validatePdfFile(file);
     if (!pdfValidation.ok) {
@@ -199,8 +194,6 @@ export function RetencionAcuseAvisoSupabaseCard({
       }));
     } finally {
       setUploadingTipo(null);
-      const el = inputRefs.current[tipo];
-      if (el) el.value = "";
     }
   };
 
@@ -434,25 +427,16 @@ export function RetencionAcuseAvisoSupabaseCard({
                           </p>
                         ) : null}
                       </div>
-                      <div className="shrink-0">
-                        <input
-                          ref={(el) => {
-                            inputRefs.current[tipo] = el;
-                          }}
-                          type="file"
+                      <div className="w-full max-w-xs shrink-0 sm:w-56">
+                        <DocumentDropzone
+                          compact
                           accept={EXPEDIENTE_DOCUMENTO_ACCEPT_ATTR}
-                          className="sr-only"
-                          onChange={(e) => void handleFileChange(tipo, e.target.files)}
-                        />
-                        <Button
-                          type="button"
-                          variant="secondary"
-                          className="text-xs"
+                          busy={uploading}
                           disabled={!puedeReemplazar || uploading || refetching || enviando}
-                          onClick={() => handlePickFile(tipo)}
-                        >
-                          {uploading ? "Subiendo…" : hasFile ? "Reemplazar" : "Subir"}
-                        </Button>
+                          selectedFileName={item?.nombre_original ?? null}
+                          aria-label={hasFile ? `Reemplazar ${retencionDocLabelByTipo[tipo] ?? "documento"}` : `Subir ${retencionDocLabelByTipo[tipo] ?? "documento"}`}
+                          onFiles={(files) => void handleFileChange(tipo, files)}
+                        />
                       </div>
                     </div>
                   </div>

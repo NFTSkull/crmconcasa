@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useRef } from "react";
+import { useCallback } from "react";
 import { Button } from "@/components/ui/Button";
+import { DocumentDropzone } from "@/components/documents/DocumentDropzone";
 import {
   EXPEDIENTE_DOCUMENTO_ACCEPT_ATTR,
   labelPresenciaComplementario,
@@ -55,22 +56,12 @@ function DocumentoRow({
   onVer,
   onDescargar,
 }: DocumentoRowProps) {
-  const inputRef = useRef<HTMLInputElement>(null);
   const puedeAbrir = mesaPuedeAbrirArchivo(item.archivo);
   const tieneArchivo = Boolean(item.archivo?.id);
   const nombre = item.archivo?.nombre_original ?? null;
   const kind = fileKindLabel(item.archivo?.mime_type, nombre);
   const busy = archivoLoading || uploadLoading;
   const faltante = item.presencia === "faltante";
-
-  const handleFileChange = useCallback(
-    (e: React.ChangeEvent<HTMLInputElement>) => {
-      const file = e.target.files?.[0];
-      e.target.value = "";
-      if (file) onSeleccionarArchivo(file);
-    },
-    [onSeleccionarArchivo],
-  );
 
   return (
     <article className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm border-l-4 border-l-violet-400">
@@ -103,23 +94,18 @@ function DocumentoRow({
 
       <div className="flex flex-wrap items-center justify-between gap-2 border-t border-gray-100 bg-slate-50/80 px-4 py-2.5">
         {faltante && puedeOperar ? (
-          <div className="flex flex-wrap items-center gap-1.5">
-            <input
-              ref={inputRef}
-              type="file"
+          <div className="max-w-sm flex-1">
+            <DocumentDropzone
+              compact
               accept={EXPEDIENTE_DOCUMENTO_ACCEPT_ATTR}
-              className="sr-only"
-              onChange={handleFileChange}
-            />
-            <Button
-              type="button"
-              variant="outline"
-              className="h-8 px-2.5 py-0 text-xs"
+              busy={uploadLoading}
               disabled={busy}
-              onClick={() => inputRef.current?.click()}
-            >
-              {uploadLoading ? "Subiendo…" : "Subir archivo"}
-            </Button>
+              aria-label={`Subir ${item.label}`}
+              onFiles={(files) => {
+                const file = files[0];
+                if (file) onSeleccionarArchivo(file);
+              }}
+            />
           </div>
         ) : puedeAbrir ? (
           <div className="flex flex-wrap items-center gap-1.5">
@@ -145,24 +131,20 @@ function DocumentoRow({
               Descargar
             </Button>
             {puedeOperar ? (
-              <>
-                <input
-                  ref={inputRef}
-                  type="file"
+              <div className="max-w-sm">
+                <DocumentDropzone
+                  compact
                   accept={EXPEDIENTE_DOCUMENTO_ACCEPT_ATTR}
-                  className="sr-only"
-                  onChange={handleFileChange}
-                />
-                <Button
-                  type="button"
-                  variant="outline"
-                  className="h-8 px-2.5 py-0 text-xs"
+                  busy={uploadLoading}
                   disabled={busy}
-                  onClick={() => inputRef.current?.click()}
-                >
-                  {uploadLoading ? "…" : "Reemplazar archivo"}
-                </Button>
-              </>
+                  selectedFileName={nombre}
+                  aria-label={`Reemplazar ${item.label}`}
+                  onFiles={(files) => {
+                    const file = files[0];
+                    if (file) onSeleccionarArchivo(file);
+                  }}
+                />
+              </div>
             ) : null}
           </div>
         ) : (
