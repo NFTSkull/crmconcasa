@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **feat/notificacion-apodaca — P104 (local, sin commit/Cloud):** tipo opcional `cliente_notificacion_apodaca` («Notificación solo Apodaca»); upload Asesor + DocumentDropzone; Mesa preview/descarga; migración `095_…sql` sin Cloud; ≠ `cliente_notificacion` / agenda.
+
 - **feat/drag-drop-documentos — P103 (local, sin commit/Cloud):** `DocumentDropzone` reutilizable en Asesor y Mesa (generales, complementarios, Pagaré, Notificación, Solicitud, retención); misma validación/subida; sin SQL/RPC/deps.
 
 - **feat/mesa-server-infinite-scroll — P102 (local, sin commit/Cloud):** `/mesa-control` (Supabase) pagina 25 en servidor vía RPC `mesa_list_bandeja_page` (filtros→orden→keyset); infinite scroll pide la siguiente página; contadores globales; enrich P100 solo por página; mock conserva P101; sin Cloud.

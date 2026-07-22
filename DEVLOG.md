@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-07-22 - P104: Notificación solo Apodaca (opcional)
+
+### Objetivo
+Documento opcional del asesor, independiente de la Notificación Mesa (`cliente_notificacion`) y de citas `kind=notificacion`.
+
+### Solución
+- Patrón carta/acta digital: allowlist `integration_doc_tipos_asesor_opcionales` + catálogo TS.
+- UI: checklist Asesor (`AsesorIntegracionDocsUpload` + DocumentDropzone) y Mesa (`MesaDocumentosAsesorSection` preview/descarga).
+- Migración local `095_cliente_notificacion_apodaca_opcional.sql` (MIME PDF + 15 MiB heredados; reingreso alineado a opcionales asesor).
+- Sin Cloud; sin tocar Pagaré/Solicitud/Notificación Mesa/P103.
+
 ## 2026-07-22 - P103: Drag & drop documental Asesor/Mesa
 
 ### Objetivo

@@ -36,6 +36,7 @@ export const TIPO_DOCUMENTO_CATALOGO = [
   "cliente_historial_laboral",
   "cliente_carta_empresa",
   "cliente_acta_nacimiento_digital",
+  "cliente_notificacion_apodaca",
   "cliente_pagare",
   "cliente_notificacion",
   "cliente_solicitud",
@@ -179,6 +180,18 @@ export const DOCUMENTO_CATALOGO_MAP = Object.freeze({
     ownerRole: "cliente",
     obligatorio: "opcional",
     etapasRequeridas: [1, 2],
+  },
+  /**
+   * P104: Notificación solo Apodaca — opcional asesor (cualquier etapa).
+   * Distinto de `cliente_notificacion` (Mesa) y de agenda `kind=notificacion`.
+   * No obligatorio / no gate / sin etapa mínima.
+   */
+  cliente_notificacion_apodaca: {
+    tipo: "cliente_notificacion_apodaca",
+    label: "Notificación solo Apodaca (opcional)",
+    ownerRole: "cliente",
+    obligatorio: "opcional",
+    etapasRequeridas: [],
   },
   /** P090: Pagaré — Mesa escribe desde etapa 7; asesor solo lectura. No obligatorio / no gate. */
   cliente_pagare: {

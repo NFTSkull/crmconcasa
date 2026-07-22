@@ -357,6 +357,7 @@ describe("B0D2: documentos cliente opcionales (Semanas Cotizadas, Carta empresa)
     "cliente_semanas_cotizadas",
     "cliente_carta_empresa",
     "cliente_acta_nacimiento_digital",
+    "cliente_notificacion_apodaca",
   ] as const;
 
   it("existen en catálogo como cliente opcionales", () => {

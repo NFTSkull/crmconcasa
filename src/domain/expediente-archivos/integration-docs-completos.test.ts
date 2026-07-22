@@ -27,8 +27,8 @@ function resumenCompletoAsesor(
 describe("INTEGRATION_DOC_TIPOS_VALIDACION_MESA", () => {
   it("validación Mesa y avance 1→2 solo con 4 documentos del asesor", () => {
     assert.equal(INTEGRATION_DOC_TIPOS_ASESOR_ENVIO.length, 4);
-    assert.equal(INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES.length, 3);
-    assert.equal(INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD.length, 7);
+    assert.equal(INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES.length, 4);
+    assert.equal(INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD.length, 8);
     assert.equal(INTEGRATION_DOC_TIPOS_VALIDACION_MESA.length, 4);
     assert.deepEqual(INTEGRATION_DOC_TIPOS_VALIDACION_MESA, INTEGRATION_DOC_TIPOS_ASESOR_ENVIO);
     assert.ok(!(INTEGRATION_DOC_TIPOS_ASESOR_ENVIO as readonly string[]).includes("nss"));
@@ -131,6 +131,18 @@ describe("integrationDocsCompletos", () => {
     assert.equal(integrationDocsCompletos(resumen), true);
   });
 
+  it("notificación solo Apodaca opcional no cuenta para gate asesor", () => {
+    const resumen = [
+      ...resumenCompletoAsesor("subido"),
+      {
+        tipo_documento: "cliente_notificacion_apodaca" as const,
+        estatus_revision: "subido" as const,
+      },
+    ];
+    assert.equal(countIntegrationDocsPresentes(resumen), 4);
+    assert.equal(integrationDocsCompletos(resumen), true);
+  });
+
   it("3/4 deja incompleto", () => {
     const resumen = resumenCompletoAsesor("subido").slice(0, 3);
     assert.equal(countIntegrationDocsPresentes(resumen), 3);
@@ -162,16 +174,18 @@ describe("integrationDocsCompletos", () => {
     assert.equal(checklist[2]?.completo, false);
   });
 
-  it("deriveIntegrationDocsChecklistOpcionales lista semanas, carta empresa y acta digital", () => {
+  it("deriveIntegrationDocsChecklistOpcionales lista semanas, carta, acta digital y Apodaca", () => {
     const checklist = deriveIntegrationDocsChecklistOpcionales([]);
-    assert.equal(checklist.length, 3);
+    assert.equal(checklist.length, 4);
     assert.equal(checklist[0]?.tipo_documento, "cliente_semanas_cotizadas");
     assert.equal(checklist[1]?.tipo_documento, "cliente_carta_empresa");
     assert.equal(checklist[2]?.tipo_documento, "cliente_acta_nacimiento_digital");
+    assert.equal(checklist[3]?.tipo_documento, "cliente_notificacion_apodaca");
     assert.equal(checklist[0]?.opcional, true);
     assert.equal(checklist[1]?.opcional, true);
     assert.equal(checklist[2]?.opcional, true);
-    assert.equal(checklist[2]?.completo, false);
+    assert.equal(checklist[3]?.opcional, true);
+    assert.equal(checklist[3]?.completo, false);
   });
 });
 

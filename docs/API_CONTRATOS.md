@@ -207,6 +207,25 @@ Convenciones:
 
 Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 
+### 3quinquies. Notificación solo Apodaca (`cliente_notificacion_apodaca`) — P104
+
+**Separación:** distinto de `cliente_notificacion` (documento Mesa P092) y de `agenda_bookings.kind='notificacion'` (P070). Nunca reutilizar esos tipos.
+
+**RPC:** `register_expediente_documento` (asesor propietario). Allowlist `integration_doc_tipos_asesor_opcionales()`. Migración local `095_cliente_notificacion_apodaca_opcional.sql` (sin Cloud en este bloque).
+
+| Regla | Valor |
+|-------|--------|
+| Roles escritura | asesor dueño (+ roles ya autorizados en RPC) |
+| Etapa mínima | ninguna (cualquier etapa del expediente) |
+| MIME | PDF (`expediente_documento_mime_permitido` heredado) |
+| Tamaño | ≤ 15 728 640 bytes |
+| Mesa | preview/descarga en documentos del asesor; sin upload Mesa |
+| Gate avance / envío | **No** |
+| Reingreso | sí, alineado a opcionales asesor (`reingreso_documentos_reutilizables`) |
+| Obligatorio | **No** |
+
+**UI:** label `Notificación solo Apodaca (opcional)` en checklist Asesor (`AsesorIntegracionDocsUpload` + DocumentDropzone) y `MesaDocumentosAsesorSection`.
+
 ---
 
 ## 4. Subir / reemplazar documento
