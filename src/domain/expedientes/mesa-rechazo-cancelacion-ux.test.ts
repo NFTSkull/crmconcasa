@@ -55,12 +55,13 @@ function baseExp(
 }
 
 describe("Mesa rechazo/cancelación UX copy y semántica visual (P099)", () => {
-  it("copy: rechazo oscuro puede continuar; cancelación terminal no continuará", () => {
+  it("copy: rechazo puede continuar; cancelación terminal no continuará", () => {
     assert.equal(MESA_RECHAZO_OPERATIVO_CARD_TITLE, "Rechazar expediente");
-    assert.match(MESA_RECHAZO_OPERATIVO_CARD_INTRO, /enviará como rechazado al asesor/i);
+    assert.match(MESA_RECHAZO_OPERATIVO_CARD_INTRO, /rechazo operativo/i);
     assert.match(MESA_RECHAZO_OPERATIVO_CARD_INTRO, /continuar o reingresar/i);
     assert.match(MESA_RECHAZO_OPERATIVO_CARD_BADGE, /puede continuar/i);
     assert.match(MESA_RECHAZO_OPERATIVO_CARD_CTA, /Rechazar expediente/i);
+    assert.doesNotMatch(MESA_RECHAZO_OPERATIVO_CARD_INTRO, /Mover etapa/i);
     assert.equal(MESA_CANCELACION_OPERATIVA_CARD_TITLE, "Cancelar trámite");
     assert.equal(
       MESA_CANCELACION_OPERATIVA_CARD_INTRO,
@@ -70,7 +71,7 @@ describe("Mesa rechazo/cancelación UX copy y semántica visual (P099)", () => {
     assert.match(MESA_CANCELACION_OPERATIVA_CARD_CTA, /Cancelar trámite/i);
   });
 
-  it("tarjeta rechazo oscura; cancelación roja; form solo motivo+nota", () => {
+  it("tarjeta rechazo ámbar/advertencia; cancelación roja; form solo motivo+nota", () => {
     const rechazo = readFileSync(
       join(
         process.cwd(),
@@ -85,8 +86,11 @@ describe("Mesa rechazo/cancelación UX copy y semántica visual (P099)", () => {
       ),
       "utf8",
     );
-    assert.match(rechazo, /bg-neutral-950/);
-    assert.match(rechazo, /border-neutral-800/);
+    assert.match(rechazo, /bg-amber-50/);
+    assert.match(rechazo, /border-amber-400/);
+    assert.match(rechazo, /bg-amber-200/);
+    assert.match(rechazo, /text-black/);
+    assert.doesNotMatch(rechazo, /bg-neutral-950/);
     assert.match(rechazo, /data-testid="mesa-rechazo-operativo"/);
     assert.match(rechazo, /data-testid="mesa-rechazo-motivo"/);
     assert.match(rechazo, /data-testid="mesa-rechazo-motivo-otro"/);

@@ -24,7 +24,7 @@ export const MESA_RECHAZO_OPERATIVO_CARD_BADGE =
 export const MESA_RECHAZO_OPERATIVO_CARD_TITLE = "Rechazar expediente";
 
 export const MESA_RECHAZO_OPERATIVO_CARD_INTRO =
-  "El expediente se enviará como rechazado al asesor y podrá continuar o reingresar cuando corresponda.";
+  "Registra un rechazo operativo: el asesor lo verá como rechazado y el cliente podrá continuar o reingresar cuando corresponda.";
 
 export const MESA_RECHAZO_OPERATIVO_CARD_CTA = "Rechazar expediente";
 

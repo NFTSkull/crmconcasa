@@ -94,36 +94,37 @@ export function MesaRechazoOperativoPostBiometricosCard({
     <section
       id={MESA_RECHAZO_OPERATIVO_ANCHOR_ID}
       data-testid="mesa-rechazo-operativo"
-      className="scroll-mt-4 rounded-xl border-2 border-neutral-800 bg-neutral-950 p-4 shadow-md ring-2 ring-neutral-700"
+      className="scroll-mt-4 rounded-xl border-2 border-amber-400 bg-amber-50 p-4 shadow-md ring-2 ring-amber-200"
     >
       <div className="flex flex-wrap items-center gap-2">
-        <span className="inline-flex rounded-md bg-neutral-100 px-2.5 py-1 text-xs font-semibold text-neutral-950">
+        <span className="inline-flex rounded-md bg-amber-200 px-2.5 py-1 text-xs font-semibold text-amber-950 ring-1 ring-amber-400/70">
           {MESA_RECHAZO_OPERATIVO_CARD_BADGE}
         </span>
-        <h2 className="text-sm font-semibold text-neutral-50">
+        <h2 className="text-sm font-semibold text-amber-950">
           {MESA_RECHAZO_OPERATIVO_CARD_TITLE}
         </h2>
       </div>
-      <p className="mt-2 text-xs font-medium text-neutral-100">
+      <p className="mt-2 text-xs font-medium text-amber-950">
         {MESA_RECHAZO_OPERATIVO_CARD_INTRO}
       </p>
-      <p className="mt-1 text-xs text-neutral-300">
-        No cierra el ciclo. Disponible en etapas 5 y 6. No uses «Mover etapa».
+      <p className="mt-1 text-xs text-amber-900/85">
+        No cierra el ciclo: el cliente puede continuar o reingresar. Solo etapas
+        5 y 6. No uses «Mover etapa».
       </p>
       {!open ? (
         <Button
           type="button"
           variant="outline"
-          className="mt-3 border-neutral-500 bg-neutral-900 text-neutral-50 hover:bg-neutral-800"
+          className="mt-3 border-amber-500 bg-white text-black hover:bg-amber-100 focus:ring-amber-400"
           onClick={() => setOpen(true)}
         >
           {MESA_RECHAZO_OPERATIVO_CARD_CTA}
         </Button>
       ) : (
         <div className="mt-4 grid gap-3">
-          <label className="text-xs font-medium text-neutral-100">
+          <label className="text-xs font-medium text-amber-950">
             Motivo del rechazo{" "}
-            <span className="text-neutral-400">(obligatorio)</span>
+            <span className="text-amber-800/80">(obligatorio)</span>
             <select
               value={motivoSelect}
               onChange={(event) => {
@@ -132,7 +133,7 @@ export function MesaRechazoOperativoPostBiometricosCard({
                   setMotivoOtro("");
                 }
               }}
-              className="mt-1 w-full rounded-md border border-neutral-600 bg-neutral-900 px-3 py-2 text-sm text-neutral-50"
+              className="mt-1 w-full rounded-md border border-amber-300 bg-white px-3 py-2 text-sm text-neutral-900"
               data-testid="mesa-rechazo-motivo"
             >
               <option value="">Selecciona un motivo…</option>
@@ -144,25 +145,25 @@ export function MesaRechazoOperativoPostBiometricosCard({
             </select>
           </label>
           {muestraOtro ? (
-            <label className="text-xs font-medium text-neutral-100">
+            <label className="text-xs font-medium text-amber-950">
               Describe el motivo{" "}
-              <span className="text-neutral-400">(obligatorio)</span>
+              <span className="text-amber-800/80">(obligatorio)</span>
               <input
                 value={motivoOtro}
                 onChange={(event) => setMotivoOtro(event.target.value)}
-                className="mt-1 w-full rounded-md border border-neutral-600 bg-neutral-900 px-3 py-2 text-sm text-neutral-50 placeholder:text-neutral-500"
+                className="mt-1 w-full rounded-md border border-amber-300 bg-white px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-500"
                 placeholder="Escribe el motivo del rechazo"
                 data-testid="mesa-rechazo-motivo-otro"
               />
             </label>
           ) : null}
-          <label className="text-xs font-medium text-neutral-100">
+          <label className="text-xs font-medium text-amber-950">
             Nota para el asesor{" "}
-            <span className="text-neutral-400">(opcional)</span>
+            <span className="text-amber-800/80">(opcional)</span>
             <textarea
               value={comentario}
               onChange={(event) => setComentario(event.target.value)}
-              className="mt-1 min-h-20 w-full rounded-md border border-neutral-600 bg-neutral-900 px-3 py-2 text-sm text-neutral-50 placeholder:text-neutral-500"
+              className="mt-1 min-h-20 w-full rounded-md border border-amber-300 bg-white px-3 py-2 text-sm text-neutral-900 placeholder:text-neutral-500"
               placeholder="Detalle adicional si hace falta"
               data-testid="mesa-rechazo-nota"
             />
@@ -170,7 +171,7 @@ export function MesaRechazoOperativoPostBiometricosCard({
           {error ? (
             <p
               role="alert"
-              className="rounded-md border border-red-400/60 bg-red-950/40 px-3 py-2 text-xs text-red-200"
+              className="rounded-md border border-red-300 bg-red-50 px-3 py-2 text-xs text-red-800"
             >
               {error}
             </p>
@@ -179,7 +180,7 @@ export function MesaRechazoOperativoPostBiometricosCard({
             <Button
               type="button"
               variant="primary"
-              className="bg-neutral-100 text-neutral-950 hover:bg-white focus:ring-neutral-400"
+              className="border border-amber-500 bg-amber-200 text-black hover:bg-amber-300 focus:ring-amber-400"
               disabled={saving || !motivoValido}
               onClick={() => void guardar()}
               data-testid="mesa-rechazo-confirmar"
@@ -189,7 +190,7 @@ export function MesaRechazoOperativoPostBiometricosCard({
             <Button
               type="button"
               variant="outline"
-              className="border-neutral-500 bg-transparent text-neutral-100 hover:bg-neutral-900"
+              className="border-amber-400 bg-white text-black hover:bg-amber-100 focus:ring-amber-400"
               disabled={saving}
               onClick={() => {
                 setOpen(false);
