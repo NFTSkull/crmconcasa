@@ -26,11 +26,19 @@ describe("mapSaveClienteDatosRpcError", () => {
     assert.match(err.message, /después de enviar a Mesa/i);
   });
 
-  it("mapea teléfono repetido", () => {
+  it("mapea teléfono repetido (legacy cross-expediente; Cloud sin 093)", () => {
     const err = mapSaveClienteDatosRpcError({
       message: "save_cliente_datos: teléfono repetido",
     });
     assert.match(err.message, /ya está registrado/i);
+  });
+
+  it("mapea teléfono repetido en referencias sin confundirlo con cross-expediente", () => {
+    const err = mapSaveClienteDatosRpcError({
+      message: "save_cliente_datos: teléfono repetido en referencias",
+    });
+    assert.match(err.message, /no puede repetirse en las referencias/i);
+    assert.doesNotMatch(err.message, /otro expediente/i);
   });
 
   it("mapea error inesperado", () => {

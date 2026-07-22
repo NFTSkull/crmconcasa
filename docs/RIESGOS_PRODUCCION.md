@@ -126,8 +126,9 @@
 
 | Riesgo | Impacto | Mitigación |
 |--------|---------|------------|
-| Duplicado activo mismo NSS | Medio operativo | UNIQUE parcial `ciclo_estado = activo` |
+| Duplicado activo mismo NSS | Medio operativo | UNIQUE parcial `ciclo_estado = activo` + lock post-Mesa |
 | Cliente nuevo trámite bloqueado | Medio | Cerrar ciclo anterior → nuevo expediente + `expediente_anterior_id` |
+| Teléfono repetido entre expedientes (P098) | Ninguno (permitido) | Sin UNIQUE en `telefono_normalizado`; identidad = `expediente_id` |
 
 ---
 

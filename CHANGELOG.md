@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **fix/telefonos-repetidos — P098:** permite el mismo teléfono en varios expedientes; migración `093_…sql` elimina UNIQUE `cliente_datos_org_telefono_normalizado_unique_idx` y neutraliza `cliente_datos_telefono_ocupado_en_org`; identidad = `expediente_id`; NSS intacto; Cloud vía `db query --linked` (sin `db push`).
+
 - **fix/mesa-rechazo-cancel-ux:** invierte colores (rechazo oscuro / cancelación verde), copy continuar vs no continuará; formulario de rechazo solo motivo + nota opcional; sin SQL/RPC.
 
 - **feat/mesa-solicitud-doc — P096 (Cloud + publish):** documento `cliente_solicitud` (label Solicitud) clon de Notificación: etapa ≥7; Mesa sube/reemplaza/ver/descarga; asesor RO; PDF/JPEG/PNG ≤15 MiB; migración `092_…sql` aplicada vía `db query --linked`; UI Pagaré→Notificación→Solicitud; sin smoke.

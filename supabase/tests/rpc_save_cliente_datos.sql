@@ -346,7 +346,7 @@ BEGIN
   PERFORM public.__rpc_scd_test_insert_editor(v_exp_db_unique, v_org_id);
   PERFORM public.__rpc_scd_test_insert_editor(v_exp_db_unique_b, v_org_id);
 
-  -- 0. Índice UNIQUE parcial en telefono_normalizado por organización
+  -- 0. P098: ya no existe índice UNIQUE parcial por teléfono
   SELECT EXISTS (
     SELECT 1
     FROM pg_index i
@@ -358,9 +358,9 @@ BEGIN
       AND c.relname = 'cliente_datos_org_telefono_normalizado_unique_idx'
       AND i.indisunique
   ) INTO v_idx_unique;
-  PERFORM public.__rpc_scd_test_assert(v_idx_unique, 'test 0 index unique');
+  PERFORM public.__rpc_scd_test_assert(NOT v_idx_unique, 'test 0 no unique phone index');
 
-  -- 0b. La base rechaza INSERT directo con teléfono principal duplicado
+  -- 0b. P098: INSERT directo con teléfono principal duplicado permitido
   PERFORM public.__rpc_scd_test_call_as(v_asesor_a1, v_exp_db_unique, 'XAXX010101000', '5521212121');
   v_db_unique_blocked := false;
   BEGIN
@@ -373,7 +373,12 @@ BEGIN
     WHEN unique_violation THEN
       v_db_unique_blocked := true;
   END;
-  PERFORM public.__rpc_scd_test_assert(v_db_unique_blocked, 'test 0b db unique violation');
+  PERFORM public.__rpc_scd_test_assert(NOT v_db_unique_blocked, 'test 0b db allows duplicate phone');
+  SELECT * INTO v_row FROM public.cliente_datos WHERE expediente_id = v_exp_db_unique;
+  PERFORM public.__rpc_scd_test_assert(
+    v_row.telefono_normalizado = '5521212121',
+    'test 0b holder not overwritten'
+  );
 
   -- 1. Asesor dueño crea cliente_datos
   v_result := public.__rpc_scd_test_call_as(
@@ -448,25 +453,55 @@ BEGIN
     'test 10'
   );
 
-  -- 11. Teléfono repetido otro expediente activo
+  -- 11. P098: mismo teléfono en dos expedientes activos (mismo asesor) permitido
   PERFORM public.__rpc_scd_test_call_as(v_asesor_a1, v_exp_dup_a, 'XAXX010101000', '5520202020');
+  v_result := public.__rpc_scd_test_call_as(
+    v_asesor_a1, v_exp_dup_b, 'XAXX010101000', '5520202020'
+  );
+  PERFORM public.__rpc_scd_test_assert((v_result->>'ok')::BOOLEAN, 'test 11 dup phone ok');
+  SELECT * INTO v_row FROM public.cliente_datos WHERE expediente_id = v_exp_dup_a;
   PERFORM public.__rpc_scd_test_assert(
-    public.__rpc_scd_test_expect_fail(v_asesor_a1, v_exp_dup_b, 'XAXX010101000', '5520202020', '[]'::JSONB, NULL, '{}'::JSONB, 'completo', 'teléfono repetido'),
-    'test 11'
+    v_row.telefono_normalizado = '5520202020',
+    'test 11 holder phone intact'
+  );
+  SELECT * INTO v_row FROM public.cliente_datos WHERE expediente_id = v_exp_dup_b;
+  PERFORM public.__rpc_scd_test_assert(
+    v_row.telefono_normalizado = '5520202020'
+      AND v_row.expediente_id = v_exp_dup_b,
+    'test 11 new row distinct expediente'
   );
 
-  -- 11b. unique_violation controlado si pre-check no ve expediente inactivo con el mismo teléfono
+  -- 11b. P098: teléfono de expediente cerrado reusable en otro activo
   PERFORM public.__rpc_scd_test_call_as(v_asesor_a1, v_exp_unique_holder, 'XAXX010101000', '5522222222');
   UPDATE public.expedientes
   SET ciclo_estado = 'cerrado', updated_at = NOW()
   WHERE id = v_exp_unique_holder;
-  PERFORM public.__rpc_scd_test_assert(
-    public.__rpc_scd_test_expect_fail(
-      v_asesor_a1, v_exp_unique_new, 'XAXX010101000', '5522222222',
-      '[]'::JSONB, NULL, '{}'::JSONB, 'completo', 'teléfono repetido'
-    ),
-    'test 11b unique_violation'
+  v_result := public.__rpc_scd_test_call_as(
+    v_asesor_a1, v_exp_unique_new, 'XAXX010101000', '5522222222'
   );
+  PERFORM public.__rpc_scd_test_assert((v_result->>'ok')::BOOLEAN, 'test 11b closed phone reusable');
+  SELECT * INTO v_row FROM public.cliente_datos WHERE expediente_id = v_exp_unique_holder;
+  PERFORM public.__rpc_scd_test_assert(
+    v_row.telefono_normalizado = '5522222222',
+    'test 11b closed holder not overwritten'
+  );
+
+  -- 11c. P098: normalización (+52 / espacios / guiones) no bloquea otro expediente
+  v_result := public.__rpc_scd_test_call_as(
+    v_asesor_a1, v_exp_tel, 'XAXX010101000', '+52 55-2020-2020'
+  );
+  PERFORM public.__rpc_scd_test_assert((v_result->>'ok')::BOOLEAN, 'test 11c normalized dup ok');
+  SELECT * INTO v_row FROM public.cliente_datos WHERE expediente_id = v_exp_tel;
+  PERFORM public.__rpc_scd_test_assert(
+    v_row.telefono_normalizado = '5520202020',
+    'test 11c normalized to 10 digits'
+  );
+
+  -- 11d. P098: dos asesores distintos, mismo teléfono
+  v_result := public.__rpc_scd_test_call_as(
+    v_asesor_a2, v_exp_other_asesor, 'XAXX010101000', '5520202020'
+  );
+  PERFORM public.__rpc_scd_test_assert((v_result->>'ok')::BOOLEAN, 'test 11d two asesores same phone');
 
   -- 12. Mismo expediente idempotente
   PERFORM public.__rpc_scd_test_call_as(v_asesor_a1, v_exp_idem, 'XAXX010101000', '5530303030');
@@ -538,18 +573,20 @@ BEGIN
     'test 18'
   );
 
-  -- 19. Tel ref repetido otro expediente
+  -- 19. P098: tel ref igual al de otro expediente permitido (no cross-expediente)
   PERFORM public.__rpc_scd_test_call_as(
     v_asesor_a1, v_exp_ref_dup_org, 'XAXX010101000', '5541414141',
     jsonb_build_array(jsonb_build_object('nombre', 'Otro', 'telefono', '5581818181'))
   );
+  v_result := public.__rpc_scd_test_call_as(
+    v_asesor_a1, v_exp_ref, 'XAXX010101000', '5542424242',
+    jsonb_build_array(jsonb_build_object('nombre', 'Nuevo', 'telefono', '5581818181'))
+  );
+  PERFORM public.__rpc_scd_test_assert((v_result->>'ok')::BOOLEAN, 'test 19 ref phone cross-exp ok');
+  SELECT * INTO v_row FROM public.cliente_datos WHERE expediente_id = v_exp_ref_dup_org;
   PERFORM public.__rpc_scd_test_assert(
-    public.__rpc_scd_test_expect_fail(
-      v_asesor_a1, v_exp_ref, 'XAXX010101000', '5542424242',
-      jsonb_build_array(jsonb_build_object('nombre', 'Nuevo', 'telefono', '5581818181')),
-      NULL, '{}'::JSONB, 'completo', 'teléfono de referencia repetido'
-    ),
-    'test 19'
+    v_row.telefono_normalizado = '5541414141',
+    'test 19 other expediente not overwritten'
   );
 
   -- 20. Imágenes válidas

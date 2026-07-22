@@ -1,5 +1,26 @@
 # Devlog
 
+## 2026-07-21 - P098: Teléfonos repetidos entre expedientes
+
+### Causa
+`save_cliente_datos` bloqueaba el mismo `telefono_normalizado` en la org vía:
+1. índice UNIQUE parcial `cliente_datos_org_telefono_normalizado_unique_idx` (migración 011);
+2. helper `cliente_datos_telefono_ocupado_en_org` + pre-check en la RPC;
+3. mapeo `unique_violation` → «teléfono repetido».
+
+Alta de expediente (`create_expediente` / `expedientes.telefono_cliente`) no tenía UNIQUE; el fallo aparecía al guardar Datos Generales (celular precargado).
+
+### Solución
+- Migración `093_permitir_telefonos_repetidos_expedientes.sql`: DROP UNIQUE; índice no único; helper siempre `false`.
+- Unicidad intra-payload (cliente ≠ refs) se conserva.
+- Identidad canónica: `expediente_id` (+ reglas NSS vigentes). Teléfono no es upsert key.
+- Sin mutar datos reales del caso reportado; sin hardcodes de personas/teléfonos.
+
+### Verificación / publicación
+- Suite SQL `rpc_save_cliente_datos` actualizada (dups permitidos; holder intacto; dos asesores; normalización).
+- Tests TS P098 + mapper; lint/typecheck/test/build.
+- Cloud: `093` vía `npx supabase db query --linked` (sin `db push`/repair).
+
 ## 2026-07-21 - UX Mesa rechazo/cancelación (detalle expediente)
 
 ### Causa
