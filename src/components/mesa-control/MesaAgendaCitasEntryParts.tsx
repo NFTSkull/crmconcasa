@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import type { MesaAgendaBookingEntry } from "@/domain/agenda-calendar/mesa.types";
+import type { MesaAgendaReportGroup } from "@/domain/agenda-calendar/mesa-report-group";
 import { mesaAgendaBookingPersonDisplayName } from "@/domain/agenda-calendar/mesa.mapper";
 import { MesaAgendaBulkRowCheckbox } from "@/components/mesa-control/MesaAgendaBulkSelectionBar";
+import { MesaAgendaReportGroupControl } from "@/components/mesa-control/MesaAgendaReportGroupControl";
 import { formatPasoOperativoLabel } from "@/domain/expedientes/etapa-numeracion-ux";
 import {
   buildMesaExpedienteDetailHref,
@@ -76,10 +78,29 @@ export function MesaAgendaEntryBadges({
 
 export function MesaAgendaEntryDetails({
   entry,
-}: Readonly<{ entry: MesaAgendaBookingEntry }>) {
+  reportGroupPending,
+  onReportGroupChange,
+}: Readonly<{
+  entry: MesaAgendaBookingEntry;
+  reportGroupPending?: boolean;
+  onReportGroupChange?: (
+    entry: MesaAgendaBookingEntry,
+    next: MesaAgendaReportGroup,
+  ) => void;
+}>) {
   const driveMeta = formatMesaAgendaDriveValidatedMeta(entry);
   return (
     <dl className="grid gap-1 text-xs text-slate-600">
+      {onReportGroupChange ? (
+        <div className="mb-1">
+          <MesaAgendaReportGroupControl
+            entry={entry}
+            pending={reportGroupPending}
+            compact
+            onChange={onReportGroupChange}
+          />
+        </div>
+      ) : null}
       <div>
         <dt className="inline font-medium text-slate-700">Asesor: </dt>
         <dd className="inline">{mesaAgendaBookingPersonDisplayName(entry.asesor)}</dd>
@@ -239,6 +260,8 @@ export function MesaAgendaCitaCard({
   onRequestCancel,
   onRequestReagendar,
   onToggleDriveValidation,
+  reportGroupPending,
+  onReportGroupChange,
   bulkSelected = false,
   bulkSelectable = false,
   bulkDisabledReason,
@@ -255,6 +278,11 @@ export function MesaAgendaCitaCard({
   onRequestCancel?: (entry: MesaAgendaBookingEntry) => void;
   onRequestReagendar?: (entry: MesaAgendaBookingEntry) => void;
   onToggleDriveValidation?: (entry: MesaAgendaBookingEntry) => void;
+  reportGroupPending?: boolean;
+  onReportGroupChange?: (
+    entry: MesaAgendaBookingEntry,
+    next: MesaAgendaReportGroup,
+  ) => void;
   bulkSelected?: boolean;
   bulkSelectable?: boolean;
   bulkDisabledReason?: string;
@@ -303,7 +331,11 @@ export function MesaAgendaCitaCard({
         />
       </div>
       <div className="mt-3">
-        <MesaAgendaEntryDetails entry={entry} />
+        <MesaAgendaEntryDetails
+          entry={entry}
+          reportGroupPending={reportGroupPending}
+          onReportGroupChange={onReportGroupChange}
+        />
       </div>
       <MesaAgendaEntryActions
         entry={entry}

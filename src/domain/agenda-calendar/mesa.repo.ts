@@ -9,6 +9,10 @@ import {
   type MesaAgendaBookingRpcRow,
 } from "./mesa.mapper";
 import { mapMesaAgendaDriveValidationRpcError } from "./mesa-drive-validation-rpc-error";
+import {
+  mapMesaReportGroupRpcError,
+  type MesaAgendaReportGroup,
+} from "./mesa-report-group";
 import type {
   FetchMesaAgendaBookingsParams,
   MesaAgendaBookingEntry,
@@ -111,5 +115,63 @@ export async function setMesaAgendaDriveValidation(params: Readonly<{
     ok: row.ok === true,
     bookingId: String(row.booking_id ?? bookingId),
     driveValidated: row.drive_validated === true,
+  };
+}
+
+export type MesaSetAgendaReportGroupResult = Readonly<{
+  ok: boolean;
+  bookingId: string;
+  reportGroup: string;
+}>;
+
+/** Actualiza solo `report_group` (clasificación Excel P109). No muta kind/fecha/hora. */
+export async function setMesaAgendaBookingReportGroup(params: Readonly<{
+  bookingId: string;
+  reportGroup: string;
+}>): Promise<MesaSetAgendaReportGroupResult> {
+  const bookingId = params.bookingId.trim();
+  const reportGroup = params.reportGroup.trim();
+  if (!bookingId) {
+    throw new MesaAgendaBookingsSupabaseError("booking_id es obligatorio.");
+  }
+  if (!reportGroup) {
+    throw new MesaAgendaBookingsSupabaseError("report_group es obligatorio.");
+  }
+
+  if (!isSupabaseConfigured() || !supabaseBrowser) {
+    throw new MesaAgendaBookingsSupabaseError("Supabase no está configurado.");
+  }
+
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabaseBrowser.auth.getSession();
+
+  if (sessionError || !session?.user) {
+    throw new MesaAgendaBookingsSupabaseError("No hay sesión activa.");
+  }
+
+  const { data, error } = await supabaseBrowser.rpc(
+    "mesa_set_agenda_booking_report_group",
+    {
+      p_booking_id: bookingId,
+      p_report_group: reportGroup,
+    },
+  );
+
+  if (error) {
+    throw mapMesaReportGroupRpcError(error);
+  }
+
+  const row = (data ?? {}) as Readonly<{
+    ok?: boolean;
+    booking_id?: string;
+    report_group?: string;
+  }>;
+
+  return {
+    ok: row.ok === true,
+    bookingId: String(row.booking_id ?? bookingId),
+    reportGroup: String(row.report_group ?? reportGroup) as MesaAgendaReportGroup,
   };
 }

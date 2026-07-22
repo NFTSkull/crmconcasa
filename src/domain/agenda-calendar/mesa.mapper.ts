@@ -41,6 +41,7 @@ export type MesaAgendaBookingRpcRow = Readonly<{
   drive_validated_by?: string | null;
   drive_validated_by_full_name?: string | null;
   drive_validated_by_email?: string | null;
+  report_group?: string | null;
 }>;
 
 function parseKind(value: string | undefined): MesaAgendaBookingKind | null {
@@ -119,6 +120,7 @@ export function mapMesaAgendaBookingRpcRow(
           row.drive_validated_by_email,
         )
       : null,
+    reportGroup: row.report_group?.trim() || null,
   };
 }
 
