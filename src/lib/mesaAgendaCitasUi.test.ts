@@ -12,6 +12,8 @@ import {
   buildMesaAgendaWeekRange,
   buildMesaExpedienteDetailHref,
   canAccessMesaAgendaCitasPage,
+  canDownloadMesaCitasExcel,
+  canDownloadMesaCitasExcelForUser,
   canMesaCancelAgendaListEntry,
   canMesaReagendarAgendaListEntry,
   clearMesaAgendaClientFilters,
@@ -527,6 +529,53 @@ describe("mesaAgendaCitasUi roles", () => {
     assert.equal(canAccessMesaAgendaCitasPage("mesa_control_interno"), true);
     assert.equal(canAccessMesaAgendaCitasPage("super_admin"), true);
     assert.equal(canAccessMesaAgendaCitasPage("asesor"), false);
+  });
+});
+
+describe("mesaAgendaCitasUi — P111 descarga Excel", () => {
+  it("mesa_admin y aliases UI pueden descargar", () => {
+    assert.equal(canDownloadMesaCitasExcel("mesa_admin"), true);
+    assert.equal(canDownloadMesaCitasExcel("mesa_control_admin"), true);
+    assert.equal(canDownloadMesaCitasExcel("mesa_control"), true);
+  });
+
+  it("super_admin y roles Mesa interno/externo conservan acceso", () => {
+    assert.equal(canDownloadMesaCitasExcel("super_admin"), true);
+    assert.equal(canDownloadMesaCitasExcel("mesa_interno"), true);
+    assert.equal(canDownloadMesaCitasExcel("mesa_externo"), true);
+    assert.equal(canDownloadMesaCitasExcel("mesa_control_interno"), true);
+    assert.equal(canDownloadMesaCitasExcel("mesa_control_externo"), true);
+  });
+
+  it("asesor y roles no Mesa no obtienen acceso", () => {
+    assert.equal(canDownloadMesaCitasExcel("asesor"), false);
+    assert.equal(canDownloadMesaCitasExcel("editor"), false);
+    assert.equal(canDownloadMesaCitasExcel("admin"), false);
+    assert.equal(canDownloadMesaCitasExcel(null), false);
+  });
+
+  it("ForUser: mock mesa_control_admin basta aunque sesión sea mesa_control", () => {
+    assert.equal(
+      canDownloadMesaCitasExcelForUser({
+        mockRole: "mesa_control_admin",
+        sessionRole: "mesa_control",
+      }),
+      true,
+    );
+    assert.equal(
+      canDownloadMesaCitasExcelForUser({
+        mockRole: null,
+        sessionRole: "mesa_control",
+      }),
+      true,
+    );
+    assert.equal(
+      canDownloadMesaCitasExcelForUser({
+        mockRole: "asesor",
+        sessionRole: "asesor",
+      }),
+      false,
+    );
   });
 });
 

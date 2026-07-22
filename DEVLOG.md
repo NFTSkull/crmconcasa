@@ -1,5 +1,13 @@
 # Devlog
 
+## 2026-07-22 - P111: Excel citas para Mesa Admin
+
+### Causa
+El botón Excel dependía solo de `currentUser.role` (Rol colapsado). Se hace explícito el permiso de descarga.
+
+### Solución
+`canDownloadMesaCitasExcel` / `canDownloadMesaCitasExcelForUser` (mock + sesión): `mesa_admin`, `mesa_control_admin`, `super_admin` y roles Mesa actuales; asesor fuera. Mismo `downloadMesaCitasExcel` / formato P107–P110; sin RPC/SQL/Cloud.
+
 ## 2026-07-22 - P110: Clasificación automática + Firmas 9:30 AM en Excel
 
 ### Decisión

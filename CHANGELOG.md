@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **fix/mesa-citas-excel-admin — P111:** gate explícito `canDownloadMesaCitasExcel` (mock+sesión) para que `mesa_admin`/`super_admin` y roles Mesa actuales descarguen el mismo Excel; asesor excluido; sin SQL/RPC/Cloud.
+
 - **fix/mesa-citas-excel-auto — P110 (local, sin commit/Cloud):** quita selector «Clasificación para Excel» de Citas Mesa; Excel clasifica por `kind` (conserva históricos `inscripcion`/`biometricos_tramite_completo`); Firmas agrupa siempre como `FIRMAS — 9:30 AM` solo en reporte; `booking_time`/RPC Cloud intactos.
 
 - **feat/mesa-citas-excel-bloques — P109:** `agenda_bookings.report_group` (nullable + CHECK) + RPC `mesa_set_agenda_booking_report_group`; UI Mesa «Clasificación para Excel»; Excel agrupa por `report_group` resuelto + hora (máx. 3 bloques horizontales); `kind` operativo intacto; migración `097_…sql`.

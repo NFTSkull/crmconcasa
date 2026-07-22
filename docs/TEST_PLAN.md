@@ -1,5 +1,12 @@
 # ConCasa CRM — Plan de pruebas
 
+## P111 — Excel citas para Mesa Admin
+
+- [x] `mesa_admin` / `mesa_control_admin` / `super_admin` pueden descargar.
+- [x] Roles Mesa interno/externo conservan acceso; asesor no.
+- [x] Mismo exportador/formato P107–P110; filtros/fecha; sin selección P089; sin refetch/mutación.
+- [x] Sin SQL/RPC/Cloud/deps.
+
 ## P110 — Clasificación automática + Firmas 9:30 AM Excel
 
 - [x] Sin columna/label/select «Clasificación Excel» en lista/día/semana; sin RPC desde UI.

@@ -30,4 +30,17 @@ describe("MesaAgendaCitasClient — P095 B3 Excel UI wiring", () => {
     assert.ok(!/\bselectedBookingIds\b/.test(downloadBlock));
     assert.ok(!/\bexecuteBulk\b/.test(downloadBlock));
   });
+
+  it("P111: gate de descarga explícito para mesa_admin / sin refetch ni mutaciones", () => {
+    assert.match(source, /canDownloadMesaCitasExcelForUser/);
+    assert.match(source, /canDownloadExcel/);
+    const downloadBlock = source.slice(
+      source.indexOf("handleDescargarExcel"),
+      source.indexOf("handleBulkRowCheckedChange"),
+    );
+    assert.ok(downloadBlock.includes("canDownloadExcel"));
+    assert.ok(!downloadBlock.includes("loadEntries("));
+    assert.ok(!downloadBlock.includes("setMesaAgenda"));
+    assert.ok(!downloadBlock.includes("fetchMesaAgendaBookings"));
+  });
 });
