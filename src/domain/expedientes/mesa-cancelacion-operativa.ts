@@ -115,7 +115,14 @@ export function esExpedienteCancelado(
 export const MESA_CANCELACION_OPERATIVA_ANCHOR_ID =
   "mesa-cancelacion-operativa" as const;
 
-export const MESA_CANCELACION_OPERATIVA_CARD_BADGE = "Cancelación terminal";
+export const MESA_CANCELACION_OPERATIVA_CARD_BADGE =
+  "Cancelación · no continuará";
+
+export const MESA_CANCELACION_OPERATIVA_CARD_TITLE =
+  "Cancelar / el cliente no continuará";
 
 export const MESA_CANCELACION_OPERATIVA_CARD_INTRO =
-  "Cierra el trámite porque el cliente no continuará. No es un rechazo operativo ni cancela citas automáticamente.";
+  "Cierra el trámite de forma terminal porque el cliente no continuará. No es un rechazo operativo ni cancela citas automáticamente.";
+
+export const MESA_CANCELACION_OPERATIVA_CARD_CTA =
+  "Cancelar / el cliente no continuará";

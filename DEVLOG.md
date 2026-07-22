@@ -1,5 +1,15 @@
 # Devlog
 
+## 2026-07-21 - UX Mesa rechazo/cancelación (detalle expediente)
+
+### Causa
+Las tarjetas invertían la lectura visual (rechazo en rojo “alarma”, cancelación en gris oscuro) y el formulario de rechazo pedía clasificación biométrica innecesaria para el flujo habitual.
+
+### Solución
+- Rechazo operativo: tarjeta negra/oscura + copy “puede continuar”; solo motivo obligatorio + nota opcional; envía `biometricosCondicion=desconocida` y nulls.
+- Cancelación terminal: tarjeta verde + copy “no continuará”.
+- Sin SQL/RPC; contrato Zod admite omitir condición (default `desconocida`).
+
 ## 2026-07-21 - P096: Solicitud documento (`cliente_solicitud`)
 
 ### Decisión

@@ -51,6 +51,15 @@ describe("contratos reingreso post-biométricos", () => {
     }
   });
 
+  it("UI simplificada: solo motivo → default desconocida sin booking", () => {
+    const value = rechazoOperativoInputSchema.parse({
+      motivo: "Huellas ilegibles",
+      comentario: "Puede reingresar",
+    });
+    assert.equal(value.biometricosCondicion, "desconocida");
+    assert.equal(value.comentario, "Puede reingresar");
+  });
+
   it("valida respuestas de elegibilidad y creación", () => {
     assert.equal(
       reingresoElegibilidadSchema.parse({

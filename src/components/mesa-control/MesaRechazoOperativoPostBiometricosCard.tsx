@@ -1,18 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import {
-  biometricosCondicionSchema,
   esElegibleRechazoOperativoPostBiometricos,
   MESA_RECHAZO_OPERATIVO_ANCHOR_ID,
   MESA_RECHAZO_OPERATIVO_CARD_BADGE,
+  MESA_RECHAZO_OPERATIVO_CARD_CTA,
   MESA_RECHAZO_OPERATIVO_CARD_INTRO,
-  type BiometricosCondicion,
+  MESA_RECHAZO_OPERATIVO_CARD_TITLE,
   useExpedientesRepo,
 } from "@/domain/expedientes";
-import { fetchMesaAgendaBookings } from "@/domain/agenda-calendar/mesa.repo";
-import type { MesaAgendaBookingEntry } from "@/domain/agenda-calendar/mesa.types";
 
 type Props = {
   expedienteId: string;
@@ -25,27 +23,12 @@ type Props = {
   onUpdated: () => void;
 };
 
-function fechaLocalMx(iso: string): string | null {
-  const date = new Date(iso);
-  if (Number.isNaN(date.getTime())) return null;
-  return date.toLocaleDateString("en-CA", {
-    timeZone: "America/Monterrey",
-  });
-}
-
-function bookingLabel(booking: MesaAgendaBookingEntry): string {
-  const estado =
-    booking.status === "booked" ? "Agendada" : "Cancelada después";
-  return `${booking.bookingDate} ${booking.bookingTime.slice(0, 5)} · ${estado}`;
-}
-
 export function MesaRechazoOperativoPostBiometricosCard({
   expedienteId,
   etapaActual,
   subestado,
   cicloEstado,
   submittedToMesa,
-  fechaCita,
   dataModeSupabase,
   onUpdated,
 }: Props) {
@@ -53,12 +36,6 @@ export function MesaRechazoOperativoPostBiometricosCard({
   const [open, setOpen] = useState(false);
   const [motivo, setMotivo] = useState("");
   const [comentario, setComentario] = useState("");
-  const [condicion, setCondicion] =
-    useState<BiometricosCondicion>("desconocida");
-  const [razon, setRazon] = useState("");
-  const [bookingId, setBookingId] = useState("");
-  const [bookings, setBookings] = useState<MesaAgendaBookingEntry[]>([]);
-  const [loadingBookings, setLoadingBookings] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -71,65 +48,27 @@ export function MesaRechazoOperativoPostBiometricosCard({
       etapaActual,
     });
 
-  useEffect(() => {
-    if (!visible || !open || !fechaCita) return;
-    const date = fechaLocalMx(fechaCita);
-    if (!date) return;
-    let cancelled = false;
-    setLoadingBookings(true);
-    setError(null);
-    void fetchMesaAgendaBookings({
-      startDate: date,
-      endDate: date,
-      includeCancelled: true,
-      kind: "biometricos",
-    })
-      .then((rows) => {
-        if (cancelled) return;
-        setBookings(
-          rows.filter(
-            (row) =>
-              row.expedienteId === expedienteId &&
-              (row.status === "booked" || row.status === "cancelled"),
-          ),
-        );
-      })
-      .catch((err: unknown) => {
-        if (!cancelled) {
-          setError(
-            err instanceof Error
-              ? err.message
-              : "No se pudo cargar la evidencia biométrica.",
-          );
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setLoadingBookings(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [expedienteId, fechaCita, open, visible]);
-
-  const requiereIntento = useMemo(
-    () => ["reutilizables", "repetir", "invalidos"].includes(condicion),
-    [condicion],
-  );
-
   if (!visible) return null;
 
+  const motivoValido = motivo.trim().length > 0;
+
   const guardar = async () => {
+    if (!motivoValido) return;
     setSaving(true);
     setError(null);
     try {
+      // Defaults seguros para campos biométricos opcionales de la RPC
+      // (UI simplificada: ya no se capturan en el formulario).
       await repo.rechazarEtapaOperativa(expedienteId, {
-        motivo,
-        comentario: comentario || null,
-        biometricosCondicion: biometricosCondicionSchema.parse(condicion),
-        biometricosRazon: razon || null,
-        biometricosBookingId: bookingId || null,
+        motivo: motivo.trim(),
+        comentario: comentario.trim() || null,
+        biometricosCondicion: "desconocida",
+        biometricosRazon: null,
+        biometricosBookingId: null,
       });
       setOpen(false);
+      setMotivo("");
+      setComentario("");
       onUpdated();
     } catch (err) {
       setError(
@@ -146,124 +85,85 @@ export function MesaRechazoOperativoPostBiometricosCard({
     <section
       id={MESA_RECHAZO_OPERATIVO_ANCHOR_ID}
       data-testid="mesa-rechazo-operativo"
-      className="scroll-mt-4 rounded-xl border-2 border-red-400 bg-red-50 p-4 shadow-md ring-2 ring-red-200"
+      className="scroll-mt-4 rounded-xl border-2 border-neutral-800 bg-neutral-950 p-4 shadow-md ring-2 ring-neutral-700"
     >
       <div className="flex flex-wrap items-center gap-2">
-        <span className="inline-flex rounded-md bg-red-700 px-2.5 py-1 text-xs font-semibold text-white">
+        <span className="inline-flex rounded-md bg-neutral-100 px-2.5 py-1 text-xs font-semibold text-neutral-950">
           {MESA_RECHAZO_OPERATIVO_CARD_BADGE}
         </span>
-        <h2 className="text-sm font-semibold text-red-950">
-          Rechazo operativo post-biométricos
+        <h2 className="text-sm font-semibold text-neutral-50">
+          {MESA_RECHAZO_OPERATIVO_CARD_TITLE}
         </h2>
       </div>
-      <p className="mt-2 text-xs font-medium text-red-950">
+      <p className="mt-2 text-xs font-medium text-neutral-100">
         {MESA_RECHAZO_OPERATIVO_CARD_INTRO}
       </p>
-      <p className="mt-1 text-xs text-red-900">
-        Registra la decisión humana sobre los biométricos sin cancelar ni
-        alterar la cita histórica. Disponible en etapas 5 y 6.
+      <p className="mt-1 text-xs text-neutral-300">
+        El cliente aún puede continuar después (reingreso cuando aplique). No
+        cierra el ciclo. Disponible en etapas 5 y 6.
       </p>
       {!open ? (
         <Button
           type="button"
           variant="outline"
-          className="mt-3 border-red-400 bg-white text-red-900 hover:bg-red-100"
+          className="mt-3 border-neutral-500 bg-neutral-900 text-neutral-50 hover:bg-neutral-800"
           onClick={() => setOpen(true)}
         >
-          Rechazar etapa y clasificar biométricos
+          {MESA_RECHAZO_OPERATIVO_CARD_CTA}
         </Button>
       ) : (
-        <div className="mt-4 grid gap-3 sm:grid-cols-2">
-          <label className="text-xs font-medium text-gray-800">
-            Motivo del rechazo
+        <div className="mt-4 grid gap-3">
+          <label className="text-xs font-medium text-neutral-100">
+            Motivo del rechazo <span className="text-neutral-400">(obligatorio)</span>
             <input
               value={motivo}
               onChange={(event) => setMotivo(event.target.value)}
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-md border border-neutral-600 bg-neutral-900 px-3 py-2 text-sm text-neutral-50 placeholder:text-neutral-500"
+              placeholder="Describe por qué se rechaza operativamente"
+              data-testid="mesa-rechazo-motivo"
             />
           </label>
-          <label className="text-xs font-medium text-gray-800">
-            Condición biométrica
-            <select
-              value={condicion}
-              onChange={(event) =>
-                setCondicion(
-                  biometricosCondicionSchema.parse(event.target.value),
-                )
-              }
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-            >
-              <option value="desconocida">Desconocida</option>
-              <option value="no_completados">No completados</option>
-              <option value="reutilizables">Reutilizables</option>
-              <option value="repetir">Repetir</option>
-              <option value="invalidos">Inválidos</option>
-            </select>
-          </label>
-          <label className="text-xs font-medium text-gray-800 sm:col-span-2">
-            Comentario operativo
+          <label className="text-xs font-medium text-neutral-100">
+            Nota / comentario breve{" "}
+            <span className="text-neutral-400">(opcional)</span>
             <textarea
               value={comentario}
               onChange={(event) => setComentario(event.target.value)}
-              className="mt-1 min-h-20 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-            />
-          </label>
-          <label className="text-xs font-medium text-gray-800">
-            Booking biométrico de referencia
-            <select
-              value={bookingId}
-              onChange={(event) => setBookingId(event.target.value)}
-              disabled={loadingBookings}
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
-            >
-              <option value="">Sin booking</option>
-              {bookings.map((booking) => (
-                <option key={booking.bookingId} value={booking.bookingId}>
-                  {bookingLabel(booking)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="text-xs font-medium text-gray-800">
-            Razón biométrica
-            <input
-              value={razon}
-              onChange={(event) => setRazon(event.target.value)}
-              placeholder={
-                requiereIntento ? "Obligatoria para esta condición" : "Opcional"
-              }
-              className="mt-1 w-full rounded-md border border-gray-300 px-3 py-2 text-sm"
+              className="mt-1 min-h-20 w-full rounded-md border border-neutral-600 bg-neutral-900 px-3 py-2 text-sm text-neutral-50 placeholder:text-neutral-500"
+              placeholder="Detalle adicional si hace falta"
+              data-testid="mesa-rechazo-nota"
             />
           </label>
           {error ? (
             <p
               role="alert"
-              className="rounded-md border border-red-200 bg-white px-3 py-2 text-xs text-red-800 sm:col-span-2"
+              className="rounded-md border border-red-400/60 bg-red-950/40 px-3 py-2 text-xs text-red-200"
             >
               {error}
             </p>
           ) : null}
-          <div className="flex gap-2 sm:col-span-2">
+          <div className="flex gap-2">
             <Button
               type="button"
               variant="primary"
-              className="bg-red-700 hover:bg-red-800 focus:ring-red-600"
-              disabled={
-                saving ||
-                !motivo.trim() ||
-                (requiereIntento && (!bookingId || !razon.trim()))
-              }
+              className="bg-neutral-100 text-neutral-950 hover:bg-white focus:ring-neutral-400"
+              disabled={saving || !motivoValido}
               onClick={() => void guardar()}
+              data-testid="mesa-rechazo-confirmar"
             >
-              {saving ? "Registrando…" : "Confirmar rechazo"}
+              {saving ? "Registrando…" : "Confirmar rechazo operativo"}
             </Button>
             <Button
               type="button"
               variant="outline"
+              className="border-neutral-500 bg-transparent text-neutral-100 hover:bg-neutral-900"
               disabled={saving}
-              onClick={() => setOpen(false)}
+              onClick={() => {
+                setOpen(false);
+                setError(null);
+              }}
             >
-              Cancelar
+              Volver
             </Button>
           </div>
         </div>
