@@ -1,5 +1,13 @@
 # ConCasa CRM — Plan de pruebas
 
+## P101 — Scroll infinito `/mesa-control`
+
+- [x] Inicial 25; bloques +25 vía sentinel hasta el total; nunca supera filtrados.
+- [x] Filtros/orden/búsqueda sobre colección completa; slice solo para render.
+- [x] Reset a 25 al cambiar criterios; contador = total filtrado.
+- [x] <25 sin «Cargar más»; 0 resultados OK; cargar más sin refetch.
+- [x] Sin SQL/RPC/Cloud/commit; P100 intacto.
+
 ## P100 — Rendimiento `/mesa-control`
 
 - [x] Medición: N+1 `listResumenByExpediente` vs batch (1 invocación / chunks).

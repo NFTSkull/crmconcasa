@@ -84,6 +84,16 @@ import {
   type MesaRechazosCancelacionesSubfiltro,
 } from "@/lib/mesaBandejaFiltros";
 import { fetchMesaBandejaSecondaryParallel } from "@/lib/mesaBandejaLoad";
+import {
+  describeMesaBandejaVisibleWindow,
+  isIntersectionObserverAvailable,
+  mesaBandejaInfiniteResetKey,
+  MESA_BANDEJA_INITIAL_VISIBLE,
+  nextMesaBandejaVisibleCount,
+  resetMesaBandejaVisibleCount,
+  shouldShowMesaBandejaLoadMoreFallback,
+  sliceMesaBandejaVisible,
+} from "@/lib/mesaBandejaInfiniteScroll";
 import { hasAlertMessage, MESA_OPS_UPDATED_EVENT } from "@/lib/hasAlertMessage";
 import { NotificationsBell } from "@/components/notifications/NotificationsBell";
 import { buildDashboardNotifications } from "@/lib/dashboardNotifications";
@@ -281,6 +291,11 @@ export default function MesaControlPage() {
     useState<MesaRechazosCancelacionesSubfiltro>("rechazados");
   const [adminOrigenTab, setAdminOrigenTab] = useState<AdminOrigenTab>("todos");
   const currentUserIdRef = useRef<string | null>(null);
+  const [visibleCount, setVisibleCount] = useState(MESA_BANDEJA_INITIAL_VISIBLE);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [ioAvailable, setIoAvailable] = useState(false);
+  const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
+  const loadingMoreLockRef = useRef(false);
 
   const todayYMD = getTodayYMD();
 
@@ -682,6 +697,73 @@ export default function MesaControlPage() {
     subestadoFilter,
     todayYMD,
   ]);
+
+  const infiniteResetKey = mesaBandejaInfiniteResetKey({
+    quickFilter,
+    mesaOpsFilter,
+    buscar,
+    etapaFilter,
+    subestadoFilter,
+    soloCitasHoy,
+    rechazosCancelacionesSubfiltro,
+    adminOrigenTab: showAdminOrigenTabs ? adminOrigenTab : "",
+  });
+
+  useEffect(() => {
+    setVisibleCount(resetMesaBandejaVisibleCount());
+    setLoadingMore(false);
+    loadingMoreLockRef.current = false;
+  }, [infiniteResetKey]);
+
+  useEffect(() => {
+    setIoAvailable(isIntersectionObserverAvailable());
+  }, []);
+
+  const visibleWindow = useMemo(
+    () => describeMesaBandejaVisibleWindow(visibleCount, filteredCasos.length),
+    [filteredCasos.length, visibleCount],
+  );
+
+  const visibleCasos = useMemo(
+    () => sliceMesaBandejaVisible(filteredCasos, visibleWindow.visibleCount),
+    [filteredCasos, visibleWindow.visibleCount],
+  );
+
+  const loadMoreVisible = useCallback(() => {
+    if (loadingMoreLockRef.current) return;
+    if (!visibleWindow.hasMore) return;
+    loadingMoreLockRef.current = true;
+    setLoadingMore(true);
+    // Solo amplía el slice en memoria; no refetch / RPC.
+    window.setTimeout(() => {
+      setVisibleCount((prev) =>
+        nextMesaBandejaVisibleCount(prev, filteredCasos.length),
+      );
+      setLoadingMore(false);
+      loadingMoreLockRef.current = false;
+    }, 0);
+  }, [filteredCasos.length, visibleWindow.hasMore]);
+
+  useEffect(() => {
+    if (!ioAvailable || !visibleWindow.hasMore || loading) return;
+    const node = loadMoreSentinelRef.current;
+    if (!node) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) {
+          loadMoreVisible();
+        }
+      },
+      { root: null, rootMargin: "240px 0px", threshold: 0 },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [ioAvailable, loadMoreVisible, loading, visibleWindow.hasMore, visibleCasos.length]);
+
+  const showLoadMoreFallback = shouldShowMesaBandejaLoadMoreFallback({
+    hasMore: visibleWindow.hasMore,
+    intersectionObserverAvailable: ioAvailable,
+  });
 
   const hayFiltrosActivos =
     quickFilter !== "todos" ||
@@ -1121,9 +1203,17 @@ export default function MesaControlPage() {
                 filtros.
               </p>
             </div>
-            <p className="text-[11px] tabular-nums text-slate-500">
+            <p className="text-right text-[11px] tabular-nums text-slate-500">
               <span className="font-semibold text-slate-700">{filteredCasos.length}</span>{" "}
               {filteredCasos.length === 1 ? "caso" : "casos"}
+              {visibleWindow.showingLabel ? (
+                <span
+                  className="mt-0.5 block text-[10px] font-normal text-slate-400"
+                  data-testid="mesa-bandeja-mostrando"
+                >
+                  {visibleWindow.showingLabel}
+                </span>
+              ) : null}
             </p>
           </div>
           <div className="flex w-full flex-col gap-3">
@@ -1133,7 +1223,7 @@ export default function MesaControlPage() {
               </p>
             ) : null}
             {!loading
-              ? filteredCasos.map((c) => (
+              ? visibleCasos.map((c) => (
               <article
                 key={c.id}
                 role="button"
@@ -1248,6 +1338,35 @@ export default function MesaControlPage() {
               </article>
             ))
               : null}
+            {!loading && visibleWindow.hasMore ? (
+              <div
+                ref={loadMoreSentinelRef}
+                className="flex min-h-8 flex-col items-center justify-center gap-2 py-3"
+                data-testid="mesa-bandeja-infinite-sentinel"
+                aria-hidden={showLoadMoreFallback ? undefined : true}
+              >
+                {loadingMore ? (
+                  <p
+                    className="text-xs text-slate-500"
+                    data-testid="mesa-bandeja-cargando-mas"
+                  >
+                    Cargando más…
+                  </p>
+                ) : null}
+                {showLoadMoreFallback ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="text-xs"
+                    onClick={loadMoreVisible}
+                    disabled={loadingMore}
+                    data-testid="mesa-bandeja-cargar-mas"
+                  >
+                    Cargar más
+                  </Button>
+                ) : null}
+              </div>
+            ) : null}
           </div>
           {!loading && filteredCasos.length === 0 ? (
             <div className="flex flex-col items-center gap-3 py-10 text-center">

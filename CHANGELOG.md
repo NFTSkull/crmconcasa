@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **feat/mesa-infinite-scroll — P101 (local, sin commit/Cloud):** `/mesa-control` renderiza 25 casos y carga +25 con IntersectionObserver (fallback «Cargar más»); filtros/orden/contadores sobre la colección completa; sin SQL/RPC/server pagination.
+
 - **fix/mesa-rechazo-warning-ui:** tarjeta Mesa «Rechazo operativo» de negro a ámbar/advertencia (badge, textos y botones con texto negro); cancelación roja intacta; sin lógica/SQL/RPC.
 
 - **fix/mesa-principal-performance — P100 (local, sin commit/Cloud):** `/mesa-control` deja el N+1 de `listResumenByExpediente` por batch chunked + secundarias en paralelo; evita doble fetch al resolver `currentUserId`; mismos filtros/permisos/resultados; sin SQL/RPC.

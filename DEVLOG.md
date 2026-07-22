@@ -1,5 +1,17 @@
 # Devlog
 
+## 2026-07-22 - P101: Scroll infinito bandeja Mesa
+
+### Problema
+`/mesa-control` montaba todas las tarjetas filtradas a la vez (~160), saturando el DOM tras P100 (fetch ya batch).
+
+### Solución
+- Flujo fijo: casos completos → filtros/orden → `slice` visible (25 + bloques de 25).
+- `IntersectionObserver` + fallback «Cargar más» si no hay observer.
+- Reset a 25 al cambiar vista rápida / asignación / búsqueda / etapa / subestado / citas hoy.
+- Contador = total filtrado; «Mostrando N de T» opcional; sin refetch al cargar más.
+- Sin SQL/RPC/Cloud/server pagination; P100 intacto.
+
 ## 2026-07-22 - P100: Rendimiento página principal Mesa Control
 
 ### Causa comprobada
