@@ -1,9 +1,11 @@
 "use client";
 
 import type { MesaAgendaBookingEntry } from "@/domain/agenda-calendar/mesa.types";
+import type { MesaAgendaReportGroup } from "@/domain/agenda-calendar/mesa-report-group";
 import { mesaAgendaBookingPersonDisplayName } from "@/domain/agenda-calendar/mesa.mapper";
 import { MesaAgendaCitaCard, MesaAgendaEntryActions } from "@/components/mesa-control/MesaAgendaCitasEntryParts";
 import { MesaAgendaBulkRowCheckbox } from "@/components/mesa-control/MesaAgendaBulkSelectionBar";
+import { MesaAgendaReportGroupControl } from "@/components/mesa-control/MesaAgendaReportGroupControl";
 import { Select } from "@/components/ui/Select";
 import { formatPasoOperativoLabel } from "@/domain/expedientes/etapa-numeracion-ux";
 import {
@@ -46,6 +48,11 @@ type MesaAgendaCitasListProps = Readonly<{
   onRequestCancel?: (entry: MesaAgendaBookingEntry) => void;
   onRequestReagendar?: (entry: MesaAgendaBookingEntry) => void;
   onToggleDriveValidation?: (entry: MesaAgendaBookingEntry) => void;
+  reportGroupPendingBookingId?: string | null;
+  onReportGroupChange?: (
+    entry: MesaAgendaBookingEntry,
+    next: MesaAgendaReportGroup,
+  ) => void;
   selectedBookingIds?: ReadonlySet<string>;
   isBulkRowSelectable?: (entry: MesaAgendaBookingEntry) => boolean;
   bulkNotSelectableReason?: (entry: MesaAgendaBookingEntry) => string;
@@ -75,6 +82,8 @@ export function MesaAgendaCitasList({
   onRequestCancel,
   onRequestReagendar,
   onToggleDriveValidation,
+  reportGroupPendingBookingId = null,
+  onReportGroupChange,
   selectedBookingIds,
   isBulkRowSelectable,
   bulkNotSelectableReason,
@@ -101,6 +110,7 @@ export function MesaAgendaCitasList({
               {showBulk ? <th className="px-3 py-3 w-10">Sel.</th> : null}
               <th className="px-4 py-3">Fecha y hora</th>
               <th className="px-4 py-3">Tipo</th>
+              <th className="px-4 py-3">Clasificación Excel</th>
               <th className="px-4 py-3">Cliente / NSS</th>
               <th className="px-4 py-3">Asesor</th>
               <th className="px-4 py-3">Agendada por</th>
@@ -165,6 +175,15 @@ export function MesaAgendaCitasList({
                     >
                       {formatMesaAgendaKind(entry.kind)}
                     </span>
+                  </td>
+                  <td className="px-4 py-3">
+                    <MesaAgendaReportGroupControl
+                      entry={entry}
+                      pending={reportGroupPendingBookingId === entry.bookingId}
+                      disabled={bulkBusy}
+                      compact
+                      onChange={onReportGroupChange}
+                    />
                   </td>
                   <td className="px-4 py-3">
                     <div className="font-medium">{entry.clienteNombre || "—"}</div>
@@ -253,6 +272,8 @@ export function MesaAgendaCitasList({
             onRequestCancel={onRequestCancel}
             onRequestReagendar={onRequestReagendar}
             onToggleDriveValidation={onToggleDriveValidation}
+            reportGroupPending={reportGroupPendingBookingId === entry.bookingId}
+            onReportGroupChange={onReportGroupChange}
             bulkSelected={Boolean(selectedBookingIds?.has(entry.bookingId))}
             bulkSelectable={Boolean(isBulkRowSelectable?.(entry)) && !bulkBusy}
             bulkDisabledReason={
@@ -282,6 +303,8 @@ export function MesaAgendaCitasList({
             onRequestCancel={onRequestCancel}
             onRequestReagendar={onRequestReagendar}
             onToggleDriveValidation={onToggleDriveValidation}
+            reportGroupPending={reportGroupPendingBookingId === entry.bookingId}
+            onReportGroupChange={onReportGroupChange}
             bulkSelected={Boolean(selectedBookingIds?.has(entry.bookingId))}
             bulkSelectable={Boolean(isBulkRowSelectable?.(entry)) && !bulkBusy}
             bulkDisabledReason={

@@ -90,6 +90,7 @@ function entry(
     driveValidated: false,
     driveValidatedAt: null,
     driveValidatedBy: null,
+    reportGroup: null,
     ...overrides,
   };
 }

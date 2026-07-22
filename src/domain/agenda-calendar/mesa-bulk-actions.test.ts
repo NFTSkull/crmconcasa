@@ -51,6 +51,7 @@ function entry(
     driveValidated: partial.driveValidated ?? false,
     driveValidatedAt: partial.driveValidatedAt ?? null,
     driveValidatedBy: partial.driveValidatedBy ?? null,
+    reportGroup: partial.reportGroup ?? null,
   };
 }
 

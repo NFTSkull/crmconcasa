@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-07-22 - P109: Excel citas por tipo y horario
+
+### Decisión
+`kind` operativo (`biometricos|firmas|notificacion`) permanece intacto. Nueva columna nullable `report_group` solo organiza el Excel, con 5 valores canónicos y fallback por `kind` cuando es null.
+
+### Backend
+Migración `097_agenda_booking_report_group.sql`: CHECK, índice parcial, `get_mesa_agenda_bookings` expone `report_group`, RPC `mesa_set_agenda_booking_report_group` (Mesa/admin) actualiza solo esa columna + `action_log` `agenda.booking.report_group`.
+
+### UI / Excel
+Control «Clasificación para Excel» en Mesa Citas. Export agrupa por `report_group` resuelto + hora; máx. 3 bloques horizontales con columna vacía; títulos tipo `BIOMÉTRICOS — 10:30 AM`; columnas Fecha|NSS|Nombre; estilos de plantilla P107; P089/P095 intactos.
+
 ## 2026-07-22 - P107: Formato oficial Excel citas Mesa
 
 ### Objetivo

@@ -1,5 +1,14 @@
 # ConCasa CRM — Plan de pruebas
 
+## P109 — Excel citas por tipo y horario
+
+- [x] Fallback `report_group` null → `kind` (`biometricos|firmas|notificacion`).
+- [x] RPC actualiza solo `report_group`; no muta kind/fecha/hora/status; permisos Mesa/admin; action_log.
+- [x] Bloques Excel por tipo+hora; dos horarios mismo tipo; inscripción / trámite completo; SIN HORARIO; sin citas perdidas.
+- [x] NSS texto con cero; filtros P095; P089 intacto; round-trip XLSX; estilos plantilla.
+- [x] UI «Clasificación para Excel» solo Mesa; sin asesor / sin bulk P089.
+- [x] SQL `rpc_mesa_agenda_report_group.sql` + migración `097_…sql`.
+
 ## P107 — Formato oficial Excel citas Mesa
 
 - [x] Plantilla carga desde `public/templates/reporte-citas-mesa.xlsx`.

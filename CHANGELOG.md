@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **feat/mesa-citas-excel-bloques — P109:** `agenda_bookings.report_group` (nullable + CHECK) + RPC `mesa_set_agenda_booking_report_group`; UI Mesa «Clasificación para Excel»; Excel agrupa por `report_group` resuelto + hora (máx. 3 bloques horizontales); `kind` operativo intacto; migración `097_…sql`.
+
 - **fix/mesa-citas-excel-oficial — P107:** Excel de `/mesa-control/citas` usa plantilla `public/templates/reporte-citas-mesa.xlsx` (título morado, encabezado azul, filas alternadas); columnas Fecha|NSS|Nombre; NSS texto; fecha DD/MM/YYYY; filtros/P095 intactos; sin SQL/RPC/Cloud.
 
 - **feat/rechazo-todas-etapas-reactivacion — P108A (local, sin commit/Cloud):** rechazo operativo en internas 1–12; RPC `reactivar_expediente_rechazado` (mismo expediente/etapa → `en_validacion_mesa`|`en_proceso`); UI Mesa en 11 pasos; Asesor «Corregir y reenviar a Mesa»; P072 intacto; migración `096_…sql`.

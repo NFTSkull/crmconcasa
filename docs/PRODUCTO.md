@@ -138,12 +138,14 @@ La UI identifica al hijo como **Reingreso / Reinscripción** y **Biométricos re
 - Fecha operativa = **hoy** `America/Monterrey`; `date_from` = `date_to` = `selectedDay` = ese YMD.
 - Fetch inicial: un solo día (no mes completo). Cambio de fecha resincroniza los tres al mismo YMD y limpia selección masiva; conserva filtros compatibles.
 
-**Exportación Excel (B2 util + B3 UI):**
+**Exportación Excel (B2 util + B3 UI + P107/P109):**
 - Botón `Descargar Excel` en `/mesa-control/citas`; exporta el día operativo (`lista`→`listaStartDate`, `dia`→`selectedDay`, `semana`→`weekDetailDay ?? selectedDay`) con filtros activos.
 - Util `exportMesaCitasExcel` genera `.xlsx` hoja `Citas`; archivo `citas-mesa-YYYY-MM-DD.xlsx`.
-- Columnas únicas: `Fecha` | `NSS` | `Nombre completo`; in-memory; estados Generando/éxito/vacío/error; bloqueo doble clic; sin selección/límite 100/Storage/RPC.
+- Columnas por bloque: `Fecha` | `NSS` | `Nombre completo`; estilos plantilla oficial; NSS texto; fecha DD/MM/YYYY.
+- **P109:** bloques por `report_group` resuelto + horario (máx. 3 horizontales); Mesa corrige clasificación vía select «Clasificación para Excel» sin alterar `kind`/cita.
+- in-memory; estados Generando/éxito/vacío/error; bloqueo doble clic; sin selección/límite 100/Storage.
 
-**Intacto:** P089, cancel/reagendar individual, RPC `get_mesa_agenda_bookings`.
+**Intacto:** P089, cancel/reagendar individual, `booking_kind` operativo.
 
 ### 6.6 Rechazado vs Cancelado (P094 — diseño B0)
 
