@@ -17,7 +17,8 @@ export const rechazoOperativoInputSchema = z
   .object({
     motivo: z.string().trim().min(1, "El motivo del rechazo es obligatorio."),
     comentario: z.string().trim().nullable().optional(),
-    biometricosCondicion: biometricosCondicionSchema,
+    /** Default seguro cuando la UI no clasifica biométricos. */
+    biometricosCondicion: biometricosCondicionSchema.default("desconocida"),
     biometricosRazon: z.string().trim().nullable().optional(),
     biometricosBookingId: z.string().uuid().nullable().optional(),
   })

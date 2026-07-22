@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **fix/mesa-rechazo-cancel-ux:** invierte colores (rechazo oscuro / cancelación verde), copy continuar vs no continuará; formulario de rechazo solo motivo + nota opcional; sin SQL/RPC.
+
 - **feat/mesa-solicitud-doc — P096 (Cloud + publish):** documento `cliente_solicitud` (label Solicitud) clon de Notificación: etapa ≥7; Mesa sube/reemplaza/ver/descarga; asesor RO; PDF/JPEG/PNG ≤15 MiB; migración `092_…sql` aplicada vía `db query --linked`; UI Pagaré→Notificación→Solicitud; sin smoke.
 
 - **ops/publish-citas-mesa-excel — P095 B4 (push + PR, sin merge):** publicación controlada rama `p095-citas-mesa-excel` (hoy Monterrey + Excel Fecha|NSS|Nombre); Preview Vercel; sin SQL/RPC/Cloud/deps nuevas; sin merge/smoke/Producción.
