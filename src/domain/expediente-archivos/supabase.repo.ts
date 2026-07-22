@@ -130,7 +130,15 @@ function buildResumenFromList(
 ): ExpedienteArchivoResumen[] {
   const byTipo = new Map<TipoDocumentoCatalogo, (typeof items)[number]>();
   for (const item of items) {
-    byTipo.set(item.tipo_documento, item);
+    const prev = byTipo.get(item.tipo_documento);
+    if (!prev) {
+      byTipo.set(item.tipo_documento, item);
+      continue;
+    }
+    // Paridad con SQL mesa_bandeja_doc_estatus: última versión por created_at.
+    const prevMs = Date.parse(String(prev.created_at ?? "")) || 0;
+    const nextMs = Date.parse(String(item.created_at ?? "")) || 0;
+    if (nextMs >= prevMs) byTipo.set(item.tipo_documento, item);
   }
 
   return TIPO_DOCUMENTO_CATALOGO.map((tipo) => {

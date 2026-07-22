@@ -25,6 +25,13 @@ import {
   type PaginatedExpedientesResult,
 } from "./list-for-asesor-paginated";
 import {
+  normalizeMesaBandejaPageLimit,
+  paginateMesaBandejaKeyset,
+  type ListForMesaControlPaginatedQuery,
+  type MesaBandejaPageItem,
+  type PaginatedMesaBandejaResult,
+} from "./list-for-mesa-control-paginated";
+import {
   matchesEditorListSearch,
   normalizeEditorListPage,
   sortEditorListItems,
@@ -533,6 +540,163 @@ export class MockExpedientesRepo implements ExpedientesRepo {
       const ciclo = e.operativo.cicloEstado;
       return ciclo == null || ciclo === "activo" || ciclo === "cancelado";
     });
+  }
+
+  /**
+   * P102 mock: filtra → ordena por fecha envío → keyset en memoria.
+   * Sin categoría documental (correccion_*) salvo que el caller enriquezca fuera.
+   */
+  async listForMesaControlPaginated(
+    query: ListForMesaControlPaginatedQuery,
+  ): Promise<PaginatedMesaBandejaResult> {
+    const all = await this.listForMesaControl();
+    const q = (query.buscar ?? "").trim().toLowerCase();
+    const qDigits = q.replace(/\D+/g, "");
+    const origen = query.origen ?? "todos";
+
+    const list = all.filter((e) => {
+      const ciclo = e.operativo.cicloEstado ?? "activo";
+      const etapa = e.operativo.etapaActual ?? 1;
+      const sub = e.operativo.subestado ?? "pendiente";
+      const origenMesa = e.base.origenMesa ?? "interno";
+
+      if (origen === "interno" && origenMesa !== "interno") return false;
+      if (origen === "externo" && origenMesa !== "externo") return false;
+
+      if (q) {
+        const nombre = e.base.cliente_nombre.toLowerCase();
+        const tel = e.base.telefono_cliente.replace(/\D+/g, "");
+        const nss = (e.base.nss ?? "").replace(/\D+/g, "");
+        const hitNombre = nombre.includes(q);
+        const hitTel = qDigits ? tel.includes(qDigits) : false;
+        const hitNss =
+          (qDigits && nss.includes(qDigits)) ||
+          (e.base.nss ?? "").toLowerCase().includes(q);
+        if (!hitNombre && !hitTel && !hitNss) return false;
+      }
+
+      if (typeof query.etapa === "number" && etapa !== query.etapa) return false;
+      if (
+        query.subestado &&
+        query.subestado !== "todas" &&
+        sub !== query.subestado
+      ) {
+        return false;
+      }
+
+      if (query.soloCitasHoy && query.todayYmd) {
+        const fc = e.operativo.fechaCita ?? "";
+        if (!fc.startsWith(query.todayYmd)) return false;
+      }
+
+      const quick = query.quickFilter;
+      if (quick === "todos") {
+        if (ciclo !== "activo") return false;
+      } else if (quick === "nuevos") {
+        if (ciclo !== "activo") return false;
+        if (![1, 2].includes(etapa)) return false;
+        if (!["pendiente", "en_validacion_mesa", "en_proceso"].includes(sub)) {
+          return false;
+        }
+      } else if (quick === "en_proceso") {
+        if (ciclo !== "activo" || sub !== "en_proceso") return false;
+      } else if (quick === "correccion_enviada") {
+        // Sin docs en mock: vacío (Supabase usa RPC).
+        return false;
+      } else if (quick === "rechazos_cancelaciones") {
+        const subf = query.rechazosSub ?? "rechazados";
+        if (subf === "cancelados") {
+          if (ciclo !== "cancelado") return false;
+        } else if (!(sub === "rechazado" && ciclo === "activo")) {
+          return false;
+        }
+      }
+
+      // Ops sin mesa_ops en mock: solo todo_mesa / sin_asignar pasan; resto vacío.
+      const ops = query.opsFilter;
+      if (ops === "mi_bandeja" || ops === "en_trabajo" || ops === "en_espera_asesor") {
+        return false;
+      }
+
+      return true;
+    });
+
+    const withSort: MesaBandejaPageItem[] = list
+      .map((e) => {
+        const sortTs =
+          e.operativo.fechaEnvioMesa?.trim() ||
+          e.base.createdAt ||
+          "1970-01-01T00:00:00.000Z";
+        return { ...e, sortTs, categoriaResumen: null, opsHint: null };
+      })
+      .sort((a, b) => {
+        if (a.sortTs !== b.sortTs) return a.sortTs < b.sortTs ? -1 : 1;
+        return a.id < b.id ? -1 : a.id > b.id ? 1 : 0;
+      });
+
+    const page = paginateMesaBandejaKeyset(withSort, {
+      limit: normalizeMesaBandejaPageLimit(query.limit),
+      cursor: query.cursor,
+    });
+
+    const counts =
+      query.includeCounts === false
+        ? null
+        : {
+            correccionesEnviadas: 0,
+            nuevos: all.filter((e) => {
+              const ciclo = e.operativo.cicloEstado ?? "activo";
+              const etapa = e.operativo.etapaActual ?? 1;
+              const sub = e.operativo.subestado ?? "pendiente";
+              return (
+                ciclo === "activo" &&
+                [1, 2].includes(etapa) &&
+                ["pendiente", "en_validacion_mesa", "en_proceso"].includes(sub)
+              );
+            }).length,
+            enProceso: all.filter(
+              (e) =>
+                (e.operativo.cicloEstado ?? "activo") === "activo" &&
+                e.operativo.subestado === "en_proceso",
+            ).length,
+            citasHoy: 0,
+            rechazosCancelaciones: all.filter((e) => {
+              const ciclo = e.operativo.cicloEstado ?? "activo";
+              const sub = e.operativo.subestado ?? "pendiente";
+              return (
+                (sub === "rechazado" && ciclo === "activo") || ciclo === "cancelado"
+              );
+            }).length,
+            rechazados: all.filter(
+              (e) =>
+                e.operativo.subestado === "rechazado" &&
+                (e.operativo.cicloEstado ?? "activo") === "activo",
+            ).length,
+            cancelados: all.filter((e) => e.operativo.cicloEstado === "cancelado")
+              .length,
+            bloqueadosRechazados: all.filter(
+              (e) =>
+                e.operativo.subestado === "rechazado" &&
+                (e.operativo.cicloEstado ?? "activo") === "activo",
+            ).length,
+            enValidacionMesa: all.filter(
+              (e) =>
+                (e.operativo.cicloEstado ?? "activo") === "activo" &&
+                e.operativo.subestado === "en_validacion_mesa",
+            ).length,
+            enEsperaAsesor: 0,
+            totalBandeja: all.filter(
+              (e) => (e.operativo.cicloEstado ?? "activo") === "activo",
+            ).length,
+          };
+
+    return {
+      items: page.items,
+      totalCount: withSort.length,
+      hasMore: page.hasMore,
+      nextCursor: page.nextCursor,
+      counts,
+    };
   }
 
   async getById(id: string): Promise<ExpedienteMock | null> {

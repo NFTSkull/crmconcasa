@@ -1,5 +1,27 @@
 # Devlog
 
+## 2026-07-22 - P102: Paginación server-side + infinite scroll Mesa
+
+### Causa
+Tras P101 el DOM ya no montaba 160 tarjetas, pero la entrada a `/mesa-control` seguía descargando **todos** los expedientes visibles (+ enrich P100 del universo) antes de filtrar/slicear en cliente.
+
+### Auditoría paridad SQL↔TS (pre-publish)
+- Categoría: misma prioridad faltantes→rechazado→resubido→subido→validado + `cliente_datos.rechazado` / corrección enviada pendientes.
+- `sort_ts`: corregido a `COALESCE(corrección, envío, created)` (no `GREATEST` con envío).
+- Citas hoy: `America/Monterrey` en SQL; cliente envía `todayYMD`.
+- Resumen batch TS: desempate por `created_at` más reciente (como SQL).
+
+### Arquitectura
+1. RPC read-only `mesa_list_bandeja_page` (migración `094_…sql`): `filtros completos → orden (sort_ts, id) → página keyset 25` + `total_count` + `counts` + `next_cursor`.
+2. Cursor estable `(sort_ts ASC, expediente_id ASC)` con `LIMIT+1` para `has_more` (no offset).
+3. UI Supabase: debounce búsqueda 300 ms; al cambiar filtros reset + primera página; sentinel/«Cargar más» hace append de la siguiente página; error de página adicional reintentable sin perder lo cargado.
+4. P100: `listResumenBatch` / secundarias **solo** para IDs de la página nueva.
+5. Contadores KPI desde `counts` de la RPC (no desde filas cargadas).
+6. Mock/legacy: conserva P101 (carga completa + slice DOM).
+
+### Restricciones
+Sin smoke; Cloud solo `db query --linked` de 094.
+
 ## 2026-07-22 - P101: Scroll infinito bandeja Mesa
 
 ### Problema

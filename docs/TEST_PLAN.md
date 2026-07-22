@@ -1,5 +1,13 @@
 # ConCasa CRM — Plan de pruebas
 
+## P102 — Paginación server-side `/mesa-control`
+
+- [x] Primera carga 25 (no 160); cargar más +25 sin duplicados.
+- [x] Contadores = universo (`counts`/`total_count`); lista = páginas acumuladas.
+- [x] Filtros/búsqueda en servidor antes de paginar; reset a página 1.
+- [x] P100 batch solo por página; P101 sentinel → fetch next page.
+- [x] Migración `094_rpc_mesa_list_bandeja_page.sql` + test SQL estático; sin Cloud.
+
 ## P101 — Scroll infinito `/mesa-control`
 
 - [x] Inicial 25; bloques +25 vía sentinel hasta el total; nunca supera filtrados.

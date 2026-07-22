@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  describeMesaBandejaServerWindow,
   describeMesaBandejaVisibleWindow,
   isIntersectionObserverAvailable,
   mesaBandejaHasMore,
@@ -272,6 +273,43 @@ describe("P101 mesa bandeja infinite scroll", () => {
     ({ filtered, visible } = pipeline(all, filtroState(), visibleCount));
     assert.equal(visible.length, 50);
     assert.equal(fetchCalls, 1, "no hay segundo fetch/RPC al cargar más");
+  });
+
+  it("P102 server window: loaded 25 / total 160 / hasMore", () => {
+    const w = describeMesaBandejaServerWindow({
+      loadedCount: 25,
+      totalFiltered: 160,
+      hasMore: true,
+    });
+    assert.equal(w.visibleLength, 25);
+    assert.equal(w.totalFiltered, 160);
+    assert.equal(w.hasMore, true);
+    assert.equal(w.showingLabel, "Mostrando 25 de 160");
+  });
+
+  it("P102: sentinel pide siguiente página (RPC), no amplía slice de set descargado", () => {
+    let rpcCalls = 0;
+    const pages: string[][] = [];
+    const fetchPage = (cursor: string | null) => {
+      rpcCalls += 1;
+      const start = cursor ? Number(cursor) : 0;
+      const ids = Array.from({ length: 25 }, (_, i) => String(start + i + 1));
+      pages.push(ids);
+      return {
+        ids,
+        nextCursor: String(start + 25),
+        hasMore: start + 25 < 160,
+        total: 160,
+      };
+    };
+    const p1 = fetchPage(null);
+    assert.equal(p1.ids.length, 25);
+    assert.equal(rpcCalls, 1);
+    const p2 = fetchPage(p1.nextCursor);
+    assert.equal(p2.ids.length, 25);
+    assert.equal(rpcCalls, 2);
+    assert.equal(new Set([...p1.ids, ...p2.ids]).size, 50);
+    assert.notEqual(p1.ids[0], p2.ids[0]);
   });
 
   it("NUNCA slice → filtros (regresión de orden)", () => {

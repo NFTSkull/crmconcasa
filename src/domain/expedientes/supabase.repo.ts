@@ -8,6 +8,17 @@ import {
   type ListForAsesorPaginatedOptions,
   type PaginatedExpedientesResult,
 } from "./list-for-asesor-paginated";
+import {
+  mapNextCursorFromRpc,
+  mapRpcCountsToServerCounts,
+  mesaListBandejaPageRpcSchema,
+  normalizeCategoriaResumen,
+  normalizeMesaBandejaPageLimit,
+  type ListForMesaControlPaginatedQuery,
+  type MesaBandejaPageItem,
+  type PaginatedMesaBandejaResult,
+} from "./list-for-mesa-control-paginated";
+import type { MesaExpedienteEstado } from "@/domain/mesa-ops/types";
 import type { CreateExpedienteInput } from "./create-expediente.input";
 import type { ExpedienteMock } from "./mock.repo";
 import { mapProgramaUiToDb } from "./map-programa";
@@ -350,6 +361,126 @@ async function fetchExpedientesListForMesaControl(): Promise<ExpedienteMock[]> {
   return mapRowsToExpedienteMocks(rows, asesorMap);
 }
 
+async function fetchExpedientesListForMesaControlPaginated(
+  query: ListForMesaControlPaginatedQuery,
+): Promise<PaginatedMesaBandejaResult> {
+  const { client } = await requireSupabaseSession();
+  const limit = normalizeMesaBandejaPageLimit(query.limit);
+  const etapa =
+    typeof query.etapa === "number" && Number.isFinite(query.etapa)
+      ? query.etapa
+      : null;
+  const subestado =
+    typeof query.subestado === "string" &&
+    query.subestado.trim() !== "" &&
+    query.subestado !== "todas"
+      ? query.subestado.trim()
+      : null;
+
+  const { data, error } = await client.rpc("mesa_list_bandeja_page", {
+    p_limit: limit,
+    p_cursor_sort_ts: query.cursor?.sortTs ?? null,
+    p_cursor_id: query.cursor?.id ?? null,
+    p_quick_filter: query.quickFilter,
+    p_ops_filter: query.opsFilter,
+    p_buscar: query.buscar?.trim() ? query.buscar.trim() : null,
+    p_etapa: etapa,
+    p_subestado: subestado,
+    p_solo_citas_hoy: Boolean(query.soloCitasHoy),
+    p_today_ymd: query.todayYmd ?? null,
+    p_rechazos_sub: query.rechazosSub ?? "rechazados",
+    p_origen: query.origen ?? "todos",
+    p_include_counts: query.includeCounts !== false,
+  });
+
+  if (error) {
+    throw new ExpedientesSupabaseError(
+      "No se pudo cargar la bandeja de Mesa de control. Intenta de nuevo más tarde.",
+    );
+  }
+
+  const parsed = mesaListBandejaPageRpcSchema.safeParse(data);
+  if (!parsed.success) {
+    throw new ExpedientesSupabaseError(
+      "Respuesta inválida al cargar la bandeja paginada de Mesa.",
+    );
+  }
+
+  const payload = parsed.data;
+  const asesorMap = await fetchAsesorDisplayMap(
+    client,
+    payload.items.map((row) => String(row.asesor_id ?? "")),
+  );
+
+  const items: MesaBandejaPageItem[] = payload.items.map((row) => {
+    const listRow: SupabaseExpedienteListRow = {
+      id: row.id,
+      programa: row.programa ?? "",
+      nss: row.nss ?? "",
+      cliente_nombre: row.cliente_nombre ?? "",
+      telefono_cliente: row.telefono_cliente ?? "",
+      direccion_opcional: row.direccion_opcional,
+      asesor_id: row.asesor_id ?? "",
+      origen_mesa: row.origen_mesa,
+      submitted_to_mesa: row.submitted_to_mesa,
+      fecha_envio_mesa: row.fecha_envio_mesa,
+      etapa_actual: row.etapa_actual,
+      subestado: row.subestado,
+      ciclo_estado: row.ciclo_estado,
+      motivo_rechazo: row.motivo_rechazo,
+      comentario_rechazo: row.comentario_rechazo,
+      fecha_cita: row.fecha_cita,
+      created_at: row.created_at,
+      updated_at: row.updated_at,
+      expediente_anterior_id: row.expediente_anterior_id,
+      reingreso_rechazo_id: row.reingreso_rechazo_id,
+    };
+    const base = mapSupabaseRowToExpedienteMock(
+      listRow,
+      asesorMap.get(String(row.asesor_id ?? "")) ?? null,
+    );
+    const sortTs =
+      (typeof row.sort_ts === "string" && row.sort_ts.trim()) ||
+      base.operativo.fechaEnvioMesa ||
+      base.base.createdAt;
+    const estadoRaw = row.ops_estado_mesa;
+    const estadoMesa: MesaExpedienteEstado =
+      estadoRaw === "sin_asignar" ||
+      estadoRaw === "trabajando" ||
+      estadoRaw === "en_espera_asesor" ||
+      estadoRaw === "en_espera_cliente" ||
+      estadoRaw === "en_espera_reagenda" ||
+      estadoRaw === "bloqueado" ||
+      estadoRaw === "listo_para_avanzar" ||
+      estadoRaw === "completado"
+        ? estadoRaw
+        : "sin_asignar";
+    const opsHint =
+      row.ops_assigned_to || row.ops_estado_mesa || row.ops_assigned_at
+        ? {
+            estadoMesa,
+            assignedTo: row.ops_assigned_to ?? null,
+            assignedAt: row.ops_assigned_at ?? null,
+            lastActivityAt: row.ops_last_activity_at ?? null,
+          }
+        : null;
+    return {
+      ...base,
+      sortTs,
+      categoriaResumen: normalizeCategoriaResumen(row.categoria_resumen),
+      opsHint,
+    };
+  });
+
+  return {
+    items,
+    totalCount: payload.total_count,
+    hasMore: payload.has_more,
+    nextCursor: mapNextCursorFromRpc(payload.next_cursor, payload.has_more),
+    counts: mapRpcCountsToServerCounts(payload.counts ?? null),
+  };
+}
+
 async function fetchExpedienteById(id: string): Promise<ExpedienteMock | null> {
   const idNorm = String(id).trim();
   if (!idNorm) return null;
@@ -391,6 +522,12 @@ export class SupabaseExpedientesRepo implements ExpedientesRepo {
 
   async listForMesaControl(): Promise<ExpedienteMock[]> {
     return fetchExpedientesListForMesaControl();
+  }
+
+  async listForMesaControlPaginated(
+    query: ListForMesaControlPaginatedQuery,
+  ): Promise<PaginatedMesaBandejaResult> {
+    return fetchExpedientesListForMesaControlPaginated(query);
   }
 
   async listForAsesor(_asesorEmail: string): Promise<ExpedienteMock[]> {

@@ -1,14 +1,14 @@
 /**
- * P101 — Ventana de scroll infinito para la bandeja Mesa (`/mesa-control`).
+ * P101/P102 — Ventana de scroll infinito para la bandeja Mesa (`/mesa-control`).
  *
- * Orden canónico (no invertir):
- *   colección completa → filtros → orden → slice visible
- *
- * No pagina en servidor ni vuelve a fetch; solo reduce nodos DOM.
+ * P101 (mock / legacy): colección completa → filtros → orden → slice visible.
+ * P102 (Supabase): filtros+orden en servidor → páginas de 25 (cursor keyset);
+ * el sentinel pide la siguiente página (no amplía un slice de un set ya descargado).
  */
 
 export const MESA_BANDEJA_INITIAL_VISIBLE = 25;
 export const MESA_BANDEJA_LOAD_MORE_STEP = 25;
+export const MESA_BANDEJA_SEARCH_DEBOUNCE_MS = 300;
 
 export type MesaBandejaVisibleWindow = Readonly<{
   visibleCount: number;
@@ -78,6 +78,27 @@ export function describeMesaBandejaVisibleWindow(
     totalFiltered: total,
     visibleLength,
     hasMore,
+    showingLabel:
+      total === 0
+        ? null
+        : `Mostrando ${visibleLength} de ${total}`,
+  };
+}
+
+/** Ventana P102: filas ya cargadas vs total del filtro en servidor. */
+export function describeMesaBandejaServerWindow(opts: {
+  loadedCount: number;
+  totalFiltered: number;
+  hasMore: boolean;
+}): MesaBandejaVisibleWindow {
+  const total = Math.max(0, Math.floor(opts.totalFiltered));
+  const loaded = Math.max(0, Math.floor(opts.loadedCount));
+  const visibleLength = total === 0 ? 0 : Math.min(loaded, total);
+  return {
+    visibleCount: visibleLength,
+    totalFiltered: total,
+    visibleLength,
+    hasMore: Boolean(opts.hasMore) && total > visibleLength,
     showingLabel:
       total === 0
         ? null

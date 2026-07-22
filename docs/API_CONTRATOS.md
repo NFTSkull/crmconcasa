@@ -666,6 +666,24 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 
 ---
 
+## 14B. Bandeja Mesa paginada (P102)
+
+**Operación:** RPC read-only `mesa_list_bandeja_page(...) → jsonb`
+
+| Campo | Semántica |
+|---|---|
+| `items` | Página ≤25 (keyset `sort_ts ASC, id ASC`) |
+| `total_count` | Total del filtro actual |
+| `has_more` / `next_cursor` | Cursor `(sort_ts, id)`; `LIMIT+1` interno |
+| `counts` | KPIs globales (mismo universo visible + origen); no dependen de la página |
+
+- Roles: `mesa_admin` \| `mesa_interno` \| `mesa_externo` \| `super_admin`; visibilidad `can_see_expediente`.
+- Orden de evaluación: **filtros → orden global → página**. Nunca filtrar en cliente sobre 25 filas.
+- UI `/mesa-control` (Supabase): infinite scroll pide la siguiente página; enrich documental P100 solo de IDs de la página.
+- Migración `094_rpc_mesa_list_bandeja_page.sql`. Sin mutaciones / sin Cloud en el bloque de código.
+
+---
+
 ## 15. Admin KPIs / Producción (P081–P082)
 
 **Operación:** RPCs read-only `admin_get_production_summary`, `admin_get_mesa_cohort_by_etapa`, `admin_list_production_by_asesor`, `admin_list_mesa_envios_page`, `admin_list_precalificaciones_page`
