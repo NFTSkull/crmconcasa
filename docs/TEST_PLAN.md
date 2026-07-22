@@ -1,5 +1,12 @@
 # ConCasa CRM — Plan de pruebas
 
+## P110 — Clasificación automática + Firmas 9:30 AM Excel
+
+- [x] Sin columna/label/select «Clasificación Excel» en lista/día/semana; sin RPC desde UI.
+- [x] Auto: `kind` → biométricos/firmas/notificación; conserva históricos `inscripcion` / `biometricos_tramite_completo`.
+- [x] Firmas del día → un bloque `FIRMAS — 9:30 AM`; `booking_time` real intacto; otros tipos con hora real.
+- [x] Sin citas perdidas; P089/filtros P095; sin SQL/RPC/Cloud/commit.
+
 ## P109 — Excel citas por tipo y horario
 
 - [x] Fallback `report_group` null → `kind` (`biometricos|firmas|notificacion`).

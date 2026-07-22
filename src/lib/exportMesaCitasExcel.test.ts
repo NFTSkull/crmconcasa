@@ -231,7 +231,7 @@ describe("exportMesaCitasExcel — UI helpers B3", () => {
 });
 
 describe("exportMesaCitasExcel — bloques P109", () => {
-  it("títulos de bloque por tipo + hora / SIN HORARIO", () => {
+  it("títulos de bloque por tipo + hora / SIN HORARIO; Firmas oficial 9:30 AM", () => {
     assert.equal(
       buildMesaCitasExcelBlockTitle("biometricos_tramite_completo", "08:00"),
       "BIOMÉTRICOS / TRÁMITE COMPLETO — 8:00 AM",
@@ -246,7 +246,11 @@ describe("exportMesaCitasExcel — bloques P109", () => {
     );
     assert.equal(
       buildMesaCitasExcelBlockTitle("firmas", "12:00"),
-      "FIRMAS — 12:00 PM",
+      "FIRMAS — 9:30 AM",
+    );
+    assert.equal(
+      buildMesaCitasExcelBlockTitle("firmas", "08:30"),
+      "FIRMAS — 9:30 AM",
     );
     assert.equal(
       buildMesaCitasExcelBlockTitle("notificacion", null),
@@ -309,12 +313,93 @@ describe("exportMesaCitasExcel — bloques P109", () => {
         "BIOMÉTRICOS — 9:00 AM",
         "BIOMÉTRICOS — 10:30 AM",
         "INSCRIPCIÓN — 11:00 AM",
-        "FIRMAS — 12:00 PM",
+        "FIRMAS — 9:30 AM",
         "NOTIFICACIÓN — SIN HORARIO",
       ],
     );
     assert.equal(blocks[1]?.rows.length, 1);
     assert.equal(blocks[2]?.rows.length, 1);
+  });
+
+  it("P110: firmas con horas distintas quedan juntas en FIRMAS — 9:30 AM; bookingTime intacto", () => {
+    const source = [
+      entry({
+        bookingId: "f1",
+        kind: "firmas",
+        bookingTime: "08:30",
+        clienteNombre: "Firma A",
+        nss: "1",
+      }),
+      entry({
+        bookingId: "f2",
+        kind: "firmas",
+        bookingTime: "12:00",
+        clienteNombre: "Firma B",
+        nss: "2",
+      }),
+      entry({
+        bookingId: "f3",
+        kind: "firmas",
+        bookingTime: "16:45",
+        reportGroup: "firmas",
+        clienteNombre: "Firma C",
+        nss: "3",
+      }),
+    ];
+    const blocks = groupMesaCitasIntoExcelBlocks(source);
+    assert.equal(blocks.length, 1);
+    assert.equal(blocks[0]?.title, "FIRMAS — 9:30 AM");
+    assert.equal(blocks[0]?.bookingTime, "09:30");
+    assert.deepEqual([...(blocks[0]?.bookingIds ?? [])].sort(), ["f1", "f2", "f3"]);
+    // booking real no mutado
+    assert.equal(source[0]?.bookingTime, "08:30");
+    assert.equal(source[1]?.bookingTime, "12:00");
+    assert.equal(source[2]?.bookingTime, "16:45");
+  });
+
+  it("P110: clasificación automática por kind; especiales históricos se conservan", () => {
+    const blocks = groupMesaCitasIntoExcelBlocks([
+      entry({
+        bookingId: "b",
+        kind: "biometricos",
+        reportGroup: null,
+        bookingTime: "10:00",
+      }),
+      entry({
+        bookingId: "f",
+        kind: "firmas",
+        reportGroup: "biometricos",
+        bookingTime: "08:00",
+      }),
+      entry({
+        bookingId: "n",
+        kind: "notificacion",
+        reportGroup: null,
+        bookingTime: "09:00",
+      }),
+      entry({
+        bookingId: "i",
+        kind: "biometricos",
+        reportGroup: "inscripcion",
+        bookingTime: "11:00",
+      }),
+      entry({
+        bookingId: "tc",
+        kind: "biometricos",
+        reportGroup: "biometricos_tramite_completo",
+        bookingTime: "08:00",
+      }),
+    ]);
+    assert.deepEqual(
+      blocks.map((b) => `${b.reportGroup}|${b.title}`),
+      [
+        "biometricos_tramite_completo|BIOMÉTRICOS / TRÁMITE COMPLETO — 8:00 AM",
+        "biometricos|BIOMÉTRICOS — 10:00 AM",
+        "inscripcion|INSCRIPCIÓN — 11:00 AM",
+        "firmas|FIRMAS — 9:30 AM",
+        "notificacion|NOTIFICACIÓN — 9:00 AM",
+      ],
+    );
   });
 
   it("ninguna cita perdida; fallback kind; inscripción y trámite completo", async () => {
@@ -429,8 +514,8 @@ describe("exportMesaCitasExcel — bloques P109", () => {
     // Tercer bloque en col I.
     assert.equal(String(ws.getCell("I1").value), "INSCRIPCIÓN — 11:00 AM");
 
-    // Cuarto bloque debajo (altura bloque 1 = 3 filas → fila 4).
-    assert.equal(String(ws.getCell("A4").value), "FIRMAS — 12:00 PM");
+    // Cuarto bloque debajo: Firmas oficial 9:30 AM (no la hora real 12:00).
+    assert.equal(String(ws.getCell("A4").value), "FIRMAS — 9:30 AM");
 
     const titleFill = ws.getCell("A1").fill as ExcelJS.FillPattern;
     assert.ok(String(titleFill?.fgColor?.argb ?? "").toUpperCase().endsWith("6B2D8B"));
@@ -447,7 +532,7 @@ describe("exportMesaCitasExcel — bloques P109", () => {
     const rt = roundTrip.getWorksheet(MESA_CITAS_EXCEL_SHEET_NAME)!;
     assert.equal(String(rt.getCell("B3").value), "01234567890");
     assert.equal(String(rt.getCell("E1").value), "BIOMÉTRICOS — 10:30 AM");
-    assert.equal(String(rt.getCell("A4").value), "FIRMAS — 12:00 PM");
+    assert.equal(String(rt.getCell("A4").value), "FIRMAS — 9:30 AM");
     const rtTitle = rt.getCell("A1").fill as ExcelJS.FillPattern;
     assert.ok(String(rtTitle?.fgColor?.argb ?? "").toUpperCase().endsWith("6B2D8B"));
   });

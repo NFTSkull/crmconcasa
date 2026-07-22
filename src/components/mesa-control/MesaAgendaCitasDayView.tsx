@@ -1,14 +1,12 @@
 "use client";
 
 import type { MesaAgendaBookingEntry } from "@/domain/agenda-calendar/mesa.types";
-import type { MesaAgendaReportGroup } from "@/domain/agenda-calendar/mesa-report-group";
 import { mesaAgendaBookingPersonDisplayName } from "@/domain/agenda-calendar/mesa.mapper";
 import {
   MesaAgendaEntryActions,
   MesaAgendaEntryBadges,
 } from "@/components/mesa-control/MesaAgendaCitasEntryParts";
 import { MesaAgendaBulkRowCheckbox } from "@/components/mesa-control/MesaAgendaBulkSelectionBar";
-import { MesaAgendaReportGroupControl } from "@/components/mesa-control/MesaAgendaReportGroupControl";
 import {
   deriveMesaAgendaHistoryLabel,
   groupMesaAgendaEntriesByTime,
@@ -29,11 +27,6 @@ type MesaAgendaCitasDayViewProps = Readonly<{
   onRequestCancel?: (entry: MesaAgendaBookingEntry) => void;
   onRequestReagendar?: (entry: MesaAgendaBookingEntry) => void;
   onToggleDriveValidation?: (entry: MesaAgendaBookingEntry) => void;
-  reportGroupPendingBookingId?: string | null;
-  onReportGroupChange?: (
-    entry: MesaAgendaBookingEntry,
-    next: MesaAgendaReportGroup,
-  ) => void;
   selectedBookingIds?: ReadonlySet<string>;
   isBulkRowSelectable?: (entry: MesaAgendaBookingEntry) => boolean;
   bulkNotSelectableReason?: (entry: MesaAgendaBookingEntry) => string;
@@ -61,8 +54,6 @@ export function MesaAgendaCitasDayView({
   onRequestCancel,
   onRequestReagendar,
   onToggleDriveValidation,
-  reportGroupPendingBookingId = null,
-  onReportGroupChange,
   selectedBookingIds,
   isBulkRowSelectable,
   bulkNotSelectableReason,
@@ -143,14 +134,7 @@ export function MesaAgendaCitasDayView({
                       showHistoryIndicator={showHistoryIndicator}
                     />
                   </div>
-                  <div className="mt-2 space-y-2">
-                    <MesaAgendaReportGroupControl
-                      entry={entry}
-                      pending={reportGroupPendingBookingId === entry.bookingId}
-                      disabled={bulkBusy}
-                      compact
-                      onChange={onReportGroupChange}
-                    />
+                  <div className="mt-2">
                     <MesaAgendaEntryActions
                       entry={entry}
                       showCancel={canCancelEntry(entry)}

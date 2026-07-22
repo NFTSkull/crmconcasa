@@ -142,7 +142,7 @@ La UI identifica al hijo como **Reingreso / Reinscripción** y **Biométricos re
 - Botón `Descargar Excel` en `/mesa-control/citas`; exporta el día operativo (`lista`→`listaStartDate`, `dia`→`selectedDay`, `semana`→`weekDetailDay ?? selectedDay`) con filtros activos.
 - Util `exportMesaCitasExcel` genera `.xlsx` hoja `Citas`; archivo `citas-mesa-YYYY-MM-DD.xlsx`.
 - Columnas por bloque: `Fecha` | `NSS` | `Nombre completo`; estilos plantilla oficial; NSS texto; fecha DD/MM/YYYY.
-- **P109:** bloques por `report_group` resuelto + horario (máx. 3 horizontales); Mesa corrige clasificación vía select «Clasificación para Excel» sin alterar `kind`/cita.
+- **P109/P110:** bloques por `report_group` resuelto + horario (máx. 3 horizontales). P110: sin selector manual; clasificación automática por `kind` (conserva históricos `inscripcion`/`biometricos_tramite_completo`); Firmas siempre `FIRMAS — 9:30 AM` en el Excel (solo presentación).
 - in-memory; estados Generando/éxito/vacío/error; bloqueo doble clic; sin selección/límite 100/Storage.
 
 **Intacto:** P089, cancel/reagendar individual, `booking_kind` operativo.
