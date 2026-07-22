@@ -12,6 +12,7 @@ import {
   getCorrespondenciaNumeracionEtapa,
   NOTA_NUMERACION_ETAPAS,
   opcionesFiltroPasoOperativo,
+  opcionesMovimientoManualPaso,
 } from "./etapa-numeracion-ux";
 import {
   etapasInternasParaPasoVisual,
@@ -80,9 +81,42 @@ test("filtro: 11 opciones; paso 3 → internas [3,4]; paso 4 → [5]", () => {
   assert.equal(etapasInternasParaFiltroPaso("todas"), null);
 });
 
-test("destino manual distingue interna 4 en el mismo paso 3", () => {
-  assert.match(formatPasoOperativoDestinoLabel(4), /Cita agendada/);
-  assert.match(formatPasoOperativoDestinoLabel(3), /Listo para cita/);
+test("destino manual usa etiqueta visible (interna 4 = Paso 3)", () => {
+  assert.equal(
+    formatPasoOperativoDestinoLabel(4),
+    "Paso 3 de 11 — Listo para cita de biométrico",
+  );
+  assert.equal(
+    formatPasoOperativoDestinoLabel(3),
+    "Paso 3 de 11 — Listo para cita de biométrico",
+  );
+});
+
+test("P106: selector movimiento manual — 11 pasos únicos; nunca interna 4", () => {
+  const all = opcionesMovimientoManualPaso();
+  assert.equal(all.length, 11);
+  const pasos = all.map((o) => o.pasoVisual);
+  assert.deepEqual(pasos, [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
+  assert.equal(new Set(pasos).size, 11);
+  assert.ok(!all.some((o) => o.etapaInternaDestino === 4));
+  assert.ok(!all.some((o) => o.label.includes("Etapa 12")));
+  assert.ok(!all.some((o) => /Cita agendada/.test(o.label)));
+
+  const paso3 = all.find((o) => o.pasoVisual === 3);
+  assert.equal(paso3?.etapaInternaDestino, 3);
+  assert.match(paso3!.label, /Listo para cita de biométrico/);
+
+  const paso4 = all.find((o) => o.pasoVisual === 4);
+  assert.equal(paso4?.etapaInternaDestino, 5);
+  assert.match(paso4!.label, /Biometría \(resultado\)/);
+
+  const paso11 = all.find((o) => o.pasoVisual === 11);
+  assert.equal(paso11?.etapaInternaDestino, 12);
+  assert.match(paso11!.label, /Pago a ConCasa/);
+
+  const sinPaso3 = opcionesMovimientoManualPaso({ excluirPasoVisualActual: 3 });
+  assert.equal(sinPaso3.length, 10);
+  assert.ok(!sinPaso3.some((o) => o.pasoVisual === 3));
 });
 
 test("nota de numeración documenta 11 pasos y etapa_actual", () => {

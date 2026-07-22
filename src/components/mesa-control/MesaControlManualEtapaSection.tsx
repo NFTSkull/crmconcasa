@@ -17,10 +17,11 @@ import {
   useExpedientesRepo,
   type MesaMovimientoHistorialRow,
 } from "@/domain/expedientes";
-import { ETAPAS_OPERATIVAS_ASESOR } from "@/domain/expedientes/asesor-seguimiento-operativo";
+import { mapEtapaInternaAPasoVisual } from "@/domain/expedientes/asesor-seguimiento-operativo";
 import {
   formatEtapaMesaLabel,
-  formatPasoOperativoDestinoLabel,
+  formatPasoOperativoLabel,
+  opcionesMovimientoManualPaso,
 } from "@/domain/expedientes/etapa-numeracion-ux";
 
 type Props = Readonly<{
@@ -70,7 +71,8 @@ export function MesaControlManualEtapaSection({
   onRefresh,
 }: Props) {
   const repo = useExpedientesRepo();
-  const [destino, setDestino] = useState(etapaActual);
+  /** Destino interno canónico; null = placeholder «Selecciona otro paso». */
+  const [destino, setDestino] = useState<number | null>(null);
   const [motivo, setMotivo] = useState("");
   const [confirming, setConfirming] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -88,6 +90,15 @@ export function MesaControlManualEtapaSection({
   });
   const visible = estado.visible;
   const habilitado = estado.habilitado;
+
+  const pasoActualVisual = mapEtapaInternaAPasoVisual(etapaActual);
+  const opcionesDestino = useMemo(
+    () =>
+      opcionesMovimientoManualPaso({
+        excluirPasoVisualActual: pasoActualVisual,
+      }),
+    [pasoActualVisual],
+  );
 
   const elegibleRechazoOperativo = esElegibleRechazoOperativoPostBiometricos({
     submittedToMesa,
@@ -107,23 +118,25 @@ export function MesaControlManualEtapaSection({
   }, [expedienteId, repo, visible]);
 
   useEffect(() => {
-    setDestino(etapaActual);
+    setDestino(null);
     setConfirming(false);
     void loadHistory();
   }, [etapaActual, loadHistory]);
 
   const warnings = useMemo(
     () =>
-      deriveMesaMovimientoAdvertencias({
-        etapaActual,
-        etapaDestino: destino,
-        hasBiometricBooking,
-        hasFirmasBooking,
-        hasMonto,
-        hasMissingDocuments,
-        hasRetencion,
-        hasValidatedData,
-      }),
+      destino == null
+        ? []
+        : deriveMesaMovimientoAdvertencias({
+            etapaActual,
+            etapaDestino: destino,
+            hasBiometricBooking,
+            hasFirmasBooking,
+            hasMonto,
+            hasMissingDocuments,
+            hasRetencion,
+            hasValidatedData,
+          }),
     [
       destino,
       etapaActual,
@@ -139,16 +152,20 @@ export function MesaControlManualEtapaSection({
   if (!visible) return null;
 
   const direction =
-    destino === etapaActual
+    destino == null
       ? null
       : getMesaMovimientoDireccion(etapaActual, destino);
-  const parsedInput = mesaMovimientoInputSchema.safeParse({
-    etapaDestino: destino,
-    etapaEsperada: etapaActual,
-    motivo,
-  });
+  const parsedInput =
+    destino == null
+      ? null
+      : mesaMovimientoInputSchema.safeParse({
+          etapaDestino: destino,
+          etapaEsperada: etapaActual,
+          motivo,
+        });
   const canConfirm =
     habilitado &&
+    destino != null &&
     puedeConfirmarMovimientoMesa({
       etapaActual,
       etapaDestino: destino,
@@ -158,7 +175,9 @@ export function MesaControlManualEtapaSection({
   const controlsDisabled = saving || !habilitado;
 
   async function handleConfirm() {
-    if (!habilitado || !parsedInput.success || !canConfirm) return;
+    if (!habilitado || !parsedInput?.success || !canConfirm || destino == null) {
+      return;
+    }
     setSaving(true);
     setError(null);
     setSuccess(null);
@@ -168,9 +187,10 @@ export function MesaControlManualEtapaSection({
         parsedInput.data,
       );
       setSuccess(
-        `Movimiento registrado: etapa ${result.etapa_anterior} → ${result.etapa_actual}.`,
+        `Movimiento registrado: ${formatPasoOperativoLabel(result.etapa_anterior)} → ${formatPasoOperativoLabel(result.etapa_actual)}.`,
       );
       setMotivo("");
+      setDestino(null);
       setConfirming(false);
       await loadHistory();
       onRefresh();
@@ -228,27 +248,33 @@ export function MesaControlManualEtapaSection({
           Paso destino
           <select
             className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 disabled:cursor-not-allowed disabled:bg-gray-100"
-            value={destino}
+            value={destino == null ? "" : String(destino)}
             disabled={controlsDisabled}
+            data-testid="mesa-movimiento-paso-destino"
             onChange={(event) => {
-              setDestino(Number(event.target.value));
+              const raw = event.target.value;
+              setDestino(raw === "" ? null : Number(raw));
               setConfirming(false);
               setError(null);
             }}
           >
-            {ETAPAS_OPERATIVAS_ASESOR.map((etapa) => (
-              <option key={etapa.id} value={etapa.id}>
-                {formatPasoOperativoDestinoLabel(etapa.id)}
+            <option value="">Selecciona otro paso</option>
+            {opcionesDestino.map((opcion) => (
+              <option
+                key={opcion.pasoVisual}
+                value={opcion.etapaInternaDestino}
+              >
+                {opcion.label}
               </option>
             ))}
           </select>
         </label>
         <div className="rounded-md border border-amber-200 bg-white px-3 py-2 text-sm">
           <span className="font-medium">Tipo de movimiento:</span>{" "}
-          {direction ?? "Selecciona otra etapa"}
-          {destino !== etapaActual ? (
+          {direction ?? "Selecciona otro paso"}
+          {destino != null ? (
             <p className="mt-1 text-xs text-gray-600">
-              Destino: {formatPasoOperativoDestinoLabel(destino)}
+              Destino: {formatPasoOperativoLabel(destino)}
             </p>
           ) : null}
         </div>
@@ -301,8 +327,9 @@ export function MesaControlManualEtapaSection({
           className="mt-3 rounded-md border border-red-200 bg-white p-3"
         >
           <p className="text-xs text-gray-800">
-            Si debes rechazar el expediente en el paso actual ({formatEtapaMesaLabel(etapaActual)}), usa el
-            rechazo operativo canónico (no este movimiento).
+            Si debes rechazar el expediente en el paso actual (
+            {formatEtapaMesaLabel(etapaActual)}), usa el rechazo operativo
+            canónico (no este movimiento).
           </p>
           <Button
             type="button"
@@ -409,7 +436,8 @@ export function MesaControlManualEtapaSection({
                 className="rounded-md border border-gray-200 bg-white p-3 text-xs text-gray-700"
               >
                 <p className="font-medium text-gray-900">
-                  {item.etapa_origen} → {item.etapa_destino} ·{" "}
+                  {formatPasoOperativoLabel(item.etapa_origen)} →{" "}
+                  {formatPasoOperativoLabel(item.etapa_destino)} ·{" "}
                   {formatCreatedAt(item.created_at)}
                 </p>
                 <p className="mt-1">{item.motivo}</p>

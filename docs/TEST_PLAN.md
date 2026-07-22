@@ -1,5 +1,12 @@
 # ConCasa CRM — Plan de pruebas
 
+## P106 — Movimiento manual 11 pasos únicos
+
+- [x] Selector: 11 opciones; Paso 3 una sola vez; envía interna 3 / Paso 4 → 5.
+- [x] Interna 4 no seleccionable; se muestra como Paso 3.
+- [x] Historial con numeración visible; sin «Etapa 12».
+- [x] Sin SQL/RPC/Cloud.
+
 ## P105 — Mesa 11 pasos (paridad Asesor)
 
 - [x] UI Mesa solo `Paso 1–11 de 11`; sin `Etapa 12` / hints asesor.

@@ -50,13 +50,35 @@ export function formatPasoOperativoLabel(
 }
 
 /**
- * Destino de movimiento manual: distingue internas 3 y 4 (mismo paso visual).
- * Ej.: «Paso 3 de 11 — Cita agendada (biométricos)».
+ * Destino canónico de movimiento manual (P106): misma etiqueta que el paso visible.
+ * La interna 4 no es seleccionable; se muestra como Paso 3 vía `formatPasoOperativoLabel`.
  */
 export function formatPasoOperativoDestinoLabel(etapaInterna: number): string {
-  const paso = mapEtapaInternaAPasoVisual(etapaInterna);
-  const nombre = getEtapaOperativaNombre(etapaInterna);
-  return `Paso ${paso} de ${TOTAL_PASOS_VISUALES_OPERATIVOS} — ${nombre}`;
+  return formatPasoOperativoLabel(etapaInterna);
+}
+
+/**
+ * Opciones del selector «Paso destino» (P106): exactamente 11 pasos únicos.
+ * `etapaInternaDestino` es la canónica (paso 3 → 3, paso 4 → 5, …); nunca 4.
+ */
+export type OpcionMovimientoManualPaso = Readonly<{
+  pasoVisual: number;
+  etapaInternaDestino: number;
+  label: string;
+}>;
+
+export function opcionesMovimientoManualPaso(opts?: {
+  /** Paso visual actual a excluir (p. ej. 3 si el expediente está en interna 3 o 4). */
+  excluirPasoVisualActual?: number | null;
+}): readonly OpcionMovimientoManualPaso[] {
+  const exclude = opts?.excluirPasoVisualActual ?? null;
+  return ETAPAS_VISUALES_OPERATIVAS.filter(
+    (e) => exclude == null || e.pasoVisual !== exclude,
+  ).map((e) => ({
+    pasoVisual: e.pasoVisual,
+    etapaInternaDestino: e.etapaInterna,
+    label: `Paso ${e.pasoVisual} de ${TOTAL_PASOS_VISUALES_OPERATIVOS} — ${e.nombre}`,
+  }));
 }
 
 /** @deprecated Usar `formatPasoOperativoLabel` (P105: Mesa = mismos 11 pasos). */
