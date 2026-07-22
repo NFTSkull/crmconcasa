@@ -13,7 +13,7 @@ import {
   SeguimientoOperativoMock,
   type SeguimientoOperativoMockSummary,
 } from "@/components/seguimiento/SeguimientoOperativoMock";
-import { ETAPAS_LABELS } from "../mockData";
+import { formatPasoOperativoLabel } from "@/domain/expedientes/etapa-numeracion-ux";
 import { MockExpedientesRepo, type ExpedienteMock } from "@/domain/expedientes/mock.repo";
 import {
   DOCUMENTO_TIPOS,
@@ -1372,9 +1372,9 @@ function MesaControlExpedienteMockPage() {
           <h2 className="mb-4 text-base font-semibold text-gray-900">Resumen operativo</h2>
           <dl className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             <div>
-              <dt className="text-xs font-medium uppercase text-gray-500">Etapa actual</dt>
+              <dt className="text-xs font-medium uppercase text-gray-500">Paso actual</dt>
               <dd className="mt-0.5 text-sm text-gray-700">
-                {etapaActualDisplay}. {ETAPAS_LABELS[etapaActualDisplay]}
+                {formatPasoOperativoLabel(etapaActualDisplay)}
               </dd>
             </div>
             <div>

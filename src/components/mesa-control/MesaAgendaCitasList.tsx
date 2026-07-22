@@ -5,6 +5,7 @@ import { mesaAgendaBookingPersonDisplayName } from "@/domain/agenda-calendar/mes
 import { MesaAgendaCitaCard, MesaAgendaEntryActions } from "@/components/mesa-control/MesaAgendaCitasEntryParts";
 import { MesaAgendaBulkRowCheckbox } from "@/components/mesa-control/MesaAgendaBulkSelectionBar";
 import { Select } from "@/components/ui/Select";
+import { formatPasoOperativoLabel } from "@/domain/expedientes/etapa-numeracion-ux";
 import {
   deriveMesaAgendaHistoryLabel,
   formatMesaAgendaCreatedAt,
@@ -170,7 +171,11 @@ export function MesaAgendaCitasList({
                     {entry.nss ? (
                       <div className="text-xs text-slate-500">NSS: {entry.nss}</div>
                     ) : null}
-                    <div className="text-xs text-slate-500">Etapa {entry.etapaActual}</div>
+                    <div className="text-xs text-slate-500">
+                      {typeof entry.etapaActual === "number"
+                        ? formatPasoOperativoLabel(entry.etapaActual)
+                        : "Paso —"}
+                    </div>
                     {entry.note ? (
                       <div className="mt-1 text-xs text-slate-500">Nota: {entry.note}</div>
                     ) : null}

@@ -4,6 +4,7 @@ import Link from "next/link";
 import type { MesaAgendaBookingEntry } from "@/domain/agenda-calendar/mesa.types";
 import { mesaAgendaBookingPersonDisplayName } from "@/domain/agenda-calendar/mesa.mapper";
 import { MesaAgendaBulkRowCheckbox } from "@/components/mesa-control/MesaAgendaBulkSelectionBar";
+import { formatPasoOperativoLabel } from "@/domain/expedientes/etapa-numeracion-ux";
 import {
   buildMesaExpedienteDetailHref,
   deriveMesaAgendaHistoryLabel,
@@ -92,8 +93,12 @@ export function MesaAgendaEntryDetails({
         <dd className="inline">{entry.locationId ?? "—"}</dd>
       </div>
       <div>
-        <dt className="inline font-medium text-slate-700">Etapa: </dt>
-        <dd className="inline">{entry.etapaActual}</dd>
+        <dt className="inline font-medium text-slate-700">Paso: </dt>
+        <dd className="inline">
+          {typeof entry.etapaActual === "number"
+            ? formatPasoOperativoLabel(entry.etapaActual)
+            : "—"}
+        </dd>
       </div>
       <div>
         <dt className="inline font-medium text-slate-700">Creada: </dt>

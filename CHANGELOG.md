@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **fix/etapas-mesa-11-pasos — P105 (local, sin commit/Cloud write):** Mesa muestra los mismos 11 pasos del asesor (`Paso X de 11`); filtros por paso visual (paso 3 ⊆ internas 3+4); `etapa_actual` 1–12 intacta; sin SQL/RPC.
+
 - **feat/notificacion-apodaca — P104 (local, sin commit/Cloud):** tipo opcional `cliente_notificacion_apodaca` («Notificación solo Apodaca»); upload Asesor + DocumentDropzone; Mesa preview/descarga; migración `095_…sql` sin Cloud; ≠ `cliente_notificacion` / agenda.
 
 - **feat/drag-drop-documentos — P103 (local, sin commit/Cloud):** `DocumentDropzone` reutilizable en Asesor y Mesa (generales, complementarios, Pagaré, Notificación, Solicitud, retención); misma validación/subida; sin SQL/RPC/deps.

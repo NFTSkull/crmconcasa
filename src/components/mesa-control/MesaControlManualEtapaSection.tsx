@@ -19,8 +19,8 @@ import {
 } from "@/domain/expedientes";
 import { ETAPAS_OPERATIVAS_ASESOR } from "@/domain/expedientes/asesor-seguimiento-operativo";
 import {
-  formatEtapaMesaCorrespondenciaAsesor,
   formatEtapaMesaLabel,
+  formatPasoOperativoDestinoLabel,
 } from "@/domain/expedientes/etapa-numeracion-ux";
 
 type Props = Readonly<{
@@ -38,13 +38,6 @@ type Props = Readonly<{
   hasValidatedData: boolean;
   onRefresh: () => void;
 }>;
-
-function etapaNombre(etapa: number): string {
-  return (
-    ETAPAS_OPERATIVAS_ASESOR.find((item) => item.id === etapa)?.nombre ??
-    `Etapa ${etapa}`
-  );
-}
 
 function formatCreatedAt(value: string): string {
   const date = new Date(value);
@@ -103,8 +96,6 @@ export function MesaControlManualEtapaSection({
     etapaActual,
   });
   const motivoPareceRechazo = motivoManualPareceRechazo(motivo);
-  const correspondenciaAsesor =
-    formatEtapaMesaCorrespondenciaAsesor(etapaActual);
 
   const loadHistory = useCallback(async () => {
     if (!visible) return;
@@ -218,11 +209,8 @@ export function MesaControlManualEtapaSection({
           {MESA_MOVIMIENTO_NO_ES_RECHAZO_COPY}
         </p>
         <p className="mt-2 text-xs font-medium text-amber-950">
-          Etapa actual: {formatEtapaMesaLabel(etapaActual)}
+          Paso actual: {formatEtapaMesaLabel(etapaActual)}
         </p>
-        {correspondenciaAsesor ? (
-          <p className="mt-1 text-xs text-amber-900">{correspondenciaAsesor}</p>
-        ) : null}
       </div>
 
       {!habilitado && estado.razon ? (
@@ -237,7 +225,7 @@ export function MesaControlManualEtapaSection({
 
       <div className="mt-4 grid gap-3 sm:grid-cols-2">
         <label className="text-sm font-medium text-gray-800">
-          Etapa destino
+          Paso destino
           <select
             className="mt-1 w-full rounded-md border border-gray-300 bg-white px-3 py-2 disabled:cursor-not-allowed disabled:bg-gray-100"
             value={destino}
@@ -250,7 +238,7 @@ export function MesaControlManualEtapaSection({
           >
             {ETAPAS_OPERATIVAS_ASESOR.map((etapa) => (
               <option key={etapa.id} value={etapa.id}>
-                {etapa.id}. {etapa.nombre}
+                {formatPasoOperativoDestinoLabel(etapa.id)}
               </option>
             ))}
           </select>
@@ -260,7 +248,7 @@ export function MesaControlManualEtapaSection({
           {direction ?? "Selecciona otra etapa"}
           {destino !== etapaActual ? (
             <p className="mt-1 text-xs text-gray-600">
-              Destino: {destino}. {etapaNombre(destino)}
+              Destino: {formatPasoOperativoDestinoLabel(destino)}
             </p>
           ) : null}
         </div>
@@ -313,7 +301,7 @@ export function MesaControlManualEtapaSection({
           className="mt-3 rounded-md border border-red-200 bg-white p-3"
         >
           <p className="text-xs text-gray-800">
-            Si debes rechazar el expediente en etapa {etapaActual}, usa el
+            Si debes rechazar el expediente en el paso actual ({formatEtapaMesaLabel(etapaActual)}), usa el
             rechazo operativo canónico (no este movimiento).
           </p>
           <Button

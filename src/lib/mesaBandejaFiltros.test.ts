@@ -280,10 +280,10 @@ describe("mesaBandejaFiltros — búsqueda cliente/teléfono", () => {
 });
 
 describe("mesaBandejaFiltros — etapa, subestado y citas de hoy", () => {
-  it("filtra por etapa y subestado", () => {
+  it("filtra por paso visual (interna 5 = paso 4) y subestado", () => {
     const list = aplicarFiltrosBandejaMesa(
       BANDEJA,
-      estado({ etapa: "5", subestado: "en_proceso" }),
+      estado({ etapa: "4", subestado: "en_proceso" }),
       HOY,
     );
     assert.equal(list.length, 1);
@@ -299,22 +299,34 @@ describe("mesaBandejaFiltros — etapa, subestado y citas de hoy", () => {
     assert.equal(list.length, 2);
   });
 
-  it("combinación búsqueda + etapa", () => {
+  it("combinación búsqueda + paso visual", () => {
     const list = aplicarFiltrosBandejaMesa(
       BANDEJA,
-      estado({ etapa: "5", subestado: "en_proceso", buscar: "laura" }),
+      estado({ etapa: "4", subestado: "en_proceso", buscar: "laura" }),
       HOY,
     );
     assert.equal(list.length, 1);
   });
 
-  it("En proceso + etapa 10", () => {
+  it("En proceso + paso 9 (interna 10)", () => {
     const list = aplicarFiltrosBandejaMesa(
       BANDEJA,
-      estado({ quickFilter: "en_proceso", etapa: "10" }),
+      estado({ quickFilter: "en_proceso", etapa: "9" }),
       HOY,
     );
     assert.equal(list.length, 1);
     assert.equal(list[0]?.cliente_nombre, "Miguel Torres");
+  });
+
+  it("paso 3 incluye internas 3 y 4", () => {
+    const mix = [
+      ...BANDEJA,
+      item({ cliente_nombre: "Bio Tres", etapaActual: 3, subestado: "en_proceso" }),
+      item({ cliente_nombre: "Bio Cuatro", etapaActual: 4, subestado: "en_proceso" }),
+    ];
+    const list = aplicarFiltrosBandejaMesa(mix, estado({ etapa: "3" }), HOY);
+    assert.equal(list.length, 2);
+    assert.ok(list.some((c) => c.cliente_nombre === "Bio Tres"));
+    assert.ok(list.some((c) => c.cliente_nombre === "Bio Cuatro"));
   });
 });

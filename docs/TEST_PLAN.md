@@ -1,5 +1,13 @@
 # ConCasa CRM — Plan de pruebas
 
+## P105 — Mesa 11 pasos (paridad Asesor)
+
+- [x] UI Mesa solo `Paso 1–11 de 11`; sin `Etapa 12` / hints asesor.
+- [x] Interna 4 → paso 3; interna 5 → paso 4; interna 12 → paso 11.
+- [x] Filtro paso 3 incluye internas 3+4; RPC recibe valores internos.
+- [x] `book_biometricos` 3→4 (sin cambio SQL); Asesor 11 pasos intacto.
+- [x] Sin Cloud write / sin renumerar `etapa_actual`.
+
 ## P104 — Notificación solo Apodaca (opcional)
 
 - [x] Tipo `cliente_notificacion_apodaca` ≠ `cliente_notificacion` / `notificacion`.

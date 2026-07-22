@@ -63,6 +63,27 @@ export function mapEtapaInternaAPasoVisual(etapaInterna: number): number {
   return etapaInterna - 1;
 }
 
+/**
+ * Inverso del mapper visual: internas que pertenecen a un paso 1–11.
+ * Paso 3 incluye la legacy 4 (cita biométricos agendada).
+ */
+export function etapasInternasParaPasoVisual(pasoVisual: number): number[] {
+  if (!Number.isFinite(pasoVisual) || pasoVisual < 1 || pasoVisual > TOTAL_PASOS_VISUALES_OPERATIVOS) {
+    return [];
+  }
+  if (pasoVisual === 3) {
+    return [3, ETAPA_INTERNA_LEGACY_CITA_BIOMETRICOS];
+  }
+  if (pasoVisual <= 2) return [pasoVisual];
+  return [pasoVisual + 1];
+}
+
+/** Etapa interna canónica a enviar al backend cuando el paso es 1:1 (paso 3 → 3). */
+export function etapaInternaCanonicaParaPasoVisual(pasoVisual: number): number | null {
+  const list = etapasInternasParaPasoVisual(pasoVisual);
+  return list[0] ?? null;
+}
+
 export function getEtapaVisualNombre(etapaInterna: number | null | undefined): string {
   const resolved = resolveEtapaActualOperativa(etapaInterna);
   if (resolved === ETAPA_INTERNA_LEGACY_CITA_BIOMETRICOS) {
