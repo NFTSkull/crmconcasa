@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **fix/mesa-citas-excel-auto — P110 (local, sin commit/Cloud):** quita selector «Clasificación para Excel» de Citas Mesa; Excel clasifica por `kind` (conserva históricos `inscripcion`/`biometricos_tramite_completo`); Firmas agrupa siempre como `FIRMAS — 9:30 AM` solo en reporte; `booking_time`/RPC Cloud intactos.
+
 - **feat/mesa-citas-excel-bloques — P109:** `agenda_bookings.report_group` (nullable + CHECK) + RPC `mesa_set_agenda_booking_report_group`; UI Mesa «Clasificación para Excel»; Excel agrupa por `report_group` resuelto + hora (máx. 3 bloques horizontales); `kind` operativo intacto; migración `097_…sql`.
 
 - **fix/mesa-citas-excel-oficial — P107:** Excel de `/mesa-control/citas` usa plantilla `public/templates/reporte-citas-mesa.xlsx` (título morado, encabezado azul, filas alternadas); columnas Fecha|NSS|Nombre; NSS texto; fecha DD/MM/YYYY; filtros/P095 intactos; sin SQL/RPC/Cloud.

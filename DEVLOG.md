@@ -1,5 +1,13 @@
 # Devlog
 
+## 2026-07-22 - P110: Clasificación automática + Firmas 9:30 AM en Excel
+
+### Decisión
+El selector manual de clasificación en Citas Mesa se elimina. Cloud conserva `report_group`, CHECK y RPC (sin uso desde UI). El Excel resuelve grupo por `kind`, salvo valores históricos especiales `inscripcion` y `biometricos_tramite_completo`.
+
+### Firmas en reporte
+Todas las citas `firmas` del día se agrupan bajo el título de presentación `FIRMAS — 9:30 AM`. No se modifica `booking_time`, UI de citas, filtros, cancel/reagendar ni RPCs operativas.
+
 ## 2026-07-22 - P109: Excel citas por tipo y horario
 
 ### Decisión

@@ -790,11 +790,11 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 
 **Export Excel (B2 util + B3 UI + P107/P109):**
 - UI: botón `Descargar Excel` → `downloadMesaCitasExcel(loadedEntries, exportDayYmd, filters, sortBy)`; día vía `resolveMesaCitasExportDayYmd`; independiente de `selectedBookingIds` / límite 100.
-- `prepareMesaCitasExport(entries, fechaYmd, filters, sortBy)` → workbook in-memory agrupado por `report_group` resuelto + `bookingTime`.
+- `prepareMesaCitasExport(entries, fechaYmd, filters, sortBy)` → workbook in-memory agrupado por `report_group` resuelto + `bookingTime` (Firmas: hora oficial de presentación `09:30`).
 - Archivo `citas-mesa-YYYY-MM-DD.xlsx`; hoja `Citas`; por bloque: `Fecha` | `NSS` | `Nombre completo`.
 - Lectura: `get_mesa_agenda_bookings` incluye `report_group`.
-- Mutación clasificación: RPC `mesa_set_agenda_booking_report_group(p_booking_id, p_report_group)` — solo Mesa/admin; no muta kind/fecha/hora/status; `action_log` `agenda.booking.report_group`.
-- Fallback null: `kind=biometricos→biometricos`, `firmas→firmas`, `notificacion→notificacion`.
+- **P110:** sin UI de clasificación; resolver Excel = especiales históricos (`inscripcion`, `biometricos_tramite_completo`) o fallback por `kind`. RPC `mesa_set_agenda_booking_report_group` permanece en Cloud sin cableado UI.
+- Firmas: bloque único `FIRMAS — 9:30 AM` (no muta `booking_time`).
 
 ---
 

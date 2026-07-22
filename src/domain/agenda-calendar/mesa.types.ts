@@ -32,7 +32,7 @@ export type MesaAgendaBookingEntry = Readonly<{
   driveValidated: boolean;
   driveValidatedAt: string | null;
   driveValidatedBy: MesaAgendaBookingPerson | null;
-  /** Clasificación Excel (P109). null → fallback por kind. */
+  /** Clasificación Excel (P109/P110). Especiales históricos se conservan; resto → kind. */
   reportGroup: string | null;
 }>;
 

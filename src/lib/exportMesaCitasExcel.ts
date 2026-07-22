@@ -35,6 +35,12 @@ export const MESA_CITAS_EXCEL_HEADERS = [
 /** Máximo de bloques lado a lado (P109). */
 export const MESA_CITAS_EXCEL_BLOCKS_PER_ROW = 3;
 
+/**
+ * Hora oficial de presentación/agrupación Excel para Firmas (P110).
+ * No muta `booking_time` real ni la UI de Citas Mesa.
+ */
+export const MESA_CITAS_EXCEL_FIRMAS_OFFICIAL_TIME = "09:30";
+
 /** Columnas de datos por bloque + 1 columna vacía de separación. */
 const COLS_PER_BLOCK = 3;
 const COL_STRIDE = COLS_PER_BLOCK + 1;
@@ -149,13 +155,31 @@ export function buildMesaCitasExcelBlockTitle(
   bookingTime: string | null | undefined,
 ): string {
   const label = MESA_AGENDA_REPORT_GROUP_LABELS[reportGroup];
+  if (reportGroup === "firmas") {
+    return `${label} — ${formatMesaCitasExcelTimeLabel12h(MESA_CITAS_EXCEL_FIRMAS_OFFICIAL_TIME)}`;
+  }
   const timeLabel = formatMesaCitasExcelTimeLabel12h(bookingTime);
   if (!timeLabel) return `${label} — SIN HORARIO`;
   return `${label} — ${timeLabel}`;
 }
 
 /**
- * Agrupa citas por `report_group` resuelto + hora.
+ * Hora de bloque Excel: Firmas fuerza 09:30 oficial; resto usa bookingTime real.
+ * No altera el booking operativo.
+ */
+export function resolveMesaCitasExcelBlockTime(
+  reportGroup: MesaAgendaReportGroup,
+  bookingTime: string | null | undefined,
+): string | null {
+  if (reportGroup === "firmas") {
+    return MESA_CITAS_EXCEL_FIRMAS_OFFICIAL_TIME;
+  }
+  return normalizeMesaCitasExcelBookingTime(bookingTime);
+}
+
+/**
+ * Agrupa citas por `report_group` resuelto + hora de bloque Excel.
+ * Firmas del día → un solo bloque `FIRMAS — 9:30 AM`.
  * Orden: grupos canónicos → hora ascendente (SIN HORARIO al final).
  */
 export function groupMesaCitasIntoExcelBlocks(
@@ -172,7 +196,10 @@ export function groupMesaCitasIntoExcelBlocks(
 
   for (const entry of entries) {
     const reportGroup = resolveMesaAgendaReportGroup(entry);
-    const bookingTime = normalizeMesaCitasExcelBookingTime(entry.bookingTime);
+    const bookingTime = resolveMesaCitasExcelBlockTime(
+      reportGroup,
+      entry.bookingTime,
+    );
     const key = `${reportGroup}|${bookingTime ?? ""}`;
     const existing = buckets.get(key);
     if (existing) {

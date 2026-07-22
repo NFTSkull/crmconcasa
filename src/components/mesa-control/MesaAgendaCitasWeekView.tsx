@@ -1,7 +1,6 @@
 "use client";
 
 import type { MesaAgendaBookingEntry } from "@/domain/agenda-calendar/mesa.types";
-import type { MesaAgendaReportGroup } from "@/domain/agenda-calendar/mesa-report-group";
 import { MesaAgendaCitasDayView } from "@/components/mesa-control/MesaAgendaCitasDayView";
 import {
   deriveMesaAgendaWeekDaySummaries,
@@ -25,11 +24,6 @@ type MesaAgendaCitasWeekViewProps = Readonly<{
   onRequestCancel?: (entry: MesaAgendaBookingEntry) => void;
   onRequestReagendar?: (entry: MesaAgendaBookingEntry) => void;
   onToggleDriveValidation?: (entry: MesaAgendaBookingEntry) => void;
-  reportGroupPendingBookingId?: string | null;
-  onReportGroupChange?: (
-    entry: MesaAgendaBookingEntry,
-    next: MesaAgendaReportGroup,
-  ) => void;
   selectedBookingIds?: ReadonlySet<string>;
   isBulkRowSelectable?: (entry: MesaAgendaBookingEntry) => boolean;
   bulkNotSelectableReason?: (entry: MesaAgendaBookingEntry) => string;
@@ -95,8 +89,6 @@ export function MesaAgendaCitasWeekView({
   onRequestCancel,
   onRequestReagendar,
   onToggleDriveValidation,
-  reportGroupPendingBookingId = null,
-  onReportGroupChange,
   selectedBookingIds,
   isBulkRowSelectable,
   bulkNotSelectableReason,
@@ -139,8 +131,6 @@ export function MesaAgendaCitasWeekView({
             onRequestCancel={onRequestCancel}
             onRequestReagendar={onRequestReagendar}
             onToggleDriveValidation={onToggleDriveValidation}
-            reportGroupPendingBookingId={reportGroupPendingBookingId}
-            onReportGroupChange={onReportGroupChange}
             selectedBookingIds={selectedBookingIds}
             isBulkRowSelectable={isBulkRowSelectable}
             bulkNotSelectableReason={bulkNotSelectableReason}

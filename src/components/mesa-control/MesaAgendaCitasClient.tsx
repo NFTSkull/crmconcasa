@@ -13,14 +13,9 @@ import {
 } from "@/domain/agenda-firmas";
 import {
   fetchMesaAgendaBookings,
-  setMesaAgendaBookingReportGroup,
   setMesaAgendaDriveValidation,
 } from "@/domain/agenda-calendar/mesa.repo";
 import type { MesaAgendaBookingEntry } from "@/domain/agenda-calendar/mesa.types";
-import {
-  mapMesaReportGroupRpcError,
-  type MesaAgendaReportGroup,
-} from "@/domain/agenda-calendar/mesa-report-group";
 import {
   MesaAgendaCitasBackLink,
   MesaAgendaCitasFilters,
@@ -141,11 +136,6 @@ export function MesaAgendaCitasClient() {
   const [drivePendingBookingId, setDrivePendingBookingId] = useState<string | null>(null);
   const [driveError, setDriveError] = useState<string | null>(null);
   const [driveSuccess, setDriveSuccess] = useState<string | null>(null);
-  const [reportGroupPendingBookingId, setReportGroupPendingBookingId] = useState<
-    string | null
-  >(null);
-  const [reportGroupError, setReportGroupError] = useState<string | null>(null);
-  const [reportGroupSuccess, setReportGroupSuccess] = useState<string | null>(null);
   const [selectedBookingIds, setSelectedBookingIds] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
@@ -706,40 +696,6 @@ export function MesaAgendaCitasClient() {
     [drivePendingBookingId, loadEntries],
   );
 
-  const handleReportGroupChange = useCallback(
-    async (entry: MesaAgendaBookingEntry, next: MesaAgendaReportGroup) => {
-      if (reportGroupPendingBookingId || bulkBusyRef.current) return;
-      setReportGroupError(null);
-      setReportGroupSuccess(null);
-      setDriveSuccess(null);
-      setCancelSuccess(null);
-      setReagendarSuccess(null);
-      setReportGroupPendingBookingId(entry.bookingId);
-      try {
-        await setMesaAgendaBookingReportGroup({
-          bookingId: entry.bookingId,
-          reportGroup: next,
-        });
-        setLoadedEntries((prev) =>
-          prev.map((row) =>
-            row.bookingId === entry.bookingId
-              ? { ...row, reportGroup: next }
-              : row,
-          ),
-        );
-        setReportGroupSuccess("Clasificación para Excel actualizada.");
-      } catch (err) {
-        if (err instanceof MesaAgendaBookingsSupabaseError) {
-          setReportGroupError(err.message);
-        } else {
-          setReportGroupError(mapMesaReportGroupRpcError(err as { message?: string }).message);
-        }
-      } finally {
-        setReportGroupPendingBookingId(null);
-      }
-    },
-    [reportGroupPendingBookingId],
-  );
 
   const handleCloseCancelDialog = useCallback(() => {
     if (cancelSaving) return;
@@ -865,14 +821,10 @@ export function MesaAgendaCitasClient() {
     cancelPendingBookingId: cancelSaving ? cancelTarget?.bookingId ?? null : null,
     reagendarPendingBookingId: reagendarSaving ? reagendarTarget?.bookingId ?? null : null,
     drivePendingBookingId,
-    reportGroupPendingBookingId,
     onRequestCancel: handleRequestCancel,
     onRequestReagendar: handleRequestReagendar,
     onToggleDriveValidation: (entry: MesaAgendaBookingEntry) => {
       void handleToggleDriveValidation(entry);
-    },
-    onReportGroupChange: (entry: MesaAgendaBookingEntry, next: MesaAgendaReportGroup) => {
-      void handleReportGroupChange(entry, next);
     },
     selectedBookingIds,
     isBulkRowSelectable: isBulkRowSelectableCb,
@@ -1111,20 +1063,6 @@ export function MesaAgendaCitasClient() {
           </p>
         ) : null}
 
-        {reportGroupSuccess ? (
-          <p
-            role="status"
-            className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
-          >
-            {reportGroupSuccess}
-          </p>
-        ) : null}
-
-        {reportGroupError ? (
-          <p role="alert" className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
-            {reportGroupError}
-          </p>
-        ) : null}
       </div>
 
       <MesaCancelarCitaDialog

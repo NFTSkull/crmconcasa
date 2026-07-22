@@ -41,7 +41,7 @@ export function isMesaAgendaReportGroup(
   );
 }
 
-/** Fallback cuando `report_group` es null: deriva solo de `kind` operativo. */
+/** Fallback automático Excel (P110): deriva solo de `kind` operativo. */
 export function fallbackReportGroupFromKind(
   kind: string | null | undefined,
 ): MesaAgendaReportGroup {
@@ -50,11 +50,35 @@ export function fallbackReportGroupFromKind(
   return "biometricos";
 }
 
+/**
+ * Clasificaciones históricas especiales (P109) que el Excel conserva.
+ * Cualquier otro `report_group` (incl. null) cede al fallback de `kind`.
+ */
+export const MESA_AGENDA_REPORT_GROUP_HISTORICAL_SPECIAL = [
+  "biometricos_tramite_completo",
+  "inscripcion",
+] as const;
+
+export type MesaAgendaReportGroupHistoricalSpecial =
+  (typeof MESA_AGENDA_REPORT_GROUP_HISTORICAL_SPECIAL)[number];
+
+export function isHistoricalSpecialReportGroup(
+  value: string | null | undefined,
+): value is MesaAgendaReportGroupHistoricalSpecial {
+  return (
+    typeof value === "string" &&
+    (MESA_AGENDA_REPORT_GROUP_HISTORICAL_SPECIAL as readonly string[]).includes(
+      value,
+    )
+  );
+}
+
+/** Resolver Excel P110: especiales históricos o fallback automático por `kind`. */
 export function resolveMesaAgendaReportGroup(input: {
   reportGroup?: string | null;
   kind: string;
 }): MesaAgendaReportGroup {
-  if (isMesaAgendaReportGroup(input.reportGroup)) {
+  if (isHistoricalSpecialReportGroup(input.reportGroup)) {
     return input.reportGroup;
   }
   return fallbackReportGroupFromKind(input.kind);
