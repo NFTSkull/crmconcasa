@@ -16,6 +16,20 @@ export {
   paginateSortedExpedientes,
   sortExpedientesByCreatedAtDesc,
 } from "./list-for-asesor-paginated";
+export type {
+  ListForMesaControlPaginatedQuery,
+  MesaBandejaCursor,
+  MesaBandejaPageItem,
+  MesaBandejaServerCounts,
+  PaginatedMesaBandejaResult,
+} from "./list-for-mesa-control-paginated";
+export {
+  MESA_BANDEJA_PAGE_SIZE,
+  appendMesaBandejaItemsUnique,
+  mapAdminOrigenTabToRpc,
+  normalizeMesaBandejaPageLimit,
+  paginateMesaBandejaKeyset,
+} from "./list-for-mesa-control-paginated";
 export type { CreateExpedienteInput } from "./create-expediente.input";
 export type { UpsertEditorDecisionInput } from "./upsert-editor-decision.input";
 export type { EditorListPage, EditorListQuery } from "./editor-list-query";

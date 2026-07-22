@@ -16,9 +16,9 @@ import type { MesaOpsFilter } from "@/lib/mesaOpsUi";
  * - P094: «Todos» / operativos = ciclo activo; cancelados solo vía
  *   «Rechazos y cancelaciones» + subvista Cancelados.
  *
- * La bandeja de Mesa carga el conjunto completo visible (RLS + rol) sin paginación,
- * por lo que estos filtros se aplican en memoria sobre la totalidad de expedientes
- * visibles, nunca sobre una página parcial.
+ * P102 (Supabase): estos predicados viven en RPC `mesa_list_bandeja_page`
+ * (filtros → orden → página). En mock/legacy siguen aplicándose en memoria
+ * sobre el conjunto completo visible.
  */
 
 /** Chips de Vista rápida que sí filtran la bandeja. */
@@ -43,6 +43,8 @@ export const MESA_CITAS_ROUTE = "/mesa-control/citas";
 export type MesaBandejaFiltroItem = Readonly<{
   cliente_nombre: string;
   telefono_cliente: string;
+  /** NSS opcional: la búsqueda también lo considera (P102). */
+  nss?: string | null;
   etapaActual: number;
   subestado: string;
   /** Ciclo operativo; `null`/`undefined` se tratan como activo (legacy mock). */
@@ -207,18 +209,20 @@ export function soloDigitos(value: string): string {
 }
 
 /**
- * Búsqueda por nombre (case-insensitive) o teléfono (dígitos normalizados):
- * "81 1234 5678" y "8112345678" encuentran el mismo registro.
+ * Búsqueda por nombre (case-insensitive), teléfono (dígitos) o NSS (dígitos/texto).
  * Cadena vacía o solo espacios no filtra.
  */
 export function coincideBusquedaClienteTelefono(
-  item: Pick<MesaBandejaFiltroItem, "cliente_nombre" | "telefono_cliente">,
+  item: Pick<MesaBandejaFiltroItem, "cliente_nombre" | "telefono_cliente" | "nss">,
   query: string,
 ): boolean {
   const q = query.trim();
   if (!q) return true;
   if (item.cliente_nombre.toLowerCase().includes(q.toLowerCase())) return true;
   const qDigits = soloDigitos(q);
+  const nssRaw = String(item.nss ?? "");
+  if (nssRaw && nssRaw.toLowerCase().includes(q.toLowerCase())) return true;
+  if (qDigits && soloDigitos(nssRaw).includes(qDigits)) return true;
   if (!qDigits) return false;
   return soloDigitos(item.telefono_cliente).includes(qDigits);
 }

@@ -15,6 +15,10 @@ import type {
   PaginatedExpedientesResult,
 } from "./list-for-asesor-paginated";
 import type {
+  ListForMesaControlPaginatedQuery,
+  PaginatedMesaBandejaResult,
+} from "./list-for-mesa-control-paginated";
+import type {
   MesaMovimientoHistorialRow,
   MesaMovimientoInput,
   MesaMovimientoResultado,
@@ -24,6 +28,10 @@ export type {
   ListForAsesorPaginatedOptions,
   PaginatedExpedientesResult,
 } from "./list-for-asesor-paginated";
+export type {
+  ListForMesaControlPaginatedQuery,
+  PaginatedMesaBandejaResult,
+} from "./list-for-mesa-control-paginated";
 
 /** Contrato expedientes — lectura admin/asesor/detalle (P3B/P3D) + creación asesor (P3C) + envío Mesa (P3E) + editor (P3F) + bandeja Mesa (P3J.1). */
 export interface ExpedientesRepo {
@@ -35,6 +43,10 @@ export interface ExpedientesRepo {
   ): Promise<PaginatedExpedientesResult>;
   listForEditor(query: EditorListQuery): Promise<EditorListPage>;
   listForMesaControl(): Promise<ExpedienteMock[]>;
+  /** P102: bandeja Mesa con filtros en servidor + keyset (25). */
+  listForMesaControlPaginated(
+    query: ListForMesaControlPaginatedQuery,
+  ): Promise<PaginatedMesaBandejaResult>;
   getById(id: string): Promise<ExpedienteMock | null>;
   createExpediente(input: CreateExpedienteInput): Promise<ExpedienteMock>;
   enviarAMesa(expedienteId: string): Promise<ExpedienteMock>;

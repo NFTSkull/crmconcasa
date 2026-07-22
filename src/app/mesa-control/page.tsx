@@ -19,12 +19,16 @@ import {
 } from "./mockData";
 import {
   ExpedientesSupabaseError,
+  appendMesaBandejaItemsUnique,
+  mapAdminOrigenTabToRpc,
+  MESA_BANDEJA_PAGE_SIZE,
   useExpedientesRepo,
   type ExpedienteMock,
+  type MesaBandejaCursor,
+  type MesaBandejaServerCounts,
 } from "@/domain/expedientes";
 import { formatEtapaMesaBandejaBadge } from "@/domain/expedientes/etapa-numeracion-ux";
 import {
-  deriveResumenExpedienteCorreccion,
   useExpedienteArchivosRepo,
   type CategoriaResumenDocumental,
 } from "@/domain/expediente-archivos";
@@ -48,22 +52,16 @@ import {
   sortMesaBandejaPorAntiguedad,
 } from "@/lib/mesaBandejaOrden";
 import {
-  deriveMesaCorreccionLecturaEstado,
-  deriveUltimaCorreccionEnviadaAt,
   mesaCorreccionLecturaBadgeClass,
   mesaCorreccionLecturaLabel,
-  mesaEntradaEsPorCorreccion,
-  resolveFechaEntradaMesaActual,
   type MesaCorreccionLecturaEstado,
 } from "@/lib/mesaCorreccionEntrada";
 import {
-  getMesaExpedienteLastOpenedAt,
   MESA_EXPEDIENTE_OPENED_UPDATED_EVENT,
 } from "@/lib/mesaExpedienteOpenedStorage";
 import { useMesaOpsRepo, type MesaExpedienteOpsRow } from "@/domain/mesa-ops";
 import {
   applyMesaOpsFilterSorted,
-  buildMesaOpsMap,
   DEFAULT_MESA_OPS_FILTER,
   MESA_OPS_FILTER_CHIPS,
   MESA_OPS_FILTER_HELP_TEXT,
@@ -83,12 +81,14 @@ import {
   type MesaQuickFilter,
   type MesaRechazosCancelacionesSubfiltro,
 } from "@/lib/mesaBandejaFiltros";
-import { fetchMesaBandejaSecondaryParallel } from "@/lib/mesaBandejaLoad";
+import { enrichMesaBandejaPageItems } from "@/lib/mesaBandejaEnrichPage";
 import {
+  describeMesaBandejaServerWindow,
   describeMesaBandejaVisibleWindow,
   isIntersectionObserverAvailable,
   mesaBandejaInfiniteResetKey,
   MESA_BANDEJA_INITIAL_VISIBLE,
+  MESA_BANDEJA_SEARCH_DEBOUNCE_MS,
   nextMesaBandejaVisibleCount,
   resetMesaBandejaVisibleCount,
   shouldShowMesaBandejaLoadMoreFallback,
@@ -293,14 +293,28 @@ export default function MesaControlPage() {
   const currentUserIdRef = useRef<string | null>(null);
   const [visibleCount, setVisibleCount] = useState(MESA_BANDEJA_INITIAL_VISIBLE);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [loadMoreError, setLoadMoreError] = useState<string | null>(null);
   const [ioAvailable, setIoAvailable] = useState(false);
   const loadMoreSentinelRef = useRef<HTMLDivElement | null>(null);
   const loadingMoreLockRef = useRef(false);
+  const [buscarDebounced, setBuscarDebounced] = useState("");
+  const [serverTotalCount, setServerTotalCount] = useState(0);
+  const [serverHasMore, setServerHasMore] = useState(false);
+  const [serverCounts, setServerCounts] = useState<MesaBandejaServerCounts | null>(null);
+  const serverCursorRef = useRef<MesaBandejaCursor | null>(null);
+  const serverQueryGenRef = useRef(0);
 
   const todayYMD = getTodayYMD();
 
   const mesaMockRole =
     typeof window !== "undefined" ? getEffectiveMockRole() : null;
+
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      setBuscarDebounced(buscar);
+    }, MESA_BANDEJA_SEARCH_DEBOUNCE_MS);
+    return () => window.clearTimeout(t);
+  }, [buscar]);
 
   const mapExpToCaso = useCallback((exp: ExpedienteMock): CasoMock => {
     const rawFe = exp.operativo.fechaEnvioMesa;
@@ -330,164 +344,209 @@ export default function MesaControlPage() {
     };
   }, []);
 
+  const resolveEnrichDeps = useCallback(async () => {
+    let mesaUserId = currentUserIdRef.current;
+    if (mesaUserId == null && mesaOpsRepo) {
+      try {
+        mesaUserId = await mesaOpsRepo.resolveCurrentUserId();
+        currentUserIdRef.current = mesaUserId;
+        setCurrentUserId(mesaUserId);
+      } catch {
+        mesaUserId = null;
+      }
+    }
+    return {
+      listResumenBatchByExpedienteIds: (ids: readonly string[]) =>
+        archivosRepo.listResumenBatchByExpedienteIds(ids),
+      listEstadoBatchByExpedienteIds: (ids: readonly string[]) =>
+        clienteDatosRepo.listEstadoBatchByExpedienteIds(ids),
+      listActiveNotificacionByExpedienteIds:
+        dataSupabase && agendaBookingRepo
+          ? (ids: readonly string[]) =>
+              agendaBookingRepo.listActiveNotificacionByExpedienteIds(ids)
+          : undefined,
+      listMesaOpsByExpedienteIds: mesaOpsRepo
+        ? (ids: readonly string[]) => mesaOpsRepo.listByExpedienteIds(ids)
+        : undefined,
+      resolveAsesorDisplayBatch:
+        dataSupabase && isSupabaseConfigured() && supabaseBrowser
+          ? async (creatorIds: string[]) => {
+              const labels = new Map<string, string>();
+              if (creatorIds.length === 0) return labels;
+              try {
+                const { data } = await supabaseBrowser!.rpc(
+                  "get_asesor_display_batch",
+                  { p_asesor_ids: creatorIds },
+                );
+                for (const row of (data ?? []) as Array<{
+                  asesor_id?: string;
+                  full_name?: string | null;
+                  email?: string | null;
+                }>) {
+                  const id = String(row.asesor_id ?? "").trim();
+                  if (!id) continue;
+                  labels.set(
+                    id,
+                    resolveProfileDisplayLabel({
+                      fullName: row.full_name,
+                      email: row.email,
+                      fallbackId: id,
+                    }),
+                  );
+                }
+              } catch {
+                // Sin labels.
+              }
+              return labels;
+            }
+          : undefined,
+      mesaUserId,
+    };
+  }, [agendaBookingRepo, archivosRepo, clienteDatosRepo, dataSupabase, mesaOpsRepo]);
+
+  /** P102 Supabase: filtros en RPC → página 25 → enrich P100 solo de esa página. */
+  const loadServerBandeja = useCallback(
+    (opciones?: { silencioso?: boolean; append?: boolean }) => {
+      if (!currentUser || !dataSupabase) return;
+      const append = Boolean(opciones?.append);
+      void (async () => {
+        const gen = append ? serverQueryGenRef.current : ++serverQueryGenRef.current;
+        if (!append) {
+          if (!opciones?.silencioso) setLoading(true);
+          setListError(null);
+          setLoadMoreError(null);
+          serverCursorRef.current = null;
+        } else {
+          if (loadingMoreLockRef.current) return;
+          loadingMoreLockRef.current = true;
+          setLoadingMore(true);
+          setLoadMoreError(null);
+        }
+        try {
+          const cursor = append ? serverCursorRef.current : null;
+          const etapaNum =
+            etapaFilter !== "todas" && Number.isFinite(Number(etapaFilter))
+              ? Number(etapaFilter)
+              : null;
+          const page = await repo.listForMesaControlPaginated({
+            limit: MESA_BANDEJA_PAGE_SIZE,
+            cursor,
+            quickFilter,
+            opsFilter: mesaOpsFilter,
+            buscar: buscarDebounced,
+            etapa: etapaNum,
+            subestado: subestadoFilter === "todas" ? null : subestadoFilter,
+            soloCitasHoy,
+            todayYmd: todayYMD,
+            rechazosSub: rechazosCancelacionesSubfiltro,
+            origen: mapAdminOrigenTabToRpc(
+              (typeof window !== "undefined" &&
+                (getEffectiveMockRole() === "mesa_control_admin" ||
+                  getEffectiveMockRole() === "mesa_control"))
+                ? adminOrigenTab
+                : "todos",
+            ),
+            includeCounts: !append,
+          });
+          if (gen !== serverQueryGenRef.current) return;
+
+          const base = page.items.map((exp) => mapExpToCaso(exp));
+          const enrichDeps = await resolveEnrichDeps();
+          const enriched = (await enrichMesaBandejaPageItems(
+            base,
+            enrichDeps,
+          )) as CasoConDocs[];
+
+          // Conservar orden del servidor (sort_ts); no reordenar localmente.
+          if (append) {
+            setCasos((prev) => appendMesaBandejaItemsUnique(prev, enriched));
+          } else {
+            setCasos(enriched);
+            if (page.counts) setServerCounts(page.counts);
+          }
+          setServerTotalCount(page.totalCount);
+          setServerHasMore(page.hasMore);
+          serverCursorRef.current = page.nextCursor;
+        } catch (err) {
+          if (gen !== serverQueryGenRef.current) return;
+          const msg =
+            err instanceof ExpedientesSupabaseError
+              ? err.message
+              : "No se pudo cargar la bandeja de Mesa de control.";
+          if (append) {
+            setLoadMoreError(msg);
+          } else {
+            setCasos([]);
+            setServerTotalCount(0);
+            setServerHasMore(false);
+            setServerCounts(null);
+            setListError(msg);
+          }
+        } finally {
+          if (gen === serverQueryGenRef.current) {
+            if (append) {
+              setLoadingMore(false);
+              loadingMoreLockRef.current = false;
+            } else {
+              setLoading(false);
+            }
+          } else if (append) {
+            setLoadingMore(false);
+            loadingMoreLockRef.current = false;
+          }
+        }
+      })();
+    },
+    [
+      adminOrigenTab,
+      buscarDebounced,
+      currentUser,
+      dataSupabase,
+      etapaFilter,
+      mapExpToCaso,
+      mesaOpsFilter,
+      quickFilter,
+      rechazosCancelacionesSubfiltro,
+      repo,
+      resolveEnrichDeps,
+      soloCitasHoy,
+      subestadoFilter,
+      todayYMD,
+    ],
+  );
+
+  /** Mock / legacy P101: descarga completa + filtros cliente + slice DOM. */
   const loadCasos = useCallback((opciones?: { silencioso?: boolean }) => {
     if (!currentUser) return;
+    if (dataSupabase) {
+      loadServerBandeja(opciones);
+      return;
+    }
     void (async () => {
       if (!opciones?.silencioso) setLoading(true);
       setListError(null);
       try {
         const exps = await repo.listForMesaControl();
-        let visibles = exps;
-        if (!dataSupabase) {
-          const mockRole =
-            typeof window !== "undefined" ? getEffectiveMockRole() : null;
-          visibles = filterExpedientesByRole({ mockRole }, exps);
-        }
+        const mockRole =
+          typeof window !== "undefined" ? getEffectiveMockRole() : null;
+        const visibles = filterExpedientesByRole({ mockRole }, exps);
         const inboxMap =
-          !dataSupabase && typeof window !== "undefined"
+          typeof window !== "undefined"
             ? mergeMesaControlInboxByLatestUpdated(readMesaControlInboxSafe())
             : new Map();
         const base = visibles.map((exp) => {
           const c = mapExpToCaso(exp);
-          if (dataSupabase) return c;
           const row = inboxMap.get(exp.id);
           const rawFe = row?.fechaEnvioMesa;
           const fechaEnvioMesa =
             typeof rawFe === "string" && rawFe.trim() !== "" ? rawFe : undefined;
           return fechaEnvioMesa !== undefined ? { ...c, fechaEnvioMesa } : c;
         });
-        const enriched: CasoConDocs[] = await (async () => {
-          const allExpedienteIds = base.map((c) => c.id);
-          const etapa3ExpedienteIds = base
-            .filter((c) => c.etapaActual === 3)
-            .map((c) => c.id);
-
-          let mesaUserId = currentUserIdRef.current;
-          if (mesaUserId == null && mesaOpsRepo) {
-            try {
-              mesaUserId = await mesaOpsRepo.resolveCurrentUserId();
-              currentUserIdRef.current = mesaUserId;
-              setCurrentUserId(mesaUserId);
-            } catch {
-              mesaUserId = null;
-            }
-          }
-
-          const secondary = await fetchMesaBandejaSecondaryParallel(
-            { allExpedienteIds, etapa3ExpedienteIds },
-            {
-              listResumenBatchByExpedienteIds: (ids) =>
-                archivosRepo.listResumenBatchByExpedienteIds(ids),
-              listEstadoBatchByExpedienteIds: (ids) =>
-                clienteDatosRepo.listEstadoBatchByExpedienteIds(ids),
-              listActiveNotificacionByExpedienteIds:
-                dataSupabase && agendaBookingRepo
-                  ? (ids) => agendaBookingRepo.listActiveNotificacionByExpedienteIds(ids)
-                  : undefined,
-              listMesaOpsByExpedienteIds: mesaOpsRepo
-                ? (ids) => mesaOpsRepo.listByExpedienteIds(ids)
-                : undefined,
-            },
-          );
-
-          const {
-            resumenPorId,
-            estadosPorId,
-            notificacionPorId,
-            opsRows,
-          } = secondary;
-
-          const creatorIds = [
-            ...new Set(
-              [...notificacionPorId.values()]
-                .map((b) => b.createdById?.trim())
-                .filter((id): id is string => Boolean(id)),
-            ),
-          ];
-          const agendadoPorLabels = new Map<string, string>();
-          if (
-            dataSupabase &&
-            creatorIds.length > 0 &&
-            isSupabaseConfigured() &&
-            supabaseBrowser
-          ) {
-            try {
-              const { data } = await supabaseBrowser.rpc("get_asesor_display_batch", {
-                p_asesor_ids: creatorIds,
-              });
-              for (const row of (data ?? []) as Array<{
-                asesor_id?: string;
-                full_name?: string | null;
-                email?: string | null;
-              }>) {
-                const id = String(row.asesor_id ?? "").trim();
-                if (!id) continue;
-                agendadoPorLabels.set(
-                  id,
-                  resolveProfileDisplayLabel({
-                    fullName: row.full_name,
-                    email: row.email,
-                    fallbackId: id,
-                  }),
-                );
-              }
-            } catch {
-              // Sin labels: la bandeja sigue con "—".
-            }
-          }
-
-          const opsMap = buildMesaOpsMap(opsRows);
-
-          return base.map((c) => {
-            const resumen = resumenPorId[c.id] ?? [];
-            const clienteBatch = estadosPorId[c.id] ?? null;
-            const resumenDocumental = deriveResumenExpedienteCorreccion(resumen, {
-              clienteDatosEstado: clienteBatch?.estado ?? null,
-              clienteDatosUpdatedAt: clienteBatch?.updatedAt ?? null,
-              clienteDatosValidatedAt: clienteBatch?.validatedAt ?? null,
-              fechaEnvioMesa: c.fechaEnvioMesa ?? null,
-            });
-            const ultimaCorreccionEnviadaAt = deriveUltimaCorreccionEnviadaAt({
-              resumen,
-              clienteDatos: clienteBatch
-                ? {
-                    estado: clienteBatch.estado,
-                    updatedAt: clienteBatch.updatedAt,
-                    validatedAt: clienteBatch.validatedAt,
-                  }
-                : null,
-              fechaEnvioMesa: c.fechaEnvioMesa ?? null,
-            });
-            const fechaEntradaMesaActual = resolveFechaEntradaMesaActual(
-              c.fechaEnvioMesa ?? null,
-              ultimaCorreccionEnviadaAt,
-              c.createdAt ?? null,
-            );
-            const correccionLecturaEstado = deriveMesaCorreccionLecturaEstado(
-              fechaEntradaMesaActual,
-              getMesaExpedienteLastOpenedAt(c.id, mesaUserId),
-            );
-            const entradaLecturaEsCorreccion = mesaEntradaEsPorCorreccion(
-              fechaEntradaMesaActual,
-              ultimaCorreccionEnviadaAt,
-            );
-            const booking = notificacionPorId.get(c.id) ?? null;
-            return {
-              ...c,
-              resumenDocumental,
-              clienteDatosEstado: clienteBatch?.estado ?? null,
-              fechaEntradaMesaActual,
-              ultimaCorreccionEnviadaAt,
-              entradaLecturaEsCorreccion,
-              correccionLecturaEstado,
-              notificacionBooking: booking,
-              notificacionAgendadoPorLabel: booking?.createdById
-                ? agendadoPorLabels.get(booking.createdById) ?? "—"
-                : undefined,
-              mesaOps: opsMap.get(c.id) ?? null,
-            };
-          });
-        })();
+        const enrichDeps = await resolveEnrichDeps();
+        const enriched = (await enrichMesaBandejaPageItems(
+          base,
+          enrichDeps,
+        )) as CasoConDocs[];
         setCasos(sortMesaBandejaPorAntiguedad(enriched));
       } catch (err) {
         setCasos([]);
@@ -500,7 +559,7 @@ export default function MesaControlPage() {
         setLoading(false);
       }
     })();
-  }, [agendaBookingRepo, archivosRepo, clienteDatosRepo, currentUser, dataSupabase, mapExpToCaso, mesaOpsRepo, repo]);
+  }, [currentUser, dataSupabase, loadServerBandeja, mapExpToCaso, repo, resolveEnrichDeps]);
 
   useEffect(() => {
     if (!mesaOpsRepo) {
@@ -516,7 +575,9 @@ export default function MesaControlPage() {
 
   useEffect(() => {
     if (!currentUser) return;
-    loadCasos();
+    if (!dataSupabase) {
+      loadCasos();
+    }
     if (dataSupabase || typeof window === "undefined") {
       const archivosHandler = () => loadCasos();
       const clienteDatosHandler = () => loadCasos({ silencioso: true });
@@ -592,7 +653,22 @@ export default function MesaControlPage() {
   }, [currentUser, dataSupabase, loadCasos]);
 
   const kpis = useMemo(() => {
-    // Contadores de Vista rápida centralizados: misma definición que la lista.
+    if (dataSupabase && serverCounts) {
+      return {
+        correccionesEnviadas: serverCounts.correccionesEnviadas,
+        nuevosPorRevisar: serverCounts.nuevos,
+        citasHoy: serverCounts.citasHoy,
+        bloqueadosRechazados: serverCounts.bloqueadosRechazados,
+        enProceso: serverCounts.enProceso,
+        rechazadosOperativo: serverCounts.rechazosCancelaciones,
+        rechazadosActivos: serverCounts.rechazados,
+        canceladosOperativo: serverCounts.cancelados,
+        enValidacionMesa: serverCounts.enValidacionMesa,
+        enEsperaAsesor: serverCounts.enEsperaAsesor,
+        totalBandeja: serverCounts.totalBandeja,
+      };
+    }
+    // Contadores mock/legacy: misma definición que la lista completa en memoria.
     const vistaRapida = contarVistaRapida(casos, todayYMD);
     const correccionesEnviadas = vistaRapida.correccionesEnviadas;
     const nuevosPorRevisar = vistaRapida.nuevos;
@@ -629,7 +705,7 @@ export default function MesaControlPage() {
       enEsperaAsesor,
       totalBandeja,
     };
-  }, [casos, todayYMD]);
+  }, [casos, dataSupabase, serverCounts, todayYMD]);
 
   const dashboardNotifications = useMemo(() => {
     return buildDashboardNotifications(
@@ -662,7 +738,11 @@ export default function MesaControlPage() {
     mesaMockRole === "mesa_control_admin" || mesaMockRole === "mesa_control";
 
   const filteredCasos = useMemo(() => {
-    // Orden: rol/visibilidad ya aplicados en carga → origen (solo admin) →
+    if (dataSupabase) {
+      // P102: el servidor ya aplicó filtros + orden; `casos` = páginas acumuladas.
+      return casos;
+    }
+    // Orden mock: rol/visibilidad ya aplicados en carga → origen (solo admin) →
     // vista rápida → búsqueda → etapa → subestado → citas hoy → asignación + orden.
     let list = [...casos];
     if (showAdminOrigenTabs && adminOrigenTab === "internos") {
@@ -684,10 +764,11 @@ export default function MesaControlPage() {
     );
     return applyMesaOpsFilterSorted(list, mesaOpsFilter, currentUserId);
   }, [
-    casos,
     adminOrigenTab,
     buscar,
+    casos,
     currentUserId,
+    dataSupabase,
     etapaFilter,
     mesaOpsFilter,
     quickFilter,
@@ -701,7 +782,7 @@ export default function MesaControlPage() {
   const infiniteResetKey = mesaBandejaInfiniteResetKey({
     quickFilter,
     mesaOpsFilter,
-    buscar,
+    buscar: dataSupabase ? buscarDebounced : buscar,
     etapaFilter,
     subestadoFilter,
     soloCitasHoy,
@@ -713,28 +794,50 @@ export default function MesaControlPage() {
     setVisibleCount(resetMesaBandejaVisibleCount());
     setLoadingMore(false);
     loadingMoreLockRef.current = false;
+    setLoadMoreError(null);
   }, [infiniteResetKey]);
+
+  // P102: al cambiar filtros/búsqueda debounced, refetch primera página.
+  useEffect(() => {
+    if (!currentUser || !dataSupabase) return;
+    loadServerBandeja();
+  }, [currentUser, dataSupabase, infiniteResetKey, loadServerBandeja]);
 
   useEffect(() => {
     setIoAvailable(isIntersectionObserverAvailable());
   }, []);
 
-  const visibleWindow = useMemo(
-    () => describeMesaBandejaVisibleWindow(visibleCount, filteredCasos.length),
-    [filteredCasos.length, visibleCount],
-  );
+  const visibleWindow = useMemo(() => {
+    if (dataSupabase) {
+      return describeMesaBandejaServerWindow({
+        loadedCount: filteredCasos.length,
+        totalFiltered: serverTotalCount,
+        hasMore: serverHasMore,
+      });
+    }
+    return describeMesaBandejaVisibleWindow(visibleCount, filteredCasos.length);
+  }, [
+    dataSupabase,
+    filteredCasos.length,
+    serverHasMore,
+    serverTotalCount,
+    visibleCount,
+  ]);
 
-  const visibleCasos = useMemo(
-    () => sliceMesaBandejaVisible(filteredCasos, visibleWindow.visibleCount),
-    [filteredCasos, visibleWindow.visibleCount],
-  );
+  const visibleCasos = useMemo(() => {
+    if (dataSupabase) return filteredCasos;
+    return sliceMesaBandejaVisible(filteredCasos, visibleWindow.visibleCount);
+  }, [dataSupabase, filteredCasos, visibleWindow.visibleCount]);
 
   const loadMoreVisible = useCallback(() => {
     if (loadingMoreLockRef.current) return;
     if (!visibleWindow.hasMore) return;
+    if (dataSupabase) {
+      loadServerBandeja({ append: true, silencioso: true });
+      return;
+    }
     loadingMoreLockRef.current = true;
     setLoadingMore(true);
-    // Solo amplía el slice en memoria; no refetch / RPC.
     window.setTimeout(() => {
       setVisibleCount((prev) =>
         nextMesaBandejaVisibleCount(prev, filteredCasos.length),
@@ -742,10 +845,15 @@ export default function MesaControlPage() {
       setLoadingMore(false);
       loadingMoreLockRef.current = false;
     }, 0);
-  }, [filteredCasos.length, visibleWindow.hasMore]);
+  }, [
+    dataSupabase,
+    filteredCasos.length,
+    loadServerBandeja,
+    visibleWindow.hasMore,
+  ]);
 
   useEffect(() => {
-    if (!ioAvailable || !visibleWindow.hasMore || loading) return;
+    if (!ioAvailable || !visibleWindow.hasMore || loading || loadingMore) return;
     const node = loadMoreSentinelRef.current;
     if (!node) return;
     const observer = new IntersectionObserver(
@@ -758,7 +866,14 @@ export default function MesaControlPage() {
     );
     observer.observe(node);
     return () => observer.disconnect();
-  }, [ioAvailable, loadMoreVisible, loading, visibleWindow.hasMore, visibleCasos.length]);
+  }, [
+    ioAvailable,
+    loadMoreVisible,
+    loading,
+    loadingMore,
+    visibleWindow.hasMore,
+    visibleCasos.length,
+  ]);
 
   const showLoadMoreFallback = shouldShowMesaBandejaLoadMoreFallback({
     hasMore: visibleWindow.hasMore,
@@ -1204,8 +1319,12 @@ export default function MesaControlPage() {
               </p>
             </div>
             <p className="text-right text-[11px] tabular-nums text-slate-500">
-              <span className="font-semibold text-slate-700">{filteredCasos.length}</span>{" "}
-              {filteredCasos.length === 1 ? "caso" : "casos"}
+              <span className="font-semibold text-slate-700">
+                {dataSupabase ? serverTotalCount : filteredCasos.length}
+              </span>{" "}
+              {(dataSupabase ? serverTotalCount : filteredCasos.length) === 1
+                ? "caso"
+                : "casos"}
               {visibleWindow.showingLabel ? (
                 <span
                   className="mt-0.5 block text-[10px] font-normal text-slate-400"
@@ -1365,10 +1484,29 @@ export default function MesaControlPage() {
                     Cargar más
                   </Button>
                 ) : null}
+                {loadMoreError ? (
+                  <div
+                    className="flex flex-col items-center gap-2"
+                    data-testid="mesa-bandeja-cargar-mas-error"
+                  >
+                    <p className="text-xs text-red-600">{loadMoreError}</p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      className="text-xs"
+                      onClick={loadMoreVisible}
+                      disabled={loadingMore}
+                      data-testid="mesa-bandeja-reintentar-mas"
+                    >
+                      Reintentar
+                    </Button>
+                  </div>
+                ) : null}
               </div>
             ) : null}
           </div>
-          {!loading && filteredCasos.length === 0 ? (
+          {!loading &&
+          (dataSupabase ? serverTotalCount === 0 : filteredCasos.length === 0) ? (
             <div className="flex flex-col items-center gap-3 py-10 text-center">
               <p className="text-sm text-slate-500">
                 {mesaOpsFilter === "en_espera_asesor"

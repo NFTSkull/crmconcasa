@@ -85,5 +85,6 @@ run_sql_test "supabase/tests/admin_monto_aprobado_mejoravit_cap_aggregate.sql"
 run_sql_test "supabase/tests/admin_estado_rechazados_cancelados.sql"
 run_sql_test "supabase/tests/admin_mesa_correcciones_por_elemento.sql"
 run_sql_test "supabase/tests/admin_mesa_timeline_pagination.sql"
+run_sql_test "supabase/tests/rpc_mesa_list_bandeja_page.sql"
 
 echo "SQL tests: ALL PASSED"
