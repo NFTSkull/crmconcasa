@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **feat/rechazo-todas-etapas-reactivacion — P108A (local, sin commit/Cloud):** rechazo operativo en internas 1–12; RPC `reactivar_expediente_rechazado` (mismo expediente/etapa → `en_validacion_mesa`|`en_proceso`); UI Mesa en 11 pasos; Asesor «Corregir y reenviar a Mesa»; P072 intacto; migración `096_…sql`.
+
 - **fix/mesa-movimiento-11-pasos — P106 (local):** selector «Paso destino» con 11 opciones únicas (paso 3 → interna 3; paso 4 → 5); interna 4 no seleccionable; historial con numeración visible; sin SQL/RPC/Cloud.
 
 - **fix/etapas-mesa-11-pasos — P105 (local, sin commit/Cloud write):** Mesa muestra los mismos 11 pasos del asesor (`Paso X de 11`); filtros por paso visual (paso 3 ⊆ internas 3+4); `etapa_actual` 1–12 intacta; sin SQL/RPC.

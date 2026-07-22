@@ -75,6 +75,7 @@ export interface ExpedientesRepo {
     expedienteId: string,
     input: RechazoOperativoInput,
   ): Promise<ExpedienteMock>;
+  reactivarExpedienteRechazado(expedienteId: string): Promise<ExpedienteMock>;
   cancelarExpedienteOperativo(
     expedienteId: string,
     input: CancelacionOperativaInput,

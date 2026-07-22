@@ -222,10 +222,16 @@ BEGIN
     'REENTRY_BOOKING_EVIDENCE_MISSING'
   );
 
-  -- Etapa distinta se prueba con condición que no exige booking.
-  PERFORM public.__p071_expect_fail(
-    v_mesa, v_exp4, 'No procede', 'desconocida', NULL, NULL,
-    'REENTRY_NOT_STAGE_5_OR_6'
+  -- P108A: etapa 4 con desconocida ya es elegible (antes fallaba REENTRY_NOT_STAGE_5_OR_6).
+  PERFORM public.__p071_auth(v_mesa);
+  PERFORM public.rechazar_etapa_operativa(
+    v_exp4, 'Rechazo etapa 4', NULL, 'desconocida', NULL, NULL
+  );
+  PERFORM public.__p071_reset();
+  PERFORM public.__p071_assert(
+    (SELECT subestado = 'rechazado' AND etapa_actual = 4
+     FROM public.expedientes WHERE id = v_exp4),
+    'P108A permite rechazo en etapa 4'
   );
 
   PERFORM public.__p071_expect_fail(

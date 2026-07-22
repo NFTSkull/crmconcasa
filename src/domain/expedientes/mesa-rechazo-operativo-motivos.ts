@@ -1,6 +1,6 @@
 /**
- * Motivos sugeridos del rechazo operativo canónico (etapas 5/6).
- * Alineados al catálogo mock post-biométricos; «Otro» exige texto libre.
+ * Motivos sugeridos del rechazo operativo canónico (etapas internas 1–12).
+ * Alineados al catálogo mock; «Otro» exige texto libre.
  */
 
 export const MESA_RECHAZO_OPERATIVO_MOTIVOS = [

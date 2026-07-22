@@ -1092,6 +1092,15 @@ export class MockExpedientesRepo implements ExpedientesRepo {
     );
   }
 
+  async reactivarExpedienteRechazado(
+    _expedienteId: string,
+  ): Promise<ExpedienteMock> {
+    void _expedienteId;
+    throw new Error(
+      "Corregir y reenviar a Mesa solo está disponible en modo Supabase.",
+    );
+  }
+
   async cancelarExpedienteOperativo(
     _expedienteId: string,
     _input: CancelacionOperativaInput,

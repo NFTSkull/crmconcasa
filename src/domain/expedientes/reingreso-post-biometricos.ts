@@ -85,6 +85,8 @@ export type RpcErrorLike = Readonly<{
 const REENTRY_MESSAGES: Readonly<Record<string, string>> = {
   REENTRY_NOT_STAGE_5_OR_6:
     "El reingreso solo está disponible para rechazos en Biométricos o Inscripción.",
+  REENTRY_STAGE_OUT_OF_RANGE:
+    "El rechazo operativo solo aplica en etapas internas 1 a 12.",
   REENTRY_NOT_REJECTED: "El expediente no está rechazado.",
   REENTRY_CYCLE_NOT_ACTIVE: "El ciclo anterior ya no está activo.",
   REENTRY_NO_CLASSIFIED_REJECTION:

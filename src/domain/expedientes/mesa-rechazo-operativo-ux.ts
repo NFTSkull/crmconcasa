@@ -1,9 +1,9 @@
 /**
- * P093 B1 — UX de separación entre movimiento manual y rechazo operativo.
+ * P093 B1 / P108A — UX de separación entre movimiento manual y rechazo operativo.
  * Solo helpers de presentación; no mutan datos ni inferen rechazo por texto.
  */
 
-/** Ancla de scroll hacia la tarjeta canónica de rechazo (etapas 5/6). */
+/** Ancla de scroll hacia la tarjeta canónica de rechazo (pasos visibles 1–11). */
 export const MESA_RECHAZO_OPERATIVO_ANCHOR_ID = "mesa-rechazo-operativo";
 
 export const MESA_MOVIMIENTO_NO_ES_RECHAZO_COPY =
@@ -13,7 +13,7 @@ export const MESA_MOTIVO_PARECE_RECHAZO_WARNING =
   "El motivo parece describir un rechazo. El movimiento manual no rechaza el expediente. Si la decisión es rechazar, usa «Rechazar expediente».";
 
 export const MESA_MOTIVO_PARECE_RECHAZO_SIN_ELEGIBILIDAD_WARNING =
-  "El motivo parece describir un rechazo. El movimiento manual no rechaza el expediente. El rechazo operativo canónico solo aplica en etapas 5 y 6.";
+  "El motivo parece describir un rechazo. El movimiento manual no rechaza el expediente. El rechazo operativo canónico aplica en los 11 pasos visibles (etapas internas 1–12) cuando el expediente está activo y enviado a Mesa.";
 
 export const MESA_RECHAZO_OPERATIVO_ATAJO_LABEL =
   "Ir a Rechazar expediente";
@@ -24,7 +24,7 @@ export const MESA_RECHAZO_OPERATIVO_CARD_BADGE =
 export const MESA_RECHAZO_OPERATIVO_CARD_TITLE = "Rechazar expediente";
 
 export const MESA_RECHAZO_OPERATIVO_CARD_INTRO =
-  "Registra un rechazo operativo: el asesor lo verá como rechazado y el cliente podrá continuar o reingresar cuando corresponda.";
+  "Registra un rechazo operativo: el asesor verá el motivo/nota y podrá corregir y reenviar el mismo expediente a Mesa.";
 
 export const MESA_RECHAZO_OPERATIVO_CARD_CTA = "Rechazar expediente";
 
@@ -36,18 +36,21 @@ export function motivoManualPareceRechazo(motivo: string): boolean {
   return /rechaz/i.test(motivo);
 }
 
-/** Misma elegibilidad UI que la tarjeta de rechazo operativo (sin gate de data mode). */
+/** Elegibilidad UI de la tarjeta de rechazo operativo (etapas internas 1–12). */
 export function esElegibleRechazoOperativoPostBiometricos(input: {
   submittedToMesa: boolean;
   cicloEstado: string | null | undefined;
   subestado: string | null | undefined;
   etapaActual: number | null | undefined;
 }): boolean {
+  const etapa = input.etapaActual;
   return (
     input.submittedToMesa === true &&
     input.cicloEstado === "activo" &&
     input.subestado !== "rechazado" &&
-    (input.etapaActual === 5 || input.etapaActual === 6)
+    typeof etapa === "number" &&
+    etapa >= 1 &&
+    etapa <= 12
   );
 }
 

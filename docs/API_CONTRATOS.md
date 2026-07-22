@@ -858,21 +858,36 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 
 ---
 
-## 17d. Rechazo operativo y reingreso post-biométricos — P071/P072
+## 17d. Rechazo operativo y reingreso post-biométricos — P071/P072/P108A
 
 ### Rechazo operativo
 
 **Operación:** RPC `rechazar_etapa_operativa`
 **Firma:** `rechazar_etapa_operativa(p_expediente_id uuid, p_motivo text, p_comentario text, p_biometricos_condicion biometricos_condicion, p_biometricos_razon text default null, p_biometricos_booking_id uuid default null) → jsonb`
+**Migración P108A:** `096_rechazo_operativo_todas_etapas_reactivacion.sql`
 
-- Solo Mesa autorizada; expediente visible, activo, enviado y exactamente en etapa 5 o 6.
-- `reutilizables`, `repetir` e `invalidos` exigen booking biométrico del expediente, cita pasada y razón no vacía.
+- Solo Mesa autorizada; expediente visible, activo, enviado y en etapa interna **1–12**.
+- `reutilizables`, `repetir` e `invalidos` exigen booking biométrico del expediente, cita pasada y razón no vacía (camino P071/P072).
 - Un booking `cancelled` solo acredita intento si `cancelled_at` es posterior a la cita. Un booking futuro `booked` bloquea.
 - Registra una fila append-only en `expediente_rechazos_operativos`, cambia únicamente el subestado operativo a `rechazado` y escribe `action_log`.
-- No cancela, reactiva ni modifica bookings, `fecha_cita` o notas históricas.
-- **P099 (UI Mesa):** tarjeta oscura «Rechazar expediente»; formulario solo motivo (select + «Otro») y nota opcional; payload biométrico interno `desconocida` + nulls. Cancelación terminal: tarjeta roja «Cancelar trámite». Asesor: chip/filtro `Rechazados` + banner con motivo/nota; no confundir con cancelado.
+- No cancela, reactiva ni modifica bookings, `fecha_cita`, documentos, montos ni notas históricas.
+- **P108A / P099 (UI Mesa):** tarjeta «Rechazar expediente» en los 11 pasos visibles; formulario solo motivo (select + «Otro») y nota opcional; payload biométrico interno `desconocida` + nulls. Cancelación terminal: tarjeta roja «Cancelar trámite». Asesor: chip/filtro `Rechazados` + banner con motivo/nota + CTA «Corregir y reenviar a Mesa»; no confundir con cancelado.
 
-### Elegibilidad
+### Reactivación (mismo expediente) — P108A
+
+**Operación:** RPC `reactivar_expediente_rechazado`
+**Firma:** `reactivar_expediente_rechazado(p_expediente_id uuid) → jsonb`
+
+- Roles: asesor propietario del expediente, o `mesa_admin|mesa_interno|mesa_externo|super_admin` (con `can_see_expediente` / org).
+- Exige: ciclo `activo`, `subestado=rechazado`, rechazo vigente append-only, etapa 1–12.
+- Impide doble reactivación del mismo `rechazo_id` (`expediente_rechazo_reactivaciones` UNIQUE).
+- Conserva `etapa_actual`, documentos, citas, montos y bookings.
+- Subestado canónico post-reactivación (misma regla que `mesa_mover_etapa_operativa`): etapa **1 → `en_validacion_mesa`**; etapas **2–12 → `en_proceso`**.
+- Limpia `motivo_rechazo` / `comentario_rechazo` del expediente; **no** borra filas de `expediente_rechazos_operativos`.
+- Traza: `expediente_rechazo_reactivaciones` + `action_log` (`expediente.rechazo_reactivacion`) con quién, cuándo y `rechazo_id` atendido.
+- **No** depende de `biometricos_condicion`. Errores estables `REACTIVATION_*`.
+
+### Elegibilidad reingreso hijo (P072 intacto)
 
 **Operación:** RPC read-only `get_reingreso_post_biometricos_elegibilidad`
 **Firma:** `get_reingreso_post_biometricos_elegibilidad(p_expediente_id uuid) → jsonb`
@@ -880,6 +895,7 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 - Solo el asesor dueño consulta.
 - Reutiliza `reingreso_post_biometricos_elegibilidad_interna(uuid, uuid)`, sin grant al cliente.
 - Respuesta: `eligible`, `reason_code`, `reason_message`, `rechazo_id`, `biometricos_condicion`, `existing_child_id`.
+- Sigue siendo flujo especial post-biométricos (etapas 5/6 + `reutilizables`); la reactivación del mismo expediente (P108A) no lo reemplaza.
 
 ### Creación atómica
 
@@ -914,7 +930,7 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 - Destino 1 deriva `en_validacion_mesa`; 2–12 deriva `en_proceso`.
 - Solo muta etapa/subestado/updated_at. Escribe `expediente_movimientos_mesa` y `action_log`.
 - Errores estables `MESA_MOVE_*`; `p_etapa_esperada` evita sobrescritura concurrente.
-- **P093 B1 (UI):** el panel «Movimiento manual de Mesa» aclara que **no** es rechazo; si el motivo contiene `rechaz*` muestra advertencia informativa (no bloquea ni ejecuta rechazo); en etapas 5/6 ofrece atajo a `#mesa-rechazo-operativo`. El rechazo canónico sigue siendo solo `rechazar_etapa_operativa` (17d).
+- **P093 B1 (UI):** el panel «Movimiento manual de Mesa» aclara que **no** es rechazo; si el motivo contiene `rechaz*` muestra advertencia informativa (no bloquea ni ejecuta rechazo); en pasos elegibles ofrece atajo a `#mesa-rechazo-operativo`. El rechazo canónico sigue siendo solo `rechazar_etapa_operativa` (17d; P108A: etapas 1–12).
 - **P093 B2 (UI):** la numeración Mesa («Etapa N», IDs 1–12) y Asesor («Paso K de 11») es la misma `etapa_actual`; helpers `etapa-numeracion-ux` solo presentacionales. No cambia contrato RPC ni persistencia.
 
 ### Firmas exclusivas de Mesa
@@ -1004,8 +1020,9 @@ Todos | Correcciones enviadas | Nuevos | En proceso | Rechazos y cancelaciones |
 
 ### Relación con rechazo (17d) — intacto en P094 B0
 
-- `rechazar_etapa_operativa` sigue siendo el único rechazo canónico (etapas 5/6, biométricos).
-- Reingreso P072 exige `subestado=rechazado` ∧ `ciclo=activo` → incompatible con cancelado.
+- `rechazar_etapa_operativa` es el rechazo canónico (P108A: etapas internas 1–12; UI con `desconocida`).
+- Reactivación mismo expediente: `reactivar_expediente_rechazado` (P108A); no toca cancelación terminal.
+- Reingreso P072 exige `subestado=rechazado` ∧ `ciclo=activo` ∧ biométricos `reutilizables` en 5/6 → incompatible con cancelado; independiente de la reactivación P108A.
 - Ampliar rechazo a otras etapas **no** es alcance de P094.
 
 ---

@@ -58,7 +58,7 @@ describe("Mesa rechazo/cancelación UX copy y semántica visual (P099)", () => {
   it("copy: rechazo puede continuar; cancelación terminal no continuará", () => {
     assert.equal(MESA_RECHAZO_OPERATIVO_CARD_TITLE, "Rechazar expediente");
     assert.match(MESA_RECHAZO_OPERATIVO_CARD_INTRO, /rechazo operativo/i);
-    assert.match(MESA_RECHAZO_OPERATIVO_CARD_INTRO, /continuar o reingresar/i);
+    assert.match(MESA_RECHAZO_OPERATIVO_CARD_INTRO, /corregir y reenviar/i);
     assert.match(MESA_RECHAZO_OPERATIVO_CARD_BADGE, /puede continuar/i);
     assert.match(MESA_RECHAZO_OPERATIVO_CARD_CTA, /Rechazar expediente/i);
     assert.doesNotMatch(MESA_RECHAZO_OPERATIVO_CARD_INTRO, /Mover etapa/i);
@@ -149,14 +149,21 @@ describe("P099 cadena rechazo → bandeja asesor", () => {
     );
   });
 
-  it("detalle asesor monta banner de rechazo con motivo/nota", () => {
+  it("detalle asesor monta banner de rechazo con motivo/nota y reenvío", () => {
     const page = readFileSync(
       join(process.cwd(), "src/app/asesor/expediente/[id]/page.tsx"),
+      "utf8",
+    );
+    const banner = readFileSync(
+      join(process.cwd(), "src/components/asesor/AsesorExpedienteRechazadoBanner.tsx"),
       "utf8",
     );
     assert.match(page, /AsesorExpedienteRechazadoBanner/);
     assert.match(page, /motivo=\{operativo\?\.motivoRechazo\}/);
     assert.match(page, /comentario=\{operativo\?\.comentarioRechazo\}/);
+    assert.match(page, /onReenviado=/);
+    assert.match(banner, /ASESOR_REACTIVAR_RECHAZO_CTA/);
+    assert.match(banner, /reactivarExpedienteRechazado/);
   });
 
   it("bandeja asesor muestra chip/motivo de rechazo", () => {
