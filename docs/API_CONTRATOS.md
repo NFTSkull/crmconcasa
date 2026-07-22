@@ -707,6 +707,18 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 
 **Operación:** RPCs read-only `admin_get_production_summary`, `admin_get_mesa_cohort_by_etapa`, `admin_list_production_by_asesor`, `admin_list_mesa_envios_page`, `admin_list_precalificaciones_page`
 
+### 15-bis. Reporte expedientes por asesores × pasos visuales (P112)
+
+**Operación:** RPC read-only `admin_report_expedientes_asesores_etapas(p_asesor_ids UUID[] DEFAULT NULL, p_pasos_visuales SMALLINT[] DEFAULT NULL, p_estado TEXT DEFAULT 'vigentes') RETURNS JSONB`
+
+**Auth:** únicamente `super_admin`; `SECURITY DEFINER` + `STABLE`; GRANT `authenticated`; REVOKE `anon`/`PUBLIC`. No escribe `action_log` ni muta filas.
+
+**Universo:** `organization_id` del actor; `deleted_at IS NULL`; `submitted_to_mesa`; `ciclo_estado = activo`; etapa en pasos seleccionados. `p_estado`: `vigentes` (activos+rechazados), `activos`, `rechazados`. NULL/`{}` en asesores/pasos = Todos. Sin rango de fechas.
+
+**Mapeo pasos:** 1→[1], 2→[2], 3→[3,4], 4→[5], …, 11→[12]. Validar pasos ∈ 1..11.
+
+**Response:** `{ resumen[], detalle[], meta }` — migración `098_admin_report_expedientes_asesores_etapas.sql`. UI `/admin` «Reporte de expedientes» + Excel `reporte-expedientes-YYYY-MM-DD.xlsx` (snapshot de la última consulta).
+
 ### P085 — filtro global por asesor
 
 - Todas las consultas Admin aceptan el mismo `asesor_id` UUID estable (nunca nombre/email).

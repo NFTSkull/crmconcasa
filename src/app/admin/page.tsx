@@ -42,6 +42,7 @@ import {
   downloadAdminProductionWorkbook,
 } from "@/lib/exportAdminProductionExcel";
 import { subestadoOperativoLabel } from "@/lib/subestadoOperativoUi";
+import { AdminReporteExpedientesSection } from "@/components/admin/AdminReporteExpedientesSection";
 
 const PAGE_SIZE = 25;
 
@@ -437,6 +438,8 @@ export default function AdminDashboardPage() {
       </header>
 
       <main className="mx-auto max-w-6xl space-y-6 px-4 py-6">
+        <AdminReporteExpedientesSection />
+
         <section className="sticky top-0 z-10 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
           <div className="flex flex-wrap gap-2">
             {(

@@ -1,5 +1,14 @@
 # ConCasa CRM — Plan de pruebas
 
+## P112 — Reporte Admin expedientes por asesores/etapas
+
+- [x] RPC `admin_report_expedientes_asesores_etapas` solo `super_admin`; STABLE; sin `action_log`; anon/PUBLIC sin EXECUTE.
+- [x] Universo: org actor, no eliminados, enviados a Mesa, ciclo activo; activos+rechazados; excluye cancelados/otras orgs.
+- [x] Pasos 1–11; Paso 3 ⊆ internas 3+4; `p_estado` vigentes|activos|rechazados; NULL/[] = Todos.
+- [x] Payload `resumen`/`detalle`/`meta`; rechazo separado de activo; NSS con ceros.
+- [x] UI `/admin`: consultar bajo demanda; tabla + expand; Excel de la última consulta; sin fechas.
+- [x] Tests SQL `admin_report_expedientes_asesores_etapas.sql` + TS domain/Excel; sin commit/Cloud.
+
 ## P111 — Excel citas para Mesa Admin
 
 - [x] `mesa_admin` / `mesa_control_admin` / `super_admin` pueden descargar.

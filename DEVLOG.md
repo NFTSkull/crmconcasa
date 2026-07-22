@@ -1,5 +1,19 @@
 # Devlog
 
+## 2026-07-22 - P112: Reporte Admin por asesores y pasos visuales
+
+### Decisión
+Ninguna RPC Admin existente cubría multi-asesor + multi-paso visual (11) + detalle con NSS. Se añade RPC read-only nueva, sin mutaciones ni `action_log`.
+
+### Universo
+Org del `super_admin`; no eliminados; enviados a Mesa; `ciclo_estado=activo`; etapa en pasos seleccionados. Incluye activos y rechazados canónicos; excluye cancelados terminales y otras orgs. Fotografía actual (sin fechas).
+
+### Backend
+Migración `098_admin_report_expedientes_asesores_etapas.sql`: `admin_report_expedientes_asesores_etapas(p_asesor_ids, p_pasos_visuales, p_estado)` → JSONB `{resumen,detalle,meta}`. Solo `super_admin`; `STABLE` + `SECURITY DEFINER`; GRANT `authenticated`; REVOKE `anon`/`PUBLIC`. Paso 3 → internas `[3,4]`.
+
+### UI / Excel
+Sección «Reporte de expedientes» en `/admin`: multiselect asesores/etapas + estado; botón «Consultar reporte»; tabla Asesor|Etapa|Cantidad con subtotales/total y detalle Cliente|NSS|Paso; Excel snapshot de la última consulta (`reporte-expedientes-YYYY-MM-DD.xlsx`).
+
 ## 2026-07-22 - P111: Excel citas para Mesa Admin
 
 ### Causa

@@ -54,7 +54,7 @@ ConCasa CRM gestiona el ciclo operativo de precalificaciones / expedientes hipot
 | `/mesa-control` | Mesa* | Bandeja operativa. |
 | `/mesa-control/citas` | Mesa* | Agenda de citas (lectura + cancel/reagendar/Drive/P089 masivo; P095 fecha día + Excel). |
 | `/mesa-control/[id]` | Mesa* | Revisión documental, avance etapas, retención, lectura citas. |
-| `/admin` | Super admin | KPIs y métricas. |
+| `/admin` | Super admin | KPIs, métricas y reporte de expedientes por asesores/etapas (P112). |
 | `/revisor`, `/revisor/[id]` | Legacy mock | Redirigen a `/editor`; **no** es rol de producción. |
 
 ---
@@ -147,6 +147,16 @@ La UI identifica al hijo como **Reingreso / Reinscripción** y **Biométricos re
 - in-memory; estados Generando/éxito/vacío/error; bloqueo doble clic; sin selección/límite 100/Storage.
 
 **Intacto:** P089, cancel/reagendar individual, `booking_kind` operativo.
+
+### 6.5c Reporte Admin de expedientes por asesores y etapas (P112)
+
+**Pantalla:** `/admin` · sección «Reporte de expedientes» (solo `super_admin`).
+
+**Qué es:** fotografía del estado actual (sin rango de fechas) de expedientes enviados a Mesa, ciclo vigente, por asesor × paso visual (11). Incluye activos y rechazados canónicos; excluye cancelados terminales.
+
+**Filtros:** multi-asesor (Todos + búsqueda), multi-etapa (11 pasos; Paso 3 = internas 3+4), estado vigentes|activos|rechazados. La consulta solo corre al pulsar «Consultar reporte».
+
+**Salida:** tabla Asesor|Etapa|Cantidad (subtotales/total) con detalle expandible Cliente|NSS|Paso; Excel `reporte-expedientes-YYYY-MM-DD.xlsx` de la última consulta. RPC `admin_report_expedientes_asesores_etapas`.
 
 ### 6.6 Rechazado vs Cancelado (P094 — diseño B0)
 
