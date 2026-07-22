@@ -1,5 +1,13 @@
 # Devlog
 
+## 2026-07-22 - P106: Movimiento manual con 11 pasos únicos
+
+### Causa
+El selector listaba las 12 internas y duplicaba «Paso 3» (listo + cita agendada).
+
+### Solución
+`opcionesMovimientoManualPaso` desde `ETAPAS_VISUALES_OPERATIVAS`; destino canónico (3→3, 4→5, …12→12); excluye paso visual actual; placeholder «Selecciona otro paso»; historial con `formatPasoOperativoLabel`. Interna 4 solo vía `book_biometricos`.
+
 ## 2026-07-22 - P105: Mesa alinea UI a 11 pasos del Asesor
 
 ### Causa
