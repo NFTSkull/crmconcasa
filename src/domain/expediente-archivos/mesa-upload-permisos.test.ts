@@ -69,6 +69,24 @@ describe("permisos upload Mesa vs asesor (contrato de tipos)", () => {
     );
   });
 
+  it("notificación solo Apodaca es opcional del asesor y no la sube Mesa", () => {
+    assert.ok(
+      (INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD as readonly string[]).includes(
+        "cliente_notificacion_apodaca",
+      ),
+    );
+    assert.ok(
+      !(INTEGRATION_DOC_TIPOS_MESA_UPLOAD as readonly string[]).includes(
+        "cliente_notificacion_apodaca",
+      ),
+    );
+    assert.ok(
+      !(INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD as readonly string[]).includes(
+        "cliente_notificacion",
+      ),
+    );
+  });
+
   it("semanas cotizadas es opcional del asesor pero Mesa también la sube", () => {
     assert.ok(
       (INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD as readonly string[]).includes("cliente_semanas_cotizadas"),

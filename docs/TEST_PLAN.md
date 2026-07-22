@@ -1,5 +1,12 @@
 # ConCasa CRM — Plan de pruebas
 
+## P104 — Notificación solo Apodaca (opcional)
+
+- [x] Tipo `cliente_notificacion_apodaca` ≠ `cliente_notificacion` / `notificacion`.
+- [x] Asesor upload/reemplazo vía checklist + DocumentDropzone; opcional no bloquea gates.
+- [x] Mesa lo ve en documentos del asesor (preview/descarga); sin upload Mesa.
+- [x] MIME PDF + 15 MiB heredados; migración `095_…sql` + test SQL local; sin Cloud.
+
 ## P103 — Drag & drop documentos Asesor/Mesa
 
 - [x] Clic tradicional y drop llaman el mismo handler.

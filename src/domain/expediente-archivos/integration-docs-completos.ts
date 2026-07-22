@@ -18,20 +18,29 @@ export const INTEGRATION_DOC_TIPOS_ASESOR_ENVIO = [
 
 /**
  * Espejo de `integration_doc_tipos_asesor_opcionales()` — no bloquean envío.
+ * Incluye P104 `cliente_notificacion_apodaca` (≠ `cliente_notificacion`).
  */
 export const INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES = [
   "cliente_semanas_cotizadas",
   "cliente_carta_empresa",
   "cliente_acta_nacimiento_digital",
+  "cliente_notificacion_apodaca",
 ] as const;
 
 /**
- * Espejo de `integration_doc_tipos_asesor_upload()` — permitidos en Storage/RPC (7).
+ * Espejo de `integration_doc_tipos_asesor_upload()` — permitidos en Storage/RPC (8).
  */
 export const INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD = [
   ...INTEGRATION_DOC_TIPOS_ASESOR_ENVIO,
   ...INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES,
 ] as const;
+
+/** P104: tipo técnico Notificación solo Apodaca (upload asesor; Mesa RO preview/descarga). */
+export const CLIENTE_NOTIFICACION_APODACA_DOCUMENT_TIPO =
+  "cliente_notificacion_apodaca" as const;
+
+export type ClienteNotificacionApodacaDocumentTipo =
+  typeof CLIENTE_NOTIFICACION_APODACA_DOCUMENT_TIPO;
 
 /**
  * Espejo de `integration_doc_tipos_obligatorios()` — validación Mesa y avance 1→2 (4).
