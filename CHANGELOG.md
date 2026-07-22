@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **fix/mesa-principal-performance — P100 (local, sin commit/Cloud):** `/mesa-control` deja el N+1 de `listResumenByExpediente` por batch chunked + secundarias en paralelo; evita doble fetch al resolver `currentUserId`; mismos filtros/permisos/resultados; sin SQL/RPC.
+
 - **fix/rechazo-bandeja-asesor — P099 (local, sin commit/Cloud):** cancelación terminal roja; rechazo oscuro con motivo select+Otro y nota opcional; defaults biométricos internos; banner/motivo en bandeja Asesor `Rechazados`; sin SQL/RPC/Cloud.
 
 - **fix/telefonos-repetidos — P098:** permite el mismo teléfono en varios expedientes; migración `093_…sql` elimina UNIQUE `cliente_datos_org_telefono_normalizado_unique_idx` y neutraliza `cliente_datos_telefono_ocupado_en_org`; identidad = `expediente_id`; NSS intacto; Cloud vía `db query --linked` (sin `db push`).

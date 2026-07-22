@@ -66,5 +66,13 @@ export interface ExpedienteArchivosRepo {
 
   /** Resumen por expediente: una fila por `TIPO_DOCUMENTO_CATALOGO`, orden fijo del catálogo. */
   listResumenByExpediente(expedienteId: string): Promise<ExpedienteArchivoResumen[]>;
+
+  /**
+   * Resumen documental para varios expedientes (bandeja Mesa).
+   * Misma semántica que `listResumenByExpediente` por id; una consulta (chunked) en Supabase.
+   */
+  listResumenBatchByExpedienteIds(
+    expedienteIds: readonly string[],
+  ): Promise<Record<string, ExpedienteArchivoResumen[]>>;
 }
 

@@ -173,6 +173,19 @@ export class MockExpedienteArchivosIndexedDbRepo implements ExpedienteArchivosRe
     return TIPO_DOCUMENTO_CATALOGO.map(buildRow);
   }
 
+  async listResumenBatchByExpedienteIds(
+    expedienteIds: readonly string[],
+  ): Promise<Record<string, ExpedienteArchivoResumen[]>> {
+    const ids = [
+      ...new Set(expedienteIds.map((id) => String(id).trim()).filter(Boolean)),
+    ];
+    const out: Record<string, ExpedienteArchivoResumen[]> = {};
+    for (const id of ids) {
+      out[id] = await this.listResumenByExpediente(id);
+    }
+    return out;
+  }
+
   async uploadArchivo(params: UploadArchivoParams): Promise<void> {
     if (typeof window === "undefined") return;
     const { expedienteId, tipo_documento, file, uploaded_by_email, uploaded_by_role } = params;

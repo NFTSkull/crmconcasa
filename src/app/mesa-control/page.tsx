@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSessionRepo } from "@/domain/session";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -27,13 +27,9 @@ import {
   deriveResumenExpedienteCorreccion,
   useExpedienteArchivosRepo,
   type CategoriaResumenDocumental,
-  type ExpedienteArchivoResumen,
 } from "@/domain/expediente-archivos";
 import { useExpedienteClienteDatosRepo } from "@/domain/expediente-cliente-datos";
-import type {
-  ClienteDatosEstadoBatch,
-  ExpedienteClienteDatosEstado,
-} from "@/domain/expediente-cliente-datos/types";
+import type { ExpedienteClienteDatosEstado } from "@/domain/expediente-cliente-datos/types";
 import { EXPEDIENTE_CLIENTE_DATOS_UPDATED_EVENT } from "@/domain/expediente-cliente-datos/emit-updated";
 import { isDataModeSupabase } from "@/lib/dataMode";
 import {
@@ -71,7 +67,6 @@ import {
   DEFAULT_MESA_OPS_FILTER,
   MESA_OPS_FILTER_CHIPS,
   MESA_OPS_FILTER_HELP_TEXT,
-  mergeExpedientesWithMesaOps,
   type MesaOpsFilter,
 } from "@/lib/mesaOpsUi";
 import { MesaOpsBandejaBadge } from "@/components/mesa-control/MesaExpedienteOpsSection";
@@ -88,6 +83,7 @@ import {
   type MesaQuickFilter,
   type MesaRechazosCancelacionesSubfiltro,
 } from "@/lib/mesaBandejaFiltros";
+import { fetchMesaBandejaSecondaryParallel } from "@/lib/mesaBandejaLoad";
 import { hasAlertMessage, MESA_OPS_UPDATED_EVENT } from "@/lib/hasAlertMessage";
 import { NotificationsBell } from "@/components/notifications/NotificationsBell";
 import { buildDashboardNotifications } from "@/lib/dashboardNotifications";
@@ -284,6 +280,7 @@ export default function MesaControlPage() {
   const [rechazosCancelacionesSubfiltro, setRechazosCancelacionesSubfiltro] =
     useState<MesaRechazosCancelacionesSubfiltro>("rechazados");
   const [adminOrigenTab, setAdminOrigenTab] = useState<AdminOrigenTab>("todos");
+  const currentUserIdRef = useRef<string | null>(null);
 
   const todayYMD = getTodayYMD();
 
@@ -345,28 +342,89 @@ export default function MesaControlPage() {
           return fechaEnvioMesa !== undefined ? { ...c, fechaEnvioMesa } : c;
         });
         const enriched: CasoConDocs[] = await (async () => {
-          const resumenEntries = await Promise.all(
-            base.map(async (c) => {
-              try {
-                const r = await archivosRepo.listResumenByExpediente(c.id);
-                return [c.id, r] as const;
-              } catch {
-                return [c.id, [] as ExpedienteArchivoResumen[]] as const;
-              }
-            }),
-          );
-          let estadosPorId: Record<string, ClienteDatosEstadoBatch> = {};
-          try {
-            estadosPorId = await clienteDatosRepo.listEstadoBatchByExpedienteIds(
-              base.map((c) => c.id),
-            );
-          } catch {
-            estadosPorId = {};
+          const allExpedienteIds = base.map((c) => c.id);
+          const etapa3ExpedienteIds = base
+            .filter((c) => c.etapaActual === 3)
+            .map((c) => c.id);
+
+          let mesaUserId = currentUserIdRef.current;
+          if (mesaUserId == null && mesaOpsRepo) {
+            try {
+              mesaUserId = await mesaOpsRepo.resolveCurrentUserId();
+              currentUserIdRef.current = mesaUserId;
+              setCurrentUserId(mesaUserId);
+            } catch {
+              mesaUserId = null;
+            }
           }
-          const resumenMap = new Map(resumenEntries);
-          const mesaUserId = currentUserId;
+
+          const secondary = await fetchMesaBandejaSecondaryParallel(
+            { allExpedienteIds, etapa3ExpedienteIds },
+            {
+              listResumenBatchByExpedienteIds: (ids) =>
+                archivosRepo.listResumenBatchByExpedienteIds(ids),
+              listEstadoBatchByExpedienteIds: (ids) =>
+                clienteDatosRepo.listEstadoBatchByExpedienteIds(ids),
+              listActiveNotificacionByExpedienteIds:
+                dataSupabase && agendaBookingRepo
+                  ? (ids) => agendaBookingRepo.listActiveNotificacionByExpedienteIds(ids)
+                  : undefined,
+              listMesaOpsByExpedienteIds: mesaOpsRepo
+                ? (ids) => mesaOpsRepo.listByExpedienteIds(ids)
+                : undefined,
+            },
+          );
+
+          const {
+            resumenPorId,
+            estadosPorId,
+            notificacionPorId,
+            opsRows,
+          } = secondary;
+
+          const creatorIds = [
+            ...new Set(
+              [...notificacionPorId.values()]
+                .map((b) => b.createdById?.trim())
+                .filter((id): id is string => Boolean(id)),
+            ),
+          ];
+          const agendadoPorLabels = new Map<string, string>();
+          if (
+            dataSupabase &&
+            creatorIds.length > 0 &&
+            isSupabaseConfigured() &&
+            supabaseBrowser
+          ) {
+            try {
+              const { data } = await supabaseBrowser.rpc("get_asesor_display_batch", {
+                p_asesor_ids: creatorIds,
+              });
+              for (const row of (data ?? []) as Array<{
+                asesor_id?: string;
+                full_name?: string | null;
+                email?: string | null;
+              }>) {
+                const id = String(row.asesor_id ?? "").trim();
+                if (!id) continue;
+                agendadoPorLabels.set(
+                  id,
+                  resolveProfileDisplayLabel({
+                    fullName: row.full_name,
+                    email: row.email,
+                    fallbackId: id,
+                  }),
+                );
+              }
+            } catch {
+              // Sin labels: la bandeja sigue con "—".
+            }
+          }
+
+          const opsMap = buildMesaOpsMap(opsRows);
+
           return base.map((c) => {
-            const resumen = resumenMap.get(c.id) ?? [];
+            const resumen = resumenPorId[c.id] ?? [];
             const clienteBatch = estadosPorId[c.id] ?? null;
             const resumenDocumental = deriveResumenExpedienteCorreccion(resumen, {
               clienteDatosEstado: clienteBatch?.estado ?? null,
@@ -398,6 +456,7 @@ export default function MesaControlPage() {
               fechaEntradaMesaActual,
               ultimaCorreccionEnviadaAt,
             );
+            const booking = notificacionPorId.get(c.id) ?? null;
             return {
               ...c,
               resumenDocumental,
@@ -406,87 +465,15 @@ export default function MesaControlPage() {
               ultimaCorreccionEnviadaAt,
               entradaLecturaEsCorreccion,
               correccionLecturaEstado,
+              notificacionBooking: booking,
+              notificacionAgendadoPorLabel: booking?.createdById
+                ? agendadoPorLabels.get(booking.createdById) ?? "—"
+                : undefined,
+              mesaOps: opsMap.get(c.id) ?? null,
             };
           });
         })();
-        let withNotificacion: CasoConDocs[] = enriched;
-        if (dataSupabase && agendaBookingRepo) {
-          try {
-            const etapa3Ids = enriched
-              .filter((c) => c.etapaActual === 3)
-              .map((c) => c.id);
-            const notificacionMap =
-              await agendaBookingRepo.listActiveNotificacionByExpedienteIds(etapa3Ids);
-            const creatorIds = [
-              ...new Set(
-                [...notificacionMap.values()]
-                  .map((b) => b.createdById?.trim())
-                  .filter((id): id is string => Boolean(id)),
-              ),
-            ];
-            const agendadoPorLabels = new Map<string, string>();
-            if (
-              creatorIds.length > 0 &&
-              isSupabaseConfigured() &&
-              supabaseBrowser
-            ) {
-              const { data } = await supabaseBrowser.rpc("get_asesor_display_batch", {
-                p_asesor_ids: creatorIds,
-              });
-              for (const row of (data ?? []) as Array<{
-                asesor_id?: string;
-                full_name?: string | null;
-                email?: string | null;
-              }>) {
-                const id = String(row.asesor_id ?? "").trim();
-                if (!id) continue;
-                agendadoPorLabels.set(
-                  id,
-                  resolveProfileDisplayLabel({
-                    fullName: row.full_name,
-                    email: row.email,
-                    fallbackId: id,
-                  }),
-                );
-              }
-            }
-            withNotificacion = enriched.map((c) => {
-              const booking = notificacionMap.get(c.id) ?? null;
-              return {
-                ...c,
-                notificacionBooking: booking,
-                notificacionAgendadoPorLabel: booking?.createdById
-                  ? agendadoPorLabels.get(booking.createdById) ?? "—"
-                  : undefined,
-              };
-            });
-          } catch (err) {
-            if (process.env.NODE_ENV === "development") {
-              console.warn(
-                "[mesa-control] lectura notificaciones bandeja falló; sin resumen notificación",
-                err,
-              );
-            }
-          }
-        }
-        const sorted = sortMesaBandejaPorAntiguedad(withNotificacion);
-        if (mesaOpsRepo) {
-          try {
-            const opsRows = await mesaOpsRepo.listByExpedienteIds(sorted.map((c) => c.id));
-            const opsMap = buildMesaOpsMap(opsRows);
-            setCasos(mergeExpedientesWithMesaOps(sorted, opsMap));
-          } catch (err) {
-            if (process.env.NODE_ENV === "development") {
-              console.warn(
-                "[mesa-control] lectura mesa_expediente_ops falló; bandeja sin badges ops",
-                err,
-              );
-            }
-            setCasos(mergeExpedientesWithMesaOps(sorted, buildMesaOpsMap([])));
-          }
-        } else {
-          setCasos(sorted);
-        }
+        setCasos(sortMesaBandejaPorAntiguedad(enriched));
       } catch (err) {
         setCasos([]);
         if (err instanceof ExpedientesSupabaseError) {
@@ -498,14 +485,18 @@ export default function MesaControlPage() {
         setLoading(false);
       }
     })();
-  }, [agendaBookingRepo, archivosRepo, clienteDatosRepo, currentUser, currentUserId, dataSupabase, mapExpToCaso, mesaOpsRepo, repo]);
+  }, [agendaBookingRepo, archivosRepo, clienteDatosRepo, currentUser, dataSupabase, mapExpToCaso, mesaOpsRepo, repo]);
 
   useEffect(() => {
     if (!mesaOpsRepo) {
+      currentUserIdRef.current = null;
       setCurrentUserId(null);
       return;
     }
-    void mesaOpsRepo.resolveCurrentUserId().then(setCurrentUserId);
+    void mesaOpsRepo.resolveCurrentUserId().then((id) => {
+      currentUserIdRef.current = id;
+      setCurrentUserId(id);
+    });
   }, [mesaOpsRepo]);
 
   useEffect(() => {
