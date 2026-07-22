@@ -140,6 +140,7 @@ La UI identifica al hijo como **Reingreso / Reinscripción** y **Biométricos re
 
 **Exportación Excel (B2 util + B3 UI + P107/P109):**
 - Botón `Descargar Excel` en `/mesa-control/citas`; exporta el día operativo (`lista`→`listaStartDate`, `dia`→`selectedDay`, `semana`→`weekDetailDay ?? selectedDay`) con filtros activos.
+- **P111:** disponible para `mesa_admin` / `super_admin` y roles Mesa con acceso a la pantalla (gate `canDownloadMesaCitasExcel`); asesor excluido; mismas citas visibles por RLS (no solo propias/seleccionadas).
 - Util `exportMesaCitasExcel` genera `.xlsx` hoja `Citas`; archivo `citas-mesa-YYYY-MM-DD.xlsx`.
 - Columnas por bloque: `Fecha` | `NSS` | `Nombre completo`; estilos plantilla oficial; NSS texto; fecha DD/MM/YYYY.
 - **P109/P110:** bloques por `report_group` resuelto + horario (máx. 3 horizontales). P110: sin selector manual; clasificación automática por `kind` (conserva históricos `inscripcion`/`biometricos_tramite_completo`); Firmas siempre `FIRMAS — 9:30 AM` en el Excel (solo presentación).

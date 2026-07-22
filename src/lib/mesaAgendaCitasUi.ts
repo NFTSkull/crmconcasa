@@ -60,6 +60,25 @@ export function canAccessMesaAgendaCitasPage(role: string | null | undefined): b
   return MESA_AGENDA_ALLOWED_ROLES.has(String(role ?? "").trim());
 }
 
+/**
+ * Descarga Excel de citas (P095/P111): mismos roles que la pantalla.
+ * Incluye `mesa_admin` / `mesa_control_admin` y `super_admin`; excluye asesor.
+ */
+export function canDownloadMesaCitasExcel(role: string | null | undefined): boolean {
+  return canAccessMesaAgendaCitasPage(role);
+}
+
+/** True si mock o sesión autorizan (P111: no depender solo del Rol colapsado). */
+export function canDownloadMesaCitasExcelForUser(params: Readonly<{
+  mockRole?: string | null;
+  sessionRole?: string | null;
+}>): boolean {
+  return (
+    canDownloadMesaCitasExcel(params.mockRole) ||
+    canDownloadMesaCitasExcel(params.sessionRole)
+  );
+}
+
 export function defaultMesaAgendaMonthRange(date: Date = new Date()): {
   startDate: string;
   endDate: string;

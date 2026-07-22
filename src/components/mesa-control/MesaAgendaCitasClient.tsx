@@ -51,6 +51,8 @@ import {
   buildMesaAgendaLocationOptions,
   buildMesaAgendaWeekRange,
   canAccessMesaAgendaCitasPage,
+  canDownloadMesaCitasExcel,
+  canDownloadMesaCitasExcelForUser,
   canMesaCancelAgendaListEntry,
   canMesaReagendarAgendaListEntry,
   canMesaShowDriveValidationActions,
@@ -157,9 +159,15 @@ export function MesaAgendaCitasClient() {
   const bulkBusyRef = useRef(false);
   const exportExcelBusyRef = useRef(false);
 
-  const canAccess = canAccessMesaAgendaCitasPage(currentUser?.role);
   const mockRole = getEffectiveMockRole();
   const sessionRole = currentUser?.role ?? null;
+  const canAccess =
+    canAccessMesaAgendaCitasPage(mockRole) ||
+    canAccessMesaAgendaCitasPage(sessionRole);
+  const canDownloadExcel = canDownloadMesaCitasExcelForUser({
+    mockRole,
+    sessionRole,
+  });
   const bulkRole = mockRole || sessionRole;
 
   const weekRange = useMemo(() => buildMesaAgendaWeekRange(weekAnchor), [weekAnchor]);
@@ -372,6 +380,7 @@ export function MesaAgendaCitasClient() {
   );
 
   const handleDescargarExcel = useCallback(() => {
+    if (!canDownloadExcel) return;
     if (exportExcelBusyRef.current || loading || bulkBusyRef.current) return;
     exportExcelBusyRef.current = true;
     setExportExcelLoading(true);
@@ -395,7 +404,7 @@ export function MesaAgendaCitasClient() {
         setExportExcelLoading(false);
       }
     })();
-  }, [loading, loadedEntries, exportDayYmd, filters, sortBy]);
+  }, [canDownloadExcel, loading, loadedEntries, exportDayYmd, filters, sortBy]);
 
   const handleBulkRowCheckedChange = useCallback(
     (entry: MesaAgendaBookingEntry, checked: boolean) => {
@@ -910,16 +919,18 @@ export function MesaAgendaCitasClient() {
         />
 
         <div className="flex flex-wrap items-center gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            className="h-[42px] whitespace-nowrap px-3 text-sm"
-            disabled={exportExcelLoading || loading || Boolean(rangeError)}
-            onClick={handleDescargarExcel}
-            aria-label="Descargar Excel de citas del día"
-          >
-            {exportExcelLoading ? "Generando Excel…" : "Descargar Excel"}
-          </Button>
+          {canDownloadExcel ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="h-[42px] whitespace-nowrap px-3 text-sm"
+              disabled={exportExcelLoading || loading || Boolean(rangeError)}
+              onClick={handleDescargarExcel}
+              aria-label="Descargar Excel de citas del día"
+            >
+              {exportExcelLoading ? "Generando Excel…" : "Descargar Excel"}
+            </Button>
+          ) : null}
           {exportExcelMessage ? (
             <p
               role="status"

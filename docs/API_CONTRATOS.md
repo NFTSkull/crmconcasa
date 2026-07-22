@@ -790,6 +790,7 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 
 **Export Excel (B2 util + B3 UI + P107/P109):**
 - UI: botón `Descargar Excel` → `downloadMesaCitasExcel(loadedEntries, exportDayYmd, filters, sortBy)`; día vía `resolveMesaCitasExportDayYmd`; independiente de `selectedBookingIds` / límite 100.
+- **P111:** gate `canDownloadMesaCitasExcel` / `canDownloadMesaCitasExcelForUser` (roles Mesa + `super_admin`, incl. `mesa_admin`); sin RPC adicional.
 - `prepareMesaCitasExport(entries, fechaYmd, filters, sortBy)` → workbook in-memory agrupado por `report_group` resuelto + `bookingTime` (Firmas: hora oficial de presentación `09:30`).
 - Archivo `citas-mesa-YYYY-MM-DD.xlsx`; hoja `Citas`; por bloque: `Fecha` | `NSS` | `Nombre completo`.
 - Lectura: `get_mesa_agenda_bookings` incluye `report_group`.
