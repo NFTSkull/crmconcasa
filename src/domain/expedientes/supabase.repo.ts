@@ -38,6 +38,10 @@ import {
   type ReingresoElegibilidad,
 } from "./reingreso-post-biometricos";
 import {
+  mapReactivacionRpcError,
+  reactivarExpedienteResponseSchema,
+} from "./reactivar-expediente-rechazado";
+import {
   cancelacionOperativaInputSchema,
   mapMesaCancelacionRpcError,
   type CancelacionOperativaInput,
@@ -860,6 +864,49 @@ export class SupabaseExpedientesRepo implements ExpedientesRepo {
     if (!refreshed) {
       throw new ExpedientesSupabaseError(
         "El rechazo se registró, pero no se pudo recargar el expediente.",
+      );
+    }
+    return refreshed;
+  }
+
+  async reactivarExpedienteRechazado(
+    expedienteId: string,
+  ): Promise<ExpedienteMock> {
+    const idResult = reingresoExpedienteIdSchema.safeParse(expedienteId);
+    if (!idResult.success) {
+      throw new ExpedientesSupabaseError(
+        "El identificador del expediente no es válido.",
+      );
+    }
+
+    const { client } = await requireSupabaseSession();
+    const { data, error } = await client.rpc("reactivar_expediente_rechazado", {
+      p_expediente_id: idResult.data,
+    });
+
+    if (error) {
+      throw mapReactivacionRpcError(
+        error,
+        "No se pudo reenviar el expediente a Mesa.",
+      );
+    }
+    if (!data || typeof data !== "object") {
+      throw new ExpedientesSupabaseError(
+        "La reactivación se registró sin una respuesta válida.",
+      );
+    }
+
+    const parsed = reactivarExpedienteResponseSchema.safeParse(data);
+    if (!parsed.success) {
+      throw new ExpedientesSupabaseError(
+        "La reactivación recibió una respuesta inválida del servidor.",
+      );
+    }
+
+    const refreshed = await fetchExpedienteById(idResult.data);
+    if (!refreshed) {
+      throw new ExpedientesSupabaseError(
+        "La reactivación se registró, pero no se pudo recargar el expediente.",
       );
     }
     return refreshed;

@@ -16,7 +16,7 @@ test("motivoManualPareceRechazo detecta variantes de rechazo sin inferir acción
   assert.equal(motivoManualPareceRechazo(""), false);
 });
 
-test("esElegibleRechazoOperativoPostBiometricos solo etapas 5/6 activas enviadas", () => {
+test("esElegibleRechazoOperativoPostBiometricos etapas internas 1–12 activas enviadas", () => {
   const base = {
     submittedToMesa: true,
     cicloEstado: "activo",
@@ -25,11 +25,19 @@ test("esElegibleRechazoOperativoPostBiometricos solo etapas 5/6 activas enviadas
   };
   assert.equal(esElegibleRechazoOperativoPostBiometricos(base), true);
   assert.equal(
-    esElegibleRechazoOperativoPostBiometricos({ ...base, etapaActual: 6 }),
+    esElegibleRechazoOperativoPostBiometricos({ ...base, etapaActual: 1 }),
     true,
   );
   assert.equal(
     esElegibleRechazoOperativoPostBiometricos({ ...base, etapaActual: 4 }),
+    true,
+  );
+  assert.equal(
+    esElegibleRechazoOperativoPostBiometricos({ ...base, etapaActual: 12 }),
+    true,
+  );
+  assert.equal(
+    esElegibleRechazoOperativoPostBiometricos({ ...base, etapaActual: 0 }),
     false,
   );
   assert.equal(

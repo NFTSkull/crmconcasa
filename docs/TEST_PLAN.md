@@ -1,5 +1,15 @@
 # ConCasa CRM — Plan de pruebas
 
+## P108A — Rechazo 1–12 + reactivación segura
+
+- [x] `rechazar_etapa_operativa` permite internas 1–12; motivo/nota; conserva etapa; `subestado=rechazado`; ciclo activo.
+- [x] `reactivar_expediente_rechazado`: mismo expediente/etapa; subestado canónico 1→`en_validacion_mesa`, 2–12→`en_proceso`.
+- [x] Traza append-only + action_log; historial de rechazo intacto; sin doble rechazo/reactivación.
+- [x] Cancelados no rechazan/reactivan; citas/docs/montos/bookings intactos.
+- [x] UI Mesa: tarjeta en 11 pasos (motivo+nota). Asesor: badge/motivo/paso + «Corregir y reenviar a Mesa».
+- [x] P072 intacto (reingreso hijo 5/6); reactivación no depende de biométricos.
+- [x] Tests SQL `rpc_rechazo_reactivacion_p108a.sql` + regresión P071; sin commit/Cloud.
+
 ## P106 — Movimiento manual 11 pasos únicos
 
 - [x] Selector: 11 opciones; Paso 3 una sola vez; envía interna 3 / Paso 4 → 5.

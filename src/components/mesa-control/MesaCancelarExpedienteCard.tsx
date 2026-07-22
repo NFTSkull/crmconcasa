@@ -86,7 +86,7 @@ export function MesaCancelarExpedienteCard({
         {MESA_CANCELACION_OPERATIVA_CARD_INTRO}
       </p>
       <p className="mt-1 text-xs text-red-900">
-        Distinto del rechazo operativo (etapas 5/6). Es terminal: no hay
+        Distinto del rechazo operativo (pasos 1–11). Es terminal: no hay
         reingreso en este flujo. Las citas históricas no se cancelan solas.
       </p>
       {!open ? (

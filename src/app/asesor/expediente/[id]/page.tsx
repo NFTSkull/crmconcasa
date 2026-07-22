@@ -1234,6 +1234,10 @@ export default function AsesorExpedientePage() {
           <AsesorExpedienteRechazadoBanner
             motivo={operativo?.motivoRechazo}
             comentario={operativo?.comentarioRechazo}
+            etapaActual={operativo?.etapaActual}
+            dataModeSupabase={dataSupabase}
+            expedienteId={String(precal.id)}
+            onReenviado={() => void loadExpediente()}
           />
         ) : null}
 
@@ -1523,7 +1527,10 @@ export default function AsesorExpedientePage() {
               origenMesa={operativo?.origenMesa}
               formatDateTime={formatDateTime}
             />
-            {canMountAgendaBiometricosUI() && precal?.id && !expedienteCancelado ? (
+            {canMountAgendaBiometricosUI() &&
+            precal?.id &&
+            !expedienteCancelado &&
+            operativo?.subestado !== "rechazado" ? (
               <AsesorAgendaBiometricosSupabaseGate
                 expedienteId={String(precal.id)}
                 submittedToMesa={operativo?.submittedToMesa ?? false}
@@ -1532,7 +1539,10 @@ export default function AsesorExpedientePage() {
                 onUpdated={() => void loadExpediente()}
               />
             ) : null}
-            {canMountAgendaBiometricosUI() && precal?.id && !expedienteCancelado ? (
+            {canMountAgendaBiometricosUI() &&
+            precal?.id &&
+            !expedienteCancelado &&
+            operativo?.subestado !== "rechazado" ? (
               <AsesorAgendaFirmasSupabaseGate
                 expedienteId={String(precal.id)}
                 submittedToMesa={operativo?.submittedToMesa ?? false}
@@ -1547,7 +1557,8 @@ export default function AsesorExpedientePage() {
               submittedToMesa: operativo?.submittedToMesa ?? false,
             }) &&
             precal?.id &&
-            !expedienteCancelado ? (
+            !expedienteCancelado &&
+            operativo?.subestado !== "rechazado" ? (
               <RetencionAcuseAvisoSupabaseCard
                 expedienteId={String(precal.id)}
                 archivosResumen={archivosResumen}

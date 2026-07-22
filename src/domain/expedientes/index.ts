@@ -104,6 +104,15 @@ export {
   type RechazoOperativoInput,
   type ReingresoElegibilidad,
 } from "./reingreso-post-biometricos";
+export {
+  ASESOR_REACTIVAR_RECHAZO_CTA,
+  esExpedienteRechazadoOperativoActivo,
+  getReactivacionErrorCode,
+  mapReactivacionRpcError,
+  reactivarExpedienteResponseSchema,
+  subestadoCanonicoTrasReactivacion,
+  type ReactivarExpedienteResponse,
+} from "./reactivar-expediente-rechazado";
 export { EDITOR_LIST_PAGE_SIZE } from "./editor-list-query";
 export type { ExpedienteMock, EditorDecision } from "./mock.repo";
 export { MockExpedientesRepo } from "./mock.repo";

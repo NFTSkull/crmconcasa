@@ -108,8 +108,8 @@ export function MesaRechazoOperativoPostBiometricosCard({
         {MESA_RECHAZO_OPERATIVO_CARD_INTRO}
       </p>
       <p className="mt-1 text-xs text-amber-900/85">
-        No cierra el ciclo: el cliente puede continuar o reingresar. Solo etapas
-        5 y 6. No uses «Mover etapa».
+        No cierra el ciclo: el asesor puede corregir y reenviar el mismo
+        expediente. Aplica en los 11 pasos visibles. No uses «Mover etapa».
       </p>
       {!open ? (
         <Button

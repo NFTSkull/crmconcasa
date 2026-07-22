@@ -1,5 +1,18 @@
 # Devlog
 
+## 2026-07-22 - P108A: Rechazo 1–12 + reactivación segura
+
+### Causa
+El rechazo operativo solo existía en 5/6 y no había salida del `subestado=rechazado` sin P072 (hijo nuevo). Expedientes rechazados en otras etapas quedaban atrapados.
+
+### Decisión
+- Ampliar `rechazar_etapa_operativa` + CHECK a etapas internas 1–12.
+- Nueva RPC `reactivar_expediente_rechazado`: asesor dueño o Mesa/admin; traza append-only; sin depender de `biometricos_condicion`.
+- Subestado al reenviar = canónico de `mesa_mover_etapa` (1→`en_validacion_mesa`; 2–12→`en_proceso`).
+- P072 intacto como reingreso especial post-biométricos.
+- UI Mesa: tarjeta en 11 pasos (motivo+nota). Asesor: CTA «Corregir y reenviar a Mesa»; bloquea agenda/retención hasta reenviar.
+- Sin commit/Cloud/push.
+
 ## 2026-07-22 - P106: Movimiento manual con 11 pasos únicos
 
 ### Causa
