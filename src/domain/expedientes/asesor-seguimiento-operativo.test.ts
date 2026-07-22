@@ -6,6 +6,7 @@ import {
   TOTAL_PASOS_VISUALES_OPERATIVOS,
   asesorSubestadoOperativoLabel,
   estadoEnvioMesaLabel,
+  etapasInternasParaPasoVisual,
   getEtapaOperativaNombre,
   getEtapaTimelineBadgeLabel,
   getEtapaTimelineVisual,
@@ -37,6 +38,12 @@ describe("ETAPAS_VISUALES_OPERATIVAS", () => {
   it("mapea etapa legacy 4 al paso visual 3", () => {
     assert.equal(mapEtapaInternaAPasoVisual(4), 3);
     assert.equal(getEtapaVisualNombre(4), "Listo para cita de biométrico");
+  });
+
+  it("inverso: paso 3 → internas 3 y 4; paso 4 → 5; paso 11 → 12", () => {
+    assert.deepEqual(etapasInternasParaPasoVisual(3), [3, 4]);
+    assert.deepEqual(etapasInternasParaPasoVisual(4), [5]);
+    assert.deepEqual(etapasInternasParaPasoVisual(11), [12]);
   });
 
   it("marca paso visual según etapa interna", () => {

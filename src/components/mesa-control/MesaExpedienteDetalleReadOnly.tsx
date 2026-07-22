@@ -131,7 +131,6 @@ import { MesaExpedienteCanceladoBanner } from "@/components/mesa-control/MesaExp
 import { MesaGestionFirmasSection } from "@/components/mesa-control/MesaGestionFirmasSection";
 import { isProgramaMejoravit } from "@/domain/expedientes/map-programa";
 import {
-  formatEtapaMesaCorrespondenciaAsesor,
   formatEtapaMesaLabel,
 } from "@/domain/expedientes/etapa-numeracion-ux";
 
@@ -1642,24 +1641,11 @@ export function MesaExpedienteDetalleReadOnly() {
             {origenMesaLabel(expediente.base.origenMesa)}
           </p>
           <p data-testid="mesa-etapa-actual-label">
-            <span className="font-medium text-gray-900">Etapa actual:</span>{" "}
+            <span className="font-medium text-gray-900">Paso actual:</span>{" "}
             {typeof op.etapaActual === "number"
               ? formatEtapaMesaLabel(op.etapaActual)
               : "—"}
           </p>
-          {typeof op.etapaActual === "number" ? (
-            (() => {
-              const hint = formatEtapaMesaCorrespondenciaAsesor(op.etapaActual);
-              return hint ? (
-                <p
-                  className="text-xs text-gray-500 sm:col-span-2"
-                  data-testid="mesa-etapa-correspondencia-asesor"
-                >
-                  {hint}
-                </p>
-              ) : null;
-            })()
-          ) : null}
           <p>
             <span className="font-medium text-gray-900">Subestado:</span>{" "}
             {subestadoOperativoLabel(op.subestado ?? "pendiente")}

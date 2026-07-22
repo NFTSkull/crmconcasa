@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-07-22 - P105: Mesa alinea UI a 11 pasos del Asesor
+
+### Causa
+Mesa mostraba numeración interna 1–12 («Etapa N») y hints «En vista asesor», distinto del timeline de 11 pasos del asesor (omite legacy 4).
+
+### Solución
+- Fuente compartida: `formatPasoOperativoLabel` + `etapasInternasParaPasoVisual`.
+- Mesa bandeja/detalle/agenda/movimiento manual: solo `Paso X de 11 — …`.
+- Filtro: 11 opciones; backend sigue recibiendo `p_etapa` interno (paso 3 → unión de llamadas 3 y 4).
+- `book_biometricos` 3→4 confirmado (sin SQL); biometría resultado = interna 5 = paso 4.
+
 ## 2026-07-22 - P104: Notificación solo Apodaca (opcional)
 
 ### Objetivo

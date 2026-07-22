@@ -1,4 +1,5 @@
 import type { CategoriaResumenDocumental } from "@/domain/expediente-archivos/types";
+import { etapasInternasParaFiltroPaso } from "@/domain/expedientes/etapa-numeracion-ux";
 import type { MesaOpsFilter } from "@/lib/mesaOpsUi";
 
 /**
@@ -286,8 +287,11 @@ export function aplicarFiltrosBandejaMesa<T extends MesaBandejaFiltroItem>(
     list = list.filter((c) => coincideBusquedaClienteTelefono(c, state.buscar));
   }
   if (state.etapa !== "todas") {
-    const etapa = Number(state.etapa);
-    list = list.filter((c) => c.etapaActual === etapa);
+    const etapas = etapasInternasParaFiltroPaso(state.etapa);
+    if (etapas && etapas.length > 0) {
+      const set = new Set(etapas);
+      list = list.filter((c) => set.has(c.etapaActual));
+    }
   }
   if (state.subestado !== "todas") {
     list = list.filter((c) => c.subestado === state.subestado);

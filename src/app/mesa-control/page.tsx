@@ -13,7 +13,6 @@ import {
   readMesaControlInboxSafe,
 } from "@/lib/mesaControlInboxMock";
 import {
-  ETAPAS_LABELS,
   getTodayYMD,
   type CasoMock,
 } from "./mockData";
@@ -26,8 +25,13 @@ import {
   type ExpedienteMock,
   type MesaBandejaCursor,
   type MesaBandejaServerCounts,
+  type PaginatedMesaBandejaResult,
 } from "@/domain/expedientes";
-import { formatEtapaMesaBandejaBadge } from "@/domain/expedientes/etapa-numeracion-ux";
+import {
+  etapasInternasParaFiltroPaso,
+  formatEtapaMesaBandejaBadge,
+  opcionesFiltroPasoOperativo,
+} from "@/domain/expedientes/etapa-numeracion-ux";
 import {
   useExpedienteArchivosRepo,
   type CategoriaResumenDocumental,
@@ -424,17 +428,13 @@ export default function MesaControlPage() {
         }
         try {
           const cursor = append ? serverCursorRef.current : null;
-          const etapaNum =
-            etapaFilter !== "todas" && Number.isFinite(Number(etapaFilter))
-              ? Number(etapaFilter)
-              : null;
-          const page = await repo.listForMesaControlPaginated({
+          const etapasFiltro = etapasInternasParaFiltroPaso(etapaFilter);
+
+          const baseQuery = {
             limit: MESA_BANDEJA_PAGE_SIZE,
-            cursor,
             quickFilter,
             opsFilter: mesaOpsFilter,
             buscar: buscarDebounced,
-            etapa: etapaNum,
             subestado: subestadoFilter === "todas" ? null : subestadoFilter,
             soloCitasHoy,
             todayYmd: todayYMD,
@@ -446,8 +446,57 @@ export default function MesaControlPage() {
                 ? adminOrigenTab
                 : "todos",
             ),
-            includeCounts: !append,
-          });
+          } as const;
+
+          let page: PaginatedMesaBandejaResult;
+
+          if (etapasFiltro && etapasFiltro.length > 1) {
+            // Paso visual con varias internas (p.ej. paso 3 → 3+4): unión completa
+            // sin cambiar la RPC (sigue enviando un p_etapa interno por llamada).
+            if (append) {
+              setServerHasMore(false);
+              return;
+            }
+            const byId = new Map<string, (typeof page.items)[number]>();
+            let counts: PaginatedMesaBandejaResult["counts"] = null;
+            let totalCount = 0;
+            for (const etapaInterna of etapasFiltro) {
+              let etapaCursor: MesaBandejaCursor | null = null;
+              let includeCounts = counts === null;
+              for (;;) {
+                const part = await repo.listForMesaControlPaginated({
+                  ...baseQuery,
+                  cursor: etapaCursor,
+                  etapa: etapaInterna,
+                  includeCounts,
+                });
+                if (part.counts && !counts) counts = part.counts;
+                totalCount += part.totalCount;
+                for (const item of part.items) byId.set(item.id, item);
+                if (!part.hasMore || !part.nextCursor) break;
+                etapaCursor = part.nextCursor;
+                includeCounts = false;
+              }
+            }
+            const items = [...byId.values()].sort((a, b) => {
+              const ts = String(a.sortTs).localeCompare(String(b.sortTs));
+              return ts !== 0 ? ts : String(a.id).localeCompare(String(b.id));
+            });
+            page = {
+              items,
+              totalCount,
+              hasMore: false,
+              nextCursor: null,
+              counts,
+            };
+          } else {
+            page = await repo.listForMesaControlPaginated({
+              ...baseQuery,
+              cursor,
+              etapa: etapasFiltro?.[0] ?? null,
+              includeCounts: !append,
+            });
+          }
           if (gen !== serverQueryGenRef.current) return;
 
           const base = page.items.map((exp) => mapExpToCaso(exp));
@@ -1066,7 +1115,7 @@ export default function MesaControlPage() {
             <p className="mt-1 text-2xl font-semibold tabular-nums text-amber-950">
               {kpis.nuevosPorRevisar}
             </p>
-            <p className="mt-0.5 text-[10px] text-amber-800/80">Etapas 1–2 · pendiente / en proceso</p>
+            <p className="mt-0.5 text-[10px] text-amber-800/80">Pasos 1–2 · pendiente / en proceso</p>
           </div>
           <div className="rounded-xl border border-blue-200/70 bg-gradient-to-br from-blue-50/70 to-white p-3 shadow-sm ring-1 ring-blue-100/50">
             <p className="text-[11px] font-medium uppercase tracking-wide text-blue-900/80">
@@ -1267,14 +1316,14 @@ export default function MesaControlPage() {
               className="min-w-[min(100%,12rem)] sm:min-w-[200px]"
             />
             <Select
-              label="Etapa"
+              label="Paso"
               value={etapaFilter}
               onChange={(e) => setEtapaFilter(e.target.value)}
               options={[
-                { value: "todas", label: "Todas" },
-                ...Array.from({ length: 12 }, (_, i) => ({
-                  value: String(i + 1),
-                  label: `${i + 1}. ${ETAPAS_LABELS[i + 1] ?? ""}`,
+                { value: "todas", label: "Todos" },
+                ...opcionesFiltroPasoOperativo().map((o) => ({
+                  value: o.value,
+                  label: o.label,
                 })),
               ]}
             />
