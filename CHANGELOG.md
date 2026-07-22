@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **fix/mesa-citas-excel-oficial — P107:** Excel de `/mesa-control/citas` usa plantilla `public/templates/reporte-citas-mesa.xlsx` (título morado, encabezado azul, filas alternadas); columnas Fecha|NSS|Nombre; NSS texto; fecha DD/MM/YYYY; filtros/P095 intactos; sin SQL/RPC/Cloud.
+
 - **feat/rechazo-todas-etapas-reactivacion — P108A (local, sin commit/Cloud):** rechazo operativo en internas 1–12; RPC `reactivar_expediente_rechazado` (mismo expediente/etapa → `en_validacion_mesa`|`en_proceso`); UI Mesa en 11 pasos; Asesor «Corregir y reenviar a Mesa»; P072 intacto; migración `096_…sql`.
 
 - **fix/mesa-movimiento-11-pasos — P106 (local):** selector «Paso destino» con 11 opciones únicas (paso 3 → interna 3; paso 4 → 5); interna 4 no seleccionable; historial con numeración visible; sin SQL/RPC/Cloud.

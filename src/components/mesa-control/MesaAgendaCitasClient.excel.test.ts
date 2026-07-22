@@ -24,6 +24,7 @@ describe("MesaAgendaCitasClient — P095 B3 Excel UI wiring", () => {
       source.indexOf("handleBulkRowCheckedChange"),
     );
     assert.ok(downloadBlock.includes("downloadMesaCitasExcel"));
+    assert.ok(downloadBlock.includes("await downloadMesaCitasExcel"));
     assert.ok(downloadBlock.includes("loadedEntries"));
     assert.ok(downloadBlock.includes("filters"));
     assert.ok(!/\bselectedBookingIds\b/.test(downloadBlock));
