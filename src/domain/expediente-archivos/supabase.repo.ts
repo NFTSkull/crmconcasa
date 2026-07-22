@@ -32,6 +32,11 @@ import {
 import { INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES } from "./integration-docs-completos";
 import { mapSupabaseStorageUploadError } from "./map-storage-upload-error";
 import { resolveExpedienteDocumentoUploadMime } from "@/lib/fileUploadValidation";
+import {
+  chunkExpedienteIds,
+  LIST_RESUMEN_BATCH_CHUNK_SIZE,
+  normalizeExpedienteIdsForBatch,
+} from "./list-resumen-batch";
 
 const DOCUMENTOS_SELECT = `
   id,
@@ -193,6 +198,54 @@ export class SupabaseExpedienteArchivosRepo implements ExpedienteArchivosRepo {
   async listResumenByExpediente(expedienteId: string): Promise<ExpedienteArchivoResumen[]> {
     const items = await this.listByExpediente(expedienteId);
     return buildResumenFromList(expedienteId, items);
+  }
+
+  async listResumenBatchByExpedienteIds(
+    expedienteIds: readonly string[],
+  ): Promise<Record<string, ExpedienteArchivoResumen[]>> {
+    const ids = normalizeExpedienteIdsForBatch(expedienteIds);
+    const out: Record<string, ExpedienteArchivoResumen[]> = {};
+    for (const id of ids) {
+      out[id] = buildResumenFromList(id, []);
+    }
+    if (ids.length === 0) return out;
+
+    const { client } = await requireSupabaseSession();
+    const chunks = chunkExpedienteIds(ids, LIST_RESUMEN_BATCH_CHUNK_SIZE);
+
+    for (const chunk of chunks) {
+      const { data, error } = await client
+        .from("expediente_documentos")
+        .select(DOCUMENTOS_SELECT)
+        .in("expediente_id", chunk)
+        .is("deleted_at", null);
+
+      if (error) {
+        throw new ExpedienteArchivosSupabaseError(
+          "No se pudieron cargar los resúmenes documentales de la bandeja. Intenta de nuevo más tarde.",
+        );
+      }
+
+      const rows = (data ?? []) as SupabaseExpedienteDocumentoRow[];
+      const mapped = rows
+        .map((row) => mapSupabaseRowToExpedienteArchivoListItem(row))
+        .filter((row): row is NonNullable<typeof row> => row !== null);
+
+      const byExp = new Map<string, typeof mapped>();
+      for (const item of mapped) {
+        const expId = String(item.expediente_id ?? "").trim();
+        if (!expId) continue;
+        const list = byExp.get(expId) ?? [];
+        list.push(item);
+        byExp.set(expId, list);
+      }
+
+      for (const expId of chunk) {
+        out[expId] = buildResumenFromList(expId, byExp.get(expId) ?? []);
+      }
+    }
+
+    return out;
   }
 
   private async uploadOrReplace(params: UploadArchivoParams): Promise<void> {

@@ -1,5 +1,22 @@
 # Devlog
 
+## 2026-07-22 - P100: Rendimiento página principal Mesa Control
+
+### Causa comprobada
+1. **N+1 documental:** al montar `/mesa-control`, `loadCasos` llamaba `archivosRepo.listResumenByExpediente(id)` una vez por expediente (p. ej. 85 → 85 round-trips a `expediente_documentos`) solo para badges/filtros de documentación.
+2. **Doble carga inicial:** `loadCasos` dependía de `currentUserId`; el primer fetch corría con `null` y, al resolver el userId vía `mesaOpsRepo`, se re-ejecutaba todo el pipeline (×2 el N+1).
+3. **Secundarias secuenciales:** estados cliente, notificaciones etapa 3 y `mesa_expediente_ops` esperaban al N+1 antes de empezar.
+
+### Medición controlada (25 expedientes, delay simulado 8–20 ms/llamada)
+- Antes: **25** llamadas resumen (+ resto secuencial); con doble mount real ≈ **2×(N+3…)** consultas.
+- Después: **1** `listResumenBatch` + **1** estados + **1** notif + **1** ops en paralelo; wall ≈ 1 round-trip secundario; sin refetch por userId.
+- Presupuesto 85 ids (chunk 40): **8** consultas máx. vs **~178** antes (N×2).
+
+### Solución
+- `listResumenBatchByExpedienteIds` (Supabase `.in` chunked 40; misma semántica que `listResumenByExpediente`).
+- `fetchMesaBandejaSecondaryParallel` + `currentUserIdRef` (userId fuera de deps de `loadCasos`).
+- Sin SQL/RPC/caché persistente; RLS intacto; sin commit/Cloud.
+
 ## 2026-07-22 - P099: Rechazo Mesa → bandeja asesor
 
 ### Causa

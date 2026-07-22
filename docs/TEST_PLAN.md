@@ -1,5 +1,13 @@
 # ConCasa CRM — Plan de pruebas
 
+## P100 — Rendimiento `/mesa-control`
+
+- [x] Medición: N+1 `listResumenByExpediente` vs batch (1 invocación / chunks).
+- [x] Sin doble fetch por resolución de `currentUserId`.
+- [x] Secundarias (resumen/estados/notif/ops) en paralelo; errores parciales absorbidos.
+- [x] Mismos filtros/contadores; rechazos/cancelaciones intactos.
+- [x] Sin SQL/RPC; sin caché persistente; sin commit/Cloud/smoke.
+
 ## P099 — Rechazo Mesa → bandeja asesor
 
 - [x] Cancelación terminal: tarjeta roja; copy «no continuará».
