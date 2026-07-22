@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
+import { DocumentDropzone } from "@/components/documents/DocumentDropzone";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import {
@@ -229,32 +230,20 @@ function FileUploadButton({
   onFile: (file: File) => void;
   disabled?: boolean;
 }) {
-  const inputRef = useRef<HTMLInputElement | null>(null);
-
   return (
-    <>
-      <input
-        ref={inputRef}
-        type="file"
+    <div className="max-w-xs">
+      <DocumentDropzone
+        compact
         accept={accept}
-        className="hidden"
-        onChange={(e) => {
-          const file = e.target.files?.[0];
+        disabled={disabled}
+        aria-label={label}
+        hint={label}
+        onFiles={(files) => {
+          const file = files[0];
           if (file) onFile(file);
-          // Reset para permitir seleccionar el mismo archivo otra vez.
-          e.currentTarget.value = "";
         }}
       />
-      <Button
-        type="button"
-        variant="outline"
-        disabled={disabled}
-        className="text-xs px-2 py-0.5"
-        onClick={() => inputRef.current?.click()}
-      >
-        {label}
-      </Button>
-    </>
+    </div>
   );
 }
 

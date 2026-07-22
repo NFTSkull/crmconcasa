@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState, type MutableRefObject } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
+import { DocumentDropzone } from "@/components/documents/DocumentDropzone";
 import {
   MesaArchivoPreviewDialog,
   openBlobUrlInNewTab,
@@ -108,8 +109,6 @@ function ChecklistUploadList({
   uploadingTipo,
   archivoLoadingTipo,
   errorsByTipo,
-  inputRefs,
-  onPickFile,
   onFileChange,
   onVerArchivo,
   onDescargarArchivo,
@@ -122,11 +121,7 @@ function ChecklistUploadList({
   uploadingTipo: IntegrationDocAsesorUploadTipo | null;
   archivoLoadingTipo: IntegrationDocAsesorUploadTipo | null;
   errorsByTipo: Partial<Record<IntegrationDocAsesorUploadTipo, string>>;
-  inputRefs: MutableRefObject<
-    Partial<Record<IntegrationDocAsesorUploadTipo, HTMLInputElement | null>>
-  >;
-  onPickFile: (tipo: IntegrationDocAsesorUploadTipo) => void;
-  onFileChange: (tipo: IntegrationDocAsesorUploadTipo, fileList: FileList | null) => void;
+  onFileChange: (tipo: IntegrationDocAsesorUploadTipo, files: File[]) => void;
   onVerArchivo: (tipo: IntegrationDocAsesorUploadTipo, archivo: ExpedienteArchivoResumen) => void;
   onDescargarArchivo: (
     tipo: IntegrationDocAsesorUploadTipo,
@@ -248,34 +243,22 @@ function ChecklistUploadList({
                   </div>
                 ) : null}
                 {puedeSubirItem ? (
-                  <div className="mt-2">
-                    <input
-                      ref={(el) => {
-                        inputRefs.current[item.tipo_documento] = el;
-                      }}
-                      type="file"
+                  <div className="mt-2 max-w-sm">
+                    <DocumentDropzone
+                      compact
                       accept={getExpedienteDocumentoAcceptAttr(item.tipo_documento)}
-                      className="sr-only"
+                      busy={uploading}
                       disabled={disabled}
-                      onChange={(e) => void onFileChange(item.tipo_documento, e.target.files)}
+                      selectedFileName={nombre}
+                      aria-label={
+                        esCorreccion
+                          ? `Subir corrección de ${item.label}`
+                          : tieneArchivo
+                            ? `Reemplazar ${item.label}`
+                            : `Subir ${item.label}`
+                      }
+                      onFiles={(files) => void onFileChange(item.tipo_documento, files)}
                     />
-                    <Button
-                      type="button"
-                      variant={esCorreccion ? "outline" : "secondary"}
-                      className={esCorreccion ? "border-red-200 text-red-900" : undefined}
-                      disabled={disabled}
-                      onClick={() => onPickFile(item.tipo_documento)}
-                    >
-                      {uploading
-                        ? "Subiendo…"
-                        : esCorreccion
-                          ? "Subir corrección"
-                          : esReemplazoPostMesa && tieneArchivo
-                            ? "Reemplazar archivo"
-                            : tieneArchivo
-                              ? "Reemplazar"
-                              : "Subir archivo"}
-                    </Button>
                   </div>
                 ) : submittedToMesa &&
                   item.estatus_revision !== "rechazado" &&
@@ -306,9 +289,6 @@ export function AsesorIntegracionDocsUpload({
   onUploaded,
 }: Props) {
   const repo = useExpedienteArchivosRepo();
-  const inputRefs = useRef<
-    Partial<Record<IntegrationDocAsesorUploadTipo, HTMLInputElement | null>>
-  >({});
   const [uploadingTipo, setUploadingTipo] = useState<IntegrationDocAsesorUploadTipo | null>(
     null,
   );
@@ -324,10 +304,6 @@ export function AsesorIntegracionDocsUpload({
       if (preview?.url) URL.revokeObjectURL(preview.url);
     };
   }, [preview?.url]);
-
-  const handlePickFile = useCallback((tipo: IntegrationDocAsesorUploadTipo) => {
-    inputRefs.current[tipo]?.click();
-  }, []);
 
   const mapArchivoError = useCallback((err: unknown): string => {
     if (err instanceof ExpedienteArchivosSupabaseError) return err.message;
@@ -404,10 +380,8 @@ export function AsesorIntegracionDocsUpload({
   );
 
   const handleFileChange = useCallback(
-    async (tipo: IntegrationDocAsesorUploadTipo, fileList: FileList | null) => {
-      const file = fileList?.[0];
-      const input = inputRefs.current[tipo];
-      if (input) input.value = "";
+    async (tipo: IntegrationDocAsesorUploadTipo, files: File[]) => {
+      const file = files[0];
       if (!file) return;
 
       const fileValidation = validateExpedienteDocumentoFile(file, tipo);
@@ -487,8 +461,6 @@ export function AsesorIntegracionDocsUpload({
     uploadingTipo,
     archivoLoadingTipo,
     errorsByTipo,
-    inputRefs,
-    onPickFile: handlePickFile,
     onFileChange: handleFileChange,
     onVerArchivo: handleVerArchivo,
     onDescargarArchivo: handleDescargarArchivo,

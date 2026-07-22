@@ -1,5 +1,16 @@
 # Devlog
 
+## 2026-07-22 - P103: Drag & drop documental Asesor/Mesa
+
+### Objetivo
+Unificar carga por arrastre y clic sin duplicar Storage/RPC/validaciones.
+
+### Solución
+- `DocumentDropzone` + helpers `documentDropzone.ts`: hint canónico, highlight drag, preventDefault, single-file reject, teclado/a11y.
+- Integrado en: Asesor integración, retención/acuse, Mesa Pagaré/Notificación/Solicitud, complementarios Mesa, `FileUploadButton` mock seguimiento.
+- Asesor RO (Pagaré/Notificación/Solicitud) sin escritura — intacto.
+- Sin SQL/RPC/Cloud/deps; límites MIME y permisos sin cambio.
+
 ## 2026-07-22 - P102: Paginación server-side + infinite scroll Mesa
 
 ### Causa

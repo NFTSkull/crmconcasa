@@ -1,7 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
+import { DocumentDropzone } from "@/components/documents/DocumentDropzone";
 import {
   MesaArchivoPreviewDialog,
   openBlobUrlInNewTab,
@@ -51,9 +52,7 @@ export function MesaSolicitudDocumentoSection({
   submittedToMesa = true,
 }: MesaSolicitudDocumentoSectionProps) {
   const archivosRepo = useExpedienteArchivosRepo();
-  const fileInputId = useId();
-  const uploadButtonRef = useRef<HTMLButtonElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+  const uploadButtonRef = useRef<HTMLElement | null>(null);
   const savingLockRef = useRef(false);
 
   const [loading, setLoading] = useState(true);
@@ -121,19 +120,16 @@ export function MesaSolicitudDocumentoSection({
     window.setTimeout(() => uploadButtonRef.current?.focus(), 0);
   };
 
-  const openFilePicker = (mode: "upload" | "replace") => {
+  const beginUploadMode = (mode: "upload" | "replace") => {
     if (!writeEnabled || saving) return;
     setDialogMode(mode);
     setWriteError(null);
     setSuccessMsg(null);
     setArchivoError(null);
-    fileInputRef.current?.click();
   };
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0] ?? null;
-    e.target.value = "";
-    if (!file) return;
+  const applySelectedFile = (file: File) => {
+    if (!writeEnabled || saving) return;
     const validation = validateClienteSolicitudFile(file);
     if (!validation.ok) {
       setWriteError(validation.error);
@@ -146,6 +142,13 @@ export function MesaSolicitudDocumentoSection({
     setSelectedMime(validation.mime);
     setWriteError(null);
     setDialogOpen(true);
+  };
+
+  const handleDropzoneFiles = (files: File[]) => {
+    const file = files[0];
+    if (!file) return;
+    beginUploadMode(documento ? "replace" : "upload");
+    applySelectedFile(file);
   };
 
   const handleConfirmUpload = async () => {
@@ -360,49 +363,19 @@ export function MesaSolicitudDocumentoSection({
           </>
         ) : null}
 
-        {writeEnabled && !documento ? (
-          <Button
-            ref={uploadButtonRef}
-            type="button"
-            variant="primary"
-            className="h-8 px-2.5 py-0 text-xs"
-            disabled={saving}
-            onClick={() => openFilePicker("upload")}
-          >
-            Subir Solicitud
-          </Button>
-        ) : null}
-
-        {writeEnabled && documento ? (
-          <Button
-            ref={uploadButtonRef}
-            type="button"
-            variant="outline"
-            className="h-8 px-2.5 py-0 text-xs"
-            disabled={saving}
-            onClick={() => openFilePicker("replace")}
-          >
-            Reemplazar Solicitud
-          </Button>
+        {writeEnabled ? (
+          <div className="w-full min-w-[14rem] max-w-md basis-full sm:basis-auto">
+            <DocumentDropzone
+              accept={CLIENTE_SOLICITUD_ACCEPT_ATTR}
+              busy={saving}
+              disabled={!writeEnabled || saving}
+              selectedFileName={selectedFile?.name ?? null}
+              aria-label={documento ? "Reemplazar Solicitud" : "Subir Solicitud"}
+              onFiles={handleDropzoneFiles}
+            />
+          </div>
         ) : null}
       </div>
-
-      {uiMode !== "etapa_bloqueada" ? (
-        <>
-          <label htmlFor={fileInputId} className="sr-only">
-            Seleccionar archivo de Solicitud (PDF, JPG, JPEG o PNG)
-          </label>
-          <input
-            id={fileInputId}
-            ref={fileInputRef}
-            type="file"
-            accept={CLIENTE_SOLICITUD_ACCEPT_ATTR}
-            className="sr-only"
-            disabled={!writeEnabled || saving}
-            onChange={handleFileChange}
-          />
-        </>
-      ) : null}
 
       {writeError && !dialogOpen ? (
         <p role="alert" className="text-xs text-red-700">

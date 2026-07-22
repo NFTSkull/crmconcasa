@@ -1,5 +1,13 @@
 # ConCasa CRM — Plan de pruebas
 
+## P103 — Drag & drop documentos Asesor/Mesa
+
+- [x] Clic tradicional y drop llaman el mismo handler.
+- [x] Single-file: >1 archivo se rechaza; multiple respetado si aplica.
+- [x] preventDefault; busy bloquea doble envío; validaciones previas intactas.
+- [x] Cubiertos: integración, retención, complementarios, Pagaré/Notif/Solicitud, mock seguimiento.
+- [x] Sin SQL/RPC/Cloud; Asesor RO Mesa docs sin escritura.
+
 ## P102 — Paginación server-side `/mesa-control`
 
 - [x] Primera carga 25 (no 160); cargar más +25 sin duplicados.

@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **feat/drag-drop-documentos — P103 (local, sin commit/Cloud):** `DocumentDropzone` reutilizable en Asesor y Mesa (generales, complementarios, Pagaré, Notificación, Solicitud, retención); misma validación/subida; sin SQL/RPC/deps.
+
 - **feat/mesa-server-infinite-scroll — P102 (local, sin commit/Cloud):** `/mesa-control` (Supabase) pagina 25 en servidor vía RPC `mesa_list_bandeja_page` (filtros→orden→keyset); infinite scroll pide la siguiente página; contadores globales; enrich P100 solo por página; mock conserva P101; sin Cloud.
 
 - **feat/mesa-infinite-scroll — P101 (local, sin commit/Cloud):** `/mesa-control` renderiza 25 casos y carga +25 con IntersectionObserver (fallback «Cargar más»); filtros/orden/contadores sobre la colección completa; sin SQL/RPC/server pagination.
