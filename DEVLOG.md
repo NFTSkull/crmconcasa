@@ -1,5 +1,18 @@
 # Devlog
 
+## 2026-07-22 - P099: Rechazo Mesa → bandeja asesor
+
+### Causa
+1. UX: cancelación estaba en verde (P097); el significado terminal debe ser rojo.
+2. Asesor: el rechazo canónico ya escribe `subestado=rechazado`, pero el detalle/bandeja no mostraba motivo/nota y el badge de «Corrección requerida» podía tapar «Rechazado (mesa)».
+3. Confusión operativa: movimiento manual no alimenta Rechazados (sigue advertido).
+
+### Solución
+- Cancelación: tarjeta roja «Cancelar trámite».
+- Rechazo: oscuro «Rechazar expediente»; select de motivos + «Otro»; nota opcional; payload `desconocida`/nulls vía `buildRechazoOperativoPayload`.
+- Asesor: banner de rechazo + chip/motivo en fila; badge rechazo/cancelación con prioridad sobre corrección documental.
+- Sin SQL/RPC/Cloud/commit.
+
 ## 2026-07-21 - P098: Teléfonos repetidos entre expedientes
 
 ### Causa

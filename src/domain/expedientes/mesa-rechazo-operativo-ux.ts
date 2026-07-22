@@ -10,25 +10,23 @@ export const MESA_MOVIMIENTO_NO_ES_RECHAZO_COPY =
   "Este control solo cambia la etapa operativa. No registra un rechazo: no pone el subestado «rechazado», no crea registro en rechazos operativos ni alimenta el filtro «Rechazados».";
 
 export const MESA_MOTIVO_PARECE_RECHAZO_WARNING =
-  "El motivo parece describir un rechazo. El movimiento manual no rechaza el expediente. Si la decisión es rechazar, usa «Rechazo operativo (el cliente puede continuar)».";
+  "El motivo parece describir un rechazo. El movimiento manual no rechaza el expediente. Si la decisión es rechazar, usa «Rechazar expediente».";
 
 export const MESA_MOTIVO_PARECE_RECHAZO_SIN_ELEGIBILIDAD_WARNING =
   "El motivo parece describir un rechazo. El movimiento manual no rechaza el expediente. El rechazo operativo canónico solo aplica en etapas 5 y 6.";
 
 export const MESA_RECHAZO_OPERATIVO_ATAJO_LABEL =
-  "Ir al rechazo operativo canónico";
+  "Ir a Rechazar expediente";
 
 export const MESA_RECHAZO_OPERATIVO_CARD_BADGE =
   "Rechazo operativo · puede continuar";
 
-export const MESA_RECHAZO_OPERATIVO_CARD_TITLE =
-  "Rechazo operativo (el cliente puede continuar)";
+export const MESA_RECHAZO_OPERATIVO_CARD_TITLE = "Rechazar expediente";
 
 export const MESA_RECHAZO_OPERATIVO_CARD_INTRO =
-  "Marca el expediente como rechazado y habilita la vía de reingreso cuando aplique. No es una cancelación terminal: el cliente aún puede continuar después.";
+  "El expediente se enviará como rechazado al asesor y podrá continuar o reingresar cuando corresponda.";
 
-export const MESA_RECHAZO_OPERATIVO_CARD_CTA =
-  "Registrar rechazo operativo";
+export const MESA_RECHAZO_OPERATIVO_CARD_CTA = "Rechazar expediente";
 
 /**
  * Heurística informativa (no bloqueante): el motivo libre menciona rechazo.
