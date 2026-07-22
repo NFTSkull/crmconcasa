@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **feat/admin-reporte-asesores-etapas — P112 (local, sin commit/Cloud):** RPC read-only `admin_report_expedientes_asesores_etapas` (migración `098_…sql`) + sección `/admin` «Reporte de expedientes» (filtros multi-asesor/pasos 1–11/estado, consultar, tabla expandible, Excel); fotografía vigente (activos+rechazados); sin rango de fechas ni `action_log`.
+
 - **fix/mesa-citas-excel-admin — P111:** gate explícito `canDownloadMesaCitasExcel` (mock+sesión) para que `mesa_admin`/`super_admin` y roles Mesa actuales descarguen el mismo Excel; asesor excluido; sin SQL/RPC/Cloud.
 
 - **fix/mesa-citas-excel-auto — P110 (local, sin commit/Cloud):** quita selector «Clasificación para Excel» de Citas Mesa; Excel clasifica por `kind` (conserva históricos `inscripcion`/`biometricos_tramite_completo`); Firmas agrupa siempre como `FIRMAS — 9:30 AM` solo en reporte; `booking_time`/RPC Cloud intactos.

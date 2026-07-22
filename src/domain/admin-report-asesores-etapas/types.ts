@@ -1,0 +1,179 @@
+import { z } from "zod";
+import {
+  ETAPAS_VISUALES_OPERATIVAS,
+  TOTAL_PASOS_VISUALES_OPERATIVOS,
+  etapasInternasParaPasoVisual,
+} from "@/domain/expedientes/asesor-seguimiento-operativo";
+
+export const ADMIN_REPORT_ESTADOS = ["vigentes", "activos", "rechazados"] as const;
+export type AdminReportEstado = (typeof ADMIN_REPORT_ESTADOS)[number];
+
+export const adminReportEstadoSchema = z.enum(ADMIN_REPORT_ESTADOS);
+
+export const adminReportResumenRowSchema = z.object({
+  asesor_id: z.string().uuid(),
+  asesor_nombre: z.string(),
+  asesor_email: z.string().nullable().optional(),
+  paso_visual: z.number().int().min(1).max(11),
+  paso_nombre: z.string(),
+  activos: z.number().int().nonnegative(),
+  rechazados: z.number().int().nonnegative(),
+  total: z.number().int().nonnegative(),
+});
+
+export const adminReportDetalleRowSchema = z.object({
+  asesor_id: z.string().uuid(),
+  asesor_nombre: z.string(),
+  asesor_email: z.string().nullable().optional(),
+  cliente_nombre: z.string(),
+  nss: z.string(),
+  etapa_actual: z.number().int().min(1).max(12),
+  paso_visual: z.number().int().min(1).max(11),
+  paso_nombre: z.string(),
+  estado: z.enum(["activo", "rechazado"]),
+});
+
+export const adminReportMetaSchema = z.object({
+  asesores: z.number().int().nonnegative(),
+  pasos: z.number().int().nonnegative(),
+  activos: z.number().int().nonnegative(),
+  rechazados: z.number().int().nonnegative(),
+  expedientes: z.number().int().nonnegative(),
+});
+
+export const adminReportResponseSchema = z.object({
+  resumen: z.array(adminReportResumenRowSchema),
+  detalle: z.array(adminReportDetalleRowSchema),
+  meta: adminReportMetaSchema,
+});
+
+export type AdminReportResumenRow = z.infer<typeof adminReportResumenRowSchema>;
+export type AdminReportDetalleRow = z.infer<typeof adminReportDetalleRowSchema>;
+export type AdminReportMeta = z.infer<typeof adminReportMetaSchema>;
+export type AdminReportResponse = z.infer<typeof adminReportResponseSchema>;
+
+export type AdminReportFilters = Readonly<{
+  asesorIds: readonly string[];
+  pasosVisuales: readonly number[];
+  estado: AdminReportEstado;
+}>;
+
+export const ADMIN_REPORT_PASO_OPTIONS = ETAPAS_VISUALES_OPERATIVAS.map((e) => ({
+  value: e.pasoVisual,
+  label: `Paso ${e.pasoVisual} · ${e.nombre}`,
+}));
+
+export function expandPasosVisualesToEtapasInternas(
+  pasos: readonly number[],
+): number[] {
+  const set = new Set<number>();
+  for (const paso of pasos) {
+    for (const etapa of etapasInternasParaPasoVisual(paso)) {
+      set.add(etapa);
+    }
+  }
+  return [...set].sort((a, b) => a - b);
+}
+
+export function validateAdminReportPasos(
+  pasos: readonly number[],
+): { ok: true } | { ok: false; message: string } {
+  if (
+    pasos.some(
+      (p) => !Number.isInteger(p) || p < 1 || p > TOTAL_PASOS_VISUALES_OPERATIVOS,
+    )
+  ) {
+    return { ok: false, message: "Los pasos deben estar entre 1 y 11." };
+  }
+  return { ok: true };
+}
+
+export function buildAdminReportRpcPayload(filters: AdminReportFilters): Readonly<{
+  p_asesor_ids: string[] | null;
+  p_pasos_visuales: number[] | null;
+  p_estado: AdminReportEstado;
+}> {
+  const asesores = filters.asesorIds.filter(Boolean);
+  const pasos = filters.pasosVisuales.filter((p) => Number.isInteger(p));
+  return {
+    p_asesor_ids: asesores.length > 0 ? [...asesores] : null,
+    p_pasos_visuales: pasos.length > 0 ? [...pasos] : null,
+    p_estado: filters.estado,
+  };
+}
+
+export type AdminReportTableGroup = Readonly<{
+  asesorId: string;
+  asesorNombre: string;
+  asesorEmail: string | null;
+  rows: readonly AdminReportResumenRow[];
+  subtotal: number;
+}>;
+
+/** Agrupa resumen por asesor preservando orden (asesor, paso). */
+export function groupAdminReportResumenByAsesor(
+  resumen: readonly AdminReportResumenRow[],
+): AdminReportTableGroup[] {
+  const order: string[] = [];
+  const map = new Map<string, AdminReportResumenRow[]>();
+  for (const row of resumen) {
+    const list = map.get(row.asesor_id);
+    if (list) {
+      list.push(row);
+    } else {
+      order.push(row.asesor_id);
+      map.set(row.asesor_id, [row]);
+    }
+  }
+  return order.map((id) => {
+    const rows = map.get(id) ?? [];
+    const first = rows[0]!;
+    return {
+      asesorId: id,
+      asesorNombre: first.asesor_nombre,
+      asesorEmail: first.asesor_email ?? null,
+      rows,
+      subtotal: rows.reduce((acc, r) => acc + r.total, 0),
+    };
+  });
+}
+
+export function detalleForResumenRow(
+  detalle: readonly AdminReportDetalleRow[],
+  row: AdminReportResumenRow,
+): AdminReportDetalleRow[] {
+  return detalle.filter(
+    (d) => d.asesor_id === row.asesor_id && d.paso_visual === row.paso_visual,
+  );
+}
+
+export function formatAdminReportMetaSummary(meta: AdminReportMeta): string {
+  return `${meta.asesores} asesor${meta.asesores === 1 ? "" : "es"} · ${meta.pasos} etapa${meta.pasos === 1 ? "" : "s"} · ${meta.expedientes} expediente${meta.expedientes === 1 ? "" : "s"}`;
+}
+
+export function asesoresCatalogFromReport(
+  report: AdminReportResponse,
+): ReadonlyArray<{ id: string; nombre: string; email: string | null }> {
+  const map = new Map<string, { id: string; nombre: string; email: string | null }>();
+  for (const row of report.resumen) {
+    if (!map.has(row.asesor_id)) {
+      map.set(row.asesor_id, {
+        id: row.asesor_id,
+        nombre: row.asesor_nombre,
+        email: row.asesor_email ?? null,
+      });
+    }
+  }
+  for (const row of report.detalle) {
+    if (!map.has(row.asesor_id)) {
+      map.set(row.asesor_id, {
+        id: row.asesor_id,
+        nombre: row.asesor_nombre,
+        email: row.asesor_email ?? null,
+      });
+    }
+  }
+  return [...map.values()].sort((a, b) =>
+    a.nombre.localeCompare(b.nombre, "es"),
+  );
+}
