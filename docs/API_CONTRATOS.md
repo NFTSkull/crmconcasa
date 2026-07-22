@@ -833,6 +833,7 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 - Un booking `cancelled` solo acredita intento si `cancelled_at` es posterior a la cita. Un booking futuro `booked` bloquea.
 - Registra una fila append-only en `expediente_rechazos_operativos`, cambia únicamente el subestado operativo a `rechazado` y escribe `action_log`.
 - No cancela, reactiva ni modifica bookings, `fecha_cita` o notas históricas.
+- **P099 (UI Mesa):** tarjeta oscura «Rechazar expediente»; formulario solo motivo (select + «Otro») y nota opcional; payload biométrico interno `desconocida` + nulls. Cancelación terminal: tarjeta roja «Cancelar trámite». Asesor: chip/filtro `Rechazados` + banner con motivo/nota; no confundir con cancelado.
 
 ### Elegibilidad
 

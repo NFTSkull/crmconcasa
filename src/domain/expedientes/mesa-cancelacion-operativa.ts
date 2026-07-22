@@ -116,13 +116,11 @@ export const MESA_CANCELACION_OPERATIVA_ANCHOR_ID =
   "mesa-cancelacion-operativa" as const;
 
 export const MESA_CANCELACION_OPERATIVA_CARD_BADGE =
-  "Cancelación · no continuará";
+  "Cancelación terminal · no continuará";
 
-export const MESA_CANCELACION_OPERATIVA_CARD_TITLE =
-  "Cancelar / el cliente no continuará";
+export const MESA_CANCELACION_OPERATIVA_CARD_TITLE = "Cancelar trámite";
 
 export const MESA_CANCELACION_OPERATIVA_CARD_INTRO =
-  "Cierra el trámite de forma terminal porque el cliente no continuará. No es un rechazo operativo ni cancela citas automáticamente.";
+  "El cliente no continuará con el trámite.";
 
-export const MESA_CANCELACION_OPERATIVA_CARD_CTA =
-  "Cancelar / el cliente no continuará";
+export const MESA_CANCELACION_OPERATIVA_CARD_CTA = "Cancelar trámite";

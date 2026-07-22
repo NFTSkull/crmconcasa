@@ -19,6 +19,7 @@ import { AsesorNotificacionDocumentoSection } from "@/components/asesor/AsesorNo
 import { AsesorSolicitudDocumentoSection } from "@/components/asesor/AsesorSolicitudDocumentoSection";
 import { AsesorReingresoPostBiometricosCard } from "@/components/asesor/AsesorReingresoPostBiometricosCard";
 import { AsesorExpedienteCanceladoBanner } from "@/components/asesor/AsesorExpedienteCanceladoBanner";
+import { AsesorExpedienteRechazadoBanner } from "@/components/asesor/AsesorExpedienteRechazadoBanner";
 import { Button } from "@/components/ui/Button";
 import { SeguimientoOperativoMock } from "@/components/seguimiento/SeguimientoOperativoMock";
 import {
@@ -1223,6 +1224,16 @@ export default function AsesorExpedientePage() {
           <AsesorExpedienteCanceladoBanner
             cancelacion={cancelacionOperativa}
             formatDateTime={(iso) => (iso ? formatDateTime(iso) : "—")}
+          />
+        ) : null}
+
+        {!expedienteCancelado &&
+        operativo?.submittedToMesa &&
+        operativo?.subestado === "rechazado" &&
+        (operativo?.cicloEstado == null || operativo?.cicloEstado === "activo") ? (
+          <AsesorExpedienteRechazadoBanner
+            motivo={operativo?.motivoRechazo}
+            comentario={operativo?.comentarioRechazo}
           />
         ) : null}
 

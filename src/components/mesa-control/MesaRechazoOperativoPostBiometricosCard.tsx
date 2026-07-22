@@ -11,6 +11,13 @@ import {
   MESA_RECHAZO_OPERATIVO_CARD_TITLE,
   useExpedientesRepo,
 } from "@/domain/expedientes";
+import {
+  MESA_RECHAZO_OPERATIVO_MOTIVOS,
+  isRechazoOperativoMotivoOtro,
+  motivoRechazoOperativoEsValido,
+  resolveMotivoRechazoOperativo,
+} from "@/domain/expedientes/mesa-rechazo-operativo-motivos";
+import { buildRechazoOperativoPayload } from "@/domain/expedientes/mesa-rechazo-operativo-payload";
 
 type Props = {
   expedienteId: string;
@@ -34,7 +41,8 @@ export function MesaRechazoOperativoPostBiometricosCard({
 }: Props) {
   const repo = useExpedientesRepo();
   const [open, setOpen] = useState(false);
-  const [motivo, setMotivo] = useState("");
+  const [motivoSelect, setMotivoSelect] = useState("");
+  const [motivoOtro, setMotivoOtro] = useState("");
   const [comentario, setComentario] = useState("");
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -50,24 +58,25 @@ export function MesaRechazoOperativoPostBiometricosCard({
 
   if (!visible) return null;
 
-  const motivoValido = motivo.trim().length > 0;
+  const motivoValido = motivoRechazoOperativoEsValido(motivoSelect, motivoOtro);
+  const muestraOtro = isRechazoOperativoMotivoOtro(motivoSelect);
 
   const guardar = async () => {
-    if (!motivoValido) return;
+    const motivo = resolveMotivoRechazoOperativo(motivoSelect, motivoOtro);
+    if (!motivo) return;
     setSaving(true);
     setError(null);
     try {
-      // Defaults seguros para campos biométricos opcionales de la RPC
-      // (UI simplificada: ya no se capturan en el formulario).
-      await repo.rechazarEtapaOperativa(expedienteId, {
-        motivo: motivo.trim(),
-        comentario: comentario.trim() || null,
-        biometricosCondicion: "desconocida",
-        biometricosRazon: null,
-        biometricosBookingId: null,
-      });
+      await repo.rechazarEtapaOperativa(
+        expedienteId,
+        buildRechazoOperativoPayload({
+          motivo,
+          comentario,
+        }),
+      );
       setOpen(false);
-      setMotivo("");
+      setMotivoSelect("");
+      setMotivoOtro("");
       setComentario("");
       onUpdated();
     } catch (err) {
@@ -99,8 +108,7 @@ export function MesaRechazoOperativoPostBiometricosCard({
         {MESA_RECHAZO_OPERATIVO_CARD_INTRO}
       </p>
       <p className="mt-1 text-xs text-neutral-300">
-        El cliente aún puede continuar después (reingreso cuando aplique). No
-        cierra el ciclo. Disponible en etapas 5 y 6.
+        No cierra el ciclo. Disponible en etapas 5 y 6. No uses «Mover etapa».
       </p>
       {!open ? (
         <Button
@@ -114,17 +122,42 @@ export function MesaRechazoOperativoPostBiometricosCard({
       ) : (
         <div className="mt-4 grid gap-3">
           <label className="text-xs font-medium text-neutral-100">
-            Motivo del rechazo <span className="text-neutral-400">(obligatorio)</span>
-            <input
-              value={motivo}
-              onChange={(event) => setMotivo(event.target.value)}
-              className="mt-1 w-full rounded-md border border-neutral-600 bg-neutral-900 px-3 py-2 text-sm text-neutral-50 placeholder:text-neutral-500"
-              placeholder="Describe por qué se rechaza operativamente"
+            Motivo del rechazo{" "}
+            <span className="text-neutral-400">(obligatorio)</span>
+            <select
+              value={motivoSelect}
+              onChange={(event) => {
+                setMotivoSelect(event.target.value);
+                if (!isRechazoOperativoMotivoOtro(event.target.value)) {
+                  setMotivoOtro("");
+                }
+              }}
+              className="mt-1 w-full rounded-md border border-neutral-600 bg-neutral-900 px-3 py-2 text-sm text-neutral-50"
               data-testid="mesa-rechazo-motivo"
-            />
+            >
+              <option value="">Selecciona un motivo…</option>
+              {MESA_RECHAZO_OPERATIVO_MOTIVOS.map((m) => (
+                <option key={m} value={m}>
+                  {m}
+                </option>
+              ))}
+            </select>
           </label>
+          {muestraOtro ? (
+            <label className="text-xs font-medium text-neutral-100">
+              Describe el motivo{" "}
+              <span className="text-neutral-400">(obligatorio)</span>
+              <input
+                value={motivoOtro}
+                onChange={(event) => setMotivoOtro(event.target.value)}
+                className="mt-1 w-full rounded-md border border-neutral-600 bg-neutral-900 px-3 py-2 text-sm text-neutral-50 placeholder:text-neutral-500"
+                placeholder="Escribe el motivo del rechazo"
+                data-testid="mesa-rechazo-motivo-otro"
+              />
+            </label>
+          ) : null}
           <label className="text-xs font-medium text-neutral-100">
-            Nota / comentario breve{" "}
+            Nota para el asesor{" "}
             <span className="text-neutral-400">(opcional)</span>
             <textarea
               value={comentario}
@@ -151,7 +184,7 @@ export function MesaRechazoOperativoPostBiometricosCard({
               onClick={() => void guardar()}
               data-testid="mesa-rechazo-confirmar"
             >
-              {saving ? "Registrando…" : "Confirmar rechazo operativo"}
+              {saving ? "Registrando…" : "Confirmar rechazo"}
             </Button>
             <Button
               type="button"

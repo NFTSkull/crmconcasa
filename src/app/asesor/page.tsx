@@ -74,6 +74,19 @@ function asesorResultadoFilaBadge(
   resultadoReal: ResultadoRealExpediente,
   resumenCorreccion?: CategoriaResumenDocumental,
 ): { label: string; className: string } {
+  // P099: rechazo/cancelación operativos tienen prioridad sobre corrección documental.
+  if (resultadoReal === "cancelado") {
+    return {
+      label: "Cancelado",
+      className: "bg-slate-200 text-slate-900 border border-slate-400",
+    };
+  }
+  if (resultadoReal === "rechazado_mesa") {
+    return {
+      label: "Rechazado (mesa)",
+      className: "bg-red-100 text-red-800 border border-red-200",
+    };
+  }
   if (resumenCorreccion === "correccion_requerida") {
     return {
       label: "Corrección requerida",
@@ -87,16 +100,6 @@ function asesorResultadoFilaBadge(
     };
   }
   switch (resultadoReal) {
-    case "cancelado":
-      return {
-        label: "Cancelado",
-        className: "bg-slate-200 text-slate-900 border border-slate-400",
-      };
-    case "rechazado_mesa":
-      return {
-        label: "Rechazado (mesa)",
-        className: "bg-red-100 text-red-800 border border-red-200",
-      };
     case "en_tramite":
       return {
         label: "En trámite",
@@ -151,6 +154,12 @@ function asesorEstatusOperativoFilaBadge(
       label: "Cancelado",
       className:
         "inline-flex rounded-full bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-900 ring-1 ring-slate-400",
+    };
+  }
+  if (subestado === "rechazado") {
+    return {
+      label: subestadoOperativoLabel(subestado),
+      className: `inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${subestadoOperativoBadgeClass(subestado)}`,
     };
   }
   if (resumenCorreccion === "correccion_requerida") {
@@ -1621,6 +1630,23 @@ export default function AsesorDashboardPage() {
                             ) : p.operativo.cicloEstado === "cancelado" ? (
                               <span className="mt-0.5 inline-flex rounded-full bg-slate-200 px-1.5 py-0.5 text-[9px] font-semibold text-slate-900">
                                 Cancelado
+                              </span>
+                            ) : p.resultadoReal === "rechazado_mesa" ? (
+                              <span
+                                className="mt-0.5 inline-flex max-w-full flex-col gap-0.5"
+                                data-testid="asesor-fila-rechazado-mesa"
+                              >
+                                <span className="inline-flex w-fit rounded-full bg-red-100 px-1.5 py-0.5 text-[9px] font-semibold text-red-800">
+                                  Rechazado
+                                </span>
+                                {p.operativo.motivoRechazo?.trim() ? (
+                                  <span
+                                    className="line-clamp-2 text-[9px] font-normal leading-snug text-red-900/80"
+                                    title={p.operativo.motivoRechazo}
+                                  >
+                                    {p.operativo.motivoRechazo}
+                                  </span>
+                                ) : null}
                               </span>
                             ) : p.operativo.cicloEstado === "cerrado" ? (
                               <span className="mt-0.5 inline-flex rounded-full bg-gray-100 px-1.5 py-0.5 text-[9px] font-medium text-gray-600">

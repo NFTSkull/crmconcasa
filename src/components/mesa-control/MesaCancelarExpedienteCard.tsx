@@ -72,29 +72,28 @@ export function MesaCancelarExpedienteCard({
     <section
       id={MESA_CANCELACION_OPERATIVA_ANCHOR_ID}
       data-testid="mesa-cancelacion-operativa"
-      className="scroll-mt-4 rounded-xl border-2 border-emerald-500 bg-emerald-50 p-4 shadow-md ring-2 ring-emerald-200"
+      className="scroll-mt-4 rounded-xl border-2 border-red-500 bg-red-50 p-4 shadow-md ring-2 ring-red-200"
     >
       <div className="flex flex-wrap items-center gap-2">
-        <span className="inline-flex rounded-md bg-emerald-700 px-2.5 py-1 text-xs font-semibold text-white">
+        <span className="inline-flex rounded-md bg-red-700 px-2.5 py-1 text-xs font-semibold text-white">
           {MESA_CANCELACION_OPERATIVA_CARD_BADGE}
         </span>
-        <h2 className="text-sm font-semibold text-emerald-950">
+        <h2 className="text-sm font-semibold text-red-950">
           {MESA_CANCELACION_OPERATIVA_CARD_TITLE}
         </h2>
       </div>
-      <p className="mt-2 text-xs font-medium text-emerald-950">
+      <p className="mt-2 text-xs font-medium text-red-950">
         {MESA_CANCELACION_OPERATIVA_CARD_INTRO}
       </p>
-      <p className="mt-1 text-xs text-emerald-900">
-        Distinto del rechazo operativo (etapas 5/6). Es terminal: el cliente no
-        continuará y no hay reingreso en este flujo. Las citas históricas no se
-        cancelan solas.
+      <p className="mt-1 text-xs text-red-900">
+        Distinto del rechazo operativo (etapas 5/6). Es terminal: no hay
+        reingreso en este flujo. Las citas históricas no se cancelan solas.
       </p>
       {!open ? (
         <Button
           type="button"
           variant="outline"
-          className="mt-3 border-emerald-600 bg-white text-emerald-900 hover:bg-emerald-100"
+          className="mt-3 border-red-600 bg-white text-red-900 hover:bg-red-100"
           onClick={() => setOpen(true)}
         >
           {MESA_CANCELACION_OPERATIVA_CARD_CTA}
@@ -107,7 +106,7 @@ export function MesaCancelarExpedienteCard({
               value={motivo}
               onChange={(e) => setMotivo(e.target.value)}
               maxLength={500}
-              className="mt-1 w-full rounded-md border border-emerald-300 px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-md border border-red-300 px-3 py-2 text-sm"
               placeholder="Ej. Cliente desistió del crédito"
               data-testid="mesa-cancelacion-motivo"
             />
@@ -119,10 +118,10 @@ export function MesaCancelarExpedienteCard({
               onChange={(e) => setComentario(e.target.value)}
               maxLength={2000}
               rows={3}
-              className="mt-1 w-full rounded-md border border-emerald-300 px-3 py-2 text-sm"
+              className="mt-1 w-full rounded-md border border-red-300 px-3 py-2 text-sm"
             />
           </label>
-          <label className="flex items-start gap-2 text-xs text-emerald-950 sm:col-span-2">
+          <label className="flex items-start gap-2 text-xs text-red-950 sm:col-span-2">
             <input
               type="checkbox"
               checked={confirmado}
@@ -147,7 +146,7 @@ export function MesaCancelarExpedienteCard({
           <div className="flex flex-wrap gap-2 sm:col-span-2">
             <Button
               type="button"
-              className="bg-emerald-700 hover:bg-emerald-800 focus:ring-emerald-600"
+              className="bg-red-700 hover:bg-red-800 focus:ring-red-600"
               disabled={saving || !motivo.trim()}
               onClick={() => void guardar()}
               data-testid="mesa-cancelacion-guardar"

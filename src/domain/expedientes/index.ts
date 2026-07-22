@@ -52,6 +52,14 @@ export {
   motivoManualPareceRechazo,
 } from "./mesa-rechazo-operativo-ux";
 export {
+  MESA_RECHAZO_OPERATIVO_MOTIVOS,
+  isRechazoOperativoMotivoOtro,
+  motivoRechazoOperativoEsValido,
+  resolveMotivoRechazoOperativo,
+  type MesaRechazoOperativoMotivo,
+} from "./mesa-rechazo-operativo-motivos";
+export { buildRechazoOperativoPayload } from "./mesa-rechazo-operativo-payload";
+export {
   cancelacionOperativaInputSchema,
   cancelacionOperativaResponseSchema,
   esElegibleCancelacionOperativa,

@@ -1,5 +1,13 @@
 # ConCasa CRM — Plan de pruebas
 
+## P099 — Rechazo Mesa → bandeja asesor
+
+- [x] Cancelación terminal: tarjeta roja; copy «no continuará».
+- [x] Rechazo: tarjeta oscura; solo motivo (select+Otro) y nota opcional; defaults biométricos internos.
+- [x] Cadena `rechazar_etapa_operativa` → `subestado=rechazado` → `rechazado_mesa` en `/asesor`.
+- [x] Motivo/nota visibles para asesor; separado de Cancelados; reingreso consultable; sin movimiento manual.
+- [ ] Sin Cloud/commit/smoke.
+
 ## P096 — Solicitud documento (`cliente_solicitud`)
 
 - [x] Tipo técnico `cliente_solicitud` (nunca `solicitud`); etapa ≥ 7; roles Mesa iguales a Notificación.
