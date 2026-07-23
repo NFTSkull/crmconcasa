@@ -5,13 +5,17 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import {
+  ADMIN_REPORT_ALL_PASO_VALUES,
   ADMIN_REPORT_PASO_OPTIONS,
   AdminReportAsesoresEtapasError,
   asesoresCatalogFromReport,
+  canConsultAdminReport,
   detalleForResumenRow,
+  fetchAdminReportAsesoresCatalog,
   fetchAdminReportExpedientesAsesoresEtapas,
   formatAdminReportMetaSummary,
   groupAdminReportResumenByAsesor,
+  validateAdminReportFechaRango,
   type AdminReportDetalleRow,
   type AdminReportEstado,
   type AdminReportFilters,
@@ -54,6 +58,8 @@ export function AdminReporteExpedientesSection() {
   const [selectedAsesorIds, setSelectedAsesorIds] = useState<readonly string[]>([]);
   const [selectedPasos, setSelectedPasos] = useState<readonly number[]>([]);
   const [estado, setEstado] = useState<AdminReportEstado>("vigentes");
+  const [fechaDesde, setFechaDesde] = useState("");
+  const [fechaHasta, setFechaHasta] = useState("");
 
   const [loadingOptions, setLoadingOptions] = useState(true);
   const [loading, setLoading] = useState(false);
@@ -70,9 +76,13 @@ export function AdminReporteExpedientesSection() {
       asesorIds: selectedAsesorIds,
       pasosVisuales: selectedPasos,
       estado,
+      fechaDesde: fechaDesde.trim() || null,
+      fechaHasta: fechaHasta.trim() || null,
     }),
-    [selectedAsesorIds, selectedPasos, estado],
+    [selectedAsesorIds, selectedPasos, estado, fechaDesde, fechaHasta],
   );
+
+  const consultEnabled = canConsultAdminReport(filtersDraft) && !loading;
 
   useEffect(() => {
     if (optionsLoadedRef.current) return;
@@ -81,11 +91,7 @@ export function AdminReporteExpedientesSection() {
     void (async () => {
       setLoadingOptions(true);
       try {
-        const data = await fetchAdminReportExpedientesAsesoresEtapas({
-          asesorIds: [],
-          pasosVisuales: [],
-          estado: "vigentes",
-        });
+        const data = await fetchAdminReportAsesoresCatalog();
         if (!cancelled) {
           setAsesorOptions(asesoresCatalogFromReport(data));
         }
@@ -116,6 +122,19 @@ export function AdminReporteExpedientesSection() {
   );
 
   const handleConsultar = useCallback(async () => {
+    const fechaCheck = validateAdminReportFechaRango(
+      filtersDraft.fechaDesde,
+      filtersDraft.fechaHasta,
+    );
+    if (!fechaCheck.ok) {
+      setError(fechaCheck.message);
+      return;
+    }
+    if (!canConsultAdminReport(filtersDraft)) {
+      setError("Selecciona al menos un asesor y una etapa (usa Todos/Todas si aplica).");
+      return;
+    }
+
     setLoading(true);
     setError(null);
     setExpanded(new Set());
@@ -142,6 +161,19 @@ export function AdminReporteExpedientesSection() {
       setLoading(false);
     }
   }, [filtersDraft]);
+
+  const handleLimpiarFiltros = useCallback(() => {
+    setSelectedAsesorIds([]);
+    setSelectedPasos([]);
+    setAsesorSearch("");
+    setEstado("vigentes");
+    setFechaDesde("");
+    setFechaHasta("");
+    setError(null);
+    setReport(null);
+    setConsultedFilters(null);
+    setExpanded(new Set());
+  }, []);
 
   const handleToggleExpand = useCallback((key: string) => {
     setExpanded((prev) => {
@@ -230,7 +262,7 @@ export function AdminReporteExpedientesSection() {
             <Button
               type="button"
               variant="outline"
-              disabled={!report || exporting || loading}
+              disabled={!report || !consultedFilters || exporting || loading}
               onClick={handleDownload}
             >
               {exporting ? "Generando…" : "Descargar Excel"}
@@ -258,7 +290,9 @@ export function AdminReporteExpedientesSection() {
               <button
                 type="button"
                 className="text-xs text-blue-700 underline"
-                onClick={() => setSelectedAsesorIds([])}
+                onClick={() =>
+                  setSelectedAsesorIds(asesorOptions.map((a) => a.id))
+                }
               >
                 Todos
               </button>
@@ -305,7 +339,7 @@ export function AdminReporteExpedientesSection() {
             </div>
             <p className="mt-2 text-[11px] text-slate-500">
               {selectedAsesorIds.length === 0
-                ? "Selección: Todos"
+                ? "Selección: ninguna"
                 : `Seleccionados: ${selectedAsesorIds.length}`}
             </p>
           </div>
@@ -316,7 +350,7 @@ export function AdminReporteExpedientesSection() {
               <button
                 type="button"
                 className="text-xs text-blue-700 underline"
-                onClick={() => setSelectedPasos([])}
+                onClick={() => setSelectedPasos([...ADMIN_REPORT_ALL_PASO_VALUES])}
               >
                 Todas
               </button>
@@ -341,7 +375,7 @@ export function AdminReporteExpedientesSection() {
             </div>
             <p className="mt-2 text-[11px] text-slate-500">
               {selectedPasos.length === 0
-                ? "Selección: Todas"
+                ? "Selección: ninguna"
                 : `Seleccionados: ${selectedPasos.length}`}
               {" · "}Paso 3 incluye internas 3 y 4
             </p>
@@ -355,16 +389,50 @@ export function AdminReporteExpedientesSection() {
               options={[...ESTADO_OPTIONS]}
               onChange={(e) => setEstado(e.target.value as AdminReportEstado)}
             />
-            <Button
-              type="button"
-              className="w-full"
-              disabled={loading}
-              onClick={() => void handleConsultar()}
-            >
-              {loading ? "Consultando…" : "Consultar reporte"}
-            </Button>
+            <div className="space-y-2">
+              <p className="text-sm font-medium text-slate-800">Rango de fechas</p>
+              <div className="grid grid-cols-2 gap-2">
+                <Input
+                  id="admin-report-fecha-desde"
+                  label="Desde"
+                  type="date"
+                  value={fechaDesde}
+                  onChange={(e) => setFechaDesde(e.target.value)}
+                />
+                <Input
+                  id="admin-report-fecha-hasta"
+                  label="Hasta"
+                  type="date"
+                  value={fechaHasta}
+                  onChange={(e) => setFechaHasta(e.target.value)}
+                />
+              </div>
+              <p className="text-[11px] text-slate-500">
+                Filtra por la fecha en que el expediente entró a su paso actual.
+              </p>
+            </div>
+            <div className="flex flex-col gap-2">
+              <Button
+                type="button"
+                className="w-full"
+                disabled={!consultEnabled}
+                onClick={() => void handleConsultar()}
+              >
+                {loading ? "Consultando…" : "Consultar reporte"}
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                className="w-full"
+                disabled={loading}
+                onClick={handleLimpiarFiltros}
+              >
+                Limpiar filtros
+              </Button>
+            </div>
             <p className="text-[11px] text-slate-500">
               La consulta no se ejecuta al cambiar filtros; solo al pulsar el botón.
+              Usa Todos/Todas para selección explícita completa.
             </p>
           </div>
         </div>
@@ -387,6 +455,9 @@ export function AdminReporteExpedientesSection() {
         {!loading && report && report.meta.expedientes === 0 ? (
           <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-4 text-sm text-slate-600">
             No hay expedientes para los filtros consultados.
+            {(report.meta.excluidos_por_fecha_desconocida ?? 0) > 0
+              ? ` ${report.meta.excluidos_por_fecha_desconocida} quedaron fuera por no tener fecha histórica.`
+              : ""}
           </p>
         ) : null}
 
@@ -526,7 +597,8 @@ function FragmentRows({
                 <tr className="text-left text-slate-500">
                   <th className="py-1 pr-3">Cliente</th>
                   <th className="py-1 pr-3">NSS</th>
-                  <th className="py-1">Paso actual</th>
+                  <th className="py-1 pr-3">Paso actual</th>
+                  <th className="py-1">Fecha de entrada al paso</th>
                 </tr>
               </thead>
               <tbody>
@@ -537,13 +609,16 @@ function FragmentRows({
                   >
                     <td className="py-1 pr-3">{d.cliente_nombre}</td>
                     <td className="py-1 pr-3 font-mono">{d.nss || "—"}</td>
-                    <td className="py-1">
+                    <td className="py-1 pr-3">
                       Paso {d.paso_visual} · {d.paso_nombre}
                       {d.estado === "rechazado" ? (
                         <span className="ml-2 rounded bg-slate-800 px-1.5 py-0.5 text-[10px] font-medium text-white">
                           Rechazado
                         </span>
                       ) : null}
+                    </td>
+                    <td className="py-1 tabular-nums">
+                      {d.fecha_entrada_paso_actual ?? "—"}
                     </td>
                   </tr>
                 ))}

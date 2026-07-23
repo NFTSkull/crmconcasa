@@ -192,6 +192,7 @@ export function buildAdminReportExpedientesWorkbook(input: Readonly<{
     [2, "Cliente"],
     [3, "NSS"],
     [4, "Paso actual"],
+    [5, "Fecha de entrada al paso"],
   ] as const) {
     applyDataCell(detalleSheet.getCell(1, col), label, {
       fillArgb: ADMIN_REPORT_EXCEL_COLORS.headerBlue,
@@ -200,6 +201,8 @@ export function buildAdminReportExpedientesWorkbook(input: Readonly<{
       align: headerAlign,
     });
   }
+
+  detalleSheet.getColumn(5).width = 26;
 
   input.detalle.forEach((row, idx) => {
     const fill =
@@ -229,6 +232,14 @@ export function buildAdminReportExpedientesWorkbook(input: Readonly<{
         }`,
       ),
       { fillArgb: fill },
+    );
+    applyDataCell(
+      detalleSheet.getCell(rowNum, 5),
+      sanitize(row.fecha_entrada_paso_actual ?? "—"),
+      {
+        fillArgb: fill,
+        align: { horizontal: "center", vertical: "middle" },
+      },
     );
   });
 

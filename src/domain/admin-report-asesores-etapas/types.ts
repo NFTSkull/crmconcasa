@@ -31,6 +31,11 @@ export const adminReportDetalleRowSchema = z.object({
   paso_visual: z.number().int().min(1).max(11),
   paso_nombre: z.string(),
   estado: z.enum(["activo", "rechazado"]),
+  fecha_entrada_paso_actual: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .nullable()
+    .optional(),
 });
 
 export const adminReportMetaSchema = z.object({
@@ -39,6 +44,8 @@ export const adminReportMetaSchema = z.object({
   activos: z.number().int().nonnegative(),
   rechazados: z.number().int().nonnegative(),
   expedientes: z.number().int().nonnegative(),
+  sin_fecha_canonica: z.number().int().nonnegative().optional(),
+  excluidos_por_fecha_desconocida: z.number().int().nonnegative().optional(),
 });
 
 export const adminReportResponseSchema = z.object({
@@ -56,12 +63,17 @@ export type AdminReportFilters = Readonly<{
   asesorIds: readonly string[];
   pasosVisuales: readonly number[];
   estado: AdminReportEstado;
+  fechaDesde: string | null;
+  fechaHasta: string | null;
 }>;
 
 export const ADMIN_REPORT_PASO_OPTIONS = ETAPAS_VISUALES_OPERATIVAS.map((e) => ({
   value: e.pasoVisual,
   label: `Paso ${e.pasoVisual} · ${e.nombre}`,
 }));
+
+export const ADMIN_REPORT_ALL_PASO_VALUES: readonly number[] =
+  ETAPAS_VISUALES_OPERATIVAS.map((e) => e.pasoVisual);
 
 export function expandPasosVisualesToEtapasInternas(
   pasos: readonly number[],
@@ -88,17 +100,47 @@ export function validateAdminReportPasos(
   return { ok: true };
 }
 
+const YMD_RE = /^\d{4}-\d{2}-\d{2}$/;
+
+export function validateAdminReportFechaRango(
+  desde: string | null | undefined,
+  hasta: string | null | undefined,
+): { ok: true } | { ok: false; message: string } {
+  const d = desde?.trim() || null;
+  const h = hasta?.trim() || null;
+  if (d && !YMD_RE.test(d)) {
+    return { ok: false, message: "La fecha Desde no es válida." };
+  }
+  if (h && !YMD_RE.test(h)) {
+    return { ok: false, message: "La fecha Hasta no es válida." };
+  }
+  if (d && h && d > h) {
+    return {
+      ok: false,
+      message: "La fecha Desde no puede ser posterior a Hasta.",
+    };
+  }
+  return { ok: true };
+}
+
+/** Tras limpiar: no se consulta con arreglos vacíos (vacío ≠ Todos). */
+export function canConsultAdminReport(filters: AdminReportFilters): boolean {
+  return filters.asesorIds.length > 0 && filters.pasosVisuales.length > 0;
+}
+
 export function buildAdminReportRpcPayload(filters: AdminReportFilters): Readonly<{
-  p_asesor_ids: string[] | null;
-  p_pasos_visuales: number[] | null;
+  p_asesor_ids: string[];
+  p_pasos_visuales: number[];
   p_estado: AdminReportEstado;
+  p_fecha_desde: string | null;
+  p_fecha_hasta: string | null;
 }> {
-  const asesores = filters.asesorIds.filter(Boolean);
-  const pasos = filters.pasosVisuales.filter((p) => Number.isInteger(p));
   return {
-    p_asesor_ids: asesores.length > 0 ? [...asesores] : null,
-    p_pasos_visuales: pasos.length > 0 ? [...pasos] : null,
+    p_asesor_ids: [...filters.asesorIds],
+    p_pasos_visuales: [...filters.pasosVisuales],
     p_estado: filters.estado,
+    p_fecha_desde: filters.fechaDesde?.trim() || null,
+    p_fecha_hasta: filters.fechaHasta?.trim() || null,
   };
 }
 
@@ -110,7 +152,6 @@ export type AdminReportTableGroup = Readonly<{
   subtotal: number;
 }>;
 
-/** Agrupa resumen por asesor preservando orden (asesor, paso). */
 export function groupAdminReportResumenByAsesor(
   resumen: readonly AdminReportResumenRow[],
 ): AdminReportTableGroup[] {
@@ -148,7 +189,12 @@ export function detalleForResumenRow(
 }
 
 export function formatAdminReportMetaSummary(meta: AdminReportMeta): string {
-  return `${meta.asesores} asesor${meta.asesores === 1 ? "" : "es"} · ${meta.pasos} etapa${meta.pasos === 1 ? "" : "s"} · ${meta.expedientes} expediente${meta.expedientes === 1 ? "" : "s"}`;
+  let base = `${meta.asesores} asesor${meta.asesores === 1 ? "" : "es"} · ${meta.pasos} etapa${meta.pasos === 1 ? "" : "s"} · ${meta.expedientes} expediente${meta.expedientes === 1 ? "" : "s"}`;
+  const excluidos = meta.excluidos_por_fecha_desconocida ?? 0;
+  if (excluidos > 0) {
+    base += ` · ${excluidos} sin fecha histórica excluidos`;
+  }
+  return base;
 }
 
 export function asesoresCatalogFromReport(

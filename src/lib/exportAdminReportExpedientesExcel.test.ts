@@ -47,6 +47,7 @@ const sample: AdminReportResponse = {
       paso_visual: 6,
       paso_nombre: "Notificación",
       estado: "activo",
+      fecha_entrada_paso_actual: "2026-07-20",
     },
     {
       asesor_id: ASESOR,
@@ -58,6 +59,7 @@ const sample: AdminReportResponse = {
       paso_visual: 6,
       paso_nombre: "Notificación",
       estado: "rechazado",
+      fecha_entrada_paso_actual: "2026-07-18",
     },
     {
       asesor_id: ASESOR_B,
@@ -69,6 +71,7 @@ const sample: AdminReportResponse = {
       paso_visual: 3,
       paso_nombre: "Listo para cita de biométrico",
       estado: "activo",
+      fecha_entrada_paso_actual: null,
     },
   ],
   meta: {
@@ -77,6 +80,8 @@ const sample: AdminReportResponse = {
     activos: 2,
     rechazados: 1,
     expedientes: 3,
+    sin_fecha_canonica: 1,
+    excluidos_por_fecha_desconocida: 0,
   },
 };
 
@@ -125,7 +130,10 @@ describe("exportAdminReportExpedientesExcel", () => {
     const detalle = wb.getWorksheet("Detalle")!;
     assert.equal(detalle.getCell(1, 1).value, "Asesor");
     assert.equal(detalle.getCell(1, 3).value, "NSS");
+    assert.equal(detalle.getCell(1, 5).value, "Fecha de entrada al paso");
     assert.equal(detalle.getCell(2, 3).value, "01234567890");
+    assert.equal(detalle.getCell(2, 5).value, "2026-07-20");
+    assert.equal(detalle.getCell(4, 5).value, "—");
     assert.equal(
       String(detalle.getCell(3, 4).value),
       "Paso 6 · Notificación · Rechazado",
@@ -165,6 +173,7 @@ describe("exportAdminReportExpedientesExcel", () => {
     assert.equal(detalle.getColumn(2).width, 45);
     assert.equal(detalle.getColumn(3).width, 18);
     assert.equal(detalle.getColumn(4).width, 48);
+    assert.equal(detalle.getColumn(5).width, 26);
   });
 
   it("sanitiza fórmulas en nombres", () => {

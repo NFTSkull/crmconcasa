@@ -719,6 +719,14 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 
 **Response:** `{ resumen[], detalle[], meta }` — migración `098_admin_report_expedientes_asesores_etapas.sql`. UI `/admin` «Reporte de expedientes» + Excel `reporte-expedientes-YYYY-MM-DD.xlsx` (snapshot de la última consulta).
 
+### 15-ter. Reporte v2 + fecha canónica de paso (P114)
+
+**Tracking:** `expedientes.fecha_entrada_paso_visual_actual` (nullable, sin backfill) + `expediente_paso_visual_transiciones` (append-only vía trigger). Mapper `__map_etapa_interna_a_paso_visual`. Cruce 3→4 no cambia fecha ni escribe historial.
+
+**Operación:** RPC read-only `admin_report_expedientes_asesores_etapas_v2(..., p_fecha_desde DATE DEFAULT NULL, p_fecha_hasta DATE DEFAULT NULL)` — migración `100_…sql`. P112 (`…_etapas` sin fechas) intacta.
+
+**Fechas:** calendario `America/Monterrey`; rango inclusivo; desde>hasta → error. Sin rango incluye históricos `NULL`. Con rango los excluye y reporta `meta.sin_fecha_canonica` / `meta.excluidos_por_fecha_desconocida`. Detalle incluye `fecha_entrada_paso_actual` (`YYYY-MM-DD`|null).
+
 ### P085 — filtro global por asesor
 
 - Todas las consultas Admin aceptan el mismo `asesor_id` UUID estable (nunca nombre/email).

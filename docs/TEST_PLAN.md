@@ -1,5 +1,14 @@
 # ConCasa CRM — Plan de pruebas
 
+## P114 — Fecha canónica + rango + Limpiar filtros
+
+- [x] Trigger: insert setea fecha; 3→4 conserva; rechazo sin cambio de etapa conserva; mutación directa de columna ignorada; sin backfill.
+- [x] Historial solo creación y cruces visuales; authenticated sin INSERT.
+- [x] RPC v2: sin rango = P112 + NULL fechas; con rango excluye NULL y reporta `excluidos_por_fecha_desconocida`; desde>hasta error; Monterrey.
+- [x] UI: rango opcional; Limpiar sin RPC; vacío ≠ Todos; Todos/Todas explícitos; Excel + fecha; P112/P113/citas intactos.
+- [x] SQL focal local `expediente_paso_visual_tracking_report_v2.sql` + regresión P112.
+- [x] Tests TS 1102 + lint/typecheck/build / `git diff --check`.
+
 ## P113 — Reporte Admin colapsable + Excel estilos citas
 
 - [x] Sección inicia colapsada; Abrir despliega; Cerrar minimiza sin modal.

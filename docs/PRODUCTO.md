@@ -158,6 +158,8 @@ La UI identifica al hijo como **Reingreso / Reinscripción** y **Biométricos re
 
 **Salida:** tabla Asesor|Etapa|Cantidad (subtotales/total) con detalle expandible Cliente|NSS|Paso; Excel `reporte-expedientes-YYYY-MM-DD.xlsx` de la última consulta. RPC `admin_report_expedientes_asesores_etapas`.
 
+**P114:** rango opcional Desde/Hasta (fecha canónica de entrada al paso visual, `America/Monterrey`); históricos sin fecha quedan fuera del rango y se reportan; Limpiar filtros; Todos/Todas selección explícita; RPC `…_v2`.
+
 ### 6.6 Rechazado vs Cancelado (P094 — diseño B0)
 
 Dos resultados operativos distintos; **no** inferir por texto libre ni por movimiento manual.

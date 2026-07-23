@@ -1,5 +1,17 @@
 # Devlog
 
+## 2026-07-23 - P114: fecha canónica de paso + rango + limpiar filtros
+
+### Decisión
+No había fuente histórica confiable. Se introduce seguimiento **prospectivo**: columna + trigger + historial append-only. Sin backfill; históricos quedan `NULL`. Con rango de fechas se excluyen y se reportan en `meta`.
+
+### Backend
+- `099_expediente_paso_visual_tracking.sql`: mapper `__map_etapa_interna_a_paso_visual`, columna `fecha_entrada_paso_visual_actual`, tabla `expediente_paso_visual_transiciones`, trigger (conserva 3→4).
+- `100_…_v2.sql`: RPC nueva `admin_report_expedientes_asesores_etapas_v2` (P112 intacta); fechas `America/Monterrey`.
+
+### UI
+Rango Desde/Hasta; Limpiar filtros (vacío ≠ Todos); Todos/Todas selección explícita; Consultar exige asesor+etapa; Excel Detalle + columna fecha.
+
 ## 2026-07-23 - P113: Reporte Admin colapsable + estilos Excel citas
 
 ### UI
