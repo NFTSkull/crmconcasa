@@ -7,6 +7,8 @@ import { Select } from "@/components/ui/Select";
 import {
   ADMIN_REPORT_ALL_PASO_VALUES,
   ADMIN_REPORT_PASO_OPTIONS,
+  ADMIN_REPORT_TIPO_FECHA_OPTIONS,
+  DEFAULT_ADMIN_REPORT_TIPO_FECHA,
   AdminReportAsesoresEtapasError,
   asesoresCatalogFromReport,
   canConsultAdminReport,
@@ -15,6 +17,9 @@ import {
   fetchAdminReportExpedientesAsesoresEtapas,
   formatAdminReportMetaSummary,
   adminReportHasFechaRango,
+  adminReportShowsEntradaPasoWarning,
+  labelDetalleFechaFiltrada,
+  resolveDetalleFechaFiltrada,
   groupAdminReportResumenByAsesor,
   validateAdminReportFechaRango,
   type AdminReportDetalleRow,
@@ -22,6 +27,7 @@ import {
   type AdminReportFilters,
   type AdminReportResponse,
   type AdminReportResumenRow,
+  type AdminReportTipoFecha,
 } from "@/domain/admin-report-asesores-etapas";
 import {
   buildAdminReportExpedientesFilename,
@@ -59,6 +65,9 @@ export function AdminReporteExpedientesSection() {
   const [selectedAsesorIds, setSelectedAsesorIds] = useState<readonly string[]>([]);
   const [selectedPasos, setSelectedPasos] = useState<readonly number[]>([]);
   const [estado, setEstado] = useState<AdminReportEstado>("vigentes");
+  const [tipoFecha, setTipoFecha] = useState<AdminReportTipoFecha>(
+    DEFAULT_ADMIN_REPORT_TIPO_FECHA,
+  );
   const [fechaDesde, setFechaDesde] = useState("");
   const [fechaHasta, setFechaHasta] = useState("");
 
@@ -77,14 +86,16 @@ export function AdminReporteExpedientesSection() {
       asesorIds: selectedAsesorIds,
       pasosVisuales: selectedPasos,
       estado,
+      tipoFecha,
       fechaDesde: fechaDesde.trim() || null,
       fechaHasta: fechaHasta.trim() || null,
     }),
-    [selectedAsesorIds, selectedPasos, estado, fechaDesde, fechaHasta],
+    [selectedAsesorIds, selectedPasos, estado, tipoFecha, fechaDesde, fechaHasta],
   );
 
   const consultEnabled = canConsultAdminReport(filtersDraft) && !loading;
   const rangoActivo = adminReportHasFechaRango(filtersDraft);
+  const showEntradaPasoWarning = adminReportShowsEntradaPasoWarning(filtersDraft);
 
   useEffect(() => {
     if (optionsLoadedRef.current) return;
@@ -169,6 +180,7 @@ export function AdminReporteExpedientesSection() {
     setSelectedPasos([]);
     setAsesorSearch("");
     setEstado("vigentes");
+    setTipoFecha(DEFAULT_ADMIN_REPORT_TIPO_FECHA);
     setFechaDesde("");
     setFechaHasta("");
     setError(null);
@@ -198,7 +210,10 @@ export function AdminReporteExpedientesSection() {
     setExporting(true);
     void (async () => {
       try {
-        const wb = buildAdminReportExpedientesWorkbook(report);
+        const wb = buildAdminReportExpedientesWorkbook({
+          ...report,
+          tipoFecha: consultedFilters.tipoFecha,
+        });
         const filename = buildAdminReportExpedientesFilename(todayYmdLocal());
         await downloadAdminReportExpedientesWorkbook(wb, filename);
       } catch {
@@ -397,6 +412,15 @@ export function AdminReporteExpedientesSection() {
               options={[...ESTADO_OPTIONS]}
               onChange={(e) => setEstado(e.target.value as AdminReportEstado)}
             />
+            <Select
+              id="admin-report-tipo-fecha"
+              label="Tipo de fecha"
+              value={tipoFecha}
+              options={[...ADMIN_REPORT_TIPO_FECHA_OPTIONS]}
+              onChange={(e) =>
+                setTipoFecha(e.target.value as AdminReportTipoFecha)
+              }
+            />
             <div className="space-y-2">
               <div className="flex items-center justify-between gap-2">
                 <p className="text-sm font-medium text-slate-800">Rango de fechas</p>
@@ -427,9 +451,11 @@ export function AdminReporteExpedientesSection() {
                 />
               </div>
               <p className="text-[11px] text-slate-500">
-                Filtra por la fecha en que el expediente entró a su paso actual.
+                {tipoFecha === "envio_mesa"
+                  ? "Filtra por la fecha en que el expediente fue enviado a Mesa."
+                  : "Filtra por la fecha en que el expediente entró a su paso actual."}
               </p>
-              {rangoActivo ? (
+              {showEntradaPasoWarning ? (
                 <p
                   role="status"
                   className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2 text-[11px] leading-snug text-amber-950"
@@ -514,6 +540,11 @@ export function AdminReporteExpedientesSection() {
                       expanded={expanded}
                       onToggle={handleToggleExpand}
                       detalleOf={detalleOf}
+                      tipoFecha={
+                        consultedFilters?.tipoFecha ??
+                        report.meta.tipo_fecha ??
+                        DEFAULT_ADMIN_REPORT_TIPO_FECHA
+                      }
                     />
                   ))}
                   <tr className="bg-slate-100 font-semibold text-slate-900">
@@ -545,11 +576,13 @@ function AsesorGroupRows({
   expanded,
   onToggle,
   detalleOf,
+  tipoFecha,
 }: Readonly<{
   group: ReturnType<typeof groupAdminReportResumenByAsesor>[number];
   expanded: ReadonlySet<string>;
   onToggle: (key: string) => void;
   detalleOf: (row: AdminReportResumenRow) => AdminReportDetalleRow[];
+  tipoFecha: AdminReportTipoFecha;
 }>) {
   return (
     <>
@@ -564,6 +597,7 @@ function AsesorGroupRows({
             open={open}
             details={details}
             onToggle={() => onToggle(key)}
+            tipoFecha={tipoFecha}
           />
         );
       })}
@@ -584,11 +618,13 @@ function FragmentRows({
   open,
   details,
   onToggle,
+  tipoFecha,
 }: Readonly<{
   row: AdminReportResumenRow;
   open: boolean;
   details: readonly AdminReportDetalleRow[];
   onToggle: () => void;
+  tipoFecha: AdminReportTipoFecha;
 }>) {
   return (
     <>
@@ -626,7 +662,7 @@ function FragmentRows({
                   <th className="py-1 pr-3">Cliente</th>
                   <th className="py-1 pr-3">NSS</th>
                   <th className="py-1 pr-3">Paso actual</th>
-                  <th className="py-1">Fecha de entrada al paso</th>
+                  <th className="py-1">{labelDetalleFechaFiltrada(tipoFecha)}</th>
                 </tr>
               </thead>
               <tbody>
@@ -646,7 +682,7 @@ function FragmentRows({
                       ) : null}
                     </td>
                     <td className="py-1 tabular-nums">
-                      {d.fecha_entrada_paso_actual ?? "—"}
+                      {resolveDetalleFechaFiltrada(d, tipoFecha) ?? "—"}
                     </td>
                   </tr>
                 ))}

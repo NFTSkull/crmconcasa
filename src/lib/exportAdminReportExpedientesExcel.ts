@@ -3,8 +3,13 @@ import type {
   AdminReportDetalleRow,
   AdminReportMeta,
   AdminReportResumenRow,
+  AdminReportTipoFecha,
 } from "@/domain/admin-report-asesores-etapas";
-import { groupAdminReportResumenByAsesor } from "@/domain/admin-report-asesores-etapas";
+import {
+  groupAdminReportResumenByAsesor,
+  labelDetalleFechaFiltrada,
+  resolveDetalleFechaFiltrada,
+} from "@/domain/admin-report-asesores-etapas";
 
 /** Paleta oficial Excel citas (P107/P113) — solo diseño visual. */
 export const ADMIN_REPORT_EXCEL_COLORS = {
@@ -86,9 +91,13 @@ export function buildAdminReportExpedientesWorkbook(input: Readonly<{
   resumen: readonly AdminReportResumenRow[];
   detalle: readonly AdminReportDetalleRow[];
   meta: AdminReportMeta;
+  tipoFecha?: AdminReportTipoFecha | null;
 }>): ExcelJS.Workbook {
   const wb = new ExcelJS.Workbook();
   const groups = groupAdminReportResumenByAsesor(input.resumen);
+  const tipoFecha =
+    input.tipoFecha ?? input.meta.tipo_fecha ?? "entrada_paso_actual";
+  const fechaColLabel = labelDetalleFechaFiltrada(tipoFecha);
 
   const resumenSheet = wb.addWorksheet("Resumen", {
     views: [{ state: "frozen", ySplit: 1 }],
@@ -192,7 +201,7 @@ export function buildAdminReportExpedientesWorkbook(input: Readonly<{
     [2, "Cliente"],
     [3, "NSS"],
     [4, "Paso actual"],
-    [5, "Fecha de entrada al paso"],
+    [5, fechaColLabel],
   ] as const) {
     applyDataCell(detalleSheet.getCell(1, col), label, {
       fillArgb: ADMIN_REPORT_EXCEL_COLORS.headerBlue,
@@ -235,7 +244,7 @@ export function buildAdminReportExpedientesWorkbook(input: Readonly<{
     );
     applyDataCell(
       detalleSheet.getCell(rowNum, 5),
-      sanitize(row.fecha_entrada_paso_actual ?? "—"),
+      sanitize(resolveDetalleFechaFiltrada(row, tipoFecha) ?? "—"),
       {
         fillArgb: fill,
         align: { horizontal: "center", vertical: "middle" },

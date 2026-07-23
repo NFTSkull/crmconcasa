@@ -38,7 +38,7 @@ export async function fetchAdminReportExpedientesAsesoresEtapas(
 
   const payload = buildAdminReportRpcPayload(filters);
   const { data, error } = await supabaseBrowser.rpc(
-    "admin_report_expedientes_asesores_etapas_v2",
+    "admin_report_expedientes_asesores_etapas_v3",
     payload,
   );
   if (error) {
@@ -48,9 +48,9 @@ export async function fetchAdminReportExpedientesAsesoresEtapas(
         "Solo Super Admin puede consultar este reporte.",
       );
     }
-    if (/p_estado inválido|p_pasos_visuales|p_fecha_desde/i.test(msg)) {
+    if (/p_estado inválido|p_pasos_visuales|p_fecha_desde|p_tipo_fecha/i.test(msg)) {
       throw new AdminReportAsesoresEtapasError(
-        "Filtros inválidos. Revisa asesores, etapas, estado y fechas.",
+        "Filtros inválidos. Revisa asesores, etapas, estado, tipo de fecha y fechas.",
       );
     }
     throw new AdminReportAsesoresEtapasError(
@@ -74,11 +74,12 @@ export async function fetchAdminReportAsesoresCatalog(): Promise<
     throw new AdminReportAsesoresEtapasError("Supabase no configurado");
   }
   const { data, error } = await supabaseBrowser.rpc(
-    "admin_report_expedientes_asesores_etapas_v2",
+    "admin_report_expedientes_asesores_etapas_v3",
     {
       p_asesor_ids: null,
       p_pasos_visuales: null,
       p_estado: "vigentes",
+      p_tipo_fecha: "envio_mesa",
       p_fecha_desde: null,
       p_fecha_hasta: null,
     },

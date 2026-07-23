@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   adminReportHasFechaRango,
+  adminReportShowsEntradaPasoWarning,
   adminReportResponseSchema,
   ADMIN_REPORT_ALL_PASO_VALUES,
   buildAdminReportRpcPayload,
@@ -10,6 +11,8 @@ import {
   expandPasosVisualesToEtapasInternas,
   formatAdminReportMetaSummary,
   groupAdminReportResumenByAsesor,
+  labelDetalleFechaFiltrada,
+  resolveDetalleFechaFiltrada,
   validateAdminReportFechaRango,
   validateAdminReportPasos,
   type AdminReportResponse,
@@ -53,6 +56,7 @@ const sampleReport: AdminReportResponse = {
       paso_nombre: "Listo para cita de biométrico",
       estado: "activo",
       fecha_entrada_paso_actual: "2026-07-20",
+      fecha_envio_mesa: "2026-06-15",
     },
     {
       asesor_id: ASESOR_A,
@@ -65,6 +69,7 @@ const sampleReport: AdminReportResponse = {
       paso_nombre: "Listo para cita de biométrico",
       estado: "activo",
       fecha_entrada_paso_actual: "2026-07-18",
+      fecha_envio_mesa: "2026-06-10",
     },
   ],
   meta: {
@@ -73,6 +78,7 @@ const sampleReport: AdminReportResponse = {
     activos: 3,
     rechazados: 1,
     expedientes: 4,
+    tipo_fecha: "envio_mesa",
     sin_fecha_canonica: 1,
     excluidos_por_fecha_desconocida: 1,
   },
@@ -97,12 +103,13 @@ describe("admin-report-asesores-etapas — mapeo y payload", () => {
     assert.equal(validateAdminReportFechaRango("2026-07-10", "2026-07-01").ok, false);
   });
 
-  it("vacío tras limpiar no consulta; payload explícito", () => {
+  it("vacío tras limpiar no consulta; payload v3 con tipo fecha", () => {
     assert.equal(
       canConsultAdminReport({
         asesorIds: [],
         pasosVisuales: [],
         estado: "vigentes",
+        tipoFecha: "envio_mesa",
         fechaDesde: null,
         fechaHasta: null,
       }),
@@ -113,6 +120,7 @@ describe("admin-report-asesores-etapas — mapeo y payload", () => {
         asesorIds: [ASESOR_A],
         pasosVisuales: [3],
         estado: "vigentes",
+        tipoFecha: "envio_mesa",
         fechaDesde: "2026-07-01",
         fechaHasta: null,
       }),
@@ -123,6 +131,7 @@ describe("admin-report-asesores-etapas — mapeo y payload", () => {
         asesorIds: [ASESOR_A],
         pasosVisuales: [3, 6],
         estado: "rechazados",
+        tipoFecha: "entrada_paso_actual",
         fechaDesde: "2026-07-01",
         fechaHasta: "2026-07-15",
       }),
@@ -130,6 +139,7 @@ describe("admin-report-asesores-etapas — mapeo y payload", () => {
         p_asesor_ids: [ASESOR_A],
         p_pasos_visuales: [3, 6],
         p_estado: "rechazados",
+        p_tipo_fecha: "entrada_paso_actual",
         p_fecha_desde: "2026-07-01",
         p_fecha_hasta: "2026-07-15",
       },
@@ -150,6 +160,7 @@ describe("admin-report-asesores-etapas — agrupación UI", () => {
     const dets = detalleForResumenRow(sampleReport.detalle, row);
     assert.equal(dets.length, 2);
     assert.equal(dets[0]?.fecha_entrada_paso_actual, "2026-07-20");
+    assert.equal(dets[0]?.fecha_envio_mesa, "2026-06-15");
     assert.equal(dets[0]?.nss, "01234567890");
   });
 
@@ -163,6 +174,43 @@ describe("admin-report-asesores-etapas — agrupación UI", () => {
     assert.match(summary, /2 etapas con resultados/);
     assert.match(summary, /4 expedientes/);
     assert.match(summary, /1 sin fecha histórica excluidos/);
+  });
+
+  it("advertencia histórica solo con entrada_paso_actual + rango", () => {
+    assert.equal(
+      adminReportShowsEntradaPasoWarning({
+        tipoFecha: "envio_mesa",
+        fechaDesde: "2026-07-01",
+        fechaHasta: null,
+      }),
+      false,
+    );
+    assert.equal(
+      adminReportShowsEntradaPasoWarning({
+        tipoFecha: "entrada_paso_actual",
+        fechaDesde: "2026-07-01",
+        fechaHasta: null,
+      }),
+      true,
+    );
+    assert.equal(
+      adminReportShowsEntradaPasoWarning({
+        tipoFecha: "entrada_paso_actual",
+        fechaDesde: null,
+        fechaHasta: null,
+      }),
+      false,
+    );
+  });
+
+  it("fecha filtrada y etiqueta según tipo", () => {
+    const row = sampleReport.detalle[0]!;
+    assert.equal(resolveDetalleFechaFiltrada(row, "envio_mesa"), "2026-06-15");
+    assert.equal(
+      resolveDetalleFechaFiltrada(row, "entrada_paso_actual"),
+      "2026-07-20",
+    );
+    assert.equal(labelDetalleFechaFiltrada("envio_mesa"), "Fecha de envío a Mesa");
   });
 
   it("rango activo se detecta sin tocar snapshot", () => {
@@ -181,7 +229,7 @@ describe("admin-report-asesores-etapas — agrupación UI", () => {
     assert.deepEqual([...ADMIN_REPORT_ALL_PASO_VALUES], [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
   });
 
-  it("Zod acepta payload v2", () => {
+  it("Zod acepta payload v3", () => {
     assert.equal(adminReportResponseSchema.safeParse(sampleReport).success, true);
   });
 });
