@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Changed
+- **ux/p122-tiene-documentos-copy:** en tarjetas Mesa, copy visible `Tiene datos` → `Tiene documentos` (botón + badge); tipo interno `tiene_datos` intacto.
+
 ### Fixed
 - **fix/p121-cupos-ui-gate:** `/mesa-control` monta configuración de agenda (incl. `AgendaSlotCapacitiesPanel`) con rol de sesión Supabase, no solo mock.
 

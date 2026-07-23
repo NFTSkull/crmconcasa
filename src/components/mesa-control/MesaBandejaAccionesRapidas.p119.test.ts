@@ -18,6 +18,8 @@ describe("MesaBandejaAccionesRapidas UI wiring P119.3/P119.4", () => {
     assert.match(ui, /MESA_AVANZAR_11_12_CONFIRM|Pago a ConCasa/);
     assert.match(ui, /Tomar expediente/);
     assert.match(ui, /Quitar marca/);
+    assert.match(ui, /Tiene documentos/);
+    assert.doesNotMatch(ui, /"Tiene datos"/);
     assert.match(ui, /usesAvanzarRpc/);
     assert.doesNotMatch(ui, /avanzarEtapaOperativa\(.*3/);
 
@@ -35,6 +37,8 @@ describe("MesaBandejaAccionesRapidas UI wiring P119.3/P119.4", () => {
       "utf8",
     );
     assert.match(lib, /MESA_TIENE_RPC_CANONICA_11_A_12 = true/);
+    assert.match(lib, /MESA_TIENE_DATOS_BADGE_LABEL = "📌 Tiene documentos"/);
+    assert.doesNotMatch(lib, /📌 Tiene datos/);
     assert.match(lib, /Pasar a Pago a ConCasa/);
     assert.match(lib, /navegar_biometricos/);
     assert.match(lib, /Falta cargar el Acuse/);

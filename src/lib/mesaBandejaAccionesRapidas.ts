@@ -564,7 +564,7 @@ export function resolveMesaTomarExpedienteAccion(params: {
   };
 }
 
-export const MESA_TIENE_DATOS_BADGE_LABEL = "📌 Tiene datos";
+export const MESA_TIENE_DATOS_BADGE_LABEL = "📌 Tiene documentos";
 export const MESA_SIGUIENTE_ETAPA_CONFIRM_PREFIX =
   "El expediente avanzará de";
 

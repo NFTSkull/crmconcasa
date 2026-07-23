@@ -1,6 +1,6 @@
 ### P119 — Acciones rápidas en tarjetas Mesa
 
-En la bandeja principal, Mesa puede avanzar a la siguiente etapa canónica, marcar `Tiene datos` y tomar expedientes sin asignar sin abrir el detalle.
+En la bandeja principal, Mesa puede avanzar a la siguiente etapa canónica, marcar `Tiene documentos` y tomar expedientes sin asignar sin abrir el detalle.
 
 # ConCasa CRM — Producto
 
