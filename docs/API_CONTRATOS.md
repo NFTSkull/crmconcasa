@@ -338,6 +338,8 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 | 7→8 | Etapa 7 + `en_proceso`; enviado a Mesa; ciclo `activo` (sin retención ni firmas) |
 | 8→9 | Retención: opción + envío asesor + docs opción `validado` |
 | 9→10 | Etapa 9 + `en_proceso`; `fecha_cita` + booking `firmas` activo (`booked`); roles `mesa_admin`/`mesa_interno`/`mesa_externo`/`super_admin` |
+| 10→11 | Etapa 10 + `en_proceso`; mismos gates de firma (`fecha_cita` + booking `firmas` `booked`); roles Mesa/`super_admin`. UI: «Pasar a Firmado». |
+| 11→12 | Etapa 11 + `en_proceso`; enviado a Mesa; ciclo `activo`; roles Mesa/`super_admin`. No muta bookings, documentos, montos ni `fecha_cita`. UI: «Pasar a Pago a ConCasa» (posición operativa final; no registra pago financiero). |
 | Rechazo | Nota obligatoria; puede regresar etapa |
 
 - Validación server-side espejo de `getBloqueosAvanceMesa` / helpers retención.
@@ -565,9 +567,10 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 - Opción A/B en estado local hasta envío; persistencia vía RPC al enviar.
 - Upload: Storage `expediente-documentos` + RPC `register_expediente_documento_retencion`.
 - Reemplazo asesor: antes de enviar el bloque (`no_enviado`) puede subir/reemplazar PDFs no validados; con bloque `enviado` no reemplaza; en `correccion_requerida` solo `rechazado`; siempre bloqueado si `validado` (espejo del RPC).
-- MIME de retención se normaliza a `application/pdf` en el cliente (igual que integración) para PDFs con tipo vacío/`octet-stream`.
-- Opción A/B: borrador en `sessionStorage` (`retencion-opcion:<expedienteId>`) + inferencia desde docs `retencion_*` activos tras reload; orden: DB → inferencia → sessionStorage → default (la fila `retencion_opciones` solo se escribe al enviar a Mesa).
-- Botón «Enviar a Mesa Control» visible en `no_enviado` / `correccion_requerida`; al éxito copy «Acuse enviado. El expediente está listo para agendar firma.» + refetch canónico a etapa 9.
+- MIME de retención: principal P117 acepta PDF/JPEG/PNG; resto de `retencion_*` sigue PDF-only. El cliente normaliza MIME vacío/`octet-stream` cuando aplica.
+- **P117:** al registrar el documento principal en etapa 8, la misma TX de `register_expediente_documento_retencion` upsert `retencion_opciones`/`retencion_envios` y avanza `8→9` (sin booking). Reemplazo en 9+ no re-avanza. `enviar_retencion_mesa` permanece para reenvíos/idempotencia.
+- Opción A/B: borrador en `sessionStorage` (`retencion-opcion:<expedienteId>`) + inferencia desde docs `retencion_*` activos tras reload; orden: DB → inferencia → sessionStorage → default (también se persiste al subir el principal en P117).
+- Botón «Enviar a Mesa Control» visible en `no_enviado` / `correccion_requerida`; al éxito (o tras upload P117) copy «Acuse enviado. El expediente está listo para agendar firma.» + refetch canónico a etapa 9.
 - Sin validación Mesa del Acuse; Mesa agenda firma en etapa 9.
 
 ---
@@ -618,6 +621,8 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 
 - UI asesor: `AgendaFirmasSupabaseCard` en etapa 9 (P3P.2).
 - UI Mesa: resumen cita + avance 9→10 en detalle Supabase (P3P.3).
+- **P117:** en etapa 10, botón Mesa «Pasar a Firmado» → `avanzar_etapa_operativa` transición `10→11` (mismos gates de firma; no movimiento manual libre).
+- **P119.4:** en etapa 11, botón Mesa «Pasar a Pago a ConCasa» → `avanzar_etapa_operativa` transición `11→12` (solo posición operativa; no registra pago ni muta citas/docs/montos).
 
 ---
 
@@ -980,6 +985,40 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 
 ---
 
+## 17e-bis. Cupos por horario + gestionar cita (P118)
+
+### Cupos
+
+**Listar:** `list_agenda_slot_capacities(p_kind booking_kind, p_slot_date date, p_location_id text default null) → table`
+
+- Roles: Mesa + `asesor` + `super_admin`. Devuelve capacity/occupied/available/active.
+
+**Upsert:** `upsert_agenda_slot_capacity(p_kind, p_location_id, p_slot_date, p_slot_time, p_capacity, p_active default true) → jsonb`
+
+- Roles: `mesa_admin` | `super_admin`. Kind solo `biometricos`|`firmas`. Rechaza `capacity < occupied`. `action_log` `agenda.slot_capacity.upsert`.
+
+Asserts de book biométricos/firmas usan override cuando existe fila (`active=false` bloquea).
+
+### Decisiones / gestionar
+
+**Listar:** `list_agenda_booking_decisiones(p_expediente_id uuid) → table` (asesor del expediente o Mesa con `can_see_expediente`).
+
+**Gestionar:** `mesa_gestionar_cita(p_booking_id, p_action, p_motivo, p_new_scheduled_at?, p_new_location_id?, p_new_booking_date?) → jsonb`
+
+- Acciones: `reagendar` | `cancelar` | `cancelar_continuar` / `cancel_continue`.
+- **P118b:** `cancel_continue` delega a `mesa_cancelar_cita_y_continuar(p_booking_id, p_motivo)`:
+  - Roles SQL: `mesa_admin` | `super_admin` (UI: + `mesa_control_admin`).
+  - Biométricos + etapa 4 → cancela booking, `fecha_cita=NULL`, avanza a 5, decisión `cancel_continue`.
+  - Firmas + etapa 10 → cancela booking, `fecha_cita=NULL`, avanza a 11.
+  - Notificación / firmas 9 / interno-externo-asesor: rechazado.
+  - Idempotente si ya hay decisión `cancel_continue` y booking cancelado.
+- Cancelar normal: no avanza etapa; permite reagendar.
+- `cancelar` / `reagendar` delegan a RPCs existentes por kind y persisten fila en `agenda_booking_decisiones`.
+
+Migraciones: `103_agenda_slot_capacities.sql`, `104_agenda_booking_decisiones_y_gestionar.sql`.
+
+---
+
 ## 17f. Cancelación operativa de expediente — P094 (B1 SQL)
 
 **Objetivo:** cierre terminal cuando el cliente no continúa. Separado del rechazo operativo (17d).
@@ -1078,3 +1117,16 @@ Todos | Correcciones enviadas | Nuevos | En proceso | Rechazos y cancelaciones |
 - [ ] Zod schemas por RPC
 - [ ] OpenAPI o tRPC router
 - [ ] Idempotency keys en envío mesa / retención
+
+## 17f. Marcador Mesa `tiene_datos` (P119)
+
+**RPC** `mesa_set_expediente_marcador(p_expediente_id, p_tipo, p_active)`
+
+- Allowlist `tipo`: `tiene_datos`.
+- Roles: `mesa_admin` | `mesa_interno` | `mesa_externo` | `super_admin`.
+- Idempotente; `action_log` `mesa.expediente.marcador_set`.
+- No modifica etapa/subestado.
+- Lectura: SELECT RLS `can_see_expediente` + batch enrich bandeja.
+
+**Asignación rápida:** reutiliza `mesa_take_expediente`.
+**Avance rápido:** reutiliza `avanzar_etapa_operativa`.

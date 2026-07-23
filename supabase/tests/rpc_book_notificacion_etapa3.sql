@@ -47,7 +47,7 @@ DECLARE
   v_result JSONB;
 BEGIN
   PERFORM public.__rpc_notif_test_set_auth(p_user_id);
-  SELECT public.book_notificacion_etapa3(p_expediente_id, p_booking_date, p_note) INTO v_result;
+  SELECT public.book_notificacion_etapa3(p_expediente_id, p_booking_date, 'monterrey', p_note) INTO v_result;
   PERFORM public.__rpc_notif_test_reset_auth();
   RETURN v_result;
 END;
@@ -65,7 +65,7 @@ AS $$
 BEGIN
   PERFORM public.__rpc_notif_test_set_auth(p_user_id);
   BEGIN
-    PERFORM public.book_notificacion_etapa3(p_expediente_id, p_booking_date, p_note);
+    PERFORM public.book_notificacion_etapa3(p_expediente_id, p_booking_date, 'monterrey', p_note);
     PERFORM public.__rpc_notif_test_reset_auth();
     RETURN false;
   EXCEPTION

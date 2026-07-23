@@ -1,4 +1,20 @@
+## P119 — Acciones rápidas bandeja Mesa
+
+- [x] Siguiente etapa: visible solo con transición; gates bloquean; rechazado/cancelado; RPC canónica; doble clic seguro.
+- [x] Tiene datos: toggle + badge; persistencia 106; allowlist; sin cambiar etapa; batch sin N+1.
+- [x] Tomar expediente: `mesa_take_expediente`; no apropiación; Asignado a mí.
+- [x] Regresión: abrir expediente, filtros, P100/P102, P117/P118 intactos.
+
 # ConCasa CRM — Plan de pruebas
+
+## P118 — Cupos por horario + gestionar cita
+
+- [x] Sede UI: null/`notificacion` → Sin sede; monterrey/apodaca/legacy → labels; badge kind intacto.
+- [x] Panel Cupos (solo `canManageAgendaConfig`): list/upsert; no bajar bajo ocupados (SQL).
+- [x] Asesor picker: override capacity; inactive oculto/lleno; fallback semanal; refetch tras book.
+- [x] Gestionar cita: reagendar/cancelar; cancelar_continuar disabled + STOP copy.
+- [x] Aviso asesor `list_agenda_booking_decisiones`.
+- [x] Tests TS focales + SQL `rpc_agenda_slot_capacities.sql` / `rpc_mesa_gestionar_cita.sql`.
 
 ## P116 — Tipo de fecha en reporte Admin
 
@@ -96,6 +112,24 @@
 - [x] Filtro paso 3 incluye internas 3+4; RPC recibe valores internos.
 - [x] `book_biometricos` 3→4 (sin cambio SQL); Asesor 11 pasos intacto.
 - [x] Sin Cloud write / sin renumerar `etapa_actual`.
+
+## P118 — Cupos + sede + gestionar cita (+ P118b cancelar y continuar)
+
+- [x] Cupos por fecha/hora/sede/kind; assert anti-sobrecupo; UI Mesa Admin.
+- [x] Sede legible (`notificacion` → Sin sede).
+- [x] Gestionar: reagendar / cancelar / cancelar y continuar (bio 4→5, firmas 10→11; notif oculto).
+- [x] RPC `mesa_cancelar_cita_y_continuar` (105); roles solo mesa_admin/super_admin.
+- [x] Decisión `cancel_continue` + aviso asesor sin invitar reagendar.
+- [x] Tests SQL/TS; sin Cloud/commit.
+
+## P117 — Acuse MIME + avance 8→9 + Pasar a Firmado
+
+- [x] Principal `retencion_acuse_con_sello` / `retencion_carta_sin_sello`: PDF/JPG/PNG; otros `retencion_*` PDF-only; 15 MiB.
+- [x] `register_expediente_documento_retencion` en TX: register + (etapa 8 + principal) avance 8→9; 9+ no re-avanza; sin booking automático.
+- [x] Mesa etapa 10: «Pasar a Firmado» → `avanzar_etapa_operativa` 10→11 (gates firma); asesor no opera.
+- [x] Mesa etapa 11: «Pasar a Pago a ConCasa» → `avanzar_etapa_operativa` 11→12 (posición operativa; sin pago financiero); etapa 12 «Etapa final».
+- [x] Tests SQL `rpc_register_retencion_p117.sql`, `rpc_avanzar_etapa_10_11.sql` + TS focales; 11 pasos visuales intactos.
+- [x] Sin Cloud/commit/smoke.
 
 ## P104 — Notificación solo Apodaca (opcional)
 

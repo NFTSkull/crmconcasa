@@ -887,10 +887,11 @@ describe("mesaAgendaCitasUi drive validation", () => {
 });
 
 describe("mesaAgendaCitasUi action buttons presentation", () => {
-  it("orden fijo: expediente → drive → reagendar → cancelar", () => {
+  it("orden fijo: expediente → drive → gestionar → reagendar → cancelar", () => {
     assert.deepEqual([...MESA_AGENDA_ACTION_ORDER], [
       "expediente",
       "drive",
+      "gestionar",
       "reagendar",
       "cancelar",
     ]);
@@ -901,6 +902,19 @@ describe("mesaAgendaCitasUi action buttons presentation", () => {
       showCancel: true,
     });
     assert.deepEqual([...visible], ["expediente", "drive", "reagendar", "cancelar"]);
+  });
+
+  it("con showGestionar solo expediente/drive/gestionar", () => {
+    assert.deepEqual(
+      [...resolveMesaAgendaVisibleActions({
+        status: "booked",
+        showDriveValidation: true,
+        showReagendar: true,
+        showCancel: true,
+        showGestionar: true,
+      })],
+      ["expediente", "drive", "gestionar"],
+    );
   });
 
   it("cita cancelada solo muestra Ver expediente", () => {

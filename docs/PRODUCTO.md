@@ -1,3 +1,7 @@
+### P119 — Acciones rápidas en tarjetas Mesa
+
+En la bandeja principal, Mesa puede avanzar a la siguiente etapa canónica, marcar `Tiene datos` y tomar expedientes sin asignar sin abrir el detalle.
+
 # ConCasa CRM — Producto
 
 **Estado:** mock funcional para demo/piloto controlado · schema producción en preparación (P1)  
@@ -100,13 +104,28 @@ ConCasa CRM gestiona el ciclo operativo de precalificaciones / expedientes hipot
 | **A — con sello** | Único obligatorio: Acuse con sello (`retencion_acuse_con_sello`). |
 | **B — sin sello** | Único obligatorio: Carta sin sello (`retencion_carta_sin_sello`). |
 
-1. Asesor elige A/B y sube el documento principal (`subido`/`resubido`/`validado`).
-2. Asesor **envía bloque a Mesa** (`enviar_retencion_mesa`): registra envío **y** avanza atómicamente **8→9**.
+1. Asesor elige A/B y sube el documento principal (`subido`/`resubido`; PDF/JPEG/PNG, máx. 15 MiB).
+2. **P117:** al subir el principal en etapa 8, `register_expediente_documento_retencion` registra el doc **y** avanza atómicamente **8→9** (también marca envío retención). `enviar_retencion_mesa` sigue disponible para reenvíos/idempotencia.
 3. Mesa **no** valida ni rechaza el Acuse para este flujo; consulta en lectura y agenda firma en etapa 9.
 4. El documento **no** se marca como `validado` por el envío; puede permanecer `subido`/`resubido`/`validado`.
-5. **No** se crea booking ni `fecha_cita` al enviar.
+5. **No** se crea booking ni `fecha_cita` al subir/enviar.
 6. Aviso/INE históricos (`retencion_aviso_retencion`, `retencion_ine_*`) no son obligatorios ni bloquean; no se borran ni se hace backfill.
 7. Gate normal 8→9 (recuperación) exige envío + principal activo en `subido|resubido|validado`.
+
+### 6.3bis Firma → Firmado (etapa 10 → 11) — P117
+
+1. En etapa 10 (paso visible 9), Mesa ve «Pasar a Firmado».
+2. `avanzar_etapa_operativa` exige `fecha_cita` + booking `firmas` `booked` (mismos gates que 9→10).
+3. Roles: `mesa_admin` / `mesa_interno` / `mesa_externo` / `super_admin`. Asesor no opera.
+4. Conserva booking, fecha, documentos y montos; no crea citas nuevas.
+
+### 6.3ter Firmado → Pago a ConCasa (etapa 11 → 12) — P119.4
+
+1. En etapa 11 (paso visible 10 Firmado), Mesa ve «Pasar a Pago a ConCasa» (tarjeta y detalle).
+2. `avanzar_etapa_operativa` transición `11_12`: etapa exacta 11, `en_proceso`, enviado a Mesa, ciclo activo.
+3. Roles: `mesa_admin` / `mesa_interno` / `mesa_externo` / `super_admin` (alias UI `mesa_control_admin` → `mesa_admin`).
+4. Solo actualiza `etapa_actual=12`, subestado canónico `en_proceso`, `updated_at` y `action_log`. No registra pago financiero ni muta bookings/docs/montos/`fecha_cita`.
+5. En etapa 12 la bandeja muestra únicamente el indicador «Etapa final».
 ### 6.4 Reingreso / Reinscripción post-biométricos
 
 1. Mesa rechaza un expediente en etapa 5 o 6 y registra una decisión explícita sobre sus biométricos.
@@ -147,6 +166,14 @@ La UI identifica al hijo como **Reingreso / Reinscripción** y **Biométricos re
 - in-memory; estados Generando/éxito/vacío/error; bloqueo doble clic; sin selección/límite 100/Storage.
 
 **Intacto:** P089, cancel/reagendar individual, `booking_kind` operativo.
+
+### 6.5b-bis Cupos por horario + gestión de cita (P118)
+
+**Cupos:** tabla `agenda_slot_capacities` + RPCs `list_agenda_slot_capacities` / `upsert_agenda_slot_capacity` (solo Mesa Admin/super_admin para upsert). Override por fecha+hora+sede+kind (`biometricos`|`firmas`); no baja capacidad bajo ocupados. Asesor ve cupos en el picker; sin fila → `capacityPerSlot` semanal.
+
+**Sede UI:** columna Sede en `/mesa-control/citas` muestra Monterrey/Apodaca (legacy mapeado); `location_id=notificacion` → «Sin sede» (el badge de tipo sigue «Notificación extraordinaria»).
+
+**Gestionar cita:** Mesa con permiso de cancel/reagendar abre diálogo: Reagendar (flujo existente), Cancelar (`mesa_gestionar_cita` action `cancelar` + decisión persistida), Cancelar y continuar (deshabilitado: requiere RPC dedicada). Asesor ve aviso de la última decisión en cards de agenda.
 
 ### 6.5c Reporte Admin de expedientes por asesores y etapas (P112)
 

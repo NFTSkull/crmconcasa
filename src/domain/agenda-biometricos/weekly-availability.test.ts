@@ -107,4 +107,61 @@ describe("weekly-availability", () => {
     });
     assert.deepEqual(dates, ["2026-06-30"]);
   });
+
+  it("computeWeeklySlotAvailability: override capacityByTime (P118)", () => {
+    const config = {
+      ...emptyAgendaBiometricosWeeklyConfig(),
+      enabled: true,
+      timezone: "America/Monterrey",
+      minLeadHours: 0,
+      allowedWeekdays: [1, 2, 3, 4, 5],
+      slots: ["09:00" as HhmmTime, "10:00" as HhmmTime],
+      locations: [
+        { id: "monterrey", label: "Monterrey", enabled: true, capacityPerSlot: 2 },
+      ],
+    };
+    const slots = computeWeeklySlotAvailability({
+      config,
+      bookedSlots: [],
+      date: "2026-06-29" as YmdDate,
+      locationId: "monterrey",
+      now: new Date("2026-06-25T12:00:00.000Z"),
+      capacityOverrides: {
+        capacityByTime: { "09:00": 7 },
+        inactiveTimes: new Set(["10:00"]),
+        hideInactive: true,
+      },
+    });
+    assert.equal(slots.length, 1);
+    assert.equal(slots[0]?.time, "09:00");
+    assert.equal(slots[0]?.capacity, 7);
+    assert.equal(slots[0]?.remaining, 7);
+  });
+
+  it("computeWeeklySlotAvailability: inactive sin hide → Horario lleno (remaining 0)", () => {
+    const config = {
+      ...emptyAgendaBiometricosWeeklyConfig(),
+      enabled: true,
+      timezone: "America/Monterrey",
+      minLeadHours: 0,
+      allowedWeekdays: [1, 2, 3, 4, 5],
+      slots: ["09:00" as HhmmTime],
+      locations: [
+        { id: "monterrey", label: "Monterrey", enabled: true, capacityPerSlot: 5 },
+      ],
+    };
+    const slots = computeWeeklySlotAvailability({
+      config,
+      bookedSlots: [],
+      date: "2026-06-29" as YmdDate,
+      locationId: "monterrey",
+      now: new Date("2026-06-25T12:00:00.000Z"),
+      capacityOverrides: {
+        inactiveTimes: new Set(["09:00"]),
+        hideInactive: false,
+      },
+    });
+    assert.equal(slots.length, 1);
+    assert.equal(slots[0]?.remaining, 0);
+  });
 });

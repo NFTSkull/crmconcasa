@@ -71,8 +71,8 @@ BEGIN
   );
 
   PERFORM public.__rpc_notif_cr_test_set_auth(v_a1);
-  PERFORM public.book_notificacion_etapa3(v_exp, v_date);
-  PERFORM public.book_notificacion_etapa3(v_exp_reag, v_date);
+  PERFORM public.book_notificacion_etapa3(v_exp, v_date, 'monterrey');
+  PERFORM public.book_notificacion_etapa3(v_exp_reag, v_date, 'monterrey');
   PERFORM public.__rpc_notif_cr_test_reset_auth();
 
   -- 1. asesor cancela, permanece etapa 3, booking cancelled
@@ -93,13 +93,13 @@ BEGIN
 
   -- 2. puede volver a agendar tras cancel
   PERFORM public.__rpc_notif_cr_test_set_auth(v_a1);
-  SELECT public.book_notificacion_etapa3(v_exp, v_date2) INTO v_result;
+  SELECT public.book_notificacion_etapa3(v_exp, v_date2, 'monterrey') INTO v_result;
   PERFORM public.__rpc_notif_cr_test_reset_auth();
   PERFORM public.__rpc_notif_cr_test_assert((v_result->>'ok')::boolean = true, 'test 2: rebook tras cancel');
 
   -- 3. reagendar asesor
   PERFORM public.__rpc_notif_cr_test_set_auth(v_a1);
-  SELECT public.reagendar_notificacion_etapa3(v_exp_reag, v_date2) INTO v_result;
+  SELECT public.reagendar_notificacion_etapa3(v_exp_reag, v_date2, 'monterrey') INTO v_result;
   PERFORM public.__rpc_notif_cr_test_reset_auth();
   PERFORM public.__rpc_notif_cr_test_assert(
     (v_result->>'ok')::boolean = true AND (v_result->>'booking_time')::text LIKE '12:00%',

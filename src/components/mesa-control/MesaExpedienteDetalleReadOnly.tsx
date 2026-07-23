@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   MesaArchivoPreviewDialog,
   openBlobUrlInNewTab,
@@ -24,7 +24,7 @@ import { MesaMontoMejoravitActualizadoSection } from "@/components/mesa-control/
 import { MesaPagareSection } from "@/components/mesa-control/MesaPagareSection";
 import { MesaNotificacionDocumentoSection } from "@/components/mesa-control/MesaNotificacionDocumentoSection";
 import { MesaSolicitudDocumentoSection } from "@/components/mesa-control/MesaSolicitudDocumentoSection";
-import { MesaAvanceOperativoSection, MESA_AVANCE_OPERATIVO_2A3_COPY, MESA_AVANCE_OPERATIVO_3A5_COPY, MESA_AVANCE_OPERATIVO_4A5_COPY, MESA_AVANCE_OPERATIVO_5A6_COPY, MESA_AVANCE_OPERATIVO_6A7_COPY, MESA_AVANCE_OPERATIVO_7A8_COPY, MESA_AVANCE_OPERATIVO_8A9_COPY, MESA_AVANCE_OPERATIVO_9A10_COPY, MESA_FIRMA_ETAPA10_OPERATIVA_COPY, type MesaAvanceCancelCitaGate } from "@/components/mesa-control/MesaAvanceOperativoSection";
+import { MesaAvanceOperativoSection, MESA_AVANCE_OPERATIVO_2A3_COPY, MESA_AVANCE_OPERATIVO_3A5_COPY, MESA_AVANCE_OPERATIVO_4A5_COPY, MESA_AVANCE_OPERATIVO_5A6_COPY, MESA_AVANCE_OPERATIVO_6A7_COPY, MESA_AVANCE_OPERATIVO_7A8_COPY, MESA_AVANCE_OPERATIVO_8A9_COPY, MESA_AVANCE_OPERATIVO_9A10_COPY, MESA_FIRMA_ETAPA10_OPERATIVA_COPY, MESA_PAGO_CONCASA_ETAPA11_OPERATIVA_COPY, type MesaAvanceCancelCitaGate } from "@/components/mesa-control/MesaAvanceOperativoSection";
 import { MesaCierreValidacionDocumentalSection } from "@/components/mesa-control/MesaCierreValidacionDocumentalSection";
 import { MesaControlDocumentosComplementariosSection } from "@/components/mesa-control/MesaControlDocumentosComplementariosSection";
 import { MesaDocumentosAsesorSection } from "@/components/mesa-control/MesaDocumentosAsesorSection";
@@ -64,6 +64,8 @@ import {
   deriveAvanceOperativo7a8View,
   deriveAvanceOperativo8a9View,
   deriveAvanceOperativo9a10View,
+  deriveAvanceOperativo10a11View,
+  deriveAvanceOperativo11a12View,
   deriveCierreValidacionDocumentalView,
   type ExpedienteCancelacionRow,
   type ExpedienteMock,
@@ -273,6 +275,14 @@ export function MesaExpedienteDetalleReadOnly() {
   const [avance9a10Loading, setAvance9a10Loading] = useState(false);
   const [avance9a10Error, setAvance9a10Error] = useState<string | null>(null);
   const [avance9a10Success, setAvance9a10Success] = useState<string | null>(null);
+  const [avance10a11Loading, setAvance10a11Loading] = useState(false);
+  const [avance10a11Error, setAvance10a11Error] = useState<string | null>(null);
+  const [avance10a11Success, setAvance10a11Success] = useState<string | null>(null);
+  const avance10a11Lock = useRef(false);
+  const [avance11a12Loading, setAvance11a12Loading] = useState(false);
+  const [avance11a12Error, setAvance11a12Error] = useState<string | null>(null);
+  const [avance11a12Success, setAvance11a12Success] = useState<string | null>(null);
+  const avance11a12Lock = useRef(false);
   const [cancelCitaKind, setCancelCitaKind] = useState<MesaAgendaCancelKind | null>(null);
   const [cancelCitaSaving, setCancelCitaSaving] = useState(false);
   const [cancelCitaError, setCancelCitaError] = useState<string | null>(null);
@@ -513,6 +523,19 @@ export function MesaExpedienteDetalleReadOnly() {
     etapaActual: expediente?.operativo.etapaActual,
     tieneRetencionMeta: Boolean(retencionOpcion || retencionEnvio),
   });
+
+  /** P119.3: deep-link desde acciones rápidas (`?focus=` / `#id`). */
+  useEffect(() => {
+    if (loadState !== "ready" || typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const focus =
+      params.get("focus")?.trim() ||
+      (window.location.hash ? window.location.hash.replace(/^#/, "").trim() : "");
+    if (!focus) return;
+    const el = document.getElementById(focus);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [loadState, routeExpedienteId, firmasMesaUiAccess.visible, mostrarRetencionMesa]);
 
   const retencionOpcionMesa = useMemo(
     () => retencionOpcionMesaEfectiva(retencionEnvio, retencionOpcion),
@@ -1218,12 +1241,13 @@ export function MesaExpedienteDetalleReadOnly() {
   ]);
 
   const firmaEtapa10OperativaView = useMemo(
-    () => ({
-      mostrar: (expediente?.operativo.etapaActual ?? null) === 10,
-      puedeAvanzar: false,
-      bloqueos: [] as string[],
-    }),
-    [expediente?.operativo.etapaActual],
+    () => deriveAvanceOperativo10a11View(avanceOperativo9a10Context),
+    [avanceOperativo9a10Context],
+  );
+
+  const pagoConcasaEtapa11OperativaView = useMemo(
+    () => deriveAvanceOperativo11a12View(avanceOperativoContext),
+    [avanceOperativoContext],
   );
 
   const handleAvanzarIntegracion = useCallback(async () => {
@@ -1417,6 +1441,64 @@ export function MesaExpedienteDetalleReadOnly() {
     }
   }, [
     avanceOperativo9a10View.puedeAvanzar,
+    expedientesRepo,
+    load,
+    routeExpedienteId,
+  ]);
+
+  const handleAvanzarOperativo10a11 = useCallback(async () => {
+    if (!routeExpedienteId || !firmaEtapa10OperativaView.puedeAvanzar) return;
+    if (avance10a11Lock.current) return;
+    avance10a11Lock.current = true;
+    setAvance10a11Loading(true);
+    setAvance10a11Error(null);
+    setAvance10a11Success(null);
+    try {
+      await expedientesRepo.avanzarEtapaOperativa(routeExpedienteId);
+      setAvance10a11Success("Expediente avanzado a etapa 11 (Firmado)");
+      load();
+    } catch (err) {
+      setAvance10a11Error(
+        err instanceof ExpedientesSupabaseError
+          ? err.message
+          : "No se pudo avanzar la etapa del expediente.",
+      );
+    } finally {
+      setAvance10a11Loading(false);
+      avance10a11Lock.current = false;
+    }
+  }, [
+    firmaEtapa10OperativaView.puedeAvanzar,
+    expedientesRepo,
+    load,
+    routeExpedienteId,
+  ]);
+
+  const handleAvanzarOperativo11a12 = useCallback(async () => {
+    if (!routeExpedienteId || !pagoConcasaEtapa11OperativaView.puedeAvanzar) return;
+    if (avance11a12Lock.current) return;
+    avance11a12Lock.current = true;
+    setAvance11a12Loading(true);
+    setAvance11a12Error(null);
+    setAvance11a12Success(null);
+    try {
+      await expedientesRepo.avanzarEtapaOperativa(routeExpedienteId);
+      setAvance11a12Success(
+        "Expediente avanzado a etapa 12 (Pago a ConCasa)",
+      );
+      load();
+    } catch (err) {
+      setAvance11a12Error(
+        err instanceof ExpedientesSupabaseError
+          ? err.message
+          : "No se pudo avanzar la etapa del expediente.",
+      );
+    } finally {
+      setAvance11a12Loading(false);
+      avance11a12Lock.current = false;
+    }
+  }, [
+    pagoConcasaEtapa11OperativaView.puedeAvanzar,
     expedientesRepo,
     load,
     routeExpedienteId,
@@ -2043,12 +2125,22 @@ export function MesaExpedienteDetalleReadOnly() {
         view={firmaEtapa10OperativaView}
         copy={MESA_FIRMA_ETAPA10_OPERATIVA_COPY}
         puedeOperar={puedeOperarMesaActivo}
-        loading={false}
-        error={null}
-        success={null}
-        onAvanzar={async () => {}}
-        mostrarBotonAvanzar={false}
+        loading={avance10a11Loading}
+        error={avance10a11Error}
+        success={avance10a11Success}
+        onAvanzar={handleAvanzarOperativo10a11}
         cancelCitaGate={firmasCancelCitaGate}
+        mostrarAtajoMovimientoManual={mostrarAtajoManual}
+      />
+
+      <MesaAvanceOperativoSection
+        view={pagoConcasaEtapa11OperativaView}
+        copy={MESA_PAGO_CONCASA_ETAPA11_OPERATIVA_COPY}
+        puedeOperar={puedeOperarMesaActivo}
+        loading={avance11a12Loading}
+        error={avance11a12Error}
+        success={avance11a12Success}
+        onAvanzar={handleAvanzarOperativo11a12}
         mostrarAtajoMovimientoManual={mostrarAtajoManual}
       />
 

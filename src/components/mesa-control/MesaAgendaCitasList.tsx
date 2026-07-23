@@ -12,6 +12,7 @@ import {
   formatMesaAgendaDateTime,
   formatMesaAgendaDriveValidatedMeta,
   formatMesaAgendaKind,
+  formatMesaAgendaSedeLabel,
   formatMesaAgendaStatus,
   hasMesaAgendaHistoryGroup,
   mesaAgendaDriveValidatedBadgeClass,
@@ -40,11 +41,14 @@ type MesaAgendaCitasListProps = Readonly<{
   canCancelEntry: (entry: MesaAgendaBookingEntry) => boolean;
   canReagendarEntry: (entry: MesaAgendaBookingEntry) => boolean;
   canDriveValidateEntry: (entry: MesaAgendaBookingEntry) => boolean;
+  canGestionarEntry?: (entry: MesaAgendaBookingEntry) => boolean;
   cancelPendingBookingId?: string | null;
   reagendarPendingBookingId?: string | null;
   drivePendingBookingId?: string | null;
+  gestionarPendingBookingId?: string | null;
   onRequestCancel?: (entry: MesaAgendaBookingEntry) => void;
   onRequestReagendar?: (entry: MesaAgendaBookingEntry) => void;
+  onRequestGestionar?: (entry: MesaAgendaBookingEntry) => void;
   onToggleDriveValidation?: (entry: MesaAgendaBookingEntry) => void;
   selectedBookingIds?: ReadonlySet<string>;
   isBulkRowSelectable?: (entry: MesaAgendaBookingEntry) => boolean;
@@ -69,11 +73,14 @@ export function MesaAgendaCitasList({
   canCancelEntry,
   canReagendarEntry,
   canDriveValidateEntry,
+  canGestionarEntry,
   cancelPendingBookingId = null,
   reagendarPendingBookingId = null,
   drivePendingBookingId = null,
+  gestionarPendingBookingId = null,
   onRequestCancel,
   onRequestReagendar,
+  onRequestGestionar,
   onToggleDriveValidation,
   selectedBookingIds,
   isBulkRowSelectable,
@@ -186,7 +193,7 @@ export function MesaAgendaCitasList({
                   <td className="px-4 py-3">
                     {mesaAgendaBookingPersonDisplayName(entry.createdBy)}
                   </td>
-                  <td className="px-4 py-3">{entry.locationId ?? "—"}</td>
+                  <td className="px-4 py-3">{formatMesaAgendaSedeLabel(entry.locationId)}</td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-1">
                       <span
@@ -219,13 +226,16 @@ export function MesaAgendaCitasList({
                       showCancel={canCancelEntry(entry)}
                       showReagendar={canReagendarEntry(entry)}
                       showDriveValidation={canDriveValidateEntry(entry)}
+                      showGestionar={Boolean(canGestionarEntry?.(entry))}
                       cancelPending={cancelPendingBookingId === entry.bookingId}
                       reagendarPending={reagendarPendingBookingId === entry.bookingId}
                       drivePending={
                         drivePendingBookingId === entry.bookingId || bulkBusy
                       }
+                      gestionarPending={gestionarPendingBookingId === entry.bookingId}
                       onRequestCancel={onRequestCancel}
                       onRequestReagendar={onRequestReagendar}
+                      onRequestGestionar={onRequestGestionar}
                       onToggleDriveValidation={onToggleDriveValidation}
                     />
                   </td>
@@ -245,13 +255,16 @@ export function MesaAgendaCitasList({
             showCancel={canCancelEntry(entry)}
             showReagendar={canReagendarEntry(entry)}
             showDriveValidation={canDriveValidateEntry(entry)}
+            showGestionar={Boolean(canGestionarEntry?.(entry))}
             cancelPending={cancelPendingBookingId === entry.bookingId}
             reagendarPending={reagendarPendingBookingId === entry.bookingId}
             drivePending={
                         drivePendingBookingId === entry.bookingId || bulkBusy
                       }
+            gestionarPending={gestionarPendingBookingId === entry.bookingId}
             onRequestCancel={onRequestCancel}
             onRequestReagendar={onRequestReagendar}
+            onRequestGestionar={onRequestGestionar}
             onToggleDriveValidation={onToggleDriveValidation}
             bulkSelected={Boolean(selectedBookingIds?.has(entry.bookingId))}
             bulkSelectable={Boolean(isBulkRowSelectable?.(entry)) && !bulkBusy}
@@ -274,13 +287,16 @@ export function MesaAgendaCitasList({
             showCancel={canCancelEntry(entry)}
             showReagendar={canReagendarEntry(entry)}
             showDriveValidation={canDriveValidateEntry(entry)}
+            showGestionar={Boolean(canGestionarEntry?.(entry))}
             cancelPending={cancelPendingBookingId === entry.bookingId}
             reagendarPending={reagendarPendingBookingId === entry.bookingId}
             drivePending={
                         drivePendingBookingId === entry.bookingId || bulkBusy
                       }
+            gestionarPending={gestionarPendingBookingId === entry.bookingId}
             onRequestCancel={onRequestCancel}
             onRequestReagendar={onRequestReagendar}
+            onRequestGestionar={onRequestGestionar}
             onToggleDriveValidation={onToggleDriveValidation}
             bulkSelected={Boolean(selectedBookingIds?.has(entry.bookingId))}
             bulkSelectable={Boolean(isBulkRowSelectable?.(entry)) && !bulkBusy}

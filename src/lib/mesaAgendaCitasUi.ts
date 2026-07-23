@@ -23,6 +23,12 @@ import {
   canMesaShowCancelCitaButton,
   type MesaAgendaCancelKind,
 } from "@/lib/mesaAgendaCancelAccess";
+import {
+  CYNTHIA_SEDE_APODACA_ID,
+  CYNTHIA_SEDE_MONTERREY_ID,
+  resolveCanonicalSedeId,
+} from "@/lib/agendaCynthiaLocations";
+import { NOTIFICACION_LOCATION_ID } from "@/domain/agenda-biometricos/notificacion-constants";
 
 export const MESA_AGENDA_CITAS_ROUTE = "/mesa-control/citas";
 
@@ -148,6 +154,36 @@ export function formatMesaAgendaKind(kind: MesaAgendaBookingKind): string {
   return "Notificación extraordinaria";
 }
 
+/**
+ * Etiqueta de sede para columna/detalle de Citas Mesa (P118).
+ * Nunca muestra el sentinel `notificacion` como nombre de sede.
+ */
+export function formatMesaAgendaSedeLabel(
+  locationId: string | null | undefined,
+): string {
+  const raw = String(locationId ?? "").trim();
+  if (!raw) return "Sin sede";
+  if (raw.toLowerCase() === NOTIFICACION_LOCATION_ID) return "Sin sede";
+
+  const canonical = resolveCanonicalSedeId(raw, "");
+  if (canonical === CYNTHIA_SEDE_MONTERREY_ID) return "Monterrey";
+  if (canonical === CYNTHIA_SEDE_APODACA_ID) return "Apodaca";
+
+  const readable = raw
+    .replace(/[_-]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!readable || !/[a-záéíóúüñ]/i.test(readable)) return "Sin sede";
+
+  return readable
+    .split(" ")
+    .map((part) => {
+      const lower = part.toLowerCase();
+      return lower.charAt(0).toUpperCase() + lower.slice(1);
+    })
+    .join(" ");
+}
+
 export function formatMesaAgendaStatus(status: MesaAgendaBookingStatus): string {
   return status === "booked" ? "Agendada" : "Cancelada";
 }
@@ -212,8 +248,10 @@ export function buildMesaAgendaLocationOptions(
     if (loc) set.add(loc);
   }
   return [...set]
-    .sort((a, b) => a.localeCompare(b, "es"))
-    .map((value) => ({ value, label: value }));
+    .sort((a, b) =>
+      formatMesaAgendaSedeLabel(a).localeCompare(formatMesaAgendaSedeLabel(b), "es"),
+    )
+    .map((value) => ({ value, label: formatMesaAgendaSedeLabel(value) }));
 }
 
 function normalizeSearchTerm(term: string): string {
@@ -884,9 +922,67 @@ export const MESA_AGENDA_ACTION_CANCEL_CLASS = `${MESA_AGENDA_ACTION_BASE_CLASS}
 export const MESA_AGENDA_ACTION_ORDER = [
   "expediente",
   "drive",
+  "gestionar",
   "reagendar",
   "cancelar",
 ] as const;
+
+/** Confirmación reforzada P118b: cancelar cita y avanzar etapa. */
+export const MESA_GESTIONAR_CANCELAR_CONTINUAR_CONFIRM =
+  "La cita será cancelada y el expediente avanzará sin realizarla. Esta acción quedará registrada.";
+
+/** @deprecated P118b ya tiene RPC; se conserva por compatibilidad de tests antiguos. */
+export const MESA_GESTIONAR_CANCELAR_CONTINUAR_STOP =
+  "Requiere RPC dedicada (no disponible)";
+
+const CANCEL_CONTINUE_ADMIN_ROLES = new Set([
+  "mesa_admin",
+  "mesa_control_admin",
+  "super_admin",
+]);
+
+export function canMesaCancelarCitaYContinuarRole(
+  role: string | null | undefined,
+): boolean {
+  return CANCEL_CONTINUE_ADMIN_ROLES.has(String(role ?? "").trim());
+}
+
+/**
+ * Visibilidad de «Cancelar cita y continuar»:
+ * - biométricos + etapa interna 4
+ * - firmas + etapa interna 10
+ * - roles admin (mesa_admin / mesa_control_admin / super_admin)
+ * Ocultar en notificación y demás casos.
+ */
+export function canMesaCancelarCitaYContinuar(params: {
+  kind: MesaAgendaBookingEntry["kind"] | null | undefined;
+  etapaActual: number | null | undefined;
+  status: MesaAgendaBookingEntry["status"] | null | undefined;
+  role: string | null | undefined;
+}): boolean {
+  if (!canMesaCancelarCitaYContinuarRole(params.role)) return false;
+  if (params.status !== "booked") return false;
+  if (params.kind === "biometricos" && params.etapaActual === 4) return true;
+  if (params.kind === "firmas" && params.etapaActual === 10) return true;
+  return false;
+}
+
+export function mesaCancelarContinuarDestinoLabel(params: {
+  kind: MesaAgendaBookingEntry["kind"];
+  etapaActual: number;
+}): string {
+  if (params.kind === "biometricos" && params.etapaActual === 4) {
+    return "Paso 4 · Biometría (resultado) (interna 5)";
+  }
+  if (params.kind === "firmas" && params.etapaActual === 10) {
+    return "Paso 10 · Firmado (interna 11)";
+  }
+  return "siguiente etapa operativa";
+}
+
+export const MESA_AGENDA_GESTIONAR_LOADING = "Gestionando...";
+
+export const MESA_AGENDA_ACTION_GESTIONAR_CLASS = `${MESA_AGENDA_ACTION_BASE_CLASS} border-slate-300 bg-white text-slate-800 hover:border-slate-400 hover:bg-slate-50 focus-visible:ring-slate-500`;
 
 export type MesaAgendaActionKey = (typeof MESA_AGENDA_ACTION_ORDER)[number];
 
@@ -933,21 +1029,46 @@ export function resolveMesaAgendaVisibleActions(params: {
   showDriveValidation: boolean;
   showReagendar: boolean;
   showCancel: boolean;
+  showGestionar?: boolean;
 }): readonly MesaAgendaActionKey[] {
   const keys: MesaAgendaActionKey[] = ["expediente"];
   if (params.status === "cancelled") return keys;
   if (params.showDriveValidation) keys.push("drive");
+  if (params.showGestionar) {
+    keys.push("gestionar");
+    return keys;
+  }
   if (params.showReagendar) keys.push("reagendar");
   if (params.showCancel) keys.push("cancelar");
   return keys;
+}
+
+export function mesaAgendaGestionarActionLabel(pending: boolean): string {
+  return pending ? MESA_AGENDA_GESTIONAR_LOADING : "Gestionar cita";
+}
+
+export function canMesaGestionarAgendaListEntry(
+  entry: MesaAgendaBookingEntry,
+  params: MesaAgendaListCancelRoleParams & MesaAgendaListReagendarRoleParams,
+): boolean {
+  return (
+    canMesaCancelAgendaListEntry(entry, params) ||
+    canMesaReagendarAgendaListEntry(entry, params).allowed
+  );
 }
 
 export function mesaAgendaActionsRowBusy(params: {
   cancelPending: boolean;
   reagendarPending: boolean;
   drivePending: boolean;
+  gestionarPending?: boolean;
 }): boolean {
-  return params.cancelPending || params.reagendarPending || params.drivePending;
+  return (
+    params.cancelPending ||
+    params.reagendarPending ||
+    params.drivePending ||
+    Boolean(params.gestionarPending)
+  );
 }
 
 /**

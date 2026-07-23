@@ -12,6 +12,12 @@ import {
   type YmdDate,
 } from "@/domain/agenda-biometricos";
 import type { AgendaBiometricosBookingRepo } from "@/domain/agenda-biometricos/repo";
+import {
+  CYNTHIA_SEDE_APODACA_ID,
+  CYNTHIA_SEDE_MONTERREY_ID,
+  type CynthiaSedeId,
+} from "@/lib/agendaCynthiaLocations";
+import { formatMesaAgendaSedeLabel } from "@/lib/mesaAgendaCitasUi";
 
 export type AgendaNotificacionSupabaseTabProps = Readonly<{
   expedienteId: string;
@@ -36,6 +42,14 @@ function formatNotificacionDate(dateYmd: string): string {
   }
 }
 
+function resolveInitialSede(
+  active: AgendaNotificacionActiveBooking | null,
+): CynthiaSedeId {
+  const loc = String(active?.locationId ?? "").trim().toLowerCase();
+  if (loc === CYNTHIA_SEDE_APODACA_ID) return CYNTHIA_SEDE_APODACA_ID;
+  return CYNTHIA_SEDE_MONTERREY_ID;
+}
+
 export function AgendaNotificacionSupabaseTab({
   expedienteId,
   config,
@@ -47,17 +61,20 @@ export function AgendaNotificacionSupabaseTab({
     (activeNotificacion?.bookingDate as YmdDate | undefined) ??
       (config ? todayYmdInTimezone(config.timezone) : ("2026-01-01" as YmdDate)),
   );
+  const [sedeId, setSedeId] = useState<CynthiaSedeId>(() =>
+    resolveInitialSede(activeNotificacion),
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const handleBook = useCallback(async () => {
-    if (!config || !dateYmd) return;
+    if (!config || !dateYmd || !sedeId) return;
     setError(null);
     setSuccessMsg(null);
 
     const confirmar = window.confirm(
-      `¿Confirmas agendar notificación el ${dateYmd} a las 12:00 PM?`,
+      `¿Confirmas agendar notificación el ${dateYmd} a las 12:00 PM en ${formatMesaAgendaSedeLabel(sedeId)}?`,
     );
     if (!confirmar) return;
 
@@ -66,6 +83,7 @@ export function AgendaNotificacionSupabaseTab({
       await repo.bookNotificacionEtapa3({
         expedienteId,
         bookingDate: dateYmd,
+        locationId: sedeId,
       });
       setSuccessMsg("Notificación agendada correctamente.");
       onUpdated();
@@ -78,7 +96,7 @@ export function AgendaNotificacionSupabaseTab({
     } finally {
       setSaving(false);
     }
-  }, [config, dateYmd, expedienteId, onUpdated, repo]);
+  }, [config, dateYmd, expedienteId, onUpdated, repo, sedeId]);
 
   const handleCancel = useCallback(async () => {
     if (!window.confirm("¿Confirmas cancelar la notificación agendada?")) return;
@@ -105,12 +123,12 @@ export function AgendaNotificacionSupabaseTab({
   }, [expedienteId, onUpdated, repo]);
 
   const handleReagendar = useCallback(async () => {
-    if (!config || !dateYmd || !activeNotificacion) return;
+    if (!config || !dateYmd || !activeNotificacion || !sedeId) return;
     setError(null);
     setSuccessMsg(null);
 
     const confirmar = window.confirm(
-      `¿Confirmas reagendar la notificación al ${dateYmd} a las 12:00 PM?`,
+      `¿Confirmas reagendar la notificación al ${dateYmd} a las 12:00 PM en ${formatMesaAgendaSedeLabel(sedeId)}?`,
     );
     if (!confirmar) return;
 
@@ -119,6 +137,7 @@ export function AgendaNotificacionSupabaseTab({
       await repo.reagendarNotificacionEtapa3({
         expedienteId,
         bookingDate: dateYmd,
+        locationId: sedeId,
       });
       setSuccessMsg("Notificación reagendada correctamente.");
       onUpdated();
@@ -131,7 +150,23 @@ export function AgendaNotificacionSupabaseTab({
     } finally {
       setSaving(false);
     }
-  }, [activeNotificacion, config, dateYmd, expedienteId, onUpdated, repo]);
+  }, [activeNotificacion, config, dateYmd, expedienteId, onUpdated, repo, sedeId]);
+
+  const sedeSelect = (
+    <label className="block text-[11px] font-semibold text-gray-700">
+      Sede
+      <select
+        className="mt-0.5 w-full rounded-md border border-gray-200 px-2 py-1.5 text-xs text-gray-900"
+        value={sedeId}
+        disabled={saving || !config?.enabled}
+        onChange={(e) => setSedeId(e.target.value as CynthiaSedeId)}
+        data-testid="notificacion-sede-select"
+      >
+        <option value={CYNTHIA_SEDE_MONTERREY_ID}>Monterrey</option>
+        <option value={CYNTHIA_SEDE_APODACA_ID}>Apodaca</option>
+      </select>
+    </label>
+  );
 
   if (activeNotificacion) {
     return (
@@ -143,6 +178,10 @@ export function AgendaNotificacionSupabaseTab({
         </p>
         <p className="text-xs text-amber-900">
           <span className="font-medium">Hora:</span> 12:00 PM
+        </p>
+        <p className="text-xs text-amber-900">
+          <span className="font-medium">Sede:</span>{" "}
+          {formatMesaAgendaSedeLabel(activeNotificacion.locationId)}
         </p>
         <p className="text-[11px] text-amber-800">
           El expediente permanece en etapa 3 hasta que Mesa apruebe la notificación.
@@ -159,6 +198,7 @@ export function AgendaNotificacionSupabaseTab({
             disabled={saving || !config?.enabled}
           />
         </label>
+        {sedeSelect}
 
         {successMsg ? (
           <p
@@ -180,7 +220,7 @@ export function AgendaNotificacionSupabaseTab({
             type="button"
             variant="primary"
             className="flex-1 text-xs"
-            disabled={saving || !config?.enabled || !dateYmd}
+            disabled={saving || !config?.enabled || !dateYmd || !sedeId}
             onClick={() => void handleReagendar()}
           >
             {saving ? "Guardando…" : "Reagendar notificación"}
@@ -216,14 +256,11 @@ export function AgendaNotificacionSupabaseTab({
           disabled={saving || !config?.enabled}
         />
       </label>
+      {sedeSelect}
 
-      <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2">
-        <p className="text-[11px] font-semibold text-gray-700">Hora fija</p>
-        <p className="mt-0.5 text-sm font-medium text-gray-900">12:00 PM</p>
-        <p className="mt-0.5 text-[10px] text-gray-500">
-          ({NOTIFICACION_FIXED_TIME} · sin cupo · no afecta biométricos)
-        </p>
-      </div>
+      <p className="text-[11px] text-gray-600">
+        Hora fija: {NOTIFICACION_FIXED_TIME} (12:00 PM)
+      </p>
 
       {successMsg ? (
         <p
@@ -244,10 +281,10 @@ export function AgendaNotificacionSupabaseTab({
         type="button"
         variant="primary"
         className="w-full text-xs"
-        disabled={saving || !config?.enabled || !dateYmd}
+        disabled={saving || !config?.enabled || !dateYmd || !sedeId}
         onClick={() => void handleBook()}
       >
-        {saving ? "Guardando…" : "Agendar notificación"}
+        {saving ? "Agendando…" : "Agendar notificación"}
       </Button>
     </div>
   );

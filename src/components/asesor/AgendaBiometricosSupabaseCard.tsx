@@ -22,11 +22,23 @@ import {
   mapLocationIdToAdvisorCanonical,
   type AdvisorSedeOption,
 } from "@/lib/agendaAdvisorLocations";
-import type { WeeklyLocationLike } from "@/lib/agendaCynthiaLocations";
+import {
+  CYNTHIA_SEDE_APODACA_ID,
+  CYNTHIA_SEDE_MONTERREY_ID,
+  type CynthiaSedeId,
+  type WeeklyLocationLike,
+} from "@/lib/agendaCynthiaLocations";
 import { AdvisorAgendaSlotPicker, buildAdvisorDateAvailabilityInsight } from "@/components/asesor/AdvisorAgendaSlotPicker";
 import { AgendaNotificacionSupabaseTab } from "@/components/asesor/AgendaNotificacionSupabaseTab";
 import { AsesorAgendaCitaCanceladaNotice } from "@/components/asesor/AsesorAgendaCitaCanceladaNotice";
+import { AsesorAgendaDecisionNotice } from "@/components/asesor/AsesorAgendaDecisionNotice";
 import { parseCancelMotivoFromNote } from "@/lib/agendaCancelNote";
+import {
+  buildCapacityByTimeMap,
+  buildInactiveSlotTimes,
+  listAgendaSlotCapacities,
+} from "@/domain/agenda-slot-capacities";
+import type { SlotCapacityOverrides } from "@/domain/agenda-biometricos/weekly-availability";
 
 export interface AgendaBiometricosSupabaseCardProps {
   expedienteId: string;
@@ -104,12 +116,15 @@ export function AgendaBiometricosSupabaseCard({
   const [bookedSlots, setBookedSlots] = useState<
     Awaited<ReturnType<NonNullable<typeof repo>["listBookedSlots"]>>
   >([]);
+  const [capacityOverrides, setCapacityOverrides] = useState<SlotCapacityOverrides | null>(null);
+  const [capacitiesTick, setCapacitiesTick] = useState(0);
   const [sedeCanonicalId, setSedeCanonicalId] = useState("");
   const [dateYmd, setDateYmd] = useState<YmdDate>("2026-01-01" as YmdDate);
   const [timeHhmm, setTimeHhmm] = useState<HhmmTime | "">("");
   const [reagendar, setReagendar] = useState(false);
   const [convertMode, setConvertMode] = useState(false);
   const [convertDateYmd, setConvertDateYmd] = useState<YmdDate>("2026-01-01" as YmdDate);
+  const [convertSedeId, setConvertSedeId] = useState<CynthiaSedeId>(CYNTHIA_SEDE_MONTERREY_ID);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
@@ -174,6 +189,7 @@ export function AgendaBiometricosSupabaseCard({
       setReagendar(false);
       setConvertMode(false);
       setConvertDateYmd(today);
+      setCapacitiesTick((n) => n + 1);
     } catch (err) {
       setLoadError(
         err instanceof AgendaBiometricosSupabaseError
@@ -185,9 +201,54 @@ export function AgendaBiometricosSupabaseCard({
     }
   }, [expedienteId, repo]);
 
+  /** Recarga cupos/bookings sin resetear la selección del asesor (p. ej. tras carrera por último cupo). */
+  const refreshAvailability = useCallback(async () => {
+    if (!repo) return;
+    try {
+      const tz = config?.timezone ?? "America/Monterrey";
+      const today = todayYmdInTimezone(tz);
+      const slots = await repo.listBookedSlots({
+        fromDate: today,
+        toDate: addDaysYmd(today, 60),
+      });
+      setBookedSlots(slots);
+      setCapacitiesTick((n) => n + 1);
+    } catch {
+      /* el error de reserva ya se muestra; no tapar con fallo de refresh */
+    }
+  }, [config?.timezone, repo]);
+
   useEffect(() => {
     void load();
   }, [load]);
+
+  useEffect(() => {
+    let cancelled = false;
+    if (!selectedSede || !dateYmd) {
+      setCapacityOverrides(null);
+      return;
+    }
+    void (async () => {
+      try {
+        const rows = await listAgendaSlotCapacities({
+          kind: "biometricos",
+          slotDate: dateYmd,
+          locationId: selectedSede.canonicalId,
+        });
+        if (cancelled) return;
+        setCapacityOverrides({
+          capacityByTime: buildCapacityByTimeMap(rows),
+          inactiveTimes: buildInactiveSlotTimes(rows),
+          hideInactive: true,
+        });
+      } catch {
+        if (!cancelled) setCapacityOverrides(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [capacitiesTick, dateYmd, selectedSede]);
 
   const disponibilidadSlots = useMemo(() => {
     if (!config || !selectedSede) return [];
@@ -198,6 +259,7 @@ export function AgendaBiometricosSupabaseCard({
       canonicalId: selectedSede.canonicalId,
       sourceLocationIds: selectedSede.sourceLocationIds,
       capacityPerSlot: selectedSede.capacityPerSlot,
+      capacityOverrides,
     });
     return adjustSlotsForReagendar(
       base,
@@ -207,7 +269,7 @@ export function AgendaBiometricosSupabaseCard({
       selectedSede,
       config.locations,
     );
-  }, [activeBooking, bookedSlots, config, dateYmd, reagendar, selectedSede]);
+  }, [activeBooking, bookedSlots, capacityOverrides, config, dateYmd, reagendar, selectedSede]);
 
   const availabilityInsight = useMemo(() => {
     if (!config || !selectedSede) return null;
@@ -309,6 +371,7 @@ export function AgendaBiometricosSupabaseCard({
           ? err.message
           : "No se pudo agendar la cita. Intenta de nuevo.",
       );
+      await refreshAvailability();
     } finally {
       setSaving(false);
     }
@@ -318,6 +381,7 @@ export function AgendaBiometricosSupabaseCard({
     expedienteId,
     load,
     onUpdated,
+    refreshAvailability,
     repo,
     selectedSede,
     timeHhmm,
@@ -357,6 +421,7 @@ export function AgendaBiometricosSupabaseCard({
           ? err.message
           : "No se pudo reagendar la cita. Intenta de nuevo.",
       );
+      await refreshAvailability();
     } finally {
       setSaving(false);
     }
@@ -367,13 +432,14 @@ export function AgendaBiometricosSupabaseCard({
     expedienteId,
     load,
     onUpdated,
+    refreshAvailability,
     repo,
     selectedSede,
     timeHhmm,
   ]);
 
   const handleConvertToNotificacion = useCallback(async () => {
-    if (!repo || !config || !convertDateYmd || !activeBooking) return;
+    if (!repo || !config || !convertDateYmd || !activeBooking || !convertSedeId) return;
     setError(null);
     setSuccessMsg(null);
 
@@ -387,6 +453,7 @@ export function AgendaBiometricosSupabaseCard({
       await repo.convertBiometricosToNotificacion({
         expedienteId,
         bookingDate: convertDateYmd,
+        locationId: convertSedeId,
       });
       setSuccessMsg(
         "Convertido a Notificación extraordinaria. El expediente quedó en etapa 3.",
@@ -407,6 +474,7 @@ export function AgendaBiometricosSupabaseCard({
     activeBooking,
     config,
     convertDateYmd,
+    convertSedeId,
     expedienteId,
     load,
     onUpdated,
@@ -566,6 +634,10 @@ export function AgendaBiometricosSupabaseCard({
   if (etapaActual === 3 && activeNotificacion && !activeBooking) {
     return (
       <div className="space-y-3">
+        <AsesorAgendaDecisionNotice
+          expedienteId={expedienteId}
+          kinds={["biometricos", "notificacion"]}
+        />
         {lastCancelledBooking ? (
           <AsesorAgendaCitaCanceladaNotice
             motivo={parseCancelMotivoFromNote(lastCancelledBooking.note)}
@@ -618,6 +690,11 @@ export function AgendaBiometricosSupabaseCard({
 
   if (puedeGestionar && citaIso) {
     return (
+      <div className="space-y-3">
+        <AsesorAgendaDecisionNotice
+          expedienteId={expedienteId}
+          kinds={["biometricos", "notificacion"]}
+        />
       <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-4 shadow-sm">
         <p className="text-sm font-semibold text-emerald-900">Cita de biométricos agendada</p>
         <p className="mt-2 text-xs text-emerald-950">
@@ -663,6 +740,19 @@ export function AgendaBiometricosSupabaseCard({
                 disabled={saving || !config?.enabled}
               />
             </label>
+            <label className="block text-[11px] font-semibold text-gray-700">
+              Sede
+              <select
+                className="mt-0.5 w-full rounded-md border border-gray-200 px-2 py-1.5 text-xs text-gray-900"
+                value={convertSedeId}
+                disabled={saving || !config?.enabled}
+                onChange={(e) => setConvertSedeId(e.target.value as CynthiaSedeId)}
+                data-testid="convert-notificacion-sede"
+              >
+                <option value={CYNTHIA_SEDE_MONTERREY_ID}>Monterrey</option>
+                <option value={CYNTHIA_SEDE_APODACA_ID}>Apodaca</option>
+              </select>
+            </label>
             <div className="rounded-md border border-gray-200 bg-white/70 px-3 py-2 text-xs text-gray-800">
               Hora: <span className="font-semibold">12:00 PM</span> (fija)
             </div>
@@ -671,7 +761,7 @@ export function AgendaBiometricosSupabaseCard({
                 type="button"
                 variant="primary"
                 className="flex-1 text-xs"
-                disabled={saving || !config?.enabled || !convertDateYmd}
+                disabled={saving || !config?.enabled || !convertDateYmd || !convertSedeId}
                 onClick={() => void handleConvertToNotificacion()}
               >
                 {saving ? "Convirtiendo…" : "Confirmar conversión"}
@@ -731,12 +821,17 @@ export function AgendaBiometricosSupabaseCard({
           </div>
         )}
       </div>
+      </div>
     );
   }
 
   if (citaIso && !activeBooking) {
     return (
       <div className="space-y-3">
+        <AsesorAgendaDecisionNotice
+          expedienteId={expedienteId}
+          kinds={["biometricos", "notificacion"]}
+        />
         {lastCancelledBooking ? (
           <AsesorAgendaCitaCanceladaNotice
             motivo={parseCancelMotivoFromNote(lastCancelledBooking.note)}
@@ -762,6 +857,10 @@ export function AgendaBiometricosSupabaseCard({
 
   return (
     <div className="space-y-3">
+      <AsesorAgendaDecisionNotice
+        expedienteId={expedienteId}
+        kinds={["biometricos", "notificacion"]}
+      />
       {lastCancelledBooking ? (
         <AsesorAgendaCitaCanceladaNotice
           motivo={parseCancelMotivoFromNote(lastCancelledBooking.note)}

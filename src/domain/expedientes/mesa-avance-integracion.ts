@@ -566,3 +566,90 @@ export function deriveAvanceOperativo9a10View(
     bloqueos,
   };
 }
+
+// —— P117: avance operativo Mesa 10 → 11 (Firmado) ——
+
+export type MesaAvanceOperativo10a11Context = MesaAvanceOperativo9a10Context;
+
+/** Panel visible solo en etapa 10 con cita de firma vigente (P117). */
+export function puedeMostrarAvanceOperativo10a11(
+  ctx: MesaAvanceOperativo10a11Context,
+): boolean {
+  if (!ctx.submittedToMesa) return false;
+  if (ctx.cicloEstado !== "activo") return false;
+  if (ctx.etapaActual !== 10) return false;
+  return ctx.subestado === "en_proceso";
+}
+
+/** Bloqueos alineados con `avanzar_etapa_operativa` transición 10→11. */
+export function deriveBloqueosAvanceOperativo10a11(
+  ctx: MesaAvanceOperativo10a11Context,
+): string[] {
+  if (!puedeMostrarAvanceOperativo10a11(ctx)) {
+    return [];
+  }
+
+  const bloqueos: string[] = [];
+  const hasFecha =
+    typeof ctx.fechaCita === "string" && ctx.fechaCita.trim() !== "";
+
+  if (!hasFecha) {
+    bloqueos.push(
+      "Falta fecha de cita de firma. El asesor debe agendar la cita desde su expediente.",
+    );
+  }
+
+  if (!ctx.hasActiveFirmasBooking) {
+    bloqueos.push("No hay reserva de firma activa en Supabase (kind=firmas, status=booked).");
+  }
+
+  return bloqueos;
+}
+
+export function deriveAvanceOperativo10a11View(
+  ctx: MesaAvanceOperativo10a11Context,
+): AvanceOperativoEtapaView {
+  const mostrar = puedeMostrarAvanceOperativo10a11(ctx);
+  const bloqueos = deriveBloqueosAvanceOperativo10a11(ctx);
+  return {
+    mostrar,
+    puedeAvanzar: mostrar && bloqueos.length === 0,
+    bloqueos,
+  };
+}
+
+// —— P119.4: avance operativo Mesa 11 → 12 (Pago a ConCasa) ——
+
+export type MesaAvanceOperativo11a12Context = MesaAvanceOperativoContext;
+
+/** Panel visible solo en etapa 11 (Firmado). No exige cita/booking ni implica pago financiero. */
+export function puedeMostrarAvanceOperativo11a12(
+  ctx: MesaAvanceOperativo11a12Context,
+): boolean {
+  if (!ctx.submittedToMesa) return false;
+  if (ctx.cicloEstado !== "activo") return false;
+  if (ctx.etapaActual !== 11) return false;
+  return ctx.subestado === "en_proceso";
+}
+
+/** Bloqueos alineados con `avanzar_etapa_operativa` transición 11→12 (solo gates de posición). */
+export function deriveBloqueosAvanceOperativo11a12(
+  ctx: MesaAvanceOperativo11a12Context,
+): string[] {
+  if (!puedeMostrarAvanceOperativo11a12(ctx)) {
+    return [];
+  }
+  return [];
+}
+
+export function deriveAvanceOperativo11a12View(
+  ctx: MesaAvanceOperativo11a12Context,
+): AvanceOperativoEtapaView {
+  const mostrar = puedeMostrarAvanceOperativo11a12(ctx);
+  const bloqueos = deriveBloqueosAvanceOperativo11a12(ctx);
+  return {
+    mostrar,
+    puedeAvanzar: mostrar && bloqueos.length === 0,
+    bloqueos,
+  };
+}

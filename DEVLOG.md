@@ -1,5 +1,76 @@
 # Devlog
 
+## 2026-07-23 - P119.4 Firmado → Pago a ConCasa
+
+Amplía `avanzar_etapa_operativa_pre_reingreso` con transición `11_12` (migración 108). Gates: roles Mesa/`super_admin`, etapa exacta 11, `en_proceso`, enviado a Mesa, ciclo activo. No muta bookings/docs/montos/`fecha_cita`; no registra pago financiero. UI bandeja+detalle: «Pasar a Pago a ConCasa»; confirmación canónica; en 12 solo «Etapa final».
+
+Sin Cloud 108 ni merge.
+
+## 2026-07-23 - P119.3 acciones rápidas por etapa
+
+Matriz bandeja: 1–2/2–3/4–5/5–6/6–7/7–8 avanzar; 3→Agendar biométricos (detalle `#mesa-agenda`); 8→Ir a Acuse (sin `avanzar`, disabled si falta principal); 9→Agendar firma (`#mesa-agendar-firma` / `mesa_book_firmas`); 10→Pasar a Firmado (P117); 11 sin RPC 11→12; 12 indicador Etapa final.
+
+Sin Cloud reapply; PR #38 commit adicional.
+
+## 2026-07-23 - P119.2 prueba final concurrencia de cupos
+
+Método: `dblink` + barrera `LOCK TABLE` (ACCESS EXCLUSIVE controlador / ACCESS SHARE workers) sin sleep. Dos `book_biometricos` concurrentes sobre capacidad=1 → exactamente una reserva + error canónico `agenda_config: cupo agotado`; cancel/reagenda vía RPC.
+
+UI: tras fallo de book/reagendar (bio/firmas) se refrescan `listBookedSlots` + cupos override sin resetear la selección del asesor.
+
+Gates: SQL focal P119.2; sin Cloud/smoke/commit.
+
+## 2026-07-23 - P119.1 auditoría avance rápido + sede notificación
+
+Matriz bandeja: 1→2, 2→3, 4→5, 5→6, 6→7, 7→8, 8→9, 10→11. Ocultos 3→5 (booking bio/notif) y 9→10 (booking firmas).
+
+Notificación: `location_id` deja de ser sentinel; RPCs exigen sede canónica; UI selector Monterrey/Apodaca; históricos sin backfill.
+
+## 2026-07-23 - P119: acciones rápidas en tarjetas Mesa
+
+Tarjeta: acciones `Siguiente etapa` (`avanzar_etapa_operativa`), `Tiene datos` (`mesa_set_expediente_marcador`), `Tomar expediente` (`mesa_take_expediente`). Enrich batch sin N+1. Migración 106.
+
+
+## 2026-07-23 - P118b: Cancelar cita y continuar
+
+### Decisión
+RPC dedicada `mesa_cancelar_cita_y_continuar` (migración 105). No reutiliza `avanzar_etapa_operativa` (fallaría sin booking/`fecha_cita`). Cancela booking, limpia `fecha_cita` (mismo patrón que cancel canónico), avanza etapa y registra `cancel_continue` en TX.
+
+### Casos
+- Biométricos etapa 4 → 5
+- Firmas etapa 10 → 11
+- Notificación / firmas 9 / interno-externo-asesor: bloqueados
+- Roles SQL: `mesa_admin` | `super_admin` (UI alias `mesa_control_admin`)
+
+### UI
+Opción visible solo cuando `canMesaCancelarCitaYContinuar`; confirmación reforzada; asesor ve decisión sin invitar a reagendar.
+
+## 2026-07-23 - P118: cupos por horario + gestionar cita (capa TS/UI)
+
+### Decisión
+SQL ya entregado (migraciones 103/104): overrides de cupo por fecha+hora+sede+kind y decisiones append-only. La UI Mesa Admin gestiona cupos sin tocar la config semanal Cynthia. Asesor aplica override al pintar disponibilidad (fallback a `capacityPerSlot`). `cancelar_continuar` permanece STOP en SQL; la UI muestra la opción deshabilitada con «Requiere RPC dedicada (no disponible)» — no se inventa bypass de gates bio 4→5 / firmas 9→10|10→11.
+
+### UI
+- Sede en Citas Mesa: `formatMesaAgendaSedeLabel` (nunca muestra `notificacion` como sede).
+- Panel «Cupos por horario» junto a configs semanales.
+- Botón «Gestionar cita» → reagendar (flujo existente) / cancelar (`mesa_gestionar_cita`) / cancelar_continuar STOP.
+- Asesor: `AsesorAgendaDecisionNotice` con última decisión relevante.
+
+### Tests
+TS: sede label, capacity override, copy STOP. SQL: `rpc_agenda_slot_capacities.sql`, `rpc_mesa_gestionar_cita.sql`.
+
+## 2026-07-23 - P117: Acuse MIME + avance 8→9 + Pasar a Firmado
+
+### Auditoría
+- Kind principal: `retencion_acuse_con_sello` (A) / `retencion_carta_sin_sello` (B).
+- Register: `register_expediente_documento_retencion` (antes PDF-only y anclado a etapa 8).
+- Avance 8→9 histórico vía `enviar_retencion_mesa` (P079); P117 lo dispara también al registrar el principal.
+- 10→11 no existía; se extiende `avanzar_etapa_operativa_pre_reingreso` con gates espejo 9→10.
+- Roles movimiento: `mesa_admin`/`mesa_interno`/`mesa_externo`/`super_admin`.
+
+### Decisión
+Una TX SQL: register documental + (si principal y etapa 8) upsert envío/opción + avance 8→9. No secuencia frontend insegura. MIME del principal PDF/JPEG/PNG; límite 15 MiB intacto. Botón Mesa «Pasar a Firmado» reutiliza `avanzar_etapa_operativa` (no movimiento manual libre).
+
 ## 2026-07-23 - P116: tipo de fecha en reporte Admin
 
 ### Auditoría

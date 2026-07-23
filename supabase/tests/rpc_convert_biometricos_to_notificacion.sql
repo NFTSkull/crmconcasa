@@ -39,7 +39,7 @@ RETURNS VOID LANGUAGE plpgsql AS $$
 BEGIN
   PERFORM public.__rpc_cvt_auth(p_user);
   BEGIN
-    PERFORM public.convert_biometricos_to_notificacion(p_exp, p_date, NULL);
+    PERFORM public.convert_biometricos_to_notificacion(p_exp, p_date, 'monterrey', NULL);
     PERFORM public.__rpc_cvt_reset();
     RAISE EXCEPTION 'RPC CVT TEST FAIL: % (expected error)', p_msg;
   EXCEPTION WHEN OTHERS THEN
@@ -234,7 +234,7 @@ BEGIN
   -- ========== AUTORIZACIÓN / ÉXITO 1-2 ==========
   -- 1) asesor dueño etapa 4
   PERFORM public.__rpc_cvt_auth(v_asesor);
-  SELECT public.convert_biometricos_to_notificacion(v_exp4, v_date, 'nota cvt') INTO v_result;
+  SELECT public.convert_biometricos_to_notificacion(v_exp4, v_date, 'monterrey', 'nota cvt') INTO v_result;
   PERFORM public.__rpc_cvt_reset();
   PERFORM public.__rpc_cvt_assert((v_result->>'ok')::boolean, '1 ok');
   PERFORM public.__rpc_cvt_assert((v_result->>'etapa_anterior')::int = 4, '1 etapa_anterior');
@@ -270,7 +270,7 @@ BEGIN
 
   -- 2) legacy etapa 3
   PERFORM public.__rpc_cvt_auth(v_asesor);
-  SELECT public.convert_biometricos_to_notificacion(v_exp3, v_date2, NULL) INTO v_result;
+  SELECT public.convert_biometricos_to_notificacion(v_exp3, v_date2, 'monterrey', NULL) INTO v_result;
   PERFORM public.__rpc_cvt_reset();
   PERFORM public.__rpc_cvt_assert((v_result->>'etapa_anterior')::int = 3, '2 etapa_ant 3');
   PERFORM public.__rpc_cvt_assert((v_result->>'etapa_actual')::int = 3, '29 stays 3');
@@ -362,7 +362,7 @@ BEGIN
 
   -- 32/33) mismo día 12:00 en otro expediente (sin cupo)
   PERFORM public.__rpc_cvt_auth(v_asesor);
-  SELECT public.convert_biometricos_to_notificacion(v_exp_same_day, v_date, NULL) INTO v_result;
+  SELECT public.convert_biometricos_to_notificacion(v_exp_same_day, v_date, 'monterrey', NULL) INTO v_result;
   PERFORM public.__rpc_cvt_reset();
   PERFORM public.__rpc_cvt_assert((v_result->>'ok')::boolean, '33 same day ok');
   PERFORM public.__rpc_cvt_assert(
@@ -375,7 +375,7 @@ BEGIN
   -- ========== DRIVE ==========
   -- 34/35) drive preservado en bio cancelado; notif limpia
   PERFORM public.__rpc_cvt_auth(v_asesor);
-  SELECT public.convert_biometricos_to_notificacion(v_exp_drive, v_date2, NULL) INTO v_result;
+  SELECT public.convert_biometricos_to_notificacion(v_exp_drive, v_date2, 'monterrey', NULL) INTO v_result;
   PERFORM public.__rpc_cvt_reset();
   SELECT * INTO v_bio_row FROM public.agenda_bookings WHERE id = v_bio_drive;
   PERFORM public.__rpc_cvt_assert(v_bio_row.status = 'cancelled', '34 cancelled');
@@ -423,7 +423,7 @@ BEGIN
 
   BEGIN
     PERFORM public.__rpc_cvt_auth(v_asesor);
-    PERFORM public.convert_biometricos_to_notificacion(v_exp_rb, v_date2, NULL);
+    PERFORM public.convert_biometricos_to_notificacion(v_exp_rb, v_date2, 'monterrey', NULL);
     PERFORM public.__rpc_cvt_reset();
     RAISE EXCEPTION 'RPC CVT TEST FAIL: 38 should fail';
   EXCEPTION WHEN OTHERS THEN
@@ -469,7 +469,7 @@ BEGIN
 
   -- 44) book_notificacion_etapa3
   PERFORM public.__rpc_cvt_auth(v_asesor);
-  SELECT public.book_notificacion_etapa3(v_exp_reg_notif, v_date + 4, NULL) INTO v_result;
+  SELECT public.book_notificacion_etapa3(v_exp_reg_notif, v_date + 4, 'monterrey', NULL) INTO v_result;
   PERFORM public.__rpc_cvt_reset();
   PERFORM public.__rpc_cvt_assert((v_result->>'ok')::boolean, '44 book notif ok');
   PERFORM public.__rpc_cvt_assert((v_result->>'etapa_actual')::int = 3, '44 stays 3');
@@ -490,7 +490,7 @@ BEGIN
 
   -- 46) Mesa 3→5 con notificacion
   PERFORM public.__rpc_cvt_auth(v_asesor);
-  SELECT public.book_notificacion_etapa3(v_exp_reg_35, v_date + 5, NULL) INTO v_result;
+  SELECT public.book_notificacion_etapa3(v_exp_reg_35, v_date + 5, 'monterrey', NULL) INTO v_result;
   PERFORM public.__rpc_cvt_reset();
   UPDATE public.expedientes
   SET fecha_cita = ((v_date + 5)::timestamp + TIME '12:00') AT TIME ZONE 'America/Monterrey'
@@ -506,17 +506,17 @@ BEGIN
 
   -- 47) cancel/reagendar notificacion
   PERFORM public.__rpc_cvt_auth(v_asesor);
-  SELECT public.book_notificacion_etapa3(v_exp_reg_nr, v_date + 6, NULL) INTO v_result;
+  SELECT public.book_notificacion_etapa3(v_exp_reg_nr, v_date + 6, 'monterrey', NULL) INTO v_result;
   PERFORM public.__rpc_cvt_reset();
   PERFORM public.__rpc_cvt_auth(v_asesor);
   SELECT public.cancel_notificacion_etapa3(v_exp_reg_nr, 'cvt cancel') INTO v_result;
   PERFORM public.__rpc_cvt_reset();
   PERFORM public.__rpc_cvt_assert((v_result->>'ok')::boolean, '47 cancel ok');
   PERFORM public.__rpc_cvt_auth(v_asesor);
-  SELECT public.book_notificacion_etapa3(v_exp_reg_nr, v_date + 7, NULL) INTO v_result;
+  SELECT public.book_notificacion_etapa3(v_exp_reg_nr, v_date + 7, 'monterrey', NULL) INTO v_result;
   PERFORM public.__rpc_cvt_reset();
   PERFORM public.__rpc_cvt_auth(v_asesor);
-  SELECT public.reagendar_notificacion_etapa3(v_exp_reg_nr, v_date + 8, NULL) INTO v_result;
+  SELECT public.reagendar_notificacion_etapa3(v_exp_reg_nr, v_date + 8, 'monterrey', NULL) INTO v_result;
   PERFORM public.__rpc_cvt_reset();
   PERFORM public.__rpc_cvt_assert((v_result->>'ok')::boolean, '47 reagendar ok');
   v_cases := v_cases + 1;

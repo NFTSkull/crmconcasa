@@ -1,6 +1,21 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- **fix/p119.4-firmado-pago-concasa:** acción rápida canónica Firmado→Pago a ConCasa (`11→12`) vía `avanzar_etapa_operativa` (migración 108); UI tarjeta+detalle «Pasar a Pago a ConCasa»; etapa 12 «Etapa final».
+- **fix/p119.3-acciones-por-etapa:** matriz completa en tarjeta Mesa (3 Agendar bio, 8 Acuse sin bypass, 9 Agendar firma, 10 Pasar a Firmado, 12 Etapa final; 11 sin RPC 11→12).
+- **test/p119.2-concurrencia-cupos:** SQL focal `rpc_agenda_slot_capacity_concurrency_p1192.sql` (dblink + barrera ACCESS EXCLUSIVE/SHARE) prueba 2×`book_biometricos` sobre cupo=1 → 1 OK + 1 `cupo agotado`, cancel/reagenda canónicos; UI refresca disponibilidad tras error de cupo (bio/firmas).
+- **fix/p119.1-auditoria:** oculta avance rápido 3→5 y 9→10; notificación persiste sede `monterrey|apodaca` (migración 107); históricos `notificacion`/NULL → Sin sede.
+- **feat/mesa-acciones-rapidas — P119 (local, sin commit/Cloud):** acciones rápidas en tarjeta de bandeja (`Siguiente etapa`, `Tiene datos`, `Tomar expediente`); marcador persistente `expediente_mesa_marcadores` + RPC `mesa_set_expediente_marcador` (migración 106).
+
 ## Unreleased
+
+- **feat/agenda-cancelar-continuar — P118b (local, sin commit/Cloud):** RPC `mesa_cancelar_cita_y_continuar` (bio 4→5 / firmas 10→11); UI Gestionar habilita la opción solo admin+casos permitidos; notificación ocultada; decisión `cancel_continue` + aviso asesor.
+
+- **feat/agenda-cupos-gestion — P118 (local, sin commit/Cloud):** cupos por horario (`list`/`upsert_agenda_slot_capacity`) + UI Mesa Admin; sede legible en Citas Mesa (sentinel `notificacion` → Sin sede); `mesa_gestionar_cita` + diálogo Gestionar; aviso asesor de decisiones; tests TS/SQL focales.
+
+- **feat/acuse-avance-firmado — P117 (local, sin commit/Cloud):** Acuse principal acepta PDF/JPG/PNG; `register_expediente_documento_retencion` avanza atómicamente 8→9 al subir el principal; Mesa «Pasar a Firmado» (10→11 gated); 11 pasos visuales intactos.
 
 - **feat/admin-reporte-tipo-fecha — P116 (local, sin commit/Cloud):** RPC `admin_report_expedientes_asesores_etapas_v3` con `p_tipo_fecha` (`envio_mesa` default | `entrada_paso_actual`); UI selector; P112/P114 intactas; tracking canónico sin cambios.
 

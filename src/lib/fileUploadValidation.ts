@@ -113,12 +113,35 @@ export function isPdfOrImageDocumentTipo(tipoDocumento?: string | null): boolean
   return PDF_OR_IMAGE_DOCUMENT_TIPOS.has(String(tipoDocumento ?? "").trim());
 }
 
+/** Principales Acuse/Aviso de retención (opción A/B) — P117: PDF/JPEG/PNG. */
+export const RETENCION_PRINCIPAL_DOCUMENT_TIPOS = new Set([
+  "retencion_acuse_con_sello",
+  "retencion_carta_sin_sello",
+]);
+
+export const RETENCION_PRINCIPAL_ACCEPT_ATTR =
+  ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png";
+
+export const RETENCION_PRINCIPAL_UPLOAD_MESSAGE =
+  "Puedes subir PDF o imagen (JPG, JPEG, PNG).";
+
+export function isRetencionPrincipalDocumentTipo(
+  tipoDocumento?: string | null,
+): boolean {
+  return RETENCION_PRINCIPAL_DOCUMENT_TIPOS.has(String(tipoDocumento ?? "").trim());
+}
+
 export function getExpedienteDocumentoAcceptAttr(
   tipoDocumento?: string | null,
 ): string {
   const tipo = String(tipoDocumento ?? "").trim();
-  if (tipo === "cliente_pagare" || tipo === "cliente_notificacion" || tipo === "cliente_solicitud") {
-    return ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png";
+  if (
+    tipo === "cliente_pagare" ||
+    tipo === "cliente_notificacion" ||
+    tipo === "cliente_solicitud" ||
+    isRetencionPrincipalDocumentTipo(tipo)
+  ) {
+    return RETENCION_PRINCIPAL_ACCEPT_ATTR;
   }
   return isPdfOrImageDocumentTipo(tipoDocumento)
     ? EXPEDIENTE_DOCUMENTO_INE_ACCEPT_ATTR
@@ -170,7 +193,7 @@ export function resolveExpedienteDocumentoUploadMime(
   tipoDocumento?: string | null,
 ): string {
   const tipo = String(tipoDocumento ?? "").trim();
-  if (tipo === "cliente_pagare") {
+  if (tipo === "cliente_pagare" || isRetencionPrincipalDocumentTipo(tipo)) {
     return resolveClientePagareUploadMime(file) ?? "";
   }
   if (tipo === "cliente_notificacion") {
@@ -248,10 +271,18 @@ export function validateExpedienteDocumentoUploadFile(
   tipoDocumento?: string | null,
 ): { ok: true } | { ok: false; message: string } {
   const tipo = String(tipoDocumento ?? "").trim();
-  if (tipo === "cliente_pagare") {
+  if (tipo === "cliente_pagare" || isRetencionPrincipalDocumentTipo(tipo)) {
     const result = validateClientePagareFile(file);
     if (result.ok) return { ok: true };
-    return { ok: false, message: result.error };
+    return {
+      ok: false,
+      message: isRetencionPrincipalDocumentTipo(tipo)
+        ? result.error.replace(
+            /PDF, JPG, JPEG o PNG/i,
+            "PDF, JPG, JPEG o PNG",
+          )
+        : result.error,
+    };
   }
   if (tipo === "cliente_notificacion") {
     const result = validateClienteNotificacionFile(file);
@@ -293,6 +324,17 @@ export function formatExpedienteDocumentoUploadRejection(
   const validation = validateExpedienteDocumentoUploadFile(file, tipoDocumento);
   if (validation.ok) return "";
   const name = fileName(file);
+  if (
+    isRetencionPrincipalDocumentTipo(tipoDocumento) ||
+    String(tipoDocumento ?? "").trim() === "cliente_pagare" ||
+    String(tipoDocumento ?? "").trim() === "cliente_notificacion" ||
+    String(tipoDocumento ?? "").trim() === "cliente_solicitud"
+  ) {
+    if (name) {
+      return `"${name}" no es válido. ${fieldLabel}: ${RETENCION_PRINCIPAL_UPLOAD_MESSAGE}`;
+    }
+    return `${fieldLabel}: ${RETENCION_PRINCIPAL_UPLOAD_MESSAGE}`;
+  }
   if (isPdfOrImageDocumentTipo(tipoDocumento)) {
     if (name) {
       return `"${name}" no es válido. ${fieldLabel}: ${PDF_OR_IMAGE_UPLOAD_MESSAGE}`;

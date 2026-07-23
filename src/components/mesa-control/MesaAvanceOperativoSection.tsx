@@ -44,6 +44,7 @@ export {
   MESA_AVANCE_OPERATIVO_8A9_COPY,
   MESA_AVANCE_OPERATIVO_9A10_COPY,
   MESA_FIRMA_ETAPA10_OPERATIVA_COPY,
+  MESA_PAGO_CONCASA_ETAPA11_OPERATIVA_COPY,
 } from "@/domain/expedientes/mesa-decision-ux";
 
 type Props = {

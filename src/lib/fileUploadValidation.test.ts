@@ -24,6 +24,44 @@ function mockFile(name: string, type: string, size = 1024): File {
 
 const CARTA = CARTA_EMPRESA_DOCUMENT_TIPO;
 
+test("retención principal acepta PDF/JPG/PNG (P117)", () => {
+  assert.equal(
+    validateExpedienteDocumentoUploadFile(
+      mockFile("acuse.pdf", "application/pdf"),
+      "retencion_acuse_con_sello",
+    ).ok,
+    true,
+  );
+  assert.equal(
+    validateExpedienteDocumentoUploadFile(
+      mockFile("acuse.jpg", "image/jpeg"),
+      "retencion_acuse_con_sello",
+    ).ok,
+    true,
+  );
+  assert.equal(
+    validateExpedienteDocumentoUploadFile(
+      mockFile("carta.png", "image/png"),
+      "retencion_carta_sin_sello",
+    ).ok,
+    true,
+  );
+  assert.equal(
+    validateExpedienteDocumentoUploadFile(
+      mockFile("bad.webp", "image/webp"),
+      "retencion_acuse_con_sello",
+    ).ok,
+    false,
+  );
+  assert.equal(
+    resolveExpedienteDocumentoUploadMime(
+      mockFile("acuse.jpeg", "image/jpeg"),
+      "retencion_acuse_con_sello",
+    ),
+    "image/jpeg",
+  );
+});
+
 test("PDF válido con MIME application/pdf", () => {
   const file = mockFile("documento.pdf", "application/pdf");
   assert.equal(isPdfFile(file), true);
