@@ -4,6 +4,7 @@ import {
   CYNTHIA_SEDE_APODACA_ID,
   CYNTHIA_SEDE_MONTERREY_ID,
   cynthiaFormToWeeklyLocations,
+  missingExplicitSlotCapacities,
   parseHhmmSlotInput,
   resolveCanonicalSedeId,
   weeklyLocationsToCynthiaForm,
@@ -55,5 +56,24 @@ describe("parseHhmmSlotInput", () => {
     assert.equal(parseHhmmSlotInput("9:00"), "09:00");
     assert.equal(parseHhmmSlotInput("25:00"), null);
     assert.equal(parseHhmmSlotInput("abc"), null);
+  });
+});
+
+describe("missingExplicitSlotCapacities P124", () => {
+  it("bloquea si falta cupo en sede activa", () => {
+    const msg = missingExplicitSlotCapacities(["08:00", "10:00"], {
+      monterrey: { enabled: true, capacityPerSlot: 15, capacityByTime: { "08:00": 8 } },
+      apodaca: { enabled: true, capacityPerSlot: 10, capacityByTime: { "08:00": 5, "10:00": 10 } },
+    });
+    assert.match(String(msg), /10:00/);
+    assert.match(String(msg), /Monterrey/);
+  });
+
+  it("ok si todas las sedes activas tienen cupo", () => {
+    const msg = missingExplicitSlotCapacities(["08:00"], {
+      monterrey: { enabled: true, capacityPerSlot: 15, capacityByTime: { "08:00": 8 } },
+      apodaca: { enabled: false, capacityPerSlot: 10, capacityByTime: {} },
+    });
+    assert.equal(msg, null);
   });
 });

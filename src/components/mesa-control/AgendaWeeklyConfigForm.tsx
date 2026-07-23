@@ -120,8 +120,16 @@ export function AgendaWeeklyConfigForm({
     ] as const
   ).filter((s) => sedes[s.id].enabled);
 
-  function setSlotCapacity(sedeId: CynthiaSedeId, slot: HhmmTime, value: number) {
-    const next = Math.max(1, Math.trunc(Number(value) || 1));
+  function setSlotCapacity(sedeId: CynthiaSedeId, slot: HhmmTime, raw: string) {
+    const trimmed = raw.trim();
+    if (trimmed === "") {
+      const next = { ...sedes[sedeId].capacityByTime };
+      delete next[slot];
+      onSedeChange(sedeId, { capacityByTime: next });
+      return;
+    }
+    const next = Math.max(1, Math.trunc(Number(trimmed) || 0));
+    if (!Number.isFinite(next) || next < 1) return;
     onSedeChange(sedeId, {
       capacityByTime: {
         ...sedes[sedeId].capacityByTime,
@@ -303,9 +311,8 @@ export function AgendaWeeklyConfigForm({
                                     disabled={!canEdit}
                                     className="mt-0.5 w-full min-w-[4.5rem] rounded-md border border-slate-200 px-2 py-1.5 text-xs"
                                     value={resolveSedeSlotCapacityDraft(sedes[s.id], slot)}
-                                    onChange={(e) =>
-                                      setSlotCapacity(s.id, slot, Number(e.target.value || 1))
-                                    }
+                                    onChange={(e) => setSlotCapacity(s.id, slot, e.target.value)}
+                                    placeholder="—"
                                   />
                                 </label>
                               </td>
@@ -368,11 +375,14 @@ export function AgendaWeeklyConfigForm({
                       {slots.map((slot) => (
                         <tr key={slot}>
                           <td className="px-3 py-2 font-medium text-slate-900">{slot}</td>
-                          {activeSedeColumns.map((s) => (
-                            <td key={s.id} className="px-3 py-2 text-slate-800">
-                              Cupo: {resolveSedeSlotCapacityDraft(sedes[s.id], slot)}
-                            </td>
-                          ))}
+                          {activeSedeColumns.map((s) => {
+                            const draft = resolveSedeSlotCapacityDraft(sedes[s.id], slot);
+                            return (
+                              <td key={s.id} className="px-3 py-2 text-slate-800">
+                                {draft === "" ? "Sin cupo" : `Cupo: ${draft}`}
+                              </td>
+                            );
+                          })}
                         </tr>
                       ))}
                     </tbody>
@@ -393,7 +403,6 @@ export function AgendaWeeklyConfigForm({
               title="Monterrey"
               state={sedes[CYNTHIA_SEDE_MONTERREY_ID]}
               canEdit={canEdit}
-              inputClass={INPUT_CLASS}
               accent={styles.accent}
               onChange={(patch) => onSedeChange(CYNTHIA_SEDE_MONTERREY_ID, patch)}
             />
@@ -401,7 +410,6 @@ export function AgendaWeeklyConfigForm({
               title="Apodaca"
               state={sedes[CYNTHIA_SEDE_APODACA_ID]}
               canEdit={canEdit}
-              inputClass={INPUT_CLASS}
               accent={styles.accent}
               onChange={(patch) => onSedeChange(CYNTHIA_SEDE_APODACA_ID, patch)}
             />
@@ -502,14 +510,12 @@ function SedeCard({
   title,
   state,
   canEdit,
-  inputClass,
   accent,
   onChange,
 }: Readonly<{
   title: string;
   state: CynthiaSedeFormState;
   canEdit: boolean;
-  inputClass: string;
   accent: string;
   onChange: (patch: Partial<CynthiaSedeFormState>) => void;
 }>) {
@@ -525,22 +531,6 @@ function SedeCard({
           onChange={(e) => onChange({ enabled: e.target.checked })}
         />
         Sede activa
-      </label>
-      <label className="mt-3 block text-sm font-medium text-slate-900">
-        Cupo general por horario
-        <input
-          type="number"
-          min={1}
-          disabled={!canEdit}
-          value={state.capacityPerSlot}
-          onChange={(e) =>
-            onChange({ capacityPerSlot: Math.max(1, Number(e.target.value || 1)) })
-          }
-          className={inputClass}
-        />
-        <span className="mt-1 block text-xs font-normal text-slate-600">
-          Respaldo cuando un horario no tiene cupo específico.
-        </span>
       </label>
     </article>
   );

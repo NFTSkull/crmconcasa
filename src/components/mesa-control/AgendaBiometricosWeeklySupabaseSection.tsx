@@ -13,6 +13,7 @@ import {
 } from "@/domain/agenda-biometricos";
 import {
   cynthiaFormToWeeklyLocations,
+  missingExplicitSlotCapacities,
   weeklyLocationsToCynthiaForm,
   type CynthiaSedeFormState,
   type CynthiaSedeId,
@@ -151,6 +152,12 @@ export function AgendaBiometricosWeeklySupabaseSection({ canEdit, profileRole }:
     }
     if (enabled && !normalizedLocations.some((l) => l.enabled)) {
       setSaveError("Si la agenda está activa, necesitas al menos una sede habilitada.");
+      return;
+    }
+
+    const missingCupo = missingExplicitSlotCapacities(normalizedSlots, sedes);
+    if (missingCupo) {
+      setSaveError(missingCupo);
       return;
     }
 

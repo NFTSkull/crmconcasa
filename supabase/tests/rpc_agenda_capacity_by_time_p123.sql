@@ -69,7 +69,7 @@ BEGIN
     '{"enabled":true,"capacity_per_slot":15,"capacity_by_time":{"08:00":8}}'::JSONB,
     '11:00'
   );
-  PERFORM public.__p123_cbt_assert(v_cap = 15, 'sin hora específica usa capacity_per_slot');
+  PERFORM public.__p123_cbt_assert(v_cap IS NULL, 'P124: sin hora específica → NULL (sin fallback capacity_per_slot)');
 
   DELETE FROM public.agenda_bookings WHERE expediente_id IN (v_exp, v_exp2);
   DELETE FROM public.agenda_slot_capacities

@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Changed
+- **fix/p124-agenda-solo-cupos-explicitos:** biométricos/firmas usan solo `capacity_by_time` (+ excepciones por fecha); se elimina el fallback operativo a `capacity_per_slot`; UI sin «Cupo general».
+
+### Changed
 - **feat/p123-agenda-cupos-integrados:** cupos recurrentes por hora (`capacity_by_time`) dentro de «Horarios seleccionados»; excepciones por fecha colapsables; precedencia fecha → hora → general.
 
 ### Changed

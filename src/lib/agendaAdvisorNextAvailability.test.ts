@@ -25,8 +25,20 @@ function baseConfig() {
     allowedWeekdays: [1, 2, 3, 4, 5],
     slots: ["09:00", "10:00", "14:00"] as HhmmTime[],
     locations: [
-      { id: "monterrey", label: "Monterrey", enabled: true, capacityPerSlot: 2 },
-      { id: "apodaca", label: "Apodaca", enabled: true, capacityPerSlot: 2 },
+      {
+        id: "monterrey",
+        label: "Monterrey",
+        enabled: true,
+        capacityPerSlot: 2,
+        capacityByTime: { "09:00": 2, "10:00": 2, "14:00": 2 },
+      },
+      {
+        id: "apodaca",
+        label: "Apodaca",
+        enabled: true,
+        capacityPerSlot: 2,
+        capacityByTime: { "09:00": 2, "10:00": 2, "14:00": 2 },
+      },
     ],
   };
 }
