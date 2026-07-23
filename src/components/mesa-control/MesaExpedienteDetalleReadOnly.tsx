@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import {
   MesaArchivoPreviewDialog,
   openBlobUrlInNewTab,
@@ -64,6 +64,7 @@ import {
   deriveAvanceOperativo7a8View,
   deriveAvanceOperativo8a9View,
   deriveAvanceOperativo9a10View,
+  deriveAvanceOperativo10a11View,
   deriveCierreValidacionDocumentalView,
   type ExpedienteCancelacionRow,
   type ExpedienteMock,
@@ -273,6 +274,10 @@ export function MesaExpedienteDetalleReadOnly() {
   const [avance9a10Loading, setAvance9a10Loading] = useState(false);
   const [avance9a10Error, setAvance9a10Error] = useState<string | null>(null);
   const [avance9a10Success, setAvance9a10Success] = useState<string | null>(null);
+  const [avance10a11Loading, setAvance10a11Loading] = useState(false);
+  const [avance10a11Error, setAvance10a11Error] = useState<string | null>(null);
+  const [avance10a11Success, setAvance10a11Success] = useState<string | null>(null);
+  const avance10a11Lock = useRef(false);
   const [cancelCitaKind, setCancelCitaKind] = useState<MesaAgendaCancelKind | null>(null);
   const [cancelCitaSaving, setCancelCitaSaving] = useState(false);
   const [cancelCitaError, setCancelCitaError] = useState<string | null>(null);
@@ -1218,12 +1223,8 @@ export function MesaExpedienteDetalleReadOnly() {
   ]);
 
   const firmaEtapa10OperativaView = useMemo(
-    () => ({
-      mostrar: (expediente?.operativo.etapaActual ?? null) === 10,
-      puedeAvanzar: false,
-      bloqueos: [] as string[],
-    }),
-    [expediente?.operativo.etapaActual],
+    () => deriveAvanceOperativo10a11View(avanceOperativo9a10Context),
+    [avanceOperativo9a10Context],
   );
 
   const handleAvanzarIntegracion = useCallback(async () => {
@@ -1417,6 +1418,34 @@ export function MesaExpedienteDetalleReadOnly() {
     }
   }, [
     avanceOperativo9a10View.puedeAvanzar,
+    expedientesRepo,
+    load,
+    routeExpedienteId,
+  ]);
+
+  const handleAvanzarOperativo10a11 = useCallback(async () => {
+    if (!routeExpedienteId || !firmaEtapa10OperativaView.puedeAvanzar) return;
+    if (avance10a11Lock.current) return;
+    avance10a11Lock.current = true;
+    setAvance10a11Loading(true);
+    setAvance10a11Error(null);
+    setAvance10a11Success(null);
+    try {
+      await expedientesRepo.avanzarEtapaOperativa(routeExpedienteId);
+      setAvance10a11Success("Expediente avanzado a etapa 11 (Firmado)");
+      load();
+    } catch (err) {
+      setAvance10a11Error(
+        err instanceof ExpedientesSupabaseError
+          ? err.message
+          : "No se pudo avanzar la etapa del expediente.",
+      );
+    } finally {
+      setAvance10a11Loading(false);
+      avance10a11Lock.current = false;
+    }
+  }, [
+    firmaEtapa10OperativaView.puedeAvanzar,
     expedientesRepo,
     load,
     routeExpedienteId,
@@ -2043,11 +2072,10 @@ export function MesaExpedienteDetalleReadOnly() {
         view={firmaEtapa10OperativaView}
         copy={MESA_FIRMA_ETAPA10_OPERATIVA_COPY}
         puedeOperar={puedeOperarMesaActivo}
-        loading={false}
-        error={null}
-        success={null}
-        onAvanzar={async () => {}}
-        mostrarBotonAvanzar={false}
+        loading={avance10a11Loading}
+        error={avance10a11Error}
+        success={avance10a11Success}
+        onAvanzar={handleAvanzarOperativo10a11}
         cancelCitaGate={firmasCancelCitaGate}
         mostrarAtajoMovimientoManual={mostrarAtajoManual}
       />

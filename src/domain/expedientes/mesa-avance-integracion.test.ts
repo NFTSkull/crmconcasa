@@ -14,6 +14,7 @@ import {
   deriveAvanceOperativo7a8View,
   deriveAvanceOperativo8a9View,
   deriveAvanceOperativo9a10View,
+  deriveAvanceOperativo10a11View,
   deriveBloqueosContinuarIntegracion,
   deriveCierreValidacionDocumentalView,
   etapaTrasAvanceIntegracion1a2,
@@ -27,6 +28,7 @@ import {
   puedeMostrarAvanceOperativo7a8,
   puedeMostrarAvanceOperativo8a9,
   puedeMostrarAvanceOperativo9a10,
+  puedeMostrarAvanceOperativo10a11,
   puedeMostrarContinuarIntegracion,
   type MesaAvanceOperativo4a5Context,
   type MesaAvanceOperativo5a6Context,
@@ -901,6 +903,44 @@ describe("deriveAvanceOperativo9a10View (P3P.3)", () => {
     );
     assert.equal(
       deriveAvanceOperativo9a10View(avance9a10Ctx({ cicloEstado: "cerrado" })).mostrar,
+      false,
+    );
+  });
+});
+
+describe("deriveAvanceOperativo10a11View (P117)", () => {
+  it("etapa 10 con firma booked puede avanzar a Firmado", () => {
+    const view = deriveAvanceOperativo10a11View(avance9a10Ctx({ etapaActual: 10 }));
+    assert.equal(view.mostrar, true);
+    assert.equal(view.puedeAvanzar, true);
+    assert.equal(view.bloqueos.length, 0);
+  });
+
+  it("etapa 10 sin booking bloquea", () => {
+    const view = deriveAvanceOperativo10a11View(
+      avance9a10Ctx({ etapaActual: 10, hasActiveFirmasBooking: false }),
+    );
+    assert.equal(view.mostrar, true);
+    assert.equal(view.puedeAvanzar, false);
+  });
+
+  it("no visible en etapa 9 ni 11", () => {
+    assert.equal(
+      deriveAvanceOperativo10a11View(avance9a10Ctx({ etapaActual: 9 })).mostrar,
+      false,
+    );
+    assert.equal(
+      deriveAvanceOperativo10a11View(avance9a10Ctx({ etapaActual: 11 })).mostrar,
+      false,
+    );
+    assert.equal(puedeMostrarAvanceOperativo10a11(avance9a10Ctx({ etapaActual: 9 })), false);
+  });
+
+  it("ciclo inactivo no muestra", () => {
+    assert.equal(
+      deriveAvanceOperativo10a11View(
+        avance9a10Ctx({ etapaActual: 10, cicloEstado: "cancelado" }),
+      ).mostrar,
       false,
     );
   });

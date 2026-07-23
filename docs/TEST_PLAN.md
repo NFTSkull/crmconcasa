@@ -97,6 +97,14 @@
 - [x] `book_biometricos` 3→4 (sin cambio SQL); Asesor 11 pasos intacto.
 - [x] Sin Cloud write / sin renumerar `etapa_actual`.
 
+## P117 — Acuse MIME + avance 8→9 + Pasar a Firmado
+
+- [x] Principal `retencion_acuse_con_sello` / `retencion_carta_sin_sello`: PDF/JPG/PNG; otros `retencion_*` PDF-only; 15 MiB.
+- [x] `register_expediente_documento_retencion` en TX: register + (etapa 8 + principal) avance 8→9; 9+ no re-avanza; sin booking automático.
+- [x] Mesa etapa 10: «Pasar a Firmado» → `avanzar_etapa_operativa` 10→11 (gates firma); asesor no opera.
+- [x] Tests SQL `rpc_register_retencion_p117.sql`, `rpc_avanzar_etapa_10_11.sql` + TS focales; 11 pasos visuales intactos.
+- [x] Sin Cloud/commit/smoke.
+
 ## P104 — Notificación solo Apodaca (opcional)
 
 - [x] Tipo `cliente_notificacion_apodaca` ≠ `cliente_notificacion` / `notificacion`.

@@ -1,5 +1,17 @@
 # Devlog
 
+## 2026-07-23 - P117: Acuse MIME + avance 8→9 + Pasar a Firmado
+
+### Auditoría
+- Kind principal: `retencion_acuse_con_sello` (A) / `retencion_carta_sin_sello` (B).
+- Register: `register_expediente_documento_retencion` (antes PDF-only y anclado a etapa 8).
+- Avance 8→9 histórico vía `enviar_retencion_mesa` (P079); P117 lo dispara también al registrar el principal.
+- 10→11 no existía; se extiende `avanzar_etapa_operativa_pre_reingreso` con gates espejo 9→10.
+- Roles movimiento: `mesa_admin`/`mesa_interno`/`mesa_externo`/`super_admin`.
+
+### Decisión
+Una TX SQL: register documental + (si principal y etapa 8) upsert envío/opción + avance 8→9. No secuencia frontend insegura. MIME del principal PDF/JPEG/PNG; límite 15 MiB intacto. Botón Mesa «Pasar a Firmado» reutiliza `avanzar_etapa_operativa` (no movimiento manual libre).
+
 ## 2026-07-23 - P116: tipo de fecha en reporte Admin
 
 ### Auditoría

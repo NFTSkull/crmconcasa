@@ -5,10 +5,10 @@ import { Button } from "@/components/ui/Button";
 import { DocumentDropzone } from "@/components/documents/DocumentDropzone";
 import type { ExpedienteArchivoResumen } from "@/domain/expediente-archivos";
 import { findRowPorTipoDocumento } from "@/domain/expediente-archivos/types";
-import { EXPEDIENTE_DOCUMENTO_ACCEPT_ATTR } from "@/domain/expediente-archivos/upload-constraints";
 import {
-  formatPdfUploadRejectionForField,
-  validatePdfFile,
+  formatExpedienteDocumentoUploadRejection,
+  getExpedienteDocumentoAcceptAttr,
+  validateExpedienteDocumentoUploadFile,
 } from "@/lib/fileUploadValidation";
 import {
   MSG_RETENCION_REFETCH_FALLIDO,
@@ -160,12 +160,12 @@ export function RetencionAcuseAvisoSupabaseCard({
     if (!repo || !files[0]) return;
     const file = files[0];
 
-    const pdfValidation = validatePdfFile(file);
-    if (!pdfValidation.ok) {
+    const fileValidation = validateExpedienteDocumentoUploadFile(file, tipo);
+    if (!fileValidation.ok) {
       const label = retencionDocLabelByTipo[tipo] ?? "Documento";
       setUploadErrors((prev) => ({
         ...prev,
-        [tipo]: formatPdfUploadRejectionForField(label, file),
+        [tipo]: formatExpedienteDocumentoUploadRejection(label, file, tipo),
       }));
       return;
     }
@@ -261,7 +261,7 @@ export function RetencionAcuseAvisoSupabaseCard({
       <p className="mt-1 text-xs text-gray-600">
         {enEtapaFirma
           ? "El Acuse ya fue enviado. Mesa puede agendar la firma; no se requiere validación documental adicional."
-          : `Etapa ${RETENCION_ETAPA_OPERATIVA_ID}: elige la opción A o B, sube el documento principal y envía a Mesa Control. Al enviar, el expediente avanza a etapa 9 (listo para agendar firma).`}
+          : `Etapa ${RETENCION_ETAPA_OPERATIVA_ID}: elige la opción A o B y sube el documento principal (PDF o imagen JPG/PNG). Al subirlo correctamente, el expediente avanza a etapa 9 (listo para agendar firma).`}
       </p>
 
       {loadingMeta ? (
@@ -418,7 +418,7 @@ export function RetencionAcuseAvisoSupabaseCard({
                         ) : null}
                         {puedeReemplazar && hasFile && panel.uiEstado === "no_enviado" ? (
                           <p className="mt-1 text-[10px] text-gray-500">
-                            Puedes reemplazar el PDF antes de enviar el bloque a Mesa.
+                            Puedes reemplazar el archivo antes de enviar el bloque a Mesa.
                           </p>
                         ) : null}
                         {uploadError ? (
@@ -430,7 +430,7 @@ export function RetencionAcuseAvisoSupabaseCard({
                       <div className="w-full max-w-xs shrink-0 sm:w-56">
                         <DocumentDropzone
                           compact
-                          accept={EXPEDIENTE_DOCUMENTO_ACCEPT_ATTR}
+                          accept={getExpedienteDocumentoAcceptAttr(tipo)}
                           busy={uploading}
                           disabled={!puedeReemplazar || uploading || refetching || enviando}
                           selectedFileName={item?.nombre_original ?? null}

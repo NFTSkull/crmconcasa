@@ -181,9 +181,25 @@ export class ExpedienteRetencionSupabaseRepo {
     }
 
     const uploadMime = resolveExpedienteDocumentoUploadMime(params.file, tipo);
-    if (!uploadMime || uploadMime !== "application/pdf") {
+    if (!uploadMime) {
       throw new ExpedienteRetencionSupabaseError(
-        "Solo se permiten archivos PDF. Convierte el documento a PDF antes de subirlo.",
+        tipo === "retencion_acuse_con_sello" || tipo === "retencion_carta_sin_sello"
+          ? "Solo se permiten PDF o imagen (JPG, JPEG, PNG)."
+          : "Solo se permiten archivos PDF. Convierte el documento a PDF antes de subirlo.",
+      );
+    }
+    const isPrincipal =
+      tipo === "retencion_acuse_con_sello" || tipo === "retencion_carta_sin_sello";
+    const mimeOk = isPrincipal
+      ? uploadMime === "application/pdf" ||
+        uploadMime === "image/jpeg" ||
+        uploadMime === "image/png"
+      : uploadMime === "application/pdf";
+    if (!mimeOk) {
+      throw new ExpedienteRetencionSupabaseError(
+        isPrincipal
+          ? "Solo se permiten PDF o imagen (JPG, JPEG, PNG)."
+          : "Solo se permiten archivos PDF. Convierte el documento a PDF antes de subirlo.",
       );
     }
 
@@ -209,7 +225,10 @@ export class ExpedienteRetencionSupabaseRepo {
       throw new ExpedienteRetencionSupabaseError(
         uploadError.message?.toLowerCase().includes("bucket")
           ? "No se pudo acceder al almacenamiento de documentos. Contacta soporte."
-          : "No se pudo subir el archivo. Verifica el formato (solo PDF) y el tamaño (máx. 15 MB).",
+          : tipo === "retencion_acuse_con_sello" ||
+              tipo === "retencion_carta_sin_sello"
+            ? "No se pudo subir el archivo. Verifica el formato (PDF/JPG/PNG) y el tamaño (máx. 15 MB)."
+            : "No se pudo subir el archivo. Verifica el formato (solo PDF) y el tamaño (máx. 15 MB).",
       );
     }
 

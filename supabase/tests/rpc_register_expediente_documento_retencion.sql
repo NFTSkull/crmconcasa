@@ -156,7 +156,7 @@ BEGIN
     v_org, v_exp_ok, 'retencion_acuse_con_sello', 'acuse.pdf'
   );
 
-  -- 1. asesor dueño registra retencion_* en etapa 8
+  -- 1. asesor dueño registra retencion_* principal en etapa 8 → avanza a 9 (P117)
   v_result := public.__rpc_regret_test_call(
     v_a1, v_exp_ok, 'retencion_acuse_con_sello', v_path_acuse
   );
@@ -164,6 +164,18 @@ BEGIN
   PERFORM public.__rpc_regret_test_assert(
     v_result->>'estatus_revision' = 'subido', 'test 1: estatus subido'
   );
+  PERFORM public.__rpc_regret_test_assert(
+    (v_result->>'avance_8_9')::boolean = true, 'test 1: avance_8_9'
+  );
+  PERFORM public.__rpc_regret_test_assert(
+    (v_result->>'etapa_actual')::int = 9, 'test 1: etapa_actual 9'
+  );
+  -- Restaurar etapa 8 para pruebas de registro sin avance (docs no principales / gates)
+  UPDATE public.expedientes
+  SET etapa_actual = 8, updated_at = NOW()
+  WHERE id = v_exp_ok;
+  DELETE FROM public.retencion_envios WHERE expediente_id = v_exp_ok;
+  DELETE FROM public.retencion_opciones WHERE expediente_id = v_exp_ok;
 
   -- 2. tipo integración bloqueado en RPC retención
   PERFORM public.__rpc_regret_test_assert(
@@ -316,23 +328,34 @@ BEGIN
   PERFORM public.__rpc_regret_test_reset_auth();
   PERFORM public.__rpc_regret_test_assert(v_storage_ok = true, 'test 11: storage helper etapa 8');
 
-  -- 12. registrar los 4 docs con_sello + enviar_retencion_mesa
+  -- 12. registrar principal con_sello avanza 8→9; enviar_retencion_mesa queda idempotente
   DELETE FROM public.expediente_documentos WHERE expediente_id = v_exp_flow;
   DELETE FROM public.retencion_envios WHERE expediente_id = v_exp_flow;
   DELETE FROM public.retencion_opciones WHERE expediente_id = v_exp_flow;
+  UPDATE public.expedientes
+  SET etapa_actual = 8, updated_at = NOW()
+  WHERE id = v_exp_flow;
 
   FOREACH v_tipo IN ARRAY public.retencion_doc_tipos_requeridos('con_sello'::public.retencion_opcion)
   LOOP
-    PERFORM public.__rpc_regret_test_call(
+    v_result := public.__rpc_regret_test_call(
       v_a1, v_exp_flow, v_tipo,
       public.__rpc_regret_test_storage_path(v_org, v_exp_flow, v_tipo, v_tipo || '.pdf')
     );
   END LOOP;
+  PERFORM public.__rpc_regret_test_assert(
+    (v_result->>'avance_8_9')::boolean = true, 'test 12: register principal avanza'
+  );
 
   PERFORM public.__rpc_regret_test_set_auth(v_a1);
   SELECT public.enviar_retencion_mesa(v_exp_flow, 'con_sello') INTO v_result;
   PERFORM public.__rpc_regret_test_reset_auth();
   PERFORM public.__rpc_regret_test_assert((v_result->>'ok')::boolean = true, 'test 12: enviar_retencion_mesa ok');
+  PERFORM public.__rpc_regret_test_assert(
+    COALESCE((v_result->>'idempotent')::boolean, false) = true
+      OR (v_result->>'etapa_actual')::int = 9,
+    'test 12: envío idempotente o ya en 9'
+  );
 
   -- 13. P079: enviar_retencion_mesa ya avanzó a etapa 9; estatus documental intacto
   PERFORM public.__rpc_regret_test_insert_cliente(v_exp_flow, v_org);

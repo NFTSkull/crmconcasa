@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **feat/acuse-avance-firmado — P117 (local, sin commit/Cloud):** Acuse principal acepta PDF/JPG/PNG; `register_expediente_documento_retencion` avanza atómicamente 8→9 al subir el principal; Mesa «Pasar a Firmado» (10→11 gated); 11 pasos visuales intactos.
+
 - **feat/admin-reporte-tipo-fecha — P116 (local, sin commit/Cloud):** RPC `admin_report_expedientes_asesores_etapas_v3` con `p_tipo_fecha` (`envio_mesa` default | `entrada_paso_actual`); UI selector; P112/P114 intactas; tracking canónico sin cambios.
 
 - **fix/admin-pasos-visibles-exclusiones — P115 (local, sin commit/Cloud):** filtro general `/admin` usa 11 pasos visuales (Paso 3 → internas 3+4); resumen del reporte distingue etapas consultadas vs con resultados; advertencia ámbar + «Quitar rango» (solo fechas); RPC/Excel/citas Mesa intactos.

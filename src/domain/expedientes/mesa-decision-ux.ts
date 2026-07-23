@@ -122,13 +122,14 @@ export const MESA_AVANCE_OPERATIVO_9A10_COPY: MesaAvanceOperativoCopy = {
   mostrarAvisoSinRechazo: true,
 };
 
-/** Etapa 10: sin avance operativo aún (P3Q); Mesa puede cancelar cita activa. */
+/** Etapa 10 (visible 9): Mesa avanza a Firmado (interna 11 / visible 10). */
 export const MESA_FIRMA_ETAPA10_OPERATIVA_COPY: MesaAvanceOperativoCopy = {
   titulo: MESA_DECISION_TITULO_AVANCE,
   descripcion:
-    "El expediente está en Cita para firma (etapa 10). Si el cliente no puede asistir, cancela la cita y solicita reagenda al asesor.",
-  etiquetaBoton: "",
-  mensajeConfirmacion: "",
+    "El expediente está en Cita para firma (etapa 10). Cuando la firma se complete, avanza a Firmado. Si el cliente no puede asistir, cancela la cita y solicita reagenda al asesor.",
+  etiquetaBoton: "Pasar a Firmado",
+  mensajeConfirmacion:
+    "¿Confirmas pasar este expediente a Firmado (etapa 11)? Se conservan la cita, el booking y los documentos.",
   mostrarAvisoSinRechazo: true,
 };
 

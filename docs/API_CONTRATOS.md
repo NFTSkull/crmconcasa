@@ -338,6 +338,7 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 | 7→8 | Etapa 7 + `en_proceso`; enviado a Mesa; ciclo `activo` (sin retención ni firmas) |
 | 8→9 | Retención: opción + envío asesor + docs opción `validado` |
 | 9→10 | Etapa 9 + `en_proceso`; `fecha_cita` + booking `firmas` activo (`booked`); roles `mesa_admin`/`mesa_interno`/`mesa_externo`/`super_admin` |
+| 10→11 | Etapa 10 + `en_proceso`; mismos gates de firma (`fecha_cita` + booking `firmas` `booked`); roles Mesa/`super_admin`. UI: «Pasar a Firmado». |
 | Rechazo | Nota obligatoria; puede regresar etapa |
 
 - Validación server-side espejo de `getBloqueosAvanceMesa` / helpers retención.
@@ -565,9 +566,10 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 - Opción A/B en estado local hasta envío; persistencia vía RPC al enviar.
 - Upload: Storage `expediente-documentos` + RPC `register_expediente_documento_retencion`.
 - Reemplazo asesor: antes de enviar el bloque (`no_enviado`) puede subir/reemplazar PDFs no validados; con bloque `enviado` no reemplaza; en `correccion_requerida` solo `rechazado`; siempre bloqueado si `validado` (espejo del RPC).
-- MIME de retención se normaliza a `application/pdf` en el cliente (igual que integración) para PDFs con tipo vacío/`octet-stream`.
-- Opción A/B: borrador en `sessionStorage` (`retencion-opcion:<expedienteId>`) + inferencia desde docs `retencion_*` activos tras reload; orden: DB → inferencia → sessionStorage → default (la fila `retencion_opciones` solo se escribe al enviar a Mesa).
-- Botón «Enviar a Mesa Control» visible en `no_enviado` / `correccion_requerida`; al éxito copy «Acuse enviado. El expediente está listo para agendar firma.» + refetch canónico a etapa 9.
+- MIME de retención: principal P117 acepta PDF/JPEG/PNG; resto de `retencion_*` sigue PDF-only. El cliente normaliza MIME vacío/`octet-stream` cuando aplica.
+- **P117:** al registrar el documento principal en etapa 8, la misma TX de `register_expediente_documento_retencion` upsert `retencion_opciones`/`retencion_envios` y avanza `8→9` (sin booking). Reemplazo en 9+ no re-avanza. `enviar_retencion_mesa` permanece para reenvíos/idempotencia.
+- Opción A/B: borrador en `sessionStorage` (`retencion-opcion:<expedienteId>`) + inferencia desde docs `retencion_*` activos tras reload; orden: DB → inferencia → sessionStorage → default (también se persiste al subir el principal en P117).
+- Botón «Enviar a Mesa Control» visible en `no_enviado` / `correccion_requerida`; al éxito (o tras upload P117) copy «Acuse enviado. El expediente está listo para agendar firma.» + refetch canónico a etapa 9.
 - Sin validación Mesa del Acuse; Mesa agenda firma en etapa 9.
 
 ---
@@ -618,6 +620,7 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 
 - UI asesor: `AgendaFirmasSupabaseCard` en etapa 9 (P3P.2).
 - UI Mesa: resumen cita + avance 9→10 en detalle Supabase (P3P.3).
+- **P117:** en etapa 10, botón Mesa «Pasar a Firmado» → `avanzar_etapa_operativa` transición `10→11` (mismos gates de firma; no movimiento manual libre).
 
 ---
 

@@ -100,13 +100,20 @@ ConCasa CRM gestiona el ciclo operativo de precalificaciones / expedientes hipot
 | **A — con sello** | Único obligatorio: Acuse con sello (`retencion_acuse_con_sello`). |
 | **B — sin sello** | Único obligatorio: Carta sin sello (`retencion_carta_sin_sello`). |
 
-1. Asesor elige A/B y sube el documento principal (`subido`/`resubido`/`validado`).
-2. Asesor **envía bloque a Mesa** (`enviar_retencion_mesa`): registra envío **y** avanza atómicamente **8→9**.
+1. Asesor elige A/B y sube el documento principal (`subido`/`resubido`; PDF/JPEG/PNG, máx. 15 MiB).
+2. **P117:** al subir el principal en etapa 8, `register_expediente_documento_retencion` registra el doc **y** avanza atómicamente **8→9** (también marca envío retención). `enviar_retencion_mesa` sigue disponible para reenvíos/idempotencia.
 3. Mesa **no** valida ni rechaza el Acuse para este flujo; consulta en lectura y agenda firma en etapa 9.
 4. El documento **no** se marca como `validado` por el envío; puede permanecer `subido`/`resubido`/`validado`.
-5. **No** se crea booking ni `fecha_cita` al enviar.
+5. **No** se crea booking ni `fecha_cita` al subir/enviar.
 6. Aviso/INE históricos (`retencion_aviso_retencion`, `retencion_ine_*`) no son obligatorios ni bloquean; no se borran ni se hace backfill.
 7. Gate normal 8→9 (recuperación) exige envío + principal activo en `subido|resubido|validado`.
+
+### 6.3bis Firma → Firmado (etapa 10 → 11) — P117
+
+1. En etapa 10 (paso visible 9), Mesa ve «Pasar a Firmado».
+2. `avanzar_etapa_operativa` exige `fecha_cita` + booking `firmas` `booked` (mismos gates que 9→10).
+3. Roles: `mesa_admin` / `mesa_interno` / `mesa_externo` / `super_admin`. Asesor no opera.
+4. Conserva booking, fecha, documentos y montos; no crea citas nuevas.
 ### 6.4 Reingreso / Reinscripción post-biométricos
 
 1. Mesa rechaza un expediente en etapa 5 o 6 y registra una decisión explícita sobre sus biométricos.
