@@ -1,3 +1,10 @@
+## P126 — Cupo 0 por sede/horario
+
+- [x] Vacío bloquea guardado; `0` persiste y cierra sede/hora; `≥1` cupo normal.
+- [x] Asesor: sede con 0 no ofrecida; la otra sede del mismo horario sí.
+- [x] Bookings existentes intactos al pasar a 0; aviso Mesa; P125 intacto para positivos.
+- [x] SQL `112` + `rpc_agenda_allow_zero_recurring_capacity_p126.sql`; tests dominio/UI.
+
 ## P125 — Actualización segura de cupos
 
 - [x] Aumentar cupo siempre; reducir solo si ≥ ocupados; mensaje canónico con N.

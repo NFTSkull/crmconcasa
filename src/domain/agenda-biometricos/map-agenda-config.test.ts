@@ -4,6 +4,7 @@ import {
   emptyAgendaBiometricosWeeklyConfig,
   mapSqlConfigToWeeklyUi,
   mapWeeklyUiToSqlCanonical,
+  resolveExplicitSlotCapacity,
   slugifyAgendaLocationId,
 } from "./map-agenda-config";
 
@@ -117,6 +118,44 @@ describe("mapWeeklyUiToSqlCanonical", () => {
     assert.equal(mty?.capacityByTime?.["08:00"], 8);
     assert.equal(mty?.capacityByTime?.["10:00"], 5);
     assert.equal(apo?.capacityByTime?.["08:00"], 5);
+  });
+
+  it("P126: round-trip conserva capacity_by_time=0 (cierre)", () => {
+    const source = {
+      enabled: true,
+      timezone: "America/Monterrey",
+      minLeadHours: 24,
+      allowedWeekdays: [1, 2, 3, 4, 5],
+      slots: ["08:30" as const, "09:00" as const],
+      locations: [
+        {
+          id: "monterrey",
+          label: "Monterrey",
+          enabled: true,
+          capacityPerSlot: 5,
+          capacityByTime: { "08:30": 5, "09:00": 0 },
+        },
+        {
+          id: "apodaca",
+          label: "Apodaca",
+          enabled: true,
+          capacityPerSlot: 5,
+          capacityByTime: { "08:30": 0, "09:00": 5 },
+        },
+      ],
+    };
+    const sql = mapWeeklyUiToSqlCanonical(source);
+    assert.equal(sql.locations.monterrey?.capacity_by_time?.["08:30"], 5);
+    assert.equal(sql.locations.monterrey?.capacity_by_time?.["09:00"], 0);
+    assert.equal(sql.locations.apodaca?.capacity_by_time?.["08:30"], 0);
+    assert.equal(sql.locations.apodaca?.capacity_by_time?.["09:00"], 5);
+    const roundTrip = mapSqlConfigToWeeklyUi(sql);
+    const mty = roundTrip.locations.find((l) => l.id === "monterrey");
+    const apo = roundTrip.locations.find((l) => l.id === "apodaca");
+    assert.equal(mty?.capacityByTime?.["09:00"], 0);
+    assert.equal(apo?.capacityByTime?.["08:30"], 0);
+    assert.equal(resolveExplicitSlotCapacity("08:30", apo?.capacityByTime), 0);
+    assert.equal(resolveExplicitSlotCapacity("10:00", apo?.capacityByTime), null);
   });
 
   it("round-trip conserva datos principales", () => {

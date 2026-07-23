@@ -170,6 +170,55 @@ describe("weekly-availability", () => {
     assert.equal(slots[0]?.time, "08:00");
   });
 
+  it("P126: capacity_by_time=0 no ofrece el horario (sin fallback)", () => {
+    const config = {
+      ...emptyAgendaBiometricosWeeklyConfig(),
+      enabled: true,
+      timezone: "America/Monterrey",
+      minLeadHours: 0,
+      allowedWeekdays: [1, 2, 3, 4, 5],
+      slots: ["08:30" as HhmmTime, "09:00" as HhmmTime],
+      locations: [
+        {
+          id: "monterrey",
+          label: "Monterrey",
+          enabled: true,
+          capacityPerSlot: 15,
+          capacityByTime: { "08:30": 5, "09:00": 0 },
+        },
+        {
+          id: "apodaca",
+          label: "Apodaca",
+          enabled: true,
+          capacityPerSlot: 15,
+          capacityByTime: { "08:30": 0, "09:00": 5 },
+        },
+      ],
+    };
+    const mty = computeWeeklySlotAvailability({
+      config,
+      bookedSlots: [],
+      date: "2026-06-29" as YmdDate,
+      locationId: "monterrey",
+      now: new Date("2026-06-25T12:00:00.000Z"),
+    });
+    const apo = computeWeeklySlotAvailability({
+      config,
+      bookedSlots: [],
+      date: "2026-06-29" as YmdDate,
+      locationId: "apodaca",
+      now: new Date("2026-06-25T12:00:00.000Z"),
+    });
+    assert.deepEqual(
+      mty.map((s) => s.time),
+      ["08:30"],
+    );
+    assert.deepEqual(
+      apo.map((s) => s.time),
+      ["09:00"],
+    );
+  });
+
   it("computeWeeklySlotAvailability: excepción fecha gana sobre capacity_by_time", () => {
     const config = {
       ...emptyAgendaBiometricosWeeklyConfig(),

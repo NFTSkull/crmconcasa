@@ -128,8 +128,9 @@ export function AgendaWeeklyConfigForm({
       onSedeChange(sedeId, { capacityByTime: next });
       return;
     }
-    const next = Math.max(1, Math.trunc(Number(trimmed) || 0));
-    if (!Number.isFinite(next) || next < 1) return;
+    const next = Math.trunc(Number(trimmed));
+    // P126: permitir 0 (cerrado); vacío ya se manejó arriba
+    if (!Number.isFinite(next) || next < 0) return;
     onSedeChange(sedeId, {
       capacityByTime: {
         ...sedes[sedeId].capacityByTime,
@@ -285,6 +286,9 @@ export function AgendaWeeklyConfigForm({
                   Cambiar el cupo no mueve citas existentes; solo modifica los lugares disponibles
                   para nuevas reservas.
                 </p>
+                <p className="mt-1 text-[11px] text-slate-600">
+                  Usa 0 cuando este horario no esté disponible en esa sede.
+                </p>
                 {slots.length ? (
                   <div className="mt-2 overflow-x-auto rounded-lg border border-slate-200 bg-white">
                     <table className="min-w-full divide-y divide-slate-100 text-sm">
@@ -305,22 +309,30 @@ export function AgendaWeeklyConfigForm({
                             <td className="whitespace-nowrap px-3 py-2 font-medium text-slate-900">
                               {slot}
                             </td>
-                            {activeSedeColumns.map((s) => (
-                              <td key={s.id} className="px-3 py-2">
-                                <label className="block text-[11px] font-semibold text-slate-600">
-                                  Cupo
-                                  <input
-                                    type="number"
-                                    min={1}
-                                    disabled={!canEdit}
-                                    className="mt-0.5 w-full min-w-[4.5rem] rounded-md border border-slate-200 px-2 py-1.5 text-xs"
-                                    value={resolveSedeSlotCapacityDraft(sedes[s.id], slot)}
-                                    onChange={(e) => setSlotCapacity(s.id, slot, e.target.value)}
-                                    placeholder="—"
-                                  />
-                                </label>
-                              </td>
-                            ))}
+                            {activeSedeColumns.map((s) => {
+                              const draft = resolveSedeSlotCapacityDraft(sedes[s.id], slot);
+                              return (
+                                <td key={s.id} className="px-3 py-2">
+                                  <label className="block text-[11px] font-semibold text-slate-600">
+                                    Cupo
+                                    <input
+                                      type="number"
+                                      min={0}
+                                      disabled={!canEdit}
+                                      className="mt-0.5 w-full min-w-[4.5rem] rounded-md border border-slate-200 px-2 py-1.5 text-xs"
+                                      value={draft}
+                                      onChange={(e) => setSlotCapacity(s.id, slot, e.target.value)}
+                                      placeholder="—"
+                                    />
+                                  </label>
+                                  {draft === 0 ? (
+                                    <p className="mt-0.5 text-[10px] font-medium text-slate-500">
+                                      No disponible
+                                    </p>
+                                  ) : null}
+                                </td>
+                              );
+                            })}
                             <td className="px-3 py-2">
                               <button
                                 type="button"
@@ -383,7 +395,11 @@ export function AgendaWeeklyConfigForm({
                             const draft = resolveSedeSlotCapacityDraft(sedes[s.id], slot);
                             return (
                               <td key={s.id} className="px-3 py-2 text-slate-800">
-                                {draft === "" ? "Sin cupo" : `Cupo: ${draft}`}
+                                {draft === ""
+                                  ? "Sin cupo"
+                                  : draft === 0
+                                    ? "No disponible"
+                                    : `Cupo: ${draft}`}
                               </td>
                             );
                           })}
