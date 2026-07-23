@@ -24,7 +24,7 @@ import { MesaMontoMejoravitActualizadoSection } from "@/components/mesa-control/
 import { MesaPagareSection } from "@/components/mesa-control/MesaPagareSection";
 import { MesaNotificacionDocumentoSection } from "@/components/mesa-control/MesaNotificacionDocumentoSection";
 import { MesaSolicitudDocumentoSection } from "@/components/mesa-control/MesaSolicitudDocumentoSection";
-import { MesaAvanceOperativoSection, MESA_AVANCE_OPERATIVO_2A3_COPY, MESA_AVANCE_OPERATIVO_3A5_COPY, MESA_AVANCE_OPERATIVO_4A5_COPY, MESA_AVANCE_OPERATIVO_5A6_COPY, MESA_AVANCE_OPERATIVO_6A7_COPY, MESA_AVANCE_OPERATIVO_7A8_COPY, MESA_AVANCE_OPERATIVO_8A9_COPY, MESA_AVANCE_OPERATIVO_9A10_COPY, MESA_FIRMA_ETAPA10_OPERATIVA_COPY, type MesaAvanceCancelCitaGate } from "@/components/mesa-control/MesaAvanceOperativoSection";
+import { MesaAvanceOperativoSection, MESA_AVANCE_OPERATIVO_2A3_COPY, MESA_AVANCE_OPERATIVO_3A5_COPY, MESA_AVANCE_OPERATIVO_4A5_COPY, MESA_AVANCE_OPERATIVO_5A6_COPY, MESA_AVANCE_OPERATIVO_6A7_COPY, MESA_AVANCE_OPERATIVO_7A8_COPY, MESA_AVANCE_OPERATIVO_8A9_COPY, MESA_AVANCE_OPERATIVO_9A10_COPY, MESA_FIRMA_ETAPA10_OPERATIVA_COPY, MESA_PAGO_CONCASA_ETAPA11_OPERATIVA_COPY, type MesaAvanceCancelCitaGate } from "@/components/mesa-control/MesaAvanceOperativoSection";
 import { MesaCierreValidacionDocumentalSection } from "@/components/mesa-control/MesaCierreValidacionDocumentalSection";
 import { MesaControlDocumentosComplementariosSection } from "@/components/mesa-control/MesaControlDocumentosComplementariosSection";
 import { MesaDocumentosAsesorSection } from "@/components/mesa-control/MesaDocumentosAsesorSection";
@@ -65,6 +65,7 @@ import {
   deriveAvanceOperativo8a9View,
   deriveAvanceOperativo9a10View,
   deriveAvanceOperativo10a11View,
+  deriveAvanceOperativo11a12View,
   deriveCierreValidacionDocumentalView,
   type ExpedienteCancelacionRow,
   type ExpedienteMock,
@@ -278,6 +279,10 @@ export function MesaExpedienteDetalleReadOnly() {
   const [avance10a11Error, setAvance10a11Error] = useState<string | null>(null);
   const [avance10a11Success, setAvance10a11Success] = useState<string | null>(null);
   const avance10a11Lock = useRef(false);
+  const [avance11a12Loading, setAvance11a12Loading] = useState(false);
+  const [avance11a12Error, setAvance11a12Error] = useState<string | null>(null);
+  const [avance11a12Success, setAvance11a12Success] = useState<string | null>(null);
+  const avance11a12Lock = useRef(false);
   const [cancelCitaKind, setCancelCitaKind] = useState<MesaAgendaCancelKind | null>(null);
   const [cancelCitaSaving, setCancelCitaSaving] = useState(false);
   const [cancelCitaError, setCancelCitaError] = useState<string | null>(null);
@@ -1240,6 +1245,11 @@ export function MesaExpedienteDetalleReadOnly() {
     [avanceOperativo9a10Context],
   );
 
+  const pagoConcasaEtapa11OperativaView = useMemo(
+    () => deriveAvanceOperativo11a12View(avanceOperativoContext),
+    [avanceOperativoContext],
+  );
+
   const handleAvanzarIntegracion = useCallback(async () => {
     if (!routeExpedienteId || !cierreValidacionView.puedeAvanzar) return;
     setContinuarLoading(true);
@@ -1459,6 +1469,36 @@ export function MesaExpedienteDetalleReadOnly() {
     }
   }, [
     firmaEtapa10OperativaView.puedeAvanzar,
+    expedientesRepo,
+    load,
+    routeExpedienteId,
+  ]);
+
+  const handleAvanzarOperativo11a12 = useCallback(async () => {
+    if (!routeExpedienteId || !pagoConcasaEtapa11OperativaView.puedeAvanzar) return;
+    if (avance11a12Lock.current) return;
+    avance11a12Lock.current = true;
+    setAvance11a12Loading(true);
+    setAvance11a12Error(null);
+    setAvance11a12Success(null);
+    try {
+      await expedientesRepo.avanzarEtapaOperativa(routeExpedienteId);
+      setAvance11a12Success(
+        "Expediente avanzado a etapa 12 (Pago a ConCasa)",
+      );
+      load();
+    } catch (err) {
+      setAvance11a12Error(
+        err instanceof ExpedientesSupabaseError
+          ? err.message
+          : "No se pudo avanzar la etapa del expediente.",
+      );
+    } finally {
+      setAvance11a12Loading(false);
+      avance11a12Lock.current = false;
+    }
+  }, [
+    pagoConcasaEtapa11OperativaView.puedeAvanzar,
     expedientesRepo,
     load,
     routeExpedienteId,
@@ -2090,6 +2130,17 @@ export function MesaExpedienteDetalleReadOnly() {
         success={avance10a11Success}
         onAvanzar={handleAvanzarOperativo10a11}
         cancelCitaGate={firmasCancelCitaGate}
+        mostrarAtajoMovimientoManual={mostrarAtajoManual}
+      />
+
+      <MesaAvanceOperativoSection
+        view={pagoConcasaEtapa11OperativaView}
+        copy={MESA_PAGO_CONCASA_ETAPA11_OPERATIVA_COPY}
+        puedeOperar={puedeOperarMesaActivo}
+        loading={avance11a12Loading}
+        error={avance11a12Error}
+        success={avance11a12Success}
+        onAvanzar={handleAvanzarOperativo11a12}
         mostrarAtajoMovimientoManual={mostrarAtajoManual}
       />
 

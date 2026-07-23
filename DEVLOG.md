@@ -1,5 +1,11 @@
 # Devlog
 
+## 2026-07-23 - P119.4 Firmado → Pago a ConCasa
+
+Amplía `avanzar_etapa_operativa_pre_reingreso` con transición `11_12` (migración 108). Gates: roles Mesa/`super_admin`, etapa exacta 11, `en_proceso`, enviado a Mesa, ciclo activo. No muta bookings/docs/montos/`fecha_cita`; no registra pago financiero. UI bandeja+detalle: «Pasar a Pago a ConCasa»; confirmación canónica; en 12 solo «Etapa final».
+
+Sin Cloud 108 ni merge.
+
 ## 2026-07-23 - P119.3 acciones rápidas por etapa
 
 Matriz bandeja: 1–2/2–3/4–5/5–6/6–7/7–8 avanzar; 3→Agendar biométricos (detalle `#mesa-agenda`); 8→Ir a Acuse (sin `avanzar`, disabled si falta principal); 9→Agendar firma (`#mesa-agendar-firma` / `mesa_book_firmas`); 10→Pasar a Firmado (P117); 11 sin RPC 11→12; 12 indicador Etapa final.

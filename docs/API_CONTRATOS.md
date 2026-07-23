@@ -339,6 +339,7 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 | 8→9 | Retención: opción + envío asesor + docs opción `validado` |
 | 9→10 | Etapa 9 + `en_proceso`; `fecha_cita` + booking `firmas` activo (`booked`); roles `mesa_admin`/`mesa_interno`/`mesa_externo`/`super_admin` |
 | 10→11 | Etapa 10 + `en_proceso`; mismos gates de firma (`fecha_cita` + booking `firmas` `booked`); roles Mesa/`super_admin`. UI: «Pasar a Firmado». |
+| 11→12 | Etapa 11 + `en_proceso`; enviado a Mesa; ciclo `activo`; roles Mesa/`super_admin`. No muta bookings, documentos, montos ni `fecha_cita`. UI: «Pasar a Pago a ConCasa» (posición operativa final; no registra pago financiero). |
 | Rechazo | Nota obligatoria; puede regresar etapa |
 
 - Validación server-side espejo de `getBloqueosAvanceMesa` / helpers retención.
@@ -621,6 +622,7 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 - UI asesor: `AgendaFirmasSupabaseCard` en etapa 9 (P3P.2).
 - UI Mesa: resumen cita + avance 9→10 en detalle Supabase (P3P.3).
 - **P117:** en etapa 10, botón Mesa «Pasar a Firmado» → `avanzar_etapa_operativa` transición `10→11` (mismos gates de firma; no movimiento manual libre).
+- **P119.4:** en etapa 11, botón Mesa «Pasar a Pago a ConCasa» → `avanzar_etapa_operativa` transición `11→12` (solo posición operativa; no registra pago ni muta citas/docs/montos).
 
 ---
 

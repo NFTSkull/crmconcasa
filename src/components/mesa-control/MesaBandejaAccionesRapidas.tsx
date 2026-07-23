@@ -4,6 +4,7 @@ import { useRef, useState, type MouseEvent, type SyntheticEvent } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import {
+  MESA_AVANZAR_11_12_CONFIRM,
   MESA_SIGUIENTE_ETAPA_CONFIRM_PREFIX,
   MESA_TIENE_DATOS_BADGE_LABEL,
   canMesaToggleMarcadorRole,
@@ -114,9 +115,11 @@ export function MesaBandejaAccionesRapidas({
     if (siguiente.kind !== "avanzar" || !siguiente.enabled || !siguiente.usesAvanzarRpc) {
       return;
     }
-    const ok = window.confirm(
-      `${MESA_SIGUIENTE_ETAPA_CONFIRM_PREFIX} ${siguiente.fromLabel} a ${siguiente.toLabel}.\n\nCliente: ${clienteNombre}`,
-    );
+    const confirmMsg =
+      siguiente.fromEtapa === 11 && siguiente.toEtapa === 12
+        ? `${MESA_AVANZAR_11_12_CONFIRM}\n\nCliente: ${clienteNombre}`
+        : `${MESA_SIGUIENTE_ETAPA_CONFIRM_PREFIX} ${siguiente.fromLabel} a ${siguiente.toLabel}.\n\nCliente: ${clienteNombre}`;
+    const ok = window.confirm(confirmMsg);
     if (!ok) return;
     void run("siguiente", () => onSiguienteEtapa(expedienteId));
   };

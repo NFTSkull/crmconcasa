@@ -617,3 +617,39 @@ export function deriveAvanceOperativo10a11View(
     bloqueos,
   };
 }
+
+// —— P119.4: avance operativo Mesa 11 → 12 (Pago a ConCasa) ——
+
+export type MesaAvanceOperativo11a12Context = MesaAvanceOperativoContext;
+
+/** Panel visible solo en etapa 11 (Firmado). No exige cita/booking ni implica pago financiero. */
+export function puedeMostrarAvanceOperativo11a12(
+  ctx: MesaAvanceOperativo11a12Context,
+): boolean {
+  if (!ctx.submittedToMesa) return false;
+  if (ctx.cicloEstado !== "activo") return false;
+  if (ctx.etapaActual !== 11) return false;
+  return ctx.subestado === "en_proceso";
+}
+
+/** Bloqueos alineados con `avanzar_etapa_operativa` transición 11→12 (solo gates de posición). */
+export function deriveBloqueosAvanceOperativo11a12(
+  ctx: MesaAvanceOperativo11a12Context,
+): string[] {
+  if (!puedeMostrarAvanceOperativo11a12(ctx)) {
+    return [];
+  }
+  return [];
+}
+
+export function deriveAvanceOperativo11a12View(
+  ctx: MesaAvanceOperativo11a12Context,
+): AvanceOperativoEtapaView {
+  const mostrar = puedeMostrarAvanceOperativo11a12(ctx);
+  const bloqueos = deriveBloqueosAvanceOperativo11a12(ctx);
+  return {
+    mostrar,
+    puedeAvanzar: mostrar && bloqueos.length === 0,
+    bloqueos,
+  };
+}

@@ -15,6 +15,7 @@ import {
   deriveAvanceOperativo8a9View,
   deriveAvanceOperativo9a10View,
   deriveAvanceOperativo10a11View,
+  deriveAvanceOperativo11a12View,
   deriveBloqueosContinuarIntegracion,
   deriveCierreValidacionDocumentalView,
   etapaTrasAvanceIntegracion1a2,
@@ -29,6 +30,7 @@ import {
   puedeMostrarAvanceOperativo8a9,
   puedeMostrarAvanceOperativo9a10,
   puedeMostrarAvanceOperativo10a11,
+  puedeMostrarAvanceOperativo11a12,
   puedeMostrarContinuarIntegracion,
   type MesaAvanceOperativo4a5Context,
   type MesaAvanceOperativo5a6Context,
@@ -940,6 +942,47 @@ describe("deriveAvanceOperativo10a11View (P117)", () => {
     assert.equal(
       deriveAvanceOperativo10a11View(
         avance9a10Ctx({ etapaActual: 10, cicloEstado: "cancelado" }),
+      ).mostrar,
+      false,
+    );
+  });
+});
+
+describe("deriveAvanceOperativo11a12View (P119.4)", () => {
+  it("etapa 11 en_proceso puede avanzar a Pago a ConCasa", () => {
+    const view = deriveAvanceOperativo11a12View(
+      avanceCtx({ etapaActual: 11, subestado: "en_proceso" }),
+    );
+    assert.equal(view.mostrar, true);
+    assert.equal(view.puedeAvanzar, true);
+    assert.equal(view.bloqueos.length, 0);
+  });
+
+  it("no visible fuera de etapa 11", () => {
+    assert.equal(
+      deriveAvanceOperativo11a12View(avanceCtx({ etapaActual: 10 })).mostrar,
+      false,
+    );
+    assert.equal(
+      deriveAvanceOperativo11a12View(avanceCtx({ etapaActual: 12 })).mostrar,
+      false,
+    );
+    assert.equal(
+      puedeMostrarAvanceOperativo11a12(avanceCtx({ etapaActual: 10 })),
+      false,
+    );
+  });
+
+  it("rechazado / ciclo inactivo no muestran", () => {
+    assert.equal(
+      deriveAvanceOperativo11a12View(
+        avanceCtx({ etapaActual: 11, subestado: "rechazado" }),
+      ).mostrar,
+      false,
+    );
+    assert.equal(
+      deriveAvanceOperativo11a12View(
+        avanceCtx({ etapaActual: 11, cicloEstado: "cancelado" }),
       ).mostrar,
       false,
     );

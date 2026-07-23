@@ -5,7 +5,7 @@ import path from "node:path";
 
 const ROOT = path.join(process.cwd());
 
-describe("MesaBandejaAccionesRapidas UI wiring P119.3", () => {
+describe("MesaBandejaAccionesRapidas UI wiring P119.3/P119.4", () => {
   it("acciones usan stopPropagation, labels y RPCs canónicas", () => {
     const ui = readFileSync(
       path.join(ROOT, "src/components/mesa-control/MesaBandejaAccionesRapidas.tsx"),
@@ -15,6 +15,7 @@ describe("MesaBandejaAccionesRapidas UI wiring P119.3", () => {
     assert.match(ui, /navegar_biometricos|Agendar biométricos/);
     assert.match(ui, /navegar_firma|Agendar firma/);
     assert.match(ui, /etapa_final|Etapa final/);
+    assert.match(ui, /MESA_AVANZAR_11_12_CONFIRM|Pago a ConCasa/);
     assert.match(ui, /Tomar expediente/);
     assert.match(ui, /Quitar marca/);
     assert.match(ui, /usesAvanzarRpc/);
@@ -33,9 +34,18 @@ describe("MesaBandejaAccionesRapidas UI wiring P119.3", () => {
       path.join(ROOT, "src/lib/mesaBandejaAccionesRapidas.ts"),
       "utf8",
     );
-    assert.match(lib, /MESA_TIENE_RPC_CANONICA_11_A_12 = false/);
+    assert.match(lib, /MESA_TIENE_RPC_CANONICA_11_A_12 = true/);
+    assert.match(lib, /Pasar a Pago a ConCasa/);
     assert.match(lib, /navegar_biometricos/);
     assert.match(lib, /Falta cargar el Acuse/);
     assert.doesNotMatch(lib, /8:\s*9/);
+
+    const detalle = readFileSync(
+      path.join(ROOT, "src/components/mesa-control/MesaExpedienteDetalleReadOnly.tsx"),
+      "utf8",
+    );
+    assert.match(detalle, /MESA_PAGO_CONCASA_ETAPA11_OPERATIVA_COPY/);
+    assert.match(detalle, /handleAvanzarOperativo11a12/);
+    assert.match(detalle, /deriveAvanceOperativo11a12View/);
   });
 });

@@ -16,16 +16,16 @@ import {
 const mesaRole = "mesa_interno";
 const expId = "00000000-0000-4000-9119-000000000099";
 
-describe("mesaBandejaAccionesRapidas P119.3", () => {
-  it("mapa avanzar sin 3, 8, 9, 11", () => {
+describe("mesaBandejaAccionesRapidas P119.3/P119.4", () => {
+  it("mapa avanzar sin 3, 8, 9; con 11→12", () => {
     assert.equal(MESA_SIGUIENTE_ETAPA_MAP[1], 2);
     assert.equal(MESA_SIGUIENTE_ETAPA_MAP[3], undefined);
     assert.equal(MESA_SIGUIENTE_ETAPA_MAP[4], 5);
     assert.equal(MESA_SIGUIENTE_ETAPA_MAP[8], undefined);
     assert.equal(MESA_SIGUIENTE_ETAPA_MAP[9], undefined);
     assert.equal(MESA_SIGUIENTE_ETAPA_MAP[10], 11);
-    assert.equal(MESA_SIGUIENTE_ETAPA_MAP[11], undefined);
-    assert.equal(MESA_TIENE_RPC_CANONICA_11_A_12, false);
+    assert.equal(MESA_SIGUIENTE_ETAPA_MAP[11], 12);
+    assert.equal(MESA_TIENE_RPC_CANONICA_11_A_12, true);
   });
 
   it("interna 3: Agendar biométricos; nunca avanzar/usesAvanzarRpc", () => {
@@ -145,7 +145,7 @@ describe("mesaBandejaAccionesRapidas P119.3", () => {
     assert.equal(a.usesAvanzarRpc, true);
   });
 
-  it("interna 11: oculta sin RPC canónica 11→12", () => {
+  it("interna 11: Pasar a Pago a ConCasa (P119.4)", () => {
     const a = resolveMesaSiguienteEtapaAccion({
       etapaActual: 11,
       subestado: "en_proceso",
@@ -154,8 +154,27 @@ describe("mesaBandejaAccionesRapidas P119.3", () => {
       role: mesaRole,
       expedienteId: expId,
     });
-    assert.equal(a.visible, false);
-    assert.equal(MESA_TIENE_RPC_CANONICA_11_A_12, false);
+    assert.equal(a.visible, true);
+    assert.equal(a.enabled, true);
+    assert.equal(a.kind, "avanzar");
+    assert.equal(a.label, "Pasar a Pago a ConCasa");
+    assert.equal(a.usesAvanzarRpc, true);
+    assert.equal(a.toEtapa, 12);
+    assert.equal(MESA_TIENE_RPC_CANONICA_11_A_12, true);
+  });
+
+  it("interna 11 rechazado: botón visible deshabilitado", () => {
+    const a = resolveMesaSiguienteEtapaAccion({
+      etapaActual: 11,
+      subestado: "rechazado",
+      cicloEstado: "activo",
+      submittedToMesa: true,
+      role: mesaRole,
+      expedienteId: expId,
+    });
+    assert.equal(a.visible, true);
+    assert.equal(a.enabled, false);
+    assert.equal(a.reasonCode, "rechazado");
   });
 
   it("interna 12: Etapa final sin acción", () => {

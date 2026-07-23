@@ -1,8 +1,8 @@
 /**
- * P119 / P119.3 — resolución de acciones rápidas en tarjeta de bandeja Mesa.
+ * P119 / P119.3 / P119.4 — resolución de acciones rápidas en tarjeta de bandeja Mesa.
  * Avances usan `avanzar_etapa_operativa` (gates SQL). Agenda 3/9 navega al detalle.
  * Interna 8 no bypassea P117 (avance 8→9 solo vía carga canónica del Acuse).
- * Interna 11→12: sin RPC canónica segura → acción ausente.
+ * Interna 11→12: RPC canónica `avanzar_etapa_operativa` transición `11_12`.
  */
 
 import type { ExpedienteArchivoResumen } from "@/domain/expediente-archivos/types";
@@ -15,6 +15,7 @@ import {
   deriveAvanceOperativo6a7View,
   deriveAvanceOperativo7a8View,
   deriveAvanceOperativo10a11View,
+  deriveAvanceOperativo11a12View,
   deriveCierreValidacionDocumentalView,
   type AvanceOperativoEtapaView,
 } from "@/domain/expedientes/mesa-avance-integracion";
@@ -43,15 +44,14 @@ export const MESA_SIGUIENTE_ETAPA_MAP: Readonly<Record<number, number>> = {
   6: 7,
   7: 8,
   10: 11,
+  11: 12,
 };
 
 /**
- * Contrato mínimo si se habilita 11→12 en el futuro:
- * RPC SECURITY DEFINER (p.ej. `avanzar_etapa_operativa` rama 11→12) con gates,
- * roles Mesa, `action_log`, sin movimiento manual libre.
- * Hoy `avanzar_etapa_operativa` no admite transición desde etapa 11.
+ * P119.4: `avanzar_etapa_operativa` admite transición canónica 11→12
+ * (migración 108). Roles Mesa + `action_log`; sin movimiento manual libre.
  */
-export const MESA_TIENE_RPC_CANONICA_11_A_12 = false;
+export const MESA_TIENE_RPC_CANONICA_11_A_12 = true;
 
 export type MesaBandejaAccionKind =
   | "avanzar"
@@ -200,6 +200,7 @@ function emptyHidden(from: number, to: number | null = null): MesaSiguienteEtapa
 function labelForAvanzar(from: number, to: number): string {
   if (from === 4 && to === 5) return "Pasar a Biometría resultado";
   if (from === 10 && to === 11) return "Pasar a Firmado";
+  if (from === 11 && to === 12) return "Pasar a Pago a ConCasa";
   return "Siguiente etapa";
 }
 
@@ -313,13 +314,6 @@ export function resolveMesaSiguienteEtapaAccion(
       reasonShort: null,
       bloqueos: [],
     };
-  }
-
-  // —— 11: sin RPC 11→12 ——
-  if (etapa === 11) {
-    if (!MESA_TIENE_RPC_CANONICA_11_A_12) return emptyHidden(11, 12);
-    // Reservado: si se habilita RPC, cablear aquí con gates.
-    return emptyHidden(11, 12);
   }
 
   // —— 3: agendar biométricos (navegación; etapa solo vía booking 3→4) ——
@@ -483,6 +477,13 @@ export function resolveMesaSiguienteEtapaAccion(
     );
   }
 
+  if (etapa === 11) {
+    if (!MESA_TIENE_RPC_CANONICA_11_A_12) return emptyHidden(11, 12);
+    return fromView(11, 12, deriveAvanceOperativo11a12View(base), {
+      label: "Pasar a Pago a ConCasa",
+    });
+  }
+
   return emptyHidden(etapa, to);
 }
 
@@ -566,3 +567,7 @@ export function resolveMesaTomarExpedienteAccion(params: {
 export const MESA_TIENE_DATOS_BADGE_LABEL = "📌 Tiene datos";
 export const MESA_SIGUIENTE_ETAPA_CONFIRM_PREFIX =
   "El expediente avanzará de";
+
+/** Confirmación canónica bandeja/detalle para 11→12 (P119.4). */
+export const MESA_AVANZAR_11_12_CONFIRM =
+  "El expediente pasará a la etapa final Pago a ConCasa.";

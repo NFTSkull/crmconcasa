@@ -118,6 +118,14 @@ ConCasa CRM gestiona el ciclo operativo de precalificaciones / expedientes hipot
 2. `avanzar_etapa_operativa` exige `fecha_cita` + booking `firmas` `booked` (mismos gates que 9→10).
 3. Roles: `mesa_admin` / `mesa_interno` / `mesa_externo` / `super_admin`. Asesor no opera.
 4. Conserva booking, fecha, documentos y montos; no crea citas nuevas.
+
+### 6.3ter Firmado → Pago a ConCasa (etapa 11 → 12) — P119.4
+
+1. En etapa 11 (paso visible 10 Firmado), Mesa ve «Pasar a Pago a ConCasa» (tarjeta y detalle).
+2. `avanzar_etapa_operativa` transición `11_12`: etapa exacta 11, `en_proceso`, enviado a Mesa, ciclo activo.
+3. Roles: `mesa_admin` / `mesa_interno` / `mesa_externo` / `super_admin` (alias UI `mesa_control_admin` → `mesa_admin`).
+4. Solo actualiza `etapa_actual=12`, subestado canónico `en_proceso`, `updated_at` y `action_log`. No registra pago financiero ni muta bookings/docs/montos/`fecha_cita`.
+5. En etapa 12 la bandeja muestra únicamente el indicador «Etapa final».
 ### 6.4 Reingreso / Reinscripción post-biométricos
 
 1. Mesa rechaza un expediente en etapa 5 o 6 y registra una decisión explícita sobre sus biométricos.

@@ -6,6 +6,7 @@ import {
   MESA_AVANCE_OPERATIVO_8A9_COPY,
   MESA_AVANCE_OPERATIVO_9A10_COPY,
   MESA_FIRMA_ETAPA10_OPERATIVA_COPY,
+  MESA_PAGO_CONCASA_ETAPA11_OPERATIVA_COPY,
   MESA_CIERRE_INTEGRACION_COPY,
   MESA_SOLICITAR_CORRECCION_LABEL,
   citaFirmaVisibleEnMesa,
@@ -32,6 +33,17 @@ describe("mesa-decision-ux copy P3R.0", () => {
   it("etapa 10 ofrece Pasar a Firmado (P117)", () => {
     assert.equal(MESA_FIRMA_ETAPA10_OPERATIVA_COPY.etiquetaBoton, "Pasar a Firmado");
     assert.match(MESA_FIRMA_ETAPA10_OPERATIVA_COPY.mensajeConfirmacion, /Firmado/);
+  });
+
+  it("etapa 11 ofrece Pasar a Pago a ConCasa (P119.4)", () => {
+    assert.equal(
+      MESA_PAGO_CONCASA_ETAPA11_OPERATIVA_COPY.etiquetaBoton,
+      "Pasar a Pago a ConCasa",
+    );
+    assert.equal(
+      MESA_PAGO_CONCASA_ETAPA11_OPERATIVA_COPY.mensajeConfirmacion,
+      "El expediente pasará a la etapa final Pago a ConCasa.",
+    );
   });
 
   it("label solicitar corrección definido", () => {
