@@ -1,3 +1,12 @@
+## P125 — Actualización segura de cupos
+
+- [x] Aumentar cupo siempre; reducir solo si ≥ ocupados; mensaje canónico con N.
+- [x] Excepción por fecha no afecta otras fechas; recurrente bloquea bajo max ocupados futuros.
+- [x] Quitar horario conserva bookings; upsert idempotente (sin filas duplicadas).
+- [x] Locks compartidos org+kind+sede+hora (+ slot fecha) entre upsert cupo y booking.
+- [x] UX Mesa: éxito «citas conservadas»; helper; error con mínimo sin recargar.
+- [x] SQL `rpc_agenda_capacity_update_safety_p125.sql` + mappers TS; regresión P119.2 concurrencia.
+
 ## P119 — Acciones rápidas bandeja Mesa
 
 - [x] Siguiente etapa: visible solo con transición; gates bloquean; rechazado/cancelado; RPC canónica; doble clic seguro.

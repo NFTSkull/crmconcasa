@@ -999,7 +999,9 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 
 **Upsert:** `upsert_agenda_slot_capacity(p_kind, p_location_id, p_slot_date, p_slot_time, p_capacity, p_active default true) → jsonb`
 
-- Roles: `mesa_admin` | `super_admin`. Kind solo `biometricos`|`firmas`. Rechaza `capacity < occupied`. `action_log` `agenda.slot_capacity.upsert`.
+- Roles: `mesa_admin` | `super_admin`. Kind solo `biometricos`|`firmas`. Rechaza `capacity < occupied` con mensaje `No puedes establecer un cupo menor a las N citas ya reservadas.` (P125). No muta bookings. `ON CONFLICT` idempotente. Locks advisory: `org+kind+sede+hora` + slot por fecha (compartidos con asserts de booking). `action_log` `agenda.slot_capacity.upsert`.
+
+**Config semanal (`upsert_agenda_config_*`):** reducir `capacity_by_time[hora]` bloquea si la nueva capacidad es menor al máximo de bookings `booked` futuros para esa hora+sede+kind. Quitar horario o bajar cupo no cancela/reubica citas. Excepciones por fecha (`agenda_slot_capacities`) no se sobrescriben.
 
 Asserts de book biométricos/firmas usan override cuando existe fila (`active=false` bloquea).
 
@@ -1019,7 +1021,7 @@ Asserts de book biométricos/firmas usan override cuando existe fila (`active=fa
 - Cancelar normal: no avanza etapa; permite reagendar.
 - `cancelar` / `reagendar` delegan a RPCs existentes por kind y persisten fila en `agenda_booking_decisiones`.
 
-Migraciones: `103_agenda_slot_capacities.sql`, `104_agenda_booking_decisiones_y_gestionar.sql`.
+Migraciones: `103_agenda_slot_capacities.sql`, `104_agenda_booking_decisiones_y_gestionar.sql`, `109_agenda_capacity_by_time.sql`, `110_agenda_explicit_hourly_capacities_only.sql`, `111_agenda_capacity_update_safety.sql`.
 
 ---
 

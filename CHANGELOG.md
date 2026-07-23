@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- **fix/p125-agenda-capacity-update-safety:** editar cupos no mueve/cancela/duplica citas; reduce solo si ≥ ocupados; locks compartidos con booking; mensaje canónico + UX Mesa.
+
 ### Changed
 - **fix/p124-agenda-solo-cupos-explicitos:** biométricos/firmas usan solo `capacity_by_time` (+ excepciones por fecha); se elimina el fallback operativo a `capacity_per_slot`; UI sin «Cupo general».
 

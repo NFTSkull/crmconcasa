@@ -281,6 +281,10 @@ export function AgendaWeeklyConfigForm({
 
               <div className="mt-4">
                 <p className="text-sm font-medium text-slate-900">Horarios seleccionados</p>
+                <p className="mt-1 text-[11px] text-slate-600">
+                  Cambiar el cupo no mueve citas existentes; solo modifica los lugares disponibles
+                  para nuevas reservas.
+                </p>
                 {slots.length ? (
                   <div className="mt-2 overflow-x-auto rounded-lg border border-slate-200 bg-white">
                     <table className="min-w-full divide-y divide-slate-100 text-sm">

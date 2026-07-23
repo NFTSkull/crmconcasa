@@ -71,6 +71,15 @@ export async function upsertAgendaSlotCapacity(
 
   if (error) {
     const msg = error.message ?? "";
+    const occupiedMatch = msg.match(
+      /No puedes establecer un cupo menor a las (\d+) citas ya reservadas/i,
+    );
+    if (occupiedMatch) {
+      const occupied = occupiedMatch[1];
+      throw new AgendaSlotCapacitiesError(
+        `No puedes establecer un cupo menor a las ${occupied} citas ya reservadas. Capacidad mínima permitida: ${occupied}.`,
+      );
+    }
     if (/capacidad.*ocupados|menor que ocupados/i.test(msg)) {
       throw new AgendaSlotCapacitiesError(
         "La capacidad no puede ser menor que los lugares ya ocupados.",
