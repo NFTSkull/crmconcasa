@@ -1,5 +1,9 @@
 # Devlog
 
+## 2026-07-23 - P125 actualización segura de cupos
+
+Huecos vs P124: `upsert_agenda_slot_capacity` contaba ocupados sin advisory lock compartido con booking; `upsert_agenda_config_*` solo advertía (warnings) al bajar `capacity_by_time` bajo ocupados futuros. Migración 111: locks `org+kind+sede+hora` (+ slot fecha), bloqueo recurrente con max ocupados futuros, mensaje canónico, sin mutar bookings. UX: éxito «citas conservadas» + helper; error con N/mínimo sin recargar página.
+
 ## 2026-07-23 - P124 solo cupos explícitos por horario
 
 Conversión única (migración 110): slots × sedes activas sin `capacity_by_time` reciben una copia de `capacity_per_slot`. Luego asserts/disponibilidad: `agenda_slot_capacities` → `capacity_by_time`; si falta → no booking / no ofrecer. UI: quita «Cupo general»; exige cupo por fila al guardar. `capacity_per_slot` permanece en JSON por compatibilidad, sin UI ni uso operativo. Notificación intacta.

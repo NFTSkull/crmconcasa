@@ -106,7 +106,7 @@ export function AgendaSlotCapacitiesPanel({
         capacity,
         active,
       });
-      setOkMsg(editingId ? "Cupo actualizado." : "Cupo guardado.");
+      setOkMsg("Cupo actualizado. Las citas existentes se conservaron sin cambios.");
       setEditingId(null);
     } catch {
       // error ya en hook
@@ -126,12 +126,22 @@ export function AgendaSlotCapacitiesPanel({
               Define cupos puntuales por fecha, sede y tipo. Si no hay fila, aplica el cupo de la
               configuración semanal.
             </p>
+            <p className="mt-1 text-[11px] text-slate-600">
+              Cambiar el cupo no mueve citas existentes; solo modifica los lugares disponibles para
+              nuevas reservas.
+            </p>
           </div>
         </div>
       ) : (
-        <p className="text-[11px] text-slate-600">
-          Cupo puntual por fecha. Tiene prioridad sobre el cupo recurrente del horario.
-        </p>
+        <>
+          <p className="text-[11px] text-slate-600">
+            Cupo puntual por fecha. Tiene prioridad sobre el cupo recurrente del horario.
+          </p>
+          <p className="mt-1 text-[11px] text-slate-600">
+            Cambiar el cupo no mueve citas existentes; solo modifica los lugares disponibles para
+            nuevas reservas.
+          </p>
+        </>
       )}
 
       <div className={`${collapsible ? "mt-2" : "mt-3"} grid gap-2 sm:grid-cols-2 lg:grid-cols-3`}>

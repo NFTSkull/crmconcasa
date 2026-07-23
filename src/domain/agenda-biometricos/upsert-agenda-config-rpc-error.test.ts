@@ -24,4 +24,12 @@ describe("mapUpsertAgendaConfigBiometricosRpcError", () => {
     });
     assert.match(err.message, /horarios/i);
   });
+
+  it("mapea reducción bajo ocupados con mínimo permitido", () => {
+    const err = mapUpsertAgendaConfigBiometricosRpcError({
+      message: "No puedes establecer un cupo menor a las 5 citas ya reservadas.",
+    });
+    assert.match(err.message, /5 citas ya reservadas/);
+    assert.match(err.message, /Capacidad mínima permitida: 5/);
+  });
 });

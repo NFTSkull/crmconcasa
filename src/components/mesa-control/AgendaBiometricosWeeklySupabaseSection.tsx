@@ -176,7 +176,7 @@ export function AgendaBiometricosWeeklySupabaseSection({ canEdit, profileRole }:
       applyConfig(result.config);
       setMeta({ updatedAt: result.updatedAt, updatedBy: result.updatedBy });
       setWarnings(result.warnings);
-      setSaveOk("Configuración guardada correctamente.");
+      setSaveOk("Cupo actualizado. Las citas existentes se conservaron sin cambios.");
     } catch (err) {
       setSaveError(
         err instanceof AgendaBiometricosSupabaseError

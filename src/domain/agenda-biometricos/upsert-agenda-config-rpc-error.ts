@@ -53,6 +53,18 @@ export function mapUpsertAgendaConfigBiometricosRpcError(error: {
     );
   }
 
+  {
+    const occupiedMatch = raw.match(
+      /No puedes establecer un cupo menor a las (\d+) citas ya reservadas/i,
+    );
+    if (occupiedMatch) {
+      const occupied = occupiedMatch[1];
+      return new AgendaBiometricosSupabaseError(
+        `No puedes establecer un cupo menor a las ${occupied} citas ya reservadas. Capacidad mínima permitida: ${occupied}.`,
+      );
+    }
+  }
+
   if (msg.includes("capacity_per_slot")) {
     return new AgendaBiometricosSupabaseError(
       "El cupo por horario debe ser al menos 1 en cada sede.",
