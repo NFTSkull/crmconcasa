@@ -1,5 +1,9 @@
 # Devlog
 
+## 2026-07-23 - P128 presencia «Abierto ahora por»
+
+Tabla `expediente_mesa_presencia` (unique org+exp+user+session). Touch/close/list RPCs; list filtra `last_seen_at > now()-90s` y dedupe por usuario. FE: sessionStorage session_id, heartbeat 25s en detalle, poll batch 30s en bandeja (solo pestaña visible). No `action_log`, no muta expediente; distinto de Visto/Actualizado (P127).
+
 ## 2026-07-23 - P127 nombres Mesa + Visto/Actualizado por
 
 Auditoría: perfiles canónicos por email exacto (`mesa.interno01|02|03@…`, `mesa4@…`, `mesa5@…`); no tocar `mesa.interno04@…` (ambiguo). Campo `profiles.full_name`. Org Cloud `50beae49-…`.

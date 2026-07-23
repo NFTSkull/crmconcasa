@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Added
+- **feat/p128-mesa-presencia:** badge «Abierto ahora por» en tarjeta/detalle Mesa (presencia por pestaña, heartbeat 25s, TTL 90s, batch list); migración 114.
+
+### Added
 - **feat/p127-mesa-nombres-actividad:** nombres visibles Mesa Interna (Keyla/Jorge/Sara/July/Mirna) en `profiles.full_name`; tarjeta/detalle muestran «Visto por» / «Actualizado por» vía `expediente_mesa_actividad` + JOIN batch en `mesa_list_bandeja_page` (migración 113).
 
 ### Fixed

@@ -1,3 +1,11 @@
+## P128 — Presencia «Abierto ahora por»
+
+- [x] Touch crea/actualiza sesión; heartbeat no duplica; close retira sesión.
+- [x] Dos usuarios; dos pestañas mismo user → un nombre; TTL 90s.
+- [x] No muta expediente / Actualizado por; Visto por (P127) intacto; asesor bloqueado.
+- [x] Batch list sin N+1; badge tarjeta+detalle; poll bandeja 30s si visible.
+- [x] SQL `rpc_mesa_presencia_p128.sql` + migración 114.
+
 ## P127 — Nombres Mesa + Visto/Actualizado por
 
 - [x] Cinco perfiles por email exacto → Keyla/Jorge/Sara/July/Mirna; UID/email/rol/org intactos; no tocar `mesa.interno04`.
