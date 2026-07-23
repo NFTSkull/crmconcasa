@@ -1,5 +1,14 @@
 # ConCasa CRM — Plan de pruebas
 
+## P115 — Pasos visuales Admin + exclusiones por fecha
+
+- [x] Select general `/admin`: 11 pasos; Paso 3 → internas 3+4; sin opción 12.
+- [x] Tarjetas internas 3/4 activan el mismo paso visual 3.
+- [x] Reporte: Todas → 11 explícitos; resumen consultadas vs con resultados.
+- [x] Rango: advertencia ámbar; Quitar rango solo limpia fechas (sin RPC/sin borrar snapshot).
+- [x] Sin SQL/RPC/Cloud; Excel y citas Mesa intactos.
+- [x] Gates TS (lint/typecheck/test/build/diff-check).
+
 ## P114 — Fecha canónica + rango + Limpiar filtros
 
 - [x] Trigger: insert setea fecha; 3→4 conserva; rechazo sin cambio de etapa conserva; mutación directa de columna ignorada; sin backfill.

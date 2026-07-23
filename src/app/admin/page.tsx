@@ -32,8 +32,12 @@ import {
   type AdminMesaTimelineEvent,
 } from "@/domain/admin-production/mesa-seguimiento";
 import {
+  etapaActualesFromAdminPasoFilter,
+  isAdminPasoVisualFilterPressed,
+  labelPasoVisualAdminFilter,
   mesaPageAfterEtapaChange,
-  nextEtapaFilterFromCard,
+  nextPasoVisualFilterFromInternalCard,
+  opcionesFiltroPasoAdminDashboard,
   pagesAfterAsesorChange,
 } from "@/domain/admin-production/admin-ui-filters";
 import type { AdminEtapaBucket, AdminPrecalSummary } from "@/domain/admin-production/repo";
@@ -153,10 +157,12 @@ export default function AdminDashboardPage() {
 
   const filtersBase = useMemo(() => {
     if (!bounds) return null;
+    const etapaActuales = etapaActualesFromAdminPasoFilter(etapaActual);
     return {
       bounds,
       asesorId: asesorId || null,
-      etapaActual: etapaActual === "todas" ? null : Number(etapaActual),
+      etapaActual: etapaActuales?.length === 1 ? etapaActuales[0]! : null,
+      etapaActuales,
       estado,
       buscar: buscar.trim() || null,
       precalDecision,
@@ -346,7 +352,7 @@ export default function AdminDashboardPage() {
   };
 
   const onEtapaCardPress = (etapa: number) => {
-    const next = nextEtapaFilterFromCard(etapaActual, etapa);
+    const next = nextPasoVisualFilterFromInternalCard(etapaActual, etapa);
     setEtapaActual(next);
     setMesaPage(mesaPageAfterEtapaChange());
     if (next !== "todas") {
@@ -406,10 +412,7 @@ export default function AdminDashboardPage() {
     ? `Producción de ${selectedAsesorLabel}`
     : "Producción por asesor";
 
-  const etapaFiltroNombre =
-    etapaFiltroActiva && Number.isFinite(Number(etapaActual))
-      ? getEtapaOperativaNombre(Number(etapaActual))
-      : null;
+  const etapaFiltroNombre = labelPasoVisualAdminFilter(etapaActual);
 
   return (
     <div className="min-h-screen bg-slate-100">
@@ -530,10 +533,7 @@ export default function AdminDashboardPage() {
               }}
               options={[
                 { value: "todas", label: "Todas" },
-                ...Array.from({ length: 12 }, (_, i) => i + 1).map((n) => ({
-                  value: String(n),
-                  label: `${n}. ${getEtapaOperativaNombre(n)}`,
-                })),
+                ...opcionesFiltroPasoAdminDashboard(),
               ]}
             />
             <Select
@@ -652,7 +652,7 @@ export default function AdminDashboardPage() {
               </p>
               <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
                 {byEtapa.map((b) => {
-                  const pressed = etapaActual === String(b.etapa);
+                  const pressed = isAdminPasoVisualFilterPressed(etapaActual, b.etapa);
                   const empty = b.count === 0;
                   return (
                     <button

@@ -14,6 +14,7 @@ import {
   fetchAdminReportAsesoresCatalog,
   fetchAdminReportExpedientesAsesoresEtapas,
   formatAdminReportMetaSummary,
+  adminReportHasFechaRango,
   groupAdminReportResumenByAsesor,
   validateAdminReportFechaRango,
   type AdminReportDetalleRow,
@@ -83,6 +84,7 @@ export function AdminReporteExpedientesSection() {
   );
 
   const consultEnabled = canConsultAdminReport(filtersDraft) && !loading;
+  const rangoActivo = adminReportHasFechaRango(filtersDraft);
 
   useEffect(() => {
     if (optionsLoadedRef.current) return;
@@ -175,6 +177,12 @@ export function AdminReporteExpedientesSection() {
     setExpanded(new Set());
   }, []);
 
+  const handleQuitarRango = useCallback(() => {
+    setFechaDesde("");
+    setFechaHasta("");
+    setError(null);
+  }, []);
+
   const handleToggleExpand = useCallback((key: string) => {
     setExpanded((prev) => {
       const next = new Set(prev);
@@ -226,7 +234,7 @@ export function AdminReporteExpedientesSection() {
             </p>
             {report ? (
               <p className="mt-1 text-xs font-medium text-slate-700">
-                {formatAdminReportMetaSummary(report.meta)}
+                {formatAdminReportMetaSummary(report.meta, consultedFilters)}
               </p>
             ) : null}
           </div>
@@ -390,7 +398,18 @@ export function AdminReporteExpedientesSection() {
               onChange={(e) => setEstado(e.target.value as AdminReportEstado)}
             />
             <div className="space-y-2">
-              <p className="text-sm font-medium text-slate-800">Rango de fechas</p>
+              <div className="flex items-center justify-between gap-2">
+                <p className="text-sm font-medium text-slate-800">Rango de fechas</p>
+                {rangoActivo ? (
+                  <button
+                    type="button"
+                    className="text-xs text-blue-700 underline"
+                    onClick={handleQuitarRango}
+                  >
+                    Quitar rango
+                  </button>
+                ) : null}
+              </div>
               <div className="grid grid-cols-2 gap-2">
                 <Input
                   id="admin-report-fecha-desde"
@@ -410,6 +429,15 @@ export function AdminReporteExpedientesSection() {
               <p className="text-[11px] text-slate-500">
                 Filtra por la fecha en que el expediente entró a su paso actual.
               </p>
+              {rangoActivo ? (
+                <p
+                  role="status"
+                  className="rounded-md border border-amber-200 bg-amber-50 px-2.5 py-2 text-[11px] leading-snug text-amber-950"
+                >
+                  El rango solo incluye expedientes con fecha canónica registrada.
+                  Los expedientes históricos sin esa fecha serán excluidos.
+                </p>
+              ) : null}
             </div>
             <div className="flex flex-col gap-2">
               <Button
@@ -464,7 +492,7 @@ export function AdminReporteExpedientesSection() {
         {!loading && report && report.meta.expedientes > 0 ? (
           <div className="space-y-3">
             <p className="text-sm font-medium text-slate-800">
-              {formatAdminReportMetaSummary(report.meta)}
+              {formatAdminReportMetaSummary(report.meta, consultedFilters)}
             </p>
             <div className="overflow-x-auto rounded-lg border border-slate-200">
               <table className="min-w-full divide-y divide-slate-200 text-sm">

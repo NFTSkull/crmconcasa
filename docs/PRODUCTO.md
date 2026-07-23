@@ -160,6 +160,8 @@ La UI identifica al hijo como **Reingreso / Reinscripción** y **Biométricos re
 
 **P114:** rango opcional Desde/Hasta (fecha canónica de entrada al paso visual, `America/Monterrey`); históricos sin fecha quedan fuera del rango y se reportan; Limpiar filtros; Todos/Todas selección explícita; RPC `…_v2`.
 
+**P115:** el filtro general del dashboard Admin usa los mismos 11 pasos visibles; resumen distingue etapas consultadas vs con resultados; advertencia de exclusión histórica al fijar rango + «Quitar rango».
+
 ### 6.6 Rechazado vs Cancelado (P094 — diseño B0)
 
 Dos resultados operativos distintos; **no** inferir por texto libre ni por movimiento manual.

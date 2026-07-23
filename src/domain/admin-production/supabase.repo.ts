@@ -17,6 +17,7 @@ import type {
   AdminProductionFilters,
   AdminProductionRepo,
 } from "./repo";
+import { resolveAdminEtapaActualesFilter } from "./repo";
 import { adminEstadoRpcParam } from "./admin-estado-filter";
 
 function requireClient() {
@@ -123,14 +124,46 @@ function estadoParam(filters: AdminProductionFilters): string | null {
   return adminEstadoRpcParam(filters.estado);
 }
 
+function sumSummaries(
+  parts: readonly AdminProductionSummary[],
+): AdminProductionSummary {
+  return {
+    enviadosAMesa: parts.reduce((a, p) => a + p.enviadosAMesa, 0),
+    precalificacionesAprobadas: parts.reduce(
+      (a, p) => a + p.precalificacionesAprobadas,
+      0,
+    ),
+    precalificacionesNoCumple: parts.reduce(
+      (a, p) => a + p.precalificacionesNoCumple,
+      0,
+    ),
+    aprobadasMayorA20000: parts.reduce((a, p) => a + p.aprobadasMayorA20000, 0),
+    montoAprobadoTotal: parts.reduce((a, p) => a + p.montoAprobadoTotal, 0),
+  };
+}
+
 export class SupabaseAdminProductionRepo implements AdminProductionRepo {
   async getSummary(filters: AdminProductionFilters): Promise<AdminProductionSummary> {
+    const etapas = resolveAdminEtapaActualesFilter(filters);
+    if (etapas && etapas.length > 1) {
+      const parts = await Promise.all(
+        etapas.map((etapa) =>
+          this.getSummary({
+            ...filters,
+            etapaActual: etapa,
+            etapaActuales: [etapa],
+          }),
+        ),
+      );
+      return sumSummaries(parts);
+    }
+
     const client = requireClient();
     const { data, error } = await client.rpc("admin_get_production_summary", {
       p_from: filters.bounds.fromIso,
       p_to_exclusive: filters.bounds.toExclusiveIso,
       p_asesor_id: filters.asesorId ?? null,
-      p_etapa_actual: filters.etapaActual ?? null,
+      p_etapa_actual: etapas?.[0] ?? filters.etapaActual ?? null,
       p_estado: estadoParam(filters),
     });
     if (error) throw new Error(error.message || "No se pudo cargar el resumen Admin");
@@ -194,6 +227,41 @@ export class SupabaseAdminProductionRepo implements AdminProductionRepo {
   async listMesaEnviosPage(
     filters: AdminProductionFilters,
   ): Promise<AdminPaginated<AdminMesaEnvioEvent>> {
+    const etapas = resolveAdminEtapaActualesFilter(filters);
+    if (etapas && etapas.length > 1) {
+      const byId = new Map<string, AdminMesaEnvioEvent>();
+      let totalCount = 0;
+      for (const etapa of etapas) {
+        let page = 1;
+        const pageSize = 100;
+        for (;;) {
+          const part = await this.listMesaEnviosPage({
+            ...filters,
+            etapaActual: etapa,
+            etapaActuales: [etapa],
+            page,
+            pageSize,
+          });
+          totalCount += part.totalCount;
+          for (const item of part.items) byId.set(item.expedienteId, item);
+          if (page * pageSize >= part.totalCount || part.items.length === 0) break;
+          page += 1;
+        }
+      }
+      const merged = [...byId.values()].sort(
+        (a, b) => Date.parse(b.fechaEnvioMesa) - Date.parse(a.fechaEnvioMesa),
+      );
+      const page = filters.page ?? 1;
+      const pageSize = filters.pageSize ?? 25;
+      const start = Math.max(0, (page - 1) * pageSize);
+      return {
+        items: merged.slice(start, start + pageSize),
+        totalCount,
+        page,
+        pageSize,
+      };
+    }
+
     const client = requireClient();
     const { data, error } = await client.rpc("admin_list_mesa_envios_page", {
       p_from: filters.bounds.fromIso,
@@ -201,7 +269,7 @@ export class SupabaseAdminProductionRepo implements AdminProductionRepo {
       p_page: filters.page ?? 1,
       p_page_size: filters.pageSize ?? 25,
       p_asesor_id: filters.asesorId ?? null,
-      p_etapa_actual: filters.etapaActual ?? null,
+      p_etapa_actual: etapas?.[0] ?? filters.etapaActual ?? null,
       p_estado: estadoParam(filters),
       p_buscar: filters.buscar ?? null,
     });

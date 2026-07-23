@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **fix/admin-pasos-visibles-exclusiones — P115 (local, sin commit/Cloud):** filtro general `/admin` usa 11 pasos visuales (Paso 3 → internas 3+4); resumen del reporte distingue etapas consultadas vs con resultados; advertencia ámbar + «Quitar rango» (solo fechas); RPC/Excel/citas Mesa intactos.
+
 - **feat/admin-reporte-rango-fechas — P114 (local, sin commit/Cloud):** trazabilidad canónica `fecha_entrada_paso_visual_actual` + historial de cruces visuales (migración `099`); RPC `admin_report_expedientes_asesores_etapas_v2` con rango Monterrey (migración `100`); UI Limpiar filtros + fechas; Excel Detalle con fecha; P112 intacta; sin backfill.
 
 - **fix/admin-reporte-colapsable-excel — P113 (local, sin commit/Cloud):** sección «Reporte de expedientes» inicia colapsada (Abrir/Cerrar preserva filtros y última consulta); Excel Admin aplica paleta oficial de citas (`#1F4E79` / `#D6EAF8` / `#6B2D8B` / `#9BB3C9`) sin cambiar datos/hojas/columnas; sin SQL/RPC/deps.

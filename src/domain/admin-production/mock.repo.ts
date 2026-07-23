@@ -18,6 +18,7 @@ import type {
   AdminProductionFilters,
   AdminProductionRepo,
 } from "./repo";
+import { matchesAdminEtapaActualFilter } from "./repo";
 import { matchesAdminEstadoFilter } from "./admin-estado-filter";
 
 function mapMesa(e: ExpedienteMock): AdminMesaEnvioEvent | null {
@@ -154,7 +155,7 @@ export class MockAdminProductionRepo implements AdminProductionRepo {
       .filter((r): r is AdminMesaEnvioEvent => r != null)
       .filter((r) => isInstantInPeriod(r.fechaEnvioMesa, filters.bounds))
       .filter((r) => !filters.asesorId || r.asesorId === filters.asesorId)
-      .filter((r) => filters.etapaActual == null || r.etapaActual === filters.etapaActual)
+      .filter((r) => matchesAdminEtapaActualFilter(r.etapaActual, filters))
       .filter((r) =>
         matchesAdminEstadoFilter(
           {
@@ -207,10 +208,11 @@ export class MockAdminProductionRepo implements AdminProductionRepo {
     const all = await this.loadAll();
     return computeAdminProductionSummary({
       bounds: filters.bounds,
-      mesaEnvios: this.filterMesa(all, { ...filters, etapaActual: filters.etapaActual }),
+      mesaEnvios: this.filterMesa(all, filters),
       precalRows: all.map(mapPrecal),
       asesorId: filters.asesorId,
-      etapaActual: filters.etapaActual,
+      // Ya filtrado en mesaEnvios (soporta Paso 3 → [3,4]).
+      etapaActual: null,
     });
   }
 
@@ -218,6 +220,7 @@ export class MockAdminProductionRepo implements AdminProductionRepo {
     const rows = this.filterMesa(await this.loadAll(), {
       ...filters,
       etapaActual: null,
+      etapaActuales: null,
     });
     const byEtapa = groupMesaEnviosByEtapaActual(rows);
     return { total: rows.length, byEtapa };
@@ -225,7 +228,11 @@ export class MockAdminProductionRepo implements AdminProductionRepo {
 
   async listByAsesor(filters: AdminProductionFilters) {
     const all = await this.loadAll();
-    const mesa = this.filterMesa(all, { ...filters, etapaActual: null });
+    const mesa = this.filterMesa(all, {
+      ...filters,
+      etapaActual: null,
+      etapaActuales: null,
+    });
     const precal = all
       .map(mapPrecal)
       .filter((r) => !filters.asesorId || r.asesorId === filters.asesorId);

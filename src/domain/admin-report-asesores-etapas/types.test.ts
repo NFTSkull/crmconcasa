@@ -1,8 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  adminReportHasFechaRango,
   adminReportResponseSchema,
-  asesoresCatalogFromReport,
+  ADMIN_REPORT_ALL_PASO_VALUES,
   buildAdminReportRpcPayload,
   canConsultAdminReport,
   detalleForResumenRow,
@@ -152,12 +153,32 @@ describe("admin-report-asesores-etapas — agrupación UI", () => {
     assert.equal(dets[0]?.nss, "01234567890");
   });
 
-  it("meta con excluidos por fecha", () => {
-    assert.match(
-      formatAdminReportMetaSummary(sampleReport.meta),
-      /sin fecha histórica excluidos/,
+  it("meta distingue etapas consultadas y con resultados", () => {
+    const summary = formatAdminReportMetaSummary(sampleReport.meta, {
+      asesorIds: [ASESOR_A, ASESOR_B, "33333333-3333-4333-8333-333333333333"],
+      pasosVisuales: [3, 6, 11],
+    });
+    assert.match(summary, /3 asesores seleccionados/);
+    assert.match(summary, /3 etapas consultadas/);
+    assert.match(summary, /2 etapas con resultados/);
+    assert.match(summary, /4 expedientes/);
+    assert.match(summary, /1 sin fecha histórica excluidos/);
+  });
+
+  it("rango activo se detecta sin tocar snapshot", () => {
+    assert.equal(
+      adminReportHasFechaRango({ fechaDesde: null, fechaHasta: null }),
+      false,
     );
-    assert.equal(asesoresCatalogFromReport(sampleReport).length, 2);
+    assert.equal(
+      adminReportHasFechaRango({ fechaDesde: "2026-07-01", fechaHasta: null }),
+      true,
+    );
+  });
+
+  it("Todas selecciona 11 pasos explícitos", () => {
+    assert.equal(ADMIN_REPORT_ALL_PASO_VALUES.length, 11);
+    assert.deepEqual([...ADMIN_REPORT_ALL_PASO_VALUES], [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
   });
 
   it("Zod acepta payload v2", () => {

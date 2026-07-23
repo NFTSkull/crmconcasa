@@ -727,6 +727,8 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 
 **Fechas:** calendario `America/Monterrey`; rango inclusivo; desde>hasta → error. Sin rango incluye históricos `NULL`. Con rango los excluye y reporta `meta.sin_fecha_canonica` / `meta.excluidos_por_fecha_desconocida`. Detalle incluye `fecha_entrada_paso_actual` (`YYYY-MM-DD`|null).
 
+**P115 (solo UI):** filtro general Admin traduce paso visual→internas (Paso 3→`[3,4]`) sin cambiar RPC; resumen UI distingue etapas consultadas vs `meta.pasos` (con resultados); advertencia de rango + «Quitar rango».
+
 ### P085 — filtro global por asesor
 
 - Todas las consultas Admin aceptan el mismo `asesor_id` UUID estable (nunca nombre/email).
