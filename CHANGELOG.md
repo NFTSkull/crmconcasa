@@ -2,6 +2,8 @@
 
 ## Unreleased
 
+- **fix/admin-reporte-colapsable-excel — P113 (local, sin commit/Cloud):** sección «Reporte de expedientes» inicia colapsada (Abrir/Cerrar preserva filtros y última consulta); Excel Admin aplica paleta oficial de citas (`#1F4E79` / `#D6EAF8` / `#6B2D8B` / `#9BB3C9`) sin cambiar datos/hojas/columnas; sin SQL/RPC/deps.
+
 - **feat/admin-reporte-asesores-etapas — P112 (local, sin commit/Cloud):** RPC read-only `admin_report_expedientes_asesores_etapas` (migración `098_…sql`) + sección `/admin` «Reporte de expedientes» (filtros multi-asesor/pasos 1–11/estado, consultar, tabla expandible, Excel); fotografía vigente (activos+rechazados); sin rango de fechas ni `action_log`.
 
 - **fix/mesa-citas-excel-admin — P111:** gate explícito `canDownloadMesaCitasExcel` (mock+sesión) para que `mesa_admin`/`super_admin` y roles Mesa actuales descarguen el mismo Excel; asesor excluido; sin SQL/RPC/Cloud.
