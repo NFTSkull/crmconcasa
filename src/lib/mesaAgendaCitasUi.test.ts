@@ -153,12 +153,48 @@ describe("mesaAgendaCitasUi rango", () => {
     assert.deepEqual(range, { startDate: "2026-07-21", endDate: "2026-07-21" });
   });
 
+  it("P120: lista admite rango libre 01/07 → 23/07 sin colapsar a un día", () => {
+    const range = resolveMesaAgendaFetchRange({
+      viewMode: "lista",
+      listaStartDate: "2026-07-01",
+      listaEndDate: "2026-07-23",
+      selectedDay: "2026-07-15",
+      weekAnchor: "2026-07-15",
+    });
+    assert.deepEqual(range, {
+      startDate: "2026-07-01",
+      endDate: "2026-07-23",
+    });
+  });
+
+  it("P120: día y semana no usan el rango libre de lista", () => {
+    const dia = resolveMesaAgendaFetchRange({
+      viewMode: "dia",
+      listaStartDate: "2026-07-01",
+      listaEndDate: "2026-07-23",
+      selectedDay: "2026-07-10",
+      weekAnchor: "2026-07-10",
+    });
+    assert.deepEqual(dia, { startDate: "2026-07-10", endDate: "2026-07-10" });
+  });
+
   it("rango nunca excede 62 días", () => {
     const invalid = validateMesaAgendaDateRange("2026-07-01", "2026-09-15");
     assert.equal(invalid.ok, false);
     const valid = validateMesaAgendaDateRange("2026-07-01", "2026-08-01");
     assert.equal(valid.ok, true);
     assert.equal(MESA_AGENDA_MAX_RANGE_DAYS, 62);
+  });
+
+  it("P120: inicial > final bloquea sin intercambiar fechas", () => {
+    const invalid = validateMesaAgendaDateRange("2026-07-23", "2026-07-01");
+    assert.equal(invalid.ok, false);
+    assert.match(invalid.message ?? "", /inicial.*final|posterior/i);
+  });
+
+  it("P120: fechas vacías bloquean", () => {
+    const invalid = validateMesaAgendaDateRange("", "2026-07-01");
+    assert.equal(invalid.ok, false);
   });
 });
 

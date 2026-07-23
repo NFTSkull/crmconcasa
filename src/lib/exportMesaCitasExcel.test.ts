@@ -214,6 +214,17 @@ describe("exportMesaCitasExcel — UI helpers B3", () => {
     );
   });
 
+  it("P120: collect/filename soportan rango inclusivo consultado", () => {
+    assert.equal(
+      buildMesaCitasExportFilename("2026-07-01", "2026-07-23"),
+      "citas-mesa-2026-07-01_2026-07-23.xlsx",
+    );
+    assert.equal(
+      buildMesaCitasExportFilename("2026-07-01", "2026-07-01"),
+      "citas-mesa-2026-07-01.xlsx",
+    );
+  });
+
   it("mensajes de usuario para empty/success", () => {
     assert.equal(
       mapMesaCitasExportUserMessage({ ok: false, reason: "empty" }),

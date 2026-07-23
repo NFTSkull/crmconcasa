@@ -198,6 +198,13 @@
 - [x] Apertura vista `lista` con from=to=selectedDay=hoy; sin mes completo.
 - [x] Cambio de fecha sincroniza from/to/selectedDay; conserva filtros; limpia selección.
 
+### P120 (rango libre Lista — local)
+
+- [x] `Fecha inicial`/`Fecha final` independientes; editar no consulta ni colapsa a un día.
+- [x] «Actualizar citas» envía `p_start_date`/`p_end_date`; inválido bloquea sin auto-corregir.
+- [x] «Hoy» consulta solo hoy Monterrey; Día/Semana intactos; volver a Lista conserva rango.
+- [x] Excel usa rango consultado; sin SQL/Cloud.
+
 ### B2 (Excel util — local, sin UI)
 
 - [x] `exportMesaCitasExcel`: `citas-mesa-YYYY-MM-DD.xlsx` / hoja `Citas` / Fecha|NSS|Nombre.

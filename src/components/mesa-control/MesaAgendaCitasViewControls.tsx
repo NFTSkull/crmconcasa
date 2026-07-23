@@ -21,6 +21,10 @@ type MesaAgendaCitasViewControlsProps = Readonly<{
   selectedDay: string;
   weekDays: readonly string[];
   loading: boolean;
+  /** Error de rango Lista (inicial > final, vacío, >62 días). */
+  rangeError?: string | null;
+  /** Si false, deshabilita «Actualizar citas» sin mutar fechas. */
+  canRefreshLista?: boolean;
   onViewModeChange: (mode: MesaAgendaCitasViewMode) => void;
   onStartDateChange: (value: string) => void;
   onEndDateChange: (value: string) => void;
@@ -56,6 +60,8 @@ export function MesaAgendaCitasViewControls({
   selectedDay,
   weekDays,
   loading,
+  rangeError = null,
+  canRefreshLista = true,
   onViewModeChange,
   onStartDateChange,
   onEndDateChange,
@@ -66,6 +72,7 @@ export function MesaAgendaCitasViewControls({
   onRefresh,
 }: MesaAgendaCitasViewControlsProps) {
   const today = todayMesaAgendaYmd();
+  const refreshDisabled = loading || !canRefreshLista;
 
   return (
     <section className="space-y-3 rounded-xl border border-slate-200/90 bg-white p-4 shadow-sm">
@@ -118,7 +125,7 @@ export function MesaAgendaCitasViewControls({
             <NavButton label="Hoy" disabled={loading} onClick={onGoToday} />
             <button
               type="button"
-              disabled={loading}
+              disabled={refreshDisabled}
               onClick={onRefresh}
               aria-label="Actualizar citas"
               className="inline-flex h-[42px] w-full items-center justify-center rounded-lg border border-slate-300 bg-white px-3 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 sm:w-auto"
@@ -126,13 +133,25 @@ export function MesaAgendaCitasViewControls({
               {loading ? "Actualizando…" : "Actualizar citas"}
             </button>
           </div>
-          {startDate === endDate && startDate === today ? (
+          {rangeError ? (
+            <p
+              className="text-xs font-medium text-red-700 sm:col-span-2 lg:col-span-4"
+              role="alert"
+              data-testid="mesa-citas-range-error"
+            >
+              {rangeError}
+            </p>
+          ) : startDate === endDate && startDate === today ? (
             <p className="text-xs text-slate-500 sm:col-span-2 lg:col-span-4">
               Mostrando citas de hoy (America/Monterrey).
             </p>
           ) : startDate === endDate ? (
             <p className="text-xs text-slate-500 sm:col-span-2 lg:col-span-4">
               Consulta de un solo día: {startDate}.
+            </p>
+          ) : startDate && endDate ? (
+            <p className="text-xs text-slate-500 sm:col-span-2 lg:col-span-4">
+              Rango libre: {startDate} → {endDate}. Pulsa «Actualizar citas» para consultar.
             </p>
           ) : null}
         </div>

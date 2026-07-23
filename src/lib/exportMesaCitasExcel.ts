@@ -76,16 +76,26 @@ export function formatMesaCitasExcelSubtitleDate(fechaYmd: string): string {
   return formatMesaCitasExcelVisibleDate(fechaYmd);
 }
 
-export function buildMesaCitasExportFilename(fechaYmd: string): string {
+export function buildMesaCitasExportFilename(
+  fechaYmd: string,
+  endYmd?: string | null,
+): string {
   const day = fechaYmd.trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) {
     throw new Error("fechaYmd debe ser YYYY-MM-DD");
+  }
+  const end = String(endYmd ?? "").trim();
+  if (end && end !== day) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(end)) {
+      throw new Error("endYmd debe ser YYYY-MM-DD");
+    }
+    return `citas-mesa-${day}_${end}.xlsx`;
   }
   return `citas-mesa-${day}.xlsx`;
 }
 
 /**
- * Filas del día seleccionado + filtros activos (in-memory).
+ * Filas del día o rango consultado + filtros activos (in-memory).
  * Independiente de selección P089 y del límite 100.
  * Orden: el sort activo (por defecto hora de cita).
  */
@@ -94,6 +104,7 @@ export function collectMesaCitasForExport(
   fechaYmd: string,
   filters: MesaAgendaCitasClientFilters = defaultMesaAgendaClientFilters(),
   sortBy: MesaAgendaCitasSortOption = MESA_AGENDA_DEFAULT_SORT,
+  endYmd?: string | null,
 ): MesaAgendaBookingEntry[] {
   const byKindAndStatus = entries.filter((entry) => {
     if (filters.kindUi !== "all" && entry.kind !== filters.kindUi) return false;
@@ -105,7 +116,14 @@ export function collectMesaCitasForExport(
     filters,
     sortBy,
   );
-  return filterMesaAgendaEntriesForDay(filtered, fechaYmd.trim());
+  const start = fechaYmd.trim();
+  const end = String(endYmd ?? "").trim();
+  if (end && end !== start) {
+    return filtered.filter(
+      (entry) => entry.bookingDate >= start && entry.bookingDate <= end,
+    );
+  }
+  return filterMesaAgendaEntriesForDay(filtered, start);
 }
 
 export function mapMesaCitaToExcelRow(
@@ -474,13 +492,24 @@ export async function prepareMesaCitasExport(
   filters: MesaAgendaCitasClientFilters = defaultMesaAgendaClientFilters(),
   sortBy: MesaAgendaCitasSortOption = MESA_AGENDA_DEFAULT_SORT,
   templateBuffer?: ArrayBuffer,
+  endYmd?: string | null,
 ): Promise<PrepareMesaCitasExportResult> {
   const day = fechaYmd.trim();
   if (!/^\d{4}-\d{2}-\d{2}$/.test(day)) {
     return { ok: false, reason: "invalid_date" };
   }
+  const end = String(endYmd ?? "").trim();
+  if (end && end !== day && !/^\d{4}-\d{2}-\d{2}$/.test(end)) {
+    return { ok: false, reason: "invalid_date" };
+  }
 
-  const dayEntries = collectMesaCitasForExport(entries, day, filters, sortBy);
+  const dayEntries = collectMesaCitasForExport(
+    entries,
+    day,
+    filters,
+    sortBy,
+    end || null,
+  );
   if (dayEntries.length === 0) {
     return { ok: false, reason: "empty" };
   }
@@ -489,7 +518,7 @@ export async function prepareMesaCitasExport(
   const exportRows = blocks.flatMap((b) => [...b.rows]);
   const buffer = templateBuffer ?? (await loadMesaCitasTemplateBuffer());
   const workbook = await buildMesaCitasWorkbook(blocks, day, buffer);
-  const filename = buildMesaCitasExportFilename(day);
+  const filename = buildMesaCitasExportFilename(day, end || null);
 
   return {
     ok: true,
@@ -501,12 +530,13 @@ export async function prepareMesaCitasExport(
   };
 }
 
-/** Día operativo a exportar según la vista activa (independiente de selección P089). */
+/** Día/inicio operativo a exportar según la vista activa (independiente de selección P089). */
 export function resolveMesaCitasExportDayYmd(params: Readonly<{
   viewMode: "lista" | "dia" | "semana";
   selectedDay: string;
   weekDetailDay: string | null;
   listaStartDate: string;
+  listaEndDate?: string;
 }>): string {
   if (params.viewMode === "semana") {
     return (params.weekDetailDay ?? params.selectedDay).trim();
@@ -534,12 +564,15 @@ export async function downloadMesaCitasExcel(
   fechaYmd: string,
   filters: MesaAgendaCitasClientFilters = defaultMesaAgendaClientFilters(),
   sortBy: MesaAgendaCitasSortOption = MESA_AGENDA_DEFAULT_SORT,
+  endYmd?: string | null,
 ): Promise<PrepareMesaCitasExportResult> {
   const prepared = await prepareMesaCitasExport(
     entries,
     fechaYmd,
     filters,
     sortBy,
+    undefined,
+    endYmd,
   );
   if (!prepared.ok) return prepared;
 

@@ -2,8 +2,13 @@
 
 ## [Unreleased]
 
+### Fixed
+- **fix/p120-mesa-citas-rango:** Lista permite rango libre (`Fecha inicial`/`Fecha final` independientes); consulta solo con «Actualizar citas»; sin forzar un día al editar o volver a Lista.
+
 ### Added
 - **fix/p119.4-firmado-pago-concasa:** acción rápida canónica Firmado→Pago a ConCasa (`11→12`) vía `avanzar_etapa_operativa` (migración 108); UI tarjeta+detalle «Pasar a Pago a ConCasa»; etapa 12 «Etapa final».
+
+## Unreleased
 - **fix/p119.3-acciones-por-etapa:** matriz completa en tarjeta Mesa (3 Agendar bio, 8 Acuse sin bypass, 9 Agendar firma, 10 Pasar a Firmado, 12 Etapa final; 11 sin RPC 11→12).
 - **test/p119.2-concurrencia-cupos:** SQL focal `rpc_agenda_slot_capacity_concurrency_p1192.sql` (dblink + barrera ACCESS EXCLUSIVE/SHARE) prueba 2×`book_biometricos` sobre cupo=1 → 1 OK + 1 `cupo agotado`, cancel/reagenda canónicos; UI refresca disponibilidad tras error de cupo (bio/firmas).
 - **fix/p119.1-auditoria:** oculta avance rápido 3→5 y 9→10; notificación persiste sede `monterrey|apodaca` (migración 107); históricos `notificacion`/NULL → Sin sede.
