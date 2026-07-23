@@ -188,13 +188,35 @@ export function detalleForResumenRow(
   );
 }
 
-export function formatAdminReportMetaSummary(meta: AdminReportMeta): string {
-  let base = `${meta.asesores} asesor${meta.asesores === 1 ? "" : "es"} · ${meta.pasos} etapa${meta.pasos === 1 ? "" : "s"} · ${meta.expedientes} expediente${meta.expedientes === 1 ? "" : "s"}`;
+export function formatAdminReportMetaSummary(
+  meta: AdminReportMeta,
+  consulted?: Pick<AdminReportFilters, "asesorIds" | "pasosVisuales"> | null,
+): string {
+  const asesoresSel = consulted?.asesorIds.length ?? meta.asesores;
+  const etapasConsultadas = consulted?.pasosVisuales.length ?? meta.pasos;
+  const etapasConResultados = meta.pasos;
+  const n = (count: number, one: string, many: string) =>
+    `${count} ${count === 1 ? one : many}`;
+
+  let base = [
+    n(asesoresSel, "asesor seleccionado", "asesores seleccionados"),
+    n(etapasConsultadas, "etapa consultada", "etapas consultadas"),
+    n(etapasConResultados, "etapa con resultados", "etapas con resultados"),
+    n(meta.expedientes, "expediente", "expedientes"),
+  ].join(" · ");
+
   const excluidos = meta.excluidos_por_fecha_desconocida ?? 0;
   if (excluidos > 0) {
     base += ` · ${excluidos} sin fecha histórica excluidos`;
   }
   return base;
+}
+
+export function adminReportHasFechaRango(filters: {
+  fechaDesde: string | null;
+  fechaHasta: string | null;
+}): boolean {
+  return Boolean(filters.fechaDesde?.trim() || filters.fechaHasta?.trim());
 }
 
 export function asesoresCatalogFromReport(

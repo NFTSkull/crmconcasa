@@ -1,5 +1,13 @@
 # Devlog
 
+## 2026-07-23 - P115: unificar pasos Admin + aclarar exclusiones
+
+### Decisión
+El select general de `/admin` listaba 12 etapas internas y confundía con el reporte (11 pasos). Se reutiliza el helper oficial de pasos visuales; Paso 3 traduce a internas `[3,4]` sin cambiar RPCs de métricas.
+
+### UI reporte
+Resumen: `N asesores seleccionados · M etapas consultadas · K etapas con resultados · E expedientes` (+ excluidos históricos si aplica). Advertencia ámbar al activar rango; «Quitar rango» limpia solo fechas sin RPC ni borrar snapshot.
+
 ## 2026-07-23 - P114: fecha canónica de paso + rango + limpiar filtros
 
 ### Decisión

@@ -20,13 +20,36 @@ export type AdminPrecalDecisionFilter =
 export type AdminProductionFilters = Readonly<{
   bounds: AdminPeriodBounds;
   asesorId?: string | null;
+  /** Una etapa interna (compat). Preferir `etapaActuales` cuando el paso visual agrupa varias. */
   etapaActual?: number | null;
+  /** Internas del paso visual seleccionado (P115: Paso 3 → [3,4]). */
+  etapaActuales?: readonly number[] | null;
   estado?: AdminEstadoFilter | null;
   buscar?: string | null;
   precalDecision?: AdminPrecalDecisionFilter | null;
   page?: number;
   pageSize?: number;
 }>;
+
+/** Resuelve el filtro de etapa para mock/repos (sin cambiar firmas RPC). */
+export function resolveAdminEtapaActualesFilter(
+  filters: Pick<AdminProductionFilters, "etapaActual" | "etapaActuales">,
+): number[] | null {
+  if (filters.etapaActuales != null && filters.etapaActuales.length > 0) {
+    return [...filters.etapaActuales];
+  }
+  if (filters.etapaActual != null) return [filters.etapaActual];
+  return null;
+}
+
+export function matchesAdminEtapaActualFilter(
+  etapaActual: number,
+  filters: Pick<AdminProductionFilters, "etapaActual" | "etapaActuales">,
+): boolean {
+  const list = resolveAdminEtapaActualesFilter(filters);
+  if (list == null) return true;
+  return list.includes(etapaActual);
+}
 
 export type AdminAsesorProductionRow = Readonly<{
   asesorId: string;
