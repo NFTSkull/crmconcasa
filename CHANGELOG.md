@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Fixed
+- **fix/p126-agenda-cupo-cero-sede:** `capacity_by_time` acepta `0` como cierre por sede/horario (distinto de vacío); sin fallback; citas existentes se conservan.
+
+### Fixed
 - **fix/p125-agenda-capacity-update-safety:** editar cupos no mueve/cancela/duplica citas; reduce solo si ≥ ocupados; locks compartidos con booking; mensaje canónico + UX Mesa.
 
 ### Changed

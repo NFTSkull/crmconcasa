@@ -1,5 +1,9 @@
 # Devlog
 
+## 2026-07-23 - P126 cupo 0 por sede/horario
+
+`capacity_by_time[hora]=0` es cierre explícito (no fallback a `capacity_per_slot`); sin clave / vacío sigue siendo error al guardar. Migración 112: validate ≥0, helper retorna 0, asserts bloquean nuevas reservas, avisos si hay bookings. Excepciones por fecha intactas (siguen >0). UX: min 0, helper y badge «No disponible».
+
 ## 2026-07-23 - P125 actualización segura de cupos
 
 Huecos vs P124: `upsert_agenda_slot_capacity` contaba ocupados sin advisory lock compartido con booking; `upsert_agenda_config_*` solo advertía (warnings) al bajar `capacity_by_time` bajo ocupados futuros. Migración 111: locks `org+kind+sede+hora` (+ slot fecha), bloqueo recurrente con max ocupados futuros, mensaje canónico, sin mutar bookings. UX: éxito «citas conservadas» + helper; error con N/mínimo sin recargar página.

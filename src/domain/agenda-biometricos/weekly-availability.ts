@@ -32,20 +32,36 @@ function resolveSlotCapacity(
   time: HhmmTime,
   overrides?: SlotCapacityOverrides | null,
 ): { capacity: number; skip: boolean; forceFull: boolean } {
+  // P126: 0 = cierre explícito (no ofrecer); no convertir con || ni Math.max(1,…)
+  const normalizedBase =
+    typeof baseCapacity === "number" && Number.isFinite(baseCapacity)
+      ? Math.max(0, Math.trunc(baseCapacity))
+      : 1;
+
   if (!overrides) {
-    return { capacity: Math.max(1, Math.trunc(baseCapacity || 1)), skip: false, forceFull: false };
+    if (normalizedBase < 1) {
+      return { capacity: 0, skip: true, forceFull: false };
+    }
+    return { capacity: normalizedBase, skip: false, forceFull: false };
   }
   if (overrides.inactiveTimes?.has(time)) {
     if (overrides.hideInactive !== false) {
       return { capacity: 0, skip: true, forceFull: false };
     }
-    return { capacity: Math.max(1, Math.trunc(baseCapacity || 1)), skip: false, forceFull: true };
+    return {
+      capacity: Math.max(1, normalizedBase || 1),
+      skip: false,
+      forceFull: true,
+    };
   }
   const override = overrides.capacityByTime?.[time];
   if (typeof override === "number" && Number.isFinite(override) && override > 0) {
     return { capacity: Math.max(1, Math.trunc(override)), skip: false, forceFull: false };
   }
-  return { capacity: Math.max(1, Math.trunc(baseCapacity || 1)), skip: false, forceFull: false };
+  if (normalizedBase < 1) {
+    return { capacity: 0, skip: true, forceFull: false };
+  }
+  return { capacity: normalizedBase, skip: false, forceFull: false };
 }
 
 function parseYmd(dateYmd: YmdDate): { y: number; mo: number; d: number } {

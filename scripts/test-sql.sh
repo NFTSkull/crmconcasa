@@ -96,5 +96,6 @@ run_sql_test "supabase/tests/rpc_agenda_slot_capacities.sql"
 run_sql_test "supabase/tests/rpc_agenda_capacity_by_time_p123.sql"
 run_sql_test "supabase/tests/rpc_agenda_explicit_hourly_p124.sql"
 run_sql_test "supabase/tests/rpc_agenda_capacity_update_safety_p125.sql"
+run_sql_test "supabase/tests/rpc_agenda_allow_zero_recurring_capacity_p126.sql"
 
 echo "SQL tests: ALL PASSED"

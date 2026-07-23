@@ -76,4 +76,23 @@ describe("missingExplicitSlotCapacities P124", () => {
     });
     assert.equal(msg, null);
   });
+
+  it("P126: acepta cupo 0 (cerrado) y rechaza vacío", () => {
+    assert.equal(
+      missingExplicitSlotCapacities(["08:30"], {
+        monterrey: { enabled: true, capacityPerSlot: 5, capacityByTime: { "08:30": 5 } },
+        apodaca: { enabled: true, capacityPerSlot: 5, capacityByTime: { "08:30": 0 } },
+      }),
+      null,
+    );
+    assert.match(
+      String(
+        missingExplicitSlotCapacities(["08:30"], {
+          monterrey: { enabled: true, capacityPerSlot: 5, capacityByTime: { "08:30": 5 } },
+          apodaca: { enabled: true, capacityPerSlot: 5, capacityByTime: {} },
+        }),
+      ),
+      /Apodaca/,
+    );
+  });
 });

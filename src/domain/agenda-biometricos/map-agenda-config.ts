@@ -96,7 +96,7 @@ function parseNumberArray(value: unknown): number[] {
   return [...new Set(out)].sort((a, b) => a - b);
 }
 
-/** Parsea `capacity_by_time` JSON → mapa HH:MM → entero ≥1. */
+/** Parsea `capacity_by_time` JSON → mapa HH:MM → entero ≥0 (0 = cerrado). */
 export function parseCapacityByTime(raw: unknown): Record<string, number> | undefined {
   if (!isRecord(raw)) return undefined;
   const out: Record<string, number> = {};
@@ -104,23 +104,29 @@ export function parseCapacityByTime(raw: unknown): Record<string, number> | unde
     const time = parseHhmm(key);
     if (!time) continue;
     const n = Math.trunc(Number(value));
-    if (!Number.isFinite(n) || n < 1) continue;
+    if (!Number.isFinite(n) || n < 0) continue;
     out[time] = n;
   }
   return Object.keys(out).length ? out : undefined;
 }
 
 /**
- * Cupo explícito por hora (P124). Sin fallback a capacity_per_slot.
- * @returns entero ≥1 o null si no hay cupo configurado.
+ * Cupo explícito por hora (P124/P126). Sin fallback a capacity_per_slot.
+ * @returns entero ≥0 (0 = cerrado) o null si no hay clave configurada.
  */
 export function resolveExplicitSlotCapacity(
   time: string,
   capacityByTime?: Readonly<Record<string, number>> | null,
 ): number | null {
   const normalized = parseHhmm(time) ?? String(time).trim();
-  const specific = capacityByTime?.[normalized];
-  if (typeof specific === "number" && Number.isFinite(specific) && specific >= 1) {
+  if (
+    !capacityByTime ||
+    !Object.prototype.hasOwnProperty.call(capacityByTime, normalized)
+  ) {
+    return null;
+  }
+  const specific = capacityByTime[normalized];
+  if (typeof specific === "number" && Number.isFinite(specific) && specific >= 0) {
     return Math.trunc(specific);
   }
   return null;

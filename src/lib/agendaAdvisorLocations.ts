@@ -79,8 +79,13 @@ export function buildAdvisorSedeOptions(
       if (loc.capacityByTime) {
         for (const [time, value] of Object.entries(loc.capacityByTime)) {
           const n = Math.trunc(Number(value));
-          if (!Number.isFinite(n) || n < 1) continue;
-          bucket.capacityByTime[time] = Math.max(bucket.capacityByTime[time] ?? 0, n);
+          // P126: conservar 0 (cierre); no usar truthy/fallback
+          if (!Number.isFinite(n) || n < 0) continue;
+          if (Object.prototype.hasOwnProperty.call(bucket.capacityByTime, time)) {
+            bucket.capacityByTime[time] = Math.max(bucket.capacityByTime[time], n);
+          } else {
+            bucket.capacityByTime[time] = n;
+          }
         }
       }
     }

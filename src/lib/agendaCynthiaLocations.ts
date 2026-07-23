@@ -51,7 +51,8 @@ function normalizeCapacityByTime(
     const t = key.trim();
     if (!/^\d{2}:\d{2}$/.test(t)) continue;
     const n = Math.trunc(Number(value));
-    if (!Number.isFinite(n) || n < 1) continue;
+    // P126: 0 = cerrado explícito; negativo se descarta
+    if (!Number.isFinite(n) || n < 0) continue;
     out[t] = n;
   }
   return out;
@@ -142,17 +143,21 @@ export function cynthiaFormToWeeklyLocations(
 
 /**
  * Cupo mostrado/editable para un horario. Vacío si aún no hay valor explícito.
+ * P126: 0 es valor válido (cerrado), distinto de vacío.
  */
 export function resolveSedeSlotCapacityDraft(
   sede: CynthiaSedeFormState,
   slot: string,
 ): number | "" {
+  if (!Object.prototype.hasOwnProperty.call(sede.capacityByTime, slot)) return "";
   const specific = sede.capacityByTime[slot];
-  if (typeof specific === "number" && specific >= 1) return Math.trunc(specific);
+  if (typeof specific === "number" && Number.isFinite(specific) && specific >= 0) {
+    return Math.trunc(specific);
+  }
   return "";
 }
 
-/** Valida que cada horario tenga cupo ≥1 en cada sede activa. */
+/** Valida que cada horario tenga cupo ≥0 (explícito) en cada sede activa. Vacío = error. */
 export function missingExplicitSlotCapacities(
   slots: readonly string[],
   sedes: Record<CynthiaSedeId, CynthiaSedeFormState>,
@@ -164,8 +169,11 @@ export function missingExplicitSlotCapacities(
   for (const slot of slots) {
     for (const id of [CYNTHIA_SEDE_MONTERREY_ID, CYNTHIA_SEDE_APODACA_ID] as const) {
       if (!sedes[id].enabled) continue;
+      if (!Object.prototype.hasOwnProperty.call(sedes[id].capacityByTime, slot)) {
+        return `Falta cupo para ${slot} en ${labels[id]}.`;
+      }
       const n = sedes[id].capacityByTime[slot];
-      if (typeof n !== "number" || !Number.isFinite(n) || n < 1) {
+      if (typeof n !== "number" || !Number.isFinite(n) || n < 0) {
         return `Falta cupo para ${slot} en ${labels[id]}.`;
       }
     }
