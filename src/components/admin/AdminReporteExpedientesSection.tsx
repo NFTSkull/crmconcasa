@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
@@ -46,6 +46,9 @@ function rowKey(row: AdminReportResumenRow): string {
 }
 
 export function AdminReporteExpedientesSection() {
+  const panelId = useId();
+  const [panelOpen, setPanelOpen] = useState(false);
+
   const [asesorOptions, setAsesorOptions] = useState<readonly AsesorOption[]>([]);
   const [asesorSearch, setAsesorSearch] = useState("");
   const [selectedAsesorIds, setSelectedAsesorIds] = useState<readonly string[]>([]);
@@ -153,16 +156,18 @@ export function AdminReporteExpedientesSection() {
     if (!report || !consultedFilters || exportBusyRef.current) return;
     exportBusyRef.current = true;
     setExporting(true);
-    try {
-      const wb = buildAdminReportExpedientesWorkbook(report);
-      const filename = buildAdminReportExpedientesFilename(todayYmdLocal());
-      downloadAdminReportExpedientesWorkbook(wb, filename);
-    } catch {
-      setError("No se pudo generar el Excel del reporte.");
-    } finally {
-      exportBusyRef.current = false;
-      setExporting(false);
-    }
+    void (async () => {
+      try {
+        const wb = buildAdminReportExpedientesWorkbook(report);
+        const filename = buildAdminReportExpedientesFilename(todayYmdLocal());
+        await downloadAdminReportExpedientesWorkbook(wb, filename);
+      } catch {
+        setError("No se pudo generar el Excel del reporte.");
+      } finally {
+        exportBusyRef.current = false;
+        setExporting(false);
+      }
+    })();
   }, [report, consultedFilters]);
 
   const detalleOf = useCallback(
@@ -174,206 +179,264 @@ export function AdminReporteExpedientesSection() {
   return (
     <section
       id="admin-reporte-expedientes"
-      className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm"
+      className={`rounded-xl border border-slate-200 bg-white shadow-sm ${
+        panelOpen ? "p-4" : "px-4 py-3"
+      }`}
     >
-      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h2 className="text-base font-semibold text-slate-900">
-            Reporte de expedientes
-          </h2>
-          <p className="mt-1 text-xs text-slate-500">
-            Fotografía actual por asesor y paso visible (11). Solo Super Admin.
-          </p>
-        </div>
-        <Button
-          type="button"
-          variant="outline"
-          disabled={!report || exporting || loading}
-          onClick={handleDownload}
-        >
-          {exporting ? "Generando…" : "Descargar Excel"}
-        </Button>
-      </div>
-
-      <div className="grid gap-4 lg:grid-cols-3">
-        <div className="rounded-lg border border-slate-200 p-3">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <p className="text-sm font-medium text-slate-800">Asesores</p>
-            <button
-              type="button"
-              className="text-xs text-blue-700 underline"
-              onClick={() => setSelectedAsesorIds([])}
-            >
-              Todos
-            </button>
+      {!panelOpen ? (
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="min-w-0">
+            <h2 className="text-base font-semibold text-slate-900">
+              Reporte de expedientes
+            </h2>
+            <p className="mt-0.5 text-xs text-slate-500">
+              Reporte personalizado por asesores y etapas
+            </p>
+            {report ? (
+              <p className="mt-1 text-xs font-medium text-slate-700">
+                {formatAdminReportMetaSummary(report.meta)}
+              </p>
+            ) : null}
           </div>
-          <Input
-            id="admin-report-asesor-search"
-            label="Buscar asesor"
-            value={asesorSearch}
-            onChange={(e) => setAsesorSearch(e.target.value)}
-            placeholder="Nombre o correo"
-          />
-          <div className="mt-2 max-h-48 space-y-1 overflow-y-auto text-sm">
-            {loadingOptions ? (
-              <p className="text-xs text-slate-500">Cargando asesores…</p>
-            ) : filteredAsesorOptions.length === 0 ? (
-              <p className="text-xs text-slate-500">Sin asesores con expedientes vigentes.</p>
-            ) : (
-              filteredAsesorOptions.map((a) => (
+          <Button
+            type="button"
+            variant="outline"
+            aria-expanded={false}
+            aria-controls={panelId}
+            onClick={() => setPanelOpen(true)}
+          >
+            Abrir reporte
+          </Button>
+        </div>
+      ) : null}
+
+      <div
+        id={panelId}
+        role="region"
+        aria-label="Contenido del reporte de expedientes"
+        hidden={!panelOpen}
+        className={panelOpen ? "space-y-4" : undefined}
+      >
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-base font-semibold text-slate-900">
+              Reporte de expedientes
+            </h2>
+            <p className="mt-1 text-xs text-slate-500">
+              Fotografía actual por asesor y paso visible (11). Solo Super Admin.
+            </p>
+          </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={!report || exporting || loading}
+              onClick={handleDownload}
+            >
+              {exporting ? "Generando…" : "Descargar Excel"}
+            </Button>
+            <Button
+              type="button"
+              variant="secondary"
+              aria-expanded={true}
+              aria-controls={panelId}
+              onClick={() => setPanelOpen(false)}
+              className="inline-flex items-center gap-1.5"
+            >
+              <span aria-hidden="true" className="text-base leading-none">
+                ×
+              </span>
+              Cerrar
+            </Button>
+          </div>
+        </div>
+
+        <div className="grid gap-4 lg:grid-cols-3">
+          <div className="rounded-lg border border-slate-200 p-3">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <p className="text-sm font-medium text-slate-800">Asesores</p>
+              <button
+                type="button"
+                className="text-xs text-blue-700 underline"
+                onClick={() => setSelectedAsesorIds([])}
+              >
+                Todos
+              </button>
+            </div>
+            <Input
+              id="admin-report-asesor-search"
+              label="Buscar asesor"
+              value={asesorSearch}
+              onChange={(e) => setAsesorSearch(e.target.value)}
+              placeholder="Nombre o correo"
+            />
+            <div className="mt-2 max-h-48 space-y-1 overflow-y-auto text-sm">
+              {loadingOptions ? (
+                <p className="text-xs text-slate-500">Cargando asesores…</p>
+              ) : filteredAsesorOptions.length === 0 ? (
+                <p className="text-xs text-slate-500">
+                  Sin asesores con expedientes vigentes.
+                </p>
+              ) : (
+                filteredAsesorOptions.map((a) => (
+                  <label
+                    key={a.id}
+                    className="flex cursor-pointer items-start gap-2 rounded px-1 py-1 hover:bg-slate-50"
+                  >
+                    <input
+                      type="checkbox"
+                      className="mt-1"
+                      checked={selectedAsesorIds.includes(a.id)}
+                      onChange={() =>
+                        setSelectedAsesorIds((prev) => toggleId(prev, a.id))
+                      }
+                    />
+                    <span>
+                      <span className="block text-slate-800">{a.nombre}</span>
+                      {a.email ? (
+                        <span className="block text-xs text-slate-500">
+                          {a.email}
+                        </span>
+                      ) : null}
+                    </span>
+                  </label>
+                ))
+              )}
+            </div>
+            <p className="mt-2 text-[11px] text-slate-500">
+              {selectedAsesorIds.length === 0
+                ? "Selección: Todos"
+                : `Seleccionados: ${selectedAsesorIds.length}`}
+            </p>
+          </div>
+
+          <div className="rounded-lg border border-slate-200 p-3">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <p className="text-sm font-medium text-slate-800">Etapas</p>
+              <button
+                type="button"
+                className="text-xs text-blue-700 underline"
+                onClick={() => setSelectedPasos([])}
+              >
+                Todas
+              </button>
+            </div>
+            <div className="max-h-56 space-y-1 overflow-y-auto text-sm">
+              {ADMIN_REPORT_PASO_OPTIONS.map((opt) => (
                 <label
-                  key={a.id}
+                  key={opt.value}
                   className="flex cursor-pointer items-start gap-2 rounded px-1 py-1 hover:bg-slate-50"
                 >
                   <input
                     type="checkbox"
                     className="mt-1"
-                    checked={selectedAsesorIds.includes(a.id)}
+                    checked={selectedPasos.includes(opt.value)}
                     onChange={() =>
-                      setSelectedAsesorIds((prev) => toggleId(prev, a.id))
+                      setSelectedPasos((prev) => togglePaso(prev, opt.value))
                     }
                   />
-                  <span>
-                    <span className="block text-slate-800">{a.nombre}</span>
-                    {a.email ? (
-                      <span className="block text-xs text-slate-500">{a.email}</span>
-                    ) : null}
-                  </span>
+                  <span className="text-slate-800">{opt.label}</span>
                 </label>
-              ))
-            )}
+              ))}
+            </div>
+            <p className="mt-2 text-[11px] text-slate-500">
+              {selectedPasos.length === 0
+                ? "Selección: Todas"
+                : `Seleccionados: ${selectedPasos.length}`}
+              {" · "}Paso 3 incluye internas 3 y 4
+            </p>
           </div>
-          <p className="mt-2 text-[11px] text-slate-500">
-            {selectedAsesorIds.length === 0
-              ? "Selección: Todos"
-              : `Seleccionados: ${selectedAsesorIds.length}`}
-          </p>
-        </div>
 
-        <div className="rounded-lg border border-slate-200 p-3">
-          <div className="mb-2 flex items-center justify-between gap-2">
-            <p className="text-sm font-medium text-slate-800">Etapas</p>
-            <button
+          <div className="space-y-3 rounded-lg border border-slate-200 p-3">
+            <Select
+              id="admin-report-estado"
+              label="Estado"
+              value={estado}
+              options={[...ESTADO_OPTIONS]}
+              onChange={(e) => setEstado(e.target.value as AdminReportEstado)}
+            />
+            <Button
               type="button"
-              className="text-xs text-blue-700 underline"
-              onClick={() => setSelectedPasos([])}
+              className="w-full"
+              disabled={loading}
+              onClick={() => void handleConsultar()}
             >
-              Todas
-            </button>
+              {loading ? "Consultando…" : "Consultar reporte"}
+            </Button>
+            <p className="text-[11px] text-slate-500">
+              La consulta no se ejecuta al cambiar filtros; solo al pulsar el botón.
+            </p>
           </div>
-          <div className="max-h-56 space-y-1 overflow-y-auto text-sm">
-            {ADMIN_REPORT_PASO_OPTIONS.map((opt) => (
-              <label
-                key={opt.value}
-                className="flex cursor-pointer items-start gap-2 rounded px-1 py-1 hover:bg-slate-50"
-              >
-                <input
-                  type="checkbox"
-                  className="mt-1"
-                  checked={selectedPasos.includes(opt.value)}
-                  onChange={() =>
-                    setSelectedPasos((prev) => togglePaso(prev, opt.value))
-                  }
-                />
-                <span className="text-slate-800">{opt.label}</span>
-              </label>
-            ))}
-          </div>
-          <p className="mt-2 text-[11px] text-slate-500">
-            {selectedPasos.length === 0
-              ? "Selección: Todas"
-              : `Seleccionados: ${selectedPasos.length}`}
-            {" · "}Paso 3 incluye internas 3 y 4
-          </p>
         </div>
 
-        <div className="space-y-3 rounded-lg border border-slate-200 p-3">
-          <Select
-            id="admin-report-estado"
-            label="Estado"
-            value={estado}
-            options={[...ESTADO_OPTIONS]}
-            onChange={(e) => setEstado(e.target.value as AdminReportEstado)}
-          />
-          <Button
-            type="button"
-            className="w-full"
-            disabled={loading}
-            onClick={() => void handleConsultar()}
+        {error ? (
+          <p
+            role="alert"
+            className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
           >
-            {loading ? "Consultando…" : "Consultar reporte"}
-          </Button>
-          <p className="text-[11px] text-slate-500">
-            La consulta no se ejecuta al cambiar filtros; solo al pulsar el botón.
+            {error}
           </p>
-        </div>
-      </div>
+        ) : null}
 
-      {error ? (
-        <p
-          role="alert"
-          className="mt-4 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800"
-        >
-          {error}
-        </p>
-      ) : null}
-
-      {loading ? (
-        <p className="mt-4 text-sm text-slate-600" role="status">
-          Cargando reporte…
-        </p>
-      ) : null}
-
-      {!loading && report && report.meta.expedientes === 0 ? (
-        <p className="mt-4 rounded-lg border border-slate-200 bg-slate-50 px-3 py-4 text-sm text-slate-600">
-          No hay expedientes para los filtros consultados.
-        </p>
-      ) : null}
-
-      {!loading && report && report.meta.expedientes > 0 ? (
-        <div className="mt-4 space-y-3">
-          <p className="text-sm font-medium text-slate-800">
-            {formatAdminReportMetaSummary(report.meta)}
+        {loading ? (
+          <p className="text-sm text-slate-600" role="status">
+            Cargando reporte…
           </p>
-          <div className="overflow-x-auto rounded-lg border border-slate-200">
-            <table className="min-w-full divide-y divide-slate-200 text-sm">
-              <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
-                <tr>
-                  <th className="px-3 py-2 w-8" />
-                  <th className="px-3 py-2">Asesor</th>
-                  <th className="px-3 py-2">Etapa</th>
-                  <th className="px-3 py-2 text-right">Cantidad de expedientes</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {groups.map((group) => (
-                  <AsesorGroupRows
-                    key={group.asesorId}
-                    group={group}
-                    expanded={expanded}
-                    onToggle={handleToggleExpand}
-                    detalleOf={detalleOf}
-                  />
-                ))}
-                <tr className="bg-slate-100 font-semibold text-slate-900">
-                  <td className="px-3 py-2" colSpan={3}>
-                    Total general
-                  </td>
-                  <td className="px-3 py-2 text-right tabular-nums">
-                    {report.meta.expedientes}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+        ) : null}
+
+        {!loading && report && report.meta.expedientes === 0 ? (
+          <p className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-4 text-sm text-slate-600">
+            No hay expedientes para los filtros consultados.
+          </p>
+        ) : null}
+
+        {!loading && report && report.meta.expedientes > 0 ? (
+          <div className="space-y-3">
+            <p className="text-sm font-medium text-slate-800">
+              {formatAdminReportMetaSummary(report.meta)}
+            </p>
+            <div className="overflow-x-auto rounded-lg border border-slate-200">
+              <table className="min-w-full divide-y divide-slate-200 text-sm">
+                <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  <tr>
+                    <th className="px-3 py-2 w-8" />
+                    <th className="px-3 py-2">Asesor</th>
+                    <th className="px-3 py-2">Etapa</th>
+                    <th className="px-3 py-2 text-right">
+                      Cantidad de expedientes
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {groups.map((group) => (
+                    <AsesorGroupRows
+                      key={group.asesorId}
+                      group={group}
+                      expanded={expanded}
+                      onToggle={handleToggleExpand}
+                      detalleOf={detalleOf}
+                    />
+                  ))}
+                  <tr className="bg-slate-100 font-semibold text-slate-900">
+                    <td className="px-3 py-2" colSpan={3}>
+                      Total general
+                    </td>
+                    <td className="px-3 py-2 text-right tabular-nums">
+                      {report.meta.expedientes}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
           </div>
-        </div>
-      ) : null}
+        ) : null}
 
-      {!loading && !report && !error ? (
-        <p className="mt-4 text-sm text-slate-500">
-          Elige filtros y pulsa «Consultar reporte» para ver la tabla.
-        </p>
-      ) : null}
+        {!loading && !report && !error ? (
+          <p className="text-sm text-slate-500">
+            Elige filtros y pulsa «Consultar reporte» para ver la tabla.
+          </p>
+        ) : null}
+      </div>
     </section>
   );
 }
@@ -451,7 +514,9 @@ function FragmentRows({
             </span>
           ) : null}
         </td>
-        <td className="px-3 py-2 text-right tabular-nums font-medium">{row.total}</td>
+        <td className="px-3 py-2 text-right tabular-nums font-medium">
+          {row.total}
+        </td>
       </tr>
       {open ? (
         <tr className="bg-slate-50/80">
@@ -466,7 +531,10 @@ function FragmentRows({
               </thead>
               <tbody>
                 {details.map((d, idx) => (
-                  <tr key={`${d.nss}-${d.cliente_nombre}-${idx}`} className="text-slate-800">
+                  <tr
+                    key={`${d.nss}-${d.cliente_nombre}-${idx}`}
+                    className="text-slate-800"
+                  >
                     <td className="py-1 pr-3">{d.cliente_nombre}</td>
                     <td className="py-1 pr-3 font-mono">{d.nss || "—"}</td>
                     <td className="py-1">

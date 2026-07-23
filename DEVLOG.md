@@ -1,5 +1,13 @@
 # Devlog
 
+## 2026-07-23 - P113: Reporte Admin colapsable + estilos Excel citas
+
+### UI
+La sección «Reporte de expedientes» inicia colapsada (tarjeta compacta + «Abrir reporte»). Abrir/Cerrar solo cambia visibilidad; conserva filtros, tabla, detalle y snapshot de descarga. No es modal; `aria-expanded` / `aria-controls`. Abrir no dispara consulta RPC.
+
+### Excel
+Se reutiliza `exceljs` (ya en el proyecto) para persistir estilos. Misma estructura/datos P112; paleta idéntica a citas Mesa: encabezado `#1F4E79`, filas alternas `#D6EAF8`/`#FFFFFF`, subtotales/total `#6B2D8B`, bordes `#9BB3C9`. NSS texto centrado.
+
 ## 2026-07-22 - P112: Reporte Admin por asesores y pasos visuales
 
 ### Decisión

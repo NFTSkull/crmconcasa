@@ -1,5 +1,12 @@
 # ConCasa CRM — Plan de pruebas
 
+## P113 — Reporte Admin colapsable + Excel estilos citas
+
+- [x] Sección inicia colapsada; Abrir despliega; Cerrar minimiza sin modal.
+- [x] Abrir/Cerrar no llama RPC; conserva filtros, resultados y última consulta.
+- [x] Excel: mismos datos/hojas/columnas; encabezado `#1F4E79`; alternos `#D6EAF8`/`#FFFFFF`; subtotales `#6B2D8B`; bordes `#9BB3C9`; NSS texto.
+- [x] Sin SQL/RPC/Cloud/deps nuevas; citas Mesa intactas.
+
 ## P112 — Reporte Admin expedientes por asesores/etapas
 
 - [x] RPC `admin_report_expedientes_asesores_etapas` solo `super_admin`; STABLE; sin `action_log`; anon/PUBLIC sin EXECUTE.
