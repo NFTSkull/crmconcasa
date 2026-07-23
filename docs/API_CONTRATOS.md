@@ -816,10 +816,12 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 
 **Lectura:** RPC `get_mesa_agenda_bookings` (sin cambio de firma). Cliente `fetchMesaAgendaBookings`.
 
-**Fecha (B1):**
+**Fecha (B1 / P120):**
 - `MESA_AGENDA_BUSINESS_TIMEZONE` = `America/Monterrey` vía `zonedYmdParts`.
 - Apertura: `defaultMesaAgendaDayRange()` → `p_start_date = p_end_date = hoy`.
-- Cambio de fecha: `syncMesaAgendaSingleDay(ymd)` alinea `listaStartDate`/`listaEndDate`/`selectedDay`; refetch; selección P089 se limpia por `selectionClearKey`; filtros UI se conservan.
+- **Lista (P120):** `Fecha inicial` y `Fecha final` son independientes (borrador). No se consulta al editar; «Actualizar citas» valida y envía ambas a `get_mesa_agenda_bookings` (`p_start_date`/`p_end_date`). Rango inválido (vacío, inicial > final, >62 días) muestra error inline y deshabilita el botón sin corregir fechas. «Hoy» fija ambas a hoy Monterrey y consulta. Volver a Lista conserva el rango libre (no fuerza un día).
+- **Día / Semana:** un día / rango semanal; no reutilizan la normalización de un solo día sobre Lista.
+- Selección P089 se limpia por `selectionClearKey` (rango aplicado Lista); filtros UI se conservan.
 
 **Export Excel (B2 util + B3 UI + P107/P109):**
 - UI: botón `Descargar Excel` → `downloadMesaCitasExcel(loadedEntries, exportDayYmd, filters, sortBy)`; día vía `resolveMesaCitasExportDayYmd`; independiente de `selectedBookingIds` / límite 100.

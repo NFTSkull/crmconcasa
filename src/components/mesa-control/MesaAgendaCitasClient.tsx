@@ -74,7 +74,6 @@ import {
   MESA_REAGENDAR_SUCCESS_MESSAGE,
   resolveMesaAgendaFetchRange,
   shiftMesaAgendaDayYmd,
-  syncMesaAgendaSingleDay,
   todayMesaAgendaYmd,
   validateMesaAgendaDateRange,
   type MesaAgendaCitasClientFilters,
@@ -119,6 +118,9 @@ export function MesaAgendaCitasClient() {
   const [sortBy, setSortBy] = useState<MesaAgendaCitasSortOption>(MESA_AGENDA_DEFAULT_SORT);
   const [listaStartDate, setListaStartDate] = useState(defaultRange.startDate);
   const [listaEndDate, setListaEndDate] = useState(defaultRange.endDate);
+  /** Rango Lista ya consultado (RPC). Editar fechas no lo cambia hasta «Actualizar citas»/Hoy. */
+  const [appliedListaStart, setAppliedListaStart] = useState(defaultRange.startDate);
+  const [appliedListaEnd, setAppliedListaEnd] = useState(defaultRange.endDate);
   const [selectedDay, setSelectedDay] = useState(defaultRange.startDate);
   const [weekAnchor, setWeekAnchor] = useState(defaultRange.startDate);
   const [weekDetailDay, setWeekDetailDay] = useState<string | null>(null);
@@ -181,12 +183,17 @@ export function MesaAgendaCitasClient() {
     () =>
       resolveMesaAgendaFetchRange({
         viewMode,
-        listaStartDate,
-        listaEndDate,
+        listaStartDate: appliedListaStart,
+        listaEndDate: appliedListaEnd,
         selectedDay,
         weekAnchor,
       }),
-    [viewMode, listaStartDate, listaEndDate, selectedDay, weekAnchor],
+    [viewMode, appliedListaStart, appliedListaEnd, selectedDay, weekAnchor],
+  );
+
+  const listaDraftValidation = useMemo(
+    () => validateMesaAgendaDateRange(listaStartDate, listaEndDate),
+    [listaStartDate, listaEndDate],
   );
 
   const cancelRoleParams = useMemo(
@@ -219,8 +226,13 @@ export function MesaAgendaCitasClient() {
     [mockRole, sessionRole],
   );
 
-  const loadEntries = useCallback(async () => {
-    const rangeCheck = validateMesaAgendaDateRange(fetchRange.startDate, fetchRange.endDate);
+  const loadEntries = useCallback(async (override?: {
+    startDate: string;
+    endDate: string;
+  }) => {
+    const startDate = override?.startDate ?? fetchRange.startDate;
+    const endDate = override?.endDate ?? fetchRange.endDate;
+    const rangeCheck = validateMesaAgendaDateRange(startDate, endDate);
     if (!rangeCheck.ok) {
       setRangeError(rangeCheck.message);
       setError(null);
@@ -231,8 +243,8 @@ export function MesaAgendaCitasClient() {
     setError(null);
     try {
       const rows = await fetchMesaAgendaBookings({
-        startDate: fetchRange.startDate,
-        endDate: fetchRange.endDate,
+        startDate,
+        endDate,
         includeCancelled: filters.includeCancelled,
         kind: mesaAgendaKindUiToRpcFilter(filters.kindUi),
       });
@@ -293,8 +305,8 @@ export function MesaAgendaCitasClient() {
     () =>
       [
         viewMode,
-        listaStartDate,
-        listaEndDate,
+        appliedListaStart,
+        appliedListaEnd,
         selectedDay,
         weekAnchor,
         weekDetailDay ?? "",
@@ -306,8 +318,8 @@ export function MesaAgendaCitasClient() {
       ].join("|"),
     [
       viewMode,
-      listaStartDate,
-      listaEndDate,
+      appliedListaStart,
+      appliedListaEnd,
       selectedDay,
       weekAnchor,
       weekDetailDay,
@@ -385,10 +397,17 @@ export function MesaAgendaCitasClient() {
         viewMode,
         selectedDay,
         weekDetailDay,
-        listaStartDate,
+        listaStartDate: appliedListaStart,
+        listaEndDate: appliedListaEnd,
       }),
-    [viewMode, selectedDay, weekDetailDay, listaStartDate],
+    [viewMode, selectedDay, weekDetailDay, appliedListaStart, appliedListaEnd],
   );
+
+  const exportEndYmd = useMemo(() => {
+    if (viewMode !== "lista") return null;
+    if (appliedListaEnd === appliedListaStart) return null;
+    return appliedListaEnd;
+  }, [viewMode, appliedListaStart, appliedListaEnd]);
 
   const handleDescargarExcel = useCallback(() => {
     if (!canDownloadExcel) return;
@@ -398,12 +417,13 @@ export function MesaAgendaCitasClient() {
     setExportExcelMessage(null);
     void (async () => {
       try {
-        // Exporta el día filtrado completo; no usa la selección masiva ni el tope de 100.
+        // Exporta el rango/día consultado; no usa la selección masiva ni el tope de 100.
         const result = await downloadMesaCitasExcel(
           loadedEntries,
           exportDayYmd,
           filters,
           sortBy,
+          exportEndYmd,
         );
         setExportExcelMessage(mapMesaCitasExportUserMessage(result));
       } catch {
@@ -415,7 +435,15 @@ export function MesaAgendaCitasClient() {
         setExportExcelLoading(false);
       }
     })();
-  }, [canDownloadExcel, loading, loadedEntries, exportDayYmd, filters, sortBy]);
+  }, [
+    canDownloadExcel,
+    loading,
+    loadedEntries,
+    exportDayYmd,
+    exportEndYmd,
+    filters,
+    sortBy,
+  ]);
 
   const handleBulkRowCheckedChange = useCallback(
     (entry: MesaAgendaBookingEntry, checked: boolean) => {
@@ -622,10 +650,7 @@ export function MesaAgendaCitasClient() {
 
   const handleViewModeChange = useCallback((mode: MesaAgendaCitasViewMode) => {
     setViewMode(mode);
-    if (mode === "lista") {
-      setListaStartDate(selectedDay);
-      setListaEndDate(selectedDay);
-    }
+    // Lista: conserva el rango libre (borrador + aplicado). No forzar un solo día.
     if (mode === "dia") {
       setSelectedDay((prev) => prev || todayMesaAgendaYmd());
     }
@@ -633,17 +658,35 @@ export function MesaAgendaCitasClient() {
       setWeekAnchor((prev) => prev || todayMesaAgendaYmd());
       setWeekDetailDay(null);
     }
-  }, [selectedDay]);
+  }, []);
 
-  /** P095: un solo día operativo — sincroniza from/to/selectedDay. */
-  const applySingleDay = useCallback((ymd: string) => {
+  /** Día/Semana: solo actualiza el día operativo; no toca el rango libre de Lista. */
+  const applySelectedDay = useCallback((ymd: string) => {
     const day = ymd.trim();
     if (!day) return;
-    const synced = syncMesaAgendaSingleDay(day);
-    setListaStartDate(synced.listaStartDate);
-    setListaEndDate(synced.listaEndDate);
-    setSelectedDay(synced.selectedDay);
+    setSelectedDay(day);
   }, []);
+
+  const handleListaStartDateChange = useCallback((ymd: string) => {
+    setListaStartDate(ymd);
+    setRangeError(null);
+  }, []);
+
+  const handleListaEndDateChange = useCallback((ymd: string) => {
+    setListaEndDate(ymd);
+    setRangeError(null);
+  }, []);
+
+  const handleRefreshLista = useCallback(() => {
+    const check = validateMesaAgendaDateRange(listaStartDate, listaEndDate);
+    if (!check.ok) {
+      setRangeError(check.message);
+      return;
+    }
+    setAppliedListaStart(listaStartDate);
+    setAppliedListaEnd(listaEndDate);
+    void loadEntries({ startDate: listaStartDate, endDate: listaEndDate });
+  }, [listaStartDate, listaEndDate, loadEntries]);
 
   const handleGoToday = useCallback(() => {
     const today = todayMesaAgendaYmd();
@@ -652,14 +695,24 @@ export function MesaAgendaCitasClient() {
       setWeekDetailDay(today);
       return;
     }
-    applySingleDay(today);
-  }, [viewMode, applySingleDay]);
+    if (viewMode === "dia") {
+      setSelectedDay(today);
+      return;
+    }
+    // Lista: hoy Monterrey en borrador + aplicado y consulta inmediata.
+    setListaStartDate(today);
+    setListaEndDate(today);
+    setAppliedListaStart(today);
+    setAppliedListaEnd(today);
+    setSelectedDay(today);
+    void loadEntries({ startDate: today, endDate: today });
+  }, [viewMode, loadEntries]);
 
   const handleShiftDay = useCallback(
     (delta: number) => {
-      applySingleDay(shiftMesaAgendaDayYmd(selectedDay, delta));
+      applySelectedDay(shiftMesaAgendaDayYmd(selectedDay, delta));
     },
-    [applySingleDay, selectedDay],
+    [applySelectedDay, selectedDay],
   );
 
   const handleShiftWeek = useCallback((delta: number) => {
@@ -924,14 +977,20 @@ export function MesaAgendaCitasClient() {
           selectedDay={selectedDay}
           weekDays={weekRange.days}
           loading={loading}
+          rangeError={
+            viewMode === "lista" && !listaDraftValidation.ok
+              ? listaDraftValidation.message
+              : rangeError
+          }
+          canRefreshLista={listaDraftValidation.ok}
           onViewModeChange={handleViewModeChange}
-          onStartDateChange={applySingleDay}
-          onEndDateChange={applySingleDay}
-          onSelectedDayChange={applySingleDay}
+          onStartDateChange={handleListaStartDateChange}
+          onEndDateChange={handleListaEndDateChange}
+          onSelectedDayChange={applySelectedDay}
           onShiftDay={handleShiftDay}
           onShiftWeek={handleShiftWeek}
           onGoToday={handleGoToday}
-          onRefresh={() => void loadEntries()}
+          onRefresh={handleRefreshLista}
         />
 
         <MesaAgendaCitasFilters

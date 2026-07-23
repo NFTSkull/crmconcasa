@@ -1,5 +1,13 @@
 # Devlog
 
+## 2026-07-23 - P120 rango libre en Agenda de citas (Lista)
+
+Causa: `onStartDateChange`/`onEndDateChange` cableados a `applySingleDay` → `syncMesaAgendaSingleDay` igualaba from/to/selectedDay; al volver a Lista se forzaba `selectedDay` en ambas fechas.
+
+Contrato backend intacto: `get_mesa_agenda_bookings(p_start_date, p_end_date)` ya acepta rango. Solo frontend: borrador vs rango aplicado; validación inline; Excel usa rango consultado.
+
+Sin SQL/Cloud/commit.
+
 ## 2026-07-23 - P119.4 Firmado → Pago a ConCasa
 
 Amplía `avanzar_etapa_operativa_pre_reingreso` con transición `11_12` (migración 108). Gates: roles Mesa/`super_admin`, etapa exacta 11, `en_proceso`, enviado a Mesa, ciclo activo. No muta bookings/docs/montos/`fecha_cita`; no registra pago financiero. UI bandeja+detalle: «Pasar a Pago a ConCasa»; confirmación canónica; en 12 solo «Etapa final».

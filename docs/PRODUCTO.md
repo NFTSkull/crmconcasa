@@ -152,13 +152,14 @@ La UI identifica al hijo como **Reingreso / Reinscripción** y **Biométricos re
 
 **Pantalla:** `/mesa-control/citas` (`MesaAgendaCitasClient`). Alcance exclusivo Mesa Citas; no Asesor/Admin/creación de citas/RPC/Cloud en P095.
 
-**Apertura (B1 implementado):**
+**Apertura (B1 implementado / P120):**
 - Vista inicial permanece **`lista`** (P089 intacto).
-- Fecha operativa = **hoy** `America/Monterrey`; `date_from` = `date_to` = `selectedDay` = ese YMD.
-- Fetch inicial: un solo día (no mes completo). Cambio de fecha resincroniza los tres al mismo YMD y limpia selección masiva; conserva filtros compatibles.
+- Apertura = **hoy** `America/Monterrey`; `p_start_date` = `p_end_date` = ese YMD.
+- **Lista (P120):** `Fecha inicial` y `Fecha final` independientes; no se consulta al editar; «Actualizar citas» envía ambas fechas; rango inválido bloquea sin corregir; «Hoy» fija ambas a hoy y consulta; volver a Lista no fuerza un día.
+- **Día / Semana:** un día / rango semanal (semántica previa).
 
 **Exportación Excel (B2 util + B3 UI + P107/P109):**
-- Botón `Descargar Excel` en `/mesa-control/citas`; exporta el día operativo (`lista`→`listaStartDate`, `dia`→`selectedDay`, `semana`→`weekDetailDay ?? selectedDay`) con filtros activos.
+- Botón `Descargar Excel` en `/mesa-control/citas`; exporta el día/rango consultado (`lista`→rango aplicado, `dia`→`selectedDay`, `semana`→`weekDetailDay ?? selectedDay`) con filtros activos.
 - **P111:** disponible para `mesa_admin` / `super_admin` y roles Mesa con acceso a la pantalla (gate `canDownloadMesaCitasExcel`); asesor excluido; mismas citas visibles por RLS (no solo propias/seleccionadas).
 - Util `exportMesaCitasExcel` genera `.xlsx` hoja `Citas`; archivo `citas-mesa-YYYY-MM-DD.xlsx`.
 - Columnas por bloque: `Fecha` | `NSS` | `Nombre completo`; estilos plantilla oficial; NSS texto; fecha DD/MM/YYYY.

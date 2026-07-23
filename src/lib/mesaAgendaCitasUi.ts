@@ -124,10 +124,16 @@ export function validateMesaAgendaDateRange(
 ): MesaAgendaCitasRangeValidation {
   const start = startDate.trim();
   const end = endDate.trim();
-  if (!start || !end || end < start) {
+  if (!start || !end) {
     return {
       ok: false,
-      message: "Selecciona un rango válido de máximo 62 días.",
+      message: "Indica fecha inicial y fecha final.",
+    };
+  }
+  if (end < start) {
+    return {
+      ok: false,
+      message: "La fecha inicial no puede ser posterior a la fecha final.",
     };
   }
   const startDt = new Date(`${start}T12:00:00`);
@@ -140,6 +146,20 @@ export function validateMesaAgendaDateRange(
     };
   }
   return { ok: true };
+}
+
+/** Filtra citas cuyo `bookingDate` está en [startYmd, endYmd] inclusive. */
+export function filterMesaAgendaEntriesForDateRange(
+  entries: readonly MesaAgendaBookingEntry[],
+  startYmd: string,
+  endYmd: string,
+): MesaAgendaBookingEntry[] {
+  const start = startYmd.trim();
+  const end = endYmd.trim();
+  return entries.filter((entry) => {
+    const day = entry.bookingDate;
+    return day >= start && day <= end;
+  });
 }
 
 export function mesaAgendaKindUiToRpcFilter(
