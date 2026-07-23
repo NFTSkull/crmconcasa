@@ -1,5 +1,9 @@
 # Devlog
 
+## 2026-07-23 - P122 copy «Tiene documentos» en bandeja Mesa
+
+Solo UX: botón y badge en tarjetas pasan de «Tiene datos» a «Tiene documentos»; activo sigue «Quitar marca». Tipo/RPC/tabla `tiene_datos` sin tocar. Sin SQL/Cloud/commit.
+
 ## 2026-07-23 - P121 gate de visibilidad cupos Mesa Admin
 
 Production READY en `555f3a8` (incluye `4a1b1c7`). El panel `AgendaSlotCapacitiesPanel` ya existía bajo configs semanales, pero `/mesa-control` solo miraba `getEffectiveMockRole()` → en Supabase `mesa_admin` real no veía el bloque. Fix: `mesaMockRole ?? currentUser?.role` (mismo patrón que acciones rápidas). Sin SQL/Cloud ni cambio de lógica de cupos.

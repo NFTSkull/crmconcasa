@@ -227,7 +227,7 @@ export function MesaBandejaAccionesRapidas({
               ? "Guardando…"
               : tieneDatos
                 ? "Quitar marca"
-                : "Tiene datos"}
+                : "Tiene documentos"}
           </Button>
         ) : null}
 
