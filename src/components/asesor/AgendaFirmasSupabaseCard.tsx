@@ -177,6 +177,23 @@ export function AgendaFirmasSupabaseCard({
     }
   }, [expedienteId, repo]);
 
+  /** Recarga cupos/bookings sin resetear la selección del asesor (p. ej. tras carrera por último cupo). */
+  const refreshAvailability = useCallback(async () => {
+    if (!repo) return;
+    try {
+      const tz = config?.timezone ?? "America/Monterrey";
+      const today = todayYmdInTimezone(tz);
+      const slots = await repo.listBookedSlots({
+        fromDate: today,
+        toDate: addDaysYmd(today, 60),
+      });
+      setBookedSlots(slots);
+      setCapacitiesTick((n) => n + 1);
+    } catch {
+      /* el error de reserva ya se muestra; no tapar con fallo de refresh */
+    }
+  }, [config?.timezone, repo]);
+
   useEffect(() => {
     void load();
   }, [load]);
@@ -330,6 +347,7 @@ export function AgendaFirmasSupabaseCard({
           ? err.message
           : "No se pudo agendar la cita. Intenta de nuevo.",
       );
+      await refreshAvailability();
     } finally {
       setSaving(false);
     }
@@ -339,6 +357,7 @@ export function AgendaFirmasSupabaseCard({
     expedienteId,
     load,
     onUpdated,
+    refreshAvailability,
     repo,
     selectedSede,
     timeHhmm,
@@ -378,6 +397,7 @@ export function AgendaFirmasSupabaseCard({
           ? err.message
           : "No se pudo reagendar la cita. Intenta de nuevo.",
       );
+      await refreshAvailability();
     } finally {
       setSaving(false);
     }
@@ -388,6 +408,7 @@ export function AgendaFirmasSupabaseCard({
     expedienteId,
     load,
     onUpdated,
+    refreshAvailability,
     repo,
     selectedSede,
     timeHhmm,

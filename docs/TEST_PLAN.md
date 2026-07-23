@@ -1,3 +1,10 @@
+## P119 — Acciones rápidas bandeja Mesa
+
+- [x] Siguiente etapa: visible solo con transición; gates bloquean; rechazado/cancelado; RPC canónica; doble clic seguro.
+- [x] Tiene datos: toggle + badge; persistencia 106; allowlist; sin cambiar etapa; batch sin N+1.
+- [x] Tomar expediente: `mesa_take_expediente`; no apropiación; Asignado a mí.
+- [x] Regresión: abrir expediente, filtros, P100/P102, P117/P118 intactos.
+
 # ConCasa CRM — Plan de pruebas
 
 ## P118 — Cupos por horario + gestionar cita

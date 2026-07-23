@@ -130,8 +130,8 @@ BEGIN
   UPDATE public.expedientes SET fecha_cita = v_scheduled WHERE id = v_exp_bio;
 
   PERFORM public.__mesa_reag_auth(v_a1);
-  PERFORM public.book_notificacion_etapa3(v_exp_notif, v_date);
-  PERFORM public.book_notificacion_etapa3(v_exp_notif2, v_date);
+  PERFORM public.book_notificacion_etapa3(v_exp_notif, v_date, 'monterrey');
+  PERFORM public.book_notificacion_etapa3(v_exp_notif2, v_date, 'monterrey');
   PERFORM public.__mesa_reag_reset();
 
   INSERT INTO public.agenda_bookings (
@@ -256,17 +256,17 @@ BEGIN
 
   -- 16-17 notif mesa_admin / super_admin
   PERFORM public.__mesa_reag_auth(v_mesa);
-  SELECT public.mesa_reagendar_notificacion(v_exp_notif, v_date2, 'n1') INTO v_result;
+  SELECT public.mesa_reagendar_notificacion(v_exp_notif, v_date2, 'monterrey', 'n1') INTO v_result;
   PERFORM public.__mesa_reag_reset();
   PERFORM public.__mesa_reag_assert((v_result->>'ok')::boolean, '16 mesa_admin notif');
   PERFORM public.__mesa_reag_auth(v_super);
-  SELECT public.mesa_reagendar_notificacion(v_exp_notif2, v_date2, 'n2') INTO v_result;
+  SELECT public.mesa_reagendar_notificacion(v_exp_notif2, v_date2, 'monterrey', 'n2') INTO v_result;
   PERFORM public.__mesa_reag_reset();
   PERFORM public.__mesa_reag_assert((v_result->>'ok')::boolean, '17 super_admin notif');
 
   -- 18 otros roles notif
   BEGIN PERFORM public.__mesa_reag_auth(v_mesa_int);
-    PERFORM public.mesa_reagendar_notificacion(v_exp_notif, v_date);
+    PERFORM public.mesa_reagendar_notificacion(v_exp_notif, v_date, 'monterrey');
     PERFORM public.__mesa_reag_reset(); RAISE EXCEPTION '18';
   EXCEPTION WHEN OTHERS THEN PERFORM public.__mesa_reag_reset();
     PERFORM public.__mesa_reag_assert(SQLERRM LIKE '%rol no autorizado%', '18 interno notif');
@@ -299,9 +299,9 @@ BEGIN
 
   -- 20 múltiples expedientes mismo día/hora (sin cupo global; notif fija 12:00)
   PERFORM public.__mesa_reag_auth(v_mesa);
-  SELECT public.mesa_reagendar_notificacion(v_exp_notif, v_date3, 'multi-a') INTO v_result;
+  SELECT public.mesa_reagendar_notificacion(v_exp_notif, v_date3, 'monterrey', 'multi-a') INTO v_result;
   PERFORM public.__mesa_reag_auth(v_mesa);
-  SELECT public.mesa_reagendar_notificacion(v_exp_notif2, v_date3, 'multi-b') INTO v_result;
+  SELECT public.mesa_reagendar_notificacion(v_exp_notif2, v_date3, 'monterrey', 'multi-b') INTO v_result;
   PERFORM public.__mesa_reag_reset();
   PERFORM public.__mesa_reag_assert(
     (SELECT count(DISTINCT expediente_id) FROM public.agenda_bookings WHERE kind = 'notificacion' AND booking_date = v_date3 AND status = 'booked') >= 2,
@@ -311,7 +311,7 @@ BEGIN
   -- 25 notif sin activo
   PERFORM public.__mesa_reag_exp(v_exp_bio_cupo, v_org, v_a1, '90689900099', 3);
   BEGIN PERFORM public.__mesa_reag_auth(v_mesa);
-    PERFORM public.mesa_reagendar_notificacion(v_exp_bio_cupo, v_date2);
+    PERFORM public.mesa_reagendar_notificacion(v_exp_bio_cupo, v_date2, 'monterrey');
     PERFORM public.__mesa_reag_reset(); RAISE EXCEPTION '25';
   EXCEPTION WHEN OTHERS THEN PERFORM public.__mesa_reag_reset();
     PERFORM public.__mesa_reag_assert(SQLERRM LIKE '%no hay notificación activa%', '25 notif sin activo');

@@ -1,5 +1,24 @@
 # Devlog
 
+## 2026-07-23 - P119.2 prueba final concurrencia de cupos
+
+Método: `dblink` + barrera `LOCK TABLE` (ACCESS EXCLUSIVE controlador / ACCESS SHARE workers) sin sleep. Dos `book_biometricos` concurrentes sobre capacidad=1 → exactamente una reserva + error canónico `agenda_config: cupo agotado`; cancel/reagenda vía RPC.
+
+UI: tras fallo de book/reagendar (bio/firmas) se refrescan `listBookedSlots` + cupos override sin resetear la selección del asesor.
+
+Gates: SQL focal P119.2; sin Cloud/smoke/commit.
+
+## 2026-07-23 - P119.1 auditoría avance rápido + sede notificación
+
+Matriz bandeja: 1→2, 2→3, 4→5, 5→6, 6→7, 7→8, 8→9, 10→11. Ocultos 3→5 (booking bio/notif) y 9→10 (booking firmas).
+
+Notificación: `location_id` deja de ser sentinel; RPCs exigen sede canónica; UI selector Monterrey/Apodaca; históricos sin backfill.
+
+## 2026-07-23 - P119: acciones rápidas en tarjetas Mesa
+
+Tarjeta: acciones `Siguiente etapa` (`avanzar_etapa_operativa`), `Tiene datos` (`mesa_set_expediente_marcador`), `Tomar expediente` (`mesa_take_expediente`). Enrich batch sin N+1. Migración 106.
+
+
 ## 2026-07-23 - P118b: Cancelar cita y continuar
 
 ### Decisión

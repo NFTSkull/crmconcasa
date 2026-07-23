@@ -87,6 +87,18 @@ import {
 } from "@/lib/mesaBandejaFiltros";
 import { enrichMesaBandejaPageItems } from "@/lib/mesaBandejaEnrichPage";
 import {
+  listActiveBookingFlagsByExpedienteIds,
+  listRetencionHintsByExpedienteIds,
+  listTieneDatosMarcadoresByExpedienteIds,
+} from "@/lib/mesaBandejaAccionesEnrich";
+import {
+  MesaBandejaAccionesRapidas,
+  MesaTieneDatosBadge,
+} from "@/components/mesa-control/MesaBandejaAccionesRapidas";
+import { ExpedienteMesaMarcadoresSupabaseRepo } from "@/domain/expediente-mesa-marcadores";
+import type { ExpedienteArchivoResumen } from "@/domain/expediente-archivos";
+import type { RetencionOpcion } from "@/domain/expediente-retencion/types";
+import {
   describeMesaBandejaServerWindow,
   describeMesaBandejaVisibleWindow,
   isIntersectionObserverAvailable,
@@ -111,6 +123,7 @@ import { isSupabaseConfigured, supabaseBrowser } from "@/lib/supabaseBrowser";
 
 type CasoConDocs = CasoMock & {
   resumenDocumental?: CategoriaResumenDocumental;
+  archivosResumen?: ExpedienteArchivoResumen[];
   clienteDatosEstado?: ExpedienteClienteDatosEstado | null;
   fechaEntradaMesaActual?: string | null;
   ultimaCorreccionEnviadaAt?: string | null;
@@ -119,6 +132,13 @@ type CasoConDocs = CasoMock & {
   mesaOps?: MesaExpedienteOpsRow | null;
   notificacionBooking?: AgendaNotificacionActiveBooking | null;
   notificacionAgendadoPorLabel?: string;
+  tieneDatos?: boolean;
+  hasActiveBiometricBooking?: boolean;
+  hasActiveFirmasBooking?: boolean;
+  hasActiveNotificacionBooking?: boolean;
+  retencionOpcion?: RetencionOpcion | null;
+  retencionEnviadoAMesa?: boolean;
+  retencionEnvioEstado?: "enviado" | "correccion_requerida" | null;
 };
 
 type AdminOrigenTab = "todos" | "internos" | "externos";
@@ -281,6 +301,13 @@ export default function MesaControlPage() {
   const mesaOpsRepo = useMesaOpsRepo();
   const agendaBookingRepo = useAgendaBiometricosBookingRepo();
   const dataSupabase = isDataModeSupabase();
+  const marcadoresRepo = useMemo(
+    () =>
+      dataSupabase && isSupabaseConfigured()
+        ? new ExpedienteMesaMarcadoresSupabaseRepo()
+        : null,
+    [dataSupabase],
+  );
   const [casos, setCasos] = useState<CasoConDocs[]>([]);
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [mesaOpsFilter, setMesaOpsFilter] = useState<MesaOpsFilter>(DEFAULT_MESA_OPS_FILTER);
@@ -372,6 +399,24 @@ export default function MesaControlPage() {
       listMesaOpsByExpedienteIds: mesaOpsRepo
         ? (ids: readonly string[]) => mesaOpsRepo.listByExpedienteIds(ids)
         : undefined,
+      listActiveBookingFlagsByExpedienteIds:
+        dataSupabase && isSupabaseConfigured() && supabaseBrowser
+          ? (ids: readonly string[]) =>
+              listActiveBookingFlagsByExpedienteIds(supabaseBrowser!, ids)
+          : undefined,
+      listRetencionHintsByExpedienteIds:
+        dataSupabase && isSupabaseConfigured() && supabaseBrowser
+          ? (ids: readonly string[]) =>
+              listRetencionHintsByExpedienteIds(supabaseBrowser!, ids)
+          : undefined,
+      listTieneDatosMarcadoresByExpedienteIds:
+        marcadoresRepo
+          ? (ids: readonly string[]) =>
+              marcadoresRepo.listActiveByExpedienteIds(ids, "tiene_datos")
+          : dataSupabase && isSupabaseConfigured() && supabaseBrowser
+            ? (ids: readonly string[]) =>
+                listTieneDatosMarcadoresByExpedienteIds(supabaseBrowser!, ids)
+            : undefined,
       resolveAsesorDisplayBatch:
         dataSupabase && isSupabaseConfigured() && supabaseBrowser
           ? async (creatorIds: string[]) => {
@@ -406,7 +451,14 @@ export default function MesaControlPage() {
           : undefined,
       mesaUserId,
     };
-  }, [agendaBookingRepo, archivosRepo, clienteDatosRepo, dataSupabase, mesaOpsRepo]);
+  }, [
+    agendaBookingRepo,
+    archivosRepo,
+    clienteDatosRepo,
+    dataSupabase,
+    marcadoresRepo,
+    mesaOpsRepo,
+  ]);
 
   /** P102 Supabase: filtros en RPC → página 25 → enrich P100 solo de esa página. */
   const loadServerBandeja = useCallback(
@@ -972,6 +1024,64 @@ export default function MesaControlPage() {
     [router],
   );
 
+  const actorRoleForAcciones = mesaMockRole ?? currentUser?.role ?? null;
+
+  const patchCasoLocal = useCallback(
+    (expedienteId: string, patch: Partial<CasoConDocs>) => {
+      setCasos((prev) =>
+        prev.map((c) => (c.id === expedienteId ? { ...c, ...patch } : c)),
+      );
+    },
+    [],
+  );
+
+  const handleSiguienteEtapaRapida = useCallback(
+    async (expedienteId: string) => {
+      await repo.avanzarEtapaOperativa(expedienteId);
+      // Refresco controlado: la etapa/gates cambian; re-cargar página actual.
+      loadCasos({ silencioso: true });
+    },
+    [loadCasos, repo],
+  );
+
+  const handleToggleTieneDatos = useCallback(
+    async (expedienteId: string, active: boolean) => {
+      if (!marcadoresRepo) {
+        throw new Error("Marcadores no disponibles en este modo.");
+      }
+      await marcadoresRepo.setMarcador({
+        expedienteId,
+        tipo: "tiene_datos",
+        active,
+      });
+      patchCasoLocal(expedienteId, { tieneDatos: active });
+    },
+    [marcadoresRepo, patchCasoLocal],
+  );
+
+  const handleTomarExpedienteRapido = useCallback(
+    async (expedienteId: string) => {
+      if (!mesaOpsRepo) {
+        throw new Error("Asignación Mesa no disponible en este modo.");
+      }
+      const result = await mesaOpsRepo.takeExpediente(expedienteId);
+      patchCasoLocal(expedienteId, {
+        mesaOps: {
+          expedienteId,
+          estadoMesa: result.estadoMesa,
+          assignedTo: result.assignedTo,
+          assignedAt: result.assignedAt,
+          lastActivityAt: result.assignedAt,
+          assignedToName: null,
+        },
+      });
+      if (typeof window !== "undefined") {
+        window.dispatchEvent(new Event(MESA_OPS_UPDATED_EVENT));
+      }
+    },
+    [mesaOpsRepo, patchCasoLocal],
+  );
+
   if (currentUser === undefined) {
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-100">
@@ -1408,7 +1518,10 @@ export default function MesaControlPage() {
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-semibold text-slate-900">{c.cliente_nombre}</p>
+                    <p className="flex min-w-0 items-center text-sm font-semibold text-slate-900">
+                      <span className="truncate">{c.cliente_nombre}</span>
+                      <MesaTieneDatosBadge active={Boolean(c.tieneDatos)} />
+                    </p>
                     <p className="mt-0.5 text-[11px] text-slate-500">{c.telefono_cliente || "—"}</p>
                   </div>
                   <div className="flex max-w-[55%] flex-col items-end gap-1.5">
@@ -1504,6 +1617,33 @@ export default function MesaControlPage() {
                   <span>Envío Mesa: {formatDate(c.fechaEnvioMesa ?? undefined)}</span>
                   <span className="tabular-nums">Actualizado: {formatDateTime(c.updatedAt)}</span>
                 </div>
+                <MesaBandejaAccionesRapidas
+                  expedienteId={c.id}
+                  clienteNombre={c.cliente_nombre}
+                  role={actorRoleForAcciones}
+                  currentUserId={currentUserId}
+                  ops={c.mesaOps}
+                  tieneDatos={Boolean(c.tieneDatos)}
+                  siguienteCtx={{
+                    etapaActual: c.etapaActual,
+                    subestado: c.subestado,
+                    cicloEstado: c.cicloEstado,
+                    submittedToMesa: c.submittedToMesa,
+                    fechaCita: c.fechaCita,
+                    clienteDatosEstado: c.clienteDatosEstado,
+                    archivosResumen: c.archivosResumen,
+                    hasActiveBiometricBooking: c.hasActiveBiometricBooking,
+                    hasActiveNotificacionBooking:
+                      c.hasActiveNotificacionBooking || Boolean(c.notificacionBooking),
+                    hasActiveFirmasBooking: c.hasActiveFirmasBooking,
+                    retencionOpcion: c.retencionOpcion,
+                    retencionEnviadoAMesa: c.retencionEnviadoAMesa,
+                    retencionEnvioEstado: c.retencionEnvioEstado,
+                  }}
+                  onSiguienteEtapa={handleSiguienteEtapaRapida}
+                  onToggleTieneDatos={handleToggleTieneDatos}
+                  onTomarExpediente={handleTomarExpedienteRapido}
+                />
               </article>
             ))
               : null}

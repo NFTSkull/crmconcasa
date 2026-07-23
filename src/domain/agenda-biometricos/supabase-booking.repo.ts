@@ -130,6 +130,7 @@ function mapNotificacionActiveBooking(row: BookingRow): AgendaNotificacionActive
     expedienteId: row.expediente_id,
     bookingDate: String(row.booking_date),
     bookingTime: normalizeBookingTime(String(row.booking_time)),
+    locationId: String(row.location_id ?? ""),
     status: "booked",
     note: row.note,
     createdById: row.created_by,
@@ -364,6 +365,7 @@ export class SupabaseAgendaBiometricosBookingRepo implements AgendaBiometricosBo
   async bookNotificacionEtapa3(params: {
     expedienteId: string;
     bookingDate: string;
+    locationId: string;
     note?: string | null;
   }): Promise<BookNotificacionResult> {
     const { client } = await requireSupabaseSession();
@@ -371,6 +373,7 @@ export class SupabaseAgendaBiometricosBookingRepo implements AgendaBiometricosBo
     const { data, error } = await client.rpc("book_notificacion_etapa3", {
       p_expediente_id: params.expedienteId,
       p_booking_date: params.bookingDate,
+      p_location_id: params.locationId,
       p_note: params.note ?? null,
     });
 
@@ -398,7 +401,7 @@ export class SupabaseAgendaBiometricosBookingRepo implements AgendaBiometricosBo
       scheduledAt: String(row.scheduled_at ?? ""),
       bookingDate: String(row.booking_date ?? params.bookingDate),
       bookingTime: normalizeBookingTime(String(row.booking_time ?? "12:00")),
-      locationId: String(row.location_id ?? "notificacion"),
+      locationId: String(row.location_id ?? params.locationId),
       etapaActual: Number(row.etapa_actual ?? 3),
     };
   }
@@ -406,6 +409,7 @@ export class SupabaseAgendaBiometricosBookingRepo implements AgendaBiometricosBo
   async convertBiometricosToNotificacion(params: {
     expedienteId: string;
     bookingDate: string;
+    locationId: string;
     note?: string | null;
   }): Promise<ConvertBiometricosToNotificacionResult> {
     const { client } = await requireSupabaseSession();
@@ -413,6 +417,7 @@ export class SupabaseAgendaBiometricosBookingRepo implements AgendaBiometricosBo
     const { data, error } = await client.rpc("convert_biometricos_to_notificacion", {
       p_expediente_id: params.expedienteId,
       p_booking_date: params.bookingDate,
+      p_location_id: params.locationId,
       p_note: params.note ?? null,
     });
 
@@ -486,6 +491,7 @@ export class SupabaseAgendaBiometricosBookingRepo implements AgendaBiometricosBo
   async reagendarNotificacionEtapa3(params: {
     expedienteId: string;
     bookingDate: string;
+    locationId: string;
     note?: string | null;
   }): Promise<ReagendarNotificacionResult> {
     const { client } = await requireSupabaseSession();
@@ -493,6 +499,7 @@ export class SupabaseAgendaBiometricosBookingRepo implements AgendaBiometricosBo
     const { data, error } = await client.rpc("reagendar_notificacion_etapa3", {
       p_expediente_id: params.expedienteId,
       p_booking_date: params.bookingDate,
+      p_location_id: params.locationId,
       p_note: params.note ?? null,
     });
 
@@ -657,6 +664,7 @@ export class SupabaseAgendaBiometricosBookingRepo implements AgendaBiometricosBo
   async mesaReagendarNotificacion(params: {
     expedienteId: string;
     bookingDate: string;
+    locationId: string;
     note?: string | null;
   }): Promise<ReagendarNotificacionResult> {
     const { client } = await requireSupabaseSession();
@@ -664,6 +672,7 @@ export class SupabaseAgendaBiometricosBookingRepo implements AgendaBiometricosBo
     const { data, error } = await client.rpc("mesa_reagendar_notificacion", {
       p_expediente_id: params.expedienteId,
       p_booking_date: params.bookingDate,
+      p_location_id: params.locationId,
       p_note: params.note ?? null,
     });
 

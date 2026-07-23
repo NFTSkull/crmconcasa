@@ -820,6 +820,7 @@ export function MesaAgendaCitasClient() {
           await agendaBookingRepo.mesaReagendarNotificacion({
             expedienteId: reagendarTarget.expedienteId,
             bookingDate: payload.bookingDate,
+            locationId: payload.locationId,
             note: payload.note,
           });
         } else {

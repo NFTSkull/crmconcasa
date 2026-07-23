@@ -1,6 +1,6 @@
 /**
- * Enrich de una página de bandeja Mesa (P100/P102).
- * Solo pide resúmenes/ops/etc. para los IDs de la página recibida.
+ * Enrich de una página de bandeja Mesa (P100/P102/P119).
+ * Solo pide resúmenes/ops/marcadores/bookings para los IDs de la página recibida.
  */
 
 import {
@@ -12,6 +12,8 @@ import type { ExpedienteClienteDatosEstado } from "@/domain/expediente-cliente-d
 import type { ClienteDatosEstadoBatch } from "@/domain/expediente-cliente-datos/types";
 import type { MesaExpedienteOpsRow } from "@/domain/mesa-ops/types";
 import type { AgendaNotificacionActiveBooking } from "@/domain/agenda-biometricos";
+import type { MesaExpedienteMarcador } from "@/domain/expediente-mesa-marcadores";
+import type { RetencionOpcion } from "@/domain/expediente-retencion/types";
 import {
   deriveMesaCorreccionLecturaEstado,
   deriveUltimaCorreccionEnviadaAt,
@@ -23,6 +25,10 @@ import { getMesaExpedienteLastOpenedAt } from "@/lib/mesaExpedienteOpenedStorage
 import { buildMesaOpsMap } from "@/lib/mesaOpsUi";
 import { fetchMesaBandejaSecondaryParallel } from "@/lib/mesaBandejaLoad";
 import { resolveProfileDisplayLabel } from "@/lib/mesaNotificacionExtraordinariaUi";
+import type {
+  MesaBandejaActiveBookingFlags,
+  MesaBandejaRetencionHint,
+} from "@/lib/mesaBandejaAccionesEnrich";
 
 export type MesaBandejaCasoBase = Readonly<{
   id: string;
@@ -45,6 +51,7 @@ export type MesaBandejaCasoBase = Readonly<{
 
 export type MesaBandejaCasoEnriched = MesaBandejaCasoBase & {
   resumenDocumental?: CategoriaResumenDocumental;
+  archivosResumen?: ExpedienteArchivoResumen[];
   clienteDatosEstado?: ExpedienteClienteDatosEstado | null;
   fechaEntradaMesaActual?: string | null;
   ultimaCorreccionEnviadaAt?: string | null;
@@ -53,6 +60,13 @@ export type MesaBandejaCasoEnriched = MesaBandejaCasoBase & {
   mesaOps?: MesaExpedienteOpsRow | null;
   notificacionBooking?: AgendaNotificacionActiveBooking | null;
   notificacionAgendadoPorLabel?: string;
+  tieneDatos?: boolean;
+  hasActiveBiometricBooking?: boolean;
+  hasActiveFirmasBooking?: boolean;
+  hasActiveNotificacionBooking?: boolean;
+  retencionOpcion?: RetencionOpcion | null;
+  retencionEnviadoAMesa?: boolean;
+  retencionEnvioEstado?: "enviado" | "correccion_requerida" | null;
 };
 
 export type EnrichMesaBandejaPageDeps = {
@@ -68,11 +82,22 @@ export type EnrichMesaBandejaPageDeps = {
   listMesaOpsByExpedienteIds?: (
     ids: readonly string[],
   ) => Promise<MesaExpedienteOpsRow[]>;
+  listActiveBookingFlagsByExpedienteIds?: (
+    ids: readonly string[],
+  ) => Promise<Map<string, MesaBandejaActiveBookingFlags>>;
+  listRetencionHintsByExpedienteIds?: (
+    ids: readonly string[],
+  ) => Promise<Map<string, MesaBandejaRetencionHint>>;
+  listTieneDatosMarcadoresByExpedienteIds?: (
+    ids: readonly string[],
+  ) => Promise<Map<string, MesaExpedienteMarcador>>;
   resolveAsesorDisplayBatch?: (
     creatorIds: string[],
   ) => Promise<Map<string, string>>;
   mesaUserId: string | null;
 };
+
+const BOOKING_HINT_ETAPAS = new Set([3, 4, 5, 9, 10]);
 
 export async function enrichMesaBandejaPageItems<T extends MesaBandejaCasoBase>(
   base: readonly T[],
@@ -84,19 +109,43 @@ export async function enrichMesaBandejaPageItems<T extends MesaBandejaCasoBase>(
   const etapa3ExpedienteIds = base
     .filter((c) => c.etapaActual === 3)
     .map((c) => c.id);
+  const bookingHintExpedienteIds = base
+    .filter((c) => BOOKING_HINT_ETAPAS.has(c.etapaActual))
+    .map((c) => c.id);
+  const etapa8ExpedienteIds = base
+    .filter((c) => c.etapaActual === 8)
+    .map((c) => c.id);
 
   const secondary = await fetchMesaBandejaSecondaryParallel(
-    { allExpedienteIds, etapa3ExpedienteIds },
+    {
+      allExpedienteIds,
+      etapa3ExpedienteIds,
+      bookingHintExpedienteIds,
+      etapa8ExpedienteIds,
+    },
     {
       listResumenBatchByExpedienteIds: deps.listResumenBatchByExpedienteIds,
       listEstadoBatchByExpedienteIds: deps.listEstadoBatchByExpedienteIds,
       listActiveNotificacionByExpedienteIds:
         deps.listActiveNotificacionByExpedienteIds,
       listMesaOpsByExpedienteIds: deps.listMesaOpsByExpedienteIds,
+      listActiveBookingFlagsByExpedienteIds:
+        deps.listActiveBookingFlagsByExpedienteIds,
+      listRetencionHintsByExpedienteIds: deps.listRetencionHintsByExpedienteIds,
+      listTieneDatosMarcadoresByExpedienteIds:
+        deps.listTieneDatosMarcadoresByExpedienteIds,
     },
   );
 
-  const { resumenPorId, estadosPorId, notificacionPorId, opsRows } = secondary;
+  const {
+    resumenPorId,
+    estadosPorId,
+    notificacionPorId,
+    opsRows,
+    bookingFlagsPorId,
+    retencionPorId,
+    marcadorTieneDatosPorId,
+  } = secondary;
 
   const creatorIds = [
     ...new Set(
@@ -146,9 +195,12 @@ export async function enrichMesaBandejaPageItems<T extends MesaBandejaCasoBase>(
       ultimaCorreccionEnviadaAt,
     );
     const booking = notificacionPorId.get(c.id) ?? null;
+    const flags = bookingFlagsPorId.get(c.id);
+    const retencion = retencionPorId.get(c.id);
     return {
       ...c,
       resumenDocumental,
+      archivosResumen: resumen,
       clienteDatosEstado: clienteBatch?.estado ?? null,
       fechaEntradaMesaActual,
       ultimaCorreccionEnviadaAt,
@@ -159,6 +211,14 @@ export async function enrichMesaBandejaPageItems<T extends MesaBandejaCasoBase>(
         ? agendadoPorLabels.get(booking.createdById) ?? "—"
         : undefined,
       mesaOps: opsMap.get(c.id) ?? null,
+      tieneDatos: marcadorTieneDatosPorId.has(c.id),
+      hasActiveBiometricBooking: Boolean(flags?.biometricos),
+      hasActiveFirmasBooking: Boolean(flags?.firmas),
+      hasActiveNotificacionBooking:
+        Boolean(flags?.notificacion) || Boolean(booking),
+      retencionOpcion: retencion?.opcion ?? null,
+      retencionEnviadoAMesa: Boolean(retencion?.enviadoAMesa),
+      retencionEnvioEstado: retencion?.envioEstado ?? null,
     };
   });
 }

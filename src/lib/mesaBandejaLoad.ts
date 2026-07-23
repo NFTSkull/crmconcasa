@@ -7,10 +7,19 @@ import type { ExpedienteArchivoResumen } from "@/domain/expediente-archivos/type
 import type { ClienteDatosEstadoBatch } from "@/domain/expediente-cliente-datos/types";
 import type { MesaExpedienteOpsRow } from "@/domain/mesa-ops/types";
 import type { AgendaNotificacionActiveBooking } from "@/domain/agenda-biometricos/repo";
+import type { MesaExpedienteMarcador } from "@/domain/expediente-mesa-marcadores";
+import type {
+  MesaBandejaActiveBookingFlags,
+  MesaBandejaRetencionHint,
+} from "@/lib/mesaBandejaAccionesEnrich";
 
 export type MesaBandejaSecondaryIds = {
   allExpedienteIds: readonly string[];
   etapa3ExpedienteIds: readonly string[];
+  /** Etapas que necesitan flags de booking biométricos/firmas (P119). */
+  bookingHintExpedienteIds?: readonly string[];
+  /** Etapa 8: retención (P119). */
+  etapa8ExpedienteIds?: readonly string[];
 };
 
 export type MesaBandejaSecondaryFetchResult = {
@@ -18,6 +27,9 @@ export type MesaBandejaSecondaryFetchResult = {
   estadosPorId: Record<string, ClienteDatosEstadoBatch>;
   notificacionPorId: Map<string, AgendaNotificacionActiveBooking>;
   opsRows: MesaExpedienteOpsRow[];
+  bookingFlagsPorId: Map<string, MesaBandejaActiveBookingFlags>;
+  retencionPorId: Map<string, MesaBandejaRetencionHint>;
+  marcadorTieneDatosPorId: Map<string, MesaExpedienteMarcador>;
   /** Contadores de invocaciones (instrumentación de prueba; no I/O real). */
   callCounts: {
     listResumenBatch: number;
@@ -25,6 +37,9 @@ export type MesaBandejaSecondaryFetchResult = {
     listEstadoBatch: number;
     listNotificacion: number;
     listOps: number;
+    listBookingFlags: number;
+    listRetencion: number;
+    listMarcadores: number;
   };
   elapsedMs: number;
 };
@@ -42,6 +57,15 @@ export type MesaBandejaSecondaryFetchers = {
   listMesaOpsByExpedienteIds?: (
     ids: readonly string[],
   ) => Promise<MesaExpedienteOpsRow[]>;
+  listActiveBookingFlagsByExpedienteIds?: (
+    ids: readonly string[],
+  ) => Promise<Map<string, MesaBandejaActiveBookingFlags>>;
+  listRetencionHintsByExpedienteIds?: (
+    ids: readonly string[],
+  ) => Promise<Map<string, MesaBandejaRetencionHint>>;
+  listTieneDatosMarcadoresByExpedienteIds?: (
+    ids: readonly string[],
+  ) => Promise<Map<string, MesaExpedienteMarcador>>;
 };
 
 /**
@@ -91,6 +115,9 @@ export async function fetchMesaBandejaSecondaryParallel(
     listEstadoBatch: 0,
     listNotificacion: 0,
     listOps: 0,
+    listBookingFlags: 0,
+    listRetencion: 0,
+    listMarcadores: 0,
   };
 
   const resumenPromise = (async () => {
@@ -137,11 +164,64 @@ export async function fetchMesaBandejaSecondaryParallel(
     }
   })();
 
-  const [resumenPorId, estadosPorId, notificacionPorId, opsRows] = await Promise.all([
+  const bookingFlagsPromise = (async () => {
+    if (!fetchers.listActiveBookingFlagsByExpedienteIds) {
+      return new Map<string, MesaBandejaActiveBookingFlags>();
+    }
+    const target = ids.bookingHintExpedienteIds ?? [];
+    if (target.length === 0) return new Map<string, MesaBandejaActiveBookingFlags>();
+    callCounts.listBookingFlags += 1;
+    try {
+      return await fetchers.listActiveBookingFlagsByExpedienteIds(target);
+    } catch {
+      return new Map<string, MesaBandejaActiveBookingFlags>();
+    }
+  })();
+
+  const retencionPromise = (async () => {
+    if (!fetchers.listRetencionHintsByExpedienteIds) {
+      return new Map<string, MesaBandejaRetencionHint>();
+    }
+    const target = ids.etapa8ExpedienteIds ?? [];
+    if (target.length === 0) return new Map<string, MesaBandejaRetencionHint>();
+    callCounts.listRetencion += 1;
+    try {
+      return await fetchers.listRetencionHintsByExpedienteIds(target);
+    } catch {
+      return new Map<string, MesaBandejaRetencionHint>();
+    }
+  })();
+
+  const marcadoresPromise = (async () => {
+    if (!fetchers.listTieneDatosMarcadoresByExpedienteIds) {
+      return new Map<string, MesaExpedienteMarcador>();
+    }
+    callCounts.listMarcadores += 1;
+    try {
+      return await fetchers.listTieneDatosMarcadoresByExpedienteIds(
+        ids.allExpedienteIds,
+      );
+    } catch {
+      return new Map<string, MesaExpedienteMarcador>();
+    }
+  })();
+
+  const [
+    resumenPorId,
+    estadosPorId,
+    notificacionPorId,
+    opsRows,
+    bookingFlagsPorId,
+    retencionPorId,
+    marcadorTieneDatosPorId,
+  ] = await Promise.all([
     resumenPromise,
     estadosPromise,
     notificacionPromise,
     opsPromise,
+    bookingFlagsPromise,
+    retencionPromise,
+    marcadoresPromise,
   ]);
 
   return {
@@ -149,6 +229,9 @@ export async function fetchMesaBandejaSecondaryParallel(
     estadosPorId,
     notificacionPorId,
     opsRows,
+    bookingFlagsPorId,
+    retencionPorId,
+    marcadorTieneDatosPorId,
     callCounts,
     elapsedMs: Date.now() - started,
   };

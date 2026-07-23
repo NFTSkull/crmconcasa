@@ -49,6 +49,7 @@ export type AgendaNotificacionActiveBooking = Readonly<{
   expedienteId: string;
   bookingDate: string;
   bookingTime: string;
+  locationId: string;
   status: "booked";
   note: string | null;
   createdById: string | null;
@@ -165,11 +166,13 @@ export interface AgendaBiometricosBookingRepo {
   bookNotificacionEtapa3(params: {
     expedienteId: string;
     bookingDate: string;
+    locationId: string;
     note?: string | null;
   }): Promise<BookNotificacionResult>;
   convertBiometricosToNotificacion(params: {
     expedienteId: string;
     bookingDate: string;
+    locationId: string;
     note?: string | null;
   }): Promise<ConvertBiometricosToNotificacionResult>;
   cancelNotificacionEtapa3(params: {
@@ -179,6 +182,7 @@ export interface AgendaBiometricosBookingRepo {
   reagendarNotificacionEtapa3(params: {
     expedienteId: string;
     bookingDate: string;
+    locationId: string;
     note?: string | null;
   }): Promise<ReagendarNotificacionResult>;
   cancelBiometricos(params: {
@@ -201,6 +205,7 @@ export interface AgendaBiometricosBookingRepo {
   mesaReagendarNotificacion(params: {
     expedienteId: string;
     bookingDate: string;
+    locationId: string;
     note?: string | null;
   }): Promise<ReagendarNotificacionResult>;
 }

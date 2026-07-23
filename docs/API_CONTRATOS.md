@@ -1115,3 +1115,16 @@ Todos | Correcciones enviadas | Nuevos | En proceso | Rechazos y cancelaciones |
 - [ ] Zod schemas por RPC
 - [ ] OpenAPI o tRPC router
 - [ ] Idempotency keys en envío mesa / retención
+
+## 17f. Marcador Mesa `tiene_datos` (P119)
+
+**RPC** `mesa_set_expediente_marcador(p_expediente_id, p_tipo, p_active)`
+
+- Allowlist `tipo`: `tiene_datos`.
+- Roles: `mesa_admin` | `mesa_interno` | `mesa_externo` | `super_admin`.
+- Idempotente; `action_log` `mesa.expediente.marcador_set`.
+- No modifica etapa/subestado.
+- Lectura: SELECT RLS `can_see_expediente` + batch enrich bandeja.
+
+**Asignación rápida:** reutiliza `mesa_take_expediente`.
+**Avance rápido:** reutiliza `avanzar_etapa_operativa`.

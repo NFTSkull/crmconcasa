@@ -1,5 +1,12 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+- **test/p119.2-concurrencia-cupos:** SQL focal `rpc_agenda_slot_capacity_concurrency_p1192.sql` (dblink + barrera ACCESS EXCLUSIVE/SHARE) prueba 2×`book_biometricos` sobre cupo=1 → 1 OK + 1 `cupo agotado`, cancel/reagenda canónicos; UI refresca disponibilidad tras error de cupo (bio/firmas).
+- **fix/p119.1-auditoria:** oculta avance rápido 3→5 y 9→10; notificación persiste sede `monterrey|apodaca` (migración 107); históricos `notificacion`/NULL → Sin sede.
+- **feat/mesa-acciones-rapidas — P119 (local, sin commit/Cloud):** acciones rápidas en tarjeta de bandeja (`Siguiente etapa`, `Tiene datos`, `Tomar expediente`); marcador persistente `expediente_mesa_marcadores` + RPC `mesa_set_expediente_marcador` (migración 106).
+
 ## Unreleased
 
 - **feat/agenda-cancelar-continuar — P118b (local, sin commit/Cloud):** RPC `mesa_cancelar_cita_y_continuar` (bio 4→5 / firmas 10→11); UI Gestionar habilita la opción solo admin+casos permitidos; notificación ocultada; decisión `cancel_continue` + aviso asesor.

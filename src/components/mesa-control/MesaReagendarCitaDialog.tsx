@@ -27,7 +27,12 @@ import {
   mapLocationIdToAdvisorCanonical,
   type AdvisorSedeOption,
 } from "@/lib/agendaAdvisorLocations";
-import type { WeeklyLocationLike } from "@/lib/agendaCynthiaLocations";
+import {
+  CYNTHIA_SEDE_APODACA_ID,
+  CYNTHIA_SEDE_MONTERREY_ID,
+  type CynthiaSedeId,
+  type WeeklyLocationLike,
+} from "@/lib/agendaCynthiaLocations";
 import { mesaAgendaCancelDialogKindLabel } from "@/lib/mesaAgendaCitasUi";
 
 export type MesaReagendarConfirmPayload =
@@ -47,6 +52,7 @@ export type MesaReagendarConfirmPayload =
   | {
       kind: "notificacion";
       bookingDate: string;
+      locationId: string;
       note: string | null;
     };
 
@@ -107,6 +113,9 @@ export function MesaReagendarCitaDialog({
     readonly { bookingDate: string; bookingTime: string; locationId: string }[]
   >([]);
   const [sedeCanonicalId, setSedeCanonicalId] = useState("");
+  const [notificacionSedeId, setNotificacionSedeId] = useState<CynthiaSedeId>(
+    CYNTHIA_SEDE_MONTERREY_ID,
+  );
   const [dateYmd, setDateYmd] = useState<YmdDate>("2026-01-01" as YmdDate);
   const [timeHhmm, setTimeHhmm] = useState<HhmmTime | "">("");
   const [note, setNote] = useState("");
@@ -173,6 +182,12 @@ export function MesaReagendarCitaDialog({
         const tz = "America/Monterrey";
         const today = todayYmdInTimezone(tz);
         setDateYmd((entry.bookingDate as YmdDate) || today);
+        const loc = String(entry.locationId ?? "").trim().toLowerCase();
+        setNotificacionSedeId(
+          loc === CYNTHIA_SEDE_APODACA_ID
+            ? CYNTHIA_SEDE_APODACA_ID
+            : CYNTHIA_SEDE_MONTERREY_ID,
+        );
       }
       setNote("");
     } catch (err) {
@@ -219,6 +234,7 @@ export function MesaReagendarCitaDialog({
       await onConfirm({
         kind: "notificacion",
         bookingDate: dateYmd,
+        locationId: notificacionSedeId,
         note: note.trim() || null,
       });
       return;
@@ -254,6 +270,7 @@ export function MesaReagendarCitaDialog({
     entry,
     firmasConfig,
     note,
+    notificacionSedeId,
     onConfirm,
     selectedSede,
     timeHhmm,
@@ -326,6 +343,21 @@ export function MesaReagendarCitaDialog({
                     disabled={saving}
                     onChange={(e) => setDateYmd(e.target.value as YmdDate)}
                   />
+                </label>
+                <label className="block text-xs font-semibold text-gray-800">
+                  Sede
+                  <select
+                    className="mt-1 w-full rounded-md border border-gray-200 px-3 py-2 text-sm"
+                    value={notificacionSedeId}
+                    disabled={saving}
+                    onChange={(e) =>
+                      setNotificacionSedeId(e.target.value as CynthiaSedeId)
+                    }
+                    data-testid="mesa-reagendar-notificacion-sede"
+                  >
+                    <option value={CYNTHIA_SEDE_MONTERREY_ID}>Monterrey</option>
+                    <option value={CYNTHIA_SEDE_APODACA_ID}>Apodaca</option>
+                  </select>
                 </label>
                 <p className="text-xs text-amber-800">
                   Hora fija: {NOTIFICACION_FIXED_TIME_DISPLAY}
