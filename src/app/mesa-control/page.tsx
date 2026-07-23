@@ -1025,6 +1025,9 @@ export default function MesaControlPage() {
   );
 
   const actorRoleForAcciones = mesaMockRole ?? currentUser?.role ?? null;
+  /** Misma resolución que acciones: sesión Supabase si no hay mock. */
+  const agendaConfigRole = actorRoleForAcciones;
+  const canManageAgenda = canManageAgendaConfig(agendaConfigRole);
 
   const patchCasoLocal = useCallback(
     (expedienteId: string, patch: Partial<CasoConDocs>) => {
@@ -1202,11 +1205,11 @@ export default function MesaControlPage() {
           </section>
         ) : null}
 
-        {canManageAgendaConfig(mesaMockRole) ? (
+        {canManageAgenda ? (
           <AgendaBiometricosConfigPanel
-            canEdit={canManageAgendaConfig(mesaMockRole ?? "")}
+            canEdit={canManageAgenda}
             actorEmail={currentUser.email}
-            profileRole={mesaMockRole}
+            profileRole={agendaConfigRole}
           />
         ) : null}
 
