@@ -47,7 +47,7 @@ describe("weekly-availability", () => {
       allowedWeekdays: [1, 2, 3, 4, 5],
       slots: ["09:00" as HhmmTime],
       locations: [
-        { id: "apodaca", label: "Apodaca", enabled: true, capacityPerSlot: 2 },
+        { id: "apodaca", label: "Apodaca", enabled: true, capacityPerSlot: 2, capacityByTime: { "09:00": 2 } },
       ],
     };
     const bookedSlots = [
@@ -73,7 +73,7 @@ describe("weekly-availability", () => {
     const config = {
       ...emptyAgendaBiometricosWeeklyConfig(),
       allowedWeekdays: [1, 2, 3, 4, 5],
-      locations: [{ id: "apodaca", label: "Apodaca", enabled: true, capacityPerSlot: 1 }],
+      locations: [{ id: "apodaca", label: "Apodaca", enabled: true, capacityPerSlot: 1, capacityByTime: { "09:00": 1 } }],
       slots: ["09:00" as HhmmTime],
       minLeadHours: 0,
     };
@@ -92,7 +92,7 @@ describe("weekly-availability", () => {
       ...emptyAgendaBiometricosWeeklyConfig(),
       minLeadHours: 0,
       allowedWeekdays: [1, 2, 3, 4, 5],
-      locations: [{ id: "apodaca", label: "Apodaca", enabled: true, capacityPerSlot: 1 }],
+      locations: [{ id: "apodaca", label: "Apodaca", enabled: true, capacityPerSlot: 1, capacityByTime: { "09:00": 1 } }],
       slots: ["09:00" as HhmmTime],
     };
     const dates = listBookableDatesInRange({
@@ -141,6 +141,35 @@ describe("weekly-availability", () => {
     assert.equal(slots.find((s) => s.time === "10:00")?.remaining, 5);
   });
 
+  it("P124: sin capacity_by_time no ofrece el horario (sin fallback)", () => {
+    const config = {
+      ...emptyAgendaBiometricosWeeklyConfig(),
+      enabled: true,
+      timezone: "America/Monterrey",
+      minLeadHours: 0,
+      allowedWeekdays: [1, 2, 3, 4, 5],
+      slots: ["08:00" as HhmmTime, "10:00" as HhmmTime],
+      locations: [
+        {
+          id: "monterrey",
+          label: "Monterrey",
+          enabled: true,
+          capacityPerSlot: 15,
+          capacityByTime: { "08:00": 8 },
+        },
+      ],
+    };
+    const slots = computeWeeklySlotAvailability({
+      config,
+      bookedSlots: [],
+      date: "2026-06-29" as YmdDate,
+      locationId: "monterrey",
+      now: new Date("2026-06-25T12:00:00.000Z"),
+    });
+    assert.equal(slots.length, 1);
+    assert.equal(slots[0]?.time, "08:00");
+  });
+
   it("computeWeeklySlotAvailability: excepción fecha gana sobre capacity_by_time", () => {
     const config = {
       ...emptyAgendaBiometricosWeeklyConfig(),
@@ -179,7 +208,7 @@ describe("weekly-availability", () => {
       allowedWeekdays: [1, 2, 3, 4, 5],
       slots: ["09:00" as HhmmTime, "10:00" as HhmmTime],
       locations: [
-        { id: "monterrey", label: "Monterrey", enabled: true, capacityPerSlot: 2 },
+        { id: "monterrey", label: "Monterrey", enabled: true, capacityPerSlot: 2, capacityByTime: { "09:00": 2, "10:00": 2 } },
       ],
     };
     const slots = computeWeeklySlotAvailability({
@@ -209,7 +238,7 @@ describe("weekly-availability", () => {
       allowedWeekdays: [1, 2, 3, 4, 5],
       slots: ["09:00" as HhmmTime],
       locations: [
-        { id: "monterrey", label: "Monterrey", enabled: true, capacityPerSlot: 5 },
+        { id: "monterrey", label: "Monterrey", enabled: true, capacityPerSlot: 5, capacityByTime: { "09:00": 5 } },
       ],
     };
     const slots = computeWeeklySlotAvailability({

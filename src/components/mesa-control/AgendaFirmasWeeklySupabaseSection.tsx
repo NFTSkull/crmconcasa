@@ -13,6 +13,7 @@ import {
 } from "@/domain/agenda-firmas";
 import {
   cynthiaFormToWeeklyLocations,
+  missingExplicitSlotCapacities,
   weeklyLocationsToCynthiaForm,
   type CynthiaSedeFormState,
   type CynthiaSedeId,
@@ -150,6 +151,12 @@ export function AgendaFirmasWeeklySupabaseSection({ canEdit, profileRole }: Prop
     }
     if (enabled && !normalizedLocations.some((l) => l.enabled)) {
       setSaveError("Si la agenda está activa, necesitas al menos una sede habilitada.");
+      return;
+    }
+
+    const missingCupo = missingExplicitSlotCapacities(normalizedSlots, sedes);
+    if (missingCupo) {
+      setSaveError(missingCupo);
       return;
     }
 

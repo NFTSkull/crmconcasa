@@ -57,6 +57,7 @@ function slotsForAdvisorDate(
     canonicalId: sede.canonicalId,
     sourceLocationIds: sede.sourceLocationIds,
     capacityPerSlot: sede.capacityPerSlot,
+    capacityByTime: sede.capacityByTime,
     now,
     applyMinLeadHours,
   });

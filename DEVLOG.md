@@ -1,5 +1,9 @@
 # Devlog
 
+## 2026-07-23 - P124 solo cupos explícitos por horario
+
+Conversión única (migración 110): slots × sedes activas sin `capacity_by_time` reciben una copia de `capacity_per_slot`. Luego asserts/disponibilidad: `agenda_slot_capacities` → `capacity_by_time`; si falta → no booking / no ofrecer. UI: quita «Cupo general»; exige cupo por fila al guardar. `capacity_per_slot` permanece en JSON por compatibilidad, sin UI ni uso operativo. Notificación intacta.
+
 ## 2026-07-23 - P123 cupos por hora en Horarios seleccionados
 
 Almacenamiento: `agenda_config.locations.<sede>.capacity_by_time["HH:MM"]` (migración 109 amplía whitelist + asserts). Precedencia booking: `agenda_slot_capacities` → `capacity_by_time` → `capacity_per_slot`. UX: filas Hora/Monterrey/Apodaca/Quitar + «Guardar horarios y cupos»; excepciones colapsables por kind dentro de cada weekly. Notificación sigue sin cupo (sin assert). Sin backfill.

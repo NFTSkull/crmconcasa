@@ -139,8 +139,8 @@ describe("computeAdvisorSlotAvailability", () => {
       allowedWeekdays: [1, 2, 3, 4, 5],
       slots: ["09:00" as HhmmTime],
       locations: [
-        { id: "mty-centro", label: "Centro", enabled: true, capacityPerSlot: 3 },
-        { id: "sede-centro", label: "Sede centro", enabled: true, capacityPerSlot: 5 },
+        { id: "mty-centro", label: "Centro", enabled: true, capacityPerSlot: 3, capacityByTime: { "09:00": 3 } },
+        { id: "sede-centro", label: "Sede centro", enabled: true, capacityPerSlot: 5, capacityByTime: { "09:00": 5 } },
       ],
     };
     const options = buildAdvisorSedeOptions(config.locations);
@@ -157,6 +157,7 @@ describe("computeAdvisorSlotAvailability", () => {
       canonicalId: monterrey.canonicalId,
       sourceLocationIds: monterrey.sourceLocationIds,
       capacityPerSlot: monterrey.capacityPerSlot,
+      capacityByTime: monterrey.capacityByTime,
       now: new Date("2026-06-25T12:00:00.000Z"),
     });
 
@@ -175,7 +176,15 @@ describe("computeAdvisorSlotAvailability", () => {
       minLeadHours: 0,
       allowedWeekdays: [1, 2, 3, 4, 5, 6, 7],
       slots: ["08:00" as HhmmTime, "10:00" as HhmmTime],
-      locations: [{ id: "monterrey", label: "Monterrey", enabled: true, capacityPerSlot: 16 }],
+      locations: [
+        {
+          id: "monterrey",
+          label: "Monterrey",
+          enabled: true,
+          capacityPerSlot: 16,
+          capacityByTime: { "08:00": 16, "10:00": 16 },
+        },
+      ],
     };
     const [monterrey] = buildAdvisorSedeOptions(config.locations);
     assert.ok(monterrey);
@@ -191,6 +200,7 @@ describe("computeAdvisorSlotAvailability", () => {
       canonicalId: monterrey.canonicalId,
       sourceLocationIds: monterrey.sourceLocationIds,
       capacityPerSlot: monterrey.capacityPerSlot,
+      capacityByTime: monterrey.capacityByTime,
       now: new Date("2026-01-01"),
     });
 

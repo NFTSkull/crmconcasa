@@ -111,21 +111,28 @@ export function parseCapacityByTime(raw: unknown): Record<string, number> | unde
 }
 
 /**
- * Cupo recurrente de una sede para una hora.
- * Precedencia UI/disponibilidad (antes de excepciones por fecha):
- * capacity_by_time[hora] → capacity_per_slot.
+ * Cupo explícito por hora (P124). Sin fallback a capacity_per_slot.
+ * @returns entero ≥1 o null si no hay cupo configurado.
  */
-export function resolveRecurrentSlotCapacity(
-  capacityPerSlot: number,
+export function resolveExplicitSlotCapacity(
   time: string,
   capacityByTime?: Readonly<Record<string, number>> | null,
-): number {
+): number | null {
   const normalized = parseHhmm(time) ?? String(time).trim();
   const specific = capacityByTime?.[normalized];
   if (typeof specific === "number" && Number.isFinite(specific) && specific >= 1) {
     return Math.trunc(specific);
   }
-  return Math.max(1, Math.trunc(capacityPerSlot || 1));
+  return null;
+}
+
+/** @deprecated P124: usar resolveExplicitSlotCapacity (sin fallback). */
+export function resolveRecurrentSlotCapacity(
+  _capacityPerSlot: number,
+  time: string,
+  capacityByTime?: Readonly<Record<string, number>> | null,
+): number {
+  return resolveExplicitSlotCapacity(time, capacityByTime) ?? 0;
 }
 
 /** SQL/JSONB → modelo UI semanal. */

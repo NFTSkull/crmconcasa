@@ -141,16 +141,36 @@ export function cynthiaFormToWeeklyLocations(
 }
 
 /**
- * Cupo mostrado/editable para un horario: valor específico o general de sede.
- * No borra entradas al leer; al editar se escribe en capacityByTime.
+ * Cupo mostrado/editable para un horario. Vacío si aún no hay valor explícito.
  */
 export function resolveSedeSlotCapacityDraft(
   sede: CynthiaSedeFormState,
   slot: string,
-): number {
+): number | "" {
   const specific = sede.capacityByTime[slot];
   if (typeof specific === "number" && specific >= 1) return Math.trunc(specific);
-  return Math.max(1, Math.trunc(sede.capacityPerSlot || 1));
+  return "";
+}
+
+/** Valida que cada horario tenga cupo ≥1 en cada sede activa. */
+export function missingExplicitSlotCapacities(
+  slots: readonly string[],
+  sedes: Record<CynthiaSedeId, CynthiaSedeFormState>,
+): string | null {
+  const labels: Record<CynthiaSedeId, string> = {
+    [CYNTHIA_SEDE_MONTERREY_ID]: "Monterrey",
+    [CYNTHIA_SEDE_APODACA_ID]: "Apodaca",
+  };
+  for (const slot of slots) {
+    for (const id of [CYNTHIA_SEDE_MONTERREY_ID, CYNTHIA_SEDE_APODACA_ID] as const) {
+      if (!sedes[id].enabled) continue;
+      const n = sedes[id].capacityByTime[slot];
+      if (typeof n !== "number" || !Number.isFinite(n) || n < 1) {
+        return `Falta cupo para ${slot} en ${labels[id]}.`;
+      }
+    }
+  }
+  return null;
 }
 
 /** Valida y normaliza horario HH:mm; null si inválido. */

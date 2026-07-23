@@ -2,7 +2,7 @@ import { normalizeBookingDate, normalizeBookingTime } from "@/lib/asesorAgendaCa
 import { bookingBelongsToAdvisorSede } from "@/lib/agendaAdvisorLocations";
 import type { AdvisorSedeOption } from "@/lib/agendaAdvisorLocations";
 import {
-  resolveRecurrentSlotCapacity,
+  resolveExplicitSlotCapacity,
   type AgendaBiometricosWeeklyConfig,
 } from "./map-agenda-config";
 import type {
@@ -223,12 +223,19 @@ export function computeWeeklySlotAvailability(params: {
     if (!meetsMinLeadHours(date, time, config.timezone, config.minLeadHours, now)) {
       continue;
     }
-    const recurrent = resolveRecurrentSlotCapacity(
-      location.capacityPerSlot || 1,
-      time,
-      location.capacityByTime,
-    );
-    const resolved = resolveSlotCapacity(recurrent, time, params.capacityOverrides);
+    const inactive = params.capacityOverrides?.inactiveTimes?.has(time) === true;
+    const hideInactive = params.capacityOverrides?.hideInactive !== false;
+    if (inactive && hideInactive) {
+      continue;
+    }
+    const recurrent = resolveExplicitSlotCapacity(time, location.capacityByTime);
+    const dateOverride = params.capacityOverrides?.capacityByTime?.[time];
+    const hasDateOverride =
+      typeof dateOverride === "number" && Number.isFinite(dateOverride) && dateOverride > 0;
+    if (recurrent == null && !hasDateOverride && !(inactive && !hideInactive)) {
+      continue;
+    }
+    const resolved = resolveSlotCapacity(recurrent ?? 1, time, params.capacityOverrides);
     if (resolved.skip) continue;
     const capacity = resolved.capacity;
     const bookedCount = countBookedForSlot(bookedSlots, date, locationId, time);
@@ -290,12 +297,19 @@ export function computeAdvisorSlotAvailability(params: {
     if (applyMinLeadHours && !meetsMinLeadHours(date, time, config.timezone, config.minLeadHours, now)) {
       continue;
     }
-    const recurrent = resolveRecurrentSlotCapacity(
-      capacityPerSlot || 1,
-      time,
-      params.capacityByTime ?? null,
-    );
-    const resolved = resolveSlotCapacity(recurrent, time, params.capacityOverrides);
+    const inactive = params.capacityOverrides?.inactiveTimes?.has(time) === true;
+    const hideInactive = params.capacityOverrides?.hideInactive !== false;
+    if (inactive && hideInactive) {
+      continue;
+    }
+    const recurrent = resolveExplicitSlotCapacity(time, params.capacityByTime ?? null);
+    const dateOverride = params.capacityOverrides?.capacityByTime?.[time];
+    const hasDateOverride =
+      typeof dateOverride === "number" && Number.isFinite(dateOverride) && dateOverride > 0;
+    if (recurrent == null && !hasDateOverride && !(inactive && !hideInactive)) {
+      continue;
+    }
+    const resolved = resolveSlotCapacity(recurrent ?? 1, time, params.capacityOverrides);
     if (resolved.skip) continue;
     const capacity = resolved.capacity;
     const bookedCount = countBookedForAdvisorSede(

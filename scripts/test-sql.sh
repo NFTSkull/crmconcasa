@@ -94,5 +94,6 @@ run_sql_test "supabase/tests/admin_mesa_timeline_pagination.sql"
 run_sql_test "supabase/tests/rpc_mesa_list_bandeja_page.sql"
 run_sql_test "supabase/tests/rpc_agenda_slot_capacities.sql"
 run_sql_test "supabase/tests/rpc_agenda_capacity_by_time_p123.sql"
+run_sql_test "supabase/tests/rpc_agenda_explicit_hourly_p124.sql"
 
 echo "SQL tests: ALL PASSED"

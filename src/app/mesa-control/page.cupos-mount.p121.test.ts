@@ -56,6 +56,8 @@ describe("P121/P123 montaje cupos en /mesa-control", () => {
     assert.match(form, /El asesor verá los lugares restantes/);
     assert.match(form, /resolveSedeSlotCapacityDraft/);
     assert.match(form, /exceptionsPanel/);
+    assert.doesNotMatch(form, /Cupo general por horario/);
+    assert.doesNotMatch(form, /Respaldo cuando un horario no tiene cupo específico/);
   });
 
   it("formulario excepciones Fecha/Sede/Hora/Capacidad presente", () => {
