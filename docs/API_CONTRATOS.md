@@ -983,6 +983,40 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 
 ---
 
+## 17e-bis. Cupos por horario + gestionar cita (P118)
+
+### Cupos
+
+**Listar:** `list_agenda_slot_capacities(p_kind booking_kind, p_slot_date date, p_location_id text default null) → table`
+
+- Roles: Mesa + `asesor` + `super_admin`. Devuelve capacity/occupied/available/active.
+
+**Upsert:** `upsert_agenda_slot_capacity(p_kind, p_location_id, p_slot_date, p_slot_time, p_capacity, p_active default true) → jsonb`
+
+- Roles: `mesa_admin` | `super_admin`. Kind solo `biometricos`|`firmas`. Rechaza `capacity < occupied`. `action_log` `agenda.slot_capacity.upsert`.
+
+Asserts de book biométricos/firmas usan override cuando existe fila (`active=false` bloquea).
+
+### Decisiones / gestionar
+
+**Listar:** `list_agenda_booking_decisiones(p_expediente_id uuid) → table` (asesor del expediente o Mesa con `can_see_expediente`).
+
+**Gestionar:** `mesa_gestionar_cita(p_booking_id, p_action, p_motivo, p_new_scheduled_at?, p_new_location_id?, p_new_booking_date?) → jsonb`
+
+- Acciones: `reagendar` | `cancelar` | `cancelar_continuar` / `cancel_continue`.
+- **P118b:** `cancel_continue` delega a `mesa_cancelar_cita_y_continuar(p_booking_id, p_motivo)`:
+  - Roles SQL: `mesa_admin` | `super_admin` (UI: + `mesa_control_admin`).
+  - Biométricos + etapa 4 → cancela booking, `fecha_cita=NULL`, avanza a 5, decisión `cancel_continue`.
+  - Firmas + etapa 10 → cancela booking, `fecha_cita=NULL`, avanza a 11.
+  - Notificación / firmas 9 / interno-externo-asesor: rechazado.
+  - Idempotente si ya hay decisión `cancel_continue` y booking cancelado.
+- Cancelar normal: no avanza etapa; permite reagendar.
+- `cancelar` / `reagendar` delegan a RPCs existentes por kind y persisten fila en `agenda_booking_decisiones`.
+
+Migraciones: `103_agenda_slot_capacities.sql`, `104_agenda_booking_decisiones_y_gestionar.sql`.
+
+---
+
 ## 17f. Cancelación operativa de expediente — P094 (B1 SQL)
 
 **Objetivo:** cierre terminal cuando el cliente no continúa. Separado del rechazo operativo (17d).

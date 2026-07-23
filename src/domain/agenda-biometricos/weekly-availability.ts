@@ -14,6 +14,37 @@ export type WeeklyBookedSlot = Readonly<{
   locationId: string;
 }>;
 
+/** Override opcional de cupo por hora (P118). */
+export type SlotCapacityOverrides = Readonly<{
+  /** HH:MM → capacidad. Si hay fila, sustituye capacityPerSlot. */
+  capacityByTime?: Readonly<Record<string, number>>;
+  /** Horas con active=false: se omiten o quedan llenas. */
+  inactiveTimes?: ReadonlySet<string>;
+  /** Si true (default), no muestra slots inactive. Si false, remaining=0. */
+  hideInactive?: boolean;
+}>;
+
+function resolveSlotCapacity(
+  baseCapacity: number,
+  time: HhmmTime,
+  overrides?: SlotCapacityOverrides | null,
+): { capacity: number; skip: boolean; forceFull: boolean } {
+  if (!overrides) {
+    return { capacity: Math.max(1, Math.trunc(baseCapacity || 1)), skip: false, forceFull: false };
+  }
+  if (overrides.inactiveTimes?.has(time)) {
+    if (overrides.hideInactive !== false) {
+      return { capacity: 0, skip: true, forceFull: false };
+    }
+    return { capacity: Math.max(1, Math.trunc(baseCapacity || 1)), skip: false, forceFull: true };
+  }
+  const override = overrides.capacityByTime?.[time];
+  if (typeof override === "number" && Number.isFinite(override) && override > 0) {
+    return { capacity: Math.max(1, Math.trunc(override)), skip: false, forceFull: false };
+  }
+  return { capacity: Math.max(1, Math.trunc(baseCapacity || 1)), skip: false, forceFull: false };
+}
+
 function parseYmd(dateYmd: YmdDate): { y: number; mo: number; d: number } {
   const [y, mo, d] = dateYmd.split("-").map(Number);
   return { y, mo, d };
@@ -169,6 +200,7 @@ export function computeWeeklySlotAvailability(params: {
   date: YmdDate;
   locationId: string;
   now?: Date;
+  capacityOverrides?: SlotCapacityOverrides | null;
 }): AgendaBiometricosSlotAvailability[] {
   const { config, bookedSlots, date, locationId } = params;
   const now = params.now ?? new Date();
@@ -188,9 +220,17 @@ export function computeWeeklySlotAvailability(params: {
     if (!meetsMinLeadHours(date, time, config.timezone, config.minLeadHours, now)) {
       continue;
     }
-    const capacity = Math.max(1, Math.trunc(location.capacityPerSlot || 1));
+    const resolved = resolveSlotCapacity(
+      location.capacityPerSlot || 1,
+      time,
+      params.capacityOverrides,
+    );
+    if (resolved.skip) continue;
+    const capacity = resolved.capacity;
     const bookedCount = countBookedForSlot(bookedSlots, date, locationId, time);
-    const remaining = Math.max(0, capacity - bookedCount);
+    const remaining = resolved.forceFull
+      ? 0
+      : Math.max(0, capacity - bookedCount);
     out.push({
       date,
       locationId,
@@ -215,6 +255,7 @@ export function computeAdvisorSlotAvailability(params: {
   now?: Date;
   /** Si false, incluye horarios bloqueados solo por anticipación mínima (diagnóstico UI). */
   applyMinLeadHours?: boolean;
+  capacityOverrides?: SlotCapacityOverrides | null;
 }): AgendaBiometricosSlotAvailability[] {
   const { config, bookedSlots, date, canonicalId, sourceLocationIds, capacityPerSlot } = params;
   const now = params.now ?? new Date();
@@ -231,7 +272,7 @@ export function computeAdvisorSlotAvailability(params: {
   const isoDow = getIsoWeekdayForDate(date, config.timezone);
   if (!config.allowedWeekdays.includes(isoDow)) return [];
 
-  const capacity = Math.max(1, Math.trunc(capacityPerSlot || 1));
+  const baseCapacity = Math.max(1, Math.trunc(capacityPerSlot || 1));
   const sede: Pick<AdvisorSedeOption, "canonicalId" | "sourceLocationIds"> = {
     canonicalId: canonicalId as AdvisorSedeOption["canonicalId"],
     sourceLocationIds,
@@ -244,6 +285,9 @@ export function computeAdvisorSlotAvailability(params: {
     if (applyMinLeadHours && !meetsMinLeadHours(date, time, config.timezone, config.minLeadHours, now)) {
       continue;
     }
+    const resolved = resolveSlotCapacity(baseCapacity, time, params.capacityOverrides);
+    if (resolved.skip) continue;
+    const capacity = resolved.capacity;
     const bookedCount = countBookedForAdvisorSede(
       bookedSlots,
       date,
@@ -251,7 +295,9 @@ export function computeAdvisorSlotAvailability(params: {
       sede,
       config.locations,
     );
-    const remaining = Math.max(0, capacity - bookedCount);
+    const remaining = resolved.forceFull
+      ? 0
+      : Math.max(0, capacity - bookedCount);
     out.push({
       date,
       locationId: canonicalId,

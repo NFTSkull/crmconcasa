@@ -17,12 +17,15 @@ type MesaAgendaCitasWeekViewProps = Readonly<{
   canCancelEntry: (entry: MesaAgendaBookingEntry) => boolean;
   canReagendarEntry: (entry: MesaAgendaBookingEntry) => boolean;
   canDriveValidateEntry: (entry: MesaAgendaBookingEntry) => boolean;
+  canGestionarEntry?: (entry: MesaAgendaBookingEntry) => boolean;
   cancelPendingBookingId?: string | null;
   reagendarPendingBookingId?: string | null;
   drivePendingBookingId?: string | null;
+  gestionarPendingBookingId?: string | null;
   onSelectDay: (date: string) => void;
   onRequestCancel?: (entry: MesaAgendaBookingEntry) => void;
   onRequestReagendar?: (entry: MesaAgendaBookingEntry) => void;
+  onRequestGestionar?: (entry: MesaAgendaBookingEntry) => void;
   onToggleDriveValidation?: (entry: MesaAgendaBookingEntry) => void;
   selectedBookingIds?: ReadonlySet<string>;
   isBulkRowSelectable?: (entry: MesaAgendaBookingEntry) => boolean;
@@ -82,12 +85,15 @@ export function MesaAgendaCitasWeekView({
   canCancelEntry,
   canReagendarEntry,
   canDriveValidateEntry,
+  canGestionarEntry,
   cancelPendingBookingId = null,
   reagendarPendingBookingId = null,
   drivePendingBookingId = null,
+  gestionarPendingBookingId = null,
   onSelectDay,
   onRequestCancel,
   onRequestReagendar,
+  onRequestGestionar,
   onToggleDriveValidation,
   selectedBookingIds,
   isBulkRowSelectable,
@@ -125,11 +131,14 @@ export function MesaAgendaCitasWeekView({
             canCancelEntry={canCancelEntry}
             canReagendarEntry={canReagendarEntry}
             canDriveValidateEntry={canDriveValidateEntry}
+            canGestionarEntry={canGestionarEntry}
             cancelPendingBookingId={cancelPendingBookingId}
             reagendarPendingBookingId={reagendarPendingBookingId}
             drivePendingBookingId={drivePendingBookingId}
+            gestionarPendingBookingId={gestionarPendingBookingId}
             onRequestCancel={onRequestCancel}
             onRequestReagendar={onRequestReagendar}
+            onRequestGestionar={onRequestGestionar}
             onToggleDriveValidation={onToggleDriveValidation}
             selectedBookingIds={selectedBookingIds}
             isBulkRowSelectable={isBulkRowSelectable}

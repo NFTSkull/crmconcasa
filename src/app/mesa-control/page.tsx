@@ -1096,6 +1096,7 @@ export default function MesaControlPage() {
           <AgendaBiometricosConfigPanel
             canEdit={canManageAgendaConfig(mesaMockRole ?? "")}
             actorEmail={currentUser.email}
+            profileRole={mesaMockRole}
           />
         ) : null}
 

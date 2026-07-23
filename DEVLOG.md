@@ -1,5 +1,33 @@
 # Devlog
 
+## 2026-07-23 - P118b: Cancelar cita y continuar
+
+### Decisión
+RPC dedicada `mesa_cancelar_cita_y_continuar` (migración 105). No reutiliza `avanzar_etapa_operativa` (fallaría sin booking/`fecha_cita`). Cancela booking, limpia `fecha_cita` (mismo patrón que cancel canónico), avanza etapa y registra `cancel_continue` en TX.
+
+### Casos
+- Biométricos etapa 4 → 5
+- Firmas etapa 10 → 11
+- Notificación / firmas 9 / interno-externo-asesor: bloqueados
+- Roles SQL: `mesa_admin` | `super_admin` (UI alias `mesa_control_admin`)
+
+### UI
+Opción visible solo cuando `canMesaCancelarCitaYContinuar`; confirmación reforzada; asesor ve decisión sin invitar a reagendar.
+
+## 2026-07-23 - P118: cupos por horario + gestionar cita (capa TS/UI)
+
+### Decisión
+SQL ya entregado (migraciones 103/104): overrides de cupo por fecha+hora+sede+kind y decisiones append-only. La UI Mesa Admin gestiona cupos sin tocar la config semanal Cynthia. Asesor aplica override al pintar disponibilidad (fallback a `capacityPerSlot`). `cancelar_continuar` permanece STOP en SQL; la UI muestra la opción deshabilitada con «Requiere RPC dedicada (no disponible)» — no se inventa bypass de gates bio 4→5 / firmas 9→10|10→11.
+
+### UI
+- Sede en Citas Mesa: `formatMesaAgendaSedeLabel` (nunca muestra `notificacion` como sede).
+- Panel «Cupos por horario» junto a configs semanales.
+- Botón «Gestionar cita» → reagendar (flujo existente) / cancelar (`mesa_gestionar_cita`) / cancelar_continuar STOP.
+- Asesor: `AsesorAgendaDecisionNotice` con última decisión relevante.
+
+### Tests
+TS: sede label, capacity override, copy STOP. SQL: `rpc_agenda_slot_capacities.sql`, `rpc_mesa_gestionar_cita.sql`.
+
 ## 2026-07-23 - P117: Acuse MIME + avance 8→9 + Pasar a Firmado
 
 ### Auditoría

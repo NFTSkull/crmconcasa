@@ -19,6 +19,7 @@ import {
   buildAdvisorDateAvailabilityInsight,
 } from "@/components/asesor/AdvisorAgendaSlotPicker";
 import { AsesorAgendaCitaCanceladaNotice } from "@/components/asesor/AsesorAgendaCitaCanceladaNotice";
+import { AsesorAgendaDecisionNotice } from "@/components/asesor/AsesorAgendaDecisionNotice";
 import { parseCancelMotivoFromNote } from "@/lib/agendaCancelNote";
 import {
   advisorLabelForLocationId,
@@ -28,6 +29,12 @@ import {
   type AdvisorSedeOption,
 } from "@/lib/agendaAdvisorLocations";
 import type { WeeklyLocationLike } from "@/lib/agendaCynthiaLocations";
+import {
+  buildCapacityByTimeMap,
+  buildInactiveSlotTimes,
+  listAgendaSlotCapacities,
+} from "@/domain/agenda-slot-capacities";
+import type { SlotCapacityOverrides } from "@/domain/agenda-biometricos/weekly-availability";
 
 export interface AgendaFirmasSupabaseCardProps {
   expedienteId: string;
@@ -99,6 +106,8 @@ export function AgendaFirmasSupabaseCard({
   const [bookedSlots, setBookedSlots] = useState<
     Awaited<ReturnType<NonNullable<typeof repo>["listBookedSlots"]>>
   >([]);
+  const [capacityOverrides, setCapacityOverrides] = useState<SlotCapacityOverrides | null>(null);
+  const [capacitiesTick, setCapacitiesTick] = useState(0);
   const [sedeCanonicalId, setSedeCanonicalId] = useState("");
   const [dateYmd, setDateYmd] = useState<YmdDate>("2026-01-01" as YmdDate);
   const [timeHhmm, setTimeHhmm] = useState<HhmmTime | "">("");
@@ -156,6 +165,7 @@ export function AgendaFirmasSupabaseCard({
       setDateYmd(today);
       setTimeHhmm("");
       setReagendar(false);
+      setCapacitiesTick((n) => n + 1);
     } catch (err) {
       setLoadError(
         err instanceof AgendaFirmasSupabaseError
@@ -171,6 +181,34 @@ export function AgendaFirmasSupabaseCard({
     void load();
   }, [load]);
 
+  useEffect(() => {
+    let cancelled = false;
+    if (!selectedSede || !dateYmd) {
+      setCapacityOverrides(null);
+      return;
+    }
+    void (async () => {
+      try {
+        const rows = await listAgendaSlotCapacities({
+          kind: "firmas",
+          slotDate: dateYmd,
+          locationId: selectedSede.canonicalId,
+        });
+        if (cancelled) return;
+        setCapacityOverrides({
+          capacityByTime: buildCapacityByTimeMap(rows),
+          inactiveTimes: buildInactiveSlotTimes(rows),
+          hideInactive: true,
+        });
+      } catch {
+        if (!cancelled) setCapacityOverrides(null);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [capacitiesTick, dateYmd, selectedSede]);
+
   const disponibilidadSlots = useMemo(() => {
     if (!config || !selectedSede) return [];
     const base = computeAdvisorSlotAvailability({
@@ -180,6 +218,7 @@ export function AgendaFirmasSupabaseCard({
       canonicalId: selectedSede.canonicalId,
       sourceLocationIds: selectedSede.sourceLocationIds,
       capacityPerSlot: selectedSede.capacityPerSlot,
+      capacityOverrides,
     });
     return adjustSlotsForReagendar(
       base,
@@ -189,7 +228,7 @@ export function AgendaFirmasSupabaseCard({
       selectedSede,
       config.locations,
     );
-  }, [activeBooking, bookedSlots, config, dateYmd, reagendar, selectedSede]);
+  }, [activeBooking, bookedSlots, capacityOverrides, config, dateYmd, reagendar, selectedSede]);
 
   const availabilityInsight = useMemo(() => {
     if (!config || !selectedSede) return null;
@@ -484,6 +523,8 @@ export function AgendaFirmasSupabaseCard({
 
   if (puedeGestionar && citaIso) {
     return (
+      <div className="space-y-3">
+        <AsesorAgendaDecisionNotice expedienteId={expedienteId} kinds={["firmas"]} />
       <div className="rounded-xl border border-violet-200 bg-violet-50/60 p-4 shadow-sm">
         <p className="text-sm font-semibold text-violet-900">Cita de firmas agendada</p>
         <p className="mt-2 text-xs text-violet-950">
@@ -530,12 +571,14 @@ export function AgendaFirmasSupabaseCard({
           </Button>
         </div>
       </div>
+      </div>
     );
   }
 
   if (citaIso && !activeBooking) {
     return (
       <div className="space-y-3">
+        <AsesorAgendaDecisionNotice expedienteId={expedienteId} kinds={["firmas"]} />
         {lastCancelledBooking ? (
           <AsesorAgendaCitaCanceladaNotice
             motivo={parseCancelMotivoFromNote(lastCancelledBooking.note)}
@@ -561,6 +604,7 @@ export function AgendaFirmasSupabaseCard({
 
   return (
     <div className="space-y-3">
+      <AsesorAgendaDecisionNotice expedienteId={expedienteId} kinds={["firmas"]} />
       {lastCancelledBooking ? (
         <AsesorAgendaCitaCanceladaNotice
           motivo={parseCancelMotivoFromNote(lastCancelledBooking.note)}

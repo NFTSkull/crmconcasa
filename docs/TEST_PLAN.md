@@ -1,5 +1,14 @@
 # ConCasa CRM — Plan de pruebas
 
+## P118 — Cupos por horario + gestionar cita
+
+- [x] Sede UI: null/`notificacion` → Sin sede; monterrey/apodaca/legacy → labels; badge kind intacto.
+- [x] Panel Cupos (solo `canManageAgendaConfig`): list/upsert; no bajar bajo ocupados (SQL).
+- [x] Asesor picker: override capacity; inactive oculto/lleno; fallback semanal; refetch tras book.
+- [x] Gestionar cita: reagendar/cancelar; cancelar_continuar disabled + STOP copy.
+- [x] Aviso asesor `list_agenda_booking_decisiones`.
+- [x] Tests TS focales + SQL `rpc_agenda_slot_capacities.sql` / `rpc_mesa_gestionar_cita.sql`.
+
 ## P116 — Tipo de fecha en reporte Admin
 
 - [x] Auditoría: `fecha_envio_mesa` 100% en universo P112 Cloud (169/169).
@@ -96,6 +105,15 @@
 - [x] Filtro paso 3 incluye internas 3+4; RPC recibe valores internos.
 - [x] `book_biometricos` 3→4 (sin cambio SQL); Asesor 11 pasos intacto.
 - [x] Sin Cloud write / sin renumerar `etapa_actual`.
+
+## P118 — Cupos + sede + gestionar cita (+ P118b cancelar y continuar)
+
+- [x] Cupos por fecha/hora/sede/kind; assert anti-sobrecupo; UI Mesa Admin.
+- [x] Sede legible (`notificacion` → Sin sede).
+- [x] Gestionar: reagendar / cancelar / cancelar y continuar (bio 4→5, firmas 10→11; notif oculto).
+- [x] RPC `mesa_cancelar_cita_y_continuar` (105); roles solo mesa_admin/super_admin.
+- [x] Decisión `cancel_continue` + aviso asesor sin invitar reagendar.
+- [x] Tests SQL/TS; sin Cloud/commit.
 
 ## P117 — Acuse MIME + avance 8→9 + Pasar a Firmado
 

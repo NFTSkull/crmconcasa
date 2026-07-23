@@ -11,6 +11,24 @@ import type { AgendaBiometricosWeeklyConfig } from "@/domain/agenda-biometricos/
 import type { HhmmTime, YmdDate } from "@/domain/agenda-biometricos/types";
 import type { AdvisorSedeOption } from "@/lib/agendaAdvisorLocations";
 
+/** Etiqueta 12h corta (`8:00 AM`) desde HH:MM. */
+export function formatAdvisorSlotTimeLabel(hhmm: string): string {
+  const [hRaw, mRaw] = hhmm.split(":").map(Number);
+  if (!Number.isFinite(hRaw) || !Number.isFinite(mRaw)) return hhmm;
+  const suffix = hRaw >= 12 ? "PM" : "AM";
+  const hour12 = hRaw % 12 === 0 ? 12 : hRaw % 12;
+  return `${hour12}:${String(mRaw).padStart(2, "0")} ${suffix}`;
+}
+
+export function formatAdvisorSlotAvailabilityLabel(
+  slot: Pick<AgendaBiometricosSlotAvailability, "time" | "remaining">,
+): string {
+  const timeLabel = formatAdvisorSlotTimeLabel(slot.time);
+  if (slot.remaining <= 0) return `${timeLabel} · Horario lleno`;
+  const lugares = slot.remaining === 1 ? "lugar disponible" : "lugares disponibles";
+  return `${timeLabel} · ${slot.remaining} ${lugares}`;
+}
+
 export type AdvisorAgendaSlotPickerProps = Readonly<{
   config: AgendaBiometricosWeeklyConfig | null;
   sedeOptions: readonly AdvisorSedeOption[];
@@ -31,7 +49,6 @@ export type AdvisorAgendaSlotPickerProps = Readonly<{
 export function AdvisorAgendaSlotPicker({
   config,
   sedeOptions,
-  selectedSede,
   sedeCanonicalId,
   dateYmd,
   timeHhmm,
@@ -126,6 +143,7 @@ export function AdvisorAgendaSlotPicker({
                   type="button"
                   disabled={lleno || saving}
                   onClick={() => onTimeChange(slot.time)}
+                  title={formatAdvisorSlotAvailabilityLabel(slot)}
                   className={`rounded-md border px-2 py-1 text-left text-[11px] font-medium transition focus-visible:outline-none focus-visible:ring-2 ${accentRingClass} disabled:cursor-not-allowed ${
                     lleno
                       ? "border-gray-200 bg-gray-100 text-gray-400"
@@ -134,9 +152,11 @@ export function AdvisorAgendaSlotPicker({
                         : "border-emerald-200/80 bg-emerald-50 text-emerald-950 hover:border-emerald-300 hover:bg-emerald-100/80"
                   }`}
                 >
-                  <span className="block">{slot.time}</span>
+                  <span className="block">{formatAdvisorSlotTimeLabel(slot.time)}</span>
                   <span className="block text-[9px] font-normal opacity-90">
-                    {lleno ? "Lleno" : `${slot.remaining} disp.`}
+                    {lleno
+                      ? "Horario lleno"
+                      : `${slot.remaining} ${slot.remaining === 1 ? "lugar disponible" : "lugares disponibles"}`}
                   </span>
                 </button>
               );

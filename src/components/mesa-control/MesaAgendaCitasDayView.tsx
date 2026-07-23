@@ -9,6 +9,7 @@ import {
 import { MesaAgendaBulkRowCheckbox } from "@/components/mesa-control/MesaAgendaBulkSelectionBar";
 import {
   deriveMesaAgendaHistoryLabel,
+  formatMesaAgendaSedeLabel,
   groupMesaAgendaEntriesByTime,
   hasMesaAgendaHistoryGroup,
   mesaAgendaDriveValidatedRowClass,
@@ -21,11 +22,14 @@ type MesaAgendaCitasDayViewProps = Readonly<{
   canCancelEntry: (entry: MesaAgendaBookingEntry) => boolean;
   canReagendarEntry: (entry: MesaAgendaBookingEntry) => boolean;
   canDriveValidateEntry: (entry: MesaAgendaBookingEntry) => boolean;
+  canGestionarEntry?: (entry: MesaAgendaBookingEntry) => boolean;
   cancelPendingBookingId?: string | null;
   reagendarPendingBookingId?: string | null;
   drivePendingBookingId?: string | null;
+  gestionarPendingBookingId?: string | null;
   onRequestCancel?: (entry: MesaAgendaBookingEntry) => void;
   onRequestReagendar?: (entry: MesaAgendaBookingEntry) => void;
+  onRequestGestionar?: (entry: MesaAgendaBookingEntry) => void;
   onToggleDriveValidation?: (entry: MesaAgendaBookingEntry) => void;
   selectedBookingIds?: ReadonlySet<string>;
   isBulkRowSelectable?: (entry: MesaAgendaBookingEntry) => boolean;
@@ -48,11 +52,14 @@ export function MesaAgendaCitasDayView({
   canCancelEntry,
   canReagendarEntry,
   canDriveValidateEntry,
+  canGestionarEntry,
   cancelPendingBookingId = null,
   reagendarPendingBookingId = null,
   drivePendingBookingId = null,
+  gestionarPendingBookingId = null,
   onRequestCancel,
   onRequestReagendar,
+  onRequestGestionar,
   onToggleDriveValidation,
   selectedBookingIds,
   isBulkRowSelectable,
@@ -124,7 +131,7 @@ export function MesaAgendaCitasDayView({
                         ) : null}
                         <p className="mt-1 text-xs text-slate-600">
                           {mesaAgendaBookingPersonDisplayName(entry.asesor)} ·{" "}
-                          {entry.locationId ?? "—"}
+                          {formatMesaAgendaSedeLabel(entry.locationId)}
                         </p>
                       </div>
                     </div>
@@ -140,13 +147,16 @@ export function MesaAgendaCitasDayView({
                       showCancel={canCancelEntry(entry)}
                       showReagendar={canReagendarEntry(entry)}
                       showDriveValidation={canDriveValidateEntry(entry)}
+                      showGestionar={Boolean(canGestionarEntry?.(entry))}
                       cancelPending={cancelPendingBookingId === entry.bookingId}
                       reagendarPending={reagendarPendingBookingId === entry.bookingId}
                       drivePending={
                         drivePendingBookingId === entry.bookingId || bulkBusy
                       }
+                      gestionarPending={gestionarPendingBookingId === entry.bookingId}
                       onRequestCancel={onRequestCancel}
                       onRequestReagendar={onRequestReagendar}
+                      onRequestGestionar={onRequestGestionar}
                       onToggleDriveValidation={onToggleDriveValidation}
                     />
                   </div>

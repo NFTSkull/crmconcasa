@@ -32,6 +32,7 @@ import { MesaAgendaBulkDriveResultPanel } from "@/components/mesa-control/MesaAg
 import { MesaAgendaBulkAdvanceConfirmDialog } from "@/components/mesa-control/MesaAgendaBulkAdvanceConfirmDialog";
 import { MesaAgendaBulkAdvanceResultPanel } from "@/components/mesa-control/MesaAgendaBulkAdvanceResultPanel";
 import { MesaCancelarCitaDialog } from "@/components/mesa-control/MesaCancelarCitaDialog";
+import { MesaGestionarCitaDialog } from "@/components/mesa-control/MesaGestionarCitaDialog";
 import {
   MesaReagendarCitaDialog,
   type MesaReagendarConfirmPayload,
@@ -54,6 +55,7 @@ import {
   canDownloadMesaCitasExcel,
   canDownloadMesaCitasExcelForUser,
   canMesaCancelAgendaListEntry,
+  canMesaGestionarAgendaListEntry,
   canMesaReagendarAgendaListEntry,
   canMesaShowDriveValidationActions,
   clearMesaAgendaClientFilters,
@@ -131,6 +133,9 @@ export function MesaAgendaCitasClient() {
   const [cancelSaving, setCancelSaving] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [cancelSuccess, setCancelSuccess] = useState<string | null>(null);
+  const [gestionarTarget, setGestionarTarget] = useState<MesaAgendaBookingEntry | null>(null);
+  const [gestionarSaving, setGestionarSaving] = useState(false);
+  const [gestionarError, setGestionarError] = useState<string | null>(null);
   const [reagendarTarget, setReagendarTarget] = useState<MesaAgendaBookingEntry | null>(null);
   const [reagendarSaving, setReagendarSaving] = useState(false);
   const [reagendarError, setReagendarError] = useState<string | null>(null);
@@ -198,6 +203,12 @@ export function MesaAgendaCitasClient() {
   const canReagendarEntry = useCallback(
     (entry: MesaAgendaBookingEntry) =>
       canMesaReagendarAgendaListEntry(entry, cancelRoleParams).allowed,
+    [cancelRoleParams],
+  );
+
+  const canGestionarEntry = useCallback(
+    (entry: MesaAgendaBookingEntry) =>
+      canMesaGestionarAgendaListEntry(entry, cancelRoleParams),
     [cancelRoleParams],
   );
 
@@ -663,11 +674,26 @@ export function MesaAgendaCitasClient() {
     setCancelTarget(entry);
   }, []);
 
+  const handleRequestGestionar = useCallback((entry: MesaAgendaBookingEntry) => {
+    setGestionarError(null);
+    setCancelSuccess(null);
+    setReagendarSuccess(null);
+    setDriveSuccess(null);
+    setGestionarTarget(entry);
+  }, []);
+
+  const handleCloseGestionarDialog = useCallback(() => {
+    if (gestionarSaving) return;
+    setGestionarTarget(null);
+    setGestionarError(null);
+  }, [gestionarSaving]);
+
   const handleRequestReagendar = useCallback((entry: MesaAgendaBookingEntry) => {
     setReagendarError(null);
     setReagendarSuccess(null);
     setCancelSuccess(null);
     setDriveSuccess(null);
+    setGestionarTarget(null);
     setReagendarTarget(entry);
   }, []);
 
@@ -827,11 +853,14 @@ export function MesaAgendaCitasClient() {
     canCancelEntry,
     canReagendarEntry,
     canDriveValidateEntry,
+    canGestionarEntry,
     cancelPendingBookingId: cancelSaving ? cancelTarget?.bookingId ?? null : null,
     reagendarPendingBookingId: reagendarSaving ? reagendarTarget?.bookingId ?? null : null,
     drivePendingBookingId,
+    gestionarPendingBookingId: gestionarSaving ? gestionarTarget?.bookingId ?? null : null,
     onRequestCancel: handleRequestCancel,
     onRequestReagendar: handleRequestReagendar,
+    onRequestGestionar: handleRequestGestionar,
     onToggleDriveValidation: (entry: MesaAgendaBookingEntry) => {
       void handleToggleDriveValidation(entry);
     },
@@ -1087,6 +1116,32 @@ export function MesaAgendaCitasClient() {
         error={cancelError}
         onClose={handleCloseCancelDialog}
         onConfirm={handleConfirmCancel}
+      />
+
+      <MesaGestionarCitaDialog
+        open={gestionarTarget != null}
+        entry={gestionarTarget}
+        actorRole={mockRole || sessionRole}
+        canReagendar={gestionarTarget ? canReagendarEntry(gestionarTarget) : false}
+        canCancel={gestionarTarget ? canCancelEntry(gestionarTarget) : false}
+        saving={gestionarSaving}
+        error={gestionarError}
+        onClose={handleCloseGestionarDialog}
+        onRequestReagendar={handleRequestReagendar}
+        onCancelSuccess={async () => {
+          setCancelSuccess(MESA_CANCEL_SUCCESS_MESSAGE);
+          setGestionarTarget(null);
+          await loadEntries();
+        }}
+        onCancelContinueSuccess={async () => {
+          setCancelSuccess(
+            "Cita cancelada y expediente avanzado. La decisión quedó registrada.",
+          );
+          setGestionarTarget(null);
+          await loadEntries();
+        }}
+        onError={setGestionarError}
+        onSavingChange={setGestionarSaving}
       />
 
       <MesaReagendarCitaDialog

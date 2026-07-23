@@ -155,6 +155,14 @@ La UI identifica al hijo como **Reingreso / Reinscripción** y **Biométricos re
 
 **Intacto:** P089, cancel/reagendar individual, `booking_kind` operativo.
 
+### 6.5b-bis Cupos por horario + gestión de cita (P118)
+
+**Cupos:** tabla `agenda_slot_capacities` + RPCs `list_agenda_slot_capacities` / `upsert_agenda_slot_capacity` (solo Mesa Admin/super_admin para upsert). Override por fecha+hora+sede+kind (`biometricos`|`firmas`); no baja capacidad bajo ocupados. Asesor ve cupos en el picker; sin fila → `capacityPerSlot` semanal.
+
+**Sede UI:** columna Sede en `/mesa-control/citas` muestra Monterrey/Apodaca (legacy mapeado); `location_id=notificacion` → «Sin sede» (el badge de tipo sigue «Notificación extraordinaria»).
+
+**Gestionar cita:** Mesa con permiso de cancel/reagendar abre diálogo: Reagendar (flujo existente), Cancelar (`mesa_gestionar_cita` action `cancelar` + decisión persistida), Cancelar y continuar (deshabilitado: requiere RPC dedicada). Asesor ve aviso de la última decisión en cards de agenda.
+
 ### 6.5c Reporte Admin de expedientes por asesores y etapas (P112)
 
 **Pantalla:** `/admin` · sección «Reporte de expedientes» (solo `super_admin`).

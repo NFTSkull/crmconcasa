@@ -12,11 +12,13 @@ import {
   formatMesaAgendaDateTime,
   formatMesaAgendaDriveValidatedMeta,
   formatMesaAgendaKind,
+  formatMesaAgendaSedeLabel,
   formatMesaAgendaStatus,
   hasMesaAgendaHistoryGroup,
   mesaAgendaActionExpedienteCellClass,
   MESA_AGENDA_ACTION_CANCEL_CLASS,
   MESA_AGENDA_ACTION_EXPEDIENTE_CLASS,
+  MESA_AGENDA_ACTION_GESTIONAR_CLASS,
   MESA_AGENDA_ACTION_REAGENDAR_CLASS,
   mesaAgendaActionsLayoutClass,
   mesaAgendaActionsRowBusy,
@@ -25,6 +27,7 @@ import {
   mesaAgendaDriveActionLabel,
   mesaAgendaDriveValidatedBadgeClass,
   mesaAgendaDriveValidatedRowClass,
+  mesaAgendaGestionarActionLabel,
   mesaAgendaHistoryBadgeClass,
   mesaAgendaKindBadgeClass,
   mesaAgendaReagendarActionLabel,
@@ -90,7 +93,7 @@ export function MesaAgendaEntryDetails({
       </div>
       <div>
         <dt className="inline font-medium text-slate-700">Sede: </dt>
-        <dd className="inline">{entry.locationId ?? "—"}</dd>
+        <dd className="inline">{formatMesaAgendaSedeLabel(entry.locationId)}</dd>
       </div>
       <div>
         <dt className="inline font-medium text-slate-700">Paso: </dt>
@@ -131,12 +134,15 @@ type MesaAgendaEntryActionsProps = Readonly<{
   showCancel: boolean;
   showReagendar: boolean;
   showDriveValidation: boolean;
+  showGestionar?: boolean;
   cancelPending: boolean;
   reagendarPending: boolean;
   drivePending: boolean;
+  gestionarPending?: boolean;
   compact?: boolean;
   onRequestCancel?: (entry: MesaAgendaBookingEntry) => void;
   onRequestReagendar?: (entry: MesaAgendaBookingEntry) => void;
+  onRequestGestionar?: (entry: MesaAgendaBookingEntry) => void;
   onToggleDriveValidation?: (entry: MesaAgendaBookingEntry) => void;
 }>;
 
@@ -145,12 +151,15 @@ export function MesaAgendaEntryActions({
   showCancel,
   showReagendar,
   showDriveValidation,
+  showGestionar = false,
   cancelPending,
   reagendarPending,
   drivePending,
+  gestionarPending = false,
   compact = false,
   onRequestCancel,
   onRequestReagendar,
+  onRequestGestionar,
   onToggleDriveValidation,
 }: MesaAgendaEntryActionsProps) {
   const visible = resolveMesaAgendaVisibleActions({
@@ -158,12 +167,14 @@ export function MesaAgendaEntryActions({
     showDriveValidation: Boolean(showDriveValidation && onToggleDriveValidation),
     showReagendar: Boolean(showReagendar && onRequestReagendar),
     showCancel: Boolean(showCancel && onRequestCancel),
+    showGestionar: Boolean(showGestionar && onRequestGestionar),
   });
   const onlyExpediente = visible.length === 1 && visible[0] === "expediente";
   const rowBusy = mesaAgendaActionsRowBusy({
     cancelPending,
     reagendarPending,
     drivePending,
+    gestionarPending,
   });
 
   return (
@@ -200,6 +211,18 @@ export function MesaAgendaEntryActions({
         </button>
       ) : null}
 
+      {visible.includes("gestionar") && onRequestGestionar ? (
+        <button
+          type="button"
+          aria-label={`Gestionar cita de ${entry.clienteNombre || "cliente"}`}
+          disabled={rowBusy}
+          onClick={() => onRequestGestionar(entry)}
+          className={MESA_AGENDA_ACTION_GESTIONAR_CLASS}
+        >
+          {mesaAgendaGestionarActionLabel(gestionarPending)}
+        </button>
+      ) : null}
+
       {visible.includes("reagendar") && onRequestReagendar ? (
         <button
           type="button"
@@ -233,11 +256,14 @@ export function MesaAgendaCitaCard({
   showCancel,
   showReagendar,
   showDriveValidation,
+  showGestionar = false,
   cancelPending,
   reagendarPending,
   drivePending,
+  gestionarPending = false,
   onRequestCancel,
   onRequestReagendar,
+  onRequestGestionar,
   onToggleDriveValidation,
   bulkSelected = false,
   bulkSelectable = false,
@@ -249,11 +275,14 @@ export function MesaAgendaCitaCard({
   showCancel: boolean;
   showReagendar: boolean;
   showDriveValidation: boolean;
+  showGestionar?: boolean;
   cancelPending: boolean;
   reagendarPending: boolean;
   drivePending: boolean;
+  gestionarPending?: boolean;
   onRequestCancel?: (entry: MesaAgendaBookingEntry) => void;
   onRequestReagendar?: (entry: MesaAgendaBookingEntry) => void;
+  onRequestGestionar?: (entry: MesaAgendaBookingEntry) => void;
   onToggleDriveValidation?: (entry: MesaAgendaBookingEntry) => void;
   bulkSelected?: boolean;
   bulkSelectable?: boolean;
@@ -310,12 +339,15 @@ export function MesaAgendaCitaCard({
         showCancel={showCancel}
         showReagendar={showReagendar}
         showDriveValidation={showDriveValidation}
+        showGestionar={showGestionar}
         cancelPending={cancelPending}
         reagendarPending={reagendarPending}
         drivePending={drivePending}
+        gestionarPending={gestionarPending}
         compact
         onRequestCancel={onRequestCancel}
         onRequestReagendar={onRequestReagendar}
+        onRequestGestionar={onRequestGestionar}
         onToggleDriveValidation={onToggleDriveValidation}
       />
     </article>

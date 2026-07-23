@@ -11,6 +11,7 @@ import {
 import { isDataModeSupabase } from "@/lib/dataMode";
 import { AgendaBiometricosWeeklySupabaseSection } from "@/components/mesa-control/AgendaBiometricosWeeklySupabaseSection";
 import { AgendaFirmasWeeklySupabaseSection } from "@/components/mesa-control/AgendaFirmasWeeklySupabaseSection";
+import { AgendaSlotCapacitiesPanel } from "@/components/mesa-control/AgendaSlotCapacitiesPanel";
 import {
   readAgendaFirmasConfig,
   writeAgendaFirmasConfig,
@@ -34,6 +35,8 @@ type EditableLocation = {
 type Props = Readonly<{
   canEdit: boolean;
   actorEmail: string;
+  /** Rol para gate de cupos P118 (mismo que canManageAgendaConfig). */
+  profileRole?: string | null;
 }>;
 
 function slugifyLabel(value: string): string {
@@ -211,7 +214,7 @@ function slugFromAny(value: string): string {
   return base || `id-${Date.now()}`;
 }
 
-export function AgendaBiometricosConfigPanel({ canEdit, actorEmail }: Props) {
+export function AgendaBiometricosConfigPanel({ canEdit, actorEmail, profileRole }: Props) {
   const dataSupabase = isDataModeSupabase();
   const repo = useMemo(() => new MockAgendaBiometricosLocalStorageRepo(), []);
   const [sourceConfig, setSourceConfig] = useState<AgendaBiometricosConfigV1 | null>(() =>
@@ -528,6 +531,7 @@ export function AgendaBiometricosConfigPanel({ canEdit, actorEmail }: Props) {
           <div className="mt-4">
             <AgendaFirmasWeeklySupabaseSection canEdit={canEdit} actorEmail={actorEmail} />
           </div>
+          <AgendaSlotCapacitiesPanel role={profileRole ?? (canEdit ? "mesa_admin" : null)} />
         </>
       ) : (
       <section
