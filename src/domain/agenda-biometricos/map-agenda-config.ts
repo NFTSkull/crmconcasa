@@ -6,6 +6,8 @@ export type AgendaBiometricosWeeklyLocation = Readonly<{
   label: string;
   enabled: boolean;
   capacityPerSlot: number;
+  /** Cupo recurrente por hora HH:MM (opcional; fallback = capacityPerSlot). */
+  capacityByTime?: Readonly<Record<string, number>>;
 }>;
 
 export type AgendaBiometricosWeeklyConfig = Readonly<{
@@ -32,6 +34,8 @@ export type AgendaBiometricosSqlConfig = Readonly<{
         enabled: boolean;
         capacity_per_slot: number;
         label?: string;
+        /** P123: cupo recurrente por hora. */
+        capacity_by_time?: Readonly<Record<string, number>>;
       }>
     >
   >;
@@ -92,6 +96,38 @@ function parseNumberArray(value: unknown): number[] {
   return [...new Set(out)].sort((a, b) => a - b);
 }
 
+/** Parsea `capacity_by_time` JSON → mapa HH:MM → entero ≥1. */
+export function parseCapacityByTime(raw: unknown): Record<string, number> | undefined {
+  if (!isRecord(raw)) return undefined;
+  const out: Record<string, number> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    const time = parseHhmm(key);
+    if (!time) continue;
+    const n = Math.trunc(Number(value));
+    if (!Number.isFinite(n) || n < 1) continue;
+    out[time] = n;
+  }
+  return Object.keys(out).length ? out : undefined;
+}
+
+/**
+ * Cupo recurrente de una sede para una hora.
+ * Precedencia UI/disponibilidad (antes de excepciones por fecha):
+ * capacity_by_time[hora] → capacity_per_slot.
+ */
+export function resolveRecurrentSlotCapacity(
+  capacityPerSlot: number,
+  time: string,
+  capacityByTime?: Readonly<Record<string, number>> | null,
+): number {
+  const normalized = parseHhmm(time) ?? String(time).trim();
+  const specific = capacityByTime?.[normalized];
+  if (typeof specific === "number" && Number.isFinite(specific) && specific >= 1) {
+    return Math.trunc(specific);
+  }
+  return Math.max(1, Math.trunc(capacityPerSlot || 1));
+}
+
 /** SQL/JSONB → modelo UI semanal. */
 export function mapSqlConfigToWeeklyUi(raw: unknown): AgendaBiometricosWeeklyConfig {
   if (!isRecord(raw)) {
@@ -110,7 +146,8 @@ export function mapSqlConfigToWeeklyUi(raw: unknown): AgendaBiometricosWeeklyCon
   if (isRecord(raw.locations)) {
     for (const [id, locRaw] of Object.entries(raw.locations)) {
       if (!isRecord(locRaw)) continue;
-      locations.push({
+      const capacityByTime = parseCapacityByTime(locRaw.capacity_by_time);
+      const loc: AgendaBiometricosWeeklyLocation = {
         id,
         label: typeof locRaw.label === "string" && locRaw.label.trim() ? locRaw.label.trim() : id,
         enabled: locRaw.enabled !== false,
@@ -118,7 +155,9 @@ export function mapSqlConfigToWeeklyUi(raw: unknown): AgendaBiometricosWeeklyCon
           1,
           Math.trunc(Number(locRaw.capacity_per_slot) || 1),
         ),
-      });
+        ...(capacityByTime ? { capacityByTime } : {}),
+      };
+      locations.push(loc);
     }
     locations.sort((a, b) => a.id.localeCompare(b.id));
   }
@@ -152,17 +191,29 @@ export function mapWeeklyUiToSqlCanonical(
 ): AgendaBiometricosSqlConfig {
   const locations: Record<
     string,
-    { enabled: boolean; capacity_per_slot: number; label?: string }
+    {
+      enabled: boolean;
+      capacity_per_slot: number;
+      label?: string;
+      capacity_by_time?: Record<string, number>;
+    }
   > = {};
   for (const loc of config.locations) {
     const id = loc.id.trim();
     if (!id) continue;
-    const entry: { enabled: boolean; capacity_per_slot: number; label?: string } = {
+    const entry: {
+      enabled: boolean;
+      capacity_per_slot: number;
+      label?: string;
+      capacity_by_time?: Record<string, number>;
+    } = {
       enabled: loc.enabled,
       capacity_per_slot: Math.max(1, Math.trunc(loc.capacityPerSlot || 1)),
     };
     const label = loc.label.trim();
     if (label) entry.label = label;
+    const cbt = parseCapacityByTime(loc.capacityByTime);
+    if (cbt) entry.capacity_by_time = cbt;
     locations[id] = entry;
   }
 

@@ -1,5 +1,9 @@
 # Devlog
 
+## 2026-07-23 - P123 cupos por hora en Horarios seleccionados
+
+Almacenamiento: `agenda_config.locations.<sede>.capacity_by_time["HH:MM"]` (migración 109 amplía whitelist + asserts). Precedencia booking: `agenda_slot_capacities` → `capacity_by_time` → `capacity_per_slot`. UX: filas Hora/Monterrey/Apodaca/Quitar + «Guardar horarios y cupos»; excepciones colapsables por kind dentro de cada weekly. Notificación sigue sin cupo (sin assert). Sin backfill.
+
 ## 2026-07-23 - P122 copy «Tiene documentos» en bandeja Mesa
 
 Solo UX: botón y badge en tarjetas pasan de «Tiene datos» a «Tiene documentos»; activo sigue «Quitar marca». Tipo/RPC/tabla `tiene_datos` sin tocar. Sin SQL/Cloud/commit.

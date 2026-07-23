@@ -1,10 +1,11 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/Button";
 import {
   CYNTHIA_SEDE_APODACA_ID,
   CYNTHIA_SEDE_MONTERREY_ID,
+  resolveSedeSlotCapacityDraft,
   type CynthiaSedeFormState,
   type CynthiaSedeId,
 } from "@/lib/agendaCynthiaLocations";
@@ -69,6 +70,8 @@ export type AgendaWeeklyConfigFormProps = Readonly<{
   onReload: () => void;
   slotInputError: string | null;
   onSlotInputError: (message: string | null) => void;
+  /** Excepciones por fecha (colapsable) dentro de Horarios disponibles. */
+  exceptionsPanel?: ReactNode;
 }>;
 
 const INPUT_CLASS =
@@ -106,8 +109,26 @@ export function AgendaWeeklyConfigForm({
   onReload,
   slotInputError,
   onSlotInputError,
+  exceptionsPanel,
 }: AgendaWeeklyConfigFormProps) {
   const styles = VARIANT_STYLES[variant];
+
+  const activeSedeColumns = (
+    [
+      { id: CYNTHIA_SEDE_MONTERREY_ID, title: "Monterrey" },
+      { id: CYNTHIA_SEDE_APODACA_ID, title: "Apodaca" },
+    ] as const
+  ).filter((s) => sedes[s.id].enabled);
+
+  function setSlotCapacity(sedeId: CynthiaSedeId, slot: HhmmTime, value: number) {
+    const next = Math.max(1, Math.trunc(Number(value) || 1));
+    onSedeChange(sedeId, {
+      capacityByTime: {
+        ...sedes[sedeId].capacityByTime,
+        [slot]: next,
+      },
+    });
+  }
 
   function handleQuickSlot(time: CynthiaQuickSlotTime) {
     if (slots.includes(time)) return;
@@ -252,30 +273,71 @@ export function AgendaWeeklyConfigForm({
 
               <div className="mt-4">
                 <p className="text-sm font-medium text-slate-900">Horarios seleccionados</p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  {slots.map((slot) => (
-                    <span
-                      key={slot}
-                      className="inline-flex items-center gap-1 rounded-full border border-slate-300 bg-white px-3 py-1 text-sm font-medium text-slate-900 shadow-sm"
-                    >
-                      {slot}
-                      <button
-                        type="button"
-                        aria-label={`Quitar horario ${slot}`}
-                        className="ml-0.5 text-slate-500 hover:text-red-600"
-                        onClick={() => onRemoveSlot(slot)}
-                      >
-                        ×
-                      </button>
-                    </span>
-                  ))}
-                  {!slots.length ? (
-                    <span className="text-sm text-slate-600">Sin horarios configurados.</span>
-                  ) : null}
-                </div>
+                {slots.length ? (
+                  <div className="mt-2 overflow-x-auto rounded-lg border border-slate-200 bg-white">
+                    <table className="min-w-full divide-y divide-slate-100 text-sm">
+                      <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                        <tr>
+                          <th className="px-3 py-2">Hora</th>
+                          {activeSedeColumns.map((s) => (
+                            <th key={s.id} className="px-3 py-2">
+                              {s.title}
+                            </th>
+                          ))}
+                          <th className="px-3 py-2">Acción</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {slots.map((slot) => (
+                          <tr key={slot}>
+                            <td className="whitespace-nowrap px-3 py-2 font-medium text-slate-900">
+                              {slot}
+                            </td>
+                            {activeSedeColumns.map((s) => (
+                              <td key={s.id} className="px-3 py-2">
+                                <label className="block text-[11px] font-semibold text-slate-600">
+                                  Cupo
+                                  <input
+                                    type="number"
+                                    min={1}
+                                    disabled={!canEdit}
+                                    className="mt-0.5 w-full min-w-[4.5rem] rounded-md border border-slate-200 px-2 py-1.5 text-xs"
+                                    value={resolveSedeSlotCapacityDraft(sedes[s.id], slot)}
+                                    onChange={(e) =>
+                                      setSlotCapacity(s.id, slot, Number(e.target.value || 1))
+                                    }
+                                  />
+                                </label>
+                              </td>
+                            ))}
+                            <td className="px-3 py-2">
+                              <button
+                                type="button"
+                                className="text-xs font-medium text-red-700 hover:underline disabled:opacity-50"
+                                disabled={!canEdit}
+                                onClick={() => onRemoveSlot(slot)}
+                              >
+                                Quitar
+                              </button>
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                ) : (
+                  <p className="mt-2 text-sm text-slate-600">Sin horarios configurados.</p>
+                )}
                 <p className="mt-2 text-xs text-slate-600">
-                  Estos horarios aplican para Monterrey y Apodaca en los días seleccionados.
+                  El asesor verá los lugares restantes según las reservas de cada fecha.
                 </p>
+                {canEdit ? (
+                  <div className="mt-3">
+                    <Button type="button" variant="primary" disabled={saving} onClick={onSave}>
+                      {saving ? "Guardando…" : "Guardar horarios y cupos"}
+                    </Button>
+                  </div>
+                ) : null}
               </div>
 
               <ManualSlotAdder
@@ -284,20 +346,42 @@ export function AgendaWeeklyConfigForm({
                 error={slotInputError}
                 onAdd={handleAddManualSlot}
               />
+
+              {exceptionsPanel ? <div className="mt-4">{exceptionsPanel}</div> : null}
             </>
           ) : (
-            <div className="mt-3 flex flex-wrap gap-2">
-              {slots.map((slot) => (
-                <span
-                  key={slot}
-                  className="inline-flex items-center rounded-full border border-slate-300 bg-white px-3 py-1 text-sm font-medium text-slate-900 shadow-sm"
-                >
-                  {slot}
-                </span>
-              ))}
-              {!slots.length ? (
+            <div className="mt-3 space-y-3">
+              {slots.length ? (
+                <div className="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+                  <table className="min-w-full divide-y divide-slate-100 text-sm">
+                    <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
+                      <tr>
+                        <th className="px-3 py-2">Hora</th>
+                        {activeSedeColumns.map((s) => (
+                          <th key={s.id} className="px-3 py-2">
+                            {s.title}
+                          </th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {slots.map((slot) => (
+                        <tr key={slot}>
+                          <td className="px-3 py-2 font-medium text-slate-900">{slot}</td>
+                          {activeSedeColumns.map((s) => (
+                            <td key={s.id} className="px-3 py-2 text-slate-800">
+                              Cupo: {resolveSedeSlotCapacityDraft(sedes[s.id], slot)}
+                            </td>
+                          ))}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              ) : (
                 <span className="text-sm text-slate-600">Sin horarios configurados.</span>
-              ) : null}
+              )}
+              {exceptionsPanel ? <div>{exceptionsPanel}</div> : null}
             </div>
           )}
         </div>
@@ -352,9 +436,6 @@ export function AgendaWeeklyConfigForm({
 
       {canEdit ? (
         <div className="mt-4 flex flex-wrap gap-2">
-          <Button type="button" variant="primary" disabled={saving} onClick={onSave}>
-            {saving ? "Guardando…" : "Guardar cambios"}
-          </Button>
           <Button type="button" variant="outline" disabled={saving} onClick={onReload}>
             Recargar
           </Button>
@@ -446,7 +527,7 @@ function SedeCard({
         Sede activa
       </label>
       <label className="mt-3 block text-sm font-medium text-slate-900">
-        Cupo por horario
+        Cupo general por horario
         <input
           type="number"
           min={1}
@@ -457,6 +538,9 @@ function SedeCard({
           }
           className={inputClass}
         />
+        <span className="mt-1 block text-xs font-normal text-slate-600">
+          Respaldo cuando un horario no tiene cupo específico.
+        </span>
       </label>
     </article>
   );

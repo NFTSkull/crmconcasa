@@ -7,6 +7,8 @@ export type CynthiaSedeId = typeof CYNTHIA_SEDE_MONTERREY_ID | typeof CYNTHIA_SE
 export type CynthiaSedeFormState = Readonly<{
   enabled: boolean;
   capacityPerSlot: number;
+  /** Cupos recurrentes por hora; se conservan al quitar un horario. */
+  capacityByTime: Readonly<Record<string, number>>;
 }>;
 
 export type WeeklyLocationLike = Readonly<{
@@ -14,6 +16,7 @@ export type WeeklyLocationLike = Readonly<{
   label: string;
   enabled: boolean;
   capacityPerSlot: number;
+  capacityByTime?: Readonly<Record<string, number>>;
 }>;
 
 const LEGACY_ID_MAP: Record<string, CynthiaSedeId> = {
@@ -26,13 +29,32 @@ const LEGACY_ID_MAP: Record<string, CynthiaSedeId> = {
   "san_nicolas": CYNTHIA_SEDE_APODACA_ID,
 };
 
-const DEFAULT_SEDE: CynthiaSedeFormState = { enabled: true, capacityPerSlot: 5 };
+const DEFAULT_SEDE: CynthiaSedeFormState = {
+  enabled: true,
+  capacityPerSlot: 5,
+  capacityByTime: {},
+};
 
 function emptyCynthiaSedes(): Record<CynthiaSedeId, CynthiaSedeFormState> {
   return {
-    [CYNTHIA_SEDE_MONTERREY_ID]: { ...DEFAULT_SEDE },
-    [CYNTHIA_SEDE_APODACA_ID]: { ...DEFAULT_SEDE },
+    [CYNTHIA_SEDE_MONTERREY_ID]: { ...DEFAULT_SEDE, capacityByTime: {} },
+    [CYNTHIA_SEDE_APODACA_ID]: { ...DEFAULT_SEDE, capacityByTime: {} },
   };
+}
+
+function normalizeCapacityByTime(
+  raw: Readonly<Record<string, number>> | undefined,
+): Record<string, number> {
+  if (!raw) return {};
+  const out: Record<string, number> = {};
+  for (const [key, value] of Object.entries(raw)) {
+    const t = key.trim();
+    if (!/^\d{2}:\d{2}$/.test(t)) continue;
+    const n = Math.trunc(Number(value));
+    if (!Number.isFinite(n) || n < 1) continue;
+    out[t] = n;
+  }
+  return out;
 }
 
 /** Mapea IDs/labels legacy a Monterrey o Apodaca; ignora sedes no reconocibles. */
@@ -73,9 +95,10 @@ export function weeklyLocationsToCynthiaForm(
     if (!canonical) continue;
     const cap = Math.max(1, Math.trunc(Number(loc.capacityPerSlot) || 1));
     const enabled = loc.enabled !== false;
+    const cbt = normalizeCapacityByTime(loc.capacityByTime);
 
     if (!mapped.has(canonical)) {
-      out[canonical] = { enabled, capacityPerSlot: cap };
+      out[canonical] = { enabled, capacityPerSlot: cap, capacityByTime: cbt };
       mapped.add(canonical);
       continue;
     }
@@ -84,6 +107,7 @@ export function weeklyLocationsToCynthiaForm(
     out[canonical] = {
       enabled: current.enabled || enabled,
       capacityPerSlot: enabled ? Math.max(current.capacityPerSlot, cap) : current.capacityPerSlot,
+      capacityByTime: { ...current.capacityByTime, ...cbt },
     };
   }
 
@@ -104,14 +128,29 @@ export function cynthiaFormToWeeklyLocations(
       label: "Monterrey",
       enabled: sedes[CYNTHIA_SEDE_MONTERREY_ID].enabled,
       capacityPerSlot: Math.max(1, Math.trunc(sedes[CYNTHIA_SEDE_MONTERREY_ID].capacityPerSlot || 1)),
+      capacityByTime: normalizeCapacityByTime(sedes[CYNTHIA_SEDE_MONTERREY_ID].capacityByTime),
     },
     {
       id: CYNTHIA_SEDE_APODACA_ID,
       label: "Apodaca",
       enabled: sedes[CYNTHIA_SEDE_APODACA_ID].enabled,
       capacityPerSlot: Math.max(1, Math.trunc(sedes[CYNTHIA_SEDE_APODACA_ID].capacityPerSlot || 1)),
+      capacityByTime: normalizeCapacityByTime(sedes[CYNTHIA_SEDE_APODACA_ID].capacityByTime),
     },
   ];
+}
+
+/**
+ * Cupo mostrado/editable para un horario: valor específico o general de sede.
+ * No borra entradas al leer; al editar se escribe en capacityByTime.
+ */
+export function resolveSedeSlotCapacityDraft(
+  sede: CynthiaSedeFormState,
+  slot: string,
+): number {
+  const specific = sede.capacityByTime[slot];
+  if (typeof specific === "number" && specific >= 1) return Math.trunc(specific);
+  return Math.max(1, Math.trunc(sede.capacityPerSlot || 1));
 }
 
 /** Valida y normaliza horario HH:mm; null si inválido. */

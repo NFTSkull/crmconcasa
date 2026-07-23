@@ -4,13 +4,25 @@ import { join } from "node:path";
 import { describe, it } from "node:test";
 import { canManageAgendaConfig } from "@/lib/canManageAgendaConfig";
 
-describe("P121 montaje AgendaSlotCapacitiesPanel en /mesa-control", () => {
+describe("P121/P123 montaje cupos en /mesa-control", () => {
   const page = readFileSync(
     join(process.cwd(), "src/app/mesa-control/page.tsx"),
     "utf8",
   );
   const panel = readFileSync(
     join(process.cwd(), "src/components/mesa-control/AgendaBiometricosConfigPanel.tsx"),
+    "utf8",
+  );
+  const bioWeekly = readFileSync(
+    join(process.cwd(), "src/components/mesa-control/AgendaBiometricosWeeklySupabaseSection.tsx"),
+    "utf8",
+  );
+  const firmasWeekly = readFileSync(
+    join(process.cwd(), "src/components/mesa-control/AgendaFirmasWeeklySupabaseSection.tsx"),
+    "utf8",
+  );
+  const form = readFileSync(
+    join(process.cwd(), "src/components/mesa-control/AgendaWeeklyConfigForm.tsx"),
     "utf8",
   );
   const cupos = readFileSync(
@@ -28,22 +40,30 @@ describe("P121 montaje AgendaSlotCapacitiesPanel en /mesa-control", () => {
     );
   });
 
-  it("panel montado bajo configs semanales (Sedes) en modo Supabase", () => {
+  it("P123: sin panel principal duplicado; excepciones dentro de cada weekly", () => {
     assert.match(panel, /AgendaBiometricosWeeklySupabaseSection/);
     assert.match(panel, /AgendaFirmasWeeklySupabaseSection/);
-    assert.match(panel, /AgendaSlotCapacitiesPanel/);
-    const idxBio = panel.indexOf("AgendaBiometricosWeeklySupabaseSection");
-    const idxFirmas = panel.indexOf("AgendaFirmasWeeklySupabaseSection");
-    const idxCupos = panel.indexOf("<AgendaSlotCapacitiesPanel");
-    assert.ok(idxBio >= 0 && idxFirmas > idxBio && idxCupos > idxFirmas);
+    assert.doesNotMatch(panel, /<AgendaSlotCapacitiesPanel/);
+    assert.match(bioWeekly, /lockedKind="biometricos"/);
+    assert.match(firmasWeekly, /lockedKind="firmas"/);
+    assert.match(bioWeekly, /collapsible/);
+    assert.match(firmasWeekly, /collapsible/);
   });
 
-  it("formulario Fecha/Sede/Tipo/Hora/Capacidad presente", () => {
+  it("Horarios seleccionados integra cupos + Guardar horarios y cupos", () => {
+    assert.match(form, /Horarios seleccionados/);
+    assert.match(form, /Guardar horarios y cupos/);
+    assert.match(form, /El asesor verá los lugares restantes/);
+    assert.match(form, /resolveSedeSlotCapacityDraft/);
+    assert.match(form, /exceptionsPanel/);
+  });
+
+  it("formulario excepciones Fecha/Sede/Hora/Capacidad presente", () => {
     assert.match(cupos, /Fecha/);
     assert.match(cupos, /Sede/);
-    assert.match(cupos, /Tipo/);
     assert.match(cupos, /Hora/);
     assert.match(cupos, /Capacidad/);
+    assert.match(cupos, /Excepciones por fecha/);
     assert.match(cupos, /Guardar cupo|Cupo guardado|guardar/i);
   });
 

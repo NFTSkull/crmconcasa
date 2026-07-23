@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AgendaWeeklyConfigForm } from "@/components/mesa-control/AgendaWeeklyConfigForm";
+import { AgendaSlotCapacitiesPanel } from "@/components/mesa-control/AgendaSlotCapacitiesPanel";
 import {
   AGENDA_BIOMETRICOS_WEEKDAY_OPTIONS,
   AgendaBiometricosSupabaseError,
@@ -21,6 +22,8 @@ import { mergeAgendaSlotTimes } from "@/lib/agendaCynthiaSlots";
 type Props = Readonly<{
   canEdit: boolean;
   actorEmail?: string;
+  /** Rol de sesión para excepciones por fecha. */
+  profileRole?: string | null;
 }>;
 
 function formatDateTime(iso: string | null | undefined): string {
@@ -35,7 +38,7 @@ function formatDateTime(iso: string | null | undefined): string {
   }
 }
 
-export function AgendaBiometricosWeeklySupabaseSection({ canEdit }: Props) {
+export function AgendaBiometricosWeeklySupabaseSection({ canEdit, profileRole }: Props) {
   const repo = useAgendaBiometricosConfigRepo();
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -229,6 +232,13 @@ export function AgendaBiometricosWeeklySupabaseSection({ canEdit }: Props) {
       onReload={() => void load()}
       slotInputError={slotInputError}
       onSlotInputError={setSlotInputError}
+      exceptionsPanel={
+        <AgendaSlotCapacitiesPanel
+          role={profileRole ?? (canEdit ? "mesa_admin" : null)}
+          lockedKind="biometricos"
+          collapsible
+        />
+      }
     />
   );
 }

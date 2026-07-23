@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { AgendaWeeklyConfigForm } from "@/components/mesa-control/AgendaWeeklyConfigForm";
+import { AgendaSlotCapacitiesPanel } from "@/components/mesa-control/AgendaSlotCapacitiesPanel";
 import {
   AGENDA_FIRMAS_WEEKDAY_OPTIONS,
   AgendaFirmasSupabaseError,
@@ -21,6 +22,7 @@ import { mergeAgendaSlotTimes } from "@/lib/agendaCynthiaSlots";
 type Props = Readonly<{
   canEdit: boolean;
   actorEmail?: string;
+  profileRole?: string | null;
 }>;
 
 function formatDateTime(iso: string | null | undefined): string {
@@ -35,7 +37,7 @@ function formatDateTime(iso: string | null | undefined): string {
   }
 }
 
-export function AgendaFirmasWeeklySupabaseSection({ canEdit }: Props) {
+export function AgendaFirmasWeeklySupabaseSection({ canEdit, profileRole }: Props) {
   const repo = useAgendaFirmasConfigRepo();
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -229,6 +231,13 @@ export function AgendaFirmasWeeklySupabaseSection({ canEdit }: Props) {
       onReload={() => void load()}
       slotInputError={slotInputError}
       onSlotInputError={setSlotInputError}
+      exceptionsPanel={
+        <AgendaSlotCapacitiesPanel
+          role={profileRole ?? (canEdit ? "mesa_admin" : null)}
+          lockedKind="firmas"
+          collapsible
+        />
+      }
     />
   );
 }

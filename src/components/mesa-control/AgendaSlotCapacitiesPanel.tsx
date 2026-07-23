@@ -18,6 +18,12 @@ import { todayYmdInTimezone, type YmdDate } from "@/domain/agenda-biometricos";
 
 type Props = Readonly<{
   role: string | null | undefined;
+  /** Si se fija, oculta el selector de tipo y usa solo este kind. */
+  lockedKind?: AgendaSlotCapacityKind;
+  /** Presentación colapsable (P123). Default: abierta como sección. */
+  collapsible?: boolean;
+  /** Título visible (default: Excepciones por fecha si collapsible). */
+  title?: string;
 }>;
 
 const KIND_OPTIONS: ReadonlyArray<{ value: AgendaSlotCapacityKind; label: string }> = [
@@ -42,20 +48,27 @@ function formatTimeShort(hhmm: string): string {
   return `${hour12}:${String(m).padStart(2, "0")} ${suffix}`;
 }
 
-export function AgendaSlotCapacitiesPanel({ role }: Props) {
+export function AgendaSlotCapacitiesPanel({
+  role,
+  lockedKind,
+  collapsible = false,
+  title,
+}: Props) {
   const canManage = canManageAgendaConfig(role);
   const today = useMemo(() => todayYmdInTimezone("America/Monterrey"), []);
   const [slotDate, setSlotDate] = useState<YmdDate>(today);
   const [locationId, setLocationId] = useState<string>(CYNTHIA_SEDE_MONTERREY_ID);
-  const [kind, setKind] = useState<AgendaSlotCapacityKind>("biometricos");
+  const [kind, setKind] = useState<AgendaSlotCapacityKind>(lockedKind ?? "biometricos");
   const [timeInput, setTimeInput] = useState("09:00");
   const [capacity, setCapacity] = useState(5);
   const [active, setActive] = useState(true);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [okMsg, setOkMsg] = useState<string | null>(null);
 
+  const effectiveKind = lockedKind ?? kind;
+
   const { rows, loading, error, saving, save, setError } = useAgendaSlotCapacities({
-    kind,
+    kind: effectiveKind,
     slotDate,
     locationId,
     enabled: canManage,
@@ -63,7 +76,7 @@ export function AgendaSlotCapacitiesPanel({ role }: Props) {
 
   const applyRowToForm = useCallback((row: AgendaSlotCapacity) => {
     setEditingId(row.id);
-    setKind(row.kind);
+    if (!lockedKind) setKind(row.kind);
     setLocationId(row.locationId);
     setSlotDate(row.slotDate as YmdDate);
     setTimeInput(row.slotTime);
@@ -71,7 +84,7 @@ export function AgendaSlotCapacitiesPanel({ role }: Props) {
     setActive(row.active);
     setOkMsg(null);
     setError(null);
-  }, [setError]);
+  }, [lockedKind, setError]);
 
   const handleSave = useCallback(async () => {
     setOkMsg(null);
@@ -86,7 +99,7 @@ export function AgendaSlotCapacitiesPanel({ role }: Props) {
     }
     try {
       await save({
-        kind,
+        kind: effectiveKind,
         locationId,
         slotDate,
         slotTime: hhmm,
@@ -98,23 +111,30 @@ export function AgendaSlotCapacitiesPanel({ role }: Props) {
     } catch {
       // error ya en hook
     }
-  }, [active, capacity, editingId, kind, locationId, save, setError, slotDate, timeInput]);
+  }, [active, capacity, editingId, effectiveKind, locationId, save, setError, slotDate, timeInput]);
 
   if (!canManage) return null;
 
-  return (
-    <section className="mt-4 rounded-xl border border-violet-200 bg-violet-50/30 p-3 shadow-sm sm:p-4">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <h2 className="text-sm font-semibold text-slate-900">Cupos por horario</h2>
-          <p className="mt-1 text-[11px] text-slate-600">
-            Define cupos puntuales por fecha, sede y tipo. Si no hay fila, aplica el cupo de la
-            configuración semanal.
-          </p>
+  const heading = title ?? (collapsible ? "Excepciones por fecha" : "Cupos por horario");
+  const body = (
+    <>
+      {!collapsible ? (
+        <div className="flex flex-wrap items-start justify-between gap-2">
+          <div>
+            <h2 className="text-sm font-semibold text-slate-900">{heading}</h2>
+            <p className="mt-1 text-[11px] text-slate-600">
+              Define cupos puntuales por fecha, sede y tipo. Si no hay fila, aplica el cupo de la
+              configuración semanal.
+            </p>
+          </div>
         </div>
-      </div>
+      ) : (
+        <p className="text-[11px] text-slate-600">
+          Cupo puntual por fecha. Tiene prioridad sobre el cupo recurrente del horario.
+        </p>
+      )}
 
-      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+      <div className={`${collapsible ? "mt-2" : "mt-3"} grid gap-2 sm:grid-cols-2 lg:grid-cols-3`}>
         <label className="block text-[11px] font-semibold text-slate-700">
           Fecha
           <input
@@ -146,24 +166,26 @@ export function AgendaSlotCapacitiesPanel({ role }: Props) {
             ))}
           </select>
         </label>
-        <label className="block text-[11px] font-semibold text-slate-700">
-          Tipo
-          <select
-            className="mt-0.5 w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs"
-            value={kind}
-            onChange={(e) => {
-              setKind(e.target.value as AgendaSlotCapacityKind);
-              setEditingId(null);
-            }}
-            disabled={saving}
-          >
-            {KIND_OPTIONS.map((opt) => (
-              <option key={opt.value} value={opt.value}>
-                {opt.label}
-              </option>
-            ))}
-          </select>
-        </label>
+        {lockedKind ? null : (
+          <label className="block text-[11px] font-semibold text-slate-700">
+            Tipo
+            <select
+              className="mt-0.5 w-full rounded-md border border-slate-200 bg-white px-2 py-1.5 text-xs"
+              value={kind}
+              onChange={(e) => {
+                setKind(e.target.value as AgendaSlotCapacityKind);
+                setEditingId(null);
+              }}
+              disabled={saving}
+            >
+              {KIND_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
         <label className="block text-[11px] font-semibold text-slate-700">
           Hora (HH:MM)
           <input
@@ -260,39 +282,26 @@ export function AgendaSlotCapacitiesPanel({ role }: Props) {
               </tr>
             ) : (
               rows.map((row) => (
-                <tr key={row.id} className="text-slate-800">
-                  <td className="px-3 py-2 whitespace-nowrap">{formatTimeShort(row.slotTime)}</td>
+                <tr key={row.id}>
+                  <td className="px-3 py-2">{formatTimeShort(row.slotTime)}</td>
                   <td className="px-3 py-2">{kindLabel(row.kind)}</td>
                   <td className="px-3 py-2">{formatMesaAgendaSedeLabel(row.locationId)}</td>
-                  <td className="px-3 py-2 tabular-nums">{row.occupied}</td>
-                  <td className="px-3 py-2 tabular-nums">{row.capacity}</td>
-                  <td className="px-3 py-2 tabular-nums">{row.available}</td>
-                  <td className="px-3 py-2">
-                    <span
-                      className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-semibold ${
-                        row.active
-                          ? "bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200"
-                          : "bg-slate-100 text-slate-600 ring-1 ring-slate-200"
-                      }`}
-                    >
-                      {row.active ? "Activo" : "Inactivo"}
-                    </span>
-                  </td>
+                  <td className="px-3 py-2">{row.occupied}</td>
+                  <td className="px-3 py-2">{row.capacity}</td>
+                  <td className="px-3 py-2">{row.available}</td>
+                  <td className="px-3 py-2">{row.active ? "Activo" : "Inactivo"}</td>
                   <td className="px-3 py-2">
                     <div className="flex flex-wrap gap-1">
-                      <Button
+                      <button
                         type="button"
-                        variant="outline"
-                        className="text-[10px]"
-                        disabled={saving}
+                        className="font-medium text-violet-700 hover:underline"
                         onClick={() => applyRowToForm(row)}
                       >
                         Editar
-                      </Button>
-                      <Button
+                      </button>
+                      <button
                         type="button"
-                        variant="outline"
-                        className="text-[10px]"
+                        className="font-medium text-slate-600 hover:underline"
                         disabled={saving}
                         onClick={() => {
                           void save({
@@ -302,13 +311,15 @@ export function AgendaSlotCapacitiesPanel({ role }: Props) {
                             slotTime: row.slotTime,
                             capacity: row.capacity,
                             active: !row.active,
-                          }).then(() => {
-                            setOkMsg(row.active ? "Cupo desactivado." : "Cupo activado.");
-                          }).catch(() => undefined);
+                          })
+                            .then(() => {
+                              setOkMsg(row.active ? "Cupo desactivado." : "Cupo activado.");
+                            })
+                            .catch(() => undefined);
                         }}
                       >
                         {row.active ? "Desactivar" : "Activar"}
-                      </Button>
+                      </button>
                     </div>
                   </td>
                 </tr>
@@ -317,6 +328,21 @@ export function AgendaSlotCapacitiesPanel({ role }: Props) {
           </tbody>
         </table>
       </div>
+    </>
+  );
+
+  if (collapsible) {
+    return (
+      <details className="rounded-lg border border-violet-200 bg-violet-50/20 p-3">
+        <summary className="cursor-pointer text-sm font-semibold text-slate-900">{heading}</summary>
+        <div className="mt-3">{body}</div>
+      </details>
+    );
+  }
+
+  return (
+    <section className="mt-4 rounded-xl border border-violet-200 bg-violet-50/30 p-3 shadow-sm sm:p-4">
+      {body}
     </section>
   );
 }

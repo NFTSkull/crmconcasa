@@ -259,6 +259,7 @@ export function AgendaBiometricosSupabaseCard({
       canonicalId: selectedSede.canonicalId,
       sourceLocationIds: selectedSede.sourceLocationIds,
       capacityPerSlot: selectedSede.capacityPerSlot,
+      capacityByTime: selectedSede.capacityByTime,
       capacityOverrides,
     });
     return adjustSlotsForReagendar(
