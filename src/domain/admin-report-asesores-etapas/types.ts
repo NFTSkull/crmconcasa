@@ -8,7 +8,27 @@ import {
 export const ADMIN_REPORT_ESTADOS = ["vigentes", "activos", "rechazados"] as const;
 export type AdminReportEstado = (typeof ADMIN_REPORT_ESTADOS)[number];
 
+export const ADMIN_REPORT_TIPOS_FECHA = [
+  "envio_mesa",
+  "entrada_paso_actual",
+] as const;
+export type AdminReportTipoFecha = (typeof ADMIN_REPORT_TIPOS_FECHA)[number];
+
 export const adminReportEstadoSchema = z.enum(ADMIN_REPORT_ESTADOS);
+export const adminReportTipoFechaSchema = z.enum(ADMIN_REPORT_TIPOS_FECHA);
+
+export const ADMIN_REPORT_TIPO_FECHA_OPTIONS: ReadonlyArray<{
+  value: AdminReportTipoFecha;
+  label: string;
+}> = [
+  { value: "envio_mesa", label: "Fecha de envío a Mesa" },
+  {
+    value: "entrada_paso_actual",
+    label: "Fecha de entrada al paso actual",
+  },
+];
+
+export const DEFAULT_ADMIN_REPORT_TIPO_FECHA: AdminReportTipoFecha = "envio_mesa";
 
 export const adminReportResumenRowSchema = z.object({
   asesor_id: z.string().uuid(),
@@ -36,6 +56,11 @@ export const adminReportDetalleRowSchema = z.object({
     .regex(/^\d{4}-\d{2}-\d{2}$/)
     .nullable()
     .optional(),
+  fecha_envio_mesa: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .nullable()
+    .optional(),
 });
 
 export const adminReportMetaSchema = z.object({
@@ -44,6 +69,7 @@ export const adminReportMetaSchema = z.object({
   activos: z.number().int().nonnegative(),
   rechazados: z.number().int().nonnegative(),
   expedientes: z.number().int().nonnegative(),
+  tipo_fecha: adminReportTipoFechaSchema.optional(),
   sin_fecha_canonica: z.number().int().nonnegative().optional(),
   excluidos_por_fecha_desconocida: z.number().int().nonnegative().optional(),
 });
@@ -63,6 +89,7 @@ export type AdminReportFilters = Readonly<{
   asesorIds: readonly string[];
   pasosVisuales: readonly number[];
   estado: AdminReportEstado;
+  tipoFecha: AdminReportTipoFecha;
   fechaDesde: string | null;
   fechaHasta: string | null;
 }>;
@@ -132,6 +159,7 @@ export function buildAdminReportRpcPayload(filters: AdminReportFilters): Readonl
   p_asesor_ids: string[];
   p_pasos_visuales: number[];
   p_estado: AdminReportEstado;
+  p_tipo_fecha: AdminReportTipoFecha;
   p_fecha_desde: string | null;
   p_fecha_hasta: string | null;
 }> {
@@ -139,6 +167,7 @@ export function buildAdminReportRpcPayload(filters: AdminReportFilters): Readonl
     p_asesor_ids: [...filters.asesorIds],
     p_pasos_visuales: [...filters.pasosVisuales],
     p_estado: filters.estado,
+    p_tipo_fecha: filters.tipoFecha,
     p_fecha_desde: filters.fechaDesde?.trim() || null,
     p_fecha_hasta: filters.fechaHasta?.trim() || null,
   };
@@ -217,6 +246,36 @@ export function adminReportHasFechaRango(filters: {
   fechaHasta: string | null;
 }): boolean {
   return Boolean(filters.fechaDesde?.trim() || filters.fechaHasta?.trim());
+}
+
+/** Advertencia P114 solo aplica al tracking de entrada al paso (históricos NULL). */
+export function adminReportShowsEntradaPasoWarning(filters: {
+  tipoFecha: AdminReportTipoFecha;
+  fechaDesde: string | null;
+  fechaHasta: string | null;
+}): boolean {
+  return (
+    filters.tipoFecha === "entrada_paso_actual" &&
+    adminReportHasFechaRango(filters)
+  );
+}
+
+export function resolveDetalleFechaFiltrada(
+  row: AdminReportDetalleRow,
+  tipo: AdminReportTipoFecha | null | undefined,
+): string | null {
+  if (tipo === "envio_mesa") {
+    return row.fecha_envio_mesa ?? null;
+  }
+  return row.fecha_entrada_paso_actual ?? null;
+}
+
+export function labelDetalleFechaFiltrada(
+  tipo: AdminReportTipoFecha | null | undefined,
+): string {
+  return tipo === "envio_mesa"
+    ? "Fecha de envío a Mesa"
+    : "Fecha de entrada al paso";
 }
 
 export function asesoresCatalogFromReport(

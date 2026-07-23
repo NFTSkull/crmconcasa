@@ -1,5 +1,13 @@
 # ConCasa CRM — Plan de pruebas
 
+## P116 — Tipo de fecha en reporte Admin
+
+- [x] Auditoría: `fecha_envio_mesa` 100% en universo P112 Cloud (169/169).
+- [x] RPC v3: `envio_mesa` / `entrada_paso_actual`; P112/P114 intactas; Monterrey; desde>hasta error.
+- [x] Meta `tipo_fecha` + exclusiones; UI selector default envío; advertencia solo entrada+rango.
+- [x] Excel columna según tipo consultado; citas Mesa intactas.
+- [x] Gates TS + SQL focal.
+
 ## P115 — Pasos visuales Admin + exclusiones por fecha
 
 - [x] Select general `/admin`: 11 pasos; Paso 3 → internas 3+4; sin opción 12.

@@ -162,6 +162,8 @@ La UI identifica al hijo como **Reingreso / Reinscripción** y **Biométricos re
 
 **P115:** el filtro general del dashboard Admin usa los mismos 11 pasos visibles; resumen distingue etapas consultadas vs con resultados; advertencia de exclusión histórica al fijar rango + «Quitar rango».
 
+**P116:** selector de tipo de fecha — por defecto «Fecha de envío a Mesa» (`fecha_envio_mesa`); opción «Fecha de entrada al paso actual» (tracking P114). RPC `…_v3`.
+
 ### 6.6 Rechazado vs Cancelado (P094 — diseño B0)
 
 Dos resultados operativos distintos; **no** inferir por texto libre ni por movimiento manual.

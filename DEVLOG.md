@@ -1,5 +1,13 @@
 # Devlog
 
+## 2026-07-23 - P116: tipo de fecha en reporte Admin
+
+### Auditoría
+Campo canónico de envío: `expedientes.fecha_envio_mesa` (mismo que períodos Admin). TZ negocio `America/Monterrey`. Universo P112 Cloud: 169/169 con valor; 0 NULL. Tracking P114 (`fecha_entrada_paso_visual_actual`) permanece prospectivo (164/169 NULL).
+
+### Decisión
+Nueva RPC v3 con `p_tipo_fecha`; default `envio_mesa` para reportes históricos. `entrada_paso_actual` conserva semántica P114. Sin modificar v1/v2 ni backfill.
+
 ## 2026-07-23 - P115: unificar pasos Admin + aclarar exclusiones
 
 ### Decisión

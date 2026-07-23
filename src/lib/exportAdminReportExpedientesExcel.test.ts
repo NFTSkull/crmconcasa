@@ -48,6 +48,7 @@ const sample: AdminReportResponse = {
       paso_nombre: "Notificación",
       estado: "activo",
       fecha_entrada_paso_actual: "2026-07-20",
+      fecha_envio_mesa: "2026-06-01",
     },
     {
       asesor_id: ASESOR,
@@ -60,6 +61,7 @@ const sample: AdminReportResponse = {
       paso_nombre: "Notificación",
       estado: "rechazado",
       fecha_entrada_paso_actual: "2026-07-18",
+      fecha_envio_mesa: "2026-06-02",
     },
     {
       asesor_id: ASESOR_B,
@@ -72,6 +74,7 @@ const sample: AdminReportResponse = {
       paso_nombre: "Listo para cita de biométrico",
       estado: "activo",
       fecha_entrada_paso_actual: null,
+      fecha_envio_mesa: "2026-05-10",
     },
   ],
   meta: {
@@ -80,7 +83,8 @@ const sample: AdminReportResponse = {
     activos: 2,
     rechazados: 1,
     expedientes: 3,
-    sin_fecha_canonica: 1,
+    tipo_fecha: "envio_mesa",
+    sin_fecha_canonica: 0,
     excluidos_por_fecha_desconocida: 0,
   },
 };
@@ -130,10 +134,10 @@ describe("exportAdminReportExpedientesExcel", () => {
     const detalle = wb.getWorksheet("Detalle")!;
     assert.equal(detalle.getCell(1, 1).value, "Asesor");
     assert.equal(detalle.getCell(1, 3).value, "NSS");
-    assert.equal(detalle.getCell(1, 5).value, "Fecha de entrada al paso");
+    assert.equal(detalle.getCell(1, 5).value, "Fecha de envío a Mesa");
     assert.equal(detalle.getCell(2, 3).value, "01234567890");
-    assert.equal(detalle.getCell(2, 5).value, "2026-07-20");
-    assert.equal(detalle.getCell(4, 5).value, "—");
+    assert.equal(detalle.getCell(2, 5).value, "2026-06-01");
+    assert.equal(detalle.getCell(4, 5).value, "2026-05-10");
     assert.equal(
       String(detalle.getCell(3, 4).value),
       "Paso 6 · Notificación · Rechazado",

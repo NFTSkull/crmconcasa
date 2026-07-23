@@ -729,6 +729,12 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 
 **P115 (solo UI):** filtro general Admin traduce paso visual→internas (Paso 3→`[3,4]`) sin cambiar RPC; resumen UI distingue etapas consultadas vs `meta.pasos` (con resultados); advertencia de rango + «Quitar rango».
 
+### 15-quater. Reporte v3 + tipo de fecha (P116)
+
+**Operación:** RPC read-only `admin_report_expedientes_asesores_etapas_v3(..., p_tipo_fecha TEXT DEFAULT 'envio_mesa', p_fecha_desde, p_fecha_hasta)` — migración `101_…sql`. P112/P114 intactas.
+
+**`p_tipo_fecha`:** `envio_mesa` → `expedientes.fecha_envio_mesa` (default, reportes históricos); `entrada_paso_actual` → semántica P114. Fechas calendario `America/Monterrey`. Meta incluye `tipo_fecha`, `sin_fecha_canonica`, `excluidos_por_fecha_desconocida`. Detalle incluye `fecha_envio_mesa` y `fecha_entrada_paso_actual`.
+
 ### P085 — filtro global por asesor
 
 - Todas las consultas Admin aceptan el mismo `asesor_id` UUID estable (nunca nombre/email).
