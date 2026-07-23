@@ -113,7 +113,11 @@ export function MesaGestionFirmasSection({
   }
 
   return (
-    <section className="rounded-xl border border-violet-200 bg-violet-50 p-4">
+    <section
+      id="mesa-agendar-firma"
+      className="scroll-mt-20 rounded-xl border border-violet-200 bg-violet-50 p-4"
+      data-testid="mesa-agendar-firma"
+    >
       <h2 className="text-base font-semibold text-violet-950">
         Gestión de firmas por Mesa
       </h2>

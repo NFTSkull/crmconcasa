@@ -1,17 +1,19 @@
 /**
- * P119 — resolución de acciones rápidas en tarjeta de bandeja Mesa.
- * Reutiliza gates espejo de `mesa-avance-integracion` (misma RPC `avanzar_etapa_operativa`).
+ * P119 / P119.3 — resolución de acciones rápidas en tarjeta de bandeja Mesa.
+ * Avances usan `avanzar_etapa_operativa` (gates SQL). Agenda 3/9 navega al detalle.
+ * Interna 8 no bypassea P117 (avance 8→9 solo vía carga canónica del Acuse).
+ * Interna 11→12: sin RPC canónica segura → acción ausente.
  */
 
 import type { ExpedienteArchivoResumen } from "@/domain/expediente-archivos/types";
 import type { RetencionOpcion } from "@/domain/expediente-retencion/types";
+import { isRetencionPrincipalDocumentTipo } from "@/lib/fileUploadValidation";
 import {
   deriveAvanceOperativo2a3View,
   deriveAvanceOperativo4a5View,
   deriveAvanceOperativo5a6View,
   deriveAvanceOperativo6a7View,
   deriveAvanceOperativo7a8View,
-  deriveAvanceOperativo8a9View,
   deriveAvanceOperativo10a11View,
   deriveCierreValidacionDocumentalView,
   type AvanceOperativoEtapaView,
@@ -23,9 +25,16 @@ import {
 } from "@/lib/mesaOpsUi";
 import type { MesaExpedienteOpsRow } from "@/domain/mesa-ops/types";
 
-/** Etapa interna → siguiente etapa en acciones rápidas de bandeja (P119.1).
- * Excluye 3→5 (booking biométricos/notificación) y 9→10 (booking firmas).
- */
+/** Anclas existentes / añadidas en detalle Mesa (scroll focus). */
+export const MESA_BANDEJA_FOCUS = {
+  biometricos: "mesa-agenda",
+  firmas: "mesa-agendar-firma",
+  acuse: "mesa-retencion",
+} as const;
+
+export type MesaBandejaFocusKey = keyof typeof MESA_BANDEJA_FOCUS;
+
+/** Transiciones que ejecutan `avanzar_etapa_operativa` desde bandeja. */
 export const MESA_SIGUIENTE_ETAPA_MAP: Readonly<Record<number, number>> = {
   1: 2,
   2: 3,
@@ -33,22 +42,42 @@ export const MESA_SIGUIENTE_ETAPA_MAP: Readonly<Record<number, number>> = {
   5: 6,
   6: 7,
   7: 8,
-  8: 9,
   10: 11,
 };
+
+/**
+ * Contrato mínimo si se habilita 11→12 en el futuro:
+ * RPC SECURITY DEFINER (p.ej. `avanzar_etapa_operativa` rama 11→12) con gates,
+ * roles Mesa, `action_log`, sin movimiento manual libre.
+ * Hoy `avanzar_etapa_operativa` no admite transición desde etapa 11.
+ */
+export const MESA_TIENE_RPC_CANONICA_11_A_12 = false;
+
+export type MesaBandejaAccionKind =
+  | "avanzar"
+  | "navegar_biometricos"
+  | "navegar_firma"
+  | "navegar_acuse"
+  | "etapa_final"
+  | "hidden";
 
 export type MesaSiguienteEtapaReasonCode =
   | "faltan_documentos"
   | "falta_cita"
+  | "falta_acuse"
   | "rechazado"
   | "cancelado"
   | "no_disponible";
 
 export type MesaSiguienteEtapaAccion = Readonly<{
+  kind: MesaBandejaAccionKind;
   visible: boolean;
   enabled: boolean;
+  label: string;
+  href: string | null;
+  usesAvanzarRpc: boolean;
   fromEtapa: number;
-  toEtapa: number;
+  toEtapa: number | null;
   fromLabel: string;
   toLabel: string;
   reasonCode: MesaSiguienteEtapaReasonCode | null;
@@ -71,20 +100,61 @@ export type MesaSiguienteEtapaContext = Readonly<{
   retencionEnviadoAMesa?: boolean;
   retencionEnvioEstado?: "enviado" | "correccion_requerida" | null;
   nowMs?: number;
+  /** Rol actor: acciones de agenda solo para Mesa autorizada. */
+  role?: string | null;
+  expedienteId?: string | null;
 }>;
 
 const REASON_LABELS: Readonly<Record<MesaSiguienteEtapaReasonCode, string>> = {
   faltan_documentos: "Falta validar documentos",
   falta_cita: "Falta cita activa",
+  falta_acuse: "Falta cargar el Acuse",
   rechazado: "Expediente rechazado",
   cancelado: "Acción no disponible en esta etapa",
   no_disponible: "Acción no disponible en esta etapa",
 };
 
+const MESA_AGENDA_ROLES = new Set([
+  "mesa_admin",
+  "mesa_control_admin",
+  "mesa_interno",
+  "mesa_externo",
+  "super_admin",
+  "mesa_control",
+  "mesa_control_interno",
+  "mesa_control_externo",
+]);
+
+export function canMesaAgendaRapidaRole(role: string | null | undefined): boolean {
+  return MESA_AGENDA_ROLES.has(String(role ?? "").trim());
+}
+
+export function buildMesaExpedienteFocusHref(
+  expedienteId: string,
+  focusKey: MesaBandejaFocusKey,
+): string {
+  const anchor = MESA_BANDEJA_FOCUS[focusKey];
+  return `/mesa-control/${expedienteId}?focus=${encodeURIComponent(anchor)}#${anchor}`;
+}
+
+export function hasAcusePrincipalCargado(
+  archivos: readonly ExpedienteArchivoResumen[] | null | undefined,
+): boolean {
+  if (!archivos?.length) return false;
+  return archivos.some((row) => {
+    if (!isRetencionPrincipalDocumentTipo(row.tipo_documento)) return false;
+    if (!row.id) return false;
+    return row.estatus_revision !== "faltante";
+  });
+}
+
 export function mapBloqueosToSiguienteEtapaReason(
   bloqueos: readonly string[],
 ): MesaSiguienteEtapaReasonCode {
   const text = bloqueos.join(" ").toLowerCase();
+  if (text.includes("acuse") && text.includes("falta")) {
+    return "falta_acuse";
+  }
   if (
     text.includes("documento") ||
     text.includes("datos generales") ||
@@ -109,18 +179,28 @@ export function mapBloqueosToSiguienteEtapaReason(
   return "no_disponible";
 }
 
-function emptyHidden(from: number, to: number): MesaSiguienteEtapaAccion {
+function emptyHidden(from: number, to: number | null = null): MesaSiguienteEtapaAccion {
   return {
+    kind: "hidden",
     visible: false,
     enabled: false,
+    label: "",
+    href: null,
+    usesAvanzarRpc: false,
     fromEtapa: from,
     toEtapa: to,
     fromLabel: formatPasoOperativoLabel(from),
-    toLabel: formatPasoOperativoLabel(to),
+    toLabel: to != null ? formatPasoOperativoLabel(to) : "",
     reasonCode: null,
     reasonShort: null,
     bloqueos: [],
   };
+}
+
+function labelForAvanzar(from: number, to: number): string {
+  if (from === 4 && to === 5) return "Pasar a Biometría resultado";
+  if (from === 10 && to === 11) return "Pasar a Firmado";
+  return "Siguiente etapa";
 }
 
 function fromView(
@@ -131,6 +211,7 @@ function fromView(
     visible?: boolean;
     enabled?: boolean;
     reasonCode?: MesaSiguienteEtapaReasonCode;
+    label?: string;
   },
 ): MesaSiguienteEtapaAccion {
   const visible = override?.visible ?? view.mostrar;
@@ -140,8 +221,12 @@ function fromView(
     ? null
     : (override?.reasonCode ?? mapBloqueosToSiguienteEtapaReason(view.bloqueos));
   return {
+    kind: "avanzar",
     visible: true,
     enabled,
+    label: override?.label ?? labelForAvanzar(from, to),
+    href: null,
+    usesAvanzarRpc: true,
     fromEtapa: from,
     toEtapa: to,
     fromLabel: formatPasoOperativoLabel(from),
@@ -152,9 +237,52 @@ function fromView(
   };
 }
 
+function cicloORechazoGate(
+  ctx: MesaSiguienteEtapaContext,
+  etapa: number,
+  to: number | null,
+  kind: MesaBandejaAccionKind,
+  label: string,
+): MesaSiguienteEtapaAccion | null {
+  if (ctx.cicloEstado != null && ctx.cicloEstado !== "activo") {
+    return {
+      kind,
+      visible: true,
+      enabled: false,
+      label,
+      href: null,
+      usesAvanzarRpc: false,
+      fromEtapa: etapa,
+      toEtapa: to,
+      fromLabel: formatPasoOperativoLabel(etapa),
+      toLabel: to != null ? formatPasoOperativoLabel(to) : "",
+      reasonCode: "cancelado",
+      reasonShort: REASON_LABELS.cancelado,
+      bloqueos: ["Expediente cancelado o cerrado."],
+    };
+  }
+  if (ctx.subestado === "rechazado") {
+    return {
+      kind,
+      visible: true,
+      enabled: false,
+      label,
+      href: null,
+      usesAvanzarRpc: false,
+      fromEtapa: etapa,
+      toEtapa: to,
+      fromLabel: formatPasoOperativoLabel(etapa),
+      toLabel: to != null ? formatPasoOperativoLabel(to) : "",
+      reasonCode: "rechazado",
+      reasonShort: REASON_LABELS.rechazado,
+      bloqueos: ["Expediente rechazado."],
+    };
+  }
+  return null;
+}
+
 /**
- * Resuelve visibilidad/habilitación de «Siguiente etapa» para una tarjeta.
- * La mutación real sigue siendo `avanzar_etapa_operativa` (gates SQL).
+ * Resuelve la acción primaria de la tarjeta por etapa interna.
  */
 export function resolveMesaSiguienteEtapaAccion(
   ctx: MesaSiguienteEtapaContext,
@@ -163,35 +291,133 @@ export function resolveMesaSiguienteEtapaAccion(
   if (etapa == null || !Number.isFinite(etapa)) {
     return emptyHidden(0, 0);
   }
+
+  const expId = String(ctx.expedienteId ?? "").trim();
+  const archivos = ctx.archivosResumen ?? [];
+  const canAgenda = canMesaAgendaRapidaRole(ctx.role);
+
+  // —— 12: indicador final ——
+  if (etapa === 12) {
+    return {
+      kind: "etapa_final",
+      visible: true,
+      enabled: false,
+      label: "Etapa final",
+      href: null,
+      usesAvanzarRpc: false,
+      fromEtapa: 12,
+      toEtapa: null,
+      fromLabel: formatPasoOperativoLabel(12),
+      toLabel: "",
+      reasonCode: null,
+      reasonShort: null,
+      bloqueos: [],
+    };
+  }
+
+  // —— 11: sin RPC 11→12 ——
+  if (etapa === 11) {
+    if (!MESA_TIENE_RPC_CANONICA_11_A_12) return emptyHidden(11, 12);
+    // Reservado: si se habilita RPC, cablear aquí con gates.
+    return emptyHidden(11, 12);
+  }
+
+  // —— 3: agendar biométricos (navegación; etapa solo vía booking 3→4) ——
+  if (etapa === 3) {
+    if (!canAgenda || !expId) return emptyHidden(3, 4);
+    const gate = cicloORechazoGate(
+      ctx,
+      3,
+      4,
+      "navegar_biometricos",
+      "Agendar biométricos",
+    );
+    if (gate) return gate;
+    return {
+      kind: "navegar_biometricos",
+      visible: true,
+      enabled: true,
+      label: "Agendar biométricos",
+      href: buildMesaExpedienteFocusHref(expId, "biometricos"),
+      usesAvanzarRpc: false,
+      fromEtapa: 3,
+      toEtapa: 4,
+      fromLabel: formatPasoOperativoLabel(3),
+      toLabel: formatPasoOperativoLabel(4),
+      reasonCode: null,
+      reasonShort: null,
+      bloqueos: [],
+    };
+  }
+
+  // —— 9: agendar firma (navegación; etapa solo vía booking) ——
+  if (etapa === 9) {
+    if (!canAgenda || !expId) return emptyHidden(9, 10);
+    const gate = cicloORechazoGate(
+      ctx,
+      9,
+      10,
+      "navegar_firma",
+      "Agendar firma",
+    );
+    if (gate) return gate;
+    return {
+      kind: "navegar_firma",
+      visible: true,
+      enabled: true,
+      label: "Agendar firma",
+      href: buildMesaExpedienteFocusHref(expId, "firmas"),
+      usesAvanzarRpc: false,
+      fromEtapa: 9,
+      toEtapa: 10,
+      fromLabel: formatPasoOperativoLabel(9),
+      toLabel: formatPasoOperativoLabel(10),
+      reasonCode: null,
+      reasonShort: null,
+      bloqueos: [],
+    };
+  }
+
+  // —— 8: Acuse (navegación; nunca avanzar desde bandeja) ——
+  if (etapa === 8) {
+    if (!canAgenda || !expId) return emptyHidden(8, 9);
+    const gate = cicloORechazoGate(
+      ctx,
+      8,
+      9,
+      "navegar_acuse",
+      "Ir a Acuse",
+    );
+    if (gate) return gate;
+    const tieneAcuse = hasAcusePrincipalCargado(archivos);
+    return {
+      kind: "navegar_acuse",
+      visible: true,
+      enabled: tieneAcuse,
+      label: "Ir a Acuse",
+      href: tieneAcuse ? buildMesaExpedienteFocusHref(expId, "acuse") : null,
+      usesAvanzarRpc: false,
+      fromEtapa: 8,
+      toEtapa: 9,
+      fromLabel: formatPasoOperativoLabel(8),
+      toLabel: formatPasoOperativoLabel(9),
+      reasonCode: tieneAcuse ? null : "falta_acuse",
+      reasonShort: tieneAcuse ? null : REASON_LABELS.falta_acuse,
+      bloqueos: tieneAcuse ? [] : [REASON_LABELS.falta_acuse],
+    };
+  }
+
   const to = MESA_SIGUIENTE_ETAPA_MAP[etapa];
   if (to == null) return emptyHidden(etapa, etapa);
 
-  if (ctx.cicloEstado != null && ctx.cicloEstado !== "activo") {
-    return {
-      ...emptyHidden(etapa, to),
-      visible: true,
-      enabled: false,
-      reasonCode: "cancelado",
-      reasonShort: REASON_LABELS.cancelado,
-      bloqueos: ["Expediente cancelado o cerrado."],
-      fromLabel: formatPasoOperativoLabel(etapa),
-      toLabel: formatPasoOperativoLabel(to),
-    };
-  }
-
-  if (ctx.subestado === "rechazado") {
-    return {
-      visible: true,
-      enabled: false,
-      fromEtapa: etapa,
-      toEtapa: to,
-      fromLabel: formatPasoOperativoLabel(etapa),
-      toLabel: formatPasoOperativoLabel(to),
-      reasonCode: "rechazado",
-      reasonShort: REASON_LABELS.rechazado,
-      bloqueos: ["Expediente rechazado."],
-    };
-  }
+  const gateAvanzar = cicloORechazoGate(
+    ctx,
+    etapa,
+    to,
+    "avanzar",
+    labelForAvanzar(etapa, to),
+  );
+  if (gateAvanzar) return gateAvanzar;
 
   const base = {
     submittedToMesa: Boolean(ctx.submittedToMesa),
@@ -199,8 +425,6 @@ export function resolveMesaSiguienteEtapaAccion(
     etapaActual: etapa,
     subestado: ctx.subestado ?? null,
   };
-
-  const archivos = ctx.archivosResumen ?? [];
 
   if (etapa === 1) {
     const view = deriveCierreValidacionDocumentalView({
@@ -226,6 +450,7 @@ export function resolveMesaSiguienteEtapaAccion(
         fechaCita: ctx.fechaCita,
         hasActiveBiometricBooking: Boolean(ctx.hasActiveBiometricBooking),
       }),
+      { label: "Pasar a Biometría resultado" },
     );
   }
 
@@ -245,21 +470,6 @@ export function resolveMesaSiguienteEtapaAccion(
   if (etapa === 6) return fromView(6, 7, deriveAvanceOperativo6a7View(base));
   if (etapa === 7) return fromView(7, 8, deriveAvanceOperativo7a8View(base));
 
-  if (etapa === 8) {
-    return fromView(
-      8,
-      9,
-      deriveAvanceOperativo8a9View({
-        ...base,
-        clienteDatosEstado: ctx.clienteDatosEstado ?? null,
-        archivosResumen: archivos,
-        retencionOpcion: ctx.retencionOpcion ?? null,
-        retencionEnviadoAMesa: Boolean(ctx.retencionEnviadoAMesa),
-        retencionEnvioEstado: ctx.retencionEnvioEstado ?? null,
-      }),
-    );
-  }
-
   if (etapa === 10) {
     return fromView(
       10,
@@ -269,33 +479,15 @@ export function resolveMesaSiguienteEtapaAccion(
         fechaCita: ctx.fechaCita,
         hasActiveFirmasBooking: Boolean(ctx.hasActiveFirmasBooking),
       }),
+      { label: "Pasar a Firmado" },
     );
   }
 
   return emptyHidden(etapa, to);
 }
 
-const TAKE_ROLES = new Set([
-  "mesa_admin",
-  "mesa_control_admin",
-  "mesa_interno",
-  "mesa_externo",
-  "super_admin",
-  "mesa_control",
-  "mesa_control_interno",
-  "mesa_control_externo",
-]);
-
-const MARCADOR_ROLES = new Set([
-  "mesa_admin",
-  "mesa_control_admin",
-  "mesa_interno",
-  "mesa_externo",
-  "super_admin",
-  "mesa_control",
-  "mesa_control_interno",
-  "mesa_control_externo",
-]);
+const TAKE_ROLES = MESA_AGENDA_ROLES;
+const MARCADOR_ROLES = MESA_AGENDA_ROLES;
 
 export function canMesaTomarExpedienteRole(role: string | null | undefined): boolean {
   return TAKE_ROLES.has(String(role ?? "").trim());

@@ -519,6 +519,19 @@ export function MesaExpedienteDetalleReadOnly() {
     tieneRetencionMeta: Boolean(retencionOpcion || retencionEnvio),
   });
 
+  /** P119.3: deep-link desde acciones rápidas (`?focus=` / `#id`). */
+  useEffect(() => {
+    if (loadState !== "ready" || typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    const focus =
+      params.get("focus")?.trim() ||
+      (window.location.hash ? window.location.hash.replace(/^#/, "").trim() : "");
+    if (!focus) return;
+    const el = document.getElementById(focus);
+    if (!el) return;
+    el.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, [loadState, routeExpedienteId, firmasMesaUiAccess.visible, mostrarRetencionMesa]);
+
   const retencionOpcionMesa = useMemo(
     () => retencionOpcionMesaEfectiva(retencionEnvio, retencionOpcion),
     [retencionEnvio, retencionOpcion],

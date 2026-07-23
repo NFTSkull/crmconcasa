@@ -10,6 +10,14 @@ export type MesaAccordionSectionProps = Readonly<{
   children: ReactNode;
 }>;
 
+function readFocusTarget(): string {
+  if (typeof window === "undefined") return "";
+  const params = new URLSearchParams(window.location.search);
+  const fromQuery = params.get("focus")?.trim() ?? "";
+  if (fromQuery) return fromQuery;
+  return window.location.hash ? window.location.hash.replace(/^#/, "").trim() : "";
+}
+
 export function MesaAccordionSection({
   id,
   title,
@@ -17,10 +25,13 @@ export function MesaAccordionSection({
   defaultOpen = false,
   children,
 }: MesaAccordionSectionProps) {
-  const [open, setOpen] = useState(defaultOpen);
+  const [open, setOpen] = useState(() => defaultOpen || readFocusTarget() === id);
 
   return (
-    <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
+    <section
+      id={id}
+      className="scroll-mt-20 overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm"
+    >
       <button
         type="button"
         id={`${id}-trigger`}

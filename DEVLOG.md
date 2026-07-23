@@ -1,5 +1,11 @@
 # Devlog
 
+## 2026-07-23 - P119.3 acciones rápidas por etapa
+
+Matriz bandeja: 1–2/2–3/4–5/5–6/6–7/7–8 avanzar; 3→Agendar biométricos (detalle `#mesa-agenda`); 8→Ir a Acuse (sin `avanzar`, disabled si falta principal); 9→Agendar firma (`#mesa-agendar-firma` / `mesa_book_firmas`); 10→Pasar a Firmado (P117); 11 sin RPC 11→12; 12 indicador Etapa final.
+
+Sin Cloud reapply; PR #38 commit adicional.
+
 ## 2026-07-23 - P119.2 prueba final concurrencia de cupos
 
 Método: `dblink` + barrera `LOCK TABLE` (ACCESS EXCLUSIVE controlador / ACCESS SHARE workers) sin sleep. Dos `book_biometricos` concurrentes sobre capacidad=1 → exactamente una reserva + error canónico `agenda_config: cupo agotado`; cancel/reagenda vía RPC.

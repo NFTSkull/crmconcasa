@@ -1,6 +1,7 @@
 "use client";
 
 import { useRef, useState, type MouseEvent, type SyntheticEvent } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import {
   MESA_SIGUIENTE_ETAPA_CONFIRM_PREFIX,
@@ -50,13 +51,18 @@ export function MesaBandejaAccionesRapidas({
   onToggleTieneDatos,
   onTomarExpediente,
 }: MesaBandejaAccionesRapidasProps) {
+  const router = useRouter();
   const [busy, setBusy] = useState<"siguiente" | "marcador" | "tomar" | null>(
     null,
   );
   const [error, setError] = useState<string | null>(null);
   const inFlightRef = useRef(false);
 
-  const siguiente = resolveMesaSiguienteEtapaAccion(siguienteCtx);
+  const siguiente = resolveMesaSiguienteEtapaAccion({
+    ...siguienteCtx,
+    role,
+    expedienteId,
+  });
   const tomar = resolveMesaTomarExpedienteAccion({
     ops,
     currentUserId,
@@ -89,9 +95,25 @@ export function MesaBandejaAccionesRapidas({
     }
   };
 
-  const handleSiguiente = (e: MouseEvent) => {
+  const handlePrimaria = (e: MouseEvent) => {
     stop(e);
-    if (!siguiente.enabled || busy) return;
+    if (!siguiente.visible || busy) return;
+
+    if (siguiente.kind === "etapa_final") return;
+
+    if (
+      siguiente.kind === "navegar_biometricos" ||
+      siguiente.kind === "navegar_firma" ||
+      siguiente.kind === "navegar_acuse"
+    ) {
+      if (!siguiente.enabled || !siguiente.href) return;
+      router.push(siguiente.href);
+      return;
+    }
+
+    if (siguiente.kind !== "avanzar" || !siguiente.enabled || !siguiente.usesAvanzarRpc) {
+      return;
+    }
     const ok = window.confirm(
       `${MESA_SIGUIENTE_ETAPA_CONFIRM_PREFIX} ${siguiente.fromLabel} a ${siguiente.toLabel}.\n\nCliente: ${clienteNombre}`,
     );
@@ -111,9 +133,27 @@ export function MesaBandejaAccionesRapidas({
     void run("tomar", () => onTomarExpediente(expedienteId));
   };
 
-  if (!siguiente.visible && !canMarcador && !tomar.visible && !tomar.assignedToMe) {
+  const showPrimaria =
+    siguiente.visible &&
+    (siguiente.kind === "etapa_final" ||
+      siguiente.kind === "avanzar" ||
+      siguiente.kind === "navegar_biometricos" ||
+      siguiente.kind === "navegar_firma" ||
+      siguiente.kind === "navegar_acuse");
+
+  if (!showPrimaria && !canMarcador && !tomar.visible && !tomar.assignedToMe) {
     return null;
   }
+
+  const primariaIsNav =
+    siguiente.kind === "navegar_biometricos" ||
+    siguiente.kind === "navegar_firma" ||
+    siguiente.kind === "navegar_acuse";
+
+  const primariaBusyLabel =
+    busy === "siguiente"
+      ? "Avanzando…"
+      : siguiente.label;
 
   return (
     <div
@@ -123,26 +163,48 @@ export function MesaBandejaAccionesRapidas({
       onKeyDown={stop}
     >
       <div className="flex flex-wrap items-center gap-2">
-        {siguiente.visible ? (
+        {siguiente.kind === "etapa_final" ? (
+          <span
+            className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700 ring-1 ring-slate-200"
+            data-testid="mesa-bandeja-etapa-final"
+          >
+            Etapa final
+          </span>
+        ) : null}
+
+        {showPrimaria && siguiente.kind !== "etapa_final" ? (
           <Button
             type="button"
-            className="h-7 px-2 text-[11px]"
-            disabled={!siguiente.enabled || busy !== null}
+            className="h-7 max-w-full px-2 text-[11px]"
+            disabled={
+              !siguiente.enabled ||
+              busy !== null ||
+              (primariaIsNav && !siguiente.href)
+            }
             title={siguiente.reasonShort ?? undefined}
             aria-label={
               siguiente.enabled
-                ? `Siguiente etapa: ${siguiente.toLabel}`
-                : siguiente.reasonShort ?? "Siguiente etapa no disponible"
+                ? siguiente.label
+                : siguiente.reasonShort ?? `${siguiente.label} no disponible`
             }
-            onClick={handleSiguiente}
-            data-testid="mesa-bandeja-siguiente-etapa"
+            onClick={handlePrimaria}
+            data-testid={
+              primariaIsNav
+                ? "mesa-bandeja-accion-agenda"
+                : "mesa-bandeja-siguiente-etapa"
+            }
+            data-accion-kind={siguiente.kind}
           >
-            {busy === "siguiente" ? "Avanzando…" : "Siguiente etapa"}
+            {primariaBusyLabel}
           </Button>
         ) : null}
-        {siguiente.visible && !siguiente.enabled && siguiente.reasonShort ? (
+
+        {siguiente.visible &&
+        !siguiente.enabled &&
+        siguiente.reasonShort &&
+        siguiente.kind !== "etapa_final" ? (
           <span
-            className="max-w-[12rem] text-[10px] leading-tight text-slate-500"
+            className="max-w-[14rem] text-[10px] leading-tight text-slate-500"
             data-testid="mesa-bandeja-siguiente-etapa-motivo"
           >
             {siguiente.reasonShort}
