@@ -706,7 +706,22 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 - Roles: `mesa_admin` \| `mesa_interno` \| `mesa_externo` \| `super_admin`; visibilidad `can_see_expediente`.
 - Orden de evaluación: **filtros → orden global → página**. Nunca filtrar en cliente sobre 25 filas.
 - UI `/mesa-control` (Supabase): infinite scroll pide la siguiente página; enrich documental P100 solo de IDs de la página.
-- Migración `094_rpc_mesa_list_bandeja_page.sql`. Sin mutaciones / sin Cloud en el bloque de código.
+- Migración `094_rpc_mesa_list_bandeja_page.sql` (ampliada en **113** / P127).
+
+### 14B-bis. Actividad Mesa — Visto / Actualizado por (P127)
+
+**Tabla:** `expediente_mesa_actividad` (unique `organization_id + expediente_id`). SELECT con `can_see_expediente`; sin INSERT/UPDATE/DELETE a `authenticated`.
+
+| Fuente | Campos | Mecanismo |
+|---|---|---|
+| Visto por | `last_viewed_by` / `last_viewed_at` | RPC `mesa_registrar_vista_expediente(p_expediente_id)` al abrir detalle; no escribe `action_log`; no muta expediente |
+| Actualizado por | `last_updated_by` / `last_updated_at` | Trigger AFTER INSERT `action_log` si `actor_role` ∈ Mesa/`super_admin` y acción no es vista/lectura; resuelve expediente por `entity_type=expediente` o `payload.expediente_id` |
+
+**RPC detalle:** `get_mesa_expediente_actividad(p_expediente_id) → jsonb` con nombres vía `profiles.full_name`.
+
+**Bandeja:** mismos campos en cada item (`last_viewed_by_name/at`, `last_updated_by_name/at`) por JOIN batch (sin N+1). UI: `America/Monterrey`.
+
+**Migración:** `113_mesa_internal_names_and_activity.sql` (también actualiza `full_name` de 5 `mesa_interno` inequívocos; no toca email/UID/rol/org).
 
 ---
 

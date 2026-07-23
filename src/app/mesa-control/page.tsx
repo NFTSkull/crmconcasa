@@ -17,6 +17,10 @@ import {
   type CasoMock,
 } from "./mockData";
 import {
+  formatMesaActualizadoPorLine,
+  formatMesaVistoPorLine,
+} from "@/lib/mesaExpedienteActividadUi";
+import {
   ExpedientesSupabaseError,
   appendMesaBandejaItemsUnique,
   mapAdminOrigenTabToRpc,
@@ -24,6 +28,7 @@ import {
   useExpedientesRepo,
   type ExpedienteMock,
   type MesaBandejaCursor,
+  type MesaBandejaPageItem,
   type MesaBandejaServerCounts,
   type PaginatedMesaBandejaResult,
 } from "@/domain/expedientes";
@@ -347,10 +352,11 @@ export default function MesaControlPage() {
     return () => window.clearTimeout(t);
   }, [buscar]);
 
-  const mapExpToCaso = useCallback((exp: ExpedienteMock): CasoMock => {
+  const mapExpToCaso = useCallback((exp: ExpedienteMock | MesaBandejaPageItem): CasoMock => {
     const rawFe = exp.operativo.fechaEnvioMesa;
     const fechaEnvioMesa =
       typeof rawFe === "string" && rawFe.trim() !== "" ? rawFe : undefined;
+    const page = exp as MesaBandejaPageItem;
     return {
       id: exp.id,
       cliente_nombre: exp.base.cliente_nombre,
@@ -372,6 +378,10 @@ export default function MesaControlPage() {
       submittedToMesa: exp.operativo.submittedToMesa,
       origenMesa: exp.base.origenMesa ?? "interno",
       fechaEnvioMesa,
+      lastViewedByName: page.lastViewedByName ?? null,
+      lastViewedAt: page.lastViewedAt ?? null,
+      lastUpdatedByName: page.lastUpdatedByName ?? null,
+      lastUpdatedAt: page.lastUpdatedAt ?? null,
     };
   }, []);
 
@@ -1619,6 +1629,20 @@ export default function MesaControlPage() {
                   </span>
                   <span>Envío Mesa: {formatDate(c.fechaEnvioMesa ?? undefined)}</span>
                   <span className="tabular-nums">Actualizado: {formatDateTime(c.updatedAt)}</span>
+                </div>
+                <div className="mt-1 space-y-0.5 text-[10px] leading-snug text-slate-500">
+                  <p data-testid="mesa-visto-por">
+                    {formatMesaVistoPorLine({
+                      lastViewedByName: c.lastViewedByName,
+                      lastViewedAt: c.lastViewedAt,
+                    })}
+                  </p>
+                  <p data-testid="mesa-actualizado-por">
+                    {formatMesaActualizadoPorLine({
+                      lastUpdatedByName: c.lastUpdatedByName,
+                      lastUpdatedAt: c.lastUpdatedAt,
+                    })}
+                  </p>
                 </div>
                 <MesaBandejaAccionesRapidas
                   expedienteId={c.id}

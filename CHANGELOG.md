@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Added
+- **feat/p127-mesa-nombres-actividad:** nombres visibles Mesa Interna (Keyla/Jorge/Sara/July/Mirna) en `profiles.full_name`; tarjeta/detalle muestran «Visto por» / «Actualizado por» vía `expediente_mesa_actividad` + JOIN batch en `mesa_list_bandeja_page` (migración 113).
+
 ### Fixed
 - **fix/p126-agenda-cupo-cero-sede:** `capacity_by_time` acepta `0` como cierre por sede/horario (distinto de vacío); sin fallback; citas existentes se conservan.
 

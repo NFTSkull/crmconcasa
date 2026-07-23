@@ -1,3 +1,11 @@
+## P127 — Nombres Mesa + Visto/Actualizado por
+
+- [x] Cinco perfiles por email exacto → Keyla/Jorge/Sara/July/Mirna; UID/email/rol/org intactos; no tocar `mesa.interno04`.
+- [x] Abrir detalle → una vista; Strict Mode/dedup no duplica; vista no toca `last_updated_*`.
+- [x] Mutación Mesa (`action_log`) → `last_updated_*`; acción asesor no.
+- [x] Tarjeta+detalle muestran líneas; vacío canónico; JOIN batch sin N+1; P100/P102 intactos.
+- [x] SQL `rpc_mesa_actividad_p127.sql` + migración 113.
+
 ## P126 — Cupo 0 por sede/horario
 
 - [x] Vacío bloquea guardado; `0` persiste y cierra sede/hora; `≥1` cupo normal.

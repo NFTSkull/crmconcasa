@@ -1,5 +1,11 @@
 # Devlog
 
+## 2026-07-23 - P127 nombres Mesa + Visto/Actualizado por
+
+Auditoría: perfiles canónicos por email exacto (`mesa.interno01|02|03@…`, `mesa4@…`, `mesa5@…`); no tocar `mesa.interno04@…` (ambiguo). Campo `profiles.full_name`. Org Cloud `50beae49-…`.
+
+Actividad: tabla `expediente_mesa_actividad` (1 fila/exp); vista solo RPC al abrir detalle (sin `action_log`); actualizaciones vía trigger en `action_log` con `actor_role` Mesa/`super_admin` (excluye asesor y lecturas). Bandeja: JOIN profiles en `mesa_list_bandeja_page` (sin N+1). FE: dedup 4s anti Strict Mode; fallo silencioso.
+
 ## 2026-07-23 - P126 cupo 0 por sede/horario
 
 `capacity_by_time[hora]=0` es cierre explícito (no fallback a `capacity_per_slot`); sin clave / vacío sigue siendo error al guardar. Migración 112: validate ≥0, helper retorna 0, asserts bloquean nuevas reservas, avisos si hay bookings. Excepciones por fecha intactas (siguen >0). UX: min 0, helper y badge «No disponible».

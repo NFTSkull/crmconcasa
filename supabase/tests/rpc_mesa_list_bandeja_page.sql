@@ -37,6 +37,12 @@ BEGIN
   PERFORM public.__p102_assert(position('sin_asignar' in v_src) > 0, 'ops sin_asignar');
   PERFORM public.__p102_assert(position('mi_bandeja' in v_src) > 0, 'ops mi_bandeja');
   PERFORM public.__p102_assert(position('rechazados' in v_src) > 0, 'subfiltro rechazados');
+  -- P127: actividad Mesa en batch
+  PERFORM public.__p102_assert(position('last_viewed_by_name' in v_src) > 0, 'P127 viewed name');
+  PERFORM public.__p102_assert(position('last_updated_by_name' in v_src) > 0, 'P127 updated name');
+  PERFORM public.__p102_assert(
+    position('expediente_mesa_actividad' in v_src) > 0, 'P127 JOIN actividad'
+  );
 
   -- Helpers existen
   PERFORM public.__p102_assert(
