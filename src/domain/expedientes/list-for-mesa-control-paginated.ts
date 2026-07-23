@@ -37,6 +37,11 @@ export type MesaBandejaPageItem = ExpedienteMock &
       MesaExpedienteOpsRow,
       "estadoMesa" | "assignedTo" | "assignedAt" | "lastActivityAt"
     > | null;
+    /** P127: actividad Mesa (JOIN batch en RPC). */
+    lastViewedByName?: string | null;
+    lastViewedAt?: string | null;
+    lastUpdatedByName?: string | null;
+    lastUpdatedAt?: string | null;
   }>;
 
 export type ListForMesaControlPaginatedQuery = Readonly<{
@@ -112,6 +117,10 @@ const rpcItemSchema = z.object({
   ops_assigned_at: z.string().nullable().optional(),
   ops_estado_mesa: z.string().nullable().optional(),
   ops_last_activity_at: z.string().nullable().optional(),
+  last_viewed_by_name: z.string().nullable().optional(),
+  last_viewed_at: z.string().nullable().optional(),
+  last_updated_by_name: z.string().nullable().optional(),
+  last_updated_at: z.string().nullable().optional(),
 });
 
 export const mesaListBandejaPageRpcSchema = z.object({

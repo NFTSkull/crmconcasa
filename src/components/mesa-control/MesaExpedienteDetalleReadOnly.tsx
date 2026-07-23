@@ -125,6 +125,16 @@ import { useSessionRepo, type Rol } from "@/domain/session";
 import { subestadoOperativoLabel } from "@/lib/subestadoOperativoUi";
 import { useMesaOpsRepo, type MesaExpedienteOpsRow } from "@/domain/mesa-ops";
 import { recordMesaExpedienteOpened } from "@/lib/mesaExpedienteOpenedStorage";
+import {
+  formatMesaActualizadoPorLine,
+  formatMesaVistoPorLine,
+  type MesaActividadSnapshot,
+} from "@/lib/mesaExpedienteActividadUi";
+import {
+  fetchMesaExpedienteActividad,
+  mesaRegistrarVistaExpediente,
+} from "@/domain/expedientes/mesa-expediente-actividad";
+import { isDataModeSupabase } from "@/lib/dataMode";
 import { MesaExpedienteOpsSection } from "@/components/mesa-control/MesaExpedienteOpsSection";
 import { MesaControlManualEtapaSection } from "@/components/mesa-control/MesaControlManualEtapaSection";
 import { MesaRechazoOperativoPostBiometricosCard } from "@/components/mesa-control/MesaRechazoOperativoPostBiometricosCard";
@@ -291,6 +301,8 @@ export function MesaExpedienteDetalleReadOnly() {
   const [notificacionCancelSuccess, setNotificacionCancelSuccess] = useState<string | null>(null);
   const [notificacionCancelledMotivo, setNotificacionCancelledMotivo] = useState<string | null>(null);
   const [notificacionAgendadoPorLabel, setNotificacionAgendadoPorLabel] = useState("—");
+  const [mesaActividad, setMesaActividad] = useState<MesaActividadSnapshot | null>(null);
+  const vistaRegistradaRef = useRef<string | null>(null);
   const [cancelFirmasSuccess, setCancelFirmasSuccess] = useState<string | null>(null);
   const [firmasCancelledMotivo, setFirmasCancelledMotivo] = useState<string | null>(null);
   const [mesaOps, setMesaOps] = useState<MesaExpedienteOpsRow | null>(null);
@@ -329,6 +341,16 @@ export function MesaExpedienteDetalleReadOnly() {
   useEffect(() => {
     if (!routeExpedienteId || loadState !== "ready") return;
     recordMesaExpedienteOpened(routeExpedienteId, mesaOpsUserId);
+
+    // P127: una sola vista por apertura de detalle (protege Strict Mode / rerenders)
+    if (!isDataModeSupabase()) return;
+    if (vistaRegistradaRef.current === routeExpedienteId) return;
+    vistaRegistradaRef.current = routeExpedienteId;
+    void (async () => {
+      await mesaRegistrarVistaExpediente(routeExpedienteId);
+      const snap = await fetchMesaExpedienteActividad(routeExpedienteId);
+      if (snap) setMesaActividad(snap);
+    })();
   }, [loadState, mesaOpsUserId, routeExpedienteId]);
 
   const load = useCallback(() => {
@@ -1743,6 +1765,15 @@ export function MesaExpedienteDetalleReadOnly() {
           <p className="sm:col-span-2">
             <span className="font-medium text-gray-900">Última actualización:</span>{" "}
             {op.updatedAt ? formatDateTime(op.updatedAt) : "—"}
+          </p>
+          <p className="sm:col-span-2 text-sm text-gray-600" data-testid="mesa-detalle-visto-por">
+            {formatMesaVistoPorLine(mesaActividad ?? {})}
+          </p>
+          <p
+            className="sm:col-span-2 text-sm text-gray-600"
+            data-testid="mesa-detalle-actualizado-por"
+          >
+            {formatMesaActualizadoPorLine(mesaActividad ?? {})}
           </p>
         </div>
       </section>

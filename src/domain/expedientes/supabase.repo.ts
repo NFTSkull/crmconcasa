@@ -473,6 +473,10 @@ async function fetchExpedientesListForMesaControlPaginated(
       sortTs,
       categoriaResumen: normalizeCategoriaResumen(row.categoria_resumen),
       opsHint,
+      lastViewedByName: row.last_viewed_by_name ?? null,
+      lastViewedAt: row.last_viewed_at ?? null,
+      lastUpdatedByName: row.last_updated_by_name ?? null,
+      lastUpdatedAt: row.last_updated_at ?? null,
     };
   });
 

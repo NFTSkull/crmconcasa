@@ -26,6 +26,11 @@ export interface CasoMock {
   submittedToMesa: boolean;
   /** Origen comercial (inbox mock); filtros “Internos / Externos” solo admin. */
   origenMesa?: "interno" | "externo" | null;
+  /** P127: actividad Mesa (bandeja/detalle). */
+  lastViewedByName?: string | null;
+  lastViewedAt?: string | null;
+  lastUpdatedByName?: string | null;
+  lastUpdatedAt?: string | null;
 }
 
 export const ETAPAS_LABELS: Record<number, string> = {
