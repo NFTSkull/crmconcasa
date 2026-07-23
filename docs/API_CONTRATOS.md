@@ -436,7 +436,8 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
       "mty-centro": {
         "enabled": true,
         "capacity_per_slot": 3,
-        "label": "Centro MTY"
+        "label": "Centro MTY",
+        "capacity_by_time": { "09:00": 8, "10:00": 5 }
       }
     }
   },
@@ -453,6 +454,7 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 - `kind = biometricos` fijo; tabla `agenda_config`.
 - Modelo **semanal** canónico (sin calendario por día mock, sin vigencia por fecha, sin excepciones por día en P3M.1).
 - Validación estricta de claves permitidas; `locations` no vacío si `enabled=true`; al menos una sede `enabled=true`.
+- **P123:** `locations.<id>.capacity_by_time` opcional (`{ "HH:MM": n≥1 }`). Precedencia de cupo en booking: fila `agenda_slot_capacities` (fecha) → `capacity_by_time[hora]` → `capacity_per_slot`.
 - Si el upsert **reduce** disponibilidad y hay bookings futuros `booked`: **no bloquea**; retorna `warnings[]`; registra `action_log` → `agenda.biometricos.config_upsert`; **no** cancela bookings.
 
 ### Response

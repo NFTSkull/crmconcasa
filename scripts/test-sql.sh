@@ -92,5 +92,7 @@ run_sql_test "supabase/tests/admin_report_expedientes_asesores_etapas_v3.sql"
 run_sql_test "supabase/tests/admin_mesa_correcciones_por_elemento.sql"
 run_sql_test "supabase/tests/admin_mesa_timeline_pagination.sql"
 run_sql_test "supabase/tests/rpc_mesa_list_bandeja_page.sql"
+run_sql_test "supabase/tests/rpc_agenda_slot_capacities.sql"
+run_sql_test "supabase/tests/rpc_agenda_capacity_by_time_p123.sql"
 
 echo "SQL tests: ALL PASSED"

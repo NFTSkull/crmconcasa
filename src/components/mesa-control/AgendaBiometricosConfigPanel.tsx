@@ -11,7 +11,6 @@ import {
 import { isDataModeSupabase } from "@/lib/dataMode";
 import { AgendaBiometricosWeeklySupabaseSection } from "@/components/mesa-control/AgendaBiometricosWeeklySupabaseSection";
 import { AgendaFirmasWeeklySupabaseSection } from "@/components/mesa-control/AgendaFirmasWeeklySupabaseSection";
-import { AgendaSlotCapacitiesPanel } from "@/components/mesa-control/AgendaSlotCapacitiesPanel";
 import {
   readAgendaFirmasConfig,
   writeAgendaFirmasConfig,
@@ -527,11 +526,18 @@ export function AgendaBiometricosConfigPanel({ canEdit, actorEmail, profileRole 
     <>
       {dataSupabase ? (
         <>
-          <AgendaBiometricosWeeklySupabaseSection canEdit={canEdit} actorEmail={actorEmail} />
+          <AgendaBiometricosWeeklySupabaseSection
+            canEdit={canEdit}
+            actorEmail={actorEmail}
+            profileRole={profileRole}
+          />
           <div className="mt-4">
-            <AgendaFirmasWeeklySupabaseSection canEdit={canEdit} actorEmail={actorEmail} />
+            <AgendaFirmasWeeklySupabaseSection
+              canEdit={canEdit}
+              actorEmail={actorEmail}
+              profileRole={profileRole}
+            />
           </div>
-          <AgendaSlotCapacitiesPanel role={profileRole ?? (canEdit ? "mesa_admin" : null)} />
         </>
       ) : (
       <section

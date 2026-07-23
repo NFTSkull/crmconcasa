@@ -84,6 +84,41 @@ describe("mapWeeklyUiToSqlCanonical", () => {
     });
   });
 
+  it("round-trip conserva capacity_by_time", () => {
+    const source = {
+      enabled: true,
+      timezone: "America/Monterrey",
+      minLeadHours: 24,
+      allowedWeekdays: [1, 2, 3, 4, 5],
+      slots: ["08:00" as const, "10:00" as const],
+      locations: [
+        {
+          id: "monterrey",
+          label: "Monterrey",
+          enabled: true,
+          capacityPerSlot: 15,
+          capacityByTime: { "08:00": 8, "10:00": 5 },
+        },
+        {
+          id: "apodaca",
+          label: "Apodaca",
+          enabled: true,
+          capacityPerSlot: 10,
+          capacityByTime: { "08:00": 5, "10:00": 10 },
+        },
+      ],
+    };
+    const sql = mapWeeklyUiToSqlCanonical(source);
+    assert.deepEqual(sql.locations.monterrey?.capacity_by_time, { "08:00": 8, "10:00": 5 });
+    assert.deepEqual(sql.locations.apodaca?.capacity_by_time, { "08:00": 5, "10:00": 10 });
+    const roundTrip = mapSqlConfigToWeeklyUi(sql);
+    const mty = roundTrip.locations.find((l) => l.id === "monterrey");
+    const apo = roundTrip.locations.find((l) => l.id === "apodaca");
+    assert.equal(mty?.capacityByTime?.["08:00"], 8);
+    assert.equal(mty?.capacityByTime?.["10:00"], 5);
+    assert.equal(apo?.capacityByTime?.["08:00"], 5);
+  });
+
   it("round-trip conserva datos principales", () => {
     const source = {
       enabled: false,

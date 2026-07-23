@@ -17,6 +17,8 @@ export type AdvisorSedeOption = Readonly<{
   sourceLocationIds: readonly string[];
   enabled: boolean;
   capacityPerSlot: number;
+  /** Cupo recurrente por hora (P123); vacío = solo capacityPerSlot. */
+  capacityByTime: Readonly<Record<string, number>>;
 }>;
 
 export const ADVISOR_SEDE_LABELS: Record<CynthiaSedeId, string> = {
@@ -33,6 +35,7 @@ type Bucket = {
   sourceLocationIds: string[];
   enabled: boolean;
   capacityPerSlot: number;
+  capacityByTime: Record<string, number>;
   hasCanonicalRow: boolean;
   firstLegacyId: string | null;
 };
@@ -42,6 +45,7 @@ function emptyBucket(): Bucket {
     sourceLocationIds: [],
     enabled: false,
     capacityPerSlot: 0,
+    capacityByTime: {},
     hasCanonicalRow: false,
     firstLegacyId: null,
   };
@@ -72,6 +76,13 @@ export function buildAdvisorSedeOptions(
       bucket.enabled = true;
       const cap = Math.max(1, Math.trunc(Number(loc.capacityPerSlot) || 1));
       bucket.capacityPerSlot = Math.max(bucket.capacityPerSlot, cap);
+      if (loc.capacityByTime) {
+        for (const [time, value] of Object.entries(loc.capacityByTime)) {
+          const n = Math.trunc(Number(value));
+          if (!Number.isFinite(n) || n < 1) continue;
+          bucket.capacityByTime[time] = Math.max(bucket.capacityByTime[time] ?? 0, n);
+        }
+      }
     }
   }
 
@@ -91,6 +102,7 @@ export function buildAdvisorSedeOptions(
         sourceLocationIds: bucket.sourceLocationIds,
         enabled: true,
         capacityPerSlot: Math.max(1, bucket.capacityPerSlot),
+        capacityByTime: { ...bucket.capacityByTime },
       },
     ];
   });

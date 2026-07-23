@@ -214,6 +214,7 @@ export function MesaReagendarCitaDialog({
       canonicalId: selectedSede.canonicalId,
       sourceLocationIds: selectedSede.sourceLocationIds,
       capacityPerSlot: selectedSede.capacityPerSlot,
+      capacityByTime: selectedSede.capacityByTime,
     });
     return adjustSlotsForReagendar(base, entry, dateYmd, selectedSede, activeConfig.locations);
   }, [activeConfig, bookedSlots, dateYmd, entry, selectedSede]);

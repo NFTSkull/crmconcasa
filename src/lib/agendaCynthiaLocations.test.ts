@@ -40,8 +40,8 @@ describe("weeklyLocationsToCynthiaForm", () => {
 describe("cynthiaFormToWeeklyLocations", () => {
   it("persiste solo monterrey y apodaca", () => {
     const locs = cynthiaFormToWeeklyLocations({
-      monterrey: { enabled: true, capacityPerSlot: 4 },
-      apodaca: { enabled: false, capacityPerSlot: 2 },
+      monterrey: { enabled: true, capacityPerSlot: 4, capacityByTime: {} },
+      apodaca: { enabled: false, capacityPerSlot: 2, capacityByTime: {} },
     });
     assert.equal(locs.length, 2);
     assert.equal(locs[0]?.id, CYNTHIA_SEDE_MONTERREY_ID);

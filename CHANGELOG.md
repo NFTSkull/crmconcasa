@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Changed
+- **feat/p123-agenda-cupos-integrados:** cupos recurrentes por hora (`capacity_by_time`) dentro de «Horarios seleccionados»; excepciones por fecha colapsables; precedencia fecha → hora → general.
+
+### Changed
 - **ux/p122-tiene-documentos-copy:** en tarjetas Mesa, copy visible `Tiene datos` → `Tiene documentos` (botón + badge); tipo interno `tiene_datos` intacto.
 
 ### Fixed

@@ -108,6 +108,68 @@ describe("weekly-availability", () => {
     assert.deepEqual(dates, ["2026-06-30"]);
   });
 
+  it("computeWeeklySlotAvailability: capacity_by_time recurrente (P123)", () => {
+    const config = {
+      ...emptyAgendaBiometricosWeeklyConfig(),
+      enabled: true,
+      timezone: "America/Monterrey",
+      minLeadHours: 0,
+      allowedWeekdays: [1, 2, 3, 4, 5],
+      slots: ["08:00" as HhmmTime, "10:00" as HhmmTime],
+      locations: [
+        {
+          id: "monterrey",
+          label: "Monterrey",
+          enabled: true,
+          capacityPerSlot: 15,
+          capacityByTime: { "08:00": 8, "10:00": 5 },
+        },
+      ],
+    };
+    const slots = computeWeeklySlotAvailability({
+      config,
+      bookedSlots: [
+        { bookingDate: "2026-06-29", bookingTime: "08:00", locationId: "monterrey" },
+      ],
+      date: "2026-06-29" as YmdDate,
+      locationId: "monterrey",
+      now: new Date("2026-06-25T12:00:00.000Z"),
+    });
+    assert.equal(slots.find((s) => s.time === "08:00")?.capacity, 8);
+    assert.equal(slots.find((s) => s.time === "08:00")?.remaining, 7);
+    assert.equal(slots.find((s) => s.time === "10:00")?.capacity, 5);
+    assert.equal(slots.find((s) => s.time === "10:00")?.remaining, 5);
+  });
+
+  it("computeWeeklySlotAvailability: excepción fecha gana sobre capacity_by_time", () => {
+    const config = {
+      ...emptyAgendaBiometricosWeeklyConfig(),
+      enabled: true,
+      timezone: "America/Monterrey",
+      minLeadHours: 0,
+      allowedWeekdays: [1, 2, 3, 4, 5],
+      slots: ["10:00" as HhmmTime],
+      locations: [
+        {
+          id: "monterrey",
+          label: "Monterrey",
+          enabled: true,
+          capacityPerSlot: 15,
+          capacityByTime: { "10:00": 5 },
+        },
+      ],
+    };
+    const slots = computeWeeklySlotAvailability({
+      config,
+      bookedSlots: [],
+      date: "2026-06-29" as YmdDate,
+      locationId: "monterrey",
+      now: new Date("2026-06-25T12:00:00.000Z"),
+      capacityOverrides: { capacityByTime: { "10:00": 3 } },
+    });
+    assert.equal(slots[0]?.capacity, 3);
+  });
+
   it("computeWeeklySlotAvailability: override capacityByTime (P118)", () => {
     const config = {
       ...emptyAgendaBiometricosWeeklyConfig(),

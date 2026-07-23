@@ -1,7 +1,10 @@
 import { normalizeBookingDate, normalizeBookingTime } from "@/lib/asesorAgendaCalendar";
 import { bookingBelongsToAdvisorSede } from "@/lib/agendaAdvisorLocations";
 import type { AdvisorSedeOption } from "@/lib/agendaAdvisorLocations";
-import type { AgendaBiometricosWeeklyConfig } from "./map-agenda-config";
+import {
+  resolveRecurrentSlotCapacity,
+  type AgendaBiometricosWeeklyConfig,
+} from "./map-agenda-config";
 import type {
   AgendaBiometricosSlotAvailability,
   HhmmTime,
@@ -220,11 +223,12 @@ export function computeWeeklySlotAvailability(params: {
     if (!meetsMinLeadHours(date, time, config.timezone, config.minLeadHours, now)) {
       continue;
     }
-    const resolved = resolveSlotCapacity(
+    const recurrent = resolveRecurrentSlotCapacity(
       location.capacityPerSlot || 1,
       time,
-      params.capacityOverrides,
+      location.capacityByTime,
     );
+    const resolved = resolveSlotCapacity(recurrent, time, params.capacityOverrides);
     if (resolved.skip) continue;
     const capacity = resolved.capacity;
     const bookedCount = countBookedForSlot(bookedSlots, date, locationId, time);
@@ -252,6 +256,8 @@ export function computeAdvisorSlotAvailability(params: {
   canonicalId: string;
   sourceLocationIds: readonly string[];
   capacityPerSlot: number;
+  /** Cupo recurrente por hora de la sede canónica (P123). */
+  capacityByTime?: Readonly<Record<string, number>> | null;
   now?: Date;
   /** Si false, incluye horarios bloqueados solo por anticipación mínima (diagnóstico UI). */
   applyMinLeadHours?: boolean;
@@ -272,7 +278,6 @@ export function computeAdvisorSlotAvailability(params: {
   const isoDow = getIsoWeekdayForDate(date, config.timezone);
   if (!config.allowedWeekdays.includes(isoDow)) return [];
 
-  const baseCapacity = Math.max(1, Math.trunc(capacityPerSlot || 1));
   const sede: Pick<AdvisorSedeOption, "canonicalId" | "sourceLocationIds"> = {
     canonicalId: canonicalId as AdvisorSedeOption["canonicalId"],
     sourceLocationIds,
@@ -285,7 +290,12 @@ export function computeAdvisorSlotAvailability(params: {
     if (applyMinLeadHours && !meetsMinLeadHours(date, time, config.timezone, config.minLeadHours, now)) {
       continue;
     }
-    const resolved = resolveSlotCapacity(baseCapacity, time, params.capacityOverrides);
+    const recurrent = resolveRecurrentSlotCapacity(
+      capacityPerSlot || 1,
+      time,
+      params.capacityByTime ?? null,
+    );
+    const resolved = resolveSlotCapacity(recurrent, time, params.capacityOverrides);
     if (resolved.skip) continue;
     const capacity = resolved.capacity;
     const bookedCount = countBookedForAdvisorSede(
