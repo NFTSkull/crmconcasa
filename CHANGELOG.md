@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Fixed
+- **fix/p121-cupos-ui-gate:** `/mesa-control` monta configuración de agenda (incl. `AgendaSlotCapacitiesPanel`) con rol de sesión Supabase, no solo mock.
+
+### Fixed
 - **fix/p120-mesa-citas-rango:** Lista permite rango libre (`Fecha inicial`/`Fecha final` independientes); consulta solo con «Actualizar citas»; sin forzar un día al editar o volver a Lista.
 
 ### Added
