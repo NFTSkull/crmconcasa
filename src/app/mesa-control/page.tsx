@@ -21,6 +21,12 @@ import {
   formatMesaVistoPorLine,
 } from "@/lib/mesaExpedienteActividadUi";
 import {
+  formatMesaAbiertoAhoraBadge,
+  MESA_PRESENCIA_DASHBOARD_POLL_MS,
+  type MesaPresenciaUser,
+} from "@/lib/mesaExpedientePresenciaUi";
+import { mesaListExpedientesPresencia } from "@/domain/expedientes/mesa-expediente-presencia";
+import {
   ExpedientesSupabaseError,
   appendMesaBandejaItemsUnique,
   mapAdminOrigenTabToRpc,
@@ -314,6 +320,9 @@ export default function MesaControlPage() {
     [dataSupabase],
   );
   const [casos, setCasos] = useState<CasoConDocs[]>([]);
+  const [presenciaByExp, setPresenciaByExp] = useState<
+    ReadonlyMap<string, readonly MesaPresenciaUser[]>
+  >(() => new Map());
   const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [mesaOpsFilter, setMesaOpsFilter] = useState<MesaOpsFilter>(DEFAULT_MESA_OPS_FILTER);
   const [listError, setListError] = useState<string | null>(null);
@@ -939,6 +948,54 @@ export default function MesaControlPage() {
     if (dataSupabase) return filteredCasos;
     return sliceMesaBandejaVisible(filteredCasos, visibleWindow.visibleCount);
   }, [dataSupabase, filteredCasos, visibleWindow.visibleCount]);
+
+  const visibleCasoIdsKey = useMemo(
+    () => visibleCasos.map((c) => c.id).join(","),
+    [visibleCasos],
+  );
+
+  useEffect(() => {
+    if (!dataSupabase || !currentUser) return;
+    const ids = visibleCasoIdsKey
+      ? visibleCasoIdsKey.split(",").filter(Boolean)
+      : [];
+    if (ids.length === 0) {
+      setPresenciaByExp(new Map());
+      return;
+    }
+
+    let cancelled = false;
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+
+    const refresh = async () => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") {
+        return;
+      }
+      const map = await mesaListExpedientesPresencia(ids);
+      if (cancelled) return;
+      const next = new Map<string, readonly MesaPresenciaUser[]>();
+      for (const [expId, row] of map) {
+        next.set(expId, row.users);
+      }
+      setPresenciaByExp(next);
+    };
+
+    void refresh();
+    intervalId = setInterval(() => {
+      void refresh();
+    }, MESA_PRESENCIA_DASHBOARD_POLL_MS);
+
+    const onVis = () => {
+      if (document.visibilityState === "visible") void refresh();
+    };
+    document.addEventListener("visibilitychange", onVis);
+
+    return () => {
+      cancelled = true;
+      if (intervalId) clearInterval(intervalId);
+      document.removeEventListener("visibilitychange", onVis);
+    };
+  }, [currentUser, dataSupabase, visibleCasoIdsKey]);
 
   const loadMoreVisible = useCallback(() => {
     if (loadingMoreLockRef.current) return;
@@ -1631,6 +1688,19 @@ export default function MesaControlPage() {
                   <span className="tabular-nums">Actualizado: {formatDateTime(c.updatedAt)}</span>
                 </div>
                 <div className="mt-1 space-y-0.5 text-[10px] leading-snug text-slate-500">
+                  {(() => {
+                    const badge = formatMesaAbiertoAhoraBadge(
+                      presenciaByExp.get(c.id) ?? [],
+                    );
+                    return badge ? (
+                      <p
+                        className="inline-flex w-fit items-center rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-800 ring-1 ring-inset ring-emerald-200"
+                        data-testid="mesa-abierto-ahora"
+                      >
+                        {badge}
+                      </p>
+                    ) : null;
+                  })()}
                   <p data-testid="mesa-visto-por">
                     {formatMesaVistoPorLine({
                       lastViewedByName: c.lastViewedByName,

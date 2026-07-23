@@ -135,6 +135,8 @@ import {
   mesaRegistrarVistaExpediente,
 } from "@/domain/expedientes/mesa-expediente-actividad";
 import { isDataModeSupabase } from "@/lib/dataMode";
+import { useMesaExpedientePresenciaDetalle } from "@/hooks/useMesaExpedientePresenciaDetalle";
+import { formatMesaAbiertoAhoraBadge } from "@/lib/mesaExpedientePresenciaUi";
 import { MesaExpedienteOpsSection } from "@/components/mesa-control/MesaExpedienteOpsSection";
 import { MesaControlManualEtapaSection } from "@/components/mesa-control/MesaControlManualEtapaSection";
 import { MesaRechazoOperativoPostBiometricosCard } from "@/components/mesa-control/MesaRechazoOperativoPostBiometricosCard";
@@ -303,6 +305,11 @@ export function MesaExpedienteDetalleReadOnly() {
   const [notificacionAgendadoPorLabel, setNotificacionAgendadoPorLabel] = useState("—");
   const [mesaActividad, setMesaActividad] = useState<MesaActividadSnapshot | null>(null);
   const vistaRegistradaRef = useRef<string | null>(null);
+  const presenciaUsers = useMesaExpedientePresenciaDetalle(
+    routeExpedienteId,
+    loadState === "ready",
+  );
+  const abiertoAhoraBadge = formatMesaAbiertoAhoraBadge(presenciaUsers);
   const [cancelFirmasSuccess, setCancelFirmasSuccess] = useState<string | null>(null);
   const [firmasCancelledMotivo, setFirmasCancelledMotivo] = useState<string | null>(null);
   const [mesaOps, setMesaOps] = useState<MesaExpedienteOpsRow | null>(null);
@@ -1766,6 +1773,14 @@ export function MesaExpedienteDetalleReadOnly() {
             <span className="font-medium text-gray-900">Última actualización:</span>{" "}
             {op.updatedAt ? formatDateTime(op.updatedAt) : "—"}
           </p>
+          {abiertoAhoraBadge ? (
+            <p
+              className="sm:col-span-2 inline-flex w-fit items-center rounded-md bg-emerald-50 px-2 py-1 text-xs font-medium text-emerald-800 ring-1 ring-inset ring-emerald-200"
+              data-testid="mesa-detalle-abierto-ahora"
+            >
+              {abiertoAhoraBadge}
+            </p>
+          ) : null}
           <p className="sm:col-span-2 text-sm text-gray-600" data-testid="mesa-detalle-visto-por">
             {formatMesaVistoPorLine(mesaActividad ?? {})}
           </p>

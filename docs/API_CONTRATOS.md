@@ -723,6 +723,18 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 
 **Migración:** `113_mesa_internal_names_and_activity.sql` (también actualiza `full_name` de 5 `mesa_interno` inequívocos; no toca email/UID/rol/org).
 
+### 14B-ter. Presencia activa — Abierto ahora por (P128)
+
+**Tabla:** `expediente_mesa_presencia` (unique `organization_id + expediente_id + user_id + session_id`). SELECT con `can_see_expediente`; sin INSERT/UPDATE/DELETE a `authenticated`.
+
+| RPC | Uso |
+|---|---|
+| `mesa_touch_expediente_presencia(exp, session)` | Upsert al abrir + heartbeat 25s |
+| `mesa_close_expediente_presencia(exp, session)` | Retira sesión del actor (best-effort) |
+| `mesa_list_expedientes_presencia(ids[])` | Batch; solo `last_seen_at` &lt; 90s; nombres dedupe por usuario |
+
+No escribe `action_log` ni muta `expedientes`. UI badge verde; Visto/Actualizado (P127) intactos. Migración `114_expediente_mesa_presencia.sql`.
+
 ---
 
 ## 15. Admin KPIs / Producción (P081–P082)
