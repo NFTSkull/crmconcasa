@@ -121,13 +121,29 @@ const OPERATIVO_FIELD_KEYS = new Set([
 
 const NOTA_FIELD_KEYS = new Set(["notaMesa", "nota_mesa"]);
 
+export const MESA_ASESOR_CAMBIOS_HISTORICO_TITULO =
+  "Corrección histórica sin detalle de cambios";
+
+export const MESA_ASESOR_CAMBIOS_HISTORICO_TEXTO =
+  "Esta corrección fue enviada antes de que comenzara el registro detallado. Abre el expediente para revisarlo manualmente.";
+
 export function formatMesaAsesorCambiosBadge(
   count: number | null | undefined,
   hasLote: boolean,
 ): string {
-  if (!hasLote) return "Sin detalle histórico de cambios";
+  if (!hasLote) return MESA_ASESOR_CAMBIOS_HISTORICO_TITULO;
   const n = typeof count === "number" && Number.isFinite(count) ? Math.max(0, count) : 0;
   return `Cambios del asesor · ${n}`;
+}
+
+export function esCorreccionHistoricaSinDetalle(params: {
+  resumenDocumental?: string | null;
+  advisorChangeBatchId?: string | null;
+}): boolean {
+  return (
+    params.resumenDocumental === "correccion_enviada" &&
+    !params.advisorChangeBatchId
+  );
 }
 
 export function formatMesaAsesorCambiosResumen(

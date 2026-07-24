@@ -7,17 +7,38 @@ import {
   formatMesaAsesorReenviadoAt,
   groupMesaAsesorCambio,
   mesaAsesorCambioAnchor,
+  MESA_ASESOR_CAMBIOS_HISTORICO_TEXTO,
+  MESA_ASESOR_CAMBIOS_HISTORICO_TITULO,
+  esCorreccionHistoricaSinDetalle,
 } from "./mesaAsesorCambiosUi";
 
 describe("mesaAsesorCambiosUi", () => {
-  it("badge sin lote → histórico", () => {
+  it("badge sin lote → histórico clarificado", () => {
     assert.equal(
       formatMesaAsesorCambiosBadge(3, false),
-      "Sin detalle histórico de cambios",
+      MESA_ASESOR_CAMBIOS_HISTORICO_TITULO,
     );
     assert.equal(
       formatMesaAsesorCambiosBadge(null, false),
-      "Sin detalle histórico de cambios",
+      MESA_ASESOR_CAMBIOS_HISTORICO_TITULO,
+    );
+    assert.match(MESA_ASESOR_CAMBIOS_HISTORICO_TEXTO, /registro detallado/);
+  });
+
+  it("correccion_enviada sin batch → histórico", () => {
+    assert.equal(
+      esCorreccionHistoricaSinDetalle({
+        resumenDocumental: "correccion_enviada",
+        advisorChangeBatchId: null,
+      }),
+      true,
+    );
+    assert.equal(
+      esCorreccionHistoricaSinDetalle({
+        resumenDocumental: "correccion_enviada",
+        advisorChangeBatchId: "00000000-0000-4000-8000-000000000001",
+      }),
+      false,
     );
   });
 

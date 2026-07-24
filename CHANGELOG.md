@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Changed
+- **ux/p130.1-correcciones-historicas:** correcciones `correccion_enviada` sin lote muestran título/texto clarificados y «Abrir expediente» (sin Revisar cambios ni deep-link).
+
 ### Added
 - **feat/p130-mesa-cambios-asesor:** bandeja/detalle Mesa muestran lote de cambios del asesor (badge, resumen, deep-link `?focus=asesor-cambios`, panel agrupado, marcar revisados); enrich batch vía `mesa_list_asesor_cambios_summary` (migración 115 aparte).
 
