@@ -25,6 +25,8 @@ import {
   formatMesaAsesorCambiosResumen,
   formatMesaAsesorReenviadoAt,
   MESA_ASESOR_CAMBIOS_FOCUS,
+  MESA_ASESOR_CAMBIOS_HISTORICO_TEXTO,
+  esCorreccionHistoricaSinDetalle,
 } from "@/lib/mesaAsesorCambiosUi";
 import {
   formatMesaAbiertoAhoraBadge,
@@ -1691,8 +1693,13 @@ export default function MesaControlPage() {
                   <DocumentacionCell c={c.resumenDocumental} />
                 </div>
                 {(() => {
+                  const hasLote = Boolean(c.advisorChangeBatchId);
+                  const historica = esCorreccionHistoricaSinDetalle({
+                    resumenDocumental: c.resumenDocumental,
+                    advisorChangeBatchId: c.advisorChangeBatchId,
+                  });
                   const hasSummary =
-                    c.advisorChangeBatchId != null ||
+                    hasLote ||
                     (Array.isArray(c.advisorChangesSummary) &&
                       c.advisorChangesSummary.length > 0) ||
                     (typeof c.advisorChangesCount === "number" &&
@@ -1700,7 +1707,6 @@ export default function MesaControlPage() {
                   const showBlock =
                     c.resumenDocumental === "correccion_enviada" || hasSummary;
                   if (!showBlock) return null;
-                  const hasLote = Boolean(c.advisorChangeBatchId);
                   const badge = formatMesaAsesorCambiosBadge(
                     c.advisorChangesCount,
                     hasLote,
@@ -1719,6 +1725,11 @@ export default function MesaControlPage() {
                       <p className="text-[11px] font-semibold text-sky-950">
                         {badge}
                       </p>
+                      {historica ? (
+                        <p className="text-[10px] leading-snug text-sky-900/90">
+                          {MESA_ASESOR_CAMBIOS_HISTORICO_TEXTO}
+                        </p>
+                      ) : null}
                       {hasLote && resumenLines.length > 0 ? (
                         <ul className="space-y-0.5 text-[10px] leading-snug text-sky-900/90">
                           {resumenLines.map((line) => (
@@ -1726,20 +1737,32 @@ export default function MesaControlPage() {
                           ))}
                         </ul>
                       ) : null}
-                      {reenviadoAt ? (
+                      {hasLote && reenviadoAt ? (
                         <p className="text-[10px] text-sky-900/80">
                           Reenviado por el asesor: {reenviadoAt}
                         </p>
                       ) : null}
-                      <Link
-                        href={`/mesa-control/${c.id}?focus=${MESA_ASESOR_CAMBIOS_FOCUS}`}
-                        className="inline-flex mt-1 rounded-md bg-white px-2 py-1 text-[11px] font-medium text-sky-900 ring-1 ring-sky-300/80 hover:bg-sky-100"
-                        data-testid="mesa-revisar-cambios"
-                        onClick={(e) => e.stopPropagation()}
-                        onKeyDown={(e) => e.stopPropagation()}
-                      >
-                        Revisar cambios
-                      </Link>
+                      {hasLote ? (
+                        <Link
+                          href={`/mesa-control/${c.id}?focus=${MESA_ASESOR_CAMBIOS_FOCUS}`}
+                          className="inline-flex mt-1 rounded-md bg-white px-2 py-1 text-[11px] font-medium text-sky-900 ring-1 ring-sky-300/80 hover:bg-sky-100"
+                          data-testid="mesa-revisar-cambios"
+                          onClick={(e) => e.stopPropagation()}
+                          onKeyDown={(e) => e.stopPropagation()}
+                        >
+                          Revisar cambios
+                        </Link>
+                      ) : historica ? (
+                        <Link
+                          href={`/mesa-control/${c.id}`}
+                          className="inline-flex mt-1 rounded-md bg-white px-2 py-1 text-[11px] font-medium text-sky-900 ring-1 ring-sky-300/80 hover:bg-sky-100"
+                          data-testid="mesa-abrir-expediente-historico"
+                          onClick={(e) => e.stopPropagation()}
+                          onKeyDown={(e) => e.stopPropagation()}
+                        >
+                          Abrir expediente
+                        </Link>
+                      ) : null}
                     </div>
                   );
                 })()}

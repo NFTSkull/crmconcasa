@@ -138,6 +138,7 @@ export function MesaAsesorCambiosPanel({
 
   useEffect(() => {
     if (!loadReady || loading || focusHandledRef.current) return;
+    if (!lote) return;
     if (!isAsesorCambiosFocus(readFocusParam())) return;
     focusHandledRef.current = true;
     const panel = document.getElementById(MESA_ASESOR_CAMBIOS_PANEL_ID);
@@ -150,7 +151,7 @@ export function MesaAsesorCambiosPanel({
         highlightTarget(row);
       }, 350);
     }
-  }, [loadReady, loading, changes, highlightTarget]);
+  }, [loadReady, loading, lote, changes, highlightTarget]);
 
   const handleMarcarRevisados = useCallback(async () => {
     if (!lote?.id || markBusy) return;
@@ -185,7 +186,12 @@ export function MesaAsesorCambiosPanel({
     [onPreviewDocumento],
   );
 
-  const focusOpen = isAsesorCambiosFocus(readFocusParam());
+  // Sin lote: no montar panel vacío ni deep-link de cambios.
+  if (!loading && !lote) {
+    return null;
+  }
+
+  const focusOpen = Boolean(lote) && isAsesorCambiosFocus(readFocusParam());
   const submittedLabel = formatMesaAsesorReenviadoAt(lote?.submittedAt);
   const statusLabel = formatMesaAsesorCambioStatusLabel(lote?.status);
   const summaryParts = [
@@ -218,13 +224,6 @@ export function MesaAsesorCambiosPanel({
         defaultOpen={focusOpen || Boolean(lote && lote.status === "pendiente_revision")}
       >
         <div className="space-y-4 px-4 py-3" data-testid="mesa-asesor-cambios-panel">
-          {!loading && !lote ? (
-            <p className="text-sm text-gray-500">
-              El asesor reenvió la corrección, pero no existe un detalle de cambios
-              registrado.
-            </p>
-          ) : null}
-
           {lote ? (
             <div className="flex flex-wrap items-center gap-2 text-xs text-gray-600">
               <span className="rounded-md bg-slate-100 px-2 py-0.5 font-medium text-slate-800">

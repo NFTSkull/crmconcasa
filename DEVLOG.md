@@ -1,5 +1,9 @@
 # Devlog
 
+## 2026-07-24 - P130.1 correcciones históricas sin detalle (UX)
+
+Solo UI: si `correccion_enviada` y no hay `advisorChangeBatchId`/summary, título «Corrección histórica sin detalle de cambios», copy de registro previo al detalle, CTA «Abrir expediente» sin `?focus=asesor-cambios`. Con lote: badge/resumen/Revisar cambios/deep-link intactos. Panel detalle no monta vacío. Sin SQL/Cloud/predicados.
+
 ## 2026-07-24 - P130 lote de cambios del asesor (FE)
 
 Read-model UI sobre RPCs `mesa_list_asesor_cambios_summary` / `mesa_get_asesor_cambio_lote` / `mesa_marcar_asesor_cambios_revisados` (SQL 115 en paralelo). Enrich de página adjunta `advisorChanges*` sin N+1. Tarjeta en `correccion_enviada` (o si hay summary): badge, 2 líneas + `+N`, fecha Monterrey, `Revisar cambios` → `?focus=asesor-cambios`. Detalle: panel `mesa-asesor-cambios` agrupado; anchors allowlist; preview por `documento_*_id`; marcar revisados solo Mesa/`super_admin` (sesión `mesa_control`).
