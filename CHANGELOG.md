@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- **fix/p131-notificacion-sede-canonica:** RPC `mesa_set_notificacion_booking_location` (mig. 116) + UI «Asignar sede» en Lista/Día/Semana; futuros siguen exigiendo monterrey|apodaca (P107); sin inventar sedes.
+
 ### Changed
 - **ux/p130.2-correcciones-historicas-motivo:** tarjeta histórica muestra motivo/actor/fechas canónicos desde `documento_revisiones` (sin lote P130); CTA «Abrir expediente para revisar»; sin SQL.
 

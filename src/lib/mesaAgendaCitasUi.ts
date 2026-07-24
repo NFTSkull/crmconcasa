@@ -175,8 +175,10 @@ export function formatMesaAgendaKind(kind: MesaAgendaBookingKind): string {
 }
 
 /**
- * Etiqueta de sede para columna/detalle de Citas Mesa (P118).
+ * Etiqueta de sede para columna/detalle de Citas Mesa (P118/P131).
  * Nunca muestra el sentinel `notificacion` como nombre de sede.
+ * Para notificaciones con sede inválida la UI usa `MesaAgendaNotificacionSedeCell`
+ * («Asignar sede»); este formatter no debe usarse solo en ese caso.
  */
 export function formatMesaAgendaSedeLabel(
   locationId: string | null | undefined,
@@ -203,6 +205,31 @@ export function formatMesaAgendaSedeLabel(
     })
     .join(" ");
 }
+
+/** P131: notificación sin sede canónica monterrey|apodaca → control Asignar sede. */
+export function needsMesaNotificacionSedeAssignment(
+  kind: MesaAgendaBookingKind | string | null | undefined,
+  locationId: string | null | undefined,
+): boolean {
+  if (kind !== "notificacion") return false;
+  const raw = String(locationId ?? "").trim();
+  if (!raw) return true;
+  const canonical = resolveCanonicalSedeId(raw, "");
+  return (
+    canonical !== CYNTHIA_SEDE_MONTERREY_ID &&
+    canonical !== CYNTHIA_SEDE_APODACA_ID
+  );
+}
+
+export const MESA_NOTIFICACION_SEDE_OPTIONS = [
+  { value: CYNTHIA_SEDE_MONTERREY_ID, label: "Monterrey" },
+  { value: CYNTHIA_SEDE_APODACA_ID, label: "Apodaca" },
+] as const;
+
+export const MESA_NOTIFICACION_SEDE_ASSIGN_LABEL = "Asignar sede";
+export const MESA_NOTIFICACION_SEDE_SAVE_CONFIRM =
+  "¿Guardar la sede seleccionada? No se modificará fecha, hora ni estado de la cita.";
+
 
 export function formatMesaAgendaStatus(status: MesaAgendaBookingStatus): string {
   return status === "booked" ? "Agendada" : "Cancelada";

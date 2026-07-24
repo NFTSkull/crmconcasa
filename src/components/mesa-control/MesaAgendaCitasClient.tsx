@@ -902,6 +902,19 @@ export function MesaAgendaCitasClient() {
     [agendaBookingRepo, firmasBookingRepo, loadEntries, reagendarTarget],
   );
 
+  const handleNotificacionSedeSaved = useCallback(
+    (bookingId: string, locationId: string) => {
+      setLoadedEntries((prev) =>
+        prev.map((entry) =>
+          entry.bookingId === bookingId
+            ? { ...entry, locationId }
+            : entry,
+        ),
+      );
+    },
+    [],
+  );
+
   const sharedListProps = {
     historyGroups,
     canCancelEntry,
@@ -923,6 +936,7 @@ export function MesaAgendaCitasClient() {
     bulkNotSelectableReason: bulkNotSelectableReasonCb,
     onBulkRowCheckedChange: handleBulkRowCheckedChange,
     bulkBusy,
+    onNotificacionSedeSaved: handleNotificacionSedeSaved,
   };
 
   const hasVisibleEntries =

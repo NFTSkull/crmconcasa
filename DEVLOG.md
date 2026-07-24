@@ -1,5 +1,9 @@
 # Devlog
 
+## 2026-07-24 - P131 sede canónica Notificación (Citas Mesa)
+
+Auditoría Cloud: 8 booked notif; 1 válida; 0 legacy recuperable; 7 con NULL/`notificacion` → manual. Futuros ya cubiertos por mig. 107. Nueva 116: backfill solo legacy estructurado + RPC `mesa_set_notificacion_booking_location` (roles Mesa; muta solo `location_id`+`updated_at`; action_log). UI única `MesaAgendaNotificacionSedeCell` en Lista/Día/Semana: canónica → label; inválida → Asignar sede (sin default). Excel sin cambio de formato.
+
 ## 2026-07-24 - P130.2 motivo de corrección histórica (UX + read-model)
 
 Auditoría: fuente canónica documental = `documento_revisiones` (`estatus_nuevo=rechazado`, `comentario_mesa`, `actor_id`, `created_at`). Tras reenvío el vivo `comentario_mesa` del doc queda NULL (soft-delete). Datos generales: post-reenvío limpia `comentario_rechazo`/`rejected_*` sin historial de tabla → hueco (no action_log). `expedientes.motivo_rechazo` es operativo, no se usa. Sin id de ciclo de solicitud Mesa. Sin migración: batch SELECT a `documento_revisiones` + `get_asesor_display_batch` para nombre. Enrich solo para `correccion_enviada` sin lote. UX: título pendiente de revisión, motivo/nota/fechas/actor, aviso sin diffs, CTA abrir expediente. Lote P130 intacto.

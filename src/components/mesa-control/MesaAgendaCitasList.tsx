@@ -24,6 +24,7 @@ import {
   MESA_DRIVE_VALIDATED_BADGE,
   type MesaAgendaCitasSortOption,
 } from "@/lib/mesaAgendaCitasUi";
+import { MesaAgendaNotificacionSedeCell } from "@/components/mesa-control/MesaAgendaNotificacionSedeCell";
 
 const SORT_OPTIONS: ReadonlyArray<{ value: MesaAgendaCitasSortOption; label: string }> = [
   { value: "fecha_proxima", label: "Fecha más próxima" },
@@ -55,6 +56,7 @@ type MesaAgendaCitasListProps = Readonly<{
   bulkNotSelectableReason?: (entry: MesaAgendaBookingEntry) => string;
   onBulkRowCheckedChange?: (entry: MesaAgendaBookingEntry, checked: boolean) => void;
   bulkBusy?: boolean;
+  onNotificacionSedeSaved?: (bookingId: string, locationId: string) => void;
 }>;
 
 
@@ -87,6 +89,7 @@ export function MesaAgendaCitasList({
   bulkNotSelectableReason,
   onBulkRowCheckedChange,
   bulkBusy = false,
+  onNotificacionSedeSaved,
 }: MesaAgendaCitasListProps) {
   const showBulk = Boolean(selectedBookingIds && onBulkRowCheckedChange && isBulkRowSelectable);
   return (
@@ -193,7 +196,16 @@ export function MesaAgendaCitasList({
                   <td className="px-4 py-3">
                     {mesaAgendaBookingPersonDisplayName(entry.createdBy)}
                   </td>
-                  <td className="px-4 py-3">{formatMesaAgendaSedeLabel(entry.locationId)}</td>
+                  <td className="px-4 py-3">
+                    {entry.kind === "notificacion" ? (
+                      <MesaAgendaNotificacionSedeCell
+                        entry={entry}
+                        onLocationSaved={onNotificacionSedeSaved}
+                      />
+                    ) : (
+                      formatMesaAgendaSedeLabel(entry.locationId)
+                    )}
+                  </td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-1">
                       <span
@@ -274,6 +286,7 @@ export function MesaAgendaCitasList({
                 : bulkNotSelectableReason?.(entry)
             }
             onBulkCheckedChange={onBulkRowCheckedChange}
+            onNotificacionSedeSaved={onNotificacionSedeSaved}
           />
         ))}
       </div>
@@ -306,6 +319,7 @@ export function MesaAgendaCitasList({
                 : bulkNotSelectableReason?.(entry)
             }
             onBulkCheckedChange={onBulkRowCheckedChange}
+            onNotificacionSedeSaved={onNotificacionSedeSaved}
           />
         ))}
       </div>

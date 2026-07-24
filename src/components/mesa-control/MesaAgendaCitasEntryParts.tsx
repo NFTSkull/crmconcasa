@@ -36,6 +36,7 @@ import {
   resolveMesaAgendaVisibleActions,
   type MesaAgendaHistoryLabel,
 } from "@/lib/mesaAgendaCitasUi";
+import { MesaAgendaNotificacionSedeCell } from "@/components/mesa-control/MesaAgendaNotificacionSedeCell";
 
 export function MesaAgendaEntryBadges({
   entry,
@@ -79,7 +80,11 @@ export function MesaAgendaEntryBadges({
 
 export function MesaAgendaEntryDetails({
   entry,
-}: Readonly<{ entry: MesaAgendaBookingEntry }>) {
+  onNotificacionSedeSaved,
+}: Readonly<{
+  entry: MesaAgendaBookingEntry;
+  onNotificacionSedeSaved?: (bookingId: string, locationId: string) => void;
+}>) {
   const driveMeta = formatMesaAgendaDriveValidatedMeta(entry);
   return (
     <dl className="grid gap-1 text-xs text-slate-600">
@@ -93,7 +98,17 @@ export function MesaAgendaEntryDetails({
       </div>
       <div>
         <dt className="inline font-medium text-slate-700">Sede: </dt>
-        <dd className="inline">{formatMesaAgendaSedeLabel(entry.locationId)}</dd>
+        <dd className="inline">
+          {entry.kind === "notificacion" ? (
+            <MesaAgendaNotificacionSedeCell
+              entry={entry}
+              compact
+              onLocationSaved={onNotificacionSedeSaved}
+            />
+          ) : (
+            formatMesaAgendaSedeLabel(entry.locationId)
+          )}
+        </dd>
       </div>
       <div>
         <dt className="inline font-medium text-slate-700">Paso: </dt>
@@ -269,6 +284,7 @@ export function MesaAgendaCitaCard({
   bulkSelectable = false,
   bulkDisabledReason,
   onBulkCheckedChange,
+  onNotificacionSedeSaved,
 }: Readonly<{
   entry: MesaAgendaBookingEntry;
   historyGroup: readonly MesaAgendaBookingEntry[];
@@ -288,6 +304,7 @@ export function MesaAgendaCitaCard({
   bulkSelectable?: boolean;
   bulkDisabledReason?: string;
   onBulkCheckedChange?: (entry: MesaAgendaBookingEntry, checked: boolean) => void;
+  onNotificacionSedeSaved?: (bookingId: string, locationId: string) => void;
 }>) {
   const historyLabel = deriveMesaAgendaHistoryLabel(entry, historyGroup);
   const showHistoryIndicator = hasMesaAgendaHistoryGroup(historyGroup);
@@ -332,7 +349,10 @@ export function MesaAgendaCitaCard({
         />
       </div>
       <div className="mt-3">
-        <MesaAgendaEntryDetails entry={entry} />
+        <MesaAgendaEntryDetails
+          entry={entry}
+          onNotificacionSedeSaved={onNotificacionSedeSaved}
+        />
       </div>
       <MesaAgendaEntryActions
         entry={entry}
