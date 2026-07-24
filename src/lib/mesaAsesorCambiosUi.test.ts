@@ -1,28 +1,36 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  aggregateCorreccionSolicitudHistorica,
   formatMesaAsesorCambiosBadge,
   formatMesaAsesorCambiosResumen,
   formatMesaAsesorCambioStatusLabel,
   formatMesaAsesorReenviadoAt,
+  formatMesaCorreccionMotivoLine,
   groupMesaAsesorCambio,
   mesaAsesorCambioAnchor,
-  MESA_ASESOR_CAMBIOS_HISTORICO_TEXTO,
+  MESA_ASESOR_CAMBIOS_ABRIR_EXPEDIENTE_CTA,
+  MESA_ASESOR_CAMBIOS_HISTORICO_AVISO,
   MESA_ASESOR_CAMBIOS_HISTORICO_TITULO,
+  MESA_ASESOR_CAMBIOS_MOTIVO_NO_DISPONIBLE,
   esCorreccionHistoricaSinDetalle,
 } from "./mesaAsesorCambiosUi";
 
 describe("mesaAsesorCambiosUi", () => {
-  it("badge sin lote → histórico clarificado", () => {
+  it("badge sin lote → título histórico P130.2", () => {
     assert.equal(
       formatMesaAsesorCambiosBadge(3, false),
-      MESA_ASESOR_CAMBIOS_HISTORICO_TITULO,
+      "Corrección histórica pendiente de revisión",
     );
     assert.equal(
       formatMesaAsesorCambiosBadge(null, false),
       MESA_ASESOR_CAMBIOS_HISTORICO_TITULO,
     );
-    assert.match(MESA_ASESOR_CAMBIOS_HISTORICO_TEXTO, /registro detallado/);
+    assert.match(MESA_ASESOR_CAMBIOS_HISTORICO_AVISO, /registro detallado de cambios/);
+    assert.equal(
+      MESA_ASESOR_CAMBIOS_ABRIR_EXPEDIENTE_CTA,
+      "Abrir expediente para revisar",
+    );
   });
 
   it("correccion_enviada sin batch → histórico", () => {
@@ -40,6 +48,78 @@ describe("mesaAsesorCambiosUi", () => {
       }),
       false,
     );
+    assert.equal(
+      esCorreccionHistoricaSinDetalle({
+        resumenDocumental: "correccion_requerida",
+        advisorChangeBatchId: null,
+      }),
+      false,
+    );
+  });
+
+  it("histórico agrega motivo/fechas desde documento_revisiones", () => {
+    const actor = "00000000-0000-4000-8000-0000000000aa";
+    const doc1 = "00000000-0000-4000-8000-0000000000d1";
+    const doc2 = "00000000-0000-4000-8000-0000000000d2";
+    const out = aggregateCorreccionSolicitudHistorica(
+      [
+        {
+          expedienteId: "00000000-0000-4000-8000-0000000000e1",
+          documentoId: doc1,
+          comentarioMesa: "Imagen borrosa",
+          actorId: actor,
+          createdAt: "2026-07-20T15:00:00.000Z",
+        },
+        {
+          expedienteId: "00000000-0000-4000-8000-0000000000e1",
+          documentoId: doc2,
+          comentarioMesa: "Documento incompleto",
+          actorId: actor,
+          createdAt: "2026-07-20T15:05:00.000Z",
+        },
+        {
+          expedienteId: "00000000-0000-4000-8000-0000000000e1",
+          documentoId: doc1,
+          comentarioMesa: "Motivo viejo",
+          actorId: actor,
+          createdAt: "2026-07-01T10:00:00.000Z",
+        },
+      ],
+      {
+        resubmittedAt: "2026-07-21T12:00:00.000Z",
+        actorNameById: new Map([[actor, "Keyla"]]),
+      },
+    );
+    assert.equal(out.correctionRequestedReason, "Imagen borrosa · Documento incompleto");
+    assert.equal(out.correctionRequestedNote, null);
+    assert.equal(out.correctionRequestedAt, "2026-07-20T15:00:00.000Z");
+    assert.equal(out.correctionRequestedByName, "Keyla");
+    assert.equal(out.correctionResubmittedAt, "2026-07-21T12:00:00.000Z");
+  });
+
+  it("histórico sin motivo → Motivo original no disponible", () => {
+    assert.equal(formatMesaCorreccionMotivoLine(null), MESA_ASESOR_CAMBIOS_MOTIVO_NO_DISPONIBLE);
+    assert.equal(formatMesaCorreccionMotivoLine(""), MESA_ASESOR_CAMBIOS_MOTIVO_NO_DISPONIBLE);
+    const empty = aggregateCorreccionSolicitudHistorica([]);
+    assert.equal(empty.correctionRequestedReason, null);
+    assert.equal(
+      formatMesaCorreccionMotivoLine(empty.correctionRequestedReason),
+      "Motivo original no disponible",
+    );
+  });
+
+  it("no inventa cambios realizados (nota/diffs ausentes)", () => {
+    const out = aggregateCorreccionSolicitudHistorica([
+      {
+        expedienteId: "00000000-0000-4000-8000-0000000000e1",
+        documentoId: "00000000-0000-4000-8000-0000000000d1",
+        comentarioMesa: "Archivo incorrecto",
+        actorId: null,
+        createdAt: "2026-07-20T15:00:00.000Z",
+      },
+    ]);
+    assert.equal(out.correctionRequestedNote, null);
+    assert.equal(out.correctionRequestedByName, null);
   });
 
   it("badge con lote muestra conteo", () => {

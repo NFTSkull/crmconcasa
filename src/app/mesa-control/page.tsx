@@ -24,8 +24,11 @@ import {
   formatMesaAsesorCambiosBadge,
   formatMesaAsesorCambiosResumen,
   formatMesaAsesorReenviadoAt,
+  formatMesaCorreccionMotivoLine,
+  MESA_ASESOR_CAMBIOS_ABRIR_EXPEDIENTE_CTA,
   MESA_ASESOR_CAMBIOS_FOCUS,
-  MESA_ASESOR_CAMBIOS_HISTORICO_TEXTO,
+  MESA_ASESOR_CAMBIOS_HISTORICO_AVISO,
+  MESA_ASESOR_CAMBIOS_HISTORICO_TITULO,
   esCorreccionHistoricaSinDetalle,
 } from "@/lib/mesaAsesorCambiosUi";
 import {
@@ -168,6 +171,11 @@ type CasoConDocs = CasoMock & {
   advisorChangesSummary?: readonly string[] | null;
   advisorChangesStatus?: CasoMock["advisorChangesStatus"];
   advisorChangeBatchId?: string | null;
+  correctionRequestedReason?: string | null;
+  correctionRequestedNote?: string | null;
+  correctionRequestedAt?: string | null;
+  correctionRequestedByName?: string | null;
+  correctionResubmittedAt?: string | null;
 };
 
 type AdminOrigenTab = "todos" | "internos" | "externos";
@@ -1715,54 +1723,98 @@ export default function MesaControlPage() {
                     c.advisorChangesSummary ?? [],
                   );
                   const reenviadoAt = formatMesaAsesorReenviadoAt(
-                    c.advisorChangesSubmittedAt ?? c.ultimaCorreccionEnviadaAt,
+                    hasLote
+                      ? (c.advisorChangesSubmittedAt ??
+                          c.ultimaCorreccionEnviadaAt)
+                      : (c.correctionResubmittedAt ??
+                          c.ultimaCorreccionEnviadaAt),
                   );
+                  const solicitadaAt = formatMesaAsesorReenviadoAt(
+                    c.correctionRequestedAt,
+                  );
+                  const nota = String(c.correctionRequestedNote ?? "").trim();
+                  const solicitadaPor = String(
+                    c.correctionRequestedByName ?? "",
+                  ).trim();
                   return (
                     <div
                       className="mt-2 space-y-1 rounded-lg border border-sky-200/80 bg-sky-50/60 px-2.5 py-2"
                       data-testid="mesa-asesor-cambios-card"
                     >
-                      <p className="text-[11px] font-semibold text-sky-950">
-                        {badge}
-                      </p>
                       {historica ? (
-                        <p className="text-[10px] leading-snug text-sky-900/90">
-                          {MESA_ASESOR_CAMBIOS_HISTORICO_TEXTO}
-                        </p>
-                      ) : null}
-                      {hasLote && resumenLines.length > 0 ? (
-                        <ul className="space-y-0.5 text-[10px] leading-snug text-sky-900/90">
-                          {resumenLines.map((line) => (
-                            <li key={line}>{line}</li>
-                          ))}
-                        </ul>
-                      ) : null}
-                      {hasLote && reenviadoAt ? (
-                        <p className="text-[10px] text-sky-900/80">
-                          Reenviado por el asesor: {reenviadoAt}
-                        </p>
-                      ) : null}
-                      {hasLote ? (
-                        <Link
-                          href={`/mesa-control/${c.id}?focus=${MESA_ASESOR_CAMBIOS_FOCUS}`}
-                          className="inline-flex mt-1 rounded-md bg-white px-2 py-1 text-[11px] font-medium text-sky-900 ring-1 ring-sky-300/80 hover:bg-sky-100"
-                          data-testid="mesa-revisar-cambios"
-                          onClick={(e) => e.stopPropagation()}
-                          onKeyDown={(e) => e.stopPropagation()}
-                        >
-                          Revisar cambios
-                        </Link>
-                      ) : historica ? (
-                        <Link
-                          href={`/mesa-control/${c.id}`}
-                          className="inline-flex mt-1 rounded-md bg-white px-2 py-1 text-[11px] font-medium text-sky-900 ring-1 ring-sky-300/80 hover:bg-sky-100"
-                          data-testid="mesa-abrir-expediente-historico"
-                          onClick={(e) => e.stopPropagation()}
-                          onKeyDown={(e) => e.stopPropagation()}
-                        >
-                          Abrir expediente
-                        </Link>
-                      ) : null}
+                        <>
+                          <p className="text-[11px] font-semibold text-sky-950">
+                            {MESA_ASESOR_CAMBIOS_HISTORICO_TITULO}
+                          </p>
+                          <p className="text-[10px] leading-snug text-sky-900/90">
+                            Mesa solicitó corregir:{" "}
+                            {formatMesaCorreccionMotivoLine(
+                              c.correctionRequestedReason,
+                            )}
+                          </p>
+                          {nota ? (
+                            <p className="text-[10px] leading-snug text-sky-900/90">
+                              Indicaciones: {nota}
+                            </p>
+                          ) : null}
+                          {solicitadaPor ? (
+                            <p className="text-[10px] text-sky-900/80">
+                              Solicitada por: {solicitadaPor}
+                            </p>
+                          ) : null}
+                          {solicitadaAt ? (
+                            <p className="text-[10px] text-sky-900/80">
+                              Solicitada el: {solicitadaAt}
+                            </p>
+                          ) : null}
+                          {reenviadoAt ? (
+                            <p className="text-[10px] text-sky-900/80">
+                              Reenviada por el asesor: {reenviadoAt}
+                            </p>
+                          ) : null}
+                          <p className="text-[10px] leading-snug text-sky-900/80">
+                            {MESA_ASESOR_CAMBIOS_HISTORICO_AVISO}
+                          </p>
+                          <Link
+                            href={`/mesa-control/${c.id}`}
+                            className="inline-flex mt-1 rounded-md bg-white px-2 py-1 text-[11px] font-medium text-sky-900 ring-1 ring-sky-300/80 hover:bg-sky-100"
+                            data-testid="mesa-abrir-expediente-historico"
+                            onClick={(e) => e.stopPropagation()}
+                            onKeyDown={(e) => e.stopPropagation()}
+                          >
+                            {MESA_ASESOR_CAMBIOS_ABRIR_EXPEDIENTE_CTA}
+                          </Link>
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-[11px] font-semibold text-sky-950">
+                            {badge}
+                          </p>
+                          {hasLote && resumenLines.length > 0 ? (
+                            <ul className="space-y-0.5 text-[10px] leading-snug text-sky-900/90">
+                              {resumenLines.map((line) => (
+                                <li key={line}>{line}</li>
+                              ))}
+                            </ul>
+                          ) : null}
+                          {hasLote && reenviadoAt ? (
+                            <p className="text-[10px] text-sky-900/80">
+                              Reenviado por el asesor: {reenviadoAt}
+                            </p>
+                          ) : null}
+                          {hasLote ? (
+                            <Link
+                              href={`/mesa-control/${c.id}?focus=${MESA_ASESOR_CAMBIOS_FOCUS}`}
+                              className="inline-flex mt-1 rounded-md bg-white px-2 py-1 text-[11px] font-medium text-sky-900 ring-1 ring-sky-300/80 hover:bg-sky-100"
+                              data-testid="mesa-revisar-cambios"
+                              onClick={(e) => e.stopPropagation()}
+                              onKeyDown={(e) => e.stopPropagation()}
+                            >
+                              Revisar cambios
+                            </Link>
+                          ) : null}
+                        </>
+                      )}
                     </div>
                   );
                 })()}

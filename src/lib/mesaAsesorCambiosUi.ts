@@ -122,10 +122,120 @@ const OPERATIVO_FIELD_KEYS = new Set([
 const NOTA_FIELD_KEYS = new Set(["notaMesa", "nota_mesa"]);
 
 export const MESA_ASESOR_CAMBIOS_HISTORICO_TITULO =
-  "Corrección histórica sin detalle de cambios";
+  "Corrección histórica pendiente de revisión";
 
+export const MESA_ASESOR_CAMBIOS_HISTORICO_AVISO =
+  "Esta corrección se realizó antes de que comenzara el registro detallado de cambios, por lo que no es posible identificar automáticamente qué archivo o campo modificó el asesor.";
+
+/** @deprecated Usar MESA_ASESOR_CAMBIOS_HISTORICO_AVISO (P130.2). */
 export const MESA_ASESOR_CAMBIOS_HISTORICO_TEXTO =
-  "Esta corrección fue enviada antes de que comenzara el registro detallado. Abre el expediente para revisarlo manualmente.";
+  MESA_ASESOR_CAMBIOS_HISTORICO_AVISO;
+
+export const MESA_ASESOR_CAMBIOS_MOTIVO_NO_DISPONIBLE =
+  "Motivo original no disponible";
+
+export const MESA_ASESOR_CAMBIOS_ABRIR_EXPEDIENTE_CTA =
+  "Abrir expediente para revisar";
+
+/** Solicitud Mesa canónica (docs vía documento_revisiones) para tarjeta histórica. */
+export type MesaCorreccionSolicitudHistorica = Readonly<{
+  correctionRequestedReason: string | null;
+  correctionRequestedNote: string | null;
+  correctionRequestedAt: string | null;
+  correctionRequestedByName: string | null;
+  correctionRequestedById: string | null;
+  correctionResubmittedAt: string | null;
+}>;
+
+export type DocumentoRevisionRechazoRow = Readonly<{
+  expedienteId: string;
+  documentoId: string;
+  comentarioMesa: string | null;
+  actorId: string | null;
+  createdAt: string;
+}>;
+
+/**
+ * Agrega rechazos documentales del ciclo previo al reenvío.
+ * Motivo = comentarios canónicos distintos; nota separada no existe en docs (null).
+ */
+export function aggregateCorreccionSolicitudHistorica(
+  rows: readonly DocumentoRevisionRechazoRow[],
+  opts?: {
+    resubmittedAt?: string | null;
+    actorNameById?: ReadonlyMap<string, string>;
+  },
+): MesaCorreccionSolicitudHistorica {
+  const resubmittedAt = opts?.resubmittedAt?.trim() || null;
+  const resubmittedMs = resubmittedAt ? Date.parse(resubmittedAt) : Number.NaN;
+  const inCycle = rows.filter((r) => {
+    if (!Number.isFinite(resubmittedMs)) return true;
+    const t = Date.parse(r.createdAt);
+    if (!Number.isFinite(t)) return false;
+    return t < resubmittedMs;
+  });
+  const pool = inCycle.length > 0 ? inCycle : rows;
+
+  // Último rechazo por documento (ciclo vigente).
+  const latestByDoc = new Map<string, DocumentoRevisionRechazoRow>();
+  for (const row of pool) {
+    const prev = latestByDoc.get(row.documentoId);
+    if (!prev) {
+      latestByDoc.set(row.documentoId, row);
+      continue;
+    }
+    if (Date.parse(row.createdAt) > Date.parse(prev.createdAt)) {
+      latestByDoc.set(row.documentoId, row);
+    }
+  }
+  const latestRows = [...latestByDoc.values()];
+
+  const comments = [
+    ...new Set(
+      latestRows
+        .map((r) => String(r.comentarioMesa ?? "").trim())
+        .filter(Boolean),
+    ),
+  ];
+  const reason =
+    comments.length > 0 ? comments.join(" · ") : null;
+
+  let requestedAt: string | null = null;
+  let actorId: string | null = null;
+  if (latestRows.length > 0) {
+    let minMs = Infinity;
+    let maxMs = -Infinity;
+    let maxRow: DocumentoRevisionRechazoRow | null = null;
+    for (const row of latestRows) {
+      const t = Date.parse(row.createdAt);
+      if (!Number.isFinite(t)) continue;
+      if (t < minMs) {
+        minMs = t;
+        requestedAt = row.createdAt;
+      }
+      if (t > maxMs) {
+        maxMs = t;
+        maxRow = row;
+      }
+    }
+    actorId = maxRow?.actorId?.trim() || null;
+  }
+
+  const actorName =
+    actorId && opts?.actorNameById
+      ? opts.actorNameById.get(actorId)?.trim() || null
+      : null;
+
+  return {
+    correctionRequestedReason: reason,
+    // Docs solo tienen comentario_mesa (motivo). No hay nota separada canónica.
+    correctionRequestedNote: null,
+    correctionRequestedAt: requestedAt,
+    correctionRequestedByName: actorName,
+    correctionRequestedById: actorId,
+    correctionResubmittedAt: resubmittedAt,
+  };
+}
 
 export function formatMesaAsesorCambiosBadge(
   count: number | null | undefined,
@@ -134,6 +244,13 @@ export function formatMesaAsesorCambiosBadge(
   if (!hasLote) return MESA_ASESOR_CAMBIOS_HISTORICO_TITULO;
   const n = typeof count === "number" && Number.isFinite(count) ? Math.max(0, count) : 0;
   return `Cambios del asesor · ${n}`;
+}
+
+export function formatMesaCorreccionMotivoLine(
+  reason: string | null | undefined,
+): string {
+  const t = String(reason ?? "").trim();
+  return t.length > 0 ? t : MESA_ASESOR_CAMBIOS_MOTIVO_NO_DISPONIBLE;
 }
 
 export function esCorreccionHistoricaSinDetalle(params: {

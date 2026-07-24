@@ -1,5 +1,9 @@
 # Devlog
 
+## 2026-07-24 - P130.2 motivo de corrección histórica (UX + read-model)
+
+Auditoría: fuente canónica documental = `documento_revisiones` (`estatus_nuevo=rechazado`, `comentario_mesa`, `actor_id`, `created_at`). Tras reenvío el vivo `comentario_mesa` del doc queda NULL (soft-delete). Datos generales: post-reenvío limpia `comentario_rechazo`/`rejected_*` sin historial de tabla → hueco (no action_log). `expedientes.motivo_rechazo` es operativo, no se usa. Sin id de ciclo de solicitud Mesa. Sin migración: batch SELECT a `documento_revisiones` + `get_asesor_display_batch` para nombre. Enrich solo para `correccion_enviada` sin lote. UX: título pendiente de revisión, motivo/nota/fechas/actor, aviso sin diffs, CTA abrir expediente. Lote P130 intacto.
+
 ## 2026-07-24 - P130.1 correcciones históricas sin detalle (UX)
 
 Solo UI: si `correccion_enviada` y no hay `advisorChangeBatchId`/summary, título «Corrección histórica sin detalle de cambios», copy de registro previo al detalle, CTA «Abrir expediente» sin `?focus=asesor-cambios`. Con lote: badge/resumen/Revisar cambios/deep-link intactos. Panel detalle no monta vacío. Sin SQL/Cloud/predicados.
