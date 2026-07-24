@@ -1,5 +1,9 @@
 # Devlog
 
+## 2026-07-24 - P129 filtros Mesa (copies, sin SQL)
+
+Auditoría: `correccion_enviada` ≠ `correccion_requerida` (disjuntos). Vista rápida fuerza `todo_mesa` a propósito (contador=lista). Solape documentado: `en_proceso` (subestado) puede incluir casos también en `nuevos` (etapa 1–2) o con categoría `correccion_enviada`; no se cambió predicado para no romper paridad RPC P102. Solo labels/tooltips + ayuda transversal.
+
 ## 2026-07-23 - P128 presencia «Abierto ahora por»
 
 Tabla `expediente_mesa_presencia` (unique org+exp+user+session). Touch/close/list RPCs; list filtra `last_seen_at > now()-90s` y dedupe por usuario. FE: sessionStorage session_id, heartbeat 25s en detalle, poll batch 30s en bandeja (solo pestaña visible). No `action_log`, no muta expediente; distinto de Visto/Actualizado (P127).

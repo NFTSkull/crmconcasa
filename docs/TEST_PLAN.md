@@ -1,3 +1,10 @@
+## P129 — Filtros Mesa (copies)
+
+- [x] Predicados auditados; correccion_enviada vs correccion_requerida disjuntos.
+- [x] Labels/tooltips inequívocos; ayuda vista vs asignación; Todo Mesa forzado documentado.
+- [x] Sin cambio de RPC/SQL; contadores = mismos predicados.
+- [x] Tests focales labels + disjuntos; Citas hoy → `/mesa-control/citas`.
+
 ## P128 — Presencia «Abierto ahora por»
 
 - [x] Touch crea/actualiza sesión; heartbeat no duplica; close retira sesión.

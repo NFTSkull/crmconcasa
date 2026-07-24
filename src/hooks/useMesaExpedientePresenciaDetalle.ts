@@ -22,13 +22,11 @@ export function useMesaExpedientePresenciaDetalle(
   enabled: boolean,
 ): readonly MesaPresenciaUser[] {
   const [users, setUsers] = useState<readonly MesaPresenciaUser[]>([]);
+  const id = String(expedienteId ?? "").trim();
+  const active = Boolean(enabled && id && isDataModeSupabase());
 
   useEffect(() => {
-    const id = String(expedienteId ?? "").trim();
-    if (!enabled || !id || !isDataModeSupabase()) {
-      setUsers([]);
-      return;
-    }
+    if (!active) return;
 
     const sessionId = getOrCreateMesaPresenciaSessionId();
     if (!sessionId) return;
@@ -57,7 +55,7 @@ export function useMesaExpedientePresenciaDetalle(
       if (intervalId) clearInterval(intervalId);
       void mesaCloseExpedientePresencia(id, sessionId);
     };
-  }, [enabled, expedienteId]);
+  }, [active, id]);
 
-  return users;
+  return active ? users : [];
 }
