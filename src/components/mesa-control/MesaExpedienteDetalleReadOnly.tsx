@@ -138,6 +138,7 @@ import { isDataModeSupabase } from "@/lib/dataMode";
 import { useMesaExpedientePresenciaDetalle } from "@/hooks/useMesaExpedientePresenciaDetalle";
 import { formatMesaAbiertoAhoraBadge } from "@/lib/mesaExpedientePresenciaUi";
 import { MesaExpedienteOpsSection } from "@/components/mesa-control/MesaExpedienteOpsSection";
+import { MesaAsesorCambiosPanel } from "@/components/mesa-control/MesaAsesorCambiosPanel";
 import { MesaControlManualEtapaSection } from "@/components/mesa-control/MesaControlManualEtapaSection";
 import { MesaRechazoOperativoPostBiometricosCard } from "@/components/mesa-control/MesaRechazoOperativoPostBiometricosCard";
 import { MesaCancelarExpedienteCard } from "@/components/mesa-control/MesaCancelarExpedienteCard";
@@ -660,6 +661,34 @@ export function MesaExpedienteDetalleReadOnly() {
       }
     },
     [fetchArchivoBlob, mapArchivoError],
+  );
+
+  const handlePreviewDocumentoById = useCallback(
+    async (documentoId: string) => {
+      const id = String(documentoId ?? "").trim();
+      if (!id) return;
+      const fromLista = archivosLista.find((a) => a.id === id);
+      const fromResumen = archivosResumen.find((a) => a.id === id);
+      const mime =
+        fromLista?.mime_type?.trim() ||
+        fromResumen?.mime_type?.trim() ||
+        "application/pdf";
+      const nombre =
+        fromLista?.nombre_original?.trim() ||
+        fromResumen?.nombre_original?.trim() ||
+        "archivo";
+      const blob = await archivosRepo.getArchivoBlob(id);
+      const url = URL.createObjectURL(blob);
+      setPreview((prev) => {
+        if (prev?.url) URL.revokeObjectURL(prev.url);
+        return {
+          url,
+          mime_type: mime,
+          nombre_original: nombre,
+        };
+      });
+    },
+    [archivosLista, archivosResumen, archivosRepo],
   );
 
   const handleDescargarArchivo = useCallback(
@@ -1804,6 +1833,13 @@ export function MesaExpedienteDetalleReadOnly() {
           onOpsChange={setMesaOps}
         />
       ) : null}
+
+      <MesaAsesorCambiosPanel
+        expedienteId={routeExpedienteId}
+        loadReady={loadState === "ready"}
+        puedeMarcarRevisados={puedeOperarMesa}
+        onPreviewDocumento={handlePreviewDocumentoById}
+      />
 
       <MesaAccordionSection
         id="mesa-editor"

@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Added
+- **feat/p130-mesa-cambios-asesor:** bandeja/detalle Mesa muestran lote de cambios del asesor (badge, resumen, deep-link `?focus=asesor-cambios`, panel agrupado, marcar revisados); enrich batch vía `mesa_list_asesor_cambios_summary` (migración 115 aparte).
+
 ### Changed
 - **ux/p129-mesa-filtros-claros:** copies y tooltips inequívocos en Vista rápida / Asignación operativa (`Correcciones listas para revisar`, `Nuevos en Mesa`, `Activos en proceso`, `Esperando corrección del asesor`, `Asignados en trabajo`); predicados P102 intactos.
 

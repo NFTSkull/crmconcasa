@@ -1,3 +1,11 @@
+## P130 — Lote de cambios del asesor (Mesa)
+
+- [x] Formatters/anchors unit (`mesaAsesorCambiosUi.test.ts`).
+- [x] Enrich batch adjunta `advisorChanges*` por IDs de página.
+- [x] Tarjeta: badge / resumen / reenviado / Revisar cambios (stopPropagation).
+- [x] Detalle: panel agrupado + Ir al cambio + preview docs + marcar revisados.
+- [ ] SQL 115 + tests focales (agente SQL): freeze en correcciones canónicas; sin N+1; asesor no marca revisado.
+
 ## P129 — Filtros Mesa (copies)
 
 - [x] Predicados auditados; correccion_enviada vs correccion_requerida disjuntos.

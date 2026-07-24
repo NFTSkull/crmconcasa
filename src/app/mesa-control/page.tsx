@@ -21,6 +21,12 @@ import {
   formatMesaVistoPorLine,
 } from "@/lib/mesaExpedienteActividadUi";
 import {
+  formatMesaAsesorCambiosBadge,
+  formatMesaAsesorCambiosResumen,
+  formatMesaAsesorReenviadoAt,
+  MESA_ASESOR_CAMBIOS_FOCUS,
+} from "@/lib/mesaAsesorCambiosUi";
+import {
   formatMesaAbiertoAhoraBadge,
   MESA_PRESENCIA_DASHBOARD_POLL_MS,
   type MesaPresenciaUser,
@@ -155,6 +161,11 @@ type CasoConDocs = CasoMock & {
   retencionOpcion?: RetencionOpcion | null;
   retencionEnviadoAMesa?: boolean;
   retencionEnvioEstado?: "enviado" | "correccion_requerida" | null;
+  advisorChangesCount?: number | null;
+  advisorChangesSubmittedAt?: string | null;
+  advisorChangesSummary?: readonly string[] | null;
+  advisorChangesStatus?: CasoMock["advisorChangesStatus"];
+  advisorChangeBatchId?: string | null;
 };
 
 type AdminOrigenTab = "todos" | "internos" | "externos";
@@ -1679,6 +1690,59 @@ export default function MesaControlPage() {
                 <div className="mt-2">
                   <DocumentacionCell c={c.resumenDocumental} />
                 </div>
+                {(() => {
+                  const hasSummary =
+                    c.advisorChangeBatchId != null ||
+                    (Array.isArray(c.advisorChangesSummary) &&
+                      c.advisorChangesSummary.length > 0) ||
+                    (typeof c.advisorChangesCount === "number" &&
+                      c.advisorChangesCount > 0);
+                  const showBlock =
+                    c.resumenDocumental === "correccion_enviada" || hasSummary;
+                  if (!showBlock) return null;
+                  const hasLote = Boolean(c.advisorChangeBatchId);
+                  const badge = formatMesaAsesorCambiosBadge(
+                    c.advisorChangesCount,
+                    hasLote,
+                  );
+                  const resumenLines = formatMesaAsesorCambiosResumen(
+                    c.advisorChangesSummary ?? [],
+                  );
+                  const reenviadoAt = formatMesaAsesorReenviadoAt(
+                    c.advisorChangesSubmittedAt ?? c.ultimaCorreccionEnviadaAt,
+                  );
+                  return (
+                    <div
+                      className="mt-2 space-y-1 rounded-lg border border-sky-200/80 bg-sky-50/60 px-2.5 py-2"
+                      data-testid="mesa-asesor-cambios-card"
+                    >
+                      <p className="text-[11px] font-semibold text-sky-950">
+                        {badge}
+                      </p>
+                      {hasLote && resumenLines.length > 0 ? (
+                        <ul className="space-y-0.5 text-[10px] leading-snug text-sky-900/90">
+                          {resumenLines.map((line) => (
+                            <li key={line}>{line}</li>
+                          ))}
+                        </ul>
+                      ) : null}
+                      {reenviadoAt ? (
+                        <p className="text-[10px] text-sky-900/80">
+                          Reenviado por el asesor: {reenviadoAt}
+                        </p>
+                      ) : null}
+                      <Link
+                        href={`/mesa-control/${c.id}?focus=${MESA_ASESOR_CAMBIOS_FOCUS}`}
+                        className="inline-flex mt-1 rounded-md bg-white px-2 py-1 text-[11px] font-medium text-sky-900 ring-1 ring-sky-300/80 hover:bg-sky-100"
+                        data-testid="mesa-revisar-cambios"
+                        onClick={(e) => e.stopPropagation()}
+                        onKeyDown={(e) => e.stopPropagation()}
+                      >
+                        Revisar cambios
+                      </Link>
+                    </div>
+                  );
+                })()}
                 {c.subestado === "rechazado" && c.motivoRechazo ? (
                   <p className="mt-2 line-clamp-2 text-[10px] leading-tight text-red-800/90">
                     {c.motivoRechazo}

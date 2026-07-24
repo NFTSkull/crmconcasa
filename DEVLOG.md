@@ -1,5 +1,13 @@
 # Devlog
 
+## 2026-07-24 - P130 lote de cambios del asesor (FE)
+
+Read-model UI sobre RPCs `mesa_list_asesor_cambios_summary` / `mesa_get_asesor_cambio_lote` / `mesa_marcar_asesor_cambios_revisados` (SQL 115 en paralelo). Enrich de página adjunta `advisorChanges*` sin N+1. Tarjeta en `correccion_enviada` (o si hay summary): badge, 2 líneas + `+N`, fecha Monterrey, `Revisar cambios` → `?focus=asesor-cambios`. Detalle: panel `mesa-asesor-cambios` agrupado; anchors allowlist; preview por `documento_*_id`; marcar revisados solo Mesa/`super_admin` (sesión `mesa_control`).
+
+**Cobertura captura (backend):** `register_expediente_documento_correccion` + `save_cliente_datos_correccion` cubiertos. **Huecos:** post-mesa `register_expediente_documento` sin rechazo previo; retención `is_resend` (solo reportar, sin inventar diff).
+
+Históricos sin lote: badge `Sin detalle histórico de cambios`. P127/P128/acciones rápidas/filtros P129 intactos.
+
 ## 2026-07-24 - P129 filtros Mesa (copies, sin SQL)
 
 Auditoría: `correccion_enviada` ≠ `correccion_requerida` (disjuntos). Vista rápida fuerza `todo_mesa` a propósito (contador=lista). Solape documentado: `en_proceso` (subestado) puede incluir casos también en `nuevos` (etapa 1–2) o con categoría `correccion_enviada`; no se cambió predicado para no romper paridad RPC P102. Solo labels/tooltips + ayuda transversal.
