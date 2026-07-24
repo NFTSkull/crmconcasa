@@ -30,10 +30,13 @@ import type {
   MesaBandejaRetencionHint,
 } from "@/lib/mesaBandejaAccionesEnrich";
 import { listAsesorCambiosSummaryByExpedienteIds } from "@/domain/expedientes/mesa-asesor-cambios";
+import { listCorreccionSolicitudHistoricaByExpedienteIds } from "@/domain/expedientes/mesa-correccion-solicitud-historica";
 import type {
   MesaAsesorCambiosSummaryItem,
   MesaAsesorCambioStatus,
+  MesaCorreccionSolicitudHistorica,
 } from "@/lib/mesaAsesorCambiosUi";
+import { esCorreccionHistoricaSinDetalle } from "@/lib/mesaAsesorCambiosUi";
 
 export type MesaBandejaCasoBase = Readonly<{
   id: string;
@@ -78,6 +81,12 @@ export type MesaBandejaCasoEnriched = MesaBandejaCasoBase & {
   advisorChangesSummary?: readonly string[] | null;
   advisorChangesStatus?: MesaAsesorCambioStatus | null;
   advisorChangeBatchId?: string | null;
+  /** P130.2 — solicitud Mesa canónica para histórico sin lote. */
+  correctionRequestedReason?: string | null;
+  correctionRequestedNote?: string | null;
+  correctionRequestedAt?: string | null;
+  correctionRequestedByName?: string | null;
+  correctionResubmittedAt?: string | null;
 };
 
 export type EnrichMesaBandejaPageDeps = {
@@ -108,6 +117,10 @@ export type EnrichMesaBandejaPageDeps = {
   listAsesorCambiosSummaryByExpedienteIds?: (
     ids: readonly string[],
   ) => Promise<ReadonlyMap<string, MesaAsesorCambiosSummaryItem>>;
+  listCorreccionSolicitudHistoricaByExpedienteIds?: (
+    ids: readonly string[],
+    resubmittedAtByExpediente: ReadonlyMap<string, string | null | undefined>,
+  ) => Promise<ReadonlyMap<string, MesaCorreccionSolicitudHistorica>>;
   mesaUserId: string | null;
 };
 
@@ -185,7 +198,8 @@ export async function enrichMesaBandejaPageItems<T extends MesaBandejaCasoBase>(
     advisorChangesById = new Map();
   }
 
-  return base.map((c) => {
+  // Pre-derive categoría + resubmit para acotar query histórica (1 batch, sin N+1).
+  const prelim = base.map((c) => {
     const resumen = resumenPorId[c.id] ?? [];
     const clienteBatch = estadosPorId[c.id] ?? null;
     const advisor = advisorChangesById.get(c.id);
@@ -206,6 +220,58 @@ export async function enrichMesaBandejaPageItems<T extends MesaBandejaCasoBase>(
         : null,
       fechaEnvioMesa: c.fechaEnvioMesa ?? null,
     });
+    const resubmittedAt =
+      advisor?.submittedAt ?? ultimaCorreccionEnviadaAt ?? null;
+    return {
+      c,
+      resumen,
+      clienteBatch,
+      advisor,
+      resumenDocumental,
+      ultimaCorreccionEnviadaAt,
+      resubmittedAt,
+      historica: esCorreccionHistoricaSinDetalle({
+        resumenDocumental,
+        advisorChangeBatchId: advisor?.batchId ?? null,
+      }),
+    };
+  });
+
+  const historicIds = prelim.filter((p) => p.historica).map((p) => p.c.id);
+  const resubmittedAtByExpediente = new Map(
+    prelim
+      .filter((p) => p.historica)
+      .map((p) => [p.c.id, p.resubmittedAt] as const),
+  );
+
+  let solicitudById = new Map<string, MesaCorreccionSolicitudHistorica>();
+  if (historicIds.length > 0) {
+    const listSolicitud =
+      deps.listCorreccionSolicitudHistoricaByExpedienteIds ??
+      ((ids, resubMap) =>
+        listCorreccionSolicitudHistoricaByExpedienteIds(ids, resubMap, {
+          resolveActorDisplayBatch: deps.resolveAsesorDisplayBatch,
+        }));
+    try {
+      solicitudById = new Map(
+        await listSolicitud(historicIds, resubmittedAtByExpediente),
+      );
+    } catch {
+      solicitudById = new Map();
+    }
+  }
+
+  return prelim.map((p) => {
+    const {
+      c,
+      resumen,
+      clienteBatch,
+      advisor,
+      resumenDocumental,
+      ultimaCorreccionEnviadaAt,
+      resubmittedAt,
+      historica,
+    } = p;
     const fechaEntradaMesaActual = resolveFechaEntradaMesaActual(
       c.fechaEnvioMesa ?? null,
       ultimaCorreccionEnviadaAt,
@@ -222,6 +288,7 @@ export async function enrichMesaBandejaPageItems<T extends MesaBandejaCasoBase>(
     const booking = notificacionPorId.get(c.id) ?? null;
     const flags = bookingFlagsPorId.get(c.id);
     const retencion = retencionPorId.get(c.id);
+    const solicitud = historica ? solicitudById.get(c.id) : undefined;
     return {
       ...c,
       resumenDocumental,
@@ -249,6 +316,13 @@ export async function enrichMesaBandejaPageItems<T extends MesaBandejaCasoBase>(
       advisorChangesSummary: advisor?.summary ?? null,
       advisorChangesStatus: advisor?.status ?? null,
       advisorChangeBatchId: advisor?.batchId ?? null,
+      correctionRequestedReason: solicitud?.correctionRequestedReason ?? null,
+      correctionRequestedNote: solicitud?.correctionRequestedNote ?? null,
+      correctionRequestedAt: solicitud?.correctionRequestedAt ?? null,
+      correctionRequestedByName: solicitud?.correctionRequestedByName ?? null,
+      correctionResubmittedAt:
+        solicitud?.correctionResubmittedAt ??
+        (historica ? resubmittedAt : null),
     };
   });
 }

@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Changed
+- **ux/p130.2-correcciones-historicas-motivo:** tarjeta histórica muestra motivo/actor/fechas canónicos desde `documento_revisiones` (sin lote P130); CTA «Abrir expediente para revisar»; sin SQL.
+
+### Changed
 - **ux/p130.1-correcciones-historicas:** correcciones `correccion_enviada` sin lote muestran título/texto clarificados y «Abrir expediente» (sin Revisar cambios ni deep-link).
 
 ### Added
