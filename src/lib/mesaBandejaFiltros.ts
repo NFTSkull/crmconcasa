@@ -16,6 +16,7 @@ import type { MesaOpsFilter } from "@/lib/mesaOpsUi";
  * - Contador y lista comparten exactamente los mismos predicados de este módulo.
  * - P094: «Todos» / operativos = ciclo activo; cancelados solo vía
  *   «Rechazos y cancelaciones» + subvista Cancelados.
+ * - P129: copies inequívocos + tooltips; predicados sin cambio (paridad P102/RPC).
  *
  * P102 (Supabase): estos predicados viven en RPC `mesa_list_bandeja_page`
  * (filtros → orden → página). En mock/legacy siguen aplicándose en memoria
@@ -40,6 +41,37 @@ export const MESA_CITAS_HOY_CHIP_ID = "citas_hoy" as const;
 
 /** Ruta real de la pantalla de citas de Mesa (la misma de "Ver citas"). */
 export const MESA_CITAS_ROUTE = "/mesa-control/citas";
+
+/** Texto de ayuda transversal: vista rápida vs asignación. */
+export const MESA_BANDEJA_FILTROS_HELP_TEXT =
+  "Las vistas rápidas filtran por situación del expediente. La asignación operativa filtra por quién lo está atendiendo.";
+
+export const MESA_VISTA_RAPIDA_FORCE_TODO_MESA_HELP =
+  "Al elegir una vista rápida, la asignación operativa cambia a «Todo Mesa» para que la lista coincida con el contador. «Citas hoy» abre la pantalla de citas. Los cancelados solo aparecen en «Rechazos y cancelaciones».";
+
+/** Labels visibles (id interno intacto para RPC/P102). */
+export const MESA_QUICK_FILTER_LABELS: Readonly<Record<MesaQuickFilter, string>> = {
+  todos: "Todos",
+  correccion_enviada: "Correcciones listas para revisar",
+  nuevos: "Nuevos en Mesa",
+  en_proceso: "Activos en proceso",
+  rechazos_cancelaciones: "Rechazos y cancelaciones",
+};
+
+export const MESA_QUICK_FILTER_TOOLTIPS: Readonly<Record<MesaQuickFilter, string>> = {
+  todos: "Todos los expedientes con ciclo activo enviados a Mesa.",
+  correccion_enviada:
+    "El asesor ya corrigió y reenvió; pendiente de revisión por Mesa (categoría correccion_enviada).",
+  nuevos:
+    "Expedientes en pasos 1–2 con subestado pendiente, en validación Mesa o en proceso (ingreso canónico a Mesa).",
+  en_proceso:
+    "Ciclo activo con subestado en_proceso. No es lo mismo que «Asignados en trabajo» (quién lo atiende).",
+  rechazos_cancelaciones:
+    "Rechazados operativos activos o cancelados. Use la subvista para ver solo uno de los dos.",
+};
+
+export const MESA_CITAS_HOY_TOOLTIP =
+  "Abre la pantalla de citas de Mesa (no filtra esta bandeja).";
 
 export type MesaBandejaFiltroItem = Readonly<{
   cliente_nombre: string;

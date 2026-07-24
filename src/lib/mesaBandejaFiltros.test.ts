@@ -10,8 +10,10 @@ import {
   esRechazadoOperativoActivo,
   limpiarFiltrosBandeja,
   matchesMesaQuickFilter,
+  MESA_BANDEJA_FILTROS_HELP_TEXT,
   MESA_CITAS_HOY_CHIP_ID,
   MESA_CITAS_ROUTE,
+  MESA_QUICK_FILTER_LABELS,
   seleccionarAsignacion,
   seleccionarVistaRapida,
   soloDigitos,
@@ -19,6 +21,7 @@ import {
   type MesaBandejaFiltroItem,
   type MesaBandejaFiltrosState,
 } from "@/lib/mesaBandejaFiltros";
+import { estaEnEsperaDeAsesor } from "@/lib/mesaBandejaEsperaAsesor";
 
 const HOY = "2026-07-15";
 
@@ -132,6 +135,43 @@ describe("mesaBandejaFiltros — selección principal exclusiva", () => {
   it("constantes de citas hoy", () => {
     assert.equal(MESA_CITAS_HOY_CHIP_ID, "citas_hoy");
     assert.equal(MESA_CITAS_ROUTE, "/mesa-control/citas");
+  });
+});
+
+describe("mesaBandejaFiltros — P129 copies y disjuntos corrección", () => {
+  it("labels inequívocos", () => {
+    assert.equal(
+      MESA_QUICK_FILTER_LABELS.correccion_enviada,
+      "Correcciones listas para revisar",
+    );
+    assert.equal(MESA_QUICK_FILTER_LABELS.nuevos, "Nuevos en Mesa");
+    assert.equal(MESA_QUICK_FILTER_LABELS.en_proceso, "Activos en proceso");
+    assert.ok(MESA_BANDEJA_FILTROS_HELP_TEXT.includes("vistas rápidas"));
+    assert.ok(MESA_BANDEJA_FILTROS_HELP_TEXT.includes("asignación operativa"));
+  });
+
+  it("correccion_enviada y correccion_requerida no son el mismo universo", () => {
+    const enviada = item({
+      resumenDocumental: "correccion_enviada",
+      subestado: "en_proceso",
+    });
+    const requerida = item({
+      resumenDocumental: "correccion_requerida",
+      subestado: "en_proceso",
+    });
+    assert.equal(matchesMesaQuickFilter(enviada, "correccion_enviada"), true);
+    assert.equal(matchesMesaQuickFilter(requerida, "correccion_enviada"), false);
+    assert.equal(estaEnEsperaDeAsesor(enviada.resumenDocumental), false);
+    assert.equal(estaEnEsperaDeAsesor(requerida.resumenDocumental), true);
+  });
+
+  it("rechazados/cancelados fuera de Todos y Activos en proceso", () => {
+    const rechazado = item({ subestado: "rechazado" });
+    const cancelado = item({ cicloEstado: "cancelado", subestado: "en_proceso" });
+    assert.equal(matchesMesaQuickFilter(rechazado, "en_proceso"), false);
+    assert.equal(matchesMesaQuickFilter(cancelado, "en_proceso"), false);
+    assert.equal(matchesMesaQuickFilter(cancelado, "todos"), false);
+    assert.equal(matchesMesaQuickFilter(rechazado, "rechazos_cancelaciones"), true);
   });
 });
 

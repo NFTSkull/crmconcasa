@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Changed
+- **ux/p129-mesa-filtros-claros:** copies y tooltips inequívocos en Vista rápida / Asignación operativa (`Correcciones listas para revisar`, `Nuevos en Mesa`, `Activos en proceso`, `Esperando corrección del asesor`, `Asignados en trabajo`); predicados P102 intactos.
+
 ### Added
 - **feat/p128-mesa-presencia:** badge «Abierto ahora por» en tarjeta/detalle Mesa (presencia por pestaña, heartbeat 25s, TTL 90s, batch list); migración 114.
 

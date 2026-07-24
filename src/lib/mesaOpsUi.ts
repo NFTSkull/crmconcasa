@@ -16,16 +16,39 @@ export const DEFAULT_MESA_OPS_FILTER: MesaOpsFilter = "sin_asignar";
 export const MESA_OPS_FILTER_CHIPS: ReadonlyArray<{
   id: MesaOpsFilter;
   label: string;
+  tooltip: string;
 }> = [
-  { id: "sin_asignar", label: "Disponibles" },
-  { id: "en_espera_asesor", label: "En espera de asesor" },
-  { id: "mi_bandeja", label: "Mi bandeja" },
-  { id: "en_trabajo", label: "En trabajo" },
-  { id: "todo_mesa", label: "Todo Mesa" },
+  {
+    id: "sin_asignar",
+    label: "Disponibles",
+    tooltip: "Sin responsable y accionables para «Tomar expediente» (excluye esperando corrección del asesor).",
+  },
+  {
+    id: "en_espera_asesor",
+    label: "Esperando corrección del asesor",
+    tooltip:
+      "Mesa pidió corrección; el asesor aún no reenvió (categoría correccion_requerida). Distinto de correcciones listas para revisar.",
+  },
+  {
+    id: "mi_bandeja",
+    label: "Mi bandeja",
+    tooltip: "Asignados a ti y no pendientes de corrección del asesor.",
+  },
+  {
+    id: "en_trabajo",
+    label: "Asignados en trabajo",
+    tooltip:
+      "Tomados/asignados a alguien en Mesa. Filtro de asignación; no es sinónimo de «Activos en proceso».",
+  },
+  {
+    id: "todo_mesa",
+    label: "Todo Mesa",
+    tooltip: "Sin restricción de asignación (toda la bandeja visible según vista rápida).",
+  },
 ];
 
 export const MESA_OPS_FILTER_HELP_TEXT =
-  "Disponibles: expedientes accionables y libres para tomar. En espera de asesor: corrección pendiente del asesor. Todo Mesa muestra la vista completa.";
+  "Disponibles: libres para tomar. Esperando corrección del asesor: Mesa pidió corrección y el asesor aún no reenvió. Asignados en trabajo: ya tomados por alguien. Todo Mesa: sin filtro de asignación.";
 
 export type MesaOpsStatusKind =
   | "sin_asignar"

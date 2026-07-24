@@ -89,8 +89,13 @@ import {
   contarVistaRapida,
   esNuevoEtapa12,
   limpiarFiltrosBandeja,
+  MESA_BANDEJA_FILTROS_HELP_TEXT,
   MESA_CITAS_HOY_CHIP_ID,
+  MESA_CITAS_HOY_TOOLTIP,
   MESA_CITAS_ROUTE,
+  MESA_QUICK_FILTER_LABELS,
+  MESA_QUICK_FILTER_TOOLTIPS,
+  MESA_VISTA_RAPIDA_FORCE_TODO_MESA_HELP,
   seleccionarAsignacion,
   seleccionarVistaRapida,
   type MesaQuickFilter,
@@ -1282,16 +1287,22 @@ export default function MesaControlPage() {
 
         <section className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
           <div className="rounded-xl border border-sky-200/80 bg-gradient-to-br from-sky-50 to-white p-3 shadow-sm ring-1 ring-sky-100/60">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-sky-800/90">
-              Correcciones enviadas
+            <p
+              className="text-[11px] font-medium uppercase tracking-wide text-sky-800/90"
+              title={MESA_QUICK_FILTER_TOOLTIPS.correccion_enviada}
+            >
+              {MESA_QUICK_FILTER_LABELS.correccion_enviada}
             </p>
             <p className="mt-1 text-2xl font-semibold tabular-nums text-sky-950">
               {kpis.correccionesEnviadas}
             </p>
           </div>
           <div className="rounded-xl border border-amber-200/70 bg-gradient-to-br from-amber-50/80 to-white p-3 shadow-sm ring-1 ring-amber-100/50">
-            <p className="text-[11px] font-medium uppercase tracking-wide text-amber-900/85">
-              Nuevos por revisar
+            <p
+              className="text-[11px] font-medium uppercase tracking-wide text-amber-900/85"
+              title={MESA_QUICK_FILTER_TOOLTIPS.nuevos}
+            >
+              {MESA_QUICK_FILTER_LABELS.nuevos}
             </p>
             <p className="mt-1 text-2xl font-semibold tabular-nums text-amber-950">
               {kpis.nuevosPorRevisar}
@@ -1341,6 +1352,9 @@ export default function MesaControlPage() {
           <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
             Vista rápida
           </p>
+          <p className="mb-2 text-[11px] leading-snug text-slate-500">
+            {MESA_BANDEJA_FILTROS_HELP_TEXT}
+          </p>
           <div
             className="flex flex-wrap gap-1.5"
             role="tablist"
@@ -1348,30 +1362,29 @@ export default function MesaControlPage() {
           >
             {(
               [
-                { id: "todos" as const, label: "Todos" },
-                {
-                  id: "correccion_enviada" as const,
-                  label: `Correcciones enviadas (${kpis.correccionesEnviadas})`,
-                },
-                {
-                  id: "nuevos" as const,
-                  label: `Nuevos (${kpis.nuevosPorRevisar})`,
-                },
-                {
-                  id: "en_proceso" as const,
-                  label: `En proceso (${kpis.enProceso})`,
-                },
+                { id: "todos" as const },
+                { id: "correccion_enviada" as const, count: kpis.correccionesEnviadas },
+                { id: "nuevos" as const, count: kpis.nuevosPorRevisar },
+                { id: "en_proceso" as const, count: kpis.enProceso },
                 {
                   id: "rechazos_cancelaciones" as const,
-                  label: `Rechazos y cancelaciones (${kpis.rechazadosOperativo})`,
+                  count: kpis.rechazadosOperativo,
                 },
-              ] satisfies { id: MesaQuickFilter; label: string }[]
-            ).map(({ id, label }) => (
+              ] satisfies {
+                id: MesaQuickFilter;
+                count?: number;
+              }[]
+            ).map(({ id, count }) => {
+              const baseLabel = MESA_QUICK_FILTER_LABELS[id];
+              const label =
+                typeof count === "number" ? `${baseLabel} (${count})` : baseLabel;
+              return (
               <button
                 key={id}
                 type="button"
                 role="tab"
                 aria-selected={quickFilter === id}
+                title={MESA_QUICK_FILTER_TOOLTIPS[id]}
                 onClick={() => handleQuickFilterSelect(id)}
                 className={`${chipBase} ${
                   quickFilter === id ? chipActive : chipInactive
@@ -1380,13 +1393,14 @@ export default function MesaControlPage() {
               >
                 {label}
               </button>
-            ))}
+              );
+            })}
             <button
               type="button"
               onClick={() => router.push(MESA_CITAS_ROUTE)}
               className={`${chipBase} ${chipInactive} inline-flex items-center gap-1`}
               data-testid={`mesa-quick-filter-${MESA_CITAS_HOY_CHIP_ID}`}
-              title="Abre la pantalla de citas de Mesa"
+              title={MESA_CITAS_HOY_TOOLTIP}
             >
               Citas hoy ({kpis.citasHoy})
               <svg
@@ -1444,9 +1458,7 @@ export default function MesaControlPage() {
             </div>
           ) : null}
           <p className="mt-2 text-[11px] text-slate-500">
-            Al elegir una vista rápida, la asignación operativa cambia a «Todo Mesa»
-            para que la lista coincida con el contador. «Citas hoy» abre la pantalla
-            de citas. Los cancelados solo aparecen en «Rechazos y cancelaciones».
+            {MESA_VISTA_RAPIDA_FORCE_TODO_MESA_HELP}
           </p>
         </section>
 
@@ -1463,7 +1475,7 @@ export default function MesaControlPage() {
               role="tablist"
               aria-label="Filtros de asignación Mesa"
             >
-              {MESA_OPS_FILTER_CHIPS.map(({ id, label }) => {
+              {MESA_OPS_FILTER_CHIPS.map(({ id, label, tooltip }) => {
                 const chipLabel =
                   id === "en_espera_asesor"
                     ? `${label} (${kpis.enEsperaAsesor})`
@@ -1474,6 +1486,7 @@ export default function MesaControlPage() {
                   type="button"
                   role="tab"
                   aria-selected={mesaOpsFilter === id}
+                  title={tooltip}
                   onClick={() => handleOpsFilterSelect(id)}
                   className={`${chipBase} ${mesaOpsFilter === id ? chipActive : chipInactive}`}
                   data-testid={`mesa-ops-filter-${id}`}

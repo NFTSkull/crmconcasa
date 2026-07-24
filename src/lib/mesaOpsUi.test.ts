@@ -52,6 +52,12 @@ describe("mesaOpsUi", () => {
     assert.equal(MESA_OPS_FILTER_CHIPS[0]?.id, "sin_asignar");
     assert.equal(MESA_OPS_FILTER_CHIPS[0]?.label, "Disponibles");
     assert.equal(MESA_OPS_FILTER_CHIPS[1]?.id, "en_espera_asesor");
+    assert.equal(
+      MESA_OPS_FILTER_CHIPS[1]?.label,
+      "Esperando corrección del asesor",
+    );
+    assert.equal(MESA_OPS_FILTER_CHIPS[3]?.id, "en_trabajo");
+    assert.equal(MESA_OPS_FILTER_CHIPS[3]?.label, "Asignados en trabajo");
     assert.equal(MESA_OPS_FILTER_CHIPS.at(-1)?.id, "todo_mesa");
   });
 
