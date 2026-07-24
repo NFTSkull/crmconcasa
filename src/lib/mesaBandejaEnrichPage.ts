@@ -29,6 +29,11 @@ import type {
   MesaBandejaActiveBookingFlags,
   MesaBandejaRetencionHint,
 } from "@/lib/mesaBandejaAccionesEnrich";
+import { listAsesorCambiosSummaryByExpedienteIds } from "@/domain/expedientes/mesa-asesor-cambios";
+import type {
+  MesaAsesorCambiosSummaryItem,
+  MesaAsesorCambioStatus,
+} from "@/lib/mesaAsesorCambiosUi";
 
 export type MesaBandejaCasoBase = Readonly<{
   id: string;
@@ -67,6 +72,12 @@ export type MesaBandejaCasoEnriched = MesaBandejaCasoBase & {
   retencionOpcion?: RetencionOpcion | null;
   retencionEnviadoAMesa?: boolean;
   retencionEnvioEstado?: "enviado" | "correccion_requerida" | null;
+  /** P130 — lote de cambios del asesor (batch enrich). */
+  advisorChangesCount?: number | null;
+  advisorChangesSubmittedAt?: string | null;
+  advisorChangesSummary?: readonly string[] | null;
+  advisorChangesStatus?: MesaAsesorCambioStatus | null;
+  advisorChangeBatchId?: string | null;
 };
 
 export type EnrichMesaBandejaPageDeps = {
@@ -94,6 +105,9 @@ export type EnrichMesaBandejaPageDeps = {
   resolveAsesorDisplayBatch?: (
     creatorIds: string[],
   ) => Promise<Map<string, string>>;
+  listAsesorCambiosSummaryByExpedienteIds?: (
+    ids: readonly string[],
+  ) => Promise<ReadonlyMap<string, MesaAsesorCambiosSummaryItem>>;
   mesaUserId: string | null;
 };
 
@@ -161,9 +175,20 @@ export async function enrichMesaBandejaPageItems<T extends MesaBandejaCasoBase>(
 
   const opsMap = buildMesaOpsMap(opsRows);
 
+  const listAdvisorChanges =
+    deps.listAsesorCambiosSummaryByExpedienteIds ??
+    listAsesorCambiosSummaryByExpedienteIds;
+  let advisorChangesById = new Map<string, MesaAsesorCambiosSummaryItem>();
+  try {
+    advisorChangesById = new Map(await listAdvisorChanges(allExpedienteIds));
+  } catch {
+    advisorChangesById = new Map();
+  }
+
   return base.map((c) => {
     const resumen = resumenPorId[c.id] ?? [];
     const clienteBatch = estadosPorId[c.id] ?? null;
+    const advisor = advisorChangesById.get(c.id);
     const resumenDocumental = deriveResumenExpedienteCorreccion(resumen, {
       clienteDatosEstado: clienteBatch?.estado ?? null,
       clienteDatosUpdatedAt: clienteBatch?.updatedAt ?? null,
@@ -219,6 +244,11 @@ export async function enrichMesaBandejaPageItems<T extends MesaBandejaCasoBase>(
       retencionOpcion: retencion?.opcion ?? null,
       retencionEnviadoAMesa: Boolean(retencion?.enviadoAMesa),
       retencionEnvioEstado: retencion?.envioEstado ?? null,
+      advisorChangesCount: advisor?.changesCount ?? null,
+      advisorChangesSubmittedAt: advisor?.submittedAt ?? null,
+      advisorChangesSummary: advisor?.summary ?? null,
+      advisorChangesStatus: advisor?.status ?? null,
+      advisorChangeBatchId: advisor?.batchId ?? null,
     };
   });
 }

@@ -99,5 +99,6 @@ run_sql_test "supabase/tests/rpc_agenda_capacity_update_safety_p125.sql"
 run_sql_test "supabase/tests/rpc_agenda_allow_zero_recurring_capacity_p126.sql"
 run_sql_test "supabase/tests/rpc_mesa_actividad_p127.sql"
 run_sql_test "supabase/tests/rpc_mesa_presencia_p128.sql"
+run_sql_test "supabase/tests/rpc_asesor_cambios_p130.sql"
 
 echo "SQL tests: ALL PASSED"

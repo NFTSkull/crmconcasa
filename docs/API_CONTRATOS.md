@@ -735,6 +735,18 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 
 No escribe `action_log` ni muta `expedientes`. UI badge verde; Visto/Actualizado (P127) intactos. Migración `114_expediente_mesa_presencia.sql`.
 
+### 14B-quater. Lote de cambios del asesor (P130)
+
+**Tablas (migración 115):** `expediente_asesor_cambio_lotes` + `expediente_asesor_cambios` (append-only al congelar). Sin escritura directa `authenticated`.
+
+| RPC | Uso |
+|---|---|
+| `mesa_list_asesor_cambios_summary(p_expediente_ids uuid[])` | Batch bandeja; `{ ok, items[{ expediente_id, batch_id, status, submitted_at, changes_count, summary[] }] }` |
+| `mesa_get_asesor_cambio_lote(p_expediente_id)` | Detalle; `{ ok, lote, changes[] }` |
+| `mesa_marcar_asesor_cambios_revisados(p_lote_id)` | Idempotente; roles Mesa/`super_admin`; no avanza etapa ni valida docs |
+
+Captura en la misma TX de `register_expediente_documento_correccion` / `save_cliente_datos_correccion`. UI: enrich `advisorChanges*`; panel `mesa-asesor-cambios`; focus `asesor-cambios`.
+
 ---
 
 ## 15. Admin KPIs / Producción (P081–P082)

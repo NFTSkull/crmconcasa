@@ -31,6 +31,12 @@ export interface CasoMock {
   lastViewedAt?: string | null;
   lastUpdatedByName?: string | null;
   lastUpdatedAt?: string | null;
+  /** P130: resumen lote cambios asesor (enrich batch). */
+  advisorChangesCount?: number | null;
+  advisorChangesSubmittedAt?: string | null;
+  advisorChangesSummary?: readonly string[] | null;
+  advisorChangesStatus?: "borrador" | "pendiente_revision" | "revisado" | null;
+  advisorChangeBatchId?: string | null;
 }
 
 export const ETAPAS_LABELS: Record<number, string> = {
