@@ -15,6 +15,7 @@ import {
   mesaAgendaDriveValidatedRowClass,
   mesaAgendaHistoryGroupKey,
 } from "@/lib/mesaAgendaCitasUi";
+import { MesaAgendaNotificacionSedeCell } from "@/components/mesa-control/MesaAgendaNotificacionSedeCell";
 
 type MesaAgendaCitasDayViewProps = Readonly<{
   entries: readonly MesaAgendaBookingEntry[];
@@ -36,6 +37,7 @@ type MesaAgendaCitasDayViewProps = Readonly<{
   bulkNotSelectableReason?: (entry: MesaAgendaBookingEntry) => string;
   onBulkRowCheckedChange?: (entry: MesaAgendaBookingEntry, checked: boolean) => void;
   bulkBusy?: boolean;
+  onNotificacionSedeSaved?: (bookingId: string, locationId: string) => void;
 }>;
 
 
@@ -66,6 +68,7 @@ export function MesaAgendaCitasDayView({
   bulkNotSelectableReason,
   onBulkRowCheckedChange,
   bulkBusy = false,
+  onNotificacionSedeSaved,
 }: MesaAgendaCitasDayViewProps) {
   const groups = groupMesaAgendaEntriesByTime(entries);
   const showBulk = Boolean(selectedBookingIds && onBulkRowCheckedChange && isBulkRowSelectable);
@@ -131,7 +134,15 @@ export function MesaAgendaCitasDayView({
                         ) : null}
                         <p className="mt-1 text-xs text-slate-600">
                           {mesaAgendaBookingPersonDisplayName(entry.asesor)} ·{" "}
-                          {formatMesaAgendaSedeLabel(entry.locationId)}
+                          {entry.kind === "notificacion" ? (
+                            <MesaAgendaNotificacionSedeCell
+                              entry={entry}
+                              compact
+                              onLocationSaved={onNotificacionSedeSaved}
+                            />
+                          ) : (
+                            formatMesaAgendaSedeLabel(entry.locationId)
+                          )}
                         </p>
                       </div>
                     </div>
