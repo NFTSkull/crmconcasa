@@ -175,35 +175,31 @@ Convenciones:
 - Contrato TS: `CLIENTE_PAGARE_DOCUMENT_CONTRACT`. Allowlist UI complementarios **sin** `cliente_pagare` (evita duplicado); registro SQL en `INTEGRATION_DOC_TIPOS_MESA_REGISTER`.
 - No modifica etapa, monto, cobro ni Datos Generales. Sin notificaciones.
 
-### 3quater. Notificación documento (`cliente_notificacion`) — P092 B0–B2
+### 3quater. Notificación documento (`cliente_notificacion`) — P092 + P132
 
 **Separación:** `cliente_notificacion` = documento de expediente. `notificacion` = `agenda_bookings.kind` (agenda/P070) — **no** reutilizar como tipo documental.
 
-**RPC (B1):** `register_mesa_documento` (misma firma) con tipo `cliente_notificacion`. Sin RPC nueva. Sin cambios a agenda. Migración `089_mesa_notificacion_documento_expediente.sql`.
+**RPC:** `register_mesa_documento` (Mesa) y `register_expediente_documento` (asesor, P132). Migración `089` + `118`.
 
 | Regla | Valor |
 |-------|--------|
-| Roles escritura | `mesa_admin`, `mesa_interno`, `mesa_externo`, `super_admin` + `can_see_expediente` |
+| Roles escritura | Mesa (`register_mesa_documento`) **o** asesor dueño (`register_expediente_documento`, P132) |
 | Etapa mínima | `etapa_actual >= 7` |
 | Error etapa | `El documento Notificación solo puede cargarse después de concluir la inscripción.` |
 | MIME | `application/pdf`, `image/jpeg`, `image/png` |
-| Tamaño | ≤ 15 728 640 bytes (`expediente_documento_max_size_bytes()`) |
-| Versionado | soft-delete del vigente + versión N+1; unique activo `(expediente_id, tipo)` |
-| Path | `{org}/{expediente}/cliente_notificacion/{uuid}.{ext}` (bucket privado; UUID; sin nombre original en path) |
-| Asesor | SELECT vía `can_see_expediente` (vigentes); sin register |
-| Gate avance | **No** |
-| Reingreso | sin herencia automática |
+| Tamaño | ≤ 15 728 640 bytes |
+| Path | `{org}/{expediente}/cliente_notificacion/{uuid}.{ext}` |
+| Gate avance | **Sí (P132):** primera carga válida en etapa 7 → `7→9` + `firma_agendable_desde` (+5 hábiles Monterrey) |
 | Obligatorio | **No** |
-| Independencia | no comparte estado ni path con `cliente_pagare` |
-| Auditoría | `expediente.documento.mesa_register` + payload (`tipo`, `version`, `reemplazo`, …) |
+| Origen contrato TS | `Asesor\|Mesa`; `esGateAvance: true` |
 
-**UI B2:**
+**UI:**
 
-- Mesa: `MesaNotificacionDocumentoSection` (+ diálogo) en `MesaExpedienteDetalleReadOnly` — acordeón `mesa-notificacion-documento` después de Pagaré; estado React propio.
-- Asesor: `AsesorNotificacionDocumentoSection` RO desde etapa 7.
-- Contrato TS: `CLIENTE_NOTIFICACION_DOCUMENT_CONTRACT`. Allowlist UI complementarios **sin** `cliente_notificacion`.
+- Mesa: `MesaNotificacionDocumentoSection` — tras upload refresca etapa.
+- Asesor: `AsesorNotificacionDocumentoSection` upload/reemplazo desde etapa 7 (ya no solo RO).
+- Contrato: `CLIENTE_NOTIFICACION_DOCUMENT_CONTRACT`. Fuera de checklist integración UI; en allowlist upload asesor.
 
-**Fuera de alcance:** notificaciones automáticas, mensajes al asesor, agenda/citas, cambios de etapa, requisitos documentales, reingresos, P070, monto Mejoravit P090.
+**P132 adicional:** cierre Biometría Mesa `5→7` (una transición); Acuse ya no avanza etapa; panel retención visible `etapa >= 8`; picker firmas respeta `firma_agendable_desde`.
 
 Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 
@@ -563,17 +559,14 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 - Reintento con expediente ya en etapa 9 + bloque enviado: respuesta idempotente (`idempotent: true`), sin avanzar a 10.
 - Bloquea cambio opción A/B mientras `estado = enviado` (corrección libera).
 
-### UI asesor (P079)
+### UI asesor (P079 + P132)
 
-- Panel `RetencionAcuseAvisoSupabaseCard` en `/asesor/expediente/[id]` si `DATA_MODE=supabase`, `etapa_actual ∈ {8,9}`, `submitted_to_mesa`.
-- Opción A/B en estado local hasta envío; persistencia vía RPC al enviar.
-- Upload: Storage `expediente-documentos` + RPC `register_expediente_documento_retencion`.
-- Reemplazo asesor: antes de enviar el bloque (`no_enviado`) puede subir/reemplazar PDFs no validados; con bloque `enviado` no reemplaza; en `correccion_requerida` solo `rechazado`; siempre bloqueado si `validado` (espejo del RPC).
-- MIME de retención: principal P117 acepta PDF/JPEG/PNG; resto de `retencion_*` sigue PDF-only. El cliente normaliza MIME vacío/`octet-stream` cuando aplica.
-- **P117:** al registrar el documento principal en etapa 8, la misma TX de `register_expediente_documento_retencion` upsert `retencion_opciones`/`retencion_envios` y avanza `8→9` (sin booking). Reemplazo en 9+ no re-avanza. `enviar_retencion_mesa` permanece para reenvíos/idempotencia.
-- Opción A/B: borrador en `sessionStorage` (`retencion-opcion:<expedienteId>`) + inferencia desde docs `retencion_*` activos tras reload; orden: DB → inferencia → sessionStorage → default (también se persiste al subir el principal en P117).
-- Botón «Enviar a Mesa Control» visible en `no_enviado` / `correccion_requerida`; al éxito (o tras upload P117) copy «Acuse enviado. El expediente está listo para agendar firma.» + refetch canónico a etapa 9.
-- Sin validación Mesa del Acuse; Mesa agenda firma en etapa 9.
+- Panel `RetencionAcuseAvisoSupabaseCard` si `DATA_MODE=supabase`, `etapa_actual >= 8`, `submitted_to_mesa`.
+- Acuse **no** avanza etapa (P132); copy exige completar Acuse; badge `Acuse pendiente de subir` si falta.
+- En agenda firma (etapa ≥ 9) aviso no bloqueante si falta Acuse + enlace al panel retención.
+- Upload: Storage + `register_expediente_documento_retencion` (sin avance 8→9).
+- `enviar_retencion_mesa` ya no avanza etapa (históricos 8→9 vía `avanzar_etapa_operativa`).
+- Sin validación Mesa del Acuse; firma agendable tras Notificación + `firma_agendable_desde`.
 
 ---
 

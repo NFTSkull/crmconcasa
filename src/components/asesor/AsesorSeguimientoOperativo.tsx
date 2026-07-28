@@ -10,7 +10,7 @@ import {
   etapaTimelineCardClass,
   etapaTimelineCircleClass,
   getEtapaTimelineBadgeLabel,
-  getEtapaTimelineVisualPorPasoVisual,
+  getEtapaTimelineVisualPorPasoVisualConDocs,
   resolveEtapaActualOperativa,
 } from "@/domain/expedientes/asesor-seguimiento-operativo";
 import {
@@ -27,6 +27,10 @@ export interface AsesorSeguimientoOperativoProps {
   updatedAt?: string | null;
   cicloEstado?: string | null;
   origenMesa?: string | null;
+  /** P132: Acuse principal válido (timeline no marca omitido). */
+  hasAcuseDoc?: boolean;
+  /** P132: Notificación cargada. */
+  hasNotificacionDoc?: boolean;
   formatDateTime: (iso: string) => string;
 }
 
@@ -46,6 +50,8 @@ export function AsesorSeguimientoOperativo({
   updatedAt,
   cicloEstado,
   origenMesa,
+  hasAcuseDoc = false,
+  hasNotificacionDoc = false,
   formatDateTime,
 }: AsesorSeguimientoOperativoProps) {
   const etapaResuelta = resolveEtapaActualOperativa(etapaActual);
@@ -133,10 +139,13 @@ export function AsesorSeguimientoOperativo({
         <p className="mt-0.5 text-xs text-gray-500">{NOTA_NUMERACION_ETAPAS}</p>
         <ol className="mt-2 max-h-[320px] space-y-1 overflow-y-auto pr-1 text-sm">
           {ETAPAS_VISUALES_OPERATIVAS.map((etapa) => {
-            const visual = getEtapaTimelineVisualPorPasoVisual(
-              etapa.pasoVisual,
-              etapaResuelta,
-            );
+            const visual = getEtapaTimelineVisualPorPasoVisualConDocs({
+              pasoVisual: etapa.pasoVisual,
+              etapaInterna: etapa.etapaInterna,
+              etapaActualInterna: etapaResuelta,
+              hasAcuseDoc,
+              hasNotificacionDoc,
+            });
             const badgeLabel = getEtapaTimelineBadgeLabel(
               visual,
               etapa.etapaInterna,

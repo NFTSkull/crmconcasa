@@ -165,7 +165,7 @@ export function getBulkAdvanceEligibility(
     return {
       eligible: true,
       reason: null,
-      transition: { fromStage: 5, toStage: 6, kind },
+      transition: { fromStage: 5, toStage: 7, kind },
     };
   }
 

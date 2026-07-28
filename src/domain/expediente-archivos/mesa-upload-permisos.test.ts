@@ -80,8 +80,11 @@ describe("permisos upload Mesa vs asesor (contrato de tipos)", () => {
         "cliente_notificacion_apodaca",
       ),
     );
+  });
+
+  it("P132: cliente_notificacion también en upload asesor (sección dedicada)", () => {
     assert.ok(
-      !(INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD as readonly string[]).includes(
+      (INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD as readonly string[]).includes(
         "cliente_notificacion",
       ),
     );
@@ -106,7 +109,7 @@ describe("permisos upload Mesa vs asesor (contrato de tipos)", () => {
     );
   });
 
-  it("Notificación documento: registrable Mesa pero no en UI complementarios ni upload asesor", () => {
+  it("Notificación documento: registrable Mesa; no en UI complementarios; P132 upload asesor", () => {
     assert.ok(
       !(INTEGRATION_DOC_TIPOS_MESA_UPLOAD as readonly string[]).includes(
         "cliente_notificacion",
@@ -114,7 +117,7 @@ describe("permisos upload Mesa vs asesor (contrato de tipos)", () => {
       "UI complementarios sin botón Notificación documento",
     );
     assert.ok(
-      !(INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD as readonly string[]).includes(
+      (INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD as readonly string[]).includes(
         "cliente_notificacion",
       ),
     );

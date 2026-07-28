@@ -25,10 +25,10 @@ describe("contrato preparatorio Notificación documento (P092 B0)", () => {
 
   it("label, etapa, MIME PDF/JPEG/PNG y tamaño 15 MiB", () => {
     assert.equal(CLIENTE_NOTIFICACION_DOCUMENT_CONTRACT.label, "Notificación");
-    assert.equal(CLIENTE_NOTIFICACION_DOCUMENT_CONTRACT.origen, "Mesa");
+    assert.equal(CLIENTE_NOTIFICACION_DOCUMENT_CONTRACT.origen, "Asesor|Mesa");
     assert.equal(CLIENTE_NOTIFICACION_DOCUMENT_CONTRACT.etapaMinima, 7);
     assert.equal(CLIENTE_NOTIFICACION_DOCUMENT_CONTRACT.obligatorio, false);
-    assert.equal(CLIENTE_NOTIFICACION_DOCUMENT_CONTRACT.esGateAvance, false);
+    assert.equal(CLIENTE_NOTIFICACION_DOCUMENT_CONTRACT.esGateAvance, true);
     assert.equal(CLIENTE_NOTIFICACION_DOCUMENT_CONTRACT.maxBytes, 15_728_640);
     assert.equal(CLIENTE_NOTIFICACION_DOCUMENT_CONTRACT.maxBytes, 15 * 1024 * 1024);
     assert.deepEqual([...CLIENTE_NOTIFICACION_DOCUMENT_CONTRACT.mimePermitidos], [
@@ -67,14 +67,14 @@ describe("contrato preparatorio Notificación documento (P092 B0)", () => {
     );
   });
 
-  it("no es obligatorio ni upload asesor", () => {
+  it("P132: upload asesor permitido; no obligatorio de envío", () => {
     assert.ok(
       !(INTEGRATION_DOC_TIPOS_VALIDACION_MESA as readonly string[]).includes(
         "cliente_notificacion",
       ),
     );
     assert.ok(
-      !(INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD as readonly string[]).includes(
+      (INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD as readonly string[]).includes(
         "cliente_notificacion",
       ),
     );

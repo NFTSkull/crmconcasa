@@ -87,6 +87,7 @@ const EXPEDIENTES_LIST_SELECT = `
   motivo_rechazo,
   comentario_rechazo,
   fecha_cita,
+  firma_agendable_desde,
   created_at,
   updated_at,
   expediente_anterior_id,

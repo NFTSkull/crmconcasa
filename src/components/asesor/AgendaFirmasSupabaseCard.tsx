@@ -40,6 +40,10 @@ export interface AgendaFirmasSupabaseCardProps {
   expedienteId: string;
   etapaActual?: number | null;
   fechaCita?: string | null;
+  /** P132: fecha local mínima agendable (YYYY-MM-DD); null/omit = sin filtro extra. */
+  firmaAgendableDesde?: string | null;
+  /** P132: aviso no bloqueante si falta Acuse en etapa ≥ 9. */
+  acusePendienteSubir?: boolean;
   onUpdated: () => void;
 }
 
@@ -62,6 +66,19 @@ function addDaysYmd(dateYmd: YmdDate, days: number): YmdDate {
   const base = new Date(Date.UTC(y, mo - 1, d, 12, 0, 0));
   base.setUTCDate(base.getUTCDate() + days);
   return `${base.getUTCFullYear()}-${String(base.getUTCMonth() + 1).padStart(2, "0")}-${String(base.getUTCDate()).padStart(2, "0")}` as YmdDate;
+}
+
+/** Mayor de dos fechas YYYY-MM-DD; ignora inválidas. */
+export function maxYmdDate(a: string | null | undefined, b: string | null | undefined): YmdDate | null {
+  const norm = (v: string | null | undefined): string | null => {
+    const s = String(v ?? "").trim().slice(0, 10);
+    return /^\d{4}-\d{2}-\d{2}$/.test(s) ? s : null;
+  };
+  const left = norm(a);
+  const right = norm(b);
+  if (!left) return right as YmdDate | null;
+  if (!right) return left as YmdDate | null;
+  return (left >= right ? left : right) as YmdDate;
 }
 
 function adjustSlotsForReagendar(
@@ -91,6 +108,8 @@ export function AgendaFirmasSupabaseCard({
   expedienteId,
   etapaActual = 9,
   fechaCita,
+  firmaAgendableDesde = null,
+  acusePendienteSubir = false,
   onUpdated,
 }: AgendaFirmasSupabaseCardProps) {
   const repo = useAgendaFirmasBookingRepo();
@@ -131,6 +150,32 @@ export function AgendaFirmasSupabaseCard({
     hasActiveBooking: activeBooking != null,
   });
 
+  const pickerMinDate = useMemo(() => {
+    const tz = config?.timezone ?? "America/Monterrey";
+    return maxYmdDate(todayYmdInTimezone(tz), firmaAgendableDesde);
+  }, [config?.timezone, firmaAgendableDesde]);
+
+  const showAcusePendienteAviso =
+    acusePendienteSubir && typeof etapaActual === "number" && etapaActual >= 9;
+
+  const acusePendienteBanner = showAcusePendienteAviso ? (
+    <div
+      role="status"
+      className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950"
+    >
+      <p className="font-semibold">Acuse pendiente de subir</p>
+      <p className="mt-0.5">
+        Puedes agendar o reagendar la firma; completa el Acuse cuando puedas.{" "}
+        <a
+          href="#asesor-retencion-acuse"
+          className="font-medium text-violet-800 underline underline-offset-2"
+        >
+          Ir al panel de retención
+        </a>
+      </p>
+    </div>
+  ) : null;
+
   const load = useCallback(async () => {
     if (!repo) {
       setLoadError("Modo Supabase activo pero el repositorio de agenda no está disponible.");
@@ -152,6 +197,7 @@ export function AgendaFirmasSupabaseCard({
 
       const tz = weekly?.timezone ?? "America/Monterrey";
       const today = todayYmdInTimezone(tz);
+      const minBookable = maxYmdDate(today, firmaAgendableDesde) ?? today;
       const toDate = addDaysYmd(today, 60);
       const slots = await repo.listBookedSlots({ fromDate: today, toDate });
       setBookedSlots(slots);
@@ -162,7 +208,7 @@ export function AgendaFirmasSupabaseCard({
           ? prev
           : (sedeOptions[0]?.canonicalId ?? ""),
       );
-      setDateYmd(today);
+      setDateYmd(minBookable);
       setTimeHhmm("");
       setReagendar(false);
       setCapacitiesTick((n) => n + 1);
@@ -175,7 +221,7 @@ export function AgendaFirmasSupabaseCard({
     } finally {
       setLoading(false);
     }
-  }, [expedienteId, repo]);
+  }, [expedienteId, firmaAgendableDesde, repo]);
 
   /** Recarga cupos/bookings sin resetear la selección del asesor (p. ej. tras carrera por último cupo). */
   const refreshAvailability = useCallback(async () => {
@@ -426,6 +472,8 @@ export function AgendaFirmasSupabaseCard({
       <p className="text-sm font-semibold text-gray-900">{title}</p>
       <p className="mt-1 text-[11px] leading-snug text-gray-600">{subtitle}</p>
 
+      {acusePendienteBanner}
+
       {!config || !config.enabled || advisorSedeOptions.length === 0 ? (
         <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950">
           La agenda firma aún no está configurada o está deshabilitada. Solicita a Mesa Admin
@@ -451,6 +499,7 @@ export function AgendaFirmasSupabaseCard({
         timeHhmm={timeHhmm}
         disponibilidadSlots={disponibilidadSlots}
         availabilityInsight={availabilityInsight}
+        minDateYmd={pickerMinDate}
         accentRingClass="focus-visible:ring-violet-500"
         saving={saving}
         onSedeChange={(id) => {
@@ -547,6 +596,7 @@ export function AgendaFirmasSupabaseCard({
     return (
       <div className="space-y-3">
         <AsesorAgendaDecisionNotice expedienteId={expedienteId} kinds={["firmas"]} />
+        {acusePendienteBanner}
       <div className="rounded-xl border border-violet-200 bg-violet-50/60 p-4 shadow-sm">
         <p className="text-sm font-semibold text-violet-900">Cita de firmas agendada</p>
         <p className="mt-2 text-xs text-violet-950">

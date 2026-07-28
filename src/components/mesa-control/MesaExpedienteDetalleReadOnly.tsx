@@ -1399,7 +1399,7 @@ export function MesaExpedienteDetalleReadOnly() {
     setAvance5a6Success(null);
     try {
       await expedientesRepo.avanzarEtapaOperativa(routeExpedienteId);
-      setAvance5a6Success("Expediente avanzado a etapa 6 (Inscripción)");
+      setAvance5a6Success("Expediente avanzado a etapa 7 (Notificación)");
       load();
     } catch (err) {
       setAvance5a6Error(
@@ -1935,6 +1935,7 @@ export function MesaExpedienteDetalleReadOnly() {
           etapaActual={etapaActual}
           puedeOperar={puedeOperarMesaActivo}
           submittedToMesa={op.submittedToMesa ?? false}
+          onExpedienteUpdated={() => void load()}
         />
       </MesaAccordionSection>
 
@@ -2287,6 +2288,22 @@ export function MesaExpedienteDetalleReadOnly() {
         updatedAt={op.updatedAt}
         cicloEstado={op.cicloEstado}
         origenMesa={expediente.base.origenMesa}
+        hasAcuseDoc={archivosResumen.some(
+          (r) =>
+            (r.tipo_documento === "retencion_acuse_con_sello" ||
+              r.tipo_documento === "retencion_carta_sin_sello") &&
+            Boolean(r.id) &&
+            (r.estatus_revision === "subido" ||
+              r.estatus_revision === "resubido" ||
+              r.estatus_revision === "validado"),
+        )}
+        hasNotificacionDoc={archivosResumen.some(
+          (r) =>
+            r.tipo_documento === "cliente_notificacion" &&
+            Boolean(r.id) &&
+            r.estatus_revision !== "faltante" &&
+            r.estatus_revision !== "rechazado",
+        )}
         formatDateTime={formatDateTime}
       />
     </MesaDetalleShell>

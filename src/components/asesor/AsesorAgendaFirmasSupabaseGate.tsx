@@ -12,6 +12,8 @@ export type AsesorAgendaFirmasSupabaseGateProps = Readonly<{
   submittedToMesa: boolean;
   etapaActual: number | null | undefined;
   fechaCita?: string | null;
+  firmaAgendableDesde?: string | null;
+  acusePendienteSubir?: boolean;
   onUpdated: () => void;
 }>;
 
@@ -21,6 +23,8 @@ export function AsesorAgendaFirmasSupabaseGate({
   submittedToMesa,
   etapaActual,
   fechaCita,
+  firmaAgendableDesde = null,
+  acusePendienteSubir = false,
   onUpdated,
 }: AsesorAgendaFirmasSupabaseGateProps) {
   const repo = useAgendaFirmasBookingRepo();
@@ -71,6 +75,8 @@ export function AsesorAgendaFirmasSupabaseGate({
       expedienteId={expedienteId}
       etapaActual={etapaActual}
       fechaCita={fechaCita}
+      firmaAgendableDesde={firmaAgendableDesde}
+      acusePendienteSubir={acusePendienteSubir}
       onUpdated={onUpdated}
     />
   );

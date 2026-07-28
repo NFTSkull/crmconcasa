@@ -1,5 +1,13 @@
 # Devlog
 
+## 2026-07-28 - P132 Notificación libera firma (FE + tests TS)
+
+UI/dominio alineados a mig. 118: Mesa cierre Biometría `5→7` (copy/bulk/bandeja; UI 6→7 históricos); Acuse panel `etapa>=8`, pendiente en 9+ sin bloquear firma; `firma_agendable_desde` en expediente + min date picker; Asesor/Mesa Notificación con upload y refresh de etapa; timeline Acuse/Notificación con override documental; contrato TS `esGateAvance` + origen Asesor|Mesa. Sin tocar métricas Super Admin ni filtros P129.
+
+## 2026-07-28 - P132 Notificación libera firma (SQL)
+
+Flujo: Mesa cierra Biometría con transición canónica `5→7` (sin encadenar 5→6→7). En etapa 7, asesor o Mesa suben Notificación (`cliente_notificacion` / Apodaca asesor); helper `expediente_apply_notificacion_7_9` (FOR UPDATE, idempotente) fija `notificacion_primera_cargada_at`, `firma_agendable_desde = add_business_days_monterrey(fecha_local, 5)` y avanza `7→9` con evento `7_9_notificacion`. Acuse/`register_expediente_documento_retencion` y `enviar_retencion_mesa` ya no avanzan 8→9 (históricos usan `avanzar_etapa_operativa` 8→9). Gate `agenda_firmas_assert_agendable_desde` en book/reagendar (+ mesa). Sin backfill; NULL conserva comportamiento histórico.
+
 ## 2026-07-28 - Fix P130 lotes vacíos + hook register_documento
 
 Caso: post-Mesa reemplazo `cliente_estado_cuenta` vía `register_expediente_documento` (sin hook P130) + `save_cliente_datos_correccion` sin diffs → `asesor_cambio_record_cliente_datos_diff` hacía ensure+freeze siempre → lote `pendiente_revision` con 0 filas; UI «Cambios · 0» + Revisar cambios.

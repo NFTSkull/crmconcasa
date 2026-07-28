@@ -18,13 +18,15 @@ export const INTEGRATION_DOC_TIPOS_ASESOR_ENVIO = [
 
 /**
  * Espejo de `integration_doc_tipos_asesor_opcionales()` — no bloquean envío.
- * Incluye P104 `cliente_notificacion_apodaca` (≠ `cliente_notificacion`).
+ * Incluye P104 `cliente_notificacion_apodaca` y P132 `cliente_notificacion`
+ * (≠ agenda `kind=notificacion`; sección dedicada, no checklist integración).
  */
 export const INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES = [
   "cliente_semanas_cotizadas",
   "cliente_carta_empresa",
   "cliente_acta_nacimiento_digital",
   "cliente_notificacion_apodaca",
+  "cliente_notificacion",
 ] as const;
 
 /**
@@ -112,14 +114,15 @@ export const CLIENTE_PAGARE_DOCUMENT_CONTRACT = Object.freeze({
 });
 
 /**
- * Contrato documento Notificación (P092 B0 preparatorio; SQL B1; UI B2).
+ * Contrato documento Notificación (P092 + P132).
  * Independiente de `CLIENTE_PAGARE_DOCUMENT_CONTRACT`. No usa el string `notificacion`.
- * Storage (B1+): `{orgId}/{expedienteId}/cliente_notificacion/{uuid}.{ext}` (bucket privado).
+ * Storage: `{orgId}/{expedienteId}/cliente_notificacion/{uuid}.{ext}` (bucket privado).
+ * P132: primera carga válida en etapa 7 avanza 7→9 (`esGateAvance` conceptual); origen Asesor|Mesa.
  */
 export const CLIENTE_NOTIFICACION_DOCUMENT_CONTRACT = Object.freeze({
   tipo: CLIENTE_NOTIFICACION_DOCUMENT_TIPO,
   label: "Notificación",
-  origen: "Mesa" as const,
+  origen: "Asesor|Mesa" as const,
   formatos: ["PDF", "JPG", "JPEG", "PNG"] as const,
   mimePermitidos: [
     "application/pdf",
@@ -129,7 +132,8 @@ export const CLIENTE_NOTIFICACION_DOCUMENT_CONTRACT = Object.freeze({
   maxBytes: 15 * 1024 * 1024,
   etapaMinima: 7,
   obligatorio: false,
-  esGateAvance: false,
+  /** P132: primera Notificación válida dispara avance 7→9 + firma_agendable_desde. */
+  esGateAvance: true,
 });
 
 /**
@@ -154,10 +158,13 @@ export const CLIENTE_SOLICITUD_DOCUMENT_CONTRACT = Object.freeze({
 
 /**
  * Opcionales asesor que Mesa no lista en complementarios (semanas/acta/SAT van ahí).
+ * Excluye `cliente_notificacion` (sección dedicada P092/P132).
  */
 export const INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES_SOLO_ASESOR =
   INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES.filter(
-    (tipo) => !(INTEGRATION_DOC_TIPOS_MESA_UPLOAD as readonly string[]).includes(tipo),
+    (tipo) =>
+      !(INTEGRATION_DOC_TIPOS_MESA_UPLOAD as readonly string[]).includes(tipo) &&
+      tipo !== CLIENTE_NOTIFICACION_DOCUMENT_TIPO,
   );
 
 export type IntegrationDocMesaUploadTipo = (typeof INTEGRATION_DOC_TIPOS_MESA_UPLOAD)[number];
@@ -282,11 +289,15 @@ export function deriveIntegrationDocsChecklist(
   return mapChecklistItems(INTEGRATION_DOC_TIPOS_ASESOR_ENVIO, resumen, false);
 }
 
-/** Checklist de documentos opcionales de upload asesor (no bloquean envío). */
+/** Checklist de documentos opcionales de upload asesor (no bloquean envío).
+ * Excluye `cliente_notificacion` (sección dedicada P092/P132). */
 export function deriveIntegrationDocsChecklistOpcionales(
   resumen: IntegrationDocsResumenInput,
 ): IntegrationDocChecklistItem[] {
-  return mapChecklistItems(INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES, resumen, true);
+  const tipos = INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES.filter(
+    (t) => t !== CLIENTE_NOTIFICACION_DOCUMENT_TIPO,
+  );
+  return mapChecklistItems(tipos, resumen, true);
 }
 
 /** Opcionales asesor visibles en Mesa documentos del cliente (excluye complementarios Mesa). */

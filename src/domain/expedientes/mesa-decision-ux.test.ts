@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import type { ExpedienteArchivoResumen } from "@/domain/expediente-archivos/types";
 import {
   MESA_AVANCE_OPERATIVO_2A3_COPY,
+  MESA_AVANCE_OPERATIVO_5A6_COPY,
   MESA_AVANCE_OPERATIVO_8A9_COPY,
   MESA_AVANCE_OPERATIVO_9A10_COPY,
   MESA_FIRMA_ETAPA10_OPERATIVA_COPY,
@@ -28,6 +29,12 @@ describe("mesa-decision-ux copy P3R.0", () => {
     assert.equal(MESA_AVANCE_OPERATIVO_2A3_COPY.mostrarAvisoSinRechazo, true);
     assert.equal(MESA_AVANCE_OPERATIVO_9A10_COPY.mostrarAvisoSinRechazo, true);
     assert.match(MESA_AVANCE_OPERATIVO_9A10_COPY.etiquetaBoton, /Aceptar cita de firma/);
+  });
+
+  it("P132 cierre Biometría 5→7 apunta a Notificación", () => {
+    assert.match(MESA_AVANCE_OPERATIVO_5A6_COPY.descripcion, /Notificación \(etapa 7\)/);
+    assert.match(MESA_AVANCE_OPERATIVO_5A6_COPY.mensajeConfirmacion, /etapa 7/);
+    assert.equal(MESA_AVANCE_OPERATIVO_5A6_COPY.mostrarAvisoSinRechazo, true);
   });
 
   it("etapa 10 ofrece Pasar a Firmado (P117)", () => {

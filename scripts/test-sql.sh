@@ -101,5 +101,6 @@ run_sql_test "supabase/tests/rpc_mesa_actividad_p127.sql"
 run_sql_test "supabase/tests/rpc_mesa_presencia_p128.sql"
 run_sql_test "supabase/tests/rpc_asesor_cambios_p130.sql"
 run_sql_test "supabase/tests/rpc_asesor_cambios_p130_empty_batch.sql"
+run_sql_test "supabase/tests/rpc_notificacion_libera_firma_p132.sql"
 
 echo "SQL tests: ALL PASSED"
