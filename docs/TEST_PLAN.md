@@ -84,6 +84,14 @@
 - [x] Resumen compacto Producción muestra Notificación cuando n>0; categorías Paty suman 31.
 - [x] SQL focal + tests TS compacto; mig. 122.
 
+## P138 — Excel profesional de Ingresos
+
+- [x] Botones Descargar Excel / Personalizar Excel; snapshot de filtros activos.
+- [x] RPC export detalle completo (≤10k); mismos filtros que KPIs; sin N+1 de página UI.
+- [x] Hojas/columnas configurables; monedas numéricas; freeze/autofilter; ExcelJS paleta reporte.
+- [x] Solo super_admin; sin tocar fórmula/snapshot/etapas/citas/docs.
+- [x] Tests TS config/excel/UI + SQL focal P138; regresiones filtros Ingresos.
+
 ## P137 — Ingresos: proyección por envío a Mesa + alcance de etapa
 
 - [x] Universo proyectado = enviados a Mesa con monto/% (sin gate bio); incompletos aparte.

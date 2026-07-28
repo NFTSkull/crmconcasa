@@ -105,6 +105,7 @@ export const ingresosDetalleItemSchema = z.object({
   nss: z.string().nullable().optional(),
   asesor_id: z.string().uuid().nullable().optional(),
   asesor_nombre: z.string().nullable().optional(),
+  programa: z.string().nullable().optional(),
   etapa_actual: z.coerce.number().int(),
   paso_visual: z.coerce.number().int().nullable().optional(),
   subestado: z.string().nullable().optional(),

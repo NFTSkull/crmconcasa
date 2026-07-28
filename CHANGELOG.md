@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Added
+- **feat/p138-ingresos-excel-export:** exportación Excel profesional del módulo Ingresos (Descargar / Personalizar); RPC `super_admin_export_ingresos` (límite 10k, mismos filtros P137); hojas y columnas configurables; mig. 126; sin cambios a fórmula/snapshots/etapas.
+
 ### Changed
 - **feat/p137-ingresos-proyeccion-etapa:** Ingresos proyecta todos los enviados a Mesa con monto/% (sin gate bio); filtro Alcance de etapa (`all_submitted`/`from_step`/`exact_step`); fechas proyectado=`fecha_envio_mesa`; Restablecer filtros; mig. 125; snapshot real y helper bio intactos.
 

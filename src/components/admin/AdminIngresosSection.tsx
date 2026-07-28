@@ -14,19 +14,30 @@ import {
   INGRESOS_HISTORICO_ESTIMADO_TOOLTIP,
   INGRESOS_TOPE_TOOLTIP,
   buildIngresosAlcanceSummary,
+  buildIngresosFilterLabelRows,
+  fetchIngresosExportBundle,
   fetchIngresosPage,
   fetchIngresosResumen,
   isIngresosFilterUiDefault,
+  recommendedIngresosExcelConfig,
   resetIngresosFilterUi,
   resolveIngresosPeriodBounds,
+  validateIngresosExcelConfig,
   type IngresosDetalleItem,
   type IngresosEstadoFiltro,
+  type IngresosExcelExportConfig,
   type IngresosFilterUiState,
   type IngresosFilters,
   type IngresosPeriodPreset,
   type IngresosResumen,
   type IngresosStageScope,
 } from "@/domain/admin-ingresos";
+import { AdminIngresosExcelCustomizeModal } from "@/components/admin/AdminIngresosExcelCustomizeModal";
+import {
+  buildAdminIngresosWorkbook,
+  buildIngresosExcelFilename,
+  downloadAdminIngresosWorkbook,
+} from "@/lib/exportAdminIngresosExcel";
 
 type AsesorOption = Readonly<{ id: string; nombre: string }>;
 
@@ -76,6 +87,18 @@ function KpiCard({
   );
 }
 
+function formatPeriodoLabel(filters: IngresosFilters): string {
+  if (!filters.fechaDesde && !filters.fechaHasta) return "Todo el historial";
+  const fmt = (ymd: string) => {
+    const [y, m, d] = ymd.split("-");
+    return `${d}/${m}/${y}`;
+  };
+  if (filters.fechaDesde && filters.fechaHasta) {
+    return `${fmt(filters.fechaDesde)} — ${fmt(filters.fechaHasta)}`;
+  }
+  return filters.fechaDesde ?? filters.fechaHasta ?? "—";
+}
+
 function fuenteLabel(f: string | null | undefined): string {
   if (f === "mesa_actualizado") return "Actualizado por Mesa";
   if (f === "datos_generales") return "Datos Generales";
@@ -119,6 +142,12 @@ export function AdminIngresosSection({
   const [items, setItems] = useState<readonly IngresosDetalleItem[]>([]);
   const [total, setTotal] = useState(0);
   const [pageSize] = useState(25);
+  const [excelBusy, setExcelBusy] = useState(false);
+  const [excelError, setExcelError] = useState<string | null>(null);
+  const [excelModalOpen, setExcelModalOpen] = useState(false);
+  const [excelConfig, setExcelConfig] = useState<IngresosExcelExportConfig>(() =>
+    recommendedIngresosExcelConfig(),
+  );
 
   const filters = useMemo(() => filtersFromUi(ui), [ui]);
   const filtersDefault = isIngresosFilterUiDefault(ui);
@@ -215,6 +244,85 @@ export function AdminIngresosSection({
     setUi(resetIngresosFilterUi());
   };
 
+  const runExcelExport = useCallback(
+    async (config: IngresosExcelExportConfig) => {
+      const validation = validateIngresosExcelConfig(config);
+      if (!validation.ok) {
+        setExcelError(validation.message);
+        return;
+      }
+      if (excelBusy) return;
+
+      const filterSnapshot = filtersFromUi(ui);
+      const asesorNombres = asesorOptions
+        .filter((a) => filterSnapshot.asesorIds.includes(a.id))
+        .map((a) => a.nombre);
+      const alcanceLabel = buildIngresosAlcanceSummary({
+        stageScope: filterSnapshot.stageScope,
+        visibleStep: filterSnapshot.visibleStep,
+        pasoLabel:
+          filterSnapshot.visibleStep != null
+            ? ADMIN_REPORT_PASO_OPTIONS.find(
+                (p) => p.value === filterSnapshot.visibleStep,
+              )?.label
+            : null,
+      });
+
+      setExcelBusy(true);
+      setExcelError(null);
+      try {
+        const bundle = await fetchIngresosExportBundle(filterSnapshot);
+        const now = new Date();
+        const generatedAtLabel = now.toLocaleString("es-MX", {
+          timeZone: "America/Monterrey",
+          day: "2-digit",
+          month: "2-digit",
+          year: "numeric",
+          hour: "2-digit",
+          minute: "2-digit",
+        });
+        const wb = buildAdminIngresosWorkbook({
+          config,
+          resumen: bundle.resumen,
+          items: bundle.items,
+          filterRows: buildIngresosFilterLabelRows({
+            filters: filterSnapshot,
+            asesorNombres,
+            alcanceLabel,
+            periodoLabel: formatPeriodoLabel(filterSnapshot),
+          }),
+          meta: {
+            generatedAtLabel,
+            actorNombre: bundle.exportMeta.actor_nombre?.trim() || "Super Admin",
+            orgNombre:
+              bundle.exportMeta.organization_nombre?.trim() || "ConCasa",
+            periodoLabel: formatPeriodoLabel(filterSnapshot),
+            timezone: bundle.exportMeta.timezone || "America/Monterrey",
+          },
+          filters: filterSnapshot,
+        });
+        const filename = buildIngresosExcelFilename({
+          now,
+          reportName: config.reportName,
+          asesorSlug:
+            asesorNombres.length === 1 ? asesorNombres[0] : null,
+        });
+        await downloadAdminIngresosWorkbook(wb, filename);
+        setExcelModalOpen(false);
+        setExcelConfig(config);
+      } catch (err) {
+        setExcelError(
+          err instanceof AdminIngresosError
+            ? err.message
+            : "No se pudo generar el Excel. Intenta nuevamente.",
+        );
+      } finally {
+        setExcelBusy(false);
+      }
+    },
+    [asesorOptions, excelBusy, ui],
+  );
+
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
   const needsStepSelector =
     ui.stageScope === "from_step" || ui.stageScope === "exact_step";
@@ -235,18 +343,62 @@ export function AdminIngresosSection({
             {INGRESOS_FECHA_EXPLICACION}
           </p>
         </div>
-        <Button
-          type="button"
-          variant="outline"
-          className="h-9"
-          aria-expanded={panelOpen}
-          aria-controls={panelId}
-          onClick={() => setPanelOpen((v) => !v)}
-          data-testid="admin-ingresos-toggle"
-        >
-          {panelOpen ? "Ocultar ingresos" : "Ver ingresos"}
-        </Button>
+        <div className="flex flex-wrap items-center gap-2">
+          {panelOpen ? (
+            <>
+              <Button
+                type="button"
+                className="h-9"
+                disabled={excelBusy || loading}
+                onClick={() => void runExcelExport(recommendedIngresosExcelConfig())}
+                data-testid="admin-ingresos-excel-download"
+              >
+                {excelBusy ? "Preparando Excel…" : "Descargar Excel"}
+              </Button>
+              <Button
+                type="button"
+                variant="outline"
+                className="h-9"
+                disabled={excelBusy || loading}
+                onClick={() => {
+                  setExcelConfig(recommendedIngresosExcelConfig());
+                  setExcelModalOpen(true);
+                }}
+                data-testid="admin-ingresos-excel-customize"
+              >
+                Personalizar Excel
+              </Button>
+            </>
+          ) : null}
+          <Button
+            type="button"
+            variant="outline"
+            className="h-9"
+            aria-expanded={panelOpen}
+            aria-controls={panelId}
+            onClick={() => setPanelOpen((v) => !v)}
+            data-testid="admin-ingresos-toggle"
+          >
+            {panelOpen ? "Ocultar ingresos" : "Ver ingresos"}
+          </Button>
+        </div>
       </div>
+
+      {excelError ? (
+        <p className="mt-2 text-sm text-red-700" data-testid="admin-ingresos-excel-error">
+          {excelError}
+        </p>
+      ) : null}
+
+      <AdminIngresosExcelCustomizeModal
+        open={excelModalOpen}
+        initialConfig={excelConfig}
+        busy={excelBusy}
+        onClose={() => {
+          if (!excelBusy) setExcelModalOpen(false);
+        }}
+        onConfirm={(cfg) => void runExcelExport(cfg)}
+      />
 
       {panelOpen ? (
         <div id={panelId} className="mt-4 space-y-4">
