@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Added
+- **feat/p134-super-admin-ingresos:** módulo Super Admin de ingresos proyectados/reales (`monto × %`, prioridad monto Mesa P090); snapshot inmutable en `11→12`; RPCs paginadas; mig. 121; sin tope $169k ni cambios a producción/citas/docs.
+
 ### Fixed
 - **fix/p133-mesa-quick-actions-stage-map:** acciones rápidas Mesa alineadas a etapas operativas P132 (`resolveMesaQuickAction`); bio `5→8` «Pasar a Acuse»; etapas 3/8/9 informativas (sin avance/agenda Mesa); sin bulk `9→10`; detalle oculta paneles 8→9/9→10; sin SQL.
 
