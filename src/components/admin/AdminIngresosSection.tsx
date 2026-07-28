@@ -54,10 +54,10 @@ function KpiCard({
 }) {
   return (
     <div className="rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
-      <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
+      <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-800">
         {label}
       </p>
-      <p className="mt-1 text-xl font-semibold text-slate-900" title={hint}>
+      <p className="mt-1 text-xl font-semibold text-slate-950" title={hint}>
         {value}
       </p>
     </div>
@@ -182,12 +182,12 @@ export function AdminIngresosSection({
     >
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-slate-900">Ingresos</h2>
-          <p className="mt-1 max-w-2xl text-sm text-slate-600">
+          <h2 className="text-lg font-semibold text-slate-950">Ingresos</h2>
+          <p className="mt-1 max-w-2xl text-sm text-slate-800">
             Proyectado y real por expediente (`monto × %`). Independiente de
             producción y del tope administrativo Mejoravit.
           </p>
-          <p className="mt-1 text-xs text-slate-500" title={INGRESOS_TOPE_TOOLTIP}>
+          <p className="mt-1 text-xs text-slate-700" title={INGRESOS_TOPE_TOOLTIP}>
             {INGRESOS_FECHA_EXPLICACION}
           </p>
         </div>
@@ -206,11 +206,11 @@ export function AdminIngresosSection({
 
       {panelOpen ? (
         <div id={panelId} className="mt-4 space-y-4">
-          <div className="grid gap-3 rounded-lg border border-slate-200 bg-white p-3 md:grid-cols-2 lg:grid-cols-4">
-            <label className="block text-xs font-medium text-slate-700">
+          <div className="grid gap-3 rounded-lg border border-slate-200 bg-white p-3 text-slate-900 md:grid-cols-2 lg:grid-cols-4">
+            <label className="block text-xs font-semibold text-slate-900">
               Periodo
               <Select
-                className="mt-1"
+                className="mt-1 text-slate-900"
                 value={preset}
                 options={[...PRESET_OPTIONS]}
                 onChange={(e) => {
@@ -222,11 +222,11 @@ export function AdminIngresosSection({
             </label>
             {preset === "personalizado" ? (
               <>
-                <label className="block text-xs font-medium text-slate-700">
+                <label className="block text-xs font-semibold text-slate-900">
                   Desde
                   <Input
                     type="date"
-                    className="mt-1"
+                    className="mt-1 text-slate-900"
                     value={customFrom}
                     onChange={(e) => {
                       setPage(1);
@@ -234,11 +234,11 @@ export function AdminIngresosSection({
                     }}
                   />
                 </label>
-                <label className="block text-xs font-medium text-slate-700">
+                <label className="block text-xs font-semibold text-slate-900">
                   Hasta
                   <Input
                     type="date"
-                    className="mt-1"
+                    className="mt-1 text-slate-900"
                     value={customTo}
                     onChange={(e) => {
                       setPage(1);
@@ -248,10 +248,10 @@ export function AdminIngresosSection({
                 </label>
               </>
             ) : null}
-            <label className="block text-xs font-medium text-slate-700">
+            <label className="block text-xs font-semibold text-slate-900">
               Estado
               <Select
-                className="mt-1"
+                className="mt-1 text-slate-900"
                 value={estado}
                 options={[...ESTADO_OPTIONS]}
                 onChange={(e) => {
@@ -260,10 +260,10 @@ export function AdminIngresosSection({
                 }}
               />
             </label>
-            <label className="block text-xs font-medium text-slate-700">
+            <label className="block text-xs font-semibold text-slate-900">
               Fuente del monto
               <Select
-                className="mt-1"
+                className="mt-1 text-slate-900"
                 value={montoFuente}
                 options={[
                   { value: "todas", label: "Todas" },
@@ -276,10 +276,10 @@ export function AdminIngresosSection({
                 }}
               />
             </label>
-            <label className="block text-xs font-medium text-slate-700 md:col-span-2">
+            <label className="block text-xs font-semibold text-slate-900 md:col-span-2">
               Buscar cliente / NSS
               <Input
-                className="mt-1"
+                className="mt-1 text-slate-900"
                 value={buscar}
                 onChange={(e) => {
                   setPage(1);
@@ -290,8 +290,8 @@ export function AdminIngresosSection({
             </label>
           </div>
 
-          <div className="rounded-lg border border-slate-200 bg-white p-3">
-            <p className="text-xs font-semibold text-slate-700">Asesores</p>
+          <div className="rounded-lg border border-slate-200 bg-white p-3 text-slate-900">
+            <p className="text-xs font-semibold text-slate-950">Asesores</p>
             <div className="mt-2 flex max-h-28 flex-wrap gap-2 overflow-y-auto">
               {asesorOptions.map((a) => {
                 const on = selectedAsesorIds.includes(a.id);
@@ -299,10 +299,10 @@ export function AdminIngresosSection({
                   <button
                     key={a.id}
                     type="button"
-                    className={`rounded-md px-2 py-1 text-[11px] ring-1 ${
+                    className={`rounded-md px-2 py-1 text-[11px] font-medium ring-1 ${
                       on
-                        ? "bg-emerald-100 text-emerald-950 ring-emerald-300"
-                        : "bg-slate-50 text-slate-700 ring-slate-200"
+                        ? "bg-emerald-100 text-emerald-950 ring-emerald-400"
+                        : "bg-slate-100 text-slate-950 ring-slate-300"
                     }`}
                     onClick={() => toggleAsesor(a.id)}
                   >
@@ -311,10 +311,10 @@ export function AdminIngresosSection({
                 );
               })}
               {asesorOptions.length === 0 ? (
-                <span className="text-xs text-slate-500">Sin catálogo de asesores</span>
+                <span className="text-xs text-slate-700">Sin catálogo de asesores</span>
               ) : null}
             </div>
-            <p className="mt-3 text-xs font-semibold text-slate-700">Etapa visible</p>
+            <p className="mt-3 text-xs font-semibold text-slate-950">Etapa visible</p>
             <div className="mt-2 flex flex-wrap gap-2">
               {ADMIN_REPORT_PASO_OPTIONS.map((p) => {
                 const on = selectedPasos.includes(p.value);
@@ -322,10 +322,10 @@ export function AdminIngresosSection({
                   <button
                     key={p.value}
                     type="button"
-                    className={`rounded-md px-2 py-1 text-[11px] ring-1 ${
+                    className={`rounded-md px-2 py-1 text-[11px] font-medium ring-1 ${
                       on
-                        ? "bg-sky-100 text-sky-950 ring-sky-300"
-                        : "bg-slate-50 text-slate-700 ring-slate-200"
+                        ? "bg-sky-100 text-sky-950 ring-sky-400"
+                        : "bg-slate-100 text-slate-950 ring-slate-300"
                     }`}
                     onClick={() => togglePaso(p.value)}
                   >
@@ -334,13 +334,13 @@ export function AdminIngresosSection({
                 );
               })}
             </div>
-            <p className="mt-2 text-[11px] text-slate-500">
+            <p className="mt-2 text-[11px] text-slate-700">
               Sin selección = todos. Rechazados activos y cancelados quedan fuera.
             </p>
           </div>
 
           {loading ? (
-            <p className="text-sm text-slate-600" data-testid="admin-ingresos-loading">
+            <p className="text-sm text-slate-800" data-testid="admin-ingresos-loading">
               Cargando ingresos…
             </p>
           ) : null}
@@ -411,34 +411,42 @@ export function AdminIngresosSection({
               ) : null}
 
               <div className="grid gap-3 lg:grid-cols-2">
-                <div className="rounded-lg border border-slate-200 bg-white p-3">
-                  <h3 className="text-sm font-semibold text-slate-900">Por asesor</h3>
+                <div className="rounded-lg border border-slate-200 bg-white p-3 text-slate-900">
+                  <h3 className="text-sm font-semibold text-slate-950">Por asesor</h3>
                   <div className="mt-2 overflow-x-auto">
-                    <table className="min-w-full text-left text-xs">
-                      <thead className="text-slate-500">
+                    <table className="min-w-full text-left text-xs text-slate-900">
+                      <thead className="text-slate-800">
                         <tr>
-                          <th className="py-1 pr-2">Asesor</th>
-                          <th className="py-1 pr-2">Exp.</th>
-                          <th className="py-1 pr-2">Proyectado</th>
-                          <th className="py-1 pr-2">Real</th>
-                          <th className="py-1 pr-2">Pendiente</th>
-                          <th className="py-1">%</th>
+                          <th className="py-1 pr-2 font-semibold">Asesor</th>
+                          <th className="py-1 pr-2 font-semibold">Exp.</th>
+                          <th className="py-1 pr-2 font-semibold">Proyectado</th>
+                          <th className="py-1 pr-2 font-semibold">Real</th>
+                          <th className="py-1 pr-2 font-semibold">Pendiente</th>
+                          <th className="py-1 font-semibold">%</th>
                         </tr>
                       </thead>
-                      <tbody>
+                      <tbody className="text-slate-900">
                         {resumen.por_asesor.map((r) => (
                           <tr key={r.asesor_id} className="border-t border-slate-100">
-                            <td className="py-1 pr-2">{r.asesor_nombre}</td>
-                            <td className="py-1 pr-2">{r.expedientes}</td>
-                            <td className="py-1 pr-2">{formatMontoMX(r.ingreso_proyectado)}</td>
-                            <td className="py-1 pr-2">{formatMontoMX(r.ingreso_real)}</td>
-                            <td className="py-1 pr-2">{formatMontoMX(r.pendiente)}</td>
-                            <td className="py-1">{r.cumplimiento_pct}%</td>
+                            <td className="py-1 pr-2 text-slate-900">{r.asesor_nombre}</td>
+                            <td className="py-1 pr-2 text-slate-900">{r.expedientes}</td>
+                            <td className="py-1 pr-2 text-slate-950 font-medium">
+                              {formatMontoMX(r.ingreso_proyectado)}
+                            </td>
+                            <td className="py-1 pr-2 text-slate-950 font-medium">
+                              {formatMontoMX(r.ingreso_real)}
+                            </td>
+                            <td className="py-1 pr-2 text-slate-950 font-medium">
+                              {formatMontoMX(r.pendiente)}
+                            </td>
+                            <td className="py-1 text-slate-950 font-medium">
+                              {r.cumplimiento_pct}%
+                            </td>
                           </tr>
                         ))}
                         {resumen.por_asesor.length === 0 ? (
                           <tr>
-                            <td colSpan={6} className="py-2 text-slate-500">
+                            <td colSpan={6} className="py-2 text-slate-700">
                               Sin datos
                             </td>
                           </tr>
@@ -448,61 +456,61 @@ export function AdminIngresosSection({
                   </div>
                 </div>
                 <div className="space-y-3">
-                  <div className="rounded-lg border border-slate-200 bg-white p-3">
-                    <h3 className="text-sm font-semibold text-slate-900">
+                  <div className="rounded-lg border border-slate-200 bg-white p-3 text-slate-900">
+                    <h3 className="text-sm font-semibold text-slate-950">
                       Por % de cobro
                     </h3>
-                    <ul className="mt-2 space-y-1 text-xs">
+                    <ul className="mt-2 space-y-1 text-xs text-slate-900">
                       {resumen.por_porcentaje.map((r) => (
-                        <li key={String(r.porcentaje_cobro)}>
+                        <li key={String(r.porcentaje_cobro)} className="text-slate-900">
                           {r.porcentaje_cobro}% · {r.expedientes} exp. ·{" "}
                           {formatMontoMX(r.ingreso_proyectado)}
                         </li>
                       ))}
                       {resumen.por_porcentaje.length === 0 ? (
-                        <li className="text-slate-500">Sin datos</li>
+                        <li className="text-slate-700">Sin datos</li>
                       ) : null}
                     </ul>
                   </div>
-                  <div className="rounded-lg border border-slate-200 bg-white p-3">
-                    <h3 className="text-sm font-semibold text-slate-900">
+                  <div className="rounded-lg border border-slate-200 bg-white p-3 text-slate-900">
+                    <h3 className="text-sm font-semibold text-slate-950">
                       Por fuente de monto
                     </h3>
-                    <ul className="mt-2 space-y-1 text-xs">
+                    <ul className="mt-2 space-y-1 text-xs text-slate-900">
                       {resumen.por_fuente_monto.map((r) => (
-                        <li key={r.monto_fuente}>
+                        <li key={r.monto_fuente} className="text-slate-900">
                           {fuenteLabel(r.monto_fuente)} · {r.expedientes} exp. ·{" "}
                           {formatMontoMX(r.ingreso_proyectado)}
                         </li>
                       ))}
                       {resumen.por_fuente_monto.length === 0 ? (
-                        <li className="text-slate-500">Sin datos</li>
+                        <li className="text-slate-700">Sin datos</li>
                       ) : null}
                     </ul>
                   </div>
-                  <div className="rounded-lg border border-slate-200 bg-white p-3">
-                    <h3 className="text-sm font-semibold text-slate-900">Tendencia</h3>
-                    <ul className="mt-2 max-h-40 space-y-1 overflow-y-auto text-xs">
+                  <div className="rounded-lg border border-slate-200 bg-white p-3 text-slate-900">
+                    <h3 className="text-sm font-semibold text-slate-950">Tendencia</h3>
+                    <ul className="mt-2 max-h-40 space-y-1 overflow-y-auto text-xs text-slate-900">
                       {resumen.tendencia.map((t) => (
-                        <li key={t.fecha}>
+                        <li key={t.fecha} className="text-slate-900">
                           {t.fecha}: proy {formatMontoMX(t.proyectado)} · real{" "}
                           {formatMontoMX(t.real)}
                         </li>
                       ))}
                       {resumen.tendencia.length === 0 ? (
-                        <li className="text-slate-500">Sin puntos en el rango</li>
+                        <li className="text-slate-700">Sin puntos en el rango</li>
                       ) : null}
                     </ul>
                   </div>
                 </div>
               </div>
 
-              <div className="rounded-lg border border-slate-200 bg-white p-3">
+              <div className="rounded-lg border border-slate-200 bg-white p-3 text-slate-900">
                 <div className="flex items-center justify-between gap-2">
-                  <h3 className="text-sm font-semibold text-slate-900">
+                  <h3 className="text-sm font-semibold text-slate-950">
                     Detalle ({total})
                   </h3>
-                  <div className="flex items-center gap-2 text-xs">
+                  <div className="flex items-center gap-2 text-xs text-slate-900">
                     <Button
                       type="button"
                       variant="outline"
@@ -512,7 +520,7 @@ export function AdminIngresosSection({
                     >
                       Anterior
                     </Button>
-                    <span>
+                    <span className="font-medium text-slate-900">
                       {page} / {totalPages}
                     </span>
                     <Button
@@ -527,71 +535,71 @@ export function AdminIngresosSection({
                   </div>
                 </div>
                 <div className="mt-2 overflow-x-auto">
-                  <table className="min-w-full text-left text-xs" data-testid="admin-ingresos-detalle">
-                    <thead className="text-slate-500">
+                  <table className="min-w-full text-left text-xs text-slate-900" data-testid="admin-ingresos-detalle">
+                    <thead className="text-slate-800">
                       <tr>
-                        <th className="py-1 pr-2">Cliente</th>
-                        <th className="py-1 pr-2">Asesor</th>
-                        <th className="py-1 pr-2">Bio</th>
-                        <th className="py-1 pr-2">Fuente</th>
-                        <th className="py-1 pr-2">Cálculo</th>
-                        <th className="py-1 pr-2">Proyectado</th>
-                        <th className="py-1 pr-2">Real</th>
-                        <th className="py-1">Pendiente</th>
+                        <th className="py-1 pr-2 font-semibold">Cliente</th>
+                        <th className="py-1 pr-2 font-semibold">Asesor</th>
+                        <th className="py-1 pr-2 font-semibold">Bio</th>
+                        <th className="py-1 pr-2 font-semibold">Fuente</th>
+                        <th className="py-1 pr-2 font-semibold">Cálculo</th>
+                        <th className="py-1 pr-2 font-semibold">Proyectado</th>
+                        <th className="py-1 pr-2 font-semibold">Real</th>
+                        <th className="py-1 font-semibold">Pendiente</th>
                       </tr>
                     </thead>
-                    <tbody>
+                    <tbody className="text-slate-900">
                       {items.map((it) => (
                         <tr key={it.expediente_id} className="border-t border-slate-100">
                           <td className="py-1 pr-2">
                             <Link
-                              className="font-medium text-sky-800 underline"
+                              className="font-medium text-sky-900 underline"
                               href={`/admin/${it.expediente_id}`}
                             >
                               {it.cliente_nombre ?? "—"}
                             </Link>
-                            <div className="text-[10px] text-slate-500">
+                            <div className="text-[10px] text-slate-700">
                               {it.nss ?? ""}
                             </div>
                           </td>
-                          <td className="py-1 pr-2">{it.asesor_nombre ?? "—"}</td>
-                          <td className="py-1 pr-2">
+                          <td className="py-1 pr-2 text-slate-900">{it.asesor_nombre ?? "—"}</td>
+                          <td className="py-1 pr-2 text-slate-900">
                             {it.bio_aprobacion_at
                               ? formatDateTimeMx(it.bio_aprobacion_at)
                               : "—"}
                           </td>
-                          <td className="py-1 pr-2">
+                          <td className="py-1 pr-2 text-slate-900">
                             {fuenteLabel(it.monto_fuente)}
                             {it.is_historical_estimate ? (
                               <span
-                                className="ml-1 text-amber-700"
+                                className="ml-1 font-medium text-amber-900"
                                 title={INGRESOS_HISTORICO_ESTIMADO_TOOLTIP}
                               >
                                 (est.)
                               </span>
                             ) : null}
                           </td>
-                          <td className="py-1 pr-2" title={INGRESOS_TOPE_TOOLTIP}>
+                          <td className="py-1 pr-2 text-slate-900" title={INGRESOS_TOPE_TOOLTIP}>
                             {it.calculo ?? "—"}
                           </td>
-                          <td className="py-1 pr-2">
+                          <td className="py-1 pr-2 font-medium text-slate-950">
                             {it.ingreso_proyectado != null
                               ? formatMontoMX(it.ingreso_proyectado)
                               : "—"}
                           </td>
-                          <td className="py-1 pr-2">
+                          <td className="py-1 pr-2 font-medium text-slate-950">
                             {it.ingreso_real != null
                               ? formatMontoMX(it.ingreso_real)
                               : "—"}
                           </td>
-                          <td className="py-1">
+                          <td className="py-1 font-medium text-slate-950">
                             {it.pendiente != null ? formatMontoMX(it.pendiente) : "—"}
                           </td>
                         </tr>
                       ))}
                       {items.length === 0 ? (
                         <tr>
-                          <td colSpan={8} className="py-3 text-slate-500" data-testid="admin-ingresos-empty">
+                          <td colSpan={8} className="py-3 text-slate-700" data-testid="admin-ingresos-empty">
                             Sin expedientes en el rango.
                           </td>
                         </tr>
