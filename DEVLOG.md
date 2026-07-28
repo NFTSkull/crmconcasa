@@ -1,5 +1,9 @@
 # Devlog
 
+## 2026-07-22 - P133: acciones rápidas Mesa ↔ etapas operativas
+
+Bug: bandeja llamaba `fromView(5, 7, …)` pese al mapa `5→8`, y ofrecía «Agendar firma» / «Ir a Acuse» / avance genérico. Fix FE-only: `resolveMesaQuickAction` unifica tarjeta; 5→«Pasar a Acuse» destino 8; 3/8/9 = `info` (asesor agenda/carga); bulk elimina elegibilidad firmas 9→10; detalle fuerza `mostrar:false` en paneles 8a9/9a10; copy 10 «Marcar firma como completada». Sin migración. Notificación/métricas/docs/capacidades intactos.
+
 ## 2026-07-28 - P132-acuse: Acuse libera firma
 
 Producto: el gate de firma vuelve al Acuse (P117) y Notificación deja de avanzar. SQL 120 (dump Cloud + REPLACE): `register_expediente_documento_retencion` restaura avance atómico 8→9 + set `firma_agendable_desde` solo si NULL (`add_business_days_monterrey`); log `8_9_acuse`; reemplazo 9+ no re-avanza ni reinicia fecha; `enviar_retencion_mesa` sin avance; quita invokes de `expediente_apply_notificacion_7_9` (stub no-op); Bio Mesa rama 5 → `5_8` (destino 8); gate `agenda_firmas_assert_agendable_desde` intacto. Sin backfill / booking automático. FE: Acuse copy + fecha; banner AgendaFirmas; Mesa detalle `Firma agendable desde`; bio 5→8 copies/bulk/bandeja; Notificación `esGateAvance=false` sin copy libera firma; timeline Acuse 9 con/sin doc. Tests SQL `rpc_acuse_libera_firma_p132` + residual notif + P117. No Super Admin / P130 / citas notif.

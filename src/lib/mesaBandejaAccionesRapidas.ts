@@ -1,7 +1,7 @@
 /**
- * P119 / P119.3 / P119.4 — resolución de acciones rápidas en tarjeta de bandeja Mesa.
- * Avances usan `avanzar_etapa_operativa` (gates SQL). Agenda 3/9 navega al detalle.
- * Interna 8 no bypassea P117 (avance 8→9 solo vía carga canónica del Acuse).
+ * P119 / P133 — resolución de acciones rápidas en tarjeta de bandeja Mesa.
+ * Avances usan `avanzar_etapa_operativa` (gates SQL). Etapas 3/8/9: solo info (asesor agenda/carga).
+ * Interna 5→8 canónica P132-acuse. Interna 8→9 solo vía carga Acuse. 9→10 solo vía booking asesor.
  * Interna 11→12: RPC canónica `avanzar_etapa_operativa` transición `11_12`.
  */
 
@@ -59,6 +59,7 @@ export type MesaBandejaAccionKind =
   | "navegar_biometricos"
   | "navegar_firma"
   | "navegar_acuse"
+  | "info"
   | "etapa_final"
   | "hidden";
 
@@ -104,6 +105,8 @@ export type MesaSiguienteEtapaContext = Readonly<{
   /** Rol actor: acciones de agenda solo para Mesa autorizada. */
   role?: string | null;
   expedienteId?: string | null;
+  /** P132: fecha mínima de agenda de firma (YYYY-MM-DD). */
+  firmaAgendableDesde?: string | null;
 }>;
 
 const REASON_LABELS: Readonly<Record<MesaSiguienteEtapaReasonCode, string>> = {
@@ -200,9 +203,55 @@ function emptyHidden(from: number, to: number | null = null): MesaSiguienteEtapa
 
 function labelForAvanzar(from: number, to: number): string {
   if (from === 4 && to === 5) return "Pasar a Biometría resultado";
-  if (from === 10 && to === 11) return "Pasar a Firmado";
+  if (from === 5 && to === 8) return "Pasar a Acuse";
+  if (from === 10 && to === 11) return "Marcar firma como completada";
   if (from === 11 && to === 12) return "Pasar a Pago a ConCasa";
+  if (from === 6 && to === 7) return "Aceptar y avanzar a Notificación";
+  if (from === 7 && to === 8) return "Aceptar y avanzar a Acuse / Aviso de retención";
   return "Siguiente etapa";
+}
+
+/** Formatea YYYY-MM-DD (o ISO) a DD/MM/YYYY para copy Mesa. */
+export function formatMesaFirmaAgendableDesdeLabel(
+  raw: string | null | undefined,
+): string | null {
+  const s = String(raw ?? "").trim();
+  if (!s) return null;
+  const ymd = s.slice(0, 10);
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd);
+  if (!m) return null;
+  return `${m[3]}/${m[2]}/${m[1]}`;
+}
+
+function todayYmdMonterrey(nowMs: number = Date.now()): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: "America/Monterrey",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date(nowMs));
+}
+
+function infoAccion(
+  from: number,
+  label: string,
+  to: number | null = null,
+): MesaSiguienteEtapaAccion {
+  return {
+    kind: "info",
+    visible: true,
+    enabled: false,
+    label,
+    href: null,
+    usesAvanzarRpc: false,
+    fromEtapa: from,
+    toEtapa: to,
+    fromLabel: formatPasoOperativoLabel(from),
+    toLabel: to != null ? formatPasoOperativoLabel(to) : "",
+    reasonCode: null,
+    reasonShort: null,
+    bloqueos: [],
+  };
 }
 
 function fromView(
@@ -294,9 +343,7 @@ export function resolveMesaSiguienteEtapaAccion(
     return emptyHidden(0, 0);
   }
 
-  const expId = String(ctx.expedienteId ?? "").trim();
   const archivos = ctx.archivosResumen ?? [];
-  const canAgenda = canMesaAgendaRapidaRole(ctx.role);
 
   // —— 12: indicador final ——
   if (etapa === 12) {
@@ -317,89 +364,25 @@ export function resolveMesaSiguienteEtapaAccion(
     };
   }
 
-  // —— 3: agendar biométricos (navegación; etapa solo vía booking 3→4) ——
+  // —— 3: asesor agenda biométricos; Mesa solo informa (sin avance ni booking) ——
   if (etapa === 3) {
-    if (!canAgenda || !expId) return emptyHidden(3, 4);
-    const gate = cicloORechazoGate(
-      ctx,
-      3,
-      4,
-      "navegar_biometricos",
-      "Agendar biométricos",
-    );
-    if (gate) return gate;
-    return {
-      kind: "navegar_biometricos",
-      visible: true,
-      enabled: true,
-      label: "Agendar biométricos",
-      href: buildMesaExpedienteFocusHref(expId, "biometricos"),
-      usesAvanzarRpc: false,
-      fromEtapa: 3,
-      toEtapa: 4,
-      fromLabel: formatPasoOperativoLabel(3),
-      toLabel: formatPasoOperativoLabel(4),
-      reasonCode: null,
-      reasonShort: null,
-      bloqueos: [],
-    };
+    return infoAccion(3, "Esperando agenda de biométricos del asesor", null);
   }
 
-  // —— 9: agendar firma (navegación; etapa solo vía booking) ——
+  // —— 9: asesor agenda firma; Mesa informa (sin botón Agendar firma ni 9→10) ——
   if (etapa === 9) {
-    if (!canAgenda || !expId) return emptyHidden(9, 10);
-    const gate = cicloORechazoGate(
-      ctx,
-      9,
-      10,
-      "navegar_firma",
-      "Agendar firma",
-    );
-    if (gate) return gate;
-    return {
-      kind: "navegar_firma",
-      visible: true,
-      enabled: true,
-      label: "Agendar firma",
-      href: buildMesaExpedienteFocusHref(expId, "firmas"),
-      usesAvanzarRpc: false,
-      fromEtapa: 9,
-      toEtapa: 10,
-      fromLabel: formatPasoOperativoLabel(9),
-      toLabel: formatPasoOperativoLabel(10),
-      reasonCode: null,
-      reasonShort: null,
-      bloqueos: [],
-    };
+    const fechaLabel = formatMesaFirmaAgendableDesdeLabel(ctx.firmaAgendableDesde);
+    const today = todayYmdMonterrey(ctx.nowMs);
+    const minYmd = String(ctx.firmaAgendableDesde ?? "").trim().slice(0, 10);
+    if (fechaLabel && minYmd && minYmd > today) {
+      return infoAccion(9, `Firma disponible desde ${fechaLabel}`, 10);
+    }
+    return infoAccion(9, "Esperando agenda del asesor", 10);
   }
 
-  // —— 8: Acuse (navegación; nunca avanzar desde bandeja) ——
+  // —— 8: Acuse solo vía carga del asesor (8→9); Mesa informa ——
   if (etapa === 8) {
-    if (!canAgenda || !expId) return emptyHidden(8, 9);
-    const gate = cicloORechazoGate(
-      ctx,
-      8,
-      9,
-      "navegar_acuse",
-      "Ir a Acuse",
-    );
-    if (gate) return gate;
-    const tieneAcuse = hasAcusePrincipalCargado(archivos);
-    return {
-      kind: "navegar_acuse",
-      visible: true,
-      enabled: tieneAcuse,
-      label: "Ir a Acuse",
-      href: tieneAcuse ? buildMesaExpedienteFocusHref(expId, "acuse") : null,
-      usesAvanzarRpc: false,
-      fromEtapa: 8,
-      toEtapa: 9,
-      fromLabel: formatPasoOperativoLabel(8),
-      toLabel: formatPasoOperativoLabel(9),
-      reasonCode: tieneAcuse ? null : "falta_acuse",
-      reasonShort: tieneAcuse ? null : REASON_LABELS.falta_acuse,
-      bloqueos: tieneAcuse ? [] : [REASON_LABELS.falta_acuse],
-    };
+    return infoAccion(8, "Esperando carga de Acuse por el asesor", 9);
   }
 
   const to = MESA_SIGUIENTE_ETAPA_MAP[etapa];
@@ -452,13 +435,14 @@ export function resolveMesaSiguienteEtapaAccion(
   if (etapa === 5) {
     return fromView(
       5,
-      7,
+      8,
       deriveAvanceOperativo5a6View({
         ...base,
         fechaCita: ctx.fechaCita,
         hasActiveBiometricBooking: Boolean(ctx.hasActiveBiometricBooking),
         nowMs: ctx.nowMs,
       }),
+      { label: "Pasar a Acuse" },
     );
   }
 
@@ -474,7 +458,7 @@ export function resolveMesaSiguienteEtapaAccion(
         fechaCita: ctx.fechaCita,
         hasActiveFirmasBooking: Boolean(ctx.hasActiveFirmasBooking),
       }),
-      { label: "Pasar a Firmado" },
+      { label: "Marcar firma como completada" },
     );
   }
 
@@ -486,6 +470,45 @@ export function resolveMesaSiguienteEtapaAccion(
   }
 
   return emptyHidden(etapa, to);
+}
+
+/**
+ * P133 — alias canónico: misma lógica que `resolveMesaSiguienteEtapaAccion`.
+ * Separa estado (fromLabel) de acción (label / toEtapa).
+ */
+export type MesaQuickAction = Readonly<{
+  actionId: string;
+  label: string;
+  targetStage: number | null;
+  enabled: boolean;
+  disabledReason: string | null;
+  requiresBooking: boolean;
+  requiresDocument: boolean;
+  requiresConfirmation: boolean;
+  /** Acción resuelta completa (UI bandeja). */
+  accion: MesaSiguienteEtapaAccion;
+}>;
+
+export function resolveMesaQuickAction(
+  ctx: MesaSiguienteEtapaContext,
+): MesaQuickAction {
+  const accion = resolveMesaSiguienteEtapaAccion(ctx);
+  const requiresBooking =
+    accion.fromEtapa === 4 ||
+    accion.fromEtapa === 5 ||
+    accion.fromEtapa === 10;
+  const requiresDocument = accion.fromEtapa === 1;
+  return {
+    actionId: `${accion.kind}:${accion.fromEtapa}->${accion.toEtapa ?? "none"}`,
+    label: accion.label,
+    targetStage: accion.toEtapa,
+    enabled: accion.enabled,
+    disabledReason: accion.reasonShort,
+    requiresBooking,
+    requiresDocument,
+    requiresConfirmation: accion.kind === "avanzar" && accion.usesAvanzarRpc,
+    accion,
+  };
 }
 
 const TAKE_ROLES = MESA_AGENDA_ROLES;

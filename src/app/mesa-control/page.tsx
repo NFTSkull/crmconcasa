@@ -170,6 +170,7 @@ type CasoConDocs = CasoMock & {
   retencionOpcion?: RetencionOpcion | null;
   retencionEnviadoAMesa?: boolean;
   retencionEnvioEstado?: "enviado" | "correccion_requerida" | null;
+  firmaAgendableDesde?: string | null;
   advisorChangesCount?: number | null;
   advisorChangesSubmittedAt?: string | null;
   advisorChangesSummary?: readonly string[] | null;
@@ -412,6 +413,7 @@ export default function MesaControlPage() {
       cicloEstado: exp.operativo.cicloEstado ?? "activo",
       motivoRechazo: exp.operativo.motivoRechazo ?? undefined,
       fechaCita: exp.operativo.fechaCita ?? undefined,
+      firmaAgendableDesde: exp.operativo.firmaAgendableDesde ?? null,
       createdAt: exp.base.createdAt,
       updatedAt: exp.operativo.updatedAt ?? new Date().toISOString(),
       submittedToMesa: exp.operativo.submittedToMesa,
@@ -1919,6 +1921,7 @@ export default function MesaControlPage() {
                     hasActiveNotificacionBooking:
                       c.hasActiveNotificacionBooking || Boolean(c.notificacionBooking),
                     hasActiveFirmasBooking: c.hasActiveFirmasBooking,
+                    firmaAgendableDesde: c.firmaAgendableDesde ?? null,
                     retencionOpcion: c.retencionOpcion,
                     retencionEnviadoAMesa: c.retencionEnviadoAMesa,
                     retencionEnvioEstado: c.retencionEnvioEstado,

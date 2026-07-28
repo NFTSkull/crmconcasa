@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- **fix/p133-mesa-quick-actions-stage-map:** acciones rápidas Mesa alineadas a etapas operativas P132 (`resolveMesaQuickAction`); bio `5→8` «Pasar a Acuse»; etapas 3/8/9 informativas (sin avance/agenda Mesa); sin bulk `9→10`; detalle oculta paneles 8→9/9→10; sin SQL.
+
 ### Changed
 - **feat/p132-acuse-libera-firma:** Acuse principal en etapa 8 → `8→9` + `firma_agendable_desde` (si NULL, +5 hábiles Monterrey); Bio Mesa `5→8`; Notificación sin avance 7→9 (stub); gate firmas SQL intacto; FE copies/banners/timeline; mig. 120.
 

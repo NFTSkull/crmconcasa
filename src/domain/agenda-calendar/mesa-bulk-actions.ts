@@ -169,14 +169,12 @@ export function getBulkAdvanceEligibility(
     };
   }
 
-  if (kind === "firmas" && etapa === 9) {
-    if (sub && sub !== "en_proceso") {
-      return { eligible: false, reason: "Etapa no compatible", transition: null };
-    }
+  // P133: firmas 9→10 solo vía booking del asesor; no avance masivo Mesa.
+  if (kind === "firmas" && (etapa === 9 || etapa === 8 || etapa === 3)) {
     return {
-      eligible: true,
-      reason: null,
-      transition: { fromStage: 9, toStage: 10, kind },
+      eligible: false,
+      reason: "Etapa no compatible",
+      transition: null,
     };
   }
 

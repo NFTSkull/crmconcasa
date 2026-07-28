@@ -8,7 +8,7 @@ import {
   MESA_SIGUIENTE_ETAPA_CONFIRM_PREFIX,
   MESA_TIENE_DATOS_BADGE_LABEL,
   canMesaToggleMarcadorRole,
-  resolveMesaSiguienteEtapaAccion,
+  resolveMesaQuickAction,
   resolveMesaTomarExpedienteAccion,
   type MesaSiguienteEtapaContext,
 } from "@/lib/mesaBandejaAccionesRapidas";
@@ -59,11 +59,12 @@ export function MesaBandejaAccionesRapidas({
   const [error, setError] = useState<string | null>(null);
   const inFlightRef = useRef(false);
 
-  const siguiente = resolveMesaSiguienteEtapaAccion({
+  const quick = resolveMesaQuickAction({
     ...siguienteCtx,
     role,
     expedienteId,
   });
+  const siguiente = quick.accion;
   const tomar = resolveMesaTomarExpedienteAccion({
     ops,
     currentUserId,
@@ -100,7 +101,7 @@ export function MesaBandejaAccionesRapidas({
     stop(e);
     if (!siguiente.visible || busy) return;
 
-    if (siguiente.kind === "etapa_final") return;
+    if (siguiente.kind === "etapa_final" || siguiente.kind === "info") return;
 
     if (
       siguiente.kind === "navegar_biometricos" ||
@@ -139,6 +140,7 @@ export function MesaBandejaAccionesRapidas({
   const showPrimaria =
     siguiente.visible &&
     (siguiente.kind === "etapa_final" ||
+      siguiente.kind === "info" ||
       siguiente.kind === "avanzar" ||
       siguiente.kind === "navegar_biometricos" ||
       siguiente.kind === "navegar_firma" ||
@@ -152,6 +154,9 @@ export function MesaBandejaAccionesRapidas({
     siguiente.kind === "navegar_biometricos" ||
     siguiente.kind === "navegar_firma" ||
     siguiente.kind === "navegar_acuse";
+
+  const primariaIsActionButton =
+    siguiente.kind === "avanzar" || primariaIsNav;
 
   const primariaBusyLabel =
     busy === "siguiente"
@@ -175,7 +180,18 @@ export function MesaBandejaAccionesRapidas({
           </span>
         ) : null}
 
-        {showPrimaria && siguiente.kind !== "etapa_final" ? (
+        {siguiente.kind === "info" ? (
+          <span
+            className="max-w-[18rem] text-[11px] leading-tight text-slate-600"
+            data-testid="mesa-bandeja-accion-info"
+            data-accion-kind="info"
+            title={siguiente.label}
+          >
+            {siguiente.label}
+          </span>
+        ) : null}
+
+        {showPrimaria && primariaIsActionButton ? (
           <Button
             type="button"
             className="h-7 max-w-full px-2 text-[11px]"
@@ -197,6 +213,10 @@ export function MesaBandejaAccionesRapidas({
                 : "mesa-bandeja-siguiente-etapa"
             }
             data-accion-kind={siguiente.kind}
+            data-action-id={quick.actionId}
+            data-target-stage={
+              quick.targetStage != null ? String(quick.targetStage) : undefined
+            }
           >
             {primariaBusyLabel}
           </Button>
@@ -205,7 +225,8 @@ export function MesaBandejaAccionesRapidas({
         {siguiente.visible &&
         !siguiente.enabled &&
         siguiente.reasonShort &&
-        siguiente.kind !== "etapa_final" ? (
+        siguiente.kind !== "etapa_final" &&
+        siguiente.kind !== "info" ? (
           <span
             className="max-w-[14rem] text-[10px] leading-tight text-slate-500"
             data-testid="mesa-bandeja-siguiente-etapa-motivo"

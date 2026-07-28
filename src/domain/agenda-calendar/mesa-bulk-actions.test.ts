@@ -151,7 +151,7 @@ test("Avance — biométricos 5 sin cita ocurrida", () => {
   assert.equal(r.reason, "La cita todavía no ocurre");
 });
 
-test("Avance — firmas 9→10", () => {
+test("Avance — firmas 9 no elegible (solo booking asesor)", () => {
   const r = getBulkAdvanceEligibility(
     entry({
       bookingId: "f1",
@@ -162,8 +162,9 @@ test("Avance — firmas 9→10", () => {
     ROLE,
     NOW,
   );
-  assert.equal(r.eligible, true);
-  assert.deepEqual(r.transition, { fromStage: 9, toStage: 10, kind: "firmas" });
+  assert.equal(r.eligible, false);
+  assert.equal(r.transition, null);
+  assert.equal(r.reason, "Etapa no compatible");
 });
 
 test("Avance — etapa incompatible", () => {
@@ -528,7 +529,7 @@ test("planBulkStageAdvance — 5→8 antes de cita no elegible", () => {
   assert.equal(plan.items[0]?.reason, "La cita todavía no ocurre");
 });
 
-test("planBulkStageAdvance — firmas 9→10 y cancelado omitido", () => {
+test("planBulkStageAdvance — firmas 9 no elegible; cancelado omitido", () => {
   const rows = [
     entry({
       bookingId: "f1",
@@ -544,9 +545,9 @@ test("planBulkStageAdvance — firmas 9→10 y cancelado omitido", () => {
     }),
   ];
   const plan = planBulkStageAdvance(new Set(["f1", "c1"]), rows, ROLE, NOW);
-  assert.equal(plan.eligibleExpedientes, 1);
-  assert.equal(plan.skippedExpedientes, 1);
-  assert.ok(plan.items.some((i) => i.eligible && i.toStage === 10));
+  assert.equal(plan.eligibleExpedientes, 0);
+  assert.equal(plan.skippedExpedientes, 2);
+  assert.ok(plan.items.every((i) => !i.eligible));
 });
 
 test("planBulkStageAdvance — rol no permitido", () => {
