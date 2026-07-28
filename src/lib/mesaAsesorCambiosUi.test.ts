@@ -12,8 +12,12 @@ import {
   MESA_ASESOR_CAMBIOS_ABRIR_EXPEDIENTE_CTA,
   MESA_ASESOR_CAMBIOS_HISTORICO_AVISO,
   MESA_ASESOR_CAMBIOS_HISTORICO_TITULO,
+  MESA_ASESOR_CAMBIOS_LOTE_VACIO_AVISO,
+  MESA_ASESOR_CAMBIOS_LOTE_VACIO_TITULO,
   MESA_ASESOR_CAMBIOS_MOTIVO_NO_DISPONIBLE,
   esCorreccionHistoricaSinDetalle,
+  esLoteAsesorCambiosVacio,
+  hasAdvisorChangeDetails,
 } from "./mesaAsesorCambiosUi";
 
 describe("mesaAsesorCambiosUi", () => {
@@ -120,6 +124,59 @@ describe("mesaAsesorCambiosUi", () => {
     ]);
     assert.equal(out.correctionRequestedNote, null);
     assert.equal(out.correctionRequestedByName, null);
+  });
+
+  it("hasAdvisorChangeDetails exige lote y count > 0", () => {
+    assert.equal(
+      hasAdvisorChangeDetails({
+        advisorChangeBatchId: "00000000-0000-4000-8000-000000000001",
+        advisorChangesCount: 2,
+      }),
+      true,
+    );
+    assert.equal(
+      hasAdvisorChangeDetails({
+        advisorChangeBatchId: "00000000-0000-4000-8000-000000000001",
+        advisorChangesCount: 0,
+      }),
+      false,
+    );
+    assert.equal(
+      hasAdvisorChangeDetails({
+        advisorChangeBatchId: null,
+        advisorChangesCount: 3,
+      }),
+      false,
+    );
+    assert.equal(
+      esLoteAsesorCambiosVacio({
+        advisorChangeBatchId: "00000000-0000-4000-8000-000000000001",
+        advisorChangesCount: 0,
+      }),
+      true,
+    );
+    assert.equal(
+      esLoteAsesorCambiosVacio({
+        advisorChangeBatchId: null,
+        advisorChangesCount: 0,
+      }),
+      false,
+    );
+    assert.match(MESA_ASESOR_CAMBIOS_LOTE_VACIO_AVISO, /sin cambios detectables/);
+    assert.equal(
+      MESA_ASESOR_CAMBIOS_LOTE_VACIO_TITULO,
+      "Corrección enviada sin cambios detectables",
+    );
+  });
+
+  it("lote vacío con batchId no es histórico P130.2", () => {
+    assert.equal(
+      esCorreccionHistoricaSinDetalle({
+        resumenDocumental: "correccion_enviada",
+        advisorChangeBatchId: "00000000-0000-4000-8000-000000000001",
+      }),
+      false,
+    );
   });
 
   it("badge con lote muestra conteo", () => {

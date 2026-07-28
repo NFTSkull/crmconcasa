@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Fixed
+- **fix/p130-empty-advisor-change-batches:** UI no muestra «Revisar cambios» con lote 0; mig. 117 no congela borradores vacíos y captura reemplazos post-Mesa vía `register_expediente_documento` → `asesor_cambio_record_doc_reemplazo`; sin inventar diffs históricos.
+
+### Fixed
 - **fix/p131-notificacion-sede-canonica:** RPC `mesa_set_notificacion_booking_location` (mig. 116) + UI «Asignar sede» en Lista/Día/Semana; futuros siguen exigiendo monterrey|apodaca (P107); sin inventar sedes.
 
 ### Changed

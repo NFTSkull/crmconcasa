@@ -29,7 +29,11 @@ import {
   MESA_ASESOR_CAMBIOS_FOCUS,
   MESA_ASESOR_CAMBIOS_HISTORICO_AVISO,
   MESA_ASESOR_CAMBIOS_HISTORICO_TITULO,
+  MESA_ASESOR_CAMBIOS_LOTE_VACIO_AVISO,
+  MESA_ASESOR_CAMBIOS_LOTE_VACIO_TITULO,
   esCorreccionHistoricaSinDetalle,
+  esLoteAsesorCambiosVacio,
+  hasAdvisorChangeDetails,
 } from "@/lib/mesaAsesorCambiosUi";
 import {
   formatMesaAbiertoAhoraBadge,
@@ -1701,29 +1705,36 @@ export default function MesaControlPage() {
                   <DocumentacionCell c={c.resumenDocumental} />
                 </div>
                 {(() => {
-                  const hasLote = Boolean(c.advisorChangeBatchId);
+                  const changeDetails = hasAdvisorChangeDetails({
+                    advisorChangeBatchId: c.advisorChangeBatchId,
+                    advisorChangesCount: c.advisorChangesCount,
+                  });
+                  const loteVacio = esLoteAsesorCambiosVacio({
+                    advisorChangeBatchId: c.advisorChangeBatchId,
+                    advisorChangesCount: c.advisorChangesCount,
+                  });
                   const historica = esCorreccionHistoricaSinDetalle({
                     resumenDocumental: c.resumenDocumental,
                     advisorChangeBatchId: c.advisorChangeBatchId,
                   });
                   const hasSummary =
-                    hasLote ||
+                    changeDetails ||
                     (Array.isArray(c.advisorChangesSummary) &&
-                      c.advisorChangesSummary.length > 0) ||
-                    (typeof c.advisorChangesCount === "number" &&
-                      c.advisorChangesCount > 0);
+                      c.advisorChangesSummary.length > 0);
                   const showBlock =
-                    c.resumenDocumental === "correccion_enviada" || hasSummary;
+                    c.resumenDocumental === "correccion_enviada" ||
+                    hasSummary ||
+                    loteVacio;
                   if (!showBlock) return null;
                   const badge = formatMesaAsesorCambiosBadge(
                     c.advisorChangesCount,
-                    hasLote,
+                    changeDetails,
                   );
                   const resumenLines = formatMesaAsesorCambiosResumen(
                     c.advisorChangesSummary ?? [],
                   );
                   const reenviadoAt = formatMesaAsesorReenviadoAt(
-                    hasLote
+                    changeDetails || loteVacio
                       ? (c.advisorChangesSubmittedAt ??
                           c.ultimaCorreccionEnviadaAt)
                       : (c.correctionResubmittedAt ??
@@ -1785,24 +1796,47 @@ export default function MesaControlPage() {
                             {MESA_ASESOR_CAMBIOS_ABRIR_EXPEDIENTE_CTA}
                           </Link>
                         </>
+                      ) : loteVacio ? (
+                        <>
+                          <p className="text-[11px] font-semibold text-sky-950">
+                            {MESA_ASESOR_CAMBIOS_LOTE_VACIO_TITULO}
+                          </p>
+                          <p className="text-[10px] leading-snug text-sky-900/90">
+                            {MESA_ASESOR_CAMBIOS_LOTE_VACIO_AVISO}
+                          </p>
+                          {reenviadoAt ? (
+                            <p className="text-[10px] text-sky-900/80">
+                              Reenviado por el asesor: {reenviadoAt}
+                            </p>
+                          ) : null}
+                          <Link
+                            href={`/mesa-control/${c.id}`}
+                            className="inline-flex mt-1 rounded-md bg-white px-2 py-1 text-[11px] font-medium text-sky-900 ring-1 ring-sky-300/80 hover:bg-sky-100"
+                            data-testid="mesa-abrir-expediente-lote-vacio"
+                            onClick={(e) => e.stopPropagation()}
+                            onKeyDown={(e) => e.stopPropagation()}
+                          >
+                            {MESA_ASESOR_CAMBIOS_ABRIR_EXPEDIENTE_CTA}
+                          </Link>
+                        </>
                       ) : (
                         <>
                           <p className="text-[11px] font-semibold text-sky-950">
                             {badge}
                           </p>
-                          {hasLote && resumenLines.length > 0 ? (
+                          {changeDetails && resumenLines.length > 0 ? (
                             <ul className="space-y-0.5 text-[10px] leading-snug text-sky-900/90">
                               {resumenLines.map((line) => (
                                 <li key={line}>{line}</li>
                               ))}
                             </ul>
                           ) : null}
-                          {hasLote && reenviadoAt ? (
+                          {changeDetails && reenviadoAt ? (
                             <p className="text-[10px] text-sky-900/80">
                               Reenviado por el asesor: {reenviadoAt}
                             </p>
                           ) : null}
-                          {hasLote ? (
+                          {changeDetails ? (
                             <Link
                               href={`/mesa-control/${c.id}?focus=${MESA_ASESOR_CAMBIOS_FOCUS}`}
                               className="inline-flex mt-1 rounded-md bg-white px-2 py-1 text-[11px] font-medium text-sky-900 ring-1 ring-sky-300/80 hover:bg-sky-100"

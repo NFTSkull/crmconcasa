@@ -186,12 +186,14 @@ export function MesaAsesorCambiosPanel({
     [onPreviewDocumento],
   );
 
-  // Sin lote: no montar panel vacío ni deep-link de cambios.
-  if (!loading && !lote) {
+  // Sin lote o lote con 0 cambios: no montar panel vacío ni deep-link útil.
+  const hasDetails =
+    Boolean(lote?.id) && (lote?.changesCount ?? 0) > 0;
+  if (!loading && !hasDetails) {
     return null;
   }
 
-  const focusOpen = Boolean(lote) && isAsesorCambiosFocus(readFocusParam());
+  const focusOpen = hasDetails && isAsesorCambiosFocus(readFocusParam());
   const submittedLabel = formatMesaAsesorReenviadoAt(lote?.submittedAt);
   const statusLabel = formatMesaAsesorCambioStatusLabel(lote?.status);
   const summaryParts = [
@@ -221,7 +223,10 @@ export function MesaAsesorCambiosPanel({
               ? summaryParts.join(" · ")
               : "Sin lote de cambios registrado"
         }
-        defaultOpen={focusOpen || Boolean(lote && lote.status === "pendiente_revision")}
+        defaultOpen={
+          focusOpen ||
+          Boolean(hasDetails && lote && lote.status === "pendiente_revision")
+        }
       >
         <div className="space-y-4 px-4 py-3" data-testid="mesa-asesor-cambios-panel">
           {lote ? (

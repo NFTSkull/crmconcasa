@@ -6,6 +6,14 @@
 - [x] Detalle: panel agrupado + Ir al cambio + preview docs + marcar revisados.
 - [ ] SQL 115 + tests focales (agente SQL): freeze en correcciones canónicas; sin N+1; asesor no marca revisado.
 
+## Fix P130 — Lotes vacíos + hook register_documento
+
+- [x] `hasAdvisorChangeDetails` / `esLoteAsesorCambiosVacio`; sin «Revisar cambios» si count=0.
+- [x] Tarjeta lote vacío ≠ histórico P130.2; CTA Abrir expediente.
+- [x] Panel detalle no monta con 0 cambios.
+- [x] Mig. 117: freeze no congela vacío; `pre_reingreso` → `asesor_cambio_record_doc_reemplazo` post-Mesa.
+- [x] SQL `rpc_asesor_cambios_p130_empty_batch.sql`.
+
 ## P129 — Filtros Mesa (copies)
 
 - [x] Predicados auditados; correccion_enviada vs correccion_requerida disjuntos.
