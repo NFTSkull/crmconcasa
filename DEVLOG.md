@@ -1,5 +1,9 @@
 # Devlog
 
+## 2026-07-22 - P134: ingresos proyectados/reales Super Admin
+
+Módulo independiente: elegibilidad con evidencia canónica bio (`action_log` 5_8/5_6/5_7 o P114 desde etapa 5); fórmula `round(monto×%/100,2)` sin +3000 ni tope 169k; prioridad `monto_mejoravit_actualizado` > JSON Datos Generales. Snapshot `expediente_ingresos_reconocidos` vía trigger BEFORE UPDATE 11→12 (bloquea incompletos). RPCs `super_admin_get_ingresos_resumen` / `super_admin_list_ingresos_page`. Backfill legado etapa 12 (Cloud=0). UI sección Ingresos en `/admin`. Sin tocar producción P082–P116, citas, docs ni quick actions.
+
 ## 2026-07-22 - P133: acciones rápidas Mesa ↔ etapas operativas
 
 Bug: bandeja llamaba `fromView(5, 7, …)` pese al mapa `5→8`, y ofrecía «Agendar firma» / «Ir a Acuse» / avance genérico. Fix FE-only: `resolveMesaQuickAction` unifica tarjeta; 5→«Pasar a Acuse» destino 8; 3/8/9 = `info` (asesor agenda/carga); bulk elimina elegibilidad firmas 9→10; detalle fuerza `mostrar:false` en paneles 8a9/9a10; copy 10 «Marcar firma como completada». Sin migración. Notificación/métricas/docs/capacidades intactos.

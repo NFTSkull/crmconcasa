@@ -68,6 +68,15 @@ export function mapAvanzarEtapaRpcError(error: {
     );
   }
 
+  if (
+    msg.includes("faltan el monto base o el porcentaje de cobro") ||
+    msg.includes("no se puede registrar pago a concasa porque faltan")
+  ) {
+    return new ExpedientesSupabaseError(
+      "No se puede registrar Pago a ConCasa porque faltan el monto base o el porcentaje de cobro.",
+    );
+  }
+
   if (msg.includes("subestado debe ser en_validacion_mesa")) {
     return new ExpedientesSupabaseError(
       "El expediente no está en validación por Mesa. No se puede continuar desde esta etapa.",

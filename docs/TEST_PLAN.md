@@ -68,6 +68,14 @@
 - [x] Tomar expediente: `mesa_take_expediente`; no apropiación; Asignado a mí.
 - [x] Regresión: abrir expediente, filtros, P100/P102, P117/P118 intactos.
 
+## P134 — Ingresos Super Admin
+
+- [x] Fórmula `monto × % / 100` (prioridad Mesa actualizado > Datos Generales; sin tope 169k).
+- [x] Elegibilidad por evidencia canónica bio; rechazo activo/cancelado excluidos; incompletos alertados.
+- [x] Snapshot real en `11→12` (idempotente); backfill estimado etapa 12 solo con evidencia.
+- [x] RPCs resumen + detalle paginado; UI sección Ingresos; loading/error propios.
+- [x] Regresión: producción Admin / citas / docs / quick actions intactos.
+
 ## P133 — Acciones rápidas Mesa ↔ etapas P132
 
 - [x] Resolver único `resolveMesaQuickAction` / `resolveMesaSiguienteEtapaAccion` (tarjeta = detalle = bulk destino).
