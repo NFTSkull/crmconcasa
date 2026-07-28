@@ -1,5 +1,9 @@
 # Devlog
 
+## 2026-07-28 - P138: Excel profesional de Ingresos
+
+Exportación Super Admin: botones `Descargar Excel` (defaults) y `Personalizar Excel` (modal hojas/columnas/orden/nombre). Respeta snapshot de filtros activos (periodo, asesores, alcance etapa, %, fuente, estado, búsqueda). RPC `super_admin_export_ingresos` (mig. 126) devuelve todo el detalle filtrado (orden asesor→paso→envío→cliente), límite 10 000, solo `super_admin`, org del actor. ExcelJS reutiliza paleta del reporte de expedientes; monedas numéricas; freeze/autofilter. Sin tocar fórmula, elegibilidad, snapshot `11→12`, etapas, citas ni docs.
+
 ## 2026-07-22 - P137: proyección Ingresos por envío a Mesa + alcance de etapa
 
 Problema: P134/P135 usaban evidencia bio como universo; chips de pasos 1–3 quedaban vacíos y `Expedientes proyectados` no representaba enviados a Mesa. Fix read-model (mig. 125): universo = `submitted_to_mesa` + `fecha_envio_mesa`; proyectado/incompletos por envío; real por `reconocido_at`. Filtro profesional `p_stage_scope` + `p_visible_step` (mapeo canónico visible→interna). UI: Alcance de etapa, asesores select-all/limpiar, Restablecer filtros, resumen dinámico. Conserva `ingresos_bio_aprobacion_at` y snapshot `11→12`. Sin tocar etapas/citas/docs/métricas fuera de Ingresos.

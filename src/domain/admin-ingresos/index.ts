@@ -4,3 +4,4 @@ export * from "./types";
 export * from "./repo";
 export * from "./filters";
 export * from "./stage-map";
+export * from "./export-config";
