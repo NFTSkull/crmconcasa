@@ -55,6 +55,8 @@ export interface ExpedienteArchivosRepo {
 
   uploadMesaDocumento(params: UploadMesaDocumentoParams): Promise<void>;
   replaceMesaDocumento(params: ReplaceMesaDocumentoParams): Promise<void>;
+  /** P136: soft-delete del activo (pagaré / notificación / apodaca). */
+  deleteMesaDocumento(params: import("./mesa-documentos-operativos").DeleteMesaDocumentoParams): Promise<void>;
 
   correctArchivoRechazado(params: CorrectArchivoParams): Promise<void>;
 

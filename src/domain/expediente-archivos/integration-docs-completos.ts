@@ -37,12 +37,25 @@ export const INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD = [
   ...INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES,
 ] as const;
 
-/** P104: tipo técnico Notificación solo Apodaca (upload asesor; Mesa RO preview/descarga). */
+/** P104/P136: tipo técnico Notificación solo Apodaca (asesor + Mesa upload/reemplazo/eliminar). */
 export const CLIENTE_NOTIFICACION_APODACA_DOCUMENT_TIPO =
   "cliente_notificacion_apodaca" as const;
 
 export type ClienteNotificacionApodacaDocumentTipo =
   typeof CLIENTE_NOTIFICACION_APODACA_DOCUMENT_TIPO;
+
+/** Contrato Notificación Apodaca (PDF ≤15 MiB; sin etapa mínima; no gate). */
+export const CLIENTE_NOTIFICACION_APODACA_DOCUMENT_CONTRACT = Object.freeze({
+  tipo: CLIENTE_NOTIFICACION_APODACA_DOCUMENT_TIPO,
+  label: "Notificación Apodaca",
+  origen: "Asesor|Mesa" as const,
+  formatos: ["PDF"] as const,
+  mimePermitidos: ["application/pdf"] as const,
+  maxBytes: 15 * 1024 * 1024,
+  etapaMinima: 0,
+  obligatorio: false,
+  esGateAvance: false,
+});
 
 /**
  * Espejo de `integration_doc_tipos_obligatorios()` — validación Mesa y avance 1→2 (4).
@@ -85,12 +98,13 @@ export const CLIENTE_SOLICITUD_DOCUMENT_TIPO = "cliente_solicitud" as const;
 
 export type ClienteSolicitudDocumentTipo = typeof CLIENTE_SOLICITUD_DOCUMENT_TIPO;
 
-/** Allowlist SQL completa Mesa (complementarios UI + Pagaré + Notificación + Solicitud). */
+/** Allowlist SQL completa Mesa (complementarios UI + Pagaré + Notificación + Solicitud + Apodaca). */
 export const INTEGRATION_DOC_TIPOS_MESA_REGISTER = [
   ...INTEGRATION_DOC_TIPOS_MESA_UPLOAD,
   CLIENTE_PAGARE_DOCUMENT_TIPO,
   CLIENTE_NOTIFICACION_DOCUMENT_TIPO,
   CLIENTE_SOLICITUD_DOCUMENT_TIPO,
+  CLIENTE_NOTIFICACION_APODACA_DOCUMENT_TIPO,
 ] as const;
 
 export type IntegrationDocMesaRegisterTipo =
@@ -164,7 +178,8 @@ export const INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES_SOLO_ASESOR =
   INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES.filter(
     (tipo) =>
       !(INTEGRATION_DOC_TIPOS_MESA_UPLOAD as readonly string[]).includes(tipo) &&
-      tipo !== CLIENTE_NOTIFICACION_DOCUMENT_TIPO,
+      tipo !== CLIENTE_NOTIFICACION_DOCUMENT_TIPO &&
+      tipo !== CLIENTE_NOTIFICACION_APODACA_DOCUMENT_TIPO,
   );
 
 export type IntegrationDocMesaUploadTipo = (typeof INTEGRATION_DOC_TIPOS_MESA_UPLOAD)[number];

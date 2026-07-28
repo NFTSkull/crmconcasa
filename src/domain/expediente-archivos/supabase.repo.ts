@@ -23,6 +23,8 @@ import { ExpedienteArchivosSupabaseError } from "./supabase.error";
 import { mapRegisterExpedienteDocumentoRpcError } from "./register-expediente-documento-rpc-error";
 import { mapRegisterExpedienteDocumentoCorreccionRpcError } from "./register-expediente-documento-correccion-rpc-error";
 import { mapRegisterMesaDocumentoRpcError } from "./register-mesa-documento-rpc-error";
+import { mapMesaEliminarDocumentoRpcError } from "./mesa-eliminar-documento-rpc-error";
+import { isMesaTipoDocumentoOperativoMutable } from "./mesa-documentos-operativos";
 import { mapUpdateDocumentoRevisionRpcError } from "./update-documento-revision-rpc-error";
 import { buildExpedienteDocumentoStoragePath } from "./storage-path";
 import {
@@ -425,6 +427,53 @@ export class SupabaseExpedienteArchivosRepo implements ExpedienteArchivosRepo {
 
   async replaceMesaDocumento(params: UploadMesaDocumentoParams): Promise<void> {
     await this.uploadOrReplaceMesa(params);
+  }
+
+  async deleteMesaDocumento(params: {
+    expedienteId: string;
+    tipo_documento: import("./mesa-documentos-operativos").MesaTipoDocumentoOperativoMutable;
+  }): Promise<void> {
+    const expedienteId = String(params.expedienteId).trim();
+    const tipo = params.tipo_documento;
+    if (!expedienteId) {
+      throw new ExpedienteArchivosSupabaseError("Expediente inválido para eliminar documento.");
+    }
+    if (!isMesaTipoDocumentoOperativoMutable(tipo)) {
+      throw new ExpedienteArchivosSupabaseError(
+        "Este tipo de documento no se puede eliminar desde Mesa.",
+      );
+    }
+
+    const { client } = await requireSupabaseSession();
+    const { data, error: rpcError } = await client.rpc("mesa_eliminar_documento_expediente", {
+      p_expediente_id: expedienteId,
+      p_tipo_documento: tipo,
+    });
+
+    if (rpcError) {
+      throw mapMesaEliminarDocumentoRpcError(rpcError);
+    }
+
+    const result = (data ?? {}) as {
+      ok?: boolean;
+      storage_path?: string | null;
+      already_absent?: boolean;
+    };
+
+    const storagePath =
+      typeof result.storage_path === "string" ? result.storage_path.trim() : "";
+    if (storagePath) {
+      const { error: removeError } = await client.storage
+        .from(EXPEDIENTE_DOCUMENTOS_BUCKET)
+        .remove([storagePath]);
+      if (removeError) {
+        // Mutación lógica ya confirmada: no revertir; solo log técnico en consola.
+        console.warn(
+          "[mesa_eliminar_documento] Storage remove falló tras soft-delete:",
+          removeError.message,
+        );
+      }
+    }
   }
 
   async correctArchivoRechazado(params: CorrectArchivoParams): Promise<void> {

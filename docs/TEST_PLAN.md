@@ -68,6 +68,14 @@
 - [x] Tomar expediente: `mesa_take_expediente`; no apropiación; Asignado a mí.
 - [x] Regresión: abrir expediente, filtros, P100/P102, P117/P118 intactos.
 
+## P136 — Mesa reemplazar/eliminar Pagaré y Notificaciones
+
+- [x] Reemplazo vía `register_mesa_documento` (activo único; cleanup huérfano si RPC falla).
+- [x] Eliminación `mesa_eliminar_documento_expediente` soft-delete; idempotente; roles Mesa/super_admin.
+- [x] Allowlist: `cliente_pagare` | `cliente_notificacion` | `cliente_notificacion_apodaca`.
+- [x] UI Mesa Ver/Descargar/Reemplazar/Eliminar; asesor RO sin mutaciones.
+- [x] Sin cambio de etapa/citas/montos/ingresos; SQL focal + regresiones P090/P092/P104.
+
 ## P135 — Ingresos: movimientos Mesa post-Biometría
 
 - [x] `ingresos_bio_aprobacion_at` reconoce `mesa.expediente.mover_etapa` 3|4|5→≥6 además de 5_8/5_6/5_7 y P114.

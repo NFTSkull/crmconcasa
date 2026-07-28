@@ -41,7 +41,7 @@ describe("P104 cliente_notificacion_apodaca", () => {
     assert.deepEqual(item.etapasRequeridas, []);
   });
 
-  it("allowlist asesor opcionales / upload; no mesa upload ni register", () => {
+  it("allowlist asesor opcionales / upload; Mesa register P136; no complementarios UI", () => {
     assert.ok(
       (INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES as readonly string[]).includes(
         "cliente_notificacion_apodaca",
@@ -53,9 +53,10 @@ describe("P104 cliente_notificacion_apodaca", () => {
       ),
     );
     assert.ok(
-      (INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES_SOLO_ASESOR as readonly string[]).includes(
+      !(INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES_SOLO_ASESOR as readonly string[]).includes(
         "cliente_notificacion_apodaca",
       ),
+      "Apodaca tiene sección Mesa dedicada (P136)",
     );
     assert.ok(
       !(INTEGRATION_DOC_TIPOS_MESA_UPLOAD as readonly string[]).includes(
@@ -63,7 +64,7 @@ describe("P104 cliente_notificacion_apodaca", () => {
       ),
     );
     assert.ok(
-      !(INTEGRATION_DOC_TIPOS_MESA_REGISTER as readonly string[]).includes(
+      (INTEGRATION_DOC_TIPOS_MESA_REGISTER as readonly string[]).includes(
         "cliente_notificacion_apodaca",
       ),
     );
@@ -119,9 +120,7 @@ describe("P104 cliente_notificacion_apodaca", () => {
       [],
     );
     const view = views.find((v) => v.tipo_documento === "cliente_notificacion_apodaca");
-    assert.ok(view);
-    assert.equal(view!.archivo?.id, "doc-apodaca");
-    assert.equal(view!.opcional, true);
+    assert.equal(view, undefined, "P136: Apodaca sale de lista RO genérica; sección Mesa dedicada");
   });
 
   it("asesor puede subir pre y post Mesa (faltante / reemplazo)", () => {

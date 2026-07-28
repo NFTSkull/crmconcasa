@@ -181,10 +181,11 @@ Convenciones:
 | Gate avance | **No** — no bloquea 6→7 ni ninguna transición |
 | Reingreso | sin herencia automática |
 | Auditoría | `expediente.documento.mesa_register` + payload (`tipo`, `version`, `reemplazo`, …) |
+| Eliminación (P136) | RPC `mesa_eliminar_documento_expediente` — soft-delete activo; action `expediente.documento.mesa_eliminar`; Storage best-effort tras DB |
 
-**UI B4:**
+**UI B4 + P136:**
 
-- Mesa: `MesaPagareSection` (+ diálogo confirmación) en `MesaExpedienteDetalleReadOnly` — upload/reemplazo → Storage + `register_mesa_documento`; preview/descarga vía `getArchivoBlob` (URL blob local; sin bucket público). Cleanup best-effort del objeto nuevo si la RPC falla.
+- Mesa: `MesaPagareSection` — upload/reemplazo/eliminar → Storage + RPC; preview/descarga vía `getArchivoBlob`.
 - Asesor: `AsesorPagareSection` RO desde etapa 7 — solo listado activo + Ver/Descargar.
 - Contrato TS: `CLIENTE_PAGARE_DOCUMENT_CONTRACT`. Allowlist UI complementarios **sin** `cliente_pagare` (evita duplicado); registro SQL en `INTEGRATION_DOC_TIPOS_MESA_REGISTER`.
 - No modifica etapa, monto, cobro ni Datos Generales. Sin notificaciones.

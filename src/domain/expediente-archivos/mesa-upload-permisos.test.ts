@@ -69,7 +69,7 @@ describe("permisos upload Mesa vs asesor (contrato de tipos)", () => {
     );
   });
 
-  it("notificación solo Apodaca es opcional del asesor y no la sube Mesa", () => {
+  it("notificación solo Apodaca es opcional del asesor y Mesa la registra en sección propia (no complementarios)", () => {
     assert.ok(
       (INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD as readonly string[]).includes(
         "cliente_notificacion_apodaca",

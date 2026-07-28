@@ -9,6 +9,7 @@ import {
   type MesaArchivoPreviewState,
 } from "@/components/mesa-control/MesaArchivoPreviewDialog";
 import { MesaPagareUploadDialog } from "@/components/mesa-control/MesaPagareUploadDialog";
+import { MesaDocumentoEliminarDialog } from "@/components/mesa-control/MesaDocumentoEliminarDialog";
 import {
   CLIENTE_PAGARE_ACCEPT_ATTR,
   canMesaOperatePagare,
@@ -69,6 +70,10 @@ export function MesaPagareSection({
   const [archivoBusy, setArchivoBusy] = useState(false);
   const [archivoError, setArchivoError] = useState<string | null>(null);
   const [preview, setPreview] = useState<MesaArchivoPreviewState | null>(null);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const deleteLockRef = useRef(false);
 
   const operableWrite =
     puedeOperar &&
@@ -250,6 +255,33 @@ export function MesaPagareSection({
     });
   };
 
+  const handleConfirmDelete = async () => {
+    if (deleteLockRef.current || !documento || !writeEnabled) return;
+    deleteLockRef.current = true;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      await archivosRepo.deleteMesaDocumento({
+        expedienteId,
+        tipo_documento: CLIENTE_PAGARE_DOCUMENT_TIPO,
+      });
+      setDeleteOpen(false);
+      setDocumento(null);
+      setSuccessMsg("Pagaré eliminado correctamente.");
+      closePreview();
+      await loadPagare();
+    } catch (err) {
+      setDeleteError(
+        err instanceof ExpedienteArchivosSupabaseError
+          ? err.message
+          : "No se pudo eliminar el Pagaré. Intenta de nuevo.",
+      );
+    } finally {
+      deleteLockRef.current = false;
+      setDeleting(false);
+    }
+  };
+
   const etapaLabel =
     typeof etapaActual === "number" &&
     etapaActual < CLIENTE_PAGARE_DOCUMENT_CONTRACT.etapaMinima
@@ -354,12 +386,28 @@ export function MesaPagareSection({
               type="button"
               variant="secondary"
               className="h-8 px-2.5 py-0 text-xs"
-              disabled={archivoBusy}
+              disabled={archivoBusy || saving || deleting}
               aria-label="Descargar Pagaré"
               onClick={() => void handleDescargar()}
             >
               Descargar
             </Button>
+            {writeEnabled ? (
+              <Button
+                type="button"
+                variant="outline"
+                className="h-8 px-2.5 py-0 text-xs border-red-300 text-red-800 hover:bg-red-50"
+                disabled={saving || deleting || archivoBusy}
+                aria-label="Eliminar Pagaré"
+                onClick={() => {
+                  setDeleteError(null);
+                  setSuccessMsg(null);
+                  setDeleteOpen(true);
+                }}
+              >
+                {deleting ? "Eliminando…" : "Eliminar"}
+              </Button>
+            ) : null}
           </>
         ) : null}
 
@@ -367,8 +415,8 @@ export function MesaPagareSection({
           <div className="w-full min-w-[14rem] max-w-md basis-full sm:basis-auto">
             <DocumentDropzone
               accept={CLIENTE_PAGARE_ACCEPT_ATTR}
-              busy={saving}
-              disabled={!writeEnabled || saving}
+              busy={saving || deleting}
+              disabled={!writeEnabled || saving || deleting}
               selectedFileName={selectedFile?.name ?? null}
               aria-label={documento ? "Reemplazar Pagaré" : "Subir Pagaré"}
               onFiles={handleDropzoneFiles}
@@ -407,6 +455,19 @@ export function MesaPagareSection({
           onConfirm={() => void handleConfirmUpload()}
         />
       ) : null}
+
+      <MesaDocumentoEliminarDialog
+        open={deleteOpen}
+        label="Pagaré"
+        deleting={deleting}
+        error={deleteError}
+        onClose={() => {
+          if (deleting) return;
+          setDeleteOpen(false);
+          setDeleteError(null);
+        }}
+        onConfirm={() => void handleConfirmDelete()}
+      />
 
       {preview ? (
         <MesaArchivoPreviewDialog

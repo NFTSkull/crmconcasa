@@ -21,6 +21,8 @@ export type MesaPagareUploadDialogProps = Readonly<{
   error: string | null;
   onClose: () => void;
   onConfirm: () => void;
+  /** Título del documento (default Pagaré). P136 reutiliza el diálogo para Apodaca. */
+  documentLabel?: string;
 }>;
 
 export function MesaPagareUploadDialog({
@@ -34,6 +36,7 @@ export function MesaPagareUploadDialog({
   error,
   onClose,
   onConfirm,
+  documentLabel = "Pagaré",
 }: MesaPagareUploadDialogProps) {
   const titleId = useId();
   const confirmRef = useRef<HTMLButtonElement>(null);
@@ -61,8 +64,8 @@ export function MesaPagareUploadDialog({
   if (!open) return null;
 
   const isReplace = mode === "replace";
-  const title = isReplace ? "Reemplazar Pagaré" : "Subir Pagaré";
-  const confirmLabel = isReplace ? "Reemplazar Pagaré" : "Subir Pagaré";
+  const title = isReplace ? `Reemplazar ${documentLabel}` : `Subir ${documentLabel}`;
+  const confirmLabel = isReplace ? `Reemplazar ${documentLabel}` : `Subir ${documentLabel}`;
 
   return (
     <div
@@ -86,9 +89,7 @@ export function MesaPagareUploadDialog({
         <div className="space-y-3 px-4 py-4 text-sm text-gray-700">
           {isReplace ? (
             <p>
-              Se cargará una nueva versión del Pagaré. La versión vigente anterior se
-              conservará en el historial documental interno y dejará de mostrarse como
-              documento activo.
+              El documento actual dejará de mostrarse y será reemplazado por la nueva versión.
             </p>
           ) : (
             <p>Se cargará este archivo al expediente:</p>

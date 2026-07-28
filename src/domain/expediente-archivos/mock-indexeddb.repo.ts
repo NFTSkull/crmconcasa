@@ -17,6 +17,7 @@ import {
   INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD,
   INTEGRATION_DOC_TIPOS_MESA_REGISTER,
 } from "./integration-docs-completos";
+import { MESA_TIPOS_DOCUMENTO_OPERATIVOS_MUTABLES } from "./mesa-documentos-operativos";
 import { validateExpedienteDocumentoFile } from "./upload-constraints";
 
 const DB_NAME = "concasa-crm-files";
@@ -352,6 +353,18 @@ export class MockExpedienteArchivosIndexedDbRepo implements ExpedienteArchivosRe
       uploaded_by_email: "mesa@mock",
       uploaded_by_role: "mesa_control",
     });
+  }
+
+  async deleteMesaDocumento(params: {
+    expedienteId: string;
+    tipo_documento: import("./mesa-documentos-operativos").MesaTipoDocumentoOperativoMutable;
+  }): Promise<void> {
+    if (typeof window === "undefined") return;
+    if (!(MESA_TIPOS_DOCUMENTO_OPERATIVOS_MUTABLES as readonly string[]).includes(params.tipo_documento)) {
+      throw new Error("tipo_documento no permitido para eliminar en Mesa");
+    }
+    const id = buildArchivoId(params.expedienteId, params.tipo_documento);
+    await this.deleteArchivo(id);
   }
 
   private assertAsesorUploadTipo(tipo: string): asserts tipo is (typeof INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD)[number] {
