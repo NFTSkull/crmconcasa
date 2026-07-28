@@ -2,7 +2,14 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { ClienteDatosFormShape } from "@/lib/clienteDatosFormCompleteness";
 import {
+  MSJ_DIGITS_ONLY,
+  MSJ_PERSON_NAME_INVALID,
+  filterDigitsInput,
+  filterPersonNameInput,
+  isValidPersonName,
   normalizeClienteDatosForSave,
+  normalizeDigitsOnly,
+  normalizePersonName,
   normalizeTelefonoMexico,
   validateClienteDatos,
 } from "@/lib/clienteDatosValidation";
@@ -36,7 +43,7 @@ const baseValid: ClienteDatosFormShape = {
     cp: "64000",
   },
   montoMejoravit: "150000",
-  plazo: "12 meses",
+  plazo: "12",
   porcentajeCobro: "10",
   montoCalculado: "10000",
   metodoPago: "transferencia",
@@ -266,4 +273,110 @@ test("validateClienteDatos: monto calculado se deriva con base fija", () => {
     }),
     18_000,
   );
+});
+
+// --- P133 field formats (casos 1–13) ---
+
+test("P133.1 isValidPersonName: José María válido", () => {
+  assert.equal(isValidPersonName("José María"), true);
+});
+
+test("P133.2 isValidPersonName: Muñoz válido", () => {
+  assert.equal(isValidPersonName("Muñoz"), true);
+});
+
+test("P133.3 isValidPersonName: Pérez-García válido", () => {
+  assert.equal(isValidPersonName("Pérez-García"), true);
+});
+
+test("P133.4 isValidPersonName: O'Connor válido", () => {
+  assert.equal(isValidPersonName("O'Connor"), true);
+  assert.equal(isValidPersonName("O’Connor"), true);
+});
+
+test("P133.5 isValidPersonName: Juan123 inválido", () => {
+  assert.equal(isValidPersonName("Juan123"), false);
+  const r = validateClienteDatos({ ...baseValid, nombreCliente: "Juan123" }, COBRO_CTX);
+  assert.equal(r.errors.nombreCliente, MSJ_PERSON_NAME_INVALID);
+});
+
+test("P133.6 isValidPersonName: emojis y símbolos inválidos", () => {
+  assert.equal(isValidPersonName("Juan😀"), false);
+  assert.equal(isValidPersonName("Juan@Pérez"), false);
+  assert.equal(filterPersonNameInput("Juan😀123"), "Juan");
+});
+
+test("P133.7 NSS conserva ceros iniciales", () => {
+  assert.equal(normalizeDigitsOnly("01234567890"), "01234567890");
+  const n = normalizeClienteDatosForSave({ ...baseValid, nss: "01234567890" });
+  assert.equal(n.nss, "01234567890");
+  const r = validateClienteDatos({ ...baseValid, nss: "01234567890" }, COBRO_CTX);
+  assert.equal(r.errors.nss, undefined);
+  assert.equal(r.isValid, true);
+});
+
+test("P133.8 teléfono rechaza letras (longitud tras digits-only)", () => {
+  const r = validateClienteDatos({ ...baseValid, celular: "81190abc64" }, COBRO_CTX);
+  assert.equal(r.errors.celular, "Celular debe tener 10 dígitos.");
+  assert.equal(filterDigitsInput("81a190b875c64", 15), "8119087564");
+});
+
+test("P133.9 CP rechaza símbolos", () => {
+  const r = validateClienteDatos(
+    {
+      ...baseValid,
+      direccionEmpresa: { ...baseValid.direccionEmpresa, cp: "64-00" },
+    },
+    COBRO_CTX,
+  );
+  // normalize quita no-dígitos → "6400" → longitud
+  assert.equal(r.errors.direccionCp, "CP debe tener 5 dígitos.");
+  assert.equal(filterDigitsInput("64#000", 5), "64000");
+});
+
+test("P133.10 RFC conserva contrato alfanumérico", () => {
+  const r = validateClienteDatos({ ...baseValid, rfc: "PEGJ850101ABC" }, COBRO_CTX);
+  assert.equal(r.errors.rfc, undefined);
+  const n = normalizeClienteDatosForSave({ ...baseValid, rfc: "pegj 850101abc" });
+  assert.equal(n.rfc, "PEGJ850101ABC");
+});
+
+test("P133.11 dirección acepta letras y números", () => {
+  const r = validateClienteDatos(
+    {
+      ...baseValid,
+      direccionEmpresa: {
+        calle: "Av. Principal 100-B",
+        colonia: "Centro 2",
+        municipio: "Monterrey",
+        cp: "64000",
+      },
+    },
+    COBRO_CTX,
+  );
+  assert.equal(r.errors.direccionCalle, undefined);
+  assert.equal(r.errors.direccionColonia, undefined);
+  assert.equal(r.isValid, true);
+});
+
+test("P133.12 montos conservan decimales", () => {
+  const r = validateClienteDatos(
+    { ...baseValid, montoMejoravit: "150000.50", montoCalculado: "18000.25", porcentajeCobro: "12.5" },
+    COBRO_CTX,
+  );
+  assert.equal(r.errors.montoMejoravit, undefined);
+  assert.equal(r.errors.montoCalculado, undefined);
+  assert.equal(r.isValid, true);
+});
+
+test("P133.13 pegado limpia caracteres inválidos en numéricos", () => {
+  assert.equal(filterDigitsInput("NSS: 01234-567-890", 11), "01234567890");
+  assert.equal(filterDigitsInput("tel +52 (81) 1908-7564", 15), "528119087564");
+  assert.equal(normalizePersonName("  José   María  "), "José María");
+  assert.equal(filterPersonNameInput("José María 123!"), "José María ");
+});
+
+test("P133 plazo con letras → MSJ_DIGITS_ONLY", () => {
+  const r = validateClienteDatos({ ...baseValid, plazo: "12 meses" }, COBRO_CTX);
+  assert.equal(r.errors.plazo, MSJ_DIGITS_ONLY);
 });

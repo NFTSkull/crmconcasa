@@ -3,7 +3,7 @@
 ## [Unreleased]
 
 ### Added
-- **feat/p132-notificacion-libera-firma:** mig. 118 — cierre Biometría `5→7`; primera Notificación (asesor/Mesa) avanza `7→9` y fija `firma_agendable_desde` (+5 hábiles Monterrey); gate en book/reagendar firmas; Acuse ya no avanza etapa.
+- **feat/p133-validacion-datos-generales:** helpers TS de formato (nombres Unicode / solo dígitos) + filtros en form asesor; mig. 119 assert en `save_cliente_datos` / corrección (sin CHECK ni backfill); tests TS/SQL focales.
 - **feat/p132-notificacion-libera-firma (FE):** copies/bulk 5→7; Acuse visible/pendiente en etapa ≥8/9+; picker firmas respeta `firma_agendable_desde`; upload Notificación asesor; timeline Acuse no completado si falta; docs/tests TS.
 
 ### Fixed

@@ -5,6 +5,23 @@ import {
   parseMontoCalculadoInput,
   parsePorcentajeCobroInput,
 } from "@/lib/clienteDatosCobro";
+import {
+  MSJ_DIGITS_ONLY,
+  MSJ_PERSON_NAME_INVALID,
+  isValidPersonName,
+  normalizeDigitsOnly,
+  normalizePersonName,
+} from "@/lib/clienteDatosFieldFormats";
+
+export {
+  MSJ_DIGITS_ONLY,
+  MSJ_PERSON_NAME_INVALID,
+  filterDigitsInput,
+  filterPersonNameInput,
+  isValidPersonName,
+  normalizeDigitsOnly,
+  normalizePersonName,
+} from "@/lib/clienteDatosFieldFormats";
 
 export const MSJ_DOMICILIO_REAL_OBLIGATORIO =
   "El domicilio real del cliente es obligatorio.";
@@ -91,19 +108,40 @@ function reqText(value: string, label: string): string | null {
   return String(value ?? "").trim() ? null : `${label} es obligatorio.`;
 }
 
-/** Mayúsculas en CURP/RFC para guardado y validación consistente. */
+/** Mayúsculas en CURP/RFC; nombres/dígitos normalizados (P133). */
 export function normalizeClienteDatosForSave(
   d: ClienteDatosFormShape,
 ): ClienteDatosFormShape {
+  const refs = (d.referencias ?? []).map((r) => ({
+    ...r,
+    nombre: normalizePersonName(String(r?.nombre ?? "")),
+    celular: normalizeTelefonoMexico(String(r?.celular ?? "")),
+  }));
   return {
     ...d,
+    nombreCliente: normalizePersonName(String(d.nombreCliente ?? "")),
+    nss: normalizeDigitsOnly(String(d.nss ?? "")),
     curp: String(d.curp ?? "").trim().toUpperCase(),
-    rfc: String(d.rfc ?? "").trim().toUpperCase(),
+    rfc: String(d.rfc ?? "").trim().toUpperCase().replace(/\s+/g, ""),
+    celular: normalizeTelefonoMexico(String(d.celular ?? "")),
+    telefonoEmpresa: normalizeTelefonoMexico(String(d.telefonoEmpresa ?? "")),
+    referencias: refs.length >= 2 ? refs : [
+      refs[0] ?? { nombre: "", celular: "" },
+      refs[1] ?? { nombre: "", celular: "" },
+    ],
+    beneficiario: {
+      nombre: normalizePersonName(String(d.beneficiario?.nombre ?? "")),
+      parentesco: normalizePersonName(String(d.beneficiario?.parentesco ?? "")),
+    },
+    direccionEmpresa: {
+      ...d.direccionEmpresa,
+      cp: normalizeDigitsOnly(String(d.direccionEmpresa?.cp ?? "")),
+    },
     porcentajeCobro: String(d.porcentajeCobro ?? "").trim(),
     montoCalculado: String(d.montoCalculado ?? "").trim(),
     metodoPago: String(d.metodoPago ?? "").trim().toLowerCase(),
     montoMejoravit: String(d.montoMejoravit ?? "").trim(),
-    plazo: String(d.plazo ?? "").trim(),
+    plazo: normalizeDigitsOnly(String(d.plazo ?? "")),
   };
 }
 
@@ -162,9 +200,16 @@ export function validateClienteDatos(
       }
     }
 
-    const plazo = String(data.plazo ?? "").trim();
-    if (!plazo) {
+    const plazoRaw = String(d.plazo ?? "").trim();
+    if (!plazoRaw) {
       setError(errors, "plazo", "El plazo es obligatorio.");
+    } else if (!/^\d+$/.test(plazoRaw)) {
+      setError(errors, "plazo", MSJ_DIGITS_ONLY);
+    }
+  } else {
+    const plazoRaw = String(d.plazo ?? "").trim();
+    if (plazoRaw && !/^\d+$/.test(plazoRaw)) {
+      setError(errors, "plazo", MSJ_DIGITS_ONLY);
     }
   }
 
@@ -228,7 +273,24 @@ export function validateClienteDatos(
     }
   }
 
-  if (!errors.nss && !/^\d{11}$/.test(data.nss.replace(/\D/g, ""))) {
+  const personNameFields: ReadonlyArray<{
+    key: ClienteDatosFieldKey;
+    raw: string;
+  }> = [
+    { key: "nombreCliente", raw: data.nombreCliente },
+    { key: "referencia1Nombre", raw: data.referencias[0]?.nombre ?? "" },
+    { key: "referencia2Nombre", raw: data.referencias[1]?.nombre ?? "" },
+    { key: "beneficiarioNombre", raw: data.beneficiario.nombre },
+    { key: "beneficiarioParentesco", raw: data.beneficiario.parentesco },
+  ];
+  for (const field of personNameFields) {
+    if (errors[field.key]) continue;
+    if (field.raw && !isValidPersonName(field.raw)) {
+      setError(errors, field.key, MSJ_PERSON_NAME_INVALID);
+    }
+  }
+
+  if (!errors.nss && !/^\d{11}$/.test(normalizeDigitsOnly(data.nss))) {
     setError(errors, "nss", "NSS debe tener 11 dígitos.");
   }
 
@@ -244,7 +306,7 @@ export function validateClienteDatos(
     setError(errors, "correo", "Correo no tiene formato válido.");
   }
 
-  if (!errors.direccionCp && !/^\d{5}$/.test(data.direccionEmpresa.cp.replace(/\D/g, ""))) {
+  if (!errors.direccionCp && !/^\d{5}$/.test(normalizeDigitsOnly(data.direccionEmpresa.cp))) {
     setError(errors, "direccionCp", "CP debe tener 5 dígitos.");
   }
 
