@@ -162,6 +162,13 @@ function formatDateTime(iso: string | null | undefined): string {
   }
 }
 
+function formatYmdDdMmYyyy(ymd: string | null | undefined): string | null {
+  const s = String(ymd ?? "").trim().slice(0, 10);
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+  if (!m) return null;
+  return `${m[3]}/${m[2]}/${m[1]}`;
+}
+
 function editorDecisionLabel(decision?: string | null): string {
   if (decision === "aprobado") return "Aprobado";
   if (decision === "no_cumple") return "No cumple";
@@ -1399,7 +1406,7 @@ export function MesaExpedienteDetalleReadOnly() {
     setAvance5a6Success(null);
     try {
       await expedientesRepo.avanzarEtapaOperativa(routeExpedienteId);
-      setAvance5a6Success("Expediente avanzado a etapa 7 (Notificación)");
+      setAvance5a6Success("Expediente avanzado a etapa 8 (Acuse / Aviso de retención)");
       load();
     } catch (err) {
       setAvance5a6Error(
@@ -1786,6 +1793,12 @@ export function MesaExpedienteDetalleReadOnly() {
               ? formatEtapaMesaLabel(op.etapaActual)
               : "—"}
           </p>
+          {formatYmdDdMmYyyy(op.firmaAgendableDesde) ? (
+            <p data-testid="mesa-firma-agendable-desde">
+              <span className="font-medium text-gray-900">Firma agendable desde:</span>{" "}
+              {formatYmdDdMmYyyy(op.firmaAgendableDesde)}
+            </p>
+          ) : null}
           <p>
             <span className="font-medium text-gray-900">Subestado:</span>{" "}
             {subestadoOperativoLabel(op.subestado ?? "pendiente")}

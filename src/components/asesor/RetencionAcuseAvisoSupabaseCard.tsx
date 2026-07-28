@@ -36,6 +36,8 @@ export interface RetencionAcuseAvisoSupabaseCardProps {
   archivosResumen: ExpedienteArchivoResumen[] | null;
   /** Etapa operativa canónica (8 envío / 9 confirmación post-envío). */
   etapaActual?: number | null;
+  /** P132-acuse: YYYY-MM-DD cuando ya hay firma_agendable_desde. */
+  firmaAgendableDesde?: string | null;
   /** Refetch canónico de documentos (y meta expediente). Debe rechazar si falla. */
   onUpdated: () => void | Promise<void>;
 }
@@ -51,13 +53,22 @@ function formatFechaEnvio(iso: string | undefined): string {
   }
 }
 
+function formatYmdDdMmYyyy(ymd: string | null | undefined): string | null {
+  const s = String(ymd ?? "").trim().slice(0, 10);
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+  if (!m) return null;
+  return `${m[3]}/${m[2]}/${m[1]}`;
+}
+
 export function RetencionAcuseAvisoSupabaseCard({
   expedienteId,
   archivosResumen,
   etapaActual = RETENCION_ETAPA_OPERATIVA_ID,
+  firmaAgendableDesde = null,
   onUpdated,
 }: RetencionAcuseAvisoSupabaseCardProps) {
   void etapaActual;
+  const firmaAgendableDesdeLabel = formatYmdDdMmYyyy(firmaAgendableDesde);
   const repo = useExpedienteRetencionSupabaseRepo();
   const [loadingMeta, setLoadingMeta] = useState(true);
   const [metaError, setMetaError] = useState<string | null>(null);
@@ -281,8 +292,9 @@ export function RetencionAcuseAvisoSupabaseCard({
       ) : null}
       <p className="mt-1 text-xs text-gray-600">
         Debes completar el Acuse / Aviso de retención (opción A o B y documento principal en PDF o
-        imagen JPG/PNG). No avanza la etapa automáticamente; la firma se agenda según
-        Notificación y la fecha agendable.
+        imagen JPG/PNG). Al subir el principal en etapa 8 el expediente avanza a Listo agendar
+        firma
+        {firmaAgendableDesdeLabel ? ` (agendable desde ${firmaAgendableDesdeLabel})` : ""}.
       </p>
 
       {loadingMeta ? (

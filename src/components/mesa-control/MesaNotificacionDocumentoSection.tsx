@@ -33,7 +33,7 @@ export type MesaNotificacionDocumentoSectionProps = Readonly<{
   etapaActual: number | null | undefined;
   puedeOperar: boolean;
   submittedToMesa?: boolean;
-  /** P132: tras upload refrescar etapa (puede avanzar 7→9). */
+  /** P132-acuse: tras upload refrescar expediente (sin avance automático). */
   onExpedienteUpdated?: () => void | Promise<void>;
 }>;
 

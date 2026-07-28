@@ -1586,6 +1586,7 @@ export default function AsesorExpedientePage() {
                 expedienteId={String(precal.id)}
                 archivosResumen={archivosResumen}
                 etapaActual={operativo?.etapaActual}
+                firmaAgendableDesde={operativo?.firmaAgendableDesde ?? null}
                 onUpdated={async () => {
                   await refreshArchivos();
                   await loadExpediente();

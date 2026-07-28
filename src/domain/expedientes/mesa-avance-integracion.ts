@@ -336,7 +336,7 @@ export function deriveAvanceOperativo4a5View(
   };
 }
 
-// —— P3N.1 / P132: avance operativo Mesa desde etapa 5 (RPC canónica 5→7) ——
+// —— P3N.1 / P132-acuse: avance operativo Mesa desde etapa 5 (RPC canónica 5→8) ——
 
 export type MesaAvanceOperativo5a6Context = MesaAvanceOperativoContext & {
   fechaCita?: string | null;
@@ -363,7 +363,7 @@ export function puedeMostrarAvanceOperativo5a6(ctx: MesaAvanceOperativo5a6Contex
   return ctx.subestado === "en_proceso";
 }
 
-/** Bloqueos alineados con `avanzar_etapa_operativa` transición 5→7 (P132; helpers 5a6). */
+/** Bloqueos alineados con `avanzar_etapa_operativa` transición 5→8 (P132-acuse; helpers 5a6). */
 export function deriveBloqueosAvanceOperativo5a6(
   ctx: MesaAvanceOperativo5a6Context,
 ): string[] {

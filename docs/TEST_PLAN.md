@@ -350,18 +350,18 @@
 
 ### B0 (contrato TS)
 
-- `cliente-notificacion-contract.test.ts`: tipo, label, etapa 7, MIME PDF/JPEG/PNG, máx. 15 728 640, independencia vs Pagaré; P132: `origen=Asesor|Mesa`, `esGateAvance=true`, allowlist upload asesor.
+- `cliente-notificacion-contract.test.ts`: tipo, label, etapa 7, MIME PDF/JPEG/PNG, máx. 15 728 640, independencia vs Pagaré; P132-acuse: `origen=Asesor|Mesa`, `esGateAvance=false`, allowlist upload asesor.
 
 ### B1 (SQL)
 
-- Migración `089_mesa_notificacion_documento_expediente.sql` (+ P132 mig. 118).
-- Suite SQL Notificación + `rpc_notificacion_libera_firma_p132.sql`.
+- Migración `089_mesa_notificacion_documento_expediente.sql` (+ P132 mig. 118 + **120 acuse libera firma**).
+- Suites: `rpc_acuse_libera_firma_p132.sql`, residual `rpc_notificacion_libera_firma_p132.sql`, rehabilita asserts P117 `rpc_register_retencion_p117.sql`.
 
-### B2 / P132 FE
+### B2 / P132-acuse FE
 
-- Mesa: `MesaNotificacionDocumentoSection` + refresh etapa tras upload.
-- Asesor: `AsesorNotificacionDocumentoSection` **con upload** desde etapa 7.
-- Cierre Biometría UI `5→7`; Acuse pendiente en 9+; `firma_agendable_desde` en picker; timeline Acuse no completado si falta en 9+.
+- Mesa: bio `5→8` (copy/bulk/bandeja); línea `Firma agendable desde` si campo presente.
+- Asesor: Acuse copy avance 8→9 + fecha; AgendaFirmas banner `Podrás agendar…`; Notificación sin copy «libera firma».
+- Timeline Acuse en 9 = completado si hay doc / pendiente si falta.
 
 ### Regresión
 

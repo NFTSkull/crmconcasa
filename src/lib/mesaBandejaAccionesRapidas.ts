@@ -40,8 +40,8 @@ export const MESA_SIGUIENTE_ETAPA_MAP: Readonly<Record<number, number>> = {
   1: 2,
   2: 3,
   4: 5,
-  /** P132: cierre Biometría canónico 5→7 (históricos en 6 siguen con 6→7). */
-  5: 7,
+  /** P132-acuse: cierre Biometría canónico 5→8 (históricos en 6 siguen con 6→7). */
+  5: 8,
   6: 7,
   7: 8,
   10: 11,

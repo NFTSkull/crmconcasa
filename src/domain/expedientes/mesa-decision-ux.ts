@@ -73,18 +73,18 @@ export const MESA_AVANCE_OPERATIVO_4A5_COPY: MesaAvanceOperativoCopy = {
   mostrarAvisoSinRechazo: true,
 };
 
-/** P132: cierre Biometría canónico 5→7 (Notificación). Export 5A6 conservado por imports. */
+/** P132-acuse: cierre Biometría canónico 5→8 (Acuse). Export 5A6/5A7 conservados por imports. */
 export const MESA_AVANCE_OPERATIVO_5A6_COPY: MesaAvanceOperativoCopy = {
   titulo: MESA_DECISION_TITULO_AVANCE,
   descripcion:
-    "La cita biométrica ya ocurrió. Confirma el avance a Notificación (etapa 7).",
+    "La cita biométrica ya ocurrió. Confirma el avance a Acuse / Aviso de retención (etapa 8).",
   etiquetaBoton: "Aceptar post-cita biométrica y avanzar",
   mensajeConfirmacion:
-    "¿Confirmas aceptar post-cita biométrica y avanzar este expediente a etapa 7: Notificación?",
+    "¿Confirmas aceptar post-cita biométrica y avanzar este expediente a etapa 8: Acuse / Aviso de retención?",
   mostrarAvisoSinRechazo: true,
 };
 
-/** Alias P132: misma copy que `MESA_AVANCE_OPERATIVO_5A6_COPY` (destino etapa 7). */
+/** Alias P132-acuse: misma copy que `MESA_AVANCE_OPERATIVO_5A6_COPY` (destino etapa 8). */
 export const MESA_AVANCE_OPERATIVO_5A7_COPY = MESA_AVANCE_OPERATIVO_5A6_COPY;
 
 export const MESA_AVANCE_OPERATIVO_6A7_COPY: MesaAvanceOperativoCopy = {

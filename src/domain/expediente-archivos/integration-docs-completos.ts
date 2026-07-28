@@ -114,10 +114,10 @@ export const CLIENTE_PAGARE_DOCUMENT_CONTRACT = Object.freeze({
 });
 
 /**
- * Contrato documento Notificación (P092 + P132).
+ * Contrato documento Notificación (P092 + P132-acuse).
  * Independiente de `CLIENTE_PAGARE_DOCUMENT_CONTRACT`. No usa el string `notificacion`.
  * Storage: `{orgId}/{expedienteId}/cliente_notificacion/{uuid}.{ext}` (bucket privado).
- * P132: primera carga válida en etapa 7 avanza 7→9 (`esGateAvance` conceptual); origen Asesor|Mesa.
+ * P132-acuse: carga/reemplazo Asesor|Mesa; ya no es gate de avance (Acuse libera firma).
  */
 export const CLIENTE_NOTIFICACION_DOCUMENT_CONTRACT = Object.freeze({
   tipo: CLIENTE_NOTIFICACION_DOCUMENT_TIPO,
@@ -132,8 +132,8 @@ export const CLIENTE_NOTIFICACION_DOCUMENT_CONTRACT = Object.freeze({
   maxBytes: 15 * 1024 * 1024,
   etapaMinima: 7,
   obligatorio: false,
-  /** P132: primera Notificación válida dispara avance 7→9 + firma_agendable_desde. */
-  esGateAvance: true,
+  /** P132-acuse: Notificación no dispara avance ni firma_agendable_desde. */
+  esGateAvance: false,
 });
 
 /**

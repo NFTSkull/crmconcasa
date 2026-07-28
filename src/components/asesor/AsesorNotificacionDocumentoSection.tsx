@@ -172,9 +172,7 @@ export function AsesorNotificacionDocumentoSection({
           uploaded_by_role: "asesor",
           uploaded_by_email: "",
         });
-        setSuccessMsg(
-          "Notificación cargada. Si el expediente estaba en etapa 7, puede avanzar a agenda de firma.",
-        );
+        setSuccessMsg("Notificación cargada correctamente.");
       }
       await load();
       await onExpedienteUpdated?.();
@@ -216,8 +214,8 @@ export function AsesorNotificacionDocumentoSection({
       </div>
 
       <p className="mt-1 text-xs text-gray-600">
-        Puedes cargar o reemplazar el Notificación (PDF/JPG/PNG). La primera carga válida en
-        etapa 7 libera la agenda de firma (+5 días hábiles Monterrey).
+        Puedes cargar o reemplazar el Notificación (PDF/JPG/PNG). No avanza etapa ni libera la
+        agenda de firma.
       </p>
 
       {loading ? (
