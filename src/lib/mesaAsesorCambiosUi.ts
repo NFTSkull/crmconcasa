@@ -137,6 +137,38 @@ export const MESA_ASESOR_CAMBIOS_MOTIVO_NO_DISPONIBLE =
 export const MESA_ASESOR_CAMBIOS_ABRIR_EXPEDIENTE_CTA =
   "Abrir expediente para revisar";
 
+/** Lote P130 congelado sin filas (p. ej. guardado sin diffs). No es histórico P130.2. */
+export const MESA_ASESOR_CAMBIOS_LOTE_VACIO_TITULO =
+  "Corrección enviada sin cambios detectables";
+
+export const MESA_ASESOR_CAMBIOS_LOTE_VACIO_AVISO =
+  "El asesor reenvió el expediente sin cambios detectables.";
+
+/**
+ * Única regla compartida: hay detalle revisable solo con lote y count > 0.
+ * Un lote vacío no debe mostrar «Revisar cambios».
+ */
+export function hasAdvisorChangeDetails(params: {
+  advisorChangeBatchId?: string | null;
+  advisorChangesCount?: number | null;
+}): boolean {
+  return (
+    Boolean(params.advisorChangeBatchId) &&
+    (params.advisorChangesCount ?? 0) > 0
+  );
+}
+
+/** Lote presente pero sin filas de cambio (no histórico sin lote). */
+export function esLoteAsesorCambiosVacio(params: {
+  advisorChangeBatchId?: string | null;
+  advisorChangesCount?: number | null;
+}): boolean {
+  return (
+    Boolean(params.advisorChangeBatchId) &&
+    (params.advisorChangesCount ?? 0) <= 0
+  );
+}
+
 /** Solicitud Mesa canónica (docs vía documento_revisiones) para tarjeta histórica. */
 export type MesaCorreccionSolicitudHistorica = Readonly<{
   correctionRequestedReason: string | null;

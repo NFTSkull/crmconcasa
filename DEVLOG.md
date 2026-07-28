@@ -1,5 +1,13 @@
 # Devlog
 
+## 2026-07-28 - Fix P130 lotes vacíos + hook register_documento
+
+Caso: post-Mesa reemplazo `cliente_estado_cuenta` vía `register_expediente_documento` (sin hook P130) + `save_cliente_datos_correccion` sin diffs → `asesor_cambio_record_cliente_datos_diff` hacía ensure+freeze siempre → lote `pendiente_revision` con 0 filas; UI «Cambios · 0» + Revisar cambios.
+
+FE: regla `hasAdvisorChangeDetails` (batchId && count>0); lote vacío ≠ histórico P130.2 (copy propio + Abrir expediente, sin deep-link); panel detalle no monta con 0 cambios.
+
+SQL 117: `asesor_cambio_freeze_lote` no congela si 0 filas (borra borrador vacío); `register_expediente_documento_pre_reingreso` llama `asesor_cambio_record_doc_reemplazo` en reemplazo post-Mesa. Reutiliza helper; no segunda implementación de diff. Sin backfill de diffs históricos. P129/etapas/citas/Super Admin intactos.
+
 ## 2026-07-24 - P131 sede canónica Notificación (Citas Mesa)
 
 Auditoría Cloud: 8 booked notif; 1 válida; 0 legacy recuperable; 7 con NULL/`notificacion` → manual. Futuros ya cubiertos por mig. 107. Nueva 116: backfill solo legacy estructurado + RPC `mesa_set_notificacion_booking_location` (roles Mesa; muta solo `location_id`+`updated_at`; action_log). UI única `MesaAgendaNotificacionSedeCell` en Lista/Día/Semana: canónica → label; inválida → Asignar sede (sin default). Excel sin cambio de formato.

@@ -745,7 +745,7 @@ No escribe `action_log` ni muta `expedientes`. UI badge verde; Visto/Actualizado
 | `mesa_get_asesor_cambio_lote(p_expediente_id)` | Detalle; `{ ok, lote, changes[] }` |
 | `mesa_marcar_asesor_cambios_revisados(p_lote_id)` | Idempotente; roles Mesa/`super_admin`; no avanza etapa ni valida docs |
 
-Captura en la misma TX de `register_expediente_documento_correccion` / `save_cliente_datos_correccion`. UI: enrich `advisorChanges*`; panel `mesa-asesor-cambios`; focus `asesor-cambios`.
+Captura en la misma TX de `register_expediente_documento_correccion` / `save_cliente_datos_correccion`. **Fix lotes vacíos (mig. 117):** `asesor_cambio_freeze_lote` no congela sin filas (borra borrador vacío); `register_expediente_documento` (vía `…_pre_reingreso`) registra reemplazo post-Mesa con el mismo helper `asesor_cambio_record_doc_reemplazo`. UI: `hasAdvisorChangeDetails` (batchId && count>0) — sin «Revisar cambios» si count=0; enrich `advisorChanges*`; panel `mesa-asesor-cambios`; focus `asesor-cambios`.
 
 ---
 
