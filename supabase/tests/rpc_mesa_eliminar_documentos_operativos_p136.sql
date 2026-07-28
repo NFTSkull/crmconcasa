@@ -71,6 +71,11 @@ BEGIN
   PERFORM public.__p136_assert(position('mesa_eliminar' in v_src) > 0, 'action log mesa_eliminar');
   PERFORM public.__p136_assert(position('already_absent' in v_src) > 0, 'idempotente');
   PERFORM public.__p136_assert(
+    position('v_actor_role public.app_role' in v_src) > 0
+      OR position('v_actor_role app_role' in v_src) > 0,
+    'actor_role tipado app_role (fix log_action)'
+  );
+  PERFORM public.__p136_assert(
     position('https://' in lower(v_src)) = 0,
     'sin urls https en payload builder'
   );
