@@ -105,7 +105,7 @@ ConCasa CRM gestiona el ciclo operativo de precalificaciones / expedientes hipot
 | **B — sin sello** | Único obligatorio: Carta sin sello (`retencion_carta_sin_sello`). |
 
 1. Asesor elige A/B y sube el documento principal (`subido`/`resubido`; PDF/JPEG/PNG, máx. 15 MiB).
-2. **P117:** al subir el principal en etapa 8, `register_expediente_documento_retencion` registra el doc **y** avanza atómicamente **8→9** (también marca envío retención). `enviar_retencion_mesa` sigue disponible para reenvíos/idempotencia.
+2. **P117 / P132-acuse:** al subir el principal en etapa 8, `register_expediente_documento_retencion` registra el doc **y** avanza atómicamente **8→9** (también marca envío retención) y fija `firma_agendable_desde` solo si NULL (+5 días hábiles Monterrey). Reemplazo en 9+ no re-avanza ni reinicia fecha. `enviar_retencion_mesa` sigue disponible para reenvíos/idempotencia.
 3. Mesa **no** valida ni rechaza el Acuse para este flujo; consulta en lectura y agenda firma en etapa 9.
 4. El documento **no** se marca como `validado` por el envío; puede permanecer `subido`/`resubido`/`validado`.
 5. **No** se crea booking ni `fecha_cita` al subir/enviar.
@@ -239,7 +239,7 @@ La sección Datos Generales y el JSON `datos.montoMejoravit` **no** se modifican
 
 **Pagaré (P090 B4 UI):** tipo `cliente_pagare`; desde `etapa_actual >= 7`; no es gate; PDF/JPG/JPEG/PNG ≤ 15 MB; un vigente versionado; Mesa puede subir/reemplazar/ver/descargar; asesor RO ver/descargar; sin herencia en reingresos; no aparece en complementarios UI.
 
-**Notificación documento (P092 + P132):** tipo `cliente_notificacion`. Distinto de `agenda_bookings.kind = 'notificacion'`. Etapa ≥ 7; Mesa **o** asesor cargan/reemplazan; PDF/JPEG/PNG ≤ 15 MiB; no obligatorio; **gate** primera carga 7→9 + `firma_agendable_desde`. Sección dedicada. Cierre Biometría Mesa canónico `5→7`. Acuse no bloquea firma ni avanza etapa.
+**Notificación documento (P092 + P132-acuse):** tipo `cliente_notificacion`. Distinto de `agenda_bookings.kind = 'notificacion'`. Etapa ≥ 7; Mesa **o** asesor cargan/reemplazan; PDF/JPEG/PNG ≤ 15 MiB; no obligatorio; **sin** gate de avance. Sección dedicada. Cierre Biometría Mesa canónico `5→8` (Acuse). Acuse principal en 8 → `8→9` + `firma_agendable_desde`.
 
 ### UI B2 (local)
 
@@ -268,12 +268,12 @@ La sección Datos Generales y el JSON `datos.montoMejoravit` **no** se modifican
 
 - Tipo técnico: `cliente_notificacion` (label: Notificación). **Nunca** usar `notificacion` como tipo de documento.
 - Disponible desde `etapa_actual >= 7`.
-- **Mesa:** acordeón «Notificación»; subir/reemplazar; tras upload refresca etapa (puede pasar a 9).
-- **Asesor:** `AsesorNotificacionDocumentoSection` con upload/reemplazo vía `register_expediente_documento` (P132).
-- **P132 gate:** primera Notificación válida en etapa 7 → avanza a 9 y fija `firma_agendable_desde` (+5 hábiles Monterrey). Picker de firmas no ofrece fechas anteriores.
-- **P132 Acuse:** panel retención visible en etapa ≥ 8; pendiente en 9+ si falta Acuse; no bloquea book/reagendar.
-- **P132 Biometría:** Mesa cierra con transición canónica `5→7` (UI 6→7 solo históricos).
-- MIME/path/versionado: igual que P092; contrato TS `esGateAvance: true`, origen `Asesor|Mesa`.
+- **Mesa:** acordeón «Notificación»; subir/reemplazar; sin avance de etapa.
+- **Asesor:** `AsesorNotificacionDocumentoSection` con upload/reemplazo vía `register_expediente_documento`.
+- **P132-acuse gate:** Acuse principal en etapa 8 → avanza a 9 y fija `firma_agendable_desde` (+5 hábiles Monterrey). Picker de firmas no ofrece fechas anteriores.
+- **P132 Acuse UI:** panel retención visible en etapa ≥ 8; en 9+ timeline completado si hay doc / pendiente si falta; no bloquea book/reagendar.
+- **P132 Biometría:** Mesa cierra con transición canónica `5→8` (UI 6→7 solo históricos).
+- MIME/path/versionado: igual que P092; contrato TS `esGateAvance: false`, origen `Asesor|Mesa`.
 - Fuera de checklist integración UI; sección dedicada.
 
 ---

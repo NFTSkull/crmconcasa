@@ -176,31 +176,31 @@ Convenciones:
 - Contrato TS: `CLIENTE_PAGARE_DOCUMENT_CONTRACT`. Allowlist UI complementarios **sin** `cliente_pagare` (evita duplicado); registro SQL en `INTEGRATION_DOC_TIPOS_MESA_REGISTER`.
 - No modifica etapa, monto, cobro ni Datos Generales. Sin notificaciones.
 
-### 3quater. Notificación documento (`cliente_notificacion`) — P092 + P132
+### 3quater. Notificación documento (`cliente_notificacion`) — P092 + P132-acuse
 
 **Separación:** `cliente_notificacion` = documento de expediente. `notificacion` = `agenda_bookings.kind` (agenda/P070) — **no** reutilizar como tipo documental.
 
-**RPC:** `register_mesa_documento` (Mesa) y `register_expediente_documento` (asesor, P132). Migración `089` + `118`.
+**RPC:** `register_mesa_documento` (Mesa) y `register_expediente_documento` (asesor). Migración `089` + `118` + `120`.
 
 | Regla | Valor |
 |-------|--------|
-| Roles escritura | Mesa (`register_mesa_documento`) **o** asesor dueño (`register_expediente_documento`, P132) |
+| Roles escritura | Mesa (`register_mesa_documento`) **o** asesor dueño (`register_expediente_documento`) |
 | Etapa mínima | `etapa_actual >= 7` |
 | Error etapa | `El documento Notificación solo puede cargarse después de concluir la inscripción.` |
 | MIME | `application/pdf`, `image/jpeg`, `image/png` |
 | Tamaño | ≤ 15 728 640 bytes |
 | Path | `{org}/{expediente}/cliente_notificacion/{uuid}.{ext}` |
-| Gate avance | **Sí (P132):** primera carga válida en etapa 7 → `7→9` + `firma_agendable_desde` (+5 hábiles Monterrey) |
+| Gate avance | **No (P132-acuse):** carga/reemplazo sin `7→9`; `expediente_apply_notificacion_7_9` es stub no-op |
 | Obligatorio | **No** |
-| Origen contrato TS | `Asesor\|Mesa`; `esGateAvance: true` |
+| Origen contrato TS | `Asesor\|Mesa`; `esGateAvance: false` |
 
 **UI:**
 
-- Mesa: `MesaNotificacionDocumentoSection` — tras upload refresca etapa.
-- Asesor: `AsesorNotificacionDocumentoSection` upload/reemplazo desde etapa 7 (ya no solo RO).
+- Mesa: `MesaNotificacionDocumentoSection` — upload sin avance.
+- Asesor: `AsesorNotificacionDocumentoSection` upload/reemplazo desde etapa 7.
 - Contrato: `CLIENTE_NOTIFICACION_DOCUMENT_CONTRACT`. Fuera de checklist integración UI; en allowlist upload asesor.
 
-**P132 adicional:** cierre Biometría Mesa `5→7` (una transición); Acuse ya no avanza etapa; panel retención visible `etapa >= 8`; picker firmas respeta `firma_agendable_desde`.
+**P132-acuse:** cierre Biometría Mesa `5→8`; Acuse principal en etapa 8 → `8→9` + `firma_agendable_desde` (si NULL); gate firmas SQL intacto; picker/minDate respetan la fecha.
 
 Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 
@@ -560,14 +560,14 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 - Reintento con expediente ya en etapa 9 + bloque enviado: respuesta idempotente (`idempotent: true`), sin avanzar a 10.
 - Bloquea cambio opción A/B mientras `estado = enviado` (corrección libera).
 
-### UI asesor (P079 + P132)
+### UI asesor (P079 + P132-acuse)
 
 - Panel `RetencionAcuseAvisoSupabaseCard` si `DATA_MODE=supabase`, `etapa_actual >= 8`, `submitted_to_mesa`.
-- Acuse **no** avanza etapa (P132); copy exige completar Acuse; badge `Acuse pendiente de subir` si falta.
-- En agenda firma (etapa ≥ 9) aviso no bloqueante si falta Acuse + enlace al panel retención.
-- Upload: Storage + `register_expediente_documento_retencion` (sin avance 8→9).
-- `enviar_retencion_mesa` ya no avanza etapa (históricos 8→9 vía `avanzar_etapa_operativa`).
-- Sin validación Mesa del Acuse; firma agendable tras Notificación + `firma_agendable_desde`.
+- Acuse principal en etapa 8 avanza atómicamente a 9 y fija `firma_agendable_desde` (si NULL; +5 hábiles Monterrey); copy muestra fecha cuando existe.
+- En agenda firma (etapa ≥ 9) aviso no bloqueante si falta Acuse + enlace al panel retención; banner `Podrás agendar la firma a partir del DD/MM/YYYY`.
+- Upload: Storage + `register_expediente_documento_retencion` (avance 8→9 solo etapa exacta 8).
+- `enviar_retencion_mesa` no avanza etapa (reenvíos/idempotencia).
+- Sin validación Mesa del Acuse; gate SQL `agenda_firmas_assert_agendable_desde` en book/reagendar.
 
 ---
 

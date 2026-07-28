@@ -31,9 +31,9 @@ describe("mesa-decision-ux copy P3R.0", () => {
     assert.match(MESA_AVANCE_OPERATIVO_9A10_COPY.etiquetaBoton, /Aceptar cita de firma/);
   });
 
-  it("P132 cierre Biometría 5→7 apunta a Notificación", () => {
-    assert.match(MESA_AVANCE_OPERATIVO_5A6_COPY.descripcion, /Notificación \(etapa 7\)/);
-    assert.match(MESA_AVANCE_OPERATIVO_5A6_COPY.mensajeConfirmacion, /etapa 7/);
+  it("P132-acuse cierre Biometría 5→8 apunta a Acuse", () => {
+    assert.match(MESA_AVANCE_OPERATIVO_5A6_COPY.descripcion, /Acuse \/ Aviso de retención \(etapa 8\)/);
+    assert.match(MESA_AVANCE_OPERATIVO_5A6_COPY.mensajeConfirmacion, /etapa 8/);
     assert.equal(MESA_AVANCE_OPERATIVO_5A6_COPY.mostrarAvisoSinRechazo, true);
   });
 

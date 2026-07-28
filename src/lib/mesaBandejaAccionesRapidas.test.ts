@@ -17,11 +17,11 @@ const mesaRole = "mesa_interno";
 const expId = "00000000-0000-4000-9119-000000000099";
 
 describe("mesaBandejaAccionesRapidas P119.3/P119.4", () => {
-  it("mapa avanzar sin 3, 8, 9; con 11→12; P132 5→7", () => {
+  it("mapa avanzar sin 3, 8, 9; con 11→12; P132-acuse 5→8", () => {
     assert.equal(MESA_SIGUIENTE_ETAPA_MAP[1], 2);
     assert.equal(MESA_SIGUIENTE_ETAPA_MAP[3], undefined);
     assert.equal(MESA_SIGUIENTE_ETAPA_MAP[4], 5);
-    assert.equal(MESA_SIGUIENTE_ETAPA_MAP[5], 7);
+    assert.equal(MESA_SIGUIENTE_ETAPA_MAP[5], 8);
     assert.equal(MESA_SIGUIENTE_ETAPA_MAP[6], 7);
     assert.equal(MESA_SIGUIENTE_ETAPA_MAP[8], undefined);
     assert.equal(MESA_SIGUIENTE_ETAPA_MAP[9], undefined);

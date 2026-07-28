@@ -117,7 +117,7 @@ test("Avance — biométricos 4→5", () => {
   assert.deepEqual(r.transition, { fromStage: 4, toStage: 5, kind: "biometricos" });
 });
 
-test("Avance — biométricos 5→7 con cita ocurrida", () => {
+test("Avance — biométricos 5→8 con cita ocurrida", () => {
   const r = getBulkAdvanceEligibility(
     entry({
       bookingId: "b1",
@@ -131,7 +131,7 @@ test("Avance — biométricos 5→7 con cita ocurrida", () => {
     NOW,
   );
   assert.equal(r.eligible, true);
-  assert.deepEqual(r.transition, { fromStage: 5, toStage: 7, kind: "biometricos" });
+  assert.deepEqual(r.transition, { fromStage: 5, toStage: 8, kind: "biometricos" });
 });
 
 test("Avance — biométricos 5 sin cita ocurrida", () => {
@@ -512,7 +512,7 @@ test("planBulkStageAdvance — Drive pendiente no bloquea", () => {
   assert.equal(plan.eligibleExpedientes, 1);
 });
 
-test("planBulkStageAdvance — 5→7 antes de cita no elegible", () => {
+test("planBulkStageAdvance — 5→8 antes de cita no elegible", () => {
   const rows = [
     entry({
       bookingId: "b1",

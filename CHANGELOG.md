@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Changed
+- **feat/p132-acuse-libera-firma:** Acuse principal en etapa 8 → `8→9` + `firma_agendable_desde` (si NULL, +5 hábiles Monterrey); Bio Mesa `5→8`; Notificación sin avance 7→9 (stub); gate firmas SQL intacto; FE copies/banners/timeline; mig. 120.
+
 ### Added
 - **feat/p133-validacion-datos-generales:** helpers TS de formato (nombres Unicode / solo dígitos) + filtros en form asesor; mig. 119 assert en `save_cliente_datos` / corrección (sin CHECK ni backfill); tests TS/SQL focales.
 - **feat/p132-notificacion-libera-firma (FE):** copies/bulk 5→7; Acuse visible/pendiente en etapa ≥8/9+; picker firmas respeta `firma_agendable_desde`; upload Notificación asesor; timeline Acuse no completado si falta; docs/tests TS.

@@ -155,6 +155,23 @@ export function AgendaFirmasSupabaseCard({
     return maxYmdDate(todayYmdInTimezone(tz), firmaAgendableDesde);
   }, [config?.timezone, firmaAgendableDesde]);
 
+  const firmaAgendableDesdeLabel = useMemo(() => {
+    const s = String(firmaAgendableDesde ?? "").trim().slice(0, 10);
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+    if (!m) return null;
+    return `${m[3]}/${m[2]}/${m[1]}`;
+  }, [firmaAgendableDesde]);
+
+  const firmaAgendableBanner =
+    firmaAgendableDesdeLabel != null ? (
+      <div
+        role="status"
+        className="mt-3 rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-950"
+      >
+        Podrás agendar la firma a partir del {firmaAgendableDesdeLabel}.
+      </div>
+    ) : null;
+
   const showAcusePendienteAviso =
     acusePendienteSubir && typeof etapaActual === "number" && etapaActual >= 9;
 
@@ -472,6 +489,7 @@ export function AgendaFirmasSupabaseCard({
       <p className="text-sm font-semibold text-gray-900">{title}</p>
       <p className="mt-1 text-[11px] leading-snug text-gray-600">{subtitle}</p>
 
+      {firmaAgendableBanner}
       {acusePendienteBanner}
 
       {!config || !config.enabled || advisorSedeOptions.length === 0 ? (
@@ -596,6 +614,7 @@ export function AgendaFirmasSupabaseCard({
     return (
       <div className="space-y-3">
         <AsesorAgendaDecisionNotice expedienteId={expedienteId} kinds={["firmas"]} />
+        {firmaAgendableBanner}
         {acusePendienteBanner}
       <div className="rounded-xl border border-violet-200 bg-violet-50/60 p-4 shadow-sm">
         <p className="text-sm font-semibold text-violet-900">Cita de firmas agendada</p>

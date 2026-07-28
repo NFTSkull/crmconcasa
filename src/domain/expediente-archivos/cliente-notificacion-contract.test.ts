@@ -28,7 +28,7 @@ describe("contrato preparatorio Notificación documento (P092 B0)", () => {
     assert.equal(CLIENTE_NOTIFICACION_DOCUMENT_CONTRACT.origen, "Asesor|Mesa");
     assert.equal(CLIENTE_NOTIFICACION_DOCUMENT_CONTRACT.etapaMinima, 7);
     assert.equal(CLIENTE_NOTIFICACION_DOCUMENT_CONTRACT.obligatorio, false);
-    assert.equal(CLIENTE_NOTIFICACION_DOCUMENT_CONTRACT.esGateAvance, true);
+    assert.equal(CLIENTE_NOTIFICACION_DOCUMENT_CONTRACT.esGateAvance, false);
     assert.equal(CLIENTE_NOTIFICACION_DOCUMENT_CONTRACT.maxBytes, 15_728_640);
     assert.equal(CLIENTE_NOTIFICACION_DOCUMENT_CONTRACT.maxBytes, 15 * 1024 * 1024);
     assert.deepEqual([...CLIENTE_NOTIFICACION_DOCUMENT_CONTRACT.mimePermitidos], [
