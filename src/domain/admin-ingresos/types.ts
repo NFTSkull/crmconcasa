@@ -76,6 +76,15 @@ export const ingresosResumenSchema = z.object({
       }),
     )
     .default([]),
+  por_paso_visual: z
+    .array(
+      z.object({
+        paso_visual: z.coerce.number().int(),
+        expedientes: z.coerce.number().int(),
+        ingreso_proyectado: num,
+      }),
+    )
+    .default([]),
   tendencia: z
     .array(
       z.object({
@@ -100,6 +109,7 @@ export const ingresosDetalleItemSchema = z.object({
   paso_visual: z.coerce.number().int().nullable().optional(),
   subestado: z.string().nullable().optional(),
   ciclo_estado: z.string().nullable().optional(),
+  fecha_envio_mesa: z.string().nullable().optional(),
   bio_aprobacion_at: z.string().nullable().optional(),
   pago_concasa_at: z.string().nullable().optional(),
   monto_general: num.nullable().optional(),
@@ -124,13 +134,22 @@ export const ingresosPageSchema = z.object({
 export type IngresosPage = z.infer<typeof ingresosPageSchema>;
 export type IngresosDetalleItem = z.infer<typeof ingresosDetalleItemSchema>;
 
+export const ingresosStageScopeSchema = z.enum([
+  "all_submitted",
+  "from_step",
+  "exact_step",
+]);
+
+export type IngresosStageScope = z.infer<typeof ingresosStageScopeSchema>;
+
 export type IngresosFilters = Readonly<{
   fechaDesde: string | null;
   fechaHasta: string | null;
   asesorIds: readonly string[];
   montoFuente: "todas" | "mesa_actualizado" | "datos_generales";
   porcentajes: readonly number[];
-  pasosVisuales: readonly number[];
+  stageScope: IngresosStageScope;
+  visibleStep: number | null;
   estado: IngresosEstadoFiltro;
   buscar: string;
 }>;

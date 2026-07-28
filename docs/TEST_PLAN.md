@@ -84,10 +84,18 @@
 - [x] Resumen compacto Producción muestra Notificación cuando n>0; categorías Paty suman 31.
 - [x] SQL focal + tests TS compacto; mig. 122.
 
+## P137 — Ingresos: proyección por envío a Mesa + alcance de etapa
+
+- [x] Universo proyectado = enviados a Mesa con monto/% (sin gate bio); incompletos aparte.
+- [x] Alcance `all_submitted` / `from_step` / `exact_step` + mapeo visible→interna; filtros AND server-side.
+- [x] Fechas: proyectado `fecha_envio_mesa`; real `reconocido_at`; UI Restablecer filtros + resumen de alcance.
+- [x] Snapshot `11→12` / helper bio / citas / docs / métricas fuera de Ingresos intactos.
+- [x] SQL focal P137 + regresiones P134/P135; tests TS filters/stage-map.
+
 ## P134 — Ingresos Super Admin
 
 - [x] Fórmula `monto × % / 100` (prioridad Mesa actualizado > Datos Generales; sin tope 169k).
-- [x] Elegibilidad por evidencia canónica bio; rechazo activo/cancelado excluidos; incompletos alertados.
+- [x] Elegibilidad por evidencia canónica bio; rechazo activo/cancelado excluidos; incompletos alertados. *(P137 amplia el universo a envío Mesa.)*
 - [x] Snapshot real en `11→12` (idempotente); backfill estimado etapa 12 solo con evidencia.
 - [x] RPCs resumen + detalle paginado; UI sección Ingresos; loading/error propios.
 - [x] Regresión: producción Admin / citas / docs / quick actions intactos.

@@ -75,4 +75,4 @@ export const INGRESOS_HISTORICO_ESTIMADO_TOOLTIP =
   "Calculado con los valores disponibles al habilitar este módulo; no existía un snapshot histórico.";
 
 export const INGRESOS_FECHA_EXPLICACION =
-  "La proyección se agrupa por aprobación biométrica y el ingreso real por la fecha de Pago a ConCasa.";
+  "La proyección se agrupa por fecha de envío a Mesa. El ingreso real se agrupa por la fecha de Pago a ConCasa.";

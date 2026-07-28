@@ -7,22 +7,25 @@ import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { formatMontoMX } from "@/lib/monto";
 import { formatDateTimeMx } from "@/lib/filters";
-import {
-  ADMIN_REPORT_PASO_OPTIONS,
-} from "@/domain/admin-report-asesores-etapas";
+import { ADMIN_REPORT_PASO_OPTIONS } from "@/domain/admin-report-asesores-etapas";
 import {
   AdminIngresosError,
   INGRESOS_FECHA_EXPLICACION,
   INGRESOS_HISTORICO_ESTIMADO_TOOLTIP,
   INGRESOS_TOPE_TOOLTIP,
+  buildIngresosAlcanceSummary,
   fetchIngresosPage,
   fetchIngresosResumen,
+  isIngresosFilterUiDefault,
+  resetIngresosFilterUi,
   resolveIngresosPeriodBounds,
   type IngresosDetalleItem,
   type IngresosEstadoFiltro,
+  type IngresosFilterUiState,
   type IngresosFilters,
   type IngresosPeriodPreset,
   type IngresosResumen,
+  type IngresosStageScope,
 } from "@/domain/admin-ingresos";
 
 type AsesorOption = Readonly<{ id: string; nombre: string }>;
@@ -41,6 +44,15 @@ const ESTADO_OPTIONS: ReadonlyArray<{ value: IngresosEstadoFiltro; label: string
   { value: "elegibles", label: "Todos elegibles" },
   { value: "pendientes", label: "Pendientes por cobrar" },
   { value: "pagados", label: "Pagados" },
+];
+
+const STAGE_SCOPE_OPTIONS: ReadonlyArray<{
+  value: IngresosStageScope;
+  label: string;
+}> = [
+  { value: "all_submitted", label: "Todos los enviados" },
+  { value: "from_step", label: "A partir de una etapa" },
+  { value: "exact_step", label: "Solo una etapa" },
 ];
 
 function KpiCard({
@@ -70,6 +82,26 @@ function fuenteLabel(f: string | null | undefined): string {
   return "—";
 }
 
+function filtersFromUi(ui: IngresosFilterUiState): IngresosFilters {
+  const bounds = resolveIngresosPeriodBounds({
+    preset: ui.preset,
+    customFrom: ui.customFrom,
+    customTo: ui.customTo,
+  });
+  return {
+    fechaDesde: bounds.fechaDesde,
+    fechaHasta: bounds.fechaHasta,
+    asesorIds: ui.selectedAsesorIds,
+    montoFuente: ui.montoFuente,
+    porcentajes: ui.porcentajes,
+    stageScope: ui.stageScope,
+    visibleStep:
+      ui.stageScope === "all_submitted" ? null : ui.visibleStep,
+    estado: ui.estado,
+    buscar: ui.buscar,
+  };
+}
+
 export function AdminIngresosSection({
   asesorOptions,
 }: {
@@ -77,18 +109,9 @@ export function AdminIngresosSection({
 }) {
   const panelId = useId();
   const [panelOpen, setPanelOpen] = useState(false);
-
-  const [preset, setPreset] = useState<IngresosPeriodPreset>("mes_actual");
-  const [customFrom, setCustomFrom] = useState("");
-  const [customTo, setCustomTo] = useState("");
-  const [selectedAsesorIds, setSelectedAsesorIds] = useState<readonly string[]>([]);
-  const [selectedPasos, setSelectedPasos] = useState<readonly number[]>([]);
-  const [montoFuente, setMontoFuente] = useState<
-    IngresosFilters["montoFuente"]
-  >("todas");
-  const [estado, setEstado] = useState<IngresosEstadoFiltro>("elegibles");
-  const [buscar, setBuscar] = useState("");
-  const [page, setPage] = useState(1);
+  const [ui, setUi] = useState<IngresosFilterUiState>(() =>
+    resetIngresosFilterUi(),
+  );
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -97,43 +120,56 @@ export function AdminIngresosSection({
   const [total, setTotal] = useState(0);
   const [pageSize] = useState(25);
 
-  const filters: IngresosFilters = useMemo(() => {
-    const bounds = resolveIngresosPeriodBounds({
-      preset,
-      customFrom,
-      customTo,
-    });
-    return {
-      fechaDesde: bounds.fechaDesde,
-      fechaHasta: bounds.fechaHasta,
-      asesorIds: selectedAsesorIds,
-      montoFuente,
-      porcentajes: [],
-      pasosVisuales: selectedPasos,
-      estado,
-      buscar,
-    };
-  }, [
-    preset,
-    customFrom,
-    customTo,
-    selectedAsesorIds,
-    montoFuente,
-    selectedPasos,
-    estado,
-    buscar,
-  ]);
+  const filters = useMemo(() => filtersFromUi(ui), [ui]);
+  const filtersDefault = isIngresosFilterUiDefault(ui);
+
+  const pasoLabel = useMemo(() => {
+    if (ui.visibleStep == null) return null;
+    return (
+      ADMIN_REPORT_PASO_OPTIONS.find((p) => p.value === ui.visibleStep)?.label ??
+      `Paso ${ui.visibleStep}`
+    );
+  }, [ui.visibleStep]);
+
+  const alcanceSummary = buildIngresosAlcanceSummary({
+    stageScope: ui.stageScope,
+    visibleStep: ui.visibleStep,
+    pasoLabel,
+  });
+
+  const patchUi = useCallback(
+    (patch: Partial<IngresosFilterUiState>, resetPage = true) => {
+      setUi((prev) => ({
+        ...prev,
+        ...patch,
+        ...(resetPage ? { page: 1 } : {}),
+      }));
+    },
+    [],
+  );
 
   const load = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      if (preset === "personalizado") {
-        resolveIngresosPeriodBounds({ preset, customFrom, customTo });
+      if (ui.preset === "personalizado") {
+        resolveIngresosPeriodBounds({
+          preset: ui.preset,
+          customFrom: ui.customFrom,
+          customTo: ui.customTo,
+        });
+      }
+      if (
+        (ui.stageScope === "from_step" || ui.stageScope === "exact_step") &&
+        (ui.visibleStep == null || ui.visibleStep < 1 || ui.visibleStep > 11)
+      ) {
+        throw new AdminIngresosError(
+          "Selecciona una etapa visible (1–11) para el alcance elegido.",
+        );
       }
       const [r, p] = await Promise.all([
         fetchIngresosResumen(filters),
-        fetchIngresosPage(filters, page, pageSize),
+        fetchIngresosPage(filters, ui.page, pageSize),
       ]);
       setResumen(r);
       setItems(p.items);
@@ -152,7 +188,7 @@ export function AdminIngresosSection({
     } finally {
       setLoading(false);
     }
-  }, [filters, page, pageSize, preset, customFrom, customTo]);
+  }, [filters, ui.page, pageSize, ui.preset, ui.customFrom, ui.customTo, ui.stageScope, ui.visibleStep]);
 
   useEffect(() => {
     if (!panelOpen) return;
@@ -160,20 +196,28 @@ export function AdminIngresosSection({
   }, [panelOpen, load]);
 
   const toggleAsesor = (id: string) => {
-    setPage(1);
-    setSelectedAsesorIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
-    );
+    patchUi({
+      selectedAsesorIds: ui.selectedAsesorIds.includes(id)
+        ? ui.selectedAsesorIds.filter((x) => x !== id)
+        : [...ui.selectedAsesorIds, id],
+    });
   };
 
-  const togglePaso = (paso: number) => {
-    setPage(1);
-    setSelectedPasos((prev) =>
-      prev.includes(paso) ? prev.filter((x) => x !== paso) : [...prev, paso].sort((a, b) => a - b),
-    );
+  const selectAllAsesores = () => {
+    patchUi({ selectedAsesorIds: asesorOptions.map((a) => a.id) });
+  };
+
+  const clearAsesores = () => {
+    patchUi({ selectedAsesorIds: [] });
+  };
+
+  const handleResetFilters = () => {
+    setUi(resetIngresosFilterUi());
   };
 
   const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const needsStepSelector =
+    ui.stageScope === "from_step" || ui.stageScope === "exact_step";
 
   return (
     <section
@@ -211,27 +255,25 @@ export function AdminIngresosSection({
               Periodo
               <Select
                 className="mt-1 text-slate-900"
-                value={preset}
+                value={ui.preset}
                 options={[...PRESET_OPTIONS]}
                 onChange={(e) => {
-                  setPage(1);
-                  setPreset(e.target.value as IngresosPeriodPreset);
+                  patchUi({
+                    preset: e.target.value as IngresosPeriodPreset,
+                  });
                 }}
                 data-testid="admin-ingresos-preset"
               />
             </label>
-            {preset === "personalizado" ? (
+            {ui.preset === "personalizado" ? (
               <>
                 <label className="block text-xs font-semibold text-slate-900">
                   Desde
                   <Input
                     type="date"
                     className="mt-1 text-slate-900"
-                    value={customFrom}
-                    onChange={(e) => {
-                      setPage(1);
-                      setCustomFrom(e.target.value);
-                    }}
+                    value={ui.customFrom}
+                    onChange={(e) => patchUi({ customFrom: e.target.value })}
                   />
                 </label>
                 <label className="block text-xs font-semibold text-slate-900">
@@ -239,67 +281,132 @@ export function AdminIngresosSection({
                   <Input
                     type="date"
                     className="mt-1 text-slate-900"
-                    value={customTo}
-                    onChange={(e) => {
-                      setPage(1);
-                      setCustomTo(e.target.value);
-                    }}
+                    value={ui.customTo}
+                    onChange={(e) => patchUi({ customTo: e.target.value })}
                   />
                 </label>
               </>
             ) : null}
+
             <label className="block text-xs font-semibold text-slate-900">
-              Estado
+              Alcance de etapa
               <Select
                 className="mt-1 text-slate-900"
-                value={estado}
-                options={[...ESTADO_OPTIONS]}
+                value={ui.stageScope}
+                options={[...STAGE_SCOPE_OPTIONS]}
                 onChange={(e) => {
-                  setPage(1);
-                  setEstado(e.target.value as IngresosEstadoFiltro);
+                  const next = e.target.value as IngresosStageScope;
+                  patchUi({
+                    stageScope: next,
+                    visibleStep:
+                      next === "all_submitted"
+                        ? null
+                        : (ui.visibleStep ?? 1),
+                  });
                 }}
+                data-testid="admin-ingresos-stage-scope"
               />
             </label>
+
+            {needsStepSelector ? (
+              <label className="block text-xs font-semibold text-slate-900">
+                {ui.stageScope === "from_step" ? "Etapa mínima" : "Etapa exacta"}
+                <Select
+                  className="mt-1 text-slate-900"
+                  value={String(ui.visibleStep ?? "")}
+                  options={ADMIN_REPORT_PASO_OPTIONS.map((p) => ({
+                    value: String(p.value),
+                    label: p.label,
+                  }))}
+                  onChange={(e) => {
+                    const n = Number(e.target.value);
+                    patchUi({
+                      visibleStep: Number.isFinite(n) ? n : null,
+                    });
+                  }}
+                  data-testid="admin-ingresos-visible-step"
+                />
+              </label>
+            ) : null}
+
             <label className="block text-xs font-semibold text-slate-900">
               Fuente del monto
               <Select
                 className="mt-1 text-slate-900"
-                value={montoFuente}
+                value={ui.montoFuente}
                 options={[
                   { value: "todas", label: "Todas" },
                   { value: "mesa_actualizado", label: "Actualizado por Mesa" },
                   { value: "datos_generales", label: "Datos Generales" },
                 ]}
                 onChange={(e) => {
-                  setPage(1);
-                  setMontoFuente(e.target.value as IngresosFilters["montoFuente"]);
+                  patchUi({
+                    montoFuente: e.target.value as IngresosFilters["montoFuente"],
+                  });
                 }}
               />
             </label>
+
+            <label className="block text-xs font-semibold text-slate-900">
+              Estado
+              <Select
+                className="mt-1 text-slate-900"
+                value={ui.estado}
+                options={[...ESTADO_OPTIONS]}
+                onChange={(e) => {
+                  patchUi({
+                    estado: e.target.value as IngresosEstadoFiltro,
+                  });
+                }}
+              />
+            </label>
+
             <label className="block text-xs font-semibold text-slate-900 md:col-span-2">
               Buscar cliente / NSS
               <Input
                 className="mt-1 text-slate-900"
-                value={buscar}
-                onChange={(e) => {
-                  setPage(1);
-                  setBuscar(e.target.value);
-                }}
+                value={ui.buscar}
+                onChange={(e) => patchUi({ buscar: e.target.value })}
                 placeholder="Nombre o NSS"
               />
             </label>
           </div>
 
           <div className="rounded-lg border border-slate-200 bg-white p-3 text-slate-900">
-            <p className="text-xs font-semibold text-slate-950">Asesores</p>
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <p className="text-xs font-semibold text-slate-950">Asesores</p>
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-7 px-2 text-[11px]"
+                  onClick={selectAllAsesores}
+                  disabled={asesorOptions.length === 0}
+                  data-testid="admin-ingresos-asesores-all"
+                >
+                  Seleccionar todos
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-7 px-2 text-[11px]"
+                  onClick={clearAsesores}
+                  disabled={ui.selectedAsesorIds.length === 0}
+                  data-testid="admin-ingresos-asesores-clear"
+                >
+                  Limpiar selección
+                </Button>
+              </div>
+            </div>
             <div className="mt-2 flex max-h-28 flex-wrap gap-2 overflow-y-auto">
               {asesorOptions.map((a) => {
-                const on = selectedAsesorIds.includes(a.id);
+                const on = ui.selectedAsesorIds.includes(a.id);
                 return (
                   <button
                     key={a.id}
                     type="button"
-                    className={`rounded-md px-2 py-1 text-[11px] font-medium ring-1 ${
+                    aria-pressed={on}
+                    className={`rounded-md px-2 py-1 text-[11px] font-medium ring-1 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-600 ${
                       on
                         ? "bg-emerald-100 text-emerald-950 ring-emerald-400"
                         : "bg-slate-100 text-slate-950 ring-slate-300"
@@ -314,29 +421,28 @@ export function AdminIngresosSection({
                 <span className="text-xs text-slate-700">Sin catálogo de asesores</span>
               ) : null}
             </div>
-            <p className="mt-3 text-xs font-semibold text-slate-950">Etapa visible</p>
-            <div className="mt-2 flex flex-wrap gap-2">
-              {ADMIN_REPORT_PASO_OPTIONS.map((p) => {
-                const on = selectedPasos.includes(p.value);
-                return (
-                  <button
-                    key={p.value}
-                    type="button"
-                    className={`rounded-md px-2 py-1 text-[11px] font-medium ring-1 ${
-                      on
-                        ? "bg-sky-100 text-sky-950 ring-sky-400"
-                        : "bg-slate-100 text-slate-950 ring-slate-300"
-                    }`}
-                    onClick={() => togglePaso(p.value)}
-                  >
-                    {p.label}
-                  </button>
-                );
-              })}
-            </div>
             <p className="mt-2 text-[11px] text-slate-700">
-              Sin selección = todos. Rechazados activos y cancelados quedan fuera.
+              Sin selección = todos los asesores.
             </p>
+          </div>
+
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="max-w-3xl text-xs text-slate-800" data-testid="admin-ingresos-alcance-summary">
+              <p>{alcanceSummary}</p>
+              <p className="mt-1 text-slate-700">
+                Rechazados activos y cancelados quedan fuera.
+              </p>
+            </div>
+            <Button
+              type="button"
+              variant="outline"
+              className="h-9"
+              disabled={filtersDefault || loading}
+              onClick={handleResetFilters}
+              data-testid="admin-ingresos-reset"
+            >
+              Restablecer filtros
+            </Button>
           </div>
 
           {loading ? (
@@ -515,20 +621,20 @@ export function AdminIngresosSection({
                       type="button"
                       variant="outline"
                       className="h-7 px-2 text-[11px]"
-                      disabled={page <= 1 || loading}
-                      onClick={() => setPage((p) => Math.max(1, p - 1))}
+                      disabled={ui.page <= 1 || loading}
+                      onClick={() => patchUi({ page: Math.max(1, ui.page - 1) }, false)}
                     >
                       Anterior
                     </Button>
                     <span className="font-medium text-slate-900">
-                      {page} / {totalPages}
+                      {ui.page} / {totalPages}
                     </span>
                     <Button
                       type="button"
                       variant="outline"
                       className="h-7 px-2 text-[11px]"
-                      disabled={page >= totalPages || loading}
-                      onClick={() => setPage((p) => p + 1)}
+                      disabled={ui.page >= totalPages || loading}
+                      onClick={() => patchUi({ page: ui.page + 1 }, false)}
                     >
                       Siguiente
                     </Button>
@@ -540,7 +646,7 @@ export function AdminIngresosSection({
                       <tr>
                         <th className="py-1 pr-2 font-semibold">Cliente</th>
                         <th className="py-1 pr-2 font-semibold">Asesor</th>
-                        <th className="py-1 pr-2 font-semibold">Bio</th>
+                        <th className="py-1 pr-2 font-semibold">Envío Mesa</th>
                         <th className="py-1 pr-2 font-semibold">Fuente</th>
                         <th className="py-1 pr-2 font-semibold">Cálculo</th>
                         <th className="py-1 pr-2 font-semibold">Proyectado</th>
@@ -560,12 +666,15 @@ export function AdminIngresosSection({
                             </Link>
                             <div className="text-[10px] text-slate-700">
                               {it.nss ?? ""}
+                              {it.paso_visual != null
+                                ? ` · Paso ${it.paso_visual}`
+                                : ""}
                             </div>
                           </td>
                           <td className="py-1 pr-2 text-slate-900">{it.asesor_nombre ?? "—"}</td>
                           <td className="py-1 pr-2 text-slate-900">
-                            {it.bio_aprobacion_at
-                              ? formatDateTimeMx(it.bio_aprobacion_at)
+                            {it.fecha_envio_mesa
+                              ? formatDateTimeMx(it.fecha_envio_mesa)
                               : "—"}
                           </td>
                           <td className="py-1 pr-2 text-slate-900">

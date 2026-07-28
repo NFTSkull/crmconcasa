@@ -21,13 +21,15 @@ function mapRpcError(error: { message?: string }): AdminIngresosError {
       "Solo Super Admin puede consultar el módulo de ingresos.",
     );
   }
-  if (/fecha_desde|p_estado|p_monto_fuente|p_pasos/i.test(msg)) {
+  if (/fecha_desde|p_estado|p_monto_fuente|p_stage_scope|p_visible_step|p_pasos/i.test(msg)) {
     return new AdminIngresosError("Filtros inválidos. Revisa el periodo y los criterios.");
   }
   return new AdminIngresosError("No se pudieron cargar los ingresos.");
 }
 
 function rpcArgs(filters: IngresosFilters, page?: number, pageSize?: number) {
+  const needsStep =
+    filters.stageScope === "from_step" || filters.stageScope === "exact_step";
   return {
     p_fecha_desde: filters.fechaDesde,
     p_fecha_hasta: filters.fechaHasta,
@@ -37,8 +39,8 @@ function rpcArgs(filters: IngresosFilters, page?: number, pageSize?: number) {
       filters.montoFuente === "todas" ? null : filters.montoFuente,
     p_porcentajes:
       filters.porcentajes.length > 0 ? [...filters.porcentajes] : null,
-    p_pasos_visuales:
-      filters.pasosVisuales.length > 0 ? [...filters.pasosVisuales] : null,
+    p_stage_scope: filters.stageScope,
+    p_visible_step: needsStep ? filters.visibleStep : null,
     p_estado: filters.estado,
     p_buscar: filters.buscar.trim() || null,
     ...(page != null

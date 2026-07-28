@@ -1,5 +1,9 @@
 # Devlog
 
+## 2026-07-22 - P137: proyección Ingresos por envío a Mesa + alcance de etapa
+
+Problema: P134/P135 usaban evidencia bio como universo; chips de pasos 1–3 quedaban vacíos y `Expedientes proyectados` no representaba enviados a Mesa. Fix read-model (mig. 125): universo = `submitted_to_mesa` + `fecha_envio_mesa`; proyectado/incompletos por envío; real por `reconocido_at`. Filtro profesional `p_stage_scope` + `p_visible_step` (mapeo canónico visible→interna). UI: Alcance de etapa, asesores select-all/limpiar, Restablecer filtros, resumen dinámico. Conserva `ingresos_bio_aprobacion_at` y snapshot `11→12`. Sin tocar etapas/citas/docs/métricas fuera de Ingresos.
+
 ## 2026-07-28 - Fix P136: eliminación Mesa fallaba en log_action
 
 Error UI genérico al confirmar Eliminar. Causa: mig. 123 declaraba `v_actor_role TEXT` y `log_action` exige `app_role` → `42883 function log_action(... text ...) does not exist`; la TX hacía rollback del soft-delete. Fix mig. 124: tipar `public.app_role` (igual que `register_mesa_documento`); mapper FE con mensajes canónicos + log dev de code/message/details/hint. Payload FE intacto (`cliente_pagare` / `cliente_notificacion` / `cliente_notificacion_apodaca`). Sin etapas/citas/montos.
