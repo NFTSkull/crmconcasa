@@ -73,8 +73,13 @@ BEGIN
   );
 
   -- Grants: authenticated puede ejecutar RPCs resumen/list; no la de reconocer
+  -- P137: firma con p_stage_scope TEXT + p_visible_step SMALLINT (reemplaza p_pasos_visuales[])
   PERFORM public.__p134_ingresos_assert(
-    has_function_privilege('authenticated', 'public.super_admin_get_ingresos_resumen(date,date,uuid[],text,numeric[],smallint[],text,text)', 'EXECUTE'),
+    has_function_privilege(
+      'authenticated',
+      'public.super_admin_get_ingresos_resumen(date,date,uuid[],text,numeric[],text,smallint,text,text)',
+      'EXECUTE'
+    ),
     'grant resumen authenticated'
   );
   PERFORM public.__p134_ingresos_assert(

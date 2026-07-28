@@ -13,16 +13,17 @@ Convenciones:
 
 ---
 
-## 0bis. Ingresos Super Admin (P134 / P135)
+## 0bis. Ingresos Super Admin (P134 / P135 / P137)
 
 **RPCs:** `super_admin_get_ingresos_resumen` · `super_admin_list_ingresos_page`  
 **Rol:** solo `super_admin` (org propia).  
 **Fórmula:** `round(monto_base × porcentaje_cobro / 100, 2)` — sin cargo fijo ni tope $169,000.  
 **Monto base:** `cliente_datos.monto_mejoravit_actualizado` si >0; si no, `parse_monto_mejoravit_json(datos)`.  
-**Elegibilidad proyectado:** evidencia canónica bio = MIN fecha entre `action_log` transition `5_8|5_6|5_7`, P114 `etapa_anterior=5`→`6|7|8`, o `mesa.expediente.mover_etapa` estructurado `etapa_anterior∈{3,4,5}` y `etapa_nueva≥6`; enviado a Mesa; no cancelado; no rechazo activo; monto+% válidos.
+**Elegibilidad proyectado (P137):** `submitted_to_mesa` + `fecha_envio_mesa` NOT NULL; ciclo no cancelado; sin rechazo activo; monto+% válidos. **No** exige evidencia biométrica como gate (helper `ingresos_bio_aprobacion_at` se conserva informativo).
+**Alcance de etapa:** `p_stage_scope` ∈ `all_submitted` | `from_step` | `exact_step` + `p_visible_step` (NULL solo en `all_submitted`; 1–11 en los otros). Mapeo canónico paso visible → internas (Paso 3 → 3+4).
 **Real:** snapshot `expediente_ingresos_reconocidos` en la misma TX que `11→12` (trigger); incompletos bloquean con mensaje canónico.
-**Fechas filtro (Monterrey):** proyectado por `bio_aprobacion_at`; real por `reconocido_at`.
-**P135:** no altera movimientos Mesa ni etapas; solo el read-model de Ingresos.
+**Fechas filtro (Monterrey):** proyectado/incompletos por `fecha_envio_mesa`; real por `reconocido_at`.
+**P135:** helper bio ampliado; no altera movimientos Mesa. **P137:** cambia el universo y filtros de etapa del read-model Ingresos.
 
 ---
 

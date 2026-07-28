@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Changed
+- **feat/p137-ingresos-proyeccion-etapa:** Ingresos proyecta todos los enviados a Mesa con monto/% (sin gate bio); filtro Alcance de etapa (`all_submitted`/`from_step`/`exact_step`); fechas proyectado=`fecha_envio_mesa`; Restablecer filtros; mig. 125; snapshot real y helper bio intactos.
+
 ### Fixed
 - **fix/p136-mesa-eliminar-documento:** `mesa_eliminar_documento_expediente` tipa `actor_role` como `app_role` (mig. 124) para que `log_action` no falle; mapeo de errores UI más preciso.
 
