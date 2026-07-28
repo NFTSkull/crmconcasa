@@ -33,6 +33,8 @@ export type MesaNotificacionDocumentoSectionProps = Readonly<{
   etapaActual: number | null | undefined;
   puedeOperar: boolean;
   submittedToMesa?: boolean;
+  /** P132: tras upload refrescar etapa (puede avanzar 7→9). */
+  onExpedienteUpdated?: () => void | Promise<void>;
 }>;
 
 function formatDateTimeEsMx(iso: string | null | undefined): string {
@@ -50,6 +52,7 @@ export function MesaNotificacionDocumentoSection({
   etapaActual,
   puedeOperar,
   submittedToMesa = true,
+  onExpedienteUpdated,
 }: MesaNotificacionDocumentoSectionProps) {
   const archivosRepo = useExpedienteArchivosRepo();
   const uploadButtonRef = useRef<HTMLElement | null>(null);
@@ -181,6 +184,7 @@ export function MesaNotificacionDocumentoSection({
       setSelectedMime(null);
       setProgressLabel(null);
       await loadNotificacionDocumento();
+      await onExpedienteUpdated?.();
       window.setTimeout(() => uploadButtonRef.current?.focus(), 0);
     } catch (err) {
       setProgressLabel(null);

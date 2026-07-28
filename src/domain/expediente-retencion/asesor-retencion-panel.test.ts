@@ -18,7 +18,7 @@ const envioEnviado: ExpedienteRetencionEnvioMesa = {
 };
 
 describe("canShowAsesorRetencionSupabasePanel", () => {
-  it("visible supabase + etapa 8/9 + enviado a Mesa", () => {
+  it("visible supabase + etapa ≥ 8 + enviado a Mesa", () => {
     assert.equal(
       canShowAsesorRetencionSupabasePanel({
         dataModeSupabase: true,
@@ -31,6 +31,14 @@ describe("canShowAsesorRetencionSupabasePanel", () => {
       canShowAsesorRetencionSupabasePanel({
         dataModeSupabase: true,
         etapaActual: 9,
+        submittedToMesa: true,
+      }),
+      true,
+    );
+    assert.equal(
+      canShowAsesorRetencionSupabasePanel({
+        dataModeSupabase: true,
+        etapaActual: 12,
         submittedToMesa: true,
       }),
       true,

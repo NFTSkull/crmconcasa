@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+- **feat/p132-notificacion-libera-firma:** mig. 118 — cierre Biometría `5→7`; primera Notificación (asesor/Mesa) avanza `7→9` y fija `firma_agendable_desde` (+5 hábiles Monterrey); gate en book/reagendar firmas; Acuse ya no avanza etapa.
+- **feat/p132-notificacion-libera-firma (FE):** copies/bulk 5→7; Acuse visible/pendiente en etapa ≥8/9+; picker firmas respeta `firma_agendable_desde`; upload Notificación asesor; timeline Acuse no completado si falta; docs/tests TS.
+
 ### Fixed
 - **fix/p130-empty-advisor-change-batches:** UI no muestra «Revisar cambios» con lote 0; mig. 117 no congela borradores vacíos y captura reemplazos post-Mesa vía `register_expediente_documento` → `asesor_cambio_record_doc_reemplazo`; sin inventar diffs históricos.
 

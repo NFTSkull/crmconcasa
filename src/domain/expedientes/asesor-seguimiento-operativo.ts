@@ -107,6 +107,34 @@ export function getEtapaTimelineVisual(
   return "pendiente";
 }
 
+/**
+ * P132: override documental para timeline.
+ * - Acuse (8): si etapa≥9 y sin Acuse → pendiente; con Acuse → completado. No marcar omitido.
+ * - Notificación (7): completado si etapa≥9 o hay doc Notificación.
+ */
+export function getEtapaTimelineVisualConDocs(params: {
+  etapaId: number;
+  etapaActual: number | null | undefined;
+  hasAcuseDoc: boolean;
+  hasNotificacionDoc: boolean;
+}): EtapaTimelineVisual {
+  const actual = resolveEtapaActualOperativa(params.etapaActual);
+  const base = getEtapaTimelineVisual(params.etapaId, actual);
+
+  if (params.etapaId === 8) {
+    if (params.hasAcuseDoc) return "completado";
+    if (actual >= 9) return "pendiente";
+    return base;
+  }
+
+  if (params.etapaId === 7) {
+    if (actual >= 9 || params.hasNotificacionDoc) return "completado";
+    return base;
+  }
+
+  return base;
+}
+
 export function getEtapaTimelineVisualPorPasoVisual(
   pasoVisual: number,
   etapaActualInterna: number | null | undefined,
@@ -117,6 +145,28 @@ export function getEtapaTimelineVisualPorPasoVisual(
   if (pasoVisual < actualPaso) return "completado";
   if (pasoVisual === actualPaso) return "actual";
   return "pendiente";
+}
+
+/** Variante con overrides documentales (P132) sobre paso visual. */
+export function getEtapaTimelineVisualPorPasoVisualConDocs(params: {
+  pasoVisual: number;
+  etapaInterna: number;
+  etapaActualInterna: number | null | undefined;
+  hasAcuseDoc: boolean;
+  hasNotificacionDoc: boolean;
+}): EtapaTimelineVisual {
+  if (params.etapaInterna === 7 || params.etapaInterna === 8) {
+    return getEtapaTimelineVisualConDocs({
+      etapaId: params.etapaInterna,
+      etapaActual: params.etapaActualInterna,
+      hasAcuseDoc: params.hasAcuseDoc,
+      hasNotificacionDoc: params.hasNotificacionDoc,
+    });
+  }
+  return getEtapaTimelineVisualPorPasoVisual(
+    params.pasoVisual,
+    params.etapaActualInterna,
+  );
 }
 
 export function estadoEnvioMesaLabel(submittedToMesa: boolean): string {

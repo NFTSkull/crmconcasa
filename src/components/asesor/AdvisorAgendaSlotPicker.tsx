@@ -38,6 +38,8 @@ export type AdvisorAgendaSlotPickerProps = Readonly<{
   timeHhmm: HhmmTime | "";
   disponibilidadSlots: readonly AgendaBiometricosSlotAvailability[];
   availabilityInsight: AdvisorDateAvailabilityInsight | null;
+  /** Mínimo del input date (además de hoy). P132: firma_agendable_desde. */
+  minDateYmd?: YmdDate | null;
   accentRingClass?: string;
   saving: boolean;
   onSedeChange: (canonicalId: string) => void;
@@ -54,6 +56,7 @@ export function AdvisorAgendaSlotPicker({
   timeHhmm,
   disponibilidadSlots,
   availabilityInsight,
+  minDateYmd = null,
   accentRingClass = "focus-visible:ring-sky-500",
   saving,
   onSedeChange,
@@ -62,6 +65,13 @@ export function AdvisorAgendaSlotPicker({
   onGoToNextAvailability,
 }: AdvisorAgendaSlotPickerProps) {
   const hasBookableNow = disponibilidadSlots.some((s) => s.remaining > 0);
+  const todayMin = config ? todayYmdInTimezone(config.timezone) : undefined;
+  const effectiveMin =
+    todayMin && minDateYmd
+      ? todayMin >= minDateYmd
+        ? todayMin
+        : minDateYmd
+      : (minDateYmd ?? todayMin);
 
   return (
     <div className="mt-3 space-y-3">
@@ -87,7 +97,7 @@ export function AdvisorAgendaSlotPicker({
           type="date"
           className="mt-0.5 w-full rounded-md border border-gray-200 px-2 py-1.5 text-xs text-gray-900"
           value={dateYmd}
-          min={config ? todayYmdInTimezone(config.timezone) : undefined}
+          min={effectiveMin}
           onChange={(e) => onDateChange(e.target.value as YmdDate)}
           disabled={saving || !config?.enabled}
         />

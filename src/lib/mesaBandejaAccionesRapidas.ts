@@ -40,7 +40,8 @@ export const MESA_SIGUIENTE_ETAPA_MAP: Readonly<Record<number, number>> = {
   1: 2,
   2: 3,
   4: 5,
-  5: 6,
+  /** P132: cierre Biometría canónico 5→7 (históricos en 6 siguen con 6→7). */
+  5: 7,
   6: 7,
   7: 8,
   10: 11,
@@ -451,7 +452,7 @@ export function resolveMesaSiguienteEtapaAccion(
   if (etapa === 5) {
     return fromView(
       5,
-      6,
+      7,
       deriveAvanceOperativo5a6View({
         ...base,
         fechaCita: ctx.fechaCita,

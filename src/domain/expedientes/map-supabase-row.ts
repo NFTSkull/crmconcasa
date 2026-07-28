@@ -49,6 +49,7 @@ export type SupabaseExpedienteListRow = Readonly<{
   motivo_rechazo?: string | null;
   comentario_rechazo?: string | null;
   fecha_cita?: string | null;
+  firma_agendable_desde?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
   expediente_anterior_id?: string | null;
@@ -185,6 +186,7 @@ export function mapSupabaseRowToExpedienteMock(
       submittedToMesa,
       fechaEnvioMesa: textOrNull(row.fecha_envio_mesa),
       cicloEstado: textOrNull(row.ciclo_estado),
+      firmaAgendableDesde: textOrNull(row.firma_agendable_desde)?.slice(0, 10) ?? null,
     },
     reingreso:
       row.reingreso_rechazo_id || row.expediente_anterior_id

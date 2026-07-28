@@ -10,6 +10,7 @@ import {
   getEtapaOperativaNombre,
   getEtapaTimelineBadgeLabel,
   getEtapaTimelineVisual,
+  getEtapaTimelineVisualConDocs,
   getEtapaTimelineVisualPorPasoVisual,
   getEtapaVisualNombre,
   mapEtapaInternaAPasoVisual,
@@ -60,6 +61,71 @@ describe("getEtapaTimelineVisual", () => {
     assert.equal(getEtapaTimelineVisual(1, 3), "completado");
     assert.equal(getEtapaTimelineVisual(3, 3), "actual");
     assert.equal(getEtapaTimelineVisual(5, 3), "pendiente");
+  });
+});
+
+describe("getEtapaTimelineVisualConDocs P132", () => {
+  it("Acuse pendiente si etapa≥9 sin doc; completado con Acuse", () => {
+    assert.equal(
+      getEtapaTimelineVisualConDocs({
+        etapaId: 8,
+        etapaActual: 9,
+        hasAcuseDoc: false,
+        hasNotificacionDoc: true,
+      }),
+      "pendiente",
+    );
+    assert.equal(
+      getEtapaTimelineVisualConDocs({
+        etapaId: 8,
+        etapaActual: 10,
+        hasAcuseDoc: true,
+        hasNotificacionDoc: true,
+      }),
+      "completado",
+    );
+  });
+
+  it("Acuse en etapa 8 sin doc sigue actual; no omitido", () => {
+    assert.equal(
+      getEtapaTimelineVisualConDocs({
+        etapaId: 8,
+        etapaActual: 8,
+        hasAcuseDoc: false,
+        hasNotificacionDoc: true,
+      }),
+      "actual",
+    );
+  });
+
+  it("Notificación completada si etapa≥9 o hay doc", () => {
+    assert.equal(
+      getEtapaTimelineVisualConDocs({
+        etapaId: 7,
+        etapaActual: 9,
+        hasAcuseDoc: false,
+        hasNotificacionDoc: false,
+      }),
+      "completado",
+    );
+    assert.equal(
+      getEtapaTimelineVisualConDocs({
+        etapaId: 7,
+        etapaActual: 7,
+        hasAcuseDoc: false,
+        hasNotificacionDoc: true,
+      }),
+      "completado",
+    );
+    assert.equal(
+      getEtapaTimelineVisualConDocs({
+        etapaId: 7,
+        etapaActual: 7,
+        hasAcuseDoc: false,
+        hasNotificacionDoc: false,
+      }),
+      "actual",
+    );
   });
 });
 

@@ -156,7 +156,7 @@ describe("isAsesorPendienteSubirAcuse", () => {
     archivoRow("retencion_acuse_con_sello", "subido"),
   ];
 
-  it("etapa 8 sin opción elegida", () => {
+  it("etapa 8 sin opción/docs cuenta", () => {
     assert.equal(
       isAsesorPendienteSubirAcuse(
         baseInput({
@@ -169,7 +169,7 @@ describe("isAsesorPendienteSubirAcuse", () => {
     );
   });
 
-  it("etapa 8 con docs completos sin envío no cuenta como subir pendiente", () => {
+  it("etapa 8 con Acuse válido no cuenta", () => {
     assert.equal(
       isAsesorPendienteSubirAcuse(
         baseInput({
@@ -189,7 +189,6 @@ describe("isAsesorPendienteSubirAcuse", () => {
           etapaActual: 8,
           archivos: [
             archivoRow("retencion_acuse_con_sello", "rechazado"),
-            ...archivosCompletos.slice(1),
           ],
           retencion: {
             opcion: "con_sello",
@@ -207,7 +206,7 @@ describe("isAsesorPendienteSubirAcuse", () => {
     );
   });
 
-  it("fuera de etapa 8 no cuenta", () => {
+  it("etapa 7 no cuenta", () => {
     assert.equal(
       isAsesorPendienteSubirAcuse(
         baseInput({
@@ -218,6 +217,33 @@ describe("isAsesorPendienteSubirAcuse", () => {
       ),
       false,
     );
+  });
+
+  it("P132: etapas 9/10/11/12 sin Acuse cuentan; con Acuse no", () => {
+    for (const etapa of [9, 10, 11, 12] as const) {
+      assert.equal(
+        isAsesorPendienteSubirAcuse(
+          baseInput({
+            etapaActual: etapa,
+            archivos: [],
+            retencion: { opcion: null, envio: null },
+          }),
+        ),
+        true,
+        `sin acuse etapa ${etapa}`,
+      );
+      assert.equal(
+        isAsesorPendienteSubirAcuse(
+          baseInput({
+            etapaActual: etapa,
+            archivos: archivosCompletos,
+            retencion: { opcion: "con_sello", envio: null },
+          }),
+        ),
+        false,
+        `con acuse etapa ${etapa}`,
+      );
+    }
   });
 });
 
@@ -239,6 +265,8 @@ describe("countAsesorTareasPendientes y filtros globales", () => {
         expedienteId: "firma-1",
         etapaActual: 9,
         agendaFirmas: { hasActiveBooking: false, hasLastCancelledBooking: false },
+        archivos: [archivoRow("retencion_acuse_con_sello", "subido")],
+        retencion: { opcion: "con_sello", envio: null },
       }),
       baseInput({
         expedienteId: "acuse-1",

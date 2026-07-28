@@ -1,19 +1,23 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
+import { DocumentDropzone } from "@/components/documents/DocumentDropzone";
 import {
   MesaArchivoPreviewDialog,
   openBlobUrlInNewTab,
   type MesaArchivoPreviewState,
 } from "@/components/mesa-control/MesaArchivoPreviewDialog";
 import {
+  CLIENTE_NOTIFICACION_ACCEPT_ATTR,
   findClienteNotificacionFromList,
   formatNotificacionDocumentoMimeLabel,
   shouldShowAsesorNotificacionDocumentoSection,
+  validateClienteNotificacionFile,
   type ClienteNotificacionDocumento,
 } from "@/domain/expediente-archivos/cliente-notificacion";
 import {
+  CLIENTE_NOTIFICACION_DOCUMENT_TIPO,
   ExpedienteArchivosSupabaseError,
   useExpedienteArchivosRepo,
 } from "@/domain/expediente-archivos";
@@ -21,6 +25,8 @@ import {
 export type AsesorNotificacionDocumentoSectionProps = Readonly<{
   expedienteId: string;
   etapaActual: number | null | undefined;
+  /** Tras upload exitoso (p. ej. avance 7→9): refrescar expediente. */
+  onExpedienteUpdated?: () => void | Promise<void>;
 }>;
 
 function formatDateTimeEsMx(iso: string | null | undefined): string {
@@ -34,22 +40,28 @@ function formatDateTimeEsMx(iso: string | null | undefined): string {
 }
 
 /**
- * Solo lectura: consulta metadata activa y preview/descarga.
- * No importa upload ni register_mesa_documento.
+ * P132: en etapa ≥ 7 permite upload/reemplazo de `cliente_notificacion`
+ * vía `register_expediente_documento` (mismo tipo canónico que Mesa).
  */
 export function AsesorNotificacionDocumentoSection({
   expedienteId,
   etapaActual,
+  onExpedienteUpdated,
 }: AsesorNotificacionDocumentoSectionProps) {
   const archivosRepo = useExpedienteArchivosRepo();
+  const savingLockRef = useRef(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [documento, setDocumento] = useState<ClienteNotificacionDocumento | null>(null);
   const [archivoBusy, setArchivoBusy] = useState(false);
   const [archivoError, setArchivoError] = useState<string | null>(null);
   const [preview, setPreview] = useState<MesaArchivoPreviewState | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [writeError, setWriteError] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const visible = shouldShowAsesorNotificacionDocumentoSection(etapaActual);
+  const canWrite = visible;
 
   const load = useCallback(async () => {
     if (!visible) return;
@@ -130,6 +142,54 @@ export function AsesorNotificacionDocumentoSection({
     }
   };
 
+  const handleUpload = async (files: File[]) => {
+    const file = files[0];
+    if (!file || !canWrite || savingLockRef.current) return;
+    const validation = validateClienteNotificacionFile(file);
+    if (!validation.ok) {
+      setWriteError(validation.error);
+      return;
+    }
+    savingLockRef.current = true;
+    setSaving(true);
+    setWriteError(null);
+    setSuccessMsg(null);
+    try {
+      if (documento) {
+        await archivosRepo.replaceArchivo({
+          expedienteId,
+          tipo_documento: CLIENTE_NOTIFICACION_DOCUMENT_TIPO,
+          file,
+          uploaded_by_role: "asesor",
+          uploaded_by_email: "",
+        });
+        setSuccessMsg("Notificación reemplazada correctamente.");
+      } else {
+        await archivosRepo.uploadArchivo({
+          expedienteId,
+          tipo_documento: CLIENTE_NOTIFICACION_DOCUMENT_TIPO,
+          file,
+          uploaded_by_role: "asesor",
+          uploaded_by_email: "",
+        });
+        setSuccessMsg(
+          "Notificación cargada. Si el expediente estaba en etapa 7, puede avanzar a agenda de firma.",
+        );
+      }
+      await load();
+      await onExpedienteUpdated?.();
+    } catch (err) {
+      setWriteError(
+        err instanceof ExpedienteArchivosSupabaseError
+          ? err.message
+          : "No se pudo registrar el Notificación. Intenta de nuevo.",
+      );
+    } finally {
+      savingLockRef.current = false;
+      setSaving(false);
+    }
+  };
+
   const closePreview = () => {
     setPreview((prev) => {
       if (prev?.url) URL.revokeObjectURL(prev.url);
@@ -146,14 +206,19 @@ export function AsesorNotificacionDocumentoSection({
         <h3 className="text-sm font-semibold text-gray-900">Notificación</h3>
         {documento ? (
           <span className="inline-flex items-center rounded-full border border-emerald-200 bg-white px-2.5 py-0.5 text-xs font-medium text-emerald-900">
-            Cargado por Mesa
+            Cargado
           </span>
         ) : (
           <span className="inline-flex items-center rounded-full border border-amber-200 bg-white px-2.5 py-0.5 text-xs font-medium text-amber-900">
-            Pendiente de Mesa
+            Pendiente
           </span>
         )}
       </div>
+
+      <p className="mt-1 text-xs text-gray-600">
+        Puedes cargar o reemplazar el Notificación (PDF/JPG/PNG). La primera carga válida en
+        etapa 7 libera la agenda de firma (+5 días hábiles Monterrey).
+      </p>
 
       {loading ? (
         <p className="mt-2 text-xs text-gray-500">Cargando Notificación…</p>
@@ -167,15 +232,12 @@ export function AsesorNotificacionDocumentoSection({
 
       {!loading && !error && !documento ? (
         <p className="mt-2 text-sm text-gray-700">
-          Mesa Control todavía no ha cargado el Notificación de este expediente.
+          Aún no hay Notificación cargada para este expediente.
         </p>
       ) : null}
 
       {!loading && documento ? (
         <>
-          <p className="mt-2 text-sm text-gray-700">
-            Mesa Control cargó el Notificación correspondiente a este expediente.
-          </p>
           <dl className="mt-3 grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
             <div>
               <dt className="text-gray-500">Archivo</dt>
@@ -223,9 +285,32 @@ export function AsesorNotificacionDocumentoSection({
         </>
       ) : null}
 
+      {canWrite ? (
+        <div className="mt-3 w-full max-w-md">
+          <DocumentDropzone
+            accept={CLIENTE_NOTIFICACION_ACCEPT_ATTR}
+            busy={saving}
+            disabled={saving}
+            selectedFileName={null}
+            aria-label={documento ? "Reemplazar Notificación" : "Subir Notificación"}
+            onFiles={(files) => void handleUpload(files)}
+          />
+        </div>
+      ) : null}
+
+      {writeError ? (
+        <p role="alert" className="mt-2 text-xs text-red-700">
+          {writeError}
+        </p>
+      ) : null}
       {archivoError ? (
         <p role="alert" className="mt-2 text-xs text-red-700">
           {archivoError}
+        </p>
+      ) : null}
+      {successMsg ? (
+        <p aria-live="polite" className="mt-2 text-xs text-emerald-800">
+          {successMsg}
         </p>
       ) : null}
 

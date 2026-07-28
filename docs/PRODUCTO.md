@@ -239,7 +239,7 @@ La sección Datos Generales y el JSON `datos.montoMejoravit` **no** se modifican
 
 **Pagaré (P090 B4 UI):** tipo `cliente_pagare`; desde `etapa_actual >= 7`; no es gate; PDF/JPG/JPEG/PNG ≤ 15 MB; un vigente versionado; Mesa puede subir/reemplazar/ver/descargar; asesor RO ver/descargar; sin herencia en reingresos; no aparece en complementarios UI.
 
-**Notificación documento (P092):** tipo `cliente_notificacion` (label «Notificación»). Distinto de `agenda_bookings.kind = 'notificacion'` (agenda/P070, intacto). Mismo perfil que Pagaré: etapa ≥ 7; Mesa carga/reemplaza; asesor RO; PDF/JPEG/PNG ≤ 15 MiB; no obligatorio; no gate; sección dedicada. Contrato TS B0; SQL B1; UI B2.
+**Notificación documento (P092 + P132):** tipo `cliente_notificacion`. Distinto de `agenda_bookings.kind = 'notificacion'`. Etapa ≥ 7; Mesa **o** asesor cargan/reemplazan; PDF/JPEG/PNG ≤ 15 MiB; no obligatorio; **gate** primera carga 7→9 + `firma_agendable_desde`. Sección dedicada. Cierre Biometría Mesa canónico `5→7`. Acuse no bloquea firma ni avanza etapa.
 
 ### UI B2 (local)
 
@@ -257,26 +257,24 @@ La sección Datos Generales y el JSON `datos.montoMejoravit` **no** se modifican
 - **No** obligatorio, **no** gate de avance, **no** checklist/faltantes, **sin** notificaciones nuevas, **sin** herencia padre↔hijo.
 - No se lista en Documentos complementarios (`INTEGRATION_DOC_TIPOS_MESA_UPLOAD`); sección dedicada única.
 
-### 6.9 Notificación documento (`cliente_notificacion`) — P092
+### 6.9 Notificación documento (`cliente_notificacion`) — P092 + P132
 
 **Separación de conceptos**
 
 | Concepto | Significado |
 |----------|-------------|
-| `cliente_notificacion` | Documento de expediente cargado por Mesa; lectura asesor |
+| `cliente_notificacion` | Documento de expediente (Mesa o Asesor desde etapa 7) |
 | `notificacion` | `agenda_bookings.kind` (cita Notificación extraordinaria / P070) — **intacto** |
 
 - Tipo técnico: `cliente_notificacion` (label: Notificación). **Nunca** usar `notificacion` como tipo de documento.
-- Disponible desde `etapa_actual >= 7` (misma fase que Pagaré).
-- **Mesa (detalle):** acordeón hermana «Notificación» (`id=mesa-notificacion-documento`, después de Pagaré). Etapa &lt; 7: deshabilitada. Etapa ≥ 7: subir / reemplazar / ver / descargar. Estado React **independiente** del Pagaré (`MesaNotificacionDocumentoSection`).
-- **Asesor (detalle):** `AsesorNotificacionDocumentoSection` RO solo si `etapa_actual >= 7`. Sin archivo: `Pendiente de Mesa`. Con archivo: `Cargado por Mesa` + Ver/Descargar.
-- Carga/reemplazo solo Mesa vía Storage + `register_mesa_documento` (migración 089). Confirmaciones explícitas; un refetch documental por operación.
-- MIME: `application/pdf`, `image/jpeg`, `image/png`. Extensiones `.pdf` / `.jpg` / `.jpeg` / `.png`. Máx. 15 728 640 bytes (15 MiB).
-- Una versión activa por `(expediente, tipo)`; anteriores soft-delete; sin historial de versiones en UI.
-- Path Storage: `{orgId}/{expedienteId}/cliente_notificacion/{uuid}.{ext}` — bucket privado; UUID generado; extensión validada; nombre original **no** es la ruta; separado de `cliente_pagare`.
-- **No** obligatorio, **no** gate de avance, **sin** herencia en reingresos, **sin** notificaciones automáticas, **sin** cambios de agenda/etapa/P070/P090 monto.
-- Fuera de `INTEGRATION_DOC_TIPOS_MESA_UPLOAD` (complementarios); sección dedicada independiente del Pagaré (estado React separado).
-- Contrato TS: `CLIENTE_NOTIFICACION_DOCUMENT_CONTRACT` (B0). Helpers: `cliente-notificacion.ts` (B2).
+- Disponible desde `etapa_actual >= 7`.
+- **Mesa:** acordeón «Notificación»; subir/reemplazar; tras upload refresca etapa (puede pasar a 9).
+- **Asesor:** `AsesorNotificacionDocumentoSection` con upload/reemplazo vía `register_expediente_documento` (P132).
+- **P132 gate:** primera Notificación válida en etapa 7 → avanza a 9 y fija `firma_agendable_desde` (+5 hábiles Monterrey). Picker de firmas no ofrece fechas anteriores.
+- **P132 Acuse:** panel retención visible en etapa ≥ 8; pendiente en 9+ si falta Acuse; no bloquea book/reagendar.
+- **P132 Biometría:** Mesa cierra con transición canónica `5→7` (UI 6→7 solo históricos).
+- MIME/path/versionado: igual que P092; contrato TS `esGateAvance: true`, origen `Asesor|Mesa`.
+- Fuera de checklist integración UI; sección dedicada.
 
 ---
 

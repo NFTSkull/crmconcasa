@@ -342,20 +342,18 @@
 
 ### B0 (contrato TS)
 
-- `cliente-notificacion-contract.test.ts`: tipo, label, etapa 7, MIME PDF/JPEG/PNG, máx. 15 728 640, independencia vs Pagaré, fuera de complementarios UI / obligatorios / upload asesor.
+- `cliente-notificacion-contract.test.ts`: tipo, label, etapa 7, MIME PDF/JPEG/PNG, máx. 15 728 640, independencia vs Pagaré; P132: `origen=Asesor|Mesa`, `esGateAvance=true`, allowlist upload asesor.
 
 ### B1 (SQL)
 
-- Migración `089_mesa_notificacion_documento_expediente.sql`: allowlist + MIME PDF/JPEG/PNG + gate etapa ≥ 7 en `register_mesa_documento`.
-- Suite `rpc_mesa_notificacion_documento_expediente.sql`: allowlist (nunca `notificacion` corto), MIME, etapa 6/7, versionado, tamaño 15 MiB, permisos, RLS asesor, independencia vs `cliente_pagare`, path mismatch, `action_log`, enum agenda intacto.
-- Cableado en `scripts/test-sql.sh`.
+- Migración `089_mesa_notificacion_documento_expediente.sql` (+ P132 mig. 118).
+- Suite SQL Notificación + `rpc_notificacion_libera_firma_p132.sql`.
 
-### B2 (UI)
+### B2 / P132 FE
 
-- Mesa: `MesaNotificacionDocumentoSection` + upload dialog; acordeón dedicado; estado React independiente del Pagaré.
-- Asesor: `AsesorNotificacionDocumentoSection` RO (estatus / Ver / Descargar) desde etapa 7.
-- Helpers `cliente-notificacion.ts` + tests; validación MIME en `fileUploadValidation` / `upload-constraints`.
-- Fuera de Documentos complementarios.
+- Mesa: `MesaNotificacionDocumentoSection` + refresh etapa tras upload.
+- Asesor: `AsesorNotificacionDocumentoSection` **con upload** desde etapa 7.
+- Cierre Biometría UI `5→7`; Acuse pendiente en 9+; `firma_agendable_desde` en picker; timeline Acuse no completado si falta en 9+.
 
 ### Regresión
 

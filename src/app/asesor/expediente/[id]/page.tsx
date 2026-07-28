@@ -36,6 +36,7 @@ import {
 import { isDataModeSupabase } from "@/lib/dataMode";
 import { parseMontoAprobado } from "@/lib/monto";
 import { canShowAsesorRetencionSupabasePanel } from "@/domain/expediente-retencion";
+import { hasAcusePrincipalValido } from "@/lib/asesorTareasPendientes";
 import {
   DOCUMENTO_CATALOGO_MAP,
   ExpedienteArchivosSupabaseError,
@@ -137,6 +138,7 @@ interface OperativoStatus {
   fechaEnvioMesa?: string | null;
   cicloEstado?: string | null;
   origenMesa?: string | null;
+  firmaAgendableDesde?: string | null;
 }
 
 type EstadoEtapa =
@@ -576,6 +578,7 @@ export default function AsesorExpedientePage() {
         fechaEnvioMesa: exp.operativo.fechaEnvioMesa,
         cicloEstado: exp.operativo.cicloEstado,
         origenMesa: exp.base.origenMesa,
+        firmaAgendableDesde: exp.operativo.firmaAgendableDesde ?? null,
       });
       if (exp.operativo.cicloEstado === "cancelado") {
         const cancelacion = await repo
@@ -1399,6 +1402,10 @@ export default function AsesorExpedientePage() {
               <AsesorNotificacionDocumentoSection
                 expedienteId={String(precal.id)}
                 etapaActual={operativo?.etapaActual ?? null}
+                onExpedienteUpdated={async () => {
+                  await refreshArchivos();
+                  await loadExpediente();
+                }}
               />
             ) : null}
             {dataSupabase && precal?.id ? (
@@ -1525,6 +1532,16 @@ export default function AsesorExpedientePage() {
               updatedAt={operativo?.updatedAt}
               cicloEstado={operativo?.cicloEstado}
               origenMesa={operativo?.origenMesa}
+              hasAcuseDoc={hasAcusePrincipalValido(archivosResumen)}
+              hasNotificacionDoc={Boolean(
+                archivosResumen?.some(
+                  (r) =>
+                    r.tipo_documento === "cliente_notificacion" &&
+                    Boolean(r.id) &&
+                    r.estatus_revision !== "faltante" &&
+                    r.estatus_revision !== "rechazado",
+                ),
+              )}
               formatDateTime={formatDateTime}
             />
             {canMountAgendaBiometricosUI() &&
@@ -1548,6 +1565,12 @@ export default function AsesorExpedientePage() {
                 submittedToMesa={operativo?.submittedToMesa ?? false}
                 etapaActual={operativo?.etapaActual}
                 fechaCita={operativo?.fechaCita}
+                firmaAgendableDesde={operativo?.firmaAgendableDesde ?? null}
+                acusePendienteSubir={
+                  typeof operativo?.etapaActual === "number" &&
+                  operativo.etapaActual >= 9 &&
+                  !hasAcusePrincipalValido(archivosResumen)
+                }
                 onUpdated={() => void loadExpediente()}
               />
             ) : null}
@@ -1760,6 +1783,7 @@ export default function AsesorExpedientePage() {
                 motivoRechazo: enviado.operativo.motivoRechazo,
                 comentarioRechazo: enviado.operativo.comentarioRechazo,
                 submittedToMesa: enviado.operativo.submittedToMesa,
+                firmaAgendableDesde: enviado.operativo.firmaAgendableDesde ?? null,
               });
               return true;
               }}

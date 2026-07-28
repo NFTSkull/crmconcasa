@@ -202,8 +202,8 @@ export const DOCUMENTO_CATALOGO_MAP = Object.freeze({
     etapasRequeridas: [],
   },
   /**
-   * P092: documento Notificación (`cliente_notificacion`) — Mesa desde etapa 7; asesor RO.
-   * Distinto de agenda `kind=notificacion`. No obligatorio / no gate.
+   * P092/P132: documento Notificación (`cliente_notificacion`) — Mesa o Asesor desde etapa 7.
+   * Distinto de agenda `kind=notificacion`. No obligatorio; gate avance 7→9 en primera carga.
    */
   cliente_notificacion: {
     tipo: "cliente_notificacion",

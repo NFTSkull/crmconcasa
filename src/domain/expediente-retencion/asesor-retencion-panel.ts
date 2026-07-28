@@ -63,7 +63,7 @@ export function writeRetencionOpcionDraft(
   }
 }
 
-/** Panel retención asesor: etapa 8 (envío) y etapa 9 (confirmación post-envío P079). */
+/** Panel retención asesor: etapa ≥ 8 (Acuse no bloquea firma; visible también en 9+). */
 export function canShowAsesorRetencionSupabasePanel(params: {
   dataModeSupabase: boolean;
   etapaActual: number | null | undefined;
@@ -72,8 +72,8 @@ export function canShowAsesorRetencionSupabasePanel(params: {
   return (
     params.dataModeSupabase &&
     params.submittedToMesa === true &&
-    (params.etapaActual === RETENCION_ETAPA_OPERATIVA_ID ||
-      params.etapaActual === RETENCION_ETAPA_OPERATIVA_ID + 1)
+    typeof params.etapaActual === "number" &&
+    params.etapaActual >= RETENCION_ETAPA_OPERATIVA_ID
   );
 }
 

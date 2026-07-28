@@ -108,6 +108,8 @@ export interface ExpedienteMock {
     submittedToMesa: boolean;
     fechaEnvioMesa: string | null;
     cicloEstado: string | null;
+    /** P132: fecha local YYYY-MM-DD mínima para agendar firma; null = histórico sin gate. */
+    firmaAgendableDesde?: string | null;
   };
   reingreso?: {
     expedienteAnteriorId: string | null;

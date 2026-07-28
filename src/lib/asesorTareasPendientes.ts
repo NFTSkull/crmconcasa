@@ -1,15 +1,10 @@
 import { canShowAsesorFirmasSupabaseCard } from "@/domain/agenda-firmas/firmas-booking-actions";
 import type { ExpedienteArchivoResumen } from "@/domain/expediente-archivos";
 import {
-  deriveRetencionAcuseAvisoFaltantes,
   RETENCION_ETAPA_OPERATIVA_ID,
-  tiposRequeridosRetencion,
+  retencionDocListoParaEnvioMesa,
 } from "@/domain/expediente-archivos/retencion-acuse-aviso";
-import { findRowPorTipoDocumento } from "@/domain/expediente-archivos/types";
-import {
-  canShowAsesorRetencionSupabasePanel,
-  deriveAsesorRetencionPanelView,
-} from "@/domain/expediente-retencion";
+import { canShowAsesorRetencionSupabasePanel } from "@/domain/expediente-retencion";
 import type {
   ExpedienteRetencionEnvioMesa,
   RetencionOpcion,
@@ -20,6 +15,7 @@ import {
   readFirmasBookingsDoc,
   type FirmasBookingRow,
 } from "@/lib/agendaFirmasBookingsGuard";
+import { isRetencionPrincipalDocumentTipo } from "@/lib/fileUploadValidation";
 
 export type AsesorAgendaBookingHints = Readonly<{
   hasActiveBooking: boolean;
@@ -135,66 +131,38 @@ export function isAsesorPendienteAgendarFirma(input: AsesorTareaExpedienteInput)
   return !hints.hasActiveBooking;
 }
 
-function retencionTieneDocumentoRechazado(
-  archivos: readonly ExpedienteArchivoResumen[],
-  opcion: RetencionOpcion | null,
+/** Documento principal A/B listo (subido|resubido|validado). */
+export function hasAcusePrincipalValido(
+  archivos: readonly ExpedienteArchivoResumen[] | null | undefined,
 ): boolean {
-  if (!opcion) return false;
-  for (const tipo of tiposRequeridosRetencion(opcion)) {
-    const row = findRowPorTipoDocumento(archivos, tipo);
-    if (row?.estatus_revision === "rechazado") return true;
-  }
-  return false;
+  if (!archivos?.length) return false;
+  return archivos.some(
+    (row) =>
+      isRetencionPrincipalDocumentTipo(row.tipo_documento) &&
+      retencionDocListoParaEnvioMesa(row),
+  );
 }
 
 /**
- * Pendiente subir acuse: etapa 8 con panel retención visible y faltan uploads
- * (opción no elegida, documentos faltantes o rechazados por Mesa).
- * Etapa 9 (post-envío P079) no cuenta como pendiente de subida.
+ * Pendiente subir acuse (P132): etapa ≥ 8, panel retención visible y sin Acuse
+ * principal válido (opción A/B ausente o rechazado). No exige etapa === 8.
  */
 export function isAsesorPendienteSubirAcuse(input: AsesorTareaExpedienteInput): boolean {
-  if (input.etapaActual !== RETENCION_ETAPA_OPERATIVA_ID) {
+  const etapa = input.etapaActual;
+  if (typeof etapa !== "number" || etapa < RETENCION_ETAPA_OPERATIVA_ID) {
     return false;
   }
   if (
     !canShowAsesorRetencionSupabasePanel({
       dataModeSupabase: input.dataModeSupabase === true,
-      etapaActual: input.etapaActual,
+      etapaActual: etapa,
       submittedToMesa: input.submittedToMesa,
     })
   ) {
     return false;
   }
 
-  const archivos = input.archivos ?? [];
-  const opcion = input.retencion?.opcion ?? null;
-  const envio = input.retencion?.envio ?? null;
-
-  const faltantes = deriveRetencionAcuseAvisoFaltantes({
-    retencion_opcion: opcion,
-    archivos,
-  });
-  if (faltantes.length > 0) return true;
-
-  const panel = deriveAsesorRetencionPanelView({
-    opcionDraft: opcion,
-    opcionPersistida:
-      opcion != null
-        ? {
-            expedienteId: input.expedienteId,
-            retencion_opcion: opcion,
-            updatedAt: "",
-          }
-        : null,
-    envio,
-    archivos,
-  });
-
-  if (panel.uiEstado === "correccion_requerida") {
-    return retencionTieneDocumentoRechazado(archivos, panel.opcionPanel);
-  }
-
-  return false;
+  return !hasAcusePrincipalValido(input.archivos);
 }
 
 export function buildAsesorTareaExpedienteInput(params: {

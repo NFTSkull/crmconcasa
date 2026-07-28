@@ -57,6 +57,7 @@ export function RetencionAcuseAvisoSupabaseCard({
   etapaActual = RETENCION_ETAPA_OPERATIVA_ID,
   onUpdated,
 }: RetencionAcuseAvisoSupabaseCardProps) {
+  void etapaActual;
   const repo = useExpedienteRetencionSupabaseRepo();
   const [loadingMeta, setLoadingMeta] = useState(true);
   const [metaError, setMetaError] = useState<string | null>(null);
@@ -236,7 +237,7 @@ export function RetencionAcuseAvisoSupabaseCard({
         await refetchCanonico();
       } catch {
         setVistaStaleError(
-          "El Acuse se envió y el expediente avanzó, pero no se pudo refrescar la vista. Recarga la página para ver la etapa 9.",
+          "El Acuse se envió, pero no se pudo refrescar la vista. Recarga la página.",
         );
       }
     } catch (err) {
@@ -253,15 +254,35 @@ export function RetencionAcuseAvisoSupabaseCard({
 
   if (!repo) return null;
 
-  const enEtapaFirma = etapaActual === RETENCION_ETAPA_OPERATIVA_ID + 1;
+  const acusePendiente = !archivos.some((row) => {
+    const tipo = row.tipo_documento;
+    return (
+      (tipo === "retencion_acuse_con_sello" || tipo === "retencion_carta_sin_sello") &&
+      Boolean(row.id) &&
+      (row.estatus_revision === "subido" ||
+        row.estatus_revision === "resubido" ||
+        row.estatus_revision === "validado")
+    );
+  });
 
   return (
-    <div className="rounded-lg border border-violet-200 bg-violet-50/40 p-4 text-sm text-gray-700">
+    <div
+      id="asesor-retencion-acuse"
+      className="rounded-lg border border-violet-200 bg-violet-50/40 p-4 text-sm text-gray-700"
+    >
       <p className="text-sm font-semibold text-gray-900">Acuse / Aviso de retención</p>
+      {acusePendiente ? (
+        <p
+          role="status"
+          className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-950"
+        >
+          Acuse pendiente de subir
+        </p>
+      ) : null}
       <p className="mt-1 text-xs text-gray-600">
-        {enEtapaFirma
-          ? "El Acuse ya fue enviado. Mesa puede agendar la firma; no se requiere validación documental adicional."
-          : `Etapa ${RETENCION_ETAPA_OPERATIVA_ID}: elige la opción A o B y sube el documento principal (PDF o imagen JPG/PNG). Al subirlo correctamente, el expediente avanza a etapa 9 (listo para agendar firma).`}
+        Debes completar el Acuse / Aviso de retención (opción A o B y documento principal en PDF o
+        imagen JPG/PNG). No avanza la etapa automáticamente; la firma se agenda según
+        Notificación y la fecha agendable.
       </p>
 
       {loadingMeta ? (
@@ -503,8 +524,7 @@ export function RetencionAcuseAvisoSupabaseCard({
                 {enviando ? "Enviando a Mesa Control…" : panel.botonEnviarLabel}
               </Button>
               <p className="mt-1 text-[10px] text-gray-500">
-                Al enviar, el expediente avanza a etapa 9 para que Mesa agende la firma. No se crea
-                la cita automáticamente.
+                Al enviar, Mesa recibe el Acuse. No se crea la cita de firma automáticamente.
               </p>
             </div>
           ) : null}
