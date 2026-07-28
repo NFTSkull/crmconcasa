@@ -34,11 +34,15 @@ describe("mesa-decision-ux copy P3R.0", () => {
   it("P132-acuse cierre Biometría 5→8 apunta a Acuse", () => {
     assert.match(MESA_AVANCE_OPERATIVO_5A6_COPY.descripcion, /Acuse \/ Aviso de retención \(etapa 8\)/);
     assert.match(MESA_AVANCE_OPERATIVO_5A6_COPY.mensajeConfirmacion, /etapa 8/);
+    assert.equal(MESA_AVANCE_OPERATIVO_5A6_COPY.etiquetaBoton, "Pasar a Acuse");
     assert.equal(MESA_AVANCE_OPERATIVO_5A6_COPY.mostrarAvisoSinRechazo, true);
   });
 
-  it("etapa 10 ofrece Pasar a Firmado (P117)", () => {
-    assert.equal(MESA_FIRMA_ETAPA10_OPERATIVA_COPY.etiquetaBoton, "Pasar a Firmado");
+  it("etapa 10 ofrece Marcar firma como completada (P133)", () => {
+    assert.equal(
+      MESA_FIRMA_ETAPA10_OPERATIVA_COPY.etiquetaBoton,
+      "Marcar firma como completada",
+    );
     assert.match(MESA_FIRMA_ETAPA10_OPERATIVA_COPY.mensajeConfirmacion, /Firmado/);
   });
 

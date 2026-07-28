@@ -68,6 +68,14 @@
 - [x] Tomar expediente: `mesa_take_expediente`; no apropiación; Asignado a mí.
 - [x] Regresión: abrir expediente, filtros, P100/P102, P117/P118 intactos.
 
+## P133 — Acciones rápidas Mesa ↔ etapas P132
+
+- [x] Resolver único `resolveMesaQuickAction` / `resolveMesaSiguienteEtapaAccion` (tarjeta = detalle = bulk destino).
+- [x] Etapa 5: «Pasar a Acuse» → `5→8` (individual + bulk biométricos).
+- [x] Etapas 3/8/9: info (sin botón avance/agenda Mesa); 9 muestra fecha mínima o «Esperando agenda del asesor».
+- [x] Sin bulk `9→10`; sin paneles Mesa 8→9/9→10; 10→11 / 11→12 / 12 final; históricos 4/6/7 intactos.
+- [x] Sin `etapa_actual+1` genérico; sin SQL; Notificación/métricas/docs intactos.
+
 # ConCasa CRM — Plan de pruebas
 
 ## P118 — Cupos por horario + gestionar cita

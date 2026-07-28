@@ -5,15 +5,15 @@ import path from "node:path";
 
 const ROOT = path.join(process.cwd());
 
-describe("MesaBandejaAccionesRapidas UI wiring P119.3/P119.4", () => {
+describe("MesaBandejaAccionesRapidas UI wiring P119.3/P119.4/P133", () => {
   it("acciones usan stopPropagation, labels y RPCs canónicas", () => {
     const ui = readFileSync(
       path.join(ROOT, "src/components/mesa-control/MesaBandejaAccionesRapidas.tsx"),
       "utf8",
     );
     assert.match(ui, /stopPropagation/);
-    assert.match(ui, /navegar_biometricos|Agendar biométricos/);
-    assert.match(ui, /navegar_firma|Agendar firma/);
+    assert.match(ui, /resolveMesaQuickAction/);
+    assert.match(ui, /mesa-bandeja-accion-info|kind === "info"/);
     assert.match(ui, /etapa_final|Etapa final/);
     assert.match(ui, /MESA_AVANZAR_11_12_CONFIRM|Pago a ConCasa/);
     assert.match(ui, /Tomar expediente/);
@@ -31,6 +31,7 @@ describe("MesaBandejaAccionesRapidas UI wiring P119.3/P119.4", () => {
     assert.match(page, /mesa_take_expediente|takeExpediente/);
     assert.match(page, /mesa_set_expediente_marcador|setMarcador/);
     assert.match(page, /MesaBandejaAccionesRapidas/);
+    assert.match(page, /firmaAgendableDesde/);
 
     const lib = readFileSync(
       path.join(ROOT, "src/lib/mesaBandejaAccionesRapidas.ts"),
@@ -40,9 +41,14 @@ describe("MesaBandejaAccionesRapidas UI wiring P119.3/P119.4", () => {
     assert.match(lib, /MESA_TIENE_DATOS_BADGE_LABEL = "📌 Tiene documentos"/);
     assert.doesNotMatch(lib, /📌 Tiene datos/);
     assert.match(lib, /Pasar a Pago a ConCasa/);
-    assert.match(lib, /navegar_biometricos/);
-    assert.match(lib, /Falta cargar el Acuse/);
-    assert.doesNotMatch(lib, /8:\s*9/);
+    assert.match(lib, /Pasar a Acuse/);
+    assert.match(lib, /Esperando carga de Acuse por el asesor/);
+    assert.match(lib, /Esperando agenda del asesor/);
+    assert.match(lib, /Marcar firma como completada/);
+    assert.match(lib, /resolveMesaQuickAction/);
+    assert.doesNotMatch(lib, /label:\s*"Agendar firma"/);
+    assert.doesNotMatch(lib, /fromView\(\s*5,\s*7/);
+    assert.match(lib, /5:\s*8/);
 
     const detalle = readFileSync(
       path.join(ROOT, "src/components/mesa-control/MesaExpedienteDetalleReadOnly.tsx"),
@@ -51,5 +57,6 @@ describe("MesaBandejaAccionesRapidas UI wiring P119.3/P119.4", () => {
     assert.match(detalle, /MESA_PAGO_CONCASA_ETAPA11_OPERATIVA_COPY/);
     assert.match(detalle, /handleAvanzarOperativo11a12/);
     assert.match(detalle, /deriveAvanceOperativo11a12View/);
+    assert.match(detalle, /mostrar: false/);
   });
 });

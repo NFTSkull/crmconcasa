@@ -1185,10 +1185,11 @@ export function MesaExpedienteDetalleReadOnly() {
     ],
   );
 
-  const avanceOperativo8a9View = useMemo(
-    () => deriveAvanceOperativo8a9View(avanceOperativo8a9Context),
-    [avanceOperativo8a9Context],
-  );
+  const avanceOperativo8a9View = useMemo(() => {
+    // P133: Mesa no avanza 8→9; la transición canónica es la carga de Acuse del asesor.
+    const view = deriveAvanceOperativo8a9View(avanceOperativo8a9Context);
+    return { ...view, mostrar: false, puedeAvanzar: false };
+  }, [avanceOperativo8a9Context]);
 
   const firmasLocationLabel = useMemo(() => {
     if (!activeFirmasBooking) return null;
@@ -1210,10 +1211,11 @@ export function MesaExpedienteDetalleReadOnly() {
     [activeFirmasBooking, expediente],
   );
 
-  const avanceOperativo9a10View = useMemo(
-    () => deriveAvanceOperativo9a10View(avanceOperativo9a10Context),
-    [avanceOperativo9a10Context],
-  );
+  const avanceOperativo9a10View = useMemo(() => {
+    // P133: Mesa no avanza 9→10; solo booking del asesor.
+    const view = deriveAvanceOperativo9a10View(avanceOperativo9a10Context);
+    return { ...view, mostrar: false, puedeAvanzar: false };
+  }, [avanceOperativo9a10Context]);
 
   const bioCancelCitaGate = useMemo((): MesaAvanceCancelCitaGate | null => {
     if (!expediente) return null;

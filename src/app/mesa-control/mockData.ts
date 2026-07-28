@@ -18,6 +18,8 @@ export interface CasoMock {
   cicloEstado?: string | null;
   motivoRechazo?: string;
   fechaCita?: string;
+  /** P132: fecha mínima agenda firma (YYYY-MM-DD). */
+  firmaAgendableDesde?: string | null;
   /** Alta del expediente (precalificación); fallback de urgencia si no hay `fechaEnvioMesa`. */
   createdAt?: string;
   /** Si el inbox la guarda; prioridad sobre `createdAt` / `updatedAt` para orden en bandeja. */

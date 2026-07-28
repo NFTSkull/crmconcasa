@@ -78,9 +78,9 @@ export const MESA_AVANCE_OPERATIVO_5A6_COPY: MesaAvanceOperativoCopy = {
   titulo: MESA_DECISION_TITULO_AVANCE,
   descripcion:
     "La cita biométrica ya ocurrió. Confirma el avance a Acuse / Aviso de retención (etapa 8).",
-  etiquetaBoton: "Aceptar post-cita biométrica y avanzar",
+  etiquetaBoton: "Pasar a Acuse",
   mensajeConfirmacion:
-    "¿Confirmas aceptar post-cita biométrica y avanzar este expediente a etapa 8: Acuse / Aviso de retención?",
+    "¿Confirmas pasar este expediente a etapa 8: Acuse / Aviso de retención?",
   mostrarAvisoSinRechazo: true,
 };
 
@@ -131,9 +131,9 @@ export const MESA_FIRMA_ETAPA10_OPERATIVA_COPY: MesaAvanceOperativoCopy = {
   titulo: MESA_DECISION_TITULO_AVANCE,
   descripcion:
     "El expediente está en Cita para firma (etapa 10). Cuando la firma se complete, avanza a Firmado. Si el cliente no puede asistir, cancela la cita y solicita reagenda al asesor.",
-  etiquetaBoton: "Pasar a Firmado",
+  etiquetaBoton: "Marcar firma como completada",
   mensajeConfirmacion:
-    "¿Confirmas pasar este expediente a Firmado (etapa 11)? Se conservan la cita, el booking y los documentos.",
+    "¿Confirmas marcar la firma como completada y pasar este expediente a Firmado (etapa 11)? Se conservan la cita, el booking y los documentos.",
   mostrarAvisoSinRechazo: true,
 };
 
