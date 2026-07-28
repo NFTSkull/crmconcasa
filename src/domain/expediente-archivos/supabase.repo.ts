@@ -451,7 +451,12 @@ export class SupabaseExpedienteArchivosRepo implements ExpedienteArchivosRepo {
     });
 
     if (rpcError) {
-      throw mapMesaEliminarDocumentoRpcError(rpcError);
+      throw mapMesaEliminarDocumentoRpcError({
+        message: rpcError.message,
+        code: rpcError.code,
+        details: rpcError.details,
+        hint: rpcError.hint,
+      });
     }
 
     const result = (data ?? {}) as {

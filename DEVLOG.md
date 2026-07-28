@@ -1,5 +1,9 @@
 # Devlog
 
+## 2026-07-28 - Fix P136: eliminación Mesa fallaba en log_action
+
+Error UI genérico al confirmar Eliminar. Causa: mig. 123 declaraba `v_actor_role TEXT` y `log_action` exige `app_role` → `42883 function log_action(... text ...) does not exist`; la TX hacía rollback del soft-delete. Fix mig. 124: tipar `public.app_role` (igual que `register_mesa_documento`); mapper FE con mensajes canónicos + log dev de code/message/details/hint. Payload FE intacto (`cliente_pagare` / `cliente_notificacion` / `cliente_notificacion_apodaca`). Sin etapas/citas/montos.
+
 ## 2026-07-28 - P136: Mesa reemplaza/elimina Pagaré y Notificaciones
 
 Objetivo: en detalle Mesa, Reemplazar + Eliminar para `cliente_pagare`, `cliente_notificacion`, `cliente_notificacion_apodaca`. Reemplazo reutiliza `register_mesa_documento` (versionado soft-delete + cleanup Storage del objeto nuevo si RPC falla). Nueva RPC `mesa_eliminar_documento_expediente` (mig. 123): soft-delete activo, FOR UPDATE, idempotente, action_log `expediente.documento.mesa_eliminar`, luego remove Storage best-effort sin revertir. Allowlist Mesa + Apodaca; sección `MesaNotificacionApodacaSection`. Confirmaciones canónicas. Sin tocar etapas/citas/montos/Ingresos/quick actions. Asesor RO.

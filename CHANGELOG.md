@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- **fix/p136-mesa-eliminar-documento:** `mesa_eliminar_documento_expediente` tipa `actor_role` como `app_role` (mig. 124) para que `log_action` no falle; mapeo de errores UI más preciso.
+
 ### Added
 - **feat/p136-mesa-documentos-reemplazar-eliminar:** Mesa puede eliminar (soft-delete) Pagaré / Notificación / Notificación Apodaca (`mesa_eliminar_documento_expediente`, mig. 123); reemplazo reutiliza `register_mesa_documento`; Apodaca entra a allowlist Mesa con sección dedicada; asesor RO intacto.
 
