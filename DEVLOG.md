@@ -1,5 +1,9 @@
 # Devlog
 
+## 2026-07-28 - P135: Ingresos reconoce saltos Mesa post-Biometría
+
+Causa: P134 solo veía `5_8/5_6/5_7` o P114 desde etapa 5; Mesa movía legítimamente 3|4→8 vía `mesa.expediente.mover_etapa` y esos expedientes quedaban fuera del proyectado. Fix exclusivo: REPLACE `ingresos_bio_aprobacion_at` (mig. 122) con MIN de evidencias + rama action_log `mesa.expediente.mover_etapa` (`etapa_anterior∈{3,4,5}`, `etapa_nueva≥6`, join org). Sin backfill, sin UPDATE, sin tocar la RPC operativa ni quick actions/citas/docs. FE: `compactEtapasProduccion` añade Notificación (etapa 7) para no ocultar el 31.º de Paty. Reglas económicas P134 intactas.
+
 ## 2026-07-22 - P134: ingresos proyectados/reales Super Admin
 
 Módulo independiente: elegibilidad con evidencia canónica bio (`action_log` 5_8/5_6/5_7 o P114 desde etapa 5); fórmula `round(monto×%/100,2)` sin +3000 ni tope 169k; prioridad `monto_mejoravit_actualizado` > JSON Datos Generales. Snapshot `expediente_ingresos_reconocidos` vía trigger BEFORE UPDATE 11→12 (bloquea incompletos). RPCs `super_admin_get_ingresos_resumen` / `super_admin_list_ingresos_page`. Backfill legado etapa 12 (Cloud=0). UI sección Ingresos en `/admin`. Sin tocar producción P082–P116, citas, docs ni quick actions.
