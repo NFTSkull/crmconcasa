@@ -86,9 +86,7 @@ export function MesaNotificacionDocumentoUploadDialog({
         <div className="space-y-3 px-4 py-4 text-sm text-gray-700">
           {isReplace ? (
             <p>
-              Se cargará una nueva versión del Notificación. La versión vigente anterior se
-              conservará en el historial documental interno y dejará de mostrarse como
-              documento activo.
+              El documento actual dejará de mostrarse y será reemplazado por la nueva versión.
             </p>
           ) : (
             <p>Se cargará este archivo al expediente:</p>

@@ -31,7 +31,10 @@ BEGIN
   END IF;
 
   IF 'cliente_notificacion_apodaca' = ANY(public.integration_doc_tipos_mesa_upload()) THEN
-    RAISE EXCEPTION 'notif_apodaca_opcional: no debe estar en mesa_upload';
+    -- P136: Apodaca entra a allowlist Mesa (sección dedicada); OK
+    NULL;
+  ELSE
+    RAISE EXCEPTION 'notif_apodaca_opcional: P136 espera cliente_notificacion_apodaca en mesa_upload';
   END IF;
 
   IF 'cliente_notificacion' = ANY(v_opc) THEN

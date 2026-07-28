@@ -23,6 +23,7 @@ import { MesaClienteDatosReadOnlySection } from "@/components/mesa-control/MesaC
 import { MesaMontoMejoravitActualizadoSection } from "@/components/mesa-control/MesaMontoMejoravitActualizadoSection";
 import { MesaPagareSection } from "@/components/mesa-control/MesaPagareSection";
 import { MesaNotificacionDocumentoSection } from "@/components/mesa-control/MesaNotificacionDocumentoSection";
+import { MesaNotificacionApodacaSection } from "@/components/mesa-control/MesaNotificacionApodacaSection";
 import { MesaSolicitudDocumentoSection } from "@/components/mesa-control/MesaSolicitudDocumentoSection";
 import { MesaAvanceOperativoSection, MESA_AVANCE_OPERATIVO_2A3_COPY, MESA_AVANCE_OPERATIVO_3A5_COPY, MESA_AVANCE_OPERATIVO_4A5_COPY, MESA_AVANCE_OPERATIVO_5A6_COPY, MESA_AVANCE_OPERATIVO_6A7_COPY, MESA_AVANCE_OPERATIVO_7A8_COPY, MESA_AVANCE_OPERATIVO_8A9_COPY, MESA_AVANCE_OPERATIVO_9A10_COPY, MESA_FIRMA_ETAPA10_OPERATIVA_COPY, MESA_PAGO_CONCASA_ETAPA11_OPERATIVA_COPY, type MesaAvanceCancelCitaGate } from "@/components/mesa-control/MesaAvanceOperativoSection";
 import { MesaCierreValidacionDocumentalSection } from "@/components/mesa-control/MesaCierreValidacionDocumentalSection";
@@ -1951,6 +1952,18 @@ export function MesaExpedienteDetalleReadOnly() {
           puedeOperar={puedeOperarMesaActivo}
           submittedToMesa={op.submittedToMesa ?? false}
           onExpedienteUpdated={() => void load()}
+        />
+      </MesaAccordionSection>
+
+      <MesaAccordionSection
+        id="mesa-notificacion-apodaca"
+        title="Notificación Apodaca"
+        summary="Carga y consulta por Mesa Control (PDF)"
+      >
+        <MesaNotificacionApodacaSection
+          expedienteId={routeExpedienteId}
+          puedeOperar={puedeOperarMesaActivo}
+          submittedToMesa={op.submittedToMesa ?? false}
         />
       </MesaAccordionSection>
 

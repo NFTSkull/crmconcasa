@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Added
+- **feat/p136-mesa-documentos-reemplazar-eliminar:** Mesa puede eliminar (soft-delete) Pagaré / Notificación / Notificación Apodaca (`mesa_eliminar_documento_expediente`, mig. 123); reemplazo reutiliza `register_mesa_documento`; Apodaca entra a allowlist Mesa con sección dedicada; asesor RO intacto.
+
 ### Fixed
 - **fix/p135-ingresos-mover-etapa-bio:** Ingresos reconoce `mesa.expediente.mover_etapa` 3|4|5→≥6 como evidencia bio (mig. 122); resumen Producción muestra Notificación; sin cambios operativos.
 

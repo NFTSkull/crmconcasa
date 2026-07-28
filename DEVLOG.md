@@ -1,5 +1,9 @@
 # Devlog
 
+## 2026-07-28 - P136: Mesa reemplaza/elimina Pagaré y Notificaciones
+
+Objetivo: en detalle Mesa, Reemplazar + Eliminar para `cliente_pagare`, `cliente_notificacion`, `cliente_notificacion_apodaca`. Reemplazo reutiliza `register_mesa_documento` (versionado soft-delete + cleanup Storage del objeto nuevo si RPC falla). Nueva RPC `mesa_eliminar_documento_expediente` (mig. 123): soft-delete activo, FOR UPDATE, idempotente, action_log `expediente.documento.mesa_eliminar`, luego remove Storage best-effort sin revertir. Allowlist Mesa + Apodaca; sección `MesaNotificacionApodacaSection`. Confirmaciones canónicas. Sin tocar etapas/citas/montos/Ingresos/quick actions. Asesor RO.
+
 ## 2026-07-28 - P135: Ingresos reconoce saltos Mesa post-Biometría
 
 Causa: P134 solo veía `5_8/5_6/5_7` o P114 desde etapa 5; Mesa movía legítimamente 3|4→8 vía `mesa.expediente.mover_etapa` y esos expedientes quedaban fuera del proyectado. Fix exclusivo: REPLACE `ingresos_bio_aprobacion_at` (mig. 122) con MIN de evidencias + rama action_log `mesa.expediente.mover_etapa` (`etapa_anterior∈{3,4,5}`, `etapa_nueva≥6`, join org). Sin backfill, sin UPDATE, sin tocar la RPC operativa ni quick actions/citas/docs. FE: `compactEtapasProduccion` añade Notificación (etapa 7) para no ocultar el 31.º de Paty. Reglas económicas P134 intactas.

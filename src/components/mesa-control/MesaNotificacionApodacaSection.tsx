@@ -8,34 +8,22 @@ import {
   openBlobUrlInNewTab,
   type MesaArchivoPreviewState,
 } from "@/components/mesa-control/MesaArchivoPreviewDialog";
-import { MesaNotificacionDocumentoUploadDialog } from "@/components/mesa-control/MesaNotificacionDocumentoUploadDialog";
+import { MesaPagareUploadDialog } from "@/components/mesa-control/MesaPagareUploadDialog";
 import { MesaDocumentoEliminarDialog } from "@/components/mesa-control/MesaDocumentoEliminarDialog";
 import {
-  CLIENTE_NOTIFICACION_ACCEPT_ATTR,
-  canMesaOperateNotificacionDocumento,
-  findClienteNotificacionFromList,
-  formatBytesLabel,
-  formatNotificacionDocumentoMimeLabel,
-  mesaNotificacionDocumentoWriteEnabled,
-  resolveMesaNotificacionDocumentoUiMode,
-  validateClienteNotificacionFile,
-  type ClienteNotificacionDocumento,
-  type ClienteNotificacionMime,
-} from "@/domain/expediente-archivos/cliente-notificacion";
-import {
-  CLIENTE_NOTIFICACION_DOCUMENT_CONTRACT,
-  CLIENTE_NOTIFICACION_DOCUMENT_TIPO,
+  CLIENTE_NOTIFICACION_APODACA_DOCUMENT_CONTRACT,
+  CLIENTE_NOTIFICACION_APODACA_DOCUMENT_TIPO,
   ExpedienteArchivosSupabaseError,
   useExpedienteArchivosRepo,
+  type ExpedienteArchivoListItem,
 } from "@/domain/expediente-archivos";
+import { getExpedienteDocumentoAcceptAttr, validateExpedienteDocumentoUploadFile } from "@/lib/fileUploadValidation";
+import { formatBytesLabel } from "@/domain/expediente-archivos/cliente-pagare";
 
-export type MesaNotificacionDocumentoSectionProps = Readonly<{
+export type MesaNotificacionApodacaSectionProps = Readonly<{
   expedienteId: string;
-  etapaActual: number | null | undefined;
   puedeOperar: boolean;
   submittedToMesa?: boolean;
-  /** P132-acuse: tras upload refrescar expediente (sin avance automático). */
-  onExpedienteUpdated?: () => void | Promise<void>;
 }>;
 
 function formatDateTimeEsMx(iso: string | null | undefined): string {
@@ -48,22 +36,37 @@ function formatDateTimeEsMx(iso: string | null | undefined): string {
   }).format(d);
 }
 
-export function MesaNotificacionDocumentoSection({
+function findApodaca(list: ExpedienteArchivoListItem[]) {
+  const row = list.find((d) => d.tipo_documento === CLIENTE_NOTIFICACION_APODACA_DOCUMENT_TIPO);
+  if (!row) return null;
+  return {
+    id: row.id,
+    fileName: row.nombre_original,
+    mimeType: row.mime_type,
+    fileSize: row.size_bytes,
+    version: row.version,
+    createdAt: row.created_at,
+    createdByName: row.uploaded_by_name,
+  };
+}
+
+/**
+ * P136: Mesa puede cargar/reemplazar/eliminar Notificación Apodaca.
+ * Distinto de cliente_notificacion y de agenda kind=notificacion.
+ */
+export function MesaNotificacionApodacaSection({
   expedienteId,
-  etapaActual,
   puedeOperar,
   submittedToMesa = true,
-  onExpedienteUpdated,
-}: MesaNotificacionDocumentoSectionProps) {
+}: MesaNotificacionApodacaSectionProps) {
   const archivosRepo = useExpedienteArchivosRepo();
-  const uploadButtonRef = useRef<HTMLElement | null>(null);
   const savingLockRef = useRef(false);
+  const deleteLockRef = useRef(false);
 
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [documento, setDocumento] = useState<ClienteNotificacionDocumento | null>(null);
+  const [documento, setDocumento] = useState<ReturnType<typeof findApodaca>>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [selectedMime, setSelectedMime] = useState<ClienteNotificacionMime | null>(null);
   const [dialogMode, setDialogMode] = useState<"upload" | "replace">("upload");
   const [dialogOpen, setDialogOpen] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -76,32 +79,21 @@ export function MesaNotificacionDocumentoSection({
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
-  const deleteLockRef = useRef(false);
 
-  const operableWrite =
-    puedeOperar &&
-    submittedToMesa &&
-    canMesaOperateNotificacionDocumento({ etapaActual, puedeOperar: true });
+  const writeEnabled = puedeOperar && submittedToMesa;
 
-  const uiMode = resolveMesaNotificacionDocumentoUiMode({
-    etapaActual,
-    puedeOperar: operableWrite,
-    hasDocumento: documento != null,
-  });
-  const writeEnabled = mesaNotificacionDocumentoWriteEnabled(uiMode) && operableWrite;
-
-  const loadNotificacionDocumento = useCallback(async () => {
+  const loadDoc = useCallback(async () => {
     setLoading(true);
     setLoadError(null);
     try {
       const list = await archivosRepo.listByExpediente(expedienteId);
-      setDocumento(findClienteNotificacionFromList(list));
+      setDocumento(findApodaca(list));
     } catch (err) {
       setDocumento(null);
       setLoadError(
         err instanceof ExpedienteArchivosSupabaseError
           ? err.message
-          : "No se pudo cargar el Notificación.",
+          : "No se pudo cargar la Notificación Apodaca.",
       );
     } finally {
       setLoading(false);
@@ -109,8 +101,8 @@ export function MesaNotificacionDocumentoSection({
   }, [archivosRepo, expedienteId]);
 
   useEffect(() => {
-    void loadNotificacionDocumento();
-  }, [loadNotificacionDocumento]);
+    void loadDoc();
+  }, [loadDoc]);
 
   useEffect(() => {
     return () => {
@@ -122,45 +114,30 @@ export function MesaNotificacionDocumentoSection({
     if (saving) return;
     setDialogOpen(false);
     setSelectedFile(null);
-    setSelectedMime(null);
     setWriteError(null);
     setProgressLabel(null);
-    window.setTimeout(() => uploadButtonRef.current?.focus(), 0);
-  };
-
-  const beginUploadMode = (mode: "upload" | "replace") => {
-    if (!writeEnabled || saving) return;
-    setDialogMode(mode);
-    setWriteError(null);
-    setSuccessMsg(null);
-    setArchivoError(null);
   };
 
   const applySelectedFile = (file: File) => {
-    if (!writeEnabled || saving) return;
-    const validation = validateClienteNotificacionFile(file);
+    if (!writeEnabled || saving || deleting) return;
+    const validation = validateExpedienteDocumentoUploadFile(
+      file,
+      CLIENTE_NOTIFICACION_APODACA_DOCUMENT_TIPO,
+    );
     if (!validation.ok) {
-      setWriteError(validation.error);
+      setWriteError(validation.message);
       setSelectedFile(null);
-      setSelectedMime(null);
       setDialogOpen(false);
       return;
     }
     setSelectedFile(file);
-    setSelectedMime(validation.mime);
     setWriteError(null);
+    setDialogMode(documento ? "replace" : "upload");
     setDialogOpen(true);
   };
 
-  const handleDropzoneFiles = (files: File[]) => {
-    const file = files[0];
-    if (!file) return;
-    beginUploadMode(documento ? "replace" : "upload");
-    applySelectedFile(file);
-  };
-
   const handleConfirmUpload = async () => {
-    if (savingLockRef.current || !selectedFile || !selectedMime) return;
+    if (savingLockRef.current || !selectedFile) return;
     savingLockRef.current = true;
     setSaving(true);
     setWriteError(null);
@@ -169,86 +146,35 @@ export function MesaNotificacionDocumentoSection({
       if (dialogMode === "replace") {
         await archivosRepo.replaceMesaDocumento({
           expedienteId,
-          tipo_documento: CLIENTE_NOTIFICACION_DOCUMENT_TIPO,
+          tipo_documento: CLIENTE_NOTIFICACION_APODACA_DOCUMENT_TIPO,
           file: selectedFile,
         });
       } else {
         await archivosRepo.uploadMesaDocumento({
           expedienteId,
-          tipo_documento: CLIENTE_NOTIFICACION_DOCUMENT_TIPO,
+          tipo_documento: CLIENTE_NOTIFICACION_APODACA_DOCUMENT_TIPO,
           file: selectedFile,
         });
       }
       setSuccessMsg(
         dialogMode === "replace"
-          ? "Notificación reemplazado correctamente."
-          : "Notificación cargado correctamente.",
+          ? "Notificación Apodaca reemplazada correctamente."
+          : "Notificación Apodaca cargada correctamente.",
       );
       setDialogOpen(false);
       setSelectedFile(null);
-      setSelectedMime(null);
       setProgressLabel(null);
-      await loadNotificacionDocumento();
-      await onExpedienteUpdated?.();
-      window.setTimeout(() => uploadButtonRef.current?.focus(), 0);
+      await loadDoc();
     } catch (err) {
       setProgressLabel(null);
       setWriteError(
         err instanceof ExpedienteArchivosSupabaseError
           ? err.message
-          : "No se pudo registrar el Notificación. Intenta de nuevo.",
+          : "No se pudo registrar la Notificación Apodaca. Intenta de nuevo.",
       );
     } finally {
       savingLockRef.current = false;
       setSaving(false);
-    }
-  };
-
-  const mapArchivoError = (err: unknown): string => {
-    if (err instanceof ExpedienteArchivosSupabaseError) return err.message;
-    return "No se pudo abrir el archivo. Intenta de nuevo.";
-  };
-
-  const handleVer = async () => {
-    if (!documento?.id || archivoBusy) return;
-    setArchivoBusy(true);
-    setArchivoError(null);
-    try {
-      const blob = await archivosRepo.getArchivoBlob(documento.id);
-      const url = URL.createObjectURL(blob);
-      setPreview((prev) => {
-        if (prev?.url) URL.revokeObjectURL(prev.url);
-        return {
-          url,
-          mime_type: documento.mimeType,
-          nombre_original: documento.fileName,
-        };
-      });
-    } catch (err) {
-      setArchivoError(mapArchivoError(err));
-    } finally {
-      setArchivoBusy(false);
-    }
-  };
-
-  const handleDescargar = async () => {
-    if (!documento?.id || archivoBusy) return;
-    setArchivoBusy(true);
-    setArchivoError(null);
-    try {
-      const blob = await archivosRepo.getArchivoBlob(documento.id);
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = documento.fileName || "notificacion-documento";
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
-    } catch (err) {
-      setArchivoError(mapArchivoError(err));
-    } finally {
-      setArchivoBusy(false);
     }
   };
 
@@ -267,19 +193,18 @@ export function MesaNotificacionDocumentoSection({
     try {
       await archivosRepo.deleteMesaDocumento({
         expedienteId,
-        tipo_documento: CLIENTE_NOTIFICACION_DOCUMENT_TIPO,
+        tipo_documento: CLIENTE_NOTIFICACION_APODACA_DOCUMENT_TIPO,
       });
       setDeleteOpen(false);
       setDocumento(null);
-      setSuccessMsg("Notificación eliminada correctamente.");
+      setSuccessMsg("Notificación Apodaca eliminada correctamente.");
       closePreview();
-      await loadNotificacionDocumento();
-      await onExpedienteUpdated?.();
+      await loadDoc();
     } catch (err) {
       setDeleteError(
         err instanceof ExpedienteArchivosSupabaseError
           ? err.message
-          : "No se pudo eliminar el Notificación. Intenta de nuevo.",
+          : "No se pudo eliminar la Notificación Apodaca. Intenta de nuevo.",
       );
     } finally {
       deleteLockRef.current = false;
@@ -287,58 +212,90 @@ export function MesaNotificacionDocumentoSection({
     }
   };
 
-  const etapaLabel =
-    typeof etapaActual === "number" &&
-    etapaActual < CLIENTE_NOTIFICACION_DOCUMENT_CONTRACT.etapaMinima
-      ? "Disponible después de Inscripción"
-      : null;
+  const handleVer = async () => {
+    if (!documento?.id || archivoBusy) return;
+    setArchivoBusy(true);
+    setArchivoError(null);
+    try {
+      const blob = await archivosRepo.getArchivoBlob(documento.id);
+      const url = URL.createObjectURL(blob);
+      setPreview((prev) => {
+        if (prev?.url) URL.revokeObjectURL(prev.url);
+        return {
+          url,
+          mime_type: documento.mimeType,
+          nombre_original: documento.fileName,
+        };
+      });
+    } catch (err) {
+      setArchivoError(
+        err instanceof ExpedienteArchivosSupabaseError
+          ? err.message
+          : "No se pudo abrir el archivo. Intenta de nuevo.",
+      );
+    } finally {
+      setArchivoBusy(false);
+    }
+  };
+
+  const handleDescargar = async () => {
+    if (!documento?.id || archivoBusy) return;
+    setArchivoBusy(true);
+    setArchivoError(null);
+    try {
+      const blob = await archivosRepo.getArchivoBlob(documento.id);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = documento.fileName || "notificacion-apodaca.pdf";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
+    } catch (err) {
+      setArchivoError(
+        err instanceof ExpedienteArchivosSupabaseError
+          ? err.message
+          : "No se pudo abrir el archivo. Intenta de nuevo.",
+      );
+    } finally {
+      setArchivoBusy(false);
+    }
+  };
 
   return (
-    <section aria-label="Notificación" className="space-y-3 px-2 py-2 sm:px-3">
+    <section aria-label="Notificación Apodaca" className="space-y-3 px-2 py-2 sm:px-3">
       <div className="flex flex-wrap items-center gap-2">
-        <h3 className="text-sm font-semibold text-gray-900">Notificación</h3>
-        {uiMode === "etapa_bloqueada" ? (
-          <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-semibold text-slate-600 ring-1 ring-slate-200">
-            {etapaLabel}
-          </span>
-        ) : null}
-        {uiMode === "pendiente" || (uiMode === "solo_lectura" && !documento) ? (
+        <h3 className="text-sm font-semibold text-gray-900">
+          {CLIENTE_NOTIFICACION_APODACA_DOCUMENT_CONTRACT.label}
+        </h3>
+        {!documento ? (
           <span className="rounded-full bg-amber-50 px-2.5 py-0.5 text-[11px] font-semibold text-amber-800 ring-1 ring-amber-200">
-            Notificación pendiente
+            Pendiente
           </span>
-        ) : null}
-        {documento ? (
+        ) : (
           <span className="rounded-full bg-emerald-50 px-2.5 py-0.5 text-[11px] font-semibold text-emerald-800 ring-1 ring-emerald-200">
             Cargado
           </span>
-        ) : null}
+        )}
       </div>
 
-      {loading ? (
-        <p className="text-xs text-gray-500">Cargando Notificación…</p>
-      ) : null}
-
+      {loading ? <p className="text-xs text-gray-500">Cargando…</p> : null}
       {loadError ? (
         <p role="alert" className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
           {loadError}
         </p>
       ) : null}
 
-      {uiMode === "etapa_bloqueada" ? (
-        <p className="text-sm text-gray-600">
-          El Notificación podrá cargarse después de concluir la inscripción.
-        </p>
-      ) : null}
-
-      {!submittedToMesa && uiMode !== "etapa_bloqueada" ? (
+      {!submittedToMesa ? (
         <p className="text-xs text-amber-800">
           El expediente aún no fue enviado a Mesa. Puedes consultar el documento si existe, pero
           no cargar ni reemplazar.
         </p>
       ) : null}
 
-      {!loading && !loadError && uiMode !== "etapa_bloqueada" && !documento ? (
-        <p className="text-sm text-gray-600">Notificación pendiente de carga.</p>
+      {!loading && !documento ? (
+        <p className="text-sm text-gray-600">Notificación Apodaca pendiente de carga.</p>
       ) : null}
 
       {!loading && documento ? (
@@ -346,12 +303,6 @@ export function MesaNotificacionDocumentoSection({
           <div>
             <dt className="text-gray-500">Archivo</dt>
             <dd className="truncate font-medium text-gray-900">{documento.fileName}</dd>
-          </div>
-          <div>
-            <dt className="text-gray-500">Formato</dt>
-            <dd className="font-medium text-gray-900">
-              {formatNotificacionDocumentoMimeLabel(documento.mimeType)}
-            </dd>
           </div>
           <div>
             <dt className="text-gray-500">Tamaño</dt>
@@ -365,12 +316,6 @@ export function MesaNotificacionDocumentoSection({
             <dt className="text-gray-500">Fecha</dt>
             <dd className="font-medium text-gray-900">{formatDateTimeEsMx(documento.createdAt)}</dd>
           </div>
-          <div>
-            <dt className="text-gray-500">Cargado por</dt>
-            <dd className="truncate font-medium text-gray-900">
-              {documento.createdByName ?? "Mesa Control"}
-            </dd>
-          </div>
         </dl>
       ) : null}
 
@@ -381,8 +326,7 @@ export function MesaNotificacionDocumentoSection({
               type="button"
               variant="outline"
               className="h-8 px-2.5 py-0 text-xs"
-              disabled={archivoBusy}
-              aria-label="Ver Notificación"
+              disabled={archivoBusy || saving || deleting}
               onClick={() => void handleVer()}
             >
               {archivoBusy ? "Abriendo…" : "Ver"}
@@ -392,7 +336,6 @@ export function MesaNotificacionDocumentoSection({
               variant="secondary"
               className="h-8 px-2.5 py-0 text-xs"
               disabled={archivoBusy || saving || deleting}
-              aria-label="Descargar Notificación"
               onClick={() => void handleDescargar()}
             >
               Descargar
@@ -403,7 +346,6 @@ export function MesaNotificacionDocumentoSection({
                 variant="outline"
                 className="h-8 px-2.5 py-0 text-xs border-red-300 text-red-800 hover:bg-red-50"
                 disabled={saving || deleting || archivoBusy}
-                aria-label="Eliminar Notificación"
                 onClick={() => {
                   setDeleteError(null);
                   setSuccessMsg(null);
@@ -419,43 +361,39 @@ export function MesaNotificacionDocumentoSection({
         {writeEnabled ? (
           <div className="w-full min-w-[14rem] max-w-md basis-full sm:basis-auto">
             <DocumentDropzone
-              accept={CLIENTE_NOTIFICACION_ACCEPT_ATTR}
+              accept={getExpedienteDocumentoAcceptAttr(CLIENTE_NOTIFICACION_APODACA_DOCUMENT_TIPO)}
               busy={saving || deleting}
               disabled={!writeEnabled || saving || deleting}
               selectedFileName={selectedFile?.name ?? null}
-              aria-label={documento ? "Reemplazar Notificación" : "Subir Notificación"}
-              onFiles={handleDropzoneFiles}
+              aria-label={documento ? "Reemplazar Notificación Apodaca" : "Subir Notificación Apodaca"}
+              onFiles={(files) => {
+                const file = files[0];
+                if (file) applySelectedFile(file);
+              }}
             />
           </div>
         ) : null}
       </div>
 
       {writeError && !dialogOpen ? (
-        <p role="alert" className="text-xs text-red-700">
-          {writeError}
-        </p>
+        <p role="alert" className="text-xs text-red-700">{writeError}</p>
       ) : null}
-      {archivoError ? (
-        <p role="alert" className="text-xs text-red-700">
-          {archivoError}
-        </p>
-      ) : null}
+      {archivoError ? <p role="alert" className="text-xs text-red-700">{archivoError}</p> : null}
       {successMsg ? (
-        <p aria-live="polite" className="text-xs text-emerald-800">
-          {successMsg}
-        </p>
+        <p aria-live="polite" className="text-xs text-emerald-800">{successMsg}</p>
       ) : null}
 
-      {selectedFile && selectedMime ? (
-        <MesaNotificacionDocumentoUploadDialog
+      {selectedFile ? (
+        <MesaPagareUploadDialog
           open={dialogOpen}
           mode={dialogMode}
           fileName={selectedFile.name}
-          mime={selectedMime}
+          mime="application/pdf"
           fileSize={selectedFile.size}
           saving={saving}
           progressLabel={progressLabel}
           error={writeError}
+          documentLabel="Notificación Apodaca"
           onClose={closeDialog}
           onConfirm={() => void handleConfirmUpload()}
         />
@@ -463,7 +401,7 @@ export function MesaNotificacionDocumentoSection({
 
       <MesaDocumentoEliminarDialog
         open={deleteOpen}
-        label="Notificación"
+        label="Notificación Apodaca"
         deleting={deleting}
         error={deleteError}
         onClose={() => {
