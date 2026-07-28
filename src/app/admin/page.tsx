@@ -48,6 +48,7 @@ import {
 import { subestadoOperativoLabel } from "@/lib/subestadoOperativoUi";
 import { AdminReporteExpedientesSection } from "@/components/admin/AdminReporteExpedientesSection";
 import { AdminIngresosSection } from "@/components/admin/AdminIngresosSection";
+import { compactEtapasProduccion } from "@/lib/adminProductionCompactEtapas";
 
 const PAGE_SIZE = 25;
 
@@ -60,20 +61,7 @@ function etapaTone(etapa: number): string {
 }
 
 function compactEtapas(etapas: Readonly<Record<string, number>>): string {
-  const groups: Array<{ label: string; n: number }> = [
-    { label: "Integración", n: (etapas["1"] ?? 0) + (etapas["2"] ?? 0) },
-    {
-      label: "Biométricos",
-      n: (etapas["3"] ?? 0) + (etapas["4"] ?? 0) + (etapas["5"] ?? 0),
-    },
-    { label: "Pendiente Acuse", n: etapas["8"] ?? 0 },
-    { label: "Firma", n: (etapas["9"] ?? 0) + (etapas["10"] ?? 0) },
-    { label: "Finalizados", n: (etapas["11"] ?? 0) + (etapas["12"] ?? 0) },
-  ];
-  return groups
-    .filter((g) => g.n > 0)
-    .map((g) => `${g.label} ${g.n}`)
-    .join(" · ") || "—";
+  return compactEtapasProduccion(etapas);
 }
 
 function formatCorreccionCell(r: AdminMesaEnvioEvent): string {

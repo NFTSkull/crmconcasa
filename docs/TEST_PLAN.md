@@ -68,6 +68,14 @@
 - [x] Tomar expediente: `mesa_take_expediente`; no apropiación; Asignado a mí.
 - [x] Regresión: abrir expediente, filtros, P100/P102, P117/P118 intactos.
 
+## P135 — Ingresos: movimientos Mesa post-Biometría
+
+- [x] `ingresos_bio_aprobacion_at` reconoce `mesa.expediente.mover_etapa` 3|4|5→≥6 además de 5_8/5_6/5_7 y P114.
+- [x] MIN de evidencias; sin duplicar contribución; fórmula/snapshot/rechazo/cancelación intactos.
+- [x] Sin tocar `mesa.expediente.mover_etapa`, quick actions, citas ni docs.
+- [x] Resumen compacto Producción muestra Notificación cuando n>0; categorías Paty suman 31.
+- [x] SQL focal + tests TS compacto; mig. 122.
+
 ## P134 — Ingresos Super Admin
 
 - [x] Fórmula `monto × % / 100` (prioridad Mesa actualizado > Datos Generales; sin tope 169k).

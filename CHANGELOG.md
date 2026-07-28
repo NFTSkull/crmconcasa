@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- **fix/p135-ingresos-mover-etapa-bio:** Ingresos reconoce `mesa.expediente.mover_etapa` 3|4|5→≥6 como evidencia bio (mig. 122); resumen Producción muestra Notificación; sin cambios operativos.
+
 ### Added
 - **feat/p134-super-admin-ingresos:** módulo Super Admin de ingresos proyectados/reales (`monto × %`, prioridad monto Mesa P090); snapshot inmutable en `11→12`; RPCs paginadas; mig. 121; sin tope $169k ni cambios a producción/citas/docs.
 

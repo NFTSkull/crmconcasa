@@ -13,15 +13,16 @@ Convenciones:
 
 ---
 
-## 0bis. Ingresos Super Admin (P134)
+## 0bis. Ingresos Super Admin (P134 / P135)
 
 **RPCs:** `super_admin_get_ingresos_resumen` · `super_admin_list_ingresos_page`  
 **Rol:** solo `super_admin` (org propia).  
 **Fórmula:** `round(monto_base × porcentaje_cobro / 100, 2)` — sin cargo fijo ni tope $169,000.  
 **Monto base:** `cliente_datos.monto_mejoravit_actualizado` si >0; si no, `parse_monto_mejoravit_json(datos)`.  
-**Elegibilidad proyectado:** evidencia canónica bio (`action_log` transition `5_8|5_6|5_7` o P114 `etapa_anterior=5`→`6|7|8`); enviado a Mesa; no cancelado; no rechazo activo; monto+% válidos.  
-**Real:** snapshot `expediente_ingresos_reconocidos` en la misma TX que `11→12` (trigger); incompletos bloquean con mensaje canónico.  
+**Elegibilidad proyectado:** evidencia canónica bio = MIN fecha entre `action_log` transition `5_8|5_6|5_7`, P114 `etapa_anterior=5`→`6|7|8`, o `mesa.expediente.mover_etapa` estructurado `etapa_anterior∈{3,4,5}` y `etapa_nueva≥6`; enviado a Mesa; no cancelado; no rechazo activo; monto+% válidos.
+**Real:** snapshot `expediente_ingresos_reconocidos` en la misma TX que `11→12` (trigger); incompletos bloquean con mensaje canónico.
 **Fechas filtro (Monterrey):** proyectado por `bio_aprobacion_at`; real por `reconocido_at`.
+**P135:** no altera movimientos Mesa ni etapas; solo el read-model de Ingresos.
 
 ---
 
