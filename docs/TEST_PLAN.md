@@ -1,3 +1,11 @@
+## P133 — Formatos Datos Generales (asesor)
+
+- [x] Helpers TS: `normalizePersonName` / `isValidPersonName` / `filterPersonNameInput` / `normalizeDigitsOnly` / `filterDigitsInput`.
+- [x] `validateClienteDatos` + `normalizeClienteDatosForSave` (nombres, nss, tel, cp, plazo).
+- [x] Form `ExpedienteClienteDatosFormSection`: filtros onChange; sin `type=number` en nss/tel/cp.
+- [x] Mig. 119: `cliente_datos_assert_payload_formats` en save + corrección; sin CHECK/backfill.
+- [x] Tests TS casos 1–13; SQL estructural `rpc_cliente_datos_field_formats_p133.sql`.
+
 ## P130 — Lote de cambios del asesor (Mesa)
 
 - [x] Formatters/anchors unit (`mesaAsesorCambiosUi.test.ts`).

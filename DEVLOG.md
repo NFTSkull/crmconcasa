@@ -1,5 +1,9 @@
 # Devlog
 
+## 2026-07-28 - P133 validación formatos Datos Generales
+
+Objetivo: nombres solo letras/espacios/guion/apóstrofe (Unicode, acentos/Ñ); NSS/tel/CP/plazo solo dígitos (texto, ceros); RFC/correo/montos/dirección mixtos intactos. FE: `clienteDatosFieldFormats` + filtros onChange en `ExpedienteClienteDatosFormSection`; mensajes vía `fieldErrors`. SQL 119: helpers `cliente_datos_*_person_name` + `assert_payload_formats` en payload entrante de `save_cliente_datos` y `save_cliente_datos_correccion` (después auth/org, antes upsert). Sin CHECK en tablas, sin backfill, sin mutar históricos. No etapas/citas/docs/Super Admin.
+
 ## 2026-07-28 - P132 Notificación libera firma (FE + tests TS)
 
 UI/dominio alineados a mig. 118: Mesa cierre Biometría `5→7` (copy/bulk/bandeja; UI 6→7 históricos); Acuse panel `etapa>=8`, pendiente en 9+ sin bloquear firma; `firma_agendable_desde` en expediente + min date picker; Asesor/Mesa Notificación con upload y refresh de etapa; timeline Acuse/Notificación con override documental; contrato TS `esGateAvance` + origen Asesor|Mesa. Sin tocar métricas Super Admin ni filtros P129.

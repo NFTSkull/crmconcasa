@@ -5,6 +5,10 @@ import { Button } from "@/components/ui/Button";
 import type { ExpedienteClienteDatos } from "@/domain/expediente-cliente-datos";
 import type { ClienteDatosFieldErrors, ClienteDatosFieldKey } from "@/lib/clienteDatosValidation";
 import {
+  filterDigitsInput,
+  filterPersonNameInput,
+} from "@/lib/clienteDatosFieldFormats";
+import {
   CLIENTE_METODO_PAGO_OPTIONS,
   isProgramaMejoravitDb,
   parsePorcentajeCobroInput,
@@ -305,15 +309,25 @@ export function ExpedienteClienteDatosFormSection({
               className={fieldInputClass(Boolean(err("nombreCliente")))}
               value={clienteDatos.nombreCliente}
               onChange={(e) =>
-                setClienteDatos((p) => ({ ...p, nombreCliente: e.target.value }))
+                setClienteDatos((p) => ({
+                  ...p,
+                  nombreCliente: filterPersonNameInput(e.target.value),
+                }))
               }
             />
           </DatosField>
           <DatosField label="NSS" fieldKey="nss" error={err("nss")} showError={showFieldErrors}>
             <input
               className={fieldInputClass(Boolean(err("nss")))}
+              inputMode="numeric"
+              autoComplete="off"
               value={clienteDatos.nss}
-              onChange={(e) => setClienteDatos((p) => ({ ...p, nss: e.target.value }))}
+              onChange={(e) =>
+                setClienteDatos((p) => ({
+                  ...p,
+                  nss: filterDigitsInput(e.target.value, 11),
+                }))
+              }
             />
           </DatosField>
           <DatosField label="CURP" fieldKey="curp" error={err("curp")} showError={showFieldErrors}>
@@ -330,16 +344,24 @@ export function ExpedienteClienteDatosFormSection({
               className={`${fieldInputClass(Boolean(err("rfc")))} uppercase`}
               value={clienteDatos.rfc}
               onChange={(e) =>
-                setClienteDatos((p) => ({ ...p, rfc: e.target.value.toUpperCase() }))
+                setClienteDatos((p) => ({
+                  ...p,
+                  rfc: e.target.value.toUpperCase().replace(/\s+/g, ""),
+                }))
               }
             />
           </DatosField>
           <DatosField label="Celular" fieldKey="celular" error={err("celular")} showError={showFieldErrors}>
             <input
               className={fieldInputClass(Boolean(err("celular")))}
+              inputMode="tel"
+              autoComplete="tel"
               value={clienteDatos.celular}
               onChange={(e) =>
-                setClienteDatos((p) => ({ ...p, celular: e.target.value }))
+                setClienteDatos((p) => ({
+                  ...p,
+                  celular: filterDigitsInput(e.target.value, 15),
+                }))
               }
             />
           </DatosField>
@@ -376,11 +398,13 @@ export function ExpedienteClienteDatosFormSection({
           <DatosField label="Teléfono empresa" fieldKey="telefonoEmpresa" error={err("telefonoEmpresa")} showError={showFieldErrors}>
             <input
               className={fieldInputClass(Boolean(err("telefonoEmpresa")))}
+              inputMode="tel"
+              autoComplete="tel"
               value={clienteDatos.telefonoEmpresa}
               onChange={(e) =>
                 setClienteDatos((p) => ({
                   ...p,
-                  telefonoEmpresa: e.target.value,
+                  telefonoEmpresa: filterDigitsInput(e.target.value, 15),
                 }))
               }
             />
@@ -406,7 +430,10 @@ export function ExpedienteClienteDatosFormSection({
                     onChange={(e) =>
                       setClienteDatos((p) => {
                         const nextRefs = [...p.referencias];
-                        nextRefs[idx] = { ...nextRefs[idx], nombre: e.target.value };
+                        nextRefs[idx] = {
+                          ...nextRefs[idx],
+                          nombre: filterPersonNameInput(e.target.value),
+                        };
                         return { ...p, referencias: nextRefs };
                       })
                     }
@@ -422,11 +449,16 @@ export function ExpedienteClienteDatosFormSection({
                     className={fieldInputClass(
                       Boolean(err(idx === 0 ? "referencia1Celular" : "referencia2Celular")),
                     )}
+                    inputMode="tel"
+                    autoComplete="tel"
                     value={clienteDatos.referencias[idx]?.celular ?? ""}
                     onChange={(e) =>
                       setClienteDatos((p) => {
                         const nextRefs = [...p.referencias];
-                        nextRefs[idx] = { ...nextRefs[idx], celular: e.target.value };
+                        nextRefs[idx] = {
+                          ...nextRefs[idx],
+                          celular: filterDigitsInput(e.target.value, 15),
+                        };
                         return { ...p, referencias: nextRefs };
                       })
                     }
@@ -451,7 +483,10 @@ export function ExpedienteClienteDatosFormSection({
                   onChange={(e) =>
                     setClienteDatos((p) => ({
                       ...p,
-                      beneficiario: { ...p.beneficiario, nombre: e.target.value },
+                      beneficiario: {
+                        ...p.beneficiario,
+                        nombre: filterPersonNameInput(e.target.value),
+                      },
                     }))
                   }
                 />
@@ -468,7 +503,10 @@ export function ExpedienteClienteDatosFormSection({
                   onChange={(e) =>
                     setClienteDatos((p) => ({
                       ...p,
-                      beneficiario: { ...p.beneficiario, parentesco: e.target.value },
+                      beneficiario: {
+                        ...p.beneficiario,
+                        parentesco: filterPersonNameInput(e.target.value),
+                      },
                     }))
                   }
                 />
@@ -510,9 +548,15 @@ export function ExpedienteClienteDatosFormSection({
             >
               <input
                 className={fieldInputClass(Boolean(err("plazo")))}
+                inputMode="numeric"
                 value={clienteDatos.plazo}
-                onChange={(e) => setClienteDatos((p) => ({ ...p, plazo: e.target.value }))}
-                placeholder="Ej. 12 meses"
+                onChange={(e) =>
+                  setClienteDatos((p) => ({
+                    ...p,
+                    plazo: filterDigitsInput(e.target.value, 3),
+                  }))
+                }
+                placeholder="Ej. 12"
               />
             </DatosField>
           </div>
@@ -600,11 +644,16 @@ export function ExpedienteClienteDatosFormSection({
             >
               <input
                 className={fieldInputClass(Boolean(err("direccionCp")))}
+                inputMode="numeric"
+                autoComplete="postal-code"
                 value={clienteDatos.direccionEmpresa.cp}
                 onChange={(e) =>
                   setClienteDatos((p) => ({
                     ...p,
-                    direccionEmpresa: { ...p.direccionEmpresa, cp: e.target.value },
+                    direccionEmpresa: {
+                      ...p.direccionEmpresa,
+                      cp: filterDigitsInput(e.target.value, 5),
+                    },
                   }))
                 }
               />
