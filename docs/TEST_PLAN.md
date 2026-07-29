@@ -92,6 +92,12 @@
 - [x] Solo super_admin; sin tocar fórmula/snapshot/etapas/citas/docs.
 - [x] Tests TS config/excel/UI + SQL focal P138; regresiones filtros Ingresos.
 
+## Excepción one-time firmas (gate 5 días)
+
+- [x] Tabla `agenda_booking_exceptions` + grant solo super_admin; assert respeta excepción exacta.
+- [x] `book_firmas` consume excepción y avanza 9→10; capacidad/regla general intactas.
+- [x] SQL focal + regresión P132 acuse/gate; sin Sheets.
+
 ## P137 — Ingresos: proyección por envío a Mesa + alcance de etapa
 
 - [x] Universo proyectado = enviados a Mesa con monto/% (sin gate bio); incompletos aparte.
