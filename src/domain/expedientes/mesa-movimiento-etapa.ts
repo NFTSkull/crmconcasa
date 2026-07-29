@@ -78,8 +78,60 @@ const MESA_MOVE_MESSAGES: Readonly<Record<string, string>> = {
   MESA_MOVE_REASON_REQUIRED: "El motivo del movimiento es obligatorio.",
   MESA_MOVE_REASON_TOO_LONG: "El motivo no puede exceder 500 caracteres.",
   MESA_MOVE_STAGE_CONFLICT:
-    "La etapa cambió desde que abriste esta pantalla. Se recargó el expediente.",
+    "El expediente ya cambió de etapa. Actualizamos la información.",
 };
+
+/** Conflicto optimista (SQLSTATE 40001 / MESA_MOVE_STAGE_CONFLICT): definitivo, sin retry. */
+export function isMesaMoveStageConflictError(
+  error: MesaMovimientoRpcError | Error | string | null | undefined,
+): boolean {
+  if (!error) return false;
+  if (typeof error === "string") {
+    return (
+      error.includes("MESA_MOVE_STAGE_CONFLICT") ||
+      error.includes(MESA_MOVE_MESSAGES.MESA_MOVE_STAGE_CONFLICT) ||
+      error.includes("La etapa cambió")
+    );
+  }
+  if (error instanceof Error) {
+    return isMesaMoveStageConflictError(error.message);
+  }
+  return getMesaMovimientoErrorCode(error) === "MESA_MOVE_STAGE_CONFLICT";
+}
+
+/** Nunca reintentar automáticamente tras conflicto de etapa (ni 40001 genérico de este RPC). */
+export function shouldAutoRetryMesaMovimiento(
+  error: MesaMovimientoRpcError | Error | string | null | undefined,
+): boolean {
+  if (isMesaMoveStageConflictError(error)) return false;
+  return false;
+}
+
+/**
+ * Una sola solicitud en vuelo por expediente (doble clic / dos pestañas en el mismo JS context).
+ * No sustituye rate-limit servidor; evita reentrancia en el cliente.
+ */
+export function createMesaMoverInFlightGuard(): {
+  tryAcquire: (expedienteId: string) => boolean;
+  release: (expedienteId: string) => void;
+  isInFlight: (expedienteId: string) => boolean;
+} {
+  const inFlight = new Set<string>();
+  return {
+    tryAcquire(expedienteId: string) {
+      const id = String(expedienteId ?? "").trim();
+      if (!id || inFlight.has(id)) return false;
+      inFlight.add(id);
+      return true;
+    },
+    release(expedienteId: string) {
+      inFlight.delete(String(expedienteId ?? "").trim());
+    },
+    isInFlight(expedienteId: string) {
+      return inFlight.has(String(expedienteId ?? "").trim());
+    },
+  };
+}
 
 export function getMesaMovimientoErrorCode(
   error: MesaMovimientoRpcError,

@@ -34,10 +34,12 @@ export type { CreateExpedienteInput } from "./create-expediente.input";
 export type { UpsertEditorDecisionInput } from "./upsert-editor-decision.input";
 export type { EditorListPage, EditorListQuery } from "./editor-list-query";
 export {
+  createMesaMoverInFlightGuard,
   deriveMesaMovimientoAdvertencias,
   getMesaControlManualEstado,
   getMesaMovimientoDireccion,
   getMesaMovimientoErrorCode,
+  isMesaMoveStageConflictError,
   mapMesaMovimientoRpcError,
   mesaEtapaSchema,
   MESA_MOVIMIENTO_SUBESTADOS_ELEGIBLES,
@@ -46,6 +48,7 @@ export {
   mesaMovimientoResultadoSchema,
   puedeConfirmarMovimientoMesa,
   puedeMostrarControlManualMesa,
+  shouldAutoRetryMesaMovimiento,
   type MesaControlManualEstado,
   type MesaMovimientoHistorialRow,
   type MesaMovimientoInput,

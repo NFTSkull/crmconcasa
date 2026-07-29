@@ -1,12 +1,14 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import {
+  createMesaMoverInFlightGuard,
   deriveMesaMovimientoAdvertencias,
   esElegibleRechazoOperativoPostBiometricos,
   getMesaControlManualEstado,
   getMesaMovimientoDireccion,
+  isMesaMoveStageConflictError,
   mesaMovimientoInputSchema,
   mensajeAdvertenciaMotivoPareceRechazo,
   motivoManualPareceRechazo,
@@ -81,6 +83,16 @@ export function MesaControlManualEtapaSection({
   const [history, setHistory] = useState<readonly MesaMovimientoHistorialRow[]>(
     [],
   );
+  /** Dedup de doble clic / reentrada; cleanup al desmontar. */
+  const flightGuardRef = useRef(createMesaMoverInFlightGuard());
+
+  useEffect(() => {
+    const guard = flightGuardRef.current;
+    const id = expedienteId;
+    return () => {
+      guard.release(id);
+    };
+  }, [expedienteId]);
 
   const estado = getMesaControlManualEstado({
     role,
@@ -178,10 +190,15 @@ export function MesaControlManualEtapaSection({
     if (!habilitado || !parsedInput?.success || !canConfirm || destino == null) {
       return;
     }
+    const guard = flightGuardRef.current;
+    if (!guard.tryAcquire(expedienteId)) {
+      return;
+    }
     setSaving(true);
     setError(null);
     setSuccess(null);
     try {
+      // Una sola RPC; sin retry automático (conflicto 40001 es estado definitivo).
       const result = await repo.mesaMoverEtapaOperativa(
         expedienteId,
         parsedInput.data,
@@ -194,14 +211,18 @@ export function MesaControlManualEtapaSection({
       setConfirming(false);
       await loadHistory();
       onRefresh();
-    } catch (err) {
+    } catch (err: unknown) {
       const message =
         err instanceof Error
           ? err.message
           : "No se pudo realizar el movimiento manual.";
       setError(message);
-      if (message.includes("La etapa cambió")) onRefresh();
+      // Conflicto: un único refetch; nunca re-invocar el RPC automáticamente.
+      if (isMesaMoveStageConflictError(message)) {
+        onRefresh();
+      }
     } finally {
+      guard.release(expedienteId);
       setSaving(false);
     }
   }
