@@ -382,6 +382,35 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 
 ---
 
+## 8bis. Google Sheets ↔ Agenda (sync bidireccional)
+
+**Migración:** `129_google_sheets_agenda_sync.sql`
+**Spreadsheet:** `1JOERzJc2yLncDbzTFG2lQLQXdlWwmGehlxP7JNOoupA` («CITAS 2026»)
+**TZ integración:** `America/Mexico_City` (CRM interno de agenda sigue usando `America/Monterrey` en `agenda_config`).
+
+### Fuente de verdad
+Supabase `agenda_bookings`. Sheets no inserta filas directas; toda reserva Sheet→CRM pasa por Edge `agenda-sheet-webhook` + RPC `agenda_sheet_book_by_nss` (`service_role` only).
+
+### Identidad de cupo / fila
+- CRM: `(organization_id, kind, booking_date, booking_time, location_id)` + capacity (sin `slot_id`).
+- Sheet: misma clave + `slot_ordinal` (fila N de esa hora) en `agenda_sheet_slot_links`.
+
+### RPCs internas
+- `agenda_sheet_book_by_nss(...)` — reserva atómica + mapping + `action_log` `agenda.sheet.book`
+- `agenda_sheet_claim_outbox` / `agenda_sheet_mark_outbox` — worker CRM→Sheets
+- `agenda_sheet_upsert_link_from_crm` — mapping tras escritura Sheet
+
+### Outbox
+Trigger en `agenda_bookings` → `agenda_sheet_sync_outbox` (`booking_created|updated|cancelled|rescheduled`). Fallo Google no revierte booking. Máx 5 intentos.
+
+### Feature flag
+`GOOGLE_SHEETS_SYNC_ENABLED=false` apaga sync sin borrar bookings/mappings.
+
+### Docs operativas
+`integrations/google-sheets-agenda/README.md`
+
+---
+
 ## 8. Agendar biométricos (asesor)
 
 **Operación:** `POST /agenda/biometricos/bookings` · RPC `book_biometricos`

@@ -1,5 +1,9 @@
 # Devlog
 
+## 2026-07-29 - Google Sheets ↔ Agenda (local)
+
+Integración bidireccional con «CITAS 2026» (`1JOERzJc2yLncDbzTFG2lQLQXdlWwmGehlxP7JNOoupA`). CRM sin `slot_id`: cupo = `(kind,date,time,location)` + capacity; filas repetidas del Sheet = `slot_ordinal` en `agenda_sheet_slot_links`. Outbox `agenda_sheet_sync_outbox` vía trigger en `agenda_bookings`. Sheets→CRM solo por Edge + `agenda_sheet_book_by_nss` (service_role). TZ integración `America/Mexico_City`. Cancelación desde Sheets deshabilitada (sin bypass). Sin Cloud/deploy/edición real de hoja. P090/Evidencia/mesa_mover/NOM-035 intactos.
+
 ## 2026-07-29 - Evidencia: canUpload sin monto aprobado
 
 Causa: `AsesorEvidenciaSection` recibía `puedeEditar={puedeIntegrarAsesor}` y `puedeIntegrarAsesor = hasMontoAprobado && !cancelado`, dejando la tarjeta en solo lectura sin monto. Fix mínimo: `asesorPuedeEditarEvidencia(cicloEstado)` (espejo RPC: ciclo `activo`) → `canUpload`. No exige monto/Pagaré/cobro/obligatorios/Mesa. Backend `register_expediente_documento` ya no valida monto para `asesor_evidencia`. Pagaré y `puedeIntegrarAsesor` intactos.

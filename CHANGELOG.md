@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Added
+- **feat/google-sheets-agenda-sync:** integración bidireccional Agenda ↔ Google Sheets «CITAS 2026» (mig. 129, outbox, Edge webhook/worker, Apps Script, parsers/dry-run). Supabase = fuente de verdad; sync desactivable; sin editar hoja real ni Cloud en esta fase.
+
 ### Fixed
 - **fix/asesor-evidencia-canupload:** `AsesorEvidenciaSection` usa `canUpload={puedeEditarEvidencia}` (ciclo activo) en lugar de `puedeIntegrarAsesor` (monto aprobado); sin tocar Pagaré, obligatorios ni gates.
 
