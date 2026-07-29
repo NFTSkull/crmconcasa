@@ -407,7 +407,19 @@ Trigger en `agenda_bookings` → `agenda_sheet_sync_outbox` (`booking_created|up
 `GOOGLE_SHEETS_SYNC_ENABLED=false` apaga sync sin borrar bookings/mappings.
 
 ### Columnas técnicas
-Rango seguro **O:U** (`ESTADO CRM`…`CRM_SYNC_VERSION`). **A:N se PRESERVA** (H:I contiene notas/papelería reales). Escritura Edge solo A:D + O:U tras relectura y guard `assertTechColumnsWritable`.
+Rango seguro **O:U** (`ESTADO CRM`…`CRM_SYNC_VERSION`). **A:N se PRESERVA** (H:I contiene notas/papelería reales). Escritura Edge solo A:D + O:U tras relectura y guard `assertTechColumnsWritable`. Extracción exige `TechCellSource` (`absolute_row` con `startColumnIndex`, o `tech_range_ou` si el GET fue `O:U`); nunca inferir O:U por `values.length === 7`.
+
+### Resolución de pestaña
+`GOOGLE_SHEETS_TAB_MAP_JSON` preferente. Fallback live por metadatos → `resolved_from_tab_map` | `resolved_from_live_metadata` | `missing_sheet_for_date` | `ambiguous_sheet_for_date`. No crea pestañas.
+
+### Worker CRM→Sheets
+- POST `/functions/v1/agenda-sheet-sync-worker`
+- Header: `x-concasa-worker-secret` (también acepta `x-concasa-webhook-secret`)
+- Secret Edge: `GOOGLE_SHEETS_WORKER_SECRET` (fallback `GOOGLE_SHEETS_WEBHOOK_SECRET`)
+- Body: `{}` (no requerido)
+- Sync off: `200 { processed: 0, disabled: true }` sin tocar datos
+- Claim: `agenda_sheet_claim_outbox` con `FOR UPDATE SKIP LOCKED`, máx 50/ejecución
+- Cron: mig. 130 job `agenda-sheet-sync-worker-every-minute` (`* * * * *`) vía Vault `agenda_sheet_project_url` + `agenda_sheet_worker_secret`
 
 ### Docs operativas
 `integrations/google-sheets-agenda/README.md`

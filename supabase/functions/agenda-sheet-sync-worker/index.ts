@@ -17,6 +17,10 @@ import {
   buildTechWriteRow,
 } from "../_shared/agenda-sheets/tech-columns.ts";
 import { createGoogleSheetsAdapter } from "../_shared/agenda-sheets/google.ts";
+import {
+  parseTabMapJson,
+  resolveSheetTabForDate,
+} from "../_shared/agenda-sheets/resolve-tab.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 Deno.serve(async (req) => {
@@ -24,11 +28,15 @@ Deno.serve(async (req) => {
     if (req.method !== "POST") {
       return jsonError(405, "method_not_allowed", "Solo POST");
     }
+    // Sync apagado: 2xx no-op sin tocar outbox/Sheets/bookings (cron-safe).
     if (Deno.env.get("GOOGLE_SHEETS_SYNC_ENABLED") === "false") {
       return jsonOk({ processed: 0, disabled: true });
     }
 
-    const secret = Deno.env.get("GOOGLE_SHEETS_WEBHOOK_SECRET") ?? "";
+    // Auth: preferir GOOGLE_SHEETS_WORKER_SECRET; fallback WEBHOOK_SECRET (legado).
+    const secret =
+      (Deno.env.get("GOOGLE_SHEETS_WORKER_SECRET") ?? "").trim() ||
+      (Deno.env.get("GOOGLE_SHEETS_WEBHOOK_SECRET") ?? "").trim();
     const hdr = req.headers.get("x-concasa-worker-secret") ??
       req.headers.get("x-concasa-webhook-secret") ?? "";
     // Misma comparación segura simple
@@ -147,28 +155,35 @@ Deno.serve(async (req) => {
           const time = parseTime(timeRaw.slice(0, 5)) ?? timeRaw.slice(0, 5);
           const locationId = String(payload.location_id ?? "");
           const kind = String(payload.kind ?? "");
-          // Worker requiere sheet_id/title preconfigurados o mapeo por fecha;
-          // en v1 deja pendiente si no hay mapa de pestaña.
-          const tabMap = Deno.env.get("GOOGLE_SHEETS_TAB_MAP_JSON") ?? "{}";
-          let tab: { sheetId: number; title: string } | null = null;
-          try {
-            const map = JSON.parse(tabMap) as Record<
-              string,
-              { sheetId: number; title: string }
-            >;
-            tab = map[date] ?? null;
-          } catch {
-            tab = null;
-          }
-          if (!tab) {
+          const tabMap = parseTabMapJson(
+            Deno.env.get("GOOGLE_SHEETS_TAB_MAP_JSON") ?? "{}",
+          );
+          const yearEnv = Number(Deno.env.get("GOOGLE_SHEETS_YEAR") ?? "2026");
+          const liveTabs = await adapter.listSheets();
+          const resolved = resolveSheetTabForDate({
+            bookingDate: date,
+            tabMap,
+            liveTabs,
+            year: Number.isFinite(yearEnv) ? yearEnv : undefined,
+          });
+          if (
+            resolved.status === "missing_sheet_for_date" ||
+            resolved.status === "ambiguous_sheet_for_date"
+          ) {
             await supabase.rpc("agenda_sheet_mark_outbox", {
               p_id: ev.id,
               p_status: "failed",
-              p_error: "missing_tab_map",
+              p_error: resolved.status,
             });
             failed++;
             continue;
           }
+          const tab = {
+            sheetId: resolved.sheetId,
+            title: resolved.title,
+          };
+          // resolved.status: resolved_from_tab_map | resolved_from_live_metadata
+          void resolved.status;
 
           const titleEsc = `'${tab.title.replace(/'/g, "''")}'`;
           const grid = await adapter.getValues(`${titleEsc}!A1:U200`);

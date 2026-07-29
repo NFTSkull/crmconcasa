@@ -24,7 +24,10 @@ export {
   AGENDA_SHEET_TECH_COLUMNS,
   AGENDA_SHEET_TECH_HEADERS,
   AGENDA_SHEET_TECH_RANGE,
+  TECH_SOURCE_EXPLICIT_OU,
+  TECH_SOURCE_FROM_COLUMN_A,
   a1FullReadRange,
+  a1TechColumnsRange,
   a1TechRange,
   a1VisibleRange,
   assertTechColumnsWritable,
@@ -34,10 +37,18 @@ export {
   isTechColumn1Based,
   tabHasUnexpectedTechData,
   techCellsAreEmpty,
+  type TechCellSource,
   type TechWriteConflict,
   type TechWriteDecision,
   type TechWriteOk,
 } from "./tech-columns";
+export {
+  parseTabMapJson,
+  resolveSheetTabForDate,
+  type AgendaSheetTabMap,
+  type ResolveSheetTabResult,
+  type SheetTabMeta,
+} from "./resolve-tab";
 export {
   buildAgendaSheetsDryRunReport,
   type AgendaSheetsDryRunReport,

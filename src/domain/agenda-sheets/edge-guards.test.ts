@@ -10,6 +10,7 @@ import {
   parseSheetTime,
 } from "./parsers";
 import {
+  TECH_SOURCE_EXPLICIT_OU,
   assertTechColumnsWritable,
   isPreserveOnlyColumn1Based,
   isTechColumn1Based,
@@ -33,12 +34,14 @@ describe("agenda-sheets edge-like guards", () => {
     const same = assertTechColumnsWritable({
       existingRowOrTech: ["SINCRONIZADO", "b1", "e", "k", "sheets", "t", "1"],
       bookingId: "b1",
+      source: TECH_SOURCE_EXPLICIT_OU,
     });
     assert.equal(same.ok, true);
     if (same.ok) assert.equal(same.mode, "idempotent");
     const other = assertTechColumnsWritable({
       existingRowOrTech: ["SINCRONIZADO", "b2", "e", "k", "sheets", "t", "1"],
       bookingId: "b1",
+      source: TECH_SOURCE_EXPLICIT_OU,
     });
     assert.equal(other.ok, false);
   });

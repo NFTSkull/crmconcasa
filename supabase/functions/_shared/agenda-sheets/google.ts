@@ -3,9 +3,17 @@
  * No secrets in logs. Injectable for tests via fetch override.
  */
 
+export type SheetMeta = {
+  sheetId: number;
+  title: string;
+  hidden: boolean;
+};
+
 export type SheetsAdapter = {
   getValues: (rangeA1: string) => Promise<string[][]>;
   updateValues: (rangeA1: string, values: string[][]) => Promise<void>;
+  /** Solo metadatos de pestañas (sin valores de celdas). */
+  listSheets: () => Promise<SheetMeta[]>;
 };
 
 function pemToArrayBuffer(pem: string): ArrayBuffer {
@@ -109,12 +117,31 @@ export async function createGoogleSheetsAdapter(input: {
       });
       if (!res.ok) throw new Error("google_sheets_write_failed");
     },
+    async listSheets() {
+      const url =
+        `${base}?fields=sheets.properties(sheetId,title,hidden)`;
+      const res = await fetchFn(url, {
+        headers: { authorization: `Bearer ${accessToken}` },
+      });
+      if (!res.ok) throw new Error("google_sheets_meta_failed");
+      const json = (await res.json()) as {
+        sheets?: Array<{
+          properties?: { sheetId?: number; title?: string; hidden?: boolean };
+        }>;
+      };
+      return (json.sheets ?? []).map((s) => ({
+        sheetId: Number(s.properties?.sheetId ?? 0),
+        title: String(s.properties?.title ?? ""),
+        hidden: Boolean(s.properties?.hidden),
+      }));
+    },
   };
 }
 
 /** Mock adapter for unit tests (no network). */
 export function createMemorySheetsAdapter(
   store: Map<string, string[][]>,
+  sheets: SheetMeta[] = [],
 ): SheetsAdapter {
   return {
     async getValues(rangeA1: string) {
@@ -122,6 +149,9 @@ export function createMemorySheetsAdapter(
     },
     async updateValues(rangeA1: string, values: string[][]) {
       store.set(rangeA1, values);
+    },
+    async listSheets() {
+      return sheets;
     },
   };
 }

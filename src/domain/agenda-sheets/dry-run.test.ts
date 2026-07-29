@@ -85,4 +85,27 @@ describe("agenda-sheets dry-run", () => {
     // 30 JULIO enumeró el slot; 31 abortó sin slots de esa pestaña
     assert.equal(report.slots.every((s) => s.slotTime === "08:30"), true);
   });
+
+  it("header A:G sparse length===7 no aborta (falso positivo histórico)", () => {
+    const report = buildAgendaSheetsDryRunReport({
+      year: 2026,
+      tabs: [
+        {
+          title: "29 JULIO",
+          sheetId: 1,
+          rows: [
+            ["MONTERREY BIOMETRICOS"],
+            ["HORA", "NSS", "NOMBRE", "ASESOR", "NOTIFICACION", "FIRMO", "FIRMA"],
+            ["8:30 AM", "03179461821", "A", "B"],
+          ],
+        },
+        { title: "FORMATO", sheetId: 9, rows: [["plantilla"]] },
+      ],
+      crmBookings: [],
+    });
+    assert.deepEqual(report.tabsUnrecognized, ["FORMATO"]);
+    assert.deepEqual(report.tabsAborted, []);
+    assert.equal(report.columnAudits[0]?.aborted, false);
+    assert.equal(report.slots.length, 1);
+  });
 });

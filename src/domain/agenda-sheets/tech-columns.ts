@@ -2,6 +2,9 @@
  * Contrato único de columnas técnicas Agenda ↔ Sheets («CITAS 2026»).
  * Rango seguro confirmado por auditoría read-only: O:U.
  * H:N contiene datos operativos reales → PRESERVAR (nunca escribir).
+ *
+ * Las filas de Google Sheets API son sparse: `values.length === 7` NO implica O:U.
+ * La extracción exige origen absoluto o un rango O:U explícito.
  */
 
 /** Letras A1 de columnas técnicas (O=15 … U=21, 1-based). */
@@ -18,7 +21,7 @@ export const AGENDA_SHEET_TECH_COLUMNS = {
 export const AGENDA_SHEET_TECH_RANGE = "O:U" as const;
 export const AGENDA_SHEET_PRESERVE_RANGE = "A:N" as const;
 
-/** Índices 0-based dentro de una fila A:U (21 columnas). */
+/** Índices 0-based dentro de una fila anclada en columna A (startColumnIndex=0). */
 export const AGENDA_SHEET_COL_INDEX = {
   hora: 0, // A
   nss: 1, // B
@@ -61,6 +64,24 @@ export const AGENDA_SHEET_TECH_HEADERS = [
   "CRM_SYNC_VERSION",
 ] as const;
 
+/**
+ * Origen inequívoco de una fila de valores.
+ * - `absolute_row`: `row[i]` es la columna `startColumnIndex + i` (0-based Sheets).
+ * - `tech_range_ou`: los valores se leyeron del rango A1 `O:U` (o `O{n}:U{n}`).
+ */
+export type TechCellSource =
+  | { kind: "absolute_row"; startColumnIndex: number }
+  | { kind: "tech_range_ou" };
+
+export const TECH_SOURCE_FROM_COLUMN_A: TechCellSource = {
+  kind: "absolute_row",
+  startColumnIndex: 0,
+};
+
+export const TECH_SOURCE_EXPLICIT_OU: TechCellSource = {
+  kind: "tech_range_ou",
+};
+
 export type TechWriteOk = Readonly<{
   ok: true;
   mode: "write" | "idempotent";
@@ -76,32 +97,33 @@ function cell(row: ReadonlyArray<string | null | undefined>, idx: number): strin
   return String(row[idx] ?? "").trim();
 }
 
-/** Extrae O:U (7 celdas) desde una fila A:U o desde un slice O:U exacto. */
+/**
+ * Extrae O:U (7 celdas) usando posición absoluta de columna.
+ * Nunca interpreta A:G ni H:N como O:U por `length === 7`.
+ */
 export function extractTechCells(
   row: ReadonlyArray<string | null | undefined>,
+  source: TechCellSource = TECH_SOURCE_FROM_COLUMN_A,
 ): string[] {
-  // Fila operativa corta (A:D / A:G…): O:U no presentes → vacío
-  if (row.length < 7) {
-    return ["", "", "", "", "", "", ""];
+  const out = ["", "", "", "", "", "", ""];
+  if (source.kind === "tech_range_ou") {
+    for (let i = 0; i < 7; i++) {
+      out[i] = String(row[i] ?? "");
+    }
+    return out;
   }
-  // Slice exacto O:U
-  if (row.length === 7) {
-    return row.map((c) => String(c ?? ""));
+  const start = source.startColumnIndex;
+  if (!Number.isInteger(start) || start < 0) {
+    return out;
   }
-  // Fila ancha A:…U (o más)
-  if (row.length > AGENDA_SHEET_COL_INDEX.estado) {
-    return [
-      String(row[AGENDA_SHEET_COL_INDEX.estado] ?? ""),
-      String(row[AGENDA_SHEET_COL_INDEX.bookingId] ?? ""),
-      String(row[AGENDA_SHEET_COL_INDEX.expedienteId] ?? ""),
-      String(row[AGENDA_SHEET_COL_INDEX.slotKey] ?? ""),
-      String(row[AGENDA_SHEET_COL_INDEX.syncSource] ?? ""),
-      String(row[AGENDA_SHEET_COL_INDEX.syncUpdatedAt] ?? ""),
-      String(row[AGENDA_SHEET_COL_INDEX.syncVersion] ?? ""),
-    ];
+  for (let t = 0; t < 7; t++) {
+    const absCol = AGENDA_SHEET_COL_INDEX.estado + t; // 14..20
+    const idxInRow = absCol - start;
+    if (idxInRow >= 0 && idxInRow < row.length) {
+      out[t] = String(row[idxInRow] ?? "");
+    }
   }
-  // 8–14 cols: aún no llega a O → vacío técnico
-  return ["", "", "", "", "", "", ""];
+  return out;
 }
 
 export function techCellsAreEmpty(tech: ReadonlyArray<string>): boolean {
@@ -118,6 +140,8 @@ export function techCellsAreEmpty(tech: ReadonlyArray<string>): boolean {
 export function assertTechColumnsWritable(input: {
   existingRowOrTech: ReadonlyArray<string | null | undefined>;
   bookingId: string;
+  /** Default: fila anclada en A. Pasar `tech_range_ou` si el arreglo es O:U explícito. */
+  source?: TechCellSource;
 }): TechWriteDecision {
   const bookingId = String(input.bookingId ?? "").trim();
   if (!bookingId) {
@@ -127,7 +151,10 @@ export function assertTechColumnsWritable(input: {
       message: "booking_id vacío: no se escribe O:U",
     };
   }
-  const tech = extractTechCells(input.existingRowOrTech);
+  const tech = extractTechCells(
+    input.existingRowOrTech,
+    input.source ?? TECH_SOURCE_FROM_COLUMN_A,
+  );
   const existingBooking = cell(tech, 1); // P dentro del slice O:U
   if (!existingBooking) {
     if (!techCellsAreEmpty(tech)) {
@@ -149,17 +176,17 @@ export function assertTechColumnsWritable(input: {
   };
 }
 
-/** True si alguna celda O:U de la pestaña tiene contenido no vacío. */
+/** True si alguna celda O:U de la pestaña tiene contenido no vacío (filas ancladas en A). */
 export function tabHasUnexpectedTechData(
   rows: ReadonlyArray<ReadonlyArray<string | null | undefined>>,
+  source: TechCellSource = TECH_SOURCE_FROM_COLUMN_A,
 ): { blocked: boolean; samples: Array<{ rowNumber: number; col: string }> } {
   const samples: Array<{ rowNumber: number; col: string }> = [];
   const letters = ["O", "P", "Q", "R", "S", "T", "U"] as const;
   for (let r = 0; r < rows.length; r++) {
-    const tech = extractTechCells(rows[r] ?? []);
+    const tech = extractTechCells(rows[r] ?? [], source);
     for (let i = 0; i < tech.length; i++) {
       if (!String(tech[i] ?? "").trim()) continue;
-      // Encabezados técnicos conocidos en fila 1 no bloquean si coinciden exactos
       const v = String(tech[i] ?? "").trim();
       if (AGENDA_SHEET_TECH_HEADERS.includes(v as (typeof AGENDA_SHEET_TECH_HEADERS)[number])) {
         continue;
@@ -195,6 +222,11 @@ export function buildTechWriteRow(input: {
 export function a1TechRange(sheetTitle: string, rowNumber: number): string {
   const titleEsc = `'${sheetTitle.replace(/'/g, "''")}'`;
   return `${titleEsc}!O${rowNumber}:U${rowNumber}`;
+}
+
+export function a1TechColumnsRange(sheetTitle: string): string {
+  const titleEsc = `'${sheetTitle.replace(/'/g, "''")}'`;
+  return `${titleEsc}!O:U`;
 }
 
 export function a1VisibleRange(sheetTitle: string, rowNumber: number): string {

@@ -1,5 +1,9 @@
 # Devlog
 
+## 2026-07-29 - Sheets: cierre activación (extract absoluto + cron + tabs live)
+
+Causa falso positivo dry-run: Google sparse `values.length===7` (A:G header) malinterpretado como O:U. Fix: `TechCellSource` (`absolute_row` | `tech_range_ou`); auditoría lee `O:U` explícito. Fallback `resolveSheetTabForDate` (mapa preferente → metadatos live; estados `resolved_from_*` / `missing_*` / `ambiguous_*`). Cron oficial mig. 130: job `agenda-sheet-sync-worker-every-minute` → POST worker con `x-concasa-worker-secret` desde Vault (`agenda_sheet_project_url`, `agenda_sheet_worker_secret`); claim `SKIP LOCKED`. Sync sigue apagable.
+
 ## 2026-07-29 - Sheets: columnas técnicas O:U (H:N PRESERVAR)
 
 Auditoría real: H:I tiene fechas/notas/papelería. Contrato único `tech-columns.ts` (O–U). Worker/webhook releen fila, `assertTechColumnsWritable` (vacío / mismo booking / conflicto), escriben solo A:D + O:U. Apps Script ignora ediciones O:U y lee booking en P. Dry-run aborta pestaña si O:U sucio. Sin tocar hoja real aún.

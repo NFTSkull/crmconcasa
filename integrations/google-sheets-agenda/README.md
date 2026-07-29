@@ -54,11 +54,22 @@ Configurar (Dashboard / CLI secrets), sin subir a Git:
 ## 5. Desplegar Edge Functions
 
 ```bash
-npx supabase functions deploy agenda-sheet-webhook
-npx supabase functions deploy agenda-sheet-sync-worker
+npx supabase functions deploy agenda-sheet-webhook --no-verify-jwt
+npx supabase functions deploy agenda-sheet-sync-worker --no-verify-jwt
 ```
 
-Solo tras autorización. Worker: invocar por cron / schedule HTTP con header `x-concasa-worker-secret`.
+Worker auth:
+- Env: `GOOGLE_SHEETS_WORKER_SECRET` (preferido) o `GOOGLE_SHEETS_WEBHOOK_SECRET`
+- Header: `x-concasa-worker-secret`
+- Método: `POST` body `{}`
+- `GOOGLE_SHEETS_SYNC_ENABLED=false` → `200 {processed:0,disabled:true}` (no-op)
+
+Cron oficial (mig. 130): job `agenda-sheet-sync-worker-every-minute` cada minuto.
+Vault (sin valores en Git): `agenda_sheet_project_url`, `agenda_sheet_worker_secret`.
+
+## 5bis. Pestañas nuevas
+
+`GOOGLE_SHEETS_TAB_MAP_JSON` sigue siendo preferente. Si falta `map[booking_date]`, el worker lista metadatos del Spreadsheet y resuelve exactamente una pestaña cuya fecha parseada coincida (título exacto al escribir; espacios solo para parsear). Estados: `resolved_from_tab_map`, `resolved_from_live_metadata`, `missing_sheet_for_date`, `ambiguous_sheet_for_date`. No crea pestañas.
 
 ## 6. Instalar Apps Script
 

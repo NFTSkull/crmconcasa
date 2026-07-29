@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Fixed
+- **fix/agenda-sheets-final-activation:** `extractTechCells` por posición absoluta / rango O:U explícito (elimina falso positivo `length===7`); fallback live de pestañas posteriores a `07 AGOSTO`; cron `pg_cron`+`pg_net` cada minuto vía Vault (`130_agenda_sheet_sync_worker_cron.sql`).
+
+### Fixed
 - **fix/agenda-sheets-OU:** columnas técnicas `H:N` → `O:U` (H:N PRESERVAR); guards de escritura idempotentes/conflicto; Apps Script ignora O:U; dry-run aborta pestaña con O:U sucio.
 
 ### Fixed
