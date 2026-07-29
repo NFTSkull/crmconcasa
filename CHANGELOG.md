@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Added
+- **feat/agenda-booking-exception-firmas:** excepciones one-time auditadas al gate de 5 días hábiles (`agenda_booking_exceptions` + `super_admin_grant_booking_exception`); `book_firmas` puede consumirlas y avanzar 9→10; mig. 127; regla general y capacidad intactas.
+
+### Added
 - **feat/p138-ingresos-excel-export:** exportación Excel profesional del módulo Ingresos (Descargar / Personalizar); RPC `super_admin_export_ingresos` (límite 10k, mismos filtros P137); hojas y columnas configurables; mig. 126; sin cambios a fórmula/snapshots/etapas.
 
 ### Changed

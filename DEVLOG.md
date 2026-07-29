@@ -1,5 +1,9 @@
 # Devlog
 
+## 2026-07-29 - Excepción one-time firmas (gate 5 días)
+
+Caso operativo: permitir una sola reserva anticipada de firmas sin desactivar el gate global ni mutar `firma_agendable_desde`. Nueva tabla `agenda_booking_exceptions` + RPC `super_admin_grant_booking_exception` (solo super_admin). `agenda_firmas_assert_agendable_desde` admite excepción pendiente exacta (expediente+sede+fecha+hora). `book_firmas` consume la excepción y, si estaba en etapa 9, avanza a 10. Capacidad, Sheets, ingresos y otros expedientes intactos.
+
 ## 2026-07-28 - P138: Excel profesional de Ingresos
 
 Exportación Super Admin: botones `Descargar Excel` (defaults) y `Personalizar Excel` (modal hojas/columnas/orden/nombre). Respeta snapshot de filtros activos (periodo, asesores, alcance etapa, %, fuente, estado, búsqueda). RPC `super_admin_export_ingresos` (mig. 126) devuelve todo el detalle filtrado (orden asesor→paso→envío→cliente), límite 10 000, solo `super_admin`, org del actor. ExcelJS reutiliza paleta del reporte de expedientes; monedas numéricas; freeze/autofilter. Sin tocar fórmula, elegibilidad, snapshot `11→12`, etapas, citas ni docs.
