@@ -3,6 +3,15 @@
 ## [Unreleased]
 
 ### Fixed
+- **fix/agenda-sheets-OU:** columnas técnicas `H:N` → `O:U` (H:N PRESERVAR); guards de escritura idempotentes/conflicto; Apps Script ignora O:U; dry-run aborta pestaña con O:U sucio.
+
+### Fixed
+- **feat/google-sheets-agenda-sync (validación SQL):** grants `mark_outbox` sin REVOKE de firma 4-arg inexistente; FK outbox `ON DELETE CASCADE` / links `ON DELETE SET NULL`; suite `rpc_agenda_sheet_sync` con JWT `service_role`, NSS digit-only, dblink en DB actual + commit previo a carrera, restore de `agenda_config` biométricos; runner aislado `scripts/verify-agenda-sheet-isolated.sh` re-aplica P124 tras seed; prueba funcional Firmas sin asserts de mensaje; auditoría read-only offline/live (`scripts/agenda-sheets-readonly-audit.ts`).
+
+### Added
+- **feat/google-sheets-agenda-sync:** integración bidireccional Agenda ↔ Google Sheets «CITAS 2026» (mig. 129, outbox, Edge webhook/worker, Apps Script, parsers/dry-run). Supabase = fuente de verdad; sync desactivable; sin editar hoja real ni Cloud en esta fase.
+
+### Fixed
 - **fix/asesor-evidencia-canupload:** `AsesorEvidenciaSection` usa `canUpload={puedeEditarEvidencia}` (ciclo activo) en lugar de `puedeIntegrarAsesor` (monto aprobado); sin tocar Pagaré, obligatorios ni gates.
 
 ### Added
