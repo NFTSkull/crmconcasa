@@ -9,6 +9,7 @@ import { AsesorAgendaBiometricosSupabaseGate } from "@/components/asesor/AsesorA
 import { AsesorAgendaFirmasSupabaseGate } from "@/components/asesor/AsesorAgendaFirmasSupabaseGate";
 import { RetencionAcuseAvisoSupabaseCard } from "@/components/asesor/RetencionAcuseAvisoSupabaseCard";
 import { AsesorIntegracionDocsUpload } from "@/components/asesor/AsesorIntegracionDocsUpload";
+import { AsesorEvidenciaSection } from "@/components/asesor/AsesorEvidenciaSection";
 import { AsesorSeguimientoOperativo } from "@/components/asesor/AsesorSeguimientoOperativo";
 import { canMountAgendaBiometricosUI } from "@/lib/agendaFirmasBookingsGuard";
 import { AgendaFirmasAsesorCard } from "@/components/asesor/AgendaFirmasAsesorCard";
@@ -1396,6 +1397,13 @@ export default function AsesorExpedientePage() {
               <AsesorPagareSection
                 expedienteId={String(precal.id)}
                 etapaActual={operativo?.etapaActual ?? null}
+              />
+            ) : null}
+            {dataSupabase && precal?.id ? (
+              <AsesorEvidenciaSection
+                expedienteId={String(precal.id)}
+                puedeEditar={puedeIntegrarAsesor}
+                onUploaded={refreshArchivos}
               />
             ) : null}
             {dataSupabase && precal?.id ? (

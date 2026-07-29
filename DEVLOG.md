@@ -1,5 +1,9 @@
 # Devlog
 
+## 2026-07-22 - Evidencia opcional del asesor (`asesor_evidencia`)
+
+Documento opcional totalmente fuera de gates: allowlist `integration_doc_tipos_asesor_opcionales`, MIME allowlist solo para `asesor_evidencia` (bucket conserva MIME previos + comunes de evidencia; sin `NULL`), UI dedicada Asesor/Mesa. Reutiliza `register_expediente_documento`. Sin Cloud/deploy en este bloque; P090/Pagaré/montos intactos.
+
 ## 2026-07-29 - Incidente storm `mesa_mover_etapa_operativa`
 
 Pico ~56k `MESA_MOVE_STAGE_CONFLICT` (etapa 10 vs esperada 8) / min vía PostgREST. Contención reversible: `REVOKE EXECUTE` solo a `authenticated` sobre la firma exacta; `service_role`/`postgres` intactos. Storm a 0 en ≤1 min. Edge logs no devolvieron IP/UA del path (sample vacío bajo volumen). Código actual UI no tiene retry loop → fuente probable pestaña/script externo con JWT Mesa; acción pedida: cerrar pestañas Mesa del operador. Defensa FE: `createMesaMoverInFlightGuard`, `shouldAutoRetryMesaMovimiento=false`, mensaje conflicto canónico + un refetch. **GRANT a authenticated aún NO restaurado** hasta confirmar fuente detenida y smoke.

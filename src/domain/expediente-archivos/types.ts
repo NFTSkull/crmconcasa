@@ -53,6 +53,7 @@ export const TIPO_DOCUMENTO_CATALOGO = [
   "asesor_ine_reverso",
   "asesor_estado_cuenta",
   "asesor_recibo_luz",
+  "asesor_evidencia",
 ] as const;
 
 export type TipoDocumentoCatalogo = (typeof TIPO_DOCUMENTO_CATALOGO)[number];
@@ -285,6 +286,13 @@ export const DOCUMENTO_CATALOGO_MAP = Object.freeze({
   asesor_recibo_luz: {
     tipo: "asesor_recibo_luz",
     label: "Asesor · Recibo de luz",
+    ownerRole: "asesor",
+    obligatorio: "opcional",
+    etapasRequeridas: [1],
+  },
+  asesor_evidencia: {
+    tipo: "asesor_evidencia",
+    label: "Evidencia",
     ownerRole: "asesor",
     obligatorio: "opcional",
     etapasRequeridas: [1],

@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Added
+- **feat/asesor-evidencia-opcional:** documento opcional `asesor_evidencia` (allowlist MIME ≤15 MiB; bucket sin `NULL`); sección Asesor + consulta Mesa; mig. 128; sin gates ni impacto en P090/Pagaré/obligatorios.
+
 ### Fixed
 - **incident/mesa-mover-conflict-storm:** contención Cloud `REVOKE EXECUTE … FROM authenticated` sobre `mesa_mover_etapa_operativa(uuid,smallint,smallint,text)`; cliente con guard in-flight, cero retry en `MESA_MOVE_STAGE_CONFLICT`/`40001`, un refetch y mensaje canónico; grants de `service_role`/`postgres` intactos.
 

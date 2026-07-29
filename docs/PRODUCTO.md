@@ -276,6 +276,14 @@ La sección Datos Generales y el JSON `datos.montoMejoravit` **no** se modifican
 - MIME/path/versionado: igual que P092; contrato TS `esGateAvance: false`, origen `Asesor|Mesa`.
 - Fuera de checklist integración UI; sección dedicada.
 
+### 6.10 Evidencia opcional del asesor (`asesor_evidencia`)
+
+- Tipo técnico: `asesor_evidencia` (label: Evidencia). Completamente opcional.
+- **Asesor:** sección dedicada; subir/reemplazar/descargar; Ver solo PDF/JPG/PNG/WEBP; `accept=*/*` (MIME no listado → `application/octet-stream`); máx. 15 MB.
+- **Mesa:** acordeón «Evidencia del asesor»; solo consulta/descarga (sin edición).
+- No bloquea envío, etapas, cobro, Pagaré, monto Mejoravit ni obligatorios.
+- Path `{org}/{exp}/asesor_evidencia/{uuid}.{ext}`; una versión activa.
+
 ---
 
 ## 7. Documentos
@@ -284,7 +292,7 @@ La sección Datos Generales y el JSON `datos.montoMejoravit` **no** se modifican
 
 **Asesor antes de enviar a Mesa (4 obligatorios):** `cliente_ine_frente`, `cliente_ine_reverso`, `cliente_comprobante_domicilio`, `cliente_estado_cuenta`.
 
-**Asesor opcional (upload, no bloquea envío):** `cliente_semanas_cotizadas`, `cliente_carta_empresa`, `cliente_acta_nacimiento_digital`, `cliente_notificacion_apodaca` (P104 — «Notificación solo Apodaca»; distinto de `cliente_notificacion` Mesa y de agenda `kind=notificacion`; sin etapa mínima).
+**Asesor opcional (upload, no bloquea envío):** `cliente_semanas_cotizadas`, `cliente_carta_empresa`, `cliente_acta_nacimiento_digital`, `cliente_notificacion_apodaca` (P104 — «Notificación solo Apodaca»; distinto de `cliente_notificacion` Mesa y de agenda `kind=notificacion`; sin etapa mínima), `asesor_evidencia` (sección dedicada «Evidencia»; allowlist MIME + octet-stream ≤15 MB; no checklist).
 
 **Mesa de Control (complementarios, no bloquean envío asesor):** `cliente_semanas_cotizadas`, `cliente_acta_nacimiento`, `cliente_constancia_sat` — acta y constancia SAT las sube Mesa; el asesor no las sube.
 

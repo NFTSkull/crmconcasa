@@ -27,10 +27,11 @@ export const INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES = [
   "cliente_acta_nacimiento_digital",
   "cliente_notificacion_apodaca",
   "cliente_notificacion",
+  "asesor_evidencia",
 ] as const;
 
 /**
- * Espejo de `integration_doc_tipos_asesor_upload()` — permitidos en Storage/RPC (8).
+ * Espejo de `integration_doc_tipos_asesor_upload()` — permitidos en Storage/RPC.
  */
 export const INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD = [
   ...INTEGRATION_DOC_TIPOS_ASESOR_ENVIO,
@@ -97,6 +98,43 @@ export type ClienteNotificacionDocumentTipo =
 export const CLIENTE_SOLICITUD_DOCUMENT_TIPO = "cliente_solicitud" as const;
 
 export type ClienteSolicitudDocumentTipo = typeof CLIENTE_SOLICITUD_DOCUMENT_TIPO;
+
+/** Tipo técnico Evidencia opcional del asesor (cualquier MIME ≤15 MiB; no gate). */
+export const ASESOR_EVIDENCIA_DOCUMENT_TIPO = "asesor_evidencia" as const;
+
+export type AsesorEvidenciaDocumentTipo = typeof ASESOR_EVIDENCIA_DOCUMENT_TIPO;
+
+/** Contrato Evidencia (opcional; sin etapa mínima; no gate; MIME libre). */
+export const ASESOR_EVIDENCIA_DOCUMENT_CONTRACT = Object.freeze({
+  tipo: ASESOR_EVIDENCIA_DOCUMENT_TIPO,
+  label: "Evidencia",
+  origen: "Asesor" as const,
+  formatos: ["allowlist"] as const,
+  mimePermitidos: [
+    "application/pdf",
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+    "text/plain",
+    "text/csv",
+    "application/json",
+    "application/xml",
+    "application/zip",
+    "application/x-rar-compressed",
+    "application/vnd.rar",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.ms-powerpoint",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "application/octet-stream",
+  ] as const,
+  maxBytes: 15 * 1024 * 1024,
+  etapaMinima: 0,
+  obligatorio: false,
+  esGateAvance: false,
+});
 
 /** Allowlist SQL completa Mesa (complementarios UI + Pagaré + Notificación + Solicitud + Apodaca). */
 export const INTEGRATION_DOC_TIPOS_MESA_REGISTER = [
@@ -172,14 +210,16 @@ export const CLIENTE_SOLICITUD_DOCUMENT_CONTRACT = Object.freeze({
 
 /**
  * Opcionales asesor que Mesa no lista en complementarios (semanas/acta/SAT van ahí).
- * Excluye `cliente_notificacion` (sección dedicada P092/P132).
+ * Excluye `cliente_notificacion` (sección dedicada P092/P132),
+ * `cliente_notificacion_apodaca` y `asesor_evidencia` (secciones dedicadas).
  */
 export const INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES_SOLO_ASESOR =
   INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES.filter(
     (tipo) =>
       !(INTEGRATION_DOC_TIPOS_MESA_UPLOAD as readonly string[]).includes(tipo) &&
       tipo !== CLIENTE_NOTIFICACION_DOCUMENT_TIPO &&
-      tipo !== CLIENTE_NOTIFICACION_APODACA_DOCUMENT_TIPO,
+      tipo !== CLIENTE_NOTIFICACION_APODACA_DOCUMENT_TIPO &&
+      tipo !== ASESOR_EVIDENCIA_DOCUMENT_TIPO,
   );
 
 export type IntegrationDocMesaUploadTipo = (typeof INTEGRATION_DOC_TIPOS_MESA_UPLOAD)[number];
@@ -305,12 +345,14 @@ export function deriveIntegrationDocsChecklist(
 }
 
 /** Checklist de documentos opcionales de upload asesor (no bloquean envío).
- * Excluye `cliente_notificacion` (sección dedicada P092/P132). */
+ * Excluye Notificación (sección dedicada) y Evidencia (sección dedicada). */
 export function deriveIntegrationDocsChecklistOpcionales(
   resumen: IntegrationDocsResumenInput,
 ): IntegrationDocChecklistItem[] {
   const tipos = INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES.filter(
-    (t) => t !== CLIENTE_NOTIFICACION_DOCUMENT_TIPO,
+    (t) =>
+      t !== CLIENTE_NOTIFICACION_DOCUMENT_TIPO &&
+      t !== ASESOR_EVIDENCIA_DOCUMENT_TIPO,
   );
   return mapChecklistItems(tipos, resumen, true);
 }
