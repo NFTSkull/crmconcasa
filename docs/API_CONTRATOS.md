@@ -239,6 +239,28 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 
 **UI:** label `Notificación solo Apodaca (opcional)` en checklist Asesor (`AsesorIntegracionDocsUpload` + DocumentDropzone) y `MesaDocumentosAsesorSection`.
 
+### 3sexies. Evidencia opcional del asesor (`asesor_evidencia`)
+
+**Separación:** tipo `asesor_evidencia` — no confundir con stubs `asesor_ine_*` del catálogo ni con docs Mesa (Pagaré/Notificación/Solicitud).
+
+**RPC:** `register_expediente_documento` (asesor propietario). Allowlist `integration_doc_tipos_asesor_opcionales()`. Migración `128_asesor_evidencia_opcional.sql` (sin Cloud en este bloque).
+
+| Regla | Valor |
+|-------|--------|
+| Roles escritura | asesor dueño del expediente |
+| Lectura | `can_see_expediente` (asesor dueño, Mesa visible, super_admin) |
+| Etapa mínima | ninguna |
+| MIME | allowlist común (PDF/imágenes/Office/ZIP/RAR/texto/json/xml) + `application/octet-stream` fallback; resto de tipos sin cambio |
+| Tamaño | ≤ `expediente_documento_max_size_bytes()` = 15×1024×1024 |
+| Path | `{org}/{expediente}/asesor_evidencia/{uuid}.{ext}` |
+| Versionado | soft-delete del vigente + N+1 (mismo patrón register) |
+| Gate / obligatorio / envío / avance / cobro / P090 | **No** |
+| Reingreso | sin herencia automática (no se agrega a `reingreso_documentos_reutilizables`) |
+| Preview UI | solo PDF/JPG/JPEG/PNG/WEBP; resto solo descarga |
+| Mesa | consulta/descarga; sin upload/reemplazo/eliminar |
+
+**UI:** `AsesorEvidenciaSection` + `MesaEvidenciaAsesorSection`. Fuera de checklist de integración.
+
 ---
 
 ## 4. Subir / reemplazar documento

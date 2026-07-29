@@ -10,6 +10,12 @@ import {
   resolveClienteSolicitudUploadMime,
   validateClienteSolicitudFile,
 } from "@/domain/expediente-archivos/cliente-solicitud";
+import {
+  ASESOR_EVIDENCIA_ACCEPT_ATTR,
+  isAsesorEvidenciaTipo,
+  resolveAsesorEvidenciaUploadMime,
+  validateAsesorEvidenciaFile,
+} from "@/domain/expediente-archivos/asesor-evidencia";
 
 export const ALLOWED_UPLOAD_MIME_TYPES = ["application/pdf"] as const;
 
@@ -135,6 +141,9 @@ export function getExpedienteDocumentoAcceptAttr(
   tipoDocumento?: string | null,
 ): string {
   const tipo = String(tipoDocumento ?? "").trim();
+  if (isAsesorEvidenciaTipo(tipo)) {
+    return ASESOR_EVIDENCIA_ACCEPT_ATTR;
+  }
   if (
     tipo === "cliente_pagare" ||
     tipo === "cliente_notificacion" ||
@@ -193,6 +202,9 @@ export function resolveExpedienteDocumentoUploadMime(
   tipoDocumento?: string | null,
 ): string {
   const tipo = String(tipoDocumento ?? "").trim();
+  if (isAsesorEvidenciaTipo(tipo)) {
+    return resolveAsesorEvidenciaUploadMime(file);
+  }
   if (tipo === "cliente_pagare" || isRetencionPrincipalDocumentTipo(tipo)) {
     return resolveClientePagareUploadMime(file) ?? "";
   }
@@ -271,6 +283,11 @@ export function validateExpedienteDocumentoUploadFile(
   tipoDocumento?: string | null,
 ): { ok: true } | { ok: false; message: string } {
   const tipo = String(tipoDocumento ?? "").trim();
+  if (isAsesorEvidenciaTipo(tipo)) {
+    const result = validateAsesorEvidenciaFile(file);
+    if (result.ok) return { ok: true };
+    return { ok: false, message: result.error };
+  }
   if (tipo === "cliente_pagare" || isRetencionPrincipalDocumentTipo(tipo)) {
     const result = validateClientePagareFile(file);
     if (result.ok) return { ok: true };

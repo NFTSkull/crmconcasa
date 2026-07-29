@@ -30,6 +30,8 @@ export {
   CLIENTE_NOTIFICACION_APODACA_DOCUMENT_CONTRACT,
   CLIENTE_SOLICITUD_DOCUMENT_TIPO,
   CLIENTE_SOLICITUD_DOCUMENT_CONTRACT,
+  ASESOR_EVIDENCIA_DOCUMENT_TIPO,
+  ASESOR_EVIDENCIA_DOCUMENT_CONTRACT,
   INTEGRATION_DOC_TIPOS_OBLIGATORIOS,
   INTEGRATION_DOC_TIPOS_VALIDACION_MESA,
   countIntegrationDocsPresentes,
@@ -97,6 +99,19 @@ export {
   type ClienteSolicitudMime,
   type MesaSolicitudDocumentoUiMode,
 } from "./cliente-solicitud";
+export {
+  ASESOR_EVIDENCIA_ACCEPT_ATTR,
+  ASESOR_EVIDENCIA_UPLOAD_HINT,
+  ASESOR_EVIDENCIA_MIME_PERMITIDOS,
+  buildAsesorEvidenciaStoragePath,
+  findAsesorEvidenciaFromList,
+  isAsesorEvidenciaPreviewableMime,
+  isAsesorEvidenciaTipo,
+  resolveAsesorEvidenciaUploadMime,
+  sanitizeEvidenciaDisplayName,
+  validateAsesorEvidenciaFile,
+  type AsesorEvidenciaDocumento,
+} from "./asesor-evidencia";
 export { mesaPuedeAbrirArchivo } from "./mesa-archivo-acceso";
 export {
   MESA_RECHAZO_MOTIVOS_SUGERIDOS,
