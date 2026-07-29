@@ -171,4 +171,22 @@ describe("agenda-sheets parsers: NSS y ordinales", () => {
       assert.ok(r.value.startsWith("2026-07-29"));
     }
   });
+  it("TZ Sheet America/Mexico_City vs CRM America/Monterrey: horas borde sin cambio de fecha", () => {
+    for (const [hm, expected] of [
+      ["08:30", "2026-08-03T08:30:00-06:00"],
+      ["10:00", "2026-08-03T10:00:00-06:00"],
+      ["23:30", "2026-08-03T23:30:00-06:00"],
+      ["00:30", "2026-08-03T00:30:00-06:00"],
+    ] as const) {
+      const r = sheetLocalDateTimeToIso("2026-08-03", hm);
+      assert.equal(r.ok, true, hm);
+      if (!r.ok) continue;
+      assert.equal(r.value, expected);
+      // Misma fecha calendario local (no roll a UTC)
+      assert.equal(r.value.slice(0, 10), "2026-08-03");
+      // Instantáneo: Mexico_City y Monterrey comparten -06:00 (sin DST)
+      const ms = Date.parse(r.value);
+      assert.ok(Number.isFinite(ms));
+    }
+  });
 });

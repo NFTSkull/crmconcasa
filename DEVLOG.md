@@ -1,5 +1,9 @@
 # Devlog
 
+## 2026-07-29 - Google Sheets ↔ Agenda: validación SQL aislada
+
+Migración 129 aplica limpia (skip 061/078). Suite `rpc_agenda_sheet_sync` A–E OK (incl. concurrencia dblink capacity=1). Regresiones bio + capacity OK tras: JWT `service_role` en tests funcionales; NSS solo dígitos; dblink a `current_database()` con password; fixtures race en DO separado (commit); restore `agenda_config` biométricos; FK outbox CASCADE / links SET NULL. Runner `scripts/verify-agenda-sheet-isolated.sh` re-aplica conversión P124 tras seed (seed pisa `capacity_by_time`). Firmas: `rpc_book_firmas` asserts de mensaje desfasados (preexistente); cobertura funcional en `rpc_agenda_sheet_firmas_functional.sql`. Auditoría hoja: requiere SA readonly; sin credenciales → dry-run local + reporte de acceso faltante. Sin Cloud/hoja/deploy/PR.
+
 ## 2026-07-29 - Google Sheets ↔ Agenda (local)
 
 Integración bidireccional con «CITAS 2026» (`1JOERzJc2yLncDbzTFG2lQLQXdlWwmGehlxP7JNOoupA`). CRM sin `slot_id`: cupo = `(kind,date,time,location)` + capacity; filas repetidas del Sheet = `slot_ordinal` en `agenda_sheet_slot_links`. Outbox `agenda_sheet_sync_outbox` vía trigger en `agenda_bookings`. Sheets→CRM solo por Edge + `agenda_sheet_book_by_nss` (service_role). TZ integración `America/Mexico_City`. Cancelación desde Sheets deshabilitada (sin bypass). Sin Cloud/deploy/edición real de hoja. P090/Evidencia/mesa_mover/NOM-035 intactos.

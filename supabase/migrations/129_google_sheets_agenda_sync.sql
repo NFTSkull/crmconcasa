@@ -19,7 +19,7 @@ CREATE TABLE IF NOT EXISTS public.agenda_sheet_slot_links (
   kind public.booking_kind NOT NULL CHECK (kind IN ('biometricos', 'firmas')),
   slot_time TIME NOT NULL,
   slot_ordinal INTEGER NOT NULL CHECK (slot_ordinal > 0),
-  booking_id UUID NULL REFERENCES public.agenda_bookings(id),
+  booking_id UUID NULL REFERENCES public.agenda_bookings(id) ON DELETE SET NULL,
   sync_status TEXT NOT NULL DEFAULT 'PENDIENTE'
     CHECK (sync_status IN ('SINCRONIZADO', 'PENDIENTE', 'CONFLICTO', 'ERROR', 'CANCELADA')),
   sync_version INTEGER NOT NULL DEFAULT 1 CHECK (sync_version > 0),
@@ -59,7 +59,7 @@ COMMENT ON TABLE public.agenda_sheet_slot_links IS
 CREATE TABLE IF NOT EXISTS public.agenda_sheet_sync_outbox (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   organization_id UUID NOT NULL REFERENCES public.organizations(id),
-  booking_id UUID NOT NULL REFERENCES public.agenda_bookings(id),
+  booking_id UUID NOT NULL REFERENCES public.agenda_bookings(id) ON DELETE CASCADE,
   event_type TEXT NOT NULL
     CHECK (event_type IN (
       'booking_created',
@@ -220,11 +220,20 @@ LANGUAGE plpgsql
 STABLE
 SET search_path = public
 AS $$
+DECLARE
+  v_jwt TEXT := COALESCE(auth.role(), '');
+  v_db TEXT := COALESCE(current_user, '');
 BEGIN
-  IF COALESCE(auth.role(), '') IS DISTINCT FROM 'service_role' THEN
-    RAISE EXCEPTION 'agenda_sheet: solo service_role'
-      USING ERRCODE = '42501';
+  -- Edge / PostgREST con service_role key
+  IF v_jwt = 'service_role' THEN
+    RETURN;
   END IF;
+  -- Ops local / migraciones: rol DB privilegiado sin JWT (EXECUTE ya revocado a anon/authenticated)
+  IF v_jwt = '' AND v_db IN ('postgres', 'supabase_admin') THEN
+    RETURN;
+  END IF;
+  RAISE EXCEPTION 'agenda_sheet: solo service_role'
+    USING ERRCODE = '42501';
 END;
 $$;
 
@@ -301,6 +310,50 @@ BEGIN
   FOR UPDATE;
 
   IF FOUND AND v_existing_link.booking_id IS NOT NULL THEN
+    -- Idempotencia: misma fila + mismo NSS + booking activo → devolver canónicos
+    SELECT
+      b.id AS booking_id,
+      b.status,
+      b.kind,
+      b.location_id,
+      b.booking_date,
+      b.booking_time,
+      e.id AS expediente_id,
+      e.nss,
+      e.cliente_nombre,
+      e.asesor_id,
+      e.etapa_actual,
+      COALESCE(NULLIF(btrim(p.full_name), ''), p.email, '') AS asesor_nombre
+    INTO v_exp
+    FROM public.agenda_bookings b
+    JOIN public.expedientes e ON e.id = b.expediente_id
+    LEFT JOIN public.profiles p ON p.id = e.asesor_id
+    WHERE b.id = v_existing_link.booking_id;
+
+    IF FOUND
+       AND v_exp.status = 'booked'
+       AND public.agenda_sheet_normalize_nss(v_exp.nss) = v_nss
+       AND v_existing_link.organization_id = p_organization_id THEN
+      RETURN jsonb_build_object(
+        'ok', true,
+        'already', true,
+        'booking_id', v_exp.booking_id,
+        'link_id', v_existing_link.id,
+        'expediente_id', v_exp.expediente_id,
+        'nss', v_nss,
+        'cliente_nombre', v_exp.cliente_nombre,
+        'asesor_id', v_exp.asesor_id,
+        'asesor_nombre', v_exp.asesor_nombre,
+        'kind', v_exp.kind,
+        'location_id', v_exp.location_id,
+        'booking_date', v_exp.booking_date,
+        'booking_time', to_char(v_exp.booking_time, 'HH24:MI'),
+        'slot_ordinal', v_existing_link.slot_ordinal,
+        'sync_status', v_existing_link.sync_status,
+        'etapa_actual', v_exp.etapa_actual
+      );
+    END IF;
+
     RAISE EXCEPTION 'agenda_sheet_book_by_nss: Este espacio ya fue reservado en el CRM.'
       USING ERRCODE = '22023';
   END IF;
@@ -555,7 +608,8 @@ CREATE OR REPLACE FUNCTION public.agenda_sheet_mark_outbox(
   p_id UUID,
   p_status TEXT,
   p_error TEXT DEFAULT NULL,
-  p_backoff_seconds INTEGER DEFAULT NULL
+  p_backoff_seconds INTEGER DEFAULT NULL,
+  p_organization_id UUID DEFAULT NULL
 )
 RETURNS VOID
 LANGUAGE plpgsql
@@ -567,6 +621,7 @@ DECLARE
   v_max INTEGER;
   v_backoff INTEGER;
   v_final TEXT;
+  v_org UUID;
 BEGIN
   PERFORM public.agenda_sheet_assert_service_role();
   IF p_status NOT IN ('done', 'failed', 'dead', 'pending') THEN
@@ -574,13 +629,19 @@ BEGIN
       USING ERRCODE = '22023';
   END IF;
 
-  SELECT attempts, max_attempts INTO v_attempts, v_max
+  SELECT attempts, max_attempts, organization_id
+  INTO v_attempts, v_max, v_org
   FROM public.agenda_sheet_sync_outbox
   WHERE id = p_id
   FOR UPDATE;
 
   IF NOT FOUND THEN
     RETURN;
+  END IF;
+
+  IF p_organization_id IS NOT NULL AND v_org IS DISTINCT FROM p_organization_id THEN
+    RAISE EXCEPTION 'agenda_sheet_mark_outbox: organización no autorizada'
+      USING ERRCODE = '42501';
   END IF;
 
   v_backoff := COALESCE(
@@ -656,8 +717,12 @@ $$;
 REVOKE ALL ON FUNCTION public.agenda_sheet_claim_outbox(INTEGER) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.agenda_sheet_claim_outbox(INTEGER) TO service_role, postgres;
 
-REVOKE ALL ON FUNCTION public.agenda_sheet_mark_outbox(UUID, TEXT, TEXT, INTEGER) FROM PUBLIC, anon, authenticated;
-GRANT EXECUTE ON FUNCTION public.agenda_sheet_mark_outbox(UUID, TEXT, TEXT, INTEGER) TO service_role, postgres;
+-- Firma antigua 4-arg (si existiera) se elimina; grants solo sobre 5-arg actual.
+DROP FUNCTION IF EXISTS public.agenda_sheet_mark_outbox(UUID, TEXT, TEXT, INTEGER);
+REVOKE ALL ON FUNCTION public.agenda_sheet_mark_outbox(UUID, TEXT, TEXT, INTEGER, UUID)
+  FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.agenda_sheet_mark_outbox(UUID, TEXT, TEXT, INTEGER, UUID)
+  TO service_role, postgres;
 
 REVOKE ALL ON FUNCTION public.agenda_sheet_upsert_link_from_crm(
   UUID, TEXT, BIGINT, TEXT, DATE, INTEGER, TEXT, public.booking_kind, TIME, INTEGER, UUID, TEXT
@@ -671,3 +736,19 @@ GRANT EXECUTE ON FUNCTION public.agenda_sheet_normalize_nss(TEXT) TO service_rol
 
 REVOKE ALL ON FUNCTION public.agenda_sheet_assert_service_role() FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.agenda_sheet_assert_service_role() TO service_role, postgres;
+
+-- FK booking: outbox CASCADE / links SET NULL (idempotente si la tabla ya existía sin ON DELETE).
+DO $$
+BEGIN
+  ALTER TABLE public.agenda_sheet_sync_outbox
+    DROP CONSTRAINT IF EXISTS agenda_sheet_sync_outbox_booking_id_fkey;
+  ALTER TABLE public.agenda_sheet_sync_outbox
+    ADD CONSTRAINT agenda_sheet_sync_outbox_booking_id_fkey
+    FOREIGN KEY (booking_id) REFERENCES public.agenda_bookings(id) ON DELETE CASCADE;
+
+  ALTER TABLE public.agenda_sheet_slot_links
+    DROP CONSTRAINT IF EXISTS agenda_sheet_slot_links_booking_id_fkey;
+  ALTER TABLE public.agenda_sheet_slot_links
+    ADD CONSTRAINT agenda_sheet_slot_links_booking_id_fkey
+    FOREIGN KEY (booking_id) REFERENCES public.agenda_bookings(id) ON DELETE SET NULL;
+END $$;

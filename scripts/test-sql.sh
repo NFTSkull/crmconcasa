@@ -105,5 +105,6 @@ run_sql_test "supabase/tests/rpc_notificacion_libera_firma_p132.sql"
 run_sql_test "supabase/tests/rpc_acuse_libera_firma_p132.sql"
 run_sql_test "supabase/tests/rpc_register_retencion_p117.sql"
 run_sql_test "supabase/tests/rpc_cliente_datos_field_formats_p133.sql"
+run_sql_test "supabase/tests/rpc_agenda_sheet_sync.sql"
 
 echo "SQL tests: ALL PASSED"
