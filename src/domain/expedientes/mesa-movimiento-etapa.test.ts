@@ -1,13 +1,17 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  createMesaMoverInFlightGuard,
   deriveMesaMovimientoAdvertencias,
   getMesaControlManualEstado,
   getMesaMovimientoDireccion,
   getMesaMovimientoErrorCode,
+  isMesaMoveStageConflictError,
+  mapMesaMovimientoRpcError,
   mesaMovimientoInputSchema,
   puedeConfirmarMovimientoMesa,
   puedeMostrarControlManualMesa,
+  shouldAutoRetryMesaMovimiento,
 } from "./mesa-movimiento-etapa";
 
 test("valida destino, etapa esperada y motivo", () => {
@@ -175,6 +179,51 @@ test("extrae códigos estables sin depender del texto posterior", () => {
       message: "MESA_MOVE_BAD_SUBSTATE: subestado no elegible (aprobado)",
     }),
     "MESA_MOVE_BAD_SUBSTATE",
+  );
+});
+
+test("conflicto 40001 / MESA_MOVE_STAGE_CONFLICT es definitivo sin retry", () => {
+  const rpcErr = {
+    message: "MESA_MOVE_STAGE_CONFLICT: etapa actual 10, esperada 8",
+    code: "40001",
+  };
+  assert.equal(isMesaMoveStageConflictError(rpcErr), true);
+  assert.equal(shouldAutoRetryMesaMovimiento(rpcErr), false);
+  assert.equal(
+    mapMesaMovimientoRpcError(rpcErr).message,
+    "El expediente ya cambió de etapa. Actualizamos la información.",
+  );
+  assert.equal(
+    isMesaMoveStageConflictError(
+      "El expediente ya cambió de etapa. Actualizamos la información.",
+    ),
+    true,
+  );
+  assert.equal(shouldAutoRetryMesaMovimiento(new Error("otro")), false);
+});
+
+test("guard in-flight: una solicitud por expediente y cleanup", () => {
+  const guard = createMesaMoverInFlightGuard();
+  const exp = "380f9faf-8a28-465f-ba1a-3a52af864ada";
+  assert.equal(guard.tryAcquire(exp), true);
+  assert.equal(guard.isInFlight(exp), true);
+  assert.equal(guard.tryAcquire(exp), false);
+  assert.equal(guard.tryAcquire("11111111-1111-1111-1111-111111111111"), true);
+  guard.release(exp);
+  assert.equal(guard.isInFlight(exp), false);
+  assert.equal(guard.tryAcquire(exp), true);
+  guard.release(exp);
+});
+
+test("saving bloquea confirmación (botón deshabilitado mientras procesa)", () => {
+  assert.equal(
+    puedeConfirmarMovimientoMesa({
+      etapaActual: 8,
+      etapaDestino: 10,
+      motivo: "Ajuste manual",
+      saving: true,
+    }),
+    false,
   );
 });
 

@@ -1,5 +1,9 @@
 # Devlog
 
+## 2026-07-29 - Incidente storm `mesa_mover_etapa_operativa`
+
+Pico ~56k `MESA_MOVE_STAGE_CONFLICT` (etapa 10 vs esperada 8) / min vía PostgREST. Contención reversible: `REVOKE EXECUTE` solo a `authenticated` sobre la firma exacta; `service_role`/`postgres` intactos. Storm a 0 en ≤1 min. Edge logs no devolvieron IP/UA del path (sample vacío bajo volumen). Código actual UI no tiene retry loop → fuente probable pestaña/script externo con JWT Mesa; acción pedida: cerrar pestañas Mesa del operador. Defensa FE: `createMesaMoverInFlightGuard`, `shouldAutoRetryMesaMovimiento=false`, mensaje conflicto canónico + un refetch. **GRANT a authenticated aún NO restaurado** hasta confirmar fuente detenida y smoke.
+
 ## 2026-07-29 - Excepción one-time firmas (gate 5 días)
 
 Caso operativo: permitir una sola reserva anticipada de firmas sin desactivar el gate global ni mutar `firma_agendable_desde`. Nueva tabla `agenda_booking_exceptions` + RPC `super_admin_grant_booking_exception` (solo super_admin). `agenda_firmas_assert_agendable_desde` admite excepción pendiente exacta (expediente+sede+fecha+hora). `book_firmas` consume la excepción y, si estaba en etapa 9, avanza a 10. Capacidad, Sheets, ingresos y otros expedientes intactos.

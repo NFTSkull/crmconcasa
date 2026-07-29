@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- **incident/mesa-mover-conflict-storm:** contención Cloud `REVOKE EXECUTE … FROM authenticated` sobre `mesa_mover_etapa_operativa(uuid,smallint,smallint,text)`; cliente con guard in-flight, cero retry en `MESA_MOVE_STAGE_CONFLICT`/`40001`, un refetch y mensaje canónico; grants de `service_role`/`postgres` intactos.
+
 ### Added
 - **feat/agenda-booking-exception-firmas:** excepciones one-time auditadas al gate de 5 días hábiles (`agenda_booking_exceptions` + `super_admin_grant_booking_exception`); `book_firmas` puede consumirlas y avanzar 9→10; mig. 127; regla general y capacidad intactas.
 
