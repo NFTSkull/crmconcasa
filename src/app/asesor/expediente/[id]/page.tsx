@@ -49,6 +49,7 @@ import {
   INTEGRATION_DOC_TIPOS_ASESOR_ENVIO,
   integrationDocsCompletos,
   integrationDocsResumenFromArchivoResumen,
+  asesorPuedeEditarEvidencia,
   useExpedienteArchivosRepo,
   type ExpedienteArchivoResumen,
   type IntegrationDocChecklistItem,
@@ -538,6 +539,11 @@ export default function AsesorExpedientePage() {
 
   const puedeIntegrarAsesor =
     hasMontoAprobado && !expedienteCancelado;
+
+  /** Evidencia: independiente de monto/Pagaré; solo ciclo activo (RPC). */
+  const puedeEditarEvidencia = asesorPuedeEditarEvidencia(
+    operativo?.cicloEstado,
+  );
 
   const initialSubestado: EstadoEtapa | undefined =
     operativo?.subestado ? (operativo.subestado as EstadoEtapa) : undefined;
@@ -1402,7 +1408,7 @@ export default function AsesorExpedientePage() {
             {dataSupabase && precal?.id ? (
               <AsesorEvidenciaSection
                 expedienteId={String(precal.id)}
-                puedeEditar={puedeIntegrarAsesor}
+                canUpload={puedeEditarEvidencia}
                 onUploaded={refreshArchivos}
               />
             ) : null}

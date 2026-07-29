@@ -1,5 +1,9 @@
 # Devlog
 
+## 2026-07-29 - Evidencia: canUpload sin monto aprobado
+
+Causa: `AsesorEvidenciaSection` recibía `puedeEditar={puedeIntegrarAsesor}` y `puedeIntegrarAsesor = hasMontoAprobado && !cancelado`, dejando la tarjeta en solo lectura sin monto. Fix mínimo: `asesorPuedeEditarEvidencia(cicloEstado)` (espejo RPC: ciclo `activo`) → `canUpload`. No exige monto/Pagaré/cobro/obligatorios/Mesa. Backend `register_expediente_documento` ya no valida monto para `asesor_evidencia`. Pagaré y `puedeIntegrarAsesor` intactos.
+
 ## 2026-07-22 - Evidencia opcional del asesor (`asesor_evidencia`)
 
 Documento opcional totalmente fuera de gates: allowlist `integration_doc_tipos_asesor_opcionales`, MIME allowlist solo para `asesor_evidencia` (bucket conserva MIME previos + comunes de evidencia; sin `NULL`), UI dedicada Asesor/Mesa. Reutiliza `register_expediente_documento`. Sin Cloud/deploy en este bloque; P090/Pagaré/montos intactos.

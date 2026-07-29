@@ -22,6 +22,7 @@ import {
   resolveAsesorEvidenciaUploadMime,
   sanitizeEvidenciaDisplayName,
   validateAsesorEvidenciaFile,
+  asesorPuedeEditarEvidencia,
 } from "./asesor-evidencia";
 import type { ExpedienteArchivoListItem } from "./map-supabase-expediente-documentos";
 import {
@@ -218,5 +219,34 @@ describe("asesor_evidencia validación y MIME", () => {
     assert.equal(found?.id, "d1");
     assert.equal(found?.version, 2);
     assert.equal(findAsesorEvidenciaFromList([]), null);
+  });
+
+  it("ausencia de evidencia no bloquea contrato opcional", () => {
+    assert.equal(ASESOR_EVIDENCIA_DOCUMENT_CONTRACT.obligatorio, false);
+    assert.equal(ASESOR_EVIDENCIA_DOCUMENT_CONTRACT.esGateAvance, false);
+    assert.equal(findAsesorEvidenciaFromList([]), null);
+  });
+});
+
+describe("asesorPuedeEditarEvidencia (independiente de monto)", () => {
+  it("permite carga sin monto aprobado (ciclo activo o ausente)", () => {
+    assert.equal(asesorPuedeEditarEvidencia("activo"), true);
+    assert.equal(asesorPuedeEditarEvidencia(null), true);
+    assert.equal(asesorPuedeEditarEvidencia(undefined), true);
+    assert.equal(asesorPuedeEditarEvidencia("  Activo  "), true);
+  });
+
+  it("también permite con ciclo activo aunque hubiera monto (FE no consulta monto)", () => {
+    assert.equal(asesorPuedeEditarEvidencia("activo"), true);
+  });
+
+  it("solo lectura cuando el expediente no está activo", () => {
+    assert.equal(asesorPuedeEditarEvidencia("cancelado"), false);
+    assert.equal(asesorPuedeEditarEvidencia("rechazado"), false);
+    assert.equal(asesorPuedeEditarEvidencia("cerrado"), false);
+  });
+
+  it("no usa monto_aprobado ni Pagaré en la firma", () => {
+    assert.equal(asesorPuedeEditarEvidencia.length, 1);
   });
 });
