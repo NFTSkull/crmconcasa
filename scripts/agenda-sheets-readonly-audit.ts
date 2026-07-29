@@ -14,10 +14,12 @@ import {
   AGENDA_SHEET_TECH_COLUMNS,
   buildAgendaSheetsDryRunReport,
   enumerateSheetSlots,
+  extractTechCells,
   normalizeSheetNss,
   parseSheetTabDate,
   parseYearFromSpreadsheetTitle,
   sheetLocalDateTimeToIso,
+  techCellsAreEmpty,
 } from "../src/domain/agenda-sheets";
 
 const SPREADSHEET_ID =
@@ -108,15 +110,81 @@ type SheetProps = {
   columnCount: number;
 };
 
+async function sleep(ms: number): Promise<void> {
+  await new Promise((r) => setTimeout(r, ms));
+}
+
+async function fetchWithRetry(
+  url: string,
+  init: RequestInit,
+  label: string,
+): Promise<Response> {
+  let last = 0;
+  for (let attempt = 0; attempt < 8; attempt++) {
+    if (attempt > 0) await sleep(Math.min(45000, 1200 * 2 ** attempt));
+    const res = await fetch(url, init);
+    last = res.status;
+    if (res.status === 429 || res.status === 503) {
+      const ra = res.headers.get("retry-after");
+      if (ra) await sleep(Math.min(60000, (Number(ra) || 5) * 1000));
+      continue;
+    }
+    return res;
+  }
+  throw new Error(`${label}:${last}`);
+}
+
+async function fetchSheetValues(
+  token: string,
+  title: string,
+): Promise<string[][]> {
+  // Solo lectura. Incluye A:U para slots + H:N (PRESERVAR).
+  const range = `'${title.replace(/'/g, "''")}'!A1:U200`;
+  const url =
+    `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(SPREADSHEET_ID)}/values/` +
+    `${encodeURIComponent(range)}?majorDimension=ROWS&valueRenderOption=FORMATTED_VALUE`;
+  const res = await fetchWithRetry(
+    url,
+    { headers: { Authorization: `Bearer ${token}` } },
+    `values_failed:${title}`,
+  );
+  if (!res.ok) throw new Error(`values_failed:${res.status}:${title}`);
+  const json = (await res.json()) as { values?: string[][] };
+  return (json.values ?? []).map((row) =>
+    row.map((c) => (c == null ? "" : String(c))),
+  );
+}
+
+/** Rango explícito O:U — los 7 valores son técnicos por origen A1, no por length. */
+async function fetchTechColumnsOU(
+  token: string,
+  title: string,
+): Promise<string[][]> {
+  const range = `'${title.replace(/'/g, "''")}'!O1:U200`;
+  const url =
+    `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(SPREADSHEET_ID)}/values/` +
+    `${encodeURIComponent(range)}?majorDimension=ROWS&valueRenderOption=FORMATTED_VALUE`;
+  const res = await fetchWithRetry(
+    url,
+    { headers: { Authorization: `Bearer ${token}` } },
+    `tech_ou_failed:${title}`,
+  );
+  if (!res.ok) throw new Error(`tech_ou_failed:${res.status}:${title}`);
+  const json = (await res.json()) as { values?: string[][] };
+  return (json.values ?? []).map((row) =>
+    row.map((c) => (c == null ? "" : String(c))),
+  );
+}
+
 async function fetchSpreadsheetMeta(
   token: string,
 ): Promise<{ title: string; sheets: SheetProps[] }> {
   const url =
     `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(SPREADSHEET_ID)}` +
     `?fields=properties.title,sheets.properties(sheetId,title,gridProperties)`;
-  const res = await fetch(url, {
+  const res = await fetchWithRetry(url, {
     headers: { Authorization: `Bearer ${token}` },
-  });
+  }, "meta_failed");
   if (!res.ok) throw new Error(`meta_failed:${res.status}`);
   const json = (await res.json()) as {
     properties?: { title?: string };
@@ -139,42 +207,23 @@ async function fetchSpreadsheetMeta(
   };
 }
 
-async function fetchSheetValues(
-  token: string,
-  title: string,
-): Promise<string[][]> {
-  // Solo lectura. Incluye A:U para auditar H:N (PRESERVAR) y O:U (técnicas).
-  const range = `'${title.replace(/'/g, "''")}'!A1:U200`;
-  const url =
-    `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(SPREADSHEET_ID)}/values/` +
-    `${encodeURIComponent(range)}?majorDimension=ROWS&valueRenderOption=FORMATTED_VALUE`;
-  const res = await fetch(url, {
-    headers: { Authorization: `Bearer ${token}` },
-  });
-  if (!res.ok) throw new Error(`values_failed:${res.status}:${title}`);
-  const json = (await res.json()) as { values?: string[][] };
-  return (json.values ?? []).map((row) =>
-    row.map((c) => (c == null ? "" : String(c))),
-  );
-}
-
-function auditTechColumns(rows: string[][]): {
+function auditTechColumnsFromExplicitOU(rowsOU: string[][]): {
   totallyEmpty: boolean;
   hasHeaders: boolean;
   hasData: boolean;
   sampleNonEmpty: Array<{ row: number; col: string; kind: string }>;
   safeToUse: boolean;
   preserveHN: "PRESERVAR";
+  source: "explicit_OU_range";
 } {
   const cols = ["O", "P", "Q", "R", "S", "T", "U"] as const;
-  const colIdx = { O: 14, P: 15, Q: 16, R: 17, S: 18, T: 19, U: 20 };
   const sampleNonEmpty: Array<{ row: number; col: string; kind: string }> = [];
   let hasData = false;
   let hasHeaders = false;
-  for (let r = 0; r < rows.length; r++) {
-    const row = rows[r] ?? [];
-    for (const col of cols) {
-      const cell = String(row[colIdx[col]] ?? "").trim();
+  for (let r = 0; r < rowsOU.length; r++) {
+    const row = rowsOU[r] ?? [];
+    for (let i = 0; i < cols.length; i++) {
+      const cell = String(row[i] ?? "").trim();
       if (!cell) continue;
       hasData = true;
       const upper = cell.toUpperCase();
@@ -189,7 +238,7 @@ function auditTechColumns(rows: string[][]): {
       if (sampleNonEmpty.length < 8) {
         sampleNonEmpty.push({
           row: r + 1,
-          col,
+          col: cols[i]!,
           kind: cell.startsWith("=") ? "formula_or_text" : "text",
         });
       }
@@ -202,6 +251,7 @@ function auditTechColumns(rows: string[][]): {
     sampleNonEmpty,
     safeToUse: !hasData,
     preserveHN: "PRESERVAR",
+    source: "explicit_OU_range",
   };
 }
 
@@ -212,7 +262,35 @@ function analyzeTab(input: {
   columnCount: number;
   rows: string[][];
   year: number;
+  /** Si se pasó, auditoría técnica usa rango O:U explícito (preferido live). */
+  techRowsOU?: string[][];
 }) {
+  const techAudit = input.techRowsOU
+    ? auditTechColumnsFromExplicitOU(input.techRowsOU)
+    : (() => {
+        const samples: Array<{ row: number; col: string; kind: string }> = [];
+        let hasData = false;
+        const letters = ["O", "P", "Q", "R", "S", "T", "U"] as const;
+        for (let r = 0; r < input.rows.length; r++) {
+          const tech = extractTechCells(input.rows[r] ?? []);
+          if (techCellsAreEmpty(tech)) continue;
+          hasData = true;
+          for (let i = 0; i < tech.length && samples.length < 8; i++) {
+            if (!String(tech[i] ?? "").trim()) continue;
+            samples.push({ row: r + 1, col: letters[i]!, kind: "text" });
+          }
+        }
+        return {
+          totallyEmpty: !hasData,
+          hasHeaders: false,
+          hasData,
+          sampleNonEmpty: samples,
+          safeToUse: !hasData,
+          preserveHN: "PRESERVAR" as const,
+          source: "absolute_from_A" as const,
+        };
+      })();
+
   const titleExact = input.title;
   const titleNormalized = titleExact.trim().replace(/\s+/g, " ");
   const leadingTrailingWs = titleExact !== titleExact.trim();
@@ -246,8 +324,8 @@ function analyzeTab(input: {
       rowCount: input.rowCount,
       columnCount: input.columnCount,
       recognizedSections: [] as typeof sections,
-      technicalColumns: auditTechColumns(input.rows),
-      technicalColumnsSafe: auditTechColumns(input.rows).safeToUse,
+      technicalColumns: techAudit,
+      technicalColumnsSafe: techAudit.safeToUse,
       nssAnomalies,
       warnings: [date.error, ...(leadingTrailingWs ? ["espacios en título"] : [])],
     };
@@ -374,7 +452,6 @@ function analyzeTab(input: {
   if (leadingTrailingWs) warnings.push("espacios_en_titulo");
   if (leadingZeroDay) warnings.push("dia_con_cero_inicial");
 
-  const tech = auditTechColumns(input.rows);
   return {
     sheetId: input.sheetId,
     sheetTitleExact: titleExact,
@@ -386,8 +463,8 @@ function analyzeTab(input: {
     rowCount: input.rowCount,
     columnCount: input.columnCount,
     recognizedSections: sections,
-    technicalColumns: tech,
-    technicalColumnsSafe: tech.safeToUse,
+    technicalColumns: techAudit,
+    technicalColumnsSafe: techAudit.safeToUse,
     nssAnomalies: nssAnomalies.slice(0, 50),
     warnings,
   };
@@ -489,11 +566,18 @@ async function main() {
   const meta = await fetchSpreadsheetMeta(token);
   const yearP = parseYearFromSpreadsheetTitle(meta.title);
   const year = yearP.ok ? yearP.value : 2026;
-  const liveTabs: Array<{ title: string; sheetId: number; rows: string[][] }> =
-    [];
+  const liveTabs: Array<{
+    title: string;
+    sheetId: number;
+    rows: string[][];
+    techRowsOU: string[][];
+  }> = [];
   for (const sh of meta.sheets) {
+    await sleep(500);
     const rows = await fetchSheetValues(token, sh.title);
-    liveTabs.push({ title: sh.title, sheetId: sh.sheetId, rows });
+    await sleep(350);
+    const techRowsOU = await fetchTechColumnsOU(token, sh.title);
+    liveTabs.push({ title: sh.title, sheetId: sh.sheetId, rows, techRowsOU });
   }
   baseReport.spreadsheetTitle = meta.title;
   baseReport.tabs = liveTabs.map((t, i) =>
@@ -504,6 +588,7 @@ async function main() {
       columnCount: meta.sheets[i]?.columnCount ?? 14,
       rows: t.rows,
       year,
+      techRowsOU: t.techRowsOU,
     }),
   );
   baseReport.dryRun = buildAgendaSheetsDryRunReport({

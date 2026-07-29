@@ -6,12 +6,15 @@ import {
   AGENDA_SHEET_PRESERVE_RANGE,
   AGENDA_SHEET_TECH_COLUMNS,
   AGENDA_SHEET_TECH_RANGE,
+  TECH_SOURCE_EXPLICIT_OU,
   a1TechRange,
   assertTechColumnsWritable,
   buildTechWriteRow,
+  extractTechCells,
   isPreserveOnlyColumn1Based,
   isTechColumn1Based,
   tabHasUnexpectedTechData,
+  techCellsAreEmpty,
 } from "./tech-columns";
 
 describe("agenda-sheets tech columns O:U", () => {
@@ -38,37 +41,88 @@ describe("agenda-sheets tech columns O:U", () => {
     assert.equal(a1TechRange("29 JULIO", 12), "'29 JULIO'!O12:U12");
   });
 
-  it("O:U vacío permite write", () => {
+  it("1) fila A:G con siete valores no es O:U", () => {
+    const ag = ["HORA", "NSS", "NOMBRE", "ASESOR", "NOTIFICACION", "FIRMO", "FIRMA"];
+    assert.equal(ag.length, 7);
+    const tech = extractTechCells(ag); // absolute from A
+    assert.equal(techCellsAreEmpty(tech), true);
+    assert.equal(tabHasUnexpectedTechData([ag]).blocked, false);
+  });
+
+  it("2) fila H:N con siete valores (startColumn=7) no es O:U", () => {
+    const hn = ["h", "i", "j", "k", "l", "m", "n"];
+    const tech = extractTechCells(hn, {
+      kind: "absolute_row",
+      startColumnIndex: 7,
+    });
+    assert.equal(techCellsAreEmpty(tech), true);
+  });
+
+  it("3) fila O:U explícita con siete valores sí es técnica", () => {
+    const ou = ["SINCRONIZADO", "b1", "e1", "k", "crm", "t", "1"];
+    const tech = extractTechCells(ou, TECH_SOURCE_EXPLICIT_OU);
+    assert.deepEqual(tech, ou);
+  });
+
+  it("4) fila A:U completa lee índices 14-20", () => {
+    const row = Array(21).fill("");
+    row[0] = "8:30 AM";
+    row[14] = "ESTADO";
+    row[15] = "b1";
+    const tech = extractTechCells(row);
+    assert.equal(tech[0], "ESTADO");
+    assert.equal(tech[1], "b1");
+  });
+
+  it("5) sparse solo P (col 15)", () => {
+    const row = Array(16).fill("");
+    row[15] = "booking-p";
+    const tech = extractTechCells(row);
+    assert.equal(tech[1], "booking-p");
+    assert.equal(String(tech[0]).trim(), "");
+  });
+
+  it("6) sparse solo U (col 20)", () => {
+    const row = Array(21).fill("");
+    row[20] = "9";
+    const tech = extractTechCells(row);
+    assert.equal(tech[6], "9");
+  });
+
+  it("7) O:U vacías permiten write", () => {
     const d = assertTechColumnsWritable({
-      existingRowOrTech: ["", "", "", "", "", "", ""],
+      existingRowOrTech: Array(21).fill(""),
       bookingId: "b1",
     });
     assert.equal(d.ok, true);
     if (d.ok) assert.equal(d.mode, "write");
   });
 
-  it("mismo booking en P → idempotent", () => {
-    const d = assertTechColumnsWritable({
-      existingRowOrTech: ["SINCRONIZADO", "b1", "e1", "k", "crm", "t", "1"],
-      bookingId: "b1",
-    });
-    assert.equal(d.ok, true);
-    if (d.ok) assert.equal(d.mode, "idempotent");
-  });
-
-  it("otro booking en P → conflicto", () => {
+  it("8) O:U con booking diferente → conflicto", () => {
     const d = assertTechColumnsWritable({
       existingRowOrTech: ["SINCRONIZADO", "other", "e1", "k", "crm", "t", "1"],
       bookingId: "b1",
+      source: TECH_SOURCE_EXPLICIT_OU,
     });
     assert.equal(d.ok, false);
     if (!d.ok) assert.equal(d.reason, "other_booking");
   });
 
-  it("datos inesperados en O:U sin P → bloqueo", () => {
+  it("9) O:U con el mismo booking → idempotent", () => {
+    const d = assertTechColumnsWritable({
+      existingRowOrTech: ["SINCRONIZADO", "b1", "e1", "k", "crm", "t", "1"],
+      bookingId: "b1",
+      source: TECH_SOURCE_EXPLICIT_OU,
+    });
+    assert.equal(d.ok, true);
+    if (d.ok) assert.equal(d.mode, "idempotent");
+  });
+
+  it("10) información inesperada en O:U sin P → bloqueo", () => {
     const d = assertTechColumnsWritable({
       existingRowOrTech: ["NOTA RARA", "", "", "", "", "", ""],
       bookingId: "b1",
+      source: TECH_SOURCE_EXPLICIT_OU,
     });
     assert.equal(d.ok, false);
     if (!d.ok) assert.equal(d.reason, "unexpected_data");

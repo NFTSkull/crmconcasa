@@ -30,31 +30,42 @@ export const COL_INDEX = {
   syncVersion: 20,
 } as const;
 
+export type TechCellSource =
+  | { kind: "absolute_row"; startColumnIndex: number }
+  | { kind: "tech_range_ou" };
+
+export const TECH_SOURCE_FROM_COLUMN_A: TechCellSource = {
+  kind: "absolute_row",
+  startColumnIndex: 0,
+};
+
+export const TECH_SOURCE_EXPLICIT_OU: TechCellSource = {
+  kind: "tech_range_ou",
+};
+
 export type TechWriteDecision =
   | { ok: true; mode: "write" | "idempotent" }
   | { ok: false; reason: "other_booking" | "unexpected_data"; message: string };
 
 export function extractTechCells(
   row: ReadonlyArray<string | null | undefined>,
+  source: TechCellSource = TECH_SOURCE_FROM_COLUMN_A,
 ): string[] {
-  if (row.length < 7) {
-    return ["", "", "", "", "", "", ""];
+  const out = ["", "", "", "", "", "", ""];
+  if (source.kind === "tech_range_ou") {
+    for (let i = 0; i < 7; i++) out[i] = String(row[i] ?? "");
+    return out;
   }
-  if (row.length === 7) {
-    return row.map((c) => String(c ?? ""));
+  const start = source.startColumnIndex;
+  if (!Number.isInteger(start) || start < 0) return out;
+  for (let t = 0; t < 7; t++) {
+    const absCol = COL_INDEX.estado + t;
+    const idxInRow = absCol - start;
+    if (idxInRow >= 0 && idxInRow < row.length) {
+      out[t] = String(row[idxInRow] ?? "");
+    }
   }
-  if (row.length > COL_INDEX.estado) {
-    return [
-      String(row[COL_INDEX.estado] ?? ""),
-      String(row[COL_INDEX.bookingId] ?? ""),
-      String(row[COL_INDEX.expedienteId] ?? ""),
-      String(row[COL_INDEX.slotKey] ?? ""),
-      String(row[COL_INDEX.syncSource] ?? ""),
-      String(row[COL_INDEX.syncUpdatedAt] ?? ""),
-      String(row[COL_INDEX.syncVersion] ?? ""),
-    ];
-  }
-  return ["", "", "", "", "", "", ""];
+  return out;
 }
 
 function techEmpty(tech: ReadonlyArray<string>): boolean {
@@ -64,6 +75,7 @@ function techEmpty(tech: ReadonlyArray<string>): boolean {
 export function assertTechColumnsWritable(input: {
   existingRowOrTech: ReadonlyArray<string | null | undefined>;
   bookingId: string;
+  source?: TechCellSource;
 }): TechWriteDecision {
   const bookingId = String(input.bookingId ?? "").trim();
   if (!bookingId) {
@@ -73,7 +85,10 @@ export function assertTechColumnsWritable(input: {
       message: "booking_id vacío: no se escribe O:U",
     };
   }
-  const tech = extractTechCells(input.existingRowOrTech);
+  const tech = extractTechCells(
+    input.existingRowOrTech,
+    input.source ?? TECH_SOURCE_FROM_COLUMN_A,
+  );
   const existingBooking = String(tech[1] ?? "").trim();
   if (!existingBooking) {
     if (!techEmpty(tech)) {
