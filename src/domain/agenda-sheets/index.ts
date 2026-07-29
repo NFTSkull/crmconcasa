@@ -1,7 +1,6 @@
 export {
   AGENDA_SHEETS_DEFAULT_SPREADSHEET_ID,
   AGENDA_SHEETS_TIMEZONE,
-  AGENDA_SHEET_TECH_COLUMNS,
   crmSlotKey,
   enumerateSheetSlots,
   isSheetBlockTerminator,
@@ -18,6 +17,27 @@ export {
   type AgendaSheetSyncStatus,
   type SheetSlotRow,
 } from "./parsers";
+export {
+  AGENDA_SHEET_COL_1BASED,
+  AGENDA_SHEET_COL_INDEX,
+  AGENDA_SHEET_PRESERVE_RANGE,
+  AGENDA_SHEET_TECH_COLUMNS,
+  AGENDA_SHEET_TECH_HEADERS,
+  AGENDA_SHEET_TECH_RANGE,
+  a1FullReadRange,
+  a1TechRange,
+  a1VisibleRange,
+  assertTechColumnsWritable,
+  buildTechWriteRow,
+  extractTechCells,
+  isPreserveOnlyColumn1Based,
+  isTechColumn1Based,
+  tabHasUnexpectedTechData,
+  techCellsAreEmpty,
+  type TechWriteConflict,
+  type TechWriteDecision,
+  type TechWriteOk,
+} from "./tech-columns";
 export {
   buildAgendaSheetsDryRunReport,
   type AgendaSheetsDryRunReport,

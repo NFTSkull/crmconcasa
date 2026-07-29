@@ -42,3 +42,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Reportes locales auditoría Google Sheets (read-only)
+tmp/agenda-sheets-*.json

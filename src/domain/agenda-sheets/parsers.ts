@@ -305,19 +305,16 @@ export function sheetLocalDateTimeToIso(
   return { ok: true, value: `${dateYmd}T${timeHm}:00-06:00` };
 }
 
-export const AGENDA_SHEET_TECH_COLUMNS = {
-  estado: "H",
-  bookingId: "I",
-  expedienteId: "J",
-  slotKey: "K",
-  syncSource: "L",
-  syncUpdatedAt: "M",
-  syncVersion: "N",
-} as const;
-
 export type AgendaSheetSyncStatus =
   | "SINCRONIZADO"
   | "PENDIENTE"
   | "CONFLICTO"
   | "ERROR"
   | "CANCELADA";
+
+// Columnas técnicas: ver tech-columns.ts (O:U). H:N = PRESERVAR.
+export {
+  AGENDA_SHEET_TECH_COLUMNS,
+  AGENDA_SHEET_TECH_RANGE,
+  AGENDA_SHEET_PRESERVE_RANGE,
+} from "./tech-columns";

@@ -114,19 +114,24 @@ Máx 5 intentos; luego `dead`.
 
 Borrar NSS/nombre/asesor **no** cancela. Restaurar canónicos / mensaje de menú Cancelar (hoy deshabilitado → cancelar en CRM).
 
-## Columnas técnicas propuestas (aún no aplicadas a la hoja real)
+## Columnas técnicas (O:U — H:N se PRESERVA)
+
+Auditoría read-only confirmó datos reales en H:I (fechas, notas, papelería).
+**Nunca escribir H:N.** Rango técnico seguro: **O:U**.
 
 | Col | Uso |
 |-----|-----|
-| H | ESTADO CRM |
-| I | CRM_BOOKING_ID |
-| J | CRM_EXPEDIENTE_ID |
-| K | CRM_SLOT_KEY (kind\|date\|time\|sede\|ordinal) |
-| L | CRM_SYNC_SOURCE |
-| M | CRM_SYNC_UPDATED_AT |
-| N | CRM_SYNC_VERSION |
+| O | ESTADO CRM |
+| P | CRM_BOOKING_ID |
+| Q | CRM_EXPEDIENTE_ID |
+| R | CRM_SLOT_KEY (kind\|date\|time\|sede\|ordinal) |
+| S | CRM_SYNC_SOURCE |
+| T | CRM_SYNC_UPDATED_AT |
+| U | CRM_SYNC_VERSION |
 
-Antes de escribir encabezados en producción: auditar que H:N estén vacías en todas las pestañas. Si hay datos, detener y reportar.
+Antes de activar sync: dry-run debe confirmar O:U vacías (o solo encabezados/contrato ConCasa). Si O:U tiene datos inesperados → abortar pestaña.
+
+Contrato TS: `src/domain/agenda-sheets/tech-columns.ts` (espejo Edge en `_shared/agenda-sheets/tech-columns.ts`).
 
 ## Migración
 

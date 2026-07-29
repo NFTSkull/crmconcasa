@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Fixed
+- **fix/agenda-sheets-OU:** columnas técnicas `H:N` → `O:U` (H:N PRESERVAR); guards de escritura idempotentes/conflicto; Apps Script ignora O:U; dry-run aborta pestaña con O:U sucio.
+
+### Fixed
 - **feat/google-sheets-agenda-sync (validación SQL):** grants `mark_outbox` sin REVOKE de firma 4-arg inexistente; FK outbox `ON DELETE CASCADE` / links `ON DELETE SET NULL`; suite `rpc_agenda_sheet_sync` con JWT `service_role`, NSS digit-only, dblink en DB actual + commit previo a carrera, restore de `agenda_config` biométricos; runner aislado `scripts/verify-agenda-sheet-isolated.sh` re-aplica P124 tras seed; prueba funcional Firmas sin asserts de mensaje; auditoría read-only offline/live (`scripts/agenda-sheets-readonly-audit.ts`).
 
 ### Added

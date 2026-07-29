@@ -15,6 +15,14 @@ import {
   timingSafeEqual,
 } from "../_shared/agenda-sheets/parsers.ts";
 import {
+  COL_INDEX,
+  a1FullReadRange,
+  a1TechRange,
+  a1VisibleRange,
+  assertTechColumnsWritable,
+  buildTechWriteRow,
+} from "../_shared/agenda-sheets/tech-columns.ts";
+import {
   createGoogleSheetsAdapter,
   type SheetsAdapter,
 } from "../_shared/agenda-sheets/google.ts";
@@ -95,14 +103,13 @@ Deno.serve(async (req) => {
       privateKeyPem: pk,
     });
 
-    // Releer fila A:N (hora..técnicas)
-    const titleEsc = `'${String(body.sheetTitle).replace(/'/g, "''")}'`;
-    const range = `${titleEsc}!A${body.rowNumber}:N${body.rowNumber}`;
+    // Releer fila A:U (visibles A:D + preservar E:N + técnicas O:U)
+    const range = a1FullReadRange(String(body.sheetTitle), body.rowNumber);
     const values = await adapter.getValues(range);
     const row = values[0] ?? [];
-    const horaRaw = String(row[0] ?? "");
-    const nssRaw = String(row[1] ?? "");
-    const bookingIdCell = String(row[8] ?? "").trim(); // I
+    const horaRaw = String(row[COL_INDEX.hora] ?? "");
+    const nssRaw = String(row[COL_INDEX.nss] ?? "");
+    const bookingIdCell = String(row[COL_INDEX.bookingId] ?? "").trim(); // P
 
     if (bookingIdCell) {
       return jsonOk({
@@ -135,6 +142,7 @@ Deno.serve(async (req) => {
     }
 
     // Inferir sección buscando hacia arriba (Edge lee bloque A1:A{row})
+    const titleEsc = `'${String(body.sheetTitle).replace(/'/g, "''")}'`;
     const headerRange = `${titleEsc}!A1:A${body.rowNumber}`;
     const colA = await adapter.getValues(headerRange);
     let section: { sede: string; kind: string } | null = null;
@@ -212,29 +220,56 @@ Deno.serve(async (req) => {
     }
 
     const result = data as Record<string, unknown>;
-    // Escribir canónicos A:D + H:N
+    const bookingId = String(result.booking_id ?? "");
+    // Releer O:U justo antes de escribir (nunca A:N técnicos legacy / H:N)
+    const fresh = await adapter.getValues(
+      a1FullReadRange(String(body.sheetTitle), body.rowNumber),
+    );
+    const freshRow = fresh[0] ?? [];
+    const decision = assertTechColumnsWritable({
+      existingRowOrTech: freshRow,
+      bookingId,
+    });
+    if (!decision.ok) {
+      return jsonError(
+        409,
+        decision.reason === "other_booking" ? "tech_conflict_other_booking" : "tech_unexpected",
+        decision.message,
+      );
+    }
+
+    // Solo A:D (hora/NSS/nombre/asesor). Nunca E:N ni H:N.
     const nowIso = new Date().toISOString();
-    await adapter.updateValues(`${titleEsc}!A${body.rowNumber}:D${body.rowNumber}`, [[
-      horaRaw,
-      String(result.nss ?? nss),
-      String(result.cliente_nombre ?? ""),
-      String(result.asesor_nombre ?? ""),
-    ]]);
-    await adapter.updateValues(`${titleEsc}!H${body.rowNumber}:N${body.rowNumber}`, [[
-      "SINCRONIZADO",
-      String(result.booking_id ?? ""),
-      String(result.expediente_id ?? ""),
-      `${section.kind}|${sheetDate}|${slotTime}|${section.sede}|${ordinal}`,
-      "sheets",
-      nowIso,
-      "1",
-    ]]);
+    if (decision.mode === "write") {
+      await adapter.updateValues(
+        a1VisibleRange(String(body.sheetTitle), body.rowNumber),
+        [[
+          horaRaw,
+          String(result.nss ?? nss),
+          String(result.cliente_nombre ?? ""),
+          String(result.asesor_nombre ?? ""),
+        ]],
+      );
+      await adapter.updateValues(
+        a1TechRange(String(body.sheetTitle), body.rowNumber),
+        [buildTechWriteRow({
+          estado: "SINCRONIZADO",
+          bookingId,
+          expedienteId: String(result.expediente_id ?? ""),
+          slotKey: `${section.kind}|${sheetDate}|${slotTime}|${section.sede}|${ordinal}`,
+          syncSource: "sheets",
+          syncUpdatedAt: nowIso,
+          syncVersion: 1,
+        })],
+      );
+    }
 
     return jsonOk({
       booking_id: result.booking_id,
       expediente_id: result.expediente_id,
       nss: result.nss,
       sync_status: "SINCRONIZADO",
+      tech_write: decision.mode,
     });
   } catch (e) {
     console.error("agenda-sheet-webhook error", String(e));

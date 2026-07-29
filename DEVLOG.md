@@ -1,5 +1,9 @@
 # Devlog
 
+## 2026-07-29 - Sheets: columnas técnicas O:U (H:N PRESERVAR)
+
+Auditoría real: H:I tiene fechas/notas/papelería. Contrato único `tech-columns.ts` (O–U). Worker/webhook releen fila, `assertTechColumnsWritable` (vacío / mismo booking / conflicto), escriben solo A:D + O:U. Apps Script ignora ediciones O:U y lee booking en P. Dry-run aborta pestaña si O:U sucio. Sin tocar hoja real aún.
+
 ## 2026-07-29 - Google Sheets ↔ Agenda: validación SQL aislada
 
 Migración 129 aplica limpia (skip 061/078). Suite `rpc_agenda_sheet_sync` A–E OK (incl. concurrencia dblink capacity=1). Regresiones bio + capacity OK tras: JWT `service_role` en tests funcionales; NSS solo dígitos; dblink a `current_database()` con password; fixtures race en DO separado (commit); restore `agenda_config` biométricos; FK outbox CASCADE / links SET NULL. Runner `scripts/verify-agenda-sheet-isolated.sh` re-aplica conversión P124 tras seed (seed pisa `capacity_by_time`). Firmas: `rpc_book_firmas` asserts de mensaje desfasados (preexistente); cobertura funcional en `rpc_agenda_sheet_firmas_functional.sql`. Auditoría hoja: requiere SA readonly; sin credenciales → dry-run local + reporte de acceso faltante. Sin Cloud/hoja/deploy/PR.

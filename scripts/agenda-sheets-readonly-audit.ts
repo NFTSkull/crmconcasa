@@ -143,8 +143,8 @@ async function fetchSheetValues(
   token: string,
   title: string,
 ): Promise<string[][]> {
-  // Solo lectura. Incluye H:N para auditar columnas técnicas.
-  const range = `'${title.replace(/'/g, "''")}'!A1:N200`;
+  // Solo lectura. Incluye A:U para auditar H:N (PRESERVAR) y O:U (técnicas).
+  const range = `'${title.replace(/'/g, "''")}'!A1:U200`;
   const url =
     `https://sheets.googleapis.com/v4/spreadsheets/${encodeURIComponent(SPREADSHEET_ID)}/values/` +
     `${encodeURIComponent(range)}?majorDimension=ROWS&valueRenderOption=FORMATTED_VALUE`;
@@ -164,9 +164,10 @@ function auditTechColumns(rows: string[][]): {
   hasData: boolean;
   sampleNonEmpty: Array<{ row: number; col: string; kind: string }>;
   safeToUse: boolean;
+  preserveHN: "PRESERVAR";
 } {
-  const cols = ["H", "I", "J", "K", "L", "M", "N"] as const;
-  const colIdx = { H: 7, I: 8, J: 9, K: 10, L: 11, M: 12, N: 13 };
+  const cols = ["O", "P", "Q", "R", "S", "T", "U"] as const;
+  const colIdx = { O: 14, P: 15, Q: 16, R: 17, S: 18, T: 19, U: 20 };
   const sampleNonEmpty: Array<{ row: number; col: string; kind: string }> = [];
   let hasData = false;
   let hasHeaders = false;
@@ -200,6 +201,7 @@ function auditTechColumns(rows: string[][]): {
     hasData,
     sampleNonEmpty,
     safeToUse: !hasData,
+    preserveHN: "PRESERVAR",
   };
 }
 

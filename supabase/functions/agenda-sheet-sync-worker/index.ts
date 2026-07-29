@@ -8,6 +8,14 @@ import {
   jsonOk,
   parseTime,
 } from "../_shared/agenda-sheets/parsers.ts";
+import {
+  COL_INDEX,
+  a1FullReadRange,
+  a1TechRange,
+  a1VisibleRange,
+  assertTechColumnsWritable,
+  buildTechWriteRow,
+} from "../_shared/agenda-sheets/tech-columns.ts";
 import { createGoogleSheetsAdapter } from "../_shared/agenda-sheets/google.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
@@ -94,20 +102,36 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // Cancelación: marcar fila CANCELADA si hay mapping
+        // Cancelación: marcar fila CANCELADA en O:U si hay mapping (nunca H:N)
         if (ev.event_type === "booking_cancelled" && link) {
           const title = String(link.sheet_title ?? "");
           const row = Number(link.row_number);
-          const titleEsc = `'${title.replace(/'/g, "''")}'`;
-          await adapter.updateValues(`${titleEsc}!H${row}:N${row}`, [[
-            "CANCELADA",
-            String(ev.booking_id ?? ""),
-            String(payload.expediente_id ?? ""),
-            "",
-            "crm",
-            new Date().toISOString(),
-            String(Number(link.sync_version ?? 1) + 1),
-          ]]);
+          const bookingId = String(ev.booking_id ?? "");
+          const fresh = await adapter.getValues(a1FullReadRange(title, row));
+          const decision = assertTechColumnsWritable({
+            existingRowOrTech: fresh[0] ?? [],
+            bookingId,
+          });
+          if (!decision.ok) {
+            await supabase.rpc("agenda_sheet_mark_outbox", {
+              p_id: ev.id,
+              p_status: "failed",
+              p_error: `tech_conflict:${decision.reason}`,
+            });
+            failed++;
+            continue;
+          }
+          if (decision.mode === "write" || decision.mode === "idempotent") {
+            await adapter.updateValues(a1TechRange(title, row), [buildTechWriteRow({
+              estado: "CANCELADA",
+              bookingId,
+              expedienteId: String(payload.expediente_id ?? ""),
+              slotKey: "",
+              syncSource: "crm",
+              syncUpdatedAt: new Date().toISOString(),
+              syncVersion: Number(link.sync_version ?? 1) + 1,
+            })]);
+          }
           await supabase.rpc("agenda_sheet_mark_outbox", {
             p_id: ev.id,
             p_status: "done",
@@ -147,9 +171,8 @@ Deno.serve(async (req) => {
           }
 
           const titleEsc = `'${tab.title.replace(/'/g, "''")}'`;
-          const grid = await adapter.getValues(`${titleEsc}!A1:N200`);
+          const grid = await adapter.getValues(`${titleEsc}!A1:U200`);
           // Buscar primera fila libre del bloque matching time/sede/kind
-          // (implementación mínima: fila con hora parseable igual y NSS vacío y sin booking_id)
           let targetRow: number | null = null;
           let ordinal = 0;
           let sectionKind = "";
@@ -173,8 +196,8 @@ Deno.serve(async (req) => {
             if (!t || sectionKind !== kind || sectionSede !== locationId) continue;
             if (t !== time) continue;
             ordinal += 1;
-            const nssCell = String(grid[i]?.[1] ?? "").trim();
-            const bookingCell = String(grid[i]?.[8] ?? "").trim();
+            const nssCell = String(grid[i]?.[COL_INDEX.nss] ?? "").trim();
+            const bookingCell = String(grid[i]?.[COL_INDEX.bookingId] ?? "").trim();
             if (!nssCell && !bookingCell && targetRow == null) {
               targetRow = i + 1;
               break;
@@ -190,18 +213,40 @@ Deno.serve(async (req) => {
             continue;
           }
 
-          // Releer justo antes de escribir
+          // Releer A:U justo antes de escribir
           const fresh = await adapter.getValues(
-            `${titleEsc}!A${targetRow}:N${targetRow}`,
+            a1FullReadRange(tab.title, targetRow),
           );
           const fr = fresh[0] ?? [];
-          if (String(fr[1] ?? "").trim() || String(fr[8] ?? "").trim()) {
+          if (String(fr[COL_INDEX.nss] ?? "").trim()) {
             await supabase.rpc("agenda_sheet_mark_outbox", {
               p_id: ev.id,
               p_status: "failed",
               p_error: "row_occupied_race",
             });
             failed++;
+            continue;
+          }
+          const bookingId = String(ev.booking_id ?? "");
+          const decision = assertTechColumnsWritable({
+            existingRowOrTech: fr,
+            bookingId,
+          });
+          if (!decision.ok) {
+            await supabase.rpc("agenda_sheet_mark_outbox", {
+              p_id: ev.id,
+              p_status: "failed",
+              p_error: `tech_conflict:${decision.reason}`,
+            });
+            failed++;
+            continue;
+          }
+          if (decision.mode === "idempotent") {
+            await supabase.rpc("agenda_sheet_mark_outbox", {
+              p_id: ev.id,
+              p_status: "done",
+            });
+            done++;
             continue;
           }
 
@@ -217,8 +262,9 @@ Deno.serve(async (req) => {
             .eq("id", (exp as { asesor_id?: string } | null)?.asesor_id ?? "")
             .maybeSingle();
 
-          const horaKeep = String(fr[0] ?? "");
-          await adapter.updateValues(`${titleEsc}!A${targetRow}:D${targetRow}`, [[
+          const horaKeep = String(fr[COL_INDEX.hora] ?? "");
+          // Solo A:D + O:U. Nunca H:N / E:N.
+          await adapter.updateValues(a1VisibleRange(tab.title, targetRow), [[
             horaKeep,
             String((exp as { nss?: string } | null)?.nss ?? ""),
             String((exp as { cliente_nombre?: string } | null)?.cliente_nombre ?? ""),
@@ -228,15 +274,15 @@ Deno.serve(async (req) => {
                 "",
             ),
           ]]);
-          await adapter.updateValues(`${titleEsc}!H${targetRow}:N${targetRow}`, [[
-            "SINCRONIZADO",
-            String(ev.booking_id ?? ""),
-            String(payload.expediente_id ?? ""),
-            `${kind}|${date}|${time}|${locationId}|${ordinal}`,
-            "crm",
-            new Date().toISOString(),
-            "1",
-          ]]);
+          await adapter.updateValues(a1TechRange(tab.title, targetRow), [buildTechWriteRow({
+            estado: "SINCRONIZADO",
+            bookingId,
+            expedienteId: String(payload.expediente_id ?? ""),
+            slotKey: `${kind}|${date}|${time}|${locationId}|${ordinal}`,
+            syncSource: "crm",
+            syncUpdatedAt: new Date().toISOString(),
+            syncVersion: 1,
+          })]);
 
           await supabase.rpc("agenda_sheet_upsert_link_from_crm", {
             p_organization_id: payload.organization_id,

@@ -1,6 +1,7 @@
 /**
  * Dry-run de diagnóstico Agenda ↔ Sheets.
  * Solo lectura en memoria; no escribe Sheets ni Supabase.
+ * Aborta pestaña si O:U tiene datos inesperados. H:N = PRESERVAR.
  */
 
 import {
@@ -11,6 +12,13 @@ import {
   type AgendaSheetSede,
   type SheetSlotRow,
 } from "./parsers";
+import {
+  AGENDA_SHEET_PRESERVE_RANGE,
+  AGENDA_SHEET_TECH_RANGE,
+  extractTechCells,
+  tabHasUnexpectedTechData,
+  techCellsAreEmpty,
+} from "./tech-columns";
 
 export type DryRunCrmBooking = Readonly<{
   id: string;
@@ -28,9 +36,24 @@ export type DryRunTabInput = Readonly<{
   rows: ReadonlyArray<ReadonlyArray<string>>;
 }>;
 
+export type DryRunTabColumnAudit = Readonly<{
+  tab: string;
+  sheetId: number;
+  preserveRange: typeof AGENDA_SHEET_PRESERVE_RANGE;
+  preservePolicy: "PRESERVAR";
+  techRange: typeof AGENDA_SHEET_TECH_RANGE;
+  techEmpty: boolean;
+  techBlocked: boolean;
+  techSamples: Array<{ rowNumber: number; col: string }>;
+  aborted: boolean;
+  abortReason: string | null;
+}>;
+
 export type AgendaSheetsDryRunReport = Readonly<{
   year: number;
   tabsUnrecognized: string[];
+  tabsAborted: string[];
+  columnAudits: DryRunTabColumnAudit[];
   slots: SheetSlotRow[];
   invalidNss: Array<{ tab: string; rowNumber: number; raw: string }>;
   sheetOccupiedNotInCrm: Array<{
@@ -60,6 +83,8 @@ export function buildAgendaSheetsDryRunReport(input: {
   crmBookings: DryRunCrmBooking[];
 }): AgendaSheetsDryRunReport {
   const tabsUnrecognized: string[] = [];
+  const tabsAborted: string[] = [];
+  const columnAudits: DryRunTabColumnAudit[] = [];
   const slots: SheetSlotRow[] = [];
   const invalidNss: AgendaSheetsDryRunReport["invalidNss"] = [];
   const sheetOccupied: Array<{
@@ -77,6 +102,40 @@ export function buildAgendaSheetsDryRunReport(input: {
       tabsUnrecognized.push(tab.title);
       continue;
     }
+
+    const techScan = tabHasUnexpectedTechData(tab.rows);
+    let techEmpty = true;
+    for (const row of tab.rows) {
+      if (!techCellsAreEmpty(extractTechCells(row))) {
+        techEmpty = false;
+        break;
+      }
+    }
+    const aborted = techScan.blocked;
+    columnAudits.push({
+      tab: tab.title,
+      sheetId: tab.sheetId,
+      preserveRange: AGENDA_SHEET_PRESERVE_RANGE,
+      preservePolicy: "PRESERVAR",
+      techRange: AGENDA_SHEET_TECH_RANGE,
+      techEmpty,
+      techBlocked: techScan.blocked,
+      techSamples: techScan.samples,
+      aborted,
+      abortReason: aborted
+        ? `O:U contiene datos inesperados (${techScan.samples.length} celdas)`
+        : null,
+    });
+    if (aborted) {
+      tabsAborted.push(tab.title);
+      ambiguousRows.push({
+        tab: tab.title,
+        rowNumber: techScan.samples[0]?.rowNumber ?? 0,
+        reason: "tech_columns_OU_blocked",
+      });
+      continue;
+    }
+
     const enumerated = enumerateSheetSlots({
       sheetDate: date.value,
       rows: tab.rows,
@@ -150,6 +209,8 @@ export function buildAgendaSheetsDryRunReport(input: {
   return {
     year: input.year,
     tabsUnrecognized,
+    tabsAborted,
+    columnAudits,
     slots,
     invalidNss,
     sheetOccupiedNotInCrm,

@@ -8,10 +8,17 @@
  * - WEBHOOK_SECRET
  * - SPREADSHEET_ID (= 1JOERzJc2yLncDbzTFG2lQLQXdlWwmGehlxP7JNOoupA)
  * - SYNC_ENABLED (= true|false)
+ *
+ * Columnas técnicas O:U (nunca H:N — H:N se PRESERVA):
+ * O=ESTADO CRM, P=CRM_BOOKING_ID, Q=CRM_EXPEDIENTE_ID,
+ * R=CRM_SLOT_KEY, S=CRM_SYNC_SOURCE, T=CRM_SYNC_UPDATED_AT, U=CRM_SYNC_VERSION
  */
 
-var TECH_COLS = { start: 8, end: 14 }; // H..N (1-based)
+var TECH_COLS = { start: 15, end: 21 }; // O..U (1-based)
+var PRESERVE_END = 14; // A:N — no escribir desde Apps Script técnico
 var NSS_COL = 2; // B
+var ESTADO_COL = 15; // O
+var BOOKING_ID_COL = 16; // P
 
 function onOpen() {
   SpreadsheetApp.getUi()
@@ -63,10 +70,12 @@ function handleEdit_(e) {
   var sheetId = sheet.getSheetId();
   var title = sheet.getName();
 
-  // Ignorar columnas técnicas H:N
+  // Ignorar columnas técnicas O:U (escrituras del worker/webhook no re-disparan)
   var col = e.range.getColumn();
   var lastCol = e.range.getLastColumn();
   if (col >= TECH_COLS.start) return;
+  // Cualquier edición que solo toque O:U ya se filtró; si el rango cruza
+  // hacia técnicas desde A:N, igual no procesamos celdas técnicas.
 
   // Ignorar si la edición no toca NSS (B) ni nombre/asesor en filas de cita
   if (lastCol < NSS_COL && col > NSS_COL) return;
@@ -77,9 +86,12 @@ function handleEdit_(e) {
   var max = Math.min(numRows, 20);
   for (var i = 0; i < max; i++) {
     var row = startRow + i;
-    // Si ya hay booking_id en I, no re-crear
-    var bookingId = String(sheet.getRange(row, 9).getDisplayValue() || "").trim();
+    // Si ya hay booking_id en P, no re-crear (evita loop / cita duplicada)
+    var bookingId = String(
+      sheet.getRange(row, BOOKING_ID_COL).getDisplayValue() || "",
+    ).trim();
     if (bookingId) continue;
+    // Estado en O solo lectura local (diagnóstico); no escribe Apps Script aquí
     postWebhook_({
       spreadsheetId: ss.getId(),
       sheetId: sheetId,
@@ -158,7 +170,8 @@ function menuShowStatus() {
       " · spreadsheet=" +
       (props.spreadsheetId ? "ok" : "faltante") +
       " · webhook=" +
-      (props.url ? "ok" : "faltante"),
+      (props.url ? "ok" : "faltante") +
+      " · tech=O:U preserve=A:N",
     "ConCasa",
     10,
   );

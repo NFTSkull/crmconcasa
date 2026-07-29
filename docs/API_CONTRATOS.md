@@ -406,6 +406,9 @@ Trigger en `agenda_bookings` → `agenda_sheet_sync_outbox` (`booking_created|up
 ### Feature flag
 `GOOGLE_SHEETS_SYNC_ENABLED=false` apaga sync sin borrar bookings/mappings.
 
+### Columnas técnicas
+Rango seguro **O:U** (`ESTADO CRM`…`CRM_SYNC_VERSION`). **A:N se PRESERVA** (H:I contiene notas/papelería reales). Escritura Edge solo A:D + O:U tras relectura y guard `assertTechColumnsWritable`.
+
 ### Docs operativas
 `integrations/google-sheets-agenda/README.md`
 
