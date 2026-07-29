@@ -110,6 +110,8 @@ export {
   resolveAsesorEvidenciaUploadMime,
   sanitizeEvidenciaDisplayName,
   validateAsesorEvidenciaFile,
+  shouldMountAsesorEvidenciaSection,
+  asesorPuedeEditarEvidencia,
   type AsesorEvidenciaDocumento,
 } from "./asesor-evidencia";
 export { mesaPuedeAbrirArchivo } from "./mesa-archivo-acceso";

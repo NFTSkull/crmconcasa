@@ -160,4 +160,24 @@ export function sanitizeEvidenciaDisplayName(name: string | null | undefined): s
   return cleaned || "evidencia";
 }
 
+/** La tarjeta Evidencia se muestra con expediente cargado; no depende de fila previa. */
+export function shouldMountAsesorEvidenciaSection(
+  expedienteId: string | null | undefined,
+): boolean {
+  return Boolean(String(expedienteId ?? "").trim());
+}
+
+/**
+ * Permiso de carga/reemplazo de Evidencia (independiente de monto/Pagaré/cobro).
+ * Espejo FE de `register_expediente_documento`: ciclo activo (dueño lo valida el RPC).
+ */
+export function asesorPuedeEditarEvidencia(
+  cicloEstado: string | null | undefined,
+): boolean {
+  const ciclo = String(cicloEstado ?? "activo")
+    .trim()
+    .toLowerCase();
+  return ciclo === "activo";
+}
+
 export { formatBytesLabel } from "./cliente-pagare";

@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- **fix/asesor-evidencia-canupload:** `AsesorEvidenciaSection` usa `canUpload={puedeEditarEvidencia}` (ciclo activo) en lugar de `puedeIntegrarAsesor` (monto aprobado); sin tocar Pagaré, obligatorios ni gates.
+
 ### Added
 - **feat/asesor-evidencia-opcional:** documento opcional `asesor_evidencia` (allowlist MIME ≤15 MiB; bucket sin `NULL`); sección Asesor + consulta Mesa; mig. 128; sin gates ni impacto en P090/Pagaré/obligatorios.
 

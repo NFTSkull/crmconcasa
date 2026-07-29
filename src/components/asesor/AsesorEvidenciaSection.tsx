@@ -25,8 +25,8 @@ import {
 
 export type AsesorEvidenciaSectionProps = Readonly<{
   expedienteId: string;
-  /** Misma regla que documentos de integración: con monto y no cancelado. */
-  puedeEditar: boolean;
+  /** Carga/reemplazo; independiente de monto aprobado. */
+  canUpload: boolean;
   onUploaded?: () => void | Promise<void>;
 }>;
 
@@ -41,12 +41,12 @@ function formatDateTimeEsMx(iso: string | null | undefined): string {
 }
 
 /**
- * Sección dedicada Evidencia (opcional, cualquier formato).
+ * Sección dedicada Evidencia (opcional).
  * No forma parte del checklist de obligatorios ni del progreso de envío.
  */
 export function AsesorEvidenciaSection({
   expedienteId,
-  puedeEditar,
+  canUpload,
   onUploaded,
 }: AsesorEvidenciaSectionProps) {
   const archivosRepo = useExpedienteArchivosRepo();
@@ -147,7 +147,7 @@ export function AsesorEvidenciaSection({
 
   const handleFiles = async (files: File[]) => {
     const file = files[0];
-    if (!file || !puedeEditar || savingLockRef.current) return;
+    if (!file || !canUpload || savingLockRef.current) return;
     const validation = validateAsesorEvidenciaFile(file);
     if (!validation.ok) {
       setWriteError(validation.error);
@@ -280,8 +280,8 @@ export function AsesorEvidenciaSection({
         </div>
       ) : null}
 
-      {puedeEditar ? (
-        <div className="mt-3">
+      {canUpload ? (
+        <div className="mt-3 space-y-2">
           <DocumentDropzone
             accept={ASESOR_EVIDENCIA_ACCEPT_ATTR}
             busy={saving}
@@ -292,11 +292,17 @@ export function AsesorEvidenciaSection({
             error={writeError}
             onFiles={(files) => void handleFiles(files)}
           />
-          <p className="mt-1 text-xs text-gray-500">
+          <p className="text-xs font-medium text-gray-800">
             {documento ? "Reemplazar evidencia" : "Subir evidencia"}
           </p>
         </div>
-      ) : null}
+      ) : (
+        <p className="mt-3 text-xs text-gray-500">
+          {documento
+            ? "El expediente está en solo lectura: puedes ver o descargar la evidencia."
+            : "El expediente está en solo lectura: no se puede cargar evidencia ahora."}
+        </p>
+      )}
 
       {saving ? (
         <p className="mt-2 text-xs text-gray-500" role="status">
