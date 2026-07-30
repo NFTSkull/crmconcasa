@@ -16,7 +16,14 @@ BEGIN
   END IF;
 
   CREATE EXTENSION IF NOT EXISTS pg_net WITH SCHEMA extensions;
-  CREATE EXTENSION IF NOT EXISTS pg_cron WITH SCHEMA pg_catalog;
+  -- pg_cron puede ya existir (mig. 130). CREATE IF NOT EXISTS en Cloud
+  -- a veces re-ejecuta after-create y falla con "dependent privileges".
+  BEGIN
+    CREATE EXTENSION IF NOT EXISTS pg_cron WITH SCHEMA pg_catalog;
+  EXCEPTION
+    WHEN OTHERS THEN
+      RAISE NOTICE '132: pg_cron already present / skip recreate (%): %', SQLSTATE, SQLERRM;
+  END;
 
   GRANT USAGE ON SCHEMA cron TO postgres;
   GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA cron TO postgres;
