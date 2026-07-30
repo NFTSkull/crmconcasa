@@ -399,7 +399,7 @@ Supabase `agenda_bookings`. Sheets no inserta filas directas; toda reserva Sheet
 ### RPCs internas
 - `agenda_sheet_book_by_nss(...)` — reserva atómica + mapping + `action_log` `agenda.sheet.book`
 - `agenda_sheet_claim_outbox` / `agenda_sheet_mark_outbox` — worker CRM→Sheets (claim recupera `processing` >10 min → `failed`/`dead`)
-- `agenda_sheet_requeue_dead_sync(p_booking_id)` — reencola outbox `dead` de `booking_created` para bookings activos futuros (`service_role`); no muta bookings ni Sheets
+- `agenda_sheet_requeue_dead_sync(p_booking_id)` — reencola outbox `dead` de `booking_created` para bookings activos futuros; con `p_booking_id` también puede reencolar `booking_cancelled` si hay fila Sheet conocida (`service_role`); no muta bookings ni Sheets; sin `p_booking_id` no toca cancelaciones (anti-backfill)
 - `agenda_sheet_upsert_link_from_crm` — mapping tras escritura Sheet
 - `agenda_sheet_inventory_availability(p_kind, p_date, p_location_id)` — read-model cupo real (`authenticated`); si enforced y not fresh → `{ ok:true, fresh:false, slots:[] }`
 - `agenda_sheet_inventory_upsert_batch(p_rows)` / `mark_linked` / `mark_conflict` — `service_role` only (anti-steal: no degradar claimed/linked con `booking_id`; **`sheet_title` exacto sin `btrim`** — pestañas tipo `03 AGOSTO `)
