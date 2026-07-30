@@ -427,7 +427,7 @@ Rango seguro **O:U** (`ESTADO CRM`…`CRM_SYNC_VERSION`). **A:N se PRESERVA** (H
 - Claim: `agenda_sheet_claim_outbox` con `FOR UPDATE SKIP LOCKED`, máx 50/ejecución
 - Título A1: resuelve título live por `sheetId` (`listSheets`) para conservar trailing spaces
 - Confirmación: read-back A:U; si NSS/nombre/bookingId/source no coinciden → `failed` (`write_verify_failed`), no `done`
-- **Cancelación (contrato 136):** conservar **A** y **G:N** sin escribirlos; limpiar solo **B:D** + **O:U** vía `values.batchClear`; no rewrite A:U; propiedad solo si `P=booking_id` y source crm; E/F con texto → `manual_result_conflict` → outbox `dead` (no retry); fila reutilizada (P distinto) → `already_absent`/no tocar; inventario `CANCELADA` → available aunque haya conflicto E/F
+- **Cancelación (contrato 136):** conservar **A** y **G:N** sin escribirlos; limpiar solo **B:D** + **O:U** vía `values.batchClear`; no rewrite A:U; propiedad solo si `P=booking_id` y source crm; E/F con texto → `manual_result_conflict` → outbox `dead` (no retry); fila reutilizada (**P** distinto) → no tocar; no comparar `link.sync_version` vs U (stale tras CANCELADA); inventario `CANCELADA` → available aunque haya conflicto E/F
 - Cancel sin fila conocida / already_absent → `done` no-op + `agenda_sheet_mark_cancelled_cleared`
 - Worker admin read-only: `POST` body `{ dry_run_cancel_cleanup: true, targets: [...] }` clasifica con A:U live sin mutar
 - Cron: mig. 130 job `agenda-sheet-sync-worker-every-minute` (`* * * * *`) vía Vault `agenda_sheet_project_url` + `agenda_sheet_worker_secret` (independiente del reconcile 132)
