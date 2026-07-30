@@ -595,8 +595,16 @@ BEGIN
   FOR v_elem IN SELECT * FROM jsonb_array_elements(p_rows)
   LOOP
     v_status := NULLIF(btrim(COALESCE(v_elem->>'status', '')), '');
-    v_booking_id := NULLIF(btrim(COALESCE(v_elem->>'booking_id', '')), '')::UUID;
-    v_expediente_id := NULLIF(btrim(COALESCE(v_elem->>'expediente_id', '')), '')::UUID;
+    BEGIN
+      v_booking_id := NULLIF(btrim(COALESCE(v_elem->>'booking_id', '')), '')::UUID;
+    EXCEPTION WHEN invalid_text_representation THEN
+      v_booking_id := NULL;
+    END;
+    BEGIN
+      v_expediente_id := NULLIF(btrim(COALESCE(v_elem->>'expediente_id', '')), '')::UUID;
+    EXCEPTION WHEN invalid_text_representation THEN
+      v_expediente_id := NULL;
+    END;
     v_occ := NULLIF(btrim(COALESCE(v_elem->>'occupancy_source', '')), '');
     v_visible_nss := NULLIF(btrim(COALESCE(v_elem->>'visible_nss', '')), '');
     v_visible_name := NULLIF(btrim(COALESCE(v_elem->>'visible_name', '')), '');

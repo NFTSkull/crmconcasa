@@ -1,3 +1,7 @@
+## 2026-07-30 - Sheets reconcile: títulos con trailing space
+
+`agenda-sheet-reconcile` fallaba con `Unable to parse range: '30 JULIO'!A1:U200` porque hacía `title.trim()` y el Sheet real es `"30 JULIO "`. Fix: conservar título crudo en A1; trim solo para parse de fecha/FORMATO. Backfill live: 228 filas; link NSS único 34→41 linked. Félix sigue CRM-only en 31/07 08:00 MTY bio (reportado, sin mutar Sheet).
+
 # Devlog
 
 ## 2026-07-29 - Sheets: inventario físico / cupo real (mig. 131)

@@ -66,22 +66,24 @@ Deno.serve(async (req) => {
 
     for (const tab of tabs) {
       if (tab.hidden) continue;
-      const title = tab.title.trim();
-      if (/^FORMATO$/i.test(title)) continue;
-      const date = parseTabDate(title, Number.isFinite(year) ? year : 2026);
+      // No trim del título al armar A1: el Sheet puede tener trailing space ("30 JULIO ").
+      const titleRaw = String(tab.title ?? "");
+      const titleCmp = titleRaw.trim();
+      if (/^FORMATO$/i.test(titleCmp)) continue;
+      const date = parseTabDate(titleCmp, Number.isFinite(year) ? year : 2026);
       if (!date || date < START) continue;
 
-      const titleEsc = `'${title.replace(/'/g, "''")}'`;
+      const titleEsc = `'${titleRaw.replace(/'/g, "''")}'`;
       const grid = await adapter.getValues(`${titleEsc}!A1:U200`);
       const { rows, issues } = buildInventoryUpsertRows({
         organizationId: orgId,
         spreadsheetId,
         sheetId: tab.sheetId,
-        sheetTitle: title,
+        sheetTitle: titleRaw,
         bookingDate: date,
         grid,
       });
-      for (const iss of issues) allIssues.push({ title, ...iss });
+      for (const iss of issues) allIssues.push({ title: titleRaw, ...iss });
       if (rows.length === 0) continue;
 
       // batches de 200
@@ -91,7 +93,11 @@ Deno.serve(async (req) => {
           p_rows: chunk,
         });
         if (error) {
-          return jsonError(500, "upsert_failed", error.message.slice(0, 200));
+          return jsonError(
+            500,
+            "upsert_failed",
+            `${error.message}`.slice(0, 240),
+          );
         }
         upserted += chunk.length;
       }
@@ -103,7 +109,12 @@ Deno.serve(async (req) => {
       issue_count: allIssues.length,
     });
   } catch (e) {
-    console.error("agenda-sheet-reconcile error", String(e));
-    return jsonError(500, "internal_error", "Reconcile falló");
+    const msg = e instanceof Error ? e.message : String(e);
+    console.error("agenda-sheet-reconcile error", msg);
+    return jsonError(
+      500,
+      "internal_error",
+      `Reconcile falló: ${msg}`.slice(0, 280),
+    );
   }
 });

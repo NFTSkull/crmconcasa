@@ -5,9 +5,16 @@
 import { parseSection, parseTime } from "./parsers.ts";
 
 const NO_HAY_CITAS_RE = /^NO\s+HAY\s+CITAS\b/i;
+const UUID_RE =
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
 function cell(row: string[] | undefined, idx: number): string {
   return String(row?.[idx] ?? "").trim();
+}
+
+function asUuidOrNull(raw: string | null): string | null {
+  if (!raw) return null;
+  return UUID_RE.test(raw) ? raw : null;
 }
 
 export type InventoryUpsertRow = {
@@ -113,11 +120,17 @@ export function buildInventoryUpsertRows(params: {
     const nss = cell(row, 1);
     const name = cell(row, 2);
     const advisor = cell(row, 3);
-    const bookingId = cell(row, 15) || null;
-    const expedienteId = cell(row, 16) || null;
+    const bookingId = asUuidOrNull(cell(row, 15) || null);
+    const expedienteId = asUuidOrNull(cell(row, 16) || null);
     let status = "available";
-    if (bookingId) status = "linked";
-    else if (nss || name) status = "occupied_external";
+    let occupancySource = "reconciliation";
+    if (bookingId) {
+      status = "linked";
+      occupancySource = "crm";
+    } else if (nss || name) {
+      status = "occupied_external";
+      occupancySource = "sheet_legacy";
+    }
 
     rows.push({
       organization_id: organizationId,
@@ -136,7 +149,7 @@ export function buildInventoryUpsertRows(params: {
       visible_advisor: advisor || null,
       booking_id: bookingId,
       expediente_id: expedienteId,
-      occupancy_source: bookingId ? "crm" : "reconciliation",
+      occupancy_source: occupancySource,
     });
   }
   return { rows, issues };
