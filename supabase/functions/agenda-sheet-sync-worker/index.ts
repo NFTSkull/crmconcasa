@@ -148,101 +148,129 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // booking_created desde CRM: localizar fila libre del cupo
+        // booking_created desde CRM: escribir SOLO en fila preasignada del inventario
         if (ev.event_type === "booking_created" && !link) {
           const date = String(payload.booking_date ?? "");
           const timeRaw = String(payload.booking_time ?? "");
           const time = parseTime(timeRaw.slice(0, 5)) ?? timeRaw.slice(0, 5);
           const locationId = String(payload.location_id ?? "");
           const kind = String(payload.kind ?? "");
-          const tabMap = parseTabMapJson(
-            Deno.env.get("GOOGLE_SHEETS_TAB_MAP_JSON") ?? "{}",
-          );
-          const yearEnv = Number(Deno.env.get("GOOGLE_SHEETS_YEAR") ?? "2026");
-          const liveTabs = await adapter.listSheets();
-          const resolved = resolveSheetTabForDate({
-            bookingDate: date,
-            tabMap,
-            liveTabs,
-            year: Number.isFinite(yearEnv) ? yearEnv : undefined,
-          });
-          if (
-            resolved.status === "missing_sheet_for_date" ||
-            resolved.status === "ambiguous_sheet_for_date"
-          ) {
-            await supabase.rpc("agenda_sheet_mark_outbox", {
-              p_id: ev.id,
-              p_status: "failed",
-              p_error: resolved.status,
-            });
-            failed++;
-            continue;
-          }
-          const tab = {
-            sheetId: resolved.sheetId,
-            title: resolved.title,
-          };
-          // resolved.status: resolved_from_tab_map | resolved_from_live_metadata
-          void resolved.status;
+          const bookingId = String(ev.booking_id ?? "");
 
-          const titleEsc = `'${tab.title.replace(/'/g, "''")}'`;
-          const grid = await adapter.getValues(`${titleEsc}!A1:U200`);
-          // Buscar primera fila libre del bloque matching time/sede/kind
-          let targetRow: number | null = null;
-          let ordinal = 0;
-          let sectionKind = "";
-          let sectionSede = "";
-          for (let i = 0; i < grid.length; i++) {
-            const a = String(grid[i]?.[0] ?? "");
-            const upper = a.normalize("NFD").replace(/\p{M}/gu, "").toUpperCase().replace(/\s+/g, " ").trim();
-            if (upper === "MONTERREY FIRMAS") {
-              sectionKind = "firmas"; sectionSede = "monterrey"; ordinal = 0; continue;
+          let targetRow = Number(payload.sheet_row ?? 0);
+          let tabTitle = String(payload.sheet_title ?? "");
+          let tabSheetId = Number(payload.sheet_id ?? 0);
+          let slotKeyFromInv = "";
+          const ordinal = 1;
+
+          if (!Number.isFinite(targetRow) || targetRow <= 0 || !tabTitle) {
+            const { data: invRows } = await supabase
+              .from("agenda_sheet_slot_inventory")
+              .select(
+                "sheet_row,sheet_title,sheet_id,slot_key,slot_time",
+              )
+              .eq("booking_id", bookingId)
+              .in("status", ["claimed", "linked"])
+              .limit(1);
+            const inv = (invRows ?? [])[0] as Record<string, unknown> | undefined;
+            if (inv) {
+              targetRow = Number(inv.sheet_row);
+              tabTitle = String(inv.sheet_title ?? "");
+              tabSheetId = Number(inv.sheet_id ?? 0);
+              slotKeyFromInv = String(inv.slot_key ?? "");
             }
-            if (upper === "MONTERREY BIOMETRICOS") {
-              sectionKind = "biometricos"; sectionSede = "monterrey"; ordinal = 0; continue;
-            }
-            if (upper === "APODACA FIRMAS") {
-              sectionKind = "firmas"; sectionSede = "apodaca"; ordinal = 0; continue;
-            }
-            if (upper === "APODACA BIOMETRICOS") {
-              sectionKind = "biometricos"; sectionSede = "apodaca"; ordinal = 0; continue;
-            }
-            const t = parseTime(a);
-            if (!t || sectionKind !== kind || sectionSede !== locationId) continue;
-            if (t !== time) continue;
-            ordinal += 1;
-            const nssCell = String(grid[i]?.[COL_INDEX.nss] ?? "").trim();
-            const bookingCell = String(grid[i]?.[COL_INDEX.bookingId] ?? "").trim();
-            if (!nssCell && !bookingCell && targetRow == null) {
-              targetRow = i + 1;
-              break;
-            }
+          } else if (payload.inventory_id) {
+            const { data: invOne } = await supabase
+              .from("agenda_sheet_slot_inventory")
+              .select("slot_key")
+              .eq("id", payload.inventory_id)
+              .maybeSingle();
+            slotKeyFromInv = String(
+              (invOne as { slot_key?: string } | null)?.slot_key ?? "",
+            );
           }
-          if (targetRow == null) {
+
+          if (!Number.isFinite(targetRow) || targetRow <= 0 || !tabTitle) {
             await supabase.rpc("agenda_sheet_mark_outbox", {
               p_id: ev.id,
               p_status: "failed",
-              p_error: "no_free_sheet_row",
+              p_error: "no_preassigned_sheet_row",
             });
             failed++;
             continue;
           }
 
-          // Releer A:U justo antes de escribir
+          if (!tabSheetId) {
+            const tabMap = parseTabMapJson(
+              Deno.env.get("GOOGLE_SHEETS_TAB_MAP_JSON") ?? "{}",
+            );
+            const yearEnv = Number(Deno.env.get("GOOGLE_SHEETS_YEAR") ?? "2026");
+            const liveTabs = await adapter.listSheets();
+            const resolved = resolveSheetTabForDate({
+              bookingDate: date,
+              tabMap,
+              liveTabs,
+              year: Number.isFinite(yearEnv) ? yearEnv : undefined,
+            });
+            if (
+              resolved.status === "missing_sheet_for_date" ||
+              resolved.status === "ambiguous_sheet_for_date"
+            ) {
+              await supabase.rpc("agenda_sheet_mark_outbox", {
+                p_id: ev.id,
+                p_status: "failed",
+                p_error: resolved.status,
+              });
+              failed++;
+              continue;
+            }
+            tabSheetId = resolved.sheetId;
+            tabTitle = resolved.title;
+          }
+
+          const tab = { sheetId: tabSheetId, title: tabTitle };
+
+          // Releer A:U de la fila preasignada — no buscar otra
           const fresh = await adapter.getValues(
             a1FullReadRange(tab.title, targetRow),
           );
           const fr = fresh[0] ?? [];
-          if (String(fr[COL_INDEX.nss] ?? "").trim()) {
+          const horaCell = parseTime(String(fr[COL_INDEX.hora] ?? ""));
+          if (horaCell && horaCell !== time) {
             await supabase.rpc("agenda_sheet_mark_outbox", {
               p_id: ev.id,
               p_status: "failed",
-              p_error: "row_occupied_race",
+              p_error: "sheet_row_conflict:hora",
+            });
+            if (payload.inventory_id) {
+              await supabase.rpc("agenda_sheet_inventory_mark_conflict", {
+                p_id: payload.inventory_id,
+                p_error: "hora_mismatch",
+              });
+            }
+            failed++;
+            continue;
+          }
+          const nssNow = String(fr[COL_INDEX.nss] ?? "").trim();
+          const bookingCell = String(fr[COL_INDEX.bookingId] ?? "").trim();
+          if (nssNow && bookingCell && bookingCell !== bookingId) {
+            await supabase.rpc("agenda_sheet_mark_outbox", {
+              p_id: ev.id,
+              p_status: "failed",
+              p_error: "sheet_row_conflict",
             });
             failed++;
             continue;
           }
-          const bookingId = String(ev.booking_id ?? "");
+          if (nssNow && !bookingCell) {
+            await supabase.rpc("agenda_sheet_mark_outbox", {
+              p_id: ev.id,
+              p_status: "failed",
+              p_error: "sheet_row_conflict",
+            });
+            failed++;
+            continue;
+          }
           const decision = assertTechColumnsWritable({
             existingRowOrTech: fr,
             bookingId,
@@ -257,6 +285,10 @@ Deno.serve(async (req) => {
             continue;
           }
           if (decision.mode === "idempotent") {
+            await supabase.rpc("agenda_sheet_inventory_mark_linked", {
+              p_booking_id: bookingId,
+              p_sheet_row: targetRow,
+            });
             await supabase.rpc("agenda_sheet_mark_outbox", {
               p_id: ev.id,
               p_status: "done",
@@ -265,7 +297,6 @@ Deno.serve(async (req) => {
             continue;
           }
 
-          // Datos canónicos desde expediente
           const { data: exp } = await supabase
             .from("expedientes")
             .select("id,nss,cliente_nombre,asesor_id")
@@ -278,6 +309,9 @@ Deno.serve(async (req) => {
             .maybeSingle();
 
           const horaKeep = String(fr[COL_INDEX.hora] ?? "");
+          const slotKey =
+            slotKeyFromInv ||
+            `${kind}|${date}|${time}|${locationId}|${ordinal}`;
           // Solo A:D + O:U. Nunca H:N / E:N.
           await adapter.updateValues(a1VisibleRange(tab.title, targetRow), [[
             horaKeep,
@@ -293,7 +327,7 @@ Deno.serve(async (req) => {
             estado: "SINCRONIZADO",
             bookingId,
             expedienteId: String(payload.expediente_id ?? ""),
-            slotKey: `${kind}|${date}|${time}|${locationId}|${ordinal}`,
+            slotKey,
             syncSource: "crm",
             syncUpdatedAt: new Date().toISOString(),
             syncVersion: 1,
@@ -312,6 +346,10 @@ Deno.serve(async (req) => {
             p_slot_ordinal: ordinal,
             p_booking_id: ev.booking_id,
             p_sync_status: "SINCRONIZADO",
+          });
+          await supabase.rpc("agenda_sheet_inventory_mark_linked", {
+            p_booking_id: bookingId,
+            p_sheet_row: targetRow,
           });
 
           await supabase.rpc("agenda_sheet_mark_outbox", {

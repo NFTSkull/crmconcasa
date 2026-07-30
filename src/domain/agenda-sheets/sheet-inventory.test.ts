@@ -1,0 +1,191 @@
+import assert from "node:assert/strict";
+import { describe, it } from "node:test";
+import {
+  countAvailableByTime,
+  effectiveSheetAwareRemaining,
+  isInventoryEnforcedDate,
+  parsePhysicalInventoryFromGrid,
+} from "./sheet-inventory";
+
+describe("sheet-inventory", () => {
+  it("enforcement desde 2026-07-30", () => {
+    assert.equal(isInventoryEnforcedDate("2026-07-29"), false);
+    assert.equal(isInventoryEnforcedDate("2026-07-30"), true);
+    assert.equal(isInventoryEnforcedDate("2026-07-31"), true);
+  });
+
+  it("fila histórica ocupada sin O:U → occupied_external", () => {
+    const { rows } = parsePhysicalInventoryFromGrid({
+      bookingDate: "2026-07-31",
+      sheetTitle: "31 JULIO",
+      grid: [
+        ["MONTERREY BIOMETRICOS"],
+        ["8:00 AM", "03978108284", "ALGUIEN", "Asesor"],
+        ["8:00 AM", "", "", ""],
+      ],
+    });
+    assert.equal(rows.length, 2);
+    assert.equal(rows[0]?.status, "occupied_external");
+    assert.equal(rows[1]?.status, "available");
+    assert.equal(rows[0]?.techBookingId, null);
+  });
+
+  it("fila linked con P no se cuenta como available", () => {
+    const { rows } = parsePhysicalInventoryFromGrid({
+      bookingDate: "2026-07-31",
+      sheetTitle: "31 JULIO",
+      grid: [
+        ["MONTERREY BIOMETRICOS"],
+        [
+          "10:00 AM",
+          "03978108284",
+          "GERARDO FUANTOS ZAVALA",
+          "Luz Mejia",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "SINCRONIZADO",
+          "db7997ca-2838-4f3d-8abb-1d515db8f394",
+          "5611042a-0038-4ae2-b2ae-819bfc019dba",
+          "biometricos|2026-07-31|10:00|monterrey|6",
+        ],
+        ["10:00 AM", "", "", ""],
+      ],
+    });
+    assert.equal(rows[0]?.status, "linked");
+    assert.equal(rows[1]?.status, "available");
+    const avail = countAvailableByTime(rows, "biometricos", "monterrey");
+    assert.equal(avail["10:00"], 1);
+  });
+
+  it("NO HAY CITAS → disabled", () => {
+    const { rows } = parsePhysicalInventoryFromGrid({
+      bookingDate: "2026-07-30",
+      sheetTitle: "30 JULIO",
+      grid: [["APODACA BIOMETRICOS"], ["NO HAY CITAS"]],
+    });
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0]?.status, "disabled");
+    assert.equal(rows[0]?.disabledReason, "NO_HAY_CITAS");
+  });
+
+  it("formatos de hora 8:00 AM / 8:00AM / 08:00", () => {
+    const { rows } = parsePhysicalInventoryFromGrid({
+      bookingDate: "2026-08-03",
+      sheetTitle: "03 AGOSTO",
+      grid: [
+        ["MONTERREY BIOMETRICOS"],
+        ["8:00 AM", "", ""],
+        ["8:00AM", "", ""],
+        ["08:00", "", ""],
+      ],
+    });
+    assert.deepEqual(
+      rows.map((r) => r.slotTime),
+      ["08:00", "08:00", "08:00"],
+    );
+  });
+
+  it("sección faltante (04 AGOSTO) → INVALID_OR_MISSING_SECTION_HEADER", () => {
+    const { rows, issues } = parsePhysicalInventoryFromGrid({
+      bookingDate: "2026-08-04",
+      sheetTitle: "04 AGOSTO",
+      grid: [
+        [""], // A1 vacío
+        ["8:00 AM", "", ""],
+        ["MONTERREY BIOMETRICOS"],
+        ["9:00 AM", "", ""],
+      ],
+    });
+    assert.ok(issues.some((i) => i.code === "INVALID_OR_MISSING_SECTION_HEADER"));
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0]?.slotTime, "09:00");
+  });
+
+  it("Gerardo: 08:00 lleno 6/6, 10:00 una libre luego linked", () => {
+    const before = parsePhysicalInventoryFromGrid({
+      bookingDate: "2026-07-31",
+      sheetTitle: "31 JULIO",
+      grid: [
+        ["MONTERREY BIOMETRICOS"],
+        ...Array.from({ length: 6 }, () => ["8:00 AM", "123", "X", "Y"] as string[]),
+        ...Array.from({ length: 5 }, () => ["10:00 AM", "123", "X", "Y"] as string[]),
+        ["10:00 AM", "", "", ""],
+      ],
+    });
+    const a08 = before.rows.filter((r) => r.slotTime === "08:00");
+    const a10 = before.rows.filter((r) => r.slotTime === "10:00");
+    assert.equal(a08.length, 6);
+    assert.equal(a08.filter((r) => r.status === "available").length, 0);
+    assert.equal(a10.filter((r) => r.status === "available").length, 1);
+
+    const after = parsePhysicalInventoryFromGrid({
+      bookingDate: "2026-07-31",
+      sheetTitle: "31 JULIO",
+      grid: [
+        ["MONTERREY BIOMETRICOS"],
+        ...Array.from({ length: 6 }, () => ["8:00 AM", "123", "X", "Y"] as string[]),
+        ...Array.from({ length: 5 }, () => ["10:00 AM", "123", "X", "Y"] as string[]),
+        [
+          "10:00 AM",
+          "03978108284",
+          "GERARDO FUANTOS ZAVALA",
+          "Luz Mejia",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "SINCRONIZADO",
+          "db7997ca-2838-4f3d-8abb-1d515db8f394",
+        ],
+      ],
+    });
+    assert.equal(
+      after.rows.filter((r) => r.slotTime === "10:00" && r.status === "available").length,
+      0,
+    );
+  });
+
+  it("effective remaining respeta inventario y stale", () => {
+    assert.deepEqual(
+      effectiveSheetAwareRemaining({
+        configRemaining: 4,
+        inventoryAvailable: 1,
+        inventoryFresh: true,
+        inventoryEnforced: true,
+      }),
+      { remaining: 1, blockedReason: null },
+    );
+    assert.equal(
+      effectiveSheetAwareRemaining({
+        configRemaining: 4,
+        inventoryAvailable: null,
+        inventoryFresh: false,
+        inventoryEnforced: true,
+      }).remaining,
+      0,
+    );
+    assert.equal(
+      effectiveSheetAwareRemaining({
+        configRemaining: 4,
+        inventoryAvailable: 1,
+        inventoryFresh: true,
+        inventoryEnforced: false,
+      }).remaining,
+      4,
+    );
+  });
+});

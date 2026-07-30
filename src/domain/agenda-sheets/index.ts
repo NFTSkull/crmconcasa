@@ -55,3 +55,19 @@ export {
   type DryRunCrmBooking,
   type DryRunTabInput,
 } from "./dry-run";
+export {
+  AGENDA_SHEET_INVENTORY_START_DATE,
+  countAvailableByTime,
+  effectiveSheetAwareRemaining,
+  isInventoryEnforcedDate,
+  parsePhysicalInventoryFromGrid,
+  type InventoryOccupancySource,
+  type InventoryRowStatus,
+  type ParsedPhysicalSlotRow,
+  type SheetInventoryParseIssue,
+} from "./sheet-inventory";
+export {
+  applySheetInventoryToSlots,
+  type InventoryAvailabilityResponse,
+  type InventoryAvailabilitySlot,
+} from "./apply-inventory-availability";

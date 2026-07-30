@@ -39,6 +39,11 @@ import {
   listAgendaSlotCapacities,
 } from "@/domain/agenda-slot-capacities";
 import type { SlotCapacityOverrides } from "@/domain/agenda-biometricos/weekly-availability";
+import {
+  applySheetInventoryToSlots,
+  type InventoryAvailabilityResponse,
+} from "@/domain/agenda-sheets/apply-inventory-availability";
+import { supabaseBrowser } from "@/lib/supabaseBrowser";
 
 export interface AgendaBiometricosSupabaseCardProps {
   expedienteId: string;
@@ -128,6 +133,9 @@ export function AgendaBiometricosSupabaseCard({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [sheetInventory, setSheetInventory] = useState<InventoryAvailabilityResponse | null>(
+    null,
+  );
 
   const advisorSedeOptions = useMemo(
     () => buildAdvisorSedeOptions(config?.locations ?? []),
@@ -250,6 +258,39 @@ export function AgendaBiometricosSupabaseCard({
     };
   }, [capacitiesTick, dateYmd, selectedSede]);
 
+  useEffect(() => {
+    let cancelled = false;
+    if (!selectedSede || !dateYmd || !supabaseBrowser) {
+      setSheetInventory(null);
+      return;
+    }
+    void (async () => {
+      try {
+        const { data, error } = await supabaseBrowser.rpc(
+          "agenda_sheet_inventory_availability",
+          {
+            p_kind: "biometricos",
+            p_date: dateYmd,
+            p_location_id: selectedSede.canonicalId,
+          },
+        );
+        if (cancelled) return;
+        if (error || !data || typeof data !== "object") {
+          setSheetInventory({ fresh: false, enforced: true, slots: [] });
+          return;
+        }
+        setSheetInventory(data as InventoryAvailabilityResponse);
+      } catch {
+        if (!cancelled) {
+          setSheetInventory({ fresh: false, enforced: true, slots: [] });
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [dateYmd, selectedSede]);
+
   const disponibilidadSlots = useMemo(() => {
     if (!config || !selectedSede) return [];
     const base = computeAdvisorSlotAvailability({
@@ -262,7 +303,7 @@ export function AgendaBiometricosSupabaseCard({
       capacityByTime: selectedSede.capacityByTime,
       capacityOverrides,
     });
-    return adjustSlotsForReagendar(
+    const adjusted = adjustSlotsForReagendar(
       base,
       reagendar,
       activeBooking,
@@ -270,7 +311,22 @@ export function AgendaBiometricosSupabaseCard({
       selectedSede,
       config.locations,
     );
-  }, [activeBooking, bookedSlots, capacityOverrides, config, dateYmd, reagendar, selectedSede]);
+    return applySheetInventoryToSlots(adjusted, sheetInventory, dateYmd).slots;
+  }, [
+    activeBooking,
+    bookedSlots,
+    capacityOverrides,
+    config,
+    dateYmd,
+    reagendar,
+    selectedSede,
+    sheetInventory,
+  ]);
+
+  const inventoryUi = useMemo(
+    () => applySheetInventoryToSlots([], sheetInventory, dateYmd),
+    [dateYmd, sheetInventory],
+  );
 
   const availabilityInsight = useMemo(() => {
     if (!config || !selectedSede) return null;
@@ -585,6 +641,18 @@ export function AgendaBiometricosSupabaseCard({
         }}
       />
 
+      {inventoryUi.inventoryLabel ? (
+        <p className="mt-2 text-[11px] text-gray-500">{inventoryUi.inventoryLabel}</p>
+      ) : null}
+      {inventoryUi.blockedReason ? (
+        <p
+          role="status"
+          className="mt-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-700"
+        >
+          {inventoryUi.blockedReason}
+        </p>
+      ) : null}
+
       {error ? (
         <p role="alert" className="mt-3 text-xs text-red-700">
           {error}
@@ -602,6 +670,7 @@ export function AgendaBiometricosSupabaseCard({
           !config?.enabled ||
           !selectedSede ||
           !timeHhmm ||
+          Boolean(inventoryUi.blockedReason) ||
           disponibilidadSlots.every((s) => s.remaining <= 0)
         }
         onClick={() => void onSubmit()}

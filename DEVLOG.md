@@ -1,5 +1,9 @@
 # Devlog
 
+## 2026-07-29 - Sheets: inventario físico / cupo real (mig. 131)
+
+Capacidad CRM (config) ya no basta desde `2026-07-30` en sedes Sheet (`monterrey`/`apodaca` vía `agenda_sheet_inventory_applies`): hace falta fila `available` fresca en `agenda_sheet_slot_inventory` (stale >6h). Gate en asserts bio/firmas + trigger claim `SKIP LOCKED` (nombre `agenda_sheet_inventory_claim_ai` antes de outbox). Upsert batch no roba claimed/linked con `booking_id`. Release solo CRM claimed/linked al cancelar. Outbox enriquece payload con fila Sheet. Edge `agenda-sheet-reconcile` inventaria A:U sin escribir nombres. Worker escribe solo fila preasignada. UI Asesor aplica RPC availability. Seed inventario en runner aislado antes/después de suites. Sin tocar 129/130, P090, Evidencia, mesa_mover, NOM-035.
+
 ## 2026-07-29 - Sheets: cierre activación (extract absoluto + cron + tabs live)
 
 Causa falso positivo dry-run: Google sparse `values.length===7` (A:G header) malinterpretado como O:U. Fix: `TechCellSource` (`absolute_row` | `tech_range_ou`); auditoría lee `O:U` explícito. Fallback `resolveSheetTabForDate` (mapa preferente → metadatos live; estados `resolved_from_*` / `missing_*` / `ambiguous_*`). Cron oficial mig. 130: job `agenda-sheet-sync-worker-every-minute` → POST worker con `x-concasa-worker-secret` desde Vault (`agenda_sheet_project_url`, `agenda_sheet_worker_secret`); claim `SKIP LOCKED`. Sync sigue apagable.
