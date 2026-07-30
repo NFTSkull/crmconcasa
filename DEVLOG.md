@@ -1,3 +1,7 @@
+## 2026-07-30 - Reconcile: unique booking_id en inventario
+
+Tras link NSS, reconcile fallaba con `agenda_sheet_slot_inventory_booking_uidx`. Mig. 133: antes de upsert, desasocia el mismo `booking_id` de otras filas físicas; Sheet O:U prevalece. Cron 132 activo cada 15m; inventario Firmas 04–07 fresco.
+
 ## 2026-07-30 - Firmas: inventario stale oculta cupos reales
 
 Incidente: Sheet tenía Firmas MTY libres (04–07 ago) pero CRM mostraba cero / «Agenda temporalmente no disponible». Inventario Cloud correcto (p.ej. 04/08 08:30=2 libres) pero `observed_at` >6h y **sin cron de reconcile** (solo worker CRM→Sheet). Causa primaria `INVENTORY_STALE`. Fix: mig. 132 job `*/15` → Edge `agenda-sheet-reconcile`. Jorge Núñez Lozano (etapa 9, Graciela Zamora) `firma_agendable_desde=2026-08-06` — gate P132 intacto; agendable desde 06/08, no 04/08. Sin editar Sheet ni saltar gates.
