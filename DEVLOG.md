@@ -1,3 +1,7 @@
+## 2026-07-30 - CRM→Sheet: título con espacio final (José Osvaldo)
+
+Incidente: reagenda biométricos Monterrey 2026-08-03 10:00 (NSS 32997618353) quedó bien en CRM (booking `d4c91a59-…`) e inventario claimed fila 38, pero Sheet `03 AGOSTO ` sin NSS/nombre. Outbox `booking_created` → `dead` con `Unable to parse range: '03 AGOSTO'!A38:U38` (falta espacio final). Causa primaria: `agenda_sheet_inventory_upsert_batch` hacía `btrim(sheet_title)` (131/133). Worker cron 130 sí corría (`processed:2,failed:2`). Cancel del booking anterior → `unhandled_event` por falta de `slot_links`. Fix local mig. 134 (sin btrim + requeue dead + claim timeout) + worker `resolveLiveTitle`/cancel fallback/read-back. Sin Cloud/commit hasta aprobación.
+
 ## 2026-07-30 - Reconcile: unique booking_id en inventario
 
 Tras link NSS, reconcile fallaba con `agenda_sheet_slot_inventory_booking_uidx`. Mig. 133: antes de upsert, desasocia el mismo `booking_id` de otras filas físicas; Sheet O:U prevalece. Cron 132 activo cada 15m; inventario Firmas 04–07 fresco.

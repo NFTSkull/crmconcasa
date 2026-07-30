@@ -88,6 +88,22 @@ Deno.serve(async (req) => {
       privateKeyPem: pk,
     });
 
+    /** Título exacto de Google por sheetId (conserva trailing spaces). */
+    const resolveLiveTitle = async (
+      sheetId: number,
+      fallbackTitle: string,
+    ): Promise<string> => {
+      if (!Number.isFinite(sheetId) || sheetId <= 0) return fallbackTitle;
+      try {
+        const liveTabs = await adapter.listSheets();
+        const hit = liveTabs.find((t) => Number(t.sheetId) === Number(sheetId));
+        if (hit?.title) return hit.title;
+      } catch {
+        // best-effort: conservar fallback
+      }
+      return fallbackTitle;
+    };
+
     let done = 0;
     let failed = 0;
     for (const ev of list) {
@@ -96,7 +112,7 @@ Deno.serve(async (req) => {
         // Si el booking nació desde Sheets, el mapping ya está; marcar done.
         const { data: links } = await supabase
           .from("agenda_sheet_slot_links")
-          .select("id,sync_source,row_number,sheet_title,sheet_id")
+          .select("id,sync_source,row_number,sheet_title,sheet_id,sync_version")
           .eq("booking_id", ev.booking_id)
           .is("deleted_at", null)
           .limit(1);
@@ -110,11 +126,35 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // Cancelación: marcar fila CANCELADA en O:U si hay mapping (nunca H:N)
-        if (ev.event_type === "booking_cancelled" && link) {
-          const title = String(link.sheet_title ?? "");
-          const row = Number(link.row_number);
+        // Cancelación: mapping link O payload/inventario (nunca H:N)
+        if (ev.event_type === "booking_cancelled") {
           const bookingId = String(ev.booking_id ?? "");
+          let title = String(link?.sheet_title ?? payload.sheet_title ?? "");
+          let row = Number(link?.row_number ?? payload.sheet_row ?? 0);
+          let sheetId = Number(link?.sheet_id ?? payload.sheet_id ?? 0);
+          if ((!title || !(row > 0)) && bookingId) {
+            const { data: invRows } = await supabase
+              .from("agenda_sheet_slot_inventory")
+              .select("sheet_row,sheet_title,sheet_id")
+              .eq("booking_id", bookingId)
+              .limit(1);
+            const inv = (invRows ?? [])[0] as Record<string, unknown> | undefined;
+            if (inv) {
+              title = String(inv.sheet_title ?? title);
+              row = Number(inv.sheet_row ?? row);
+              sheetId = Number(inv.sheet_id ?? sheetId);
+            }
+          }
+          if (!(row > 0) || !title) {
+            // Sin fila Sheet conocida: cancelación CRM ya aplicada; no bloquear outbox.
+            await supabase.rpc("agenda_sheet_mark_outbox", {
+              p_id: ev.id,
+              p_status: "done",
+            });
+            done++;
+            continue;
+          }
+          title = await resolveLiveTitle(sheetId, title);
           const fresh = await adapter.getValues(a1FullReadRange(title, row));
           const decision = assertTechColumnsWritable({
             existingRowOrTech: fresh[0] ?? [],
@@ -137,7 +177,7 @@ Deno.serve(async (req) => {
               slotKey: "",
               syncSource: "crm",
               syncUpdatedAt: new Date().toISOString(),
-              syncVersion: Number(link.sync_version ?? 1) + 1,
+              syncVersion: Number(link?.sync_version ?? 1) + 1,
             })]);
           }
           await supabase.rpc("agenda_sheet_mark_outbox", {
@@ -182,12 +222,21 @@ Deno.serve(async (req) => {
           } else if (payload.inventory_id) {
             const { data: invOne } = await supabase
               .from("agenda_sheet_slot_inventory")
-              .select("slot_key")
+              .select("slot_key,sheet_id,sheet_title")
               .eq("id", payload.inventory_id)
               .maybeSingle();
-            slotKeyFromInv = String(
-              (invOne as { slot_key?: string } | null)?.slot_key ?? "",
-            );
+            const invOneRec = invOne as {
+              slot_key?: string;
+              sheet_id?: number;
+              sheet_title?: string;
+            } | null;
+            slotKeyFromInv = String(invOneRec?.slot_key ?? "");
+            if (!tabSheetId && invOneRec?.sheet_id) {
+              tabSheetId = Number(invOneRec.sheet_id);
+            }
+            if (!tabTitle && invOneRec?.sheet_title) {
+              tabTitle = String(invOneRec.sheet_title);
+            }
           }
 
           if (!Number.isFinite(targetRow) || targetRow <= 0 || !tabTitle) {
@@ -226,6 +275,15 @@ Deno.serve(async (req) => {
             }
             tabSheetId = resolved.sheetId;
             tabTitle = resolved.title;
+          }
+
+          // Siempre preferir título live por sheetId (evita btrim histórico).
+          tabTitle = await resolveLiveTitle(tabSheetId, tabTitle);
+          if (payload.inventory_id && tabTitle) {
+            await supabase
+              .from("agenda_sheet_slot_inventory")
+              .update({ sheet_title: tabTitle })
+              .eq("id", payload.inventory_id);
           }
 
           const tab = { sheetId: tabSheetId, title: tabTitle };
@@ -309,19 +367,24 @@ Deno.serve(async (req) => {
             .maybeSingle();
 
           const horaKeep = String(fr[COL_INDEX.hora] ?? "");
+          const expectedNss = String((exp as { nss?: string } | null)?.nss ?? "").trim();
+          const expectedName = String(
+            (exp as { cliente_nombre?: string } | null)?.cliente_nombre ?? "",
+          ).trim();
+          const expectedAdvisor = String(
+            (asesor as { full_name?: string; email?: string } | null)?.full_name ||
+              (asesor as { email?: string } | null)?.email ||
+              "",
+          ).trim();
           const slotKey =
             slotKeyFromInv ||
             `${kind}|${date}|${time}|${locationId}|${ordinal}`;
           // Solo A:D + O:U. Nunca H:N / E:N.
           await adapter.updateValues(a1VisibleRange(tab.title, targetRow), [[
             horaKeep,
-            String((exp as { nss?: string } | null)?.nss ?? ""),
-            String((exp as { cliente_nombre?: string } | null)?.cliente_nombre ?? ""),
-            String(
-              (asesor as { full_name?: string; email?: string } | null)?.full_name ||
-                (asesor as { email?: string } | null)?.email ||
-                "",
-            ),
+            expectedNss,
+            expectedName,
+            expectedAdvisor,
           ]]);
           await adapter.updateValues(a1TechRange(tab.title, targetRow), [buildTechWriteRow({
             estado: "SINCRONIZADO",
@@ -332,6 +395,29 @@ Deno.serve(async (req) => {
             syncUpdatedAt: new Date().toISOString(),
             syncVersion: 1,
           })]);
+
+          // Confirmación real: no marcar done si el Sheet no refleja A:D + O:U.
+          const verify = await adapter.getValues(
+            a1FullReadRange(tab.title, targetRow),
+          );
+          const vr = verify[0] ?? [];
+          const nssOk = String(vr[COL_INDEX.nss] ?? "").trim() === expectedNss;
+          const nameOk =
+            String(vr[COL_INDEX.nombre] ?? "").trim() === expectedName;
+          const bookingOk =
+            String(vr[COL_INDEX.bookingId] ?? "").trim() === bookingId;
+          const sourceOk =
+            String(vr[COL_INDEX.syncSource] ?? "").trim().toLowerCase() ===
+              "crm";
+          if (!nssOk || !nameOk || !bookingOk || !sourceOk) {
+            await supabase.rpc("agenda_sheet_mark_outbox", {
+              p_id: ev.id,
+              p_status: "failed",
+              p_error: "write_verify_failed",
+            });
+            failed++;
+            continue;
+          }
 
           await supabase.rpc("agenda_sheet_upsert_link_from_crm", {
             p_organization_id: payload.organization_id,

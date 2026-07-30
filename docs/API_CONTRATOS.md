@@ -398,10 +398,11 @@ Supabase `agenda_bookings`. Sheets no inserta filas directas; toda reserva Sheet
 
 ### RPCs internas
 - `agenda_sheet_book_by_nss(...)` — reserva atómica + mapping + `action_log` `agenda.sheet.book`
-- `agenda_sheet_claim_outbox` / `agenda_sheet_mark_outbox` — worker CRM→Sheets
+- `agenda_sheet_claim_outbox` / `agenda_sheet_mark_outbox` — worker CRM→Sheets (claim recupera `processing` >10 min → `failed`/`dead`)
+- `agenda_sheet_requeue_dead_sync(p_booking_id)` — reencola outbox `dead` de `booking_created` para bookings activos futuros (`service_role`); no muta bookings ni Sheets
 - `agenda_sheet_upsert_link_from_crm` — mapping tras escritura Sheet
 - `agenda_sheet_inventory_availability(p_kind, p_date, p_location_id)` — read-model cupo real (`authenticated`); si enforced y not fresh → `{ ok:true, fresh:false, slots:[] }`
-- `agenda_sheet_inventory_upsert_batch(p_rows)` / `mark_linked` / `mark_conflict` — `service_role` only (anti-steal: no degradar claimed/linked con `booking_id`)
+- `agenda_sheet_inventory_upsert_batch(p_rows)` / `mark_linked` / `mark_conflict` — `service_role` only (anti-steal: no degradar claimed/linked con `booking_id`; **`sheet_title` exacto sin `btrim`** — pestañas tipo `03 AGOSTO `)
 
 ### Outbox
 Trigger en `agenda_bookings` → `agenda_sheet_sync_outbox` (`booking_created|updated|cancelled|rescheduled`). Fallo Google no revierte booking. Máx 5 intentos. Payload incluye `sheet_id`, `sheet_title`, `sheet_row`, `inventory_id` si hay fila de inventario reclamada. Claim inventario (`agenda_sheet_inventory_claim_ai`) corre antes que outbox alfabéticamente.
@@ -422,7 +423,10 @@ Rango seguro **O:U** (`ESTADO CRM`…`CRM_SYNC_VERSION`). **A:N se PRESERVA** (H
 - Body: `{}` (no requerido)
 - Sync off: `200 { processed: 0, disabled: true }` sin tocar datos
 - Claim: `agenda_sheet_claim_outbox` con `FOR UPDATE SKIP LOCKED`, máx 50/ejecución
-- Cron: mig. 130 job `agenda-sheet-sync-worker-every-minute` (`* * * * *`) vía Vault `agenda_sheet_project_url` + `agenda_sheet_worker_secret`
+- Título A1: resuelve título live por `sheetId` (`listSheets`) para conservar trailing spaces
+- Confirmación: read-back A:U; si NSS/nombre/bookingId/source no coinciden → `failed` (`write_verify_failed`), no `done`
+- Cancel sin `slot_links`: fallback payload/inventario; sin fila conocida → `done` no-op
+- Cron: mig. 130 job `agenda-sheet-sync-worker-every-minute` (`* * * * *`) vía Vault `agenda_sheet_project_url` + `agenda_sheet_worker_secret` (independiente del reconcile 132)
 
 ### Docs operativas
 `integrations/google-sheets-agenda/README.md`

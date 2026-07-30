@@ -7,7 +7,9 @@ import {
   AGENDA_SHEET_TECH_COLUMNS,
   AGENDA_SHEET_TECH_RANGE,
   TECH_SOURCE_EXPLICIT_OU,
+  a1FullReadRange,
   a1TechRange,
+  a1VisibleRange,
   assertTechColumnsWritable,
   buildTechWriteRow,
   extractTechCells,
@@ -39,6 +41,21 @@ describe("agenda-sheets tech columns O:U", () => {
 
   it("a1 tech range usa O:U", () => {
     assert.equal(a1TechRange("29 JULIO", 12), "'29 JULIO'!O12:U12");
+  });
+
+  it("a1 conserva trailing space del título de pestaña", () => {
+    assert.equal(
+      a1FullReadRange("03 AGOSTO ", 38),
+      "'03 AGOSTO '!A38:U38",
+    );
+    assert.equal(
+      a1VisibleRange("03 AGOSTO ", 38),
+      "'03 AGOSTO '!A38:D38",
+    );
+    assert.equal(
+      a1TechRange("03 AGOSTO ", 38),
+      "'03 AGOSTO '!O38:U38",
+    );
   });
 
   it("1) fila A:G con siete valores no es O:U", () => {

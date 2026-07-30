@@ -123,6 +123,32 @@ BEGIN
     WHERE proname = 'agenda_sheet_inventory_gate_after_config_assert'
   ), 'gate_after_config_assert existe');
 
+  -- Mig. 134: título exacto + requeue
+  PERFORM public.__inv_assert(EXISTS (
+    SELECT 1 FROM pg_proc WHERE proname = 'agenda_sheet_requeue_dead_sync'
+  ), 'requeue_dead_sync existe');
+  PERFORM public.__inv_assert(
+    pg_get_functiondef('public.agenda_sheet_inventory_upsert_batch(jsonb)'::regprocedure)
+      ILIKE '%no btrim%',
+    'upsert_batch documenta no-btrim sheet_title'
+  );
+  PERFORM public.__inv_assert(
+    NOT has_function_privilege(
+      'authenticated',
+      'public.agenda_sheet_requeue_dead_sync(uuid)',
+      'EXECUTE'
+    ),
+    'authenticated NO execute requeue'
+  );
+  PERFORM public.__inv_assert(
+    has_function_privilege(
+      'service_role',
+      'public.agenda_sheet_requeue_dead_sync(uuid)',
+      'EXECUTE'
+    ),
+    'service_role sí execute requeue'
+  );
+
   RAISE NOTICE 'rpc_agenda_sheet_slot_inventory OK';
 END;
 $$;

@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Fixed
+- **fix/agenda-crm-to-sheet-reschedule:** sync CRM→Sheet fallaba en pestañas con trailing space (`03 AGOSTO `): `upsert_batch` hacía `btrim(sheet_title)` → Google 400 → outbox `dead`. Mig. 134 preserva título exacto, claim recupera `processing` abandonado, `agenda_sheet_requeue_dead_sync` reencola dead de citas futuras; worker resuelve título live por `sheetId`, cancela sin `slot_links` vía inventario/payload, y exige read-back antes de `done`.
+
+### Fixed
 - **fix/agenda-firmas-real-availability (upsert):** mig. 133 evita choque `booking_uidx` al reconciliar (Sheet O:U gana sobre link NSS previo).
 - **fix/agenda-firmas-real-availability:** cron `agenda-sheet-reconcile-every-15m` (mig. 132) mantiene inventario fresco; UI Firmas dejaba de mostrar cupos reales tras >6h (`INVENTORY_STALE`) aunque el Sheet tuviera filas libres.
 
