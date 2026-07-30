@@ -107,18 +107,19 @@ describe("cancel-row-clearance", () => {
     assert.equal(d.clearBtoD, false);
   });
 
-  it("row_reused si versión U cambió", () => {
+  it("U stale vs link no bloquea clear si P coincide (CANCELADA legado)", () => {
     const d = classifyCancelRowClearance({
       row: rowAU({
         0: "10:00",
+        1: "32997618353",
+        14: "CANCELADA",
         15: booking,
         18: "crm",
-        20: "3",
+        20: "2",
       }),
       cancelledBookingId: booking,
-      expectedSyncVersion: "2",
     });
-    assert.equal(d.classification, "row_reused");
+    assert.equal(d.classification, "safe_to_clear");
   });
 
   it("manual_result_conflict si E o F tienen texto", () => {

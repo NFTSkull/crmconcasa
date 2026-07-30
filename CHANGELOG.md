@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Fixed
+- **fix/agenda-clear-cancelled-sheet-rows (hotfix):** no usar `link.sync_version` stale vs U del Sheet como `row_reused` tras CANCELADA (falso positivo → done sin clear). Carrera real = P distinto en read pre-clear.
+
+### Fixed
 - **fix/agenda-clear-cancelled-sheet-rows:** cancelación usa `values.batchClear` solo en `B:D` + `O:U` (nunca escribe A ni G:N); `manual_result_conflict` (E/F con texto, p.ej. José X/X) marca outbox `dead` sin retry; dry-run lee A:U live; dedup `booking_created` por `booking_id` en links/inventario/metadata Sheet; mig. 136 intacta (no 137).
 
 ### Fixed

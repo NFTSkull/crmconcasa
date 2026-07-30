@@ -1,3 +1,7 @@
+## 2026-07-30 - Hotfix: falso row_reused por sync_version stale
+
+Tras desplegar v18, cleanup marcaba `done` sin limpiar: `slot_links.sync_version=1` vs Sheet `U=2` (escrito al poner CANCELADA) → falso `row_reused`. Fix: carrera solo por P distinto; no comparar U contra link. Redeploy worker; requeue Ulises/Noé; Eleazar cleared vía batchClear equivalente.
+
 ## 2026-07-30 - Cancel clear: batchClear + dry-run live + dead en E/F
 
 Corrección post-evidencia Sheet: José `30 JULIO ` r23 tiene E/F=`X`/`X` → `manual_result_conflict` terminal (`dead`, sin retry storm). Eleazar/Ulises/Noé E/F vacíos → `safe_to_clear`. Limpieza = `values.batchClear` rangos `B{n}:D{n}` + `O{n}:U{n}` (no rewrite A:U). Dry-run clasifica con lectura live A:U. Dedup `booking_created` por booking_id exacto (link + inventario + P). Sin mig. 137; sin commit/Cloud.
