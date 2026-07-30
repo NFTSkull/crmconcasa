@@ -53,3 +53,38 @@ describe("agenda-sheet outbox concurrency contract", () => {
     assert.doesNotMatch(mig130, /eyJ[A-Za-z0-9_-]{10,}/);
   });
 });
+
+describe("agenda-sheet reconcile cron contract (mig. 132)", () => {
+  const mig132 = readFileSync(
+    join(
+      process.cwd(),
+      "supabase/migrations/132_agenda_sheet_reconcile_cron.sql",
+    ),
+    "utf8",
+  );
+  const reconcile = readFileSync(
+    join(
+      process.cwd(),
+      "supabase/functions/agenda-sheet-reconcile/index.ts",
+    ),
+    "utf8",
+  );
+
+  it("cron 132 invoca reconcile cada 15m sin secretos hardcodeados", () => {
+    assert.match(mig132, /agenda-sheet-reconcile-every-15m/);
+    assert.match(mig132, /\*\/15 \* \* \* \*/);
+    assert.match(mig132, /agenda_sheet_invoke_reconcile/);
+    assert.match(mig132, /functions\/v1\/agenda-sheet-reconcile/);
+    assert.match(mig132, /agenda_sheet_project_url/);
+    assert.match(mig132, /agenda_sheet_worker_secret/);
+    assert.doesNotMatch(mig132, /BEGIN PRIVATE KEY/);
+  });
+
+  it("reconcile procesa firmas/bio y conserva título crudo de pestaña", () => {
+    assert.match(reconcile, /2026-07-30/);
+    assert.match(reconcile, /buildInventoryUpsertRows/);
+    assert.match(reconcile, /agenda_sheet_inventory_upsert_batch/);
+    assert.match(reconcile, /titleRaw/);
+    assert.match(reconcile, /No trim del título/);
+  });
+});

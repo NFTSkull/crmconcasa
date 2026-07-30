@@ -50,4 +50,41 @@ describe("applySheetInventoryToSlots", () => {
     assert.equal(blockedReason, "Agenda temporalmente no disponible");
     assert.ok(slots.every((s) => s.remaining === 0));
   });
+
+  it("Firmas Monterrey: UI refleja available del inventario", () => {
+    const firmasSlots: AgendaBiometricosSlotAvailability[] = [
+      {
+        date: "2026-08-06",
+        locationId: "monterrey",
+        time: "08:30",
+        capacity: 3,
+        bookedCount: 0,
+        remaining: 3,
+      },
+      {
+        date: "2026-08-06",
+        locationId: "monterrey",
+        time: "09:00",
+        capacity: 3,
+        bookedCount: 0,
+        remaining: 3,
+      },
+    ];
+    const { slots, blockedReason, inventoryLabel } = applySheetInventoryToSlots(
+      firmasSlots,
+      {
+        fresh: true,
+        enforced: true,
+        slots: [
+          { slot_time: "08:30:00", available: 1 },
+          { slot_time: "09:00:00", available: 3 },
+        ],
+      },
+      "2026-08-06",
+    );
+    assert.equal(blockedReason, null);
+    assert.equal(inventoryLabel, "Cupos sincronizados con Google Sheets");
+    assert.equal(slots.find((s) => s.time === "08:30")?.remaining, 1);
+    assert.equal(slots.find((s) => s.time === "09:00")?.remaining, 3);
+  });
 });

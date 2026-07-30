@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Fixed
+- **fix/agenda-firmas-real-availability:** cron `agenda-sheet-reconcile-every-15m` (mig. 132) mantiene inventario fresco; UI Firmas dejaba de mostrar cupos reales tras >6h (`INVENTORY_STALE`) aunque el Sheet tuviera filas libres.
+
+### Fixed
 - **fix/agenda-sheet-real-capacity (hot):** reconcile no hace `trim` del título de pestaña (evita 400 en `30 JULIO `); UUID inválidos en O:U se ignoran; errores Google con status.
 
 ### Added

@@ -394,7 +394,7 @@ Supabase `agenda_bookings`. Sheets no inserta filas directas; toda reserva Sheet
 ### Identidad de cupo / fila
 - CRM: `(organization_id, kind, booking_date, booking_time, location_id)` + capacity (sin `slot_id`).
 - Sheet: misma clave + `slot_ordinal` (fila N de esa hora) en `agenda_sheet_slot_links`.
-- **Cupo real (mig. 131):** una fila física del Sheet = una fila en `agenda_sheet_slot_inventory`. Obligatorio desde `2026-07-30` inclusive. Inventario stale si `MAX(observed_at)` por org+fecha es NULL o menor que `NOW() - 6 hours`. Asserts biométricos/firmas + claim `FOR UPDATE SKIP LOCKED` bloquean con `SIN_CUPO_REAL_EN_SHEET` si no hay fila `available` fresca.
+- **Cupo real (mig. 131):** una fila física del Sheet = una fila en `agenda_sheet_slot_inventory`. Obligatorio desde `2026-07-30` inclusive. Inventario stale si `MAX(observed_at)` por org+fecha es NULL o menor que `NOW() - 6 hours`. Asserts biométricos/firmas + claim `FOR UPDATE SKIP LOCKED` bloquean con `SIN_CUPO_REAL_EN_SHEET` si no hay fila `available` fresca. **Cron (mig. 132):** `agenda-sheet-reconcile-every-15m` refresca inventario vía Edge `agenda-sheet-reconcile` (Vault `agenda_sheet_project_url` + `agenda_sheet_worker_secret`).
 
 ### RPCs internas
 - `agenda_sheet_book_by_nss(...)` — reserva atómica + mapping + `action_log` `agenda.sheet.book`

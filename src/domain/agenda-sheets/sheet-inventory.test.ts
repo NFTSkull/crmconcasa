@@ -188,4 +188,73 @@ describe("sheet-inventory", () => {
       4,
     );
   });
+
+  it("Firmas Monterrey: filas libres cuentan available", () => {
+    const { rows } = parsePhysicalInventoryFromGrid({
+      bookingDate: "2026-08-05",
+      sheetTitle: "05 AGOSTO",
+      grid: [
+        ["MONTERREY FIRMAS"],
+        ["8:30 AM", "", "", ""],
+        ["8:30 AM", "", "", ""],
+        ["8:30 AM", "", "", ""],
+        ["9:00 AM", "", "", ""],
+      ],
+    });
+    assert.equal(rows.every((r) => r.kind === "firmas"), true);
+    assert.equal(rows.every((r) => r.locationId === "monterrey"), true);
+    assert.equal(countAvailableByTime(rows, "firmas", "monterrey")["08:30"], 3);
+    assert.equal(countAvailableByTime(rows, "firmas", "monterrey")["09:00"], 1);
+  });
+
+  it("Firmas Apodaca reconoce encabezado", () => {
+    const { rows } = parsePhysicalInventoryFromGrid({
+      bookingDate: "2026-08-05",
+      sheetTitle: "05 AGOSTO",
+      grid: [
+        ["APODACA FIRMAS"],
+        ["10:00 AM", "", "", ""],
+        ["10:00 AM", "12345678901", "Cliente", "Asesor"],
+      ],
+    });
+    assert.equal(rows.length, 2);
+    assert.equal(rows[0]?.locationId, "apodaca");
+    assert.equal(rows[0]?.kind, "firmas");
+    assert.equal(rows[0]?.status, "available");
+    assert.equal(rows[1]?.status, "occupied_external");
+  });
+
+  it("04 AGOSTO: encabezado vacío no invalida MONTERREY FIRMAS posterior", () => {
+    const { rows, issues } = parsePhysicalInventoryFromGrid({
+      bookingDate: "2026-08-04",
+      sheetTitle: "04 AGOSTO",
+      grid: [
+        [""], // A1 vacío / espacio
+        ["10:30 AM", "x", "orphan", ""],
+        ["10:30 AM", "", "", ""],
+        ["MONTERREY FIRMAS"],
+        ["8:30 AM", "111", "Occ1", "A"],
+        ["8:30 AM", "", "", ""],
+        ["8:30 AM", "", "", ""],
+        ["9:00 AM", "222", "Occ2", "A"],
+        ["9:00 AM", "", "", ""],
+        ["9:00 AM", "", "", ""],
+        ["9:30 AM", "", "", ""],
+        ["9:30 AM", "", "", ""],
+        ["9:30 AM", "", "", ""],
+        ["10:00 AM", "", "", ""],
+        ["10:00 AM", "", "", ""],
+        ["10:00 AM", "", "", ""],
+      ],
+    });
+    assert.ok(issues.some((i) => i.code === "INVALID_OR_MISSING_SECTION_HEADER"));
+    const firmas = rows.filter((r) => r.kind === "firmas" && r.locationId === "monterrey");
+    assert.equal(firmas.length, 12);
+    assert.equal(countAvailableByTime(firmas, "firmas", "monterrey")["08:30"], 2);
+    assert.equal(countAvailableByTime(firmas, "firmas", "monterrey")["09:00"], 2);
+    assert.equal(countAvailableByTime(firmas, "firmas", "monterrey")["09:30"], 3);
+    assert.equal(countAvailableByTime(firmas, "firmas", "monterrey")["10:00"], 3);
+    // huérfanas 10:30 no inventariadas como cupos válidos
+    assert.equal(rows.filter((r) => r.slotTime === "10:30").length, 0);
+  });
 });
