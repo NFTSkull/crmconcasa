@@ -63,7 +63,12 @@ export function parseTabDate(tabTitle: string, year: number): string | null {
 }
 
 export function parseTime(raw: string): string | null {
-  const t = String(raw ?? "").trim().replace(/\s+/g, " ").toUpperCase();
+  const t = String(raw ?? "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .replace(/\bA\.\s*M\.?/gi, "AM")
+    .replace(/\bP\.\s*M\.?/gi, "PM")
+    .toUpperCase();
   const m =
     /^(\d{1,2}):(\d{2})\s*(AM|PM)?$/i.exec(t) ??
     /^(\d{1,2}):(\d{2})(AM|PM)$/i.exec(t);

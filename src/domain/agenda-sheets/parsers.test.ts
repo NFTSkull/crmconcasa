@@ -65,6 +65,16 @@ describe("agenda-sheets parsers: horas", () => {
     assert.equal(r.ok, true);
     if (r.ok) assert.equal(r.value, "10:00");
   });
+  it("10:00 a. m. (locale es)", () => {
+    const r = parseSheetTime("10:00 a. m.");
+    assert.equal(r.ok, true);
+    if (r.ok) assert.equal(r.value, "10:00");
+  });
+  it("10:00", () => {
+    const r = parseSheetTime("10:00");
+    assert.equal(r.ok, true);
+    if (r.ok) assert.equal(r.value, "10:00");
+  });
   it("9:30AM", () => {
     const r = parseSheetTime("9:30AM");
     assert.equal(r.ok, true);

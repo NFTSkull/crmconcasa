@@ -96,12 +96,14 @@ export function parseSheetTabDate(
 
 /**
  * Normaliza hora de hoja a `HH:mm` (24h).
- * Acepta: 8:30AM, 8:30 AM, 8:30, 10:00 AM, 9:30AM, 11:00
+ * Acepta: 8:30AM, 8:30 AM, 8:30, 10:00 AM, 10:00 a. m., 9:30AM, 11:00
  */
 export function parseSheetTime(raw: string | null | undefined): ParseResult<string> {
   const t = String(raw ?? "")
     .trim()
     .replace(/\s+/g, " ")
+    .replace(/\bA\.\s*M\.?/gi, "AM")
+    .replace(/\bP\.\s*M\.?/gi, "PM")
     .toUpperCase();
   if (!t) {
     return { ok: false, error: "Hora vacía" };

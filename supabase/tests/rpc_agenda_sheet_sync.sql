@@ -835,6 +835,16 @@ BEGIN
   FROM public.agenda_sheet_sync_outbox WHERE booking_id = v_bid2 AND event_type = 'booking_created';
   PERFORM public.__sheet_assert(v_cancelled = 1, '22 cancel event');
   PERFORM public.__sheet_assert(v_created = 1, '22 create event');
+  -- booking activo nunca sin outbox created
+  PERFORM public.__sheet_assert(
+    EXISTS (
+      SELECT 1 FROM public.agenda_bookings b
+      JOIN public.agenda_sheet_sync_outbox o
+        ON o.booking_id = b.id AND o.event_type = 'booking_created'
+      WHERE b.id = v_bid2 AND b.status = 'booked'
+    ),
+    '22 booked activo tiene outbox created'
+  );
   -- no storm: total eventos de estos ids <= 3 (created original + cancel + created nuevo)
   PERFORM public.__sheet_assert(
     (SELECT COUNT(*) FROM public.agenda_sheet_sync_outbox WHERE booking_id IN (v_bid, v_bid2)) <= 3,
@@ -850,6 +860,110 @@ BEGIN
   END IF;
 
   RAISE NOTICE 'E reagendar OK';
+END;
+$$;
+
+-- =============================================================================
+-- F) Mig. 134: título con trailing space, claim timeout, requeue dead
+-- =============================================================================
+DO $$
+DECLARE
+  f public.__sheet_fixture%ROWTYPE;
+  v_title TEXT;
+  v_out UUID;
+  v_status TEXT;
+  v_attempts INTEGER;
+  v_res JSONB;
+  v_fail BOOLEAN;
+  v_bid UUID;
+  v_err TEXT;
+BEGIN
+  SELECT * INTO STRICT f FROM public.__sheet_fixture WHERE id = 1;
+  PERFORM public.__sheet_as_service_role();
+
+  -- upsert conserva trailing space en sheet_title
+  v_res := public.agenda_sheet_inventory_upsert_batch(jsonb_build_array(
+    jsonb_build_object(
+      'organization_id', f.org_id,
+      'spreadsheet_id', f.sheet_ss,
+      'sheet_id', 90308,
+      'sheet_title', '03 AGOSTO ',
+      'booking_date', '2026-08-03',
+      'sheet_row', 38,
+      'kind', 'biometricos',
+      'location_id', 'monterrey',
+      'slot_time', '10:00',
+      'slot_key', 'biometricos|2026-08-03|10:00|monterrey|38',
+      'status', 'available',
+      'occupancy_source', 'reconciliation'
+    )
+  ));
+  PERFORM public.__sheet_assert((v_res->>'ok')::BOOLEAN IS TRUE, 'F upsert ok');
+  SELECT sheet_title INTO v_title
+  FROM public.agenda_sheet_slot_inventory
+  WHERE spreadsheet_id = f.sheet_ss AND sheet_id = 90308 AND sheet_row = 38;
+  PERFORM public.__sheet_assert(v_title = '03 AGOSTO ', 'F title trailing space');
+  PERFORM public.__sheet_assert(length(v_title) = 10, 'F title length=10');
+
+  -- Reusar booking activo de reagenda E
+  SELECT id INTO STRICT v_bid
+  FROM public.agenda_bookings
+  WHERE note = 'reagendar-test' AND status = 'booked'
+  ORDER BY created_at DESC
+  LIMIT 1;
+
+  SELECT id INTO STRICT v_out
+  FROM public.agenda_sheet_sync_outbox
+  WHERE booking_id = v_bid AND event_type = 'booking_created'
+  LIMIT 1;
+
+  -- Simular claim abandonado (bypass set_updated_at)
+  SET LOCAL session_replication_role = replica;
+  UPDATE public.agenda_sheet_sync_outbox
+  SET status = 'processing',
+      attempts = 1,
+      last_error = NULL,
+      available_at = NOW() - INTERVAL '1 hour',
+      updated_at = NOW() - INTERVAL '11 minutes'
+  WHERE id = v_out;
+  SET LOCAL session_replication_role = DEFAULT;
+
+  PERFORM public.__sheet_assert(
+    EXISTS (SELECT 1 FROM public.agenda_sheet_claim_outbox(50) c WHERE c.id = v_out),
+    'F claim recupera processing timeout'
+  );
+  SELECT status, attempts INTO v_status, v_attempts
+  FROM public.agenda_sheet_sync_outbox WHERE id = v_out;
+  PERFORM public.__sheet_assert(v_status = 'processing', 'F reclaim → processing');
+  PERFORM public.__sheet_assert(v_attempts = 2, 'F attempts incrementa');
+
+  -- dead → requeue
+  UPDATE public.agenda_sheet_sync_outbox
+  SET status = 'dead', attempts = 5,
+      last_error = 'Unable to parse range: ''03 AGOSTO''!A38:U38'
+  WHERE id = v_out;
+  v_res := public.agenda_sheet_requeue_dead_sync(v_bid);
+  PERFORM public.__sheet_assert((v_res->>'requeued')::INTEGER = 1, 'F requeue=1');
+  SELECT status, attempts, last_error
+    INTO v_status, v_attempts, v_err
+  FROM public.agenda_sheet_sync_outbox WHERE id = v_out;
+  PERFORM public.__sheet_assert(v_status = 'pending', 'F requeue→pending');
+  PERFORM public.__sheet_assert(v_attempts = 0, 'F attempts reset');
+  PERFORM public.__sheet_assert(v_err IS NULL, 'F last_error cleared');
+
+  -- authenticated no puede requeue
+  PERFORM set_config('role', 'authenticated', true);
+  PERFORM set_config('request.jwt.claim.role', 'authenticated', true);
+  BEGIN
+    PERFORM public.agenda_sheet_requeue_dead_sync(v_bid);
+    v_fail := false;
+  EXCEPTION WHEN OTHERS THEN
+    v_fail := true;
+  END;
+  PERFORM public.__sheet_as_service_role();
+  PERFORM public.__sheet_assert(v_fail, 'F authenticated no requeue');
+
+  RAISE NOTICE 'F mig134 title/timeout/requeue OK';
 END;
 $$;
 
