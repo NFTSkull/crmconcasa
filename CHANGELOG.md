@@ -3,6 +3,12 @@
 ## [Unreleased]
 
 ### Fixed
+- **fix/agenda-clear-cancelled-sheet-rows:** cancelación usa `values.batchClear` solo en `B:D` + `O:U` (nunca escribe A ni G:N); `manual_result_conflict` (E/F con texto, p.ej. José X/X) marca outbox `dead` sin retry; dry-run lee A:U live; dedup `booking_created` por `booking_id` en links/inventario/metadata Sheet; mig. 136 intacta (no 137).
+
+### Fixed
+- **fix/agenda-clear-cancelled-sheet-rows:** cancelación/reagenda ya no deja NSS/nombre visibles con metadata `CANCELADA`. Worker limpia B:D + O:U conservando A (HORA); mig. 136 `booking_cancelled_cleanup` + `agenda_sheet_enqueue_cancel_cleanup` (reparación dirigida); inventario trata `CANCELADA` como available.
+
+### Fixed
 - **fix/agenda-crm-to-sheet-reschedule (135):** `agenda_sheet_requeue_dead_sync` también reencola `booking_cancelled` **dirigido** (exige `p_booking_id` + referencia de fila Sheet); sin backfill masivo de cancelaciones.
 - **fix/agenda-crm-to-sheet-reschedule:** sync CRM→Sheet fallaba en pestañas con trailing space (`03 AGOSTO `): `upsert_batch` hacía `btrim(sheet_title)` → Google 400 → outbox `dead`. Mig. 134 preserva título exacto, claim recupera `processing` abandonado, `agenda_sheet_requeue_dead_sync` reencola dead de citas futuras; worker resuelve título live por `sheetId`, cancela sin `slot_links` vía inventario/payload, y exige read-back antes de `done`.
 

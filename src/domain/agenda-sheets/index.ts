@@ -30,6 +30,8 @@ export {
   a1TechColumnsRange,
   a1TechRange,
   a1VisibleRange,
+  a1ClearBdRange,
+  a1ClearOuRange,
   assertTechColumnsWritable,
   buildTechWriteRow,
   extractTechCells,
@@ -71,3 +73,15 @@ export {
   type InventoryAvailabilityResponse,
   type InventoryAvailabilitySlot,
 } from "./apply-inventory-availability";
+export {
+  cancelClearBatchRanges,
+  classifyCancelRowClearance,
+  hasHumanResultInEF,
+  inventoryStatusFromSheetRow,
+  preserveGNUnchanged,
+  snapshotPreserveGN,
+  summarizeLiveRowAU,
+  verifyClearedRowReadback,
+  type CancelClearClassification,
+  type CancelClearDecision,
+} from "./cancel-row-clearance";

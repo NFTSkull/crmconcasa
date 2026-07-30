@@ -44,4 +44,6 @@ yarn-error.log*
 next-env.d.ts
 
 # Reportes locales auditoría Google Sheets (read-only)
+tmp/
+!tmp/.gitkeep
 tmp/agenda-sheets-*.json

@@ -10,6 +10,8 @@ import {
   a1FullReadRange,
   a1TechRange,
   a1VisibleRange,
+  a1ClearBdRange,
+  a1ClearOuRange,
   assertTechColumnsWritable,
   buildTechWriteRow,
   extractTechCells,
@@ -55,6 +57,17 @@ describe("agenda-sheets tech columns O:U", () => {
     assert.equal(
       a1TechRange("03 AGOSTO ", 38),
       "'03 AGOSTO '!O38:U38",
+    );
+  });
+
+  it("a1 clear ranges no incluyen A ni G:N", () => {
+    assert.equal(
+      a1ClearBdRange("30 JULIO ", 23),
+      "'30 JULIO '!B23:D23",
+    );
+    assert.equal(
+      a1ClearOuRange("30 JULIO ", 23),
+      "'30 JULIO '!O23:U23",
     );
   });
 

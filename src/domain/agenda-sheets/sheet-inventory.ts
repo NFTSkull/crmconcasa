@@ -3,6 +3,7 @@
  * Una fila A con hora dentro de sección = un cupo físico.
  */
 
+import { inventoryStatusFromSheetRow } from "./cancel-row-clearance";
 import { parseSheetSectionHeader, parseSheetTime } from "./parsers";
 
 export const AGENDA_SHEET_INVENTORY_START_DATE = "2026-07-30" as const;
@@ -133,18 +134,20 @@ export function parsePhysicalInventoryFromGrid(params: {
     const nss = cell(row, 1);
     const name = cell(row, 2);
     const advisor = cell(row, 3);
-    const techBookingId = cell(row, 15) || null;
-    const techExpedienteId = cell(row, 16) || null;
-    const techSlotKey = cell(row, 17) || null;
-
-    let status: InventoryRowStatus;
-    if (techBookingId) {
-      status = "linked";
-    } else if (!isBlankNameOrNss(nss, name)) {
-      status = "occupied_external";
-    } else {
-      status = "available";
-    }
+    const techEstado = cell(row, 14) || null;
+    const techBookingIdRaw = cell(row, 15) || null;
+    const techExpedienteIdRaw = cell(row, 16) || null;
+    const techSlotKeyRaw = cell(row, 17) || null;
+    const status = inventoryStatusFromSheetRow({
+      nss,
+      name,
+      techBookingId: techBookingIdRaw,
+      techEstado,
+    }) as InventoryRowStatus;
+    const cancelledMeta = String(techEstado ?? "").toUpperCase() === "CANCELADA";
+    const techBookingId = cancelledMeta ? null : techBookingIdRaw;
+    const techExpedienteId = cancelledMeta ? null : techExpedienteIdRaw;
+    const techSlotKey = cancelledMeta ? null : techSlotKeyRaw;
 
     rows.push({
       sheetRow,
@@ -154,9 +157,9 @@ export function parsePhysicalInventoryFromGrid(params: {
       slotTime: t.value,
       slotKey: `${section.kind}|${bookingDate}|${t.value}|${section.sede}|${sectionOrdinal}`,
       status,
-      visibleNss: nss || null,
-      visibleName: name || null,
-      visibleAdvisor: advisor || null,
+      visibleNss: cancelledMeta ? null : nss || null,
+      visibleName: cancelledMeta ? null : name || null,
+      visibleAdvisor: cancelledMeta ? null : advisor || null,
       techBookingId,
       techExpedienteId,
       techSlotKey,

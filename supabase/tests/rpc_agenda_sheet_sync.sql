@@ -999,6 +999,117 @@ BEGIN
 END;
 $$;
 
+-- =============================================================================
+-- G) Mig. 136: enqueue cancel cleanup + mark cleared + grants
+-- =============================================================================
+DO $$
+DECLARE
+  f public.__sheet_fixture%ROWTYPE;
+  v_bid UUID;
+  v_booked UUID;
+  v_res JSONB;
+  v_fail BOOLEAN;
+  v_n INTEGER;
+BEGIN
+  SELECT * INTO STRICT f FROM public.__sheet_fixture WHERE id = 1;
+  PERFORM public.__sheet_as_service_role();
+
+  PERFORM public.__sheet_assert(EXISTS (
+    SELECT 1 FROM pg_proc WHERE proname = 'agenda_sheet_enqueue_cancel_cleanup'
+  ), 'G enqueue fn');
+  PERFORM public.__sheet_assert(EXISTS (
+    SELECT 1 FROM pg_proc WHERE proname = 'agenda_sheet_mark_cancelled_cleared'
+  ), 'G mark cleared fn');
+  PERFORM public.__sheet_assert(
+    NOT has_function_privilege(
+      'authenticated',
+      'public.agenda_sheet_enqueue_cancel_cleanup(uuid)',
+      'EXECUTE'
+    ),
+    'G auth no enqueue'
+  );
+  PERFORM public.__sheet_assert(
+    has_function_privilege(
+      'service_role',
+      'public.agenda_sheet_enqueue_cancel_cleanup(uuid)',
+      'EXECUTE'
+    ),
+    'G service sí enqueue'
+  );
+
+  SELECT id INTO v_bid
+  FROM public.agenda_bookings
+  WHERE note = 'reagendar-test'
+  ORDER BY created_at DESC
+  LIMIT 1;
+  IF v_bid IS NULL THEN
+    INSERT INTO public.agenda_bookings (
+      organization_id, kind, expediente_id, booking_date, booking_time,
+      location_id, status, note, created_by, cancelled_at
+    ) VALUES (
+      f.org_id, 'biometricos', f.exp3, CURRENT_DATE + 20, '10:00',
+      'monterrey', 'cancelled', 'cleanup-test', f.asesor_id, NOW()
+    ) RETURNING id INTO v_bid;
+  ELSE
+    UPDATE public.agenda_bookings
+    SET status = 'cancelled', cancelled_at = COALESCE(cancelled_at, NOW())
+    WHERE id = v_bid AND status <> 'cancelled';
+  END IF;
+
+  INSERT INTO public.agenda_sheet_sync_outbox (
+    organization_id, booking_id, event_type, status, attempts, max_attempts,
+    available_at, payload, idempotency_key
+  ) VALUES (
+    f.org_id, v_bid, 'booking_cancelled', 'done', 1, 5,
+    NOW(), jsonb_build_object('sheet_row', 23, 'sheet_title', '30 JULIO '),
+    v_bid::text || ':booking_cancelled:cleanup-evidence'
+  ) ON CONFLICT (idempotency_key) DO NOTHING;
+
+  BEGIN
+    PERFORM public.agenda_sheet_enqueue_cancel_cleanup(NULL);
+    v_fail := false;
+  EXCEPTION WHEN OTHERS THEN
+    v_fail := true;
+  END;
+  PERFORM public.__sheet_assert(v_fail, 'G null booking rechazado');
+
+  INSERT INTO public.agenda_bookings (
+    organization_id, kind, expediente_id, booking_date, booking_time,
+    location_id, status, note, created_by
+  ) VALUES (
+    f.org_id, 'biometricos', f.exp3, CURRENT_DATE + 21, '11:00',
+    'monterrey', 'booked', 'cleanup-booked-reject', f.asesor_id
+  ) RETURNING id INTO v_booked;
+  BEGIN
+    PERFORM public.agenda_sheet_enqueue_cancel_cleanup(v_booked);
+    v_fail := false;
+  EXCEPTION WHEN OTHERS THEN
+    v_fail := true;
+  END;
+  PERFORM public.__sheet_assert(v_fail, 'G booked rechazado');
+  DELETE FROM public.agenda_bookings WHERE id = v_booked;
+
+  v_res := public.agenda_sheet_enqueue_cancel_cleanup(v_bid);
+  PERFORM public.__sheet_assert((v_res->>'ok')::BOOLEAN IS TRUE, 'G enqueue ok');
+  SELECT COUNT(*) INTO v_n
+  FROM public.agenda_sheet_sync_outbox
+  WHERE booking_id = v_bid AND event_type = 'booking_cancelled_cleanup';
+  PERFORM public.__sheet_assert(v_n = 1, 'G un solo cleanup');
+
+  v_res := public.agenda_sheet_enqueue_cancel_cleanup(v_bid);
+  PERFORM public.__sheet_assert((v_res->>'already')::BOOLEAN IS TRUE, 'G already');
+  SELECT COUNT(*) INTO v_n
+  FROM public.agenda_sheet_sync_outbox
+  WHERE booking_id = v_bid AND event_type = 'booking_cancelled_cleanup';
+  PERFORM public.__sheet_assert(v_n = 1, 'G no duplica');
+
+  v_res := public.agenda_sheet_mark_cancelled_cleared(v_bid);
+  PERFORM public.__sheet_assert((v_res->>'ok')::BOOLEAN IS TRUE, 'G mark cleared');
+
+  RAISE NOTICE 'G mig136 cancel cleanup OK';
+END;
+$$;
+
 DROP FUNCTION IF EXISTS public.__sheet_assert(BOOLEAN, TEXT);
 DROP FUNCTION IF EXISTS public.__sheet_set_jwt_role(TEXT);
 DROP FUNCTION IF EXISTS public.__sheet_reset_auth();

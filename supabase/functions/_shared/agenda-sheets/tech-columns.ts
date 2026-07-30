@@ -144,3 +144,15 @@ export function a1FullReadRange(sheetTitle: string, rowNumber: number): string {
   const titleEsc = `'${sheetTitle.replace(/'/g, "''")}'`;
   return `${titleEsc}!A${rowNumber}:U${rowNumber}`;
 }
+
+/** Solo B:D — cancelación; nunca incluye A. */
+export function a1ClearBdRange(sheetTitle: string, rowNumber: number): string {
+  const titleEsc = `'${sheetTitle.replace(/'/g, "''")}'`;
+  return `${titleEsc}!B${rowNumber}:D${rowNumber}`;
+}
+
+/** Solo O:U — cancelación; nunca incluye G:N. */
+export function a1ClearOuRange(sheetTitle: string, rowNumber: number): string {
+  const titleEsc = `'${sheetTitle.replace(/'/g, "''")}'`;
+  return `${titleEsc}!O${rowNumber}:U${rowNumber}`;
+}
