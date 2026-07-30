@@ -30,6 +30,7 @@ import {
 } from "../_shared/agenda-sheets/resolve-tab.ts";
 import {
   buildPhysicalSheetRowKey,
+  resolvePhysicalSheetTimes,
   resolveSheetStartTime,
   type AgendaSheetTimeAlias,
 } from "../_shared/agenda-sheets/time-aliases.ts";
@@ -625,6 +626,12 @@ Deno.serve(async (req) => {
             continue;
           }
           const horaCell = parseTime(String(fr[COL_INDEX.hora] ?? ""));
+          const physicalPool = resolvePhysicalSheetTimes({
+            aliases: timeAliases,
+            locationId,
+            kind,
+            logicalStartTime: time,
+          });
           const expectedSheetTime =
             parseTime(sheetSlotTimeFromInv ?? "") ??
             resolveSheetStartTime({
@@ -633,8 +640,12 @@ Deno.serve(async (req) => {
               kind,
               logicalStartTime: time,
             });
-          // A debe coincidir con hora física Sheet (p.ej. 08:30), no con CRM lógico.
-          if (horaCell && expectedSheetTime && horaCell !== expectedSheetTime) {
+          // A debe coincidir con algún físico del pool (p.ej. 10:00 o 11:00 para lógico 10:00).
+          if (
+            horaCell &&
+            !physicalPool.includes(horaCell) &&
+            horaCell !== expectedSheetTime
+          ) {
             await supabase.rpc("agenda_sheet_mark_outbox", {
               p_id: ev.id,
               p_status: "failed",

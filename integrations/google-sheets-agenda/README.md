@@ -144,6 +144,10 @@ Antes de activar sync: dry-run debe confirmar O:U vacías (o solo encabezados/co
 
 Contrato TS: `src/domain/agenda-sheets/tech-columns.ts` (espejo Edge en `_shared/agenda-sheets/tech-columns.ts`).
 
+## Apps Script — republicación requerida
+
+Cambios en `Code.gs` (onEdit de columna A + conflicto si P existe) **no** se aplican al desplegar Edge Functions. Tras merge/Cloud hay que **volver a desplegar el proyecto Apps Script** en la hoja CITAS 2026 (copiar `Code.gs` o push clasp) y verificar el trigger instalable `installableOnEdit`.
+
 ## Migración
 
 `supabase/migrations/129_google_sheets_agenda_sync.sql` (no usar 128).

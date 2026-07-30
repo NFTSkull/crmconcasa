@@ -77,20 +77,25 @@ function handleEdit_(e) {
   // Cualquier edición que solo toque O:U ya se filtró; si el rango cruza
   // hacia técnicas desde A:N, igual no procesamos celdas técnicas.
 
-  // Ignorar si la edición no toca NSS (B) ni nombre/asesor en filas de cita
+  // Columna A (hora física): reconciliar inventario de filas vacías / conflicto si ocupada.
+  // Columnas B+ (NSS/nombre/asesor): booking Sheets→CRM.
+  // La condición siguiente casi nunca aplica a rangos contiguos; se conserva por legado.
   if (lastCol < NSS_COL && col > NSS_COL) return;
 
+  var TIME_COL = 1; // A
   var startRow = e.range.getRow();
   var numRows = e.range.getNumRows();
   // Pegado múltiple: una fila a la vez, tope 20
   var max = Math.min(numRows, 20);
+  var touchesTimeCol = col <= TIME_COL && lastCol >= TIME_COL;
   for (var i = 0; i < max; i++) {
     var row = startRow + i;
-    // Si ya hay booking_id en P, no re-crear (evita loop / cita duplicada)
+    // Si ya hay booking_id en P y la edición NO toca A, no re-crear (evita loop).
+    // Si toca A, sí notificar (webhook registra occupied_slot_time_changed).
     var bookingId = String(
       sheet.getRange(row, BOOKING_ID_COL).getDisplayValue() || "",
     ).trim();
-    if (bookingId) continue;
+    if (bookingId && !touchesTimeCol) continue;
     // Estado en O solo lectura local (diagnóstico); no escribe Apps Script aquí
     postWebhook_({
       spreadsheetId: ss.getId(),

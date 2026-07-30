@@ -185,13 +185,21 @@ BEGIN
   PERFORM public.__inv_assert(EXISTS (
     SELECT 1 FROM pg_constraint
     WHERE conrelid = 'public.agenda_sheet_time_aliases'::regclass
-      AND conname = 'agenda_sheet_time_aliases_logical_uidx'
-  ), 'aliases UNIQUE logical');
+      AND conname = 'agenda_sheet_time_aliases_logical_sheet_uidx'
+  ), 'aliases UNIQUE logical+sheet (many-to-one)');
   PERFORM public.__inv_assert(EXISTS (
     SELECT 1 FROM pg_constraint
     WHERE conrelid = 'public.agenda_sheet_time_alias_defaults'::regclass
       AND conname = 'agenda_sheet_time_alias_defaults_sheet_uidx'
   ), 'defaults UNIQUE sheet físico');
+  PERFORM public.__inv_assert(EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'public.agenda_sheet_time_alias_defaults'::regclass
+      AND conname = 'agenda_sheet_time_alias_defaults_logical_sheet_uidx'
+  ), 'defaults UNIQUE logical+sheet');
+  PERFORM public.__inv_assert(EXISTS (
+    SELECT 1 FROM pg_proc WHERE proname = 'agenda_sheet_resolve_sheet_times'
+  ), 'resolve_sheet_times existe');
 
   RAISE NOTICE 'rpc_agenda_sheet_slot_inventory OK';
 END;

@@ -1,3 +1,7 @@
+## 2026-07-30 - Pool many-to-one vía mig. 138 (sin tocar 137)
+
+137 ya en main/Cloud (1:1). Nueva rama desde `e6230d4`. Diagnóstico UI: RPC real `agenda_sheet_inventory_availability` 06 AGOSTO MTY devuelve `10:00 available=1`; el label «Horario lleno» ocurre cuando el mapa de inventario **no tiene clave 10:00** (filas físicas 11:00 quedan en bucket lógico 11:00 bajo 1:1 → `invAvail=0` → remaining 0). No hay transform FE de remaining=1→lleno. Mig. 138: constraints many-to-one, defaults pool, expansión de overrides seed (no DELETE), resolvers/`claim` ordenado, webhook A. Apps Script requiere republicación separada. Sin commit/Cloud hasta aprobación.
+
 ## 2026-07-30 - Alias 08:00⇄08:30: A read-only + keys + defaults
 
 Correcciones pre-commit: (1) worker/webhook `booking_created` solo `batchUpdateValues` B:D+O:U — A estructura read-only con verify A/E:N intactos; (2) identidad física canónica única `…|sheet=HH:mm|sheetId=N|row=N` compartida reconcile/worker/webhook + parse de legado ordinal; (3) `agenda_sheet_time_alias_defaults` globales por location slug — orgs nuevas heredan sin seed; override org inactive suprime default; (4) UNIQUE logical y UNIQUE sheet en aliases/defaults (bloquea 08:00→08:30 + 08:15→08:30 = doble conteo). Runner SQL selecciona contenedor por puerto 54322. Sin Cloud hasta merge.

@@ -115,8 +115,61 @@ Deno.serve(async (req) => {
     const horaRaw = String(row[COL_INDEX.hora] ?? "");
     const nssRaw = String(row[COL_INDEX.nss] ?? "");
     const bookingIdCell = String(row[COL_INDEX.bookingId] ?? "").trim(); // P
+    const nameCellEarly = String(row[COL_INDEX.nombre] ?? "").trim();
+    const advisorCellEarly = String(row[COL_INDEX.asesor] ?? "").trim();
 
     if (bookingIdCell) {
+      // CASO B: si A cambió respecto al inventario linked, registrar conflicto (no mutar booking).
+      const slotTimeProbe = parseTime(horaRaw);
+      const orgProbe = Deno.env.get("GOOGLE_SHEETS_ORGANIZATION_ID") ?? "";
+      if (slotTimeProbe && orgProbe) {
+        const sbProbe = createClient(
+          Deno.env.get("SUPABASE_URL") ?? "",
+          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+          { auth: { persistSession: false, autoRefreshToken: false } },
+        );
+        const { data: prevInv } = await sbProbe
+          .from("agenda_sheet_slot_inventory")
+          .select("id,sheet_slot_time,slot_time,status,booking_id")
+          .eq("spreadsheet_id", expectedSs)
+          .eq("sheet_id", body.sheetId)
+          .eq("sheet_row", body.rowNumber)
+          .maybeSingle();
+        const prev = prevInv as {
+          id?: string;
+          sheet_slot_time?: string | null;
+          slot_time?: string | null;
+          status?: string;
+          booking_id?: string | null;
+        } | null;
+        const prevSheet = String(prev?.sheet_slot_time ?? prev?.slot_time ?? "")
+          .slice(0, 5);
+        if (prevSheet && prevSheet !== slotTimeProbe) {
+          await sbProbe.from("action_log").insert({
+            organization_id: orgProbe,
+            actor_id: null,
+            action: "occupied_slot_time_changed",
+            entity_type: "agenda_sheet_slot_inventory",
+            entity_id: prev?.id ?? bookingIdCell,
+            payload: {
+              code: "occupied_slot_time_changed",
+              sheetId: body.sheetId,
+              sheetTitle: body.sheetTitle,
+              rowNumber: body.rowNumber,
+              previousSheetTime: prevSheet,
+              newSheetTime: slotTimeProbe,
+              booking_id: bookingIdCell,
+            },
+          });
+          return jsonOk({
+            ok: true,
+            conflict: "occupied_slot_time_changed",
+            booking_id: bookingIdCell,
+            previousSheetTime: prevSheet,
+            newSheetTime: slotTimeProbe,
+          });
+        }
+      }
       return jsonOk({
         ignored: true,
         reason: "already_synced",
@@ -124,19 +177,180 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Fila con NSS/nombre/asesor sin booking_id: ocupación externa; A change → conflicto
+    if ((nameCellEarly || advisorCellEarly || String(nssRaw).trim()) && bookingIdCell === "") {
+      // continues to normal flow / empty-nss inventory path below
+    }
+    void nameCellEarly;
+    void advisorCellEarly;
+
     const slotTime = parseTime(horaRaw);
     if (!slotTime) {
+      // Encabezado/título en A: no procesar como slot
+      if (parseSection(horaRaw) || !String(horaRaw).trim()) {
+        return jsonOk({ ignored: true, reason: "not_a_slot_row" });
+      }
       return jsonError(400, "invalid_time", "Hora inválida en fila");
     }
+
+    const orgIdEarly = Deno.env.get("GOOGLE_SHEETS_ORGANIZATION_ID") ?? "";
+    const supabaseEarly = createClient(
+      Deno.env.get("SUPABASE_URL") ?? "",
+      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+      { auth: { persistSession: false, autoRefreshToken: false } },
+    );
+
+    // Inferir sección antes de NSS (necesario para reconcile de columna A)
+    const titleEscEarly = `'${String(body.sheetTitle).replace(/'/g, "''")}'`;
+    const headerRangeEarly = `${titleEscEarly}!A1:A${body.rowNumber}`;
+    const colAEarly = await adapter.getValues(headerRangeEarly);
+    let sectionEarly: { sede: string; kind: string } | null = null;
+    let ordinalEarly = 0;
+    for (let i = 0; i < colAEarly.length; i++) {
+      const cell = String(colAEarly[i]?.[0] ?? "");
+      const s = parseSection(cell);
+      if (s) {
+        sectionEarly = s;
+        ordinalEarly = 0;
+        continue;
+      }
+      if (!sectionEarly) continue;
+      const t = parseTime(cell);
+      if (!t) continue;
+      if (t === slotTime) ordinalEarly += 1;
+      if (i + 1 === body.rowNumber) break;
+    }
+    if (!sectionEarly || ordinalEarly < 1) {
+      return jsonError(400, "section_not_found", "Fila fuera de bloque de citas");
+    }
+
     const nss = normalizeNss(nssRaw);
+    const nameCell = String(row[COL_INDEX.nombre] ?? "").trim();
+    const advisorCell = String(row[COL_INDEX.asesor] ?? "").trim();
+    const occupiedVisible = Boolean(nss || nameCell || advisorCell || bookingIdCell);
+
+    // CASO B: fila ocupada/linked y cambia A → conflicto estable; no mutar bookings.
+    if (bookingIdCell || (occupiedVisible && bookingIdCell)) {
+      // bookingId already handled above as already_synced; reach here with visibles
+    }
+    if (occupiedVisible && !nss) {
+      // has name/advisor without valid nss — treat as occupied sheet row
+    }
+
     if (!nss) {
-      // Borrado de celdas: no cancelar
       if (!String(nssRaw).trim()) {
+        // CASO A: fila vacía — reconciliar inventario inmediato por edición de A
+        if (!orgIdEarly) {
+          return jsonError(500, "missing_org", "Organization no configurada");
+        }
+        const { data: aliasRowsEmpty } = await supabaseEarly.rpc(
+          "agenda_sheet_list_time_aliases",
+          { p_organization_id: orgIdEarly },
+        );
+        const aliasesEmpty = (aliasRowsEmpty ?? []) as AgendaSheetTimeAlias[];
+        const logicalEmpty = resolveLogicalStartTime({
+          locationId: sectionEarly.sede,
+          kind: sectionEarly.kind,
+          sheetStartTime: slotTime,
+          aliases: aliasesEmpty,
+        });
+        const physicalKey = buildPhysicalSheetRowKey({
+          kind: sectionEarly.kind,
+          bookingDate: sheetDate,
+          logicalStartTime: logicalEmpty,
+          sheetStartTime: slotTime,
+          locationId: sectionEarly.sede,
+          sheetId: body.sheetId,
+          rowNumber: body.rowNumber,
+        });
+
+        // Si inventario previo linked/claimed con booking → conflicto, no mover cita
+        const { data: prevInv } = await supabaseEarly
+          .from("agenda_sheet_slot_inventory")
+          .select("id,status,booking_id,sheet_slot_time,slot_time")
+          .eq("spreadsheet_id", expectedSs)
+          .eq("sheet_id", body.sheetId)
+          .eq("sheet_row", body.rowNumber)
+          .maybeSingle();
+        const prev = prevInv as {
+          id?: string;
+          status?: string;
+          booking_id?: string | null;
+          sheet_slot_time?: string | null;
+          slot_time?: string | null;
+        } | null;
+        if (
+          prev &&
+          (prev.status === "linked" || prev.status === "claimed") &&
+          prev.booking_id
+        ) {
+          const prevSheet = String(prev.sheet_slot_time ?? prev.slot_time ?? "")
+            .slice(0, 5);
+          await supabaseEarly.from("action_log").insert({
+            organization_id: orgIdEarly,
+            actor_id: null,
+            action: "occupied_slot_time_changed",
+            entity_type: "agenda_sheet_slot_inventory",
+            entity_id: prev.id!,
+            payload: {
+              code: "occupied_slot_time_changed",
+              sheetId: body.sheetId,
+              sheetTitle: body.sheetTitle,
+              rowNumber: body.rowNumber,
+              previousSheetTime: prevSheet,
+              newSheetTime: slotTime,
+              booking_id: prev.booking_id,
+            },
+          });
+          return jsonOk({
+            ok: true,
+            conflict: "occupied_slot_time_changed",
+            booking_id: prev.booking_id,
+            previousSheetTime: prevSheet,
+            newSheetTime: slotTime,
+          });
+        }
+
+        const upsert = await supabaseEarly.rpc(
+          "agenda_sheet_inventory_upsert_batch",
+          {
+            p_rows: [
+              {
+                organization_id: orgIdEarly,
+                spreadsheet_id: expectedSs,
+                sheet_id: body.sheetId,
+                sheet_title: body.sheetTitle,
+                booking_date: sheetDate,
+                sheet_row: body.rowNumber,
+                kind: sectionEarly.kind,
+                location_id: sectionEarly.sede,
+                slot_time: `${logicalEmpty}:00`,
+                sheet_slot_time: `${slotTime}:00`,
+                slot_key: physicalKey,
+                status: "available",
+                visible_nss: null,
+                visible_name: null,
+                visible_advisor: null,
+                booking_id: null,
+                expediente_id: null,
+                occupancy_source: "reconciliation",
+              },
+            ],
+          },
+        );
+        if (upsert.error) {
+          return jsonError(
+            500,
+            "inventory_upsert_failed",
+            String(upsert.error.message ?? "").slice(0, 200),
+          );
+        }
         return jsonOk({
-          ignored: true,
-          reason: "empty_nss_no_cancel",
-          message:
-            "Para cancelar la cita utiliza ConCasa > Cancelar cita seleccionada.",
+          ok: true,
+          inventory_reconciled: true,
+          logicalStartTime: logicalEmpty,
+          sheetStartTime: slotTime,
+          slot_key: physicalKey,
         });
       }
       return jsonError(
@@ -146,42 +360,17 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Inferir sección buscando hacia arriba (Edge lee bloque A1:A{row})
-    const titleEsc = `'${String(body.sheetTitle).replace(/'/g, "''")}'`;
-    const headerRange = `${titleEsc}!A1:A${body.rowNumber}`;
-    const colA = await adapter.getValues(headerRange);
-    let section: { sede: string; kind: string } | null = null;
-    let ordinal = 0;
-    for (let i = 0; i < colA.length; i++) {
-      const cell = String(colA[i]?.[0] ?? "");
-      const s = parseSection(cell);
-      if (s) {
-        section = s;
-        ordinal = 0;
-        continue;
-      }
-      if (!section) continue;
-      const t = parseTime(cell);
-      if (!t) continue;
-      if (t === slotTime) ordinal += 1;
-      if (i + 1 === body.rowNumber) break;
-    }
-    if (!section || ordinal < 1) {
-      return jsonError(400, "section_not_found", "Fila fuera de bloque de citas");
-    }
+    const section = sectionEarly;
+    const ordinal = ordinalEarly;
 
-    const orgId = Deno.env.get("GOOGLE_SHEETS_ORGANIZATION_ID") ?? "";
+    const orgId = orgIdEarly;
     if (!orgId) {
       return jsonError(500, "missing_org", "Organization no configurada");
     }
 
-    const supabase = createClient(
-      Deno.env.get("SUPABASE_URL") ?? "",
-      Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
-      { auth: { persistSession: false, autoRefreshToken: false } },
-    );
+    const supabase = supabaseEarly;
 
-    // Alias horario: fila física 08:30 → booking lógico 08:00 (sin mutar columna A).
+    // Alias horario many-to-one: p.ej. 11:00 físico → 10:00 lógico (sin mutar A).
     const { data: aliasRows } = await supabase.rpc("agenda_sheet_list_time_aliases", {
       p_organization_id: orgId,
     });
