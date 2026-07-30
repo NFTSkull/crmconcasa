@@ -45,11 +45,16 @@ psql_admin -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datn
 psql_admin -c "DROP DATABASE IF EXISTS ${ISOLATED_DB};"
 psql_admin -c "CREATE DATABASE ${ISOLATED_DB};"
 
-DB_CONTAINER="$(docker ps --format '{{.Names}}' | rg -m1 'supabase_db_' || true)"
+DB_CONTAINER="$(docker ps --filter "publish=${DB_PORT}" --format '{{.Names}}' | head -1 || true)"
 if [[ -z "${DB_CONTAINER}" ]]; then
-  echo "ERROR: no se encontró contenedor supabase_db_*"
+  # Fallback: nombre explícito del proyecto CRM local
+  DB_CONTAINER="$(docker ps --format '{{.Names}}' | rg -m1 'supabase_db_Copia_de_concasa_crm' || true)"
+fi
+if [[ -z "${DB_CONTAINER}" ]]; then
+  echo "ERROR: no se encontró contenedor supabase_db_* en puerto ${DB_PORT}"
   exit 1
 fi
+echo "==> DB container: ${DB_CONTAINER}"
 
 docker exec -e PGPASSWORD="$DB_PASSWORD" "$DB_CONTAINER" pg_dump \
   -U "$DB_USER" -d "$ADMIN_DB" \

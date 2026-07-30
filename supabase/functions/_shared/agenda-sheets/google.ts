@@ -13,6 +13,12 @@ export type SheetsAdapter = {
   getValues: (rangeA1: string) => Promise<string[][]>;
   updateValues: (rangeA1: string, values: string[][]) => Promise<void>;
   /**
+   * Escritura multi-rango atómica (p.ej. B:D + O:U). Nunca debe incluir A.
+   */
+  batchUpdateValues: (
+    data: ReadonlyArray<{ range: string; values: string[][] }>,
+  ) => Promise<void>;
+  /**
    * Borra solo userEnteredValue en los rangos dados (formato/fórmulas/validaciones
    * /bordes/altura intactos). Preferido para cancelación B:D + O:U.
    */
@@ -125,6 +131,30 @@ export async function createGoogleSheetsAdapter(input: {
       });
       if (!res.ok) throw new Error("google_sheets_write_failed");
     },
+    async batchUpdateValues(data) {
+      const entries = (data ?? []).filter((d) => String(d.range ?? "").trim());
+      if (entries.length === 0) return;
+      const url = `${base}/values:batchUpdate`;
+      const res = await fetchFn(url, {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({
+          valueInputOption: "USER_ENTERED",
+          data: entries.map((d) => ({
+            range: d.range,
+            majorDimension: "ROWS",
+            values: d.values,
+          })),
+        }),
+      });
+      if (!res.ok) {
+        const body = (await res.text()).slice(0, 180);
+        throw new Error(`google_sheets_batch_update_failed:${res.status}:${body}`);
+      }
+    },
     async batchClear(rangesA1: string[]) {
       const ranges = (rangesA1 ?? []).filter((r) => String(r).trim());
       if (ranges.length === 0) return;
@@ -175,6 +205,43 @@ export function createMemorySheetsAdapter(
     },
     async updateValues(rangeA1: string, values: string[][]) {
       store.set(rangeA1, values);
+    },
+    async batchUpdateValues(data) {
+      for (const d of data) {
+        const m = /^'([^']*(?:''[^']*)*)'!([A-Z]+)(\d+):([A-Z]+)(\d+)$/.exec(
+          d.range,
+        );
+        if (!m) {
+          store.set(d.range, d.values);
+          continue;
+        }
+        const title = m[1]!.replace(/''/g, "'");
+        const startCol = m[2]!;
+        const row = m[3]!;
+        const endCol = m[4]!;
+        const fullKey = `'${title.replace(/'/g, "''")}'!A${row}:U${row}`;
+        const existing = store.get(fullKey)?.[0] ?? [];
+        const rowVals = Array.from({ length: 21 }, (_, i) =>
+          String(existing[i] ?? ""),
+        );
+        const colIndex = (letters: string) => {
+          let n = 0;
+          for (const ch of letters) n = n * 26 + (ch.charCodeAt(0) - 64);
+          return n - 1;
+        };
+        const from = colIndex(startCol);
+        const vals = d.values[0] ?? [];
+        for (let i = 0; i < vals.length; i++) {
+          rowVals[from + i] = String(vals[i] ?? "");
+        }
+        // Sanity: no permitir escritura que toque A vía este helper de tests
+        if (from === 0) {
+          throw new Error("memory_adapter_refuses_write_starting_at_A");
+        }
+        void endCol;
+        store.set(fullKey, [rowVals]);
+        store.set(d.range, d.values);
+      }
     },
     async batchClear(rangesA1: string[]) {
       opts?.onBatchClear?.(rangesA1);

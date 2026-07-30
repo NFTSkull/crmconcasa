@@ -31,6 +31,7 @@ export {
   a1TechRange,
   a1VisibleRange,
   a1ClearBdRange,
+  a1BdRange,
   a1ClearOuRange,
   assertTechColumnsWritable,
   buildTechWriteRow,
@@ -73,6 +74,18 @@ export {
   type InventoryAvailabilityResponse,
   type InventoryAvailabilitySlot,
 } from "./apply-inventory-availability";
+export {
+  DEFAULT_BIOMETRICOS_0800_0830_ALIASES,
+  buildAliasedSlotKey,
+  buildLogicalBookingKey,
+  buildPhysicalSheetRowKey,
+  normalizeHhMm,
+  parsePhysicalSheetRowKey,
+  resolveLogicalStartTime,
+  resolveSheetStartTime,
+  type AgendaSheetTimeAlias,
+  type ParsedPhysicalSheetRowKey,
+} from "./time-aliases";
 export {
   cancelClearBatchRanges,
   classifyCancelRowClearance,

@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Fixed
+- **fix/agenda-time-alias-0800-0830:** desfase CRM 08:00 vs Sheet 08:30 en biométricos Monterrey/Apodaca. Alias configurable (`agenda_sheet_time_aliases` + defaults globales, mig. 137): inventario `slot_time` lógico + `sheet_slot_time` físico; identidad física canónica compartida; worker/webhook escriben solo B:D+O:U (A read-only); orgs nuevas heredan defaults sin INSERT manual. Firmas/10:00/09:30 sin alias.
+
+### Fixed
 - **fix/agenda-clear-cancelled-sheet-rows (hotfix):** no usar `link.sync_version` stale vs U del Sheet como `row_reused` tras CANCELADA (falso positivo → done sin clear). Carrera real = P distinto en read pre-clear.
 
 ### Fixed

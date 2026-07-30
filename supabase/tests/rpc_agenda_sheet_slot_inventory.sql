@@ -149,6 +149,50 @@ BEGIN
     'service_role sí execute requeue'
   );
 
+  -- Mig. 137: aliases + sheet_slot_time
+  PERFORM public.__inv_assert(
+    to_regclass('public.agenda_sheet_time_aliases') IS NOT NULL,
+    'tabla agenda_sheet_time_aliases existe'
+  );
+  PERFORM public.__inv_assert(
+    to_regclass('public.agenda_sheet_time_alias_defaults') IS NOT NULL,
+    'tabla agenda_sheet_time_alias_defaults existe'
+  );
+  PERFORM public.__inv_assert(EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public'
+      AND table_name = 'agenda_sheet_slot_inventory'
+      AND column_name = 'sheet_slot_time'
+  ), 'columna sheet_slot_time');
+  PERFORM public.__inv_assert(
+    NOT has_table_privilege('authenticated', 'public.agenda_sheet_time_aliases', 'INSERT'),
+    'authenticated NO INSERT aliases'
+  );
+  PERFORM public.__inv_assert(EXISTS (
+    SELECT 1 FROM pg_proc WHERE proname = 'agenda_sheet_resolve_logical_time'
+  ), 'resolve_logical_time existe');
+  PERFORM public.__inv_assert(
+    pg_get_functiondef('public.agenda_sheet_inventory_upsert_batch(jsonb)'::regprocedure)
+      ILIKE '%sheet_slot_time%',
+    'upsert_batch persiste sheet_slot_time'
+  );
+
+  PERFORM public.__inv_assert(EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'public.agenda_sheet_time_aliases'::regclass
+      AND conname = 'agenda_sheet_time_aliases_sheet_uidx'
+  ), 'aliases UNIQUE sheet físico');
+  PERFORM public.__inv_assert(EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'public.agenda_sheet_time_aliases'::regclass
+      AND conname = 'agenda_sheet_time_aliases_logical_uidx'
+  ), 'aliases UNIQUE logical');
+  PERFORM public.__inv_assert(EXISTS (
+    SELECT 1 FROM pg_constraint
+    WHERE conrelid = 'public.agenda_sheet_time_alias_defaults'::regclass
+      AND conname = 'agenda_sheet_time_alias_defaults_sheet_uidx'
+  ), 'defaults UNIQUE sheet físico');
+
   RAISE NOTICE 'rpc_agenda_sheet_slot_inventory OK';
 END;
 $$;

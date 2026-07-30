@@ -16,9 +16,9 @@ import {
 } from "../_shared/agenda-sheets/parsers.ts";
 import {
   COL_INDEX,
+  a1BdRange,
   a1FullReadRange,
   a1TechRange,
-  a1VisibleRange,
   assertTechColumnsWritable,
   buildTechWriteRow,
 } from "../_shared/agenda-sheets/tech-columns.ts";
@@ -27,6 +27,11 @@ import {
   type SheetsAdapter,
 } from "../_shared/agenda-sheets/google.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
+import {
+  type AgendaSheetTimeAlias,
+  buildPhysicalSheetRowKey,
+  resolveLogicalStartTime,
+} from "../_shared/agenda-sheets/time-aliases.ts";
 
 type WebhookBody = {
   spreadsheetId?: string;
@@ -165,7 +170,6 @@ Deno.serve(async (req) => {
       return jsonError(400, "section_not_found", "Fila fuera de bloque de citas");
     }
 
-    const scheduledAt = `${sheetDate}T${slotTime}:00-06:00`;
     const orgId = Deno.env.get("GOOGLE_SHEETS_ORGANIZATION_ID") ?? "";
     if (!orgId) {
       return jsonError(500, "missing_org", "Organization no configurada");
@@ -177,6 +181,19 @@ Deno.serve(async (req) => {
       { auth: { persistSession: false, autoRefreshToken: false } },
     );
 
+    // Alias horario: fila física 08:30 → booking lógico 08:00 (sin mutar columna A).
+    const { data: aliasRows } = await supabase.rpc("agenda_sheet_list_time_aliases", {
+      p_organization_id: orgId,
+    });
+    const timeAliases = (aliasRows ?? []) as AgendaSheetTimeAlias[];
+    const logicalSlotTime = resolveLogicalStartTime({
+      locationId: section.sede,
+      kind: section.kind,
+      sheetStartTime: slotTime,
+      aliases: timeAliases,
+    });
+    const scheduledAt = `${sheetDate}T${logicalSlotTime}:00-06:00`;
+
     const { data, error } = await supabase.rpc("agenda_sheet_book_by_nss", {
       p_organization_id: orgId,
       p_spreadsheet_id: expectedSs,
@@ -186,7 +203,7 @@ Deno.serve(async (req) => {
       p_row_number: body.rowNumber,
       p_location_id: section.sede,
       p_kind: section.kind,
-      p_slot_time: slotTime,
+      p_slot_time: logicalSlotTime,
       p_slot_ordinal: ordinal,
       p_nss: nss,
       p_scheduled_at: scheduledAt,
@@ -238,30 +255,40 @@ Deno.serve(async (req) => {
       );
     }
 
-    // Solo A:D (hora/NSS/nombre/asesor). Nunca E:N ni H:N.
+    // Solo B:D + O:U. Columna A (hora física) es read-only.
     const nowIso = new Date().toISOString();
     if (decision.mode === "write") {
-      await adapter.updateValues(
-        a1VisibleRange(String(body.sheetTitle), body.rowNumber),
-        [[
-          horaRaw,
-          String(result.nss ?? nss),
-          String(result.cliente_nombre ?? ""),
-          String(result.asesor_nombre ?? ""),
-        ]],
-      );
-      await adapter.updateValues(
-        a1TechRange(String(body.sheetTitle), body.rowNumber),
-        [buildTechWriteRow({
-          estado: "SINCRONIZADO",
-          bookingId,
-          expedienteId: String(result.expediente_id ?? ""),
-          slotKey: `${section.kind}|${sheetDate}|${slotTime}|${section.sede}|${ordinal}`,
-          syncSource: "sheets",
-          syncUpdatedAt: nowIso,
-          syncVersion: 1,
-        })],
-      );
+      const physicalSlotKey = buildPhysicalSheetRowKey({
+        kind: section.kind,
+        bookingDate: sheetDate,
+        logicalStartTime: logicalSlotTime,
+        sheetStartTime: slotTime,
+        locationId: section.sede,
+        sheetId: body.sheetId,
+        rowNumber: body.rowNumber,
+      });
+      await adapter.batchUpdateValues([
+        {
+          range: a1BdRange(String(body.sheetTitle), body.rowNumber),
+          values: [[
+            String(result.nss ?? nss),
+            String(result.cliente_nombre ?? ""),
+            String(result.asesor_nombre ?? ""),
+          ]],
+        },
+        {
+          range: a1TechRange(String(body.sheetTitle), body.rowNumber),
+          values: [buildTechWriteRow({
+            estado: "SINCRONIZADO",
+            bookingId,
+            expedienteId: String(result.expediente_id ?? ""),
+            slotKey: physicalSlotKey,
+            syncSource: "sheets",
+            syncUpdatedAt: nowIso,
+            syncVersion: 1,
+          })],
+        },
+      ]);
     }
 
     return jsonOk({

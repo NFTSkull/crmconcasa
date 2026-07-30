@@ -5,6 +5,11 @@
 
 import { inventoryStatusFromSheetRow } from "./cancel-row-clearance";
 import { parseSheetSectionHeader, parseSheetTime } from "./parsers";
+import {
+  buildPhysicalSheetRowKey,
+  resolveLogicalStartTime,
+  type AgendaSheetTimeAlias,
+} from "./time-aliases";
 
 export const AGENDA_SHEET_INVENTORY_START_DATE = "2026-07-30" as const;
 
@@ -27,7 +32,10 @@ export type ParsedPhysicalSlotRow = Readonly<{
   bookingDate: string;
   kind: "biometricos" | "firmas";
   locationId: "monterrey" | "apodaca";
+  /** Horario lógico CRM (post-alias). */
   slotTime: string;
+  /** Horario físico columna A del Sheet. */
+  sheetSlotTime: string;
   slotKey: string;
   status: InventoryRowStatus;
   visibleNss: string | null;
@@ -62,15 +70,19 @@ function isBlankNameOrNss(nss: string, name: string): boolean {
 export function parsePhysicalInventoryFromGrid(params: {
   bookingDate: string;
   sheetTitle: string;
+  /** sheetId de la pestaña (identidad física canónica). */
+  sheetId?: number;
   grid: readonly (readonly string[])[];
+  timeAliases?: readonly AgendaSheetTimeAlias[];
 }): { rows: ParsedPhysicalSlotRow[]; issues: SheetInventoryParseIssue[] } {
   const { bookingDate, grid } = params;
+  const sheetId = params.sheetId ?? 0;
+  const aliases = params.timeAliases ?? [];
   const rows: ParsedPhysicalSlotRow[] = [];
   const issues: SheetInventoryParseIssue[] = [];
 
   let section: { sede: "monterrey" | "apodaca"; kind: "biometricos" | "firmas" } | null =
     null;
-  let sectionOrdinal = 0;
   let awaitingHeader = false;
 
   for (let i = 0; i < grid.length; i++) {
@@ -87,14 +99,14 @@ export function parsePhysicalInventoryFromGrid(params: {
 
     if (NO_HAY_CITAS_RE.test(a)) {
       if (section) {
-        sectionOrdinal += 1;
         rows.push({
           sheetRow,
           bookingDate,
           kind: section.kind,
           locationId: section.sede,
           slotTime: "00:00",
-          slotKey: `${section.kind}|${bookingDate}|disabled|${section.sede}|${sectionOrdinal}`,
+          sheetSlotTime: "00:00",
+          slotKey: `${section.kind}|${bookingDate}|disabled|${section.sede}|sheetId=${sheetId}|row=${sheetRow}`,
           status: "disabled",
           visibleNss: null,
           visibleName: null,
@@ -112,7 +124,6 @@ export function parsePhysicalInventoryFromGrid(params: {
     const parsedSection = parseSheetSectionHeader(a);
     if (parsedSection.ok) {
       section = parsedSection.value;
-      sectionOrdinal = 0;
       awaitingHeader = false;
       continue;
     }
@@ -130,7 +141,13 @@ export function parsePhysicalInventoryFromGrid(params: {
       continue;
     }
 
-    sectionOrdinal += 1;
+    const sheetSlotTime = t.value;
+    const logicalSlotTime = resolveLogicalStartTime({
+      aliases,
+      locationId: section.sede,
+      kind: section.kind,
+      sheetStartTime: sheetSlotTime,
+    });
     const nss = cell(row, 1);
     const name = cell(row, 2);
     const advisor = cell(row, 3);
@@ -154,8 +171,17 @@ export function parsePhysicalInventoryFromGrid(params: {
       bookingDate,
       kind: section.kind,
       locationId: section.sede,
-      slotTime: t.value,
-      slotKey: `${section.kind}|${bookingDate}|${t.value}|${section.sede}|${sectionOrdinal}`,
+      slotTime: logicalSlotTime,
+      sheetSlotTime,
+      slotKey: buildPhysicalSheetRowKey({
+        kind: section.kind,
+        bookingDate,
+        logicalStartTime: logicalSlotTime,
+        sheetStartTime: sheetSlotTime,
+        locationId: section.sede,
+        sheetId,
+        rowNumber: sheetRow,
+      }),
       status,
       visibleNss: cancelledMeta ? null : nss || null,
       visibleName: cancelledMeta ? null : name || null,

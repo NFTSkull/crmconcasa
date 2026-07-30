@@ -11,6 +11,7 @@ import {
 } from "../_shared/agenda-sheets/parsers.ts";
 import { createGoogleSheetsAdapter } from "../_shared/agenda-sheets/google.ts";
 import { buildInventoryUpsertRows } from "../_shared/agenda-sheets/inventory-from-grid.ts";
+import type { AgendaSheetTimeAlias } from "../_shared/agenda-sheets/time-aliases.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const START = "2026-07-30";
@@ -60,6 +61,20 @@ Deno.serve(async (req) => {
       serviceAccountEmail: email,
       privateKeyPem: pk,
     });
+
+    let timeAliases: AgendaSheetTimeAlias[] = [];
+    try {
+      const { data: aliasJson } = await supabase.rpc(
+        "agenda_sheet_list_time_aliases",
+        { p_organization_id: orgId },
+      );
+      if (Array.isArray(aliasJson)) {
+        timeAliases = aliasJson as AgendaSheetTimeAlias[];
+      }
+    } catch {
+      timeAliases = [];
+    }
+
     const tabs = await adapter.listSheets();
     let upserted = 0;
     const allIssues: unknown[] = [];
@@ -82,6 +97,7 @@ Deno.serve(async (req) => {
         sheetTitle: titleRaw,
         bookingDate: date,
         grid,
+        timeAliases,
       });
       for (const iss of issues) allIssues.push({ title: titleRaw, ...iss });
       if (rows.length === 0) continue;

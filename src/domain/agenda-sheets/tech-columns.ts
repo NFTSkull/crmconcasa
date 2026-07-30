@@ -239,10 +239,15 @@ export function a1FullReadRange(sheetTitle: string, rowNumber: number): string {
   return `${titleEsc}!A${rowNumber}:U${rowNumber}`;
 }
 
-/** Solo B:D — cancelación; nunca incluye A. */
-export function a1ClearBdRange(sheetTitle: string, rowNumber: number): string {
+/** Solo B:D — escritura booking / clear cancel. Nunca incluye A. */
+export function a1BdRange(sheetTitle: string, rowNumber: number): string {
   const titleEsc = `'${sheetTitle.replace(/'/g, "''")}'`;
   return `${titleEsc}!B${rowNumber}:D${rowNumber}`;
+}
+
+/** @deprecated Usar a1BdRange. */
+export function a1ClearBdRange(sheetTitle: string, rowNumber: number): string {
+  return a1BdRange(sheetTitle, rowNumber);
 }
 
 /** Solo O:U — cancelación; nunca incluye G:N. */
