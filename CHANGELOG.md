@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Fixed
+- **fix/agenda-time-pool-many-to-one:** mig. **138** transforma aliases 137 (1:1) → many-to-one (`10:00` ← físicos `10:00`+`11:00`, además de `08:00←08:30`). Overrides seed se expanden (no DELETE). Webhook reconcilia columna A en filas vacías; claim ordena por `sheet_slot_time`/`row`. Migración 137 intacta.
+
+### Fixed
 - **fix/agenda-time-alias-0800-0830:** desfase CRM 08:00 vs Sheet 08:30 en biométricos Monterrey/Apodaca. Alias configurable (`agenda_sheet_time_aliases` + defaults globales, mig. 137): inventario `slot_time` lógico + `sheet_slot_time` físico; identidad física canónica compartida; worker/webhook escriben solo B:D+O:U (A read-only); orgs nuevas heredan defaults sin INSERT manual. Firmas/10:00/09:30 sin alias.
 
 ### Fixed

@@ -76,13 +76,17 @@ export {
 } from "./apply-inventory-availability";
 export {
   DEFAULT_BIOMETRICOS_0800_0830_ALIASES,
+  DEFAULT_BIOMETRICOS_TIME_ALIASES,
   buildAliasedSlotKey,
   buildLogicalBookingKey,
   buildPhysicalSheetRowKey,
+  compareHhMm,
   normalizeHhMm,
   parsePhysicalSheetRowKey,
   resolveLogicalStartTime,
+  resolvePhysicalSheetTimes,
   resolveSheetStartTime,
+  sortInventoryCandidatesForLogicalBooking,
   type AgendaSheetTimeAlias,
   type ParsedPhysicalSheetRowKey,
 } from "./time-aliases";
