@@ -1,3 +1,9 @@
+## 2026-07-30 - Firmas: inventario stale oculta cupos reales
+
+Incidente: Sheet tenía Firmas MTY libres (04–07 ago) pero CRM mostraba cero / «Agenda temporalmente no disponible». Inventario Cloud correcto (p.ej. 04/08 08:30=2 libres) pero `observed_at` >6h y **sin cron de reconcile** (solo worker CRM→Sheet). Causa primaria `INVENTORY_STALE`. Fix: mig. 132 job `*/15` → Edge `agenda-sheet-reconcile`. Jorge Núñez Lozano (etapa 9, Graciela Zamora) `firma_agendable_desde=2026-08-06` — gate P132 intacto; agendable desde 06/08, no 04/08. Sin editar Sheet ni saltar gates.
+
+# Devlog
+
 ## 2026-07-30 - Sheets reconcile: títulos con trailing space
 
 `agenda-sheet-reconcile` fallaba con `Unable to parse range: '30 JULIO'!A1:U200` porque hacía `title.trim()` y el Sheet real es `"30 JULIO "`. Fix: conservar título crudo en A1; trim solo para parse de fecha/FORMATO. Backfill live: 228 filas; link NSS único 34→41 linked. Félix sigue CRM-only en 31/07 08:00 MTY bio (reportado, sin mutar Sheet).
