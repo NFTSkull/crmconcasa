@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- **fix/agenda-sheet-real-capacity (hot):** reconcile no hace `trim` del título de pestaña (evita 400 en `30 JULIO `); UUID inválidos en O:U se ignoran; errores Google con status.
+
 ### Added
 - **fix/agenda-sheet-real-capacity:** inventario físico Sheet (`agenda_sheet_slot_inventory`, mig. 131) con gate `SIN_CUPO_REAL_EN_SHEET` desde `2026-07-30` (sedes monterrey/apodaca), claim `SKIP LOCKED`, RPC availability/upsert, Edge reconcile, worker fila preasignada, UI Asesor con cupos reales.
 

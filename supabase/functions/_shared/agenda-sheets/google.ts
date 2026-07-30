@@ -101,7 +101,10 @@ export async function createGoogleSheetsAdapter(input: {
       const res = await fetchFn(url, {
         headers: { authorization: `Bearer ${accessToken}` },
       });
-      if (!res.ok) throw new Error("google_sheets_read_failed");
+      if (!res.ok) {
+        const body = (await res.text()).slice(0, 180);
+        throw new Error(`google_sheets_read_failed:${res.status}:${body}`);
+      }
       const json = (await res.json()) as { values?: string[][] };
       return json.values ?? [];
     },
