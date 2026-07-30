@@ -69,8 +69,6 @@ export function classifyCancelRowClearance(input: {
   row: ReadonlyArray<string | null | undefined>;
   cancelledBookingId: string;
   cancelledExpedienteId?: string | null;
-  /** Si se conoce, exige U sin cambio (carrera). */
-  expectedSyncVersion?: string | number | null;
 }): CancelClearDecision {
   const bookingId = String(input.cancelledBookingId ?? "").trim();
   const expedienteId = String(input.cancelledExpedienteId ?? "").trim();
@@ -83,7 +81,6 @@ export function classifyCancelRowClearance(input: {
   const metaBooking = cell(row, 15);
   const metaExp = cell(row, 16);
   const source = cell(row, 18).toLowerCase();
-  const version = cell(row, 20);
   const techAny = [14, 15, 16, 17, 18, 19, 20].some((i) => cell(row, i));
   const visibleAny = Boolean(nss || nombre || asesor);
   const ef = hasHumanResultInEF(row);
@@ -166,22 +163,9 @@ export function classifyCancelRowClearance(input: {
     };
   }
 
-  if (
-    input.expectedSyncVersion != null &&
-    String(input.expectedSyncVersion).trim() !== "" &&
-    version !== String(input.expectedSyncVersion).trim()
-  ) {
-    return {
-      classification: "row_reused",
-      reason: `U versión cambió (${version}≠${input.expectedSyncVersion})`,
-      keepHora: hora,
-      clearBtoD: false,
-      clearEtoF: false,
-      clearOU: false,
-      conflictingColumns: ["U"],
-      terminalNoRetry: false,
-    };
-  }
+  // No usar U/link.sync_version como row_reused: cancel legado incrementaba U
+  // al escribir CANCELADA (link=1, Sheet=2) con P aún del booking cancelado.
+  // Carrera real = P distinto en el read inmediato pre-clear.
 
   if (ef.conflict) {
     return {

@@ -241,12 +241,8 @@ Deno.serve(async (req) => {
           let title = String(link?.sheet_title ?? payload.sheet_title ?? "");
           let row = Number(link?.row_number ?? payload.sheet_row ?? 0);
           let sheetId = Number(link?.sheet_id ?? payload.sheet_id ?? 0);
-          const expectedVersion =
-            link?.sync_version != null
-              ? String(link.sync_version)
-              : payload.sync_version != null
-              ? String(payload.sync_version)
-              : null;
+          // No confiar en link.sync_version para cancel: suele quedar stale (1)
+          // tras escribir CANCELADA con U=2 → falso row_reused.
           if ((!title || !(row > 0)) && bookingId) {
             const { data: invRows } = await supabase
               .from("agenda_sheet_slot_inventory")
@@ -282,7 +278,6 @@ Deno.serve(async (req) => {
             row: fr,
             cancelledBookingId: bookingId,
             cancelledExpedienteId: String(payload.expediente_id ?? ""),
-            expectedSyncVersion: expectedVersion,
           });
 
           if (decision.classification === "already_absent") {
