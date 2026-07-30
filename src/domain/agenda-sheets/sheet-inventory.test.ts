@@ -65,6 +65,45 @@ describe("sheet-inventory", () => {
     assert.equal(avail["10:00"], 1);
   });
 
+  it("fila con O=CANCELADA cuenta available (no ocupa cupo)", () => {
+    const { rows } = parsePhysicalInventoryFromGrid({
+      bookingDate: "2026-08-03",
+      sheetTitle: "03 AGOSTO ",
+      grid: [
+        ["MONTERREY BIOMETRICOS"],
+        [
+          "10:00 AM",
+          "26148991321",
+          "ELEAZAR SALMERON TERRAZAS",
+          "Adriana Alcocer",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "CANCELADA",
+          "99980405-15af-456a-9daa-fa71d8ab5a00",
+          "4f1d5a3e-41b2-43a9-816c-6bcd3f2132b3",
+          "k",
+          "crm",
+          "t",
+          "2",
+        ],
+      ],
+    });
+    assert.equal(rows[0]?.status, "available");
+    assert.equal(rows[0]?.techBookingId, null);
+    assert.equal(
+      countAvailableByTime(rows, "biometricos", "monterrey")["10:00"],
+      1,
+    );
+  });
+
   it("NO HAY CITAS → disabled", () => {
     const { rows } = parsePhysicalInventoryFromGrid({
       bookingDate: "2026-07-30",

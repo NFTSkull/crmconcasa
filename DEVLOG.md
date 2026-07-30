@@ -1,3 +1,11 @@
+## 2026-07-30 - Cancel clear: batchClear + dry-run live + dead en E/F
+
+Corrección post-evidencia Sheet: José `30 JULIO ` r23 tiene E/F=`X`/`X` → `manual_result_conflict` terminal (`dead`, sin retry storm). Eleazar/Ulises/Noé E/F vacíos → `safe_to_clear`. Limpieza = `values.batchClear` rangos `B{n}:D{n}` + `O{n}:U{n}` (no rewrite A:U). Dry-run clasifica con lectura live A:U. Dedup `booking_created` por booking_id exacto (link + inventario + P). Sin mig. 137; sin commit/Cloud.
+
+## 2026-07-30 - Cancelación limpia fila Sheet (no CANCELADA visible)
+
+Contrato anterior (worker v17): cancel escribía O:U=`CANCELADA` y preservaba A:N → NSS/nombre seguían visibles; reconcile re-marcaba `linked`. Nuevo: conservar A; limpiar B:D y O:U; E/F con resultado humano → `manual_result_conflict`; fila reutilizada (P≠booking) → no tocar. Mig. 136: event `booking_cancelled_cleanup` + `agenda_sheet_enqueue_cancel_cleanup` / `agenda_sheet_mark_cancelled_cleared`. Sin Cloud hasta aprobación.
+
 ## 2026-07-30 - Requeue dirigido de cancelaciones dead
 
 Decisión B José Osvaldo: inventario/`payload` conservan fila 23 en `30 JULIO` del booking cancelado `8b53fffc-…` (outbox `dead`/`unhandled_event`). Mig. 134 no reencolaba `booking_cancelled`. Mig. 135 extiende `agenda_sheet_requeue_dead_sync` solo con `p_booking_id` + referencia Sheet (payload/inventario/link). Sin UPDATE directo al outbox ni edición manual de Sheet.

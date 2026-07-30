@@ -16,6 +16,13 @@ import {
   assertTechColumnsWritable,
   buildTechWriteRow,
 } from "../_shared/agenda-sheets/tech-columns.ts";
+import {
+  cancelClearBatchRanges,
+  classifyCancelRowClearance,
+  snapshotPreserveGN,
+  summarizeLiveRowAU,
+  verifyClearedRowReadback,
+} from "../_shared/agenda-sheets/cancel-row-clearance.ts";
 import { createGoogleSheetsAdapter } from "../_shared/agenda-sheets/google.ts";
 import {
   parseTabMapJson,
@@ -27,10 +34,6 @@ Deno.serve(async (req) => {
   try {
     if (req.method !== "POST") {
       return jsonError(405, "method_not_allowed", "Solo POST");
-    }
-    // Sync apagado: 2xx no-op sin tocar outbox/Sheets/bookings (cron-safe).
-    if (Deno.env.get("GOOGLE_SHEETS_SYNC_ENABLED") === "false") {
-      return jsonOk({ processed: 0, disabled: true });
     }
 
     // Auth: preferir GOOGLE_SHEETS_WORKER_SECRET; fallback WEBHOOK_SECRET (legado).
@@ -51,11 +54,106 @@ Deno.serve(async (req) => {
     }
     if (!ok) return jsonError(401, "unauthorized", "Secreto inválido");
 
+    let bodyJson: Record<string, unknown> = {};
+    try {
+      bodyJson = (await req.json()) as Record<string, unknown>;
+    } catch {
+      bodyJson = {};
+    }
+
+    const email = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_EMAIL") ?? "";
+    const pk = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY") ?? "";
+    const spreadsheetId =
+      Deno.env.get("GOOGLE_SHEETS_SPREADSHEET_ID") ?? DEFAULT_SPREADSHEET_ID;
+
     const supabase = createClient(
       Deno.env.get("SUPABASE_URL") ?? "",
       Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
       { auth: { persistSession: false, autoRefreshToken: false } },
     );
+
+    /**
+     * Dry-run admin read-only: lee A:U live y clasifica sin escribir Sheet/outbox.
+     * Body: { dry_run_cancel_cleanup: true, targets: [{ booking_id, sheet_title?, sheet_row?, sheet_id? }] }
+     */
+    if (bodyJson.dry_run_cancel_cleanup === true) {
+      if (!email || !pk) {
+        return jsonError(500, "missing_google_creds", "Credenciales no configuradas");
+      }
+      const adapter = await createGoogleSheetsAdapter({
+        spreadsheetId,
+        serviceAccountEmail: email,
+        privateKeyPem: pk,
+      });
+      const targets = Array.isArray(bodyJson.targets)
+        ? (bodyJson.targets as Array<Record<string, unknown>>)
+        : [];
+      const report = [];
+      for (const t of targets) {
+        const bookingId = String(t.booking_id ?? "");
+        let title = String(t.sheet_title ?? "");
+        let row = Number(t.sheet_row ?? 0);
+        let sheetId = Number(t.sheet_id ?? 0);
+        if ((!title || !(row > 0)) && bookingId) {
+          const { data: invRows } = await supabase
+            .from("agenda_sheet_slot_inventory")
+            .select("sheet_row,sheet_title,sheet_id")
+            .eq("booking_id", bookingId)
+            .limit(1);
+          const inv = (invRows ?? [])[0] as Record<string, unknown> | undefined;
+          if (inv) {
+            title = String(inv.sheet_title ?? title);
+            row = Number(inv.sheet_row ?? row);
+            sheetId = Number(inv.sheet_id ?? sheetId);
+          }
+        }
+        if (sheetId > 0) {
+          try {
+            const liveTabs = await adapter.listSheets();
+            const hit = liveTabs.find((x) => Number(x.sheetId) === sheetId);
+            if (hit?.title) title = hit.title;
+          } catch { /* keep */ }
+        }
+        if (!(row > 0) || !title) {
+          report.push({
+            booking_id: bookingId,
+            classification: "ambiguous",
+            reason: "sin fila/título",
+            live: null,
+          });
+          continue;
+        }
+        const live = await adapter.getValues(a1FullReadRange(title, row));
+        const fr = live[0] ?? [];
+        const decision = classifyCancelRowClearance({
+          row: fr,
+          cancelledBookingId: bookingId,
+          cancelledExpedienteId: t.expediente_id
+            ? String(t.expediente_id)
+            : undefined,
+        });
+        report.push({
+          booking_id: bookingId,
+          sheetId,
+          sheet_title: title,
+          row_number: row,
+          live: summarizeLiveRowAU(fr),
+          clear_ranges: decision.classification === "safe_to_clear"
+            ? cancelClearBatchRanges(title, row)
+            : [],
+          classification: decision.classification,
+          reason: decision.reason,
+          conflictingColumns: decision.conflictingColumns,
+          terminalNoRetry: decision.terminalNoRetry,
+        });
+      }
+      return jsonOk({ dry_run: true, spreadsheetId, report });
+    }
+
+    // Sync apagado: 2xx no-op sin tocar outbox/Sheets/bookings (cron-safe).
+    if (Deno.env.get("GOOGLE_SHEETS_SYNC_ENABLED") === "false") {
+      return jsonOk({ processed: 0, disabled: true });
+    }
 
     const { data: events, error } = await supabase.rpc("agenda_sheet_claim_outbox", {
       p_limit: 10,
@@ -67,10 +165,6 @@ Deno.serve(async (req) => {
     const list = (events ?? []) as Array<Record<string, unknown>>;
     if (list.length === 0) return jsonOk({ processed: 0 });
 
-    const email = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_EMAIL") ?? "";
-    const pk = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY") ?? "";
-    const spreadsheetId =
-      Deno.env.get("GOOGLE_SHEETS_SPREADSHEET_ID") ?? DEFAULT_SPREADSHEET_ID;
     if (!email || !pk) {
       for (const ev of list) {
         await supabase.rpc("agenda_sheet_mark_outbox", {
@@ -115,8 +209,20 @@ Deno.serve(async (req) => {
           .select("id,sync_source,row_number,sheet_title,sheet_id,sync_version")
           .eq("booking_id", ev.booking_id)
           .is("deleted_at", null)
-          .limit(1);
+          .limit(3);
         const link = (links ?? [])[0] as Record<string, unknown> | undefined;
+        if (
+          ev.event_type === "booking_created" &&
+          (links ?? []).length >= 2
+        ) {
+          await supabase.rpc("agenda_sheet_mark_outbox", {
+            p_id: ev.id,
+            p_status: "dead",
+            p_error: `duplicate_booking_row:links=${(links ?? []).length}`,
+          });
+          failed++;
+          continue;
+        }
         if (link?.sync_source === "sheets" && ev.event_type === "booking_created") {
           await supabase.rpc("agenda_sheet_mark_outbox", {
             p_id: ev.id,
@@ -126,12 +232,21 @@ Deno.serve(async (req) => {
           continue;
         }
 
-        // Cancelación: mapping link O payload/inventario (nunca H:N)
-        if (ev.event_type === "booking_cancelled") {
+        // Cancelación / cleanup: batchClear SOLO B:D + O:U; nunca escribe A ni G:N.
+        if (
+          ev.event_type === "booking_cancelled" ||
+          ev.event_type === "booking_cancelled_cleanup"
+        ) {
           const bookingId = String(ev.booking_id ?? "");
           let title = String(link?.sheet_title ?? payload.sheet_title ?? "");
           let row = Number(link?.row_number ?? payload.sheet_row ?? 0);
           let sheetId = Number(link?.sheet_id ?? payload.sheet_id ?? 0);
+          const expectedVersion =
+            link?.sync_version != null
+              ? String(link.sync_version)
+              : payload.sync_version != null
+              ? String(payload.sync_version)
+              : null;
           if ((!title || !(row > 0)) && bookingId) {
             const { data: invRows } = await supabase
               .from("agenda_sheet_slot_inventory")
@@ -146,7 +261,9 @@ Deno.serve(async (req) => {
             }
           }
           if (!(row > 0) || !title) {
-            // Sin fila Sheet conocida: cancelación CRM ya aplicada; no bloquear outbox.
+            await supabase.rpc("agenda_sheet_mark_cancelled_cleared", {
+              p_booking_id: bookingId,
+            });
             await supabase.rpc("agenda_sheet_mark_outbox", {
               p_id: ev.id,
               p_status: "done",
@@ -155,31 +272,97 @@ Deno.serve(async (req) => {
             continue;
           }
           title = await resolveLiveTitle(sheetId, title);
+
+          // Último read antes de clear (carrera / reuso).
           const fresh = await adapter.getValues(a1FullReadRange(title, row));
-          const decision = assertTechColumnsWritable({
-            existingRowOrTech: fresh[0] ?? [],
-            bookingId,
+          const fr = fresh[0] ?? [];
+          const horaBefore = String(fr[0] ?? "");
+          const gnBefore = snapshotPreserveGN(fr);
+          const decision = classifyCancelRowClearance({
+            row: fr,
+            cancelledBookingId: bookingId,
+            cancelledExpedienteId: String(payload.expediente_id ?? ""),
+            expectedSyncVersion: expectedVersion,
           });
-          if (!decision.ok) {
+
+          if (decision.classification === "already_absent") {
+            await supabase.rpc("agenda_sheet_mark_cancelled_cleared", {
+              p_booking_id: bookingId,
+            });
             await supabase.rpc("agenda_sheet_mark_outbox", {
               p_id: ev.id,
-              p_status: "failed",
-              p_error: `tech_conflict:${decision.reason}`,
+              p_status: "done",
+            });
+            done++;
+            continue;
+          }
+
+          if (decision.classification === "row_reused") {
+            // Fila reutilizada: cancelación anterior already_absent; no tocar booking nuevo.
+            await supabase.rpc("agenda_sheet_mark_cancelled_cleared", {
+              p_booking_id: bookingId,
+            });
+            await supabase.rpc("agenda_sheet_mark_outbox", {
+              p_id: ev.id,
+              p_status: "done",
+            });
+            done++;
+            continue;
+          }
+
+          if (
+            decision.classification === "not_crm_owned" ||
+            decision.classification === "ambiguous"
+          ) {
+            await supabase.rpc("agenda_sheet_mark_outbox", {
+              p_id: ev.id,
+              p_status: "dead",
+              p_error:
+                `${decision.classification}:${title}:row=${row}:${decision.reason}`
+                  .slice(0, 500),
             });
             failed++;
             continue;
           }
-          if (decision.mode === "write" || decision.mode === "idempotent") {
-            await adapter.updateValues(a1TechRange(title, row), [buildTechWriteRow({
-              estado: "CANCELADA",
-              bookingId,
-              expedienteId: String(payload.expediente_id ?? ""),
-              slotKey: "",
-              syncSource: "crm",
-              syncUpdatedAt: new Date().toISOString(),
-              syncVersion: Number(link?.sync_version ?? 1) + 1,
-            })]);
+
+          if (decision.classification === "manual_result_conflict") {
+            // Terminal: no reintentar; conservar metadata O:U para rastreo.
+            await supabase.rpc("agenda_sheet_mark_outbox", {
+              p_id: ev.id,
+              p_status: "dead",
+              p_error:
+                `manual_result_conflict:sheetId=${sheetId}:title=${title}:row=${row}:cols=${
+                  decision.conflictingColumns.join(",")
+                }`.slice(0, 500),
+            });
+            failed++;
+            continue;
           }
+
+          // safe_to_clear → values.batchClear únicamente B:D y O:U
+          const clearRanges = cancelClearBatchRanges(title, row);
+          await adapter.batchClear(clearRanges);
+
+          const verify = await adapter.getValues(a1FullReadRange(title, row));
+          const vr = verifyClearedRowReadback({
+            row: verify[0] ?? [],
+            expectedHora: horaBefore,
+            expectedGN: gnBefore,
+            expectedEFEmpty: true,
+          });
+          if (!vr.ok) {
+            await supabase.rpc("agenda_sheet_mark_outbox", {
+              p_id: ev.id,
+              p_status: "failed",
+              p_error: `write_verify_failed:${vr.reason ?? "clear"}`,
+            });
+            failed++;
+            continue;
+          }
+
+          await supabase.rpc("agenda_sheet_mark_cancelled_cleared", {
+            p_booking_id: bookingId,
+          });
           await supabase.rpc("agenda_sheet_mark_outbox", {
             p_id: ev.id,
             p_status: "done",
@@ -197,6 +380,94 @@ Deno.serve(async (req) => {
           const kind = String(payload.kind ?? "");
           const bookingId = String(ev.booking_id ?? "");
 
+          // Dedup por booking_id exacto: links activos (nunca solo NSS/nombre).
+          const { data: existingLinks } = await supabase
+            .from("agenda_sheet_slot_links")
+            .select(
+              "id,row_number,sheet_title,sheet_id,sync_source,sync_version,sheet_date,location_id,kind,slot_time,slot_ordinal",
+            )
+            .eq("booking_id", bookingId)
+            .is("deleted_at", null)
+            .limit(5);
+          const activeLinks = existingLinks ?? [];
+          if (activeLinks.length >= 2) {
+            await supabase.rpc("agenda_sheet_mark_outbox", {
+              p_id: ev.id,
+              p_status: "dead",
+              p_error: `duplicate_booking_row:links=${activeLinks.length}`,
+            });
+            failed++;
+            continue;
+          }
+          if (activeLinks.length === 1) {
+            await supabase.rpc("agenda_sheet_mark_outbox", {
+              p_id: ev.id,
+              p_status: "done",
+            });
+            done++;
+            continue;
+          }
+
+          // Inventario con mismo booking_id: metadata ya escrita → recuperar link, no reclamar otra fila.
+          const { data: invByBooking } = await supabase
+            .from("agenda_sheet_slot_inventory")
+            .select(
+              "id,sheet_row,sheet_title,sheet_id,slot_key,slot_time,status,sheet_date,location_id,kind",
+            )
+            .eq("booking_id", bookingId)
+            .limit(5);
+          const invHits = invByBooking ?? [];
+          if (invHits.length >= 2) {
+            await supabase.rpc("agenda_sheet_mark_outbox", {
+              p_id: ev.id,
+              p_status: "dead",
+              p_error: `duplicate_booking_row:inventory=${invHits.length}`,
+            });
+            failed++;
+            continue;
+          }
+          if (invHits.length === 1) {
+            const inv0 = invHits[0] as Record<string, unknown>;
+            const invTitle = await resolveLiveTitle(
+              Number(inv0.sheet_id ?? 0),
+              String(inv0.sheet_title ?? ""),
+            );
+            const invRow = Number(inv0.sheet_row ?? 0);
+            if (invTitle && invRow > 0) {
+              const live = await adapter.getValues(
+                a1FullReadRange(invTitle, invRow),
+              );
+              const lr = live[0] ?? [];
+              const metaP = String(lr[COL_INDEX.bookingId] ?? "").trim();
+              if (metaP === bookingId) {
+                await supabase.rpc("agenda_sheet_upsert_link_from_crm", {
+                  p_organization_id: payload.organization_id,
+                  p_spreadsheet_id: spreadsheetId,
+                  p_sheet_id: Number(inv0.sheet_id ?? 0),
+                  p_sheet_title: invTitle,
+                  p_sheet_date: String(inv0.sheet_date ?? date),
+                  p_row_number: invRow,
+                  p_location_id: String(inv0.location_id ?? locationId),
+                  p_kind: String(inv0.kind ?? kind),
+                  p_slot_time: String(inv0.slot_time ?? time).slice(0, 8),
+                  p_slot_ordinal: 1,
+                  p_booking_id: ev.booking_id,
+                  p_sync_status: "SINCRONIZADO",
+                });
+                await supabase.rpc("agenda_sheet_inventory_mark_linked", {
+                  p_booking_id: bookingId,
+                  p_sheet_row: invRow,
+                });
+                await supabase.rpc("agenda_sheet_mark_outbox", {
+                  p_id: ev.id,
+                  p_status: "done",
+                });
+                done++;
+                continue;
+              }
+            }
+          }
+
           let targetRow = Number(payload.sheet_row ?? 0);
           let tabTitle = String(payload.sheet_title ?? "");
           let tabSheetId = Number(payload.sheet_id ?? 0);
@@ -204,20 +475,28 @@ Deno.serve(async (req) => {
           const ordinal = 1;
 
           if (!Number.isFinite(targetRow) || targetRow <= 0 || !tabTitle) {
-            const { data: invRows } = await supabase
-              .from("agenda_sheet_slot_inventory")
-              .select(
-                "sheet_row,sheet_title,sheet_id,slot_key,slot_time",
-              )
-              .eq("booking_id", bookingId)
-              .in("status", ["claimed", "linked"])
-              .limit(1);
-            const inv = (invRows ?? [])[0] as Record<string, unknown> | undefined;
+            const inv = invHits[0] as Record<string, unknown> | undefined;
             if (inv) {
               targetRow = Number(inv.sheet_row);
               tabTitle = String(inv.sheet_title ?? "");
               tabSheetId = Number(inv.sheet_id ?? 0);
               slotKeyFromInv = String(inv.slot_key ?? "");
+            } else {
+              const { data: invRows } = await supabase
+                .from("agenda_sheet_slot_inventory")
+                .select(
+                  "sheet_row,sheet_title,sheet_id,slot_key,slot_time",
+                )
+                .eq("booking_id", bookingId)
+                .in("status", ["claimed", "linked"])
+                .limit(1);
+              const inv2 = (invRows ?? [])[0] as Record<string, unknown> | undefined;
+              if (inv2) {
+                targetRow = Number(inv2.sheet_row);
+                tabTitle = String(inv2.sheet_title ?? "");
+                tabSheetId = Number(inv2.sheet_id ?? 0);
+                slotKeyFromInv = String(inv2.slot_key ?? "");
+              }
             }
           } else if (payload.inventory_id) {
             const { data: invOne } = await supabase
@@ -293,6 +572,34 @@ Deno.serve(async (req) => {
             a1FullReadRange(tab.title, targetRow),
           );
           const fr = fresh[0] ?? [];
+          // Si P ya tiene este booking_id exacto → no escribir de nuevo; recuperar link.
+          const existingP = String(fr[COL_INDEX.bookingId] ?? "").trim();
+          if (existingP === bookingId) {
+            await supabase.rpc("agenda_sheet_upsert_link_from_crm", {
+              p_organization_id: payload.organization_id,
+              p_spreadsheet_id: spreadsheetId,
+              p_sheet_id: tab.sheetId,
+              p_sheet_title: tab.title,
+              p_sheet_date: date,
+              p_row_number: targetRow,
+              p_location_id: locationId,
+              p_kind: kind,
+              p_slot_time: time,
+              p_slot_ordinal: ordinal,
+              p_booking_id: ev.booking_id,
+              p_sync_status: "SINCRONIZADO",
+            });
+            await supabase.rpc("agenda_sheet_inventory_mark_linked", {
+              p_booking_id: bookingId,
+              p_sheet_row: targetRow,
+            });
+            await supabase.rpc("agenda_sheet_mark_outbox", {
+              p_id: ev.id,
+              p_status: "done",
+            });
+            done++;
+            continue;
+          }
           const horaCell = parseTime(String(fr[COL_INDEX.hora] ?? ""));
           if (horaCell && horaCell !== time) {
             await supabase.rpc("agenda_sheet_mark_outbox", {
@@ -438,6 +745,16 @@ Deno.serve(async (req) => {
             p_sheet_row: targetRow,
           });
 
+          await supabase.rpc("agenda_sheet_mark_outbox", {
+            p_id: ev.id,
+            p_status: "done",
+          });
+          done++;
+          continue;
+        }
+
+        // booking_created ya tiene link (reintento idempotente)
+        if (ev.event_type === "booking_created" && link) {
           await supabase.rpc("agenda_sheet_mark_outbox", {
             p_id: ev.id,
             p_status: "done",

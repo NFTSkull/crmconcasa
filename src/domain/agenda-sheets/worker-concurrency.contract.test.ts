@@ -124,10 +124,37 @@ describe("agenda-sheet sync title space + requeue (mig. 134)", () => {
     assert.match(worker, /agenda_sheet_slot_inventory/);
   });
 
-  it("cron worker (130) y reconcile (132) siguen separados", () => {
-    assert.match(mig130, /agenda-sheet-sync-worker-every-minute/);
-    assert.match(mig132, /agenda-sheet-reconcile-every-15m/);
-    assert.doesNotMatch(mig134, /agenda-sheet-reconcile-every-15m/);
-    assert.doesNotMatch(mig134, /cron\.schedule/);
+  it("worker limpia B:D/O:U con batchClear y marca dead en manual_result_conflict", () => {
+    assert.match(worker, /classifyCancelRowClearance/);
+    assert.match(worker, /cancelClearBatchRanges/);
+    assert.match(worker, /batchClear/);
+    assert.match(worker, /booking_cancelled_cleanup/);
+    assert.match(worker, /manual_result_conflict/);
+    assert.match(worker, /p_status:\s*"dead"/);
+    assert.match(worker, /agenda_sheet_mark_cancelled_cleared/);
+    assert.match(worker, /duplicate_booking_row/);
+    assert.match(worker, /dry_run_cancel_cleanup/);
+    assert.doesNotMatch(worker, /buildClearedVisibleAdRow/);
+    assert.doesNotMatch(
+      worker,
+      /estado:\s*"CANCELADA"/,
+    );
+  });
+
+  it("dry_run_cancel_cleanup exige secreto worker antes del body", () => {
+    const authIdx = worker.indexOf('jsonError(401, "unauthorized"');
+    const dryIdx = worker.indexOf("dry_run_cancel_cleanup");
+    assert.ok(authIdx > 0, "auth gate presente");
+    assert.ok(dryIdx > authIdx, "dry-run solo tras auth");
+    assert.match(worker, /x-concasa-worker-secret/);
+    assert.match(worker, /GOOGLE_SHEETS_WORKER_SECRET/);
+    // Cancel handler: batchClear ranges B:D + O:U, sin updateValues
+    const cancelStart = worker.indexOf("// Cancelación / cleanup");
+    const cancelEnd = worker.indexOf("// booking_created desde CRM");
+    assert.ok(cancelStart > 0 && cancelEnd > cancelStart);
+    const cancelBlock = worker.slice(cancelStart, cancelEnd);
+    assert.match(cancelBlock, /batchClear/);
+    assert.doesNotMatch(cancelBlock, /updateValues/);
+    assert.doesNotMatch(cancelBlock, /a1VisibleRange/);
   });
 });

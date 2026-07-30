@@ -400,6 +400,8 @@ Supabase `agenda_bookings`. Sheets no inserta filas directas; toda reserva Sheet
 - `agenda_sheet_book_by_nss(...)` — reserva atómica + mapping + `action_log` `agenda.sheet.book`
 - `agenda_sheet_claim_outbox` / `agenda_sheet_mark_outbox` — worker CRM→Sheets (claim recupera `processing` >10 min → `failed`/`dead`)
 - `agenda_sheet_requeue_dead_sync(p_booking_id)` — reencola outbox `dead` de `booking_created` para bookings activos futuros; con `p_booking_id` también puede reencolar `booking_cancelled` si hay fila Sheet conocida (`service_role`); no muta bookings ni Sheets; sin `p_booking_id` no toca cancelaciones (anti-backfill)
+- `agenda_sheet_enqueue_cancel_cleanup(p_booking_id)` — encola `booking_cancelled_cleanup` idempotente para booking **cancelled** con evidencia CRM (`service_role`); no UPDATE de outbox histórico done; no muta bookings
+- `agenda_sheet_mark_cancelled_cleared(p_booking_id)` — soft-delete `slot_links` + libera inventario tras limpieza Sheet
 - `agenda_sheet_upsert_link_from_crm` — mapping tras escritura Sheet
 - `agenda_sheet_inventory_availability(p_kind, p_date, p_location_id)` — read-model cupo real (`authenticated`); si enforced y not fresh → `{ ok:true, fresh:false, slots:[] }`
 - `agenda_sheet_inventory_upsert_batch(p_rows)` / `mark_linked` / `mark_conflict` — `service_role` only (anti-steal: no degradar claimed/linked con `booking_id`; **`sheet_title` exacto sin `btrim`** — pestañas tipo `03 AGOSTO `)
@@ -425,7 +427,9 @@ Rango seguro **O:U** (`ESTADO CRM`…`CRM_SYNC_VERSION`). **A:N se PRESERVA** (H
 - Claim: `agenda_sheet_claim_outbox` con `FOR UPDATE SKIP LOCKED`, máx 50/ejecución
 - Título A1: resuelve título live por `sheetId` (`listSheets`) para conservar trailing spaces
 - Confirmación: read-back A:U; si NSS/nombre/bookingId/source no coinciden → `failed` (`write_verify_failed`), no `done`
-- Cancel sin `slot_links`: fallback payload/inventario; sin fila conocida → `done` no-op
+- **Cancelación (contrato 136):** conservar **A** y **G:N** sin escribirlos; limpiar solo **B:D** + **O:U** vía `values.batchClear`; no rewrite A:U; propiedad solo si `P=booking_id` y source crm; E/F con texto → `manual_result_conflict` → outbox `dead` (no retry); fila reutilizada (P distinto) → `already_absent`/no tocar; inventario `CANCELADA` → available aunque haya conflicto E/F
+- Cancel sin fila conocida / already_absent → `done` no-op + `agenda_sheet_mark_cancelled_cleared`
+- Worker admin read-only: `POST` body `{ dry_run_cancel_cleanup: true, targets: [...] }` clasifica con A:U live sin mutar
 - Cron: mig. 130 job `agenda-sheet-sync-worker-every-minute` (`* * * * *`) vía Vault `agenda_sheet_project_url` + `agenda_sheet_worker_secret` (independiente del reconcile 132)
 
 ### Docs operativas

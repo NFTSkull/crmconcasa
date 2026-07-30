@@ -120,17 +120,24 @@ export function buildInventoryUpsertRows(params: {
     const nss = cell(row, 1);
     const name = cell(row, 2);
     const advisor = cell(row, 3);
-    const bookingId = asUuidOrNull(cell(row, 15) || null);
-    const expedienteId = asUuidOrNull(cell(row, 16) || null);
+    const techEstado = cell(row, 14);
+    const bookingIdRaw = asUuidOrNull(cell(row, 15) || null);
+    const expedienteIdRaw = asUuidOrNull(cell(row, 16) || null);
+    const cancelledMeta = techEstado.toUpperCase() === "CANCELADA";
     let status = "available";
     let occupancySource = "reconciliation";
-    if (bookingId) {
+    if (cancelledMeta) {
+      status = "available";
+      occupancySource = "reconciliation";
+    } else if (bookingIdRaw) {
       status = "linked";
       occupancySource = "crm";
     } else if (nss || name) {
       status = "occupied_external";
       occupancySource = "sheet_legacy";
     }
+    const bookingId = cancelledMeta ? null : bookingIdRaw;
+    const expedienteId = cancelledMeta ? null : expedienteIdRaw;
 
     rows.push({
       organization_id: organizationId,
@@ -144,9 +151,9 @@ export function buildInventoryUpsertRows(params: {
       slot_time: `${t}:00`,
       slot_key: `${section.kind}|${bookingDate}|${t}|${section.sede}|${ordinal}`,
       status,
-      visible_nss: nss || null,
-      visible_name: name || null,
-      visible_advisor: advisor || null,
+      visible_nss: cancelledMeta ? null : nss || null,
+      visible_name: cancelledMeta ? null : name || null,
+      visible_advisor: cancelledMeta ? null : advisor || null,
       booking_id: bookingId,
       expediente_id: expedienteId,
       occupancy_source: occupancySource,

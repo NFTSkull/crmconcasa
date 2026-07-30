@@ -12,6 +12,11 @@ export type SheetMeta = {
 export type SheetsAdapter = {
   getValues: (rangeA1: string) => Promise<string[][]>;
   updateValues: (rangeA1: string, values: string[][]) => Promise<void>;
+  /**
+   * Borra solo userEnteredValue en los rangos dados (formato/fórmulas/validaciones
+   * /bordes/altura intactos). Preferido para cancelación B:D + O:U.
+   */
+  batchClear: (rangesA1: string[]) => Promise<void>;
   /** Solo metadatos de pestañas (sin valores de celdas). */
   listSheets: () => Promise<SheetMeta[]>;
 };
@@ -120,6 +125,23 @@ export async function createGoogleSheetsAdapter(input: {
       });
       if (!res.ok) throw new Error("google_sheets_write_failed");
     },
+    async batchClear(rangesA1: string[]) {
+      const ranges = (rangesA1 ?? []).filter((r) => String(r).trim());
+      if (ranges.length === 0) return;
+      const url = `${base}/values:batchClear`;
+      const res = await fetchFn(url, {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ ranges }),
+      });
+      if (!res.ok) {
+        const body = (await res.text()).slice(0, 180);
+        throw new Error(`google_sheets_batch_clear_failed:${res.status}:${body}`);
+      }
+    },
     async listSheets() {
       const url =
         `${base}?fields=sheets.properties(sheetId,title,hidden)`;
@@ -145,6 +167,7 @@ export async function createGoogleSheetsAdapter(input: {
 export function createMemorySheetsAdapter(
   store: Map<string, string[][]>,
   sheets: SheetMeta[] = [],
+  opts?: { onBatchClear?: (ranges: string[]) => void },
 ): SheetsAdapter {
   return {
     async getValues(rangeA1: string) {
@@ -152,6 +175,34 @@ export function createMemorySheetsAdapter(
     },
     async updateValues(rangeA1: string, values: string[][]) {
       store.set(rangeA1, values);
+    },
+    async batchClear(rangesA1: string[]) {
+      opts?.onBatchClear?.(rangesA1);
+      for (const range of rangesA1) {
+        // Memoria: vaciar fila conocida si el store tiene el rango A:U completo
+        // (tests usan getValues sobre A:U; clear no escribe A).
+        const m = /^'([^']*(?:''[^']*)*)'!([A-Z]+)(\d+):([A-Z]+)(\d+)$/.exec(
+          range,
+        );
+        if (!m) continue;
+        const title = m[1]!.replace(/''/g, "'");
+        const startCol = m[2]!;
+        const row = m[3]!;
+        const endCol = m[4]!;
+        const fullKey = `'${title.replace(/'/g, "''")}'!A${row}:U${row}`;
+        const existing = store.get(fullKey);
+        if (!existing?.[0]) continue;
+        const rowVals = [...existing[0]];
+        const colIndex = (letters: string) => {
+          let n = 0;
+          for (const ch of letters) n = n * 26 + (ch.charCodeAt(0) - 64);
+          return n - 1;
+        };
+        const from = colIndex(startCol);
+        const to = colIndex(endCol);
+        for (let i = from; i <= to; i++) rowVals[i] = "";
+        store.set(fullKey, [rowVals]);
+      }
     },
     async listSheets() {
       return sheets;
