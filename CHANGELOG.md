@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Fixed
+- **fix/agenda-crm-to-sheet-reschedule (135):** `agenda_sheet_requeue_dead_sync` también reencola `booking_cancelled` **dirigido** (exige `p_booking_id` + referencia de fila Sheet); sin backfill masivo de cancelaciones.
 - **fix/agenda-crm-to-sheet-reschedule:** sync CRM→Sheet fallaba en pestañas con trailing space (`03 AGOSTO `): `upsert_batch` hacía `btrim(sheet_title)` → Google 400 → outbox `dead`. Mig. 134 preserva título exacto, claim recupera `processing` abandonado, `agenda_sheet_requeue_dead_sync` reencola dead de citas futuras; worker resuelve título live por `sheetId`, cancela sin `slot_links` vía inventario/payload, y exige read-back antes de `done`.
 
 ### Fixed

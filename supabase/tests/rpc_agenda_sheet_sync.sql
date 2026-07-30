@@ -963,7 +963,39 @@ BEGIN
   PERFORM public.__sheet_as_service_role();
   PERFORM public.__sheet_assert(v_fail, 'F authenticated no requeue');
 
-  RAISE NOTICE 'F mig134 title/timeout/requeue OK';
+  -- booking_cancelled dead: solo dirigido con p_booking_id + fila Sheet
+  UPDATE public.agenda_bookings
+  SET status = 'cancelled', cancelled_at = NOW()
+  WHERE id = v_bid;
+
+  SELECT id INTO STRICT v_out
+  FROM public.agenda_sheet_sync_outbox
+  WHERE booking_id = v_bid AND event_type = 'booking_cancelled'
+  ORDER BY created_at DESC
+  LIMIT 1;
+
+  UPDATE public.agenda_sheet_sync_outbox
+  SET status = 'dead', attempts = 5, last_error = 'unhandled_event',
+      payload = COALESCE(payload, '{}'::jsonb) || jsonb_build_object(
+        'sheet_title', '30 JULIO',
+        'sheet_row', 23
+      )
+  WHERE id = v_out;
+
+  -- sin p_booking_id: no reencola cancelled (anti-backfill)
+  v_res := public.agenda_sheet_requeue_dead_sync(NULL);
+  SELECT status INTO v_status FROM public.agenda_sheet_sync_outbox WHERE id = v_out;
+  PERFORM public.__sheet_assert(v_status = 'dead', 'F null no requeue cancelled');
+
+  v_res := public.agenda_sheet_requeue_dead_sync(v_bid);
+  PERFORM public.__sheet_assert(
+    COALESCE((v_res->>'requeued_cancelled')::INTEGER, 0) = 1,
+    'F requeue cancelled=1'
+  );
+  SELECT status INTO v_status FROM public.agenda_sheet_sync_outbox WHERE id = v_out;
+  PERFORM public.__sheet_assert(v_status = 'pending', 'F cancelled→pending');
+
+  RAISE NOTICE 'F mig134/135 title/timeout/requeue OK';
 END;
 $$;
 
