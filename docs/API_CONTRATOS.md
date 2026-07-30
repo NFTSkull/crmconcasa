@@ -394,14 +394,17 @@ Supabase `agenda_bookings`. Sheets no inserta filas directas; toda reserva Sheet
 ### Identidad de cupo / fila
 - CRM: `(organization_id, kind, booking_date, booking_time, location_id)` + capacity (sin `slot_id`).
 - Sheet: misma clave + `slot_ordinal` (fila N de esa hora) en `agenda_sheet_slot_links`.
+- **Cupo real (mig. 131):** una fila física del Sheet = una fila en `agenda_sheet_slot_inventory`. Obligatorio desde `2026-07-30` inclusive. Inventario stale si `MAX(observed_at)` por org+fecha es NULL o menor que `NOW() - 6 hours`. Asserts biométricos/firmas + claim `FOR UPDATE SKIP LOCKED` bloquean con `SIN_CUPO_REAL_EN_SHEET` si no hay fila `available` fresca.
 
 ### RPCs internas
 - `agenda_sheet_book_by_nss(...)` — reserva atómica + mapping + `action_log` `agenda.sheet.book`
 - `agenda_sheet_claim_outbox` / `agenda_sheet_mark_outbox` — worker CRM→Sheets
 - `agenda_sheet_upsert_link_from_crm` — mapping tras escritura Sheet
+- `agenda_sheet_inventory_availability(p_kind, p_date, p_location_id)` — read-model cupo real (`authenticated`); si enforced y not fresh → `{ ok:true, fresh:false, slots:[] }`
+- `agenda_sheet_inventory_upsert_batch(p_rows)` / `mark_linked` / `mark_conflict` — `service_role` only (anti-steal: no degradar claimed/linked con `booking_id`)
 
 ### Outbox
-Trigger en `agenda_bookings` → `agenda_sheet_sync_outbox` (`booking_created|updated|cancelled|rescheduled`). Fallo Google no revierte booking. Máx 5 intentos.
+Trigger en `agenda_bookings` → `agenda_sheet_sync_outbox` (`booking_created|updated|cancelled|rescheduled`). Fallo Google no revierte booking. Máx 5 intentos. Payload incluye `sheet_id`, `sheet_title`, `sheet_row`, `inventory_id` si hay fila de inventario reclamada. Claim inventario (`agenda_sheet_inventory_claim_ai`) corre antes que outbox alfabéticamente.
 
 ### Feature flag
 `GOOGLE_SHEETS_SYNC_ENABLED=false` apaga sync sin borrar bookings/mappings.

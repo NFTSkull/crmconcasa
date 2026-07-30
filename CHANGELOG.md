@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Added
+- **fix/agenda-sheet-real-capacity:** inventario físico Sheet (`agenda_sheet_slot_inventory`, mig. 131) con gate `SIN_CUPO_REAL_EN_SHEET` desde `2026-07-30` (sedes monterrey/apodaca), claim `SKIP LOCKED`, RPC availability/upsert, Edge reconcile, worker fila preasignada, UI Asesor con cupos reales.
+
 ### Fixed
 - **fix/agenda-sheets-final-activation:** `extractTechCells` por posición absoluta / rango O:U explícito (elimina falso positivo `length===7`); fallback live de pestañas posteriores a `07 AGOSTO`; cron `pg_cron`+`pg_net` cada minuto vía Vault (`130_agenda_sheet_sync_worker_cron.sql`).
 
