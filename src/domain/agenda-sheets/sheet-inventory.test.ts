@@ -6,6 +6,7 @@ import {
   isInventoryEnforcedDate,
   parsePhysicalInventoryFromGrid,
 } from "./sheet-inventory";
+import { DEFAULT_BIOMETRICOS_0800_0830_ALIASES } from "./time-aliases";
 
 describe("sheet-inventory", () => {
   it("enforcement desde 2026-07-30", () => {
@@ -225,6 +226,127 @@ describe("sheet-inventory", () => {
         inventoryEnforced: false,
       }).remaining,
       4,
+    );
+  });
+
+  it("alias bio: fila Sheet 08:30 → logical 08:00 y conserva sheetSlotTime", () => {
+    const { rows } = parsePhysicalInventoryFromGrid({
+      bookingDate: "2026-08-05",
+      sheetTitle: "05 AGOSTO",
+      timeAliases: DEFAULT_BIOMETRICOS_0800_0830_ALIASES,
+      grid: [
+        ["MONTERREY BIOMETRICOS"],
+        ["8:30 AM", "", "", ""],
+        ["8:30 AM", "03978108284", "Ocupado", "Asesor"],
+        ["8:30 AM", "", "", ""],
+        ["9:30 AM", "", "", ""],
+        ["10:00 AM", "", "", ""],
+      ],
+    });
+    const logical0800 = rows.filter((r) => r.slotTime === "08:00");
+    assert.equal(logical0800.length, 3);
+    assert.ok(logical0800.every((r) => r.sheetSlotTime === "08:30"));
+    assert.equal(
+      countAvailableByTime(rows, "biometricos", "monterrey")["08:00"],
+      2,
+    );
+    assert.equal(
+      countAvailableByTime(rows, "biometricos", "monterrey")["09:30"],
+      1,
+    );
+    assert.equal(
+      countAvailableByTime(rows, "biometricos", "monterrey")["10:00"],
+      1,
+    );
+    assert.equal(
+      countAvailableByTime(rows, "biometricos", "monterrey")["08:30"],
+      undefined,
+    );
+    assert.ok(
+      logical0800[0]?.slotKey.includes("sheet=08:30"),
+      "slot_key debe incluir identidad física",
+    );
+    assert.ok(
+      logical0800[0]?.slotKey.includes("sheetId="),
+      "slot_key canónico incluye sheetId",
+    );
+    assert.ok(
+      logical0800[0]?.slotKey.includes("row="),
+      "slot_key canónico incluye row",
+    );
+  });
+
+  it("alias bio apodaca 08:30→08:00; firmas 08:30 sin alias", () => {
+    const bio = parsePhysicalInventoryFromGrid({
+      bookingDate: "2026-08-05",
+      sheetTitle: "05 AGOSTO",
+      timeAliases: DEFAULT_BIOMETRICOS_0800_0830_ALIASES,
+      grid: [
+        ["APODACA BIOMETRICOS"],
+        ["8:30 AM", "", "", ""],
+        ["8:30 AM", "", "", ""],
+      ],
+    });
+    assert.equal(
+      countAvailableByTime(bio.rows, "biometricos", "apodaca")["08:00"],
+      2,
+    );
+
+    const firmas = parsePhysicalInventoryFromGrid({
+      bookingDate: "2026-08-05",
+      sheetTitle: "05 AGOSTO",
+      timeAliases: DEFAULT_BIOMETRICOS_0800_0830_ALIASES,
+      grid: [
+        ["MONTERREY FIRMAS"],
+        ["8:30 AM", "", "", ""],
+        ["8:30 AM", "", "", ""],
+      ],
+    });
+    assert.equal(
+      countAvailableByTime(firmas.rows, "firmas", "monterrey")["08:30"],
+      2,
+    );
+    assert.equal(
+      countAvailableByTime(firmas.rows, "firmas", "monterrey")["08:00"],
+      undefined,
+    );
+  });
+
+  it("caso 05 AGOSTO: 8 filas 08:30 vacías → 8 lugares lógicos 08:00", () => {
+    const { rows } = parsePhysicalInventoryFromGrid({
+      bookingDate: "2026-08-05",
+      sheetTitle: "05 AGOSTO",
+      sheetId: 90508,
+      timeAliases: DEFAULT_BIOMETRICOS_0800_0830_ALIASES,
+      grid: [
+        ["MONTERREY BIOMETRICOS"],
+        ...Array.from({ length: 8 }, () => ["8:30 AM", "", "", ""] as string[]),
+        ...Array.from({ length: 8 }, () => ["10:00 AM", "", "", ""] as string[]),
+      ],
+    });
+    assert.equal(
+      countAvailableByTime(rows, "biometricos", "monterrey")["08:00"],
+      8,
+    );
+    assert.equal(
+      countAvailableByTime(rows, "biometricos", "monterrey")["10:00"],
+      8,
+    );
+    const keys = new Set(rows.filter((r) => r.slotTime === "08:00").map((r) => r.slotKey));
+    assert.equal(keys.size, 8);
+  });
+
+  it("reconcile/worker/webhook comparten el mismo physical key helper", () => {
+    const { rows } = parsePhysicalInventoryFromGrid({
+      bookingDate: "2026-08-05",
+      sheetTitle: "05 AGOSTO",
+      sheetId: 42,
+      timeAliases: DEFAULT_BIOMETRICOS_0800_0830_ALIASES,
+      grid: [["MONTERREY BIOMETRICOS"], ["8:30 AM", "", "", ""]],
+    });
+    assert.equal(
+      rows[0]?.slotKey,
+      "biometricos|2026-08-05|08:00|monterrey|sheet=08:30|sheetId=42|row=2",
     );
   });
 

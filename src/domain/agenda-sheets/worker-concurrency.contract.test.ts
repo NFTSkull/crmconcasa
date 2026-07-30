@@ -157,4 +157,20 @@ describe("agenda-sheet sync title space + requeue (mig. 134)", () => {
     assert.doesNotMatch(cancelBlock, /updateValues/);
     assert.doesNotMatch(cancelBlock, /a1VisibleRange/);
   });
+
+  it("booking_created escribe solo B:D + O:U (A read-only)", () => {
+    const start = worker.indexOf("// booking_created desde CRM");
+    assert.ok(start > 0, "bloque booking_created");
+    const end = worker.indexOf("// booking_created ya tiene link", start);
+    assert.ok(end > start, "fin bloque booking_created");
+    const block = worker.slice(start, end);
+    assert.match(block, /batchUpdateValues/);
+    assert.match(block, /a1BdRange/);
+    assert.match(block, /a1TechRange/);
+    assert.match(block, /buildPhysicalSheetRowKey/);
+    assert.doesNotMatch(block, /a1VisibleRange/);
+    assert.doesNotMatch(block, /A\$\{|!A\d+:D/);
+    assert.doesNotMatch(block, /horaKeep/);
+    assert.match(block, /write_verify_failed:col_a_mutated/);
+  });
 });

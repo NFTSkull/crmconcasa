@@ -1110,6 +1110,423 @@ BEGIN
 END;
 $$;
 
+-- =============================================================================
+-- H) Mig. 137: alias horario logical 08:00 ⇄ sheet 08:30 (bio MTY/APO)
+-- =============================================================================
+DO $$
+DECLARE
+  f public.__sheet_fixture%ROWTYPE;
+  v_res JSONB;
+  v_logical TIME;
+  v_sheet TIME;
+  v_avail INTEGER;
+  v_bid UUID;
+  v_inv_status TEXT;
+  v_sheet_slot TIME;
+  v_fail BOOLEAN;
+  v_slot JSONB;
+  v_n INTEGER;
+  v_exp UUID := '00000000-0000-4000-9129-0000000000a7';
+  v_nss CHAR(11) := '12900000097';
+BEGIN
+  SELECT * INTO STRICT f FROM public.__sheet_fixture WHERE id = 1;
+  PERFORM public.__sheet_as_service_role();
+
+  INSERT INTO public.expedientes (
+    id, organization_id, asesor_id, programa, nss, cliente_nombre,
+    telefono_cliente, origen_mesa, submitted_to_mesa, fecha_envio_mesa,
+    etapa_actual, subestado, ciclo_estado
+  ) VALUES (
+    v_exp, f.org_id, f.asesor_id, 'mejoravit', v_nss, 'Alias 0800 Test',
+    '5512910097', 'interno', true, NOW(), 4, 'en_proceso', 'activo'
+  ) ON CONFLICT (id) DO NOTHING;
+
+  PERFORM public.__sheet_assert(
+    to_regclass('public.agenda_sheet_time_aliases') IS NOT NULL,
+    'H tabla aliases'
+  );
+  PERFORM public.__sheet_assert(
+    to_regclass('public.agenda_sheet_time_alias_defaults') IS NOT NULL,
+    'H tabla defaults'
+  );
+  PERFORM public.__sheet_assert(
+    EXISTS (
+      SELECT 1 FROM information_schema.columns
+      WHERE table_schema = 'public'
+        AND table_name = 'agenda_sheet_slot_inventory'
+        AND column_name = 'sheet_slot_time'
+    ),
+    'H columna sheet_slot_time'
+  );
+
+  -- Grants: authenticated/anon no mutan aliases
+  PERFORM public.__sheet_assert(
+    NOT has_table_privilege('authenticated', 'public.agenda_sheet_time_aliases', 'INSERT'),
+    'H auth NO INSERT aliases'
+  );
+  PERFORM public.__sheet_assert(
+    NOT has_table_privilege('anon', 'public.agenda_sheet_time_aliases', 'UPDATE'),
+    'H anon NO UPDATE aliases'
+  );
+  PERFORM public.__sheet_assert(
+    NOT has_function_privilege(
+      'authenticated',
+      'public.agenda_sheet_list_time_aliases(uuid)',
+      'EXECUTE'
+    ),
+    'H auth NO list aliases'
+  );
+
+  -- Alias para org fixture (mig seed solo orgs existentes al aplicar; fixture nace en B)
+  INSERT INTO public.agenda_sheet_time_aliases (
+    organization_id, location_id, kind, logical_start_time, sheet_start_time, active
+  ) VALUES
+    (f.org_id, 'monterrey', 'biometricos', TIME '08:00', TIME '08:30', TRUE),
+    (f.org_id, 'apodaca', 'biometricos', TIME '08:00', TIME '08:30', TRUE)
+  ON CONFLICT DO NOTHING;
+
+  -- Seed: bio monterrey/apodaca
+  PERFORM public.__sheet_assert(EXISTS (
+    SELECT 1 FROM public.agenda_sheet_time_aliases
+    WHERE organization_id = f.org_id
+      AND location_id = 'monterrey'
+      AND kind = 'biometricos'
+      AND logical_start_time = TIME '08:00'
+      AND sheet_start_time = TIME '08:30'
+      AND active
+  ), 'H seed monterrey bio');
+  PERFORM public.__sheet_assert(EXISTS (
+    SELECT 1 FROM public.agenda_sheet_time_aliases
+    WHERE organization_id = f.org_id
+      AND location_id = 'apodaca'
+      AND kind = 'biometricos'
+      AND logical_start_time = TIME '08:00'
+      AND sheet_start_time = TIME '08:30'
+      AND active
+  ), 'H seed apodaca bio');
+  PERFORM public.__sheet_assert(NOT EXISTS (
+    SELECT 1 FROM public.agenda_sheet_time_aliases
+    WHERE organization_id = f.org_id AND kind = 'firmas'
+  ), 'H sin alias firmas');
+
+  v_logical := public.agenda_sheet_resolve_logical_time(
+    f.org_id, 'monterrey', 'biometricos', TIME '08:30'
+  );
+  v_sheet := public.agenda_sheet_resolve_sheet_time(
+    f.org_id, 'monterrey', 'biometricos', TIME '08:00'
+  );
+  PERFORM public.__sheet_assert(v_logical = TIME '08:00', 'H resolve logical');
+  PERFORM public.__sheet_assert(v_sheet = TIME '08:30', 'H resolve sheet');
+  PERFORM public.__sheet_assert(
+    public.agenda_sheet_resolve_logical_time(
+      f.org_id, 'monterrey', 'biometricos', TIME '10:00'
+    ) = TIME '10:00',
+    'H 10:00 sin alias'
+  );
+  PERFORM public.__sheet_assert(
+    public.agenda_sheet_resolve_logical_time(
+      f.org_id, 'monterrey', 'firmas', TIME '08:30'
+    ) = TIME '08:30',
+    'H firmas sin alias'
+  );
+
+  -- Inventario 05 AGOSTO: filas físicas 08:30 → bucket lógico 08:00
+  -- Limpiar seed ISO del día/sede para assert exacto de cupos.
+  DELETE FROM public.agenda_sheet_slot_inventory
+  WHERE organization_id = f.org_id
+    AND booking_date = DATE '2026-08-05'
+    AND kind = 'biometricos'
+    AND location_id IN ('monterrey', 'apodaca');
+
+  v_res := public.agenda_sheet_inventory_upsert_batch(jsonb_build_array(
+    jsonb_build_object(
+      'organization_id', f.org_id,
+      'spreadsheet_id', f.sheet_ss,
+      'sheet_id', 90508,
+      'sheet_title', '05 AGOSTO',
+      'booking_date', '2026-08-05',
+      'sheet_row', 10,
+      'kind', 'biometricos',
+      'location_id', 'monterrey',
+      'slot_time', '08:00:00',
+      'sheet_slot_time', '08:30:00',
+      'slot_key', 'biometricos|2026-08-05|08:00|monterrey|sheet=08:30|sheetId=90508|row=10',
+      'status', 'available',
+      'occupancy_source', 'reconciliation'
+    ),
+    jsonb_build_object(
+      'organization_id', f.org_id,
+      'spreadsheet_id', f.sheet_ss,
+      'sheet_id', 90508,
+      'sheet_title', '05 AGOSTO',
+      'booking_date', '2026-08-05',
+      'sheet_row', 11,
+      'kind', 'biometricos',
+      'location_id', 'monterrey',
+      'slot_time', '08:00:00',
+      'sheet_slot_time', '08:30:00',
+      'slot_key', 'biometricos|2026-08-05|08:00|monterrey|sheet=08:30|sheetId=90508|row=11',
+      'status', 'available',
+      'occupancy_source', 'reconciliation'
+    ),
+    jsonb_build_object(
+      'organization_id', f.org_id,
+      'spreadsheet_id', f.sheet_ss,
+      'sheet_id', 90508,
+      'sheet_title', '05 AGOSTO',
+      'booking_date', '2026-08-05',
+      'sheet_row', 20,
+      'kind', 'biometricos',
+      'location_id', 'monterrey',
+      'slot_time', '10:00:00',
+      'sheet_slot_time', '10:00:00',
+      'slot_key', 'biometricos|2026-08-05|10:00|monterrey|sheet=10:00|sheetId=90508|row=20',
+      'status', 'available',
+      'occupancy_source', 'reconciliation'
+    ),
+    jsonb_build_object(
+      'organization_id', f.org_id,
+      'spreadsheet_id', f.sheet_ss,
+      'sheet_id', 90508,
+      'sheet_title', '05 AGOSTO',
+      'booking_date', '2026-08-05',
+      'sheet_row', 30,
+      'kind', 'biometricos',
+      'location_id', 'apodaca',
+      'slot_time', '08:00:00',
+      'sheet_slot_time', '08:30:00',
+      'slot_key', 'biometricos|2026-08-05|08:00|apodaca|sheet=08:30|sheetId=90508|row=30',
+      'status', 'available',
+      'occupancy_source', 'reconciliation'
+    )
+  ));
+  PERFORM public.__sheet_assert((v_res->>'ok')::BOOLEAN IS TRUE, 'H upsert ok');
+  PERFORM public.__sheet_assert((v_res->>'upserted')::INTEGER = 4, 'H upserted=4');
+
+  SELECT sheet_slot_time INTO v_sheet_slot
+  FROM public.agenda_sheet_slot_inventory
+  WHERE spreadsheet_id = f.sheet_ss AND sheet_id = 90508 AND sheet_row = 10;
+  PERFORM public.__sheet_assert(v_sheet_slot = TIME '08:30', 'H sheet_slot_time=08:30');
+
+  -- Reconcile repetido no duplica
+  v_res := public.agenda_sheet_inventory_upsert_batch(jsonb_build_array(
+    jsonb_build_object(
+      'organization_id', f.org_id,
+      'spreadsheet_id', f.sheet_ss,
+      'sheet_id', 90508,
+      'sheet_title', '05 AGOSTO',
+      'booking_date', '2026-08-05',
+      'sheet_row', 10,
+      'kind', 'biometricos',
+      'location_id', 'monterrey',
+      'slot_time', '08:00:00',
+      'sheet_slot_time', '08:30:00',
+      'slot_key', 'biometricos|2026-08-05|08:00|monterrey|sheet=08:30|sheetId=90508|row=10',
+      'status', 'available',
+      'occupancy_source', 'reconciliation'
+    )
+  ));
+  SELECT COUNT(*) INTO v_n
+  FROM public.agenda_sheet_slot_inventory
+  WHERE spreadsheet_id = f.sheet_ss AND sheet_id = 90508 AND sheet_row = 10;
+  PERFORM public.__sheet_assert(v_n = 1, 'H reconcile no duplica');
+
+  -- Availability como asesor: 08:00 cuenta filas 08:30
+  PERFORM set_config('role', 'authenticated', true);
+  PERFORM set_config('request.jwt.claim.sub', f.asesor_id::text, true);
+  PERFORM set_config('request.jwt.claim.role', 'authenticated', true);
+  v_res := public.agenda_sheet_inventory_availability(
+    'biometricos', DATE '2026-08-05', 'monterrey'
+  );
+  PERFORM public.__sheet_as_service_role();
+  PERFORM public.__sheet_assert((v_res->>'ok')::BOOLEAN IS TRUE, 'H avail ok');
+  SELECT s INTO v_slot
+  FROM jsonb_array_elements(v_res->'slots') s
+  WHERE (s->>'slot_time') LIKE '08:00%';
+  PERFORM public.__sheet_assert(v_slot IS NOT NULL, 'H bucket 08:00 existe');
+  PERFORM public.__sheet_assert((v_slot->>'available')::INTEGER = 2, 'H 08:00 available=2');
+  PERFORM public.__sheet_assert(
+    (v_slot->>'sheet_slot_time') LIKE '08:30%',
+    'H sheet_slot_time en response'
+  );
+  SELECT s INTO v_slot
+  FROM jsonb_array_elements(v_res->'slots') s
+  WHERE (s->>'slot_time') LIKE '10:00%';
+  PERFORM public.__sheet_assert((v_slot->>'available')::INTEGER = 1, 'H 10:00 intacto');
+
+  -- Claim booking 08:00 → fila física 08:30
+  INSERT INTO public.agenda_bookings (
+    organization_id, kind, expediente_id, booking_date, booking_time,
+    location_id, status, note, created_by
+  ) VALUES (
+    f.org_id, 'biometricos', v_exp, DATE '2026-08-05', TIME '08:00',
+    'monterrey', 'booked', 'alias-0800-claim', f.asesor_id
+  ) RETURNING id INTO v_bid;
+
+  SELECT status, sheet_slot_time INTO v_inv_status, v_sheet_slot
+  FROM public.agenda_sheet_slot_inventory
+  WHERE booking_id = v_bid;
+  PERFORM public.__sheet_assert(v_inv_status = 'claimed', 'H claim status');
+  PERFORM public.__sheet_assert(v_sheet_slot = TIME '08:30', 'H claim sheet 08:30');
+  PERFORM public.__sheet_assert(
+    (SELECT booking_time FROM public.agenda_bookings WHERE id = v_bid) = TIME '08:00',
+    'H booking permanece 08:00'
+  );
+
+  -- Availability resta un lugar
+  PERFORM set_config('role', 'authenticated', true);
+  PERFORM set_config('request.jwt.claim.sub', f.asesor_id::text, true);
+  v_res := public.agenda_sheet_inventory_availability(
+    'biometricos', DATE '2026-08-05', 'monterrey'
+  );
+  PERFORM public.__sheet_as_service_role();
+  SELECT (s->>'available')::INTEGER INTO v_avail
+  FROM jsonb_array_elements(v_res->'slots') s
+  WHERE (s->>'slot_time') LIKE '08:00%';
+  PERFORM public.__sheet_assert(v_avail = 1, 'H occupied resta lugar');
+
+  -- Apodaca 08:00 también cuenta fila 08:30
+  PERFORM set_config('role', 'authenticated', true);
+  PERFORM set_config('request.jwt.claim.sub', f.asesor_id::text, true);
+  v_res := public.agenda_sheet_inventory_availability(
+    'biometricos', DATE '2026-08-05', 'apodaca'
+  );
+  PERFORM public.__sheet_as_service_role();
+  SELECT (s->>'available')::INTEGER INTO v_avail
+  FROM jsonb_array_elements(v_res->'slots') s
+  WHERE (s->>'slot_time') LIKE '08:00%';
+  PERFORM public.__sheet_assert(v_avail = 1, 'H apodaca 08:00=1');
+
+  -- Cancel libera inventario lógico 08:00
+  UPDATE public.agenda_bookings
+  SET status = 'cancelled', cancelled_at = NOW()
+  WHERE id = v_bid;
+  SELECT COUNT(*) FILTER (WHERE status = 'available') INTO v_n
+  FROM public.agenda_sheet_slot_inventory
+  WHERE spreadsheet_id = f.sheet_ss
+    AND sheet_id = 90508
+    AND booking_date = DATE '2026-08-05'
+    AND location_id = 'monterrey'
+    AND slot_time = TIME '08:00';
+  PERFORM public.__sheet_assert(v_n = 2, 'H cancel libera 08:00');
+
+  -- Alias desactivado deja de resolver
+  UPDATE public.agenda_sheet_time_aliases
+  SET active = FALSE
+  WHERE organization_id = f.org_id
+    AND location_id = 'monterrey'
+    AND kind = 'biometricos'
+    AND logical_start_time = TIME '08:00';
+  PERFORM public.__sheet_assert(
+    public.agenda_sheet_resolve_logical_time(
+      f.org_id, 'monterrey', 'biometricos', TIME '08:30'
+    ) = TIME '08:30',
+    'H alias off → identidad'
+  );
+  UPDATE public.agenda_sheet_time_aliases
+  SET active = TRUE
+  WHERE organization_id = f.org_id
+    AND location_id = 'monterrey'
+    AND kind = 'biometricos'
+    AND logical_start_time = TIME '08:00';
+
+  -- authenticated no puede desactivar
+  PERFORM set_config('role', 'authenticated', true);
+  PERFORM set_config('request.jwt.claim.role', 'authenticated', true);
+  BEGIN
+    UPDATE public.agenda_sheet_time_aliases SET active = FALSE WHERE FALSE;
+    -- intento directo sin privilegio
+    UPDATE public.agenda_sheet_time_aliases
+    SET active = FALSE
+    WHERE organization_id = f.org_id AND location_id = 'monterrey' AND kind = 'biometricos';
+    GET DIAGNOSTICS v_n = ROW_COUNT;
+    v_fail := (v_n = 0);
+  EXCEPTION WHEN insufficient_privilege OR OTHERS THEN
+    v_fail := true;
+  END;
+  PERFORM public.__sheet_as_service_role();
+  PERFORM public.__sheet_assert(v_fail, 'H auth no muta aliases');
+
+  -- Org futura sin filas en aliases: hereda defaults globales
+  INSERT INTO public.organizations (id, slug, name)
+  VALUES (
+    '00000000-0000-4000-8000-00000000f137',
+    'org-alias-future-137',
+    'Org futura alias 137'
+  ) ON CONFLICT (id) DO NOTHING;
+  PERFORM public.__sheet_assert(
+    public.agenda_sheet_resolve_logical_time(
+      '00000000-0000-4000-8000-00000000f137',
+      'monterrey', 'biometricos', TIME '08:30'
+    ) = TIME '08:00',
+    'H org futura hereda default MTY'
+  );
+  PERFORM public.__sheet_assert(
+    public.agenda_sheet_resolve_logical_time(
+      '00000000-0000-4000-8000-00000000f137',
+      'apodaca', 'biometricos', TIME '08:30'
+    ) = TIME '08:00',
+    'H org futura hereda default APO'
+  );
+  PERFORM public.__sheet_assert(
+    public.agenda_sheet_resolve_logical_time(
+      '00000000-0000-4000-8000-00000000f137',
+      'monterrey', 'firmas', TIME '08:30'
+    ) = TIME '08:30',
+    'H org futura firmas sin default'
+  );
+  -- Override de otra org no afecta
+  PERFORM public.__sheet_assert(
+    public.agenda_sheet_resolve_logical_time(
+      '00000000-0000-4000-8000-00000000f137',
+      'monterrey', 'biometricos', TIME '08:30'
+    ) = TIME '08:00',
+    'H defaults independientes de override f.org'
+  );
+
+  -- Anti-colisión: dos logicals → mismo sheet físico (doble conteo) bloqueado
+  BEGIN
+    INSERT INTO public.agenda_sheet_time_aliases (
+      organization_id, location_id, kind, logical_start_time, sheet_start_time, active
+    ) VALUES (
+      f.org_id, 'monterrey', 'biometricos', TIME '08:15', TIME '08:30', TRUE
+    );
+    v_fail := false;
+  EXCEPTION WHEN unique_violation THEN
+    v_fail := true;
+  END;
+  PERFORM public.__sheet_assert(v_fail, 'H bloquea 08:15→08:30 si ya existe 08:00→08:30');
+
+  -- Anti-colisión: un logical → dos sheet físicos bloqueado
+  BEGIN
+    INSERT INTO public.agenda_sheet_time_aliases (
+      organization_id, location_id, kind, logical_start_time, sheet_start_time, active
+    ) VALUES (
+      f.org_id, 'monterrey', 'biometricos', TIME '08:00', TIME '08:45', TRUE
+    );
+    v_fail := false;
+  EXCEPTION WHEN unique_violation THEN
+    v_fail := true;
+  END;
+  PERFORM public.__sheet_assert(v_fail, 'H bloquea segundo físico para logical 08:00');
+
+  -- Defaults: mismo sheet físico dos veces bloqueado
+  BEGIN
+    INSERT INTO public.agenda_sheet_time_alias_defaults (
+      location_id, kind, logical_start_time, sheet_start_time, active
+    ) VALUES (
+      'monterrey', 'biometricos', TIME '08:15', TIME '08:30', TRUE
+    );
+    v_fail := false;
+  EXCEPTION WHEN unique_violation THEN
+    v_fail := true;
+  END;
+  PERFORM public.__sheet_assert(v_fail, 'H defaults bloquea sheet físico duplicado');
+
+  RAISE NOTICE 'H mig137 time aliases OK';
+END;
+$$;
+
 DROP FUNCTION IF EXISTS public.__sheet_assert(BOOLEAN, TEXT);
 DROP FUNCTION IF EXISTS public.__sheet_set_jwt_role(TEXT);
 DROP FUNCTION IF EXISTS public.__sheet_reset_auth();

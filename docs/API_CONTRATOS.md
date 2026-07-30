@@ -395,6 +395,7 @@ Supabase `agenda_bookings`. Sheets no inserta filas directas; toda reserva Sheet
 - CRM: `(organization_id, kind, booking_date, booking_time, location_id)` + capacity (sin `slot_id`).
 - Sheet: misma clave + `slot_ordinal` (fila N de esa hora) en `agenda_sheet_slot_links`.
 - **Cupo real (mig. 131):** una fila física del Sheet = una fila en `agenda_sheet_slot_inventory`. Obligatorio desde `2026-07-30` inclusive. Inventario stale si `MAX(observed_at)` por org+fecha es NULL o menor que `NOW() - 6 hours`. Asserts biométricos/firmas + claim `FOR UPDATE SKIP LOCKED` bloquean con `SIN_CUPO_REAL_EN_SHEET` si no hay fila `available` fresca. **Cron (mig. 132):** `agenda-sheet-reconcile-every-15m` refresca inventario vía Edge `agenda-sheet-reconcile` (Vault `agenda_sheet_project_url` + `agenda_sheet_worker_secret`).
+- **Alias horario (mig. 137):** `agenda_sheet_time_alias_defaults` (globales por `location_id`/`kind`) + `agenda_sheet_time_aliases` (override por org). Seed defaults: biometricos monterrey/apodaca `08:30`⇄`08:00`. Resolve: override org (activo→traduce; inactive→identidad) luego default. Inventario: `slot_time` = lógico; `sheet_slot_time` = A física. Identidad física canónica en `slot_key`: `kind|date|logical|location|sheet=HH:mm|sheetId=N|row=N`. Worker/webhook escriben solo B:D + O:U (`values.batchUpdate`); A read-only. Firmas/otros horarios sin alias. `anon`/`authenticated` no mutan aliases/defaults.
 
 ### RPCs internas
 - `agenda_sheet_book_by_nss(...)` — reserva atómica + mapping + `action_log` `agenda.sheet.book`
@@ -403,8 +404,9 @@ Supabase `agenda_bookings`. Sheets no inserta filas directas; toda reserva Sheet
 - `agenda_sheet_enqueue_cancel_cleanup(p_booking_id)` — encola `booking_cancelled_cleanup` idempotente para booking **cancelled** con evidencia CRM (`service_role`); no UPDATE de outbox histórico done; no muta bookings
 - `agenda_sheet_mark_cancelled_cleared(p_booking_id)` — soft-delete `slot_links` + libera inventario tras limpieza Sheet
 - `agenda_sheet_upsert_link_from_crm` — mapping tras escritura Sheet
-- `agenda_sheet_inventory_availability(p_kind, p_date, p_location_id)` — read-model cupo real (`authenticated`); si enforced y not fresh → `{ ok:true, fresh:false, slots:[] }`
-- `agenda_sheet_inventory_upsert_batch(p_rows)` / `mark_linked` / `mark_conflict` — `service_role` only (anti-steal: no degradar claimed/linked con `booking_id`; **`sheet_title` exacto sin `btrim`** — pestañas tipo `03 AGOSTO `)
+- `agenda_sheet_inventory_availability(p_kind, p_date, p_location_id)` — read-model cupo real (`authenticated`); si enforced y not fresh → `{ ok:true, fresh:false, slots:[] }`; buckets por `slot_time` lógico (+ `sheet_slot_time` informativo)
+- `agenda_sheet_inventory_upsert_batch(p_rows)` / `mark_linked` / `mark_conflict` — `service_role` only (anti-steal: no degradar claimed/linked con `booking_id`; **`sheet_title` exacto sin `btrim`** — pestañas tipo `03 AGOSTO `; persiste `sheet_slot_time`)
+- `agenda_sheet_list_time_aliases` / `agenda_sheet_resolve_logical_time` / `agenda_sheet_resolve_sheet_time` — `service_role` (mig. 137)
 
 ### Outbox
 Trigger en `agenda_bookings` → `agenda_sheet_sync_outbox` (`booking_created|updated|cancelled|rescheduled`). Fallo Google no revierte booking. Máx 5 intentos. Payload incluye `sheet_id`, `sheet_title`, `sheet_row`, `inventory_id` si hay fila de inventario reclamada. Claim inventario (`agenda_sheet_inventory_claim_ai`) corre antes que outbox alfabéticamente.

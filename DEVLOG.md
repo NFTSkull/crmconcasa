@@ -1,3 +1,13 @@
+## 2026-07-30 - Alias 08:00⇄08:30: A read-only + keys + defaults
+
+Correcciones pre-commit: (1) worker/webhook `booking_created` solo `batchUpdateValues` B:D+O:U — A estructura read-only con verify A/E:N intactos; (2) identidad física canónica única `…|sheet=HH:mm|sheetId=N|row=N` compartida reconcile/worker/webhook + parse de legado ordinal; (3) `agenda_sheet_time_alias_defaults` globales por location slug — orgs nuevas heredan sin seed; override org inactive suprime default; (4) UNIQUE logical y UNIQUE sheet en aliases/defaults (bloquea 08:00→08:30 + 08:15→08:30 = doble conteo). Runner SQL selecciona contenedor por puerto 54322. Sin Cloud hasta merge.
+
+## 2026-07-30 - Alias horario CRM 08:00 ⇄ Sheet 08:30 (bio MTY/APO)
+
+## 2026-07-30 - Alias horario CRM 08:00 ⇄ Sheet 08:30 (bio MTY/APO)
+
+Incidente 05 AGOSTO Monterrey biométricos: CRM ofrecía 08:00 pero Sheet físico solo tenía filas A=`08:30` → inventario 0 en 08:00 / 8 available en 08:30. Negocio exige UI/booking `08:00` sin editar plantillas Sheet. Decisión: modelo de dos horas (`logical_start_time` / `sheet_start_time`) vía tabla `agenda_sheet_time_aliases` (mig. 137) + columna inventario `sheet_slot_time`. Alcance verificado: solo `biometricos` + monterrey/apodaca. Firmas ya alinean 08:30↔08:30. Sin backfill de bookings históricos; próximo reconcile regenera inventario futuro. Sin commit/Cloud hasta reporte pre-Cloud.
+
 ## 2026-07-30 - Hotfix: falso row_reused por sync_version stale
 
 Tras desplegar v18, cleanup marcaba `done` sin limpiar: `slot_links.sync_version=1` vs Sheet `U=2` (escrito al poner CANCELADA) → falso `row_reused`. Fix: carrera solo por P distinto; no comparar U contra link. Redeploy worker; requeue Ulises/Noé; Eleazar cleared vía batchClear equivalente.

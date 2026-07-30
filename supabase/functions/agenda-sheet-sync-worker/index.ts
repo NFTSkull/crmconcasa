@@ -10,9 +10,9 @@ import {
 } from "../_shared/agenda-sheets/parsers.ts";
 import {
   COL_INDEX,
+  a1BdRange,
   a1FullReadRange,
   a1TechRange,
-  a1VisibleRange,
   assertTechColumnsWritable,
   buildTechWriteRow,
 } from "../_shared/agenda-sheets/tech-columns.ts";
@@ -28,6 +28,11 @@ import {
   parseTabMapJson,
   resolveSheetTabForDate,
 } from "../_shared/agenda-sheets/resolve-tab.ts";
+import {
+  buildPhysicalSheetRowKey,
+  resolveSheetStartTime,
+  type AgendaSheetTimeAlias,
+} from "../_shared/agenda-sheets/time-aliases.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 Deno.serve(async (req) => {
@@ -181,6 +186,19 @@ Deno.serve(async (req) => {
       serviceAccountEmail: email,
       privateKeyPem: pk,
     });
+
+    let timeAliases: AgendaSheetTimeAlias[] = [];
+    try {
+      const { data: aliasJson } = await supabase.rpc(
+        "agenda_sheet_list_time_aliases",
+        { p_organization_id: null },
+      );
+      if (Array.isArray(aliasJson)) {
+        timeAliases = aliasJson as AgendaSheetTimeAlias[];
+      }
+    } catch {
+      timeAliases = [];
+    }
 
     /** Título exacto de Google por sheetId (conserva trailing spaces). */
     const resolveLiveTitle = async (
@@ -407,7 +425,7 @@ Deno.serve(async (req) => {
           const { data: invByBooking } = await supabase
             .from("agenda_sheet_slot_inventory")
             .select(
-              "id,sheet_row,sheet_title,sheet_id,slot_key,slot_time,status,sheet_date,location_id,kind",
+              "id,sheet_row,sheet_title,sheet_id,slot_key,slot_time,sheet_slot_time,status,sheet_date,location_id,kind",
             )
             .eq("booking_id", bookingId)
             .limit(5);
@@ -467,6 +485,7 @@ Deno.serve(async (req) => {
           let tabTitle = String(payload.sheet_title ?? "");
           let tabSheetId = Number(payload.sheet_id ?? 0);
           let slotKeyFromInv = "";
+          let sheetSlotTimeFromInv: string | null = null;
           const ordinal = 1;
 
           if (!Number.isFinite(targetRow) || targetRow <= 0 || !tabTitle) {
@@ -476,11 +495,14 @@ Deno.serve(async (req) => {
               tabTitle = String(inv.sheet_title ?? "");
               tabSheetId = Number(inv.sheet_id ?? 0);
               slotKeyFromInv = String(inv.slot_key ?? "");
+              if (inv.sheet_slot_time != null) {
+                sheetSlotTimeFromInv = String(inv.sheet_slot_time).slice(0, 5);
+              }
             } else {
               const { data: invRows } = await supabase
                 .from("agenda_sheet_slot_inventory")
                 .select(
-                  "sheet_row,sheet_title,sheet_id,slot_key,slot_time",
+                  "sheet_row,sheet_title,sheet_id,slot_key,slot_time,sheet_slot_time",
                 )
                 .eq("booking_id", bookingId)
                 .in("status", ["claimed", "linked"])
@@ -491,18 +513,22 @@ Deno.serve(async (req) => {
                 tabTitle = String(inv2.sheet_title ?? "");
                 tabSheetId = Number(inv2.sheet_id ?? 0);
                 slotKeyFromInv = String(inv2.slot_key ?? "");
+                if (inv2.sheet_slot_time != null) {
+                  sheetSlotTimeFromInv = String(inv2.sheet_slot_time).slice(0, 5);
+                }
               }
             }
           } else if (payload.inventory_id) {
             const { data: invOne } = await supabase
               .from("agenda_sheet_slot_inventory")
-              .select("slot_key,sheet_id,sheet_title")
+              .select("slot_key,sheet_id,sheet_title,sheet_slot_time")
               .eq("id", payload.inventory_id)
               .maybeSingle();
             const invOneRec = invOne as {
               slot_key?: string;
               sheet_id?: number;
               sheet_title?: string;
+              sheet_slot_time?: string;
             } | null;
             slotKeyFromInv = String(invOneRec?.slot_key ?? "");
             if (!tabSheetId && invOneRec?.sheet_id) {
@@ -510,6 +536,9 @@ Deno.serve(async (req) => {
             }
             if (!tabTitle && invOneRec?.sheet_title) {
               tabTitle = String(invOneRec.sheet_title);
+            }
+            if (invOneRec?.sheet_slot_time != null) {
+              sheetSlotTimeFromInv = String(invOneRec.sheet_slot_time).slice(0, 5);
             }
           }
 
@@ -596,7 +625,16 @@ Deno.serve(async (req) => {
             continue;
           }
           const horaCell = parseTime(String(fr[COL_INDEX.hora] ?? ""));
-          if (horaCell && horaCell !== time) {
+          const expectedSheetTime =
+            parseTime(sheetSlotTimeFromInv ?? "") ??
+            resolveSheetStartTime({
+              aliases: timeAliases,
+              locationId,
+              kind,
+              logicalStartTime: time,
+            });
+          // A debe coincidir con hora física Sheet (p.ej. 08:30), no con CRM lógico.
+          if (horaCell && expectedSheetTime && horaCell !== expectedSheetTime) {
             await supabase.rpc("agenda_sheet_mark_outbox", {
               p_id: ev.id,
               p_status: "failed",
@@ -668,7 +706,10 @@ Deno.serve(async (req) => {
             .eq("id", (exp as { asesor_id?: string } | null)?.asesor_id ?? "")
             .maybeSingle();
 
-          const horaKeep = String(fr[COL_INDEX.hora] ?? "");
+          const horaSnapshot = String(fr[COL_INDEX.hora] ?? "");
+          const preserveEN = Array.from({ length: 10 }, (_, i) =>
+            String(fr[4 + i] ?? ""),
+          );
           const expectedNss = String((exp as { nss?: string } | null)?.nss ?? "").trim();
           const expectedName = String(
             (exp as { cliente_nombre?: string } | null)?.cliente_nombre ?? "",
@@ -680,29 +721,42 @@ Deno.serve(async (req) => {
           ).trim();
           const slotKey =
             slotKeyFromInv ||
-            `${kind}|${date}|${time}|${locationId}|${ordinal}`;
-          // Solo A:D + O:U. Nunca H:N / E:N.
-          await adapter.updateValues(a1VisibleRange(tab.title, targetRow), [[
-            horaKeep,
-            expectedNss,
-            expectedName,
-            expectedAdvisor,
-          ]]);
-          await adapter.updateValues(a1TechRange(tab.title, targetRow), [buildTechWriteRow({
-            estado: "SINCRONIZADO",
-            bookingId,
-            expedienteId: String(payload.expediente_id ?? ""),
-            slotKey,
-            syncSource: "crm",
-            syncUpdatedAt: new Date().toISOString(),
-            syncVersion: 1,
-          })]);
+            buildPhysicalSheetRowKey({
+              kind,
+              bookingDate: date,
+              logicalStartTime: time,
+              sheetStartTime: expectedSheetTime || time,
+              locationId,
+              sheetId: tab.sheetId,
+              rowNumber: targetRow,
+            });
+          // A es read-only (estructura Sheet). Solo B:D + O:U vía batchUpdate.
+          await adapter.batchUpdateValues([
+            {
+              range: a1BdRange(tab.title, targetRow),
+              values: [[expectedNss, expectedName, expectedAdvisor]],
+            },
+            {
+              range: a1TechRange(tab.title, targetRow),
+              values: [buildTechWriteRow({
+                estado: "SINCRONIZADO",
+                bookingId,
+                expedienteId: String(payload.expediente_id ?? ""),
+                slotKey,
+                syncSource: "crm",
+                syncUpdatedAt: new Date().toISOString(),
+                syncVersion: 1,
+              })],
+            },
+          ]);
 
-          // Confirmación real: no marcar done si el Sheet no refleja A:D + O:U.
+          // Confirmación: A/E:N intactos; B:D + O:U reflejan la cita.
           const verify = await adapter.getValues(
             a1FullReadRange(tab.title, targetRow),
           );
           const vr = verify[0] ?? [];
+          const aOk = String(vr[COL_INDEX.hora] ?? "") === horaSnapshot;
+          const enOk = preserveEN.every((v, i) => String(vr[4 + i] ?? "") === v);
           const nssOk = String(vr[COL_INDEX.nss] ?? "").trim() === expectedNss;
           const nameOk =
             String(vr[COL_INDEX.nombre] ?? "").trim() === expectedName;
@@ -711,11 +765,15 @@ Deno.serve(async (req) => {
           const sourceOk =
             String(vr[COL_INDEX.syncSource] ?? "").trim().toLowerCase() ===
               "crm";
-          if (!nssOk || !nameOk || !bookingOk || !sourceOk) {
+          if (!aOk || !enOk || !nssOk || !nameOk || !bookingOk || !sourceOk) {
             await supabase.rpc("agenda_sheet_mark_outbox", {
               p_id: ev.id,
               p_status: "failed",
-              p_error: "write_verify_failed",
+              p_error: !aOk
+                ? "write_verify_failed:col_a_mutated"
+                : !enOk
+                ? "write_verify_failed:en_mutated"
+                : "write_verify_failed",
             });
             failed++;
             continue;

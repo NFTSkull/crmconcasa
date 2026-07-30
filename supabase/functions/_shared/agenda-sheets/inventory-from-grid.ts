@@ -3,6 +3,11 @@
  * desde una grilla A:U (mirror de src/domain/agenda-sheets/sheet-inventory.ts).
  */
 import { parseSection, parseTime } from "./parsers.ts";
+import {
+  buildPhysicalSheetRowKey,
+  resolveLogicalStartTime,
+  type AgendaSheetTimeAlias,
+} from "./time-aliases.ts";
 
 const NO_HAY_CITAS_RE = /^NO\s+HAY\s+CITAS\b/i;
 const UUID_RE =
@@ -25,7 +30,10 @@ export type InventoryUpsertRow = {
   sheet_row: number;
   kind: string;
   location_id: string;
+  /** Horario lógico CRM. */
   slot_time: string;
+  /** Horario físico columna A. */
+  sheet_slot_time: string;
   slot_key: string;
   status: string;
   visible_nss: string | null;
@@ -50,6 +58,7 @@ export function buildInventoryUpsertRows(params: {
   sheetTitle: string;
   bookingDate: string;
   grid: string[][];
+  timeAliases?: readonly AgendaSheetTimeAlias[];
 }): { rows: InventoryUpsertRow[]; issues: InventoryParseIssue[] } {
   const {
     organizationId,
@@ -59,10 +68,10 @@ export function buildInventoryUpsertRows(params: {
     bookingDate,
     grid,
   } = params;
+  const aliases = params.timeAliases ?? [];
   const rows: InventoryUpsertRow[] = [];
   const issues: InventoryParseIssue[] = [];
   let section: { sede: string; kind: string } | null = null;
-  let ordinal = 0;
   let awaitingHeader = false;
 
   for (let i = 0; i < grid.length; i++) {
@@ -75,7 +84,6 @@ export function buildInventoryUpsertRows(params: {
     }
     if (NO_HAY_CITAS_RE.test(a)) {
       if (section) {
-        ordinal += 1;
         rows.push({
           organization_id: organizationId,
           spreadsheet_id: spreadsheetId,
@@ -86,7 +94,8 @@ export function buildInventoryUpsertRows(params: {
           kind: section.kind,
           location_id: section.sede,
           slot_time: "00:00:00",
-          slot_key: `${section.kind}|${bookingDate}|disabled|${section.sede}|${ordinal}`,
+          sheet_slot_time: "00:00:00",
+          slot_key: `${section.kind}|${bookingDate}|disabled|${section.sede}|sheetId=${sheetId}|row=${sheetRow}`,
           status: "disabled",
           visible_nss: null,
           visible_name: null,
@@ -101,7 +110,6 @@ export function buildInventoryUpsertRows(params: {
     const sec = parseSection(a);
     if (sec) {
       section = sec;
-      ordinal = 0;
       awaitingHeader = false;
       continue;
     }
@@ -116,7 +124,13 @@ export function buildInventoryUpsertRows(params: {
       awaitingHeader = false;
       continue;
     }
-    ordinal += 1;
+    const sheetSlot = t;
+    const logical = resolveLogicalStartTime({
+      aliases,
+      locationId: section.sede,
+      kind: section.kind,
+      sheetStartTime: sheetSlot,
+    });
     const nss = cell(row, 1);
     const name = cell(row, 2);
     const advisor = cell(row, 3);
@@ -148,8 +162,17 @@ export function buildInventoryUpsertRows(params: {
       sheet_row: sheetRow,
       kind: section.kind,
       location_id: section.sede,
-      slot_time: `${t}:00`,
-      slot_key: `${section.kind}|${bookingDate}|${t}|${section.sede}|${ordinal}`,
+      slot_time: `${logical}:00`,
+      sheet_slot_time: `${sheetSlot}:00`,
+      slot_key: buildPhysicalSheetRowKey({
+        kind: section.kind,
+        bookingDate,
+        logicalStartTime: logical,
+        sheetStartTime: sheetSlot,
+        locationId: section.sede,
+        sheetId,
+        rowNumber: sheetRow,
+      }),
       status,
       visible_nss: cancelledMeta ? null : nss || null,
       visible_name: cancelledMeta ? null : name || null,
