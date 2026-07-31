@@ -131,8 +131,12 @@ BEGIN
     'retencion toca firma_agendable_desde'
   );
   PERFORM public.__p132_acuse_assert(
-    position('add_business_days_monterrey' in v_src) > 0,
-    'retencion usa add_business_days_monterrey'
+    position('v_firma_desde := v_fecha_local' in v_src) > 0,
+    'retencion fija firma_agendable_desde = hoy Monterrey'
+  );
+  PERFORM public.__p132_acuse_assert(
+    position('add_business_days_monterrey(v_fecha_local, 5)' in v_src) = 0,
+    'retencion ya no usa +5 días hábiles'
   );
   PERFORM public.__p132_acuse_assert(
     position('''8_9_acuse''' in v_src) > 0,

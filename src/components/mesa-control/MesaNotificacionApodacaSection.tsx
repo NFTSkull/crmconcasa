@@ -51,7 +51,7 @@ function findApodaca(list: ExpedienteArchivoListItem[]) {
 }
 
 /**
- * P136: Mesa puede cargar/reemplazar/eliminar Notificación Apodaca.
+ * P136: Mesa puede cargar/reemplazar/eliminar Notificación (`cliente_notificacion_apodaca`).
  * Distinto de cliente_notificacion y de agenda kind=notificacion.
  */
 export function MesaNotificacionApodacaSection({
@@ -93,7 +93,7 @@ export function MesaNotificacionApodacaSection({
       setLoadError(
         err instanceof ExpedienteArchivosSupabaseError
           ? err.message
-          : "No se pudo cargar la Notificación Apodaca.",
+          : "No se pudo cargar la Notificación.",
       );
     } finally {
       setLoading(false);
@@ -158,8 +158,8 @@ export function MesaNotificacionApodacaSection({
       }
       setSuccessMsg(
         dialogMode === "replace"
-          ? "Notificación Apodaca reemplazada correctamente."
-          : "Notificación Apodaca cargada correctamente.",
+          ? "Notificación reemplazada correctamente."
+          : "Notificación cargada correctamente.",
       );
       setDialogOpen(false);
       setSelectedFile(null);
@@ -170,7 +170,7 @@ export function MesaNotificacionApodacaSection({
       setWriteError(
         err instanceof ExpedienteArchivosSupabaseError
           ? err.message
-          : "No se pudo registrar la Notificación Apodaca. Intenta de nuevo.",
+          : "No se pudo registrar la Notificación. Intenta de nuevo.",
       );
     } finally {
       savingLockRef.current = false;
@@ -197,14 +197,14 @@ export function MesaNotificacionApodacaSection({
       });
       setDeleteOpen(false);
       setDocumento(null);
-      setSuccessMsg("Notificación Apodaca eliminada correctamente.");
+      setSuccessMsg("Notificación eliminada correctamente.");
       closePreview();
       await loadDoc();
     } catch (err) {
       setDeleteError(
         err instanceof ExpedienteArchivosSupabaseError
           ? err.message
-          : "No se pudo eliminar la Notificación Apodaca. Intenta de nuevo.",
+          : "No se pudo eliminar la Notificación. Intenta de nuevo.",
       );
     } finally {
       deleteLockRef.current = false;
@@ -264,7 +264,7 @@ export function MesaNotificacionApodacaSection({
   };
 
   return (
-    <section aria-label="Notificación Apodaca" className="space-y-3 px-2 py-2 sm:px-3">
+    <section aria-label="Notificación" className="space-y-3 px-2 py-2 sm:px-3">
       <div className="flex flex-wrap items-center gap-2">
         <h3 className="text-sm font-semibold text-gray-900">
           {CLIENTE_NOTIFICACION_APODACA_DOCUMENT_CONTRACT.label}
@@ -295,7 +295,7 @@ export function MesaNotificacionApodacaSection({
       ) : null}
 
       {!loading && !documento ? (
-        <p className="text-sm text-gray-600">Notificación Apodaca pendiente de carga.</p>
+        <p className="text-sm text-gray-600">Notificación pendiente de carga.</p>
       ) : null}
 
       {!loading && documento ? (
@@ -365,7 +365,7 @@ export function MesaNotificacionApodacaSection({
               busy={saving || deleting}
               disabled={!writeEnabled || saving || deleting}
               selectedFileName={selectedFile?.name ?? null}
-              aria-label={documento ? "Reemplazar Notificación Apodaca" : "Subir Notificación Apodaca"}
+              aria-label={documento ? "Reemplazar Notificación" : "Subir Notificación"}
               onFiles={(files) => {
                 const file = files[0];
                 if (file) applySelectedFile(file);
@@ -393,7 +393,7 @@ export function MesaNotificacionApodacaSection({
           saving={saving}
           progressLabel={progressLabel}
           error={writeError}
-          documentLabel="Notificación Apodaca"
+          documentLabel="Notificación"
           onClose={closeDialog}
           onConfirm={() => void handleConfirmUpload()}
         />
@@ -401,7 +401,7 @@ export function MesaNotificacionApodacaSection({
 
       <MesaDocumentoEliminarDialog
         open={deleteOpen}
-        label="Notificación Apodaca"
+        label="Notificación"
         deleting={deleting}
         error={deleteError}
         onClose={() => {

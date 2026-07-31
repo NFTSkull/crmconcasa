@@ -1,3 +1,7 @@
+## 2026-07-31 - Label UI «Notificación» + docs Mesa RO + firmas sin +5
+
+Label visible del tipo `cliente_notificacion_apodaca` → «Notificación» (badge Opcional; sin «Apodaca» en el nombre). Visibilidad upload: sede canónica Apodaca + etapa 8. Sección asesor docs Mesa RO. Mig 139: firma_agendable_desde = hoy + label helper SQL.
+
 ## 2026-07-31 - Acuse: etiqueta visible + confirmación MIME
 
 Documento de retención opción A: tipo interno `retencion_acuse_con_sello` (no existe `acuse_apodaca`). Label UI/catálogo → «Acuse» / «Retención · Acuse»; aria Subir/Reemplazar Acuse. Allowlist P117 ya acepta PDF/JPEG/PNG en FE y `expediente_documento_mime_permitido`; no se añade WEBP sin migración. Preview imagen ya cubre JPEG/PNG. Gate `register_expediente_documento_retencion` 8→9 + `firma_agendable_desde` sin cambios. Sin Cloud/commit hasta aprobación.

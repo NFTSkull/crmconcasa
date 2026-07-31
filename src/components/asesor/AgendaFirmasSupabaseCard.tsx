@@ -160,6 +160,7 @@ export function AgendaFirmasSupabaseCard({
 
   const pickerMinDate = useMemo(() => {
     const tz = config?.timezone ?? "America/Monterrey";
+    // Tras quitar el mínimo de 5 hábiles: hoy, o firma_agendable_desde si aún fuera futura (Cloud viejo).
     return maxYmdDate(todayYmdInTimezone(tz), firmaAgendableDesde);
   }, [config?.timezone, firmaAgendableDesde]);
 
@@ -170,15 +171,20 @@ export function AgendaFirmasSupabaseCard({
     return `${m[3]}/${m[2]}/${m[1]}`;
   }, [firmaAgendableDesde]);
 
-  const firmaAgendableBanner =
-    firmaAgendableDesdeLabel != null ? (
+  const firmaAgendableBanner = useMemo(() => {
+    const tz = config?.timezone ?? "America/Monterrey";
+    const today = todayYmdInTimezone(tz);
+    const minYmd = String(firmaAgendableDesde ?? "").trim().slice(0, 10);
+    if (!firmaAgendableDesdeLabel || !minYmd || minYmd <= today) return null;
+    return (
       <div
         role="status"
         className="mt-3 rounded-md border border-sky-200 bg-sky-50 px-3 py-2 text-xs text-sky-950"
       >
         Podrás agendar la firma a partir del {firmaAgendableDesdeLabel}.
       </div>
-    ) : null;
+    );
+  }, [config?.timezone, firmaAgendableDesde, firmaAgendableDesdeLabel]);
 
   const showAcusePendienteAviso =
     acusePendienteSubir && typeof etapaActual === "number" && etapaActual >= 9;

@@ -38,22 +38,22 @@ export const INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD = [
   ...INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES,
 ] as const;
 
-/** P104/P136: tipo técnico Notificación solo Apodaca (asesor + Mesa upload/reemplazo/eliminar). */
+/** P104/P136: tipo técnico `cliente_notificacion_apodaca` (asesor + Mesa upload/reemplazo/eliminar). */
 export const CLIENTE_NOTIFICACION_APODACA_DOCUMENT_TIPO =
   "cliente_notificacion_apodaca" as const;
 
 export type ClienteNotificacionApodacaDocumentTipo =
   typeof CLIENTE_NOTIFICACION_APODACA_DOCUMENT_TIPO;
 
-/** Contrato Notificación Apodaca (PDF ≤15 MiB; sin etapa mínima; no gate). */
+/** Contrato Notificación (tipo interno apodaca; PDF ≤15 MiB; upload Apodaca+etapa 8; no gate). */
 export const CLIENTE_NOTIFICACION_APODACA_DOCUMENT_CONTRACT = Object.freeze({
   tipo: CLIENTE_NOTIFICACION_APODACA_DOCUMENT_TIPO,
-  label: "Notificación Apodaca",
+  label: "Notificación",
   origen: "Asesor|Mesa" as const,
   formatos: ["PDF"] as const,
   mimePermitidos: ["application/pdf"] as const,
   maxBytes: 15 * 1024 * 1024,
-  etapaMinima: 0,
+  etapaMinima: 8,
   obligatorio: false,
   esGateAvance: false,
 });

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  CLIENTE_NOTIFICACION_APODACA_DOCUMENT_CONTRACT,
   CLIENTE_NOTIFICACION_APODACA_DOCUMENT_TIPO,
   CLIENTE_NOTIFICACION_DOCUMENT_TIPO,
   INTEGRATION_DOC_TIPOS_ASESOR_ENVIO,
@@ -33,12 +34,14 @@ describe("P104 cliente_notificacion_apodaca", () => {
     assert.notEqual(CLIENTE_NOTIFICACION_APODACA_DOCUMENT_TIPO, "notificacion");
   });
 
-  it("catálogo: opcional, label canónico, sin etapa mínima", () => {
+  it("catálogo: opcional, label Notificación, etapa retención 8", () => {
     const item = DOCUMENTO_CATALOGO_MAP.cliente_notificacion_apodaca;
     assert.equal(item.obligatorio, "opcional");
     assert.equal(item.ownerRole, "cliente");
-    assert.equal(item.label, "Notificación solo Apodaca (opcional)");
-    assert.deepEqual(item.etapasRequeridas, []);
+    assert.equal(item.label, "Notificación");
+    assert.doesNotMatch(item.label, /Apodaca/i);
+    assert.deepEqual(item.etapasRequeridas, [8]);
+    assert.equal(CLIENTE_NOTIFICACION_APODACA_DOCUMENT_CONTRACT.label, "Notificación");
   });
 
   it("allowlist asesor opcionales / upload; Mesa register P136; no complementarios UI", () => {
@@ -99,7 +102,8 @@ describe("P104 cliente_notificacion_apodaca", () => {
     );
     assert.ok(item);
     assert.equal(item!.opcional, true);
-    assert.equal(item!.label, "Notificación solo Apodaca (opcional)");
+    assert.equal(item!.label, "Notificación");
+    assert.doesNotMatch(item!.label, /Apodaca/i);
 
     const views = buildMesaIntegrationDocViews(
       [

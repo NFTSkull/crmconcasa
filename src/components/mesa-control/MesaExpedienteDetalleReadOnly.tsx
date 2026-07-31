@@ -1966,7 +1966,7 @@ export function MesaExpedienteDetalleReadOnly() {
 
       <MesaAccordionSection
         id="mesa-notificacion-apodaca"
-        title="Notificación Apodaca"
+        title="Notificación"
         summary="Carga y consulta por Mesa Control (PDF)"
       >
         <MesaNotificacionApodacaSection

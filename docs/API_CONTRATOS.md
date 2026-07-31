@@ -216,11 +216,11 @@ Convenciones:
 - Asesor: `AsesorNotificacionDocumentoSection` upload/reemplazo desde etapa 7.
 - Contrato: `CLIENTE_NOTIFICACION_DOCUMENT_CONTRACT`. Fuera de checklist integración UI; en allowlist upload asesor.
 
-**P132-acuse:** cierre Biometría Mesa `5→8`; Acuse principal en etapa 8 → `8→9` + `firma_agendable_desde` (si NULL); gate firmas SQL intacto; picker/minDate respetan la fecha.
+**P132-acuse:** cierre Biometría Mesa `5→8`; Acuse principal en etapa 8 → `8→9` + `firma_agendable_desde` (si NULL = hoy Monterrey; sin +5 hábiles, mig. 139); gate firmas SQL conserva assert (NULL/hoy permiten); picker/minDate desde hoy sujeto a cupo.
 
 Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 
-### 3quinquies. Notificación solo Apodaca (`cliente_notificacion_apodaca`) — P104
+### 3quinquies. Notificación (`cliente_notificacion_apodaca`) — P104
 
 **Separación:** distinto de `cliente_notificacion` (documento Mesa P092) y de `agenda_bookings.kind='notificacion'` (P070). Nunca reutilizar esos tipos.
 
@@ -237,7 +237,7 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 | Reingreso | sí, alineado a opcionales asesor (`reingreso_documentos_reutilizables`) |
 | Obligatorio | **No** |
 
-**UI:** label `Notificación solo Apodaca (opcional)` en checklist Asesor (`AsesorIntegracionDocsUpload` + DocumentDropzone) y `MesaDocumentosAsesorSection`.
+**UI:** label UI `Notificación` (badge Opcional; tipo interno `cliente_notificacion_apodaca`) en checklist Asesor (`AsesorIntegracionDocsUpload` + DocumentDropzone) **solo** si sede canónica Apodaca (`location_id` de biométricos) y etapa 8; histórico RO si ya hay archivo. También `MesaNotificacionApodacaSection` / `MesaDocumentosAsesorSection`.
 
 ### 3sexies. Evidencia opcional del asesor (`asesor_evidencia`)
 

@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Fixed
+- **Notificación (tipo apodaca) / docs Mesa / firmas sin +5 hábiles:** label UI «Notificación» (sin «Apodaca» en nombre visible); (1) `cliente_notificacion_apodaca` solo upload editable si sede canónica Apodaca (`location_id` de cita biométrica) **y** etapa 8; Monterrey/otras etapas ocultas (histórico RO si ya hay archivo). (2) Sección asesor «Documentos cargados por Mesa» RO para `cliente_constancia_sat`, `cliente_semanas_cotizadas`, `cliente_acta_nacimiento` (preview/descarga; sin reemplazar/eliminar; sin migración RLS — `can_see_expediente` ya cubre propietario). (3) mig. **139**: Acuse 8→9 fija `firma_agendable_desde = hoy` Monterrey (ya no +5 hábiles) + backfill fechas futuras; biométricos/`min_lead_hours` intactos. Sin Cloud/commit hasta aprobación.
+
+### Fixed
 - **fix/acuse-label-and-image-upload:** etiqueta visible del documento `retencion_acuse_con_sello` pasa a **«Acuse»** (antes «Acuse / documento con sello»); tipo interno intacto. Formatos PDF/JPG/PNG ya permitidos (P117) se confirman; mensaje «Sube un archivo PDF, JPG o PNG.»; sin WEBP (allowlist SQL no lo incluye; sin migración). Flujo 8→9 / agendar firmas intacto.
 
 ### Fixed
