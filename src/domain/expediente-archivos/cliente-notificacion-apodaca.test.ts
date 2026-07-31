@@ -34,14 +34,17 @@ describe("P104 cliente_notificacion_apodaca", () => {
     assert.notEqual(CLIENTE_NOTIFICACION_APODACA_DOCUMENT_TIPO, "notificacion");
   });
 
-  it("catálogo: opcional, label Notificación, etapa retención 8", () => {
+  it("catálogo: opcional, label Notificación, cualquier etapa", () => {
     const item = DOCUMENTO_CATALOGO_MAP.cliente_notificacion_apodaca;
     assert.equal(item.obligatorio, "opcional");
     assert.equal(item.ownerRole, "cliente");
     assert.equal(item.label, "Notificación");
     assert.doesNotMatch(item.label, /Apodaca/i);
-    assert.deepEqual(item.etapasRequeridas, [8]);
+    assert.deepEqual(item.etapasRequeridas, []);
     assert.equal(CLIENTE_NOTIFICACION_APODACA_DOCUMENT_CONTRACT.label, "Notificación");
+    assert.equal(CLIENTE_NOTIFICACION_APODACA_DOCUMENT_CONTRACT.etapaMinima, 0);
+    assert.equal(CLIENTE_NOTIFICACION_APODACA_DOCUMENT_CONTRACT.esGateAvance, false);
+    assert.equal(CLIENTE_NOTIFICACION_APODACA_DOCUMENT_CONTRACT.origen, "Asesor|Mesa");
   });
 
   it("allowlist asesor opcionales / upload; Mesa register P136; no complementarios UI", () => {

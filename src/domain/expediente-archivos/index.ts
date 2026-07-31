@@ -166,7 +166,6 @@ export {
 export {
   filterChecklistOpcionalesNotificacionApodaca,
   hasNotificacionApodacaArchivoActivo,
-  NOTIFICACION_APODACA_UPLOAD_ETAPA,
   resolveExpedienteSedeFromLocationId,
   shouldShowNotificacionApodacaHistorico,
   shouldShowNotificacionApodacaUpload,

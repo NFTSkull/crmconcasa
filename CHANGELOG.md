@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Fixed
+- **fix/notificacion-compartida-asesor-mesa:** `cliente_notificacion_apodaca` («Notificación») opcional compartido Asesor dueño + Mesa en **cualquier etapa/sede**. FE sin filtro etapa/sede; mig. **140** quita gate etapa≥7 del tipo apodaca en `register_expediente_documento_pre_reingreso` (conserva gate solo para `cliente_notificacion`). Sin cambio de etapa/Acuse/firmas.
+
+### Fixed
 - **fix/notificacion-todas-las-sedes:** hotfix — `cliente_notificacion_apodaca` («Notificación») upload editable en **etapa 8 para cualquier sede** (Monterrey/Apodaca/otras); se elimina el filtro `resolveCanonicalSedeId === apodaca`. Histórico RO en etapas ≠8; tipo interno, opcionalidad, Acuse/8→9/firmas/docs Mesa intactos. Sin migración SQL.
 
 ### Fixed

@@ -1,3 +1,7 @@
+## 2026-07-31 - Notificación compartida Asesor|Mesa (cualquier etapa)
+
+Contrato: `cliente_notificacion_apodaca` label «Notificación», opcional, sin gate de avance. Asesor dueño y Mesa (roles ya en allowlist) suben/reemplazan en cualquier etapa/sede; una versión activa (FOR UPDATE). Causa previa: FE etapa===8 + SQL pre_reingreso agrupaba apodaca con `cliente_notificacion` (etapa≥7). Mig 140 solo separa el gate.
+
 ## 2026-07-31 - Hotfix: Notificación upload en todas las sedes (etapa 8)
 
 Causa: PR #83 restringió `shouldShowNotificacionApodacaUpload` a `resolveCanonicalSedeId === apodaca && etapa 8`, ocultando el opcional en Monterrey. Contrato correcto: etapa 8 cualquier sede; histórico RO fuera de 8; tipo interno `cliente_notificacion_apodaca` y label «Notificación» intactos. Sin SQL (backend ya no valida sede).
