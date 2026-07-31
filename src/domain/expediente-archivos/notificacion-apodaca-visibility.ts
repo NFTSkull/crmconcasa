@@ -1,5 +1,4 @@
 import {
-  CYNTHIA_SEDE_APODACA_ID,
   resolveCanonicalSedeId,
   type CynthiaSedeId,
 } from "@/lib/agendaCynthiaLocations";
@@ -14,6 +13,7 @@ export const NOTIFICACION_APODACA_UPLOAD_ETAPA = RETENCION_ETAPA_OPERATIVA_ID;
 
 /**
  * Resuelve sede canónica desde `location_id` real (booking), nunca desde label UI.
+ * Conservado por compatibilidad; la visibilidad de upload ya no depende de sede.
  */
 export function resolveExpedienteSedeFromLocationId(
   locationId: string | null | undefined,
@@ -24,18 +24,19 @@ export function resolveExpedienteSedeFromLocationId(
 }
 
 /**
- * Upload editable de `cliente_notificacion_apodaca` únicamente si:
- * - sede canónica = Apodaca (`location_id` → resolveCanonicalSedeId);
- * - etapa operativa = 8 (retención/acuses).
+ * Upload editable de `cliente_notificacion_apodaca` únicamente si
+ * etapa operativa = 8 (retención/acuses), para cualquier sede.
  *
- * Monterrey u otra sede / etapa distinta → false.
+ * Etapa distinta → false (histórico RO si ya hay archivo).
+ *
+ * `locationId` se acepta por compatibilidad de callers y se ignora.
  */
 export function shouldShowNotificacionApodacaUpload(params: {
   etapaActual: number | null | undefined;
-  locationId: string | null | undefined;
+  locationId?: string | null | undefined;
 }): boolean {
-  if (params.etapaActual !== NOTIFICACION_APODACA_UPLOAD_ETAPA) return false;
-  return resolveExpedienteSedeFromLocationId(params.locationId) === CYNTHIA_SEDE_APODACA_ID;
+  void params.locationId;
+  return params.etapaActual === NOTIFICACION_APODACA_UPLOAD_ETAPA;
 }
 
 /** Histórico RO: hay archivo activo y no corresponde mostrar upload editable. */
@@ -58,14 +59,14 @@ export function hasNotificacionApodacaArchivoActivo(
 
 /**
  * Filtra checklist opcionales asesor:
- * - upload Apodaca solo Apodaca+etapa 8;
+ * - upload editable solo en etapa 8 (cualquier sede);
  * - si hay archivo y no hay upload, conserva ítem (UI lo trata RO vía `readOnlyTipos`).
  */
 export function filterChecklistOpcionalesNotificacionApodaca(
   checklist: readonly IntegrationDocChecklistItem[],
   params: {
     etapaActual: number | null | undefined;
-    locationId: string | null | undefined;
+    locationId?: string | null | undefined;
     hasArchivoActivo: boolean;
   },
 ): IntegrationDocChecklistItem[] {

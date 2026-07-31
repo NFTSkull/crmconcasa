@@ -1,3 +1,7 @@
+## 2026-07-31 - Hotfix: Notificación upload en todas las sedes (etapa 8)
+
+Causa: PR #83 restringió `shouldShowNotificacionApodacaUpload` a `resolveCanonicalSedeId === apodaca && etapa 8`, ocultando el opcional en Monterrey. Contrato correcto: etapa 8 cualquier sede; histórico RO fuera de 8; tipo interno `cliente_notificacion_apodaca` y label «Notificación» intactos. Sin SQL (backend ya no valida sede).
+
 ## 2026-07-31 - Label UI «Notificación» + docs Mesa RO + firmas sin +5
 
 Label visible del tipo `cliente_notificacion_apodaca` → «Notificación» (badge Opcional; sin «Apodaca» en el nombre). Visibilidad upload: sede canónica Apodaca + etapa 8. Sección asesor docs Mesa RO. Mig 139: firma_agendable_desde = hoy + label helper SQL.

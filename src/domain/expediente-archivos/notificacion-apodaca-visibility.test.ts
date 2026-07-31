@@ -15,7 +15,7 @@ import {
 } from "./notificacion-apodaca-visibility";
 import { DOCUMENTO_CATALOGO_MAP, type ExpedienteArchivoResumen } from "./types";
 
-function archivoApodaca(
+function archivoNotificacion(
   estatus: ExpedienteArchivoResumen["estatus_revision"] = "subido",
 ): ExpedienteArchivoResumen {
   return {
@@ -34,8 +34,25 @@ function archivoApodaca(
 }
 
 describe("notificacion-apodaca-visibility", () => {
-  it("Apodaca + etapa 8: upload visible", () => {
+  it("Monterrey + etapa 8: muestra Notificación y permite subir", () => {
     assert.equal(NOTIFICACION_APODACA_UPLOAD_ETAPA, 8);
+    assert.equal(
+      shouldShowNotificacionApodacaUpload({
+        etapaActual: 8,
+        locationId: "monterrey",
+      }),
+      true,
+    );
+    assert.equal(
+      shouldShowNotificacionApodacaUpload({
+        etapaActual: 8,
+        locationId: "mty-centro",
+      }),
+      true,
+    );
+  });
+
+  it("Apodaca + etapa 8: muestra Notificación y permite subir", () => {
     assert.equal(
       shouldShowNotificacionApodacaUpload({
         etapaActual: 8,
@@ -43,25 +60,27 @@ describe("notificacion-apodaca-visibility", () => {
       }),
       true,
     );
-    assert.equal(
-      shouldShowNotificacionApodacaUpload({
-        etapaActual: 8,
-        locationId: "san-nicolas",
-      }),
-      true,
-    );
   });
 
-  it("Apodaca + etapa distinta: no upload editable", () => {
-    for (const etapa of [1, 7, 9, 10]) {
+  it("cualquier sede válida + etapa 8: permite subir", () => {
+    for (const locationId of ["monterrey", "apodaca", "san-nicolas", "otra-sede", null, ""]) {
       assert.equal(
-        shouldShowNotificacionApodacaUpload({
-          etapaActual: etapa,
-          locationId: "apodaca",
-        }),
-        false,
-        `etapa ${etapa}`,
+        shouldShowNotificacionApodacaUpload({ etapaActual: 8, locationId }),
+        true,
+        `locationId=${String(locationId)}`,
       );
+    }
+  });
+
+  it("etapa distinta de 8: no muestra carga editable", () => {
+    for (const etapa of [1, 7, 9, 10]) {
+      for (const locationId of ["apodaca", "monterrey"]) {
+        assert.equal(
+          shouldShowNotificacionApodacaUpload({ etapaActual: etapa, locationId }),
+          false,
+          `etapa ${etapa} sede ${locationId}`,
+        );
+      }
     }
     assert.equal(
       shouldShowNotificacionApodacaHistorico({
@@ -72,25 +91,7 @@ describe("notificacion-apodaca-visibility", () => {
     );
   });
 
-  it("Monterrey + etapa 8: no aparece", () => {
-    assert.equal(
-      shouldShowNotificacionApodacaUpload({
-        etapaActual: 8,
-        locationId: "monterrey",
-      }),
-      false,
-    );
-    assert.equal(
-      shouldShowNotificacionApodacaUpload({
-        etapaActual: 8,
-        locationId: "mty-centro",
-      }),
-      false,
-    );
-    assert.equal(resolveExpedienteSedeFromLocationId("monterrey"), "monterrey");
-  });
-
-  it("filtra checklist: solo Apodaca+8 o histórico con archivo", () => {
+  it("filtra checklist: etapa 8 cualquier sede; histórico RO en etapa posterior", () => {
     const base = deriveIntegrationDocsChecklistOpcionales([]);
     assert.ok(
       base.some((c) => c.tipo_documento === CLIENTE_NOTIFICACION_APODACA_DOCUMENT_TIPO),
@@ -102,16 +103,7 @@ describe("notificacion-apodaca-visibility", () => {
       hasArchivoActivo: false,
     });
     assert.ok(
-      !mty8.some((c) => c.tipo_documento === CLIENTE_NOTIFICACION_APODACA_DOCUMENT_TIPO),
-    );
-
-    const apo7 = filterChecklistOpcionalesNotificacionApodaca(base, {
-      etapaActual: 7,
-      locationId: "apodaca",
-      hasArchivoActivo: false,
-    });
-    assert.ok(
-      !apo7.some((c) => c.tipo_documento === CLIENTE_NOTIFICACION_APODACA_DOCUMENT_TIPO),
+      mty8.some((c) => c.tipo_documento === CLIENTE_NOTIFICACION_APODACA_DOCUMENT_TIPO),
     );
 
     const apo8 = filterChecklistOpcionalesNotificacionApodaca(base, {
@@ -123,17 +115,33 @@ describe("notificacion-apodaca-visibility", () => {
       apo8.some((c) => c.tipo_documento === CLIENTE_NOTIFICACION_APODACA_DOCUMENT_TIPO),
     );
 
+    const etapa7 = filterChecklistOpcionalesNotificacionApodaca(base, {
+      etapaActual: 7,
+      locationId: "monterrey",
+      hasArchivoActivo: false,
+    });
+    assert.ok(
+      !etapa7.some((c) => c.tipo_documento === CLIENTE_NOTIFICACION_APODACA_DOCUMENT_TIPO),
+    );
+
     const hist = filterChecklistOpcionalesNotificacionApodaca(base, {
       etapaActual: 9,
-      locationId: "apodaca",
+      locationId: "monterrey",
       hasArchivoActivo: true,
     });
     assert.ok(
       hist.some((c) => c.tipo_documento === CLIENTE_NOTIFICACION_APODACA_DOCUMENT_TIPO),
     );
+    assert.equal(
+      shouldShowNotificacionApodacaUpload({
+        etapaActual: 9,
+        locationId: "monterrey",
+      }),
+      false,
+    );
   });
 
-  it("UI muestra Notificación; sin Apodaca en el nombre del documento; sede Apodaca intacta", () => {
+  it("UI muestra Notificación; sin Apodaca en el nombre; upload no depende de sede", () => {
     assert.equal(RETENCION_DOC_LABEL.retencion_acuse_con_sello, "Acuse");
     assert.equal(
       DOCUMENTO_CATALOGO_MAP.cliente_notificacion_apodaca.label,
@@ -142,6 +150,10 @@ describe("notificacion-apodaca-visibility", () => {
     assert.doesNotMatch(
       DOCUMENTO_CATALOGO_MAP.cliente_notificacion_apodaca.label,
       /Apodaca/i,
+    );
+    assert.doesNotMatch(
+      DOCUMENTO_CATALOGO_MAP.cliente_notificacion_apodaca.label,
+      /Notificación Apodaca|Notificación solo Apodaca/i,
     );
     assert.equal(
       shouldShowNotificacionApodacaUpload({
@@ -155,14 +167,15 @@ describe("notificacion-apodaca-visibility", () => {
         etapaActual: 8,
         locationId: "monterrey",
       }),
-      false,
+      true,
     );
-    assert.ok(hasNotificacionApodacaArchivoActivo([archivoApodaca()]));
+    assert.ok(hasNotificacionApodacaArchivoActivo([archivoNotificacion()]));
     assert.equal(hasNotificacionApodacaArchivoActivo([]), false);
   });
 
-  it("usa location_id canónico, no texto visible", () => {
+  it("resolveExpedienteSedeFromLocationId sigue resolviendo sede (sin gate de upload)", () => {
     assert.equal(resolveExpedienteSedeFromLocationId("apodaca"), "apodaca");
+    assert.equal(resolveExpedienteSedeFromLocationId("monterrey"), "monterrey");
     assert.equal(resolveExpedienteSedeFromLocationId(""), null);
     assert.equal(resolveExpedienteSedeFromLocationId(null), null);
   });
