@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Fixed
+- **fix/notificacion-todas-las-sedes:** hotfix — `cliente_notificacion_apodaca` («Notificación») upload editable en **etapa 8 para cualquier sede** (Monterrey/Apodaca/otras); se elimina el filtro `resolveCanonicalSedeId === apodaca`. Histórico RO en etapas ≠8; tipo interno, opcionalidad, Acuse/8→9/firmas/docs Mesa intactos. Sin migración SQL.
+
+### Fixed
 - **Notificación (tipo apodaca) / docs Mesa / firmas sin +5 hábiles:** label UI «Notificación» (sin «Apodaca» en nombre visible); (1) `cliente_notificacion_apodaca` solo upload editable si sede canónica Apodaca (`location_id` de cita biométrica) **y** etapa 8; Monterrey/otras etapas ocultas (histórico RO si ya hay archivo). (2) Sección asesor «Documentos cargados por Mesa» RO para `cliente_constancia_sat`, `cliente_semanas_cotizadas`, `cliente_acta_nacimiento` (preview/descarga; sin reemplazar/eliminar; sin migración RLS — `can_see_expediente` ya cubre propietario). (3) mig. **139**: Acuse 8→9 fija `firma_agendable_desde = hoy` Monterrey (ya no +5 hábiles) + backfill fechas futuras; biométricos/`min_lead_hours` intactos. Sin Cloud/commit hasta aprobación.
 
 ### Fixed
