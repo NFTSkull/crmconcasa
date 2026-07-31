@@ -1,3 +1,7 @@
+## 2026-07-31 - Acuse: etiqueta visible + confirmación MIME
+
+Documento de retención opción A: tipo interno `retencion_acuse_con_sello` (no existe `acuse_apodaca`). Label UI/catálogo → «Acuse» / «Retención · Acuse»; aria Subir/Reemplazar Acuse. Allowlist P117 ya acepta PDF/JPEG/PNG en FE y `expediente_documento_mime_permitido`; no se añade WEBP sin migración. Preview imagen ya cubre JPEG/PNG. Gate `register_expediente_documento_retencion` 8→9 + `firma_agendable_desde` sin cambios. Sin Cloud/commit hasta aprobación.
+
 ## 2026-07-30 - Pool many-to-one vía mig. 138 (sin tocar 137)
 
 137 ya en main/Cloud (1:1). Nueva rama desde `e6230d4`. Diagnóstico UI: RPC real `agenda_sheet_inventory_availability` 06 AGOSTO MTY devuelve `10:00 available=1`; el label «Horario lleno» ocurre cuando el mapa de inventario **no tiene clave 10:00** (filas físicas 11:00 quedan en bucket lógico 11:00 bajo 1:1 → `invAvail=0` → remaining 0). No hay transform FE de remaining=1→lleno. Mig. 138: constraints many-to-one, defaults pool, expansión de overrides seed (no DELETE), resolvers/`claim` ordenado, webhook A. Apps Script requiere republicación separada. Sin commit/Cloud hasta aprobación.

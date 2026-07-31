@@ -227,7 +227,7 @@ export const DOCUMENTO_CATALOGO_MAP = Object.freeze({
 
   retencion_acuse_con_sello: {
     tipo: "retencion_acuse_con_sello",
-    label: "Retención · Acuse / documento con sello",
+    label: "Retención · Acuse",
     ownerRole: "cliente",
     obligatorio: "obligatorio",
     etapasRequeridas: [8],

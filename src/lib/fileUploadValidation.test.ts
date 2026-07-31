@@ -2,9 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   CARTA_EMPRESA_DOCUMENT_TIPO,
+  getExpedienteDocumentoAcceptAttr,
   isPdfFile,
   PDF_ONLY_UPLOAD_MESSAGE,
   resolveExpedienteDocumentoUploadMime,
+  RETENCION_PRINCIPAL_ACCEPT_ATTR,
+  RETENCION_PRINCIPAL_UPLOAD_MESSAGE,
   validateExpedienteDocumentoUploadFile,
   validatePdfFile,
 } from "@/lib/fileUploadValidation";
@@ -41,6 +44,13 @@ test("retención principal acepta PDF/JPG/PNG (P117)", () => {
   );
   assert.equal(
     validateExpedienteDocumentoUploadFile(
+      mockFile("acuse.jpeg", "image/jpeg"),
+      "retencion_acuse_con_sello",
+    ).ok,
+    true,
+  );
+  assert.equal(
+    validateExpedienteDocumentoUploadFile(
       mockFile("carta.png", "image/png"),
       "retencion_carta_sin_sello",
     ).ok,
@@ -54,12 +64,40 @@ test("retención principal acepta PDF/JPG/PNG (P117)", () => {
     false,
   );
   assert.equal(
+    validateExpedienteDocumentoUploadFile(
+      mockFile("fake.pdf", "image/png"),
+      "retencion_acuse_con_sello",
+    ).ok,
+    false,
+  );
+  assert.equal(
+    validateExpedienteDocumentoUploadFile(
+      mockFile("fake.png", "application/pdf"),
+      "retencion_acuse_con_sello",
+    ).ok,
+    false,
+  );
+  const rejected = validateExpedienteDocumentoUploadFile(
+    mockFile("doc.docx", "application/vnd.openxmlformats-officedocument.wordprocessingml.document"),
+    "retencion_acuse_con_sello",
+  );
+  assert.equal(rejected.ok, false);
+  if (!rejected.ok) {
+    assert.match(rejected.message, /PDF, JPG o PNG/i);
+    assert.doesNotMatch(rejected.message, /Apodaca/i);
+  }
+  assert.equal(
     resolveExpedienteDocumentoUploadMime(
       mockFile("acuse.jpeg", "image/jpeg"),
       "retencion_acuse_con_sello",
     ),
     "image/jpeg",
   );
+  assert.equal(
+    getExpedienteDocumentoAcceptAttr("retencion_acuse_con_sello"),
+    RETENCION_PRINCIPAL_ACCEPT_ATTR,
+  );
+  assert.match(RETENCION_PRINCIPAL_UPLOAD_MESSAGE, /Sube un archivo PDF, JPG o PNG/);
 });
 
 test("PDF válido con MIME application/pdf", () => {

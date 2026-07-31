@@ -18,7 +18,7 @@ export const RETENCION_TIPOS_DOCUMENTO = [
 export type RetencionTipoDocumento = (typeof RETENCION_TIPOS_DOCUMENTO)[number];
 
 export const RETENCION_DOC_LABEL: Record<RetencionTipoDocumento, string> = {
-  retencion_acuse_con_sello: "Acuse / documento con sello",
+  retencion_acuse_con_sello: "Acuse",
   retencion_aviso_retencion: "Aviso de retención",
   retencion_ine_frente: "INE frente para Acuse/Aviso",
   retencion_ine_reverso: "INE reverso para Acuse/Aviso",
