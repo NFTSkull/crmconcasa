@@ -129,7 +129,7 @@ export const RETENCION_PRINCIPAL_ACCEPT_ATTR =
   ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png";
 
 export const RETENCION_PRINCIPAL_UPLOAD_MESSAGE =
-  "Puedes subir PDF o imagen (JPG, JPEG, PNG).";
+  "Sube un archivo PDF, JPG o PNG.";
 
 export function isRetencionPrincipalDocumentTipo(
   tipoDocumento?: string | null,
@@ -294,10 +294,15 @@ export function validateExpedienteDocumentoUploadFile(
     return {
       ok: false,
       message: isRetencionPrincipalDocumentTipo(tipo)
-        ? result.error.replace(
-            /PDF, JPG, JPEG o PNG/i,
-            "PDF, JPG, JPEG o PNG",
-          )
+        ? result.error
+            .replace(
+              /Selecciona un archivo PDF, JPG, JPEG o PNG\./i,
+              RETENCION_PRINCIPAL_UPLOAD_MESSAGE,
+            )
+            .replace(
+              /PDF, JPG, JPEG o PNG/i,
+              "PDF, JPG o PNG",
+            )
         : result.error,
     };
   }

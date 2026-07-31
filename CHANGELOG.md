@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Fixed
+- **fix/acuse-label-and-image-upload:** etiqueta visible del documento `retencion_acuse_con_sello` pasa a **«Acuse»** (antes «Acuse / documento con sello»); tipo interno intacto. Formatos PDF/JPG/PNG ya permitidos (P117) se confirman; mensaje «Sube un archivo PDF, JPG o PNG.»; sin WEBP (allowlist SQL no lo incluye; sin migración). Flujo 8→9 / agendar firmas intacto.
+
+### Fixed
 - **fix/agenda-time-pool-many-to-one:** mig. **138** transforma aliases 137 (1:1) → many-to-one (`10:00` ← físicos `10:00`+`11:00`, además de `08:00←08:30`). Overrides seed se expanden (no DELETE). Webhook reconcilia columna A en filas vacías; claim ordena por `sheet_slot_time`/`row`. Migración 137 intacta.
 
 ### Fixed

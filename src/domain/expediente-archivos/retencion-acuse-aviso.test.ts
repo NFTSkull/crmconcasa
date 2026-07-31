@@ -114,6 +114,17 @@ describe("B0D3A: deriveRetencionAcuseAvisoFaltantes", () => {
     const uploads = listRetencionUploadsForOpcion("con_sello");
     assert.equal(uploads.length, 1);
     assert.equal(uploads[0]?.tipo, "retencion_acuse_con_sello");
+    assert.equal(uploads[0]?.label, "Acuse");
+    assert.notEqual(uploads[0]?.label, "Acuse Apodaca");
+    assert.equal(
+      DOCUMENTO_CATALOGO_MAP.retencion_acuse_con_sello.tipo,
+      "retencion_acuse_con_sello",
+    );
+    assert.match(DOCUMENTO_CATALOGO_MAP.retencion_acuse_con_sello.label, /^Retención · Acuse$/);
+    assert.doesNotMatch(
+      DOCUMENTO_CATALOGO_MAP.retencion_acuse_con_sello.label,
+      /Apodaca/i,
+    );
   });
 
   it("opción B requiere únicamente la carta sin sello", () => {

@@ -38,6 +38,8 @@ describe("buildMesaRetencionDocViews", () => {
     ]);
     assert.equal(views.length, 1);
     assert.equal(views[0]?.tipo_documento, "retencion_acuse_con_sello");
+    assert.equal(views[0]?.label, "Acuse");
+    assert.notEqual(views[0]?.label, "Acuse Apodaca");
     assert.equal(views[0]?.estatus_revision, "subido");
     assert.equal(views[0]?.puedeAbrir, true);
   });
