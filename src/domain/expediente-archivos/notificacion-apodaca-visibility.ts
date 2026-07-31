@@ -2,18 +2,14 @@ import {
   resolveCanonicalSedeId,
   type CynthiaSedeId,
 } from "@/lib/agendaCynthiaLocations";
-import { RETENCION_ETAPA_OPERATIVA_ID } from "./retencion-acuse-aviso";
 import { CLIENTE_NOTIFICACION_APODACA_DOCUMENT_TIPO } from "./integration-docs-completos";
 import type { IntegrationDocChecklistItem } from "./integration-docs-completos";
 import { mesaPuedeAbrirArchivo } from "./mesa-archivo-acceso";
 import type { ExpedienteArchivoResumen } from "./types";
 
-/** Etapa de retención/acuses: control de carga de Notificación (`cliente_notificacion_apodaca`). */
-export const NOTIFICACION_APODACA_UPLOAD_ETAPA = RETENCION_ETAPA_OPERATIVA_ID;
-
 /**
  * Resuelve sede canónica desde `location_id` real (booking), nunca desde label UI.
- * Conservado por compatibilidad; la visibilidad de upload ya no depende de sede.
+ * Conservado por compatibilidad; la Notificación compartida no depende de sede.
  */
 export function resolveExpedienteSedeFromLocationId(
   locationId: string | null | undefined,
@@ -24,22 +20,21 @@ export function resolveExpedienteSedeFromLocationId(
 }
 
 /**
- * Upload editable de `cliente_notificacion_apodaca` únicamente si
- * etapa operativa = 8 (retención/acuses), para cualquier sede.
+ * Upload/reemplazo editable de `cliente_notificacion_apodaca` («Notificación»):
+ * siempre permitido en UI (cualquier etapa / sede). Permisos reales: asesor dueño
+ * o Mesa autorizada vía RPC/RLS.
  *
- * Etapa distinta → false (histórico RO si ya hay archivo).
- *
- * `locationId` se acepta por compatibilidad de callers y se ignora.
+ * Params opcionales se aceptan por compatibilidad de callers y se ignoran.
  */
-export function shouldShowNotificacionApodacaUpload(params: {
-  etapaActual: number | null | undefined;
+export function shouldShowNotificacionApodacaUpload(params?: {
+  etapaActual?: number | null | undefined;
   locationId?: string | null | undefined;
 }): boolean {
-  void params.locationId;
-  return params.etapaActual === NOTIFICACION_APODACA_UPLOAD_ETAPA;
+  void params;
+  return true;
 }
 
-/** Histórico RO: hay archivo activo y no corresponde mostrar upload editable. */
+/** @deprecated Histórico RO ya no aplica: la tarjeta es siempre editable para el dueño. */
 export function shouldShowNotificacionApodacaHistorico(params: {
   hasArchivoActivo: boolean;
   canUpload: boolean;
@@ -58,28 +53,17 @@ export function hasNotificacionApodacaArchivoActivo(
 }
 
 /**
- * Filtra checklist opcionales asesor:
- * - upload editable solo en etapa 8 (cualquier sede);
- * - si hay archivo y no hay upload, conserva ítem (UI lo trata RO vía `readOnlyTipos`).
+ * Checklist opcionales asesor: siempre conserva `cliente_notificacion_apodaca`
+ * (opcional compartido Asesor|Mesa; cualquier etapa/sede).
  */
 export function filterChecklistOpcionalesNotificacionApodaca(
   checklist: readonly IntegrationDocChecklistItem[],
-  params: {
-    etapaActual: number | null | undefined;
+  _params?: {
+    etapaActual?: number | null | undefined;
     locationId?: string | null | undefined;
-    hasArchivoActivo: boolean;
+    hasArchivoActivo?: boolean;
   },
 ): IntegrationDocChecklistItem[] {
-  const canUpload = shouldShowNotificacionApodacaUpload(params);
-  const keepHistorico = shouldShowNotificacionApodacaHistorico({
-    hasArchivoActivo: params.hasArchivoActivo,
-    canUpload,
-  });
-
-  return checklist.filter((item) => {
-    if (item.tipo_documento !== CLIENTE_NOTIFICACION_APODACA_DOCUMENT_TIPO) {
-      return true;
-    }
-    return canUpload || keepHistorico;
-  });
+  void _params;
+  return checklist.slice();
 }

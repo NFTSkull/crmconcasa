@@ -19,7 +19,6 @@ import { AsesorPagareSection } from "@/components/asesor/AsesorPagareSection";
 import { AsesorMesaDocumentosSection } from "@/components/asesor/AsesorMesaDocumentosSection";
 import { AsesorNotificacionDocumentoSection } from "@/components/asesor/AsesorNotificacionDocumentoSection";
 import { AsesorSolicitudDocumentoSection } from "@/components/asesor/AsesorSolicitudDocumentoSection";
-import { useAgendaBiometricosBookingRepo } from "@/domain/agenda-biometricos";
 import { AsesorReingresoPostBiometricosCard } from "@/components/asesor/AsesorReingresoPostBiometricosCard";
 import { AsesorExpedienteCanceladoBanner } from "@/components/asesor/AsesorExpedienteCanceladoBanner";
 import { AsesorExpedienteRechazadoBanner } from "@/components/asesor/AsesorExpedienteRechazadoBanner";
@@ -44,18 +43,15 @@ import {
   DOCUMENTO_CATALOGO_MAP,
   ExpedienteArchivosSupabaseError,
   countIntegrationDocsPresentes,
-  CLIENTE_NOTIFICACION_APODACA_DOCUMENT_TIPO,
   deriveIntegrationDocsChecklist,
   deriveIntegrationDocsChecklistOpcionales,
   filterChecklistDocumentoItemsPorOwnerRole,
   filterChecklistOpcionalesNotificacionApodaca,
   getChecklistDocumentos,
-  hasNotificacionApodacaArchivoActivo,
   INTEGRATION_DOC_TIPOS_ASESOR_ENVIO,
   integrationDocsCompletos,
   integrationDocsResumenFromArchivoResumen,
   asesorPuedeEditarEvidencia,
-  shouldShowNotificacionApodacaUpload,
   useExpedienteArchivosRepo,
   type ExpedienteArchivoResumen,
   type IntegrationDocChecklistItem,
@@ -199,8 +195,6 @@ export default function AsesorExpedientePage() {
   const dataSupabase = isDataModeSupabase();
   const clienteDatosRepo = useExpedienteClienteDatosRepo();
   const archivosRepo = useExpedienteArchivosRepo();
-  const biometricosBookingRepo = useAgendaBiometricosBookingRepo();
-  const [bookingLocationId, setBookingLocationId] = useState<string | null>(null);
   const [precal, setPrecal] = useState<PrecalificacionMock | null | undefined>(
     undefined
   );
@@ -283,27 +277,9 @@ export default function AsesorExpedientePage() {
   const integrationChecklistOpcionales = useMemo((): IntegrationDocChecklistItem[] | null => {
     if (!integrationDocsInput) return null;
     const base = deriveIntegrationDocsChecklistOpcionales(integrationDocsInput);
-    return filterChecklistOpcionalesNotificacionApodaca(base, {
-      etapaActual: operativo?.etapaActual ?? null,
-      locationId: bookingLocationId,
-      hasArchivoActivo: hasNotificacionApodacaArchivoActivo(archivosResumen),
-    });
-  }, [
-    integrationDocsInput,
-    operativo?.etapaActual,
-    bookingLocationId,
-    archivosResumen,
-  ]);
-
-  const notificacionApodacaReadOnlyTipos = useMemo(() => {
-    const canUpload = shouldShowNotificacionApodacaUpload({
-      etapaActual: operativo?.etapaActual ?? null,
-      locationId: bookingLocationId,
-    });
-    if (canUpload) return [] as string[];
-    if (!hasNotificacionApodacaArchivoActivo(archivosResumen)) return [] as string[];
-    return [CLIENTE_NOTIFICACION_APODACA_DOCUMENT_TIPO];
-  }, [operativo?.etapaActual, bookingLocationId, archivosResumen]);
+    // Notificación (`cliente_notificacion_apodaca`): siempre visible/editable al dueño.
+    return filterChecklistOpcionalesNotificacionApodaca(base);
+  }, [integrationDocsInput]);
 
   const integrationDocsPresentes = useMemo(() => {
     if (!integrationDocsInput) return 0;
@@ -640,34 +616,6 @@ export default function AsesorExpedientePage() {
   useEffect(() => {
     void loadExpediente();
   }, [loadExpediente]);
-
-  useEffect(() => {
-    let cancelled = false;
-    const expedienteId = precal?.id ? String(precal.id) : "";
-    if (!expedienteId || !biometricosBookingRepo || !dataSupabase) {
-      setBookingLocationId(null);
-      return;
-    }
-    void (async () => {
-      try {
-        const active = await biometricosBookingRepo.getActiveBooking(expedienteId);
-        if (cancelled) return;
-        if (active?.locationId) {
-          setBookingLocationId(active.locationId);
-          return;
-        }
-        const cancelledBooking =
-          await biometricosBookingRepo.getLastCancelledBooking(expedienteId);
-        if (cancelled) return;
-        setBookingLocationId(cancelledBooking?.locationId ?? null);
-      } catch {
-        if (!cancelled) setBookingLocationId(null);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [precal?.id, biometricosBookingRepo, dataSupabase]);
 
   useEffect(() => {
     const m = editorDecision?.monto_aprobado;
@@ -1530,7 +1478,7 @@ export default function AsesorExpedientePage() {
                         reingreso?.rechazoId &&
                         operativo?.etapaActual === 6,
                     )}
-                    readOnlyOpcionalTipos={notificacionApodacaReadOnlyTipos}
+                    readOnlyOpcionalTipos={[]}
                     onUploaded={refreshArchivos}
                   />
                 </>
