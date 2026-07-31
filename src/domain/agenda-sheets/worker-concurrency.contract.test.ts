@@ -174,3 +174,27 @@ describe("agenda-sheet sync title space + requeue (mig. 134)", () => {
     assert.match(block, /write_verify_failed:col_a_mutated/);
   });
 });
+
+describe("agenda-sheet inventory upsert detach (mig. 141)", () => {
+  const mig141 = readFileSync(
+    join(
+      process.cwd(),
+      "supabase/migrations/141_agenda_sheet_inventory_upsert_restore_booking_detach.sql",
+    ),
+    "utf8",
+  );
+
+  it("restaura detach booking_id y conserva sheet_slot_time + índice", () => {
+    assert.match(mig141, /WHERE i\.booking_id = v_booking_id/);
+    assert.match(mig141, /sheet_slot_time/);
+    assert.match(mig141, /no btrim/);
+    assert.match(mig141, /aparece en % filas físicas del mismo batch/);
+    assert.match(
+      mig141,
+      /GRANT EXECUTE ON FUNCTION public\.agenda_sheet_inventory_upsert_batch/,
+    );
+    assert.match(mig141, /TO service_role, postgres/);
+    assert.doesNotMatch(mig141, /DROP INDEX.*booking_uidx/);
+    assert.doesNotMatch(mig141, /UPDATE public\.agenda_bookings/);
+  });
+});

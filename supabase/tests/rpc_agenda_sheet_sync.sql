@@ -1694,6 +1694,293 @@ BEGIN
 END;
 $$;
 
+-- =============================================================================
+-- I) Mig. 141: detach booking_id al mover de fila física A → B
+-- =============================================================================
+DO $$
+DECLARE
+  f public.__sheet_fixture%ROWTYPE;
+  v_bid UUID;
+  v_exp UUID;
+  v_res JSONB;
+  v_fail BOOLEAN;
+  v_status_a TEXT;
+  v_booking_a UUID;
+  v_booking_b UUID;
+  v_sheet_slot TIME;
+  v_slot_time TIME;
+  v_bookings_n BIGINT;
+  v_outbox_n BIGINT;
+  v_ss TEXT := 'detach-test-ss-141';
+  v_sheet_id BIGINT := 141001;
+BEGIN
+  SELECT * INTO STRICT f FROM public.__sheet_fixture WHERE id = 1;
+  PERFORM public.__sheet_as_service_role();
+
+  SELECT COUNT(*) INTO v_bookings_n FROM public.agenda_bookings;
+  SELECT COUNT(*) INTO v_outbox_n FROM public.agenda_sheet_sync_outbox;
+
+  v_exp := '00000000-0000-4000-9141-0000000000e1';
+  INSERT INTO public.expedientes (
+    id, organization_id, asesor_id, programa, nss, cliente_nombre,
+    telefono_cliente, origen_mesa, submitted_to_mesa, fecha_envio_mesa,
+    etapa_actual, subestado, ciclo_estado
+  ) VALUES (
+    v_exp, f.org_id, f.asesor_id, 'mejoravit',
+    '12900000141', 'Detach 141 Exp', '5512900141', 'interno', true, NOW(),
+    4, 'en_proceso', 'activo'
+  ) ON CONFLICT (id) DO NOTHING;
+
+  -- Booking real (FK) sin disparar claim/outbox (solo fixture de inventario)
+  SET LOCAL session_replication_role = replica;
+  INSERT INTO public.agenda_bookings (
+    id, organization_id, kind, expediente_id, booking_date, booking_time,
+    location_id, status, note, created_by
+  ) VALUES (
+    '00000000-0000-4000-9141-0000000000a1',
+    f.org_id, 'biometricos', v_exp, DATE '2026-08-10', TIME '08:00',
+    'monterrey', 'booked', 'detach-141-test', f.asesor_id
+  )
+  ON CONFLICT (id) DO UPDATE SET
+    status = 'booked',
+    note = 'detach-141-test',
+    booking_date = DATE '2026-08-10',
+    booking_time = TIME '08:00',
+    expediente_id = v_exp;
+  SET LOCAL session_replication_role = DEFAULT;
+
+  v_bid := '00000000-0000-4000-9141-0000000000a1';
+
+  DELETE FROM public.agenda_sheet_slot_inventory
+  WHERE spreadsheet_id = v_ss AND sheet_id = v_sheet_id;
+
+  -- Fila A ligada + fila libre disponible (sin booking) + fila B destino
+  v_res := public.agenda_sheet_inventory_upsert_batch(jsonb_build_array(
+    jsonb_build_object(
+      'organization_id', f.org_id,
+      'spreadsheet_id', v_ss,
+      'sheet_id', v_sheet_id,
+      'sheet_title', '10 AGOSTO',
+      'booking_date', '2026-08-10',
+      'sheet_row', 10,
+      'kind', 'biometricos',
+      'location_id', 'monterrey',
+      'slot_time', '08:00:00',
+      'sheet_slot_time', '08:30:00',
+      'slot_key', 'biometricos|2026-08-10|08:00|monterrey|sheet=08:30|sheetId=141001|row=10',
+      'status', 'linked',
+      'booking_id', v_bid,
+      'expediente_id', v_exp,
+      'occupancy_source', 'crm'
+    ),
+    jsonb_build_object(
+      'organization_id', f.org_id,
+      'spreadsheet_id', v_ss,
+      'sheet_id', v_sheet_id,
+      'sheet_title', '10 AGOSTO',
+      'booking_date', '2026-08-10',
+      'sheet_row', 99,
+      'kind', 'biometricos',
+      'location_id', 'monterrey',
+      'slot_time', '10:00:00',
+      'sheet_slot_time', '11:00:00',
+      'slot_key', 'biometricos|2026-08-10|10:00|monterrey|sheet=11:00|sheetId=141001|row=99',
+      'status', 'available',
+      'occupancy_source', 'reconciliation'
+    )
+  ));
+  PERFORM public.__sheet_assert((v_res->>'ok')::BOOLEAN IS TRUE, 'I seed A+libre ok');
+
+  -- Reconcile presenta booking en fila B (movimiento A→B) + conserva libre
+  v_res := public.agenda_sheet_inventory_upsert_batch(jsonb_build_array(
+    jsonb_build_object(
+      'organization_id', f.org_id,
+      'spreadsheet_id', v_ss,
+      'sheet_id', v_sheet_id,
+      'sheet_title', '10 AGOSTO',
+      'booking_date', '2026-08-10',
+      'sheet_row', 20,
+      'kind', 'biometricos',
+      'location_id', 'monterrey',
+      'slot_time', '08:00:00',
+      'sheet_slot_time', '08:30:00',
+      'slot_key', 'biometricos|2026-08-10|08:00|monterrey|sheet=08:30|sheetId=141001|row=20',
+      'status', 'linked',
+      'booking_id', v_bid,
+      'expediente_id', v_exp,
+      'occupancy_source', 'reconciliation'
+    ),
+    jsonb_build_object(
+      'organization_id', f.org_id,
+      'spreadsheet_id', v_ss,
+      'sheet_id', v_sheet_id,
+      'sheet_title', '10 AGOSTO',
+      'booking_date', '2026-08-10',
+      'sheet_row', 99,
+      'kind', 'biometricos',
+      'location_id', 'monterrey',
+      'slot_time', '10:00:00',
+      'sheet_slot_time', '11:00:00',
+      'slot_key', 'biometricos|2026-08-10|10:00|monterrey|sheet=11:00|sheetId=141001|row=99',
+      'status', 'available',
+      'occupancy_source', 'reconciliation'
+    )
+  ));
+  PERFORM public.__sheet_assert((v_res->>'ok')::BOOLEAN IS TRUE, 'I move A→B sin unique_violation');
+
+  SELECT status, booking_id INTO v_status_a, v_booking_a
+  FROM public.agenda_sheet_slot_inventory
+  WHERE spreadsheet_id = v_ss AND sheet_id = v_sheet_id AND sheet_row = 10;
+  SELECT booking_id, slot_time, sheet_slot_time
+    INTO v_booking_b, v_slot_time, v_sheet_slot
+  FROM public.agenda_sheet_slot_inventory
+  WHERE spreadsheet_id = v_ss AND sheet_id = v_sheet_id AND sheet_row = 20;
+
+  PERFORM public.__sheet_assert(v_booking_a IS NULL, 'I A sin booking_id');
+  PERFORM public.__sheet_assert(v_status_a = 'occupied_external', 'I A → occupied_external');
+  PERFORM public.__sheet_assert(v_booking_b = v_bid, 'I B tiene booking_id');
+  PERFORM public.__sheet_assert(v_slot_time = TIME '08:00', 'I logical 08:00');
+  PERFORM public.__sheet_assert(v_sheet_slot = TIME '08:30', 'I sheet_slot_time 08:30');
+
+  SELECT booking_id INTO v_booking_a
+  FROM public.agenda_sheet_slot_inventory
+  WHERE spreadsheet_id = v_ss AND sheet_id = v_sheet_id AND sheet_row = 99;
+  PERFORM public.__sheet_assert(v_booking_a IS NULL, 'I fila available intacta');
+
+  -- Idempotencia: mismo batch otra vez
+  v_res := public.agenda_sheet_inventory_upsert_batch(jsonb_build_array(
+    jsonb_build_object(
+      'organization_id', f.org_id,
+      'spreadsheet_id', v_ss,
+      'sheet_id', v_sheet_id,
+      'sheet_title', '10 AGOSTO',
+      'booking_date', '2026-08-10',
+      'sheet_row', 20,
+      'kind', 'biometricos',
+      'location_id', 'monterrey',
+      'slot_time', '08:00:00',
+      'sheet_slot_time', '08:30:00',
+      'slot_key', 'biometricos|2026-08-10|08:00|monterrey|sheet=08:30|sheetId=141001|row=20',
+      'status', 'linked',
+      'booking_id', v_bid,
+      'expediente_id', v_exp,
+      'occupancy_source', 'reconciliation'
+    )
+  ));
+  PERFORM public.__sheet_assert((v_res->>'ok')::BOOLEAN IS TRUE, 'I idempotente');
+  PERFORM public.__sheet_assert(
+    (SELECT COUNT(*) FROM public.agenda_sheet_slot_inventory WHERE booking_id = v_bid) = 1,
+    'I una sola fila con booking_id'
+  );
+  SELECT booking_id INTO v_booking_b
+  FROM public.agenda_sheet_slot_inventory
+  WHERE spreadsheet_id = v_ss AND sheet_id = v_sheet_id AND sheet_row = 20;
+  PERFORM public.__sheet_assert(v_booking_b = v_bid, 'I B sigue con booking tras repeat');
+
+  -- Batch con booking duplicado en dos filas físicas → error contextual
+  BEGIN
+    PERFORM public.agenda_sheet_inventory_upsert_batch(jsonb_build_array(
+      jsonb_build_object(
+        'organization_id', f.org_id,
+        'spreadsheet_id', v_ss,
+        'sheet_id', v_sheet_id,
+        'sheet_title', '10 AGOSTO',
+        'booking_date', '2026-08-10',
+        'sheet_row', 20,
+        'kind', 'biometricos',
+        'location_id', 'monterrey',
+        'slot_time', '08:00:00',
+        'sheet_slot_time', '08:30:00',
+        'slot_key', 'biometricos|2026-08-10|08:00|monterrey|sheet=08:30|sheetId=141001|row=20',
+        'status', 'linked',
+        'booking_id', v_bid,
+        'occupancy_source', 'reconciliation'
+      ),
+      jsonb_build_object(
+        'organization_id', f.org_id,
+        'spreadsheet_id', v_ss,
+        'sheet_id', v_sheet_id,
+        'sheet_title', '10 AGOSTO',
+        'booking_date', '2026-08-10',
+        'sheet_row', 21,
+        'kind', 'biometricos',
+        'location_id', 'monterrey',
+        'slot_time', '08:00:00',
+        'sheet_slot_time', '08:30:00',
+        'slot_key', 'biometricos|2026-08-10|08:00|monterrey|sheet=08:30|sheetId=141001|row=21',
+        'status', 'linked',
+        'booking_id', v_bid,
+        'occupancy_source', 'reconciliation'
+      )
+    ));
+    v_fail := false;
+  EXCEPTION
+    WHEN unique_violation THEN
+      v_fail := true;
+    WHEN OTHERS THEN
+      v_fail := SQLERRM ILIKE '%aparece en%filas físicas%';
+  END;
+  PERFORM public.__sheet_assert(v_fail, 'I batch duplicado booking falla');
+
+  -- Índice unique intacto
+  PERFORM public.__sheet_assert(EXISTS (
+    SELECT 1 FROM pg_indexes
+    WHERE schemaname = 'public'
+      AND indexname = 'agenda_sheet_slot_inventory_booking_uidx'
+  ), 'I booking_uidx presente');
+
+  -- upsert no muta bookings/outbox
+  PERFORM public.__sheet_assert(
+    (SELECT COUNT(*) FROM public.agenda_bookings) = v_bookings_n + 1,
+    'I bookings: solo +1 del fixture detach'
+  );
+  PERFORM public.__sheet_assert(
+    (SELECT COUNT(*) FROM public.agenda_sheet_sync_outbox) = v_outbox_n,
+    'I outbox inalterado por upsert inventario'
+  );
+  PERFORM public.__sheet_assert(
+    (SELECT note FROM public.agenda_bookings WHERE id = v_bid) = 'detach-141-test',
+    'I booking note intacto'
+  );
+  PERFORM public.__sheet_assert(
+    (SELECT status FROM public.agenda_bookings WHERE id = v_bid) = 'booked',
+    'I booking status intacto'
+  );
+
+  -- Ingest agosto sin booking (filas available)
+  v_res := public.agenda_sheet_inventory_upsert_batch(jsonb_build_array(
+    jsonb_build_object(
+      'organization_id', f.org_id,
+      'spreadsheet_id', v_ss,
+      'sheet_id', 141017,
+      'sheet_title', '17 AGOSTO',
+      'booking_date', '2026-08-17',
+      'sheet_row', 7,
+      'kind', 'firmas',
+      'location_id', 'monterrey',
+      'slot_time', '08:30:00',
+      'sheet_slot_time', '08:30:00',
+      'slot_key', 'firmas|2026-08-17|08:30|monterrey|sheet=08:30|sheetId=141017|row=7',
+      'status', 'available',
+      'occupancy_source', 'reconciliation'
+    )
+  ));
+  PERFORM public.__sheet_assert((v_res->>'ok')::BOOLEAN IS TRUE, 'I agosto sin booking ok');
+  PERFORM public.__sheet_assert(EXISTS (
+    SELECT 1 FROM public.agenda_sheet_slot_inventory
+    WHERE spreadsheet_id = v_ss AND sheet_id = 141017 AND sheet_row = 7
+      AND booking_id IS NULL AND status = 'available'
+  ), 'I 17 AGOSTO available ingerida');
+
+  DELETE FROM public.agenda_sheet_slot_inventory
+  WHERE spreadsheet_id = v_ss;
+  DELETE FROM public.agenda_bookings WHERE id = v_bid;
+  -- expediente fixture queda (FK historial paso visual); no afecta producción
+
+  RAISE NOTICE 'I mig141 detach booking_id OK';
+END;
+$$;
+
 DROP FUNCTION IF EXISTS public.__sheet_assert(BOOLEAN, TEXT);
 DROP FUNCTION IF EXISTS public.__sheet_set_jwt_role(TEXT);
 DROP FUNCTION IF EXISTS public.__sheet_reset_auth();

@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Fixed
+- **fix/agenda-reconcile-restore-booking-detach:** mig. **141** restaura el detach de `booking_id` en `agenda_sheet_inventory_upsert_batch` (perdido en 137). Evita `agenda_sheet_slot_inventory_booking_uidx` al mover booking entre filas físicas; conserva `sheet_slot_time`/many-to-one, título exacto y el índice unique. Sin tocar Sheets/bookings/outbox/Edge.
+
+### Fixed
 - **fix/notificacion-compartida-asesor-mesa:** `cliente_notificacion_apodaca` («Notificación») opcional compartido Asesor dueño + Mesa en **cualquier etapa/sede**. FE sin filtro etapa/sede; mig. **140** quita gate etapa≥7 del tipo apodaca en `register_expediente_documento_pre_reingreso` (conserva gate solo para `cliente_notificacion`). Sin cambio de etapa/Acuse/firmas.
 
 ### Fixed

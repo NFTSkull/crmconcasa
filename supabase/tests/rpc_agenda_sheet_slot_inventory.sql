@@ -177,6 +177,18 @@ BEGIN
     'upsert_batch persiste sheet_slot_time'
   );
 
+  -- Mig. 141: detach booking_id restaurado (regresión 137)
+  PERFORM public.__inv_assert(
+    pg_get_functiondef('public.agenda_sheet_inventory_upsert_batch(jsonb)'::regprocedure)
+      ILIKE '%WHERE i.booking_id = v_booking_id%',
+    'upsert_batch detach booking_id otras filas (141)'
+  );
+  PERFORM public.__inv_assert(EXISTS (
+    SELECT 1 FROM pg_indexes
+    WHERE schemaname = 'public'
+      AND indexname = 'agenda_sheet_slot_inventory_booking_uidx'
+  ), 'booking_uidx sigue presente tras 141');
+
   PERFORM public.__inv_assert(EXISTS (
     SELECT 1 FROM pg_constraint
     WHERE conrelid = 'public.agenda_sheet_time_aliases'::regclass

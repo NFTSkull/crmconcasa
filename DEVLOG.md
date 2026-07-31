@@ -1,3 +1,7 @@
+## 2026-07-31 - Hotfix: restaurar detach booking_id en upsert inventario
+
+Causa: mig. 137 reescribió `agenda_sheet_inventory_upsert_batch` y omitió el detach de 133 → reconcile 500 `agenda_sheet_slot_inventory_booking_uidx` desde ~20:45 UTC; pestañas 10/17/24/31 AGOSTO sin inventario. Fix: mig. 141 restaura detach + detección de booking duplicado en el mismo batch + orden determinista por fila física; conserva `sheet_slot_time`/título exacto. Sin Edge. Sin Cloud hasta merge.
+
 ## 2026-07-31 - Notificación compartida Asesor|Mesa (cualquier etapa)
 
 Contrato: `cliente_notificacion_apodaca` label «Notificación», opcional, sin gate de avance. Asesor dueño y Mesa (roles ya en allowlist) suben/reemplazan en cualquier etapa/sede; una versión activa (FOR UPDATE). Causa previa: FE etapa===8 + SQL pre_reingreso agrupaba apodaca con `cliente_notificacion` (etapa≥7). Mig 140 solo separa el gate.
