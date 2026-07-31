@@ -155,6 +155,22 @@ export {
   EXPEDIENTE_DOCUMENTO_MAX_MB,
   validateExpedienteDocumentoFile,
 } from "./upload-constraints";
+export {
+  ASESOR_MESA_DOCUMENTOS_COMPARTIBLES,
+  buildAsesorMesaDocumentosViews,
+  labelAsesorMesaDocumento,
+  shouldShowAsesorMesaDocumentosSection,
+  type AsesorMesaDocumentoCompartibleTipo,
+  type AsesorMesaDocumentoView,
+} from "./asesor-mesa-documentos";
+export {
+  filterChecklistOpcionalesNotificacionApodaca,
+  hasNotificacionApodacaArchivoActivo,
+  NOTIFICACION_APODACA_UPLOAD_ETAPA,
+  resolveExpedienteSedeFromLocationId,
+  shouldShowNotificacionApodacaHistorico,
+  shouldShowNotificacionApodacaUpload,
+} from "./notificacion-apodaca-visibility";
 export { deriveResumenExpedienteCorreccion } from "./derive-resumen-expediente-correccion";
 export * from "./types";
 export * from "./repo";

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { DocumentDropzone } from "@/components/documents/DocumentDropzone";
 import {
@@ -34,6 +34,8 @@ type Props = {
   puedeIntegrar: boolean;
   submittedToMesa: boolean;
   esReingresoEtapa6?: boolean;
+  /** Tipos opcionales visibles solo en histórico RO (sin dropzone). */
+  readOnlyOpcionalTipos?: readonly string[];
   onUploaded: () => void;
 };
 
@@ -106,6 +108,7 @@ function ChecklistUploadList({
   puedeIntegrar,
   submittedToMesa,
   esReingresoEtapa6,
+  readOnlyTipos,
   uploadingTipo,
   archivoLoadingTipo,
   errorsByTipo,
@@ -118,6 +121,7 @@ function ChecklistUploadList({
   puedeIntegrar: boolean;
   submittedToMesa: boolean;
   esReingresoEtapa6: boolean;
+  readOnlyTipos: ReadonlySet<string>;
   uploadingTipo: IntegrationDocAsesorUploadTipo | null;
   archivoLoadingTipo: IntegrationDocAsesorUploadTipo | null;
   errorsByTipo: Partial<Record<IntegrationDocAsesorUploadTipo, string>>;
@@ -138,6 +142,7 @@ function ChecklistUploadList({
         const archivoLoading = archivoLoadingTipo === item.tipo_documento;
         const error = errorsByTipo[item.tipo_documento];
         const tieneArchivo = Boolean(nombre);
+        const forceReadOnly = readOnlyTipos.has(item.tipo_documento);
         const badge = estatusBadge(item, submittedToMesa);
         const esCorreccion = asesorDebeUsarCorreccionDocumento(
           submittedToMesa,
@@ -160,6 +165,7 @@ function ChecklistUploadList({
           item.estatus_revision,
         );
         const puedeSubirItem =
+          !forceReadOnly &&
           (puedeIntegrar || esDocumentoNuevoReingreso) &&
           asesorPuedeSubirOCorregirDocumento(
             submittedToMesa,
@@ -260,6 +266,10 @@ function ChecklistUploadList({
                       onFiles={(files) => void onFileChange(item.tipo_documento, files)}
                     />
                   </div>
+                ) : forceReadOnly ? (
+                  <p className="mt-2 text-[11px] text-gray-500">
+                    Solo lectura — la carga editable aplica en retención (etapa 8) para esta sede.
+                  </p>
                 ) : submittedToMesa &&
                   item.estatus_revision !== "rechazado" &&
                   !esOpcionalPendientePostMesa &&
@@ -286,8 +296,13 @@ export function AsesorIntegracionDocsUpload({
   puedeIntegrar,
   submittedToMesa,
   esReingresoEtapa6 = false,
+  readOnlyOpcionalTipos = [],
   onUploaded,
 }: Props) {
+  const readOnlyTipos = useMemo(
+    () => new Set(readOnlyOpcionalTipos),
+    [readOnlyOpcionalTipos],
+  );
   const repo = useExpedienteArchivosRepo();
   const [uploadingTipo, setUploadingTipo] = useState<IntegrationDocAsesorUploadTipo | null>(
     null,
@@ -458,6 +473,7 @@ export function AsesorIntegracionDocsUpload({
     puedeIntegrar,
     submittedToMesa,
     esReingresoEtapa6,
+    readOnlyTipos,
     uploadingTipo,
     archivoLoadingTipo,
     errorsByTipo,

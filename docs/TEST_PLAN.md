@@ -248,7 +248,7 @@
 - [x] Tests SQL `rpc_register_retencion_p117.sql`, `rpc_avanzar_etapa_10_11.sql` + TS focales; 11 pasos visuales intactos.
 - [x] Sin Cloud/commit/smoke.
 
-## P104 — Notificación solo Apodaca (opcional)
+## P104 — Notificación opcional sede Apodaca (`cliente_notificacion_apodaca`)
 
 - [x] Tipo `cliente_notificacion_apodaca` ≠ `cliente_notificacion` / `notificacion`.
 - [x] Asesor upload/reemplazo vía checklist + DocumentDropzone; opcional no bloquea gates.

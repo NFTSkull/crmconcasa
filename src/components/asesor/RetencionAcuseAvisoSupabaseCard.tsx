@@ -294,7 +294,7 @@ export function RetencionAcuseAvisoSupabaseCard({
         Debes completar el Acuse / Aviso de retención (opción A o B y documento principal en PDF o
         imagen JPG/PNG). Al subir el principal en etapa 8 el expediente avanza a Listo agendar
         firma
-        {firmaAgendableDesdeLabel ? ` (agendable desde ${firmaAgendableDesdeLabel})` : ""}.
+        {firmaAgendableDesdeLabel ? ` (puedes agendar desde ${firmaAgendableDesdeLabel})` : ""}.
       </p>
 
       {loadingMeta ? (

@@ -183,16 +183,17 @@ export const DOCUMENTO_CATALOGO_MAP = Object.freeze({
     etapasRequeridas: [1, 2],
   },
   /**
-   * P104: Notificación solo Apodaca — opcional asesor (cualquier etapa).
+   * P104: tipo interno `cliente_notificacion_apodaca` — label UI «Notificación».
+   * Upload editable solo en sede Apodaca (`location_id` canónico) + etapa 8.
    * Distinto de `cliente_notificacion` (Mesa) y de agenda `kind=notificacion`.
-   * No obligatorio / no gate / sin etapa mínima.
+   * No obligatorio / no gate. Badge «Opcional» lo aporta el checklist.
    */
   cliente_notificacion_apodaca: {
     tipo: "cliente_notificacion_apodaca",
-    label: "Notificación solo Apodaca (opcional)",
+    label: "Notificación",
     ownerRole: "cliente",
     obligatorio: "opcional",
-    etapasRequeridas: [],
+    etapasRequeridas: [8],
   },
   /** P090: Pagaré — Mesa escribe desde etapa 7; asesor solo lectura. No obligatorio / no gate. */
   cliente_pagare: {

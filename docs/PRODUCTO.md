@@ -105,7 +105,7 @@ ConCasa CRM gestiona el ciclo operativo de precalificaciones / expedientes hipot
 | **B — sin sello** | Único obligatorio: Carta sin sello (`retencion_carta_sin_sello`). |
 
 1. Asesor elige A/B y sube el documento principal (`subido`/`resubido`; PDF/JPEG/PNG, máx. 15 MiB).
-2. **P117 / P132-acuse:** al subir el principal en etapa 8, `register_expediente_documento_retencion` registra el doc **y** avanza atómicamente **8→9** (también marca envío retención) y fija `firma_agendable_desde` solo si NULL (+5 días hábiles Monterrey). Reemplazo en 9+ no re-avanza ni reinicia fecha. `enviar_retencion_mesa` sigue disponible para reenvíos/idempotencia.
+2. **P117 / P132-acuse:** al subir el principal en etapa 8, `register_expediente_documento_retencion` registra el doc **y** avanza atómicamente **8→9** (también marca envío retención) y fija `firma_agendable_desde` solo si NULL (**hoy** Monterrey; sin mínimo de 5 días hábiles — mig. 139). Reemplazo en 9+ no re-avanza ni reinicia fecha. `enviar_retencion_mesa` sigue disponible para reenvíos/idempotencia.
 3. Mesa **no** valida ni rechaza el Acuse para este flujo; consulta en lectura y agenda firma en etapa 9.
 4. El documento **no** se marca como `validado` por el envío; puede permanecer `subido`/`resubido`/`validado`.
 5. **No** se crea booking ni `fecha_cita` al subir/enviar.
@@ -270,7 +270,7 @@ La sección Datos Generales y el JSON `datos.montoMejoravit` **no** se modifican
 - Disponible desde `etapa_actual >= 7`.
 - **Mesa:** acordeón «Notificación»; subir/reemplazar; sin avance de etapa.
 - **Asesor:** `AsesorNotificacionDocumentoSection` con upload/reemplazo vía `register_expediente_documento`.
-- **P132-acuse gate:** Acuse principal en etapa 8 → avanza a 9 y fija `firma_agendable_desde` (+5 hábiles Monterrey). Picker de firmas no ofrece fechas anteriores.
+- **P132-acuse gate:** Acuse principal en etapa 8 → avanza a 9 y fija `firma_agendable_desde` (= hoy Monterrey si NULL). Picker de firmas permite desde hoy sujeto a cupo/`min_lead_hours`; fechas pasadas bloqueadas.
 - **P132 Acuse UI:** panel retención visible en etapa ≥ 8; en 9+ timeline completado si hay doc / pendiente si falta; no bloquea book/reagendar.
 - **P132 Biometría:** Mesa cierra con transición canónica `5→8` (UI 6→7 solo históricos).
 - MIME/path/versionado: igual que P092; contrato TS `esGateAvance: false`, origen `Asesor|Mesa`.
@@ -292,7 +292,7 @@ La sección Datos Generales y el JSON `datos.montoMejoravit` **no** se modifican
 
 **Asesor antes de enviar a Mesa (4 obligatorios):** `cliente_ine_frente`, `cliente_ine_reverso`, `cliente_comprobante_domicilio`, `cliente_estado_cuenta`.
 
-**Asesor opcional (upload, no bloquea envío):** `cliente_semanas_cotizadas`, `cliente_carta_empresa`, `cliente_acta_nacimiento_digital`, `cliente_notificacion_apodaca` (P104 — «Notificación solo Apodaca»; distinto de `cliente_notificacion` Mesa y de agenda `kind=notificacion`; sin etapa mínima), `asesor_evidencia` (sección dedicada «Evidencia»; allowlist MIME + octet-stream ≤15 MB; no checklist).
+**Asesor opcional (upload, no bloquea envío):** `cliente_semanas_cotizadas`, `cliente_carta_empresa`, `cliente_acta_nacimiento_digital`, `cliente_notificacion_apodaca` (P104 — label UI «Notificación»; upload editable solo sede Apodaca + etapa 8; distinto de `cliente_notificacion` Mesa y de agenda `kind=notificacion`), `asesor_evidencia` (sección dedicada «Evidencia»; allowlist MIME + octet-stream ≤15 MB; no checklist).
 
 **Mesa de Control (complementarios, no bloquean envío asesor):** `cliente_semanas_cotizadas`, `cliente_acta_nacimiento`, `cliente_constancia_sat` — acta y constancia SAT las sube Mesa; el asesor no las sube.
 
