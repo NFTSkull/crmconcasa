@@ -5,13 +5,16 @@ import {
   asesorDebeUsarCorreccionDocumento,
   asesorDocumentoUploadMode,
   asesorEsCorreccionRechazoClienteDatos,
+  asesorPuedeActualizarDocReingreso,
   asesorPuedeCorregirDocumentoRechazado,
   asesorPuedeEditarClienteDatos,
+  asesorPuedeMostrarUploadDocumento,
   asesorPuedeReemplazarDocumentoExistentePostMesa,
   asesorPuedeSubirDocumentoPreMesa,
   asesorPuedeSubirDocumentoNuevoReingreso,
   asesorPuedeSubirOpcionalFaltantePostMesa,
   asesorPuedeSubirOCorregirDocumento,
+  esReingresoDocumentosEditables,
 } from "./asesor-correccion-post-mesa";
 import {
   INTEGRATION_DOC_TIPOS_ASESOR_ENVIO,
@@ -55,7 +58,7 @@ describe("asesor corrección post-Mesa (helpers UI)", () => {
     assert.equal(asesorDocumentoUploadMode(true, "subido", "cliente_ine_frente"), "normal");
   });
 
-  it("post-envío bloquea creación de obligatorio faltante", () => {
+  it("post-envío bloquea creación de obligatorio faltante fuera de reingreso", () => {
     assert.equal(
       asesorPuedeSubirOCorregirDocumento(true, "faltante", "cliente_ine_frente"),
       false,
@@ -67,27 +70,55 @@ describe("asesor corrección post-Mesa (helpers UI)", () => {
     assert.equal(asesorDocumentoUploadMode(true, "faltante", "cliente_ine_frente"), null);
   });
 
-  it("reingreso etapa 6 abre solo domicilio y estado de cuenta faltantes", () => {
+  it("reingreso (P072 etapa 6 o manual) abre domicilio y estado de cuenta", () => {
+    assert.equal(
+      esReingresoDocumentosEditables({
+        tieneReingresoPostBiometricos: true,
+        etapaActual: 6,
+      }),
+      true,
+    );
+    assert.equal(
+      esReingresoDocumentosEditables({
+        tieneReingresoPostBiometricos: true,
+        etapaActual: 5,
+      }),
+      false,
+    );
+    assert.equal(
+      esReingresoDocumentosEditables({
+        tieneReingresoPostBiometricos: false,
+        etapaActual: 1,
+        reingresoManualCount: 1,
+      }),
+      true,
+    );
+
     for (const tipo of [
       "cliente_comprobante_domicilio",
       "cliente_estado_cuenta",
     ] as const) {
+      assert.equal(asesorPuedeActualizarDocReingreso(true, tipo, true), true);
       assert.equal(
-        asesorPuedeSubirDocumentoNuevoReingreso(
-          true,
-          "faltante",
-          tipo,
-          true,
-        ),
+        asesorPuedeSubirDocumentoNuevoReingreso(true, "faltante", tipo, true),
         true,
       );
       assert.equal(
-        asesorPuedeSubirOCorregirDocumento(
-          true,
-          "faltante",
-          tipo,
-          true,
-        ),
+        asesorPuedeSubirOCorregirDocumento(true, "faltante", tipo, true),
+        true,
+      );
+      assert.equal(
+        asesorPuedeSubirOCorregirDocumento(true, "validado", tipo, true),
+        true,
+      );
+      assert.equal(
+        asesorPuedeMostrarUploadDocumento({
+          puedeIntegrar: false,
+          submittedToMesa: true,
+          estatusRevision: "validado",
+          tipoDocumento: tipo,
+          esReingresoActivo: true,
+        }),
         true,
       );
     }
@@ -98,6 +129,28 @@ describe("asesor corrección post-Mesa (helpers UI)", () => {
         "cliente_ine_frente",
         true,
       ),
+      false,
+    );
+  });
+
+  it("post-Mesa muestra upload de reemplazo aunque puedeIntegrar sea false", () => {
+    assert.equal(
+      asesorPuedeMostrarUploadDocumento({
+        puedeIntegrar: false,
+        submittedToMesa: true,
+        estatusRevision: "validado",
+        tipoDocumento: "cliente_comprobante_domicilio",
+        esReingresoActivo: false,
+      }),
+      true,
+    );
+    assert.equal(
+      asesorPuedeMostrarUploadDocumento({
+        puedeIntegrar: false,
+        submittedToMesa: false,
+        estatusRevision: "faltante",
+        tipoDocumento: "cliente_comprobante_domicilio",
+      }),
       false,
     );
   });

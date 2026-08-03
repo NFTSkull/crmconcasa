@@ -1101,6 +1101,18 @@ Captura en la misma TX de `register_expediente_documento_correccion` / `save_cli
 - Traza: `expediente_rechazo_reactivaciones` + `action_log` (`expediente.rechazo_reactivacion`) con quién, cuándo y `rechazo_id` atendido.
 - **No** depende de `biometricos_condicion`. Errores estables `REACTIVATION_*`.
 
+### Documentos domicilio / estado de cuenta en reingreso (hotfix 146)
+
+Tipos: `cliente_comprobante_domicilio`, `cliente_estado_cuenta`.
+
+| Contexto | Regla |
+|----------|--------|
+| P072 hijo válido (`es_reingreso_post_biometricos_valido`, etapa 6) | Asesor dueño puede **subir o reemplazar** post-envío |
+| Reingreso manual (`reingreso_manual_count > 0`, mismo expediente) | Igual: subir o reemplazar post-envío |
+| Expediente normal | Conserva reglas post-Mesa previas (reemplazo si ya existe; sin primer upload de obligatorio faltante) |
+
+RPC: `register_expediente_documento` (wrapper) + storage `expediente_documento_storage_asesor_post_mesa_upload_allowed`. Versionado soft-delete; una versión activa; `action_log`; no cambia etapa ni padre.
+
 ### Elegibilidad reingreso hijo (P072 intacto)
 
 **Operación:** RPC read-only `get_reingreso_post_biometricos_elegibilidad`

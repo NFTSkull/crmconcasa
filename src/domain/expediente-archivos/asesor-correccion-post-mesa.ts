@@ -4,6 +4,39 @@ import {
   type IntegrationDocAsesorUploadTipo,
 } from "./integration-docs-completos";
 
+/** Tipos que el reingreso exige poder subir/reemplazar post-envío. */
+export const REINGRESO_DOC_TIPOS_ACTUALIZABLES = [
+  "cliente_comprobante_domicilio",
+  "cliente_estado_cuenta",
+] as const;
+
+export type ReingresoDocActualizableTipo =
+  (typeof REINGRESO_DOC_TIPOS_ACTUALIZABLES)[number];
+
+export function isReingresoDocActualizableTipo(
+  tipo: string,
+): tipo is ReingresoDocActualizableTipo {
+  return (REINGRESO_DOC_TIPOS_ACTUALIZABLES as readonly string[]).includes(tipo);
+}
+
+/**
+ * Reingreso con docs domicilio/estado de cuenta editables:
+ * - P072 hijo (padre + rechazo) en etapa 6; o
+ * - reingreso manual del mismo expediente (count > 0).
+ */
+export function esReingresoDocumentosEditables(params: {
+  tieneReingresoPostBiometricos: boolean;
+  etapaActual: number | null | undefined;
+  reingresoManualCount?: number | null;
+}): boolean {
+  const manual = Number(params.reingresoManualCount ?? 0) > 0;
+  if (manual) return true;
+  return (
+    params.tieneReingresoPostBiometricos &&
+    params.etapaActual === 6
+  );
+}
+
 /** Upload inicial pre-envío a Mesa (5 oblig + opcionales). */
 export function asesorPuedeSubirDocumentoPreMesa(submittedToMesa: boolean): boolean {
   return !submittedToMesa;
@@ -30,18 +63,35 @@ export function asesorPuedeSubirOpcionalFaltantePostMesa(
   );
 }
 
+/**
+ * Reingreso: domicilio y estado de cuenta (faltante o con archivo) editables
+ * aunque el expediente ya esté enviado a Mesa.
+ */
+export function asesorPuedeActualizarDocReingreso(
+  submittedToMesa: boolean,
+  tipoDocumento: IntegrationDocAsesorUploadTipo,
+  esReingresoActivo: boolean,
+): boolean {
+  return (
+    submittedToMesa &&
+    esReingresoActivo &&
+    isReingresoDocActualizableTipo(tipoDocumento)
+  );
+}
+
+/** @deprecated Usar asesorPuedeActualizarDocReingreso (cubre faltante y reemplazo). */
 export function asesorPuedeSubirDocumentoNuevoReingreso(
   submittedToMesa: boolean,
   estatusRevision: ResumenEstatus,
   tipoDocumento: IntegrationDocAsesorUploadTipo,
-  esReingresoEtapa6: boolean,
+  esReingresoActivo: boolean,
 ): boolean {
   return (
-    submittedToMesa &&
-    esReingresoEtapa6 &&
-    estatusRevision === "faltante" &&
-    (tipoDocumento === "cliente_comprobante_domicilio" ||
-      tipoDocumento === "cliente_estado_cuenta")
+    asesorPuedeActualizarDocReingreso(
+      submittedToMesa,
+      tipoDocumento,
+      esReingresoActivo,
+    ) && estatusRevision === "faltante"
   );
 }
 
@@ -61,7 +111,7 @@ export function asesorPuedeSubirOCorregirDocumento(
   submittedToMesa: boolean,
   estatusRevision: ResumenEstatus,
   tipoDocumento?: IntegrationDocAsesorUploadTipo,
-  esReingresoEtapa6 = false,
+  esReingresoActivo = false,
 ): boolean {
   if (!submittedToMesa) return true;
   if (asesorPuedeCorregirDocumentoRechazado(submittedToMesa, estatusRevision)) {
@@ -69,11 +119,10 @@ export function asesorPuedeSubirOCorregirDocumento(
   }
   if (
     tipoDocumento &&
-    asesorPuedeSubirDocumentoNuevoReingreso(
+    asesorPuedeActualizarDocReingreso(
       submittedToMesa,
-      estatusRevision,
       tipoDocumento,
-      esReingresoEtapa6,
+      esReingresoActivo,
     )
   ) {
     return true;
@@ -94,6 +143,30 @@ export function asesorPuedeSubirOCorregirDocumento(
   return false;
 }
 
+/**
+ * Post-Mesa: no exigir monto/`puedeIntegrar` si las reglas documentales ya permiten
+ * (reingreso, reemplazo, opcional faltante, corrección).
+ */
+export function asesorPuedeMostrarUploadDocumento(params: {
+  puedeIntegrar: boolean;
+  submittedToMesa: boolean;
+  estatusRevision: ResumenEstatus;
+  tipoDocumento: IntegrationDocAsesorUploadTipo;
+  esReingresoActivo?: boolean;
+  forceReadOnly?: boolean;
+}): boolean {
+  if (params.forceReadOnly) return false;
+  const permitido = asesorPuedeSubirOCorregirDocumento(
+    params.submittedToMesa,
+    params.estatusRevision,
+    params.tipoDocumento,
+    params.esReingresoActivo ?? false,
+  );
+  if (!permitido) return false;
+  if (!params.submittedToMesa) return params.puedeIntegrar;
+  return true;
+}
+
 export function asesorDebeUsarCorreccionDocumento(
   submittedToMesa: boolean,
   estatusRevision: ResumenEstatus,
@@ -107,7 +180,7 @@ export function asesorDocumentoUploadMode(
   submittedToMesa: boolean,
   estatusRevision: ResumenEstatus,
   tipoDocumento?: IntegrationDocAsesorUploadTipo,
-  esReingresoEtapa6 = false,
+  esReingresoActivo = false,
 ): AsesorDocumentoUploadMode | null {
   if (!submittedToMesa) return "normal";
   if (estatusRevision === "rechazado") return "correccion";
@@ -123,11 +196,10 @@ export function asesorDocumentoUploadMode(
   }
   if (
     tipoDocumento &&
-    asesorPuedeSubirDocumentoNuevoReingreso(
+    asesorPuedeActualizarDocReingreso(
       submittedToMesa,
-      estatusRevision,
       tipoDocumento,
-      esReingresoEtapa6,
+      esReingresoActivo,
     )
   ) {
     return "normal";

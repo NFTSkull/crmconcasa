@@ -140,13 +140,18 @@ export {
   asesorDebeUsarCorreccionClienteDatos,
   asesorEsCorreccionRechazoClienteDatos,
   asesorDocumentoUploadMode,
+  asesorPuedeActualizarDocReingreso,
   asesorPuedeCorregirDocumentoRechazado,
   asesorPuedeEditarClienteDatos,
+  asesorPuedeMostrarUploadDocumento,
   asesorPuedeSubirDocumentoPreMesa,
   asesorPuedeSubirDocumentoNuevoReingreso,
   asesorPuedeSubirOCorregirDocumento,
   asesorPuedeSubirOpcionalFaltantePostMesa,
   asesorPuedeReemplazarDocumentoExistentePostMesa,
+  esReingresoDocumentosEditables,
+  isReingresoDocActualizableTipo,
+  REINGRESO_DOC_TIPOS_ACTUALIZABLES,
 } from "./asesor-correccion-post-mesa";
 export { mapRegisterExpedienteDocumentoCorreccionRpcError } from "./register-expediente-documento-correccion-rpc-error";
 export { mapRegisterMesaDocumentoRpcError } from "./register-mesa-documento-rpc-error";

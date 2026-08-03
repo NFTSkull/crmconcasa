@@ -1,3 +1,7 @@
+## 2026-08-03 - Hotfix: reingreso editar domicilio y estado de cuenta
+
+Causa: post-Mesa el dropzone exigía `puedeIntegrar`; `esReingresoEtapa6` solo cubría P072 (y en prod el reingreso activo es **manual**); el repo bloqueaba primer upload de obligatorios faltantes; SQL storage/RPC solo exceptuaban P072 etapa 6 sin replace unificado. Fix: helpers `esReingresoDocumentosEditables` + `asesorPuedeMostrarUploadDocumento`; mig. **146** (`es_reingreso_manual_docs_editables`, storage allow, wrapper `register_expediente_documento` con upload/reemplazo versionado solo para esos 2 tipos). Mesa lee el mismo expediente; padre intacto.
+
 ## 2026-08-03 - Hotfix: tarjeta firmas ausente post-Acuse (etapa 8 inconsistente)
 
 Caso CESAR ADOLFO CARDENAS OLVERA (`7c114f16-…`): Acuse registró 8→9 (action_log OK); Mesa `mover_etapa` saltó 9→7 y terminó en 8; canceló firmas sin cambiar etapa. UI mostraba «Acuse enviado / listo agendar» + timeline 8 Completado por `hasAcuseDoc`, pero gate firmas exige etapa 9 → card ausente. Cohorte RO: 2 expedientes. Fix: mig. **145** `repair_retencion_enviada_a_etapa_9` (+ trigger BEFORE UPDATE si se intenta dejar en 8 con Acuse enviado); timeline/mensajes honestos; gate etapa 9 sin depender de probe bookings. Sin tocar citas reales en smoke escritura.

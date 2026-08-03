@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Fixed
+- **fix/reingreso-editar-domicilio-estado-cuenta:** en reingreso (P072 etapa 6 o manual) el asesor dueño puede subir/reemplazar `cliente_comprobante_domicilio` y `cliente_estado_cuenta` aunque el expediente ya esté enviado a Mesa. Mig. **146** + UI/repo. Sin abrir edición global; padre/Acuse/agenda/etapa intactos.
+
+### Fixed
 - **fix/firmas-card-missing-after-acuse:** tarjeta Agendar/Reagendar firmas invisible tras Acuse porque Cloud quedaba en **etapa 8** (Mesa `mover_etapa` 9→…→8) con `retencion_envios=enviado`. Mig. **145**: repair idempotente 8→9 + trigger anti-regresión; UI timeline/mensajes ya no fingen «listo para agendar» sin etapa ≥9; gate etapa 9 síncrono. Sin Sheets/inventario/biométricos/Acuse docs.
 
 ### Fixed

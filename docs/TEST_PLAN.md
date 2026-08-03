@@ -1,3 +1,11 @@
+## Hotfix — Reingreso: domicilio y estado de cuenta editables
+
+- [x] Tipos reales: `cliente_comprobante_domicilio`, `cliente_estado_cuenta`.
+- [x] Reingreso manual (count>0) o P072 etapa 6: Subir si faltante / Reemplazar si existe.
+- [x] Post-Mesa no exige `puedeIntegrar` para uploads ya permitidos por reglas.
+- [x] Mig. 146 + storage allow; padre/INE/otros docs sin permisos nuevos.
+- [x] Sin smoke escritura en expedientes reales.
+
 ## Hotfix — Tarjeta firmas ausente post-Acuse (etapa 8 inconsistente)
 
 - [x] RO: Cardenas `7c114f16` etapa 8 + Acuse enviado + firmas cancelled; Norma `cdce9c91` etapa 8 + firmas booked (cohorte=2).

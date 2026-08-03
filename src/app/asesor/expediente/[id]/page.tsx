@@ -58,6 +58,7 @@ import {
   integrationDocsCompletos,
   integrationDocsResumenFromArchivoResumen,
   asesorPuedeEditarEvidencia,
+  esReingresoDocumentosEditables,
   useExpedienteArchivosRepo,
   type ExpedienteArchivoResumen,
   type IntegrationDocChecklistItem,
@@ -1592,11 +1593,13 @@ export default function AsesorExpedientePage() {
                     archivosResumen={archivosResumen}
                     puedeIntegrar={puedeIntegrarAsesor}
                     submittedToMesa={operativo?.submittedToMesa ?? false}
-                    esReingresoEtapa6={Boolean(
-                      reingreso?.expedienteAnteriorId &&
-                        reingreso?.rechazoId &&
-                        operativo?.etapaActual === 6,
-                    )}
+                    esReingresoActivo={esReingresoDocumentosEditables({
+                      tieneReingresoPostBiometricos: Boolean(
+                        reingreso?.expedienteAnteriorId && reingreso?.rechazoId,
+                      ),
+                      etapaActual: operativo?.etapaActual,
+                      reingresoManualCount: reingresoManual?.count,
+                    })}
                     readOnlyOpcionalTipos={[]}
                     onUploaded={refreshArchivos}
                   />
