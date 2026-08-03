@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useState } from "react";
+import { useId } from "react";
 import { Button } from "@/components/ui/Button";
 
 export type ReingresoManualConfirmDialogProps = {
@@ -17,7 +17,6 @@ export function ReingresoManualConfirmDialog({
   onConfirm,
 }: ReingresoManualConfirmDialogProps) {
   const titleId = useId();
-  const [confirmed, setConfirmed] = useState(false);
 
   return (
     <div
@@ -31,19 +30,9 @@ export function ReingresoManualConfirmDialog({
           Enviar expediente como reingreso
         </h2>
         <p className="mt-3 text-sm text-gray-700">
-          Este mismo expediente se enviará nuevamente a Mesa Control y se identificará
+          Este mismo expediente se actualizará en Mesa Control y aparecerá marcado
           como REINGRESO. No se creará un expediente nuevo.
         </p>
-        <label className="mt-3 flex items-start gap-2 text-sm text-gray-700">
-          <input
-            type="checkbox"
-            className="mt-1"
-            checked={confirmed}
-            disabled={saving}
-            onChange={(e) => setConfirmed(e.target.checked)}
-          />
-          <span>Confirmo el reingreso de este expediente.</span>
-        </label>
         {error ? (
           <p role="alert" className="mt-3 text-sm text-red-700">
             {error}
@@ -61,7 +50,7 @@ export function ReingresoManualConfirmDialog({
           <Button
             type="button"
             variant="primary"
-            disabled={saving || !confirmed}
+            disabled={saving}
             onClick={() => void onConfirm()}
           >
             {saving ? "Enviando…" : "Confirmar reingreso"}
