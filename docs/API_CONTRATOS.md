@@ -325,6 +325,48 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 
 ---
 
+## 5bis. Reingreso manual a Mesa (mismo expediente)
+
+**Operación:** UI Asesor «Reingreso» · RPC `asesor_enviar_reingreso_a_mesa(p_expediente_id)`
+**Migración:** 142
+
+### Request
+
+```json
+{ "p_expediente_id": "uuid" }
+```
+
+### Response
+
+```json
+{
+  "ok": true,
+  "changed": true,
+  "idempotent": false,
+  "expediente_id": "uuid",
+  "precalificacion_id": "uuid",
+  "reingreso_manual_count": 1,
+  "reingreso_manual_at": "ISO",
+  "reingreso_manual_by": "uuid",
+  "etapa_actual": 1,
+  "subestado": "en_validacion_mesa",
+  "submitted_to_mesa": true,
+  "fecha_envio_mesa": "ISO"
+}
+```
+
+### Reglas
+
+- Solo `asesor` dueño; ciclo `activo`; debe existir envío previo (`submitted_to_mesa` + `fecha_envio_mesa`).
+- Gates de negocio = `enviar_a_mesa` (monto, cliente_datos cobro, docs integración, NSS bloqueado excluyendo self); **no** bloquea por «ya enviado».
+- Transición = misma que `enviar_a_mesa`: `etapa_actual=1`, `subestado=en_validacion_mesa`, `fecha_envio_mesa=NOW()`.
+- Incrementa `reingreso_manual_count`; set `reingreso_manual_at/by`.
+- No INSERT expediente/precalificación; no toca docs/citas/`reingreso_rechazo_id` (P072).
+- Idempotencia: mismo actor en ≤5s → `changed:false` sin nuevo incremento.
+- `action_log.action = expediente_reingreso_mesa`.
+
+---
+
 ## 6. Validar / rechazar documento (Mesa)
 
 **Operación:** `PATCH /documentos/{id}/revision` · RPC `update_documento_revision`

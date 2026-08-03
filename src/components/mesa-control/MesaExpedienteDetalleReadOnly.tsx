@@ -32,11 +32,13 @@ import { MesaControlDocumentosComplementariosSection } from "@/components/mesa-c
 import { MesaDocumentosAsesorSection } from "@/components/mesa-control/MesaDocumentosAsesorSection";
 import { MesaRetencionAcuseAvisoSection } from "@/components/mesa-control/MesaRetencionAcuseAvisoSection";
 import { AsesorSeguimientoOperativo } from "@/components/asesor/AsesorSeguimientoOperativo";
+import { ReingresoBadge } from "@/components/asesor/ReingresoBadge";
 import { Button } from "@/components/ui/Button";
 import {
   formatAsesorExpedienteLabel,
   formatMontoAprobadoVigente,
 } from "@/lib/asesorDisplay";
+import { hasReingresoVisible } from "@/domain/expedientes/reingreso-manual";
 import {
   useExpedienteClienteDatosRepo,
   ClienteDatosSupabaseError,
@@ -1760,6 +1762,33 @@ export function MesaExpedienteDetalleReadOnly() {
           cancelacion={cancelacionOperativa}
           formatDateTime={formatDateTime}
         />
+      ) : null}
+      {hasReingresoVisible(expediente) ? (
+        <div
+          role="status"
+          className="rounded-lg border border-violet-200 bg-violet-50 px-4 py-3 text-sm text-violet-950"
+        >
+          <p className="font-semibold">
+            Este expediente fue enviado nuevamente como REINGRESO.
+          </p>
+          <div className="mt-2 flex flex-wrap items-center gap-3">
+            <ReingresoBadge
+              count={expediente.reingresoManual?.count ?? 0}
+              at={expediente.reingresoManual?.at ?? null}
+              formatDateTime={formatDateTime}
+            />
+            {expediente.reingresoManual?.by ? (
+              <span className="text-xs text-violet-900/80">
+                Enviado por: {expediente.base.asesorNombre || expediente.base.asesorEmail || expediente.reingresoManual.by}
+              </span>
+            ) : null}
+            {expediente.reingreso?.rechazoId ? (
+              <span className="text-xs text-violet-900/80">
+                Incluye historial de reingreso post-biométricos (P072).
+              </span>
+            ) : null}
+          </div>
+        </div>
       ) : null}
       <section className="rounded-lg border border-gray-200 bg-white p-4 text-sm text-gray-600">
         <h2 className="text-sm font-semibold text-gray-900">Resumen del expediente</h2>

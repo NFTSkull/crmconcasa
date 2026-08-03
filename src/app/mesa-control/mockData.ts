@@ -39,6 +39,11 @@ export interface CasoMock {
   advisorChangesSummary?: readonly string[] | null;
   advisorChangesStatus?: "borrador" | "pendiente_revision" | "revisado" | null;
   advisorChangeBatchId?: string | null;
+  /** Reingreso manual / P072. */
+  esReingreso?: boolean;
+  reingresoManualCount?: number;
+  reingresoManualAt?: string | null;
+  reingresoManualBy?: string | null;
 }
 
 export const ETAPAS_LABELS: Record<number, string> = {

@@ -54,6 +54,9 @@ export type SupabaseExpedienteListRow = Readonly<{
   updated_at?: string | null;
   expediente_anterior_id?: string | null;
   reingreso_rechazo_id?: string | null;
+  reingreso_manual_count?: number | null;
+  reingreso_manual_at?: string | null;
+  reingreso_manual_by?: string | null;
   editor_decisions?: SupabaseEditorDecisionEmbed | SupabaseEditorDecisionEmbed[] | null;
   reingreso_rechazo?:
     | SupabaseReingresoRechazoEmbed
@@ -203,6 +206,15 @@ export function mapSupabaseRowToExpedienteMock(
             biometricosRazon: textOrNull(rechazo?.biometricos_razon),
           }
         : undefined,
+    reingresoManual: {
+      count:
+        typeof row.reingreso_manual_count === "number" &&
+        Number.isFinite(row.reingreso_manual_count)
+          ? Math.max(0, Math.floor(row.reingreso_manual_count))
+          : 0,
+      at: textOrNull(row.reingreso_manual_at),
+      by: textOrNull(row.reingreso_manual_by),
+    },
   };
 }
 

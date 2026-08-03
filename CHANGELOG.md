@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Added
+- **fix/reingreso-manual-expediente-mesa:** acción Asesor «Reingreso» + RPC `asesor_enviar_reingreso_a_mesa` (mig. **142**). Marca el mismo expediente (`reingreso_manual_count/at/by`), reaplica la transición de `enviar_a_mesa` (etapa 1 / `en_validacion_mesa`), `action_log` `expediente_reingreso_mesa`. Etiqueta REINGRESO en Asesor/Mesa. Separado de P071/P072 (`reingreso_rechazo_id`). Sin duplicar expediente.
+
 ### Fixed
 - **fix/agenda-reconcile-restore-booking-detach:** mig. **141** restaura el detach de `booking_id` en `agenda_sheet_inventory_upsert_batch` (perdido en 137). Evita `agenda_sheet_slot_inventory_booking_uidx` al mover booking entre filas físicas; conserva `sheet_slot_time`/many-to-one, título exacto y el índice unique. Sin tocar Sheets/bookings/outbox/Edge.
 

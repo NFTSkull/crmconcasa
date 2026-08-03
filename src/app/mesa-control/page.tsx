@@ -53,6 +53,8 @@ import {
   type MesaBandejaServerCounts,
   type PaginatedMesaBandejaResult,
 } from "@/domain/expedientes";
+import { hasReingresoVisible } from "@/domain/expedientes/reingreso-manual";
+import { ReingresoBadge } from "@/components/asesor/ReingresoBadge";
 import {
   etapasInternasParaFiltroPaso,
   formatEtapaMesaBandejaBadge,
@@ -423,6 +425,10 @@ export default function MesaControlPage() {
       lastViewedAt: page.lastViewedAt ?? null,
       lastUpdatedByName: page.lastUpdatedByName ?? null,
       lastUpdatedAt: page.lastUpdatedAt ?? null,
+      esReingreso: hasReingresoVisible(exp),
+      reingresoManualCount: exp.reingresoManual?.count ?? 0,
+      reingresoManualAt: exp.reingresoManual?.at ?? null,
+      reingresoManualBy: exp.reingresoManual?.by ?? null,
     };
   }, []);
 
@@ -1628,9 +1634,15 @@ export default function MesaControlPage() {
               >
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0 flex-1">
-                    <p className="flex min-w-0 items-center text-sm font-semibold text-slate-900">
+                    <p className="flex min-w-0 items-center gap-2 text-sm font-semibold text-slate-900">
                       <span className="truncate">{c.cliente_nombre}</span>
                       <MesaTieneDatosBadge active={Boolean(c.tieneDatos)} />
+                      {c.esReingreso ? (
+                        <ReingresoBadge
+                          count={c.reingresoManualCount ?? 0}
+                          compact
+                        />
+                      ) : null}
                     </p>
                     <p className="mt-0.5 text-[11px] text-slate-500">{c.telefono_cliente || "—"}</p>
                   </div>

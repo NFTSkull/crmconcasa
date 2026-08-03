@@ -16,6 +16,10 @@ import {
   deriveResultadoRealExpediente,
   type ResultadoRealExpediente,
 } from "@/domain/expedientes/mock.repo";
+import {
+  formatReingresoBadgeLabel,
+  hasReingresoVisible,
+} from "@/domain/expedientes/reingreso-manual";
 import { isDataModeSupabase } from "@/lib/dataMode";
 import {
   deriveEstadoDocumentacionColumnaAsesor,
@@ -231,6 +235,8 @@ interface PrecalificacionMockLocal {
   fechaCita?: string | null;
   updatedAtOperativo?: string | null;
   esReingreso: boolean;
+  reingresoManualCount?: number;
+  reingresoManualAt?: string | null;
 }
 
 const DECISION_OPTIONS = [
@@ -587,9 +593,9 @@ export default function AsesorDashboardPage() {
       operativo: e.operativo,
       fechaCita: e.operativo.fechaCita,
       updatedAtOperativo: e.operativo.updatedAt,
-      esReingreso: Boolean(
-        e.reingreso?.expedienteAnteriorId && e.reingreso?.rechazoId,
-      ),
+      esReingreso: hasReingresoVisible(e),
+      reingresoManualCount: e.reingresoManual?.count ?? 0,
+      reingresoManualAt: e.reingresoManual?.at ?? null,
     };
   }, []);
 
@@ -1624,8 +1630,15 @@ export default function AsesorDashboardPage() {
                               {p.cliente_nombre || "—"}
                             </span>
                             {p.esReingreso ? (
-                              <span className="mt-0.5 inline-flex rounded-full bg-violet-100 px-1.5 py-0.5 text-[9px] font-semibold text-violet-800">
-                                Reingreso
+                              <span className="mt-0.5 inline-flex flex-col gap-0.5">
+                                <span className="inline-flex w-fit rounded-full bg-violet-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-violet-900">
+                                  {formatReingresoBadgeLabel(p.reingresoManualCount ?? 0)}
+                                </span>
+                                {p.reingresoManualAt ? (
+                                  <span className="text-[9px] text-violet-800/80">
+                                    Último envío: {formatDateTimeMx(p.reingresoManualAt)}
+                                  </span>
+                                ) : null}
                               </span>
                             ) : p.operativo.cicloEstado === "cancelado" ? (
                               <span className="mt-0.5 inline-flex rounded-full bg-slate-200 px-1.5 py-0.5 text-[9px] font-semibold text-slate-900">

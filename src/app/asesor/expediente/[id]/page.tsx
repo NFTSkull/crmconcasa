@@ -22,6 +22,8 @@ import { AsesorSolicitudDocumentoSection } from "@/components/asesor/AsesorSolic
 import { AsesorReingresoPostBiometricosCard } from "@/components/asesor/AsesorReingresoPostBiometricosCard";
 import { AsesorExpedienteCanceladoBanner } from "@/components/asesor/AsesorExpedienteCanceladoBanner";
 import { AsesorExpedienteRechazadoBanner } from "@/components/asesor/AsesorExpedienteRechazadoBanner";
+import { ReingresoBadge } from "@/components/asesor/ReingresoBadge";
+import { ReingresoManualConfirmDialog } from "@/components/asesor/ReingresoManualConfirmDialog";
 import { Button } from "@/components/ui/Button";
 import { SeguimientoOperativoMock } from "@/components/seguimiento/SeguimientoOperativoMock";
 import {
@@ -32,6 +34,9 @@ import {
   type ExpedienteCancelacionRow,
   type ExpedienteMock,
 } from "@/domain/expedientes";
+import {
+  hasReingresoVisible,
+} from "@/domain/expedientes/reingreso-manual";
 import {
   MockExpedientesRepo,
 } from "@/domain/expedientes/mock.repo";
@@ -245,10 +250,15 @@ export default function AsesorExpedientePage() {
   >(null);
   const [reingreso, setReingreso] =
     useState<ExpedienteMock["reingreso"]>(undefined);
+  const [reingresoManual, setReingresoManual] =
+    useState<ExpedienteMock["reingresoManual"]>(undefined);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [enviandoMesa, setEnviandoMesa] = useState(false);
   const [enviarMesaError, setEnviarMesaError] = useState<string | null>(null);
   const [enviarMesaExito, setEnviarMesaExito] = useState<string | null>(null);
+  const [reingresoDialogOpen, setReingresoDialogOpen] = useState(false);
+  const [reingresoSaving, setReingresoSaving] = useState(false);
+  const [reingresoError, setReingresoError] = useState<string | null>(null);
   const [montoAprobadoInput, setMontoAprobadoInput] = useState("");
   const [montoSaving, setMontoSaving] = useState(false);
   const [montoError, setMontoError] = useState<string | null>(null);
@@ -541,6 +551,29 @@ export default function AsesorExpedientePage() {
     ],
   );
 
+  const puedeReingresoManual = useMemo(
+    () =>
+      hasMontoAprobado &&
+      datosGeneralesCompletos &&
+      documentosCompletos &&
+      operativo?.submittedToMesa === true &&
+      !expedienteCancelado &&
+      (operativo?.cicloEstado == null || operativo.cicloEstado === "activo"),
+    [
+      datosGeneralesCompletos,
+      documentosCompletos,
+      hasMontoAprobado,
+      operativo?.cicloEstado,
+      operativo?.submittedToMesa,
+      expedienteCancelado,
+    ],
+  );
+
+  const muestraReingresoBadge = hasReingresoVisible({
+    reingreso,
+    reingresoManual,
+  });
+
   const puedeIntegrarAsesor =
     hasMontoAprobado && !expedienteCancelado;
 
@@ -560,6 +593,7 @@ export default function AsesorExpedientePage() {
         setOperativo(null);
         setEditorDecision(null);
         setReingreso(undefined);
+        setReingresoManual(undefined);
         setCancelacionOperativa(null);
         setLoadError(null);
         return;
@@ -567,6 +601,7 @@ export default function AsesorExpedientePage() {
       setLoadError(null);
       setEditorDecision(exp.editorDecision);
       setReingreso(exp.reingreso);
+      setReingresoManual(exp.reingresoManual);
       setPrecal({
         id: exp.id,
         programa: exp.base.programa,
@@ -604,6 +639,7 @@ export default function AsesorExpedientePage() {
       setOperativo(null);
       setEditorDecision(null);
       setReingreso(undefined);
+      setReingresoManual(undefined);
       setCancelacionOperativa(null);
       if (err instanceof ExpedientesSupabaseError) {
         setLoadError(err.message);
@@ -741,6 +777,37 @@ export default function AsesorExpedientePage() {
     operativo?.submittedToMesa,
     puedeEnviarAMesaSupabase,
     precal?.id,
+    repo,
+  ]);
+
+  const handleConfirmarReingresoManual = useCallback(async () => {
+    if (!precal?.id || reingresoSaving || !puedeReingresoManual) return;
+    setReingresoSaving(true);
+    setReingresoError(null);
+    setEnviarMesaExito(null);
+    try {
+      await repo.enviarReingresoAMesa(String(precal.id));
+      setReingresoDialogOpen(false);
+      setEnviarMesaExito(
+        "El expediente fue enviado nuevamente a Mesa como reingreso.",
+      );
+      await loadExpediente();
+    } catch (err) {
+      const msg =
+        err instanceof ExpedientesSupabaseError
+          ? err.message
+          : err instanceof Error
+            ? err.message
+            : "No se pudo reingresar a Mesa.";
+      setReingresoError(msg);
+    } finally {
+      setReingresoSaving(false);
+    }
+  }, [
+    loadExpediente,
+    puedeReingresoManual,
+    precal?.id,
+    reingresoSaving,
     repo,
   ]);
 
@@ -1196,10 +1263,19 @@ export default function AsesorExpedientePage() {
       </header>
       <main className="mx-auto max-w-6xl space-y-6 px-4 py-6">
         <div className="rounded-lg border border-gray-200 bg-white p-4 text-sm text-gray-600">
-          <p>
-            <span className="font-medium text-gray-900">Programa:</span>{" "}
-            {precal.programa}
-          </p>
+          <div className="flex flex-wrap items-start justify-between gap-2">
+            <p>
+              <span className="font-medium text-gray-900">Programa:</span>{" "}
+              {precal.programa}
+            </p>
+            {muestraReingresoBadge ? (
+              <ReingresoBadge
+                count={reingresoManual?.count ?? 0}
+                at={reingresoManual?.at ?? null}
+                formatDateTime={formatDateTime}
+              />
+            ) : null}
+          </div>
           <p>
             <span className="font-medium text-gray-900">NSS:</span> {precal.nss}
           </p>
@@ -1527,12 +1603,27 @@ export default function AsesorExpedientePage() {
                 </p>
               ) : null}
               {operativo?.submittedToMesa ? (
-                <p
-                  role="status"
-                  className="mt-3 inline-flex rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-medium text-green-900"
-                >
-                  Enviado a Mesa
-                </p>
+                <div className="mt-3 flex flex-wrap items-center gap-2">
+                  <p
+                    role="status"
+                    className="inline-flex rounded-full border border-green-200 bg-green-50 px-3 py-1 text-xs font-medium text-green-900"
+                  >
+                    Enviado a Mesa
+                  </p>
+                  {puedeReingresoManual ? (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      disabled={reingresoSaving}
+                      onClick={() => {
+                        setReingresoError(null);
+                        setReingresoDialogOpen(true);
+                      }}
+                    >
+                      Reingreso
+                    </Button>
+                  ) : null}
+                </div>
               ) : (
                 <div className="mt-3">
                   <Button
@@ -1895,6 +1986,18 @@ export default function AsesorExpedientePage() {
         </div>
         )}
       </main>
+      {reingresoDialogOpen ? (
+        <ReingresoManualConfirmDialog
+          saving={reingresoSaving}
+          error={reingresoError}
+          onCancel={() => {
+            if (reingresoSaving) return;
+            setReingresoDialogOpen(false);
+            setReingresoError(null);
+          }}
+          onConfirm={handleConfirmarReingresoManual}
+        />
+      ) : null}
     </div>
   );
 }

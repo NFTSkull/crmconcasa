@@ -24,6 +24,7 @@ import type { ExpedienteMock } from "./mock.repo";
 import { mapProgramaUiToDb } from "./map-programa";
 import { ExpedientesSupabaseError } from "./supabase.error";
 import { mapEnviarAMesaRpcError } from "./enviar-mesa-rpc-error";
+import { mapAsesorEnviarReingresoRpcError } from "./reingreso-manual";
 import { mapAvanzarEtapaRpcError } from "./avanzar-etapa-rpc-error";
 import { mapAsesorUpdateMontoAprobadoRpcError } from "./asesor-update-monto-aprobado-rpc-error";
 import { mapUpsertEditorDecisionRpcError } from "./upsert-editor-decision-rpc-error";
@@ -92,6 +93,9 @@ const EXPEDIENTES_LIST_SELECT = `
   updated_at,
   expediente_anterior_id,
   reingreso_rechazo_id,
+  reingreso_manual_count,
+  reingreso_manual_at,
+  reingreso_manual_by,
   editor_decisions ( decision, monto_aprobado, notas_revision, aprobado_at, monto_aprobado_al_aprobar, no_cumple_at ),
   reingreso_rechazo:expediente_rechazos_operativos!expedientes_reingreso_rechazo_padre_fk (
     etapa,
@@ -439,6 +443,9 @@ async function fetchExpedientesListForMesaControlPaginated(
       updated_at: row.updated_at,
       expediente_anterior_id: row.expediente_anterior_id,
       reingreso_rechazo_id: row.reingreso_rechazo_id,
+      reingreso_manual_count: row.reingreso_manual_count,
+      reingreso_manual_at: row.reingreso_manual_at,
+      reingreso_manual_by: row.reingreso_manual_by,
     };
     const base = mapSupabaseRowToExpedienteMock(
       listRow,
@@ -609,6 +616,37 @@ export class SupabaseExpedientesRepo implements ExpedientesRepo {
     if (!refreshed) {
       throw new ExpedientesSupabaseError(
         "El envío a Mesa se registró, pero no se pudo recargar el expediente.",
+      );
+    }
+
+    return refreshed;
+  }
+
+  async enviarReingresoAMesa(expedienteId: string): Promise<ExpedienteMock> {
+    const idNorm = String(expedienteId).trim();
+    if (!idNorm) {
+      throw new ExpedientesSupabaseError("El identificador del expediente es obligatorio.");
+    }
+
+    const { client } = await requireSupabaseSession();
+    const { data, error } = await client.rpc("asesor_enviar_reingreso_a_mesa", {
+      p_expediente_id: idNorm,
+    });
+
+    if (error) {
+      throw mapAsesorEnviarReingresoRpcError(error);
+    }
+
+    if (!data || typeof data !== "object") {
+      throw new ExpedientesSupabaseError(
+        "No se pudo reingresar a Mesa. Respuesta vacía del servidor.",
+      );
+    }
+
+    const refreshed = await fetchExpedienteById(idNorm);
+    if (!refreshed) {
+      throw new ExpedientesSupabaseError(
+        "El reingreso a Mesa se registró, pero no se pudo recargar el expediente.",
       );
     }
 
