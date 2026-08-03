@@ -145,11 +145,11 @@ describe("P104 cliente_notificacion_apodaca", () => {
     );
   });
 
-  it("MIME/tamaño heredados (PDF + 15 MiB); no inventa formatos", () => {
+  it("MIME/tamaño: PDF/JPEG/PNG ≤15 MiB; rechaza WEBP", () => {
     assert.equal(EXPEDIENTE_DOCUMENTO_MAX_BYTES, 15 * 1024 * 1024);
     assert.equal(
       getExpedienteDocumentoAcceptAttr("cliente_notificacion_apodaca"),
-      "application/pdf,.pdf",
+      ".pdf,.jpg,.jpeg,.png,application/pdf,image/jpeg,image/png",
     );
     const pdf = new File([new Uint8Array([1])], "apodaca.pdf", {
       type: "application/pdf",
@@ -158,6 +158,20 @@ describe("P104 cliente_notificacion_apodaca", () => {
     assert.equal(resolveExpedienteDocumentoUploadMime(pdf, "cliente_notificacion_apodaca"), "application/pdf");
 
     const jpg = new File([new Uint8Array([1])], "apodaca.jpg", { type: "image/jpeg" });
-    assert.equal(validateExpedienteDocumentoUploadFile(jpg, "cliente_notificacion_apodaca").ok, false);
+    assert.equal(validateExpedienteDocumentoUploadFile(jpg, "cliente_notificacion_apodaca").ok, true);
+    assert.equal(resolveExpedienteDocumentoUploadMime(jpg, "cliente_notificacion_apodaca"), "image/jpeg");
+
+    const jpeg = new File([new Uint8Array([1])], "apodaca.jpeg", { type: "image/jpeg" });
+    assert.equal(validateExpedienteDocumentoUploadFile(jpeg, "cliente_notificacion_apodaca").ok, true);
+
+    const png = new File([new Uint8Array([1])], "apodaca.png", { type: "image/png" });
+    assert.equal(validateExpedienteDocumentoUploadFile(png, "cliente_notificacion_apodaca").ok, true);
+    assert.equal(resolveExpedienteDocumentoUploadMime(png, "cliente_notificacion_apodaca"), "image/png");
+
+    const webp = new File([new Uint8Array([1])], "apodaca.webp", { type: "image/webp" });
+    assert.equal(validateExpedienteDocumentoUploadFile(webp, "cliente_notificacion_apodaca").ok, false);
+
+    const gif = new File([new Uint8Array([1])], "apodaca.gif", { type: "image/gif" });
+    assert.equal(validateExpedienteDocumentoUploadFile(gif, "cliente_notificacion_apodaca").ok, false);
   });
 });

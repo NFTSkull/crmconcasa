@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Fixed
+- **fix/notificacion-acepta-imagenes:** `cliente_notificacion_apodaca` («Notificación») acepta PDF/JPG/JPEG/PNG para Asesor dueño y Mesa (mig. **144** + FE allowlist). Sin WEBP/HEIC/GIF; tamaño 15 MiB intacto; Acuse/etapas/agenda sin cambio.
+
+### Fixed
 - **fix/reingreso-visible-todos-expedientes:** card «Reingreso a Mesa» arriba de Datos Generales en todo expediente activo del asesor dueño (sin checklist/etapa/`submittedToMesa`). Mig. **143** relaja `asesor_enviar_reingreso_a_mesa` (142 intacta): solo auth + dueño + no cancelado/eliminado; mismo expediente; badge REINGRESO; idempotencia 5s.
 
 ### Added

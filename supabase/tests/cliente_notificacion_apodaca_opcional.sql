@@ -49,13 +49,32 @@ BEGIN
     RAISE EXCEPTION 'notif_apodaca_opcional: falta en reingreso_documentos_reutilizables';
   END IF;
 
-  IF cardinality(v_opc) <> 4 OR cardinality(v_upload) <> 8 THEN
+  IF cardinality(v_opc) <> 6 OR cardinality(v_upload) <> 10 THEN
     RAISE EXCEPTION 'notif_apodaca_opcional: cardinalidad opc=% upload=%', cardinality(v_opc), cardinality(v_upload);
   END IF;
 
-  -- MIME heredado: PDF ok; sin límites inventados para este tipo.
+  -- MIME: PDF + JPEG/PNG; sin WEBP/GIF/HEIC
   IF NOT public.expediente_documento_mime_permitido('application/pdf', 'cliente_notificacion_apodaca') THEN
     RAISE EXCEPTION 'notif_apodaca_opcional: PDF debe permitirse';
+  END IF;
+  IF NOT public.expediente_documento_mime_permitido('image/jpeg', 'cliente_notificacion_apodaca') THEN
+    RAISE EXCEPTION 'notif_apodaca_opcional: JPEG debe permitirse';
+  END IF;
+  IF NOT public.expediente_documento_mime_permitido('image/png', 'cliente_notificacion_apodaca') THEN
+    RAISE EXCEPTION 'notif_apodaca_opcional: PNG debe permitirse';
+  END IF;
+  IF public.expediente_documento_mime_permitido('image/webp', 'cliente_notificacion_apodaca') THEN
+    RAISE EXCEPTION 'notif_apodaca_opcional: WEBP no debe permitirse';
+  END IF;
+  IF public.expediente_documento_mime_permitido('image/gif', 'cliente_notificacion_apodaca') THEN
+    RAISE EXCEPTION 'notif_apodaca_opcional: GIF no debe permitirse';
+  END IF;
+  IF public.expediente_documento_mime_permitido('image/heic', 'cliente_notificacion_apodaca') THEN
+    RAISE EXCEPTION 'notif_apodaca_opcional: HEIC no debe permitirse';
+  END IF;
+  -- Otros tipos no amplían por este hotfix
+  IF public.expediente_documento_mime_permitido('image/jpeg', 'cliente_comprobante_domicilio') THEN
+    RAISE EXCEPTION 'notif_apodaca_opcional: no ampliar domicilio';
   END IF;
 
   RAISE NOTICE 'notif_apodaca_opcional: OK';

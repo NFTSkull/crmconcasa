@@ -17,7 +17,7 @@ import {
   useExpedienteArchivosRepo,
   type ExpedienteArchivoListItem,
 } from "@/domain/expediente-archivos";
-import { getExpedienteDocumentoAcceptAttr, validateExpedienteDocumentoUploadFile } from "@/lib/fileUploadValidation";
+import { getExpedienteDocumentoAcceptAttr, validateExpedienteDocumentoUploadFile, NOTIFICACION_APODACA_UPLOAD_HINT, resolveExpedienteDocumentoUploadMime } from "@/lib/fileUploadValidation";
 import { formatBytesLabel } from "@/domain/expediente-archivos/cliente-pagare";
 
 export type MesaNotificacionApodacaSectionProps = Readonly<{
@@ -365,6 +365,7 @@ export function MesaNotificacionApodacaSection({
               busy={saving || deleting}
               disabled={!writeEnabled || saving || deleting}
               selectedFileName={selectedFile?.name ?? null}
+              hint={NOTIFICACION_APODACA_UPLOAD_HINT}
               aria-label={documento ? "Reemplazar Notificación" : "Subir Notificación"}
               onFiles={(files) => {
                 const file = files[0];
@@ -388,7 +389,12 @@ export function MesaNotificacionApodacaSection({
           open={dialogOpen}
           mode={dialogMode}
           fileName={selectedFile.name}
-          mime="application/pdf"
+          mime={
+            resolveExpedienteDocumentoUploadMime(
+              selectedFile,
+              CLIENTE_NOTIFICACION_APODACA_DOCUMENT_TIPO,
+            ) || selectedFile.type || "application/pdf"
+          }
           fileSize={selectedFile.size}
           saving={saving}
           progressLabel={progressLabel}

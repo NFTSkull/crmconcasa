@@ -277,3 +277,45 @@ test("carta empresa existente puede reemplazarse post-Mesa", () => {
     true,
   );
 });
+
+test("cliente_notificacion_apodaca acepta PDF/JPEG/PNG y rechaza WEBP", () => {
+  assert.equal(
+    getExpedienteDocumentoAcceptAttr("cliente_notificacion_apodaca"),
+    RETENCION_PRINCIPAL_ACCEPT_ATTR,
+  );
+  assert.equal(
+    validateExpedienteDocumentoUploadFile(
+      mockFile("n.pdf", "application/pdf"),
+      "cliente_notificacion_apodaca",
+    ).ok,
+    true,
+  );
+  assert.equal(
+    validateExpedienteDocumentoUploadFile(
+      mockFile("n.jpg", "image/jpeg"),
+      "cliente_notificacion_apodaca",
+    ).ok,
+    true,
+  );
+  assert.equal(
+    validateExpedienteDocumentoUploadFile(
+      mockFile("n.png", "image/png"),
+      "cliente_notificacion_apodaca",
+    ).ok,
+    true,
+  );
+  assert.equal(
+    validateExpedienteDocumentoUploadFile(
+      mockFile("n.webp", "image/webp"),
+      "cliente_notificacion_apodaca",
+    ).ok,
+    false,
+  );
+  assert.equal(
+    resolveExpedienteDocumentoUploadMime(
+      mockFile("n.jpeg", "image/jpeg"),
+      "cliente_notificacion_apodaca",
+    ),
+    "image/jpeg",
+  );
+});

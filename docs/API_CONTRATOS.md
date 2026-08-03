@@ -230,14 +230,14 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 |-------|--------|
 | Roles escritura | asesor dueño (+ roles ya autorizados en RPC) |
 | Etapa mínima | ninguna (cualquier etapa del expediente) |
-| MIME | PDF (`expediente_documento_mime_permitido` heredado) |
+| MIME | PDF / JPEG / PNG (mig. **144**; sin WEBP/HEIC/GIF/SVG) |
 | Tamaño | ≤ 15 728 640 bytes |
-| Mesa | preview/descarga en documentos del asesor; sin upload Mesa |
+| Mesa | upload/reemplazo/eliminar + preview/descarga (`MesaNotificacionApodacaSection`, P136) |
 | Gate avance / envío | **No** |
 | Reingreso | sí, alineado a opcionales asesor (`reingreso_documentos_reutilizables`) |
 | Obligatorio | **No** |
 
-**UI:** label UI `Notificación` (badge Opcional; tipo interno `cliente_notificacion_apodaca`) en checklist Asesor (`AsesorIntegracionDocsUpload` + DocumentDropzone) **solo** si sede canónica Apodaca (`location_id` de biométricos) y etapa 8; histórico RO si ya hay archivo. También `MesaNotificacionApodacaSection` / `MesaDocumentosAsesorSection`.
+**UI:** label UI `Notificación` (badge Opcional; tipo interno `cliente_notificacion_apodaca`) en checklist Asesor (`AsesorIntegracionDocsUpload`) y Mesa (`MesaNotificacionApodacaSection`) en cualquier etapa/sede; formatos PDF/JPG/JPEG/PNG; misma versión activa compartida.
 
 ### 3sexies. Evidencia opcional del asesor (`asesor_evidencia`)
 

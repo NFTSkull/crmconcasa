@@ -24,6 +24,8 @@ import {
 } from "@/domain/expediente-archivos";
 import {
   getExpedienteDocumentoAcceptAttr,
+  isClienteNotificacionApodacaTipo,
+  NOTIFICACION_APODACA_UPLOAD_HINT,
 } from "@/lib/fileUploadValidation";
 
 type Props = {
@@ -256,6 +258,11 @@ function ChecklistUploadList({
                       busy={uploading}
                       disabled={disabled}
                       selectedFileName={nombre}
+                      hint={
+                        isClienteNotificacionApodacaTipo(item.tipo_documento)
+                          ? NOTIFICACION_APODACA_UPLOAD_HINT
+                          : undefined
+                      }
                       aria-label={
                         esCorreccion
                           ? `Subir corrección de ${item.label}`
