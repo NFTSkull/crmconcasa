@@ -20,9 +20,13 @@ describe("mapBookFirmasRpcError", () => {
 });
 
 describe("firmas-booking-actions", () => {
-  it("manage actions solo etapa 9 con booking", () => {
+  it("manage actions: etapa 9 u 10 con booking activo", () => {
     assert.equal(canShowFirmasManageActions({ etapaActual: 9, hasActiveBooking: true }), true);
-    assert.equal(canShowFirmasManageActions({ etapaActual: 10, hasActiveBooking: true }), false);
+    assert.equal(canShowFirmasManageActions({ etapaActual: 10, hasActiveBooking: true }), true);
+    assert.equal(canShowFirmasManageActions({ etapaActual: 8, hasActiveBooking: true }), false);
+    assert.equal(canShowFirmasManageActions({ etapaActual: 11, hasActiveBooking: true }), false);
+    assert.equal(canShowFirmasManageActions({ etapaActual: 9, hasActiveBooking: false }), false);
+    assert.equal(canShowFirmasManageActions({ etapaActual: 10, hasActiveBooking: false }), false);
   });
 
   it("card asesor etapa 9 enviado", () => {
@@ -33,6 +37,18 @@ describe("firmas-booking-actions", () => {
     assert.equal(
       canShowAsesorFirmasSupabaseCard({ submittedToMesa: true, etapaActual: 8 }),
       false,
+    );
+  });
+
+  it("card asesor etapa 10 con booking activo (reagendar post-Acuse)", () => {
+    assert.equal(
+      canShowAsesorFirmasSupabaseCard({
+        submittedToMesa: true,
+        etapaActual: 10,
+        hasActiveBooking: true,
+        hasLastCancelledBooking: false,
+      }),
+      true,
     );
   });
 
@@ -48,7 +64,7 @@ describe("firmas-booking-actions", () => {
     );
   });
 
-  it("etapa 10 sin cancelación previa no muestra card", () => {
+  it("etapa 10 sin cancelación previa ni booking no muestra card", () => {
     assert.equal(
       canShowAsesorFirmasSupabaseCard({
         submittedToMesa: true,
@@ -60,14 +76,9 @@ describe("firmas-booking-actions", () => {
     );
   });
 
-  it("etapa 10 con booking activo no muestra card", () => {
+  it("fecha_cita sin booking no habilita manage (solo hasActiveBooking)", () => {
     assert.equal(
-      canShowAsesorFirmasSupabaseCard({
-        submittedToMesa: true,
-        etapaActual: 10,
-        hasActiveBooking: true,
-        hasLastCancelledBooking: true,
-      }),
+      canShowFirmasManageActions({ etapaActual: 9, hasActiveBooking: false }),
       false,
     );
   });
