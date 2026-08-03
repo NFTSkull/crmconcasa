@@ -16,6 +16,8 @@ import type {
   AdminPrecalSummary,
   AdminProductionFilters,
   AdminProductionRepo,
+  AdminSnapshotEtapasResult,
+  AdminSnapshotFilters,
 } from "./repo";
 import { resolveAdminEtapaActualesFilter } from "./repo";
 import { adminEstadoRpcParam } from "./admin-estado-filter";
@@ -120,7 +122,9 @@ function mapPrecalItem(raw: Record<string, unknown>): AdminPrecalEvent {
   };
 }
 
-function estadoParam(filters: AdminProductionFilters): string | null {
+function estadoParam(
+  filters: Pick<AdminProductionFilters, "estado"> | Pick<AdminSnapshotFilters, "estado">,
+): string | null {
   return adminEstadoRpcParam(filters.estado);
 }
 
@@ -193,6 +197,39 @@ export class SupabaseAdminProductionRepo implements AdminProductionRepo {
       return { etapa: num(r.etapa), count: num(r.count), pct: num(r.pct) };
     });
     return { total: num(row.total), byEtapa };
+  }
+
+  async getExpedientesSnapshotEtapas(
+    filters: AdminSnapshotFilters,
+  ): Promise<AdminSnapshotEtapasResult> {
+    const client = requireClient();
+    const { data, error } = await client.rpc("admin_expedientes_snapshot_etapas", {
+      p_asesor_id: filters.asesorId ?? null,
+      p_estado: estadoParam(filters),
+      p_buscar: filters.buscar ?? null,
+    });
+    if (error) throw new Error(error.message || "No se pudo cargar el estado actual");
+    const row = (data ?? {}) as Record<string, unknown>;
+    const by = Array.isArray(row.by_etapa) ? row.by_etapa : [];
+    const byEtapa: AdminEtapaBucket[] = by.map((item) => {
+      const r = item as Record<string, unknown>;
+      return { etapa: num(r.etapa), count: num(r.count), pct: num(r.pct) };
+    });
+    const pasos = Array.isArray(row.by_paso_visual) ? row.by_paso_visual : [];
+    const byPasoVisual = pasos.map((item) => {
+      const r = item as Record<string, unknown>;
+      return {
+        pasoVisual: num(r.paso_visual),
+        count: num(r.count),
+        pct: num(r.pct),
+      };
+    });
+    return {
+      totalActual: num(row.total_actual),
+      byEtapa,
+      byPasoVisual,
+      generatedAt: str(row.generated_at) || new Date().toISOString(),
+    };
   }
 
   async listByAsesor(filters: AdminProductionFilters): Promise<AdminAsesorProductionRow[]> {
@@ -274,6 +311,70 @@ export class SupabaseAdminProductionRepo implements AdminProductionRepo {
       p_buscar: filters.buscar ?? null,
     });
     if (error) throw new Error(error.message || "No se pudo cargar enviados a Mesa");
+    const row = (data ?? {}) as Record<string, unknown>;
+    const items = (Array.isArray(row.items) ? row.items : []).map((x) =>
+      mapMesaItem(x as Record<string, unknown>),
+    );
+    return {
+      items,
+      totalCount: num(row.total_count),
+      page: num(row.page) || 1,
+      pageSize: num(row.page_size) || 25,
+    };
+  }
+
+  async listExpedientesSnapshotPage(
+    filters: AdminSnapshotFilters,
+  ): Promise<AdminPaginated<AdminMesaEnvioEvent>> {
+    const etapas = resolveAdminEtapaActualesFilter(filters);
+    if (etapas && etapas.length > 1) {
+      const byId = new Map<string, AdminMesaEnvioEvent>();
+      let totalCount = 0;
+      for (const etapa of etapas) {
+        let page = 1;
+        const pageSize = 100;
+        for (;;) {
+          const part = await this.listExpedientesSnapshotPage({
+            ...filters,
+            etapaActual: etapa,
+            etapaActuales: [etapa],
+            page,
+            pageSize,
+          });
+          totalCount += part.totalCount;
+          for (const item of part.items) byId.set(item.expedienteId, item);
+          if (page * pageSize >= part.totalCount || part.items.length === 0) break;
+          page += 1;
+        }
+      }
+      const merged = [...byId.values()].sort((a, b) => {
+        const ta = Date.parse(a.fechaEnvioMesa) || 0;
+        const tb = Date.parse(b.fechaEnvioMesa) || 0;
+        return tb - ta;
+      });
+      const page = filters.page ?? 1;
+      const pageSize = filters.pageSize ?? 25;
+      const start = Math.max(0, (page - 1) * pageSize);
+      return {
+        items: merged.slice(start, start + pageSize),
+        totalCount,
+        page,
+        pageSize,
+      };
+    }
+
+    const client = requireClient();
+    const { data, error } = await client.rpc("admin_list_expedientes_snapshot_page", {
+      p_page: filters.page ?? 1,
+      p_page_size: filters.pageSize ?? 25,
+      p_asesor_id: filters.asesorId ?? null,
+      p_etapa_actual: etapas?.[0] ?? filters.etapaActual ?? null,
+      p_estado: estadoParam(filters),
+      p_buscar: filters.buscar ?? null,
+    });
+    if (error) {
+      throw new Error(error.message || "No se pudo cargar el listado de expedientes vigentes");
+    }
     const row = (data ?? {}) as Record<string, unknown>;
     const items = (Array.isArray(row.items) ? row.items : []).map((x) =>
       mapMesaItem(x as Record<string, unknown>),

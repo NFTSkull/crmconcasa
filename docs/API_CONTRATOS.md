@@ -888,6 +888,18 @@ Captura en la misma TX de `register_expediente_documento_correccion` / `save_cli
 
 **Operación:** RPCs read-only `admin_get_production_summary`, `admin_get_mesa_cohort_by_etapa`, `admin_list_production_by_asesor`, `admin_list_mesa_envios_page`, `admin_list_precalificaciones_page`
 
+### 15-quinquies. Snapshot stock vigente por etapa (Admin)
+
+**Operación:** RPCs RO `admin_expedientes_snapshot_etapas(p_asesor_id, p_estado, p_buscar)` y `admin_list_expedientes_snapshot_page(p_page, p_page_size, p_asesor_id, p_etapa_actual, p_estado, p_buscar)` — migración `147_…sql`.
+
+**Auth:** solo `super_admin` (`__admin_require_super_admin`); `SECURITY DEFINER` + `STABLE`; GRANT `authenticated`; REVOKE `anon`/`PUBLIC`.
+
+**Universo:** `deleted_at IS NULL`; **sin** filtro de fechas ni `submitted_to_mesa`. Filtros opcionales: asesor, estado (mismos predicados P094), búsqueda (cliente/asesor/programa). Etapa solo en el listado (drilldown); el agregado de tarjetas **no** recibe etapa.
+
+**Response snapshot:** `{ total_actual, by_etapa[1..12], by_paso_visual[1..11], generated_at }`. Legacy interna 4 se refleja en `by_etapa` y se absorbe en paso visual 3.
+
+**UI `/admin`:** sección «Estado actual de todos los expedientes del CRM» + listado «Expedientes vigentes»; independiente de Hoy/semana/mes. KPI superiores y Excel siguen en universo por periodo (`fecha_envio_mesa`).
+
 ### 15-bis. Reporte expedientes por asesores × pasos visuales (P112)
 
 **Operación:** RPC read-only `admin_report_expedientes_asesores_etapas(p_asesor_ids UUID[] DEFAULT NULL, p_pasos_visuales SMALLINT[] DEFAULT NULL, p_estado TEXT DEFAULT 'vigentes') RETURNS JSONB`

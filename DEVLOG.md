@@ -1,3 +1,7 @@
+## 2026-08-03 - Admin: snapshot stock por etapas (sin periodo)
+
+Problema: la sección «Estado actual…» usaba `admin_get_mesa_cohort_by_etapa` filtrado por `fecha_envio_mesa` del preset, así que las tarjetas sumaban solo los enviados del periodo. Fix: RPCs RO nuevos `admin_expedientes_snapshot_etapas` / `admin_list_expedientes_snapshot_page` (mig. **147**) sobre `deleted_at IS NULL` sin fechas; UI con loading/error propios; periodo solo para KPI/Excel/producción/precal. Universo canónico Admin (estado/asesor/buscar); sin inventar exclusión padre/hijo P072.
+
 ## 2026-08-03 - Hotfix: reingreso editar domicilio y estado de cuenta
 
 Causa: post-Mesa el dropzone exigía `puedeIntegrar`; `esReingresoEtapa6` solo cubría P072 (y en prod el reingreso activo es **manual**); el repo bloqueaba primer upload de obligatorios faltantes; SQL storage/RPC solo exceptuaban P072 etapa 6 sin replace unificado. Fix: helpers `esReingresoDocumentosEditables` + `asesorPuedeMostrarUploadDocumento`; mig. **146** (`es_reingreso_manual_docs_editables`, storage allow, wrapper `register_expediente_documento` con upload/reemplazo versionado solo para esos 2 tipos). Mesa lee el mismo expediente; padre intacto.

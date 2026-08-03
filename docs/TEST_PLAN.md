@@ -411,6 +411,7 @@
 
 - Migración `091_admin_estado_rechazados_cancelados.sql`: `rechazados` = `subestado=rechazado ∧ ciclo=activo`; `cancelados` = `ciclo=cancelado`.
 - RPCs: `admin_get_production_summary`, `admin_get_mesa_cohort_by_etapa`, `admin_list_production_by_asesor`, `admin_list_mesa_envios_page`.
+- Snapshot stock (mig. 147): `admin_expedientes_snapshot_etapas` + `admin_list_expedientes_snapshot_page` — sin fechas; incluye no enviados; KPI periodo intacto; drilldown alinea con tarjetas.
 - Suite `admin_estado_rechazados_cancelados.sql` + `scripts/verify-p094-b4-sql.sh`; frontend pasa `p_estado=cancelados` nativo.
 - Sin Cloud/push; reapertura admin fuera de P094.
 

@@ -17,9 +17,58 @@ import type {
   AdminPaginated,
   AdminProductionFilters,
   AdminProductionRepo,
+  AdminSnapshotEtapasResult,
+  AdminSnapshotFilters,
 } from "./repo";
 import { matchesAdminEtapaActualFilter } from "./repo";
 import { matchesAdminEstadoFilter } from "./admin-estado-filter";
+import { mapEtapaInternaAPasoVisual } from "@/domain/expedientes/asesor-seguimiento-operativo";
+
+function mapSnapshot(e: ExpedienteMock): AdminMesaEnvioEvent {
+  const fecha = e.operativo.fechaEnvioMesa ?? e.base.createdAt ?? "";
+  const subestado = e.operativo.subestado ?? "pendiente";
+  const cicloEstado = e.operativo.cicloEstado ?? "activo";
+  const etapaActual = e.operativo.etapaActual ?? 1;
+  const cancelado = cicloEstado === "cancelado";
+  const rechazoOperativo = !cancelado && subestado === "rechazado";
+  const defaults = emptyAdminMesaSeguimientoFields(fecha || new Date(0).toISOString());
+  return {
+    expedienteId: e.id,
+    fechaEnvioMesa: e.operativo.fechaEnvioMesa ?? "",
+    clienteNombre: e.base.cliente_nombre,
+    asesorId: e.base.asesorId,
+    asesorNombre: e.base.asesorNombre ?? null,
+    programa: e.base.programa,
+    etapaActual,
+    subestado,
+    cicloEstado,
+    ...defaults,
+    rechazoOperativo,
+    rechazoMotivo: rechazoOperativo
+      ? (e.operativo.motivoRechazo ?? "Sin motivo registrado")
+      : null,
+    situacionCode: cancelado
+      ? "cancelado_operativo"
+      : rechazoOperativo
+        ? "rechazo_operativo"
+        : defaults.situacionCode,
+    situacionLabel: cancelado
+      ? "Cancelado (terminal)"
+      : rechazoOperativo
+        ? "Rechazado operativamente"
+        : defaults.situacionLabel,
+    siguienteAccionLabel: cancelado
+      ? "Sin acción operativa"
+      : rechazoOperativo
+        ? "Revisar reingreso"
+        : defaults.siguienteAccionLabel,
+    siguienteAccionActor: cancelado
+      ? "—"
+      : rechazoOperativo
+        ? "Asesor"
+        : defaults.siguienteAccionActor,
+  };
+}
 
 function mapMesa(e: ExpedienteMock): AdminMesaEnvioEvent | null {
   const fecha = e.operativo.fechaEnvioMesa;
@@ -224,6 +273,81 @@ export class MockAdminProductionRepo implements AdminProductionRepo {
     });
     const byEtapa = groupMesaEnviosByEtapaActual(rows);
     return { total: rows.length, byEtapa };
+  }
+
+  private filterSnapshot(
+    all: ExpedienteMock[],
+    filters: AdminSnapshotFilters,
+  ): AdminMesaEnvioEvent[] {
+    const buscar = filters.buscar?.trim().toLowerCase() ?? "";
+    return all
+      .map(mapSnapshot)
+      .filter((r) => !filters.asesorId || r.asesorId === filters.asesorId)
+      .filter((r) => matchesAdminEtapaActualFilter(r.etapaActual, filters))
+      .filter((r) =>
+        matchesAdminEstadoFilter(
+          {
+            cicloEstado: r.cicloEstado,
+            subestado: r.subestado,
+            etapaActual: r.etapaActual,
+          },
+          filters.estado,
+        ),
+      )
+      .filter((r) => {
+        if (!buscar) return true;
+        const label = formatAdminMesaAsesorLabel(r.asesorNombre).toLowerCase();
+        return (
+          r.clienteNombre.toLowerCase().includes(buscar) ||
+          label.includes(buscar) ||
+          r.programa.toLowerCase().includes(buscar)
+        );
+      })
+      .sort((a, b) => {
+        const ta = Date.parse(a.fechaEnvioMesa) || 0;
+        const tb = Date.parse(b.fechaEnvioMesa) || 0;
+        return tb - ta;
+      });
+  }
+
+  async getExpedientesSnapshotEtapas(
+    filters: AdminSnapshotFilters,
+  ): Promise<AdminSnapshotEtapasResult> {
+    const rows = this.filterSnapshot(await this.loadAll(), {
+      ...filters,
+      etapaActual: null,
+      etapaActuales: null,
+    });
+    const byEtapa = groupMesaEnviosByEtapaActual(rows);
+    const pasoCounts = new Map<number, number>();
+    for (const r of rows) {
+      const paso = mapEtapaInternaAPasoVisual(r.etapaActual);
+      pasoCounts.set(paso, (pasoCounts.get(paso) ?? 0) + 1);
+    }
+    const total = rows.length;
+    const byPasoVisual = Array.from({ length: 11 }, (_, i) => {
+      const pasoVisual = i + 1;
+      const count = pasoCounts.get(pasoVisual) ?? 0;
+      return {
+        pasoVisual,
+        count,
+        pct: total === 0 ? 0 : Math.round((count * 1000) / total) / 10,
+      };
+    });
+    return {
+      totalActual: total,
+      byEtapa,
+      byPasoVisual,
+      generatedAt: new Date().toISOString(),
+    };
+  }
+
+  async listExpedientesSnapshotPage(filters: AdminSnapshotFilters) {
+    return paginate(
+      this.filterSnapshot(await this.loadAll(), filters),
+      filters.page ?? 1,
+      filters.pageSize ?? 25,
+    );
   }
 
   async listByAsesor(filters: AdminProductionFilters) {

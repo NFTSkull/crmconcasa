@@ -101,6 +101,7 @@ export default function AdminDashboardPage() {
   const [etapaActual, setEtapaActual] = useState<string>("todas");
   const [estado, setEstado] = useState<AdminEstadoFilter>("todos");
   const [buscar, setBuscar] = useState("");
+  const [buscarDebounced, setBuscarDebounced] = useState("");
   const [precalDecision, setPrecalDecision] =
     useState<AdminPrecalDecisionFilter>("resueltas");
   const [mesaPage, setMesaPage] = useState(1);
@@ -108,8 +109,12 @@ export default function AdminDashboardPage() {
 
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [snapshotLoading, setSnapshotLoading] = useState(true);
+  const [snapshotError, setSnapshotError] = useState<string | null>(null);
   const [summary, setSummary] = useState<AdminProductionSummary | null>(null);
   const [byEtapa, setByEtapa] = useState<readonly AdminEtapaBucket[]>([]);
+  const [snapshotTotal, setSnapshotTotal] = useState(0);
+  const [snapshotGeneratedAt, setSnapshotGeneratedAt] = useState<string | null>(null);
   const [asesores, setAsesores] = useState<readonly AdminAsesorProductionRow[]>([]);
   const [asesorOptions, setAsesorOptions] = useState<
     readonly AdminAsesorProductionRow[]
@@ -146,17 +151,43 @@ export default function AdminDashboardPage() {
 
   const filtersBase = useMemo(() => {
     if (!bounds) return null;
-    const etapaActuales = etapaActualesFromAdminPasoFilter(etapaActual);
     return {
       bounds,
       asesorId: asesorId || null,
-      etapaActual: etapaActuales?.length === 1 ? etapaActuales[0]! : null,
-      etapaActuales,
+      etapaActual: null as number | null,
+      etapaActuales: null as number[] | null,
       estado,
-      buscar: buscar.trim() || null,
+      buscar: buscarDebounced || null,
       precalDecision,
     };
-  }, [bounds, asesorId, etapaActual, estado, buscar, precalDecision]);
+  }, [bounds, asesorId, estado, buscarDebounced, precalDecision]);
+
+  const snapshotFiltersBase = useMemo(
+    () => ({
+      asesorId: asesorId || null,
+      estado,
+      buscar: buscarDebounced || null,
+    }),
+    [asesorId, estado, buscarDebounced],
+  );
+
+  const snapshotListFilters = useMemo(() => {
+    const etapaActuales = etapaActualesFromAdminPasoFilter(etapaActual);
+    return {
+      ...snapshotFiltersBase,
+      etapaActual: etapaActuales?.length === 1 ? etapaActuales[0]! : null,
+      etapaActuales,
+      page: mesaPage,
+      pageSize: PAGE_SIZE,
+    };
+  }, [snapshotFiltersBase, etapaActual, mesaPage]);
+
+  useEffect(() => {
+    const t = window.setTimeout(() => {
+      setBuscarDebounced(buscar.trim());
+    }, 300);
+    return () => window.clearTimeout(t);
+  }, [buscar]);
 
   const selectedAsesorLabel = useMemo(() => {
     if (!asesorId) return null;
@@ -280,16 +311,10 @@ export default function AdminDashboardPage() {
     setError(null);
     try {
       const filtersSinAsesor = { ...filtersBase, asesorId: null };
-      const [s, cohort, as, asOpts, mesa, precal] = await Promise.all([
+      const [s, as, asOpts, precal] = await Promise.all([
         repo.getSummary(filtersBase),
-        repo.getMesaCohortByEtapa(filtersBase),
         repo.listByAsesor(filtersBase),
         repo.listByAsesor(filtersSinAsesor),
-        repo.listMesaEnviosPage({
-          ...filtersBase,
-          page: mesaPage,
-          pageSize: PAGE_SIZE,
-        }),
         repo.listPrecalificacionesPage({
           ...filtersBase,
           page: precalPage,
@@ -297,11 +322,8 @@ export default function AdminDashboardPage() {
         }),
       ]);
       setSummary(s);
-      setByEtapa(cohort.byEtapa);
       setAsesores(as);
       setAsesorOptions(asOpts);
-      setMesaItems(mesa.items);
-      setMesaTotal(mesa.totalCount);
       setPrecalItems(precal.items);
       setPrecalTotal(precal.totalCount);
       setPrecalSummary(precal.summary);
@@ -310,11 +332,37 @@ export default function AdminDashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [filtersBase, mesaPage, precalPage, repo]);
+  }, [filtersBase, precalPage, repo]);
+
+  const loadSnapshot = useCallback(async () => {
+    setSnapshotLoading(true);
+    setSnapshotError(null);
+    try {
+      const [snap, list] = await Promise.all([
+        repo.getExpedientesSnapshotEtapas(snapshotFiltersBase),
+        repo.listExpedientesSnapshotPage(snapshotListFilters),
+      ]);
+      setByEtapa(snap.byEtapa);
+      setSnapshotTotal(snap.totalActual);
+      setSnapshotGeneratedAt(snap.generatedAt);
+      setMesaItems(list.items);
+      setMesaTotal(list.totalCount);
+    } catch (e) {
+      setSnapshotError(
+        e instanceof Error ? e.message : "No fue posible cargar el estado actual",
+      );
+    } finally {
+      setSnapshotLoading(false);
+    }
+  }, [repo, snapshotFiltersBase, snapshotListFilters]);
 
   useEffect(() => {
     if (currentUser?.role === "super_admin") void load();
   }, [currentUser, load]);
+
+  useEffect(() => {
+    if (currentUser?.role === "super_admin") void loadSnapshot();
+  }, [currentUser, loadSnapshot]);
 
   const clearFilters = () => {
     setPreset("hoy");
@@ -331,7 +379,6 @@ export default function AdminDashboardPage() {
 
   const onPreset = (p: AdminPeriodPreset) => {
     setPreset(p);
-    setMesaPage(1);
     setPrecalPage(1);
   };
 
@@ -360,7 +407,12 @@ export default function AdminDashboardPage() {
     if (!filtersBase || !bounds) return;
     setExporting(true);
     try {
-      const data = await repo.exportAll(filtersBase);
+      const etapaActuales = etapaActualesFromAdminPasoFilter(etapaActual);
+      const data = await repo.exportAll({
+        ...filtersBase,
+        etapaActual: etapaActuales?.length === 1 ? etapaActuales[0]! : null,
+        etapaActuales,
+      });
       const wb = buildAdminProductionWorkbook({ bounds, ...data });
       downloadAdminProductionWorkbook(wb, bounds);
     } catch (e) {
@@ -474,7 +526,6 @@ export default function AdminDashboardPage() {
                   value={customFrom}
                   onChange={(e) => {
                     setCustomFrom(e.target.value);
-                    setMesaPage(1);
                     setPrecalPage(1);
                   }}
                 />
@@ -487,7 +538,6 @@ export default function AdminDashboardPage() {
                   value={customTo}
                   onChange={(e) => {
                     setCustomTo(e.target.value);
-                    setMesaPage(1);
                     setPrecalPage(1);
                   }}
                 />
@@ -499,8 +549,9 @@ export default function AdminDashboardPage() {
             Periodo activo: {periodoLabel}
           </p>
           <p className="mt-1 text-xs text-gray-700">
-            Las fechas determinan qué expedientes se incluyen. Las etapas muestran
-            su estado actual.
+            El periodo aplica a los KPI superiores, producción por asesor,
+            precalificaciones y Excel. El estado actual por etapas es un corte
+            independiente de todos los expedientes vigentes.
           </p>
 
           <div className="mt-4 grid gap-3 md:grid-cols-4">
@@ -581,7 +632,6 @@ export default function AdminDashboardPage() {
         {loading ? (
           <p className="text-gray-700">Cargando producción…</p>
         ) : (
-          <>
             <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
               {[
                 {
@@ -638,52 +688,95 @@ export default function AdminDashboardPage() {
                 );
               })}
             </section>
+        )}
 
             <section className="rounded-lg border border-slate-200 bg-white p-4">
               <h2 className="text-base font-semibold text-slate-900">
-                Estado actual de los expedientes enviados a Mesa
+                Estado actual de todos los expedientes del CRM
               </h2>
               <p className="mt-1 text-sm text-gray-700">
-                Pulsa una etapa para filtrar el listado de expedientes.
+                Corte actual de todos los expedientes vigentes. No depende del
+                periodo de envío seleccionado. Pulsa una etapa para ver sus
+                expedientes.
               </p>
-              <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                {byEtapa.map((b) => {
-                  const pressed = isAdminPasoVisualFilterPressed(etapaActual, b.etapa);
-                  const empty = b.count === 0;
-                  return (
-                    <button
-                      key={b.etapa}
-                      type="button"
-                      aria-pressed={pressed}
-                      onClick={() => onEtapaCardPress(b.etapa)}
-                      className={`rounded-md border px-3 py-2 text-left transition ${etapaTone(b.etapa)} ${
-                        pressed
-                          ? "border-slate-900 bg-white shadow-sm ring-2 ring-slate-900 ring-offset-1"
-                          : "hover:border-slate-400"
-                      } ${empty && !pressed ? "opacity-70" : ""}`}
-                    >
-                      <div className="flex items-start justify-between gap-2">
-                        <p className="text-sm font-medium">
-                          {getEtapaOperativaNombre(b.etapa)}
-                        </p>
-                        {pressed ? (
-                          <span
-                            aria-hidden="true"
-                            className="mt-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-sm bg-slate-900 px-1 text-[10px] font-semibold uppercase tracking-wide text-white"
-                          >
-                            Activa
-                          </span>
-                        ) : null}
-                      </div>
+              {snapshotLoading && byEtapa.length === 0 ? (
+                <p className="mt-3 text-sm text-gray-700">
+                  Calculando estado actual de los expedientes…
+                </p>
+              ) : snapshotError ? (
+                <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-red-700">
+                  <span>No fue posible cargar el estado actual. Reintentar.</span>
+                  <Button type="button" variant="secondary" onClick={() => void loadSnapshot()}>
+                    Reintentar
+                  </Button>
+                </div>
+              ) : snapshotTotal === 0 ? (
+                <p className="mt-3 text-sm text-gray-700">
+                  No hay expedientes vigentes que coincidan con los filtros.
+                </p>
+              ) : (
+                <>
+                  <div className="mt-3 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm text-slate-800">
+                    <p>
+                      Total actual:{" "}
+                      <strong className="font-semibold tabular-nums">
+                        {snapshotTotal} expediente{snapshotTotal === 1 ? "" : "s"}
+                      </strong>
+                    </p>
+                    {snapshotGeneratedAt ? (
                       <p className="text-xs text-gray-700">
-                        {b.count === 0
-                          ? "0 expedientes"
-                          : `${b.count} expediente${b.count === 1 ? "" : "s"} · ${b.pct}%`}
+                        Actualizado:{" "}
+                        {new Date(snapshotGeneratedAt).toLocaleTimeString("es-MX", {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                          second: "2-digit",
+                        })}
                       </p>
-                    </button>
-                  );
-                })}
-              </div>
+                    ) : null}
+                    {snapshotLoading ? (
+                      <p className="text-xs text-gray-600">Actualizando…</p>
+                    ) : null}
+                  </div>
+                  <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+                    {byEtapa.map((b) => {
+                      const pressed = isAdminPasoVisualFilterPressed(etapaActual, b.etapa);
+                      const empty = b.count === 0;
+                      return (
+                        <button
+                          key={b.etapa}
+                          type="button"
+                          aria-pressed={pressed}
+                          onClick={() => onEtapaCardPress(b.etapa)}
+                          className={`rounded-md border px-3 py-2 text-left transition ${etapaTone(b.etapa)} ${
+                            pressed
+                              ? "border-slate-900 bg-white shadow-sm ring-2 ring-slate-900 ring-offset-1"
+                              : "hover:border-slate-400"
+                          } ${empty && !pressed ? "opacity-70" : ""}`}
+                        >
+                          <div className="flex items-start justify-between gap-2">
+                            <p className="text-sm font-medium">
+                              {getEtapaOperativaNombre(b.etapa)}
+                            </p>
+                            {pressed ? (
+                              <span
+                                aria-hidden="true"
+                                className="mt-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-sm bg-slate-900 px-1 text-[10px] font-semibold uppercase tracking-wide text-white"
+                              >
+                                Activa
+                              </span>
+                            ) : null}
+                          </div>
+                          <p className="text-xs text-gray-700">
+                            {b.count === 0
+                              ? "0 expedientes"
+                              : `${b.count} expediente${b.count === 1 ? "" : "s"} · ${b.pct}%`}
+                          </p>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </>
+              )}
             </section>
 
             <section
@@ -697,7 +790,7 @@ export default function AdminDashboardPage() {
                 id="admin-mesa-expedientes-title"
                 className="text-base font-semibold text-slate-900"
               >
-                Expedientes enviados a Mesa
+                Expedientes vigentes del CRM
               </h2>
               {etapaFiltroNombre ? (
                 <div className="mt-3 flex flex-wrap items-center gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800">
@@ -710,11 +803,22 @@ export default function AdminDashboardPage() {
                   </Button>
                 </div>
               ) : null}
-              {mesaItems.length === 0 ? (
+              {snapshotLoading && mesaItems.length === 0 && !snapshotError ? (
+                <p className="mt-3 text-sm text-gray-700">
+                  Calculando estado actual de los expedientes…
+                </p>
+              ) : snapshotError ? (
+                <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-red-700">
+                  <span>No fue posible cargar el estado actual. Reintentar.</span>
+                  <Button type="button" variant="secondary" onClick={() => void loadSnapshot()}>
+                    Reintentar
+                  </Button>
+                </div>
+              ) : mesaItems.length === 0 ? (
                 <p className="mt-3 text-sm text-gray-700">
                   {etapaFiltroNombre
                     ? `No hay expedientes en ${etapaFiltroNombre} con los filtros actuales.`
-                    : "Sin resultados."}
+                    : "No hay expedientes vigentes que coincidan con los filtros."}
                 </p>
               ) : (
                 <div className="mt-3 overflow-x-auto">
@@ -736,7 +840,9 @@ export default function AdminDashboardPage() {
                       {mesaItems.map((r) => (
                         <tr key={r.expedienteId} className="border-b border-slate-100 align-top">
                           <td className="py-2 pr-3 whitespace-nowrap">
-                            {formatDateTimeMx(r.fechaEnvioMesa)}
+                            {r.fechaEnvioMesa
+                              ? formatDateTimeMx(r.fechaEnvioMesa)
+                              : "Sin envío"}
                           </td>
                           <td className="py-2 pr-3">{r.clienteNombre}</td>
                           <td className="py-2 pr-3">
@@ -749,7 +855,9 @@ export default function AdminDashboardPage() {
                             <p className="font-medium text-gray-900">{r.situacionLabel}</p>
                           </td>
                           <td className="py-2 pr-3 whitespace-nowrap text-xs">
-                            {formatDateTimeMx(r.fechaEnvioMesa)}
+                            {r.fechaEnvioMesa
+                              ? formatDateTimeMx(r.fechaEnvioMesa)
+                              : "—"}
                           </td>
                           <td className="py-2 pr-3">
                             {r.ultimaActividadMesaAt ? (
@@ -800,7 +908,7 @@ export default function AdminDashboardPage() {
                   <Button
                     type="button"
                     variant="secondary"
-                    disabled={mesaPage <= 1}
+                    disabled={mesaPage <= 1 || snapshotLoading}
                     onClick={() => setMesaPage((p) => Math.max(1, p - 1))}
                   >
                     Anterior
@@ -811,7 +919,9 @@ export default function AdminDashboardPage() {
                   <Button
                     type="button"
                     variant="secondary"
-                    disabled={mesaPage * PAGE_SIZE >= mesaTotal}
+                    disabled={
+                      snapshotLoading || mesaPage * PAGE_SIZE >= mesaTotal
+                    }
                     onClick={() => setMesaPage((p) => p + 1)}
                   >
                     Siguiente
@@ -820,6 +930,8 @@ export default function AdminDashboardPage() {
               </div>
             </section>
 
+            {!loading && (
+              <>
             {showProduccionPorAsesor ? (
               <section className="rounded-lg border border-slate-200 bg-white p-4">
                 <h2 className="text-base font-semibold text-slate-900">
@@ -1038,8 +1150,8 @@ export default function AdminDashboardPage() {
                 </div>
               </div>
             </section>
-          </>
-        )}
+              </>
+            )}
       </main>
 
       {timelineOpen ? (
