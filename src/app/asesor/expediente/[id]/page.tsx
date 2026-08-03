@@ -36,6 +36,7 @@ import {
 } from "@/domain/expedientes";
 import {
   hasReingresoVisible,
+  puedeMostrarReingresoManualCard,
 } from "@/domain/expedientes/reingreso-manual";
 import {
   MockExpedientesRepo,
@@ -551,22 +552,13 @@ export default function AsesorExpedientePage() {
     ],
   );
 
-  const puedeReingresoManual = useMemo(
+  const puedeMostrarReingresoCard = useMemo(
     () =>
-      hasMontoAprobado &&
-      datosGeneralesCompletos &&
-      documentosCompletos &&
-      operativo?.submittedToMesa === true &&
-      !expedienteCancelado &&
-      (operativo?.cicloEstado == null || operativo.cicloEstado === "activo"),
-    [
-      datosGeneralesCompletos,
-      documentosCompletos,
-      hasMontoAprobado,
-      operativo?.cicloEstado,
-      operativo?.submittedToMesa,
-      expedienteCancelado,
-    ],
+      puedeMostrarReingresoManualCard({
+        expedienteCancelado,
+        role: currentUser?.role ?? "asesor",
+      }),
+    [currentUser?.role, expedienteCancelado],
   );
 
   const muestraReingresoBadge = hasReingresoVisible({
@@ -781,7 +773,7 @@ export default function AsesorExpedientePage() {
   ]);
 
   const handleConfirmarReingresoManual = useCallback(async () => {
-    if (!precal?.id || reingresoSaving || !puedeReingresoManual) return;
+    if (!precal?.id || reingresoSaving || !puedeMostrarReingresoCard) return;
     setReingresoSaving(true);
     setReingresoError(null);
     setEnviarMesaExito(null);
@@ -789,7 +781,7 @@ export default function AsesorExpedientePage() {
       await repo.enviarReingresoAMesa(String(precal.id));
       setReingresoDialogOpen(false);
       setEnviarMesaExito(
-        "El expediente fue enviado nuevamente a Mesa como reingreso.",
+        "El expediente fue enviado a Mesa como reingreso.",
       );
       await loadExpediente();
     } catch (err) {
@@ -805,7 +797,7 @@ export default function AsesorExpedientePage() {
     }
   }, [
     loadExpediente,
-    puedeReingresoManual,
+    puedeMostrarReingresoCard,
     precal?.id,
     reingresoSaving,
     repo,
@@ -1447,6 +1439,57 @@ export default function AsesorExpedientePage() {
                 </div>
               </div>
             ) : null}
+            {puedeMostrarReingresoCard ? (
+              <div className="rounded-lg border border-violet-200 bg-violet-50/60 p-4 text-sm text-gray-700">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <p className="text-sm font-semibold text-violet-950">
+                    Reingreso a Mesa
+                  </p>
+                  {muestraReingresoBadge ? (
+                    <ReingresoBadge
+                      count={reingresoManual?.count ?? 0}
+                      at={reingresoManual?.at ?? null}
+                      formatDateTime={formatDateTime}
+                    />
+                  ) : null}
+                </div>
+                <p className="mt-2 text-sm text-violet-950/90">
+                  Envía este mismo expediente nuevamente a Mesa Control y márcalo
+                  como REINGRESO.
+                </p>
+                {enviarMesaExito ? (
+                  <p
+                    role="status"
+                    className="mt-3 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-900"
+                  >
+                    {enviarMesaExito}
+                  </p>
+                ) : null}
+                {reingresoError && !reingresoDialogOpen ? (
+                  <p
+                    role="alert"
+                    className="mt-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+                  >
+                    {reingresoError}
+                  </p>
+                ) : null}
+                <div className="mt-3">
+                  <Button
+                    type="button"
+                    variant="primary"
+                    disabled={reingresoSaving}
+                    onClick={() => {
+                      setReingresoError(null);
+                      setReingresoDialogOpen(true);
+                    }}
+                  >
+                    {reingresoSaving
+                      ? "Enviando…"
+                      : "Enviar como reingreso"}
+                  </Button>
+                </div>
+              </div>
+            ) : null}
             <ExpedienteClienteDatosFormSection
               clienteDatos={clienteDatos}
               setClienteDatos={handleClienteDatosChange}
@@ -1610,19 +1653,6 @@ export default function AsesorExpedientePage() {
                   >
                     Enviado a Mesa
                   </p>
-                  {puedeReingresoManual ? (
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      disabled={reingresoSaving}
-                      onClick={() => {
-                        setReingresoError(null);
-                        setReingresoDialogOpen(true);
-                      }}
-                    >
-                      Reingreso
-                    </Button>
-                  ) : null}
                 </div>
               ) : (
                 <div className="mt-3">
@@ -1743,6 +1773,58 @@ export default function AsesorExpedientePage() {
                     onClick={handleDiscardClienteDatosDraft}
                   >
                     Descartar borrador
+                  </Button>
+                </div>
+              </div>
+            ) : null}
+
+            {puedeMostrarReingresoCard ? (
+              <div className="rounded-lg border border-violet-200 bg-violet-50/60 p-4 text-sm text-gray-700">
+                <div className="flex flex-wrap items-start justify-between gap-2">
+                  <p className="text-sm font-semibold text-violet-950">
+                    Reingreso a Mesa
+                  </p>
+                  {muestraReingresoBadge ? (
+                    <ReingresoBadge
+                      count={reingresoManual?.count ?? 0}
+                      at={reingresoManual?.at ?? null}
+                      formatDateTime={formatDateTime}
+                    />
+                  ) : null}
+                </div>
+                <p className="mt-2 text-sm text-violet-950/90">
+                  Envía este mismo expediente nuevamente a Mesa Control y márcalo
+                  como REINGRESO.
+                </p>
+                {enviarMesaExito ? (
+                  <p
+                    role="status"
+                    className="mt-3 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-900"
+                  >
+                    {enviarMesaExito}
+                  </p>
+                ) : null}
+                {reingresoError && !reingresoDialogOpen ? (
+                  <p
+                    role="alert"
+                    className="mt-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
+                  >
+                    {reingresoError}
+                  </p>
+                ) : null}
+                <div className="mt-3">
+                  <Button
+                    type="button"
+                    variant="primary"
+                    disabled={reingresoSaving}
+                    onClick={() => {
+                      setReingresoError(null);
+                      setReingresoDialogOpen(true);
+                    }}
+                  >
+                    {reingresoSaving
+                      ? "Enviando…"
+                      : "Enviar como reingreso"}
                   </Button>
                 </div>
               </div>

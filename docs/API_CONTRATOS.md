@@ -327,8 +327,8 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 
 ## 5bis. Reingreso manual a Mesa (mismo expediente)
 
-**Operación:** UI Asesor «Reingreso» · RPC `asesor_enviar_reingreso_a_mesa(p_expediente_id)`
-**Migración:** 142
+**Operación:** UI Asesor «Enviar como reingreso» · RPC `asesor_enviar_reingreso_a_mesa(p_expediente_id)`
+**Migraciones:** 142 (columnas + RPC inicial) · **143** (hotfix: sin checklist / sin envío previo)
 
 ### Request
 
@@ -351,19 +351,20 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
   "etapa_actual": 1,
   "subestado": "en_validacion_mesa",
   "submitted_to_mesa": true,
-  "fecha_envio_mesa": "ISO"
+  "fecha_envio_mesa": "ISO",
+  "era_primer_envio": true
 }
 ```
 
 ### Reglas
 
-- Solo `asesor` dueño; ciclo `activo`; debe existir envío previo (`submitted_to_mesa` + `fecha_envio_mesa`).
-- Gates de negocio = `enviar_a_mesa` (monto, cliente_datos cobro, docs integración, NSS bloqueado excluyendo self); **no** bloquea por «ya enviado».
-- Transición = misma que `enviar_a_mesa`: `etapa_actual=1`, `subestado=en_validacion_mesa`, `fecha_envio_mesa=NOW()`.
-- Incrementa `reingreso_manual_count`; set `reingreso_manual_at/by`.
+- Solo `asesor` dueño; expediente existente; no `deleted_at`; no `ciclo_estado = cancelado`.
+- **No** exige envío previo, monto, documentos, Datos Generales, NSS libre, etapa ni subestado.
+- UPDATE del mismo expediente: `submitted_to_mesa=true`, `fecha_envio_mesa=NOW()`, `etapa_actual=1`, `subestado=en_validacion_mesa`, incrementa `reingreso_manual_*`.
 - No INSERT expediente/precalificación; no toca docs/citas/`reingreso_rechazo_id` (P072).
 - Idempotencia: mismo actor en ≤5s → `changed:false` sin nuevo incremento.
-- `action_log.action = expediente_reingreso_mesa`.
+- `action_log.action = expediente_reingreso_mesa` (incluye `era_primer_envio`, etapas/subestados).
+- UI: card «Reingreso a Mesa» arriba de Datos Generales; visible en todo expediente activo del dueño.
 
 ---
 

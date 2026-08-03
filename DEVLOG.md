@@ -1,3 +1,7 @@
+## 2026-08-03 - Hotfix: Reingreso visible en todos los expedientes activos
+
+Problema: botón oculto en card «Enviar a Mesa» y gated por checklist/`submittedToMesa`. Fix UI: card «Reingreso a Mesa» inmediatamente arriba de Datos Generales; visible si dueño + no cancelado. Mig. **143** reemplaza cuerpo de `asesor_enviar_reingreso_a_mesa` sin gates de monto/docs/datos/NSS/envío previo; solo auth+rol asesor+dueño+no cancelado/eliminado; UPDATE mismo id; action_log con `era_primer_envio`. 142 intacta. Sin smoke datos reales.
+
 ## 2026-08-03 - Reingreso manual del mismo expediente a Mesa
 
 Necesidad: corregir/reenviar sin clonar. Campo genérico nuevo (`reingreso_manual_*`) separado de P072 (`reingreso_rechazo_id` = hijo post-biométricos). RPC `asesor_enviar_reingreso_a_mesa`: dueño + activo + ya enviado + mismos gates de `enviar_a_mesa` (sin bloqueo «ya enviado»); transición idéntica (etapa 1 / en_validacion_mesa / fecha_envio_mesa); contador + action_log `expediente_reingreso_mesa`; idempotencia 5s. UI «Reingreso» solo si ya submitted; badge permanente REINGRESO. Bandeja Mesa incluye campos nuevos.

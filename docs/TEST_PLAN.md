@@ -1,3 +1,11 @@
+## Hotfix — Reingreso visible (mig. 143)
+
+- [x] Card «Reingreso a Mesa» arriba de Datos Generales; visible sin etapa/checklist/`submittedToMesa`.
+- [x] RPC relajado: dueño + no cancelado; nunca enviado / sin docs / sin monto OK.
+- [x] Mismo `expediente_id`; cero duplicados NSS; docs/citas/`reingreso_rechazo_id` intactos.
+- [x] Idempotencia ≤5s; `action_log` `expediente_reingreso_mesa` + `era_primer_envio`.
+- [x] SQL `rpc_asesor_enviar_reingreso_a_mesa.sql`; helpers `puedeMostrarReingresoManualCard`.
+
 ## P133 — Formatos Datos Generales (asesor)
 
 - [x] Helpers TS: `normalizePersonName` / `isValidPersonName` / `filterPersonNameInput` / `normalizeDigitsOnly` / `filterDigitsInput`.

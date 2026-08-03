@@ -1032,8 +1032,8 @@ export class MockExpedientesRepo implements ExpedientesRepo {
     if (!exp) {
       throw new Error("Expediente no encontrado.");
     }
-    if (!exp.operativo.submittedToMesa) {
-      throw new Error("El expediente nunca fue enviado a Mesa.");
+    if (exp.operativo.cicloEstado === "cancelado") {
+      throw new Error("El expediente está cancelado y no se puede reingresar.");
     }
     const idNorm = String(expedienteId).trim();
     const raw = window.localStorage.getItem("precalificaciones_mock");
@@ -1054,6 +1054,10 @@ export class MockExpedientesRepo implements ExpedientesRepo {
         reingreso_manual_count: prev + 1,
         reingreso_manual_at: now,
         reingreso_manual_by: exp.base.asesorId,
+        submittedToMesa: true,
+        fechaEnvioMesa: now,
+        etapaActual: 1,
+        subestado: "en_validacion_mesa",
       };
     });
     if (!found) {

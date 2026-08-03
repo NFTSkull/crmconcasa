@@ -19,6 +19,19 @@ export function formatReingresoBadgeLabel(count: number): string {
   return "REINGRESO";
 }
 
+/**
+ * Visibilidad UI de la card «Reingreso a Mesa» (hotfix 143).
+ * No depende de etapa, checklist, monto ni submittedToMesa.
+ */
+export function puedeMostrarReingresoManualCard(input: {
+  expedienteCancelado: boolean;
+  role?: string | null;
+}): boolean {
+  if (input.expedienteCancelado) return false;
+  if (input.role != null && input.role !== "asesor") return false;
+  return true;
+}
+
 export function mapAsesorEnviarReingresoRpcError(error: {
   message?: string;
   code?: string;
@@ -36,37 +49,12 @@ export function mapAsesorEnviarReingresoRpcError(error: {
       "No tienes permiso para reingresar este expediente a Mesa.",
     );
   }
-  if (/nunca fue enviado/i.test(msg)) {
+  if (/cancelado/i.test(msg)) {
     return new ExpedientesSupabaseError(
-      "Solo se puede reingresar un expediente que ya fue enviado a Mesa.",
+      "El expediente está cancelado y no se puede reingresar.",
     );
   }
-  if (/ciclo activo/i.test(msg)) {
-    return new ExpedientesSupabaseError(
-      "El expediente no está activo y no se puede reingresar.",
-    );
-  }
-  if (/monto aprobado/i.test(msg)) {
-    return new ExpedientesSupabaseError(
-      "Se requiere un monto aprobado mayor a 0 para reingresar a Mesa.",
-    );
-  }
-  if (/datos del cliente|porcentaje de cobro|método de pago/i.test(msg)) {
-    return new ExpedientesSupabaseError(
-      "Completa los datos obligatorios del cliente antes de reingresar a Mesa.",
-    );
-  }
-  if (/documentos obligatorios/i.test(msg)) {
-    return new ExpedientesSupabaseError(
-      "Faltan documentos obligatorios de integración para reingresar a Mesa.",
-    );
-  }
-  if (/NSS_YA_BLOQUEADO|23505/i.test(msg) || code === "23505") {
-    return new ExpedientesSupabaseError(
-      "Este NSS ya tiene un expediente enviado a Mesa.",
-    );
-  }
-  if (/no encontrado|no disponible|P0002/i.test(msg)) {
+  if (/no encontrado|no disponible|P0002/i.test(msg) || code === "P0002") {
     return new ExpedientesSupabaseError(
       "Este expediente ya no está disponible para reingreso.",
     );

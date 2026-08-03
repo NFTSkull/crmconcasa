@@ -4,14 +4,14 @@ import {
   formatReingresoBadgeLabel,
   hasReingresoVisible,
   mapAsesorEnviarReingresoRpcError,
+  puedeMostrarReingresoManualCard,
 } from "./reingreso-manual";
-import { ExpedientesSupabaseError } from "./supabase.error";
 
 describe("reingreso-manual helpers", () => {
   it("hasReingresoVisible: manual count", () => {
     assert.equal(
       hasReingresoVisible({
-        reingresoManual: { count: 1, at: "2026-08-03T12:00:00Z", by: "a" },
+        reingresoManual: { count: 1, at: null, by: null },
       }),
       true,
     );
@@ -21,10 +21,10 @@ describe("reingreso-manual helpers", () => {
     assert.equal(
       hasReingresoVisible({
         reingreso: {
-          expedienteAnteriorId: "p",
-          rechazoId: "r",
-          rechazoEtapa: 5,
-          rechazoMotivo: "x",
+          expedienteAnteriorId: "a",
+          rechazoId: "b",
+          rechazoEtapa: null,
+          rechazoMotivo: null,
           rechazoComentario: null,
           biometricosCondicion: null,
           biometricosRazon: null,
@@ -43,12 +43,35 @@ describe("reingreso-manual helpers", () => {
     assert.equal(formatReingresoBadgeLabel(2), "REINGRESO · 2");
   });
 
-  it("mapAsesorEnviarReingresoRpcError: nunca enviado", () => {
-    const err = mapAsesorEnviarReingresoRpcError({
-      message: "asesor_enviar_reingreso_a_mesa: el expediente nunca fue enviado a Mesa",
-    });
-    assert.ok(err instanceof ExpedientesSupabaseError);
-    assert.match(err.message, /ya fue enviado/i);
+  it("puedeMostrarReingresoManualCard: activo asesor", () => {
+    assert.equal(
+      puedeMostrarReingresoManualCard({
+        expedienteCancelado: false,
+        role: "asesor",
+      }),
+      true,
+    );
+  });
+
+  it("puedeMostrarReingresoManualCard: sin importar etapa/checklist (solo cancelado)", () => {
+    assert.equal(
+      puedeMostrarReingresoManualCard({ expedienteCancelado: false }),
+      true,
+    );
+    assert.equal(
+      puedeMostrarReingresoManualCard({ expedienteCancelado: true }),
+      false,
+    );
+  });
+
+  it("puedeMostrarReingresoManualCard: rol no asesor", () => {
+    assert.equal(
+      puedeMostrarReingresoManualCard({
+        expedienteCancelado: false,
+        role: "editor",
+      }),
+      false,
+    );
   });
 
   it("mapAsesorEnviarReingresoRpcError: asesor ajeno", () => {
@@ -56,5 +79,12 @@ describe("reingreso-manual helpers", () => {
       message: "asesor_enviar_reingreso_a_mesa: solo el asesor dueño puede reingresar a Mesa",
     });
     assert.match(err.message, /permiso/i);
+  });
+
+  it("mapAsesorEnviarReingresoRpcError: cancelado", () => {
+    const err = mapAsesorEnviarReingresoRpcError({
+      message: "asesor_enviar_reingreso_a_mesa: el expediente está cancelado y no se puede reingresar",
+    });
+    assert.match(err.message, /cancelado/i);
   });
 });

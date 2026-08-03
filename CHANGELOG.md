@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- **fix/reingreso-visible-todos-expedientes:** card «Reingreso a Mesa» arriba de Datos Generales en todo expediente activo del asesor dueño (sin checklist/etapa/`submittedToMesa`). Mig. **143** relaja `asesor_enviar_reingreso_a_mesa` (142 intacta): solo auth + dueño + no cancelado/eliminado; mismo expediente; badge REINGRESO; idempotencia 5s.
+
 ### Added
 - **fix/reingreso-manual-expediente-mesa:** acción Asesor «Reingreso» + RPC `asesor_enviar_reingreso_a_mesa` (mig. **142**). Marca el mismo expediente (`reingreso_manual_count/at/by`), reaplica la transición de `enviar_a_mesa` (etapa 1 / `en_validacion_mesa`), `action_log` `expediente_reingreso_mesa`. Etiqueta REINGRESO en Asesor/Mesa. Separado de P071/P072 (`reingreso_rechazo_id`). Sin duplicar expediente.
 
