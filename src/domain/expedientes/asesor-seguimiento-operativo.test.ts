@@ -98,6 +98,27 @@ describe("getEtapaTimelineVisualConDocs P132", () => {
     );
   });
 
+  it("Acuse en etapa 8 con doc NO finge Completado (caso captura post-Acuse atascado)", () => {
+    assert.equal(
+      getEtapaTimelineVisualConDocs({
+        etapaId: 8,
+        etapaActual: 8,
+        hasAcuseDoc: true,
+        hasNotificacionDoc: true,
+      }),
+      "actual",
+    );
+    assert.equal(
+      getEtapaTimelineVisualConDocs({
+        etapaId: 9,
+        etapaActual: 8,
+        hasAcuseDoc: true,
+        hasNotificacionDoc: true,
+      }),
+      "pendiente",
+    );
+  });
+
   it("Notificación completada si etapa≥9 o hay doc", () => {
     assert.equal(
       getEtapaTimelineVisualConDocs({

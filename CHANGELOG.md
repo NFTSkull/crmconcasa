@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Fixed
+- **fix/firmas-card-missing-after-acuse:** tarjeta Agendar/Reagendar firmas invisible tras Acuse porque Cloud quedaba en **etapa 8** (Mesa `mover_etapa` 9→…→8) con `retencion_envios=enviado`. Mig. **145**: repair idempotente 8→9 + trigger anti-regresión; UI timeline/mensajes ya no fingen «listo para agendar» sin etapa ≥9; gate etapa 9 síncrono. Sin Sheets/inventario/biométricos/Acuse docs.
+
+### Fixed
 - **fix/asesor-reagendar-firmas-post-acuse:** UI asesor vuelve a mostrar **Reagendar** (y la card) con booking `firmas` activo en etapas **9 y 10**. Causa: gates FE solo permitían etapa 9 / ocultaban etapa 10 con booking. RPC `reagendar_firmas` ya permitía 9/10 (sin migración). Acuse/biométricos/Sheets intactos.
 
 ### Fixed

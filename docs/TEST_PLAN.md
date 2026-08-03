@@ -1,3 +1,11 @@
+## Hotfix — Tarjeta firmas ausente post-Acuse (etapa 8 inconsistente)
+
+- [x] RO: Cardenas `7c114f16` etapa 8 + Acuse enviado + firmas cancelled; Norma `cdce9c91` etapa 8 + firmas booked (cohorte=2).
+- [x] Mig. 145 repair + trigger; SQL `rpc_repair_retencion_enviada_etapa_9.sql`.
+- [x] Timeline: Acuse no Completado si aún etapa 8; mensajes «listo agendar» solo etapa ≥9.
+- [x] Gate firmas etapa 9 síncrono; error probe etapa 10 visible.
+- [x] Sin Sheets/inventario/biométricos; sin UPDATE manual de expedientes.
+
 ## Hotfix — Reagendar firmas post-Acuse (UI)
 
 - [x] `canShowFirmasManageActions`: etapa 9 **o** 10 + booking activo.

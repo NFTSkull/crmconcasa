@@ -18,9 +18,9 @@ import {
 } from "@/domain/expediente-archivos/retencion-acuse-aviso";
 import {
   ExpedienteRetencionSupabaseError,
-  MSG_RETENCION_ENVIADA_LISTA_FIRMA,
   copyMotivoDeshabilitarEnvioRetencion,
   deriveAsesorRetencionPanelView,
+  msgRetencionEnviadaSegunEtapa,
   readRetencionOpcionDraft,
   retencionDocEstatusLabelAsesor,
   retencionDocPuedeReemplazarAsesor,
@@ -67,7 +67,6 @@ export function RetencionAcuseAvisoSupabaseCard({
   firmaAgendableDesde = null,
   onUpdated,
 }: RetencionAcuseAvisoSupabaseCardProps) {
-  void etapaActual;
   const firmaAgendableDesdeLabel = formatYmdDdMmYyyy(firmaAgendableDesde);
   const repo = useExpedienteRetencionSupabaseRepo();
   const [loadingMeta, setLoadingMeta] = useState(true);
@@ -133,8 +132,9 @@ export function RetencionAcuseAvisoSupabaseCard({
         opcionPersistida: opcionRecord,
         envio,
         archivos,
+        etapaActual,
       }),
-    [opcionDraft, opcionSessionDraft, opcionRecord, envio, archivos],
+    [opcionDraft, opcionSessionDraft, opcionRecord, envio, archivos, etapaActual],
   );
 
   const busyUi =
@@ -223,6 +223,7 @@ export function RetencionAcuseAvisoSupabaseCard({
         opcionPersistida: opcionRecord,
         envio,
         archivos,
+        etapaActual,
       });
       if (!recheck.puedeEnviarAMesa || !recheck.opcionPanel) {
         setEnvioError(
@@ -445,7 +446,7 @@ export function RetencionAcuseAvisoSupabaseCard({
                         {!puedeReemplazar && hasFile && estatus !== "validado" ? (
                           <p className="mt-1 text-[10px] text-gray-500">
                             {panel.uiEstado === "enviado"
-                              ? "Acuse enviado; el expediente está listo para agendar firma."
+                              ? msgRetencionEnviadaSegunEtapa(etapaActual)
                               : "Este documento no se puede reemplazar en el estado actual."}
                           </p>
                         ) : null}
@@ -546,7 +547,7 @@ export function RetencionAcuseAvisoSupabaseCard({
               role="status"
               className="mt-3 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-xs text-green-900"
             >
-              {MSG_RETENCION_ENVIADA_LISTA_FIRMA}
+              {msgRetencionEnviadaSegunEtapa(etapaActual)}
             </p>
           ) : null}
         </>

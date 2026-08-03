@@ -109,7 +109,9 @@ export function getEtapaTimelineVisual(
 
 /**
  * P132: override documental para timeline.
- * - Acuse (8): si etapa≥9 y sin Acuse → pendiente; con Acuse → completado. No marcar omitido.
+ * - Acuse (8): completado solo si la etapa real ya avanzó (≥9) y hay Acuse.
+ *   Con Acuse pero aún en etapa 8 (inconsistencia / pre-avance) se mantiene `actual`
+ *   — no fingir “Completado / listo firma” sin transición 8→9.
  * - Notificación (7): completado si etapa≥9 o hay doc Notificación.
  */
 export function getEtapaTimelineVisualConDocs(params: {
@@ -122,8 +124,7 @@ export function getEtapaTimelineVisualConDocs(params: {
   const base = getEtapaTimelineVisual(params.etapaId, actual);
 
   if (params.etapaId === 8) {
-    if (params.hasAcuseDoc) return "completado";
-    if (actual >= 9) return "pendiente";
+    if (actual >= 9) return params.hasAcuseDoc ? "completado" : "pendiente";
     return base;
   }
 
