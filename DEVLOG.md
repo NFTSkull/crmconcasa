@@ -1,3 +1,7 @@
+## 2026-08-03 - Reingreso manual del mismo expediente a Mesa
+
+Necesidad: corregir/reenviar sin clonar. Campo genérico nuevo (`reingreso_manual_*`) separado de P072 (`reingreso_rechazo_id` = hijo post-biométricos). RPC `asesor_enviar_reingreso_a_mesa`: dueño + activo + ya enviado + mismos gates de `enviar_a_mesa` (sin bloqueo «ya enviado»); transición idéntica (etapa 1 / en_validacion_mesa / fecha_envio_mesa); contador + action_log `expediente_reingreso_mesa`; idempotencia 5s. UI «Reingreso» solo si ya submitted; badge permanente REINGRESO. Bandeja Mesa incluye campos nuevos.
+
 ## 2026-07-31 - Hotfix: restaurar detach booking_id en upsert inventario
 
 Causa: mig. 137 reescribió `agenda_sheet_inventory_upsert_batch` y omitió el detach de 133 → reconcile 500 `agenda_sheet_slot_inventory_booking_uidx` desde ~20:45 UTC; pestañas 10/17/24/31 AGOSTO sin inventario. Fix: mig. 141 restaura detach + detección de booking duplicado en el mismo batch + orden determinista por fila física; conserva `sheet_slot_time`/título exacto. Sin Edge. Sin Cloud hasta merge.

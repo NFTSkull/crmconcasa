@@ -120,6 +120,12 @@ export interface ExpedienteMock {
     biometricosCondicion: string | null;
     biometricosRazon: string | null;
   };
+  /** Reingreso manual del mismo expediente a Mesa (mig. 142). Independiente de P072. */
+  reingresoManual?: {
+    count: number;
+    at: string | null;
+    by: string | null;
+  };
 }
 
 /**
@@ -447,6 +453,35 @@ export class MockExpedientesRepo implements ExpedientesRepo {
         fechaEnvioMesa:
           typeof op?.fechaEnvioMesa === "string" ? op.fechaEnvioMesa : null,
         cicloEstado: null,
+      },
+      reingresoManual: {
+        count:
+          typeof (p as unknown as { reingreso_manual_count?: unknown })
+            .reingreso_manual_count === "number"
+            ? Math.max(
+                0,
+                Math.floor(
+                  Number(
+                    (p as unknown as { reingreso_manual_count: number })
+                      .reingreso_manual_count,
+                  ),
+                ),
+              )
+            : 0,
+        at:
+          typeof (p as unknown as { reingreso_manual_at?: unknown })
+            .reingreso_manual_at === "string"
+            ? String(
+                (p as unknown as { reingreso_manual_at: string }).reingreso_manual_at,
+              )
+            : null,
+        by:
+          typeof (p as unknown as { reingreso_manual_by?: unknown })
+            .reingreso_manual_by === "string"
+            ? String(
+                (p as unknown as { reingreso_manual_by: string }).reingreso_manual_by,
+              )
+            : null,
       },
     };
   }
@@ -987,6 +1022,57 @@ export class MockExpedientesRepo implements ExpedientesRepo {
     }
 
     return result;
+  }
+
+  async enviarReingresoAMesa(expedienteId: string): Promise<ExpedienteMock> {
+    if (typeof window === "undefined") {
+      throw new Error("enviarReingresoAMesa mock requiere entorno navegador.");
+    }
+    const exp = await this.getById(expedienteId);
+    if (!exp) {
+      throw new Error("Expediente no encontrado.");
+    }
+    if (!exp.operativo.submittedToMesa) {
+      throw new Error("El expediente nunca fue enviado a Mesa.");
+    }
+    const idNorm = String(expedienteId).trim();
+    const raw = window.localStorage.getItem("precalificaciones_mock");
+    const parsed = safeParseArray(raw);
+    const now = new Date().toISOString();
+    let found = false;
+    const next = parsed.map((p) => {
+      if (!p || typeof p !== "object") return p;
+      const obj = p as Record<string, unknown>;
+      if (String(obj.id) !== idNorm) return p;
+      found = true;
+      const prev =
+        typeof obj.reingreso_manual_count === "number"
+          ? Math.max(0, Math.floor(obj.reingreso_manual_count))
+          : 0;
+      return {
+        ...obj,
+        reingreso_manual_count: prev + 1,
+        reingreso_manual_at: now,
+        reingreso_manual_by: exp.base.asesorId,
+      };
+    });
+    if (!found) {
+      throw new Error("Expediente no encontrado.");
+    }
+    window.localStorage.setItem("precalificaciones_mock", JSON.stringify(next));
+
+    const result = await this.enviarAMesaWithPayload(idNorm, {
+      cliente_nombre: exp.base.cliente_nombre,
+      telefono_cliente: exp.base.telefono_cliente,
+      programa: exp.base.programa,
+      asesorNombre: exp.base.asesorId,
+      etapaActual: 1,
+      subestado: "en_validacion_mesa",
+    });
+    if (!result) {
+      throw new Error("No se pudo reingresar a mesa de control.");
+    }
+    return (await this.getById(idNorm)) ?? result;
   }
 
   async avanzarEtapaOperativa(
