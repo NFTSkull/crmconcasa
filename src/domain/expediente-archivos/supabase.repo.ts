@@ -80,10 +80,16 @@ async function requireSupabaseSession(): Promise<{ client: SupabaseClient }> {
 async function fetchExpedienteUploadContext(
   client: SupabaseClient,
   expedienteId: string,
-): Promise<{ organizationId: string; submittedToMesa: boolean }> {
+): Promise<{
+  organizationId: string;
+  submittedToMesa: boolean;
+  esReingresoDocsEditables: boolean;
+}> {
   const { data, error } = await client
     .from("expedientes")
-    .select("organization_id, submitted_to_mesa")
+    .select(
+      "organization_id, submitted_to_mesa, etapa_actual, reingreso_rechazo_id, expediente_anterior_id, reingreso_manual_count",
+    )
     .eq("id", expedienteId)
     .is("deleted_at", null)
     .maybeSingle();
@@ -94,9 +100,19 @@ async function fetchExpedienteUploadContext(
     );
   }
 
+  const manualCount = Number(
+    (data as { reingreso_manual_count?: number | null }).reingreso_manual_count ?? 0,
+  );
+  const tieneP072 = Boolean(
+    (data as { reingreso_rechazo_id?: string | null }).reingreso_rechazo_id &&
+      (data as { expediente_anterior_id?: string | null }).expediente_anterior_id,
+  );
+  const etapa = Number((data as { etapa_actual?: number | null }).etapa_actual ?? 0);
+
   return {
     organizationId: String(data.organization_id),
     submittedToMesa: Boolean(data.submitted_to_mesa),
+    esReingresoDocsEditables: manualCount > 0 || (tieneP072 && etapa === 6),
   };
 }
 
@@ -282,9 +298,12 @@ export class SupabaseExpedienteArchivosRepo implements ExpedienteArchivosRepo {
       ).includes(tipo);
       const esOpcionalFaltante =
         esOpcionalAsesor && (!row || row.estatus_revision === "faltante" || !row.id);
+      const esReingresoDoc =
+        ctx.esReingresoDocsEditables &&
+        (tipo === "cliente_comprobante_domicilio" || tipo === "cliente_estado_cuenta");
 
-      if (tieneDocumentoActivo || esOpcionalFaltante) {
-        // Reemplazo post-Mesa o primer upload de opcional faltante.
+      if (tieneDocumentoActivo || esOpcionalFaltante || esReingresoDoc) {
+        // Reemplazo post-Mesa, opcional faltante, o domicilio/estado de cuenta en reingreso.
       } else {
         throw new ExpedienteArchivosSupabaseError(
           "No puedes crear documentos obligatorios faltantes: el expediente ya fue enviado a Mesa.",

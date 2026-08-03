@@ -10,9 +10,10 @@ import {
 } from "@/components/mesa-control/MesaArchivoPreviewDialog";
 import {
   asesorDebeUsarCorreccionDocumento,
+  asesorPuedeActualizarDocReingreso,
+  asesorPuedeMostrarUploadDocumento,
   asesorPuedeReemplazarDocumentoExistentePostMesa,
   asesorPuedeSubirDocumentoNuevoReingreso,
-  asesorPuedeSubirOCorregirDocumento,
   asesorPuedeSubirOpcionalFaltantePostMesa,
   ExpedienteArchivosSupabaseError,
   mesaPuedeAbrirArchivo,
@@ -35,6 +36,9 @@ type Props = {
   archivosResumen: ExpedienteArchivoResumen[] | null;
   puedeIntegrar: boolean;
   submittedToMesa: boolean;
+  /** P072 etapa 6 o reingreso manual: domicilio + estado de cuenta editables. */
+  esReingresoActivo?: boolean;
+  /** @deprecated Usar esReingresoActivo */
   esReingresoEtapa6?: boolean;
   /** Tipos opcionales visibles solo en histórico RO (sin dropzone). */
   readOnlyOpcionalTipos?: readonly string[];
@@ -109,7 +113,7 @@ function ChecklistUploadList({
   archivosResumen,
   puedeIntegrar,
   submittedToMesa,
-  esReingresoEtapa6,
+  esReingresoActivo,
   readOnlyTipos,
   uploadingTipo,
   archivoLoadingTipo,
@@ -122,7 +126,7 @@ function ChecklistUploadList({
   archivosResumen: ExpedienteArchivoResumen[] | null;
   puedeIntegrar: boolean;
   submittedToMesa: boolean;
-  esReingresoEtapa6: boolean;
+  esReingresoActivo: boolean;
   readOnlyTipos: ReadonlySet<string>;
   uploadingTipo: IntegrationDocAsesorUploadTipo | null;
   archivoLoadingTipo: IntegrationDocAsesorUploadTipo | null;
@@ -160,21 +164,25 @@ function ChecklistUploadList({
             submittedToMesa,
             item.estatus_revision,
             item.tipo_documento,
-            esReingresoEtapa6,
+            esReingresoActivo,
           );
+        const esDocReingresoActualizable = asesorPuedeActualizarDocReingreso(
+          submittedToMesa,
+          item.tipo_documento,
+          esReingresoActivo,
+        );
         const esReemplazoPostMesa = asesorPuedeReemplazarDocumentoExistentePostMesa(
           submittedToMesa,
           item.estatus_revision,
         );
-        const puedeSubirItem =
-          !forceReadOnly &&
-          (puedeIntegrar || esDocumentoNuevoReingreso) &&
-          asesorPuedeSubirOCorregirDocumento(
-            submittedToMesa,
-            item.estatus_revision,
-            item.tipo_documento,
-            esReingresoEtapa6,
-          );
+        const puedeSubirItem = asesorPuedeMostrarUploadDocumento({
+          puedeIntegrar,
+          submittedToMesa,
+          estatusRevision: item.estatus_revision,
+          tipoDocumento: item.tipo_documento,
+          esReingresoActivo,
+          forceReadOnly,
+        });
         const disabled = !puedeSubirItem || uploading;
         const fechaSubida = formatUploadDate(archivo?.created_at);
         const detalle = estatusDetalleLabel(item.estatus_revision);
@@ -217,7 +225,14 @@ function ChecklistUploadList({
                     Documento opcional no enviado. Puedes subirlo para que Mesa lo vea.
                   </p>
                 ) : null}
-                {esReemplazoPostMesa && tieneArchivo ? (
+                {esDocReingresoActualizable ? (
+                  <p className="mt-1 rounded border border-amber-100 bg-amber-50 px-2 py-1 text-amber-950">
+                    Reingreso: puedes{" "}
+                    {tieneArchivo ? "reemplazar" : "subir"} este documento; Mesa verá la versión
+                    vigente de este expediente.
+                  </p>
+                ) : null}
+                {esReemplazoPostMesa && tieneArchivo && !esDocReingresoActualizable ? (
                   <p className="mt-1 rounded border border-violet-100 bg-violet-50 px-2 py-1 text-violet-900">
                     Este documento ya fue enviado a Mesa. Puedes reemplazarlo; Mesa verá la
                     versión actualizada.
@@ -281,6 +296,7 @@ function ChecklistUploadList({
                   item.estatus_revision !== "rechazado" &&
                   !esOpcionalPendientePostMesa &&
                   !esReemplazoPostMesa &&
+                  !esDocReingresoActualizable &&
                   !esDocumentoNuevoReingreso ? (
                   <p className="mt-2 text-[11px] text-gray-500">
                     Enviado a Mesa — no editable salvo rechazo documental.
@@ -302,10 +318,12 @@ export function AsesorIntegracionDocsUpload({
   archivosResumen,
   puedeIntegrar,
   submittedToMesa,
+  esReingresoActivo,
   esReingresoEtapa6 = false,
   readOnlyOpcionalTipos = [],
   onUploaded,
 }: Props) {
+  const reingresoActivo = Boolean(esReingresoActivo ?? esReingresoEtapa6);
   const readOnlyTipos = useMemo(
     () => new Set(readOnlyOpcionalTipos),
     [readOnlyOpcionalTipos],
@@ -479,7 +497,7 @@ export function AsesorIntegracionDocsUpload({
     archivosResumen,
     puedeIntegrar,
     submittedToMesa,
-    esReingresoEtapa6,
+    esReingresoActivo: reingresoActivo,
     readOnlyTipos,
     uploadingTipo,
     archivoLoadingTipo,
