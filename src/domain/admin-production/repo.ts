@@ -31,9 +31,36 @@ export type AdminProductionFilters = Readonly<{
   pageSize?: number;
 }>;
 
+/** Filtros del snapshot de stock vigente (sin periodo / fechas). */
+export type AdminSnapshotFilters = Readonly<{
+  asesorId?: string | null;
+  etapaActual?: number | null;
+  etapaActuales?: readonly number[] | null;
+  estado?: AdminEstadoFilter | null;
+  buscar?: string | null;
+  page?: number;
+  pageSize?: number;
+}>;
+
+export type AdminEtapaBucket = Readonly<{
+  etapa: number;
+  count: number;
+  pct: number;
+}>;
+
+export type AdminSnapshotEtapasResult = Readonly<{
+  totalActual: number;
+  byEtapa: readonly AdminEtapaBucket[];
+  byPasoVisual: readonly { pasoVisual: number; count: number; pct: number }[];
+  generatedAt: string;
+}>;
+
 /** Resuelve el filtro de etapa para mock/repos (sin cambiar firmas RPC). */
 export function resolveAdminEtapaActualesFilter(
-  filters: Pick<AdminProductionFilters, "etapaActual" | "etapaActuales">,
+  filters: Pick<
+    AdminProductionFilters | AdminSnapshotFilters,
+    "etapaActual" | "etapaActuales"
+  >,
 ): number[] | null {
   if (filters.etapaActuales != null && filters.etapaActuales.length > 0) {
     return [...filters.etapaActuales];
@@ -44,7 +71,10 @@ export function resolveAdminEtapaActualesFilter(
 
 export function matchesAdminEtapaActualFilter(
   etapaActual: number,
-  filters: Pick<AdminProductionFilters, "etapaActual" | "etapaActuales">,
+  filters: Pick<
+    AdminProductionFilters | AdminSnapshotFilters,
+    "etapaActual" | "etapaActuales"
+  >,
 ): boolean {
   const list = resolveAdminEtapaActualesFilter(filters);
   if (list == null) return true;
@@ -61,12 +91,6 @@ export type AdminAsesorProductionRow = Readonly<{
   aprobadasMayorA20000: number;
   montoAprobadoTotal: number;
   etapas: Readonly<Record<string, number>>;
-}>;
-
-export type AdminEtapaBucket = Readonly<{
-  etapa: number;
-  count: number;
-  pct: number;
 }>;
 
 export type AdminPaginated<T> = Readonly<{
@@ -101,9 +125,17 @@ export interface AdminProductionRepo {
   getMesaCohortByEtapa(
     filters: AdminProductionFilters,
   ): Promise<{ total: number; byEtapa: readonly AdminEtapaBucket[] }>;
+  /** Stock vigente por etapa (independiente del periodo). */
+  getExpedientesSnapshotEtapas(
+    filters: AdminSnapshotFilters,
+  ): Promise<AdminSnapshotEtapasResult>;
   listByAsesor(filters: AdminProductionFilters): Promise<readonly AdminAsesorProductionRow[]>;
   listMesaEnviosPage(
     filters: AdminProductionFilters,
+  ): Promise<AdminPaginated<AdminMesaEnvioEvent>>;
+  /** Listado paginado del stock vigente (sin fechas). */
+  listExpedientesSnapshotPage(
+    filters: AdminSnapshotFilters,
   ): Promise<AdminPaginated<AdminMesaEnvioEvent>>;
   listPrecalificacionesPage(
     filters: AdminProductionFilters,

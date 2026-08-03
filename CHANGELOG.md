@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Added
+- **feat/admin-snapshot-etapas-actuales:** Super Admin muestra stock vigente de **todos** los expedientes del CRM por `etapa_actual` (mig. **147**: `admin_expedientes_snapshot_etapas` + `admin_list_expedientes_snapshot_page`). Independiente de Hoy/semana/mes; KPI periódicos y Excel intactos.
+
 ### Fixed
 - **fix/reingreso-editar-domicilio-estado-cuenta:** en reingreso (P072 etapa 6 o manual) el asesor dueño puede subir/reemplazar `cliente_comprobante_domicilio` y `cliente_estado_cuenta` aunque el expediente ya esté enviado a Mesa. Mig. **146** + UI/repo. Sin abrir edición global; padre/Acuse/agenda/etapa intactos.
 
