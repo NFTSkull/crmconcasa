@@ -89,14 +89,28 @@ export function retencionDocEstatusLabelAsesor(
 
 export function asesorRetencionBloqueEstadoLabel(
   uiEstado: RetencionEnvioMesaUiEstado,
+  etapaActual?: number | null,
 ): string {
   if (uiEstado === "no_enviado") return "Pendiente de envío a Mesa";
   if (uiEstado === "correccion_requerida") return "Corrección requerida";
-  return "Acuse enviado. El expediente está listo para agendar firma.";
+  if (typeof etapaActual === "number" && etapaActual >= 9) {
+    return "Acuse enviado. El expediente está listo para agendar firma.";
+  }
+  return "Acuse enviado. Esperando avance a Listo para agendar firma (etapa 9).";
 }
 
 export const MSG_RETENCION_ENVIADA_LISTA_FIRMA =
   "Acuse enviado. El expediente está listo para agendar firma.";
+
+/** Solo afirmar “listo para agendar” si Cloud ya está en etapa ≥ 9. */
+export function msgRetencionEnviadaSegunEtapa(
+  etapaActual: number | null | undefined,
+): string {
+  if (typeof etapaActual === "number" && etapaActual >= 9) {
+    return MSG_RETENCION_ENVIADA_LISTA_FIRMA;
+  }
+  return "Acuse enviado. Esperando avance a Listo para agendar firma (etapa 9).";
+}
 
 
 /** Visible mientras el bloque aún no está en revisión Mesa. */
@@ -192,6 +206,8 @@ export function deriveAsesorRetencionPanelView(params: {
   opcionPersistida: ExpedienteRetencionOpcion | null;
   envio: ExpedienteRetencionEnvioMesa | null;
   archivos: readonly ArchivoRowMin[];
+  /** Etapa operativa real; evita “listo para agendar” si Cloud sigue en 8. */
+  etapaActual?: number | null;
 }): AsesorRetencionPanelView {
   const opcionDb = params.opcionPersistida?.retencion_opcion ?? null;
   const opcionInferida = inferRetencionOpcionFromArchivos(params.archivos);
@@ -238,7 +254,10 @@ export function deriveAsesorRetencionPanelView(params: {
     opcionExplicita,
     opcionEditable,
     uiEstado,
-    bloqueEstadoLabel: asesorRetencionBloqueEstadoLabel(uiEstado),
+    bloqueEstadoLabel: asesorRetencionBloqueEstadoLabel(
+      uiEstado,
+      params.etapaActual,
+    ),
     faltantes,
     puedeEnviarAMesa,
     mostrarBotonEnviar: mostrarBotonEnviarRetencionAMesa(uiEstado),

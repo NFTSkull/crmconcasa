@@ -40,6 +40,25 @@ describe("firmas-booking-actions", () => {
     );
   });
 
+  it("post-Acuse: etapa 8 no monta card; tras transición 9 sí (Agendar)", () => {
+    assert.equal(
+      canShowAsesorFirmasSupabaseCard({ submittedToMesa: true, etapaActual: 8 }),
+      false,
+    );
+    assert.equal(
+      canShowAsesorFirmasSupabaseCard({ submittedToMesa: true, etapaActual: 9 }),
+      true,
+    );
+    assert.equal(
+      canShowFirmasManageActions({ etapaActual: 9, hasActiveBooking: false }),
+      false,
+    );
+    assert.equal(
+      canShowFirmasManageActions({ etapaActual: 9, hasActiveBooking: true }),
+      true,
+    );
+  });
+
   it("card asesor etapa 10 con booking activo (reagendar post-Acuse)", () => {
     assert.equal(
       canShowAsesorFirmasSupabaseCard({

@@ -218,6 +218,8 @@ Convenciones:
 
 **P132-acuse:** cierre Biometría Mesa `5→8`; Acuse principal en etapa 8 → `8→9` + `firma_agendable_desde` (si NULL = hoy Monterrey; sin +5 hábiles, mig. 139); gate firmas SQL conserva assert (NULL/hoy permiten); picker/minDate desde hoy sujeto a cupo.
 
+**Hotfix 145:** si Mesa `mover_etapa` deja etapa 8 con `retencion_envios.estado=enviado` + principal válido, `repair_retencion_enviada_a_etapa_9` (y trigger BEFORE UPDATE) restaura etapa 9 sin tocar docs/bookings. UI no afirma «listo para agendar firma» si `etapa_actual < 9`.
+
 Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 
 ### 3quinquies. Notificación (`cliente_notificacion_apodaca`) — P104

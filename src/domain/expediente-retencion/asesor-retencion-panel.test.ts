@@ -270,7 +270,14 @@ describe("copy asesor retención", () => {
 
   it("bloque estado operativo", () => {
     assert.match(asesorRetencionBloqueEstadoLabel("no_enviado"), /Pendiente de envío/i);
-    assert.match(asesorRetencionBloqueEstadoLabel("enviado"), /listo para agendar firma/i);
+    assert.match(
+      asesorRetencionBloqueEstadoLabel("enviado", 9),
+      /listo para agendar firma/i,
+    );
+    assert.match(
+      asesorRetencionBloqueEstadoLabel("enviado", 8),
+      /Esperando avance/i,
+    );
     assert.match(asesorRetencionBloqueEstadoLabel("correccion_requerida"), /Corrección/i);
   });
 });

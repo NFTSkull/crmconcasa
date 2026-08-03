@@ -1,3 +1,7 @@
+## 2026-08-03 - Hotfix: tarjeta firmas ausente post-Acuse (etapa 8 inconsistente)
+
+Caso CESAR ADOLFO CARDENAS OLVERA (`7c114f16-…`): Acuse registró 8→9 (action_log OK); Mesa `mover_etapa` saltó 9→7 y terminó en 8; canceló firmas sin cambiar etapa. UI mostraba «Acuse enviado / listo agendar» + timeline 8 Completado por `hasAcuseDoc`, pero gate firmas exige etapa 9 → card ausente. Cohorte RO: 2 expedientes. Fix: mig. **145** `repair_retencion_enviada_a_etapa_9` (+ trigger BEFORE UPDATE si se intenta dejar en 8 con Acuse enviado); timeline/mensajes honestos; gate etapa 9 sin depender de probe bookings. Sin tocar citas reales en smoke escritura.
+
 ## 2026-08-03 - Hotfix: Reagendar firmas post-Acuse (UI)
 
 Causa: `canShowFirmasManageActions` exigía solo etapa 9; `canShowAsesorFirmasSupabaseCard` ocultaba la card en etapa 10 si había booking activo. Tras Acuse (8→9) y cita (o avance a 10), el asesor veía la cita/contexto pero no Reagendar. Fix FE: manage + card en 9/10 con booking activo; fuente = `agenda_bookings` booked. Cloud `reagendar_firmas` ya acepta 9/10 — sin migración. Sin Sheets/inventario/biométricos/Acuse.

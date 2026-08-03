@@ -17,7 +17,12 @@ export type AsesorAgendaFirmasSupabaseGateProps = Readonly<{
   onUpdated: () => void;
 }>;
 
-/** Monta la card firmas solo cuando la etapa y el estado de booking lo permiten. */
+/**
+ * Monta la card firmas cuando la etapa lo permite.
+ * Etapa 9: montaje síncrono (no depende de bookings).
+ * Etapa 10: consulta booking activo / última cancelación.
+ * Error al cargar bookings en etapa 10: muestra aviso, no oculta en silencio si hay duda.
+ */
 export function AsesorAgendaFirmasSupabaseGate({
   expedienteId,
   submittedToMesa,
@@ -28,11 +33,37 @@ export function AsesorAgendaFirmasSupabaseGate({
   onUpdated,
 }: AsesorAgendaFirmasSupabaseGateProps) {
   const repo = useAgendaFirmasBookingRepo();
-  const [visible, setVisible] = useState(false);
-  const [resolved, setResolved] = useState(false);
+  const [visible, setVisible] = useState(() =>
+    canShowAsesorFirmasSupabaseCard({
+      submittedToMesa,
+      etapaActual,
+    }),
+  );
+  const [resolved, setResolved] = useState(() => etapaActual !== 10);
+  const [bookingProbeError, setBookingProbeError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!repo || !submittedToMesa) {
+    setBookingProbeError(null);
+
+    if (!submittedToMesa) {
+      setVisible(false);
+      setResolved(true);
+      return;
+    }
+
+    // Etapa 9 (y otras no-10): gate síncrono — no ocultar por fallo de bookings.
+    if (etapaActual !== 10) {
+      setVisible(
+        canShowAsesorFirmasSupabaseCard({
+          submittedToMesa,
+          etapaActual,
+        }),
+      );
+      setResolved(true);
+      return;
+    }
+
+    if (!repo) {
       setVisible(false);
       setResolved(true);
       return;
@@ -57,7 +88,12 @@ export function AsesorAgendaFirmasSupabaseGate({
           }),
         );
       } catch {
-        if (!cancelled) setVisible(false);
+        if (cancelled) return;
+        // No ocultar en silencio: mostrar card para que el usuario vea el error interno.
+        setBookingProbeError(
+          "No se pudo verificar la cita de firmas. Intenta recargar.",
+        );
+        setVisible(true);
       } finally {
         if (!cancelled) setResolved(true);
       }
@@ -71,13 +107,23 @@ export function AsesorAgendaFirmasSupabaseGate({
   if (!resolved || !visible) return null;
 
   return (
-    <AgendaFirmasSupabaseCard
-      expedienteId={expedienteId}
-      etapaActual={etapaActual}
-      fechaCita={fechaCita}
-      firmaAgendableDesde={firmaAgendableDesde}
-      acusePendienteSubir={acusePendienteSubir}
-      onUpdated={onUpdated}
-    />
+    <>
+      {bookingProbeError ? (
+        <p
+          role="alert"
+          className="mb-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950"
+        >
+          {bookingProbeError}
+        </p>
+      ) : null}
+      <AgendaFirmasSupabaseCard
+        expedienteId={expedienteId}
+        etapaActual={etapaActual}
+        fechaCita={fechaCita}
+        firmaAgendableDesde={firmaAgendableDesde}
+        acusePendienteSubir={acusePendienteSubir}
+        onUpdated={onUpdated}
+      />
+    </>
   );
 }
