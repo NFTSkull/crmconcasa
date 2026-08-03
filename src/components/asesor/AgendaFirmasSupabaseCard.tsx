@@ -698,7 +698,11 @@ export function AgendaFirmasSupabaseCard({
           {formatCitaDisplay(citaIso, locationLabel)}
         </p>
         <p className="mt-1 text-xs text-violet-800">
-          <span className="font-medium">Estatus:</span> Cita agendada — etapa 9 (sin avance automático)
+          <span className="font-medium">Estatus:</span> Cita agendada
+          {typeof etapaActual === "number"
+            ? ` — etapa ${etapaActual}`
+            : ""}
+          {" "}(reagendar no cambia etapa)
         </p>
 
         {successMsg ? (

@@ -1,3 +1,7 @@
+## 2026-08-03 - Hotfix: Reagendar firmas post-Acuse (UI)
+
+Causa: `canShowFirmasManageActions` exigía solo etapa 9; `canShowAsesorFirmasSupabaseCard` ocultaba la card en etapa 10 si había booking activo. Tras Acuse (8→9) y cita (o avance a 10), el asesor veía la cita/contexto pero no Reagendar. Fix FE: manage + card en 9/10 con booking activo; fuente = `agenda_bookings` booked. Cloud `reagendar_firmas` ya acepta 9/10 — sin migración. Sin Sheets/inventario/biométricos/Acuse.
+
 ## 2026-08-03 - Hotfix: Notificación acepta PDF + imágenes
 
 Tipo `cliente_notificacion_apodaca` («Notificación»): allowlist FE + `expediente_documento_mime_permitido` (mig. **144**) = PDF/JPEG/PNG para Asesor dueño y Mesa. Sin WEBP/HEIC/GIF/SVG; 15 MiB; preview imagen/PDF existente; sin sede/etapa/Acuse/agenda.

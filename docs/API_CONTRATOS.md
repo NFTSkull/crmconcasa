@@ -753,7 +753,8 @@ Rango seguro **O:U** (`ESTADO CRM`…`CRM_SYNC_VERSION`). **A:N se PRESERVA** (H
 - Persiste `agenda_bookings` (`kind = firmas`) + `expedientes.fecha_cita`.
 - **NO** cambia `etapa_actual`.
 
-- UI asesor: `AgendaFirmasSupabaseCard` en etapa 9 (P3P.2).
+- UI asesor: `AgendaFirmasSupabaseCard` en etapa 9; en etapa 10 también con booking activo (reagendar/cancelar) o tras cancelación (re-agendar).
+- **Hotfix post-Acuse:** `canShowFirmasManageActions` / `canShowAsesorFirmasSupabaseCard` alineados a RPC `reagendar_firmas` (etapas 9 y 10).
 - UI Mesa: resumen cita + avance 9→10 en detalle Supabase (P3P.3).
 - **P117:** en etapa 10, botón Mesa «Pasar a Firmado» → `avanzar_etapa_operativa` transición `10→11` (mismos gates de firma; no movimiento manual libre).
 - **P119.4:** en etapa 11, botón Mesa «Pasar a Pago a ConCasa» → `avanzar_etapa_operativa` transición `11→12` (solo posición operativa; no registra pago ni muta citas/docs/montos).

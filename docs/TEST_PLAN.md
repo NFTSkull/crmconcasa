@@ -1,3 +1,9 @@
+## Hotfix — Reagendar firmas post-Acuse (UI)
+
+- [x] `canShowFirmasManageActions`: etapa 9 **o** 10 + booking activo.
+- [x] Card visible en etapa 10 con booking activo; sin fingir Reagendar solo por `fecha_cita`.
+- [x] Sin migración (RPC ya 9/10); Acuse/biométricos/Sheets intactos.
+
 ## Hotfix — Notificación PDF/JPEG/PNG (mig. 144)
 
 - [x] `cliente_notificacion_apodaca` MIME PDF + image/jpeg + image/png (SQL + FE).

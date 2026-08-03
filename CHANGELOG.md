@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Fixed
+- **fix/asesor-reagendar-firmas-post-acuse:** UI asesor vuelve a mostrar **Reagendar** (y la card) con booking `firmas` activo en etapas **9 y 10**. Causa: gates FE solo permitían etapa 9 / ocultaban etapa 10 con booking. RPC `reagendar_firmas` ya permitía 9/10 (sin migración). Acuse/biométricos/Sheets intactos.
+
+### Fixed
 - **fix/notificacion-acepta-imagenes:** `cliente_notificacion_apodaca` («Notificación») acepta PDF/JPG/JPEG/PNG para Asesor dueño y Mesa (mig. **144** + FE allowlist). Sin WEBP/HEIC/GIF; tamaño 15 MiB intacto; Acuse/etapas/agenda sin cambio.
 
 ### Fixed
