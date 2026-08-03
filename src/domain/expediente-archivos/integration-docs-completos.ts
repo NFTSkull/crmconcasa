@@ -45,13 +45,17 @@ export const CLIENTE_NOTIFICACION_APODACA_DOCUMENT_TIPO =
 export type ClienteNotificacionApodacaDocumentTipo =
   typeof CLIENTE_NOTIFICACION_APODACA_DOCUMENT_TIPO;
 
-/** Contrato Notificación (tipo interno apodaca; PDF ≤15 MiB; Asesor|Mesa; cualquier etapa/sede; opcional; no gate). */
+/** Contrato Notificación (tipo interno apodaca; PDF/JPEG/PNG ≤15 MiB; Asesor|Mesa; cualquier etapa/sede; opcional; no gate). */
 export const CLIENTE_NOTIFICACION_APODACA_DOCUMENT_CONTRACT = Object.freeze({
   tipo: CLIENTE_NOTIFICACION_APODACA_DOCUMENT_TIPO,
   label: "Notificación",
   origen: "Asesor|Mesa" as const,
-  formatos: ["PDF"] as const,
-  mimePermitidos: ["application/pdf"] as const,
+  formatos: ["PDF", "JPG", "JPEG", "PNG"] as const,
+  mimePermitidos: [
+    "application/pdf",
+    "image/jpeg",
+    "image/png",
+  ] as const,
   maxBytes: 15 * 1024 * 1024,
   etapaMinima: 0,
   obligatorio: false,

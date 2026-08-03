@@ -1,3 +1,10 @@
+## Hotfix — Notificación PDF/JPEG/PNG (mig. 144)
+
+- [x] `cliente_notificacion_apodaca` MIME PDF + image/jpeg + image/png (SQL + FE).
+- [x] Asesor + Mesa mismos formatos; accept/hint; preview PDF/imagen; WEBP/GIF/HEIC rechazados.
+- [x] Sin ampliar otros tipos; Acuse/etapas/agenda intactos.
+- [x] SQL `cliente_notificacion_apodaca_opcional.sql` + tests TS.
+
 ## Hotfix — Reingreso visible (mig. 143)
 
 - [x] Card «Reingreso a Mesa» arriba de Datos Generales; visible sin etapa/checklist/`submittedToMesa`.

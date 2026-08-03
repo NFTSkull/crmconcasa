@@ -1,3 +1,7 @@
+## 2026-08-03 - Hotfix: Notificación acepta PDF + imágenes
+
+Tipo `cliente_notificacion_apodaca` («Notificación»): allowlist FE + `expediente_documento_mime_permitido` (mig. **144**) = PDF/JPEG/PNG para Asesor dueño y Mesa. Sin WEBP/HEIC/GIF/SVG; 15 MiB; preview imagen/PDF existente; sin sede/etapa/Acuse/agenda.
+
 ## 2026-08-03 - Hotfix: Reingreso visible en todos los expedientes activos
 
 Problema: botón oculto en card «Enviar a Mesa» y gated por checklist/`submittedToMesa`. Fix UI: card «Reingreso a Mesa» inmediatamente arriba de Datos Generales; visible si dueño + no cancelado. Mig. **143** reemplaza cuerpo de `asesor_enviar_reingreso_a_mesa` sin gates de monto/docs/datos/NSS/envío previo; solo auth+rol asesor+dueño+no cancelado/eliminado; UPDATE mismo id; action_log con `era_primer_envio`. 142 intacta. Sin smoke datos reales.
