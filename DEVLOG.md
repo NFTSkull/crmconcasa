@@ -1,3 +1,7 @@
+## 2026-08-04 - Admin: desglose por asesor interactivo + NSS completo (P154)
+
+Problema: el resultado de cohorte no desglosaba por asesor ni permitía ver los expedientes de cada cantidad; el detalle enmascaraba NSS. Fix: mig. **154** añade `por_asesor` al summary, resultado `entered`, NSS completo en page (solo `super_admin`), auditoría `admin.stage_cohort_outcome_detail`, UI con celdas clicables y tabla unificada; Excel «Desglose por asesor» + NSS como texto. P149/snapshot intactos.
+
 ## 2026-08-03 - Admin: resultado de cohorte (quiénes avanzaron / se quedaron)
 
 Problema: el resumen P149 mezcla modos (entrada/avance/estuvieron) y no responde «de quienes entraron en el periodo, ¿cuántos avanzaron vs se quedaron al cierre?». Fix: RPCs nuevos `admin_stage_cohort_outcome_summary` / `_page` (mig. **153**) con cohorte = `fecha_entrada` en rango; clasificación mutuamente excluyente advanced/stayed/incident/undetermined al cierre `America/Monterrey`; `situacion_actual` distingue avance posterior sin reclasificar el periodo. UI debajo del histórico; Excel +2 hojas. Sin tocar 149 ni snapshot.

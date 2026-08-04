@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Added
+- **feat(admin): desglose interactivo por asesor + NSS completo (P154)** — en Resultado de cohorte: tabla por asesor con cantidades clicables; detalle bajo demanda; NSS completo solo Super Admin (RPC + Excel texto); resultado `entered`; hoja Excel «Desglose por asesor». Mig. **154**.
+
+### Added
 - **feat(admin): resultado de cohorte por etapa (P153)** — debajo del Reporte histórico: «Resultado de los expedientes que entraron durante el periodo» (Entraron / Avanzaron / Se quedaron / Rechazados-retrocedieron). RPCs `admin_stage_cohort_outcome_summary` / `_page` (mig. **153**). Fuente: `expediente_paso_visual_transiciones`. Excel: hojas «Resultado por etapa» + «Detalle de resultados». P149 intacto.
 
 ### Fixed
