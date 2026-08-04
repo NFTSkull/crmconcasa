@@ -761,6 +761,7 @@ COMMENT ON FUNCTION public.save_cliente_datos_correccion(uuid, text, text, jsonb
   'Corrección/actualización post-Mesa. Hotfix 151: permite primer INSERT si reingreso activo (es_reingreso_asesor_edicion_activa).';
 
 -- Restaura gates de checklist al reenviar (contador solo si completo). Conserva auth 143.
+-- Hotfix 151b: gates ANTES de idempotencia 5s (evita bypass incompleto).
 CREATE OR REPLACE FUNCTION public.asesor_enviar_reingreso_a_mesa(
   p_expediente_id UUID
 )
@@ -782,7 +783,6 @@ DECLARE
   v_era_primer_envio BOOLEAN;
   v_docs_count INTEGER;
   v_now TIMESTAMPTZ := NOW();
-  v_faltantes TEXT[] := ARRAY[]::TEXT[];
 BEGIN
   v_actor_id := public.current_profile_id();
   IF v_actor_id IS NULL THEN
@@ -842,27 +842,6 @@ BEGIN
       USING ERRCODE = '22023';
   END IF;
 
-  -- Idempotencia doble clic / carrera: misma TX actor en ventana corta.
-  IF v_exp.reingreso_manual_at IS NOT NULL
-     AND v_exp.reingreso_manual_by IS NOT DISTINCT FROM v_actor_id
-     AND v_exp.reingreso_manual_at > (v_now - INTERVAL '5 seconds') THEN
-    RETURN jsonb_build_object(
-      'ok', true,
-      'changed', false,
-      'idempotent', true,
-      'expediente_id', v_exp.id,
-      'precalificacion_id', v_exp.id,
-      'reingreso_manual_count', v_exp.reingreso_manual_count,
-      'reingreso_manual_at', v_exp.reingreso_manual_at,
-      'reingreso_manual_by', v_exp.reingreso_manual_by,
-      'etapa_actual', v_exp.etapa_actual,
-      'subestado', v_exp.subestado,
-      'submitted_to_mesa', true,
-      'fecha_envio_mesa', v_exp.fecha_envio_mesa,
-      'era_primer_envio', false
-    );
-  END IF;
-
   SELECT ed.*
   INTO v_editor
   FROM public.editor_decisions ed
@@ -897,7 +876,8 @@ BEGIN
   END IF;
 
   IF NULLIF(btrim(COALESCE(v_exp.direccion_opcional, '')), '') IS NULL THEN
-    v_faltantes := array_append(v_faltantes, 'Domicilio real del cliente');
+    RAISE EXCEPTION 'asesor_enviar_reingreso_a_mesa: FALTAN_DATOS: Domicilio real del cliente'
+      USING ERRCODE = '22023';
   END IF;
 
   v_docs_count := public.count_integration_docs_presentes(p_expediente_id);
@@ -907,9 +887,25 @@ BEGIN
       USING ERRCODE = '22023';
   END IF;
 
-  IF cardinality(v_faltantes) > 0 THEN
-    RAISE EXCEPTION 'asesor_enviar_reingreso_a_mesa: FALTAN_DATOS: %', array_to_string(v_faltantes, ', ')
-      USING ERRCODE = '22023';
+  -- Idempotencia solo después de gates (evita bypass incompleto por ventana 5s).
+  IF v_exp.reingreso_manual_at IS NOT NULL
+     AND v_exp.reingreso_manual_by IS NOT DISTINCT FROM v_actor_id
+     AND v_exp.reingreso_manual_at > (v_now - INTERVAL '5 seconds') THEN
+    RETURN jsonb_build_object(
+      'ok', true,
+      'changed', false,
+      'idempotent', true,
+      'expediente_id', v_exp.id,
+      'precalificacion_id', v_exp.id,
+      'reingreso_manual_count', v_exp.reingreso_manual_count,
+      'reingreso_manual_at', v_exp.reingreso_manual_at,
+      'reingreso_manual_by', v_exp.reingreso_manual_by,
+      'etapa_actual', v_exp.etapa_actual,
+      'subestado', v_exp.subestado,
+      'submitted_to_mesa', true,
+      'fecha_envio_mesa', v_exp.fecha_envio_mesa,
+      'era_primer_envio', false
+    );
   END IF;
 
   v_etapa_anterior := v_exp.etapa_actual;
@@ -1000,4 +996,4 @@ GRANT EXECUTE ON FUNCTION public.asesor_enviar_reingreso_a_mesa(UUID)
   TO authenticated, service_role, postgres;
 
 COMMENT ON FUNCTION public.asesor_enviar_reingreso_a_mesa(UUID) IS
-  'Reingreso manual mismo expediente. Hotfix 151: exige Datos Generales + docs integración completos antes de incrementar contador.';
+  'Reingreso manual mismo expediente. Hotfix 151: exige Datos Generales + docs; idempotencia 5s solo tras gates.';
