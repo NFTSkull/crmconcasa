@@ -3,6 +3,7 @@
 
 \set ON_ERROR_STOP on
 
+
 CREATE OR REPLACE FUNCTION public.__p155_assert(p_ok BOOLEAN, p_msg TEXT)
 RETURNS VOID LANGUAGE plpgsql AS $$
 BEGIN
@@ -24,15 +25,18 @@ BEGIN
 END; $$;
 
 CREATE OR REPLACE FUNCTION public.__p155_cleanup(p_nss TEXT)
-RETURNS VOID LANGUAGE plpgsql AS $$
+RETURNS VOID LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
 DECLARE v_nss TEXT := public.normalize_nss_mexico(p_nss);
 BEGIN
-  DELETE FROM public.expediente_precalificacion_intentos i
-  USING public.expedientes e
-  WHERE i.expediente_id = e.id AND e.nss = v_nss;
   UPDATE public.expedientes e
   SET reprecalificacion_pendiente_id = NULL
   WHERE e.nss = v_nss;
+  DELETE FROM public.expediente_precalificacion_intentos i
+  USING public.expedientes e
+  WHERE i.expediente_id = e.id AND e.nss = v_nss;
   DELETE FROM public.cliente_datos cd
   USING public.expedientes e
   WHERE cd.expediente_id = e.id AND e.nss = v_nss;
@@ -42,10 +46,64 @@ BEGIN
   DELETE FROM public.expediente_documentos d
   USING public.expedientes e
   WHERE d.expediente_id = e.id AND e.nss = v_nss;
+  DELETE FROM public.expediente_paso_visual_transiciones t
+  USING public.expedientes e
+  WHERE t.expediente_id = e.id AND e.nss = v_nss;
   DELETE FROM public.action_log a
   USING public.expedientes e
   WHERE a.entity_id = e.id AND e.nss = v_nss;
   DELETE FROM public.expedientes e WHERE e.nss = v_nss;
+END; $$;
+
+CREATE OR REPLACE FUNCTION public.__p155_insert_mesa_dup(
+  p_org UUID, p_asesor UUID, p_nss TEXT, p_programa public.programa
+)
+RETURNS UUID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE v_id UUID;
+BEGIN
+  INSERT INTO public.expedientes (
+    id, organization_id, asesor_id, programa, nss, cliente_nombre, telefono_cliente,
+    origen_mesa, submitted_to_mesa, fecha_envio_mesa, etapa_actual, subestado, ciclo_estado
+  ) VALUES (
+    gen_random_uuid(), p_org, p_asesor, p_programa, public.normalize_nss_mexico(p_nss),
+    'Dup P155', '5599999999',
+    'interno', true, now(), 1, 'en_validacion_mesa', 'activo'
+  ) RETURNING id INTO v_id;
+  RETURN v_id;
+END; $$;
+
+CREATE OR REPLACE FUNCTION public.__p155_mark_deleted(p_exp UUID, p_deleted BOOLEAN)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  IF p_deleted THEN
+    UPDATE public.expedientes SET deleted_at = now() WHERE id = p_exp;
+  ELSE
+    UPDATE public.expedientes SET deleted_at = NULL WHERE id = p_exp;
+  END IF;
+END; $$;
+
+CREATE OR REPLACE FUNCTION public.__p155_hard_delete_exp(p_exp UUID)
+RETURNS VOID
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+BEGIN
+  UPDATE public.expedientes SET reprecalificacion_pendiente_id = NULL WHERE id = p_exp;
+  DELETE FROM public.expediente_precalificacion_intentos WHERE expediente_id = p_exp;
+  DELETE FROM public.cliente_datos WHERE expediente_id = p_exp;
+  DELETE FROM public.editor_decisions WHERE expediente_id = p_exp;
+  DELETE FROM public.expediente_documentos WHERE expediente_id = p_exp;
+  DELETE FROM public.action_log WHERE entity_id = p_exp;
+  DELETE FROM public.expedientes WHERE id = p_exp;
 END; $$;
 
 DO $$
@@ -244,26 +302,20 @@ BEGIN
   );
 
   -- 11) ambiguo: segundo expediente en Mesa mismo NSS (otro programa)
-  INSERT INTO public.expedientes (
-    id, organization_id, asesor_id, programa, nss, cliente_nombre, telefono_cliente,
-    submitted_to_mesa, fecha_envio_mesa, etapa_actual, subestado, ciclo_estado
-  ) VALUES (
-    gen_random_uuid(), v_org, v_asesor_a, 'compro_tu_casa', v_nss, 'Dup', '5599999999',
-    true, now(), 1, 'en_validacion_mesa', 'activo'
-  ) RETURNING id INTO v_exp2;
+  v_exp2 := public.__p155_insert_mesa_dup(v_org, v_asesor_a, v_nss, 'compro_tu_casa');
 
   PERFORM public.__p155_set_auth(v_asesor_a);
   v_gate := public.asesor_lookup_nss_precal_gate(v_nss, 'mejoravit');
   PERFORM public.__p155_assert(v_gate->>'status' = 'blocked_ambiguous', 'ambiguous');
 
-  -- limpiar dup
-  DELETE FROM public.expedientes WHERE id = v_exp2;
+  -- limpiar dup (soft-delete: evita FK de transiciones/agenda)
+  PERFORM public.__p155_mark_deleted(v_exp2, true);
 
   -- 12) eliminado no se reutiliza
-  UPDATE public.expedientes SET deleted_at = now() WHERE id = v_exp;
+  PERFORM public.__p155_mark_deleted(v_exp, true);
   v_gate := public.asesor_lookup_nss_precal_gate(v_nss, 'mejoravit');
   PERFORM public.__p155_assert(v_gate->>'status' = 'ok_create', 'deleted → ok_create');
-  UPDATE public.expedientes SET deleted_at = NULL WHERE id = v_exp;
+  PERFORM public.__p155_mark_deleted(v_exp, false);
 
   -- 17) anon
   PERFORM set_config('role', 'anon', true);
@@ -289,3 +341,6 @@ DROP FUNCTION IF EXISTS public.__p155_assert(BOOLEAN, TEXT);
 DROP FUNCTION IF EXISTS public.__p155_set_auth(UUID);
 DROP FUNCTION IF EXISTS public.__p155_reset_auth();
 DROP FUNCTION IF EXISTS public.__p155_cleanup(TEXT);
+DROP FUNCTION IF EXISTS public.__p155_insert_mesa_dup(UUID, UUID, TEXT, public.programa);
+DROP FUNCTION IF EXISTS public.__p155_mark_deleted(UUID, BOOLEAN);
+DROP FUNCTION IF EXISTS public.__p155_hard_delete_exp(UUID);
