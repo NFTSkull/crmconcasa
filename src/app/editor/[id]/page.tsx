@@ -27,6 +27,9 @@ interface PrecalInfo {
   createdAt: string;
   esReingreso: boolean;
   expedienteAnteriorId: string | null;
+  reprecalificacionPendienteId: string | null;
+  decisionVigente: Decision;
+  montoVigente: number | null;
 }
 
 function DecisionBadge({ decision }: { decision?: string }) {
@@ -89,15 +92,25 @@ export default function EditorExpedientePage() {
         ),
         expedienteAnteriorId:
           exp.reingreso?.expedienteAnteriorId ?? null,
+        reprecalificacionPendienteId:
+          exp.reprecalificacionPendienteId ?? null,
+        decisionVigente: exp.editorDecision.decision,
+        montoVigente: exp.editorDecision.monto_aprobado,
       });
 
-      setDecision(exp.editorDecision.decision);
-      setMontoStr(
-        exp.editorDecision.monto_aprobado != null
-          ? String(exp.editorDecision.monto_aprobado)
-          : "",
-      );
-      setNotas(exp.editorDecision.notas_revision);
+      if (exp.reprecalificacionPendienteId) {
+        setDecision("pendiente");
+        setMontoStr("");
+        setNotas("");
+      } else {
+        setDecision(exp.editorDecision.decision);
+        setMontoStr(
+          exp.editorDecision.monto_aprobado != null
+            ? String(exp.editorDecision.monto_aprobado)
+            : "",
+        );
+        setNotas(exp.editorDecision.notas_revision);
+      }
     };
 
     loadExpediente();
@@ -116,6 +129,11 @@ export default function EditorExpedientePage() {
       ) {
         throw new Error("Decisión inválida");
       }
+      if (precal?.reprecalificacionPendienteId && decision === "pendiente") {
+        throw new Error(
+          "La re-precalificación pendiente requiere Aprobado o No cumple.",
+        );
+      }
       const montoTrim = montoStr.trim();
       const num = montoTrim === "" ? null : parseMontoAprobado(montoTrim);
       if (montoTrim !== "" && num === null) {
@@ -129,12 +147,38 @@ export default function EditorExpedientePage() {
           throw new Error("El monto aprobado debe ser mayor a cero.");
         }
       }
+      const wasReprecal = Boolean(precal?.reprecalificacionPendienteId);
       await repo.upsertEditorDecision(id, {
         decision,
         monto_aprobado: num,
         notas_revision: notas.trim(),
       });
-      setSavedMessage("Decisión guardada correctamente.");
+      setSavedMessage(
+        wasReprecal
+          ? "Precalificación actualizada en el mismo expediente."
+          : "Decisión guardada correctamente.",
+      );
+      const refreshed = await repo.getById(id);
+      if (refreshed) {
+        setPrecal((prev) =>
+          prev
+            ? {
+                ...prev,
+                reprecalificacionPendienteId:
+                  refreshed.reprecalificacionPendienteId ?? null,
+                decisionVigente: refreshed.editorDecision.decision,
+                montoVigente: refreshed.editorDecision.monto_aprobado,
+              }
+            : prev,
+        );
+        setDecision(refreshed.editorDecision.decision);
+        setMontoStr(
+          refreshed.editorDecision.monto_aprobado != null
+            ? String(refreshed.editorDecision.monto_aprobado)
+            : "",
+        );
+        setNotas(refreshed.editorDecision.notas_revision);
+      }
     } catch (err) {
       const msg =
         err instanceof ExpedientesSupabaseError
@@ -232,6 +276,16 @@ export default function EditorExpedientePage() {
               {precal.expedienteAnteriorId
                 ? ` Expediente anterior: ${precal.expedienteAnteriorId}.`
                 : ""}
+            </p>
+          ) : null}
+          {precal.reprecalificacionPendienteId ? (
+            <p className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-950">
+              Re-precalificación pendiente: el asesor dueño solicitó un nuevo
+              intento sobre este mismo expediente. Al aprobar se actualiza el
+              monto vigente; si no cumple, se conserva la decisión anterior
+              {precal.decisionVigente === "aprobado" && precal.montoVigente != null
+                ? ` (vigente: ${precal.montoVigente}).`
+                : "."}
             </p>
           ) : null}
           <p>

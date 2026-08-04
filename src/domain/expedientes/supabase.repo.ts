@@ -19,9 +19,17 @@ import {
   type PaginatedMesaBandejaResult,
 } from "./list-for-mesa-control-paginated";
 import type { MesaExpedienteEstado } from "@/domain/mesa-ops/types";
-import type { CreateExpedienteInput } from "./create-expediente.input";
+import type { CreateExpedienteInput, ExpedienteProgramaUi } from "./create-expediente.input";
 import type { ExpedienteMock } from "./mock.repo";
 import { mapProgramaUiToDb } from "./map-programa";
+import {
+  iniciarReprecalificacionResultSchema,
+  messageForNssPrecalGateStatus,
+  nssPrecalGateResultSchema,
+  type IniciarReprecalificacionInput,
+  type IniciarReprecalificacionResult,
+  type NssPrecalGateResult,
+} from "./nss-precal-gate";
 import { ExpedientesSupabaseError } from "./supabase.error";
 import { mapEnviarAMesaRpcError } from "./enviar-mesa-rpc-error";
 import { mapAsesorEnviarReingresoRpcError } from "./reingreso-manual";
@@ -96,6 +104,7 @@ const EXPEDIENTES_LIST_SELECT = `
   reingreso_manual_count,
   reingreso_manual_at,
   reingreso_manual_by,
+  reprecalificacion_pendiente_id,
   editor_decisions ( decision, monto_aprobado, notas_revision, aprobado_at, monto_aprobado_al_aprobar, no_cumple_at ),
   reingreso_rechazo:expediente_rechazos_operativos!expedientes_reingreso_rechazo_padre_fk (
     etapa,
@@ -170,6 +179,35 @@ function mapCreateExpedienteRpcError(error: {
   const msg = `${error.message ?? ""} ${error.details ?? ""}`.toLowerCase();
 
   if (
+    msg.includes("asignado a otro asesor") ||
+    msg.includes("blocked_other_asesor")
+  ) {
+    return new ExpedientesSupabaseError(
+      "Este NSS ya tiene un expediente en Mesa asignado a otro asesor.",
+    );
+  }
+
+  if (
+    msg.includes("más de un expediente vigente") ||
+    msg.includes("blocked_ambiguous") ||
+    msg.includes("revisión administrativa")
+  ) {
+    return new ExpedientesSupabaseError(
+      "Este NSS requiere revisión administrativa porque tiene más de un expediente vigente.",
+    );
+  }
+
+  if (
+    msg.includes("cambiar programa") ||
+    msg.includes("blocked_programa_mismatch") ||
+    msg.includes("otro programa")
+  ) {
+    return new ExpedientesSupabaseError(
+      "Este NSS ya tiene un expediente en Mesa con otro programa. Usa el flujo de «Cambiar programa»; no se creará otro expediente.",
+    );
+  }
+
+  if (
     error.code === "23505" ||
     msg.includes("mismo nss y programa") ||
     msg.includes("expedientes_nss_programa_activo_unique") ||
@@ -202,6 +240,50 @@ function mapCreateExpedienteRpcError(error: {
 
   return new ExpedientesSupabaseError(
     "No se pudo crear el expediente. Intenta de nuevo más tarde.",
+  );
+}
+
+function mapReprecalificacionRpcError(error: {
+  code?: string;
+  message?: string;
+  details?: string;
+}): ExpedientesSupabaseError {
+  const raw = `${error.message ?? ""} ${error.details ?? ""}`.trim();
+  const msg = raw.toLowerCase();
+
+  if (msg.includes("asignado a otro asesor")) {
+    return new ExpedientesSupabaseError(
+      "Este NSS ya tiene un expediente en Mesa asignado a otro asesor.",
+    );
+  }
+  if (msg.includes("revisión administrativa") || msg.includes("más de un expediente")) {
+    return new ExpedientesSupabaseError(
+      "Este NSS requiere revisión administrativa porque tiene más de un expediente vigente.",
+    );
+  }
+  if (msg.includes("cambiar programa") || msg.includes("otro programa")) {
+    return new ExpedientesSupabaseError(
+      "Este NSS ya tiene un expediente en Mesa con otro programa. Usa el flujo de «Cambiar programa»; no se creará otro expediente.",
+    );
+  }
+  if (error.code === "42501" || msg.includes("solo asesor") || msg.includes("no autenticado")) {
+    return new ExpedientesSupabaseError(
+      "No tienes permiso para re-precalificar. Inicia sesión como asesor activo.",
+    );
+  }
+  if (msg.includes("teléfono inválido")) {
+    return new ExpedientesSupabaseError(
+      "El teléfono del cliente debe tener exactamente 10 dígitos (México).",
+    );
+  }
+  if (msg.includes("nombre obligatorio")) {
+    return new ExpedientesSupabaseError("El nombre del cliente es requerido.");
+  }
+  if (raw.length > 0 && raw.length < 280) {
+    return new ExpedientesSupabaseError(raw.replace(/^asesor_iniciar_reprecalificacion:\s*/i, ""));
+  }
+  return new ExpedientesSupabaseError(
+    "No se pudo iniciar la re-precalificación. Intenta de nuevo más tarde.",
   );
 }
 
@@ -588,6 +670,57 @@ export class SupabaseExpedientesRepo implements ExpedientesRepo {
       data as CreateExpedienteRpcResponse,
       input.asesorEmail,
     );
+  }
+
+  async lookupNssPrecalGate(
+    nss: string,
+    programa: ExpedienteProgramaUi,
+  ): Promise<NssPrecalGateResult> {
+    const { client } = await requireSupabaseSession();
+    const { data, error } = await client.rpc("asesor_lookup_nss_precal_gate", {
+      p_nss: nss.trim(),
+      p_programa: mapProgramaUiToDb(programa),
+    });
+    if (error) {
+      throw mapReprecalificacionRpcError(error);
+    }
+    const parsed = nssPrecalGateResultSchema.safeParse(data);
+    if (!parsed.success) {
+      throw new ExpedientesSupabaseError(
+        "No se pudo validar el NSS. Respuesta inválida del servidor.",
+      );
+    }
+    return {
+      ...parsed.data,
+      message: messageForNssPrecalGateStatus(
+        parsed.data.status,
+        parsed.data.message,
+      ),
+    };
+  }
+
+  async iniciarReprecalificacion(
+    input: IniciarReprecalificacionInput,
+  ): Promise<IniciarReprecalificacionResult> {
+    const { client } = await requireSupabaseSession();
+    const { data, error } = await client.rpc("asesor_iniciar_reprecalificacion", {
+      p_nss: input.nss.trim(),
+      p_programa: mapProgramaUiToDb(input.programa),
+      p_cliente_nombre: input.cliente_nombre.trim(),
+      p_telefono_cliente: input.telefono_cliente.trim(),
+      p_direccion_opcional: input.direccion_opcional.trim(),
+      p_idempotency_key: input.idempotency_key.trim() || null,
+    });
+    if (error) {
+      throw mapReprecalificacionRpcError(error);
+    }
+    const parsed = iniciarReprecalificacionResultSchema.safeParse(data);
+    if (!parsed.success) {
+      throw new ExpedientesSupabaseError(
+        "No se pudo iniciar la re-precalificación. Respuesta inválida del servidor.",
+      );
+    }
+    return parsed.data;
   }
 
   async enviarAMesa(expedienteId: string): Promise<ExpedienteMock> {

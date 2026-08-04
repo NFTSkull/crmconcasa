@@ -28,6 +28,31 @@ Convenciones:
 
 ---
 
+## 1bis. Re-precalificar NSS propio en Mesa (P155)
+
+**RPCs:** `asesor_lookup_nss_precal_gate` · `asesor_iniciar_reprecalificacion` · `editor_resolver_reprecalificacion` (también vía `upsert_editor_decision` si hay `reprecalificacion_pendiente_id`)
+
+**Rol lookup/iniciar:** solo `asesor` autenticado (`auth.uid()` = dueño del expediente).
+**Rol resolver:** `editor` | `super_admin`.
+
+### Gate statuses
+- `ok_create` — alta normal con `create_expediente`
+- `reprecal_own_mesa` — dueño + enviado a Mesa → permitir re-precal
+- `blocked_other_asesor` — «…asignado a otro asesor.»
+- `blocked_ambiguous` — >1 expediente activo enviado a Mesa para el NSS
+- `blocked_programa_mismatch` — mismo dueño, otro programa → «Cambiar programa»
+
+### Reglas
+- Mismo `expediente_id`; no INSERT de expediente ni cliente duplicado.
+- Historial en `expediente_precalificacion_intentos` (`es_vigente` = última aprobada aplicada).
+- Aprobado: actualiza `editor_decisions.monto_aprobado`; conserva `aprobado_at` / `monto_aprobado_al_aprobar`.
+- `no_cumple`: solo cierra el intento; no borra vigente ni retrocede etapa.
+- Idempotencia: `idempotency_key` por expediente + reuso de pendiente.
+- `action_log`: `asesor.reprecalificacion.iniciar` / `editor.reprecalificacion.aprobar|no_cumple` (sin NSS completo).
+- `nss_bloqueado_en_mesa` / `create_expediente` intactos para ajenos.
+
+---
+
 ## 1. Crear expediente
 
 **Operación:** `POST /expedientes` · RPC `create_expediente`

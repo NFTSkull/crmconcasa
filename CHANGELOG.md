@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- **fix(precalificacion): allow owner to requalify NSS already in Mesa** — el asesor dueño puede re-precalificar un NSS ya enviado a Mesa reutilizando el mismo `expediente_id` (historial en `expediente_precalificacion_intentos`). Bloqueo si es de otro asesor, ambiguo o programa distinto. Mig. **155**.
+
 ### Added
 - **feat(admin): desglose interactivo por asesor + NSS completo (P154)** — en Resultado de cohorte: tabla por asesor con cantidades clicables; detalle bajo demanda; NSS completo solo Super Admin (RPC + Excel texto); resultado `entered`; hoja Excel «Desglose por asesor». Mig. **154**.
 

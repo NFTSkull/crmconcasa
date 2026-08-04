@@ -1,3 +1,7 @@
+## 2026-08-04 - Hotfix: re-precalificar NSS propio ya en Mesa
+
+Caso Adriana Alcocer / NSS 69149612827: `create_expediente` bloqueaba con mensaje global «enviado a Mesa» aunque el expediente vigente era suyo (`8305e3e3-…`). Causa: `nss_bloqueado_en_mesa` es bloqueo org-wide. Fix mig. **155**: gate `asesor_lookup_nss_precal_gate` + `asesor_iniciar_reprecalificacion` (historial `expediente_precalificacion_intentos`, idempotency key, sin nuevo expediente) + `editor_resolver_reprecalificacion` ruteado desde `upsert_editor_decision`. Aprobado actualiza `editor_decisions.monto_aprobado` conservando snapshot KPI; `no_cumple` no toca vigente/etapa. Otro asesor / ambiguo / programa distinto bloqueados con mensajes canónicos. Sin agenda/docs/etapas/citas.
+
 ## 2026-08-04 - Admin: desglose por asesor interactivo + NSS completo (P154)
 
 Problema: el resultado de cohorte no desglosaba por asesor ni permitía ver los expedientes de cada cantidad; el detalle enmascaraba NSS. Fix: mig. **154** añade `por_asesor` al summary, resultado `entered`, NSS completo en page (solo `super_admin`), auditoría `admin.stage_cohort_outcome_detail`, UI con celdas clicables y tabla unificada; Excel «Desglose por asesor» + NSS como texto. P149/snapshot intactos.

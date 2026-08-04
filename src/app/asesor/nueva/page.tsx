@@ -1,12 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useSessionRepo } from "@/domain/session";
 import { useExpedientesRepo } from "@/domain/expedientes";
 import type { CreateExpedienteInput } from "@/domain/expedientes/create-expediente.input";
 import { ExpedientesSupabaseError } from "@/domain/expedientes/supabase.repo";
+import {
+  MSG_NSS_OWN_MESA_REPRECAL,
+  MSG_REPRECAL_CONFIRM,
+  isNssPrecalGateBlocked,
+  type NssPrecalGateResult,
+} from "@/domain/expedientes/nss-precal-gate";
 import { validateCreatePrecalificacion } from "@/domain/precalificaciones/validators";
 import { isDataModeSupabase } from "@/lib/dataMode";
 import { Button } from "@/components/ui/Button";
@@ -18,6 +24,13 @@ function onlyDigits(s: string): string {
   return s.replace(/\D/g, "");
 }
 
+function newIdempotencyKey(): string {
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  return `reprecal-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+}
+
 export default function NuevaPrecalificacionPage() {
   const router = useRouter();
   const { currentUser } = useSessionRepo();
@@ -26,13 +39,13 @@ export default function NuevaPrecalificacionPage() {
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [gate, setGate] = useState<NssPrecalGateResult | null>(null);
+  const [confirmReprecal, setConfirmReprecal] = useState(false);
+  const idempotencyKeyRef = useRef<string | null>(null);
 
-  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
-    e.preventDefault();
-    setErrorMsg(null);
-    setSuccessMsg(null);
-
-    const form = e.currentTarget;
+  async function readForm(
+    form: HTMLFormElement,
+  ): Promise<CreateExpedienteInput> {
     const programa = (form.elements.namedItem("programa") as HTMLSelectElement)
       .value as CreateExpedienteInput["programa"];
     const cliente_nombre = (
@@ -47,7 +60,7 @@ export default function NuevaPrecalificacionPage() {
       form.elements.namedItem("direccion_opcional") as HTMLInputElement
     ).value.trim();
 
-    const input: CreateExpedienteInput = {
+    return {
       programa,
       nss,
       cliente_nombre,
@@ -55,6 +68,15 @@ export default function NuevaPrecalificacionPage() {
       direccion_opcional,
       asesorEmail: currentUser?.email ?? "",
     };
+  }
+
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    setErrorMsg(null);
+    setSuccessMsg(null);
+
+    const form = e.currentTarget;
+    const input = await readForm(form);
 
     try {
       validateCreatePrecalificacion(input);
@@ -67,6 +89,50 @@ export default function NuevaPrecalificacionPage() {
 
     setSubmitting(true);
     try {
+      if (dataSupabase) {
+        const gateResult = await expedientesRepo.lookupNssPrecalGate(
+          input.nss,
+          input.programa,
+        );
+        setGate(gateResult);
+
+        if (isNssPrecalGateBlocked(gateResult.status)) {
+          setErrorMsg(gateResult.message);
+          setConfirmReprecal(false);
+          return;
+        }
+
+        if (gateResult.status === "reprecal_own_mesa") {
+          if (!confirmReprecal) {
+            setConfirmReprecal(true);
+            setErrorMsg(null);
+            return;
+          }
+          if (!idempotencyKeyRef.current) {
+            idempotencyKeyRef.current = newIdempotencyKey();
+          }
+          const result = await expedientesRepo.iniciarReprecalificacion({
+            programa: input.programa,
+            nss: input.nss,
+            cliente_nombre: input.cliente_nombre,
+            telefono_cliente: input.telefono_cliente,
+            direccion_opcional: input.direccion_opcional,
+            idempotency_key: idempotencyKeyRef.current,
+          });
+          setSuccessMsg(
+            `Precalificación actualizada · expediente ${result.expediente_id.slice(0, 8)}… · programa ${result.programa ?? input.programa}. ` +
+              "Se reutilizó el expediente existente; el editor resolverá el nuevo intento.",
+          );
+          setConfirmReprecal(false);
+          idempotencyKeyRef.current = null;
+          window.setTimeout(
+            () => router.push(`/asesor/expediente/${result.expediente_id}`),
+            1800,
+          );
+          return;
+        }
+      }
+
       const created = await expedientesRepo.createExpediente(input);
       if (dataSupabase) {
         setSuccessMsg(
@@ -108,6 +174,9 @@ export default function NuevaPrecalificacionPage() {
       </div>
     );
   }
+
+  const showReprecalUi =
+    dataSupabase && gate?.status === "reprecal_own_mesa" && confirmReprecal;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -153,6 +222,20 @@ export default function NuevaPrecalificacionPage() {
               {successMsg}
             </p>
           ) : null}
+          {showReprecalUi ? (
+            <div
+              role="status"
+              className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950"
+            >
+              <p className="font-medium">{MSG_NSS_OWN_MESA_REPRECAL}</p>
+              <p className="mt-2">{MSG_REPRECAL_CONFIRM}</p>
+              {gate?.expediente_id ? (
+                <p className="mt-1 text-xs text-amber-800">
+                  Expediente existente: {gate.expediente_id}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
           <div className="flex flex-col gap-4">
             <Select
               name="programa"
@@ -160,6 +243,11 @@ export default function NuevaPrecalificacionPage() {
               options={PROGRAMAS.map((p) => ({ value: p, label: p }))}
               required
               className="min-h-[44px] sm:min-h-0"
+              onChange={() => {
+                setGate(null);
+                setConfirmReprecal(false);
+                idempotencyKeyRef.current = null;
+              }}
             />
             <Input
               name="cliente_nombre"
@@ -185,6 +273,11 @@ export default function NuevaPrecalificacionPage() {
               maxLength={11}
               inputMode="numeric"
               className="min-h-[44px] sm:min-h-0"
+              onChange={() => {
+                setGate(null);
+                setConfirmReprecal(false);
+                idempotencyKeyRef.current = null;
+              }}
             />
             <Input
               name="direccion_opcional"
@@ -200,17 +293,37 @@ export default function NuevaPrecalificacionPage() {
               disabled={submitting}
               className="min-h-[44px] w-full touch-manipulation sm:min-h-0 sm:w-auto"
             >
-              {submitting ? "Guardando…" : "Enviar"}
+              {submitting
+                ? "Guardando…"
+                : showReprecalUi
+                  ? "Volver a precalificar"
+                  : "Enviar"}
             </Button>
-            <Link href="/asesor" className="w-full sm:w-auto">
+            {showReprecalUi ? (
               <Button
                 type="button"
                 variant="secondary"
+                disabled={submitting}
                 className="min-h-[44px] w-full touch-manipulation sm:min-h-0 sm:w-auto"
+                onClick={() => {
+                  setConfirmReprecal(false);
+                  setGate(null);
+                  idempotencyKeyRef.current = null;
+                }}
               >
-                Cancelar
+                Cancelar re-precalificación
               </Button>
-            </Link>
+            ) : (
+              <Link href="/asesor" className="w-full sm:w-auto">
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="min-h-[44px] w-full touch-manipulation sm:min-h-0 sm:w-auto"
+                >
+                  Cancelar
+                </Button>
+              </Link>
+            )}
           </div>
         </form>
       </main>

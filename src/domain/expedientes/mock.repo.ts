@@ -126,6 +126,8 @@ export interface ExpedienteMock {
     at: string | null;
     by: string | null;
   };
+  /** P155: intento de re-precalificación pendiente de decisión editorial. */
+  reprecalificacionPendienteId?: string | null;
 }
 
 /**
@@ -564,6 +566,69 @@ export class MockExpedientesRepo implements ExpedientesRepo {
       throw new Error("No se pudo recuperar el expediente recién creado (mock).");
     }
     return created;
+  }
+
+  async lookupNssPrecalGate(
+    nss: string,
+    _programa: CreateExpedienteInput["programa"],
+  ): Promise<import("./nss-precal-gate").NssPrecalGateResult> {
+    void _programa;
+    const all = await this.listAll();
+    const nssNorm = nss.replace(/\D/g, "");
+    const enMesa = all.filter(
+      (e) =>
+        e.base.nss.replace(/\D/g, "") === nssNorm &&
+        e.operativo.submittedToMesa &&
+        e.operativo.cicloEstado !== "cancelado",
+    );
+    if (enMesa.length > 1) {
+      return {
+        status: "blocked_ambiguous",
+        message:
+          "Este NSS requiere revisión administrativa porque tiene más de un expediente vigente.",
+        nss: nssNorm,
+      };
+    }
+    if (enMesa.length === 1) {
+      return {
+        status: "reprecal_own_mesa",
+        message:
+          "Este NSS ya tiene un expediente en Mesa asignado a ti. Puedes volver a precalificarlo; el resultado se actualizará en el mismo expediente.",
+        expediente_id: enMesa[0].id,
+        nss: nssNorm,
+        reprecalificacion_pendiente_id:
+          enMesa[0].reprecalificacionPendienteId ?? null,
+      };
+    }
+    return {
+      status: "ok_create",
+      message: "Puedes crear una nueva precalificación.",
+      nss: nssNorm,
+    };
+  }
+
+  async iniciarReprecalificacion(
+    input: import("./nss-precal-gate").IniciarReprecalificacionInput,
+  ): Promise<import("./nss-precal-gate").IniciarReprecalificacionResult> {
+    const gate = await this.lookupNssPrecalGate(input.nss, input.programa);
+    if (gate.status !== "reprecal_own_mesa" || !gate.expediente_id) {
+      throw new Error(gate.message);
+    }
+    const intentoId =
+      typeof crypto !== "undefined" && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `intento-${Date.now()}`;
+    return {
+      ok: true,
+      idempotent: false,
+      expediente_id: gate.expediente_id,
+      intento_id: intentoId,
+      status: "reprecal_pending",
+      message:
+        "Se guardó una nueva precalificación en el expediente existente. No se creó otro expediente.",
+      programa: input.programa,
+      cliente_nombre: input.cliente_nombre.trim(),
+    };
   }
 
   async listForMesa(): Promise<ExpedienteMock[]> {
