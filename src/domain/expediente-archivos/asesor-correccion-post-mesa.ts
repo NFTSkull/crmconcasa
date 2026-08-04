@@ -1,13 +1,17 @@
 import type { ResumenEstatus } from "./types";
 import {
+  INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD,
   isIntegrationDocAsesorOpcionalTipo,
   type IntegrationDocAsesorUploadTipo,
 } from "./integration-docs-completos";
 
-/** Tipos que el reingreso exige poder subir/reemplazar post-envío. */
+/**
+ * Tipos que el reingreso activo permite subir/reemplazar post-envío.
+ * Espejo de `integration_doc_tipos_asesor_upload()` — no incluye Mesa-only
+ * (`cliente_acta_nacimiento`, `cliente_constancia_sat`, Pagaré, Solicitud, etc.).
+ */
 export const REINGRESO_DOC_TIPOS_ACTUALIZABLES = [
-  "cliente_comprobante_domicilio",
-  "cliente_estado_cuenta",
+  ...INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD,
 ] as const;
 
 export type ReingresoDocActualizableTipo =
@@ -20,21 +24,32 @@ export function isReingresoDocActualizableTipo(
 }
 
 /**
- * Reingreso con docs domicilio/estado de cuenta editables:
+ * Reingreso con corrección completa (Datos Generales + docs asesor):
  * - P072 hijo (padre + rechazo) en etapa 6; o
- * - reingreso manual del mismo expediente (count > 0).
+ * - reingreso manual del mismo expediente (count > 0) **mientras etapa_actual = 1**.
+ *
+ * Cierre: al avanzar Mesa fuera de etapa 1 (manual) o fuera de etapa 6 (P072),
+ * se vuelven a aplicar las reglas post-Mesa normales.
  */
 export function esReingresoDocumentosEditables(params: {
   tieneReingresoPostBiometricos: boolean;
   etapaActual: number | null | undefined;
   reingresoManualCount?: number | null;
 }): boolean {
-  const manual = Number(params.reingresoManualCount ?? 0) > 0;
+  const etapa = Number(params.etapaActual ?? 0);
+  const manual =
+    Number(params.reingresoManualCount ?? 0) > 0 && etapa === 1;
   if (manual) return true;
-  return (
-    params.tieneReingresoPostBiometricos &&
-    params.etapaActual === 6
-  );
+  return params.tieneReingresoPostBiometricos && etapa === 6;
+}
+
+/** Alias canónico: misma ventana de edición para Datos Generales. */
+export function esReingresoDatosEditables(params: {
+  tieneReingresoPostBiometricos: boolean;
+  etapaActual: number | null | undefined;
+  reingresoManualCount?: number | null;
+}): boolean {
+  return esReingresoDocumentosEditables(params);
 }
 
 /** Upload inicial pre-envío a Mesa (5 oblig + opcionales). */
@@ -64,8 +79,8 @@ export function asesorPuedeSubirOpcionalFaltantePostMesa(
 }
 
 /**
- * Reingreso: domicilio y estado de cuenta (faltante o con archivo) editables
- * aunque el expediente ya esté enviado a Mesa.
+ * Reingreso activo: cualquier tipo de `integration_doc_tipos_asesor_upload`
+ * (faltante o con archivo) editable aunque el expediente ya esté enviado a Mesa.
  */
 export function asesorPuedeActualizarDocReingreso(
   submittedToMesa: boolean,
@@ -213,8 +228,11 @@ export function asesorDocumentoUploadMode(
 export function asesorPuedeEditarClienteDatos(
   _submittedToMesa: boolean,
   _estado: "pendiente" | "completo" | "validado" | "rechazado",
+  options?: { puedeIntegrar?: boolean; esReingresoActivo?: boolean },
 ): boolean {
-  return true;
+  const puedeIntegrar = options?.puedeIntegrar ?? true;
+  const esReingresoActivo = options?.esReingresoActivo ?? false;
+  return puedeIntegrar || esReingresoActivo;
 }
 
 /** Post-envío a Mesa: guardar vía RPC de corrección/actualización (no `save` inicial). */

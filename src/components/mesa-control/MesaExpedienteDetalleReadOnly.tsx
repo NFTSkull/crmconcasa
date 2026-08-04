@@ -1768,8 +1768,16 @@ export function MesaExpedienteDetalleReadOnly() {
           role="status"
           className="rounded-lg border border-violet-200 bg-violet-50 px-4 py-3 text-sm text-violet-950"
         >
-          <p className="font-semibold">
-            Este expediente fue enviado nuevamente como REINGRESO.
+          <p className="font-semibold">Información actualizada por reingreso</p>
+          <p className="mt-1 text-sm text-violet-950/90">
+            Los Datos Generales y documentos vigentes abajo corresponden al expediente
+            actual
+            {expediente.reingresoManual && (expediente.reingresoManual.count ?? 0) > 0
+              ? " (reingreso manual, mismo expediente)"
+              : expediente.reingreso?.rechazoId
+                ? " (reingreso P072, expediente hijo)"
+                : ""}
+            . El historial anterior se conserva en versiones documentales.
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-3">
             <ReingresoBadge
@@ -1779,7 +1787,16 @@ export function MesaExpedienteDetalleReadOnly() {
             />
             {expediente.reingresoManual?.by ? (
               <span className="text-xs text-violet-900/80">
-                Enviado por: {expediente.base.asesorNombre || expediente.base.asesorEmail || expediente.reingresoManual.by}
+                Enviado por:{" "}
+                {expediente.base.asesorNombre ||
+                  expediente.base.asesorEmail ||
+                  expediente.reingresoManual.by}
+              </span>
+            ) : null}
+            {clienteDatos?.updatedAt ? (
+              <span className="text-xs text-violet-900/80">
+                Última actualización de datos: {formatDateTime(clienteDatos.updatedAt)}
+                {clienteDatos.updatedBy ? ` · ${clienteDatos.updatedBy}` : ""}
               </span>
             ) : null}
             {expediente.reingreso?.rechazoId ? (

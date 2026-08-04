@@ -1,3 +1,7 @@
+## 2026-08-03 - Reingreso: edición completa Datos Generales + docs asesor
+
+Problema: mig. 146 solo abría domicilio/estado de cuenta; el requerimiento es corrección completa durante reingreso activo. Definición canónica: `es_reingreso_asesor_edicion_activa` = P072 válido (etapa 6) **o** manual `count>0` **y** `etapa_actual=1` (cierra al avanzar Mesa; evita permiso eterno por count). FE: `esReingresoDocumentosEditables` + `esReingresoDatosEditables`; allowlist = `INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD`; alerta «Reingreso activo»; Datos Generales con `puedeIntegrar || esReingresoActivo`. SQL mig. **150**: storage + wrapper `register_expediente_documento` para todos los tipos asesor_upload; 146 intacta. Mesa banner «Información actualizada por reingreso». Sin tocar agenda/Sheets/Acuse/Pagaré/padre.
+
 ## 2026-08-03 - Admin: reporte histórico de etapas (P149)
 
 Problema: el reporte Admin (P112–P116) solo mostraba fotografía actual por asesor×paso; no había consulta de visitas históricas desde `expediente_paso_visual_transiciones`. Fix: dominio FE `admin-stage-history` + UI «Reporte histórico de etapas» sobre RPCs P149 (`summary` + `page` paginado). Movimientos entrada/avance/estuvieron exigen rango DATE Monterrey; `estado_actual` es referencia snapshot. Catálogo asesores reutiliza `fetchAdminReportAsesoresCatalog` (v3). Excel dos hojas. Sin tocar snapshot 147/148 ni migraciones de avance.

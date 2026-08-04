@@ -31,7 +31,11 @@ import {
   EXPEDIENTE_DOCUMENTOS_BUCKET,
   validateExpedienteDocumentoFile,
 } from "./upload-constraints";
-import { INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES } from "./integration-docs-completos";
+import {
+  INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES,
+  INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD,
+} from "./integration-docs-completos";
+import { esReingresoDocumentosEditables } from "./asesor-correccion-post-mesa";
 import { mapSupabaseStorageUploadError } from "./map-storage-upload-error";
 import { resolveExpedienteDocumentoUploadMime } from "@/lib/fileUploadValidation";
 import {
@@ -112,7 +116,11 @@ async function fetchExpedienteUploadContext(
   return {
     organizationId: String(data.organization_id),
     submittedToMesa: Boolean(data.submitted_to_mesa),
-    esReingresoDocsEditables: manualCount > 0 || (tieneP072 && etapa === 6),
+    esReingresoDocsEditables: esReingresoDocumentosEditables({
+      tieneReingresoPostBiometricos: tieneP072,
+      etapaActual: etapa,
+      reingresoManualCount: manualCount,
+    }),
   };
 }
 
@@ -300,10 +308,10 @@ export class SupabaseExpedienteArchivosRepo implements ExpedienteArchivosRepo {
         esOpcionalAsesor && (!row || row.estatus_revision === "faltante" || !row.id);
       const esReingresoDoc =
         ctx.esReingresoDocsEditables &&
-        (tipo === "cliente_comprobante_domicilio" || tipo === "cliente_estado_cuenta");
+        (INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD as readonly string[]).includes(tipo);
 
       if (tieneDocumentoActivo || esOpcionalFaltante || esReingresoDoc) {
-        // Reemplazo post-Mesa, opcional faltante, o domicilio/estado de cuenta en reingreso.
+        // Reemplazo post-Mesa, opcional faltante, o cualquier doc asesor en reingreso activo.
       } else {
         throw new ExpedienteArchivosSupabaseError(
           "No puedes crear documentos obligatorios faltantes: el expediente ya fue enviado a Mesa.",

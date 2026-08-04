@@ -14,10 +14,13 @@ import {
   asesorPuedeSubirDocumentoNuevoReingreso,
   asesorPuedeSubirOpcionalFaltantePostMesa,
   asesorPuedeSubirOCorregirDocumento,
+  esReingresoDatosEditables,
   esReingresoDocumentosEditables,
+  REINGRESO_DOC_TIPOS_ACTUALIZABLES,
 } from "./asesor-correccion-post-mesa";
 import {
   INTEGRATION_DOC_TIPOS_ASESOR_ENVIO,
+  INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD,
   integrationDocsCompletos,
 } from "./integration-docs-completos";
 import {
@@ -70,7 +73,7 @@ describe("asesor corrección post-Mesa (helpers UI)", () => {
     assert.equal(asesorDocumentoUploadMode(true, "faltante", "cliente_ine_frente"), null);
   });
 
-  it("reingreso (P072 etapa 6 o manual) abre domicilio y estado de cuenta", () => {
+  it("reingreso activo abre todos los docs asesor (manual etapa 1 o P072 etapa 6)", () => {
     assert.equal(
       esReingresoDocumentosEditables({
         tieneReingresoPostBiometricos: true,
@@ -93,11 +96,30 @@ describe("asesor corrección post-Mesa (helpers UI)", () => {
       }),
       true,
     );
+    assert.equal(
+      esReingresoDocumentosEditables({
+        tieneReingresoPostBiometricos: false,
+        etapaActual: 3,
+        reingresoManualCount: 2,
+      }),
+      false,
+      "manual cerrado al salir de etapa 1",
+    );
+    assert.equal(
+      esReingresoDatosEditables({
+        tieneReingresoPostBiometricos: false,
+        etapaActual: 1,
+        reingresoManualCount: 1,
+      }),
+      true,
+    );
 
-    for (const tipo of [
-      "cliente_comprobante_domicilio",
-      "cliente_estado_cuenta",
-    ] as const) {
+    assert.deepEqual(
+      [...REINGRESO_DOC_TIPOS_ACTUALIZABLES],
+      [...INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD],
+    );
+
+    for (const tipo of INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD) {
       assert.equal(asesorPuedeActualizarDocReingreso(true, tipo, true), true);
       assert.equal(
         asesorPuedeSubirDocumentoNuevoReingreso(true, "faltante", tipo, true),
@@ -105,10 +127,6 @@ describe("asesor corrección post-Mesa (helpers UI)", () => {
       );
       assert.equal(
         asesorPuedeSubirOCorregirDocumento(true, "faltante", tipo, true),
-        true,
-      );
-      assert.equal(
-        asesorPuedeSubirOCorregirDocumento(true, "validado", tipo, true),
         true,
       );
       assert.equal(
@@ -122,12 +140,13 @@ describe("asesor corrección post-Mesa (helpers UI)", () => {
         true,
       );
     }
+
     assert.equal(
       asesorPuedeSubirOCorregirDocumento(
         true,
         "faltante",
         "cliente_ine_frente",
-        true,
+        false,
       ),
       false,
     );
@@ -234,11 +253,23 @@ describe("asesor corrección post-Mesa (helpers UI)", () => {
     assert.equal(integrationDocsCompletos(resumen), true);
   });
 
-  it("datos generales editables post-envío (cualquier estado)", () => {
+  it("datos generales: puedeIntegrar o reingreso activo", () => {
     assert.equal(asesorPuedeEditarClienteDatos(false, "completo"), true);
     assert.equal(asesorPuedeEditarClienteDatos(true, "completo"), true);
-    assert.equal(asesorPuedeEditarClienteDatos(true, "validado"), true);
-    assert.equal(asesorPuedeEditarClienteDatos(true, "rechazado"), true);
+    assert.equal(
+      asesorPuedeEditarClienteDatos(true, "validado", {
+        puedeIntegrar: false,
+        esReingresoActivo: false,
+      }),
+      false,
+    );
+    assert.equal(
+      asesorPuedeEditarClienteDatos(true, "validado", {
+        puedeIntegrar: false,
+        esReingresoActivo: true,
+      }),
+      true,
+    );
     assert.equal(asesorDebeUsarCorreccionClienteDatos(true, true), true);
     assert.equal(asesorDebeUsarCorreccionClienteDatos(true, false), false);
     assert.equal(asesorDebeUsarCorreccionClienteDatos(false, true), false);

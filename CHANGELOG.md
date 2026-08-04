@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Added
+- **feat(reingreso): corrección completa de Datos Generales + docs asesor** — durante reingreso activo (manual `count>0` + etapa 1, o P072 etapa 6) el asesor dueño puede editar Datos Generales y subir/reemplazar todos los tipos de `integration_doc_tipos_asesor_upload()`. Mig. **150** (no modifica 146). Cierre al avanzar Mesa. Mesa: banner «Información actualizada por reingreso». Sin Acuse/Pagaré/agenda/padre/Sheets.
+
+### Added
 - **feat(admin): Reporte histórico de etapas (P149)** — `/admin` sección «Reporte histórico de etapas» conectada a RPCs `admin_stage_history_report_summary` / `_page` (mig. **149**). Filtros: movimiento (entrada/avance/estuvieron/estado actual), asesores, pasos 1–11, estado actual, fechas MX, búsqueda; consulta bajo demanda; resumen + detalle paginado; Excel `reporte-historico-etapas-YYYY-MM-DD.xlsx`. Snapshot dashboard (147/148) y `admin_report_*` v3 intactos.
 
 ### Fixed

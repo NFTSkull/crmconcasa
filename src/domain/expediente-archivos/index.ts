@@ -149,6 +149,7 @@ export {
   asesorPuedeSubirOCorregirDocumento,
   asesorPuedeSubirOpcionalFaltantePostMesa,
   asesorPuedeReemplazarDocumentoExistentePostMesa,
+  esReingresoDatosEditables,
   esReingresoDocumentosEditables,
   isReingresoDocActualizableTipo,
   REINGRESO_DOC_TIPOS_ACTUALIZABLES,

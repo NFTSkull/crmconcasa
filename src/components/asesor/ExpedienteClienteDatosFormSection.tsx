@@ -50,6 +50,8 @@ interface ExpedienteClienteDatosFormSectionProps {
   showFieldErrors?: boolean;
   puedeIntegrar: boolean;
   submittedToMesa?: boolean;
+  /** Reingreso activo (manual etapa 1 o P072 etapa 6): permite editar sin monto. */
+  esReingresoActivo?: boolean;
   dataSupabase: boolean;
   formatDateTime: (iso: string) => string;
   onSave: () => Promise<{ ok: boolean; message?: string }>;
@@ -111,6 +113,7 @@ export function ExpedienteClienteDatosFormSection({
   showFieldErrors = false,
   puedeIntegrar,
   submittedToMesa = false,
+  esReingresoActivo = false,
   dataSupabase,
   formatDateTime,
   onSave,
@@ -125,12 +128,11 @@ export function ExpedienteClienteDatosFormSection({
     submittedToMesa,
     clienteDatosMeta?.estado ?? "pendiente",
   );
-  const puedeEditar =
-    puedeIntegrar &&
-    asesorPuedeEditarClienteDatos(
-      submittedToMesa,
-      clienteDatosMeta?.estado ?? "pendiente",
-    );
+  const puedeEditar = asesorPuedeEditarClienteDatos(
+    submittedToMesa,
+    clienteDatosMeta?.estado ?? "pendiente",
+    { puedeIntegrar, esReingresoActivo },
+  );
   const saveLabel = esCorreccionRechazo
     ? "Guardar corrección"
     : submittedToMesa && clienteDatosMeta
