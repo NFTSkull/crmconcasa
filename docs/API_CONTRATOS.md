@@ -928,6 +928,16 @@ Captura en la misma TX de `register_expediente_documento_correccion` / `save_cli
 
 **`p_tipo_fecha`:** `envio_mesa` → `expedientes.fecha_envio_mesa` (default, reportes históricos); `entrada_paso_actual` → semántica P114. Fechas calendario `America/Monterrey`. Meta incluye `tipo_fecha`, `sin_fecha_canonica`, `excluidos_por_fecha_desconocida`. Detalle incluye `fecha_envio_mesa` y `fecha_entrada_paso_actual`.
 
+### 15-octies. Desglose por asesor + NSS completo (P154)
+
+**Operación:** `CREATE OR REPLACE` de `admin_stage_cohort_outcome_summary` / `_page` — migración `154_admin_stage_cohort_asesor_detail.sql`.
+
+**Summary:** cada etapa incluye `por_asesor[]` (`asesor_id`, nombre, email, conteos). Suma por asesor = `entered_count` de la etapa.
+
+**Page:** `p_resultado` ∈ `entered|advanced|stayed|incident|undetermined`. NSS **completo** (sin máscara) solo Super Admin; `nss_completo: true`; `asesor_email`; audita `action_log` `admin.stage_cohort_outcome_detail`. Función page **VOLATILE**.
+
+**UI/Excel:** celdas del desglose clicables; hoja «Desglose por asesor»; detalle con NSS texto + filtros auto.
+
 ### 15-septies. Resultado de cohorte por etapa (P153)
 
 **Operación:** RPCs read-only `admin_stage_cohort_outcome_summary(...)` y `admin_stage_cohort_outcome_page(...)` — migración `153_admin_stage_cohort_outcomes.sql`. Fuente exclusiva: `expediente_paso_visual_transiciones`. No altera P149.

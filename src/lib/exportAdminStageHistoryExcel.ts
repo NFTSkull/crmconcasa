@@ -253,21 +253,80 @@ export function buildAdminStageHistoryWorkbook(input: Readonly<{
       });
     });
 
+    const desgloseSheet = wb.addWorksheet("Desglose por asesor", {
+      views: [{ state: "frozen", ySplit: 1 }],
+    });
+    const desgloseHeaders = [
+      "Etapa",
+      "Asesor",
+      "Correo del asesor",
+      "Entraron",
+      "Avanzaron",
+      "Se quedaron al cierre",
+      "Rechazados/retrocedieron",
+      "No determinados",
+    ] as const;
+    desgloseHeaders.forEach((label, idx) => {
+      applyDataCell(desgloseSheet.getCell(1, idx + 1), label, {
+        fillArgb: ADMIN_REPORT_EXCEL_COLORS.headerBlue,
+        bold: true,
+        fontColor: ADMIN_REPORT_EXCEL_COLORS.white,
+        align: headerAlign,
+      });
+      desgloseSheet.getColumn(idx + 1).width =
+        idx === 0 ? 30 : idx === 1 ? 28 : idx === 2 ? 28 : 16;
+    });
+    let desgloseRow = 2;
+    input.cohortSummary.etapas.forEach((etapa) => {
+      (etapa.por_asesor ?? []).forEach((asesor) => {
+        const fill =
+          desgloseRow % 2 === 0
+            ? ADMIN_REPORT_EXCEL_COLORS.altBlue
+            : ADMIN_REPORT_EXCEL_COLORS.white;
+        const cells: (string | number)[] = [
+          `Paso ${etapa.paso_visual} · ${etapa.etapa_label}`,
+          sanitize(asesor.asesor_nombre),
+          sanitize(asesor.asesor_email ?? "—"),
+          asesor.entered_count,
+          asesor.advanced_count,
+          asesor.stayed_count,
+          asesor.incident_count,
+          asesor.undetermined_count,
+        ];
+        cells.forEach((val, colIdx) => {
+          applyDataCell(desgloseSheet.getCell(desgloseRow, colIdx + 1), val, {
+            fillArgb: fill,
+            align: colIdx < 3 ? undefined : { horizontal: "center" },
+          });
+        });
+        desgloseRow += 1;
+      });
+    });
+    desgloseSheet.autoFilter = {
+      from: { row: 1, column: 1 },
+      to: { row: Math.max(desgloseRow - 1, 1), column: desgloseHeaders.length },
+    };
+
     const detalleResultado = wb.addWorksheet("Detalle de resultados", {
       views: [{ state: "frozen", ySplit: 1 }],
     });
     const detalleResultadoHeaders = [
       "Cliente",
+      "NSS",
       "Asesor",
+      "Correo del asesor",
+      "Programa",
+      "Expediente",
       "Etapa",
       "Fecha de entrada",
       "Fecha de salida",
-      "Resultado al cierre",
+      "Resultado",
       "Etapa siguiente",
       "Etapa actual",
       "Permanencia",
       "Situación actual",
     ] as const;
+    const detalleWidths = [35, 16, 28, 28, 14, 38, 30, 21, 21, 18, 30, 30, 14, 35];
     detalleResultadoHeaders.forEach((label, idx) => {
       applyDataCell(detalleResultado.getCell(1, idx + 1), label, {
         fillArgb: ADMIN_REPORT_EXCEL_COLORS.headerBlue,
@@ -275,9 +334,10 @@ export function buildAdminStageHistoryWorkbook(input: Readonly<{
         fontColor: ADMIN_REPORT_EXCEL_COLORS.white,
         align: headerAlign,
       });
-      detalleResultado.getColumn(idx + 1).width =
-        idx === 0 ? 28 : idx === 2 || idx === 9 ? 32 : 18;
+      detalleResultado.getColumn(idx + 1).width = detalleWidths[idx] ?? 18;
     });
+    // Columna NSS como texto antes de escribir valores
+    detalleResultado.getColumn(2).numFmt = "@";
 
     (input.cohortItems ?? []).forEach((row, idx) => {
       const fill =
@@ -291,9 +351,14 @@ export function buildAdminStageHistoryWorkbook(input: Readonly<{
           : row.etapa_actual != null
             ? `Etapa ${row.etapa_actual}`
             : "—";
+      const nssText = String(row.nss ?? "");
       const values: (string | number)[] = [
         sanitize(row.cliente_nombre),
+        nssText,
         sanitize(row.asesor_nombre ?? "—"),
+        sanitize(row.asesor_email ?? "—"),
+        sanitize(row.programa ?? "—"),
+        row.expediente_id,
         sanitize(`Paso ${row.paso_visual} · ${row.etapa_label}`),
         formatAdminStageHistoryTimestamp(row.entered_at),
         formatAdminStageHistoryTimestamp(row.exited_at),
@@ -309,11 +374,33 @@ export function buildAdminStageHistoryWorkbook(input: Readonly<{
         labelAdminStageCohortSituacion(row.situacion_actual),
       ];
       values.forEach((val, colIdx) => {
-        applyDataCell(detalleResultado.getCell(r, colIdx + 1), val, {
-          fillArgb: fill,
-        });
+        const cell = detalleResultado.getCell(r, colIdx + 1);
+        if (colIdx === 1) {
+          cell.numFmt = "@";
+          cell.value = typeof val === "string" ? val : String(val);
+        } else {
+          cell.value = val;
+        }
+        cell.fill = solidFill(fill);
+        cell.border = thinBorder();
+        cell.font = {
+          name: "Calibri",
+          size: 11,
+          color: { argb: ADMIN_REPORT_EXCEL_COLORS.text },
+        };
+        cell.alignment = {
+          vertical: "top",
+          wrapText: true,
+        };
       });
     });
+    detalleResultado.autoFilter = {
+      from: { row: 1, column: 1 },
+      to: {
+        row: Math.max((input.cohortItems?.length ?? 0) + 1, 1),
+        column: detalleResultadoHeaders.length,
+      },
+    };
   }
 
   return wb;

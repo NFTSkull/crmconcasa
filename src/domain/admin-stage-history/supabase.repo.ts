@@ -200,33 +200,25 @@ export async function fetchAdminStageCohortPage(
   return parsed.data;
 }
 
-/** Todas las visitas de cohorte (todos los resultados) para Excel. */
+/** Todas las visitas de cohorte para Excel (resultado entered = cohorte completa). */
 export async function fetchAdminStageCohortAllItems(
   filters: AdminStageHistoryFilters,
   pageSize = 100,
 ): Promise<readonly AdminStageCohortItem[]> {
-  const outcomes: AdminStageCohortOutcome[] = [
-    "advanced",
-    "stayed",
-    "incident",
-    "undetermined",
-  ];
   const all: AdminStageCohortItem[] = [];
-  for (const outcome of outcomes) {
-    let offset = 0;
-    let total = Infinity;
-    while (offset < total) {
-      const page = await fetchAdminStageCohortPage(
-        filters,
-        outcome,
-        pageSize,
-        offset,
-      );
-      all.push(...page.items);
-      total = page.total;
-      offset += pageSize;
-      if (page.items.length === 0) break;
-    }
+  let offset = 0;
+  let total = Infinity;
+  while (offset < total) {
+    const page = await fetchAdminStageCohortPage(
+      filters,
+      "entered",
+      pageSize,
+      offset,
+    );
+    all.push(...page.items);
+    total = page.total;
+    offset += pageSize;
+    if (page.items.length === 0) break;
   }
   return all;
 }

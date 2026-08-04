@@ -119,6 +119,18 @@ describe("exportAdminStageHistoryExcel", () => {
             stayed_rate: 22.5,
             avg_advance_duration_seconds: 3600,
             median_advance_duration_seconds: 3000,
+            por_asesor: [
+              {
+                asesor_id: "11111111-1111-4111-8111-111111111111",
+                asesor_nombre: "Adriana Alcocer",
+                asesor_email: "adriana@test.local",
+                entered_count: 16,
+                advanced_count: 11,
+                stayed_count: 4,
+                incident_count: 1,
+                undetermined_count: 0,
+              },
+            ],
           },
         ],
         generated_at: "2026-08-03T12:00:00.000Z",
@@ -129,8 +141,9 @@ describe("exportAdminStageHistoryExcel", () => {
           visita_id: "55555555-5555-4555-8555-555555555555",
           expediente_id: "66666666-6666-4666-8666-666666666666",
           cliente_nombre: "Cohorte Demo",
-          nss: "****1234",
-          asesor_nombre: "Asesor B",
+          nss: "02189008168",
+          asesor_nombre: "Adriana Alcocer",
+          asesor_email: "adriana@test.local",
           programa: "mejoravit",
           paso_visual: 2,
           etapa_label: "Registro",
@@ -147,14 +160,17 @@ describe("exportAdminStageHistoryExcel", () => {
         },
       ],
     });
-    assert.equal(wb.worksheets.length, 4);
+    assert.equal(wb.worksheets.length, 5);
     assert.ok(wb.getWorksheet("Resultado por etapa"));
+    assert.ok(wb.getWorksheet("Desglose por asesor"));
     assert.ok(wb.getWorksheet("Detalle de resultados"));
-    const res = wb.getWorksheet("Resultado por etapa")!;
-    assert.equal(res.getCell(1, 1).value, "Etapa");
-    assert.equal(res.getCell(2, 2).value, 40);
+    const desglose = wb.getWorksheet("Desglose por asesor")!;
+    assert.equal(desglose.getCell(2, 2).value, "Adriana Alcocer");
+    assert.equal(desglose.getCell(2, 4).value, 16);
     const det = wb.getWorksheet("Detalle de resultados")!;
     assert.equal(det.getCell(2, 1).value, "Cohorte Demo");
-    assert.match(String(det.getCell(2, 6).value), /Avanzaron/i);
+    assert.equal(det.getCell(2, 2).value, "02189008168");
+    assert.equal(det.getColumn(2).numFmt, "@");
+    assert.match(String(det.getCell(2, 10).value), /Avanzaron/i);
   });
 });

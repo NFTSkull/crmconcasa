@@ -338,13 +338,20 @@ export function formatAdminStageHistoryMetaSummary(
   ].join(" · ");
 }
 
-/* ─── P153: resultado de cohorte por entrada ─── */
+/* ─── P153/P154: resultado de cohorte por entrada ─── */
 
-export const ADMIN_STAGE_COHORT_OUTCOMES = [
+export const ADMIN_STAGE_COHORT_PERIOD_OUTCOMES = [
   "advanced",
   "stayed",
   "incident",
   "undetermined",
+] as const;
+export type AdminStageCohortPeriodOutcome =
+  (typeof ADMIN_STAGE_COHORT_PERIOD_OUTCOMES)[number];
+
+export const ADMIN_STAGE_COHORT_OUTCOMES = [
+  "entered",
+  ...ADMIN_STAGE_COHORT_PERIOD_OUTCOMES,
 ] as const;
 export type AdminStageCohortOutcome =
   (typeof ADMIN_STAGE_COHORT_OUTCOMES)[number];
@@ -362,10 +369,24 @@ export const ADMIN_STAGE_COHORT_SITUACIONES = [
 export type AdminStageCohortSituacion =
   (typeof ADMIN_STAGE_COHORT_SITUACIONES)[number];
 
+export const adminStageCohortPeriodOutcomeSchema = z.enum(
+  ADMIN_STAGE_COHORT_PERIOD_OUTCOMES,
+);
 export const adminStageCohortOutcomeSchema = z.enum(ADMIN_STAGE_COHORT_OUTCOMES);
 export const adminStageCohortSituacionSchema = z.enum(
   ADMIN_STAGE_COHORT_SITUACIONES,
 );
+
+export const adminStageCohortAsesorSchema = z.object({
+  asesor_id: z.string().uuid().nullable(),
+  asesor_nombre: z.string(),
+  asesor_email: z.string().nullable().optional(),
+  entered_count: z.number().int().nonnegative(),
+  advanced_count: z.number().int().nonnegative(),
+  stayed_count: z.number().int().nonnegative(),
+  incident_count: z.number().int().nonnegative(),
+  undetermined_count: z.number().int().nonnegative(),
+});
 
 export const adminStageCohortEtapaSchema = z.object({
   paso_visual: z.number().int().min(1).max(11),
@@ -379,6 +400,7 @@ export const adminStageCohortEtapaSchema = z.object({
   stayed_rate: z.number().nullable(),
   avg_advance_duration_seconds: z.number().int().nonnegative().nullable(),
   median_advance_duration_seconds: z.number().int().nonnegative().nullable(),
+  por_asesor: z.array(adminStageCohortAsesorSchema).optional().default([]),
 });
 
 export const adminStageCohortSummarySchema = z.object({
@@ -397,6 +419,7 @@ export const adminStageCohortItemSchema = z.object({
   nss: z.string(),
   asesor_id: z.string().uuid().nullable().optional(),
   asesor_nombre: z.string().nullable(),
+  asesor_email: z.string().nullable().optional(),
   programa: z.string().nullable().optional(),
   paso_visual: z.number().int().min(1).max(11),
   etapa_label: z.string(),
@@ -404,7 +427,7 @@ export const adminStageCohortItemSchema = z.object({
   entered_at: z.string(),
   exited_at: z.string().nullable(),
   duration_seconds: z.number().int().nonnegative().nullable(),
-  period_outcome: adminStageCohortOutcomeSchema,
+  period_outcome: adminStageCohortPeriodOutcomeSchema,
   resultado_label: adminStageHistoryResultadoSchema,
   etapa_siguiente_paso: z.number().int().nullable().optional(),
   etapa_siguiente: z.number().int().nullable().optional(),
@@ -422,10 +445,12 @@ export const adminStageCohortPageSchema = z.object({
   limit: z.number().int().positive(),
   offset: z.number().int().nonnegative(),
   resultado: adminStageCohortOutcomeSchema,
+  nss_completo: z.boolean().optional(),
   history_coverage_from: z.string().nullable(),
   filters: z.record(z.string(), z.unknown()).optional(),
 });
 
+export type AdminStageCohortAsesor = z.infer<typeof adminStageCohortAsesorSchema>;
 export type AdminStageCohortEtapa = z.infer<typeof adminStageCohortEtapaSchema>;
 export type AdminStageCohortSummary = z.infer<
   typeof adminStageCohortSummarySchema
@@ -469,9 +494,11 @@ export function buildAdminStageCohortRpcPayload(
 }
 
 export function labelAdminStageCohortOutcome(
-  outcome: AdminStageCohortOutcome,
+  outcome: AdminStageCohortOutcome | AdminStageCohortPeriodOutcome,
 ): string {
   switch (outcome) {
+    case "entered":
+      return "Entraron";
     case "advanced":
       return "Avanzaron";
     case "stayed":

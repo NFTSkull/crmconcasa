@@ -203,6 +203,15 @@
 - [x] Excel: mismos datos/hojas/columnas; encabezado `#1F4E79`; alternos `#D6EAF8`/`#FFFFFF`; subtotales `#6B2D8B`; bordes `#9BB3C9`; NSS texto.
 - [x] Sin SQL/RPC/Cloud/deps nuevas; citas Mesa intactas.
 
+## P154 — Desglose por asesor + NSS completo (Admin cohorte)
+
+- [ ] Summary incluye `por_asesor`; suma = Entraron de la etapa.
+- [ ] Page `entered|advanced|stayed|incident` totales coinciden con celdas.
+- [ ] Super Admin recibe NSS completo con ceros; otro rol bloqueado.
+- [ ] Excel NSS formato texto; hoja Desglose por asesor.
+- [ ] Se quedó + avance posterior: stayed + `avanzo_despues`.
+- [ ] action_log `admin.stage_cohort_outcome_detail`.
+
 ## P153 — Resultado de cohorte por etapa (Admin)
 
 - [ ] RPCs `admin_stage_cohort_outcome_summary` / `_page` solo `super_admin`; STABLE; fuente `expediente_paso_visual_transiciones`; anon/PUBLIC sin EXECUTE.
