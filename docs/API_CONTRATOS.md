@@ -928,6 +928,22 @@ Captura en la misma TX de `register_expediente_documento_correccion` / `save_cli
 
 **`p_tipo_fecha`:** `envio_mesa` → `expedientes.fecha_envio_mesa` (default, reportes históricos); `entrada_paso_actual` → semántica P114. Fechas calendario `America/Monterrey`. Meta incluye `tipo_fecha`, `sin_fecha_canonica`, `excluidos_por_fecha_desconocida`. Detalle incluye `fecha_envio_mesa` y `fecha_entrada_paso_actual`.
 
+### 15-septies. Resultado de cohorte por etapa (P153)
+
+**Operación:** RPCs read-only `admin_stage_cohort_outcome_summary(...)` y `admin_stage_cohort_outcome_page(...)` — migración `153_admin_stage_cohort_outcomes.sql`. Fuente exclusiva: `expediente_paso_visual_transiciones`. No altera P149.
+
+**Auth:** solo `super_admin`; `SECURITY DEFINER` + `STABLE`; GRANT `authenticated`; REVOKE `anon`/`PUBLIC`.
+
+**Cohorte:** visitas con `fecha_entrada` en `[p_fecha_desde, p_fecha_hasta]` inclusivo (`America/Monterrey`). Cobertura documentada desde `2026-07-23`.
+
+**Clasificación al cierre (mutuamente excluyente):** `advanced` = salió antes de `to_excl` y `next_paso > paso`; `stayed` = sin salida o salida ≥ `to_excl`; `incident` = salió en periodo sin avance normal; `undetermined` residual. Cuadre: entraron = advanced+stayed+incident+undetermined.
+
+**Summary por etapa:** `entered_count`, `advanced_count`, `stayed_count`, `incident_count`, `undetermined_count`, `advance_rate`, `stayed_rate`, `avg/median_advance_duration_seconds`, `history_coverage_from`.
+
+**Page:** `p_resultado` ∈ advanced|stayed|incident|undetermined; `p_limit`/`p_offset`. Items incluyen `situacion_actual` (sigue_en_etapa|avanzo_despues|…).
+
+**UI:** sección debajo del resumen P149; Excel hojas «Resultado por etapa» + «Detalle de resultados».
+
 ### 15-sexies. Reporte histórico de etapas (P149)
 
 **Operación:** RPCs read-only `admin_stage_history_report_summary(...)` y `admin_stage_history_report_page(p_page, p_page_size, ...)` — migración `149_admin_stage_history_report.sql`. Fuente: `expediente_paso_visual_transiciones` (sin backfill pre-cobertura). Snapshot 147/148 y `admin_report_*` v1–v3 intactos.

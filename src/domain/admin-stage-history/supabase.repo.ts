@@ -1,10 +1,18 @@
 import { isSupabaseConfigured, supabaseBrowser } from "@/lib/supabaseBrowser";
 import {
+  adminStageCohortPageSchema,
+  adminStageCohortSummarySchema,
   adminStageHistoryPageSchema,
   adminStageHistorySummarySchema,
+  buildAdminStageCohortRpcPayload,
   buildAdminStageHistoryRpcPayload,
   canConsultAdminStageHistory,
+  canShowAdminStageCohortOutcomes,
   validateAdminStageHistoryFechaRango,
+  type AdminStageCohortItem,
+  type AdminStageCohortOutcome,
+  type AdminStageCohortPage,
+  type AdminStageCohortSummary,
   type AdminStageHistoryFilters,
   type AdminStageHistoryItem,
   type AdminStageHistoryPage,
@@ -26,7 +34,7 @@ function mapRpcError(error: { message?: string }): never {
     );
   }
   if (
-    /p_movimiento inválido|p_estado_actual inválido|p_pasos_visuales|p_fecha_desde/i.test(
+    /p_movimiento inválido|p_estado_actual inválido|p_pasos_visuales|p_fecha_desde|p_resultado|admin_stage_cohort/i.test(
       msg,
     )
   ) {
@@ -119,6 +127,106 @@ export async function fetchAdminStageHistoryAllItems(
   for (let p = 2; p <= totalPages; p += 1) {
     const next = await fetchAdminStageHistoryPage(filters, p, pageSize);
     all.push(...next.items);
+  }
+  return all;
+}
+
+export async function fetchAdminStageCohortSummary(
+  filters: AdminStageHistoryFilters,
+): Promise<AdminStageCohortSummary> {
+  if (!isSupabaseConfigured() || !supabaseBrowser) {
+    throw new AdminStageHistoryError("Supabase no configurado");
+  }
+  if (!canShowAdminStageCohortOutcomes(filters)) {
+    throw new AdminStageHistoryError(
+      "El resultado de cohorte requiere etapas y rango de fechas.",
+    );
+  }
+
+  const payload = buildAdminStageCohortRpcPayload(filters);
+  const { data, error } = await supabaseBrowser.rpc(
+    "admin_stage_cohort_outcome_summary",
+    payload,
+  );
+  if (error) mapRpcError(error);
+
+  const parsed = adminStageCohortSummarySchema.safeParse(data ?? {});
+  if (!parsed.success) {
+    throw new AdminStageHistoryError(
+      "La respuesta del resultado por etapa no es válida.",
+    );
+  }
+  return parsed.data;
+}
+
+export async function fetchAdminStageCohortPage(
+  filters: AdminStageHistoryFilters,
+  resultado: AdminStageCohortOutcome,
+  limit: number,
+  offset: number,
+  pasosOverride?: readonly number[],
+): Promise<AdminStageCohortPage> {
+  if (!isSupabaseConfigured() || !supabaseBrowser) {
+    throw new AdminStageHistoryError("Supabase no configurado");
+  }
+  if (!canShowAdminStageCohortOutcomes(filters)) {
+    throw new AdminStageHistoryError(
+      "El resultado de cohorte requiere etapas y rango de fechas.",
+    );
+  }
+
+  const base = buildAdminStageCohortRpcPayload(filters);
+  const payload = {
+    ...base,
+    p_pasos_visuales: pasosOverride?.length
+      ? [...pasosOverride]
+      : base.p_pasos_visuales,
+    p_resultado: resultado,
+    p_limit: limit,
+    p_offset: offset,
+  };
+  const { data, error } = await supabaseBrowser.rpc(
+    "admin_stage_cohort_outcome_page",
+    payload,
+  );
+  if (error) mapRpcError(error);
+
+  const parsed = adminStageCohortPageSchema.safeParse(data ?? {});
+  if (!parsed.success) {
+    throw new AdminStageHistoryError(
+      "La respuesta del detalle de cohorte no es válida.",
+    );
+  }
+  return parsed.data;
+}
+
+/** Todas las visitas de cohorte (todos los resultados) para Excel. */
+export async function fetchAdminStageCohortAllItems(
+  filters: AdminStageHistoryFilters,
+  pageSize = 100,
+): Promise<readonly AdminStageCohortItem[]> {
+  const outcomes: AdminStageCohortOutcome[] = [
+    "advanced",
+    "stayed",
+    "incident",
+    "undetermined",
+  ];
+  const all: AdminStageCohortItem[] = [];
+  for (const outcome of outcomes) {
+    let offset = 0;
+    let total = Infinity;
+    while (offset < total) {
+      const page = await fetchAdminStageCohortPage(
+        filters,
+        outcome,
+        pageSize,
+        offset,
+      );
+      all.push(...page.items);
+      total = page.total;
+      offset += pageSize;
+      if (page.items.length === 0) break;
+    }
   }
   return all;
 }

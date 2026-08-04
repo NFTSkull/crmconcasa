@@ -1,3 +1,7 @@
+## 2026-08-03 - Admin: resultado de cohorte (quiénes avanzaron / se quedaron)
+
+Problema: el resumen P149 mezcla modos (entrada/avance/estuvieron) y no responde «de quienes entraron en el periodo, ¿cuántos avanzaron vs se quedaron al cierre?». Fix: RPCs nuevos `admin_stage_cohort_outcome_summary` / `_page` (mig. **153**) con cohorte = `fecha_entrada` en rango; clasificación mutuamente excluyente advanced/stayed/incident/undetermined al cierre `America/Monterrey`; `situacion_actual` distingue avance posterior sin reclasificar el periodo. UI debajo del histórico; Excel +2 hojas. Sin tocar 149 ni snapshot.
+
 ## 2026-08-03 - Hotfix: reingreso sin cliente_datos no podía guardar
 
 Diagnóstico RO `JORGE AGUSTIN PASCASIO` (`ad1767fa-…`, NSS 02189008168): reingreso activo etapa 1 count=2, **sin fila** `cliente_datos`, docs 2/4 (faltan INE). FE usaba `save` (no correccion) al no haber meta → bloqueado post-Mesa; `save_cliente_datos_correccion` exigía fila; `save_cliente_datos` prohibía INSERT si submitted sin fila; RPC reingreso 143 subía contador sin checklist. Fix mig. **151**: INSERT permitido solo con `es_reingreso_asesor_edicion_activa` + flag post_mesa; correccion crea fila; gates de envío restaurados (`FALTAN_DATOS`/`FALTAN_DOCS`); FE lista pendientes y usa correccion siempre post-Mesa. Mig. **152**: mueve idempotencia 5s **después** de gates (el short-circuit previo permitía envío incompleto). Sin escritura al cliente real en smoke RO.

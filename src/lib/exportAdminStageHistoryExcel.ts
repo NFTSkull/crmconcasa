@@ -1,5 +1,7 @@
 import ExcelJS from "exceljs";
 import type {
+  AdminStageCohortItem,
+  AdminStageCohortSummary,
   AdminStageHistoryItem,
   AdminStageHistoryResumenEtapa,
   AdminStageHistorySummary,
@@ -7,6 +9,8 @@ import type {
 import {
   formatAdminStageHistoryTimestamp,
   formatDurationSeconds,
+  labelAdminStageCohortOutcome,
+  labelAdminStageCohortSituacion,
   labelAdminStageHistoryResultado,
 } from "@/domain/admin-stage-history";
 import { ADMIN_REPORT_EXCEL_COLORS } from "./exportAdminReportExpedientesExcel";
@@ -72,6 +76,8 @@ export function buildAdminStageHistoryFilename(ymd: string): string {
 export function buildAdminStageHistoryWorkbook(input: Readonly<{
   summary: AdminStageHistorySummary;
   items: readonly AdminStageHistoryItem[];
+  cohortSummary?: AdminStageCohortSummary | null;
+  cohortItems?: readonly AdminStageCohortItem[];
 }>): ExcelJS.Workbook {
   const wb = new ExcelJS.Workbook();
   const headerAlign: Partial<ExcelJS.Alignment> = {
@@ -194,6 +200,121 @@ export function buildAdminStageHistoryWorkbook(input: Readonly<{
       });
     });
   });
+
+  if (input.cohortSummary) {
+    const resultadoSheet = wb.addWorksheet("Resultado por etapa", {
+      views: [{ state: "frozen", ySplit: 1 }],
+    });
+    const resultadoHeaders = [
+      "Etapa",
+      "Entraron",
+      "Avanzaron",
+      "Se quedaron al cierre",
+      "Rechazados/retrocedieron",
+      "No determinados",
+      "Tasa de avance",
+      "Tasa de permanencia",
+      "Tiempo promedio para avanzar",
+      "Tiempo mediano para avanzar",
+    ] as const;
+    resultadoHeaders.forEach((label, idx) => {
+      applyDataCell(resultadoSheet.getCell(1, idx + 1), label, {
+        fillArgb: ADMIN_REPORT_EXCEL_COLORS.headerBlue,
+        bold: true,
+        fontColor: ADMIN_REPORT_EXCEL_COLORS.white,
+        align: headerAlign,
+      });
+      resultadoSheet.getColumn(idx + 1).width = idx === 0 ? 42 : 18;
+    });
+
+    input.cohortSummary.etapas.forEach((row, idx) => {
+      const fill =
+        idx % 2 === 0
+          ? ADMIN_REPORT_EXCEL_COLORS.altBlue
+          : ADMIN_REPORT_EXCEL_COLORS.white;
+      const r = idx + 2;
+      const cells: (string | number)[] = [
+        `Paso ${row.paso_visual} · ${row.etapa_label}`,
+        row.entered_count,
+        row.advanced_count,
+        row.stayed_count,
+        row.incident_count,
+        row.undetermined_count,
+        row.advance_rate != null ? `${row.advance_rate}%` : "—",
+        row.stayed_rate != null ? `${row.stayed_rate}%` : "—",
+        formatDurationSeconds(row.avg_advance_duration_seconds),
+        formatDurationSeconds(row.median_advance_duration_seconds),
+      ];
+      cells.forEach((val, colIdx) => {
+        applyDataCell(resultadoSheet.getCell(r, colIdx + 1), val, {
+          fillArgb: fill,
+          align: colIdx === 0 ? undefined : { horizontal: "center" },
+        });
+      });
+    });
+
+    const detalleResultado = wb.addWorksheet("Detalle de resultados", {
+      views: [{ state: "frozen", ySplit: 1 }],
+    });
+    const detalleResultadoHeaders = [
+      "Cliente",
+      "Asesor",
+      "Etapa",
+      "Fecha de entrada",
+      "Fecha de salida",
+      "Resultado al cierre",
+      "Etapa siguiente",
+      "Etapa actual",
+      "Permanencia",
+      "Situación actual",
+    ] as const;
+    detalleResultadoHeaders.forEach((label, idx) => {
+      applyDataCell(detalleResultado.getCell(1, idx + 1), label, {
+        fillArgb: ADMIN_REPORT_EXCEL_COLORS.headerBlue,
+        bold: true,
+        fontColor: ADMIN_REPORT_EXCEL_COLORS.white,
+        align: headerAlign,
+      });
+      detalleResultado.getColumn(idx + 1).width =
+        idx === 0 ? 28 : idx === 2 || idx === 9 ? 32 : 18;
+    });
+
+    (input.cohortItems ?? []).forEach((row, idx) => {
+      const fill =
+        idx % 2 === 0
+          ? ADMIN_REPORT_EXCEL_COLORS.altBlue
+          : ADMIN_REPORT_EXCEL_COLORS.white;
+      const r = idx + 2;
+      const etapaActual =
+        row.paso_actual != null
+          ? `Paso ${row.paso_actual}`
+          : row.etapa_actual != null
+            ? `Etapa ${row.etapa_actual}`
+            : "—";
+      const values: (string | number)[] = [
+        sanitize(row.cliente_nombre),
+        sanitize(row.asesor_nombre ?? "—"),
+        sanitize(`Paso ${row.paso_visual} · ${row.etapa_label}`),
+        formatAdminStageHistoryTimestamp(row.entered_at),
+        formatAdminStageHistoryTimestamp(row.exited_at),
+        labelAdminStageCohortOutcome(row.period_outcome),
+        sanitize(
+          row.etapa_siguiente_label ??
+            (row.etapa_siguiente_paso != null
+              ? `Paso ${row.etapa_siguiente_paso}`
+              : "—"),
+        ),
+        sanitize(etapaActual),
+        formatDurationSeconds(row.duration_seconds),
+        labelAdminStageCohortSituacion(row.situacion_actual),
+      ];
+      values.forEach((val, colIdx) => {
+        applyDataCell(detalleResultado.getCell(r, colIdx + 1), val, {
+          fillArgb: fill,
+        });
+      });
+    });
+  }
 
   return wb;
 }
