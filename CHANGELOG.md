@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Added
+- **feat(admin): resultado de cohorte por etapa (P153)** — debajo del Reporte histórico: «Resultado de los expedientes que entraron durante el periodo» (Entraron / Avanzaron / Se quedaron / Rechazados-retrocedieron). RPCs `admin_stage_cohort_outcome_summary` / `_page` (mig. **153**). Fuente: `expediente_paso_visual_transiciones`. Excel: hojas «Resultado por etapa» + «Detalle de resultados». P149 intacto.
+
 ### Fixed
 - **fix(reingreso): primer alta de Datos Generales sin fila previa** — si falta `cliente_datos` en reingreso activo, `save_cliente_datos_correccion` crea la fila (mig. **151**). FE siempre usa corrección post-Mesa; «Enviar como reingreso» lista pendientes exactos y no incrementa contador si faltan datos/docs. Caso Pascasio/02189008168. Mig. **152**: gates de envío se evalúan **antes** de la idempotencia 5s (evita bypass incompleto).
 

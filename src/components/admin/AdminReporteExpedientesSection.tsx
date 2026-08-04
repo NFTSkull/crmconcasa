@@ -18,6 +18,9 @@ import {
   AdminStageHistoryError,
   adminStageHistoryRequiresFechas,
   canConsultAdminStageHistory,
+  canShowAdminStageCohortOutcomes,
+  fetchAdminStageCohortAllItems,
+  fetchAdminStageCohortSummary,
   fetchAdminStageHistoryAllItems,
   fetchAdminStageHistoryPage,
   fetchAdminStageHistorySummary,
@@ -27,6 +30,7 @@ import {
   formatHistoryCoverageFrom,
   labelAdminStageHistoryResultado,
   validateAdminStageHistoryFechaRango,
+  type AdminStageCohortSummary,
   type AdminStageHistoryEstado,
   type AdminStageHistoryFilters,
   type AdminStageHistoryItem,
@@ -34,6 +38,7 @@ import {
   type AdminStageHistoryPage,
   type AdminStageHistorySummary,
 } from "@/domain/admin-stage-history";
+import { AdminStageCohortOutcomesPanel } from "@/components/admin/AdminStageCohortOutcomesPanel";
 import {
   buildAdminStageHistoryFilename,
   buildAdminStageHistoryWorkbook,
@@ -83,6 +88,10 @@ export function AdminReporteExpedientesSection() {
   const [error, setError] = useState<string | null>(null);
   const [summary, setSummary] = useState<AdminStageHistorySummary | null>(null);
   const [pageData, setPageData] = useState<AdminStageHistoryPage | null>(null);
+  const [cohortSummary, setCohortSummary] =
+    useState<AdminStageCohortSummary | null>(null);
+  const [cohortLoading, setCohortLoading] = useState(false);
+  const [cohortError, setCohortError] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [consultedFilters, setConsultedFilters] = useState<AdminStageHistoryFilters | null>(
     null,
@@ -198,6 +207,7 @@ export function AdminReporteExpedientesSection() {
 
     setLoading(true);
     setError(null);
+    setCohortError(null);
     setCurrentPage(1);
     try {
       const [summaryData, pageResult] = await Promise.all([
@@ -211,10 +221,31 @@ export function AdminReporteExpedientesSection() {
       setSummary(summaryData);
       setPageData(pageResult);
       setConsultedFilters(filtersDraft);
+
+      if (canShowAdminStageCohortOutcomes(filtersDraft)) {
+        setCohortLoading(true);
+        try {
+          const cohort = await fetchAdminStageCohortSummary(filtersDraft);
+          setCohortSummary(cohort);
+        } catch (err) {
+          setCohortSummary(null);
+          setCohortError(
+            err instanceof AdminStageHistoryError
+              ? err.message
+              : "No se pudo cargar el resultado de la etapa.",
+          );
+        } finally {
+          setCohortLoading(false);
+        }
+      } else {
+        setCohortSummary(null);
+        setCohortLoading(false);
+      }
     } catch (err) {
       setSummary(null);
       setPageData(null);
       setConsultedFilters(null);
+      setCohortSummary(null);
       setError(
         err instanceof AdminStageHistoryError
           ? err.message
@@ -237,6 +268,8 @@ export function AdminReporteExpedientesSection() {
     setError(null);
     setSummary(null);
     setPageData(null);
+    setCohortSummary(null);
+    setCohortError(null);
     setConsultedFilters(null);
     setCurrentPage(1);
   }, []);
@@ -262,7 +295,18 @@ export function AdminReporteExpedientesSection() {
     void (async () => {
       try {
         const items = await fetchAdminStageHistoryAllItems(consultedFilters);
-        const wb = buildAdminStageHistoryWorkbook({ summary, items });
+        let cohortItems = undefined as
+          | Awaited<ReturnType<typeof fetchAdminStageCohortAllItems>>
+          | undefined;
+        if (cohortSummary && canShowAdminStageCohortOutcomes(consultedFilters)) {
+          cohortItems = await fetchAdminStageCohortAllItems(consultedFilters);
+        }
+        const wb = buildAdminStageHistoryWorkbook({
+          summary,
+          items,
+          cohortSummary,
+          cohortItems,
+        });
         const filename = buildAdminStageHistoryFilename(todayYmdLocal());
         await downloadAdminStageHistoryWorkbook(wb, filename);
       } catch {
@@ -272,7 +316,7 @@ export function AdminReporteExpedientesSection() {
         setExporting(false);
       }
     })();
-  }, [summary, consultedFilters]);
+  }, [summary, consultedFilters, cohortSummary]);
 
   const totalPages = pageData
     ? Math.max(1, Math.ceil(pageData.total / pageData.page_size))
@@ -755,6 +799,24 @@ export function AdminReporteExpedientesSection() {
               ) : null}
             </div>
           </div>
+        ) : null}
+
+        {!loading &&
+        consultedFilters &&
+        canShowAdminStageCohortOutcomes(consultedFilters) &&
+        (cohortLoading || cohortError || cohortSummary) ? (
+          <AdminStageCohortOutcomesPanel
+            summary={
+              cohortSummary ?? {
+                etapas: [],
+                generated_at: new Date().toISOString(),
+                history_coverage_from: null,
+              }
+            }
+            filters={consultedFilters}
+            loading={cohortLoading}
+            error={cohortError}
+          />
         ) : null}
 
         {!loading && !summary && !error ? (

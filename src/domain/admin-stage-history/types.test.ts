@@ -6,7 +6,11 @@ import {
   ADMIN_STAGE_HISTORY_ALL_PASO_VALUES,
   buildAdminStageHistoryRpcPayload,
   canConsultAdminStageHistory,
+  canShowAdminStageCohortOutcomes,
+  cohortEtapaCuadra,
   formatDurationSeconds,
+  labelAdminStageCohortOutcome,
+  labelAdminStageCohortSituacion,
   labelAdminStageHistoryResultado,
   validateAdminStageHistoryFechaRango,
   validateAdminStageHistoryPasos,
@@ -180,5 +184,47 @@ describe("admin-stage-history — validación y payload", () => {
     assert.equal(formatDurationSeconds(86400), "1d 0h");
     assert.equal(formatDurationSeconds(null), "—");
     assert.equal(labelAdminStageHistoryResultado("avanzo"), "Avanzó");
+  });
+
+  it("cohorte: requiere etapas + rango; cuadre de categorías", () => {
+    const base = {
+      asesorIds: [ASESOR],
+      pasosVisuales: [2] as number[],
+      movimiento: "entrada" as const,
+      estadoActual: "todos" as const,
+      fechaDesde: "2026-08-01",
+      fechaHasta: "2026-08-07",
+      buscar: null as string | null,
+    };
+    assert.equal(canShowAdminStageCohortOutcomes(base), true);
+    assert.equal(
+      canShowAdminStageCohortOutcomes({
+        ...base,
+        fechaDesde: null,
+        fechaHasta: null,
+      }),
+      false,
+    );
+    assert.equal(
+      cohortEtapaCuadra({
+        paso_visual: 2,
+        etapa_label: "Registro",
+        entered_count: 40,
+        advanced_count: 28,
+        stayed_count: 9,
+        incident_count: 3,
+        undetermined_count: 0,
+        advance_rate: 70,
+        stayed_rate: 22.5,
+        avg_advance_duration_seconds: 3600,
+        median_advance_duration_seconds: 3000,
+      }),
+      true,
+    );
+    assert.equal(labelAdminStageCohortOutcome("stayed"), "Se quedaron al cierre");
+    assert.match(
+      labelAdminStageCohortSituacion("avanzo_despues"),
+      /después del periodo/i,
+    );
   });
 });

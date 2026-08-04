@@ -203,6 +203,14 @@
 - [x] Excel: mismos datos/hojas/columnas; encabezado `#1F4E79`; alternos `#D6EAF8`/`#FFFFFF`; subtotales `#6B2D8B`; bordes `#9BB3C9`; NSS texto.
 - [x] Sin SQL/RPC/Cloud/deps nuevas; citas Mesa intactas.
 
+## P153 — Resultado de cohorte por etapa (Admin)
+
+- [ ] RPCs `admin_stage_cohort_outcome_summary` / `_page` solo `super_admin`; STABLE; fuente `expediente_paso_visual_transiciones`; anon/PUBLIC sin EXECUTE.
+- [ ] Cohorte = entrada en rango; avanzó / se quedó / incidencia / no determinado cuadran con Entraron.
+- [ ] Entrada antes + avance en periodo: fuera de cohorte.
+- [ ] Se quedó al cierre + avanzó después: stayed + `situacion_actual=avanzo_despues`.
+- [ ] Reingreso: visitas distintas; P149 sin regresión; timezone Monterrey inclusive hasta.
+
 ## P149 — Reporte histórico de etapas (Admin)
 
 - [ ] RPCs `admin_stage_history_report_summary` / `_page` solo `super_admin`; STABLE; sin `action_log`; anon/PUBLIC sin EXECUTE.

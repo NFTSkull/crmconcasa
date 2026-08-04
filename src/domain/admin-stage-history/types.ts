@@ -337,3 +337,185 @@ export function formatAdminStageHistoryMetaSummary(
     n(summary.totales.total_visitas, "visita", "visitas"),
   ].join(" · ");
 }
+
+/* ─── P153: resultado de cohorte por entrada ─── */
+
+export const ADMIN_STAGE_COHORT_OUTCOMES = [
+  "advanced",
+  "stayed",
+  "incident",
+  "undetermined",
+] as const;
+export type AdminStageCohortOutcome =
+  (typeof ADMIN_STAGE_COHORT_OUTCOMES)[number];
+
+export const ADMIN_STAGE_COHORT_SITUACIONES = [
+  "sigue_en_etapa",
+  "avanzo_despues",
+  "retrocedio_despues",
+  "salio_despues",
+  "cerrado_inactivo",
+  "avanzo_en_periodo",
+  "incidencia_en_periodo",
+  "no_determinado",
+] as const;
+export type AdminStageCohortSituacion =
+  (typeof ADMIN_STAGE_COHORT_SITUACIONES)[number];
+
+export const adminStageCohortOutcomeSchema = z.enum(ADMIN_STAGE_COHORT_OUTCOMES);
+export const adminStageCohortSituacionSchema = z.enum(
+  ADMIN_STAGE_COHORT_SITUACIONES,
+);
+
+export const adminStageCohortEtapaSchema = z.object({
+  paso_visual: z.number().int().min(1).max(11),
+  etapa_label: z.string(),
+  entered_count: z.number().int().nonnegative(),
+  advanced_count: z.number().int().nonnegative(),
+  stayed_count: z.number().int().nonnegative(),
+  incident_count: z.number().int().nonnegative(),
+  undetermined_count: z.number().int().nonnegative(),
+  advance_rate: z.number().nullable(),
+  stayed_rate: z.number().nullable(),
+  avg_advance_duration_seconds: z.number().int().nonnegative().nullable(),
+  median_advance_duration_seconds: z.number().int().nonnegative().nullable(),
+});
+
+export const adminStageCohortSummarySchema = z.object({
+  etapas: z.array(adminStageCohortEtapaSchema),
+  generated_at: z.string(),
+  history_coverage_from: z.string().nullable(),
+  fecha_desde: z.string().nullable().optional(),
+  fecha_hasta: z.string().nullable().optional(),
+  nota: z.string().nullable().optional(),
+});
+
+export const adminStageCohortItemSchema = z.object({
+  visita_id: z.string().uuid(),
+  expediente_id: z.string().uuid(),
+  cliente_nombre: z.string(),
+  nss: z.string(),
+  asesor_id: z.string().uuid().nullable().optional(),
+  asesor_nombre: z.string().nullable(),
+  programa: z.string().nullable().optional(),
+  paso_visual: z.number().int().min(1).max(11),
+  etapa_label: z.string(),
+  etapa_entrada: z.number().int().nullable().optional(),
+  entered_at: z.string(),
+  exited_at: z.string().nullable(),
+  duration_seconds: z.number().int().nonnegative().nullable(),
+  period_outcome: adminStageCohortOutcomeSchema,
+  resultado_label: adminStageHistoryResultadoSchema,
+  etapa_siguiente_paso: z.number().int().nullable().optional(),
+  etapa_siguiente: z.number().int().nullable().optional(),
+  etapa_siguiente_label: z.string().nullable().optional(),
+  etapa_actual: z.number().int().nullable().optional(),
+  paso_actual: z.number().int().nullable().optional(),
+  situacion_actual: adminStageCohortSituacionSchema,
+  motivo: z.string().nullable().optional(),
+  fecha_envio_mesa: z.string().nullable().optional(),
+});
+
+export const adminStageCohortPageSchema = z.object({
+  items: z.array(adminStageCohortItemSchema),
+  total: z.number().int().nonnegative(),
+  limit: z.number().int().positive(),
+  offset: z.number().int().nonnegative(),
+  resultado: adminStageCohortOutcomeSchema,
+  history_coverage_from: z.string().nullable(),
+  filters: z.record(z.string(), z.unknown()).optional(),
+});
+
+export type AdminStageCohortEtapa = z.infer<typeof adminStageCohortEtapaSchema>;
+export type AdminStageCohortSummary = z.infer<
+  typeof adminStageCohortSummarySchema
+>;
+export type AdminStageCohortItem = z.infer<typeof adminStageCohortItemSchema>;
+export type AdminStageCohortPage = z.infer<typeof adminStageCohortPageSchema>;
+
+export const DEFAULT_ADMIN_STAGE_COHORT_PAGE_SIZE = 25;
+
+export function canShowAdminStageCohortOutcomes(
+  filters: AdminStageHistoryFilters | null | undefined,
+): boolean {
+  if (!filters) return false;
+  if (filters.pasosVisuales.length === 0) return false;
+  const d = filters.fechaDesde?.trim();
+  const h = filters.fechaHasta?.trim();
+  if (!d || !h) return false;
+  return validateAdminStageHistoryFechaRango(d, h).ok;
+}
+
+export function buildAdminStageCohortRpcPayload(
+  filters: AdminStageHistoryFilters,
+): Readonly<{
+  p_asesor_ids: string[];
+  p_pasos_visuales: number[];
+  p_fecha_desde: string;
+  p_fecha_hasta: string;
+  p_estado_actual: string | null;
+  p_buscar: string | null;
+}> {
+  const estado =
+    filters.estadoActual === "todos" ? null : filters.estadoActual;
+  return {
+    p_asesor_ids: [...filters.asesorIds],
+    p_pasos_visuales: [...filters.pasosVisuales],
+    p_fecha_desde: filters.fechaDesde!.trim(),
+    p_fecha_hasta: filters.fechaHasta!.trim(),
+    p_estado_actual: estado,
+    p_buscar: filters.buscar?.trim() || null,
+  };
+}
+
+export function labelAdminStageCohortOutcome(
+  outcome: AdminStageCohortOutcome,
+): string {
+  switch (outcome) {
+    case "advanced":
+      return "Avanzaron";
+    case "stayed":
+      return "Se quedaron al cierre";
+    case "incident":
+      return "Rechazados o retrocedieron";
+    case "undetermined":
+      return "No determinados";
+    default:
+      return outcome;
+  }
+}
+
+export function labelAdminStageCohortSituacion(
+  situacion: AdminStageCohortSituacion,
+): string {
+  switch (situacion) {
+    case "sigue_en_etapa":
+      return "Sigue actualmente en esa etapa.";
+    case "avanzo_despues":
+      return "Avanzó después del periodo.";
+    case "retrocedio_despues":
+      return "Retrocedió después del periodo.";
+    case "salio_despues":
+      return "Salió después del periodo.";
+    case "cerrado_inactivo":
+      return "Expediente cerrado/inactivo.";
+    case "avanzo_en_periodo":
+      return "Avanzó dentro del periodo.";
+    case "incidencia_en_periodo":
+      return "Incidencia dentro del periodo.";
+    case "no_determinado":
+      return "Situación no determinada.";
+    default:
+      return situacion;
+  }
+}
+
+export function cohortEtapaCuadra(etapa: AdminStageCohortEtapa): boolean {
+  return (
+    etapa.entered_count ===
+    etapa.advanced_count +
+      etapa.stayed_count +
+      etapa.incident_count +
+      etapa.undetermined_count
+  );
+}
