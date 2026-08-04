@@ -57,6 +57,7 @@ export type SupabaseExpedienteListRow = Readonly<{
   reingreso_manual_count?: number | null;
   reingreso_manual_at?: string | null;
   reingreso_manual_by?: string | null;
+  reprecalificacion_pendiente_id?: string | null;
   editor_decisions?: SupabaseEditorDecisionEmbed | SupabaseEditorDecisionEmbed[] | null;
   reingreso_rechazo?:
     | SupabaseReingresoRechazoEmbed
@@ -215,6 +216,7 @@ export function mapSupabaseRowToExpedienteMock(
       at: textOrNull(row.reingreso_manual_at),
       by: textOrNull(row.reingreso_manual_by),
     },
+    reprecalificacionPendienteId: textOrNull(row.reprecalificacion_pendiente_id),
   };
 }
 

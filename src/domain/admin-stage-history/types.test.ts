@@ -218,6 +218,7 @@ describe("admin-stage-history — validación y payload", () => {
         stayed_rate: 22.5,
         avg_advance_duration_seconds: 3600,
         median_advance_duration_seconds: 3000,
+        por_asesor: [],
       }),
       true,
     );

@@ -32,6 +32,21 @@ export {
 } from "./list-for-mesa-control-paginated";
 export type { CreateExpedienteInput } from "./create-expediente.input";
 export type { UpsertEditorDecisionInput } from "./upsert-editor-decision.input";
+export type {
+  IniciarReprecalificacionInput,
+  IniciarReprecalificacionResult,
+  NssPrecalGateResult,
+  NssPrecalGateStatus,
+} from "./nss-precal-gate";
+export {
+  MSG_NSS_AMBIGUOUS,
+  MSG_NSS_OTHER_ASESOR,
+  MSG_NSS_OWN_MESA_REPRECAL,
+  MSG_NSS_PROGRAMA_MISMATCH,
+  MSG_REPRECAL_CONFIRM,
+  isNssPrecalGateBlocked,
+  messageForNssPrecalGateStatus,
+} from "./nss-precal-gate";
 export type { EditorListPage, EditorListQuery } from "./editor-list-query";
 export {
   createMesaMoverInFlightGuard,

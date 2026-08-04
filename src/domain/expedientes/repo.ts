@@ -1,4 +1,12 @@
-import type { CreateExpedienteInput } from "./create-expediente.input";
+import type {
+  CreateExpedienteInput,
+  ExpedienteProgramaUi,
+} from "./create-expediente.input";
+import type {
+  IniciarReprecalificacionInput,
+  IniciarReprecalificacionResult,
+  NssPrecalGateResult,
+} from "./nss-precal-gate";
 import type { UpsertEditorDecisionInput } from "./upsert-editor-decision.input";
 import type { EditorListPage, EditorListQuery } from "./editor-list-query";
 import type { ExpedienteMock } from "./mock.repo";
@@ -49,6 +57,15 @@ export interface ExpedientesRepo {
   ): Promise<PaginatedMesaBandejaResult>;
   getById(id: string): Promise<ExpedienteMock | null>;
   createExpediente(input: CreateExpedienteInput): Promise<ExpedienteMock>;
+  /** P155: gate RO antes de crear / re-precalificar por NSS. */
+  lookupNssPrecalGate(
+    nss: string,
+    programa: ExpedienteProgramaUi,
+  ): Promise<NssPrecalGateResult>;
+  /** P155: re-precalificar NSS propio ya en Mesa (mismo expediente). */
+  iniciarReprecalificacion(
+    input: IniciarReprecalificacionInput,
+  ): Promise<IniciarReprecalificacionResult>;
   enviarAMesa(expedienteId: string): Promise<ExpedienteMock>;
   /** Reingreso manual del mismo expediente a Mesa (mig. 142). */
   enviarReingresoAMesa(expedienteId: string): Promise<ExpedienteMock>;

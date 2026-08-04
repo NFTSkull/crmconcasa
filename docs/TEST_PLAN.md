@@ -1,3 +1,13 @@
+## Hotfix — Re-precalificar NSS propio en Mesa (P155)
+
+- [x] Gate: own mesa / otro asesor / ambiguo / programa distinto.
+- [x] `asesor_iniciar_reprecalificacion` reutiliza `expediente_id`; historial de intentos.
+- [x] Editor resuelve vía `upsert_editor_decision` → `editor_resolver_reprecalificacion`.
+- [x] Aprobado actualiza monto vigente; no_cumple conserva anterior; etapa/docs/citas intactos.
+- [x] Idempotency key; anon sin EXECUTE; SQL `rpc_asesor_reprecalificar_nss_propio_mesa.sql`.
+- [x] UI `/asesor/nueva`: «Volver a precalificar» + confirmación; sin segunda tarjeta en dashboard.
+- [x] Smoke RO caso Adriana sin escritura.
+
 ## Hotfix — Reingreso: domicilio y estado de cuenta editables
 
 - [x] Tipos reales: `cliente_comprobante_domicilio`, `cliente_estado_cuenta`.
