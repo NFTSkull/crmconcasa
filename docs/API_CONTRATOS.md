@@ -1131,6 +1131,18 @@ Captura en la misma TX de `register_expediente_documento_correccion` / `save_cli
 - Traza: `expediente_rechazo_reactivaciones` + `action_log` (`expediente.rechazo_reactivacion`) con quién, cuándo y `rechazo_id` atendido.
 - **No** depende de `biometricos_condicion`. Errores estables `REACTIVATION_*`.
 
+### Primer alta de Datos Generales en reingreso (mig. 151)
+
+Si el expediente ya está enviado a Mesa y **no** existe fila `cliente_datos`:
+
+| Contexto | Regla |
+|----------|--------|
+| Reingreso activo (`es_reingreso_asesor_edicion_activa`) | `save_cliente_datos_correccion` crea la fila (INSERT) vía `save_cliente_datos` con flag post_mesa |
+| Sin reingreso activo | Conserva error «faltan datos del cliente» |
+| `asesor_enviar_reingreso_a_mesa` | Exige Datos Generales completos + docs integración; no incrementa `reingreso_manual_count` si falla; idempotencia 5s |
+
+FE: post-Mesa siempre usa corrección (aunque aún no haya fila); UI lista pendientes exactos antes del envío.
+
 ### Documentos y Datos Generales en reingreso activo (mig. 150; amplía 146)
 
 Tipos asesor: `integration_doc_tipos_asesor_upload()` (INE frente/reverso, domicilio, estado de cuenta, opcionales de integración, etc.). **No** abre tipos Mesa-only (p. ej. `cliente_acta_nacimiento`, `cliente_constancia_sat`, Pagaré, Solicitud).

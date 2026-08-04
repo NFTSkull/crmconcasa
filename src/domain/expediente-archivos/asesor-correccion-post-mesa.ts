@@ -235,12 +235,12 @@ export function asesorPuedeEditarClienteDatos(
   return puedeIntegrar || esReingresoActivo;
 }
 
-/** Post-envío a Mesa: guardar vía RPC de corrección/actualización (no `save` inicial). */
+/** Post-envío a Mesa: siempre vía corrección/actualización (incluye primer alta en reingreso). */
 export function asesorDebeUsarCorreccionClienteDatos(
   submittedToMesa: boolean,
-  tieneDatosGuardados: boolean,
+  _tieneDatosGuardados = false,
 ): boolean {
-  return submittedToMesa && tieneDatosGuardados;
+  return submittedToMesa;
 }
 
 /** Corrección tras rechazo explícito de Mesa (limpia rechazo y vuelve a completo). */

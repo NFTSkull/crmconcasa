@@ -37,6 +37,8 @@ import {
 import {
   hasReingresoVisible,
   puedeMostrarReingresoManualCard,
+  buildReingresoManualEnvioPendientes,
+  formatReingresoEnvioPendientesMessage,
 } from "@/domain/expedientes/reingreso-manual";
 import {
   MockExpedientesRepo,
@@ -584,6 +586,22 @@ export default function AsesorExpedientePage() {
     reingresoManual,
   });
 
+  const reingresoEnvioPendientes = useMemo(
+    () =>
+      buildReingresoManualEnvioPendientes({
+        hasMontoAprobado,
+        datosGeneralesCompletos,
+        camposFaltantesDatos: camposFaltantesClienteDatos,
+        archivosResumen,
+      }),
+    [
+      archivosResumen,
+      camposFaltantesClienteDatos,
+      datosGeneralesCompletos,
+      hasMontoAprobado,
+    ],
+  );
+
   const puedeIntegrarAsesor =
     hasMontoAprobado && !expedienteCancelado;
 
@@ -792,6 +810,19 @@ export default function AsesorExpedientePage() {
 
   const handleConfirmarReingresoManual = useCallback(async () => {
     if (!precal?.id || reingresoSaving || !puedeMostrarReingresoCard) return;
+    const pendientes = buildReingresoManualEnvioPendientes({
+      hasMontoAprobado,
+      datosGeneralesCompletos,
+      camposFaltantesDatos: camposFaltantesClienteDatos,
+      archivosResumen,
+    });
+    if (pendientes.length > 0) {
+      const message = formatReingresoEnvioPendientesMessage(pendientes);
+      setReingresoError(message);
+      setReingresoDialogOpen(false);
+      setClienteDatosShowValidation(true);
+      return;
+    }
     setReingresoSaving(true);
     setReingresoError(null);
     setEnviarMesaExito(null);
@@ -814,6 +845,10 @@ export default function AsesorExpedientePage() {
       setReingresoSaving(false);
     }
   }, [
+    archivosResumen,
+    camposFaltantesClienteDatos,
+    datosGeneralesCompletos,
+    hasMontoAprobado,
     loadExpediente,
     puedeMostrarReingresoCard,
     precal?.id,
@@ -1100,9 +1135,15 @@ export default function AsesorExpedientePage() {
     if (!currentUser?.email) {
       return { ok: false, message: "Sesión inválida." };
     }
-    if (!hasMontoAprobado) {
+    if (!hasMontoAprobado && !esReingresoActivo) {
       window.alert(MSJ_ESPERA_MONTO_REVISOR);
       return { ok: false, message: MSJ_ESPERA_MONTO_REVISOR };
+    }
+    if (!hasMontoAprobado && esReingresoActivo) {
+      const message =
+        "Falta el monto aprobado del editor. No se pueden guardar Datos Generales sin monto.";
+      setClienteDatosError(message);
+      return { ok: false, message };
     }
     const notaError = getNotaMesaLongitudError(clienteDatos.notaMesa);
     if (notaError) {
@@ -1194,6 +1235,7 @@ export default function AsesorExpedientePage() {
     operativo?.submittedToMesa,
     precal?.id,
     hasMontoAprobado,
+    esReingresoActivo,
     montoAprobadoEditor,
     programaDb,
     loadExpediente,
@@ -1488,6 +1530,18 @@ export default function AsesorExpedientePage() {
                   Envía este mismo expediente nuevamente a Mesa Control y márcalo
                   como REINGRESO.
                 </p>
+                {reingresoEnvioPendientes.length > 0 ? (
+                  <div
+                    role="status"
+                    className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950 whitespace-pre-line"
+                  >
+                    {formatReingresoEnvioPendientesMessage(reingresoEnvioPendientes)}
+                  </div>
+                ) : (
+                  <p className="mt-3 text-xs text-emerald-800">
+                    Requisitos listos para enviar como reingreso.
+                  </p>
+                )}
                 {enviarMesaExito ? (
                   <p
                     role="status"
@@ -1837,6 +1891,18 @@ export default function AsesorExpedientePage() {
                   Envía este mismo expediente nuevamente a Mesa Control y márcalo
                   como REINGRESO.
                 </p>
+                {reingresoEnvioPendientes.length > 0 ? (
+                  <div
+                    role="status"
+                    className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950 whitespace-pre-line"
+                  >
+                    {formatReingresoEnvioPendientesMessage(reingresoEnvioPendientes)}
+                  </div>
+                ) : (
+                  <p className="mt-3 text-xs text-emerald-800">
+                    Requisitos listos para enviar como reingreso.
+                  </p>
+                )}
                 {enviarMesaExito ? (
                   <p
                     role="status"

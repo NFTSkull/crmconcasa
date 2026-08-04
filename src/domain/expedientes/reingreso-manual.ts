@@ -1,5 +1,11 @@
 import type { ExpedienteMock } from "./mock.repo";
 import { ExpedientesSupabaseError } from "./supabase.error";
+import {
+  INTEGRATION_DOC_TIPOS_ASESOR_ENVIO,
+  estatusCuentaParaIntegracion,
+  type ExpedienteArchivoResumen,
+} from "@/domain/expediente-archivos";
+import { DOCUMENTO_CATALOGO_MAP } from "@/domain/expediente-archivos/types";
 
 /** Reingreso manual (mismo expediente → Mesa). Separado de P072. */
 export type ReingresoManualInfo = Readonly<{
@@ -32,6 +38,49 @@ export function puedeMostrarReingresoManualCard(input: {
   return true;
 }
 
+/** Pendientes exactos antes de «Enviar como reingreso» (no incrementa contador). */
+export function buildReingresoManualEnvioPendientes(input: {
+  hasMontoAprobado: boolean;
+  datosGeneralesCompletos: boolean;
+  camposFaltantesDatos: readonly string[];
+  archivosResumen: readonly ExpedienteArchivoResumen[] | null;
+}): string[] {
+  const out: string[] = [];
+  if (!input.hasMontoAprobado) out.push("Monto aprobado");
+  if (!input.datosGeneralesCompletos) {
+    if (input.camposFaltantesDatos.length > 0) {
+      out.push(...input.camposFaltantesDatos);
+    } else {
+      out.push("Datos Generales (guarda el formulario completo)");
+    }
+  }
+  const byTipo = new Map(
+    (input.archivosResumen ?? []).map((r) => [r.tipo_documento, r] as const),
+  );
+  for (const tipo of INTEGRATION_DOC_TIPOS_ASESOR_ENVIO) {
+    const row = byTipo.get(tipo);
+    const ok = row ? estatusCuentaParaIntegracion(row.estatus_revision) : false;
+    if (!ok) {
+      const label =
+        DOCUMENTO_CATALOGO_MAP[tipo]?.label ??
+        tipo.replace(/^cliente_/, "").replace(/_/g, " ");
+      out.push(label);
+    }
+  }
+  return out;
+}
+
+export function formatReingresoEnvioPendientesMessage(pendientes: readonly string[]): string {
+  if (pendientes.length === 0) return "";
+  const items = pendientes
+    .slice(0, 12)
+    .map((p) => `• ${p}`)
+    .join("\n");
+  const extra =
+    pendientes.length > 12 ? `\n• …y ${pendientes.length - 12} más` : "";
+  return `No puedes enviar todavía. Completa lo siguiente:\n${items}${extra}`;
+}
+
 export function mapAsesorEnviarReingresoRpcError(error: {
   message?: string;
   code?: string;
@@ -52,6 +101,21 @@ export function mapAsesorEnviarReingresoRpcError(error: {
   if (/cancelado/i.test(msg)) {
     return new ExpedientesSupabaseError(
       "El expediente está cancelado y no se puede reingresar.",
+    );
+  }
+  if (/FALTA_MONTO|monto aprobado/i.test(msg)) {
+    return new ExpedientesSupabaseError(
+      "Falta el monto aprobado del editor antes de enviar como reingreso.",
+    );
+  }
+  if (/FALTAN_DATOS|faltan Datos Generales|datos del cliente/i.test(msg)) {
+    return new ExpedientesSupabaseError(
+      "Faltan Datos Generales. Complétalos y guárdalos antes de enviar como reingreso.",
+    );
+  }
+  if (/FALTAN_DOCS|documentos obligatorios/i.test(msg)) {
+    return new ExpedientesSupabaseError(
+      "Faltan documentos obligatorios (INE frente/reverso, domicilio y estado de cuenta).",
     );
   }
   if (/no encontrado|no disponible|P0002/i.test(msg) || code === "P0002") {

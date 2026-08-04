@@ -1,3 +1,7 @@
+## 2026-08-03 - Hotfix: reingreso sin cliente_datos no podía guardar
+
+Diagnóstico RO `JORGE AGUSTIN PASCASIO` (`ad1767fa-…`, NSS 02189008168): reingreso activo etapa 1 count=2, **sin fila** `cliente_datos`, docs 2/4 (faltan INE). FE usaba `save` (no correccion) al no haber meta → bloqueado post-Mesa; `save_cliente_datos_correccion` exigía fila; `save_cliente_datos` prohibía INSERT si submitted sin fila; RPC reingreso 143 subía contador sin checklist. Fix mig. **151**: INSERT permitido solo con `es_reingreso_asesor_edicion_activa` + flag post_mesa; correccion crea fila; gates de envío restaurados (`FALTAN_DATOS`/`FALTAN_DOCS`); FE lista pendientes y usa correccion siempre post-Mesa. Sin escritura al cliente real en smoke RO.
+
 ## 2026-08-03 - Reingreso: edición completa Datos Generales + docs asesor
 
 Problema: mig. 146 solo abría domicilio/estado de cuenta; el requerimiento es corrección completa durante reingreso activo. Definición canónica: `es_reingreso_asesor_edicion_activa` = P072 válido (etapa 6) **o** manual `count>0` **y** `etapa_actual=1` (cierra al avanzar Mesa; evita permiso eterno por count). FE: `esReingresoDocumentosEditables` + `esReingresoDatosEditables`; allowlist = `INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD`; alerta «Reingreso activo»; Datos Generales con `puedeIntegrar || esReingresoActivo`. SQL mig. **150**: storage + wrapper `register_expediente_documento` para todos los tipos asesor_upload; 146 intacta. Mesa banner «Información actualizada por reingreso». Sin tocar agenda/Sheets/Acuse/Pagaré/padre.
