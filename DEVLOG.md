@@ -1,3 +1,7 @@
+## 2026-08-03 - Admin: reporte histórico de etapas (P149)
+
+Problema: el reporte Admin (P112–P116) solo mostraba fotografía actual por asesor×paso; no había consulta de visitas históricas desde `expediente_paso_visual_transiciones`. Fix: dominio FE `admin-stage-history` + UI «Reporte histórico de etapas» sobre RPCs P149 (`summary` + `page` paginado). Movimientos entrada/avance/estuvieron exigen rango DATE Monterrey; `estado_actual` es referencia snapshot. Catálogo asesores reutiliza `fetchAdminReportAsesoresCatalog` (v3). Excel dos hojas. Sin tocar snapshot 147/148 ni migraciones de avance.
+
 ## 2026-08-03 - Hotfix: snapshot Integración solo enviados a Mesa
 
 Diagnóstico Cloud RO: Integración 3800 = 46 enviados + 3754 pre-Mesa; indicador canónico = KPI (`submitted_to_mesa = TRUE` AND `fecha_envio_mesa IS NOT NULL`) sin rango. Mig. **148** reaplica filtro en `admin_expedientes_snapshot_etapas` + `admin_list_expedientes_snapshot_page`; `total_actual` = suma de tarjetas post-filtro; etapas ≥2 sin cambio. UI título/descripción flujo Mesa. Mock alineado. Sin UPDATE de expedientes.
