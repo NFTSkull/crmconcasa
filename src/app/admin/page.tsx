@@ -692,12 +692,12 @@ export default function AdminDashboardPage() {
 
             <section className="rounded-lg border border-slate-200 bg-white p-4">
               <h2 className="text-base font-semibold text-slate-900">
-                Estado actual de todos los expedientes del CRM
+                Estado actual de los expedientes enviados a Mesa
               </h2>
               <p className="mt-1 text-sm text-gray-700">
-                Corte actual de todos los expedientes vigentes. No depende del
-                periodo de envío seleccionado. Pulsa una etapa para ver sus
-                expedientes.
+                Corte actual de los expedientes vigentes que ya ingresaron al
+                flujo de Mesa. No depende del periodo seleccionado. Pulsa una
+                etapa para ver sus expedientes.
               </p>
               {snapshotLoading && byEtapa.length === 0 ? (
                 <p className="mt-3 text-sm text-gray-700">
@@ -790,7 +790,7 @@ export default function AdminDashboardPage() {
                 id="admin-mesa-expedientes-title"
                 className="text-base font-semibold text-slate-900"
               >
-                Expedientes vigentes del CRM
+                Expedientes del flujo operativo de Mesa
               </h2>
               {etapaFiltroNombre ? (
                 <div className="mt-3 flex flex-wrap items-center gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800">

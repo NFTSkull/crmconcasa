@@ -1,3 +1,7 @@
+## 2026-08-03 - Hotfix: snapshot Integración solo enviados a Mesa
+
+Diagnóstico Cloud RO: Integración 3800 = 46 enviados + 3754 pre-Mesa; indicador canónico = KPI (`submitted_to_mesa = TRUE` AND `fecha_envio_mesa IS NOT NULL`) sin rango. Mig. **148** reaplica filtro en `admin_expedientes_snapshot_etapas` + `admin_list_expedientes_snapshot_page`; `total_actual` = suma de tarjetas post-filtro; etapas ≥2 sin cambio. UI título/descripción flujo Mesa. Mock alineado. Sin UPDATE de expedientes.
+
 ## 2026-08-03 - Admin: snapshot stock por etapas (sin periodo)
 
 Problema: la sección «Estado actual…» usaba `admin_get_mesa_cohort_by_etapa` filtrado por `fecha_envio_mesa` del preset, así que las tarjetas sumaban solo los enviados del periodo. Fix: RPCs RO nuevos `admin_expedientes_snapshot_etapas` / `admin_list_expedientes_snapshot_page` (mig. **147**) sobre `deleted_at IS NULL` sin fechas; UI con loading/error propios; periodo solo para KPI/Excel/producción/precal. Universo canónico Admin (estado/asesor/buscar); sin inventar exclusión padre/hijo P072.

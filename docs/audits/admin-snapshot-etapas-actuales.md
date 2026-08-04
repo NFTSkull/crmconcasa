@@ -17,11 +17,13 @@ Fecha: 2026-08-03
 
 El cohort SQL exige envío a Mesa dentro del rango del preset (Hoy/semana/mes/personalizado). Las tarjetas clasifican ese subset por `etapa_actual`, no el stock global.
 
-## Universo nuevo (post-cambio)
+## Universo nuevo (post-cambio + hotfix 148)
 
-- Todos los expedientes con `deleted_at IS NULL`.
-- Sin filtro por `fecha_envio_mesa` / `submitted_to_mesa` / created_at / periodo.
-- Filtros opcionales: asesor, estado (mismo predicado canónico Admin), búsqueda.
-- Conteo en SQL vía RPC nuevo `admin_expedientes_snapshot_etapas` (+ listado `admin_list_expedientes_snapshot_page`).
-- Dedup: identidad `expedientes.id`; reingreso manual = mismo id; sin exclusión inventada padre/hijo (mismo contrato que cohort Admin actual: solo `deleted_at`).
-- Mapeo etapas 1–12 interno; legacy 4 absorbida en paso visual 3 (UI cards internas intactas).
+- Expedientes con `deleted_at IS NULL`.
+- Sin filtro de **periodo** (Hoy/semana/mes).
+- **Integración (1):** exige `submitted_to_mesa = TRUE` AND `fecha_envio_mesa IS NOT NULL` (igual KPI sin rango). Pre-Mesa fuera de total/tarjetas/drilldown.
+- Etapas ≥2: sin filtro adicional de envío.
+- Filtros opcionales: asesor, estado, búsqueda.
+- RPCs: `admin_expedientes_snapshot_etapas` + `admin_list_expedientes_snapshot_page` (mig. 147; filtro Integración mig. 148).
+- Dedup: identidad `expedientes.id`; reingreso manual = mismo id; sin exclusión inventada padre/hijo.
+- Mapeo etapas 1–12 interno; legacy 4 absorbida en paso visual 3.

@@ -2,8 +2,11 @@
 
 ## [Unreleased]
 
+### Fixed
+- **fix(admin): Integración del snapshot solo cuenta enviados a Mesa** — tarjetas/`total_actual`/drilldown excluyen pre-Mesa (`etapa_actual=1` sin `submitted_to_mesa`+`fecha_envio_mesa`). Mig. **148**. Título: «Estado actual de los expedientes enviados a Mesa». KPI periodo y Excel intactos.
+
 ### Added
-- **feat/admin-snapshot-etapas-actuales:** Super Admin muestra stock vigente de **todos** los expedientes del CRM por `etapa_actual` (mig. **147**: `admin_expedientes_snapshot_etapas` + `admin_list_expedientes_snapshot_page`). Independiente de Hoy/semana/mes; KPI periódicos y Excel intactos.
+- **feat/admin-snapshot-etapas-actuales:** Super Admin muestra stock vigente por `etapa_actual` (mig. **147**: `admin_expedientes_snapshot_etapas` + `admin_list_expedientes_snapshot_page`). Independiente de Hoy/semana/mes; KPI periódicos y Excel intactos. *(148 acota Integración a enviados a Mesa.)*
 
 ### Fixed
 - **fix/reingreso-editar-domicilio-estado-cuenta:** en reingreso (P072 etapa 6 o manual) el asesor dueño puede subir/reemplazar `cliente_comprobante_domicilio` y `cliente_estado_cuenta` aunque el expediente ya esté enviado a Mesa. Mig. **146** + UI/repo. Sin abrir edición global; padre/Acuse/agenda/etapa intactos.

@@ -281,6 +281,12 @@ export class MockAdminProductionRepo implements AdminProductionRepo {
   ): AdminMesaEnvioEvent[] {
     const buscar = filters.buscar?.trim().toLowerCase() ?? "";
     return all
+      .filter((e) => {
+        // Misma def. KPI enviados a Mesa, sin rango: Integración solo si ya enviado.
+        const et = e.operativo.etapaActual ?? 1;
+        if (et !== 1) return true;
+        return Boolean(e.operativo.submittedToMesa && e.operativo.fechaEnvioMesa);
+      })
       .map(mapSnapshot)
       .filter((r) => !filters.asesorId || r.asesorId === filters.asesorId)
       .filter((r) => matchesAdminEtapaActualFilter(r.etapaActual, filters))

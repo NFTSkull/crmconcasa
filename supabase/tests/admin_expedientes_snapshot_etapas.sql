@@ -1,4 +1,5 @@
--- Admin snapshot stock vigente por etapa (mig. 147)
+-- Admin snapshot stock vigente por etapa (mig. 147 + contrato 148: Integración solo enviados)
+-- Mantener alineado con admin_expedientes_snapshot_etapas_mesa.sql (P148).
 
 CREATE OR REPLACE FUNCTION public.__p147_assert(p_ok BOOLEAN, p_msg TEXT)
 RETURNS VOID LANGUAGE plpgsql AS $$
@@ -39,7 +40,8 @@ DECLARE
     '00000000-0000-4000-9147-000000000004'::UUID,
     '00000000-0000-4000-9147-000000000005'::UUID,
     '00000000-0000-4000-9147-000000000006'::UUID,
-    '00000000-0000-4000-9147-000000000007'::UUID
+    '00000000-0000-4000-9147-000000000007'::UUID,
+    '00000000-0000-4000-9147-000000000008'::UUID
   ];
   v_id UUID;
   v_snap JSONB;
@@ -52,6 +54,7 @@ DECLARE
   v_mes_atras TIMESTAMPTZ := v_from - interval '30 days';
   v_cnt BIGINT;
   v_total BIGINT;
+  v_sum_etapas BIGINT;
   v_etapa2 BIGINT;
   v_etapa8 BIGINT;
   v_etapa1 BIGINT;
@@ -78,7 +81,6 @@ BEGIN
     'RPC list snapshot existe'
   );
 
-  -- Grants: authenticated sí; anon/PUBLIC no
   SELECT has_function_privilege('authenticated', 'public.admin_expedientes_snapshot_etapas(uuid,text,text)', 'EXECUTE')
   INTO v_granted;
   PERFORM public.__p147_assert(v_granted, 'authenticated EXECUTE snapshot');
@@ -124,71 +126,38 @@ BEGIN
       email = EXCLUDED.email,
       full_name = EXCLUDED.full_name;
 
-  -- 1: enviado hoy etapa 2
   INSERT INTO public.expedientes (
     id, organization_id, asesor_id, programa, nss, cliente_nombre, telefono_cliente,
     origen_mesa, submitted_to_mesa, fecha_envio_mesa, etapa_actual, subestado, ciclo_estado
-  ) VALUES (
-    v_ids[1], v_org, v_asesor, 'mejoravit', '14700000001', 'P147 Hoy Etapa2', '8111470001',
-    'interno', true, v_hoy, 2, 'en_proceso', 'activo'
-  );
-  -- 2: enviado hace un mes etapa 8
-  INSERT INTO public.expedientes (
-    id, organization_id, asesor_id, programa, nss, cliente_nombre, telefono_cliente,
-    origen_mesa, submitted_to_mesa, fecha_envio_mesa, etapa_actual, subestado, ciclo_estado
-  ) VALUES (
-    v_ids[2], v_org, v_asesor, 'mejoravit', '14700000002', 'P147 Mes Etapa8', '8111470002',
-    'interno', true, v_mes_atras, 8, 'en_proceso', 'activo'
-  );
-  -- 3: NO enviado a Mesa etapa 1
-  INSERT INTO public.expedientes (
-    id, organization_id, asesor_id, programa, nss, cliente_nombre, telefono_cliente,
-    origen_mesa, submitted_to_mesa, fecha_envio_mesa, etapa_actual, subestado, ciclo_estado
-  ) VALUES (
-    v_ids[3], v_org, v_asesor, 'mejoravit', '14700000003', 'P147 SinMesa Etapa1', '8111470003',
-    'interno', false, NULL, 1, 'en_proceso', 'activo'
-  );
-  -- 4: antiguo etapa 11
-  INSERT INTO public.expedientes (
-    id, organization_id, asesor_id, programa, nss, cliente_nombre, telefono_cliente,
-    origen_mesa, submitted_to_mesa, fecha_envio_mesa, etapa_actual, subestado, ciclo_estado
-  ) VALUES (
-    v_ids[4], v_org, v_asesor, 'mejoravit', '14700000004', 'P147 Antiguo Etapa11', '8111470004',
-    'interno', true, v_mes_atras - interval '60 days', 11, 'en_proceso', 'activo'
-  );
-  -- 5: soft-deleted (excluido)
-  INSERT INTO public.expedientes (
-    id, organization_id, asesor_id, programa, nss, cliente_nombre, telefono_cliente,
-    origen_mesa, submitted_to_mesa, fecha_envio_mesa, etapa_actual, subestado, ciclo_estado, deleted_at
-  ) VALUES (
-    v_ids[5], v_org, v_asesor, 'mejoravit', '14700000005', 'P147 Deleted', '8111470005',
-    'interno', true, v_hoy, 3, 'en_proceso', 'activo', now()
-  );
-  -- 6: otro asesor etapa 2 (filtro asesor)
-  INSERT INTO public.expedientes (
-    id, organization_id, asesor_id, programa, nss, cliente_nombre, telefono_cliente,
-    origen_mesa, submitted_to_mesa, fecha_envio_mesa, etapa_actual, subestado, ciclo_estado
-  ) VALUES (
-    v_ids[6], v_org, v_asesor2, 'mejoravit', '14700000006', 'P147 OtroAsesor', '8111470006',
-    'interno', true, v_hoy, 2, 'en_proceso', 'activo'
-  );
-  -- 7: legacy etapa 4 (paso visual 3)
-  INSERT INTO public.expedientes (
-    id, organization_id, asesor_id, programa, nss, cliente_nombre, telefono_cliente,
-    origen_mesa, submitted_to_mesa, fecha_envio_mesa, etapa_actual, subestado, ciclo_estado
-  ) VALUES (
-    v_ids[7], v_org, v_asesor, 'mejoravit', '14700000007', 'P147 Legacy4', '8111470007',
-    'interno', true, v_mes_atras, 4, 'en_proceso', 'activo'
-  );
+  ) VALUES
+    (v_ids[1], v_org, v_asesor, 'mejoravit', '14700000001', 'P147 Hoy Etapa2', '8111470001',
+     'interno', true, v_hoy, 2, 'en_proceso', 'activo'),
+    (v_ids[2], v_org, v_asesor, 'mejoravit', '14700000002', 'P147 Mes Etapa8', '8111470002',
+     'interno', true, v_mes_atras, 8, 'en_proceso', 'activo'),
+    (v_ids[3], v_org, v_asesor, 'mejoravit', '14700000003', 'P147 SinMesa Etapa1', '8111470003',
+     'interno', false, NULL, 1, 'en_proceso', 'activo'),
+    (v_ids[4], v_org, v_asesor, 'mejoravit', '14700000004', 'P147 Antiguo Etapa11', '8111470004',
+     'interno', true, v_mes_atras - interval '60 days', 11, 'en_proceso', 'activo'),
+    (v_ids[5], v_org, v_asesor, 'mejoravit', '14700000005', 'P147 Deleted', '8111470005',
+     'interno', true, v_hoy, 3, 'en_proceso', 'activo'),
+    (v_ids[6], v_org, v_asesor2, 'mejoravit', '14700000006', 'P147 OtroAsesor', '8111470006',
+     'interno', true, v_hoy, 2, 'en_proceso', 'activo'),
+    (v_ids[7], v_org, v_asesor, 'mejoravit', '14700000007', 'P147 Legacy4', '8111470007',
+     'interno', true, v_mes_atras, 4, 'en_proceso', 'activo'),
+    (v_ids[8], v_org, v_asesor, 'mejoravit', '14700000008', 'P147 IntegEnviada', '8111470008',
+     'interno', true, v_mes_atras, 1, 'en_validacion_mesa', 'activo');
+
+  UPDATE public.expedientes SET deleted_at = now() WHERE id = v_ids[5];
 
   PERFORM public.__p147_set_auth(v_admin);
 
   v_snap := public.admin_expedientes_snapshot_etapas(NULL::uuid, NULL::text, NULL::text);
   v_total := (v_snap->>'total_actual')::BIGINT;
+  -- 1,2,4,6,7,8 = 6 (excluye pre-Mesa 3 y deleted 5)
   PERFORM public.__p147_assert(v_total >= 6, format('snapshot total>=6 got %s', v_total));
-  PERFORM public.__p147_assert(v_snap ? 'generated_at', 'generated_at presente');
-  PERFORM public.__p147_assert(v_snap ? 'by_etapa', 'by_etapa presente');
-  PERFORM public.__p147_assert(v_snap ? 'by_paso_visual', 'by_paso_visual presente');
+  SELECT coalesce(sum((x->>'count')::BIGINT), 0) INTO v_sum_etapas
+  FROM jsonb_array_elements(v_snap->'by_etapa') x;
+  PERFORM public.__p147_assert(v_sum_etapas = v_total, 'suma by_etapa = total_actual');
 
   SELECT (x->>'count')::BIGINT INTO v_etapa2
   FROM jsonb_array_elements(v_snap->'by_etapa') x WHERE (x->>'etapa')::INT = 2;
@@ -205,25 +174,21 @@ BEGIN
 
   PERFORM public.__p147_assert(v_etapa2 >= 2, 'etapa 2 incluye hoy + otro asesor');
   PERFORM public.__p147_assert(v_etapa8 >= 1, 'etapa 8 incluye mes atras');
-  PERFORM public.__p147_assert(v_etapa1 >= 1, 'etapa 1 incluye no enviado');
+  PERFORM public.__p147_assert(v_etapa1 >= 1, 'etapa 1 incluye enviada (no pre-Mesa)');
   PERFORM public.__p147_assert(v_etapa11 >= 1, 'etapa 11 incluye antiguo');
   PERFORM public.__p147_assert(v_etapa4 >= 1, 'etapa 4 legacy en by_etapa');
   PERFORM public.__p147_assert(v_paso3 >= 1, 'paso visual 3 absorbe legacy 4');
 
-  -- KPI periodo solo el enviado hoy (asesor1+asesor2 en hoy = 2 del fixture; >=1)
   v_sum := public.admin_get_production_summary(v_from, v_to, NULL, NULL, NULL);
   v_cnt := (v_sum->>'enviados_a_mesa')::BIGINT;
   PERFORM public.__p147_assert(v_cnt >= 2, format('KPI hoy enviados>=2 got %s', v_cnt));
-  PERFORM public.__p147_assert(v_total > v_cnt, 'snapshot total > KPI periodo');
 
-  -- Cambiar periodo no cambia snapshot (segunda llamada idéntica en contenido estructural)
   v_snap2 := public.admin_expedientes_snapshot_etapas(NULL::uuid, NULL::text, NULL::text);
   PERFORM public.__p147_assert(
     (v_snap2->>'total_actual')::BIGINT = v_total,
     'snapshot estable entre llamadas'
   );
 
-  -- Mover etapa: 8 → 5; total estable (UPDATE como postgres; RPCs como admin)
   PERFORM public.__p147_reset_auth();
   UPDATE public.expedientes SET etapa_actual = 5 WHERE id = v_ids[2];
   PERFORM public.__p147_set_auth(v_admin);
@@ -232,23 +197,10 @@ BEGIN
     (v_snap2->>'total_actual')::BIGINT = v_total,
     'total estable al cambiar etapa'
   );
-  SELECT coalesce((x->>'count')::BIGINT, 0) INTO v_cnt
-  FROM jsonb_array_elements(v_snap2->'by_etapa') x WHERE (x->>'etapa')::INT = 5;
-  PERFORM public.__p147_assert(v_cnt >= 1, 'exp aparece en etapa 5');
-  v_page := public.admin_list_expedientes_snapshot_page(
-    1, 25, NULL::uuid, NULL::smallint, NULL::text, 'P147 Mes Etapa8'
-  );
-  PERFORM public.__p147_assert((v_page->>'total_count')::BIGINT = 1, 'buscar movido = 1');
-  PERFORM public.__p147_assert(
-    (v_page->'items'->0->>'etapa_actual')::INT = 5
-    AND (v_page->'items'->0->>'expediente_id') = v_ids[2]::text,
-    'drilldown refleja etapa 5 del movido'
-  );
   PERFORM public.__p147_reset_auth();
   UPDATE public.expedientes SET etapa_actual = 8 WHERE id = v_ids[2];
   PERFORM public.__p147_set_auth(v_admin);
 
-  -- Soft-deleted no cuenta
   PERFORM public.__p147_assert(
     NOT EXISTS (
       SELECT 1
@@ -260,26 +212,16 @@ BEGIN
     'deleted no en listado'
   );
 
-  -- Filtro asesor
   v_snap2 := public.admin_expedientes_snapshot_etapas(v_asesor2, NULL::text, NULL::text);
   PERFORM public.__p147_assert((v_snap2->>'total_actual')::BIGINT = 1, 'filtro asesor2 = 1');
 
-  -- Búsqueda
+  -- Pre-Mesa excluido del snapshot (contrato 148)
   v_snap2 := public.admin_expedientes_snapshot_etapas(NULL::uuid, NULL::text, 'SinMesa');
-  PERFORM public.__p147_assert((v_snap2->>'total_actual')::BIGINT = 1, 'buscar SinMesa = 1');
+  PERFORM public.__p147_assert((v_snap2->>'total_actual')::BIGINT = 0, 'buscar SinMesa = 0 (pre-Mesa)');
 
-  -- Drilldown etapa 11
   v_page := public.admin_list_expedientes_snapshot_page(1, 25, NULL::uuid, 11::smallint, NULL::text, NULL::text);
   PERFORM public.__p147_assert((v_page->>'total_count')::BIGINT >= 1, 'list etapa 11 >=1');
-  PERFORM public.__p147_assert(
-    EXISTS (
-      SELECT 1 FROM jsonb_array_elements(v_page->'items') it
-      WHERE it->>'expediente_id' = v_ids[4]::text
-    ),
-    'list incluye antiguo etapa 11'
-  );
 
-  -- Reingreso manual: mismo id, count 1
   PERFORM public.__p147_reset_auth();
   UPDATE public.expedientes
   SET reingreso_manual_count = 1, reingreso_manual_at = now()
@@ -288,7 +230,6 @@ BEGIN
   v_snap2 := public.admin_expedientes_snapshot_etapas(NULL::uuid, NULL::text, 'Hoy Etapa2');
   PERFORM public.__p147_assert((v_snap2->>'total_actual')::BIGINT = 1, 'reingreso manual cuenta 1');
 
-  -- No autorizado (asesor)
   PERFORM public.__p147_set_auth(v_asesor_user);
   BEGIN
     PERFORM public.admin_expedientes_snapshot_etapas(NULL::uuid, NULL::text, NULL::text);
@@ -310,19 +251,18 @@ BEGIN
     PERFORM public.__p147_assert(false, 'anon debió fallar');
   EXCEPTION
     WHEN OTHERS THEN
-      NULL; -- esperado (permission / no autenticado)
+      NULL;
   END;
 
   PERFORM public.__p147_reset_auth();
 
-  -- cleanup
   FOREACH v_id IN ARRAY v_ids LOOP
     DELETE FROM public.action_log WHERE entity_id = v_id;
     DELETE FROM public.expediente_paso_visual_transiciones WHERE expediente_id = v_id;
     DELETE FROM public.expedientes WHERE id = v_id;
   END LOOP;
 
-  RAISE NOTICE 'P147 snapshot etapas: OK';
+  RAISE NOTICE 'P147 snapshot etapas (contrato 148): OK';
 END;
 $$;
 

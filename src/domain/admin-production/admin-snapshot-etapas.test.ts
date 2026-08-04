@@ -51,8 +51,9 @@ function stub(partial: {
 }
 
 describe("Admin snapshot etapas (independiente del periodo)", () => {
-  it("incluye no enviados y antiguos; KPI periodo solo enviados del rango", async () => {
+  it("excluye pre-Mesa de Integración; KPI periodo solo enviados del rango", async () => {
     const hoy = "2026-07-22T18:00:00.000Z";
+    const ayer = "2026-07-21T18:00:00.000Z";
     const mesAtras = "2026-06-15T18:00:00.000Z";
     const items = [
       stub({ id: "e-hoy", fechaEnvioMesa: hoy, etapaActual: 2 }),
@@ -62,6 +63,21 @@ describe("Admin snapshot etapas (independiente del periodo)", () => {
         fechaEnvioMesa: null,
         submittedToMesa: false,
         etapaActual: 1,
+        cliente: "Pre Mesa",
+      }),
+      stub({
+        id: "e-integ-ayer",
+        fechaEnvioMesa: ayer,
+        submittedToMesa: true,
+        etapaActual: 1,
+        cliente: "Integ Ayer",
+      }),
+      stub({
+        id: "e-integ-mes",
+        fechaEnvioMesa: mesAtras,
+        submittedToMesa: true,
+        etapaActual: 1,
+        cliente: "Integ Meses",
       }),
       stub({ id: "e-11", fechaEnvioMesa: "2026-03-01T18:00:00.000Z", etapaActual: 11 }),
       stub({ id: "e-legacy4", fechaEnvioMesa: mesAtras, etapaActual: 4 }),
@@ -101,15 +117,35 @@ describe("Admin snapshot etapas (independiente del periodo)", () => {
 
     const snapA = await repo.getExpedientesSnapshotEtapas({ estado: "todos" });
     const snapB = await repo.getExpedientesSnapshotEtapas({ estado: "todos" });
-    assert.equal(snapA.totalActual, 6);
+    // 8 items − 1 pre-Mesa = 7
+    assert.equal(snapA.totalActual, 7);
     assert.equal(snapB.totalActual, snapA.totalActual, "periodo no afecta snapshot");
     assert.equal(
       snapA.byEtapa.reduce((a, b) => a + b.count, 0),
       snapA.totalActual,
     );
-    assert.equal(snapA.byEtapa.find((b) => b.etapa === 1)?.count, 1);
+    assert.equal(snapA.byEtapa.find((b) => b.etapa === 1)?.count, 2);
+    assert.equal(snapA.byEtapa.find((b) => b.etapa === 2)?.count, 2);
     assert.equal(snapA.byEtapa.find((b) => b.etapa === 4)?.count, 1);
     assert.ok((snapA.byPasoVisual.find((p) => p.pasoVisual === 3)?.count ?? 0) >= 1);
+
+    const listInteg = await repo.listExpedientesSnapshotPage({
+      estado: "todos",
+      etapaActual: 1,
+      page: 1,
+      pageSize: 25,
+    });
+    assert.equal(listInteg.totalCount, 2);
+    assert.deepEqual(
+      listInteg.items.map((i) => i.expedienteId).sort(),
+      ["e-integ-ayer", "e-integ-mes"].sort(),
+    );
+
+    const preMesaBuscar = await repo.getExpedientesSnapshotEtapas({
+      estado: "todos",
+      buscar: "Pre Mesa",
+    });
+    assert.equal(preMesaBuscar.totalActual, 0, "pre-Mesa no en snapshot ni búsqueda");
 
     const list11 = await repo.listExpedientesSnapshotPage({
       estado: "todos",
@@ -125,7 +161,7 @@ describe("Admin snapshot etapas (independiente del periodo)", () => {
       page: 1,
       pageSize: 100,
     });
-    assert.equal(clearEtapa.totalCount, 6);
+    assert.equal(clearEtapa.totalCount, 7);
 
     const buscar = await repo.getExpedientesSnapshotEtapas({
       estado: "todos",
@@ -147,6 +183,13 @@ describe("Admin snapshot etapas (independiente del periodo)", () => {
     const items = [
       stub({ id: "a", asesorId: a1, fechaEnvioMesa: "2026-07-10T12:00:00.000Z", etapaActual: 2 }),
       stub({ id: "b", asesorId: a2, fechaEnvioMesa: "2026-07-10T12:00:00.000Z", etapaActual: 5 }),
+      stub({
+        id: "c-pre",
+        asesorId: a1,
+        fechaEnvioMesa: null,
+        submittedToMesa: false,
+        etapaActual: 1,
+      }),
     ];
     const repo = new MockAdminProductionRepo({
       listForAdmin: async () => items,
@@ -157,6 +200,7 @@ describe("Admin snapshot etapas (independiente del periodo)", () => {
     });
     assert.equal(snap.totalActual, 1);
     assert.equal(snap.byEtapa.find((b) => b.etapa === 2)?.count, 1);
+    assert.equal(snap.byEtapa.find((b) => b.etapa === 1)?.count, 0);
     assert.equal(snap.byEtapa.find((b) => b.etapa === 5)?.count, 0);
   });
 });
