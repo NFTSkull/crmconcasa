@@ -246,7 +246,7 @@ BEGIN
   PERFORM public.__p153_auth(v_admin);
 
   v_sum := public.admin_stage_cohort_outcome_summary(
-    NULL, ARRAY[2]::SMALLINT[], v_from, v_to, NULL, NULL
+    ARRAY[v_asesor]::UUID[], ARRAY[2]::SMALLINT[], v_from, v_to, NULL, 'P153'
   );
   PERFORM public.__p153_assert(v_sum ? 'history_coverage_from', 'coverage presente');
   PERFORM public.__p153_assert(
@@ -265,7 +265,7 @@ BEGIN
   v_inc := (v_etapa->>'incident_count')::BIGINT;
   v_und := (v_etapa->>'undetermined_count')::BIGINT;
 
-  -- Visitas Registro en cohorte:
+  -- Visitas Registro en cohorte (filtradas por asesor P153 + buscar):
   -- exp1 advanced, exp2 stayed, exp3 stayed, exp4 incident,
   -- exp5 NO (entrada antes), exp6 two visits (advanced + stayed), exp7 advanced
   -- = 1+1+1+1+2+1 = 7
@@ -280,7 +280,7 @@ BEGIN
 
   -- Fuera de cohorte
   v_page := public.admin_stage_cohort_outcome_page(
-    NULL, ARRAY[2]::SMALLINT[], v_from, v_to, NULL, NULL, 'advanced', 50, 0
+    ARRAY[v_asesor]::UUID[], ARRAY[2]::SMALLINT[], v_from, v_to, NULL, 'P153', 'advanced', 50, 0
   );
   PERFORM public.__p153_assert(
     NOT EXISTS (
@@ -291,7 +291,7 @@ BEGIN
   );
 
   v_page := public.admin_stage_cohort_outcome_page(
-    NULL, ARRAY[2]::SMALLINT[], v_from, v_to, NULL, NULL, 'stayed', 50, 0
+    ARRAY[v_asesor]::UUID[], ARRAY[2]::SMALLINT[], v_from, v_to, NULL, 'P153', 'stayed', 50, 0
   );
   PERFORM public.__p153_assert(
     EXISTS (
@@ -311,7 +311,7 @@ BEGIN
   );
 
   v_page := public.admin_stage_cohort_outcome_page(
-    NULL, ARRAY[2]::SMALLINT[], v_from, v_to, NULL, NULL, 'incident', 50, 0
+    ARRAY[v_asesor]::UUID[], ARRAY[2]::SMALLINT[], v_from, v_to, NULL, 'P153', 'incident', 50, 0
   );
   PERFORM public.__p153_assert(
     EXISTS (
@@ -324,7 +324,7 @@ BEGIN
 
   -- Paginación: total independiente de limit
   v_page := public.admin_stage_cohort_outcome_page(
-    NULL, ARRAY[2]::SMALLINT[], v_from, v_to, NULL, NULL, 'advanced', 1, 0
+    ARRAY[v_asesor]::UUID[], ARRAY[2]::SMALLINT[], v_from, v_to, NULL, 'P153', 'advanced', 1, 0
   );
   PERFORM public.__p153_assert((v_page->>'limit')::INT = 1, 'limit=1');
   PERFORM public.__p153_assert(jsonb_array_length(v_page->'items') = 1, 'page size 1');
@@ -332,7 +332,7 @@ BEGIN
 
   -- Múltiples etapas: cada una cuadra
   v_sum := public.admin_stage_cohort_outcome_summary(
-    NULL, ARRAY[2,4]::SMALLINT[], v_from, v_to, NULL, NULL
+    ARRAY[v_asesor]::UUID[], ARRAY[2,4]::SMALLINT[], v_from, v_to, NULL, 'P153'
   );
   SELECT e INTO v_etapa
   FROM jsonb_array_elements(v_sum->'etapas') e
@@ -357,7 +357,7 @@ BEGIN
   PERFORM public.__p153_auth(v_asesor_user);
   BEGIN
     v_sum := public.admin_stage_cohort_outcome_summary(
-      NULL, ARRAY[2]::SMALLINT[], v_from, v_to, NULL, NULL
+      ARRAY[v_asesor]::UUID[], ARRAY[2]::SMALLINT[], v_from, v_to, NULL, 'P153'
     );
     PERFORM public.__p153_assert(false, 'asesor no debió ejecutar summary');
   EXCEPTION WHEN OTHERS THEN
@@ -368,7 +368,7 @@ BEGIN
   -- Regresión P149
   PERFORM public.__p153_auth(v_admin);
   v_sum149 := public.admin_stage_history_report_summary(
-    NULL, ARRAY[2]::SMALLINT[], 'entrada', v_from, v_to, NULL, NULL
+    ARRAY[v_asesor]::UUID[], ARRAY[2]::SMALLINT[], 'entrada', v_from, v_to, NULL, 'P153'
   );
   PERFORM public.__p153_assert(
     (v_sum149->'totales'->>'total_visitas')::BIGINT >= 7,
