@@ -3,7 +3,7 @@
 ## [Unreleased]
 
 ### Fixed
-- **fix(reingreso): primer alta de Datos Generales sin fila previa** — si falta `cliente_datos` en reingreso activo, `save_cliente_datos_correccion` crea la fila (mig. **151**). FE siempre usa corrección post-Mesa; «Enviar como reingreso» lista pendientes exactos y no incrementa contador si faltan datos/docs. Caso Pascasio/02189008168.
+- **fix(reingreso): primer alta de Datos Generales sin fila previa** — si falta `cliente_datos` en reingreso activo, `save_cliente_datos_correccion` crea la fila (mig. **151**). FE siempre usa corrección post-Mesa; «Enviar como reingreso» lista pendientes exactos y no incrementa contador si faltan datos/docs. Caso Pascasio/02189008168. Mig. **152**: gates de envío se evalúan **antes** de la idempotencia 5s (evita bypass incompleto).
 
 ### Added
 - **feat(reingreso): corrección completa de Datos Generales + docs asesor** — durante reingreso activo (manual `count>0` + etapa 1, o P072 etapa 6) el asesor dueño puede editar Datos Generales y subir/reemplazar todos los tipos de `integration_doc_tipos_asesor_upload()`. Mig. **150** (no modifica 146). Cierre al avanzar Mesa. Mesa: banner «Información actualizada por reingreso». Sin Acuse/Pagaré/agenda/padre/Sheets.

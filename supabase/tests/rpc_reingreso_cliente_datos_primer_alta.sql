@@ -67,7 +67,7 @@ BEGIN
     etapa_actual, subestado, ciclo_estado,
     reingreso_manual_count, reingreso_manual_at, reingreso_manual_by
   ) VALUES (
-    v_exp, v_org, v_asesor, 'mejoravit', '91510000021', 'Cliente RCD151', '5511111131',
+    v_exp, v_org, v_asesor, 'mejoravit', '91510000021', 'Cliente Rcd Uno', '5511111131',
     '', 'interno', true, NOW(), 1, 'en_validacion_mesa', 'activo',
     1, NOW(), v_asesor
   ) ON CONFLICT (id) DO UPDATE SET
@@ -86,7 +86,7 @@ BEGIN
     origen_mesa, submitted_to_mesa, fecha_envio_mesa, etapa_actual, subestado, ciclo_estado,
     reingreso_manual_count
   ) VALUES (
-    v_exp_closed, v_org, v_asesor, 'mejoravit', '91510000022', 'Cliente RCD151b', '5511111132',
+    v_exp_closed, v_org, v_asesor, 'mejoravit', '91510000022', 'Cliente Rcd Dos', '5511111132',
     'interno', true, NOW(), 3, 'en_proceso', 'activo', 2
   ) ON CONFLICT (id) DO UPDATE SET
     etapa_actual = 3, reingreso_manual_count = 2, submitted_to_mesa = true,
@@ -119,7 +119,7 @@ BEGIN
     ),
     NULL,
     jsonb_build_object(
-      'nombreCliente', 'Cliente RCD151',
+      'nombreCliente', 'Cliente Rcd Uno',
       'nss', '91510000021',
       'curp', 'PEGJ800101HDFRRN09',
       'rfc', '',
@@ -158,7 +158,7 @@ BEGIN
     ),
     NULL,
     jsonb_build_object(
-      'nombreCliente', 'Cliente RCD151 Actualizado',
+      'nombreCliente', 'Cliente Rcd Actualizado',
       'nss', '91510000021',
       'curp', 'PEGJ800101HDFRRN09',
       'rfc', '',
@@ -201,7 +201,15 @@ BEGIN
   EXCEPTION WHEN OTHERS THEN
     v_err := SQLERRM;
     PERFORM public.__rpc_rcd_reset();
-    PERFORM public.__rpc_rcd_assert(position('FALTAN_DOCS' IN v_err) > 0, 'bloquea por docs');
+    IF position('debia fallar por docs' IN v_err) > 0 THEN
+      RAISE EXCEPTION 'RPC RCD TEST FAIL: envio incompleto no fallo (err=%)', v_err;
+    END IF;
+    PERFORM public.__rpc_rcd_assert(
+      position('FALTAN_DOCS' IN v_err) > 0
+      OR position('documentos obligatorios' IN v_err) > 0
+      OR position('FALTAN_DATOS' IN v_err) > 0,
+      'bloquea envio incompleto'
+    );
   END;
 
   SELECT reingreso_manual_count INTO v_count_after FROM public.expedientes WHERE id = v_exp;
