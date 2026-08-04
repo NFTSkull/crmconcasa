@@ -32,6 +32,7 @@ export const TIPO_DOCUMENTO_CATALOGO = [
   "cliente_estado_cuenta",
   "cliente_acta_nacimiento",
   "cliente_constancia_sat",
+  "cliente_constancia_curp",
   "cliente_semanas_cotizadas",
   "cliente_historial_laboral",
   "cliente_carta_empresa",
@@ -153,6 +154,13 @@ export const DOCUMENTO_CATALOGO_MAP = Object.freeze({
     ownerRole: "mesa",
     obligatorio: "obligatorio",
     etapasRequeridas: [1, 2],
+  },
+  cliente_constancia_curp: {
+    tipo: "cliente_constancia_curp",
+    label: "Constancia CURP",
+    ownerRole: "cliente",
+    obligatorio: "opcional",
+    etapasRequeridas: [],
   },
   cliente_semanas_cotizadas: {
     tipo: "cliente_semanas_cotizadas",

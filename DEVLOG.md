@@ -1,3 +1,11 @@
+## 2026-08-04 - P156 corrección pre-commit: resumen sin PII + SQL harness + cert excluyente
+
+Ajustes bloqueadores: (1) test SQL autocontenido con org/auth/profiles/mesa/`tipo_mesa`; (2) `resultado_resumido` solo flags/coincidencias (`parser_version` p156.2), sin CURP/nombres/fecha/acta; (3) certificaciones RC/otra mutuamente excluyentes; (4) compactas derivan fecha/sexo/entidad desde CURP; (5) invalidación selectiva vía `p_tipos` en RPC; (6) probe flags-only (`scripts/probe-curp-constancia-local.ts`, ruta `/tmp` o argv; sin PII). Probe temporal `probe-curp-labels-structure.ts` excluido del commit. Sin TaxDown/OCR/gate Mesa.
+
+## 2026-08-04 - Piloto: validación CURP (constancia PDF) + RFC estimado
+
+Problema: el asesor captura CURP sin evidencia oficial ni apoyo para RFC. Solución piloto (sin scraping/OCR/TaxDown/SAT oficial ni gate de envío): validación local CURP; botón a gob.mx/curp; upload `cliente_constancia_curp` (PDF ≤15 MiB, versionado); parser client-side `pdfjs-dist` → leyenda «CURP Certificada: verificada con el Registro Civil», extracción tolerante, comparación vs Datos Generales, RFC estimado determinista etiquetado «pendiente SAT». Persistencia `cliente_validaciones_identidad` (una vigente por tipo+expediente) + RPCs `asesor_list|registrar|invalidar_validaciones_identidad` + `action_log` sin PII completa. Mesa RO + Ver/Descargar. Flag `NEXT_PUBLIC_CURP_VALIDACION_PILOTO`. Mig. **156**. PDF real solo en `/tmp` para probe local (no fixtures/commits).
+
 ## 2026-08-04 - Hotfix: re-precalificar NSS propio ya en Mesa
 
 Caso Adriana Alcocer / NSS 69149612827: `create_expediente` bloqueaba con mensaje global «enviado a Mesa» aunque el expediente vigente era suyo (`8305e3e3-…`). Causa: `nss_bloqueado_en_mesa` es bloqueo org-wide. Fix mig. **155**: gate `asesor_lookup_nss_precal_gate` + `asesor_iniciar_reprecalificacion` (historial `expediente_precalificacion_intentos`, idempotency key, sin nuevo expediente) + `editor_resolver_reprecalificacion` ruteado desde `upsert_editor_decision`. Aprobado actualiza `editor_decisions.monto_aprobado` conservando snapshot KPI; `no_cumple` no toca vigente/etapa. Otro asesor / ambiguo / programa distinto bloqueados con mensajes canónicos. Sin agenda/docs/etapas/citas.

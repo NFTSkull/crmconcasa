@@ -1934,6 +1934,7 @@ export function MesaExpedienteDetalleReadOnly() {
           {clienteDatos ? (
             <MesaClienteDatosReadOnlySection
               embedded
+              expedienteId={routeExpedienteId}
               clienteDatos={clienteDatos}
               direccionOpcional={expediente.base.direccion_opcional}
               submittedToMesa={op.submittedToMesa}

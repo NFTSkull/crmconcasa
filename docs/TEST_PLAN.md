@@ -1,3 +1,15 @@
+## P156 — Validación CURP (constancia PDF) + RFC estimado (piloto)
+
+- CURP válida localmente / dígito incorrecto / fecha extraída.
+- Constancia legible: leyenda Registro Civil; variaciones espacios/acento; sin leyenda; otra autoridad; CURP/nombre/fecha no coinciden; PDF sin texto → `PDF_NO_LEGIBLE`.
+- Texto completo del PDF no se persiste; resumen sin PII completa en logs.
+- RFC estimado se genera; nunca oficial; RFC existente no se sobrescribe; «Usar RFC» exige confirmación.
+- Cambiar CURP/nombre/RFC o reemplazar constancia invalida vigentes (historial intacto).
+- Asesor dueño OK; asesor ajeno bloqueado; Mesa lee + Ver/Descargar; una versión activa documental.
+- Sin cambio de etapa / sin crear expedientes; envío a Mesa sigue disponible (piloto).
+- SQL: `supabase/tests/rpc_cliente_constancia_curp_validaciones.sql`. FE: `src/domain/identidad-curp/identidad-curp.test.ts`.
+- Probe local flags-only: `npx tsx scripts/probe-curp-constancia-local.ts` (PDF en `/tmp`, no al repo).
+
 ## Hotfix — Re-precalificar NSS propio en Mesa (P155)
 
 - [x] Gate: own mesa / otro asesor / ambiguo / programa distinto.

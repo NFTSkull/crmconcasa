@@ -28,6 +28,33 @@ Convenciones:
 
 ---
 
+## 1ter. Validación CURP + constancia PDF + RFC estimado (P156, piloto)
+
+**Tipo documental:** `cliente_constancia_curp` (label «Constancia CURP») — opcional asesor (`integration_doc_tipos_asesor_opcionales`), PDF ≤15 MiB, versionado Storage `expediente-documentos`. Distinto de `cliente_acta_nacimiento`, `cliente_acta_nacimiento_digital`, `cliente_constancia_sat`.
+
+**Tabla:** `cliente_validaciones_identidad` — historial; una vigente por `(expediente_id, tipo)`.
+
+**Tipos de validación:** `curp_local` | `curp_constancia` | `curp_certificacion_registro_civil` | `curp_coincidencia_datos` | `rfc_estimado` | `rfc_validacion_sat`.
+
+**Métodos:** `local` | `pdf_constancia` | `manual_asistido` | `api_oficial`.
+
+**RPCs (SECURITY DEFINER):**
+- `asesor_list_validaciones_identidad(p_expediente_id)` — dueño / Mesa / editor / super_admin
+- `asesor_registrar_validacion_identidad(...)` — solo asesor dueño; invalida vigente previa del mismo tipo; `action_log` `identidad.validacion.registrar` (sin texto PDF / sin PII completa)
+- `asesor_invalidar_validaciones_identidad(p_expediente_id, p_motivo)` — solo asesor dueño; `identidad.validacion.invalidar`
+
+**Análisis PDF:** client-side (`pdfjs-dist`), solo texto embebido (sin OCR). Persistencia solo `resultado_resumido` con flags/coincidencias (`texto_legible`, `certificada_registro_civil`, `campos_coinciden`, `campos_con_diferencia`, `campos_no_disponibles`, `parser_version`) — **sin** CURP/nombres/fecha/acta/municipio completos.
+
+**Invalidación:** `asesor_invalidar_validaciones_identidad(..., p_tipos TEXT[] DEFAULT NULL)` — selectiva por tipos; NULL = todas.
+
+**RFC:** siempre estimado; nunca `RFC_OFICIAL_CONFIRMADO` en este flujo. Label: «RFC estimado. Pendiente de validación en el SAT.»
+
+**Feature flag:** `NEXT_PUBLIC_CURP_VALIDACION_PILOTO` (default habilitado salvo `"false"`). **No** gate de `enviar_a_mesa` en piloto.
+
+**RLS:** SELECT si `can_see_expediente`; mutaciones solo vía RPC.
+
+---
+
 ## 1bis. Re-precalificar NSS propio en Mesa (P155)
 
 **RPCs:** `asesor_lookup_nss_precal_gate` · `asesor_iniciar_reprecalificacion` · `editor_resolver_reprecalificacion` (también vía `upsert_editor_decision` si hay `reprecalificacion_pendiente_id`)
