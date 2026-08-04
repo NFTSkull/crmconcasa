@@ -203,6 +203,15 @@
 - [x] Excel: mismos datos/hojas/columnas; encabezado `#1F4E79`; alternos `#D6EAF8`/`#FFFFFF`; subtotales `#6B2D8B`; bordes `#9BB3C9`; NSS texto.
 - [x] Sin SQL/RPC/Cloud/deps nuevas; citas Mesa intactas.
 
+## P149 — Reporte histórico de etapas (Admin)
+
+- [ ] RPCs `admin_stage_history_report_summary` / `_page` solo `super_admin`; STABLE; sin `action_log`; anon/PUBLIC sin EXECUTE.
+- [ ] Movimientos `entrada`|`avance`|`estuvieron` exigen `p_fecha_desde`+`p_fecha_hasta` (Monterrey); `estado_actual` referencia sin fechas.
+- [ ] Pasos 1–11; `p_estado_actual` activos|rechazados|cancelados|todos; NSS parcial en page; resultado clasificado.
+- [ ] UI `/admin`: tipo movimiento, consulta bajo demanda, banner cobertura, tarjetas resumen, tabla por etapa, detalle paginado, limpiar filtros.
+- [ ] Excel `reporte-historico-etapas-YYYY-MM-DD.xlsx` (Resumen por etapa + Historial detallado); tests TS domain/Excel.
+- [ ] Snapshot 147/148 y `admin_report_*` v3 sin cambios.
+
 ## P112 — Reporte Admin expedientes por asesores/etapas
 
 - [x] RPC `admin_report_expedientes_asesores_etapas` solo `super_admin`; STABLE; sin `action_log`; anon/PUBLIC sin EXECUTE.

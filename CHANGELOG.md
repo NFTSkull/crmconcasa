@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Added
+- **feat(admin): Reporte histórico de etapas (P149)** — `/admin` sección «Reporte histórico de etapas» conectada a RPCs `admin_stage_history_report_summary` / `_page` (mig. **149**). Filtros: movimiento (entrada/avance/estuvieron/estado actual), asesores, pasos 1–11, estado actual, fechas MX, búsqueda; consulta bajo demanda; resumen + detalle paginado; Excel `reporte-historico-etapas-YYYY-MM-DD.xlsx`. Snapshot dashboard (147/148) y `admin_report_*` v3 intactos.
+
 ### Fixed
 - **fix(admin): Integración del snapshot solo cuenta enviados a Mesa** — tarjetas/`total_actual`/drilldown excluyen pre-Mesa (`etapa_actual=1` sin `submitted_to_mesa`+`fecha_envio_mesa`). Mig. **148**. Título: «Estado actual de los expedientes enviados a Mesa». KPI periodo y Excel intactos.
 
