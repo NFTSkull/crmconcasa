@@ -271,7 +271,11 @@ describe("asesor corrección post-Mesa (helpers UI)", () => {
       true,
     );
     assert.equal(asesorDebeUsarCorreccionClienteDatos(true, true), true);
-    assert.equal(asesorDebeUsarCorreccionClienteDatos(true, false), false);
+    assert.equal(
+      asesorDebeUsarCorreccionClienteDatos(true, false),
+      true,
+      "post-Mesa sin fila aún usa corrección (primer alta en reingreso)",
+    );
     assert.equal(asesorDebeUsarCorreccionClienteDatos(false, true), false);
     assert.equal(asesorEsCorreccionRechazoClienteDatos(true, "rechazado"), true);
     assert.equal(asesorEsCorreccionRechazoClienteDatos(true, "completo"), false);

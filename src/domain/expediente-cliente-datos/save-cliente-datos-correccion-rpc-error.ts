@@ -49,13 +49,34 @@ export function mapSaveClienteDatosCorreccionRpcError(error: {
     return new ClienteDatosSupabaseError("Revisa el teléfono del cliente y referencias.");
   }
 
+  if (msg.includes("faltan datos del cliente") || msg.includes("create_reingreso")) {
+    return new ClienteDatosSupabaseError(
+      "No se pudo crear/guardar los Datos Generales. Completa los campos obligatorios e intenta de nuevo.",
+    );
+  }
+
+  if (msg.includes("reingreso") && msg.includes("no válido")) {
+    return new ClienteDatosSupabaseError(
+      "El reingreso ya no está activo. Vuelve a enviarlo como reingreso cuando corresponda.",
+    );
+  }
+
   if (msg.includes("could not find the function") || msg.includes("schema cache")) {
     return new ClienteDatosSupabaseError(
       "La corrección de datos aún no está disponible en el servidor. Contacta soporte.",
     );
   }
 
+  // Conservar mensaje SQL útil cuando sea legible
+  if (raw && !msg.includes("save_cliente_datos_correccion:")) {
+    return new ClienteDatosSupabaseError(raw);
+  }
+  if (/save_cliente_datos(_correccion)?:/i.test(raw)) {
+    const cleaned = raw.replace(/save_cliente_datos(_correccion)?:\s*/i, "").trim();
+    if (cleaned) return new ClienteDatosSupabaseError(cleaned);
+  }
+
   return new ClienteDatosSupabaseError(
-    "No se pudo guardar la corrección de datos. Intenta de nuevo más tarde.",
+    "No se pudo guardar la información. Intenta de nuevo más tarde.",
   );
 }

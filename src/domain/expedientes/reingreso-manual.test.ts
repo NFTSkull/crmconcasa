@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  buildReingresoManualEnvioPendientes,
   formatReingresoBadgeLabel,
+  formatReingresoEnvioPendientesMessage,
   hasReingresoVisible,
   mapAsesorEnviarReingresoRpcError,
   puedeMostrarReingresoManualCard,
@@ -74,6 +76,49 @@ describe("reingreso-manual helpers", () => {
     );
   });
 
+  it("buildReingresoManualEnvioPendientes: lista exacta docs + datos", () => {
+    const pendientes = buildReingresoManualEnvioPendientes({
+      hasMontoAprobado: true,
+      datosGeneralesCompletos: false,
+      camposFaltantesDatos: ["Domicilio real del cliente"],
+      archivosResumen: [
+        {
+          expediente_id: "x",
+          tipo_documento: "cliente_comprobante_domicilio",
+          id: "1",
+          nombre_original: "d.pdf",
+          mime_type: "application/pdf",
+          size_bytes: 1,
+          created_at: null,
+          uploaded_by_role: null,
+          uploaded_by_email: null,
+          estatus_revision: "subido",
+          comentario_mesa: null,
+        },
+        {
+          expediente_id: "x",
+          tipo_documento: "cliente_estado_cuenta",
+          id: "2",
+          nombre_original: "e.pdf",
+          mime_type: "application/pdf",
+          size_bytes: 1,
+          created_at: null,
+          uploaded_by_role: null,
+          uploaded_by_email: null,
+          estatus_revision: "subido",
+          comentario_mesa: null,
+        },
+      ],
+    });
+    assert.ok(pendientes.includes("Domicilio real del cliente"));
+    assert.ok(pendientes.some((p) => /INE \(frente\)/i.test(p)));
+    assert.ok(pendientes.some((p) => /INE \(reverso\)/i.test(p)));
+    assert.equal(pendientes.includes("Comprobante de domicilio"), false);
+    assert.equal(pendientes.includes("Estado de cuenta"), false);
+    const msg = formatReingresoEnvioPendientesMessage(pendientes);
+    assert.match(msg, /No puedes enviar todavía/);
+  });
+
   it("mapAsesorEnviarReingresoRpcError: asesor ajeno", () => {
     const err = mapAsesorEnviarReingresoRpcError({
       message: "asesor_enviar_reingreso_a_mesa: solo el asesor dueño puede reingresar a Mesa",
@@ -86,5 +131,20 @@ describe("reingreso-manual helpers", () => {
       message: "asesor_enviar_reingreso_a_mesa: el expediente está cancelado y no se puede reingresar",
     });
     assert.match(err.message, /cancelado/i);
+  });
+
+  it("mapAsesorEnviarReingresoRpcError: faltan datos/docs", () => {
+    assert.match(
+      mapAsesorEnviarReingresoRpcError({
+        message: "asesor_enviar_reingreso_a_mesa: FALTAN_DATOS: faltan Datos Generales",
+      }).message,
+      /Datos Generales/i,
+    );
+    assert.match(
+      mapAsesorEnviarReingresoRpcError({
+        message: "asesor_enviar_reingreso_a_mesa: FALTAN_DOCS: faltan documentos obligatorios (2 de 4)",
+      }).message,
+      /documentos obligatorios/i,
+    );
   });
 });
