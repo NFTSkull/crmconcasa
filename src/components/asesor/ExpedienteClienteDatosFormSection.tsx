@@ -18,6 +18,7 @@ import {
   asesorEsCorreccionRechazoClienteDatos,
   asesorPuedeEditarClienteDatos,
 } from "@/domain/expediente-archivos/asesor-correccion-post-mesa";
+import { AsesorCurpValidacionSection } from "@/components/asesor/AsesorCurpValidacionSection";
 
 type ClienteDatosFormState = ExpedienteClienteDatos["datos"];
 
@@ -33,6 +34,7 @@ type ClienteDatosMeta = {
 };
 
 interface ExpedienteClienteDatosFormSectionProps {
+  expedienteId: string;
   clienteDatos: ClienteDatosFormState;
   setClienteDatos: Dispatch<SetStateAction<ClienteDatosFormState>>;
   direccionOpcional: string;
@@ -96,6 +98,7 @@ function DatosField({
 }
 
 export function ExpedienteClienteDatosFormSection({
+  expedienteId,
   clienteDatos,
   setClienteDatos,
   direccionOpcional,
@@ -341,6 +344,24 @@ export function ExpedienteClienteDatosFormSection({
               }
             />
           </DatosField>
+          {expedienteId ? (
+            <AsesorCurpValidacionSection
+              expedienteId={expedienteId}
+              curp={clienteDatos.curp}
+              nombreCliente={clienteDatos.nombreCliente}
+              rfc={clienteDatos.rfc}
+              canEdit={puedeEditar}
+              onApplyRfcEstimado={(rfcEstimado) => {
+                setClienteDatos((p) => ({ ...p, rfc: rfcEstimado }));
+              }}
+              onApplyNombreFromConstancia={(nombre) => {
+                setClienteDatos((p) => ({
+                  ...p,
+                  nombreCliente: filterPersonNameInput(nombre),
+                }));
+              }}
+            />
+          ) : null}
           <DatosField label="RFC (opcional)" fieldKey="rfc" error={err("rfc")} showError={showFieldErrors}>
             <input
               className={`${fieldInputClass(Boolean(err("rfc")))} uppercase`}

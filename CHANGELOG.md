@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Added
+- **feat(generales): validación CURP por constancia PDF + RFC estimado (piloto)** — sección en Datos Generales (Asesor) y lectura Mesa: validación local CURP, descarga manual gob.mx/curp, análisis PDF client-side (`pdfjs-dist`, sin OCR), certificación Registro Civil, comparación de identidad, RFC estimado local (nunca oficial/SAT). Tipo `cliente_constancia_curp`, tabla `cliente_validaciones_identidad`, RPCs list/registrar/invalidar. Feature flag `NEXT_PUBLIC_CURP_VALIDACION_PILOTO` (default on). **No** bloquea envío a Mesa. Mig. **156**.
+
 ### Fixed
 - **fix(precalificacion): allow owner to requalify NSS already in Mesa** — el asesor dueño puede re-precalificar un NSS ya enviado a Mesa reutilizando el mismo `expediente_id` (historial en `expediente_precalificacion_intentos`). Bloqueo si es de otro asesor, ambiguo o programa distinto. Mig. **155**.
 

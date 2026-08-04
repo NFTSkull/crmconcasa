@@ -1576,6 +1576,7 @@ export default function AsesorExpedientePage() {
               </div>
             ) : null}
             <ExpedienteClienteDatosFormSection
+              expedienteId={String(precal.id)}
               clienteDatos={clienteDatos}
               setClienteDatos={handleClienteDatosChange}
               direccionOpcional={direccionOpcional}
@@ -1938,6 +1939,7 @@ export default function AsesorExpedientePage() {
             ) : null}
 
             <ExpedienteClienteDatosFormSection
+              expedienteId={String(precal.id)}
               clienteDatos={clienteDatos}
               setClienteDatos={handleClienteDatosChange}
               direccionOpcional={direccionOpcional}

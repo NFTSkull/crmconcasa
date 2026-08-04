@@ -11,6 +11,7 @@ import {
 } from "@/domain/expediente-cliente-datos";
 import { MESA_SOLICITAR_CORRECCION_LABEL } from "@/domain/expedientes/mesa-decision-ux";
 import { formatMontoMXN, labelMetodoPago, parseMontoCalculadoInput } from "@/lib/clienteDatosCobro";
+import { MesaCurpValidacionReadOnlySection } from "@/components/mesa-control/MesaCurpValidacionReadOnlySection";
 
 function displayValue(value: string | null | undefined): string {
   const trimmed = value?.trim();
@@ -75,6 +76,7 @@ function DataField({ label, value }: { label: string; value: string }) {
 }
 
 type Props = {
+  expedienteId: string;
   clienteDatos: ExpedienteClienteDatos;
   direccionOpcional?: string | null;
   submittedToMesa?: boolean;
@@ -88,6 +90,7 @@ type Props = {
 };
 
 export function MesaClienteDatosReadOnlySection({
+  expedienteId,
   clienteDatos,
   direccionOpcional,
   submittedToMesa = true,
@@ -220,6 +223,11 @@ export function MesaClienteDatosReadOnlySection({
             <DataField label="CURP" value={displayValue(datos.curp)} />
             <DataField label="RFC (opcional)" value={displayValue(datos.rfc)} />
           </DataCard>
+
+          <MesaCurpValidacionReadOnlySection
+            expedienteId={expedienteId}
+            formatDateTime={formatDateTime}
+          />
 
           <DataCard title="Contacto">
             <DataField label="Celular" value={displayValue(datos.celular)} />

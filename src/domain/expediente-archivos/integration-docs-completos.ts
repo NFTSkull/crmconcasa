@@ -28,6 +28,7 @@ export const INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES = [
   "cliente_notificacion_apodaca",
   "cliente_notificacion",
   "asesor_evidencia",
+  "cliente_constancia_curp",
 ] as const;
 
 /**
@@ -215,7 +216,8 @@ export const CLIENTE_SOLICITUD_DOCUMENT_CONTRACT = Object.freeze({
 /**
  * Opcionales asesor que Mesa no lista en complementarios (semanas/acta/SAT van ahí).
  * Excluye `cliente_notificacion` (sección dedicada P092/P132),
- * `cliente_notificacion_apodaca` y `asesor_evidencia` (secciones dedicadas).
+ * `cliente_notificacion_apodaca`, `asesor_evidencia` y `cliente_constancia_curp`
+ * (secciones dedicadas; P156 CURP en Datos Generales).
  */
 export const INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES_SOLO_ASESOR =
   INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES.filter(
@@ -223,7 +225,8 @@ export const INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES_SOLO_ASESOR =
       !(INTEGRATION_DOC_TIPOS_MESA_UPLOAD as readonly string[]).includes(tipo) &&
       tipo !== CLIENTE_NOTIFICACION_DOCUMENT_TIPO &&
       tipo !== CLIENTE_NOTIFICACION_APODACA_DOCUMENT_TIPO &&
-      tipo !== ASESOR_EVIDENCIA_DOCUMENT_TIPO,
+      tipo !== ASESOR_EVIDENCIA_DOCUMENT_TIPO &&
+      tipo !== "cliente_constancia_curp",
   );
 
 export type IntegrationDocMesaUploadTipo = (typeof INTEGRATION_DOC_TIPOS_MESA_UPLOAD)[number];
@@ -349,14 +352,15 @@ export function deriveIntegrationDocsChecklist(
 }
 
 /** Checklist de documentos opcionales de upload asesor (no bloquean envío).
- * Excluye Notificación (sección dedicada) y Evidencia (sección dedicada). */
+ * Excluye Notificación (sección dedicada), Evidencia y Constancia CURP (secciones dedicadas). */
 export function deriveIntegrationDocsChecklistOpcionales(
   resumen: IntegrationDocsResumenInput,
 ): IntegrationDocChecklistItem[] {
   const tipos = INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES.filter(
     (t) =>
       t !== CLIENTE_NOTIFICACION_DOCUMENT_TIPO &&
-      t !== ASESOR_EVIDENCIA_DOCUMENT_TIPO,
+      t !== ASESOR_EVIDENCIA_DOCUMENT_TIPO &&
+      t !== "cliente_constancia_curp",
   );
   return mapChecklistItems(tipos, resumen, true);
 }
