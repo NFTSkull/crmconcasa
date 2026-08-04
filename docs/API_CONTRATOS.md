@@ -1131,17 +1131,22 @@ Captura en la misma TX de `register_expediente_documento_correccion` / `save_cli
 - Traza: `expediente_rechazo_reactivaciones` + `action_log` (`expediente.rechazo_reactivacion`) con quién, cuándo y `rechazo_id` atendido.
 - **No** depende de `biometricos_condicion`. Errores estables `REACTIVATION_*`.
 
-### Documentos domicilio / estado de cuenta en reingreso (hotfix 146)
+### Documentos y Datos Generales en reingreso activo (mig. 150; amplía 146)
 
-Tipos: `cliente_comprobante_domicilio`, `cliente_estado_cuenta`.
+Tipos asesor: `integration_doc_tipos_asesor_upload()` (INE frente/reverso, domicilio, estado de cuenta, opcionales de integración, etc.). **No** abre tipos Mesa-only (p. ej. `cliente_acta_nacimiento`, `cliente_constancia_sat`, Pagaré, Solicitud).
 
 | Contexto | Regla |
 |----------|--------|
-| P072 hijo válido (`es_reingreso_post_biometricos_valido`, etapa 6) | Asesor dueño puede **subir o reemplazar** post-envío |
-| Reingreso manual (`reingreso_manual_count > 0`, mismo expediente) | Igual: subir o reemplazar post-envío |
-| Expediente normal | Conserva reglas post-Mesa previas (reemplazo si ya existe; sin primer upload de obligatorio faltante) |
+| P072 hijo válido (`es_reingreso_post_biometricos_valido`, etapa 6) | Asesor dueño: Datos Generales + subir/reemplazar todos los docs de `integration_doc_tipos_asesor_upload` |
+| Reingreso manual (`reingreso_manual_count > 0` **y** `etapa_actual = 1`) | Igual sobre el mismo expediente |
+| Tras avance Mesa (manual sale de etapa 1; P072 sale de etapa 6) | Se cierran permisos ampliados; quedan reglas post-Mesa normales (reemplazo si existe, opcionales faltantes, rechazados) |
+| Expediente normal sin reingreso activo | Conserva reglas post-Mesa previas |
 
-RPC: `register_expediente_documento` (wrapper) + storage `expediente_documento_storage_asesor_post_mesa_upload_allowed`. Versionado soft-delete; una versión activa; `action_log`; no cambia etapa ni padre.
+Helpers SQL: `es_reingreso_asesor_edicion_activa`, `es_reingreso_manual_docs_editables` (con cierre etapa 1), alias `es_reingreso_docs_domicilio_estado_cuenta`. RPC `register_expediente_documento` + storage `expediente_documento_storage_asesor_post_mesa_upload_allowed`. FE: `esReingresoDocumentosEditables` / `esReingresoDatosEditables`. Versionado soft-delete; una versión activa; `action_log`; no cambia etapa ni padre.
+
+### Documentos domicilio / estado de cuenta en reingreso (hotfix 146)
+
+Superseded por mig. **150** (mismos tipos siguen cubiertos dentro de la allowlist asesor completa).
 
 ### Elegibilidad reingreso hijo (P072 intacto)
 

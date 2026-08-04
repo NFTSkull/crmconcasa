@@ -562,6 +562,23 @@ export default function AsesorExpedientePage() {
     [currentUser?.role, expedienteCancelado],
   );
 
+  const esReingresoActivo = useMemo(
+    () =>
+      esReingresoDocumentosEditables({
+        tieneReingresoPostBiometricos: Boolean(
+          reingreso?.expedienteAnteriorId && reingreso?.rechazoId,
+        ),
+        etapaActual: operativo?.etapaActual,
+        reingresoManualCount: reingresoManual?.count,
+      }),
+    [
+      operativo?.etapaActual,
+      reingreso?.expedienteAnteriorId,
+      reingreso?.rechazoId,
+      reingresoManual?.count,
+    ],
+  );
+
   const muestraReingresoBadge = hasReingresoVisible({
     reingreso,
     reingresoManual,
@@ -1440,6 +1457,19 @@ export default function AsesorExpedientePage() {
                 </div>
               </div>
             ) : null}
+            {esReingresoActivo ? (
+              <div
+                role="status"
+                className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+              >
+                <p className="font-semibold">Reingreso activo</p>
+                <p className="mt-1 text-sm text-amber-950/90">
+                  Puedes corregir nuevamente los Datos Generales y reemplazar los
+                  documentos del expediente. Cuando termines, envíalo nuevamente a
+                  Mesa.
+                </p>
+              </div>
+            ) : null}
             {puedeMostrarReingresoCard ? (
               <div className="rounded-lg border border-violet-200 bg-violet-50/60 p-4 text-sm text-gray-700">
                 <div className="flex flex-wrap items-start justify-between gap-2">
@@ -1509,6 +1539,7 @@ export default function AsesorExpedientePage() {
               showFieldErrors={clienteDatosShowValidation}
               puedeIntegrar={puedeIntegrarAsesor}
               submittedToMesa={operativo?.submittedToMesa ?? false}
+              esReingresoActivo={esReingresoActivo}
               dataSupabase
               formatDateTime={formatDateTime}
               onSave={handleSaveClienteDatos}
@@ -1593,13 +1624,7 @@ export default function AsesorExpedientePage() {
                     archivosResumen={archivosResumen}
                     puedeIntegrar={puedeIntegrarAsesor}
                     submittedToMesa={operativo?.submittedToMesa ?? false}
-                    esReingresoActivo={esReingresoDocumentosEditables({
-                      tieneReingresoPostBiometricos: Boolean(
-                        reingreso?.expedienteAnteriorId && reingreso?.rechazoId,
-                      ),
-                      etapaActual: operativo?.etapaActual,
-                      reingresoManualCount: reingresoManual?.count,
-                    })}
+                    esReingresoActivo={esReingresoActivo}
                     readOnlyOpcionalTipos={[]}
                     onUploaded={refreshArchivos}
                   />
@@ -1781,6 +1806,19 @@ export default function AsesorExpedientePage() {
               </div>
             ) : null}
 
+            {esReingresoActivo ? (
+              <div
+                role="status"
+                className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950"
+              >
+                <p className="font-semibold">Reingreso activo</p>
+                <p className="mt-1 text-sm text-amber-950/90">
+                  Puedes corregir nuevamente los Datos Generales y reemplazar los
+                  documentos del expediente. Cuando termines, envíalo nuevamente a
+                  Mesa.
+                </p>
+              </div>
+            ) : null}
             {puedeMostrarReingresoCard ? (
               <div className="rounded-lg border border-violet-200 bg-violet-50/60 p-4 text-sm text-gray-700">
                 <div className="flex flex-wrap items-start justify-between gap-2">
@@ -1848,6 +1886,8 @@ export default function AsesorExpedientePage() {
               fieldErrors={clienteDatosFieldErrors}
               showFieldErrors={clienteDatosShowValidation}
               puedeIntegrar={puedeIntegrarAsesor}
+              submittedToMesa={operativo?.submittedToMesa ?? false}
+              esReingresoActivo={esReingresoActivo}
               dataSupabase={false}
               formatDateTime={formatDateTime}
               onSave={handleSaveClienteDatos}
