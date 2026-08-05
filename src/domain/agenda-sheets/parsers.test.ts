@@ -80,6 +80,34 @@ describe("agenda-sheets parsers: horas", () => {
     assert.equal(r.ok, true);
     if (r.ok) assert.equal(r.value, "09:30");
   });
+  it("9:30 AM", () => {
+    const r = parseSheetTime("9:30 AM");
+    assert.equal(r.ok, true);
+    if (r.ok) assert.equal(r.value, "09:30");
+  });
+  it("09:30 AM", () => {
+    const r = parseSheetTime("09:30 AM");
+    assert.equal(r.ok, true);
+    if (r.ok) assert.equal(r.value, "09:30");
+  });
+  it("09:30", () => {
+    const r = parseSheetTime("09:30");
+    assert.equal(r.ok, true);
+    if (r.ok) assert.equal(r.value, "09:30");
+  });
+  it("12:00 PM / 12:00PM", () => {
+    const a = parseSheetTime("12:00 PM");
+    const b = parseSheetTime("12:00PM");
+    assert.equal(a.ok, true);
+    assert.equal(b.ok, true);
+    if (a.ok) assert.equal(a.value, "12:00");
+    if (b.ok) assert.equal(b.value, "12:00");
+  });
+  it("no trunca 09:30 a 09:00", () => {
+    const r = parseSheetTime("9:30 AM");
+    assert.equal(r.ok, true);
+    if (r.ok) assert.notEqual(r.value, "09:00");
+  });
   it("11:00", () => {
     const r = parseSheetTime("11:00");
     assert.equal(r.ok, true);

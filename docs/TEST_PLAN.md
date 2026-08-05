@@ -1,3 +1,13 @@
+## Hotfix — Firmas 09:30 inventario / slots config (local)
+
+- [x] Parser: `9:30 AM` / `9:30AM` / `09:30` → `09:30` (sin truncar a 09:00).
+- [x] Fixture 07 AGOSTO filas 9–20: 09:30×3 + 10:00×3 available; `slot_key` distinto por row.
+- [x] UI `applySheetInventoryToSlots`: agrega horarios solo-inventario (09:30/10:00) con capacidad física.
+- [x] SQL `firmas_sync_slots_from_sheet_inventory.sql`: añade `09:30` a slots; reabre `10:00` de 0→3; idempotente.
+- [x] Cloud RO: inventario ya OK; bug = `agenda_config.firmas.slots` sin 09:30 + `capacity_by_time[10:00]=0`.
+- [ ] Cloud: aplicar mig. 157 + `agenda_firmas_sync_slots_from_sheet_inventory` (pendiente autorización).
+- [ ] Sin escritura Sheet/citas/etapas en este hotfix local.
+
 ## P156 — Validación CURP (constancia PDF) + RFC estimado (piloto)
 
 - CURP válida localmente / dígito incorrecto / fecha extraída.

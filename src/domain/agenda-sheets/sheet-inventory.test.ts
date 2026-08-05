@@ -418,4 +418,59 @@ describe("sheet-inventory", () => {
     // huérfanas 10:30 no inventariadas como cupos válidos
     assert.equal(rows.filter((r) => r.slotTime === "10:30").length, 0);
   });
+
+  it("07 AGOSTO filas 9–20: tres 09:30 y tres 10:00 vacías = capacidad 3 c/u (slot_key por row)", () => {
+    // Encabezado fila 8; horas sheet 9–20 (como en CITAS 2026 / 07 AGOSTO).
+    const { rows: aligned } = parsePhysicalInventoryFromGrid({
+      bookingDate: "2026-08-07",
+      sheetTitle: "07 AGOSTO",
+      sheetId: 195044516,
+      grid: [
+        ...Array.from({ length: 7 }, () => [""] as string[]),
+        ["MONTERREY FIRMAS"], // sheet row 8
+        ["8:30 AM", "11111111111", "OccA", "Asesor"], // 9
+        ["8:30 AM", "22222222222", "OccB", "Asesor"], // 10
+        ["8:30 AM", "33333333333", "OccC", "Asesor"], // 11
+        ["9:00 AM", "44444444444", "OccD", "Asesor"], // 12
+        ["9:00 AM", "55555555555", "OccE", "Asesor"], // 13
+        ["9:00 AM", "", "", ""], // 14
+        ["9:30 AM", "", "", ""], // 15
+        ["9:30 AM", "", "", ""], // 16
+        ["9:30 AM", "", "", ""], // 17
+        ["10:00 AM", "", "", ""], // 18
+        ["10:00 AM", "", "", ""], // 19
+        ["10:00 AM", "", "", ""], // 20
+      ],
+    });
+    const firmas = aligned.filter(
+      (r) => r.kind === "firmas" && r.locationId === "monterrey",
+    );
+    assert.equal(firmas.length, 12);
+    const avail = countAvailableByTime(firmas, "firmas", "monterrey");
+    assert.equal(avail["08:30"] ?? 0, 0);
+    assert.equal(avail["09:00"] ?? 0, 1);
+    assert.equal(avail["09:30"] ?? 0, 3);
+    assert.equal(avail["10:00"] ?? 0, 3);
+    assert.equal(firmas.filter((r) => r.sheetSlotTime === "08:30").length, 3);
+    assert.equal(
+      firmas.filter((r) => r.sheetSlotTime === "08:30" && r.status === "occupied_external")
+        .length,
+      3,
+    );
+    const keys930 = firmas
+      .filter((r) => r.sheetSlotTime === "09:30")
+      .map((r) => r.slotKey);
+    assert.equal(keys930.length, 3);
+    assert.equal(new Set(keys930).size, 3);
+    assert.deepEqual(
+      firmas.filter((r) => r.sheetSlotTime === "09:30").map((r) => r.sheetRow),
+      [15, 16, 17],
+    );
+    assert.deepEqual(
+      firmas.filter((r) => r.sheetSlotTime === "10:00").map((r) => r.sheetRow),
+      [18, 19, 20],
+    );
+    assert.ok(keys930.every((k) => k.includes("|sheet=09:30|")));
+    assert.ok(keys930.every((k) => k.includes("sheetId=195044516")));
+  });
 });
