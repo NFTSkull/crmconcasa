@@ -438,9 +438,15 @@ export function RetencionAcuseAvisoSupabaseCard({
                             Nota de Mesa: {item.comentario_mesa}
                           </p>
                         ) : null}
-                        {estatus === "validado" ? (
+                        {estatus === "validado" && !puedeReemplazar ? (
                           <p className="mt-1 text-[11px] text-green-800">
                             Aceptado por Mesa — no requiere cambios.
+                          </p>
+                        ) : null}
+                        {estatus === "validado" && puedeReemplazar ? (
+                          <p className="mt-1 text-[11px] text-gray-600">
+                            Aceptado por Mesa. Puedes reemplazar solo el archivo si
+                            necesitas corregirlo; no cambia la opción ni la etapa.
                           </p>
                         ) : null}
                         {!puedeReemplazar && hasFile && estatus !== "validado" ? (
@@ -453,6 +459,15 @@ export function RetencionAcuseAvisoSupabaseCard({
                         {puedeReemplazar && hasFile && panel.uiEstado === "no_enviado" ? (
                           <p className="mt-1 text-[10px] text-gray-500">
                             Puedes reemplazar el archivo antes de enviar el bloque a Mesa.
+                          </p>
+                        ) : null}
+                        {puedeReemplazar &&
+                        hasFile &&
+                        panel.uiEstado === "enviado" &&
+                        estatus !== "validado" ? (
+                          <p className="mt-1 text-[10px] text-gray-500">
+                            Puedes reemplazar el archivo. La versión anterior queda
+                            inactiva; no cambia opción A/B, etapa ni la cita de firma.
                           </p>
                         ) : null}
                         {uploadError ? (
@@ -468,7 +483,11 @@ export function RetencionAcuseAvisoSupabaseCard({
                           busy={uploading}
                           disabled={!puedeReemplazar || uploading || refetching || enviando}
                           selectedFileName={item?.nombre_original ?? null}
-                          aria-label={hasFile ? `Reemplazar ${retencionDocLabelByTipo[tipo] ?? "documento"}` : `Subir ${retencionDocLabelByTipo[tipo] ?? "documento"}`}
+                          aria-label={
+                            hasFile
+                              ? `Reemplazar archivo ${retencionDocLabelByTipo[tipo] ?? "documento"}`
+                              : `Subir ${retencionDocLabelByTipo[tipo] ?? "documento"}`
+                          }
                           onFiles={(files) => void handleFileChange(tipo, files)}
                         />
                       </div>

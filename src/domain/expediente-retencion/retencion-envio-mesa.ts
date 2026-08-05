@@ -72,24 +72,36 @@ export function retencionDocPuedeRechazarMesa(
   return estatus === "subido" || estatus === "resubido" || estatus === "validado" || estatus === "rechazado";
 }
 
-/** Asesor puede subir/reemplazar según estado del bloque y del documento.
- * - `validado`: nunca.
- * - Bloque `enviado` (en revisión Mesa): no reemplaza.
- * - Bloque `correccion_requerida`: solo `rechazado`.
- * - Bloque `no_enviado`: puede subir faltantes y reemplazar `subido`/`resubido`/`rechazado`
- *   (alineado con el RPC, que solo bloquea `validado`).
+/** Asesor dueño puede subir/reemplazar el archivo de retención según estado.
+ * - Bloque `no_enviado`: subir faltantes y reemplazar subido/resubido/rechazado.
+ * - Bloque `enviado` (ya enviado a Mesa, con o sin etapa 9+): puede reemplazar el
+ *   archivo activo (subido/resubido/rechazado/validado) sin exigir corrección Mesa.
+ *   No cambia opción A/B ni etapa (el RPC solo avanza 8→9 en el primer alta).
+ * - Bloque `correccion_requerida`: solo documentos `rechazado`.
  */
 export function retencionDocPuedeReemplazarAsesor(
   estatus: string | undefined,
   hasFile: boolean,
   uiEstado: RetencionEnvioMesaUiEstado = "no_enviado",
 ): boolean {
-  if (estatus === "validado") return false;
-  // `faltante` o sin estatus: permitir Subir (o recuperar fila inconsistente con archivo).
+  // `faltante` o sin estatus: permitir Subir (o recuperar fila inconsistente).
   if (!estatus || estatus === "faltante") return true;
-  if (uiEstado === "enviado") return false;
-  if (uiEstado === "correccion_requerida") return estatus === "rechazado";
-  // no_enviado: puede corregir PDF antes de enviar el bloque a Mesa.
+
+  if (uiEstado === "correccion_requerida") {
+    return estatus === "rechazado";
+  }
+
+  if (uiEstado === "enviado") {
+    return (
+      estatus === "subido" ||
+      estatus === "resubido" ||
+      estatus === "rechazado" ||
+      estatus === "validado"
+    );
+  }
+
+  // no_enviado: puede corregir PDF/imagen antes de enviar el bloque a Mesa.
+  // (validado en no_enviado es anómalo; no abrir reemplazo aquí.)
   if (
     estatus === "subido" ||
     estatus === "resubido" ||

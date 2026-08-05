@@ -1,3 +1,7 @@
+## 2026-08-05 - Hotfix Acuse: reemplazo archivo post-envío
+
+Causa raíz: FE `retencionDocPuedeReemplazarAsesor` devolvía `false` con `uiEstado=enviado`, y el RPC bloqueaba `estatus=validado` exigiendo rechazo Mesa. Fix: permitir reemplazo del activo (subido/resubido/rechazado/validado) tras envío; mig. **159** quita el gate validado y soft-deletea la previa; en etapa ≥9 no re-avanza ni toca opción/envío/booking. Cleanup storage best-effort ya existía en el repo FE. Tests TS + SQL `rpc_retencion_acuse_reemplazo_post_envio_p159`. Número **159** (evita colisión con otras migraciones `158_*` en ramas paralelas).
+
 ## 2026-08-05 - P158 publicación controlada firmas 09:30
 
 Auditoría mig. 157: open-only (faltante o 0); capacidad al abrir = MAX filas físicas/fecha (nunca `available`); capacidades >0 intactas; slots ordenados; grants solo service_role/postgres.

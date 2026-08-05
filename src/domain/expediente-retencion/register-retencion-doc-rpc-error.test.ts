@@ -10,12 +10,12 @@ describe("mapRegisterRetencionDocRpcError", () => {
     assert.match(err.message, /etapa 8/i);
   });
 
-  it("mapea documento validado", () => {
+  it("mapea documento validado (legado; RPC ya no bloquea)", () => {
     const err = mapRegisterRetencionDocRpcError({
       message:
         "register_expediente_documento_retencion: documento validado; Mesa debe rechazarlo antes de reemplazar",
     });
-    assert.match(err.message, /aceptado por Mesa/i);
+    assert.match(err.message, /reemplazar el documento aceptado/i);
   });
 
   it("mapea expediente no enviado a Mesa", () => {

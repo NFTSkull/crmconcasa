@@ -67,7 +67,7 @@ export function mapRegisterRetencionDocRpcError(error: {
 
   if (msg.includes("documento validado")) {
     return new ExpedienteRetencionSupabaseError(
-      "Este documento ya fue aceptado por Mesa. Espera un rechazo antes de reemplazarlo.",
+      "No se pudo reemplazar el documento aceptado. Intenta de nuevo o contacta soporte.",
     );
   }
 
