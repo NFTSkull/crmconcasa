@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Fixed
+- **fix(acuse): reemplazo de archivo post-envío por asesor dueño** — con Acuse ya enviado (etapa ≥8/9), el dueño puede «Reemplazar archivo» (PDF/JPG/PNG) sin pedir corrección a Mesa; soft-delete de la versión anterior (una sola activa); no toca opción A/B, etapa/subestado, envío ni booking de firmas. Mig. **159**. Mesa sigue RO Ver/Descargar del activo más reciente.
 - **fix(agenda): firmas 09:30 visibles desde inventario Sheet (P158)** — Cloud: inventario Monterrey 2026-08-07 ya tenía `09:30`×3 y `10:00`×3 `available`, pero `agenda_config.firmas.slots` omitía `09:30` y `capacity_by_time['10:00']=0` cerraba el cupo. UI agrega horarios solo-inventario; mig. `157` sync aditivo por filas físicas (`GREATEST`, nunca `available` como capacidad).
 
 ### Added

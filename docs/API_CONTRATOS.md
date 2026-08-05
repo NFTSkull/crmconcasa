@@ -344,7 +344,7 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 
 - Asesor: upload en expediente propio.
 - Reemplazo incrementa `version`; anterior soft-delete o historial en `documento_revisiones`.
-- Retención etapa 8: asesor solo reemplaza docs `rechazado` (`retencionDocPuedeReemplazarAsesor`).
+- Retención: asesor dueño puede reemplazar el archivo activo de Acuse/Aviso tras envío (sin exigir corrección Mesa); soft-delete deja una sola versión activa (`retencionDocPuedeReemplazarAsesor` + RPC `register_expediente_documento_retencion`). Mesa solo lectura Ver/Descargar del activo.
 
 ---
 

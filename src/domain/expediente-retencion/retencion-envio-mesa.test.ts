@@ -131,15 +131,18 @@ describe("B0D6: envío Acuse/Aviso retención a Mesa", () => {
     assert.equal(retencionDocPuedeRechazarMesa("faltante"), false);
   });
 
-  it("asesor puede reemplazar subido/resubido antes de enviar; bloqueado tras envío o si validado", () => {
+  it("asesor puede reemplazar subido/resubido antes de enviar; post-envío también (sin exigir corrección Mesa)", () => {
     assert.equal(retencionDocPuedeReemplazarAsesor("faltante", false, "no_enviado"), true);
     assert.equal(retencionDocPuedeReemplazarAsesor("subido", true, "no_enviado"), true);
     assert.equal(retencionDocPuedeReemplazarAsesor("resubido", true, "no_enviado"), true);
     assert.equal(retencionDocPuedeReemplazarAsesor("rechazado", true, "no_enviado"), true);
     assert.equal(retencionDocPuedeReemplazarAsesor("validado", true, "no_enviado"), false);
 
-    assert.equal(retencionDocPuedeReemplazarAsesor("subido", true, "enviado"), false);
-    assert.equal(retencionDocPuedeReemplazarAsesor("rechazado", true, "enviado"), false);
+    // Hotfix Acuse: bloque enviado → dueño puede reemplazar archivo activo
+    assert.equal(retencionDocPuedeReemplazarAsesor("subido", true, "enviado"), true);
+    assert.equal(retencionDocPuedeReemplazarAsesor("resubido", true, "enviado"), true);
+    assert.equal(retencionDocPuedeReemplazarAsesor("rechazado", true, "enviado"), true);
+    assert.equal(retencionDocPuedeReemplazarAsesor("validado", true, "enviado"), true);
 
     assert.equal(
       retencionDocPuedeReemplazarAsesor("rechazado", true, "correccion_requerida"),
