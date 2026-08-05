@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- **fix(agenda): firmas 09:30 visibles desde inventario Sheet (P158)** — Cloud: inventario Monterrey 2026-08-07 ya tenía `09:30`×3 y `10:00`×3 `available`, pero `agenda_config.firmas.slots` omitía `09:30` y `capacity_by_time['10:00']=0` cerraba el cupo. UI agrega horarios solo-inventario; mig. `157` sync aditivo por filas físicas (`GREATEST`, nunca `available` como capacidad).
+
 ### Added
 - **feat(generales): validación CURP por constancia PDF + RFC estimado (piloto)** — sección en Datos Generales (Asesor) y lectura Mesa: validación local CURP, descarga manual gob.mx/curp, análisis PDF client-side (`pdfjs-dist`, sin OCR), certificación Registro Civil, comparación de identidad, RFC estimado local (nunca oficial/SAT). Tipo `cliente_constancia_curp`, tabla `cliente_validaciones_identidad`, RPCs list/registrar/invalidar. Feature flag `NEXT_PUBLIC_CURP_VALIDACION_PILOTO` (default on). **No** bloquea envío a Mesa. Mig. **156**.
 

@@ -1,3 +1,27 @@
+## 2026-08-05 - P158 publicación controlada firmas 09:30
+
+Auditoría mig. 157: open-only (faltante o 0); capacidad al abrir = MAX filas físicas/fecha (nunca `available`); capacidades >0 intactas; slots ordenados; grants solo service_role/postgres.
+Cloud `fvtqbxukqlajezyyvwzy`: mig aplicada 16:02Z; sync#1 orgs_touched=1; sync#2=0.
+Post: slots `[08:30,09:00,09:30,10:00,10:30]`; MTY `09:30=6`/`10:00=6` (MAX global; día 07-ago available=3); `08:30/09:00` quedan en 5.
+Bookings firmas 07-ago=5 (sin cambio); etapas sin cambio; cero Sheets.
+FE merge inventario en rama (Vercel tras merge). Hotfix operativo Cloud ya efectivo vía config.
+
+## 2026-08-05 - Hotfix firmas 09:30 no disponibles (diagnóstico Cloud + fix local)
+
+## 2026-08-05 - Hotfix firmas 09:30 no disponibles (diagnóstico Cloud + fix local)
+
+Evidencia Cloud read-only (RPC `agenda_sheet_inventory_availability`, sin escrituras):
+- 08:30 Monterrey firmas 2026-08-07: physical 3 / available 0 / linked 3
+- 09:00: physical 3 / available 0 / linked 2 / occupied_external 1
+- **09:30: physical 3 / available 3** (inventario OK)
+- **10:00: physical 3 / available 3** (inventario OK)
+- `agenda_config.firmas.slots` = `["08:30","09:00","10:00"]` — **sin 09:30**
+- `locations.monterrey.capacity_by_time["10:00"]=0` — cierre P126 vs Sheet vacío
+
+Causa raíz: allowlist de config (slots + capacity_by_time), no el parser ni colapso de filas.
+`slot_key` ya incluye sheetId+row; filas vacías ya son `available`.
+Fix local: `applySheetInventoryToSlots` agrega horarios solo-inventario; mig. 157 `agenda_firmas_sync_slots_from_sheet_inventory`.
+
 ## 2026-08-04 - P156 corrección pre-commit: resumen sin PII + SQL harness + cert excluyente
 
 Ajustes bloqueadores: (1) test SQL autocontenido con org/auth/profiles/mesa/`tipo_mesa`; (2) `resultado_resumido` solo flags/coincidencias (`parser_version` p156.2), sin CURP/nombres/fecha/acta; (3) certificaciones RC/otra mutuamente excluyentes; (4) compactas derivan fecha/sexo/entidad desde CURP; (5) invalidación selectiva vía `p_tipos` en RPC; (6) probe flags-only (`scripts/probe-curp-constancia-local.ts`, ruta `/tmp` o argv; sin PII). Probe temporal `probe-curp-labels-structure.ts` excluido del commit. Sin TaxDown/OCR/gate Mesa.
