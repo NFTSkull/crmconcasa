@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- **fix(curp): constancia por arrastre + estado Mesa claro** — sección Validación de CURP: `DocumentDropzone` (arrastrar/clic/reemplazar) reutiliza upload/Storage/versionado; upload antes del parse (si el análisis falla el PDF permanece); microcopy amigable (sin enums técnicos); estado «lista para enviar» vs «enviada a Mesa» según `submittedToMesa` real; Mesa RO muestra constancia activa ✓ Recibida. Sin cambios de etapa/subestado/envío/permisos.
+
 ### Added
 - **feat(admin-ux): B3 Dashboard Bernardo** — botón «Bernardo» junto a Cerrar sesión abre vista `?adminTab=bernardo` (fuera del tablist) con periodo propio (Hoy/semana completa/mes completo/mes pasado/personalizado) y 4 KPIs de solo lectura: Ingresos (`fecha_envio_mesa` / `enviadosAMesa`), Biométricos, Firmas y Notificaciones a registro (`agenda_bookings` vía `get_mesa_agenda_bookings`). Detalle expandible + drawer B2. KPI Resumen renombrado visualmente a «Ingresos» (mismo cálculo). **Cero** migraciones/escrituras/RPC nuevas.
 

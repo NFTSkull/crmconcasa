@@ -351,6 +351,7 @@ export function ExpedienteClienteDatosFormSection({
               nombreCliente={clienteDatos.nombreCliente}
               rfc={clienteDatos.rfc}
               canEdit={puedeEditar}
+              submittedToMesa={submittedToMesa}
               onApplyRfcEstimado={(rfcEstimado) => {
                 setClienteDatos((p) => ({ ...p, rfc: rfcEstimado }));
               }}

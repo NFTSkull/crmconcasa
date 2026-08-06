@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/Button";
 import {
   CLIENTE_CONSTANCIA_CURP_TIPO,
   CURP_VALIDACION_PILOTO_ENABLED,
+  labelEstadoValidacionMesa,
 } from "@/domain/identidad-curp";
 import { useExpedienteArchivosRepo } from "@/domain/expediente-archivos";
 import { isDataModeSupabase } from "@/lib/dataMode";
@@ -26,11 +27,6 @@ function pick(
   tipo: string,
 ): ValidacionItem | undefined {
   return items.find((i) => i.tipo === tipo);
-}
-
-function yesNo(v: boolean | null | undefined): string {
-  if (v == null) return "—";
-  return v ? "Sí" : "No";
 }
 
 /**
@@ -146,11 +142,13 @@ export function MesaCurpValidacionReadOnlySection({
       : certificada;
 
   const camposDiff =
-    (coincidencia?.resultado_resumido?.campos_con_diferencia as string[] | undefined) ??
-    [];
+    (coincidencia?.resultado_resumido?.campos_con_diferencia as
+      | string[]
+      | undefined) ?? [];
   const camposNoDisp =
-    (coincidencia?.resultado_resumido?.campos_no_disponibles as string[] | undefined) ??
-    [];
+    (coincidencia?.resultado_resumido?.campos_no_disponibles as
+      | string[]
+      | undefined) ?? [];
   const legacyCampos =
     (coincidencia?.resultado_resumido?.campos as
       | Array<{ campo?: string; resultado?: string; mensaje?: string | null }>
@@ -165,20 +163,61 @@ export function MesaCurpValidacionReadOnlySection({
     curpLocal?.realizado_at ??
     rfcEst?.realizado_at ??
     null;
-  const actorRol =
-    constancia?.realizado_por_rol ??
-    curpLocal?.realizado_por_rol ??
-    rfcEst?.realizado_por_rol ??
-    null;
 
   return (
     <div className="mt-4 rounded-lg border border-gray-200 bg-gray-50 p-4 sm:col-span-2">
       <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-        Validación de CURP (piloto)
+        Validación de CURP
       </h3>
       <p className="mt-1 text-xs text-amber-800">
-        Validación piloto. El envío a Mesa continúa disponible.
+        Solo lectura. La constancia vigente es la más reciente del asesor.
       </p>
+
+      <div className="mt-3 rounded-md border border-gray-200 bg-white p-3">
+        <p className="text-sm font-semibold text-gray-900">Constancia CURP</p>
+        {docMeta ? (
+          <>
+            <p className="mt-1 text-xs font-medium text-emerald-800">
+              ✓ Recibida
+            </p>
+            <p
+              className="mt-0.5 truncate text-sm text-gray-800"
+              title={docMeta.nombre}
+            >
+              {docMeta.nombre}
+            </p>
+            {docMeta.version != null ? (
+              <p className="mt-0.5 text-[11px] text-gray-500">
+                Versión activa: {docMeta.version}
+              </p>
+            ) : null}
+            <div className="mt-2 flex flex-wrap gap-2">
+              <Button
+                type="button"
+                variant="secondary"
+                className="min-h-[36px] text-xs"
+                disabled={busy}
+                onClick={() => void handleVer()}
+              >
+                Ver
+              </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                className="min-h-[36px] text-xs"
+                disabled={busy}
+                onClick={() => void handleDescargar()}
+              >
+                Descargar
+              </Button>
+            </div>
+          </>
+        ) : (
+          <p className="mt-1 text-xs text-gray-500">
+            Sin constancia CURP cargada.
+          </p>
+        )}
+      </div>
 
       <dl className="mt-3 grid gap-2 text-sm sm:grid-cols-2">
         <div>
@@ -186,26 +225,42 @@ export function MesaCurpValidacionReadOnlySection({
             CURP válida localmente
           </dt>
           <dd className="text-gray-900">
-            {curpLocal?.estado === "VALIDA_LOCALMENTE" ? "Sí" : curpLocal?.estado ?? "—"}
+            {labelEstadoValidacionMesa(curpLocal?.estado)}
           </dd>
         </div>
         <div>
           <dt className="text-[11px] font-medium uppercase text-gray-500">
-            Constancia analizada
+            Análisis de constancia
           </dt>
-          <dd className="text-gray-900">{constancia?.estado ?? "—"}</dd>
+          <dd className="text-gray-900">
+            {docMeta && !constancia
+              ? "La constancia se guardó correctamente."
+              : labelEstadoValidacionMesa(constancia?.estado)}
+          </dd>
         </div>
         <div>
           <dt className="text-[11px] font-medium uppercase text-gray-500">
             Certificada Registro Civil
           </dt>
-          <dd className="text-gray-900">{yesNo(certificada)}</dd>
+          <dd className="text-gray-900">
+            {certificada
+              ? "✓ CURP certificada por el Registro Civil"
+              : cert
+                ? "Certificación del Registro Civil pendiente de confirmar."
+                : "—"}
+          </dd>
         </div>
         <div>
           <dt className="text-[11px] font-medium uppercase text-gray-500">
             Acta vinculada Registro Civil
           </dt>
-          <dd className="text-gray-900">{yesNo(actaVinculada)}</dd>
+          <dd className="text-gray-900">
+            {actaVinculada
+              ? "✓ Acta vinculada al Registro Civil"
+              : cert
+                ? "Pendiente de confirmar."
+                : "—"}
+          </dd>
         </div>
         <div>
           <dt className="text-[11px] font-medium uppercase text-gray-500">
@@ -216,7 +271,7 @@ export function MesaCurpValidacionReadOnlySection({
               ? coincidencia.estado === "DATOS_NO_COINCIDEN"
                 ? "No"
                 : "Sí"
-              : "—"}
+              : "Datos por confirmar."}
           </dd>
         </div>
         <div>
@@ -225,35 +280,27 @@ export function MesaCurpValidacionReadOnlySection({
           </dt>
           <dd className="text-gray-900">
             {rfcEst
-              ? `${rfcEst.estado} (pendiente SAT)`
+              ? labelEstadoValidacionMesa(rfcEst.estado)
               : "—"}
           </dd>
         </div>
         <div>
           <dt className="text-[11px] font-medium uppercase text-gray-500">
-            Validación SAT
+            Confirmación oficial
           </dt>
           <dd className="text-gray-900">
-            {rfcSat?.estado ?? "RFC_VALIDACION_SAT_PENDIENTE"}
+            {labelEstadoValidacionMesa(
+              rfcSat?.estado ?? "RFC_VALIDACION_SAT_PENDIENTE",
+            )}
           </dd>
         </div>
         <div>
           <dt className="text-[11px] font-medium uppercase text-gray-500">
-            Versión documental
+            Fecha
           </dt>
-          <dd className="text-gray-900">
-            {docMeta?.version ?? constancia?.documento_version ?? "—"}
-          </dd>
-        </div>
-        <div>
-          <dt className="text-[11px] font-medium uppercase text-gray-500">Fecha</dt>
           <dd className="text-gray-900">
             {actorAt ? formatDateTime(actorAt) : "—"}
           </dd>
-        </div>
-        <div>
-          <dt className="text-[11px] font-medium uppercase text-gray-500">Actor</dt>
-          <dd className="text-gray-900">{actorRol ?? "—"}</dd>
         </div>
       </dl>
 
@@ -271,31 +318,6 @@ export function MesaCurpValidacionReadOnlySection({
           No disponibles: {camposNoDisp.join(", ")}
         </p>
       ) : null}
-
-      {docMeta ? (
-        <div className="mt-3 flex flex-wrap gap-2">
-          <Button
-            type="button"
-            variant="secondary"
-            className="min-h-[36px] text-xs"
-            disabled={busy}
-            onClick={() => void handleVer()}
-          >
-            Ver constancia CURP
-          </Button>
-          <Button
-            type="button"
-            variant="secondary"
-            className="min-h-[36px] text-xs"
-            disabled={busy}
-            onClick={() => void handleDescargar()}
-          >
-            Descargar constancia CURP
-          </Button>
-        </div>
-      ) : (
-        <p className="mt-3 text-xs text-gray-500">Sin constancia CURP cargada.</p>
-      )}
 
       {error ? (
         <p role="alert" className="mt-2 text-xs text-red-700">

@@ -5,3 +5,4 @@ export * from "./constancia-pdf-parse";
 export * from "./compare";
 export * from "./pdf-extract-text";
 export * from "./fixtures/synthetic";
+export * from "./curp-ui-labels";
