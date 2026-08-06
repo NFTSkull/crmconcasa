@@ -1,3 +1,7 @@
+## 2026-08-06 - Hotfix Constancia CURP: dropzone + estado Mesa
+
+Causa raíz: `AsesorCurpValidacionSection` usaba `<input type="file">` y, si `extractPdfEmbeddedText` fallaba, hacía `return` **antes** de upload/replace → el PDF no se guardaba; además se mostraban enums crudos (`ERROR_ANALISIS`, “Sin validar / piloto”) y el copy de “enviada a Mesa” no dependía del envío real del expediente. Fix (solo UI + labels): `DocumentDropzone`; upload/replace primero, parse después; `labelConstanciaEnvioMesa(submittedToMesa)`; Mesa RO “✓ Recibida” + Ver/Descargar del activo. Sin tocar etapa/subestado/RPC/envío. Tests: `curp-ui-labels.test.ts` + mount estático.
+
 ## 2026-08-05 - Admin UX B3: Dashboard Bernardo
 
 Vista de consulta rápida fuera del tablist (botón header + `?adminTab=bernardo`). Periodo propio Monterrey (semana lun–dom, mes completo, mes pasado). Fuentes RO: Ingresos = `getSummary.enviadosAMesa` + `listMesaEnviosPage`; citas bio/firmas/notif = `get_mesa_agenda_bookings` (chunk ≤62d) / mock localStorage. Detalle único expandible; «Ver expediente» reutiliza drawer B2/`openTimeline`. KPI Resumen: etiqueta «Ingresos» sin cambiar cálculo. Tests periodo/agrupación + mount B3. Sin migraciones ni escrituras.

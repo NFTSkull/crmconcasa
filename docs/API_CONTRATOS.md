@@ -45,9 +45,11 @@ Convenciones:
 
 **Análisis PDF:** client-side (`pdfjs-dist`), solo texto embebido (sin OCR). Persistencia solo `resultado_resumido` con flags/coincidencias (`texto_legible`, `certificada_registro_civil`, `campos_coinciden`, `campos_con_diferencia`, `campos_no_disponibles`, `parser_version`) — **sin** CURP/nombres/fecha/acta/municipio completos.
 
+**UI Asesor (hotfix constancia):** carga vía `DocumentDropzone` (arrastrar/clic/reemplazar); **upload/replace Storage primero**, análisis después (si el parser falla el PDF permanece activo). Copy de envío a Mesa según `submitted_to_mesa` del expediente (no por el solo hecho de subir). Microcopy amigable (sin enums crudos). Mesa: solo lectura del activo más reciente («✓ Recibida» + Ver/Descargar). No cambia etapa/subestado/permisos/envío.
+
 **Invalidación:** `asesor_invalidar_validaciones_identidad(..., p_tipos TEXT[] DEFAULT NULL)` — selectiva por tipos; NULL = todas.
 
-**RFC:** siempre estimado; nunca `RFC_OFICIAL_CONFIRMADO` en este flujo. Label: «RFC estimado. Pendiente de validación en el SAT.»
+**RFC:** siempre estimado; nunca `RFC_OFICIAL_CONFIRMADO` en este flujo. Label UI: «RFC estimado (pendiente de confirmación oficial).» / «Confirmación oficial pendiente.»
 
 **Feature flag:** `NEXT_PUBLIC_CURP_VALIDACION_PILOTO` (default habilitado salvo `"false"`). **No** gate de `enviar_a_mesa` en piloto.
 

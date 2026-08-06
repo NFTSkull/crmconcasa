@@ -1,10 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
+import { DocumentDropzone } from "@/components/documents/DocumentDropzone";
 import {
   CLIENTE_CONSTANCIA_CURP_CONTRACT,
   CLIENTE_CONSTANCIA_CURP_TIPO,
+  CONSTANCIA_CURP_DROPZONE_HINT,
+  CONSTANCIA_CURP_FORMAT_HINT,
   CURP_VALIDACION_PILOTO_ENABLED,
   buildConstanciaResultadoResumido,
   compareConstanciaVsDatosGenerales,
@@ -13,6 +16,10 @@ import {
   extractPdfEmbeddedText,
   fingerprintIdentidad,
   hasDiscrepancia,
+  labelCertificacionRegistroCivil,
+  labelConstanciaEnvioMesa,
+  labelConstanciaStatus,
+  labelRfcEstimadoUi,
   parseConstanciaCurpText,
   tiposInvalidacionPorCambio,
   validateCurpLocal,
@@ -33,6 +40,8 @@ export type AsesorCurpValidacionSectionProps = Readonly<{
   nombreCliente: string;
   rfc: string;
   canEdit: boolean;
+  /** Condición real del expediente (no del archivo). */
+  submittedToMesa?: boolean;
   onApplyRfcEstimado: (rfc: string) => void | Promise<void>;
   onApplyNombreFromConstancia?: (nombre: string) => void | Promise<void>;
 }>;
@@ -63,6 +72,7 @@ export function AsesorCurpValidacionSection({
   nombreCliente,
   rfc,
   canEdit,
+  submittedToMesa = false,
   onApplyRfcEstimado,
   onApplyNombreFromConstancia,
 }: AsesorCurpValidacionSectionProps) {
@@ -70,20 +80,20 @@ export function AsesorCurpValidacionSection({
   const dataSupabase = isDataModeSupabase();
   const busyRef = useRef(false);
 
-  const local = useMemo(
-    () => validateCurpLocal({ curp }),
-    [curp],
-  );
+  const local = useMemo(() => validateCurpLocal({ curp }), [curp]);
 
   const [constanciaStatus, setConstanciaStatus] =
     useState<ConstanciaStatus>("CONSTANCIA_NO_ANALIZADA");
-  const [certMsg, setCertMsg] = useState<string | null>(null);
   const [comparacion, setComparacion] = useState<CampoComparacion[]>([]);
   const [docVersion, setDocVersion] = useState<number | null>(null);
   const [docId, setDocId] = useState<string | null>(null);
+  const [docNombre, setDocNombre] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
+  const [analysisNote, setAnalysisNote] = useState<string | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [archivoBusy, setArchivoBusy] = useState(false);
+  const [replacing, setReplacing] = useState(false);
   const [rfcEstimado, setRfcEstimado] = useState<string | null>(null);
   const [rfcStatus, setRfcStatus] = useState<RfcEstimadoStatus>("SIN_DATOS");
   const [needsRevalidate, setNeedsRevalidate] = useState(false);
@@ -107,6 +117,22 @@ export function AsesorCurpValidacionSection({
       );
   };
 
+  const refreshDocMeta = useCallback(async () => {
+    const refreshed = await archivosRepo.listByExpediente(expedienteId);
+    const doc = refreshed.find(
+      (d) => d.tipo_documento === CLIENTE_CONSTANCIA_CURP_TIPO && d.id,
+    );
+    setDocId(doc?.id ?? null);
+    setDocVersion(doc?.version ?? null);
+    setDocNombre(doc?.nombre_original ?? null);
+    return doc ?? null;
+  }, [archivosRepo, expedienteId]);
+
+  useEffect(() => {
+    if (!CURP_VALIDACION_PILOTO_ENABLED) return;
+    void refreshDocMeta().catch(() => undefined);
+  }, [refreshDocMeta]);
+
   useEffect(() => {
     if (!CURP_VALIDACION_PILOTO_ENABLED) return;
     const next = {
@@ -129,7 +155,7 @@ export function AsesorCurpValidacionSection({
         if (change.curp) {
           setConstanciaStatus("CONSTANCIA_NO_ANALIZADA");
           setComparacion([]);
-          setCertMsg(null);
+          setAnalysisNote(null);
         }
         void invalidateTipos(
           tipos,
@@ -151,7 +177,6 @@ export function AsesorCurpValidacionSection({
       setRfcStatus("SIN_DATOS");
       return;
     }
-    // Heurística: nombreCliente "AP1 AP2 NOMBRE..." o "NOMBRE APELLIDOS"
     const parts = nombreCliente.trim().split(/\s+/).filter(Boolean);
     const apellidoPaterno = parts[0] ?? "";
     const apellidoMaterno = parts.length > 2 ? parts[1] : "";
@@ -226,43 +251,28 @@ export function AsesorCurpValidacionSection({
     setUploading(true);
     setError(null);
     setInfo(null);
+    setAnalysisNote(null);
     setConstanciaStatus("CONSTANCIA_ANALIZANDO");
+    let uploadedOk = false;
     try {
-      if (file.type !== "application/pdf") {
+      if (
+        file.type &&
+        !(CLIENTE_CONSTANCIA_CURP_CONTRACT.mimePermitidos as readonly string[]).includes(
+          file.type,
+        )
+      ) {
+        throw new Error("Solo se acepta PDF.");
+      }
+      if (!file.type && !/\.pdf$/i.test(file.name)) {
         throw new Error("Solo se acepta PDF.");
       }
       if (file.size > CLIENTE_CONSTANCIA_CURP_CONTRACT.maxBytes) {
-        throw new Error("El archivo supera 15 MB.");
+        throw new Error(
+          `El archivo supera ${Math.round(CLIENTE_CONSTANCIA_CURP_CONTRACT.maxBytes / (1024 * 1024))} MB.`,
+        );
       }
 
-      const buf = await file.arrayBuffer();
-      const extracted = await extractPdfEmbeddedText(buf);
-      if (!extracted.ok) {
-        setConstanciaStatus(extracted.reason);
-        setCertMsg(null);
-        setComparacion([]);
-        return;
-      }
-
-      const parsed = parseConstanciaCurpText(extracted.text);
-      // No conservar texto
-      setConstanciaStatus(parsed.status);
-      setCertMsg(
-        parsed.extracted.certificadaRegistroCivil
-          ? "CURP certificada por el Registro Civil"
-          : parsed.message,
-      );
-
-      const campos = compareConstanciaVsDatosGenerales(
-        { curp: local.normalized, nombreCliente },
-        parsed.extracted,
-      );
-      setComparacion(campos);
-      if (hasDiscrepancia(campos) && parsed.status === "CURP_CERTIFICADA_REGISTRO_CIVIL") {
-        setConstanciaStatus("DATOS_NO_COINCIDEN");
-      }
-
-      // Invalidar análisis previo al reemplazar constancia
+      // 1) Guardar primero (una sola versión activa vía replace/upload existente).
       const list = await archivosRepo.listByExpediente(expedienteId);
       const existing = list.find(
         (d) => d.tipo_documento === CLIENTE_CONSTANCIA_CURP_TIPO && d.id,
@@ -288,20 +298,45 @@ export function AsesorCurpValidacionSection({
           uploaded_by_email: "",
         });
       }
-      const refreshed = await archivosRepo.listByExpediente(expedienteId);
-      const doc = refreshed.find(
-        (d) => d.tipo_documento === CLIENTE_CONSTANCIA_CURP_TIPO && d.id,
-      );
-      setDocId(doc?.id ?? null);
-      setDocVersion(doc?.version ?? null);
+      const doc = await refreshDocMeta();
+      uploadedOk = Boolean(doc?.id);
+      setDocNombre(doc?.nombre_original ?? file.name);
+      setReplacing(false);
+      setInfo("✓ Constancia CURP subida correctamente");
       setNeedsRevalidate(false);
+
+      // 2) Analizar (si falla, el PDF ya quedó guardado).
+      const buf = await file.arrayBuffer();
+      const extracted = await extractPdfEmbeddedText(buf);
+      if (!extracted.ok) {
+        setConstanciaStatus(extracted.reason);
+        setComparacion([]);
+        setAnalysisNote(labelConstanciaStatus(extracted.reason));
+        return;
+      }
+
+      const parsed = parseConstanciaCurpText(extracted.text);
+      setConstanciaStatus(parsed.status);
+
+      const campos = compareConstanciaVsDatosGenerales(
+        { curp: local.normalized, nombreCliente },
+        parsed.extracted,
+      );
+      setComparacion(campos);
+      let statusFinal: ConstanciaStatus = parsed.status;
+      if (
+        hasDiscrepancia(campos) &&
+        parsed.status === "CURP_CERTIFICADA_REGISTRO_CIVIL"
+      ) {
+        statusFinal = "DATOS_NO_COINCIDEN";
+        setConstanciaStatus("DATOS_NO_COINCIDEN");
+      }
+      setAnalysisNote(labelConstanciaStatus(statusFinal));
 
       const resumen = buildConstanciaResultadoResumido(parsed, campos);
       await persistValidacion({
         tipo: "curp_constancia",
-        estado: hasDiscrepancia(campos)
-          ? "DATOS_NO_COINCIDEN"
-          : parsed.status,
+        estado: hasDiscrepancia(campos) ? "DATOS_NO_COINCIDEN" : parsed.status,
         metodo: "pdf_constancia",
         resultado: resumen,
         documentoId: doc?.id,
@@ -323,7 +358,9 @@ export function AsesorCurpValidacionSection({
       });
       await persistValidacion({
         tipo: "curp_coincidencia_datos",
-        estado: hasDiscrepancia(campos) ? "DATOS_NO_COINCIDEN" : "CONSTANCIA_LEGIBLE",
+        estado: hasDiscrepancia(campos)
+          ? "DATOS_NO_COINCIDEN"
+          : "CONSTANCIA_LEGIBLE",
         metodo: "pdf_constancia",
         resultado: {
           campos_coinciden: resumen.campos_coinciden,
@@ -341,9 +378,7 @@ export function AsesorCurpValidacionSection({
           metodo: "local",
           resultado: {
             status: rfcStatus,
-            etiqueta:
-              "RFC estimado. Pendiente de validación en el SAT.",
-            // no guardar el RFC estimado completo si se prefiere fingerprint; se guarda hasheado vía fingerprint
+            etiqueta: "RFC estimado (pendiente de confirmación oficial).",
             tiene_estimado: true,
             longitud: rfcEstimado.length,
           },
@@ -355,20 +390,61 @@ export function AsesorCurpValidacionSection({
           resultado: { status: "RFC_VALIDACION_SAT_PENDIENTE" },
         });
       }
-
-      setInfo("Análisis de constancia completado.");
     } catch (err) {
-      setConstanciaStatus("ERROR_ANALISIS");
+      if (!uploadedOk) {
+        setConstanciaStatus("ERROR_ANALISIS");
+      }
       setError(
         err instanceof ExpedienteArchivosSupabaseError
           ? err.message
           : err instanceof Error
             ? err.message
-            : "No se pudo analizar la constancia.",
+            : "No se pudo guardar la constancia.",
       );
+      if (uploadedOk) {
+        setAnalysisNote(labelConstanciaStatus("ERROR_ANALISIS"));
+        setInfo("✓ Constancia CURP subida correctamente");
+      }
     } finally {
       setUploading(false);
       busyRef.current = false;
+    }
+  };
+
+  const handleVer = async () => {
+    if (!docId) return;
+    setArchivoBusy(true);
+    setError(null);
+    try {
+      const blob = await archivosRepo.getArchivoBlob(docId);
+      const url = URL.createObjectURL(blob);
+      window.open(url, "_blank", "noopener,noreferrer");
+      window.setTimeout(() => URL.revokeObjectURL(url), 60_000);
+    } catch {
+      setError("No se pudo abrir la constancia.");
+    } finally {
+      setArchivoBusy(false);
+    }
+  };
+
+  const handleDescargar = async () => {
+    if (!docId) return;
+    setArchivoBusy(true);
+    setError(null);
+    try {
+      const blob = await archivosRepo.getArchivoBlob(docId);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = docNombre ?? "constancia-curp.pdf";
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 5000);
+    } catch {
+      setError("No se pudo descargar la constancia.");
+    } finally {
+      setArchivoBusy(false);
     }
   };
 
@@ -383,14 +459,19 @@ export function AsesorCurpValidacionSection({
 
   const constanciaRow: RowStatus =
     constanciaStatus === "CONSTANCIA_NO_ANALIZADA"
-      ? "pendiente"
+      ? docId
+        ? "ok"
+        : "pendiente"
       : constanciaStatus === "CURP_CERTIFICADA_REGISTRO_CIVIL" ||
           constanciaStatus === "CONSTANCIA_LEGIBLE" ||
           constanciaStatus === "CURP_NO_CERTIFICADA"
         ? "ok"
         : constanciaStatus === "CONSTANCIA_ANALIZANDO"
           ? "warn"
-          : "error";
+          : constanciaStatus === "PDF_NO_LEGIBLE" ||
+              constanciaStatus === "ERROR_ANALISIS"
+            ? "warn"
+            : "error";
 
   const certRow: RowStatus =
     constanciaStatus === "CURP_CERTIFICADA_REGISTRO_CIVIL"
@@ -413,13 +494,18 @@ export function AsesorCurpValidacionSection({
         ? "warn"
         : "pendiente";
 
+  const showDropzone =
+    canEdit &&
+    local.status === "VALIDA_LOCALMENTE" &&
+    (!docId || replacing);
+
   return (
     <section className="mt-3 rounded-lg border border-gray-200 bg-gray-50 p-3 sm:col-span-2">
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-sm font-semibold text-gray-900">Validación de CURP</h3>
-        <span className="text-xs text-gray-500">
-          {needsRevalidate ? "Requiere revalidar" : "Sin validar / piloto"}
-        </span>
+        {needsRevalidate ? (
+          <span className="text-xs text-amber-800">Requiere revalidar</span>
+        ) : null}
       </div>
       <p className="mb-3 text-xs text-amber-800">
         Validación piloto. El envío a Mesa continúa disponible.
@@ -437,24 +523,31 @@ export function AsesorCurpValidacionSection({
         </li>
         <li className="flex items-center gap-2">
           <StatusDot status={constanciaRow} />
-          <span>Constancia oficial: {constanciaStatus}</span>
+          <span>
+            Constancia oficial:{" "}
+            {docId && constanciaStatus === "CONSTANCIA_NO_ANALIZADA"
+              ? "La constancia se guardó correctamente."
+              : labelConstanciaStatus(constanciaStatus)}
+          </span>
         </li>
         <li className="flex items-center gap-2">
           <StatusDot status={certRow} />
           <span>
             Certificación Registro Civil:{" "}
-            {certMsg ?? "pendiente"}
+            {labelCertificacionRegistroCivil(constanciaStatus)}
           </span>
         </li>
-        {certMsg && constanciaStatus === "CURP_CERTIFICADA_REGISTRO_CIVIL" ? (
-          <li className="ml-4 text-gray-600">Acta vinculada al Registro Civil</li>
+        {constanciaStatus === "CURP_CERTIFICADA_REGISTRO_CIVIL" ? (
+          <li className="ml-4 text-gray-700">
+            ✓ Acta vinculada al Registro Civil
+          </li>
         ) : null}
         <li className="flex items-center gap-2">
           <StatusDot status={matchRow} />
           <span>
             Coincidencia de Datos Generales:{" "}
             {comparacion.length === 0
-              ? "pendiente"
+              ? "Datos por confirmar."
               : hasDiscrepancia(comparacion)
                 ? "No coincide"
                 : "Coincide"}
@@ -462,16 +555,11 @@ export function AsesorCurpValidacionSection({
         </li>
         <li className="flex items-center gap-2">
           <StatusDot status={rfcRow} />
-          <span>
-            RFC estimado:{" "}
-            {rfcEstimado
-              ? "calculado (pendiente SAT)"
-              : "sin datos suficientes"}
-          </span>
+          <span>RFC estimado: {labelRfcEstimadoUi(rfcStatus)}</span>
         </li>
         <li className="flex items-center gap-2">
           <StatusDot status="pendiente" />
-          <span>Validación SAT pendiente</span>
+          <span>Confirmación oficial pendiente.</span>
         </li>
       </ul>
 
@@ -488,25 +576,107 @@ export function AsesorCurpValidacionSection({
           <p className="text-xs text-gray-600">
             Consulta la CURP, descarga la constancia PDF y súbela aquí.
           </p>
-          <label className="block">
-            <span className="mb-1 block text-xs font-medium text-gray-700">
-              {docId ? "Reemplazar constancia CURP" : "Subir constancia CURP"}
-            </span>
-            <input
-              type="file"
-              accept="application/pdf,.pdf"
-              disabled={!canEdit || uploading}
-              className="block w-full text-xs"
-              onChange={(e) => {
-                const f = e.target.files?.[0];
-                e.target.value = "";
-                if (f) void handleAnalyzeFile(f);
-              }}
-            />
-          </label>
-          {docVersion != null ? (
-            <p className="text-[11px] text-gray-500">Versión activa: {docVersion}</p>
-          ) : null}
+
+          <div>
+            <p className="mb-1 text-xs font-medium text-gray-800">
+              Constancia CURP
+            </p>
+            {showDropzone ? (
+              <>
+                <DocumentDropzone
+                  accept="application/pdf,.pdf"
+                  busy={uploading}
+                  disabled={!canEdit || uploading}
+                  hint={
+                    uploading
+                      ? "Subiendo constancia…"
+                      : CONSTANCIA_CURP_DROPZONE_HINT
+                  }
+                  aria-label={
+                    docId
+                      ? "Reemplazar constancia CURP"
+                      : "Subir constancia CURP"
+                  }
+                  selectedFileName={null}
+                  error={null}
+                  onFiles={(files) => {
+                    const f = files[0];
+                    if (f) void handleAnalyzeFile(f);
+                  }}
+                />
+                <p className="mt-1 text-[11px] text-gray-500">
+                  {CONSTANCIA_CURP_FORMAT_HINT}
+                </p>
+                {docId && replacing ? (
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="mt-2 min-h-[36px] text-xs"
+                    disabled={uploading}
+                    onClick={() => setReplacing(false)}
+                  >
+                    Cancelar reemplazo
+                  </Button>
+                ) : null}
+              </>
+            ) : null}
+
+            {docId && !replacing ? (
+              <div className="rounded-md border border-emerald-100 bg-white px-3 py-2">
+                <p className="text-xs font-medium text-emerald-800" role="status">
+                  ✓ Constancia CURP subida correctamente
+                </p>
+                <p className="mt-0.5 truncate text-xs text-gray-700" title={docNombre ?? undefined}>
+                  {docNombre ?? "constancia-curp.pdf"}
+                </p>
+                <p className="mt-1 text-xs text-gray-700">
+                  {labelConstanciaEnvioMesa(submittedToMesa)}
+                </p>
+                {analysisNote ? (
+                  <p className="mt-1 text-xs text-gray-600">{analysisNote}</p>
+                ) : null}
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="min-h-[36px] text-xs"
+                    disabled={archivoBusy || uploading}
+                    onClick={() => void handleVer()}
+                  >
+                    Ver
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="min-h-[36px] text-xs"
+                    disabled={archivoBusy || uploading}
+                    onClick={() => void handleDescargar()}
+                  >
+                    Descargar
+                  </Button>
+                  {canEdit ? (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="min-h-[36px] text-xs"
+                      disabled={uploading}
+                      onClick={() => {
+                        setReplacing(true);
+                        setError(null);
+                      }}
+                    >
+                      Reemplazar
+                    </Button>
+                  ) : null}
+                </div>
+                {docVersion != null ? (
+                  <p className="mt-1 text-[11px] text-gray-500">
+                    Versión activa: {docVersion}
+                  </p>
+                ) : null}
+              </div>
+            ) : null}
+          </div>
         </div>
       ) : null}
 
@@ -527,9 +697,7 @@ export function AsesorCurpValidacionSection({
                   <td className="py-1 pr-2 font-medium">{c.campo}</td>
                   <td className="py-1 pr-2">{c.capturado ?? "—"}</td>
                   <td className="py-1 pr-2">{c.constancia ?? "—"}</td>
-                  <td className="py-1">
-                    {c.mensaje ?? c.resultado}
-                  </td>
+                  <td className="py-1">{c.mensaje ?? c.resultado}</td>
                 </tr>
               ))}
             </tbody>
@@ -564,11 +732,10 @@ export function AsesorCurpValidacionSection({
       {rfcEstimado && !rfc.trim() && canEdit ? (
         <div className="mt-3 rounded-md border border-blue-100 bg-white px-2 py-2 text-xs">
           <p>
-            RFC estimado: <span className="font-mono font-medium">{rfcEstimado}</span>
+            RFC estimado:{" "}
+            <span className="font-mono font-medium">{rfcEstimado}</span>
           </p>
-          <p className="mt-1 text-gray-600">
-            RFC estimado. Pendiente de validación en el SAT.
-          </p>
+          <p className="mt-1 text-gray-600">{labelRfcEstimadoUi(rfcStatus)}</p>
           <Button
             type="button"
             variant="primary"
@@ -589,8 +756,7 @@ export function AsesorCurpValidacionSection({
                 metodo: "manual_asistido",
                 resultado: {
                   status: "RFC_ESTIMADO_APLICADO",
-                  etiqueta:
-                    "RFC estimado. Pendiente de validación en el SAT.",
+                  etiqueta: "RFC estimado (pendiente de confirmación oficial).",
                 },
               });
             }}
@@ -613,13 +779,15 @@ export function AsesorCurpValidacionSection({
           {error}
         </p>
       ) : null}
-      {info ? (
+      {info && !(docId && !replacing) ? (
         <p role="status" className="mt-2 text-xs text-green-700">
           {info}
         </p>
       ) : null}
       {uploading ? (
-        <p className="mt-2 text-xs text-blue-700">Analizando constancia…</p>
+        <p className="mt-2 text-xs text-blue-700" role="status">
+          Subiendo constancia…
+        </p>
       ) : null}
     </section>
   );
