@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Added
+- **feat(admin-ux): B3 Dashboard Bernardo** — botón «Bernardo» junto a Cerrar sesión abre vista `?adminTab=bernardo` (fuera del tablist) con periodo propio (Hoy/semana completa/mes completo/mes pasado/personalizado) y 4 KPIs de solo lectura: Ingresos (`fecha_envio_mesa` / `enviadosAMesa`), Biométricos, Firmas y Notificaciones a registro (`agenda_bookings` vía `get_mesa_agenda_bookings`). Detalle expandible + drawer B2. KPI Resumen renombrado visualmente a «Ingresos» (mismo cálculo). **Cero** migraciones/escrituras/RPC nuevas.
+
+### Changed
+- **feat(admin-ux): B2 detalle progresivo — tabla simple, drawer y filas expandibles** — Expedientes: columnas principales (Cliente/Asesor/Etapa/Situación/Última actividad/Acción) + drawer lateral (`AdminExpedienteDrawer`) con Resumen/Seguimiento/Precalificación reutilizando timeline existente; Producción: filas expandibles (`AdminExpandableAdvisorRow`) + «Ver expedientes de este asesor»; Reportes/Ingresos: tablas grandes colapsadas (`AdminCollapsibleSection`); KPIs y empty states más claros (`AdminStatusBadge`, `AdminEmptyState`). **Cero** consultas/RPC/RLS/filtros nuevos.
+
+- **feat(admin-ux): panel Admin reorganizado en 4 pestañas (B1, solo UX/UI)** — `/admin` con navegación Resumen / Expedientes / Reportes / Producción (`AdminTabs`, patrón ARIA + teclado; query param visual `?adminTab=`). Resumen: KPIs + snapshot por etapas + accesos rápidos; Expedientes: flujo de Mesa + precalificaciones; Reportes: subtabs «Histórico y cohorte» / «Ingresos»; Producción: por asesor siempre accesible (aviso con «Quitar filtro de etapa» en vez de desaparecer). Paneles inactivos permanecen montados (`hidden`): sin recarga, sin duplicar consultas, filtros intactos. `AdminSectionHeader` para títulos+descripciones. **Cero cambios** de backend/RPC/RLS/consultas/filtros/exportaciones.
+
 ### Fixed
 - **fix(acuse): reemplazo de archivo post-envío por asesor dueño** — con Acuse ya enviado (etapa ≥8/9), el dueño puede «Reemplazar archivo» (PDF/JPG/PNG) sin pedir corrección a Mesa; soft-delete de la versión anterior (una sola activa); no toca opción A/B, etapa/subestado, envío ni booking de firmas. Mig. **159**. Mesa sigue RO Ver/Descargar del activo más reciente.
 - **fix(agenda): firmas 09:30 visibles desde inventario Sheet (P158)** — Cloud: inventario Monterrey 2026-08-07 ya tenía `09:30`×3 y `10:00`×3 `available`, pero `agenda_config.firmas.slots` omitía `09:30` y `capacity_by_time['10:00']=0` cerraba el cupo. UI agrega horarios solo-inventario; mig. `157` sync aditivo por filas físicas (`GREATEST`, nunca `available` como capacidad).

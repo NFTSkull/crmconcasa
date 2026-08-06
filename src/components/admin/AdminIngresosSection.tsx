@@ -33,6 +33,7 @@ import {
   type IngresosStageScope,
 } from "@/domain/admin-ingresos";
 import { AdminIngresosExcelCustomizeModal } from "@/components/admin/AdminIngresosExcelCustomizeModal";
+import { AdminCollapsibleSection } from "@/components/admin/AdminCollapsibleSection";
 import {
   buildAdminIngresosWorkbook,
   buildIngresosExcelFilename,
@@ -668,6 +669,12 @@ export function AdminIngresosSection({
                 </div>
               ) : null}
 
+              <AdminCollapsibleSection
+                title="Desgloses"
+                description="Por asesor, porcentaje, fuente de monto y tendencia."
+                summary={`${resumen.por_asesor.length} asesores · ${resumen.expedientes_proyectados} proyectados`}
+                defaultOpen={false}
+              >
               <div className="grid gap-3 lg:grid-cols-2">
                 <div className="rounded-lg border border-slate-200 bg-white p-3 text-slate-900">
                   <h3 className="text-sm font-semibold text-slate-950">Por asesor</h3>
@@ -762,7 +769,13 @@ export function AdminIngresosSection({
                   </div>
                 </div>
               </div>
+              </AdminCollapsibleSection>
 
+              <AdminCollapsibleSection
+                title={`Detalle tabular (${total})`}
+                description="Listado paginado de expedientes del reporte de ingresos."
+                defaultOpen={false}
+              >
               <div className="rounded-lg border border-slate-200 bg-white p-3 text-slate-900">
                 <div className="flex items-center justify-between gap-2">
                   <h3 className="text-sm font-semibold text-slate-950">
@@ -869,6 +882,7 @@ export function AdminIngresosSection({
                   </table>
                 </div>
               </div>
+              </AdminCollapsibleSection>
             </>
           ) : null}
         </div>

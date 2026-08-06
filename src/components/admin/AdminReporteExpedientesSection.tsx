@@ -39,6 +39,7 @@ import {
   type AdminStageHistorySummary,
 } from "@/domain/admin-stage-history";
 import { AdminStageCohortOutcomesPanel } from "@/components/admin/AdminStageCohortOutcomesPanel";
+import { AdminCollapsibleSection } from "@/components/admin/AdminCollapsibleSection";
 import {
   buildAdminStageHistoryFilename,
   buildAdminStageHistoryWorkbook,
@@ -654,6 +655,12 @@ export function AdminReporteExpedientesSection() {
               <p className="text-xs text-slate-500">{summary.nota}</p>
             ) : null}
 
+            <AdminCollapsibleSection
+              title="Resumen por etapa"
+              description="Cifras principales por paso visual. Expande para ver la tabla completa."
+              summary={`${summary.resumen_por_etapa.length} etapa${summary.resumen_por_etapa.length === 1 ? "" : "s"} · ${summary.totales.total_visitas} visitas`}
+              defaultOpen={false}
+            >
             <div className="overflow-x-auto rounded-lg border border-slate-200">
               <table className="min-w-full divide-y divide-slate-200 text-sm">
                 <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
@@ -704,20 +711,19 @@ export function AdminReporteExpedientesSection() {
                 </tbody>
               </table>
             </div>
+            </AdminCollapsibleSection>
 
+            <AdminCollapsibleSection
+              title="Detalle de visitas"
+              description="Listado paginado de visitas del reporte consultado."
+              summary={
+                pageData
+                  ? `${pageData.total} visita${pageData.total === 1 ? "" : "s"} · página ${currentPage} de ${totalPages}`
+                  : undefined
+              }
+              defaultOpen={false}
+            >
             <div className="space-y-2">
-              <div className="flex flex-wrap items-center justify-between gap-2">
-                <h3 className="text-sm font-semibold text-slate-900">
-                  Detalle de visitas
-                </h3>
-                {pageData ? (
-                  <p className="text-xs text-slate-500">
-                    {pageData.total} visita{pageData.total === 1 ? "" : "s"} · página{" "}
-                    {currentPage} de {totalPages}
-                  </p>
-                ) : null}
-              </div>
-
               {loadingPage ? (
                 <p className="text-sm text-slate-600" role="status">
                   Cargando detalle…
@@ -798,6 +804,7 @@ export function AdminReporteExpedientesSection() {
                 </>
               ) : null}
             </div>
+            </AdminCollapsibleSection>
           </div>
         ) : null}
 

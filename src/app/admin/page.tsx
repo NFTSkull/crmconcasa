@@ -27,7 +27,6 @@ import {
 import {
   labelAdminMesaAction,
   formatAdminMesaAsesorLabel,
-  formatAdminMesaEsperaLabel,
   sanitizeAdminMotivo,
   type AdminMesaTimelineEvent,
 } from "@/domain/admin-production/mesa-seguimiento";
@@ -45,9 +44,31 @@ import {
   buildAdminProductionWorkbook,
   downloadAdminProductionWorkbook,
 } from "@/lib/exportAdminProductionExcel";
-import { subestadoOperativoLabel } from "@/lib/subestadoOperativoUi";
 import { AdminReporteExpedientesSection } from "@/components/admin/AdminReporteExpedientesSection";
 import { AdminIngresosSection } from "@/components/admin/AdminIngresosSection";
+import { AdminTabs } from "@/components/admin/AdminTabs";
+import { AdminSectionHeader } from "@/components/admin/AdminSectionHeader";
+import { AdminStatusBadge } from "@/components/admin/AdminStatusBadge";
+import { AdminEmptyState } from "@/components/admin/AdminEmptyState";
+import { AdminExpandableAdvisorRow } from "@/components/admin/AdminExpandableAdvisorRow";
+import { AdminExpedienteDrawer } from "@/components/admin/AdminExpedienteDrawer";
+import { AdminBernardoDashboard } from "@/components/admin/AdminBernardoDashboard";
+import {
+  ADMIN_REPORTES_SUBTABS,
+  ADMIN_TAB_QUERY_PARAM,
+  ADMIN_TABS,
+  adminGlobalFiltersVisible,
+  adminTabButtonId,
+  adminTabPanelId,
+  DEFAULT_ADMIN_REPORTES_SUBTAB,
+  DEFAULT_ADMIN_TAB,
+  isAdminBernardoView,
+  isAdminMainTabId,
+  parseAdminTabParam,
+  type AdminMainTabId,
+  type AdminReportesSubtabId,
+  type AdminTabId,
+} from "@/lib/adminUxTabs";
 import { compactEtapasProduccion } from "@/lib/adminProductionCompactEtapas";
 
 const PAGE_SIZE = 25;
@@ -94,6 +115,17 @@ export default function AdminDashboardPage() {
   const repo = useAdminProductionRepo();
   const mesaExpedientesRef = useRef<HTMLElement | null>(null);
 
+  // B1 (solo UX): pestaña activa del panel. No afecta filtros ni consultas;
+  // los paneles inactivos permanecen montados (hidden) para conservar datos.
+  // B3: `bernardo` es vista aparte (no está en el tablist); se guarda la pestaña previa.
+  const [activeTab, setActiveTab] = useState<AdminTabId>(DEFAULT_ADMIN_TAB);
+  const bernardoReturnTabRef = useRef<AdminMainTabId>(DEFAULT_ADMIN_TAB);
+  const [reportesSubtab, setReportesSubtab] = useState<AdminReportesSubtabId>(
+    DEFAULT_ADMIN_REPORTES_SUBTAB,
+  );
+  /** B2: una sola fila de producción expandida a la vez (estado predecible). */
+  const [expandedAsesorId, setExpandedAsesorId] = useState<string | null>(null);
+
   const [preset, setPreset] = useState<AdminPeriodPreset>("hoy");
   const [customFrom, setCustomFrom] = useState("");
   const [customTo, setCustomTo] = useState("");
@@ -135,7 +167,6 @@ export default function AdminDashboardPage() {
   const [timelineTotal, setTimelineTotal] = useState(0);
   const [timelineLoadingMore, setTimelineLoadingMore] = useState(false);
   const timelineTriggerRef = useRef<HTMLButtonElement | null>(null);
-  const timelineDialogRef = useRef<HTMLDivElement | null>(null);
 
   const bounds = useMemo(() => {
     try {
@@ -205,6 +236,35 @@ export default function AdminDashboardPage() {
   const etapaFiltroActiva = etapaActual !== "todas";
   const showProduccionPorAsesor = !etapaFiltroActiva;
 
+  // Query param visual (?adminTab=) para conservar la pestaña al refrescar.
+  // Se lee una sola vez al montar; no interviene el router ni las consultas.
+  useEffect(() => {
+    const param = new URLSearchParams(window.location.search).get(
+      ADMIN_TAB_QUERY_PARAM,
+    );
+    if (param) setActiveTab(parseAdminTabParam(param));
+  }, []);
+
+  const handleTabChange = useCallback((tab: AdminTabId) => {
+    setActiveTab((prev) => {
+      if (tab === "bernardo" && isAdminMainTabId(prev)) {
+        bernardoReturnTabRef.current = prev;
+      }
+      return tab;
+    });
+    const url = new URL(window.location.href);
+    url.searchParams.set(ADMIN_TAB_QUERY_PARAM, tab);
+    window.history.replaceState(window.history.state, "", url);
+  }, []);
+
+  const openBernardo = useCallback(() => {
+    handleTabChange("bernardo");
+  }, [handleTabChange]);
+
+  const closeBernardo = useCallback(() => {
+    handleTabChange(bernardoReturnTabRef.current);
+  }, [handleTabChange]);
+
   const focusMesaExpedientes = useCallback(() => {
     const el = mesaExpedientesRef.current;
     if (!el) return;
@@ -258,9 +318,6 @@ export default function AdminDashboardPage() {
         );
       } finally {
         setTimelineLoading(false);
-        requestAnimationFrame(() => {
-          timelineDialogRef.current?.focus();
-        });
       }
     },
     [repo],
@@ -392,6 +449,8 @@ export default function AdminDashboardPage() {
     setEtapaActual(next);
     setMesaPage(mesaPageAfterEtapaChange());
     if (next !== "todas") {
+      // La tabla del flujo de Mesa vive en la pestaña Expedientes (B1).
+      handleTabChange("expedientes");
       requestAnimationFrame(() => focusMesaExpedientes());
     }
   };
@@ -402,6 +461,21 @@ export default function AdminDashboardPage() {
     setMesaPage(pages.mesaPage);
     setPrecalPage(pages.precalPage);
   };
+
+  /** B2: desde Producción → Expedientes con el filtro de asesor vigente. */
+  const goExpedientesAsesor = (id: string) => {
+    applyAsesorFilter(id);
+    handleTabChange("expedientes");
+  };
+
+  /** Precal ya cargada para el drawer (sin consultas nuevas). */
+  const drawerPrecal = useMemo(() => {
+    if (!timelineTarget) return null;
+    return (
+      precalItems.find((p) => p.expedienteId === timelineTarget.expedienteId) ??
+      null
+    );
+  }, [timelineTarget, precalItems]);
 
   const exportExcel = async () => {
     if (!filtersBase || !bounds) return;
@@ -461,15 +535,17 @@ export default function AdminDashboardPage() {
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-4">
           <div>
             <h1 className="text-xl font-semibold text-slate-900">
-              Administración · Producción
+              Administración
             </h1>
             <p className="text-sm text-slate-600">
-              Consulta la producción por periodo y el estado actual de los
-              expedientes.
+              Producción, expedientes, reportes y desempeño por asesor.
             </p>
           </div>
           <div className="flex items-center gap-3 text-sm">
             <span className="text-slate-700">{displayName}</span>
+            <Button type="button" variant="secondary" onClick={openBernardo}>
+              Bernardo
+            </Button>
             <Button
               type="button"
               variant="secondary"
@@ -481,17 +557,22 @@ export default function AdminDashboardPage() {
         </div>
       </header>
 
+      {!isAdminBernardoView(activeTab) ? (
+        <AdminTabs active={activeTab} onChange={handleTabChange} />
+      ) : null}
+
       <main className="mx-auto max-w-6xl space-y-6 px-4 py-6">
-        <AdminReporteExpedientesSection />
+        {isAdminBernardoView(activeTab) ? (
+          <AdminBernardoDashboard
+            repo={repo}
+            onBack={closeBernardo}
+            onOpenExpediente={(row, trigger) => void openTimeline(row, trigger)}
+          />
+        ) : null}
 
-        <AdminIngresosSection
-          asesorOptions={asesorOptions.map((a) => ({
-            id: a.asesorId,
-            nombre: a.asesorNombre?.trim() || a.asesorId,
-          }))}
-        />
-
-        <section className="sticky top-0 z-10 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
+        <section
+          hidden={!adminGlobalFiltersVisible(activeTab)}
+          className="sticky top-0 z-10 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
           <div className="flex flex-wrap gap-2">
             {(
               [
@@ -552,6 +633,11 @@ export default function AdminDashboardPage() {
             El periodo aplica a los KPI superiores, producción por asesor,
             precalificaciones y Excel. El estado actual por etapas es un corte
             independiente de todos los expedientes vigentes.
+          </p>
+          <p className="mt-1 text-xs text-gray-600">
+            Estos filtros aplican a Resumen, Expedientes y Producción. Los
+            reportes (histórico, cohorte e ingresos) tienen filtros propios
+            dentro de su pestaña.
           </p>
 
           <div className="mt-4 grid gap-3 md:grid-cols-4">
@@ -629,61 +715,65 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
+        {/* ── Pestaña: Resumen ─────────────────────────────────────────── */}
+        <div
+          role="tabpanel"
+          id={adminTabPanelId("resumen")}
+          aria-labelledby={adminTabButtonId("resumen")}
+          hidden={activeTab !== "resumen"}
+          className="space-y-6"
+        >
         {loading ? (
           <p className="text-gray-700">Cargando producción…</p>
         ) : (
-            <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-6">
+            <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
               {[
                 {
-                  title: "Expedientes enviados a Mesa",
+                  title: "Ingresos",
                   value: summary?.enviadosAMesa ?? 0,
-                  hint: periodoLabel,
+                  hint: `Expedientes enviados a Mesa · ${periodoLabel}`,
                 },
                 {
-                  title: "Precalificaciones aprobadas",
+                  title: "Precal. aprobadas",
                   value: summary?.precalificacionesAprobadas ?? 0,
-                  hint: "por aprobado_at",
+                  hint: "Según fecha de aprobación",
                 },
                 {
-                  title: "Rechazadas (No cumple)",
+                  title: "No cumple",
                   value: summary?.precalificacionesNoCumple ?? 0,
-                  hint: "por no_cumple_at",
+                  hint: "Según fecha de rechazo",
                 },
                 {
-                  title: "Aprobadas > $20,000",
+                  title: "Aprobadas > $20k",
                   value: summary?.aprobadasMayorA20000 ?? 0,
-                  hint: "monto al aprobar",
+                  hint: "Monto al aprobar",
                 },
                 {
-                  title: "Monto aprobado Mejoravit",
+                  title: "Monto Mejoravit",
                   value: formatMontoMX(summary?.montoAprobadoTotal ?? 0),
-                  hint: "aprobado · Mejoravit",
+                  hint: "Total aprobado · Mejoravit",
                 },
               ].map((card) => {
-                const isMontoKpi = card.title === "Monto aprobado Mejoravit";
+                const isMontoKpi = card.title === "Monto Mejoravit";
                 return (
                 <div
                   key={card.title}
-                  className={
-                    isMontoKpi
-                      ? "min-w-0 rounded-lg border border-slate-200 bg-white p-4 sm:col-span-2"
-                      : "min-w-0 rounded-lg border border-slate-200 bg-white p-4"
-                  }
+                  className="flex min-h-[7.5rem] min-w-0 flex-col rounded-lg border border-slate-200 bg-white p-4"
                 >
-                  <p className="text-xs uppercase tracking-wide text-gray-700">
+                  <p className="text-xs font-medium uppercase tracking-wide text-slate-600">
                     {card.title}
                   </p>
                   <p
                     className={
                       isMontoKpi
-                        ? "mt-2 whitespace-nowrap font-semibold leading-none tabular-nums text-gray-900 text-[clamp(0.95rem,2.5vw,1.5rem)]"
-                        : "mt-2 text-2xl font-semibold text-gray-900"
+                        ? "mt-2 whitespace-nowrap font-semibold leading-none tabular-nums text-slate-900 text-[clamp(1.1rem,2.8vw,1.75rem)]"
+                        : "mt-2 text-3xl font-semibold tabular-nums text-slate-900"
                     }
                     title={isMontoKpi && typeof card.value === "string" ? card.value : undefined}
                   >
                     {card.value}
                   </p>
-                  <p className="mt-1 text-xs text-gray-700">{card.hint}</p>
+                  <p className="mt-auto pt-2 text-xs text-slate-500">{card.hint}</p>
                 </div>
                 );
               })}
@@ -691,14 +781,10 @@ export default function AdminDashboardPage() {
         )}
 
             <section className="rounded-lg border border-slate-200 bg-white p-4">
-              <h2 className="text-base font-semibold text-slate-900">
-                Estado actual de los expedientes enviados a Mesa
-              </h2>
-              <p className="mt-1 text-sm text-gray-700">
-                Corte actual de los expedientes vigentes que ya ingresaron al
-                flujo de Mesa. No depende del periodo seleccionado. Pulsa una
-                etapa para ver sus expedientes.
-              </p>
+              <AdminSectionHeader
+                title="Estado actual de los expedientes enviados a Mesa"
+                description="Corte actual de los expedientes vigentes que ya ingresaron al flujo de Mesa. No depende del periodo seleccionado. Pulsa una etapa para abrir sus expedientes en la pestaña Expedientes."
+              />
               {snapshotLoading && byEtapa.length === 0 ? (
                 <p className="mt-3 text-sm text-gray-700">
                   Calculando estado actual de los expedientes…
@@ -711,9 +797,11 @@ export default function AdminDashboardPage() {
                   </Button>
                 </div>
               ) : snapshotTotal === 0 ? (
-                <p className="mt-3 text-sm text-gray-700">
-                  No hay expedientes vigentes que coincidan con los filtros.
-                </p>
+                <AdminEmptyState
+                  title="No hay expedientes con estos filtros."
+                  description="Prueba limpiar o cambiar los filtros."
+                  onClearFilters={clearFilters}
+                />
               ) : (
                 <>
                   <div className="mt-3 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm text-slate-800">
@@ -747,10 +835,10 @@ export default function AdminDashboardPage() {
                           type="button"
                           aria-pressed={pressed}
                           onClick={() => onEtapaCardPress(b.etapa)}
-                          className={`rounded-md border px-3 py-2 text-left transition ${etapaTone(b.etapa)} ${
+                          className={`rounded-md border px-3 py-2 text-left transition cursor-pointer ${etapaTone(b.etapa)} ${
                             pressed
                               ? "border-slate-900 bg-white shadow-sm ring-2 ring-slate-900 ring-offset-1"
-                              : "hover:border-slate-400"
+                              : "hover:border-slate-400 hover:shadow-sm"
                           } ${empty && !pressed ? "opacity-70" : ""}`}
                         >
                           <div className="flex items-start justify-between gap-2">
@@ -779,6 +867,33 @@ export default function AdminDashboardPage() {
               )}
             </section>
 
+            {/* Accesos rápidos a las demás pestañas (solo navegación visual). */}
+            <section aria-label="Accesos rápidos" className="grid gap-3 sm:grid-cols-3">
+              {ADMIN_TABS.filter((t) => t.id !== "resumen").map((t) => (
+                <button
+                  key={t.id}
+                  type="button"
+                  onClick={() => handleTabChange(t.id)}
+                  className="rounded-lg border border-slate-200 bg-white p-4 text-left transition hover:border-slate-400"
+                >
+                  <p className="text-sm font-semibold text-slate-900">{t.label}</p>
+                  <p className="mt-1 text-xs text-slate-600">{t.description}</p>
+                  <p className="mt-2 text-xs font-medium text-blue-700">
+                    Abrir {t.label} →
+                  </p>
+                </button>
+              ))}
+            </section>
+        </div>
+
+        {/* ── Pestaña: Expedientes ─────────────────────────────────────── */}
+        <div
+          role="tabpanel"
+          id={adminTabPanelId("expedientes")}
+          aria-labelledby={adminTabButtonId("expedientes")}
+          hidden={activeTab !== "expedientes"}
+          className="space-y-6"
+        >
             <section
               id="admin-mesa-expedientes"
               ref={mesaExpedientesRef}
@@ -786,12 +901,11 @@ export default function AdminDashboardPage() {
               aria-labelledby="admin-mesa-expedientes-title"
               className="rounded-lg border border-slate-200 bg-white p-4 outline-none focus-visible:ring-2 focus-visible:ring-slate-900"
             >
-              <h2
-                id="admin-mesa-expedientes-title"
-                className="text-base font-semibold text-slate-900"
-              >
-                Expedientes del flujo operativo de Mesa
-              </h2>
+              <AdminSectionHeader
+                titleId="admin-mesa-expedientes-title"
+                title="Expedientes del flujo operativo de Mesa"
+                description="Estos filtros afectan únicamente los expedientes mostrados; el listado es el corte actual del flujo de Mesa."
+              />
               {etapaFiltroNombre ? (
                 <div className="mt-3 flex flex-wrap items-center gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800">
                   <span>
@@ -815,51 +929,53 @@ export default function AdminDashboardPage() {
                   </Button>
                 </div>
               ) : mesaItems.length === 0 ? (
-                <p className="mt-3 text-sm text-gray-700">
-                  {etapaFiltroNombre
-                    ? `No hay expedientes en ${etapaFiltroNombre} con los filtros actuales.`
-                    : "No hay expedientes vigentes que coincidan con los filtros."}
-                </p>
+                <AdminEmptyState
+                  title={
+                    etapaFiltroNombre
+                      ? `No hay expedientes en ${etapaFiltroNombre} con estos filtros.`
+                      : "No hay expedientes con estos filtros."
+                  }
+                  description="Prueba limpiar o cambiar los filtros."
+                  onClearFilters={clearFilters}
+                />
               ) : (
                 <div className="mt-3 overflow-x-auto">
                   <table className="min-w-full text-left text-sm text-gray-900">
                     <thead className="border-b text-xs uppercase text-gray-700">
                       <tr>
-                        <th className="py-2 pr-3">Enviado a Mesa</th>
                         <th className="py-2 pr-3">Cliente</th>
                         <th className="py-2 pr-3">Asesor</th>
-                        <th className="py-2 pr-3">Etapa actual</th>
-                        <th className="py-2 pr-3">Situación actual</th>
-                        <th className="py-2 pr-3">Desde envío</th>
-                        <th className="py-2 pr-3">Última actividad Mesa</th>
-                        <th className="py-2 pr-3">Espera actual</th>
-                        <th className="py-2">Seguimiento</th>
+                        <th className="py-2 pr-3">Etapa</th>
+                        <th className="py-2 pr-3">Situación</th>
+                        <th className="py-2 pr-3">Última actividad</th>
+                        <th className="py-2">Acción</th>
                       </tr>
                     </thead>
                     <tbody>
                       {mesaItems.map((r) => (
-                        <tr key={r.expedienteId} className="border-b border-slate-100 align-top">
-                          <td className="py-2 pr-3 whitespace-nowrap">
-                            {r.fechaEnvioMesa
-                              ? formatDateTimeMx(r.fechaEnvioMesa)
-                              : "Sin envío"}
+                        <tr
+                          key={r.expedienteId}
+                          className="border-b border-slate-100 align-top hover:bg-slate-50"
+                        >
+                          <td className="py-2.5 pr-3 font-medium text-slate-900">
+                            {r.clienteNombre}
                           </td>
-                          <td className="py-2 pr-3">{r.clienteNombre}</td>
-                          <td className="py-2 pr-3">
+                          <td className="py-2.5 pr-3">
                             {formatAdminMesaAsesorLabel(r.asesorNombre)}
                           </td>
-                          <td className="py-2 pr-3">
+                          <td className="py-2.5 pr-3">
                             {r.etapaLabel || getEtapaOperativaNombre(r.etapaActual)}
                           </td>
-                          <td className="py-2 pr-3">
-                            <p className="font-medium text-gray-900">{r.situacionLabel}</p>
+                          <td className="py-2.5 pr-3">
+                            <AdminStatusBadge
+                              situacionLabel={r.situacionLabel}
+                              situacionCode={r.situacionCode}
+                              cicloEstado={r.cicloEstado}
+                              rechazoOperativo={r.rechazoOperativo}
+                              correccionesAbiertasCount={r.correccionesAbiertasCount}
+                            />
                           </td>
-                          <td className="py-2 pr-3 whitespace-nowrap text-xs">
-                            {r.fechaEnvioMesa
-                              ? formatDateTimeMx(r.fechaEnvioMesa)
-                              : "—"}
-                          </td>
-                          <td className="py-2 pr-3">
+                          <td className="py-2.5 pr-3">
                             {r.ultimaActividadMesaAt ? (
                               <>
                                 <span className="whitespace-nowrap">
@@ -871,27 +987,18 @@ export default function AdminDashboardPage() {
                                 </p>
                               </>
                             ) : (
-                              "Sin actividad de Mesa registrada"
+                              <span className="text-xs text-slate-500">
+                                Sin actividad registrada
+                              </span>
                             )}
                           </td>
-                          <td className="py-2 pr-3 text-xs">
-                            {formatAdminMesaEsperaLabel({
-                              esperaLabel: r.esperaLabel,
-                              esperaDesde: r.esperaDesde,
-                            })}
-                            {r.esperaDesde ? (
-                              <p className="mt-0.5 text-gray-700">
-                                {formatDateTimeMx(r.esperaDesde)}
-                              </p>
-                            ) : null}
-                          </td>
-                          <td className="py-2">
+                          <td className="py-2.5">
                             <button
                               type="button"
                               className="text-blue-700 underline"
                               onClick={(e) => void openTimeline(r, e.currentTarget)}
                             >
-                              Ver seguimiento
+                              Ver detalle
                             </button>
                           </td>
                         </tr>
@@ -931,99 +1038,29 @@ export default function AdminDashboardPage() {
             </section>
 
             {!loading && (
-              <>
-            {showProduccionPorAsesor ? (
-              <section className="rounded-lg border border-slate-200 bg-white p-4">
-                <h2 className="text-base font-semibold text-slate-900">
-                  {produccionTitle}
-                </h2>
-                {asesores.length === 0 ? (
-                  <p className="mt-3 text-sm text-gray-700">
-                    {asesorId
-                      ? "No hay producción para este asesor en el periodo seleccionado."
-                      : "Sin resultados."}
-                  </p>
-                ) : (
-                  <div className="mt-3 overflow-x-auto">
-                    <table className="min-w-full text-left text-sm text-gray-900">
-                      <thead className="border-b text-xs uppercase text-gray-700">
-                        <tr>
-                          <th className="py-2 pr-3">Asesor</th>
-                          <th className="py-2 pr-3">Enviados</th>
-                          <th className="py-2 pr-3">Aprobadas</th>
-                          <th className="py-2 pr-3">No cumple</th>
-                          <th className="py-2 pr-3">&gt;$20k</th>
-                          <th className="py-2 pr-3">Monto Mejoravit</th>
-                          <th className="py-2 pr-3">Estado actual</th>
-                          <th className="py-2">Acción</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        {asesores.map((a) => (
-                          <tr key={a.asesorId} className="border-b border-slate-100">
-                            <td className="py-2 pr-3 font-medium text-gray-900">
-                              {formatAsesorExpedienteLabel({
-                                fullName: a.asesorNombre,
-                                email: a.asesorEmail,
-                                fallbackId: a.asesorId,
-                              })}
-                            </td>
-                            <td className="py-2 pr-3 text-gray-900">{a.enviadosAMesa}</td>
-                            <td className="py-2 pr-3 text-gray-900">{a.precalificacionesAprobadas}</td>
-                            <td className="py-2 pr-3 text-gray-900">{a.precalificacionesNoCumple}</td>
-                            <td className="py-2 pr-3 text-gray-900">{a.aprobadasMayorA20000}</td>
-                            <td className="max-w-[10rem] break-words py-2 pr-3 text-gray-900 tabular-nums">
-                              {formatMontoMX(a.montoAprobadoTotal)}
-                            </td>
-                            <td className="py-2 pr-3 text-xs text-gray-700">
-                              {compactEtapas(a.etapas)}
-                            </td>
-                            <td className="py-2">
-                              <button
-                                type="button"
-                                className="text-blue-700 underline"
-                                onClick={() => applyAsesorFilter(a.asesorId)}
-                              >
-                                Ver producción
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                )}
-              </section>
-            ) : null}
-
             <section className="rounded-lg border border-gray-200 bg-white p-4 text-gray-900">
-              <div className="flex flex-wrap items-end justify-between gap-3">
-                <div>
-                  <h2 className="text-base font-semibold text-gray-900">
-                    Precalificaciones
-                  </h2>
-                  <p className="mt-1 text-sm text-gray-700">
-                    El periodo aplica a aprobadas y rechazadas; pendientes muestra
-                    el estado actual.
-                  </p>
-                </div>
-                <Select
-                  label="Decisión"
-                  className="text-gray-900"
-                  value={precalDecision}
-                  onChange={(e) => {
-                    setPrecalDecision(e.target.value as AdminPrecalDecisionFilter);
-                    setPrecalPage(1);
-                  }}
-                  options={[
-                    { value: "resueltas", label: "Resueltas" },
-                    { value: "aprobadas", label: "Aprobadas" },
-                    { value: "no_cumple", label: "Rechazadas (No cumple)" },
-                    { value: "pendientes", label: "Pendientes actuales" },
-                    { value: "todas", label: "Todas" },
-                  ]}
-                />
-              </div>
+              <AdminSectionHeader
+                title="Precalificaciones"
+                description="El periodo aplica a aprobadas y rechazadas; pendientes muestra el estado actual."
+                trailing={
+                  <Select
+                    label="Decisión"
+                    className="text-gray-900"
+                    value={precalDecision}
+                    onChange={(e) => {
+                      setPrecalDecision(e.target.value as AdminPrecalDecisionFilter);
+                      setPrecalPage(1);
+                    }}
+                    options={[
+                      { value: "resueltas", label: "Resueltas" },
+                      { value: "aprobadas", label: "Aprobadas" },
+                      { value: "no_cumple", label: "Rechazadas (No cumple)" },
+                      { value: "pendientes", label: "Pendientes actuales" },
+                      { value: "todas", label: "Todas" },
+                    ]}
+                  />
+                }
+              />
               {precalSummary && (
                 <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
                   {[
@@ -1068,7 +1105,11 @@ export default function AdminDashboardPage() {
                 </div>
               )}
               {precalItems.length === 0 ? (
-                <p className="mt-3 text-sm text-gray-700">Sin resultados.</p>
+                <AdminEmptyState
+                  title="No hay resultados para este periodo."
+                  description="Prueba limpiar o cambiar los filtros."
+                  onClearFilters={clearFilters}
+                />
               ) : (
                 <div className="mt-3 overflow-x-auto">
                   <table className="min-w-full text-left text-sm text-gray-900">
@@ -1150,137 +1191,216 @@ export default function AdminDashboardPage() {
                 </div>
               </div>
             </section>
-              </>
             )}
-      </main>
+        </div>
 
-      {timelineOpen ? (
+        {/* ── Pestaña: Reportes ────────────────────────────────────────── */}
         <div
-          className="fixed inset-0 z-50 flex items-end justify-center bg-slate-900/40 p-4 sm:items-center"
-          role="presentation"
-          onClick={closeTimeline}
+          role="tabpanel"
+          id={adminTabPanelId("reportes")}
+          aria-labelledby={adminTabButtonId("reportes")}
+          hidden={activeTab !== "reportes"}
+          className="space-y-6"
         >
-          <div
-            ref={timelineDialogRef}
-            role="dialog"
-            aria-modal="true"
-            aria-labelledby="admin-mesa-timeline-title"
-            tabIndex={-1}
-            className="max-h-[80vh] w-full max-w-lg overflow-y-auto rounded-lg border border-slate-200 bg-white p-4 shadow-lg outline-none"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex items-start justify-between gap-3">
-              <div>
-                <h2
-                  id="admin-mesa-timeline-title"
-                  className="text-base font-semibold text-slate-900"
+          <div className="rounded-lg border border-slate-200 bg-white p-4">
+            <AdminSectionHeader
+              title="Reportes"
+              description="Cada reporte conserva sus propios filtros, cálculos y exportaciones, independientes de la barra de filtros de las otras pestañas."
+            />
+            <div className="mt-3 flex flex-wrap gap-2">
+              {ADMIN_REPORTES_SUBTABS.map((s) => (
+                <button
+                  key={s.id}
+                  type="button"
+                  aria-pressed={reportesSubtab === s.id}
+                  onClick={() => setReportesSubtab(s.id)}
+                  className={`rounded-md px-3 py-1.5 text-sm ${
+                    reportesSubtab === s.id
+                      ? "bg-slate-900 text-white"
+                      : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                  }`}
                 >
-                  Seguimiento de Mesa
-                </h2>
-                <p className="mt-1 text-xs text-gray-600">Más reciente primero · solo lectura</p>
-              </div>
-              <Button type="button" variant="secondary" onClick={closeTimeline}>
-                Cerrar
-              </Button>
+                  {s.label}
+                </button>
+              ))}
             </div>
-            {timelineTarget ? (
-              <dl className="mt-3 grid grid-cols-1 gap-2 text-sm text-gray-800 sm:grid-cols-2">
-                <div>
-                  <dt className="text-xs text-gray-600">Cliente</dt>
-                  <dd className="font-medium">{timelineTarget.clienteNombre}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-gray-600">Asesor</dt>
-                  <dd>{formatAdminMesaAsesorLabel(timelineTarget.asesorNombre)}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-gray-600">Etapa</dt>
-                  <dd>
-                    {timelineTarget.etapaLabel ||
-                      getEtapaOperativaNombre(timelineTarget.etapaActual)}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-gray-600">Situación</dt>
-                  <dd>{timelineTarget.situacionLabel}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-gray-600">Enviado a Mesa</dt>
-                  <dd>{formatDateTimeMx(timelineTarget.fechaEnvioMesa)}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-gray-600">Espera</dt>
-                  <dd>
-                    {formatAdminMesaEsperaLabel({
-                      esperaLabel: timelineTarget.esperaLabel,
-                      esperaDesde: timelineTarget.esperaDesde,
-                    })}
-                  </dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-gray-600">Siguiente acción</dt>
-                  <dd>{timelineTarget.siguienteAccionLabel}</dd>
-                </div>
-                <div>
-                  <dt className="text-xs text-gray-600">Actor esperado</dt>
-                  <dd>{timelineTarget.siguienteAccionActor}</dd>
-                </div>
-              </dl>
-            ) : null}
-            {timelineLoading ? (
-              <p className="mt-4 text-sm text-gray-700">Cargando seguimiento…</p>
-            ) : timelineError ? (
-              <p className="mt-4 text-sm text-red-700">{timelineError}</p>
-            ) : timelineItems.length === 0 ? (
-              <p className="mt-4 text-sm text-gray-700">
-                No hay eventos de seguimiento para este expediente.
-              </p>
-            ) : (
-              <>
-                <ol className="mt-4 list-decimal space-y-3 pl-5 text-sm text-gray-800">
-                  {timelineItems.map((ev, idx) => {
-                    const doc = ev.summary.tipo_documento?.trim();
-                    const motivo = sanitizeAdminMotivo(ev.summary.motivo);
-                    const showMotivo = Boolean(ev.summary.motivo?.trim());
-                    return (
-                      <li key={`${ev.at}-${ev.action}-${idx}`}>
-                        <span className="whitespace-nowrap font-medium text-gray-900">
-                          {formatDateTimeMx(ev.at)}
-                        </span>
-                        {" · "}
-                        <span>{labelAdminMesaAction(ev.action)}</span>
-                        {ev.actorGeneral ? (
-                          <span className="text-xs text-gray-600"> ({ev.actorGeneral})</span>
-                        ) : null}
-                        {doc ? (
-                          <p className="mt-0.5 text-xs text-gray-700">Documento: {doc}</p>
-                        ) : null}
-                        {showMotivo ? (
-                          <p className="mt-0.5 text-xs text-gray-700">Motivo: {motivo}</p>
-                        ) : null}
-                      </li>
-                    );
-                  })}
-                </ol>
-                {timelineHasMore ? (
-                  <div className="mt-4">
-                    <Button
-                      type="button"
-                      variant="secondary"
-                      disabled={timelineLoadingMore}
-                      onClick={() => void loadMoreTimeline()}
-                    >
-                      {timelineLoadingMore
-                        ? "Cargando…"
-                        : `Cargar más (${timelineOffset}/${timelineTotal})`}
-                    </Button>
-                  </div>
-                ) : null}
-              </>
-            )}
+            <p className="mt-2 text-xs text-slate-500">
+              El resultado de cohorte se calcula dentro del reporte histórico,
+              con los mismos filtros del reporte.
+            </p>
+          </div>
+
+          <div hidden={reportesSubtab !== "historico"}>
+            <AdminReporteExpedientesSection />
+          </div>
+
+          <div hidden={reportesSubtab !== "ingresos"}>
+            <AdminIngresosSection
+              asesorOptions={asesorOptions.map((a) => ({
+                id: a.asesorId,
+                nombre: a.asesorNombre?.trim() || a.asesorId,
+              }))}
+            />
           </div>
         </div>
-      ) : null}
+
+        {/* ── Pestaña: Producción ──────────────────────────────────────── */}
+        <div
+          role="tabpanel"
+          id={adminTabPanelId("produccion")}
+          aria-labelledby={adminTabButtonId("produccion")}
+          hidden={activeTab !== "produccion"}
+          className="space-y-6"
+        >
+          {loading ? (
+            <p className="text-gray-700">Cargando producción…</p>
+          ) : showProduccionPorAsesor ? (
+              <section className="rounded-lg border border-slate-200 bg-white p-4">
+                <AdminSectionHeader
+                  title={produccionTitle}
+                  description="Producción por asesor durante el periodo seleccionado en la barra de filtros. Expande una fila para ver el desglose por etapas."
+                />
+                {asesores.length === 0 ? (
+                  <AdminEmptyState
+                    title={
+                      asesorId
+                        ? "No hay producción para este asesor en el periodo seleccionado."
+                        : "No hay resultados para este periodo."
+                    }
+                    description="Prueba limpiar o cambiar los filtros."
+                    onClearFilters={clearFilters}
+                  />
+                ) : (
+                  <div className="mt-3 space-y-2">
+                    {asesores.map((a) => {
+                      const label = formatAsesorExpedienteLabel({
+                        fullName: a.asesorNombre,
+                        email: a.asesorEmail,
+                        fallbackId: a.asesorId,
+                      });
+                      const expanded = expandedAsesorId === a.asesorId;
+                      return (
+                        <AdminExpandableAdvisorRow
+                          key={a.asesorId}
+                          advisorLabel={label}
+                          expanded={expanded}
+                          onToggle={() =>
+                            setExpandedAsesorId((cur) =>
+                              cur === a.asesorId ? null : a.asesorId,
+                            )
+                          }
+                          summary={
+                            <div className="grid min-w-0 grid-cols-2 gap-x-3 gap-y-1 text-sm sm:grid-cols-3 lg:grid-cols-6">
+                              <div className="min-w-0 sm:col-span-3 lg:col-span-1">
+                                <p className="truncate font-medium text-slate-900">{label}</p>
+                              </div>
+                              <div>
+                                <p className="text-[11px] uppercase text-slate-500">Enviados</p>
+                                <p className="tabular-nums text-slate-900">{a.enviadosAMesa}</p>
+                              </div>
+                              <div>
+                                <p className="text-[11px] uppercase text-slate-500">Aprobadas</p>
+                                <p className="tabular-nums text-slate-900">
+                                  {a.precalificacionesAprobadas}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-[11px] uppercase text-slate-500">No cumple</p>
+                                <p className="tabular-nums text-slate-900">
+                                  {a.precalificacionesNoCumple}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-[11px] uppercase text-slate-500">&gt;$20k</p>
+                                <p className="tabular-nums text-slate-900">
+                                  {a.aprobadasMayorA20000}
+                                </p>
+                              </div>
+                              <div>
+                                <p className="text-[11px] uppercase text-slate-500">Monto</p>
+                                <p className="break-words tabular-nums text-slate-900">
+                                  {formatMontoMX(a.montoAprobadoTotal)}
+                                </p>
+                              </div>
+                            </div>
+                          }
+                        >
+                          <div className="space-y-3">
+                            <div>
+                              <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+                                Estado actual por etapas
+                              </p>
+                              <p className="mt-1 text-sm text-slate-800">
+                                {compactEtapas(a.etapas) || "Sin desglose"}
+                              </p>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              <button
+                                type="button"
+                                className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-800"
+                                onClick={() => goExpedientesAsesor(a.asesorId)}
+                              >
+                                Ver expedientes de este asesor
+                              </button>
+                              <button
+                                type="button"
+                                className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-sm text-slate-800 hover:bg-slate-50"
+                                onClick={() => applyAsesorFilter(a.asesorId)}
+                              >
+                                Filtrar producción
+                              </button>
+                            </div>
+                          </div>
+                        </AdminExpandableAdvisorRow>
+                      );
+                    })}
+                  </div>
+                )}
+              </section>
+          ) : (
+            <section className="rounded-lg border border-slate-200 bg-white p-4">
+              <AdminSectionHeader
+                title={produccionTitle}
+                description="La producción por asesor se calcula sin filtro de etapa. Quita el filtro de etapa para ver la tabla del periodo."
+              />
+              <div className="mt-3 flex flex-wrap items-center gap-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+                <span>
+                  Filtro de etapa activo:{" "}
+                  <strong className="font-semibold">{etapaFiltroNombre}</strong>
+                </span>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={clearEtapaFilter}
+                >
+                  Quitar filtro de etapa
+                </Button>
+              </div>
+            </section>
+          )}
+        </div>
+      </main>
+
+      <AdminExpedienteDrawer
+        open={timelineOpen}
+        row={timelineTarget}
+        onClose={closeTimeline}
+        precal={drawerPrecal}
+        timelineItems={timelineItems}
+        timelineLoading={timelineLoading}
+        timelineError={timelineError}
+        timelineHasMore={timelineHasMore}
+        timelineLoadingMore={timelineLoadingMore}
+        timelineOffset={timelineOffset}
+        timelineTotal={timelineTotal}
+        onLoadMoreTimeline={() => void loadMoreTimeline()}
+        correccionText={
+          timelineTarget ? formatCorreccionCell(timelineTarget) : "No"
+        }
+        rechazoText={
+          timelineTarget ? formatRechazoCell(timelineTarget) : "No"
+        }
+      />
     </div>
   );
 }
