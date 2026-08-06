@@ -141,6 +141,17 @@ describe("agenda-sheet sync title space + requeue (mig. 134)", () => {
     );
   });
 
+  it("hotfix reagendar: orden cancel→create, coords, gate prior, restore", () => {
+    assert.match(worker, /sortOutboxForRescheduleMove/);
+    assert.match(worker, /resolveCancelSheetCoords/);
+    assert.match(worker, /decidePriorCancelGate/);
+    assert.match(worker, /missing_sheet_coords_for_cancel/);
+    assert.match(worker, /prior_cancelled_booking_id/);
+    assert.match(worker, /p_error:\s*gate\.reason/);
+    assert.match(worker, /restorePriorSheetRow/);
+    assert.match(worker, /clearedByBooking/);
+  });
+
   it("dry_run_cancel_cleanup exige secreto worker antes del body", () => {
     const authIdx = worker.indexOf('jsonError(401, "unauthorized"');
     const dryIdx = worker.indexOf("dry_run_cancel_cleanup");

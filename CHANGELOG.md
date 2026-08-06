@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Fixed
+- **fix(agenda): reagendar mueve la cita en Sheets (no duplica)** — causa: al cancel+insert de `reagendar_*`, el release de inventario corría antes del outbox y vaciaba `sheet_row`; el worker marcaba `done` sin `batchClear` → ghost en fecha anterior + fila nueva. Mig. **160**: outbox captura coords/links + `prior_cancelled_booking_id`; trigger release `z_` después del outbox. Worker: orden cancel→create, gate si prior no limpio, restore best-effort, dry-run reconcile por booking UUID (STALE/DUPLICATE/MISSING/MATCHED). Bio y firmas (mismo pipeline). Sin cambio de etapas/capacidades/RPCs de reagendar.
+
+### Fixed
 - **fix(curp): constancia por arrastre + estado Mesa claro** — sección Validación de CURP: `DocumentDropzone` (arrastrar/clic/reemplazar) reutiliza upload/Storage/versionado; upload antes del parse (si el análisis falla el PDF permanece); microcopy amigable (sin enums técnicos); estado «lista para enviar» vs «enviada a Mesa» según `submittedToMesa` real; Mesa RO muestra constancia activa ✓ Recibida. Sin cambios de etapa/subestado/envío/permisos.
 
 ### Added

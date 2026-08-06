@@ -23,6 +23,15 @@ import {
   summarizeLiveRowAU,
   verifyClearedRowReadback,
 } from "../_shared/agenda-sheets/cancel-row-clearance.ts";
+import {
+  decideCancelMissingCoords,
+  decidePriorCancelGate,
+  hadSheetEvidenceFromPayload,
+  resolveCancelSheetCoords,
+  shouldRestorePriorAfterCreateFailure,
+  sortOutboxForRescheduleMove,
+  type ClearedRowRestoreSnapshot,
+} from "../_shared/agenda-sheets/reschedule-sheet-move.ts";
 import { createGoogleSheetsAdapter } from "../_shared/agenda-sheets/google.ts";
 import {
   parseTabMapJson,
@@ -168,8 +177,10 @@ Deno.serve(async (req) => {
       return jsonError(500, "claim_failed", "No se pudo reclamar outbox");
     }
 
-    const list = (events ?? []) as Array<Record<string, unknown>>;
-    if (list.length === 0) return jsonOk({ processed: 0 });
+    const claimed = (events ?? []) as Array<Record<string, unknown>>;
+    if (claimed.length === 0) return jsonOk({ processed: 0 });
+    // Reagenda = cancel+create: procesar limpieza antes de escribir la nueva fila.
+    const list = sortOutboxForRescheduleMove(claimed);
 
     if (!email || !pk) {
       for (const ev of list) {
@@ -201,6 +212,9 @@ Deno.serve(async (req) => {
       timeAliases = [];
     }
 
+    /** Snapshots de filas limpiadas en este claim (restore best-effort si create falla). */
+    const clearedByBooking = new Map<string, ClearedRowRestoreSnapshot>();
+
     /** Título exacto de Google por sheetId (conserva trailing spaces). */
     const resolveLiveTitle = async (
       sheetId: number,
@@ -215,6 +229,39 @@ Deno.serve(async (req) => {
         // best-effort: conservar fallback
       }
       return fallbackTitle;
+    };
+
+    /** Best-effort: reescribe B:D+O:U de la cita anterior si create falló tras clear. */
+    const restorePriorSheetRow = async (priorBookingId: string) => {
+      const snap = clearedByBooking.get(priorBookingId);
+      if (
+        !shouldRestorePriorAfterCreateFailure({
+          createFailed: true,
+          priorClearedInBatch: true,
+          restoreSnapshot: snap,
+        }) ||
+        !snap
+      ) {
+        return;
+      }
+      try {
+        await adapter.batchUpdateValues([
+          {
+            range: a1BdRange(snap.sheetTitle, snap.sheetRow),
+            values: [[snap.visibleBCD[0], snap.visibleBCD[1], snap.visibleBCD[2]]],
+          },
+          {
+            range: a1TechRange(snap.sheetTitle, snap.sheetRow),
+            values: [[...snap.techOU]],
+          },
+        ]);
+      } catch (restoreErr) {
+        console.error(
+          "restore_prior_sheet_failed",
+          priorBookingId,
+          String(restoreErr),
+        );
+      }
     };
 
     let done = 0;
@@ -257,25 +304,83 @@ Deno.serve(async (req) => {
           ev.event_type === "booking_cancelled_cleanup"
         ) {
           const bookingId = String(ev.booking_id ?? "");
-          let title = String(link?.sheet_title ?? payload.sheet_title ?? "");
-          let row = Number(link?.row_number ?? payload.sheet_row ?? 0);
-          let sheetId = Number(link?.sheet_id ?? payload.sheet_id ?? 0);
-          // No confiar en link.sync_version para cancel: suele quedar stale (1)
-          // tras escribir CANCELADA con U=2 → falso row_reused.
-          if ((!title || !(row > 0)) && bookingId) {
+          let softLink: Record<string, unknown> | undefined;
+          if ((!link || !(Number(link.row_number) > 0)) && bookingId) {
+            const { data: softLinks } = await supabase
+              .from("agenda_sheet_slot_links")
+              .select("row_number,sheet_title,sheet_id")
+              .eq("booking_id", bookingId)
+              .not("deleted_at", "is", null)
+              .order("deleted_at", { ascending: false })
+              .limit(1);
+            softLink = (softLinks ?? [])[0] as Record<string, unknown> | undefined;
+          }
+          let inv: Record<string, unknown> | undefined;
+          if (bookingId) {
             const { data: invRows } = await supabase
               .from("agenda_sheet_slot_inventory")
-              .select("sheet_row,sheet_title,sheet_id")
+              .select("id,sheet_row,sheet_title,sheet_id")
               .eq("booking_id", bookingId)
               .limit(1);
-            const inv = (invRows ?? [])[0] as Record<string, unknown> | undefined;
-            if (inv) {
-              title = String(inv.sheet_title ?? title);
-              row = Number(inv.sheet_row ?? row);
-              sheetId = Number(inv.sheet_id ?? sheetId);
-            }
+            inv = (invRows ?? [])[0] as Record<string, unknown> | undefined;
           }
+          const coords = resolveCancelSheetCoords({
+            payloadSheetId: Number(payload.sheet_id ?? 0) || null,
+            payloadSheetTitle: payload.sheet_title
+              ? String(payload.sheet_title)
+              : null,
+            payloadSheetRow: Number(payload.sheet_row ?? 0) || null,
+            payloadInventoryId: payload.inventory_id
+              ? String(payload.inventory_id)
+              : null,
+            activeLink: link
+              ? {
+                  sheetId: Number(link.sheet_id ?? 0) || null,
+                  sheetTitle: link.sheet_title
+                    ? String(link.sheet_title)
+                    : null,
+                  rowNumber: Number(link.row_number ?? 0) || null,
+                }
+              : null,
+            softDeletedLink: softLink
+              ? {
+                  sheetId: Number(softLink.sheet_id ?? 0) || null,
+                  sheetTitle: softLink.sheet_title
+                    ? String(softLink.sheet_title)
+                    : null,
+                  rowNumber: Number(softLink.row_number ?? 0) || null,
+                }
+              : null,
+            inventory: inv
+              ? {
+                  sheetId: Number(inv.sheet_id ?? 0) || null,
+                  sheetTitle: inv.sheet_title ? String(inv.sheet_title) : null,
+                  sheetRow: Number(inv.sheet_row ?? 0) || null,
+                  inventoryId: inv.id ? String(inv.id) : null,
+                }
+              : null,
+          });
+          let title = String(coords.sheetTitle ?? "");
+          const row = Number(coords.sheetRow ?? 0);
+          const sheetId = Number(coords.sheetId ?? 0);
           if (!(row > 0) || !title) {
+            const evidence =
+              hadSheetEvidenceFromPayload(payload) ||
+              Boolean(link) ||
+              Boolean(softLink) ||
+              Boolean(inv);
+            const missing = decideCancelMissingCoords({
+              hadSheetEvidence: evidence,
+            });
+            if (missing === "failed_missing_coords") {
+              await supabase.rpc("agenda_sheet_mark_outbox", {
+                p_id: ev.id,
+                p_status: "failed",
+                p_error: "missing_sheet_coords_for_cancel",
+              });
+              failed++;
+              continue;
+            }
             await supabase.rpc("agenda_sheet_mark_cancelled_cleared", {
               p_booking_id: bookingId,
             });
@@ -355,6 +460,7 @@ Deno.serve(async (req) => {
 
           // safe_to_clear → values.batchClear únicamente B:D y O:U
           const clearRanges = cancelClearBatchRanges(title, row);
+          const preClearRow = fr;
           await adapter.batchClear(clearRanges);
 
           const verify = await adapter.getValues(a1FullReadRange(title, row));
@@ -374,6 +480,21 @@ Deno.serve(async (req) => {
             continue;
           }
 
+          clearedByBooking.set(bookingId, {
+            bookingId,
+            expedienteId: String(payload.expediente_id ?? ""),
+            sheetTitle: title,
+            sheetRow: row,
+            visibleBCD: [
+              String(preClearRow[1] ?? ""),
+              String(preClearRow[2] ?? ""),
+              String(preClearRow[3] ?? ""),
+            ],
+            techOU: [14, 15, 16, 17, 18, 19, 20].map((i) =>
+              String(preClearRow[i] ?? ""),
+            ),
+          });
+
           await supabase.rpc("agenda_sheet_mark_cancelled_cleared", {
             p_booking_id: bookingId,
           });
@@ -385,6 +506,18 @@ Deno.serve(async (req) => {
           continue;
         }
 
+        // booking_rescheduled (UPDATE in-place raro): tratar como cancel de coords payload.
+        if (ev.event_type === "booking_rescheduled") {
+          await supabase.rpc("agenda_sheet_mark_outbox", {
+            p_id: ev.id,
+            p_status: "failed",
+            p_error:
+              "booking_rescheduled_use_cancel_create:reagendar_rpc_emits_cancel_plus_create",
+          });
+          failed++;
+          continue;
+        }
+
         // booking_created desde CRM: escribir SOLO en fila preasignada del inventario
         if (ev.event_type === "booking_created" && !link) {
           const date = String(payload.booking_date ?? "");
@@ -393,6 +526,79 @@ Deno.serve(async (req) => {
           const locationId = String(payload.location_id ?? "");
           const kind = String(payload.kind ?? "");
           const bookingId = String(ev.booking_id ?? "");
+          const priorId = String(payload.prior_cancelled_booking_id ?? "").trim();
+
+          // Gate: no escribir nueva fila si la anterior del reagendo no está limpia.
+          if (priorId) {
+            const { data: priorOutbox } = await supabase
+              .from("agenda_sheet_sync_outbox")
+              .select("id,status,event_type")
+              .eq("booking_id", priorId)
+              .in("event_type", [
+                "booking_cancelled",
+                "booking_cancelled_cleanup",
+              ])
+              .in("status", ["pending", "processing", "failed"])
+              .limit(1);
+            const { data: priorActiveLinks } = await supabase
+              .from("agenda_sheet_slot_links")
+              .select("id")
+              .eq("booking_id", priorId)
+              .is("deleted_at", null)
+              .limit(1);
+            let priorSheetOwned = false;
+            const priorSnap = clearedByBooking.get(priorId);
+            if (!priorSnap) {
+              // Si no limpiamos en este batch, mirar payload prior coords / inventario liberado no ayuda;
+              // links activos ya cubren el caso típico. Opcional: read Sheet si hay coords en outbox done payload.
+              const { data: priorDone } = await supabase
+                .from("agenda_sheet_sync_outbox")
+                .select("payload,status")
+                .eq("booking_id", priorId)
+                .in("event_type", [
+                  "booking_cancelled",
+                  "booking_cancelled_cleanup",
+                ])
+                .eq("status", "done")
+                .limit(1);
+              const donePayload = (priorDone?.[0]?.payload ?? {}) as Record<
+                string,
+                unknown
+              >;
+              const pTitle = String(
+                donePayload.sheet_title ?? payload.prior_sheet_title ?? "",
+              );
+              const pRow = Number(
+                donePayload.sheet_row ?? payload.prior_sheet_row ?? 0,
+              );
+              if (pTitle && pRow > 0) {
+                try {
+                  const live = await adapter.getValues(
+                    a1FullReadRange(pTitle, pRow),
+                  );
+                  const liveP = String(live[0]?.[COL_INDEX.bookingId] ?? "").trim();
+                  priorSheetOwned = liveP === priorId;
+                } catch {
+                  priorSheetOwned = false;
+                }
+              }
+            }
+            const gate = decidePriorCancelGate({
+              priorCancelledBookingId: priorId,
+              priorCancelOutboxPending: (priorOutbox ?? []).length > 0,
+              priorActiveLinkExists: (priorActiveLinks ?? []).length > 0,
+              priorSheetRowStillOwned: priorSheetOwned,
+            });
+            if (!gate.allowCreate) {
+              await supabase.rpc("agenda_sheet_mark_outbox", {
+                p_id: ev.id,
+                p_status: "failed",
+                p_error: gate.reason,
+              });
+              failed++;
+              continue;
+            }
+          }
 
           // Dedup por booking_id exacto: links activos (nunca solo NSS/nombre).
           const { data: existingLinks } = await supabase
@@ -777,6 +983,7 @@ Deno.serve(async (req) => {
             String(vr[COL_INDEX.syncSource] ?? "").trim().toLowerCase() ===
               "crm";
           if (!aOk || !enOk || !nssOk || !nameOk || !bookingOk || !sourceOk) {
+            if (priorId) await restorePriorSheetRow(priorId);
             await supabase.rpc("agenda_sheet_mark_outbox", {
               p_id: ev.id,
               p_status: "failed",
@@ -834,6 +1041,13 @@ Deno.serve(async (req) => {
         });
         failed++;
       } catch (err) {
+        const failPayload = (ev.payload ?? {}) as Record<string, unknown>;
+        const priorFail = String(
+          failPayload.prior_cancelled_booking_id ?? "",
+        ).trim();
+        if (ev.event_type === "booking_created" && priorFail) {
+          await restorePriorSheetRow(priorFail);
+        }
         await supabase.rpc("agenda_sheet_mark_outbox", {
           p_id: ev.id,
           p_status: "failed",

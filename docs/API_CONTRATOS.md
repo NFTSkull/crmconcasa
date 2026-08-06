@@ -526,11 +526,13 @@ Rango seguro **O:U** (`ESTADO CRM`…`CRM_SYNC_VERSION`). **A:N se PRESERVA** (H
 - Body: `{}` (no requerido)
 - Sync off: `200 { processed: 0, disabled: true }` sin tocar datos
 - Claim: `agenda_sheet_claim_outbox` con `FOR UPDATE SKIP LOCKED`, máx 50/ejecución
+- **Reagenda (mig. 160):** RPCs `reagendar_*` siguen cancel+insert (un booking activo en Supabase). Outbox cancel captura `sheet_*` / `had_sheet_link` **antes** del release (trigger `z_agenda_sheet_inventory_release_au`). Create adjunta `prior_cancelled_booking_id`. Worker ordena cancel→create; no escribe la nueva si el prior no está limpio; restore best-effort B:D+O:U si create falla tras clear; cancel con evidencia Sheet sin coords → `failed` (no `done` silencioso).
 - Título A1: resuelve título live por `sheetId` (`listSheets`) para conservar trailing spaces
 - Confirmación: read-back A:U; si NSS/nombre/bookingId/source no coinciden → `failed` (`write_verify_failed`), no `done`
 - **Cancelación (contrato 136):** conservar **A** y **G:N** sin escribirlos; limpiar solo **B:D** + **O:U** vía `values.batchClear`; no rewrite A:U; propiedad solo si `P=booking_id` y source crm; E/F con texto → `manual_result_conflict` → outbox `dead` (no retry); fila reutilizada (**P** distinto) → no tocar; no comparar `link.sync_version` vs U (stale tras CANCELADA); inventario `CANCELADA` → available aunque haya conflicto E/F
-- Cancel sin fila conocida / already_absent → `done` no-op + `agenda_sheet_mark_cancelled_cleared`
+- Cancel sin evidencia Sheet → `done` no-op + `agenda_sheet_mark_cancelled_cleared`; con evidencia sin coords → `failed` `missing_sheet_coords_for_cancel`
 - Worker admin read-only: `POST` body `{ dry_run_cancel_cleanup: true, targets: [...] }` clasifica con A:U live sin mutar
+- **Reconcile dry-run (dominio):** `buildReconcileBookingReport` por CRM_BOOKING_ID (P) → `MATCHED` | `STALE_SHEET_ENTRY` | `DUPLICATE_SHEET_ENTRY` | `MISSING_SHEET_ENTRY` | `AMBIGUOUS`; `buildRepairPlan` solo stale/duplicate confirmados (nunca ambiguous). Repair **no** se ejecuta en prod sin autorización.
 - Cron: mig. 130 job `agenda-sheet-sync-worker-every-minute` (`* * * * *`) vía Vault `agenda_sheet_project_url` + `agenda_sheet_worker_secret` (independiente del reconcile 132)
 
 ### Docs operativas

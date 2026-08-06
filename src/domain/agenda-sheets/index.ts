@@ -102,3 +102,25 @@ export {
   type CancelClearClassification,
   type CancelClearDecision,
 } from "./cancel-row-clearance";
+export {
+  decideCancelMissingCoords,
+  decidePriorCancelGate,
+  hadSheetEvidenceFromPayload,
+  rescheduleMoveIdempotencyKey,
+  resolveCancelSheetCoords,
+  shouldRestorePriorAfterCreateFailure,
+  sortOutboxForRescheduleMove,
+  type ClearedRowRestoreSnapshot,
+  type PriorCancelGateDecision,
+  type RescheduleSheetSnapshot,
+} from "./reschedule-sheet-move";
+export {
+  buildReconcileBookingReport,
+  buildRepairPlan,
+  extractSheetBookingOccurrences,
+  type ReconcileBookingReport,
+  type ReconcileClassification,
+  type ReconcileCrmBooking,
+  type ReconcileFinding,
+  type ReconcileSheetOccurrence,
+} from "./reconcile-booking-entries";
