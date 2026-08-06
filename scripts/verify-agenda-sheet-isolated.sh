@@ -260,6 +260,9 @@ psql_iso -f supabase/tests/rpc_agenda_sheet_slot_inventory.sql
 echo "==> Sheet sync suite"
 psql_iso -f supabase/tests/rpc_agenda_sheet_sync.sql
 
+echo "==> Hotfix reagendar clear prior (mig. 160)"
+psql_iso -f supabase/tests/rpc_agenda_sheet_reschedule_clear_prior_p160.sql
+
 seed_inventory_available "post-sheet-sync (refresco claimed)"
 
 echo "==> Agenda regressions (bio + capacity)"

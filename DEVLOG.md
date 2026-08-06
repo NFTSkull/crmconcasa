@@ -1,3 +1,7 @@
+## 2026-08-06 - Hotfix reagendar Sheets: MOVER (no copiar)
+
+Causa raíz: `reagendar_biometricos` / `reagendar_firmas` hacen cancel+insert → outbox `booking_cancelled` + `booking_created`. Trigger `agenda_sheet_inventory_release_au` (alfabético antes de outbox) nullifica `inventory.booking_id` → payload cancel sin `sheet_row`; worker sin coords marcaba `done` **sin** `batchClear` → cliente visible en fecha vieja y nueva. Fix mig. **160**: outbox lee inventario/links (incl. soft-delete) + `had_sheet_link` + `prior_cancelled_booking_id` en create; release renombrado `z_…` para correr después. Worker: `sortOutboxForRescheduleMove`, `resolveCancelSheetCoords`, no done-sin-clear si hubo evidencia, gate create hasta prior limpio, restore best-effort. Reconciler dry-run por UUID (P): STALE/DUPLICATE/MISSING/MATCHED; repair plan no toca AMBIGUOUS. Sin Cloud/deploy.
+
 ## 2026-08-06 - Hotfix Constancia CURP: dropzone + estado Mesa
 
 Causa raíz: `AsesorCurpValidacionSection` usaba `<input type="file">` y, si `extractPdfEmbeddedText` fallaba, hacía `return` **antes** de upload/replace → el PDF no se guardaba; además se mostraban enums crudos (`ERROR_ANALISIS`, “Sin validar / piloto”) y el copy de “enviada a Mesa” no dependía del envío real del expediente. Fix (solo UI + labels): `DocumentDropzone`; upload/replace primero, parse después; `labelConstanciaEnvioMesa(submittedToMesa)`; Mesa RO “✓ Recibida” + Ver/Descargar del activo. Sin tocar etapa/subestado/RPC/envío. Tests: `curp-ui-labels.test.ts` + mount estático.
