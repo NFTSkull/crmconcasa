@@ -180,6 +180,59 @@ describe("admin-stage-history — validación y payload", () => {
     );
   });
 
+  it("contrato estado_actual: visita_id + paso_visual + paso_nombre obligatorios", () => {
+    const ok = adminStageHistoryPageSchema.safeParse({
+      items: [
+        {
+          visita_id: "44444444-4444-4444-8444-444444444444",
+          expediente_id: "44444444-4444-4444-8444-444444444444",
+          cliente_nombre: "Snapshot",
+          nss: "****0001",
+          asesor_nombre: "Asesor",
+          asesor_fuente: "actual",
+          paso_visual: 9,
+          paso_nombre: "Cita para firma",
+          entered_at: "2026-08-01T15:00:00.000Z",
+          exited_at: null,
+          duration_seconds: null,
+          resultado: "continua",
+          paso_actual: 9,
+          etapa_actual: 10,
+        },
+      ],
+      total: 1,
+      page: 1,
+      page_size: 25,
+      history_coverage_from: "2026-07-23T16:32:12.930Z",
+      movimiento: "estado_actual",
+      timezone: "America/Monterrey",
+      asesor_fuente: "actual",
+    });
+    assert.equal(ok.success, true, JSON.stringify(ok.error?.issues ?? []));
+
+    const missingPaso = adminStageHistoryPageSchema.safeParse({
+      items: [
+        {
+          visita_id: "44444444-4444-4444-8444-444444444444",
+          expediente_id: "44444444-4444-4444-8444-444444444444",
+          cliente_nombre: "Snapshot",
+          nss: "****0001",
+          asesor_nombre: "Asesor",
+          entered_at: null,
+          exited_at: null,
+          duration_seconds: null,
+          resultado: "continua",
+        },
+      ],
+      total: 1,
+      page: 1,
+      page_size: 25,
+      history_coverage_from: null,
+      movimiento: "estado_actual",
+    });
+    assert.equal(missingPaso.success, false);
+  });
+
   it("formatea duración y resultado", () => {
     assert.equal(formatDurationSeconds(86400), "1d 0h");
     assert.equal(formatDurationSeconds(null), "—");

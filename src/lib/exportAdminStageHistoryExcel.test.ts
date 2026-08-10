@@ -75,24 +75,40 @@ describe("exportAdminStageHistoryExcel", () => {
     );
   });
 
-  it("workbook con dos hojas y estilos", async () => {
+  it("workbook con hoja Consulta + resumen + detalle (mismo dataset)", async () => {
     const wb = buildAdminStageHistoryWorkbook({
       summary: sampleSummary,
       items: [sampleItem],
+      consultedMeta: {
+        movimiento: "entrada",
+        timezone: "America/Monterrey",
+        fechaDesde: "2026-08-01",
+        fechaHasta: "2026-08-05",
+        pasos: [6],
+        asesoresCount: 1,
+        definition: "Expedientes cuya entrada a la etapa ocurrió dentro del periodo seleccionado.",
+      },
     });
-    assert.equal(wb.worksheets.length, 2);
+    assert.equal(wb.worksheets.length, 3);
+    assert.ok(wb.getWorksheet("Consulta"));
     assert.equal(wb.getWorksheet("Resumen por etapa")?.name, "Resumen por etapa");
     assert.equal(wb.getWorksheet("Historial detallado")?.name, "Historial detallado");
 
+    const meta = wb.getWorksheet("Consulta")!;
+    assert.equal(meta.getCell(2, 2).value, "America/Monterrey");
+    assert.equal(meta.getCell(12, 2).value, "1"); // movimientos
+
     const resumen = wb.getWorksheet("Resumen por etapa")!;
     assert.equal(resumen.getCell(1, 1).value, "Etapa");
+    assert.equal(resumen.getCell(1, 2).value, "Movimientos");
     assert.match(String(resumen.getCell(2, 1).value), /Paso 6/);
 
     const detalle = wb.getWorksheet("Historial detallado")!;
     assert.equal(detalle.getCell(1, 1).value, "Cliente");
     assert.equal(detalle.getCell(2, 1).value, "Cliente Demo");
     assert.equal(detalle.getCell(2, 2).value, "****7890");
-    assert.equal(detalle.getCell(2, 9).value, "Continúa");
+    assert.equal(detalle.getCell(2, 5).value, sampleItem.expediente_id);
+    assert.equal(detalle.getCell(2, 14).value, "Continúa");
 
     const headerFill = resumen.getCell(1, 1).fill as ExcelJS.FillPattern;
     assert.equal(headerFill.fgColor?.argb, ADMIN_REPORT_EXCEL_COLORS.headerBlue);
@@ -160,7 +176,8 @@ describe("exportAdminStageHistoryExcel", () => {
         },
       ],
     });
-    assert.equal(wb.worksheets.length, 5);
+    assert.equal(wb.worksheets.length, 6);
+    assert.ok(wb.getWorksheet("Consulta"));
     assert.ok(wb.getWorksheet("Resultado por etapa"));
     assert.ok(wb.getWorksheet("Desglose por asesor"));
     assert.ok(wb.getWorksheet("Detalle de resultados"));

@@ -24,6 +24,9 @@ import {
   fetchAdminStageHistoryAllItems,
   fetchAdminStageHistoryPage,
   fetchAdminStageHistorySummary,
+  describeAdminStageHistoryMovimiento,
+  adminStageHistoryCoverageWarning,
+  ADMIN_STAGE_HISTORY_COVERAGE_BANNER,
   formatAdminStageHistoryMetaSummary,
   formatAdminStageHistoryTimestamp,
   formatDurationSeconds,
@@ -64,6 +67,18 @@ function etapaActualLabel(item: AdminStageHistoryItem): string {
   if (item.etapa_actual != null) {
     return `Etapa ${item.etapa_actual}`;
   }
+  return "—";
+}
+
+function pasoOrigenLabel(item: AdminStageHistoryItem): string {
+  if (item.paso_origen != null) return `Paso ${item.paso_origen}`;
+  if (item.etapa_origen != null) return `Etapa ${item.etapa_origen}`;
+  return "— (alta / inicio)";
+}
+
+function pasoDestinoLabel(item: AdminStageHistoryItem): string {
+  if (item.etapa_siguiente_paso != null) return `Paso ${item.etapa_siguiente_paso}`;
+  if (item.etapa_siguiente != null) return `Etapa ${item.etapa_siguiente}`;
   return "—";
 }
 
@@ -162,6 +177,13 @@ export function AdminReporteExpedientesSection() {
     const from = summary?.history_coverage_from ?? pageData?.history_coverage_from;
     return from ? formatHistoryCoverageFrom(from) : null;
   }, [summary, pageData]);
+
+  const coveragePartialWarning = useMemo(() => {
+    if (!consultedFilters || consultedFilters.movimiento === "estado_actual") {
+      return null;
+    }
+    return adminStageHistoryCoverageWarning(consultedFilters.fechaDesde);
+  }, [consultedFilters]);
 
   const loadPage = useCallback(
     async (filters: AdminStageHistoryFilters, page: number) => {
@@ -307,6 +329,22 @@ export function AdminReporteExpedientesSection() {
           items,
           cohortSummary,
           cohortItems,
+          consultedMeta: consultedFilters
+            ? {
+                movimiento: consultedFilters.movimiento,
+                timezone: "America/Monterrey",
+                fechaDesde: consultedFilters.fechaDesde,
+                fechaHasta: consultedFilters.fechaHasta,
+                pasos: consultedFilters.pasosVisuales,
+                asesoresCount: consultedFilters.asesorIds.length,
+                definition: describeAdminStageHistoryMovimiento(
+                  consultedFilters.movimiento,
+                ).definition,
+                coverageWarning: adminStageHistoryCoverageWarning(
+                  consultedFilters.fechaDesde,
+                ),
+              }
+            : null,
         });
         const filename = buildAdminStageHistoryFilename(todayYmdLocal());
         await downloadAdminStageHistoryWorkbook(wb, filename);
@@ -402,13 +440,24 @@ export function AdminReporteExpedientesSection() {
           </div>
         </div>
 
-        {coverageLabel ? (
-          <p
-            role="status"
-            className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-950"
-          >
-            Historial disponible desde {coverageLabel}
-          </p>
+        {coverageLabel || coveragePartialWarning ? (
+          <div className="space-y-2">
+            <p
+              role="status"
+              className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-950"
+            >
+              {ADMIN_STAGE_HISTORY_COVERAGE_BANNER}
+              {coverageLabel ? ` (min. en datos: ${coverageLabel})` : null}
+            </p>
+            {coveragePartialWarning ? (
+              <p
+                role="status"
+                className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950"
+              >
+                {coveragePartialWarning}
+              </p>
+            ) : null}
+          </div>
         ) : null}
 
         <div className="grid gap-4 lg:grid-cols-3">
@@ -631,6 +680,27 @@ export function AdminReporteExpedientesSection() {
 
         {!loading && summary && hasResults ? (
           <div className="space-y-4">
+            {consultedFilters ? (
+              <div className="rounded-lg border border-slate-200 bg-slate-50 px-3 py-3 text-sm text-slate-700">
+                <p className="font-semibold text-slate-900">
+                  {describeAdminStageHistoryMovimiento(consultedFilters.movimiento).title}
+                </p>
+                <p className="mt-1 text-xs text-slate-600">
+                  {describeAdminStageHistoryMovimiento(consultedFilters.movimiento).definition}
+                </p>
+                <p className="mt-2 text-xs text-slate-500">
+                  Periodo:{" "}
+                  {consultedFilters.movimiento === "estado_actual"
+                    ? "no aplica (snapshot actual)"
+                    : `${consultedFilters.fechaDesde ?? "—"} → ${consultedFilters.fechaHasta ?? "—"} (America/Monterrey, día final incluido)`}
+                  {" · "}
+                  Etapa(s): {consultedFilters.pasosVisuales.length}
+                  {" · "}
+                  Asesor(es): {consultedFilters.asesorIds.length} (asesor actual del expediente)
+                </p>
+              </div>
+            ) : null}
+
             <p className="text-sm font-medium text-slate-800">
               {formatAdminStageHistoryMetaSummary(summary, consultedFilters)}
             </p>
@@ -640,14 +710,47 @@ export function AdminReporteExpedientesSection() {
                 label="Expedientes únicos"
                 value={summary.totales.total_expedientes_unicos}
               />
-              <SummaryCard label="Visitas" value={summary.totales.total_visitas} />
-              <SummaryCard label="Avanzaron" value={summary.totales.advanced_count} />
-              <SummaryCard label="Continúan" value={summary.totales.current_count} />
-              <SummaryCard label="Rechazados" value={summary.totales.rejected_count} />
               <SummaryCard
-                label="Permanencia prom."
-                value={formatDurationSeconds(summary.totales.avg_duration_seconds)}
-                isText
+                label={
+                  consultedFilters?.movimiento === "avance"
+                    ? "Avances (movimientos)"
+                    : consultedFilters?.movimiento === "entrada"
+                      ? "Entradas (movimientos)"
+                      : consultedFilters?.movimiento === "estuvieron"
+                        ? "Estancias (movimientos)"
+                        : "Movimientos"
+                }
+                value={summary.totales.total_visitas}
+              />
+              {consultedFilters?.movimiento === "avance" ? (
+                <SummaryCard
+                  label="Avances en periodo"
+                  value={summary.totales.advanced_count}
+                />
+              ) : (
+                <SummaryCard
+                  label="Entradas en periodo"
+                  value={summary.totales.entered_count}
+                />
+              )}
+              {consultedFilters?.movimiento === "avance" ? (
+                <SummaryCard
+                  label="Retrocesos (excluidos)"
+                  value={summary.totales.returned_count}
+                />
+              ) : (
+                <SummaryCard
+                  label="Avances en periodo"
+                  value={summary.totales.advanced_count}
+                />
+              )}
+              <SummaryCard
+                label="Aún en etapa al cierre"
+                value={summary.totales.current_count}
+              />
+              <SummaryCard
+                label="Rechazados / cancelados"
+                value={summary.totales.rejected_count}
               />
             </div>
 
@@ -658,7 +761,7 @@ export function AdminReporteExpedientesSection() {
             <AdminCollapsibleSection
               title="Resumen por etapa"
               description="Cifras principales por paso visual. Expande para ver la tabla completa."
-              summary={`${summary.resumen_por_etapa.length} etapa${summary.resumen_por_etapa.length === 1 ? "" : "s"} · ${summary.totales.total_visitas} visitas`}
+              summary={`${summary.resumen_por_etapa.length} etapa${summary.resumen_por_etapa.length === 1 ? "" : "s"} · ${summary.totales.total_visitas} movimientos`}
               defaultOpen={false}
             >
             <div className="overflow-x-auto rounded-lg border border-slate-200">
@@ -666,14 +769,13 @@ export function AdminReporteExpedientesSection() {
                 <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
                   <tr>
                     <th className="px-3 py-2">Etapa</th>
-                    <th className="px-3 py-2 text-right">Entraron</th>
-                    <th className="px-3 py-2 text-right">Avanzaron</th>
-                    <th className="px-3 py-2 text-right">Continúan</th>
-                    <th className="px-3 py-2 text-right">Rechazados</th>
-                    <th className="px-3 py-2 text-right">Visitas</th>
+                    <th className="px-3 py-2 text-right">Movimientos</th>
                     <th className="px-3 py-2 text-right">Únicos</th>
+                    <th className="px-3 py-2 text-right">Entradas en periodo</th>
+                    <th className="px-3 py-2 text-right">Avances en periodo</th>
+                    <th className="px-3 py-2 text-right">Aún en etapa al cierre</th>
+                    <th className="px-3 py-2 text-right">Retrocesos</th>
                     <th className="px-3 py-2 text-right">Perm. prom.</th>
-                    <th className="px-3 py-2 text-right">Tasa avance</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
@@ -681,6 +783,17 @@ export function AdminReporteExpedientesSection() {
                     <tr key={row.paso_visual} className="text-slate-800">
                       <td className="px-3 py-2">
                         Paso {row.paso_visual} · {row.paso_nombre}
+                        {row.paso_visual === 3 ? (
+                          <span className="ml-1 text-[11px] text-slate-500">
+                            (incluye internas 3 y 4)
+                          </span>
+                        ) : null}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums">
+                        {row.visitas}
+                      </td>
+                      <td className="px-3 py-2 text-right tabular-nums">
+                        {row.expedientes_unicos}
                       </td>
                       <td className="px-3 py-2 text-right tabular-nums">
                         {row.entered_count}
@@ -692,19 +805,10 @@ export function AdminReporteExpedientesSection() {
                         {row.current_count}
                       </td>
                       <td className="px-3 py-2 text-right tabular-nums">
-                        {row.rejected_count}
-                      </td>
-                      <td className="px-3 py-2 text-right tabular-nums">
-                        {row.visitas}
-                      </td>
-                      <td className="px-3 py-2 text-right tabular-nums">
-                        {row.expedientes_unicos}
+                        {row.returned_count}
                       </td>
                       <td className="px-3 py-2 text-right tabular-nums">
                         {formatDurationSeconds(row.avg_duration_seconds)}
-                      </td>
-                      <td className="px-3 py-2 text-right tabular-nums">
-                        {row.tasa_avance != null ? `${row.tasa_avance}%` : "—"}
                       </td>
                     </tr>
                   ))}
@@ -715,10 +819,10 @@ export function AdminReporteExpedientesSection() {
 
             <AdminCollapsibleSection
               title="Detalle de visitas"
-              description="Listado paginado de visitas del reporte consultado."
+              description="Listado paginado del mismo dataset que Excel (movimientos vs únicos)."
               summary={
                 pageData
-                  ? `${pageData.total} visita${pageData.total === 1 ? "" : "s"} · página ${currentPage} de ${totalPages}`
+                  ? `${pageData.total} movimiento${pageData.total === 1 ? "" : "s"} · página ${currentPage} de ${totalPages}`
                   : undefined
               }
               defaultOpen={false}
@@ -738,11 +842,16 @@ export function AdminReporteExpedientesSection() {
                         <tr>
                           <th className="px-3 py-2">Cliente</th>
                           <th className="px-3 py-2">NSS</th>
-                          <th className="px-3 py-2">Asesor</th>
+                          <th className="px-3 py-2">Programa</th>
+                          <th className="px-3 py-2">Asesor actual</th>
+                          <th className="px-3 py-2">Expediente</th>
                           <th className="px-3 py-2">Etapa</th>
+                          <th className="px-3 py-2">Origen</th>
+                          <th className="px-3 py-2">Destino</th>
                           <th className="px-3 py-2">Entrada</th>
-                          <th className="px-3 py-2">Salida</th>
-                          <th className="px-3 py-2">Permanencia</th>
+                          <th className="px-3 py-2">Salida / avance</th>
+                          <th className="px-3 py-2">Tiempo en etapa</th>
+                          <th className="px-3 py-2">En etapa al cierre</th>
                           <th className="px-3 py-2">Resultado</th>
                           <th className="px-3 py-2">Etapa actual</th>
                         </tr>
@@ -754,20 +863,39 @@ export function AdminReporteExpedientesSection() {
                             <td className="px-3 py-2 font-mono text-xs">
                               {item.nss || "—"}
                             </td>
+                            <td className="px-3 py-2">{item.programa ?? "—"}</td>
                             <td className="px-3 py-2">
                               {item.asesor_nombre ?? "—"}
+                            </td>
+                            <td className="px-3 py-2 font-mono text-[11px]">
+                              {item.expediente_id.slice(0, 8)}…
                             </td>
                             <td className="px-3 py-2">
                               Paso {item.paso_visual} · {item.paso_nombre}
                             </td>
+                            <td className="px-3 py-2 text-xs">{pasoOrigenLabel(item)}</td>
+                            <td className="px-3 py-2 text-xs">{pasoDestinoLabel(item)}</td>
                             <td className="px-3 py-2 whitespace-nowrap text-xs">
                               {formatAdminStageHistoryTimestamp(item.entered_at)}
                             </td>
                             <td className="px-3 py-2 whitespace-nowrap text-xs">
-                              {formatAdminStageHistoryTimestamp(item.exited_at)}
+                              {formatAdminStageHistoryTimestamp(
+                                consultedFilters?.movimiento === "avance"
+                                  ? (item.movimiento_at ?? item.exited_at)
+                                  : item.exited_at,
+                              )}
                             </td>
-                            <td className="px-3 py-2 tabular-nums">
-                              {formatDurationSeconds(item.duration_seconds)}
+                            <td className="px-3 py-2 tabular-nums text-xs">
+                              {formatDurationSeconds(
+                                item.duration_in_range_seconds ?? item.duration_seconds,
+                              )}
+                            </td>
+                            <td className="px-3 py-2 text-xs">
+                              {item.still_in_stage_at_range_end == null
+                                ? "—"
+                                : item.still_in_stage_at_range_end
+                                  ? "Sí"
+                                  : "No"}
                             </td>
                             <td className="px-3 py-2">
                               {labelAdminStageHistoryResultado(item.resultado)}

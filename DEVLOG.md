@@ -1,3 +1,7 @@
+## 2026-08-10 - Admin: calibración Reporte histórico de etapas (P163)
+
+Causa: resumen P149 mezclaba outcomes eventuales (LEAD fuera de rango) con el movimiento filtrado; detalle incompleto; `estado_actual` page rompía Zod. Fix mig. **163** + UI/Excel/coverage banner desde 23/07/2026. Avanzaron = exited_at en rango + next_paso > paso. Runner aislado `scripts/verify-p163-admin-stage-history-isolated.sh`. Sin Cloud/merge.
+
 ## 2026-08-10 - Hotfix inbound Sheets: ocupación manual → cupo CRM
 
 Causa: webhook no marcaba ocupaciones manuales hasta reconcile 15m. Fix mig. **162** + live-sync + webhook `sheet_webhook` + hard gate book. Firmas/bio. Sin Cloud en el commit; publicación controlada aparte.

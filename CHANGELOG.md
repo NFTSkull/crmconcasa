@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Fixed
+- **fix(admin): calibrar reporte histórico de etapas (P163)** — resumen/detalle usan eventos de `expediente_paso_visual_transiciones` (Entraron/Avanzaron/Estuvieron) con Monterrey semiabierto; Avanzaron = salida forward en rango (no outcome eventual); unicos vs movimientos; cobertura desde 23/07/2026; estado_actual con contrato Zod; Excel hoja Consulta 1:1. Mig. **163** local. Sin Cloud/deploy.
+
+### Fixed
 - **fix(agenda): bloquear cupo ocupado manualmente en Sheets** — webhook marca `occupied_external` (NSS/NOMBRE/ASESOR); Edge `agenda-sheet-live-sync` refresca inventario antes de listar y hard-gate antes de book; mig. **162** fingerprint/`sheet_last_seen_at`; Apps Script sin PII. Firmas y biométricos. Sin inventar `agenda_booking` para citas manuales.
 
 ### Added

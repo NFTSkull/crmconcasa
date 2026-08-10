@@ -78,6 +78,16 @@ export function buildAdminStageHistoryWorkbook(input: Readonly<{
   items: readonly AdminStageHistoryItem[];
   cohortSummary?: AdminStageCohortSummary | null;
   cohortItems?: readonly AdminStageCohortItem[];
+  consultedMeta?: Readonly<{
+    movimiento: string;
+    timezone: string;
+    fechaDesde: string | null;
+    fechaHasta: string | null;
+    pasos: readonly number[];
+    asesoresCount: number;
+    definition: string;
+    coverageWarning?: string | null;
+  }> | null;
 }>): ExcelJS.Workbook {
   const wb = new ExcelJS.Workbook();
   const headerAlign: Partial<ExcelJS.Alignment> = {
@@ -85,18 +95,65 @@ export function buildAdminStageHistoryWorkbook(input: Readonly<{
     vertical: "middle",
   };
 
+  const metaSheet = wb.addWorksheet("Consulta", {
+    views: [{ state: "frozen", ySplit: 1 }],
+  });
+  const metaRows: [string, string | number][] = [
+    ["Timezone", input.consultedMeta?.timezone ?? input.summary.timezone ?? "America/Monterrey"],
+    ["Tipo de movimiento", input.consultedMeta?.movimiento ?? input.summary.movimiento],
+    ["Definición", input.consultedMeta?.definition ?? input.summary.nota ?? ""],
+    ["Fecha desde", input.consultedMeta?.fechaDesde ?? input.summary.fecha_desde ?? "—"],
+    ["Fecha hasta", input.consultedMeta?.fechaHasta ?? input.summary.fecha_hasta ?? "—"],
+    ["Etapas seleccionadas", (input.consultedMeta?.pasos ?? []).join(", ") || "—"],
+    ["Asesores seleccionados", input.consultedMeta?.asesoresCount ?? "—"],
+    ["Asesor en detalle", "Asesor actual del expediente"],
+    ["Cobertura histórica", "Historial de etapas disponible con trazabilidad completa desde el 23/07/2026."],
+    [
+      "Advertencia cobertura",
+      input.consultedMeta?.coverageWarning?.trim()
+        ? input.consultedMeta.coverageWarning
+        : "—",
+    ],
+    ["Expedientes únicos", input.summary.totales.total_expedientes_unicos],
+    ["Movimientos", input.summary.totales.total_visitas],
+    ["Entradas en periodo", input.summary.totales.entered_count],
+    ["Avances en periodo", input.summary.totales.advanced_count],
+    ["Aún en etapa al cierre", input.summary.totales.current_count],
+    ["Filas detalle (misma consulta)", input.items.length],
+  ];
+  applyDataCell(metaSheet.getCell(1, 1), "Campo", {
+    fillArgb: ADMIN_REPORT_EXCEL_COLORS.headerBlue,
+    bold: true,
+    fontColor: ADMIN_REPORT_EXCEL_COLORS.white,
+  });
+  applyDataCell(metaSheet.getCell(1, 2), "Valor", {
+    fillArgb: ADMIN_REPORT_EXCEL_COLORS.headerBlue,
+    bold: true,
+    fontColor: ADMIN_REPORT_EXCEL_COLORS.white,
+  });
+  metaSheet.getColumn(1).width = 28;
+  metaSheet.getColumn(2).width = 72;
+  metaRows.forEach(([k, v], idx) => {
+    const fill =
+      idx % 2 === 0
+        ? ADMIN_REPORT_EXCEL_COLORS.altBlue
+        : ADMIN_REPORT_EXCEL_COLORS.white;
+    applyDataCell(metaSheet.getCell(idx + 2, 1), sanitize(String(k)), { fillArgb: fill });
+    applyDataCell(metaSheet.getCell(idx + 2, 2), sanitize(String(v)), { fillArgb: fill });
+  });
+
   const resumenSheet = wb.addWorksheet("Resumen por etapa", {
     views: [{ state: "frozen", ySplit: 1 }],
   });
   const resumenHeaders = [
     "Etapa",
-    "Entraron",
-    "Avanzaron",
-    "Continúan",
-    "Rechazados",
-    "Retrocedieron",
-    "Visitas",
+    "Movimientos",
     "Únicos",
+    "Entradas en periodo",
+    "Avances en periodo",
+    "Aún en etapa al cierre",
+    "Rechazados",
+    "Retrocesos en periodo",
     "Perm. prom.",
     "Perm. mediana",
     "Tasa avance %",
@@ -109,7 +166,7 @@ export function buildAdminStageHistoryWorkbook(input: Readonly<{
       fontColor: ADMIN_REPORT_EXCEL_COLORS.white,
       align: headerAlign,
     });
-    resumenSheet.getColumn(idx + 1).width = idx === 0 ? 42 : 14;
+    resumenSheet.getColumn(idx + 1).width = idx === 0 ? 42 : 16;
   });
 
   input.summary.resumen_por_etapa.forEach((row: AdminStageHistoryResumenEtapa, idx) => {
@@ -120,13 +177,13 @@ export function buildAdminStageHistoryWorkbook(input: Readonly<{
     const r = idx + 2;
     const cells: (string | number)[] = [
       `Paso ${row.paso_visual} · ${row.paso_nombre}`,
+      row.visitas,
+      row.expedientes_unicos,
       row.entered_count,
       row.advanced_count,
       row.current_count,
       row.rejected_count,
       row.returned_count,
-      row.visitas,
-      row.expedientes_unicos,
       formatDurationSeconds(row.avg_duration_seconds),
       formatDurationSeconds(row.median_duration_seconds),
       row.tasa_avance ?? "—",
@@ -146,12 +203,17 @@ export function buildAdminStageHistoryWorkbook(input: Readonly<{
   const detalleHeaders = [
     "Cliente",
     "NSS",
-    "Asesor",
     "Programa",
+    "Asesor actual",
+    "Expediente ID",
     "Etapa consultada",
+    "Origen",
+    "Destino",
     "Entrada",
-    "Salida",
-    "Permanencia",
+    "Salida / avance",
+    "Tiempo en etapa",
+    "Tiempo en rango",
+    "En etapa al cierre",
     "Resultado",
     "Etapa actual",
     "Actor",
@@ -164,7 +226,7 @@ export function buildAdminStageHistoryWorkbook(input: Readonly<{
       align: headerAlign,
     });
     detalleSheet.getColumn(idx + 1).width =
-      idx === 0 ? 30 : idx === 4 ? 40 : idx === 5 || idx === 6 ? 22 : 16;
+      idx === 0 || idx === 5 ? 30 : idx === 4 ? 38 : idx === 8 || idx === 9 ? 22 : 16;
   });
 
   input.items.forEach((row, idx) => {
@@ -179,15 +241,36 @@ export function buildAdminStageHistoryWorkbook(input: Readonly<{
         : row.etapa_actual != null
           ? `Etapa ${row.etapa_actual}`
           : "—";
+    const origen =
+      row.paso_origen != null
+        ? `Paso ${row.paso_origen}`
+        : row.etapa_origen != null
+          ? `Etapa ${row.etapa_origen}`
+          : "—";
+    const destino =
+      row.etapa_siguiente_paso != null
+        ? `Paso ${row.etapa_siguiente_paso}`
+        : row.etapa_siguiente != null
+          ? `Etapa ${row.etapa_siguiente}`
+          : "—";
     const values: (string | number)[] = [
       sanitize(row.cliente_nombre),
       sanitize(String(row.nss ?? "")),
-      sanitize(row.asesor_nombre ?? "—"),
       sanitize(row.programa ?? "—"),
+      sanitize(row.asesor_nombre ?? "—"),
+      sanitize(row.expediente_id),
       sanitize(`Paso ${row.paso_visual} · ${row.paso_nombre}`),
+      sanitize(origen),
+      sanitize(destino),
       formatAdminStageHistoryTimestamp(row.entered_at),
-      formatAdminStageHistoryTimestamp(row.exited_at),
+      formatAdminStageHistoryTimestamp(row.exited_at ?? row.movimiento_at),
       formatDurationSeconds(row.duration_seconds),
+      formatDurationSeconds(row.duration_in_range_seconds ?? null),
+      row.still_in_stage_at_range_end == null
+        ? "—"
+        : row.still_in_stage_at_range_end
+          ? "Sí"
+          : "No",
       labelAdminStageHistoryResultado(row.resultado),
       sanitize(etapaActual),
       sanitize(row.actor_nombre ?? "—"),

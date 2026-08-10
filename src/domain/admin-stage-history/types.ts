@@ -110,6 +110,10 @@ export const adminStageHistorySummarySchema = z.object({
   history_coverage_from: z.string().nullable(),
   movimiento: adminStageHistoryMovimientoSchema,
   nota: z.string().nullable().optional(),
+  timezone: z.string().nullable().optional(),
+  asesor_fuente: z.literal("actual").nullable().optional(),
+  fecha_desde: z.string().nullable().optional(),
+  fecha_hasta: z.string().nullable().optional(),
 });
 
 export const adminStageHistoryItemSchema = z.object({
@@ -119,18 +123,26 @@ export const adminStageHistoryItemSchema = z.object({
   nss: z.string(),
   asesor_id: z.string().uuid().nullable().optional(),
   asesor_nombre: z.string().nullable(),
+  asesor_fuente: z.literal("actual").nullable().optional(),
   programa: z.string().nullable().optional(),
   paso_visual: z.number().int().min(1).max(11),
   paso_nombre: z.string(),
   etapa_entrada: z.number().int().nullable().optional(),
-  entered_at: z.string(),
+  paso_origen: z.number().int().nullable().optional(),
+  etapa_origen: z.number().int().nullable().optional(),
+  entered_at: z.string().nullable(),
   exited_at: z.string().nullable(),
+  movimiento_at: z.string().nullable().optional(),
   duration_seconds: z.number().int().nonnegative().nullable(),
+  duration_in_range_seconds: z.number().int().nonnegative().nullable().optional(),
+  still_in_stage_at_range_end: z.boolean().nullable().optional(),
   resultado: adminStageHistoryResultadoSchema,
   etapa_siguiente_paso: z.number().int().nullable().optional(),
   etapa_siguiente: z.number().int().nullable().optional(),
   etapa_actual: z.number().int().nullable().optional(),
   paso_actual: z.number().int().nullable().optional(),
+  ciclo_estado: z.string().nullable().optional(),
+  subestado: z.string().nullable().optional(),
   fecha_envio_mesa: z.string().nullable().optional(),
   actor_user_id: z.string().uuid().nullable().optional(),
   actor_nombre: z.string().nullable().optional(),
@@ -144,9 +156,10 @@ export const adminStageHistoryPageSchema = z.object({
   page_size: z.number().int().positive(),
   history_coverage_from: z.string().nullable(),
   movimiento: adminStageHistoryMovimientoSchema,
+  timezone: z.string().nullable().optional(),
+  asesor_fuente: z.literal("actual").nullable().optional(),
   filters: z.record(z.string(), z.unknown()).optional(),
 });
-
 export type AdminStageHistoryTotales = z.infer<
   typeof adminStageHistoryTotalesSchema
 >;
@@ -334,7 +347,7 @@ export function formatAdminStageHistoryMetaSummary(
     n(asesoresSel, "asesor seleccionado", "asesores seleccionados"),
     n(etapasSel, "etapa consultada", "etapas consultadas"),
     n(summary.totales.total_expedientes_unicos, "expediente único", "expedientes únicos"),
-    n(summary.totales.total_visitas, "visita", "visitas"),
+    n(summary.totales.total_visitas, "movimiento", "movimientos"),
   ].join(" · ");
 }
 
