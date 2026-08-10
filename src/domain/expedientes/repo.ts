@@ -23,6 +23,11 @@ import type {
   PaginatedExpedientesResult,
 } from "./list-for-asesor-paginated";
 import type {
+  AsesorInboxSummaryResult,
+  AsesorListExpedientesPageInput,
+  AsesorListExpedientesPageResult,
+} from "./asesor-inbox-rpc";
+import type {
   ListForMesaControlPaginatedQuery,
   PaginatedMesaBandejaResult,
 } from "./list-for-mesa-control-paginated";
@@ -37,6 +42,11 @@ export type {
   PaginatedExpedientesResult,
 } from "./list-for-asesor-paginated";
 export type {
+  AsesorInboxSummaryResult,
+  AsesorListExpedientesPageInput,
+  AsesorListExpedientesPageResult,
+} from "./asesor-inbox-rpc";
+export type {
   ListForMesaControlPaginatedQuery,
   PaginatedMesaBandejaResult,
 } from "./list-for-mesa-control-paginated";
@@ -49,6 +59,17 @@ export interface ExpedientesRepo {
     asesorEmail: string,
     options: ListForAsesorPaginatedOptions,
   ): Promise<PaginatedExpedientesResult>;
+  /**
+   * B1.5/B1 UI: página filtrada inbox asesor vía RPC.
+   * Identidad solo por JWT (`auth.uid()`); no aceptar email/asesor como autoridad.
+   */
+  listAsesorInboxPage(
+    input: AsesorListExpedientesPageInput,
+  ): Promise<AsesorListExpedientesPageResult>;
+  /** B1.5/B1 UI: KPIs/chips + programas + notifications globales. */
+  getAsesorInboxSummary(
+    notifLimit?: number,
+  ): Promise<AsesorInboxSummaryResult>;
   listForEditor(query: EditorListQuery): Promise<EditorListPage>;
   listForMesaControl(): Promise<ExpedienteMock[]>;
   /** P102: bandeja Mesa con filtros en servidor + keyset (25). */
