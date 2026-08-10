@@ -124,3 +124,22 @@ export {
   type ReconcileFinding,
   type ReconcileSheetOccurrence,
 } from "./reconcile-booking-entries";
+export {
+  BOOK_SLOT_JUST_TAKEN_MESSAGE,
+  LIVE_SYNC_LOADING_LABEL,
+  assertWebhookPayloadHasNoPii,
+  classifyInventoryReconcileRow,
+  classifySheetRowOccupancy,
+  countAvailableByPhysicalOccupancy,
+  decideBookHardGate,
+  isSheetIdentityOccupied,
+  manualOccupancyFingerprint,
+  type InventoryReconcileClass,
+  type PhysicalSlotOccupancyRow,
+  type SheetOccupancyClass,
+} from "./manual-occupancy";
+export {
+  invokeAgendaSheetLiveSync,
+  type LiveSyncMode,
+  type LiveSyncResult,
+} from "./live-inventory-sync";

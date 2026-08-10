@@ -78,7 +78,7 @@ function handleEdit_(e) {
   // hacia técnicas desde A:N, igual no procesamos celdas técnicas.
 
   // Columna A (hora física): reconciliar inventario de filas vacías / conflicto si ocupada.
-  // Columnas B+ (NSS/nombre/asesor): booking Sheets→CRM.
+  // Columnas B+ (NSS/nombre/asesor): ocupación Sheet → inventario (sin PII en payload).
   // La condición siguiente casi nunca aplica a rangos contiguos; se conserva por legado.
   if (lastCol < NSS_COL && col > NSS_COL) return;
 
@@ -90,6 +90,18 @@ function handleEdit_(e) {
   var touchesTimeCol = col <= TIME_COL && lastCol >= TIME_COL;
   for (var i = 0; i < max; i++) {
     var row = startRow + i;
+    var horaVal = String(sheet.getRange(row, TIME_COL).getDisplayValue() || "").trim();
+    var nssVal = String(sheet.getRange(row, NSS_COL).getDisplayValue() || "").trim();
+    var nombreVal = String(sheet.getRange(row, 3).getDisplayValue() || "").trim();
+    var asesorVal = String(sheet.getRange(row, 4).getDisplayValue() || "").trim();
+    // Advertencia local: ocupación sin horario no puede consumir cupo.
+    if (!horaVal && (nssVal || nombreVal || asesorVal)) {
+      SpreadsheetApp.getActiveSpreadsheet().toast(
+        "Captura la cita en una fila que tenga horario asignado.",
+        "ConCasa",
+        8,
+      );
+    }
     // Si ya hay booking_id en P y la edición NO toca A, no re-crear (evita loop).
     // Si toca A, sí notificar (webhook registra occupied_slot_time_changed).
     var bookingId = String(
@@ -97,12 +109,14 @@ function handleEdit_(e) {
     ).trim();
     if (bookingId && !touchesTimeCol) continue;
     // Estado en O solo lectura local (diagnóstico); no escribe Apps Script aquí
+    // Payload SIN PII: solo ids de hoja/fila + timestamp + firma vía header.
     postWebhook_({
       spreadsheetId: ss.getId(),
       sheetId: sheetId,
       sheetTitle: title,
       rowNumber: row,
       source: "sheets_onedit",
+      editedAt: new Date().toISOString(),
       idempotencyKey: ss.getId() + ":" + sheetId + ":" + row + ":" + Date.now(),
     });
   }

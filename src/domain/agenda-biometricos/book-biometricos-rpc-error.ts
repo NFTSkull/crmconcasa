@@ -52,6 +52,12 @@ export function mapBookBiometricosRpcError(error: {
     );
   }
 
+  if (msg.includes("sin_cupo_real_en_sheet")) {
+    return new AgendaBiometricosSupabaseError(
+      "Ese horario acaba de ocuparse. Selecciona otro disponible.",
+    );
+  }
+
   if (msg.includes("anticipación mínima") || msg.includes("fecha no cumple anticipación")) {
     return new AgendaBiometricosSupabaseError(
       "La fecha u hora no cumple la anticipación mínima configurada por Mesa.",

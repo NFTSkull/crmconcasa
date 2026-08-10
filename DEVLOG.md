@@ -1,3 +1,7 @@
+## 2026-08-10 - Hotfix inbound Sheets: ocupación manual → cupo CRM
+
+Causa: webhook no marcaba ocupaciones manuales hasta reconcile 15m. Fix mig. **162** + live-sync + webhook `sheet_webhook` + hard gate book. Firmas/bio. Sin Cloud en el commit; publicación controlada aparte.
+
 ## 2026-08-10 - B1 UI + B1.5 P161: inbox asesor paginado (egress)
 
 Objetivo: cortar descarga completa del historial en `/asesor`. Mig. **161** (`asesor_list_expedientes_page` + `asesor_inbox_summary`) con paridad `docs/ASESOR_INBOX_B15_EQUIVALENCIA.md`. UI cableada a RPCs tipadas Zod; pageSize 25; summary global; export on-demand; enrich ≤25; anti-stale; sin `listForAsesor`. Cloud: 161 aplicada y `migration repair 161 applied` (no `db push` / no 160). Pendiente B2 N+1 batch docs/agenda.

@@ -39,6 +39,11 @@ import {
   applySheetInventoryToSlots,
   type InventoryAvailabilityResponse,
 } from "@/domain/agenda-sheets/apply-inventory-availability";
+import {
+  BOOK_SLOT_JUST_TAKEN_MESSAGE,
+  LIVE_SYNC_LOADING_LABEL,
+  invokeAgendaSheetLiveSync,
+} from "@/domain/agenda-sheets/live-inventory-sync";
 import { supabaseBrowser } from "@/lib/supabaseBrowser";
 
 export interface AgendaFirmasSupabaseCardProps {
@@ -142,6 +147,7 @@ export function AgendaFirmasSupabaseCard({
   const [sheetInventory, setSheetInventory] = useState<InventoryAvailabilityResponse | null>(
     null,
   );
+  const [inventoryRefreshing, setInventoryRefreshing] = useState(false);
 
   const advisorSedeOptions = useMemo(
     () => buildAdvisorSedeOptions(config?.locations ?? []),
@@ -307,10 +313,23 @@ export function AgendaFirmasSupabaseCard({
     let cancelled = false;
     if (!selectedSede || !dateYmd || !supabaseBrowser) {
       setSheetInventory(null);
+      setInventoryRefreshing(false);
       return;
     }
     void (async () => {
+      setInventoryRefreshing(true);
       try {
+        const live = await invokeAgendaSheetLiveSync(supabaseBrowser, {
+          bookingDate: dateYmd,
+          kind: "firmas",
+          locationId: selectedSede.canonicalId,
+          mode: "availability",
+        });
+        if (cancelled) return;
+        if (live) {
+          setSheetInventory(live);
+          return;
+        }
         const { data, error } = await supabaseBrowser.rpc(
           "agenda_sheet_inventory_availability",
           {
@@ -329,6 +348,8 @@ export function AgendaFirmasSupabaseCard({
         if (!cancelled) {
           setSheetInventory({ fresh: false, enforced: true, slots: [] });
         }
+      } finally {
+        if (!cancelled) setInventoryRefreshing(false);
       }
     })();
     return () => {
@@ -459,6 +480,23 @@ export function AgendaFirmasSupabaseCard({
 
     setSaving(true);
     try {
+      if (supabaseBrowser && selectedSede) {
+        const gate = await invokeAgendaSheetLiveSync(supabaseBrowser, {
+          bookingDate: dateYmd,
+          kind: "firmas",
+          locationId: selectedSede.canonicalId,
+          mode: "book_gate",
+          slotTime: timeHhmm,
+        });
+        if (gate) {
+          setSheetInventory(gate);
+          if (gate.canBook === false) {
+            setError(gate.gateMessage ?? BOOK_SLOT_JUST_TAKEN_MESSAGE);
+            await refreshAvailability();
+            return;
+          }
+        }
+      }
       await repo.bookFirmas({
         expedienteId,
         scheduledAt,
@@ -509,6 +547,23 @@ export function AgendaFirmasSupabaseCard({
 
     setSaving(true);
     try {
+      if (supabaseBrowser && selectedSede) {
+        const gate = await invokeAgendaSheetLiveSync(supabaseBrowser, {
+          bookingDate: dateYmd,
+          kind: "firmas",
+          locationId: selectedSede.canonicalId,
+          mode: "book_gate",
+          slotTime: timeHhmm,
+        });
+        if (gate) {
+          setSheetInventory(gate);
+          if (gate.canBook === false) {
+            setError(gate.gateMessage ?? BOOK_SLOT_JUST_TAKEN_MESSAGE);
+            await refreshAvailability();
+            return;
+          }
+        }
+      }
       await repo.reagendarFirmas({
         expedienteId,
         scheduledAt,
@@ -603,6 +658,11 @@ export function AgendaFirmasSupabaseCard({
         }}
       />
 
+      {inventoryRefreshing ? (
+        <p role="status" className="mt-2 text-[11px] text-gray-500">
+          {LIVE_SYNC_LOADING_LABEL}
+        </p>
+      ) : null}
       {inventoryUi.inventoryLabel ? (
         <p className="mt-2 text-[11px] text-gray-500">{inventoryUi.inventoryLabel}</p>
       ) : null}

@@ -48,4 +48,12 @@ describe("mapBookBiometricosRpcError", () => {
     });
     assert.match(err.message, /anticipación mínima/i);
   });
+
+  it("mapea SIN_CUPO_REAL_EN_SHEET a ocupación reciente", () => {
+    const err = mapBookBiometricosRpcError({
+      message:
+        "SIN_CUPO_REAL_EN_SHEET: Ese horario acaba de ocuparse. Selecciona otro disponible.",
+    });
+    assert.match(err.message, /acaba de ocuparse/i);
+  });
 });

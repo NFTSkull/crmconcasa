@@ -1,9 +1,6 @@
-/**
- * Pruebas unitarias del adaptador memoria / mensajes de conflicto (Edge-like).
- * No llama a Google ni Supabase reales.
- */
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { readFileSync } from "node:fs";
 import {
   normalizeSheetNss,
   parseSheetTabDate,
@@ -50,5 +47,45 @@ describe("agenda-sheets edge-like guards", () => {
     assert.equal(isTechColumn1Based(16), true); // P booking
     assert.equal(isPreserveOnlyColumn1Based(8), true);
     assert.equal(isPreserveOnlyColumn1Based(9), true);
+  });
+
+  it("21. webhook autentica secreto y marca ocupación manual", () => {
+    const src = readFileSync(
+      new URL(
+        "../../../supabase/functions/agenda-sheet-webhook/index.ts",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+    assert.match(src, /x-concasa-webhook-secret/);
+    assert.match(src, /timingSafeEqual/);
+    assert.match(src, /occupied_manual|occupied_external/);
+    assert.match(src, /sheet_webhook/);
+    assert.match(src, /MANUAL_ENTRY_WITHOUT_SLOT/);
+  });
+
+  it("22. live-sync refresca antes de availability/book_gate", () => {
+    const src = readFileSync(
+      new URL(
+        "../../../supabase/functions/agenda-sheet-live-sync/index.ts",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+    assert.match(src, /book_gate/);
+    assert.match(src, /availability/);
+    assert.match(src, /agenda_sheet_inventory_upsert_batch/);
+    assert.match(src, /decideBookHardGate/);
+  });
+
+  it("23. worker CRM→Sheet sigue presente (outbound)", () => {
+    const src = readFileSync(
+      new URL(
+        "../../../supabase/functions/agenda-sheet-sync-worker/index.ts",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+    assert.match(src, /outbox|booking_created|GOOGLE_SHEETS_SYNC_ENABLED/);
   });
 });
