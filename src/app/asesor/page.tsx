@@ -10,6 +10,20 @@ import { formatDateTimeMx } from "@/lib/filters";
 import {
   ExpedientesSupabaseError,
   useExpedientesRepo,
+  ASESOR_INBOX_BUSCAR_DEBOUNCE_MS,
+  ASESOR_INBOX_MAX_PAGE_SIZE,
+  ASESOR_INBOX_UI_PAGE_SIZE,
+  ASESOR_INBOX_NOTIF_DEFAULT_LIMIT,
+  asesorInboxTotalPages,
+  buildAsesorInboxListInput,
+  capIdsForDependentLoads,
+  clampAsesorInboxPage,
+  collectAsesorInboxExportRows,
+  formatAsesorInboxShowingRange,
+  mapAsesorInboxNotificationsToDashboard,
+  mapAsesorInboxPageResultToViewModel,
+  mapAsesorInboxSummaryToKpis,
+  type AsesorInboxKpisFromSummary,
   type ExpedienteMock,
 } from "@/domain/expedientes";
 import {
@@ -39,10 +53,9 @@ import {
   subestadoOperativoLabel,
 } from "@/lib/subestadoOperativoUi";
 import { formatMontoMX } from "@/lib/monto";
-import { matchesAsesorListadoBusqueda } from "@/lib/asesorListadoBusqueda";
 import { NotificationsBell } from "@/components/notifications/NotificationsBell";
 import { AsesorAgendaCalendarButton } from "@/components/asesor/AsesorAgendaCalendarButton";
-import { buildDashboardNotifications } from "@/lib/dashboardNotifications";
+import type { DashboardNotificationItem } from "@/lib/dashboardNotifications";
 import {
   useAgendaBiometricosBookingRepo,
 } from "@/domain/agenda-biometricos";
@@ -57,11 +70,6 @@ import {
 import {
   ASESOR_TAREAS_ETAPA_RETENCION,
   ASESOR_TAREAS_ETAPAS_AGENDA,
-  buildAsesorTareaExpedienteInput,
-  countAsesorTareasPendientes,
-  isAsesorPendienteAgendarBiometricos,
-  isAsesorPendienteAgendarFirma,
-  isAsesorPendienteSubirAcuse,
   type AsesorAgendaBookingHints,
   type AsesorRetencionHints,
 } from "@/lib/asesorTareasPendientes";
@@ -237,6 +245,8 @@ interface PrecalificacionMockLocal {
   esReingreso: boolean;
   reingresoManualCount?: number;
   reingresoManualAt?: string | null;
+  /** Categoría SQL B1.5 (fallback hasta enriquecer con archivos/datos). */
+  categoriaCorreccionRpc?: CategoriaResumenDocumental;
 }
 
 const DECISION_OPTIONS = [
@@ -501,12 +511,27 @@ function quickFilterChipEmphasize(chip: QuickFilterChipConfig): boolean {
   return tone === "indigo" || tone === "violet" || tone === "amber" || tone === "slate";
 }
 
-const PAGE_SIZE = 50;
+const PAGE_SIZE = ASESOR_INBOX_UI_PAGE_SIZE;
+
+const EMPTY_KPIS: AsesorInboxKpisFromSummary = {
+  total: 0,
+  aprobadosEditor: 0,
+  noCumple: 0,
+  enTramite: 0,
+  rechazadosMesa: 0,
+  cancelados: 0,
+  correccionRequerida: 0,
+  correccionEnviada: 0,
+  agendarBiometricos: 0,
+  agendarFirma: 0,
+  subirAcuse: 0,
+};
 
 export default function AsesorDashboardPage() {
   const { sessionRepo, currentUser } = useSessionRepo();
   const router = useRouter();
   const [filters, setFilters] = useState<AsesorFiltersState>(INITIAL_FILTERS);
+  const [buscarDebounced, setBuscarDebounced] = useState("");
   const [quickFilter, setQuickFilter] = useState<QuickFilterAsesor>("todos");
   const [advancedFiltersOpen, setAdvancedFiltersOpen] = useState(false);
   const repo = useExpedientesRepo();
@@ -519,9 +544,18 @@ export default function AsesorDashboardPage() {
   const [mockPrecalList, setMockPrecalList] = useState<
     PrecalificacionMockLocal[]
   >([]);
-  const [totalCount, setTotalCount] = useState(0);
+  /** Total global del asesor (summary.counts.total). */
+  const [globalTotalCount, setGlobalTotalCount] = useState(0);
+  /** Total del filtro actual (RPC list total_count). */
+  const [filteredTotalCount, setFilteredTotalCount] = useState(0);
   const [page, setPage] = useState(1);
+  const [listLoading, setListLoading] = useState(true);
   const [listError, setListError] = useState<string | null>(null);
+  const [kpis, setKpis] = useState<AsesorInboxKpisFromSummary>(EMPTY_KPIS);
+  const [programasUnicos, setProgramasUnicos] = useState<string[]>([]);
+  const [dashboardNotifications, setDashboardNotifications] = useState<
+    DashboardNotificationItem[]
+  >([]);
   const [resumenArchivosPorId, setResumenArchivosPorId] = useState<
     Record<string, ExpedienteArchivoResumen[] | undefined>
   >({});
@@ -529,81 +563,75 @@ export default function AsesorDashboardPage() {
     Record<string, ExpedienteClienteDatosEstado | undefined>
   >({});
   const [tareasHintsPorId, setTareasHintsPorId] = useState<AsesorTareasHintsPorId>({});
+  void tareasHintsPorId; // hints de página (máx 25); chips usan summary global
   const [exportProgramaFilter, setExportProgramaFilter] =
     useState<AsesorExportProgramaFilter>("ambos");
   const [exportExcelLoading, setExportExcelLoading] = useState(false);
   const [exportExcelMessage, setExportExcelMessage] = useState<string | null>(null);
+  const [exportProgress, setExportProgress] = useState<string | null>(null);
   const expedienteIdsRef = useRef<string[]>([]);
+  const queryGenRef = useRef(0);
+  const exportBusyRef = useRef(false);
+  const categoriaRpcPorIdRef = useRef<Record<string, string>>({});
 
   const resumenDocumentalPorId = useMemo(() => {
     const out: Record<string, CategoriaResumenDocumental | undefined> = {};
     for (const p of mockPrecalList) {
-      out[p.id] = deriveResumenExpedienteCorreccion(
+      const fromEnrich = deriveResumenExpedienteCorreccion(
         resumenArchivosPorId[p.id] ?? [],
         clienteDatosEstadoPorId[p.id] ?? null,
       );
+      const fromRpc = p.categoriaCorreccionRpc;
+      // Si ya hay archivos/estados cargados, preferir derive; si no, RPC.
+      const hasEnrich =
+        resumenArchivosPorId[p.id] !== undefined ||
+        clienteDatosEstadoPorId[p.id] !== undefined;
+      out[p.id] = hasEnrich ? fromEnrich : fromRpc;
     }
     return out;
   }, [mockPrecalList, resumenArchivosPorId, clienteDatosEstadoPorId]);
 
-  const tareaInputs = useMemo(() => {
-    return mockPrecalList.map((p) =>
-      buildAsesorTareaExpedienteInput({
-        expedienteId: p.id,
-        submittedToMesa: p.submittedToMesa,
-        etapaActual: p.etapaActual,
-        fechaCita: p.fechaCita,
-        hasActiveNotificacionBooking:
-          tareasHintsPorId[p.id]?.hasActiveNotificacionBooking ?? false,
-        archivos: resumenArchivosPorId[p.id] ?? [],
-        agendaBiometricos: tareasHintsPorId[p.id]?.agendaBiometricos ?? null,
-        agendaFirmas: tareasHintsPorId[p.id]?.agendaFirmas ?? null,
-        retencion: tareasHintsPorId[p.id]?.retencion ?? null,
-        dataModeSupabase: dataSupabase,
-      }),
-    );
-  }, [mockPrecalList, resumenArchivosPorId, tareasHintsPorId, dataSupabase]);
-
-  const tareaInputPorId = useMemo(() => {
-    const out: Record<string, (typeof tareaInputs)[number]> = {};
-    for (let i = 0; i < mockPrecalList.length; i += 1) {
-      const row = mockPrecalList[i];
-      const input = tareaInputs[i];
-      if (row && input) out[row.id] = input;
-    }
-    return out;
-  }, [mockPrecalList, tareaInputs]);
-
-  const mapExpedienteToLegacy = useCallback((e: ExpedienteMock): PrecalificacionMockLocal => {
-    return {
-      id: e.id,
-      programa: e.base.programa,
-      nss: e.base.nss,
-      cliente_nombre: e.base.cliente_nombre,
-      telefono_cliente: e.base.telefono_cliente,
-      direccion_opcional: e.base.direccion_opcional,
-      asesorId: e.base.asesorId,
-      createdAt: e.base.createdAt,
-      decision: e.editorDecision.decision,
-      monto_aprobado: e.editorDecision.monto_aprobado,
-      notas_revision: e.editorDecision.notas_revision,
-      submittedToMesa: e.operativo.submittedToMesa,
-      resultadoReal: deriveResultadoRealExpediente(e),
-      etapaActual: e.operativo.etapaActual,
-      operativo: e.operativo,
-      fechaCita: e.operativo.fechaCita,
-      updatedAtOperativo: e.operativo.updatedAt,
-      esReingreso: hasReingresoVisible(e),
-      reingresoManualCount: e.reingresoManual?.count ?? 0,
-      reingresoManualAt: e.reingresoManual?.at ?? null,
-    };
-  }, []);
+  const mapExpedienteToLegacy = useCallback(
+    (
+      e: ExpedienteMock,
+      opts?: {
+        resultadoReal?: ResultadoRealExpediente;
+        categoriaCorreccion?: CategoriaResumenDocumental;
+      },
+    ): PrecalificacionMockLocal => {
+      return {
+        id: e.id,
+        programa: e.base.programa,
+        nss: e.base.nss,
+        cliente_nombre: e.base.cliente_nombre,
+        telefono_cliente: e.base.telefono_cliente,
+        direccion_opcional: e.base.direccion_opcional,
+        asesorId: e.base.asesorId,
+        createdAt: e.base.createdAt,
+        decision: e.editorDecision.decision,
+        monto_aprobado: e.editorDecision.monto_aprobado,
+        notas_revision: e.editorDecision.notas_revision,
+        submittedToMesa: e.operativo.submittedToMesa,
+        resultadoReal: opts?.resultadoReal ?? deriveResultadoRealExpediente(e),
+        etapaActual: e.operativo.etapaActual,
+        operativo: e.operativo,
+        fechaCita: e.operativo.fechaCita,
+        updatedAtOperativo: e.operativo.updatedAt,
+        esReingreso: hasReingresoVisible(e),
+        reingresoManualCount: e.reingresoManual?.count ?? 0,
+        reingresoManualAt: e.reingresoManual?.at ?? null,
+        categoriaCorreccionRpc: opts?.categoriaCorreccion,
+      };
+    },
+    [],
+  );
 
   const fetchResumenArchivosPorIds = useCallback(
     async (ids: string[]) => {
-      if (typeof window === "undefined" || ids.length === 0) return;
+      const capped = capIdsForDependentLoads(ids);
+      if (typeof window === "undefined" || capped.length === 0) return;
       const entries = await Promise.all(
-        ids.map(async (expId) => {
+        capped.map(async (expId) => {
           try {
             const r = await archivosRepo.listResumenByExpediente(expId);
             return [expId, r] as const;
@@ -625,18 +653,19 @@ export default function AsesorDashboardPage() {
 
   const fetchClienteDatosEstadoPorIds = useCallback(
     async (ids: string[]) => {
-      if (typeof window === "undefined" || ids.length === 0) return;
+      const capped = capIdsForDependentLoads(ids);
+      if (typeof window === "undefined" || capped.length === 0) return;
       try {
-        const estados = await clienteDatosRepo.listEstadoByExpedienteIds(ids);
+        const estados = await clienteDatosRepo.listEstadoByExpedienteIds(capped);
         setClienteDatosEstadoPorId((prev) => {
           const next = { ...prev };
-          for (const id of ids) {
+          for (const id of capped) {
             next[id] = estados[id];
           }
           return next;
         });
       } catch {
-        // Sin estados: la bandeja sigue con resumen solo documental.
+        // Sin estados: la bandeja sigue con categoría RPC / documental.
       }
     },
     [clienteDatosRepo],
@@ -644,22 +673,23 @@ export default function AsesorDashboardPage() {
 
   const fetchTareasHintsPorIds = useCallback(
     async (rows: readonly PrecalificacionMockLocal[]) => {
-      if (typeof window === "undefined" || rows.length === 0) {
+      const cappedRows = rows.slice(0, ASESOR_INBOX_UI_PAGE_SIZE);
+      if (typeof window === "undefined" || cappedRows.length === 0) {
         setTareasHintsPorId({});
         return;
       }
 
-      const agendaCandidates = rows.filter(
+      const agendaCandidates = cappedRows.filter(
         (p) =>
           p.submittedToMesa &&
           ASESOR_TAREAS_ETAPAS_AGENDA.includes(
             (p.etapaActual ?? 0) as (typeof ASESOR_TAREAS_ETAPAS_AGENDA)[number],
           ),
       );
-      const notificacionCandidates = rows.filter(
+      const notificacionCandidates = cappedRows.filter(
         (p) => p.submittedToMesa && p.etapaActual === 3,
       );
-      const retencionCandidates = rows.filter(
+      const retencionCandidates = cappedRows.filter(
         (p) => p.submittedToMesa && p.etapaActual === ASESOR_TAREAS_ETAPA_RETENCION,
       );
 
@@ -743,7 +773,7 @@ export default function AsesorDashboardPage() {
 
       setTareasHintsPorId(() => {
         const next: AsesorTareasHintsPorId = {};
-        for (const p of rows) {
+        for (const p of cappedRows) {
           const agenda = agendaHintsById.get(p.id);
           const retencion = retencionHintsById.get(p.id);
           if (!agenda && !retencion) continue;
@@ -758,231 +788,208 @@ export default function AsesorDashboardPage() {
     [biometricosBookingRepo, firmasBookingRepo, retencionRepo],
   );
 
-  const reloadPrecalificaciones = useCallback(() => {
-    if (!currentUser) return;
-    void repo
-      .listForAsesor(currentUser.email)
-      .then((list) => {
-        const mapped = list.map(mapExpedienteToLegacy);
-        setMockPrecalList(mapped);
-        setTotalCount(mapped.length);
+  const loadInbox = useCallback(
+    async (opts?: { pageOverride?: number }) => {
+      if (!currentUser) return;
+      const gen = ++queryGenRef.current;
+      const pageToLoad = opts?.pageOverride ?? page;
+      setListLoading(true);
+      setListError(null);
+      // Evitar mezclar registros de la página anterior mientras llega la nueva.
+      setMockPrecalList([]);
+      setResumenArchivosPorId({});
+      setClienteDatosEstadoPorId({});
+      setTareasHintsPorId({});
+
+      const listInput = buildAsesorInboxListInput({
+        page: pageToLoad,
+        pageSize: PAGE_SIZE,
+        filters: {
+          buscar: buscarDebounced,
+          decision: filters.decision,
+          estatusOperativo: filters.estatusOperativo,
+          resultadoReal: filters.resultadoReal,
+          programa: filters.programa,
+          etapaExacta: filters.etapaExacta,
+          fechaDesde: filters.fechaDesde,
+          fechaHasta: filters.fechaHasta,
+        },
+        quickFilter,
+      });
+
+      try {
+        const [pageResult, summary] = await Promise.all([
+          repo.listAsesorInboxPage(listInput),
+          repo.getAsesorInboxSummary(ASESOR_INBOX_NOTIF_DEFAULT_LIMIT),
+        ]);
+        if (gen !== queryGenRef.current) return;
+
+        let effectiveResult = pageResult;
+        const totalPages = asesorInboxTotalPages(
+          pageResult.total_count,
+          pageResult.page_size,
+        );
+        if (
+          pageResult.total_count > 0 &&
+          pageToLoad > totalPages &&
+          pageResult.items.length === 0
+        ) {
+          const clamped = clampAsesorInboxPage(
+            pageToLoad,
+            pageResult.total_count,
+            pageResult.page_size,
+          );
+          if (clamped !== pageToLoad) {
+            effectiveResult = await repo.listAsesorInboxPage({
+              ...listInput,
+              page: clamped,
+            });
+            if (gen !== queryGenRef.current) return;
+            setPage(clamped);
+          }
+        }
+
+        const view = mapAsesorInboxPageResultToViewModel(effectiveResult, {
+          asesorEmail: currentUser.email,
+        });
+        categoriaRpcPorIdRef.current = { ...view.categoriaPorId };
+        const mapped = view.items.map((exp) => {
+          const cat = view.categoriaPorId[exp.id];
+          const catTyped =
+            cat === "faltantes" ||
+            cat === "correccion_requerida" ||
+            cat === "correccion_enviada" ||
+            cat === "pendiente_revision_documental" ||
+            cat === "documentos_validados"
+              ? cat
+              : undefined;
+          return mapExpedienteToLegacy(exp, {
+            resultadoReal: deriveResultadoRealExpediente(exp),
+            categoriaCorreccion: catTyped,
+          });
+        });
+        // Preferir resultado_real del RPC si está en categoria map — re-map from raw items
+        const mappedWithRpcResult = effectiveResult.items.map((row, idx) => {
+          const base = mapped[idx]!;
+          return {
+            ...base,
+            resultadoReal: row.resultado_real,
+            categoriaCorreccionRpc:
+              row.categoria_correccion as CategoriaResumenDocumental,
+          };
+        });
+
+        setMockPrecalList(mappedWithRpcResult);
+        setFilteredTotalCount(view.totalCount);
+        setGlobalTotalCount(summary.counts.total);
+        setKpis(mapAsesorInboxSummaryToKpis(summary));
+        setProgramasUnicos(summary.programas_unicos);
+        setDashboardNotifications(mapAsesorInboxNotificationsToDashboard(summary));
         setListError(null);
-        expedienteIdsRef.current = mapped.map((p) => p.id);
-        const ids = mapped.map((p) => p.id);
+        const ids = capIdsForDependentLoads(mappedWithRpcResult.map((p) => p.id));
+        expedienteIdsRef.current = ids;
         void fetchResumenArchivosPorIds(ids);
         void fetchClienteDatosEstadoPorIds(ids);
-        void fetchTareasHintsPorIds(mapped);
-      })
-      .catch((err) => {
+        void fetchTareasHintsPorIds(mappedWithRpcResult);
+      } catch (err) {
+        if (gen !== queryGenRef.current) return;
         setMockPrecalList([]);
-        setTotalCount(0);
+        setFilteredTotalCount(0);
         expedienteIdsRef.current = [];
         if (err instanceof ExpedientesSupabaseError) {
           setListError(err.message);
         } else {
           setListError("No se pudo cargar el listado de expedientes.");
         }
-      });
-  }, [
-    currentUser,
-    repo,
-    mapExpedienteToLegacy,
-    fetchResumenArchivosPorIds,
-    fetchClienteDatosEstadoPorIds,
-    fetchTareasHintsPorIds,
-  ]);
+      } finally {
+        if (gen === queryGenRef.current) {
+          setListLoading(false);
+        }
+      }
+    },
+    [
+      currentUser,
+      page,
+      buscarDebounced,
+      filters.decision,
+      filters.estatusOperativo,
+      filters.resultadoReal,
+      filters.programa,
+      filters.etapaExacta,
+      filters.fechaDesde,
+      filters.fechaHasta,
+      quickFilter,
+      repo,
+      mapExpedienteToLegacy,
+      fetchResumenArchivosPorIds,
+      fetchClienteDatosEstadoPorIds,
+      fetchTareasHintsPorIds,
+    ],
+  );
 
-  const handleDescargarExcel = useCallback(() => {
+  const reloadPrecalificaciones = useCallback(() => {
+    void loadInbox();
+  }, [loadInbox]);
+
+  const handleDescargarExcel = useCallback(async () => {
     if (!currentUser?.email) {
       setExportExcelMessage("No se pudo identificar al asesor autenticado.");
       return;
     }
+    if (exportBusyRef.current) return;
+    exportBusyRef.current = true;
     setExportExcelLoading(true);
     setExportExcelMessage(null);
+    setExportProgress("Preparando exportación…");
     try {
+      const rows = await collectAsesorInboxExportRows({
+        listPage: (input) => repo.listAsesorInboxPage(input),
+        baseInput: {
+          quick_filter: "todos",
+          buscar: null,
+          decision: null,
+          estatus_operativo: null,
+          resultado_real: null,
+          programa: null,
+          etapa_exacta: null,
+          fecha_desde: null,
+          fecha_hasta: null,
+        },
+        pageSize: ASESOR_INBOX_MAX_PAGE_SIZE,
+        asesorEmail: currentUser.email,
+        onProgress: (loaded, total) => {
+          setExportProgress(`Exportando ${loaded} de ${total}…`);
+        },
+      });
       const result = downloadAsesorPrecalificacionesExcel(
-        mockPrecalList.map((p) => ({
-          id: p.id,
-          asesorId: p.asesorId,
-          cliente_nombre: p.cliente_nombre,
-          nss: p.nss,
-          telefono_cliente: p.telefono_cliente,
-          programa: p.programa,
-          monto_aprobado: p.monto_aprobado,
-        })),
+        rows,
         exportProgramaFilter,
         currentUser.email,
       );
       if (!result.ok) {
         setExportExcelMessage("No hay precalificaciones para el programa seleccionado.");
+      } else {
+        setExportExcelMessage(`Se descargó ${result.filename} (${result.rowCount} filas).`);
       }
     } catch {
       setExportExcelMessage("No se pudo generar el archivo Excel. Intenta de nuevo.");
     } finally {
+      exportBusyRef.current = false;
       setExportExcelLoading(false);
+      setExportProgress(null);
     }
-  }, [currentUser?.email, exportProgramaFilter, mockPrecalList]);
+  }, [currentUser?.email, exportProgramaFilter, repo]);
 
-  const programasUnicos = useMemo(() => {
-    const set = new Set(mockPrecalList.map((p) => (p.programa ?? "").trim()).filter(Boolean));
-    return Array.from(set).sort((a, b) => a.localeCompare(b));
-  }, [mockPrecalList]);
-
-  const expedientesFiltrados = useMemo(() => {
-    let list = mockPrecalList;
-
-    const term = filters.buscar ?? "";
-    if (term.trim()) {
-      // P091: no usar includes("") en dígitos NSS/tel (rompe búsqueda por nombre).
-      // P088: match por dígitos de NSS/teléfono se conserva en matchesAsesorListadoBusqueda.
-      list = list.filter((p) => matchesAsesorListadoBusqueda(p, term));
-    }
-
-    if (filters.decision) {
-      list = list.filter((p) => (p.decision ?? "pendiente") === filters.decision);
-    }
-    if (filters.estatusOperativo) {
-      list = list.filter(
-        (p) =>
-          (p.operativo?.subestado ?? "pendiente") === filters.estatusOperativo
-      );
-    }
-    if (filters.resultadoReal) {
-      list = list.filter((p) => p.resultadoReal === filters.resultadoReal);
-    }
-    if (filters.etapaExacta) {
-      const etapa = Number(filters.etapaExacta);
-      list = list.filter((p) => p.etapaActual === etapa);
-    }
-    if (filters.programa) {
-      list = list.filter((p) => (p.programa ?? "").trim() === filters.programa);
-    }
-
-    if (filters.fechaDesde) {
-      const desde = new Date(filters.fechaDesde);
-      desde.setHours(0, 0, 0, 0);
-      list = list.filter((p) => new Date(p.createdAt) >= desde);
-    }
-    if (filters.fechaHasta) {
-      const hasta = new Date(filters.fechaHasta);
-      hasta.setHours(23, 59, 59, 999);
-      list = list.filter((p) => new Date(p.createdAt) <= hasta);
-    }
-
-    if (quickFilter !== "todos") {
-      list = list.filter((p) => p.operativo.cicloEstado !== "cerrado");
-    }
-
-    if (quickFilter === "en_tramite") {
-      list = list.filter(
-        (p) =>
-          p.resultadoReal === "en_tramite" &&
-          resumenDocumentalPorId[p.id] !== "correccion_requerida" &&
-          resumenDocumentalPorId[p.id] !== "correccion_enviada",
-      );
-    } else if (quickFilter === "correccion_requerida") {
-      list = list.filter(
-        (p) => resumenDocumentalPorId[p.id] === "correccion_requerida",
-      );
-    } else if (quickFilter === "correccion_enviada") {
-      list = list.filter(
-        (p) => resumenDocumentalPorId[p.id] === "correccion_enviada",
-      );
-    } else if (quickFilter === "rechazados_mesa") {
-      list = list.filter((p) => p.resultadoReal === "rechazado_mesa");
-    } else if (quickFilter === "cancelados") {
-      list = list.filter((p) => p.resultadoReal === "cancelado");
-    } else if (quickFilter === "agendar_biometricos") {
-      list = list.filter((p) => {
-        const input = tareaInputPorId[p.id];
-        return input ? isAsesorPendienteAgendarBiometricos(input) : false;
-      });
-    } else if (quickFilter === "agendar_firma") {
-      list = list.filter((p) => {
-        const input = tareaInputPorId[p.id];
-        return input ? isAsesorPendienteAgendarFirma(input) : false;
-      });
-    } else if (quickFilter === "subir_acuse") {
-      list = list.filter((p) => {
-        const input = tareaInputPorId[p.id];
-        return input ? isAsesorPendienteSubirAcuse(input) : false;
-      });
-    }
-
-    return list;
-  }, [mockPrecalList, filters, quickFilter, resumenDocumentalPorId, tareaInputPorId]);
-
-  const filteredTotalCount = expedientesFiltrados.length;
-  const totalPages = Math.max(1, Math.ceil(filteredTotalCount / PAGE_SIZE));
-  const safePage = Math.max(1, Math.min(page, totalPages));
-  const canPrevious = safePage > 1;
-  const canNext = safePage < totalPages;
-
-  const expedientesPagina = useMemo(() => {
-    const sorted = expedientesFiltrados
-      .slice()
-      .sort(
-        (a, b) =>
-          new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-      );
-    const from = (safePage - 1) * PAGE_SIZE;
-    return sorted.slice(from, from + PAGE_SIZE);
-  }, [expedientesFiltrados, safePage]);
-
-  const kpis = useMemo(() => {
-    const total = totalCount;
-    const aprobadosEditor = mockPrecalList.filter((p) => p.resultadoReal === "aprobado_editor").length;
-    const noCumple = mockPrecalList.filter((p) => p.resultadoReal === "no_cumple_editor").length;
-    const enTramite = mockPrecalList.filter(
-      (p) =>
-        p.resultadoReal === "en_tramite" &&
-        resumenDocumentalPorId[p.id] !== "correccion_requerida" &&
-        resumenDocumentalPorId[p.id] !== "correccion_enviada",
-    ).length;
-    const rechazadosMesa = mockPrecalList.filter((p) => p.resultadoReal === "rechazado_mesa").length;
-    const cancelados = mockPrecalList.filter((p) => p.resultadoReal === "cancelado").length;
-    let correccionRequerida = 0;
-    let correccionEnviada = 0;
-    for (const p of mockPrecalList) {
-      const doc = resumenDocumentalPorId[p.id];
-      if (doc === "correccion_requerida") correccionRequerida += 1;
-      if (doc === "correccion_enviada") correccionEnviada += 1;
-    }
-    const tareas = countAsesorTareasPendientes(tareaInputs);
-    return {
-      total,
-      aprobadosEditor,
-      noCumple,
-      enTramite,
-      rechazadosMesa,
-      cancelados,
-      correccionRequerida,
-      correccionEnviada,
-      agendarBiometricos: tareas.agendarBiometricos,
-      agendarFirma: tareas.agendarFirma,
-      subirAcuse: tareas.subirAcuse,
-    };
-  }, [mockPrecalList, resumenDocumentalPorId, totalCount, tareaInputs]);
-
-  const dashboardNotifications = useMemo(() => {
-    return buildDashboardNotifications(
-      mockPrecalList.map((p) => ({
-        expedienteId: p.id,
-        clienteNombre: p.cliente_nombre || "—",
-        etapaActual: p.etapaActual,
-        subestado: p.operativo?.subestado,
-        cicloEstado: p.operativo?.cicloEstado,
-        submittedToMesa: p.submittedToMesa,
-        fechaCita: p.fechaCita,
-        fechaEnvioMesa: p.operativo?.fechaEnvioMesa,
-        updatedAt: p.updatedAtOperativo,
-        resumenCorreccion: resumenDocumentalPorId[p.id] ?? null,
-        clienteDatosEstado: clienteDatosEstadoPorId[p.id] ?? null,
-      })),
-      "asesor",
-      { max: 50 },
-    );
-  }, [mockPrecalList, resumenDocumentalPorId, clienteDatosEstadoPorId]);
+  const totalPages = asesorInboxTotalPages(filteredTotalCount, PAGE_SIZE);
+  const safePage = clampAsesorInboxPage(page, filteredTotalCount, PAGE_SIZE);
+  const canPrevious = safePage > 1 && !listLoading;
+  const canNext = safePage < totalPages && !listLoading;
+  const showingRange = formatAsesorInboxShowingRange(
+    safePage,
+    PAGE_SIZE,
+    filteredTotalCount,
+  );
+  const expedientesPagina = mockPrecalList;
 
   const hasActiveFilters =
     quickFilter !== "todos" ||
@@ -997,6 +1004,7 @@ export default function AsesorDashboardPage() {
 
   const handleClearFilters = () => {
     setFilters(INITIAL_FILTERS);
+    setBuscarDebounced("");
     setQuickFilter("todos");
     setPage(1);
   };
@@ -1061,8 +1069,19 @@ export default function AsesorDashboardPage() {
   }, [kpis]);
 
   useEffect(() => {
-    reloadPrecalificaciones();
-  }, [reloadPrecalificaciones]);
+    const t = window.setTimeout(() => {
+      setBuscarDebounced(filters.buscar);
+    }, ASESOR_INBOX_BUSCAR_DEBOUNCE_MS);
+    return () => window.clearTimeout(t);
+  }, [filters.buscar]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [buscarDebounced]);
+
+  useEffect(() => {
+    void loadInbox();
+  }, [loadInbox]);
 
   useEffect(() => {
     const storageHandler = (e: StorageEvent) => {
@@ -1177,9 +1196,20 @@ export default function AsesorDashboardPage() {
           </h2>
         </div>
         {listError ? (
-          <p role="alert" className="text-sm text-red-600">
-            {listError}
-          </p>
+          <div
+            role="alert"
+            className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700"
+          >
+            <p>{listError}</p>
+            <Button
+              type="button"
+              variant="outline"
+              className="text-xs"
+              onClick={() => void loadInbox()}
+            >
+              Reintentar
+            </Button>
+          </div>
         ) : null}
 
         <div className="space-y-2">
@@ -1282,10 +1312,12 @@ export default function AsesorDashboardPage() {
               type="button"
               variant="outline"
               className="h-[42px] whitespace-nowrap px-3 text-sm sm:self-end"
-              disabled={exportExcelLoading || mockPrecalList.length === 0}
-              onClick={handleDescargarExcel}
+              disabled={exportExcelLoading || globalTotalCount === 0}
+              onClick={() => void handleDescargarExcel()}
             >
-              {exportExcelLoading ? "Generando Excel..." : "Descargar Excel"}
+              {exportExcelLoading
+                ? (exportProgress ?? "Generando Excel...")
+                : "Descargar Excel"}
             </Button>
           </div>
           {exportExcelMessage ? (
@@ -1519,10 +1551,14 @@ export default function AsesorDashboardPage() {
 
         <section className="overflow-hidden rounded-lg border border-gray-200 bg-white shadow-sm">
           <div className="overflow-x-auto px-2 py-1.5 sm:px-3 sm:py-2">
-            {expedientesPagina.length === 0 ? (
+            {listLoading ? (
+              <div className="px-4 py-8 text-center text-sm text-gray-500">
+                Cargando expedientes…
+              </div>
+            ) : expedientesPagina.length === 0 ? (
               <div className="px-4 py-6 text-center">
                 <p className="text-xs text-gray-600 sm:text-sm">
-                  {totalCount === 0
+                  {globalTotalCount === 0
                     ? dataSupabase
                       ? "Aún no tienes expedientes."
                       : "Aún no hay precalificaciones guardadas para este asesor."
@@ -1712,12 +1748,16 @@ export default function AsesorDashboardPage() {
               </table>
             )}
           </div>
-          {totalCount > 0 ? (
+          {globalTotalCount > 0 || filteredTotalCount > 0 ? (
             <div className="border-t border-gray-100 px-3 py-2.5 text-xs text-gray-600 sm:px-4">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <span>
-                  Página {safePage} de {totalPages} · Total: {totalCount}
-                  {hasActiveFilters ? ` · ${filteredTotalCount} con filtros` : null}
+                  {showingRange}
+                  {" · "}
+                  Página {safePage} de {totalPages}
+                  {hasActiveFilters
+                    ? ` · ${filteredTotalCount} con filtros (total ${globalTotalCount})`
+                    : null}
                 </span>
                 <div className="flex gap-2">
                   <Button

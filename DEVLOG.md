@@ -1,3 +1,7 @@
+## 2026-08-10 - B1 UI + B1.5 P161: inbox asesor paginado (egress)
+
+Objetivo: cortar descarga completa del historial en `/asesor`. Mig. **161** (`asesor_list_expedientes_page` + `asesor_inbox_summary`) con paridad `docs/ASESOR_INBOX_B15_EQUIVALENCIA.md`. UI cableada a RPCs tipadas Zod; pageSize 25; summary global; export on-demand; enrich ≤25; anti-stale; sin `listForAsesor`. Cloud: 161 aplicada y `migration repair 161 applied` (no `db push` / no 160). Pendiente B2 N+1 batch docs/agenda.
+
 ## 2026-08-06 - Hotfix reagendar Sheets: MOVER (no copiar)
 
 Causa raíz: `reagendar_biometricos` / `reagendar_firmas` hacen cancel+insert → outbox `booking_cancelled` + `booking_created`. Trigger `agenda_sheet_inventory_release_au` (alfabético antes de outbox) nullifica `inventory.booking_id` → payload cancel sin `sheet_row`; worker sin coords marcaba `done` **sin** `batchClear` → cliente visible en fecha vieja y nueva. Fix mig. **160**: outbox lee inventario/links (incl. soft-delete) + `had_sheet_link` + `prior_cancelled_booking_id` en create; release renombrado `z_…` para correr después. Worker: `sortOutboxForRescheduleMove`, `resolveCancelSheetCoords`, no done-sin-clear si hubo evidencia, gate create hasta prior limpio, restore best-effort. Reconciler dry-run por UUID (P): STALE/DUPLICATE/MISSING/MATCHED; repair plan no toca AMBIGUOUS. Sin Cloud/deploy.

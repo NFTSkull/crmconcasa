@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Added
+- **feat(asesor): paginate inbox and reduce Supabase egress (B1.5 + B1 UI / P161)** — RPCs `asesor_list_expedientes_page` + `asesor_inbox_summary` (mig. **161**); `/asesor` usa página 25, summary global (chips/KPIs/programas/NotificationsBell), export Excel on-demand vía páginas RPC (máx 100), enrich ≤25 IDs, sin fallback a `listForAsesor`. Equivalencia: `docs/ASESOR_INBOX_B15_EQUIVALENCIA.md`. Mig. **161 ya aplicada en Cloud** (`fvtqbxukqlajezyyvwzy`); no volver a `db push`.
+
+### Fixed
+- **fix(asesor): P161 list CTE scope** — `asesor_list_expedientes_page` unifica `count`+página en un solo `WITH` (CTEs no cruzan statements PL/pgSQL).
+
 ### Fixed
 - **fix(agenda): reagendar mueve la cita en Sheets (no duplica)** — causa: al cancel+insert de `reagendar_*`, el release de inventario corría antes del outbox y vaciaba `sheet_row`; el worker marcaba `done` sin `batchClear` → ghost en fecha anterior + fila nueva. Mig. **160**: outbox captura coords/links + `prior_cancelled_booking_id`; trigger release `z_` después del outbox. Worker: orden cancel→create, gate si prior no limpio, restore best-effort, dry-run reconcile por booking UUID (STALE/DUPLICATE/MISSING/MATCHED). Bio y firmas (mismo pipeline). Sin cambio de etapas/capacidades/RPCs de reagendar.
 

@@ -883,6 +883,38 @@ Rango seguro **O:U** (`ESTADO CRM`…`CRM_SYNC_VERSION`). **A:N se PRESERVA** (H
 
 ---
 
+## 14A. Inbox asesor paginado + summary (B1.5 / P161)
+
+**Equivalencia TS→SQL:** `docs/ASESOR_INBOX_B15_EQUIVALENCIA.md`  
+**Migración:** `161_asesor_inbox_page_summary.sql` (**aplicada en Cloud** `fvtqbxukqlajezyyvwzy`).  
+**UI `/asesor`:** cableada a las RPCs (B1 UI). Sin fallback a `listForAsesor()`.
+
+### `asesor_list_expedientes_page(...) → jsonb`
+
+| Campo | Semántica |
+|---|---|
+| `items` | Página (default 25, máx 100) |
+| `total_count` | Total del **filtro actual** (puede >1000) |
+| `page` / `page_size` / `has_more` | Paginación offset |
+
+- Identidad: `current_profile_id()` = `auth.uid()`; solo `app_role=asesor` activo.
+- Aislamiento: `expedientes.asesor_id = actor` y `deleted_at IS NULL`.
+- Orden: `created_at DESC, id DESC` (estable).
+- Filtros: buscar, decisión, subestado, resultado_real, programa (label UI), etapa, fechas MX, quick_filter (todos los chips actuales).
+- SECURITY DEFINER; `REVOKE` PUBLIC/anon; `GRANT EXECUTE` authenticated.
+
+### `asesor_inbox_summary(p_notif_limit DEFAULT 50) → jsonb`
+
+| Campo | Semántica |
+|---|---|
+| `counts` | KPIs/chips globales del asesor (sin filtros de búsqueda) |
+| `programas_unicos` | Distinct labels UI |
+| `notifications` | Top N (default 50) para NotificationsBell |
+
+Counts: `total`, `en_tramite`, `correccion_*`, `rechazados_mesa`, `cancelados`, `aprobados_editor`, `no_cumple`, `agendar_biometricos`, `agendar_firma`, `subir_acuse`.
+
+---
+
 ## 14B. Bandeja Mesa paginada (P102)
 
 **Operación:** RPC read-only `mesa_list_bandeja_page(...) → jsonb`

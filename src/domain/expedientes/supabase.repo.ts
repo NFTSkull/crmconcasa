@@ -9,6 +9,15 @@ import {
   type PaginatedExpedientesResult,
 } from "./list-for-asesor-paginated";
 import {
+  ASESOR_INBOX_NOTIF_DEFAULT_LIMIT,
+  asesorInboxSummaryResultSchema,
+  asesorListExpedientesPageInputSchema,
+  asesorListExpedientesPageResultSchema,
+  type AsesorInboxSummaryResult,
+  type AsesorListExpedientesPageInput,
+  type AsesorListExpedientesPageResult,
+} from "./asesor-inbox-rpc";
+import {
   mapNextCursorFromRpc,
   mapRpcCountsToServerCounts,
   mesaListBandejaPageRpcSchema,
@@ -579,6 +588,81 @@ async function fetchExpedientesListForMesaControlPaginated(
   };
 }
 
+async function fetchAsesorInboxPage(
+  rawInput: AsesorListExpedientesPageInput,
+): Promise<AsesorListExpedientesPageResult> {
+  const input = asesorListExpedientesPageInputSchema.parse(rawInput);
+  const { client } = await requireSupabaseSession();
+
+  const { data, error } = await client.rpc("asesor_list_expedientes_page", {
+    p_page: input.page,
+    p_page_size: input.page_size,
+    p_buscar: input.buscar ?? null,
+    p_decision: input.decision ?? null,
+    p_estatus_operativo: input.estatus_operativo ?? null,
+    p_resultado_real: input.resultado_real ?? null,
+    p_programa: input.programa ?? null,
+    p_etapa_exacta: input.etapa_exacta ?? null,
+    p_fecha_desde: input.fecha_desde ?? null,
+    p_fecha_hasta: input.fecha_hasta ?? null,
+    p_quick_filter: input.quick_filter ?? "todos",
+  });
+
+  if (error) {
+    const msg = String(error.message ?? "");
+    if (/could not find|does not exist|PGRST202/i.test(msg)) {
+      throw new ExpedientesSupabaseError(
+        "El listado paginado del asesor no está disponible en este entorno. Contacta a soporte o aplica la migración 161.",
+      );
+    }
+    throw new ExpedientesSupabaseError(
+      "No se pudo cargar el listado de expedientes. Intenta de nuevo más tarde.",
+    );
+  }
+
+  const parsed = asesorListExpedientesPageResultSchema.safeParse(data);
+  if (!parsed.success) {
+    throw new ExpedientesSupabaseError(
+      "Respuesta inválida al cargar el inbox paginado del asesor.",
+    );
+  }
+  return parsed.data;
+}
+
+async function fetchAsesorInboxSummary(
+  notifLimit?: number,
+): Promise<AsesorInboxSummaryResult> {
+  const { client } = await requireSupabaseSession();
+  const limit = Math.min(
+    100,
+    Math.max(1, Math.floor(notifLimit ?? ASESOR_INBOX_NOTIF_DEFAULT_LIMIT) || 1),
+  );
+
+  const { data, error } = await client.rpc("asesor_inbox_summary", {
+    p_notif_limit: limit,
+  });
+
+  if (error) {
+    const msg = String(error.message ?? "");
+    if (/could not find|does not exist|PGRST202/i.test(msg)) {
+      throw new ExpedientesSupabaseError(
+        "El resumen del inbox asesor no está disponible en este entorno. Contacta a soporte o aplica la migración 161.",
+      );
+    }
+    throw new ExpedientesSupabaseError(
+      "No se pudo cargar el resumen del inbox. Intenta de nuevo más tarde.",
+    );
+  }
+
+  const parsed = asesorInboxSummaryResultSchema.safeParse(data);
+  if (!parsed.success) {
+    throw new ExpedientesSupabaseError(
+      "Respuesta inválida al cargar el resumen del inbox asesor.",
+    );
+  }
+  return parsed.data;
+}
+
 async function fetchExpedienteById(id: string): Promise<ExpedienteMock | null> {
   const idNorm = String(id).trim();
   if (!idNorm) return null;
@@ -639,6 +723,18 @@ export class SupabaseExpedientesRepo implements ExpedientesRepo {
   ): Promise<PaginatedExpedientesResult> {
     void _asesorEmail;
     return fetchExpedientesListPaginatedForAsesor(options);
+  }
+
+  async listAsesorInboxPage(
+    input: AsesorListExpedientesPageInput,
+  ): Promise<AsesorListExpedientesPageResult> {
+    return fetchAsesorInboxPage(input);
+  }
+
+  async getAsesorInboxSummary(
+    notifLimit?: number,
+  ): Promise<AsesorInboxSummaryResult> {
+    return fetchAsesorInboxSummary(notifLimit);
   }
 
   async getById(id: string): Promise<ExpedienteMock | null> {

@@ -17,6 +17,44 @@ export {
   sortExpedientesByCreatedAtDesc,
 } from "./list-for-asesor-paginated";
 export type {
+  AsesorInboxQuickFilter,
+  AsesorInboxSummaryResult,
+  AsesorListExpedienteItem,
+  AsesorListExpedientesPageInput,
+  AsesorListExpedientesPageResult,
+} from "./asesor-inbox-rpc";
+export {
+  ASESOR_INBOX_DEFAULT_PAGE_SIZE,
+  ASESOR_INBOX_MAX_PAGE_SIZE,
+  ASESOR_INBOX_NOTIF_DEFAULT_LIMIT,
+  asesorInboxCountsSchema,
+  asesorInboxNotificationSchema,
+  asesorInboxQuickFilterSchema,
+  asesorInboxSummaryResultSchema,
+  asesorListExpedientesPageInputSchema,
+  asesorListExpedientesPageResultSchema,
+  normalizeAsesorInboxPageOptions,
+} from "./asesor-inbox-rpc";
+export {
+  ASESOR_INBOX_BUSCAR_DEBOUNCE_MS,
+  ASESOR_INBOX_DEPENDENT_IDS_MAX,
+  ASESOR_INBOX_UI_PAGE_SIZE,
+  asesorInboxTotalPages,
+  buildAsesorInboxListInput,
+  capIdsForDependentLoads,
+  clampAsesorInboxPage,
+  collectAsesorInboxExportRows,
+  formatAsesorInboxShowingRange,
+  mapAsesorInboxNotificationsToDashboard,
+  mapAsesorInboxPageResultToViewModel,
+  mapAsesorInboxSummaryToKpis,
+} from "./asesor-inbox-ui";
+export type {
+  AsesorInboxKpisFromSummary,
+  AsesorInboxPageViewModel,
+  AsesorInboxUiFilters,
+} from "./asesor-inbox-ui";
+export type {
   ListForMesaControlPaginatedQuery,
   MesaBandejaCursor,
   MesaBandejaPageItem,

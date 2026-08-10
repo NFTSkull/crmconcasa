@@ -43,6 +43,37 @@ import type {
   MesaMovimientoInput,
   MesaMovimientoResultado,
 } from "./mesa-movimiento-etapa";
+import type {
+  AsesorInboxSummaryResult,
+  AsesorListExpedientesPageInput,
+  AsesorListExpedientesPageResult,
+} from "./asesor-inbox-rpc";
+import {
+  mockGetAsesorInboxSummary,
+  mockListAsesorInboxPage,
+} from "./asesor-inbox-mock";
+
+function readMockSessionAsesorEmail(): string | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem("concasa_session");
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as { email?: string; role?: string };
+    if (
+      typeof parsed?.email === "string" &&
+      parsed.email.trim() &&
+      (parsed.role === "asesor" || !parsed.role)
+    ) {
+      return parsed.email.trim();
+    }
+    if (typeof parsed?.email === "string" && parsed.email.trim()) {
+      return parsed.email.trim();
+    }
+  } catch {
+    // ignore
+  }
+  return null;
+}
 
 export type EditorDecision = "pendiente" | "aprobado" | "no_cumple";
 export type OperativoSubestado =
@@ -507,6 +538,29 @@ export class MockExpedientesRepo implements ExpedientesRepo {
     const mine = await this.listForAsesor(asesorId);
     const sorted = sortExpedientesByCreatedAtDesc(mine);
     return paginateSortedExpedientes(sorted, options);
+  }
+
+  /** B1 UI mock: filtra/pagina en memoria del asesor de sesión (sin listForAsesor en la UI). */
+  async listAsesorInboxPage(
+    input: AsesorListExpedientesPageInput,
+  ): Promise<AsesorListExpedientesPageResult> {
+    const email = readMockSessionAsesorEmail();
+    if (!email) {
+      throw new Error("asesor_list_expedientes_page: no autenticado");
+    }
+    const mine = await this.listForAsesor(email);
+    return mockListAsesorInboxPage(mine, input);
+  }
+
+  async getAsesorInboxSummary(
+    notifLimit?: number,
+  ): Promise<AsesorInboxSummaryResult> {
+    const email = readMockSessionAsesorEmail();
+    if (!email) {
+      throw new Error("asesor_inbox_summary: no autenticado");
+    }
+    const mine = await this.listForAsesor(email);
+    return mockGetAsesorInboxSummary(mine, notifLimit);
   }
 
   async listForEditor(query: EditorListQuery): Promise<EditorListPage> {
