@@ -1043,23 +1043,19 @@ Captura en la misma TX de `register_expediente_documento_correccion` / `save_cli
 
 **UI:** sección debajo del resumen P149; Excel hojas «Resultado por etapa» + «Detalle de resultados».
 
-### 15-sexies. Reporte histórico de etapas (P149)
+### 15-sexies. Reporte histórico de etapas (P149 → P163)
 
-**Operación:** RPCs read-only `admin_stage_history_report_summary(...)` y `admin_stage_history_report_page(p_page, p_page_size, ...)` — migración `149_admin_stage_history_report.sql`. Fuente: `expediente_paso_visual_transiciones` (sin backfill pre-cobertura). Snapshot 147/148 y `admin_report_*` v1–v3 intactos.
+**Operación:** RPCs read-only `admin_stage_history_report_summary(...)` y `admin_stage_history_report_page(...)` — migraciones `149` + calibración `163_admin_stage_history_calibrated.sql`. Fuente: `expediente_paso_visual_transiciones` (cobertura confiable desde 2026-07-23; sin backfill). Snapshot 147/148 y cohorte 153/154 intactos.
 
-**Auth:** solo `super_admin`; `SECURITY DEFINER` + `STABLE`; GRANT `authenticated`; REVOKE `anon`/`PUBLIC`. Sin `action_log`.
+**Auth:** solo `super_admin`; SECURITY DEFINER + STABLE.
 
-**Filtros comunes:** `p_asesor_ids UUID[]`, `p_pasos_visuales SMALLINT[]` (1–11; NULL/[] = todos), `p_movimiento TEXT`, `p_fecha_desde DATE`, `p_fecha_hasta DATE`, `p_estado_actual TEXT`, `p_buscar TEXT`.
+**Timezone:** `America/Monterrey` semiabierto `[desde 00:00, hasta+1 00:00)`.
 
-**`p_movimiento`:** `entrada` | `avance` | `estuvieron` | `estado_actual`. Para `entrada`/`avance`/`estuvieron`: `p_fecha_desde` y `p_fecha_hasta` obligatorios (rango inclusivo `America/Monterrey`). `estado_actual` = referencia por `etapa_actual` (fechas ignoradas).
+**`p_movimiento`:** `entrada` (`fecha_entrada` ∈ rango) | `avance` (`exited_at` ∈ rango y `next_paso > paso`; KPI movimientos = advanced_count del filtro; retroceso no cuenta) | `estuvieron` (intersección intervalo∩rango) | `estado_actual` (snapshot; fechas ignoradas; items con `visita_id`/`paso_visual`/`paso_nombre`).
 
-**`p_estado_actual`:** `activos` | `rechazados` | `cancelados` | `todos` (NULL en SQL).
+**Asesor:** propietario **actual** (`asesor_fuente='actual'`).
 
-**Response summary:** `{ totales, resumen_por_etapa[], generated_at, history_coverage_from, movimiento, nota }`. Totales: `total_expedientes_unicos`, `total_visitas`, `entered_count`, `advanced_count`, `current_count`, `rejected_count`, `returned_count`, `avg_duration_seconds`, `median_duration_seconds`. Por etapa: mismos contadores + `tasa_avance`, `tasa_pendiente`.
-
-**Response page:** `{ items[], total, page, page_size, history_coverage_from, movimiento, filters }`. Items: `visita_id`, `expediente_id`, `cliente_nombre`, `nss` (parcial), `asesor_id`, `asesor_nombre`, `programa`, `paso_visual`, `paso_nombre`, `etapa_entrada`, `entered_at`, `exited_at`, `duration_seconds`, `resultado` (`avanzo`|`continua`|`rechazado`|`retrocedio`|`cancelado`|`salio`), `etapa_siguiente_paso`, `etapa_siguiente`, `etapa_actual`, `paso_actual`, `fecha_envio_mesa`, `actor_user_id`, `actor_nombre`, `motivo`.
-
-**UI `/admin`:** sección «Reporte histórico de etapas»; consulta bajo demanda; banner cobertura; Excel `reporte-historico-etapas-YYYY-MM-DD.xlsx` (resumen + detalle completo paginado en export).
+**UI/Excel:** definiciones; unicos vs movimientos; advertencia si rango < 2026-07-23; Excel hoja Consulta + mismo dataset.
 
 ### P085 — filtro global por asesor
 
