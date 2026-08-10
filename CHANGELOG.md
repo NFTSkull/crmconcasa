@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- **fix(agenda): bloquear cupo ocupado manualmente en Sheets** — webhook marca `occupied_external` (NSS/NOMBRE/ASESOR); Edge `agenda-sheet-live-sync` refresca inventario antes de listar y hard-gate antes de book; mig. **162** fingerprint/`sheet_last_seen_at`; Apps Script sin PII. Firmas y biométricos. Sin inventar `agenda_booking` para citas manuales.
+
 ### Added
 - **feat(asesor): paginate inbox and reduce Supabase egress (B1.5 + B1 UI / P161)** — RPCs `asesor_list_expedientes_page` + `asesor_inbox_summary` (mig. **161**); `/asesor` usa página 25, summary global (chips/KPIs/programas/NotificationsBell), export Excel on-demand vía páginas RPC (máx 100), enrich ≤25 IDs, sin fallback a `listForAsesor`. Equivalencia: `docs/ASESOR_INBOX_B15_EQUIVALENCIA.md`. Mig. **161 ya aplicada en Cloud** (`fvtqbxukqlajezyyvwzy`); no volver a `db push`.
 

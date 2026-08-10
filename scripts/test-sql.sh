@@ -114,5 +114,6 @@ run_sql_test "supabase/tests/rpc_register_retencion_p117.sql"
 run_sql_test "supabase/tests/rpc_cliente_datos_field_formats_p133.sql"
 run_sql_test "supabase/tests/rpc_agenda_sheet_sync.sql"
 run_sql_test "supabase/tests/rpc_asesor_inbox_page_p161.sql"
+run_sql_test "supabase/tests/rpc_agenda_sheet_manual_occupancy_p162.sql"
 
 echo "SQL tests: ALL PASSED"

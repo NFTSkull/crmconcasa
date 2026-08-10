@@ -254,13 +254,17 @@ export function verifyClearedRowReadback(input: {
 export function inventoryStatusFromSheetRow(input: {
   nss: string;
   name: string;
+  /** Columna ASESOR: también ocupa la fila física (asesores externos). */
+  advisor?: string | null;
   techBookingId: string | null;
   techEstado?: string | null;
 }): "available" | "linked" | "occupied_external" {
   const estado = String(input.techEstado ?? "").trim().toUpperCase();
   if (estado === "CANCELADA") return "available";
   if (input.techBookingId) return "linked";
-  if (input.nss || input.name) return "occupied_external";
+  if (input.nss || input.name || String(input.advisor ?? "").trim()) {
+    return "occupied_external";
+  }
   return "available";
 }
 

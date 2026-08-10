@@ -32,6 +32,10 @@ import {
   buildPhysicalSheetRowKey,
   resolveLogicalStartTime,
 } from "../_shared/agenda-sheets/time-aliases.ts";
+import {
+  classifySheetRowOccupancy,
+  manualOccupancyFingerprint,
+} from "../_shared/agenda-sheets/manual-occupancy.ts";
 
 type WebhookBody = {
   spreadsheetId?: string;
@@ -40,9 +44,27 @@ type WebhookBody = {
   rowNumber?: number;
   source?: string;
   idempotencyKey?: string;
+  editedAt?: string;
 };
 
 const MAX_BODY = 8_192;
+
+async function upsertInventoryRow(
+  supabase: ReturnType<typeof createClient>,
+  row: Record<string, unknown>,
+): Promise<{ ok: true } | { ok: false; message: string }> {
+  const upsert = await supabase.rpc("agenda_sheet_inventory_upsert_batch", {
+    p_rows: [row],
+  });
+  if (upsert.error) {
+    return {
+      ok: false,
+      message: String(upsert.error.message ?? "").slice(0, 200),
+    };
+  }
+  return { ok: true };
+}
+
 
 Deno.serve(async (req) => {
   try {
@@ -178,11 +200,49 @@ Deno.serve(async (req) => {
     }
 
     // Fila con NSS/nombre/asesor sin booking_id: ocupación externa; A change → conflicto
-    if ((nameCellEarly || advisorCellEarly || String(nssRaw).trim()) && bookingIdCell === "") {
-      // continues to normal flow / empty-nss inventory path below
+    const sheetClass = classifySheetRowOccupancy({
+      hora: horaRaw,
+      nss: nssRaw,
+      name: nameCellEarly,
+      advisor: advisorCellEarly,
+      techBookingId: bookingIdCell,
+      techEstado: String(row[COL_INDEX.estado] ?? ""),
+    });
+
+    if (sheetClass === "MANUAL_ENTRY_WITHOUT_SLOT") {
+      const orgIdAnom = Deno.env.get("GOOGLE_SHEETS_ORGANIZATION_ID") ?? "";
+      if (orgIdAnom) {
+        const sbAnom = createClient(
+          Deno.env.get("SUPABASE_URL") ?? "",
+          Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+          { auth: { persistSession: false, autoRefreshToken: false } },
+        );
+        await sbAnom.from("action_log").insert({
+          organization_id: orgIdAnom,
+          actor_id: null,
+          action: "manual_entry_without_slot",
+          entity_type: "agenda_sheet_slot_inventory",
+          entity_id: null,
+          payload: {
+            code: "MANUAL_ENTRY_WITHOUT_SLOT",
+            sheetId: body.sheetId,
+            sheetTitle: body.sheetTitle,
+            rowNumber: body.rowNumber,
+            fingerprint: manualOccupancyFingerprint({
+              nss: nssRaw,
+              name: nameCellEarly,
+              advisor: advisorCellEarly,
+            }),
+          },
+        });
+      }
+      return jsonOk({
+        ok: true,
+        anomaly: "MANUAL_ENTRY_WITHOUT_SLOT",
+        message:
+          "Captura la cita en una fila que tenga horario asignado.",
+      });
     }
-    void nameCellEarly;
-    void advisorCellEarly;
 
     const slotTime = parseTime(horaRaw);
     if (!slotTime) {
@@ -229,40 +289,76 @@ Deno.serve(async (req) => {
     const advisorCell = String(row[COL_INDEX.asesor] ?? "").trim();
     const occupiedVisible = Boolean(nss || nameCell || advisorCell || bookingIdCell);
 
-    // CASO B: fila ocupada/linked y cambia A → conflicto estable; no mutar bookings.
-    if (bookingIdCell || (occupiedVisible && bookingIdCell)) {
-      // bookingId already handled above as already_synced; reach here with visibles
+    async function resolveAliasesAndKeys() {
+      const { data: aliasRowsEmpty } = await supabaseEarly.rpc(
+        "agenda_sheet_list_time_aliases",
+        { p_organization_id: orgIdEarly },
+      );
+      const aliasesEmpty = (aliasRowsEmpty ?? []) as AgendaSheetTimeAlias[];
+      const logicalEmpty = resolveLogicalStartTime({
+        locationId: sectionEarly!.sede,
+        kind: sectionEarly!.kind,
+        sheetStartTime: slotTime!,
+        aliases: aliasesEmpty,
+      });
+      const physicalKey = buildPhysicalSheetRowKey({
+        kind: sectionEarly!.kind,
+        bookingDate: sheetDate,
+        logicalStartTime: logicalEmpty,
+        sheetStartTime: slotTime!,
+        locationId: sectionEarly!.sede,
+        sheetId: body.sheetId!,
+        rowNumber: body.rowNumber!,
+      });
+      return { logicalEmpty, physicalKey };
     }
-    if (occupiedVisible && !nss) {
-      // has name/advisor without valid nss — treat as occupied sheet row
+
+    /** Marca ocupación manual en inventario (sin crear agenda_booking). */
+    async function markOccupiedExternal(source: "sheet_webhook" | "sheet_legacy") {
+      if (!orgIdEarly) return { ok: false as const, message: "missing_org" };
+      const { logicalEmpty, physicalKey } = await resolveAliasesAndKeys();
+      const fp = manualOccupancyFingerprint({
+        nss: nssRaw,
+        name: nameCell,
+        advisor: advisorCell,
+      });
+      const res = await upsertInventoryRow(supabaseEarly, {
+        organization_id: orgIdEarly,
+        spreadsheet_id: expectedSs,
+        sheet_id: body.sheetId,
+        sheet_title: body.sheetTitle,
+        booking_date: sheetDate,
+        sheet_row: body.rowNumber,
+        kind: sectionEarly!.kind,
+        location_id: sectionEarly!.sede,
+        slot_time: `${logicalEmpty}:00`,
+        sheet_slot_time: `${slotTime}:00`,
+        slot_key: physicalKey,
+        status: "occupied_external",
+        visible_nss: String(nssRaw).trim() || null,
+        visible_name: nameCell || null,
+        visible_advisor: advisorCell || null,
+        booking_id: null,
+        expediente_id: null,
+        occupancy_source: source,
+        manual_occupancy_fingerprint: fp,
+      });
+      if (!res.ok) return res;
+      return {
+        ok: true as const,
+        logicalStartTime: logicalEmpty,
+        slot_key: physicalKey,
+        fingerprint: fp,
+      };
     }
 
     if (!nss) {
-      if (!String(nssRaw).trim()) {
+      if (!String(nssRaw).trim() && !nameCell && !advisorCell) {
         // CASO A: fila vacía — reconciliar inventario inmediato por edición de A
         if (!orgIdEarly) {
           return jsonError(500, "missing_org", "Organization no configurada");
         }
-        const { data: aliasRowsEmpty } = await supabaseEarly.rpc(
-          "agenda_sheet_list_time_aliases",
-          { p_organization_id: orgIdEarly },
-        );
-        const aliasesEmpty = (aliasRowsEmpty ?? []) as AgendaSheetTimeAlias[];
-        const logicalEmpty = resolveLogicalStartTime({
-          locationId: sectionEarly.sede,
-          kind: sectionEarly.kind,
-          sheetStartTime: slotTime,
-          aliases: aliasesEmpty,
-        });
-        const physicalKey = buildPhysicalSheetRowKey({
-          kind: sectionEarly.kind,
-          bookingDate: sheetDate,
-          logicalStartTime: logicalEmpty,
-          sheetStartTime: slotTime,
-          locationId: sectionEarly.sede,
-          sheetId: body.sheetId,
-          rowNumber: body.rowNumber,
-        });
+        const { logicalEmpty, physicalKey } = await resolveAliasesAndKeys();
 
         // Si inventario previo linked/claimed con booking → conflicto, no mover cita
         const { data: prevInv } = await supabaseEarly
@@ -311,39 +407,29 @@ Deno.serve(async (req) => {
           });
         }
 
-        const upsert = await supabaseEarly.rpc(
-          "agenda_sheet_inventory_upsert_batch",
-          {
-            p_rows: [
-              {
-                organization_id: orgIdEarly,
-                spreadsheet_id: expectedSs,
-                sheet_id: body.sheetId,
-                sheet_title: body.sheetTitle,
-                booking_date: sheetDate,
-                sheet_row: body.rowNumber,
-                kind: sectionEarly.kind,
-                location_id: sectionEarly.sede,
-                slot_time: `${logicalEmpty}:00`,
-                sheet_slot_time: `${slotTime}:00`,
-                slot_key: physicalKey,
-                status: "available",
-                visible_nss: null,
-                visible_name: null,
-                visible_advisor: null,
-                booking_id: null,
-                expediente_id: null,
-                occupancy_source: "reconciliation",
-              },
-            ],
-          },
-        );
-        if (upsert.error) {
-          return jsonError(
-            500,
-            "inventory_upsert_failed",
-            String(upsert.error.message ?? "").slice(0, 200),
-          );
+        const upsert = await upsertInventoryRow(supabaseEarly, {
+          organization_id: orgIdEarly,
+          spreadsheet_id: expectedSs,
+          sheet_id: body.sheetId,
+          sheet_title: body.sheetTitle,
+          booking_date: sheetDate,
+          sheet_row: body.rowNumber,
+          kind: sectionEarly.kind,
+          location_id: sectionEarly.sede,
+          slot_time: `${logicalEmpty}:00`,
+          sheet_slot_time: `${slotTime}:00`,
+          slot_key: physicalKey,
+          status: "available",
+          visible_nss: null,
+          visible_name: null,
+          visible_advisor: null,
+          booking_id: null,
+          expediente_id: null,
+          occupancy_source: "reconciliation",
+          manual_occupancy_fingerprint: null,
+        });
+        if (!upsert.ok) {
+          return jsonError(500, "inventory_upsert_failed", upsert.message);
         }
         return jsonOk({
           ok: true,
@@ -351,6 +437,22 @@ Deno.serve(async (req) => {
           logicalStartTime: logicalEmpty,
           sheetStartTime: slotTime,
           slot_key: physicalKey,
+        });
+      }
+
+      // NSS vacío/inválido pero hay nombre o asesor → ocupación manual (consume cupo)
+      if (occupiedVisible) {
+        const marked = await markOccupiedExternal("sheet_webhook");
+        if (!marked.ok) {
+          return jsonError(500, "inventory_upsert_failed", marked.message);
+        }
+        return jsonOk({
+          ok: true,
+          occupied_manual: true,
+          occupancy_source: "sheet_webhook",
+          logicalStartTime: marked.logicalStartTime,
+          slot_key: marked.slot_key,
+          fingerprint: marked.fingerprint,
         });
       }
       return jsonError(
@@ -401,15 +503,21 @@ Deno.serve(async (req) => {
 
     if (error) {
       const msg = String(error.message ?? "");
+      // Aunque falle el book CRM, la fila física está ocupada → consumir cupo.
+      if (occupiedVisible) {
+        await markOccupiedExternal("sheet_webhook");
+      }
       if (/ya fue reservado/i.test(msg)) {
         return jsonError(409, "slot_taken", "Este espacio ya fue reservado en el CRM.");
       }
       if (/NSS no corresponde|no corresponde a un expediente/i.test(msg)) {
-        return jsonError(
-          422,
-          "nss_not_eligible",
-          "El NSS no corresponde a un expediente disponible para esta cita.",
-        );
+        return jsonOk({
+          ok: true,
+          occupied_manual: true,
+          reason: "nss_not_eligible_marked_external",
+          message:
+            "El NSS no corresponde a un expediente disponible; la fila queda ocupada en inventario.",
+        });
       }
       if (/ya existe/i.test(msg)) {
         return jsonError(
@@ -418,11 +526,12 @@ Deno.serve(async (req) => {
           "La cita ya existe en otra fila u horario.",
         );
       }
-      return jsonError(
-        422,
-        "book_rejected",
-        "No fue posible sincronizar. No se creó ninguna cita.",
-      );
+      return jsonOk({
+        ok: true,
+        occupied_manual: true,
+        reason: "book_rejected_marked_external",
+        message: "Fila marcada como ocupada en inventario (sin booking CRM).",
+      });
     }
 
     const result = data as Record<string, unknown>;

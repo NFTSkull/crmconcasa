@@ -52,6 +52,12 @@ export function mapBookFirmasRpcError(error: {
     );
   }
 
+  if (msg.includes("sin_cupo_real_en_sheet")) {
+    return new AgendaFirmasSupabaseError(
+      "Ese horario acaba de ocuparse. Selecciona otro disponible.",
+    );
+  }
+
   if (msg.includes("anticipación mínima") || msg.includes("fecha firmas no cumple")) {
     return new AgendaFirmasSupabaseError(
       "La fecha u hora no cumple la anticipación mínima configurada por Mesa.",

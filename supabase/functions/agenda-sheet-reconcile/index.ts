@@ -75,6 +75,17 @@ Deno.serve(async (req) => {
       timeAliases = [];
     }
 
+    let body: { bookingDate?: string; kind?: string; locationId?: string } = {};
+    try {
+      const raw = await req.text();
+      if (raw.trim()) body = JSON.parse(raw) as typeof body;
+    } catch {
+      body = {};
+    }
+    const filterDate = String(body.bookingDate ?? "").trim();
+    const filterKind = String(body.kind ?? "").trim();
+    const filterLocation = String(body.locationId ?? "").trim();
+
     const tabs = await adapter.listSheets();
     let upserted = 0;
     const allIssues: unknown[] = [];
@@ -87,6 +98,7 @@ Deno.serve(async (req) => {
       if (/^FORMATO$/i.test(titleCmp)) continue;
       const date = parseTabDate(titleCmp, Number.isFinite(year) ? year : 2026);
       if (!date || date < START) continue;
+      if (filterDate && date !== filterDate) continue;
 
       const titleEsc = `'${titleRaw.replace(/'/g, "''")}'`;
       const grid = await adapter.getValues(`${titleEsc}!A1:U200`);
@@ -100,11 +112,16 @@ Deno.serve(async (req) => {
         timeAliases,
       });
       for (const iss of issues) allIssues.push({ title: titleRaw, ...iss });
-      if (rows.length === 0) continue;
+      const filtered = rows.filter((r) => {
+        if (filterKind && r.kind !== filterKind) return false;
+        if (filterLocation && r.location_id !== filterLocation) return false;
+        return true;
+      });
+      if (filtered.length === 0) continue;
 
       // batches de 200
-      for (let i = 0; i < rows.length; i += 200) {
-        const chunk = rows.slice(i, i + 200);
+      for (let i = 0; i < filtered.length; i += 200) {
+        const chunk = filtered.slice(i, i + 200);
         const { error } = await supabase.rpc("agenda_sheet_inventory_upsert_batch", {
           p_rows: chunk,
         });
@@ -123,6 +140,11 @@ Deno.serve(async (req) => {
       upserted,
       issues: allIssues.slice(0, 50),
       issue_count: allIssues.length,
+      filter: {
+        bookingDate: filterDate || null,
+        kind: filterKind || null,
+        locationId: filterLocation || null,
+      },
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

@@ -8,6 +8,7 @@ import {
   resolveLogicalStartTime,
   type AgendaSheetTimeAlias,
 } from "./time-aliases.ts";
+import { manualOccupancyFingerprint } from "./manual-occupancy.ts";
 
 const NO_HAY_CITAS_RE = /^NO\s+HAY\s+CITAS\b/i;
 const UUID_RE =
@@ -43,6 +44,7 @@ export type InventoryUpsertRow = {
   expediente_id: string | null;
   occupancy_source: string;
   organization_id: string;
+  manual_occupancy_fingerprint?: string | null;
 };
 
 export type InventoryParseIssue = {
@@ -79,6 +81,17 @@ export function buildInventoryUpsertRows(params: {
     const row = grid[i] ?? [];
     const a = cell(row, 0);
     if (!a) {
+      const nssBlank = cell(row, 1);
+      const nameBlank = cell(row, 2);
+      const advisorBlank = cell(row, 3);
+      if (nssBlank || nameBlank || advisorBlank) {
+        issues.push({
+          code: "MANUAL_ENTRY_WITHOUT_SLOT",
+          sheet_row: sheetRow,
+          message:
+            "Fila con NSS/nombre/asesor sin HORA: no consume cupo hasta asignar horario",
+        });
+      }
       if (section == null) awaitingHeader = true;
       continue;
     }
@@ -146,12 +159,18 @@ export function buildInventoryUpsertRows(params: {
     } else if (bookingIdRaw) {
       status = "linked";
       occupancySource = "crm";
-    } else if (nss || name) {
+    } else if (nss || name || advisor) {
+      // NSS | NOMBRE | ASESOR → ocupación física (manual o legacy).
       status = "occupied_external";
       occupancySource = "sheet_legacy";
     }
     const bookingId = cancelledMeta ? null : bookingIdRaw;
     const expedienteId = cancelledMeta ? null : expedienteIdRaw;
+
+    const fingerprint =
+      status === "occupied_external" && !cancelledMeta
+        ? manualOccupancyFingerprint({ nss, name, advisor })
+        : null;
 
     rows.push({
       organization_id: organizationId,
@@ -180,6 +199,7 @@ export function buildInventoryUpsertRows(params: {
       booking_id: bookingId,
       expediente_id: expedienteId,
       occupancy_source: occupancySource,
+      manual_occupancy_fingerprint: fingerprint,
     });
   }
   return { rows, issues };

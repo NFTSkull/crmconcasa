@@ -49,7 +49,10 @@ export type ParsedPhysicalSlotRow = Readonly<{
 }>;
 
 export type SheetInventoryParseIssue = Readonly<{
-  code: "INVALID_OR_MISSING_SECTION_HEADER" | "UNPARSED_TIME_IN_SECTION";
+  code:
+    | "INVALID_OR_MISSING_SECTION_HEADER"
+    | "UNPARSED_TIME_IN_SECTION"
+    | "MANUAL_ENTRY_WITHOUT_SLOT";
   sheetRow: number;
   message: string;
 }>;
@@ -58,10 +61,6 @@ const NO_HAY_CITAS_RE = /^NO\s+HAY\s+CITAS\b/i;
 
 function cell(row: readonly string[] | undefined, idx: number): string {
   return String(row?.[idx] ?? "").trim();
-}
-
-function isBlankNameOrNss(nss: string, name: string): boolean {
-  return !nss && !name;
 }
 
 /**
@@ -91,6 +90,17 @@ export function parsePhysicalInventoryFromGrid(params: {
     const a = cell(row, 0);
 
     if (!a) {
+      const nssBlank = cell(row, 1);
+      const nameBlank = cell(row, 2);
+      const advisorBlank = cell(row, 3);
+      if (nssBlank || nameBlank || advisorBlank) {
+        issues.push({
+          code: "MANUAL_ENTRY_WITHOUT_SLOT",
+          sheetRow,
+          message:
+            "Fila con NSS/nombre/asesor sin HORA: anomalía (no consume cupo hasta asignar horario)",
+        });
+      }
       if (section == null) {
         awaitingHeader = true;
       }
@@ -158,6 +168,7 @@ export function parsePhysicalInventoryFromGrid(params: {
     const status = inventoryStatusFromSheetRow({
       nss,
       name,
+      advisor,
       techBookingId: techBookingIdRaw,
       techEstado,
     }) as InventoryRowStatus;
