@@ -1,3 +1,7 @@
+## 2026-08-11 - Hotfix: persistir notas de Datos Generales
+
+Causa: `buildSaveClienteDatosRpcPayload` omitía `notaMesa` si estaba vacía/whitespace; `save_cliente_datos` hace `datos = EXCLUDED.datos` (reemplazo total) → al guardar otros campos sin la clave se perdían notas previas o no cerraba el ciclo vacío. Fix: siempre enviar `notaMesa` (string trim, puede ser `""`); mapper/load hidratan string; `normalizeClienteDatosForSave` incluye la clave. Sin migración.
+
 ## 2026-08-11 - Hotfix Firmas Bernardo: FIRMO/FIRMA (no COMPLETO)
 
 Causa: P165 clasificaba firmas con `n.includes("COMPLETO")` sobre col I/notas → 4 falsos COMPLETED el 11-ago (FIRMO=`YA CON BETTY`, FIRMA vacío, nota `COMPLETO ✔`). Evidencia RO: 11-ago FIRMO≠SI ⇒ Firmas=0; 10-ago FIRMO=`SI`+FIRMA=`BETTY` (11) y X/X+NO ASISTIO. Screenshot Firmas=11 = `agenda_bookings` booked (fallback viejo / semántica agendada); código main ya usa `bernardo_ops_*` sin booked. Fix local: clasificador F+G; notas ignoradas; bio/notif/ingresos intactos. Sin migración/Code.gs/Cloud. Pendiente: redeploy Edge + reconcile dirigido.

@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Fixed
+- **fix(expediente): persistir notas de Datos Generales** — `datos.notaMesa` siempre va en el payload de `save_cliente_datos` (el RPC reemplaza el JSON completo); omitir la clave vacía borraba notas al guardar otros campos. Load hidrata `notaMesa` explícitamente. Sin migración.
+
+### Fixed
 - **fix(admin): Firmas Bernardo solo con FIRMO=SI (hotfix P165)** — `signature_result_class` deja de usar notas `COMPLETO✔` (col I/H). Regla: `FIRMO` (F) exacto `SI` + `FIRMA` (G) no vacía/no fallida. `YA CON BETTY`/notas no cuentan. Biométricos/Notificaciones/Ingresos intactos. Sin migración; sin Cloud/Sheet edit. Tras deploy: reconcile dirigido para recalcular proyección.
 
 ### Fixed

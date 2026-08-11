@@ -1012,6 +1012,7 @@ export default function AsesorExpedientePage() {
           (found.porcentajeCobro != null ? String(found.porcentajeCobro) : ""),
         montoCalculado: montoCalculadoCargado,
         metodoPago: found.datos.metodoPago || found.metodoPago || "",
+        notaMesa: found.datos.notaMesa ?? "",
       };
       const datosHidratados = applyMontoCalculadoSugeridoSiNoBloqueado(
         datosCargados,
