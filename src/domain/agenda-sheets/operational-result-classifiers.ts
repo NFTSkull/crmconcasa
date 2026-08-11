@@ -100,23 +100,19 @@ function isSignatureFailedToken(n: string): boolean {
 
 /**
  * Firma ejecutada (bloque FIRMAS):
- * - Col F = FIRMO (señal canónica)
- * - Col G = FIRMA (segunda confirmación: quién/dónde firmó)
+ * - Col F = FIRMO (señal canónica única para COMPLETED)
+ * - Col G = FIRMA (información adicional; NO es requisito)
  *
- * Regla conservadora (auditoría RO CITAS 2026 ≤2026-08-11):
- * COMPLETED solo si FIRMO === "SI" y FIRMA no vacía / no fallida.
- * Histórico positivo observado: SI + BETTY (también SI + CESI MTY/APODACA).
- * No se halló FIRMO=SI con FIRMA vacía → G es requisito de seguridad.
- *
+ * COMPLETED solo si FIRMO === "SI".
  * NO cuentan: YA CON BETTY, BETTY, COMPLETO✔ en notas, FALTA ACUSE solo,
- * NOTIFICACION, color, texto no vacío genérico.
+ * columna FIRMA sola, NOTIFICACION, color.
  */
 export function classifySignatureResult(
   firmoRaw: string | null | undefined,
   firmaRaw?: string | null | undefined,
 ): OperationalResultClass {
   const firmo = normalizeSheetOpsText(firmoRaw);
-  const firma = normalizeSheetOpsText(firmaRaw);
+  void firmaRaw; // info adicional; no decide COMPLETED
 
   if (!firmo) return "PENDING";
 
@@ -125,10 +121,6 @@ export function classifySignatureResult(
   }
 
   if (firmo === "SI") {
-    if (!firma || isSignatureFailedToken(firma)) {
-      // SI sin evidencia en G: no inventar completado (conservador).
-      return "PENDING";
-    }
     return "COMPLETED";
   }
 
