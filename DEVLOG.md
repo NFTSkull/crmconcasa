@@ -1,3 +1,7 @@
+## 2026-08-11 - Hotfix Firmas Apodaca: A1 vacío no elimina inventario
+
+Causa raíz demostrada: `parsePhysicalInventoryFromGrid` / Edge `buildInventoryUpsertRows` exigían encabezado textual; con A1 vacío (`awaitingHeader`) las filas 3–5 @ 10:30 se dropeaban (`INVALID_OR_MISSING_SECTION_HEADER`). Cloud RO: inventario `apodaca`+`firmas` corta en **2026-08-11**; 12–18 ago solo Monterrey. Config ya tenía `apodaca.capacity_by_time["10:30"]=3`. Fix: `section-recovery.ts` + parser sin `awaitingHeader`; webhook usa el mismo grid parser. Sin migración / sin tocar Sheet / sin Cloud.
+
 ## 2026-08-10 - Admin: calibración Reporte histórico de etapas (P163)
 
 Causa: resumen P149 mezclaba outcomes eventuales (LEAD fuera de rango) con el movimiento filtrado; detalle incompleto; `estado_actual` page rompía Zod. Fix mig. **163** + UI/Excel/coverage banner desde 23/07/2026. Avanzaron = exited_at en rango + next_paso > paso. Runner aislado `scripts/verify-p163-admin-stage-history-isolated.sh`. Sin Cloud/merge.

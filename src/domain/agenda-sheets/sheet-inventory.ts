@@ -6,6 +6,12 @@
 import { inventoryStatusFromSheetRow } from "./cancel-row-clearance";
 import { parseSheetSectionHeader, parseSheetTime } from "./parsers";
 import {
+  isPlausibleTimeForSection,
+  resolveOrphanSection,
+  type SectionHintByRow,
+  type SheetSectionRef,
+} from "./section-recovery";
+import {
   buildPhysicalSheetRowKey,
   resolveLogicalStartTime,
   type AgendaSheetTimeAlias,
@@ -63,8 +69,16 @@ function cell(row: readonly string[] | undefined, idx: number): string {
   return String(row?.[idx] ?? "").trim();
 }
 
+type OrphanBuf = {
+  sheetRow: number;
+  row: readonly string[];
+  sheetSlotTime: string;
+};
+
 /**
  * Clasifica filas A1:U de una pestaña de fecha operativa.
+ * Si falta el encabezado (p.ej. A1 vacío), recupera la sección con layout/hints
+ * sin mezclar Apodaca↔Monterrey.
  */
 export function parsePhysicalInventoryFromGrid(params: {
   bookingDate: string;
@@ -73,16 +87,106 @@ export function parsePhysicalInventoryFromGrid(params: {
   sheetId?: number;
   grid: readonly (readonly string[])[];
   timeAliases?: readonly AgendaSheetTimeAlias[];
+  /** Inventario previo por sheet_row → sección (rehidratación). */
+  sectionHints?: SectionHintByRow;
 }): { rows: ParsedPhysicalSlotRow[]; issues: SheetInventoryParseIssue[] } {
   const { bookingDate, grid } = params;
   const sheetId = params.sheetId ?? 0;
   const aliases = params.timeAliases ?? [];
+  const hints = params.sectionHints;
   const rows: ParsedPhysicalSlotRow[] = [];
   const issues: SheetInventoryParseIssue[] = [];
 
-  let section: { sede: "monterrey" | "apodaca"; kind: "biometricos" | "firmas" } | null =
-    null;
-  let awaitingHeader = false;
+  let section: SheetSectionRef | null = null;
+  let orphans: OrphanBuf[] = [];
+  let orphanPrevSection: SheetSectionRef | null = null;
+
+  const emitSlot = (
+    sheetRow: number,
+    row: readonly string[],
+    sheetSlotTime: string,
+    sec: SheetSectionRef,
+    headerMissing: boolean,
+  ) => {
+    const logicalSlotTime = resolveLogicalStartTime({
+      aliases,
+      locationId: sec.sede,
+      kind: sec.kind,
+      sheetStartTime: sheetSlotTime,
+    });
+    const nss = cell(row, 1);
+    const name = cell(row, 2);
+    const advisor = cell(row, 3);
+    const techEstado = cell(row, 14) || null;
+    const techBookingIdRaw = cell(row, 15) || null;
+    const techExpedienteIdRaw = cell(row, 16) || null;
+    const techSlotKeyRaw = cell(row, 17) || null;
+    const status = inventoryStatusFromSheetRow({
+      nss,
+      name,
+      advisor,
+      techBookingId: techBookingIdRaw,
+      techEstado,
+    }) as InventoryRowStatus;
+    const cancelledMeta = String(techEstado ?? "").toUpperCase() === "CANCELADA";
+    const techBookingId = cancelledMeta ? null : techBookingIdRaw;
+    const techExpedienteId = cancelledMeta ? null : techExpedienteIdRaw;
+    const techSlotKey = cancelledMeta ? null : techSlotKeyRaw;
+
+    rows.push({
+      sheetRow,
+      bookingDate,
+      kind: sec.kind,
+      locationId: sec.sede,
+      slotTime: logicalSlotTime,
+      sheetSlotTime,
+      slotKey: buildPhysicalSheetRowKey({
+        kind: sec.kind,
+        bookingDate,
+        logicalStartTime: logicalSlotTime,
+        sheetStartTime: sheetSlotTime,
+        locationId: sec.sede,
+        sheetId,
+        rowNumber: sheetRow,
+      }),
+      status,
+      visibleNss: cancelledMeta ? null : nss || null,
+      visibleName: cancelledMeta ? null : name || null,
+      visibleAdvisor: cancelledMeta ? null : advisor || null,
+      techBookingId,
+      techExpedienteId,
+      techSlotKey,
+      sectionHeaderMissing: headerMissing,
+      disabledReason: null,
+    });
+  };
+
+  const flushOrphans = (nextSection: SheetSectionRef | null) => {
+    if (orphans.length === 0) return;
+    const resolved = resolveOrphanSection({
+      orphanTimes: orphans.map((o) => o.sheetSlotTime),
+      orphanSheetRows: orphans.map((o) => o.sheetRow),
+      nextSection,
+      prevSection: orphanPrevSection,
+      hints,
+    });
+    if (resolved) {
+      for (const o of orphans) {
+        emitSlot(o.sheetRow, o.row, o.sheetSlotTime, resolved, true);
+      }
+      section = resolved;
+    } else {
+      for (const o of orphans) {
+        issues.push({
+          code: "INVALID_OR_MISSING_SECTION_HEADER",
+          sheetRow: o.sheetRow,
+          message: `Hora ${o.sheetSlotTime} sin encabezado de sección válido (p.ej. 04 AGOSTO A1 vacío)`,
+        });
+      }
+    }
+    orphans = [];
+    orphanPrevSection = null;
+  };
 
   for (let i = 0; i < grid.length; i++) {
     const sheetRow = i + 1;
@@ -101,13 +205,11 @@ export function parsePhysicalInventoryFromGrid(params: {
             "Fila con NSS/nombre/asesor sin HORA: anomalía (no consume cupo hasta asignar horario)",
         });
       }
-      if (section == null) {
-        awaitingHeader = true;
-      }
       continue;
     }
 
     if (NO_HAY_CITAS_RE.test(a)) {
+      flushOrphans(section);
       if (section) {
         rows.push({
           sheetRow,
@@ -133,77 +235,32 @@ export function parsePhysicalInventoryFromGrid(params: {
 
     const parsedSection = parseSheetSectionHeader(a);
     if (parsedSection.ok) {
+      flushOrphans(parsedSection.value);
       section = parsedSection.value;
-      awaitingHeader = false;
       continue;
     }
 
     const t = parseSheetTime(a);
     if (!t.ok) continue;
 
-    if (!section || awaitingHeader) {
-      issues.push({
-        code: "INVALID_OR_MISSING_SECTION_HEADER",
-        sheetRow,
-        message: `Hora ${t.value} sin encabezado de sección válido (p.ej. 04 AGOSTO A1 vacío)`,
-      });
-      awaitingHeader = false;
+    if (!section) {
+      if (orphans.length === 0) orphanPrevSection = null;
+      orphans.push({ sheetRow, row, sheetSlotTime: t.value });
       continue;
     }
 
-    const sheetSlotTime = t.value;
-    const logicalSlotTime = resolveLogicalStartTime({
-      aliases,
-      locationId: section.sede,
-      kind: section.kind,
-      sheetStartTime: sheetSlotTime,
-    });
-    const nss = cell(row, 1);
-    const name = cell(row, 2);
-    const advisor = cell(row, 3);
-    const techEstado = cell(row, 14) || null;
-    const techBookingIdRaw = cell(row, 15) || null;
-    const techExpedienteIdRaw = cell(row, 16) || null;
-    const techSlotKeyRaw = cell(row, 17) || null;
-    const status = inventoryStatusFromSheetRow({
-      nss,
-      name,
-      advisor,
-      techBookingId: techBookingIdRaw,
-      techEstado,
-    }) as InventoryRowStatus;
-    const cancelledMeta = String(techEstado ?? "").toUpperCase() === "CANCELADA";
-    const techBookingId = cancelledMeta ? null : techBookingIdRaw;
-    const techExpedienteId = cancelledMeta ? null : techExpedienteIdRaw;
-    const techSlotKey = cancelledMeta ? null : techSlotKeyRaw;
+    if (!isPlausibleTimeForSection(section, t.value)) {
+      // Cambio de bloque sin encabezado (p.ej. 10:30 Apodaca tras Monterrey sticky).
+      if (orphans.length === 0) orphanPrevSection = section;
+      orphans.push({ sheetRow, row, sheetSlotTime: t.value });
+      section = null;
+      continue;
+    }
 
-    rows.push({
-      sheetRow,
-      bookingDate,
-      kind: section.kind,
-      locationId: section.sede,
-      slotTime: logicalSlotTime,
-      sheetSlotTime,
-      slotKey: buildPhysicalSheetRowKey({
-        kind: section.kind,
-        bookingDate,
-        logicalStartTime: logicalSlotTime,
-        sheetStartTime: sheetSlotTime,
-        locationId: section.sede,
-        sheetId,
-        rowNumber: sheetRow,
-      }),
-      status,
-      visibleNss: cancelledMeta ? null : nss || null,
-      visibleName: cancelledMeta ? null : name || null,
-      visibleAdvisor: cancelledMeta ? null : advisor || null,
-      techBookingId,
-      techExpedienteId,
-      techSlotKey,
-      sectionHeaderMissing: false,
-      disabledReason: null,
-    });
+    emitSlot(sheetRow, row, t.value, section, false);
   }
+
+  flushOrphans(null);
 
   return { rows, issues };
 }

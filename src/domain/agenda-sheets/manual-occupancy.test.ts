@@ -342,3 +342,74 @@ describe("manual-occupancy hotfix inbound", () => {
     );
   });
 });
+
+describe("live-sync Apodaca firmas layout", () => {
+  it("date=2026-08-12 location=apodaca kind=firmas → 3 available con A1 vacío", () => {
+    const { rows } = parsePhysicalInventoryFromGrid({
+      bookingDate: "2026-08-12",
+      sheetTitle: "12 AGOSTO",
+      grid: [
+        [""],
+        ["HORA", "NSS", "NOMBRE", "ASESOR"],
+        ["10:30 AM", "", "", ""],
+        ["10:30 AM", "", "", ""],
+        ["10:30 AM", "", "", ""],
+        ["MONTERREY FIRMAS"],
+        ["8:30 AM", "", "", ""],
+        ["8:30 AM", "", "", ""],
+        ["8:30 AM", "", "", ""],
+      ],
+    });
+    const apo = rows.filter((r) => r.locationId === "apodaca" && r.kind === "firmas");
+    assert.equal(apo.length, 3);
+    const avail = apo.filter((r) => r.status === "available").length;
+    assert.equal(avail, 3);
+    // Hard gate: 3 disponibles → can book
+    const gate = decideBookHardGate({ liveAvailableForSlot: avail });
+    assert.equal(gate.allow, true);
+    // Monterrey no absorbe 10:30
+    assert.equal(
+      rows.filter((r) => r.locationId === "monterrey" && r.slotTime === "10:30").length,
+      0,
+    );
+  });
+
+  it("book_gate Apodaca: 0 available → SIN_CUPO", () => {
+    const gate = decideBookHardGate({ liveAvailableForSlot: 0 });
+    assert.equal(gate.allow, false);
+  });
+
+  it("CRM linked + manual no doble conteo en Apodaca 10:30", () => {
+    const { rows } = parsePhysicalInventoryFromGrid({
+      bookingDate: "2026-08-12",
+      sheetTitle: "12 AGOSTO",
+      grid: [
+        ["APODACA FIRMAS"],
+        [
+          "10:30 AM",
+          "111",
+          "CRM",
+          "A",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "",
+          "SINCRONIZADO",
+          "11111111-1111-4111-8111-111111111111",
+        ],
+        ["10:30 AM", "222", "Manual", "B"],
+        ["10:30 AM", "", "", ""],
+      ],
+    });
+    const apo = rows.filter((r) => r.locationId === "apodaca");
+    assert.equal(apo.filter((r) => r.status === "linked").length, 1);
+    assert.equal(apo.filter((r) => r.status === "occupied_external").length, 1);
+    assert.equal(apo.filter((r) => r.status === "available").length, 1);
+  });
+});

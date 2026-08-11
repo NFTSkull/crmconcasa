@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Fixed
+- **fix(agenda): Firmas Apodaca con A1 vacío** — el parser ya no depende solo del literal `APODACA FIRMAS`; recupera el bloque por layout (10:00/10:30 antes de Monterrey Firmas), hints de inventario y alien-time. Live-sync/webhook/reconcile comparten la misma semántica. Sin migración; sin Cloud.
+
+### Fixed
 - **fix(admin): calibrar reporte histórico de etapas (P163)** — resumen/detalle usan eventos de `expediente_paso_visual_transiciones` (Entraron/Avanzaron/Estuvieron) con Monterrey semiabierto; Avanzaron = salida forward en rango (no outcome eventual); unicos vs movimientos; cobertura desde 23/07/2026; estado_actual con contrato Zod; Excel hoja Consulta 1:1. Mig. **163** local. Sin Cloud/deploy.
 
 ### Fixed

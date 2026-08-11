@@ -385,7 +385,7 @@ describe("sheet-inventory", () => {
     assert.equal(rows[1]?.status, "occupied_external");
   });
 
-  it("04 AGOSTO: encabezado vacío no invalida MONTERREY FIRMAS posterior", () => {
+  it("04 AGOSTO: A1 vacío + 10:30 → Apodaca Firmas; Monterrey Firmas posterior intacto", () => {
     const { rows, issues } = parsePhysicalInventoryFromGrid({
       bookingDate: "2026-08-04",
       sheetTitle: "04 AGOSTO",
@@ -408,15 +408,142 @@ describe("sheet-inventory", () => {
         ["10:00 AM", "", "", ""],
       ],
     });
-    assert.ok(issues.some((i) => i.code === "INVALID_OR_MISSING_SECTION_HEADER"));
+    assert.equal(
+      issues.filter((i) => i.code === "INVALID_OR_MISSING_SECTION_HEADER").length,
+      0,
+    );
+    const apodaca = rows.filter((r) => r.kind === "firmas" && r.locationId === "apodaca");
+    assert.equal(apodaca.length, 2);
+    assert.equal(apodaca.every((r) => r.sectionHeaderMissing), true);
+    assert.equal(countAvailableByTime(apodaca, "firmas", "apodaca")["10:30"], 1);
     const firmas = rows.filter((r) => r.kind === "firmas" && r.locationId === "monterrey");
     assert.equal(firmas.length, 12);
     assert.equal(countAvailableByTime(firmas, "firmas", "monterrey")["08:30"], 2);
     assert.equal(countAvailableByTime(firmas, "firmas", "monterrey")["09:00"], 2);
     assert.equal(countAvailableByTime(firmas, "firmas", "monterrey")["09:30"], 3);
     assert.equal(countAvailableByTime(firmas, "firmas", "monterrey")["10:00"], 3);
-    // huérfanas 10:30 no inventariadas como cupos válidos
-    assert.equal(rows.filter((r) => r.slotTime === "10:30").length, 0);
+  });
+
+  it("12 AGOSTO producción: A1 vacío + 3×10:30 → available 3 Apodaca (no Monterrey)", () => {
+    const { rows, issues } = parsePhysicalInventoryFromGrid({
+      bookingDate: "2026-08-12",
+      sheetTitle: "12 AGOSTO",
+      sheetId: 999,
+      grid: [
+        [""],
+        ["HORA", "NSS", "NOMBRE", "ASESOR"],
+        ["10:30 AM", "", "", ""],
+        ["10:30 AM", "", "", ""],
+        ["10:30 AM", "", "", ""],
+        ["MONTERREY FIRMAS"],
+        ["8:30 AM", "", "", ""],
+        ["8:30 AM", "", "", ""],
+        ["8:30 AM", "", "", ""],
+      ],
+    });
+    assert.equal(
+      issues.filter((i) => i.code === "INVALID_OR_MISSING_SECTION_HEADER").length,
+      0,
+    );
+    const apo = rows.filter((r) => r.locationId === "apodaca" && r.kind === "firmas");
+    assert.equal(apo.length, 3);
+    assert.equal(countAvailableByTime(apo, "firmas", "apodaca")["10:30"], 3);
+    assert.equal(
+      rows.filter((r) => r.locationId === "monterrey" && r.slotTime === "10:30").length,
+      0,
+    );
+  });
+
+  it("1 manual Apodaca → available 2; 3 manuales → 0", () => {
+    const one = parsePhysicalInventoryFromGrid({
+      bookingDate: "2026-08-13",
+      sheetTitle: "13 AGOSTO",
+      grid: [
+        [""],
+        ["10:30 AM", "11111111111", "Cliente", "Asesor"],
+        ["10:30 AM", "", "", ""],
+        ["10:30 AM", "", "", ""],
+        ["MONTERREY FIRMAS"],
+        ["8:30 AM", "", "", ""],
+      ],
+    });
+    assert.equal(countAvailableByTime(one.rows, "firmas", "apodaca")["10:30"], 2);
+
+    const full = parsePhysicalInventoryFromGrid({
+      bookingDate: "2026-08-13",
+      sheetTitle: "13 AGOSTO",
+      grid: [
+        ["APODACA FIRMAS"],
+        ["10:30 AM", "1", "A", "X"],
+        ["10:30 AM", "2", "B", "Y"],
+        ["10:30 AM", "3", "C", "Z"],
+      ],
+    });
+    assert.equal(countAvailableByTime(full.rows, "firmas", "apodaca")["10:30"] ?? 0, 0);
+  });
+
+  it("no confunde 08:30 huérfano con Apodaca (recupera Monterrey Firmas ante Bio)", () => {
+    const { rows, issues } = parsePhysicalInventoryFromGrid({
+      bookingDate: "2026-08-04",
+      sheetTitle: "04 AGOSTO",
+      grid: [
+        [""],
+        ["8:30 AM", "", "", ""],
+        ["MONTERREY BIOMETRICOS"],
+        ["9:00 AM", "", "", ""],
+      ],
+    });
+    assert.equal(rows.filter((r) => r.locationId === "apodaca").length, 0);
+    assert.equal(
+      rows.filter((r) => r.locationId === "monterrey" && r.kind === "firmas" && r.slotTime === "08:30")
+        .length,
+      1,
+    );
+    assert.equal(
+      rows.filter((r) => r.kind === "biometricos" && r.slotTime === "09:00").length,
+      1,
+    );
+    assert.equal(
+      issues.filter((i) => i.code === "INVALID_OR_MISSING_SECTION_HEADER").length,
+      0,
+    );
+  });
+
+  it("hora desconocida huérfana sigue en INVALID", () => {
+    const { rows, issues } = parsePhysicalInventoryFromGrid({
+      bookingDate: "2026-08-04",
+      sheetTitle: "04 AGOSTO",
+      grid: [
+        [""],
+        ["7:15 AM", "", "", ""],
+        ["MONTERREY BIOMETRICOS"],
+        ["9:00 AM", "", "", ""],
+      ],
+    });
+    assert.ok(issues.some((i) => i.code === "INVALID_OR_MISSING_SECTION_HEADER"));
+    assert.equal(rows.filter((r) => r.slotTime === "07:15").length, 0);
+  });
+
+  it("hints por sheet_row rehidratan Apodaca sin header ni next", () => {
+    const hints = new Map([
+      [3, { sede: "apodaca" as const, kind: "firmas" as const }],
+      [4, { sede: "apodaca" as const, kind: "firmas" as const }],
+      [5, { sede: "apodaca" as const, kind: "firmas" as const }],
+    ]);
+    const { rows } = parsePhysicalInventoryFromGrid({
+      bookingDate: "2026-08-14",
+      sheetTitle: "14 AGOSTO",
+      sectionHints: hints,
+      grid: [
+        [""],
+        [""],
+        ["10:30 AM", "", "", ""],
+        ["10:30 AM", "", "", ""],
+        ["10:30 AM", "", "", ""],
+      ],
+    });
+    assert.equal(rows.length, 3);
+    assert.equal(countAvailableByTime(rows, "firmas", "apodaca")["10:30"], 3);
   });
 
   it("07 AGOSTO filas 9–20: tres 09:30 y tres 10:00 vacías = capacidad 3 c/u (slot_key por row)", () => {
