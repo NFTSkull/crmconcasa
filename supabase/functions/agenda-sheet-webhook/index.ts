@@ -36,6 +36,8 @@ import {
   classifySheetRowOccupancy,
   manualOccupancyFingerprint,
 } from "../_shared/agenda-sheets/manual-occupancy.ts";
+import { buildInventoryUpsertRows } from "../_shared/agenda-sheets/inventory-from-grid.ts";
+import type { SheetSectionRef } from "../_shared/agenda-sheets/section-recovery.ts";
 
 type WebhookBody = {
   spreadsheetId?: string;
@@ -260,27 +262,47 @@ Deno.serve(async (req) => {
       { auth: { persistSession: false, autoRefreshToken: false } },
     );
 
-    // Inferir sección antes de NSS (necesario para reconcile de columna A)
+    // Inferir sección (con recuperación si A1 vacío / layout Apodaca Firmas).
     const titleEscEarly = `'${String(body.sheetTitle).replace(/'/g, "''")}'`;
-    const headerRangeEarly = `${titleEscEarly}!A1:A${body.rowNumber}`;
+    const headerRangeEarly = `${titleEscEarly}!A1:A200`;
     const colAEarly = await adapter.getValues(headerRangeEarly);
-    let sectionEarly: { sede: string; kind: string } | null = null;
+    const gridEarly: string[][] = [];
+    const maxRows = Math.max(colAEarly.length, body.rowNumber);
+    for (let i = 0; i < maxRows; i++) {
+      if (i + 1 === body.rowNumber) {
+        gridEarly.push(row.map((c) => String(c ?? "")));
+      } else {
+        gridEarly.push([String(colAEarly[i]?.[0] ?? "")]);
+      }
+    }
+    const parsedEarly = buildInventoryUpsertRows({
+      organizationId: orgIdEarly || "00000000-0000-0000-0000-000000000000",
+      spreadsheetId: body.spreadsheetId || DEFAULT_SPREADSHEET_ID,
+      sheetId: Number(body.sheetId) || 0,
+      sheetTitle: String(body.sheetTitle ?? ""),
+      bookingDate: "2099-01-01", // solo para inferir sección/fila; no se persiste aquí
+      grid: gridEarly,
+    });
+    const hitEarly = parsedEarly.rows.find(
+      (r) => r.sheet_row === body.rowNumber && r.status !== "disabled",
+    );
+    if (!hitEarly) {
+      return jsonError(400, "section_not_found", "Fila fuera de bloque de citas");
+    }
+    const sectionEarly: SheetSectionRef = {
+      sede: hitEarly.location_id as SheetSectionRef["sede"],
+      kind: hitEarly.kind as SheetSectionRef["kind"],
+    };
     let ordinalEarly = 0;
-    for (let i = 0; i < colAEarly.length; i++) {
-      const cell = String(colAEarly[i]?.[0] ?? "");
-      const s = parseSection(cell);
-      if (s) {
-        sectionEarly = s;
-        ordinalEarly = 0;
+    for (const r of parsedEarly.rows) {
+      if (r.location_id !== hitEarly.location_id || r.kind !== hitEarly.kind) {
         continue;
       }
-      if (!sectionEarly) continue;
-      const t = parseTime(cell);
-      if (!t) continue;
-      if (t === slotTime) ordinalEarly += 1;
-      if (i + 1 === body.rowNumber) break;
+      if (r.sheet_slot_time.slice(0, 5) !== slotTime) continue;
+      if (r.sheet_row > body.rowNumber) break;
+      ordinalEarly += 1;
     }
-    if (!sectionEarly || ordinalEarly < 1) {
+    if (ordinalEarly < 1) {
       return jsonError(400, "section_not_found", "Fila fuera de bloque de citas");
     }
 

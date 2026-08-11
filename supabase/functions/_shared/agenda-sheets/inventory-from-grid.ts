@@ -4,6 +4,12 @@
  */
 import { parseSection, parseTime } from "./parsers.ts";
 import {
+  isPlausibleTimeForSection,
+  resolveOrphanSection,
+  type SectionHintByRow,
+  type SheetSectionRef,
+} from "./section-recovery.ts";
+import {
   buildPhysicalSheetRowKey,
   resolveLogicalStartTime,
   type AgendaSheetTimeAlias,
@@ -53,6 +59,12 @@ export type InventoryParseIssue = {
   message: string;
 };
 
+type OrphanBuf = {
+  sheetRow: number;
+  row: string[];
+  sheetSlotTime: string;
+};
+
 export function buildInventoryUpsertRows(params: {
   organizationId: string;
   spreadsheetId: string;
@@ -61,6 +73,7 @@ export function buildInventoryUpsertRows(params: {
   bookingDate: string;
   grid: string[][];
   timeAliases?: readonly AgendaSheetTimeAlias[];
+  sectionHints?: SectionHintByRow;
 }): { rows: InventoryUpsertRow[]; issues: InventoryParseIssue[] } {
   const {
     organizationId,
@@ -71,10 +84,108 @@ export function buildInventoryUpsertRows(params: {
     grid,
   } = params;
   const aliases = params.timeAliases ?? [];
+  const hints = params.sectionHints;
   const rows: InventoryUpsertRow[] = [];
   const issues: InventoryParseIssue[] = [];
-  let section: { sede: string; kind: string } | null = null;
-  let awaitingHeader = false;
+  let section: SheetSectionRef | null = null;
+  let orphans: OrphanBuf[] = [];
+  let orphanPrevSection: SheetSectionRef | null = null;
+
+  const emitSlot = (
+    sheetRow: number,
+    row: string[],
+    sheetSlot: string,
+    sec: SheetSectionRef,
+  ) => {
+    const logical = resolveLogicalStartTime({
+      aliases,
+      locationId: sec.sede,
+      kind: sec.kind,
+      sheetStartTime: sheetSlot,
+    });
+    const nss = cell(row, 1);
+    const name = cell(row, 2);
+    const advisor = cell(row, 3);
+    const techEstado = cell(row, 14);
+    const bookingIdRaw = asUuidOrNull(cell(row, 15) || null);
+    const expedienteIdRaw = asUuidOrNull(cell(row, 16) || null);
+    const cancelledMeta = techEstado.toUpperCase() === "CANCELADA";
+    let status = "available";
+    let occupancySource = "reconciliation";
+    if (cancelledMeta) {
+      status = "available";
+      occupancySource = "reconciliation";
+    } else if (bookingIdRaw) {
+      status = "linked";
+      occupancySource = "crm";
+    } else if (nss || name || advisor) {
+      status = "occupied_external";
+      occupancySource = "sheet_legacy";
+    }
+    const bookingId = cancelledMeta ? null : bookingIdRaw;
+    const expedienteId = cancelledMeta ? null : expedienteIdRaw;
+    const fingerprint =
+      status === "occupied_external" && !cancelledMeta
+        ? manualOccupancyFingerprint({ nss, name, advisor })
+        : null;
+
+    rows.push({
+      organization_id: organizationId,
+      spreadsheet_id: spreadsheetId,
+      sheet_id: sheetId,
+      sheet_title: sheetTitle,
+      booking_date: bookingDate,
+      sheet_row: sheetRow,
+      kind: sec.kind,
+      location_id: sec.sede,
+      slot_time: `${logical}:00`,
+      sheet_slot_time: `${sheetSlot}:00`,
+      slot_key: buildPhysicalSheetRowKey({
+        kind: sec.kind,
+        bookingDate,
+        logicalStartTime: logical,
+        sheetStartTime: sheetSlot,
+        locationId: sec.sede,
+        sheetId,
+        rowNumber: sheetRow,
+      }),
+      status,
+      visible_nss: cancelledMeta ? null : nss || null,
+      visible_name: cancelledMeta ? null : name || null,
+      visible_advisor: cancelledMeta ? null : advisor || null,
+      booking_id: bookingId,
+      expediente_id: expedienteId,
+      occupancy_source: occupancySource,
+      manual_occupancy_fingerprint: fingerprint,
+    });
+  };
+
+  const flushOrphans = (nextSection: SheetSectionRef | null) => {
+    if (orphans.length === 0) return;
+    const resolved = resolveOrphanSection({
+      orphanTimes: orphans.map((o) => o.sheetSlotTime),
+      orphanSheetRows: orphans.map((o) => o.sheetRow),
+      nextSection,
+      prevSection: orphanPrevSection,
+      hints,
+    });
+    if (resolved) {
+      for (const o of orphans) {
+        emitSlot(o.sheetRow, o.row, o.sheetSlotTime, resolved);
+      }
+      section = resolved;
+    } else {
+      for (const o of orphans) {
+        issues.push({
+          code: "INVALID_OR_MISSING_SECTION_HEADER",
+          sheet_row: o.sheetRow,
+          message: `Hora ${o.sheetSlotTime} sin encabezado de sección`,
+        });
+      }
+    }
+    orphans = [];
+    orphanPrevSection = null;
+  };
 
   for (let i = 0; i < grid.length; i++) {
     const sheetRow = i + 1;
@@ -92,10 +203,10 @@ export function buildInventoryUpsertRows(params: {
             "Fila con NSS/nombre/asesor sin HORA: no consume cupo hasta asignar horario",
         });
       }
-      if (section == null) awaitingHeader = true;
       continue;
     }
     if (NO_HAY_CITAS_RE.test(a)) {
+      flushOrphans(section);
       if (section) {
         rows.push({
           organization_id: organizationId,
@@ -120,87 +231,33 @@ export function buildInventoryUpsertRows(params: {
       }
       continue;
     }
-    const sec = parseSection(a);
+    const secRaw = parseSection(a);
+    const sec = secRaw
+      ? ({
+          sede: secRaw.sede,
+          kind: secRaw.kind,
+        } as SheetSectionRef)
+      : null;
     if (sec) {
+      flushOrphans(sec);
       section = sec;
-      awaitingHeader = false;
       continue;
     }
     const t = parseTime(a);
     if (!t) continue;
-    if (!section || awaitingHeader) {
-      issues.push({
-        code: "INVALID_OR_MISSING_SECTION_HEADER",
-        sheet_row: sheetRow,
-        message: `Hora ${t} sin encabezado de sección`,
-      });
-      awaitingHeader = false;
+    if (!section) {
+      if (orphans.length === 0) orphanPrevSection = null;
+      orphans.push({ sheetRow, row, sheetSlotTime: t });
       continue;
     }
-    const sheetSlot = t;
-    const logical = resolveLogicalStartTime({
-      aliases,
-      locationId: section.sede,
-      kind: section.kind,
-      sheetStartTime: sheetSlot,
-    });
-    const nss = cell(row, 1);
-    const name = cell(row, 2);
-    const advisor = cell(row, 3);
-    const techEstado = cell(row, 14);
-    const bookingIdRaw = asUuidOrNull(cell(row, 15) || null);
-    const expedienteIdRaw = asUuidOrNull(cell(row, 16) || null);
-    const cancelledMeta = techEstado.toUpperCase() === "CANCELADA";
-    let status = "available";
-    let occupancySource = "reconciliation";
-    if (cancelledMeta) {
-      status = "available";
-      occupancySource = "reconciliation";
-    } else if (bookingIdRaw) {
-      status = "linked";
-      occupancySource = "crm";
-    } else if (nss || name || advisor) {
-      // NSS | NOMBRE | ASESOR → ocupación física (manual o legacy).
-      status = "occupied_external";
-      occupancySource = "sheet_legacy";
+    if (!isPlausibleTimeForSection(section, t)) {
+      if (orphans.length === 0) orphanPrevSection = section;
+      orphans.push({ sheetRow, row, sheetSlotTime: t });
+      section = null;
+      continue;
     }
-    const bookingId = cancelledMeta ? null : bookingIdRaw;
-    const expedienteId = cancelledMeta ? null : expedienteIdRaw;
-
-    const fingerprint =
-      status === "occupied_external" && !cancelledMeta
-        ? manualOccupancyFingerprint({ nss, name, advisor })
-        : null;
-
-    rows.push({
-      organization_id: organizationId,
-      spreadsheet_id: spreadsheetId,
-      sheet_id: sheetId,
-      sheet_title: sheetTitle,
-      booking_date: bookingDate,
-      sheet_row: sheetRow,
-      kind: section.kind,
-      location_id: section.sede,
-      slot_time: `${logical}:00`,
-      sheet_slot_time: `${sheetSlot}:00`,
-      slot_key: buildPhysicalSheetRowKey({
-        kind: section.kind,
-        bookingDate,
-        logicalStartTime: logical,
-        sheetStartTime: sheetSlot,
-        locationId: section.sede,
-        sheetId,
-        rowNumber: sheetRow,
-      }),
-      status,
-      visible_nss: cancelledMeta ? null : nss || null,
-      visible_name: cancelledMeta ? null : name || null,
-      visible_advisor: cancelledMeta ? null : advisor || null,
-      booking_id: bookingId,
-      expediente_id: expedienteId,
-      occupancy_source: occupancySource,
-      manual_occupancy_fingerprint: fingerprint,
-    });
+    emitSlot(sheetRow, row, t, section);
   }
+  flushOrphans(null);
   return { rows, issues };
 }

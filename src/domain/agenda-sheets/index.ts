@@ -59,6 +59,14 @@ export {
   type DryRunTabInput,
 } from "./dry-run";
 export {
+  isPlausibleFirmasApodacaTime,
+  isPlausibleFirmasMonterreyTime,
+  isPlausibleTimeForSection,
+  resolveOrphanSection,
+  type SectionHintByRow,
+  type SheetSectionRef,
+} from "./section-recovery";
+export {
   AGENDA_SHEET_INVENTORY_START_DATE,
   countAvailableByTime,
   effectiveSheetAwareRemaining,
