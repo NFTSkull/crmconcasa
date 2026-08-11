@@ -147,6 +147,22 @@ export {
   type SheetOccupancyClass,
 } from "./manual-occupancy";
 export {
+  classifyBiometricResult,
+  classifyNotificationResult,
+  classifySignatureResult,
+  isOperationalCompleted,
+  normalizeSheetOpsText,
+  operationalResultLabel,
+  type OperationalResultClass,
+} from "./operational-result-classifiers";
+export {
+  buildOperationalResultUpsertRows,
+  classifyOperationalRow,
+  countCompletedOperational,
+  extractSignatureResultRaw,
+  type OperationalResultUpsertRow,
+} from "./operational-results";
+export {
   invokeAgendaSheetLiveSync,
   type LiveSyncMode,
   type LiveSyncResult,

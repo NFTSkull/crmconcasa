@@ -18,6 +18,7 @@ import {
   type BernardoDashboardData,
   type BernardoMetricId,
 } from "@/lib/adminBernardoLoad";
+import { isSupabaseConfigured, supabaseBrowser } from "@/lib/supabaseBrowser";
 
 type AdminBernardoDashboardProps = {
   repo: AdminProductionRepo;
@@ -35,6 +36,8 @@ const EMPTY_DATA: BernardoDashboardData = {
   notificacionesTotal: 0,
   notificacionesItems: [],
 };
+
+const OPS_REFETCH_MS = 25_000;
 
 export function AdminBernardoDashboard({
   repo,
@@ -64,28 +67,72 @@ export function AdminBernardoDashboard({
 
   const invalidCustom = preset === "personalizado" && !bounds;
 
-  const load = useCallback(async () => {
-    if (!bounds) {
-      setLoading(false);
-      setData(EMPTY_DATA);
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    try {
-      const next = await loadBernardoDashboard({ repo, bounds });
-      setData(next);
-    } catch {
-      setError("No se pudo cargar la información del periodo.");
-      setData(EMPTY_DATA);
-    } finally {
-      setLoading(false);
-    }
-  }, [bounds, repo]);
+  const load = useCallback(
+    async (opts?: { quiet?: boolean }) => {
+      if (!bounds) {
+        setLoading(false);
+        setData(EMPTY_DATA);
+        return;
+      }
+      if (!opts?.quiet) setLoading(true);
+      setError(null);
+      try {
+        const next = await loadBernardoDashboard({ repo, bounds });
+        setData(next);
+      } catch {
+        if (!opts?.quiet) {
+          setError("No se pudo cargar la información del periodo.");
+          setData(EMPTY_DATA);
+        }
+      } finally {
+        if (!opts?.quiet) setLoading(false);
+      }
+    },
+    [bounds, repo],
+  );
 
   useEffect(() => {
     void load();
   }, [load, refreshKey]);
+
+  // Realtime sobre proyección + refetch moderado + al recuperar foco (quiet).
+  useEffect(() => {
+    if (!bounds) return;
+
+    const quietReload = () => {
+      void load({ quiet: true });
+    };
+
+    const onFocus = () => quietReload();
+    window.addEventListener("focus", onFocus);
+
+    const interval = window.setInterval(quietReload, OPS_REFETCH_MS);
+
+    let channel: ReturnType<NonNullable<typeof supabaseBrowser>["channel"]> | null =
+      null;
+    if (isSupabaseConfigured() && supabaseBrowser) {
+      channel = supabaseBrowser
+        .channel("bernardo-ops-results")
+        .on(
+          "postgres_changes",
+          {
+            event: "*",
+            schema: "public",
+            table: "agenda_sheet_operational_results",
+          },
+          () => quietReload(),
+        )
+        .subscribe();
+    }
+
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      window.clearInterval(interval);
+      if (channel && supabaseBrowser) {
+        void supabaseBrowser.removeChannel(channel);
+      }
+    };
+  }, [bounds, load]);
 
   const periodLabel = bounds ? bernardoPeriodDisplayLabel(bounds) : null;
 
@@ -116,7 +163,9 @@ export function AdminBernardoDashboard({
   };
 
   const openFromCita = (cita: BernardoCitaRow) => {
-    onOpenExpediente(bernardoCitaToMesaEnvio(cita), null);
+    const row = bernardoCitaToMesaEnvio(cita);
+    if (!row) return;
+    onOpenExpediente(row, null);
   };
 
   const metrics: {
@@ -134,19 +183,19 @@ export function AdminBernardoDashboard({
     {
       id: "biometricos",
       title: "Biométricos",
-      description: "Citas biométricas en el periodo",
+      description: "Biométricos completados en el periodo",
       value: data.biometricosTotal,
     },
     {
       id: "firmas",
       title: "Firmas",
-      description: "Citas de firma en el periodo",
+      description: "Firmas completadas en el periodo",
       value: data.firmasTotal,
     },
     {
       id: "notificaciones",
       title: "Notificaciones a registro",
-      description: "Notificaciones enviadas en el periodo",
+      description: "Notificaciones enviadas a registro",
       value: data.notificacionesTotal,
     },
   ];
@@ -159,7 +208,8 @@ export function AdminBernardoDashboard({
             Dashboard Bernardo
           </h2>
           <p className="mt-1 text-sm text-slate-600">
-            Consulta rápida de ingresos, citas y notificaciones por periodo.
+            Resultados operativos reales de CITAS 2026 (completados, no solo
+            agendados) e ingresos a Mesa.
           </p>
         </div>
         <Button type="button" variant="secondary" onClick={onBack}>

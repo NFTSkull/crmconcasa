@@ -1,3 +1,7 @@
+## 2026-08-11 - Hotfix Bernardo: métricas operativas desde CITAS 2026 (P165)
+
+Causa raíz: Dashboard Bernardo contaba `get_mesa_agenda_bookings` con `status=booked` (agendado ≠ realizado). Sheet RO 11-ago: BIOMETRICOS col E (`CESI MTY`/`YA EN CESI`/`X`), NOTIFICACION col F (`BETTY n`/`X`), firmas COMPLETO en col I. Esperado clasificador: bio 10, firmas 4, notif 4 (BETTY 8/6/7/9; snapshot usuario tenía 3). Fix local: clasificadores + tabla `agenda_sheet_operational_results` + RPCs Bernardo + webhook/reconcile/Apps Script E–I + UI subtítulos/realtime. Ingresos sin cambio. Sin Cloud/commit/push.
+
 ## 2026-08-11 - Hotfix Firmas Apodaca: A1 vacío no elimina inventario
 
 Causa raíz demostrada: `parsePhysicalInventoryFromGrid` / Edge `buildInventoryUpsertRows` exigían encabezado textual; con A1 vacío (`awaitingHeader`) las filas 3–5 @ 10:30 se dropeaban (`INVALID_OR_MISSING_SECTION_HEADER`). Cloud RO: inventario `apodaca`+`firmas` corta en **2026-08-11**; 12–18 ago solo Monterrey. Config ya tenía `apodaca.capacity_by_time["10:30"]=3`. Fix: `section-recovery.ts` + parser sin `awaitingHeader`; webhook usa el mismo grid parser. Sin migración / sin tocar Sheet / sin Cloud.

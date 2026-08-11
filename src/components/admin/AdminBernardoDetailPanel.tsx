@@ -45,8 +45,8 @@ const METRIC_TITLE: Record<BernardoMetricId, string> = {
 
 const EMPTY: Record<BernardoMetricId, string> = {
   ingresos: "No hubo ingresos en este periodo.",
-  biometricos: "No hay citas biométricas en este periodo.",
-  firmas: "No hay citas de firma en este periodo.",
+  biometricos: "No hay biométricos completados en este periodo.",
+  firmas: "No hay firmas completadas en este periodo.",
   notificaciones:
     "No hay notificaciones enviadas a registro en este periodo.",
 };
@@ -114,14 +114,19 @@ function IngresosTable({
   );
 }
 
+function sedeLabel(locationId: string): string {
+  const n = locationId.trim().toLowerCase();
+  if (n === "monterrey") return "Monterrey";
+  if (n === "apodaca") return "Apodaca";
+  return locationId || "—";
+}
+
 function CitasTable({
   items,
   onOpen,
-  showEnvioLabel,
 }: {
   items: readonly BernardoCitaRow[];
   onOpen: (cita: BernardoCitaRow) => void;
-  showEnvioLabel?: boolean;
 }) {
   return (
     <div className="overflow-x-auto">
@@ -130,22 +135,16 @@ function CitasTable({
           <tr>
             <th className="px-3 py-2">Cliente</th>
             <th className="px-3 py-2">Asesor</th>
-            <th className="px-3 py-2">
-              {showEnvioLabel ? "Fecha de envío" : "Fecha"}
-            </th>
-            {!showEnvioLabel ? (
-              <th className="px-3 py-2">Hora</th>
-            ) : null}
-            <th className="px-3 py-2">
-              {showEnvioLabel ? "Estado disponible" : "Estado de la cita"}
-            </th>
-            <th className="px-3 py-2">Etapa actual</th>
+            <th className="px-3 py-2">Fecha</th>
+            <th className="px-3 py-2">Hora</th>
+            <th className="px-3 py-2">Sede</th>
+            <th className="px-3 py-2">Resultado</th>
             <th className="px-3 py-2">Acción</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-slate-100 bg-white">
           {items.map((r) => (
-            <tr key={r.bookingId}>
+            <tr key={r.resultId}>
               <td className="px-3 py-2 font-medium text-slate-900">
                 {r.clienteNombre}
               </td>
@@ -153,25 +152,24 @@ function CitasTable({
               <td className="px-3 py-2 whitespace-nowrap text-slate-700">
                 {r.bookingDate}
               </td>
-              {!showEnvioLabel ? (
-                <td className="px-3 py-2 whitespace-nowrap text-slate-700">
-                  {r.bookingTime}
-                </td>
-              ) : null}
+              <td className="px-3 py-2 whitespace-nowrap text-slate-700">
+                {r.bookingTime}
+              </td>
+              <td className="px-3 py-2 text-slate-700">
+                {sedeLabel(r.locationId)}
+              </td>
               <td className="px-3 py-2">
-                <span
-                  className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${
-                    r.status === "booked"
-                      ? "bg-emerald-50 text-emerald-800"
-                      : "bg-red-50 text-red-800"
-                  }`}
-                >
-                  {r.statusLabel}
+                <span className="inline-flex rounded-full bg-emerald-50 px-2 py-0.5 text-xs font-medium text-emerald-800">
+                  ✓ {r.statusLabel}
+                  {r.resultRaw ? ` · ${r.resultRaw}` : ""}
                 </span>
               </td>
-              <td className="px-3 py-2 text-slate-700">{r.etapaLabel}</td>
               <td className="px-3 py-2">
-                <VerExpedienteButton onClick={() => onOpen(r)} />
+                {r.expedienteId ? (
+                  <VerExpedienteButton onClick={() => onOpen(r)} />
+                ) : (
+                  <span className="text-xs text-slate-500">Sin expediente CRM</span>
+                )}
               </td>
             </tr>
           ))}
@@ -214,12 +212,10 @@ function DayGroupsCitas({
   items,
   singleDay,
   onOpen,
-  showEnvioLabel,
 }: {
   items: readonly BernardoCitaRow[];
   singleDay: boolean;
   onOpen: (cita: BernardoCitaRow) => void;
-  showEnvioLabel?: boolean;
 }) {
   if (items.length === 0) return null;
   if (singleDay) {
@@ -227,7 +223,6 @@ function DayGroupsCitas({
       <CitasTable
         items={sortCitasByTimeAsc(items)}
         onOpen={onOpen}
-        showEnvioLabel={showEnvioLabel}
       />
     );
   }
@@ -243,7 +238,6 @@ function DayGroupsCitas({
           <CitasTable
             items={g.items}
             onOpen={onOpen}
-            showEnvioLabel={showEnvioLabel}
           />
         </AdminCollapsibleSection>
       ))}
@@ -310,7 +304,6 @@ export function AdminBernardoDetailPanel({
           items={notificacionesItems}
           singleDay={singleDay}
           onOpen={onOpenCita}
-          showEnvioLabel
         />
       );
   }

@@ -33,10 +33,15 @@ function cita(
 ): BernardoCitaRow {
   return {
     expedienteId: "e1",
+    resultId: "r1",
     clienteNombre: "Cliente",
     asesorNombre: "Asesor",
-    status: "booked",
-    statusLabel: "Agendada",
+    status: "completed",
+    statusLabel: "Completado",
+    resultClass: "COMPLETED",
+    resultRaw: "CESI MTY",
+    locationId: "monterrey",
+    sheetRow: 25,
     etapaActual: 4,
     etapaLabel: "Biométricos",
     kind: "biometricos",

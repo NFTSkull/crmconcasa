@@ -1,11 +1,10 @@
 /**
- * Carga read-only del Dashboard Bernardo (B3).
- * Fuentes canónicas existentes — cero escrituras / cero RPC nuevas.
+ * Carga read-only del Dashboard Bernardo (B3 + P165 calibración operativa).
  *
  * Ingresos  → AdminProductionRepo.getSummary + listMesaEnviosPage
- *             (misma semántica KPI «Enviados a Mesa» / fecha_envio_mesa)
- * Citas     → get_mesa_agenda_bookings (bio / firmas / notificacion)
- *             o localStorage mock en modo demo.
+ *             (misma semántica KPI «Enviados a Mesa» / fecha_envio_mesa) — INTACTO
+ * Biométricos / Firmas / Notificaciones → agenda_sheet_operational_results
+ *             (resultado Sheet COMPLETED; no agenda_bookings.status=booked)
  */
 
 import {
@@ -15,27 +14,16 @@ import {
 } from "@/domain/admin-production";
 import type { AdminPeriodBounds } from "@/domain/admin-production/period";
 import type { BernardoPeriodBounds } from "@/lib/adminBernardoPeriod";
-import { chunkInclusiveDateRange } from "@/lib/adminBernardoPeriod";
 import { isDataModeSupabase } from "@/lib/dataMode";
+import { isSupabaseConfigured, supabaseBrowser } from "@/lib/supabaseBrowser";
 import {
-  fetchMesaAgendaBookings,
-  MesaAgendaBookingsSupabaseError,
-} from "@/domain/agenda-calendar/mesa.repo";
-import type {
-  MesaAgendaBookingEntry,
-  MesaAgendaBookingKind,
-} from "@/domain/agenda-calendar/mesa.types";
-import { MockAgendaBiometricosLocalStorageRepo } from "@/domain/agenda-biometricos/mock-localstorage.repo";
-import { NOTIFICACION_LOCATION_ID } from "@/domain/agenda-biometricos/notificacion-constants";
-import { readFirmasBookingsDoc } from "@/lib/agendaFirmasBookingsGuard";
-import {
-  formatAgendaCalendarStatusLabel,
-  isDateWithinInclusiveRange,
-  normalizeBookingTime,
-} from "@/lib/asesorAgendaCalendar";
+  operationalResultLabel,
+  type OperationalResultClass,
+} from "@/domain/agenda-sheets/operational-result-classifiers";
+import type { MesaAgendaBookingKind } from "@/domain/agenda-calendar/mesa.types";
+import { normalizeBookingTime } from "@/lib/asesorAgendaCalendar";
 import { getEtapaOperativaNombre } from "@/domain/expedientes/asesor-seguimiento-operativo";
 
-/** El repo Admin solo usa fromIso/toExclusiveIso; el preset se normaliza a personalizado. */
 function toAdminBounds(bounds: BernardoPeriodBounds): AdminPeriodBounds {
   return {
     preset: "personalizado",
@@ -53,14 +41,20 @@ export type BernardoMetricId =
   | "notificaciones";
 
 export type BernardoCitaRow = Readonly<{
-  bookingId: string;
-  expedienteId: string;
+  /** Null en citas manuales del Sheet sin booking CRM. */
+  bookingId: string | null;
+  expedienteId: string | null;
+  resultId: string;
   clienteNombre: string;
   asesorNombre: string;
   bookingDate: string;
   bookingTime: string;
-  status: "booked" | "cancelled";
+  status: "completed";
   statusLabel: string;
+  resultClass: OperationalResultClass;
+  resultRaw: string | null;
+  locationId: string;
+  sheetRow: number;
   etapaActual: number;
   etapaLabel: string;
   kind: MesaAgendaBookingKind;
@@ -77,172 +71,88 @@ export type BernardoDashboardData = Readonly<{
   notificacionesItems: readonly BernardoCitaRow[];
 }>;
 
-function mapBookingToCita(entry: MesaAgendaBookingEntry): BernardoCitaRow {
-  const asesorNombre =
-    entry.asesor.fullName?.trim() ||
-    entry.asesor.email?.trim() ||
-    "Asesor sin nombre registrado";
+type OpsDetailItem = {
+  result_id?: string;
+  booking_date?: string;
+  booking_time?: string | null;
+  kind?: string;
+  location_id?: string;
+  sheet_row?: number;
+  booking_id?: string | null;
+  expediente_id?: string | null;
+  result_class?: string;
+  result_raw?: string | null;
+  cliente_nombre?: string;
+  asesor_nombre?: string;
+};
+
+function mapOpsItem(
+  item: OpsDetailItem,
+  metric: "biometricos" | "firmas" | "notificaciones",
+): BernardoCitaRow {
+  const resultClass = (item.result_class ?? "UNKNOWN") as OperationalResultClass;
+  const kind: MesaAgendaBookingKind =
+    metric === "notificaciones"
+      ? "notificacion"
+      : metric === "firmas"
+        ? "firmas"
+        : "biometricos";
+  const etapaActual =
+    metric === "firmas" ? 9 : metric === "notificaciones" ? 3 : 4;
   return {
-    bookingId: entry.bookingId,
-    expedienteId: entry.expedienteId,
-    clienteNombre: entry.clienteNombre?.trim() || "Cliente sin nombre",
-    asesorNombre,
-    bookingDate: entry.bookingDate,
-    bookingTime: normalizeBookingTime(entry.bookingTime),
-    status: entry.status,
-    statusLabel: formatAgendaCalendarStatusLabel(entry.status),
-    etapaActual: entry.etapaActual,
-    etapaLabel: getEtapaOperativaNombre(entry.etapaActual),
-    kind: entry.kind,
+    bookingId: item.booking_id?.trim() || null,
+    expedienteId: item.expediente_id?.trim() || null,
+    resultId: String(item.result_id ?? `${metric}-${item.sheet_row ?? 0}`),
+    clienteNombre: item.cliente_nombre?.trim() || "Cliente sin nombre",
+    asesorNombre: item.asesor_nombre?.trim() || "Asesor sin nombre registrado",
+    bookingDate: String(item.booking_date ?? "").slice(0, 10),
+    bookingTime: normalizeBookingTime(String(item.booking_time ?? "00:00")),
+    status: "completed",
+    statusLabel: operationalResultLabel(resultClass),
+    resultClass,
+    resultRaw: item.result_raw?.trim() || null,
+    locationId: String(item.location_id ?? ""),
+    sheetRow: Number(item.sheet_row) || 0,
+    etapaActual,
+    etapaLabel: getEtapaOperativaNombre(etapaActual),
+    kind,
   };
 }
 
-/** Principal: solo citas booked (excluye canceladas del total). */
-function bookedOnly(items: readonly BernardoCitaRow[]): BernardoCitaRow[] {
-  return items.filter((i) => i.status === "booked");
-}
-
-async function fetchAgendaKindChunked(params: {
-  kind: MesaAgendaBookingKind;
+async function fetchBernardoOpsMetric(params: {
+  metric: "biometricos" | "firmas" | "notificaciones";
   fromDate: string;
   toDateInclusive: string;
-  includeCancelled: boolean;
-}): Promise<MesaAgendaBookingEntry[]> {
-  const chunks = chunkInclusiveDateRange(
-    params.fromDate,
-    params.toDateInclusive,
-    62,
+}): Promise<{ total: number; items: BernardoCitaRow[] }> {
+  if (!isDataModeSupabase() || !isSupabaseConfigured() || !supabaseBrowser) {
+    return { total: 0, items: [] };
+  }
+
+  const {
+    data: { session },
+  } = await supabaseBrowser.auth.getSession();
+  if (!session?.user) return { total: 0, items: [] };
+
+  const { data, error } = await supabaseBrowser.rpc("bernardo_ops_detail", {
+    p_metric: params.metric,
+    p_fecha_desde: params.fromDate,
+    p_fecha_hasta: params.toDateInclusive,
+  });
+  if (error) {
+    console.error("bernardo_ops_detail", error.message);
+    return { total: 0, items: [] };
+  }
+  const payload = (data ?? {}) as {
+    total?: number;
+    items?: OpsDetailItem[];
+  };
+  const items = (payload.items ?? []).map((it) =>
+    mapOpsItem(it, params.metric),
   );
-  const all: MesaAgendaBookingEntry[] = [];
-  const seen = new Set<string>();
-  for (const chunk of chunks) {
-    const rows = await fetchMesaAgendaBookings({
-      startDate: chunk.startDate,
-      endDate: chunk.endDate,
-      includeCancelled: params.includeCancelled,
-      kind: params.kind,
-    });
-    for (const row of rows) {
-      if (seen.has(row.bookingId)) continue;
-      seen.add(row.bookingId);
-      all.push(row);
-    }
-  }
-  return all;
-}
-
-function loadMockAgendaKind(params: {
-  kind: MesaAgendaBookingKind;
-  fromDate: string;
-  toDateInclusive: string;
-  includeCancelled: boolean;
-}): MesaAgendaBookingEntry[] {
-  if (typeof window === "undefined") return [];
-
-  const out: MesaAgendaBookingEntry[] = [];
-
-  if (params.kind === "firmas") {
-    const firmaRows = readFirmasBookingsDoc().bookings ?? [];
-    for (const [index, row] of firmaRows.entries()) {
-      const date = row.date?.trim();
-      const time = row.time?.trim();
-      if (!date || !time) continue;
-      if (!isDateWithinInclusiveRange(date, params.fromDate, params.toDateInclusive)) {
-        continue;
-      }
-      const status = row.status === "cancelled" ? "cancelled" : "booked";
-      if (!params.includeCancelled && status !== "booked") continue;
-      const email = row.createdBy?.email?.trim() ?? null;
-      out.push({
-        bookingId: row.id?.trim() || `firmas-mock-${index}`,
-        expedienteId: row.expedienteId?.trim() || `mock-exp-firmas-${index}`,
-        bookingDate: date,
-        bookingTime: normalizeBookingTime(time),
-        kind: "firmas",
-        status,
-        locationId: row.locationId?.trim() || null,
-        note: null,
-        createdAt: row.createdAt ?? new Date().toISOString(),
-        cancelledAt: null,
-        clienteNombre: "Cliente",
-        nss: null,
-        etapaActual: 9,
-        subestado: null,
-        submittedToMesa: true,
-        asesor: { id: email ?? "mock", fullName: null, email },
-        createdBy: { id: email ?? "mock", fullName: null, email },
-        driveValidated: false,
-        driveValidatedAt: null,
-        driveValidatedBy: null,
-        reportGroup: null,
-      });
-    }
-    return out;
-  }
-
-  const bioRepo = new MockAgendaBiometricosLocalStorageRepo();
-  const bioRows = bioRepo.readBookings().bookings ?? [];
-  for (const [index, row] of bioRows.entries()) {
-    const date = row.date?.trim();
-    const time = row.time?.trim();
-    if (!date || !time) continue;
-    if (!isDateWithinInclusiveRange(date, params.fromDate, params.toDateInclusive)) {
-      continue;
-    }
-    const isNotif = row.locationId === NOTIFICACION_LOCATION_ID;
-    const kind: MesaAgendaBookingKind = isNotif ? "notificacion" : "biometricos";
-    if (kind !== params.kind) continue;
-    const status = row.status === "cancelled" ? "cancelled" : "booked";
-    if (!params.includeCancelled && status !== "booked") continue;
-    const email = row.createdBy?.email?.trim() ?? null;
-    out.push({
-      bookingId: row.id?.trim() || `${kind}-mock-${index}`,
-      expedienteId: row.expedienteId,
-      bookingDate: date,
-      bookingTime: normalizeBookingTime(time),
-      kind,
-      status,
-      locationId: row.locationId,
-      note: row.note,
-      createdAt: row.createdAt,
-      cancelledAt: null,
-      clienteNombre: "Cliente",
-      nss: null,
-      etapaActual: kind === "notificacion" ? 3 : 4,
-      subestado: null,
-      submittedToMesa: true,
-      asesor: { id: email ?? "mock", fullName: null, email },
-      createdBy: { id: email ?? "mock", fullName: null, email },
-      driveValidated: false,
-      driveValidatedAt: null,
-      driveValidatedBy: null,
-      reportGroup: null,
-    });
-  }
-  return out;
-}
-
-async function loadAgendaKind(params: {
-  kind: MesaAgendaBookingKind;
-  fromDate: string;
-  toDateInclusive: string;
-}): Promise<BernardoCitaRow[]> {
-  // Detalle con estado real: incluir canceladas; el total principal usa bookedOnly.
-  try {
-    const raw = isDataModeSupabase()
-      ? await fetchAgendaKindChunked({
-          ...params,
-          includeCancelled: true,
-        })
-      : loadMockAgendaKind({ ...params, includeCancelled: true });
-    return raw.map(mapBookingToCita);
-  } catch (e) {
-    if (e instanceof MesaAgendaBookingsSupabaseError) {
-      // Sin Supabase / sin sesión: degradar a vacío (UI empty state).
-      return [];
-    }
-    throw e;
-  }
+  const total =
+    typeof payload.total === "number" ? payload.total : items.length;
+  // KPI == detalle 1:1
+  return { total: items.length, items: items.slice(0, total) };
 }
 
 async function loadAllMesaEnvios(
@@ -284,7 +194,8 @@ async function loadAllMesaEnvios(
 
 /**
  * Carga las cuatro métricas Bernardo para el periodo.
- * Ingresos: getSummary.enviadosAMesa (cálculo idéntico al KPI Admin).
+ * Ingresos: getSummary.enviadosAMesa (cálculo idéntico al KPI Admin) — sin cambio.
+ * Ops: solo COMPLETED desde proyección Sheet.
  */
 export async function loadBernardoDashboard(params: {
   repo: AdminProductionRepo;
@@ -301,47 +212,44 @@ export async function loadBernardoDashboard(params: {
     precalDecision: "resueltas" as const,
   };
 
-  const [summary, ingresosItems, biometricosAll, firmasAll, notifAll] =
+  const [summary, ingresosItems, biometricos, firmas, notificaciones] =
     await Promise.all([
       repo.getSummary(filters),
       loadAllMesaEnvios(repo, bounds),
-      loadAgendaKind({
-        kind: "biometricos",
+      fetchBernardoOpsMetric({
+        metric: "biometricos",
         fromDate: bounds.fromDate,
         toDateInclusive: bounds.toDateInclusive,
       }),
-      loadAgendaKind({
-        kind: "firmas",
+      fetchBernardoOpsMetric({
+        metric: "firmas",
         fromDate: bounds.fromDate,
         toDateInclusive: bounds.toDateInclusive,
       }),
-      loadAgendaKind({
-        kind: "notificacion",
+      fetchBernardoOpsMetric({
+        metric: "notificaciones",
         fromDate: bounds.fromDate,
         toDateInclusive: bounds.toDateInclusive,
       }),
     ]);
 
-  const biometricosItems = bookedOnly(biometricosAll);
-  const firmasItems = bookedOnly(firmasAll);
-  const notificacionesItems = bookedOnly(notifAll);
-
   return {
     ingresosTotal: summary.enviadosAMesa,
     ingresosItems,
-    biometricosTotal: biometricosItems.length,
-    biometricosItems,
-    firmasTotal: firmasItems.length,
-    firmasItems,
-    notificacionesTotal: notificacionesItems.length,
-    notificacionesItems,
+    biometricosTotal: biometricos.total,
+    biometricosItems: biometricos.items,
+    firmasTotal: firmas.total,
+    firmasItems: firmas.items,
+    notificacionesTotal: notificaciones.total,
+    notificacionesItems: notificaciones.items,
   };
 }
 
-/** Construye fila mínima para abrir el drawer B2 desde una cita. */
+/** Construye fila mínima para abrir el drawer B2 desde una cita con expediente. */
 export function bernardoCitaToMesaEnvio(
   cita: BernardoCitaRow,
-): AdminMesaEnvioEvent {
+): AdminMesaEnvioEvent | null {
+  if (!cita.expedienteId) return null;
   const fecha = `${cita.bookingDate}T${cita.bookingTime}:00.000Z`;
   return {
     expedienteId: cita.expedienteId,
