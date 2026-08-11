@@ -150,6 +150,7 @@ export {
   classifyBiometricResult,
   classifyNotificationResult,
   classifySignatureResult,
+  formatSignatureResultRaw,
   isOperationalCompleted,
   normalizeSheetOpsText,
   operationalResultLabel,
@@ -159,6 +160,7 @@ export {
   buildOperationalResultUpsertRows,
   classifyOperationalRow,
   countCompletedOperational,
+  extractFirmoFirmaCells,
   extractSignatureResultRaw,
   type OperationalResultUpsertRow,
 } from "./operational-results";

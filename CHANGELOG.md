@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Fixed
+- **fix(admin): Firmas Bernardo solo con FIRMO=SI (hotfix P165)** — `signature_result_class` deja de usar notas `COMPLETO✔` (col I/H). Regla: `FIRMO` (F) exacto `SI` + `FIRMA` (G) no vacía/no fallida. `YA CON BETTY`/notas no cuentan. Biométricos/Notificaciones/Ingresos intactos. Sin migración; sin Cloud/Sheet edit. Tras deploy: reconcile dirigido para recalcular proyección.
+
+### Fixed
 - **fix(admin): Dashboard Bernardo cuenta resultados reales de CITAS 2026 (P165)** — Biométricos/Firmas/Notificaciones dejan de usar `agenda_bookings.status=booked` y leen proyección `agenda_sheet_operational_results` (E=BIOMETRICOS, F=NOTIFICACION, I=COMPLETO). Ingresos intactos (`fecha_envio_mesa`). Webhook/reconcile upsertan proyección; Apps Script dispara E–I aunque exista booking en P. Realtime + refetch 25s + foco. Mig. **165** local. Sin Cloud/deploy/Sheet edit.
 
 ### Fixed
