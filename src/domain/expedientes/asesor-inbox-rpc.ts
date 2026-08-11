@@ -81,6 +81,8 @@ export const asesorListExpedienteItemSchema = z.object({
   comentario_rechazo: z.string().nullable().optional(),
   fecha_cita: z.string().nullable().optional(),
   firma_agendable_desde: z.string().nullable().optional(),
+  pago_concasa_resultado: z.string().nullable().optional(),
+  pago_concasa_at: z.string().nullable().optional(),
   created_at: z.string(),
   updated_at: z.string().nullable().optional(),
   expediente_anterior_id: z.string().uuid().nullable().optional(),

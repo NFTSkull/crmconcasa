@@ -143,6 +143,33 @@ export function mapAvanzarEtapaRpcError(error: {
     );
   }
 
+  if (msg.includes("resultado inválido")) {
+    return new ExpedientesSupabaseError(
+      "Resultado de Pago ConCasa inválido. Usa Sí pagó o No pagó.",
+    );
+  }
+
+  if (msg.includes("ya tiene resultado") || msg.includes("no se puede cambiar")) {
+    return new ExpedientesSupabaseError(
+      "Este expediente ya tiene un resultado de Pago ConCasa y no se puede cambiar desde este flujo.",
+    );
+  }
+
+  if (
+    msg.includes("se requiere resultado") ||
+    msg.includes("decidir_pago_concasa")
+  ) {
+    return new ExpedientesSupabaseError(
+      "Debes registrar Sí pagó o No pagó para cerrar en Pago ConCasa.",
+    );
+  }
+
+  if (msg.includes("etapa incorrecta")) {
+    return new ExpedientesSupabaseError(
+      "El expediente debe estar en Firmado (etapa 11) para registrar el resultado de Pago ConCasa.",
+    );
+  }
+
   if (msg.includes("transición no soportada") || msg.includes("no soportada para etapa")) {
     return new ExpedientesSupabaseError(
       "No hay una transición de etapa disponible para el estado actual del expediente.",

@@ -224,7 +224,7 @@ describe("mesaBandejaAccionesRapidas P119.3/P119.4/P133", () => {
     assert.equal(a7.usesAvanzarRpc, true);
   });
 
-  it("interna 11: Pasar a Pago a ConCasa (P119.4)", () => {
+  it("interna 11: info para decidir Sí/No pagó en detalle (P166)", () => {
     const a = resolveMesaSiguienteEtapaAccion({
       etapaActual: 11,
       subestado: "en_proceso",
@@ -234,15 +234,15 @@ describe("mesaBandejaAccionesRapidas P119.3/P119.4/P133", () => {
       expedienteId: expId,
     });
     assert.equal(a.visible, true);
-    assert.equal(a.enabled, true);
-    assert.equal(a.kind, "avanzar");
-    assert.equal(a.label, "Pasar a Pago a ConCasa");
-    assert.equal(a.usesAvanzarRpc, true);
+    assert.equal(a.enabled, false);
+    assert.equal(a.kind, "info");
+    assert.match(a.label, /Sí pagó \/ No pagó/);
+    assert.equal(a.usesAvanzarRpc, false);
     assert.equal(a.toEtapa, 12);
     assert.equal(MESA_TIENE_RPC_CANONICA_11_A_12, true);
   });
 
-  it("interna 11 rechazado: botón visible deshabilitado", () => {
+  it("interna 11 rechazado: oculto (no en Firmado operable)", () => {
     const a = resolveMesaSiguienteEtapaAccion({
       etapaActual: 11,
       subestado: "rechazado",
@@ -251,21 +251,20 @@ describe("mesaBandejaAccionesRapidas P119.3/P119.4/P133", () => {
       role: mesaRole,
       expedienteId: expId,
     });
-    assert.equal(a.visible, true);
-    assert.equal(a.enabled, false);
-    assert.equal(a.reasonCode, "rechazado");
+    assert.equal(a.visible, false);
   });
 
-  it("interna 12: Etapa final sin acción", () => {
+  it("interna 12: badge Pago ConCasa con resultado", () => {
     const a = resolveMesaSiguienteEtapaAccion({
       etapaActual: 12,
       subestado: "en_proceso",
       cicloEstado: "activo",
       submittedToMesa: true,
+      pagoConcasaResultado: "pagado",
     });
     assert.equal(a.visible, true);
     assert.equal(a.kind, "etapa_final");
-    assert.equal(a.label, "Etapa final");
+    assert.equal(a.label, "Pago ConCasa · Pagó");
     assert.equal(a.enabled, false);
     assert.equal(a.usesAvanzarRpc, false);
   });

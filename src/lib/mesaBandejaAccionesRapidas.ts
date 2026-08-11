@@ -2,7 +2,7 @@
  * P119 / P133 — resolución de acciones rápidas en tarjeta de bandeja Mesa.
  * Avances usan `avanzar_etapa_operativa` (gates SQL). Etapas 3/8/9: solo info (asesor agenda/carga).
  * Interna 5→8 canónica P132-acuse. Interna 8→9 solo vía carga Acuse. 9→10 solo vía booking asesor.
- * Interna 11→12: RPC canónica `avanzar_etapa_operativa` transición `11_12`.
+ * Interna 11→12: RPC canónica `decidir_pago_concasa` (Sí pagó / No pagó) desde el detalle.
  */
 
 import type { ExpedienteArchivoResumen } from "@/domain/expediente-archivos/types";
@@ -20,6 +20,10 @@ import {
   type AvanceOperativoEtapaView,
 } from "@/domain/expedientes/mesa-avance-integracion";
 import { formatPasoOperativoLabel } from "@/domain/expedientes/etapa-numeracion-ux";
+import {
+  formatPagoConcasaEtapaBadge,
+  type PagoConcasaResultado,
+} from "@/domain/expedientes/pago-concasa-resultado";
 import {
   isAssignedToCurrentUser,
   isSinAsignarOps,
@@ -49,8 +53,8 @@ export const MESA_SIGUIENTE_ETAPA_MAP: Readonly<Record<number, number>> = {
 };
 
 /**
- * P119.4: `avanzar_etapa_operativa` admite transición canónica 11→12
- * (migración 108). Roles Mesa + `action_log`; sin movimiento manual libre.
+ * P119.4/P166: avance 11→12 canónico vía `decidir_pago_concasa` en el detalle.
+ * La bandeja ya no ejecuta el avance directo.
  */
 export const MESA_TIENE_RPC_CANONICA_11_A_12 = true;
 
@@ -107,6 +111,8 @@ export type MesaSiguienteEtapaContext = Readonly<{
   expedienteId?: string | null;
   /** P132: fecha mínima de agenda de firma (YYYY-MM-DD). */
   firmaAgendableDesde?: string | null;
+  /** P166: resultado operativo Pago ConCasa cuando etapa = 12. */
+  pagoConcasaResultado?: PagoConcasaResultado | null;
 }>;
 
 const REASON_LABELS: Readonly<Record<MesaSiguienteEtapaReasonCode, string>> = {
@@ -351,7 +357,7 @@ export function resolveMesaSiguienteEtapaAccion(
       kind: "etapa_final",
       visible: true,
       enabled: false,
-      label: "Etapa final",
+      label: formatPagoConcasaEtapaBadge(ctx.pagoConcasaResultado ?? null),
       href: null,
       usesAvanzarRpc: false,
       fromEtapa: 12,
@@ -383,6 +389,23 @@ export function resolveMesaSiguienteEtapaAccion(
   // —— 8: Acuse solo vía carga del asesor (8→9); Mesa informa ——
   if (etapa === 8) {
     return infoAccion(8, "Esperando carga de Acuse por el asesor", 9);
+  }
+
+  // —— 11: decisión Sí/No pagó solo en detalle (P166) ——
+  if (etapa === 11) {
+    if (!MESA_TIENE_RPC_CANONICA_11_A_12) return emptyHidden(11, 12);
+    const view = deriveAvanceOperativo11a12View({
+      submittedToMesa: Boolean(ctx.submittedToMesa),
+      cicloEstado: ctx.cicloEstado ?? "activo",
+      etapaActual: etapa,
+      subestado: ctx.subestado ?? null,
+    });
+    if (!view.mostrar) return emptyHidden(11, 12);
+    return infoAccion(
+      11,
+      "Abrir expediente para decidir Sí pagó / No pagó",
+      12,
+    );
   }
 
   const to = MESA_SIGUIENTE_ETAPA_MAP[etapa];
@@ -460,13 +483,6 @@ export function resolveMesaSiguienteEtapaAccion(
       }),
       { label: "Marcar firma como completada" },
     );
-  }
-
-  if (etapa === 11) {
-    if (!MESA_TIENE_RPC_CANONICA_11_A_12) return emptyHidden(11, 12);
-    return fromView(11, 12, deriveAvanceOperativo11a12View(base), {
-      label: "Pasar a Pago a ConCasa",
-    });
   }
 
   return emptyHidden(etapa, to);
@@ -592,6 +608,6 @@ export const MESA_TIENE_DATOS_BADGE_LABEL = "📌 Tiene documentos";
 export const MESA_SIGUIENTE_ETAPA_CONFIRM_PREFIX =
   "El expediente avanzará de";
 
-/** Confirmación canónica bandeja/detalle para 11→12 (P119.4). */
+/** Confirmación canónica (histórico P119.4). P166 usa confirmaciones Sí/No en el detalle. */
 export const MESA_AVANZAR_11_12_CONFIRM =
-  "El expediente pasará a la etapa final Pago a ConCasa.";
+  "¿Confirmas el resultado de Pago ConCasa? Esta decisión cerrará el expediente en Pago ConCasa. No registra movimientos bancarios ni modifica montos.";

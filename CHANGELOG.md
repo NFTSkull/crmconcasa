@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Added
+- **feat(expediente): registrar resultado de Pago ConCasa** — En Firmado (interna 11), Mesa elige **Sí pagó** / **No pagó**; ambas avanzan a Pago ConCasa (interna 12) y persisten `pago_concasa_resultado` (`pagado`|`no_pagado`) + `pago_concasa_at`/`pago_concasa_by`. RPC `decidir_pago_concasa`. `no_pagado` no es rechazo ni cuenta ingreso. Mig. **166**.
+
 ### Fixed
 - **fix(admin): FIRMO=SI canónico en Bernardo** — Firmas COMPLETED con solo `FIRMO=SI` (columna `FIRMA` ya no es requisito). Filas del bloque Firmas sin hora + identidad cuentan en reporting (`slot_time` null); inventario/agenda intactos. Sin migración.
 

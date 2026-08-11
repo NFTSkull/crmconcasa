@@ -138,15 +138,16 @@ export const MESA_FIRMA_ETAPA10_OPERATIVA_COPY: MesaAvanceOperativoCopy = {
 };
 
 /**
- * Etapa 11 (visible 10 Firmado): Mesa confirma entrada a etapa final operativa
- * Pago a ConCasa (interna 12 / visible 11). No registra pago financiero.
+ * Etapa 11 (visible 10 Firmado): Mesa decide Sí pagó / No pagó y cierra en
+ * Pago ConCasa (interna 12 / visible 11). Ver `decidir_pago_concasa` + UI dual.
+ * @deprecated Usar MESA_PAGO_CONCASA_DECISION_COPY / MesaPagoConcasaDecisionSection.
  */
 export const MESA_PAGO_CONCASA_ETAPA11_OPERATIVA_COPY: MesaAvanceOperativoCopy = {
   titulo: MESA_DECISION_TITULO_AVANCE,
   descripcion:
-    "El expediente está en Firmado (etapa 11). Confirma el paso a la etapa operativa final Pago a ConCasa. Esta acción no registra un pago ni modifica montos, citas o documentos.",
-  etiquetaBoton: "Pasar a Pago a ConCasa",
-  mensajeConfirmacion: "El expediente pasará a la etapa final Pago a ConCasa.",
+    "El expediente está en Firmado (etapa 11). Registra si el cliente realizó el pago a ConCasa. Esta decisión no registra movimientos bancarios ni modifica montos.",
+  etiquetaBoton: "Sí pagó",
+  mensajeConfirmacion: "¿Confirmas que el cliente sí realizó el pago a ConCasa?",
   mostrarAvisoSinRechazo: true,
 };
 

@@ -95,6 +95,15 @@ export interface ExpedientesRepo {
     expedienteId: string,
     comentario?: string | null,
   ): Promise<ExpedienteMock>;
+  /**
+   * P166: Mesa registra Sí pagó / No pagó y avanza Firmado(11)→Pago ConCasa(12).
+   * RPC `decidir_pago_concasa`.
+   */
+  decidirPagoConcasa(
+    expedienteId: string,
+    resultado: "pagado" | "no_pagado",
+    comentario?: string | null,
+  ): Promise<ExpedienteMock>;
   mesaMoverEtapaOperativa(
     expedienteId: string,
     input: MesaMovimientoInput,

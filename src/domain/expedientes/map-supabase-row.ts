@@ -6,6 +6,7 @@ import {
   type OperativoSubestado,
 } from "./mock.repo";
 import { mapProgramaDbToUi } from "./map-programa";
+import { normalizePagoConcasaResultado } from "./pago-concasa-resultado";
 
 /** Fila anidada de `editor_decisions` (1:1; Supabase puede devolver objeto o array). */
 export type SupabaseEditorDecisionEmbed = Readonly<{
@@ -50,6 +51,9 @@ export type SupabaseExpedienteListRow = Readonly<{
   comentario_rechazo?: string | null;
   fecha_cita?: string | null;
   firma_agendable_desde?: string | null;
+  pago_concasa_resultado?: string | null;
+  pago_concasa_at?: string | null;
+  pago_concasa_by?: string | null;
   created_at?: string | null;
   updated_at?: string | null;
   expediente_anterior_id?: string | null;
@@ -191,6 +195,9 @@ export function mapSupabaseRowToExpedienteMock(
       fechaEnvioMesa: textOrNull(row.fecha_envio_mesa),
       cicloEstado: textOrNull(row.ciclo_estado),
       firmaAgendableDesde: textOrNull(row.firma_agendable_desde)?.slice(0, 10) ?? null,
+      pagoConcasaResultado: normalizePagoConcasaResultado(row.pago_concasa_resultado),
+      pagoConcasaAt: textOrNull(row.pago_concasa_at),
+      pagoConcasaBy: textOrNull(row.pago_concasa_by),
     },
     reingreso:
       row.reingreso_rechazo_id || row.expediente_anterior_id

@@ -1,3 +1,7 @@
+## 2026-08-11 - Pago ConCasa: Sí pagó / No pagó (P166)
+
+Contrato previo (P119.4): un botón «Pasar a Pago a ConCasa» vía `avanzar_etapa_operativa` 11→12 sin resultado persistido; el trigger P134 reconocía ingreso en todo avance. Operación real necesita distinguir pagó vs no pagó sin rechazo ni rollback de etapa. Fix: columnas `pago_concasa_resultado|at|by`, RPC `decidir_pago_concasa`, UI dual Mesa + RO asesor/bandeja; gate 11→12 exige resultado; ingresos solo si `pagado`. Booking de firma fuera de 9/10 intacto.
+
 ## 2026-08-11 - Hotfix Bernardo Firmas: FIRMO=SI canónico
 
 Causa: regla previa exigía FIRMO=SI + FIRMA no vacía; operación real deja FIRMA vacía tras marcar SI → KPI 0 con 15 firmas reales el 11-ago. Fix: COMPLETED = FIRMO exacto SI; FIRMA solo informativa. Reporting permite filas Firmas sin hora (identidad NSS/NOMBRE/FIRMO) con slot_time null; parsePhysicalInventoryFromGrid sigue exigiendo hora. Sin migración/Code.gs.

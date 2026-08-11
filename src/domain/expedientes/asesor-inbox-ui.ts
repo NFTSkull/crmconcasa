@@ -17,6 +17,7 @@ import {
   asesorInboxResultadoRealSchema,
 } from "./asesor-inbox-rpc";
 import { mapProgramaDbToUi } from "./map-programa";
+import { normalizePagoConcasaResultado } from "./pago-concasa-resultado";
 import {
   deriveResultadoRealExpediente,
   type ExpedienteMock,
@@ -222,6 +223,8 @@ export function mapAsesorInboxListItemToExpedienteMock(
       fechaEnvioMesa: item.fecha_envio_mesa ?? null,
       cicloEstado: item.ciclo_estado ?? null,
       firmaAgendableDesde: item.firma_agendable_desde?.slice(0, 10) ?? null,
+      pagoConcasaResultado: normalizePagoConcasaResultado(item.pago_concasa_resultado),
+      pagoConcasaAt: item.pago_concasa_at ?? null,
     },
     reingreso: {
       expedienteAnteriorId: item.expediente_anterior_id ?? null,

@@ -233,6 +233,16 @@ export {
   mapCreateExpedienteRpcToExpedienteMock,
   mapSupabaseRowToExpedienteMock,
 } from "./map-supabase-row";
+export {
+  formatPagoConcasaEtapaBadge,
+  isPagoConcasaResultado,
+  labelPagoConcasaResultado,
+  labelPagoConcasaResultadoConCheck,
+  MESA_PAGO_CONCASA_DECISION_COPY,
+  normalizePagoConcasaResultado,
+  PAGO_CONCASA_RESULTADOS,
+  type PagoConcasaResultado,
+} from "./pago-concasa-resultado";
 
 /** Factory: mock por defecto; Supabase con `NEXT_PUBLIC_DATA_MODE=supabase`. */
 export function useExpedientesRepo(): ExpedientesRepo {

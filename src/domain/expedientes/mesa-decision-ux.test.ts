@@ -46,14 +46,14 @@ describe("mesa-decision-ux copy P3R.0", () => {
     assert.match(MESA_FIRMA_ETAPA10_OPERATIVA_COPY.mensajeConfirmacion, /Firmado/);
   });
 
-  it("etapa 11 ofrece Pasar a Pago a ConCasa (P119.4)", () => {
+  it("etapa 11 ofrece Sí pagó (P166; legacy copy)", () => {
     assert.equal(
       MESA_PAGO_CONCASA_ETAPA11_OPERATIVA_COPY.etiquetaBoton,
-      "Pasar a Pago a ConCasa",
+      "Sí pagó",
     );
-    assert.equal(
+    assert.match(
       MESA_PAGO_CONCASA_ETAPA11_OPERATIVA_COPY.mensajeConfirmacion,
-      "El expediente pasará a la etapa final Pago a ConCasa.",
+      /sí realizó el pago/,
     );
   });
 

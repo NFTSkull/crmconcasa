@@ -141,6 +141,10 @@ export interface ExpedienteMock {
     cicloEstado: string | null;
     /** P132: fecha local YYYY-MM-DD mínima para agendar firma; null = histórico sin gate. */
     firmaAgendableDesde?: string | null;
+    /** P166: resultado operativo final Pago ConCasa (`pagado` | `no_pagado`). */
+    pagoConcasaResultado?: "pagado" | "no_pagado" | null;
+    pagoConcasaAt?: string | null;
+    pagoConcasaBy?: string | null;
   };
   reingreso?: {
     expedienteAnteriorId: string | null;
@@ -272,6 +276,9 @@ type UpdateOperativoPatch = Partial<{
   fechaCita: string | null;
   updatedAt: string | null;
   submittedToMesa: boolean;
+  pagoConcasaResultado: "pagado" | "no_pagado" | null;
+  pagoConcasaAt: string | null;
+  pagoConcasaBy: string | null;
 }>;
 
 type EnviarAMesaPayload = {
@@ -486,6 +493,14 @@ export class MockExpedientesRepo implements ExpedientesRepo {
         fechaEnvioMesa:
           typeof op?.fechaEnvioMesa === "string" ? op.fechaEnvioMesa : null,
         cicloEstado: null,
+        pagoConcasaResultado:
+          op?.pagoConcasaResultado === "pagado" || op?.pagoConcasaResultado === "no_pagado"
+            ? op.pagoConcasaResultado
+            : null,
+        pagoConcasaAt:
+          typeof op?.pagoConcasaAt === "string" ? op.pagoConcasaAt : null,
+        pagoConcasaBy:
+          typeof op?.pagoConcasaBy === "string" ? op.pagoConcasaBy : null,
       },
       reingresoManual: {
         count:
@@ -1057,6 +1072,19 @@ export class MockExpedientesRepo implements ExpedientesRepo {
         patch.submittedToMesa !== undefined
           ? patch.submittedToMesa
           : Boolean(nextEntry.submittedToMesa),
+      pagoConcasaResultado:
+        patch.pagoConcasaResultado !== undefined
+          ? patch.pagoConcasaResultado
+          : (nextEntry.pagoConcasaResultado as "pagado" | "no_pagado" | null | undefined) ??
+            null,
+      pagoConcasaAt:
+        patch.pagoConcasaAt !== undefined
+          ? patch.pagoConcasaAt
+          : (nextEntry.pagoConcasaAt as string | null | undefined) ?? null,
+      pagoConcasaBy:
+        patch.pagoConcasaBy !== undefined
+          ? patch.pagoConcasaBy
+          : (nextEntry.pagoConcasaBy as string | null | undefined) ?? null,
       origenMesa:
         normalizeOrigenMesa(nextEntry.origenMesa) ?? "interno",
       tipoMesa:
@@ -1212,6 +1240,36 @@ export class MockExpedientesRepo implements ExpedientesRepo {
       throw new Error("Expediente no encontrado.");
     }
 
+    return result;
+  }
+
+  async decidirPagoConcasa(
+    expedienteId: string,
+    resultado: "pagado" | "no_pagado",
+    _comentario?: string | null,
+  ): Promise<ExpedienteMock> {
+    void _comentario;
+    if (resultado !== "pagado" && resultado !== "no_pagado") {
+      throw new Error("Resultado de Pago ConCasa inválido.");
+    }
+    const current = await this.getById(expedienteId);
+    if (!current) throw new Error("Expediente no encontrado.");
+    if (current.operativo.etapaActual === 12) {
+      if (current.operativo.pagoConcasaResultado === resultado) {
+        return current;
+      }
+      throw new Error("El expediente ya tiene un resultado de Pago ConCasa distinto.");
+    }
+    if (current.operativo.etapaActual !== 11) {
+      throw new Error("El expediente debe estar en Firmado (etapa 11).");
+    }
+    const result = await this.updateOperativo(expedienteId, {
+      etapaActual: 12,
+      subestado: "en_proceso",
+      pagoConcasaResultado: resultado,
+      pagoConcasaAt: new Date().toISOString(),
+    });
+    if (!result) throw new Error("Expediente no encontrado.");
     return result;
   }
 

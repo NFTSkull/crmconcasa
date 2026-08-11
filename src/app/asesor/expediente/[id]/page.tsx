@@ -152,6 +152,8 @@ interface OperativoStatus {
   cicloEstado?: string | null;
   origenMesa?: string | null;
   firmaAgendableDesde?: string | null;
+  pagoConcasaResultado?: "pagado" | "no_pagado" | null;
+  pagoConcasaAt?: string | null;
 }
 
 type EstadoEtapa =
@@ -653,6 +655,8 @@ export default function AsesorExpedientePage() {
         cicloEstado: exp.operativo.cicloEstado,
         origenMesa: exp.base.origenMesa,
         firmaAgendableDesde: exp.operativo.firmaAgendableDesde ?? null,
+        pagoConcasaResultado: exp.operativo.pagoConcasaResultado ?? null,
+        pagoConcasaAt: exp.operativo.pagoConcasaAt ?? null,
       });
       if (exp.operativo.cicloEstado === "cancelado") {
         const cancelacion = await repo
@@ -1769,6 +1773,8 @@ export default function AsesorExpedientePage() {
                     r.estatus_revision !== "rechazado",
                 ),
               )}
+              pagoConcasaResultado={operativo?.pagoConcasaResultado ?? null}
+              pagoConcasaAt={operativo?.pagoConcasaAt ?? null}
               formatDateTime={formatDateTime}
             />
             {canMountAgendaBiometricosUI() &&
@@ -2092,6 +2098,8 @@ export default function AsesorExpedientePage() {
                 comentarioRechazo: enviado.operativo.comentarioRechazo,
                 submittedToMesa: enviado.operativo.submittedToMesa,
                 firmaAgendableDesde: enviado.operativo.firmaAgendableDesde ?? null,
+                pagoConcasaResultado: enviado.operativo.pagoConcasaResultado ?? null,
+                pagoConcasaAt: enviado.operativo.pagoConcasaAt ?? null,
               });
               return true;
               }}
