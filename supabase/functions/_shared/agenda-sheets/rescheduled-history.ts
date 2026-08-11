@@ -6,7 +6,7 @@
  * REAGENDADO usa este contrato (no vacía B:D).
  */
 
-import { AGENDA_SHEET_COL_INDEX, buildTechWriteRow } from "./tech-columns";
+import { AGENDA_SHEET_COL_INDEX, buildTechWriteRow } from "./tech-columns.ts";
 
 /** Marcador canónico estructurado (lógica / inventario / P162). */
 export const RESCHEDULED_HISTORY_STATUS = "RESCHEDULED_HISTORY" as const;

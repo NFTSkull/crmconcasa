@@ -4,9 +4,9 @@
  * Sin PII: solo IDs técnicos + kind + fechas/horas + acción propuesta.
  */
 
-import { AGENDA_SHEET_COL_INDEX } from "./tech-columns";
-import { parseSheetTabDate, type AgendaSheetKind } from "./parsers";
-import { isRescheduledHistoryEstado } from "./rescheduled-history";
+import { AGENDA_SHEET_COL_INDEX } from "./tech-columns.ts";
+import { parseSheetTabDate, type AgendaSheetKind } from "./parsers.ts";
+import { isRescheduledHistoryEstado } from "./rescheduled-history.ts";
 
 export type ReconcileCrmBooking = Readonly<{
   id: string;
