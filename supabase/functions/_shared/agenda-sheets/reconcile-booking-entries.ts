@@ -6,6 +6,7 @@
 
 import { AGENDA_SHEET_COL_INDEX } from "./tech-columns";
 import { parseSheetTabDate, type AgendaSheetKind } from "./parsers";
+import { isRescheduledHistoryEstado } from "./rescheduled-history";
 
 export type ReconcileCrmBooking = Readonly<{
   id: string;
@@ -27,6 +28,8 @@ export type ReconcileSheetOccurrence = Readonly<{
   sheetDate: string | null;
   sheetTime: string | null;
   syncSource: string | null;
+  estado: string | null;
+  isRescheduledHistory: boolean;
 }>;
 
 export type ReconcileClassification =
@@ -86,6 +89,7 @@ export function extractSheetBookingOccurrences(input: {
       let kind: AgendaSheetKind | null = null;
       if (kindRaw.startsWith("biometricos")) kind = "biometricos";
       else if (kindRaw.startsWith("firmas")) kind = "firmas";
+      const estado = cell(row, AGENDA_SHEET_COL_INDEX.estado) || null;
       out.push({
         bookingId,
         expedienteId: cell(row, AGENDA_SHEET_COL_INDEX.expedienteId) || null,
@@ -96,6 +100,8 @@ export function extractSheetBookingOccurrences(input: {
         sheetDate,
         sheetTime: cell(row, AGENDA_SHEET_COL_INDEX.hora) || null,
         syncSource: cell(row, AGENDA_SHEET_COL_INDEX.syncSource) || null,
+        estado,
+        isRescheduledHistory: isRescheduledHistoryEstado(estado),
       });
     });
   }
@@ -136,6 +142,40 @@ export function buildReconcileBookingReport(input: {
   // Sheet occurrences
   for (const [bookingId, occs] of byBookingSheet) {
     if (occs.length > 1) {
+      const historyOnly = occs.filter((o) => o.isRescheduledHistory);
+      const activeOccs = occs.filter((o) => !o.isRescheduledHistory);
+      if (activeOccs.length <= 1) {
+        for (const o of historyOnly) {
+          const crm = crmById.get(bookingId);
+          findings.push({
+            classification: "MATCHED",
+            bookingId,
+            expedienteId: o.expedienteId ?? crm?.expedienteId ?? null,
+            kind: o.kind ?? crm?.kind ?? null,
+            dbDateTime: crm ? dbDateTime(crm) : null,
+            sheetDateTime: sheetDateTime(o),
+            sheetTab: o.tabTitle,
+            sheetRow: o.rowNumber,
+            proposedAction: "none",
+          });
+        }
+        if (activeOccs.length === 1) {
+          const o = activeOccs[0]!;
+          const crm = crmById.get(bookingId);
+          findings.push({
+            classification: crm?.status === "booked" ? "MATCHED" : "STALE_SHEET_ENTRY",
+            bookingId,
+            expedienteId: o.expedienteId ?? crm?.expedienteId ?? null,
+            kind: o.kind ?? crm?.kind ?? null,
+            dbDateTime: crm ? dbDateTime(crm) : null,
+            sheetDateTime: sheetDateTime(o),
+            sheetTab: o.tabTitle,
+            sheetRow: o.rowNumber,
+            proposedAction: crm?.status === "booked" ? "none" : "clear_stale_sheet_row",
+          });
+        }
+        continue;
+      }
       const crm = crmById.get(bookingId);
       const keep =
         crm?.status === "booked"
@@ -179,6 +219,21 @@ export function buildReconcileBookingReport(input: {
     }
 
     const o = occs[0]!;
+    if (o.isRescheduledHistory) {
+      const crm = crmById.get(bookingId);
+      findings.push({
+        classification: "MATCHED",
+        bookingId,
+        expedienteId: o.expedienteId ?? crm?.expedienteId ?? null,
+        kind: o.kind ?? crm?.kind ?? null,
+        dbDateTime: crm ? dbDateTime(crm) : null,
+        sheetDateTime: sheetDateTime(o),
+        sheetTab: o.tabTitle,
+        sheetRow: o.rowNumber,
+        proposedAction: "none",
+      });
+      continue;
+    }
     if (activeIds.has(bookingId)) {
       const crm = crmById.get(bookingId)!;
       const timeMatch =

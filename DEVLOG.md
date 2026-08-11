@@ -1,3 +1,9 @@
+## 2026-08-11 - Reagendado histórico CITAS 2026
+
+P160 movía la cita (clear prior + write destino). Nuevo contrato: fila original visible `O=REAGENDADO` + `P=prior_uuid` (naranja UX), inventario `disabled`; replacement FREE debajo; destino = booking nuevo. Cancelación pura intacta.
+
+Concurrencia: worker serial (claim SKIP LOCKED) + sort filas inferiores primero por tab + relocate live por columna P tras cada insert. Rollback por UUID (no `old_row+1`). Reconcile no repara history como stale. Parsers (webhook/reconcile/live-sync/inventory) conocen `RESCHEDULED_HISTORY` antes del writer. Apps Script sin cambio (API no dispara onEdit). Sin mig DB; sin repair retroactivo; sin tocar CITAS 2026.
+
 ## 2026-08-11 - Hotfix campana: marcar notificaciones leídas al abrir
 
 Causa: el badge rojo usaba `notifications.length` del summary P161 (derivado) sin estado de lectura → el contador no bajaba al abrir. Fix: store local `readAt`/`fechaSnapshot` por usuario (`dashboardNotificationReads`); al abrir campana o «Ver expediente» marca leídas (optimistic + restore on fail). Listado intacto; P167/tareas intactas. Sin migración.

@@ -163,11 +163,49 @@ describe("reconcile-booking-entries dry-run", () => {
           sheetDate: "2026-08-03",
           sheetTime: "08:00",
           syncSource: "crm",
+          estado: "SINCRONIZADO",
+          isRescheduledHistory: false,
         },
       ],
     });
     assert.equal(report.counts.AMBIGUOUS, 1);
     assert.equal(buildRepairPlan(report).length, 0);
+  });
+
+  it("RESCHEDULED_HISTORY: P=prior UUID no se repara como stale", () => {
+    const r = rowWithBooking({ bookingId: "b-old", hora: "09:00" });
+    r[AGENDA_SHEET_COL_INDEX.estado] = "REAGENDADO";
+    const occ = extractSheetBookingOccurrences({
+      year: 2026,
+      tabs: [{ title: "03 AGOSTO ", sheetId: 1, rows: [r] }],
+    });
+    assert.equal(occ[0]?.isRescheduledHistory, true);
+    const report = buildReconcileBookingReport({
+      crmBookings: [
+        {
+          id: "b-old",
+          expedienteId: "exp-1",
+          kind: "biometricos",
+          status: "cancelled",
+          bookingDate: "2026-08-03",
+          bookingTime: "09:00:00",
+          locationId: "monterrey",
+        },
+        {
+          id: "b-new",
+          expedienteId: "exp-1",
+          kind: "biometricos",
+          status: "booked",
+          bookingDate: "2026-08-04",
+          bookingTime: "10:00:00",
+          locationId: "monterrey",
+        },
+      ],
+      sheetOccurrences: occ,
+    });
+    assert.equal(report.counts.STALE_SHEET_ENTRY, 0);
+    assert.equal(buildRepairPlan(report).length, 0);
+    assert.ok(report.findings.every((f) => f.proposedAction === "none" || f.proposedAction === "enqueue_created_sync"));
   });
 
   it("no clasifica por nombre (fila sin P se ignora)", () => {

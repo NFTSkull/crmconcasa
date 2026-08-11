@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Changed
+- **feat(agenda): conservar histórico al reagendar en Sheets** — al **reagendar** bio/firmas la fila prior permanece visible (`O=REAGENDADO`, `P=prior_uuid`), naranja UX, `RESCHEDULED_HISTORY` fuera de capacidad/P162; replacement FREE debajo (misma hora). Worker serializa mismo tab (filas inferiores primero + relocate UUID). Cancelación pura intacta. Sin migración DB. Apps Script sin cambios.
+
 ### Fixed
 - **fix(asesor): marcar notificaciones como leídas al abrir** — al abrir la campana (o «Ver expediente») se persiste `readAt` local por usuario y el badge rojo pasa a 0; el listado sigue visible. No cierra tareas P167 ni toca schema/RPC.
 

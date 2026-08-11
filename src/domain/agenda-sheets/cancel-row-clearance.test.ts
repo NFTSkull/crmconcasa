@@ -220,4 +220,17 @@ describe("cancel-row-clearance", () => {
       "linked",
     );
   });
+
+  it("inventario: REAGENDADO → disabled (no occupied_external)", () => {
+    assert.equal(
+      inventoryStatusFromSheetRow({
+        nss: "NSS1",
+        name: "CLIENTE",
+        advisor: "ASESOR",
+        techBookingId: booking,
+        techEstado: "REAGENDADO",
+      }),
+      "disabled",
+    );
+  });
 });

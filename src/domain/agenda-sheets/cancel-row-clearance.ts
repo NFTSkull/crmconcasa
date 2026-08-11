@@ -126,6 +126,22 @@ export function classifyCancelRowClearance(input: {
     };
   }
 
+  if (
+    estado === "REAGENDADO" ||
+    estado === "RESCHEDULED_HISTORY"
+  ) {
+    return {
+      classification: "already_absent",
+      reason: "RESCHEDULED_HISTORY: no clear (histórico)",
+      keepHora: hora,
+      clearBtoD: false,
+      clearEtoF: false,
+      clearOU: false,
+      conflictingColumns: [],
+      terminalNoRetry: false,
+    };
+  }
+
   if (metaBooking !== bookingId) {
     return {
       classification: "row_reused",
@@ -265,6 +281,7 @@ export function verifyClearedRowReadback(input: {
 /**
  * Inventario: fila con estado CANCELADA o sin occupancy efectiva → available.
  * Incluye CANCELADA con E/F en conflicto (capacidad libre mientras revisión manual).
+ * REAGENDADO / RESCHEDULED_HISTORY → disabled (no cupo; no occupied_external).
  */
 export function inventoryStatusFromSheetRow(input: {
   nss: string;
@@ -273,9 +290,15 @@ export function inventoryStatusFromSheetRow(input: {
   advisor?: string | null;
   techBookingId: string | null;
   techEstado?: string | null;
-}): "available" | "linked" | "occupied_external" {
+}): "available" | "linked" | "occupied_external" | "disabled" {
   const estado = String(input.techEstado ?? "").trim().toUpperCase();
   if (estado === "CANCELADA") return "available";
+  if (
+    estado === "REAGENDADO" ||
+    estado === "RESCHEDULED_HISTORY"
+  ) {
+    return "disabled";
+  }
   if (input.techBookingId) return "linked";
   if (input.nss || input.name || String(input.advisor ?? "").trim()) {
     return "occupied_external";
