@@ -165,7 +165,8 @@ Convenciones:
     "telefonoEmpresa": "string",
     "referencias": [{ "nombre": "string", "celular": "string" }],
     "beneficiario": { "nombre": "string", "parentesco": "string" },
-    "direccionEmpresa": { "calle": "string", "colonia": "string", "municipio": "string", "cp": "string" }
+    "direccionEmpresa": { "calle": "string", "colonia": "string", "municipio": "string", "cp": "string" },
+    "notaMesa": "string (opcional; siempre se persiste en JSON datos, incluso vacío)"
   }
 }
 ```

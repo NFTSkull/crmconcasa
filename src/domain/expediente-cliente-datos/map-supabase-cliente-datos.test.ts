@@ -57,6 +57,19 @@ describe("mapSupabaseRowToExpedienteClienteDatos", () => {
     assert.equal(domain.datos.notaMesa, "Cliente prefiere cita matutina.");
     assert.equal(domain.updatedBy, "asesor@concasa.mx");
   });
+
+  it("carga notaMesa ausente como string vacío (precarga formulario)", () => {
+    const domain = mapSupabaseRowToExpedienteClienteDatos({
+      expediente_id: "exp-empty-nota",
+      estado: "completo",
+      updated_at: "2026-06-15T12:00:00.000Z",
+      datos: {
+        nombreCliente: "Ana",
+      },
+    });
+    assert.equal(domain.datos.notaMesa, "");
+  });
+
   it("mapea montoMejoravit numérico y alias monto_mejoravit", () => {
     const domain = mapSupabaseRowToExpedienteClienteDatos({
       expediente_id: "exp-2",
@@ -122,7 +135,7 @@ describe("buildSaveClienteDatosRpcPayload", () => {
     assert.equal(payload.p_datos.notaMesa, "Observación Mesa");
   });
 
-  it("omite notaMesa vacía del payload RPC", () => {
+  it("incluye notaMesa vacía en payload (RPC reemplaza datos completo)", () => {
     const payload = buildSaveClienteDatosRpcPayload("exp-1", {
       nombreCliente: "Marcela",
       nss: "12345678901",
@@ -152,7 +165,85 @@ describe("buildSaveClienteDatosRpcPayload", () => {
       notaMesa: "   ",
     }, "Av. Cliente 100", "mejoravit");
 
-    assert.equal("notaMesa" in payload.p_datos, false);
+    assert.equal(payload.p_datos.notaMesa, "");
+  });
+
+  it("guardar otro campo conserva notaMesa en el payload", () => {
+    const base = {
+      nombreCliente: "Marcela",
+      nss: "12345678901",
+      curp: "CURP123",
+      rfc: "xaxx010101000",
+      celular: "5512345678",
+      correo: "marcela@concasa.mx",
+      empresa: "Empresa SA",
+      registroPatronal: "RP-1",
+      telefonoEmpresa: "5599999999",
+      referencias: [
+        { nombre: "Ref 1", celular: "5511111111" },
+        { nombre: "Ref 2", celular: "5522222222" },
+      ],
+      beneficiario: { nombre: "Ben", parentesco: "Hija" },
+      direccionEmpresa: {
+        calle: "Calle 1",
+        colonia: "Centro",
+        municipio: "CDMX",
+        cp: "01000",
+      },
+      montoMejoravit: "150000",
+      plazo: "12 meses",
+      porcentajeCobro: "10",
+      montoCalculado: "2500",
+      metodoPago: "transferencia",
+      notaMesa: "Nota persistente",
+    } as ExpedienteClienteDatos["datos"];
+
+    const edited = { ...base, empresa: "Empresa Nueva SA" };
+    const payload = buildSaveClienteDatosRpcPayload(
+      "exp-1",
+      edited,
+      "Av. Cliente 100",
+      "mejoravit",
+    );
+    assert.equal(payload.p_datos.empresa, "Empresa Nueva SA");
+    assert.equal(payload.p_datos.notaMesa, "Nota persistente");
+  });
+
+  it("editar notaMesa reemplaza el valor anterior en payload", () => {
+    const payload = buildSaveClienteDatosRpcPayload(
+      "exp-1",
+      {
+        nombreCliente: "Marcela",
+        nss: "12345678901",
+        curp: "CURP123",
+        rfc: "xaxx010101000",
+        celular: "5512345678",
+        correo: "marcela@concasa.mx",
+        empresa: "Empresa SA",
+        registroPatronal: "RP-1",
+        telefonoEmpresa: "5599999999",
+        referencias: [
+          { nombre: "Ref 1", celular: "5511111111" },
+          { nombre: "Ref 2", celular: "5522222222" },
+        ],
+        beneficiario: { nombre: "Ben", parentesco: "Hija" },
+        direccionEmpresa: {
+          calle: "Calle 1",
+          colonia: "Centro",
+          municipio: "CDMX",
+          cp: "01000",
+        },
+        montoMejoravit: "150000",
+        plazo: "12 meses",
+        porcentajeCobro: "10",
+        montoCalculado: "2500",
+        metodoPago: "transferencia",
+        notaMesa: "Nota actualizada",
+      },
+      "Av. Cliente 100",
+      "mejoravit",
+    );
+    assert.equal(payload.p_datos.notaMesa, "Nota actualizada");
   });
 
   it("acepta RFC vacío en payload RPC", () => {

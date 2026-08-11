@@ -179,7 +179,8 @@ export function mapSupabaseRowToExpedienteClienteDatos(
         asString(datos.montoCalculado) ||
         (row.monto_calculado != null ? String(row.monto_calculado) : ""),
       metodoPago: asString(datos.metodoPago) || asString(row.metodo_pago),
-      notaMesa: asString(datos.notaMesa) || undefined,
+      // Siempre string ("" si ausente) para ciclo DB ↔ formulario sin perder la clave.
+      notaMesa: asString(datos.notaMesa),
     },
     porcentajeCobro: asNumber(row.porcentaje_cobro),
     montoCalculado: asNumber(row.monto_calculado),
@@ -270,9 +271,9 @@ export function buildSaveClienteDatosRpcPayload(
     p_datos.montoMejoravit = montoMejoravitRaw;
     p_datos.plazo = plazo;
   }
-  if (datos.notaMesa?.trim()) {
-    p_datos.notaMesa = datos.notaMesa.trim();
-  }
+  // Siempre incluir notaMesa: el RPC reemplaza `datos` completo.
+  // Omitir la clave al guardar otros campos borraba notas previas.
+  p_datos.notaMesa = String(datos.notaMesa ?? "").trim();
 
   return {
     p_expediente_id: expedienteId,

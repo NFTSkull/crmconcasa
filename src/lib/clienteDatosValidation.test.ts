@@ -190,6 +190,21 @@ test("normalizeClienteDatosForSave: CURP y RFC a mayúsculas", () => {
   assert.equal(n.rfc, "PEGJ850101ABC");
 });
 
+test("normalizeClienteDatosForSave: notaMesa se trimmea y vacía no rompe", () => {
+  const withNota = normalizeClienteDatosForSave({
+    ...baseValid,
+    notaMesa: "  Hola Mesa  ",
+  });
+  assert.equal(withNota.notaMesa, "Hola Mesa");
+  const empty = normalizeClienteDatosForSave({
+    ...baseValid,
+    notaMesa: "   ",
+  });
+  assert.equal(empty.notaMesa, "");
+  const missing = normalizeClienteDatosForSave({ ...baseValid });
+  assert.equal(missing.notaMesa, "");
+});
+
 test("validateClienteDatos: payload válido sin RFC", () => {
   const r = validateClienteDatos({ ...baseValid, rfc: "" }, COBRO_CTX);
   assert.equal(r.isValid, true);

@@ -142,6 +142,7 @@ export function normalizeClienteDatosForSave(
     metodoPago: String(d.metodoPago ?? "").trim().toLowerCase(),
     montoMejoravit: String(d.montoMejoravit ?? "").trim(),
     plazo: normalizeDigitsOnly(String(d.plazo ?? "")),
+    notaMesa: String(d.notaMesa ?? "").trim(),
   };
 }
 
