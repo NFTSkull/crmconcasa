@@ -891,9 +891,10 @@ Rango seguro **O:U** (`ESTADO CRM`…`CRM_SYNC_VERSION`). **A:N se PRESERVA** (H
 
 ## 14A. Inbox asesor paginado + summary (B1.5 / P161)
 
-**Equivalencia TS→SQL:** `docs/ASESOR_INBOX_B15_EQUIVALENCIA.md`  
-**Migración:** `161_asesor_inbox_page_summary.sql` (**aplicada en Cloud** `fvtqbxukqlajezyyvwzy`).  
-**UI `/asesor`:** cableada a las RPCs (B1 UI). Sin fallback a `listForAsesor()`.
+**Equivalencia TS→SQL:** `docs/ASESOR_INBOX_B15_EQUIVALENCIA.md`
+**Migración:** `161_asesor_inbox_page_summary.sql` (**aplicada en Cloud** `fvtqbxukqlajezyyvwzy`).
+**Calibración pendientes (P167):** `167_asesor_pendientes_calibrados.sql` — `asesor_inbox_categoria_correccion` incluye docs `cliente_*` + Acuse/`retencion_envios`; `asesor_inbox_pendiente_agendar_biometricos` incluye reagendar en etapa 4/5 tras cancelación. Label UI chip/KPI: «Necesita corrección». Selector TS: `getAdvisorPrimaryPendingAction` / `listAsesorCorreccionesAbiertas`.
+**UI `/asesor`:** cableada a las RPCs (B1 UI). Sin fallback a `listForAsesor()`. Refetch al focus/visibility (debounce ≥8s).
 
 ### `asesor_list_expedientes_page(...) → jsonb`
 
@@ -918,6 +919,8 @@ Rango seguro **O:U** (`ESTADO CRM`…`CRM_SYNC_VERSION`). **A:N se PRESERVA** (H
 | `notifications` | Top N (default 50) para NotificationsBell |
 
 Counts: `total`, `en_tramite`, `correccion_*`, `rechazados_mesa`, `cancelados`, `aprobados_editor`, `no_cumple`, `agendar_biometricos`, `agendar_firma`, `subir_acuse`.
+
+`correccion_requerida` cuenta **expedientes** con ≥1 corrección Mesa abierta (datos / docs `cliente_*` / Acuse), no ítems duplicados.
 
 ---
 

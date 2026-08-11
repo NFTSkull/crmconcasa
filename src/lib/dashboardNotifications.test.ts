@@ -20,6 +20,7 @@ describe("dashboardNotifications", () => {
       "asesor",
     );
     assert.equal(item?.kind, "correccion_requerida");
+    assert.equal(item?.tipoLabel, "Necesita corrección");
     assert.match(item?.mensaje ?? "", /Datos generales/i);
     assert.equal(item?.href, "/asesor/expediente/exp-1");
   });
@@ -35,6 +36,7 @@ describe("dashboardNotifications", () => {
       "asesor",
     );
     assert.equal(item?.kind, "correccion_requerida");
+    assert.equal(item?.tipoLabel, "Necesita corrección");
     assert.match(item?.mensaje ?? "", /Documentos/i);
   });
 

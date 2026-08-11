@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- **fix(asesor): pendientes/notificaciones calibrados (P167)** — «Necesita corrección» incluye docs `cliente_*` + Acuse/`retencion_envios` (no solo `cliente_datos`/pack legado); bio/firma usan **booking vigente** (`asesor_inbox_latest_booking_status`); bio pendiente también en etapa 4/5 tras cancelación (reagendar); selector canónico `asesor-pendientes.ts`; contador = expedientes (sin duplicar por N correcciones); labels Subir/Corregir Acuse y Reagendar; refetch al focus sin polling. Mig. **167**.
+
 ### Added
 - **feat(expediente): registrar resultado de Pago ConCasa** — En Firmado (interna 11), Mesa elige **Sí pagó** / **No pagó**; ambas avanzan a Pago ConCasa (interna 12) y persisten `pago_concasa_resultado` (`pagado`|`no_pagado`) + `pago_concasa_at`/`pago_concasa_by`. RPC `decidir_pago_concasa`. `no_pagado` no es rechazo ni cuenta ingreso. Mig. **166**.
 

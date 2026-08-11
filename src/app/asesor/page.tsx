@@ -36,6 +36,10 @@ import {
 } from "@/domain/expedientes/reingreso-manual";
 import { isDataModeSupabase } from "@/lib/dataMode";
 import {
+  countAsesorCorreccionesAbiertas,
+  formatCorreccionesPendientesCopy,
+} from "@/domain/expedientes/asesor-pendientes";
+import {
   deriveEstadoDocumentacionColumnaAsesor,
   deriveResumenExpedienteCorreccion,
   useExpedienteArchivosRepo,
@@ -101,7 +105,7 @@ function asesorResultadoFilaBadge(
   }
   if (resumenCorreccion === "correccion_requerida") {
     return {
-      label: "Corrección requerida",
+      label: "Necesita corrección",
       className: "bg-amber-100 text-amber-900 border border-amber-300",
     };
   }
@@ -141,7 +145,7 @@ function asesorDocumentacionFilaBadge(
   resumenCorreccion?: CategoriaResumenDocumental,
 ): { label: string; className: string } {
   if (resumenCorreccion === "correccion_requerida") {
-    return { label: "Corrección requerida", className: CORRECCION_REQUERIDA_BADGE_CLASS };
+    return { label: "Necesita corrección", className: CORRECCION_REQUERIDA_BADGE_CLASS };
   }
   if (resumenCorreccion === "correccion_enviada") {
     return {
@@ -175,7 +179,7 @@ function asesorEstatusOperativoFilaBadge(
     };
   }
   if (resumenCorreccion === "correccion_requerida") {
-    return { label: "Corrección requerida", className: CORRECCION_REQUERIDA_BADGE_CLASS };
+    return { label: "Necesita corrección", className: CORRECCION_REQUERIDA_BADGE_CLASS };
   }
   if (resumenCorreccion === "correccion_enviada") {
     return {
@@ -1036,7 +1040,7 @@ export default function AsesorDashboardPage() {
       { id: "en_tramite", label: "En trámite", count: kpis.enTramite },
       {
         id: "correccion_requerida",
-        label: "Corrección requerida",
+        label: "Necesita corrección",
         count: kpis.correccionRequerida,
         warnIfPositive: true,
       },
@@ -1090,6 +1094,31 @@ export default function AsesorDashboardPage() {
 
   useEffect(() => {
     void loadInbox();
+  }, [loadInbox]);
+
+  /** Refetch al volver a la pestaña (sin polling agresivo). */
+  useEffect(() => {
+    let lastAt = 0;
+    const MIN_MS = 8_000;
+    const refreshIfVisible = () => {
+      if (typeof document !== "undefined" && document.visibilityState === "hidden") {
+        return;
+      }
+      const now = Date.now();
+      if (now - lastAt < MIN_MS) return;
+      lastAt = now;
+      void loadInbox();
+    };
+    const onFocus = () => refreshIfVisible();
+    const onVis = () => {
+      if (document.visibilityState === "visible") refreshIfVisible();
+    };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVis);
+    };
   }, [loadInbox]);
 
   useEffect(() => {
@@ -1244,13 +1273,13 @@ export default function AsesorDashboardPage() {
             </div>
             <div className="rounded-md border border-amber-200/80 bg-amber-50/50 px-3 py-2 shadow-sm">
               <p className="text-[10px] font-semibold uppercase tracking-wide text-amber-900">
-                Corrección requerida
+                Necesita corrección
               </p>
               <p className="mt-0.5 text-xl font-semibold tabular-nums text-amber-950">
                 {kpis.correccionRequerida}
               </p>
               <p className="mt-0.5 text-[9px] leading-tight text-amber-800/90">
-                Doc. o datos rechazados por mesa
+                Correcciones abiertas pedidas por Mesa
               </p>
             </div>
             <div className="rounded-md border border-red-200/80 bg-red-50/40 px-3 py-2 shadow-sm">
@@ -1677,6 +1706,20 @@ export default function AsesorDashboardPage() {
                             <span className="block truncate">
                               {p.cliente_nombre || "—"}
                             </span>
+                            {(() => {
+                              const n = countAsesorCorreccionesAbiertas({
+                                clienteDatosEstado: clienteDatosEstadoPorId[p.id] ?? null,
+                                archivos: resumenArchivosPorId[p.id] ?? null,
+                              });
+                              if (n <= 0 || resumenCorreccion !== "correccion_requerida") {
+                                return null;
+                              }
+                              return (
+                                <span className="mt-0.5 block text-[10px] font-normal leading-tight text-amber-800">
+                                  {formatCorreccionesPendientesCopy(n)}
+                                </span>
+                              );
+                            })()}
                             {p.esReingreso ? (
                               <span className="mt-0.5 inline-flex flex-col gap-0.5">
                                 <span className="inline-flex w-fit rounded-full bg-violet-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-violet-900">

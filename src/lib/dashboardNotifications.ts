@@ -114,7 +114,7 @@ function buildCandidates(
     out.push({
       kind: "correccion_requerida",
       prioridad: 1,
-      tipoLabel: "Corrección requerida",
+      tipoLabel: audience === "asesor" ? "Necesita corrección" : "Corrección requerida",
       mensaje: "Datos generales y documentos requieren corrección",
       fecha,
     });
@@ -122,7 +122,7 @@ function buildCandidates(
     out.push({
       kind: "correccion_requerida",
       prioridad: 1,
-      tipoLabel: "Corrección requerida",
+      tipoLabel: audience === "asesor" ? "Necesita corrección" : "Corrección requerida",
       mensaje: "Datos generales requieren corrección",
       fecha,
     });
@@ -130,7 +130,7 @@ function buildCandidates(
     out.push({
       kind: "correccion_requerida",
       prioridad: 1,
-      tipoLabel: "Corrección requerida",
+      tipoLabel: audience === "asesor" ? "Necesita corrección" : "Corrección requerida",
       mensaje: "Documentos requieren corrección",
       fecha,
     });

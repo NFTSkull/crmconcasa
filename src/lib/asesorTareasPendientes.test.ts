@@ -73,11 +73,56 @@ describe("isAsesorPendienteAgendarBiometricos", () => {
     );
   });
 
-  it("etapa 5 no cuenta aunque exista cancelación previa", () => {
+  it("etapa 4/5 tras cancelación biométrica cuenta (reagendar)", () => {
+    assert.equal(
+      isAsesorPendienteAgendarBiometricos(
+        baseInput({
+          etapaActual: 4,
+          agendaBiometricos: { hasActiveBooking: false, hasLastCancelledBooking: true },
+        }),
+      ),
+      true,
+    );
     assert.equal(
       isAsesorPendienteAgendarBiometricos(
         baseInput({
           etapaActual: 5,
+          agendaBiometricos: { hasActiveBooking: false, hasLastCancelledBooking: true },
+        }),
+      ),
+      true,
+    );
+  });
+
+  it("booking vigente: cancelled viejo + booked nuevo → no pendiente", () => {
+    assert.equal(
+      isAsesorPendienteAgendarBiometricos(
+        baseInput({
+          etapaActual: 4,
+          agendaBiometricos: { hasActiveBooking: true, hasLastCancelledBooking: true },
+        }),
+      ),
+      false,
+    );
+  });
+
+  it("booking vigente: varios cancelled + booked activo → no pendiente", () => {
+    assert.equal(
+      isAsesorPendienteAgendarBiometricos(
+        baseInput({
+          etapaActual: 5,
+          agendaBiometricos: { hasActiveBooking: true, hasLastCancelledBooking: true },
+        }),
+      ),
+      false,
+    );
+  });
+
+  it("etapa superada con cancel histórico → no pendiente", () => {
+    assert.equal(
+      isAsesorPendienteAgendarBiometricos(
+        baseInput({
+          etapaActual: 6,
           agendaBiometricos: { hasActiveBooking: false, hasLastCancelledBooking: true },
         }),
       ),

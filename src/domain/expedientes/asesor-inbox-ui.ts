@@ -309,12 +309,16 @@ export function mapAsesorInboxNotificationsToDashboard(
     const kind = NOTIF_KINDS.has(n.kind)
       ? (n.kind as DashboardNotificationItem["kind"])
       : "pendiente_revision";
+    const tipoLabel =
+      kind === "correccion_requerida" && n.tipo_label === "Corrección requerida"
+        ? "Necesita corrección"
+        : n.tipo_label;
     return {
       id: n.id,
       expedienteId: n.expediente_id,
       clienteNombre: n.cliente_nombre || "—",
       kind,
-      tipoLabel: n.tipo_label,
+      tipoLabel,
       mensaje: n.mensaje,
       fecha: n.fecha ?? null,
       prioridad: n.prioridad,

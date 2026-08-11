@@ -92,18 +92,26 @@ function findActiveFirmasBooking(
 }
 
 /**
- * Pendiente del chip «Agendar biométricos»: etapa 3 enviada a Mesa,
- * sin reserva biométrica activa y sin Notificación activa.
+ * Pendiente del chip «Agendar biométricos»:
+ * - etapa 3 enviada a Mesa, sin bio/notif booked;
+ * - etapa 4/5 tras cancelación, sin booking activo (reagendar).
+ * Alineado con `canShowAsesorBiometricosSupabaseCard` cuando falta cita.
  */
 export function isAsesorPendienteAgendarBiometricos(
   input: AsesorTareaExpedienteInput,
 ): boolean {
   if (!input.submittedToMesa) return false;
-  if (input.etapaActual !== 3) return false;
   if (input.hasActiveNotificacionBooking === true) return false;
 
   const hints = resolveBiometricosHints(input);
-  return !hints.hasActiveBooking;
+  if (hints.hasActiveBooking) return false;
+
+  const etapa = input.etapaActual;
+  if (etapa === 3) return true;
+  if (etapa === 4 || etapa === 5) {
+    return hints.hasLastCancelledBooking;
+  }
+  return false;
 }
 
 /**

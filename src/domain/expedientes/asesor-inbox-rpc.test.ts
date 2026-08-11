@@ -119,6 +119,18 @@ describe("asesor-inbox-rpc contracts (B1.5 P161)", () => {
     assert.doesNotMatch(sql, /listForAsesor\(/);
   });
 
+  it("migración 167 calibra categoría cliente_* y bio 4/5", () => {
+    const sql = readFileSync(
+      resolve(process.cwd(), "supabase/migrations/167_asesor_pendientes_calibrados.sql"),
+      "utf8",
+    );
+    assert.match(sql, /asesor_inbox_categoria_correccion/);
+    assert.match(sql, /cliente_ine_frente/);
+    assert.match(sql, /retencion_envios/);
+    assert.match(sql, /asesor_inbox_latest_booking_status/);
+    assert.match(sql, /p_etapa_actual IN \(4, 5\)/);
+  });
+
   it("doc de equivalencia existe y cita DOCUMENTO_TIPOS legado", () => {
     const md = readFileSync(
       resolve(process.cwd(), "docs/ASESOR_INBOX_B15_EQUIVALENCIA.md"),
@@ -128,5 +140,7 @@ describe("asesor-inbox-rpc contracts (B1.5 P161)", () => {
     assert.match(md, /DOCUMENTO_TIPOS/);
     assert.match(md, /isAsesorPendienteAgendarBiometricos/);
     assert.match(md, /NotificationsBell|notifications/i);
+    assert.match(md, /cliente_\*|P167/);
+    assert.match(md, /Necesita corrección/);
   });
 });
