@@ -6,6 +6,7 @@ import {
   classifyBiometricResult,
   classifyNotificationResult,
   classifySignatureResult,
+  formatSignatureResultRaw,
   type OperationalResultClass,
 } from "./operational-result-classifiers.ts";
 
@@ -59,29 +60,20 @@ function isHoraHeader(a: string): boolean {
   return n === "HORA" || n.startsWith("HORA");
 }
 
+export function extractFirmoFirmaCells(
+  row: ReadonlyArray<string | null | undefined>,
+): { firmo: string; firma: string } {
+  return {
+    firmo: cell(row, 5),
+    firma: cell(row, 6),
+  };
+}
+
 export function extractSignatureResultRaw(
   row: ReadonlyArray<string | null | undefined>,
 ): string {
-  const preferred = cell(row, 8);
-  if (preferred) return preferred;
-  const markers = [
-    "COMPLETO",
-    "FALTA ACUSE",
-    "NO FIRMO",
-    "NO ASISTIO",
-    "REAGENDA",
-  ];
-  for (let c = 7; c <= 13; c++) {
-    if (c === 8) continue;
-    const v = cell(row, c);
-    if (!v) continue;
-    const n = v
-      .normalize("NFD")
-      .replace(/\p{M}/gu, "")
-      .toUpperCase();
-    if (markers.some((m) => n.includes(m))) return v;
-  }
-  return "";
+  const { firmo, firma } = extractFirmoFirmaCells(row);
+  return formatSignatureResultRaw(firmo, firma) ?? "";
 }
 
 export function classifyOperationalRow(input: {
@@ -97,7 +89,6 @@ export function classifyOperationalRow(input: {
 } {
   const e = cell(input.row, 4);
   const f = cell(input.row, 5);
-  const sigRaw = extractSignatureResultRaw(input.row);
 
   if (input.kind === "biometricos") {
     return {
@@ -110,13 +101,14 @@ export function classifyOperationalRow(input: {
     };
   }
 
+  const { firmo, firma } = extractFirmoFirmaCells(input.row);
   return {
     biometric_result_class: "PENDING",
     biometric_result_raw: null,
     notification_result_class: "PENDING",
     notification_result_raw: null,
-    signature_result_class: classifySignatureResult(sigRaw),
-    signature_result_raw: nullIfEmpty(sigRaw),
+    signature_result_class: classifySignatureResult(firmo, firma),
+    signature_result_raw: formatSignatureResultRaw(firmo, firma),
   };
 }
 

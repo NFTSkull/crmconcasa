@@ -6,7 +6,7 @@ import {
   classifyBiometricResult,
   classifyNotificationResult,
   classifySignatureResult,
-  normalizeSheetOpsText,
+  formatSignatureResultRaw,
 } from "./operational-result-classifiers";
 import {
   buildOperationalResultUpsertRows,
@@ -33,7 +33,6 @@ describe("operational-result-classifiers — biométricos", () => {
   });
 
   it("5–6. X + notas de no asistencia no cambian la clase (sigue failed)", () => {
-    // La nota no se pasa al clasificador de E; X permanece failed.
     assert.equal(classifyBiometricResult("X"), "FAILED_OR_NOT_ATTENDED");
   });
 
@@ -70,24 +69,65 @@ describe("operational-result-classifiers — notificación", () => {
   });
 });
 
-describe("operational-result-classifiers — firmas", () => {
-  it("14. COMPLETO ✔ → completed", () => {
-    assert.equal(classifySignatureResult("COMPLETO ✔"), "COMPLETED");
-    assert.equal(
-      normalizeSheetOpsText("COMPLETO ✔").includes("COMPLETO"),
-      true,
-    );
+describe("operational-result-classifiers — firmas (FIRMO/FIRMA)", () => {
+  it("1. SI + BETTY → completed", () => {
+    assert.equal(classifySignatureResult("SI", "BETTY"), "COMPLETED");
+    assert.equal(formatSignatureResultRaw("SI", "BETTY"), "SI / BETTY");
   });
 
-  it("15. FALTA ACUSE → failed", () => {
+  it("2. X + X → not completed", () => {
     assert.equal(
-      classifySignatureResult("FALTA ACUSE"),
+      classifySignatureResult("X", "X"),
       "FAILED_OR_NOT_ATTENDED",
     );
   });
 
-  it("16. vacío → pending", () => {
+  it("3. vacío → pending", () => {
     assert.equal(classifySignatureResult(""), "PENDING");
+    assert.equal(classifySignatureResult(null, null), "PENDING");
+  });
+
+  it("4. YA CON BETTY + vacío → no completed", () => {
+    assert.equal(classifySignatureResult("YA CON BETTY", ""), "PENDING");
+    assert.notEqual(
+      classifySignatureResult("YA CON BETTY", ""),
+      "COMPLETED",
+    );
+  });
+
+  it("5. COMPLETO + YA CON BETTY → no completed (nota no manda)", () => {
+    // La nota COMPLETO no se pasa al clasificador; solo FIRMO/FIRMA.
+    assert.equal(classifySignatureResult("YA CON BETTY", ""), "PENDING");
+    assert.notEqual(classifySignatureResult("COMPLETO ✔"), "COMPLETED");
+  });
+
+  it("6. COMPLETO + vacío FIRMO → no completed", () => {
+    assert.equal(classifySignatureResult("", ""), "PENDING");
+    assert.notEqual(classifySignatureResult("COMPLETO ✔", ""), "COMPLETED");
+  });
+
+  it("7. FALTA ACUSE no define firma por sí solo", () => {
+    assert.equal(classifySignatureResult("YA CON BETTY", ""), "PENDING");
+    // Sin FIRMO=SI no hay COMPLETED aunque la nota diga FALTA ACUSE.
+    assert.notEqual(classifySignatureResult("FALTA ACUSE"), "COMPLETED");
+  });
+
+  it("8. SI + nota cualquiera sigue regla canónica (FIRMA manda)", () => {
+    assert.equal(classifySignatureResult("SI", "BETTY"), "COMPLETED");
+    assert.equal(classifySignatureResult("SI", "CESI MTY"), "COMPLETED");
+    // SI sin FIRMA → no inventar completado.
+    assert.equal(classifySignatureResult("SI", ""), "PENDING");
+  });
+
+  it("X / NO ASISTIO excluido", () => {
+    assert.equal(
+      classifySignatureResult("X", "X"),
+      "FAILED_OR_NOT_ATTENDED",
+    );
+    assert.equal(
+      classifySignatureResult("X", "NO ASISTIO"),
+      "FAILED_OR_NOT_ATTENDED",
+    );
   });
 });
 
@@ -99,11 +139,11 @@ describe("operational-results — KPI deltas e idempotencia", () => {
     ["8:30", "2", "C", "D", "CESI MTY", "BETTY 8", "*", "OK"],
     ["MONTERREY FIRMAS"],
     ["HORA", "", "", "", "NOTIFICACION", "FIRMO", "FIRMA"],
-    ["9:00", "3", "E", "F", "BETTY", "YA CON BETTY", "", "03 agosto", "FALTA ACUSE"],
-    ["9:30", "4", "G", "H", "BETTY", "YA CON BETTY", "", "04 agosto", "COMPLETO ✔"],
+    ["9:00", "3", "E", "F", "BETTY", "YA CON BETTY", "", "03 agosto", "COMPLETO ✔"],
+    ["9:30", "4", "G", "H", "BETTY", "SI", "BETTY", "04 agosto", "COMPLETO ✔"],
   ];
 
-  it("8–9 / 13 / 17–18: corrección de estado cambia KPI ±1 (idempotente por fila)", () => {
+  it("bio/notif intactos; firmas usan FIRMO no COMPLETO", () => {
     const org = "00000000-0000-4000-8000-000000000001";
     const mk = (grid: string[][]) =>
       buildOperationalResultUpsertRows({
@@ -124,6 +164,7 @@ describe("operational-results — KPI deltas e idempotencia", () => {
       countCompletedOperational({ rows: a, metric: "notificaciones" }),
       1,
     );
+    // Solo la fila SI/BETTY cuenta; YA CON BETTY + COMPLETO no.
     assert.equal(countCompletedOperational({ rows: a, metric: "firmas" }), 1);
 
     const gridBioUp = baseGrid.map((r) => [...r]);
@@ -149,36 +190,72 @@ describe("operational-results — KPI deltas e idempotencia", () => {
       countCompletedOperational({ rows: d, metric: "notificaciones" }),
       0,
     );
+  });
 
-    const gridFirmaUp = baseGrid.map((r) => [...r]);
-    gridFirmaUp[6] = [
-      "9:00",
-      "3",
-      "E",
-      "F",
-      "BETTY",
-      "YA CON BETTY",
-      "",
-      "03 agosto",
-      "COMPLETO ✔",
-    ];
-    const e = mk(gridFirmaUp);
-    assert.equal(countCompletedOperational({ rows: e, metric: "firmas" }), 2);
+  it("17. realtime delta SI→X → Firmas -1", () => {
+    const org = "00000000-0000-4000-8000-000000000001";
+    const mk = (grid: string[][]) =>
+      buildOperationalResultUpsertRows({
+        organizationId: org,
+        spreadsheetId: "ss",
+        sheetId: 1,
+        sheetTitle: "10 AGOSTO",
+        bookingDate: "2026-08-10",
+        grid,
+      });
+    const up = mk(baseGrid);
+    assert.equal(countCompletedOperational({ rows: up, metric: "firmas" }), 1);
 
-    const gridFirmaDown = baseGrid.map((r) => [...r]);
-    gridFirmaDown[7] = [
+    const gridDown = baseGrid.map((r) => [...r]);
+    gridDown[7] = [
       "9:30",
       "4",
       "G",
       "H",
       "BETTY",
-      "YA CON BETTY",
-      "",
+      "X",
+      "X",
       "04 agosto",
-      "FALTA ACUSE",
+      "NO ASISTIO",
     ];
-    const f = mk(gridFirmaDown);
-    assert.equal(countCompletedOperational({ rows: f, metric: "firmas" }), 0);
+    const down = mk(gridDown);
+    assert.equal(
+      countCompletedOperational({ rows: down, metric: "firmas" }),
+      0,
+    );
+  });
+
+  it("18. realtime delta pending→SI → Firmas +1", () => {
+    const org = "00000000-0000-4000-8000-000000000001";
+    const mk = (grid: string[][]) =>
+      buildOperationalResultUpsertRows({
+        organizationId: org,
+        spreadsheetId: "ss",
+        sheetId: 1,
+        sheetTitle: "11 AGOSTO",
+        bookingDate: "2026-08-11",
+        grid,
+      });
+    const pending = mk(baseGrid);
+    // base tiene 1 SI; subir la fila YA CON BETTY → SI/BETTY
+    assert.equal(
+      countCompletedOperational({ rows: pending, metric: "firmas" }),
+      1,
+    );
+    const gridUp = baseGrid.map((r) => [...r]);
+    gridUp[6] = [
+      "9:00",
+      "3",
+      "E",
+      "F",
+      "BETTY",
+      "SI",
+      "BETTY",
+      "03 agosto",
+      "COMPLETO ✔",
+    ];
+    const up = mk(gridUp);
+    assert.equal(countCompletedOperational({ rows: up, metric: "firmas" }), 2);
   });
 
   it("19. fecha del tab/cita manda (booking_date del input, no edit ts)", () => {
@@ -217,87 +294,147 @@ describe("operational-results — KPI deltas e idempotencia", () => {
     assert.equal(mty[0]?.biometric_result_class, "COMPLETED");
   });
 
-  it("snapshot 11 ago: bio=10 firmas=4 notif=4 (clasificador real, no hardcode KPI)", () => {
-    // Filas operativas del Sheet RO 2026-08-11 (sin PII).
-    const bioE = [
-      "CESI MTY",
-      "CESI MTY",
-      "CESI MTY",
-      "CESI MTY",
-      "X",
-      "X",
-      "X",
-      "CESI MTY",
-      "YA EN CESI",
-      "YA EN CESI",
-      "YA EN CESI",
-      "YA EN CESI",
-      "",
-      "",
-      "CESI MTY",
-      "",
-      "",
+  it("9. fixture 11 agosto → Firmas COMPLETED = 0 (YA CON BETTY + COMPLETO no cuentan)", () => {
+    const firmoFirmaPairs: Array<[string, string, string]> = [
+      ["YA CON BETTY", "", "COMPLETO ✔"],
+      ["YA CON BETTY", "", ""],
+      ["YA CON BETTY", "", "COMPLETO ✔"],
+      ["YA CON BETTY", "", "FALTA ACUSE"],
+      ["YA CON BETTY", "", "COMPLETO ✔"],
+      ["YA CON BETTY", "", ""],
+      ["YA CON BETTY", "", "COMPLETO ✔"],
+      ["", "", ""],
     ];
-    const bioF = [
-      "BETTY 8",
-      "BETTY 6",
-      "BETTY 7",
-      "X",
-      "X",
-      "X",
-      "X",
-      "X",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "",
-      "BETTY 9",
-      "",
-      "",
-    ];
-    const firmaI = [
-      "",
-      "",
-      "",
-      "",
-      "COMPLETO ✔",
-      "",
-      "",
-      "COMPLETO ✔",
-      "COMPLETO ✔",
-      "",
-      "",
-      "COMPLETO ✔",
-      "FALTA ACUSE",
-      "",
-    ];
-    const bioN = bioE.filter((v) => classifyBiometricResult(v) === "COMPLETED")
-      .length;
-    const notifN = bioF.filter(
-      (v) => classifyNotificationResult(v) === "COMPLETED",
+    const completed = firmoFirmaPairs.filter(
+      ([firmo, firma]) =>
+        classifySignatureResult(firmo, firma) === "COMPLETED",
     ).length;
-    const firmaN = firmaI.filter((v) => classifySignatureResult(v) === "COMPLETED")
-      .length;
-    assert.equal(bioN, 10);
-    assert.equal(notifN, 4);
-    assert.equal(firmaN, 4);
-    // KPI == detalle: mismos conteos derivados de filas
-    assert.equal(bioN, bioE.filter((v) => classifyBiometricResult(v) === "COMPLETED").length);
-    assert.equal(firmaN, firmaI.filter((v) => classifySignatureResult(v) === "COMPLETED").length);
-    assert.equal(notifN, bioF.filter((v) => classifyNotificationResult(v) === "COMPLETED").length);
+    assert.equal(completed, 0);
+
+    const grid = [
+      ["MONTERREY FIRMAS"],
+      ["HORA", "", "", "", "NOTIFICACION", "FIRMO", "FIRMA", "NOTAS", ""],
+      ...firmoFirmaPairs.map(([firmo, firma, note], i) => [
+        "9:00",
+        String(i),
+        "C",
+        "A",
+        "BETTY",
+        firmo,
+        firma,
+        "03 agosto",
+        note,
+      ]),
+    ];
+    const rows = buildOperationalResultUpsertRows({
+      organizationId: "00000000-0000-4000-8000-000000000001",
+      spreadsheetId: "ss",
+      sheetId: 1,
+      sheetTitle: "11 AGOSTO",
+      bookingDate: "2026-08-11",
+      grid,
+    });
+    const firmasTotal = countCompletedOperational({
+      rows,
+      metric: "firmas",
+    });
+    const firmasDetail = rows.filter(
+      (r) => r.kind === "firmas" && r.signature_result_class === "COMPLETED",
+    );
+    assert.equal(firmasTotal, 0);
+    assert.equal(firmasDetail.length, firmasTotal); // KPI == detail
   });
 
-  it("29. Ingresos permanece con fuentes enviadosAMesa / listMesaEnviosPage", () => {
+  it("10–11. fixture 10 agosto → SI contados; X/NO ASISTIO excluido", () => {
+    const pairs: Array<[string, string]> = [
+      ["SI", "BETTY"],
+      ["SI", "BETTY"],
+      ["SI", "BETTY"],
+      ["SI", "BETTY"],
+      ["SI", "BETTY"],
+      ["SI", "BETTY"],
+      ["SI", "BETTY"],
+      ["SI", "BETTY"],
+      ["SI", "BETTY"],
+      ["SI", "BETTY"],
+      ["X", "X"],
+      ["SI", "BETTY"],
+    ];
+    const completed = pairs.filter(
+      ([firmo, firma]) =>
+        classifySignatureResult(firmo, firma) === "COMPLETED",
+    ).length;
+    assert.equal(completed, 11);
+    assert.equal(classifySignatureResult("X", "X"), "FAILED_OR_NOT_ATTENDED");
+
+    const grid = [
+      ["MONTERREY FIRMAS"],
+      ["HORA", "", "", "", "NOTIFICACION", "FIRMO", "FIRMA"],
+      ...pairs.map(([firmo, firma], i) => [
+        "9:00",
+        String(i),
+        "C",
+        "A",
+        "BETTY",
+        firmo,
+        firma,
+        "",
+        firmo === "X" ? "NO ASISTIO" : "",
+      ]),
+    ];
+    const rows = buildOperationalResultUpsertRows({
+      organizationId: "00000000-0000-4000-8000-000000000001",
+      spreadsheetId: "ss",
+      sheetId: 1,
+      sheetTitle: "10 AGOSTO",
+      bookingDate: "2026-08-10",
+      grid,
+    });
+    const firmasTotal = countCompletedOperational({
+      rows,
+      metric: "firmas",
+    });
+    const firmasDetail = rows.filter(
+      (r) => r.kind === "firmas" && r.signature_result_class === "COMPLETED",
+    );
+    assert.equal(firmasTotal, 11);
+    assert.equal(firmasDetail.length, firmasTotal); // 12. KPI == detail
+  });
+
+  it("13. Bernardo load no usa booked / get_mesa_agenda_bookings para ops", () => {
+    const loadSrc = readFileSync(
+      join(process.cwd(), "src/lib/adminBernardoLoad.ts"),
+      "utf8",
+    );
+    assert.match(loadSrc, /bernardo_ops_detail/);
+    assert.doesNotMatch(loadSrc, /get_mesa_agenda_bookings/);
+    assert.doesNotMatch(loadSrc, /bookedOnly/);
+    assert.doesNotMatch(loadSrc, /fetchMesaAgendaBookings/);
+  });
+
+  it("14–16. Biométricos / Notificaciones / Ingresos sin cambio de fuente", () => {
     const loadSrc = readFileSync(
       join(process.cwd(), "src/lib/adminBernardoLoad.ts"),
       "utf8",
     );
     assert.match(loadSrc, /enviadosAMesa/);
     assert.match(loadSrc, /listMesaEnviosPage/);
-    assert.match(loadSrc, /fechaEnvioMesa|fecha_envio_mesa|loadAllMesaEnvios/);
-    assert.doesNotMatch(loadSrc, /agenda_sheet_operational_results.*ingresos/i);
     assert.match(loadSrc, /ingresosTotal: summary\.enviadosAMesa/);
+    assert.match(loadSrc, /metric: "biometricos"/);
+    assert.match(loadSrc, /metric: "notificaciones"/);
+
+    // Snapshot bio/notif del clasificador (intactos).
+    assert.equal(classifyBiometricResult("CESI MTY"), "COMPLETED");
+    assert.equal(classifyNotificationResult("BETTY 8"), "COMPLETED");
+    assert.equal(classifyNotificationResult("YA CON BETTY"), "COMPLETED");
+  });
+
+  it("UI Firmas: subtítulo completadas; no citas agendadas", () => {
+    const dash = readFileSync(
+      join(process.cwd(), "src/components/admin/AdminBernardoDashboard.tsx"),
+      "utf8",
+    );
+    assert.match(dash, /Firmas completadas en el periodo/);
+    assert.doesNotMatch(dash, /Citas de firma en el periodo/);
   });
 });

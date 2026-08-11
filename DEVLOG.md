@@ -1,3 +1,7 @@
+## 2026-08-11 - Hotfix Firmas Bernardo: FIRMO/FIRMA (no COMPLETO)
+
+Causa: P165 clasificaba firmas con `n.includes("COMPLETO")` sobre col I/notas → 4 falsos COMPLETED el 11-ago (FIRMO=`YA CON BETTY`, FIRMA vacío, nota `COMPLETO ✔`). Evidencia RO: 11-ago FIRMO≠SI ⇒ Firmas=0; 10-ago FIRMO=`SI`+FIRMA=`BETTY` (11) y X/X+NO ASISTIO. Screenshot Firmas=11 = `agenda_bookings` booked (fallback viejo / semántica agendada); código main ya usa `bernardo_ops_*` sin booked. Fix local: clasificador F+G; notas ignoradas; bio/notif/ingresos intactos. Sin migración/Code.gs/Cloud. Pendiente: redeploy Edge + reconcile dirigido.
+
 ## 2026-08-11 - Hotfix Bernardo: métricas operativas desde CITAS 2026 (P165)
 
 Causa raíz: Dashboard Bernardo contaba `get_mesa_agenda_bookings` con `status=booked` (agendado ≠ realizado). Sheet RO 11-ago: BIOMETRICOS col E (`CESI MTY`/`YA EN CESI`/`X`), NOTIFICACION col F (`BETTY n`/`X`), firmas COMPLETO en col I. Esperado clasificador: bio 10, firmas 4, notif 4 (BETTY 8/6/7/9; snapshot usuario tenía 3). Fix local: clasificadores + tabla `agenda_sheet_operational_results` + RPCs Bernardo + webhook/reconcile/Apps Script E–I + UI subtítulos/realtime. Ingresos sin cambio. Sin Cloud/commit/push.

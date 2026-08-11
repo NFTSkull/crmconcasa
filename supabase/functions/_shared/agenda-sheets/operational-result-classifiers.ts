@@ -1,9 +1,10 @@
 /**
  * Clasificadores de resultado operativo CITAS 2026 (Dashboard Bernardo).
- * Fuente: columnas E/F/I del Sheet — no agenda_bookings.status.
+ * Fuente: columnas operativas del Sheet — no agenda_bookings.status.
  *
  * BIOMETRICOS: E = BIOMETRICOS, F = NOTIFICACION, H = NOTAS (no override).
- * FIRMAS: E = NOTIFICACION, F = FIRMO, I = señal COMPLETO / FALTA ACUSE.
+ * FIRMAS: E = NOTIFICACION, F = FIRMO, G = FIRMA.
+ *   COMPLETO / FALTA ACUSE en notas (H/I) NO confirman ni niegan firma.
  */
 
 export type OperationalResultClass =
@@ -36,12 +37,13 @@ const NOTIF_FAILED_EXACT = new Set([
   "ERROR EN HUELLAS",
 ]);
 
-const SIGNATURE_FAILED_SUBSTRINGS = [
-  "FALTA ACUSE",
+/** FIRMO / FIRMA: señales inequívocas de no firmó / no asistió. */
+const SIGNATURE_FAILED_EXACT = new Set([
+  "X",
+  "NO",
   "NO ASISTIO",
   "NO FIRMO",
-  "REAGENDA",
-] as const;
+]);
 
 /**
  * Biométricos (col E del bloque BIOMETRICOS).
@@ -87,21 +89,67 @@ export function classifyNotificationResult(
   return "UNKNOWN";
 }
 
+function isSignatureFailedToken(n: string): boolean {
+  if (!n) return false;
+  if (SIGNATURE_FAILED_EXACT.has(n)) return true;
+  if (n.startsWith("REAGENDA")) return true;
+  if (n.includes("NO ASIST")) return true;
+  if (n.includes("NO FIRMO")) return true;
+  return false;
+}
+
 /**
- * Firma completa: señal canónica en col I (derecha de FIRMA).
- * COMPLETO ✔ → completed; FALTA ACUSE → no; vacío → pending.
- * BETTY / YA CON BETTY en E/F NO implican firma completa.
+ * Firma ejecutada (bloque FIRMAS):
+ * - Col F = FIRMO (señal canónica)
+ * - Col G = FIRMA (segunda confirmación: quién/dónde firmó)
+ *
+ * Regla conservadora (auditoría RO CITAS 2026 ≤2026-08-11):
+ * COMPLETED solo si FIRMO === "SI" y FIRMA no vacía / no fallida.
+ * Histórico positivo observado: SI + BETTY (también SI + CESI MTY/APODACA).
+ * No se halló FIRMO=SI con FIRMA vacía → G es requisito de seguridad.
+ *
+ * NO cuentan: YA CON BETTY, BETTY, COMPLETO✔ en notas, FALTA ACUSE solo,
+ * NOTIFICACION, color, texto no vacío genérico.
  */
 export function classifySignatureResult(
-  rawColI: string | null | undefined,
+  firmoRaw: string | null | undefined,
+  firmaRaw?: string | null | undefined,
 ): OperationalResultClass {
-  const n = normalizeSheetOpsText(rawColI);
-  if (!n) return "PENDING";
-  if (n.includes("COMPLETO")) return "COMPLETED";
-  for (const frag of SIGNATURE_FAILED_SUBSTRINGS) {
-    if (n.includes(frag)) return "FAILED_OR_NOT_ATTENDED";
+  const firmo = normalizeSheetOpsText(firmoRaw);
+  const firma = normalizeSheetOpsText(firmaRaw);
+
+  if (!firmo) return "PENDING";
+
+  if (isSignatureFailedToken(firmo)) {
+    return "FAILED_OR_NOT_ATTENDED";
   }
+
+  if (firmo === "SI") {
+    if (!firma || isSignatureFailedToken(firma)) {
+      // SI sin evidencia en G: no inventar completado (conservador).
+      return "PENDING";
+    }
+    return "COMPLETED";
+  }
+
+  // En tránsito operativo (p.ej. YA CON BETTY) — aún no firmó.
+  if (firmo === "YA CON BETTY" || /^BETTY(\s+\d+)?$/.test(firmo)) {
+    return "PENDING";
+  }
+
   return "UNKNOWN";
+}
+
+/** Raw canónico para proyección/detalle: FIRMO (+ FIRMA si hay). */
+export function formatSignatureResultRaw(
+  firmoRaw: string | null | undefined,
+  firmaRaw?: string | null | undefined,
+): string | null {
+  const firmo = String(firmoRaw ?? "").trim();
+  const firma = String(firmaRaw ?? "").trim();
+  if (!firmo && !firma) return null;
+  if (firmo && firma) return `${firmo} / ${firma}`;
+  return firmo || firma;
 }
 
 export function isOperationalCompleted(
