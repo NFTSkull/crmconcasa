@@ -26,7 +26,9 @@ import { MesaNotificacionDocumentoSection } from "@/components/mesa-control/Mesa
 import { MesaNotificacionApodacaSection } from "@/components/mesa-control/MesaNotificacionApodacaSection";
 import { MesaEvidenciaAsesorSection } from "@/components/mesa-control/MesaEvidenciaAsesorSection";
 import { MesaSolicitudDocumentoSection } from "@/components/mesa-control/MesaSolicitudDocumentoSection";
-import { MesaAvanceOperativoSection, MESA_AVANCE_OPERATIVO_2A3_COPY, MESA_AVANCE_OPERATIVO_3A5_COPY, MESA_AVANCE_OPERATIVO_4A5_COPY, MESA_AVANCE_OPERATIVO_5A6_COPY, MESA_AVANCE_OPERATIVO_6A7_COPY, MESA_AVANCE_OPERATIVO_7A8_COPY, MESA_AVANCE_OPERATIVO_8A9_COPY, MESA_AVANCE_OPERATIVO_9A10_COPY, MESA_FIRMA_ETAPA10_OPERATIVA_COPY, MESA_PAGO_CONCASA_ETAPA11_OPERATIVA_COPY, type MesaAvanceCancelCitaGate } from "@/components/mesa-control/MesaAvanceOperativoSection";
+import { MesaAvanceOperativoSection, MESA_AVANCE_OPERATIVO_2A3_COPY, MESA_AVANCE_OPERATIVO_3A5_COPY, MESA_AVANCE_OPERATIVO_4A5_COPY, MESA_AVANCE_OPERATIVO_5A6_COPY, MESA_AVANCE_OPERATIVO_6A7_COPY, MESA_AVANCE_OPERATIVO_7A8_COPY, MESA_AVANCE_OPERATIVO_8A9_COPY, MESA_AVANCE_OPERATIVO_9A10_COPY, MESA_FIRMA_ETAPA10_OPERATIVA_COPY, type MesaAvanceCancelCitaGate } from "@/components/mesa-control/MesaAvanceOperativoSection";
+import { MesaPagoConcasaDecisionSection } from "@/components/mesa-control/MesaPagoConcasaDecisionSection";
+import type { PagoConcasaResultado } from "@/domain/expedientes/pago-concasa-resultado";
 import { MesaCierreValidacionDocumentalSection } from "@/components/mesa-control/MesaCierreValidacionDocumentalSection";
 import { MesaControlDocumentosComplementariosSection } from "@/components/mesa-control/MesaControlDocumentosComplementariosSection";
 import { MesaDocumentosAsesorSection } from "@/components/mesa-control/MesaDocumentosAsesorSection";
@@ -1545,35 +1547,40 @@ export function MesaExpedienteDetalleReadOnly() {
     routeExpedienteId,
   ]);
 
-  const handleAvanzarOperativo11a12 = useCallback(async () => {
-    if (!routeExpedienteId || !pagoConcasaEtapa11OperativaView.puedeAvanzar) return;
-    if (avance11a12Lock.current) return;
-    avance11a12Lock.current = true;
-    setAvance11a12Loading(true);
-    setAvance11a12Error(null);
-    setAvance11a12Success(null);
-    try {
-      await expedientesRepo.avanzarEtapaOperativa(routeExpedienteId);
-      setAvance11a12Success(
-        "Expediente avanzado a etapa 12 (Pago a ConCasa)",
-      );
-      load();
-    } catch (err) {
-      setAvance11a12Error(
-        err instanceof ExpedientesSupabaseError
-          ? err.message
-          : "No se pudo avanzar la etapa del expediente.",
-      );
-    } finally {
-      setAvance11a12Loading(false);
-      avance11a12Lock.current = false;
-    }
-  }, [
-    pagoConcasaEtapa11OperativaView.puedeAvanzar,
-    expedientesRepo,
-    load,
-    routeExpedienteId,
-  ]);
+  const handleDecidirPagoConcasa = useCallback(
+    async (resultado: PagoConcasaResultado) => {
+      if (!routeExpedienteId || !pagoConcasaEtapa11OperativaView.puedeAvanzar) return;
+      if (avance11a12Lock.current) return;
+      avance11a12Lock.current = true;
+      setAvance11a12Loading(true);
+      setAvance11a12Error(null);
+      setAvance11a12Success(null);
+      try {
+        await expedientesRepo.decidirPagoConcasa(routeExpedienteId, resultado);
+        setAvance11a12Success(
+          resultado === "pagado"
+            ? "Resultado registrado: Sí pagó. Expediente en Pago ConCasa."
+            : "Resultado registrado: No pagó. Expediente en Pago ConCasa.",
+        );
+        load();
+      } catch (err) {
+        setAvance11a12Error(
+          err instanceof ExpedientesSupabaseError
+            ? err.message
+            : "No se pudo registrar el resultado de Pago ConCasa.",
+        );
+      } finally {
+        setAvance11a12Loading(false);
+        avance11a12Lock.current = false;
+      }
+    },
+    [
+      pagoConcasaEtapa11OperativaView.puedeAvanzar,
+      expedientesRepo,
+      load,
+      routeExpedienteId,
+    ],
+  );
 
   const handleConfirmCancelCita = useCallback(
     async (motivo: string) => {
@@ -2300,15 +2307,17 @@ export function MesaExpedienteDetalleReadOnly() {
         mostrarAtajoMovimientoManual={mostrarAtajoManual}
       />
 
-      <MesaAvanceOperativoSection
-        view={pagoConcasaEtapa11OperativaView}
-        copy={MESA_PAGO_CONCASA_ETAPA11_OPERATIVA_COPY}
+      <MesaPagoConcasaDecisionSection
+        decisionView={pagoConcasaEtapa11OperativaView}
         puedeOperar={puedeOperarMesaActivo}
         loading={avance11a12Loading}
         error={avance11a12Error}
         success={avance11a12Success}
-        onAvanzar={handleAvanzarOperativo11a12}
-        mostrarAtajoMovimientoManual={mostrarAtajoManual}
+        onDecidir={handleDecidirPagoConcasa}
+        etapaActual={etapaActual ?? null}
+        resultadoFinal={expediente?.operativo.pagoConcasaResultado ?? null}
+        resultadoAt={expediente?.operativo.pagoConcasaAt ?? null}
+        formatDateTime={formatDateTime}
       />
 
       <MesaRechazoOperativoPostBiometricosCard
@@ -2388,6 +2397,8 @@ export function MesaExpedienteDetalleReadOnly() {
             r.estatus_revision !== "faltante" &&
             r.estatus_revision !== "rechazado",
         )}
+        pagoConcasaResultado={op.pagoConcasaResultado ?? null}
+        pagoConcasaAt={op.pagoConcasaAt ?? null}
         formatDateTime={formatDateTime}
       />
     </MesaDetalleShell>

@@ -114,6 +114,7 @@ const rpcItemSchema = z.object({
   reingreso_manual_count: z.number().nullable().optional(),
   reingreso_manual_at: z.string().nullable().optional(),
   reingreso_manual_by: z.string().nullable().optional(),
+  pago_concasa_resultado: z.string().nullable().optional(),
   sort_ts: z.string().nullable().optional(),
   categoria_resumen: z.string().nullable().optional(),
   ops_assigned_to: z.string().nullable().optional(),

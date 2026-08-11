@@ -176,7 +176,7 @@ export function MesaBandejaAccionesRapidas({
             className="rounded-md bg-slate-100 px-2 py-0.5 text-[11px] font-semibold text-slate-700 ring-1 ring-slate-200"
             data-testid="mesa-bandeja-etapa-final"
           >
-            Etapa final
+            {siguiente.label}
           </span>
         ) : null}
 

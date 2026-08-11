@@ -14,8 +14,8 @@ describe("MesaBandejaAccionesRapidas UI wiring P119.3/P119.4/P133", () => {
     assert.match(ui, /stopPropagation/);
     assert.match(ui, /resolveMesaQuickAction/);
     assert.match(ui, /mesa-bandeja-accion-info|kind === "info"/);
-    assert.match(ui, /etapa_final|Etapa final/);
-    assert.match(ui, /MESA_AVANZAR_11_12_CONFIRM|Pago a ConCasa/);
+    assert.match(ui, /etapa_final|Etapa final|siguiente\.label/);
+    assert.match(ui, /MESA_AVANZAR_11_12_CONFIRM|Pago ConCasa|Pago a ConCasa/);
     assert.match(ui, /Tomar expediente/);
     assert.match(ui, /Quitar marca/);
     assert.match(ui, /Tiene documentos/);
@@ -32,6 +32,7 @@ describe("MesaBandejaAccionesRapidas UI wiring P119.3/P119.4/P133", () => {
     assert.match(page, /mesa_set_expediente_marcador|setMarcador/);
     assert.match(page, /MesaBandejaAccionesRapidas/);
     assert.match(page, /firmaAgendableDesde/);
+    assert.match(page, /pagoConcasaResultado/);
 
     const lib = readFileSync(
       path.join(ROOT, "src/lib/mesaBandejaAccionesRapidas.ts"),
@@ -40,7 +41,8 @@ describe("MesaBandejaAccionesRapidas UI wiring P119.3/P119.4/P133", () => {
     assert.match(lib, /MESA_TIENE_RPC_CANONICA_11_A_12 = true/);
     assert.match(lib, /MESA_TIENE_DATOS_BADGE_LABEL = "📌 Tiene documentos"/);
     assert.doesNotMatch(lib, /📌 Tiene datos/);
-    assert.match(lib, /Pasar a Pago a ConCasa/);
+    assert.match(lib, /decidir Sí pagó \/ No pagó|Sí pagó \/ No pagó/);
+    assert.doesNotMatch(lib, /label:\s*"Pasar a Pago a ConCasa"/);
     assert.match(lib, /Pasar a Acuse/);
     assert.match(lib, /Esperando carga de Acuse por el asesor/);
     assert.match(lib, /Esperando agenda del asesor/);
@@ -54,8 +56,8 @@ describe("MesaBandejaAccionesRapidas UI wiring P119.3/P119.4/P133", () => {
       path.join(ROOT, "src/components/mesa-control/MesaExpedienteDetalleReadOnly.tsx"),
       "utf8",
     );
-    assert.match(detalle, /MESA_PAGO_CONCASA_ETAPA11_OPERATIVA_COPY/);
-    assert.match(detalle, /handleAvanzarOperativo11a12/);
+    assert.match(detalle, /MesaPagoConcasaDecisionSection/);
+    assert.match(detalle, /handleDecidirPagoConcasa/);
     assert.match(detalle, /deriveAvanceOperativo11a12View/);
     assert.match(detalle, /mostrar: false/);
   });

@@ -18,6 +18,9 @@ import {
   formatEtapaAsesorPasoLabel,
   NOTA_NUMERACION_ETAPAS,
 } from "@/domain/expedientes/etapa-numeracion-ux";
+import {
+  labelPagoConcasaResultadoConCheck,
+} from "@/domain/expedientes/pago-concasa-resultado";
 
 export interface AsesorSeguimientoOperativoProps {
   etapaActual: number | null;
@@ -31,6 +34,9 @@ export interface AsesorSeguimientoOperativoProps {
   hasAcuseDoc?: boolean;
   /** P132: Notificación cargada. */
   hasNotificacionDoc?: boolean;
+  /** P166: resultado operativo final Pago ConCasa. */
+  pagoConcasaResultado?: "pagado" | "no_pagado" | null;
+  pagoConcasaAt?: string | null;
   formatDateTime: (iso: string) => string;
 }
 
@@ -52,12 +58,15 @@ export function AsesorSeguimientoOperativo({
   origenMesa,
   hasAcuseDoc = false,
   hasNotificacionDoc = false,
+  pagoConcasaResultado = null,
+  pagoConcasaAt = null,
   formatDateTime,
 }: AsesorSeguimientoOperativoProps) {
   const etapaResuelta = resolveEtapaActualOperativa(etapaActual);
   const subestadoLabel = asesorSubestadoOperativoLabel(subestado, submittedToMesa);
   const envioLabel = estadoEnvioMesaLabel(submittedToMesa);
   const cicloLabel = cicloEstadoLabel(cicloEstado);
+  const pagoLabel = labelPagoConcasaResultadoConCheck(pagoConcasaResultado);
 
   return (
     <section
@@ -92,6 +101,24 @@ export function AsesorSeguimientoOperativo({
           >
             {formatEtapaAsesorCorrespondenciaMesa(etapaResuelta)}
           </p>
+          {etapaResuelta === 12 && pagoLabel ? (
+            <div
+              className="mt-2 rounded-md border border-emerald-100 bg-emerald-50/60 px-2 py-1.5"
+              data-testid="asesor-pago-concasa-resultado"
+            >
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-emerald-900/80">
+                Paso 11 · Pago ConCasa
+              </p>
+              <p className="mt-0.5 text-sm font-semibold text-emerald-950">
+                Resultado: {pagoLabel}
+              </p>
+              {pagoConcasaAt ? (
+                <p className="mt-0.5 text-[11px] text-emerald-900/70">
+                  Registrado: {formatDateTime(pagoConcasaAt)}
+                </p>
+              ) : null}
+            </div>
+          ) : null}
         </div>
 
         <div className="rounded-lg border border-gray-100 bg-gray-50 p-3">
@@ -166,7 +193,12 @@ export function AsesorSeguimientoOperativo({
                     {etapa.pasoVisual}
                   </span>
                   <div className="min-w-0">
-                    <p className="font-medium text-gray-900">{etapa.nombre}</p>
+                    <p className="font-medium text-gray-900">
+                      {etapa.nombre}
+                      {etapa.etapaInterna === 12 && pagoLabel
+                        ? ` · ${pagoLabel.replace(/^✓\s*/, "")}`
+                        : ""}
+                    </p>
                     {etapa.pasoVisual !== etapa.etapaInterna ? (
                       <p className="text-[11px] text-gray-500">
                         Etapa interna {etapa.etapaInterna}

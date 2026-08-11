@@ -291,10 +291,19 @@ const ETAPA_EXACTA_OPTIONS = [
   { value: "12", label: "12. Pago a ConCasa" },
 ] as const;
 
-function etapaActualToTexto(etapaActual?: number | null): string {
+function etapaActualToTexto(
+  etapaActual?: number | null,
+  pagoConcasaResultado?: "pagado" | "no_pagado" | null,
+): string {
   if (etapaActual == null) return "—";
   const etapa = Number(etapaActual);
   if (!Number.isFinite(etapa)) return "—";
+
+  if (etapa === 12) {
+    if (pagoConcasaResultado === "pagado") return "12. Pago ConCasa · Pagó";
+    if (pagoConcasaResultado === "no_pagado") return "12. Pago ConCasa · No pagó";
+    return "12. Pago a ConCasa";
+  }
 
   const found = ETAPA_EXACTA_OPTIONS.find((o) => o.value === String(etapa));
   return found?.label ?? "—";
@@ -1607,7 +1616,10 @@ export default function AsesorDashboardPage() {
                       const resultadoReal = p.resultadoReal;
                       const resumenCorreccion = resumenDocumentalPorId[p.id];
                       const montoDisplay = formatMontoAprobadoFila(p.monto_aprobado, decision);
-                      const etapaDisplay = etapaActualToTexto(p.etapaActual);
+                      const etapaDisplay = etapaActualToTexto(
+                        p.etapaActual,
+                        p.operativo?.pagoConcasaResultado,
+                      );
                       const resultadoBadge = asesorResultadoFilaBadge(
                         resultadoReal,
                         resumenCorreccion,

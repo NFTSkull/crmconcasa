@@ -106,6 +106,9 @@ const EXPEDIENTES_LIST_SELECT = `
   comentario_rechazo,
   fecha_cita,
   firma_agendable_desde,
+  pago_concasa_resultado,
+  pago_concasa_at,
+  pago_concasa_by,
   created_at,
   updated_at,
   expediente_anterior_id,
@@ -537,6 +540,7 @@ async function fetchExpedientesListForMesaControlPaginated(
       reingreso_manual_count: row.reingreso_manual_count,
       reingreso_manual_at: row.reingreso_manual_at,
       reingreso_manual_by: row.reingreso_manual_by,
+      pago_concasa_resultado: row.pago_concasa_resultado,
     };
     const base = mapSupabaseRowToExpedienteMock(
       listRow,
@@ -973,6 +977,57 @@ export class SupabaseExpedientesRepo implements ExpedientesRepo {
     if (!refreshed) {
       throw new ExpedientesSupabaseError(
         "La etapa se actualizó, pero no se pudo recargar el expediente.",
+      );
+    }
+
+    return refreshed;
+  }
+
+  async decidirPagoConcasa(
+    expedienteId: string,
+    resultado: "pagado" | "no_pagado",
+    comentario?: string | null,
+  ): Promise<ExpedienteMock> {
+    const idNorm = String(expedienteId).trim();
+    if (!idNorm) {
+      throw new ExpedientesSupabaseError("El identificador del expediente es obligatorio.");
+    }
+    if (resultado !== "pagado" && resultado !== "no_pagado") {
+      throw new ExpedientesSupabaseError("Resultado de Pago ConCasa inválido.");
+    }
+
+    const { client } = await requireSupabaseSession();
+
+    const rpcArgs: {
+      p_expediente_id: string;
+      p_resultado: string;
+      p_comentario?: string;
+    } = {
+      p_expediente_id: idNorm,
+      p_resultado: resultado,
+    };
+
+    const comentarioNorm = comentario?.trim();
+    if (comentarioNorm) {
+      rpcArgs.p_comentario = comentarioNorm;
+    }
+
+    const { data, error } = await client.rpc("decidir_pago_concasa", rpcArgs);
+
+    if (error) {
+      throw mapAvanzarEtapaRpcError(error);
+    }
+
+    if (!data || typeof data !== "object") {
+      throw new ExpedientesSupabaseError(
+        "No se pudo registrar el resultado de Pago ConCasa. Respuesta vacía del servidor.",
+      );
+    }
+
+    const refreshed = await fetchExpedienteById(idNorm);
+    if (!refreshed) {
+      throw new ExpedientesSupabaseError(
+        "El resultado se guardó, pero no se pudo recargar el expediente.",
       );
     }
 

@@ -20,6 +20,8 @@ export interface CasoMock {
   fechaCita?: string;
   /** P132: fecha mínima agenda firma (YYYY-MM-DD). */
   firmaAgendableDesde?: string | null;
+  /** P166: resultado operativo Pago ConCasa. */
+  pagoConcasaResultado?: "pagado" | "no_pagado" | null;
   /** Alta del expediente (precalificación); fallback de urgencia si no hay `fechaEnvioMesa`. */
   createdAt?: string;
   /** Si el inbox la guarda; prioridad sobre `createdAt` / `updatedAt` para orden en bandeja. */
