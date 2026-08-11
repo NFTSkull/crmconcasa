@@ -1233,7 +1233,10 @@ export default function MesaControlPage() {
               </span>
               <span className="truncate text-[10px] text-slate-400">{currentUser.email}</span>
             </span>
-            <NotificationsBell notifications={dashboardNotifications} />
+            <NotificationsBell
+              notifications={dashboardNotifications}
+              userKey={currentUser.email}
+            />
             <Link
               href="/mesa-control/citas"
               className="inline-flex h-9 items-center gap-1.5 rounded-lg border border-slate-300 bg-white px-3 text-xs font-medium text-slate-700 transition-colors hover:bg-slate-50 sm:text-sm"
