@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Fixed
+- **fix(admin): FIRMO=SI canónico en Bernardo** — Firmas COMPLETED con solo `FIRMO=SI` (columna `FIRMA` ya no es requisito). Filas del bloque Firmas sin hora + identidad cuentan en reporting (`slot_time` null); inventario/agenda intactos. Sin migración.
+
+### Fixed
 - **fix(expediente): persistir notas de Datos Generales** — `datos.notaMesa` siempre va en el payload de `save_cliente_datos` (el RPC reemplaza el JSON completo); omitir la clave vacía borraba notas al guardar otros campos. Load hidrata `notaMesa` explícitamente. Sin migración.
 
 ### Fixed

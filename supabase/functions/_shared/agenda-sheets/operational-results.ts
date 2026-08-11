@@ -132,9 +132,22 @@ export function buildOperationalResultUpsertRows(input: {
       continue;
     }
     if (!section) continue;
-    if (!a || isHoraHeader(a)) continue;
-    const slot = parseTime(a);
-    if (!slot) continue;
+    if (isHoraHeader(a)) continue;
+
+    let slotTime: string | null = null;
+    if (a) {
+      const slot = parseTime(a);
+      if (!slot) continue;
+      slotTime = slot;
+    } else if (section.kind === "firmas") {
+      const nss = cell(row, 1);
+      const nombre = cell(row, 2);
+      const firmo = cell(row, 5);
+      if (!nss && !nombre && !firmo) continue;
+      slotTime = null;
+    } else {
+      continue;
+    }
 
     const classified = classifyOperationalRow({
       kind: section.kind,
@@ -149,7 +162,7 @@ export function buildOperationalResultUpsertRows(input: {
       sheet_row: i + 1,
       kind: section.kind,
       location_id: section.location_id,
-      slot_time: slot,
+      slot_time: slotTime,
       booking_id: asUuidOrNull(cell(row, 15)),
       expediente_id: asUuidOrNull(cell(row, 16)),
       ...classified,
@@ -175,8 +188,20 @@ export function buildOperationalResultFromRow(input: {
     return null;
   }
   const a = cell(input.row, 0);
-  const slot = parseTime(a);
-  if (!slot) return null;
+  let slotTime: string | null = null;
+  if (a) {
+    const slot = parseTime(a);
+    if (!slot) return null;
+    slotTime = slot;
+  } else if (input.kind === "firmas") {
+    const nss = cell(input.row, 1);
+    const nombre = cell(input.row, 2);
+    const firmo = cell(input.row, 5);
+    if (!nss && !nombre && !firmo) return null;
+    slotTime = null;
+  } else {
+    return null;
+  }
   const classified = classifyOperationalRow({
     kind: input.kind,
     row: input.row,
@@ -190,7 +215,7 @@ export function buildOperationalResultFromRow(input: {
     sheet_row: input.sheetRow,
     kind: input.kind,
     location_id: input.locationId,
-    slot_time: slot,
+    slot_time: slotTime,
     booking_id: asUuidOrNull(cell(input.row, 15)),
     expediente_id: asUuidOrNull(cell(input.row, 16)),
     ...classified,

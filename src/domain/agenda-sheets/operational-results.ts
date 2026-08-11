@@ -146,10 +146,24 @@ export function buildOperationalResultUpsertRows(input: {
       continue;
     }
     if (!section) continue;
-    if (!a || isSheetColumnHeaderRow(a)) continue;
+    if (isSheetColumnHeaderRow(a)) continue;
 
-    const timeParse = parseSheetTime(a);
-    if (!timeParse.ok) continue;
+    // Inventario exige hora; reporting Firmas puede incluir filas con A vacío
+    // si hay identidad operativa (NSS/NOMBRE/FIRMO). No crea slots de agenda.
+    let slotTime: string | null = null;
+    if (a) {
+      const timeParse = parseSheetTime(a);
+      if (!timeParse.ok) continue;
+      slotTime = timeParse.value;
+    } else if (section.kind === "firmas") {
+      const nss = cell(row, 1);
+      const nombre = cell(row, 2);
+      const firmo = cell(row, 5);
+      if (!nss && !nombre && !firmo) continue;
+      slotTime = null;
+    } else {
+      continue;
+    }
 
     const classified = classifyOperationalRow({
       kind: section.kind,
@@ -167,7 +181,7 @@ export function buildOperationalResultUpsertRows(input: {
       sheet_row: i + 1,
       kind: section.kind,
       location_id: section.location_id,
-      slot_time: timeParse.value,
+      slot_time: slotTime,
       booking_id: bookingId,
       expediente_id: expedienteId,
       ...classified,

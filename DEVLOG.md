@@ -1,3 +1,7 @@
+## 2026-08-11 - Hotfix Bernardo Firmas: FIRMO=SI canónico
+
+Causa: regla previa exigía FIRMO=SI + FIRMA no vacía; operación real deja FIRMA vacía tras marcar SI → KPI 0 con 15 firmas reales el 11-ago. Fix: COMPLETED = FIRMO exacto SI; FIRMA solo informativa. Reporting permite filas Firmas sin hora (identidad NSS/NOMBRE/FIRMO) con slot_time null; parsePhysicalInventoryFromGrid sigue exigiendo hora. Sin migración/Code.gs.
+
 ## 2026-08-11 - Hotfix: persistir notas de Datos Generales
 
 Causa: `buildSaveClienteDatosRpcPayload` omitía `notaMesa` si estaba vacía/whitespace; `save_cliente_datos` hace `datos = EXCLUDED.datos` (reemplazo total) → al guardar otros campos sin la clave se perdían notas previas o no cerraba el ciclo vacío. Fix: siempre enviar `notaMesa` (string trim, puede ser `""`); mapper/load hidratan string; `normalizeClienteDatosForSave` incluye la clave. Sin migración.
