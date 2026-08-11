@@ -72,4 +72,34 @@ describe("deriveResumenExpedienteCorreccion", () => {
       "correccion_requerida",
     );
   });
+
+  it("cliente_* rechazado cuenta aunque el pack legado esté faltante", () => {
+    assert.equal(
+      deriveResumenExpedienteCorreccion(
+        [row("cliente_ine_frente", "rechazado")],
+        "completo",
+      ),
+      "correccion_requerida",
+    );
+  });
+
+  it("retencion_envios correccion_requerida marca corrección", () => {
+    assert.equal(
+      deriveResumenExpedienteCorreccion(todosValidados, {
+        clienteDatosEstado: "completo",
+        retencionEnvioEstado: "correccion_requerida",
+      }),
+      "correccion_requerida",
+    );
+  });
+
+  it("cliente_* resubido marca correccion_enviada antes de faltantes legado", () => {
+    assert.equal(
+      deriveResumenExpedienteCorreccion(
+        [row("cliente_estado_cuenta", "resubido")],
+        "completo",
+      ),
+      "correccion_enviada",
+    );
+  });
 });

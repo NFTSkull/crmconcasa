@@ -1,3 +1,7 @@
+## 2026-08-11 - Pendientes asesor calibrados (P167)
+
+Auditoría RO prod: KPI «Corrección requerida» dependía casi solo de `cliente_datos.rechazado` porque SQL/TS miraban pack legado `ine|…` mientras Mesa rechaza `cliente_*`. Bio chip solo etapa 3; card UI también 4/5 tras cancel. Fix: `deriveResumenExpedienteCorreccion` + mig. **167** helpers (`latest_booking_status` = estado vigente, no “existe cancelled”); `asesor-pendientes.ts` (prioridad corrección→Acuse→bio→firma); UI «Necesita corrección» + copy N elementos; focus refetch ≥8s. Sin Cloud hasta publicación controlada.
+
 ## 2026-08-11 - Pago ConCasa: Sí pagó / No pagó (P166)
 
 Contrato previo (P119.4): un botón «Pasar a Pago a ConCasa» vía `avanzar_etapa_operativa` 11→12 sin resultado persistido; el trigger P134 reconocía ingreso en todo avance. Operación real necesita distinguir pagó vs no pagó sin rechazo ni rollback de etapa. Fix: columnas `pago_concasa_resultado|at|by`, RPC `decidir_pago_concasa`, UI dual Mesa + RO asesor/bandeja; gate 11→12 exige resultado; ingresos solo si `pagado`. Booking de firma fuera de 9/10 intacto.

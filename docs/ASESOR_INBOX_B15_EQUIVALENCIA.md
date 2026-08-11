@@ -2,6 +2,7 @@
 
 Fuente UI: `src/app/asesor/page.tsx` + helpers citados.
 RPCs: `asesor_list_expedientes_page`, `asesor_inbox_summary` (mig. **161**).
+Helpers calibrados: `asesor_inbox_categoria_correccion`, `asesor_inbox_pendiente_agendar_biometricos` (mig. **167**).
 **UI `/asesor`:** cableada en B1 UI (sin `listForAsesor`, sin fallback).
 
 ## Universo base
@@ -21,21 +22,22 @@ RPCs: `asesor_list_expedientes_page`, `asesor_inbox_summary` (mig. **161**).
 | 5 | `decision = aprobado` | `aprobado_editor` |
 | 6 | else (`pendiente` / ausente) | `pendiente_editor` |
 
-## `categoria_correccion` ← `deriveResumenExpedienteCorreccion` (llamada UI actual)
+## `categoria_correccion` ← `deriveResumenExpedienteCorreccion` (P167)
 
-La UI pasa solo `clienteDatosEstado` (sin `updatedAt`/`validatedAt`/`fechaEnvioMesa`):
+Orden canónico (TS + SQL `asesor_inbox_categoria_correccion`):
 
-| Orden TS | Condición | Valor |
+| Orden | Condición | Valor |
 |---|---|---|
 | 1 | `cliente_datos.estado = rechazado` | `correccion_requerida` |
-| 2 | `deriveResumenDocumental(DOCUMENTO_TIPOS)` | ver abajo |
-| 3 | si doc ∈ {correccion_requerida, correccion_enviada} | ese valor |
-| 4 | `clienteDatosCorreccionEnviadaPendiente` | **no dispara** en UI actual (faltan fechas) |
-| 5 | else | valor documental |
+| 2 | `retencion_envios.estado = correccion_requerida` | `correccion_requerida` |
+| 3 | última versión de algún doc corregible en `rechazado` (`cliente_*` integración/complementarios, legado `ine|estado_cuenta|nss|direccion`, acuse principal) | `correccion_requerida` |
+| 4 | última versión de algún doc corregible en `resubido` | `correccion_enviada` |
+| 5 | pack legado `DOCUMENTO_TIPOS` (faltantes / subido / validado) | ver abajo |
+| 6 | `clienteDatosCorreccionEnviadaPendiente` (solo si UI pasa fechas) | `correccion_enviada` |
 
-`DOCUMENTO_TIPOS` = `ine`, `estado_cuenta`, `nss`, `direccion` (legado). Última versión activa por tipo (`deleted_at IS NULL`, `created_at DESC, id DESC`).
+`DOCUMENTO_TIPOS` legado = `ine`, `estado_cuenta`, `nss`, `direccion`. Última versión activa por tipo (`deleted_at IS NULL`, `created_at DESC, id DESC`).
 
-| Doc pack | Valor |
+| Doc pack legado | Valor |
 |---|---|
 | falta alguno o `faltante` | `faltantes` |
 | alguno `rechazado` | `correccion_requerida` |
@@ -44,7 +46,9 @@ La UI pasa solo `clienteDatosEstado` (sin `updatedAt`/`validatedAt`/`fechaEnvioM
 | todos `validado` | `documentos_validados` |
 | else | `pendiente_revision_documental` |
 
-**Nota prod:** el corpus actual usa `cliente_*`, no los 4 tipos legado → el pack documental resulta casi siempre `faltantes`; el chip «Corrección requerida» en la práctica depende de `cliente_datos.estado = rechazado`. La RPC **reproduce esa regla TS exacta** (no inventa mapeo `cliente_*`→legado).
+**P167:** el corpus productivo usa `cliente_*`; rechazo solo documental ya entra al KPI «Necesita corrección» (antes dependía casi solo de `cliente_datos.rechazado`). Contador = expedientes distintos con ≥1 corrección abierta (no N filas por N ítems).
+
+Semántica UI compartida: `src/domain/expedientes/asesor-pendientes.ts` (`getAdvisorPrimaryPendingAction`, `listAsesorCorreccionesAbiertas`).
 
 ## Chips / KPIs (`kpis` + `quickFilterChips`) — universo **sin** filtros de búsqueda
 
@@ -52,16 +56,20 @@ La UI pasa solo `clienteDatosEstado` (sin `updatedAt`/`validatedAt`/`fechaEnvioM
 |---|---|---|
 | `total` | `totalCount` = filas asesor | `count(*)` deleted null |
 | `enTramite` | `resultadoReal=en_tramite` ∧ categoría ∉ {correccion_requerida, correccion_enviada} | igual |
-| `correccionRequerida` | categoría = correccion_requerida | igual |
+| `correccionRequerida` (label UI «Necesita corrección») | categoría = correccion_requerida | igual |
 | `correccionEnviada` | categoría = correccion_enviada | igual |
 | `rechazadosMesa` | resultadoReal = rechazado_mesa | igual |
 | `cancelados` | resultadoReal = cancelado | igual |
 | `aprobadosEditor` / `noCumple` | resultadoReal editor | igual (objeto kpis; no tarjetas) |
-| `agendarBiometricos` | `isAsesorPendienteAgendarBiometricos` (Supabase) | `submitted` ∧ etapa=3 ∧ ¬booking notificacion booked ∧ ¬booking biometricos booked |
-| `agendarFirma` | `isAsesorPendienteAgendarFirma` + `canShowAsesorFirmasSupabaseCard` | etapa 9 sin firmas booked; etapa 10 sin booked y con cancelled firmas |
+| `agendarBiometricos` | `isAsesorPendienteAgendarBiometricos` | submitted ∧ último notif ≠ booked ∧ último bio ≠ booked ∧ (etapa=3 ∨ (etapa∈{4,5} ∧ último bio = cancelled)) |
+| `agendarFirma` | `isAsesorPendienteAgendarFirma` + `canShowAsesorFirmasSupabaseCard` | etapa 9: último firmas ≠ booked; etapa 10: último firmas = cancelled |
 | `subirAcuse` | etapa≥8 ∧ panel retención ∧ ¬acuse principal listo | `submitted` ∧ etapa≥8 ∧ ¬ existe `retencion_acuse_con_sello`\|`retencion_carta_sin_sello` con estatus ∈ {subido,resubido,validado} |
 
+Prioridad de tarea primaria: corrección abierta → Subir/Corregir Acuse → Agendar/Reagendar bio → Agendar/Reagendar firma.
+
 En modo Supabase los hints de agenda **ignoran** `fecha_cita` del expediente (solo bookings).
+
+Actualización: `/asesor` refetch al focus/visibility (debounce ≥8s); sin polling agresivo.
 
 ## Filtros listado (`expedientesFiltrados`) → `asesor_list_expedientes_page`
 
