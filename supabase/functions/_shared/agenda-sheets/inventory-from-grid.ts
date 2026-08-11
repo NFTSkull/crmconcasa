@@ -109,10 +109,17 @@ export function buildInventoryUpsertRows(params: {
     const techEstado = cell(row, 14);
     const bookingIdRaw = asUuidOrNull(cell(row, 15) || null);
     const expedienteIdRaw = asUuidOrNull(cell(row, 16) || null);
-    const cancelledMeta = techEstado.toUpperCase() === "CANCELADA";
+    const estadoUpper = techEstado.toUpperCase();
+    const cancelledMeta = estadoUpper === "CANCELADA";
+    const historyMeta =
+      estadoUpper === "REAGENDADO" || estadoUpper === "RESCHEDULED_HISTORY";
+    const detachMeta = cancelledMeta || historyMeta;
     let status = "available";
     let occupancySource = "reconciliation";
-    if (cancelledMeta) {
+    if (historyMeta) {
+      status = "disabled";
+      occupancySource = "reconciliation";
+    } else if (cancelledMeta) {
       status = "available";
       occupancySource = "reconciliation";
     } else if (bookingIdRaw) {
@@ -122,10 +129,10 @@ export function buildInventoryUpsertRows(params: {
       status = "occupied_external";
       occupancySource = "sheet_legacy";
     }
-    const bookingId = cancelledMeta ? null : bookingIdRaw;
-    const expedienteId = cancelledMeta ? null : expedienteIdRaw;
+    const bookingId = detachMeta ? null : bookingIdRaw;
+    const expedienteId = detachMeta ? null : expedienteIdRaw;
     const fingerprint =
-      status === "occupied_external" && !cancelledMeta
+      status === "occupied_external" && !detachMeta
         ? manualOccupancyFingerprint({ nss, name, advisor })
         : null;
 
@@ -150,9 +157,9 @@ export function buildInventoryUpsertRows(params: {
         rowNumber: sheetRow,
       }),
       status,
-      visible_nss: cancelledMeta ? null : nss || null,
-      visible_name: cancelledMeta ? null : name || null,
-      visible_advisor: cancelledMeta ? null : advisor || null,
+      visible_nss: detachMeta ? null : nss || null,
+      visible_name: detachMeta ? null : name || null,
+      visible_advisor: detachMeta ? null : advisor || null,
       booking_id: bookingId,
       expediente_id: expedienteId,
       occupancy_source: occupancySource,

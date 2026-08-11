@@ -152,6 +152,29 @@ describe("agenda-sheet sync title space + requeue (mig. 134)", () => {
     assert.match(worker, /clearedByBooking/);
   });
 
+  it("reagendado histórico: REAGENDADO + replacement + reindex (no clear PII)", () => {
+    assert.match(worker, /isRescheduleCancelContext/);
+    assert.match(worker, /inspectRescheduleHistoryState/);
+    assert.match(worker, /buildRescheduledHistoryTechRow/);
+    assert.match(worker, /buildInsertRowBelowRequests/);
+    assert.match(worker, /buildOrangeHistoryFormatRequests/);
+    assert.match(worker, /historyByBooking/);
+    assert.match(worker, /isPriorSheetStillActivelyOwned/);
+    assert.match(worker, /batchUpdateSpreadsheet/);
+    assert.match(worker, /locateSheetRowByBookingId/);
+    assert.match(worker, /sortRescheduleJobsForTabSafety/);
+    assert.match(worker, /decideHistoryRollbackFromGrid/);
+    assert.match(worker, /a1FullTabAuRange/);
+    const cancelStart = worker.indexOf("// Cancelación / cleanup");
+    const cancelEnd = worker.indexOf("// booking_created desde CRM");
+    assert.ok(cancelStart > 0 && cancelEnd > cancelStart);
+    const cancelBlock = worker.slice(cancelStart, cancelEnd);
+    assert.match(cancelBlock, /rescheduleCtx/);
+    assert.match(cancelBlock, /REAGENDADO|buildRescheduledHistoryTechRow/);
+    // Cancelación pura sigue con batchClear; reagendo usa batchUpdateValues.
+    assert.match(cancelBlock, /batchClear/);
+  });
+
   it("dry_run_cancel_cleanup exige secreto worker antes del body", () => {
     const authIdx = worker.indexOf('jsonError(401, "unauthorized"');
     const dryIdx = worker.indexOf("dry_run_cancel_cleanup");
@@ -159,13 +182,12 @@ describe("agenda-sheet sync title space + requeue (mig. 134)", () => {
     assert.ok(dryIdx > authIdx, "dry-run solo tras auth");
     assert.match(worker, /x-concasa-worker-secret/);
     assert.match(worker, /GOOGLE_SHEETS_WORKER_SECRET/);
-    // Cancel handler: batchClear ranges B:D + O:U, sin updateValues
+    // Cancel handler: batchClear ranges B:D + O:U en rama pura; reagendo escribe O.
     const cancelStart = worker.indexOf("// Cancelación / cleanup");
     const cancelEnd = worker.indexOf("// booking_created desde CRM");
     assert.ok(cancelStart > 0 && cancelEnd > cancelStart);
     const cancelBlock = worker.slice(cancelStart, cancelEnd);
     assert.match(cancelBlock, /batchClear/);
-    assert.doesNotMatch(cancelBlock, /updateValues/);
     assert.doesNotMatch(cancelBlock, /a1VisibleRange/);
   });
 

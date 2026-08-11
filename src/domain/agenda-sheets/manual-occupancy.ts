@@ -7,12 +7,15 @@ export type SheetOccupancyClass =
   | "FREE"
   | "OCCUPIED_CRM"
   | "OCCUPIED_MANUAL"
+  | "RESCHEDULED_HISTORY"
+  | "ANOMALY"
   | "MANUAL_ENTRY_WITHOUT_SLOT";
 
 export type InventoryReconcileClass =
   | "MATCHED_CRM"
   | "MANUAL_OCCUPIED"
   | "FREE"
+  | "RESCHEDULED_HISTORY"
   | "CRM_BOOKING_MISSING_FROM_SHEET"
   | "MANUAL_ENTRY_WITHOUT_SLOT"
   | "DUPLICATE"
@@ -58,6 +61,9 @@ export function classifySheetRowOccupancy(input: {
     return identity ? "MANUAL_ENTRY_WITHOUT_SLOT" : "FREE";
   }
   if (estado === "CANCELADA") return "FREE";
+  if (estado === "REAGENDADO" || estado === "RESCHEDULED_HISTORY") {
+    return "RESCHEDULED_HISTORY";
+  }
   if (bookingId) return "OCCUPIED_CRM";
   if (identity) return "OCCUPIED_MANUAL";
   return "FREE";
@@ -136,6 +142,10 @@ export function classifyInventoryReconcileRow(input: {
   if (input.sheetClass === "MANUAL_ENTRY_WITHOUT_SLOT") {
     return "MANUAL_ENTRY_WITHOUT_SLOT";
   }
+  if (input.sheetClass === "RESCHEDULED_HISTORY") {
+    return "RESCHEDULED_HISTORY";
+  }
+  if (input.sheetClass === "ANOMALY") return "AMBIGUOUS";
   if (
     input.inventoryBookingId &&
     input.sheetClass === "FREE" &&

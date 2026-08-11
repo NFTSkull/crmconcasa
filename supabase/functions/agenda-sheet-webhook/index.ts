@@ -335,6 +335,15 @@ Deno.serve(async (req) => {
       });
     }
 
+    // Fila histórica de reagendo: visible, sin cupo, sin occupied_external.
+    if (sheetClass === "RESCHEDULED_HISTORY") {
+      return jsonOk({
+        ignored: true,
+        reason: "rescheduled_history",
+        occupancy: "RESCHEDULED_HISTORY",
+      });
+    }
+
     const slotTime = parseTime(horaRaw);
     if (!slotTime) {
       // Encabezado/título en A: no procesar como slot

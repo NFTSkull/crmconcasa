@@ -23,6 +23,11 @@ export type SheetsAdapter = {
    * /bordes/altura intactos). Preferido para cancelación B:D + O:U.
    */
   batchClear: (rangesA1: string[]) => Promise<void>;
+  /**
+   * Spreadsheet.batchUpdate (insertDimension / deleteDimension / repeatCell / copyPaste).
+   * Usado por reagendado histórico + replacement.
+   */
+  batchUpdateSpreadsheet: (requests: readonly object[]) => Promise<void>;
   /** Solo metadatos de pestañas (sin valores de celdas). */
   listSheets: () => Promise<SheetMeta[]>;
 };
@@ -172,6 +177,25 @@ export async function createGoogleSheetsAdapter(input: {
         throw new Error(`google_sheets_batch_clear_failed:${res.status}:${body}`);
       }
     },
+    async batchUpdateSpreadsheet(requests) {
+      const reqs = [...(requests ?? [])];
+      if (reqs.length === 0) return;
+      const url = `${base}:batchUpdate`;
+      const res = await fetchFn(url, {
+        method: "POST",
+        headers: {
+          authorization: `Bearer ${accessToken}`,
+          "content-type": "application/json",
+        },
+        body: JSON.stringify({ requests: reqs }),
+      });
+      if (!res.ok) {
+        const body = (await res.text()).slice(0, 180);
+        throw new Error(
+          `google_sheets_spreadsheet_batch_update_failed:${res.status}:${body}`,
+        );
+      }
+    },
     async listSheets() {
       const url =
         `${base}?fields=sheets.properties(sheetId,title,hidden)`;
@@ -270,6 +294,10 @@ export function createMemorySheetsAdapter(
         for (let i = from; i <= to; i++) rowVals[i] = "";
         store.set(fullKey, [rowVals]);
       }
+    },
+    async batchUpdateSpreadsheet(_requests) {
+      // Memory adapter: no-op estructural (tests de dominio no mutan grid aquí).
+      void _requests;
     },
     async listSheets() {
       return sheets;

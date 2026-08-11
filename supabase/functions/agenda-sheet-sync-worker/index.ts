@@ -32,6 +32,23 @@ import {
   sortOutboxForRescheduleMove,
   type ClearedRowRestoreSnapshot,
 } from "../_shared/agenda-sheets/reschedule-sheet-move.ts";
+import {
+  a1FullTabAuRange,
+  buildDeleteReplacementRowRequests,
+  buildInsertRowBelowRequests,
+  buildOrangeHistoryFormatRequests,
+  buildReplacementSlotTechRow,
+  buildRescheduledHistoryTechRow,
+  decideHistoryRollbackFromGrid,
+  inspectRescheduleHistoryState,
+  isPriorSheetStillActivelyOwned,
+  isRescheduleCancelContext,
+  locateSheetRowByBookingId,
+  shouldRollbackHistoryAfterCreateFailure,
+  siblingCreateHasPriorCancelled,
+  sortRescheduleJobsForTabSafety,
+  type RescheduleHistorySnapshot,
+} from "../_shared/agenda-sheets/rescheduled-history.ts";
 import { createGoogleSheetsAdapter } from "../_shared/agenda-sheets/google.ts";
 import {
   parseTabMapJson,
@@ -180,7 +197,10 @@ Deno.serve(async (req) => {
     const claimed = (events ?? []) as Array<Record<string, unknown>>;
     if (claimed.length === 0) return jsonOk({ processed: 0 });
     // Reagenda = cancel+create: procesar limpieza antes de escribir la nueva fila.
-    const list = sortOutboxForRescheduleMove(claimed);
+    // Mismo tab: filas inferiores primero; cada mutación relocaliza por UUID.
+    const list = sortRescheduleJobsForTabSafety(
+      sortOutboxForRescheduleMove(claimed),
+    );
 
     if (!email || !pk) {
       for (const ev of list) {
@@ -214,6 +234,7 @@ Deno.serve(async (req) => {
 
     /** Snapshots de filas limpiadas en este claim (restore best-effort si create falla). */
     const clearedByBooking = new Map<string, ClearedRowRestoreSnapshot>();
+    const historyByBooking = new Map<string, RescheduleHistorySnapshot>();
 
     /** Título exacto de Google por sheetId (conserva trailing spaces). */
     const resolveLiveTitle = async (
@@ -233,6 +254,82 @@ Deno.serve(async (req) => {
 
     /** Best-effort: reescribe B:D+O:U de la cita anterior si create falló tras clear. */
     const restorePriorSheetRow = async (priorBookingId: string) => {
+      const hist = historyByBooking.get(priorBookingId);
+      if (
+        shouldRollbackHistoryAfterCreateFailure({
+          createFailed: true,
+          historySnapshot: hist,
+        }) &&
+        hist
+      ) {
+        try {
+          const liveGrid = await adapter.getValues(
+            a1FullTabAuRange(hist.sheetTitle),
+          );
+          const rb = decideHistoryRollbackFromGrid({
+            grid: liveGrid,
+            priorBookingId,
+            destinationWriteConfirmed: false,
+          });
+          if (rb.action === "noop" || rb.action === "noop_keep_history") {
+            return;
+          }
+          await adapter.batchUpdateValues([
+            {
+              range: a1TechRange(hist.sheetTitle, rb.historyRow),
+              values: [[...hist.techOUBefore]],
+            },
+          ]);
+          if (
+            rb.action === "restore_active_and_delete_replacement" &&
+            hist.sheetId > 0
+          ) {
+            await adapter.batchUpdateSpreadsheet(
+              buildDeleteReplacementRowRequests({
+                sheetId: hist.sheetId,
+                replacementRow1Based: rb.replacementRow,
+              }),
+            );
+            const { data: invShift } = await supabase
+              .from("agenda_sheet_slot_inventory")
+              .select("id,sheet_row")
+              .eq("sheet_id", hist.sheetId)
+              .gt("sheet_row", rb.historyRow);
+            for (const r of invShift ?? []) {
+              const from = Number(r.sheet_row ?? 0);
+              if (from > rb.historyRow) {
+                await supabase
+                  .from("agenda_sheet_slot_inventory")
+                  .update({ sheet_row: from - 1 })
+                  .eq("id", r.id);
+              }
+            }
+            const { data: linkShift } = await supabase
+              .from("agenda_sheet_slot_links")
+              .select("id,row_number")
+              .eq("sheet_id", hist.sheetId)
+              .gt("row_number", rb.historyRow)
+              .is("deleted_at", null);
+            for (const r of linkShift ?? []) {
+              const from = Number(r.row_number ?? 0);
+              if (from > rb.historyRow) {
+                await supabase
+                  .from("agenda_sheet_slot_links")
+                  .update({ row_number: from - 1 })
+                  .eq("id", r.id);
+              }
+            }
+          }
+        } catch (restoreErr) {
+          console.error(
+            "restore_prior_history_failed",
+            priorBookingId,
+            String(restoreErr),
+          );
+        }
+        return;
+      }
+
       const snap = clearedByBooking.get(priorBookingId);
       if (
         !shouldRestorePriorAfterCreateFailure({
@@ -361,7 +458,7 @@ Deno.serve(async (req) => {
               : null,
           });
           let title = String(coords.sheetTitle ?? "");
-          const row = Number(coords.sheetRow ?? 0);
+          let row = Number(coords.sheetRow ?? 0);
           const sheetId = Number(coords.sheetId ?? 0);
           if (!(row > 0) || !title) {
             const evidence =
@@ -393,9 +490,21 @@ Deno.serve(async (req) => {
           }
           title = await resolveLiveTitle(sheetId, title);
 
-          // Último read antes de clear (carrera / reuso).
-          const fresh = await adapter.getValues(a1FullReadRange(title, row));
-          const fr = fresh[0] ?? [];
+          // Relocalizar por booking UUID (P). sheet_row es coordenada mutable.
+          let tabGrid: string[][] = [];
+          try {
+            tabGrid = await adapter.getValues(a1FullTabAuRange(title));
+          } catch {
+            tabGrid = [];
+          }
+          const locatedRow = locateSheetRowByBookingId(tabGrid, bookingId);
+          if (locatedRow) row = locatedRow;
+
+          let fr = (tabGrid[row - 1] ?? []) as string[];
+          if (tabGrid.length === 0 || fr.length === 0) {
+            const fresh = await adapter.getValues(a1FullReadRange(title, row));
+            fr = (fresh[0] ?? []) as string[];
+          }
           const horaBefore = String(fr[0] ?? "");
           const gnBefore = snapshotPreserveGN(fr);
           const decision = classifyCancelRowClearance({
@@ -455,6 +564,290 @@ Deno.serve(async (req) => {
                 }`.slice(0, 500),
             });
             failed++;
+            continue;
+          }
+
+          // Reagendo: conservar fila + REAGENDADO naranja + replacement FREE.
+          // Cancelación pura: batchClear B:D + O:U (P160).
+          let rescheduleCtx = isRescheduleCancelContext({
+            payloadRescheduleMove: payload.reschedule_move,
+            payloadRescheduleHistory: payload.reschedule_history,
+            siblingCreateHasPrior: siblingCreateHasPriorCancelled(
+              list,
+              bookingId,
+            ),
+            cancelNote: payload.notes
+              ? String(payload.notes)
+              : payload.note
+              ? String(payload.note)
+              : null,
+          });
+          if (!rescheduleCtx) {
+            const { data: relatedCreates } = await supabase
+              .from("agenda_sheet_sync_outbox")
+              .select("id,payload")
+              .eq("event_type", "booking_created")
+              .contains("payload", { prior_cancelled_booking_id: bookingId })
+              .limit(1);
+            if ((relatedCreates ?? []).length > 0) rescheduleCtx = true;
+          }
+
+          if (rescheduleCtx) {
+            const inspection = inspectRescheduleHistoryState({
+              historyRowNumber: row,
+              historyRow: fr,
+              nextRow: tabGrid[row] ?? null,
+              priorBookingId: bookingId,
+            });
+
+            if (inspection.phase === "no_hora") {
+              await supabase.rpc("agenda_sheet_mark_outbox", {
+                p_id: ev.id,
+                p_status: "dead",
+                p_error: `reschedule_history_no_hora:sheetId=${sheetId}:row=${row}`,
+              });
+              failed++;
+              continue;
+            }
+
+            if (
+              inspection.phase === "not_applicable" ||
+              inspection.phase === "anomaly"
+            ) {
+              await supabase.rpc("agenda_sheet_mark_outbox", {
+                p_id: ev.id,
+                p_status: "dead",
+                p_error:
+                  `reschedule_history_${inspection.phase}:${inspection.reason}`
+                    .slice(0, 500),
+              });
+              failed++;
+              continue;
+            }
+
+            let replacementRow = inspection.replacementRow;
+            let insertedReplacement = false;
+            const techBefore = [14, 15, 16, 17, 18, 19, 20].map((i) =>
+              String(fr[i] ?? ""),
+            );
+
+            if (inspection.phase === "already_complete") {
+              historyByBooking.set(bookingId, {
+                mode: "history",
+                bookingId,
+                expedienteId: String(payload.expediente_id ?? ""),
+                sheetTitle: title,
+                sheetId,
+                historyRow: row,
+                replacementRow: replacementRow,
+                techOUBefore: techBefore,
+                hora: inspection.hora,
+                insertedReplacement: false,
+              });
+              await supabase.rpc("agenda_sheet_mark_cancelled_cleared", {
+                p_booking_id: bookingId,
+              });
+              await supabase.rpc("agenda_sheet_mark_outbox", {
+                p_id: ev.id,
+                p_status: "done",
+              });
+              done++;
+              continue;
+            }
+
+            // Marcar histórico (conserva B:D / G:N).
+            if (
+              inspection.phase === "need_full" ||
+              inspection.phase === "need_replacement_only"
+            ) {
+              const techHistory = buildRescheduledHistoryTechRow({
+                priorBookingId: bookingId,
+                expedienteId: String(payload.expediente_id ?? ""),
+                slotKey: String(fr[17] ?? payload.slot_key ?? ""),
+                syncUpdatedAt: new Date().toISOString(),
+              });
+              await adapter.batchUpdateValues([
+                {
+                  range: a1TechRange(title, row),
+                  values: [techHistory],
+                },
+              ]);
+              if (sheetId > 0) {
+                await adapter.batchUpdateSpreadsheet(
+                  buildOrangeHistoryFormatRequests({
+                    sheetId,
+                    historyRow1Based: row,
+                  }),
+                );
+              }
+            }
+
+            if (
+              inspection.phase === "need_full" ||
+              inspection.phase === "need_replacement_only"
+            ) {
+              if (sheetId <= 0) {
+                await supabase.rpc("agenda_sheet_mark_outbox", {
+                  p_id: ev.id,
+                  p_status: "failed",
+                  p_error: "reschedule_history_missing_sheet_id_for_insert",
+                });
+                failed++;
+                continue;
+              }
+              await adapter.batchUpdateSpreadsheet(
+                buildInsertRowBelowRequests({
+                  sheetId,
+                  historyRow1Based: row,
+                }),
+              );
+              insertedReplacement = true;
+              replacementRow = row + 1;
+
+              // Reindex filas absolutas > history (inventory + links).
+              const { data: invShift } = await supabase
+                .from("agenda_sheet_slot_inventory")
+                .select("id,sheet_row")
+                .eq("sheet_id", sheetId)
+                .gt("sheet_row", row)
+                .order("sheet_row", { ascending: false });
+              for (const r of invShift ?? []) {
+                const from = Number(r.sheet_row ?? 0);
+                const to = from + 1;
+                await supabase
+                  .from("agenda_sheet_slot_inventory")
+                  .update({ sheet_row: to })
+                  .eq("id", r.id);
+              }
+              const { data: linkShift } = await supabase
+                .from("agenda_sheet_slot_links")
+                .select("id,row_number")
+                .eq("sheet_id", sheetId)
+                .gt("row_number", row)
+                .is("deleted_at", null)
+                .order("row_number", { ascending: false });
+              for (const r of linkShift ?? []) {
+                const from = Number(r.row_number ?? 0);
+                await supabase
+                  .from("agenda_sheet_slot_links")
+                  .update({ row_number: from + 1 })
+                  .eq("id", r.id);
+              }
+
+              // Replacement: misma hora, sin PII/tech (A permitido solo aquí).
+              const titleEsc = `'${title.replace(/'/g, "''")}'`;
+              await adapter.batchUpdateValues([
+                {
+                  range: `${titleEsc}!A${replacementRow}`,
+                  values: [[inspection.hora]],
+                },
+                {
+                  range: a1BdRange(title, replacementRow),
+                  values: [["", "", ""]],
+                },
+                {
+                  range: a1TechRange(title, replacementRow),
+                  values: [buildReplacementSlotTechRow()],
+                },
+              ]);
+              // Quitar fondo naranja heredado del histórico.
+              await adapter.batchUpdateSpreadsheet([
+                {
+                  repeatCell: {
+                    range: {
+                      sheetId,
+                      startRowIndex: replacementRow - 1,
+                      endRowIndex: replacementRow,
+                      startColumnIndex: 0,
+                      endColumnIndex: 21,
+                    },
+                    cell: {
+                      userEnteredFormat: {
+                        backgroundColor: { red: 1, green: 1, blue: 1 },
+                      },
+                    },
+                    fields: "userEnteredFormat.backgroundColor",
+                  },
+                },
+              ]);
+
+              // Inventario: histórico disabled; clonar cupo FREE en replacement.
+              if (coords.inventoryId) {
+                const { data: invHist } = await supabase
+                  .from("agenda_sheet_slot_inventory")
+                  .select(
+                    "spreadsheet_id,sheet_id,sheet_title,booking_date,kind,location_id,slot_time,sheet_slot_time,organization_id,slot_key",
+                  )
+                  .eq("id", coords.inventoryId)
+                  .maybeSingle();
+                await supabase
+                  .from("agenda_sheet_slot_inventory")
+                  .update({
+                    status: "disabled",
+                    booking_id: null,
+                    occupancy_source: "reconciliation",
+                  })
+                  .eq("id", coords.inventoryId);
+                if (invHist && replacementRow) {
+                  const horaNorm =
+                    parseTime(String(inspection.hora).slice(0, 8)) ??
+                    String(invHist.sheet_slot_time ?? "").slice(0, 5);
+                  const newSlotKey = String(invHist.slot_key ?? "").replace(
+                    /\|row=\d+/,
+                    `|row=${replacementRow}`,
+                  );
+                  await supabase.from("agenda_sheet_slot_inventory").upsert(
+                    {
+                      spreadsheet_id: invHist.spreadsheet_id,
+                      sheet_id: invHist.sheet_id,
+                      sheet_title: invHist.sheet_title,
+                      booking_date: invHist.booking_date,
+                      sheet_row: replacementRow,
+                      kind: invHist.kind,
+                      location_id: invHist.location_id,
+                      slot_time: invHist.slot_time,
+                      sheet_slot_time: invHist.sheet_slot_time ??
+                        (horaNorm ? `${horaNorm}:00` : null),
+                      slot_key: newSlotKey ||
+                        `replacement:${invHist.sheet_id}:${replacementRow}`,
+                      status: "available",
+                      booking_id: null,
+                      expediente_id: null,
+                      occupancy_source: "reconciliation",
+                      organization_id: invHist.organization_id,
+                      visible_nss: null,
+                      visible_name: null,
+                      visible_advisor: null,
+                    },
+                    {
+                      onConflict: "spreadsheet_id,sheet_id,sheet_row",
+                    },
+                  );
+                }
+              }
+            }
+
+            historyByBooking.set(bookingId, {
+              mode: "history",
+              bookingId,
+              expedienteId: String(payload.expediente_id ?? ""),
+              sheetTitle: title,
+              sheetId,
+              historyRow: row,
+              replacementRow: replacementRow,
+              techOUBefore: techBefore,
+              hora: inspection.hora,
+              insertedReplacement,
+            });
+
+            await supabase.rpc("agenda_sheet_mark_cancelled_cleared", {
+              p_booking_id: bookingId,
+            });
+            await supabase.rpc("agenda_sheet_mark_outbox", {
+              p_id: ev.id,
+              p_status: "done",
+            });
+            done++;
             continue;
           }
 
@@ -548,9 +941,12 @@ Deno.serve(async (req) => {
               .limit(1);
             let priorSheetOwned = false;
             const priorSnap = clearedByBooking.get(priorId);
-            if (!priorSnap) {
-              // Si no limpiamos en este batch, mirar payload prior coords / inventario liberado no ayuda;
-              // links activos ya cubren el caso típico. Opcional: read Sheet si hay coords en outbox done payload.
+            const priorHist = historyByBooking.get(priorId);
+            if (priorHist) {
+              priorSheetOwned = false;
+            } else if (!priorSnap) {
+              // Si no limpiamos/history en este batch, mirar Sheet:
+              // P=prior con O=REAGENDADO NO es owned activo.
               const { data: priorDone } = await supabase
                 .from("agenda_sheet_sync_outbox")
                 .select("payload,status")
@@ -577,7 +973,14 @@ Deno.serve(async (req) => {
                     a1FullReadRange(pTitle, pRow),
                   );
                   const liveP = String(live[0]?.[COL_INDEX.bookingId] ?? "").trim();
-                  priorSheetOwned = liveP === priorId;
+                  const liveEstado = String(
+                    live[0]?.[COL_INDEX.estado] ?? "",
+                  ).trim();
+                  priorSheetOwned = isPriorSheetStillActivelyOwned({
+                    sheetBookingId: liveP,
+                    sheetEstado: liveEstado,
+                    priorBookingId: priorId,
+                  });
                 } catch {
                   priorSheetOwned = false;
                 }

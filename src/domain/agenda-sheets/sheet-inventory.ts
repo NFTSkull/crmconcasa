@@ -128,10 +128,14 @@ export function parsePhysicalInventoryFromGrid(params: {
       techBookingId: techBookingIdRaw,
       techEstado,
     }) as InventoryRowStatus;
-    const cancelledMeta = String(techEstado ?? "").toUpperCase() === "CANCELADA";
-    const techBookingId = cancelledMeta ? null : techBookingIdRaw;
-    const techExpedienteId = cancelledMeta ? null : techExpedienteIdRaw;
-    const techSlotKey = cancelledMeta ? null : techSlotKeyRaw;
+    const estadoUpper = String(techEstado ?? "").toUpperCase();
+    const cancelledMeta = estadoUpper === "CANCELADA";
+    const historyMeta =
+      estadoUpper === "REAGENDADO" || estadoUpper === "RESCHEDULED_HISTORY";
+    const detachMeta = cancelledMeta || historyMeta;
+    const techBookingId = detachMeta ? null : techBookingIdRaw;
+    const techExpedienteId = detachMeta ? null : techExpedienteIdRaw;
+    const techSlotKey = detachMeta ? null : techSlotKeyRaw;
 
     rows.push({
       sheetRow,
@@ -150,14 +154,14 @@ export function parsePhysicalInventoryFromGrid(params: {
         rowNumber: sheetRow,
       }),
       status,
-      visibleNss: cancelledMeta ? null : nss || null,
-      visibleName: cancelledMeta ? null : name || null,
-      visibleAdvisor: cancelledMeta ? null : advisor || null,
+      visibleNss: detachMeta ? null : nss || null,
+      visibleName: detachMeta ? null : name || null,
+      visibleAdvisor: detachMeta ? null : advisor || null,
       techBookingId,
       techExpedienteId,
       techSlotKey,
       sectionHeaderMissing: headerMissing,
-      disabledReason: null,
+      disabledReason: historyMeta ? "rescheduled_history" : null,
     });
   };
 

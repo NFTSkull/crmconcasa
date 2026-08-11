@@ -98,6 +98,7 @@ export function classifyCancelRowClearance(input: {
     };
   }
 
+  // Sin metadata ni visibles → ya limpia
   if (!techAny && !visibleAny && !ef.conflict) {
     return {
       classification: "already_absent",
@@ -111,10 +112,27 @@ export function classifyCancelRowClearance(input: {
     };
   }
 
+  // Sin booking_id en P: no limpiar por NSS/nombre
   if (!metaBooking) {
     return {
       classification: "already_absent",
       reason: "sin CRM_BOOKING_ID en P; no se limpia por NSS/nombre",
+      keepHora: hora,
+      clearBtoD: false,
+      clearEtoF: false,
+      clearOU: false,
+      conflictingColumns: [],
+      terminalNoRetry: false,
+    };
+  }
+
+  if (
+    estado === "REAGENDADO" ||
+    estado === "RESCHEDULED_HISTORY"
+  ) {
+    return {
+      classification: "already_absent",
+      reason: "RESCHEDULED_HISTORY: no clear (histórico)",
       keepHora: hora,
       clearBtoD: false,
       clearEtoF: false,
@@ -150,6 +168,7 @@ export function classifyCancelRowClearance(input: {
     };
   }
 
+  // source vacío pero booking_id CRM coincide: permitir (legado CANCELADA)
   if (expedienteId && metaExp && metaExp !== expedienteId) {
     return {
       classification: "ambiguous",
@@ -163,9 +182,10 @@ export function classifyCancelRowClearance(input: {
     };
   }
 
-  // No usar U/link.sync_version como row_reused: cancel legado incrementaba U
-  // al escribir CANCELADA (link=1, Sheet=2) con P aún del booking cancelado.
-  // Carrera real = P distinto en el read inmediato pre-clear.
+  // No usar U/link.sync_version como row_reused: el worker de cancel
+  // legado incrementaba U al escribir CANCELADA (p.ej. link=1, Sheet=2)
+  // mientras P sigue siendo el booking cancelado. La carrera real se detecta
+  // con P distinto en el read inmediato pre-clear.
 
   if (ef.conflict) {
     return {
@@ -187,13 +207,17 @@ export function classifyCancelRowClearance(input: {
       : "source=crm + booking_id exacto",
     keepHora: hora,
     clearBtoD: true,
-    clearEtoF: false,
+    clearEtoF: false, // E/F ya vacíos; no escribir
     clearOU: true,
     conflictingColumns: [],
     terminalNoRetry: false,
   };
 }
 
+/**
+ * Rangos A1 a limpiar con values.batchClear.
+ * Solo B:D y O:U — nunca A ni E:N / G:N.
+ */
 export function cancelClearBatchRanges(
   sheetTitle: string,
   rowNumber: number,
@@ -205,7 +229,7 @@ export function cancelClearBatchRanges(
   ];
 }
 
-/** @deprecated Preferir batchClear. */
+/** @deprecated No usar: reescribir A:D puede alterar A. Preferir batchClear. */
 export function buildClearedVisibleAdRow(horaKeep: string): string[] {
   return [horaKeep, "", "", ""];
 }
@@ -218,7 +242,9 @@ export function buildClearedTechRow(): string[] {
 export function verifyClearedRowReadback(input: {
   row: ReadonlyArray<string | null | undefined>;
   expectedHora: string;
+  /** Snapshot G:N previo al clear (valor por valor). */
   expectedGN?: ReadonlyArray<string | null | undefined>;
+  /** Snapshot E:F previo (deben seguir vacíos). */
   expectedEFEmpty?: boolean;
 }): { ok: boolean; reason?: string } {
   const row = input.row ?? [];
@@ -231,6 +257,7 @@ export function verifyClearedRowReadback(input: {
       return { ok: false, reason: `visible_not_empty_col_${idx}` };
     }
   }
+  // E/F deben seguir vacíos tras clear seguro
   if (input.expectedEFEmpty !== false) {
     for (const idx of [4, 5]) {
       if (cell(row, idx)) {
@@ -251,6 +278,11 @@ export function verifyClearedRowReadback(input: {
   return { ok: true };
 }
 
+/**
+ * Inventario: fila con estado CANCELADA o sin occupancy efectiva → available.
+ * Incluye CANCELADA con E/F en conflicto (capacidad libre mientras revisión manual).
+ * REAGENDADO / RESCHEDULED_HISTORY → disabled (no cupo; no occupied_external).
+ */
 export function inventoryStatusFromSheetRow(input: {
   nss: string;
   name: string;
@@ -258,9 +290,15 @@ export function inventoryStatusFromSheetRow(input: {
   advisor?: string | null;
   techBookingId: string | null;
   techEstado?: string | null;
-}): "available" | "linked" | "occupied_external" {
+}): "available" | "linked" | "occupied_external" | "disabled" {
   const estado = String(input.techEstado ?? "").trim().toUpperCase();
   if (estado === "CANCELADA") return "available";
+  if (
+    estado === "REAGENDADO" ||
+    estado === "RESCHEDULED_HISTORY"
+  ) {
+    return "disabled";
+  }
   if (input.techBookingId) return "linked";
   if (input.nss || input.name || String(input.advisor ?? "").trim()) {
     return "occupied_external";
@@ -268,6 +306,7 @@ export function inventoryStatusFromSheetRow(input: {
   return "available";
 }
 
+/** Resumen live A:F / O:U / G:N para dry-run (sin secretos). */
 export function summarizeLiveRowAU(
   row: ReadonlyArray<string | null | undefined>,
 ): {
