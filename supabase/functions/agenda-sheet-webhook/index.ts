@@ -38,6 +38,9 @@ import {
 } from "../_shared/agenda-sheets/manual-occupancy.ts";
 import { buildInventoryUpsertRows } from "../_shared/agenda-sheets/inventory-from-grid.ts";
 import type { SheetSectionRef } from "../_shared/agenda-sheets/section-recovery.ts";
+import {
+  buildOperationalResultFromRow,
+} from "../_shared/agenda-sheets/operational-results.ts";
 
 type WebhookBody = {
   spreadsheetId?: string;
@@ -65,6 +68,66 @@ async function upsertInventoryRow(
     };
   }
   return { ok: true };
+}
+
+/** Reporting Bernardo: proyección de resultado operativo (no cupo). */
+async function upsertOperationalResultRow(
+  supabase: ReturnType<typeof createClient>,
+  adapter: SheetsAdapter,
+  input: {
+    organizationId: string;
+    spreadsheetId: string;
+    sheetId: number;
+    sheetTitle: string;
+    bookingDate: string;
+    rowNumber: number;
+    row: ReadonlyArray<string | null | undefined>;
+  },
+): Promise<void> {
+  if (!input.organizationId) return;
+  let kind: string | null = null;
+  let locationId: string | null = null;
+  const { data: inv } = await supabase
+    .from("agenda_sheet_slot_inventory")
+    .select("kind,location_id")
+    .eq("spreadsheet_id", input.spreadsheetId)
+    .eq("sheet_id", input.sheetId)
+    .eq("sheet_row", input.rowNumber)
+    .maybeSingle();
+  kind = String((inv as { kind?: string } | null)?.kind ?? "").trim() || null;
+  locationId =
+    String((inv as { location_id?: string } | null)?.location_id ?? "").trim() ||
+    null;
+
+  if (!kind || !locationId) {
+    const titleEsc = `'${String(input.sheetTitle).replace(/'/g, "''")}'`;
+    const colA = await adapter.getValues(
+      `${titleEsc}!A1:A${Math.max(1, input.rowNumber)}`,
+    );
+    for (let i = colA.length - 1; i >= 0; i--) {
+      const sec = parseSection(String(colA[i]?.[0] ?? ""));
+      if (sec) {
+        kind = sec.kind;
+        locationId = sec.sede;
+        break;
+      }
+    }
+  }
+  if (!kind || !locationId) return;
+
+  const ops = buildOperationalResultFromRow({
+    organizationId: input.organizationId,
+    spreadsheetId: input.spreadsheetId,
+    sheetId: input.sheetId,
+    sheetTitle: input.sheetTitle,
+    bookingDate: input.bookingDate,
+    sheetRow: input.rowNumber,
+    kind,
+    locationId,
+    row: input.row,
+  });
+  if (!ops) return;
+  await supabase.rpc("agenda_sheet_ops_upsert_batch", { p_rows: [ops] });
 }
 
 
@@ -141,6 +204,32 @@ Deno.serve(async (req) => {
     const bookingIdCell = String(row[COL_INDEX.bookingId] ?? "").trim(); // P
     const nameCellEarly = String(row[COL_INDEX.nombre] ?? "").trim();
     const advisorCellEarly = String(row[COL_INDEX.asesor] ?? "").trim();
+
+    // Bernardo ops projection (reporting): actualizar siempre, incluso si ya hay booking en P.
+    const orgIdOps = Deno.env.get("GOOGLE_SHEETS_ORGANIZATION_ID") ?? "";
+    if (orgIdOps && sheetDate) {
+      const sbOps = createClient(
+        Deno.env.get("SUPABASE_URL") ?? "",
+        Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "",
+        { auth: { persistSession: false, autoRefreshToken: false } },
+      );
+      try {
+        await upsertOperationalResultRow(sbOps, adapter, {
+          organizationId: orgIdOps,
+          spreadsheetId: expectedSs,
+          sheetId: body.sheetId,
+          sheetTitle: body.sheetTitle,
+          bookingDate: sheetDate,
+          rowNumber: body.rowNumber,
+          row,
+        });
+      } catch (opsErr) {
+        console.error(
+          "agenda-sheet-webhook ops upsert",
+          opsErr instanceof Error ? opsErr.message : String(opsErr),
+        );
+      }
+    }
 
     if (bookingIdCell) {
       // CASO B: si A cambió respecto al inventario linked, registrar conflicto (no mutar booking).

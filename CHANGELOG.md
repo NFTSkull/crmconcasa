@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Fixed
+- **fix(admin): Dashboard Bernardo cuenta resultados reales de CITAS 2026 (P165)** — Biométricos/Firmas/Notificaciones dejan de usar `agenda_bookings.status=booked` y leen proyección `agenda_sheet_operational_results` (E=BIOMETRICOS, F=NOTIFICACION, I=COMPLETO). Ingresos intactos (`fecha_envio_mesa`). Webhook/reconcile upsertan proyección; Apps Script dispara E–I aunque exista booking en P. Realtime + refetch 25s + foco. Mig. **165** local. Sin Cloud/deploy/Sheet edit.
+
+### Fixed
 - **fix(agenda): Firmas Apodaca con A1 vacío** — el parser ya no depende solo del literal `APODACA FIRMAS`; recupera el bloque por layout (10:00/10:30 antes de Monterrey Firmas), hints de inventario y alien-time. Live-sync/webhook/reconcile comparten la misma semántica. Sin migración; sin Cloud.
 
 ### Fixed

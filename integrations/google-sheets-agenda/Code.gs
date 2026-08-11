@@ -83,11 +83,15 @@ function handleEdit_(e) {
   if (lastCol < NSS_COL && col > NSS_COL) return;
 
   var TIME_COL = 1; // A
+  var OPS_RESULT_COL_START = 5; // E (BIOMETRICOS / NOTIFICACION firmas)
+  var OPS_RESULT_COL_END = 9; // I (COMPLETO / notas auxiliares)
   var startRow = e.range.getRow();
   var numRows = e.range.getNumRows();
   // Pegado múltiple: una fila a la vez, tope 20
   var max = Math.min(numRows, 20);
   var touchesTimeCol = col <= TIME_COL && lastCol >= TIME_COL;
+  var touchesOpsResultCols =
+    col <= OPS_RESULT_COL_END && lastCol >= OPS_RESULT_COL_START;
   for (var i = 0; i < max; i++) {
     var row = startRow + i;
     var horaVal = String(sheet.getRange(row, TIME_COL).getDisplayValue() || "").trim();
@@ -102,12 +106,14 @@ function handleEdit_(e) {
         8,
       );
     }
-    // Si ya hay booking_id en P y la edición NO toca A, no re-crear (evita loop).
-    // Si toca A, sí notificar (webhook registra occupied_slot_time_changed).
+    // Si ya hay booking_id en P:
+    // - edición de A → notificar (ocupied_slot_time_changed)
+    // - edición de E–I (resultado operativo Bernardo) → notificar sin PII
+    // - resto B–D/J–N → no re-crear (evita loop)
     var bookingId = String(
       sheet.getRange(row, BOOKING_ID_COL).getDisplayValue() || "",
     ).trim();
-    if (bookingId && !touchesTimeCol) continue;
+    if (bookingId && !touchesTimeCol && !touchesOpsResultCols) continue;
     // Estado en O solo lectura local (diagnóstico); no escribe Apps Script aquí
     // Payload SIN PII: solo ids de hoja/fila + timestamp + firma vía header.
     postWebhook_({

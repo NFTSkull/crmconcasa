@@ -11,6 +11,7 @@ import {
 } from "../_shared/agenda-sheets/parsers.ts";
 import { createGoogleSheetsAdapter } from "../_shared/agenda-sheets/google.ts";
 import { buildInventoryUpsertRows } from "../_shared/agenda-sheets/inventory-from-grid.ts";
+import { buildOperationalResultUpsertRows } from "../_shared/agenda-sheets/operational-results.ts";
 import type { AgendaSheetTimeAlias } from "../_shared/agenda-sheets/time-aliases.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
@@ -133,6 +134,34 @@ Deno.serve(async (req) => {
           );
         }
         upserted += chunk.length;
+      }
+
+      // Bernardo: proyección operativa (misma grilla; no altera cupo).
+      const opsRows = buildOperationalResultUpsertRows({
+        organizationId: orgId,
+        spreadsheetId,
+        sheetId: tab.sheetId,
+        sheetTitle: titleRaw,
+        bookingDate: date,
+        grid,
+      }).filter((r) => {
+        if (filterKind && r.kind !== filterKind) return false;
+        if (filterLocation && r.location_id !== filterLocation) return false;
+        return true;
+      });
+      for (let i = 0; i < opsRows.length; i += 200) {
+        const chunk = opsRows.slice(i, i + 200);
+        if (chunk.length === 0) continue;
+        const { error: opsErr } = await supabase.rpc(
+          "agenda_sheet_ops_upsert_batch",
+          { p_rows: chunk },
+        );
+        if (opsErr) {
+          console.error(
+            "agenda-sheet-reconcile ops upsert",
+            String(opsErr.message ?? "").slice(0, 200),
+          );
+        }
       }
     }
 

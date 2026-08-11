@@ -97,12 +97,18 @@ describe("Admin UX B3 montaje Bernardo en /admin", () => {
     assert.match(load, /repo\.getSummary/);
     assert.match(load, /listMesaEnviosPage/);
     assert.match(load, /enviadosAMesa/);
-    assert.match(load, /fetchMesaAgendaBookings|get_mesa_agenda_bookings/);
-    assert.match(load, /kind: "biometricos"/);
-    assert.match(load, /kind: "firmas"/);
-    assert.match(load, /kind: "notificacion"/);
+    assert.match(load, /bernardo_ops_detail/);
+    assert.match(load, /metric: "biometricos"/);
+    assert.match(load, /metric: "firmas"/);
+    assert.match(load, /metric: "notificaciones"/);
+    assert.doesNotMatch(load, /fetchMesaAgendaBookings|get_mesa_agenda_bookings/);
     assert.doesNotMatch(load, /\.insert\(|\.update\(|\.delete\(|\.upsert\(/);
-    assert.doesNotMatch(load, /rpc\(["'](?!get_mesa_agenda)/);
+  });
+
+  it("subtítulos operativos (completados, no agendados)", () => {
+    assert.match(dash, /Biométricos completados en el periodo/);
+    assert.match(dash, /Firmas completadas en el periodo/);
+    assert.match(dash, /Notificaciones enviadas a registro/);
   });
 
   it("reutiliza drawer B2 vía openTimeline", () => {
@@ -131,8 +137,8 @@ describe("Admin UX B3 montaje Bernardo en /admin", () => {
       "utf8",
     );
     assert.match(detail, /No hubo ingresos en este periodo/);
-    assert.match(detail, /No hay citas biométricas en este periodo/);
-    assert.match(detail, /No hay citas de firma en este periodo/);
+    assert.match(detail, /No hay biométricos completados en este periodo/);
+    assert.match(detail, /No hay firmas completadas en este periodo/);
     assert.match(detail, /No hay notificaciones enviadas a registro/);
     assert.match(periodSel, /Actualizar/);
     assert.match(
