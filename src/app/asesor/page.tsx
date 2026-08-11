@@ -1206,7 +1206,10 @@ export default function AsesorDashboardPage() {
             <span className="min-w-0 truncate text-sm text-gray-500">
               {currentUser.email}
             </span>
-            <NotificationsBell notifications={dashboardNotifications} />
+            <NotificationsBell
+              notifications={dashboardNotifications}
+              userKey={currentUser.email}
+            />
             <AsesorAgendaCalendarButton />
             <Button
               variant="outline"

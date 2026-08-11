@@ -1,3 +1,7 @@
+## 2026-08-11 - Hotfix campana: marcar notificaciones leídas al abrir
+
+Causa: el badge rojo usaba `notifications.length` del summary P161 (derivado) sin estado de lectura → el contador no bajaba al abrir. Fix: store local `readAt`/`fechaSnapshot` por usuario (`dashboardNotificationReads`); al abrir campana o «Ver expediente» marca leídas (optimistic + restore on fail). Listado intacto; P167/tareas intactas. Sin migración.
+
 ## 2026-08-11 - Pendientes asesor calibrados (P167)
 
 Auditoría RO prod: KPI «Corrección requerida» dependía casi solo de `cliente_datos.rechazado` porque SQL/TS miraban pack legado `ine|…` mientras Mesa rechaza `cliente_*`. Bio chip solo etapa 3; card UI también 4/5 tras cancel. Fix: `deriveResumenExpedienteCorreccion` + mig. **167** helpers (`latest_booking_status` = estado vigente, no “existe cancelled”); `asesor-pendientes.ts` (prioridad corrección→Acuse→bio→firma); UI «Necesita corrección» + copy N elementos; focus refetch ≥8s. Sin Cloud hasta publicación controlada.

@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Fixed
+- **fix(asesor): marcar notificaciones como leídas al abrir** — al abrir la campana (o «Ver expediente») se persiste `readAt` local por usuario y el badge rojo pasa a 0; el listado sigue visible. No cierra tareas P167 ni toca schema/RPC.
+
+### Fixed
 - **fix(asesor): pendientes/notificaciones calibrados (P167)** — «Necesita corrección» incluye docs `cliente_*` + Acuse/`retencion_envios` (no solo `cliente_datos`/pack legado); bio/firma usan **booking vigente** (`asesor_inbox_latest_booking_status`); bio pendiente también en etapa 4/5 tras cancelación (reagendar); selector canónico `asesor-pendientes.ts`; contador = expedientes (sin duplicar por N correcciones); labels Subir/Corregir Acuse y Reagendar; refetch al focus sin polling. Mig. **167**.
 
 ### Added
