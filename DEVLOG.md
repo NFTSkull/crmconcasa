@@ -1,3 +1,7 @@
+## 2026-08-12 - Hotfix: agenda-sheet-sync-worker BOOT_ERROR
+
+Prod logs: `Uncaught SyntaxError: The requested module './tech-columns.ts' does not provide an export named 'AGENDA_SHEET_COL_INDEX'` en `_shared/agenda-sheets/rescheduled-history.ts` (PR #121 / v23). Domain mirror exporta `AGENDA_SHEET_COL_INDEX`; Edge usa `COL_INDEX`. Fix mínimo: `import { COL_INDEX as AGENDA_SHEET_COL_INDEX, ... }`. Outbox pending attempts=0 es consecuencia (worker no arranca). P170 apply no tocado. Fase 1 local only — sin deploy.
+
 ## 2026-08-12 - P170: Sheet → CRM operativo (B1+B2+B2.5, apply OFF)
 
 Motor Postgres `agenda_sheet_apply_operational_result` + cableado webhook/reconcile + kill switch/cutover fail-closed. Projection P165 intacta con apply apagado. Publicación controlada: ENABLED=false hasta autorización. Cutover propuesto `2026-08-13`.
