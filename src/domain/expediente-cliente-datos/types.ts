@@ -54,7 +54,7 @@ export type ExpedienteClienteDatos = {
     porcentajeCobro: string;
     /** Monto calculado (columna `monto_calculado`; editable con default automático). */
     montoCalculado: string;
-    /** Método de pago (`transferencia`, `efectivo`, `tarjeta`, `otro`). */
+    /** Método de pago (`transferencia`, `efectivo`, `tarjeta`, `domiciliado`). */
     metodoPago: string;
     /** Nota opcional del asesor visible para Mesa Control (JSON `datos.notaMesa`). */
     notaMesa?: string;

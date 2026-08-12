@@ -6,7 +6,6 @@ export const CLIENTE_METODO_PAGO_OPTIONS = [
   { value: "efectivo", label: "Efectivo" },
   { value: "tarjeta", label: "Tarjeta" },
   { value: "domiciliado", label: "Domiciliado" },
-  { value: "otro", label: "Otro" },
 ] as const;
 
 export type ClienteMetodoPago = (typeof CLIENTE_METODO_PAGO_OPTIONS)[number]["value"];
