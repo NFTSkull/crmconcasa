@@ -1482,28 +1482,29 @@ export default function AsesorExpedientePage() {
                   {montoError}
                 </p>
               ) : null}
+              {!expedienteCancelado ? (
+                <AsesorReprecalificacionActions
+                  embedded
+                  expedienteId={String(precal.id)}
+                  nss={precal.nss}
+                  clienteNombre={precal.cliente_nombre}
+                  telefonoCliente={precal.telefono_cliente}
+                  direccionOpcional={precal.direccion_opcional}
+                  programaVigenteUi={precal.programa}
+                  submittedToMesa={operativo?.submittedToMesa ?? false}
+                  cicloEstado={operativo?.cicloEstado}
+                  dataSupabase={dataSupabase}
+                  reprecalificacionPendienteId={reprecalificacionPendienteId}
+                  programaSolicitadoUi={programaSolicitadoPendiente}
+                  montoAprobadoVigente={
+                    typeof editorDecision?.monto_aprobado === "number"
+                      ? editorDecision.monto_aprobado
+                      : null
+                  }
+                  onCompleted={() => void loadExpediente()}
+                />
+              ) : null}
             </div>
-            {!expedienteCancelado ? (
-              <AsesorReprecalificacionActions
-                expedienteId={String(precal.id)}
-                nss={precal.nss}
-                clienteNombre={precal.cliente_nombre}
-                telefonoCliente={precal.telefono_cliente}
-                direccionOpcional={precal.direccion_opcional}
-                programaVigenteUi={precal.programa}
-                submittedToMesa={operativo?.submittedToMesa ?? false}
-                cicloEstado={operativo?.cicloEstado}
-                dataSupabase={dataSupabase}
-                reprecalificacionPendienteId={reprecalificacionPendienteId}
-                programaSolicitadoUi={programaSolicitadoPendiente}
-                montoAprobadoVigente={
-                  typeof editorDecision?.monto_aprobado === "number"
-                    ? editorDecision.monto_aprobado
-                    : null
-                }
-                onCompleted={() => void loadExpediente()}
-              />
-            ) : null}
             {!hasMontoAprobado ? (
               <div
                 role="status"

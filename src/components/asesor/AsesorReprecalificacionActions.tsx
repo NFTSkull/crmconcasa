@@ -31,6 +31,11 @@ export type AsesorReprecalificacionActionsProps = {
   programaSolicitadoUi?: string | null;
   montoAprobadoVigente?: number | null;
   onCompleted: () => void | Promise<void>;
+  /**
+   * Si true, sin card exterior (ya va dentro de «Decisión del editor»).
+   * No altera gates ni handlers.
+   */
+  embedded?: boolean;
 };
 
 type DialogKind = "nueva" | "cambio" | null;
@@ -54,6 +59,7 @@ export function AsesorReprecalificacionActions({
   programaSolicitadoUi = null,
   montoAprobadoVigente = null,
   onCompleted,
+  embedded = false,
 }: AsesorReprecalificacionActionsProps) {
   const titleId = useId();
   const repo = useExpedientesRepo();
@@ -151,10 +157,18 @@ export function AsesorReprecalificacionActions({
   }
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4 text-sm text-gray-700">
-      <p className="text-sm font-semibold text-gray-900">
-        Precalificación / Editor
-      </p>
+    <div
+      className={
+        embedded
+          ? "mt-4 border-t border-gray-200 pt-4 text-sm text-gray-700"
+          : "rounded-lg border border-gray-200 bg-white p-4 text-sm text-gray-700"
+      }
+    >
+      {!embedded ? (
+        <p className="text-sm font-semibold text-gray-900">
+          Precalificación / Editor
+        </p>
+      ) : null}
 
       {hasPending ? (
         <div

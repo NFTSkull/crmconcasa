@@ -1,3 +1,7 @@
+## 2026-08-12 - UI: reprecal P164 embebida en Decisión del editor
+
+Mueve `AsesorReprecalificacionActions` al final de la card «Decisión del editor» con prop `embedded` (border-t, sin wrapper card). Gates/handlers/modales P164 intactos. Sin SQL/Cloud.
+
 ## 2026-08-12 - Método de pago: quitar «Otro» del select
 
 Se retira `{ value: "otro", label: "Otro" }` de `CLIENTE_METODO_PAGO_OPTIONS`. Expedientes ya guardados con `otro` no se migran; Mesa muestra el valor crudo por fallback de `labelMetodoPago`.
