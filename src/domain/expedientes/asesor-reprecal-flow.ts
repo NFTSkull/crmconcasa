@@ -20,14 +20,17 @@ export type CambiarProgramaOption = (typeof CAMBIAR_PROGRAMA_OPTIONS)[number];
 
 export type ReprecalUiMode = "same_programa" | "change_programa";
 
-/** Condiciones básicas de UI (backend sigue siendo autoridad). */
+/**
+ * Condiciones básicas de UI (backend sigue siendo autoridad).
+ * P169: expediente propio activo (pre o post Mesa). Ya no exige `submittedToMesa`.
+ */
 export function canShowAsesorReprecalActions(input: {
   dataSupabase: boolean;
-  submittedToMesa: boolean;
+  /** Conservado por compat de props; no bloquea visibilidad (P169). */
+  submittedToMesa?: boolean;
   cicloEstado?: string | null;
 }): boolean {
   if (!input.dataSupabase) return false;
-  if (!input.submittedToMesa) return false;
   if (input.cicloEstado === "cancelado") return false;
   return true;
 }
@@ -107,4 +110,15 @@ export function validateGateForDetalleReprecal(input: {
 /** En `/asesor/nueva`, cambio de programa no debe caer en create_expediente. */
 export function messageForNuevaChangeProgramaBlocked(): string {
   return "Para cambiar de programa usa «Cambiar programa» en el detalle del expediente. No se creará otro expediente.";
+}
+
+/**
+ * Mensaje canónico cuando `/asesor/nueva` encuentra expediente propio activo
+ * (pre o post Mesa). No create; abrir detalle para reprecal / cambio.
+ */
+export const MSG_NUEVA_EXISTING_ACTIVE_OPEN_DETALLE =
+  "Este NSS ya tiene un expediente activo. Abre el expediente para enviar una nueva precalificación o cambiar de programa.";
+
+export function messageForNuevaExistingActiveExpediente(): string {
+  return MSG_NUEVA_EXISTING_ACTIVE_OPEN_DETALLE;
 }

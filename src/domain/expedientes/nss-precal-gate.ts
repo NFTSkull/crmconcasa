@@ -1,14 +1,18 @@
 import { z } from "zod";
 import type { ExpedienteProgramaUi } from "./create-expediente.input";
 
-/** Status del gate RO `asesor_lookup_nss_precal_gate` (P155/P164). */
+/**
+ * Status del gate RO `asesor_lookup_nss_precal_gate` (P155/P168/P169).
+ * `reprecal_own_mesa` / `reprecal_change_programa` = expediente propio **activo**
+ * (pre o post Mesa); se conservan por compat de `/asesor/nueva` y detalle.
+ */
 export const nssPrecalGateStatusSchema = z.enum([
   "ok_create",
   "reprecal_own_mesa",
   "reprecal_change_programa",
   "blocked_other_asesor",
   "blocked_ambiguous",
-  /** Legacy P155; el gate P164 ya no lo emite para dueño elegible. */
+  /** Legacy P155; el gate P168/P169 ya no lo emite para dueño elegible. */
   "blocked_programa_mismatch",
 ]);
 
@@ -55,19 +59,19 @@ export type IniciarReprecalificacionInput = {
 };
 
 export const MSG_NSS_OWN_MESA_REPRECAL =
-  "Este NSS ya tiene un expediente en Mesa asignado a ti. Puedes volver a precalificarlo; el resultado se actualizará en el mismo expediente.";
+  "Este NSS ya tiene un expediente activo asignado a ti. Puedes volver a precalificarlo; el resultado se actualizará en el mismo expediente.";
 
 export const MSG_NSS_CHANGE_PROGRAMA =
   "Puedes solicitar cambio de programa sobre el mismo expediente. El programa y monto vigentes no cambian hasta que el Editor apruebe.";
 
 export const MSG_NSS_OTHER_ASESOR =
-  "Este NSS ya tiene un expediente en Mesa asignado a otro asesor.";
+  "Este NSS ya tiene un expediente activo asignado a otro asesor.";
 
 export const MSG_NSS_AMBIGUOUS =
   "Este NSS requiere revisión administrativa porque tiene más de un expediente vigente.";
 
 export const MSG_NSS_PROGRAMA_MISMATCH =
-  "Este NSS ya tiene un expediente en Mesa con otro programa. Usa el flujo de «Cambiar programa»; no se creará otro expediente.";
+  "Este NSS ya tiene un expediente activo con otro programa. Usa el flujo de «Cambiar programa»; no se creará otro expediente.";
 
 export const MSG_REPRECAL_CONFIRM =
   "Se guardará una nueva precalificación en el expediente existente. No se creará otro expediente.";

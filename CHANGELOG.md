@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- **fix(asesor): reprecal también PRE-MESA (P169)** — causa: gate/UI exigían `submitted_to_mesa=true` → expediente propio activo pre-Mesa caía en `ok_create` y el detalle ocultaba CTAs. Mig. **169** amplía `asesor_lookup_nss_precal_gate` a ciclo activo (sin filtro Mesa); statuses `reprecal_own_mesa`/`reprecal_change_programa` conservados (ahora = propio activo). UI: `canShow` sin Mesa; `/asesor/nueva` no crea duplicado (mensaje + link detalle). Sin tocar mig 168.
+
 ### Changed
 - **chore(asesor): acciones P164 dentro de «Decisión del editor»** — `AsesorReprecalificacionActions` con prop `embedded` (sin card anidada); montaje al final de la misma tarjeta. Sin cambio de gates/RPC/SQL.
 

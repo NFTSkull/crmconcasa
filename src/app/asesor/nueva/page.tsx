@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useSessionRepo } from "@/domain/session";
@@ -8,13 +8,11 @@ import { useExpedientesRepo } from "@/domain/expedientes";
 import type { CreateExpedienteInput } from "@/domain/expedientes/create-expediente.input";
 import { ExpedientesSupabaseError } from "@/domain/expedientes/supabase.repo";
 import {
-  MSG_NSS_OWN_MESA_REPRECAL,
-  MSG_REPRECAL_CONFIRM,
   isNssPrecalGateBlocked,
+  isNssPrecalGateReprecalAllowed,
   type NssPrecalGateResult,
 } from "@/domain/expedientes/nss-precal-gate";
-import { messageForNuevaChangeProgramaBlocked } from "@/domain/expedientes/asesor-reprecal-flow";
-import { newReprecalIdempotencyKey } from "@/domain/expedientes/reprecal-idempotency";
+import { messageForNuevaExistingActiveExpediente } from "@/domain/expedientes/asesor-reprecal-flow";
 import { validateCreatePrecalificacion } from "@/domain/precalificaciones/validators";
 import { isDataModeSupabase } from "@/lib/dataMode";
 import { Button } from "@/components/ui/Button";
@@ -35,8 +33,6 @@ export default function NuevaPrecalificacionPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [gate, setGate] = useState<NssPrecalGateResult | null>(null);
-  const [confirmReprecal, setConfirmReprecal] = useState(false);
-  const idempotencyKeyRef = useRef<string | null>(null);
 
   async function readForm(
     form: HTMLFormElement,
@@ -93,43 +89,12 @@ export default function NuevaPrecalificacionPage() {
 
         if (isNssPrecalGateBlocked(gateResult.status)) {
           setErrorMsg(gateResult.message);
-          setConfirmReprecal(false);
           return;
         }
 
-        if (gateResult.status === "reprecal_change_programa") {
-          setErrorMsg(messageForNuevaChangeProgramaBlocked());
-          setConfirmReprecal(false);
-          return;
-        }
-
-        if (gateResult.status === "reprecal_own_mesa") {
-          if (!confirmReprecal) {
-            setConfirmReprecal(true);
-            setErrorMsg(null);
-            return;
-          }
-          if (!idempotencyKeyRef.current) {
-            idempotencyKeyRef.current = newReprecalIdempotencyKey();
-          }
-          const result = await expedientesRepo.iniciarReprecalificacion({
-            programa: input.programa,
-            nss: input.nss,
-            cliente_nombre: input.cliente_nombre,
-            telefono_cliente: input.telefono_cliente,
-            direccion_opcional: input.direccion_opcional,
-            idempotency_key: idempotencyKeyRef.current,
-          });
-          setSuccessMsg(
-            `Precalificación actualizada · expediente ${result.expediente_id.slice(0, 8)}… · programa ${result.programa ?? input.programa}. ` +
-              "Se reutilizó el expediente existente; el editor resolverá el nuevo intento.",
-          );
-          setConfirmReprecal(false);
-          idempotencyKeyRef.current = null;
-          window.setTimeout(
-            () => router.push(`/asesor/expediente/${result.expediente_id}`),
-            1800,
-          );
+        // P169: expediente propio activo (pre/post Mesa) → no create ni iniciar desde /nueva
+        if (isNssPrecalGateReprecalAllowed(gateResult.status)) {
+          setErrorMsg(messageForNuevaExistingActiveExpediente());
           return;
         }
       }
@@ -176,8 +141,10 @@ export default function NuevaPrecalificacionPage() {
     );
   }
 
-  const showReprecalUi =
-    dataSupabase && gate?.status === "reprecal_own_mesa" && confirmReprecal;
+  const showExistingActiveUi =
+    dataSupabase &&
+    gate != null &&
+    isNssPrecalGateReprecalAllowed(gate.status);
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -223,16 +190,22 @@ export default function NuevaPrecalificacionPage() {
               {successMsg}
             </p>
           ) : null}
-          {showReprecalUi ? (
+          {showExistingActiveUi ? (
             <div
               role="status"
               className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950"
             >
-              <p className="font-medium">{MSG_NSS_OWN_MESA_REPRECAL}</p>
-              <p className="mt-2">{MSG_REPRECAL_CONFIRM}</p>
+              <p className="font-medium">
+                {messageForNuevaExistingActiveExpediente()}
+              </p>
               {gate?.expediente_id ? (
-                <p className="mt-1 text-xs text-amber-800">
-                  Expediente existente: {gate.expediente_id}
+                <p className="mt-2">
+                  <Link
+                    href={`/asesor/expediente/${gate.expediente_id}`}
+                    className="font-medium text-blue-700 underline hover:text-blue-900"
+                  >
+                    Abrir expediente
+                  </Link>
                 </p>
               ) : null}
             </div>
@@ -246,8 +219,6 @@ export default function NuevaPrecalificacionPage() {
               className="min-h-[44px] sm:min-h-0"
               onChange={() => {
                 setGate(null);
-                setConfirmReprecal(false);
-                idempotencyKeyRef.current = null;
               }}
             />
             <Input
@@ -276,8 +247,6 @@ export default function NuevaPrecalificacionPage() {
               className="min-h-[44px] sm:min-h-0"
               onChange={() => {
                 setGate(null);
-                setConfirmReprecal(false);
-                idempotencyKeyRef.current = null;
               }}
             />
             <Input
@@ -291,40 +260,20 @@ export default function NuevaPrecalificacionPage() {
             <Button
               type="submit"
               variant="primary"
-              disabled={submitting}
+              disabled={submitting || showExistingActiveUi}
               className="min-h-[44px] w-full touch-manipulation sm:min-h-0 sm:w-auto"
             >
-              {submitting
-                ? "Guardando…"
-                : showReprecalUi
-                  ? "Volver a precalificar"
-                  : "Enviar"}
+              {submitting ? "Guardando…" : "Enviar"}
             </Button>
-            {showReprecalUi ? (
+            <Link href="/asesor" className="w-full sm:w-auto">
               <Button
                 type="button"
                 variant="secondary"
-                disabled={submitting}
                 className="min-h-[44px] w-full touch-manipulation sm:min-h-0 sm:w-auto"
-                onClick={() => {
-                  setConfirmReprecal(false);
-                  setGate(null);
-                  idempotencyKeyRef.current = null;
-                }}
               >
-                Cancelar re-precalificación
+                Cancelar
               </Button>
-            ) : (
-              <Link href="/asesor" className="w-full sm:w-auto">
-                <Button
-                  type="button"
-                  variant="secondary"
-                  className="min-h-[44px] w-full touch-manipulation sm:min-h-0 sm:w-auto"
-                >
-                  Cancelar
-                </Button>
-              </Link>
-            )}
+            </Link>
           </div>
         </form>
       </main>

@@ -20,20 +20,21 @@
 - SQL: `supabase/tests/rpc_cliente_constancia_curp_validaciones.sql`. FE: `src/domain/identidad-curp/identidad-curp.test.ts`.
 - Probe local flags-only: `npx tsx scripts/probe-curp-constancia-local.ts` (PDF en `/tmp`, no al repo).
 
-## Hotfix — Re-precalificar NSS propio en Mesa (P155 / P164)
+## Hotfix — Re-precalificar NSS propio activo (P155 / P168 / P169)
 
-- [x] Gate: own mesa / otro asesor / ambiguo / ok_create.
-- [x] P164: `reprecal_change_programa` (dueño + otro programa → mismo `expediente_id`; ya no bloquea elegible).
-- [x] `asesor_iniciar_reprecalificacion` reutiliza `expediente_id`; historial; `programa_solicitado` diferido.
+- [x] Gate: own / otro asesor / ambiguo / ok_create (universo = ciclo activo; **sin** exigir `submitted_to_mesa` desde P169).
+- [x] P168: `reprecal_change_programa` (dueño + otro programa → mismo `expediente_id`).
+- [x] P169: pre-Mesa propio same/change → mismo gate statuses; `iniciar`/`resolver` sin gate oculto de Mesa.
+- [x] `asesor_iniciar_reprecalificacion` reutiliza `expediente_id`; historial; `programa_solicitado` diferido; no muta Mesa/etapa/docs.
 - [x] Pendiente no muta `expedientes.programa` ni monto vigente; aplica programa solo al aprobar.
 - [x] Editor resuelve vía `upsert_editor_decision` → `editor_resolver_reprecalificacion`.
 - [x] Aprobado actualiza monto (+ programa si cambio); no_cumple conserva anterior; etapa/docs/citas intactos.
 - [x] Reuso de pendiente + update solicitud; un solo pendiente; idempotency key; anon sin EXECUTE.
-- [x] SQL `rpc_asesor_reprecalificar_nss_propio_mesa.sql` (regresión P155 + casos P164).
-- [x] UI `/asesor/nueva`: «Volver a precalificar» + confirmación (mismo programa); `reprecal_change_programa` no crea expediente.
-- [x] UI detalle expediente: «Enviar nueva precalificación» + «Cambiar programa» (P164) vía misma RPC; pendiente vigente/solicitado.
+- [x] SQL `rpc_asesor_reprecalificar_nss_propio_mesa.sql` (regresión post-Mesa P155/P168).
+- [x] SQL `rpc_asesor_reprecal_pre_mesa_p169.sql` (pre-Mesa + seguridad + no segundo expediente).
+- [x] UI `/asesor/nueva`: si activo existente → mensaje + link detalle; **no** create ni iniciar reprecal.
+- [x] UI detalle: CTAs embebidos en «Decisión del editor» **también PRE-MESA**; Guardar monto intacto.
 - [x] Editor: banner actualización con programa vigente → solicitado; mismo `upsertEditorDecision`.
-- [x] Smoke RO caso Adriana sin escritura.
 
 ## Hotfix — Reingreso: domicilio y estado de cuenta editables
 

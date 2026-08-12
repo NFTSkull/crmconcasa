@@ -648,22 +648,36 @@ export class MockExpedientesRepo implements ExpedientesRepo {
   ): Promise<import("./nss-precal-gate").NssPrecalGateResult> {
     const all = await this.listAll();
     const nssNorm = nss.replace(/\D/g, "");
-    const enMesa = all.filter(
+    const sessionEmail = readMockSessionAsesorEmail();
+    // P169: activos (ciclo activo), pre o post Mesa — sin exigir submittedToMesa
+    const activos = all.filter(
       (e) =>
         e.base.nss.replace(/\D/g, "") === nssNorm &&
-        e.operativo.submittedToMesa &&
-        e.operativo.cicloEstado !== "cancelado",
+        e.operativo.cicloEstado !== "cancelado" &&
+        (e.operativo.cicloEstado == null || e.operativo.cicloEstado === "activo"),
     );
-    if (enMesa.length > 1) {
+    if (activos.length > 1) {
       return {
         status: "blocked_ambiguous",
         message:
           "Este NSS requiere revisión administrativa porque tiene más de un expediente vigente.",
         nss: nssNorm,
+        programa,
       };
     }
-    if (enMesa.length === 1) {
-      const exp = enMesa[0]!;
+    if (activos.length === 1) {
+      const exp = activos[0]!;
+      const ownerEmail = String(exp.base.asesorId ?? "").trim().toLowerCase();
+      const me = String(sessionEmail ?? "").trim().toLowerCase();
+      if (me && ownerEmail && ownerEmail !== me) {
+        return {
+          status: "blocked_other_asesor",
+          message:
+            "Este NSS ya tiene un expediente activo asignado a otro asesor.",
+          nss: nssNorm,
+          programa,
+        };
+      }
       const vigente = String(exp.base.programa ?? "").trim();
       const solicitado = String(programa ?? "").trim();
       const same =
@@ -673,7 +687,7 @@ export class MockExpedientesRepo implements ExpedientesRepo {
         return {
           status: "reprecal_own_mesa",
           message:
-            "Este NSS ya tiene un expediente en Mesa asignado a ti. Puedes volver a precalificarlo; el resultado se actualizará en el mismo expediente.",
+            "Este NSS ya tiene un expediente activo asignado a ti. Puedes volver a precalificarlo; el resultado se actualizará en el mismo expediente.",
           expediente_id: exp.id,
           nss: nssNorm,
           programa: vigente,
