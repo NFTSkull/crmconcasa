@@ -5,6 +5,7 @@ export const CLIENTE_METODO_PAGO_OPTIONS = [
   { value: "transferencia", label: "Transferencia" },
   { value: "efectivo", label: "Efectivo" },
   { value: "tarjeta", label: "Tarjeta" },
+  { value: "domiciliado", label: "Domiciliado" },
   { value: "otro", label: "Otro" },
 ] as const;
 
