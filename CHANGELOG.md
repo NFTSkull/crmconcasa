@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- **P170 — Sheet → expediente (SQL + Edge, apply OFF por defecto):** mig. **170** motor `agenda_sheet_apply_operational_result` (service_role; P/Q; fingerprint; avance/rechazo system). Edge webhook/reconcile cableados tras proyección P165; `notes_raw`; kill switch `GOOGLE_SHEETS_OPERATIONAL_APPLY_ENABLED` (default false) + cutover `FROM_DATE`. Sin auto-activación.
+
 ### Fixed
 - **fix(asesor): reprecal también PRE-MESA (P169)** — causa: gate/UI exigían `submitted_to_mesa=true` → expediente propio activo pre-Mesa caía en `ok_create` y el detalle ocultaba CTAs. Mig. **169** amplía `asesor_lookup_nss_precal_gate` a ciclo activo (sin filtro Mesa); statuses `reprecal_own_mesa`/`reprecal_change_programa` conservados (ahora = propio activo). UI: `canShow` sin Mesa; `/asesor/nueva` no crea duplicado (mensaje + link detalle). Sin tocar mig 168.
 

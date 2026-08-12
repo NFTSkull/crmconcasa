@@ -12,6 +12,11 @@ import {
 import { createGoogleSheetsAdapter } from "../_shared/agenda-sheets/google.ts";
 import { buildInventoryUpsertRows } from "../_shared/agenda-sheets/inventory-from-grid.ts";
 import { buildOperationalResultUpsertRows } from "../_shared/agenda-sheets/operational-results.ts";
+import { applyOperationalResult } from "../_shared/agenda-sheets/apply-operational-result.ts";
+import {
+  evaluateOperationalApplyGate,
+  getOperationalApplyConfig,
+} from "../_shared/agenda-sheets/operational-apply-guard.ts";
 import type { AgendaSheetTimeAlias } from "../_shared/agenda-sheets/time-aliases.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
@@ -89,7 +94,24 @@ Deno.serve(async (req) => {
 
     const tabs = await adapter.listSheets();
     let upserted = 0;
+    let ops_upserted = 0;
+    let apply_count = 0;
+    let apply_skipped = 0;
+    let apply_errors = 0;
+    let apply_before_cutover = 0;
+    const apply_outcomes: Record<string, number> = {};
     const allIssues: unknown[] = [];
+
+    const applyConfig = getOperationalApplyConfig();
+    const applyGloballyAllowed = evaluateOperationalApplyGate({
+      config: applyConfig,
+      // sentinela: solo para detectar DISABLED / DISABLED_NO_CUTOVER
+      bookingDate: applyConfig.fromDate ?? "9999-12-31",
+    });
+    // Si enabled + fromDate válida, applyGloballyAllowed.allow puede ser true;
+    // el filtro por booking_date se aplica por tab/fila.
+    const applyEngineOn =
+      applyConfig.enabled && applyConfig.fromDate != null;
 
     for (const tab of tabs) {
       if (tab.hidden) continue;
@@ -136,7 +158,7 @@ Deno.serve(async (req) => {
         upserted += chunk.length;
       }
 
-      // Bernardo: proyección operativa (misma grilla; no altera cupo).
+      // Bernardo: proyección operativa (misma grilla; no altera cupo) → apply P170.
       const opsRows = buildOperationalResultUpsertRows({
         organizationId: orgId,
         spreadsheetId,
@@ -161,12 +183,80 @@ Deno.serve(async (req) => {
             "agenda-sheet-reconcile ops upsert",
             String(opsErr.message ?? "").slice(0, 200),
           );
+          // Sin proyección confiable no aplicamos el chunk; seguimos con el resto.
+          continue;
+        }
+        ops_upserted += chunk.length;
+        if (!applyEngineOn) {
+          // Kill switch / fail-closed: P165 ok, cero applies RPC.
+          continue;
+        }
+        for (const row of chunk) {
+          const gate = evaluateOperationalApplyGate({
+            config: applyConfig,
+            bookingDate: row.booking_date,
+          });
+          if (!gate.allow) {
+            if (gate.outcome === "BEFORE_CUTOVER") {
+              apply_before_cutover += 1;
+              apply_skipped += 1;
+            } else {
+              apply_skipped += 1;
+            }
+            continue;
+          }
+          try {
+            const applied = await applyOperationalResult(supabase, row);
+            apply_count += 1;
+            if (applied.skippedRpc) apply_skipped += 1;
+            const key = applied.outcome || "UNKNOWN";
+            apply_outcomes[key] = (apply_outcomes[key] ?? 0) + 1;
+            if (applied.unexpected) apply_errors += 1;
+          } catch (e) {
+            apply_errors += 1;
+            apply_outcomes.RPC_ERROR = (apply_outcomes.RPC_ERROR ?? 0) + 1;
+            console.warn(
+              "agenda-sheet-reconcile apply exception",
+              {
+                spreadsheet_id: spreadsheetId,
+                sheet_id: tab.sheetId,
+                sheet_row: row.sheet_row,
+                booking_id: row.booking_id,
+                expediente_id: row.expediente_id,
+                message: e instanceof Error
+                  ? e.message.slice(0, 200)
+                  : String(e).slice(0, 200),
+              },
+            );
+          }
         }
       }
     }
 
+    if (!applyEngineOn) {
+      console.info("operational_apply_disabled", {
+        enabled: applyConfig.enabled,
+        from_date: applyConfig.fromDate,
+        gate: applyGloballyAllowed.outcome,
+        ops_upserted,
+      });
+    } else if (apply_before_cutover > 0) {
+      console.info("operational_apply_before_cutover_summary", {
+        from_date: applyConfig.fromDate,
+        skipped_rows: apply_before_cutover,
+      });
+    }
+
     return jsonOk({
       upserted,
+      ops_upserted,
+      operational_apply_enabled: applyEngineOn,
+      operational_apply_from_date: applyConfig.fromDate,
+      apply_count,
+      apply_skipped,
+      apply_errors,
+      apply_before_cutover,
+      apply_outcomes,
       issues: allIssues.slice(0, 50),
       issue_count: allIssues.length,
       filter: {

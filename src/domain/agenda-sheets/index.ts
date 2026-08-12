@@ -195,12 +195,49 @@ export {
 } from "./operational-result-classifiers";
 export {
   buildOperationalResultUpsertRows,
+  buildOperationalResultFromRow,
   classifyOperationalRow,
   countCompletedOperational,
   extractFirmoFirmaCells,
   extractSignatureResultRaw,
   type OperationalResultUpsertRow,
 } from "./operational-results";
+export {
+  extractOperationalNote,
+  findNotasColumnIndex,
+} from "./operational-notes";
+export {
+  agendaSheetOpsFingerprint,
+  type AgendaSheetOpsFingerprintInput,
+} from "./operational-apply-fingerprint";
+export {
+  biometricTargetEtapa,
+  resolveSheetRejectMotivo,
+  signatureTargetEtapa,
+  SHEET_REJECT_FALLBACK_MOTIVO,
+  type OperationalApplyClass,
+  type OperationalApplyKind,
+} from "./operational-apply-policy";
+export {
+  APPLY_BUSINESS_OUTCOMES,
+  buildAgendaSheetApplyRpcArgs,
+  isApplyBusinessOutcome,
+  localNoApplyUnlinked,
+  parseApplyRpcResponse,
+  shouldSkipApplyRpc,
+  type AgendaSheetApplyRpcArgs,
+  type ApplyBusinessOutcome,
+  type ApplyOperationalResultView,
+} from "./operational-apply-rpc";
+export {
+  evaluateOperationalApplyGate,
+  getOperationalApplyConfig,
+  isOperationalApplyEnabledFlag,
+  parseOperationalApplyFromDate,
+  type OperationalApplyConfig,
+  type OperationalApplyGateOutcome,
+  type OperationalApplyGateResult,
+} from "./operational-apply-guard";
 export {
   invokeAgendaSheetLiveSync,
   type LiveSyncMode,

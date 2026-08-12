@@ -98,6 +98,10 @@ BEGIN
   SELECT COUNT(*) INTO v_exp_before FROM public.expedientes;
   SELECT COUNT(*) INTO v_book_before FROM public.agenda_bookings;
 
+  INSERT INTO public.organizations (id, slug, name, active)
+  VALUES (v_org, 'p165-bernardo-ops-org', 'P165 Bernardo Ops Org', true)
+  ON CONFLICT (id) DO UPDATE SET active = true;
+
   DELETE FROM public.agenda_sheet_operational_results
   WHERE spreadsheet_id = v_ss AND sheet_id = v_sheet;
 

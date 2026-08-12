@@ -40,7 +40,16 @@ import { buildInventoryUpsertRows } from "../_shared/agenda-sheets/inventory-fro
 import type { SheetSectionRef } from "../_shared/agenda-sheets/section-recovery.ts";
 import {
   buildOperationalResultFromRow,
+  type OperationalResultUpsertRow,
 } from "../_shared/agenda-sheets/operational-results.ts";
+import {
+  applyOperationalResult,
+  type ApplyOperationalResultView,
+} from "../_shared/agenda-sheets/apply-operational-result.ts";
+import {
+  evaluateOperationalApplyGate,
+  getOperationalApplyConfig,
+} from "../_shared/agenda-sheets/operational-apply-guard.ts";
 
 type WebhookBody = {
   spreadsheetId?: string;
@@ -70,8 +79,8 @@ async function upsertInventoryRow(
   return { ok: true };
 }
 
-/** Reporting Bernardo: proyección de resultado operativo (no cupo). */
-async function upsertOperationalResultRow(
+/** Reporting Bernardo + apply P170: proyección luego apply (misma fila). */
+async function upsertAndApplyOperationalResultRow(
   supabase: ReturnType<typeof createClient>,
   adapter: SheetsAdapter,
   input: {
@@ -83,8 +92,11 @@ async function upsertOperationalResultRow(
     rowNumber: number;
     row: ReadonlyArray<string | null | undefined>;
   },
-): Promise<void> {
-  if (!input.organizationId) return;
+): Promise<{
+  ops: OperationalResultUpsertRow | null;
+  apply: ApplyOperationalResultView | null;
+}> {
+  if (!input.organizationId) return { ops: null, apply: null };
   let kind: string | null = null;
   let locationId: string | null = null;
   const { data: inv } = await supabase
@@ -113,7 +125,7 @@ async function upsertOperationalResultRow(
       }
     }
   }
-  if (!kind || !locationId) return;
+  if (!kind || !locationId) return { ops: null, apply: null };
 
   const ops = buildOperationalResultFromRow({
     organizationId: input.organizationId,
@@ -126,8 +138,50 @@ async function upsertOperationalResultRow(
     locationId,
     row: input.row,
   });
-  if (!ops) return;
+  if (!ops) return { ops: null, apply: null };
   await supabase.rpc("agenda_sheet_ops_upsert_batch", { p_rows: [ops] });
+
+  // P165 siempre; P170 solo si kill switch + cutover lo permiten.
+  const gate = evaluateOperationalApplyGate({
+    config: getOperationalApplyConfig(),
+    bookingDate: input.bookingDate,
+  });
+  if (!gate.allow) {
+    if (gate.outcome === "DISABLED") {
+      console.info("operational_apply_disabled", {
+        sheet_id: input.sheetId,
+        sheet_row: input.rowNumber,
+        booking_date: input.bookingDate,
+      });
+    } else if (gate.outcome === "BEFORE_CUTOVER") {
+      console.info("operational_apply_before_cutover", {
+        sheet_id: input.sheetId,
+        sheet_row: input.rowNumber,
+        booking_date: input.bookingDate,
+        from_date: gate.fromDate,
+      });
+    } else {
+      console.info("operational_apply_disabled_no_cutover", {
+        sheet_id: input.sheetId,
+        sheet_row: input.rowNumber,
+        booking_date: input.bookingDate,
+      });
+    }
+    return {
+      ops,
+      apply: {
+        ok: true,
+        outcome: gate.outcome,
+        skippedRpc: true,
+        mutated: false,
+        unexpected: false,
+        reason: gate.outcome.toLowerCase(),
+      },
+    };
+  }
+
+  const apply = await applyOperationalResult(supabase, ops);
+  return { ops, apply };
 }
 
 
@@ -205,8 +259,10 @@ Deno.serve(async (req) => {
     const nameCellEarly = String(row[COL_INDEX.nombre] ?? "").trim();
     const advisorCellEarly = String(row[COL_INDEX.asesor] ?? "").trim();
 
-    // Bernardo ops projection (reporting): actualizar siempre, incluso si ya hay booking en P.
+    // Bernardo ops projection + apply P170 (reporting → expediente).
+    // Incluso si P ya tiene booking: ediciones E–I deben aplicar antes de already_synced.
     const orgIdOps = Deno.env.get("GOOGLE_SHEETS_ORGANIZATION_ID") ?? "";
+    let operationalApply: ApplyOperationalResultView | null = null;
     if (orgIdOps && sheetDate) {
       const sbOps = createClient(
         Deno.env.get("SUPABASE_URL") ?? "",
@@ -214,7 +270,7 @@ Deno.serve(async (req) => {
         { auth: { persistSession: false, autoRefreshToken: false } },
       );
       try {
-        await upsertOperationalResultRow(sbOps, adapter, {
+        const { apply } = await upsertAndApplyOperationalResultRow(sbOps, adapter, {
           organizationId: orgIdOps,
           spreadsheetId: expectedSs,
           sheetId: body.sheetId,
@@ -223,11 +279,27 @@ Deno.serve(async (req) => {
           rowNumber: body.rowNumber,
           row,
         });
+        operationalApply = apply;
+        if (apply?.unexpected) {
+          console.warn(
+            "agenda-sheet-webhook apply unexpected",
+            apply.outcome,
+            apply.error_message,
+          );
+        }
       } catch (opsErr) {
         console.error(
-          "agenda-sheet-webhook ops upsert",
+          "agenda-sheet-webhook ops upsert/apply",
           opsErr instanceof Error ? opsErr.message : String(opsErr),
         );
+        operationalApply = {
+          ok: false,
+          outcome: "RPC_ERROR",
+          unexpected: true,
+          error_message: opsErr instanceof Error
+            ? opsErr.message.slice(0, 240)
+            : String(opsErr).slice(0, 240),
+        };
       }
     }
 
@@ -280,6 +352,12 @@ Deno.serve(async (req) => {
             booking_id: bookingIdCell,
             previousSheetTime: prevSheet,
             newSheetTime: slotTimeProbe,
+            operational_apply: operationalApply
+              ? {
+                outcome: operationalApply.outcome,
+                unexpected: operationalApply.unexpected ?? false,
+              }
+              : null,
           });
         }
       }
@@ -287,6 +365,13 @@ Deno.serve(async (req) => {
         ignored: true,
         reason: "already_synced",
         booking_id: bookingIdCell,
+        operational_apply: operationalApply
+          ? {
+            outcome: operationalApply.outcome,
+            unexpected: operationalApply.unexpected ?? false,
+            skippedRpc: operationalApply.skippedRpc ?? false,
+          }
+          : null,
       });
     }
 

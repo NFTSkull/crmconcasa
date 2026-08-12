@@ -7,6 +7,7 @@ import {
   classifyNotificationResult,
   classifySignatureResult,
   formatSignatureResultRaw,
+  normalizeSheetOpsText,
   type OperationalResultClass,
 } from "./operational-result-classifiers.ts";
 
@@ -28,6 +29,7 @@ export type OperationalResultUpsertRow = {
   notification_result_raw: string | null;
   signature_result_class: OperationalResultClass;
   signature_result_raw: string | null;
+  notes_raw: string | null;
 };
 
 const UUID_RE =
@@ -58,6 +60,33 @@ function isHoraHeader(a: string): boolean {
     .replace(/\s+/g, " ")
     .toUpperCase();
   return n === "HORA" || n.startsWith("HORA");
+}
+
+/** Índice 0-based de columna NOTAS, o null. */
+export function findNotasColumnIndex(
+  headerRow: ReadonlyArray<string | null | undefined> | null | undefined,
+): number | null {
+  if (!headerRow || headerRow.length === 0) return null;
+  for (let i = 0; i < headerRow.length; i++) {
+    if (normalizeSheetOpsText(cell(headerRow, i)) === "NOTAS") return i;
+  }
+  return null;
+}
+
+/**
+ * notes_raw descriptivo. Header NOTAS gana; fallback bio H=7 / firmas H luego I.
+ * No altera classifiers.
+ */
+export function extractOperationalNote(input: {
+  kind: string;
+  row: ReadonlyArray<string | null | undefined>;
+  headerRow?: ReadonlyArray<string | null | undefined> | null;
+}): string | null {
+  const fromHeader = findNotasColumnIndex(input.headerRow);
+  if (fromHeader != null) return nullIfEmpty(cell(input.row, fromHeader));
+  const kind = String(input.kind ?? "").trim().toLowerCase();
+  if (kind === "biometricos") return nullIfEmpty(cell(input.row, 7));
+  return nullIfEmpty(cell(input.row, 7)) ?? nullIfEmpty(cell(input.row, 8));
 }
 
 export function extractFirmoFirmaCells(
@@ -122,6 +151,7 @@ export function buildOperationalResultUpsertRows(input: {
 }): OperationalResultUpsertRow[] {
   const out: OperationalResultUpsertRow[] = [];
   let section: { kind: string; location_id: string } | null = null;
+  let headerRow: ReadonlyArray<string | null | undefined> | null = null;
 
   for (let i = 0; i < input.grid.length; i++) {
     const row = input.grid[i] ?? [];
@@ -129,10 +159,14 @@ export function buildOperationalResultUpsertRows(input: {
     const sec = parseSection(a);
     if (sec) {
       section = { kind: sec.kind, location_id: sec.sede };
+      headerRow = null;
       continue;
     }
     if (!section) continue;
-    if (isHoraHeader(a)) continue;
+    if (isHoraHeader(a)) {
+      headerRow = row;
+      continue;
+    }
 
     let slotTime: string | null = null;
     if (a) {
@@ -166,6 +200,11 @@ export function buildOperationalResultUpsertRows(input: {
       booking_id: asUuidOrNull(cell(row, 15)),
       expediente_id: asUuidOrNull(cell(row, 16)),
       ...classified,
+      notes_raw: extractOperationalNote({
+        kind: section.kind,
+        row,
+        headerRow,
+      }),
     });
   }
   return out;
@@ -182,6 +221,7 @@ export function buildOperationalResultFromRow(input: {
   kind: string;
   locationId: string;
   row: ReadonlyArray<string | null | undefined>;
+  headerRow?: ReadonlyArray<string | null | undefined> | null;
 }): OperationalResultUpsertRow | null {
   if (input.kind !== "biometricos" && input.kind !== "firmas") return null;
   if (input.locationId !== "monterrey" && input.locationId !== "apodaca") {
@@ -219,5 +259,10 @@ export function buildOperationalResultFromRow(input: {
     booking_id: asUuidOrNull(cell(input.row, 15)),
     expediente_id: asUuidOrNull(cell(input.row, 16)),
     ...classified,
+    notes_raw: extractOperationalNote({
+      kind: input.kind,
+      row: input.row,
+      headerRow: input.headerRow,
+    }),
   };
 }
