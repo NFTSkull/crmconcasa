@@ -31,6 +31,26 @@ describe("P164 UI montaje reprecal detalle / editor / nueva", () => {
     assert.match(actions, /Modificar programa solicitado/);
   });
 
+  it("detalle: acciones embebidas al final de Decisión del editor (sin card exterior)", () => {
+    assert.equal(
+      (detalle.match(/<AsesorReprecalificacionActions\b/g) ?? []).length,
+      1,
+    );
+    assert.match(detalle, /Decisión del editor[\s\S]*AsesorReprecalificacionActions/);
+    assert.match(detalle, /<AsesorReprecalificacionActions[\s\S]*embedded/);
+    const afterDecision = detalle.split("Decisión del editor")[1] ?? "";
+    assert.match(
+      afterDecision,
+      /AsesorReprecalificacionActions[\s\S]*<\/div>\s*\{!hasMontoAprobado/,
+    );
+    assert.match(actions, /embedded\?: boolean/);
+    assert.match(
+      actions,
+      /embedded\s*\?\s*"mt-4 border-t border-gray-200 pt-4/,
+    );
+    assert.match(actions, /!embedded \? \(/);
+  });
+
   it("nueva precal y cambio convergen en lookupNssPrecalGate + iniciarReprecalificacion", () => {
     assert.match(actions, /lookupNssPrecalGate/);
     assert.match(actions, /iniciarReprecalificacion/);

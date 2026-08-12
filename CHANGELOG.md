@@ -3,6 +3,9 @@
 ## [Unreleased]
 
 ### Changed
+- **chore(asesor): acciones P164 dentro de «Decisión del editor»** — `AsesorReprecalificacionActions` con prop `embedded` (sin card anidada); montaje al final de la misma tarjeta. Sin cambio de gates/RPC/SQL.
+
+### Changed
 - **chore(cobro): quitar «Otro» del Método de pago** — se elimina del select; `domiciliado` y el resto se conservan. Valores históricos `otro` siguen legibles en Mesa vía fallback de label.
 
 ### Added
