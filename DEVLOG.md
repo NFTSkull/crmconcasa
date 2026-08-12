@@ -1,3 +1,7 @@
+## 2026-08-12 - P169: reprecal / cambio programa también PRE-MESA
+
+Causa: `asesor_lookup_nss_precal_gate` y `canShowAsesorReprecalActions` exigían `submitted_to_mesa=true`. Expediente propio activo pre-Mesa → `ok_create` + detalle sin CTAs (PR #125 embed intacto pero invisible). Fix: mig. **169** REPLACE del gate (universo ciclo activo; statuses históricos conservados = propio activo pre/post Mesa). `iniciar`/`resolver` P168 sin cambio (no tenían gate Mesa). FE: quitar exigencia Mesa en `canShow`; `/asesor/nueva` bloquea create con mensaje + link al detalle. SQL `rpc_asesor_reprecal_pre_mesa_p169.sql`.
+
 ## 2026-08-12 - UI: reprecal P164 embebida en Decisión del editor
 
 Mueve `AsesorReprecalificacionActions` al final de la card «Decisión del editor» con prop `embedded` (border-t, sin wrapper card). Gates/handlers/modales P164 intactos. Sin SQL/Cloud.

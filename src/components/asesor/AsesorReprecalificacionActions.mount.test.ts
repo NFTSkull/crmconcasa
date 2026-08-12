@@ -103,12 +103,28 @@ describe("P164 UI montaje reprecal detalle / editor / nueva", () => {
     );
   });
 
-  it("nueva: mismo programa reprecal; change_programa no crea expediente", () => {
-    assert.match(nueva, /reprecal_own_mesa/);
-    assert.match(nueva, /reprecal_change_programa/);
-    assert.match(nueva, /messageForNuevaChangeProgramaBlocked/);
-    assert.match(nueva, /newReprecalIdempotencyKey/);
+  it("nueva: expediente activo existente no crea ni inicia reprecal (P169)", () => {
+    assert.match(nueva, /reprecal_own_mesa|isNssPrecalGateReprecalAllowed/);
+    assert.match(nueva, /messageForNuevaExistingActiveExpediente/);
+    assert.match(nueva, /Abrir expediente/);
+    assert.doesNotMatch(nueva, /iniciarReprecalificacion/);
+    assert.doesNotMatch(nueva, /newReprecalIdempotencyKey/);
+    assert.doesNotMatch(nueva, /Volver a precalificar/);
     assert.match(nueva, /createExpediente/);
+  });
+
+  it("detalle PRE-MESA: canShow no exige submittedToMesa (P169)", () => {
+    assert.match(actions, /canShowAsesorReprecalActions/);
+    const flow = readFileSync(
+      join(process.cwd(), "src/domain/expedientes/asesor-reprecal-flow.ts"),
+      "utf8",
+    );
+    assert.doesNotMatch(
+      flow,
+      /if\s*\(\s*!input\.submittedToMesa\s*\)\s*return\s+false/,
+    );
+    assert.match(detalle, /Guardar monto/);
+    assert.match(detalle, /AsesorReprecalificacionActions/);
   });
 
   it("opciones de producto sin Subcuenta en el CTA de cambio", () => {

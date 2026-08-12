@@ -199,7 +199,7 @@ function mapCreateExpedienteRpcError(error: {
     msg.includes("blocked_other_asesor")
   ) {
     return new ExpedientesSupabaseError(
-      "Este NSS ya tiene un expediente en Mesa asignado a otro asesor.",
+      "Este NSS ya tiene un expediente activo asignado a otro asesor.",
     );
   }
 
@@ -219,7 +219,7 @@ function mapCreateExpedienteRpcError(error: {
     msg.includes("otro programa")
   ) {
     return new ExpedientesSupabaseError(
-      "Este NSS ya tiene un expediente en Mesa con otro programa. Usa el flujo de «Cambiar programa»; no se creará otro expediente.",
+      "Este NSS ya tiene un expediente activo con otro programa. Usa el flujo de «Cambiar programa»; no se creará otro expediente.",
     );
   }
 
@@ -269,7 +269,7 @@ function mapReprecalificacionRpcError(error: {
 
   if (msg.includes("asignado a otro asesor")) {
     return new ExpedientesSupabaseError(
-      "Este NSS ya tiene un expediente en Mesa asignado a otro asesor.",
+      "Este NSS ya tiene un expediente activo asignado a otro asesor.",
     );
   }
   if (msg.includes("revisión administrativa") || msg.includes("más de un expediente")) {
@@ -279,7 +279,7 @@ function mapReprecalificacionRpcError(error: {
   }
   if (msg.includes("cambiar programa") || msg.includes("otro programa")) {
     return new ExpedientesSupabaseError(
-      "Este NSS ya tiene un expediente en Mesa con otro programa. Usa el flujo de «Cambiar programa»; no se creará otro expediente.",
+      "Este NSS ya tiene un expediente activo con otro programa. Usa el flujo de «Cambiar programa»; no se creará otro expediente.",
     );
   }
   if (error.code === "42501" || msg.includes("solo asesor") || msg.includes("no autenticado")) {

@@ -5,6 +5,7 @@ import {
   canShowAsesorReprecalActions,
   isSameProgramaUi,
   messageForNuevaChangeProgramaBlocked,
+  messageForNuevaExistingActiveExpediente,
   messageForUnexpectedGateFromDetalle,
   opcionesCambioPrograma,
   validateGateForDetalleReprecal,
@@ -25,8 +26,8 @@ function gate(
   };
 }
 
-describe("asesor-reprecal-flow P164 UI", () => {
-  it("muestra acciones solo con supabase + mesa + no cancelado", () => {
+describe("asesor-reprecal-flow P164/P169 UI", () => {
+  it("muestra acciones con supabase + no cancelado (pre o post Mesa)", () => {
     assert.equal(
       canShowAsesorReprecalActions({
         dataSupabase: true,
@@ -37,15 +38,23 @@ describe("asesor-reprecal-flow P164 UI", () => {
     );
     assert.equal(
       canShowAsesorReprecalActions({
-        dataSupabase: false,
-        submittedToMesa: true,
+        dataSupabase: true,
+        submittedToMesa: false,
+        cicloEstado: "activo",
       }),
-      false,
+      true,
     );
     assert.equal(
       canShowAsesorReprecalActions({
         dataSupabase: true,
         submittedToMesa: false,
+      }),
+      true,
+    );
+    assert.equal(
+      canShowAsesorReprecalActions({
+        dataSupabase: false,
+        submittedToMesa: true,
       }),
       false,
     );
@@ -164,6 +173,17 @@ describe("asesor-reprecal-flow P164 UI", () => {
   it("nueva page: mensaje bloquea create ante change programa", () => {
     assert.match(messageForNuevaChangeProgramaBlocked(), /Cambiar programa/);
     assert.doesNotMatch(messageForNuevaChangeProgramaBlocked(), /crear otro/i);
+  });
+
+  it("nueva page: mensaje expediente activo existente (P169)", () => {
+    assert.match(
+      messageForNuevaExistingActiveExpediente(),
+      /expediente activo/i,
+    );
+    assert.match(
+      messageForNuevaExistingActiveExpediente(),
+      /nueva precalificación|cambiar de programa/i,
+    );
   });
 
   it("idempotency key estable por llamada distinta", () => {

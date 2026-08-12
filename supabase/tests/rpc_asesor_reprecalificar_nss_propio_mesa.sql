@@ -46,9 +46,11 @@ BEGIN
   DELETE FROM public.expediente_documentos d
   USING public.expedientes e
   WHERE d.expediente_id = e.id AND e.nss = v_nss;
-  DELETE FROM public.expediente_paso_visual_transiciones t
-  USING public.expedientes e
-  WHERE t.expediente_id = e.id AND e.nss = v_nss;
+  IF to_regclass('public.expediente_paso_visual_transiciones') IS NOT NULL THEN
+    DELETE FROM public.expediente_paso_visual_transiciones t
+    USING public.expedientes e
+    WHERE t.expediente_id = e.id AND e.nss = v_nss;
+  END IF;
   DELETE FROM public.action_log a
   USING public.expedientes e
   WHERE a.entity_id = e.id AND e.nss = v_nss;
@@ -550,12 +552,15 @@ BEGIN
       'P164 same monto'
     );
 
-    -- 13 NOT SUBMITTED TO MESA → ok_create
+    -- 13 NOT SUBMITTED TO MESA → P169: propio activo pre-Mesa = reprecal_own_mesa (no ok_create)
     PERFORM public.__p155_set_auth(v_asesor_a);
     SELECT public.create_expediente('mejoravit', v_nss4, 'Cliente NoMesa', '5512345678', '') INTO v_res;
     v_exp4 := (v_res->>'id')::UUID;
     v_gate := public.asesor_lookup_nss_precal_gate(v_nss4, 'mejoravit');
-    PERFORM public.__p155_assert(v_gate->>'status' = 'ok_create', 'P164 not mesa → ok_create');
+    PERFORM public.__p155_assert(v_gate->>'status' = 'reprecal_own_mesa', 'P169 pre-mesa → reprecal_own_mesa');
+    PERFORM public.__p155_assert((v_gate->>'expediente_id')::UUID = v_exp4, 'P169 pre-mesa mismo expediente');
+    v_gate := public.asesor_lookup_nss_precal_gate(v_nss4, 'compro_tu_casa');
+    PERFORM public.__p155_assert(v_gate->>'status' = 'reprecal_change_programa', 'P169 pre-mesa change');
 
     -- 14–15 SUBCUENTA intacta + cambio desde subcuenta
     SELECT public.create_expediente('subcuenta', v_nss5, 'Cliente Sub', '5512345678', '') INTO v_res;

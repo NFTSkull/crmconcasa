@@ -87,6 +87,18 @@ export {
   isNssPrecalGateReprecalAllowed,
   messageForNssPrecalGateStatus,
 } from "./nss-precal-gate";
+export {
+  CAMBIAR_PROGRAMA_OPTIONS,
+  canShowAsesorReprecalActions,
+  isSameProgramaUi,
+  messageForNuevaChangeProgramaBlocked,
+  messageForNuevaExistingActiveExpediente,
+  MSG_NUEVA_EXISTING_ACTIVE_OPEN_DETALLE,
+  messageForUnexpectedGateFromDetalle,
+  opcionesCambioPrograma,
+  validateGateForDetalleReprecal,
+} from "./asesor-reprecal-flow";
+export { newReprecalIdempotencyKey } from "./reprecal-idempotency";
 export type { EditorListPage, EditorListQuery } from "./editor-list-query";
 export {
   createMesaMoverInFlightGuard,
