@@ -90,7 +90,7 @@ Convenciones:
 - `action_log`: `asesor.reprecalificacion.iniciar` / `editor.reprecalificacion.aprobar|no_cumple` (metadata: `programa_vigente`/`programa_anterior`, `programa_solicitado`, `cambio_programa`; sin NSS completo).
 - Enum `programa` intacto (`mejoravit` | `subcuenta` | `compro_tu_casa`).
 - `nss_bloqueado_en_mesa` / `create_expediente` intactos para ajenos.
-- Mig. **155** (base) + **164** (cambio de programa). UI: detalle asesor CTAs + Editor banner.
+- Mig. **155** (base) + **168** (cambio de programa; feature P164). UI: detalle asesor CTAs + Editor banner.
 
 ---
 

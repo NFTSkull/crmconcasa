@@ -5,7 +5,7 @@
 ### Added
 - **feat(asesor/editor): UI P164 reprecal + cambiar programa** — en detalle expediente: «Enviar nueva precalificación» y «Cambiar programa» (Mejoravit ↔ Compro tu casa) vía misma `lookupNssPrecalGate` + `iniciarReprecalificacion`; estado pendiente vigente vs solicitado; Editor banner sin nuevo submit. `/asesor/nueva` conserva P155 same-program y bloquea create ante `reprecal_change_programa`.
 
-- **feat(precalificacion): cambio de programa diferido en reprecal (P164)** — extiende P155: gate `reprecal_change_programa`; misma RPC `asesor_iniciar_reprecalificacion` guarda `programa_solicitado` sin mutar vigentes; `editor_resolver_reprecalificacion` aplica programa+monto solo al aprobar (atómico). Enum `subcuenta` intacto. Mig. **164**.
+- **feat(precalificacion): cambio de programa diferido en reprecal (P164)** — extiende P155: gate `reprecal_change_programa`; misma RPC `asesor_iniciar_reprecalificacion` guarda `programa_solicitado` sin mutar vigentes; `editor_resolver_reprecalificacion` aplica programa+monto solo al aprobar (atómico). Enum `subcuenta` intacto. Mig. **168** (feature P164; Cloud 164 ya = admin_stage_history_nss_completo).
 
 
 ### Changed
