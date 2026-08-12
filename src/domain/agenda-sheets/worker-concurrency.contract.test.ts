@@ -206,6 +206,63 @@ describe("agenda-sheet sync title space + requeue (mig. 134)", () => {
     assert.doesNotMatch(block, /horaKeep/);
     assert.match(block, /write_verify_failed:col_a_mutated/);
   });
+
+  it("booking_created usa fila preasignada (inventory claimed / payload.sheet_row)", () => {
+    const start = worker.indexOf("// booking_created desde CRM");
+    const end = worker.indexOf("// booking_created ya tiene link", start);
+    const block = worker.slice(start, end);
+    // Prefiere coords del payload (claim) y, si faltan, inventory claimed|linked.
+    assert.match(block, /payload\.sheet_row/);
+    assert.match(block, /payload\.inventory_id/);
+    assert.match(block, /\.in\("status",\s*\["claimed",\s*"linked"\]\)/);
+    assert.match(block, /no_preassigned_sheet_row/);
+    assert.match(block, /agenda_sheet_upsert_link_from_crm/);
+    assert.match(block, /agenda_sheet_inventory_mark_linked/);
+    assert.match(block, /agenda_sheet_mark_outbox/);
+    assert.match(block, /p_status:\s*"done"/);
+    // No abre búsqueda libre de cupo en create CRM.
+    assert.doesNotMatch(block, /status\",\s*\"available\"/);
+  });
+
+  it("claim limit del worker permanece acotado (backlog multi-pass)", () => {
+    assert.match(worker, /agenda_sheet_claim_outbox[\s\S]*p_limit:\s*10/);
+    assert.match(mig129, /LEAST\(COALESCE\(p_limit, 10\), 50\)/);
+    // 20 pending / limit 10 ⇒ ≥2 ejecuciones; no inflar limit por incidente.
+    const limit = 10;
+    const pending = 20;
+    assert.equal(Math.ceil(pending / limit), 2);
+  });
+});
+
+describe("agenda-sheet edge rescheduled-history boot contract", () => {
+  const edgeHistory = readFileSync(
+    join(
+      process.cwd(),
+      "supabase/functions/_shared/agenda-sheets/rescheduled-history.ts",
+    ),
+    "utf8",
+  );
+  const edgeTech = readFileSync(
+    join(
+      process.cwd(),
+      "supabase/functions/_shared/agenda-sheets/tech-columns.ts",
+    ),
+    "utf8",
+  );
+
+  it("no importa AGENDA_SHEET_COL_INDEX inexistente desde Edge tech-columns", () => {
+    assert.match(edgeTech, /export const COL_INDEX\s*=/);
+    assert.doesNotMatch(edgeTech, /export const AGENDA_SHEET_COL_INDEX/);
+    // Alias explícito: Domain usa AGENDA_SHEET_COL_INDEX; Edge exporta COL_INDEX.
+    assert.match(
+      edgeHistory,
+      /COL_INDEX as AGENDA_SHEET_COL_INDEX/,
+    );
+    assert.doesNotMatch(
+      edgeHistory,
+      /import \{\s*AGENDA_SHEET_COL_INDEX\s*,/,
+    );
+  });
 });
 
 describe("agenda-sheet inventory upsert detach (mig. 141)", () => {

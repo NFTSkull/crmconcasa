@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **fix(agenda): boot CRM→Sheets sync-worker** — Edge `rescheduled-history.ts` importaba `AGENDA_SHEET_COL_INDEX` (nombre del domain) pero `tech-columns` Edge exporta `COL_INDEX` → BOOT_ERROR 503 desde v23/PR #121. Alias `COL_INDEX as AGENDA_SHEET_COL_INDEX`. Sin cambio funcional de sync/P121/P170.
+
 ### Added
 
 - **P170 — Sheet → expediente (SQL + Edge, apply OFF por defecto):** mig. **170** motor `agenda_sheet_apply_operational_result` (service_role; P/Q; fingerprint; avance/rechazo system). Edge webhook/reconcile cableados tras proyección P165; `notes_raw`; kill switch `GOOGLE_SHEETS_OPERATIONAL_APPLY_ENABLED` (default false) + cutover `FROM_DATE`. Sin auto-activación.
