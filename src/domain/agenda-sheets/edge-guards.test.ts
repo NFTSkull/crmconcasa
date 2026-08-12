@@ -62,6 +62,20 @@ describe("agenda-sheets edge-like guards", () => {
     assert.match(src, /occupied_manual|occupied_external/);
     assert.match(src, /sheet_webhook/);
     assert.match(src, /MANUAL_ENTRY_WITHOUT_SLOT/);
+    assert.match(src, /applyOperationalResult|upsertAndApplyOperationalResultRow/);
+  });
+
+  it("21b. reconcile aplica ops P170 tras proyección", () => {
+    const src = readFileSync(
+      new URL(
+        "../../../supabase/functions/agenda-sheet-reconcile/index.ts",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+    assert.match(src, /agenda_sheet_ops_upsert_batch/);
+    assert.match(src, /applyOperationalResult/);
+    assert.match(src, /apply_outcomes/);
   });
 
   it("22. live-sync refresca antes de availability/book_gate", () => {

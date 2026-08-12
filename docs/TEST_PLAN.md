@@ -1,3 +1,10 @@
+## P170 — Sheet → expediente (SQL + Edge, apply OFF)
+
+- [x] B1 SQL: apply RPC, identidad P/Q, fingerprint, matriz bio/firma/rechazo, suite `rpc_agenda_sheet_apply_operational_p170.sql`.
+- [x] B2: webhook/reconcile projection→apply; `notes_raw`; helper shared.
+- [x] B2.5: kill switch default false + cutover FROM_DATE fail-closed; P165 intacto.
+- [ ] Activación: `ENABLED=true` + `FROM_DATE=2026-08-13` solo con autorización explícita.
+
 ## Hotfix — Firmas 09:30 inventario / slots config (local)
 
 - [x] Parser: `9:30 AM` / `9:30AM` / `09:30` → `09:30` (sin truncar a 09:00).

@@ -17,6 +17,7 @@ import {
   formatSignatureResultRaw,
   type OperationalResultClass,
 } from "./operational-result-classifiers";
+import { extractOperationalNote } from "./operational-notes";
 
 export type OperationalResultUpsertRow = Readonly<{
   organization_id: string;
@@ -36,6 +37,7 @@ export type OperationalResultUpsertRow = Readonly<{
   notification_result_raw: string | null;
   signature_result_class: OperationalResultClass;
   signature_result_raw: string | null;
+  notes_raw: string | null;
 }>;
 
 const UUID_RE =
@@ -133,6 +135,7 @@ export function buildOperationalResultUpsertRows(input: {
   const out: OperationalResultUpsertRow[] = [];
   let section: { kind: AgendaSheetKind; location_id: AgendaSheetSede } | null =
     null;
+  let headerRow: ReadonlyArray<string | null | undefined> | null = null;
 
   for (let i = 0; i < input.grid.length; i++) {
     const row = input.grid[i] ?? [];
@@ -143,10 +146,14 @@ export function buildOperationalResultUpsertRows(input: {
         kind: sectionParse.value.kind,
         location_id: sectionParse.value.sede,
       };
+      headerRow = null;
       continue;
     }
     if (!section) continue;
-    if (isSheetColumnHeaderRow(a)) continue;
+    if (isSheetColumnHeaderRow(a)) {
+      headerRow = row;
+      continue;
+    }
 
     // Inventario exige hora; reporting Firmas puede incluir filas con A vacío
     // si hay identidad operativa (NSS/NOMBRE/FIRMO). No crea slots de agenda.
@@ -185,10 +192,72 @@ export function buildOperationalResultUpsertRows(input: {
       booking_id: bookingId,
       expediente_id: expedienteId,
       ...classified,
+      notes_raw: extractOperationalNote({
+        kind: section.kind,
+        row,
+        headerRow,
+      }),
     });
   }
 
   return out;
+}
+
+/** Una fila: requiere kind/location conocidos (p.ej. webhook). */
+export function buildOperationalResultFromRow(input: {
+  organizationId: string;
+  spreadsheetId: string;
+  sheetId: number;
+  sheetTitle: string;
+  bookingDate: string;
+  sheetRow: number;
+  kind: AgendaSheetKind | string;
+  locationId: AgendaSheetSede | string;
+  row: ReadonlyArray<string | null | undefined>;
+  headerRow?: ReadonlyArray<string | null | undefined> | null;
+}): OperationalResultUpsertRow | null {
+  if (input.kind !== "biometricos" && input.kind !== "firmas") return null;
+  if (input.locationId !== "monterrey" && input.locationId !== "apodaca") {
+    return null;
+  }
+  const a = cell(input.row, 0);
+  let slotTime: string | null = null;
+  if (a) {
+    const timeParse = parseSheetTime(a);
+    if (!timeParse.ok) return null;
+    slotTime = timeParse.value;
+  } else if (input.kind === "firmas") {
+    const nss = cell(input.row, 1);
+    const nombre = cell(input.row, 2);
+    const firmo = cell(input.row, 5);
+    if (!nss && !nombre && !firmo) return null;
+    slotTime = null;
+  } else {
+    return null;
+  }
+  const classified = classifyOperationalRow({
+    kind: input.kind,
+    row: input.row,
+  });
+  return {
+    organization_id: input.organizationId,
+    spreadsheet_id: input.spreadsheetId,
+    sheet_id: input.sheetId,
+    sheet_title: input.sheetTitle,
+    booking_date: input.bookingDate,
+    sheet_row: input.sheetRow,
+    kind: input.kind,
+    location_id: input.locationId,
+    slot_time: slotTime,
+    booking_id: asUuidOrNull(cell(input.row, 15)),
+    expediente_id: asUuidOrNull(cell(input.row, 16)),
+    ...classified,
+    notes_raw: extractOperationalNote({
+      kind: input.kind,
+      row: input.row,
+      headerRow: input.headerRow,
+    }),
+  };
 }
 
 /** KPI Bernardo: solo COMPLETED según métrica. */
