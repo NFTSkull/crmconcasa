@@ -1,3 +1,21 @@
+## 2026-08-12 - P173 B2: publicación controlada (APPLY OFF)
+
+Project `fvtqbxukqlajezyyvwzy`. Deno webhook: main=5 errores = P173=5 (0 nuevos); shared P173 PASS. Apply SQL 172 vía `db query --linked -f` + registro `schema_migrations` 172 (sin `db push`). Edge: webhook 24→25, reconcile 15→16; worker 26 intacto. Secrets: SYNC presente; OPERATIONAL_APPLY + FROM_DATE ausentes. Baseline ops: 715 filas, apply_outcome null, fp 0. P172 counts 0/0/0.
+
+### Rollback preparado (NO ejecutar salvo incidente)
+
+Preservar P172. Preferir rollback lógico no destructivo:
+
+A) Redeploy Edge previos: `agenda-sheet-webhook` v24 + `agenda-sheet-reconcile` v15 (pre-P173).
+B) `CREATE OR REPLACE` de `agenda_sheet_ops_upsert_batch` + `agenda_sheet_apply_operational_result` desde definición **POST-P172 / mig 171** (NO 170 cruda).
+C) Columnas color pueden quedar metadata inerte (evitar DROP columnas si hay proyección).
+D) Opcional: `DELETE FROM supabase_migrations.schema_migrations WHERE version='172';`
+E) No tocar worker / sync / Sheet / contingencias.
+
+## 2026-08-12 - P173 B1: red color safety veto (local completo)
+
+Producto P173 / mig libre Cloud **172** (`172_agenda_sheet_red_color_veto.sql`). Base `origin/main` post-P172. Color = segunda dimensión (no reescribe classifiers). Rojo operativo: BACKGROUND efectivo #FF0000 (`r≥0.95,g≤0.08,b≤0.08`); font rojo no cuenta. Apply order: P172 contingency → … → textual FAILED → `COLOR_VETO` → positivos. Bio COMPLETED+notif FAILED: avance 4→5 luego rechazo (semántica P170/P171 intacta); COLOR_VETO solo si no hay FAILED textual. `COLOR_VETO` solo fingerprint+outcome. Format-only no webhook (Apps Script onEdit); safety net reconcile 15m. Una lectura formatos por tab/fila. Un solo overload apply 21-args (defaults color); verify-p170/p172 re-aplican 172 tras 170/171. Harness P170: DISABLE TRIGGER USER (P131 cupo) + grants firma 21-args + cleanup FK. Sin Cloud apply 172 / Edge deploy / Sheet write / smoke / commit / APPLY ON.
+
 ## 2026-08-12 - P172 B3: publicación controlada (Cloud 171)
 
 Precheck: `origin/main` = `486474e`; `schema_migrations` tiene 170, **no** 171; tablas P172 ausentes; Edge `GOOGLE_SHEETS_SYNC_ENABLED` presente; `GOOGLE_SHEETS_OPERATIONAL_APPLY_ENABLED` **ausente** (=OFF). Baseline counts pre-apply: bookings/inventory/outbox/links capturados RO. Apply: `supabase db query --linked -f 171_…sql` (sin `db push`) + registro `schema_migrations` 171. Sin smoke / sin declarar contingencia / sin Edge deploy / sin Sheet.

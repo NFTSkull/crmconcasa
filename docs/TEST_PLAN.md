@@ -1,3 +1,11 @@
+## P173 — Red veto operativo Sheet (fondo #FF0000)
+
+- [x] B1 local completo: mig **172** columnas + ops upsert + fingerprint + apply `COLOR_VETO` (POST-P172); TS/Edge `effective-background` + `getEffectiveBackgrounds`; flags builders; reconcile `E1:I200`; webhook `E{row}:I{row}`.
+- [x] B1 tests: `effective-background.test.ts`, `operational-red-veto-b1.test.ts`, fingerprint color-only, `rpc_agenda_sheet_red_color_veto_p173.sql`, `verify:p173`; regresión P172/P170 via verify (re-apply 172).
+- [x] Format-only: documentado → reconcile ~15m (sin Code.gs / onChange FORMAT).
+- [x] B2: mig 172 Cloud + deploy webhook/reconcile; APPLY OFF; sync worker intacto; observación cron natural; sin Sheet write/smoke.
+- [ ] Activación OPERATIONAL APPLY (fuera de P173 B2).
+
 ## P172 — Contingencia extraordinaria de citas (B1 + B1.1 + B2)
 
 - [x] Mig. **171**: tablas + RLS + RPCs declarar/rebook + helper inbox + flag reporting.

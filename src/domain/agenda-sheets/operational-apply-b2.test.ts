@@ -148,6 +148,10 @@ describe("operational-apply-rpc", () => {
     signature_result_class: "PENDING" as const,
     signature_result_raw: null,
     notes_raw: null as string | null,
+    biometric_cell_red: false,
+    notification_cell_red: false,
+    signature_cell_red: false,
+    operational_red_veto: false,
   };
 
   it("5. helper mapea todos los args RPC", () => {
@@ -234,6 +238,10 @@ describe("fingerprint TS == algoritmo SQL (casos P170 B2)", () => {
         signatureResultClass: "PENDING",
         signatureResultRaw: null as string | null,
         notesRaw: null as string | null,
+        biometricCellRed: false,
+        notificationCellRed: false,
+        signatureCellRed: false,
+        operationalRedVeto: false,
       },
     },
     {
@@ -252,6 +260,10 @@ describe("fingerprint TS == algoritmo SQL (casos P170 B2)", () => {
         signatureResultClass: "PENDING",
         signatureResultRaw: null as string | null,
         notesRaw: null as string | null,
+        biometricCellRed: false,
+        notificationCellRed: false,
+        signatureCellRed: false,
+        operationalRedVeto: false,
       },
     },
     {
@@ -270,6 +282,10 @@ describe("fingerprint TS == algoritmo SQL (casos P170 B2)", () => {
         signatureResultClass: "PENDING",
         signatureResultRaw: null as string | null,
         notesRaw: "SE RETIRO",
+        biometricCellRed: false,
+        notificationCellRed: false,
+        signatureCellRed: false,
+        operationalRedVeto: false,
       },
     },
     {
@@ -288,6 +304,10 @@ describe("fingerprint TS == algoritmo SQL (casos P170 B2)", () => {
         signatureResultClass: "COMPLETED",
         signatureResultRaw: "SI",
         notesRaw: null as string | null,
+        biometricCellRed: false,
+        notificationCellRed: false,
+        signatureCellRed: false,
+        operationalRedVeto: false,
       },
     },
     {
@@ -306,6 +326,10 @@ describe("fingerprint TS == algoritmo SQL (casos P170 B2)", () => {
         signatureResultClass: "FAILED_OR_NOT_ATTENDED",
         signatureResultRaw: "X",
         notesRaw: "NO ASISTIO",
+        biometricCellRed: false,
+        notificationCellRed: false,
+        signatureCellRed: false,
+        operationalRedVeto: false,
       },
     },
   ] as const;
@@ -327,6 +351,10 @@ describe("fingerprint TS == algoritmo SQL (casos P170 B2)", () => {
         c.input.signatureResultClass,
         c.input.signatureResultRaw ?? "",
         c.input.notesRaw ?? "",
+        c.input.biometricCellRed ? "1" : "0",
+        c.input.notificationCellRed ? "1" : "0",
+        c.input.signatureCellRed ? "1" : "0",
+        c.input.operationalRedVeto ? "1" : "0",
       ];
       assert.equal(ts, sqlLikeMd5(parts));
     });
@@ -451,6 +479,10 @@ describe("live flows conceptuales (builders)", () => {
         signatureResultClass: green.signature_result_class,
         signatureResultRaw: green.signature_result_raw,
         notesRaw: green.notes_raw,
+        biometricCellRed: green.biometric_cell_red,
+        notificationCellRed: green.notification_cell_red,
+        signatureCellRed: green.signature_cell_red,
+        operationalRedVeto: green.operational_red_veto,
       }),
       agendaSheetOpsFingerprint({
         spreadsheetId: red.spreadsheet_id,
@@ -466,6 +498,10 @@ describe("live flows conceptuales (builders)", () => {
         signatureResultClass: red.signature_result_class,
         signatureResultRaw: red.signature_result_raw,
         notesRaw: red.notes_raw,
+        biometricCellRed: red.biometric_cell_red,
+        notificationCellRed: red.notification_cell_red,
+        signatureCellRed: red.signature_cell_red,
+        operationalRedVeto: red.operational_red_veto,
       }),
     );
   });

@@ -4,6 +4,10 @@
 
 ### Added
 
+- **feat(agenda): P173 B2 publicación controlada (APPLY OFF)** — mig. **172** Cloud (`fvtqbxukqlajezyyvwzy`); Edge `agenda-sheet-webhook` + `agenda-sheet-reconcile` con lectura effective background E:I; proyección color; P170 APPLY sigue OFF/ausente; sync worker no redeploy. Sin Sheet write / smoke / activación.
+
+- **feat(agenda): P173 B1 red color safety veto (local completo)** — mig. **172** (local only): flags color en `agenda_sheet_operational_results`; fingerprint SQL/TS con `0|1`; apply POST-P172 + outcome `COLOR_VETO` (sin avance/rechazo/rollback); prioridad `SKIPPED_CONTINGENCY` > textual FAILED > color. Edge: `getEffectiveBackgrounds` + `effective-background` (#FF0000 BACKGROUND only). Reconcile `E1:I200` / webhook `E{row}:I{row}`. Format-only → reconcile ~15m (sin Code.gs). APPLY OFF / sync intacto. Sin Cloud/deploy/commit.
+
 - **feat(agenda): P172 B3 publicación controlada** — mig. **171** aplicada Cloud (`fvtqbxukqlajezyyvwzy`); tablas P172 vacías; P170 SKIPPED_CONTINGENCY active|closed; OPERATIONAL APPLY sigue OFF; CRM→Sheets ON. Sin smoke / sin contingencia de prueba.
 
 - **feat(agenda): P172 B2 UI contingencia Mesa + Asesor** — botón «Contingencia · Solicitar reagenda» (día único; kinds independientes; preview `agenda_preview_contingencia`; sin bulk selection); badges/panel Mesa; campana Cloud `extraordinary_rebook_required` (abrir ≠ resolver tarea); card `AgendaExtraordinaryRebookCard` (catálogo horarios sin capacity). Sin Cloud apply 171 / Sheet / smoke / commit.

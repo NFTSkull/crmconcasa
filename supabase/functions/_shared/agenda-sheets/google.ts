@@ -3,6 +3,11 @@
  * No secrets in logs. Injectable for tests via fetch override.
  */
 
+import {
+  parseEffectiveBackgroundGridFromSheetsGet,
+  type EffectiveBackground,
+} from "./effective-background.ts";
+
 export type SheetMeta = {
   sheetId: number;
   title: string;
@@ -11,6 +16,12 @@ export type SheetMeta = {
 
 export type SheetsAdapter = {
   getValues: (rangeA1: string) => Promise<string[][]>;
+  /**
+   * Fondo efectivo (spreadsheets.get + includeGridData). Solo BACKGROUND.
+   */
+  getEffectiveBackgrounds: (
+    rangeA1: string,
+  ) => Promise<import("./effective-background.ts").EffectiveBackground[][]>;
   updateValues: (rangeA1: string, values: string[][]) => Promise<void>;
   /**
    * Escritura multi-rango atómica (p.ej. B:D + O:U). Nunca debe incluir A.
@@ -124,6 +135,21 @@ export async function createGoogleSheetsAdapter(input: {
       const json = (await res.json()) as { values?: string[][] };
       return json.values ?? [];
     },
+    async getEffectiveBackgrounds(rangeA1: string) {
+      const url =
+        `${base}?ranges=${encodeURIComponent(rangeA1)}` +
+        `&includeGridData=true` +
+        `&fields=sheets.data.rowData.values.effectiveFormat.backgroundColorStyle,sheets.data.rowData.values.effectiveFormat.backgroundColor`;
+      const res = await fetchFn(url, {
+        headers: { authorization: `Bearer ${accessToken}` },
+      });
+      if (!res.ok) {
+        const body = (await res.text()).slice(0, 180);
+        throw new Error(`google_sheets_bg_read_failed:${res.status}:${body}`);
+      }
+      const json = await res.json();
+      return parseEffectiveBackgroundGridFromSheetsGet(json);
+    },
     async updateValues(rangeA1: string, values: string[][]) {
       const url = `${base}/values/${encodeURIComponent(rangeA1)}?valueInputOption=USER_ENTERED`;
       const res = await fetchFn(url, {
@@ -220,12 +246,27 @@ export async function createGoogleSheetsAdapter(input: {
 /** Mock adapter for unit tests (no network). */
 export function createMemorySheetsAdapter(
   store: Map<string, string[][]>,
-  sheets: SheetMeta[] = [],
-  opts?: { onBatchClear?: (ranges: string[]) => void },
+  sheetsOrBackgrounds:
+    | SheetMeta[]
+    | Map<string, EffectiveBackground[][]> = [],
+  opts?: {
+    onBatchClear?: (ranges: string[]) => void;
+    backgrounds?: Map<string, EffectiveBackground[][]>;
+  },
 ): SheetsAdapter {
+  const sheets: SheetMeta[] = Array.isArray(sheetsOrBackgrounds)
+    ? sheetsOrBackgrounds
+    : [];
+  const backgrounds: Map<string, EffectiveBackground[][]> =
+    sheetsOrBackgrounds instanceof Map
+      ? sheetsOrBackgrounds
+      : (opts?.backgrounds ?? new Map());
   return {
     async getValues(rangeA1: string) {
       return store.get(rangeA1) ?? [];
+    },
+    async getEffectiveBackgrounds(rangeA1: string) {
+      return backgrounds.get(rangeA1) ?? [];
     },
     async updateValues(rangeA1: string, values: string[][]) {
       store.set(rangeA1, values);

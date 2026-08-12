@@ -1,5 +1,5 @@
 /**
- * Mapping Edge/domain → RPC agenda_sheet_apply_operational_result (P170).
+ * Mapping Edge/domain → RPC agenda_sheet_apply_operational_result (P170+P173).
  * Postgres decide etapas/rechazos; aquí solo contrato + outcomes.
  */
 
@@ -15,6 +15,8 @@ export const APPLY_BUSINESS_OUTCOMES = [
   "SKIPPED_STAGE",
   "SKIPPED_TERMINAL",
   "REQUIRES_HUMAN_REACTIVATION",
+  "COLOR_VETO",
+  "SKIPPED_CONTINGENCY",
 ] as const;
 
 export type ApplyBusinessOutcome = (typeof APPLY_BUSINESS_OUTCOMES)[number];
@@ -36,6 +38,10 @@ export type AgendaSheetApplyRpcArgs = Readonly<{
   p_signature_result_class: string;
   p_signature_result_raw: string | null;
   p_notes_raw: string | null;
+  p_biometric_cell_red: boolean;
+  p_notification_cell_red: boolean;
+  p_signature_cell_red: boolean;
+  p_operational_red_veto: boolean;
   p_fingerprint: string;
 }>;
 
@@ -79,6 +85,10 @@ export function buildAgendaSheetApplyRpcArgs(
     signatureResultClass: row.signature_result_class,
     signatureResultRaw: row.signature_result_raw,
     notesRaw: row.notes_raw ?? null,
+    biometricCellRed: Boolean(row.biometric_cell_red),
+    notificationCellRed: Boolean(row.notification_cell_red),
+    signatureCellRed: Boolean(row.signature_cell_red),
+    operationalRedVeto: Boolean(row.operational_red_veto),
   });
   return {
     p_organization_id: row.organization_id,
@@ -97,6 +107,10 @@ export function buildAgendaSheetApplyRpcArgs(
     p_signature_result_class: row.signature_result_class,
     p_signature_result_raw: row.signature_result_raw,
     p_notes_raw: row.notes_raw ?? null,
+    p_biometric_cell_red: Boolean(row.biometric_cell_red),
+    p_notification_cell_red: Boolean(row.notification_cell_red),
+    p_signature_cell_red: Boolean(row.signature_cell_red),
+    p_operational_red_veto: Boolean(row.operational_red_veto),
     p_fingerprint: fingerprint,
   };
 }

@@ -1,5 +1,5 @@
 /**
- * P170 — llama agenda_sheet_apply_operational_result (autoridad Postgres).
+ * P170+P173 — llama agenda_sheet_apply_operational_result (autoridad Postgres).
  * No decide etapas/rechazos en TypeScript.
  */
 import type { OperationalResultUpsertRow } from "./operational-results.ts";
@@ -13,6 +13,8 @@ export const APPLY_BUSINESS_OUTCOMES = [
   "SKIPPED_STAGE",
   "SKIPPED_TERMINAL",
   "REQUIRES_HUMAN_REACTIVATION",
+  "COLOR_VETO",
+  "SKIPPED_CONTINGENCY",
 ] as const;
 
 export type ApplyBusinessOutcome = (typeof APPLY_BUSINESS_OUTCOMES)[number];
@@ -66,6 +68,10 @@ export function buildAgendaSheetApplyRpcArgs(
     p_signature_result_class: row.signature_result_class,
     p_signature_result_raw: row.signature_result_raw,
     p_notes_raw: row.notes_raw ?? null,
+    p_biometric_cell_red: Boolean(row.biometric_cell_red),
+    p_notification_cell_red: Boolean(row.notification_cell_red),
+    p_signature_cell_red: Boolean(row.signature_cell_red),
+    p_operational_red_veto: Boolean(row.operational_red_veto),
     // SQL recalcula fingerprint canónico; Edge no inventa autoridad.
     p_fingerprint: null,
   };
@@ -83,6 +89,10 @@ function logApplySafe(
     booking_id: row.booking_id,
     expediente_id: row.expediente_id,
     kind: row.kind,
+    biometric_cell_red: Boolean(row.biometric_cell_red),
+    notification_cell_red: Boolean(row.notification_cell_red),
+    signature_cell_red: Boolean(row.signature_cell_red),
+    operational_red_veto: Boolean(row.operational_red_veto),
     outcome: view.outcome,
     skippedRpc: view.skippedRpc ?? false,
     unexpected: view.unexpected ?? false,

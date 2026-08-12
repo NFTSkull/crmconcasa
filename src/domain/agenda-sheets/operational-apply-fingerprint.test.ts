@@ -24,6 +24,10 @@ describe("operational-apply-fingerprint", () => {
     signatureResultClass: "PENDING",
     signatureResultRaw: null as string | null,
     notesRaw: null as string | null,
+    biometricCellRed: false,
+    notificationCellRed: false,
+    signatureCellRed: false,
+    operationalRedVeto: false,
   };
 
   it("es determinista", () => {
@@ -43,6 +47,16 @@ describe("operational-apply-fingerprint", () => {
     });
     assert.notEqual(a, b);
     assert.notEqual(a, c);
+  });
+
+  it("color-only fingerprint A!=B", () => {
+    const a = agendaSheetOpsFingerprint(base);
+    const b = agendaSheetOpsFingerprint({
+      ...base,
+      biometricCellRed: true,
+      operationalRedVeto: true,
+    });
+    assert.notEqual(a, b);
   });
 
   it("normaliza kind lower y class upper; ignora whitespace", () => {
@@ -71,6 +85,10 @@ describe("operational-apply-fingerprint", () => {
       "PENDING",
       "",
       "",
+      "0",
+      "0",
+      "0",
+      "0",
     ];
     const expected = createHash("md5")
       .update(parts.join("\u001f"), "utf8")
