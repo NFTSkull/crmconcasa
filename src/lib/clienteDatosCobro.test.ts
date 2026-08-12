@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { ClienteDatosFormShape } from "@/lib/clienteDatosFormCompleteness";
 import {
+  CLIENTE_METODO_PAGO_OPTIONS,
   applyClienteDatosCobroRecalc,
   applyMontoCalculadoSugeridoSiNoBloqueado,
   applyMontoCalculadoSugeridoSiNoEditado,
@@ -13,6 +14,7 @@ import {
   cobroInputsAfectanMontoCalculado,
   isMontoCalculadoManualRespectoAuto,
   isMontoMejoravitGuardado,
+  labelMetodoPago,
   parseMontoCalculadoInput,
   parsePorcentajeCobroInput,
   resolveMontoCalculadoManualForRpc,
@@ -40,6 +42,20 @@ const BASE_DATOS: ClienteDatosFormShape = {
   montoCalculado: "",
   metodoPago: "",
 };
+
+test("CLIENTE_METODO_PAGO_OPTIONS: domiciliado sin opción otro", () => {
+  const values = CLIENTE_METODO_PAGO_OPTIONS.map((o) => o.value);
+  assert.deepEqual(values, [
+    "transferencia",
+    "efectivo",
+    "tarjeta",
+    "domiciliado",
+  ]);
+  assert.equal(labelMetodoPago("domiciliado"), "Domiciliado");
+  assert.equal(labelMetodoPago("transferencia"), "Transferencia");
+  // Valores históricos fuera del select siguen legibles en Mesa.
+  assert.equal(labelMetodoPago("otro"), "otro");
+});
 
 test("parsePorcentajeCobroInput acepta decimales", () => {
   assert.equal(parsePorcentajeCobroInput("12.5"), 12.5);

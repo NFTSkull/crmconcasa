@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Changed
+- **chore(cobro): quitar «Otro» del Método de pago** — se elimina del select; `domiciliado` y el resto se conservan. Valores históricos `otro` siguen legibles en Mesa vía fallback de label.
+
 ### Added
 - **feat(asesor/editor): UI P164 reprecal + cambiar programa** — en detalle expediente: «Enviar nueva precalificación» y «Cambiar programa» (Mejoravit ↔ Compro tu casa) vía misma `lookupNssPrecalGate` + `iniciarReprecalificacion`; estado pendiente vigente vs solicitado; Editor banner sin nuevo submit. `/asesor/nueva` conserva P155 same-program y bloquea create ante `reprecal_change_programa`.
 

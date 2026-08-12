@@ -1,3 +1,7 @@
+## 2026-08-12 - Método de pago: quitar «Otro» del select
+
+Se retira `{ value: "otro", label: "Otro" }` de `CLIENTE_METODO_PAGO_OPTIONS`. Expedientes ya guardados con `otro` no se migran; Mesa muestra el valor crudo por fallback de `labelMetodoPago`.
+
 ## 2026-08-12 - P164 UI: Enviar nueva precal / Cambiar programa (detalle asesor)
 
 Frontend: `AsesorReprecalificacionActions` en detalle expediente (gate + `iniciarReprecalificacion`, idempotency compartida con `/asesor/nueva`). Modal cambio programa (Mejoravit/Compro tu casa). Pendiente muestra vigente vs solicitado sin pisar monto/programa productivos. SELECT embed mínimo `reprecal_intento` para `programa_solicitado`. Editor: banner; mismo `upsertEditorDecision`.
