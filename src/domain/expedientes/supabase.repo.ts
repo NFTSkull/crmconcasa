@@ -117,6 +117,10 @@ const EXPEDIENTES_LIST_SELECT = `
   reingreso_manual_at,
   reingreso_manual_by,
   reprecalificacion_pendiente_id,
+  reprecal_intento:expediente_precalificacion_intentos!expedientes_reprecalificacion_pendiente_id_fkey (
+    programa,
+    programa_solicitado
+  ),
   editor_decisions ( decision, monto_aprobado, notas_revision, aprobado_at, monto_aprobado_al_aprobar, no_cumple_at ),
   reingreso_rechazo:expediente_rechazos_operativos!expedientes_reingreso_rechazo_padre_fk (
     etapa,

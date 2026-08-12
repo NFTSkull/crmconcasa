@@ -1,3 +1,11 @@
+## 2026-08-12 - P164 UI: Enviar nueva precal / Cambiar programa (detalle asesor)
+
+Frontend: `AsesorReprecalificacionActions` en detalle expediente (gate + `iniciarReprecalificacion`, idempotency compartida con `/asesor/nueva`). Modal cambio programa (Mejoravit/Compro tu casa). Pendiente muestra vigente vs solicitado sin pisar monto/programa productivos. SELECT embed mínimo `reprecal_intento` para `programa_solicitado`. Editor: banner; mismo `upsertEditorDecision`.
+
+## 2026-08-12 - P164: reprecal con cambio de programa diferido (backend)
+
+Extiende P155 sin tocar mig. 155. Nueva mig. **168** (feature P164; Cloud 164 ya = admin_stage_history_nss_completo): columna `expediente_precalificacion_intentos.programa_solicitado` (backfill = `programa`); gate `reprecal_change_programa` sustituye `blocked_programa_mismatch` para dueño elegible; `asesor_iniciar_reprecalificacion` acepta own/change, reusa pendiente actualizando solicitud, no muta `expedientes.programa` ni `editor_decisions`; `editor_resolver_reprecalificacion` aplica `programa_solicitado` solo al aprobar junto al monto (misma transacción). Sin UNIQUE extra de pendiente (FOR UPDATE + puntero). Contratos TS + tests SQL espejo.
+
 ## 2026-08-11 - Reagendado histórico CITAS 2026
 
 P160 movía la cita (clear prior + write destino). Nuevo contrato: fila original visible `O=REAGENDADO` + `P=prior_uuid` (naranja UX), inventario `disabled`; replacement FREE debajo; destino = booking nuevo. Cancelación pura intacta.

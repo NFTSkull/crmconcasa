@@ -28,6 +28,7 @@ interface PrecalInfo {
   esReingreso: boolean;
   expedienteAnteriorId: string | null;
   reprecalificacionPendienteId: string | null;
+  programaSolicitado: string | null;
   decisionVigente: Decision;
   montoVigente: number | null;
 }
@@ -94,6 +95,8 @@ export default function EditorExpedientePage() {
           exp.reingreso?.expedienteAnteriorId ?? null,
         reprecalificacionPendienteId:
           exp.reprecalificacionPendienteId ?? null,
+        programaSolicitado:
+          exp.reprecalificacionPendiente?.programaSolicitado ?? null,
         decisionVigente: exp.editorDecision.decision,
         montoVigente: exp.editorDecision.monto_aprobado,
       });
@@ -166,6 +169,9 @@ export default function EditorExpedientePage() {
                 ...prev,
                 reprecalificacionPendienteId:
                   refreshed.reprecalificacionPendienteId ?? null,
+                programaSolicitado:
+                  refreshed.reprecalificacionPendiente?.programaSolicitado ??
+                  null,
                 decisionVigente: refreshed.editorDecision.decision,
                 montoVigente: refreshed.editorDecision.monto_aprobado,
               }
@@ -279,19 +285,45 @@ export default function EditorExpedientePage() {
             </p>
           ) : null}
           {precal.reprecalificacionPendienteId ? (
-            <p className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-950">
-              Re-precalificación pendiente: el asesor dueño solicitó un nuevo
-              intento sobre este mismo expediente. Al aprobar se actualiza el
-              monto vigente; si no cumple, se conserva la decisión anterior
-              {precal.decisionVigente === "aprobado" && precal.montoVigente != null
-                ? ` (vigente: ${precal.montoVigente}).`
-                : "."}
+            <div className="mb-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950">
+              <p className="font-semibold">Actualización de precalificación</p>
+              <p className="mt-1">
+                El asesor dueño solicitó un nuevo intento sobre este mismo
+                expediente. Al aprobar se actualiza el monto vigente
+                {precal.programaSolicitado &&
+                precal.programaSolicitado !== precal.programa
+                  ? " y el programa"
+                  : ""}
+                ; si no cumple, se conserva la decisión anterior
+                {precal.decisionVigente === "aprobado" &&
+                precal.montoVigente != null
+                  ? ` (monto vigente: ${precal.montoVigente}).`
+                  : "."}
+              </p>
+              {precal.programaSolicitado &&
+              precal.programaSolicitado !== precal.programa ? (
+                <div className="mt-2 space-y-0.5">
+                  <p>
+                    <span className="font-medium">Programa vigente:</span>{" "}
+                    {precal.programa}
+                  </p>
+                  <p>
+                    <span className="font-medium">Programa solicitado:</span>{" "}
+                    {precal.programaSolicitado}
+                  </p>
+                </div>
+              ) : (
+                <p className="mt-2">
+                  <span className="font-medium">Programa:</span> {precal.programa}
+                </p>
+              )}
+            </div>
+          ) : (
+            <p>
+              <span className="font-medium text-gray-900">Programa:</span>{" "}
+              {precal.programa}
             </p>
-          ) : null}
-          <p>
-            <span className="font-medium text-gray-900">Programa:</span>{" "}
-            {precal.programa}
-          </p>
+          )}
           <p>
             <span className="font-medium text-gray-900">NSS:</span>{" "}
             {precal.nss}

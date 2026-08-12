@@ -78,11 +78,13 @@ export type {
 } from "./nss-precal-gate";
 export {
   MSG_NSS_AMBIGUOUS,
+  MSG_NSS_CHANGE_PROGRAMA,
   MSG_NSS_OTHER_ASESOR,
   MSG_NSS_OWN_MESA_REPRECAL,
   MSG_NSS_PROGRAMA_MISMATCH,
   MSG_REPRECAL_CONFIRM,
   isNssPrecalGateBlocked,
+  isNssPrecalGateReprecalAllowed,
   messageForNssPrecalGateStatus,
 } from "./nss-precal-gate";
 export type { EditorListPage, EditorListQuery } from "./editor-list-query";

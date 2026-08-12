@@ -32,6 +32,12 @@ export type SupabaseReingresoRechazoEmbed = Readonly<{
   biometricos_razon?: string | null;
 }>;
 
+/** Intento pendiente embebido vía `reprecalificacion_pendiente_id` (P164). */
+export type SupabaseReprecalIntentoEmbed = Readonly<{
+  programa?: string | null;
+  programa_solicitado?: string | null;
+}>;
+
 /** Fila de listado admin desde `expedientes` + joins. */
 export type SupabaseExpedienteListRow = Readonly<{
   id: string;
@@ -62,6 +68,10 @@ export type SupabaseExpedienteListRow = Readonly<{
   reingreso_manual_at?: string | null;
   reingreso_manual_by?: string | null;
   reprecalificacion_pendiente_id?: string | null;
+  reprecal_intento?:
+    | SupabaseReprecalIntentoEmbed
+    | SupabaseReprecalIntentoEmbed[]
+    | null;
   editor_decisions?: SupabaseEditorDecisionEmbed | SupabaseEditorDecisionEmbed[] | null;
   reingreso_rechazo?:
     | SupabaseReingresoRechazoEmbed
@@ -224,6 +234,19 @@ export function mapSupabaseRowToExpedienteMock(
       by: textOrNull(row.reingreso_manual_by),
     },
     reprecalificacionPendienteId: textOrNull(row.reprecalificacion_pendiente_id),
+    reprecalificacionPendiente: (() => {
+      const raw = row.reprecal_intento;
+      const intento = Array.isArray(raw) ? raw[0] : raw;
+      if (!intento) return null;
+      const programaSolicitado = textOrNull(intento.programa_solicitado);
+      if (!programaSolicitado && !textOrNull(intento.programa)) return null;
+      return {
+        programa: mapProgramaDbToUi(textOrNull(intento.programa) ?? ""),
+        programaSolicitado: mapProgramaDbToUi(
+          programaSolicitado ?? textOrNull(intento.programa) ?? "",
+        ),
+      };
+    })(),
   };
 }
 

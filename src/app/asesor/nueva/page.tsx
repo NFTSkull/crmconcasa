@@ -13,6 +13,8 @@ import {
   isNssPrecalGateBlocked,
   type NssPrecalGateResult,
 } from "@/domain/expedientes/nss-precal-gate";
+import { messageForNuevaChangeProgramaBlocked } from "@/domain/expedientes/asesor-reprecal-flow";
+import { newReprecalIdempotencyKey } from "@/domain/expedientes/reprecal-idempotency";
 import { validateCreatePrecalificacion } from "@/domain/precalificaciones/validators";
 import { isDataModeSupabase } from "@/lib/dataMode";
 import { Button } from "@/components/ui/Button";
@@ -22,13 +24,6 @@ import { PROGRAMAS } from "@/lib/mock-store";
 
 function onlyDigits(s: string): string {
   return s.replace(/\D/g, "");
-}
-
-function newIdempotencyKey(): string {
-  if (typeof crypto !== "undefined" && crypto.randomUUID) {
-    return crypto.randomUUID();
-  }
-  return `reprecal-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 }
 
 export default function NuevaPrecalificacionPage() {
@@ -102,6 +97,12 @@ export default function NuevaPrecalificacionPage() {
           return;
         }
 
+        if (gateResult.status === "reprecal_change_programa") {
+          setErrorMsg(messageForNuevaChangeProgramaBlocked());
+          setConfirmReprecal(false);
+          return;
+        }
+
         if (gateResult.status === "reprecal_own_mesa") {
           if (!confirmReprecal) {
             setConfirmReprecal(true);
@@ -109,7 +110,7 @@ export default function NuevaPrecalificacionPage() {
             return;
           }
           if (!idempotencyKeyRef.current) {
-            idempotencyKeyRef.current = newIdempotencyKey();
+            idempotencyKeyRef.current = newReprecalIdempotencyKey();
           }
           const result = await expedientesRepo.iniciarReprecalificacion({
             programa: input.programa,

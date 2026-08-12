@@ -57,28 +57,40 @@ Convenciones:
 
 ---
 
-## 1bis. Re-precalificar NSS propio en Mesa (P155)
+## 1bis. Re-precalificar NSS propio en Mesa (P155 / P164)
 
 **RPCs:** `asesor_lookup_nss_precal_gate` · `asesor_iniciar_reprecalificacion` · `editor_resolver_reprecalificacion` (también vía `upsert_editor_decision` si hay `reprecalificacion_pendiente_id`)
 
 **Rol lookup/iniciar:** solo `asesor` autenticado (`auth.uid()` = dueño del expediente).
 **Rol resolver:** `editor` | `super_admin`.
 
+### Fuente de verdad
+| Concepto | Dónde |
+|---|---|
+| Programa **vigente** | `expedientes.programa` |
+| Programa **solicitado** (pendiente) | `expediente_precalificacion_intentos.programa_solicitado` |
+| Monto **vigente** | `editor_decisions.monto_aprobado` |
+| Aplicación del cambio de programa | Solo en `editor_resolver_reprecalificacion` cuando `decision = aprobado` (misma transacción que el monto) |
+
 ### Gate statuses
 - `ok_create` — alta normal con `create_expediente`
-- `reprecal_own_mesa` — dueño + enviado a Mesa → permitir re-precal
+- `reprecal_own_mesa` — dueño + enviado a Mesa + mismo programa → re-precal
+- `reprecal_change_programa` — dueño + enviado a Mesa + programa distinto → cambio diferido (P164); **no** crea otro expediente
 - `blocked_other_asesor` — «…asignado a otro asesor.»
 - `blocked_ambiguous` — >1 expediente activo enviado a Mesa para el NSS
-- `blocked_programa_mismatch` — mismo dueño, otro programa → «Cambiar programa»
+- `blocked_programa_mismatch` — legacy P155 (el gate P164 ya no lo emite para dueño elegible)
 
 ### Reglas
 - Mismo `expediente_id`; no INSERT de expediente ni cliente duplicado.
-- Historial en `expediente_precalificacion_intentos` (`es_vigente` = última aprobada aplicada).
-- Aprobado: actualiza `editor_decisions.monto_aprobado`; conserva `aprobado_at` / `monto_aprobado_al_aprobar`.
-- `no_cumple`: solo cierra el intento; no borra vigente ni retrocede etapa.
-- Idempotencia: `idempotency_key` por expediente + reuso de pendiente.
-- `action_log`: `asesor.reprecalificacion.iniciar` / `editor.reprecalificacion.aprobar|no_cumple` (sin NSS completo).
+- Historial en `expediente_precalificacion_intentos` (`programa` = vigente al iniciar; `programa_solicitado` = pedido; `es_vigente` = última aprobada aplicada).
+- Mientras hay pendiente: **no** muta `expedientes.programa` ni `editor_decisions` vigentes.
+- Aprobado: actualiza `editor_decisions.monto_aprobado`; si `programa_solicitado` ≠ vigente, actualiza `expedientes.programa` en la misma RPC; conserva `aprobado_at` / `monto_aprobado_al_aprobar`.
+- `no_cumple`: solo cierra el intento; no borra vigente ni cambia programa ni retrocede etapa.
+- Idempotencia: `idempotency_key` por expediente + reuso de `reprecalificacion_pendiente_id` (actualiza `programa_solicitado` si cambia la solicitud).
+- `action_log`: `asesor.reprecalificacion.iniciar` / `editor.reprecalificacion.aprobar|no_cumple` (metadata: `programa_vigente`/`programa_anterior`, `programa_solicitado`, `cambio_programa`; sin NSS completo).
+- Enum `programa` intacto (`mejoravit` | `subcuenta` | `compro_tu_casa`).
 - `nss_bloqueado_en_mesa` / `create_expediente` intactos para ajenos.
+- Mig. **155** (base) + **168** (cambio de programa; feature P164). UI: detalle asesor CTAs + Editor banner.
 
 ---
 

@@ -221,10 +221,14 @@ BEGIN
     PERFORM public.__p155_assert(position('otro asesor' IN SQLERRM) > 0, 'error otro asesor');
   END;
 
-  -- 10) programa distinto
+  -- 10) programa distinto → P164: reprecal_change_programa (mismo expediente)
   PERFORM public.__p155_set_auth(v_asesor_a);
   v_gate := public.asesor_lookup_nss_precal_gate(v_nss, 'compro_tu_casa');
-  PERFORM public.__p155_assert(v_gate->>'status' = 'blocked_programa_mismatch', 'programa mismatch');
+  PERFORM public.__p155_assert(v_gate->>'status' = 'reprecal_change_programa', 'change programa gate');
+  PERFORM public.__p155_assert((v_gate->>'expediente_id')::UUID = v_exp, 'change mismo expediente_id');
+  PERFORM public.__p155_assert(v_gate->>'programa_actual' = 'mejoravit', 'programa_actual vigente');
+  PERFORM public.__p155_assert(v_gate->>'programa_solicitado' = 'compro_tu_casa', 'programa_solicitado');
+  PERFORM public.__p155_assert(COALESCE((v_gate->>'cambio_programa')::BOOLEAN, false) = true, 'cambio_programa true');
 
   -- 3-5) iniciar reprecal: mismo id, nuevo intento, sin segundo expediente
   v_ini := public.asesor_iniciar_reprecalificacion(
@@ -330,10 +334,276 @@ BEGIN
   PERFORM public.__p155_assert(v_anon_ok = false, 'anon bloqueado');
   PERFORM public.__p155_reset_auth();
 
+  -- =========================================================================
+  -- P164 — cambio de programa (mismo flujo / mismo expediente)
+  -- =========================================================================
+  DECLARE
+    v_nss3 TEXT := '99115500003';
+    v_nss4 TEXT := '99115500004';
+    v_nss5 TEXT := '99115500005';
+    v_exp3 UUID;
+    v_exp4 UUID;
+    v_exp5 UUID;
+    v_intento_chg UUID;
+    v_intento_reuse UUID;
+    v_count_pend INT;
+    v_kpi_monto NUMERIC;
+    v_kpi_at TIMESTAMPTZ;
+    v_prog public.programa;
+    v_log_count INT;
+    v_etapa3 INT;
+  BEGIN
+    PERFORM public.__p155_cleanup(v_nss3);
+    PERFORM public.__p155_cleanup(v_nss4);
+    PERFORM public.__p155_cleanup(v_nss5);
+
+    -- Setup Mejoravit aprobado 150000 en Mesa
+    PERFORM public.__p155_set_auth(v_asesor_a);
+    SELECT public.create_expediente('mejoravit', v_nss3, 'Cliente P164', '5512345678', '') INTO v_res;
+    v_exp3 := (v_res->>'id')::UUID;
+    PERFORM public.__p155_reset_auth();
+
+    INSERT INTO public.editor_decisions (
+      expediente_id, organization_id, decision, monto_aprobado, aprobado_at, monto_aprobado_al_aprobar
+    ) VALUES (v_exp3, v_org, 'aprobado', 150000, now() - interval '1 day', 150000)
+    ON CONFLICT (expediente_id) DO UPDATE
+    SET decision = 'aprobado',
+        monto_aprobado = 150000,
+        aprobado_at = EXCLUDED.aprobado_at,
+        monto_aprobado_al_aprobar = 150000;
+
+    UPDATE public.expedientes
+    SET submitted_to_mesa = true, fecha_envio_mesa = now(),
+        subestado = 'en_validacion_mesa', etapa_actual = 3
+    WHERE id = v_exp3;
+
+    SELECT etapa_actual INTO v_etapa3
+    FROM public.expedientes WHERE id = v_exp3;
+    SELECT monto_aprobado_al_aprobar, aprobado_at
+    INTO v_kpi_monto, v_kpi_at
+    FROM public.editor_decisions WHERE expediente_id = v_exp3;
+
+    -- 1 SAME PROGRAM regression gate
+    PERFORM public.__p155_set_auth(v_asesor_a);
+    v_gate := public.asesor_lookup_nss_precal_gate(v_nss3, 'mejoravit');
+    PERFORM public.__p155_assert(v_gate->>'status' = 'reprecal_own_mesa', 'P164 same program gate');
+
+    -- 2–3 CHANGE PROGRAM GATE + NO SECOND EXPEDIENTE
+    v_gate := public.asesor_lookup_nss_precal_gate(v_nss3, 'compro_tu_casa');
+    PERFORM public.__p155_assert(v_gate->>'status' = 'reprecal_change_programa', 'P164 change gate');
+    PERFORM public.__p155_assert((v_gate->>'expediente_id')::UUID = v_exp3, 'P164 same exp id');
+
+    SELECT count(*) INTO v_count_exp FROM public.expedientes WHERE nss = v_nss3 AND deleted_at IS NULL;
+    v_ini := public.asesor_iniciar_reprecalificacion(
+      v_nss3, 'compro_tu_casa', 'Cliente P164 Chg', '5512345678', '', 'idem-p164-1'
+    );
+    v_intento_chg := (v_ini->>'intento_id')::UUID;
+    PERFORM public.__p155_assert(COALESCE((v_ini->>'cambio_programa')::BOOLEAN, false) = true, 'P164 iniciar cambio');
+    SELECT count(*) INTO v_count_exp FROM public.expedientes WHERE nss = v_nss3 AND deleted_at IS NULL;
+    PERFORM public.__p155_assert(v_count_exp = 1, 'P164 no second expediente');
+
+    -- 4–6 PENDING no muta vigentes; intento guarda solicitado
+    SELECT programa INTO v_prog FROM public.expedientes WHERE id = v_exp3;
+    PERFORM public.__p155_assert(v_prog = 'mejoravit', 'P164 pending programa intacto');
+    SELECT monto_aprobado INTO v_ed_monto FROM public.editor_decisions WHERE expediente_id = v_exp3;
+    PERFORM public.__p155_assert(v_ed_monto = 150000, 'P164 pending monto intacto');
+    PERFORM public.__p155_assert(
+      (SELECT programa FROM public.expediente_precalificacion_intentos WHERE id = v_intento_chg) = 'mejoravit',
+      'P164 intento.programa = vigente'
+    );
+    PERFORM public.__p155_assert(
+      (SELECT programa_solicitado FROM public.expediente_precalificacion_intentos WHERE id = v_intento_chg)
+        = 'compro_tu_casa',
+      'P164 intento.programa_solicitado'
+    );
+    PERFORM public.__p155_assert(
+      (SELECT etapa_actual FROM public.expedientes WHERE id = v_exp3) = v_etapa3,
+      'P164 etapa inmutable al iniciar'
+    );
+
+    -- 7 IDEMPOTENCY misma key
+    v_ini2 := public.asesor_iniciar_reprecalificacion(
+      v_nss3, 'compro_tu_casa', 'Cliente P164 Chg', '5512345678', '', 'idem-p164-1'
+    );
+    PERFORM public.__p155_assert((v_ini2->>'intento_id')::UUID = v_intento_chg, 'P164 idempotent intento');
+
+    -- 8 EXISTING PENDING + CHANGE REQUEST (otra key) → mismo intento, actualiza solicitado
+    -- primero pendiente con mejoravit via nueva key tras limpiar? Ya hay pendiente compro.
+    -- Solicitar de nuevo con key distinta pero mismo pending pointer → reusa
+    v_ini2 := public.asesor_iniciar_reprecalificacion(
+      v_nss3, 'mejoravit', 'Cliente P164 Flip', '5512345678', '', 'idem-p164-flip'
+    );
+    v_intento_reuse := (v_ini2->>'intento_id')::UUID;
+    PERFORM public.__p155_assert(v_intento_reuse = v_intento_chg, 'P164 reuse same intento_id');
+    PERFORM public.__p155_assert(
+      (SELECT programa_solicitado FROM public.expediente_precalificacion_intentos WHERE id = v_intento_chg)
+        = 'mejoravit',
+      'P164 pending programa_solicitado updated'
+    );
+    SELECT count(*) INTO v_count_pend
+    FROM public.expediente_precalificacion_intentos
+    WHERE expediente_id = v_exp3 AND decision = 'pendiente';
+    PERFORM public.__p155_assert(v_count_pend = 1, 'P164 one pending after flip');
+
+    -- Volver a solicitar compro sobre el mismo pendiente
+    v_ini2 := public.asesor_iniciar_reprecalificacion(
+      v_nss3, 'compro_tu_casa', 'Cliente P164 Chg2', '5512345678', '', 'idem-p164-2'
+    );
+    PERFORM public.__p155_assert((v_ini2->>'intento_id')::UUID = v_intento_chg, 'P164 still same intento');
+    PERFORM public.__p155_assert(
+      (SELECT programa_solicitado FROM public.expediente_precalificacion_intentos WHERE id = v_intento_chg)
+        = 'compro_tu_casa',
+      'P164 solicitado restaurado a compro'
+    );
+
+    -- 20 CONCURRENCY/ONE PENDING: segunda key distinta no crea 2º pendiente
+    SELECT count(*) INTO v_count_pend
+    FROM public.expediente_precalificacion_intentos
+    WHERE expediente_id = v_exp3 AND decision = 'pendiente';
+    PERFORM public.__p155_assert(v_count_pend = 1, 'P164 concurrency one pending');
+    PERFORM public.__p155_assert(
+      (SELECT reprecalificacion_pendiente_id FROM public.expedientes WHERE id = v_exp3) = v_intento_chg,
+      'P164 pointer estable'
+    );
+
+    -- 19 ACTION LOG iniciar (lectura como postgres: RLS action_log restringe asesores)
+    PERFORM public.__p155_reset_auth();
+    SELECT count(*) INTO v_log_count
+    FROM public.action_log
+    WHERE entity_id = v_exp3 AND action = 'asesor.reprecalificacion.iniciar';
+    PERFORM public.__p155_assert(v_log_count >= 1, 'P164 action_log iniciar');
+
+    -- 9 APPROVE CHANGE PROGRAM
+    PERFORM public.__p155_set_auth(v_editor);
+    v_res := public.upsert_editor_decision(v_exp3, 'aprobado', 180000, 'cambio ok');
+    SELECT programa INTO v_prog FROM public.expedientes WHERE id = v_exp3;
+    PERFORM public.__p155_assert(v_prog = 'compro_tu_casa', 'P164 programa aplicado');
+    SELECT decision, monto_aprobado
+    INTO v_ed_decision, v_ed_monto
+    FROM public.editor_decisions WHERE expediente_id = v_exp3;
+    PERFORM public.__p155_assert(v_ed_decision = 'aprobado', 'P164 ed aprobado');
+    PERFORM public.__p155_assert(v_ed_monto = 180000, 'P164 monto nuevo');
+    -- 18 SNAPSHOTS KPI: conserva primera aprobación
+    PERFORM public.__p155_assert(
+      (SELECT monto_aprobado_al_aprobar FROM public.editor_decisions WHERE expediente_id = v_exp3) = v_kpi_monto,
+      'P164 KPI monto_al_aprobar intacto'
+    );
+    PERFORM public.__p155_assert(
+      (SELECT aprobado_at FROM public.editor_decisions WHERE expediente_id = v_exp3) = v_kpi_at,
+      'P164 KPI aprobado_at intacto'
+    );
+    PERFORM public.__p155_assert(
+      (SELECT reprecalificacion_pendiente_id FROM public.expedientes WHERE id = v_exp3) IS NULL,
+      'P164 pending null post approve'
+    );
+    PERFORM public.__p155_assert(
+      (SELECT decision FROM public.expediente_precalificacion_intentos WHERE id = v_intento_chg) = 'aprobado',
+      'P164 intento aprobado'
+    );
+    PERFORM public.__p155_assert(
+      (SELECT etapa_actual FROM public.expedientes WHERE id = v_exp3) = v_etapa3,
+      'P164 etapa inmutable post approve'
+    );
+    PERFORM public.__p155_reset_auth();
+    SELECT count(*) INTO v_log_count
+    FROM public.action_log
+    WHERE entity_id = v_exp3 AND action = 'editor.reprecalificacion.aprobar';
+    PERFORM public.__p155_assert(v_log_count >= 1, 'P164 action_log aprobar');
+
+    -- 10 NO_CUMPLE CHANGE PROGRAM
+    PERFORM public.__p155_set_auth(v_asesor_a);
+    v_ini := public.asesor_iniciar_reprecalificacion(
+      v_nss3, 'mejoravit', 'Cliente P164 NC', '5512345678', '', 'idem-p164-nc'
+    );
+    v_intento_chg := (v_ini->>'intento_id')::UUID;
+    PERFORM public.__p155_assert(
+      (SELECT programa FROM public.expedientes WHERE id = v_exp3) = 'compro_tu_casa',
+      'P164 NC pending no muta programa'
+    );
+    PERFORM public.__p155_set_auth(v_editor);
+    v_res := public.upsert_editor_decision(v_exp3, 'no_cumple', NULL, 'no pasa cambio');
+    PERFORM public.__p155_assert(
+      (SELECT programa FROM public.expedientes WHERE id = v_exp3) = 'compro_tu_casa',
+      'P164 NC programa intacto'
+    );
+    SELECT monto_aprobado INTO v_ed_monto FROM public.editor_decisions WHERE expediente_id = v_exp3;
+    PERFORM public.__p155_assert(v_ed_monto = 180000, 'P164 NC monto intacto');
+    PERFORM public.__p155_assert(
+      (SELECT reprecalificacion_pendiente_id FROM public.expedientes WHERE id = v_exp3) IS NULL,
+      'P164 NC pending null'
+    );
+
+    -- 16 REPRECAL NORMAL REGRESSION (mismo programa tras cambio)
+    PERFORM public.__p155_set_auth(v_asesor_a);
+    v_ini := public.asesor_iniciar_reprecalificacion(
+      v_nss3, 'compro_tu_casa', 'Cliente P164 Same', '5512345678', '', 'idem-p164-same'
+    );
+    PERFORM public.__p155_assert(COALESCE((v_ini->>'cambio_programa')::BOOLEAN, true) = false, 'P164 same no cambio');
+    PERFORM public.__p155_set_auth(v_editor);
+    v_res := public.upsert_editor_decision(v_exp3, 'aprobado', 190000, 'same ok');
+    PERFORM public.__p155_assert(
+      (SELECT programa FROM public.expedientes WHERE id = v_exp3) = 'compro_tu_casa',
+      'P164 same programa'
+    );
+    PERFORM public.__p155_assert(
+      (SELECT monto_aprobado FROM public.editor_decisions WHERE expediente_id = v_exp3) = 190000,
+      'P164 same monto'
+    );
+
+    -- 13 NOT SUBMITTED TO MESA → ok_create
+    PERFORM public.__p155_set_auth(v_asesor_a);
+    SELECT public.create_expediente('mejoravit', v_nss4, 'Cliente NoMesa', '5512345678', '') INTO v_res;
+    v_exp4 := (v_res->>'id')::UUID;
+    v_gate := public.asesor_lookup_nss_precal_gate(v_nss4, 'mejoravit');
+    PERFORM public.__p155_assert(v_gate->>'status' = 'ok_create', 'P164 not mesa → ok_create');
+
+    -- 14–15 SUBCUENTA intacta + cambio desde subcuenta
+    SELECT public.create_expediente('subcuenta', v_nss5, 'Cliente Sub', '5512345678', '') INTO v_res;
+    v_exp5 := (v_res->>'id')::UUID;
+    PERFORM public.__p155_reset_auth();
+    INSERT INTO public.editor_decisions (
+      expediente_id, organization_id, decision, monto_aprobado, aprobado_at, monto_aprobado_al_aprobar
+    ) VALUES (v_exp5, v_org, 'aprobado', 50000, now(), 50000)
+    ON CONFLICT (expediente_id) DO UPDATE
+    SET decision = 'aprobado', monto_aprobado = 50000, aprobado_at = now(), monto_aprobado_al_aprobar = 50000;
+    UPDATE public.expedientes
+    SET submitted_to_mesa = true, fecha_envio_mesa = now(),
+        subestado = 'en_validacion_mesa', etapa_actual = 2
+    WHERE id = v_exp5;
+
+    PERFORM public.__p155_set_auth(v_asesor_a);
+    v_gate := public.asesor_lookup_nss_precal_gate(v_nss5, 'subcuenta');
+    PERFORM public.__p155_assert(v_gate->>'status' = 'reprecal_own_mesa', 'P164 subcuenta own');
+    v_gate := public.asesor_lookup_nss_precal_gate(v_nss5, 'mejoravit');
+    PERFORM public.__p155_assert(v_gate->>'status' = 'reprecal_change_programa', 'P164 sub→mejoravit gate');
+    v_ini := public.asesor_iniciar_reprecalificacion(
+      v_nss5, 'mejoravit', 'Cliente Sub Chg', '5512345678', '', 'idem-p164-sub'
+    );
+    PERFORM public.__p155_assert(
+      (SELECT programa FROM public.expedientes WHERE id = v_exp5) = 'subcuenta',
+      'P164 sub pending no muta'
+    );
+    PERFORM public.__p155_set_auth(v_editor);
+    PERFORM public.upsert_editor_decision(v_exp5, 'aprobado', 60000, 'sub ok');
+    PERFORM public.__p155_assert(
+      (SELECT programa FROM public.expedientes WHERE id = v_exp5) = 'mejoravit',
+      'P164 sub→mejoravit aplicado'
+    );
+
+    -- 11 OTHER ASESOR (sobre nss3 ahora compro)
+    PERFORM public.__p155_set_auth(v_asesor_b);
+    v_gate := public.asesor_lookup_nss_precal_gate(v_nss3, 'compro_tu_casa');
+    PERFORM public.__p155_assert(v_gate->>'status' = 'blocked_other_asesor', 'P164 other asesor');
+
+    PERFORM public.__p155_cleanup(v_nss3);
+    PERFORM public.__p155_cleanup(v_nss4);
+    PERFORM public.__p155_cleanup(v_nss5);
+  END;
+
   PERFORM public.__p155_cleanup(v_nss);
   PERFORM public.__p155_cleanup(v_nss2);
 
-  RAISE NOTICE 'P155 OK';
+  RAISE NOTICE 'P155/P164 OK';
 END;
 $$;
 
