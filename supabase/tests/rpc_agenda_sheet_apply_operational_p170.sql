@@ -90,10 +90,19 @@ BEGIN
   DELETE FROM public.expediente_rechazo_reactivaciones WHERE organization_id = v_org;
   DELETE FROM public.expediente_rechazos_operativos WHERE organization_id = v_org;
   DELETE FROM public.action_log WHERE organization_id = v_org;
+  DELETE FROM public.agenda_extraordinary_bookings WHERE organization_id = v_org;
+  DELETE FROM public.agenda_contingencia_citas WHERE organization_id = v_org;
+  DELETE FROM public.agenda_contingencias WHERE organization_id = v_org;
   DELETE FROM public.agenda_bookings WHERE organization_id = v_org;
   DELETE FROM public.editor_decisions WHERE organization_id = v_org;
   DELETE FROM public.cliente_datos WHERE organization_id = v_org;
+  DELETE FROM public.expediente_paso_visual_transiciones
+    WHERE expediente_id IN (SELECT id FROM public.expedientes WHERE organization_id = v_org);
   DELETE FROM public.expedientes WHERE organization_id = v_org;
+
+  -- P173 harness: claim inventory P131 bloquea INSERT fixtures sin sheet cupo.
+  -- Desactivar triggers USER solo para seed del suite (misma técnica P172/P173).
+  ALTER TABLE public.agenda_bookings DISABLE TRIGGER USER;
 
   -- Helper: create expediente + bio booking at etapa
   CREATE TEMP TABLE IF NOT EXISTS __p170_scratch (k TEXT PRIMARY KEY, v UUID);
@@ -459,16 +468,16 @@ BEGIN
 
   -- --- SEGURIDAD 42-45 ---
   PERFORM public.__p170_assert(
-    has_function_privilege('anon', 'public.agenda_sheet_apply_operational_result(uuid,text,bigint,integer,date,text,text,uuid,uuid,text,text,text,text,text,text,text,text)', 'EXECUTE') = false,
+    has_function_privilege('anon', 'public.agenda_sheet_apply_operational_result(uuid,text,bigint,integer,date,text,text,uuid,uuid,text,text,text,text,text,text,text,text,boolean,boolean,boolean,boolean)', 'EXECUTE') = false,
     '42 anon no execute'
   );
   PERFORM public.__p170_assert(
-    has_function_privilege('authenticated', 'public.agenda_sheet_apply_operational_result(uuid,text,bigint,integer,date,text,text,uuid,uuid,text,text,text,text,text,text,text,text)', 'EXECUTE') = false,
+    has_function_privilege('authenticated', 'public.agenda_sheet_apply_operational_result(uuid,text,bigint,integer,date,text,text,uuid,uuid,text,text,text,text,text,text,text,text,boolean,boolean,boolean,boolean)', 'EXECUTE') = false,
     '43 authenticated no execute'
   );
   PERFORM public.__p170_assert(
-    has_function_privilege('service_role', 'public.agenda_sheet_apply_operational_result(uuid,text,bigint,integer,date,text,text,uuid,uuid,text,text,text,text,text,text,text,text)', 'EXECUTE')
-    OR has_function_privilege('postgres', 'public.agenda_sheet_apply_operational_result(uuid,text,bigint,integer,date,text,text,uuid,uuid,text,text,text,text,text,text,text,text)', 'EXECUTE'),
+    has_function_privilege('service_role', 'public.agenda_sheet_apply_operational_result(uuid,text,bigint,integer,date,text,text,uuid,uuid,text,text,text,text,text,text,text,text,boolean,boolean,boolean,boolean)', 'EXECUTE')
+    OR has_function_privilege('postgres', 'public.agenda_sheet_apply_operational_result(uuid,text,bigint,integer,date,text,text,uuid,uuid,text,text,text,text,text,text,text,text,boolean,boolean,boolean,boolean)', 'EXECUTE'),
     '44 service/postgres execute'
   );
 
@@ -557,7 +566,15 @@ BEGIN
     );
   PERFORM public.__p170_assert(v_cnt = v_cnt_log, '35 no duplicate log on replay');
 
+  ALTER TABLE public.agenda_bookings ENABLE TRIGGER USER;
   RAISE NOTICE 'P170 SQL tests PASSED';
+EXCEPTION WHEN OTHERS THEN
+  BEGIN
+    ALTER TABLE public.agenda_bookings ENABLE TRIGGER USER;
+  EXCEPTION WHEN OTHERS THEN
+    NULL;
+  END;
+  RAISE;
 END;
 $$;
 

@@ -125,6 +125,9 @@ Deno.serve(async (req) => {
 
       const titleEsc = `'${titleRaw.replace(/'/g, "''")}'`;
       const grid = await adapter.getValues(`${titleEsc}!A1:U200`);
+      const backgroundsEi = await adapter.getEffectiveBackgrounds(
+        `${titleEsc}!E1:I200`,
+      );
       const { rows, issues } = buildInventoryUpsertRows({
         organizationId: orgId,
         spreadsheetId,
@@ -166,6 +169,7 @@ Deno.serve(async (req) => {
         sheetTitle: titleRaw,
         bookingDate: date,
         grid,
+        backgroundsEi,
       }).filter((r) => {
         if (filterKind && r.kind !== filterKind) return false;
         if (filterLocation && r.location_id !== filterLocation) return false;

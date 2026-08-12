@@ -203,6 +203,15 @@ export {
   type OperationalResultUpsertRow,
 } from "./operational-results";
 export {
+  EMPTY_OPERATIONAL_RED_FLAGS,
+  evaluateOperationalRedFlags,
+  isOperationalRedBackground,
+  normalizeGoogleBackground,
+  type EffectiveBackground,
+  type EffectiveBackgroundGrid,
+  type OperationalRedFlags,
+} from "./effective-background";
+export {
   extractOperationalNote,
   findNotasColumnIndex,
 } from "./operational-notes";

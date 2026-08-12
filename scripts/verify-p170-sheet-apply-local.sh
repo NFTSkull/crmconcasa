@@ -20,6 +20,16 @@ psql_local() {
 echo "==> Apply mig 170 (idempotent)"
 psql_local -f supabase/migrations/170_agenda_sheet_apply_operational_result.sql
 
+# Ramas post-P172/P173: 170 recrea apply 17-args; reponer capas posteriores.
+if [[ -f supabase/migrations/171_agenda_contingencia_extraordinaria.sql ]]; then
+  echo "==> Re-apply mig 171 (P172 contingency guards)"
+  psql_local -f supabase/migrations/171_agenda_contingencia_extraordinaria.sql
+fi
+if [[ -f supabase/migrations/172_agenda_sheet_red_color_veto.sql ]]; then
+  echo "==> Re-apply mig 172 (P173 color veto; single apply signature)"
+  psql_local -f supabase/migrations/172_agenda_sheet_red_color_veto.sql
+fi
+
 echo "==> Suite rpc_agenda_sheet_apply_operational_p170.sql"
 psql_local -f supabase/tests/rpc_agenda_sheet_apply_operational_p170.sql
 

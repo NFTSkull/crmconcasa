@@ -10,6 +10,12 @@ import {
   normalizeSheetOpsText,
   type OperationalResultClass,
 } from "./operational-result-classifiers.ts";
+import {
+  evaluateOperationalRedFlags,
+  EMPTY_OPERATIONAL_RED_FLAGS,
+  type EffectiveBackground,
+  type EffectiveBackgroundGrid,
+} from "./effective-background.ts";
 
 export type OperationalResultUpsertRow = {
   organization_id: string;
@@ -30,6 +36,11 @@ export type OperationalResultUpsertRow = {
   signature_result_class: OperationalResultClass;
   signature_result_raw: string | null;
   notes_raw: string | null;
+  biometric_cell_red: boolean;
+  notification_cell_red: boolean;
+  signature_cell_red: boolean;
+  operational_red_veto: boolean;
+  operational_red_columns?: string[];
 };
 
 const UUID_RE =
@@ -148,6 +159,8 @@ export function buildOperationalResultUpsertRows(input: {
   sheetTitle: string;
   bookingDate: string;
   grid: ReadonlyArray<ReadonlyArray<string | null | undefined>>;
+  /** Grid E:I alineado al mismo índice de fila que A:U (p.ej. E1:I200). */
+  backgroundsEi?: EffectiveBackgroundGrid | null;
 }): OperationalResultUpsertRow[] {
   const out: OperationalResultUpsertRow[] = [];
   let section: { kind: string; location_id: string } | null = null;
@@ -187,6 +200,13 @@ export function buildOperationalResultUpsertRows(input: {
       kind: section.kind,
       row,
     });
+    const redFlags =
+      input.backgroundsEi == null
+        ? EMPTY_OPERATIONAL_RED_FLAGS
+        : evaluateOperationalRedFlags({
+            kind: section.kind,
+            eiBackgrounds: input.backgroundsEi[i] ?? null,
+          });
     out.push({
       organization_id: input.organizationId,
       spreadsheet_id: input.spreadsheetId,
@@ -205,6 +225,11 @@ export function buildOperationalResultUpsertRows(input: {
         row,
         headerRow,
       }),
+      biometric_cell_red: redFlags.biometric_cell_red,
+      notification_cell_red: redFlags.notification_cell_red,
+      signature_cell_red: redFlags.signature_cell_red,
+      operational_red_veto: redFlags.operational_red_veto,
+      operational_red_columns: [...redFlags.operational_red_columns],
     });
   }
   return out;
@@ -222,6 +247,7 @@ export function buildOperationalResultFromRow(input: {
   locationId: string;
   row: ReadonlyArray<string | null | undefined>;
   headerRow?: ReadonlyArray<string | null | undefined> | null;
+  eiBackgrounds?: ReadonlyArray<EffectiveBackground> | null;
 }): OperationalResultUpsertRow | null {
   if (input.kind !== "biometricos" && input.kind !== "firmas") return null;
   if (input.locationId !== "monterrey" && input.locationId !== "apodaca") {
@@ -246,6 +272,13 @@ export function buildOperationalResultFromRow(input: {
     kind: input.kind,
     row: input.row,
   });
+  const redFlags =
+    input.eiBackgrounds == null
+      ? EMPTY_OPERATIONAL_RED_FLAGS
+      : evaluateOperationalRedFlags({
+          kind: input.kind,
+          eiBackgrounds: input.eiBackgrounds,
+        });
   return {
     organization_id: input.organizationId,
     spreadsheet_id: input.spreadsheetId,
@@ -264,5 +297,10 @@ export function buildOperationalResultFromRow(input: {
       row: input.row,
       headerRow: input.headerRow,
     }),
+    biometric_cell_red: redFlags.biometric_cell_red,
+    notification_cell_red: redFlags.notification_cell_red,
+    signature_cell_red: redFlags.signature_cell_red,
+    operational_red_veto: redFlags.operational_red_veto,
+    operational_red_columns: [...redFlags.operational_red_columns],
   };
 }

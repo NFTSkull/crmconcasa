@@ -127,6 +127,10 @@ async function upsertAndApplyOperationalResultRow(
   }
   if (!kind || !locationId) return { ops: null, apply: null };
 
+  const titleEscBg = `'${String(input.sheetTitle).replace(/'/g, "''")}'`;
+  const eiGrid = await adapter.getEffectiveBackgrounds(
+    `${titleEscBg}!E${input.rowNumber}:I${input.rowNumber}`,
+  );
   const ops = buildOperationalResultFromRow({
     organizationId: input.organizationId,
     spreadsheetId: input.spreadsheetId,
@@ -137,6 +141,7 @@ async function upsertAndApplyOperationalResultRow(
     kind,
     locationId,
     row: input.row,
+    eiBackgrounds: eiGrid[0] ?? null,
   });
   if (!ops) return { ops: null, apply: null };
   await supabase.rpc("agenda_sheet_ops_upsert_batch", { p_rows: [ops] });

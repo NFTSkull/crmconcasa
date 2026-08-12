@@ -20,6 +20,13 @@ psql_local() {
 echo "==> Apply mig 171 (idempotent)"
 psql_local -f supabase/migrations/171_agenda_contingencia_extraordinaria.sql
 
+# En ramas posteriores a P173, re-aplicar 172 para no dejar overload P171
+# pisando el wrapper compat / COLOR_VETO (171 CREATE OR REPLACE del apply 17-args).
+if [[ -f supabase/migrations/172_agenda_sheet_red_color_veto.sql ]]; then
+  echo "==> Re-apply mig 172 (P173 color veto; restores post-171 apply)"
+  psql_local -f supabase/migrations/172_agenda_sheet_red_color_veto.sql
+fi
+
 echo "==> Suite rpc_agenda_contingencia_p172.sql"
 psql_local -f supabase/tests/rpc_agenda_contingencia_p172.sql
 
