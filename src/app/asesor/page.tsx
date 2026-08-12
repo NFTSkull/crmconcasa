@@ -61,6 +61,10 @@ import { NotificationsBell } from "@/components/notifications/NotificationsBell"
 import { AsesorAgendaCalendarButton } from "@/components/asesor/AsesorAgendaCalendarButton";
 import type { DashboardNotificationItem } from "@/lib/dashboardNotifications";
 import {
+  listContingenciaPendientesAsesor,
+  mergeExtraordinaryBellNotifications,
+} from "@/domain/agenda-contingencia";
+import {
   useAgendaBiometricosBookingRepo,
 } from "@/domain/agenda-biometricos";
 import type { AgendaBiometricosBookingRepo } from "@/domain/agenda-biometricos/repo";
@@ -897,7 +901,19 @@ export default function AsesorDashboardPage() {
         setGlobalTotalCount(summary.counts.total);
         setKpis(mapAsesorInboxSummaryToKpis(summary));
         setProgramasUnicos(summary.programas_unicos);
-        setDashboardNotifications(mapAsesorInboxNotificationsToDashboard(summary));
+        const inboxNotifs = mapAsesorInboxNotificationsToDashboard(summary);
+        let mergedNotifs = inboxNotifs;
+        try {
+          const pendingContingencia = await listContingenciaPendientesAsesor();
+          if (gen !== queryGenRef.current) return;
+          mergedNotifs = mergeExtraordinaryBellNotifications(
+            inboxNotifs,
+            pendingContingencia,
+          );
+        } catch {
+          /* Contingencia opcional: no tumbar inbox */
+        }
+        setDashboardNotifications(mergedNotifs);
         setListError(null);
         const ids = capIdsForDependentLoads(mappedWithRpcResult.map((p) => p.id));
         expedienteIdsRef.current = ids;

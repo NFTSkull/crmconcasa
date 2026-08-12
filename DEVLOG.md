@@ -1,3 +1,28 @@
+## 2026-08-12 - P172 B3: publicación controlada (Cloud 171)
+
+Precheck: `origin/main` = `486474e`; `schema_migrations` tiene 170, **no** 171; tablas P172 ausentes; Edge `GOOGLE_SHEETS_SYNC_ENABLED` presente; `GOOGLE_SHEETS_OPERATIONAL_APPLY_ENABLED` **ausente** (=OFF). Baseline counts pre-apply: bookings/inventory/outbox/links capturados RO. Apply: `supabase db query --linked -f 171_…sql` (sin `db push`) + registro `schema_migrations` 171. Sin smoke / sin declarar contingencia / sin Edge deploy / sin Sheet.
+
+### Rollback técnico P172 (NO ejecutar salvo incidente; solo seguro con tablas P172 vacías)
+
+1. `DROP TRIGGER IF EXISTS agenda_bookings_guard_contingency_bu ON public.agenda_bookings;`
+2. Restaurar desde `supabase/migrations/170_agenda_sheet_apply_operational_result.sql` (y definición Drive vigente pre-171) vía `CREATE OR REPLACE` de `agenda_sheet_apply_operational_result` + `mesa_set_agenda_drive_validation`.
+3. `DROP FUNCTION` RPCs/helpers P172: preview/declarar/listados/agendar/expediente + `agenda_booking_has_contingency` / under / assert / inbox flag / ops flag / guard fn / normalize location.
+4. `DROP TABLE` en orden FK: `agenda_extraordinary_bookings` → `agenda_contingencia_citas` → `agenda_contingencias`.
+5. `DELETE FROM supabase_migrations.schema_migrations WHERE version='171';`
+6. No tocar inventory/outbox/Sheets. Si ya hay filas P172 → **no** rollback destructivo sin backup.
+
+## 2026-08-12 - P172 B2: UI Mesa + notificación Asesor + reagenda extraordinaria
+
+Botón Mesa amber (roles mesa/super_admin; un solo día; no Semana; no bulk selection). Modal: kinds independientes (2 RPC si ambos), sede opcional, motivo obligatorio, preview server-side `agenda_preview_contingencia`. Panel resumen + badges CONTINGENCIA; acciones normales vía `contingencyOriginalBlockedActions`. Asesor: `asesor_list_contingencia_pendientes` → campana (read ≠ resolve); expediente `AgendaExtraordinaryRebookCard` + `asesor_agendar_cita_extraordinaria` (catálogo sin cupo). SuperAdmin: mismo `MesaAgendaCitasClient`. Sin Cloud/Sheet/smoke/commit.
+
+## 2026-08-12 - P172 B1.1: hardening invariantes (pre-UI)
+
+Skip P170 permanente para originales en contingencia `active|closed` (closed ≠ voided). Helper canónico `agenda_booking_has_contingency` + trigger BEFORE UPDATE en `agenda_bookings` → `BOOKING_UNDER_CONTINGENCY` (cancel/reagenda/Drive). Extraordinary intacta. Avance bulk: `avanzar_etapa_operativa` sin booking_id → sin bloqueo global; contrato TS para B2. Notif kind `extraordinary_rebook_required` prioridad 4. Sin RPC close todavía. Sin Cloud/commit.
+
+## 2026-08-12 - P172 B1: contingencia extraordinaria (backend seguro)
+
+Auditoría Cloud: max mig **170** → libre **171**. Modelo: cabecera ACTIVE única (org+date+kind+location NULLS NOT DISTINCT) + snapshot booked + extraordinary tabla separada (sin cupo). Declarar no cancela/reagenda bookings ni escribe outbox/Sheets. Guard apply: `SKIPPED_CONTINGENCY` prior a COMPLETED/FAILED. Notificación = items `pending_rebook` vía `asesor_list_contingencia_pendientes` (no localStorage). Preferencia: no crear contingencia vacía. Sin UI botón; sin Cloud/commit.
+
 ## 2026-08-12 - Hotfix: agenda-sheet-sync-worker BOOT_ERROR
 
 Prod logs: `Uncaught SyntaxError: The requested module './tech-columns.ts' does not provide an export named 'AGENDA_SHEET_COL_INDEX'` en `_shared/agenda-sheets/rescheduled-history.ts` (PR #121 / v23). Domain mirror exporta `AGENDA_SHEET_COL_INDEX`; Edge usa `COL_INDEX`. Fix mínimo: `import { COL_INDEX as AGENDA_SHEET_COL_INDEX, ... }`. Outbox pending attempts=0 es consecuencia (worker no arranca). P170 apply no tocado. Fase 1 local only — sin deploy.

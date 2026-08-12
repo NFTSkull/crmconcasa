@@ -119,5 +119,6 @@ run_sql_test "supabase/tests/rpc_asesor_inbox_page_p161.sql"
 run_sql_test "supabase/tests/rpc_agenda_sheet_manual_occupancy_p162.sql"
 run_sql_test "supabase/tests/admin_stage_history_calibrated_p163.sql"
 run_sql_test "supabase/tests/rpc_agenda_sheet_apply_operational_p170.sql"
+run_sql_test "supabase/tests/rpc_agenda_contingencia_p172.sql"
 
 echo "SQL tests: ALL PASSED"

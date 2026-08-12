@@ -38,6 +38,15 @@ type MesaAgendaCitasDayViewProps = Readonly<{
   onBulkRowCheckedChange?: (entry: MesaAgendaBookingEntry, checked: boolean) => void;
   bulkBusy?: boolean;
   onNotificacionSedeSaved?: (bookingId: string, locationId: string) => void;
+  contingencyByBookingId?: ReadonlyMap<
+    string,
+    {
+      item_status: string;
+      extraordinary_date?: string | null;
+      extraordinary_time?: string | null;
+      extraordinary_location_id?: string | null;
+    }
+  >;
 }>;
 
 
@@ -69,6 +78,7 @@ export function MesaAgendaCitasDayView({
   onBulkRowCheckedChange,
   bulkBusy = false,
   onNotificacionSedeSaved,
+  contingencyByBookingId,
 }: MesaAgendaCitasDayViewProps) {
   const groups = groupMesaAgendaEntriesByTime(entries);
   const showBulk = Boolean(selectedBookingIds && onBulkRowCheckedChange && isBulkRowSelectable);
@@ -150,6 +160,7 @@ export function MesaAgendaCitasDayView({
                       entry={entry}
                       historyLabel={historyLabel}
                       showHistoryIndicator={showHistoryIndicator}
+                      contingencyItem={contingencyByBookingId?.get(entry.bookingId) ?? null}
                     />
                   </div>
                   <div className="mt-2">

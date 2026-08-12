@@ -33,6 +33,15 @@ type MesaAgendaCitasWeekViewProps = Readonly<{
   onBulkRowCheckedChange?: (entry: MesaAgendaBookingEntry, checked: boolean) => void;
   bulkBusy?: boolean;
   onNotificacionSedeSaved?: (bookingId: string, locationId: string) => void;
+  contingencyByBookingId?: ReadonlyMap<
+    string,
+    {
+      item_status: string;
+      extraordinary_date?: string | null;
+      extraordinary_time?: string | null;
+      extraordinary_location_id?: string | null;
+    }
+  >;
 }>;
 
 function WeekDayCard({
@@ -102,6 +111,7 @@ export function MesaAgendaCitasWeekView({
   onBulkRowCheckedChange,
   bulkBusy = false,
   onNotificacionSedeSaved,
+  contingencyByBookingId,
 }: MesaAgendaCitasWeekViewProps) {
   const summaries = deriveMesaAgendaWeekDaySummaries(entries, weekDays);
   const detailDay = selectedDetailDay ?? weekDays.find((day) =>
@@ -148,6 +158,7 @@ export function MesaAgendaCitasWeekView({
             onBulkRowCheckedChange={onBulkRowCheckedChange}
             bulkBusy={bulkBusy}
             onNotificacionSedeSaved={onNotificacionSedeSaved}
+            contingencyByBookingId={contingencyByBookingId}
           />
         </section>
       ) : null}
