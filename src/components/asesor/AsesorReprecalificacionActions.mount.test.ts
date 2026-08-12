@@ -1,0 +1,98 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { describe, it } from "node:test";
+
+describe("P164 UI montaje reprecal detalle / editor / nueva", () => {
+  const actions = readFileSync(
+    join(
+      process.cwd(),
+      "src/components/asesor/AsesorReprecalificacionActions.tsx",
+    ),
+    "utf8",
+  );
+  const detalle = readFileSync(
+    join(process.cwd(), "src/app/asesor/expediente/[id]/page.tsx"),
+    "utf8",
+  );
+  const editor = readFileSync(
+    join(process.cwd(), "src/app/editor/[id]/page.tsx"),
+    "utf8",
+  );
+  const nueva = readFileSync(
+    join(process.cwd(), "src/app/asesor/nueva/page.tsx"),
+    "utf8",
+  );
+
+  it("detalle monta CTAs Enviar nueva precalificación y Cambiar programa", () => {
+    assert.match(detalle, /AsesorReprecalificacionActions/);
+    assert.match(actions, /Enviar nueva precalificación/);
+    assert.match(actions, /Cambiar programa/);
+    assert.match(actions, /Modificar programa solicitado/);
+  });
+
+  it("nueva precal y cambio convergen en lookupNssPrecalGate + iniciarReprecalificacion", () => {
+    assert.match(actions, /lookupNssPrecalGate/);
+    assert.match(actions, /iniciarReprecalificacion/);
+    assert.doesNotMatch(actions, /createExpediente/);
+    assert.doesNotMatch(actions, /cambiarPrograma\b/);
+    assert.doesNotMatch(actions, /iniciarCambioPrograma/);
+  });
+
+  it("misma idempotency key vía ref + newReprecalIdempotencyKey; disabled en vuelo", () => {
+    assert.match(actions, /idempotencyKeyRef/);
+    assert.match(actions, /newReprecalIdempotencyKey/);
+    assert.match(actions, /inFlightRef/);
+    assert.match(actions, /disabled=\{submitting/);
+  });
+
+  it("cambio: no permite mismo programa (disabled sin cambioEsCambio)", () => {
+    assert.match(actions, /cambioEsCambio/);
+    assert.match(actions, /disabled=\{submitting \|\| !cambioEsCambio\}/);
+    assert.match(actions, /Enviar nueva precalificación/);
+  });
+
+  it("pendiente: vigente vs solicitado separados; monto vigente no sustituido", () => {
+    assert.match(actions, /Precalificación en revisión/);
+    assert.match(actions, /Programa vigente/);
+    assert.match(actions, /Programa solicitado/);
+    assert.match(actions, /Monto vigente/);
+    assert.match(actions, /montoAprobadoVigente/);
+  });
+
+  it("confirma copy diferido de programa/monto", () => {
+    assert.match(
+      actions,
+      /El monto aprobado actual[\s\S]*conservará hasta que el Editor/,
+    );
+    assert.match(
+      actions,
+      /permanecerán vigentes hasta que[\s\S]*el Editor apruebe/,
+    );
+    assert.match(actions, /Si el Editor determina que no cumple/);
+  });
+
+  it("editor: banner actualización + mismo upsertEditorDecision", () => {
+    assert.match(editor, /Actualización de precalificación/);
+    assert.match(editor, /Programa vigente/);
+    assert.match(editor, /Programa solicitado/);
+    assert.match(editor, /upsertEditorDecision/);
+    assert.equal(
+      (editor.match(/upsertEditorDecision/g) ?? []).length,
+      1,
+    );
+  });
+
+  it("nueva: mismo programa reprecal; change_programa no crea expediente", () => {
+    assert.match(nueva, /reprecal_own_mesa/);
+    assert.match(nueva, /reprecal_change_programa/);
+    assert.match(nueva, /messageForNuevaChangeProgramaBlocked/);
+    assert.match(nueva, /newReprecalIdempotencyKey/);
+    assert.match(nueva, /createExpediente/);
+  });
+
+  it("opciones de producto sin Subcuenta en el CTA de cambio", () => {
+    assert.match(actions, /CAMBIAR_PROGRAMA_OPTIONS|opcionesCambioPrograma/);
+    assert.doesNotMatch(actions, /value:\s*"Subcuenta"/);
+  });
+});

@@ -19,6 +19,7 @@ import { AsesorPagareSection } from "@/components/asesor/AsesorPagareSection";
 import { AsesorMesaDocumentosSection } from "@/components/asesor/AsesorMesaDocumentosSection";
 import { AsesorNotificacionDocumentoSection } from "@/components/asesor/AsesorNotificacionDocumentoSection";
 import { AsesorSolicitudDocumentoSection } from "@/components/asesor/AsesorSolicitudDocumentoSection";
+import { AsesorReprecalificacionActions } from "@/components/asesor/AsesorReprecalificacionActions";
 import { AsesorReingresoPostBiometricosCard } from "@/components/asesor/AsesorReingresoPostBiometricosCard";
 import { AsesorExpedienteCanceladoBanner } from "@/components/asesor/AsesorExpedienteCanceladoBanner";
 import { AsesorExpedienteRechazadoBanner } from "@/components/asesor/AsesorExpedienteRechazadoBanner";
@@ -276,6 +277,10 @@ export default function AsesorExpedientePage() {
   const [archivosError, setArchivosError] = useState<string | null>(null);
   const [cancelacionOperativa, setCancelacionOperativa] =
     useState<ExpedienteCancelacionRow | null>(null);
+  const [reprecalificacionPendienteId, setReprecalificacionPendienteId] =
+    useState<string | null>(null);
+  const [programaSolicitadoPendiente, setProgramaSolicitadoPendiente] =
+    useState<string | null>(null);
 
   const integrationDocsInput = useMemo(
     () =>
@@ -625,6 +630,8 @@ export default function AsesorExpedientePage() {
         setReingreso(undefined);
         setReingresoManual(undefined);
         setCancelacionOperativa(null);
+        setReprecalificacionPendienteId(null);
+        setProgramaSolicitadoPendiente(null);
         setLoadError(null);
         return;
       }
@@ -658,6 +665,12 @@ export default function AsesorExpedientePage() {
         pagoConcasaResultado: exp.operativo.pagoConcasaResultado ?? null,
         pagoConcasaAt: exp.operativo.pagoConcasaAt ?? null,
       });
+      setReprecalificacionPendienteId(
+        exp.reprecalificacionPendienteId ?? null,
+      );
+      setProgramaSolicitadoPendiente(
+        exp.reprecalificacionPendiente?.programaSolicitado?.trim() || null,
+      );
       if (exp.operativo.cicloEstado === "cancelado") {
         const cancelacion = await repo
           .getUltimaCancelacionOperativa(exp.id)
@@ -673,6 +686,8 @@ export default function AsesorExpedientePage() {
       setReingreso(undefined);
       setReingresoManual(undefined);
       setCancelacionOperativa(null);
+      setReprecalificacionPendienteId(null);
+      setProgramaSolicitadoPendiente(null);
       if (err instanceof ExpedientesSupabaseError) {
         setLoadError(err.message);
       } else {
@@ -1468,6 +1483,27 @@ export default function AsesorExpedientePage() {
                 </p>
               ) : null}
             </div>
+            {!expedienteCancelado ? (
+              <AsesorReprecalificacionActions
+                expedienteId={String(precal.id)}
+                nss={precal.nss}
+                clienteNombre={precal.cliente_nombre}
+                telefonoCliente={precal.telefono_cliente}
+                direccionOpcional={precal.direccion_opcional}
+                programaVigenteUi={precal.programa}
+                submittedToMesa={operativo?.submittedToMesa ?? false}
+                cicloEstado={operativo?.cicloEstado}
+                dataSupabase={dataSupabase}
+                reprecalificacionPendienteId={reprecalificacionPendienteId}
+                programaSolicitadoUi={programaSolicitadoPendiente}
+                montoAprobadoVigente={
+                  typeof editorDecision?.monto_aprobado === "number"
+                    ? editorDecision.monto_aprobado
+                    : null
+                }
+                onCompleted={() => void loadExpediente()}
+              />
+            ) : null}
             {!hasMontoAprobado ? (
               <div
                 role="status"

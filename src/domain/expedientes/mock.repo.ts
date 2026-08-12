@@ -163,6 +163,11 @@ export interface ExpedienteMock {
   };
   /** P155: intento de re-precalificación pendiente de decisión editorial. */
   reprecalificacionPendienteId?: string | null;
+  /** P164: snapshot del intento pendiente (programa vigente al iniciar vs solicitado). */
+  reprecalificacionPendiente?: {
+    programa: string;
+    programaSolicitado: string;
+  } | null;
 }
 
 /**
@@ -639,9 +644,8 @@ export class MockExpedientesRepo implements ExpedientesRepo {
 
   async lookupNssPrecalGate(
     nss: string,
-    _programa: CreateExpedienteInput["programa"],
+    programa: CreateExpedienteInput["programa"],
   ): Promise<import("./nss-precal-gate").NssPrecalGateResult> {
-    void _programa;
     const all = await this.listAll();
     const nssNorm = nss.replace(/\D/g, "");
     const enMesa = all.filter(
@@ -659,20 +663,48 @@ export class MockExpedientesRepo implements ExpedientesRepo {
       };
     }
     if (enMesa.length === 1) {
+      const exp = enMesa[0]!;
+      const vigente = String(exp.base.programa ?? "").trim();
+      const solicitado = String(programa ?? "").trim();
+      const same =
+        vigente.toLowerCase() === solicitado.toLowerCase() ||
+        vigente === solicitado;
+      if (same) {
+        return {
+          status: "reprecal_own_mesa",
+          message:
+            "Este NSS ya tiene un expediente en Mesa asignado a ti. Puedes volver a precalificarlo; el resultado se actualizará en el mismo expediente.",
+          expediente_id: exp.id,
+          nss: nssNorm,
+          programa: vigente,
+          programa_actual: vigente,
+          programa_solicitado: solicitado,
+          cambio_programa: false,
+          reprecalificacion_pendiente_id:
+            exp.reprecalificacionPendienteId ?? null,
+        };
+      }
       return {
-        status: "reprecal_own_mesa",
+        status: "reprecal_change_programa",
         message:
-          "Este NSS ya tiene un expediente en Mesa asignado a ti. Puedes volver a precalificarlo; el resultado se actualizará en el mismo expediente.",
-        expediente_id: enMesa[0].id,
+          "Puedes solicitar cambio de programa sobre el mismo expediente. El programa y monto vigentes no cambian hasta que el Editor apruebe.",
+        expediente_id: exp.id,
         nss: nssNorm,
+        programa: vigente,
+        programa_actual: vigente,
+        programa_solicitado: solicitado,
+        cambio_programa: true,
         reprecalificacion_pendiente_id:
-          enMesa[0].reprecalificacionPendienteId ?? null,
+          exp.reprecalificacionPendienteId ?? null,
       };
     }
     return {
       status: "ok_create",
       message: "Puedes crear una nueva precalificación.",
       nss: nssNorm,
+      programa,
+      programa_solicitado: programa,
+      cambio_programa: false,
     };
   }
 
@@ -680,22 +712,30 @@ export class MockExpedientesRepo implements ExpedientesRepo {
     input: import("./nss-precal-gate").IniciarReprecalificacionInput,
   ): Promise<import("./nss-precal-gate").IniciarReprecalificacionResult> {
     const gate = await this.lookupNssPrecalGate(input.nss, input.programa);
-    if (gate.status !== "reprecal_own_mesa" || !gate.expediente_id) {
+    if (
+      (gate.status !== "reprecal_own_mesa" &&
+        gate.status !== "reprecal_change_programa") ||
+      !gate.expediente_id
+    ) {
       throw new Error(gate.message);
     }
     const intentoId =
       typeof crypto !== "undefined" && crypto.randomUUID
         ? crypto.randomUUID()
         : `intento-${Date.now()}`;
+    const cambio = Boolean(gate.cambio_programa);
     return {
       ok: true,
       idempotent: false,
       expediente_id: gate.expediente_id,
       intento_id: intentoId,
       status: "reprecal_pending",
-      message:
-        "Se guardó una nueva precalificación en el expediente existente. No se creó otro expediente.",
-      programa: input.programa,
+      message: cambio
+        ? "Se solicitó cambio de programa en el expediente existente. El programa y monto vigentes no cambian hasta que el Editor apruebe."
+        : "Se guardó una nueva precalificación en el expediente existente. No se creó otro expediente.",
+      programa: gate.programa_actual ?? gate.programa,
+      programa_solicitado: gate.programa_solicitado ?? input.programa,
+      cambio_programa: cambio,
       cliente_nombre: input.cliente_nombre.trim(),
     };
   }

@@ -20,14 +20,19 @@
 - SQL: `supabase/tests/rpc_cliente_constancia_curp_validaciones.sql`. FE: `src/domain/identidad-curp/identidad-curp.test.ts`.
 - Probe local flags-only: `npx tsx scripts/probe-curp-constancia-local.ts` (PDF en `/tmp`, no al repo).
 
-## Hotfix — Re-precalificar NSS propio en Mesa (P155)
+## Hotfix — Re-precalificar NSS propio en Mesa (P155 / P164)
 
-- [x] Gate: own mesa / otro asesor / ambiguo / programa distinto.
-- [x] `asesor_iniciar_reprecalificacion` reutiliza `expediente_id`; historial de intentos.
+- [x] Gate: own mesa / otro asesor / ambiguo / ok_create.
+- [x] P164: `reprecal_change_programa` (dueño + otro programa → mismo `expediente_id`; ya no bloquea elegible).
+- [x] `asesor_iniciar_reprecalificacion` reutiliza `expediente_id`; historial; `programa_solicitado` diferido.
+- [x] Pendiente no muta `expedientes.programa` ni monto vigente; aplica programa solo al aprobar.
 - [x] Editor resuelve vía `upsert_editor_decision` → `editor_resolver_reprecalificacion`.
-- [x] Aprobado actualiza monto vigente; no_cumple conserva anterior; etapa/docs/citas intactos.
-- [x] Idempotency key; anon sin EXECUTE; SQL `rpc_asesor_reprecalificar_nss_propio_mesa.sql`.
-- [x] UI `/asesor/nueva`: «Volver a precalificar» + confirmación; sin segunda tarjeta en dashboard.
+- [x] Aprobado actualiza monto (+ programa si cambio); no_cumple conserva anterior; etapa/docs/citas intactos.
+- [x] Reuso de pendiente + update solicitud; un solo pendiente; idempotency key; anon sin EXECUTE.
+- [x] SQL `rpc_asesor_reprecalificar_nss_propio_mesa.sql` (regresión P155 + casos P164).
+- [x] UI `/asesor/nueva`: «Volver a precalificar» + confirmación (mismo programa); `reprecal_change_programa` no crea expediente.
+- [x] UI detalle expediente: «Enviar nueva precalificación» + «Cambiar programa» (P164) vía misma RPC; pendiente vigente/solicitado.
+- [x] Editor: banner actualización con programa vigente → solicitado; mismo `upsertEditorDecision`.
 - [x] Smoke RO caso Adriana sin escritura.
 
 ## Hotfix — Reingreso: domicilio y estado de cuenta editables
