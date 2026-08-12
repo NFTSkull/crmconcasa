@@ -31,6 +31,18 @@ import { MesaAgendaBulkDriveConfirmDialog } from "@/components/mesa-control/Mesa
 import { MesaAgendaBulkDriveResultPanel } from "@/components/mesa-control/MesaAgendaBulkDriveResultPanel";
 import { MesaAgendaBulkAdvanceConfirmDialog } from "@/components/mesa-control/MesaAgendaBulkAdvanceConfirmDialog";
 import { MesaAgendaBulkAdvanceResultPanel } from "@/components/mesa-control/MesaAgendaBulkAdvanceResultPanel";
+import { MesaAgendaContingenciaDialog } from "@/components/mesa-control/MesaAgendaContingenciaDialog";
+import { MesaAgendaContingenciaSummaryPanel } from "@/components/mesa-control/MesaAgendaContingenciaSummaryPanel";
+import {
+  canDeclareAgendaContingencia,
+  canDeclareContingenciaOnView,
+  contingencyOriginalBlockedActions,
+  indexContingenciaItemsByBookingId,
+  listMesaAgendaContingencias,
+  listMesaContingenciaItems,
+  type MesaContingenciaHeader,
+  type MesaContingenciaItem,
+} from "@/domain/agenda-contingencia";
 import { MesaCancelarCitaDialog } from "@/components/mesa-control/MesaCancelarCitaDialog";
 import { MesaGestionarCitaDialog } from "@/components/mesa-control/MesaGestionarCitaDialog";
 import {
@@ -163,6 +175,9 @@ export function MesaAgendaCitasClient() {
   );
   const [exportExcelLoading, setExportExcelLoading] = useState(false);
   const [exportExcelMessage, setExportExcelMessage] = useState<string | null>(null);
+  const [contingenciaOpen, setContingenciaOpen] = useState(false);
+  const [contingenciaHeaders, setContingenciaHeaders] = useState<MesaContingenciaHeader[]>([]);
+  const [contingenciaItems, setContingenciaItems] = useState<MesaContingenciaItem[]>([]);
   const bulkBusyRef = useRef(false);
   const exportExcelBusyRef = useRef(false);
 
@@ -176,6 +191,17 @@ export function MesaAgendaCitasClient() {
     sessionRole,
   });
   const bulkRole = mockRole || sessionRole;
+  const canDeclareContingencia =
+    canDeclareAgendaContingencia(mockRole) ||
+    canDeclareAgendaContingencia(sessionRole);
+  const contingencyDayGate = canDeclareContingenciaOnView({
+    viewMode,
+    selectedDay,
+    listaStartDate,
+    listaEndDate,
+    appliedListaStart,
+    appliedListaEnd,
+  });
 
   const weekRange = useMemo(() => buildMesaAgendaWeekRange(weekAnchor), [weekAnchor]);
 
@@ -201,29 +227,72 @@ export function MesaAgendaCitasClient() {
     [mockRole, sessionRole],
   );
 
+  const contingencyByBookingId = useMemo(
+    () => indexContingenciaItemsByBookingId(contingenciaItems),
+    [contingenciaItems],
+  );
+
   const canCancelEntry = useCallback(
-    (entry: MesaAgendaBookingEntry) =>
-      canMesaCancelAgendaListEntry(entry, cancelRoleParams),
-    [cancelRoleParams],
+    (entry: MesaAgendaBookingEntry) => {
+      const item = contingencyByBookingId.get(entry.bookingId);
+      if (
+        contingencyOriginalBlockedActions({
+          underContingency: Boolean(item),
+        }).cancel
+      ) {
+        return false;
+      }
+      return canMesaCancelAgendaListEntry(entry, cancelRoleParams);
+    },
+    [cancelRoleParams, contingencyByBookingId],
   );
 
   const canReagendarEntry = useCallback(
-    (entry: MesaAgendaBookingEntry) =>
-      canMesaReagendarAgendaListEntry(entry, cancelRoleParams).allowed,
-    [cancelRoleParams],
+    (entry: MesaAgendaBookingEntry) => {
+      const item = contingencyByBookingId.get(entry.bookingId);
+      if (
+        contingencyOriginalBlockedActions({
+          underContingency: Boolean(item),
+        }).reagendar
+      ) {
+        return false;
+      }
+      return canMesaReagendarAgendaListEntry(entry, cancelRoleParams).allowed;
+    },
+    [cancelRoleParams, contingencyByBookingId],
   );
 
   const canGestionarEntry = useCallback(
-    (entry: MesaAgendaBookingEntry) =>
-      canMesaGestionarAgendaListEntry(entry, cancelRoleParams),
-    [cancelRoleParams],
+    (entry: MesaAgendaBookingEntry) => {
+      const item = contingencyByBookingId.get(entry.bookingId);
+      if (
+        contingencyOriginalBlockedActions({
+          underContingency: Boolean(item),
+        }).gestionarNormal
+      ) {
+        return false;
+      }
+      return canMesaGestionarAgendaListEntry(entry, cancelRoleParams);
+    },
+    [cancelRoleParams, contingencyByBookingId],
   );
 
   const canDriveValidateEntry = useCallback(
-    (entry: MesaAgendaBookingEntry) =>
-      canMesaShowDriveValidationActions(entry, mockRole) ||
-      canMesaShowDriveValidationActions(entry, sessionRole),
-    [mockRole, sessionRole],
+    (entry: MesaAgendaBookingEntry) => {
+      const item = contingencyByBookingId.get(entry.bookingId);
+      if (
+        contingencyOriginalBlockedActions({
+          underContingency: Boolean(item),
+        }).driveValidation
+      ) {
+        return false;
+      }
+      return (
+        canMesaShowDriveValidationActions(entry, mockRole) ||
+        canMesaShowDriveValidationActions(entry, sessionRole)
+      );
+    },
+    [mockRole, sessionRole, contingencyByBookingId],
   );
 
   const loadEntries = useCallback(async (override?: {
@@ -257,10 +326,37 @@ export function MesaAgendaCitasClient() {
     }
   }, [fetchRange.endDate, fetchRange.startDate, filters.includeCancelled, filters.kindUi]);
 
+
+  const loadContingencias = useCallback(async () => {
+    if (!canDeclareContingencia) {
+      setContingenciaHeaders([]);
+      setContingenciaItems([]);
+      return;
+    }
+    try {
+      const [headers, items] = await Promise.all([
+        listMesaAgendaContingencias({
+          from: fetchRange.startDate,
+          to: fetchRange.endDate,
+        }),
+        listMesaContingenciaItems({
+          from: fetchRange.startDate,
+          to: fetchRange.endDate,
+        }),
+      ]);
+      setContingenciaHeaders(headers);
+      setContingenciaItems(items);
+    } catch {
+      setContingenciaHeaders([]);
+      setContingenciaItems([]);
+    }
+  }, [canDeclareContingencia, fetchRange.endDate, fetchRange.startDate]);
+
   useEffect(() => {
     if (!currentUser || !canAccess) return;
     void loadEntries();
-  }, [currentUser, canAccess, loadEntries]);
+    void loadContingencias();
+  }, [currentUser, canAccess, loadEntries, loadContingencias]);
 
   const advisorOptions = useMemo(
     () => buildMesaAgendaAdvisorOptions(loadedEntries),
@@ -639,13 +735,31 @@ export function MesaAgendaCitasClient() {
   }, [loadedEntries]);
 
   const isBulkRowSelectableCb = useCallback(
-    (entry: MesaAgendaBookingEntry) => isBulkSelectable(entry, bulkRole),
-    [bulkRole],
+    (entry: MesaAgendaBookingEntry) => {
+      if (
+        contingencyOriginalBlockedActions({
+          underContingency: contingencyByBookingId.has(entry.bookingId),
+        }).bulkSelect
+      ) {
+        return false;
+      }
+      return isBulkSelectable(entry, bulkRole);
+    },
+    [bulkRole, contingencyByBookingId],
   );
 
   const bulkNotSelectableReasonCb = useCallback(
-    (entry: MesaAgendaBookingEntry) => formatBulkNotSelectableReason(entry, bulkRole),
-    [bulkRole],
+    (entry: MesaAgendaBookingEntry) => {
+      if (
+        contingencyOriginalBlockedActions({
+          underContingency: contingencyByBookingId.has(entry.bookingId),
+        }).bulkSelect
+      ) {
+        return "CONTINGENCIA · NO HUBO CITA";
+      }
+      return formatBulkNotSelectableReason(entry, bulkRole);
+    },
+    [bulkRole, contingencyByBookingId],
   );
 
   const handleViewModeChange = useCallback((mode: MesaAgendaCitasViewMode) => {
@@ -917,6 +1031,7 @@ export function MesaAgendaCitasClient() {
 
   const sharedListProps = {
     historyGroups,
+    contingencyByBookingId,
     canCancelEntry,
     canReagendarEntry,
     canDriveValidateEntry,
@@ -1022,6 +1137,23 @@ export function MesaAgendaCitasClient() {
         />
 
         <div className="flex flex-wrap items-center gap-2">
+          {canDeclareContingencia ? (
+            <Button
+              type="button"
+              variant="outline"
+              className="h-[42px] whitespace-nowrap border-amber-300 bg-amber-50 px-3 text-sm text-amber-950 hover:bg-amber-100"
+              disabled={loading || Boolean(rangeError) || !contingencyDayGate.allowed}
+              title={contingencyDayGate.reason ?? undefined}
+              onClick={() => setContingenciaOpen(true)}
+              data-testid="mesa-contingencia-button"
+              aria-label="Contingencia Solicitar reagenda"
+            >
+              Contingencia · Solicitar reagenda
+            </Button>
+          ) : null}
+          {canDeclareContingencia && !contingencyDayGate.allowed ? (
+            <p className="text-xs text-amber-800">{contingencyDayGate.reason}</p>
+          ) : null}
           {canDownloadExcel ? (
             <Button
               type="button"
@@ -1053,6 +1185,10 @@ export function MesaAgendaCitasClient() {
             summary={summary}
             includeCancelled={filters.includeCancelled}
           />
+        ) : null}
+
+        {!loading && !error && !rangeError ? (
+          <MesaAgendaContingenciaSummaryPanel headers={contingenciaHeaders} />
         ) : null}
 
         {showBulkBar && !loading && !error && !rangeError ? (
@@ -1179,6 +1315,16 @@ export function MesaAgendaCitasClient() {
 
       </div>
 
+      <MesaAgendaContingenciaDialog
+        open={contingenciaOpen}
+        dayYmd={contingencyDayGate.dayYmd ?? selectedDay}
+        role={mockRole || sessionRole}
+        onClose={() => setContingenciaOpen(false)}
+        onDeclared={() => {
+          void loadEntries();
+          void loadContingencias();
+        }}
+      />
       <MesaCancelarCitaDialog
         open={cancelTarget != null}
         kindLabel={

@@ -300,6 +300,7 @@ const NOTIF_KINDS = new Set([
   "cita_hoy",
   "cita_cambio",
   "cita_programada",
+  "extraordinary_rebook_required",
 ]);
 
 export function mapAsesorInboxNotificationsToDashboard(

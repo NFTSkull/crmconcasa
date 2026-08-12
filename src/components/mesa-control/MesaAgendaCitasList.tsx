@@ -57,6 +57,15 @@ type MesaAgendaCitasListProps = Readonly<{
   onBulkRowCheckedChange?: (entry: MesaAgendaBookingEntry, checked: boolean) => void;
   bulkBusy?: boolean;
   onNotificacionSedeSaved?: (bookingId: string, locationId: string) => void;
+  contingencyByBookingId?: ReadonlyMap<
+    string,
+    {
+      item_status: string;
+      extraordinary_date?: string | null;
+      extraordinary_time?: string | null;
+      extraordinary_location_id?: string | null;
+    }
+  >;
 }>;
 
 
@@ -90,6 +99,7 @@ export function MesaAgendaCitasList({
   onBulkRowCheckedChange,
   bulkBusy = false,
   onNotificacionSedeSaved,
+  contingencyByBookingId,
 }: MesaAgendaCitasListProps) {
   const showBulk = Boolean(selectedBookingIds && onBulkRowCheckedChange && isBulkRowSelectable);
   return (
@@ -287,6 +297,7 @@ export function MesaAgendaCitasList({
             }
             onBulkCheckedChange={onBulkRowCheckedChange}
             onNotificacionSedeSaved={onNotificacionSedeSaved}
+            contingencyItem={contingencyByBookingId?.get(entry.bookingId) ?? null}
           />
         ))}
       </div>
@@ -320,6 +331,7 @@ export function MesaAgendaCitasList({
             }
             onBulkCheckedChange={onBulkRowCheckedChange}
             onNotificacionSedeSaved={onNotificacionSedeSaved}
+            contingencyItem={contingencyByBookingId?.get(entry.bookingId) ?? null}
           />
         ))}
       </div>

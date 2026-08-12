@@ -1,3 +1,19 @@
+## P172 — Contingencia extraordinaria de citas (B1 + B1.1 + B2)
+
+- [x] Mig. **171**: tablas + RLS + RPCs declarar/rebook + helper inbox + flag reporting.
+- [x] B1.1: `agenda_booking_has_contingency` active|closed → P170 SKIP permanente.
+- [x] B1.1: trigger/assert `BOOKING_UNDER_CONTINGENCY` (cancel/reagenda/Drive).
+- [x] B1.1: closed ≠ voided; sin RPC close aún.
+- [x] B1.1: contrato notif `extraordinary_rebook_required` (prioridad 4); UI contract B2.
+- [x] Declarar no muta `agenda_bookings` / inventory / slot_links / outbox / Sheets / etapa.
+- [x] Extraordinaria en tabla separada (sin cupo); duplicate rebook bloqueado.
+- [x] SQL `rpc_agenda_contingencia_p172.sql` + hardening A–K + `scripts/verify-p172-contingencia-local.sh`.
+- [x] B2: preview `agenda_preview_contingencia` + listados Mesa/asesor expediente; UI Mesa botón/modal/panel/badges; campana Cloud; card extraordinaria; capacity isolation (sin remaining).
+- [x] B2 tests: `mesa-ui.test.ts`, `MesaAgendaContingenciaDialog.mount.test.ts`, `AgendaExtraordinaryRebookCard.mount.test.ts`.
+- [x] B3: mig 171 aplicada Cloud (`fvtqbxukqlajezyyvwzy`); tablas vacías; P170 APPLY OFF; sin smoke.
+- [ ] B3 ops: declarar contingencia solo ante evento real (no 12/08 de prueba).
+- [ ] B3 cierre administrativo contingencia (si aplica).
+
 ## P170 — Sheet → expediente (SQL + Edge, apply OFF)
 
 - [x] B1 SQL: apply RPC, identidad P/Q, fingerprint, matriz bio/firma/rechazo, suite `rpc_agenda_sheet_apply_operational_p170.sql`.

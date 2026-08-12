@@ -15,6 +15,9 @@ export function kindBadgeClass(kind: DashboardNotificationItem["kind"]): string 
   if (kind === "cita_hoy" || kind === "cita_programada" || kind === "cita_cambio") {
     return "bg-violet-100 text-violet-900 ring-violet-200";
   }
+  if (kind === "extraordinary_rebook_required") {
+    return "bg-orange-100 text-orange-950 ring-orange-200";
+  }
   return "bg-slate-100 text-slate-800 ring-slate-200";
 }
 

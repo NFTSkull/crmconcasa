@@ -42,12 +42,43 @@ export function MesaAgendaEntryBadges({
   entry,
   historyLabel,
   showHistoryIndicator,
+  contingencyItem = null,
 }: Readonly<{
   entry: MesaAgendaBookingEntry;
   historyLabel: MesaAgendaHistoryLabel | null;
   showHistoryIndicator: boolean;
+  contingencyItem?: {
+    item_status: string;
+    extraordinary_date?: string | null;
+    extraordinary_time?: string | null;
+    extraordinary_location_id?: string | null;
+  } | null;
 }>) {
+  const contingencySecondary =
+    contingencyItem == null
+      ? null
+      : contingencyItem.item_status === "pending_rebook"
+        ? "Pendiente de reagenda"
+        : contingencyItem.item_status === "rebooked"
+          ? "Reagendada extraordinaria"
+          : "No hubo cita — reagenda extraordinaria solicitada";
+
+  const extraordinaryLine =
+    contingencyItem?.item_status === "rebooked" &&
+    contingencyItem.extraordinary_date
+      ? `Nueva cita: ${contingencyItem.extraordinary_date}${
+          contingencyItem.extraordinary_time
+            ? ` · ${String(contingencyItem.extraordinary_time).slice(0, 5)}`
+            : ""
+        }${
+          contingencyItem.extraordinary_location_id
+            ? ` · ${formatMesaAgendaSedeLabel(contingencyItem.extraordinary_location_id)}`
+            : ""
+        } · EXTRAORDINARIA`
+      : null;
+
   return (
+    <div className="space-y-1">
     <div className="flex flex-wrap gap-1.5">
       <span
         className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${mesaAgendaKindBadgeClass(entry.kind)}`}
@@ -59,6 +90,20 @@ export function MesaAgendaEntryBadges({
       >
         {formatMesaAgendaStatus(entry.status)}
       </span>
+      {contingencyItem ? (
+        <span
+          className="inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-950 ring-1 ring-amber-300"
+          title="No hubo cita — reagenda extraordinaria solicitada"
+          data-testid="contingencia-badge"
+        >
+          CONTINGENCIA
+          {contingencyItem.item_status === "pending_rebook"
+            ? " · Pendiente"
+            : contingencyItem.item_status === "rebooked"
+              ? " · Reagendada"
+              : ""}
+        </span>
+      ) : null}
       {entry.driveValidated ? (
         <span className={mesaAgendaDriveValidatedBadgeClass()}>{MESA_DRIVE_VALIDATED_BADGE}</span>
       ) : null}
@@ -74,6 +119,20 @@ export function MesaAgendaEntryBadges({
           Historial
         </span>
       ) : null}
+    </div>
+    {contingencySecondary ? (
+      <p className="text-[11px] font-medium text-amber-900" data-testid="contingencia-secondary">
+        No hubo cita — reagenda extraordinaria solicitada
+        {contingencySecondary !== "No hubo cita — reagenda extraordinaria solicitada"
+          ? ` · ${contingencySecondary}`
+          : ""}
+      </p>
+    ) : null}
+    {extraordinaryLine ? (
+      <p className="text-[11px] font-medium text-emerald-900" data-testid="contingencia-extraordinary-line">
+        {extraordinaryLine}
+      </p>
+    ) : null}
     </div>
   );
 }
@@ -285,6 +344,7 @@ export function MesaAgendaCitaCard({
   bulkDisabledReason,
   onBulkCheckedChange,
   onNotificacionSedeSaved,
+  contingencyItem = null,
 }: Readonly<{
   entry: MesaAgendaBookingEntry;
   historyGroup: readonly MesaAgendaBookingEntry[];
@@ -305,6 +365,12 @@ export function MesaAgendaCitaCard({
   bulkDisabledReason?: string;
   onBulkCheckedChange?: (entry: MesaAgendaBookingEntry, checked: boolean) => void;
   onNotificacionSedeSaved?: (bookingId: string, locationId: string) => void;
+  contingencyItem?: {
+    item_status: string;
+    extraordinary_date?: string | null;
+    extraordinary_time?: string | null;
+    extraordinary_location_id?: string | null;
+  } | null;
 }>) {
   const historyLabel = deriveMesaAgendaHistoryLabel(entry, historyGroup);
   const showHistoryIndicator = hasMesaAgendaHistoryGroup(historyGroup);
@@ -346,6 +412,7 @@ export function MesaAgendaCitaCard({
           entry={entry}
           historyLabel={historyLabel}
           showHistoryIndicator={showHistoryIndicator}
+          contingencyItem={contingencyItem}
         />
       </div>
       <div className="mt-3">

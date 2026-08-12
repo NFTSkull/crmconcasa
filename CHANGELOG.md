@@ -2,6 +2,20 @@
 
 ## [Unreleased]
 
+### Added
+
+- **feat(agenda): P172 B3 publicación controlada** — mig. **171** aplicada Cloud (`fvtqbxukqlajezyyvwzy`); tablas P172 vacías; P170 SKIPPED_CONTINGENCY active|closed; OPERATIONAL APPLY sigue OFF; CRM→Sheets ON. Sin smoke / sin contingencia de prueba.
+
+- **feat(agenda): P172 B2 UI contingencia Mesa + Asesor** — botón «Contingencia · Solicitar reagenda» (día único; kinds independientes; preview `agenda_preview_contingencia`; sin bulk selection); badges/panel Mesa; campana Cloud `extraordinary_rebook_required` (abrir ≠ resolver tarea); card `AgendaExtraordinaryRebookCard` (catálogo horarios sin capacity). Sin Cloud apply 171 / Sheet / smoke / commit.
+
+### Changed
+
+- **harden(agenda): P172 B1.1 invariantes contingencia** — `agenda_booking_has_contingency` (active|closed) → P170 `SKIPPED_CONTINGENCY` permanente; trigger `BOOKING_UNDER_CONTINGENCY` bloquea cancel/reagenda/Drive sobre booking original; closed ≠ voided. Contrato notif `extraordinary_rebook_required` (prioridad 4). Sin UI botón Mesa. Sin Cloud.
+
+### Added
+
+- **feat(agenda): contingencia extraordinaria de citas (P172 B1)** — mig. **171**: tablas `agenda_contingencias` / `agenda_contingencia_citas` / `agenda_extraordinary_bookings`; RPCs `agenda_declarar_contingencia` (Mesa) + `asesor_agendar_cita_extraordinaria` (dueño); tarea persistente Cloud `extraordinary_rebook_required`; guard P170 `SKIPPED_CONTINGENCY` (sin mutar expediente). Declarar/rebook **no** toca bookings normales, inventory, slot_links, outbox ni Sheets. Sin UI botón Mesa (B2). Sin Cloud/deploy.
+
 ### Fixed
 
 - **fix(agenda): boot CRM→Sheets sync-worker** — Edge `rescheduled-history.ts` importaba `AGENDA_SHEET_COL_INDEX` (nombre del domain) pero `tech-columns` Edge exporta `COL_INDEX` → BOOT_ERROR 503 desde v23/PR #121. Alias `COL_INDEX as AGENDA_SHEET_COL_INDEX`. Sin cambio funcional de sync/P121/P170.

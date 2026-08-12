@@ -6,6 +6,12 @@ import { useCallback, useEffect, useMemo, useRef, useState, type SetStateAction 
 import { useSessionRepo } from "@/domain/session";
 import { AgendaBiometricosCard } from "@/components/asesor/AgendaBiometricosCard";
 import { AsesorAgendaBiometricosSupabaseGate } from "@/components/asesor/AsesorAgendaBiometricosSupabaseGate";
+import { AgendaExtraordinaryRebookCard } from "@/components/asesor/AgendaExtraordinaryRebookCard";
+import {
+  listContingenciaExpedienteAsesor,
+  type AsesorContingenciaExpedienteItem,
+} from "@/domain/agenda-contingencia";
+import { isSupabaseConfigured } from "@/lib/supabaseBrowser";
 import { AsesorAgendaFirmasSupabaseGate } from "@/components/asesor/AsesorAgendaFirmasSupabaseGate";
 import { RetencionAcuseAvisoSupabaseCard } from "@/components/asesor/RetencionAcuseAvisoSupabaseCard";
 import { AsesorIntegracionDocsUpload } from "@/components/asesor/AsesorIntegracionDocsUpload";
@@ -207,9 +213,32 @@ export default function AsesorExpedientePage() {
   const dataSupabase = isDataModeSupabase();
   const clienteDatosRepo = useExpedienteClienteDatosRepo();
   const archivosRepo = useExpedienteArchivosRepo();
+  const [contingenciaItems, setContingenciaItems] = useState<AsesorContingenciaExpedienteItem[]>([]);
+
   const [precal, setPrecal] = useState<PrecalificacionMock | null | undefined>(
     undefined
   );
+
+  useEffect(() => {
+    const expId = precal?.id ? String(precal.id) : "";
+    if (!expId || !isSupabaseConfigured()) {
+      setContingenciaItems([]);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const items = await listContingenciaExpedienteAsesor(expId);
+        if (!cancelled) setContingenciaItems(items);
+      } catch {
+        if (!cancelled) setContingenciaItems([]);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [precal?.id]);
+
   const [operativo, setOperativo] = useState<OperativoStatus | null>(null);
   const [checklist, setChecklist] = useState<
     Awaited<ReturnType<typeof getChecklistDocumentos>> | null
@@ -1814,6 +1843,20 @@ export default function AsesorExpedientePage() {
               pagoConcasaAt={operativo?.pagoConcasaAt ?? null}
               formatDateTime={formatDateTime}
             />
+            {contingenciaItems.length > 0 ? (
+              <div className="space-y-3" data-testid="asesor-contingencia-cards">
+                {contingenciaItems.map((item) => (
+                  <AgendaExtraordinaryRebookCard
+                    key={item.contingency_item_id}
+                    item={item}
+                    onRebooked={() => {
+                      void listContingenciaExpedienteAsesor(String(precal?.id)).then(setContingenciaItems).catch(() => undefined);
+                      void loadExpediente();
+                    }}
+                  />
+                ))}
+              </div>
+            ) : null}
             {canMountAgendaBiometricosUI() &&
             precal?.id &&
             !expedienteCancelado &&

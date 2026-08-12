@@ -38,4 +38,19 @@ describe("NotificationsBell mark-read montaje", () => {
     assert.doesNotMatch(reads, /asesor-pendientes|correccion_requerida.*filter|hasAsesorCorreccion/);
     assert.match(reads, /no cierra tareas P167|No cierra tareas P167/i);
   });
+
+  it("extraordinary_rebook_required tiene estilo y no se confunde con P167", () => {
+    const ui = readFileSync(
+      join(process.cwd(), "src/components/notifications/notifications-ui.tsx"),
+      "utf8",
+    );
+    assert.match(ui, /extraordinary_rebook_required/);
+    assert.match(reads, /No cierra tareas P167/i);
+  });
+
+  it("P172: asesores cargan pendientes Cloud; mark-read no toca contingencia", () => {
+    assert.match(asesor, /listContingenciaPendientesAsesor/);
+    assert.match(asesor, /mergeExtraordinaryBellNotifications/);
+    assert.doesNotMatch(reads, /agenda_contingencia|pending_rebook/);
+  });
 });

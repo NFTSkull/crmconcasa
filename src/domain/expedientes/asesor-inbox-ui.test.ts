@@ -116,6 +116,45 @@ describe("asesor-inbox-ui B1", () => {
     assert.equal(notifs[0]!.expedienteId, "00000000-0000-4000-8000-000000000001");
   });
 
+  it("extraordinary_rebook_required no degrada a pendiente_revision", () => {
+    const summary = {
+      ok: true as const,
+      counts: {
+        total: 1,
+        aprobados_editor: 0,
+        no_cumple: 0,
+        en_tramite: 0,
+        rechazados_mesa: 0,
+        cancelados: 0,
+        correccion_requerida: 0,
+        correccion_enviada: 0,
+        agendar_biometricos: 0,
+        agendar_firma: 0,
+        subir_acuse: 0,
+      },
+      programas_unicos: [] as string[],
+      notifications: [
+        {
+          id: "exp:extraordinary_rebook_required:item",
+          expediente_id: "00000000-0000-4000-8000-000000000099",
+          cliente_nombre: "Ana",
+          kind: "extraordinary_rebook_required",
+          tipo_label: "Reagendar cita extraordinaria",
+          mensaje: "Contingencia biometricos",
+          fecha: "2026-08-12",
+          prioridad: 4,
+          href: "/asesor/expediente/00000000-0000-4000-8000-000000000099",
+        },
+      ],
+    };
+    const notifs = mapAsesorInboxNotificationsToDashboard(summary as never);
+    assert.equal(notifs[0]!.kind, "extraordinary_rebook_required");
+    assert.equal(notifs[0]!.prioridad, 4);
+    assert.equal(notifs[0]!.expedienteId, "00000000-0000-4000-8000-000000000099");
+    assert.match(notifs[0]!.href, /asesor\/expediente/);
+    assert.match(notifs[0]!.mensaje, /Contingencia/);
+  });
+
   it("collectAsesorInboxExportRows pagina sin duplicados y usa page_size 100", async () => {
     const calls: AsesorListExpedientesPageInput[] = [];
     const listPage = async (
