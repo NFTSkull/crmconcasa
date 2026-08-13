@@ -341,7 +341,7 @@ BEGIN
     'etapa intacta tras ciclo completo'
   );
 
-  -- 13) otro asesor pre-Mesa bloqueado
+  -- 13) P179: otro asesor pre-Mesa → ok_create (NO blocked_other_asesor)
   PERFORM public.__p169_cleanup(v_nss2);
   PERFORM public.__p169_set_auth(v_asesor_a);
   SELECT public.create_expediente('mejoravit', v_nss2, 'Cliente P169 B', '5511111111', '') INTO v_res;
@@ -350,15 +350,16 @@ BEGIN
   UPDATE public.expedientes SET submitted_to_mesa = false, ciclo_estado = 'activo' WHERE id = v_exp2;
   PERFORM public.__p169_set_auth(v_asesor_b);
   v_gate := public.asesor_lookup_nss_precal_gate(v_nss2, 'mejoravit');
-  PERFORM public.__p169_assert(v_gate->>'status' = 'blocked_other_asesor', '13 other asesor pre-mesa');
+  PERFORM public.__p169_assert(v_gate->>'status' = 'ok_create', '13 other asesor pre-mesa → ok_create (P179)');
   BEGIN
     PERFORM public.asesor_iniciar_reprecalificacion(v_nss2, 'mejoravit', 'X', '5511111111', '', 'k-b');
-    PERFORM public.__p169_assert(false, '13 B no inicia');
+    PERFORM public.__p169_assert(false, '13 B no inicia reprecal ajeno');
   EXCEPTION WHEN OTHERS THEN
-    PERFORM public.__p169_assert(position('otro asesor' IN SQLERRM) > 0, '13 error otro asesor');
+    -- Gate ok_create → iniciar rechaza (solo reprecal_*)
+    PERFORM public.__p169_assert(position('precalificación' IN SQLERRM) > 0 OR position('no permitido' IN SQLERRM) > 0 OR position('Puedes crear' IN SQLERRM) > 0, '13 iniciar no reprecal');
   END;
 
-  -- 14) ambiguous pre-Mesa
+  -- 14) P179: varios pre-Mesa del mismo asesor → reprecal_own (NO ambiguous)
   PERFORM public.__p169_cleanup(v_nss3);
   PERFORM public.__p169_set_auth(v_asesor_a);
   SELECT public.create_expediente('mejoravit', v_nss3, 'Amb1', '5522222222', '') INTO v_res;
@@ -368,7 +369,8 @@ BEGIN
   PERFORM public.__p169_insert_activo_dup(v_org, v_asesor_a, v_nss3, 'mejoravit', false);
   PERFORM public.__p169_set_auth(v_asesor_a);
   v_gate := public.asesor_lookup_nss_precal_gate(v_nss3, 'mejoravit');
-  PERFORM public.__p169_assert(v_gate->>'status' = 'blocked_ambiguous', '14 ambiguous pre-mesa');
+  PERFORM public.__p169_assert(v_gate->>'status' = 'reprecal_own_mesa', '14 multi pre-mesa → own reprecal (P179)');
+  PERFORM public.__p169_assert(v_gate->>'status' IS DISTINCT FROM 'blocked_ambiguous', '14 not ambiguous');
 
   -- 8b) cancelado / deleted no cuentan como activo reutilizable
   PERFORM public.__p169_cleanup(v_nss2);

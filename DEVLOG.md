@@ -1,3 +1,7 @@
+## 2026-08-13 - P179 B1 LOCAL: NSS bloquea a otro asesor solo post-Mesa
+
+Root cause: P169 amplió el universo del gate a todo `ciclo_estado=activo` sin `submitted_to_mesa`, contradiciendo P049 (duplicados pre-Mesa permitidos). Fix mig **176**: bloqueantes = activos + `submitted_to_mesa=true`; pre-Mesa ajeno → `ok_create`; propio pre/post → reprecal; ambiguous solo post-Mesa. Unique `expedientes_nss_programa_mesa_enviado_unique` + `nss_bloqueado_en_mesa` intactos (first-to-Mesa-wins). Caso Adriana-like: otro asesor puede crear. Sin Cloud apply / commit / mutación expediente real.
+
 ## 2026-08-13 - P178: inscripción self-service asesor (auto-requirement)
 
 Asesor dueño elegible (post-biométricos: booking bio **o** ops COMPLETED) puede agendar Inscripción sin requirement previo. `book_inscripcion_extraordinaria` autocrea `source_type=asesor` + book en una TX; Apodaca rechazado; 11:00 fija; cupo vía inventory claim; outbox/worker intactos; etapa/`fecha_cita` invariantes. UI: Disponible vs No disponible todavía (RPC `agenda_inscripcion_asesor_eligibility`). P170 OFF; P175 sheet/mesa requirements intactos; P176/P174 sin tocar.

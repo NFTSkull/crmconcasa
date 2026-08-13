@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **fix(asesor): P179 NSS bloquea solo post-Mesa (LOCAL)** — mig **176** REPLACE `asesor_lookup_nss_precal_gate`: `blocked_other_asesor` solo con `submitted_to_mesa=true`; pre-Mesa ajeno → `ok_create`; ambiguous solo post-Mesa. Restaura coherencia P049. Sin Cloud/commit.
+
 ### Added
 
 - **feat(agenda): P178 inscripción self-service asesor** — mig **175**: `source_type=asesor`; RPC eligibility read-only; `book_inscripcion_extraordinaria` autocrea requirement en la misma TX (post-biométricos, Monterrey, 11:00); UI Disponible/No disponible; P170 OFF; P175 auto-requirements intactos.

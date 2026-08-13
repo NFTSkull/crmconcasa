@@ -2,7 +2,9 @@ import { z } from "zod";
 import type { ExpedienteProgramaUi } from "./create-expediente.input";
 
 /**
- * Status del gate RO `asesor_lookup_nss_precal_gate` (P155/P168/P169).
+ * Status del gate RO `asesor_lookup_nss_precal_gate` (P155/P168/P169/P179).
+ * P179: `blocked_other_asesor` solo si el expediente bloqueante tiene
+ * `submitted_to_mesa=true`. Pre-Mesa ajeno → `ok_create`.
  * `reprecal_own_mesa` / `reprecal_change_programa` = expediente propio **activo**
  * (pre o post Mesa); se conservan por compat de `/asesor/nueva` y detalle.
  */

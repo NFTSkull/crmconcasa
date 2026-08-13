@@ -19,7 +19,8 @@
     "verify:p173": "bash scripts/verify-p173-red-veto-local.sh",
     "verify:p175": "bash scripts/verify-p175-inscripcion-local.sh",
     "verify:p176": "bash scripts/verify-p176-availability-local.sh",
-    "verify:p178": "bash scripts/verify-p178-inscripcion-self-service-local.sh"
+    "verify:p178": "bash scripts/verify-p178-inscripcion-self-service-local.sh",
+    "verify:p179": "bash scripts/verify-p179-nss-block-only-mesa-local.sh"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.2",
