@@ -649,14 +649,16 @@ export class MockExpedientesRepo implements ExpedientesRepo {
     const all = await this.listAll();
     const nssNorm = nss.replace(/\D/g, "");
     const sessionEmail = readMockSessionAsesorEmail();
-    // P169: activos (ciclo activo), pre o post Mesa — sin exigir submittedToMesa
-    const activos = all.filter(
-      (e) =>
-        e.base.nss.replace(/\D/g, "") === nssNorm &&
-        e.operativo.cicloEstado !== "cancelado" &&
-        (e.operativo.cicloEstado == null || e.operativo.cicloEstado === "activo"),
+    const me = String(sessionEmail ?? "").trim().toLowerCase();
+    const isActivo = (e: (typeof all)[number]) =>
+      e.base.nss.replace(/\D/g, "") === nssNorm &&
+      e.operativo.cicloEstado !== "cancelado" &&
+      (e.operativo.cicloEstado == null || e.operativo.cicloEstado === "activo");
+    // P179: bloqueo solo post-Mesa (P049). Pre-Mesa ajeno → ok_create.
+    const bloqueantes = all.filter(
+      (e) => isActivo(e) && e.operativo.submittedToMesa === true,
     );
-    if (activos.length > 1) {
+    if (bloqueantes.length > 1) {
       return {
         status: "blocked_ambiguous",
         message:
@@ -665,10 +667,9 @@ export class MockExpedientesRepo implements ExpedientesRepo {
         programa,
       };
     }
-    if (activos.length === 1) {
-      const exp = activos[0]!;
+    if (bloqueantes.length === 1) {
+      const exp = bloqueantes[0]!;
       const ownerEmail = String(exp.base.asesorId ?? "").trim().toLowerCase();
-      const me = String(sessionEmail ?? "").trim().toLowerCase();
       if (me && ownerEmail && ownerEmail !== me) {
         return {
           status: "blocked_other_asesor",
@@ -707,6 +708,51 @@ export class MockExpedientesRepo implements ExpedientesRepo {
         programa: vigente,
         programa_actual: vigente,
         programa_solicitado: solicitado,
+        cambio_programa: true,
+        reprecalificacion_pendiente_id:
+          exp.reprecalificacionPendienteId ?? null,
+      };
+    }
+    // Sin post-Mesa: reutilizar propio pre-Mesa; ajeno pre-Mesa no bloquea.
+    const propios = all
+      .filter((e) => {
+        if (!isActivo(e)) return false;
+        const owner = String(e.base.asesorId ?? "").trim().toLowerCase();
+        return Boolean(me && owner && owner === me);
+      })
+      .sort((a, b) => String(b.base.createdAt ?? "").localeCompare(String(a.base.createdAt ?? "")));
+    const propioSame = propios.find((e) => {
+      const vigente = String(e.base.programa ?? "").trim().toLowerCase();
+      return vigente === String(programa ?? "").trim().toLowerCase();
+    });
+    if (propioSame) {
+      const vigente = String(propioSame.base.programa ?? "").trim();
+      return {
+        status: "reprecal_own_mesa",
+        message:
+          "Este NSS ya tiene un expediente activo asignado a ti. Puedes volver a precalificarlo; el resultado se actualizará en el mismo expediente.",
+        expediente_id: propioSame.id,
+        nss: nssNorm,
+        programa: vigente,
+        programa_actual: vigente,
+        programa_solicitado: String(programa ?? "").trim(),
+        cambio_programa: false,
+        reprecalificacion_pendiente_id:
+          propioSame.reprecalificacionPendienteId ?? null,
+      };
+    }
+    if (propios[0]) {
+      const exp = propios[0];
+      const vigente = String(exp.base.programa ?? "").trim();
+      return {
+        status: "reprecal_change_programa",
+        message:
+          "Puedes solicitar cambio de programa sobre el mismo expediente. El programa y monto vigentes no cambian hasta que el Editor apruebe.",
+        expediente_id: exp.id,
+        nss: nssNorm,
+        programa: vigente,
+        programa_actual: vigente,
+        programa_solicitado: String(programa ?? "").trim(),
         cambio_programa: true,
         reprecalificacion_pendiente_id:
           exp.reprecalificacionPendienteId ?? null,

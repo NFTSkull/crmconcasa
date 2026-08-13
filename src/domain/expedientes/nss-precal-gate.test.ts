@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   MSG_NSS_AMBIGUOUS,
   MSG_NSS_CHANGE_PROGRAMA,
@@ -82,6 +84,47 @@ describe("nss-precal-gate P155/P164", () => {
     assert.equal(isNssPrecalGateBlocked("blocked_other_asesor"), true);
     assert.equal(isNssPrecalGateBlocked("blocked_ambiguous"), true);
     assert.equal(isNssPrecalGateBlocked("blocked_programa_mismatch"), true);
+  });
+
+  it("P179: ok_create no es blocked UI (otro asesor pre-Mesa)", () => {
+    assert.equal(isNssPrecalGateBlocked("ok_create"), false);
+    assert.equal(
+      messageForNssPrecalGateStatus("ok_create"),
+      "Puedes crear una nueva precalificación.",
+    );
+    assert.equal(isNssPrecalGateReprecalAllowed("ok_create"), false);
+  });
+
+  it("P179: post-Mesa other sigue blocked UI", () => {
+    assert.equal(isNssPrecalGateBlocked("blocked_other_asesor"), true);
+    assert.equal(
+      messageForNssPrecalGateStatus("blocked_other_asesor"),
+      MSG_NSS_OTHER_ASESOR,
+    );
+  });
+
+  it("P179: own reprecal UI intacta", () => {
+    assert.equal(isNssPrecalGateReprecalAllowed("reprecal_own_mesa"), true);
+    assert.equal(
+      isNssPrecalGateReprecalAllowed("reprecal_change_programa"),
+      true,
+    );
+    assert.equal(isNssPrecalGateBlocked("reprecal_own_mesa"), false);
+  });
+
+  it("P179 mig 176: bloqueo solo submitted_to_mesa=true", () => {
+    const mig = readFileSync(
+      join(
+        process.cwd(),
+        "supabase/migrations/176_nss_block_only_after_mesa.sql",
+      ),
+      "utf8",
+    );
+    assert.match(mig, /submitted_to_mesa = true/);
+    assert.match(mig, /P179/);
+    assert.match(mig, /blocked_other_asesor/);
+    assert.match(mig, /ok_create/);
+    assert.doesNotMatch(mig, /ALTER TABLE/);
   });
 
   it("parsea resultado iniciar reprecal con cambio_programa", () => {

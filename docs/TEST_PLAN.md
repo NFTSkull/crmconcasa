@@ -1,3 +1,8 @@
+## P179 — NSS bloquea solo después de enviar a Mesa
+
+- [x] B1 LOCAL: mig **176** gate `asesor_lookup_nss_precal_gate` (bloqueo = `submitted_to_mesa=true`); suite SQL A–O; mock + FE helpers; P049 unique/`nss_bloqueado_en_mesa` intactos. Sin Cloud/commit.
+- [ ] B2 Cloud apply + PR (tras certificación).
+
 ## P178 — Inscripción self-service asesor
 
 - [x] Mig **175**: `source_type=asesor`; eligibility RPC; book autocrea requirement atómico; Monterrey+11:00; SQL suite A–N.
