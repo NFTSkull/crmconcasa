@@ -4,6 +4,10 @@
 
 ### Changed
 
+- **feat(admin): búsqueda por NSS en /admin (producción/snapshot)** — mig **177**: `p_buscar` en Mesa/Precal/Snapshot también filtra `expedientes.nss` (ILIKE parcial). Placeholder UI «Cliente, NSS, asesor, programa».
+
+### Changed
+
 - **fix(asesor): P179 NSS bloquea solo post-Mesa (LOCAL)** — mig **176** REPLACE `asesor_lookup_nss_precal_gate`: `blocked_other_asesor` solo con `submitted_to_mesa=true`; pre-Mesa ajeno → `ok_create`; ambiguous solo post-Mesa. Restaura coherencia P049. Sin Cloud/commit.
 
 ### Added

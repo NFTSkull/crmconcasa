@@ -1,3 +1,7 @@
+## 2026-08-13 - Admin /admin: buscar por NSS
+
+El buscador del dashboard SuperAdmin (Mesa enviados, Precalificaciones, Snapshot etapas) solo matcheaba cliente/asesor/programa. Paridad con Reporte histórico e Ingresos: `OR coalesce(e.nss::text,'') ILIKE`. Mig **177** REPLACE de las 4 RPCs; mock + placeholder UI. Sin cambiar máscaras de PII en listados.
+
 ## 2026-08-13 - P179 B1 LOCAL: NSS bloquea a otro asesor solo post-Mesa
 
 Root cause: P169 amplió el universo del gate a todo `ciclo_estado=activo` sin `submitted_to_mesa`, contradiciendo P049 (duplicados pre-Mesa permitidos). Fix mig **176**: bloqueantes = activos + `submitted_to_mesa=true`; pre-Mesa ajeno → `ok_create`; propio pre/post → reprecal; ambiguous solo post-Mesa. Unique `expedientes_nss_programa_mesa_enviado_unique` + `nss_bloqueado_en_mesa` intactos (first-to-Mesa-wins). Caso Adriana-like: otro asesor puede crear. Sin Cloud apply / commit / mutación expediente real.

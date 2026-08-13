@@ -689,7 +689,7 @@ export default function AdminDashboardPage() {
               <Input
                 className="mt-1"
                 value={buscar}
-                placeholder="Cliente, asesor, programa"
+                placeholder="Cliente, NSS, asesor, programa"
                 onChange={(e) => {
                   setBuscar(e.target.value);
                   setMesaPage(1);

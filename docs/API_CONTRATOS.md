@@ -1031,7 +1031,7 @@ Captura en la misma TX de `register_expediente_documento_correccion` / `save_cli
 
 **Auth:** solo `super_admin` (`__admin_require_super_admin`); `SECURITY DEFINER` + `STABLE`; GRANT `authenticated`; REVOKE `anon`/`PUBLIC`.
 
-**Universo:** `deleted_at IS NULL`; **sin** filtro de fechas de periodo. **Integración (etapa 1):** solo si `submitted_to_mesa = TRUE` AND `fecha_envio_mesa IS NOT NULL` (misma definición que el KPI «Expedientes enviados a Mesa», sin rango). Etapas ≥2: sin filtro adicional de envío. Pre-Mesa fuera de tarjetas, `total_actual` y drilldown. Filtros opcionales: asesor, estado (mismos predicados P094), búsqueda (cliente/asesor/programa). Etapa solo en el listado (drilldown); el agregado de tarjetas **no** recibe etapa.
+**Universo:** `deleted_at IS NULL`; **sin** filtro de fechas de periodo. **Integración (etapa 1):** solo si `submitted_to_mesa = TRUE` AND `fecha_envio_mesa IS NOT NULL` (misma definición que el KPI «Expedientes enviados a Mesa», sin rango). Etapas ≥2: sin filtro adicional de envío. Pre-Mesa fuera de tarjetas, `total_actual` y drilldown. Filtros opcionales: asesor, estado (mismos predicados P094), búsqueda (cliente/NSS/asesor/programa; mig **177**). Etapa solo en el listado (drilldown); el agregado de tarjetas **no** recibe etapa.
 
 **Response snapshot:** `{ total_actual, by_etapa[1..12], by_paso_visual[1..11], generated_at }`. `total_actual` = suma de conteos de tarjetas. Legacy interna 4 se refleja en `by_etapa` y se absorbe en paso visual 3.
 
