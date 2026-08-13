@@ -17,6 +17,7 @@ import {
   evaluateOperationalApplyGate,
   getOperationalApplyConfig,
 } from "../_shared/agenda-sheets/operational-apply-guard.ts";
+import { COL_INDEX } from "../_shared/agenda-sheets/tech-columns.ts";
 import type { AgendaSheetTimeAlias } from "../_shared/agenda-sheets/time-aliases.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
@@ -210,7 +211,11 @@ Deno.serve(async (req) => {
             continue;
           }
           try {
-            const applied = await applyOperationalResult(supabase, row);
+            const gridRow = grid[row.sheet_row - 1] ?? [];
+            const applied = await applyOperationalResult(supabase, row, {
+              visibleSheetTime: String(gridRow[COL_INDEX.hora] ?? ""),
+              liveSlotKey: String(gridRow[COL_INDEX.slotKey] ?? ""),
+            });
             apply_count += 1;
             if (applied.skippedRpc) apply_skipped += 1;
             const key = applied.outcome || "UNKNOWN";

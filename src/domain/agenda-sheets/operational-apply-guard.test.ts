@@ -120,8 +120,11 @@ describe("P170 B2.5 edge contract — webhook + reconcile guards", () => {
     const fn = webhook.slice(webhook.indexOf("upsertAndApplyOperationalResultRow"));
     const upsertIdx = fn.indexOf("agenda_sheet_ops_upsert_batch");
     const gateIdx = fn.indexOf("evaluateOperationalApplyGate({");
-    const applyIdx = fn.indexOf("await applyOperationalResult(supabase, ops)");
+    const applyIdx = fn.indexOf("await applyOperationalResult(supabase, ops");
     assert.ok(upsertIdx >= 0 && gateIdx > upsertIdx && applyIdx > gateIdx);
+    // P174: apply recibe identidad A/R para SKIPPED_TIME_IDENTITY_CONFLICT
+    assert.match(fn, /visibleSheetTime/);
+    assert.match(fn, /liveSlotKey/);
     assert.match(webhook, /operational_apply_disabled|DISABLED/);
     assert.match(webhook, /BEFORE_CUTOVER|operational_apply_before_cutover/);
   });

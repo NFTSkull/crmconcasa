@@ -4,6 +4,10 @@
 
 ### Added
 
+- **fix(agenda): P174 B2 publicación protección hora Sheet A** — sin migration Cloud; Edge `agenda-sheet-webhook` + `agenda-sheet-reconcile` con guard `SKIPPED_TIME_IDENTITY_CONFLICT` (P170 APPLY OFF); sync-worker **sin** redeploy; aliases/UI/disponibilidad/`booking_time`/columna A intactos; sin Sheet writes/smoke.
+
+- **harden(agenda): P174 B1 protección hora Sheet A (local)** — columna A READ ONLY en booking/cancel/webhook/reconcile; gate apply `SKIPPED_TIME_IDENTITY_CONFLICT` si A≠R.sheet= (sin mutar hora/booking_time); classifier RO missing-links; tests invariancia P121 (replacement A=histórica exacta). Aliases/UI/disponibilidad intactos. Sin Cloud/Sheet/commit.
+
 - **feat(agenda): P173 B2 publicación controlada (APPLY OFF)** — mig. **172** Cloud (`fvtqbxukqlajezyyvwzy`); Edge `agenda-sheet-webhook` + `agenda-sheet-reconcile` con lectura effective background E:I; proyección color; P170 APPLY sigue OFF/ausente; sync worker no redeploy. Sin Sheet write / smoke / activación.
 
 - **feat(agenda): P173 B1 red color safety veto (local completo)** — mig. **172** (local only): flags color en `agenda_sheet_operational_results`; fingerprint SQL/TS con `0|1`; apply POST-P172 + outcome `COLOR_VETO` (sin avance/rechazo/rollback); prioridad `SKIPPED_CONTINGENCY` > textual FAILED > color. Edge: `getEffectiveBackgrounds` + `effective-background` (#FF0000 BACKGROUND only). Reconcile `E1:I200` / webhook `E{row}:I{row}`. Format-only → reconcile ~15m (sin Code.gs). APPLY OFF / sync intacto. Sin Cloud/deploy/commit.

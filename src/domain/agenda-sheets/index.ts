@@ -232,12 +232,26 @@ export {
   buildAgendaSheetApplyRpcArgs,
   isApplyBusinessOutcome,
   localNoApplyUnlinked,
+  localSkipApplyForTimeIdentity,
   parseApplyRpcResponse,
   shouldSkipApplyRpc,
   type AgendaSheetApplyRpcArgs,
   type ApplyBusinessOutcome,
   type ApplyOperationalResultView,
 } from "./operational-apply-rpc";
+export {
+  classifySheetTimeIdentity,
+  extractSheetTimeFromSlotKey,
+  shouldSkipApplyForTimeIdentity,
+  SKIPPED_TIME_IDENTITY_CONFLICT,
+  type SheetTimeIdentityClass,
+  type SheetTimeIdentityVerdict,
+} from "./time-identity";
+export {
+  classifyMissingInventoryLink,
+  type MissingLinkClass,
+  type MissingLinkVerdict,
+} from "./missing-links";
 export {
   evaluateOperationalApplyGate,
   getOperationalApplyConfig,

@@ -5,6 +5,11 @@
 
 import type { OperationalResultUpsertRow } from "./operational-results";
 import { agendaSheetOpsFingerprint } from "./operational-apply-fingerprint";
+import {
+  classifySheetTimeIdentity,
+  SKIPPED_TIME_IDENTITY_CONFLICT,
+  shouldSkipApplyForTimeIdentity,
+} from "./time-identity";
 
 export const APPLY_BUSINESS_OUTCOMES = [
   "APPLIED",
@@ -17,6 +22,7 @@ export const APPLY_BUSINESS_OUTCOMES = [
   "REQUIRES_HUMAN_REACTIVATION",
   "COLOR_VETO",
   "SKIPPED_CONTINGENCY",
+  SKIPPED_TIME_IDENTITY_CONFLICT,
 ] as const;
 
 export type ApplyBusinessOutcome = (typeof APPLY_BUSINESS_OUTCOMES)[number];
@@ -125,6 +131,31 @@ export function localNoApplyUnlinked(
     ok: true,
     outcome: "NO_APPLY",
     reason: "missing_pq",
+    skippedRpc: true,
+    fingerprint: null,
+    mutated: false,
+    unexpected: false,
+  };
+}
+
+/** P174: skip apply local sin RPC / sin mutar hora. */
+export function localSkipApplyForTimeIdentity(input: {
+  visibleSheetTime: string | null | undefined;
+  liveSlotKey: string | null | undefined;
+}): ApplyOperationalResultView | null {
+  if (
+    !shouldSkipApplyForTimeIdentity({
+      visibleSheetTime: input.visibleSheetTime,
+      liveSlotKey: input.liveSlotKey,
+    })
+  ) {
+    return null;
+  }
+  const verdict = classifySheetTimeIdentity(input);
+  return {
+    ok: true,
+    outcome: SKIPPED_TIME_IDENTITY_CONFLICT,
+    reason: `visible_a_vs_slot_key_sheet:${verdict.visibleSheetTime}->${verdict.slotKeySheetTime}`,
     skippedRpc: true,
     fingerprint: null,
     mutated: false,

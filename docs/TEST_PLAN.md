@@ -1,3 +1,8 @@
+## P174 — Protección hora visible Google Sheets (columna A)
+
+- [x] B1 local: A read-only booking/cancel; webhook/reconcile sin auto-corrección; gate `SKIPPED_TIME_IDENTITY_CONFLICT`; classifier missing-links RO; P121 A histórica exacta en replacement; aliases/UI/availability intactos.
+- [ ] B2: publicar gate + contratos (sin activar P170; sin reparar R/links aún).
+
 ## P173 — Red veto operativo Sheet (fondo #FF0000)
 
 - [x] B1 local completo: mig **172** columnas + ops upsert + fingerprint + apply `COLOR_VETO` (POST-P172); TS/Edge `effective-background` + `getEffectiveBackgrounds`; flags builders; reconcile `E1:I200`; webhook `E{row}:I{row}`.
