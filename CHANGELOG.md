@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **fix(asesor): P181 re-precalificar desde /asesor/nueva (LOCAL)** — NSS propio activo ya no corta con error rojo: confirmación → `asesor_iniciar_reprecalificacion` (mismo expediente) → detalle. P179 intacto (otro asesor pre-Mesa → `create_expediente`). Sin RPC/migración/Cloud.
+
 ### Added
 
 - **cert(agenda): P180 B1.2 diferencial pre-pub (LOCAL)** — CONTROL main vs TREATMENT: P092 fail idéntico (`BASELINE_INFRA_FAILURE`); P165/P180 SQL PASS; mig 178 audit sin mutar expedientes; P170 OFF. Sin Cloud/commit.

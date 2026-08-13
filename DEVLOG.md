@@ -1,3 +1,7 @@
+## 2026-08-13 - P181 B1 LOCAL: re-precal desde /asesor/nueva
+
+Causa: `/nueva` trataba `reprecal_own_mesa` / `reprecal_change_programa` como error P169 (Enviar disabled). El asesor propio ya tenía expediente (caso Paty) y no podía reenviar. Fix UI only: confirmación + revalidación de gate + RPC existente `asesor_iniciar_reprecalificacion` + redirect al detalle. Idempotencia vía guard/key. P179 sin tocar (pre-Mesa ajeno → `ok_create`). Sin migration/Cloud/commit.
+
 ## 2026-08-13 - P180 B2: publicación controlada (APPLY OFF)
 
 Commit feature + mig **178** Cloud + Edge reconcile/webhook (import graph) + full reconcile proyección. P170 OFF. Sin Sheet writes / sin mutación expedientes. Rollback: `/tmp/p180-production-rollback.md` + bernardo P165 SQL.

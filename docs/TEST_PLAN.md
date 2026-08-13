@@ -98,7 +98,7 @@
 - [x] Reuso de pendiente + update solicitud; un solo pendiente; idempotency key; anon sin EXECUTE.
 - [x] SQL `rpc_asesor_reprecalificar_nss_propio_mesa.sql` (regresión post-Mesa P155/P168).
 - [x] SQL `rpc_asesor_reprecal_pre_mesa_p169.sql` (pre-Mesa + seguridad + no segundo expediente).
-- [x] UI `/asesor/nueva`: si activo existente → mensaje + link detalle; **no** create ni iniciar reprecal.
+- [x] UI `/asesor/nueva` (P181): propio activo → confirmación + `iniciarReprecalificacion` (mismo `expediente_id`); P179 `ok_create` → `createExpediente`; `blocked_*` → 0 create / 0 reprecal.
 - [x] UI detalle: CTAs embebidos en «Decisión del editor» **también PRE-MESA**; Guardar monto intacto.
 - [x] Editor: banner actualización con programa vigente → solicitado; mismo `upsertEditorDecision`.
 

@@ -103,14 +103,13 @@ describe("P164 UI montaje reprecal detalle / editor / nueva", () => {
     );
   });
 
-  it("nueva: expediente activo existente no crea ni inicia reprecal (P169)", () => {
-    assert.match(nueva, /reprecal_own_mesa|isNssPrecalGateReprecalAllowed/);
-    assert.match(nueva, /messageForNuevaExistingActiveExpediente/);
+  it("nueva: expediente propio activo confirma reprecal (P181); P179 ok_create sigue create", () => {
+    assert.match(nueva, /decideNuevaAfterGate|reprecal_own_mesa|confirm_same/);
+    assert.match(nueva, /iniciarReprecalificacion/);
     assert.match(nueva, /Abrir expediente/);
-    assert.doesNotMatch(nueva, /iniciarReprecalificacion/);
-    assert.doesNotMatch(nueva, /newReprecalIdempotencyKey/);
-    assert.doesNotMatch(nueva, /Volver a precalificar/);
     assert.match(nueva, /createExpediente/);
+    assert.match(nueva, /Sí, enviar de nuevo/);
+    assert.doesNotMatch(nueva, /messageForNuevaExistingActiveExpediente/);
   });
 
   it("detalle PRE-MESA: canShow no exige submittedToMesa (P169)", () => {
