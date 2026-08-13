@@ -1,3 +1,7 @@
+## 2026-08-13 - P176 hotfix: disponibilidad agenda + live-sync auth
+
+Root cause: (A) live-sync leía `profiles.is_active` + roles legacy → 401 browser; (B) mig 173 reemplazó `agenda_sheet_inventory_availability` por aggregate sin `fresh/enforced/slots[]` → UI «Agenda temporalmente no disponible» pese a cupos Sheet. Fix: mig 174 restaura contrato histórico + top-level P175; live-sync `active` + roles asesor/editor/mesa_*/super_admin. P170 OFF; requirements P175 intactos. Sin Sheet writes.
+
 ## 2026-08-13 - P175 B5.2: publicación wiring + activación controlada
 
 PR #134. Deploy Edge solo webhook+reconcile desde B5_1_SHA. Fase A FROM_DATE=2026-08-13 (ENABLED ausente) → reconcile natural enabled=false/from_date set/created=0. Fase B ENABLED=true → reconcile natural enabled=true/errors=0/created=0 (sin señal creatable ≥13 AGO). Históricos 07 AGO: 6 ops rebook, 0 requirements. P170 OFF. Worker/live-sync bundle SHA sin cambio (version bump posible por secrets set). Sin Sheet writes / smoke / migration.
