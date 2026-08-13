@@ -37,11 +37,11 @@ describe("Admin UX B3 montaje Bernardo en /admin", () => {
       /flex items-center gap-3 text-sm[\s\S]*?Cerrar sesión/,
     );
     assert.ok(header, "No se encontró el bloque de acciones del header");
-    assert.match(header[0], />\s*Bernardo\s*</);
+    assert.match(header[0], />\s*Reporte del día\s*</);
     assert.match(header[0], /Cerrar sesión/);
-    const bernardoIdx = header[0].indexOf("Bernardo");
+    const bernardoIdx = header[0].indexOf("Reporte del día");
     const logoutIdx = header[0].indexOf("Cerrar sesión");
-    assert.ok(bernardoIdx < logoutIdx, "Bernardo debe ir antes de Cerrar sesión");
+    assert.ok(bernardoIdx < logoutIdx, "Reporte del día debe ir antes de Cerrar sesión");
   });
 
   it("Bernardo no aparece en las cuatro pestañas principales", () => {
