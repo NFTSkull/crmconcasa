@@ -17,6 +17,12 @@ import {
   evaluateOperationalApplyGate,
   getOperationalApplyConfig,
 } from "../_shared/agenda-sheets/operational-apply-guard.ts";
+import {
+  accumulateInscripcionRequirementMetric,
+  emptyInscripcionRequirementMetrics,
+  getInscripcionRequirementsConfig,
+  maybeCreateInscripcionRequirement,
+} from "../_shared/agenda-sheets/inscripcion-requirement.ts";
 import { COL_INDEX } from "../_shared/agenda-sheets/tech-columns.ts";
 import type { AgendaSheetTimeAlias } from "../_shared/agenda-sheets/time-aliases.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
@@ -114,6 +120,10 @@ Deno.serve(async (req) => {
     const applyEngineOn =
       applyConfig.enabled && applyConfig.fromDate != null;
 
+    // P175: requirements Sheet → asesor (independiente de P170).
+    const inscReqConfig = getInscripcionRequirementsConfig();
+    const inscReqMetrics = emptyInscripcionRequirementMetrics(inscReqConfig);
+
     for (const tab of tabs) {
       if (tab.hidden) continue;
       // No trim del título al armar A1: el Sheet puede tener trailing space ("30 JULIO ").
@@ -188,10 +198,21 @@ Deno.serve(async (req) => {
             "agenda-sheet-reconcile ops upsert",
             String(opsErr.message ?? "").slice(0, 200),
           );
-          // Sin proyección confiable no aplicamos el chunk; seguimos con el resto.
+          // Sin proyección confiable: ni requirement ni apply del chunk.
           continue;
         }
         ops_upserted += chunk.length;
+
+        // P175 B5.1: requirement creator ANTES de P170 (funciona con APPLY OFF).
+        for (const row of chunk) {
+          const insc = await maybeCreateInscripcionRequirement(
+            supabase,
+            row,
+            inscReqConfig,
+          );
+          accumulateInscripcionRequirementMetric(inscReqMetrics, insc);
+        }
+
         if (!applyEngineOn) {
           // Kill switch / fail-closed: P165 ok, cero applies RPC.
           continue;
@@ -266,6 +287,7 @@ Deno.serve(async (req) => {
       apply_errors,
       apply_before_cutover,
       apply_outcomes,
+      ...inscReqMetrics,
       issues: allIssues.slice(0, 50),
       issue_count: allIssues.length,
       filter: {

@@ -4,6 +4,8 @@
 - [x] B2 UI LOCAL: asesor card/task; Mesa solicitar + Citas; Reporte del día KPI Inscripciones; tests mount/UI. Sin Cloud apply 173 / Sheet / deploy / commit. Bulk P089 inscripción no habilitado.
 - [x] B3: manifiesto Sheet READ ONLY (append-only; Monterrey V1; cupo negocio pendiente → cerrado en B4 = 3).
 - [x] B4 rollout: mig 173 Cloud + Edge + Sheet 3×11:00 Monterrey (FORMATO + futuras) + inventory + frontend; P170 OFF; auto-requirements OFF; sin backfill/smoke.
+- [x] B5.1 LOCAL: wiring Edge Sheet→`agenda_inscripcion_require_from_sheet` (reconcile/webhook) con kill switch fail-closed; independiente P170; secrets OFF; sin Cloud/deploy.
+- [ ] B5: activar secrets FROM_DATE=2026-08-13 + ENABLED (solo tras deploy B5.1).
 
 ## P174 — Protección hora visible Google Sheets (columna A)
 

@@ -4,6 +4,8 @@
 
 ### Added
 
+- **feat(agenda): P175 B5.1 wiring Edge Sheet→requirement (LOCAL)** — helper `inscripcion-requirement` + reconcile/webhook llaman `agenda_inscripcion_require_from_sheet` **antes** de P170; kill switch fail-closed; secrets siguen OFF; sin Cloud/deploy/commit.
+
 - **feat(agenda): P175 B4 rollout inscripción (Monterrey 3×11:00)** — mig **173** Cloud; Edge webhook/reconcile/live-sync/worker; Sheet append-only `MONTERREY INSCRIPCION` debajo de Apodaca (FORMATO + tabs futuras); inventory 3/3; frontend PR. P170 OFF; auto-requirements OFF; sin backfill/smoke mutante.
 
 - **feat(agenda): P175 B2 UI local (inscripción)** — tarjeta asesor + campana; Mesa solicitar/Citas cancel-reagendar; KPI Reporte del día «Inscripciones»; Excel bloque intacto. Mig 173 NO Cloud. Sin Sheet/APPLY/commit.

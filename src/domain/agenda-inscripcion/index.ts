@@ -19,6 +19,14 @@ export {
   isInscripcionRequirementsEnabled,
   parseInscripcionRequirementsFromDate,
 } from "./env-gate";
+export {
+  evaluateInscripcionRequirementGate,
+  getInscripcionRequirementsConfig,
+  type InscripcionRequirementGateOutcome,
+  type InscripcionRequirementGateResult,
+  type InscripcionRequirementOpsRow,
+  type InscripcionRequirementsConfig,
+} from "./requirement-gate";
 
 export {
   INSCRIPCION_REBOOK_TASK_KIND,
