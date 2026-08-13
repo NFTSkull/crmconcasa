@@ -50,6 +50,11 @@ import {
   evaluateOperationalApplyGate,
   getOperationalApplyConfig,
 } from "../_shared/agenda-sheets/operational-apply-guard.ts";
+import {
+  getInscripcionRequirementsConfig,
+  maybeCreateInscripcionRequirement,
+  type InscripcionRequirementResult,
+} from "../_shared/agenda-sheets/inscripcion-requirement.ts";
 
 type WebhookBody = {
   spreadsheetId?: string;
@@ -95,8 +100,11 @@ async function upsertAndApplyOperationalResultRow(
 ): Promise<{
   ops: OperationalResultUpsertRow | null;
   apply: ApplyOperationalResultView | null;
+  inscripcionRequirement: InscripcionRequirementResult | null;
 }> {
-  if (!input.organizationId) return { ops: null, apply: null };
+  if (!input.organizationId) {
+    return { ops: null, apply: null, inscripcionRequirement: null };
+  }
   let kind: string | null = null;
   let locationId: string | null = null;
   const { data: inv } = await supabase
@@ -125,7 +133,9 @@ async function upsertAndApplyOperationalResultRow(
       }
     }
   }
-  if (!kind || !locationId) return { ops: null, apply: null };
+  if (!kind || !locationId) {
+    return { ops: null, apply: null, inscripcionRequirement: null };
+  }
 
   const titleEscBg = `'${String(input.sheetTitle).replace(/'/g, "''")}'`;
   const eiGrid = await adapter.getEffectiveBackgrounds(
@@ -143,8 +153,30 @@ async function upsertAndApplyOperationalResultRow(
     row: input.row,
     eiBackgrounds: eiGrid[0] ?? null,
   });
-  if (!ops) return { ops: null, apply: null };
-  await supabase.rpc("agenda_sheet_ops_upsert_batch", { p_rows: [ops] });
+  if (!ops) {
+    return { ops: null, apply: null, inscripcionRequirement: null };
+  }
+
+  const { error: opsErr } = await supabase.rpc(
+    "agenda_sheet_ops_upsert_batch",
+    { p_rows: [ops] },
+  );
+  if (opsErr) {
+    console.error(
+      "agenda-sheet-webhook ops upsert",
+      String(opsErr.message ?? "").slice(0, 200),
+    );
+    // Sin proyección confiable: ni requirement ni apply.
+    return { ops: null, apply: null, inscripcionRequirement: null };
+  }
+
+  // P175 B5.1: requirement creator ANTES de P170 (funciona con APPLY OFF).
+  const inscReqConfig = getInscripcionRequirementsConfig();
+  const inscripcionRequirement = await maybeCreateInscripcionRequirement(
+    supabase,
+    ops,
+    inscReqConfig,
+  );
 
   // P165 siempre; P170 solo si kill switch + cutover lo permiten.
   const gate = evaluateOperationalApplyGate({
@@ -182,6 +214,7 @@ async function upsertAndApplyOperationalResultRow(
         unexpected: false,
         reason: gate.outcome.toLowerCase(),
       },
+      inscripcionRequirement,
     };
   }
 
@@ -189,7 +222,7 @@ async function upsertAndApplyOperationalResultRow(
     visibleSheetTime: String(input.row[COL_INDEX.hora] ?? ""),
     liveSlotKey: String(input.row[COL_INDEX.slotKey] ?? ""),
   });
-  return { ops, apply };
+  return { ops, apply, inscripcionRequirement };
 }
 
 
@@ -271,6 +304,7 @@ Deno.serve(async (req) => {
     // Incluso si P ya tiene booking: ediciones E–I deben aplicar antes de already_synced.
     const orgIdOps = Deno.env.get("GOOGLE_SHEETS_ORGANIZATION_ID") ?? "";
     let operationalApply: ApplyOperationalResultView | null = null;
+    let inscripcionRequirement: InscripcionRequirementResult | null = null;
     if (orgIdOps && sheetDate) {
       const sbOps = createClient(
         Deno.env.get("SUPABASE_URL") ?? "",
@@ -278,16 +312,18 @@ Deno.serve(async (req) => {
         { auth: { persistSession: false, autoRefreshToken: false } },
       );
       try {
-        const { apply } = await upsertAndApplyOperationalResultRow(sbOps, adapter, {
-          organizationId: orgIdOps,
-          spreadsheetId: expectedSs,
-          sheetId: body.sheetId,
-          sheetTitle: body.sheetTitle,
-          bookingDate: sheetDate,
-          rowNumber: body.rowNumber,
-          row,
-        });
+        const { apply, inscripcionRequirement: inscReq } =
+          await upsertAndApplyOperationalResultRow(sbOps, adapter, {
+            organizationId: orgIdOps,
+            spreadsheetId: expectedSs,
+            sheetId: body.sheetId,
+            sheetTitle: body.sheetTitle,
+            bookingDate: sheetDate,
+            rowNumber: body.rowNumber,
+            row,
+          });
         operationalApply = apply;
+        inscripcionRequirement = inscReq;
         if (apply?.unexpected) {
           console.warn(
             "agenda-sheet-webhook apply unexpected",
@@ -366,6 +402,14 @@ Deno.serve(async (req) => {
                 unexpected: operationalApply.unexpected ?? false,
               }
               : null,
+            inscripcion_requirement: inscripcionRequirement
+              ? {
+                outcome: inscripcionRequirement.outcome,
+                attempted: inscripcionRequirement.attempted,
+                created: inscripcionRequirement.created,
+                idempotent: inscripcionRequirement.idempotent,
+              }
+              : null,
           });
         }
       }
@@ -378,6 +422,14 @@ Deno.serve(async (req) => {
             outcome: operationalApply.outcome,
             unexpected: operationalApply.unexpected ?? false,
             skippedRpc: operationalApply.skippedRpc ?? false,
+          }
+          : null,
+        inscripcion_requirement: inscripcionRequirement
+          ? {
+            outcome: inscripcionRequirement.outcome,
+            attempted: inscripcionRequirement.attempted,
+            created: inscripcionRequirement.created,
+            idempotent: inscripcionRequirement.idempotent,
           }
           : null,
       });

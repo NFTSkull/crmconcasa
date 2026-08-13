@@ -1,3 +1,11 @@
+## 2026-08-13 - P175 B5.2: publicación wiring + activación controlada
+
+PR #134. Deploy Edge solo webhook+reconcile desde B5_1_SHA. Fase A FROM_DATE=2026-08-13 (ENABLED ausente) → reconcile natural enabled=false/from_date set/created=0. Fase B ENABLED=true → reconcile natural enabled=true/errors=0/created=0 (sin señal creatable ≥13 AGO). Históricos 07 AGO: 6 ops rebook, 0 requirements. P170 OFF. Worker/live-sync bundle SHA sin cambio (version bump posible por secrets set). Sin Sheet writes / smoke / migration.
+
+## 2026-08-13 - P175 B5.1: wiring Edge Sheet → requirement (LOCAL ONLY)
+
+Root cause B5: reconcile/webhook proyectaban ops y, con P170 OFF, hacían `continue` sin llamar `agenda_inscripcion_require_from_sheet`. Fix: helper `_shared/agenda-sheets/inscripcion-requirement.ts` (config fail-closed + gate puro + RPC); reconcile procesa requirements **después** de ops upsert exitoso y **antes** de applyEngineOn; webhook captura error de ops upsert y corre requirement antes de P170. Independiente de OPERATIONAL_APPLY. Secrets Cloud siguen ABSENT. Sin deploy / migration / Sheet / commit.
+
 ## 2026-08-13 - P175 B4: rollout productivo controlado (Monterrey 3×11:00)
 
 Base `crmconcasa/main` = `6af2bf0` (MAIN_OK). Decisión negocio: sede Monterrey V1; hora fija 11:00; cupo 3 filas físicas append-only debajo de APODACA BIOMETRICOS (+ REAGENDADOS si existen). Orden: commit → mig 173 Cloud (sin db push) → Edge no-writer (webhook/reconcile/live-sync) → worker → Sheet tab-a-tab PASTE_FORMAT desde Apodaca de la misma pestaña → reconcile inventory → push/`crmconcasa` PR → merge → Vercel. Secrets: OPERATIONAL_APPLY ausente; INSCRIPCION_REQUIREMENTS ausente. P174 A solo en 3 filas nuevas. Sin backfill 6 históricos / sin smoke mutante / sin Apodaca inscripción / sin P172 kind / sin bulk P089.
