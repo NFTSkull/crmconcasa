@@ -4,6 +4,8 @@
 
 ### Added
 
+- **feat(agenda): P175 B5.2 publicación wiring inscripción + activación controlada** — commit B5.1 Edge webhook/reconcile; secrets FROM_DATE=2026-08-13 luego ENABLED=true; P170 OFF; sin Sheet/smoke/worker/live-sync code redeploy.
+
 - **feat(agenda): P175 B5.1 wiring Edge Sheet→requirement (LOCAL)** — helper `inscripcion-requirement` + reconcile/webhook llaman `agenda_inscripcion_require_from_sheet` **antes** de P170; kill switch fail-closed; secrets siguen OFF; sin Cloud/deploy/commit.
 
 - **feat(agenda): P175 B4 rollout inscripción (Monterrey 3×11:00)** — mig **173** Cloud; Edge webhook/reconcile/live-sync/worker; Sheet append-only `MONTERREY INSCRIPCION` debajo de Apodaca (FORMATO + tabs futuras); inventory 3/3; frontend PR. P170 OFF; auto-requirements OFF; sin backfill/smoke mutante.

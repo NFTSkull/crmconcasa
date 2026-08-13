@@ -1,3 +1,7 @@
+## 2026-08-13 - P175 B5.2: publicación wiring + activación controlada
+
+PR #134. Deploy Edge solo webhook+reconcile desde B5_1_SHA. Fase A FROM_DATE=2026-08-13 (ENABLED ausente) → reconcile natural enabled=false/from_date set/created=0. Fase B ENABLED=true → reconcile natural enabled=true/errors=0/created=0 (sin señal creatable ≥13 AGO). Históricos 07 AGO: 6 ops rebook, 0 requirements. P170 OFF. Worker/live-sync bundle SHA sin cambio (version bump posible por secrets set). Sin Sheet writes / smoke / migration.
+
 ## 2026-08-13 - P175 B5.1: wiring Edge Sheet → requirement (LOCAL ONLY)
 
 Root cause B5: reconcile/webhook proyectaban ops y, con P170 OFF, hacían `continue` sin llamar `agenda_inscripcion_require_from_sheet`. Fix: helper `_shared/agenda-sheets/inscripcion-requirement.ts` (config fail-closed + gate puro + RPC); reconcile procesa requirements **después** de ops upsert exitoso y **antes** de applyEngineOn; webhook captura error de ops upsert y corre requirement antes de P170. Independiente de OPERATIONAL_APPLY. Secrets Cloud siguen ABSENT. Sin deploy / migration / Sheet / commit.
