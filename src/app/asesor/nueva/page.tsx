@@ -1,18 +1,28 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useSessionRepo } from "@/domain/session";
 import { useExpedientesRepo } from "@/domain/expedientes";
 import type { CreateExpedienteInput } from "@/domain/expedientes/create-expediente.input";
-import { ExpedientesSupabaseError } from "@/domain/expedientes/supabase.repo";
+import { ExpedientesSupabaseError } from "@/domain/expedientes/supabase.error";
 import {
-  isNssPrecalGateBlocked,
-  isNssPrecalGateReprecalAllowed,
-  type NssPrecalGateResult,
-} from "@/domain/expedientes/nss-precal-gate";
-import { messageForNuevaExistingActiveExpediente } from "@/domain/expedientes/asesor-reprecal-flow";
+  createNuevaReprecalSubmitGuard,
+  decideNuevaAfterGate,
+  executeNuevaReprecalConfirm,
+  formatNuevaProgramaLabel,
+  MSG_NUEVA_REPRECAL_BODY,
+  MSG_NUEVA_REPRECAL_CHANGE_SUCCESS,
+  MSG_NUEVA_REPRECAL_PENDING,
+  MSG_NUEVA_REPRECAL_SAME_Q,
+  MSG_NUEVA_REPRECAL_SUCCESS,
+  MSG_NUEVA_REPRECAL_TITLE,
+  nuevaExpedienteDetallePath,
+  type NuevaReprecalSubmitGuard,
+} from "@/domain/expedientes/asesor-nueva-reprecal";
+import type { ReprecalUiMode } from "@/domain/expedientes/asesor-reprecal-flow";
+import type { NssPrecalGateResult } from "@/domain/expedientes/nss-precal-gate";
 import { validateCreatePrecalificacion } from "@/domain/precalificaciones/validators";
 import { isDataModeSupabase } from "@/lib/dataMode";
 import { Button } from "@/components/ui/Button";
@@ -24,6 +34,13 @@ function onlyDigits(s: string): string {
   return s.replace(/\D/g, "");
 }
 
+type ConfirmState = {
+  mode: ReprecalUiMode;
+  expedienteId: string;
+  input: CreateExpedienteInput;
+  gate: NssPrecalGateResult;
+};
+
 export default function NuevaPrecalificacionPage() {
   const router = useRouter();
   const { currentUser } = useSessionRepo();
@@ -32,7 +49,11 @@ export default function NuevaPrecalificacionPage() {
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
-  const [gate, setGate] = useState<NssPrecalGateResult | null>(null);
+  const [confirm, setConfirm] = useState<ConfirmState | null>(null);
+  const guardRef = useRef<NuevaReprecalSubmitGuard | null>(null);
+  if (!guardRef.current) {
+    guardRef.current = createNuevaReprecalSubmitGuard();
+  }
 
   async function readForm(
     form: HTMLFormElement,
@@ -61,6 +82,56 @@ export default function NuevaPrecalificacionPage() {
     };
   }
 
+  function closeConfirm() {
+    if (submitting) return;
+    setConfirm(null);
+    guardRef.current?.clearKey();
+  }
+
+  async function handleConfirmSend() {
+    if (!confirm || !guardRef.current) return;
+    setErrorMsg(null);
+    setSuccessMsg(null);
+    setSubmitting(true);
+    try {
+      const result = await executeNuevaReprecalConfirm({
+        guard: guardRef.current,
+        firstExpedienteId: confirm.expedienteId,
+        mode: confirm.mode,
+        form: confirm.input,
+        lookup: (nss, programa) =>
+          expedientesRepo.lookupNssPrecalGate(nss, programa),
+        iniciar: (payload) =>
+          expedientesRepo.iniciarReprecalificacion(payload),
+      });
+      if (!result.ok) {
+        if (result.reason === "in_flight") return;
+        if (result.reason === "gate") {
+          setErrorMsg(result.message);
+          return;
+        }
+        const err = result.error;
+        if (err instanceof ExpedientesSupabaseError) {
+          setErrorMsg(err.message);
+        } else if (err instanceof Error) {
+          setErrorMsg(err.message);
+        } else {
+          setErrorMsg("No se pudo enviar la precalificación.");
+        }
+        return;
+      }
+      setSuccessMsg(
+        confirm.mode === "change_programa"
+          ? MSG_NUEVA_REPRECAL_CHANGE_SUCCESS
+          : MSG_NUEVA_REPRECAL_SUCCESS,
+      );
+      setConfirm(null);
+      router.push(nuevaExpedienteDetallePath(result.expedienteId));
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setErrorMsg(null);
@@ -85,16 +156,38 @@ export default function NuevaPrecalificacionPage() {
           input.nss,
           input.programa,
         );
-        setGate(gateResult);
+        const decision = decideNuevaAfterGate(gateResult);
 
-        if (isNssPrecalGateBlocked(gateResult.status)) {
-          setErrorMsg(gateResult.message);
+        if (decision.action === "blocked") {
+          setErrorMsg(decision.message);
+          setConfirm(null);
           return;
         }
 
-        // P169: expediente propio activo (pre/post Mesa) → no create ni iniciar desde /nueva
-        if (isNssPrecalGateReprecalAllowed(gateResult.status)) {
-          setErrorMsg(messageForNuevaExistingActiveExpediente());
+        if (decision.action === "confirm_missing_expediente") {
+          setErrorMsg(decision.message);
+          setConfirm(null);
+          return;
+        }
+
+        if (
+          decision.action === "confirm_same" ||
+          decision.action === "confirm_change"
+        ) {
+          setConfirm({
+            mode:
+              decision.action === "confirm_same"
+                ? "same_programa"
+                : "change_programa",
+            expedienteId: decision.expedienteId,
+            input,
+            gate: gateResult,
+          });
+          return;
+        }
+
+        if (decision.action !== "create") {
+          setErrorMsg(gateResult.message);
           return;
         }
       }
@@ -115,7 +208,7 @@ export default function NuevaPrecalificacionPage() {
       } else if (err instanceof Error) {
         setErrorMsg(err.message);
       } else {
-        setErrorMsg("Error al crear la precalificación.");
+        setErrorMsg("No se pudo crear la precalificación.");
       }
     } finally {
       setSubmitting(false);
@@ -141,10 +234,14 @@ export default function NuevaPrecalificacionPage() {
     );
   }
 
-  const showExistingActiveUi =
-    dataSupabase &&
-    gate != null &&
-    isNssPrecalGateReprecalAllowed(gate.status);
+  const pendingId = confirm?.gate.reprecalificacion_pendiente_id;
+  const hasPending = Boolean(pendingId);
+  const programaActual = formatNuevaProgramaLabel(
+    confirm?.gate.programa_actual ?? confirm?.gate.programa,
+  );
+  const programaSolicitado = formatNuevaProgramaLabel(
+    confirm?.gate.programa_solicitado ?? confirm?.input.programa,
+  );
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -190,26 +287,6 @@ export default function NuevaPrecalificacionPage() {
               {successMsg}
             </p>
           ) : null}
-          {showExistingActiveUi ? (
-            <div
-              role="status"
-              className="mb-4 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950"
-            >
-              <p className="font-medium">
-                {messageForNuevaExistingActiveExpediente()}
-              </p>
-              {gate?.expediente_id ? (
-                <p className="mt-2">
-                  <Link
-                    href={`/asesor/expediente/${gate.expediente_id}`}
-                    className="font-medium text-blue-700 underline hover:text-blue-900"
-                  >
-                    Abrir expediente
-                  </Link>
-                </p>
-              ) : null}
-            </div>
-          ) : null}
           <div className="flex flex-col gap-4">
             <Select
               name="programa"
@@ -218,7 +295,7 @@ export default function NuevaPrecalificacionPage() {
               required
               className="min-h-[44px] sm:min-h-0"
               onChange={() => {
-                setGate(null);
+                setConfirm(null);
               }}
             />
             <Input
@@ -246,7 +323,7 @@ export default function NuevaPrecalificacionPage() {
               inputMode="numeric"
               className="min-h-[44px] sm:min-h-0"
               onChange={() => {
-                setGate(null);
+                setConfirm(null);
               }}
             />
             <Input
@@ -260,7 +337,7 @@ export default function NuevaPrecalificacionPage() {
             <Button
               type="submit"
               variant="primary"
-              disabled={submitting || showExistingActiveUi}
+              disabled={submitting || confirm != null}
               className="min-h-[44px] w-full touch-manipulation sm:min-h-0 sm:w-auto"
             >
               {submitting ? "Guardando…" : "Enviar"}
@@ -277,6 +354,100 @@ export default function NuevaPrecalificacionPage() {
           </div>
         </form>
       </main>
+
+      {confirm ? (
+        <div
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="nueva-reprecal-title"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
+        >
+          <div className="w-full max-w-md rounded-lg border border-gray-200 bg-white p-4 shadow-lg">
+            <h2
+              id="nueva-reprecal-title"
+              className="text-base font-semibold text-gray-900"
+            >
+              {MSG_NUEVA_REPRECAL_TITLE}
+            </h2>
+            {confirm.mode === "same_programa" ? (
+              <>
+                <p className="mt-3 text-sm text-gray-700">
+                  {MSG_NUEVA_REPRECAL_SAME_Q}
+                </p>
+                <p className="mt-2 text-sm text-gray-700">
+                  {MSG_NUEVA_REPRECAL_BODY}
+                </p>
+              </>
+            ) : (
+              <p className="mt-3 text-sm text-gray-700">
+                Este NSS ya está en uno de tus expedientes con el programa{" "}
+                <span className="font-medium text-gray-900">
+                  {programaActual}
+                </span>
+                . Seleccionaste{" "}
+                <span className="font-medium text-gray-900">
+                  {programaSolicitado}
+                </span>
+                . ¿Quieres solicitar el cambio de programa y volver a enviarlo a
+                precalificación?
+              </p>
+            )}
+            <p className="mt-3 text-sm text-gray-700">
+              <span className="font-medium text-gray-900">Programa actual:</span>{" "}
+              {programaActual}
+            </p>
+            <p className="mt-1 text-sm text-gray-700">
+              <span className="font-medium text-gray-900">
+                Programa solicitado:
+              </span>{" "}
+              {programaSolicitado}
+            </p>
+            {hasPending ? (
+              <p
+                role="status"
+                className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950"
+              >
+                {MSG_NUEVA_REPRECAL_PENDING}
+              </p>
+            ) : null}
+            {errorMsg ? (
+              <p role="alert" className="mt-3 text-sm text-red-700">
+                {errorMsg}
+              </p>
+            ) : null}
+            <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
+              <Button
+                type="button"
+                variant="outline"
+                disabled={submitting}
+                onClick={closeConfirm}
+              >
+                Cancelar
+              </Button>
+              <Link
+                href={nuevaExpedienteDetallePath(confirm.expedienteId)}
+                className="inline-flex"
+              >
+                <Button type="button" variant="secondary" disabled={submitting}>
+                  Abrir expediente
+                </Button>
+              </Link>
+              <Button
+                type="button"
+                variant="primary"
+                disabled={submitting}
+                onClick={() => void handleConfirmSend()}
+              >
+                {submitting
+                  ? "Enviando…"
+                  : confirm.mode === "change_programa"
+                    ? "Sí, solicitar cambio y enviar"
+                    : "Sí, enviar de nuevo"}
+              </Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   );
 }

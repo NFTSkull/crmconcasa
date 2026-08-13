@@ -51,7 +51,7 @@ ConCasa CRM gestiona el ciclo operativo de precalificaciones / expedientes hipot
 |------|-----|---------|
 | `/login` | Todos | Auth (mock hoy; Supabase Auth en producción). |
 | `/asesor` | Asesor | Bandeja de expedientes propios. |
-| `/asesor/nueva` | Asesor | Alta de precalificación / expediente. |
+| `/asesor/nueva` | Asesor | Alta de precalificación / expediente. Si el NSS ya es del mismo asesor, confirma y re-precalifica el expediente existente (P181). |
 | `/asesor/expediente/[id]` | Asesor | Detalle: datos, docs, integración, biométricos, retención. |
 | `/editor` | Editor | Bandeja global; monto y decisión. |
 | `/editor/[id]` | Editor | Detalle editor. |

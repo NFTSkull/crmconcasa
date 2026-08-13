@@ -92,7 +92,7 @@ Universo del gate (P169): `organization_id` + NSS + `deleted_at IS NULL` + `cicl
 - `action_log`: `asesor.reprecalificacion.iniciar` / `editor.reprecalificacion.aprobar|no_cumple` (metadata: `programa_vigente`/`programa_anterior`, `programa_solicitado`, `cambio_programa`; sin NSS completo).
 - Enum `programa` intacto (`mejoravit` | `subcuenta` | `compro_tu_casa`).
 - `nss_bloqueado_en_mesa` / `create_expediente` intactos para ajenos.
-- `/asesor/nueva`: si gate = own/change → **no** `create_expediente` ni `iniciarReprecalificacion`; mensaje + link al detalle.
+- `/asesor/nueva` (P181): si gate = `ok_create` → `create_expediente`. Si gate = own/change **del mismo asesor** → confirmación (no error) → revalida gate → `asesor_iniciar_reprecalificacion` sobre `expediente_id` del gate → redirect `/asesor/expediente/{id}`. `blocked_other_asesor` / ambiguous / mismatch: error, 0 create, 0 reprecal. P179 intacto (pre-Mesa ajeno → `ok_create`).
 - UI detalle: CTAs en «Decisión del editor» sin exigir `submittedToMesa` (P169).
 - Mig. **155** (base) + **168** (cambio de programa; feature P164) + **169** (gate pre-Mesa). UI: detalle asesor CTAs + Editor banner.
 

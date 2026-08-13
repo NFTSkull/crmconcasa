@@ -99,6 +99,18 @@ export {
   validateGateForDetalleReprecal,
 } from "./asesor-reprecal-flow";
 export { newReprecalIdempotencyKey } from "./reprecal-idempotency";
+export {
+  MSG_NUEVA_REPRECAL_TITLE,
+  MSG_NUEVA_REPRECAL_BODY,
+  MSG_NUEVA_REPRECAL_SAME_Q,
+  MSG_NUEVA_REPRECAL_PENDING,
+  MSG_NUEVA_REPRECAL_SUCCESS,
+  MSG_NUEVA_REPRECAL_CHANGE_SUCCESS,
+  createNuevaReprecalSubmitGuard,
+  decideNuevaAfterGate,
+  executeNuevaReprecalConfirm,
+  nuevaExpedienteDetallePath,
+} from "./asesor-nueva-reprecal";
 export type { EditorListPage, EditorListQuery } from "./editor-list-query";
 export {
   createMesaMoverInFlightGuard,
