@@ -35,6 +35,8 @@ const EMPTY_DATA: BernardoDashboardData = {
   firmasItems: [],
   notificacionesTotal: 0,
   notificacionesItems: [],
+  inscripcionesTotal: 0,
+  inscripcionesItems: [],
 };
 
 const OPS_REFETCH_MS = 25_000;
@@ -198,6 +200,12 @@ export function AdminBernardoDashboard({
       description: "Notificaciones enviadas a registro",
       value: data.notificacionesTotal,
     },
+    {
+      id: "inscripciones",
+      title: "Inscripciones",
+      description: "Citas de inscripción agendadas (kind real)",
+      value: data.inscripcionesTotal,
+    },
   ];
 
   return (
@@ -236,7 +244,7 @@ export function AdminBernardoDashboard({
         </p>
       ) : null}
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         {metrics.map((m) => (
           <AdminBernardoMetricCard
             key={m.id}
@@ -261,13 +269,16 @@ export function AdminBernardoDashboard({
                 ? data.biometricosTotal
                 : expanded === "firmas"
                   ? data.firmasTotal
-                  : data.notificacionesTotal
+                  : expanded === "inscripciones"
+                    ? data.inscripcionesTotal
+                    : data.notificacionesTotal
           }
           bounds={bounds}
           ingresosItems={data.ingresosItems}
           biometricosItems={data.biometricosItems}
           firmasItems={data.firmasItems}
           notificacionesItems={data.notificacionesItems}
+          inscripcionesItems={data.inscripcionesItems}
           onHide={() => setExpanded(null)}
           onOpenExpediente={(row) => openFromIngresos(row)}
           onOpenCita={openFromCita}

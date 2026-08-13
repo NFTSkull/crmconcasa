@@ -1,4 +1,8 @@
-export type MesaAgendaCancelKind = "biometricos" | "firmas" | "notificacion";
+export type MesaAgendaCancelKind =
+  | "biometricos"
+  | "firmas"
+  | "notificacion"
+  | "inscripcion";
 
 export const MESA_CANCEL_BIO_BUTTON_LABEL =
   "Cancelar cita biométrica y solicitar reagenda";
@@ -8,6 +12,9 @@ export const MESA_CANCEL_NOTIFICACION_BUTTON_LABEL =
 
 export const MESA_CANCEL_FIRMAS_BUTTON_LABEL =
   "Cancelar cita de firmas y solicitar reagenda";
+
+export const MESA_CANCEL_INSCRIPCION_BUTTON_LABEL =
+  "Cancelar cita de inscripción y solicitar reagenda";
 
 export const MESA_CANCEL_SUCCESS_MESSAGE =
   "Cita cancelada. El asesor puede reagendar.";
@@ -127,6 +134,9 @@ export function explainMesaShowCancelCitaOperativa(
     etapaOk = etapa === 9 || etapa === 10;
   } else if (params.kind === "notificacion") {
     etapaOk = etapa === 3;
+  } else if (params.kind === "inscripcion") {
+    etapaOk =
+      typeof etapa === "number" && Number.isFinite(etapa) && etapa >= 3 && etapa <= 7;
   } else {
     etapaOk = etapa === 3 || etapa === 4 || etapa === 5;
   }

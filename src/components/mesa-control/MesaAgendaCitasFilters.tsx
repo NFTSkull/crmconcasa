@@ -16,8 +16,9 @@ type MesaAgendaCitasFiltersProps = Readonly<{
 const KIND_OPTIONS = [
   { value: "all", label: "Todos" },
   { value: "biometricos", label: "Biométricos" },
+  { value: "inscripcion", label: "Inscripción" },
+  { value: "notificacion", label: "Notificación extraordinaria" },
   { value: "firmas", label: "Firma" },
-  { value: "notificacion", label: "Notificación" },
 ] as const;
 
 export function MesaAgendaCitasFilters({

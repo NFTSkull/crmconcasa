@@ -7,10 +7,11 @@ import {
   resolveMesaAgendaReportGroup,
 } from "./mesa-report-group";
 
-test("fallbackReportGroupFromKind cubre los tres kind operativos", () => {
+test("fallbackReportGroupFromKind cubre kinds operativos + inscripción", () => {
   assert.equal(fallbackReportGroupFromKind("biometricos"), "biometricos");
   assert.equal(fallbackReportGroupFromKind("firmas"), "firmas");
   assert.equal(fallbackReportGroupFromKind("notificacion"), "notificacion");
+  assert.equal(fallbackReportGroupFromKind("inscripcion"), "inscripcion");
   assert.equal(fallbackReportGroupFromKind("otro"), "biometricos");
 });
 

@@ -4,6 +4,12 @@
 
 ### Added
 
+- **feat(agenda): P175 B4 rollout inscripción (Monterrey 3×11:00)** — mig **173** Cloud; Edge webhook/reconcile/live-sync/worker; Sheet append-only `MONTERREY INSCRIPCION` debajo de Apodaca (FORMATO + tabs futuras); inventory 3/3; frontend PR. P170 OFF; auto-requirements OFF; sin backfill/smoke mutante.
+
+- **feat(agenda): P175 B2 UI local (inscripción)** — tarjeta asesor + campana; Mesa solicitar/Citas cancel-reagendar; KPI Reporte del día «Inscripciones»; Excel bloque intacto. Mig 173 NO Cloud. Sin Sheet/APPLY/commit.
+
+- **feat(agenda): P175 B1 foundation local (inscripción)** — mig **173** (NO Cloud): enum `inscripcion`, requirement table, RPCs require/book/cancel/reagenda, inventory 11:00, ops flags, P170 `REQUIRES_INSCRIPCION_REBOOK`. Domain TS + Edge mirrors (detector, classifier PENDING, parsers INSCRIPCION, env-gate fail-closed, Mesa/Excel/advisor repo contract). Sin UI / Sheet write / APPLY ON / commit.
+
 - **fix(agenda): P174 B2 publicación protección hora Sheet A** — sin migration Cloud; Edge `agenda-sheet-webhook` + `agenda-sheet-reconcile` con guard `SKIPPED_TIME_IDENTITY_CONFLICT` (P170 APPLY OFF); sync-worker **sin** redeploy; aliases/UI/disponibilidad/`booking_time`/columna A intactos; sin Sheet writes/smoke.
 
 - **harden(agenda): P174 B1 protección hora Sheet A (local)** — columna A READ ONLY en booking/cancel/webhook/reconcile; gate apply `SKIPPED_TIME_IDENTITY_CONFLICT` si A≠R.sheet= (sin mutar hora/booking_time); classifier RO missing-links; tests invariancia P121 (replacement A=histórica exacta). Aliases/UI/disponibilidad intactos. Sin Cloud/Sheet/commit.

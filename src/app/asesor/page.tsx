@@ -65,6 +65,10 @@ import {
   mergeExtraordinaryBellNotifications,
 } from "@/domain/agenda-contingencia";
 import {
+  mergeInscripcionBellNotifications,
+  useAgendaInscripcionRepo,
+} from "@/domain/agenda-inscripcion";
+import {
   useAgendaBiometricosBookingRepo,
 } from "@/domain/agenda-biometricos";
 import type { AgendaBiometricosBookingRepo } from "@/domain/agenda-biometricos/repo";
@@ -557,6 +561,7 @@ export default function AsesorDashboardPage() {
   const clienteDatosRepo = useExpedienteClienteDatosRepo();
   const biometricosBookingRepo = useAgendaBiometricosBookingRepo();
   const firmasBookingRepo = useAgendaFirmasBookingRepo();
+  const inscripcionRepo = useAgendaInscripcionRepo();
   const retencionRepo = useExpedienteRetencionSupabaseRepo();
   const [mockPrecalList, setMockPrecalList] = useState<
     PrecalificacionMockLocal[]
@@ -912,6 +917,26 @@ export default function AsesorDashboardPage() {
           );
         } catch {
           /* Contingencia opcional: no tumbar inbox */
+        }
+        try {
+          if (inscripcionRepo?.listOpenRequirementsForAsesor) {
+            const openReqs =
+              await inscripcionRepo.listOpenRequirementsForAsesor();
+            if (gen !== queryGenRef.current) return;
+            const nameById = new Map(
+              mappedWithRpcResult.map((p) => [
+                String(p.id),
+                String(p.cliente_nombre ?? ""),
+              ]),
+            );
+            mergedNotifs = mergeInscripcionBellNotifications(
+              mergedNotifs,
+              openReqs,
+              nameById,
+            );
+          }
+        } catch {
+          /* Inscripción opcional sin mig 173 Cloud */
         }
         setDashboardNotifications(mergedNotifs);
         setListError(null);

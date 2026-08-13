@@ -31,6 +31,7 @@ type AdminBernardoDetailPanelProps = {
   biometricosItems: readonly BernardoCitaRow[];
   firmasItems: readonly BernardoCitaRow[];
   notificacionesItems: readonly BernardoCitaRow[];
+  inscripcionesItems: readonly BernardoCitaRow[];
   onHide: () => void;
   onOpenExpediente: (row: AdminMesaEnvioEvent) => void;
   onOpenCita: (cita: BernardoCitaRow) => void;
@@ -41,6 +42,7 @@ const METRIC_TITLE: Record<BernardoMetricId, string> = {
   biometricos: "Biométricos",
   firmas: "Firmas",
   notificaciones: "Notificaciones a registro",
+  inscripciones: "Citas de inscripción",
 };
 
 const EMPTY: Record<BernardoMetricId, string> = {
@@ -49,6 +51,7 @@ const EMPTY: Record<BernardoMetricId, string> = {
   firmas: "No hay firmas completadas en este periodo.",
   notificaciones:
     "No hay notificaciones enviadas a registro en este periodo.",
+  inscripciones: "No hay citas de inscripción agendadas en este periodo.",
 };
 
 function VerExpedienteButton({ onClick }: { onClick: () => void }) {
@@ -253,6 +256,7 @@ export function AdminBernardoDetailPanel({
   biometricosItems,
   firmasItems,
   notificacionesItems,
+  inscripcionesItems,
   onHide,
   onOpenExpediente,
   onOpenCita,
@@ -291,6 +295,17 @@ export function AdminBernardoDetailPanel({
       ) : (
         <DayGroupsCitas
           items={firmasItems}
+          singleDay={singleDay}
+          onOpen={onOpenCita}
+        />
+      );
+  } else if (metric === "inscripciones") {
+    body =
+      inscripcionesItems.length === 0 ? (
+        <AdminEmptyState title={emptyMsg} />
+      ) : (
+        <DayGroupsCitas
+          items={inscripcionesItems}
           singleDay={singleDay}
           onOpen={onOpenCita}
         />

@@ -1,3 +1,10 @@
+## P175 — Cita extraordinaria de inscripción
+
+- [x] B1 local foundation (NO Cloud / NO Sheet / NO UI final): mig **173** enum `inscripcion` + `agenda_inscripcion_requerimientos` + RPCs require/book/cancel/reagenda + ops flag `inscripcion_rebook_required` + P170 outcome `REQUIRES_INSCRIPCION_REBOOK`; detector/classifier/parsers/inventory 11:00; Mesa/Excel/advisor contracts; env-gate fail-closed. P170 APPLY OFF.
+- [x] B2 UI LOCAL: asesor card/task; Mesa solicitar + Citas; Reporte del día KPI Inscripciones; tests mount/UI. Sin Cloud apply 173 / Sheet / deploy / commit. Bulk P089 inscripción no habilitado.
+- [x] B3: manifiesto Sheet READ ONLY (append-only; Monterrey V1; cupo negocio pendiente → cerrado en B4 = 3).
+- [x] B4 rollout: mig 173 Cloud + Edge + Sheet 3×11:00 Monterrey (FORMATO + futuras) + inventory + frontend; P170 OFF; auto-requirements OFF; sin backfill/smoke.
+
 ## P174 — Protección hora visible Google Sheets (columna A)
 
 - [x] B1 local: A read-only booking/cancel; webhook/reconcile sin auto-corrección; gate `SKIPPED_TIME_IDENTITY_CONFLICT`; classifier missing-links RO; P121 A histórica exacta en replacement; aliases/UI/availability intactos.

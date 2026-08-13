@@ -38,7 +38,8 @@ export type BernardoMetricId =
   | "ingresos"
   | "biometricos"
   | "firmas"
-  | "notificaciones";
+  | "notificaciones"
+  | "inscripciones";
 
 export type BernardoCitaRow = Readonly<{
   /** Null en citas manuales del Sheet sin booking CRM. */
@@ -49,9 +50,9 @@ export type BernardoCitaRow = Readonly<{
   asesorNombre: string;
   bookingDate: string;
   bookingTime: string;
-  status: "completed";
+  status: "completed" | "booked";
   statusLabel: string;
-  resultClass: OperationalResultClass;
+  resultClass: OperationalResultClass | "BOOKED";
   resultRaw: string | null;
   locationId: string;
   sheetRow: number;
@@ -69,6 +70,8 @@ export type BernardoDashboardData = Readonly<{
   firmasItems: readonly BernardoCitaRow[];
   notificacionesTotal: number;
   notificacionesItems: readonly BernardoCitaRow[];
+  inscripcionesTotal: number;
+  inscripcionesItems: readonly BernardoCitaRow[];
 }>;
 
 type OpsDetailItem = {
@@ -192,10 +195,97 @@ async function loadAllMesaEnvios(
   return items;
 }
 
+async function fetchInscripcionBookings(params: {
+  fromDate: string;
+  toDateInclusive: string;
+}): Promise<{ total: number; items: BernardoCitaRow[] }> {
+  if (!isDataModeSupabase() || !isSupabaseConfigured() || !supabaseBrowser) {
+    return { total: 0, items: [] };
+  }
+  const {
+    data: { session },
+  } = await supabaseBrowser.auth.getSession();
+  if (!session?.user) return { total: 0, items: [] };
+
+  const { data, error } = await supabaseBrowser
+    .from("agenda_bookings")
+    .select(
+      `
+      id,
+      expediente_id,
+      booking_date,
+      booking_time,
+      location_id,
+      expedientes!inner (
+        cliente_nombre,
+        etapa_actual,
+        profiles:asesor_id ( full_name )
+      )
+    `,
+    )
+    .eq("kind", "inscripcion")
+    .eq("status", "booked")
+    .gte("booking_date", params.fromDate)
+    .lte("booking_date", params.toDateInclusive)
+    .order("booking_date", { ascending: true })
+    .limit(500);
+
+  if (error) {
+    // Sin mig 173 Cloud / enum: KPI vacío (fail-soft).
+    if (
+      /invalid input value for enum|inscripcion|does not exist/i.test(
+        error.message,
+      )
+    ) {
+      return { total: 0, items: [] };
+    }
+    console.error("bernardo inscripciones", error.message);
+    return { total: 0, items: [] };
+  }
+
+  type Row = {
+    id: string;
+    expediente_id: string;
+    booking_date: string;
+    booking_time: string;
+    location_id: string;
+    expedientes?: {
+      cliente_nombre?: string | null;
+      etapa_actual?: number | null;
+      profiles?: { full_name?: string | null } | null;
+    } | null;
+  };
+
+  const items: BernardoCitaRow[] = ((data ?? []) as Row[]).map((r) => {
+    const etapaActual = Number(r.expedientes?.etapa_actual) || 5;
+    return {
+      bookingId: r.id,
+      expedienteId: r.expediente_id,
+      resultId: `inscripcion-${r.id}`,
+      clienteNombre: r.expedientes?.cliente_nombre?.trim() || "Cliente",
+      asesorNombre: r.expedientes?.profiles?.full_name?.trim() || "Asesor",
+      bookingDate: String(r.booking_date).slice(0, 10),
+      bookingTime: normalizeBookingTime(String(r.booking_time ?? "11:00")),
+      status: "booked",
+      statusLabel: "Agendada",
+      resultClass: "BOOKED",
+      resultRaw: null,
+      locationId: String(r.location_id ?? ""),
+      sheetRow: 0,
+      etapaActual,
+      etapaLabel: getEtapaOperativaNombre(etapaActual),
+      kind: "inscripcion",
+    };
+  });
+
+  return { total: items.length, items };
+}
+
 /**
- * Carga las cuatro métricas Bernardo para el periodo.
+ * Carga las métricas Bernardo para el periodo.
  * Ingresos: getSummary.enviadosAMesa (cálculo idéntico al KPI Admin) — sin cambio.
- * Ops: solo COMPLETED desde proyección Sheet.
+ * Ops bio/firma/notif: solo COMPLETED desde proyección Sheet.
+ * Inscripciones: bookings kind=inscripcion (independiente de col F).
  */
 export async function loadBernardoDashboard(params: {
   repo: AdminProductionRepo;
@@ -212,7 +302,7 @@ export async function loadBernardoDashboard(params: {
     precalDecision: "resueltas" as const,
   };
 
-  const [summary, ingresosItems, biometricos, firmas, notificaciones] =
+  const [summary, ingresosItems, biometricos, firmas, notificaciones, insc] =
     await Promise.all([
       repo.getSummary(filters),
       loadAllMesaEnvios(repo, bounds),
@@ -231,6 +321,10 @@ export async function loadBernardoDashboard(params: {
         fromDate: bounds.fromDate,
         toDateInclusive: bounds.toDateInclusive,
       }),
+      fetchInscripcionBookings({
+        fromDate: bounds.fromDate,
+        toDateInclusive: bounds.toDateInclusive,
+      }),
     ]);
 
   return {
@@ -242,6 +336,8 @@ export async function loadBernardoDashboard(params: {
     firmasItems: firmas.items,
     notificacionesTotal: notificaciones.total,
     notificacionesItems: notificaciones.items,
+    inscripcionesTotal: insc.total,
+    inscripcionesItems: insc.items,
   };
 }
 

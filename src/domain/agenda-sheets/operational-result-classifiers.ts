@@ -7,6 +7,8 @@
  *   COMPLETO / FALTA ACUSE en notas (H/I) NO confirman ni niegan firma.
  */
 
+import { detectInscripcionRebookRequirement } from "@/domain/agenda-inscripcion/detect-rebook";
+
 export type OperationalResultClass =
   | "COMPLETED"
   | "FAILED_OR_NOT_ATTENDED"
@@ -77,6 +79,8 @@ export function classifyNotificationResult(
 ): OperationalResultClass {
   const n = normalizeSheetOpsText(raw);
   if (!n) return "PENDING";
+  // P175: REAGENDA INSCRIP* no es FAILED genérico (requisito inscripción).
+  if (detectInscripcionRebookRequirement(raw)) return "PENDING";
   if (NOTIF_FAILED_EXACT.has(n) || n.startsWith("REAGENDA")) {
     return "FAILED_OR_NOT_ATTENDED";
   }

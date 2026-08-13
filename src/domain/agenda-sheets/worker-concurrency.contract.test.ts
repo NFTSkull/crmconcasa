@@ -250,6 +250,37 @@ describe("agenda-sheet sync title space + requeue (mig. 134)", () => {
     const pending = 20;
     assert.equal(Math.ceil(pending / limit), 2);
   });
+
+  it("P175: worker trata kind de forma genérica (incluye inscripcion)", () => {
+    // booking_created lee payload.kind sin whitelist bio|firmas.
+    const start = worker.indexOf("// booking_created desde CRM");
+    const end = worker.indexOf("// booking_created ya tiene link", start);
+    assert.ok(start > 0 && end > start);
+    const block = worker.slice(start, end);
+    assert.match(block, /payload\.kind/);
+    assert.doesNotMatch(
+      block,
+      /kind\s*(===|==)\s*["']biometricos["'][\s\S]{0,40}firmas/,
+    );
+    // Outbox claim no filtra por kind — cualquier booking_kind (p.ej. inscripcion) entra.
+    assert.match(worker, /agenda_sheet_claim_outbox/);
+    assert.doesNotMatch(worker, /kind\s+IN\s*\(\s*'biometricos'/i);
+  });
+
+  it("P175: create/cancel A read-only también aplica a kind inscripcion", () => {
+    // Mismos invariantes P174: create/cancel no escriben columna A (kind-agnóstico).
+    const createStart = worker.indexOf("// booking_created desde CRM");
+    const createEnd = worker.indexOf("// booking_created ya tiene link", createStart);
+    const createBlock = worker.slice(createStart, createEnd);
+    assert.doesNotMatch(createBlock, /a1VisibleRange/);
+    assert.match(createBlock, /write_verify_failed:col_a_mutated/);
+
+    const cancelStart = worker.indexOf("// Cancelación / cleanup");
+    const cancelEnd = worker.indexOf("// booking_created desde CRM");
+    const cancelBlock = worker.slice(cancelStart, cancelEnd);
+    assert.match(cancelBlock, /batchClear/);
+    assert.doesNotMatch(cancelBlock, /a1VisibleRange/);
+  });
 });
 
 describe("agenda-sheet edge rescheduled-history boot contract", () => {

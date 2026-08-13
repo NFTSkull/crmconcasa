@@ -36,7 +36,7 @@ export type InventoryOccupancySource =
 export type ParsedPhysicalSlotRow = Readonly<{
   sheetRow: number;
   bookingDate: string;
-  kind: "biometricos" | "firmas";
+  kind: "biometricos" | "firmas" | "inscripcion";
   locationId: "monterrey" | "apodaca";
   /** Horario lógico CRM (post-alias). */
   slotTime: string;
@@ -250,6 +250,16 @@ export function parsePhysicalInventoryFromGrid(params: {
     if (!section) {
       if (orphans.length === 0) orphanPrevSection = null;
       orphans.push({ sheetRow, row, sheetSlotTime: t.value });
+      continue;
+    }
+
+    // Inscripción: hora alien (≠11:00) no es cupo; no romper sección ni corregir A.
+    if (section.kind === "inscripcion" && t.value !== "11:00") {
+      issues.push({
+        code: "UNPARSED_TIME_IN_SECTION",
+        sheetRow,
+        message: `Hora ${t.value} en sección inscripción ignorada (solo 11:00 es cupo)`,
+      });
       continue;
     }
 

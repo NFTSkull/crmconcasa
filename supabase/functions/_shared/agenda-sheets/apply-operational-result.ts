@@ -1,7 +1,8 @@
 /**
- * P170+P173+P174 — llama agenda_sheet_apply_operational_result (autoridad Postgres).
+ * P170+P173+P174+P175 — llama agenda_sheet_apply_operational_result (autoridad Postgres).
  * No decide etapas/rechazos en TypeScript.
  * P174: pre-RPC skip si A visible ≠ sheet= en R (sin mutar hora).
+ * P175: pre-RPC skip si bio COMPLETED + REAGENDA INSCRIP* (sin rechazo notif).
  */
 import type { OperationalResultUpsertRow } from "./operational-results.ts";
 import {
@@ -9,6 +10,9 @@ import {
   SKIPPED_TIME_IDENTITY_CONFLICT,
   shouldSkipApplyForTimeIdentity,
 } from "./time-identity.ts";
+import { detectInscripcionRebookRequirement } from "./inscripcion-rebook.ts";
+
+export const REQUIRES_INSCRIPCION_REBOOK = "REQUIRES_INSCRIPCION_REBOOK" as const;
 
 export const APPLY_BUSINESS_OUTCOMES = [
   "APPLIED",
@@ -22,6 +26,7 @@ export const APPLY_BUSINESS_OUTCOMES = [
   "COLOR_VETO",
   "SKIPPED_CONTINGENCY",
   SKIPPED_TIME_IDENTITY_CONFLICT,
+  REQUIRES_INSCRIPCION_REBOOK,
 ] as const;
 
 export type ApplyBusinessOutcome = (typeof APPLY_BUSINESS_OUTCOMES)[number];
@@ -159,7 +164,8 @@ export type ApplyOperationalResultOpts = Readonly<{
 /**
  * 1) skip local si P/Q null (sin tocar last_applied_*)
  * 2) P174: skip si identidad A≠R.sheet= (sin mutar hora / sin RPC)
- * 3) RPC apply (contingencia P172 sigue dentro del SQL)
+ * 3) P175: skip si bio COMPLETED + REAGENDA INSCRIP* (sin rechazo notif)
+ * 4) RPC apply (contingencia P172 sigue dentro del SQL)
  * Business outcomes ≠ error fatal.
  */
 export async function applyOperationalResult(
@@ -207,6 +213,32 @@ export async function applyOperationalResult(
       kind: row.kind,
       visible_sheet_time: verdict.visibleSheetTime,
       slot_key_sheet_time: verdict.slotKeySheetTime,
+      outcome: view.outcome,
+    });
+    logApplySafe("info", row, view);
+    return view;
+  }
+
+  if (
+    row.kind === "biometricos" &&
+    row.biometric_result_class === "COMPLETED" &&
+    detectInscripcionRebookRequirement(row.notification_result_raw)
+  ) {
+    const view: ApplyOperationalResultView = {
+      ok: true,
+      outcome: REQUIRES_INSCRIPCION_REBOOK,
+      reason: "inscripcion_rebook_required",
+      skippedRpc: true,
+      mutated: false,
+      unexpected: false,
+    };
+    console.info("agenda_sheet_apply_inscripcion_rebook_skip", {
+      spreadsheet_id: row.spreadsheet_id,
+      sheet_id: row.sheet_id,
+      sheet_row: row.sheet_row,
+      booking_id: row.booking_id,
+      expediente_id: row.expediente_id,
+      kind: row.kind,
       outcome: view.outcome,
     });
     logApplySafe("info", row, view);

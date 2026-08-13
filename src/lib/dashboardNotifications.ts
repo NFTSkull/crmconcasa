@@ -16,7 +16,8 @@ export type DashboardNotificationKind =
   | "cita_hoy"
   | "cita_cambio"
   | "cita_programada"
-  | "extraordinary_rebook_required";
+  | "extraordinary_rebook_required"
+  | "inscripcion_rebook_required";
 
 export type DashboardNotificationItem = {
   id: string;

@@ -96,8 +96,10 @@ export function parseSection(cellA: string): { sede: string; kind: string } | nu
   const map: Record<string, { sede: string; kind: string }> = {
     "MONTERREY FIRMAS": { sede: "monterrey", kind: "firmas" },
     "MONTERREY BIOMETRICOS": { sede: "monterrey", kind: "biometricos" },
+    "MONTERREY INSCRIPCION": { sede: "monterrey", kind: "inscripcion" },
     "APODACA FIRMAS": { sede: "apodaca", kind: "firmas" },
     "APODACA BIOMETRICOS": { sede: "apodaca", kind: "biometricos" },
+    "APODACA INSCRIPCION": { sede: "apodaca", kind: "inscripcion" },
   };
   return map[n] ?? null;
 }

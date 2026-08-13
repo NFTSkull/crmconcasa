@@ -257,6 +257,15 @@ export function buildInventoryUpsertRows(params: {
       orphans.push({ sheetRow, row, sheetSlotTime: t });
       continue;
     }
+    // Inscripción: hora alien (≠11:00) no es cupo; no romper sección ni corregir A.
+    if (section.kind === "inscripcion" && t !== "11:00") {
+      issues.push({
+        code: "UNPARSED_TIME_IN_SECTION",
+        sheet_row: sheetRow,
+        message: `Hora ${t} en sección inscripción ignorada (solo 11:00 es cupo)`,
+      });
+      continue;
+    }
     if (!isPlausibleTimeForSection(section, t)) {
       if (orphans.length === 0) orphanPrevSection = section;
       orphans.push({ sheetRow, row, sheetSlotTime: t });

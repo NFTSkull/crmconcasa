@@ -27,7 +27,7 @@ export function MesaAgendaCitasSummary({
   return (
     <section
       aria-label="Resumen de citas filtradas"
-      className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5"
+      className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6"
     >
       <SummaryCard
         label="Total citas"
@@ -38,6 +38,11 @@ export function MesaAgendaCitasSummary({
         label="Biométricos"
         value={summary.biometricos}
         className="border-indigo-200 bg-indigo-50 text-indigo-900"
+      />
+      <SummaryCard
+        label="Inscripciones"
+        value={summary.inscripcion}
+        className="border-teal-200 bg-teal-50 text-teal-900"
       />
       <SummaryCard
         label="Firmas"

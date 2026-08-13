@@ -1,5 +1,5 @@
 /**
- * Mapping Edge/domain → RPC agenda_sheet_apply_operational_result (P170+P173).
+ * Mapping Edge/domain → RPC agenda_sheet_apply_operational_result (P170+P173+P175).
  * Postgres decide etapas/rechazos; aquí solo contrato + outcomes.
  */
 
@@ -10,6 +10,9 @@ import {
   SKIPPED_TIME_IDENTITY_CONFLICT,
   shouldSkipApplyForTimeIdentity,
 } from "./time-identity";
+import { detectInscripcionRebookRequirement } from "@/domain/agenda-inscripcion/detect-rebook";
+
+export const REQUIRES_INSCRIPCION_REBOOK = "REQUIRES_INSCRIPCION_REBOOK" as const;
 
 export const APPLY_BUSINESS_OUTCOMES = [
   "APPLIED",
@@ -23,6 +26,7 @@ export const APPLY_BUSINESS_OUTCOMES = [
   "COLOR_VETO",
   "SKIPPED_CONTINGENCY",
   SKIPPED_TIME_IDENTITY_CONFLICT,
+  REQUIRES_INSCRIPCION_REBOOK,
 ] as const;
 
 export type ApplyBusinessOutcome = (typeof APPLY_BUSINESS_OUTCOMES)[number];
@@ -156,6 +160,32 @@ export function localSkipApplyForTimeIdentity(input: {
     ok: true,
     outcome: SKIPPED_TIME_IDENTITY_CONFLICT,
     reason: `visible_a_vs_slot_key_sheet:${verdict.visibleSheetTime}->${verdict.slotKeySheetTime}`,
+    skippedRpc: true,
+    fingerprint: null,
+    mutated: false,
+    unexpected: false,
+  };
+}
+
+/**
+ * P175: bio COMPLETED + REAGENDA INSCRIP* → no rechazo notif genérico vía RPC.
+ * Sin mutar etapa; outcome seguro pre-RPC.
+ */
+export function localSkipApplyForInscripcionRebook(
+  row: Pick<
+    OperationalResultUpsertRow,
+    "kind" | "biometric_result_class" | "notification_result_raw"
+  >,
+): ApplyOperationalResultView | null {
+  if (row.kind !== "biometricos") return null;
+  if (row.biometric_result_class !== "COMPLETED") return null;
+  if (!detectInscripcionRebookRequirement(row.notification_result_raw)) {
+    return null;
+  }
+  return {
+    ok: true,
+    outcome: REQUIRES_INSCRIPCION_REBOOK,
+    reason: "inscripcion_rebook_required",
     skippedRpc: true,
     fingerprint: null,
     mutated: false,
