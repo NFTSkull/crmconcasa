@@ -18,21 +18,21 @@ import {
   LIVE_SYNC_LOADING_LABEL,
   invokeAgendaSheetLiveSync,
 } from "@/domain/agenda-sheets/live-inventory-sync";
-import {
-  mapLocationIdToAdvisorCanonical,
-} from "@/lib/agendaAdvisorLocations";
 import { formatMesaAgendaSedeLabel } from "@/lib/mesaAgendaCitasUi";
 import { supabaseBrowser } from "@/lib/supabaseBrowser";
 
 export type AgendaInscripcionSupabaseCardProps = Readonly<{
   expedienteId: string;
   onUpdated?: () => void;
+  /**
+   * En tab embebido: si no hay requirement, muestra estado informativo
+   * (nunca CTA). Standalone (default false) puede ocultarse con null.
+   */
+  embedded?: boolean;
 }>;
 
-const SEDE_OPTIONS = [
-  { value: "monterrey" as const, label: "Monterrey" },
-  { value: "apodaca" as const, label: "Apodaca" },
-];
+/** P175 V1: inscripción solo Monterrey. */
+const INSCRIPCION_SEDE = "monterrey" as const;
 
 function todayYmdMonterrey(): string {
   return new Intl.DateTimeFormat("en-CA", {
@@ -49,9 +49,32 @@ function addDaysYmd(ymd: string, days: number): string {
   return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, "0")}-${String(dt.getUTCDate()).padStart(2, "0")}`;
 }
 
+function InscripcionNoRequeridaState() {
+  return (
+    <section
+      className="rounded-lg border border-teal-200 bg-teal-50/50 px-3 py-3"
+      data-testid="inscripcion-no-requerida"
+    >
+      <div className="flex flex-wrap items-center gap-2">
+        <h3 className="text-sm font-semibold text-teal-950">
+          Cita de inscripción
+        </h3>
+        <span className="rounded-full bg-teal-100/80 px-2 py-0.5 text-[10px] font-semibold uppercase text-teal-800 ring-1 ring-teal-200">
+          No requerida
+        </span>
+      </div>
+      <p className="mt-2 text-xs leading-snug text-teal-900">
+        La cita de inscripción se habilita cuando Mesa la solicite o cuando el
+        resultado de biométricos indique que la inscripción debe reagendarse.
+      </p>
+    </section>
+  );
+}
+
 export function AgendaInscripcionSupabaseCard({
   expedienteId,
   onUpdated,
+  embedded = false,
 }: AgendaInscripcionSupabaseCardProps) {
   const repo = useAgendaInscripcionRepo();
   const busyRef = useRef(false);
@@ -62,7 +85,6 @@ export function AgendaInscripcionSupabaseCard({
   const [booking, setBooking] =
     useState<AgendaInscripcionActiveBooking | null>(null);
   const [date, setDate] = useState(() => addDaysYmd(todayYmdMonterrey(), 1));
-  const [sede, setSede] = useState<"monterrey" | "apodaca">("monterrey");
   const [available, setAvailable] = useState(0);
   const [capacity, setCapacity] = useState(0);
   const [availLoading, setAvailLoading] = useState(false);
@@ -87,8 +109,6 @@ export function AgendaInscripcionSupabaseCard({
       setBooking(active);
       if (active) {
         setDate(active.bookingDate);
-        const canon = mapLocationIdToAdvisorCanonical(active.locationId, []);
-        if (canon === "apodaca" || canon === "monterrey") setSede(canon);
       }
     } catch (e) {
       setError(
@@ -112,7 +132,7 @@ export function AgendaInscripcionSupabaseCard({
           kind: "inscripcion",
           mode: "availability",
           bookingDate: date,
-          locationId: sede,
+          locationId: INSCRIPCION_SEDE,
         });
       } catch {
         // fail-soft: inventory RPC sigue
@@ -120,7 +140,7 @@ export function AgendaInscripcionSupabaseCard({
       const slots = await repo.listAvailability({
         fromDate: date,
         toDate: date,
-        locationId: sede,
+        locationId: INSCRIPCION_SEDE,
       });
       const slot = slots[0];
       setAvailable(slot?.available ?? 0);
@@ -131,7 +151,7 @@ export function AgendaInscripcionSupabaseCard({
     } finally {
       setAvailLoading(false);
     }
-  }, [repo, date, sede]);
+  }, [repo, date]);
 
   useEffect(() => {
     if (mode === "book" || mode === "reagendar") {
@@ -156,17 +176,19 @@ export function AgendaInscripcionSupabaseCard({
       </section>
     );
   }
-  if (!showCard || !requirement) return null;
+  if (!showCard || !requirement) {
+    return embedded ? <InscripcionNoRequeridaState /> : null;
+  }
 
   const canAgendar = isInscripcionAgendarCtaVisible(requirement.status);
   const canManage = isInscripcionManageVisible(requirement.status);
   const cupoLabel = formatInscripcionCupoLabel(available, capacity);
   const noCupo = available <= 0;
+  const sedeLabel = formatMesaAgendaSedeLabel(INSCRIPCION_SEDE);
 
   const handleBook = async () => {
     if (busyRef.current || !repo) return;
-      const sedeLabel = formatMesaAgendaSedeLabel(sede);
-      if (
+    if (
       !window.confirm(
         `¿Confirmas la cita de inscripción para el ${date} a las ${INSCRIPCION_FIXED_TIME_DISPLAY} en ${sedeLabel}?`,
       )
@@ -183,7 +205,7 @@ export function AgendaInscripcionSupabaseCard({
           kind: "inscripcion",
           mode: "book_gate",
           bookingDate: date,
-          locationId: sede,
+          locationId: INSCRIPCION_SEDE,
         });
       } catch {
         /* RPC claim es autoridad */
@@ -191,7 +213,7 @@ export function AgendaInscripcionSupabaseCard({
       const result = await repo.book({
         expedienteId,
         bookingDate: date,
-        locationId: sede,
+        locationId: INSCRIPCION_SEDE,
       });
       if (!result.ok) {
         setError(result.message ?? BOOK_SLOT_JUST_TAKEN_MESSAGE);
@@ -210,7 +232,6 @@ export function AgendaInscripcionSupabaseCard({
 
   const handleReagendar = async () => {
     if (busyRef.current || !repo) return;
-    const sedeLabel = formatMesaAgendaSedeLabel(sede);
     if (
       !window.confirm(
         `¿Confirmas reagendar la cita de inscripción al ${date} a las ${INSCRIPCION_FIXED_TIME_DISPLAY} en ${sedeLabel}?`,
@@ -228,7 +249,7 @@ export function AgendaInscripcionSupabaseCard({
           kind: "inscripcion",
           mode: "book_gate",
           bookingDate: date,
-          locationId: sede,
+          locationId: INSCRIPCION_SEDE,
         });
       } catch {
         /* claim atómico en RPC */
@@ -236,7 +257,7 @@ export function AgendaInscripcionSupabaseCard({
       const result = await repo.reagendar({
         expedienteId,
         bookingDate: date,
-        locationId: sede,
+        locationId: INSCRIPCION_SEDE,
       });
       if (!result.ok) {
         setError(result.message ?? BOOK_SLOT_JUST_TAKEN_MESSAGE);
@@ -280,7 +301,11 @@ export function AgendaInscripcionSupabaseCard({
 
   return (
     <section
-      className="rounded-xl border border-teal-300 bg-teal-50/70 px-4 py-3 shadow-sm"
+      className={
+        embedded
+          ? "rounded-lg border border-teal-200 bg-teal-50/40 px-3 py-3"
+          : "rounded-xl border border-teal-300 bg-teal-50/70 px-4 py-3 shadow-sm"
+      }
       data-testid="inscripcion-supabase-card"
       id={`inscripcion-${expedienteId}`}
     >
@@ -347,23 +372,12 @@ export function AgendaInscripcionSupabaseCard({
                 onChange={(e) => setDate(e.target.value)}
               />
             </label>
-            <label className="block text-xs text-teal-900">
+            <div className="block text-xs text-teal-900">
               Sede
-              <select
-                className="mt-1 w-full rounded-md border border-teal-200 px-2 py-1.5 text-sm"
-                value={sede}
-                disabled={saving}
-                onChange={(e) =>
-                  setSede(e.target.value === "apodaca" ? "apodaca" : "monterrey")
-                }
-              >
-                {SEDE_OPTIONS.map((o) => (
-                  <option key={o.value} value={o.value}>
-                    {o.label}
-                  </option>
-                ))}
-              </select>
-            </label>
+              <p className="mt-1 rounded-md border border-teal-100 bg-teal-50/60 px-2 py-1.5 text-sm font-medium text-teal-950">
+                Monterrey
+              </p>
+            </div>
           </div>
           <p className="text-xs text-teal-900">
             Hora: <strong>{INSCRIPCION_FIXED_TIME_DISPLAY}</strong>

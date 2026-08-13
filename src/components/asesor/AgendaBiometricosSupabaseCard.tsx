@@ -29,6 +29,7 @@ import {
   type WeeklyLocationLike,
 } from "@/lib/agendaCynthiaLocations";
 import { AdvisorAgendaSlotPicker, buildAdvisorDateAvailabilityInsight } from "@/components/asesor/AdvisorAgendaSlotPicker";
+import { AgendaInscripcionSupabaseCard } from "@/components/asesor/AgendaInscripcionSupabaseCard";
 import { AgendaNotificacionSupabaseTab } from "@/components/asesor/AgendaNotificacionSupabaseTab";
 import { AsesorAgendaCitaCanceladaNotice } from "@/components/asesor/AsesorAgendaCitaCanceladaNotice";
 import { AsesorAgendaDecisionNotice } from "@/components/asesor/AsesorAgendaDecisionNotice";
@@ -101,7 +102,21 @@ function adjustSlotsForReagendar(
   });
 }
 
-type AgendaEtapa3Tab = "biometricos" | "notificacion";
+type AgendaEtapa3Tab = "biometricos" | "notificacion" | "inscripcion";
+
+const AGENDA_TAB_ITEMS: ReadonlyArray<{
+  id: AgendaEtapa3Tab;
+  label: string;
+  activeClass: string;
+}> = [
+  { id: "biometricos", label: "Biométricos", activeClass: "bg-sky-600 text-white" },
+  { id: "notificacion", label: "Notificación", activeClass: "bg-sky-600 text-white" },
+  {
+    id: "inscripcion",
+    label: "Inscripción",
+    activeClass: "bg-teal-700 text-white",
+  },
+];
 
 export function AgendaBiometricosSupabaseCard({
   expedienteId,
@@ -595,7 +610,61 @@ export function AgendaBiometricosSupabaseCard({
     repo,
   ]);
 
-  const showEtapa3Tabs = etapaActual === 3 && !activeBooking && !activeNotificacion;
+  const renderAgendaTabs = () => (
+    <div
+      className="mt-3 flex flex-wrap gap-1 border-b border-gray-100 pb-2"
+      data-testid="agenda-asesor-tabs"
+    >
+      {AGENDA_TAB_ITEMS.map(({ id, label, activeClass }) => (
+        <button
+          key={id}
+          type="button"
+          data-testid={`agenda-tab-${id}`}
+          onClick={() => {
+            setAgendaTab(id);
+            setError(null);
+            setSuccessMsg(null);
+          }}
+          className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition ${
+            agendaTab === id
+              ? activeClass
+              : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+          }`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+
+  const renderInscripcionTab = () => (
+    <div className="mt-3" data-testid="agenda-tab-panel-inscripcion">
+      <AgendaInscripcionSupabaseCard
+        expedienteId={expedienteId}
+        embedded
+        onUpdated={() => {
+          void load();
+          onUpdated();
+        }}
+      />
+    </div>
+  );
+
+  const renderNotificacionTab = () =>
+    repo ? (
+      <div className="mt-3" data-testid="agenda-tab-panel-notificacion">
+        <AgendaNotificacionSupabaseTab
+          expedienteId={expedienteId}
+          config={config}
+          repo={repo}
+          activeNotificacion={activeNotificacion}
+          onUpdated={() => {
+            void load();
+            onUpdated();
+          }}
+        />
+      </div>
+    ) : null;
 
   const renderFormShell = (
     title: string,
@@ -608,47 +677,12 @@ export function AgendaBiometricosSupabaseCard({
       <p className="text-sm font-semibold text-gray-900">{title}</p>
       <p className="mt-1 text-[11px] leading-snug text-gray-600">{subtitle}</p>
 
-      {showEtapa3Tabs ? (
-        <div className="mt-3 flex gap-1 border-b border-gray-100 pb-2">
-          {(
-            [
-              ["biometricos", "Biométricos"],
-              ["notificacion", "Notificación"],
-            ] as const
-          ).map(([id, label]) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => {
-                setAgendaTab(id);
-                setError(null);
-                setSuccessMsg(null);
-              }}
-              className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition ${
-                agendaTab === id
-                  ? "bg-sky-600 text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      ) : null}
+      {renderAgendaTabs()}
 
-      {showEtapa3Tabs && agendaTab === "notificacion" && repo ? (
-        <div className="mt-3">
-          <AgendaNotificacionSupabaseTab
-            expedienteId={expedienteId}
-            config={config}
-            repo={repo}
-            activeNotificacion={activeNotificacion}
-            onUpdated={() => {
-              void load();
-              onUpdated();
-            }}
-          />
-        </div>
+      {agendaTab === "inscripcion" ? (
+        renderInscripcionTab()
+      ) : agendaTab === "notificacion" ? (
+        renderNotificacionTab()
       ) : (
         <>
       {!config || !config.enabled || advisorSedeOptions.length === 0 ? (
@@ -776,21 +810,21 @@ export function AgendaBiometricosSupabaseCard({
           />
         ) : null}
         <div className="rounded-xl border border-sky-200 bg-white p-4 shadow-sm">
-          <p className="text-sm font-semibold text-gray-900">Agenda biométricos</p>
-          <div className="mt-3">
-            {repo ? (
-              <AgendaNotificacionSupabaseTab
-                expedienteId={expedienteId}
-                config={config}
-                repo={repo}
-                activeNotificacion={activeNotificacion}
-                onUpdated={() => {
-                  void load();
-                  onUpdated();
-                }}
-              />
-            ) : null}
-          </div>
+          <p className="text-sm font-semibold text-gray-900">Agendar cita</p>
+          <p className="mt-1 text-[11px] leading-snug text-gray-600">
+            Consulta horarios y cupos disponibles sincronizados con la agenda.
+          </p>
+          {renderAgendaTabs()}
+          {agendaTab === "inscripcion" ? (
+            renderInscripcionTab()
+          ) : agendaTab === "biometricos" ? (
+            <p className="mt-3 rounded-md border border-sky-100 bg-sky-50/60 px-3 py-2 text-xs text-sky-950">
+              Hay una notificación extraordinaria activa. Usa el tab Notificación para
+              gestionarla, o Inscripción si ya está requerida.
+            </p>
+          ) : (
+            renderNotificacionTab()
+          )}
         </div>
       </div>
     );
@@ -828,7 +862,18 @@ export function AgendaBiometricosSupabaseCard({
           kinds={["biometricos", "notificacion"]}
         />
       <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-4 shadow-sm">
-        <p className="text-sm font-semibold text-emerald-900">Cita de biométricos agendada</p>
+        <p className="text-sm font-semibold text-emerald-900">Agendar cita</p>
+        <p className="mt-1 text-[11px] leading-snug text-emerald-900/80">
+          Consulta horarios y cupos disponibles sincronizados con la agenda.
+        </p>
+        {renderAgendaTabs()}
+        {agendaTab === "inscripcion" ? (
+          renderInscripcionTab()
+        ) : agendaTab === "notificacion" ? (
+          renderNotificacionTab()
+        ) : (
+          <>
+        <p className="mt-3 text-sm font-semibold text-emerald-900">Cita de biométricos agendada</p>
         <p className="mt-2 text-xs text-emerald-950">
           <span className="font-medium">Fecha y hora:</span>{" "}
           {formatCitaDisplay(citaIso, locationLabel)}
@@ -952,6 +997,8 @@ export function AgendaBiometricosSupabaseCard({
             ) : null}
           </div>
         )}
+          </>
+        )}
       </div>
       </div>
     );
@@ -978,8 +1025,8 @@ export function AgendaBiometricosSupabaseCard({
           </div>
         )}
         {renderFormShell(
-          "Agendar cita de biométricos",
-          "Horarios y cupos según la agenda semanal configurada por Mesa en Supabase.",
+          "Agendar cita",
+          "Consulta horarios y cupos disponibles sincronizados con la agenda.",
           "Agendar cita biométrica",
           handleBook,
         )}
@@ -999,8 +1046,8 @@ export function AgendaBiometricosSupabaseCard({
         />
       ) : null}
       {renderFormShell(
-        "Agendar cita de biométricos",
-        "Horarios y cupos según la agenda semanal configurada por Mesa en Supabase.",
+        "Agendar cita",
+        "Consulta horarios y cupos disponibles sincronizados con la agenda.",
         "Agendar cita biométrica",
         handleBook,
       )}

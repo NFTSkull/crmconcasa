@@ -1,5 +1,5 @@
 /**
- * Mount contract P175 B2 — card/gates sin acoplar Notificación etapa 3.
+ * Mount contract P175 B2 / P177 — Inscripción vive en tab de agenda bio.
  */
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
@@ -8,15 +8,20 @@ import { join } from "node:path";
 
 const root = process.cwd();
 
-describe("P175 B2 mount contracts", () => {
-  it("asesor expediente monta gate inscripción fuera de bio/notif", () => {
+describe("P175 B2 / P177 mount contracts", () => {
+  it("asesor expediente: Inscripción embebida en bio (sin gate standalone)", () => {
     const page = readFileSync(
       join(root, "src/app/asesor/expediente/[id]/page.tsx"),
       "utf8",
     );
-    assert.match(page, /AsesorAgendaInscripcionSupabaseGate/);
+    assert.doesNotMatch(page, /AsesorAgendaInscripcionSupabaseGate/);
     assert.match(page, /AsesorAgendaBiometricosSupabaseGate/);
-    // No tercer tab dentro de Notificación
+    const bio = readFileSync(
+      join(root, "src/components/asesor/AgendaBiometricosSupabaseCard.tsx"),
+      "utf8",
+    );
+    assert.match(bio, /AgendaInscripcionSupabaseCard/);
+    assert.match(bio, /"inscripcion"/);
     const card = readFileSync(
       join(root, "src/components/asesor/AgendaInscripcionSupabaseCard.tsx"),
       "utf8",

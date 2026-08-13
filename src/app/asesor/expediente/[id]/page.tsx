@@ -7,7 +7,6 @@ import { useSessionRepo } from "@/domain/session";
 import { AgendaBiometricosCard } from "@/components/asesor/AgendaBiometricosCard";
 import { AsesorAgendaBiometricosSupabaseGate } from "@/components/asesor/AsesorAgendaBiometricosSupabaseGate";
 import { AgendaExtraordinaryRebookCard } from "@/components/asesor/AgendaExtraordinaryRebookCard";
-import { AsesorAgendaInscripcionSupabaseGate } from "@/components/asesor/AgendaInscripcionSupabaseCard";
 import {
   listContingenciaExpedienteAsesor,
   type AsesorContingenciaExpedienteItem,
@@ -1857,14 +1856,6 @@ export default function AsesorExpedientePage() {
                   />
                 ))}
               </div>
-            ) : null}
-            {precal?.id &&
-            !expedienteCancelado &&
-            operativo?.subestado !== "rechazado" ? (
-              <AsesorAgendaInscripcionSupabaseGate
-                expedienteId={String(precal.id)}
-                onUpdated={() => void loadExpediente()}
-              />
             ) : null}
             {canMountAgendaBiometricosUI() &&
             precal?.id &&
