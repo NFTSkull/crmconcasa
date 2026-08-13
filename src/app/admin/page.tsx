@@ -544,7 +544,7 @@ export default function AdminDashboardPage() {
           <div className="flex items-center gap-3 text-sm">
             <span className="text-slate-700">{displayName}</span>
             <Button type="button" variant="secondary" onClick={openBernardo}>
-              Bernardo
+              Reporte del día
             </Button>
             <Button
               type="button"
