@@ -24,6 +24,30 @@ import { matchesAdminEtapaActualFilter } from "./repo";
 import { matchesAdminEstadoFilter } from "./admin-estado-filter";
 import { mapEtapaInternaAPasoVisual } from "@/domain/expedientes/asesor-seguimiento-operativo";
 
+/** Paridad SQL admin `p_buscar`: cliente / asesor / programa / NSS. */
+export function matchesAdminProductionBuscar(
+  buscar: string | null | undefined,
+  fields: {
+    clienteNombre: string;
+    asesorLabel: string;
+    programa: string;
+    nss?: string | null;
+  },
+): boolean {
+  const q = buscar?.trim().toLowerCase() ?? "";
+  if (!q) return true;
+  const nss = String(fields.nss ?? "")
+    .toLowerCase()
+    .replace(/\s+/g, "");
+  const qDigits = q.replace(/\s+/g, "");
+  return (
+    fields.clienteNombre.toLowerCase().includes(q) ||
+    fields.asesorLabel.toLowerCase().includes(q) ||
+    fields.programa.toLowerCase().includes(q) ||
+    (nss.length > 0 && nss.includes(qDigits))
+  );
+}
+
 function mapSnapshot(e: ExpedienteMock): AdminMesaEnvioEvent {
   const fecha = e.operativo.fechaEnvioMesa ?? e.base.createdAt ?? "";
   const subestado = e.operativo.subestado ?? "pendiente";
@@ -218,11 +242,13 @@ export class MockAdminProductionRepo implements AdminProductionRepo {
       .filter((r) => {
         if (!buscar) return true;
         const label = formatAdminMesaAsesorLabel(r.asesorNombre).toLowerCase();
-        return (
-          r.clienteNombre.toLowerCase().includes(buscar) ||
-          label.includes(buscar) ||
-          r.programa.toLowerCase().includes(buscar)
-        );
+        const exp = all.find((e) => e.id === r.expedienteId);
+        return matchesAdminProductionBuscar(buscar, {
+          clienteNombre: r.clienteNombre,
+          asesorLabel: label,
+          programa: r.programa,
+          nss: exp?.base.nss,
+        });
       })
       .sort((a, b) => Date.parse(b.fechaEnvioMesa) - Date.parse(a.fechaEnvioMesa));
   }
@@ -240,11 +266,13 @@ export class MockAdminProductionRepo implements AdminProductionRepo {
       .filter((r) => {
         if (!buscar) return true;
         const label = asesorLabel(r.asesorNombre, r.asesorEmail, r.asesorId).toLowerCase();
-        return (
-          r.clienteNombre.toLowerCase().includes(buscar) ||
-          label.includes(buscar) ||
-          r.programa.toLowerCase().includes(buscar)
-        );
+        const exp = all.find((e) => e.id === r.expedienteId);
+        return matchesAdminProductionBuscar(buscar, {
+          clienteNombre: r.clienteNombre,
+          asesorLabel: label,
+          programa: r.programa,
+          nss: exp?.base.nss,
+        });
       })
       .sort((a, b) => {
         const ta = a.fecha ? Date.parse(a.fecha) : 0;
@@ -303,11 +331,13 @@ export class MockAdminProductionRepo implements AdminProductionRepo {
       .filter((r) => {
         if (!buscar) return true;
         const label = formatAdminMesaAsesorLabel(r.asesorNombre).toLowerCase();
-        return (
-          r.clienteNombre.toLowerCase().includes(buscar) ||
-          label.includes(buscar) ||
-          r.programa.toLowerCase().includes(buscar)
-        );
+        const exp = all.find((e) => e.id === r.expedienteId);
+        return matchesAdminProductionBuscar(buscar, {
+          clienteNombre: r.clienteNombre,
+          asesorLabel: label,
+          programa: r.programa,
+          nss: exp?.base.nss,
+        });
       })
       .sort((a, b) => {
         const ta = Date.parse(a.fechaEnvioMesa) || 0;

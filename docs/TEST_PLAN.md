@@ -1,3 +1,10 @@
+## Admin buscar NSS (mig 177)
+
+- [x] `p_buscar` Mesa/Precal/Snapshot incluye `expedientes.nss` ILIKE
+- [x] Placeholder UI «Cliente, NSS, asesor, programa»
+- [x] Mock matcher paridad
+- [x] SQL test `rpc_admin_buscar_nss_p177.sql`
+
 ## P179 — NSS bloquea solo después de enviar a Mesa
 
 - [x] B1 LOCAL: mig **176** gate `asesor_lookup_nss_precal_gate` (bloqueo = `submitted_to_mesa=true`); suite SQL A–O; mock + FE helpers; P049 unique/`nss_bloqueado_en_mesa` intactos. Sin Cloud/commit.
