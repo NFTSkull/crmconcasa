@@ -4,6 +4,8 @@
 
 ### Added
 
+- **fix(agenda): P176 restaurar disponibilidad + live-sync auth** — mig **174** revive contrato `fresh/enforced/slots[]` (bio/firmas/inscripcion); live-sync usa `profiles.active` + roles reales. Sin Sheet/P170/aliases.
+
 - **feat(agenda): P175 B5.2 publicación wiring inscripción + activación controlada** — commit B5.1 Edge webhook/reconcile; secrets FROM_DATE=2026-08-13 luego ENABLED=true; P170 OFF; sin Sheet/smoke/worker/live-sync code redeploy.
 
 - **feat(agenda): P175 B5.1 wiring Edge Sheet→requirement (LOCAL)** — helper `inscripcion-requirement` + reconcile/webhook llaman `agenda_inscripcion_require_from_sheet` **antes** de P170; kill switch fail-closed; secrets siguen OFF; sin Cloud/deploy/commit.

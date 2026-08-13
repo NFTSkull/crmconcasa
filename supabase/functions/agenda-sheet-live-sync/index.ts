@@ -25,11 +25,20 @@ const START = "2026-07-30";
 
 type Body = {
   bookingDate?: string;
-  kind?: "biometricos" | "firmas";
+  kind?: "biometricos" | "firmas" | "inscripcion";
   locationId?: "monterrey" | "apodaca";
   mode?: "availability" | "book_gate";
   slotTime?: string;
 };
+
+const LIVE_SYNC_ROLES = [
+  "asesor",
+  "editor",
+  "mesa_admin",
+  "mesa_interno",
+  "mesa_externo",
+  "super_admin",
+] as const;
 
 Deno.serve(async (req) => {
   try {
@@ -69,18 +78,30 @@ Deno.serve(async (req) => {
         const admin = createClient(supabaseUrl, serviceKey, {
           auth: { persistSession: false, autoRefreshToken: false },
         });
-        const { data: profile } = await admin
+        const { data: profile, error: profileErr } = await admin
           .from("profiles")
-          .select("app_role,is_active")
+          .select("app_role,active")
           .eq("id", userData.user.id)
           .maybeSingle();
-        const role = String((profile as { app_role?: string } | null)?.app_role ?? "");
-        const active = (profile as { is_active?: boolean } | null)?.is_active !== false;
-        userOk =
-          active &&
-          ["asesor", "mesa_control", "admin", "editor", "super_admin"].includes(
-            role,
+        if (profileErr) {
+          console.error("agenda-sheet-live-sync profile query", {
+            message: String(profileErr.message ?? "").slice(0, 200),
+            code: String((profileErr as { code?: string }).code ?? "").slice(
+              0,
+              40,
+            ),
+          });
+          userOk = false;
+        } else {
+          const role = String(
+            (profile as { app_role?: string } | null)?.app_role ?? "",
           );
+          const active =
+            (profile as { active?: boolean } | null)?.active !== false;
+          userOk =
+            active &&
+            (LIVE_SYNC_ROLES as readonly string[]).includes(role);
+        }
       }
     }
     if (!workerOk && !userOk) {
