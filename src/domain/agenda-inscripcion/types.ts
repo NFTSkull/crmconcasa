@@ -12,7 +12,18 @@ export type AgendaInscripcionRequirementStatus =
   | "cancelled"
   | "rebook_required";
 
-export type AgendaInscripcionRequirementSourceType = "sheet" | "mesa";
+export type AgendaInscripcionRequirementSourceType = "sheet" | "mesa" | "asesor";
+
+/** Respuesta read-only de `agenda_inscripcion_asesor_eligibility` (P178). */
+export type AgendaInscripcionAsesorEligibility = Readonly<{
+  eligible: boolean;
+  reasonCode: string;
+  hasOpenRequirement?: boolean;
+  hasActiveBooking?: boolean;
+  locationId?: "monterrey";
+  fixedTime?: "11:00";
+  etapaActual?: number;
+}>;
 
 export type AgendaInscripcionRequirement = Readonly<{
   id: string;

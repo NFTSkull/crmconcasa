@@ -4,6 +4,8 @@
 
 ### Added
 
+- **feat(agenda): P178 inscripción self-service asesor** — mig **175**: `source_type=asesor`; RPC eligibility read-only; `book_inscripcion_extraordinaria` autocrea requirement en la misma TX (post-biométricos, Monterrey, 11:00); UI Disponible/No disponible; P170 OFF; P175 auto-requirements intactos.
+
 - **feat(asesor): P177 tab Inscripción en agenda** — Biométricos|Notificación|Inscripción; sin requirement muestra «No requerida»; Monterrey-only; sin mount duplicado. UI only.
 
 - **fix(agenda): P176 restaurar disponibilidad + live-sync auth** — mig **174** revive contrato `fresh/enforced/slots[]` (bio/firmas/inscripcion); live-sync usa `profiles.active` + roles reales. Sin Sheet/P170/aliases.

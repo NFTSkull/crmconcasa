@@ -5,6 +5,7 @@
 
 import type {
   AgendaInscripcionActiveBooking,
+  AgendaInscripcionAsesorEligibility,
   AgendaInscripcionRequirement,
 } from "./types";
 import { INSCRIPCION_FIXED_TIME } from "./constants";
@@ -43,6 +44,8 @@ export type InscripcionAvailabilitySlot = Readonly<{
 export type InscripcionMutationResult = Readonly<{
   ok: boolean;
   bookingId?: string;
+  requirementId?: string;
+  requirementCreated?: boolean;
   errorCode?: string;
   message?: string;
 }>;
@@ -54,6 +57,10 @@ export interface AgendaInscripcionRepo {
   getActiveBooking(
     expedienteId: string,
   ): Promise<AgendaInscripcionActiveBooking | null>;
+  /** P178: elegibilidad self-service (read-only). Fail-soft → ineligible. */
+  getAsesorEligibility?(
+    expedienteId: string,
+  ): Promise<AgendaInscripcionAsesorEligibility>;
   listAvailability(params: {
     fromDate: string;
     toDate: string;

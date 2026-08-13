@@ -8,8 +8,10 @@ import {
   INSCRIPCION_FIXED_TIME_DISPLAY,
   isInscripcionAgendarCtaVisible,
   isInscripcionManageVisible,
+  isInscripcionSelfServiceVisible,
   useAgendaInscripcionRepo,
   type AgendaInscripcionActiveBooking,
+  type AgendaInscripcionAsesorEligibility,
   type AgendaInscripcionRequirement,
 } from "@/domain/agenda-inscripcion";
 import { SupabaseAgendaInscripcionRepo } from "@/domain/agenda-inscripcion/supabase.repo";
@@ -25,13 +27,13 @@ export type AgendaInscripcionSupabaseCardProps = Readonly<{
   expedienteId: string;
   onUpdated?: () => void;
   /**
-   * En tab embebido: si no hay requirement, muestra estado informativo
-   * (nunca CTA). Standalone (default false) puede ocultarse con null.
+   * En tab embebido: sin requirement muestra Disponible / No disponible
+   * según eligibility (P178). Standalone (default false) puede ocultarse.
    */
   embedded?: boolean;
 }>;
 
-/** P175 V1: inscripción solo Monterrey. */
+/** P175/P178 V1: inscripción solo Monterrey. */
 const INSCRIPCION_SEDE = "monterrey" as const;
 
 function todayYmdMonterrey(): string {
@@ -49,23 +51,23 @@ function addDaysYmd(ymd: string, days: number): string {
   return `${dt.getUTCFullYear()}-${String(dt.getUTCMonth() + 1).padStart(2, "0")}-${String(dt.getUTCDate()).padStart(2, "0")}`;
 }
 
-function InscripcionNoRequeridaState() {
+function InscripcionNoDisponibleState() {
   return (
     <section
       className="rounded-lg border border-teal-200 bg-teal-50/50 px-3 py-3"
-      data-testid="inscripcion-no-requerida"
+      data-testid="inscripcion-no-disponible"
     >
       <div className="flex flex-wrap items-center gap-2">
         <h3 className="text-sm font-semibold text-teal-950">
           Cita de inscripción
         </h3>
         <span className="rounded-full bg-teal-100/80 px-2 py-0.5 text-[10px] font-semibold uppercase text-teal-800 ring-1 ring-teal-200">
-          No requerida
+          No disponible todavía
         </span>
       </div>
       <p className="mt-2 text-xs leading-snug text-teal-900">
-        La cita de inscripción se habilita cuando Mesa la solicite o cuando el
-        resultado de biométricos indique que la inscripción debe reagendarse.
+        La cita de inscripción se habilita después de que el cliente haya
+        realizado biométricos.
       </p>
     </section>
   );
@@ -84,6 +86,8 @@ export function AgendaInscripcionSupabaseCard({
     useState<AgendaInscripcionRequirement | null>(null);
   const [booking, setBooking] =
     useState<AgendaInscripcionActiveBooking | null>(null);
+  const [eligibility, setEligibility] =
+    useState<AgendaInscripcionAsesorEligibility | null>(null);
   const [date, setDate] = useState(() => addDaysYmd(todayYmdMonterrey(), 1));
   const [available, setAvailable] = useState(0);
   const [capacity, setCapacity] = useState(0);
@@ -109,6 +113,12 @@ export function AgendaInscripcionSupabaseCard({
       setBooking(active);
       if (active) {
         setDate(active.bookingDate);
+      }
+      if (!req && repo.getAsesorEligibility) {
+        const elig = await repo.getAsesorEligibility(expedienteId);
+        setEligibility(elig);
+      } else {
+        setEligibility(null);
       }
     } catch (e) {
       setError(
@@ -153,17 +163,22 @@ export function AgendaInscripcionSupabaseCard({
     }
   }, [repo, date]);
 
-  useEffect(() => {
-    if (mode === "book" || mode === "reagendar") {
-      void refreshAvailability();
-    }
-  }, [mode, refreshAvailability]);
-
-  const showCard =
+  const showRequirementCard =
     requirement != null &&
     (requirement.status === "pending_booking" ||
       requirement.status === "booked" ||
       requirement.status === "rebook_required");
+
+  const selfService = isInscripcionSelfServiceVisible({
+    hasOpenRequirement: showRequirementCard,
+    eligible: eligibility?.eligible === true,
+  });
+
+  useEffect(() => {
+    if (mode === "book" || mode === "reagendar" || selfService) {
+      void refreshAvailability();
+    }
+  }, [mode, selfService, refreshAvailability]);
 
   if (!repo) return null;
   if (loading) {
@@ -176,15 +191,24 @@ export function AgendaInscripcionSupabaseCard({
       </section>
     );
   }
-  if (!showCard || !requirement) {
-    return embedded ? <InscripcionNoRequeridaState /> : null;
+
+  if (!showRequirementCard) {
+    if (!embedded) return null;
+    if (!selfService) {
+      return <InscripcionNoDisponibleState />;
+    }
   }
 
-  const canAgendar = isInscripcionAgendarCtaVisible(requirement.status);
-  const canManage = isInscripcionManageVisible(requirement.status);
+  const canAgendar = showRequirementCard
+    ? isInscripcionAgendarCtaVisible(requirement!.status)
+    : selfService;
+  const canManage = showRequirementCard
+    ? isInscripcionManageVisible(requirement!.status)
+    : false;
   const cupoLabel = formatInscripcionCupoLabel(available, capacity);
   const noCupo = available <= 0;
   const sedeLabel = formatMesaAgendaSedeLabel(INSCRIPCION_SEDE);
+  const showBookForm = selfService || mode === "book" || mode === "reagendar";
 
   const handleBook = async () => {
     if (busyRef.current || !repo) return;
@@ -210,6 +234,7 @@ export function AgendaInscripcionSupabaseCard({
       } catch {
         /* RPC claim es autoridad */
       }
+      // Un solo RPC: book_inscripcion_extraordinaria autocrea requirement si falta.
       const result = await repo.book({
         expedienteId,
         bookingDate: date,
@@ -306,20 +331,34 @@ export function AgendaInscripcionSupabaseCard({
           ? "rounded-lg border border-teal-200 bg-teal-50/40 px-3 py-3"
           : "rounded-xl border border-teal-300 bg-teal-50/70 px-4 py-3 shadow-sm"
       }
-      data-testid="inscripcion-supabase-card"
+      data-testid={
+        selfService
+          ? "inscripcion-self-service-card"
+          : "inscripcion-supabase-card"
+      }
       id={`inscripcion-${expedienteId}`}
     >
       <div className="flex flex-wrap items-center gap-2">
         <h3 className="text-sm font-semibold text-teal-950">
           Cita de inscripción
         </h3>
-        <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-teal-900 ring-1 ring-teal-200">
-          Inscripción
-        </span>
+        {selfService ? (
+          <span
+            className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-emerald-900 ring-1 ring-emerald-200"
+            data-testid="inscripcion-badge-disponible"
+          >
+            Disponible
+          </span>
+        ) : (
+          <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-teal-900 ring-1 ring-teal-200">
+            Inscripción
+          </span>
+        )}
       </div>
       <p className="mt-1 text-xs text-teal-900">
-        Los biométricos del cliente ya fueron realizados, pero necesita
-        regresar para concluir su inscripción.
+        {selfService
+          ? "Si el cliente necesita regresar para concluir su inscripción, puedes separar un lugar."
+          : "Los biométricos del cliente ya fueron realizados, pero necesita regresar para concluir su inscripción."}
       </p>
 
       {canManage && booking ? (
@@ -343,7 +382,7 @@ export function AgendaInscripcionSupabaseCard({
         </dl>
       ) : null}
 
-      {requirement.reason ? (
+      {requirement?.reason ? (
         <p className="mt-2 rounded-md border border-teal-200 bg-white/70 px-2 py-1.5 text-xs text-teal-950">
           Motivo: {requirement.reason}
         </p>
@@ -358,7 +397,7 @@ export function AgendaInscripcionSupabaseCard({
         <p className="mt-2 text-xs font-medium text-emerald-800">{success}</p>
       ) : null}
 
-      {(mode === "book" || mode === "reagendar") && (
+      {showBookForm && (
         <div className="mt-3 space-y-2 rounded-lg border border-teal-200 bg-white/80 p-3">
           <div className="grid gap-2 sm:grid-cols-2">
             <label className="block text-xs text-teal-900">
@@ -397,21 +436,23 @@ export function AgendaInscripcionSupabaseCard({
                 ? "Guardando…"
                 : mode === "reagendar"
                   ? "Confirmar reagenda"
-                  : "Confirmar cita"}
+                  : "Agendar inscripción"}
             </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              disabled={saving}
-              onClick={() => setMode("idle")}
-            >
-              Cancelar
-            </Button>
+            {!selfService ? (
+              <Button
+                type="button"
+                variant="secondary"
+                disabled={saving}
+                onClick={() => setMode("idle")}
+              >
+                Cancelar
+              </Button>
+            ) : null}
           </div>
         </div>
       )}
 
-      {mode === "idle" ? (
+      {mode === "idle" && !selfService ? (
         <div className="mt-3 flex flex-wrap gap-2">
           {canAgendar ? (
             <Button
@@ -423,7 +464,7 @@ export function AgendaInscripcionSupabaseCard({
                 setSuccess(null);
               }}
             >
-              {requirement.status === "rebook_required"
+              {requirement?.status === "rebook_required"
                 ? "Reagendar inscripción"
                 : "Agendar inscripción"}
             </Button>

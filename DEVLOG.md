@@ -1,3 +1,7 @@
+## 2026-08-13 - P178: inscripción self-service asesor (auto-requirement)
+
+Asesor dueño elegible (post-biométricos: booking bio **o** ops COMPLETED) puede agendar Inscripción sin requirement previo. `book_inscripcion_extraordinaria` autocrea `source_type=asesor` + book en una TX; Apodaca rechazado; 11:00 fija; cupo vía inventory claim; outbox/worker intactos; etapa/`fecha_cita` invariantes. UI: Disponible vs No disponible todavía (RPC `agenda_inscripcion_asesor_eligibility`). P170 OFF; P175 sheet/mesa requirements intactos; P176/P174 sin tocar.
+
 ## 2026-08-13 - P177 UI: tab Inscripción visible en agenda asesor
 
 Inscripción se integra como tercer tab en `AgendaBiometricosSupabaseCard` (siempre visible). Sin requirement: estado informativo «No requerida» (sin CTA). Con pending/rebook/booked: card P175 existente. Monterrey V1 (sin Apodaca). Se elimina mount standalone `AsesorAgendaInscripcionSupabaseGate`. Sin migration/Cloud/Sheet/Edge. P170 OFF.

@@ -34,6 +34,7 @@ export {
   type AgendaInscripcionRequirementSourceType,
   type AgendaInscripcionRequirement,
   type AgendaInscripcionActiveBooking,
+  type AgendaInscripcionAsesorEligibility,
   type InscripcionRebookTaskKind,
 } from "./types";
 
@@ -59,6 +60,7 @@ export {
   isInscripcionRequirementOpen,
   isInscripcionAgendarCtaVisible,
   isInscripcionManageVisible,
+  isInscripcionSelfServiceVisible,
   canMesaSolicitarInscripcion,
   inscripcionRequirementStatusLabel,
   formatInscripcionCupoLabel,

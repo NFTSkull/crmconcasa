@@ -1,3 +1,9 @@
+## P178 — Inscripción self-service asesor
+
+- [x] Mig **175**: `source_type=asesor`; eligibility RPC; book autocrea requirement atómico; Monterrey+11:00; SQL suite A–N.
+- [x] UI: elegible → Disponible + Agendar; ineligible → No disponible todavía; sin crear requirement desde FE.
+- [ ] Cloud apply **solo** 175 + PR/merge (tras gates).
+
 ## P175 — Cita extraordinaria de inscripción
 
 - [x] B1 local foundation (NO Cloud / NO Sheet / NO UI final): mig **173** enum `inscripcion` + `agenda_inscripcion_requerimientos` + RPCs require/book/cancel/reagenda + ops flag `inscripcion_rebook_required` + P170 outcome `REQUIRES_INSCRIPCION_REBOOK`; detector/classifier/parsers/inventory 11:00; Mesa/Excel/advisor contracts; env-gate fail-closed. P170 APPLY OFF.
