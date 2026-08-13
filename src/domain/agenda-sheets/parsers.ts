@@ -28,7 +28,7 @@ const MONTHS_ES: Record<string, number> = {
 };
 
 export type AgendaSheetSede = "monterrey" | "apodaca";
-export type AgendaSheetKind = "biometricos" | "firmas";
+export type AgendaSheetKind = "biometricos" | "firmas" | "inscripcion";
 
 export type ParseOk<T> = Readonly<{ ok: true; value: T }>;
 export type ParseErr = Readonly<{ ok: false; error: string }>;
@@ -179,8 +179,10 @@ export function parseSheetSectionHeader(
   const map: Record<string, { sede: AgendaSheetSede; kind: AgendaSheetKind }> = {
     "MONTERREY FIRMAS": { sede: "monterrey", kind: "firmas" },
     "MONTERREY BIOMETRICOS": { sede: "monterrey", kind: "biometricos" },
+    "MONTERREY INSCRIPCION": { sede: "monterrey", kind: "inscripcion" },
     "APODACA FIRMAS": { sede: "apodaca", kind: "firmas" },
     "APODACA BIOMETRICOS": { sede: "apodaca", kind: "biometricos" },
+    "APODACA INSCRIPCION": { sede: "apodaca", kind: "inscripcion" },
   };
   const hit = map[n];
   if (!hit) {

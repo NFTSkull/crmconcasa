@@ -38,6 +38,24 @@ describe("operational-result-classifiers — notificación", () => {
   it("X → failed", () => {
     assert.equal(classifyNotificationResult("X"), "FAILED_OR_NOT_ATTENDED");
   });
+
+  it("P175: REAGENDA INSCRIPCION → PENDING (no FAILED)", () => {
+    assert.equal(
+      classifyNotificationResult("REAGENDA INSCRIPCION"),
+      "PENDING",
+    );
+    assert.equal(
+      classifyNotificationResult("REAGENDA INSCRIPCIÓN, FALLA SISTEMA"),
+      "PENDING",
+    );
+  });
+
+  it("REAGENDA BIOMETRICOS sigue FAILED", () => {
+    assert.equal(
+      classifyNotificationResult("REAGENDA BIOMETRICOS"),
+      "FAILED_OR_NOT_ATTENDED",
+    );
+  });
 });
 
 describe("operational-result-classifiers — firmas (FIRMO canónico)", () => {

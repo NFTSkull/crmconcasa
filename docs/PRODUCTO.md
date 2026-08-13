@@ -72,7 +72,7 @@ ConCasa CRM gestiona el ciclo operativo de precalificaciones / expedientes hipot
 | 3 | Listo para cita biométrico | — |
 | 4 | Cita agendada (biométricos) | **Asesor** agenda; expediente **no** salta a 5 automáticamente. **Legacy en timeline asesor:** el paso visual 3 absorbe esta etapa. |
 | 5 | Biometría (resultado) | Mesa avanza 4→5 **solo si existe cita** (`fecha_cita` / booking). |
-| 6–7 | Inscripción / Notificación | — |
+| 6–7 | Inscripción / Notificación | **P175 B2 (local UI):** cita operativa `booking_kind=inscripcion` (hora fija 11:00 AM, cupo Sheet) + requisito; tarjeta asesor/Mesa Citas/Reporte del día — **sin** mutar etapa; Cloud/Sheet rollout en B3. |
 | 8 | Acuse / Aviso retención | Opción A (`con_sello`) o B (`sin_sello`); envío asesor + validación Mesa. |
 | 9–10 | Firma | Agenda firmas (admin/asesor según reglas mock actuales). |
 | 11 | Firmado | — |

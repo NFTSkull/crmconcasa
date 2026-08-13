@@ -34,7 +34,7 @@ export async function invokeAgendaSheetLiveSync(
   client: SupabaseLike,
   input: {
     bookingDate: string;
-    kind: "biometricos" | "firmas";
+    kind: "biometricos" | "firmas" | "inscripcion";
     locationId: "monterrey" | "apodaca" | string;
     mode?: LiveSyncMode;
     slotTime?: string;

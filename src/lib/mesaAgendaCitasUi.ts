@@ -171,6 +171,7 @@ export function mesaAgendaKindUiToRpcFilter(
 export function formatMesaAgendaKind(kind: MesaAgendaBookingKind): string {
   if (kind === "biometricos") return "Biométricos";
   if (kind === "firmas") return "Firma";
+  if (kind === "inscripcion") return "Inscripción";
   return "Notificación extraordinaria";
 }
 
@@ -239,6 +240,9 @@ export function formatMesaAgendaTime(entry: MesaAgendaBookingEntry): string {
   if (entry.kind === "notificacion") {
     return NOTIFICACION_FIXED_TIME_DISPLAY;
   }
+  if (entry.kind === "inscripcion") {
+    return "11:00 AM";
+  }
   const [h, m] = entry.bookingTime.split(":").map(Number);
   if (!Number.isFinite(h) || !Number.isFinite(m)) return entry.bookingTime;
   const suffix = h >= 12 ? "PM" : "AM";
@@ -256,6 +260,9 @@ export function mesaAgendaKindBadgeClass(kind: MesaAgendaBookingKind): string {
   }
   if (kind === "notificacion") {
     return "bg-amber-50 text-amber-900 ring-1 ring-amber-200";
+  }
+  if (kind === "inscripcion") {
+    return "bg-teal-50 text-teal-900 ring-1 ring-teal-200";
   }
   return "bg-violet-50 text-violet-800 ring-1 ring-violet-200";
 }
@@ -366,6 +373,7 @@ export type MesaAgendaSummary = Readonly<{
   biometricos: number;
   firmas: number;
   notificacion: number;
+  inscripcion: number;
   canceladas: number;
 }>;
 
@@ -392,6 +400,7 @@ export type MesaAgendaWeekDaySummary = Readonly<{
   biometricos: number;
   firmas: number;
   notificacion: number;
+  inscripcion: number;
   slots: readonly Readonly<{ timeLabel: string; count: number }>[];
 }>;
 
@@ -528,6 +537,7 @@ const KIND_SORT_ORDER: Record<MesaAgendaBookingKind, number> = {
   biometricos: 0,
   firmas: 1,
   notificacion: 2,
+  inscripcion: 3,
 };
 
 export function sortMesaAgendaEntries(
@@ -571,11 +581,13 @@ export function deriveMesaAgendaSummary(
   let biometricos = 0;
   let firmas = 0;
   let notificacion = 0;
+  let inscripcion = 0;
   let canceladas = 0;
   for (const entry of entries) {
     if (entry.kind === "biometricos") biometricos += 1;
     else if (entry.kind === "firmas") firmas += 1;
-    else notificacion += 1;
+    else if (entry.kind === "notificacion") notificacion += 1;
+    else if (entry.kind === "inscripcion") inscripcion += 1;
     if (entry.status === "cancelled") canceladas += 1;
   }
   return {
@@ -583,6 +595,7 @@ export function deriveMesaAgendaSummary(
     biometricos,
     firmas,
     notificacion,
+    inscripcion,
     canceladas,
   };
 }
@@ -604,6 +617,7 @@ export function deriveMesaAgendaWeekDaySummaries(
       biometricos: summary.biometricos,
       firmas: summary.firmas,
       notificacion: summary.notificacion,
+      inscripcion: summary.inscripcion,
       slots,
     };
   });
@@ -711,6 +725,12 @@ export function buildMesaAgendaActiveFilterChips(
     chips.push({ id: "kind-bio", label: "Biométricos", clearPatch: { kindUi: "all" } });
   } else if (filters.kindUi === "firmas") {
     chips.push({ id: "kind-firma", label: "Firma", clearPatch: { kindUi: "all" } });
+  } else if (filters.kindUi === "inscripcion") {
+    chips.push({
+      id: "kind-inscripcion",
+      label: "Inscripción",
+      clearPatch: { kindUi: "all" },
+    });
   } else if (filters.kindUi === "notificacion") {
     chips.push({
       id: "kind-notif",
@@ -815,6 +835,7 @@ export function mapMesaAgendaCancelErrorMessage(
   }
   if (kind === "firmas") return "No se pudo cancelar la cita de firma.";
   if (kind === "notificacion") return "No se pudo cancelar la notificación.";
+  if (kind === "inscripcion") return "No se pudo cancelar la cita de inscripción.";
   return "No se pudo cancelar la cita biométrica.";
 }
 
@@ -878,6 +899,7 @@ function mesaReagendarEtapaOk(
 ): boolean {
   if (kind === "firmas") return etapaActual === 9 || etapaActual === 10;
   if (kind === "notificacion") return etapaActual === 3;
+  if (kind === "inscripcion") return etapaActual >= 3 && etapaActual <= 7;
   return etapaActual === 3 || etapaActual === 4 || etapaActual === 5;
 }
 

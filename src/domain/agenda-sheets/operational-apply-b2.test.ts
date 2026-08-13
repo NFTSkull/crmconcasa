@@ -152,6 +152,8 @@ describe("operational-apply-rpc", () => {
     notification_cell_red: false,
     signature_cell_red: false,
     operational_red_veto: false,
+    inscripcion_rebook_required: false,
+    inscripcion_rebook_reason_raw: null as string | null,
   };
 
   it("5. helper mapea todos los args RPC", () => {

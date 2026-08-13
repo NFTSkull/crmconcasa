@@ -69,7 +69,7 @@ function WeekDayCard({
       </p>
       <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">{summary.total}</p>
       <p className="mt-1 text-xs text-slate-600">
-        Bio {summary.biometricos} · Firma {summary.firmas} · Notif {summary.notificacion}
+        Bio {summary.biometricos} · Insc {summary.inscripcion} · Firma {summary.firmas} · Notif {summary.notificacion}
       </p>
       {summary.slots.length > 0 ? (
         <ul className="mt-2 space-y-0.5 text-[11px] text-slate-500">

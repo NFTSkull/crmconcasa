@@ -1,4 +1,8 @@
-export type MesaAgendaBookingKind = "biometricos" | "firmas" | "notificacion";
+export type MesaAgendaBookingKind =
+  | "biometricos"
+  | "firmas"
+  | "notificacion"
+  | "inscripcion";
 
 export type MesaAgendaBookingStatus = "booked" | "cancelled";
 

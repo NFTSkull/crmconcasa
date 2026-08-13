@@ -1,3 +1,15 @@
+## 2026-08-13 - P175 B4: rollout productivo controlado (Monterrey 3×11:00)
+
+Base `crmconcasa/main` = `6af2bf0` (MAIN_OK). Decisión negocio: sede Monterrey V1; hora fija 11:00; cupo 3 filas físicas append-only debajo de APODACA BIOMETRICOS (+ REAGENDADOS si existen). Orden: commit → mig 173 Cloud (sin db push) → Edge no-writer (webhook/reconcile/live-sync) → worker → Sheet tab-a-tab PASTE_FORMAT desde Apodaca de la misma pestaña → reconcile inventory → push/`crmconcasa` PR → merge → Vercel. Secrets: OPERATIONAL_APPLY ausente; INSCRIPCION_REQUIREMENTS ausente. P174 A solo en 3 filas nuevas. Sin backfill 6 históricos / sin smoke mutante / sin Apodaca inscripción / sin P172 kind / sin bulk P089.
+
+## 2026-08-13 - P175 B2: UI local inscripción (NO Cloud)
+
+UI end-to-end local: `AgendaInscripcionSupabaseCard` (asesor; solo con requirement abierto); campana `inscripcion_rebook_required`; Mesa «Solicitar cita de inscripción» + Citas (filtro/badge/summary/cancel/reagendar; hora fija 11:00; sin Drive/bulk); Reporte del día KPI «Inscripciones» por `kind=inscripcion` (fail-soft sin mig 173 Cloud). `reagendar_inscripcion_extraordinaria` ahora permite Mesa visible (book inicial sigue solo asesor). Sin Sheet blocks / APPLY ON / commit / deploy. P170 OFF. Bulk P089 inscripción: no habilitado (pendiente B3).
+
+## 2026-08-13 - P175 B1: foundation local inscripción (NO Cloud)
+
+Mig **173** local only (Cloud max sigue **172**). Enum `booking_kind=inscripcion`; tabla `agenda_inscripcion_requerimientos` (1 abierta/expediente); RPCs sheet-require (service_role) + mesa_solicitar + book/cancel/reagendar (11:00 fija, claim inventory atómico, sin mutar `fecha_cita`/etapa). Ops: `inscripcion_rebook_required` + classifier PENDING (no FAILED genérico); P170 apply → `REQUIRES_INSCRIPCION_REBOOK` (sin rechazo). Domain+Edge: detector REAGENDA+INSCRIP, parsers INSCRIPCION, inventory solo A=11:00, env-gate fail-closed independiente de P170. Decisión: booking vive en `agenda_bookings`+requirement; **no** pisa `expedientes.fecha_cita`. P172 kind fuera de alcance. Sin Edge deploy / Sheet / smoke / commit / APPLY ON / backfill 6 históricos / repair 57 links.
+
 ## 2026-08-12 - P174 B2: publicación controlada (sin migration; APPLY OFF)
 
 Base `9179465` (= GitHub main). Sin schema change (Cloud max sigue **172**). Commit inmutable antes de Edge. Deploy solo `agenda-sheet-webhook` + `agenda-sheet-reconcile`; **no** redeploy `agenda-sheet-sync-worker` / live-sync. Secrets: SYNC presente; OPERATIONAL_APPLY + FROM_DATE ausentes. Observación natural: reconcile cron HTTP 200, `operational_apply_enabled=false`, `apply_count=0`. Cero writes Sheet/columna A. Aliases/UI/availability/`booking_time` sin cambio. No reparar R stale / missing links / sheet_row_conflict.

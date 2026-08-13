@@ -47,6 +47,7 @@ export function fallbackReportGroupFromKind(
 ): MesaAgendaReportGroup {
   if (kind === "firmas") return "firmas";
   if (kind === "notificacion") return "notificacion";
+  if (kind === "inscripcion") return "inscripcion";
   return "biometricos";
 }
 

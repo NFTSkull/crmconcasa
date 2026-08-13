@@ -6,7 +6,7 @@
 
 export type SheetSectionRef = Readonly<{
   sede: "monterrey" | "apodaca";
-  kind: "biometricos" | "firmas";
+  kind: "biometricos" | "firmas" | "inscripcion";
 }>;
 
 export type SectionHintByRow = ReadonlyMap<number, SheetSectionRef>;
@@ -30,6 +30,10 @@ export function isPlausibleTimeForSection(
   section: SheetSectionRef,
   hhmm: string,
 ): boolean {
+  if (section.kind === "inscripcion") {
+    // P175: cupo físico inscripción = solo A=11:00 (sin aliases).
+    return hhmm === "11:00";
+  }
   if (section.kind === "firmas" && section.sede === "apodaca") {
     return isPlausibleFirmasApodacaTime(hhmm);
   }

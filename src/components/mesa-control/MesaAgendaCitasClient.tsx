@@ -12,6 +12,11 @@ import {
   AgendaFirmasSupabaseError,
 } from "@/domain/agenda-firmas";
 import {
+  AgendaInscripcionError,
+  useAgendaInscripcionRepo,
+} from "@/domain/agenda-inscripcion";
+import { SupabaseAgendaInscripcionRepo } from "@/domain/agenda-inscripcion/supabase.repo";
+import {
   fetchMesaAgendaBookings,
   setMesaAgendaDriveValidation,
 } from "@/domain/agenda-calendar/mesa.repo";
@@ -124,6 +129,7 @@ export function MesaAgendaCitasClient() {
   const expedientesRepo = useExpedientesRepo();
   const agendaBookingRepo = useAgendaBiometricosBookingRepo();
   const firmasBookingRepo = useAgendaFirmasBookingRepo();
+  const inscripcionRepo = useAgendaInscripcionRepo();
   const defaultRange = useMemo(() => defaultMesaAgendaDayRange(), []);
 
   const [viewMode, setViewMode] = useState<MesaAgendaCitasViewMode>(MESA_AGENDA_DEFAULT_VIEW);
@@ -932,6 +938,25 @@ export function MesaAgendaCitasClient() {
             expedienteId: cancelTarget.expedienteId,
             motivo,
           });
+        } else if (kind === "inscripcion") {
+          const repo =
+            inscripcionRepo instanceof SupabaseAgendaInscripcionRepo
+              ? inscripcionRepo
+              : null;
+          if (!repo?.cancelByBookingId) {
+            throw new AgendaInscripcionError(
+              "La cancelación de inscripción requiere modo Supabase.",
+            );
+          }
+          const result = await repo.cancelByBookingId({
+            bookingId: cancelTarget.bookingId,
+            motivo,
+          });
+          if (!result.ok) {
+            throw new AgendaInscripcionError(
+              result.message ?? "No se pudo cancelar la cita de inscripción.",
+            );
+          }
         } else {
           if (!agendaBookingRepo) {
             throw new AgendaBiometricosSupabaseError(
@@ -952,7 +977,7 @@ export function MesaAgendaCitasClient() {
         setCancelSaving(false);
       }
     },
-    [agendaBookingRepo, cancelTarget, firmasBookingRepo, loadEntries],
+    [agendaBookingRepo, cancelTarget, firmasBookingRepo, inscripcionRepo, loadEntries],
   );
 
   const handleCloseReagendarDialog = useCallback(() => {
@@ -990,6 +1015,23 @@ export function MesaAgendaCitasClient() {
             locationId: payload.locationId,
             note: payload.note,
           });
+        } else if (payload.kind === "inscripcion") {
+          if (!inscripcionRepo) {
+            throw new AgendaInscripcionError(
+              "La reagenda de inscripción requiere modo Supabase.",
+            );
+          }
+          const result = await inscripcionRepo.reagendar({
+            expedienteId: reagendarTarget.expedienteId,
+            bookingDate: payload.bookingDate,
+            locationId: payload.locationId,
+            note: payload.note,
+          });
+          if (!result.ok) {
+            throw new AgendaInscripcionError(
+              result.message ?? "No se pudo reagendar la cita de inscripción.",
+            );
+          }
         } else {
           if (!agendaBookingRepo) {
             throw new AgendaBiometricosSupabaseError(
@@ -1013,7 +1055,7 @@ export function MesaAgendaCitasClient() {
         setReagendarSaving(false);
       }
     },
-    [agendaBookingRepo, firmasBookingRepo, loadEntries, reagendarTarget],
+    [agendaBookingRepo, firmasBookingRepo, inscripcionRepo, loadEntries, reagendarTarget],
   );
 
   const handleNotificacionSedeSaved = useCallback(

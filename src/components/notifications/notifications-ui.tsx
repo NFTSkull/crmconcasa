@@ -18,6 +18,9 @@ export function kindBadgeClass(kind: DashboardNotificationItem["kind"]): string 
   if (kind === "extraordinary_rebook_required") {
     return "bg-orange-100 text-orange-950 ring-orange-200";
   }
+  if (kind === "inscripcion_rebook_required") {
+    return "bg-teal-100 text-teal-950 ring-teal-200";
+  }
   return "bg-slate-100 text-slate-800 ring-slate-200";
 }
 

@@ -45,7 +45,12 @@ export type MesaAgendaBookingRpcRow = Readonly<{
 }>;
 
 function parseKind(value: string | undefined): MesaAgendaBookingKind | null {
-  if (value === "biometricos" || value === "firmas" || value === "notificacion") {
+  if (
+    value === "biometricos" ||
+    value === "firmas" ||
+    value === "notificacion" ||
+    value === "inscripcion"
+  ) {
     return value;
   }
   return null;

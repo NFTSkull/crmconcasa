@@ -54,6 +54,12 @@ export type MesaReagendarConfirmPayload =
       bookingDate: string;
       locationId: string;
       note: string | null;
+    }
+  | {
+      kind: "inscripcion";
+      bookingDate: string;
+      locationId: string;
+      note: string | null;
     };
 
 export type MesaReagendarCitaDialogProps = Readonly<{
@@ -240,6 +246,15 @@ export function MesaReagendarCitaDialog({
       });
       return;
     }
+    if (entry.kind === "inscripcion") {
+      await onConfirm({
+        kind: "inscripcion",
+        bookingDate: dateYmd,
+        locationId: notificacionSedeId,
+        note: note.trim() || null,
+      });
+      return;
+    }
     if (!selectedSede || !timeHhmm) return;
     const locationId = selectedSede.sourceLocationIds[0] ?? selectedSede.canonicalId;
     if (entry.kind === "firmas") {
@@ -294,7 +309,7 @@ export function MesaReagendarCitaDialog({
 
   const kindLabel = mesaAgendaCancelDialogKindLabel(entry.kind);
   const canSubmit =
-    entry.kind === "notificacion"
+    entry.kind === "notificacion" || entry.kind === "inscripcion"
       ? Boolean(dateYmd)
       : Boolean(selectedSede && dateYmd && timeHhmm);
 
@@ -332,7 +347,7 @@ export function MesaReagendarCitaDialog({
 
         {!loading && !loadError ? (
           <div className="mt-4 space-y-3">
-            {entry.kind === "notificacion" ? (
+            {entry.kind === "notificacion" || entry.kind === "inscripcion" ? (
               <>
                 <label className="block text-xs font-semibold text-gray-800">
                   Nueva fecha
@@ -354,14 +369,23 @@ export function MesaReagendarCitaDialog({
                     onChange={(e) =>
                       setNotificacionSedeId(e.target.value as CynthiaSedeId)
                     }
-                    data-testid="mesa-reagendar-notificacion-sede"
+                    data-testid="mesa-reagendar-fixed-sede"
                   >
                     <option value={CYNTHIA_SEDE_MONTERREY_ID}>Monterrey</option>
                     <option value={CYNTHIA_SEDE_APODACA_ID}>Apodaca</option>
                   </select>
                 </label>
-                <p className="text-xs text-amber-800">
-                  Hora fija: {NOTIFICACION_FIXED_TIME_DISPLAY}
+                <p
+                  className={
+                    entry.kind === "inscripcion"
+                      ? "text-xs text-teal-800"
+                      : "text-xs text-amber-800"
+                  }
+                >
+                  Hora fija:{" "}
+                  {entry.kind === "inscripcion"
+                    ? "11:00 AM"
+                    : NOTIFICACION_FIXED_TIME_DISPLAY}
                 </p>
               </>
             ) : (

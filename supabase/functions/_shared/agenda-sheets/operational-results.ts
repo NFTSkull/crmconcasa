@@ -16,6 +16,7 @@ import {
   type EffectiveBackground,
   type EffectiveBackgroundGrid,
 } from "./effective-background.ts";
+import { detectInscripcionRebookRequirement } from "./inscripcion-rebook.ts";
 
 export type OperationalResultUpsertRow = {
   organization_id: string;
@@ -41,6 +42,8 @@ export type OperationalResultUpsertRow = {
   signature_cell_red: boolean;
   operational_red_veto: boolean;
   operational_red_columns?: string[];
+  inscripcion_rebook_required: boolean;
+  inscripcion_rebook_reason_raw: string | null;
 };
 
 const UUID_RE =
@@ -61,6 +64,26 @@ function asUuidOrNull(raw: string): string | null {
 function nullIfEmpty(raw: string): string | null {
   const t = raw.trim();
   return t ? t : null;
+}
+
+function inscripcionRebookFields(input: {
+  kind: string;
+  notificationRaw: string | null;
+}): {
+  inscripcion_rebook_required: boolean;
+  inscripcion_rebook_reason_raw: string | null;
+} {
+  if (input.kind !== "biometricos") {
+    return {
+      inscripcion_rebook_required: false,
+      inscripcion_rebook_reason_raw: null,
+    };
+  }
+  const required = detectInscripcionRebookRequirement(input.notificationRaw);
+  return {
+    inscripcion_rebook_required: required,
+    inscripcion_rebook_reason_raw: required ? input.notificationRaw : null,
+  };
 }
 
 function isHoraHeader(a: string): boolean {
@@ -176,6 +199,8 @@ export function buildOperationalResultUpsertRows(input: {
       continue;
     }
     if (!section) continue;
+    // P175: sección inscripción es inventario/agenda; no proyecta KPIs bio/firmas.
+    if (section.kind === "inscripcion") continue;
     if (isHoraHeader(a)) {
       headerRow = row;
       continue;
@@ -220,6 +245,10 @@ export function buildOperationalResultUpsertRows(input: {
       booking_id: asUuidOrNull(cell(row, 15)),
       expediente_id: asUuidOrNull(cell(row, 16)),
       ...classified,
+      ...inscripcionRebookFields({
+        kind: section.kind,
+        notificationRaw: classified.notification_result_raw,
+      }),
       notes_raw: extractOperationalNote({
         kind: section.kind,
         row,
@@ -292,6 +321,10 @@ export function buildOperationalResultFromRow(input: {
     booking_id: asUuidOrNull(cell(input.row, 15)),
     expediente_id: asUuidOrNull(cell(input.row, 16)),
     ...classified,
+    ...inscripcionRebookFields({
+      kind: input.kind,
+      notificationRaw: classified.notification_result_raw,
+    }),
     notes_raw: extractOperationalNote({
       kind: input.kind,
       row: input.row,

@@ -10,6 +10,7 @@ import {
 } from "@/components/mesa-control/MesaArchivoPreviewDialog";
 import { MesaAccordionSection } from "@/components/mesa-control/MesaAccordionSection";
 import { MesaExpedienteAgendaCitasSection } from "@/components/mesa-control/MesaExpedienteAgendaCitasSection";
+import { MesaSolicitarInscripcionSection } from "@/components/mesa-control/MesaSolicitarInscripcionSection";
 import { MesaNotificacionExtraordinariaSection } from "@/components/mesa-control/MesaNotificacionExtraordinariaSection";
 import { MesaCancelarCitaDialog } from "@/components/mesa-control/MesaCancelarCitaDialog";
 import {
@@ -108,6 +109,7 @@ import { isSupabaseConfigured, supabaseBrowser } from "@/lib/supabaseBrowser";
 import { getEffectiveMockRole } from "@/lib/mockUser";
 import type { MesaAgendaCancelKind } from "@/lib/mesaAgendaCancelAccess";
 import {
+  canMesaRoleCancelAgendaRpc,
   MESA_CANCEL_SUCCESS_MESSAGE,
 } from "@/lib/mesaAgendaCancelAccess";
 import {
@@ -2171,6 +2173,17 @@ export function MesaExpedienteDetalleReadOnly() {
             setCancelCitaError(null);
             setCancelCitaKind("firmas");
           }}
+        />
+        <MesaSolicitarInscripcionSection
+          expedienteId={routeExpedienteId}
+          etapaActual={etapaActual}
+          submittedToMesa={expediente?.operativo.submittedToMesa ?? false}
+          cicloActivo={(expediente?.operativo.cicloEstado ?? "activo") === "activo"}
+          subestado={expediente?.operativo.subestado ?? null}
+          canAct={canMesaRoleCancelAgendaRpc(
+            mesaOpsAppRole ?? mesaSessionRole ?? mesaMockRole,
+          )}
+          onUpdated={() => void load()}
         />
       </MesaAccordionSection>
 
