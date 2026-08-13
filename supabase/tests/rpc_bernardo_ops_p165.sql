@@ -1,5 +1,5 @@
 -- P165: proyección operativa Bernardo (CITAS 2026)
--- Casos: tabla/unique/upsert idempotente, SuperAdmin gate, COMPLETED only,
+-- Casos: tabla/unique/upsert idempotente, SuperAdmin gate, P180 COMPLETED_CURRENT,
 -- periodo por booking_date (no updated_at), sin mutar expedientes/bookings.
 
 \set ON_ERROR_STOP on
@@ -102,6 +102,29 @@ BEGIN
   VALUES (v_org, 'p165-bernardo-ops-org', 'P165 Bernardo Ops Org', true)
   ON CONFLICT (id) DO UPDATE SET active = true;
 
+  INSERT INTO auth.users (
+    id, aud, role, email, encrypted_password, email_confirmed_at,
+    raw_app_meta_data, raw_user_meta_data, created_at, updated_at
+  ) VALUES
+    (v_admin, 'authenticated', 'authenticated', 'p165-admin@test.local',
+     crypt('x', gen_salt('bf')), NOW(), '{}', '{}', NOW(), NOW()),
+    (v_asesor, 'authenticated', 'authenticated', 'p165-asesor@test.local',
+     crypt('x', gen_salt('bf')), NOW(), '{}', '{}', NOW(), NOW()),
+    (v_mesa, 'authenticated', 'authenticated', 'p165-mesa@test.local',
+     crypt('x', gen_salt('bf')), NOW(), '{}', '{}', NOW(), NOW())
+  ON CONFLICT (id) DO NOTHING;
+
+  INSERT INTO public.profiles (
+    id, organization_id, email, full_name, app_role, active
+  ) VALUES
+    (v_admin, v_org, 'p165-admin@test.local', 'P165 Admin', 'super_admin', true),
+    (v_asesor, v_org, 'p165-asesor@test.local', 'P165 Asesor', 'asesor', true),
+    (v_mesa, v_org, 'p165-mesa@test.local', 'P165 Mesa', 'mesa_admin', true)
+  ON CONFLICT (id) DO UPDATE
+    SET organization_id = EXCLUDED.organization_id,
+        app_role = EXCLUDED.app_role,
+        active = true;
+
   DELETE FROM public.agenda_sheet_operational_results
   WHERE spreadsheet_id = v_ss AND sheet_id = v_sheet;
 
@@ -121,7 +144,14 @@ BEGIN
       'biometric_result_raw', 'CESI MTY',
       'notification_result_class', 'COMPLETED',
       'notification_result_raw', 'BETTY 8',
-      'signature_result_class', 'PENDING'
+      'signature_result_class', 'PENDING',
+      'biometric_color', 'GREEN',
+      'notification_color', 'GREEN',
+      'signature_color', 'UNKNOWN',
+      'biometric_effective_result', 'COMPLETED_CURRENT',
+      'notification_effective_result', 'COMPLETED_CURRENT',
+      'signature_effective_result', 'PENDING',
+      'projection_status', 'CURRENT'
     ),
     jsonb_build_object(
       'organization_id', v_org,
@@ -137,7 +167,14 @@ BEGIN
       'biometric_result_raw', 'X',
       'notification_result_class', 'FAILED_OR_NOT_ATTENDED',
       'notification_result_raw', 'X',
-      'signature_result_class', 'PENDING'
+      'signature_result_class', 'PENDING',
+      'biometric_color', 'RED',
+      'notification_color', 'RED',
+      'signature_color', 'UNKNOWN',
+      'biometric_effective_result', 'FAILED',
+      'notification_effective_result', 'FAILED',
+      'signature_effective_result', 'PENDING',
+      'projection_status', 'CURRENT'
     ),
     jsonb_build_object(
       'organization_id', v_org,
@@ -152,7 +189,14 @@ BEGIN
       'biometric_result_class', 'PENDING',
       'notification_result_class', 'PENDING',
       'signature_result_class', 'COMPLETED',
-      'signature_result_raw', 'COMPLETO ✔'
+      'signature_result_raw', 'SI',
+      'biometric_color', 'UNKNOWN',
+      'notification_color', 'UNKNOWN',
+      'signature_color', 'GREEN',
+      'biometric_effective_result', 'PENDING',
+      'notification_effective_result', 'PENDING',
+      'signature_effective_result', 'COMPLETED_CURRENT',
+      'projection_status', 'CURRENT'
     ),
     jsonb_build_object(
       'organization_id', v_org,
@@ -167,7 +211,14 @@ BEGIN
       'biometric_result_class', 'PENDING',
       'notification_result_class', 'PENDING',
       'signature_result_class', 'FAILED_OR_NOT_ATTENDED',
-      'signature_result_raw', 'FALTA ACUSE'
+      'signature_result_raw', 'FALTA ACUSE',
+      'biometric_color', 'UNKNOWN',
+      'notification_color', 'UNKNOWN',
+      'signature_color', 'RED',
+      'biometric_effective_result', 'PENDING',
+      'notification_effective_result', 'PENDING',
+      'signature_effective_result', 'FAILED',
+      'projection_status', 'CURRENT'
     ),
     -- fila con booking_date 12-ago para probar filtro de periodo
     jsonb_build_object(
@@ -184,6 +235,13 @@ BEGIN
       'biometric_result_raw', 'YA EN CESI',
       'notification_result_class', 'PENDING',
       'signature_result_class', 'PENDING',
+      'biometric_color', 'GREEN',
+      'notification_color', 'UNKNOWN',
+      'signature_color', 'UNKNOWN',
+      'biometric_effective_result', 'COMPLETED_CURRENT',
+      'notification_effective_result', 'PENDING',
+      'signature_effective_result', 'PENDING',
+      'projection_status', 'CURRENT',
       'last_seen_at', '2026-08-11T23:00:00Z'
     )
   ));
@@ -210,7 +268,14 @@ BEGIN
       'biometric_result_raw', 'CESI MTY',
       'notification_result_class', 'COMPLETED',
       'notification_result_raw', 'BETTY 8',
-      'signature_result_class', 'PENDING'
+      'signature_result_class', 'PENDING',
+      'biometric_color', 'GREEN',
+      'notification_color', 'GREEN',
+      'signature_color', 'UNKNOWN',
+      'biometric_effective_result', 'COMPLETED_CURRENT',
+      'notification_effective_result', 'COMPLETED_CURRENT',
+      'signature_effective_result', 'PENDING',
+      'projection_status', 'CURRENT'
     )
   ));
   SELECT COUNT(*) INTO v_cnt
@@ -233,7 +298,14 @@ BEGIN
       'biometric_result_class', 'COMPLETED',
       'biometric_result_raw', 'CESI MTY',
       'notification_result_class', 'PENDING',
-      'signature_result_class', 'PENDING'
+      'signature_result_class', 'PENDING',
+      'biometric_color', 'GREEN',
+      'notification_color', 'UNKNOWN',
+      'signature_color', 'UNKNOWN',
+      'biometric_effective_result', 'COMPLETED_CURRENT',
+      'notification_effective_result', 'PENDING',
+      'signature_effective_result', 'PENDING',
+      'projection_status', 'CURRENT'
     )
   ));
   SELECT biometric_result_class INTO v_err

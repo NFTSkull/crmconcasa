@@ -101,15 +101,72 @@ export function backgroundToHex(bg: EffectiveBackground): string | null {
 /**
  * Rojo operativo CITAS 2026 (#FF0000). Conservador: no traga rosa/morado/naranja.
  */
+export type OperationalColor =
+  | "GREEN"
+  | "RED"
+  | "ORANGE"
+  | "OTHER"
+  | "UNKNOWN";
+
+/** Verdes auditados CITAS 2026 (KPI positivo visual). */
+export const OPERATIONAL_GREEN_HEX = ["#6AA84F", "#93C47D"] as const;
+export const OPERATIONAL_RED_HEX = "#FF0000" as const;
+export const OPERATIONAL_ORANGE_HEX = "#FF9900" as const;
+
+export function normalizeHexColor(raw: string | null | undefined): string | null {
+  if (raw == null) return null;
+  const t = String(raw).trim().toUpperCase();
+  if (!t) return null;
+  const h = t.startsWith("#") ? t : `#${t}`;
+  if (!/^#[0-9A-F]{6}$/.test(h)) return null;
+  return h;
+}
+
+/**
+ * Clasifica hex auditado → OperationalColor.
+ * Hex inválido/ausente → UNKNOWN (fail-closed).
+ */
+export function operationalColorFromHex(
+  hex: string | null | undefined,
+): OperationalColor {
+  const n = normalizeHexColor(hex);
+  if (!n) return "UNKNOWN";
+  if (n === OPERATIONAL_RED_HEX) return "RED";
+  if (
+    n === OPERATIONAL_ORANGE_HEX ||
+    n === "#E69138" ||
+    n === "#F6B26B"
+  ) {
+    return "ORANGE";
+  }
+  if ((OPERATIONAL_GREEN_HEX as readonly string[]).includes(n)) return "GREEN";
+  return "OTHER";
+}
+
+/**
+ * Sin lectura usable → UNKNOWN (no inventar verde).
+ */
+export function classifyOperationalColor(
+  bg: EffectiveBackground | string | null | undefined,
+): OperationalColor {
+  if (typeof bg === "string") return operationalColorFromHex(bg);
+  const n =
+    bg && typeof bg === "object" && "red" in bg
+      ? (bg as Exclude<EffectiveBackground, null>)
+      : null;
+  if (!n) return "UNKNOWN";
+  return operationalColorFromHex(backgroundToHex(n));
+}
+
 export function isOperationalRedBackground(
   bg: EffectiveBackground | unknown,
 ): boolean {
-  const n =
-    bg && typeof bg === "object" && "red" in (bg as object)
-      ? (bg as EffectiveBackground)
-      : normalizeGoogleBackground(bg);
-  if (!n) return false;
-  return n.red >= 0.95 && n.green <= 0.08 && n.blue <= 0.08;
+  // P173 compatible: equivale a classifyOperationalColor === RED.
+  if (bg && typeof bg === "object" && "red" in (bg as object)) {
+    return classifyOperationalColor(bg as EffectiveBackground) === "RED";
+  }
+  const n = normalizeGoogleBackground(bg);
+  return classifyOperationalColor(n) === "RED";
 }
 
 /** Grid de backgrounds alineada al range (fila 0 / col 0 = primera celda). */

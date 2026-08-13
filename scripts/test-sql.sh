@@ -123,4 +123,6 @@ run_sql_test "supabase/tests/rpc_agenda_contingencia_p172.sql"
 run_sql_test "supabase/tests/rpc_agenda_sheet_red_color_veto_p173.sql"
 
 run_sql_test "supabase/tests/rpc_admin_buscar_nss_p177.sql"
+run_sql_test "supabase/tests/rpc_agenda_sheet_effective_result_p180.sql"
+run_sql_test "supabase/tests/rpc_bernardo_ops_p165.sql"
 echo "SQL tests: ALL PASSED"
