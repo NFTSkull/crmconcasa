@@ -2,6 +2,12 @@
 
 ## [Unreleased]
 
+### Added
+
+- **cert(agenda): P180 B1.2 diferencial pre-pub (LOCAL)** — CONTROL main vs TREATMENT: P092 fail idéntico (`BASELINE_INFRA_FAILURE`); P165/P180 SQL PASS; mig 178 audit sin mutar expedientes; P170 OFF. Sin Cloud/commit.
+
+- **feat(agenda): P180 B1.1 effective_result canónico + Reporte (LOCAL)** — `OperationalColor` + `effective_result`; mig **178**; KPI Bernardo = CURRENT+COMPLETED_CURRENT; stale fail-closed; P170 OFF. Sin Cloud/commit.
+
 ### Changed
 
 - **feat(admin): búsqueda por NSS en /admin (producción/snapshot)** — mig **177**: `p_buscar` en Mesa/Precal/Snapshot también filtra `expedientes.nss` (ILIKE parcial). Placeholder UI «Cliente, NSS, asesor, programa».

@@ -154,6 +154,13 @@ describe("operational-apply-rpc", () => {
     operational_red_veto: false,
     inscripcion_rebook_required: false,
     inscripcion_rebook_reason_raw: null as string | null,
+    biometric_color: "GREEN" as const,
+    notification_color: "UNKNOWN" as const,
+    signature_color: "UNKNOWN" as const,
+    biometric_effective_result: "COMPLETED_CURRENT" as const,
+    notification_effective_result: "PENDING" as const,
+    signature_effective_result: "PENDING" as const,
+    projection_status: "CURRENT" as const,
   };
 
   it("5. helper mapea todos los args RPC", () => {

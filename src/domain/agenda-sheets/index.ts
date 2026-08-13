@@ -206,6 +206,12 @@ export {
   EMPTY_OPERATIONAL_RED_FLAGS,
   evaluateOperationalRedFlags,
   isOperationalRedBackground,
+  classifyOperationalColor,
+  operationalColorFromHex,
+  OPERATIONAL_GREEN_HEX,
+  OPERATIONAL_ORANGE_HEX,
+  OPERATIONAL_RED_HEX,
+  type OperationalColor,
   normalizeGoogleBackground,
   type EffectiveBackground,
   type EffectiveBackgroundGrid,
@@ -268,3 +274,17 @@ export {
   type LiveSyncMode,
   type LiveSyncResult,
 } from "./live-inventory-sync";
+
+export {
+  deriveBiometricEffectiveResult,
+  deriveNotificationEffectiveResult,
+  deriveSignatureEffectiveResult,
+  isCompletedCurrentEffective,
+  colorFromEiCell,
+  type OperationalEffectiveResult,
+  type OperationalProjectionStatus,
+} from "./operational-effective-result";
+export {
+  decideOpsMarkStale,
+  type OpsMarkStaleDecision,
+} from "./operational-stale-guard";

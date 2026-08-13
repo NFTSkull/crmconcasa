@@ -13,6 +13,19 @@ import {
   countCompletedOperational,
 } from "./operational-results";
 import { parsePhysicalInventoryFromGrid } from "./sheet-inventory";
+import type { EffectiveBackground } from "./effective-background";
+
+/** Verde F (FIRMO) alineado a filas de grid para KPI P180. */
+function greenFBackgrounds(gridLen: number): EffectiveBackground[][] {
+  const green = { red: 0x6a / 255, green: 0xa8 / 255, blue: 0x4f / 255 };
+  return Array.from({ length: gridLen }, () => [
+    null,
+    green,
+    null,
+    null,
+    null,
+  ]);
+}
 
 describe("operational-result-classifiers — biométricos", () => {
   it("1. CESI MTY → completed", () => {
@@ -108,23 +121,26 @@ describe("operational-results — firmas reporting vs inventario", () => {
   const org = "00000000-0000-4000-8000-000000000001";
 
   it("10. FIRMO=SI + hora null dentro de bloque firmas → completed Bernardo", () => {
+    const grid = [
+      ["MONTERREY FIRMAS"],
+      ["HORA", "", "", "", "NOTIFICACION", "FIRMO", "FIRMA"],
+      ["9:00", "1", "Cliente A", "Asesor", "BETTY", "SI", ""],
+      ["", "2", "Cliente B", "Asesor", "BETTY", "SI", ""],
+    ];
     const rows = buildOperationalResultUpsertRows({
       organizationId: org,
       spreadsheetId: "ss",
       sheetId: 1,
       sheetTitle: "11 AGOSTO",
       bookingDate: "2026-08-11",
-      grid: [
-        ["MONTERREY FIRMAS"],
-        ["HORA", "", "", "", "NOTIFICACION", "FIRMO", "FIRMA"],
-        ["9:00", "1", "Cliente A", "Asesor", "BETTY", "SI", ""],
-        ["", "2", "Cliente B", "Asesor", "BETTY", "SI", ""],
-      ],
+      grid,
+      backgroundsEi: greenFBackgrounds(grid.length),
     });
     assert.equal(rows.length, 2);
     assert.equal(rows[0]?.slot_time, "09:00");
     assert.equal(rows[1]?.slot_time, null);
     assert.equal(rows[1]?.signature_result_class, "COMPLETED");
+    assert.equal(rows[1]?.signature_effective_result, "COMPLETED_CURRENT");
     assert.equal(
       countCompletedOperational({ rows, metric: "firmas" }),
       2,
@@ -169,10 +185,13 @@ describe("operational-results — firmas reporting vs inventario", () => {
       sheetTitle: "11 AGOSTO",
       bookingDate: "2026-08-11",
       grid,
+      backgroundsEi: greenFBackgrounds(grid.length),
     });
     const kpi = countCompletedOperational({ rows, metric: "firmas" });
     const detail = rows.filter(
-      (r) => r.kind === "firmas" && r.signature_result_class === "COMPLETED",
+      (r) =>
+        r.kind === "firmas" &&
+        r.signature_effective_result === "COMPLETED_CURRENT",
     );
     assert.equal(kpi, 15);
     assert.equal(detail.length, kpi);
@@ -204,6 +223,7 @@ describe("operational-results — firmas reporting vs inventario", () => {
         sheetTitle: "11 AGOSTO",
         bookingDate: "2026-08-11",
         grid,
+        backgroundsEi: greenFBackgrounds(grid.length),
       });
     assert.equal(countCompletedOperational({ rows: mk(base), metric: "firmas" }), 1);
     const down = base.map((r) => [...r]);

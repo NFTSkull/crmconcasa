@@ -24,6 +24,8 @@ import {
   maybeCreateInscripcionRequirement,
 } from "../_shared/agenda-sheets/inscripcion-requirement.ts";
 import { COL_INDEX } from "../_shared/agenda-sheets/tech-columns.ts";
+import { decideOpsMarkStale } from "../_shared/agenda-sheets/operational-stale-guard.ts";
+import type { EffectiveBackground } from "../_shared/agenda-sheets/effective-background.ts";
 import type { AgendaSheetTimeAlias } from "../_shared/agenda-sheets/time-aliases.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
@@ -135,10 +137,52 @@ Deno.serve(async (req) => {
       if (filterDate && date !== filterDate) continue;
 
       const titleEsc = `'${titleRaw.replace(/'/g, "''")}'`;
-      const grid = await adapter.getValues(`${titleEsc}!A1:U200`);
-      const backgroundsEi = await adapter.getEffectiveBackgrounds(
-        `${titleEsc}!E1:I200`,
-      );
+      let grid: string[][] = [];
+      let valuesFetchOk = false;
+      try {
+        const rawGrid = await adapter.getValues(`${titleEsc}!A1:U200`);
+        valuesFetchOk = Array.isArray(rawGrid);
+        grid = (rawGrid ?? []).map((row) =>
+          (row ?? []).map((c) => (c == null ? "" : String(c)))
+        );
+      } catch (e) {
+        console.error(
+          "agenda-sheet-reconcile values fetch",
+          e instanceof Error ? e.message.slice(0, 200) : String(e).slice(0, 200),
+        );
+        valuesFetchOk = false;
+        grid = [];
+      }
+      if (!valuesFetchOk) {
+        allIssues.push({
+          title: titleRaw,
+          code: "values_fetch_failed",
+          message: "A:U fetch failed; skip tab ops/stale",
+        });
+        continue;
+      }
+
+      let backgroundsEi: EffectiveBackground[][] | null = null;
+      let colorsFetchOk = false;
+      try {
+        backgroundsEi = await adapter.getEffectiveBackgrounds(
+          `${titleEsc}!E1:I200`,
+        );
+        colorsFetchOk = Array.isArray(backgroundsEi);
+      } catch (e) {
+        console.error(
+          "agenda-sheet-reconcile colors fetch",
+          e instanceof Error ? e.message.slice(0, 200) : String(e).slice(0, 200),
+        );
+        backgroundsEi = null;
+        colorsFetchOk = false;
+      }
+
+      const gridsAligned =
+        colorsFetchOk &&
+        backgroundsEi != null &&
+        backgroundsEi.length === grid.length;
+      const backgroundsForOps = gridsAligned ? backgroundsEi : null;
       const { rows, issues } = buildInventoryUpsertRows({
         organizationId: orgId,
         spreadsheetId,
@@ -180,12 +224,13 @@ Deno.serve(async (req) => {
         sheetTitle: titleRaw,
         bookingDate: date,
         grid,
-        backgroundsEi,
+        backgroundsEi: backgroundsForOps,
       }).filter((r) => {
         if (filterKind && r.kind !== filterKind) return false;
         if (filterLocation && r.location_id !== filterLocation) return false;
         return true;
       });
+      let opsUpsertFailed = false;
       for (let i = 0; i < opsRows.length; i += 200) {
         const chunk = opsRows.slice(i, i + 200);
         if (chunk.length === 0) continue;
@@ -199,6 +244,7 @@ Deno.serve(async (req) => {
             String(opsErr.message ?? "").slice(0, 200),
           );
           // Sin proyección confiable: ni requirement ni apply del chunk.
+          opsUpsertFailed = true;
           continue;
         }
         ops_upserted += chunk.length;
@@ -233,7 +279,7 @@ Deno.serve(async (req) => {
           }
           try {
             const gridRow = grid[row.sheet_row - 1] ?? [];
-            const applied = await applyOperationalResult(supabase, row, {
+            const applied = await applyOperationalResult(supabase as never, row, {
               visibleSheetTime: String(gridRow[COL_INDEX.hora] ?? ""),
               liveSlotKey: String(gridRow[COL_INDEX.slotKey] ?? ""),
             });
@@ -260,6 +306,42 @@ Deno.serve(async (req) => {
             );
           }
         }
+      }
+
+      // P180 B1.1: STALE solo full-tab + snapshot color/valores OK + scope.
+      const staleDecision = decideOpsMarkStale({
+        fullTabReconcile: !filterKind && !filterLocation,
+        valuesFetchOk,
+        colorsFetchOk: gridsAligned,
+        gridsAligned,
+        opsUpsertFailed,
+        gridRowCount: grid.length,
+        seenRows: opsRows.map((r) => r.sheet_row),
+      });
+      if (staleDecision.allow) {
+        const { error: staleErr } = await supabase.rpc(
+          "agenda_sheet_ops_mark_stale_except",
+          {
+            p_spreadsheet_id: spreadsheetId,
+            p_sheet_id: tab.sheetId,
+            p_seen_rows: staleDecision.seenRows,
+            p_row_min: staleDecision.rowMin,
+            p_row_max: staleDecision.rowMax,
+            p_allow_empty_snapshot: staleDecision.allowEmptySnapshot,
+          },
+        );
+        if (staleErr) {
+          console.error(
+            "agenda-sheet-reconcile ops mark_stale",
+            String(staleErr.message ?? "").slice(0, 200),
+          );
+        }
+      } else {
+        console.info("agenda-sheet-reconcile ops mark_stale skipped", {
+          reason: staleDecision.reason,
+          sheet_id: tab.sheetId,
+          title: titleRaw,
+        });
       }
     }
 

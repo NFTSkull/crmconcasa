@@ -1,3 +1,15 @@
+## 2026-08-13 - P180 B2: publicación controlada (APPLY OFF)
+
+Commit feature + mig **178** Cloud + Edge reconcile/webhook (import graph) + full reconcile proyección. P170 OFF. Sin Sheet writes / sin mutación expedientes. Rollback: `/tmp/p180-production-rollback.md` + bernardo P165 SQL.
+
+## 2026-08-13 - P180 B1.2 LOCAL: certificación diferencial pre-pub
+
+CONTROL `/tmp/crmconcasa-p180-baseline-control` @ `5778d14` vs TREATMENT `/tmp/crmconcasa-p180-b11`. Mismo PG 17.6.1.147 / seed / runner: ambos fallan idénticos en P092 (`cliente_notificacion` ∈ `integration_doc_tipos_asesor_upload()`; assert histórico vs allowlist P132/156). `BASELINE_INFRA_FAILURE=true`. P165/P180 SQL PASS. Mig 178: 0 mutaciones expedientes/bookings; defaults UNKNOWN/PENDING/CURRENT sin backfill legacy; KPI 0 hasta reconcile. P170 APPLY ausente. Sin Cloud/commit.
+
+## 2026-08-13 - P180 B1.1 LOCAL: sync main + hardening STALE
+
+Base `5778d14` (PR #139 admin NSS ocupó mig 177). P180 renumerado a **178**. KPI CURRENT+COMPLETED_CURRENT (replay 11/12/13 = 7/7/15, 0/0/8, 5/5/6). Stale solo full-reconcile fail-closed con row scope; duplicados CURRENT→IDENTITY_CONFLICT sin elegir ganador. P165 SQL autocontenido (seed auth/profiles + effective fields). P180 SQL: cleanup DELETE exige `__p180_as_service` tras JWT admin. Gates: npm 1906/lint/typecheck/build/deno PASS; Cloud RO max **177**; secrets APPLY ausentes. Full `test-sql.sh` en contenedor manual: P165/P180 PASS; suite completa limitada por stub storage/schema drift histórico (no P180). P170 OFF. Sin Cloud/commit.
+
 ## 2026-08-13 - Admin /admin: buscar por NSS
 
 El buscador del dashboard SuperAdmin (Mesa enviados, Precalificaciones, Snapshot etapas) solo matcheaba cliente/asesor/programa. Paridad con Reporte histórico e Ingresos: `OR coalesce(e.nss::text,'') ILIKE`. Mig **177** REPLACE de las 4 RPCs; mock + placeholder UI. Sin cambiar máscaras de PII en listados.
