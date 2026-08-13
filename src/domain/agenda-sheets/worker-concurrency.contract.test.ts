@@ -207,6 +207,24 @@ describe("agenda-sheet sync title space + requeue (mig. 134)", () => {
     assert.match(block, /write_verify_failed:col_a_mutated/);
   });
 
+  it("P174 cancel nunca escribe A (solo B:D + O:U clear)", () => {
+    const cancelStart = worker.indexOf("// Cancelación / cleanup");
+    const cancelEnd = worker.indexOf("// booking_created desde CRM");
+    const cancelBlock = worker.slice(cancelStart, cancelEnd);
+    assert.match(cancelBlock, /batchClear/);
+    assert.match(cancelBlock, /cancelClearBatchRanges/);
+    // Clear puro no usa a1VisibleRange / rewrite A:D
+    assert.doesNotMatch(cancelBlock, /a1VisibleRange/);
+    assert.doesNotMatch(cancelBlock, /buildClearedVisibleAdRow/);
+    // P121 replacement (única escritura A) usa inspection.hora exacta
+    const repl = cancelBlock.indexOf("// Replacement: misma hora");
+    assert.ok(repl > 0, "replacement P121 en cancel+reagendo");
+    const replBlock = cancelBlock.slice(repl, repl + 800);
+    assert.match(replBlock, /inspection\.hora/);
+    assert.doesNotMatch(replBlock, /booking_time/);
+    assert.doesNotMatch(replBlock, /resolveLogicalStartTime/);
+  });
+
   it("booking_created usa fila preasignada (inventory claimed / payload.sheet_row)", () => {
     const start = worker.indexOf("// booking_created desde CRM");
     const end = worker.indexOf("// booking_created ya tiene link", start);

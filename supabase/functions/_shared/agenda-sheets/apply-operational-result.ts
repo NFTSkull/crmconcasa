@@ -1,8 +1,14 @@
 /**
- * P170+P173 — llama agenda_sheet_apply_operational_result (autoridad Postgres).
+ * P170+P173+P174 — llama agenda_sheet_apply_operational_result (autoridad Postgres).
  * No decide etapas/rechazos en TypeScript.
+ * P174: pre-RPC skip si A visible ≠ sheet= en R (sin mutar hora).
  */
 import type { OperationalResultUpsertRow } from "./operational-results.ts";
+import {
+  classifySheetTimeIdentity,
+  SKIPPED_TIME_IDENTITY_CONFLICT,
+  shouldSkipApplyForTimeIdentity,
+} from "./time-identity.ts";
 
 export const APPLY_BUSINESS_OUTCOMES = [
   "APPLIED",
@@ -15,6 +21,7 @@ export const APPLY_BUSINESS_OUTCOMES = [
   "REQUIRES_HUMAN_REACTIVATION",
   "COLOR_VETO",
   "SKIPPED_CONTINGENCY",
+  SKIPPED_TIME_IDENTITY_CONFLICT,
 ] as const;
 
 export type ApplyBusinessOutcome = (typeof APPLY_BUSINESS_OUTCOMES)[number];
@@ -142,14 +149,23 @@ export function parseApplyRpcResponse(input: {
   };
 }
 
+export type ApplyOperationalResultOpts = Readonly<{
+  /** Columna A visible (física). */
+  visibleSheetTime?: string | null;
+  /** Columna R CRM_SLOT_KEY live. */
+  liveSlotKey?: string | null;
+}>;
+
 /**
  * 1) skip local si P/Q null (sin tocar last_applied_*)
- * 2) RPC apply
+ * 2) P174: skip si identidad A≠R.sheet= (sin mutar hora / sin RPC)
+ * 3) RPC apply (contingencia P172 sigue dentro del SQL)
  * Business outcomes ≠ error fatal.
  */
 export async function applyOperationalResult(
   supabase: RpcClient,
   row: OperationalResultUpsertRow,
+  opts: ApplyOperationalResultOpts = {},
 ): Promise<ApplyOperationalResultView> {
   if (shouldSkipApplyRpc(row)) {
     const view: ApplyOperationalResultView = {
@@ -160,6 +176,39 @@ export async function applyOperationalResult(
       mutated: false,
       unexpected: false,
     };
+    logApplySafe("info", row, view);
+    return view;
+  }
+
+  if (
+    shouldSkipApplyForTimeIdentity({
+      visibleSheetTime: opts.visibleSheetTime,
+      liveSlotKey: opts.liveSlotKey,
+    })
+  ) {
+    const verdict = classifySheetTimeIdentity({
+      visibleSheetTime: opts.visibleSheetTime,
+      liveSlotKey: opts.liveSlotKey,
+    });
+    const view: ApplyOperationalResultView = {
+      ok: true,
+      outcome: SKIPPED_TIME_IDENTITY_CONFLICT,
+      reason: "visible_a_vs_slot_key_sheet",
+      skippedRpc: true,
+      mutated: false,
+      unexpected: false,
+    };
+    console.info("agenda_sheet_apply_time_identity_skip", {
+      spreadsheet_id: row.spreadsheet_id,
+      sheet_id: row.sheet_id,
+      sheet_row: row.sheet_row,
+      booking_id: row.booking_id,
+      expediente_id: row.expediente_id,
+      kind: row.kind,
+      visible_sheet_time: verdict.visibleSheetTime,
+      slot_key_sheet_time: verdict.slotKeySheetTime,
+      outcome: view.outcome,
+    });
     logApplySafe("info", row, view);
     return view;
   }

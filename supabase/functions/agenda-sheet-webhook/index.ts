@@ -185,7 +185,10 @@ async function upsertAndApplyOperationalResultRow(
     };
   }
 
-  const apply = await applyOperationalResult(supabase, ops);
+  const apply = await applyOperationalResult(supabase, ops, {
+    visibleSheetTime: String(input.row[COL_INDEX.hora] ?? ""),
+    liveSlotKey: String(input.row[COL_INDEX.slotKey] ?? ""),
+  });
   return { ops, apply };
 }
 

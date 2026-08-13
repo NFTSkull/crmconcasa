@@ -1,3 +1,11 @@
+## 2026-08-12 - P174 B2: publicación controlada (sin migration; APPLY OFF)
+
+Base `9179465` (= GitHub main). Sin schema change (Cloud max sigue **172**). Commit inmutable antes de Edge. Deploy solo `agenda-sheet-webhook` + `agenda-sheet-reconcile`; **no** redeploy `agenda-sheet-sync-worker` / live-sync. Secrets: SYNC presente; OPERATIONAL_APPLY + FROM_DATE ausentes. Observación natural: reconcile cron HTTP 200, `operational_apply_enabled=false`, `apply_count=0`. Cero writes Sheet/columna A. Aliases/UI/availability/`booking_time` sin cambio. No reparar R stale / missing links / sheet_row_conflict.
+
+## 2026-08-12 - P174 B1: protección hora visible Sheet (local, sin cambio de comportamiento)
+
+Objetivo único: CRM no modifica/corrige columna A. Aliases 08:30↔08:00 y 11:00↔10:00 **intactos**; UI/disponibilidad/`booking_time` sin cambio. Gate Edge pre-RPC `SKIPPED_TIME_IDENTITY_CONFLICT` cuando A visible ≠ `sheet=` en R (sin tocar A ni booking). Webhook `occupied_slot_time_changed` sigue solo auditar. P121: tests de que replacement A = `inspection.hora` exacta (no booking_time/aliases). Missing-links: clasificador RO. Sin Cloud/Edge deploy/Sheet/commit. P170 OFF.
+
 ## 2026-08-12 - P173 B2: publicación controlada (APPLY OFF)
 
 Project `fvtqbxukqlajezyyvwzy`. Deno webhook: main=5 errores = P173=5 (0 nuevos); shared P173 PASS. Apply SQL 172 vía `db query --linked -f` + registro `schema_migrations` 172 (sin `db push`). Edge: webhook 24→25, reconcile 15→16; worker 26 intacto. Secrets: SYNC presente; OPERATIONAL_APPLY + FROM_DATE ausentes. Baseline ops: 715 filas, apply_outcome null, fp 0. P172 counts 0/0/0.
