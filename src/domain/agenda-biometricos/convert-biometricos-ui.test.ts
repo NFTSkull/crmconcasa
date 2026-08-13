@@ -76,7 +76,7 @@ describe("P070 convert UI gates + card wiring", () => {
     // sin llamadas separadas en el handler de conversión
     const convertBlock = src.slice(
       src.indexOf("handleConvertToNotificacion"),
-      src.indexOf("showEtapa3Tabs"),
+      src.indexOf("renderAgendaTabs"),
     );
     assert.match(convertBlock, /convertBiometricosToNotificacion/);
     assert.doesNotMatch(convertBlock, /cancelBiometricos\(/);
@@ -84,12 +84,15 @@ describe("P070 convert UI gates + card wiring", () => {
     assert.doesNotMatch(convertBlock, /driveValidated|Validado en Drive/);
   });
 
-  it("tabs Bio/Notificación solo en etapa 3 sin bookings activos", () => {
+  it("tabs Bio/Notificación/Inscripción siempre visibles en agenda (P177)", () => {
     const src = readFileSync(
       join(process.cwd(), "src/components/asesor/AgendaBiometricosSupabaseCard.tsx"),
       "utf8",
     );
-    assert.match(
+    assert.match(src, /renderAgendaTabs/);
+    assert.match(src, /"inscripcion"/);
+    assert.match(src, /label: "Inscripción"/);
+    assert.doesNotMatch(
       src,
       /showEtapa3Tabs = etapaActual === 3 && !activeBooking && !activeNotificacion/,
     );

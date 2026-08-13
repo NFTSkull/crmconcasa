@@ -1,3 +1,7 @@
+## 2026-08-13 - P177 UI: tab Inscripción visible en agenda asesor
+
+Inscripción se integra como tercer tab en `AgendaBiometricosSupabaseCard` (siempre visible). Sin requirement: estado informativo «No requerida» (sin CTA). Con pending/rebook/booked: card P175 existente. Monterrey V1 (sin Apodaca). Se elimina mount standalone `AsesorAgendaInscripcionSupabaseGate`. Sin migration/Cloud/Sheet/Edge. P170 OFF.
+
 ## 2026-08-13 - P176 hotfix: disponibilidad agenda + live-sync auth
 
 Root cause: (A) live-sync leía `profiles.is_active` + roles legacy → 401 browser; (B) mig 173 reemplazó `agenda_sheet_inventory_availability` por aggregate sin `fresh/enforced/slots[]` → UI «Agenda temporalmente no disponible» pese a cupos Sheet. Fix: mig 174 restaura contrato histórico + top-level P175; live-sync `active` + roles asesor/editor/mesa_*/super_admin. P170 OFF; requirements P175 intactos. Sin Sheet writes.
