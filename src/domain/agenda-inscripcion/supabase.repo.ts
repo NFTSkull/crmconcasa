@@ -22,6 +22,7 @@ import type {
 } from "./repo";
 import type {
   AgendaInscripcionActiveBooking,
+  AgendaInscripcionAsesorEligibility,
   AgendaInscripcionRequirement,
   AgendaInscripcionRequirementSourceType,
   AgendaInscripcionRequirementStatus,
@@ -165,6 +166,49 @@ export class SupabaseAgendaInscripcionRepo implements AgendaInscripcionRepo {
     return data ? mapActiveBooking(data as BookingRow) : null;
   }
 
+  async getAsesorEligibility(
+    expedienteId: string,
+  ): Promise<AgendaInscripcionAsesorEligibility> {
+    try {
+      const sb = clientOrThrow();
+      const { data, error } = await sb.rpc(
+        "agenda_inscripcion_asesor_eligibility",
+        { p_expediente_id: expedienteId },
+      );
+      if (error) {
+        if (
+          /does not exist|agenda_inscripcion_asesor_eligibility/i.test(
+            error.message,
+          )
+        ) {
+          return { eligible: false, reasonCode: "rpc_unavailable" };
+        }
+        throw new AgendaInscripcionError(error.message);
+      }
+      const row = data as {
+        eligible?: boolean;
+        reason_code?: string;
+        has_open_requirement?: boolean;
+        has_active_booking?: boolean;
+        location_id?: string;
+        fixed_time?: string;
+        etapa_actual?: number;
+      } | null;
+      return {
+        eligible: row?.eligible === true,
+        reasonCode: String(row?.reason_code ?? "unknown"),
+        hasOpenRequirement: row?.has_open_requirement === true,
+        hasActiveBooking: row?.has_active_booking === true,
+        locationId: "monterrey",
+        fixedTime: "11:00",
+        etapaActual:
+          typeof row?.etapa_actual === "number" ? row.etapa_actual : undefined,
+      };
+    } catch {
+      return { eligible: false, reasonCode: "eligibility_error" };
+    }
+  }
+
   async listAvailability(params: {
     fromDate: string;
     toDate: string;
@@ -238,11 +282,21 @@ export class SupabaseAgendaInscripcionRepo implements AgendaInscripcionRepo {
         p_note: params.note ?? null,
       });
       if (error) throw mapBookInscripcionRpcError(error);
-      const row = data as { ok?: boolean; booking_id?: string } | null;
+      const row = data as {
+        ok?: boolean;
+        booking_id?: string;
+        requirement_id?: string;
+        requirement_created?: boolean;
+      } | null;
       if (!row?.ok) {
         return { ok: false, message: "No se pudo agendar la cita." };
       }
-      return { ok: true, bookingId: row.booking_id };
+      return {
+        ok: true,
+        bookingId: row.booking_id,
+        requirementId: row.requirement_id,
+        requirementCreated: row.requirement_created === true,
+      };
     } catch (e) {
       return mutationFromError(
         e instanceof AgendaInscripcionError ? e : mapBookInscripcionRpcError(e as never),

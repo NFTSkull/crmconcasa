@@ -1,5 +1,5 @@
 /**
- * P177 — tercer tab Inscripción en agenda asesor (UI only).
+ * P177/P178 — tab Inscripción + self-service elegible.
  */
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
@@ -8,7 +8,7 @@ import { join } from "node:path";
 
 const root = process.cwd();
 
-describe("P177 agenda tabs Inscripción", () => {
+describe("P177/P178 agenda tabs Inscripción", () => {
   const bio = readFileSync(
     join(root, "src/components/asesor/AgendaBiometricosSupabaseCard.tsx"),
     "utf8",
@@ -19,6 +19,10 @@ describe("P177 agenda tabs Inscripción", () => {
   );
   const page = readFileSync(
     join(root, "src/app/asesor/expediente/[id]/page.tsx"),
+    "utf8",
+  );
+  const repo = readFileSync(
+    join(root, "src/domain/agenda-inscripcion/supabase.repo.ts"),
     "utf8",
   );
 
@@ -46,14 +50,22 @@ describe("P177 agenda tabs Inscripción", () => {
     assert.match(page, /AsesorAgendaBiometricosSupabaseGate/);
   });
 
-  it("sin requirement: estado No requerida sin CTA", () => {
-    assert.match(insc, /inscripcion-no-requerida/);
-    assert.match(insc, /No requerida/);
+  it("P178 eligible: Disponible + Agendar; ineligible sin CTA", () => {
+    assert.match(insc, /inscripcion-badge-disponible/);
+    assert.match(insc, /Disponible/);
     assert.match(
       insc,
-      /La cita de inscripción se habilita cuando Mesa/,
+      /Si el cliente necesita regresar para concluir/,
     );
-    assert.match(insc, /embedded \? <InscripcionNoRequeridaState/);
+    assert.match(insc, /inscripcion-no-disponible/);
+    assert.match(insc, /No disponible todavía/);
+    assert.match(
+      insc,
+      /La cita de inscripción se habilita después de que el cliente haya/,
+    );
+    assert.doesNotMatch(insc, /No requerida/);
+    assert.match(insc, /getAsesorEligibility/);
+    assert.match(insc, /isInscripcionSelfServiceVisible/);
   });
 
   it("pending/booked/rebook CTAs + Monterrey-only + 11:00", () => {
@@ -64,6 +76,16 @@ describe("P177 agenda tabs Inscripción", () => {
     assert.doesNotMatch(insc, /Apodaca/);
     assert.match(insc, /INSCRIPCION_FIXED_TIME_DISPLAY/);
     assert.match(insc, /locationId: INSCRIPCION_SEDE/);
+  });
+
+  it("no crea requirement desde frontend; solo book RPC", () => {
+    assert.doesNotMatch(insc, /mesaSolicitar/);
+    assert.doesNotMatch(insc, /require_from_sheet/);
+    assert.doesNotMatch(insc, /agenda_inscripcion_require/);
+    assert.match(insc, /repo\.book\(/);
+    assert.match(repo, /book_inscripcion_extraordinaria/);
+    assert.match(repo, /agenda_inscripcion_asesor_eligibility/);
+    assert.doesNotMatch(repo, /INSERT INTO.*agenda_inscripcion_requerimientos/);
   });
 
   it("Notificación y Biométricos sin romper paneles", () => {

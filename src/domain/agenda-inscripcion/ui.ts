@@ -81,3 +81,15 @@ export function formatInscripcionCupoLabel(available: number, capacity: number):
   }
   return "Disponible";
 }
+
+/**
+ * P178: sin requirement abierto, la card self-service solo si eligibility.eligible.
+ * Con requirement abierto, el flujo P175 existente manda (no usar este helper).
+ */
+export function isInscripcionSelfServiceVisible(params: {
+  hasOpenRequirement: boolean;
+  eligible: boolean;
+}): boolean {
+  if (params.hasOpenRequirement) return false;
+  return params.eligible === true;
+}
