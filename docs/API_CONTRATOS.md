@@ -1037,6 +1037,22 @@ Captura en la misma TX de `register_expediente_documento_correccion` / `save_cli
 
 **UI `/admin`:** sección «Estado actual de los expedientes enviados a Mesa» + listado «Expedientes del flujo operativo de Mesa»; independiente de Hoy/semana/mes. KPI superiores y Excel siguen en universo por periodo (`fecha_envio_mesa`).
 
+### 15-novies. Localizador Admin cliente/NSS (P182)
+
+**Operación:** RPC read-only `admin_search_cliente_expedientes(p_buscar TEXT, p_limit INTEGER DEFAULT 20, p_asesor_id UUID DEFAULT NULL)` — migración **179** (local B1; no Cloud).
+
+**Auth:** `super_admin` vía `__admin_require_super_admin()`; `SECURITY DEFINER` + `STABLE` + `search_path=public`; GRANT `authenticated`; REVOKE `anon`/`PUBLIC`. Org = `profiles.organization_id` del actor.
+
+**Universo:** `public.expedientes` de la org; `deleted_at IS NULL`; **incluye pre-Mesa y post-Mesa**; **sin** `p_from`/`p_to`; **sin** exigir `submitted_to_mesa`. Identidad = `expediente_id` (no `GROUP BY` NSS; P179: mismo NSS + dos asesores pre-Mesa = 2 filas). Orden: `updated_at DESC, created_at DESC, id DESC`.
+
+**Match:** `cliente_nombre`, `nss`, `profiles.full_name`/`email`, `programa` ILIKE. Si el input tiene ≥3 dígitos, también match por dígitos de NSS (espacios/guiones). `p_asesor_id` opcional. Vacío → `{items:[], truncated:false}`. Limit clamp 1..50 (default 20); `truncated` si hay más.
+
+**Joins:** `editor_decisions` (1:1); `expediente_precalificacion_intentos` **solo** `i.id = e.reprecalificacion_pendiente_id`. No existe tabla `precalificaciones`.
+
+**Response item:** `expediente_id`, cliente/NSS, asesor, programa, timestamps, ciclo/etapa/subestado, `submitted_to_mesa`/`fecha_envio_mesa`, `editor_decision`/`monto_aprobado`/`aprobado_at`/`no_cumple_at`, `reprecalificacion_pendiente_id`/`precal_pending`/`programa_solicitado`.
+
+**UI `/admin` pestaña Resumen:** con `buscarDebounced` no vacío, sección «Resultados de búsqueda» **antes** de KPIs («Resumen del periodo»). Debounce 300 ms; última request gana. CTA «Abrir expediente» = panel con datos del RPC (no `AdminExpedienteDrawer` Mesa). P177 `p_buscar` de listados/KPIs **sin cambio de semántica**.
+
 ### 15-bis. Reporte expedientes por asesores × pasos visuales (P112)
 
 **Operación:** RPC read-only `admin_report_expedientes_asesores_etapas(p_asesor_ids UUID[] DEFAULT NULL, p_pasos_visuales SMALLINT[] DEFAULT NULL, p_estado TEXT DEFAULT 'vigentes') RETURNS JSONB`

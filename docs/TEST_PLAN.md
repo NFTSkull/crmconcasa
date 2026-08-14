@@ -1,3 +1,8 @@
+## P182 — Localizador Admin Resumen (cliente / NSS)
+
+- [x] B1 LOCAL: RPC `admin_search_cliente_expedientes` mig **179** (sin periodo; pre+post Mesa; 1 fila por `expediente_id`); UI Resumen «Resultados de búsqueda» separada de KPIs; debounce 300 ms + seq; SQL A–Q; tests FE. Sin Cloud/commit.
+- [ ] B2 Cloud apply 179 + smoke (fuera de B1).
+
 ## Admin buscar NSS (mig 177)
 
 - [x] `p_buscar` Mesa/Precal/Snapshot incluye `expedientes.nss` ILIKE

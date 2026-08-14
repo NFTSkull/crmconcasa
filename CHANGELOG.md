@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Added
+
+- **feat(admin): P182 localizador Resumen por cliente/NSS (LOCAL)** — RPC RO `admin_search_cliente_expedientes` (mig **179**, sin periodo, sin dedupe NSS); panel «Resultados de búsqueda» en `/admin` Resumen antes de KPIs. P177/KPIs intactos. Sin Cloud/commit.
+
 ### Changed
 
 - **fix(asesor): P181 re-precalificar desde /asesor/nueva (LOCAL)** — NSS propio activo ya no corta con error rojo: confirmación → `asesor_iniciar_reprecalificacion` (mismo expediente) → detalle. P179 intacto (otro asesor pre-Mesa → `create_expediente`). Sin RPC/migración/Cloud.

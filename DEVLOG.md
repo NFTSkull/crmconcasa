@@ -1,3 +1,7 @@
+## 2026-08-14 - P182 B1 LOCAL: localizador Admin Resumen
+
+Causa: el buscador de `/admin` filtraba RPCs de periodo/snapshot Mesa pero Resumen no listaba coincidencias operativas (pre-Mesa, histórico fuera del preset, multi-expediente P179). Fix: RPC RO dedicado sin `p_from/p_to`, universo `expedientes.deleted_at IS NULL` + org del super_admin; UI «Resultados de búsqueda» separada de «Resumen del periodo». CTA = panel con payload del search (drawer Mesa exige `fechaEnvioMesa`). Filtro asesor sí; estado/etapa no. Sin Cloud apply / commit.
+
 ## 2026-08-13 - P181 B1 LOCAL: re-precal desde /asesor/nueva
 
 Causa: `/nueva` trataba `reprecal_own_mesa` / `reprecal_change_programa` como error P169 (Enviar disabled). El asesor propio ya tenía expediente (caso Paty) y no podía reenviar. Fix UI only: confirmación + revalidación de gate + RPC existente `asesor_iniciar_reprecalificacion` + redirect al detalle. Idempotencia vía guard/key. P179 sin tocar (pre-Mesa ajeno → `ok_create`). Sin migration/Cloud/commit.
