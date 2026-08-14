@@ -40,6 +40,10 @@ import {
   formatReingresoBadgeLabel,
   hasReingresoVisible,
 } from "@/domain/expedientes/reingreso-manual";
+import {
+  asesorEstatusOperativoFilaBadge,
+  asesorResultadoFilaBadge,
+} from "@/domain/expedientes/asesor-inbox-fila-badges";
 import { isDataModeSupabase } from "@/lib/dataMode";
 import {
   countAsesorCorreccionesAbiertas,
@@ -58,10 +62,6 @@ import {
   type ExpedienteClienteDatosEstado,
 } from "@/domain/expediente-cliente-datos";
 import { EXPEDIENTE_CLIENTE_DATOS_UPDATED_EVENT } from "@/domain/expediente-cliente-datos/emit-updated";
-import {
-  subestadoOperativoBadgeClass,
-  subestadoOperativoLabel,
-} from "@/lib/subestadoOperativoUi";
 import { formatMontoMX } from "@/lib/monto";
 import { NotificationsBell } from "@/components/notifications/NotificationsBell";
 import { AsesorAgendaCalendarButton } from "@/components/asesor/AsesorAgendaCalendarButton";
@@ -100,60 +100,6 @@ import {
 const CORRECCION_REQUERIDA_BADGE_CLASS =
   "inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900 ring-1 ring-amber-300";
 
-function asesorResultadoFilaBadge(
-  resultadoReal: ResultadoRealExpediente,
-  resumenCorreccion?: CategoriaResumenDocumental,
-): { label: string; className: string } {
-  // P099: rechazo/cancelación operativos tienen prioridad sobre corrección documental.
-  if (resultadoReal === "cancelado") {
-    return {
-      label: "Cancelado",
-      className: "bg-slate-200 text-slate-900 border border-slate-400",
-    };
-  }
-  if (resultadoReal === "rechazado_mesa") {
-    return {
-      label: "Rechazado (mesa)",
-      className: "bg-red-100 text-red-800 border border-red-200",
-    };
-  }
-  if (resumenCorreccion === "correccion_requerida") {
-    return {
-      label: "Necesita corrección",
-      className: "bg-amber-100 text-amber-900 border border-amber-300",
-    };
-  }
-  if (resumenCorreccion === "correccion_enviada") {
-    return {
-      label: "Corrección enviada",
-      className: "bg-sky-100 text-sky-800 border border-sky-200",
-    };
-  }
-  switch (resultadoReal) {
-    case "en_tramite":
-      return {
-        label: "En trámite",
-        className: "bg-blue-100 text-blue-800 border border-blue-200",
-      };
-    case "no_cumple_editor":
-      return {
-        label: "No cumple (editor)",
-        className: "bg-red-100 text-red-800 border border-red-200",
-      };
-    case "aprobado_editor":
-      return {
-        label: "Aprobado (editor)",
-        className: "bg-green-100 text-green-800 border border-green-200",
-      };
-    case "pendiente_editor":
-    default:
-      return {
-        label: "Pendiente (editor)",
-        className: "bg-amber-100 text-amber-800 border border-amber-200",
-      };
-  }
-}
-
 function asesorDocumentacionFilaBadge(
   estadoDocumentacion: EstadoDocumentacionColumnaAsesor | undefined,
   resumenCorreccion?: CategoriaResumenDocumental,
@@ -171,40 +117,6 @@ function asesorDocumentacionFilaBadge(
   return {
     label: documentacionColumnaLabel(estadoDocumentacion),
     className: documentacionColumnaBadgeClass(estadoDocumentacion),
-  };
-}
-
-function asesorEstatusOperativoFilaBadge(
-  subestado: string | null | undefined,
-  resumenCorreccion?: CategoriaResumenDocumental,
-  cicloEstado?: string | null,
-): { label: string; className: string } {
-  if (cicloEstado === "cancelado") {
-    return {
-      label: "Cancelado",
-      className:
-        "inline-flex rounded-full bg-slate-200 px-2 py-0.5 text-xs font-medium text-slate-900 ring-1 ring-slate-400",
-    };
-  }
-  if (subestado === "rechazado") {
-    return {
-      label: subestadoOperativoLabel(subestado),
-      className: `inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${subestadoOperativoBadgeClass(subestado)}`,
-    };
-  }
-  if (resumenCorreccion === "correccion_requerida") {
-    return { label: "Necesita corrección", className: CORRECCION_REQUERIDA_BADGE_CLASS };
-  }
-  if (resumenCorreccion === "correccion_enviada") {
-    return {
-      label: "Corrección enviada",
-      className:
-        "inline-flex rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-800 ring-1 ring-sky-200",
-    };
-  }
-  return {
-    label: subestadoOperativoLabel(subestado),
-    className: `inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${subestadoOperativoBadgeClass(subestado)}`,
   };
 }
 
@@ -1706,11 +1618,15 @@ export default function AsesorDashboardPage() {
                       const resultadoBadge = asesorResultadoFilaBadge(
                         resultadoReal,
                         resumenCorreccion,
+                        p.etapaActual,
+                        p.operativo?.pagoConcasaResultado,
                       );
                       const estatusOperativoBadge = asesorEstatusOperativoFilaBadge(
                         p.operativo?.subestado,
                         resumenCorreccion,
                         p.operativo?.cicloEstado,
+                        p.etapaActual,
+                        p.operativo?.pagoConcasaResultado,
                       );
                       const updatedDisplay = formatAsesorInboxActualizacion(
                         p.reprecal,

@@ -1,3 +1,8 @@
+## P184 — Asesor etapa 12: estado final Pago ConCasa
+
+- [x] B1 LOCAL: override visual `/asesor` (Completado/Pagado vs Finalizado/No pagó; null no infiere). Sin RPC/migration/Cloud.
+- [ ] B2 publicación (fuera de B1).
+
 ## P183 — Inbox asesor: re-precalificación como actividad nueva
 
 - [x] B1 LOCAL: mig **180** REPLACE `asesor_list_expedientes_page` (orden `inbox_sort_at`, meta reprecal REAL); UI pills + columna Actualización; SQL A–P; tests FE. Sin mutar iniciar/resolver. Sin Cloud/commit.

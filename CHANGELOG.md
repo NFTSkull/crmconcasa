@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Changed
+
+- **fix(asesor): P184 etapa 12 Pago ConCasa en /asesor (LOCAL)** — override visual: pagado → Completado/Pagado; no_pagado → Finalizado/No pagó; null no infiere. Sin RPC/migration/Cloud.
+
 ### Added
 
 - **feat(asesor): P183 inbox re-precal como actividad (LOCAL)** — mig **180** READ MODEL: orden `COALESCE(reprecal_activity_at, created_at)` (no `updated_at`); badges En revisión / Monto actualizado / No cumple. Sin Cloud/commit.
