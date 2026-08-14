@@ -1,6 +1,10 @@
 import type { AdminPeriodBounds } from "./period";
 import type { AdminMesaEnvioEvent, AdminPrecalEvent, AdminProductionSummary } from "./metrics";
 import type { AdminMesaTimelineEvent } from "./mesa-seguimiento";
+import type {
+  AdminClienteSearchInput,
+  AdminClienteSearchResult,
+} from "./admin-cliente-search";
 
 export type AdminEstadoFilter =
   | "todos"
@@ -140,6 +144,13 @@ export interface AdminProductionRepo {
   listPrecalificacionesPage(
     filters: AdminProductionFilters,
   ): Promise<AdminPaginated<AdminPrecalEvent> & { summary: AdminPrecalSummary }>;
+  /**
+   * P182: localizador RO por cliente/NSS. Sin periodo.
+   * Identidad = expediente_id (no dedupe por NSS).
+   */
+  searchClienteExpedientes(
+    input: AdminClienteSearchInput,
+  ): Promise<AdminClienteSearchResult>;
   /** Timeline detallado bajo demanda (no embebido en el listado). */
   getExpedienteMesaTimeline(input: {
     expedienteId: string;

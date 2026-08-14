@@ -65,3 +65,17 @@ export type {
   AdminMesaCorreccionTipo,
 } from "./mesa-seguimiento";
 export { getEtapaOperativaNombre } from "@/domain/expedientes/asesor-seguimiento-operativo";
+export {
+  clampAdminClienteSearchLimit,
+  isAdminClienteSearchQueryActive,
+  parseAdminClienteSearchPayload,
+  labelAdminSearchPrecalDecision,
+  labelAdminSearchEtapa,
+  labelAdminSearchMesa,
+  EMPTY_ADMIN_CLIENTE_SEARCH,
+} from "./admin-cliente-search";
+export type {
+  AdminClienteSearchItem,
+  AdminClienteSearchResult,
+  AdminClienteSearchInput,
+} from "./admin-cliente-search";

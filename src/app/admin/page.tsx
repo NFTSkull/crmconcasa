@@ -25,6 +25,13 @@ import {
   type AdminPrecalEvent,
 } from "@/domain/admin-production";
 import {
+  EMPTY_ADMIN_CLIENTE_SEARCH,
+  isAdminClienteSearchQueryActive,
+  shouldApplyAdminSearchResponse,
+  type AdminClienteSearchItem,
+  type AdminClienteSearchResult,
+} from "@/domain/admin-production/admin-cliente-search";
+import {
   labelAdminMesaAction,
   formatAdminMesaAsesorLabel,
   sanitizeAdminMotivo,
@@ -53,6 +60,8 @@ import { AdminEmptyState } from "@/components/admin/AdminEmptyState";
 import { AdminExpandableAdvisorRow } from "@/components/admin/AdminExpandableAdvisorRow";
 import { AdminExpedienteDrawer } from "@/components/admin/AdminExpedienteDrawer";
 import { AdminBernardoDashboard } from "@/components/admin/AdminBernardoDashboard";
+import { AdminSearchResultadosSection } from "@/components/admin/AdminSearchResultadosSection";
+import { AdminSearchExpedientePanel } from "@/components/admin/AdminSearchExpedientePanel";
 import {
   ADMIN_REPORTES_SUBTABS,
   ADMIN_TAB_QUERY_PARAM,
@@ -167,6 +176,15 @@ export default function AdminDashboardPage() {
   const [timelineTotal, setTimelineTotal] = useState(0);
   const [timelineLoadingMore, setTimelineLoadingMore] = useState(false);
   const timelineTriggerRef = useRef<HTMLButtonElement | null>(null);
+  const searchSeqRef = useRef(0);
+  const [searchLoading, setSearchLoading] = useState(false);
+  const [searchError, setSearchError] = useState<string | null>(null);
+  const [searchResult, setSearchResult] = useState<AdminClienteSearchResult>(
+    EMPTY_ADMIN_CLIENTE_SEARCH,
+  );
+  const [searchOpenItem, setSearchOpenItem] = useState<AdminClienteSearchItem | null>(
+    null,
+  );
 
   const bounds = useMemo(() => {
     try {
@@ -413,6 +431,35 @@ export default function AdminDashboardPage() {
     }
   }, [repo, snapshotFiltersBase, snapshotListFilters]);
 
+  const loadSearch = useCallback(async () => {
+    const q = buscarDebounced.trim();
+    const seq = ++searchSeqRef.current;
+    if (!isAdminClienteSearchQueryActive(q)) {
+      setSearchLoading(false);
+      setSearchError(null);
+      setSearchResult(EMPTY_ADMIN_CLIENTE_SEARCH);
+      setSearchOpenItem(null);
+      return;
+    }
+    setSearchLoading(true);
+    setSearchError(null);
+    try {
+      const r = await repo.searchClienteExpedientes({
+        buscar: q,
+        asesorId: asesorId || null,
+        limit: 20,
+      });
+      if (!shouldApplyAdminSearchResponse(seq, searchSeqRef.current)) return;
+      setSearchResult(r);
+    } catch (e) {
+      if (!shouldApplyAdminSearchResponse(seq, searchSeqRef.current)) return;
+      setSearchError(e instanceof Error ? e.message : "No se pudo buscar");
+      setSearchResult(EMPTY_ADMIN_CLIENTE_SEARCH);
+    } finally {
+      if (seq === searchSeqRef.current) setSearchLoading(false);
+    }
+  }, [repo, buscarDebounced, asesorId]);
+
   useEffect(() => {
     if (currentUser?.role === "super_admin") void load();
   }, [currentUser, load]);
@@ -420,6 +467,10 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     if (currentUser?.role === "super_admin") void loadSnapshot();
   }, [currentUser, loadSnapshot]);
+
+  useEffect(() => {
+    if (currentUser?.role === "super_admin") void loadSearch();
+  }, [currentUser, loadSearch]);
 
   const clearFilters = () => {
     setPreset("hoy");
@@ -723,6 +774,24 @@ export default function AdminDashboardPage() {
           hidden={activeTab !== "resumen"}
           className="space-y-6"
         >
+        {isAdminClienteSearchQueryActive(buscarDebounced) ? (
+          <AdminSearchResultadosSection
+            query={buscarDebounced}
+            loading={searchLoading}
+            error={searchError}
+            items={searchResult.items}
+            truncated={searchResult.truncated}
+            limit={searchResult.limit}
+            onRetry={() => void loadSearch()}
+            onOpen={setSearchOpenItem}
+            onClear={() => setBuscar("")}
+          />
+        ) : null}
+
+        <AdminSectionHeader
+          title="Resumen del periodo"
+          description="KPIs del rango seleccionado. No se mezclan con el localizador de búsqueda."
+        />
         {loading ? (
           <p className="text-gray-700">Cargando producción…</p>
         ) : (
@@ -1381,6 +1450,10 @@ export default function AdminDashboardPage() {
         </div>
       </main>
 
+      <AdminSearchExpedientePanel
+        item={searchOpenItem}
+        onClose={() => setSearchOpenItem(null)}
+      />
       <AdminExpedienteDrawer
         open={timelineOpen}
         row={timelineTarget}

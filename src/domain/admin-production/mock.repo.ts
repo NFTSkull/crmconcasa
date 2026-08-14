@@ -22,6 +22,15 @@ import type {
 } from "./repo";
 import { matchesAdminEtapaActualFilter } from "./repo";
 import { matchesAdminEstadoFilter } from "./admin-estado-filter";
+import {
+  ADMIN_CLIENTE_SEARCH_DEFAULT_LIMIT,
+  clampAdminClienteSearchLimit,
+  isAdminClienteSearchQueryActive,
+  matchesAdminClienteSearchQuery,
+  type AdminClienteSearchInput,
+  type AdminClienteSearchItem,
+  type AdminClienteSearchResult,
+} from "./admin-cliente-search";
 import { mapEtapaInternaAPasoVisual } from "@/domain/expedientes/asesor-seguimiento-operativo";
 
 /** Paridad SQL admin `p_buscar`: cliente / asesor / programa / NSS. */
@@ -279,6 +288,63 @@ export class MockAdminProductionRepo implements AdminProductionRepo {
         const tb = b.fecha ? Date.parse(b.fecha) : 0;
         return tb - ta;
       });
+  }
+
+  async searchClienteExpedientes(
+    input: AdminClienteSearchInput,
+  ): Promise<AdminClienteSearchResult> {
+    const limit = clampAdminClienteSearchLimit(
+      input.limit ?? ADMIN_CLIENTE_SEARCH_DEFAULT_LIMIT,
+    );
+    if (!isAdminClienteSearchQueryActive(input.buscar)) {
+      return { items: [], truncated: false, limit };
+    }
+    const all = await this.loadAll();
+    const matched = all
+      .filter((e) => !input.asesorId || e.base.asesorId === input.asesorId)
+      .filter((e) =>
+        matchesAdminClienteSearchQuery(input.buscar, {
+          clienteNombre: e.base.cliente_nombre,
+          nss: e.base.nss,
+          asesorNombre: e.base.asesorNombre,
+          asesorEmail: e.base.asesorEmail,
+          programa: e.base.programa,
+        }),
+      )
+      .sort((a, b) => {
+        const ua = Date.parse(a.operativo.updatedAt ?? a.base.createdAt);
+        const ub = Date.parse(b.operativo.updatedAt ?? b.base.createdAt);
+        if (ub !== ua) return ub - ua;
+        const ca = Date.parse(a.base.createdAt);
+        const cb = Date.parse(b.base.createdAt);
+        if (cb !== ca) return cb - ca;
+        return b.id.localeCompare(a.id);
+      });
+    const truncated = matched.length > limit;
+    const items: AdminClienteSearchItem[] = matched.slice(0, limit).map((e) => ({
+      expedienteId: e.id,
+      clienteNombre: e.base.cliente_nombre,
+      nss: e.base.nss,
+      asesorId: e.base.asesorId,
+      asesorNombre: e.base.asesorNombre ?? null,
+      asesorEmail: e.base.asesorEmail ?? null,
+      programa: e.base.programa,
+      createdAt: e.base.createdAt,
+      updatedAt: e.operativo.updatedAt,
+      cicloEstado: e.operativo.cicloEstado ?? "activo",
+      submittedToMesa: Boolean(e.operativo.submittedToMesa),
+      fechaEnvioMesa: e.operativo.fechaEnvioMesa,
+      etapaActual: e.operativo.etapaActual ?? 1,
+      subestado: e.operativo.subestado,
+      editorDecision: e.editorDecision.decision,
+      montoAprobado: e.editorDecision.monto_aprobado,
+      aprobadoAt: e.editorDecision.aprobadoAt ?? null,
+      noCumpleAt: e.editorDecision.noCumpleAt ?? null,
+      reprecalificacionPendienteId: e.reprecalificacionPendienteId ?? null,
+      precalPending: Boolean(e.reprecalificacionPendienteId),
+      programaSolicitado: e.reprecalificacionPendiente?.programaSolicitado ?? null,
+    }));
+    return { items, truncated, limit };
   }
 
   async getSummary(filters: AdminProductionFilters) {

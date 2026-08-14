@@ -21,6 +21,15 @@ import type {
 } from "./repo";
 import { resolveAdminEtapaActualesFilter } from "./repo";
 import { adminEstadoRpcParam } from "./admin-estado-filter";
+import {
+  ADMIN_CLIENTE_SEARCH_DEFAULT_LIMIT,
+  EMPTY_ADMIN_CLIENTE_SEARCH,
+  clampAdminClienteSearchLimit,
+  isAdminClienteSearchQueryActive,
+  parseAdminClienteSearchPayload,
+  type AdminClienteSearchInput,
+  type AdminClienteSearchResult,
+} from "./admin-cliente-search";
 
 function requireClient() {
   if (!isSupabaseConfigured() || !supabaseBrowser) {
@@ -421,6 +430,25 @@ export class SupabaseAdminProductionRepo implements AdminProductionRepo {
       pageSize: num(row.page_size) || 25,
       summary,
     };
+  }
+
+  async searchClienteExpedientes(
+    input: AdminClienteSearchInput,
+  ): Promise<AdminClienteSearchResult> {
+    const limit = clampAdminClienteSearchLimit(
+      input.limit ?? ADMIN_CLIENTE_SEARCH_DEFAULT_LIMIT,
+    );
+    if (!isAdminClienteSearchQueryActive(input.buscar)) {
+      return { ...EMPTY_ADMIN_CLIENTE_SEARCH, limit };
+    }
+    const client = requireClient();
+    const { data, error } = await client.rpc("admin_search_cliente_expedientes", {
+      p_buscar: input.buscar.trim(),
+      p_limit: limit,
+      p_asesor_id: input.asesorId ?? null,
+    });
+    if (error) throw new Error(error.message || "No se pudo buscar expedientes");
+    return parseAdminClienteSearchPayload(data);
   }
 
   async getExpedienteMesaTimeline(input: {
