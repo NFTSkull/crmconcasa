@@ -11,6 +11,7 @@ import {
   ExpedientesSupabaseError,
   useExpedientesRepo,
   isProgramaMejoravit,
+  editorRevisionDisplay,
 } from "@/domain/expedientes";
 import { parseMontoAprobado } from "@/lib/monto";
 
@@ -79,6 +80,8 @@ export default function EditorExpedientePage() {
         setPrecal(null);
         return;
       }
+      const sidecar = await repo.listEditorReprecalMeta([exp.id]);
+      const revision = editorRevisionDisplay(exp, sidecar[exp.id]);
       setPrecal({
         id: exp.id,
         programa: exp.base.programa,
@@ -101,19 +104,11 @@ export default function EditorExpedientePage() {
         montoVigente: exp.editorDecision.monto_aprobado,
       });
 
-      if (exp.reprecalificacionPendienteId) {
-        setDecision("pendiente");
-        setMontoStr("");
-        setNotas("");
-      } else {
-        setDecision(exp.editorDecision.decision);
-        setMontoStr(
-          exp.editorDecision.monto_aprobado != null
-            ? String(exp.editorDecision.monto_aprobado)
-            : "",
-        );
-        setNotas(exp.editorDecision.notas_revision);
-      }
+      setDecision(revision.decision);
+      setMontoStr(
+        revision.monto_aprobado != null ? String(revision.monto_aprobado) : "",
+      );
+      setNotas(revision.notas_revision);
     };
 
     loadExpediente();
@@ -151,10 +146,13 @@ export default function EditorExpedientePage() {
         }
       }
       const wasReprecal = Boolean(precal?.reprecalificacionPendienteId);
+      const savedDecision = decision;
+      const savedMonto = decision === "aprobado" ? num : null;
+      const savedNotas = notas.trim();
       await repo.upsertEditorDecision(id, {
         decision,
         monto_aprobado: num,
-        notas_revision: notas.trim(),
+        notas_revision: savedNotas,
       });
       setSavedMessage(
         wasReprecal
@@ -163,6 +161,11 @@ export default function EditorExpedientePage() {
       );
       const refreshed = await repo.getById(id);
       if (refreshed) {
+        const sidecar = await repo.listEditorReprecalMeta([refreshed.id]);
+        const revision = editorRevisionDisplay(
+          refreshed,
+          sidecar[refreshed.id],
+        );
         setPrecal((prev) =>
           prev
             ? {
@@ -177,13 +180,19 @@ export default function EditorExpedientePage() {
               }
             : prev,
         );
-        setDecision(refreshed.editorDecision.decision);
-        setMontoStr(
-          refreshed.editorDecision.monto_aprobado != null
-            ? String(refreshed.editorDecision.monto_aprobado)
-            : "",
-        );
-        setNotas(refreshed.editorDecision.notas_revision);
+        if (wasReprecal) {
+          setDecision(savedDecision);
+          setMontoStr(savedMonto != null ? String(savedMonto) : "");
+          setNotas(savedNotas);
+        } else {
+          setDecision(revision.decision);
+          setMontoStr(
+            revision.monto_aprobado != null
+              ? String(revision.monto_aprobado)
+              : "",
+          );
+          setNotas(revision.notas_revision);
+        }
       }
     } catch (err) {
       const msg =

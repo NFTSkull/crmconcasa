@@ -120,6 +120,19 @@ export {
   nuevaExpedienteDetallePath,
 } from "./asesor-nueva-reprecal";
 export type { EditorListPage, EditorListQuery } from "./editor-list-query";
+export type {
+  EditorReprecalEstado,
+  EditorReprecalIntentoRow,
+  EditorReprecalMeta,
+  EditorRevisionDisplay,
+} from "./editor-reprecal-read-model";
+export {
+  buildEditorReprecalSidecar,
+  editorRevisionDisplay,
+  isEditorReprecalIntentoReal,
+  MSG_EDITOR_REPRECAL_EMPTY,
+  pickLatestResolvedRealReprecalIntento,
+} from "./editor-reprecal-read-model";
 export {
   createMesaMoverInFlightGuard,
   deriveMesaMovimientoAdvertencias,

@@ -38,6 +38,7 @@ import {
   type EditorListPage,
   type EditorListQuery,
 } from "./editor-list-query";
+import type { EditorReprecalMeta } from "./editor-reprecal-read-model";
 import type {
   MesaMovimientoHistorialRow,
   MesaMovimientoInput,
@@ -597,7 +598,15 @@ export class MockExpedientesRepo implements ExpedientesRepo {
       total: filtered.length,
       page,
       pageSize,
+      reprecalByExpedienteId: {},
     };
+  }
+
+  async listEditorReprecalMeta(
+    _expedienteIds: readonly string[],
+  ): Promise<Readonly<Record<string, EditorReprecalMeta>>> {
+    void _expedienteIds;
+    return {};
   }
 
   async listForAdmin(): Promise<ExpedienteMock[]> {

@@ -15,15 +15,19 @@ import {
 import { isDataModeSupabase } from "@/lib/dataMode";
 import { parseMontoAprobado } from "@/lib/monto";
 import {
+  applyResolvedReprecalToRow,
   buildDecisionPayload,
+  buildReprecalResolutionPayload,
   clearRowSaveUiState,
   computeDecision,
+  createEditorReprecalSaveGuard,
   formatMontoInputValue,
   formatRowSaveErrorLabel,
   mapExpedienteToEditorRow,
   type EditorPrecalRow,
   type RowSaveState,
 } from "./editor-decision";
+import { MSG_EDITOR_REPRECAL_EMPTY } from "@/domain/expedientes";
 
 const SUPABASE_SAVE_DEBOUNCE_MS = 750;
 const SEARCH_DEBOUNCE_MS = 300;
@@ -93,6 +97,7 @@ export default function EditorDashboardPage() {
     Record<string, RowSaveState>
   >({});
 
+  const reprecalSaveGuardRef = useRef(createEditorReprecalSaveGuard());
   const debounceTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>(
     {},
   );
@@ -124,7 +129,12 @@ export default function EditorDashboardPage() {
           search: buscarDebounced,
         });
         if (loadGeneration !== listGenerationRef.current) return;
-        setRows(result.items.map(mapExpedienteToEditorRow));
+        const sidecar = result.reprecalByExpedienteId ?? {};
+        setRows(
+          result.items.map((item) =>
+            mapExpedienteToEditorRow(item, sidecar[item.id]),
+          ),
+        );
         setTotal(result.total);
       } catch (err) {
         if (loadGeneration !== listGenerationRef.current) return;
@@ -262,7 +272,11 @@ export default function EditorDashboardPage() {
             if (saveGeneration !== listGenerationRef.current) return;
             const nextRow = mapExpedienteToEditorRow(updated);
             setRows((prev) =>
-              prev.map((row) => (row.id === expedienteId ? nextRow : row)),
+              prev.map((row) =>
+                row.id === expedienteId && !row.esReprecalPendiente
+                  ? nextRow
+                  : row,
+              ),
             );
             setRowSaveStates((prev) => ({
               ...prev,
@@ -312,6 +326,7 @@ export default function EditorDashboardPage() {
   }, []);
 
   const handleMontoChange = (row: EditorPrecalRow, val: string) => {
+    if (row.reprecalResuelta) return;
     clearRowSaveError(row.id);
     try {
       const trimmed = val.trim();
@@ -337,6 +352,11 @@ export default function EditorDashboardPage() {
         ),
       );
 
+      if (row.esReprecalPendiente) {
+        setGlobalError(null);
+        return;
+      }
+
       const payload = buildDecisionPayload(val, row.notas_revision);
 
       if (dataSupabase) {
@@ -360,6 +380,7 @@ export default function EditorDashboardPage() {
   };
 
   const handleNotasChange = (row: EditorPrecalRow, val: string) => {
+    if (row.reprecalResuelta) return;
     clearRowSaveError(row.id);
     const montoStr = formatMontoInputValue(row.monto_aprobado);
     const nextDecision = computeDecision(montoStr, val);
@@ -371,6 +392,11 @@ export default function EditorDashboardPage() {
           : r,
       ),
     );
+
+    if (row.esReprecalPendiente) {
+      setGlobalError(null);
+      return;
+    }
 
     try {
       const payload = buildDecisionPayload(montoStr, val);
@@ -393,6 +419,62 @@ export default function EditorDashboardPage() {
         }));
       }
     }
+  };
+
+  const handleGuardarActualizacion = (row: EditorPrecalRow) => {
+    if (!row.esReprecalPendiente) return;
+    if (!reprecalSaveGuardRef.current.tryBegin(row.id)) return;
+
+    const montoStr = formatMontoInputValue(row.monto_aprobado);
+    let payload: ReturnType<typeof buildReprecalResolutionPayload>;
+    try {
+      payload = buildReprecalResolutionPayload(montoStr, row.notas_revision);
+    } catch (err) {
+      reprecalSaveGuardRef.current.end(row.id);
+      const msg =
+        err instanceof Error ? err.message : MSG_EDITOR_REPRECAL_EMPTY;
+      setGlobalError(msg);
+      setRowSaveStates((prev) => ({
+        ...prev,
+        [row.id]: { status: "error", error: msg },
+      }));
+      return;
+    }
+
+    setGlobalError(null);
+    setRowSaveStates((prev) => ({
+      ...prev,
+      [row.id]: { status: "saving" },
+    }));
+
+    void (async () => {
+      try {
+        await repo.upsertEditorDecision(row.id, payload);
+        setRows((prev) =>
+          prev.map((r) =>
+            r.id === row.id ? applyResolvedReprecalToRow(r, payload) : r,
+          ),
+        );
+        setRowSaveStates((prev) => ({
+          ...prev,
+          [row.id]: { status: "saved" },
+        }));
+      } catch (err) {
+        const msg =
+          err instanceof ExpedientesSupabaseError
+            ? err.message
+            : err instanceof Error
+              ? err.message
+              : "Error al guardar la decisión.";
+        setGlobalError(msg);
+        setRowSaveStates((prev) => ({
+          ...prev,
+          [row.id]: { status: "error", error: msg },
+        }));
+      } finally {
+        reprecalSaveGuardRef.current.end(row.id);
+      }
+    })();
   };
 
   const totalPages = Math.max(1, Math.ceil(total / EDITOR_LIST_PAGE_SIZE));
@@ -590,6 +672,16 @@ export default function EditorDashboardPage() {
                       </td>
                       <td className="px-3 py-2">
                         <DecisionBadge decision={p.decision} />
+                        {p.esReprecalPendiente ? (
+                          <span className="mt-1 block w-fit rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-900">
+                            Nueva re-precalificación
+                          </span>
+                        ) : null}
+                        {p.reprecalResuelta ? (
+                          <span className="mt-1 block w-fit rounded-full bg-sky-100 px-2 py-0.5 text-[10px] font-semibold text-sky-900">
+                            Precalificación actualizada
+                          </span>
+                        ) : null}
                         {dataSupabase ? (
                           <RowSaveIndicator state={saveState} />
                         ) : null}
@@ -599,7 +691,9 @@ export default function EditorDashboardPage() {
                           type="text"
                           inputMode="decimal"
                           autoComplete="off"
-                          className="w-full min-w-[160px] max-w-[180px] rounded-md border border-gray-300 px-2 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          disabled={p.reprecalResuelta}
+                          readOnly={p.reprecalResuelta}
+                          className="w-full min-w-[160px] max-w-[180px] rounded-md border border-gray-300 px-2 py-1.5 text-sm text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-600"
                           value={montoValue}
                           onChange={(e) => handleMontoChange(p, e.target.value)}
                           onWheel={(e) => e.currentTarget.blur()}
@@ -607,12 +701,26 @@ export default function EditorDashboardPage() {
                       </td>
                       <td className="bg-blue-50/30 px-3 py-2">
                         <textarea
-                          className="min-h-[4.5rem] w-full min-w-[280px] max-w-[320px] rounded-md border border-gray-300 px-2 py-1.5 text-xs text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
+                          className="min-h-[4.5rem] w-full min-w-[280px] max-w-[320px] rounded-md border border-gray-300 px-2 py-1.5 text-xs text-gray-900 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100 disabled:text-gray-600"
                           rows={3}
+                          disabled={p.reprecalResuelta}
+                          readOnly={p.reprecalResuelta}
                           value={p.notas_revision}
                           onChange={(e) => handleNotasChange(p, e.target.value)}
                           placeholder="Notas de revisión..."
                         />
+                        {p.esReprecalPendiente ? (
+                          <Button
+                            type="button"
+                            disabled={saveState?.status === "saving"}
+                            onClick={() => handleGuardarActualizacion(p)}
+                            className="mt-2 min-h-[32px] touch-manipulation text-xs sm:min-h-0"
+                          >
+                            {saveState?.status === "saving"
+                              ? "Guardando…"
+                              : "Guardar actualización"}
+                          </Button>
+                        ) : null}
                       </td>
                     </tr>
                   );

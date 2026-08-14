@@ -1,3 +1,4 @@
+import type { EditorReprecalMeta } from "./editor-reprecal-read-model";
 import type { ExpedienteMock } from "./mock.repo";
 
 export const EDITOR_LIST_PAGE_SIZE = 50;
@@ -13,6 +14,8 @@ export type EditorListPage = {
   total: number;
   page: number;
   pageSize: number;
+  /** P185: última re-precal REAL resuelta (sidecar; no ensucia ExpedienteMock). */
+  reprecalByExpedienteId?: Readonly<Record<string, EditorReprecalMeta>>;
 };
 
 export function normalizeEditorListPage(

@@ -72,6 +72,12 @@ import {
   type EditorListQuery,
 } from "./editor-list-query";
 import {
+  buildEditorReprecalSidecar,
+  EDITOR_REPRECAL_INTENTOS_SELECT,
+  parseEditorReprecalIntentoRows,
+  type EditorReprecalMeta,
+} from "./editor-reprecal-read-model";
+import {
   mapCreateExpedienteRpcToExpedienteMock,
   mapSupabaseRowToExpedienteMock,
   type CreateExpedienteRpcResponse,
@@ -430,12 +436,40 @@ async function fetchExpedientesListForEditor(
     rows.map((row) => row.asesor_id),
   );
 
+  const items = mapRowsToExpedienteMocks(rows, asesorMap);
+  const reprecalByExpedienteId = await fetchEditorReprecalSidecar(
+    client,
+    items.map((item) => item.id),
+  );
+
   return {
-    items: mapRowsToExpedienteMocks(rows, asesorMap),
+    items,
     total: count ?? rows.length,
     page,
     pageSize,
+    reprecalByExpedienteId,
   };
+}
+
+async function fetchEditorReprecalSidecar(
+  client: SupabaseClient,
+  expedienteIds: string[],
+): Promise<Readonly<Record<string, EditorReprecalMeta>>> {
+  const ids = [...new Set(expedienteIds.map((id) => id.trim()).filter(Boolean))];
+  if (ids.length === 0) return {};
+
+  const { data, error } = await client
+    .from("expediente_precalificacion_intentos")
+    .select(EDITOR_REPRECAL_INTENTOS_SELECT)
+    .in("expediente_id", ids);
+
+  if (error) {
+    throw new ExpedientesSupabaseError(
+      "No se pudo cargar el historial de re-precalificación.",
+    );
+  }
+
+  return buildEditorReprecalSidecar(parseEditorReprecalIntentoRows(data ?? []));
 }
 
 async function fetchExpedientesListForMesaControl(): Promise<ExpedienteMock[]> {
@@ -708,6 +742,13 @@ export class SupabaseExpedientesRepo implements ExpedientesRepo {
 
   async listForEditor(query: EditorListQuery): Promise<EditorListPage> {
     return fetchExpedientesListForEditor(query);
+  }
+
+  async listEditorReprecalMeta(
+    expedienteIds: readonly string[],
+  ): Promise<Readonly<Record<string, EditorReprecalMeta>>> {
+    const { client } = await requireSupabaseSession();
+    return fetchEditorReprecalSidecar(client, [...expedienteIds]);
   }
 
   async listForMesaControl(): Promise<ExpedienteMock[]> {

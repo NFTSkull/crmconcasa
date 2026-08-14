@@ -2,11 +2,13 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   buildDecisionPayload,
+  buildReprecalResolutionPayload,
   clearRowSaveUiState,
   computeDecision,
   formatMontoInputValue,
   formatRowSaveErrorLabel,
 } from "./editor-decision";
+import { MSG_EDITOR_REPRECAL_EMPTY } from "@/domain/expedientes";
 
 describe("editor-decision", () => {
   it("computeDecision — monto con miles MX aprueba", () => {
@@ -80,5 +82,13 @@ describe("editor-decision", () => {
         resolve();
       }, 80);
     });
+  });
+
+  it("buildReprecalResolutionPayload — vacío no resuelve", () => {
+    assert.throws(
+      () => buildReprecalResolutionPayload("", "  "),
+      (err: unknown) =>
+        err instanceof Error && err.message === MSG_EDITOR_REPRECAL_EMPTY,
+    );
   });
 });

@@ -1,3 +1,7 @@
+## 2026-08-14 - P185 B1 LOCAL: Editor re-precal nueva llega limpia
+
+Causa: `mapExpedienteToEditorRow` copiaba `editorDecision` vigente (decisión/monto/notas) aunque `reprecalificacionPendienteId` existiera; el detalle `/editor/[id]` ya vaciaba. Fix UI + read model RO: pending → Pendiente/vacío; botón «Guardar actualización» (1 RPC); sidecar de intentos REALES para no_cumple/approved tras refresh. Sin mutar `editor_decisions` al montar. Sin migration/Cloud/commit.
+
 ## 2026-08-14 - P184 B1 LOCAL: inbox asesor etapa 12 Pago ConCasa
 
 Causa: `asesor_inbox_resultado_real` marca enviado-a-Mesa como `en_tramite` y el subestado suele seguir `en_proceso`, así que etapa 12 + `pago_concasa_resultado=pagado` se veía «En trámite / En proceso». Fix UI only: badges de Resultado/Estatus consideran etapa+pago (prioridad: cancelado → rechazo Mesa → pago final → correcciones). `etapaActualToTexto` ya tenía «Pagó/No pagó». Sin RPC, deriveResultadoReal, quick filters ni Cloud.

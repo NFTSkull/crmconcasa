@@ -1,4 +1,9 @@
 import type { EditorDecision, ExpedienteMock } from "@/domain/expedientes";
+import {
+  editorRevisionDisplay,
+  MSG_EDITOR_REPRECAL_EMPTY,
+  type EditorReprecalMeta,
+} from "@/domain/expedientes/editor-reprecal-read-model";
 import { parseMontoAprobado } from "@/lib/monto";
 
 export interface EditorPrecalRow {
@@ -13,6 +18,9 @@ export interface EditorPrecalRow {
   monto_aprobado: number | null;
   notas_revision: string;
   esReingreso: boolean;
+  esReprecalPendiente: boolean;
+  reprecalificacionPendienteId: string | null;
+  reprecalResuelta: boolean;
 }
 
 export type RowSaveStatus = "idle" | "pending" | "saving" | "saved" | "error";
@@ -22,7 +30,11 @@ export type RowSaveState = {
   error?: string;
 };
 
-export function mapExpedienteToEditorRow(e: ExpedienteMock): EditorPrecalRow {
+export function mapExpedienteToEditorRow(
+  e: ExpedienteMock,
+  reprecalMeta?: EditorReprecalMeta | null,
+): EditorPrecalRow {
+  const revision = editorRevisionDisplay(e, reprecalMeta);
   return {
     id: e.id,
     programa: e.base.programa,
@@ -31,13 +43,68 @@ export function mapExpedienteToEditorRow(e: ExpedienteMock): EditorPrecalRow {
     telefono_cliente: e.base.telefono_cliente,
     asesorId: e.base.asesorId,
     createdAt: e.base.createdAt,
-    decision: e.editorDecision.decision,
-    monto_aprobado: e.editorDecision.monto_aprobado,
-    notas_revision: e.editorDecision.notas_revision,
+    decision: revision.decision,
+    monto_aprobado: revision.monto_aprobado,
+    notas_revision: revision.notas_revision,
     esReingreso: Boolean(
       e.reingreso?.expedienteAnteriorId && e.reingreso?.rechazoId,
     ),
+    esReprecalPendiente: revision.esReprecalPendiente,
+    reprecalificacionPendienteId: e.reprecalificacionPendienteId ?? null,
+    reprecalResuelta: revision.reprecalResuelta,
   };
+}
+
+export function applyResolvedReprecalToRow(
+  row: EditorPrecalRow,
+  payload: {
+    decision: EditorDecision;
+    monto_aprobado: number | null;
+    notas_revision: string;
+  },
+): EditorPrecalRow {
+  return {
+    ...row,
+    decision: payload.decision,
+    monto_aprobado: payload.monto_aprobado,
+    notas_revision: payload.notas_revision,
+    esReprecalPendiente: false,
+    reprecalificacionPendienteId: null,
+    reprecalResuelta: true,
+  };
+}
+
+export function createEditorReprecalSaveGuard(): {
+  tryBegin: (expedienteId: string) => boolean;
+  end: (expedienteId: string) => void;
+} {
+  const inFlight = new Set<string>();
+  return {
+    tryBegin(expedienteId: string) {
+      const id = expedienteId.trim();
+      if (!id || inFlight.has(id)) return false;
+      inFlight.add(id);
+      return true;
+    },
+    end(expedienteId: string) {
+      inFlight.delete(expedienteId.trim());
+    },
+  };
+}
+
+export function buildReprecalResolutionPayload(
+  montoStr: string,
+  notasStr: string,
+): {
+  decision: EditorDecision;
+  monto_aprobado: number | null;
+  notas_revision: string;
+} {
+  const payload = buildDecisionPayload(montoStr, notasStr);
+  if (payload.decision === "pendiente") {
+    throw new Error(MSG_EDITOR_REPRECAL_EMPTY);
+  }
+  return payload;
 }
 
 export function computeDecision(
