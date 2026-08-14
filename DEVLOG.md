@@ -1,3 +1,15 @@
+## 2026-08-14 - P186 B1B.1 LOCAL: blur/foco no resuelve re-precal
+
+Causa: `onBlur` de `<tr>` trataba `relatedTarget === null` como salida de fila; Cmd+Tab / cambio de pestaña / minimize disparaba `upsertEditorDecision` con monto parcial (p.ej. 12). Fix: settle (microtask/rAF) + `visibilityState`/`hasFocus`; hidden/!focus → 0 resolve; relatedTarget en el mismo `<tr>` → 0 resolve; click interno con `activeElement` fuera de fila sí finaliza. `window.blur` no finaliza; visibility hidden solo flushes draft. Sin SQL/Cloud/commit.
+
+## 2026-08-14 - P186 B1B LOCAL: wiring Editor + autosave draft + timeline pagado
+
+Cablea B1A: `listForEditor` usa RPC de IDs y reconstruye orden; sidecar pending restaura draft; debounce 750ms → `editor_guardar_borrador_reprecalificacion`; blur de fila → `upsertEditorDecision` (guard 1x). Refresh focus/visibility 8s sin pisar edición local. Timeline: etapa 12 + pagado → visual completado (Paso 11 verde). Sin Cloud/commit.
+
+## 2026-08-14 - P186 B1A LOCAL: Editor inbox activity + draft RPC
+
+Causa: `/editor` pagina por `updated_at` (docs/Mesa/citas/pagos suben page 1) y el autosave 750ms resolvería pending. Fix backend: RPC RO de membership `editor_activity_at = COALESCE(intento_pending.created_at, e.created_at)` con JOIN al pointer exacto; al resolver, vuelve a `e.created_at`. Draft RPC escribe solo `monto_aprobado`/`notas_revision` del pending; no toca `expedientes`, `editor_decisions`, ni `action_log`. P183 pending sigue mostrando monto vigente. Timeline pago etapa 12 diferido a B1B. Sin frontend/Cloud/commit.
+
 ## 2026-08-14 - P185 B1 LOCAL: Editor re-precal nueva llega limpia
 
 Causa: `mapExpedienteToEditorRow` copiaba `editorDecision` vigente (decisión/monto/notas) aunque `reprecalificacionPendienteId` existiera; el detalle `/editor/[id]` ya vaciaba. Fix UI + read model RO: pending → Pendiente/vacío; botón «Guardar actualización» (1 RPC); sidecar de intentos REALES para no_cumple/approved tras refresh. Sin mutar `editor_decisions` al montar. Sin migration/Cloud/commit.

@@ -174,6 +174,74 @@ export function buildEditorReprecalSidecar(
   return out;
 }
 
+export const MSG_EDITOR_REPRECAL_EMPTY =
+  "Captura un monto aprobado o una nota de no cumplimiento.";
+
+/**
+ * P186 contrato restore (B1B): pending + draft en el intento apuntado.
+ * P185 "pending limpio" = no heredar editorDecision al LLEGAR una re-precal nueva.
+ * No borra un borrador que el mismo Editor ya escribió en el intento pending.
+ */
+export type EditorPendingDraft = Readonly<{
+  monto: number | null;
+  notas: string;
+}>;
+
+export function editorPendingDraftFromIntento(
+  pendingId: string | null | undefined,
+  intento:
+    | Pick<
+        EditorReprecalIntentoRow,
+        "id" | "decision" | "monto_aprobado" | "notas_revision"
+      >
+    | null
+    | undefined,
+): EditorPendingDraft {
+  const empty: EditorPendingDraft = { monto: null, notas: "" };
+  const pointer = emptyToNull(pendingId);
+  if (!pointer || !intento || String(intento.id) !== pointer) return empty;
+  if ((intento.decision ?? "pendiente") !== "pendiente") return empty;
+  return {
+    monto: parseMonto(intento.monto_aprobado),
+    notas: String(intento.notas_revision ?? ""),
+  };
+}
+
+export function pickPendingIntentoForPointer(
+  intentos: readonly EditorReprecalIntentoRow[],
+  expedienteId: string,
+  pendingId: string | null | undefined,
+): EditorReprecalIntentoRow | null {
+  const pointer = emptyToNull(pendingId);
+  const expId = String(expedienteId ?? "").trim();
+  if (!pointer || !expId) return null;
+  return (
+    intentos.find(
+      (row) =>
+        String(row.id) === pointer && String(row.expediente_id) === expId,
+    ) ?? null
+  );
+}
+
+export function indexPendingIntentosByExpediente(
+  intentos: readonly EditorReprecalIntentoRow[],
+  items: readonly {
+    id: string;
+    reprecalificacionPendienteId?: string | null;
+  }[],
+): Readonly<Record<string, EditorReprecalIntentoRow>> {
+  const out: Record<string, EditorReprecalIntentoRow> = {};
+  for (const item of items) {
+    const found = pickPendingIntentoForPointer(
+      intentos,
+      item.id,
+      item.reprecalificacionPendienteId,
+    );
+    if (found) out[item.id] = found;
+  }
+  return out;
+}
+
 export type EditorRevisionDisplay = Readonly<{
   decision: EditorDecision;
   monto_aprobado: number | null;
@@ -186,13 +254,15 @@ export type EditorRevisionDisplay = Readonly<{
 export function editorRevisionDisplay(
   exp: Pick<ExpedienteMock, "editorDecision" | "reprecalificacionPendienteId">,
   meta?: EditorReprecalMeta | null,
+  pendingIntento?: EditorReprecalIntentoRow | null,
 ): EditorRevisionDisplay {
   const pendingId = emptyToNull(exp.reprecalificacionPendienteId ?? null);
   if (pendingId) {
+    const draft = editorPendingDraftFromIntento(pendingId, pendingIntento);
     return {
       decision: "pendiente",
-      monto_aprobado: null,
-      notas_revision: "",
+      monto_aprobado: draft.monto,
+      notas_revision: draft.notas,
       esReprecalPendiente: true,
       reprecalResuelta: false,
     };
@@ -223,6 +293,3 @@ export function editorRevisionDisplay(
     reprecalResuelta: false,
   };
 }
-
-export const MSG_EDITOR_REPRECAL_EMPTY =
-  "Captura un monto aprobado o una nota de no cumplimiento.";

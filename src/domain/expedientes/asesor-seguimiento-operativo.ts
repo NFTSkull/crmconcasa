@@ -155,7 +155,15 @@ export function getEtapaTimelineVisualPorPasoVisualConDocs(params: {
   etapaActualInterna: number | null | undefined;
   hasAcuseDoc: boolean;
   hasNotificacionDoc: boolean;
+  pagoConcasaResultado?: "pagado" | "no_pagado" | null;
 }): EtapaTimelineVisual {
+  if (
+    params.etapaInterna === 12 &&
+    Number(params.etapaActualInterna) === 12 &&
+    params.pagoConcasaResultado === "pagado"
+  ) {
+    return "completado";
+  }
   if (params.etapaInterna === 7 || params.etapaInterna === 8) {
     return getEtapaTimelineVisualConDocs({
       etapaId: params.etapaInterna,

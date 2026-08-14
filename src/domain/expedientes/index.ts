@@ -121,6 +121,22 @@ export {
 } from "./asesor-nueva-reprecal";
 export type { EditorListPage, EditorListQuery } from "./editor-list-query";
 export type {
+  EditorListExpedienteIdsPageInput,
+  EditorListExpedienteIdsPageResult,
+} from "./editor-inbox-rpc";
+export {
+  EDITOR_INBOX_DEFAULT_PAGE_SIZE,
+  EDITOR_INBOX_MAX_PAGE_SIZE,
+  EDITOR_FOCUS_REFRESH_MIN_MS,
+  EDITOR_LIST_PAGE_INCOMPLETE_MSG,
+  editorListExpedienteIdsPageInputSchema,
+  editorListExpedienteIdsPageResultSchema,
+  normalizeEditorInboxPageOptions,
+  reorderEditorRowsByRpcIds,
+  shouldSkipEditorFocusRefresh,
+} from "./editor-inbox-rpc";
+export type {
+  EditorPendingDraft,
   EditorReprecalEstado,
   EditorReprecalIntentoRow,
   EditorReprecalMeta,
@@ -128,10 +144,13 @@ export type {
 } from "./editor-reprecal-read-model";
 export {
   buildEditorReprecalSidecar,
+  editorPendingDraftFromIntento,
   editorRevisionDisplay,
+  indexPendingIntentosByExpediente,
   isEditorReprecalIntentoReal,
   MSG_EDITOR_REPRECAL_EMPTY,
   pickLatestResolvedRealReprecalIntento,
+  pickPendingIntentoForPointer,
 } from "./editor-reprecal-read-model";
 export {
   createMesaMoverInFlightGuard,

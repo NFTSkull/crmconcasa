@@ -105,6 +105,48 @@ describe("P185 editor re-precal limpia", () => {
     assert.equal(row.notas_revision, "");
   });
 
+  it("H/I/J/K) pending restore draft; nunca editorDecision", () => {
+    const exp = mockExp({
+      decision: {
+        decision: "aprobado",
+        monto_aprobado: 80000,
+        notas_revision: "vigente anterior",
+      },
+      pendingId: "intento-nuevo",
+    });
+    const empty = mapExpedienteToEditorRow(exp, null, {
+      id: "intento-nuevo",
+      expediente_id: "exp-1",
+      decision: "pendiente",
+      monto_aprobado: null,
+      notas_revision: "",
+      decision_previa: "aprobado",
+      idempotency_key: "k",
+      created_at: "2026-08-14T15:00:00.000Z",
+      decided_at: null,
+      programa_solicitado: "mejoravit",
+    });
+    assert.equal(empty.monto_aprobado, null);
+    assert.equal(empty.notas_revision, "");
+
+    const withDraft = mapExpedienteToEditorRow(exp, null, {
+      id: "intento-nuevo",
+      expediente_id: "exp-1",
+      decision: "pendiente",
+      monto_aprobado: 120000,
+      notas_revision: "texto draft",
+      decision_previa: "aprobado",
+      idempotency_key: "k",
+      created_at: "2026-08-14T15:00:00.000Z",
+      decided_at: null,
+      programa_solicitado: "mejoravit",
+    });
+    assert.equal(withDraft.decision, "pendiente");
+    assert.equal(withDraft.monto_aprobado, 120000);
+    assert.equal(withDraft.notas_revision, "texto draft");
+    assert.notEqual(withDraft.monto_aprobado, exp.editorDecision.monto_aprobado);
+  });
+
   it("C) pending + monto 120k → payload aprobado", () => {
     const payload = buildReprecalResolutionPayload("120000", "nota opcional");
     assert.deepEqual(payload, {
@@ -273,19 +315,20 @@ describe("P185 editor re-precal limpia", () => {
 });
 
 describe("P185 editor dashboard source", () => {
-  it("pending usa Guardar actualización y no autosave", () => {
+  it("pending autosave draft sin botón Guardar actualización", () => {
     const src = readFileSync(resolve("src/app/editor/page.tsx"), "utf8");
-    assert.match(src, /Guardar actualización/);
+    assert.doesNotMatch(src, /Guardar actualización/);
+    assert.doesNotMatch(src, /handleGuardarActualizacion/);
     assert.match(src, /Nueva re-precalificación/);
     assert.match(src, /Precalificación actualizada/);
-    assert.match(src, /handleGuardarActualizacion/);
-    assert.match(src, /if \(row\.esReprecalPendiente\)/);
-    assert.match(src, /reprecalByExpedienteId/);
-    assert.match(src, /createEditorReprecalSaveGuard/);
-    assert.doesNotMatch(
-      src,
-      /if \(row\.esReprecalPendiente\)[\s\S]{0,80}scheduleSupabaseSave/,
-    );
+    assert.match(src, /scheduleDraft/);
+    assert.match(src, /handleRowBlur/);
+    assert.match(src, /editor_list_expediente_ids_page|listForEditor/);
+    assert.match(src, /createEditorReprecalSaveGuard|createEditorPendingAutosave/);
+    assert.match(src, /visibilitychange/);
+    assert.match(src, /shouldSkipEditorFocusRefresh/);
+    assert.match(src, /scheduleSupabaseSave/);
+    assert.doesNotMatch(src, /setInterval/);
   });
 
   it("detalle pending sigue vaciando con helper compartido", () => {

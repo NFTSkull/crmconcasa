@@ -59,11 +59,11 @@ describe("editor-list-query", () => {
     });
   });
 
-  it("sortEditorListItems — updated_at desc, luego created_at desc", () => {
+  it("sortEditorListItems — created_at desc (no updated_at)", () => {
     const sorted = sortEditorListItems([
       mockRow("a", {
         base: { createdAt: "2026-07-03T10:00:00.000Z" },
-        operativo: { updatedAt: "2026-07-04T10:00:00.000Z" },
+        operativo: { updatedAt: "2026-08-14T18:00:00.000Z" },
       }),
       mockRow("b", {
         base: { createdAt: "2026-07-04T12:00:00.000Z" },

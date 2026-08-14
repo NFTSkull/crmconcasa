@@ -1,4 +1,6 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { describe, it } from "node:test";
 import {
   ETAPAS_OPERATIVAS_ASESOR,
@@ -12,7 +14,10 @@ import {
   getEtapaTimelineVisual,
   getEtapaTimelineVisualConDocs,
   getEtapaTimelineVisualPorPasoVisual,
+  getEtapaTimelineVisualPorPasoVisualConDocs,
   getEtapaVisualNombre,
+  etapaTimelineCardClass,
+  etapaTimelineCircleClass,
   mapEtapaInternaAPasoVisual,
 } from "./asesor-seguimiento-operativo";
 
@@ -173,5 +178,85 @@ describe("estado envío y subestado asesor", () => {
       "En validación Mesa",
     );
     assert.equal(getEtapaOperativaNombre(1), "Integración");
+  });
+});
+
+describe("P186 timeline etapa 12 pagado", () => {
+  it("AC) pagado → visual completado / badge Completado / verde", () => {
+    const visual = getEtapaTimelineVisualPorPasoVisualConDocs({
+      pasoVisual: 11,
+      etapaInterna: 12,
+      etapaActualInterna: 12,
+      hasAcuseDoc: false,
+      hasNotificacionDoc: false,
+      pagoConcasaResultado: "pagado",
+    });
+    assert.equal(visual, "completado");
+    assert.equal(
+      getEtapaTimelineBadgeLabel(visual, 12, "en_proceso", true),
+      "Completado",
+    );
+    assert.match(etapaTimelineCardClass(visual), /green/);
+    assert.match(etapaTimelineCircleClass(visual), /green/);
+  });
+
+  it("AD/AE) no_pagado y null NO completan verde", () => {
+    assert.equal(
+      getEtapaTimelineVisualPorPasoVisualConDocs({
+        pasoVisual: 11,
+        etapaInterna: 12,
+        etapaActualInterna: 12,
+        hasAcuseDoc: false,
+        hasNotificacionDoc: false,
+        pagoConcasaResultado: "no_pagado",
+      }),
+      "actual",
+    );
+    assert.equal(
+      getEtapaTimelineVisualPorPasoVisualConDocs({
+        pasoVisual: 11,
+        etapaInterna: 12,
+        etapaActualInterna: 12,
+        hasAcuseDoc: false,
+        hasNotificacionDoc: false,
+        pagoConcasaResultado: null,
+      }),
+      "actual",
+    );
+  });
+
+  it("AF/AG) etapa 11 y pasos 1–10 sin cambio", () => {
+    assert.equal(
+      getEtapaTimelineVisualPorPasoVisualConDocs({
+        pasoVisual: 10,
+        etapaInterna: 11,
+        etapaActualInterna: 11,
+        hasAcuseDoc: true,
+        hasNotificacionDoc: true,
+        pagoConcasaResultado: "pagado",
+      }),
+      "actual",
+    );
+    assert.equal(
+      getEtapaTimelineVisualPorPasoVisualConDocs({
+        pasoVisual: 1,
+        etapaInterna: 1,
+        etapaActualInterna: 12,
+        hasAcuseDoc: true,
+        hasNotificacionDoc: true,
+        pagoConcasaResultado: "pagado",
+      }),
+      "completado",
+    );
+  });
+
+  it("AH) nombre Pago a ConCasa · Pagó en UI", () => {
+    assert.equal(getEtapaOperativaNombre(12), "Pago a ConCasa");
+    const src = readFileSync(
+      resolve("src/components/asesor/AsesorSeguimientoOperativo.tsx"),
+      "utf8",
+    );
+    assert.match(src, /pagoConcasaResultado/);
+    assert.match(src, /etapaInterna === 12 && pagoLabel/);
   });
 });

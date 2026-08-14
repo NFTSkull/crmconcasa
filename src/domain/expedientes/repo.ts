@@ -9,7 +9,10 @@ import type {
 } from "./nss-precal-gate";
 import type { UpsertEditorDecisionInput } from "./upsert-editor-decision.input";
 import type { EditorListPage, EditorListQuery } from "./editor-list-query";
-import type { EditorReprecalMeta } from "./editor-reprecal-read-model";
+import type {
+  EditorReprecalIntentoRow,
+  EditorReprecalMeta,
+} from "./editor-reprecal-read-model";
 import type { ExpedienteMock } from "./mock.repo";
 import type {
   RechazoOperativoInput,
@@ -72,10 +75,16 @@ export interface ExpedientesRepo {
     notifLimit?: number,
   ): Promise<AsesorInboxSummaryResult>;
   listForEditor(query: EditorListQuery): Promise<EditorListPage>;
-  /** P185: batch SELECT intentos REALES para IDs de la página Editor (RO). */
+  /** P185/P186: batch SELECT intentos (resueltos REALES + pending draft). */
   listEditorReprecalMeta(
     expedienteIds: readonly string[],
-  ): Promise<Readonly<Record<string, EditorReprecalMeta>>>;
+  ): Promise<{
+    resolvedByExpedienteId: Readonly<Record<string, EditorReprecalMeta>>;
+    pendingIntentoByExpedienteId: Readonly<
+      Record<string, EditorReprecalIntentoRow>
+    >;
+    intentos: readonly EditorReprecalIntentoRow[];
+  }>;
   listForMesaControl(): Promise<ExpedienteMock[]>;
   /** P102: bandeja Mesa con filtros en servidor + keyset (25). */
   listForMesaControlPaginated(
@@ -120,6 +129,18 @@ export interface ExpedientesRepo {
     expedienteId: string,
     input: UpsertEditorDecisionInput,
   ): Promise<ExpedienteMock>;
+  /** P186: borrador pending. No resuelve. No upsert_editor_decision. */
+  guardarBorradorReprecalificacion(
+    expedienteId: string,
+    input: { monto_aprobado: number | null; notas: string },
+  ): Promise<{
+    ok: true;
+    expediente_id: string;
+    intento_id: string;
+    decision: "pendiente";
+    monto_aprobado?: number | string | null;
+    notas_revision?: string;
+  }>;
   /** Asesor dueño registra monto_aprobado sin cambiar decision del editor. */
   asesorUpdateMontoAprobado(
     expedienteId: string,

@@ -12,6 +12,7 @@ import {
   useExpedientesRepo,
   isProgramaMejoravit,
   editorRevisionDisplay,
+  pickPendingIntentoForPointer,
 } from "@/domain/expedientes";
 import { parseMontoAprobado } from "@/lib/monto";
 
@@ -81,7 +82,16 @@ export default function EditorExpedientePage() {
         return;
       }
       const sidecar = await repo.listEditorReprecalMeta([exp.id]);
-      const revision = editorRevisionDisplay(exp, sidecar[exp.id]);
+      const pendingIntento = pickPendingIntentoForPointer(
+        sidecar.intentos,
+        exp.id,
+        exp.reprecalificacionPendienteId,
+      );
+      const revision = editorRevisionDisplay(
+        exp,
+        sidecar.resolvedByExpedienteId[exp.id],
+        pendingIntento,
+      );
       setPrecal({
         id: exp.id,
         programa: exp.base.programa,
@@ -162,9 +172,15 @@ export default function EditorExpedientePage() {
       const refreshed = await repo.getById(id);
       if (refreshed) {
         const sidecar = await repo.listEditorReprecalMeta([refreshed.id]);
+        const pendingIntento = pickPendingIntentoForPointer(
+          sidecar.intentos,
+          refreshed.id,
+          refreshed.reprecalificacionPendienteId,
+        );
         const revision = editorRevisionDisplay(
           refreshed,
-          sidecar[refreshed.id],
+          sidecar.resolvedByExpedienteId[refreshed.id],
+          pendingIntento,
         );
         setPrecal((prev) =>
           prev

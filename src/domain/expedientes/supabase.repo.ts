@@ -66,15 +66,24 @@ import {
   type ExpedienteCancelacionRow,
 } from "./mesa-cancelacion-operativa";
 import {
-  buildEditorListOrFilter,
   normalizeEditorListPage,
   type EditorListPage,
   type EditorListQuery,
 } from "./editor-list-query";
 import {
+  editorGuardarBorradorReprecalResultSchema,
+  editorListExpedienteIdsPageResultSchema,
+  EDITOR_INBOX_DEFAULT_PAGE_SIZE,
+  EDITOR_LIST_PAGE_INCOMPLETE_MSG,
+  reorderEditorRowsByRpcIds,
+} from "./editor-inbox-rpc";
+import { mapEditorDraftRpcError } from "./editor-draft-rpc-error";
+import {
   buildEditorReprecalSidecar,
   EDITOR_REPRECAL_INTENTOS_SELECT,
+  indexPendingIntentosByExpediente,
   parseEditorReprecalIntentoRows,
+  type EditorReprecalIntentoRow,
   type EditorReprecalMeta,
 } from "./editor-reprecal-read-model";
 import {
@@ -404,25 +413,52 @@ async function fetchExpedientesListForEditor(
   query: EditorListQuery,
 ): Promise<EditorListPage> {
   const { client } = await requireSupabaseSession();
-  const { page, pageSize, from, to } = normalizeEditorListPage(
+  const { page, pageSize } = normalizeEditorListPage(
     query.page,
-    query.pageSize,
+    query.pageSize ?? EDITOR_INBOX_DEFAULT_PAGE_SIZE,
   );
-  const orFilter = buildEditorListOrFilter(query.search ?? "");
+  const searchTerm = (query.search ?? "").trim();
 
-  let dbQuery = client
-    .from("expedientes")
-    .select(EXPEDIENTES_LIST_SELECT, { count: "exact" })
-    .is("deleted_at", null);
+  const { data: rpcRaw, error: rpcError } = await client.rpc(
+    "editor_list_expediente_ids_page",
+    {
+      p_page: page,
+      p_page_size: pageSize,
+      p_search: searchTerm ? searchTerm : null,
+    },
+  );
 
-  if (orFilter) {
-    dbQuery = dbQuery.or(orFilter);
+  if (rpcError) {
+    throw new ExpedientesSupabaseError(
+      "No se pudo cargar el listado de expedientes. Intenta de nuevo más tarde.",
+    );
   }
 
-  const { data, error, count } = await dbQuery
-    .order("updated_at", { ascending: false })
-    .order("created_at", { ascending: false })
-    .range(from, to);
+  const parsedPage = editorListExpedienteIdsPageResultSchema.safeParse(rpcRaw);
+  if (!parsedPage.success) {
+    throw new ExpedientesSupabaseError(
+      "No se pudo cargar el listado de expedientes. Respuesta inválida.",
+    );
+  }
+
+  const orderedIds = parsedPage.data.items.map((item) => item.id);
+  const total = parsedPage.data.total_count;
+
+  if (orderedIds.length === 0) {
+    return {
+      items: [],
+      total,
+      page,
+      pageSize,
+      reprecalByExpedienteId: {},
+      pendingIntentoByExpedienteId: {},
+    };
+  }
+
+  const { data, error } = await client
+    .from("expedientes")
+    .select(EXPEDIENTES_LIST_SELECT)
+    .in("id", orderedIds);
 
   if (error) {
     throw new ExpedientesSupabaseError(
@@ -431,32 +467,50 @@ async function fetchExpedientesListForEditor(
   }
 
   const rows = (data ?? []) as SupabaseExpedienteListRow[];
+  let orderedRows: SupabaseExpedienteListRow[];
+  try {
+    orderedRows = reorderEditorRowsByRpcIds(orderedIds, rows);
+  } catch (err) {
+    if (err instanceof Error && err.name === "EditorListPageIncompleteError") {
+      throw new ExpedientesSupabaseError(EDITOR_LIST_PAGE_INCOMPLETE_MSG);
+    }
+    throw err;
+  }
+
   const asesorMap = await fetchAsesorDisplayMap(
     client,
-    rows.map((row) => row.asesor_id),
+    orderedRows.map((row) => row.asesor_id),
   );
 
-  const items = mapRowsToExpedienteMocks(rows, asesorMap);
-  const reprecalByExpedienteId = await fetchEditorReprecalSidecar(
+  const items = mapRowsToExpedienteMocks(orderedRows, asesorMap);
+  const sidecar = await fetchEditorReprecalSidecarBundle(
     client,
     items.map((item) => item.id),
+  );
+  const pendingIntentoByExpedienteId = indexPendingIntentosByExpediente(
+    sidecar.intentos,
+    items,
   );
 
   return {
     items,
-    total: count ?? rows.length,
+    total,
     page,
     pageSize,
-    reprecalByExpedienteId,
+    reprecalByExpedienteId: sidecar.resolved,
+    pendingIntentoByExpedienteId,
   };
 }
 
-async function fetchEditorReprecalSidecar(
+async function fetchEditorReprecalSidecarBundle(
   client: SupabaseClient,
   expedienteIds: string[],
-): Promise<Readonly<Record<string, EditorReprecalMeta>>> {
+): Promise<{
+  resolved: Readonly<Record<string, EditorReprecalMeta>>;
+  intentos: EditorReprecalIntentoRow[];
+}> {
   const ids = [...new Set(expedienteIds.map((id) => id.trim()).filter(Boolean))];
-  if (ids.length === 0) return {};
+  if (ids.length === 0) return { resolved: {}, intentos: [] };
 
   const { data, error } = await client
     .from("expediente_precalificacion_intentos")
@@ -469,7 +523,11 @@ async function fetchEditorReprecalSidecar(
     );
   }
 
-  return buildEditorReprecalSidecar(parseEditorReprecalIntentoRows(data ?? []));
+  const intentos = parseEditorReprecalIntentoRows(data ?? []);
+  return {
+    resolved: buildEditorReprecalSidecar(intentos),
+    intentos,
+  };
 }
 
 async function fetchExpedientesListForMesaControl(): Promise<ExpedienteMock[]> {
@@ -746,9 +804,32 @@ export class SupabaseExpedientesRepo implements ExpedientesRepo {
 
   async listEditorReprecalMeta(
     expedienteIds: readonly string[],
-  ): Promise<Readonly<Record<string, EditorReprecalMeta>>> {
+  ): Promise<{
+    resolvedByExpedienteId: Readonly<Record<string, EditorReprecalMeta>>;
+    pendingIntentoByExpedienteId: Readonly<
+      Record<string, EditorReprecalIntentoRow>
+    >;
+    intentos: readonly EditorReprecalIntentoRow[];
+  }> {
     const { client } = await requireSupabaseSession();
-    return fetchEditorReprecalSidecar(client, [...expedienteIds]);
+    const bundle = await fetchEditorReprecalSidecarBundle(client, [
+      ...expedienteIds,
+    ]);
+    const pendingIntentoByExpedienteId: Record<string, EditorReprecalIntentoRow> =
+      {};
+    for (const id of expedienteIds) {
+      const pending = bundle.intentos.find(
+        (row) =>
+          row.expediente_id === id &&
+          (row.decision ?? "pendiente") === "pendiente",
+      );
+      if (pending) pendingIntentoByExpedienteId[id] = pending;
+    }
+    return {
+      resolvedByExpedienteId: bundle.resolved,
+      pendingIntentoByExpedienteId,
+      intentos: bundle.intentos,
+    };
   }
 
   async listForMesaControl(): Promise<ExpedienteMock[]> {
@@ -981,6 +1062,40 @@ export class SupabaseExpedientesRepo implements ExpedientesRepo {
     }
 
     return refreshed;
+  }
+
+  async guardarBorradorReprecalificacion(
+    expedienteId: string,
+    input: { monto_aprobado: number | null; notas: string },
+  ) {
+    const idNorm = String(expedienteId).trim();
+    if (!idNorm) {
+      throw new ExpedientesSupabaseError(
+        "El identificador del expediente es obligatorio.",
+      );
+    }
+
+    const { client } = await requireSupabaseSession();
+    const { data, error } = await client.rpc(
+      "editor_guardar_borrador_reprecalificacion",
+      {
+        p_expediente_id: idNorm,
+        p_monto_aprobado: input.monto_aprobado,
+        p_notas: input.notas ?? "",
+      },
+    );
+
+    if (error) {
+      throw mapEditorDraftRpcError(error);
+    }
+
+    const parsed = editorGuardarBorradorReprecalResultSchema.safeParse(data);
+    if (!parsed.success) {
+      throw new ExpedientesSupabaseError(
+        "No se pudo guardar el borrador. Respuesta inválida del servidor.",
+      );
+    }
+    return parsed.data;
   }
 
   async avanzarEtapaOperativa(

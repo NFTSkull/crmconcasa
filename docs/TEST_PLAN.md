@@ -1,3 +1,10 @@
+## P186 — Editor inbox: orden por trabajo pendiente + draft re-precal
+
+- [x] B1A LOCAL: mig **181** `editor_list_expediente_ids_page` + `editor_guardar_borrador_reprecalificacion`; SQL A–AE; contratos Zod. Sin frontend `/editor`, sin Cloud/commit.
+- [x] B1B LOCAL: wiring list RPC (orden SQL); autosave draft 750ms sin botón; resolve row-blur; restore draft; focus/visibility 8s; timeline 12+pagado Completado. Sin Cloud/commit.
+- [x] B1B.1 LOCAL: blur/foco externo no resolve; relatedTarget en fila no resolve; relatedTarget null + app activa + activeElement fuera sí; draft parcial 12 sobrevive tab switch. Sin SQL/Cloud/commit.
+- [ ] B2 publicación (fuera de B1).
+
 ## P185 — Editor: re-precalificación nueva llega limpia
 
 - [x] B1 LOCAL: dashboard pending vacío; guardado único; sidecar intentos REALES; detalle comparte `editorRevisionDisplay`. Sin RPC/migration/Cloud.

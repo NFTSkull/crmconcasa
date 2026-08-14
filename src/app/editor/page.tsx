@@ -10,6 +10,8 @@ import {
   ExpedientesSupabaseError,
   useExpedientesRepo,
   EDITOR_LIST_PAGE_SIZE,
+  EDITOR_FOCUS_REFRESH_MIN_MS,
+  shouldSkipEditorFocusRefresh,
   type EditorDecision,
 } from "@/domain/expedientes";
 import { isDataModeSupabase } from "@/lib/dataMode";
@@ -17,17 +19,15 @@ import { parseMontoAprobado } from "@/lib/monto";
 import {
   applyResolvedReprecalToRow,
   buildDecisionPayload,
-  buildReprecalResolutionPayload,
   clearRowSaveUiState,
   computeDecision,
-  createEditorReprecalSaveGuard,
   formatMontoInputValue,
   formatRowSaveErrorLabel,
   mapExpedienteToEditorRow,
   type EditorPrecalRow,
   type RowSaveState,
 } from "./editor-decision";
-import { MSG_EDITOR_REPRECAL_EMPTY } from "@/domain/expedientes";
+import { createEditorPendingAutosave } from "./editor-pending-autosave";
 
 const SUPABASE_SAVE_DEBOUNCE_MS = 750;
 const SEARCH_DEBOUNCE_MS = 300;
@@ -97,7 +97,6 @@ export default function EditorDashboardPage() {
     Record<string, RowSaveState>
   >({});
 
-  const reprecalSaveGuardRef = useRef(createEditorReprecalSaveGuard());
   const debounceTimersRef = useRef<Record<string, ReturnType<typeof setTimeout>>>(
     {},
   );
@@ -106,6 +105,50 @@ export default function EditorDashboardPage() {
   >({});
   const listGenerationRef = useRef(0);
   const lastBuscarRef = useRef(buscar);
+  const rowsRef = useRef<EditorPrecalRow[]>([]);
+  const latestDraftRef = useRef<
+    Record<string, { montoStr: string; notasStr: string }>
+  >({});
+  const repoRef = useRef(repo);
+  repoRef.current = repo;
+
+  const pendingAutosaveRef = useRef<ReturnType<
+    typeof createEditorPendingAutosave
+  > | null>(null);
+  if (pendingAutosaveRef.current == null) {
+    pendingAutosaveRef.current = createEditorPendingAutosave({
+      debounceMs: SUPABASE_SAVE_DEBOUNCE_MS,
+      shouldAbort: () => false,
+      getLatestValues: (expedienteId) =>
+        latestDraftRef.current[expedienteId] ?? null,
+      saveDraft: async (expedienteId, monto, notas) => {
+        await repoRef.current.guardarBorradorReprecalificacion(expedienteId, {
+          monto_aprobado: monto,
+          notas,
+        });
+      },
+      resolveDecision: async (expedienteId, payload) => {
+        await repoRef.current.upsertEditorDecision(expedienteId, payload);
+      },
+      onStatus: (expedienteId, state) => {
+        setRowSaveStates((prev) => ({ ...prev, [expedienteId]: state }));
+        if (state.status === "error" && state.error) {
+          setGlobalError(state.error);
+        }
+      },
+      onResolved: (expedienteId, payload) => {
+        setRows((prev) => {
+          const next = prev.map((row) =>
+            row.id === expedienteId
+              ? applyResolvedReprecalToRow(row, payload)
+              : row,
+          );
+          rowsRef.current = next;
+          return next;
+        });
+      },
+    });
+  }
 
   const resetRowSaveUi = useCallback(() => {
     setRowSaveStates(
@@ -130,11 +173,22 @@ export default function EditorDashboardPage() {
         });
         if (loadGeneration !== listGenerationRef.current) return;
         const sidecar = result.reprecalByExpedienteId ?? {};
-        setRows(
-          result.items.map((item) =>
-            mapExpedienteToEditorRow(item, sidecar[item.id]),
+        const pendingById = result.pendingIntentoByExpedienteId ?? {};
+        const mapped = result.items.map((item) =>
+          mapExpedienteToEditorRow(
+            item,
+            sidecar[item.id],
+            pendingById[item.id],
           ),
         );
+        rowsRef.current = mapped;
+        for (const row of mapped) {
+          latestDraftRef.current[row.id] = {
+            montoStr: formatMontoInputValue(row.monto_aprobado),
+            notasStr: row.notas_revision,
+          };
+        }
+        setRows(mapped);
         setTotal(result.total);
       } catch (err) {
         if (loadGeneration !== listGenerationRef.current) return;
@@ -171,6 +225,45 @@ export default function EditorDashboardPage() {
   useEffect(() => {
     if (!currentUser) return;
     loadData();
+  }, [currentUser, loadData]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    let lastAt = Date.now();
+    const refreshIfVisible = () => {
+      if (
+        typeof document !== "undefined" &&
+        document.visibilityState === "hidden"
+      ) {
+        return;
+      }
+      if (
+        shouldSkipEditorFocusRefresh({
+          now: Date.now(),
+          lastRefreshAt: lastAt,
+          minMs: EDITOR_FOCUS_REFRESH_MIN_MS,
+          hasLocalWork: pendingAutosaveRef.current?.hasLocalWork() ?? false,
+        })
+      ) {
+        return;
+      }
+      lastAt = Date.now();
+      loadData();
+    };
+    const onFocus = () => refreshIfVisible();
+    const onVis = () => {
+      if (document.visibilityState === "hidden") {
+        pendingAutosaveRef.current?.flushPendingDrafts();
+        return;
+      }
+      refreshIfVisible();
+    };
+    window.addEventListener("focus", onFocus);
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      window.removeEventListener("focus", onFocus);
+      document.removeEventListener("visibilitychange", onVis);
+    };
   }, [currentUser, loadData]);
 
   useEffect(() => {
@@ -334,14 +427,16 @@ export default function EditorDashboardPage() {
       if (trimmed !== "" && nextMonto === null) {
         throw new Error("Formato de monto aprobado inválido.");
       }
-      const nextDecision = computeDecision(val, row.notas_revision);
+      const nextDecision = row.esReprecalPendiente
+        ? "pendiente"
+        : computeDecision(val, row.notas_revision);
 
       if (nextMonto !== null && nextMonto < 0) {
         throw new Error("El monto aprobado no puede ser negativo.");
       }
 
-      setRows((prev) =>
-        prev.map((r) =>
+      setRows((prev) => {
+        const next = prev.map((r) =>
           r.id === row.id
             ? {
                 ...r,
@@ -349,11 +444,20 @@ export default function EditorDashboardPage() {
                 decision: nextDecision,
               }
             : r,
-        ),
-      );
+        );
+        rowsRef.current = next;
+        return next;
+      });
+      latestDraftRef.current[row.id] = {
+        montoStr: val,
+        notasStr: row.notas_revision,
+      };
 
       if (row.esReprecalPendiente) {
         setGlobalError(null);
+        if (dataSupabase) {
+          pendingAutosaveRef.current?.scheduleDraft(row.id);
+        }
         return;
       }
 
@@ -383,18 +487,29 @@ export default function EditorDashboardPage() {
     if (row.reprecalResuelta) return;
     clearRowSaveError(row.id);
     const montoStr = formatMontoInputValue(row.monto_aprobado);
-    const nextDecision = computeDecision(montoStr, val);
+    const nextDecision = row.esReprecalPendiente
+      ? "pendiente"
+      : computeDecision(montoStr, val);
 
-    setRows((prev) =>
-      prev.map((r) =>
+    setRows((prev) => {
+      const next = prev.map((r) =>
         r.id === row.id
           ? { ...r, notas_revision: val, decision: nextDecision }
           : r,
-      ),
-    );
+      );
+      rowsRef.current = next;
+      return next;
+    });
+    latestDraftRef.current[row.id] = {
+      montoStr,
+      notasStr: val,
+    };
 
     if (row.esReprecalPendiente) {
       setGlobalError(null);
+      if (dataSupabase) {
+        pendingAutosaveRef.current?.scheduleDraft(row.id);
+      }
       return;
     }
 
@@ -419,62 +534,6 @@ export default function EditorDashboardPage() {
         }));
       }
     }
-  };
-
-  const handleGuardarActualizacion = (row: EditorPrecalRow) => {
-    if (!row.esReprecalPendiente) return;
-    if (!reprecalSaveGuardRef.current.tryBegin(row.id)) return;
-
-    const montoStr = formatMontoInputValue(row.monto_aprobado);
-    let payload: ReturnType<typeof buildReprecalResolutionPayload>;
-    try {
-      payload = buildReprecalResolutionPayload(montoStr, row.notas_revision);
-    } catch (err) {
-      reprecalSaveGuardRef.current.end(row.id);
-      const msg =
-        err instanceof Error ? err.message : MSG_EDITOR_REPRECAL_EMPTY;
-      setGlobalError(msg);
-      setRowSaveStates((prev) => ({
-        ...prev,
-        [row.id]: { status: "error", error: msg },
-      }));
-      return;
-    }
-
-    setGlobalError(null);
-    setRowSaveStates((prev) => ({
-      ...prev,
-      [row.id]: { status: "saving" },
-    }));
-
-    void (async () => {
-      try {
-        await repo.upsertEditorDecision(row.id, payload);
-        setRows((prev) =>
-          prev.map((r) =>
-            r.id === row.id ? applyResolvedReprecalToRow(r, payload) : r,
-          ),
-        );
-        setRowSaveStates((prev) => ({
-          ...prev,
-          [row.id]: { status: "saved" },
-        }));
-      } catch (err) {
-        const msg =
-          err instanceof ExpedientesSupabaseError
-            ? err.message
-            : err instanceof Error
-              ? err.message
-              : "Error al guardar la decisión.";
-        setGlobalError(msg);
-        setRowSaveStates((prev) => ({
-          ...prev,
-          [row.id]: { status: "error", error: msg },
-        }));
-      } finally {
-        reprecalSaveGuardRef.current.end(row.id);
-      }
-    })();
   };
 
   const totalPages = Math.max(1, Math.ceil(total / EDITOR_LIST_PAGE_SIZE));
@@ -637,7 +696,20 @@ export default function EditorDashboardPage() {
                   const saveState = rowSaveStates[p.id];
 
                   return (
-                    <tr key={p.id} className="align-top hover:bg-gray-50">
+                    <tr
+                      key={p.id}
+                      className="align-top hover:bg-gray-50"
+                      onBlur={(e) => {
+                        if (!p.esReprecalPendiente || p.reprecalResuelta) return;
+                        if (!dataSupabase) return;
+                        const rowEl = e.currentTarget;
+                        void pendingAutosaveRef.current?.handleRowBlur({
+                          expedienteId: p.id,
+                          rowEl,
+                          relatedTarget: e.relatedTarget,
+                        });
+                      }}
+                    >
                       <td className="truncate px-3 py-2 text-xs text-gray-500">
                         {formatDateTimeMx(p.createdAt)}
                       </td>
@@ -709,18 +781,6 @@ export default function EditorDashboardPage() {
                           onChange={(e) => handleNotasChange(p, e.target.value)}
                           placeholder="Notas de revisión..."
                         />
-                        {p.esReprecalPendiente ? (
-                          <Button
-                            type="button"
-                            disabled={saveState?.status === "saving"}
-                            onClick={() => handleGuardarActualizacion(p)}
-                            className="mt-2 min-h-[32px] touch-manipulation text-xs sm:min-h-0"
-                          >
-                            {saveState?.status === "saving"
-                              ? "Guardando…"
-                              : "Guardar actualización"}
-                          </Button>
-                        ) : null}
                       </td>
                     </tr>
                   );

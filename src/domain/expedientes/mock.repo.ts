@@ -604,9 +604,19 @@ export class MockExpedientesRepo implements ExpedientesRepo {
 
   async listEditorReprecalMeta(
     _expedienteIds: readonly string[],
-  ): Promise<Readonly<Record<string, EditorReprecalMeta>>> {
+  ): Promise<{
+    resolvedByExpedienteId: Readonly<Record<string, EditorReprecalMeta>>;
+    pendingIntentoByExpedienteId: Readonly<
+      Record<string, import("./editor-reprecal-read-model").EditorReprecalIntentoRow>
+    >;
+    intentos: readonly import("./editor-reprecal-read-model").EditorReprecalIntentoRow[];
+  }> {
     void _expedienteIds;
-    return {};
+    return {
+      resolvedByExpedienteId: {},
+      pendingIntentoByExpedienteId: {},
+      intentos: [],
+    };
   }
 
   async listForAdmin(): Promise<ExpedienteMock[]> {
@@ -1085,6 +1095,20 @@ export class MockExpedientesRepo implements ExpedientesRepo {
     }
 
     return result;
+  }
+
+  async guardarBorradorReprecalificacion(
+    expedienteId: string,
+    input: { monto_aprobado: number | null; notas: string },
+  ) {
+    return {
+      ok: true as const,
+      expediente_id: expedienteId,
+      intento_id: "00000000-0000-4000-8000-000000000099",
+      decision: "pendiente" as const,
+      monto_aprobado: input.monto_aprobado,
+      notas_revision: input.notas ?? "",
+    };
   }
 
   async asesorUpdateMontoAprobado(
