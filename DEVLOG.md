@@ -1,3 +1,7 @@
+## 2026-08-14 - P184 B1 LOCAL: inbox asesor etapa 12 Pago ConCasa
+
+Causa: `asesor_inbox_resultado_real` marca enviado-a-Mesa como `en_tramite` y el subestado suele seguir `en_proceso`, así que etapa 12 + `pago_concasa_resultado=pagado` se veía «En trámite / En proceso». Fix UI only: badges de Resultado/Estatus consideran etapa+pago (prioridad: cancelado → rechazo Mesa → pago final → correcciones). `etapaActualToTexto` ya tenía «Pagó/No pagó». Sin RPC, deriveResultadoReal, quick filters ni Cloud.
+
 ## 2026-08-14 - P183 B1 LOCAL: inbox asesor re-precal como actividad
 
 Causa: tras P181/P169 el dashboard `/asesor` seguía ordenando por `created_at`, así que un expediente viejo re-precalificado no volvía arriba; `updated_at` no sirve porque también cambia por docs/Mesa/citas. Fix READ MODEL: `asesor_list_expedientes_page` (mig **180**) deriva `reprecal_activity_at` de intentos REALES (`decision_previa`/`idempotency_key`; pending = `reprecalificacion_pendiente_id`). UI: pills + Actualización semántica. Filtros de fecha siguen `created_at`. Sin mutar iniciar/resolver, sin Realtime, sin Cloud/commit.

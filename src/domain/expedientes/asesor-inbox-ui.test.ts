@@ -359,6 +359,13 @@ describe("asesor page B1 contract (source)", () => {
     assert.doesNotMatch(src, /channel\(/);
   });
 
+  it("P184 pasa etapa y pago ConCasa a badges de resultado/estatus", () => {
+    assert.match(src, /asesor-inbox-fila-badges/);
+    assert.match(src, /p\.operativo\?\.pagoConcasaResultado/);
+    assert.match(src, /Precalificación actualizada · En revisión|asesorInboxReprecalBadgeLabel/);
+    assert.match(src, /Resultado actualizado · No cumple|asesorInboxReprecalBadgeLabel/);
+  });
+
   it("export solo on-click (no en loadInbox)", () => {
     assert.match(src, /handleDescargarExcel/);
     assert.match(src, /collectAsesorInboxExportRows/);
