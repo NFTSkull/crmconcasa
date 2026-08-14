@@ -9,6 +9,7 @@ import type {
 } from "./nss-precal-gate";
 import type { UpsertEditorDecisionInput } from "./upsert-editor-decision.input";
 import type { EditorListPage, EditorListQuery } from "./editor-list-query";
+import type { EditorReprecalMeta } from "./editor-reprecal-read-model";
 import type { ExpedienteMock } from "./mock.repo";
 import type {
   RechazoOperativoInput,
@@ -71,6 +72,10 @@ export interface ExpedientesRepo {
     notifLimit?: number,
   ): Promise<AsesorInboxSummaryResult>;
   listForEditor(query: EditorListQuery): Promise<EditorListPage>;
+  /** P185: batch SELECT intentos REALES para IDs de la página Editor (RO). */
+  listEditorReprecalMeta(
+    expedienteIds: readonly string[],
+  ): Promise<Readonly<Record<string, EditorReprecalMeta>>>;
   listForMesaControl(): Promise<ExpedienteMock[]>;
   /** P102: bandeja Mesa con filtros en servidor + keyset (25). */
   listForMesaControlPaginated(

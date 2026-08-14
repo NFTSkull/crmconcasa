@@ -4,6 +4,8 @@
 
 ### Changed
 
+- **fix(editor): P185 re-precal nueva llega limpia (LOCAL)** — `/editor` pending: Pendiente + monto/notas vacíos; guardado único; última revisión REAL vía SELECT batch a intentos. Sin RPC/migration/Cloud.
+
 - **fix(asesor): P184 etapa 12 Pago ConCasa en /asesor (LOCAL)** — override visual: pagado → Completado/Pagado; no_pagado → Finalizado/No pagó; null no infiere. Sin RPC/migration/Cloud.
 
 ### Added

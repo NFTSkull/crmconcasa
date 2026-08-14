@@ -86,6 +86,7 @@ Universo del gate (P169): `organization_id` + NSS + `deleted_at IS NULL` + `cicl
 - Mismo `expediente_id`; no INSERT de expediente ni cliente duplicado.
 - Historial en `expediente_precalificacion_intentos` (`programa` = vigente al iniciar; `programa_solicitado` = pedido; `es_vigente` = última aprobada aplicada).
 - Mientras hay pendiente: **no** muta `expedientes.programa` ni `editor_decisions` vigentes; **no** muta `submitted_to_mesa` / `fecha_envio_mesa` / etapa / subestado / documentos / bookings / cliente_datos / cobro / retención / pagaré.
+- **P185 (Editor UI, sin RPC):** dashboard `/editor` no precarga `editor_decisions` vigente en una re-precal pending (Pendiente + monto/notas vacíos). Tras resolver, la última revisión REAL se lee de `expediente_precalificacion_intentos` (batch SELECT por IDs de página; discriminador P183). `no_cumple` no pisa el vigente.
 - Aprobado: actualiza `editor_decisions.monto_aprobado`; si `programa_solicitado` ≠ vigente, actualiza `expedientes.programa` en la misma RPC; conserva `aprobado_at` / `monto_aprobado_al_aprobar`.
 - `no_cumple`: solo cierra el intento; no borra vigente ni cambia programa ni retrocede etapa.
 - Idempotencia: `idempotency_key` por expediente + reuso de `reprecalificacion_pendiente_id` (actualiza `programa_solicitado` si cambia la solicitud).

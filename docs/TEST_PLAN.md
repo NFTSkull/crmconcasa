@@ -1,3 +1,8 @@
+## P185 — Editor: re-precalificación nueva llega limpia
+
+- [x] B1 LOCAL: dashboard pending vacío; guardado único; sidecar intentos REALES; detalle comparte `editorRevisionDisplay`. Sin RPC/migration/Cloud.
+- [ ] B2 publicación (fuera de B1).
+
 ## P184 — Asesor etapa 12: estado final Pago ConCasa
 
 - [x] B1 LOCAL: override visual `/asesor` (Completado/Pagado vs Finalizado/No pagó; null no infiere). Sin RPC/migration/Cloud.
