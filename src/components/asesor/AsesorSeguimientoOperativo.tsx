@@ -172,6 +172,7 @@ export function AsesorSeguimientoOperativo({
               etapaActualInterna: etapaResuelta,
               hasAcuseDoc,
               hasNotificacionDoc,
+              pagoConcasaResultado,
             });
             const badgeLabel = getEtapaTimelineBadgeLabel(
               visual,

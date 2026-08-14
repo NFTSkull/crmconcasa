@@ -1,4 +1,7 @@
-import type { EditorReprecalMeta } from "./editor-reprecal-read-model";
+import type {
+  EditorReprecalIntentoRow,
+  EditorReprecalMeta,
+} from "./editor-reprecal-read-model";
 import type { ExpedienteMock } from "./mock.repo";
 
 export const EDITOR_LIST_PAGE_SIZE = 50;
@@ -16,6 +19,10 @@ export type EditorListPage = {
   pageSize: number;
   /** P185: última re-precal REAL resuelta (sidecar; no ensucia ExpedienteMock). */
   reprecalByExpedienteId?: Readonly<Record<string, EditorReprecalMeta>>;
+  /** P186: intento pending apuntado (draft restore). */
+  pendingIntentoByExpedienteId?: Readonly<
+    Record<string, EditorReprecalIntentoRow>
+  >;
 };
 
 export function normalizeEditorListPage(
@@ -28,9 +35,8 @@ export function normalizeEditorListPage(
   return { page: safePage, pageSize: safePageSize, from, to: from + safePageSize - 1 };
 }
 
+/** Mock/local: actividad Editor = created_at (no updated_at). */
 export function editorListSortKey(e: ExpedienteMock): number {
-  const updated = Date.parse(e.operativo.updatedAt ?? "");
-  if (Number.isFinite(updated)) return updated;
   return Date.parse(e.base.createdAt) || 0;
 }
 
@@ -39,9 +45,7 @@ export function sortEditorListItems(items: ExpedienteMock[]): ExpedienteMock[] {
     const bu = editorListSortKey(b);
     const au = editorListSortKey(a);
     if (bu !== au) return bu - au;
-    const bc = Date.parse(b.base.createdAt) || 0;
-    const ac = Date.parse(a.base.createdAt) || 0;
-    return bc - ac;
+    return String(b.id).localeCompare(String(a.id));
   });
 }
 

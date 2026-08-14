@@ -2,6 +2,14 @@
 
 ## [Unreleased]
 
+### Added
+
+- **fix(editor): P186 B1B.1 hardening blur/foco pending (LOCAL)** — `relatedTarget` null / window blur / visibility hidden no resuelven re-precal; solo salida deliberada de fila con app visible+focused. Sin SQL/Cloud/commit.
+
+- **feat(editor): P186 B1B wiring inbox + autosave draft + timeline pagado (LOCAL)** — list RPC `editor_list_expediente_ids_page` (orden SQL); draft 750ms sin botón; resolve al salir de fila; restore draft; refresh focus/visibility 8s; timeline etapa 12 pagado → Completado verde. Sin Cloud/commit.
+
+- **feat(editor): P186 B1A inbox activity + draft RPC (LOCAL)** — mig **181**: `editor_list_expediente_ids_page` (orden `COALESCE(pending.created_at, e.created_at)` antes de paginar; no `updated_at`) y `editor_guardar_borrador_reprecalificacion` (solo monto/notas del pointer pending; 0 action_log). Sin frontend/Cloud/commit.
+
 ### Changed
 
 - **fix(editor): P185 re-precal nueva llega limpia (LOCAL)** — `/editor` pending: Pendiente + monto/notas vacíos; guardado único; última revisión REAL vía SELECT batch a intentos. Sin RPC/migration/Cloud.

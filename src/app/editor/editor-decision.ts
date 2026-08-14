@@ -2,6 +2,7 @@ import type { EditorDecision, ExpedienteMock } from "@/domain/expedientes";
 import {
   editorRevisionDisplay,
   MSG_EDITOR_REPRECAL_EMPTY,
+  type EditorReprecalIntentoRow,
   type EditorReprecalMeta,
 } from "@/domain/expedientes/editor-reprecal-read-model";
 import { parseMontoAprobado } from "@/lib/monto";
@@ -33,8 +34,9 @@ export type RowSaveState = {
 export function mapExpedienteToEditorRow(
   e: ExpedienteMock,
   reprecalMeta?: EditorReprecalMeta | null,
+  pendingIntento?: EditorReprecalIntentoRow | null,
 ): EditorPrecalRow {
-  const revision = editorRevisionDisplay(e, reprecalMeta);
+  const revision = editorRevisionDisplay(e, reprecalMeta, pendingIntento);
   return {
     id: e.id,
     programa: e.base.programa,

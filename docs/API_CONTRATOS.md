@@ -87,6 +87,7 @@ Universo del gate (P169): `organization_id` + NSS + `deleted_at IS NULL` + `cicl
 - Historial en `expediente_precalificacion_intentos` (`programa` = vigente al iniciar; `programa_solicitado` = pedido; `es_vigente` = última aprobada aplicada).
 - Mientras hay pendiente: **no** muta `expedientes.programa` ni `editor_decisions` vigentes; **no** muta `submitted_to_mesa` / `fecha_envio_mesa` / etapa / subestado / documentos / bookings / cliente_datos / cobro / retención / pagaré.
 - **P185 (Editor UI, sin RPC):** dashboard `/editor` no precarga `editor_decisions` vigente en una re-precal pending (Pendiente + monto/notas vacíos). Tras resolver, la última revisión REAL se lee de `expediente_precalificacion_intentos` (batch SELECT por IDs de página; discriminador P183). `no_cumple` no pisa el vigente.
+- **P186 B1B:** `/editor` pagina con `editor_list_expediente_ids_page` (orden RPC); pending autosave 750ms + resolve al salir de fila; restore draft del intento; refresh focus/visibility 8s. Timeline asesor: etapa 12 + `pagado` → Completado verde.
 - Aprobado: actualiza `editor_decisions.monto_aprobado`; si `programa_solicitado` ≠ vigente, actualiza `expedientes.programa` en la misma RPC; conserva `aprobado_at` / `monto_aprobado_al_aprobar`.
 - `no_cumple`: solo cierra el intento; no borra vigente ni cambia programa ni retrocede etapa.
 - Idempotencia: `idempotency_key` por expediente + reuso de `reprecalificacion_pendiente_id` (actualiza `programa_solicitado` si cambia la solicitud).
@@ -137,6 +138,36 @@ Universo del gate (P169): `organization_id` + NSS + `deleted_at IS NULL` + `cicl
 - `origen_mesa` = `profiles.tipo_asesor_origen` (asesor no elige).
 - Rechazar duplicado **activo** mismo `nss + programa + organization_id`.
 - Si `expediente_anterior_id`: validar que ciclo previo esté `cerrado` o documentar excepción admin.
+
+---
+
+## 1quater. Editor inbox page + borrador re-precal (P186 B1A)
+
+**RPCs:** `editor_list_expediente_ids_page` · `editor_guardar_borrador_reprecalificacion`
+
+**Roles:** `editor` | `super_admin` (`active=true`), org del actor. STABLE (list) / VOLATILE (draft). SECURITY DEFINER. GRANT `authenticated`. REVOKE PUBLIC/anon.
+
+### List (IDs)
+
+Preferencia: no duplicar `EXPEDIENTES_LIST_SELECT`. El RPC devuelve membership + `editor_activity_at` + `total_count`; el repo lee filas con el SELECT actual.
+
+```json
+{ "items": [{ "id": "uuid", "editor_activity_at": "timestamptz" }], "total_count": 123, "page": 1, "page_size": 50 }
+```
+
+- `editor_activity_at = COALESCE(intento_pending.created_at, e.created_at)`
+- JOIN: `e.reprecalificacion_pendiente_id = intentos.id AND intento.expediente_id = e.id`
+- `ORDER BY editor_activity_at DESC, e.id DESC` **antes** de OFFSET/LIMIT
+- Search: misma semántica que `buildEditorListOrFilter` (cliente, tel, nss, programa, asesor email/nombre); `%`/`_` stripped
+- Default page_size 50; max 100; `deleted_at IS NULL`; aislamiento `organization_id`
+
+### Draft
+
+Solo escribe `expediente_precalificacion_intentos.monto_aprobado` (NULL o >= 0) y `notas_revision` (`COALESCE(p_notas,'')`) del pointer pending (`decision='pendiente'`, `decided_at IS NULL`). No resuelve. No limpia pointer. No `editor_decisions`. No UPDATE `expedientes`. 0 `action_log` (excepción debounce vs auditoría genérica; la resolución canónica sí audita).
+
+### UI B1B
+
+`listForEditor` llama el RPC de IDs, SELECT por ids, reconstruye orden. Pending: debounce 750ms → draft RPC; al salir deliberadamente de la fila (relatedTarget fuera del `<tr>` con documento visible y `hasFocus`, o relatedTarget null tras settle con `activeElement` fuera de fila) → `upsert_editor_decision` si hay contenido. Window blur / visibility hidden no resuelven. Restore: `editorPendingDraftFromIntento`. Filas normales: autosave 750ms intacto.
 
 ---
 
