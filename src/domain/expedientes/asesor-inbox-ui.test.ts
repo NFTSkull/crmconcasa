@@ -8,12 +8,17 @@ import {
   ASESOR_INBOX_DEPENDENT_IDS_MAX,
   ASESOR_INBOX_UI_PAGE_SIZE,
   asesorInboxTotalPages,
+  asesorInboxReprecalBadgeLabel,
   buildAsesorInboxListInput,
   capIdsForDependentLoads,
   clampAsesorInboxPage,
   collectAsesorInboxExportRows,
+  formatAsesorInboxActualizacion,
+  formatAsesorInboxMontoAntes,
   formatAsesorInboxShowingRange,
   mapAsesorInboxNotificationsToDashboard,
+  mapAsesorInboxPageResultToViewModel,
+  mapAsesorInboxReprecalMeta,
   mapAsesorInboxSummaryToKpis,
 } from "./asesor-inbox-ui";
 import {
@@ -226,6 +231,99 @@ describe("asesor-inbox-ui B1", () => {
     assert.equal(calls[0]!.page, 1);
     assert.equal(calls[1]!.page, 2);
   });
+
+  it("P183 labels y metadata no marcan aprobación inicial", () => {
+    assert.equal(
+      asesorInboxReprecalBadgeLabel("pending"),
+      "Precalificación actualizada · En revisión",
+    );
+    assert.equal(asesorInboxReprecalBadgeLabel("approved"), "Monto actualizado");
+    assert.equal(
+      asesorInboxReprecalBadgeLabel("no_cumple"),
+      "Resultado actualizado · No cumple",
+    );
+    assert.equal(mapAsesorInboxReprecalMeta({
+      id: "00000000-0000-4000-8000-000000000001",
+      programa: "Mejoravit",
+      nss: "11111111111",
+      cliente_nombre: "X",
+      asesor_id: "00000000-0000-4000-8001-000000000001",
+      submitted_to_mesa: false,
+      created_at: "2026-08-14T12:00:00.000Z",
+      decision: "aprobado",
+      resultado_real: "aprobado_editor",
+      categoria_correccion: "faltantes",
+    }), null);
+    const pending = mapAsesorInboxReprecalMeta({
+      id: "00000000-0000-4000-8000-000000000002",
+      programa: "Mejoravit",
+      nss: "11111111111",
+      cliente_nombre: "X",
+      asesor_id: "00000000-0000-4000-8001-000000000001",
+      submitted_to_mesa: false,
+      created_at: "2026-05-01T00:00:00.000Z",
+      decision: "aprobado",
+      monto_aprobado: 80000,
+      resultado_real: "aprobado_editor",
+      categoria_correccion: "faltantes",
+      reprecal_estado: "pending",
+      reprecal_activity_at: "2026-08-14T12:20:00.000Z",
+      reprecal_monto_previo: 80000,
+    });
+    assert.equal(pending?.estado, "pending");
+    const vm = mapAsesorInboxPageResultToViewModel({
+      items: [
+        {
+          id: "00000000-0000-4000-8000-000000000002",
+          programa: "Mejoravit",
+          nss: "11111111111",
+          cliente_nombre: "X",
+          asesor_id: "00000000-0000-4000-8001-000000000001",
+          submitted_to_mesa: false,
+          created_at: "2026-05-01T00:00:00.000Z",
+          decision: "aprobado",
+          monto_aprobado: 80000,
+          resultado_real: "aprobado_editor",
+          categoria_correccion: "faltantes",
+          reprecal_estado: "pending",
+          reprecal_activity_at: "2026-08-14T12:20:00.000Z",
+        },
+      ],
+      total_count: 1,
+      page: 1,
+      page_size: 25,
+      has_more: false,
+    });
+    assert.equal(vm.reprecalPorId["00000000-0000-4000-8000-000000000002"]?.estado, "pending");
+    assert.equal(vm.items[0]!.editorDecision.monto_aprobado, 80000);
+    const actualizacion = formatAsesorInboxActualizacion(
+      pending,
+      "2026-08-14T18:00:00.000Z",
+      () => "NO",
+    );
+    assert.match(actualizacion, /^Reenviada /);
+    assert.doesNotMatch(actualizacion, /NO/);
+    const resuelta = formatAsesorInboxActualizacion(
+      {
+        estado: "approved",
+        solicitadaAt: null,
+        resueltaAt: "2026-08-14T12:10:00.000Z",
+        activityAt: "2026-08-14T12:10:00.000Z",
+        montoPrevio: 80000,
+        montoResultado: 95000,
+        programaSolicitado: "mejoravit",
+      },
+      "2026-08-14T18:00:00.000Z",
+      () => "NO",
+    );
+    assert.match(resuelta, /^Resultado /);
+    assert.equal(
+      formatAsesorInboxActualizacion(null, "2026-08-14T18:00:00.000Z", () => "fallback"),
+      "fallback",
+    );
+    assert.equal(formatAsesorInboxMontoAntes(80000, 95000), "Antes $80,000");
+    assert.equal(formatAsesorInboxMontoAntes(80000, 80000), null);
+  });
 });
 
 describe("asesor page B1 contract (source)", () => {
@@ -250,6 +348,15 @@ describe("asesor page B1 contract (source)", () => {
     assert.match(src, /collectAsesorInboxExportRows/);
     assert.match(src, /queryGenRef/);
     assert.match(src, /Reintentar/);
+  });
+
+  it("P183 badges y columna Actualización por reprecal_activity_at", () => {
+    assert.match(src, /asesorInboxReprecalBadgeLabel/);
+    assert.match(src, /Monto actualizado/);
+    assert.match(src, /formatAsesorInboxActualizacion/);
+    assert.match(src, /visibilitychange/);
+    assert.match(src, /8_000/);
+    assert.doesNotMatch(src, /channel\(/);
   });
 
   it("export solo on-click (no en loadInbox)", () => {

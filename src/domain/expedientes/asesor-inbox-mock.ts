@@ -85,6 +85,17 @@ function toListItem(exp: ExpedienteMock): AsesorListExpedienteItem {
     no_cumple_at: exp.editorDecision.noCumpleAt ?? null,
     resultado_real: resultado,
     categoria_correccion: categoriaMock(exp),
+    reprecal_estado: exp.reprecalificacionPendienteId ? "pending" : null,
+    reprecal_solicitada_at: exp.reprecalificacionPendienteId
+      ? (exp.operativo.updatedAt ?? exp.base.createdAt)
+      : null,
+    reprecal_resuelta_at: null,
+    reprecal_activity_at: exp.reprecalificacionPendienteId
+      ? (exp.operativo.updatedAt ?? exp.base.createdAt)
+      : null,
+    reprecal_monto_previo: null,
+    reprecal_monto_resultado: null,
+    reprecal_programa_solicitado: null,
   };
 }
 
@@ -175,8 +186,8 @@ function filterMine(
   }
 
   out.sort((a, b) => {
-    const ta = new Date(a.created_at).getTime();
-    const tb = new Date(b.created_at).getTime();
+    const ta = new Date(a.reprecal_activity_at ?? a.created_at).getTime();
+    const tb = new Date(b.reprecal_activity_at ?? b.created_at).getTime();
     if (tb !== ta) return tb - ta;
     return b.id.localeCompare(a.id);
   });

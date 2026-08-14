@@ -99,6 +99,14 @@ export const asesorListExpedienteItemSchema = z.object({
   no_cumple_at: z.string().nullable().optional(),
   resultado_real: asesorInboxResultadoRealSchema,
   categoria_correccion: asesorInboxCategoriaCorreccionSchema,
+  /** P183: estado de re-precal REAL (ortogonal a resultado_real). */
+  reprecal_estado: z.enum(["pending", "approved", "no_cumple"]).nullable().optional(),
+  reprecal_solicitada_at: z.string().nullable().optional(),
+  reprecal_resuelta_at: z.string().nullable().optional(),
+  reprecal_activity_at: z.string().nullable().optional(),
+  reprecal_monto_previo: z.union([z.number(), z.string()]).nullable().optional(),
+  reprecal_monto_resultado: z.union([z.number(), z.string()]).nullable().optional(),
+  reprecal_programa_solicitado: z.string().nullable().optional(),
 });
 
 export type AsesorListExpedienteItem = z.infer<

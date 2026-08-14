@@ -23,7 +23,13 @@ import {
   mapAsesorInboxNotificationsToDashboard,
   mapAsesorInboxPageResultToViewModel,
   mapAsesorInboxSummaryToKpis,
+  asesorInboxReprecalBadgeLabel,
+  asesorInboxReprecalBadgeClass,
+  formatAsesorInboxActualizacion,
+  formatAsesorInboxMontoAntes,
+  formatAsesorInboxResueltaHint,
   type AsesorInboxKpisFromSummary,
+  type AsesorInboxReprecalMeta,
   type ExpedienteMock,
 } from "@/domain/expedientes";
 import {
@@ -259,6 +265,7 @@ interface PrecalificacionMockLocal {
   reingresoManualAt?: string | null;
   /** Categoría SQL B1.5 (fallback hasta enriquecer con archivos/datos). */
   categoriaCorreccionRpc?: CategoriaResumenDocumental;
+  reprecal?: AsesorInboxReprecalMeta | null;
 }
 
 const DECISION_OPTIONS = [
@@ -619,6 +626,7 @@ export default function AsesorDashboardPage() {
       opts?: {
         resultadoReal?: ResultadoRealExpediente;
         categoriaCorreccion?: CategoriaResumenDocumental;
+        reprecal?: AsesorInboxReprecalMeta | null;
       },
     ): PrecalificacionMockLocal => {
       return {
@@ -643,6 +651,7 @@ export default function AsesorDashboardPage() {
         reingresoManualCount: e.reingresoManual?.count ?? 0,
         reingresoManualAt: e.reingresoManual?.at ?? null,
         categoriaCorreccionRpc: opts?.categoriaCorreccion,
+        reprecal: opts?.reprecal ?? null,
       };
     },
     [],
@@ -888,6 +897,7 @@ export default function AsesorDashboardPage() {
           return mapExpedienteToLegacy(exp, {
             resultadoReal: deriveResultadoRealExpediente(exp),
             categoriaCorreccion: catTyped,
+            reprecal: view.reprecalPorId[exp.id] ?? null,
           });
         });
         // Preferir resultado_real del RPC si está en categoria map — re-map from raw items
@@ -1702,9 +1712,19 @@ export default function AsesorDashboardPage() {
                         resumenCorreccion,
                         p.operativo?.cicloEstado,
                       );
-                      const updatedDisplay = p.updatedAtOperativo
-                        ? formatDateTimeMx(p.updatedAtOperativo)
-                        : "—";
+                      const updatedDisplay = formatAsesorInboxActualizacion(
+                        p.reprecal,
+                        p.updatedAtOperativo,
+                        formatDateTimeMx,
+                      );
+                      const reprecal = p.reprecal ?? null;
+                      const montoAntes =
+                        reprecal?.estado === "approved"
+                          ? formatAsesorInboxMontoAntes(
+                              reprecal.montoPrevio,
+                              p.monto_aprobado,
+                            )
+                          : null;
 
                       const rowsDoc = resumenArchivosPorId[p.id];
                       const estadoDocumentacion =
@@ -1808,7 +1828,8 @@ export default function AsesorDashboardPage() {
                           <td className="max-w-[100px] truncate px-2 py-1.5 text-gray-600">
                             {p.programa}
                           </td>
-                          <td className="max-w-[7.5rem] px-2 py-1.5 sm:max-w-none sm:whitespace-nowrap">
+                          <td className="max-w-[7.5rem] px-2 py-1.5 sm:max-w-none">
+                            <div className="flex flex-col items-start gap-0.5">
                             <span
                               className={`inline-flex rounded-full px-1.5 py-0.5 text-[10px] font-medium sm:text-xs ${resultadoBadge.className}`}
                             >
@@ -1816,6 +1837,15 @@ export default function AsesorDashboardPage() {
                                 {resultadoBadge.label}
                               </span>
                             </span>
+                            {reprecal && reprecal.estado !== "approved" ? (
+                              <span
+                                className={`mt-0.5 ${asesorInboxReprecalBadgeClass(reprecal.estado)}`}
+                                data-testid={`asesor-reprecal-badge-${reprecal.estado}`}
+                              >
+                                {asesorInboxReprecalBadgeLabel(reprecal.estado)}
+                              </span>
+                            ) : null}
+                            </div>
                           </td>
                           <td className="max-w-[140px] px-2 py-1.5 align-top">
                             <span
@@ -1834,10 +1864,28 @@ export default function AsesorDashboardPage() {
                               {estatusOperativoBadge.label}
                             </span>
                           </td>
-                          <td className="whitespace-nowrap px-2 py-1.5 tabular-nums text-gray-600">
-                            {montoDisplay}
+                          <td className="px-2 py-1.5 tabular-nums text-gray-600">
+                            <span className="whitespace-nowrap">{montoDisplay}</span>
+                            {reprecal?.estado === "approved" ? (
+                              <span
+                                className="mt-0.5 block text-[9px] font-medium leading-tight text-emerald-800"
+                                data-testid="asesor-reprecal-badge-approved"
+                              >
+                                Monto actualizado
+                              </span>
+                            ) : null}
+                            {montoAntes ? (
+                              <span className="mt-0.5 block text-[9px] leading-tight text-gray-500">
+                                {montoAntes}
+                              </span>
+                            ) : null}
+                            {reprecal?.estado === "approved" && reprecal.resueltaAt ? (
+                              <span className="mt-0.5 block text-[9px] leading-tight text-gray-400">
+                                Actualizado {formatAsesorInboxResueltaHint(reprecal.resueltaAt)}
+                              </span>
+                            ) : null}
                           </td>
-                          <td className="whitespace-nowrap px-2 py-1.5 text-[10px] text-gray-600 sm:text-xs">
+                          <td className="px-2 py-1.5 text-[10px] text-gray-600 sm:text-xs">
                             {updatedDisplay}
                           </td>
                         </tr>

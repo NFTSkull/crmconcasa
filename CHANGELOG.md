@@ -4,6 +4,8 @@
 
 ### Added
 
+- **feat(asesor): P183 inbox re-precal como actividad (LOCAL)** — mig **180** READ MODEL: orden `COALESCE(reprecal_activity_at, created_at)` (no `updated_at`); badges En revisión / Monto actualizado / No cumple. Sin Cloud/commit.
+
 - **feat(admin): P182 localizador Resumen por cliente/NSS (LOCAL)** — RPC RO `admin_search_cliente_expedientes` (mig **179**, sin periodo, sin dedupe NSS); panel «Resultados de búsqueda» en `/admin` Resumen antes de KPIs. P177/KPIs intactos. Sin Cloud/commit.
 
 ### Changed

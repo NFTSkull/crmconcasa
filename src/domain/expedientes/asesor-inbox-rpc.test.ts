@@ -131,6 +131,53 @@ describe("asesor-inbox-rpc contracts (B1.5 P161)", () => {
     assert.match(sql, /p_etapa_actual IN \(4, 5\)/);
   });
 
+  it("migración 180 ordena por actividad de re-precal, no por updated_at", () => {
+    const sql = readFileSync(
+      resolve(process.cwd(), "supabase/migrations/180_asesor_reprecal_inbox_activity.sql"),
+      "utf8",
+    );
+    assert.match(sql, /asesor_list_expedientes_page/);
+    assert.match(sql, /inbox_sort_at DESC/);
+    assert.match(sql, /reprecal_activity_at/);
+    assert.match(sql, /decision_previa IS NOT NULL/);
+    assert.doesNotMatch(sql, /ORDER BY f\.updated_at/);
+    assert.doesNotMatch(sql, /asesor_iniciar_reprecalificacion/);
+    assert.doesNotMatch(sql, /editor_resolver_reprecalificacion/);
+  });
+
+  it("Zod acepta metadata P183 opcional", () => {
+    const parsed = asesorListExpedientesPageResultSchema.parse({
+      items: [
+        {
+          id: "00000000-0000-4000-8000-000000000183",
+          programa: "Mejoravit",
+          nss: "99183000001",
+          cliente_nombre: "Ana",
+          asesor_id: "00000000-0000-4000-8001-000000000001",
+          submitted_to_mesa: false,
+          created_at: "2026-08-14T12:00:00.000Z",
+          decision: "aprobado",
+          monto_aprobado: 95000,
+          resultado_real: "aprobado_editor",
+          categoria_correccion: "faltantes",
+          reprecal_estado: "approved",
+          reprecal_solicitada_at: "2026-08-14T12:05:00.000Z",
+          reprecal_resuelta_at: "2026-08-14T12:10:00.000Z",
+          reprecal_activity_at: "2026-08-14T12:10:00.000Z",
+          reprecal_monto_previo: 80000,
+          reprecal_monto_resultado: 95000,
+          reprecal_programa_solicitado: "mejoravit",
+        },
+      ],
+      total_count: 1,
+      page: 1,
+      page_size: 25,
+      has_more: false,
+    });
+    assert.equal(parsed.items[0]!.reprecal_estado, "approved");
+    assert.equal(parsed.items[0]!.reprecal_monto_previo, 80000);
+  });
+
   it("doc de equivalencia existe y cita DOCUMENTO_TIPOS legado", () => {
     const md = readFileSync(
       resolve(process.cwd(), "docs/ASESOR_INBOX_B15_EQUIVALENCIA.md"),

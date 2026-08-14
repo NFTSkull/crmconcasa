@@ -43,10 +43,24 @@ export type AsesorInboxPageViewModel = Readonly<{
   items: ExpedienteMock[];
   /** Categoría de corrección ya calculada en SQL (por id). */
   categoriaPorId: Readonly<Record<string, string>>;
+  /** P183: metadata de re-precal REAL (ortogonal a resultado_real). */
+  reprecalPorId: Readonly<Record<string, AsesorInboxReprecalMeta>>;
   totalCount: number;
   page: number;
   pageSize: number;
   hasMore: boolean;
+}>;
+
+export type AsesorInboxReprecalEstado = "pending" | "approved" | "no_cumple";
+
+export type AsesorInboxReprecalMeta = Readonly<{
+  estado: AsesorInboxReprecalEstado;
+  solicitadaAt: string | null;
+  resueltaAt: string | null;
+  activityAt: string | null;
+  montoPrevio: number | null;
+  montoResultado: number | null;
+  programaSolicitado: string | null;
 }>;
 
 export type AsesorInboxKpisFromSummary = Readonly<{
@@ -164,6 +178,97 @@ function parseMonto(value: number | string | null | undefined): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+export function mapAsesorInboxReprecalMeta(
+  item: AsesorListExpedienteItem,
+): AsesorInboxReprecalMeta | null {
+  const estado = item.reprecal_estado;
+  if (estado !== "pending" && estado !== "approved" && estado !== "no_cumple") {
+    return null;
+  }
+  return {
+    estado,
+    solicitadaAt: item.reprecal_solicitada_at ?? null,
+    resueltaAt: item.reprecal_resuelta_at ?? null,
+    activityAt: item.reprecal_activity_at ?? null,
+    montoPrevio: parseMonto(item.reprecal_monto_previo),
+    montoResultado: parseMonto(item.reprecal_monto_resultado),
+    programaSolicitado: item.reprecal_programa_solicitado ?? null,
+  };
+}
+
+export function asesorInboxReprecalBadgeLabel(
+  estado: AsesorInboxReprecalEstado,
+): string {
+  if (estado === "pending") return "Precalificación actualizada · En revisión";
+  if (estado === "approved") return "Monto actualizado";
+  return "Resultado actualizado · No cumple";
+}
+
+export function asesorInboxReprecalBadgeClass(
+  estado: AsesorInboxReprecalEstado,
+): string {
+  if (estado === "pending") {
+    return "inline-flex w-fit rounded-full bg-violet-100 px-1.5 py-0.5 text-[9px] font-semibold text-violet-900";
+  }
+  if (estado === "approved") {
+    return "inline-flex w-fit rounded-full bg-emerald-100 px-1.5 py-0.5 text-[9px] font-semibold text-emerald-800";
+  }
+  return "inline-flex w-fit rounded-full bg-rose-100 px-1.5 py-0.5 text-[9px] font-semibold text-rose-800";
+}
+
+function compactInboxDateTime(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  const day = String(d.getDate()).padStart(2, "0");
+  const month = String(d.getMonth() + 1).padStart(2, "0");
+  const h = String(d.getHours()).padStart(2, "0");
+  const min = String(d.getMinutes()).padStart(2, "0");
+  return `${day}/${month} ${h}:${min}`;
+}
+
+export function formatAsesorInboxActualizacion(
+  reprecal: AsesorInboxReprecalMeta | null | undefined,
+  updatedAt: string | null | undefined,
+  formatFallback: (iso: string) => string,
+): string {
+  const activity = reprecal?.activityAt?.trim();
+  if (reprecal && activity) {
+    const when = compactInboxDateTime(activity);
+    if (reprecal.estado === "pending") return `Reenviada ${when}`;
+    return `Resultado ${when}`;
+  }
+  if (updatedAt?.trim()) return formatFallback(updatedAt);
+  return "—";
+}
+
+export function formatAsesorInboxResueltaHint(iso: string): string {
+  const d = new Date(iso);
+  if (Number.isNaN(d.getTime())) return "—";
+  const months = [
+    "ene", "feb", "mar", "abr", "may", "jun",
+    "jul", "ago", "sep", "oct", "nov", "dic",
+  ];
+  const h = String(d.getHours()).padStart(2, "0");
+  const min = String(d.getMinutes()).padStart(2, "0");
+  return `${d.getDate()} ${months[d.getMonth()]} · ${h}:${min}`;
+}
+
+export function formatAsesorInboxMontoAntes(
+  montoPrevio: number | null | undefined,
+  montoVigente: number | null | undefined,
+): string | null {
+  if (
+    montoPrevio == null ||
+    montoVigente == null ||
+    !Number.isFinite(montoPrevio) ||
+    !Number.isFinite(montoVigente) ||
+    montoPrevio === montoVigente
+  ) {
+    return null;
+  }
+  return `Antes $${Math.round(montoPrevio).toLocaleString("es-MX")}`;
+}
+
 function normalizeResultadoReal(raw: string): ResultadoRealExpediente {
   const parsed = asesorInboxResultadoRealSchema.safeParse(raw);
   if (parsed.success) return parsed.data;
@@ -254,8 +359,11 @@ export function mapAsesorInboxPageResultToViewModel(
   opts?: { asesorEmail?: string | null },
 ): AsesorInboxPageViewModel {
   const categoriaPorId: Record<string, string> = {};
+  const reprecalPorId: Record<string, AsesorInboxReprecalMeta> = {};
   const items = result.items.map((row) => {
     categoriaPorId[row.id] = row.categoria_correccion;
+    const meta = mapAsesorInboxReprecalMeta(row);
+    if (meta) reprecalPorId[row.id] = meta;
     return mapAsesorInboxListItemToExpedienteMock(row, {
       asesorEmail: opts?.asesorEmail,
     });
@@ -263,6 +371,7 @@ export function mapAsesorInboxPageResultToViewModel(
   return {
     items,
     categoriaPorId,
+    reprecalPorId,
     totalCount: result.total_count,
     page: result.page,
     pageSize: result.page_size,
