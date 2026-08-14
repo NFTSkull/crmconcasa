@@ -39,7 +39,11 @@ BEGIN
   PERFORM public.__p161_assert(v_oid IS NOT NULL, 'list RPC existe');
   PERFORM public.__p161_assert(position('SECURITY DEFINER' in v_src) > 0, 'list DEFINER');
   PERFORM public.__p161_assert(position('e.asesor_id = v_actor' in v_src) > 0, 'list aislamiento');
-  PERFORM public.__p161_assert(position('created_at DESC, f.id DESC' in v_src) > 0, 'orden estable');
+  PERFORM public.__p161_assert(
+    position('inbox_sort_at DESC, f.id DESC' in v_src) > 0
+    OR position('created_at DESC, f.id DESC' in v_src) > 0,
+    'orden estable'
+  );
   PERFORM public.__p161_assert(position('total_count' in v_src) > 0, 'total_count');
   PERFORM public.__p161_assert(position('p_quick_filter' in v_src) > 0, 'quick filter');
   PERFORM public.__p161_assert(position('asesor_inbox_matches_buscar' in v_src) > 0, 'buscar');

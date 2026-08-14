@@ -1,3 +1,8 @@
+## P183 — Inbox asesor: re-precalificación como actividad nueva
+
+- [x] B1 LOCAL: mig **180** REPLACE `asesor_list_expedientes_page` (orden `inbox_sort_at`, meta reprecal REAL); UI pills + columna Actualización; SQL A–P; tests FE. Sin mutar iniciar/resolver. Sin Cloud/commit.
+- [ ] B2 Cloud apply 180 + smoke (fuera de B1).
+
 ## P182 — Localizador Admin Resumen (cliente / NSS)
 
 - [x] B1 LOCAL: RPC `admin_search_cliente_expedientes` mig **179** (sin periodo; pre+post Mesa; 1 fila por `expediente_id`); UI Resumen «Resultados de búsqueda» separada de KPIs; debounce 300 ms + seq; SQL A–Q; tests FE. Sin Cloud/commit.

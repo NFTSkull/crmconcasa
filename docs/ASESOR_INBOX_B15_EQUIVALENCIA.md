@@ -93,7 +93,7 @@ Aplicados **antes** de paginar; `total_count` = universo filtrado.
 
 | TS (cliente) | SQL |
 |---|---|
-| `createdAt DESC` luego slice | `ORDER BY created_at DESC, id DESC` + `LIMIT/OFFSET` |
+| `createdAt DESC` luego slice | P183: `ORDER BY COALESCE(reprecal_activity_at, created_at) DESC, id DESC` + `LIMIT/OFFSET`. Fechas de filtro siguen `created_at`. |
 | `PAGE_SIZE` UI hoy = 50 | RPC default **25**, máx 100; UI B1 usa **25** |
 
 ## Notificaciones (`buildDashboardNotifications(..., "asesor", {max:50})`)

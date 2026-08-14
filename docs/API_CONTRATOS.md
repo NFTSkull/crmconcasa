@@ -946,7 +946,10 @@ Rango seguro **O:U** (`ESTADO CRM`…`CRM_SYNC_VERSION`). **A:N se PRESERVA** (H
 
 - Identidad: `current_profile_id()` = `auth.uid()`; solo `app_role=asesor` activo.
 - Aislamiento: `expedientes.asesor_id = actor` y `deleted_at IS NULL`.
-- Orden: `created_at DESC, id DESC` (estable).
+- Orden (P183, mig **180** local): `ORDER BY COALESCE(reprecal_activity_at, created_at) DESC, id DESC` **antes** de OFFSET/LIMIT. `reprecal_activity_at` sale de `expediente_precalificacion_intentos` (pending = `reprecalificacion_pendiente_id.created_at`; resuelto REAL = `decided_at`). **No** se ordena por `expedientes.updated_at`.
+- Filtros de fecha `fecha_desde` / `fecha_hasta`: siguen usando **`e.created_at`** (P183 no cambia semántica histórica).
+- Metadata additive (nullable): `reprecal_estado` (`pending`\|`approved`\|`no_cumple`), `reprecal_solicitada_at`, `reprecal_resuelta_at`, `reprecal_activity_at`, `reprecal_monto_previo`, `reprecal_monto_resultado`, `reprecal_programa_solicitado`. Ortogonal a `resultado_real` / `asesor_inbox_resultado_real`.
+- Discriminador intento REAL: `decision_previa IS NOT NULL OR idempotency_key` (snapshot histórico de 1ª aprobación no cuenta).
 - Filtros: buscar, decisión, subestado, resultado_real, programa (label UI), etapa, fechas MX, quick_filter (todos los chips actuales).
 - SECURITY DEFINER; `REVOKE` PUBLIC/anon; `GRANT EXECUTE` authenticated.
 

@@ -48,10 +48,18 @@ export {
   mapAsesorInboxNotificationsToDashboard,
   mapAsesorInboxPageResultToViewModel,
   mapAsesorInboxSummaryToKpis,
+  mapAsesorInboxReprecalMeta,
+  asesorInboxReprecalBadgeLabel,
+  asesorInboxReprecalBadgeClass,
+  formatAsesorInboxActualizacion,
+  formatAsesorInboxMontoAntes,
+  formatAsesorInboxResueltaHint,
 } from "./asesor-inbox-ui";
 export type {
   AsesorInboxKpisFromSummary,
   AsesorInboxPageViewModel,
+  AsesorInboxReprecalMeta,
+  AsesorInboxReprecalEstado,
   AsesorInboxUiFilters,
 } from "./asesor-inbox-ui";
 export type {

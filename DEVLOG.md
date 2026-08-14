@@ -1,3 +1,7 @@
+## 2026-08-14 - P183 B1 LOCAL: inbox asesor re-precal como actividad
+
+Causa: tras P181/P169 el dashboard `/asesor` seguía ordenando por `created_at`, así que un expediente viejo re-precalificado no volvía arriba; `updated_at` no sirve porque también cambia por docs/Mesa/citas. Fix READ MODEL: `asesor_list_expedientes_page` (mig **180**) deriva `reprecal_activity_at` de intentos REALES (`decision_previa`/`idempotency_key`; pending = `reprecalificacion_pendiente_id`). UI: pills + Actualización semántica. Filtros de fecha siguen `created_at`. Sin mutar iniciar/resolver, sin Realtime, sin Cloud/commit.
+
 ## 2026-08-14 - P182 B1 LOCAL: localizador Admin Resumen
 
 Causa: el buscador de `/admin` filtraba RPCs de periodo/snapshot Mesa pero Resumen no listaba coincidencias operativas (pre-Mesa, histórico fuera del preset, multi-expediente P179). Fix: RPC RO dedicado sin `p_from/p_to`, universo `expedientes.deleted_at IS NULL` + org del super_admin; UI «Resultados de búsqueda» separada de «Resumen del periodo». CTA = panel con payload del search (drawer Mesa exige `fechaEnvioMesa`). Filtro asesor sí; estado/etapa no. Sin Cloud apply / commit.
