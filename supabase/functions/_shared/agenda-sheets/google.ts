@@ -41,6 +41,11 @@ export type SheetsAdapter = {
   batchUpdateSpreadsheet: (requests: readonly object[]) => Promise<void>;
   /** Solo metadatos de pestañas (sin valores de celdas). */
   listSheets: () => Promise<SheetMeta[]>;
+  /**
+   * Lectura multi-rango (values.batchGet). Solo GET; no escribe celdas.
+   * La clave del mapa es el A1 pedido (mismo string que se pasó).
+   */
+  batchGetValues: (rangesA1: readonly string[]) => Promise<Map<string, string[][]>>;
 };
 
 function pemToArrayBuffer(pem: string): ArrayBuffer {
@@ -240,6 +245,34 @@ export async function createGoogleSheetsAdapter(input: {
         hidden: Boolean(s.properties?.hidden),
       }));
     },
+    async batchGetValues(rangesA1: readonly string[]) {
+      const ranges = (rangesA1 ?? []).map((r) => String(r ?? "").trim()).filter(Boolean);
+      const out = new Map<string, string[][]>();
+      if (ranges.length === 0) return out;
+      const CHUNK = 40;
+      for (let i = 0; i < ranges.length; i += CHUNK) {
+        const chunk = ranges.slice(i, i + CHUNK);
+        const qs = chunk
+          .map((r) => `ranges=${encodeURIComponent(r)}`)
+          .join("&");
+        const url = `${base}/values:batchGet?majorDimension=ROWS&${qs}`;
+        const res = await fetchFn(url, {
+          headers: { authorization: `Bearer ${accessToken}` },
+        });
+        if (!res.ok) {
+          const body = (await res.text()).slice(0, 180);
+          throw new Error(`google_sheets_batch_get_failed:${res.status}:${body}`);
+        }
+        const json = (await res.json()) as {
+          valueRanges?: Array<{ range?: string; values?: string[][] }>;
+        };
+        const vrs = json.valueRanges ?? [];
+        for (let j = 0; j < chunk.length; j++) {
+          out.set(chunk[j]!, vrs[j]?.values ?? []);
+        }
+      }
+      return out;
+    },
   };
 }
 
@@ -342,6 +375,15 @@ export function createMemorySheetsAdapter(
     },
     async listSheets() {
       return sheets;
+    },
+    async batchGetValues(rangesA1: readonly string[]) {
+      const out = new Map<string, string[][]>();
+      for (const range of rangesA1 ?? []) {
+        const key = String(range ?? "").trim();
+        if (!key) continue;
+        out.set(key, store.get(key) ?? []);
+      }
+      return out;
     },
   };
 }

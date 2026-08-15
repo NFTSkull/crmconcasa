@@ -4,6 +4,10 @@
 
 ### Added
 
+- **feat(agenda): P188 B1 freshness horizon LOCAL** — mig **182** `agenda-sheet-availability-refresh-every-2h` (`7 */2 * * *`) → live-sync `mode=availability` `scope=horizon` (worker secret). Sheet READ + inventory upsert; 0 bookings/P170/reconcile. Fail-closed 6h intacto. Sin Cloud/commit.
+
+### Added
+
 - **fix(editor): P186 B1B.1 hardening blur/foco pending (LOCAL)** — `relatedTarget` null / window blur / visibility hidden no resuelven re-precal; solo salida deliberada de fila con app visible+focused. Sin SQL/Cloud/commit.
 
 - **feat(editor): P186 B1B wiring inbox + autosave draft + timeline pagado (LOCAL)** — list RPC `editor_list_expediente_ids_page` (orden SQL); draft 750ms sin botón; resolve al salir de fila; restore draft; refresh focus/visibility 8s; timeline etapa 12 pagado → Completado verde. Sin Cloud/commit.
