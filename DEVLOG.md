@@ -1,3 +1,7 @@
+## 2026-08-15 - P188 B1 LOCAL: refresh automático de inventario (horizon)
+
+Causa: `agenda-sheet-reconcile-every-15m` aborta en `upsert_failed` (booking_id duplicado en tab `17 AGOSTO`) y no refresca fechas posteriores; a las 6h la UI fail-closed. Fix: live-sync `scope=horizon` (solo worker secret; JWT rechazado) recorre hoy..+60 `America/Monterrey` con 1 `listSheets` + `values.batchGet`; si una tab falla, las demás siguen. Cron 182 `7 */2 * * *` (evita colisión :00 con reconcile). Timeout pg_net 55000 ms (mismo presupuesto 132; trabajo menor). Rollback: `SELECT cron.unschedule('agenda-sheet-availability-refresh-every-2h');`. No se toca reconcile/P170/P175/threshold. Sin Cloud apply/deploy/commit.
+
 ## 2026-08-14 - P186 B1B.1 LOCAL: blur/foco no resuelve re-precal
 
 Causa: `onBlur` de `<tr>` trataba `relatedTarget === null` como salida de fila; Cmd+Tab / cambio de pestaña / minimize disparaba `upsertEditorDecision` con monto parcial (p.ej. 12). Fix: settle (microtask/rAF) + `visibilityState`/`hasFocus`; hidden/!focus → 0 resolve; relatedTarget en el mismo `<tr>` → 0 resolve; click interno con `activeElement` fuera de fila sí finaliza. `window.blur` no finaliza; visibility hidden solo flushes draft. Sin SQL/Cloud/commit.

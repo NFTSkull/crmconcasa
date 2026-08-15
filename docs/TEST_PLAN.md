@@ -52,6 +52,7 @@
 - [x] B5.1 LOCAL: wiring Edge Sheet→`agenda_inscripcion_require_from_sheet` (reconcile/webhook) con kill switch fail-closed; independiente P170; secrets OFF; sin Cloud/deploy.
 - [x] P177 LOCAL: tab Inscripción en agenda asesor (embedded; sin requirement informativo).
 - [x] P176: mig 174 availability contract + live-sync auth; Apodaca 17 AGO cupos visibles.
+- [x] P188 B1 LOCAL: mig **182** cron availability horizon 2h + live-sync `scope=horizon` (worker-only, batchGet, isolation tab). Sin Cloud apply/deploy.
 - [x] B5.2: deploy webhook+reconcile + FROM_DATE luego ENABLED; históricos 07 AGO=0; P170 OFF.
 - [x] B5: secrets FROM_DATE=2026-08-13 + ENABLED=true (P170 OFF).
 

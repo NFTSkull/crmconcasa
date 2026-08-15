@@ -19,6 +19,13 @@ import {
   countAvailableByPhysicalOccupancy,
   decideBookHardGate,
 } from "../_shared/agenda-sheets/manual-occupancy.ts";
+import {
+  availabilityHorizonBounds,
+  decideLiveSyncScope,
+  horizonHttpStatus,
+  horizonPublicBody,
+  runAvailabilityHorizon,
+} from "../_shared/agenda-sheets/availability-horizon.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const START = "2026-07-30";
@@ -29,6 +36,7 @@ type Body = {
   locationId?: "monterrey" | "apodaca";
   mode?: "availability" | "book_gate";
   slotTime?: string;
+  scope?: string;
 };
 
 const LIVE_SYNC_ROLES = [
@@ -115,14 +123,31 @@ Deno.serve(async (req) => {
       body = {};
     }
 
-    const bookingDate = String(body.bookingDate ?? "").trim();
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(bookingDate) || bookingDate < START) {
-      return jsonError(400, "invalid_date", "bookingDate inválida o fuera de inventario");
+    const mode = body.mode === "book_gate" ? "book_gate" : "availability";
+    const scopeDecision = decideLiveSyncScope({
+      scope: typeof body.scope === "string" ? body.scope : undefined,
+      workerOk,
+      userOk,
+      mode,
+    });
+    if (scopeDecision.kind === "reject") {
+      return jsonError(
+        scopeDecision.status,
+        scopeDecision.code,
+        scopeDecision.message,
+      );
     }
+
+    const bookingDate = String(body.bookingDate ?? "").trim();
     const kind = body.kind;
     const locationId = body.locationId;
-    const mode = body.mode === "book_gate" ? "book_gate" : "availability";
     const slotTime = String(body.slotTime ?? "").trim().slice(0, 5);
+
+    if (scopeDecision.kind !== "horizon") {
+      if (!/^\d{4}-\d{2}-\d{2}$/.test(bookingDate) || bookingDate < START) {
+        return jsonError(400, "invalid_date", "bookingDate inválida o fuera de inventario");
+      }
+    }
 
     const email = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_EMAIL") ?? "";
     const pk = Deno.env.get("GOOGLE_SERVICE_ACCOUNT_PRIVATE_KEY") ?? "";
@@ -157,6 +182,43 @@ Deno.serve(async (req) => {
     }
 
     const tabs = await adapter.listSheets();
+    if (scopeDecision.kind === "horizon") {
+      const bounds = availabilityHorizonBounds(new Date());
+      try {
+        const horizon = await runAvailabilityHorizon({
+          tabs,
+          from: bounds.from,
+          to: bounds.to,
+          year: Number.isFinite(year) ? year : 2026,
+          organizationId: orgId,
+          spreadsheetId,
+          timeAliases,
+          batchGetValues: (ranges) => adapter.batchGetValues(ranges),
+          upsertBatch: async (rows) => {
+            const { error } = await supabase.rpc(
+              "agenda_sheet_inventory_upsert_batch",
+              { p_rows: rows },
+            );
+            return { error };
+          },
+        });
+        console.error("agenda-sheet-live-sync horizon done", {
+          from: horizon.from,
+          to: horizon.to,
+          tabs_in_range: horizon.tabs_in_range,
+          succeeded: horizon.succeeded,
+          failed: horizon.failed,
+          upserted: horizon.upserted,
+          outcome: horizon.outcome,
+        });
+        return jsonOk(horizonPublicBody(horizon), horizonHttpStatus(horizon));
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : String(e);
+        console.error("agenda-sheet-live-sync horizon global", msg.slice(0, 200));
+        return jsonError(500, "internal_error", msg.slice(0, 280));
+      }
+    }
+
     let upserted = 0;
     const anomalies: unknown[] = [];
     const physicalForGate: { slotTime: string; status: string }[] = [];
