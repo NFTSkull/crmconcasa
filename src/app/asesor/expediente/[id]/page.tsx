@@ -22,7 +22,6 @@ import { AgendaFirmasAsesorCard } from "@/components/asesor/AgendaFirmasAsesorCa
 import { ExpedienteClienteDatosFormSection } from "@/components/asesor/ExpedienteClienteDatosFormSection";
 import { AsesorMontoMejoravitActualizadoSection } from "@/components/asesor/AsesorMontoMejoravitActualizadoSection";
 import { AsesorPagareSection } from "@/components/asesor/AsesorPagareSection";
-import { AsesorInfonavitDocumentosSection } from "@/components/asesor/AsesorInfonavitDocumentosSection";
 import { AsesorMesaDocumentosSection } from "@/components/asesor/AsesorMesaDocumentosSection";
 import { AsesorNotificacionDocumentoSection } from "@/components/asesor/AsesorNotificacionDocumentoSection";
 import { AsesorSolicitudDocumentoSection } from "@/components/asesor/AsesorSolicitudDocumentoSection";
@@ -48,17 +47,6 @@ import {
   buildReingresoManualEnvioPendientes,
   formatReingresoEnvioPendientesMessage,
 } from "@/domain/expedientes/reingreso-manual";
-import {
-  MSJ_INFONAVIT_GUARDA_DATOS_ANTES_ENVIO,
-  bloqueaEnvioInfonavitPorCambiosSinGuardar,
-} from "@/domain/expedientes/infonavit-envio-gate";
-import {
-  P189_INFONAVIT_FEATURE_OFF,
-  p189BlocksUnsavedClienteDatos,
-  shouldShowAsesorInfonavitDatosFields,
-  type P189InfonavitFeatureStatus,
-} from "@/domain/expedientes/p189-infonavit-feature";
-import { fetchP189InfonavitFeatureStatus } from "@/domain/expedientes/p189-infonavit-feature.repo";
 import {
   MockExpedientesRepo,
 } from "@/domain/expedientes/mock.repo";
@@ -289,9 +277,6 @@ export default function AsesorExpedientePage() {
     useState<ClienteDatosDraft | null>(null);
   const [clienteDatosHasUnsavedChanges, setClienteDatosHasUnsavedChanges] =
     useState(false);
-  const [p189Status, setP189Status] =
-    useState<P189InfonavitFeatureStatus | null>(null);
-  const [p189StatusError, setP189StatusError] = useState<string | null>(null);
   const hasUserEditedClienteDatos = useRef(false);
   const suppressDraftAutosave = useRef(false);
   const hasHydratedClienteDatosRef = useRef(false);
@@ -578,9 +563,9 @@ export default function AsesorExpedientePage() {
         montoAprobado: montoAprobadoEditor,
         direccionOpcional,
         programaDb,
-        requireInfonavit: p189Status?.required === true,
+        requireInfonavit: false,
       }),
-    [clienteDatos, direccionOpcional, montoAprobadoEditor, programaDb, p189Status?.required],
+    [clienteDatos, direccionOpcional, montoAprobadoEditor, programaDb],
   );
 
   const datosGeneralesCompletos = useMemo(() => {
@@ -594,32 +579,19 @@ export default function AsesorExpedientePage() {
 
   const expedienteCancelado = operativo?.cicloEstado === "cancelado";
 
-  const infonavitUnsavedBlock = bloqueaEnvioInfonavitPorCambiosSinGuardar({
-    programaDb,
-    hasUnsavedClienteDatos: clienteDatosHasUnsavedChanges,
-    p189SnapshotRelevant: p189BlocksUnsavedClienteDatos(p189Status),
-  });
-
-  const showInfonavitDatosFields = shouldShowAsesorInfonavitDatosFields({
-    status: p189Status,
-    infonavit: clienteDatos.infonavit,
-  });
-
   const puedeEnviarAMesaSupabase = useMemo(
     () =>
       hasMontoAprobado &&
       datosGeneralesCompletos &&
       documentosCompletos &&
       !operativo?.submittedToMesa &&
-      !expedienteCancelado &&
-      !infonavitUnsavedBlock,
+      !expedienteCancelado,
     [
       datosGeneralesCompletos,
       documentosCompletos,
       hasMontoAprobado,
       operativo?.submittedToMesa,
       expedienteCancelado,
-      infonavitUnsavedBlock,
     ],
   );
 
@@ -694,8 +666,6 @@ export default function AsesorExpedientePage() {
         setReprecalificacionPendienteId(null);
         setProgramaSolicitadoPendiente(null);
         setLoadError(null);
-        setP189Status(null);
-        setP189StatusError(null);
         return;
       }
       setLoadError(null);
@@ -741,23 +711,6 @@ export default function AsesorExpedientePage() {
         setCancelacionOperativa(cancelacion);
       } else {
         setCancelacionOperativa(null);
-      }
-      if (isDataModeSupabase()) {
-        try {
-          const st = await fetchP189InfonavitFeatureStatus(exp.id);
-          setP189Status(st);
-          setP189StatusError(null);
-        } catch (statusErr) {
-          setP189Status({ ...P189_INFONAVIT_FEATURE_OFF });
-          setP189StatusError(
-            statusErr instanceof ExpedientesSupabaseError
-              ? statusErr.message
-              : "No se pudo consultar el estado de documentos INFONAVIT.",
-          );
-        }
-      } else {
-        setP189Status({ ...P189_INFONAVIT_FEATURE_OFF });
-        setP189StatusError(null);
       }
     } catch (err) {
       setPrecal(null);
@@ -875,10 +828,6 @@ export default function AsesorExpedientePage() {
     ) {
       return;
     }
-    if (infonavitUnsavedBlock) {
-      setEnviarMesaError(MSJ_INFONAVIT_GUARDA_DATOS_ANTES_ENVIO);
-      return;
-    }
 
     const confirmar = window.confirm(
       "¿Confirmas enviar este expediente a Mesa de control? La validación la realiza Supabase.",
@@ -904,7 +853,6 @@ export default function AsesorExpedientePage() {
     }
   }, [
     enviandoMesa,
-    infonavitUnsavedBlock,
     loadExpediente,
     operativo?.submittedToMesa,
     puedeEnviarAMesaSupabase,
@@ -914,11 +862,6 @@ export default function AsesorExpedientePage() {
 
   const handleConfirmarReingresoManual = useCallback(async () => {
     if (!precal?.id || reingresoSaving || !puedeMostrarReingresoCard) return;
-    if (infonavitUnsavedBlock) {
-      setReingresoError(MSJ_INFONAVIT_GUARDA_DATOS_ANTES_ENVIO);
-      setReingresoDialogOpen(false);
-      return;
-    }
     const pendientes = buildReingresoManualEnvioPendientes({
       hasMontoAprobado,
       datosGeneralesCompletos,
@@ -958,7 +901,6 @@ export default function AsesorExpedientePage() {
     camposFaltantesClienteDatos,
     datosGeneralesCompletos,
     hasMontoAprobado,
-    infonavitUnsavedBlock,
     loadExpediente,
     puedeMostrarReingresoCard,
     precal?.id,
@@ -1265,7 +1207,7 @@ export default function AsesorExpedientePage() {
       montoAprobado: montoAprobadoEditor,
       direccionOpcional,
       programaDb,
-      requireInfonavit: p189Status?.required === true,
+      requireInfonavit: false,
     });
     if (!validation.isValid) {
       setClienteDatosShowValidation(true);
@@ -1355,7 +1297,6 @@ export default function AsesorExpedientePage() {
     esReingresoActivo,
     montoAprobadoEditor,
     programaDb,
-    p189Status?.required,
     loadExpediente,
   ]);
 
@@ -1670,14 +1611,7 @@ export default function AsesorExpedientePage() {
                   Envía este mismo expediente nuevamente a Mesa Control y márcalo
                   como REINGRESO.
                 </p>
-                {infonavitUnsavedBlock ? (
-                  <p
-                    role="status"
-                    className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950"
-                  >
-                    {MSJ_INFONAVIT_GUARDA_DATOS_ANTES_ENVIO}
-                  </p>
-                ) : reingresoEnvioPendientes.length > 0 ? (
+                {reingresoEnvioPendientes.length > 0 ? (
                   <div
                     role="status"
                     className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950 whitespace-pre-line"
@@ -1709,7 +1643,7 @@ export default function AsesorExpedientePage() {
                   <Button
                     type="button"
                     variant="primary"
-                    disabled={reingresoSaving || infonavitUnsavedBlock}
+                    disabled={reingresoSaving}
                     onClick={() => {
                       setReingresoError(null);
                       setReingresoDialogOpen(true);
@@ -1750,13 +1684,6 @@ export default function AsesorExpedientePage() {
               programaDb={programaDb}
               onMontoMejoravitEdited={handleMontoMejoravitEdited}
               onMontoCalculadoEdited={handleMontoCalculadoEdited}
-              infonavitFieldsRequired={p189Status?.required === true}
-              showInfonavitDatosFields={showInfonavitDatosFields}
-              infonavitOptionalNote={
-                showInfonavitDatosFields && p189Status?.required !== true
-                  ? "Estos datos son opcionales para este expediente."
-                  : null
-              }
             />
             {esMejoravit && dataSupabase && precal?.id ? (
               <AsesorMontoMejoravitActualizadoSection
@@ -1767,13 +1694,6 @@ export default function AsesorExpedientePage() {
               <AsesorPagareSection
                 expedienteId={String(precal.id)}
                 etapaActual={operativo?.etapaActual ?? null}
-              />
-            ) : null}
-            {esMejoravit && dataSupabase && precal?.id ? (
-              <AsesorInfonavitDocumentosSection
-                expedienteId={String(precal.id)}
-                programa={programaDb}
-                submittedToMesa={operativo?.submittedToMesa ?? false}
               />
             ) : null}
             {dataSupabase && precal?.id ? (
@@ -1881,28 +1801,12 @@ export default function AsesorExpedientePage() {
                   {enviarMesaExito}
                 </p>
               ) : null}
-              {p189StatusError ? (
-                <p
-                  role="alert"
-                  className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900"
-                >
-                  {p189StatusError}
-                </p>
-              ) : null}
               {enviarMesaError ? (
                 <p
                   role="alert"
                   className="mt-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
                 >
                   {enviarMesaError}
-                </p>
-              ) : null}
-              {infonavitUnsavedBlock && !operativo?.submittedToMesa ? (
-                <p
-                  role="status"
-                  className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950"
-                >
-                  {MSJ_INFONAVIT_GUARDA_DATOS_ANTES_ENVIO}
                 </p>
               ) : null}
               {operativo?.submittedToMesa ? (
@@ -2085,14 +1989,7 @@ export default function AsesorExpedientePage() {
                   Envía este mismo expediente nuevamente a Mesa Control y márcalo
                   como REINGRESO.
                 </p>
-                {infonavitUnsavedBlock ? (
-                  <p
-                    role="status"
-                    className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950"
-                  >
-                    {MSJ_INFONAVIT_GUARDA_DATOS_ANTES_ENVIO}
-                  </p>
-                ) : reingresoEnvioPendientes.length > 0 ? (
+                {reingresoEnvioPendientes.length > 0 ? (
                   <div
                     role="status"
                     className="mt-3 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950 whitespace-pre-line"
@@ -2124,7 +2021,7 @@ export default function AsesorExpedientePage() {
                   <Button
                     type="button"
                     variant="primary"
-                    disabled={reingresoSaving || infonavitUnsavedBlock}
+                    disabled={reingresoSaving}
                     onClick={() => {
                       setReingresoError(null);
                       setReingresoDialogOpen(true);
@@ -2164,13 +2061,6 @@ export default function AsesorExpedientePage() {
               programaDb={programaDb}
               onMontoMejoravitEdited={handleMontoMejoravitEdited}
               onMontoCalculadoEdited={handleMontoCalculadoEdited}
-              infonavitFieldsRequired={p189Status?.required === true}
-              showInfonavitDatosFields={showInfonavitDatosFields}
-              infonavitOptionalNote={
-                showInfonavitDatosFields && p189Status?.required !== true
-                  ? "Estos datos son opcionales para este expediente."
-                  : null
-              }
             />
 
             <SeguimientoOperativoMock

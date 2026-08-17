@@ -1,8 +1,3 @@
-import {
-  hasCapturedInfonavitV1,
-  type InfonavitClienteDatosV1,
-} from "@/domain/expediente-cliente-datos/infonavit-datos";
-
 export type P189InfonavitFeatureStatus = Readonly<{
   aplica: boolean;
   feature_active: boolean;
@@ -33,32 +28,17 @@ export function parseP189InfonavitFeatureStatus(
   };
 }
 
-/** Bloquear unsaved solo si el envío va a exigir/encolar snapshot. */
+/** P189 B8: el asesor nunca tiene gate unsaved por INFONAVIT. */
 export function p189BlocksUnsavedClienteDatos(
-  status: P189InfonavitFeatureStatus | null | undefined,
+  _status?: P189InfonavitFeatureStatus | null | undefined,
 ): boolean {
-  if (!status) return false;
-  return status.required || (status.feature_active && status.has_complete_v1);
+  return false;
 }
 
-/**
- * B7.1: el formulario P189 solo se muestra si es obligatorio
- * o si un legacy ON ya tiene datos.infonavit capturados.
- * FLAG OFF / legacy sin v1 / non-Mejoravit → UI pre-P189.
- */
-export function shouldShowAsesorInfonavitDatosFields(input: {
+/** P189 B8: UI asesor siempre pre-P189 (sin campos INFONAVIT). */
+export function shouldShowAsesorInfonavitDatosFields(_input?: {
   status?: P189InfonavitFeatureStatus | null;
-  infonavit?: InfonavitClienteDatosV1 | null;
+  infonavit?: unknown;
 }): boolean {
-  const status = input.status;
-  if (!status) return false;
-  if (status.required === true) return true;
-  if (
-    status.feature_active === true &&
-    status.legacy === true &&
-    hasCapturedInfonavitV1(input.infonavit)
-  ) {
-    return true;
-  }
   return false;
 }

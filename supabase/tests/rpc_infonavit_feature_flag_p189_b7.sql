@@ -366,12 +366,12 @@ BEGIN
   v_elig := public.p189_infonavit_get_eligibility(v_exp);
   PERFORM public.__p189_b7_assert((v_elig->>'feature_active')::boolean, 'F: feature ON');
   PERFORM public.__p189_b7_assert((v_elig->>'legacy')::boolean, 'F: legacy');
-  PERFORM public.__p189_b7_assert(NOT (v_elig->>'required')::boolean, 'F: not required');
-  PERFORM public.__p189_b7_assert(NOT (v_elig->>'should_enqueue')::boolean, 'F: no enqueue');
+  PERFORM public.__p189_b7_assert((v_elig->>'required')::boolean = false, 'F: not required');
+  PERFORM public.__p189_b7_assert((v_elig->>'should_enqueue')::boolean, 'F: enqueue legacy+feature');
   v_res := public.__p189_b7_enviar(v_asesor, v_exp);
   PERFORM public.__p189_b7_assert((v_res->>'ok')::boolean, 'F: enviar OK');
   SELECT * INTO v_snaps, v_outs FROM public.__p189_b7_p189_counts(v_exp);
-  PERFORM public.__p189_b7_assert(v_snaps = 0 AND v_outs = 0, 'F: 0 P189');
+  PERFORM public.__p189_b7_assert(v_snaps = 1 AND v_outs = 3, 'F: 1+3');
 
   -- G. active + legacy completo → enqueue
   v_exp := '00000000-0000-4000-9197-000000000007';
@@ -386,21 +386,22 @@ BEGIN
   SELECT * INTO v_snaps, v_outs FROM public.__p189_b7_p189_counts(v_exp);
   PERFORM public.__p189_b7_assert(v_snaps = 1 AND v_outs = 3, 'G: 1+3');
 
-  -- H. active + NUEVO incompleto → REJECT + rollback
+  -- H. active + NUEVO incompleto → PASS + enqueue (B8 Mesa-only)
   v_exp := '00000000-0000-4000-9197-000000000008';
   PERFORM public.__p189_b7_seed_ready(
     v_exp, v_org, v_asesor, '18970000008',
     public.__p189_b7_legacy_datos('18970000008')
   );
   v_elig := public.p189_infonavit_get_eligibility(v_exp);
-  PERFORM public.__p189_b7_assert((v_elig->>'required')::boolean, 'H: required');
-  v_err := public.__p189_b7_enviar_err(v_asesor, v_exp);
-  PERFORM public.__p189_b7_assert(v_err LIKE '%INFONAVIT_DATOS_INCOMPLETOS%', 'H: reject');
+  PERFORM public.__p189_b7_assert((v_elig->>'required')::boolean = false, 'H: not required');
+  PERFORM public.__p189_b7_assert((v_elig->>'should_enqueue')::boolean, 'H: should_enqueue');
+  v_res := public.__p189_b7_enviar(v_asesor, v_exp);
+  PERFORM public.__p189_b7_assert((v_res->>'ok')::boolean, 'H: enviar OK');
   SELECT e.submitted_to_mesa, e.etapa_actual INTO v_submitted, v_etapa
   FROM public.expedientes e WHERE e.id = v_exp;
-  PERFORM public.__p189_b7_assert(v_submitted = false, 'H: no submitted');
+  PERFORM public.__p189_b7_assert(v_submitted = true, 'H: submitted');
   SELECT * INTO v_snaps, v_outs FROM public.__p189_b7_p189_counts(v_exp);
-  PERFORM public.__p189_b7_assert(v_snaps = 0 AND v_outs = 0, 'H: 0 P189');
+  PERFORM public.__p189_b7_assert(v_snaps = 1 AND v_outs = 3, 'H: 1+3');
 
   -- I. active + NUEVO completo
   v_exp := '00000000-0000-4000-9197-000000000009';
@@ -451,7 +452,7 @@ BEGIN
   v_res := public.__p189_b7_reingreso(v_asesor, v_exp);
   PERFORM public.__p189_b7_assert((v_res->>'changed')::boolean, 'RB: changed');
   SELECT * INTO v_snaps, v_outs FROM public.__p189_b7_p189_counts(v_exp);
-  PERFORM public.__p189_b7_assert(v_snaps = 0 AND v_outs = 0, 'RB: 0 P189');
+  PERFORM public.__p189_b7_assert(v_snaps = 1 AND v_outs = 3, 'RB: 1+3');
 
   -- Reingreso C: active + legacy completo
   v_exp := '00000000-0000-4000-9197-000000000013';
@@ -462,7 +463,7 @@ BEGIN
   SELECT * INTO v_snaps, v_outs FROM public.__p189_b7_p189_counts(v_exp);
   PERFORM public.__p189_b7_assert(v_snaps = 1 AND v_outs = 3, 'RC: 1+3');
 
-  -- Reingreso D: active + NUEVO incompleto → REJECT antes counter
+  -- Reingreso D: active + NUEVO incompleto → PASS + enqueue (B8)
   v_exp := '00000000-0000-4000-9197-000000000014';
   PERFORM public.__p189_b7_seed_ready(
     v_exp, v_org, v_asesor, '18970000014',
@@ -470,14 +471,14 @@ BEGIN
     true
   );
   SELECT e.reingreso_manual_count INTO v_count FROM public.expedientes e WHERE e.id = v_exp;
-  v_err := public.__p189_b7_reingreso_err(v_asesor, v_exp);
-  PERFORM public.__p189_b7_assert(v_err LIKE '%INFONAVIT_DATOS_INCOMPLETOS%', 'RD: reject');
+  v_res := public.__p189_b7_reingreso(v_asesor, v_exp);
+  PERFORM public.__p189_b7_assert((v_res->>'changed')::boolean, 'RD: changed');
   PERFORM public.__p189_b7_assert(
-    (SELECT e.reingreso_manual_count FROM public.expedientes e WHERE e.id = v_exp) = v_count,
-    'RD: counter intacto'
+    (SELECT e.reingreso_manual_count FROM public.expedientes e WHERE e.id = v_exp) = v_count + 1,
+    'RD: counter +1'
   );
   SELECT * INTO v_snaps, v_outs FROM public.__p189_b7_p189_counts(v_exp);
-  PERFORM public.__p189_b7_assert(v_snaps = 0 AND v_outs = 0, 'RD: 0 P189');
+  PERFORM public.__p189_b7_assert(v_snaps = 1 AND v_outs = 3, 'RD: 1+3');
 
   -- Reingreso E: active + NUEVO completo
   v_exp := '00000000-0000-4000-9197-000000000015';
@@ -536,7 +537,7 @@ BEGIN
   SELECT public.get_p189_infonavit_feature_status(v_exp) INTO v_status;
   PERFORM public.__p189_b7_reset();
   PERFORM public.__p189_b7_assert((v_status->>'aplica')::boolean, 'status aplica');
-  PERFORM public.__p189_b7_assert((v_status->>'required')::boolean, 'status required nuevo');
+  PERFORM public.__p189_b7_assert((v_status->>'required')::boolean = false, 'status not required B8');
   PERFORM public.__p189_b7_assert(v_status ? 'has_complete_v1', 'status keys');
   PERFORM public.__p189_b7_assert(NOT (v_status ? 'activation_at'), 'no activation_at');
   PERFORM public.__p189_b7_assert(NOT (v_status ? 'snapshot'), 'no snapshot');
