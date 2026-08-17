@@ -269,7 +269,10 @@ BEGIN
 
   PERFORM public.__p189_b3_assert(v_payload #>> '{credito,plazoAnios}' = '5', '5: plazoAnios');
   PERFORM public.__p189_b3_assert(v_payload #> '{credito,plazoMeses}' IS NULL, '5b: no plazoMeses');
-  PERFORM public.__p189_b3_assert(v_payload #> '{mejora,presupuestoEstimado}' IS NULL, '6: presupuesto blank B8');
+  PERFORM public.__p189_b3_assert(
+    jsonb_typeof(v_payload #> '{mejora,presupuestoEstimado}') = 'null',
+    '6: presupuesto blank B8'
+  );
   PERFORM public.__p189_b3_assert(
     (v_payload #>> '{credito,montoSolicitado}')::numeric = 80000,
     '6b: monto solicitado'

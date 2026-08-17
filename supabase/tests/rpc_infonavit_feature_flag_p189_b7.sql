@@ -537,7 +537,7 @@ BEGIN
   SELECT public.get_p189_infonavit_feature_status(v_exp) INTO v_status;
   PERFORM public.__p189_b7_reset();
   PERFORM public.__p189_b7_assert((v_status->>'aplica')::boolean, 'status aplica');
-  PERFORM public.__p189_b7_assert((v_status->>'required')::boolean, 'status required nuevo');
+  PERFORM public.__p189_b7_assert((v_status->>'required')::boolean = false, 'status not required B8');
   PERFORM public.__p189_b7_assert(v_status ? 'has_complete_v1', 'status keys');
   PERFORM public.__p189_b7_assert(NOT (v_status ? 'activation_at'), 'no activation_at');
   PERFORM public.__p189_b7_assert(NOT (v_status ? 'snapshot'), 'no snapshot');

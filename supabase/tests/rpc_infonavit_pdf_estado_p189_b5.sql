@@ -5,6 +5,7 @@
 \set ON_ERROR_STOP on
 \i supabase/tests/_p189_infonavit_datos_fixture.sql
 \i supabase/migrations/187_infonavit_pdf_read_model.sql
+\i supabase/migrations/188_p189_mesa_only_hotfix.sql
 
 CREATE OR REPLACE FUNCTION public.__p189_b5_assert(p_ok BOOLEAN, p_msg TEXT)
 RETURNS VOID LANGUAGE plpgsql AS $$
