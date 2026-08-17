@@ -9,6 +9,12 @@ import {
   parsePorcentajeCobroInput,
   resolveMontoCalculadoManualForRpc,
 } from "@/lib/clienteDatosCobro";
+import {
+  emptyInfonavitClienteDatosV1,
+  hasCapturedInfonavitV1,
+  mapDatosInfonavitFromUnknown,
+  serializeInfonavitClienteDatosV1,
+} from "./infonavit-datos";
 
 export type SupabaseClienteDatosRow = {
   expediente_id: string;
@@ -181,6 +187,8 @@ export function mapSupabaseRowToExpedienteClienteDatos(
       metodoPago: asString(datos.metodoPago) || asString(row.metodo_pago),
       // Siempre string ("" si ausente) para ciclo DB ↔ formulario sin perder la clave.
       notaMesa: asString(datos.notaMesa),
+      // Legacy sin bloque → defaults seguros (no throw).
+      infonavit: mapDatosInfonavitFromUnknown(datos.infonavit),
     },
     porcentajeCobro: asNumber(row.porcentaje_cobro),
     montoCalculado: asNumber(row.monto_calculado),
@@ -274,6 +282,13 @@ export function buildSaveClienteDatosRpcPayload(
   // Siempre incluir notaMesa: el RPC reemplaza `datos` completo.
   // Omitir la clave al guardar otros campos borraba notas previas.
   p_datos.notaMesa = String(datos.notaMesa ?? "").trim();
+
+  // P189 B7.1: no autogenerar bloque vacío. Persistir solo si hay captura real.
+  if (esMejoravit && hasCapturedInfonavitV1(datos.infonavit)) {
+    p_datos.infonavit = serializeInfonavitClienteDatosV1(
+      datos.infonavit ?? emptyInfonavitClienteDatosV1(),
+    );
+  }
 
   return {
     p_expediente_id: expedienteId,

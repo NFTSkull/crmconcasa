@@ -84,4 +84,27 @@ describe("mapEnviarAMesaRpcError", () => {
     });
     assert.match(err.message, /no se pudo enviar a Mesa/i);
   });
+
+  it("mapea datos Infonavit incompletos", () => {
+    const err = mapEnviarAMesaRpcError({
+      message: "INFONAVIT_DATOS_INCOMPLETOS",
+    });
+    assert.match(err.message, /datos infonavit/i);
+    assert.doesNotMatch(err.message, /\d{11}/);
+  });
+
+  it("mapea schemaVersion inválida", () => {
+    const err = mapEnviarAMesaRpcError({
+      message: "INFONAVIT_DATOS_VERSION_INVALIDA",
+    });
+    assert.match(err.message, /versión correcta/i);
+  });
+
+  it("mapea NSS mismatch sin PII", () => {
+    const err = mapEnviarAMesaRpcError({
+      message: "INFONAVIT_NSS_MISMATCH",
+    });
+    assert.match(err.message, /NSS/i);
+    assert.doesNotMatch(err.message, /184000/);
+  });
 });

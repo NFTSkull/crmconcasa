@@ -12,6 +12,7 @@ import {
   readClienteDatosMontoMejoravit,
   readClienteDatosPlazo,
 } from "./map-supabase-cliente-datos";
+import { mapDatosInfonavitFromUnknown } from "./infonavit-datos";
 import { emitExpedienteClienteDatosUpdated } from "./emit-updated";
 
 const STORAGE_KEY = "expediente_cliente_datos";
@@ -94,6 +95,7 @@ function rowToDomain(row: StoredRow): ExpedienteClienteDatos | null {
     metodoPago: typeof rawDatos.metodoPago === "string" ? rawDatos.metodoPago : "",
     montoMejoravit: readClienteDatosMontoMejoravit(rawDatos),
     plazo: readClienteDatosPlazo(rawDatos),
+    infonavit: mapDatosInfonavitFromUnknown(rawDatos.infonavit),
   };
   const montoParsed = parseMontoCalculadoInput(datos.montoCalculado);
   const updatedAt = typeof row.updatedAt === "string" ? row.updatedAt : new Date().toISOString();

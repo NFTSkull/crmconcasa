@@ -2,6 +2,7 @@
 -- Uso: PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -f supabase/tests/rpc_enviar_a_mesa.sql
 
 \set ON_ERROR_STOP on
+\i supabase/tests/_p189_infonavit_datos_fixture.sql
 
 CREATE OR REPLACE FUNCTION public.__rpc_enviar_test_assert(p_ok BOOLEAN, p_msg TEXT)
 RETURNS VOID
@@ -102,6 +103,7 @@ RETURNS VOID
 LANGUAGE plpgsql
 AS $$
 BEGIN
+  PERFORM public.__p189_purge_submission(p_id);
   INSERT INTO public.expedientes (
     id, organization_id, asesor_id, programa, nss, cliente_nombre,
     telefono_cliente, origen_mesa, submitted_to_mesa, etapa_actual, subestado
@@ -157,14 +159,22 @@ CREATE OR REPLACE FUNCTION public.__rpc_enviar_test_insert_cliente(
 RETURNS VOID
 LANGUAGE plpgsql
 AS $$
+DECLARE
+  v_nss TEXT;
 BEGIN
+  SELECT public.normalize_nss_mexico(e.nss::text)
+  INTO v_nss
+  FROM public.expedientes e
+  WHERE e.id = p_expediente_id;
+
   INSERT INTO public.cliente_datos (
     expediente_id, organization_id, datos, estado,
     porcentaje_cobro, monto_calculado, metodo_pago
   ) VALUES (
     p_expediente_id,
     p_org_id,
-    jsonb_build_object('rfc', p_rfc, 'nombreCliente', 'Fixture Cliente'),
+    public.__p189_infonavit_datos_completo(COALESCE(v_nss, '00000000000'))
+      || jsonb_build_object('rfc', p_rfc, 'nombreCliente', 'Fixture Cliente'),
     p_estado,
     p_porcentaje_cobro,
     p_monto_calculado,
@@ -295,6 +305,7 @@ DECLARE
   v_log_before BIGINT;
   v_log_after BIGINT;
 BEGIN
+  PERFORM public.__p189_clear_feature_vault();
   -- Expediente listo para envío (asesor a1)
   PERFORM public.__rpc_enviar_test_insert_expediente(v_exp_ok, v_org_id, v_asesor_a1, '90501000001');
   PERFORM public.__rpc_enviar_test_insert_editor(v_exp_ok, v_org_id);

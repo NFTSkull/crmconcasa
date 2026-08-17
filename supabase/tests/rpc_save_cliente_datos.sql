@@ -2,6 +2,7 @@
 -- Uso: PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -f supabase/tests/rpc_save_cliente_datos.sql
 
 \set ON_ERROR_STOP on
+\i supabase/tests/_p189_infonavit_datos_fixture.sql
 
 CREATE OR REPLACE FUNCTION public.__rpc_scd_test_assert(p_ok BOOLEAN, p_msg TEXT)
 RETURNS VOID
@@ -119,6 +120,7 @@ RETURNS VOID
 LANGUAGE plpgsql
 AS $$
 BEGIN
+  PERFORM public.__p189_purge_submission(p_id);
   INSERT INTO public.expedientes (
     id, organization_id, asesor_id, programa, nss, cliente_nombre,
     telefono_cliente, origen_mesa, submitted_to_mesa, fecha_envio_mesa,
@@ -558,7 +560,7 @@ BEGIN
         jsonb_build_object('nombre', 'Uno', 'telefono', '5561616161'),
         jsonb_build_object('nombre', 'Dos', 'telefono', '5561616161')
       ),
-      NULL, '{}'::JSONB, 'completo', 'teléfono de referencia repetido'
+      NULL, '{}'::JSONB, 'completo', 'CLIENTE_DATOS_TELEFONO_DUPLICADO'
     ),
     'test 17'
   );
@@ -568,7 +570,7 @@ BEGIN
     public.__rpc_scd_test_expect_fail(
       v_asesor_a1, v_exp_ref, 'XAXX010101000', '5540404040',
       jsonb_build_array(jsonb_build_object('nombre', 'Ref', 'telefono', '5540404040')),
-      NULL, '{}'::JSONB, 'completo', 'teléfono repetido en referencias'
+      NULL, '{}'::JSONB, 'completo', 'CLIENTE_DATOS_TELEFONO_DUPLICADO'
     ),
     'test 18'
   );
@@ -734,6 +736,7 @@ BEGIN
   PERFORM public.__rpc_scd_test_insert_editor(v_exp_enviar_ok, v_org_id);
   PERFORM public.__rpc_scd_test_insert_docs(v_exp_enviar_ok, v_org_id, v_asesor_a1);
   PERFORM public.__rpc_scd_test_call_as(v_asesor_a1, v_exp_enviar_ok, 'XAXX010101000', '5547474747');
+  PERFORM public.__p189_patch_cliente_datos_completo(v_exp_enviar_ok);
   v_result := public.__rpc_scd_test_call_enviar_as(v_asesor_a1, v_exp_enviar_ok);
   PERFORM public.__rpc_scd_test_assert((v_result->>'ok')::BOOLEAN, 'test 37');
 
@@ -741,6 +744,7 @@ BEGIN
   PERFORM public.__rpc_scd_test_call_as(v_asesor_a1, v_exp_enviar_rfc, 'XAXX010101000', '5548484848');
   PERFORM public.__rpc_scd_test_insert_editor(v_exp_enviar_rfc, v_org_id);
   PERFORM public.__rpc_scd_test_insert_docs(v_exp_enviar_rfc, v_org_id, v_asesor_a1);
+  PERFORM public.__p189_patch_cliente_datos_completo(v_exp_enviar_rfc);
   UPDATE public.cliente_datos
   SET datos = datos - 'rfc' || jsonb_build_object('rfc', '')
   WHERE expediente_id = v_exp_enviar_rfc;

@@ -371,6 +371,13 @@ authorization_url_path = "/oauth/consent"
 # Allow dynamic client registration
 allow_dynamic_registration = false
 
+[functions.infonavit-pdf-worker]
+enabled = true
+verify_jwt = false
+import_map = "./functions/infonavit-pdf-worker/deno.json"
+entrypoint = "./functions/infonavit-pdf-worker/index.ts"
+static_files = ["./functions/_shared/infonavit-templates/v1/*.pdf"]
+
 [edge_runtime]
 enabled = true
 # Supported request policies: `oneshot`, `per_worker`.

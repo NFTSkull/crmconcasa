@@ -64,6 +64,15 @@ BEGIN
     RAISE EXCEPTION 'documentos_obligatorios_roles: pagaré/notif/solicitud no deben ser obligatorios';
   END IF;
 
+  IF 'infonavit_carta_bajo_protesta' = ANY(v_envio)
+     OR 'infonavit_presupuesto_mejoramiento' = ANY(v_envio)
+     OR 'infonavit_solicitud_inscripcion' = ANY(v_envio)
+     OR 'infonavit_carta_bajo_protesta' = ANY(v_oblig)
+     OR 'infonavit_presupuesto_mejoramiento' = ANY(v_oblig)
+     OR 'infonavit_solicitud_inscripcion' = ANY(v_oblig) THEN
+    RAISE EXCEPTION 'documentos_obligatorios_roles: PDFs P189 no son gate de integración';
+  END IF;
+
   RAISE NOTICE 'documentos_obligatorios_roles: catálogos OK';
 END;
 $$;

@@ -12,6 +12,21 @@ import {
   normalizeDigitsOnly,
   normalizePersonName,
 } from "@/lib/clienteDatosFieldFormats";
+import {
+  INFONAVIT_MEJORA_DESCRIPCION_MAX_CHARS,
+  emptyInfonavitClienteDatosV1,
+  formatInfonavitDwellingAddress,
+  hasStructuredTitularName,
+  joinNombreCompletoInfonavit,
+  serializeInfonavitClienteDatosV1,
+  type InfonavitClienteDatosV1,
+} from "@/domain/expediente-cliente-datos/infonavit-datos";
+import {
+  combineLadaTelefonoMexico,
+  findDuplicateTelefonosIntraExpediente,
+  type TelefonoUnicidadEntry,
+  type TelefonoUnicidadSlot,
+} from "@/domain/expediente-cliente-datos/infonavit-telefonos";
 
 export {
   MSJ_DIGITS_ONLY,
@@ -30,6 +45,8 @@ export type ClienteDatosValidationContext = {
   montoAprobado?: number | null;
   direccionOpcional?: string | null;
   programaDb?: string | null;
+  /** P189: exigir bloque infonavit. Default false = validación base + formatos opcionales. */
+  requireInfonavit?: boolean;
 };
 
 export type ClienteDatosFieldKey =
@@ -57,7 +74,46 @@ export type ClienteDatosFieldKey =
   | "plazo"
   | "porcentajeCobro"
   | "montoCalculado"
-  | "metodoPago";
+  | "metodoPago"
+  // P189 B2
+  | "infonavitTitularNombres"
+  | "infonavitTitularApellidoPaterno"
+  | "infonavitTitularApellidoMaterno"
+  | "infonavitIdTipo"
+  | "infonavitIdNumero"
+  | "infonavitIdVigencia"
+  | "infonavitGenero"
+  | "infonavitEstadoCivil"
+  | "infonavitRegimen"
+  | "infonavitViviendaTipoPropiedad"
+  | "infonavitViviendaLocalidad"
+  | "infonavitViviendaCalle"
+  | "infonavitViviendaNumeroExterior"
+  | "infonavitViviendaNumeroInterior"
+  | "infonavitViviendaLote"
+  | "infonavitViviendaManzana"
+  | "infonavitViviendaColonia"
+  | "infonavitViviendaEntidad"
+  | "infonavitViviendaMunicipio"
+  | "infonavitViviendaCp"
+  | "infonavitRef1Nombres"
+  | "infonavitRef1ApellidoPaterno"
+  | "infonavitRef1ApellidoMaterno"
+  | "infonavitRef1Lada"
+  | "infonavitRef1Telefono"
+  | "infonavitRef1Celular"
+  | "infonavitRef2Nombres"
+  | "infonavitRef2ApellidoPaterno"
+  | "infonavitRef2ApellidoMaterno"
+  | "infonavitRef2Lada"
+  | "infonavitRef2Telefono"
+  | "infonavitRef2Celular"
+  | "infonavitBeneficiarioNombres"
+  | "infonavitBeneficiarioApellidoPaterno"
+  | "infonavitBeneficiarioApellidoMaterno"
+  | "infonavitBeneficiarioParentesco"
+  | "infonavitMejoraDescripcion"
+  | "infonavitMejoraPresupuesto";
 
 export type ClienteDatosFieldErrors = Partial<Record<ClienteDatosFieldKey, string>>;
 
@@ -70,6 +126,7 @@ export type ClienteDatosValidationResult = Readonly<{
 const CURP_RE = /^[A-Z]{4}[0-9]{6}[HM][A-Z]{5}[0-9A-Z][0-9]$/;
 const RFC_RE = /^[A-ZÑ&]{3,4}[0-9]{6}[A-Z0-9]{3}$/;
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const YMD_RE = /^\d{4}-\d{2}-\d{2}$/;
 
 /** Normaliza teléfono MX (espacios, guiones, +52). */
 export function normalizeTelefonoMexico(input: string): string {
@@ -108,43 +165,164 @@ function reqText(value: string, label: string): string | null {
   return String(value ?? "").trim() ? null : `${label} es obligatorio.`;
 }
 
+function normalizeInfonavitBlock(
+  raw: InfonavitClienteDatosV1 | undefined,
+): InfonavitClienteDatosV1 {
+  const base = serializeInfonavitClienteDatosV1(
+    raw ?? emptyInfonavitClienteDatosV1(),
+  );
+  const normRef = (r: InfonavitClienteDatosV1["referencias"][0]) => ({
+    nombres: normalizePersonName(r.nombres),
+    apellidoPaterno: normalizePersonName(r.apellidoPaterno),
+    apellidoMaterno: normalizePersonName(r.apellidoMaterno),
+    lada: normalizeDigitsOnly(r.lada),
+    telefono: normalizeDigitsOnly(r.telefono),
+    celular: normalizeTelefonoMexico(r.celular),
+  });
+  base.titular = {
+    ...base.titular,
+    nombres: normalizePersonName(base.titular.nombres),
+    apellidoPaterno: normalizePersonName(base.titular.apellidoPaterno),
+    apellidoMaterno: normalizePersonName(base.titular.apellidoMaterno),
+    identificacion: {
+      tipo: String(base.titular.identificacion.tipo ?? "").trim(),
+      numero: String(base.titular.identificacion.numero ?? "").trim(),
+      vigencia: String(base.titular.identificacion.vigencia ?? "").trim(),
+    },
+  };
+  if (base.titular.estadoCivil !== "casado") {
+    base.titular.regimenMatrimonial = "";
+  }
+  base.vivienda = {
+    ...base.vivienda,
+    localidad: String(base.vivienda.localidad ?? "").trim(),
+    calle: String(base.vivienda.calle ?? "").trim(),
+    numeroExterior: String(base.vivienda.numeroExterior ?? "").trim(),
+    numeroInterior: String(base.vivienda.numeroInterior ?? "").trim(),
+    lote: String(base.vivienda.lote ?? "").trim(),
+    manzana: String(base.vivienda.manzana ?? "").trim(),
+    colonia: String(base.vivienda.colonia ?? "").trim(),
+    entidad: String(base.vivienda.entidad ?? "").trim(),
+    municipio: String(base.vivienda.municipio ?? "").trim(),
+    cp: normalizeDigitsOnly(base.vivienda.cp),
+  };
+  base.referencias = [normRef(base.referencias[0]), normRef(base.referencias[1])];
+  base.beneficiario = {
+    nombres: normalizePersonName(base.beneficiario.nombres),
+    apellidoPaterno: normalizePersonName(base.beneficiario.apellidoPaterno),
+    apellidoMaterno: normalizePersonName(base.beneficiario.apellidoMaterno),
+    parentesco: normalizePersonName(base.beneficiario.parentesco),
+  };
+  base.mejora = {
+    descripcion: String(base.mejora.descripcion ?? "").trim().replace(/\s+/g, " "),
+    presupuestoEstimado: String(base.mejora.presupuestoEstimado ?? "").trim(),
+  };
+  return base;
+}
+
+/**
+ * Sincroniza legacy desde `datos.infonavit` (Mejoravit).
+ * No parsea nombreCliente → estructurado.
+ */
+export function syncLegacyFromInfonavit(
+  d: ClienteDatosFormShape,
+): ClienteDatosFormShape {
+  const inf = normalizeInfonavitBlock(d.infonavit);
+  const nombreTitular = joinNombreCompletoInfonavit(inf.titular);
+  const refs = [
+    {
+      nombre: joinNombreCompletoInfonavit(inf.referencias[0]),
+      celular: inf.referencias[0].celular,
+    },
+    {
+      nombre: joinNombreCompletoInfonavit(inf.referencias[1]),
+      celular: inf.referencias[1].celular,
+    },
+  ];
+  const benefNombre = joinNombreCompletoInfonavit(inf.beneficiario);
+  return {
+    ...d,
+    infonavit: inf,
+    nombreCliente: nombreTitular || normalizePersonName(d.nombreCliente),
+    referencias: refs,
+    beneficiario: {
+      nombre: benefNombre || normalizePersonName(d.beneficiario?.nombre ?? ""),
+      parentesco:
+        inf.beneficiario.parentesco ||
+        normalizePersonName(d.beneficiario?.parentesco ?? ""),
+    },
+  };
+}
+
 /** Mayúsculas en CURP/RFC; nombres/dígitos normalizados (P133). */
 export function normalizeClienteDatosForSave(
   d: ClienteDatosFormShape,
 ): ClienteDatosFormShape {
-  const refs = (d.referencias ?? []).map((r) => ({
+  const esMejoravit = isProgramaMejoravitDb(
+    // programa no viene en shape; sync infonavit siempre si existe bloque
+    undefined,
+  );
+  void esMejoravit;
+
+  let working: ClienteDatosFormShape = { ...d };
+  if (d.infonavit) {
+    working = syncLegacyFromInfonavit(d);
+  }
+
+  const refs = (working.referencias ?? []).map((r) => ({
     ...r,
     nombre: normalizePersonName(String(r?.nombre ?? "")),
     celular: normalizeTelefonoMexico(String(r?.celular ?? "")),
   }));
   return {
-    ...d,
-    nombreCliente: normalizePersonName(String(d.nombreCliente ?? "")),
-    nss: normalizeDigitsOnly(String(d.nss ?? "")),
-    curp: String(d.curp ?? "").trim().toUpperCase(),
-    rfc: String(d.rfc ?? "").trim().toUpperCase().replace(/\s+/g, ""),
-    celular: normalizeTelefonoMexico(String(d.celular ?? "")),
-    telefonoEmpresa: normalizeTelefonoMexico(String(d.telefonoEmpresa ?? "")),
+    ...working,
+    nombreCliente: normalizePersonName(String(working.nombreCliente ?? "")),
+    nss: normalizeDigitsOnly(String(working.nss ?? "")),
+    curp: String(working.curp ?? "").trim().toUpperCase(),
+    rfc: String(working.rfc ?? "").trim().toUpperCase().replace(/\s+/g, ""),
+    celular: normalizeTelefonoMexico(String(working.celular ?? "")),
+    telefonoEmpresa: normalizeTelefonoMexico(String(working.telefonoEmpresa ?? "")),
     referencias: refs.length >= 2 ? refs : [
       refs[0] ?? { nombre: "", celular: "" },
       refs[1] ?? { nombre: "", celular: "" },
     ],
     beneficiario: {
-      nombre: normalizePersonName(String(d.beneficiario?.nombre ?? "")),
-      parentesco: normalizePersonName(String(d.beneficiario?.parentesco ?? "")),
+      nombre: normalizePersonName(String(working.beneficiario?.nombre ?? "")),
+      parentesco: normalizePersonName(String(working.beneficiario?.parentesco ?? "")),
     },
     direccionEmpresa: {
-      ...d.direccionEmpresa,
-      cp: normalizeDigitsOnly(String(d.direccionEmpresa?.cp ?? "")),
+      ...working.direccionEmpresa,
+      cp: normalizeDigitsOnly(String(working.direccionEmpresa?.cp ?? "")),
     },
-    porcentajeCobro: String(d.porcentajeCobro ?? "").trim(),
-    montoCalculado: String(d.montoCalculado ?? "").trim(),
-    metodoPago: String(d.metodoPago ?? "").trim().toLowerCase(),
-    montoMejoravit: String(d.montoMejoravit ?? "").trim(),
-    plazo: normalizeDigitsOnly(String(d.plazo ?? "")),
-    notaMesa: String(d.notaMesa ?? "").trim(),
+    porcentajeCobro: String(working.porcentajeCobro ?? "").trim(),
+    montoCalculado: String(working.montoCalculado ?? "").trim(),
+    metodoPago: String(working.metodoPago ?? "").trim().toLowerCase(),
+    montoMejoravit: String(working.montoMejoravit ?? "").trim(),
+    plazo: normalizeDigitsOnly(String(working.plazo ?? "")),
+    notaMesa: String(working.notaMesa ?? "").trim(),
+    infonavit: working.infonavit
+      ? normalizeInfonavitBlock(working.infonavit)
+      : undefined,
   };
 }
+
+const SLOT_TO_FIELD: Record<TelefonoUnicidadSlot, ClienteDatosFieldKey> = {
+  "cliente.celular": "celular",
+  "empresa.telefono": "telefonoEmpresa",
+  "ref1.telefonoCompleto": "infonavitRef1Telefono",
+  "ref1.celular": "infonavitRef1Celular",
+  "ref2.telefonoCompleto": "infonavitRef2Telefono",
+  "ref2.celular": "infonavitRef2Celular",
+};
+
+const SLOT_LABEL: Record<TelefonoUnicidadSlot, string> = {
+  "cliente.celular": "celular del cliente",
+  "empresa.telefono": "teléfono empresa",
+  "ref1.telefonoCompleto": "teléfono fijo de referencia 1",
+  "ref1.celular": "celular de referencia 1",
+  "ref2.telefonoCompleto": "teléfono fijo de referencia 2",
+  "ref2.celular": "celular de referencia 2",
+};
 
 /**
  * Validación cliente-side alineada a campos obligatorios actuales y reglas de formato.
@@ -156,13 +334,276 @@ export function validateClienteDatos(
 ): ClienteDatosValidationResult {
   const errors: ClienteDatosFieldErrors = {};
   const data = normalizeClienteDatosForSave(d);
+  const esMejoravit = isProgramaMejoravitDb(ctx.programaDb);
+  const requireInfonavit = Boolean(ctx.requireInfonavit) && esMejoravit;
 
   const req = (key: ClienteDatosFieldKey, value: string, label: string) => {
     const msg = reqText(value, label);
     if (msg) setError(errors, key, msg);
   };
 
-  req("nombreCliente", data.nombreCliente, "Nombre del cliente");
+  if (requireInfonavit) {
+    const inf = data.infonavit ?? emptyInfonavitClienteDatosV1();
+    req("infonavitTitularNombres", inf.titular.nombres, "Nombre(s)");
+    req(
+      "infonavitTitularApellidoPaterno",
+      inf.titular.apellidoPaterno,
+      "Apellido paterno",
+    );
+    req(
+      "infonavitTitularApellidoMaterno",
+      inf.titular.apellidoMaterno,
+      "Apellido materno",
+    );
+    req("infonavitIdTipo", inf.titular.identificacion.tipo, "Tipo de identificación");
+    req(
+      "infonavitIdNumero",
+      inf.titular.identificacion.numero,
+      "Número de identificación",
+    );
+    req(
+      "infonavitIdVigencia",
+      inf.titular.identificacion.vigencia,
+      "Vigencia de identificación",
+    );
+    if (!errors.infonavitIdVigencia) {
+      const vig = inf.titular.identificacion.vigencia;
+      if (!YMD_RE.test(vig)) {
+        setError(
+          errors,
+          "infonavitIdVigencia",
+          "Vigencia debe ser una fecha válida (AAAA-MM-DD).",
+        );
+      } else {
+        const [y, m, day] = vig.split("-").map(Number);
+        const probe = new Date(Date.UTC(y!, m! - 1, day!));
+        if (
+          probe.getUTCFullYear() !== y ||
+          probe.getUTCMonth() !== m! - 1 ||
+          probe.getUTCDate() !== day
+        ) {
+          setError(
+            errors,
+            "infonavitIdVigencia",
+            "Vigencia debe ser una fecha válida (AAAA-MM-DD).",
+          );
+        }
+      }
+    }
+    if (!inf.titular.genero) {
+      setError(errors, "infonavitGenero", "Género es obligatorio.");
+    }
+    if (!inf.titular.estadoCivil) {
+      setError(errors, "infonavitEstadoCivil", "Estado civil es obligatorio.");
+    }
+    if (inf.titular.estadoCivil === "casado" && !inf.titular.regimenMatrimonial) {
+      setError(
+        errors,
+        "infonavitRegimen",
+        "Régimen matrimonial es obligatorio si el estado civil es casado.",
+      );
+    }
+
+    const v = inf.vivienda;
+    if (!v.tipoPropiedad) {
+      setError(
+        errors,
+        "infonavitViviendaTipoPropiedad",
+        "Tipo de propiedad es obligatorio.",
+      );
+    }
+    req("infonavitViviendaLocalidad", v.localidad, "Localidad / ciudad");
+    req("infonavitViviendaCalle", v.calle, "Calle de la vivienda");
+    req(
+      "infonavitViviendaNumeroExterior",
+      v.numeroExterior,
+      "Número exterior",
+    );
+    req("infonavitViviendaColonia", v.colonia, "Colonia");
+    req("infonavitViviendaEntidad", v.entidad, "Entidad federativa");
+    req("infonavitViviendaMunicipio", v.municipio, "Municipio / alcaldía");
+    req("infonavitViviendaCp", v.cp, "CP de la vivienda");
+    if (!errors.infonavitViviendaCp && !/^\d{5}$/.test(v.cp)) {
+      setError(errors, "infonavitViviendaCp", "CP debe tener 5 dígitos.");
+    }
+
+    const validateRef = (
+      idx: 0 | 1,
+      prefix: "infonavitRef1" | "infonavitRef2",
+    ) => {
+      const r = inf.referencias[idx];
+      req(`${prefix}Nombres` as ClienteDatosFieldKey, r.nombres, `Nombre(s) referencia ${idx + 1}`);
+      req(
+        `${prefix}ApellidoPaterno` as ClienteDatosFieldKey,
+        r.apellidoPaterno,
+        `Apellido paterno referencia ${idx + 1}`,
+      );
+      req(
+        `${prefix}ApellidoMaterno` as ClienteDatosFieldKey,
+        r.apellidoMaterno,
+        `Apellido materno referencia ${idx + 1}`,
+      );
+      req(`${prefix}Lada` as ClienteDatosFieldKey, r.lada, `LADA referencia ${idx + 1}`);
+      req(
+        `${prefix}Telefono` as ClienteDatosFieldKey,
+        r.telefono,
+        `Teléfono referencia ${idx + 1}`,
+      );
+      req(
+        `${prefix}Celular` as ClienteDatosFieldKey,
+        r.celular,
+        `Celular referencia ${idx + 1}`,
+      );
+      const ladaKey = `${prefix}Lada` as ClienteDatosFieldKey;
+      const telKey = `${prefix}Telefono` as ClienteDatosFieldKey;
+      if (!errors[ladaKey] && !errors[telKey]) {
+        const comb = combineLadaTelefonoMexico(r.lada, r.telefono);
+        if (!comb.ok) {
+          setError(
+            errors,
+            telKey,
+            `LADA + teléfono de referencia ${idx + 1} deben sumar 10 dígitos (LADA 2–3).`,
+          );
+        }
+      }
+      const celKey = `${prefix}Celular` as ClienteDatosFieldKey;
+      if (!errors[celKey] && !isTelefonoMexicoValido(r.celular)) {
+        setError(
+          errors,
+          celKey,
+          `Celular de referencia ${idx + 1} debe tener 10 dígitos.`,
+        );
+      }
+    };
+    validateRef(0, "infonavitRef1");
+    validateRef(1, "infonavitRef2");
+
+    req(
+      "infonavitBeneficiarioNombres",
+      inf.beneficiario.nombres,
+      "Beneficiario — nombre(s)",
+    );
+    req(
+      "infonavitBeneficiarioApellidoPaterno",
+      inf.beneficiario.apellidoPaterno,
+      "Beneficiario — apellido paterno",
+    );
+    req(
+      "infonavitBeneficiarioApellidoMaterno",
+      inf.beneficiario.apellidoMaterno,
+      "Beneficiario — apellido materno",
+    );
+    req(
+      "infonavitBeneficiarioParentesco",
+      inf.beneficiario.parentesco,
+      "Beneficiario — parentesco",
+    );
+
+    req(
+      "infonavitMejoraDescripcion",
+      inf.mejora.descripcion,
+      "Descripción de la mejora",
+    );
+    if (
+      !errors.infonavitMejoraDescripcion &&
+      inf.mejora.descripcion.length > INFONAVIT_MEJORA_DESCRIPCION_MAX_CHARS
+    ) {
+      setError(
+        errors,
+        "infonavitMejoraDescripcion",
+        `La descripción de la mejora no puede superar ${INFONAVIT_MEJORA_DESCRIPCION_MAX_CHARS} caracteres.`,
+      );
+    }
+    req(
+      "infonavitMejoraPresupuesto",
+      inf.mejora.presupuestoEstimado,
+      "Presupuesto estimado de la mejora",
+    );
+    if (!errors.infonavitMejoraPresupuesto) {
+      const presupuesto = parseMontoCalculadoInput(inf.mejora.presupuestoEstimado);
+      if (presupuesto == null || presupuesto <= 0) {
+        setError(
+          errors,
+          "infonavitMejoraPresupuesto",
+          "El presupuesto estimado debe ser mayor a 0.",
+        );
+      }
+    }
+
+    // nombreCliente se deriva; si falta estructurado ya hay errores.
+    if (!hasStructuredTitularName(inf.titular) && !data.nombreCliente.trim()) {
+      setError(errors, "nombreCliente", "Nombre del cliente es obligatorio.");
+    }
+  } else {
+    req("nombreCliente", data.nombreCliente, "Nombre del cliente");
+    req("referencia1Nombre", data.referencias[0]?.nombre ?? "", "Nombre de referencia 1");
+    req("referencia1Celular", data.referencias[0]?.celular ?? "", "Celular de referencia 1");
+    req("referencia2Nombre", data.referencias[1]?.nombre ?? "", "Nombre de referencia 2");
+    req("referencia2Celular", data.referencias[1]?.celular ?? "", "Celular de referencia 2");
+    req("beneficiarioNombre", data.beneficiario.nombre, "Beneficiario — nombre");
+    req("beneficiarioParentesco", data.beneficiario.parentesco, "Beneficiario — parentesco");
+  }
+
+  if (esMejoravit && !requireInfonavit) {
+    const infOpt = data.infonavit ?? emptyInfonavitClienteDatosV1();
+    const vig = infOpt.titular.identificacion.vigencia.trim();
+    if (vig) {
+      if (!YMD_RE.test(vig)) {
+        setError(
+          errors,
+          "infonavitIdVigencia",
+          "Vigencia debe ser una fecha válida (AAAA-MM-DD).",
+        );
+      }
+    }
+    const cpOpt = infOpt.vivienda.cp.trim();
+    if (cpOpt && !/^\d{5}$/.test(cpOpt)) {
+      setError(errors, "infonavitViviendaCp", "CP debe tener 5 dígitos.");
+    }
+    const descOpt = infOpt.mejora.descripcion.trim();
+    if (descOpt.length > INFONAVIT_MEJORA_DESCRIPCION_MAX_CHARS) {
+      setError(
+        errors,
+        "infonavitMejoraDescripcion",
+        `La descripción de la mejora no puede superar ${INFONAVIT_MEJORA_DESCRIPCION_MAX_CHARS} caracteres.`,
+      );
+    }
+    const presOpt = infOpt.mejora.presupuestoEstimado.trim();
+    if (presOpt) {
+      const presupuesto = parseMontoCalculadoInput(presOpt);
+      if (presupuesto == null || presupuesto <= 0) {
+        setError(
+          errors,
+          "infonavitMejoraPresupuesto",
+          "El presupuesto estimado debe ser mayor a 0.",
+        );
+      }
+    }
+    for (const idx of [0, 1] as const) {
+      const r = infOpt.referencias[idx];
+      const prefix = idx === 0 ? "infonavitRef1" : "infonavitRef2";
+      const hasLada = Boolean(r.lada.trim());
+      const hasTel = Boolean(r.telefono.trim());
+      if (hasLada || hasTel) {
+        const comb = combineLadaTelefonoMexico(r.lada, r.telefono);
+        if (!comb.ok) {
+          setError(
+            errors,
+            `${prefix}Telefono` as ClienteDatosFieldKey,
+            `LADA + teléfono de referencia ${idx + 1} deben sumar 10 dígitos (LADA 2–3).`,
+          );
+        }
+      }
+      if (r.celular.trim() && !isTelefonoMexicoValido(r.celular)) {
+        setError(
+          errors,
+          `${prefix}Celular` as ClienteDatosFieldKey,
+          `Celular de referencia ${idx + 1} debe tener 10 dígitos.`,
+        );
+      }
+    }
+  }
+
   req("nss", data.nss, "NSS");
   req("curp", data.curp, "CURP");
   req("celular", data.celular, "Celular");
@@ -171,25 +612,29 @@ export function validateClienteDatos(
   req("registroPatronal", data.registroPatronal, "Registro patronal");
   req("telefonoEmpresa", data.telefonoEmpresa, "Teléfono empresa");
 
-  req("referencia1Nombre", data.referencias[0]?.nombre ?? "", "Nombre de referencia 1");
-  req("referencia1Celular", data.referencias[0]?.celular ?? "", "Celular de referencia 1");
-  req("referencia2Nombre", data.referencias[1]?.nombre ?? "", "Nombre de referencia 2");
-  req("referencia2Celular", data.referencias[1]?.celular ?? "", "Celular de referencia 2");
-
-  req("beneficiarioNombre", data.beneficiario.nombre, "Beneficiario — nombre");
-  req("beneficiarioParentesco", data.beneficiario.parentesco, "Beneficiario — parentesco");
-
   req("direccionCalle", data.direccionEmpresa.calle, "Calle de la empresa");
   req("direccionColonia", data.direccionEmpresa.colonia, "Colonia de la empresa");
   req("direccionMunicipio", data.direccionEmpresa.municipio, "Municipio de la empresa");
   req("direccionCp", data.direccionEmpresa.cp, "CP");
 
   const domicilioReal = String(ctx.direccionOpcional ?? "").trim();
-  if (!domicilioReal) {
+  if (requireInfonavit) {
+    // Vivienda estructurada alimenta domicilio; si hay CP/calle OK no exigir texto libre vacío.
+    const viv = data.infonavit?.vivienda;
+    const vivOk = Boolean(
+      viv?.calle?.trim() &&
+        viv?.numeroExterior?.trim() &&
+        viv?.colonia?.trim() &&
+        viv?.municipio?.trim() &&
+        viv?.cp?.trim(),
+    );
+    if (!vivOk && !domicilioReal) {
+      setError(errors, "direccionOpcional", MSJ_DOMICILIO_REAL_OBLIGATORIO);
+    }
+  } else if (!domicilioReal) {
     setError(errors, "direccionOpcional", MSJ_DOMICILIO_REAL_OBLIGATORIO);
   }
 
-  const esMejoravit = isProgramaMejoravitDb(ctx.programaDb);
   if (esMejoravit) {
     const montoMejoravitRaw = String(data.montoMejoravit ?? "").trim();
     if (!montoMejoravitRaw) {
@@ -277,13 +722,32 @@ export function validateClienteDatos(
   const personNameFields: ReadonlyArray<{
     key: ClienteDatosFieldKey;
     raw: string;
-  }> = [
-    { key: "nombreCliente", raw: data.nombreCliente },
-    { key: "referencia1Nombre", raw: data.referencias[0]?.nombre ?? "" },
-    { key: "referencia2Nombre", raw: data.referencias[1]?.nombre ?? "" },
-    { key: "beneficiarioNombre", raw: data.beneficiario.nombre },
-    { key: "beneficiarioParentesco", raw: data.beneficiario.parentesco },
-  ];
+  }> = esMejoravit
+    ? [
+        {
+          key: "infonavitTitularNombres",
+          raw: data.infonavit?.titular.nombres ?? "",
+        },
+        {
+          key: "infonavitTitularApellidoPaterno",
+          raw: data.infonavit?.titular.apellidoPaterno ?? "",
+        },
+        {
+          key: "infonavitTitularApellidoMaterno",
+          raw: data.infonavit?.titular.apellidoMaterno ?? "",
+        },
+        {
+          key: "infonavitBeneficiarioParentesco",
+          raw: data.infonavit?.beneficiario.parentesco ?? "",
+        },
+      ]
+    : [
+        { key: "nombreCliente", raw: data.nombreCliente },
+        { key: "referencia1Nombre", raw: data.referencias[0]?.nombre ?? "" },
+        { key: "referencia2Nombre", raw: data.referencias[1]?.nombre ?? "" },
+        { key: "beneficiarioNombre", raw: data.beneficiario.nombre },
+        { key: "beneficiarioParentesco", raw: data.beneficiario.parentesco },
+      ];
   for (const field of personNameFields) {
     if (errors[field.key]) continue;
     if (field.raw && !isValidPersonName(field.raw)) {
@@ -311,50 +775,80 @@ export function validateClienteDatos(
     setError(errors, "direccionCp", "CP debe tener 5 dígitos.");
   }
 
-  const phoneFields: ReadonlyArray<{
-    key: ClienteDatosFieldKey;
-    raw: string;
-    label: string;
-  }> = [
-    { key: "celular", raw: data.celular, label: "Celular" },
-    { key: "telefonoEmpresa", raw: data.telefonoEmpresa, label: "Teléfono empresa" },
-    { key: "referencia1Celular", raw: data.referencias[0]?.celular ?? "", label: "Celular de referencia 1" },
-    { key: "referencia2Celular", raw: data.referencias[1]?.celular ?? "", label: "Celular de referencia 2" },
-  ];
+  // Teléfonos base
+  if (!errors.celular && !isTelefonoMexicoValido(data.celular)) {
+    setError(errors, "celular", "Celular debe tener 10 dígitos.");
+  }
+  if (!errors.telefonoEmpresa && !isTelefonoMexicoValido(data.telefonoEmpresa)) {
+    setError(errors, "telefonoEmpresa", "Teléfono empresa debe tener 10 dígitos.");
+  }
 
-  const normalizedPhones = new Map<ClienteDatosFieldKey, string>();
-
-  for (const field of phoneFields) {
-    if (errors[field.key]) continue;
-    if (!isTelefonoMexicoValido(field.raw)) {
-      setError(errors, field.key, `${field.label} debe tener 10 dígitos.`);
-      continue;
+  if (!requireInfonavit) {
+    for (const [idx, key] of [
+      [0, "referencia1Celular"],
+      [1, "referencia2Celular"],
+    ] as const) {
+      if (errors[key]) continue;
+      const raw = data.referencias[idx]?.celular ?? "";
+      if (!isTelefonoMexicoValido(raw)) {
+        setError(errors, key, `Celular de referencia ${idx + 1} debe tener 10 dígitos.`);
+      }
     }
-    normalizedPhones.set(field.key, normalizeTelefonoMexico(field.raw));
   }
 
-  const cel = normalizedPhones.get("celular");
-  const emp = normalizedPhones.get("telefonoEmpresa");
-  const ref1 = normalizedPhones.get("referencia1Celular");
-  const ref2 = normalizedPhones.get("referencia2Celular");
+  // Unicidad intra-expediente (matriz genérica)
+  const inf = data.infonavit ?? emptyInfonavitClienteDatosV1();
+  const ref1Fijo = combineLadaTelefonoMexico(
+    inf.referencias[0].lada,
+    inf.referencias[0].telefono,
+  );
+  const ref2Fijo = combineLadaTelefonoMexico(
+    inf.referencias[1].lada,
+    inf.referencias[1].telefono,
+  );
 
-  if (cel && ref1 && cel === ref1) {
-    setError(errors, "referencia1Celular", "Celular de referencia 1 no puede repetirse con celular del cliente.");
+  const phoneEntries: TelefonoUnicidadEntry[] = [
+    { slot: "cliente.celular", raw: data.celular },
+    { slot: "empresa.telefono", raw: data.telefonoEmpresa },
+    {
+      slot: "ref1.celular",
+      raw: requireInfonavit
+        ? inf.referencias[0].celular
+        : data.referencias[0]?.celular ?? "",
+    },
+    {
+      slot: "ref2.celular",
+      raw: requireInfonavit
+        ? inf.referencias[1].celular
+        : data.referencias[1]?.celular ?? "",
+    },
+  ];
+  if (!requireInfonavit && isTelefonoMexicoValido(inf.referencias[0].celular)) {
+    phoneEntries.push({ slot: "ref1.celular", raw: inf.referencias[0].celular });
   }
-  if (cel && ref2 && cel === ref2) {
-    setError(errors, "referencia2Celular", "Celular de referencia 2 no puede repetirse con celular del cliente.");
+  if (!requireInfonavit && isTelefonoMexicoValido(inf.referencias[1].celular)) {
+    phoneEntries.push({ slot: "ref2.celular", raw: inf.referencias[1].celular });
   }
-  if (ref1 && ref2 && ref1 === ref2) {
-    setError(errors, "referencia2Celular", "Celular de referencia 2 no puede repetirse con referencia 1.");
+  if (ref1Fijo.ok) {
+    phoneEntries.push({ slot: "ref1.telefonoCompleto", raw: ref1Fijo.phone });
   }
-  if (cel && emp && cel === emp) {
-    setError(errors, "telefonoEmpresa", "Teléfono empresa no puede repetirse con celular del cliente.");
+  if (ref2Fijo.ok) {
+    phoneEntries.push({ slot: "ref2.telefonoCompleto", raw: ref2Fijo.phone });
   }
-  if (emp && ref1 && emp === ref1) {
-    setError(errors, "referencia1Celular", "Celular de referencia 1 no puede repetirse con teléfono empresa.");
-  }
-  if (emp && ref2 && emp === ref2) {
-    setError(errors, "referencia2Celular", "Celular de referencia 2 no puede repetirse con teléfono empresa.");
+
+  // Non-required P189: map ref celular errors to legacy keys
+  const dups = findDuplicateTelefonosIntraExpediente(phoneEntries);
+  for (const dup of dups) {
+    let field = SLOT_TO_FIELD[dup.slot];
+    if (!requireInfonavit) {
+      if (dup.slot === "ref1.celular") field = "referencia1Celular";
+      if (dup.slot === "ref2.celular") field = "referencia2Celular";
+    }
+    setError(
+      errors,
+      field,
+      `Este teléfono se repite con ${SLOT_LABEL[dup.conflictsWith]} del mismo expediente.`,
+    );
   }
 
   const messages = Object.values(errors);
@@ -370,4 +864,19 @@ export function formatClienteDatosValidationSummary(
   const rest = result.messages.length - maxItems;
   if (rest > 0) return `${head}\n…y ${rest} error(es) más.`;
   return head;
+}
+
+/** Resuelve domicilio a persistir (Mejoravit usa vivienda estructurada). */
+export function resolveDireccionOpcionalForSave(args: {
+  programaDb?: string | null;
+  direccionOpcional: string;
+  datos: ClienteDatosFormShape;
+}): string {
+  if (!isProgramaMejoravitDb(args.programaDb)) {
+    return String(args.direccionOpcional ?? "").trim();
+  }
+  const viv = args.datos.infonavit?.vivienda;
+  if (!viv) return String(args.direccionOpcional ?? "").trim();
+  const formatted = formatInfonavitDwellingAddress(viv);
+  return formatted || String(args.direccionOpcional ?? "").trim();
 }

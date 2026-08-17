@@ -55,6 +55,11 @@ export const TIPO_DOCUMENTO_CATALOGO = [
   "asesor_estado_cuenta",
   "asesor_recibo_luz",
   "asesor_evidencia",
+
+  // ===== P189 INFONAVIT auto-generados (sistema, solo lectura) =====
+  "infonavit_carta_bajo_protesta",
+  "infonavit_presupuesto_mejoramiento",
+  "infonavit_solicitud_inscripcion",
 ] as const;
 
 export type TipoDocumentoCatalogo = (typeof TIPO_DOCUMENTO_CATALOGO)[number];
@@ -305,6 +310,27 @@ export const DOCUMENTO_CATALOGO_MAP = Object.freeze({
     ownerRole: "asesor",
     obligatorio: "opcional",
     etapasRequeridas: [1],
+  },
+  infonavit_carta_bajo_protesta: {
+    tipo: "infonavit_carta_bajo_protesta",
+    label: "Carta bajo protesta",
+    ownerRole: "sistema",
+    obligatorio: "opcional",
+    etapasRequeridas: [],
+  },
+  infonavit_presupuesto_mejoramiento: {
+    tipo: "infonavit_presupuesto_mejoramiento",
+    label: "Presupuesto de mejoramiento",
+    ownerRole: "sistema",
+    obligatorio: "opcional",
+    etapasRequeridas: [],
+  },
+  infonavit_solicitud_inscripcion: {
+    tipo: "infonavit_solicitud_inscripcion",
+    label: "Solicitud de inscripción de crédito",
+    ownerRole: "sistema",
+    obligatorio: "opcional",
+    etapasRequeridas: [],
   },
 } satisfies Record<TipoDocumentoCatalogo, DocumentoCatalogoItem>);
 

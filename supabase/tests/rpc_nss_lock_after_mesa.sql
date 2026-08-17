@@ -2,6 +2,7 @@
 -- Uso: psql -f supabase/tests/rpc_nss_lock_after_mesa.sql
 
 \set ON_ERROR_STOP on
+\i supabase/tests/_p189_infonavit_datos_fixture.sql
 
 CREATE OR REPLACE FUNCTION public.__rpc_nss_lock_test_assert(p_ok BOOLEAN, p_msg TEXT)
 RETURNS VOID LANGUAGE plpgsql AS $$
@@ -27,6 +28,14 @@ CREATE OR REPLACE FUNCTION public.__rpc_nss_lock_test_cleanup(p_nss TEXT)
 RETURNS VOID LANGUAGE plpgsql AS $$
 DECLARE v_nss TEXT := public.normalize_nss_mexico(p_nss);
 BEGIN
+  PERFORM set_config('infonavit.snapshot_mutable', '1', true);
+  DELETE FROM public.infonavit_pdf_outbox o
+  USING public.expedientes e
+  WHERE o.expediente_id = e.id AND e.nss = v_nss;
+  DELETE FROM public.expediente_infonavit_submission_snapshots s
+  USING public.expedientes e
+  WHERE s.expediente_id = e.id AND e.nss = v_nss;
+  PERFORM set_config('infonavit.snapshot_mutable', '', true);
   DELETE FROM public.cliente_datos cd
   USING public.expedientes e
   WHERE cd.expediente_id = e.id AND e.nss = v_nss;
@@ -36,6 +45,10 @@ BEGIN
   DELETE FROM public.expediente_documentos d
   USING public.expedientes e
   WHERE d.expediente_id = e.id AND e.nss = v_nss;
+  IF to_regclass('public.expediente_paso_visual_transiciones') IS NOT NULL THEN
+    DELETE FROM public.expediente_paso_visual_transiciones t
+    USING public.expedientes e WHERE t.expediente_id = e.id AND e.nss = v_nss;
+  END IF;
   DELETE FROM public.expedientes e WHERE e.nss = v_nss;
 END; $$;
 
@@ -76,8 +89,13 @@ CREATE OR REPLACE FUNCTION public.__rpc_nss_lock_test_seed_ready_enviar(
   p_exp UUID, p_org UUID, p_asesor UUID
 )
 RETURNS VOID LANGUAGE plpgsql AS $$
-DECLARE v_tipo TEXT;
+DECLARE
+  v_tipo TEXT;
+  v_nss TEXT;
 BEGIN
+  PERFORM public.__p189_purge_submission(p_exp);
+  SELECT public.normalize_nss_mexico(e.nss::text) INTO v_nss
+  FROM public.expedientes e WHERE e.id = p_exp;
   INSERT INTO public.editor_decisions (expediente_id, organization_id, decision, monto_aprobado)
   VALUES (p_exp, p_org, 'aprobado', 15000)
   ON CONFLICT (expediente_id) DO UPDATE SET monto_aprobado = 15000;
@@ -85,9 +103,15 @@ BEGIN
     expediente_id, organization_id, datos, estado,
     porcentaje_cobro, monto_calculado, metodo_pago
   ) VALUES (
-    p_exp, p_org, '{"nombreCliente":"B"}'::jsonb, 'completo', 10, 4500, 'transferencia'
+    p_exp, p_org, public.__p189_infonavit_datos_completo(COALESCE(v_nss, '00000000000')),
+    'completo', 10, 4500, 'transferencia'
   )
-  ON CONFLICT (expediente_id) DO NOTHING;
+  ON CONFLICT (expediente_id) DO UPDATE SET
+    datos = EXCLUDED.datos,
+    estado = 'completo',
+    porcentaje_cobro = 10,
+    monto_calculado = 4500,
+    metodo_pago = 'transferencia';
   DELETE FROM public.expediente_documentos WHERE expediente_id = p_exp;
   FOREACH v_tipo IN ARRAY public.integration_doc_tipos_asesor_envio()
   LOOP

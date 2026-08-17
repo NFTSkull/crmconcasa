@@ -118,6 +118,30 @@ export function mapAsesorEnviarReingresoRpcError(error: {
       "Faltan documentos obligatorios (INE frente/reverso, domicilio y estado de cuenta).",
     );
   }
+  if (/INFONAVIT_DATOS_INCOMPLETOS/i.test(msg)) {
+    return new ExpedientesSupabaseError(
+      "Faltan datos Infonavit del cliente. Complétalos y guárdalos antes de enviar como reingreso.",
+    );
+  }
+  if (/INFONAVIT_DATOS_VERSION_INVALIDA/i.test(msg)) {
+    return new ExpedientesSupabaseError(
+      "Los datos Infonavit guardados no tienen la versión correcta. Vuelve a completar y guardar Datos Generales.",
+    );
+  }
+  if (/INFONAVIT_NSS_MISMATCH/i.test(msg)) {
+    return new ExpedientesSupabaseError(
+      "El NSS de Datos Generales no coincide con el del expediente. Corrígelo y guarda antes de reingresar.",
+    );
+  }
+  if (
+    /INFONAVIT_SNAPSHOT_IMMUTABLE/i.test(msg) ||
+    /expediente_infonavit_snapshots_exp_ver_uidx/i.test(msg) ||
+    /infonavit_pdf_outbox_idem_uidx/i.test(msg)
+  ) {
+    return new ExpedientesSupabaseError(
+      "No se pudo registrar el reingreso Infonavit. Intenta de nuevo más tarde.",
+    );
+  }
   if (/no encontrado|no disponible|P0002/i.test(msg) || code === "P0002") {
     return new ExpedientesSupabaseError(
       "Este expediente ya no está disponible para reingreso.",

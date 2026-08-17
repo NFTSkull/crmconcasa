@@ -1,8 +1,23 @@
+import type { InfonavitClienteDatosV1 } from "./infonavit-datos";
+
 export type ExpedienteClienteDatosEstado =
   | "pendiente"
   | "completo"
   | "validado"
   | "rechazado";
+
+export type {
+  InfonavitBeneficiarioForm,
+  InfonavitClienteDatosV1,
+  InfonavitEstadoCivilForm,
+  InfonavitGeneroForm,
+  InfonavitMejoraForm,
+  InfonavitReferenciaForm,
+  InfonavitRegimenForm,
+  InfonavitTipoPropiedadForm,
+  InfonavitTitularForm,
+  InfonavitViviendaForm,
+} from "./infonavit-datos";
 
 /** Lectura batch para bandeja Mesa (estado + fechas de corrección). */
 export type ClienteDatosEstadoBatch = Readonly<{
@@ -58,6 +73,11 @@ export type ExpedienteClienteDatos = {
     metodoPago: string;
     /** Nota opcional del asesor visible para Mesa Control (JSON `datos.notaMesa`). */
     notaMesa?: string;
+    /**
+     * P189 B2 — datos estructurados Infonavit (solo Mejoravit).
+     * Legacy sin bloque: mapper rellena defaults seguros.
+     */
+    infonavit?: InfonavitClienteDatosV1;
   };
 
   /** Columna `porcentaje_cobro` (lectura). */

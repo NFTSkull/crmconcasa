@@ -1,0 +1,274 @@
+/**
+ * P189 B4 — adapter B3→B1 + mapping + generate over fixtures ficticias.
+ */
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import { describe, it } from "node:test";
+import { PDFDocument } from "pdf-lib";
+import {
+  mapDbDocumentTypeToB1,
+  INFONAVIT_DB_TO_B1,
+} from "./document-type-map.ts";
+import { InfonavitPdfError } from "./errors.ts";
+import {
+  adaptB3SnapshotToB1,
+  InfonavitSnapshotAdapterError,
+} from "./snapshot-adapter.ts";
+import { generateInfonavitPdfAudited } from "./generate-infonavit-pdf.ts";
+import { validateGeneratedInfonavitPdf } from "./pdf-output-validation.ts";
+import {
+  BAJO_FIELD,
+  PRESUPUESTO_FIELD,
+  SOLICITUD_FIELD,
+} from "./template-contract.ts";
+import { workerSecretIsValid } from "./worker-auth.ts";
+
+const HERE = dirname(fileURLToPath(import.meta.url));
+const TEMPLATES = join(HERE, "..", "infonavit-templates", "v1");
+
+function loadTemplate(name: string): Uint8Array {
+  return new Uint8Array(readFileSync(join(TEMPLATES, name)));
+}
+
+function b3Payload(overrides: Record<string, unknown> = {}): Record<string, unknown> {
+  return {
+    schemaVersion: 1,
+    fechaDocumento: "2026-08-17",
+    localidad: "Monterrey",
+    cliente: {
+      nombres: "Ana",
+      apellidoPaterno: "Lopez",
+      apellidoMaterno: "Perez",
+      nss: "18400000001",
+      curp: "GAVF850101HDFRRL09",
+      rfc: "XAXX010101000",
+      celular: "5511111111",
+      correo: "p189.fixture@test.local",
+      telefono: "",
+      ladaTelefono: "",
+      genero: "F",
+      estadoCivil: "soltero",
+      regimenMatrimonial: "",
+      identificacion: {
+        tipo: "INE",
+        numero: "123456789",
+        vigencia: "2030-12-31",
+      },
+    },
+    empresa: {
+      nombre: "Empresa Fixture P189",
+      registroPatronal: "Y1234567890",
+      telefono: "8187654321",
+      lada: "",
+      extension: "",
+    },
+    vivienda: {
+      calle: "Av Siempre Viva",
+      noExt: "123",
+      noInt: "",
+      lote: "",
+      manzana: "",
+      colonia: "Centro",
+      entidad: "Nuevo Leon",
+      municipio: "Monterrey",
+      cp: "64000",
+      tipoPropiedad: "propia",
+    },
+    credito: {
+      montoSolicitado: 150000,
+      plazoAnios: 5,
+    },
+    referencias: [
+      {
+        nombres: "Luis",
+        apellidoPaterno: "Garcia",
+        apellidoMaterno: "Ruiz",
+        lada: "81",
+        telefono: "12345678",
+        celular: "5522222222",
+      },
+      {
+        nombres: "Maria",
+        apellidoPaterno: "Sanchez",
+        apellidoMaterno: "Ortiz",
+        lada: "55",
+        telefono: "44444444",
+        celular: "5533333333",
+      },
+    ],
+    beneficiario: {
+      nombres: "Pedro",
+      apellidoPaterno: "Lopez",
+      apellidoMaterno: "Perez",
+      parentesco: "Hijo",
+    },
+    mejora: {
+      descripcion: "Impermeabilizacion de losa y cambio de ventanas",
+      presupuestoEstimado: 25000,
+    },
+    ...overrides,
+  };
+}
+
+describe("P189 B4 document type mapping", () => {
+  it("mapea los 3 tipos DB → B1 de forma explícita", () => {
+    assert.equal(
+      mapDbDocumentTypeToB1("infonavit_carta_bajo_protesta"),
+      "carta_bajo_protesta",
+    );
+    assert.equal(
+      mapDbDocumentTypeToB1("infonavit_presupuesto_mejoramiento"),
+      "presupuesto_mejoramiento",
+    );
+    assert.equal(
+      mapDbDocumentTypeToB1("infonavit_solicitud_inscripcion"),
+      "solicitud_inscripcion_credito",
+    );
+    assert.deepEqual(INFONAVIT_DB_TO_B1, {
+      infonavit_carta_bajo_protesta: "carta_bajo_protesta",
+      infonavit_presupuesto_mejoramiento: "presupuesto_mejoramiento",
+      infonavit_solicitud_inscripcion: "solicitud_inscripcion_credito",
+    });
+  });
+
+  it("rechaza tipo desconocido", () => {
+    assert.throws(
+      () => mapDbDocumentTypeToB1("infonavit_carta"),
+      (err: unknown) => err instanceof InfonavitPdfError,
+    );
+  });
+});
+
+describe("P189 B4 snapshot adapter", () => {
+  it("adapta payload B3 a input B1 con plazoAnios y blanks", () => {
+    const snap = adaptB3SnapshotToB1(b3Payload());
+    assert.equal(snap.fechaDocumento, "2026-08-17");
+    assert.equal(snap.cliente.nombres, "Ana");
+    assert.equal(snap.cliente.nss, "18400000001");
+    assert.equal(snap.cliente.telefono, "");
+    assert.equal(snap.cliente.ladaTelefono, "");
+    assert.equal(snap.empresa?.lada, "");
+    assert.equal(snap.empresa?.extension, "");
+    assert.equal(snap.credito?.plazoAnios, 5);
+    assert.equal(snap.credito?.plazoMeses, undefined);
+    assert.equal(snap.referencias?.length, 2);
+    assert.equal(snap.mejora?.presupuestoEstimado, 25000);
+    assert.equal(snap.credito?.montoSolicitado, 150000);
+  });
+
+  it("no infiere LADA desde teléfono 10 dígitos", () => {
+    const snap = adaptB3SnapshotToB1(b3Payload());
+    assert.equal(snap.cliente.ladaTelefono, "");
+    assert.equal(snap.empresa?.lada, "");
+    assert.notEqual(snap.cliente.celular, snap.cliente.ladaTelefono);
+  });
+
+  it("exige exactamente 2 referencias", () => {
+    const one = b3Payload();
+    one.referencias = [(one.referencias as unknown[])[0]];
+    assert.throws(
+      () => adaptB3SnapshotToB1(one),
+      (err: unknown) =>
+        err instanceof InfonavitSnapshotAdapterError &&
+        err.reason === "referencias_count",
+    );
+  });
+
+  it("rechaza plazoMeses en payload B3", () => {
+    const p = b3Payload();
+    (p.credito as Record<string, unknown>).plazoMeses = 60;
+    assert.throws(
+      () => adaptB3SnapshotToB1(p),
+      (err: unknown) =>
+        err instanceof InfonavitSnapshotAdapterError &&
+        err.reason === "plazoMeses_forbidden",
+    );
+  });
+
+  it("rechaza schemaVersion distinto de 1", () => {
+    assert.throws(
+      () => adaptB3SnapshotToB1(b3Payload({ schemaVersion: 2 })),
+      (err: unknown) =>
+        err instanceof InfonavitSnapshotAdapterError &&
+        err.reason === "schema_version",
+    );
+  });
+});
+
+describe("P189 B4 worker auth", () => {
+  it("secret vacío o distinto → inválido", () => {
+    assert.equal(workerSecretIsValid("", "abc"), false);
+    assert.equal(workerSecretIsValid("abc", ""), false);
+    assert.equal(workerSecretIsValid("abc", "abd"), false);
+  });
+
+  it("secret correcto → válido", () => {
+    assert.equal(workerSecretIsValid("local-test-secret", "local-test-secret"), true);
+  });
+});
+
+describe("P189 B4 generate from B3 payload", () => {
+  it("3 PDFs flatten + contenido ficticio + T29=años + T55 vacío", async () => {
+    const snapshot = adaptB3SnapshotToB1(b3Payload());
+
+    const carta = await generateInfonavitPdfAudited({
+      documentType: "carta_bajo_protesta",
+      templateBytes: loadTemplate("carta-bajo-protesta.pdf"),
+      snapshot,
+    });
+    const pres = await generateInfonavitPdfAudited({
+      documentType: "presupuesto_mejoramiento",
+      templateBytes: loadTemplate("presupuesto-mejoramiento.pdf"),
+      snapshot,
+    });
+    const sol = await generateInfonavitPdfAudited({
+      documentType: "solicitud_inscripcion_credito",
+      templateBytes: loadTemplate("solicitud-inscripcion-credito.pdf"),
+      snapshot,
+    });
+
+    await validateGeneratedInfonavitPdf({
+      documentType: "carta_bajo_protesta",
+      bytes: carta.bytes,
+    });
+    await validateGeneratedInfonavitPdf({
+      documentType: "presupuesto_mejoramiento",
+      bytes: pres.bytes,
+    });
+    await validateGeneratedInfonavitPdf({
+      documentType: "solicitud_inscripcion_credito",
+      bytes: sol.bytes,
+    });
+
+    const cartaDoc = await PDFDocument.load(carta.bytes);
+    const presDoc = await PDFDocument.load(pres.bytes);
+    const solDoc = await PDFDocument.load(sol.bytes);
+    assert.equal(cartaDoc.getForm().getFields().length, 0);
+    assert.equal(presDoc.getForm().getFields().length, 0);
+    assert.equal(solDoc.getForm().getFields().length, 0);
+    assert.equal(cartaDoc.getPageCount(), 2);
+    assert.equal(presDoc.getPageCount(), 1);
+    assert.equal(solDoc.getPageCount(), 2);
+
+    assert.equal(carta.fieldsBeforeFlatten[BAJO_FIELD.T8_NOMBRE], "Lopez Perez Ana");
+    assert.equal(carta.fieldsBeforeFlatten[BAJO_FIELD.T9_NSS], "18400000001");
+    assert.match(
+      String(carta.fieldsBeforeFlatten[BAJO_FIELD.T4_DESC0]),
+      /Impermeabilizacion/i,
+    );
+
+    assert.equal(pres.fieldsBeforeFlatten[PRESUPUESTO_FIELD.T1_NSS], "18400000001");
+    assert.match(String(pres.fieldsBeforeFlatten[PRESUPUESTO_FIELD.T9_MONTO]), /25/);
+
+    assert.equal(sol.fieldsBeforeFlatten[SOLICITUD_FIELD.T0_NSS], "18400000001");
+    assert.equal(sol.fieldsBeforeFlatten[SOLICITUD_FIELD.T5_NOMBRES], "Ana");
+    assert.equal(sol.fieldsBeforeFlatten[SOLICITUD_FIELD.T27_MONTO], "150,000.00");
+    assert.equal(sol.fieldsBeforeFlatten[SOLICITUD_FIELD.T29_PLAZO], "5");
+    assert.equal(sol.fieldsBeforeFlatten[SOLICITUD_FIELD.T55_CREDITO_INFONAVIT_BLANK], "");
+    assert.equal(sol.fieldsBeforeFlatten[SOLICITUD_FIELD.C0_GENERO_F], true);
+    assert.equal(sol.fieldsBeforeFlatten[SOLICITUD_FIELD.C1_GENERO_M], false);
+    assert.equal(sol.fieldsBeforeFlatten[SOLICITUD_FIELD.C8_PROP_PROPIA], true);
+  });
+});

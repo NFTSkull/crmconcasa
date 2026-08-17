@@ -1,4 +1,5 @@
 import type { ExpedienteClienteDatos } from "@/domain/expediente-cliente-datos";
+import { emptyInfonavitClienteDatosV1 } from "@/domain/expediente-cliente-datos/infonavit-datos";
 import {
   calcMontoCalculadoCobro,
   isProgramaMejoravitDb,
@@ -12,6 +13,8 @@ export type ClienteDatosCompletenessContext = {
   montoAprobado?: number | null;
   direccionOpcional?: string | null;
   programaDb?: string | null;
+  /** P189: solo cuando SQL/status.required=true. Default false = base pre-P189. */
+  requireInfonavit?: boolean;
 };
 
 export const CLIENTE_DATOS_NOTA_MESA_MAX_LENGTH = 1000;
@@ -27,11 +30,84 @@ export function getNotaMesaLongitudError(
   return null;
 }
 
-/** Campos obligatorios en Datos Generales para Mejoravit (RFC opcional). */
-export const CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT_MEJORAVIT = 24;
+/** Campos P189 (bloque infonavit) + base Mejoravit. */
+export const CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT_MEJORAVIT = 50;
 
-/** Campos obligatorios sin sección Crédito Mejoravit. */
+/** Completitud Mejoravit pre-P189 (sin bloque infonavit). */
+export const CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT_MEJORAVIT_BASE = 24;
+
+/** Campos obligatorios sin sección Crédito Mejoravit / P189. */
 export const CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT_DEFAULT = 22;
+
+function pushInfonavitMissing(
+  missing: string[],
+  d: ClienteDatosFormShape,
+): void {
+  const req = (label: string, v: string) => {
+    if (!String(v).trim()) missing.push(label);
+  };
+  const inf = d.infonavit ?? emptyInfonavitClienteDatosV1();
+  req("Nombre(s)", inf.titular.nombres);
+  req("Apellido paterno", inf.titular.apellidoPaterno);
+  req("Apellido materno", inf.titular.apellidoMaterno);
+  req("Tipo de identificación", inf.titular.identificacion.tipo);
+  req("Número de identificación", inf.titular.identificacion.numero);
+  req("Vigencia de identificación", inf.titular.identificacion.vigencia);
+  if (!inf.titular.genero) missing.push("Género");
+  if (!inf.titular.estadoCivil) missing.push("Estado civil");
+  if (inf.titular.estadoCivil === "casado" && !inf.titular.regimenMatrimonial) {
+    missing.push("Régimen matrimonial");
+  }
+
+  if (!inf.vivienda.tipoPropiedad) missing.push("Tipo de propiedad");
+  req("Localidad / ciudad", inf.vivienda.localidad);
+  req("Calle de la vivienda", inf.vivienda.calle);
+  req("Número exterior", inf.vivienda.numeroExterior);
+  req("Colonia de la vivienda", inf.vivienda.colonia);
+  req("Entidad federativa", inf.vivienda.entidad);
+  req("Municipio / alcaldía", inf.vivienda.municipio);
+  req("CP de la vivienda", inf.vivienda.cp);
+
+  for (const idx of [0, 1] as const) {
+    const r = inf.referencias[idx];
+    const n = idx + 1;
+    req(`Referencia ${n} — nombre(s)`, r.nombres);
+    req(`Referencia ${n} — apellido paterno`, r.apellidoPaterno);
+    req(`Referencia ${n} — apellido materno`, r.apellidoMaterno);
+    req(`Referencia ${n} — LADA`, r.lada);
+    req(`Referencia ${n} — teléfono`, r.telefono);
+    req(`Referencia ${n} — celular`, r.celular);
+  }
+
+  req("Beneficiario — nombre(s)", inf.beneficiario.nombres);
+  req("Beneficiario — apellido paterno", inf.beneficiario.apellidoPaterno);
+  req("Beneficiario — apellido materno", inf.beneficiario.apellidoMaterno);
+  req("Beneficiario — parentesco", inf.beneficiario.parentesco);
+
+  req("Descripción de la mejora", inf.mejora.descripcion);
+  const presupuesto = parseMontoCalculadoInput(inf.mejora.presupuestoEstimado);
+  if (presupuesto == null || presupuesto <= 0) {
+    missing.push("Presupuesto estimado de la mejora");
+  }
+}
+
+function pushBaseNombreRefsBeneficiarioDomicilio(
+  missing: string[],
+  d: ClienteDatosFormShape,
+  direccionOpcional: string,
+): void {
+  const req = (label: string, v: string) => {
+    if (!String(v).trim()) missing.push(label);
+  };
+  req("Nombre del cliente", d.nombreCliente);
+  d.referencias.forEach((r, i) => {
+    req(`Referencia ${i + 1} — nombre`, r.nombre);
+    req(`Referencia ${i + 1} — celular`, r.celular);
+  });
+  req("Beneficiario — nombre", d.beneficiario.nombre);
+  req("Beneficiario — parentesco", d.beneficiario.parentesco);
+  req("Domicilio real del cliente", direccionOpcional);
+}
 
 /** Etiquetas legibles de campos obligatorios vacíos (trim). RFC no cuenta como faltante. */
 export function getClienteDatosCamposFaltantes(
@@ -42,7 +118,9 @@ export function getClienteDatosCamposFaltantes(
   const req = (label: string, v: string) => {
     if (!String(v).trim()) missing.push(label);
   };
-  req("Nombre del cliente", d.nombreCliente);
+  const esMejoravit = isProgramaMejoravitDb(ctx.programaDb);
+  const requireInfonavit = Boolean(ctx.requireInfonavit) && esMejoravit;
+
   req("NSS", d.nss);
   req("CURP", d.curp);
   req("Celular", d.celular);
@@ -50,25 +128,31 @@ export function getClienteDatosCamposFaltantes(
   req("Empresa", d.empresa);
   req("Registro patronal", d.registroPatronal);
   req("Teléfono empresa", d.telefonoEmpresa);
-  d.referencias.forEach((r, i) => {
-    req(`Referencia ${i + 1} — nombre`, r.nombre);
-    req(`Referencia ${i + 1} — celular`, r.celular);
-  });
-  req("Beneficiario — nombre", d.beneficiario.nombre);
-  req("Beneficiario — parentesco", d.beneficiario.parentesco);
   req("Dirección empresa — calle", d.direccionEmpresa.calle);
   req("Dirección empresa — colonia", d.direccionEmpresa.colonia);
   req("Dirección empresa — municipio", d.direccionEmpresa.municipio);
   req("Dirección empresa — CP", d.direccionEmpresa.cp);
-  req("Domicilio real del cliente", String(ctx.direccionOpcional ?? ""));
 
-  const esMejoravit = isProgramaMejoravitDb(ctx.programaDb);
-  if (esMejoravit) {
+  if (requireInfonavit) {
+    pushInfonavitMissing(missing, d);
     const montoMejoravit = parseMontoCalculadoInput(d.montoMejoravit);
     if (montoMejoravit == null || montoMejoravit <= 0) {
       missing.push("Monto Mejoravit");
     }
     req("Plazo", d.plazo);
+  } else {
+    pushBaseNombreRefsBeneficiarioDomicilio(
+      missing,
+      d,
+      String(ctx.direccionOpcional ?? ""),
+    );
+    if (esMejoravit) {
+      const montoMejoravit = parseMontoCalculadoInput(d.montoMejoravit);
+      if (montoMejoravit == null || montoMejoravit <= 0) {
+        missing.push("Monto Mejoravit");
+      }
+      req("Plazo", d.plazo);
+    }
   }
 
   req("Porcentaje de cobro", d.porcentajeCobro);
@@ -87,4 +171,5 @@ export function getClienteDatosCamposFaltantes(
 }
 
 /** @deprecated Usar constantes MEJORAVIT/DEFAULT según programa. */
-export const CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT = CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT_MEJORAVIT;
+export const CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT =
+  CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT_MEJORAVIT_BASE;

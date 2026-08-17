@@ -19,6 +19,7 @@ import {
   asesorPuedeEditarClienteDatos,
 } from "@/domain/expediente-archivos/asesor-correccion-post-mesa";
 import { AsesorCurpValidacionSection } from "@/components/asesor/AsesorCurpValidacionSection";
+import { AsesorInfonavitDatosGeneralesFields } from "@/components/asesor/AsesorInfonavitDatosGeneralesFields";
 
 type ClienteDatosFormState = ExpedienteClienteDatos["datos"];
 
@@ -62,6 +63,10 @@ interface ExpedienteClienteDatosFormSectionProps {
   programaDb?: string | null;
   onMontoMejoravitEdited?: () => void;
   onMontoCalculadoEdited?: () => void;
+  infonavitFieldsRequired?: boolean;
+  infonavitOptionalNote?: string | null;
+  /** B7.1: render del formulario P189. Default false = layout pre-P189. */
+  showInfonavitDatosFields?: boolean;
 }
 
 function fieldInputClass(hasError: boolean): string {
@@ -125,6 +130,9 @@ export function ExpedienteClienteDatosFormSection({
   programaDb = null,
   onMontoMejoravitEdited,
   onMontoCalculadoEdited,
+  infonavitFieldsRequired = false,
+  infonavitOptionalNote = null,
+  showInfonavitDatosFields = false,
 }: ExpedienteClienteDatosFormSectionProps) {
   const esMejoravit = isProgramaMejoravitDb(programaDb);
   const esCorreccionRechazo = asesorEsCorreccionRechazoClienteDatos(
@@ -228,8 +236,10 @@ export function ExpedienteClienteDatosFormSection({
         <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] leading-relaxed text-slate-600">
           <p>
             Captura información real y verificable. No repitas números telefónicos entre
-            cliente, empresa y referencias del mismo expediente. El mismo teléfono sí puede
-            usarse en otros expedientes. Los datos incompletos o falsos pueden causar rechazo.
+            cliente, empresa y referencias
+            {showInfonavitDatosFields ? " (celular o LADA+teléfono)" : ""} del mismo expediente.
+            El mismo teléfono sí puede usarse en otros expedientes. Los datos incompletos o
+            falsos pueden causar rechazo.
           </p>
           <p className="mt-2 font-medium text-slate-700">Antes de guardar verifica:</p>
           <ul className="mt-1 list-inside list-disc space-y-0.5">
@@ -309,6 +319,7 @@ export function ExpedienteClienteDatosFormSection({
         ) : null}
 
         <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          {!showInfonavitDatosFields ? (
           <DatosField label="Nombre del cliente" fieldKey="nombreCliente" error={err("nombreCliente")} showError={showFieldErrors}>
             <input
               className={fieldInputClass(Boolean(err("nombreCliente")))}
@@ -321,6 +332,7 @@ export function ExpedienteClienteDatosFormSection({
               }
             />
           </DatosField>
+          ) : null}
           <DatosField label="NSS" fieldKey="nss" error={err("nss")} showError={showFieldErrors}>
             <input
               className={fieldInputClass(Boolean(err("nss")))}
@@ -435,6 +447,16 @@ export function ExpedienteClienteDatosFormSection({
           </DatosField>
         </div>
 
+        {showInfonavitDatosFields ? (
+          <AsesorInfonavitDatosGeneralesFields
+            clienteDatos={clienteDatos}
+            setClienteDatos={setClienteDatos}
+            fieldErrors={fieldErrors}
+            showFieldErrors={showFieldErrors}
+            fieldsRequired={infonavitFieldsRequired}
+            optionalNote={infonavitOptionalNote}
+          />
+        ) : (
         <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="rounded-md border border-gray-200 p-3">
             <p className="text-xs font-semibold text-gray-900">Referencias</p>
@@ -538,6 +560,7 @@ export function ExpedienteClienteDatosFormSection({
             </div>
           </div>
         </div>
+        )}
 
         {esMejoravit ? (
         <div className="mt-4 rounded-md border border-gray-200 p-3">
@@ -587,6 +610,7 @@ export function ExpedienteClienteDatosFormSection({
         </div>
         ) : null}
 
+        {!showInfonavitDatosFields ? (
         <div className="mt-4 rounded-md border border-gray-200 p-3">
           <p className="text-xs font-semibold text-gray-900">Domicilio del cliente</p>
           <div className="mt-2 grid grid-cols-1 gap-2">
@@ -605,9 +629,14 @@ export function ExpedienteClienteDatosFormSection({
             </DatosField>
           </div>
         </div>
+        ) : null}
 
         <div className="mt-4 rounded-md border border-gray-200 p-3">
-          <p className="text-xs font-semibold text-gray-900">Dirección de la empresa</p>
+          <p className="text-xs font-semibold text-gray-900">
+            {showInfonavitDatosFields
+              ? "C. Datos laborales / Dirección de la empresa"
+              : "Dirección de la empresa"}
+          </p>
           <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
             <DatosField
               label="Calle"

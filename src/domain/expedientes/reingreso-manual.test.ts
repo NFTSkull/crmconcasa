@@ -147,4 +147,21 @@ describe("reingreso-manual helpers", () => {
       /documentos obligatorios/i,
     );
   });
+
+  it("mapAsesorEnviarReingresoRpcError: P189 datos incompletos", () => {
+    assert.match(
+      mapAsesorEnviarReingresoRpcError({
+        message: "INFONAVIT_DATOS_INCOMPLETOS",
+      }).message,
+      /datos infonavit/i,
+    );
+  });
+
+  it("mapAsesorEnviarReingresoRpcError: NSS mismatch sin PII", () => {
+    const err = mapAsesorEnviarReingresoRpcError({
+      message: "INFONAVIT_NSS_MISMATCH",
+    });
+    assert.match(err.message, /NSS/i);
+    assert.doesNotMatch(err.message, /\d{11}/);
+  });
 });

@@ -88,6 +88,12 @@ export function mapSaveClienteDatosRpcError(error: {
     );
   }
 
+  if (msg.includes("cliente_datos_telefono_duplicado")) {
+    return new ClienteDatosSupabaseError(
+      "No se pueden repetir números telefónicos dentro de los Datos Generales del cliente.",
+    );
+  }
+
   // Intra-payload primero (más específico). Cross-expediente ya no se bloquea (P098);
   // el mensaje legacy solo aplica si Cloud aún no tiene la migración 093.
   if (msg.includes("teléfono repetido en referencias")) {

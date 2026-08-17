@@ -1,3 +1,39 @@
+## 2026-08-17 - P189 B7.1 LOCAL: UX freeze — no mostrar P189 si no es obligatorio
+
+Causa: B7 dejó el formulario P189 visible en FLAG OFF / legacy. Decisión: render de `AsesorInfonavitDatosGeneralesFields` solo si `status.required` o (legacy ON + v1 ya capturado). FLAG OFF restaura nombre/referencias/domicilio pre-P189. Save no autogenera `datos.infonavit` vacío. PDF Mesa/asesor sigue `has_submission`. 0 SQL/183–187. Sin Cloud/commit.
+
+## 2026-08-17 - P189 B7 LOCAL: feature flag DEFAULT OFF + elegibilidad created_at
+
+Causa: B6 NO_GO — 184 exigía P189 a todo Mejoravit; FE 50 campos; legacy pre-Mesa/reingreso se bloqueaba; no había kill switch. Decisión: modificar **184** (aún no en Cloud) para que el primer apply futuro sea fail-safe. Vault names `p189_infonavit_enqueue_enabled` + `p189_infonavit_activation_at` (0 valores en SQL). `feature_enabled` = true solo si enabled=`true` + activation parseable + now>=activation. Required = Mejoravit + ON + `created_at >= activation`. Legacy: envío/reingreso idénticos a prod si v1 incompleto; enqueue opcional si v1 completo. FE `requireInfonavit` alineado a `status.required`; PGRST202 → OFF / B5 sin accordion rojo. Kill switch = flag OFF (0 snapshot/outbox nuevos). 183/185/186/187 intactas. Sin Cloud/commit.
+
+## 2026-08-17 - P189 B5 LOCAL: visibilidad / preview / descarga Mesa + asesor RO
+
+Causa: B4/B4.1 generan 3 PDFs privados; Mesa y el asesor dueño no tenían lectura UI. Decisión: mig **187** (183–186 intactas) RPC `get_expediente_infonavit_pdf_estado` — no SELECT directo a snapshot/outbox. Autorización: Mesa visible (`can_see_expediente`) o asesor dueño; editor/ajeno/otra org denied. Latest = max `submission_version`; pending/processing/failed exponen `previous_document` de version menor. UI sección dedicada (filtro de listados genéricos para no duplicar); preview/download reutilizan `getArchivoBlob` (Storage SELECT FULL existente, 0 policy nueva). Polling 10s RO. Legacy Mejoravit sin snapshot oculta la sección. Tipos fuera de allowlists/gates. Sin Cloud/deploy/commit/worker patch.
+
+## 2026-08-17 - P189 B4.1 LOCAL: automatización del worker (pg_cron + pg_net + Vault)
+
+Causa: B4.0.1 certificó HTTP manual; los PDFs no aparecían solos tras Enviar a Mesa. Decisión: mig **186** (183–185 intactas) helper `infonavit_pdf_dispatch_worker` + job `infonavit-pdf-worker-dispatch` cada minuto, independiente de agenda/P188. Detecta pending/`available_at` o lease stale 10 min; fail-closed si faltan `infonavit_pdf_worker_url` / `infonavit_pdf_worker_secret`; POST `{}` con `x-concasa-worker-secret`. Timeout pg_net 25000 ms (async enqueue; el worker sigue procesando el batch). No PDF en SQL, no HTTP dentro de `enviar_a_mesa`, no secret en migration. Sin Cloud cron/Vault/deploy/commit/UI (B5).
+
+## 2026-08-17 - P189 B4 LOCAL: worker PDF + Storage + registro documental
+
+Causa: B3 deja 3 outbox pending; hacía falta generar PDFs v1, subirlos al bucket local y versionar `expediente_documentos` sin cron. Decisión: mig **185** (183/184 intactas) RPCs service_role `claim` (SKIP LOCKED + lease 10 min), `fail` (backoff 1/5/15/30, códigos allowlist), `complete` (path derivado `{org}/{exp}/{tipo}/{outbox_id}.pdf`, unique activo, out-of-order: versión vieja histórica si ya hay `done` con `submission_version` mayor). Worker Edge interno (`INFONAVIT_PDF_WORKER_SECRET`); renderer B1 puro; adapter B3→B1 estricto (`plazoAnios`, blanks, 2 refs). `estatus=subido` / `uploaded_by_role=sistema`. Tipos P189 fuera del upload asesor. Invocación manual (B4.1 cron). Sin Cloud/deploy/commit/UI Mesa.
+
+## 2026-08-17 - P189 B3 LOCAL: snapshot inmutable + outbox transaccional
+
+Causa: B3.0 dejó `enviar_a_mesa` / reingreso listos para hook; había que congelar Datos Generales persistidos al confirmar, sin generar PDF. Decisión: mig **184** (183 intacta) tablas privadas + trigger `INFONAVIT_SNAPSHOT_IMMUTABLE` + helper `enqueue_infonavit_pdf_submission`. Discriminador `expedientes.programa=mejoravit`. Initial version 0; reingreso usa `reingreso_manual_count` post-UPDATE; `changed=false` → 0 filas P189. `plazoAnios` (no ×12). NSS divergente → `INFONAVIT_NSS_MISMATCH` antes del UPDATE. FE: bloqueo Mejoravit si `clienteDatosHasUnsavedChanges`. PDFs P189 no son gate de integración. Sin Cloud/Storage/Edge/claim/commit.
+
+## 2026-08-17 - P189 B2.1 LOCAL: unicidad teléfonos server-side
+
+Causa: B2 valida 6 teléfonos en FE, pero `save_cliente_datos` solo cubría celular cliente vs refs celular (no `telefonoEmpresa` ni LADA+fijo P189) → bypass RPC directo. Decisión: helper `cliente_datos_assert_telefonos_unicos` invocado desde el save canónico (mig **183**; Cloud max era 182). Correccion no se redefine (3 llamadas a save). Comparación canónica 10 dígitos (`normalize_telefono_mexico`); LADA 52 no es LADA; incompletos no cuentan; mismo número en otro expediente permitido (P098). Error estable `CLIENTE_DATOS_TELEFONO_DUPLICADO` mapeado en FE sin PII. No unique global. No `enviar_a_mesa`/reingreso/snapshot. Sin Cloud apply/commit.
+
+## 2026-08-17 - P189 B2 LOCAL: Datos Generales estructurados Infonavit
+
+Causa: B0/B1 no pueden rellenar PDFs sin adivinar nombres/vivienda/refs. Decisión: `datos.infonavit` v1 en JSON existente (SQL ya preserva keys extra; FE whitelist actualizado). No parsear `nombreCliente`. `presupuestoEstimado` ≠ `montoMejoravit`. Unicidad intra-expediente incluye LADA+teléfono de refs. Completitud UI 50 campos Mejoravit; gate `enviar_a_mesa` intacto (B3). Sin migration/Cloud/PDF/Storage/commit.
+
+## 2026-08-17 - P189 B1 LOCAL: contrato plantillas Infonavit + fill/flatten
+
+Causa: B0 auditó 3 PDFs AcroForm con defaults basura y mapping por nombre; hacía falta motor puro antes de snapshot/CRM/Edge. Decisión: templates en `supabase/functions/_shared/infonavit-templates/v1/` (SHA exacto B0); núcleo `infonavit-pdf/` con `InfonavitPdfSnapshotInput` semántico (no CRM); `pdf-lib` fill→appearances→flatten; Helvetica/WinAnsi para ÁÑ; montos sin `$` extra (plantilla ya imprime `$`); checkboxes exclusión mutua (C1=M, C0=F); MUST_STAY_BLANK T31–33/T49–54/T55; overflow `INFONAVIT_TEXT_OVERFLOW` sin PII; contract mismatch `INFONAVIT_TEMPLATE_CONTRACT_MISMATCH`. Tests locales + renders pdftoppm/PyMuPDF en `tmp/` (gitignored). Sin migration/Cloud/Storage/UI/enviar Mesa/Edge deploy/commit.
+
 ## 2026-08-15 - P188 B1 LOCAL: refresh automático de inventario (horizon)
 
 Causa: `agenda-sheet-reconcile-every-15m` aborta en `upsert_failed` (booking_id duplicado en tab `17 AGOSTO`) y no refresca fechas posteriores; a las 6h la UI fail-closed. Fix: live-sync `scope=horizon` (solo worker secret; JWT rechazado) recorre hoy..+60 `America/Monterrey` con 1 `listSheets` + `values.batchGet`; si una tab falla, las demás siguen. Cron 182 `7 */2 * * *` (evita colisión :00 con reconcile). Timeout pg_net 55000 ms (mismo presupuesto 132; trabajo menor). Rollback: `SELECT cron.unschedule('agenda-sheet-availability-refresh-every-2h');`. No se toca reconcile/P170/P175/threshold. Sin Cloud apply/deploy/commit.
