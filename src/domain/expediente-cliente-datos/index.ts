@@ -30,6 +30,17 @@ export {
   buildSaveClienteDatosRpcPayload,
   mapSupabaseRowToExpedienteClienteDatos,
 } from "./map-supabase-cliente-datos";
+export {
+  emptyInfonavitClienteDatosV1,
+  formatInfonavitDwellingAddress,
+  joinNombreCompletoInfonavit,
+  mapDatosInfonavitFromUnknown,
+  hasCapturedInfonavitV1,
+} from "./infonavit-datos";
+export {
+  combineLadaTelefonoMexico,
+  findDuplicateTelefonosIntraExpediente,
+} from "./infonavit-telefonos";
 
 /** Factory: mock localStorage por defecto; Supabase con `NEXT_PUBLIC_DATA_MODE=supabase`. */
 export function useExpedienteClienteDatosRepo(): ExpedienteClienteDatosRepo {

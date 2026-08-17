@@ -1,7 +1,8 @@
--- ConCasa CRM — pruebas RPC asesor_enviar_reingreso_a_mesa (mig. 142 + hotfix 143)
+-- ConCasa CRM — pruebas RPC asesor_enviar_reingreso_a_mesa (mig. 152 + P189 B3)
 -- Uso: PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -f supabase/tests/rpc_asesor_enviar_reingreso_a_mesa.sql
 
 \set ON_ERROR_STOP on
+\i supabase/tests/_p189_infonavit_datos_fixture.sql
 
 CREATE OR REPLACE FUNCTION public.__rpc_arm_assert(p_ok BOOLEAN, p_msg TEXT)
 RETURNS VOID LANGUAGE plpgsql AS $$
@@ -61,6 +62,51 @@ BEGIN
 END;
 $$;
 
+CREATE OR REPLACE FUNCTION public.__rpc_arm_seed_ready(
+  p_exp UUID, p_org UUID, p_asesor UUID, p_nss TEXT
+)
+RETURNS VOID LANGUAGE plpgsql AS $$
+DECLARE
+  v_tipo TEXT;
+BEGIN
+  PERFORM public.__p189_purge_submission(p_exp);
+  UPDATE public.expedientes
+  SET direccion_opcional = 'Av Siempre Viva 123, Centro, Monterrey, CP 64000'
+  WHERE id = p_exp;
+
+  INSERT INTO public.editor_decisions (expediente_id, organization_id, decision, monto_aprobado)
+  VALUES (p_exp, p_org, 'aprobado', 200000)
+  ON CONFLICT (expediente_id) DO UPDATE SET monto_aprobado = 200000, decision = 'aprobado';
+
+  INSERT INTO public.cliente_datos (
+    expediente_id, organization_id, estado, porcentaje_cobro, monto_calculado, metodo_pago, datos
+  ) VALUES (
+    p_exp, p_org, 'completo', 10, 20000, 'transferencia',
+    public.__p189_infonavit_datos_completo(p_nss)
+  )
+  ON CONFLICT (expediente_id) DO UPDATE SET
+    estado = 'completo',
+    porcentaje_cobro = 10,
+    monto_calculado = 20000,
+    metodo_pago = 'transferencia',
+    datos = EXCLUDED.datos;
+
+  DELETE FROM public.expediente_documentos WHERE expediente_id = p_exp;
+  FOREACH v_tipo IN ARRAY public.integration_doc_tipos_asesor_envio()
+  LOOP
+    INSERT INTO public.expediente_documentos (
+      expediente_id, organization_id, tipo_documento, storage_path,
+      nombre_original, mime_type, size_bytes, uploaded_by, uploaded_by_role,
+      estatus_revision, version
+    ) VALUES (
+      p_exp, p_org, v_tipo, 'arm152/' || p_exp::text || '/' || v_tipo,
+      v_tipo || '.pdf', 'application/pdf', 1024, p_asesor, 'asesor',
+      'subido', 1
+    );
+  END LOOP;
+END;
+$$;
+
 DO $$
 DECLARE
   v_org UUID := '00000000-0000-4000-9143-000000000001';
@@ -84,6 +130,7 @@ DECLARE
   v_citas_before BIGINT;
   v_citas_after BIGINT;
 BEGIN
+  PERFORM public.__p189_clear_feature_vault();
   INSERT INTO public.organizations (id, slug, name, active)
   VALUES (v_org, 'arm-reingreso-143-org', 'ARM Reingreso 143 Org', true)
   ON CONFLICT (slug) DO UPDATE SET active = true;
@@ -123,6 +170,9 @@ BEGIN
     subestado = 'en_proceso',
     ciclo_estado = 'activo',
     reingreso_manual_count = 0,
+    reingreso_manual_at = NULL,
+    reingreso_manual_by = NULL,
+    direccion_opcional = 'Av Siempre Viva 123, Centro, Monterrey, CP 64000',
     deleted_at = NULL;
 
   -- Nunca enviado
@@ -136,6 +186,8 @@ BEGIN
     submitted_to_mesa = false,
     fecha_envio_mesa = NULL,
     reingreso_manual_count = 0,
+    reingreso_manual_at = NULL,
+    reingreso_manual_by = NULL,
     deleted_at = NULL,
     ciclo_estado = 'activo';
 
@@ -162,34 +214,9 @@ BEGIN
     'interno', true, NOW() - INTERVAL '3 days', 3, 'en_proceso', 'cancelado'
   ) ON CONFLICT (id) DO UPDATE SET ciclo_estado = 'cancelado', deleted_at = NULL;
 
-  -- Solo v_exp tiene docs + decisión + cliente (para conservar docs)
-  INSERT INTO public.editor_decisions (expediente_id, organization_id, decision, monto_aprobado)
-  VALUES (v_exp, v_org, 'aprobado', 200000)
-  ON CONFLICT (expediente_id) DO UPDATE SET monto_aprobado = 200000, decision = 'aprobado';
-
-  INSERT INTO public.cliente_datos (
-    expediente_id, organization_id, estado, porcentaje_cobro, monto_calculado, metodo_pago, datos
-  ) VALUES
-    (v_exp, v_org, 'completo', 10, 20000, 'transferencia', '{"rfc":"XAXX010101000"}'::jsonb)
-  ON CONFLICT (expediente_id) DO UPDATE SET
-    estado = 'completo',
-    porcentaje_cobro = 10,
-    monto_calculado = 20000,
-    metodo_pago = 'transferencia';
-
-  DELETE FROM public.expediente_documentos WHERE expediente_id = v_exp;
-  FOREACH v_tipo IN ARRAY public.integration_doc_tipos_asesor_envio()
-  LOOP
-    INSERT INTO public.expediente_documentos (
-      expediente_id, organization_id, tipo_documento, storage_path,
-      nombre_original, mime_type, size_bytes, uploaded_by, uploaded_by_role,
-      estatus_revision, version
-    ) VALUES (
-      v_exp, v_org, v_tipo, 'arm143/' || v_exp::text || '/' || v_tipo,
-      v_tipo || '.pdf', 'application/pdf', 1024, v_asesor, 'asesor',
-      'subido', 1
-    );
-  END LOOP;
+  -- v_exp + v_exp_new listos (152 + P189). v_exp_empty permanece incompleto.
+  PERFORM public.__rpc_arm_seed_ready(v_exp, v_org, v_asesor, '91430000021');
+  PERFORM public.__rpc_arm_seed_ready(v_exp_new, v_org, v_asesor, '91430000022');
 
   SELECT count(*) INTO v_docs_before
   FROM public.expediente_documentos d
@@ -217,7 +244,7 @@ BEGIN
     '3: cancelado'
   );
 
-  -- 4) Nunca enviado AHORA permitido (hotfix 143)
+  -- 4) Nunca enviado permitido (152: con gates; P189 version 1)
   v_result := public.__rpc_arm_call(v_asesor, v_exp_new);
   PERFORM public.__rpc_arm_assert((v_result->>'ok')::boolean, '4: ok never-sent');
   PERFORM public.__rpc_arm_assert((v_result->>'changed')::boolean, '4: changed');
@@ -237,12 +264,13 @@ BEGIN
   SELECT count(*) INTO v_nss_count FROM public.expedientes e WHERE e.nss = '91430000022';
   PERFORM public.__rpc_arm_assert(v_nss_count = 1, '4: sin duplicar NSS');
 
-  -- 5) Sin docs / sin monto / sin datos (etapa 8) permitido
-  v_result := public.__rpc_arm_call(v_asesor, v_exp_empty);
-  PERFORM public.__rpc_arm_assert((v_result->>'ok')::boolean, '5: ok empty');
-  PERFORM public.__rpc_arm_assert((v_result->>'reingreso_manual_count')::int = 1, '5: count=1');
+  -- 5) Sin docs / sin monto / sin datos (etapa 8) bloqueado (contrato 152: primer gate = monto)
+  PERFORM public.__rpc_arm_assert(
+    public.__rpc_arm_expect_fail(v_asesor, v_exp_empty, 'FALTA_MONTO'),
+    '5: empty FALTA_MONTO'
+  );
   SELECT e.etapa_actual INTO v_etapa FROM public.expedientes e WHERE e.id = v_exp_empty;
-  PERFORM public.__rpc_arm_assert(v_etapa = 1, '5: etapa=1');
+  PERFORM public.__rpc_arm_assert(v_etapa = 8, '5: etapa intacta');
 
   -- 6) Reingreso OK en expediente con docs: mismo id, count 1, docs/citas intactos
   v_result := public.__rpc_arm_call(v_asesor, v_exp);
@@ -309,10 +337,11 @@ BEGIN
     AND e.nss IN ('91430000021', '91430000022', '91430000023', '91430000024');
   PERFORM public.__rpc_arm_assert(v_count = 4, '10: cero duplicados de expediente');
 
-  RAISE NOTICE 'RPC asesor_enviar_reingreso_a_mesa (143): tests OK';
+  RAISE NOTICE 'RPC asesor_enviar_reingreso_a_mesa (152 + P189): tests OK';
 END;
 $$;
 
+DROP FUNCTION IF EXISTS public.__rpc_arm_seed_ready(UUID, UUID, UUID, TEXT);
 DROP FUNCTION IF EXISTS public.__rpc_arm_expect_fail(UUID, UUID, TEXT);
 DROP FUNCTION IF EXISTS public.__rpc_arm_call(UUID, UUID);
 DROP FUNCTION IF EXISTS public.__rpc_arm_reset();

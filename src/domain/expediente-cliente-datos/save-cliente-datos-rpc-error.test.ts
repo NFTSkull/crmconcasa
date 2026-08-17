@@ -33,6 +33,15 @@ describe("mapSaveClienteDatosRpcError", () => {
     assert.match(err.message, /ya está registrado/i);
   });
 
+  it("mapea CLIENTE_DATOS_TELEFONO_DUPLICADO sin PII ni cross-expediente", () => {
+    const err = mapSaveClienteDatosRpcError({
+      message: "save_cliente_datos: CLIENTE_DATOS_TELEFONO_DUPLICADO",
+    });
+    assert.match(err.message, /No se pueden repetir números telefónicos/i);
+    assert.doesNotMatch(err.message, /otro expediente/i);
+    assert.doesNotMatch(err.message, /\d{10}/);
+  });
+
   it("mapea teléfono repetido en referencias sin confundirlo con cross-expediente", () => {
     const err = mapSaveClienteDatosRpcError({
       message: "save_cliente_datos: teléfono repetido en referencias",

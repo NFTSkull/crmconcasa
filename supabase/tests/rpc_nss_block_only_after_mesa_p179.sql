@@ -1,4 +1,5 @@
 \set ON_ERROR_STOP on
+\i supabase/tests/_p189_infonavit_datos_fixture.sql
 
 -- P179: gate NSS bloquea solo post-Mesa. Local only.
 
@@ -31,6 +32,12 @@ SET search_path = public
 AS $$
 DECLARE v_nss TEXT := public.normalize_nss_mexico(p_nss);
 BEGIN
+  PERFORM set_config('infonavit.snapshot_mutable', '1', true);
+  DELETE FROM public.infonavit_pdf_outbox o
+  USING public.expedientes e WHERE o.expediente_id = e.id AND e.nss = v_nss;
+  DELETE FROM public.expediente_infonavit_submission_snapshots s
+  USING public.expedientes e WHERE s.expediente_id = e.id AND e.nss = v_nss;
+  PERFORM set_config('infonavit.snapshot_mutable', '', true);
   UPDATE public.expedientes e SET reprecalificacion_pendiente_id = NULL WHERE e.nss = v_nss;
   DELETE FROM public.expediente_precalificacion_intentos i
   USING public.expedientes e WHERE i.expediente_id = e.id AND e.nss = v_nss;
@@ -78,16 +85,26 @@ RETURNS VOID LANGUAGE plpgsql
 SECURITY DEFINER
 SET search_path = public
 AS $$
-DECLARE v_tipo TEXT;
+DECLARE
+  v_tipo TEXT;
+  v_nss TEXT;
 BEGIN
+  SELECT public.normalize_nss_mexico(e.nss::text) INTO v_nss
+  FROM public.expedientes e WHERE e.id = p_exp;
   INSERT INTO public.editor_decisions (expediente_id, organization_id, decision, monto_aprobado)
   VALUES (p_exp, p_org, 'aprobado', 15000)
   ON CONFLICT (expediente_id) DO UPDATE SET decision = 'aprobado', monto_aprobado = 15000;
   INSERT INTO public.cliente_datos (
     expediente_id, organization_id, datos, estado, porcentaje_cobro, monto_calculado, metodo_pago
   ) VALUES (
-    p_exp, p_org, '{"nombreCliente":"P179"}'::jsonb, 'completo', 10, 4500, 'transferencia'
-  ) ON CONFLICT (expediente_id) DO NOTHING;
+    p_exp, p_org, public.__p189_infonavit_datos_completo(COALESCE(v_nss, '00000000000')),
+    'completo', 10, 4500, 'transferencia'
+  ) ON CONFLICT (expediente_id) DO UPDATE SET
+    datos = EXCLUDED.datos,
+    estado = 'completo',
+    porcentaje_cobro = 10,
+    monto_calculado = 4500,
+    metodo_pago = 'transferencia';
   DELETE FROM public.expediente_documentos WHERE expediente_id = p_exp;
   FOREACH v_tipo IN ARRAY public.integration_doc_tipos_asesor_envio()
   LOOP

@@ -102,6 +102,34 @@ export function mapEnviarAMesaRpcError(error: {
     );
   }
 
+  if (msg.includes("infonavit_datos_incompletos")) {
+    return new ExpedientesSupabaseError(
+      "Faltan datos Infonavit del cliente. Complétalos y guárdalos antes de enviar a Mesa.",
+    );
+  }
+
+  if (msg.includes("infonavit_datos_version_invalida")) {
+    return new ExpedientesSupabaseError(
+      "Los datos Infonavit guardados no tienen la versión correcta. Vuelve a completar y guardar Datos Generales.",
+    );
+  }
+
+  if (msg.includes("infonavit_nss_mismatch")) {
+    return new ExpedientesSupabaseError(
+      "El NSS de Datos Generales no coincide con el del expediente. Corrígelo y guarda antes de enviar a Mesa.",
+    );
+  }
+
+  if (
+    msg.includes("infonavit_snapshot_immutable") ||
+    msg.includes("expediente_infonavit_snapshots_exp_ver_uidx") ||
+    msg.includes("infonavit_pdf_outbox_idem_uidx")
+  ) {
+    return new ExpedientesSupabaseError(
+      "No se pudo registrar el envío Infonavit. Intenta de nuevo más tarde.",
+    );
+  }
+
   if (msg.includes("no está en ciclo activo")) {
     return new ExpedientesSupabaseError(
       "Este expediente no está en ciclo activo y no puede enviarse a Mesa.",

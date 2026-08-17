@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { ClienteDatosFormShape } from "@/lib/clienteDatosFormCompleteness";
+import { fixtureInfonavitCompleto } from "@/domain/expediente-cliente-datos/infonavit-datos.fixtures";
 import {
   MSJ_DIGITS_ONLY,
   MSJ_PERSON_NAME_INVALID,
@@ -11,6 +12,7 @@ import {
   normalizeDigitsOnly,
   normalizePersonName,
   normalizeTelefonoMexico,
+  syncLegacyFromInfonavit,
   validateClienteDatos,
 } from "@/lib/clienteDatosValidation";
 import { calcMontoCalculadoCobro } from "@/lib/clienteDatosCobro";
@@ -19,6 +21,7 @@ const COBRO_CTX = {
   montoAprobado: 100_000,
   direccionOpcional: "Calle Principal 123",
   programaDb: "mejoravit",
+  requireInfonavit: true,
 };
 
 const baseValid: ClienteDatosFormShape = {
@@ -47,20 +50,60 @@ const baseValid: ClienteDatosFormShape = {
   porcentajeCobro: "10",
   montoCalculado: "10000",
   metodoPago: "transferencia",
+  infonavit: fixtureInfonavitCompleto({
+    referencias: [
+      {
+        nombres: "Ref",
+        apellidoPaterno: "Uno",
+        apellidoMaterno: "A",
+        lada: "81",
+        telefono: "33333333",
+        celular: "8111111111",
+      },
+      {
+        nombres: "Ref",
+        apellidoPaterno: "Dos",
+        apellidoMaterno: "B",
+        lada: "81",
+        telefono: "44444444",
+        celular: "8222222222",
+      },
+    ],
+    titular: {
+      nombres: "Juan",
+      apellidoPaterno: "Perez",
+      apellidoMaterno: "Lopez",
+      genero: "M",
+      estadoCivil: "soltero",
+      regimenMatrimonial: "",
+      identificacion: {
+        tipo: "INE",
+        numero: "1234567890123",
+        vigencia: "2030-12-31",
+      },
+    },
+  }),
 };
 
 test("validateClienteDatos: domicilio real del cliente es obligatorio", () => {
-  const sinDomicilio = validateClienteDatos(baseValid, { ...COBRO_CTX, direccionOpcional: "" });
+  const sinDomicilio = validateClienteDatos(
+    { ...baseValid, infonavit: undefined },
+    { ...COBRO_CTX, direccionOpcional: "", programaDb: "compro_tu_casa" },
+  );
   assert.equal(
     sinDomicilio.errors.direccionOpcional,
     "El domicilio real del cliente es obligatorio.",
   );
   assert.equal(sinDomicilio.isValid, false);
 
-  const conDomicilio = validateClienteDatos(baseValid, {
-    ...COBRO_CTX,
-    direccionOpcional: "Calle Principal 123",
-  });
+  const conDomicilio = validateClienteDatos(
+    { ...baseValid, infonavit: undefined },
+    {
+      ...COBRO_CTX,
+      direccionOpcional: "Calle Principal 123",
+      programaDb: "compro_tu_casa",
+    },
+  );
   assert.equal(conDomicilio.errors.direccionOpcional, undefined);
   assert.equal(conDomicilio.isValid, true);
 });
@@ -99,8 +142,10 @@ test("validateClienteDatos: payload válido sin errores", () => {
 });
 
 test("validateClienteDatos: requerido faltante", () => {
-  const r = validateClienteDatos({ ...baseValid, nombreCliente: "" }, COBRO_CTX);
-  assert.equal(r.errors.nombreCliente, "Nombre del cliente es obligatorio.");
+  const inf = fixtureInfonavitCompleto();
+  inf.titular.nombres = "";
+  const r = validateClienteDatos({ ...baseValid, infonavit: inf }, COBRO_CTX);
+  assert.equal(r.errors.infonavitTitularNombres, "Nombre(s) es obligatorio.");
 });
 
 test("validateClienteDatos: NSS inválido", () => {
@@ -119,31 +164,30 @@ test("validateClienteDatos: celular inválido", () => {
 });
 
 test("validateClienteDatos: celular cliente repetido con referencia 1", () => {
+  const inf = fixtureInfonavitCompleto();
+  inf.referencias[0].celular = "8119087564";
   const r = validateClienteDatos({
     ...baseValid,
     celular: "8119087564",
-    referencias: [
-      { nombre: "Ref Uno", celular: "81 1908 7564" },
-      baseValid.referencias[1],
-    ],
+    infonavit: inf,
   }, COBRO_CTX);
   assert.match(
-    r.errors.referencia1Celular ?? "",
-    /no puede repetirse con celular del cliente/i,
+    r.errors.infonavitRef1Celular ?? "",
+    /se repite con celular del cliente/i,
   );
 });
 
 test("validateClienteDatos: referencia 1 repetida con referencia 2", () => {
+  const inf = fixtureInfonavitCompleto();
+  inf.referencias[0].celular = "8111111111";
+  inf.referencias[1].celular = "8111111111";
   const r = validateClienteDatos({
     ...baseValid,
-    referencias: [
-      { nombre: "Ref Uno", celular: "8111111111" },
-      { nombre: "Ref Dos", celular: "8111111111" },
-    ],
+    infonavit: inf,
   }, COBRO_CTX);
   assert.match(
-    r.errors.referencia2Celular ?? "",
-    /no puede repetirse con referencia 1/i,
+    r.errors.infonavitRef2Celular ?? "",
+    /se repite con celular de referencia 1/i,
   );
 });
 
@@ -155,7 +199,7 @@ test("validateClienteDatos: teléfono empresa repetido con celular", () => {
   }, COBRO_CTX);
   assert.match(
     r.errors.telefonoEmpresa ?? "",
-    /no puede repetirse con celular del cliente/i,
+    /se repite con celular del cliente/i,
   );
 });
 
@@ -311,7 +355,10 @@ test("P133.4 isValidPersonName: O'Connor válido", () => {
 
 test("P133.5 isValidPersonName: Juan123 inválido", () => {
   assert.equal(isValidPersonName("Juan123"), false);
-  const r = validateClienteDatos({ ...baseValid, nombreCliente: "Juan123" }, COBRO_CTX);
+  const r = validateClienteDatos(
+    { ...baseValid, nombreCliente: "Juan123", infonavit: undefined },
+    { ...COBRO_CTX, programaDb: "compro_tu_casa" },
+  );
   assert.equal(r.errors.nombreCliente, MSJ_PERSON_NAME_INVALID);
 });
 
@@ -394,4 +441,124 @@ test("P133.13 pegado limpia caracteres inválidos en numéricos", () => {
 test("P133 plazo con letras → MSJ_DIGITS_ONLY", () => {
   const r = validateClienteDatos({ ...baseValid, plazo: "12 meses" }, COBRO_CTX);
   assert.equal(r.errors.plazo, MSJ_DIGITS_ONLY);
+});
+
+test("P189 B2: syncLegacyFromInfonavit deriva nombreCliente sin parsear", () => {
+  const synced = syncLegacyFromInfonavit(baseValid);
+  assert.equal(synced.nombreCliente, "Juan Perez Lopez");
+  assert.equal(synced.referencias[0]?.nombre, "Ref Uno A");
+  assert.equal(synced.beneficiario.parentesco, "MADRE");
+});
+
+test("P189 B2: no exige infonavit en compro_tu_casa", () => {
+  const r = validateClienteDatos(
+    { ...baseValid, infonavit: undefined, montoMejoravit: "", plazo: "" },
+    { ...COBRO_CTX, programaDb: "compro_tu_casa" },
+  );
+  assert.equal(r.errors.infonavitTitularNombres, undefined);
+  assert.equal(r.isValid, true);
+});
+
+test("P189 B2: teléfonos únicos — cliente celular == ref1 fijo", () => {
+  const r = validateClienteDatos(
+    {
+      ...baseValid,
+      celular: "8112345678",
+      infonavit: fixtureInfonavitCompleto({
+        referencias: [
+          {
+            nombres: "A",
+            apellidoPaterno: "B",
+            apellidoMaterno: "C",
+            lada: "81",
+            telefono: "12345678",
+            celular: "8111111111",
+          },
+          {
+            nombres: "D",
+            apellidoPaterno: "E",
+            apellidoMaterno: "F",
+            lada: "81",
+            telefono: "22222222",
+            celular: "8222222222",
+          },
+        ],
+      }),
+    },
+    COBRO_CTX,
+  );
+  assert.ok(r.errors.infonavitRef1Telefono);
+});
+
+test("P189 B2: teléfonos únicos — ref1 celular == ref1 fijo", () => {
+  const r = validateClienteDatos(
+    {
+      ...baseValid,
+      celular: "8100000001",
+      telefonoEmpresa: "8100000002",
+      infonavit: fixtureInfonavitCompleto({
+        referencias: [
+          {
+            nombres: "A",
+            apellidoPaterno: "B",
+            apellidoMaterno: "C",
+            lada: "81",
+            telefono: "33333333",
+            celular: "8133333333",
+          },
+          {
+            nombres: "D",
+            apellidoPaterno: "E",
+            apellidoMaterno: "F",
+            lada: "81",
+            telefono: "44444444",
+            celular: "8222222222",
+          },
+        ],
+      }),
+    },
+    COBRO_CTX,
+  );
+  assert.ok(r.errors.infonavitRef1Celular || r.errors.infonavitRef1Telefono);
+});
+
+test("P189 B2: presupuesto estimado independiente y > 0", () => {
+  const r = validateClienteDatos(
+    {
+      ...baseValid,
+      infonavit: fixtureInfonavitCompleto({
+        mejora: { descripcion: "OK", presupuestoEstimado: "0" },
+      }),
+    },
+    COBRO_CTX,
+  );
+  assert.equal(
+    r.errors.infonavitMejoraPresupuesto,
+    "El presupuesto estimado debe ser mayor a 0.",
+  );
+});
+
+test("P189 B2: casado sin régimen falla; soltero limpia", () => {
+  const r = validateClienteDatos(
+    {
+      ...baseValid,
+      infonavit: fixtureInfonavitCompleto({
+        titular: {
+          nombres: "Juan",
+          apellidoPaterno: "Perez",
+          apellidoMaterno: "Lopez",
+          genero: "M",
+          estadoCivil: "casado",
+          regimenMatrimonial: "",
+          identificacion: {
+            tipo: "INE",
+            numero: "1",
+            vigencia: "2030-01-01",
+          },
+        },
+      }),
+    },
+    COBRO_CTX,
+  );
+  assert.ok(r.errors.infonavitRegimen);
 });

@@ -26,6 +26,15 @@ describe("mapSaveClienteDatosCorreccionRpcError", () => {
     assert.match(err.message, /enviar el expediente a Mesa/i);
   });
 
+  it("mapea CLIENTE_DATOS_TELEFONO_DUPLICADO sin PII", () => {
+    const err = mapSaveClienteDatosCorreccionRpcError({
+      message: "save_cliente_datos: CLIENTE_DATOS_TELEFONO_DUPLICADO",
+    });
+    assert.match(err.message, /No se pueden repetir números telefónicos/i);
+    assert.doesNotMatch(err.message, /\d{10}/);
+    assert.doesNotMatch(err.message, /CLIENTE_DATOS_TELEFONO_DUPLICADO/);
+  });
+
   it("mapea RFC inválido", () => {
     const err = mapSaveClienteDatosCorreccionRpcError({
       message: "save_cliente_datos: RFC inválido",

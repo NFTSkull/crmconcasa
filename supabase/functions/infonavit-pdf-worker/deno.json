@@ -1,0 +1,6 @@
+{
+  "imports": {
+    "pdf-lib": "npm:pdf-lib@1.17.1",
+    "@supabase/supabase-js": "npm:@supabase/supabase-js@2.49.1"
+  }
+}

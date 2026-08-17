@@ -53,6 +53,15 @@
 - [x] P177 LOCAL: tab Inscripción en agenda asesor (embedded; sin requirement informativo).
 - [x] P176: mig 174 availability contract + live-sync auth; Apodaca 17 AGO cupos visibles.
 - [x] P188 B1 LOCAL: mig **182** cron availability horizon 2h + live-sync `scope=horizon` (worker-only, batchGet, isolation tab). Sin Cloud apply/deploy.
+- [x] P189 B1 LOCAL: contrato SHA plantillas Infonavit + fill/flatten (`pdf-lib`) + tests; 0 Cloud/DB/Storage/UI/Edge.
+- [x] P189 B2 LOCAL: `datos.infonavit` v1 en Datos Generales Mejoravit + unicidad teléfonos LADA; 0 SQL/Cloud/PDF/enviar Mesa.
+- [x] P189 B2.1 LOCAL: mig **183** unicidad teléfonos intra-payload en `save_cliente_datos` (correccion delega); 15 pares + canónico MX; sin unique global / Cloud / `enviar_a_mesa`.
+- [x] P189 B3 LOCAL: mig **184** snapshot inmutable + 3 outbox pending en la misma TX que `enviar_a_mesa` / reingreso (solo Mejoravit). Sin PDF/Storage/Edge/Cloud.
+- [x] P189 B4 LOCAL: mig **185** claim/fail/complete + worker PDF fill/flatten + Storage local + versionado out-of-order. Sin cron/Cloud/UI Mesa.
+- [x] P189 B4.1 LOCAL: mig **186** cron `infonavit-pdf-worker-dispatch` 1 min + pg_net + Vault P189 independiente. Sin Cloud cron/Vault/UI Mesa.
+- [x] P189 B5 LOCAL: mig **187** RPC `get_expediente_infonavit_pdf_estado` + sección Mesa/asesor RO (preview/download blob privado, polling 10s, previous version). Sin Cloud/commit/upload manual/gates Mesa.
+- [x] P189 B7.1 LOCAL: UX freeze — formulario P189 oculto si FLAG OFF / legacy sin v1. Solo `required` o legacy con captura. 0 SQL. Sin Cloud/commit.
+- [x] P189 B7 LOCAL: mig **184** flag Vault DEFAULT OFF + elegibilidad `created_at` vs `p189_infonavit_activation_at`. Legacy never blocked. Kill switch = flag OFF. FE dual completeness + PGRST202 fallback. 183/185/186/187 intactas. Sin Cloud/commit.
 - [x] B5.2: deploy webhook+reconcile + FROM_DATE luego ENABLED; históricos 07 AGO=0; P170 OFF.
 - [x] B5: secrets FROM_DATE=2026-08-13 + ENABLED=true (P170 OFF).
 

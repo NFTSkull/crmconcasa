@@ -4,6 +4,22 @@
 
 ### Added
 
+- **fix(infonavit): P189 B7.1 UX freeze — formulario P189 invisible si no es required (LOCAL)** — `AsesorInfonavitDatosGeneralesFields` solo si `status.required` o legacy ON con v1 ya capturado. FLAG OFF / legacy sin v1 / non-Mejoravit = layout pre-P189. PDF Mesa/asesor sigue `has_submission`. 0 SQL/Cloud/commit.
+
+- **fix(infonavit): P189 B7 zero-downtime flag + elegibilidad legacy (LOCAL)** — mig **184** (SHA nuevo deliberado): Vault `p189_infonavit_enqueue_enabled` / `p189_infonavit_activation_at` DEFAULT OFF; required solo Mejoravit `created_at >= activation`; legacy nunca bloqueado; kill switch = flag OFF. RPC `get_p189_infonavit_feature_status`. FE `requireInfonavit` + PGRST202 fallback. 183/185/186/187 intactas. Sin Cloud/commit.
+
+- **feat(infonavit): P189 B5 visibilidad Mesa + asesor RO (LOCAL)** — mig **187** RPC `get_expediente_infonavit_pdf_estado` (sin payload/PII; editor denied). Preview/download vía `storage.download` RLS. Polling 10s pending. Reingreso etiqueta «Versión anterior». 183–186 intactas. Sin Cloud/commit/upload/gates. — mig **186** job `infonavit-pdf-worker-dispatch` (`* * * * *`) → `infonavit_pdf_dispatch_worker()` fail-closed. Body `{}`. Secret/URL solo Vault (nombres P189). No toca agenda/P188 ni B1–B4. Sin Cloud/commit/UI.
+
+- **feat(infonavit): P189 B4 worker PDF + Storage + registro documental (LOCAL)** — mig **185** claim SKIP LOCKED / lease 10m / fail backoff / complete atómico. Edge `infonavit-pdf-worker` (secret propio, static templates v1). Path `{org}/{exp}/{tipo}/{outbox_id}.pdf`. Out-of-order: S1 tardío no pisa S2. Sin cron/Cloud/UI/commit.
+
+- **feat(infonavit): P189 B3 snapshot inmutable + outbox transaccional (LOCAL)** — mig **184** `expediente_infonavit_submission_snapshots` + `infonavit_pdf_outbox` (3 pending/submission). Hook en `enviar_a_mesa` (version 0) y `asesor_enviar_reingreso_a_mesa` (version = counter, 0 filas si idempotente). Sin PDF/Storage/Edge/Cloud/commit.
+
+- **feat(cliente-datos): P189 B2.1 unicidad teléfonos server-side (LOCAL)** — mig **183** helper `cliente_datos_assert_telefonos_unicos` en `save_cliente_datos` (correccion delega). 6 slots / 15 pares; canónico MX 10 dígitos; parciales ignorados; error `CLIENTE_DATOS_TELEFONO_DUPLICADO` sin PII. Sin unique global, Cloud, `enviar_a_mesa`, Storage, PDF, commit.
+
+- **feat(infonavit-pdf): P189 B1 motor fill/flatten LOCAL** — plantillas v1 congeladas por SHA256; `pdf-lib`; contrato fail-safe; mapping AcroForm por nombre; fixtures ficticias; flatten 0 fields. Sin Cloud/DB/Storage/UI/Edge/commit.
+
+- **feat(cliente-datos): P189 B2 Datos Generales estructurados Infonavit (LOCAL)** — `datos.infonavit` schemaVersion 1; nombres/vivienda/refs/beneficiario/mejora; unicidad teléfonos LADA+fijo; presupuesto independiente de montoMejoravit. Sin migration/Cloud/PDF/enviar Mesa.
+
 - **feat(agenda): P188 B1 freshness horizon LOCAL** — mig **182** `agenda-sheet-availability-refresh-every-2h` (`7 */2 * * *`) → live-sync `mode=availability` `scope=horizon` (worker secret). Sheet READ + inventory upsert; 0 bookings/P170/reconcile. Fail-closed 6h intacto. Sin Cloud/commit.
 
 ### Added

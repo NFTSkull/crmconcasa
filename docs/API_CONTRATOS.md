@@ -401,15 +401,15 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 
 ## 5. Enviar integración a Mesa
 
-**Operación:** `POST /expedientes/{id}/enviar-mesa` · RPC `enviar_a_mesa`
+**Operación:** `POST /expedientes/{id}/enviar-mesa` · RPC `enviar_a_mesa(p_expediente_id uuid) → jsonb`
 
 ### Request
 
 ```json
-{
-  "docs_snapshot": "optional checklist resumen"
-}
+{ "p_expediente_id": "uuid" }
 ```
+
+No hay `docs_snapshot`: el RPC no recibe checklist ni payload de documentos.
 
 ### Response
 
@@ -422,18 +422,21 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 }
 ```
 
-### Reglas (B0D4)
+### Reglas (B0D4 + P189 B3)
 
-- Gate: editor aprobado + monto + docs integración + RFC.
+- Gate: monto editor > 0 + `cliente_datos` `completo|validado` + cobro + 4 docs integración (`cliente_ine_frente|reverso`, `cliente_comprobante_domicilio`, `cliente_estado_cuenta`) + NSS no bloqueado.
+- RFC **no** es gate de envío.
 - **NO** incrementar a etapa 2 (`etapaAlEnviarAMesaDesdeAsesor` → 1).
 - `action_log`: `expediente.enviar_a_mesa`.
+- P189 (solo `programa=mejoravit`): assert `datos.infonavit` persistidos **antes** del UPDATE; tras UPDATE, misma TX: 1 snapshot inmutable (`submission_version=0`, `kind=initial`) + 3 outbox `pending`. Otros programas: 0 filas P189.
+- PDFs P189 **no** entran a `integration_doc_tipos_asesor_envio` ni al conteo de docs de etapa.
 
 ---
 
 ## 5bis. Reingreso manual a Mesa (mismo expediente)
 
 **Operación:** UI Asesor «Enviar como reingreso» · RPC `asesor_enviar_reingreso_a_mesa(p_expediente_id)`
-**Migraciones:** 142 (columnas + RPC inicial) · **143** (hotfix: sin checklist / sin envío previo)
+**Migraciones:** 142 (columnas + RPC inicial) · 143 (hotfix UI) · **152** (gates Datos Generales + docs + monto + domicilio **antes** de idempotencia 5s / CAS) · **184** (P189 snapshot/outbox Mejoravit)
 
 ### Request
 
@@ -464,12 +467,13 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 ### Reglas
 
 - Solo `asesor` dueño; expediente existente; no `deleted_at`; no `ciclo_estado = cancelado`.
-- **No** exige envío previo, monto, documentos, Datos Generales, NSS libre, etapa ni subestado.
-- UPDATE del mismo expediente: `submitted_to_mesa=true`, `fecha_envio_mesa=NOW()`, `etapa_actual=1`, `subestado=en_validacion_mesa`, incrementa `reingreso_manual_*`.
+- Contrato vigente **152**: exige monto editor > 0, `cliente_datos` `completo|validado` + cobro, `direccion_opcional`, 4 docs integración. **No** es el hotfix 143 “sin checklist”.
+- UPDATE del mismo expediente: `submitted_to_mesa=true`, `fecha_envio_mesa=NOW()`, `etapa_actual=1`, `subestado=en_validacion_mesa`, incrementa `reingreso_manual_*` si `changed=true`.
 - No INSERT expediente/precalificación; no toca docs/citas/`reingreso_rechazo_id` (P072).
-- Idempotencia: mismo actor en ≤5s → `changed:false` sin nuevo incremento.
+- Idempotencia: mismo actor en ≤5s o CAS lost → `changed:false` **sin** snapshot/outbox P189.
+- `changed=true` + Mejoravit: `submission_version = reingreso_manual_count` post-UPDATE, `kind=reingreso`, 1 snapshot + 3 outbox. Primer envío vía reingreso (`era_primer_envio=true`) usa version **1** (no se fuerza 0).
 - `action_log.action = expediente_reingreso_mesa` (incluye `era_primer_envio`, etapas/subestados).
-- UI: card «Reingreso a Mesa» arriba de Datos Generales; visible en todo expediente activo del dueño.
+- UI: card «Reingreso a Mesa» arriba de Datos Generales; visible en todo expediente activo del dueño. Mejoravit con cambios sin guardar: bloquea envío/reingreso.
 
 ---
 
@@ -1566,6 +1570,138 @@ Todos | Correcciones enviadas | Nuevos | En proceso | Rechazos y cancelaciones |
 - [ ] Zod schemas por RPC
 - [ ] OpenAPI o tRPC router
 - [ ] Idempotency keys en envío mesa / retención
+
+## 19. P189 B1 — PDFs Infonavit fill/flatten (LOCAL, sin RPC)
+
+Motor puro: `supabase/functions/_shared/infonavit-pdf/`.
+
+**API**
+
+```ts
+generateInfonavitPdf({
+  documentType: 'carta_bajo_protesta' | 'presupuesto_mejoramiento' | 'solicitud_inscripcion_credito',
+  templateBytes: Uint8Array,
+  snapshot: InfonavitPdfSnapshotInput, // semántica; no CRM
+}): Promise<Uint8Array>
+```
+
+**Templates v1** (`infonavit-templates/v1/`, SHA256 exacto B0):
+
+| file | SHA256 |
+|---|---|
+| carta-bajo-protesta.pdf | `bfff2e484c…7689ea4` |
+| presupuesto-mejoramiento.pdf | `8402f7e6ca…2d3e0581` |
+| solicitud-inscripcion-credito.pdf | `f091c744a3…a55d90a6` |
+
+Fail-safe: SHA / pageCount / field names+types → `INFONAVIT_TEMPLATE_CONTRACT_MISMATCH` (sin PII). Overflow texto → `INFONAVIT_TEXT_OVERFLOW` (meta: documentType, semanticField, maxLines).
+
+Pipeline: load → verify contract → reset defaults → fill (nombres AcroForm) → appearances → flatten → 0 campos editables.
+
+**Fuera de B1:** snapshot table, outbox, Edge Function, Storage, `enviar_a_mesa`. (B2.1 usó mig **183** para unicidad teléfonos; snapshot queda **184+**.)
+
+## 19bis. P189 B2 — Datos Generales estructurados Infonavit (LOCAL)
+
+JSON `cliente_datos.datos.infonavit` (`schemaVersion: 1`), solo `programa=mejoravit`.
+
+RPC `save_cliente_datos` / `save_cliente_datos_correccion`: **sin migration** — `p_datos` JSONB flexible (mig 151) preserva keys extra. El mapper FE incluye `infonavit` en `p_datos`.
+
+No se exige `datos.infonavit` a rows legacy. Completitud UI P189 es previa al RPC; el gate SQL de envío/reingreso (B3) es la autoridad.
+
+`presupuestoEstimado` ≠ `montoMejoravit`. `nombreCliente` / `referencias[].nombre` / `beneficiario.nombre` / `direccion_opcional` se derivan al guardar; no se parsea legacy.
+
+Unicidad teléfonos intra-expediente: celular cliente, tel empresa, ref1/ref2 celular, ref1/ref2 LADA+teléfono.
+
+**P189 B2.1 (SQL):** helper `cliente_datos_assert_telefonos_unicos` en `save_cliente_datos` (mig **183**). `save_cliente_datos_correccion` delega al mismo save. Error `CLIENTE_DATOS_TELEFONO_DUPLICADO` (sin PII). Parciales incompletos no cuentan. El mismo número **sí** puede existir en otro expediente (P098). No toca `enviar_a_mesa`.
+
+## 19ter. P189 B3 — Snapshot inmutable + outbox transaccional (LOCAL)
+
+**Migración:** `184_infonavit_submission_snapshot_outbox.sql` (NO Cloud apply). No modifica **183**.
+
+Tras envío/reingreso **exitoso** Mejoravit, **misma TX**:
+
+1. `expediente_infonavit_submission_snapshots` (PII solo en `payload` JSONB; RLS FORCE; authenticated sin privilegio; trigger `INFONAVIT_SNAPSHOT_IMMUTABLE` en UPDATE/DELETE).
+2. `infonavit_pdf_outbox` exactamente 3 filas `pending` (`infonavit_carta_bajo_protesta`, `infonavit_presupuesto_mejoramiento`, `infonavit_solicitud_inscripcion`). UNIQUE `(expediente_id, document_type, submission_version, template_version, snapshot_hash)`.
+
+Helper `enqueue_infonavit_pdf_submission` (no-op si `programa ≠ mejoravit`). Completitud v1: `mejoravit_infonavit_datos_persistidos_diagnostico` / `assert_*` wrapper. `credito.plazoAnios` (años 1–10; no `plazoMeses`). `credito.montoSolicitado` = `resolve_monto_operativo_mejoravit`; distinto de `mejora.presupuestoEstimado`. `fechaDocumento` = `(fecha_envio_mesa AT TIME ZONE 'America/Monterrey')::date`. Si `datos.nss` y `expedientes.nss` (dígitos) divergen → `INFONAVIT_NSS_MISMATCH` **solo** cuando P189 required/enqueue.
+
+**P189 B7 (misma 184, SHA deliberadamente nuevo):** Vault `p189_infonavit_enqueue_enabled` + `p189_infonavit_activation_at` (valores **fuera** de la migration). `p189_infonavit_feature_enabled()` DEFAULT OFF (true solo si enabled=`true` ci/trim + activation parseable + `now() >= activation`). Elegibilidad `expedientes.created_at` vs activation: **nuevo** (`created_at >= activation`) required; **legacy** fail-open (enqueue solo si v1 completo). Kill switch = enabled ≠ true (0 assert/enqueue, sin revertir funciones). Completitud FE: `requireInfonavit` solo si `status.required`. PGRST202 → feature OFF / B5 `has_submission=false`. **B7.1:** UI P189 (`AsesorInfonavitDatosGeneralesFields`) solo si `required` o legacy ON con v1 capturado; FLAG OFF / legacy sin v1 = layout pre-P189.
+
+**RPC** `get_p189_infonavit_feature_status(p_expediente_id uuid) → jsonb`
+
+Read-only UI. SQL sigue siendo autoridad del envío. No expone Vault, `activation_at`, snapshot ni PII.
+
+- Auth: `auth.uid()` + perfil activo + `can_see_expediente`. Asesor dueño; Mesa vía visibilidad. `anon` sin EXECUTE. Asesor ajeno / otra org → `42501`.
+- Return: `{aplica, feature_active, legacy, required, has_complete_v1}`.
+- Frontend: si PostgREST `PGRST202` / function not found → tratar como `feature_active=false`, `required=false`. No silenciar 401/403/42501/red.
+
+B3 **no** genera PDF, Storage, Edge, claim, ni `expediente_documentos` finales.
+
+**Fuera de B2:** generateInfonavitPdf, Edge, Storage, Mesa botones PDF.
+
+## 19quater. P189 B4 — Worker PDF + Storage + registro documental (LOCAL)
+
+**Migración:** `185_infonavit_pdf_worker_contract.sql` (NO Cloud apply). 183/184 intactas.
+
+Invocación **manual** (`POST` Edge `infonavit-pdf-worker`). Sin cron / pg_net / Vault / scheduler (B4.1).
+
+**Auth:** header `x-concasa-worker-secret` vs env `INFONAVIT_PDF_WORKER_SECRET` (secret propio; no agenda/P188). `verify_jwt=false` → validar secret **antes** de body/DB/Storage. 401 → 0 I/O.
+
+**Body:** `{ "outbox_id": "<uuid>" }` o `{}` (claim batch ≤3). Verdad solo en DB. Sin payload/PII en HTTP.
+
+**RPCs** (SECURITY DEFINER, EXECUTE solo `postgres`/`service_role`):
+
+| RPC | Rol |
+|---|---|
+| `infonavit_pdf_claim_outbox(p_outbox_id, p_limit)` | SKIP LOCKED. `pending∧available_at≤now` o `processing` stale (lease 10 min). `attempts+1`. Return **sin** payload. |
+| `infonavit_pdf_load_claimed_job(p_outbox_id)` | Payload + hash server-side (`digest(payload::text)` = B3). |
+| `infonavit_pdf_fail_outbox(..., p_retryable, p_lease_started_at)` | Backoff 1/5/15/30 min. Códigos allowlist. Lease mismatch → `lease_lost`. |
+| `infonavit_pdf_complete_outbox(p_outbox_id, p_storage_path, p_mime, p_size)` | Path **derivado** `{org}/{exp}/{tipo}/{outbox_id}.pdf`. Versionado + unique activo. Out-of-order: si existe outbox `done` con `submission_version` mayor, el PDF viejo entra histórico (`deleted_at`). Idempotente `already_done`. `estatus_revision=subido`, `uploaded_by_role=sistema`. |
+
+**Storage:** bucket `expediente-documentos`, upsert al mismo path (retry). Filename = outbox UUID. Display: `Carta Bajo Protesta.pdf` / `Presupuesto de Mejoramiento.pdf` / `Solicitud de Inscripción de Crédito.pdf`.
+
+**Mapping DB→B1:** `infonavit_carta_bajo_protesta`→`carta_bajo_protesta`; `infonavit_presupuesto_mejoramiento`→`presupuesto_mejoramiento`; `infonavit_solicitud_inscripcion`→`solicitud_inscripcion_credito`.
+
+Tipos P189 **no** entran a `integration_doc_tipos_asesor_upload`. Si S2 falla, S1 activo permanece.
+
+**Fuera de B4:** cron (B4.1), UI Mesa/asesor (B5), Cloud apply/deploy.
+
+## 19quinquies. P189 B4.1 — Scheduler local del worker (pg_cron + pg_net + Vault)
+
+**Migración:** `186_infonavit_pdf_worker_schedule.sql` (NO Cloud apply). 183/184/185 intactas. No modifica el worker B4.
+
+`enviar_a_mesa` / reingreso **no** llaman HTTP. Tras COMMIT, el outbox queda `pending`. Job independiente `infonavit-pdf-worker-dispatch` (`* * * * *`) ejecuta `infonavit_pdf_dispatch_worker()`:
+
+1. Si no hay trabajo procesable (`pending ∧ available_at≤now` **o** `processing` stale según lease B4 10 min) → `no_work`, 0 HTTP.
+2. Vault `infonavit_pdf_worker_url` + `infonavit_pdf_worker_secret` (nombres; valores fuera de la migration). Faltantes o blank → `missing_configuration`, 0 HTTP (fail-closed).
+3. `net.http_post` body `{}`; headers `Content-Type: application/json` + `x-concasa-worker-secret`. Timeout **25000 ms** (pg_net encola; el worker procesa el batch en el POST). URL completa desde Vault (local o Cloud); no hardcode productiva.
+
+Helper SECURITY DEFINER; EXECUTE solo `postgres` / `service_role`. REVOKE `PUBLIC` / `anon` / `authenticated`. No lee snapshot/PII. No claim / PDF / Storage / `expediente_documentos`. No reutiliza outbox/cron/secret de agenda ni P188.
+
+Secret incorrecto → worker 401, outbox sigue `pending`, `attempts` intactos. Edge caída: outbox `pending`; el siguiente cron reintenta. El expediente enviado a Mesa no se revierte.
+
+**Fuera de B4.1:** UI Mesa/asesor (B5), Cloud cron/Vault/deploy.
+
+## 19sexies. P189 B5 — Visibilidad / preview / descarga (LOCAL)
+
+**Migración:** `187_infonavit_pdf_read_model.sql` (NO Cloud apply). 183–186 intactas. No modifica worker/cron/Vault/templates.
+
+**RPC** `get_expediente_infonavit_pdf_estado(p_expediente_id uuid) → jsonb`
+
+Read model UI. El frontend **no** consulta `expediente_infonavit_submission_snapshots` ni `infonavit_pdf_outbox`.
+
+- Auth: `auth.uid()` + perfil activo + misma org + visibilidad.
+- Roles: `mesa_admin` | `mesa_interno` | `mesa_externo` | `super_admin` (vía `can_see_expediente`) **o** `asesor` dueño. **Editor denied** (aunque `can_see_expediente` sea true).
+- Non-Mejoravit: `{aplica:false, has_submission:false, documents:[]}`.
+- Mejoravit sin snapshot (legacy): `{aplica:true, has_submission:false}` — la UI **oculta** la sección (no error / no pendiente).
+- Latest = `MAX(submission_version)`. Por tipo de esa version: `pending|processing|done|failed`.
+- `done` → `latest_document` = `documento_id` de **esa** outbox. `pending|processing|failed` → `previous_document` si hay outbox `done` de version menor (reingreso: «Versión anterior»).
+- Meta documental: `id, tipo_documento, nombre_original, mime_type, size_bytes, version, created_at`. Sin payload/PII/`snapshot_hash`/`template_sha256`/`uploaded_by`/`last_error_code`.
+- Storage SELECT existente (`expediente_documento_storage_can_read` → `can_see_expediente`) cubre paths `{org}/{exp}/{tipo}/{outbox}.pdf`. **0 policy nueva.** Preview/download = `storage.download` privado (mismo patrón Evidencia), no signed URL pública.
+- Tipos **no** entran a allowlists de upload/envio/obligatorios. No gate Mesa. No validar/rechazar/reemplazar.
+
+**UI:** sección «Documentos INFONAVIT» en detalle Mesa (después de docs cliente, antes de complementarios) y asesor dueño RO post-envío. Polling 10s si algún latest está `pending|processing`; stop al unmount / todos done|failed.
+
+**Fuera de B5:** Cloud apply/deploy/smoke/release.
 
 ## 17f. Marcador Mesa `tiene_datos` (P119)
 
