@@ -390,8 +390,8 @@ BEGIN
     'perfil inactivo denied'
   );
   PERFORM public.__p189_b5_assert(
-    NOT public.__p189_b5_denied(v_asesor, v_exp_pending),
-    'asesor owner allowed'
+    public.__p189_b5_denied(v_asesor, v_exp_pending),
+    'asesor owner denied B8'
   );
   PERFORM public.__p189_b5_assert(
     public.__p189_b5_denied(v_ajeno, v_exp_pending),
@@ -422,16 +422,16 @@ BEGIN
     'otra org denied'
   );
 
-  -- Non-Mejoravit
-  v_res := public.__p189_b5_estado_as(v_asesor, v_exp_sub);
+  -- Non-Mejoravit (mesa_admin; asesor denied en B8)
+  v_res := public.__p189_b5_estado_as(v_mesa_admin, v_exp_sub);
   PERFORM public.__p189_b5_assert(v_res->>'aplica' = 'false', 'subcuenta aplica=false');
   PERFORM public.__p189_b5_assert(
     COALESCE(jsonb_array_length(v_res->'documents'), 0) = 0,
     'subcuenta documents vacíos'
   );
 
-  -- Legacy sin snapshot
-  v_res := public.__p189_b5_estado_as(v_asesor, v_exp_legacy);
+  -- Legacy sin snapshot (mesa_admin)
+  v_res := public.__p189_b5_estado_as(v_mesa_admin, v_exp_legacy);
   PERFORM public.__p189_b5_assert(v_res->>'aplica' = 'true', 'legacy aplica=true');
   PERFORM public.__p189_b5_assert(v_res->>'has_submission' = 'false', 'legacy has_submission=false');
   PERFORM public.__p189_b5_assert(
@@ -439,8 +439,8 @@ BEGIN
     'legacy documents vacíos'
   );
 
-  -- Initial pending
-  v_res := public.__p189_b5_estado_as(v_asesor, v_exp_pending);
+  -- Initial pending (mesa_admin)
+  v_res := public.__p189_b5_estado_as(v_mesa_admin, v_exp_pending);
   PERFORM public.__p189_b5_assert(v_res->>'aplica' = 'true', 'pending aplica');
   PERFORM public.__p189_b5_assert(v_res->>'has_submission' = 'true', 'pending has_submission');
   PERFORM public.__p189_b5_assert((v_res->>'submission_version')::int = 0, 'pending version 0');
@@ -473,7 +473,7 @@ BEGIN
 
   -- Reingreso S2 pending + previous S1
   PERFORM public.__p189_b5_put_submission(v_org, v_exp_reing, 1, 'reingreso');
-  v_res := public.__p189_b5_estado_as(v_asesor, v_exp_reing);
+  v_res := public.__p189_b5_estado_as(v_mesa_admin, v_exp_reing);
   PERFORM public.__p189_b5_assert((v_res->>'submission_version')::int = 1, 'reingreso latest=1');
   PERFORM public.__p189_b5_assert(v_res->>'submission_kind' = 'reingreso', 'kind reingreso');
   FOR v_doc IN SELECT * FROM jsonb_array_elements(v_res->'documents')
@@ -490,7 +490,7 @@ BEGIN
   LOOP
     v_s2_carta := public.__p189_b5_mark_done(v_org, v_exp_reing, 1, v_tipo, v_asesor);
   END LOOP;
-  v_res := public.__p189_b5_estado_as(v_asesor, v_exp_reing);
+  v_res := public.__p189_b5_estado_as(v_mesa_admin, v_exp_reing);
   FOR v_doc IN SELECT * FROM jsonb_array_elements(v_res->'documents')
   LOOP
     PERFORM public.__p189_b5_assert(v_doc->>'status' = 'done', 'S2 done');

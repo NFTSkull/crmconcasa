@@ -50,7 +50,7 @@ describe("P189 B7 feature status + PGRST202", () => {
     assert.equal(parseP189InfonavitFeatureStatus({ aplica: true }).required, false);
   });
 
-  it("parse required nuevo", () => {
+  it("B8: required en RPC no bloquea unsaved en UI", () => {
     const s = parseP189InfonavitFeatureStatus({
       aplica: true,
       feature_active: true,
@@ -59,22 +59,10 @@ describe("P189 B7 feature status + PGRST202", () => {
       has_complete_v1: false,
     });
     assert.equal(s.required, true);
-    assert.equal(s.legacy, false);
-    assert.equal(p189BlocksUnsavedClienteDatos(s), true);
-  });
-
-  it("legacy ON incompleto no bloquea unsaved", () => {
-    const s = parseP189InfonavitFeatureStatus({
-      aplica: true,
-      feature_active: true,
-      legacy: true,
-      required: false,
-      has_complete_v1: false,
-    });
     assert.equal(p189BlocksUnsavedClienteDatos(s), false);
   });
 
-  it("legacy ON completo sí bloquea unsaved (enqueue)", () => {
+  it("B8: legacy completo tampoco bloquea unsaved", () => {
     const s = parseP189InfonavitFeatureStatus({
       aplica: true,
       feature_active: true,
@@ -82,7 +70,7 @@ describe("P189 B7 feature status + PGRST202", () => {
       required: false,
       has_complete_v1: true,
     });
-    assert.equal(p189BlocksUnsavedClienteDatos(s), true);
+    assert.equal(p189BlocksUnsavedClienteDatos(s), false);
   });
 
   it("PGRST202 function missing → fallback OFF", () => {
@@ -213,27 +201,20 @@ describe("P189 B7 B5 missing RPC hides section", () => {
   });
 });
 
-describe("P189 B7.1 UX freeze — cuándo renderizar formulario P189", () => {
+describe("P189 B8 UX — asesor siempre pre-P189", () => {
   const off: typeof P189_INFONAVIT_FEATURE_OFF = {
     ...P189_INFONAVIT_FEATURE_OFF,
     aplica: true,
   };
-  const legacyOn = {
-    aplica: true,
-    feature_active: true,
-    legacy: true,
-    required: false,
-    has_complete_v1: false,
-  };
-  const nuevoRequired = {
+  const featureOn = {
     aplica: true,
     feature_active: true,
     legacy: false,
-    required: true,
+    required: false,
     has_complete_v1: false,
   };
 
-  it("flag OFF + Mejoravit → NO render", () => {
+  it("flag OFF → NO render formulario P189", () => {
     assert.equal(
       shouldShowAsesorInfonavitDatosFields({
         status: off,
@@ -243,61 +224,20 @@ describe("P189 B7.1 UX freeze — cuándo renderizar formulario P189", () => {
     );
   });
 
-  it("flag ON + legacy sin v1 capturado → NO render", () => {
+  it("flag ON + required RPC → tampoco NO render (B8)", () => {
     assert.equal(
       shouldShowAsesorInfonavitDatosFields({
-        status: legacyOn,
-        infonavit: emptyInfonavitClienteDatosV1(),
-      }),
-      false,
-    );
-    assert.equal(
-      shouldShowAsesorInfonavitDatosFields({
-        status: legacyOn,
-        infonavit: undefined,
+        status: { ...featureOn, required: true },
+        infonavit: fixtureInfonavitCompleto(),
       }),
       false,
     );
   });
 
-  it("flag ON + legacy con v1 capturado → render opcional (no pierde datos)", () => {
+  it("legacy con v1 capturado → NO render (B8)", () => {
     assert.equal(
       shouldShowAsesorInfonavitDatosFields({
-        status: { ...legacyOn, has_complete_v1: true },
-        infonavit: fixtureInfonavitCompleto(),
-      }),
-      true,
-    );
-    assert.equal(
-      shouldShowAsesorInfonavitDatosFields({
-        status: { ...nuevoRequired, required: false, legacy: true },
-        infonavit: fixtureInfonavitCompleto(),
-      }),
-      true,
-    );
-  });
-
-  it("flag ON + nuevo required → render", () => {
-    assert.equal(
-      shouldShowAsesorInfonavitDatosFields({
-        status: nuevoRequired,
-        infonavit: emptyInfonavitClienteDatosV1(),
-      }),
-      true,
-    );
-  });
-
-  it("non-Mejoravit / status OFF → NO render", () => {
-    assert.equal(
-      shouldShowAsesorInfonavitDatosFields({
-        status: P189_INFONAVIT_FEATURE_OFF,
-        infonavit: fixtureInfonavitCompleto(),
-      }),
-      false,
-    );
-    assert.equal(
-      shouldShowAsesorInfonavitDatosFields({
-        status: null,
+        status: { ...featureOn, legacy: true, has_complete_v1: true },
         infonavit: fixtureInfonavitCompleto(),
       }),
       false,
@@ -315,71 +255,26 @@ describe("P189 B7.1 UX freeze — cuándo renderizar formulario P189", () => {
     );
   });
 
-  it("formulario solo monta AsesorInfonavitDatosGeneralesFields si showInfonavitDatosFields", () => {
+  it("formulario NO monta AsesorInfonavitDatosGeneralesFields (B8)", () => {
     const src = readFileSync(
       join(process.cwd(), "src/components/asesor/ExpedienteClienteDatosFormSection.tsx"),
       "utf8",
     );
-    assert.match(src, /showInfonavitDatosFields \? \(/);
-    assert.match(src, /<AsesorInfonavitDatosGeneralesFields/);
-    assert.match(src, /showInfonavitDatosFields = false/);
+    assert.doesNotMatch(src, /<AsesorInfonavitDatosGeneralesFields/);
+    assert.doesNotMatch(src, /showInfonavitDatosFields/);
     const pageSrc = readFileSync(
       join(process.cwd(), "src/app/asesor/expediente/[id]/page.tsx"),
       "utf8",
     );
-    assert.match(pageSrc, /showInfonavitDatosFields=\{showInfonavitDatosFields\}/);
-    assert.match(pageSrc, /shouldShowAsesorInfonavitDatosFields/);
+    assert.doesNotMatch(pageSrc, /shouldShowAsesorInfonavitDatosFields/);
   });
 
-  it("B7.1.1 heading empresa: FLAG OFF / legacy sin v1 / non-Mejoravit = copy pre-P189", () => {
-    assert.equal(
-      shouldShowAsesorInfonavitDatosFields({
-        status: off,
-        infonavit: emptyInfonavitClienteDatosV1(),
-      }),
-      false,
-    );
-    assert.equal(
-      shouldShowAsesorInfonavitDatosFields({
-        status: legacyOn,
-        infonavit: emptyInfonavitClienteDatosV1(),
-      }),
-      false,
-    );
-    assert.equal(
-      shouldShowAsesorInfonavitDatosFields({
-        status: {
-          aplica: false,
-          feature_active: true,
-          legacy: false,
-          required: false,
-          has_complete_v1: false,
-        },
-        infonavit: fixtureInfonavitCompleto(),
-      }),
-      false,
-    );
-    assert.equal(
-      shouldShowAsesorInfonavitDatosFields({
-        status: nuevoRequired,
-        infonavit: emptyInfonavitClienteDatosV1(),
-      }),
-      true,
-    );
-
+  it("heading empresa siempre copy pre-P189", () => {
     const src = readFileSync(
       join(process.cwd(), "src/components/asesor/ExpedienteClienteDatosFormSection.tsx"),
       "utf8",
     );
-    assert.match(
-      src,
-      /showInfonavitDatosFields\s*\n\s*\? "C\. Datos laborales \/ Dirección de la empresa"\s*\n\s*: "Dirección de la empresa"/,
-    );
-    assert.doesNotMatch(
-      src,
-      /<p className="text-xs font-semibold text-gray-900">C\. Datos laborales \/ Dirección de la empresa<\/p>/,
-    );
-    assert.match(src, /<AsesorInfonavitDatosGeneralesFields/);
-    assert.match(src, /showInfonavitDatosFields \? \(/);
+    assert.match(src, /Dirección de la empresa/);
+    assert.doesNotMatch(src, /C\. Datos laborales/);
   });
 });

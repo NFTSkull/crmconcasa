@@ -269,20 +269,18 @@ BEGIN
 
   PERFORM public.__p189_b3_assert(v_payload #>> '{credito,plazoAnios}' = '5', '5: plazoAnios');
   PERFORM public.__p189_b3_assert(v_payload #> '{credito,plazoMeses}' IS NULL, '5b: no plazoMeses');
-  PERFORM public.__p189_b3_assert(
-    (v_payload #>> '{mejora,presupuestoEstimado}')::numeric = 25000,
-    '6: presupuesto 25000'
-  );
+  PERFORM public.__p189_b3_assert(v_payload #> '{mejora,presupuestoEstimado}' IS NULL, '6: presupuesto blank B8');
   PERFORM public.__p189_b3_assert(
     (v_payload #>> '{credito,montoSolicitado}')::numeric = 80000,
-    '6b: monto solicitado ≠ presupuesto'
+    '6b: monto solicitado'
   );
   PERFORM public.__p189_b3_assert(v_payload #>> '{cliente,telefono}' = '', '7: tel titular blank');
   PERFORM public.__p189_b3_assert(v_payload #>> '{cliente,ladaTelefono}' = '', '7b: lada titular blank');
   PERFORM public.__p189_b3_assert(v_payload #>> '{empresa,lada}' = '', '7c: lada empresa blank');
   PERFORM public.__p189_b3_assert(v_payload #>> '{empresa,extension}' = '', '7d: ext empresa blank');
   PERFORM public.__p189_b3_assert(v_payload #> '{cliente,nss}' IS NOT NULL, '4: nss en payload');
-  PERFORM public.__p189_b3_assert(v_payload #>> '{vivienda,calle}' = 'Av Siempre Viva', '4b: calle');
+  PERFORM public.__p189_b3_assert(v_payload #>> '{vivienda,calle}' = '', '4b: vivienda blank B8');
+  PERFORM public.__p189_b3_assert(v_payload #>> '{cliente,nombres}' = '', '4c: nombres blank B8');
 
   SELECT array_agg(o.document_type ORDER BY o.document_type) INTO v_tipos
   FROM public.infonavit_pdf_outbox o WHERE o.expediente_id = v_exp;
@@ -322,7 +320,7 @@ BEGIN
     '24c: SHA solicitud'
   );
 
-  -- 8 missing infonavit
+  -- 8 legacy datos sin bloque infonavit → PASS + enqueue (B8)
   PERFORM public.__p189_b3_seed_ready(
     v_exp2, v_org, v_asesor, '18400000002', 'mejoravit',
     jsonb_build_object(
@@ -331,14 +329,18 @@ BEGIN
       'telefonoEmpresa', '8187654321', 'montoMejoravit', '80000', 'plazo', '5'
     )
   );
-  v_err := public.__p189_b3_enviar_err(v_asesor, v_exp2);
-  PERFORM public.__p189_b3_assert(v_err LIKE '%INFONAVIT_DATOS_INCOMPLETOS%', '8: missing infonavit');
+  v_res := public.__p189_b3_enviar(v_asesor, v_exp2);
+  PERFORM public.__p189_b3_assert((v_res->>'ok')::boolean, '8: enviar ok legacy');
   PERFORM public.__p189_b3_assert(
-    (SELECT e.submitted_to_mesa FROM public.expedientes e WHERE e.id = v_exp2) = false,
-    '8b: no submitted'
+    (SELECT e.submitted_to_mesa FROM public.expedientes e WHERE e.id = v_exp2) = true,
+    '8b: submitted'
+  );
+  PERFORM public.__p189_b3_assert(
+    (SELECT count(*) FROM public.expediente_infonavit_submission_snapshots s WHERE s.expediente_id = v_exp2) = 1,
+    '8c: 1 snapshot'
   );
 
-  -- 9 schemaVersion inválida
+  -- 9 infonavit schemaVersion inválida en JSON → no gate (B8)
   PERFORM public.__p189_b3_seed_ready(
     v_exp3, v_org, v_asesor, '18400000003', 'mejoravit',
     public.__p189_infonavit_datos_completo('18400000003')
@@ -348,10 +350,10 @@ BEGIN
           || jsonb_build_object('schemaVersion', 2)
       )
   );
-  v_err := public.__p189_b3_enviar_err(v_asesor, v_exp3);
-  PERFORM public.__p189_b3_assert(v_err LIKE '%INFONAVIT_DATOS_VERSION_INVALIDA%', '9: version');
+  v_res := public.__p189_b3_enviar(v_asesor, v_exp3);
+  PERFORM public.__p189_b3_assert((v_res->>'ok')::boolean, '9: enviar ok');
 
-  -- 10 required faltante (sin nombres titular)
+  -- 10 sin titular infonavit → no gate (B8)
   PERFORM public.__p189_b3_seed_ready(
     v_exp4, v_org, v_asesor, '18400000004', 'mejoravit',
     jsonb_set(
@@ -360,10 +362,10 @@ BEGIN
       '""'::jsonb
     )
   );
-  v_err := public.__p189_b3_enviar_err(v_asesor, v_exp4);
-  PERFORM public.__p189_b3_assert(v_err LIKE '%INFONAVIT_DATOS_INCOMPLETOS%', '10: nombres');
+  v_res := public.__p189_b3_enviar(v_asesor, v_exp4);
+  PERFORM public.__p189_b3_assert((v_res->>'ok')::boolean, '10: enviar ok');
 
-  -- 11 NSS mismatch
+  -- 11 NSS mismatch en datos vs expediente → usa NSS expediente (B8)
   PERFORM public.__p189_b3_seed_ready(
     v_exp5, v_org, v_asesor, '18400000005', 'mejoravit',
     jsonb_set(
@@ -372,9 +374,15 @@ BEGIN
       '"18400000999"'::jsonb
     )
   );
-  v_err := public.__p189_b3_enviar_err(v_asesor, v_exp5);
-  PERFORM public.__p189_b3_assert(v_err LIKE '%INFONAVIT_NSS_MISMATCH%', '11: nss mismatch');
-  PERFORM public.__p189_b3_assert(position('184000' IN COALESCE(v_err, '')) = 0, '11b: sin NSS en error');
+  v_res := public.__p189_b3_enviar(v_asesor, v_exp5);
+  PERFORM public.__p189_b3_assert((v_res->>'ok')::boolean, '11: enviar ok');
+  SELECT s.payload INTO v_payload
+  FROM public.expediente_infonavit_submission_snapshots s
+  WHERE s.expediente_id = v_exp5;
+  PERFORM public.__p189_b3_assert(
+    v_payload #>> '{cliente,nss}' = public.normalize_nss_mexico('18400000005'),
+    '11b: nss desde expediente'
+  );
 
   -- 12 Compro / subcuenta: 0 P189
   PERFORM public.__p189_b3_seed_ready(

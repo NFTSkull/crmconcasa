@@ -1,3 +1,7 @@
+## 2026-08-17 - P189 B8 LOCAL: Mesa-only hotfix
+
+Decisión: PDFs INFONAVIT solo para Mesa; asesor UI pre-P189. `required=false`; enqueue Mejoravit+feature ON en send/reingreso; snapshot desde Datos Generales (blank si ausente); asesor DENIED en read model. Mig **188** additive. Sin Cloud/commit.
+
 ## 2026-08-17 - P189 B7.1 LOCAL: UX freeze — no mostrar P189 si no es obligatorio
 
 Causa: B7 dejó el formulario P189 visible en FLAG OFF / legacy. Decisión: render de `AsesorInfonavitDatosGeneralesFields` solo si `status.required` o (legacy ON + v1 ya capturado). FLAG OFF restaura nombre/referencias/domicilio pre-P189. Save no autogenera `datos.infonavit` vacío. PDF Mesa/asesor sigue `has_submission`. 0 SQL/183–187. Sin Cloud/commit.

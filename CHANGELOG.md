@@ -4,7 +4,9 @@
 
 ### Added
 
-- **fix(infonavit): P189 B7.1 UX freeze — formulario P189 invisible si no es required (LOCAL)** — `AsesorInfonavitDatosGeneralesFields` solo si `status.required` o legacy ON con v1 ya capturado. FLAG OFF / legacy sin v1 / non-Mejoravit = layout pre-P189. PDF Mesa/asesor sigue `has_submission`. 0 SQL/Cloud/commit.
+- **fix(infonavit): P189 B8 Mesa-only hotfix (LOCAL)** — mig **188**: `required=false` siempre; `should_enqueue=Mejoravit+feature ON`; snapshot desde Datos Generales históricos (ausentes→blank); asesor DENIED read model; UI asesor 100% pre-P189. Worker acepta snapshot parcial. Sin Cloud/commit/deploy.
+
+- **fix(infonavit): P189 B7.1 UX freeze — formulario P189 invisible si no es required (LOCAL)** — superseded by B8.
 
 - **fix(infonavit): P189 B7 zero-downtime flag + elegibilidad legacy (LOCAL)** — mig **184** (SHA nuevo deliberado): Vault `p189_infonavit_enqueue_enabled` / `p189_infonavit_activation_at` DEFAULT OFF; required solo Mejoravit `created_at >= activation`; legacy nunca bloqueado; kill switch = flag OFF. RPC `get_p189_infonavit_feature_status`. FE `requireInfonavit` + PGRST202 fallback. 183/185/186/187 intactas. Sin Cloud/commit.
 

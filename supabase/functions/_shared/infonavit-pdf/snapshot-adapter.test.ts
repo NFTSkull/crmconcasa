@@ -187,6 +187,52 @@ describe("P189 B4 snapshot adapter", () => {
     );
   });
 
+  it("partial snapshot B8: campos vacíos no fallan", () => {
+    const partial = b3Payload({
+      localidad: "",
+      cliente: {
+        nombres: "",
+        apellidoPaterno: "",
+        apellidoMaterno: "",
+        nss: "18400000001",
+        curp: "",
+        rfc: "",
+        celular: "5511111111",
+        correo: "",
+        telefono: "",
+        ladaTelefono: "",
+        genero: "",
+        estadoCivil: "",
+        regimenMatrimonial: "",
+        identificacion: { tipo: "", numero: "", vigencia: "" },
+      },
+      vivienda: {
+        calle: "",
+        noExt: "",
+        noInt: "",
+        lote: "",
+        manzana: "",
+        colonia: "",
+        entidad: "",
+        municipio: "",
+        cp: "",
+        tipoPropiedad: "",
+      },
+      credito: { montoSolicitado: 150000, plazoAnios: null },
+      referencias: [
+        { nombres: "Ref Uno", apellidoPaterno: "", apellidoMaterno: "", lada: "", telefono: "", celular: "8111111111" },
+        { nombres: "", apellidoPaterno: "", apellidoMaterno: "", lada: "", telefono: "", celular: "" },
+      ],
+      beneficiario: { nombres: "", apellidoPaterno: "", apellidoMaterno: "", parentesco: "" },
+      mejora: { descripcion: "", presupuestoEstimado: null },
+    });
+    const snap = adaptB3SnapshotToB1(partial);
+    assert.equal(snap.cliente.nombres, "");
+    assert.equal(snap.cliente.curp, "");
+    assert.equal(snap.credito?.plazoAnios, null);
+    assert.equal(snap.mejora?.presupuestoEstimado, null);
+  });
+
   it("rechaza schemaVersion distinto de 1", () => {
     assert.throws(
       () => adaptB3SnapshotToB1(b3Payload({ schemaVersion: 2 })),

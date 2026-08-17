@@ -35,10 +35,18 @@ function asString(v: unknown, reason: string): string {
   return v;
 }
 
-function requiredNonEmpty(v: unknown, reason: string): string {
-  const s = asString(v, reason).trim();
-  if (!s) throw new InfonavitSnapshotAdapterError(reason);
-  return s;
+function optionalString(v: unknown, reason: string): string {
+  return asString(v, reason).trim();
+}
+
+function optionalNumber(v: unknown): number | null {
+  if (v === null || v === undefined) return null;
+  if (typeof v === "number" && Number.isFinite(v)) return v;
+  if (typeof v === "string" && v.trim() !== "") {
+    const n = Number(v);
+    if (Number.isFinite(n)) return n;
+  }
+  return null;
 }
 
 function asNumber(v: unknown, reason: string): number {
@@ -50,12 +58,15 @@ function asNumber(v: unknown, reason: string): number {
   throw new InfonavitSnapshotAdapterError(reason);
 }
 
-function asInt(v: unknown, reason: string): number {
-  const n = asNumber(v, reason);
-  if (!Number.isInteger(n)) {
-    throw new InfonavitSnapshotAdapterError(reason);
+function optionalPlazoAnios(v: unknown, reason: string): number | null {
+  if (v === null || v === undefined) return null;
+  try {
+    const n = asNumber(v, reason);
+    if (!Number.isInteger(n) || n < 1 || n > 10) return null;
+    return n;
+  } catch {
+    return null;
   }
-  return n;
 }
 
 function optionalEnum<T extends string>(
@@ -99,11 +110,8 @@ export function adaptB3SnapshotToB1(
     throw new InfonavitSnapshotAdapterError("schema_version");
   }
 
-  const fechaDocumento = requiredNonEmpty(
-    payload.fechaDocumento,
-    "fechaDocumento",
-  );
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(fechaDocumento)) {
+  const fechaDocumento = optionalString(payload.fechaDocumento, "fechaDocumento");
+  if (!fechaDocumento || !/^\d{4}-\d{2}-\d{2}$/.test(fechaDocumento)) {
     throw new InfonavitSnapshotAdapterError("fechaDocumento");
   }
 
@@ -141,10 +149,7 @@ export function adaptB3SnapshotToB1(
     throw new InfonavitSnapshotAdapterError("plazoMeses_forbidden");
   }
 
-  const plazoAnios = asInt(cred.plazoAnios, "plazoAnios");
-  if (plazoAnios < 1 || plazoAnios > 10) {
-    throw new InfonavitSnapshotAdapterError("plazoAnios");
-  }
+  const plazoAnios = optionalPlazoAnios(cred.plazoAnios, "plazoAnios");
 
   const telefono = asString(c.telefono, "cliente.telefono");
   const ladaTelefono = asString(c.ladaTelefono, "cliente.ladaTelefono");
@@ -153,20 +158,20 @@ export function adaptB3SnapshotToB1(
 
   return {
     fechaDocumento,
-    localidad: asString(payload.localidad, "localidad"),
+    localidad: optionalString(payload.localidad, "localidad"),
     cliente: {
-      nombres: requiredNonEmpty(c.nombres, "cliente.nombres"),
-      apellidoPaterno: requiredNonEmpty(
+      nombres: optionalString(c.nombres, "cliente.nombres"),
+      apellidoPaterno: optionalString(
         c.apellidoPaterno,
         "cliente.apellidoPaterno",
       ),
-      apellidoMaterno: requiredNonEmpty(
+      apellidoMaterno: optionalString(
         c.apellidoMaterno,
         "cliente.apellidoMaterno",
       ),
-      nss: requiredNonEmpty(c.nss, "cliente.nss"),
-      curp: requiredNonEmpty(c.curp, "cliente.curp"),
-      rfc: requiredNonEmpty(c.rfc, "cliente.rfc"),
+      nss: optionalString(c.nss, "cliente.nss"),
+      curp: optionalString(c.curp, "cliente.curp"),
+      rfc: optionalString(c.rfc, "cliente.rfc"),
       celular: asString(c.celular, "cliente.celular"),
       telefono,
       ladaTelefono,
@@ -215,7 +220,7 @@ export function adaptB3SnapshotToB1(
       ),
     },
     credito: {
-      montoSolicitado: asNumber(cred.montoSolicitado, "credito.montoSolicitado"),
+      montoSolicitado: optionalNumber(cred.montoSolicitado),
       plazoAnios,
     },
     referencias: [
@@ -235,11 +240,8 @@ export function adaptB3SnapshotToB1(
       parentesco: asString(ben.parentesco, "beneficiario.parentesco"),
     },
     mejora: {
-      descripcion: asString(mej.descripcion, "mejora.descripcion"),
-      presupuestoEstimado: asNumber(
-        mej.presupuestoEstimado,
-        "mejora.presupuestoEstimado",
-      ),
+      descripcion: optionalString(mej.descripcion, "mejora.descripcion"),
+      presupuestoEstimado: optionalNumber(mej.presupuestoEstimado),
     },
   };
 }
