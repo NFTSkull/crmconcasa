@@ -148,6 +148,8 @@
 | SQL snapshot y TS preview pintan colonia distinta | Alto (históricos vs live) | mig **190**: misma función SQL canónica; 18 fixtures SQL↔TS; no overlay permanente |
 | Regenerar snapshot in-place | Alto (rompe inmutabilidad/auditoría) | Snapshots UPDATE/DELETE blocked; regeneración = nueva `submission_version` (fuera de este hotfix) |
 | Worker Cloud sin adapter v2 | Medio (campos extra no pintan hasta deploy Edge) | SQL snapshot trae nombres partidos, vivienda parseada, propuesta y `ciudadCierre`; deploy worker posterior |
+| Guardar DOCX en Storage / segundo mapping | Alto (PII extra + PDF≠Word) | On-demand Mesa-only; mismo snapshot/versión; 0 companion; service_role solo server |
+| Asesor descarga Word o PII en filename | Alto | Rol Mesa allowlist + RPC visibilidad; filenames genéricos; 403 asesor |
 
 ---
 

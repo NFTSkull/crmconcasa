@@ -1,3 +1,7 @@
+## 2026-08-18 - feat LOCAL: P189 Word editable Mesa on-demand
+
+Causa: Mesa necesita Carta/Presupuesto/Solicitud editables en Word sin tocar el PDF oficial ni guardar un segundo artefacto. Decisión: mismo snapshot de `submission_version` → `adaptB3SnapshotToB1` → print model → `generateInfonavitDocx` (OOXML `w:t`, 0 raster). Ruta Node `POST /api/mesa/infonavit-docx` con JWT Mesa + RPC visibilidad + SELECT snapshot service-role server-side. 0 Storage DOCX, 0 migration, 0 outbox. Filenames sin PII. Asesor 403 / sin UI. Parser mig **190** / PR #152 intacto. Históricos no regenerados. `tsconfig.allowImportingTsExtensions` para importar el generador Deno (`*.ts`) desde la ruta Next (`noEmit`). Sin Cloud/push.
+
 ## 2026-08-18 - hotfix LOCAL: P189 parser dirección SQL↔TS (mig 190)
 
 Causa: el parser TS de colonia (lookahead C.P./CP5/INT/entidad) ya estaba certificado, pero `infonavit_parse_direccion_mx` SQL seguía greedy hasta el CP y absorbía municipio/`C.P.`. Un snapshot Cloud nuevo no coincidiría con el preview. Decisión: REPLACE quirúrgico de la función SQL (misma firma jsonb) tokenizando colonia; `vivienda.lote`/`manzana` salen del parser. 18 fixtures SQL=TS. mappingVersion=2. **189** = mapping v2; **190** = este parser; Operación de citas → **191** al retomar. Sin Cloud/regeneración/commit de históricos.

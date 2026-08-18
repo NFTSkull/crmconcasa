@@ -15,6 +15,10 @@ export {
 } from "./formatters.ts";
 export { generateInfonavitPdf, generateInfonavitPdfAudited } from "./generate-infonavit-pdf.ts";
 export type { FormFieldAudit } from "./generate-infonavit-pdf.ts";
+export { generateInfonavitDocx } from "./generate-infonavit-docx.ts";
+export type { GenerateInfonavitDocxArgs } from "./generate-infonavit-docx.ts";
+export { buildInfonavitPrintModel } from "./print-model.ts";
+export type { InfonavitPrintModel } from "./print-model.ts";
 export {
   FIXTURE_LONG_FIELDS,
   FIXTURE_NORMAL,

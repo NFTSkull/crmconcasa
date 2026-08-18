@@ -8,12 +8,14 @@ import {
   type MesaArchivoPreviewState,
 } from "@/components/mesa-control/MesaArchivoPreviewDialog";
 import { isArchivoPreviewPdfMime } from "@/lib/archivoPreviewMime";
+import { supabaseBrowser } from "@/lib/supabaseBrowser";
 import {
   ExpedienteArchivosSupabaseError,
   useExpedienteArchivosRepo,
 } from "@/domain/expediente-archivos";
 import { formatBytesLabel } from "@/domain/expediente-archivos/cliente-pagare";
 import {
+  infonavitAutoDocumentDocxFilename,
   infonavitAutoDocumentLabel,
   type InfonavitAutoDocumentType,
 } from "@/domain/expediente-archivos/infonavit-auto-document-types";
@@ -40,10 +42,23 @@ function formatDateTimeEsMx(iso: string | null | undefined): string {
   }).format(d);
 }
 
+function wordBusyKey(tipo: string): string {
+  return `word:${tipo}`;
+}
+
+function filenameFromContentDisposition(header: string | null): string | null {
+  if (!header) return null;
+  const m = /filename="([^"]+)"/i.exec(header);
+  const name = m?.[1]?.trim();
+  return name || null;
+}
+
 export function useInfonavitPdfSection(args: {
   expedienteId: string;
   enabled: boolean;
+  allowWordDownload?: boolean;
 }) {
+  const allowWordDownload = args.allowWordDownload === true;
   const archivosRepo = useExpedienteArchivosRepo();
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -153,6 +168,68 @@ export function useInfonavitPdfSection(args: {
     }
   };
 
+  const handleDescargarWord = async (tipo: InfonavitAutoDocumentType) => {
+    if (!allowWordDownload || archivoBusyId) return;
+    const version = estado?.submission_version;
+    if (version == null) return;
+    setArchivoBusyId(wordBusyKey(tipo));
+    setArchivoError(null);
+    try {
+      if (!supabaseBrowser) {
+        throw new ExpedienteArchivosSupabaseError(
+          "No se pudo descargar el Word editable.",
+        );
+      }
+      const {
+        data: { session },
+        error: sessionError,
+      } = await supabaseBrowser.auth.getSession();
+      if (sessionError || !session?.access_token) {
+        throw new ExpedienteArchivosSupabaseError("No hay sesión activa.");
+      }
+      const res = await fetch("/api/mesa/infonavit-docx", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({
+          expedienteId: args.expedienteId,
+          documentType: tipo,
+          submissionVersion: version,
+        }),
+      });
+      if (!res.ok) {
+        let message = "No se pudo descargar el Word editable.";
+        try {
+          const json = (await res.json()) as { message?: unknown };
+          if (typeof json.message === "string" && json.message.trim()) {
+            message = json.message.trim();
+          }
+        } catch {
+          /* cuerpo no JSON */
+        }
+        throw new ExpedienteArchivosSupabaseError(message);
+      }
+      const blob = await res.blob();
+      const filename =
+        filenameFromContentDisposition(res.headers.get("Content-Disposition")) ??
+        infonavitAutoDocumentDocxFilename(tipo);
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 30_000);
+    } catch (err) {
+      setArchivoError(mapArchivoError(err));
+    } finally {
+      setArchivoBusyId(null);
+    }
+  };
+
   const closePreview = () => {
     setPreview((prev) => {
       if (prev?.url) URL.revokeObjectURL(prev.url);
@@ -173,8 +250,10 @@ export function useInfonavitPdfSection(args: {
     archivoBusyId,
     archivoError,
     preview,
+    allowWordDownload,
     handleVer,
     handleDescargar,
+    handleDescargarWord,
     closePreview,
   };
 }
@@ -187,11 +266,20 @@ function PdfActions(props: {
   descargarAria: string;
   onVer: (meta: InfonavitPdfDocumentoMeta, tipo: string) => void;
   onDescargar: (meta: InfonavitPdfDocumentoMeta, tipo: string) => void;
+  allowWordDownload?: boolean;
+  submissionVersion?: number | null;
+  onDescargarWord?: (tipo: InfonavitAutoDocumentType) => void;
 }) {
-  const busy = props.busyId === props.meta.id;
+  const busyPdf = props.busyId === props.meta.id;
+  const busyWord = props.busyId === wordBusyKey(props.tipo);
+  const busy = busyPdf || busyWord;
   const canPreview = isArchivoPreviewPdfMime(
     props.meta.mime_type ?? "application/pdf",
   );
+  const showWord =
+    props.allowWordDownload === true &&
+    props.submissionVersion != null &&
+    typeof props.onDescargarWord === "function";
   return (
     <div className="mt-2 flex flex-wrap gap-2">
       {canPreview ? (
@@ -203,7 +291,7 @@ function PdfActions(props: {
           aria-label={props.verAria}
           onClick={() => props.onVer(props.meta, props.tipo)}
         >
-          {busy ? "Abriendo…" : "Ver PDF"}
+          {busyPdf ? "Abriendo…" : "Vista previa"}
         </Button>
       ) : null}
       <Button
@@ -214,8 +302,20 @@ function PdfActions(props: {
         aria-label={props.descargarAria}
         onClick={() => props.onDescargar(props.meta, props.tipo)}
       >
-        Descargar
+        Descargar PDF
       </Button>
+      {showWord ? (
+        <Button
+          type="button"
+          variant="outline"
+          className="h-8 px-2.5 py-0 text-xs"
+          disabled={busy}
+          aria-label={`Descargar Word editable ${infonavitAutoDocumentLabel(props.tipo)}`}
+          onClick={() => props.onDescargarWord?.(props.tipo)}
+        >
+          {busyWord ? "Generando Word…" : "Descargar Word editable"}
+        </Button>
+      ) : null}
     </div>
   );
 }
@@ -225,11 +325,19 @@ function DocumentCard(props: {
   busyId: string | null;
   onVer: (meta: InfonavitPdfDocumentoMeta, tipo: string) => void;
   onDescargar: (meta: InfonavitPdfDocumentoMeta, tipo: string) => void;
+  allowWordDownload?: boolean;
+  submissionVersion?: number | null;
+  onDescargarWord?: (tipo: InfonavitAutoDocumentType) => void;
 }) {
   const label = infonavitAutoDocumentLabel(props.doc.document_type);
   const statusLabel = infonavitPdfUiStatusLabel(props.doc.status);
   const latest = props.doc.latest_document;
   const previous = props.doc.previous_document;
+  const wordOnLatest =
+    props.allowWordDownload === true &&
+    props.doc.status === "done" &&
+    latest != null &&
+    props.submissionVersion != null;
   return (
     <article className="rounded-lg border border-gray-200 bg-gray-50/60 p-3">
       <div className="flex flex-wrap items-baseline justify-between gap-2">
@@ -260,10 +368,13 @@ function DocumentCard(props: {
             meta={latest}
             tipo={props.doc.document_type}
             busyId={props.busyId}
-            verAria={`Ver PDF ${label}`}
-            descargarAria={`Descargar ${label}`}
+            verAria={`Vista previa ${label}`}
+            descargarAria={`Descargar PDF ${label}`}
             onVer={props.onVer}
             onDescargar={props.onDescargar}
+            allowWordDownload={wordOnLatest}
+            submissionVersion={props.submissionVersion}
+            onDescargarWord={props.onDescargarWord}
           />
         </>
       ) : null}
@@ -279,8 +390,8 @@ function DocumentCard(props: {
             meta={previous}
             tipo={props.doc.document_type}
             busyId={props.busyId}
-            verAria={`Ver versión anterior ${label}`}
-            descargarAria={`Descargar versión anterior ${label}`}
+            verAria={`Vista previa versión anterior ${label}`}
+            descargarAria={`Descargar PDF versión anterior ${label}`}
             onVer={props.onVer}
             onDescargar={props.onDescargar}
           />
@@ -298,6 +409,8 @@ export function InfonavitPdfDocumentosCards(props: {
   onVer: (meta: InfonavitPdfDocumentoMeta, tipo: string) => void;
   onDescargar: (meta: InfonavitPdfDocumentoMeta, tipo: string) => void;
   onClosePreview: () => void;
+  allowWordDownload?: boolean;
+  onDescargarWord?: (tipo: InfonavitAutoDocumentType) => void;
 }) {
   return (
     <>
@@ -309,6 +422,9 @@ export function InfonavitPdfDocumentosCards(props: {
             busyId={props.busyId}
             onVer={props.onVer}
             onDescargar={props.onDescargar}
+            allowWordDownload={props.allowWordDownload}
+            submissionVersion={props.estado.submission_version}
+            onDescargarWord={props.onDescargarWord}
           />
         ))}
       </div>

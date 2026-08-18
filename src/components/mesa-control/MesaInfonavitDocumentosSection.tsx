@@ -17,7 +17,11 @@ export function MesaInfonavitDocumentosSection({
   programa,
 }: MesaInfonavitDocumentosSectionProps) {
   const enabled = isProgramaMejoravit(String(programa ?? ""));
-  const s = useInfonavitPdfSection({ expedienteId, enabled });
+  const s = useInfonavitPdfSection({
+    expedienteId,
+    enabled,
+    allowWordDownload: true,
+  });
 
   if (!enabled) return null;
   if (s.loading && !s.estado && !s.error) return null;
@@ -49,6 +53,8 @@ export function MesaInfonavitDocumentosSection({
               onVer={(meta, tipo) => void s.handleVer(meta, tipo)}
               onDescargar={(meta, tipo) => void s.handleDescargar(meta, tipo)}
               onClosePreview={s.closePreview}
+              allowWordDownload
+              onDescargarWord={(tipo) => void s.handleDescargarWord(tipo)}
             />
           </div>
         ) : null}
