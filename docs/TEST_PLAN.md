@@ -63,10 +63,18 @@
 - [x] P189 B7.1 LOCAL: UX freeze — formulario P189 oculto si FLAG OFF / legacy sin v1. Solo `required` o legacy con captura. 0 SQL. Sin Cloud/commit.
 - [x] P189 B7 LOCAL: mig **184** flag Vault DEFAULT OFF + elegibilidad `created_at` vs `p189_infonavit_activation_at`. Legacy never blocked. Kill switch = flag OFF. FE dual completeness + PGRST202 fallback. 183/185/186/187 intactas. Sin Cloud/commit.
 - [x] P189 hotfix mapping v2 FINAL LOCAL: mig **189** Monto Mejoravit + parsers con confidence + propuesta + ciudad NUEVO LEÓN + plazo inválido warning; certificación 15 PDFs; snapshots viejos intactos. Sin Cloud/commit/regeneración.
-- [x] P189 parser dirección SQL↔TS parity LOCAL: mig **190** `infonavit_parse_direccion_mx` alineado a `parseDireccionMxParaSolicitud` (18/18 fixtures). mappingVersion=2 intacto. Sin Cloud/regeneración. Operación de citas → **191** al retomar.
+- [x] P189 parser dirección SQL↔TS parity LOCAL: mig **190** `infonavit_parse_direccion_mx` alineado a `parseDireccionMxParaSolicitud` (18/18 fixtures). mappingVersion=2 intacto. Sin Cloud/regeneración.
+- [x] Hotfix asesor tareas terminales LOCAL: mig **191** `asesor_inbox_es_accionable`; cancelado/rechazado_mesa fuera de agendar bio/firma/acuse; chips Cancelados/Rechazados intactos. Operación de citas → **192** al retomar. Sin Cloud/push.
 - [x] P189 Word editable Mesa LOCAL: `docx` nativo on-demand (`POST /api/mesa/infonavit-docx`); 0 Storage/migration; PDF fill/flatten intacto; asesor denied; consistencia 15 PDF↔15 DOCX. Sin Cloud/push.
 - [x] B5.2: deploy webhook+reconcile + FROM_DATE luego ENABLED; históricos 07 AGO=0; P170 OFF.
 - [x] B5: secrets FROM_DATE=2026-08-13 + ENABLED=true (P170 OFF).
+
+## P191 — Asesor: terminales fuera de tareas accionables (LOCAL)
+
+- [x] Guard canónico `asesor_inbox_es_accionable` vía `resultado_real` (`cancelado` / `rechazado_mesa`).
+- [x] `pendiente_agendar_biometricos` / `pendiente_agendar_firma` / `pendiente_subir_acuse` comparten el guard; list=summary.
+- [x] Cancelados / Rechazados por Mesa / corrección documental / reagendar válido intactos.
+- [x] SQL `rpc_asesor_tareas_terminales_p191.sql` + tests TS. Sin Cloud/push. Operación de citas → **192**.
 
 ## P174 — Protección hora visible Google Sheets (columna A)
 

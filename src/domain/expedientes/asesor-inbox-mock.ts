@@ -3,6 +3,7 @@
  * No se usa en modo Supabase; la UI nunca llama listForAsesor.
  */
 import { matchesAsesorListadoBusqueda } from "@/lib/asesorListadoBusqueda";
+import { isAsesorExpedienteAccionable } from "@/lib/asesorTareasPendientes";
 import {
   ASESOR_INBOX_DEFAULT_PAGE_SIZE,
   ASESOR_INBOX_MAX_PAGE_SIZE,
@@ -34,16 +35,28 @@ function categoriaMock(_exp: ExpedienteMock): AsesorListExpedienteItem["categori
   return "faltantes";
 }
 
+function mockAccionable(exp: ExpedienteMock): boolean {
+  return isAsesorExpedienteAccionable({
+    submittedToMesa: exp.operativo.submittedToMesa,
+    resultadoReal: deriveResultadoRealExpediente(exp),
+    cicloEstado: exp.operativo.cicloEstado,
+    subestado: exp.operativo.subestado,
+  });
+}
+
 function pendienteBio(exp: ExpedienteMock): boolean {
+  if (!mockAccionable(exp)) return false;
   return exp.operativo.submittedToMesa && exp.operativo.etapaActual === 3;
 }
 
 function pendienteFirma(exp: ExpedienteMock): boolean {
+  if (!mockAccionable(exp)) return false;
   const etapa = exp.operativo.etapaActual;
   return exp.operativo.submittedToMesa && (etapa === 9 || etapa === 10);
 }
 
 function pendienteAcuse(exp: ExpedienteMock): boolean {
+  if (!mockAccionable(exp)) return false;
   const etapa = exp.operativo.etapaActual ?? 0;
   return exp.operativo.submittedToMesa && etapa >= 8;
 }

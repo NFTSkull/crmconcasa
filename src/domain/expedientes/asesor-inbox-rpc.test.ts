@@ -119,6 +119,19 @@ describe("asesor-inbox-rpc contracts (B1.5 P161)", () => {
     assert.doesNotMatch(sql, /listForAsesor\(/);
   });
 
+  it("migración 191 excluye terminales del mismo guard en bio/firma/acuse", () => {
+    const sql = readFileSync(
+      resolve(process.cwd(), "supabase/migrations/191_asesor_tareas_excluir_terminales.sql"),
+      "utf8",
+    );
+    assert.match(sql, /asesor_inbox_es_accionable/);
+    assert.match(sql, /asesor_inbox_resultado_real/);
+    assert.match(sql, /rechazado_mesa/);
+    assert.match(sql, /asesor_inbox_pendiente_agendar_biometricos/);
+    assert.match(sql, /asesor_inbox_pendiente_agendar_firma/);
+    assert.match(sql, /asesor_inbox_pendiente_subir_acuse/);
+  });
+
   it("migración 167 calibra categoría cliente_* y bio 4/5", () => {
     const sql = readFileSync(
       resolve(process.cwd(), "supabase/migrations/167_asesor_pendientes_calibrados.sql"),

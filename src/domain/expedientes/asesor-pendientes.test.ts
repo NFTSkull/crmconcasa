@@ -329,4 +329,19 @@ describe("getAdvisorPrimaryPendingAction prioridad", () => {
       "subir_acuse",
     );
   });
+
+  it("expediente terminal no muestra tarea de agenda", () => {
+    assert.equal(
+      getAdvisorPrimaryPendingAction({
+        correccionesAbiertas: 0,
+        tarea: tarea({
+          etapaActual: 3,
+          resultadoReal: "cancelado",
+          cicloEstado: "cancelado",
+          agendaBiometricos: { hasActiveBooking: false, hasLastCancelledBooking: false },
+        }),
+      }),
+      null,
+    );
+  });
 });

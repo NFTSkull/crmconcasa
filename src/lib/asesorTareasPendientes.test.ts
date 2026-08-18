@@ -4,6 +4,7 @@ import type { ExpedienteArchivoResumen } from "@/domain/expediente-archivos";
 import {
   buildAsesorTareaExpedienteInput,
   countAsesorTareasPendientes,
+  isAsesorExpedienteAccionable,
   isAsesorPendienteAgendarBiometricos,
   isAsesorPendienteAgendarFirma,
   isAsesorPendienteSubirAcuse,
@@ -134,6 +135,166 @@ describe("isAsesorPendienteAgendarBiometricos", () => {
     assert.equal(
       isAsesorPendienteAgendarBiometricos(baseInput({ submittedToMesa: false })),
       false,
+    );
+  });
+});
+
+describe("isAsesorExpedienteAccionable / terminales P191", () => {
+  it("cancelado etapa 3 no es agendar biométricos (bug real)", () => {
+    const input = baseInput({
+      etapaActual: 3,
+      cicloEstado: "cancelado",
+      subestado: "cancelado",
+      resultadoReal: "cancelado",
+      agendaBiometricos: { hasActiveBooking: false, hasLastCancelledBooking: false },
+    });
+    assert.equal(isAsesorExpedienteAccionable(input), false);
+    assert.equal(isAsesorPendienteAgendarBiometricos(input), false);
+  });
+
+  it("etapa 3 normal en_tramite sí cuenta", () => {
+    const input = baseInput({
+      etapaActual: 3,
+      cicloEstado: "activo",
+      subestado: "en_proceso",
+      resultadoReal: "en_tramite",
+      agendaBiometricos: { hasActiveBooking: false, hasLastCancelledBooking: false },
+    });
+    assert.equal(isAsesorExpedienteAccionable(input), true);
+    assert.equal(isAsesorPendienteAgendarBiometricos(input), true);
+  });
+
+  it("rechazado_mesa etapa 3 no es tarea; el chip de rechazo es ortogonal", () => {
+    const input = baseInput({
+      etapaActual: 3,
+      cicloEstado: "activo",
+      subestado: "rechazado",
+      resultadoReal: "rechazado_mesa",
+      agendaBiometricos: { hasActiveBooking: false, hasLastCancelledBooking: false },
+    });
+    assert.equal(isAsesorExpedienteAccionable(input), false);
+    assert.equal(isAsesorPendienteAgendarBiometricos(input), false);
+    assert.equal(input.resultadoReal, "rechazado_mesa");
+  });
+
+  it("reagendar bio válido en_tramite etapa 4/5 sigue TRUE", () => {
+    assert.equal(
+      isAsesorPendienteAgendarBiometricos(
+        baseInput({
+          etapaActual: 4,
+          cicloEstado: "activo",
+          subestado: "en_proceso",
+          resultadoReal: "en_tramite",
+          agendaBiometricos: { hasActiveBooking: false, hasLastCancelledBooking: true },
+        }),
+      ),
+      true,
+    );
+  });
+
+  it("cancelado etapa 4/5 con booking cancelled no es reagendar", () => {
+    assert.equal(
+      isAsesorPendienteAgendarBiometricos(
+        baseInput({
+          etapaActual: 4,
+          cicloEstado: "cancelado",
+          resultadoReal: "cancelado",
+          agendaBiometricos: { hasActiveBooking: false, hasLastCancelledBooking: true },
+        }),
+      ),
+      false,
+    );
+  });
+
+  it("firma etapa 9 en_tramite TRUE; terminal FALSE", () => {
+    const normal = baseInput({
+      etapaActual: 9,
+      resultadoReal: "en_tramite",
+      cicloEstado: "activo",
+      subestado: "en_proceso",
+      agendaFirmas: { hasActiveBooking: false, hasLastCancelledBooking: false },
+    });
+    const cancelado = baseInput({
+      etapaActual: 9,
+      resultadoReal: "cancelado",
+      cicloEstado: "cancelado",
+      agendaFirmas: { hasActiveBooking: false, hasLastCancelledBooking: false },
+    });
+    const rechazado = baseInput({
+      etapaActual: 9,
+      resultadoReal: "rechazado_mesa",
+      cicloEstado: "activo",
+      subestado: "rechazado",
+      agendaFirmas: { hasActiveBooking: false, hasLastCancelledBooking: false },
+    });
+    assert.equal(isAsesorPendienteAgendarFirma(normal), true);
+    assert.equal(isAsesorPendienteAgendarFirma(cancelado), false);
+    assert.equal(isAsesorPendienteAgendarFirma(rechazado), false);
+  });
+
+  it("acuse etapa 8 en_tramite TRUE; terminal FALSE", () => {
+    const normal = baseInput({
+      etapaActual: 8,
+      resultadoReal: "en_tramite",
+      cicloEstado: "activo",
+      archivos: [],
+      retencion: { opcion: null, envio: null },
+    });
+    const cancelado = baseInput({
+      etapaActual: 8,
+      resultadoReal: "cancelado",
+      cicloEstado: "cancelado",
+      archivos: [],
+      retencion: { opcion: null, envio: null },
+    });
+    const rechazado = baseInput({
+      etapaActual: 8,
+      resultadoReal: "rechazado_mesa",
+      subestado: "rechazado",
+      cicloEstado: "activo",
+      archivos: [],
+      retencion: { opcion: null, envio: null },
+    });
+    assert.equal(isAsesorPendienteSubirAcuse(normal), true);
+    assert.equal(isAsesorPendienteSubirAcuse(cancelado), false);
+    assert.equal(isAsesorPendienteSubirAcuse(rechazado), false);
+  });
+
+  it("1 cancelado + 3 accionables: contador 3 (lista=summary)", () => {
+    const items = [
+      baseInput({
+        expedienteId: "c1",
+        etapaActual: 3,
+        resultadoReal: "cancelado",
+        cicloEstado: "cancelado",
+        agendaBiometricos: { hasActiveBooking: false, hasLastCancelledBooking: false },
+      }),
+      baseInput({
+        expedienteId: "a1",
+        etapaActual: 3,
+        resultadoReal: "en_tramite",
+        agendaBiometricos: { hasActiveBooking: false, hasLastCancelledBooking: false },
+      }),
+      baseInput({
+        expedienteId: "a2",
+        etapaActual: 3,
+        resultadoReal: "en_tramite",
+        agendaBiometricos: { hasActiveBooking: false, hasLastCancelledBooking: false },
+      }),
+      baseInput({
+        expedienteId: "a3",
+        etapaActual: 3,
+        resultadoReal: "en_tramite",
+        agendaBiometricos: { hasActiveBooking: false, hasLastCancelledBooking: false },
+      }),
+    ];
+    const counts = countAsesorTareasPendientes(items);
+    assert.equal(counts.agendarBiometricos, 3);
+    const filas = items.filter(isAsesorPendienteAgendarBiometricos);
+    assert.equal(filas.length, 3);
+    assert.equal(
+      filas.every((row) => row.resultadoReal === "en_tramite"),
+      true,
     );
   });
 });
