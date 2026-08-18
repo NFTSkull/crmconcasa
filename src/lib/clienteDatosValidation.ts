@@ -258,16 +258,9 @@ export function syncLegacyFromInfonavit(
 export function normalizeClienteDatosForSave(
   d: ClienteDatosFormShape,
 ): ClienteDatosFormShape {
-  const esMejoravit = isProgramaMejoravitDb(
-    // programa no viene en shape; sync infonavit siempre si existe bloque
-    undefined,
-  );
-  void esMejoravit;
-
-  let working: ClienteDatosFormShape = { ...d };
-  if (d.infonavit) {
-    working = syncLegacyFromInfonavit(d);
-  }
+  // P189 B8 Mesa-only: infonavit no es autoridad de los campos históricos
+  // (nombre, referencias, beneficiario). Conservar valores visibles del formulario.
+  const working: ClienteDatosFormShape = { ...d };
 
   const refs = (working.referencias ?? []).map((r) => ({
     ...r,

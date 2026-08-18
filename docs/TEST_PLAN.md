@@ -180,6 +180,7 @@
 
 - [x] Helpers TS: `normalizePersonName` / `isValidPersonName` / `filterPersonNameInput` / `normalizeDigitsOnly` / `filterDigitsInput`.
 - [x] `validateClienteDatos` + `normalizeClienteDatosForSave` (nombres, nss, tel, cp, plazo).
+- [x] Hotfix B8: infonavit vacío no pisa refs/nombre/beneficiario legacy; refs siguen obligatorias.
 - [x] Form `ExpedienteClienteDatosFormSection`: filtros onChange; sin `type=number` en nss/tel/cp.
 - [x] Mig. 119: `cliente_datos_assert_payload_formats` en save + corrección; sin CHECK/backfill.
 - [x] Tests TS casos 1–13; SQL estructural `rpc_cliente_datos_field_formats_p133.sql`.

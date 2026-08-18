@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { emptyInfonavitClienteDatosV1 } from "@/domain/expediente-cliente-datos/infonavit-datos";
 import { fixtureInfonavitCompleto } from "@/domain/expediente-cliente-datos/infonavit-datos.fixtures";
 import {
   CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT_DEFAULT,
@@ -198,4 +199,24 @@ test("getNotaMesaLongitudError: vacía no genera error", () => {
 
 test("getNotaMesaLongitudError: supera límite", () => {
   assert.ok(getNotaMesaLongitudError("x".repeat(1001)));
+});
+
+test("P189 B8: completeness no toma infonavit vacío como autoridad de refs", () => {
+  const m = getClienteDatosCamposFaltantes(
+    { ...completoLegacy, infonavit: emptyInfonavitClienteDatosV1() },
+    {
+      montoAprobado: 100_000,
+      direccionOpcional: "Calle Principal 123",
+      programaDb: "mejoravit",
+      requireInfonavit: false,
+    },
+  );
+  assert.equal(
+    m.filter((x) => /Referencia/.test(x)).length,
+    0,
+  );
+  assert.equal(
+    m.filter((x) => /Nombre del cliente|Beneficiario/.test(x)).length,
+    0,
+  );
 });
