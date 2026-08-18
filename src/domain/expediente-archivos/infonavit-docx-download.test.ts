@@ -50,15 +50,31 @@ describe("infonavit-docx-download policy", () => {
     if (!d.ok) assert.equal(d.code, "forbidden");
   });
 
-  it("Mesa sin visibilidad → denied", () => {
+  it("Mesa A no visible → 403 aunque conozca expediente_id + tipo + version", () => {
+    const knownIds = infonavitDocxRequestSchema.safeParse({
+      expedienteId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+      documentType: "infonavit_carta_bajo_protesta",
+      submissionVersion: 1,
+    });
+    assert.equal(knownIds.success, true);
     const d = authorizeInfonavitDocxDownload({
       ...BASE,
+      appRole: "mesa_externo",
       canSeeExpediente: false,
+      documentType: "infonavit_carta_bajo_protesta",
+      requestedSubmissionVersion: 1,
+      documentStatus: "done",
+      aplica: true,
+      hasSubmission: true,
+      estadoSubmissionVersion: 1,
     });
     assert.equal(d.ok, false);
     if (!d.ok) {
       assert.equal(d.httpStatus, 403);
       assert.equal(d.code, "forbidden");
+      assert.notEqual(d.code, "version_mismatch");
+      assert.notEqual(d.code, "snapshot_missing");
+      assert.notEqual(d.code, "not_done");
     }
   });
 
@@ -164,7 +180,10 @@ describe("infonavit-docx-download policy", () => {
       "snapshot_missing",
     ] as const) {
       const msg = infonavitDocxPublicMessage(code);
-      assert.doesNotMatch(msg, /nss|curp|rfc|payload/i);
+      assert.doesNotMatch(
+        msg,
+        /nss|curp|rfc|payload|domicilio|nombre completo|tel[eé]fono|celular/i,
+      );
     }
   });
 });

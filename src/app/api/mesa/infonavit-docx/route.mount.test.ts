@@ -43,4 +43,23 @@ describe("POST /api/mesa/infonavit-docx contrato", () => {
     assert.match(sharedSrc, /submissionVersion: version/);
     assert.doesNotMatch(sharedSrc, /service_role/);
   });
+
+  it("JWT + RPC visibilidad ocurren antes de service_role / snapshot", () => {
+    const jwtRpcAt = routeSrc.indexOf(
+      "const estadoRes = await fetchInfonavitPdfEstadoAsUser",
+    );
+    const authzAt = routeSrc.indexOf("if (!decision.ok)");
+    const serviceCallAt = routeSrc.indexOf(
+      "service = createServiceSupabaseClient",
+    );
+    const loadAt = routeSrc.indexOf(
+      "const payload = await loadExactSnapshotPayload",
+    );
+    assert.ok(jwtRpcAt > 0);
+    assert.ok(authzAt > jwtRpcAt);
+    assert.ok(serviceCallAt > authzAt);
+    assert.ok(loadAt > serviceCallAt);
+    assert.match(serverSrc, /get_expediente_infonavit_pdf_estado/);
+    assert.match(serverSrc, /createUserSupabaseClient/);
+  });
 });
