@@ -144,7 +144,8 @@
 | Riesgo | Impacto | Mitigación |
 |--------|---------|------------|
 | PDF usa `monto_aprobado` editorial en vez de Monto Mejoravit | Alto (documento INFONAVIT incorrecto) | mappingVersion=2 FINAL: P189 usa `resolve_monto_operativo_mejoravit`; cobro intacto con el mismo resolver |
-| Parser de nombre/dirección inventa apellidos o colonia | Medio | Conservador: <3 tokens → nombre completo en NOMBRE(S); componentes de domicilio solo si hay evidencia; domicilio crudo siempre en `direccionCompleta` |
+| Parser de nombre/dirección inventa apellidos o colonia | Medio | Conservador: <3 tokens → nombre completo en NOMBRE(S); colonia corta ante C.P./CP/CP5/INT/LOTE/MZ/entidad (mig **190** SQL↔TS); domicilio crudo siempre en `direccionCompleta` |
+| SQL snapshot y TS preview pintan colonia distinta | Alto (históricos vs live) | mig **190**: misma función SQL canónica; 18 fixtures SQL↔TS; no overlay permanente |
 | Regenerar snapshot in-place | Alto (rompe inmutabilidad/auditoría) | Snapshots UPDATE/DELETE blocked; regeneración = nueva `submission_version` (fuera de este hotfix) |
 | Worker Cloud sin adapter v2 | Medio (campos extra no pintan hasta deploy Edge) | SQL snapshot trae nombres partidos, vivienda parseada, propuesta y `ciudadCierre`; deploy worker posterior |
 
