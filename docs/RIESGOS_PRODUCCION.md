@@ -139,6 +139,15 @@
 | Asesor elige origen incorrecto | Alto | Origen desde perfil admin, no formulario |
 | `enviarAMesa` fuerza interno (bug mock) | Medio | Corregir en P2 repo supabase |
 
+## 11b. P189 documentos vs cobro Mejoravit
+
+| Riesgo | Impacto | Mitigación |
+|--------|---------|------------|
+| PDF usa `monto_aprobado` editorial en vez de Monto Mejoravit | Alto (documento INFONAVIT incorrecto) | mappingVersion=2 FINAL: P189 usa `resolve_monto_operativo_mejoravit`; cobro intacto con el mismo resolver |
+| Parser de nombre/dirección inventa apellidos o colonia | Medio | Conservador: <3 tokens → nombre completo en NOMBRE(S); componentes de domicilio solo si hay evidencia; domicilio crudo siempre en `direccionCompleta` |
+| Regenerar snapshot in-place | Alto (rompe inmutabilidad/auditoría) | Snapshots UPDATE/DELETE blocked; regeneración = nueva `submission_version` (fuera de este hotfix) |
+| Worker Cloud sin adapter v2 | Medio (campos extra no pintan hasta deploy Edge) | SQL snapshot trae nombres partidos, vivienda parseada, propuesta y `ciudadCierre`; deploy worker posterior |
+
 ---
 
 ## 12. Checklist salida a piloto (P8)

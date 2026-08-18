@@ -21,6 +21,8 @@ export interface InfonavitIdentificacionInput {
 }
 
 export interface InfonavitClienteInput {
+  /** Nombre legal completo sin separar. Preferido sobre apellidos+nombres. */
+  nombreCompleto?: string | null;
   nombres: string;
   apellidoPaterno: string;
   apellidoMaterno: string;
@@ -62,6 +64,8 @@ export interface InfonavitViviendaInput {
    * Si ausente, el renderer puede componer desde campos estructurados.
    */
   direccionLibre?: string | null;
+  /** Domicilio CRM sin parsear (`expedientes.direccion_opcional`). */
+  direccionCompleta?: string | null;
 }
 
 export interface InfonavitCreditoInput {
@@ -104,6 +108,8 @@ export interface InfonavitMejoraInput {
 export interface InfonavitPdfSnapshotInput {
   fechaDocumento: string;
   localidad: string;
+  /** Ciudad de cierre Solicitud p.2; si ausente, se usa `localidad`. */
+  ciudadCierre?: string | null;
   cliente: InfonavitClienteInput;
   empresa?: InfonavitEmpresaInput | null;
   vivienda?: InfonavitViviendaInput | null;

@@ -1,3 +1,11 @@
+## 2026-08-18 - hotfix LOCAL: P189 mappingVersion=2 FINAL (Monto Mejoravit)
+
+Causa: la regla local previa («monto aprobado domina P189») quedó CANCELADA. Caso real: `monto_aprobado=113921.51` vs `datos.montoMejoravit=102529.36`; la Solicitud con 102529.36 era la correcta. B8 dejaba nombre/domicilio/propuesta en blanco aunque existían en CRM. Decisión: P189 usa `resolve_monto_operativo_mejoravit`. Helpers de IMPRESIÓN con **confidence** (nombre/dirección); 4 tokens + partícula en paterno no se separan. Plazo fuera de 1–10 → vacío + `plazo_invalido` (assert SQL usa `jsonb_typeof = 'null'`). Localidad/cierre = NUEVO LEÓN. Teléfono empresa: 10 dígitos en NÚMERO, LADA no inferida. Número de identificación: REQUIERE DECISIÓN DE NEGOCIO (Fase 2). Certificación visual 15/15 PASS (90/90 AcroForm). `schemaVersion=1` + `mappingVersion=2`; templates v1. Snapshots/PDFs históricos intactos. Sin Cloud/commit/agenda/Sheets.
+
+## 2026-08-18 - hotfix LOCAL: P189 snapshot mappingVersion=2 (monto aprobado) — SUPERSEDED
+
+Regla cancelada antes de publicar. No usar `editor_decisions.monto_aprobado` como autoridad de documentos INFONAVIT.
+
 ## 2026-08-17 - hotfix LOCAL: refs Datos Generales no pisadas por infonavit vacío
 
 Causa: `normalizeClienteDatosForSave` llamaba `syncLegacyFromInfonavit` si existía `datos.infonavit`. Tras B8 el asesor inicializa `emptyInfonavitClienteDatosV1()` y no captura P189; refs visibles en el formulario se sustituían por strings vacíos antes de `validateClienteDatos`. Decisión: normalizar campos históricos del formulario; conservar `syncLegacyFromInfonavit` exportada para tests/contratos B2, sin usarla como autoridad automática. Completeness ya leía refs legacy cuando `requireInfonavit=false` (sin cambio). Sin SQL/Cloud/commit/agenda.

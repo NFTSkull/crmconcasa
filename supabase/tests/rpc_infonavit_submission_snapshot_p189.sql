@@ -270,20 +270,24 @@ BEGIN
   PERFORM public.__p189_b3_assert(v_payload #>> '{credito,plazoAnios}' = '5', '5: plazoAnios');
   PERFORM public.__p189_b3_assert(v_payload #> '{credito,plazoMeses}' IS NULL, '5b: no plazoMeses');
   PERFORM public.__p189_b3_assert(
-    jsonb_typeof(v_payload #> '{mejora,presupuestoEstimado}') = 'null',
-    '6: presupuesto blank B8'
+    (v_payload #>> '{mejora,presupuestoEstimado}')::numeric = 80000,
+    '6: presupuesto = Monto Mejoravit JSON (80000)'
   );
   PERFORM public.__p189_b3_assert(
     (v_payload #>> '{credito,montoSolicitado}')::numeric = 80000,
-    '6b: monto solicitado'
+    '6b: monto solicitado = Monto Mejoravit (no aprobado 150000)'
   );
+  PERFORM public.__p189_b3_assert((v_payload->>'mappingVersion')::int = 2, '6c: mappingVersion 2');
+  PERFORM public.__p189_b3_assert(v_payload->>'localidad' = 'NUEVO LEÓN', '6d: localidad NL');
   PERFORM public.__p189_b3_assert(v_payload #>> '{cliente,telefono}' = '', '7: tel titular blank');
   PERFORM public.__p189_b3_assert(v_payload #>> '{cliente,ladaTelefono}' = '', '7b: lada titular blank');
   PERFORM public.__p189_b3_assert(v_payload #>> '{empresa,lada}' = '', '7c: lada empresa blank');
   PERFORM public.__p189_b3_assert(v_payload #>> '{empresa,extension}' = '', '7d: ext empresa blank');
   PERFORM public.__p189_b3_assert(v_payload #> '{cliente,nss}' IS NOT NULL, '4: nss en payload');
-  PERFORM public.__p189_b3_assert(v_payload #>> '{vivienda,calle}' = '', '4b: vivienda blank B8');
-  PERFORM public.__p189_b3_assert(v_payload #>> '{cliente,nombres}' = '', '4c: nombres blank B8');
+  PERFORM public.__p189_b3_assert(v_payload #>> '{vivienda,calle}' = 'AV SIEMPRE VIVA', '4b: vivienda calle parseada');
+  PERFORM public.__p189_b3_assert(v_payload #>> '{cliente,nombres}' = 'ANA', '4c: nombres parseados');
+  PERFORM public.__p189_b3_assert(v_payload #>> '{cliente,apellidoPaterno}' = 'LOPEZ', '4d: apPat parseado');
+  PERFORM public.__p189_b3_assert(v_payload #>> '{cliente,apellidoMaterno}' = 'PEREZ', '4e: apMat parseado');
 
   SELECT array_agg(o.document_type ORDER BY o.document_type) INTO v_tipos
   FROM public.infonavit_pdf_outbox o WHERE o.expediente_id = v_exp;
