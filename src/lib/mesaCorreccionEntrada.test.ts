@@ -123,6 +123,18 @@ describe("mesaCorreccionEntrada", () => {
     );
     assert.equal(mesaEntradaEsPorCorreccion(fechaEntrada, ultimaCorreccion), true);
     assert.equal(mesaCorreccionLecturaLabel("nueva", true), "Corrección nueva");
+    assert.equal(
+      mesaCorreccionLecturaLabel("nueva", true, "ADVISOR_UPDATE"),
+      "Actualización nueva",
+    );
+    assert.equal(
+      mesaCorreccionLecturaLabel("nueva", true, "AMBIGUOUS"),
+      "Cambio nuevo",
+    );
+    assert.equal(
+      mesaCorreccionLecturaLabel("nueva", true, "REQUESTED_CORRECTION"),
+      "Corrección nueva",
+    );
   });
 
   it("apertura posterior a corrección → abierto", () => {
@@ -132,6 +144,14 @@ describe("mesaCorreccionEntrada", () => {
       "abierta",
     );
     assert.equal(mesaCorreccionLecturaLabel("abierta", true), "Corrección abierta");
+    assert.equal(
+      mesaCorreccionLecturaLabel("abierta", true, "ADVISOR_UPDATE"),
+      "Actualización abierta",
+    );
+    assert.equal(
+      mesaCorreccionLecturaLabel("abierta", true, "LEGACY"),
+      "Cambio abierto",
+    );
   });
 
   it("sin fechaEntradaMesaActual → no_aplica", () => {

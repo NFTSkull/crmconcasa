@@ -79,6 +79,33 @@ describe("P102 list-for-mesa-control-paginated", () => {
     assert.equal(parsed.counts?.totalBandeja, 160);
   });
 
+  it("P193 counts e items origin son opcionales (compat schema viejo)", () => {
+    const parsed = mesaListBandejaPageRpcSchema.parse({
+      items: [
+        {
+          id: "00000000-0000-4000-8000-000000000001",
+          cambio_revision_origen: "ADVISOR_UPDATE",
+          cambio_request_type: null,
+          cambio_request_at: null,
+        },
+      ],
+      total_count: 1,
+      has_more: false,
+      counts: {
+        correccionesEnviadas: 3,
+        correccionesSolicitadas: 1,
+        otrasActualizaciones: 2,
+      },
+    });
+    assert.equal(parsed.items[0]?.cambio_revision_origen, "ADVISOR_UPDATE");
+    assert.equal(parsed.counts?.correccionesSolicitadas, 1);
+    assert.equal(
+      (parsed.counts?.correccionesSolicitadas ?? 0) +
+        (parsed.counts?.otrasActualizaciones ?? 0),
+      parsed.counts?.correccionesEnviadas,
+    );
+  });
+
   it("búsqueda conceptual: filtrar universo antes de paginar (no slice→filtro)", () => {
     const all = Array.from({ length: 80 }, (_, i) => ({
       id: String(i + 1),

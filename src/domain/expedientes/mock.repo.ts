@@ -54,6 +54,7 @@ import {
   mockListAsesorInboxPage,
 } from "./asesor-inbox-mock";
 import { hasPendingAsesorChanges } from "@/domain/expediente-archivos/derive-resumen-expediente-correccion";
+import { matchesMesaCambiosSubfiltro } from "@/lib/mesaCambiosRevisionOrigenUi";
 
 function readMockSessionAsesorEmail(): string | null {
   if (typeof window === "undefined") return null;
@@ -906,6 +907,14 @@ export class MockExpedientesRepo implements ExpedientesRepo {
         ) {
           return false;
         }
+        if (
+          !matchesMesaCambiosSubfiltro(
+            "ADVISOR_UPDATE",
+            query.cambiosSubfiltro ?? "todos",
+          )
+        ) {
+          return false;
+        }
       } else if (quick === "rechazos_cancelaciones") {
         const subf = query.rechazosSub ?? "rechazados";
         if (subf === "cancelados") {
@@ -935,7 +944,23 @@ export class MockExpedientesRepo implements ExpedientesRepo {
           e.operativo.fechaEnvioMesa?.trim() ||
           e.base.createdAt ||
           "1970-01-01T00:00:00.000Z";
-        return { ...e, sortTs, categoriaResumen: null, opsHint: null };
+        const pending = hasPendingAsesorChanges({
+          loteStatus: e.asesorCambioLote?.status ?? null,
+          submittedAt: e.asesorCambioLote?.submittedAt ?? null,
+        });
+        return {
+          ...e,
+          sortTs,
+          categoriaResumen: pending
+            ? ("correccion_enviada" as const)
+            : null,
+          opsHint: null,
+          cambioRevisionOrigen: pending
+            ? ("ADVISOR_UPDATE" as const)
+            : null,
+          cambioRequestType: null,
+          cambioRequestAt: null,
+        };
       })
       .sort((a, b) => {
         if (a.sortTs !== b.sortTs) return a.sortTs < b.sortTs ? -1 : 1;
@@ -952,6 +977,17 @@ export class MockExpedientesRepo implements ExpedientesRepo {
         ? null
         : {
             correccionesEnviadas: all.filter((e) => {
+              const ciclo = e.operativo.cicloEstado ?? "activo";
+              return (
+                ciclo === "activo" &&
+                hasPendingAsesorChanges({
+                  loteStatus: e.asesorCambioLote?.status ?? null,
+                  submittedAt: e.asesorCambioLote?.submittedAt ?? null,
+                })
+              );
+            }).length,
+            correccionesSolicitadas: 0,
+            otrasActualizaciones: all.filter((e) => {
               const ciclo = e.operativo.cicloEstado ?? "activo";
               return (
                 ciclo === "activo" &&

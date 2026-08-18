@@ -46,6 +46,7 @@ function estado(partial?: Partial<MesaBandejaFiltrosState>): MesaBandejaFiltrosS
     etapa: "todas",
     subestado: "todas",
     soloCitasHoy: false,
+    cambiosSubfiltro: "todos",
     ...partial,
   };
 }
@@ -142,7 +143,7 @@ describe("mesaBandejaFiltros — P129 copies y disjuntos corrección", () => {
   it("labels inequívocos", () => {
     assert.equal(
       MESA_QUICK_FILTER_LABELS.correccion_enviada,
-      "Correcciones listas para revisar",
+      "Cambios por revisar",
     );
     assert.equal(MESA_QUICK_FILTER_LABELS.nuevos, "Nuevos en Mesa");
     assert.equal(MESA_QUICK_FILTER_LABELS.en_proceso, "Activos en proceso");
@@ -368,5 +369,82 @@ describe("mesaBandejaFiltros — etapa, subestado y citas de hoy", () => {
     assert.equal(list.length, 2);
     assert.ok(list.some((c) => c.cliente_nombre === "Bio Tres"));
     assert.ok(list.some((c) => c.cliente_nombre === "Bio Cuatro"));
+  });
+});
+
+describe("mesaBandejaFiltros — P193 Cambios por revisar", () => {
+  it("vista rápida y asignación resetean subfiltro a todos", () => {
+    const vista = seleccionarVistaRapida("nuevos");
+    assert.equal(vista.cambiosSubfiltro, "todos");
+    const ops = seleccionarAsignacion("mi_bandeja");
+    assert.equal(ops.quickFilter, "todos");
+    assert.equal(ops.cambiosSubfiltro, "todos");
+    assert.equal(limpiarFiltrosBandeja().cambiosSubfiltro, "todos");
+  });
+
+  it("parent = solicitadas + otras, sin overlap ni huérfanos", () => {
+    const mix = [
+      item({
+        cliente_nombre: "Solicitada",
+        resumenDocumental: "correccion_enviada",
+        cambioRevisionOrigen: "REQUESTED_CORRECTION",
+      }),
+      item({
+        cliente_nombre: "Asesor",
+        resumenDocumental: "correccion_enviada",
+        cambioRevisionOrigen: "ADVISOR_UPDATE",
+      }),
+      item({
+        cliente_nombre: "Ambiguo",
+        resumenDocumental: "correccion_enviada",
+        cambioRevisionOrigen: "AMBIGUOUS",
+      }),
+      item({
+        cliente_nombre: "Legacy",
+        resumenDocumental: "correccion_enviada",
+        cambioRevisionOrigen: "LEGACY",
+      }),
+    ];
+    const counts = contarVistaRapida(mix, HOY);
+    assert.equal(counts.correccionesEnviadas, 4);
+    assert.equal(counts.correccionesSolicitadas, 1);
+    assert.equal(counts.otrasActualizaciones, 3);
+    assert.equal(
+      counts.correccionesEnviadas,
+      counts.correccionesSolicitadas + counts.otrasActualizaciones,
+    );
+    const solicitadas = aplicarFiltrosBandejaMesa(
+      mix,
+      estado({
+        quickFilter: "correccion_enviada",
+        cambiosSubfiltro: "solicitadas",
+      }),
+      HOY,
+    );
+    const otras = aplicarFiltrosBandejaMesa(
+      mix,
+      estado({
+        quickFilter: "correccion_enviada",
+        cambiosSubfiltro: "otras",
+      }),
+      HOY,
+    );
+    const todos = aplicarFiltrosBandejaMesa(
+      mix,
+      estado({
+        quickFilter: "correccion_enviada",
+        cambiosSubfiltro: "todos",
+      }),
+      HOY,
+    );
+    assert.equal(solicitadas.length, 1);
+    assert.equal(otras.length, 3);
+    assert.equal(todos.length, 4);
+    const idsSol = new Set(solicitadas.map((c) => c.cliente_nombre));
+    const idsOtras = new Set(otras.map((c) => c.cliente_nombre));
+    for (const id of idsSol) {
+      assert.equal(idsOtras.has(id), false);
+    }
+    assert.equal(idsSol.size + idsOtras.size, todos.length);
   });
 });

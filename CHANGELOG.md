@@ -4,9 +4,9 @@
 
 ### Fixed
 
-- **hotfix(mesa): correcciones P130 pendientes visibles en «Correcciones listas para revisar» (LOCAL)** — mig **192**: helper `expediente_tiene_correccion_asesor_pendiente` (`status=pendiente_revision` ∧ `submitted_at IS NOT NULL`). `mesa_bandeja_categoria_resumen` y `asesor_inbox_categoria_correccion` lo evalúan **antes** de la heurística P102/P167. Sin gate de etapa. Legacy DG timestamp / `resubido` intactos. Sort Mesa usa `submitted_at` del lote pendiente. Sin backfill ni UPDATE de lotes. Operación de citas → futura mig **193**. Sin Cloud/push/PR.
+- **hotfix(mesa): correcciones P130 pendientes visibles en «Correcciones listas para revisar» (LOCAL)** — mig **192**: helper `expediente_tiene_correccion_asesor_pendiente` (`status=pendiente_revision` ∧ `submitted_at IS NOT NULL`). `mesa_bandeja_categoria_resumen` y `asesor_inbox_categoria_correccion` lo evalúan **antes** de la heurística P102/P167. Sin gate de etapa. Legacy DG timestamp / `resubido` intactos. Sort Mesa usa `submitted_at` del lote pendiente. Sin backfill ni UPDATE de lotes. Operación de citas → futura mig **194**. Sin Cloud/push/PR.
 
-- **hotfix(asesor): expedientes terminales fuera de tareas accionables (LOCAL)** — mig **191**: `asesor_inbox_es_accionable` (via `resultado_real`) excluye `cancelado` / `rechazado_mesa` de `pendiente_agendar_biometricos` / `pendiente_agendar_firma` / `pendiente_subir_acuse`. Lista y summary usan el mismo helper. Chips Cancelados / Rechazados por Mesa / corrección documental intactos. Operación de citas (worktree pausado) → futura mig **193** (192 = hotfix correcciones P130). Sin Cloud/push/PR.
+- **hotfix(asesor): expedientes terminales fuera de tareas accionables (LOCAL)** — mig **191**: `asesor_inbox_es_accionable` (via `resultado_real`) excluye `cancelado` / `rechazado_mesa` de `pendiente_agendar_biometricos` / `pendiente_agendar_firma` / `pendiente_subir_acuse`. Lista y summary usan el mismo helper. Chips Cancelados / Rechazados por Mesa / corrección documental intactos. Operación de citas (worktree pausado) → futura mig **194**. Sin Cloud/push/PR.
 
 - **hotfix(infonavit): P189 parser dirección SQL↔TS parity (LOCAL)** — mig **190**: `infonavit_parse_direccion_mx` replica las reglas de `parseDireccionMxParaSolicitud` (colonia no absorbe C.P./municipio/entidad; `#` → noExt; entidad solo con señal explícita). 18/18 fixtures idénticos. `mappingVersion=2` / templates v1. Sin Cloud/regeneración.
 
@@ -15,6 +15,8 @@
 - **hotfix(asesor): Datos Generales no pisa referencias visibles con `datos.infonavit` vacío (LOCAL)** — `normalizeClienteDatosForSave` deja de llamar incondicionalmente a `syncLegacyFromInfonavit`. Tras P189 B8 Mesa-only el formulario siempre serializa un bloque infonavit vacío; eso reemplazaba refs/nombre/beneficiario canónicos y `validateClienteDatos` reportaba obligatoriedad falsa. Referencias siguen obligatorias. Sin Cloud/commit/P189 PDF/agenda.
 
 ### Added
+
+- **feat(mesa): classify pending advisor changes by origin (LOCAL, P193)** — mig **193**: helper STABLE `mesa_cambio_revision_clasificacion`; parent `correccion_enviada` (P192) intacto. Subfiltros RPC `correccion_solicitada` / `otras_actualizaciones` (misma firma). Counts `correccionesSolicitadas` + `otrasActualizaciones` (`parent = requested + other`). Chip «Cambios por revisar» + subfiltros. Sin UPDATE de lotes/expedientes. Operación de citas → **194**. Sin Cloud/push/PR.
 
 - **feat(p189): Word editable Mesa on-demand (LOCAL)** — `docx` nativo desde el mismo snapshot P189 que el PDF (`adaptB3SnapshotToB1` → print model → `generateInfonavitDocx`). `POST /api/mesa/infonavit-docx` Mesa-only, Zod, 0 Storage/migration. UI: Vista previa / Descargar PDF / Descargar Word editable. Asesor denied. PDF fill/flatten y parser PR #152 intactos. Sin Cloud/push.
 

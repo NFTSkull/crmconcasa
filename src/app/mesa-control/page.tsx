@@ -29,12 +29,27 @@ import {
   MESA_ASESOR_CAMBIOS_FOCUS,
   MESA_ASESOR_CAMBIOS_HISTORICO_AVISO,
   MESA_ASESOR_CAMBIOS_HISTORICO_TITULO,
-  MESA_ASESOR_CAMBIOS_LOTE_VACIO_AVISO,
-  MESA_ASESOR_CAMBIOS_LOTE_VACIO_TITULO,
   esCorreccionHistoricaSinDetalle,
   esLoteAsesorCambiosVacio,
   hasAdvisorChangeDetails,
 } from "@/lib/mesaAsesorCambiosUi";
+import {
+  MESA_CAMBIO_ADVISOR_COPY,
+  MESA_CAMBIO_AMBIGUOUS_COPY,
+  MESA_CAMBIO_ESTADO_POR_REVISAR,
+  MESA_CAMBIO_LEGACY_COPY,
+  MESA_CAMBIOS_SUBFILTRO_DEFAULT,
+  MESA_CAMBIOS_SUBFILTRO_LABELS,
+  mesaAsesorCambiosLoteVacioAviso,
+  mesaAsesorCambiosLoteVacioTitulo,
+  mesaCambioDocumentacionLabel,
+  mesaCambioFechaLoteLabel,
+  mesaCambioMuestraEstadoPorRevisar,
+  mesaCambioOrigenBadge,
+  mesaCambioRequestTypeLabel,
+  type MesaCambiosPorRevisarSubfiltro,
+  type MesaCambioRevisionOrigen,
+} from "@/lib/mesaCambiosRevisionOrigenUi";
 import {
   formatMesaAbiertoAhoraBadge,
   MESA_PRESENCIA_DASHBOARD_POLL_MS,
@@ -184,6 +199,9 @@ type CasoConDocs = CasoMock & {
   correctionRequestedAt?: string | null;
   correctionRequestedByName?: string | null;
   correctionResubmittedAt?: string | null;
+  cambioRevisionOrigen?: MesaCambioRevisionOrigen | null;
+  cambioRequestType?: CasoMock["cambioRequestType"];
+  cambioRequestAt?: string | null;
 };
 
 type AdminOrigenTab = "todos" | "internos" | "externos";
@@ -219,14 +237,23 @@ function resumenDocumentalLabel(c?: CategoriaResumenDocumental): string {
   return map[c];
 }
 
-function DocumentacionCell({ c }: { c?: CategoriaResumenDocumental }) {
+function DocumentacionCell({
+  c,
+  origin,
+}: {
+  c?: CategoriaResumenDocumental;
+  origin?: MesaCambioRevisionOrigen | null;
+}) {
   if (c === "correccion_enviada") {
+    const badge = mesaCambioDocumentacionLabel(origin);
     return (
       <div className="flex max-w-[12rem] flex-col gap-0.5">
-        <span className={resumenDocumentalBadgeClass(c)}>{resumenDocumentalLabel(c)}</span>
-        <span className="text-[10px] leading-tight text-sky-900/80">
-          Por revisar
-        </span>
+        <span className={resumenDocumentalBadgeClass(c)}>{badge}</span>
+        {mesaCambioMuestraEstadoPorRevisar(origin) ? (
+          <span className="text-[10px] leading-tight text-sky-900/80">
+            {MESA_CAMBIO_ESTADO_POR_REVISAR}
+          </span>
+        ) : null}
       </div>
     );
   }
@@ -315,12 +342,14 @@ function rowSurfaceClass(c: CasoConDocs): string {
 function MesaCorreccionLecturaBadge({
   estado,
   esCorreccion = false,
+  origin = null,
 }: {
   estado?: MesaCorreccionLecturaEstado;
   esCorreccion?: boolean;
+  origin?: MesaCambioRevisionOrigen | null;
 }) {
   if (!estado || estado === "no_aplica") return null;
-  const label = mesaCorreccionLecturaLabel(estado, esCorreccion);
+  const label = mesaCorreccionLecturaLabel(estado, esCorreccion, origin);
   if (!label) return null;
   const testId =
     estado === "nueva"
@@ -368,6 +397,8 @@ export default function MesaControlPage() {
   const [quickFilter, setQuickFilter] = useState<MesaQuickFilter>("todos");
   const [rechazosCancelacionesSubfiltro, setRechazosCancelacionesSubfiltro] =
     useState<MesaRechazosCancelacionesSubfiltro>("rechazados");
+  const [cambiosSubfiltro, setCambiosSubfiltro] =
+    useState<MesaCambiosPorRevisarSubfiltro>(MESA_CAMBIOS_SUBFILTRO_DEFAULT);
   const [adminOrigenTab, setAdminOrigenTab] = useState<AdminOrigenTab>("todos");
   const currentUserIdRef = useRef<string | null>(null);
   const [visibleCount, setVisibleCount] = useState(MESA_BANDEJA_INITIAL_VISIBLE);
@@ -431,6 +462,14 @@ export default function MesaControlPage() {
       reingresoManualCount: exp.reingresoManual?.count ?? 0,
       reingresoManualAt: exp.reingresoManual?.at ?? null,
       reingresoManualBy: exp.reingresoManual?.by ?? null,
+      cambioRevisionOrigen:
+        page.cambioRevisionOrigen ??
+        (exp.asesorCambioLote?.status === "pendiente_revision" &&
+        exp.asesorCambioLote.submittedAt
+          ? "ADVISOR_UPDATE"
+          : null),
+      cambioRequestType: page.cambioRequestType ?? null,
+      cambioRequestAt: page.cambioRequestAt ?? null,
     };
   }, []);
 
@@ -550,6 +589,7 @@ export default function MesaControlPage() {
             soloCitasHoy,
             todayYmd: todayYMD,
             rechazosSub: rechazosCancelacionesSubfiltro,
+            cambiosSubfiltro,
             origen: mapAdminOrigenTabToRpc(
               (typeof window !== "undefined" &&
                 (getEffectiveMockRole() === "mesa_control_admin" ||
@@ -667,6 +707,7 @@ export default function MesaControlPage() {
       mesaOpsFilter,
       quickFilter,
       rechazosCancelacionesSubfiltro,
+      cambiosSubfiltro,
       repo,
       resolveEnrichDeps,
       soloCitasHoy,
@@ -816,6 +857,8 @@ export default function MesaControlPage() {
     if (dataSupabase && serverCounts) {
       return {
         correccionesEnviadas: serverCounts.correccionesEnviadas,
+        correccionesSolicitadas: serverCounts.correccionesSolicitadas,
+        otrasActualizaciones: serverCounts.otrasActualizaciones,
         nuevosPorRevisar: serverCounts.nuevos,
         citasHoy: serverCounts.citasHoy,
         bloqueadosRechazados: serverCounts.bloqueadosRechazados,
@@ -831,6 +874,8 @@ export default function MesaControlPage() {
     // Contadores mock/legacy: misma definición que la lista completa en memoria.
     const vistaRapida = contarVistaRapida(casos, todayYMD);
     const correccionesEnviadas = vistaRapida.correccionesEnviadas;
+    const correccionesSolicitadas = vistaRapida.correccionesSolicitadas;
+    const otrasActualizaciones = vistaRapida.otrasActualizaciones;
     const nuevosPorRevisar = vistaRapida.nuevos;
     const citasHoy = vistaRapida.citasHoy;
     const bloqueadosRechazados = casos.filter(
@@ -854,6 +899,8 @@ export default function MesaControlPage() {
     ).length;
     return {
       correccionesEnviadas,
+      correccionesSolicitadas,
+      otrasActualizaciones,
       nuevosPorRevisar,
       citasHoy,
       bloqueadosRechazados,
@@ -915,6 +962,7 @@ export default function MesaControlPage() {
       {
         quickFilter,
         rechazosCancelacionesSubfiltro,
+        cambiosSubfiltro,
         buscar,
         etapa: etapaFilter,
         subestado: subestadoFilter,
@@ -933,6 +981,7 @@ export default function MesaControlPage() {
     mesaOpsFilter,
     quickFilter,
     rechazosCancelacionesSubfiltro,
+    cambiosSubfiltro,
     showAdminOrigenTabs,
     soloCitasHoy,
     subestadoFilter,
@@ -947,6 +996,7 @@ export default function MesaControlPage() {
     subestadoFilter,
     soloCitasHoy,
     rechazosCancelacionesSubfiltro,
+    cambiosSubfiltro,
     adminOrigenTab: showAdminOrigenTabs ? adminOrigenTab : "",
   });
 
@@ -1102,6 +1152,7 @@ export default function MesaControlPage() {
       setQuickFilter(next.quickFilter);
       setMesaOpsFilter(next.opsFilter);
       setRechazosCancelacionesSubfiltro(next.rechazosCancelacionesSubfiltro);
+      setCambiosSubfiltro(next.cambiosSubfiltro);
     },
     [],
   );
@@ -1111,12 +1162,14 @@ export default function MesaControlPage() {
     setQuickFilter(next.quickFilter);
     setMesaOpsFilter(next.opsFilter);
     setRechazosCancelacionesSubfiltro(next.rechazosCancelacionesSubfiltro);
+    setCambiosSubfiltro(next.cambiosSubfiltro);
   }, []);
 
   const handleLimpiarFiltros = useCallback(() => {
     const next = limpiarFiltrosBandeja();
     setQuickFilter(next.quickFilter);
     setRechazosCancelacionesSubfiltro(next.rechazosCancelacionesSubfiltro);
+    setCambiosSubfiltro(next.cambiosSubfiltro);
     setMesaOpsFilter(next.opsFilter);
     setBuscar(next.buscar);
     setEtapaFilter(next.etapa);
@@ -1495,6 +1548,48 @@ export default function MesaControlPage() {
               ))}
             </div>
           ) : null}
+          {quickFilter === "correccion_enviada" ? (
+            <div
+              className="mt-2 flex flex-wrap gap-1"
+              role="tablist"
+              aria-label="Subfiltro de cambios por revisar"
+              data-testid="mesa-cambios-subfiltro"
+            >
+              {(
+                [
+                  {
+                    id: "todos" as const,
+                    count: kpis.correccionesEnviadas,
+                  },
+                  {
+                    id: "solicitadas" as const,
+                    count: kpis.correccionesSolicitadas,
+                  },
+                  {
+                    id: "otras" as const,
+                    count: kpis.otrasActualizaciones,
+                  },
+                ] satisfies {
+                  id: MesaCambiosPorRevisarSubfiltro;
+                  count: number;
+                }[]
+              ).map(({ id, count }) => (
+                <button
+                  key={id}
+                  type="button"
+                  role="tab"
+                  aria-selected={cambiosSubfiltro === id}
+                  onClick={() => setCambiosSubfiltro(id)}
+                  className={`${chipBase} ${
+                    cambiosSubfiltro === id ? chipActive : chipInactive
+                  }`}
+                  data-testid={`mesa-cambios-subfiltro-${id}`}
+                >
+                  {MESA_CAMBIOS_SUBFILTRO_LABELS[id]} ({count})
+                </button>
+              ))}
+            </div>
+          ) : null}
           <p className="mt-2 text-[11px] text-slate-500">
             {MESA_VISTA_RAPIDA_FORCE_TODO_MESA_HELP}
           </p>
@@ -1660,6 +1755,7 @@ export default function MesaControlPage() {
                     <MesaCorreccionLecturaBadge
                       estado={c.correccionLecturaEstado}
                       esCorreccion={c.entradaLecturaEsCorreccion}
+                      origin={c.cambioRevisionOrigen}
                     />
                     {showAdminOrigenTabs ? (
                       <span className={origenMesaBadgeClass(c.origenMesa ?? null)}>
@@ -1721,9 +1817,13 @@ export default function MesaControlPage() {
                   )}
                 </div>
                 <div className="mt-2">
-                  <DocumentacionCell c={c.resumenDocumental} />
+                  <DocumentacionCell
+                    c={c.resumenDocumental}
+                    origin={c.cambioRevisionOrigen}
+                  />
                 </div>
                 {(() => {
+                  const origin = c.cambioRevisionOrigen ?? null;
                   const changeDetails = hasAdvisorChangeDetails({
                     advisorChangeBatchId: c.advisorChangeBatchId,
                     advisorChangesCount: c.advisorChangesCount,
@@ -1732,10 +1832,12 @@ export default function MesaControlPage() {
                     advisorChangeBatchId: c.advisorChangeBatchId,
                     advisorChangesCount: c.advisorChangesCount,
                   });
-                  const historica = esCorreccionHistoricaSinDetalle({
-                    resumenDocumental: c.resumenDocumental,
-                    advisorChangeBatchId: c.advisorChangeBatchId,
-                  });
+                  const historica =
+                    origin === "LEGACY" ||
+                    esCorreccionHistoricaSinDetalle({
+                      resumenDocumental: c.resumenDocumental,
+                      advisorChangeBatchId: c.advisorChangeBatchId,
+                    });
                   const hasSummary =
                     changeDetails ||
                     (Array.isArray(c.advisorChangesSummary) &&
@@ -1745,14 +1847,10 @@ export default function MesaControlPage() {
                     hasSummary ||
                     loteVacio;
                   if (!showBlock) return null;
-                  const badge = formatMesaAsesorCambiosBadge(
-                    c.advisorChangesCount,
-                    changeDetails,
-                  );
                   const resumenLines = formatMesaAsesorCambiosResumen(
                     c.advisorChangesSummary ?? [],
                   );
-                  const reenviadoAt = formatMesaAsesorReenviadoAt(
+                  const loteAt = formatMesaAsesorReenviadoAt(
                     changeDetails || loteVacio
                       ? (c.advisorChangesSubmittedAt ??
                           c.ultimaCorreccionEnviadaAt)
@@ -1760,28 +1858,45 @@ export default function MesaControlPage() {
                           c.ultimaCorreccionEnviadaAt),
                   );
                   const solicitadaAt = formatMesaAsesorReenviadoAt(
-                    c.correctionRequestedAt,
+                    c.cambioRequestAt ?? c.correctionRequestedAt,
                   );
+                  const tipoHumano = mesaCambioRequestTypeLabel(c.cambioRequestType);
                   const nota = String(c.correctionRequestedNote ?? "").trim();
                   const solicitadaPor = String(
                     c.correctionRequestedByName ?? "",
                   ).trim();
+                  const originBadge = origin
+                    ? mesaCambioOrigenBadge(origin)
+                    : formatMesaAsesorCambiosBadge(
+                        c.advisorChangesCount,
+                        changeDetails,
+                      );
+                  const ctaClass =
+                    "inline-flex mt-1 rounded-md bg-white px-2 py-1 text-[11px] font-medium text-sky-900 ring-1 ring-sky-300/80 hover:bg-sky-100";
                   return (
                     <div
                       className="mt-2 space-y-1 rounded-lg border border-sky-200/80 bg-sky-50/60 px-2.5 py-2"
                       data-testid="mesa-asesor-cambios-card"
+                      data-cambio-origen={origin ?? ""}
                     >
                       {historica ? (
                         <>
                           <p className="text-[11px] font-semibold text-sky-950">
-                            {MESA_ASESOR_CAMBIOS_HISTORICO_TITULO}
+                            {origin
+                              ? mesaCambioOrigenBadge("LEGACY")
+                              : MESA_ASESOR_CAMBIOS_HISTORICO_TITULO}
                           </p>
                           <p className="text-[10px] leading-snug text-sky-900/90">
-                            Mesa solicitó corregir:{" "}
-                            {formatMesaCorreccionMotivoLine(
-                              c.correctionRequestedReason,
-                            )}
+                            {MESA_CAMBIO_LEGACY_COPY}
                           </p>
+                          {c.correctionRequestedReason ? (
+                            <p className="text-[10px] leading-snug text-sky-900/90">
+                              Mesa solicitó corregir:{" "}
+                              {formatMesaCorreccionMotivoLine(
+                                c.correctionRequestedReason,
+                              )}
+                            </p>
+                          ) : null}
                           {nota ? (
                             <p className="text-[10px] leading-snug text-sky-900/90">
                               Indicaciones: {nota}
@@ -1797,9 +1912,9 @@ export default function MesaControlPage() {
                               Solicitada el: {solicitadaAt}
                             </p>
                           ) : null}
-                          {reenviadoAt ? (
+                          {loteAt ? (
                             <p className="text-[10px] text-sky-900/80">
-                              Reenviada por el asesor: {reenviadoAt}
+                              Reenviada por el asesor: {loteAt}
                             </p>
                           ) : null}
                           <p className="text-[10px] leading-snug text-sky-900/80">
@@ -1807,7 +1922,7 @@ export default function MesaControlPage() {
                           </p>
                           <Link
                             href={`/mesa-control/${c.id}`}
-                            className="inline-flex mt-1 rounded-md bg-white px-2 py-1 text-[11px] font-medium text-sky-900 ring-1 ring-sky-300/80 hover:bg-sky-100"
+                            className={ctaClass}
                             data-testid="mesa-abrir-expediente-historico"
                             onClick={(e) => e.stopPropagation()}
                             onKeyDown={(e) => e.stopPropagation()}
@@ -1818,19 +1933,47 @@ export default function MesaControlPage() {
                       ) : loteVacio ? (
                         <>
                           <p className="text-[11px] font-semibold text-sky-950">
-                            {MESA_ASESOR_CAMBIOS_LOTE_VACIO_TITULO}
+                            {origin ? originBadge : mesaAsesorCambiosLoteVacioTitulo(origin)}
+                          </p>
+                          {mesaCambioMuestraEstadoPorRevisar(origin) ? (
+                            <p className="text-[10px] text-sky-900/80">
+                              {MESA_CAMBIO_ESTADO_POR_REVISAR}
+                            </p>
+                          ) : null}
+                          <p className="text-[10px] leading-snug text-sky-900/90">
+                            {mesaAsesorCambiosLoteVacioTitulo(origin)}
                           </p>
                           <p className="text-[10px] leading-snug text-sky-900/90">
-                            {MESA_ASESOR_CAMBIOS_LOTE_VACIO_AVISO}
+                            {mesaAsesorCambiosLoteVacioAviso(origin)}
                           </p>
-                          {reenviadoAt ? (
+                          {origin === "ADVISOR_UPDATE" ? (
+                            <p className="text-[10px] leading-snug text-sky-900/90">
+                              {MESA_CAMBIO_ADVISOR_COPY}
+                            </p>
+                          ) : null}
+                          {origin === "AMBIGUOUS" ? (
+                            <p className="text-[10px] leading-snug text-sky-900/90">
+                              {MESA_CAMBIO_AMBIGUOUS_COPY}
+                            </p>
+                          ) : null}
+                          {origin === "REQUESTED_CORRECTION" && solicitadaAt ? (
                             <p className="text-[10px] text-sky-900/80">
-                              Reenviado por el asesor: {reenviadoAt}
+                              Solicitada por Mesa: {solicitadaAt}
+                            </p>
+                          ) : null}
+                          {origin === "REQUESTED_CORRECTION" && tipoHumano ? (
+                            <p className="text-[10px] text-sky-900/80">
+                              Tipo: {tipoHumano}
+                            </p>
+                          ) : null}
+                          {loteAt ? (
+                            <p className="text-[10px] text-sky-900/80">
+                              {mesaCambioFechaLoteLabel(origin)}: {loteAt}
                             </p>
                           ) : null}
                           <Link
                             href={`/mesa-control/${c.id}`}
-                            className="inline-flex mt-1 rounded-md bg-white px-2 py-1 text-[11px] font-medium text-sky-900 ring-1 ring-sky-300/80 hover:bg-sky-100"
+                            className={ctaClass}
                             data-testid="mesa-abrir-expediente-lote-vacio"
                             onClick={(e) => e.stopPropagation()}
                             onKeyDown={(e) => e.stopPropagation()}
@@ -1841,8 +1984,48 @@ export default function MesaControlPage() {
                       ) : (
                         <>
                           <p className="text-[11px] font-semibold text-sky-950">
-                            {badge}
+                            {originBadge}
                           </p>
+                          {mesaCambioMuestraEstadoPorRevisar(origin) ? (
+                            <p className="text-[10px] text-sky-900/80">
+                              {MESA_CAMBIO_ESTADO_POR_REVISAR}
+                            </p>
+                          ) : null}
+                          {origin === "ADVISOR_UPDATE" ? (
+                            <p className="text-[10px] leading-snug text-sky-900/90">
+                              {MESA_CAMBIO_ADVISOR_COPY}
+                            </p>
+                          ) : null}
+                          {origin === "AMBIGUOUS" ? (
+                            <p className="text-[10px] leading-snug text-sky-900/90">
+                              {MESA_CAMBIO_AMBIGUOUS_COPY}
+                            </p>
+                          ) : null}
+                          {origin === "REQUESTED_CORRECTION" && solicitadaAt ? (
+                            <p className="text-[10px] text-sky-900/80">
+                              Solicitada por Mesa: {solicitadaAt}
+                            </p>
+                          ) : null}
+                          {origin === "REQUESTED_CORRECTION" && loteAt ? (
+                            <p className="text-[10px] text-sky-900/80">
+                              Reenviada por el asesor: {loteAt}
+                            </p>
+                          ) : null}
+                          {origin === "REQUESTED_CORRECTION" && tipoHumano ? (
+                            <p className="text-[10px] text-sky-900/80">
+                              Tipo: {tipoHumano}
+                            </p>
+                          ) : null}
+                          {origin === "ADVISOR_UPDATE" && loteAt ? (
+                            <p className="text-[10px] text-sky-900/80">
+                              Actualizada por el asesor: {loteAt}
+                            </p>
+                          ) : null}
+                          {origin === "AMBIGUOUS" && loteAt ? (
+                            <p className="text-[10px] text-sky-900/80">
+                              Enviada por el asesor: {loteAt}
+                            </p>
+                          ) : null}
                           {changeDetails && resumenLines.length > 0 ? (
                             <ul className="space-y-0.5 text-[10px] leading-snug text-sky-900/90">
                               {resumenLines.map((line) => (
@@ -1850,15 +2033,15 @@ export default function MesaControlPage() {
                               ))}
                             </ul>
                           ) : null}
-                          {changeDetails && reenviadoAt ? (
+                          {!origin && changeDetails && loteAt ? (
                             <p className="text-[10px] text-sky-900/80">
-                              Reenviado por el asesor: {reenviadoAt}
+                              Reenviado por el asesor: {loteAt}
                             </p>
                           ) : null}
                           {changeDetails ? (
                             <Link
                               href={`/mesa-control/${c.id}?focus=${MESA_ASESOR_CAMBIOS_FOCUS}`}
-                              className="inline-flex mt-1 rounded-md bg-white px-2 py-1 text-[11px] font-medium text-sky-900 ring-1 ring-sky-300/80 hover:bg-sky-100"
+                              className={ctaClass}
                               data-testid="mesa-revisar-cambios"
                               onClick={(e) => e.stopPropagation()}
                               onKeyDown={(e) => e.stopPropagation()}
