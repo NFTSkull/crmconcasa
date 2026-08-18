@@ -3,6 +3,7 @@
  * Cada componente tiene confidence independiente.
  * Sin evidencia (COL/CP/N.L./número) el componente queda vacío.
  * direccionCompleta siempre = raw.
+ * Paridad canónica con public.infonavit_parse_direccion_mx (mig 190).
  */
 
 export type DireccionFieldConfidence = "high" | "none";
@@ -35,6 +36,21 @@ export interface DireccionMxParsed {
 
 const NONE: DireccionFieldConfidence = "none";
 const HIGH: DireccionFieldConfidence = "high";
+
+const NAME_PARTICLES = new Set([
+  "DE",
+  "DEL",
+  "LA",
+  "LAS",
+  "LOS",
+  "SAN",
+  "SANTA",
+  "Y",
+]);
+
+/** Terminadores estructurales de colonia (lookahead). */
+const COLONIA_STOP =
+  String.raw`(?=\s+(?:\d{5}\b|C\.P\.?|\bCP\b|N\.L\.?|\bNL\b|\bNUEVO LE[OÓ]N\b|INT(?:ERIOR)?\.?\b|LOTE\b|LT\.?\b|MANZANA\b|MZA?\.?\b))`;
 
 function emptyConfidence(): DireccionMxConfidence {
   return {
@@ -119,18 +135,26 @@ export function parseDireccionMxParaSolicitud(
     work = work.replace(intMatch[0], " ");
   }
 
-  const colBeforeCp = work.match(/\b(?:COL(?:ONIA)?\.?)\s+(.+?)(?=\s+\d{5}\b)/);
-  if (colBeforeCp) {
-    setHigh(out, "colonia", colBeforeCp[1]!.trim(), "colonia");
-    work = work.replace(colBeforeCp[0], " ");
-  } else {
-    const colBeforeEnt = work.match(
-      /\b(?:COL(?:ONIA)?\.?)\s+(.+?)(?=\s+N\.L\.?|\s+\bNL\b|\s+NUEVO LE[OÓ]N\b)/,
-    );
-    if (colBeforeEnt) {
-      setHigh(out, "colonia", colBeforeEnt[1]!.trim(), "colonia");
-      work = work.replace(colBeforeEnt[0], " ");
+  const colMatch = work.match(
+    new RegExp(String.raw`\b(?:COL(?:ONIA)?\.?)\s+(.+?)${COLONIA_STOP}`),
+  );
+  if (colMatch) {
+    let colonia = colMatch[1]!.trim();
+    const after = work
+      .slice(work.indexOf(colMatch[0]) + colMatch[0].length)
+      .trim();
+    const stoppedAtCpLabel = /^(C\.P\.?|\bCP\b)/.test(after);
+    if (stoppedAtCpLabel) {
+      const toks = colonia.split(/\s+/).filter((t) => t.length > 0);
+      const last = toks[toks.length - 1] ?? "";
+      if (toks.length >= 2 && last && !NAME_PARTICLES.has(last)) {
+        setHigh(out, "municipio", last, "municipio");
+        colonia = toks.slice(0, -1).join(" ");
+      }
     }
+    colonia = colonia.replace(/\bC\.P\.?\b/g, "").replace(/\s+/g, " ").trim();
+    if (colonia) setHigh(out, "colonia", colonia, "colonia");
+    work = work.replace(colMatch[0], " ");
   }
 
   const hasNuevoLeon =
@@ -147,7 +171,10 @@ export function parseDireccionMxParaSolicitud(
   if (out.codigoPostal) {
     work = work.replace(new RegExp(`\\b${out.codigoPostal}\\b`), " ");
   }
-  work = work.replace(/\bC\.?P\.?\b/g, " ");
+  work = work.replace(/\bC\.P\.?\b/g, " ");
+  work = work.replace(/\bCP\b/g, " ");
+  work = work.replace(/#/g, " ");
+  work = work.replace(/\b(\d+[A-Z]{0,3})\.(?=\s|$)/g, "$1");
   work = work.replace(/\s+/g, " ").trim();
 
   const streetMatch = work.match(/^(.+?)\s+(\d+[A-Z]{0,3})(?:\s+(.+))?$/);
@@ -157,6 +184,7 @@ export function parseDireccionMxParaSolicitud(
     const rest = (streetMatch[3] ?? "").trim();
     if (
       rest &&
+      !out.municipio &&
       (out.confidence.codigoPostal === HIGH || out.confidence.entidad === HIGH)
     ) {
       const restTokens = rest.split(" ").filter((t) => t.length > 0);

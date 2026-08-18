@@ -229,7 +229,7 @@ Tres montos distintos (no confundir):
 2. `cliente_datos.datos.montoMejoravit` JSON válido (> 0);
 3. Fallback productivo: `LEAST(ROUND(monto_aprobado_editor × 0.89, 2), 169000)`.
 
-**P189 documentos INFONAVIT (mapping v2):** Carta / Presupuesto / Solicitud usan este **mismo monto operativo** (Monto Mejoravit), no `monto_aprobado` editorial. El cobro no cambia.
+**P189 documentos INFONAVIT (mapping v2):** Carta / Presupuesto / Solicitud usan este **mismo monto operativo** (Monto Mejoravit), no `monto_aprobado` editorial. Domicilio de Solicitud: parser SQL/TS paritario (mig **190**); no overlay. El cobro no cambia.
 
 La sección Datos Generales y el JSON `datos.montoMejoravit` **no** se modifican al actualizar desde Mesa. El asesor puede seguir editando Datos Generales; eso no borra el override Mesa.
 

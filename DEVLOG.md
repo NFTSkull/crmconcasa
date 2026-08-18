@@ -1,3 +1,7 @@
+## 2026-08-18 - hotfix LOCAL: P189 parser dirección SQL↔TS (mig 190)
+
+Causa: el parser TS de colonia (lookahead C.P./CP5/INT/entidad) ya estaba certificado, pero `infonavit_parse_direccion_mx` SQL seguía greedy hasta el CP y absorbía municipio/`C.P.`. Un snapshot Cloud nuevo no coincidiría con el preview. Decisión: REPLACE quirúrgico de la función SQL (misma firma jsonb) tokenizando colonia; `vivienda.lote`/`manzana` salen del parser. 18 fixtures SQL=TS. mappingVersion=2. **189** = mapping v2; **190** = este parser; Operación de citas → **191** al retomar. Sin Cloud/regeneración/commit de históricos.
+
 ## 2026-08-18 - hotfix LOCAL: P189 mappingVersion=2 FINAL (Monto Mejoravit)
 
 Causa: la regla local previa («monto aprobado domina P189») quedó CANCELADA. Caso real: `monto_aprobado=113921.51` vs `datos.montoMejoravit=102529.36`; la Solicitud con 102529.36 era la correcta. B8 dejaba nombre/domicilio/propuesta en blanco aunque existían en CRM. Decisión: P189 usa `resolve_monto_operativo_mejoravit`. Helpers de IMPRESIÓN con **confidence** (nombre/dirección); 4 tokens + partícula en paterno no se separan. Plazo fuera de 1–10 → vacío + `plazo_invalido` (assert SQL usa `jsonb_typeof = 'null'`). Localidad/cierre = NUEVO LEÓN. Teléfono empresa: 10 dígitos en NÚMERO, LADA no inferida. Número de identificación: REQUIERE DECISIÓN DE NEGOCIO (Fase 2). Certificación visual 15/15 PASS (90/90 AcroForm). `schemaVersion=1` + `mappingVersion=2`; templates v1. Snapshots/PDFs históricos intactos. Sin Cloud/commit/agenda/Sheets.

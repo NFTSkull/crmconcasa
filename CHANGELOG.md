@@ -4,6 +4,8 @@
 
 ### Fixed
 
+- **hotfix(infonavit): P189 parser dirección SQL↔TS parity (LOCAL)** — mig **190**: `infonavit_parse_direccion_mx` replica las reglas de `parseDireccionMxParaSolicitud` (colonia no absorbe C.P./municipio/entidad; `#` → noExt; entidad solo con señal explícita). 18/18 fixtures idénticos. `mappingVersion=2` / templates v1. Sin Cloud/regeneración.
+
 - **hotfix(infonavit): P189 mapping v2 FINAL — Monto Mejoravit + parsers de impresión (LOCAL)** — mig **189**: `credito.montoSolicitado` y presupuesto estimado = `resolve_monto_operativo_mejoravit` (NO `monto_aprobado`). Nombre/refs/beneficiario via `parseNombrePersonaMx` (confidence); domicilio via `parseDireccionMxParaSolicitud` (confidence por componente); localidad/cierre `NUEVO LEÓN`; propuesta determinística; plazo inválido → vacío + `mappingWarnings.plazo_invalido`. `schemaVersion=1` `mappingVersion=2`; templates v1. Certificación campo-por-campo **PASS** (90/90 AcroForm; 15 PDFs). Sin Cloud/commit/agenda.
 
 - **hotfix(asesor): Datos Generales no pisa referencias visibles con `datos.infonavit` vacío (LOCAL)** — `normalizeClienteDatosForSave` deja de llamar incondicionalmente a `syncLegacyFromInfonavit`. Tras P189 B8 Mesa-only el formulario siempre serializa un bloque infonavit vacío; eso reemplazaba refs/nombre/beneficiario canónicos y `validateClienteDatos` reportaba obligatoriedad falsa. Referencias siguen obligatorias. Sin Cloud/commit/P189 PDF/agenda.
