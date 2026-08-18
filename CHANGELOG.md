@@ -2,6 +2,10 @@
 
 ## [Unreleased]
 
+### Fixed
+
+- **hotfix(asesor): Datos Generales no pisa referencias visibles con `datos.infonavit` vacío (LOCAL)** — `normalizeClienteDatosForSave` deja de llamar incondicionalmente a `syncLegacyFromInfonavit`. Tras P189 B8 Mesa-only el formulario siempre serializa un bloque infonavit vacío; eso reemplazaba refs/nombre/beneficiario canónicos y `validateClienteDatos` reportaba obligatoriedad falsa. Referencias siguen obligatorias. Sin Cloud/commit/P189 PDF/agenda.
+
 ### Added
 
 - **fix(infonavit): P189 B8 Mesa-only hotfix (LOCAL)** — mig **188**: `required=false` siempre; `should_enqueue=Mejoravit+feature ON`; snapshot desde Datos Generales históricos (ausentes→blank); asesor DENIED read model; UI asesor 100% pre-P189. Worker acepta snapshot parcial. Sin Cloud/commit/deploy.

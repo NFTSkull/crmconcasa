@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { ClienteDatosFormShape } from "@/lib/clienteDatosFormCompleteness";
 import { fixtureInfonavitCompleto } from "@/domain/expediente-cliente-datos/infonavit-datos.fixtures";
+import { emptyInfonavitClienteDatosV1 } from "@/domain/expediente-cliente-datos/infonavit-datos";
 import {
   MSJ_DIGITS_ONLY,
   MSJ_PERSON_NAME_INVALID,
@@ -561,4 +562,112 @@ test("P189 B2: casado sin régimen falla; soltero limpia", () => {
     COBRO_CTX,
   );
   assert.ok(r.errors.infonavitRegimen);
+});
+
+const B8_CTX = {
+  montoAprobado: 100_000,
+  direccionOpcional: "Calle Principal 123",
+  programaDb: "mejoravit",
+  requireInfonavit: false,
+} as const;
+
+const b8VisibleRefs = [
+  { nombre: "DEBANHI ABIGAIL CASTRO JUAREZ", celular: "8111626717" },
+  { nombre: "NALLELY BERENICE CASTRO JUAREZ", celular: "8118559833" },
+] as const;
+
+test("P189 B8: infonavit vacío NO pisa referencias visibles (regresión productiva)", () => {
+  const data: ClienteDatosFormShape = {
+    ...baseValid,
+    nombreCliente: "Cliente Visible",
+    referencias: [
+      { nombre: b8VisibleRefs[0].nombre, celular: b8VisibleRefs[0].celular },
+      { nombre: b8VisibleRefs[1].nombre, celular: b8VisibleRefs[1].celular },
+    ],
+    beneficiario: { nombre: "Beneficiario Visible", parentesco: "Hermana" },
+    infonavit: emptyInfonavitClienteDatosV1(),
+  };
+
+  const saved = normalizeClienteDatosForSave(data);
+  assert.equal(saved.referencias[0]?.nombre, b8VisibleRefs[0].nombre);
+  assert.equal(saved.referencias[0]?.celular, b8VisibleRefs[0].celular);
+  assert.equal(saved.referencias[1]?.nombre, b8VisibleRefs[1].nombre);
+  assert.equal(saved.referencias[1]?.celular, b8VisibleRefs[1].celular);
+  assert.equal(saved.nombreCliente, "Cliente Visible");
+  assert.equal(saved.beneficiario.nombre, "Beneficiario Visible");
+  assert.equal(saved.beneficiario.parentesco, "Hermana");
+
+  const r = validateClienteDatos(data, B8_CTX);
+  assert.equal(r.errors.referencia1Nombre, undefined);
+  assert.equal(r.errors.referencia1Celular, undefined);
+  assert.equal(r.errors.referencia2Nombre, undefined);
+  assert.equal(r.errors.referencia2Celular, undefined);
+  assert.equal(r.isValid, true);
+});
+
+test("P189 B8: infonavit con refs vacías y otros campos P189 no pisa legacy", () => {
+  const inf = emptyInfonavitClienteDatosV1();
+  inf.titular.nombres = "TITULAR";
+  inf.titular.apellidoPaterno = "INFONAVIT";
+  inf.mejora.descripcion = "Mejora histórica";
+  const data: ClienteDatosFormShape = {
+    ...baseValid,
+    nombreCliente: "Nombre Legacy",
+    referencias: [
+      { nombre: "Ref Legacy Uno", celular: "8111111111" },
+      { nombre: "Ref Legacy Dos", celular: "8222222222" },
+    ],
+    beneficiario: { nombre: "Bene Legacy", parentesco: "Madre" },
+    infonavit: inf,
+  };
+  const saved = normalizeClienteDatosForSave(data);
+  assert.equal(saved.nombreCliente, "Nombre Legacy");
+  assert.equal(saved.referencias[0]?.nombre, "Ref Legacy Uno");
+  assert.equal(saved.referencias[0]?.celular, "8111111111");
+  assert.equal(saved.referencias[1]?.nombre, "Ref Legacy Dos");
+  assert.equal(saved.referencias[1]?.celular, "8222222222");
+  assert.equal(saved.beneficiario.nombre, "Bene Legacy");
+  assert.equal(saved.beneficiario.parentesco, "Madre");
+  const r = validateClienteDatos(data, B8_CTX);
+  assert.equal(r.errors.referencia1Nombre, undefined);
+  assert.equal(r.errors.referencia1Celular, undefined);
+  assert.equal(r.errors.referencia2Nombre, undefined);
+  assert.equal(r.errors.referencia2Celular, undefined);
+});
+
+test("P189 B8: compro_tu_casa con infonavit vacío conserva refs", () => {
+  const data: ClienteDatosFormShape = {
+    ...baseValid,
+    montoMejoravit: "",
+    plazo: "",
+    infonavit: emptyInfonavitClienteDatosV1(),
+  };
+  const saved = normalizeClienteDatosForSave(data);
+  assert.equal(saved.referencias[0]?.nombre, "Ref Uno");
+  assert.equal(saved.referencias[0]?.celular, "8111111111");
+  const r = validateClienteDatos(data, {
+    ...B8_CTX,
+    programaDb: "compro_tu_casa",
+  });
+  assert.equal(r.errors.referencia1Nombre, undefined);
+  assert.equal(r.errors.referencia1Celular, undefined);
+  assert.equal(r.isValid, true);
+});
+
+test("P189 B8: referencias siguen obligatorias si realmente están vacías", () => {
+  const r = validateClienteDatos(
+    {
+      ...baseValid,
+      referencias: [
+        { nombre: "", celular: "" },
+        { nombre: "", celular: "" },
+      ],
+      infonavit: emptyInfonavitClienteDatosV1(),
+    },
+    B8_CTX,
+  );
+  assert.equal(r.errors.referencia1Nombre, "Nombre de referencia 1 es obligatorio.");
+  assert.equal(r.errors.referencia1Celular, "Celular de referencia 1 es obligatorio.");
+  assert.equal(r.errors.referencia2Nombre, "Nombre de referencia 2 es obligatorio.");
+  assert.equal(r.errors.referencia2Celular, "Celular de referencia 2 es obligatorio.");
 });

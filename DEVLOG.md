@@ -1,3 +1,7 @@
+## 2026-08-17 - hotfix LOCAL: refs Datos Generales no pisadas por infonavit vacío
+
+Causa: `normalizeClienteDatosForSave` llamaba `syncLegacyFromInfonavit` si existía `datos.infonavit`. Tras B8 el asesor inicializa `emptyInfonavitClienteDatosV1()` y no captura P189; refs visibles en el formulario se sustituían por strings vacíos antes de `validateClienteDatos`. Decisión: normalizar campos históricos del formulario; conservar `syncLegacyFromInfonavit` exportada para tests/contratos B2, sin usarla como autoridad automática. Completeness ya leía refs legacy cuando `requireInfonavit=false` (sin cambio). Sin SQL/Cloud/commit/agenda.
+
 ## 2026-08-17 - P189 B8 LOCAL: Mesa-only hotfix
 
 Decisión: PDFs INFONAVIT solo para Mesa; asesor UI pre-P189. `required=false`; enqueue Mejoravit+feature ON en send/reingreso; snapshot desde Datos Generales (blank si ausente); asesor DENIED en read model. Mig **188** additive. Sin Cloud/commit.
