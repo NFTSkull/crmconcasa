@@ -2,6 +2,7 @@
  * Simulación local (mock) de list/summary inbox asesor — paridad aproximada B1.5.
  * No se usa en modo Supabase; la UI nunca llama listForAsesor.
  */
+import { hasPendingAsesorChanges } from "@/domain/expediente-archivos/derive-resumen-expediente-correccion";
 import { matchesAsesorListadoBusqueda } from "@/lib/asesorListadoBusqueda";
 import { isAsesorExpedienteAccionable } from "@/lib/asesorTareasPendientes";
 import {
@@ -29,8 +30,15 @@ function dayBoundsLocal(ymd: string, endOfDay: boolean): number {
   return d.getTime();
 }
 
-function categoriaMock(_exp: ExpedienteMock): AsesorListExpedienteItem["categoria_correccion"] {
-  void _exp;
+function categoriaMock(exp: ExpedienteMock): AsesorListExpedienteItem["categoria_correccion"] {
+  if (
+    hasPendingAsesorChanges({
+      loteStatus: exp.asesorCambioLote?.status ?? null,
+      submittedAt: exp.asesorCambioLote?.submittedAt ?? null,
+    })
+  ) {
+    return "correccion_enviada";
+  }
   // Sin corpus documental en mock: faltantes (paridad con DOCUMENTO_TIPOS ausentes).
   return "faltantes";
 }

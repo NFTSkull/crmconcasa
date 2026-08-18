@@ -196,6 +196,15 @@
 - [x] Mig. 119: `cliente_datos_assert_payload_formats` en save + corrección; sin CHECK/backfill.
 - [x] Tests TS casos 1–13; SQL estructural `rpc_cliente_datos_field_formats_p133.sql`.
 
+## Hotfix 192 — Correcciones P130 en chip Mesa / Asesor
+
+- [x] Helper `expediente_tiene_correccion_asesor_pendiente` (`pendiente_revision` + `submitted_at`).
+- [x] Precedencia sobre `correccion_requerida` / faltantes; legacy P102/P167 si no hay lote pendiente.
+- [x] Lista y `correccionesEnviadas` heredan `mesa_bandeja_categoria_resumen` (sin duplicar).
+- [x] Asesor `correccion_enviada` alineado; sin gate de etapa.
+- [x] Sort: latest pending `submitted_at`; marcar revisado sale del predicado.
+- [x] SQL A–H + Luis-like; tests Mesa/P130/asesor; 0 Cloud writes.
+
 ## P130 — Lote de cambios del asesor (Mesa)
 
 - [x] Formatters/anchors unit (`mesaAsesorCambiosUi.test.ts`).

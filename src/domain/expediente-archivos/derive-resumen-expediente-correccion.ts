@@ -18,7 +18,22 @@ export type DeriveResumenExpedienteCorreccionContext = Readonly<{
   fechaEnvioMesa?: string | null;
   /** Si Mesa pidió corrección de Acuse vía envío de retención. */
   retencionEnvioEstado?: string | null;
+  /**
+   * Lote P130 `pendiente_revision` con `submitted_at`.
+   * Precede a rechazo documental/DG: el asesor ya reenvió.
+   */
+  cambiosPendientesRevision?: boolean;
 }>;
+
+/** Espejo SQL `expediente_tiene_correccion_asesor_pendiente`. Sin gate de etapa. */
+export function hasPendingAsesorChanges(params: {
+  loteStatus?: string | null;
+  submittedAt?: string | null;
+}): boolean {
+  const submitted =
+    typeof params.submittedAt === "string" ? params.submittedAt.trim() : "";
+  return params.loteStatus === "pendiente_revision" && submitted.length > 0;
+}
 
 const TIPOS_CORREGIBLES_ASESOR: readonly string[] = [
   ...INTEGRATION_DOC_TIPOS_VALIDACION_MESA,
@@ -71,6 +86,8 @@ export function deriveResumenExpedienteCorreccion(
           fechaEnvioMesa: legacyFechaEnvioMesa ?? null,
         }
       : clienteDatosEstadoOrCtx;
+
+  if (ctx.cambiosPendientesRevision) return "correccion_enviada";
 
   if (ctx.clienteDatosEstado === "rechazado") return "correccion_requerida";
 

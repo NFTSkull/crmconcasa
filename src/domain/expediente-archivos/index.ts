@@ -200,7 +200,10 @@ export {
   shouldShowNotificacionApodacaHistorico,
   shouldShowNotificacionApodacaUpload,
 } from "./notificacion-apodaca-visibility";
-export { deriveResumenExpedienteCorreccion } from "./derive-resumen-expediente-correccion";
+export {
+  deriveResumenExpedienteCorreccion,
+  hasPendingAsesorChanges,
+} from "./derive-resumen-expediente-correccion";
 export * from "./types";
 export * from "./repo";
 export * from "./checklist";

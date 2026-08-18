@@ -970,7 +970,8 @@ Rango seguro **O:U** (`ESTADO CRM`…`CRM_SYNC_VERSION`). **A:N se PRESERVA** (H
 **Equivalencia TS→SQL:** `docs/ASESOR_INBOX_B15_EQUIVALENCIA.md`
 **Migración:** `161_asesor_inbox_page_summary.sql` (**aplicada en Cloud** `fvtqbxukqlajezyyvwzy`).
 **Calibración pendientes (P167):** `167_asesor_pendientes_calibrados.sql` — `asesor_inbox_categoria_correccion` incluye docs `cliente_*` + Acuse/`retencion_envios`; `asesor_inbox_pendiente_agendar_biometricos` incluye reagendar en etapa 4/5 tras cancelación. Label UI chip/KPI: «Necesita corrección». Selector TS: `getAdvisorPrimaryPendingAction` / `listAsesorCorreccionesAbiertas`.
-**P191 (LOCAL, no Cloud):** tareas accionables (`agendar_biometricos` / `agendar_firma` / `subir_acuse`) requieren `asesor_inbox_es_accionable` = `resultado_real NOT IN ('cancelado','rechazado_mesa')`. Lista y summary llaman los mismos `pendiente_*`. Cancelados / Rechazados por Mesa / corrección documental no cambian. Numeración: **191** = este hotfix; Operación de citas → **192**.
+**P191 (LOCAL, no Cloud):** tareas accionables (`agendar_biometricos` / `agendar_firma` / `subir_acuse`) requieren `asesor_inbox_es_accionable` = `resultado_real NOT IN ('cancelado','rechazado_mesa')`. Lista y summary llaman los mismos `pendiente_*`. Cancelados / Rechazados por Mesa / corrección documental no cambian. Numeración: **191** = ese hotfix.
+**Hotfix 192 (LOCAL, no Cloud):** `asesor_inbox_categoria_correccion` evalúa `expediente_tiene_correccion_asesor_pendiente` (lote P130 `pendiente_revision` + `submitted_at`) **antes** de DG/docs/acuse. Sin gate de etapa. Operación de citas → **193**.
 **UI `/asesor`:** cableada a las RPCs (B1 UI). Sin fallback a `listForAsesor()`. Refetch al focus/visibility (debounce ≥8s).
 
 ### `asesor_list_expedientes_page(...) → jsonb`
@@ -1019,6 +1020,7 @@ Counts: `total`, `en_tramite`, `correccion_*`, `rechazados_mesa`, `cancelados`, 
 - Orden de evaluación: **filtros → orden global → página**. Nunca filtrar en cliente sobre 25 filas.
 - UI `/mesa-control` (Supabase): infinite scroll pide la siguiente página; enrich documental P100 solo de IDs de la página.
 - Migración `094_rpc_mesa_list_bandeja_page.sql` (ampliada en **113** / P127).
+- **Hotfix 192 (LOCAL):** `mesa_bandeja_categoria_resumen` antepone lote P130 `pendiente_revision` + `submitted_at` → `correccion_enviada` (prioridad sobre `correccion_requerida` / faltantes). Lista y `counts.correccionesEnviadas` heredan el helper. Sin duplicar predicado en `mesa_list_bandeja_page`. `mesa_bandeja_sort_ts` usa latest pending `submitted_at`. Legacy P102 (pack legado + timestamp DG) se conserva si no hay lote pendiente. Sin gate de etapa. Sin backfill.
 
 ### 14B-bis. Actividad Mesa — Visto / Actualizado por (P127)
 
@@ -1058,6 +1060,8 @@ No escribe `action_log` ni muta `expedientes`. UI badge verde; Visto/Actualizado
 | `mesa_marcar_asesor_cambios_revisados(p_lote_id)` | Idempotente; roles Mesa/`super_admin`; no avanza etapa ni valida docs |
 
 Captura en la misma TX de `register_expediente_documento_correccion` / `save_cliente_datos_correccion`. **Fix lotes vacíos (mig. 117):** `asesor_cambio_freeze_lote` no congela sin filas (borra borrador vacío); `register_expediente_documento` (vía `…_pre_reingreso`) registra reemplazo post-Mesa con el mismo helper `asesor_cambio_record_doc_reemplazo`. UI: `hasAdvisorChangeDetails` (batchId && count>0) — sin «Revisar cambios» si count=0; enrich `advisorChanges*`; panel `mesa-asesor-cambios`; focus `asesor-cambios`.
+
+**Hotfix 192:** el chip Mesa «Correcciones listas para revisar» y el KPI asesor «Corrección enviada» usan `expediente_tiene_correccion_asesor_pendiente`. `mesa_marcar_asesor_cambios_revisados` no cambia; al pasar a `revisado` el expediente sale solo del predicado.
 
 ---
 

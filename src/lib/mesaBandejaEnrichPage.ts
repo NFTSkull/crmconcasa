@@ -5,6 +5,7 @@
 
 import {
   deriveResumenExpedienteCorreccion,
+  hasPendingAsesorChanges,
   type CategoriaResumenDocumental,
   type ExpedienteArchivoResumen,
 } from "@/domain/expediente-archivos";
@@ -203,23 +204,30 @@ export async function enrichMesaBandejaPageItems<T extends MesaBandejaCasoBase>(
     const resumen = resumenPorId[c.id] ?? [];
     const clienteBatch = estadosPorId[c.id] ?? null;
     const advisor = advisorChangesById.get(c.id);
+    const cambiosPendientesRevision = hasPendingAsesorChanges({
+      loteStatus: advisor?.status ?? null,
+      submittedAt: advisor?.submittedAt ?? null,
+    });
     const resumenDocumental = deriveResumenExpedienteCorreccion(resumen, {
       clienteDatosEstado: clienteBatch?.estado ?? null,
       clienteDatosUpdatedAt: clienteBatch?.updatedAt ?? null,
       clienteDatosValidatedAt: clienteBatch?.validatedAt ?? null,
       fechaEnvioMesa: c.fechaEnvioMesa ?? null,
+      cambiosPendientesRevision,
     });
-    const ultimaCorreccionEnviadaAt = deriveUltimaCorreccionEnviadaAt({
-      resumen,
-      clienteDatos: clienteBatch
-        ? {
-            estado: clienteBatch.estado,
-            updatedAt: clienteBatch.updatedAt,
-            validatedAt: clienteBatch.validatedAt,
-          }
-        : null,
-      fechaEnvioMesa: c.fechaEnvioMesa ?? null,
-    });
+    const ultimaCorreccionEnviadaAt = cambiosPendientesRevision
+      ? (advisor?.submittedAt ?? null)
+      : deriveUltimaCorreccionEnviadaAt({
+          resumen,
+          clienteDatos: clienteBatch
+            ? {
+                estado: clienteBatch.estado,
+                updatedAt: clienteBatch.updatedAt,
+                validatedAt: clienteBatch.validatedAt,
+              }
+            : null,
+          fechaEnvioMesa: c.fechaEnvioMesa ?? null,
+        });
     const resubmittedAt =
       advisor?.submittedAt ?? ultimaCorreccionEnviadaAt ?? null;
     return {

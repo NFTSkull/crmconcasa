@@ -53,6 +53,7 @@ import {
   mockGetAsesorInboxSummary,
   mockListAsesorInboxPage,
 } from "./asesor-inbox-mock";
+import { hasPendingAsesorChanges } from "@/domain/expediente-archivos/derive-resumen-expediente-correccion";
 
 function readMockSessionAsesorEmail(): string | null {
   if (typeof window === "undefined") return null;
@@ -168,6 +169,11 @@ export interface ExpedienteMock {
   reprecalificacionPendiente?: {
     programa: string;
     programaSolicitado: string;
+  } | null;
+  /** Hotfix 192: lote P130 mock. Sin gate de etapa. */
+  asesorCambioLote?: {
+    status: "borrador" | "pendiente_revision" | "revisado";
+    submittedAt?: string | null;
   } | null;
 }
 
@@ -891,8 +897,15 @@ export class MockExpedientesRepo implements ExpedientesRepo {
       } else if (quick === "en_proceso") {
         if (ciclo !== "activo" || sub !== "en_proceso") return false;
       } else if (quick === "correccion_enviada") {
-        // Sin docs en mock: vacío (Supabase usa RPC).
-        return false;
+        if (ciclo !== "activo") return false;
+        if (
+          !hasPendingAsesorChanges({
+            loteStatus: e.asesorCambioLote?.status ?? null,
+            submittedAt: e.asesorCambioLote?.submittedAt ?? null,
+          })
+        ) {
+          return false;
+        }
       } else if (quick === "rechazos_cancelaciones") {
         const subf = query.rechazosSub ?? "rechazados";
         if (subf === "cancelados") {
@@ -913,7 +926,12 @@ export class MockExpedientesRepo implements ExpedientesRepo {
 
     const withSort: MesaBandejaPageItem[] = list
       .map((e) => {
+        const pendingAt =
+          e.asesorCambioLote?.status === "pendiente_revision"
+            ? e.asesorCambioLote.submittedAt?.trim() || ""
+            : "";
         const sortTs =
+          pendingAt ||
           e.operativo.fechaEnvioMesa?.trim() ||
           e.base.createdAt ||
           "1970-01-01T00:00:00.000Z";
@@ -933,7 +951,16 @@ export class MockExpedientesRepo implements ExpedientesRepo {
       query.includeCounts === false
         ? null
         : {
-            correccionesEnviadas: 0,
+            correccionesEnviadas: all.filter((e) => {
+              const ciclo = e.operativo.cicloEstado ?? "activo";
+              return (
+                ciclo === "activo" &&
+                hasPendingAsesorChanges({
+                  loteStatus: e.asesorCambioLote?.status ?? null,
+                  submittedAt: e.asesorCambioLote?.submittedAt ?? null,
+                })
+              );
+            }).length,
             nuevos: all.filter((e) => {
               const ciclo = e.operativo.cicloEstado ?? "activo";
               const etapa = e.operativo.etapaActual ?? 1;
