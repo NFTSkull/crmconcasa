@@ -205,7 +205,7 @@ Dos resultados operativos distintos; **no** inferir por texto libre ni por movim
 | Ciclo | Permanece `activo` (habilita reingreso P071/P072) | Terminal: `cancelado` |
 | Sale de «En proceso» | Sí (chip operativo) | Sí |
 | Mesa UI | Dentro de «Rechazos y cancelaciones» → subvista **Rechazados** | Misma entrada → subvista **Cancelados** |
-| Asesor | KPI/filtro «Rechazados por Mesa» | Estado visible **Cancelado** (no es `rechazado_mesa`) |
+| Asesor | KPI/filtro «Rechazados por Mesa»; **no** aparece en chips de tarea (Agendar biométricos/firma, Subir acuse) | Estado visible **Cancelado** (no es `rechazado_mesa`); **no** aparece en chips de tarea accionable |
 | Continuación | Reingreso post-biométricos cuando aplique (P072) | **No** flujo normal; solo futura acción admin explícita (fuera de P094 si negocio la pide) |
 | Prohibido | Confundir con corrección documental | Avance, citas, movimiento, rechazo, reingreso común, uploads operativos |
 

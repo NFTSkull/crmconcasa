@@ -4,6 +4,8 @@
 
 ### Fixed
 
+- **hotfix(asesor): expedientes terminales fuera de tareas accionables (LOCAL)** — mig **191**: `asesor_inbox_es_accionable` (via `resultado_real`) excluye `cancelado` / `rechazado_mesa` de `pendiente_agendar_biometricos` / `pendiente_agendar_firma` / `pendiente_subir_acuse`. Lista y summary usan el mismo helper. Chips Cancelados / Rechazados por Mesa / corrección documental intactos. Operación de citas (worktree pausado) → futura mig **192**. Sin Cloud/push/PR.
+
 - **hotfix(infonavit): P189 parser dirección SQL↔TS parity (LOCAL)** — mig **190**: `infonavit_parse_direccion_mx` replica las reglas de `parseDireccionMxParaSolicitud` (colonia no absorbe C.P./municipio/entidad; `#` → noExt; entidad solo con señal explícita). 18/18 fixtures idénticos. `mappingVersion=2` / templates v1. Sin Cloud/regeneración.
 
 - **hotfix(infonavit): P189 mapping v2 FINAL — Monto Mejoravit + parsers de impresión (LOCAL)** — mig **189**: `credito.montoSolicitado` y presupuesto estimado = `resolve_monto_operativo_mejoravit` (NO `monto_aprobado`). Nombre/refs/beneficiario via `parseNombrePersonaMx` (confidence); domicilio via `parseDireccionMxParaSolicitud` (confidence por componente); localidad/cierre `NUEVO LEÓN`; propuesta determinística; plazo inválido → vacío + `mappingWarnings.plazo_invalido`. `schemaVersion=1` `mappingVersion=2`; templates v1. Certificación campo-por-campo **PASS** (90/90 AcroForm; 15 PDFs). Sin Cloud/commit/agenda.

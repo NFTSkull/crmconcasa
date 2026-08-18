@@ -3,6 +3,7 @@
 Fuente UI: `src/app/asesor/page.tsx` + helpers citados.
 RPCs: `asesor_list_expedientes_page`, `asesor_inbox_summary` (mig. **161**).
 Helpers calibrados: `asesor_inbox_categoria_correccion`, `asesor_inbox_pendiente_agendar_biometricos` (mig. **167**).
+**P191:** `asesor_inbox_es_accionable` (via `resultado_real`) — `cancelado` / `rechazado_mesa` no son tarea; los tres `pendiente_*` lo invocan. `isAsesorExpedienteAccionable` en TS.
 **UI `/asesor`:** cableada en B1 UI (sin `listForAsesor`, sin fallback).
 
 ## Universo base
@@ -87,7 +88,7 @@ Aplicados **antes** de paginar; `total_count` = universo filtrado.
 | quick ≠ todos | excluye `ciclo=cerrado` | igual |
 | quick `en_tramite` | resultado + sin corrección | igual |
 | quick `correccion_*` / `rechazados_mesa` / `cancelados` | por categoría/resultado | igual |
-| quick `agendar_*` / `subir_acuse` | predicados tarea | igual |
+| quick `agendar_*` / `subir_acuse` | predicados tarea **y** expediente accionable (`resultado_real` ≠ cancelado/rechazado_mesa) | igual (P191) |
 
 ## Orden y página
 

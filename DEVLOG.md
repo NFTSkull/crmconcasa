@@ -1,3 +1,7 @@
+## 2026-08-18 - hotfix LOCAL: asesor tareas accionables excluyen terminales (mig 191)
+
+Causa: `asesor_inbox_pendiente_agendar_biometricos` (P167) solo miraba `submitted_to_mesa` + `etapa_actual` + booking vigente. Un expediente `ciclo_estado=cancelado` / `resultado_real=cancelado` en etapa 3 sin booking entraba al chip «Agendar biométricos» y al contador. Decisión: helper canónico `asesor_inbox_es_accionable` reutiliza `asesor_inbox_resultado_real`; `cancelado` y `rechazado_mesa` no son tarea. Los tres `pendiente_*` (bio/firma/acuse) comparten el guard; list+summary heredan. Corrección documental no es terminal. Reingreso intacto (si el estado actual vuelve a `en_tramite`, reaparece). Mig **191**; Operación de citas pausada → **192** al retomar. Sin Cloud/push/PR.
+
 ## 2026-08-18 - feat LOCAL: P189 Word editable Mesa on-demand
 
 Causa: Mesa necesita Carta/Presupuesto/Solicitud editables en Word sin tocar el PDF oficial ni guardar un segundo artefacto. Decisión: mismo snapshot de `submission_version` → `adaptB3SnapshotToB1` → print model → `generateInfonavitDocx` (OOXML `w:t`, 0 raster). Ruta Node `POST /api/mesa/infonavit-docx` con JWT Mesa + RPC visibilidad + SELECT snapshot service-role server-side. 0 Storage DOCX, 0 migration, 0 outbox. Filenames sin PII. Asesor 403 / sin UI. Parser mig **190** / PR #152 intacto. Históricos no regenerados. `tsconfig.allowImportingTsExtensions` para importar el generador Deno (`*.ts`) desde la ruta Next (`noEmit`). Sin Cloud/push.

@@ -38,7 +38,46 @@ export type AsesorTareaExpedienteInput = Readonly<{
   agendaFirmas?: AsesorAgendaBookingHints | null;
   retencion?: AsesorRetencionHints | null;
   dataModeSupabase?: boolean;
+  /** Autoridad de `asesor_inbox_resultado_real` cuando ya viene del RPC. */
+  resultadoReal?: string | null;
+  cicloEstado?: string | null;
+  subestado?: string | null;
 }>;
+
+/**
+ * Tarea accionable del asesor = expediente operacionalmente activo.
+ * Terminales (cancelado / rechazado_mesa) jamás cuentan en agenda/acuse.
+ * Espejo SQL: `asesor_inbox_es_accionable`.
+ */
+export function isAsesorExpedienteAccionable(
+  input: Pick<
+    AsesorTareaExpedienteInput,
+    "submittedToMesa" | "resultadoReal" | "cicloEstado" | "subestado"
+  >,
+): boolean {
+  const real = resolveAsesorResultadoReal(input);
+  return real !== "cancelado" && real !== "rechazado_mesa";
+}
+
+function resolveAsesorResultadoReal(
+  input: Pick<
+    AsesorTareaExpedienteInput,
+    "submittedToMesa" | "resultadoReal" | "cicloEstado" | "subestado"
+  >,
+): string | null {
+  if (input.cicloEstado === "cancelado") return "cancelado";
+  if (
+    input.submittedToMesa &&
+    input.subestado === "rechazado" &&
+    (input.cicloEstado == null || input.cicloEstado === "activo")
+  ) {
+    return "rechazado_mesa";
+  }
+  if (typeof input.resultadoReal === "string" && input.resultadoReal.trim() !== "") {
+    return input.resultadoReal.trim();
+  }
+  return null;
+}
 
 function hasFechaCita(value?: string | null): boolean {
   return typeof value === "string" && value.trim() !== "";
@@ -100,6 +139,7 @@ function findActiveFirmasBooking(
 export function isAsesorPendienteAgendarBiometricos(
   input: AsesorTareaExpedienteInput,
 ): boolean {
+  if (!isAsesorExpedienteAccionable(input)) return false;
   if (!input.submittedToMesa) return false;
   if (input.hasActiveNotificacionBooking === true) return false;
 
@@ -119,6 +159,7 @@ export function isAsesorPendienteAgendarBiometricos(
  * Supabase: etapa 9 sin booking; etapa 10 solo tras cancelación Mesa.
  */
 export function isAsesorPendienteAgendarFirma(input: AsesorTareaExpedienteInput): boolean {
+  if (!isAsesorExpedienteAccionable(input)) return false;
   if (!input.submittedToMesa) return false;
 
   const hints = resolveFirmasHints(input);
@@ -156,6 +197,7 @@ export function hasAcusePrincipalValido(
  * principal válido (opción A/B ausente o rechazado). No exige etapa === 8.
  */
 export function isAsesorPendienteSubirAcuse(input: AsesorTareaExpedienteInput): boolean {
+  if (!isAsesorExpedienteAccionable(input)) return false;
   const etapa = input.etapaActual;
   if (typeof etapa !== "number" || etapa < RETENCION_ETAPA_OPERATIVA_ID) {
     return false;
@@ -184,6 +226,9 @@ export function buildAsesorTareaExpedienteInput(params: {
   agendaFirmas?: AsesorAgendaBookingHints | null;
   retencion?: AsesorRetencionHints | null;
   dataModeSupabase: boolean;
+  resultadoReal?: string | null;
+  cicloEstado?: string | null;
+  subestado?: string | null;
 }): AsesorTareaExpedienteInput {
   return {
     expedienteId: params.expedienteId,
@@ -196,6 +241,9 @@ export function buildAsesorTareaExpedienteInput(params: {
     agendaFirmas: params.agendaFirmas,
     retencion: params.retencion,
     dataModeSupabase: params.dataModeSupabase,
+    resultadoReal: params.resultadoReal,
+    cicloEstado: params.cicloEstado,
+    subestado: params.subestado,
   };
 }
 
