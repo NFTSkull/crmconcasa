@@ -1705,6 +1705,24 @@ Read model UI. El frontend **no** consulta `expediente_infonavit_submission_snap
 
 **Fuera de B5:** Cloud apply/deploy/smoke/release.
 
+## 19septies. P189 Word editable Mesa on-demand (LOCAL)
+
+Sin migration. Sin Storage DOCX. Sin outbox Word. Sin `expediente_documentos` extra. PDF fill/flatten intacto.
+
+**HTTP** `POST /api/mesa/infonavit-docx` (`runtime=nodejs`)
+
+Body Zod: `{ expedienteId: uuid, documentType: infonavit_carta_bajo_protesta|infonavit_presupuesto_mejoramiento|infonavit_solicitud_inscripcion, submissionVersion: int>=0 | dígitos }`.
+
+Auth: `Authorization: Bearer` sesión Mesa. Roles: `mesa_admin` | `mesa_interno` | `mesa_externo` | `super_admin` activo. Visibilidad: RPC `get_expediente_infonavit_pdf_estado` con JWT. Snapshot: `SELECT` server-side `expediente_infonavit_submission_snapshots` por `(expediente_id, submission_version)` exacta (service role; 0 SELECT browser). Genera `generateInfonavitDocx` en memoria desde `adaptB3SnapshotToB1` del **mismo** snapshot que el PDF de esa versión.
+
+OK: `Content-Type: application/vnd.openxmlformats-officedocument.wordprocessingml.document` + `Content-Disposition: attachment` + filename amigable sin PII (`Carta Bajo Protesta editable.docx`, `Presupuesto de Mejoramiento editable.docx`, `Solicitud de Inscripción editable.docx`).
+
+Errores públicos sin PII: 401 `unauthenticated`, 403 `forbidden` (asesor / sin visibilidad / inactivo), 400 `invalid_request`, 409 `not_done` | `version_mismatch` (no usa otra versión), 404/409 `snapshot_missing`.
+
+**UI Mesa:** misma tarjeta Documentos INFONAVIT: Vista previa / Descargar PDF / Descargar Word editable (solo `done` + versión activa). Asesor: sin acceso ni botón.
+
+**Fuera:** Cloud/push/PR/deploy; regeneración de históricos; companion DOCX en Storage.
+
 ## 17f. Marcador Mesa `tiene_datos` (P119)
 
 **RPC** `mesa_set_expediente_marcador(p_expediente_id, p_tipo, p_active)`

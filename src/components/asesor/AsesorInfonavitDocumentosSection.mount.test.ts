@@ -17,4 +17,15 @@ describe("AsesorInfonavitDocumentosSection montaje B8", () => {
     assert.doesNotMatch(pageSrc, /fetchP189InfonavitFeatureStatus/);
     assert.doesNotMatch(pageSrc, /showInfonavitDatosFields/);
   });
+
+  it("el componente asesor no pide Word editable", () => {
+    const componentPath = join(
+      process.cwd(),
+      "src/components/asesor/AsesorInfonavitDocumentosSection.tsx",
+    );
+    const componentSrc = readFileSync(componentPath, "utf8");
+    assert.doesNotMatch(componentSrc, /allowWordDownload/);
+    assert.doesNotMatch(componentSrc, /Descargar Word editable/);
+    assert.doesNotMatch(componentSrc, /infonavit-docx/);
+  });
 });

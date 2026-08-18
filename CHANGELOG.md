@@ -12,6 +12,8 @@
 
 ### Added
 
+- **feat(p189): Word editable Mesa on-demand (LOCAL)** — `docx` nativo desde el mismo snapshot P189 que el PDF (`adaptB3SnapshotToB1` → print model → `generateInfonavitDocx`). `POST /api/mesa/infonavit-docx` Mesa-only, Zod, 0 Storage/migration. UI: Vista previa / Descargar PDF / Descargar Word editable. Asesor denied. PDF fill/flatten y parser PR #152 intactos. Sin Cloud/push.
+
 - **fix(infonavit): P189 B8 Mesa-only hotfix (LOCAL)** — mig **188**: `required=false` siempre; `should_enqueue=Mejoravit+feature ON`; snapshot desde Datos Generales históricos (ausentes→blank); asesor DENIED read model; UI asesor 100% pre-P189. Worker acepta snapshot parcial. Sin Cloud/commit/deploy.
 
 - **fix(infonavit): P189 B7.1 UX freeze — formulario P189 invisible si no es required (LOCAL)** — superseded by B8.

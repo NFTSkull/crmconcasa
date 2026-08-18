@@ -49,8 +49,13 @@ describe("MesaInfonavitDocumentosSection montaje", () => {
     assert.match(sharedSrc, /Generando automáticamente/);
     assert.match(sharedSrc, /Versión anterior disponible/);
     assert.match(sharedSrc, /Esto no bloquea el\s+expediente/);
-    assert.match(sharedSrc, /Ver PDF/);
-    assert.match(sharedSrc, /Descargar/);
+    assert.match(sharedSrc, /Vista previa/);
+    assert.match(sharedSrc, /Descargar PDF/);
+    assert.match(sharedSrc, /Descargar Word editable/);
+    assert.match(sharedSrc, /Generando Word…/);
+    assert.match(componentSrc, /allowWordDownload/);
+    assert.match(sharedSrc, /\/api\/mesa\/infonavit-docx/);
+    assert.doesNotMatch(sharedSrc, /Ver PDF/);
     assert.doesNotMatch(sharedSrc, /Validar/);
     assert.doesNotMatch(sharedSrc, /Rechazar/);
     assert.doesNotMatch(sharedSrc, /Reemplazar/);
