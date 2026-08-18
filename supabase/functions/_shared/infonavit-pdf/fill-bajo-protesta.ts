@@ -17,7 +17,7 @@ import {
   updateAllTextAppearances,
 } from "./form-helpers.ts";
 import { BAJO_FIELD, type TemplateContract } from "./template-contract.ts";
-import { splitTextToLines } from "./text-layout.ts";
+import { splitMejoraDescripcion } from "./text-layout.ts";
 import type { InfonavitPdfSnapshotInput } from "./types.ts";
 
 const FONT_SIZE = 9;
@@ -34,8 +34,8 @@ export async function fillBajoProtesta(args: {
   const caps = contract.capacities;
   const fecha = formatBajoProtestaDateParts(snapshot.fechaDocumento);
   const nombre = formatNombreCompleto(snapshot.cliente);
-  const descLines = splitTextToLines({
-    text: blankable(snapshot.mejora?.descripcion, { collapseSpaces: true }),
+  const descLines = splitMejoraDescripcion({
+    text: blankable(snapshot.mejora?.descripcion),
     maxLines: 4,
     maxCharsPerLine: caps.descripcionLine ?? 72,
     documentType: "carta_bajo_protesta",

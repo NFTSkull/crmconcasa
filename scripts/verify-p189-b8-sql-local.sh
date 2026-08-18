@@ -60,7 +60,7 @@ done < <(ls -1 supabase/migrations/*.sql | sort -t_ -k1 -n)
 echo "==> Bootstrap 078 (prod UID/org)"
 psql_local -f supabase/tests/_p189_b8_schema_bootstrap.sql
 
-echo "==> Apply migrations 078–188"
+echo "==> Apply migrations 078–189"
 while IFS= read -r f; do
   ver="$(migration_version "$f")"
   if [ "$ver" -lt 78 ]; then
@@ -75,8 +75,8 @@ done < <(ls -1 supabase/migrations/*.sql | sort -t_ -k1 -n)
 
 max_mig="$(psql_local -tAc "SELECT max(version::int) FROM supabase_migrations.schema_migrations WHERE version ~ '^[0-9]+$';")"
 echo "==> schema_migrations max = ${max_mig}"
-if [ "${max_mig}" != "188" ]; then
-  echo "B8 FAIL: expected max migration 188, got ${max_mig}"
+if [ "${max_mig}" != "189" ]; then
+  echo "B8 FAIL: expected max migration 189, got ${max_mig}"
   exit 1
 fi
 
@@ -90,7 +90,8 @@ run_suite() {
 
 run_suite "supabase/tests/rpc_infonavit_feature_flag_p189_b7.sql"
 run_suite "supabase/tests/rpc_infonavit_submission_snapshot_p189.sql"
+run_suite "supabase/tests/rpc_p189_snapshot_monto_aprobado.sql"
 run_suite "supabase/tests/rpc_infonavit_pdf_estado_p189_b5.sql"
 
 echo ""
-echo "P189 B8 SQL LOCAL: 3/3 PASS"
+echo "P189 B8 SQL LOCAL: 4/4 PASS"

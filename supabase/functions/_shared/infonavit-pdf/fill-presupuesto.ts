@@ -21,7 +21,11 @@ import {
   PRESUPUESTO_FIELD,
   type TemplateContract,
 } from "./template-contract.ts";
-import { splitNombrePresupuesto, splitTextToLines } from "./text-layout.ts";
+import {
+  splitMejoraDescripcion,
+  splitNombrePresupuesto,
+  splitTextToLines,
+} from "./text-layout.ts";
 import type { InfonavitPdfSnapshotInput } from "./types.ts";
 
 const FONT_SIZE = 10;
@@ -64,8 +68,8 @@ export async function fillPresupuesto(args: {
   const dirRaw = composeDireccionLibre(snapshot);
   const dirLinesNarrowFirst = splitAddressThreeLines(dirRaw, caps);
 
-  const descLines = splitTextToLines({
-    text: blankable(snapshot.mejora?.descripcion, { collapseSpaces: true }),
+  const descLines = splitMejoraDescripcion({
+    text: blankable(snapshot.mejora?.descripcion),
     maxLines: 4,
     maxCharsPerLine: caps.descripcionLine ?? 60,
     documentType: "presupuesto_mejoramiento",

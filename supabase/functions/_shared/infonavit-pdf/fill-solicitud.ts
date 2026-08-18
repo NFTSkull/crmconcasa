@@ -134,7 +134,13 @@ export async function fillSolicitud(args: {
   setTextValue(form, SOLICITUD_FIELD.T16_EMP_TEL, blankable(emp?.telefono), FONT_SIZE);
   setTextValue(form, SOLICITUD_FIELD.T17_EMP_EXT, blankable(emp?.extension), FONT_SIZE);
 
-  setTextValue(form, SOLICITUD_FIELD.T18_CALLE, blankable(viv?.calle), FONT_SIZE);
+  setTextValue(
+    form,
+    SOLICITUD_FIELD.T18_CALLE,
+    blankable(viv?.calle) ||
+      blankable(viv?.direccionCompleta, { collapseSpaces: true }),
+    FONT_SIZE,
+  );
   setTextValue(form, SOLICITUD_FIELD.T19_NO_EXT, blankable(viv?.noExt), FONT_SIZE);
   setTextValue(form, SOLICITUD_FIELD.T20_NO_INT, blankable(viv?.noInt), FONT_SIZE);
   setTextValue(form, SOLICITUD_FIELD.T21_LOTE, blankable(viv?.lote), FONT_SIZE);
@@ -255,7 +261,9 @@ export async function fillSolicitud(args: {
   setTextValue(
     form,
     SOLICITUD_FIELD.T56_CIUDAD,
-    blankable(snapshot.localidad, { collapseSpaces: true }),
+    blankable(snapshot.ciudadCierre || snapshot.localidad, {
+      collapseSpaces: true,
+    }),
     FONT_SIZE,
   );
   setTextValue(form, SOLICITUD_FIELD.T57_DIA, cierre.day, FONT_SIZE);

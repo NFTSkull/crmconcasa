@@ -110,6 +110,55 @@ export function splitTextToLines(args: SplitLinesArgs): string[] {
 }
 
 /**
+ * Descripción de mejora: si el productor ya mandó líneas (`\n`),
+ * respetarlas (propuesta determinística P189). Si no, wrap por palabras.
+ */
+export function splitMejoraDescripcion(args: SplitLinesArgs): string[] {
+  const raw = (args.text ?? "").trim();
+  if (!raw.includes("\n")) {
+    return splitTextToLines(args);
+  }
+  assertCapacity(args);
+  const parts = raw
+    .split(/\n/)
+    .map((s) => s.trim())
+    .filter((s) => s.length > 0);
+  if (parts.length > args.maxLines) {
+    throw new InfonavitPdfError(
+      "INFONAVIT_TEXT_OVERFLOW",
+      "texto excede máximo de líneas",
+      {
+        documentType: args.documentType,
+        semanticField: args.semanticField,
+        maxLines: args.maxLines,
+        reason: "too_many_lines",
+      },
+    );
+  }
+  for (const part of parts) {
+    if (part.length > args.maxCharsPerLine) {
+      throw new InfonavitPdfError(
+        "INFONAVIT_TEXT_OVERFLOW",
+        "palabra excede capacidad de línea",
+        {
+          documentType: args.documentType,
+          semanticField: args.semanticField,
+          maxLines: args.maxLines,
+          reason: "word_too_long",
+          maxCharsPerLine: args.maxCharsPerLine,
+          wordLength: part.length,
+        },
+      );
+    }
+  }
+  const lines = Array.from({ length: args.maxLines }, () => "");
+  parts.forEach((part, i) => {
+    lines[i] = part;
+  });
+  return lines;
+}
+
+/**
  * Nombre presupuesto: línea principal (T0, angosta) + overflow (T11, ancha).
  * Prioriza corte por palabras. No trunca.
  */

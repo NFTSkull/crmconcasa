@@ -156,10 +156,16 @@ export function adaptB3SnapshotToB1(
   const empLada = asString(emp.lada, "empresa.lada");
   const empExt = asString(emp.extension, "empresa.extension");
 
+  const localidad = optionalString(payload.localidad, "localidad");
+  const ciudadCierre =
+    optionalString(payload.ciudadCierre, "ciudadCierre") || localidad;
+
   return {
     fechaDocumento,
-    localidad: optionalString(payload.localidad, "localidad"),
+    localidad,
+    ciudadCierre,
     cliente: {
+      nombreCompleto: optionalString(c.nombreCompleto, "cliente.nombreCompleto"),
       nombres: optionalString(c.nombres, "cliente.nombres"),
       apellidoPaterno: optionalString(
         c.apellidoPaterno,
@@ -204,6 +210,14 @@ export function adaptB3SnapshotToB1(
       extension: empExt,
     },
     vivienda: {
+      direccionCompleta: optionalString(
+        viv.direccionCompleta,
+        "vivienda.direccionCompleta",
+      ),
+      direccionLibre: optionalString(
+        viv.direccionCompleta ?? viv.direccionLibre,
+        "vivienda.direccionLibre",
+      ),
       calle: asString(viv.calle, "vivienda.calle"),
       noExt: asString(viv.noExt, "vivienda.noExt"),
       noInt: asString(viv.noInt, "vivienda.noInt"),

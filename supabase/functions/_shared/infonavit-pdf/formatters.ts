@@ -152,12 +152,15 @@ export function formatMoneyMx(
   return opts?.withSymbol ? `$${body}` : body;
 }
 
-/** Nombre legal mexicano típico: apellidos + nombres. */
+/** Nombre legal: `nombreCompleto` si existe; si no, apellidos + nombres. Sin split heurístico. */
 export function formatNombreCompleto(parts: {
   nombres: string;
   apellidoPaterno: string;
   apellidoMaterno: string;
+  nombreCompleto?: string | null;
 }): string {
+  const full = (parts.nombreCompleto ?? "").trim().replace(/\s+/g, " ");
+  if (full) return full;
   return [parts.apellidoPaterno, parts.apellidoMaterno, parts.nombres]
     .map((s) => (s ?? "").trim())
     .filter((s) => s.length > 0)

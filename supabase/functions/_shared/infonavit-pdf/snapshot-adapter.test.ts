@@ -241,6 +241,58 @@ describe("P189 B4 snapshot adapter", () => {
         err.reason === "schema_version",
     );
   });
+
+  it("mappingVersion 2: nombreCompleto + direccionCompleta + monto Mejoravit", () => {
+    const p = b3Payload({
+      mappingVersion: 2,
+      localidad: "NUEVO LEÓN",
+      ciudadCierre: "NUEVO LEÓN",
+      cliente: {
+        nombreCompleto: "RUBEN CASTRO QUIÑONES",
+        nombres: "RUBEN",
+        apellidoPaterno: "CASTRO",
+        apellidoMaterno: "QUIÑONES",
+        nss: "18900000001",
+        curp: "XAXX010101HDFXXX09",
+        rfc: "XAXX010101000",
+        celular: "5518900001",
+        correo: "cliente.prueba@test.local",
+        telefono: "",
+        ladaTelefono: "",
+        genero: "",
+        estadoCivil: "",
+        regimenMatrimonial: "",
+        identificacion: { tipo: "", numero: "", vigencia: "" },
+      },
+      vivienda: {
+        direccionCompleta: "CALLE PRUEBA 309 COL CENTRO 67250 JUAREZ N.L.",
+        calle: "CALLE PRUEBA",
+        noExt: "309",
+        noInt: "",
+        lote: "",
+        manzana: "",
+        colonia: "CENTRO",
+        entidad: "NUEVO LEÓN",
+        municipio: "JUAREZ",
+        cp: "67250",
+        tipoPropiedad: "",
+      },
+      credito: { montoSolicitado: 102529.36, plazoAnios: 10 },
+      mejora: { descripcion: "Resanes y aplicación de pintura interior y exterior.", presupuestoEstimado: 102529.36 },
+    });
+    const snap = adaptB3SnapshotToB1(p);
+    assert.equal(snap.cliente.nombreCompleto, "RUBEN CASTRO QUIÑONES");
+    assert.equal(snap.cliente.nombres, "RUBEN");
+    assert.equal(snap.cliente.apellidoPaterno, "CASTRO");
+    assert.equal(snap.localidad, "NUEVO LEÓN");
+    assert.equal(snap.ciudadCierre, "NUEVO LEÓN");
+    assert.equal(snap.vivienda?.calle, "CALLE PRUEBA");
+    assert.equal(snap.vivienda?.cp, "67250");
+    assert.equal(snap.credito?.montoSolicitado, 102529.36);
+    assert.equal(snap.mejora?.presupuestoEstimado, 102529.36);
+    assert.notEqual(snap.credito?.montoSolicitado, 113921.51);
+    assert.equal(snap.cliente.genero, null);
+  });
 });
 
 describe("P189 B4 worker auth", () => {
@@ -316,5 +368,92 @@ describe("P189 B4 generate from B3 payload", () => {
     assert.equal(sol.fieldsBeforeFlatten[SOLICITUD_FIELD.C0_GENERO_F], true);
     assert.equal(sol.fieldsBeforeFlatten[SOLICITUD_FIELD.C1_GENERO_M], false);
     assert.equal(sol.fieldsBeforeFlatten[SOLICITUD_FIELD.C8_PROP_PROPIA], true);
+  });
+
+  it("mapping v2: carta/presupuesto/solicitud usan Monto Mejoravit y nombre separado", async () => {
+    const snapshot = adaptB3SnapshotToB1(
+      b3Payload({
+        mappingVersion: 2,
+        localidad: "NUEVO LEÓN",
+        ciudadCierre: "NUEVO LEÓN",
+        cliente: {
+          nombreCompleto: "RUBEN CASTRO QUIÑONES",
+          nombres: "RUBEN",
+          apellidoPaterno: "CASTRO",
+          apellidoMaterno: "QUIÑONES",
+          nss: "18900000001",
+          curp: "XAXX010101HDFXXX09",
+          rfc: "XAXX010101000",
+          celular: "5518900001",
+          correo: "cliente.prueba@test.local",
+          telefono: "",
+          ladaTelefono: "",
+          genero: "",
+          estadoCivil: "",
+          regimenMatrimonial: "",
+          identificacion: { tipo: "", numero: "", vigencia: "" },
+        },
+        vivienda: {
+          direccionCompleta: "CALLE PRUEBA 309 COL CENTRO 67250 JUAREZ N.L.",
+          calle: "CALLE PRUEBA",
+          noExt: "309",
+          noInt: "",
+          lote: "",
+          manzana: "",
+          colonia: "CENTRO",
+          entidad: "NUEVO LEÓN",
+          municipio: "JUAREZ",
+          cp: "67250",
+          tipoPropiedad: "",
+        },
+        credito: { montoSolicitado: 102529.36, plazoAnios: 10 },
+        mejora: {
+          descripcion:
+            "Resanes y aplicación de pintura interior y exterior.\nImpermeabilización y reparación de áreas con humedad.",
+          presupuestoEstimado: 102529.36,
+        },
+      }),
+    );
+
+    const carta = await generateInfonavitPdfAudited({
+      documentType: "carta_bajo_protesta",
+      templateBytes: loadTemplate("carta-bajo-protesta.pdf"),
+      snapshot,
+    });
+    const pres = await generateInfonavitPdfAudited({
+      documentType: "presupuesto_mejoramiento",
+      templateBytes: loadTemplate("presupuesto-mejoramiento.pdf"),
+      snapshot,
+    });
+    const sol = await generateInfonavitPdfAudited({
+      documentType: "solicitud_inscripcion_credito",
+      templateBytes: loadTemplate("solicitud-inscripcion-credito.pdf"),
+      snapshot,
+    });
+
+    assert.equal(carta.fieldsBeforeFlatten[BAJO_FIELD.T8_NOMBRE], "RUBEN CASTRO QUIÑONES");
+    assert.equal(carta.fieldsBeforeFlatten[BAJO_FIELD.T9_NSS], "18900000001");
+    assert.equal(carta.fieldsBeforeFlatten[BAJO_FIELD.T0_LOCALIDAD], "NUEVO LEÓN");
+    assert.match(
+      String(carta.fieldsBeforeFlatten[BAJO_FIELD.T4_DESC0]),
+      /Resanes/,
+    );
+
+    assert.match(String(pres.fieldsBeforeFlatten[PRESUPUESTO_FIELD.T0_NOMBRE]), /RUBEN/);
+    assert.match(String(pres.fieldsBeforeFlatten[PRESUPUESTO_FIELD.T2_DIR0]), /CALLE PRUEBA|67250/);
+    assert.equal(pres.fieldsBeforeFlatten[PRESUPUESTO_FIELD.T9_MONTO], "102,529.36");
+    assert.notEqual(pres.fieldsBeforeFlatten[PRESUPUESTO_FIELD.T9_MONTO], "113,921.51");
+
+    assert.equal(sol.fieldsBeforeFlatten[SOLICITUD_FIELD.T5_NOMBRES], "RUBEN");
+    assert.equal(sol.fieldsBeforeFlatten[SOLICITUD_FIELD.T3_AP_PATERNO], "CASTRO");
+    assert.equal(sol.fieldsBeforeFlatten[SOLICITUD_FIELD.T4_AP_MATERNO], "QUIÑONES");
+    assert.equal(sol.fieldsBeforeFlatten[SOLICITUD_FIELD.T27_MONTO], "102,529.36");
+    assert.equal(sol.fieldsBeforeFlatten[SOLICITUD_FIELD.T18_CALLE], "CALLE PRUEBA");
+    assert.equal(sol.fieldsBeforeFlatten[SOLICITUD_FIELD.T56_CIUDAD], "NUEVO LEÓN");
+    assert.equal(sol.fieldsBeforeFlatten[SOLICITUD_FIELD.T55_CREDITO_INFONAVIT_BLANK], "");
+    assert.equal(sol.fieldsBeforeFlatten[SOLICITUD_FIELD.T31_BLANK], "");
+    assert.equal(sol.fieldsBeforeFlatten[SOLICITUD_FIELD.T49_PROMOTOR_BLANK], "");
+    assert.equal(sol.fieldsBeforeFlatten[SOLICITUD_FIELD.C0_GENERO_F], false);
+    assert.equal(sol.fieldsBeforeFlatten[SOLICITUD_FIELD.C1_GENERO_M], false);
   });
 });
