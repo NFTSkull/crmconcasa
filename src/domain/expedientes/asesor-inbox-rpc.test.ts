@@ -132,6 +132,22 @@ describe("asesor-inbox-rpc contracts (B1.5 P161)", () => {
     assert.match(sql, /asesor_inbox_pendiente_subir_acuse/);
   });
 
+  it("migración 192 alinea categoria Mesa/Asesor al predicado P130", () => {
+    const sql = readFileSync(
+      resolve(process.cwd(), "supabase/migrations/192_correcciones_enviadas_p130_mesa.sql"),
+      "utf8",
+    );
+    assert.match(sql, /expediente_tiene_correccion_asesor_pendiente/);
+    assert.match(sql, /pendiente_revision/);
+    assert.match(sql, /submitted_at IS NOT NULL/);
+    assert.match(sql, /mesa_bandeja_categoria_resumen/);
+    assert.match(sql, /asesor_inbox_categoria_correccion/);
+    assert.match(sql, /mesa_bandeja_sort_ts/);
+    assert.doesNotMatch(sql, /UPDATE public\.expedientes/);
+    assert.doesNotMatch(sql, /UPDATE public\.expediente_asesor_cambio_lotes/);
+    assert.doesNotMatch(sql, /etapa_actual/);
+  });
+
   it("migración 167 calibra categoría cliente_* y bio 4/5", () => {
     const sql = readFileSync(
       resolve(process.cwd(), "supabase/migrations/167_asesor_pendientes_calibrados.sql"),

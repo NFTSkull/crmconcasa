@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { deriveResumenExpedienteCorreccion } from "./derive-resumen-expediente-correccion";
+import { deriveResumenExpedienteCorreccion, hasPendingAsesorChanges } from "./derive-resumen-expediente-correccion";
 import type { ExpedienteArchivoResumen } from "./types";
 
 function row(
@@ -100,6 +100,35 @@ describe("deriveResumenExpedienteCorreccion", () => {
         "completo",
       ),
       "correccion_enviada",
+    );
+  });
+
+  it("P130 pendiente_revision precede a DG rechazado y a docs subido", () => {
+    assert.equal(
+      deriveResumenExpedienteCorreccion([row("cliente_comprobante_domicilio", "subido")], {
+        clienteDatosEstado: "rechazado",
+        cambiosPendientesRevision: true,
+      }),
+      "correccion_enviada",
+    );
+  });
+
+  it("lote revisado o borrador no dispara correccion_enviada por P130", () => {
+    assert.equal(hasPendingAsesorChanges({ loteStatus: "revisado", submittedAt: "2026-08-18T00:00:00.000Z" }), false);
+    assert.equal(hasPendingAsesorChanges({ loteStatus: "borrador", submittedAt: null }), false);
+    assert.equal(
+      hasPendingAsesorChanges({
+        loteStatus: "pendiente_revision",
+        submittedAt: "2026-08-13T18:34:00.000Z",
+      }),
+      true,
+    );
+    assert.equal(
+      deriveResumenExpedienteCorreccion(todosValidados, {
+        clienteDatosEstado: "completo",
+        cambiosPendientesRevision: false,
+      }),
+      "documentos_validados",
     );
   });
 });

@@ -4,7 +4,9 @@
 
 ### Fixed
 
-- **hotfix(asesor): expedientes terminales fuera de tareas accionables (LOCAL)** — mig **191**: `asesor_inbox_es_accionable` (via `resultado_real`) excluye `cancelado` / `rechazado_mesa` de `pendiente_agendar_biometricos` / `pendiente_agendar_firma` / `pendiente_subir_acuse`. Lista y summary usan el mismo helper. Chips Cancelados / Rechazados por Mesa / corrección documental intactos. Operación de citas (worktree pausado) → futura mig **192**. Sin Cloud/push/PR.
+- **hotfix(mesa): correcciones P130 pendientes visibles en «Correcciones listas para revisar» (LOCAL)** — mig **192**: helper `expediente_tiene_correccion_asesor_pendiente` (`status=pendiente_revision` ∧ `submitted_at IS NOT NULL`). `mesa_bandeja_categoria_resumen` y `asesor_inbox_categoria_correccion` lo evalúan **antes** de la heurística P102/P167. Sin gate de etapa. Legacy DG timestamp / `resubido` intactos. Sort Mesa usa `submitted_at` del lote pendiente. Sin backfill ni UPDATE de lotes. Operación de citas → futura mig **193**. Sin Cloud/push/PR.
+
+- **hotfix(asesor): expedientes terminales fuera de tareas accionables (LOCAL)** — mig **191**: `asesor_inbox_es_accionable` (via `resultado_real`) excluye `cancelado` / `rechazado_mesa` de `pendiente_agendar_biometricos` / `pendiente_agendar_firma` / `pendiente_subir_acuse`. Lista y summary usan el mismo helper. Chips Cancelados / Rechazados por Mesa / corrección documental intactos. Operación de citas (worktree pausado) → futura mig **193** (192 = hotfix correcciones P130). Sin Cloud/push/PR.
 
 - **hotfix(infonavit): P189 parser dirección SQL↔TS parity (LOCAL)** — mig **190**: `infonavit_parse_direccion_mx` replica las reglas de `parseDireccionMxParaSolicitud` (colonia no absorbe C.P./municipio/entidad; `#` → noExt; entidad solo con señal explícita). 18/18 fixtures idénticos. `mappingVersion=2` / templates v1. Sin Cloud/regeneración.
 

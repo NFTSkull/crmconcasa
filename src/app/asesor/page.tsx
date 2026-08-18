@@ -523,11 +523,16 @@ export default function AsesorDashboardPage() {
         clienteDatosEstadoPorId[p.id] ?? null,
       );
       const fromRpc = p.categoriaCorreccionRpc;
-      // Si ya hay archivos/estados cargados, preferir derive; si no, RPC.
+      // RPC es autoridad (incluye P130). No pisar correccion_enviada con heurística documental.
       const hasEnrich =
         resumenArchivosPorId[p.id] !== undefined ||
         clienteDatosEstadoPorId[p.id] !== undefined;
-      out[p.id] = hasEnrich ? fromEnrich : fromRpc;
+      out[p.id] =
+        fromRpc === "correccion_enviada"
+          ? fromRpc
+          : hasEnrich
+            ? fromEnrich
+            : fromRpc;
     }
     return out;
   }, [mockPrecalList, resumenArchivosPorId, clienteDatosEstadoPorId]);

@@ -2,6 +2,8 @@
 
 En la bandeja principal, Mesa puede avanzar a la siguiente etapa canónica, marcar `Tiene documentos` y tomar expedientes sin asignar sin abrir el detalle.
 
+Chip **Correcciones listas para revisar**: lote P130 `pendiente_revision` con `submitted_at` (hotfix 192), más casos legacy P102 sin lote. Sin gate de etapa.
+
 # ConCasa CRM — Producto
 
 **Estado:** mock funcional para demo/piloto controlado · schema producción en preparación (P1)  

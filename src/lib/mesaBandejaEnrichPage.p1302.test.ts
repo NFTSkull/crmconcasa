@@ -232,4 +232,61 @@ describe("enrichMesaBandejaPageItems P130.2", () => {
     assert.equal(espera.correctionRequestedReason, null);
     assert.equal(espera.advisorChangeBatchId, null);
   });
+
+  it("cliente_* subido + lote P130 pendiente → correccion_enviada (sin resubido)", async () => {
+    const expId = "00000000-0000-4000-8000-0000000000e4";
+    const items = await enrichMesaBandejaPageItems(
+      [
+        {
+          id: expId,
+          cliente_nombre: "P130 subido",
+          telefono_cliente: "8111111114",
+          programa: "mejoravit",
+          etapaActual: 11,
+          subestado: "en_proceso",
+          fechaEnvioMesa: "2026-07-10T10:00:00.000Z",
+        },
+      ],
+      {
+        mesaUserId: null,
+        listResumenBatchByExpedienteIds: async () => ({
+          [expId]: [
+            {
+              expediente_id: expId,
+              tipo_documento: "cliente_comprobante_domicilio",
+              id: "00000000-0000-4000-8000-0000000000d9",
+              nombre_original: "dom.pdf",
+              mime_type: "application/pdf",
+              size_bytes: 10,
+              created_at: "2026-07-21T12:00:00.000Z",
+              uploaded_by_role: "asesor",
+              uploaded_by_email: "a@b.c",
+              estatus_revision: "subido",
+              comentario_mesa: null,
+            },
+          ],
+        }),
+        listEstadoBatchByExpedienteIds: async () => ({
+          [expId]: { estado: "rechazado", updatedAt: null, validatedAt: null },
+        }),
+        listAsesorCambiosSummaryByExpedienteIds: async () =>
+          new Map([
+            [
+              expId,
+              {
+                expedienteId: expId,
+                batchId: "00000000-0000-4000-8000-0000000000b2",
+                status: "pendiente_revision" as const,
+                submittedAt: "2026-07-21T13:00:00.000Z",
+                changesCount: 1,
+                summary: ["Comprobante de domicilio reemplazado"],
+              },
+            ],
+          ]),
+      },
+    );
+    assert.equal(items[0]?.resumenDocumental, "correccion_enviada");
+    assert.equal(items[0]?.ultimaCorreccionEnviadaAt, "2026-07-21T13:00:00.000Z");
+    assert.equal(items[0]?.etapaActual, 11);
+  });
 });

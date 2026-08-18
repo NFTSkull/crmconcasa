@@ -4,6 +4,7 @@ Fuente UI: `src/app/asesor/page.tsx` + helpers citados.
 RPCs: `asesor_list_expedientes_page`, `asesor_inbox_summary` (mig. **161**).
 Helpers calibrados: `asesor_inbox_categoria_correccion`, `asesor_inbox_pendiente_agendar_biometricos` (mig. **167**).
 **P191:** `asesor_inbox_es_accionable` (via `resultado_real`) — `cancelado` / `rechazado_mesa` no son tarea; los tres `pendiente_*` lo invocan. `isAsesorExpedienteAccionable` en TS.
+**Hotfix 192:** `expediente_tiene_correccion_asesor_pendiente` → `correccion_enviada` antes de heurística documental. Sin gate de etapa.
 **UI `/asesor`:** cableada en B1 UI (sin `listForAsesor`, sin fallback).
 
 ## Universo base
@@ -29,6 +30,7 @@ Orden canónico (TS + SQL `asesor_inbox_categoria_correccion`):
 
 | Orden | Condición | Valor |
 |---|---|---|
+| 0 | lote P130 `pendiente_revision` con `submitted_at` (`hasPendingAsesorChanges` / `expediente_tiene_correccion_asesor_pendiente`) | `correccion_enviada` |
 | 1 | `cliente_datos.estado = rechazado` | `correccion_requerida` |
 | 2 | `retencion_envios.estado = correccion_requerida` | `correccion_requerida` |
 | 3 | última versión de algún doc corregible en `rechazado` (`cliente_*` integración/complementarios, legado `ine|estado_cuenta|nss|direccion`, acuse principal) | `correccion_requerida` |
