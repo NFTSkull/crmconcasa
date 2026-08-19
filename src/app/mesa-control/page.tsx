@@ -21,8 +21,11 @@ import {
   formatMesaVistoPorLine,
 } from "@/lib/mesaExpedienteActividadUi";
 import {
-  formatMesaAsesorCambiosBadge,
-  formatMesaAsesorCambiosResumen,
+  buildMesaAsesorCambiosCardModel,
+  MESA_CAMBIO_ESTADO_POR_REVISAR,
+  mesaCambioFechaLoteLabel,
+} from "@/lib/mesaAsesorCambiosCardUi";
+import {
   formatMesaAsesorReenviadoAt,
   formatMesaCorreccionMotivoLine,
   MESA_ASESOR_CAMBIOS_ABRIR_EXPEDIENTE_CTA,
@@ -30,23 +33,18 @@ import {
   MESA_ASESOR_CAMBIOS_HISTORICO_AVISO,
   MESA_ASESOR_CAMBIOS_HISTORICO_TITULO,
   esCorreccionHistoricaSinDetalle,
-  esLoteAsesorCambiosVacio,
-  hasAdvisorChangeDetails,
+  type MesaAsesorCambioHistoryConfidence,
+  type MesaAsesorCambioPreviewItem,
 } from "@/lib/mesaAsesorCambiosUi";
 import {
-  MESA_CAMBIO_ADVISOR_COPY,
-  MESA_CAMBIO_AMBIGUOUS_COPY,
-  MESA_CAMBIO_ESTADO_POR_REVISAR,
   MESA_CAMBIO_LEGACY_COPY,
   MESA_CAMBIOS_SUBFILTRO_DEFAULT,
   MESA_CAMBIOS_SUBFILTRO_LABELS,
   mesaAsesorCambiosLoteVacioAviso,
   mesaAsesorCambiosLoteVacioTitulo,
   mesaCambioDocumentacionLabel,
-  mesaCambioFechaLoteLabel,
   mesaCambioMuestraEstadoPorRevisar,
   mesaCambioOrigenBadge,
-  mesaCambioRequestTypeLabel,
   type MesaCambiosPorRevisarSubfiltro,
   type MesaCambioRevisionOrigen,
 } from "@/lib/mesaCambiosRevisionOrigenUi";
@@ -192,8 +190,12 @@ type CasoConDocs = CasoMock & {
   advisorChangesCount?: number | null;
   advisorChangesSubmittedAt?: string | null;
   advisorChangesSummary?: readonly string[] | null;
+  advisorChangesPreview?: readonly MesaAsesorCambioPreviewItem[] | null;
   advisorChangesStatus?: CasoMock["advisorChangesStatus"];
   advisorChangeBatchId?: string | null;
+  advisorChangesHistoryConfidence?: MesaAsesorCambioHistoryConfidence | null;
+  advisorChangesHistorySource?: MesaAsesorCambioPreviewItem["source"] | null;
+  advisorChangesHistoryNote?: string | null;
   correctionRequestedReason?: string | null;
   correctionRequestedNote?: string | null;
   correctionRequestedAt?: string | null;
@@ -1823,98 +1825,67 @@ export default function MesaControlPage() {
                   />
                 </div>
                 {(() => {
-                  const origin = c.cambioRevisionOrigen ?? null;
-                  const changeDetails = hasAdvisorChangeDetails({
+                  const card = buildMesaAsesorCambiosCardModel({
+                    origin: c.cambioRevisionOrigen ?? null,
                     advisorChangeBatchId: c.advisorChangeBatchId,
                     advisorChangesCount: c.advisorChangesCount,
+                    advisorChangesSubmittedAt: c.advisorChangesSubmittedAt,
+                    advisorChangesSummary: c.advisorChangesSummary,
+                    advisorChangesPreview: c.advisorChangesPreview,
+                    historyConfidence: c.advisorChangesHistoryConfidence,
+                    historySource: c.advisorChangesHistorySource,
+                    historyNote: c.advisorChangesHistoryNote,
+                    cambioRequestAt: c.cambioRequestAt,
+                    cambioRequestType: c.cambioRequestType,
+                    correctionRequestedAt: c.correctionRequestedAt,
+                    correctionRequestedByName: c.correctionRequestedByName,
+                    correctionRequestedNote: c.correctionRequestedNote,
+                    correctionRequestedReason: c.correctionRequestedReason,
+                    correctionResubmittedAt: c.correctionResubmittedAt,
+                    ultimaCorreccionEnviadaAt: c.ultimaCorreccionEnviadaAt,
+                    resumenDocumental: c.resumenDocumental,
                   });
-                  const loteVacio = esLoteAsesorCambiosVacio({
-                    advisorChangeBatchId: c.advisorChangeBatchId,
-                    advisorChangesCount: c.advisorChangesCount,
-                  });
-                  const historica =
-                    origin === "LEGACY" ||
-                    esCorreccionHistoricaSinDetalle({
-                      resumenDocumental: c.resumenDocumental,
-                      advisorChangeBatchId: c.advisorChangeBatchId,
-                    });
-                  const hasSummary =
-                    changeDetails ||
-                    (Array.isArray(c.advisorChangesSummary) &&
-                      c.advisorChangesSummary.length > 0);
-                  const showBlock =
-                    c.resumenDocumental === "correccion_enviada" ||
-                    hasSummary ||
-                    loteVacio;
-                  if (!showBlock) return null;
-                  const resumenLines = formatMesaAsesorCambiosResumen(
-                    c.advisorChangesSummary ?? [],
-                  );
-                  const loteAt = formatMesaAsesorReenviadoAt(
-                    changeDetails || loteVacio
-                      ? (c.advisorChangesSubmittedAt ??
-                          c.ultimaCorreccionEnviadaAt)
-                      : (c.correctionResubmittedAt ??
-                          c.ultimaCorreccionEnviadaAt),
-                  );
-                  const solicitadaAt = formatMesaAsesorReenviadoAt(
-                    c.cambioRequestAt ?? c.correctionRequestedAt,
-                  );
-                  const tipoHumano = mesaCambioRequestTypeLabel(c.cambioRequestType);
-                  const nota = String(c.correctionRequestedNote ?? "").trim();
-                  const solicitadaPor = String(
-                    c.correctionRequestedByName ?? "",
-                  ).trim();
-                  const originBadge = origin
-                    ? mesaCambioOrigenBadge(origin)
-                    : formatMesaAsesorCambiosBadge(
-                        c.advisorChangesCount,
-                        changeDetails,
-                      );
+                  if (!card.showBlock) return null;
                   const ctaClass =
                     "inline-flex mt-1 rounded-md bg-white px-2 py-1 text-[11px] font-medium text-sky-900 ring-1 ring-sky-300/80 hover:bg-sky-100";
                   return (
                     <div
                       className="mt-2 space-y-1 rounded-lg border border-sky-200/80 bg-sky-50/60 px-2.5 py-2"
                       data-testid="mesa-asesor-cambios-card"
-                      data-cambio-origen={origin ?? ""}
+                      data-cambio-origen={c.cambioRevisionOrigen ?? ""}
                     >
-                      {historica ? (
+                      {card.historica ? (
                         <>
                           <p className="text-[11px] font-semibold text-sky-950">
-                            {origin
-                              ? mesaCambioOrigenBadge("LEGACY")
-                              : MESA_ASESOR_CAMBIOS_HISTORICO_TITULO}
+                            {MESA_ASESOR_CAMBIOS_HISTORICO_TITULO}
                           </p>
                           <p className="text-[10px] leading-snug text-sky-900/90">
-                            {MESA_CAMBIO_LEGACY_COPY}
+                            {card.legacyCopy}
                           </p>
-                          {c.correctionRequestedReason ? (
+                          {card.motivo ? (
                             <p className="text-[10px] leading-snug text-sky-900/90">
                               Mesa solicitó corregir:{" "}
-                              {formatMesaCorreccionMotivoLine(
-                                c.correctionRequestedReason,
-                              )}
+                              {formatMesaCorreccionMotivoLine(card.motivo)}
                             </p>
                           ) : null}
-                          {nota ? (
+                          {card.nota ? (
                             <p className="text-[10px] leading-snug text-sky-900/90">
-                              Indicaciones: {nota}
+                              Indicaciones: {card.nota}
                             </p>
                           ) : null}
-                          {solicitadaPor ? (
+                          {card.solicitadaPor ? (
                             <p className="text-[10px] text-sky-900/80">
-                              Solicitada por: {solicitadaPor}
+                              Solicitada por: {card.solicitadaPor}
                             </p>
                           ) : null}
-                          {solicitadaAt ? (
+                          {card.solicitadaAt ? (
                             <p className="text-[10px] text-sky-900/80">
-                              Solicitada el: {solicitadaAt}
+                              Solicitada el: {card.solicitadaAt}
                             </p>
                           ) : null}
-                          {loteAt ? (
+                          {card.loteAt ? (
                             <p className="text-[10px] text-sky-900/80">
-                              Reenviada por el asesor: {loteAt}
+                              Reenviada por el asesor: {card.loteAt}
                             </p>
                           ) : null}
                           <p className="text-[10px] leading-snug text-sky-900/80">
@@ -1930,46 +1901,72 @@ export default function MesaControlPage() {
                             {MESA_ASESOR_CAMBIOS_ABRIR_EXPEDIENTE_CTA}
                           </Link>
                         </>
-                      ) : loteVacio ? (
+                      ) : card.loteVacio ? (
                         <>
                           <p className="text-[11px] font-semibold text-sky-950">
-                            {origin ? originBadge : mesaAsesorCambiosLoteVacioTitulo(origin)}
+                            {mesaAsesorCambiosLoteVacioTitulo(c.cambioRevisionOrigen ?? null)}
                           </p>
-                          {mesaCambioMuestraEstadoPorRevisar(origin) ? (
+                          {card.estadoPorRevisar ? (
                             <p className="text-[10px] text-sky-900/80">
                               {MESA_CAMBIO_ESTADO_POR_REVISAR}
                             </p>
                           ) : null}
-                          <p className="text-[10px] leading-snug text-sky-900/90">
-                            {mesaAsesorCambiosLoteVacioTitulo(origin)}
-                          </p>
-                          <p className="text-[10px] leading-snug text-sky-900/90">
-                            {mesaAsesorCambiosLoteVacioAviso(origin)}
-                          </p>
-                          {origin === "ADVISOR_UPDATE" ? (
+                          {card.historyTitle ? (
+                            <p className="text-[10px] font-medium text-sky-950">
+                              {card.historyTitle}
+                            </p>
+                          ) : (
                             <p className="text-[10px] leading-snug text-sky-900/90">
-                              {MESA_CAMBIO_ADVISOR_COPY}
+                              {mesaAsesorCambiosLoteVacioAviso(c.cambioRevisionOrigen ?? null)}
                             </p>
-                          ) : null}
-                          {origin === "AMBIGUOUS" ? (
+                          )}
+                          {card.historyBody ? (
                             <p className="text-[10px] leading-snug text-sky-900/90">
-                              {MESA_CAMBIO_AMBIGUOUS_COPY}
+                              {card.historyBody}
                             </p>
                           ) : null}
-                          {origin === "REQUESTED_CORRECTION" && solicitadaAt ? (
-                            <p className="text-[10px] text-sky-900/80">
-                              Solicitada por Mesa: {solicitadaAt}
+                          {card.historyDetail ? (
+                            <p className="text-[10px] leading-snug text-sky-900/80">
+                              {card.historyDetail}
                             </p>
                           ) : null}
-                          {origin === "REQUESTED_CORRECTION" && tipoHumano ? (
-                            <p className="text-[10px] text-sky-900/80">
-                              Tipo: {tipoHumano}
+                          {card.historyBadge ? (
+                            <p className="text-[10px] font-medium text-amber-900">
+                              {card.historyBadge}
                             </p>
                           ) : null}
-                          {loteAt ? (
-                            <p className="text-[10px] text-sky-900/80">
-                              {mesaCambioFechaLoteLabel(origin)}: {loteAt}
+                          {card.advisorCopy ? (
+                            <p className="text-[10px] leading-snug text-sky-900/90">
+                              {card.advisorCopy}
                             </p>
+                          ) : null}
+                          {card.ambiguousCopy ? (
+                            <p className="text-[10px] leading-snug text-sky-900/90">
+                              {card.ambiguousCopy}
+                            </p>
+                          ) : null}
+                          {c.cambioRevisionOrigen === "REQUESTED_CORRECTION" && card.solicitadaAt ? (
+                            <p className="text-[10px] text-sky-900/80">
+                              Solicitada por Mesa: {card.solicitadaAt}
+                            </p>
+                          ) : null}
+                          {c.cambioRevisionOrigen === "REQUESTED_CORRECTION" && card.tipoHumano ? (
+                            <p className="text-[10px] text-sky-900/80">
+                              Tipo: {card.tipoHumano}
+                            </p>
+                          ) : null}
+                          {card.loteAt ? (
+                            <p className="text-[10px] text-sky-900/80">
+                              {mesaCambioFechaLoteLabel(c.cambioRevisionOrigen ?? null)}: {card.loteAt}
+                            </p>
+                          ) : null}
+                          {card.resumenLines.length > 0 ? (
+                            <ul className="space-y-0.5 text-[10px] leading-snug text-sky-900/90">
+                              <li className="font-medium">Cambios realizados:</li>
+                              {card.resumenLines.map((line) => (
+                                <li key={line}>• {line}</li>
+                              ))}
+                            </ul>
                           ) : null}
                           <Link
                             href={`/mesa-control/${c.id}`}
@@ -1984,61 +1981,67 @@ export default function MesaControlPage() {
                       ) : (
                         <>
                           <p className="text-[11px] font-semibold text-sky-950">
-                            {originBadge}
+                            {card.header}
                           </p>
-                          {mesaCambioMuestraEstadoPorRevisar(origin) ? (
+                          {card.estadoPorRevisar ? (
                             <p className="text-[10px] text-sky-900/80">
                               {MESA_CAMBIO_ESTADO_POR_REVISAR}
                             </p>
                           ) : null}
-                          {origin === "ADVISOR_UPDATE" ? (
+                          {card.advisorCopy ? (
                             <p className="text-[10px] leading-snug text-sky-900/90">
-                              {MESA_CAMBIO_ADVISOR_COPY}
+                              {card.advisorCopy}
                             </p>
                           ) : null}
-                          {origin === "AMBIGUOUS" ? (
+                          {card.ambiguousCopy ? (
                             <p className="text-[10px] leading-snug text-sky-900/90">
-                              {MESA_CAMBIO_AMBIGUOUS_COPY}
+                              {card.ambiguousCopy}
                             </p>
                           ) : null}
-                          {origin === "REQUESTED_CORRECTION" && solicitadaAt ? (
+                          {c.cambioRevisionOrigen === "LEGACY" ? (
+                            <p className="text-[10px] leading-snug text-sky-900/90">
+                              {MESA_CAMBIO_LEGACY_COPY}
+                            </p>
+                          ) : null}
+                          {c.cambioRevisionOrigen === "REQUESTED_CORRECTION" && card.solicitadaAt ? (
                             <p className="text-[10px] text-sky-900/80">
-                              Solicitada por Mesa: {solicitadaAt}
+                              Solicitada por Mesa: {card.solicitadaAt}
                             </p>
                           ) : null}
-                          {origin === "REQUESTED_CORRECTION" && loteAt ? (
+                          {c.cambioRevisionOrigen === "REQUESTED_CORRECTION" && card.loteAt ? (
                             <p className="text-[10px] text-sky-900/80">
-                              Reenviada por el asesor: {loteAt}
+                              Reenviada por el asesor: {card.loteAt}
                             </p>
                           ) : null}
-                          {origin === "REQUESTED_CORRECTION" && tipoHumano ? (
+                          {c.cambioRevisionOrigen === "REQUESTED_CORRECTION" && card.tipoHumano ? (
                             <p className="text-[10px] text-sky-900/80">
-                              Tipo: {tipoHumano}
+                              Tipo: {card.tipoHumano}
                             </p>
                           ) : null}
-                          {origin === "ADVISOR_UPDATE" && loteAt ? (
+                          {c.cambioRevisionOrigen === "ADVISOR_UPDATE" && card.loteAt ? (
                             <p className="text-[10px] text-sky-900/80">
-                              Actualizada por el asesor: {loteAt}
+                              Actualizada por el asesor: {card.loteAt}
                             </p>
                           ) : null}
-                          {origin === "AMBIGUOUS" && loteAt ? (
+                          {c.cambioRevisionOrigen === "AMBIGUOUS" && card.loteAt ? (
                             <p className="text-[10px] text-sky-900/80">
-                              Enviada por el asesor: {loteAt}
+                              Enviada por el asesor: {card.loteAt}
                             </p>
                           ) : null}
-                          {changeDetails && resumenLines.length > 0 ? (
+                          {card.historyBadge ? (
+                            <p className="text-[10px] font-medium text-amber-900">
+                              {card.historyBadge}
+                            </p>
+                          ) : null}
+                          {card.resumenLines.length > 0 ? (
                             <ul className="space-y-0.5 text-[10px] leading-snug text-sky-900/90">
-                              {resumenLines.map((line) => (
-                                <li key={line}>{line}</li>
+                              <li className="font-medium">Cambios realizados:</li>
+                              {card.resumenLines.map((line) => (
+                                <li key={line}>• {line}</li>
                               ))}
                             </ul>
                           ) : null}
-                          {!origin && changeDetails && loteAt ? (
-                            <p className="text-[10px] text-sky-900/80">
-                              Reenviado por el asesor: {loteAt}
-                            </p>
-                          ) : null}
-                          {changeDetails ? (
+                          {card.showRevisarCambios ? (
                             <Link
                               href={`/mesa-control/${c.id}?focus=${MESA_ASESOR_CAMBIOS_FOCUS}`}
                               className={ctaClass}

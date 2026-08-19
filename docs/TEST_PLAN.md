@@ -212,7 +212,8 @@
 - [x] RPC misma firma; subfiltros `correccion_solicitada` / `otras_actualizaciones` en SQL antes de paginar.
 - [x] Counts `correccionesSolicitadas` + `otrasActualizaciones`; parent = suma; sin overlap.
 - [x] UI chip «Cambios por revisar» + subfiltros compactos; cards origin-aware (Natividad-like = actualización).
-- [x] SQL `rpc_mesa_cambios_revision_origen_p193.sql` + regresión P192. 0 Cloud writes. Operación de citas → **194**.
+- [x] SQL `rpc_mesa_cambios_revision_origen_p193.sql` + regresión P192. 0 Cloud writes. Operación de citas → **195**.
+- [x] SQL `rpc_mesa_cambios_detalle_p194.sql` + TS `mesaAsesorCambiosUi` / `mesaAsesorCambiosCardUi` / `MesaAsesorCambiosPanel` / `mesaBandejaEnrichPage.p1302`. Preview máx 3, recover EXACT/PARTIAL/NO_DIFF, labels género. 0 Cloud writes. Operación de citas → **195**.
 
 ## P130 — Lote de cambios del asesor (Mesa)
 

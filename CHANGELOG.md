@@ -4,7 +4,7 @@
 
 ### Fixed
 
-- **hotfix(mesa): correcciones P130 pendientes visibles en «Correcciones listas para revisar» (LOCAL)** — mig **192**: helper `expediente_tiene_correccion_asesor_pendiente` (`status=pendiente_revision` ∧ `submitted_at IS NOT NULL`). `mesa_bandeja_categoria_resumen` y `asesor_inbox_categoria_correccion` lo evalúan **antes** de la heurística P102/P167. Sin gate de etapa. Legacy DG timestamp / `resubido` intactos. Sort Mesa usa `submitted_at` del lote pendiente. Sin backfill ni UPDATE de lotes. Operación de citas → futura mig **194**. Sin Cloud/push/PR.
+- **hotfix(mesa): correcciones P130 pendientes visibles en «Correcciones listas para revisar» (LOCAL)** — mig **192**: helper `expediente_tiene_correccion_asesor_pendiente` (`status=pendiente_revision` ∧ `submitted_at IS NOT NULL`). `mesa_bandeja_categoria_resumen` y `asesor_inbox_categoria_correccion` lo evalúan **antes** de la heurística P102/P167. Sin gate de etapa. Legacy DG timestamp / `resubido` intactos. Sort Mesa usa `submitted_at` del lote pendiente. Sin backfill ni UPDATE de lotes. Operación de citas → futura mig **195**. Sin Cloud/push/PR.
 
 - **hotfix(asesor): expedientes terminales fuera de tareas accionables (LOCAL)** — mig **191**: `asesor_inbox_es_accionable` (via `resultado_real`) excluye `cancelado` / `rechazado_mesa` de `pendiente_agendar_biometricos` / `pendiente_agendar_firma` / `pendiente_subir_acuse`. Lista y summary usan el mismo helper. Chips Cancelados / Rechazados por Mesa / corrección documental intactos. Operación de citas (worktree pausado) → futura mig **194**. Sin Cloud/push/PR.
 
@@ -16,7 +16,9 @@
 
 ### Added
 
-- **feat(mesa): classify pending advisor changes by origin (LOCAL, P193)** — mig **193**: helper STABLE `mesa_cambio_revision_clasificacion`; parent `correccion_enviada` (P192) intacto. Subfiltros RPC `correccion_solicitada` / `otras_actualizaciones` (misma firma). Counts `correccionesSolicitadas` + `otrasActualizaciones` (`parent = requested + other`). Chip «Cambios por revisar» + subfiltros. Sin UPDATE de lotes/expedientes. Operación de citas → **194**. Sin Cloud/push/PR.
+- **feat(mesa): classify pending advisor changes by origin (LOCAL, P193)** — mig **193**: helper STABLE `mesa_cambio_revision_clasificacion`; parent `correccion_enviada` (P192) intacto. Subfiltros RPC `correccion_solicitada` / `otras_actualizaciones` (misma firma). Counts `correccionesSolicitadas` + `otrasActualizaciones` (`parent = requested + other`). Chip «Cambios por revisar» + subfiltros. Sin UPDATE de lotes/expedientes. Operación de citas → **195**. Sin Cloud/push/PR.
+
+- **feat(mesa): show concrete advisor change details (LOCAL, P194)** — mig **194**: `preview_changes` (máx 3, sin valores) en `mesa_list_asesor_cambios_summary`; recover read-time lotes vacíos (`HISTORY_RECOVERED`/`PARTIAL`/`NO_DIFF`); labels género/`asesor_evidencia`; `recovered_changes` en detalle. UI tarjeta + panel. 0 writers/backfill. Operación de citas → **195**. Sin Cloud/push/PR.
 
 - **feat(p189): Word editable Mesa on-demand (LOCAL)** — `docx` nativo desde el mismo snapshot P189 que el PDF (`adaptB3SnapshotToB1` → print model → `generateInfonavitDocx`). `POST /api/mesa/infonavit-docx` Mesa-only, Zod, 0 Storage/migration. UI: Vista previa / Descargar PDF / Descargar Word editable. Asesor denied. PDF fill/flatten y parser PR #152 intactos. Sin Cloud/push.
 

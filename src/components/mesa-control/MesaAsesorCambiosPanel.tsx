@@ -13,6 +13,8 @@ import {
   formatMesaAsesorCambioValor,
   formatMesaAsesorReenviadoAt,
   groupMesaAsesorCambio,
+  hasMesaAsesorCambiosPanelContent,
+  MESA_ASESOR_CAMBIOS_HISTORY_EXACT_BADGE,
   mesaAsesorCambioAnchor,
   MESA_ASESOR_CAMBIO_GRUPO_LABELS,
   MESA_ASESOR_CAMBIOS_FOCUS,
@@ -64,6 +66,10 @@ export function MesaAsesorCambiosPanel({
 }: MesaAsesorCambiosPanelProps) {
   const [lote, setLote] = useState<MesaAsesorCambioLote | null>(null);
   const [changes, setChanges] = useState<readonly MesaAsesorCambio[]>([]);
+  const [recoveredChanges, setRecoveredChanges] = useState<
+    readonly MesaAsesorCambio[]
+  >([]);
+  const [historyBadge, setHistoryBadge] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [markBusy, setMarkBusy] = useState(false);
   const [markError, setMarkError] = useState<string | null>(null);
@@ -78,6 +84,12 @@ export function MesaAsesorCambiosPanel({
       const detalle = await fetchMesaAsesorCambioLote(expedienteId);
       setLote(detalle.lote);
       setChanges(detalle.changes);
+      setRecoveredChanges(detalle.recoveredChanges);
+      setHistoryBadge(
+        detalle.historyConfidence === "EXACT"
+          ? MESA_ASESOR_CAMBIOS_HISTORY_EXACT_BADGE
+          : null,
+      );
     } finally {
       setLoading(false);
     }
@@ -99,14 +111,16 @@ export function MesaAsesorCambiosPanel({
   const grouped = useMemo(() => {
     const map = new Map<MesaAsesorCambioGrupo, MesaAsesorCambio[]>();
     for (const g of GRUPO_ORDER) map.set(g, []);
-    for (const c of changes) {
+    const allChanges =
+      changes.length > 0 ? changes : recoveredChanges;
+    for (const c of allChanges) {
       const g = groupMesaAsesorCambio(c);
       const list = map.get(g) ?? [];
       list.push(c);
       map.set(g, list);
     }
     return map;
-  }, [changes]);
+  }, [changes, recoveredChanges]);
 
   const highlightTarget = useCallback((el: HTMLElement | null) => {
     if (!el) return;
@@ -143,7 +157,7 @@ export function MesaAsesorCambiosPanel({
     focusHandledRef.current = true;
     const panel = document.getElementById(MESA_ASESOR_CAMBIOS_PANEL_ID);
     panel?.scrollIntoView({ behavior: "smooth", block: "start" });
-    const first = changes[0];
+    const first = changes[0] ?? recoveredChanges[0];
     if (first) {
       window.setTimeout(() => {
         const row = document.getElementById(`mesa-asesor-cambio-${first.id}`);
@@ -187,8 +201,16 @@ export function MesaAsesorCambiosPanel({
   );
 
   // Sin lote o lote con 0 cambios: no montar panel vacío ni deep-link útil.
-  const hasDetails =
-    Boolean(lote?.id) && (lote?.changesCount ?? 0) > 0;
+  const visibleCount =
+    (lote?.changesCount ?? 0) > 0
+      ? (lote?.changesCount ?? 0)
+      : recoveredChanges.length;
+  const hasDetails = hasMesaAsesorCambiosPanelContent({
+    advisorChangeBatchId: lote?.id,
+    advisorChangesCount: lote?.changesCount,
+    historyConfidence:
+      recoveredChanges.length > 0 ? "EXACT" : null,
+  });
   if (!loading && !hasDetails) {
     return null;
   }
@@ -199,7 +221,7 @@ export function MesaAsesorCambiosPanel({
   const summaryParts = [
     lote?.asesorNombre?.trim() || null,
     submittedLabel ? `Reenviado: ${submittedLabel}` : null,
-    lote ? `${lote.changesCount} cambio${lote.changesCount === 1 ? "" : "s"}` : null,
+    lote ? `${visibleCount} cambio${visibleCount === 1 ? "" : "s"}` : null,
     lote ? statusLabel : null,
   ].filter(Boolean);
 
@@ -243,8 +265,13 @@ export function MesaAsesorCambiosPanel({
                 <span>Reenviado: {submittedLabel}</span>
               ) : null}
               <span>
-                {lote.changesCount} cambio{lote.changesCount === 1 ? "" : "s"}
+                {visibleCount} cambio{visibleCount === 1 ? "" : "s"}
               </span>
+              {historyBadge ? (
+                <span className="rounded-md bg-amber-100 px-2 py-0.5 text-amber-900">
+                  {historyBadge}
+                </span>
+              ) : null}
             </div>
           ) : null}
 

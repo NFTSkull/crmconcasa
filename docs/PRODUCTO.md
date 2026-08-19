@@ -2,7 +2,7 @@
 
 En la bandeja principal, Mesa puede avanzar a la siguiente etapa canónica, marcar `Tiene documentos` y tomar expedientes sin asignar sin abrir el detalle.
 
-Chip **Cambios por revisar** (id interno `correccion_enviada`): lote P130 `pendiente_revision` con `submitted_at` (hotfix 192), más casos legacy P102 sin lote. P193 clasifica el mismo universo: **Correcciones solicitadas** (Mesa pidió y el asesor reenvió) vs **Otras actualizaciones** (asesor, ambiguo o histórico). Sin gate de etapa.
+Chip **Cambios por revisar** (id interno `correccion_enviada`): lote P130 `pendiente_revision` con `submitted_at` (hotfix 192), más casos legacy P102 sin lote. P193 clasifica el mismo universo: **Correcciones solicitadas** (Mesa pidió y el asesor reenvió) vs **Otras actualizaciones** (asesor, ambiguo o histórico). P194 muestra **qué cambió** (hasta 3 labels en bandeja; detalle en panel) y recupera read-time lotes vacíos pre-P117 cuando hay evidencia (`HISTORY_RECOVERED` / `PARTIAL` / `NO_DIFF`). Sin gate de etapa.
 
 # ConCasa CRM — Producto
 

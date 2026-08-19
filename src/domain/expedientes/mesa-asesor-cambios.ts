@@ -1,19 +1,34 @@
 /**
- * P130 — wrappers Zod para RPCs de lote de cambios del asesor (Mesa).
- * Lectura batch/detalle + marcar revisados (fail soft).
+ * P130/P194 — wrappers Zod para RPCs de lote de cambios del asesor (Mesa).
  */
 
 import { z } from "zod";
 import { isSupabaseConfigured, supabaseBrowser } from "@/lib/supabaseBrowser";
-import type {
-  MesaAsesorCambio,
-  MesaAsesorCambioLote,
-  MesaAsesorCambiosSummaryItem,
-  MesaAsesorCambioStatus,
-  MesaAsesorCambioTipo,
+import {
+  normalizeMesaAsesorCambioHistoryConfidence,
+  normalizeMesaAsesorCambioLabel,
+  normalizeMesaAsesorCambioPreviewSource,
+  type MesaAsesorCambio,
+  type MesaAsesorCambioHistoryConfidence,
+  type MesaAsesorCambioLote,
+  type MesaAsesorCambioPreviewItem,
+  type MesaAsesorCambioPreviewSource,
+  type MesaAsesorCambiosSummaryItem,
+  type MesaAsesorCambioStatus,
+  type MesaAsesorCambioTipo,
 } from "@/lib/mesaAsesorCambiosUi";
 
 const statusSchema = z.enum(["borrador", "pendiente_revision", "revisado"]);
+
+const previewItemSchema = z.object({
+  tipo: z.string(),
+  campo: z.string().nullable().optional(),
+  document_kind: z.string().nullable().optional(),
+  label: z.string().optional().default(""),
+  has_old: z.boolean().optional().default(false),
+  has_new: z.boolean().optional().default(false),
+  source: z.string().optional().default("P130"),
+});
 
 const summaryItemSchema = z.object({
   expediente_id: z.string().uuid(),
@@ -22,6 +37,10 @@ const summaryItemSchema = z.object({
   submitted_at: z.string().nullable().optional(),
   changes_count: z.number().int().nonnegative().optional().default(0),
   summary: z.array(z.string()).optional().default([]),
+  preview_changes: z.array(previewItemSchema).optional().default([]),
+  history_confidence: z.string().nullable().optional(),
+  history_source: z.string().nullable().optional(),
+  history_note: z.string().nullable().optional(),
 });
 
 const listSummaryRpcSchema = z.object({
@@ -53,12 +72,17 @@ const changeSchema = z.object({
   documento_anterior_id: z.string().uuid().nullable().optional(),
   documento_nuevo_id: z.string().uuid().nullable().optional(),
   created_at: z.string().nullable().optional(),
+  source: z.string().nullable().optional(),
 });
 
 const getLoteRpcSchema = z.object({
   ok: z.boolean().optional(),
   lote: loteSchema.optional().default(null),
   changes: z.array(changeSchema).optional().default([]),
+  recovered_changes: z.array(changeSchema).optional().default([]),
+  history_confidence: z.string().nullable().optional(),
+  history_source: z.string().nullable().optional(),
+  history_note: z.string().nullable().optional(),
 });
 
 const marcarRpcSchema = z.object({
@@ -66,16 +90,43 @@ const marcarRpcSchema = z.object({
   status: statusSchema.optional(),
 });
 
+function mapPreviewItem(
+  row: z.infer<typeof previewItemSchema>,
+): MesaAsesorCambioPreviewItem {
+  return {
+    tipo: row.tipo,
+    campo: row.campo ?? null,
+    documentKind: row.document_kind ?? null,
+    label: normalizeMesaAsesorCambioLabel(row.label),
+    hasOld: row.has_old ?? false,
+    hasNew: row.has_new ?? false,
+    source: normalizeMesaAsesorCambioPreviewSource(row.source),
+  };
+}
+
 function mapSummaryItem(
   row: z.infer<typeof summaryItemSchema>,
 ): MesaAsesorCambiosSummaryItem {
+  const previewChanges = (row.preview_changes ?? []).map(mapPreviewItem);
+  const summary =
+    (row.summary ?? []).length > 0
+      ? (row.summary ?? []).map(normalizeMesaAsesorCambioLabel)
+      : previewChanges.map((p) => p.label);
   return {
     expedienteId: row.expediente_id,
     batchId: row.batch_id ?? null,
     status: (row.status as MesaAsesorCambioStatus | null) ?? null,
     submittedAt: row.submitted_at ?? null,
     changesCount: row.changes_count ?? 0,
-    summary: row.summary ?? [],
+    summary,
+    previewChanges,
+    historyConfidence: normalizeMesaAsesorCambioHistoryConfidence(
+      row.history_confidence,
+    ),
+    historySource: row.history_source
+      ? normalizeMesaAsesorCambioPreviewSource(row.history_source)
+      : null,
+    historyNote: row.history_note?.trim() || null,
   };
 }
 
@@ -100,16 +151,18 @@ function mapChange(row: z.infer<typeof changeSchema>): MesaAsesorCambio {
     entidad: row.entidad ?? null,
     campo: row.campo ?? null,
     documentKind: row.document_kind ?? null,
-    label: row.label?.trim() || row.change_key,
+    label: normalizeMesaAsesorCambioLabel(row.label?.trim() || row.change_key),
     valorAnterior: row.valor_anterior ?? null,
     valorNuevo: row.valor_nuevo ?? null,
     documentoAnteriorId: row.documento_anterior_id ?? null,
     documentoNuevoId: row.documento_nuevo_id ?? null,
     createdAt: row.created_at ?? null,
+    source: row.source
+      ? normalizeMesaAsesorCambioPreviewSource(row.source)
+      : "P130",
   };
 }
 
-/** Batch summaries para IDs de la página visible (sin N+1). */
 export async function listAsesorCambiosSummaryByExpedienteIds(
   expedienteIds: readonly string[],
 ): Promise<ReadonlyMap<string, MesaAsesorCambiosSummaryItem>> {
@@ -144,14 +197,24 @@ export async function listAsesorCambiosSummaryByExpedienteIds(
 export type MesaAsesorCambioLoteDetalle = Readonly<{
   lote: MesaAsesorCambioLote | null;
   changes: readonly MesaAsesorCambio[];
+  recoveredChanges: readonly MesaAsesorCambio[];
+  historyConfidence: MesaAsesorCambioHistoryConfidence | null;
+  historySource: MesaAsesorCambioPreviewSource | null;
+  historyNote: string | null;
 }>;
 
-/** Detalle del lote vigente (pendiente o último revisado) por expediente. */
 export async function fetchMesaAsesorCambioLote(
   expedienteId: string,
 ): Promise<MesaAsesorCambioLoteDetalle> {
   const id = String(expedienteId ?? "").trim();
-  const empty: MesaAsesorCambioLoteDetalle = { lote: null, changes: [] };
+  const empty: MesaAsesorCambioLoteDetalle = {
+    lote: null,
+    changes: [],
+    recoveredChanges: [],
+    historyConfidence: null,
+    historySource: null,
+    historyNote: null,
+  };
   if (!id || !/^[0-9a-f-]{36}$/i.test(id)) return empty;
   if (!isSupabaseConfigured() || !supabaseBrowser) return empty;
   try {
@@ -164,13 +227,20 @@ export async function fetchMesaAsesorCambioLote(
     return {
       lote: parsed.data.lote ? mapLote(parsed.data.lote) : null,
       changes: parsed.data.changes.map(mapChange),
+      recoveredChanges: parsed.data.recovered_changes.map(mapChange),
+      historyConfidence: normalizeMesaAsesorCambioHistoryConfidence(
+        parsed.data.history_confidence,
+      ),
+      historySource: parsed.data.history_source
+        ? normalizeMesaAsesorCambioPreviewSource(parsed.data.history_source)
+        : null,
+      historyNote: parsed.data.history_note?.trim() || null,
     };
   } catch {
     return empty;
   }
 }
 
-/** Marca lote revisado. Fail soft (boolean). Idempotente en backend. */
 export async function marcarMesaAsesorCambiosRevisados(
   loteId: string,
 ): Promise<boolean> {
