@@ -16,7 +16,6 @@ import {
   MESA_ASESOR_CAMBIOS_HISTORY_PARTIAL_TITLE,
   type MesaAsesorCambioHistoryConfidence,
   type MesaAsesorCambioPreviewItem,
-  type MesaAsesorCambiosSummaryItem,
   visibleAdvisorChangesCount,
 } from "@/lib/mesaAsesorCambiosUi";
 import {
@@ -31,7 +30,20 @@ import {
   type MesaCambioRevisionOrigen,
 } from "@/lib/mesaCambiosRevisionOrigenUi";
 
+export type MesaCambioRevisionEstadoEfectivo =
+  | "CORRECTION_PENDING_REVIEW"
+  | "ADVISOR_UPDATE_PENDING_REVIEW"
+  | "WAITING_ADVISOR"
+  | "CLOSED"
+  | "SUPERSEDED";
+
+export const MESA_CAMBIO_DETALLE_NO_DISPONIBLE =
+  "Corrección recibida · detalle no disponible";
+export const MESA_CAMBIO_ACTUALIZACION_DETALLE_NO_DISPONIBLE =
+  "Actualización recibida · detalle no disponible";
+
 export type MesaAsesorCambiosCardInput = Readonly<{
+  revisionEstado?: MesaCambioRevisionEstadoEfectivo | string | null;
   origin?: MesaCambioRevisionOrigen | null;
   advisorChangeBatchId?: string | null;
   advisorChangesCount?: number | null;
@@ -75,6 +87,7 @@ export type MesaAsesorCambiosCardModel = Readonly<{
   motivo: string | null;
   showRevisarCambios: boolean;
   showAbrirExpediente: boolean;
+  detalleNoDisponible: boolean;
 }>;
 
 function previewLabels(
@@ -114,12 +127,35 @@ export function buildMesaAsesorCambiosCardModel(
   );
   const resumenLines = formatMesaAsesorCambiosResumen(labels, visibleCount);
   const hasSummary = changeDetails || labels.length > 0 || loteVacio;
-  const showBlock =
-    input.resumenDocumental === "correccion_enviada" || hasSummary || loteVacio;
+  const revisionEstado = String(input.revisionEstado ?? "").trim();
+  const pendingReview =
+    revisionEstado === "CORRECTION_PENDING_REVIEW" ||
+    revisionEstado === "ADVISOR_UPDATE_PENDING_REVIEW";
+  const knownInactive =
+    revisionEstado === "CLOSED" ||
+    revisionEstado === "SUPERSEDED" ||
+    revisionEstado === "WAITING_ADVISOR";
+  const showBlock = pendingReview
+    ? true
+    : knownInactive
+      ? false
+      : input.resumenDocumental === "correccion_enviada" ||
+        hasSummary ||
+        loteVacio;
+  const detalleNoDisponible =
+    pendingReview &&
+    !changeDetails &&
+    labels.length === 0;
 
-  const header = origin
-    ? `${mesaCambioOrigenBadge(origin)} · ${visibleCount} cambio${visibleCount === 1 ? "" : "s"}`
-    : `${visibleCount} cambio${visibleCount === 1 ? "" : "s"}`;
+  const header = detalleNoDisponible
+    ? origin === "ADVISOR_UPDATE"
+      ? MESA_CAMBIO_ACTUALIZACION_DETALLE_NO_DISPONIBLE
+      : MESA_CAMBIO_DETALLE_NO_DISPONIBLE
+    : origin === "REQUESTED_CORRECTION" && pendingReview
+      ? `Corrección recibida · ${visibleCount} cambio${visibleCount === 1 ? "" : "s"}`
+      : origin
+        ? `${mesaCambioOrigenBadge(origin)} · ${visibleCount} cambio${visibleCount === 1 ? "" : "s"}`
+        : `${visibleCount} cambio${visibleCount === 1 ? "" : "s"}`;
 
   return {
     showBlock,
@@ -166,12 +202,15 @@ export function buildMesaAsesorCambiosCardModel(
     solicitadaPor: String(input.correctionRequestedByName ?? "").trim() || null,
     nota: String(input.correctionRequestedNote ?? "").trim() || null,
     motivo: String(input.correctionRequestedReason ?? "").trim() || null,
-    showRevisarCambios: hasMesaAsesorCambiosPanelContent({
-      advisorChangeBatchId: input.advisorChangeBatchId,
-      advisorChangesCount: input.advisorChangesCount,
-      historyConfidence: input.historyConfidence,
-    }),
-    showAbrirExpediente: historica || loteVacio,
+    showRevisarCambios:
+      !detalleNoDisponible &&
+      hasMesaAsesorCambiosPanelContent({
+        advisorChangeBatchId: input.advisorChangeBatchId,
+        advisorChangesCount: input.advisorChangesCount,
+        historyConfidence: input.historyConfidence,
+      }),
+    showAbrirExpediente: historica || loteVacio || detalleNoDisponible,
+    detalleNoDisponible,
   };
 }
 

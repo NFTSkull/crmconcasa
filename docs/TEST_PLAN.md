@@ -1,3 +1,9 @@
+## P198 — Lifecycle efectivo Cambios por revisar (LOCAL)
+
+- [x] Helper `mesa_cambio_revision_estado_efectivo`. RAW lote no se UPDATE.
+- [x] M15–M24 causalidad: DG≠doc, mismo `tipo_documento`, operativo≠DG, ciclo, re-reject.
+- [x] 0 Cloud writes. Citas → **199**.
+
 ## P195 — Disponibles excluye rechazo operativo activo (LOCAL)
 
 - [x] RPC `mesa_list_bandeja_page` `p_ops_filter=sin_asignar`: `ciclo=activo` ∧ `subestado <> rechazado` ∧ sin `assigned_to` ∧ no `correccion_requerida`.

@@ -157,4 +157,25 @@ describe("mesaCorreccionEntrada", () => {
   it("sin fechaEntradaMesaActual → no_aplica", () => {
     assert.equal(deriveMesaCorreccionLecturaEstado(null, null), "no_aplica");
   });
+
+  it("P198 M11: corrección activa nunca es Nuevo en Mesa", () => {
+    assert.equal(
+      mesaCorreccionLecturaLabel(
+        "nueva",
+        false,
+        null,
+        "CORRECTION_PENDING_REVIEW",
+      ),
+      "Corrección nueva",
+    );
+    assert.notEqual(
+      mesaCorreccionLecturaLabel(
+        "nueva",
+        false,
+        "REQUESTED_CORRECTION",
+        "CORRECTION_PENDING_REVIEW",
+      ),
+      "Nuevo en Mesa",
+    );
+  });
 });

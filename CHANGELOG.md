@@ -1,5 +1,7 @@
 # Changelog
 
+- **fix(mesa): estado efectivo de cambios por revisar (P198)** — mig **198**: cola = trabajo pendiente ahora. Cierre causal DG/documento/operativo. Re-reject → Esperando. RAW lote intacto. Disponibles P195 intacto. Citas → **199**. Cloud aplicada.
+
 ## [Unreleased]
 
 - **fix(asesor-detalle): episodio de corrección usa `estado_efectivo` (P197-B3, LOCAL)** — `/asesor/expediente/[id]` consume el mismo helper P197 que el inbox. Un rechazo histórico ya no es alerta principal si el episodio está enviado o cerrado. Deep link `?focus=correccion` solo en Necesita. Sin mig 198. 0 writers. `/asesor` pinta el chip principal desde RPC; Documentación y Estatus op. bajan de jerarquía. Sin SQL nuevo (198 reservado a citas). Excel intacto.

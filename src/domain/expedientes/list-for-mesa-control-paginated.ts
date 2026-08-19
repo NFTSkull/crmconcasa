@@ -53,6 +53,10 @@ export type MesaBandejaPageItem = ExpedienteMock &
     cambioRevisionOrigen?: MesaCambioRevisionOrigen | null;
     cambioRequestType?: MesaCambioRequestType | null;
     cambioRequestAt?: string | null;
+    /** P198: episodio efectivo de revisión Mesa. */
+    cambioRevisionEstado?: string | null;
+    cambioActionableAt?: string | null;
+    cambioBatchId?: string | null;
   }>;
 
 export type ListForMesaControlPaginatedQuery = Readonly<{
@@ -143,6 +147,9 @@ const rpcItemSchema = z.object({
   cambio_revision_origen: z.string().nullable().optional(),
   cambio_request_type: z.string().nullable().optional(),
   cambio_request_at: z.string().nullable().optional(),
+  cambio_revision_estado: z.string().nullable().optional(),
+  cambio_actionable_at: z.string().nullable().optional(),
+  cambio_batch_id: z.string().nullable().optional(),
 });
 
 export const mesaListBandejaPageRpcSchema = z.object({
