@@ -1,3 +1,7 @@
+## 2026-08-19 - fix: badge Rechazado vs corrección P198 (UI)
+
+Causa: la tarjeta Mesa pintaba `subestado=rechazado` aunque P198 dijera `CORRECTION_PENDING_REVIEW`. Decisión: helper `resolveMesaBandejaSubestadoBadge`; episodio activo oculta el badge rojo. Membresía/colas/SQL intactos. Citas → **199**.
+
 ## 2026-08-19 - fix LOCAL: revisión Mesa efectiva (mig 198)
 
 Causa: `pendiente_revision` histórico + P192 metía en Correcciones expedientes que Mesa ya validó o re-rechazó; la tarjeta dependía de `resumenDocumental` y el badge de `fecha_envio_mesa`. Decisión: read-model `mesa_cambio_revision_estado_efectivo` (PENDING / WAITING / CLOSED) sobre lotes+solicitudes. Cierre causal: DG solo por DG validada; documental solo el mismo `tipo_documento`; operativo solo reactivación del ciclo. 0 UPDATE de lotes. Disponibles idéntico a P195. Citas → **199**.

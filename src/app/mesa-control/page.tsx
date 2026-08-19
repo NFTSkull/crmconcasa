@@ -87,6 +87,7 @@ import {
   subestadoOperativoBadgeClass,
   subestadoOperativoLabel,
 } from "@/lib/subestadoOperativoUi";
+import { resolveMesaBandejaSubestadoBadge } from "@/lib/mesaBandejaSubestadoUi";
 import { filterExpedientesByRole } from "@/lib/mesaControlAccess";
 import {
   getEffectiveMockRole,
@@ -344,7 +345,11 @@ function MesaEnMesaHaceBadge({
 }
 
 function rowSurfaceClass(c: CasoConDocs): string {
-  if (c.subestado === "rechazado") {
+  const subBadge = resolveMesaBandejaSubestadoBadge(
+    c.subestado,
+    c.cambioRevisionEstado,
+  );
+  if (subBadge.kind === "rechazado") {
     return "border-l-[3px] border-l-red-400 bg-red-50/50 hover:bg-red-50/80";
   }
   if (c.correccionLecturaEstado === "nueva") {
@@ -1837,17 +1842,31 @@ export default function MesaControlPage() {
                       </span>
                     );
                   })()}
-                  {c.subestado === "rechazado" ? (
-                    <span className="inline-flex rounded-md bg-red-100 px-1.5 py-0.5 text-[10px] font-medium text-red-900 ring-1 ring-red-200/80">
-                      Rechazado
-                    </span>
-                  ) : (
-                    <span
-                      className={`inline-flex rounded-md px-1.5 py-0.5 text-[10px] font-medium ${subestadoOperativoBadgeClass(c.subestado)}`}
-                    >
-                      {subestadoOperativoLabel(c.subestado)}
-                    </span>
-                  )}
+                  {(() => {
+                    const subBadge = resolveMesaBandejaSubestadoBadge(
+                      c.subestado,
+                      c.cambioRevisionEstado,
+                    );
+                    if (subBadge.kind === "none") return null;
+                    if (subBadge.kind === "rechazado") {
+                      return (
+                        <span
+                          className="inline-flex rounded-md bg-red-100 px-1.5 py-0.5 text-[10px] font-medium text-red-900 ring-1 ring-red-200/80"
+                          data-testid="mesa-bandeja-subestado-rechazado"
+                        >
+                          Rechazado
+                        </span>
+                      );
+                    }
+                    return (
+                      <span
+                        className={`inline-flex rounded-md px-1.5 py-0.5 text-[10px] font-medium ${subestadoOperativoBadgeClass(c.subestado)}`}
+                        data-testid="mesa-bandeja-subestado-operativo"
+                      >
+                        {subestadoOperativoLabel(c.subestado)}
+                      </span>
+                    );
+                  })()}
                 </div>
                 <div className="mt-2">
                   <DocumentacionCell
@@ -2124,7 +2143,10 @@ export default function MesaControlPage() {
                     </div>
                   );
                 })()}
-                {c.subestado === "rechazado" && c.motivoRechazo ? (
+                {resolveMesaBandejaSubestadoBadge(
+                  c.subestado,
+                  c.cambioRevisionEstado,
+                ).kind === "rechazado" && c.motivoRechazo ? (
                   <p className="mt-2 line-clamp-2 text-[10px] leading-tight text-red-800/90">
                     {c.motivoRechazo}
                   </p>
