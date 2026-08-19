@@ -1,3 +1,21 @@
+## 2026-08-19 - fix LOCAL: detalle asesor consume estado_efectivo (P197-B3)
+
+Causa: el detalle pintaba `AsesorExpedienteRechazadoBanner` con `subestado=rechazado` aunque P197 ya dijera `correccion_enviada` / `en_tramite`. Decisión: un solo estado principal vía `asesor_inbox_estado_efectivo`; panel Necesita/Enviada; DG/docs diferencian acción vs historial; inbox/campana `?focus=correccion` solo si necesita. Retención: si hay `retencion_*` rechazado entra al panel; no se forzó a P196. Sin mig 197 extra ni 198. 0 writers.
+
+**LIFECYCLE PENDIENTE — RE-REJECT:** lote `pendiente_revision` + Mesa vuelve a rechazar sin mark-reviewed no se autocierra. El detalle sigue al read-model; no se inventa UPDATE.
+
+## 2026-08-19 - fix LOCAL: dashboard asesor consume estado_efectivo (P197-B2)
+
+Causa: la fila pintaba Resultado real / Documentación / Estatus op. como si fueran el mismo estado global (`resultado_real` + `categoria_correccion` + `subestado=rechazado`). Decisión: columna **Estado actual** = `item.estado_efectivo` vía `getAsesorInboxEstadoEfectivoPresentation`. Documentación conserva categoría (DG+docs+retención; no se renombró a “solo documentos”). Estatus op. texto secundario; se oculta `subestado=rechazado` duplicado/histórico. Chips siguen RPC P197. Sin migración 198. Excel sin cambio.
+
+## 2026-08-19 - fix LOCAL: estado efectivo inbox asesor (mig 197)
+
+Causa: chips `Corrección enviada` (categoria P192/P130) y `Rechazados por mesa` (`subestado=rechazado` → resultado_real) eran dimensiones independientes; un rechazo ya respondido con lote pendiente seguía en ambas colas. Decisión: helper `asesor_inbox_estado_efectivo` — cancelado → P196 REQUESTED → solicitud sin respuesta / categoria requerida → rechazo no respondido → resultado_real. List+summary+notifs SQL heredan. Columnas Documentación/Resultado real no se sincronizan por UPDATE. page.tsx asesor no se modifica. Disponibles/writers intactos. Operación de citas → **198**.
+
+## 2026-08-19 - fix LOCAL: causalidad primer lote P130 (mig 196)
+
+Causa: P193 tomaba cualquier solicitud Mesa abierta entre `cycle_start` y `submitted_at` del lote pendiente actual. Un rechazo ya respondido por un lote anterior (o el `cycle_start = fecha_envio_mesa` sin lote intermedio mal interpretado) podía marcar actualizaciones posteriores como `REQUESTED_CORRECTION`. Decisión: L es `REQUESTED_CORRECTION` solo si es el **primer** lote P130 con `submitted_at` posterior a una solicitud abierta del ciclo actual. Sin etapa como atajo. Sin tocar Disponibles/`mesa_list_bandeja_page`/writers. Copy de colas alineado. Operación de citas → **197**.
+
 ## 2026-08-19 - hotfix LOCAL: Disponibles excluye rechazo operativo (mig 195)
 
 Causa: `mesa_list_bandeja_page` con `p_ops_filter=sin_asignar` (chip Disponibles) + vista rápida Todos (`ciclo=activo`) devolvía expedientes `subestado=rechazado` sin `assigned_to`. Decisión: predicado Disponibles = activo ∧ subestado distinto de rechazado ∧ sin responsable ∧ no correccion_requerida. Chip Rechazados intacto. Tras reactivar (subestado deja de ser rechazado) vuelve a evaluarse. FE/mock alineados. 0 writers / 0 assigned_to. Operación de citas → **196**.

@@ -4,127 +4,200 @@ import { resolve } from "node:path";
 import { describe, it } from "node:test";
 
 import {
+  asesorDocumentacionFilaBadge,
   asesorEstatusOperativoFilaBadge,
   asesorInboxFilaEstadoLabels,
+  asesorEstadoActualFilaBadge,
   asesorResultadoFilaBadge,
 } from "./asesor-inbox-fila-badges";
+import { getAsesorInboxEstadoEfectivoPresentation } from "./asesor-inbox-estado-efectivo";
 
 function isGreenSuccess(className: string): boolean {
   return className.includes("bg-green-100") && className.includes("text-green-800");
 }
 
+describe("P197-B2 estado actual desde estado_efectivo", () => {
+  it("U1 correccion_requerida → Necesita corrección", () => {
+    const b = asesorEstadoActualFilaBadge("correccion_requerida");
+    assert.equal(b.label, "Necesita corrección");
+  });
+
+  it("U2 enviada gana aunque resultado_real/subestado sean rechazo", () => {
+    const fila = asesorInboxFilaEstadoLabels({
+      estadoEfectivo: "correccion_enviada",
+      resultadoReal: "rechazado_mesa",
+      resumenCorreccion: "correccion_enviada",
+      subestado: "rechazado",
+      cicloEstado: "activo",
+      etapaActual: 2,
+      etapaDisplay: "2. Registro",
+    });
+    assert.equal(fila.estadoActual, "Corrección enviada");
+    assert.notEqual(fila.estadoActual, "Rechazado por mesa");
+    assert.equal(fila.estatus, null);
+  });
+
+  it("U3 en_tramite + categoria enviada (ADVISOR_UPDATE) no pinta chip global enviada", () => {
+    const fila = asesorInboxFilaEstadoLabels({
+      estadoEfectivo: "en_tramite",
+      resultadoReal: "en_tramite",
+      resumenCorreccion: "correccion_enviada",
+      subestado: "en_proceso",
+      cicloEstado: "activo",
+      etapaActual: 11,
+      etapaDisplay: "11. Firmado",
+    });
+    assert.equal(fila.estadoActual, "En trámite");
+    assert.equal(fila.documentacion, "Corrección enviada");
+  });
+
+  it("U4 rechazado_mesa → Rechazado por mesa", () => {
+    assert.equal(
+      asesorEstadoActualFilaBadge("rechazado_mesa").label,
+      "Rechazado por mesa",
+    );
+  });
+
+  it("U5 cancelado gana sobre categoría vieja", () => {
+    const fila = asesorInboxFilaEstadoLabels({
+      estadoEfectivo: "cancelado",
+      resultadoReal: "cancelado",
+      resumenCorreccion: "correccion_requerida",
+      subestado: "rechazado",
+      cicloEstado: "cancelado",
+      etapaActual: 2,
+      etapaDisplay: "2. Registro",
+    });
+    assert.equal(fila.estadoActual, "Cancelado");
+    assert.equal(fila.estatus, null);
+  });
+
+  it("U6–U8 presentation ignora categoria, resultado_real y subestado", () => {
+    const a = getAsesorInboxEstadoEfectivoPresentation("en_tramite");
+    const b = getAsesorInboxEstadoEfectivoPresentation("en_tramite");
+    assert.equal(a.label, "En trámite");
+    assert.deepEqual(a, b);
+    assert.equal(
+      asesorEstadoActualFilaBadge("en_tramite").label,
+      "En trámite",
+    );
+    assert.notEqual(
+      asesorEstadoActualFilaBadge("en_tramite").label,
+      asesorDocumentacionFilaBadge("—", "", "correccion_enviada").label,
+    );
+    assert.notEqual(
+      asesorEstadoActualFilaBadge("correccion_enviada").label,
+      "Rechazado por mesa",
+    );
+  });
+
+  it("V1 no duplica Rechazado en estatus cuando necesita corrección", () => {
+    const estatus = asesorEstatusOperativoFilaBadge(
+      "rechazado",
+      "correccion_requerida",
+      "activo",
+      2,
+      null,
+    );
+    assert.equal(estatus, null);
+  });
+});
+
 describe("P184 asesor inbox fila etapa 12 pago ConCasa", () => {
   it("A) 12 + pagado: Completado/Pagado verde; no En trámite/En proceso", () => {
-    const resultado = asesorResultadoFilaBadge(
-      "en_tramite",
-      undefined,
-      12,
-      "pagado",
-    );
+    const resultado = asesorResultadoFilaBadge("en_tramite", 12, "pagado");
     const estatus = asesorEstatusOperativoFilaBadge(
       "en_proceso",
-      undefined,
+      "en_tramite",
       "activo",
       12,
       "pagado",
     );
     assert.equal(resultado.label, "Completado");
     assert.ok(isGreenSuccess(resultado.className));
-    assert.equal(estatus.label, "Pagado");
-    assert.ok(isGreenSuccess(estatus.className));
+    assert.equal(estatus?.label, "Pagado");
     assert.notEqual(resultado.label, "En trámite");
-    assert.notEqual(estatus.label, "En proceso");
+    assert.notEqual(estatus?.label, "En proceso");
   });
 
   it("B) 12 + no_pagado: Finalizado / No pagó; sin verde de pagado", () => {
-    const resultado = asesorResultadoFilaBadge(
-      "en_tramite",
-      undefined,
-      12,
-      "no_pagado",
-    );
+    const resultado = asesorResultadoFilaBadge("en_tramite", 12, "no_pagado");
     const estatus = asesorEstatusOperativoFilaBadge(
       "en_proceso",
-      undefined,
+      "en_tramite",
       "activo",
       12,
       "no_pagado",
     );
     assert.equal(resultado.label, "Finalizado");
-    assert.equal(estatus.label, "No pagó");
+    assert.equal(estatus?.label, "No pagó");
     assert.ok(!isGreenSuccess(resultado.className));
-    assert.ok(!isGreenSuccess(estatus.className));
     assert.notEqual(resultado.label, "En trámite");
-    assert.notEqual(estatus.label, "En proceso");
-    assert.notEqual(resultado.label, "Rechazado (mesa)");
+    assert.notEqual(estatus?.label, "En proceso");
+    assert.notEqual(resultado.label, "Rechazado por mesa");
     assert.notEqual(resultado.label, "Cancelado");
     assert.notEqual(resultado.label, "No cumple (editor)");
   });
 
   it("C) 12 + null: no infiere pagado", () => {
-    const resultado = asesorResultadoFilaBadge("en_tramite", undefined, 12, null);
+    const resultado = asesorResultadoFilaBadge("en_tramite", 12, null);
     const estatus = asesorEstatusOperativoFilaBadge(
       "en_proceso",
-      undefined,
+      "en_tramite",
       "activo",
       12,
       null,
     );
     assert.equal(resultado.label, "En trámite");
-    assert.equal(estatus.label, "En proceso");
+    assert.equal(estatus?.label, "En proceso");
     assert.notEqual(resultado.label, "Completado");
-    assert.notEqual(estatus.label, "Pagado");
+    assert.notEqual(estatus?.label, "Pagado");
   });
 
   it("D) etapa 11 sin pago: contrato actual En trámite / En proceso", () => {
-    const resultado = asesorResultadoFilaBadge("en_tramite", undefined, 11, null);
+    const resultado = asesorResultadoFilaBadge("en_tramite", 11, null);
     const estatus = asesorEstatusOperativoFilaBadge(
       "en_proceso",
-      undefined,
+      "en_tramite",
       "activo",
       11,
       null,
     );
     assert.equal(resultado.label, "En trámite");
-    assert.equal(estatus.label, "En proceso");
+    assert.equal(estatus?.label, "En proceso");
   });
 
   it("E) cancelado tiene prioridad sobre pagado", () => {
-    const resultado = asesorResultadoFilaBadge("cancelado", undefined, 12, "pagado");
+    const resultado = asesorResultadoFilaBadge("cancelado", 12, "pagado");
     const estatus = asesorEstatusOperativoFilaBadge(
       "en_proceso",
-      undefined,
+      "cancelado",
       "cancelado",
       12,
       "pagado",
     );
     assert.equal(resultado.label, "Cancelado");
-    assert.equal(estatus.label, "Cancelado");
+    assert.equal(estatus, null);
   });
 
-  it("F) rechazo Mesa tiene prioridad sobre pagado", () => {
-    const resultado = asesorResultadoFilaBadge(
-      "rechazado_mesa",
-      undefined,
-      12,
-      "pagado",
-    );
+  it("F) rechazo Mesa vigente: Estado actual, sin chip Estatus duplicado", () => {
+    const resultado = asesorResultadoFilaBadge("rechazado_mesa", 12, "pagado");
     const estatus = asesorEstatusOperativoFilaBadge(
       "rechazado",
-      undefined,
+      "rechazado_mesa",
       "activo",
       12,
       "pagado",
     );
-    assert.equal(resultado.label, "Rechazado (mesa)");
-    assert.equal(estatus.label, "Rechazado");
+    assert.equal(resultado.label, "Rechazado por mesa");
+    assert.equal(estatus, null);
   });
 
   it("G) pagado no cambia badge de documentación (columna independiente)", () => {
     const src = readFileSync(resolve(process.cwd(), "src/app/asesor/page.tsx"), "utf8");
     const docCall = src.slice(
       src.indexOf("asesorDocumentacionFilaBadge("),
-      src.indexOf("asesorDocumentacionFilaBadge(") + 220,
+      src.indexOf("asesorDocumentacionFilaBadge(") + 280,
     );
     assert.doesNotMatch(docCall, /pagoConcasaResultado/);
     assert.match(docCall, /estadoDocumentacion/);
@@ -143,14 +216,14 @@ describe("P184 asesor inbox fila etapa 12 pago ConCasa", () => {
   it("mount/source: fixture 12 pagado renderiza Completado+Pagado y no En trámite/En proceso", () => {
     const etapaDisplay = "12. Pago ConCasa · Pagó";
     const fila = asesorInboxFilaEstadoLabels({
-      resultadoReal: "en_tramite",
+      estadoEfectivo: "en_tramite",
       etapaActual: 12,
       pagoConcasaResultado: "pagado",
       subestado: "en_proceso",
       cicloEstado: "activo",
       etapaDisplay,
     });
-    const rendered = `${fila.resultado} | ${fila.estatus} | ${fila.etapa}`;
+    const rendered = `${fila.estadoActual} | ${fila.estatus} | ${fila.etapa}`;
     assert.match(rendered, /Completado/);
     assert.match(rendered, /Pagado/);
     assert.match(rendered, /Pagó/);
@@ -158,33 +231,22 @@ describe("P184 asesor inbox fila etapa 12 pago ConCasa", () => {
     assert.doesNotMatch(rendered, /En proceso/);
 
     const page = readFileSync(resolve(process.cwd(), "src/app/asesor/page.tsx"), "utf8");
-    assert.match(
-      page,
-      /asesorResultadoFilaBadge\(\s*resultadoReal,\s*resumenCorreccion,\s*p\.etapaActual,\s*p\.operativo\?\.pagoConcasaResultado/,
-    );
-    assert.match(
-      page,
-      /asesorEstatusOperativoFilaBadge\([\s\S]*p\.etapaActual,[\s\S]*pagoConcasaResultado/,
-    );
+    assert.match(page, /asesorEstadoActualFilaBadge\(/);
+    assert.match(page, /estadoEfectivo/);
     assert.match(page, /asesorInboxReprecalBadgeLabel/);
     assert.match(page, /Monto actualizado/);
   });
 
   it("pagado gana sobre corrección documental en resultado/estatus", () => {
-    const resultado = asesorResultadoFilaBadge(
-      "en_tramite",
-      "correccion_requerida",
-      12,
-      "pagado",
-    );
+    const resultado = asesorResultadoFilaBadge("en_tramite", 12, "pagado");
     const estatus = asesorEstatusOperativoFilaBadge(
       "en_proceso",
-      "correccion_requerida",
+      "en_tramite",
       "activo",
       12,
       "pagado",
     );
     assert.equal(resultado.label, "Completado");
-    assert.equal(estatus.label, "Pagado");
+    assert.equal(estatus?.label, "Pagado");
   });
 });

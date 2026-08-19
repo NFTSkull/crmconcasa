@@ -219,4 +219,19 @@ describe("asesor-inbox-rpc contracts (B1.5 P161)", () => {
     assert.match(md, /cliente_\*|P167/);
     assert.match(md, /Necesita corrección/);
   });
+
+  it("migración 197 clasifica chips por estado_efectivo y no toca Disponibles", () => {
+    const sql = readFileSync(
+      resolve(process.cwd(), "supabase/migrations/197_asesor_inbox_estado_efectivo.sql"),
+      "utf8",
+    );
+    assert.match(sql, /asesor_inbox_estado_efectivo/);
+    assert.match(sql, /mesa_correccion_episodio_flags/);
+    assert.match(sql, /REQUESTED_CORRECTION/);
+    assert.match(sql, /WHEN 'correccion_enviada' THEN b\.estado_efectivo/);
+    assert.match(sql, /WHEN 'rechazados_mesa' THEN b\.estado_efectivo/);
+    assert.doesNotMatch(sql, /p_ops_filter/);
+    assert.doesNotMatch(sql, /sin_asignar/);
+    assert.doesNotMatch(sql, /UPDATE public\.expedientes/);
+  });
 });

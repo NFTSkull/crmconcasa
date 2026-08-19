@@ -5,6 +5,8 @@
 import { hasPendingAsesorChanges } from "@/domain/expediente-archivos/derive-resumen-expediente-correccion";
 import { matchesAsesorListadoBusqueda } from "@/lib/asesorListadoBusqueda";
 import { isAsesorExpedienteAccionable } from "@/lib/asesorTareasPendientes";
+import { deriveAsesorInboxEstadoEfectivoMock } from "./asesor-inbox-estado-efectivo";
+import { asesorExpedienteDetalleHref } from "./asesor-expediente-correccion-ui";
 import {
   ASESOR_INBOX_DEFAULT_PAGE_SIZE,
   ASESOR_INBOX_MAX_PAGE_SIZE,
@@ -43,6 +45,16 @@ function categoriaMock(exp: ExpedienteMock): AsesorListExpedienteItem["categoria
   return "faltantes";
 }
 
+function estadoEfectivoMock(
+  resultadoReal: string,
+  categoria: string | null | undefined,
+): string {
+  return deriveAsesorInboxEstadoEfectivoMock({
+    resultadoReal,
+    categoriaCorreccion: categoria,
+  });
+}
+
 function mockAccionable(exp: ExpedienteMock): boolean {
   return isAsesorExpedienteAccionable({
     submittedToMesa: exp.operativo.submittedToMesa,
@@ -71,6 +83,7 @@ function pendienteAcuse(exp: ExpedienteMock): boolean {
 
 function toListItem(exp: ExpedienteMock): AsesorListExpedienteItem {
   const resultado = deriveResultadoRealExpediente(exp);
+  const cat = categoriaMock(exp);
   return {
     id: exp.id,
     programa: exp.base.programa,
@@ -105,7 +118,8 @@ function toListItem(exp: ExpedienteMock): AsesorListExpedienteItem {
     monto_aprobado_al_aprobar: exp.editorDecision.montoAprobadoAlAprobar ?? null,
     no_cumple_at: exp.editorDecision.noCumpleAt ?? null,
     resultado_real: resultado,
-    categoria_correccion: categoriaMock(exp),
+    categoria_correccion: cat,
+    estado_efectivo: estadoEfectivoMock(resultado, cat),
     reprecal_estado: exp.reprecalificacionPendienteId ? "pending" : null,
     reprecal_solicitada_at: exp.reprecalificacionPendienteId
       ? (exp.operativo.updatedAt ?? exp.base.createdAt)
@@ -127,21 +141,21 @@ function matchesQuick(
 ): boolean {
   if (quick === "todos") return true;
   if (exp.operativo.cicloEstado === "cerrado") return false;
+  const estado = estadoEfectivoMock(
+    item.resultado_real,
+    item.categoria_correccion,
+  );
   switch (quick) {
     case "en_tramite":
-      return (
-        item.resultado_real === "en_tramite" &&
-        item.categoria_correccion !== "correccion_requerida" &&
-        item.categoria_correccion !== "correccion_enviada"
-      );
+      return estado === "en_tramite";
     case "correccion_requerida":
-      return item.categoria_correccion === "correccion_requerida";
+      return estado === "correccion_requerida";
     case "correccion_enviada":
-      return item.categoria_correccion === "correccion_enviada";
+      return estado === "correccion_enviada";
     case "rechazados_mesa":
-      return item.resultado_real === "rechazado_mesa";
+      return estado === "rechazado_mesa";
     case "cancelados":
-      return item.resultado_real === "cancelado";
+      return estado === "cancelado";
     case "agendar_biometricos":
       return pendienteBio(exp);
     case "agendar_firma":
@@ -257,23 +271,17 @@ export function mockGetAsesorInboxSummary(
   for (let i = 0; i < mine.length; i += 1) {
     const exp = mine[i]!;
     const item = items[i]!;
+    const estado = estadoEfectivoMock(
+      item.resultado_real,
+      item.categoria_correccion,
+    );
     if (item.resultado_real === "aprobado_editor") aprobados_editor += 1;
     if (item.resultado_real === "no_cumple_editor") no_cumple += 1;
-    if (
-      item.resultado_real === "en_tramite" &&
-      item.categoria_correccion !== "correccion_requerida" &&
-      item.categoria_correccion !== "correccion_enviada"
-    ) {
-      en_tramite += 1;
-    }
-    if (item.resultado_real === "rechazado_mesa") rechazados_mesa += 1;
-    if (item.resultado_real === "cancelado") cancelados += 1;
-    if (item.categoria_correccion === "correccion_requerida") {
-      correccion_requerida += 1;
-    }
-    if (item.categoria_correccion === "correccion_enviada") {
-      correccion_enviada += 1;
-    }
+    if (estado === "en_tramite") en_tramite += 1;
+    if (estado === "rechazado_mesa") rechazados_mesa += 1;
+    if (estado === "cancelado") cancelados += 1;
+    if (estado === "correccion_requerida") correccion_requerida += 1;
+    if (estado === "correccion_enviada") correccion_enviada += 1;
     if (pendienteBio(exp)) agendar_biometricos += 1;
     if (pendienteFirma(exp)) agendar_firma += 1;
     if (pendienteAcuse(exp)) subir_acuse += 1;
@@ -289,23 +297,55 @@ export function mockGetAsesorInboxSummary(
 
   const limit = Math.min(100, Math.max(1, notifLimit));
   const notifications = items
-    .filter((i) => i.resultado_real === "rechazado_mesa" || i.ciclo_estado === "cancelado")
+    .filter((i) => {
+      const e = i.estado_efectivo;
+      return (
+        e === "cancelado" ||
+        e === "rechazado_mesa" ||
+        e === "correccion_requerida" ||
+        e === "correccion_enviada"
+      );
+    })
     .slice(0, limit)
-    .map((i) => ({
-      id: `${i.id}:mock`,
-      expediente_id: i.id,
-      cliente_nombre: i.cliente_nombre || "—",
-      kind: i.ciclo_estado === "cancelado" ? "cancelado" : "rechazado_mesa",
-      tipo_label:
-        i.ciclo_estado === "cancelado" ? "Expediente cancelado" : "Rechazado por Mesa",
-      mensaje:
-        i.ciclo_estado === "cancelado"
+    .map((i) => {
+      const e = i.estado_efectivo;
+      const kind =
+        e === "cancelado"
+          ? "cancelado"
+          : e === "correccion_requerida"
+            ? "correccion_requerida"
+            : e === "correccion_enviada"
+              ? "correccion_enviada"
+              : "rechazado_mesa";
+      const tipo_label =
+        kind === "cancelado"
+          ? "Expediente cancelado"
+          : kind === "correccion_requerida"
+            ? "Necesita corrección"
+            : kind === "correccion_enviada"
+              ? "Corrección enviada"
+              : "Rechazado por Mesa";
+      const mensaje =
+        kind === "cancelado"
           ? "Expediente cancelado (terminal) — solo lectura"
-          : "Expediente rechazado o bloqueado por Mesa",
-      fecha: i.updated_at ?? i.created_at,
-      prioridad: i.ciclo_estado === "cancelado" ? 1 : 2,
-      href: `/asesor/expediente/${i.id}`,
-    }));
+          : kind === "correccion_requerida"
+            ? "Mesa solicita corrección"
+            : kind === "correccion_enviada"
+              ? "Corrección enviada — Mesa debe revisar"
+              : "Expediente rechazado o bloqueado por Mesa";
+      return {
+        id: `${i.id}:${kind}`,
+        expediente_id: i.id,
+        cliente_nombre: i.cliente_nombre || "—",
+        kind,
+        tipo_label,
+        mensaje,
+        fecha: i.updated_at ?? i.created_at,
+        prioridad:
+          kind === "cancelado" || kind === "correccion_requerida" ? 1 : kind === "rechazado_mesa" ? 2 : 3,
+        href: asesorExpedienteDetalleHref(i.id, e),
+      };
+    });
 
   return {
     counts: {

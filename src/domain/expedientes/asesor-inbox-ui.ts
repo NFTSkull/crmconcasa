@@ -23,6 +23,7 @@ import {
   type ExpedienteMock,
   type ResultadoRealExpediente,
 } from "./mock.repo";
+import { asesorExpedienteDetalleHref } from "./asesor-expediente-correccion-ui";
 
 export const ASESOR_INBOX_UI_PAGE_SIZE = ASESOR_INBOX_DEFAULT_PAGE_SIZE;
 export const ASESOR_INBOX_DEPENDENT_IDS_MAX = ASESOR_INBOX_DEFAULT_PAGE_SIZE;
@@ -43,6 +44,8 @@ export type AsesorInboxPageViewModel = Readonly<{
   items: ExpedienteMock[];
   /** Categoría de corrección ya calculada en SQL (por id). */
   categoriaPorId: Readonly<Record<string, string>>;
+  /** P197: estado efectivo de cola (por id). */
+  estadoEfectivoPorId: Readonly<Record<string, string>>;
   /** P183: metadata de re-precal REAL (ortogonal a resultado_real). */
   reprecalPorId: Readonly<Record<string, AsesorInboxReprecalMeta>>;
   totalCount: number;
@@ -359,9 +362,11 @@ export function mapAsesorInboxPageResultToViewModel(
   opts?: { asesorEmail?: string | null },
 ): AsesorInboxPageViewModel {
   const categoriaPorId: Record<string, string> = {};
+  const estadoEfectivoPorId: Record<string, string> = {};
   const reprecalPorId: Record<string, AsesorInboxReprecalMeta> = {};
   const items = result.items.map((row) => {
     categoriaPorId[row.id] = row.categoria_correccion;
+    if (row.estado_efectivo) estadoEfectivoPorId[row.id] = row.estado_efectivo;
     const meta = mapAsesorInboxReprecalMeta(row);
     if (meta) reprecalPorId[row.id] = meta;
     return mapAsesorInboxListItemToExpedienteMock(row, {
@@ -371,6 +376,7 @@ export function mapAsesorInboxPageResultToViewModel(
   return {
     items,
     categoriaPorId,
+    estadoEfectivoPorId,
     reprecalPorId,
     totalCount: result.total_count,
     page: result.page,
@@ -433,7 +439,10 @@ export function mapAsesorInboxNotificationsToDashboard(
       mensaje: n.mensaje,
       fecha: n.fecha ?? null,
       prioridad: n.prioridad,
-      href: n.href,
+      href: asesorExpedienteDetalleHref(
+        n.expediente_id,
+        kind === "correccion_requerida" ? "correccion_requerida" : undefined,
+      ),
     };
   });
 }

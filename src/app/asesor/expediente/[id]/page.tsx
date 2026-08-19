@@ -29,6 +29,7 @@ import { AsesorReprecalificacionActions } from "@/components/asesor/AsesorReprec
 import { AsesorReingresoPostBiometricosCard } from "@/components/asesor/AsesorReingresoPostBiometricosCard";
 import { AsesorExpedienteCanceladoBanner } from "@/components/asesor/AsesorExpedienteCanceladoBanner";
 import { AsesorExpedienteRechazadoBanner } from "@/components/asesor/AsesorExpedienteRechazadoBanner";
+import { AsesorExpedienteEstadoActualBanner } from "@/components/asesor/AsesorExpedienteEstadoActualBanner";
 import { ReingresoBadge } from "@/components/asesor/ReingresoBadge";
 import { ReingresoManualConfirmDialog } from "@/components/asesor/ReingresoManualConfirmDialog";
 import { Button } from "@/components/ui/Button";
@@ -110,6 +111,17 @@ import {
   type ClienteDatosDraft,
 } from "@/lib/clienteDatosDraftLocalStorage";
 import { asesorDebeUsarCorreccionClienteDatos } from "@/domain/expediente-archivos/asesor-correccion-post-mesa";
+import {
+  ASESOR_CORRECCION_FOCUS_PARAM,
+  ASESOR_CORRECCION_FOCUS_VALUE,
+  ASESOR_CORRECCION_PANEL_ID,
+  ASESOR_SECCION_DG_ID,
+  ASESOR_SECCION_DOCS_ID,
+  ASESOR_SECCION_OPERATIVO_ID,
+  ASESOR_SECCION_RETENCION_ID,
+  buildAsesorExpedienteCorreccionView,
+} from "@/domain/expedientes/asesor-expediente-correccion-ui";
+import { getAsesorInboxEstadoEfectivoPresentation } from "@/domain/expedientes/asesor-inbox-estado-efectivo";
 import { emptyInfonavitClienteDatosV1 } from "@/domain/expediente-cliente-datos/infonavit-datos";
 
 type ClienteDatosFormState = ExpedienteClienteDatos["datos"];
@@ -243,6 +255,7 @@ export default function AsesorExpedientePage() {
   }, [precal?.id]);
 
   const [operativo, setOperativo] = useState<OperativoStatus | null>(null);
+  const [estadoEfectivo, setEstadoEfectivo] = useState<string | null>(null);
   const [checklist, setChecklist] = useState<
     Awaited<ReturnType<typeof getChecklistDocumentos>> | null
   >(null);
@@ -579,6 +592,57 @@ export default function AsesorExpedientePage() {
 
   const expedienteCancelado = operativo?.cicloEstado === "cancelado";
 
+  const documentosRechazadosParaCorreccion = useMemo(() => {
+    if (!archivosResumen) return [];
+    return archivosResumen
+      .filter((r) => r.estatus_revision === "rechazado")
+      .map((r) => ({
+        tipo: String(r.tipo_documento),
+        label:
+          DOCUMENTO_CATALOGO_MAP[r.tipo_documento as keyof typeof DOCUMENTO_CATALOGO_MAP]
+            ?.label ?? String(r.tipo_documento),
+        comentario: r.comentario_mesa,
+      }));
+  }, [archivosResumen]);
+
+  const correccionView = useMemo(
+    () =>
+      buildAsesorExpedienteCorreccionView({
+        estadoEfectivo,
+        clienteDatosEstado: clienteDatosMeta?.estado,
+        clienteDatosComentario: clienteDatosMeta?.comentarioRechazo,
+        documentosRechazados: documentosRechazadosParaCorreccion,
+        retencionCorreccionRequerida: documentosRechazadosParaCorreccion.some((d) =>
+          d.tipo.startsWith("retencion_"),
+        ),
+        rechazoOperativoMotivo: operativo?.motivoRechazo,
+        rechazoOperativoComentario: operativo?.comentarioRechazo,
+      }),
+    [
+      estadoEfectivo,
+      clienteDatosMeta?.estado,
+      clienteDatosMeta?.comentarioRechazo,
+      documentosRechazadosParaCorreccion,
+      operativo?.motivoRechazo,
+      operativo?.comentarioRechazo,
+    ],
+  );
+
+  const estadoActualPres = getAsesorInboxEstadoEfectivoPresentation(estadoEfectivo);
+
+  const mostrarRechazoOperativoBanner =
+    !expedienteCancelado &&
+    (correccionView.showRechazoOperativoBanner ||
+      (estadoEfectivo == null &&
+        Boolean(operativo?.submittedToMesa) &&
+        operativo?.subestado === "rechazado" &&
+        (operativo?.cicloEstado == null || operativo?.cicloEstado === "activo")));
+
+  const bloquearAgendaPorRechazoVigente =
+    expedienteCancelado ||
+    correccionView.showRechazoOperativoBanner ||
+    (estadoEfectivo == null && operativo?.subestado === "rechazado");
+
   const puedeEnviarAMesaSupabase = useMemo(
     () =>
       hasMontoAprobado &&
@@ -655,10 +719,14 @@ export default function AsesorExpedientePage() {
 
   const loadExpediente = useCallback(async () => {
     try {
-      const exp = await repo.getById(id);
+      const [exp, estadoInbox] = await Promise.all([
+        repo.getById(id),
+        repo.getAsesorInboxEstadoEfectivo(id).catch(() => null),
+      ]);
       if (!exp) {
         setPrecal(null);
         setOperativo(null);
+        setEstadoEfectivo(null);
         setEditorDecision(null);
         setReingreso(undefined);
         setReingresoManual(undefined);
@@ -668,6 +736,7 @@ export default function AsesorExpedientePage() {
         setLoadError(null);
         return;
       }
+      setEstadoEfectivo(estadoInbox);
       setLoadError(null);
       setEditorDecision(exp.editorDecision);
       setReingreso(exp.reingreso);
@@ -715,6 +784,7 @@ export default function AsesorExpedientePage() {
     } catch (err) {
       setPrecal(null);
       setOperativo(null);
+      setEstadoEfectivo(null);
       setEditorDecision(null);
       setReingreso(undefined);
       setReingresoManual(undefined);
@@ -732,6 +802,23 @@ export default function AsesorExpedientePage() {
   useEffect(() => {
     void loadExpediente();
   }, [loadExpediente]);
+
+  useEffect(() => {
+    if (!precal?.id || !correccionView.showNecesitaPanel) return;
+    if (typeof window === "undefined") return;
+    const q = new URLSearchParams(window.location.search);
+    if (q.get(ASESOR_CORRECCION_FOCUS_PARAM) !== ASESOR_CORRECCION_FOCUS_VALUE) {
+      return;
+    }
+    const target = correccionView.actions[0]?.focusId ?? ASESOR_CORRECCION_PANEL_ID;
+    const timer = window.setTimeout(() => {
+      document.getElementById(target)?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
+    }, 80);
+    return () => window.clearTimeout(timer);
+  }, [precal?.id, correccionView.showNecesitaPanel, correccionView.actions]);
 
   useEffect(() => {
     const m = editorDecision?.monto_aprobado;
@@ -1375,10 +1462,21 @@ export default function AsesorExpedientePage() {
       <main className="mx-auto max-w-6xl space-y-6 px-4 py-6">
         <div className="rounded-lg border border-gray-200 bg-white p-4 text-sm text-gray-600">
           <div className="flex flex-wrap items-start justify-between gap-2">
-            <p>
-              <span className="font-medium text-gray-900">Programa:</span>{" "}
-              {precal.programa}
+          <p>
+            <span className="font-medium text-gray-900">Programa:</span>{" "}
+            {precal.programa}
+          </p>
+          {estadoEfectivo ? (
+            <p className="w-full">
+              <span className="font-medium text-gray-900">Estado actual:</span>{" "}
+              <span
+                data-testid="asesor-expediente-estado-principal"
+                className={`inline-flex rounded-full px-2 py-0.5 text-xs font-medium ${estadoActualPres.className}`}
+              >
+                {estadoActualPres.label}
+              </span>
             </p>
+          ) : null}
             {muestraReingresoBadge ? (
               <ReingresoBadge
                 count={reingresoManual?.count ?? 0}
@@ -1428,18 +1526,29 @@ export default function AsesorExpedientePage() {
           />
         ) : null}
 
-        {!expedienteCancelado &&
-        operativo?.submittedToMesa &&
-        operativo?.subestado === "rechazado" &&
-        (operativo?.cicloEstado == null || operativo?.cicloEstado === "activo") ? (
-          <AsesorExpedienteRechazadoBanner
-            motivo={operativo?.motivoRechazo}
-            comentario={operativo?.comentarioRechazo}
-            etapaActual={operativo?.etapaActual}
-            dataModeSupabase={dataSupabase}
-            expedienteId={String(precal.id)}
-            onReenviado={() => void loadExpediente()}
+        {!expedienteCancelado ? (
+          <AsesorExpedienteEstadoActualBanner
+            view={correccionView}
+            onFocusSection={(focusId) => {
+              document.getElementById(focusId)?.scrollIntoView({
+                behavior: "smooth",
+                block: "start",
+              });
+            }}
           />
+        ) : null}
+
+        {mostrarRechazoOperativoBanner ? (
+          <div id={ASESOR_SECCION_OPERATIVO_ID}>
+            <AsesorExpedienteRechazadoBanner
+              motivo={operativo?.motivoRechazo}
+              comentario={operativo?.comentarioRechazo}
+              etapaActual={operativo?.etapaActual}
+              dataModeSupabase={dataSupabase}
+              expedienteId={String(precal.id)}
+              onReenviado={() => void loadExpediente()}
+            />
+          </div>
         ) : null}
 
         <AsesorReingresoPostBiometricosCard
@@ -1656,6 +1765,7 @@ export default function AsesorExpedientePage() {
                 </div>
               </div>
             ) : null}
+            <div id={ASESOR_SECCION_DG_ID}>
             <ExpedienteClienteDatosFormSection
               expedienteId={String(precal.id)}
               clienteDatos={clienteDatos}
@@ -1677,6 +1787,9 @@ export default function AsesorExpedientePage() {
               submittedToMesa={operativo?.submittedToMesa ?? false}
               esReingresoActivo={esReingresoActivo}
               dataSupabase
+              alertaAccionDgActiva={
+                estadoEfectivo == null || correccionView.showNecesitaPanel
+              }
               formatDateTime={formatDateTime}
               onSave={handleSaveClienteDatos}
               esperaMontoMessage={MSJ_ESPERA_MONTO_REVISOR}
@@ -1685,6 +1798,7 @@ export default function AsesorExpedientePage() {
               onMontoMejoravitEdited={handleMontoMejoravitEdited}
               onMontoCalculadoEdited={handleMontoCalculadoEdited}
             />
+            </div>
             {esMejoravit && dataSupabase && precal?.id ? (
               <AsesorMontoMejoravitActualizadoSection
                 expedienteId={String(precal.id)}
@@ -1722,10 +1836,10 @@ export default function AsesorExpedientePage() {
                 etapaActual={operativo?.etapaActual ?? null}
               />
             ) : null}
-            <div className="rounded-lg border border-gray-200 bg-white p-4 text-sm text-gray-600">
-              <p className="text-sm font-semibold text-gray-900">
-                Documentos requeridos
-              </p>
+            <div
+              id={ASESOR_SECCION_DOCS_ID}
+              className="rounded-lg border border-gray-200 bg-white p-4 text-sm text-gray-600"
+            >
               <p className="mt-1 text-xs text-gray-500">{MSJ_UPLOAD_FORMATO}</p>
               {archivosLoading ? (
                 <p className="mt-2 text-xs text-gray-500">Cargando documentos…</p>
@@ -1762,6 +1876,7 @@ export default function AsesorExpedientePage() {
                     submittedToMesa={operativo?.submittedToMesa ?? false}
                     esReingresoActivo={esReingresoActivo}
                     readOnlyOpcionalTipos={[]}
+                    esperaRevisionMesa={correccionView.showEnviadaPanel}
                     onUploaded={refreshArchivos}
                   />
                 </>
@@ -1869,8 +1984,7 @@ export default function AsesorExpedientePage() {
             ) : null}
             {canMountAgendaBiometricosUI() &&
             precal?.id &&
-            !expedienteCancelado &&
-            operativo?.subestado !== "rechazado" ? (
+            !bloquearAgendaPorRechazoVigente ? (
               <AsesorAgendaBiometricosSupabaseGate
                 expedienteId={String(precal.id)}
                 submittedToMesa={operativo?.submittedToMesa ?? false}
@@ -1881,8 +1995,7 @@ export default function AsesorExpedientePage() {
             ) : null}
             {canMountAgendaBiometricosUI() &&
             precal?.id &&
-            !expedienteCancelado &&
-            operativo?.subestado !== "rechazado" ? (
+            !bloquearAgendaPorRechazoVigente ? (
               <AsesorAgendaFirmasSupabaseGate
                 expedienteId={String(precal.id)}
                 submittedToMesa={operativo?.submittedToMesa ?? false}
@@ -1904,7 +2017,8 @@ export default function AsesorExpedientePage() {
             }) &&
             precal?.id &&
             !expedienteCancelado &&
-            operativo?.subestado !== "rechazado" ? (
+            !bloquearAgendaPorRechazoVigente ? (
+              <div id={ASESOR_SECCION_RETENCION_ID}>
               <RetencionAcuseAvisoSupabaseCard
                 expedienteId={String(precal.id)}
                 archivosResumen={archivosResumen}
@@ -1915,6 +2029,7 @@ export default function AsesorExpedientePage() {
                   await loadExpediente();
                 }}
               />
+              </div>
             ) : null}
           </>
         ) : (
@@ -2035,6 +2150,7 @@ export default function AsesorExpedientePage() {
               </div>
             ) : null}
 
+            <div id={ASESOR_SECCION_DG_ID}>
             <ExpedienteClienteDatosFormSection
               expedienteId={String(precal.id)}
               clienteDatos={clienteDatos}
@@ -2054,6 +2170,9 @@ export default function AsesorExpedientePage() {
               submittedToMesa={operativo?.submittedToMesa ?? false}
               esReingresoActivo={esReingresoActivo}
               dataSupabase={false}
+              alertaAccionDgActiva={
+                estadoEfectivo == null || correccionView.showNecesitaPanel
+              }
               formatDateTime={formatDateTime}
               onSave={handleSaveClienteDatos}
               esperaMontoMessage={MSJ_ESPERA_MONTO_REVISOR}
@@ -2062,6 +2181,7 @@ export default function AsesorExpedientePage() {
               onMontoMejoravitEdited={handleMontoMejoravitEdited}
               onMontoCalculadoEdited={handleMontoCalculadoEdited}
             />
+            </div>
 
             <SeguimientoOperativoMock
               asesorIntegracionHabilitada={hasMontoAprobado}

@@ -58,6 +58,8 @@ interface ExpedienteClienteDatosFormSectionProps {
   formatDateTime: (iso: string) => string;
   onSave: () => Promise<{ ok: boolean; message?: string }>;
   esperaMontoMessage: string;
+  /** Cuando false, el rechazo DG es historial (episodio enviado/cerrado). Default true. */
+  alertaAccionDgActiva?: boolean;
   montoAprobado?: number | null;
   programaDb?: string | null;
   onMontoMejoravitEdited?: () => void;
@@ -125,6 +127,7 @@ export function ExpedienteClienteDatosFormSection({
   programaDb = null,
   onMontoMejoravitEdited,
   onMontoCalculadoEdited,
+  alertaAccionDgActiva = true,
 }: ExpedienteClienteDatosFormSectionProps) {
   const esMejoravit = isProgramaMejoravitDb(programaDb);
   const esCorreccionRechazo = asesorEsCorreccionRechazoClienteDatos(
@@ -136,13 +139,14 @@ export function ExpedienteClienteDatosFormSection({
     clienteDatosMeta?.estado ?? "pendiente",
     { puedeIntegrar, esReingresoActivo },
   );
-  const saveLabel = esCorreccionRechazo
-    ? "Guardar corrección"
-    : submittedToMesa && clienteDatosMeta
-      ? "Guardar cambios"
-      : dataSupabase
-        ? "Guardar datos"
-        : "Guardar borrador";
+  const saveLabel =
+    esCorreccionRechazo && alertaAccionDgActiva
+      ? "Guardar corrección"
+      : submittedToMesa && clienteDatosMeta
+        ? "Guardar cambios"
+        : dataSupabase
+          ? "Guardar datos"
+          : "Guardar borrador";
 
   const err = (key: ClienteDatosFieldKey) =>
     showFieldErrors ? fieldErrors[key] : undefined;
@@ -261,7 +265,7 @@ export function ExpedienteClienteDatosFormSection({
           </p>
         ) : null}
 
-        {clienteDatosMeta?.estado === "rechazado" ? (
+        {clienteDatosMeta?.estado === "rechazado" && alertaAccionDgActiva ? (
           <p
             className="mt-2 rounded-md border border-red-200 bg-red-50 px-2 py-1.5 text-xs text-red-900"
             role="alert"
@@ -276,6 +280,14 @@ export function ExpedienteClienteDatosFormSection({
               (Actualizado: {formatDateTime(clienteDatosMeta.updatedAt)} · Por:{" "}
               {clienteDatosMeta.updatedBy})
             </span>
+          </p>
+        ) : null}
+        {clienteDatosMeta?.estado === "rechazado" && !alertaAccionDgActiva ? (
+          <p className="mt-2 rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs text-slate-700">
+            Mesa había rechazado estos datos. Ese rechazo ya no es la tarea actual.
+            {clienteDatosMeta.comentarioRechazo?.trim()
+              ? ` Motivo registrado: ${clienteDatosMeta.comentarioRechazo}`
+              : ""}
           </p>
         ) : null}
         {submittedToMesa && puedeIntegrar ? (

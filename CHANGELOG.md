@@ -2,7 +2,11 @@
 
 ## [Unreleased]
 
-### Fixed
+- **fix(asesor-detalle): episodio de corrección usa `estado_efectivo` (P197-B3, LOCAL)** — `/asesor/expediente/[id]` consume el mismo helper P197 que el inbox. Un rechazo histórico ya no es alerta principal si el episodio está enviado o cerrado. Deep link `?focus=correccion` solo en Necesita. Sin mig 198. 0 writers. `/asesor` pinta el chip principal desde RPC; Documentación y Estatus op. bajan de jerarquía. Sin SQL nuevo (198 reservado a citas). Excel intacto.
+
+- **fix(asesor-inbox): chips por estado efectivo del episodio (LOCAL)** — mig **197**: `asesor_inbox_estado_efectivo` (P196 REQUESTED → Corrección enviada; solicitud sin lote → Necesita; rechazo ya respondido no gobierna chip). List/summary misma clasificación. Categoría documental y `resultado_real` de columna intactos. `/asesor/page.tsx` no se toca. Disponibles intacto. Operación de citas → **198**.
+
+- **fix(mesa): solicitud Mesa solo clasifica el primer lote P130 posterior (LOCAL)** — mig **196**: `mesa_cambio_revision_clasificacion` deja de reutilizar un rechazo viejo para lotes siguientes. Copy: Esperando al asesor / Correcciones por revisar / Actualizaciones del asesor. Disponibles y writers intactos. Operación de citas → **197**.
 
 - **hotfix(mesa): Disponibles no muestra rechazo operativo activo (LOCAL)** — mig **195**: `mesa_list_bandeja_page` `sin_asignar` exige `ciclo_estado=activo` ∧ `subestado <> rechazado`. Rechazados intacto. Tras reactivar vuelve a Disponibles. 0 writers/asignación. Operación de citas → **196**.
 

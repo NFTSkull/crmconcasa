@@ -40,9 +40,11 @@ import {
   formatReingresoBadgeLabel,
   hasReingresoVisible,
 } from "@/domain/expedientes/reingreso-manual";
+import { asesorExpedienteDetalleHref } from "@/domain/expedientes/asesor-expediente-correccion-ui";
 import {
+  asesorDocumentacionFilaBadge,
+  asesorEstadoActualFilaBadge,
   asesorEstatusOperativoFilaBadge,
-  asesorResultadoFilaBadge,
 } from "@/domain/expedientes/asesor-inbox-fila-badges";
 import { isDataModeSupabase } from "@/lib/dataMode";
 import {
@@ -96,29 +98,6 @@ import {
   downloadAsesorPrecalificacionesExcel,
   type AsesorExportProgramaFilter,
 } from "@/lib/exportAsesorPrecalificacionesExcel";
-
-const CORRECCION_REQUERIDA_BADGE_CLASS =
-  "inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-xs font-medium text-amber-900 ring-1 ring-amber-300";
-
-function asesorDocumentacionFilaBadge(
-  estadoDocumentacion: EstadoDocumentacionColumnaAsesor | undefined,
-  resumenCorreccion?: CategoriaResumenDocumental,
-): { label: string; className: string } {
-  if (resumenCorreccion === "correccion_requerida") {
-    return { label: "Necesita corrección", className: CORRECCION_REQUERIDA_BADGE_CLASS };
-  }
-  if (resumenCorreccion === "correccion_enviada") {
-    return {
-      label: "Corrección enviada",
-      className:
-        "inline-flex rounded-full bg-sky-100 px-2 py-0.5 text-xs font-medium text-sky-800 ring-1 ring-sky-200",
-    };
-  }
-  return {
-    label: documentacionColumnaLabel(estadoDocumentacion),
-    className: documentacionColumnaBadgeClass(estadoDocumentacion),
-  };
-}
 
 function formatMontoAprobadoFila(
   montoAprobado: number | null | undefined,
@@ -177,6 +156,8 @@ interface PrecalificacionMockLocal {
   reingresoManualAt?: string | null;
   /** Categoría SQL B1.5 (fallback hasta enriquecer con archivos/datos). */
   categoriaCorreccionRpc?: CategoriaResumenDocumental;
+  /** P197: cola/chip. No derivar de columnas. */
+  estadoEfectivo?: string | null;
   reprecal?: AsesorInboxReprecalMeta | null;
 }
 
@@ -543,6 +524,7 @@ export default function AsesorDashboardPage() {
       opts?: {
         resultadoReal?: ResultadoRealExpediente;
         categoriaCorreccion?: CategoriaResumenDocumental;
+        estadoEfectivo?: string | null;
         reprecal?: AsesorInboxReprecalMeta | null;
       },
     ): PrecalificacionMockLocal => {
@@ -568,6 +550,7 @@ export default function AsesorDashboardPage() {
         reingresoManualCount: e.reingresoManual?.count ?? 0,
         reingresoManualAt: e.reingresoManual?.at ?? null,
         categoriaCorreccionRpc: opts?.categoriaCorreccion,
+        estadoEfectivo: opts?.estadoEfectivo ?? null,
         reprecal: opts?.reprecal ?? null,
       };
     },
@@ -814,6 +797,7 @@ export default function AsesorDashboardPage() {
           return mapExpedienteToLegacy(exp, {
             resultadoReal: deriveResultadoRealExpediente(exp),
             categoriaCorreccion: catTyped,
+            estadoEfectivo: view.estadoEfectivoPorId[exp.id] ?? null,
             reprecal: view.reprecalPorId[exp.id] ?? null,
           });
         });
@@ -825,6 +809,7 @@ export default function AsesorDashboardPage() {
             resultadoReal: row.resultado_real,
             categoriaCorreccionRpc:
               row.categoria_correccion as CategoriaResumenDocumental,
+            estadoEfectivo: row.estado_efectivo ?? null,
           };
         });
 
@@ -1591,7 +1576,7 @@ export default function AsesorDashboardPage() {
                       Programa
                     </th>
                     <th className="px-2 py-1.5 text-left font-semibold uppercase tracking-wide text-gray-500">
-                      Resultado real
+                      Estado actual
                     </th>
                     <th className="px-2 py-1.5 text-left font-semibold uppercase tracking-wide text-gray-500">
                       Documentación
@@ -1613,22 +1598,21 @@ export default function AsesorDashboardPage() {
                 <tbody className="divide-y divide-gray-100">
                   {expedientesPagina.map((p) => {
                       const decision = p.decision ?? "pendiente";
-                      const resultadoReal = p.resultadoReal;
+                      const estadoEfectivo = p.estadoEfectivo ?? null;
                       const resumenCorreccion = resumenDocumentalPorId[p.id];
                       const montoDisplay = formatMontoAprobadoFila(p.monto_aprobado, decision);
                       const etapaDisplay = etapaActualToTexto(
                         p.etapaActual,
                         p.operativo?.pagoConcasaResultado,
                       );
-                      const resultadoBadge = asesorResultadoFilaBadge(
-                        resultadoReal,
-                        resumenCorreccion,
+                      const resultadoBadge = asesorEstadoActualFilaBadge(
+                        estadoEfectivo,
                         p.etapaActual,
                         p.operativo?.pagoConcasaResultado,
                       );
                       const estatusOperativoBadge = asesorEstatusOperativoFilaBadge(
                         p.operativo?.subestado,
-                        resumenCorreccion,
+                        estadoEfectivo,
                         p.operativo?.cicloEstado,
                         p.etapaActual,
                         p.operativo?.pagoConcasaResultado,
@@ -1653,20 +1637,21 @@ export default function AsesorDashboardPage() {
                           ? undefined
                           : deriveEstadoDocumentacionColumnaAsesor(rowsDoc, p.etapaActual);
                       const documentacionBadge = asesorDocumentacionFilaBadge(
-                        estadoDocumentacion,
+                        documentacionColumnaLabel(estadoDocumentacion),
+                        documentacionColumnaBadgeClass(estadoDocumentacion),
                         resumenCorreccion,
                       );
                       const rowSurfaceClass =
-                        resumenCorreccion === "correccion_requerida"
+                        estadoEfectivo === "correccion_requerida"
                           ? "cursor-pointer bg-amber-50/40 hover:bg-amber-50/70"
-                          : resumenCorreccion === "correccion_enviada"
+                          : estadoEfectivo === "correccion_enviada"
                             ? "cursor-pointer bg-sky-50/30 hover:bg-sky-50/50"
                             : "cursor-pointer hover:bg-slate-50/80";
 
                       const handleRowOpen = (e: React.MouseEvent<HTMLTableRowElement>) => {
                         const targetEl = e.target as HTMLElement | null;
                         if (targetEl?.closest("a,button")) return;
-                        router.push(`/asesor/expediente/${p.id}`);
+                        router.push(asesorExpedienteDetalleHref(p.id, estadoEfectivo));
                       };
 
                       const handleRowKeyDown = (e: React.KeyboardEvent<HTMLTableRowElement>) => {
@@ -1674,7 +1659,7 @@ export default function AsesorDashboardPage() {
                         const targetEl = e.target as HTMLElement | null;
                         if (targetEl?.closest("a,button")) return;
                         e.preventDefault();
-                        router.push(`/asesor/expediente/${p.id}`);
+                        router.push(asesorExpedienteDetalleHref(p.id, estadoEfectivo));
                       };
 
                       return (
@@ -1696,7 +1681,7 @@ export default function AsesorDashboardPage() {
                                 clienteDatosEstado: clienteDatosEstadoPorId[p.id] ?? null,
                                 archivos: resumenArchivosPorId[p.id] ?? null,
                               });
-                              if (n <= 0 || resumenCorreccion !== "correccion_requerida") {
+                              if (n <= 0 || estadoEfectivo !== "correccion_requerida") {
                                 return null;
                               }
                               return (
@@ -1716,11 +1701,11 @@ export default function AsesorDashboardPage() {
                                   </span>
                                 ) : null}
                               </span>
-                            ) : p.operativo.cicloEstado === "cancelado" ? (
+                            ) : estadoEfectivo === "cancelado" || p.operativo.cicloEstado === "cancelado" ? (
                               <span className="mt-0.5 inline-flex rounded-full bg-slate-200 px-1.5 py-0.5 text-[9px] font-semibold text-slate-900">
                                 Cancelado
                               </span>
-                            ) : p.resultadoReal === "rechazado_mesa" ? (
+                            ) : estadoEfectivo === "rechazado_mesa" ? (
                               <span
                                 className="mt-0.5 inline-flex max-w-full flex-col gap-0.5"
                                 data-testid="asesor-fila-rechazado-mesa"
@@ -1781,9 +1766,13 @@ export default function AsesorDashboardPage() {
                             </span>
                           </td>
                           <td className="whitespace-nowrap px-2 py-1.5">
-                            <span className={estatusOperativoBadge.className}>
-                              {estatusOperativoBadge.label}
-                            </span>
+                            {estatusOperativoBadge ? (
+                              <span className={estatusOperativoBadge.className}>
+                                {estatusOperativoBadge.label}
+                              </span>
+                            ) : (
+                              <span className="text-[10px] text-gray-400">—</span>
+                            )}
                           </td>
                           <td className="px-2 py-1.5 tabular-nums text-gray-600">
                             <span className="whitespace-nowrap">{montoDisplay}</span>

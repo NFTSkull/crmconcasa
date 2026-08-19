@@ -74,6 +74,25 @@ describe("asesor-inbox-ui B1", () => {
     assert.equal(input.quick_filter, "agendar_biometricos");
   });
 
+  it("U10 chips rápidos viajan en quick_filter RPC, no como filtro local de badges", () => {
+    const input = buildAsesorInboxListInput({
+      page: 1,
+      filters: {
+        buscar: "",
+        decision: "",
+        estatusOperativo: "",
+        resultadoReal: "",
+        programa: "",
+        etapaExacta: "",
+        fechaDesde: "",
+        fechaHasta: "",
+      },
+      quickFilter: "correccion_enviada",
+    });
+    assert.equal(input.quick_filter, "correccion_enviada");
+    assert.equal(input.resultado_real, null);
+  });
+
   it("capIdsForDependentLoads nunca supera 25 ni duplica", () => {
     const ids = Array.from({ length: 40 }, (_, i) => `00000000-0000-4000-8000-${String(i).padStart(12, "0")}`);
     ids.push(ids[0]!);
@@ -119,6 +138,45 @@ describe("asesor-inbox-ui B1", () => {
     assert.equal(notifs.length, 1);
     assert.equal(notifs[0]!.kind, "cancelado");
     assert.equal(notifs[0]!.expedienteId, "00000000-0000-4000-8000-000000000001");
+    assert.equal(notifs[0]!.href, "/asesor/expediente/00000000-0000-4000-8000-000000000001");
+  });
+
+  it("notif necesita corrección añade focus=correccion", () => {
+    const summary = {
+      counts: {
+        total: 1,
+        aprobados_editor: 0,
+        no_cumple: 0,
+        en_tramite: 0,
+        rechazados_mesa: 0,
+        cancelados: 0,
+        correccion_requerida: 1,
+        correccion_enviada: 0,
+        agendar_biometricos: 0,
+        agendar_firma: 0,
+        subir_acuse: 0,
+      },
+      programas_unicos: [] as string[],
+      notifications: [
+        {
+          id: "e2:correccion_requerida",
+          expediente_id: "00000000-0000-4000-8000-000000000002",
+          cliente_nombre: "Luis",
+          kind: "correccion_requerida",
+          tipo_label: "Corrección requerida",
+          mensaje: "Mesa solicita corrección",
+          fecha: null,
+          prioridad: 1,
+          href: "/asesor/expediente/00000000-0000-4000-8000-000000000002",
+        },
+      ],
+    };
+    const notifs = mapAsesorInboxNotificationsToDashboard(summary);
+    assert.equal(notifs[0]!.tipoLabel, "Necesita corrección");
+    assert.equal(
+      notifs[0]!.href,
+      "/asesor/expediente/00000000-0000-4000-8000-000000000002?focus=correccion",
+    );
   });
 
   it("extraordinary_rebook_required no degrada a pendiente_revision", () => {
@@ -336,9 +394,18 @@ describe("asesor page B1 contract (source)", () => {
     assert.doesNotMatch(src, /\.listForAsesor\s*\(/);
   });
 
-  it("usa listAsesorInboxPage + getAsesorInboxSummary", () => {
-    assert.match(src, /listAsesorInboxPage/);
-    assert.match(src, /getAsesorInboxSummary/);
+  it("U10 loadInbox manda quickFilter al RPC y no filtra la tabla por categoria_correccion", () => {
+    const loadStart = src.indexOf("const loadInbox");
+    const loadEnd = src.indexOf("const reloadPrecalificaciones");
+    const loadBody = src.slice(loadStart, loadEnd);
+    assert.match(loadBody, /buildAsesorInboxListInput/);
+    assert.match(loadBody, /quickFilter/);
+    assert.match(loadBody, /listAsesorInboxPage\(listInput\)/);
+    assert.match(src, /estadoEfectivo: row\.estado_efectivo/);
+    assert.match(src, /asesorEstadoActualFilaBadge\(/);
+    const tbody = src.slice(src.indexOf("expedientesPagina.map"), src.indexOf("</tbody>"));
+    assert.doesNotMatch(tbody, /filter\(\(p\) => p\.categoria/);
+    assert.doesNotMatch(tbody, /filter\(\(p\) => p\.resultadoReal/);
   });
 
   it("page size 25 y sin fallback silencioso", () => {

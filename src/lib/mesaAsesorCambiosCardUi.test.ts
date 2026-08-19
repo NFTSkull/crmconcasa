@@ -67,7 +67,7 @@ describe("mesaAsesorCambiosCardUi", () => {
       ],
       resumenDocumental: "correccion_enviada",
     });
-    assert.match(card.header, /Corrección solicitada · 3 cambios/);
+    assert.match(card.header, /Corrección por revisar · 3 cambios/);
     assert.equal(card.resumenLines.length, 3);
     assert.equal(card.estadoPorRevisar, true);
   });

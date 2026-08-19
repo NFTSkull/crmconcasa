@@ -67,7 +67,7 @@ export const MESA_QUICK_FILTER_LABELS: Readonly<Record<MesaQuickFilter, string>>
 export const MESA_QUICK_FILTER_TOOLTIPS: Readonly<Record<MesaQuickFilter, string>> = {
   todos: "Todos los expedientes con ciclo activo enviados a Mesa.",
   correccion_enviada:
-    "Cambios enviados por el asesor que siguen pendientes de revisión en Mesa. Incluye correcciones solicitadas y otras actualizaciones.",
+    "Cambios del asesor pendientes de revisión. Incluye correcciones por revisar y actualizaciones del asesor.",
   nuevos:
     "Expedientes en pasos 1–2 con subestado pendiente, en validación Mesa o en proceso (ingreso canónico a Mesa).",
   en_proceso:

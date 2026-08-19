@@ -6,6 +6,7 @@ import {
   mesaAsesorCambiosLoteVacioTitulo,
   mesaCambioOrigenBadge,
   mesaCambioRequestTypeLabel,
+  mesaCambioCtaRevisarLabel,
   normalizeMesaCambioRevisionOrigen,
 } from "./mesaCambiosRevisionOrigenUi";
 
@@ -30,7 +31,7 @@ describe("mesaCambiosRevisionOrigenUi", () => {
     );
     assert.equal(
       mesaCambioOrigenBadge("REQUESTED_CORRECTION"),
-      "Corrección solicitada",
+      "Corrección por revisar",
     );
     assert.equal(
       mesaCambioOrigenBadge("ADVISOR_UPDATE"),
@@ -55,6 +56,15 @@ describe("mesaCambiosRevisionOrigenUi", () => {
       mesaAsesorCambiosLoteVacioTitulo("REQUESTED_CORRECTION"),
       /Corrección reenviada/,
     );
+  });
+
+  it("copy de colas y CTA sin enums internos", () => {
+    assert.equal(
+      mesaCambioCtaRevisarLabel("REQUESTED_CORRECTION"),
+      "Revisar corrección",
+    );
+    assert.equal(mesaCambioCtaRevisarLabel("ADVISOR_UPDATE"), "Revisar cambios");
+    assert.doesNotMatch(mesaCambioCtaRevisarLabel("REQUESTED_CORRECTION"), /P130|REQUESTED/);
   });
 
   it("subfiltro: solicitadas vs otras sin overlap", () => {
