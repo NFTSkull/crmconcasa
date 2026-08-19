@@ -33,6 +33,8 @@ import type {
 import { listAsesorCambiosSummaryByExpedienteIds } from "@/domain/expedientes/mesa-asesor-cambios";
 import { listCorreccionSolicitudHistoricaByExpedienteIds } from "@/domain/expedientes/mesa-correccion-solicitud-historica";
 import type {
+  MesaAsesorCambioHistoryConfidence,
+  MesaAsesorCambioPreviewItem,
   MesaAsesorCambiosSummaryItem,
   MesaAsesorCambioStatus,
   MesaCorreccionSolicitudHistorica,
@@ -80,8 +82,12 @@ export type MesaBandejaCasoEnriched = MesaBandejaCasoBase & {
   advisorChangesCount?: number | null;
   advisorChangesSubmittedAt?: string | null;
   advisorChangesSummary?: readonly string[] | null;
+  advisorChangesPreview?: readonly MesaAsesorCambioPreviewItem[] | null;
   advisorChangesStatus?: MesaAsesorCambioStatus | null;
   advisorChangeBatchId?: string | null;
+  advisorChangesHistoryConfidence?: MesaAsesorCambioHistoryConfidence | null;
+  advisorChangesHistorySource?: MesaAsesorCambioPreviewItem["source"] | null;
+  advisorChangesHistoryNote?: string | null;
   /** P130.2 — solicitud Mesa canónica para histórico sin lote. */
   correctionRequestedReason?: string | null;
   correctionRequestedNote?: string | null;
@@ -322,8 +328,12 @@ export async function enrichMesaBandejaPageItems<T extends MesaBandejaCasoBase>(
       advisorChangesCount: advisor?.changesCount ?? null,
       advisorChangesSubmittedAt: advisor?.submittedAt ?? null,
       advisorChangesSummary: advisor?.summary ?? null,
+      advisorChangesPreview: advisor?.previewChanges ?? null,
       advisorChangesStatus: advisor?.status ?? null,
       advisorChangeBatchId: advisor?.batchId ?? null,
+      advisorChangesHistoryConfidence: advisor?.historyConfidence ?? null,
+      advisorChangesHistorySource: advisor?.historySource ?? null,
+      advisorChangesHistoryNote: advisor?.historyNote ?? null,
       correctionRequestedReason: solicitud?.correctionRequestedReason ?? null,
       correctionRequestedNote: solicitud?.correctionRequestedNote ?? null,
       correctionRequestedAt: solicitud?.correctionRequestedAt ?? null,

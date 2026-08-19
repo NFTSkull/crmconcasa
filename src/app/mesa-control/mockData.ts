@@ -39,8 +39,12 @@ export interface CasoMock {
   advisorChangesCount?: number | null;
   advisorChangesSubmittedAt?: string | null;
   advisorChangesSummary?: readonly string[] | null;
+  advisorChangesPreview?: readonly import("@/lib/mesaAsesorCambiosUi").MesaAsesorCambioPreviewItem[] | null;
   advisorChangesStatus?: "borrador" | "pendiente_revision" | "revisado" | null;
   advisorChangeBatchId?: string | null;
+  advisorChangesHistoryConfidence?: import("@/lib/mesaAsesorCambiosUi").MesaAsesorCambioHistoryConfidence | null;
+  advisorChangesHistorySource?: import("@/lib/mesaAsesorCambiosUi").MesaAsesorCambioPreviewSource | null;
+  advisorChangesHistoryNote?: string | null;
   /** P193: origen del cambio pendiente (read-model). */
   cambioRevisionOrigen?:
     | "REQUESTED_CORRECTION"

@@ -7,6 +7,24 @@ const TZ = "America/Monterrey";
 
 export type MesaAsesorCambioStatus = "pendiente_revision" | "revisado" | "borrador";
 
+export type MesaAsesorCambioPreviewSource =
+  | "P130"
+  | "HISTORY_RECOVERED"
+  | "HISTORY_PARTIAL"
+  | "HISTORY_NO_DIFF";
+
+export type MesaAsesorCambioHistoryConfidence = "EXACT" | "PARTIAL" | "NO_DIFF";
+
+export type MesaAsesorCambioPreviewItem = Readonly<{
+  tipo: string;
+  campo: string | null;
+  documentKind: string | null;
+  label: string;
+  hasOld: boolean;
+  hasNew: boolean;
+  source: MesaAsesorCambioPreviewSource;
+}>;
+
 export type MesaAsesorCambiosSummaryItem = Readonly<{
   expedienteId: string;
   batchId: string | null;
@@ -14,6 +32,10 @@ export type MesaAsesorCambiosSummaryItem = Readonly<{
   submittedAt: string | null;
   changesCount: number;
   summary: readonly string[];
+  previewChanges: readonly MesaAsesorCambioPreviewItem[];
+  historyConfidence: MesaAsesorCambioHistoryConfidence | null;
+  historySource: MesaAsesorCambioPreviewSource | null;
+  historyNote: string | null;
 }>;
 
 export type MesaAsesorCambioLote = Readonly<{
@@ -44,6 +66,7 @@ export type MesaAsesorCambio = Readonly<{
   documentoAnteriorId: string | null;
   documentoNuevoId: string | null;
   createdAt: string | null;
+  source?: MesaAsesorCambioPreviewSource | string | null;
 }>;
 
 export type MesaAsesorCambioAnchor = Readonly<{
@@ -144,18 +167,96 @@ export const MESA_ASESOR_CAMBIOS_LOTE_VACIO_TITULO =
 export const MESA_ASESOR_CAMBIOS_LOTE_VACIO_AVISO =
   "El asesor reenvió el expediente sin cambios detectables.";
 
+export const MESA_ASESOR_CAMBIOS_HISTORY_EXACT_BADGE =
+  "Detalle recuperado del historial";
+
+export const MESA_ASESOR_CAMBIOS_HISTORY_PARTIAL_TITLE =
+  "Revisión histórica de Datos Generales";
+
+export const MESA_ASESOR_CAMBIOS_HISTORY_PARTIAL_BODY =
+  "Se registró un guardado de Datos Generales del asesor.";
+
+export const MESA_ASESOR_CAMBIOS_HISTORY_PARTIAL_DETAIL =
+  "El seguimiento histórico de esa fecha no conserva el campo exacto modificado.";
+
+export const MESA_ASESOR_CAMBIOS_HISTORY_NO_DIFF_BADGE =
+  "Registro histórico por revisar";
+
+export const MESA_ASESOR_CAMBIOS_HISTORY_NO_DIFF_BODY =
+  "Guardado del asesor sin cambio verificable";
+
+export const MESA_ASESOR_CAMBIOS_HISTORY_NO_DIFF_DETAIL =
+  "El sistema histórico registró el guardado, pero no conserva evidencia de un campo o documento que haya cambiado. No se atribuye un cambio específico.";
+
+const PREVIEW_SOURCES = new Set<string>([
+  "P130",
+  "HISTORY_RECOVERED",
+  "HISTORY_PARTIAL",
+  "HISTORY_NO_DIFF",
+]);
+
+export function normalizeMesaAsesorCambioPreviewSource(
+  value: string | null | undefined,
+): MesaAsesorCambioPreviewSource {
+  const v = String(value ?? "").trim();
+  if (PREVIEW_SOURCES.has(v)) return v as MesaAsesorCambioPreviewSource;
+  return "P130";
+}
+
+export function normalizeMesaAsesorCambioHistoryConfidence(
+  value: string | null | undefined,
+): MesaAsesorCambioHistoryConfidence | null {
+  const v = String(value ?? "").trim();
+  if (v === "EXACT" || v === "PARTIAL" || v === "NO_DIFF") return v;
+  return null;
+}
+
+export function normalizeMesaAsesorCambioLabel(label: string | null | undefined): string {
+  const t = String(label ?? "").trim();
+  if (!t) return "—";
+  if (/asesor_evidencia/i.test(t)) return "Evidencia del asesor reemplazada";
+  if (/^notificación reemplazado/i.test(t)) return "Notificación reemplazada";
+  if (/^notificación apodaca reemplazado/i.test(t)) return "Notificación Apodaca reemplazada";
+  if (/^carta de la empresa reemplazado/i.test(t)) return "Carta de la empresa reemplazada";
+  if (/^ine frente reemplazado/i.test(t)) return "INE frente reemplazada";
+  if (/^ine reverso reemplazado/i.test(t)) return "INE reverso reemplazada";
+  return t;
+}
+
+export function visibleAdvisorChangesCount(params: {
+  advisorChangesCount?: number | null;
+  historyConfidence?: MesaAsesorCambioHistoryConfidence | null;
+}): number {
+  const n =
+    typeof params.advisorChangesCount === "number" &&
+    Number.isFinite(params.advisorChangesCount)
+      ? Math.max(0, params.advisorChangesCount)
+      : 0;
+  if (n > 0) return n;
+  if (params.historyConfidence === "EXACT") return 1;
+  return 0;
+}
+
 /**
- * Única regla compartida: hay detalle revisable solo con lote y count > 0.
- * Un lote vacío no debe mostrar «Revisar cambios».
+ * Única regla compartida: hay detalle revisable con lote y count > 0 o recover EXACT.
  */
 export function hasAdvisorChangeDetails(params: {
   advisorChangeBatchId?: string | null;
   advisorChangesCount?: number | null;
+  historyConfidence?: MesaAsesorCambioHistoryConfidence | null;
 }): boolean {
   return (
     Boolean(params.advisorChangeBatchId) &&
-    (params.advisorChangesCount ?? 0) > 0
+    visibleAdvisorChangesCount(params) > 0
   );
+}
+
+export function hasMesaAsesorCambiosPanelContent(params: {
+  advisorChangeBatchId?: string | null;
+  advisorChangesCount?: number | null;
+  historyConfidence?: MesaAsesorCambioHistoryConfidence | null;
+}): boolean {
+  return hasAdvisorChangeDetails(params);
 }
 
 /** Lote presente pero sin filas de cambio (no histórico sin lote). */
@@ -297,14 +398,25 @@ export function esCorreccionHistoricaSinDetalle(params: {
 
 export function formatMesaAsesorCambiosResumen(
   summary: readonly string[] | null | undefined,
+  totalCount?: number | null,
 ): readonly string[] {
   const lines = (summary ?? [])
-    .map((s) => String(s ?? "").trim())
+    .map((s) => normalizeMesaAsesorCambioLabel(s))
     .filter(Boolean);
   if (lines.length === 0) return [];
-  if (lines.length <= 2) return lines;
-  const extra = lines.length - 2;
-  return [lines[0]!, lines[1]!, `+${extra} cambios`];
+  const total =
+    typeof totalCount === "number" && Number.isFinite(totalCount)
+      ? Math.max(lines.length, totalCount)
+      : lines.length;
+  if (lines.length <= 3 && total <= 3) return lines.slice(0, 3);
+  if (lines.length <= 3 && total > 3) {
+    const extra = total - 3;
+    return [...lines.slice(0, 3), `+${extra} cambios más`];
+  }
+  const shown = lines.slice(0, 3);
+  const extra = total - shown.length;
+  if (extra > 0) return [...shown, `+${extra} cambios más`];
+  return shown;
 }
 
 export function formatMesaAsesorReenviadoAt(

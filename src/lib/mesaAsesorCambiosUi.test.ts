@@ -18,6 +18,9 @@ import {
   esCorreccionHistoricaSinDetalle,
   esLoteAsesorCambiosVacio,
   hasAdvisorChangeDetails,
+  hasMesaAsesorCambiosPanelContent,
+  normalizeMesaAsesorCambioLabel,
+  visibleAdvisorChangesCount,
 } from "./mesaAsesorCambiosUi";
 
 describe("mesaAsesorCambiosUi", () => {
@@ -126,13 +129,29 @@ describe("mesaAsesorCambiosUi", () => {
     assert.equal(out.correctionRequestedByName, null);
   });
 
-  it("hasAdvisorChangeDetails exige lote y count > 0", () => {
+  it("hasAdvisorChangeDetails exige lote y count > 0 o EXACT", () => {
     assert.equal(
       hasAdvisorChangeDetails({
         advisorChangeBatchId: "00000000-0000-4000-8000-000000000001",
         advisorChangesCount: 2,
       }),
       true,
+    );
+    assert.equal(
+      hasAdvisorChangeDetails({
+        advisorChangeBatchId: "00000000-0000-4000-8000-000000000001",
+        advisorChangesCount: 0,
+        historyConfidence: "EXACT",
+      }),
+      true,
+    );
+    assert.equal(
+      hasAdvisorChangeDetails({
+        advisorChangeBatchId: "00000000-0000-4000-8000-000000000001",
+        advisorChangesCount: 0,
+        historyConfidence: "NO_DIFF",
+      }),
+      false,
     );
     assert.equal(
       hasAdvisorChangeDetails({
@@ -184,15 +203,54 @@ describe("mesaAsesorCambiosUi", () => {
     assert.equal(formatMesaAsesorCambiosBadge(0, true), "Cambios del asesor · 0");
   });
 
-  it("resumen máximo 2 + +N", () => {
+  it("resumen máximo 3 + +N cambios más", () => {
     assert.deepEqual(formatMesaAsesorCambiosResumen(["A"]), ["A"]);
-    assert.deepEqual(formatMesaAsesorCambiosResumen(["A", "B"]), ["A", "B"]);
-    assert.deepEqual(formatMesaAsesorCambiosResumen(["A", "B", "C", "D"]), [
+    assert.deepEqual(formatMesaAsesorCambiosResumen(["A", "B", "C"]), ["A", "B", "C"]);
+    assert.deepEqual(formatMesaAsesorCambiosResumen(["A", "B", "C", "D"], 5), [
       "A",
       "B",
-      "+2 cambios",
+      "C",
+      "+2 cambios más",
     ]);
     assert.deepEqual(formatMesaAsesorCambiosResumen([]), []);
+  });
+
+  it("normaliza labels femeninos y asesor_evidencia", () => {
+    assert.equal(
+      normalizeMesaAsesorCambioLabel("asesor_evidencia reemplazado"),
+      "Evidencia del asesor reemplazada",
+    );
+    assert.equal(
+      normalizeMesaAsesorCambioLabel("Notificación reemplazado"),
+      "Notificación reemplazada",
+    );
+    assert.equal(
+      normalizeMesaAsesorCambioLabel("INE frente reemplazado"),
+      "INE frente reemplazada",
+    );
+  });
+
+  it("visibleAdvisorChangesCount respeta EXACT", () => {
+    assert.equal(visibleAdvisorChangesCount({ advisorChangesCount: 3 }), 3);
+    assert.equal(
+      visibleAdvisorChangesCount({ advisorChangesCount: 0, historyConfidence: "EXACT" }),
+      1,
+    );
+    assert.equal(
+      visibleAdvisorChangesCount({ advisorChangesCount: 0, historyConfidence: "NO_DIFF" }),
+      0,
+    );
+  });
+
+  it("panel content incluye recover EXACT", () => {
+    assert.equal(
+      hasMesaAsesorCambiosPanelContent({
+        advisorChangeBatchId: "00000000-0000-4000-8000-000000000001",
+        advisorChangesCount: 0,
+        historyConfidence: "EXACT",
+      }),
+      true,
+    );
   });
 
   it("reenviado formatea America/Monterrey", () => {

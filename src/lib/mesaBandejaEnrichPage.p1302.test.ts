@@ -184,7 +184,30 @@ describe("enrichMesaBandejaPageItems P130.2", () => {
                 status: "pendiente_revision" as const,
                 submittedAt: "2026-07-21T13:00:00.000Z",
                 changesCount: 2,
-                summary: ["INE frente reemplazado", "RFC actualizado"],
+                summary: ["INE frente reemplazada", "RFC actualizado"],
+                previewChanges: [
+                  {
+                    tipo: "documento_reemplazado",
+                    campo: null,
+                    documentKind: "cliente_ine_frente",
+                    label: "INE frente reemplazada",
+                    hasOld: true,
+                    hasNew: true,
+                    source: "P130",
+                  },
+                  {
+                    tipo: "campo_actualizado",
+                    campo: "rfc",
+                    documentKind: null,
+                    label: "RFC actualizado",
+                    hasOld: true,
+                    hasNew: true,
+                    source: "P130",
+                  },
+                ],
+                historyConfidence: null,
+                historySource: null,
+                historyNote: null,
               },
             ],
           ]),
@@ -222,9 +245,11 @@ describe("enrichMesaBandejaPageItems P130.2", () => {
     );
     assert.equal(lote.advisorChangesCount, 2);
     assert.deepEqual(lote.advisorChangesSummary, [
-      "INE frente reemplazado",
+      "INE frente reemplazada",
       "RFC actualizado",
     ]);
+    assert.equal(lote.advisorChangesPreview?.length, 2);
+    assert.equal(lote.advisorChangesPreview?.[0]?.source, "P130");
     assert.equal(lote.correctionRequestedReason, null);
 
     const espera = items.find((x) => x.id === EXP_ESPERA)!;
@@ -280,6 +305,10 @@ describe("enrichMesaBandejaPageItems P130.2", () => {
                 submittedAt: "2026-07-21T13:00:00.000Z",
                 changesCount: 1,
                 summary: ["Comprobante de domicilio reemplazado"],
+                previewChanges: [],
+                historyConfidence: null,
+                historySource: null,
+                historyNote: null,
               },
             ],
           ]),
