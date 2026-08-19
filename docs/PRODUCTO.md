@@ -2,7 +2,9 @@
 
 En la bandeja principal, Mesa puede avanzar a la siguiente etapa canónica, marcar `Tiene documentos` y tomar expedientes sin asignar sin abrir el detalle.
 
-Chip **Cambios por revisar** (id interno `correccion_enviada`): lote P130 `pendiente_revision` con `submitted_at` (hotfix 192), más casos legacy P102 sin lote. P193 clasifica el mismo universo: **Correcciones solicitadas** (Mesa pidió y el asesor reenvió) vs **Otras actualizaciones** (asesor, ambiguo o histórico). P194 muestra **qué cambió** (hasta 3 labels en bandeja; detalle en panel) y recupera read-time lotes vacíos pre-P117 cuando hay evidencia (`HISTORY_RECOVERED` / `PARTIAL` / `NO_DIFF`). Sin gate de etapa.
+Chip **Cambios por revisar** (id interno `correccion_enviada`): lote P130 `pendiente_revision` con `submitted_at` (hotfix 192), más casos legacy P102 sin lote. P196: **Correcciones por revisar** = primer lote P130 posterior a una solicitud Mesa vigente del ciclo; **Actualizaciones del asesor** = lote sin solicitud no consumida. P194 muestra **qué cambió**. Sin gate de etapa. **Disponibles no cambia.**
+
+**Inbox asesor chips (P197 LOCAL):** colas usan `asesor_inbox_estado_efectivo`. **P197-B2:** la columna **Estado actual** pinta ese valor; Documentación y Estatus op. son dimensiones secundarias. **P197-B3:** el detalle `/asesor/expediente/[id]` usa el mismo estado principal (no `subestado` como alerta de acción). **Disponibles no cambia.**
 
 **Disponibles** (asignación `sin_asignar`, P195): ciclo `activo` y `subestado <> rechazado`. Un rechazo operativo activo **no** aparece ahí; sí en **Rechazos y cancelaciones / Rechazados**. Tras reactivar, vuelve a las reglas normales. Sin gate de etapa.
 

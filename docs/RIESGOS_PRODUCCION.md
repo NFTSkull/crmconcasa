@@ -40,7 +40,8 @@
 | Rechazo operativo (`activo`+`rechazado`) sigue en chip Disponibles | Alto (Mesa toma/trabaja un expediente ya rechazado) | P195: `sin_asignar` exige `subestado IS DISTINCT FROM 'rechazado'`; Rechazados intacto |
 | Contar cancelado/rechazado_mesa en chips de tarea asesor (Agendar biométricos/firma, Subir acuse) | Medio (operación falsa) | P191: `asesor_inbox_es_accionable` vía `resultado_real`; lista=summary |
 | Ocultar correcciones P130 ya enviadas (docs `cliente_*` en `subido`, no `resubido`) | Alto (Mesa no revisa; asesor no ve «Corrección enviada») | Hotfix 192: predicado lote `pendiente_revision`+`submitted_at`; no usar etapa ni heurística documental como gate |
-| Mezclar corrección solicitada por Mesa con actualización espontánea del asesor | Medio (prioridad operativa invertida) | P193: clasificar origen derivado (REQUESTED/ADVISOR/AMBIGUOUS/LEGACY) sin cambiar membresía P192; subfiltros SQL |
+| Mezclar corrección solicitada por Mesa con actualización espontánea del asesor | Medio (prioridad operativa invertida) | P196: una solicitud Mesa solo clasifica el **primer** lote P130 posterior; lotes siguientes = ADVISOR_UPDATE salvo nueva solicitud. P192/Disponibles intactos |
+| Detalle asesor muestra rechazo histórico como tarea | Alto (asesor reenvía o se confunde) | P197-B3: banner principal = `estado_efectivo`; `subestado=rechazado` no gobierna si el episodio ya respondió |
 | Tarjeta genérica «sin detalle» cuando existe evidencia canónica | Medio (Mesa no sabe qué revisar) | P194: `preview_changes` + recover read-time lotes vacíos; no inventar campos (`PARTIAL`/`NO_DIFF`); bandeja sin valores sensibles |
 | Doble booking mismo slot | Medio | UNIQUE parcial agenda + transacción |
 | Doble envío mesa | Bajo | Idempotency key + estado `submitted_to_mesa` |

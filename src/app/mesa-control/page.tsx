@@ -40,6 +40,8 @@ import {
   MESA_CAMBIO_LEGACY_COPY,
   MESA_CAMBIOS_SUBFILTRO_DEFAULT,
   MESA_CAMBIOS_SUBFILTRO_LABELS,
+  MESA_CAMBIOS_SUBFILTRO_TOOLTIPS,
+  mesaCambioCtaRevisarLabel,
   mesaAsesorCambiosLoteVacioAviso,
   mesaAsesorCambiosLoteVacioTitulo,
   mesaCambioDocumentacionLabel,
@@ -1585,6 +1587,7 @@ export default function MesaControlPage() {
                   className={`${chipBase} ${
                     cambiosSubfiltro === id ? chipActive : chipInactive
                   }`}
+                  title={MESA_CAMBIOS_SUBFILTRO_TOOLTIPS[id]}
                   data-testid={`mesa-cambios-subfiltro-${id}`}
                 >
                   {MESA_CAMBIOS_SUBFILTRO_LABELS[id]} ({count})
@@ -2049,7 +2052,7 @@ export default function MesaControlPage() {
                               onClick={(e) => e.stopPropagation()}
                               onKeyDown={(e) => e.stopPropagation()}
                             >
-                              Revisar cambios
+                              {mesaCambioCtaRevisarLabel(c.cambioRevisionOrigen)}
                             </Link>
                           ) : null}
                         </>

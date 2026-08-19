@@ -880,6 +880,23 @@ export class SupabaseExpedientesRepo implements ExpedientesRepo {
     return fetchAsesorInboxSummary(notifLimit);
   }
 
+  async getAsesorInboxEstadoEfectivo(expedienteId: string): Promise<string | null> {
+    const { client } = await requireSupabaseSession();
+    const { data, error } = await client.rpc("asesor_inbox_estado_efectivo", {
+      p_expediente_id: expedienteId,
+    });
+    if (error) {
+      const code = String((error as { code?: string }).code ?? "");
+      if (code === "PGRST202" || /asesor_inbox_estado_efectivo/i.test(error.message ?? "")) {
+        return null;
+      }
+      throw new ExpedientesSupabaseError(
+        error.message || "No se pudo leer el estado efectivo del expediente.",
+      );
+    }
+    return typeof data === "string" && data.trim() ? data.trim() : null;
+  }
+
   async getById(id: string): Promise<ExpedienteMock | null> {
     return fetchExpedienteById(id);
   }

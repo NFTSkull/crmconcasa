@@ -42,6 +42,7 @@ type Props = {
   esReingresoEtapa6?: boolean;
   /** Tipos opcionales visibles solo en histórico RO (sin dropzone). */
   readOnlyOpcionalTipos?: readonly string[];
+  esperaRevisionMesa?: boolean;
   onUploaded: () => void;
 };
 
@@ -69,8 +70,15 @@ function formatUploadDate(iso: string | null | undefined): string | null {
 function estatusBadge(
   item: IntegrationDocChecklistItem,
   submittedToMesa: boolean,
+  esperaRevisionMesa: boolean,
 ): { label: string; className: string } {
   if (item.estatus_revision === "rechazado") {
+    if (esperaRevisionMesa) {
+      return {
+        label: "Rechazo enviado — espera Mesa",
+        className: "bg-sky-50 text-sky-800 ring-sky-200",
+      };
+    }
     return {
       label: "Corrección requerida",
       className: "bg-red-50 text-red-800 ring-red-200",
@@ -121,6 +129,7 @@ function ChecklistUploadList({
   onFileChange,
   onVerArchivo,
   onDescargarArchivo,
+  esperaRevisionMesa,
 }: {
   items: IntegrationDocChecklistItem[];
   archivosResumen: ExpedienteArchivoResumen[] | null;
@@ -137,6 +146,7 @@ function ChecklistUploadList({
     tipo: IntegrationDocAsesorUploadTipo,
     archivo: ExpedienteArchivoResumen,
   ) => void;
+  esperaRevisionMesa: boolean;
 }) {
   return (
     <ul className="space-y-2 text-xs text-gray-800">
@@ -149,7 +159,7 @@ function ChecklistUploadList({
         const error = errorsByTipo[item.tipo_documento];
         const tieneArchivo = Boolean(nombre);
         const forceReadOnly = readOnlyTipos.has(item.tipo_documento);
-        const badge = estatusBadge(item, submittedToMesa);
+        const badge = estatusBadge(item, submittedToMesa, esperaRevisionMesa);
         const esCorreccion = asesorDebeUsarCorreccionDocumento(
           submittedToMesa,
           item.estatus_revision,
@@ -216,8 +226,15 @@ function ChecklistUploadList({
                   <p className="mt-0.5 text-[11px] text-gray-500">Subido: {fechaSubida}</p>
                 ) : null}
                 {item.estatus_revision === "rechazado" && comentarioMesa ? (
-                  <p className="mt-1 rounded border border-red-100 bg-red-50 px-2 py-1 text-red-900">
-                    Motivo Mesa: {comentarioMesa}
+                  <p
+                    className={`mt-1 rounded border px-2 py-1 ${
+                      esperaRevisionMesa
+                        ? "border-slate-200 bg-slate-50 text-slate-800"
+                        : "border-red-100 bg-red-50 text-red-900"
+                    }`}
+                  >
+                    {esperaRevisionMesa ? "Motivo Mesa (ya respondido): " : "Motivo Mesa: "}
+                    {comentarioMesa}
                   </p>
                 ) : null}
                 {esOpcionalPendientePostMesa ? (
@@ -321,6 +338,7 @@ export function AsesorIntegracionDocsUpload({
   esReingresoActivo,
   esReingresoEtapa6 = false,
   readOnlyOpcionalTipos = [],
+  esperaRevisionMesa = false,
   onUploaded,
 }: Props) {
   const reingresoActivo = Boolean(esReingresoActivo ?? esReingresoEtapa6);
@@ -505,6 +523,7 @@ export function AsesorIntegracionDocsUpload({
     onFileChange: handleFileChange,
     onVerArchivo: handleVerArchivo,
     onDescargarArchivo: handleDescargarArchivo,
+    esperaRevisionMesa,
   };
 
   return (
@@ -529,10 +548,16 @@ export function AsesorIntegracionDocsUpload({
         </p>
       </div>
 
-      {submittedToMesa ? (
+      {submittedToMesa && !esperaRevisionMesa ? (
         <p className="rounded-md border border-amber-100 bg-amber-50 px-2 py-1.5 text-xs text-amber-950">
           Expediente en Mesa de control. Puedes reemplazar documentos ya enviados, corregir
           rechazados y subir opcionales que no enviaste antes.
+        </p>
+      ) : null}
+      {submittedToMesa && esperaRevisionMesa ? (
+        <p className="rounded-md border border-sky-100 bg-sky-50 px-2 py-1.5 text-xs text-sky-900">
+          Corrección enviada. Mesa está revisando los documentos. El estatus rojo anterior es
+          historial técnico, no una tarea nueva.
         </p>
       ) : null}
 

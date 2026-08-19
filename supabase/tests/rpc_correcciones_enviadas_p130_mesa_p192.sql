@@ -472,19 +472,29 @@ BEGIN
 
   PERFORM public.__p192_set_auth(v_asesor);
   v_page := public.asesor_list_expedientes_page(
-    1, 100, 'P192 Caso A cliente', NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'correccion_enviada'
+    1, 100, 'P192 Caso A cliente', NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'todos'
   );
   SELECT count(*)::int INTO v_count
   FROM jsonb_array_elements(coalesce(v_page->'items', '[]'::jsonb)) x
   WHERE x->>'cliente_nombre' = 'P192 Caso A cliente';
-  PERFORM public.__p192_assert(v_count = 1, 'asesor inbox quick enviada incluye A');
+  PERFORM public.__p192_assert(v_count = 1, 'asesor inbox todos incluye A');
   v_cat := (
     SELECT x->>'categoria_correccion'
     FROM jsonb_array_elements(coalesce(v_page->'items', '[]'::jsonb)) x
     WHERE x->>'cliente_nombre' = 'P192 Caso A cliente'
     LIMIT 1
   );
-  PERFORM public.__p192_assert(v_cat = 'correccion_enviada', 'asesor item categoria A');
+  PERFORM public.__p192_assert(v_cat = 'correccion_enviada', 'asesor item categoria A (P192 columna)');
+  v_page := public.asesor_list_expedientes_page(
+    1, 100, 'P192 Caso A cliente', NULL, NULL, NULL, NULL, NULL, NULL, NULL, 'correccion_enviada'
+  );
+  SELECT count(*)::int INTO v_count
+  FROM jsonb_array_elements(coalesce(v_page->'items', '[]'::jsonb)) x
+  WHERE x->>'cliente_nombre' = 'P192 Caso A cliente';
+  PERFORM public.__p192_assert(
+    v_count = 0,
+    'P197: chip Corrección enviada = REQUESTED Mesa, no ADVISOR_UPDATE (Caso A)'
+  );
   PERFORM public.__p192_reset_auth();
 
   RAISE NOTICE 'P192 OK: casos A–H + Luis-like + sort + lista/counts';

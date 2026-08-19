@@ -3,7 +3,33 @@
 - [x] RPC `mesa_list_bandeja_page` `p_ops_filter=sin_asignar`: `ciclo=activo` ∧ `subestado <> rechazado` ∧ sin `assigned_to` ∧ no `correccion_requerida`.
 - [x] `activo+rechazado` → Disponibles FALSE; Rechazados TRUE.
 - [x] Tras `subestado` deja de ser `rechazado` → Disponibles se reevalúa.
-- [x] SQL `rpc_mesa_disponibles_excluye_rechazado_p195.sql` + TS `mesaOpsUi`. 0 writers. Operación de citas → **196**.
+- [x] SQL `rpc_mesa_disponibles_excluye_rechazado_p195.sql` + TS `mesaOpsUi`. 0 writers. Operación de citas → **197**.
+
+## P196 — Causalidad primer lote (REQUESTED vs ADVISOR) (LOCAL)
+
+- [x] `mesa_cambio_revision_clasificacion`: una solicitud Mesa solo clasifica el **primer** lote P130 posterior (`submitted_at` entre R y L).
+- [x] T1–T9 SQL. Sin stage gate. `mesa_list_bandeja_page` / Disponibles / writers intactos.
+- [x] Copy Mesa: Esperando al asesor / Correcciones por revisar / Actualizaciones del asesor. CTA «Revisar corrección» abre detalle (no marca revisado).
+- [x] 0 Cloud writes. Operación de citas → **197**.
+
+## P197-B3 — Detalle expediente asesor: ciclo de corrección (LOCAL)
+
+- [x] Estado principal = `estado_efectivo` (mismo helper P197).
+- [x] Necesita / Enviada / Revisada (desaparece episodio) / Rechazo vigente / Cancelado.
+- [x] F1–F12 + consistencia inbox=detalle=notif. Sin mig 198. 0 writers Mesa/asesor.
+
+## P197-B2 — Dashboard asesor consume estado efectivo (LOCAL)
+
+- [x] Columna Estado actual = `item.estado_efectivo` (presentation helper).
+- [x] Documentación / Estatus op. no compiten como chips globales.
+- [x] Chips/contadores siguen RPC P197. Sin mig 198. Excel intacto.
+
+## P197 — Estado efectivo dashboard inbox (LOCAL)
+
+- [x] Helper `asesor_inbox_estado_efectivo` + `mesa_correccion_episodio_flags`.
+- [x] List y summary misma clasificación. S1–S10 SQL.
+- [x] `/asesor/page.tsx` no modificado (chips ya van por RPC).
+- [x] Disponibles / writers intactos. Operación de citas → **198**.
 
 ## P186 — Editor inbox: orden por trabajo pendiente + draft re-precal
 

@@ -26,9 +26,9 @@ export const MESA_OPS_FILTER_CHIPS: ReadonlyArray<{
   },
   {
     id: "en_espera_asesor",
-    label: "Esperando corrección del asesor",
+    label: "Esperando al asesor",
     tooltip:
-      "Mesa pidió corrección; el asesor aún no reenvió (categoría correccion_requerida). Distinto de correcciones listas para revisar.",
+      "Mesa solicitó una corrección y el asesor todavía no la ha reenviado.",
   },
   {
     id: "mi_bandeja",
@@ -49,7 +49,7 @@ export const MESA_OPS_FILTER_CHIPS: ReadonlyArray<{
 ];
 
 export const MESA_OPS_FILTER_HELP_TEXT =
-  "Disponibles: libres para tomar (ciclo activo, no rechazados). Esperando corrección del asesor: Mesa pidió corrección y el asesor aún no reenvió. Asignados en trabajo: ya tomados por alguien. Todo Mesa: sin filtro de asignación.";
+  "Disponibles: libres para tomar (ciclo activo, no rechazados). Esperando al asesor: Mesa pidió corrección y el asesor todavía no la reenvió. Asignados en trabajo: ya tomados por alguien. Todo Mesa: sin filtro de asignación.";
 
 export type MesaOpsStatusKind =
   | "sin_asignar"

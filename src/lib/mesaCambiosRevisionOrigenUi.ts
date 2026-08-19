@@ -54,7 +54,7 @@ export function mesaCambioRequestTypeLabel(
 }
 
 export function mesaCambioOrigenBadge(origin: MesaCambioRevisionOrigen): string {
-  if (origin === "REQUESTED_CORRECTION") return "Corrección solicitada";
+  if (origin === "REQUESTED_CORRECTION") return "Corrección por revisar";
   if (origin === "ADVISOR_UPDATE") return "Actualización del asesor";
   if (origin === "AMBIGUOUS") return "Actualización por revisar";
   return "Cambio histórico por revisar";
@@ -63,7 +63,17 @@ export function mesaCambioOrigenBadge(origin: MesaCambioRevisionOrigen): string 
 export const MESA_CAMBIO_ESTADO_POR_REVISAR = "Por revisar";
 
 export const MESA_CAMBIO_ADVISOR_COPY =
-  "El asesor actualizó el expediente sin una solicitud previa de corrección de Mesa detectada.";
+  "Cambios enviados por el asesor sin una solicitud vigente de corrección de Mesa.";
+
+export const MESA_CAMBIO_CTA_REVISAR_CORRECCION = "Revisar corrección";
+export const MESA_CAMBIO_CTA_REVISAR_CAMBIOS = "Revisar cambios";
+
+export function mesaCambioCtaRevisarLabel(
+  origin: MesaCambioRevisionOrigen | null | undefined,
+): string {
+  if (origin === "REQUESTED_CORRECTION") return MESA_CAMBIO_CTA_REVISAR_CORRECCION;
+  return MESA_CAMBIO_CTA_REVISAR_CAMBIOS;
+}
 
 export const MESA_CAMBIO_AMBIGUOUS_COPY =
   "No se pudo determinar de forma inequívoca si este cambio provino de una solicitud previa de Mesa.";
@@ -117,8 +127,18 @@ export const MESA_CAMBIOS_SUBFILTRO_LABELS: Readonly<
   Record<MesaCambiosPorRevisarSubfiltro, string>
 > = {
   todos: "Todos",
-  solicitadas: "Correcciones solicitadas",
-  otras: "Otras actualizaciones",
+  solicitadas: "Correcciones por revisar",
+  otras: "Actualizaciones del asesor",
+};
+
+export const MESA_CAMBIOS_SUBFILTRO_TOOLTIPS: Readonly<
+  Record<MesaCambiosPorRevisarSubfiltro, string>
+> = {
+  todos: "Todos los cambios del asesor pendientes de revisión en Mesa.",
+  solicitadas:
+    "El asesor ya envió la corrección. Mesa debe revisarla.",
+  otras:
+    "Cambios enviados por el asesor sin una solicitud vigente de corrección de Mesa.",
 };
 
 export function mapMesaCambiosSubfiltroToRpc(
@@ -134,7 +154,7 @@ export function mapMesaCambiosSubfiltroToRpc(
 export function mesaCambioDocumentacionLabel(
   origin: MesaCambioRevisionOrigen | null | undefined,
 ): string {
-  return origin ? mesaCambioOrigenBadge(origin) : "Corrección enviada";
+  return origin ? mesaCambioOrigenBadge(origin) : "Cambio por revisar";
 }
 
 export function mesaCambioMuestraEstadoPorRevisar(

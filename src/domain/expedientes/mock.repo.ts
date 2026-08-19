@@ -18,6 +18,7 @@ import type {
   CancelacionOperativaInput,
   ExpedienteCancelacionRow,
 } from "./mesa-cancelacion-operativa";
+import { deriveAsesorInboxEstadoEfectivoMock } from "./asesor-inbox-estado-efectivo";
 import {
   paginateSortedExpedientes,
   sortExpedientesByCreatedAtDesc,
@@ -589,6 +590,20 @@ export class MockExpedientesRepo implements ExpedientesRepo {
     }
     const mine = await this.listForAsesor(email);
     return mockGetAsesorInboxSummary(mine, notifLimit);
+  }
+
+  async getAsesorInboxEstadoEfectivo(expedienteId: string): Promise<string | null> {
+    const exp = await this.getById(expedienteId);
+    if (!exp) return null;
+    const resultado = deriveResultadoRealExpediente(exp);
+    const categoria = exp.asesorCambioLote?.status === "pendiente_revision" &&
+      exp.asesorCambioLote.submittedAt
+      ? "correccion_enviada"
+      : null;
+    return deriveAsesorInboxEstadoEfectivoMock({
+      resultadoReal: resultado,
+      categoriaCorreccion: categoria,
+    });
   }
 
   async listForEditor(query: EditorListQuery): Promise<EditorListPage> {
