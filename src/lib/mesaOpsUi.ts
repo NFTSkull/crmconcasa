@@ -21,7 +21,8 @@ export const MESA_OPS_FILTER_CHIPS: ReadonlyArray<{
   {
     id: "sin_asignar",
     label: "Disponibles",
-    tooltip: "Sin responsable y accionables para «Tomar expediente» (excluye esperando corrección del asesor).",
+    tooltip:
+      "Sin responsable, ciclo activo y no rechazados. Accionables para «Tomar expediente» (excluye espera de corrección del asesor).",
   },
   {
     id: "en_espera_asesor",
@@ -48,7 +49,7 @@ export const MESA_OPS_FILTER_CHIPS: ReadonlyArray<{
 ];
 
 export const MESA_OPS_FILTER_HELP_TEXT =
-  "Disponibles: libres para tomar. Esperando corrección del asesor: Mesa pidió corrección y el asesor aún no reenvió. Asignados en trabajo: ya tomados por alguien. Todo Mesa: sin filtro de asignación.";
+  "Disponibles: libres para tomar (ciclo activo, no rechazados). Esperando corrección del asesor: Mesa pidió corrección y el asesor aún no reenvió. Asignados en trabajo: ya tomados por alguien. Todo Mesa: sin filtro de asignación.";
 
 export type MesaOpsStatusKind =
   | "sin_asignar"
@@ -172,7 +173,17 @@ export type MesaOpsFilterableItem = MesaBandejaOrdenItem &
     id: string;
     mesaOps?: MesaExpedienteOpsRow | null;
     resumenDocumental?: CategoriaResumenDocumental | null;
+    subestado?: string | null;
+    cicloEstado?: string | null;
   }>;
+
+/** Disponibles = ciclo activo, no rechazado, sin responsable, no en espera de asesor. */
+export function esDisponibleParaMesa(item: MesaOpsFilterableItem): boolean {
+  const ciclo = item.cicloEstado ?? "activo";
+  if (ciclo !== "activo") return false;
+  if (item.subestado === "rechazado") return false;
+  return isSinAsignarOps(item.mesaOps) && !estaEnEsperaDeAsesor(item.resumenDocumental);
+}
 
 export function filterMesaOpsItems<T extends MesaOpsFilterableItem>(
   items: readonly T[],
@@ -186,10 +197,7 @@ export function filterMesaOpsItems<T extends MesaOpsFilterableItem>(
   }
 
   if (filter === "sin_asignar") {
-    return items.filter(
-      (item) =>
-        isSinAsignarOps(item.mesaOps) && !estaEnEsperaDeAsesor(item.resumenDocumental),
-    );
+    return items.filter((item) => esDisponibleParaMesa(item));
   }
 
   if (filter === "mi_bandeja") {

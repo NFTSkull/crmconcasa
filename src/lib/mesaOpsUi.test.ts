@@ -4,6 +4,7 @@ import type { MesaExpedienteOpsRow } from "@/domain/mesa-ops/types";
 import {
   applyMesaOpsFilterSorted,
   DEFAULT_MESA_OPS_FILTER,
+  esDisponibleParaMesa,
   filterMesaOpsItems,
   getMesaOpsStatusLabel,
   isAssignedToCurrentUser,
@@ -124,6 +125,40 @@ describe("mesaOpsUi", () => {
     const filtered = filterMesaOpsItems(merged, "sin_asignar", USER_A);
     assert.equal(filtered.length, 1);
     assert.deepEqual(filtered.map((i) => i.id), ["exp-new"]);
+  });
+
+  it("filtro Disponibles excluye activo+rechazado (aunque sin assigned_to)", () => {
+    const merged = mergeExpedientesWithMesaOps(
+      [
+        { ...items[0], subestado: "rechazado", cicloEstado: "activo" },
+        { ...items[2], subestado: "en_validacion_mesa", cicloEstado: "activo" },
+      ],
+      buildMesaOpsMap([]),
+    );
+    assert.equal(esDisponibleParaMesa(merged[0]!), false);
+    assert.equal(esDisponibleParaMesa(merged[1]!), true);
+    const filtered = filterMesaOpsItems(merged, "sin_asignar", USER_A);
+    assert.deepEqual(filtered.map((i) => i.id), ["exp-new"]);
+    const rechazadosChip = merged.filter(
+      (i) => i.subestado === "rechazado" && (i.cicloEstado ?? "activo") === "activo",
+    );
+    assert.deepEqual(rechazadosChip.map((i) => i.id), ["exp-old"]);
+  });
+
+  it("tras reactivar (subestado deja de ser rechazado) vuelve a Disponibles", () => {
+    const before = mergeExpedientesWithMesaOps(
+      [{ ...items[0], subestado: "rechazado", cicloEstado: "activo" }],
+      buildMesaOpsMap([]),
+    );
+    assert.equal(filterMesaOpsItems(before, "sin_asignar", USER_A).length, 0);
+    const after = mergeExpedientesWithMesaOps(
+      [{ ...items[0], subestado: "en_validacion_mesa", cicloEstado: "activo" }],
+      buildMesaOpsMap([]),
+    );
+    assert.deepEqual(
+      filterMesaOpsItems(after, "sin_asignar", USER_A).map((i) => i.id),
+      ["exp-old"],
+    );
   });
 
   it("filtro Disponibles excluye correccion_requerida (en espera de asesor)", () => {

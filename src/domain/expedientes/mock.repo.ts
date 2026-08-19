@@ -929,6 +929,9 @@ export class MockExpedientesRepo implements ExpedientesRepo {
       if (ops === "mi_bandeja" || ops === "en_trabajo" || ops === "en_espera_asesor") {
         return false;
       }
+      if (ops === "sin_asignar" && sub === "rechazado") {
+        return false;
+      }
 
       return true;
     });
