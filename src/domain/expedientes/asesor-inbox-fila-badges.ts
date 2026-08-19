@@ -19,6 +19,11 @@ const ESTATUS_SECUNDARIO_CLASS =
 
 export type AsesorInboxFilaBadge = { label: string; className: string };
 
+/** Encabezado de columna secundaria. Puede diferir del Estado actual. */
+export const ASESOR_INBOX_DOCUMENTACION_COL_HEADER = "Documentación / corrección";
+export const ASESOR_INBOX_DOCUMENTACION_COL_TITLE =
+  "Estado documental o de corrección. Puede diferir del Estado actual.";
+
 function isEtapaPagoConcasa(etapaActual?: number | null): boolean {
   return Number(etapaActual) === 12;
 }
@@ -115,13 +120,13 @@ export function asesorDocumentacionFilaBadge(
   if (resumenCorreccion === "correccion_requerida") {
     return {
       label: "Necesita corrección",
-      className: "text-[10px] font-medium text-amber-900/80 sm:text-xs",
+      className: "text-[10px] font-semibold text-amber-900 sm:text-xs",
     };
   }
   if (resumenCorreccion === "correccion_enviada") {
     return {
       label: "Corrección enviada",
-      className: "text-[10px] font-medium text-emerald-700 sm:text-xs",
+      className: "text-[10px] font-semibold text-emerald-700 sm:text-xs",
     };
   }
   return {
@@ -134,6 +139,8 @@ export function asesorInboxFilaEstadoLabels(params: {
   estadoEfectivo: string;
   resultadoReal?: string;
   resumenCorreccion?: CategoriaResumenDocumental;
+  documentacionLabel?: string;
+  documentacionClassName?: string;
   etapaActual?: number | null;
   pagoConcasaResultado?: PagoConcasaResultado | null;
   subestado?: string | null;
@@ -158,8 +165,8 @@ export function asesorInboxFilaEstadoLabels(params: {
     params.pagoConcasaResultado,
   );
   const documentacion = asesorDocumentacionFilaBadge(
-    "—",
-    "text-xs text-gray-400",
+    params.documentacionLabel ?? "—",
+    params.documentacionClassName ?? "text-xs text-gray-400",
     params.resumenCorreccion,
   );
   return {

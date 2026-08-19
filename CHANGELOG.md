@@ -10,6 +10,8 @@
 
 ## [Unreleased]
 
+- **style(asesor-inbox): estados de Documentación/corrección legibles** — columna `/asesor`: «Necesita corrección» ámbar oscuro `text-amber-900` + `font-semibold` (sin `/80`); «Corrección enviada» `font-semibold`. Encabezado «Documentación / corrección» + `title` de divergencia vs Estado actual. Sin recálculo de `estado_efectivo`. Sin SQL/Cloud.
+
 - **fix(agenda): reagenda CRM→Sheets con histórico REAGENDADO + sync UI (P200)** — worker ya no mata cancel por E/F en reagenda; Cloud worker stale (p175) a desplegar. RPC `agenda_booking_sheet_sync_status` (mig **200**). UI biométricos: “en CRM · sincronizando…” hasta SYNCED. `reagendar_biometricos` intacto. Sin citas sintéticas.
 
 - **fix(asesor-detalle): episodio de corrección usa `estado_efectivo` (P197-B3, LOCAL)** — `/asesor/expediente/[id]` consume el mismo helper P197 que el inbox. Un rechazo histórico ya no es alerta principal si el episodio está enviado o cerrado. Deep link `?focus=correccion` solo en Necesita. Sin mig 198. 0 writers. `/asesor` pinta el chip principal desde RPC; Documentación y Estatus op. bajan de jerarquía. Sin SQL nuevo (198 reservado a citas). Excel intacto.
