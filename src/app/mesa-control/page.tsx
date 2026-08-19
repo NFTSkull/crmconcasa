@@ -58,7 +58,6 @@ import {
 import { mesaListExpedientesPresencia } from "@/domain/expedientes/mesa-expediente-presencia";
 import {
   ExpedientesSupabaseError,
-  appendMesaBandejaItemsUnique,
   mapAdminOrigenTabToRpc,
   MESA_BANDEJA_PAGE_SIZE,
   useExpedientesRepo,
@@ -161,6 +160,15 @@ import {
   shouldShowMesaBandejaLoadMoreFallback,
   sliceMesaBandejaVisible,
 } from "@/lib/mesaBandejaInfiniteScroll";
+import {
+  beginMesaBandejaAppend,
+  beginMesaBandejaFirstPage,
+  canAppendMesaBandejaPage,
+  invalidateMesaBandejaPagination,
+  mergeMesaBandejaAppendClamped,
+  mesaBandejaAttemptIsCurrent,
+  mesaBandejaQueryIdentity,
+} from "@/lib/mesaBandejaInfiniteQuery";
 import { hasAlertMessage, MESA_OPS_UPDATED_EVENT } from "@/lib/hasAlertMessage";
 import { NotificationsBell } from "@/components/notifications/NotificationsBell";
 import { buildDashboardNotifications } from "@/lib/dashboardNotifications";
@@ -445,6 +453,12 @@ export default function MesaControlPage() {
   const [serverCounts, setServerCounts] = useState<MesaBandejaServerCounts | null>(null);
   const serverCursorRef = useRef<MesaBandejaCursor | null>(null);
   const serverQueryGenRef = useRef(0);
+  const serverActiveQueryKeyRef = useRef("");
+  const serverCursorQueryKeyRef = useRef<string | null>(null);
+  const serverHasMoreRef = useRef(false);
+  const serverTotalCountRef = useRef(0);
+  const loadedCountRef = useRef(0);
+  const casosRef = useRef<CasoConDocs[]>([]);
 
   const todayYMD = getTodayYMD();
 
@@ -597,14 +611,57 @@ export default function MesaControlPage() {
     (opciones?: { silencioso?: boolean; append?: boolean }) => {
       if (!currentUser || !dataSupabase) return;
       const append = Boolean(opciones?.append);
+      const showOrigenTabs =
+        mesaMockRole === "mesa_control_admin" || mesaMockRole === "mesa_control";
+      const queryKey = mesaBandejaQueryIdentity({
+        quickFilter,
+        mesaOpsFilter,
+        buscar: buscarDebounced,
+        etapaFilter,
+        subestadoFilter,
+        soloCitasHoy,
+        rechazosCancelacionesSubfiltro,
+        cambiosSubfiltro,
+        adminOrigenTab: showOrigenTabs ? adminOrigenTab : "",
+      });
       void (async () => {
-        const gen = append ? serverQueryGenRef.current : ++serverQueryGenRef.current;
+        const attempt = append
+          ? beginMesaBandejaAppend(serverQueryGenRef, serverActiveQueryKeyRef, queryKey)
+          : beginMesaBandejaFirstPage(
+              serverQueryGenRef,
+              serverActiveQueryKeyRef,
+              serverCursorRef,
+              serverCursorQueryKeyRef,
+              queryKey,
+            );
+        const isCurrent = () =>
+          mesaBandejaAttemptIsCurrent(attempt, {
+            gen: serverQueryGenRef.current,
+            queryKey: serverActiveQueryKeyRef.current,
+          });
+
         if (!append) {
           if (!opciones?.silencioso) setLoading(true);
           setListError(null);
           setLoadMoreError(null);
-          serverCursorRef.current = null;
+          setLoadingMore(false);
+          loadingMoreLockRef.current = false;
+          serverHasMoreRef.current = false;
+          setServerHasMore(false);
         } else {
+          if (
+            !canAppendMesaBandejaPage({
+              requestQueryKey: queryKey,
+              activeQueryKey: serverActiveQueryKeyRef.current,
+              serverHasMore: serverHasMoreRef.current,
+              serverTotalCount: serverTotalCountRef.current,
+              loadedCount: loadedCountRef.current,
+              cursor: serverCursorRef.current,
+              cursorQueryKey: serverCursorQueryKeyRef.current,
+            })
+          ) {
+            return;
+          }
           if (loadingMoreLockRef.current) return;
           loadingMoreLockRef.current = true;
           setLoadingMore(true);
@@ -639,7 +696,6 @@ export default function MesaControlPage() {
             // Paso visual con varias internas (p.ej. paso 3 → 3+4): unión completa
             // sin cambiar la RPC (sigue enviando un p_etapa interno por llamada).
             if (append) {
-              setServerHasMore(false);
               return;
             }
             const byId = new Map<string, (typeof page.items)[number]>();
@@ -655,6 +711,7 @@ export default function MesaControlPage() {
                   etapa: etapaInterna,
                   includeCounts,
                 });
+                if (!isCurrent()) return;
                 if (part.counts && !counts) counts = part.counts;
                 totalCount += part.totalCount;
                 for (const item of part.items) byId.set(item.id, item);
@@ -681,28 +738,41 @@ export default function MesaControlPage() {
               etapa: etapasFiltro?.[0] ?? null,
               includeCounts: !append,
             });
+            if (!isCurrent()) return;
           }
-          if (gen !== serverQueryGenRef.current) return;
 
           const base = page.items.map((exp) => mapExpToCaso(exp));
           const enrichDeps = await resolveEnrichDeps();
+          if (!isCurrent()) return;
           const enriched = (await enrichMesaBandejaPageItems(
             base,
             enrichDeps,
           )) as CasoConDocs[];
+          if (!isCurrent()) return;
 
           // Conservar orden del servidor (sort_ts); no reordenar localmente.
-          if (append) {
-            setCasos((prev) => appendMesaBandejaItemsUnique(prev, enriched));
-          } else {
-            setCasos(enriched);
-            if (page.counts) setServerCounts(page.counts);
-          }
+          const nextItems = append
+            ? mergeMesaBandejaAppendClamped(
+                casosRef.current,
+                enriched,
+                page.totalCount,
+              )
+            : enriched;
+          casosRef.current = nextItems;
+          loadedCountRef.current = nextItems.length;
+          setCasos(nextItems);
+          if (!append && page.counts) setServerCounts(page.counts);
+          serverTotalCountRef.current = page.totalCount;
           setServerTotalCount(page.totalCount);
-          setServerHasMore(page.hasMore);
-          serverCursorRef.current = page.nextCursor;
+          const nextHasMore =
+            Boolean(page.hasMore) && nextItems.length < page.totalCount;
+          serverHasMoreRef.current = nextHasMore;
+          setServerHasMore(nextHasMore);
+          const nextCursor = nextHasMore ? page.nextCursor : null;
+          serverCursorRef.current = nextCursor;
+          serverCursorQueryKeyRef.current = nextCursor ? queryKey : null;
         } catch (err) {
-          if (gen !== serverQueryGenRef.current) return;
+          if (!isCurrent()) return;
           const msg =
             err instanceof ExpedientesSupabaseError
               ? err.message
@@ -710,6 +780,12 @@ export default function MesaControlPage() {
           if (append) {
             setLoadMoreError(msg);
           } else {
+            loadedCountRef.current = 0;
+            serverTotalCountRef.current = 0;
+            serverHasMoreRef.current = false;
+            serverCursorRef.current = null;
+            serverCursorQueryKeyRef.current = null;
+            casosRef.current = [];
             setCasos([]);
             setServerTotalCount(0);
             setServerHasMore(false);
@@ -717,16 +793,12 @@ export default function MesaControlPage() {
             setListError(msg);
           }
         } finally {
-          if (gen === serverQueryGenRef.current) {
-            if (append) {
-              setLoadingMore(false);
-              loadingMoreLockRef.current = false;
-            } else {
-              setLoading(false);
-            }
-          } else if (append) {
+          if (!isCurrent()) return;
+          if (append) {
             setLoadingMore(false);
             loadingMoreLockRef.current = false;
+          } else {
+            setLoading(false);
           }
         }
       })();
@@ -738,6 +810,7 @@ export default function MesaControlPage() {
       dataSupabase,
       etapaFilter,
       mapExpToCaso,
+      mesaMockRole,
       mesaOpsFilter,
       quickFilter,
       rechazosCancelacionesSubfiltro,
@@ -1039,7 +1112,17 @@ export default function MesaControlPage() {
     setLoadingMore(false);
     loadingMoreLockRef.current = false;
     setLoadMoreError(null);
-  }, [infiniteResetKey]);
+    if (!dataSupabase) return;
+    invalidateMesaBandejaPagination({
+      genRef: serverQueryGenRef,
+      activeQueryKeyRef: serverActiveQueryKeyRef,
+      cursorRef: serverCursorRef,
+      cursorQueryKeyRef: serverCursorQueryKeyRef,
+      nextQueryKey: infiniteResetKey,
+    });
+    serverHasMoreRef.current = false;
+    setServerHasMore(false);
+  }, [dataSupabase, infiniteResetKey]);
 
   // P102: al cambiar filtros/búsqueda debounced, refetch primera página.
   useEffect(() => {
@@ -1123,11 +1206,24 @@ export default function MesaControlPage() {
 
   const loadMoreVisible = useCallback(() => {
     if (loadingMoreLockRef.current) return;
-    if (!visibleWindow.hasMore) return;
     if (dataSupabase) {
+      if (
+        !canAppendMesaBandejaPage({
+          requestQueryKey: infiniteResetKey,
+          activeQueryKey: serverActiveQueryKeyRef.current,
+          serverHasMore: serverHasMoreRef.current,
+          serverTotalCount: serverTotalCountRef.current,
+          loadedCount: loadedCountRef.current,
+          cursor: serverCursorRef.current,
+          cursorQueryKey: serverCursorQueryKeyRef.current,
+        })
+      ) {
+        return;
+      }
       loadServerBandeja({ append: true, silencioso: true });
       return;
     }
+    if (!visibleWindow.hasMore) return;
     loadingMoreLockRef.current = true;
     setLoadingMore(true);
     window.setTimeout(() => {
@@ -1140,6 +1236,7 @@ export default function MesaControlPage() {
   }, [
     dataSupabase,
     filteredCasos.length,
+    infiniteResetKey,
     loadServerBandeja,
     visibleWindow.hasMore,
   ]);
