@@ -1,3 +1,7 @@
+## Microfix Mesa — badge Rechazado vs corrección P198
+
+- [x] U1–U6 `mesaBandejaSubestadoUi`. Sin SQL. Citas → **199**.
+
 ## P198 — Lifecycle efectivo Cambios por revisar (LOCAL)
 
 - [x] Helper `mesa_cambio_revision_estado_efectivo`. RAW lote no se UPDATE.

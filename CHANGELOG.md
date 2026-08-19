@@ -1,5 +1,7 @@
 # Changelog
 
+- **fix(mesa): no pintar Rechazado si hay corrección por revisar** — tarjeta `/mesa-control`: `cambioRevisionEstado` P198 gobierna el badge; `subestado=rechazado` raw no compite. Sin SQL. Citas → **199**.
+
 - **fix(mesa): estado efectivo de cambios por revisar (P198)** — mig **198**: cola = trabajo pendiente ahora. Cierre causal DG/documento/operativo. Re-reject → Esperando. RAW lote intacto. Disponibles P195 intacto. Citas → **199**. Cloud aplicada.
 
 ## [Unreleased]
