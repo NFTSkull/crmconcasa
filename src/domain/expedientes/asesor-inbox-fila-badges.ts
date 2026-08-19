@@ -121,7 +121,7 @@ export function asesorDocumentacionFilaBadge(
   if (resumenCorreccion === "correccion_enviada") {
     return {
       label: "Corrección enviada",
-      className: "text-[10px] font-medium text-sky-900/70 sm:text-xs",
+      className: "text-[10px] font-medium text-emerald-700 sm:text-xs",
     };
   }
   return {
