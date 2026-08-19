@@ -1,5 +1,7 @@
 # Changelog
 
+- **fix(mesa): Disponibles = trabajo accionable libre (P199)** — helper `mesa_es_trabajo_accionable_mesa`; `sin_asignar` incluye P198 pending libres (aunque `subestado=rechazado`) y excluye `WAITING_ADVISOR`. Take **no** cambia (Fase 0: 0 pending libres en `en_espera_asesor`). 0 tablas/backfill. Citas → **200**.
+
 - **fix(mesa): aislar queries del infinite scroll** — `/mesa-control`: guard gen+identidad tras cada await (incl. enrich); cursor atado al query; hard-stop si loaded≥total. Sin SQL. Citas → **199**.
 
 - **fix(mesa): no pintar Rechazado si hay corrección por revisar** — tarjeta `/mesa-control`: `cambioRevisionEstado` P198 gobierna el badge; `subestado=rechazado` raw no compite. Sin SQL. Citas → **199**.

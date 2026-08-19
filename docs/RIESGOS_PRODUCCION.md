@@ -37,12 +37,13 @@
 | Dos operadores realizan movimiento manual | Alto | `SELECT FOR UPDATE` + `p_etapa_esperada`; conflicto estable sin evento parcial |
 | Operador escribe «RECHAZO» en motivo de movimiento manual | Alto (falso rechazo operativo) | P093 B1: copy + advertencia UI + atajo a rechazo canónico; no inferir rechazo por texto; RPC de movimiento sin efectos de rechazo |
 | Confundir rechazo operativo con cancelación de trámite / cita cancelada | Alto | P094: señales disjuntas (`subestado=rechazado` vs `ciclo=cancelado`); chip agrupado con subvistas; no inferir por texto |
-| Rechazo operativo (`activo`+`rechazado`) sigue en chip Disponibles | Alto (Mesa toma/trabaja un expediente ya rechazado) | P195: `sin_asignar` exige `subestado IS DISTINCT FROM 'rechazado'`; Rechazados intacto |
+| Rechazo operativo (`activo`+`rechazado`) sigue en chip Disponibles | Alto (Mesa toma/trabaja un expediente ya rechazado) | P195 + P199: rechazo **sin** episodio pending sigue fuera; P198 pending puede entrar porque Mesa ya tiene respuesta |
+| Corrección reenviada libre no aparece en Disponibles | Alto (trabajo que sí se puede tomar queda oculto) | P199: `CORRECTION_PENDING_REVIEW`/`ADVISOR_UPDATE_PENDING_REVIEW` + `assigned_to` NULL sobrescribe `subestado=rechazado` |
 | Contar cancelado/rechazado_mesa en chips de tarea asesor (Agendar biométricos/firma, Subir acuse) | Medio (operación falsa) | P191: `asesor_inbox_es_accionable` vía `resultado_real`; lista=summary |
 | Ocultar correcciones P130 ya enviadas (docs `cliente_*` en `subido`, no `resubido`) | Alto (Mesa no revisa; asesor no ve «Corrección enviada») | Hotfix 192: predicado lote `pendiente_revision`+`submitted_at`; no usar etapa ni heurística documental como gate |
 | Mezclar corrección solicitada por Mesa con actualización espontánea del asesor | Medio (prioridad operativa invertida) | P196: una solicitud Mesa solo clasifica el **primer** lote P130 posterior; lotes siguientes = ADVISOR_UPDATE salvo nueva solicitud. P192/Disponibles intactos |
 | Detalle asesor muestra rechazo histórico como tarea | Alto (asesor reenvía o se confunde) | P197-B3: banner principal = `estado_efectivo`; `subestado=rechazado` no gobierna si el episodio ya respondió |
-| Cola Correcciones con lotes raw pendientes ya trabajados o re-rechazados | Alto (trabajo fantasma; badge Nuevo en Mesa) | P198: `mesa_cambio_revision_estado_efectivo`; 0 UPDATE de lotes; Disponibles intacto |
+| Cola Correcciones con lotes raw pendientes ya trabajados o re-rechazados | Alto (trabajo fantasma; badge Nuevo en Mesa) | P198: `mesa_cambio_revision_estado_efectivo`; 0 UPDATE de lotes |
 | Tarjeta genérica «sin detalle» cuando existe evidencia canónica | Medio (Mesa no sabe qué revisar) | P194: `preview_changes` + recover read-time lotes vacíos; no inventar campos (`PARTIAL`/`NO_DIFF`); bandeja sin valores sensibles |
 | Doble booking mismo slot | Medio | UNIQUE parcial agenda + transacción |
 | Doble envío mesa | Bajo | Idempotency key + estado `submitted_to_mesa` |
