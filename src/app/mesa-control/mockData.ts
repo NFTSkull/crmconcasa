@@ -41,6 +41,19 @@ export interface CasoMock {
   advisorChangesSummary?: readonly string[] | null;
   advisorChangesStatus?: "borrador" | "pendiente_revision" | "revisado" | null;
   advisorChangeBatchId?: string | null;
+  /** P193: origen del cambio pendiente (read-model). */
+  cambioRevisionOrigen?:
+    | "REQUESTED_CORRECTION"
+    | "ADVISOR_UPDATE"
+    | "AMBIGUOUS"
+    | "LEGACY"
+    | null;
+  cambioRequestType?:
+    | "SOLICITUD_DATOS_GENERALES"
+    | "SOLICITUD_DOCUMENTAL"
+    | "RECHAZO_OPERATIVO_CON_CORRECCION"
+    | null;
+  cambioRequestAt?: string | null;
   /** Reingreso manual / P072. */
   esReingreso?: boolean;
   reingresoManualCount?: number;

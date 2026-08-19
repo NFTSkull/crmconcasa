@@ -205,6 +205,15 @@
 - [x] Sort: latest pending `submitted_at`; marcar revisado sale del predicado.
 - [x] SQL A–H + Luis-like; tests Mesa/P130/asesor; 0 Cloud writes.
 
+## P193 — Clasificar Cambios por revisar (origen)
+
+- [x] Universo P192 intacto (P130 pending OR legacy P102). Sin filtro por etapa.
+- [x] Helper STABLE `mesa_cambio_revision_clasificacion`: REQUESTED_CORRECTION / ADVISOR_UPDATE / AMBIGUOUS / LEGACY.
+- [x] RPC misma firma; subfiltros `correccion_solicitada` / `otras_actualizaciones` en SQL antes de paginar.
+- [x] Counts `correccionesSolicitadas` + `otrasActualizaciones`; parent = suma; sin overlap.
+- [x] UI chip «Cambios por revisar» + subfiltros compactos; cards origin-aware (Natividad-like = actualización).
+- [x] SQL `rpc_mesa_cambios_revision_origen_p193.sql` + regresión P192. 0 Cloud writes. Operación de citas → **194**.
+
 ## P130 — Lote de cambios del asesor (Mesa)
 
 - [x] Formatters/anchors unit (`mesaAsesorCambiosUi.test.ts`).

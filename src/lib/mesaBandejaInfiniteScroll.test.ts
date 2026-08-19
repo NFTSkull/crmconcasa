@@ -61,6 +61,7 @@ function filtroState(
     etapa: "todas",
     subestado: "todas",
     soloCitasHoy: false,
+    cambiosSubfiltro: "todos",
     ...partial,
   };
 }
@@ -161,6 +162,7 @@ describe("P101 mesa bandeja infinite scroll", () => {
       { subestadoFilter: "pendiente" },
       { soloCitasHoy: true },
       { mesaOpsFilter: "mi_bandeja" },
+      { cambiosSubfiltro: "solicitadas" },
     ] as const;
     for (const patch of criteria) {
       const next = mesaBandejaInfiniteResetKey({

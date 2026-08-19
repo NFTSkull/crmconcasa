@@ -1,6 +1,12 @@
 import type { CategoriaResumenDocumental } from "@/domain/expediente-archivos/types";
 import { etapasInternasParaFiltroPaso } from "@/domain/expedientes/etapa-numeracion-ux";
 import type { MesaOpsFilter } from "@/lib/mesaOpsUi";
+import {
+  MESA_CAMBIOS_SUBFILTRO_DEFAULT,
+  matchesMesaCambiosSubfiltro,
+  type MesaCambiosPorRevisarSubfiltro,
+  type MesaCambioRevisionOrigen,
+} from "@/lib/mesaCambiosRevisionOrigenUi";
 
 /**
  * Filtros de la bandeja de Mesa de control (`/mesa-control`).
@@ -52,7 +58,7 @@ export const MESA_VISTA_RAPIDA_FORCE_TODO_MESA_HELP =
 /** Labels visibles (id interno intacto para RPC/P102). */
 export const MESA_QUICK_FILTER_LABELS: Readonly<Record<MesaQuickFilter, string>> = {
   todos: "Todos",
-  correccion_enviada: "Correcciones listas para revisar",
+  correccion_enviada: "Cambios por revisar",
   nuevos: "Nuevos en Mesa",
   en_proceso: "Activos en proceso",
   rechazos_cancelaciones: "Rechazos y cancelaciones",
@@ -61,7 +67,7 @@ export const MESA_QUICK_FILTER_LABELS: Readonly<Record<MesaQuickFilter, string>>
 export const MESA_QUICK_FILTER_TOOLTIPS: Readonly<Record<MesaQuickFilter, string>> = {
   todos: "Todos los expedientes con ciclo activo enviados a Mesa.",
   correccion_enviada:
-    "El asesor ya corrigió y reenvió; pendiente de revisión por Mesa (categoría correccion_enviada).",
+    "Cambios enviados por el asesor que siguen pendientes de revisión en Mesa. Incluye correcciones solicitadas y otras actualizaciones.",
   nuevos:
     "Expedientes en pasos 1–2 con subestado pendiente, en validación Mesa o en proceso (ingreso canónico a Mesa).",
   en_proceso:
@@ -84,12 +90,15 @@ export type MesaBandejaFiltroItem = Readonly<{
   cicloEstado?: string | null;
   fechaCita?: string | null;
   resumenDocumental?: CategoriaResumenDocumental | null;
+  cambioRevisionOrigen?: MesaCambioRevisionOrigen | null;
 }>;
 
 export type MesaBandejaFiltrosState = Readonly<{
   quickFilter: MesaQuickFilter;
   /** Solo aplica cuando `quickFilter === "rechazos_cancelaciones"`. */
   rechazosCancelacionesSubfiltro: MesaRechazosCancelacionesSubfiltro;
+  /** Solo aplica cuando `quickFilter === "correccion_enviada"`. */
+  cambiosSubfiltro: MesaCambiosPorRevisarSubfiltro;
   buscar: string;
   etapa: string;
   subestado: string;
@@ -101,6 +110,7 @@ export type MesaBandejaSeleccionPrincipal = Readonly<{
   quickFilter: MesaQuickFilter;
   opsFilter: MesaOpsFilter;
   rechazosCancelacionesSubfiltro: MesaRechazosCancelacionesSubfiltro;
+  cambiosSubfiltro: MesaCambiosPorRevisarSubfiltro;
 }>;
 
 function cicloActivo(
@@ -141,6 +151,7 @@ export function seleccionarVistaRapida(
     opsFilter: "todo_mesa",
     rechazosCancelacionesSubfiltro:
       id === "rechazos_cancelaciones" ? subfiltro : "rechazados",
+    cambiosSubfiltro: MESA_CAMBIOS_SUBFILTRO_DEFAULT,
   };
 }
 
@@ -152,6 +163,7 @@ export function seleccionarAsignacion(
     quickFilter: "todos",
     opsFilter: id,
     rechazosCancelacionesSubfiltro: "rechazados",
+    cambiosSubfiltro: MESA_CAMBIOS_SUBFILTRO_DEFAULT,
   };
 }
 
@@ -165,6 +177,7 @@ export function limpiarFiltrosBandeja(): MesaBandejaFiltrosState &
   return {
     quickFilter: "todos",
     rechazosCancelacionesSubfiltro: "rechazados",
+    cambiosSubfiltro: MESA_CAMBIOS_SUBFILTRO_DEFAULT,
     opsFilter: "todo_mesa",
     buscar: "",
     etapa: "todas",
@@ -262,6 +275,8 @@ export function coincideBusquedaClienteTelefono(
 
 export type MesaVistaRapidaCounts = Readonly<{
   correccionesEnviadas: number;
+  correccionesSolicitadas: number;
+  otrasActualizaciones: number;
   nuevos: number;
   enProceso: number;
   citasHoy: number;
@@ -278,9 +293,16 @@ export function contarVistaRapida(
 ): MesaVistaRapidaCounts {
   const rechazados = items.filter((c) => esRechazadoOperativoActivo(c)).length;
   const cancelados = items.filter((c) => esCanceladoOperativo(c)).length;
+  const cambios = items.filter((c) =>
+    matchesMesaQuickFilter(c, "correccion_enviada"),
+  );
   return {
-    correccionesEnviadas: items.filter((c) =>
-      matchesMesaQuickFilter(c, "correccion_enviada"),
+    correccionesEnviadas: cambios.length,
+    correccionesSolicitadas: cambios.filter((c) =>
+      matchesMesaCambiosSubfiltro(c.cambioRevisionOrigen, "solicitadas"),
+    ).length,
+    otrasActualizaciones: cambios.filter((c) =>
+      matchesMesaCambiosSubfiltro(c.cambioRevisionOrigen, "otras"),
     ).length,
     nuevos: items.filter((c) => matchesMesaQuickFilter(c, "nuevos")).length,
     enProceso: items.filter((c) => matchesMesaQuickFilter(c, "en_proceso"))
@@ -313,6 +335,11 @@ export function aplicarFiltrosBandejaMesa<T extends MesaBandejaFiltroItem>(
         c,
         state.rechazosCancelacionesSubfiltro,
       ),
+    );
+  }
+  if (state.quickFilter === "correccion_enviada") {
+    list = list.filter((c) =>
+      matchesMesaCambiosSubfiltro(c.cambioRevisionOrigen, state.cambiosSubfiltro),
     );
   }
   if (state.buscar.trim()) {

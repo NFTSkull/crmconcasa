@@ -28,6 +28,11 @@ import {
   type PaginatedMesaBandejaResult,
 } from "./list-for-mesa-control-paginated";
 import type { MesaExpedienteEstado } from "@/domain/mesa-ops/types";
+import {
+  mapMesaCambiosSubfiltroToRpc,
+  normalizeMesaCambioRequestType,
+  normalizeMesaCambioRevisionOrigen,
+} from "@/lib/mesaCambiosRevisionOrigenUi";
 import type { CreateExpedienteInput, ExpedienteProgramaUi } from "./create-expediente.input";
 import type { ExpedienteMock } from "./mock.repo";
 import { mapProgramaUiToDb } from "./map-programa";
@@ -580,7 +585,10 @@ async function fetchExpedientesListForMesaControlPaginated(
     p_limit: limit,
     p_cursor_sort_ts: query.cursor?.sortTs ?? null,
     p_cursor_id: query.cursor?.id ?? null,
-    p_quick_filter: query.quickFilter,
+    p_quick_filter: mapMesaCambiosSubfiltroToRpc(
+      query.quickFilter,
+      query.cambiosSubfiltro ?? "todos",
+    ),
     p_ops_filter: query.opsFilter,
     p_buscar: query.buscar?.trim() ? query.buscar.trim() : null,
     p_etapa: etapa,
@@ -676,6 +684,11 @@ async function fetchExpedientesListForMesaControlPaginated(
       lastViewedAt: row.last_viewed_at ?? null,
       lastUpdatedByName: row.last_updated_by_name ?? null,
       lastUpdatedAt: row.last_updated_at ?? null,
+      cambioRevisionOrigen: normalizeMesaCambioRevisionOrigen(
+        row.cambio_revision_origen,
+      ),
+      cambioRequestType: normalizeMesaCambioRequestType(row.cambio_request_type),
+      cambioRequestAt: row.cambio_request_at ?? null,
     };
   });
 

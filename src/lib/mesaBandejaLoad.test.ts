@@ -68,6 +68,7 @@ function filtroState(
     etapa: "todas",
     subestado: "todas",
     soloCitasHoy: false,
+    cambiosSubfiltro: "todos",
     ...partial,
   };
 }

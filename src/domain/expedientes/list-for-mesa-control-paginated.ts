@@ -2,6 +2,11 @@ import { z } from "zod";
 import type { ExpedienteMock } from "./mock.repo";
 import type { MesaOpsFilter } from "@/lib/mesaOpsUi";
 import type { MesaQuickFilter, MesaRechazosCancelacionesSubfiltro } from "@/lib/mesaBandejaFiltros";
+import type {
+  MesaCambioRequestType,
+  MesaCambioRevisionOrigen,
+  MesaCambiosPorRevisarSubfiltro,
+} from "@/lib/mesaCambiosRevisionOrigenUi";
 import type { CategoriaResumenDocumental } from "@/domain/expediente-archivos/types";
 import type { MesaExpedienteOpsRow } from "@/domain/mesa-ops/types";
 
@@ -17,6 +22,8 @@ export type MesaBandejaCursor = Readonly<{
 
 export type MesaBandejaServerCounts = Readonly<{
   correccionesEnviadas: number;
+  correccionesSolicitadas: number;
+  otrasActualizaciones: number;
   nuevos: number;
   enProceso: number;
   citasHoy: number;
@@ -42,6 +49,10 @@ export type MesaBandejaPageItem = ExpedienteMock &
     lastViewedAt?: string | null;
     lastUpdatedByName?: string | null;
     lastUpdatedAt?: string | null;
+    /** P193: origen del cambio pendiente (solo si categoría correccion_enviada). */
+    cambioRevisionOrigen?: MesaCambioRevisionOrigen | null;
+    cambioRequestType?: MesaCambioRequestType | null;
+    cambioRequestAt?: string | null;
   }>;
 
 export type ListForMesaControlPaginatedQuery = Readonly<{
@@ -55,6 +66,8 @@ export type ListForMesaControlPaginatedQuery = Readonly<{
   soloCitasHoy?: boolean;
   todayYmd?: string | null;
   rechazosSub?: MesaRechazosCancelacionesSubfiltro;
+  /** P193: subfiltro de Cambios por revisar. No es chip hermano. */
+  cambiosSubfiltro?: MesaCambiosPorRevisarSubfiltro;
   /** `todos` | `interno` | `externo` | null */
   origen?: string | null;
   includeCounts?: boolean;
@@ -76,6 +89,8 @@ const cursorSchema = z.object({
 const countsSchema = z
   .object({
     correccionesEnviadas: z.number().int().nonnegative(),
+    correccionesSolicitadas: z.number().int().nonnegative(),
+    otrasActualizaciones: z.number().int().nonnegative(),
     nuevos: z.number().int().nonnegative(),
     enProceso: z.number().int().nonnegative(),
     citasHoy: z.number().int().nonnegative(),
@@ -125,6 +140,9 @@ const rpcItemSchema = z.object({
   last_viewed_at: z.string().nullable().optional(),
   last_updated_by_name: z.string().nullable().optional(),
   last_updated_at: z.string().nullable().optional(),
+  cambio_revision_origen: z.string().nullable().optional(),
+  cambio_request_type: z.string().nullable().optional(),
+  cambio_request_at: z.string().nullable().optional(),
 });
 
 export const mesaListBandejaPageRpcSchema = z.object({
@@ -174,6 +192,8 @@ export function mapRpcCountsToServerCounts(
   if (!raw) return null;
   return {
     correccionesEnviadas: raw.correccionesEnviadas ?? 0,
+    correccionesSolicitadas: raw.correccionesSolicitadas ?? 0,
+    otrasActualizaciones: raw.otrasActualizaciones ?? 0,
     nuevos: raw.nuevos ?? 0,
     enProceso: raw.enProceso ?? 0,
     citasHoy: raw.citasHoy ?? 0,

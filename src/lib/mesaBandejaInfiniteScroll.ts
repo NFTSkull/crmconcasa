@@ -118,6 +118,7 @@ export function mesaBandejaInfiniteResetKey(parts: {
   subestadoFilter: string;
   soloCitasHoy: boolean;
   rechazosCancelacionesSubfiltro?: string;
+  cambiosSubfiltro?: string;
   adminOrigenTab?: string;
 }): string {
   return [
@@ -128,6 +129,7 @@ export function mesaBandejaInfiniteResetKey(parts: {
     parts.subestadoFilter,
     parts.soloCitasHoy ? "1" : "0",
     parts.rechazosCancelacionesSubfiltro ?? "",
+    parts.cambiosSubfiltro ?? "",
     parts.adminOrigenTab ?? "",
   ].join("|");
 }

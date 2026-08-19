@@ -153,14 +153,19 @@ export function deriveMesaCorreccionLecturaEstado(
 export function mesaCorreccionLecturaLabel(
   estado: MesaCorreccionLecturaEstado,
   esCorreccion = false,
+  origin?: string | null,
 ): string | null {
-  if (estado === "nueva") {
-    return esCorreccion ? "Corrección nueva" : "Nuevo en Mesa";
+  if (estado !== "nueva" && estado !== "abierta") return null;
+  if (!esCorreccion) {
+    return estado === "nueva" ? "Nuevo en Mesa" : "Abierto";
   }
-  if (estado === "abierta") {
-    return esCorreccion ? "Corrección abierta" : "Abierto";
+  if (origin === "ADVISOR_UPDATE") {
+    return estado === "nueva" ? "Actualización nueva" : "Actualización abierta";
   }
-  return null;
+  if (origin === "AMBIGUOUS" || origin === "LEGACY") {
+    return estado === "nueva" ? "Cambio nuevo" : "Cambio abierto";
+  }
+  return estado === "nueva" ? "Corrección nueva" : "Corrección abierta";
 }
 
 export function mesaCorreccionLecturaBadgeClass(estado: MesaCorreccionLecturaEstado): string {
