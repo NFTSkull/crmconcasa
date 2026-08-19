@@ -30,6 +30,7 @@ import {
   resolveCancelSheetCoords,
   shouldRestorePriorAfterCreateFailure,
   sortOutboxForRescheduleMove,
+  decideCreateRowOccupancy,
   type ClearedRowRestoreSnapshot,
 } from "../_shared/agenda-sheets/reschedule-sheet-move.ts";
 import {
@@ -45,6 +46,7 @@ import {
   isRescheduleCancelContext,
   locateSheetRowByBookingId,
   shouldRollbackHistoryAfterCreateFailure,
+  shouldYieldCancelClearToRescheduleHistory,
   siblingCreateHasPriorCancelled,
   sortRescheduleJobsForTabSafety,
   type RescheduleHistorySnapshot,
@@ -513,6 +515,30 @@ Deno.serve(async (req) => {
             cancelledExpedienteId: String(payload.expediente_id ?? ""),
           });
 
+          // Reagenda vs cancelación pura: resolver ANTES de dead por E/F.
+          let rescheduleCtx = isRescheduleCancelContext({
+            payloadRescheduleMove: payload.reschedule_move,
+            payloadRescheduleHistory: payload.reschedule_history,
+            siblingCreateHasPrior: siblingCreateHasPriorCancelled(
+              list,
+              bookingId,
+            ),
+            cancelNote: payload.notes
+              ? String(payload.notes)
+              : payload.note
+              ? String(payload.note)
+              : null,
+          });
+          if (!rescheduleCtx) {
+            const { data: relatedCreates } = await supabase
+              .from("agenda_sheet_sync_outbox")
+              .select("id,payload")
+              .eq("event_type", "booking_created")
+              .contains("payload", { prior_cancelled_booking_id: bookingId })
+              .limit(1);
+            if ((relatedCreates ?? []).length > 0) rescheduleCtx = true;
+          }
+
           if (decision.classification === "already_absent") {
             await supabase.rpc("agenda_sheet_mark_cancelled_cleared", {
               p_booking_id: bookingId,
@@ -553,8 +579,14 @@ Deno.serve(async (req) => {
             continue;
           }
 
-          if (decision.classification === "manual_result_conflict") {
-            // Terminal: no reintentar; conservar metadata O:U para rastreo.
+          if (
+            decision.classification === "manual_result_conflict" &&
+            !shouldYieldCancelClearToRescheduleHistory({
+              classification: decision.classification,
+              rescheduleCtx,
+            })
+          ) {
+            // Cancelación pura: terminal; conservar metadata O:U para rastreo.
             await supabase.rpc("agenda_sheet_mark_outbox", {
               p_id: ev.id,
               p_status: "dead",
@@ -569,29 +601,6 @@ Deno.serve(async (req) => {
 
           // Reagendo: conservar fila + REAGENDADO naranja + replacement FREE.
           // Cancelación pura: batchClear B:D + O:U (P160).
-          let rescheduleCtx = isRescheduleCancelContext({
-            payloadRescheduleMove: payload.reschedule_move,
-            payloadRescheduleHistory: payload.reschedule_history,
-            siblingCreateHasPrior: siblingCreateHasPriorCancelled(
-              list,
-              bookingId,
-            ),
-            cancelNote: payload.notes
-              ? String(payload.notes)
-              : payload.note
-              ? String(payload.note)
-              : null,
-          });
-          if (!rescheduleCtx) {
-            const { data: relatedCreates } = await supabase
-              .from("agenda_sheet_sync_outbox")
-              .select("id,payload")
-              .eq("event_type", "booking_created")
-              .contains("payload", { prior_cancelled_booking_id: bookingId })
-              .limit(1);
-            if ((relatedCreates ?? []).length > 0) rescheduleCtx = true;
-          }
-
           if (rescheduleCtx) {
             const inspection = inspectRescheduleHistoryState({
               historyRowNumber: row,
@@ -1271,16 +1280,18 @@ Deno.serve(async (req) => {
           }
           const nssNow = String(fr[COL_INDEX.nss] ?? "").trim();
           const bookingCell = String(fr[COL_INDEX.bookingId] ?? "").trim();
-          if (nssNow && bookingCell && bookingCell !== bookingId) {
-            await supabase.rpc("agenda_sheet_mark_outbox", {
-              p_id: ev.id,
-              p_status: "failed",
-              p_error: "sheet_row_conflict",
-            });
-            failed++;
-            continue;
-          }
-          if (nssNow && !bookingCell) {
+          const { data: exp } = await supabase
+            .from("expedientes")
+            .select("id,nss,cliente_nombre,asesor_id")
+            .eq("id", payload.expediente_id)
+            .maybeSingle();
+          const occupancy = decideCreateRowOccupancy({
+            liveNss: nssNow,
+            liveBookingId: bookingCell,
+            targetBookingId: bookingId,
+            expectedNss: String((exp as { nss?: string } | null)?.nss ?? ""),
+          });
+          if (occupancy !== "writable") {
             await supabase.rpc("agenda_sheet_mark_outbox", {
               p_id: ev.id,
               p_status: "failed",
@@ -1315,11 +1326,6 @@ Deno.serve(async (req) => {
             continue;
           }
 
-          const { data: exp } = await supabase
-            .from("expedientes")
-            .select("id,nss,cliente_nombre,asesor_id")
-            .eq("id", payload.expediente_id)
-            .maybeSingle();
           const { data: asesor } = await supabase
             .from("profiles")
             .select("full_name,email")

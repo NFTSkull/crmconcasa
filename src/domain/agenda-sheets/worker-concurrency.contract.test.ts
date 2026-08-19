@@ -173,6 +173,16 @@ describe("agenda-sheet sync title space + requeue (mig. 134)", () => {
     assert.match(cancelBlock, /REAGENDADO|buildRescheduledHistoryTechRow/);
     // Cancelación pura sigue con batchClear; reagendo usa batchUpdateValues.
     assert.match(cancelBlock, /batchClear/);
+    assert.match(cancelBlock, /shouldYieldCancelClearToRescheduleHistory/);
+    const yieldIdx = cancelBlock.indexOf("shouldYieldCancelClearToRescheduleHistory");
+    const conflictDeadIdx = cancelBlock.indexOf(
+      "manual_result_conflict:sheetId=",
+    );
+    assert.ok(yieldIdx > 0, "helper yield presente en cancel");
+    assert.ok(
+      conflictDeadIdx > yieldIdx,
+      "C4: E/F conflict no marca dead antes de evaluar reagenda",
+    );
   });
 
   it("dry_run_cancel_cleanup exige secreto worker antes del body", () => {
@@ -204,7 +214,20 @@ describe("agenda-sheet sync title space + requeue (mig. 134)", () => {
     assert.doesNotMatch(block, /a1VisibleRange/);
     assert.doesNotMatch(block, /A\$\{|!A\d+:D/);
     assert.doesNotMatch(block, /horaKeep/);
+    assert.match(block, /decideCreateRowOccupancy/);
     assert.match(block, /write_verify_failed:col_a_mutated/);
+  });
+
+  it("C9/C10: tab missing/ambiguous marca failed, no done", () => {
+    const start = worker.indexOf("// booking_created desde CRM");
+    const end = worker.indexOf("// booking_created ya tiene link", start);
+    const block = worker.slice(start, end);
+    assert.match(block, /missing_sheet_for_date/);
+    assert.match(block, /ambiguous_sheet_for_date/);
+    const missingIdx = block.indexOf("missing_sheet_for_date");
+    const slice = block.slice(missingIdx, missingIdx + 520);
+    assert.match(slice, /p_status:\s*"failed"/);
+    assert.doesNotMatch(slice, /p_status:\s*"done"/);
   });
 
   it("P174 cancel nunca escribe A (solo B:D + O:U clear)", () => {

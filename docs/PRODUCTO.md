@@ -6,7 +6,9 @@ Chip **Cambios por revisar** (id interno `correccion_enviada`): **P198** estado 
 
 **Inbox asesor chips (P197 LOCAL):** colas usan `asesor_inbox_estado_efectivo`. **P197-B2:** la columna **Estado actual** pinta ese valor; Documentación y Estatus op. son dimensiones secundarias. **P197-B3:** el detalle `/asesor/expediente/[id]` usa el mismo estado principal (no `subestado` como alerta de acción).
 
-**Disponibles** (asignación `sin_asignar`, **P199**): todo trabajo Mesa accionable ahora, ciclo `activo`, `assigned_to` NULL y tomable. Incluye correcciones y actualizaciones P198 pending libres. Excluye `WAITING_ADVISOR`, rechazo raw sin respuesta (P195), asignados y cancelados. Si aparece, se puede tomar. Operación de citas → **200**.
+**Disponibles** (asignación `sin_asignar`, **P199**): todo trabajo Mesa accionable ahora, ciclo `activo`, `assigned_to` NULL y tomable. Incluye correcciones y actualizaciones P198 pending libres. Excluye `WAITING_ADVISOR`, rechazo raw sin respuesta (P195), asignados y cancelados. Si aparece, se puede tomar.
+
+**Agenda Sheets (P200):** agendar/reagendar biométricos confirma primero CRM. La UI distingue `PENDING` / `SYNCED` / `FAILED` vía `agenda_booking_sheet_sync_status`. Una reagenda deja la fila anterior en Drive como **REAGENDADO** (UUID viejo) y escribe la cita nueva en destino (UUID nuevo). Operación de citas siguiente → **201**.
 
 # ConCasa CRM — Producto
 

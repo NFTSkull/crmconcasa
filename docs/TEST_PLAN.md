@@ -1,3 +1,14 @@
+## P200 — Reagenda CRM→Sheets verificable
+
+- [x] C1–C2 outbox create/cancel+prior (P160 SQL + worker).
+- [x] C3 cancel antes que create (`sortOutboxForRescheduleMove`).
+- [x] C4–C5 histórico REAGENDADO + destino; E/F no dead en reagenda.
+- [x] C6 create no `done` sin readback; C7 rollback; C8 idempotente.
+- [x] C9/C10 missing/ambiguous tab → `failed`.
+- [x] C11 worker secret cerrado; C12–C14 UI CRM vs SYNCED/PENDING.
+- [x] C15 fixture 26/08 08:00; C16 firmas worker compartido.
+- [x] RPC `agenda_booking_sheet_sync_status` (mig **200**). `reagendar_biometricos` intacto.
+
 ## P199 — Disponibles = trabajo accionable libre
 
 - [x] Helper `mesa_es_trabajo_accionable_mesa`. Take no cambia (escenario A).

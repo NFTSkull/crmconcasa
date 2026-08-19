@@ -63,6 +63,22 @@ export function isRescheduleCancelContext(input: {
   return false;
 }
 
+/**
+ * Reagenda: E/F con resultado operativo NO es terminal.
+ * Conservar B:D/E:F/G:N y escribir O=REAGENDADO (no batchClear).
+ * Cancelación pura sigue `manual_result_conflict` → dead.
+ */
+export function shouldYieldCancelClearToRescheduleHistory(input: {
+  classification: string;
+  rescheduleCtx: boolean;
+}): boolean {
+  if (!input.rescheduleCtx) return false;
+  return (
+    input.classification === "safe_to_clear" ||
+    input.classification === "manual_result_conflict"
+  );
+}
+
 export function siblingCreateHasPriorCancelled(
   events: ReadonlyArray<{
     event_type?: unknown;
