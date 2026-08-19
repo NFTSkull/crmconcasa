@@ -232,3 +232,32 @@ export function rescheduleMoveIdempotencyKey(input: {
 }): string {
   return `${input.oldBookingId}>${input.newBookingId}:move:${input.version ?? "v1"}`;
 }
+
+function nssDigits(raw: string | null | undefined): string {
+  return String(raw ?? "").replace(/\D/g, "");
+}
+
+/**
+ * ¿La fila destino de booking_created está libre para escribir?
+ * NSS sin P del mismo expediente = escritura CRM incompleta (reanudar).
+ * NSS de otro / sin P ajeno = conflicto (no pisar occupied_external).
+ */
+export function decideCreateRowOccupancy(input: {
+  liveNss: string | null | undefined;
+  liveBookingId: string | null | undefined;
+  targetBookingId: string;
+  expectedNss: string | null | undefined;
+}): "writable" | "other_booking" | "occupied_external" {
+  const nss = String(input.liveNss ?? "").trim();
+  const liveP = String(input.liveBookingId ?? "").trim();
+  const target = String(input.targetBookingId ?? "").trim();
+  if (!nss) return "writable";
+  if (liveP && liveP !== target) return "other_booking";
+  if (liveP && liveP === target) return "writable";
+  const liveDigits = nssDigits(nss);
+  const expectedDigits = nssDigits(input.expectedNss);
+  if (liveDigits && expectedDigits && liveDigits === expectedDigits) {
+    return "writable";
+  }
+  return "occupied_external";
+}

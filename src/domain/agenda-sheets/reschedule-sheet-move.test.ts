@@ -8,6 +8,7 @@ import {
   resolveCancelSheetCoords,
   shouldRestorePriorAfterCreateFailure,
   sortOutboxForRescheduleMove,
+  decideCreateRowOccupancy,
 } from "./reschedule-sheet-move";
 
 describe("reschedule-sheet-move — prior cancel gate", () => {
@@ -139,6 +140,59 @@ describe("reschedule-sheet-move — orden, restore, idempotencia", () => {
         newBookingId: "b",
       }),
       "a>b:move:v1",
+    );
+  });
+});
+
+describe("decideCreateRowOccupancy", () => {
+  const booking = "4864ef4d-813a-42b4-808c-93487b85c384";
+  const nss = "12345678901";
+
+  it("C5: fila vacía es writable", () => {
+    assert.equal(
+      decideCreateRowOccupancy({
+        liveNss: "",
+        liveBookingId: "",
+        targetBookingId: booking,
+        expectedNss: nss,
+      }),
+      "writable",
+    );
+  });
+
+  it("reanuda escritura CRM incompleta (NSS propio sin P)", () => {
+    assert.equal(
+      decideCreateRowOccupancy({
+        liveNss: nss,
+        liveBookingId: "",
+        targetBookingId: booking,
+        expectedNss: nss,
+      }),
+      "writable",
+    );
+  });
+
+  it("no pisa occupied_external (NSS ajeno sin P)", () => {
+    assert.equal(
+      decideCreateRowOccupancy({
+        liveNss: "99999999999",
+        liveBookingId: "",
+        targetBookingId: booking,
+        expectedNss: nss,
+      }),
+      "occupied_external",
+    );
+  });
+
+  it("no pisa otro booking en P", () => {
+    assert.equal(
+      decideCreateRowOccupancy({
+        liveNss: nss,
+        liveBookingId: "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa",
+        targetBookingId: booking,
+        expectedNss: nss,
+      }),
+      "other_booking",
     );
   });
 });

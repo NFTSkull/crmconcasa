@@ -10,6 +10,8 @@
 
 ## [Unreleased]
 
+- **fix(agenda): reagenda CRM→Sheets con histórico REAGENDADO + sync UI (P200)** — worker ya no mata cancel por E/F en reagenda; Cloud worker stale (p175) a desplegar. RPC `agenda_booking_sheet_sync_status` (mig **200**). UI biométricos: “en CRM · sincronizando…” hasta SYNCED. `reagendar_biometricos` intacto. Sin citas sintéticas.
+
 - **fix(asesor-detalle): episodio de corrección usa `estado_efectivo` (P197-B3, LOCAL)** — `/asesor/expediente/[id]` consume el mismo helper P197 que el inbox. Un rechazo histórico ya no es alerta principal si el episodio está enviado o cerrado. Deep link `?focus=correccion` solo en Necesita. Sin mig 198. 0 writers. `/asesor` pinta el chip principal desde RPC; Documentación y Estatus op. bajan de jerarquía. Sin SQL nuevo (198 reservado a citas). Excel intacto.
 
 - **fix(asesor-inbox): chips por estado efectivo del episodio (LOCAL)** — mig **197**: `asesor_inbox_estado_efectivo` (P196 REQUESTED → Corrección enviada; solicitud sin lote → Necesita; rechazo ya respondido no gobierna chip). List/summary misma clasificación. Categoría documental y `resultado_real` de columna intactos. `/asesor/page.tsx` no se toca. Disponibles intacto. Operación de citas → **198**.

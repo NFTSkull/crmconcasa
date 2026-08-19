@@ -1,3 +1,7 @@
+## 2026-08-19 - P200: reagenda CRM→Sheets verificable
+
+Causa (caso real 26/08 08:00 Monterrey): CRM `reagendar_biometricos` OK (OLD cancelled + NEW booked + outbox cancel/create P160), pero cancel outbox `dead` `manual_result_conflict` E/F **antes** de la rama REAGENDADO; create `dead` `awaiting_prior_link_clear`. Worker Cloud version 31 (p175, 13 ago) stale vs main. Decisión: `shouldYieldCancelClearToRescheduleHistory` (E/F no terminal en reagenda; cancelación pura intacta); RPC read-model `agenda_booking_sheet_sync_status`; UI no afirma Drive. No se toca `reagendar_biometricos`. Retry canónico `agenda_sheet_requeue_dead_sync`. Citas → **201**.
+
 ## 2026-08-19 - P199: Disponibles = trabajo Mesa accionable libre
 
 Causa: P195 excluía `subestado=rechazado` aunque P198 dijera `CORRECTION_PENDING_REVIEW` y el caso estuviera libre. Decisión: helper `mesa_es_trabajo_accionable_mesa` (pending P198 **o** legado P195 sin WAITING). Asignación sigue en `mesa_list_bandeja_page`. Fase 0 Cloud: 0 pending libres en `en_espera_asesor` → **no** se toca `mesa_take_expediente`. P198/infinite-scroll intactos. Citas → **200**.

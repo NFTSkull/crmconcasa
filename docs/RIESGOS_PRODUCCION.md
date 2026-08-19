@@ -45,6 +45,8 @@
 | Detalle asesor muestra rechazo histórico como tarea | Alto (asesor reenvía o se confunde) | P197-B3: banner principal = `estado_efectivo`; `subestado=rechazado` no gobierna si el episodio ya respondió |
 | Cola Correcciones con lotes raw pendientes ya trabajados o re-rechazados | Alto (trabajo fantasma; badge Nuevo en Mesa) | P198: `mesa_cambio_revision_estado_efectivo`; 0 UPDATE de lotes |
 | Tarjeta genérica «sin detalle» cuando existe evidencia canónica | Medio (Mesa no sabe qué revisar) | P194: `preview_changes` + recover read-time lotes vacíos; no inventar campos (`PARTIAL`/`NO_DIFF`); bandeja sin valores sensibles |
+| Reagenda CRM OK pero Drive no muestra la cita nueva | Alto (asesor no ve la cita en Sheet; UI mentía “correctamente”) | P200: worker no marca `dead` por E/F en reagenda (histórico REAGENDADO + create destino); UI PENDING/SYNCED/FAILED; cron 130 intacto |
+| Reagenda borra la fila anterior en Sheet | Alto (se pierde histórico) | Contrato P121/P200: OLD = REAGENDADO + UUID viejo; NEW = fila destino |
 | Doble booking mismo slot | Medio | UNIQUE parcial agenda + transacción |
 | Doble envío mesa | Bajo | Idempotency key + estado `submitted_to_mesa` |
 

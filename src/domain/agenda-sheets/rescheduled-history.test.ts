@@ -31,6 +31,7 @@ import {
   siblingCreateHasPriorCancelled,
   simulateSameTabReschedules,
   sortRescheduleJobsForTabSafety,
+  shouldYieldCancelClearToRescheduleHistory,
   tabMutationLockKey,
 } from "./rescheduled-history";
 import {
@@ -301,7 +302,20 @@ describe("rescheduled-history — idempotencia, reindex, rollback", () => {
       ),
       true,
     );
-    // Cancelación pura sigue safe_to_clear
+    assert.equal(
+      shouldYieldCancelClearToRescheduleHistory({
+        classification: "manual_result_conflict",
+        rescheduleCtx: false,
+      }),
+      false,
+    );
+    assert.equal(
+      shouldYieldCancelClearToRescheduleHistory({
+        classification: "manual_result_conflict",
+        rescheduleCtx: true,
+      }),
+      true,
+    );
     const d = classifyCancelRowClearance({
       row: rowAU({
         hora: "9:00 AM",
@@ -317,6 +331,48 @@ describe("rescheduled-history — idempotencia, reindex, rollback", () => {
     });
     assert.equal(d.classification, "safe_to_clear");
     assert.equal(d.clearBtoD, true);
+  });
+
+  it("C15: 26/08 08:00 Monterrey E/F no bloquea histórico REAGENDADO", () => {
+    const oldId = "34e2541c-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
+    const row = rowAU({
+      hora: "8:00 AM",
+      nss: "NSS",
+      nombre: "CLIENTE",
+      asesor: "ASESOR",
+      estado: "SINCRONIZADO",
+      bookingId: oldId,
+      expedienteId: EXP,
+    });
+    row[4] = "X";
+    row[5] = "X";
+    const clear = classifyCancelRowClearance({
+      row,
+      cancelledBookingId: oldId,
+      cancelledExpedienteId: EXP,
+    });
+    assert.equal(clear.classification, "manual_result_conflict");
+    assert.deepEqual(clear.conflictingColumns, ["E", "F"]);
+    assert.equal(
+      shouldYieldCancelClearToRescheduleHistory({
+        classification: clear.classification,
+        rescheduleCtx: true,
+      }),
+      true,
+    );
+    const insp = inspectRescheduleHistoryState({
+      historyRowNumber: 22,
+      historyRow: row,
+      priorBookingId: oldId,
+    });
+    assert.equal(insp.phase, "need_full");
+    const tech = buildRescheduledHistoryTechRow({
+      priorBookingId: oldId,
+      expedienteId: EXP,
+      syncUpdatedAt: "2026-08-19T19:20:55.000Z",
+    });
+    assert.equal(tech[0], "REAGENDADO");
+    assert.equal(tech[1], oldId);
   });
 
   it("30. fila sin hora no genera replacement", () => {

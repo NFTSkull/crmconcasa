@@ -577,6 +577,7 @@ Supabase `agenda_bookings`. Sheets no inserta filas directas; toda reserva Sheet
 - `agenda_sheet_book_by_nss(...)` — reserva atómica + mapping + `action_log` `agenda.sheet.book`
 - `agenda_sheet_claim_outbox` / `agenda_sheet_mark_outbox` — worker CRM→Sheets (claim recupera `processing` >10 min → `failed`/`dead`)
 - `agenda_sheet_requeue_dead_sync(p_booking_id)` — reencola outbox `dead` de `booking_created` para bookings activos futuros; con `p_booking_id` también puede reencolar `booking_cancelled` si hay fila Sheet conocida (`service_role`); no muta bookings ni Sheets; sin `p_booking_id` no toca cancelaciones (anti-backfill)
+- `agenda_booking_sheet_sync_status(p_booking_id)` — P200 read-model `PENDING`/`SYNCED`/`FAILED` (`authenticated` + `can_see_expediente`; roles asesor/Mesa/super_admin)
 - `agenda_sheet_enqueue_cancel_cleanup(p_booking_id)` — encola `booking_cancelled_cleanup` idempotente para booking **cancelled** con evidencia CRM (`service_role`); no UPDATE de outbox histórico done; no muta bookings
 - `agenda_sheet_mark_cancelled_cleared(p_booking_id)` — soft-delete `slot_links` + libera inventario tras limpieza Sheet
 - `agenda_sheet_upsert_link_from_crm` — mapping tras escritura Sheet
@@ -605,10 +606,11 @@ Rango seguro **O:U** (`ESTADO CRM`…`CRM_SYNC_VERSION`). **A:N se PRESERVA** (H
 - Body: `{}` (no requerido)
 - Sync off: `200 { processed: 0, disabled: true }` sin tocar datos
 - Claim: `agenda_sheet_claim_outbox` con `FOR UPDATE SKIP LOCKED`, máx 50/ejecución
-- **Reagenda (mig. 160 + histórico local):** RPCs `reagendar_*` siguen cancel+insert (un booking activo en Supabase). Outbox cancel captura `sheet_*` / `had_sheet_link` **antes** del release (trigger `z_agenda_sheet_inventory_release_au`). Create adjunta `prior_cancelled_booking_id`. Worker ordena cancel→create.
-  - **Reagendo (no cancelación pura):** conserva B:D/G:N de la fila prior; escribe `O=REAGENDADO` (canónico `RESCHEDULED_HISTORY`) y **conserva `P=prior_booking_uuid`** (identidad histórica; no ACTIVE). Formato naranja UX; inserta 1 fila FREE debajo (misma hora A); relocaliza por UUID (P) tras cada `insertDimension` (no confiar en `sheet_row` stale); reindexa inventory/links `> history`. Inventario histórico → `disabled` (IGNORE_FOR_CAPACITY / no occupied_external P162); replacement → `available`. Idempotente `already_complete`. Rollback por UUID si create destino no confirmado. Mismo tab: outbox cancel ordenado por `sheet_row` desc + scan P. Reconcile: history no es `clear_stale`.
-  - **Cancelación pura:** clear B:D+O:U (contrato 136) sin fila naranja.
-  - Gate create: prior listo si outbox cancel done + sin link activo + Sheet no “owned activo” (`P=prior` con `O=REAGENDADO` cuenta limpio). Restore clear-path o history-path según snapshot del batch.
+- **Reagenda (mig. 160 + histórico + P200):** RPCs `reagendar_*` siguen cancel+insert (un booking activo en Supabase). Outbox cancel captura `sheet_*` / `had_sheet_link` **antes** del release (trigger `z_agenda_sheet_inventory_release_au`). Create adjunta `prior_cancelled_booking_id`. Worker ordena cancel→create.
+  - **Reagendo (no cancelación pura):** conserva B:D/G:N **y E/F** de la fila prior; `manual_result_conflict` **no** es terminal si hay create sibling/`reschedule_move`. Escribe `O=REAGENDADO` (canónico `RESCHEDULED_HISTORY`) y **conserva `P=prior_booking_uuid`**. Formato naranja UX; inserta 1 fila FREE debajo (misma hora A); relocaliza por UUID (P). Inventario histórico → `disabled`; replacement → `available`.
+  - **Cancelación pura:** clear B:D+O:U (contrato 136); E/F con texto → `manual_result_conflict` → outbox `dead`.
+  - Gate create: prior listo si outbox cancel done + sin link activo + Sheet no “owned activo” (`P=prior` con `O=REAGENDADO` cuenta limpio).
+- `agenda_booking_sheet_sync_status(p_booking_id)` — read-model STABLE (mig. **200**): `PENDING`/`SYNCED`/`FAILED` + `sync_pending`/`sync_error`/`last_synced_at`. Asesor dueño, Mesa visible, `super_admin`. Sin payload outbox ni secretos.
 - Título A1: resuelve título live por `sheetId` (`listSheets`) para conservar trailing spaces
 - Confirmación: read-back A:U; si NSS/nombre/bookingId/source no coinciden → `failed` (`write_verify_failed`), no `done`
 - **Cancelación (contrato 136):** conservar **A** y **G:N** sin escribirlos; limpiar solo **B:D** + **O:U** vía `values.batchClear`; no rewrite A:U; propiedad solo si `P=booking_id` y source crm; E/F con texto → `manual_result_conflict` → outbox `dead` (no retry); fila reutilizada (**P** distinto) → no tocar; no comparar `link.sync_version` vs U (stale tras CANCELADA); inventario `CANCELADA` → available aunque haya conflicto E/F; inventario `REAGENDADO`/`RESCHEDULED_HISTORY` → `disabled` (IGNORE_FOR_CAPACITY)

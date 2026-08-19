@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/Button";
 import {
   AgendaBiometricosSupabaseError,
@@ -50,6 +50,13 @@ import {
   invokeAgendaSheetLiveSync,
 } from "@/domain/agenda-sheets/live-inventory-sync";
 import { supabaseBrowser } from "@/lib/supabaseBrowser";
+import { fetchAgendaBookingSheetSyncStatus } from "@/domain/agenda-sheets/booking-sheet-sync-status";
+import {
+  AGENDA_SHEET_SYNC_POLL,
+  agendaBookingCrmSuccessCopy,
+  nextAgendaBookingSheetSyncUi,
+  type AgendaBookingSheetSyncKind,
+} from "@/lib/agendaBookingSheetSyncUi";
 
 export interface AgendaBiometricosSupabaseCardProps {
   expedienteId: string;
@@ -157,6 +164,46 @@ export function AgendaBiometricosSupabaseCard({
     null,
   );
   const [inventoryRefreshing, setInventoryRefreshing] = useState(false);
+  const syncWatchGen = useRef(0);
+
+  const watchSheetSync = useCallback(
+    async (bookingId: string, kind: AgendaBookingSheetSyncKind) => {
+      const id = String(bookingId ?? "").trim();
+      const gen = ++syncWatchGen.current;
+      setSuccessMsg(agendaBookingCrmSuccessCopy(kind));
+      if (!id) return;
+      const max = AGENDA_SHEET_SYNC_POLL.maxAttempts;
+      for (let attempts = 1; attempts <= max; attempts++) {
+        if (gen !== syncWatchGen.current) return;
+        if (attempts > 1) {
+          await new Promise((resolve) =>
+            setTimeout(resolve, AGENDA_SHEET_SYNC_POLL.intervalMs),
+          );
+        }
+        if (gen !== syncWatchGen.current) return;
+        const status = await fetchAgendaBookingSheetSyncStatus(
+          supabaseBrowser,
+          id,
+        );
+        if (gen !== syncWatchGen.current) return;
+        const ui = nextAgendaBookingSheetSyncUi({
+          kind,
+          status,
+          attempts,
+          maxAttempts: max,
+        });
+        setSuccessMsg(ui.message);
+        if (!ui.continuePolling) return;
+      }
+    },
+    [],
+  );
+
+  useEffect(() => {
+    return () => {
+      syncWatchGen.current += 1;
+    };
+  }, []);
 
   const advisorSedeOptions = useMemo(
     () => buildAdvisorSedeOptions(config?.locations ?? []),
@@ -469,14 +516,15 @@ export function AgendaBiometricosSupabaseCard({
           }
         }
       }
-      await repo.bookBiometricos({
+      const booked = await repo.bookBiometricos({
         expedienteId,
         scheduledAt,
         locationId: selectedSede.bookLocationId,
       });
-      setSuccessMsg("Cita de biométricos agendada correctamente.");
+      setSuccessMsg(agendaBookingCrmSuccessCopy("book"));
       await load();
       onUpdated();
+      void watchSheetSync(booked.bookingId, "book");
     } catch (err) {
       setError(
         err instanceof AgendaBiometricosSupabaseError
@@ -497,6 +545,7 @@ export function AgendaBiometricosSupabaseCard({
     repo,
     selectedSede,
     timeHhmm,
+    watchSheetSync,
   ]);
 
   const handleReagendar = useCallback(async () => {
@@ -536,14 +585,15 @@ export function AgendaBiometricosSupabaseCard({
           }
         }
       }
-      await repo.reagendarBiometricos({
+      const res = await repo.reagendarBiometricos({
         expedienteId,
         scheduledAt,
         locationId: selectedSede.bookLocationId,
       });
-      setSuccessMsg("Cita de biométricos reagendada correctamente.");
+      setSuccessMsg(agendaBookingCrmSuccessCopy("reagendar"));
       await load();
       onUpdated();
+      void watchSheetSync(res.bookingNuevoId, "reagendar");
     } catch (err) {
       setError(
         err instanceof AgendaBiometricosSupabaseError
@@ -565,6 +615,7 @@ export function AgendaBiometricosSupabaseCard({
     repo,
     selectedSede,
     timeHhmm,
+    watchSheetSync,
   ]);
 
   const handleConvertToNotificacion = useCallback(async () => {
