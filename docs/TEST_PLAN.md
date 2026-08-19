@@ -1,3 +1,7 @@
+## Microfix Mesa — isolation infinite scroll
+
+- [x] R1–R8 `mesaBandejaInfiniteQuery` (stale enrich, 6 de 6, cursor A≠B, append legítimo, subfiltro, inverso, out-of-order, refresh). Sin SQL. Citas → **199**.
+
 ## Microfix Mesa — badge Rechazado vs corrección P198
 
 - [x] U1–U6 `mesaBandejaSubestadoUi`. Sin SQL. Citas → **199**.

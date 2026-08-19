@@ -108,7 +108,9 @@ export function describeMesaBandejaServerWindow(opts: {
 
 /**
  * Clave de criterios que reinician la ventana a 25.
- * (Coincide con la lista del ticket P101 + subfiltro P094 / origen admin.)
+ * Es la identidad del query activo del infinite scroll (P102):
+ * quickFilter, cambiosSubfiltro, mesaOpsFilter, rechazos, buscar, etapa,
+ * subestado, soloCitasHoy, adminOrigenTab.
  */
 export function mesaBandejaInfiniteResetKey(parts: {
   quickFilter: string;

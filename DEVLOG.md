@@ -1,3 +1,7 @@
+## 2026-08-19 - fix: isolation infinite scroll Mesa (UI)
+
+Causa: `loadServerBandeja` validaba `gen` antes de `enrichMesaBandejaPageItems` y mutaba `casos`/cursor sin re-chequear. Un append de «Cambios» podía anexarse a «Correcciones» (6 de 6 → N). Decisión: identidad = `mesaBandejaInfiniteResetKey`; segundo guard tras cada await; cursor keyed al query; `canAppendMesaBandejaPage` es autoridad (IO solo dispara). P198/Disponibles/SQL intactos. Citas → **199**.
+
 ## 2026-08-19 - fix: badge Rechazado vs corrección P198 (UI)
 
 Causa: la tarjeta Mesa pintaba `subestado=rechazado` aunque P198 dijera `CORRECTION_PENDING_REVIEW`. Decisión: helper `resolveMesaBandejaSubestadoBadge`; episodio activo oculta el badge rojo. Membresía/colas/SQL intactos. Citas → **199**.
