@@ -443,4 +443,10 @@ describe("asesor page B1 contract (source)", () => {
     assert.doesNotMatch(loadBody, /collectAsesorInboxExportRows/);
     assert.doesNotMatch(loadBody, /downloadAsesorPrecalificacionesExcel/);
   });
+
+  it("columna Documentación / corrección con title de divergencia", () => {
+    assert.match(src, /ASESOR_INBOX_DOCUMENTACION_COL_HEADER/);
+    assert.match(src, /ASESOR_INBOX_DOCUMENTACION_COL_TITLE/);
+    assert.match(src, /text-gray-700/);
+  });
 });

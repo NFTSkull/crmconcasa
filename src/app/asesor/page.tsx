@@ -42,6 +42,8 @@ import {
 } from "@/domain/expedientes/reingreso-manual";
 import { asesorExpedienteDetalleHref } from "@/domain/expedientes/asesor-expediente-correccion-ui";
 import {
+  ASESOR_INBOX_DOCUMENTACION_COL_HEADER,
+  ASESOR_INBOX_DOCUMENTACION_COL_TITLE,
   asesorDocumentacionFilaBadge,
   asesorEstadoActualFilaBadge,
   asesorEstatusOperativoFilaBadge,
@@ -1578,8 +1580,11 @@ export default function AsesorDashboardPage() {
                     <th className="px-2 py-1.5 text-left font-semibold uppercase tracking-wide text-gray-500">
                       Estado actual
                     </th>
-                    <th className="px-2 py-1.5 text-left font-semibold uppercase tracking-wide text-gray-500">
-                      Documentación
+                    <th
+                      className="px-2 py-1.5 text-left font-semibold uppercase tracking-wide text-gray-500"
+                      title={ASESOR_INBOX_DOCUMENTACION_COL_TITLE}
+                    >
+                      {ASESOR_INBOX_DOCUMENTACION_COL_HEADER}
                     </th>
                     <th className="px-2 py-1.5 text-left font-semibold uppercase tracking-wide text-gray-500">
                       Etapa

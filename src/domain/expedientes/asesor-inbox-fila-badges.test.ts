@@ -4,6 +4,8 @@ import { resolve } from "node:path";
 import { describe, it } from "node:test";
 
 import {
+  ASESOR_INBOX_DOCUMENTACION_COL_HEADER,
+  ASESOR_INBOX_DOCUMENTACION_COL_TITLE,
   asesorDocumentacionFilaBadge,
   asesorEstatusOperativoFilaBadge,
   asesorInboxFilaEstadoLabels,
@@ -95,6 +97,7 @@ describe("P197-B2 estado actual desde estado_efectivo", () => {
     const doc = asesorDocumentacionFilaBadge("—", "", "correccion_enviada");
     assert.equal(doc.label, "Corrección enviada");
     assert.match(doc.className, /text-emerald-700/);
+    assert.match(doc.className, /font-semibold|font-medium/);
     assert.doesNotMatch(doc.className, /bg-emerald|border-emerald|rounded-full/);
   });
 
@@ -255,5 +258,77 @@ describe("P184 asesor inbox fila etapa 12 pago ConCasa", () => {
     );
     assert.equal(resultado.label, "Completado");
     assert.equal(estatus?.label, "Pagado");
+  });
+});
+
+const COMPLETOS_PILL =
+  "inline-flex rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800";
+
+describe("asesor inbox documentación/corrección claridad visual", () => {
+  it("U1 correccion_requerida: label y ámbar oscuro sin opacity /80", () => {
+    const doc = asesorDocumentacionFilaBadge("—", "", "correccion_requerida");
+    assert.equal(doc.label, "Necesita corrección");
+    assert.match(doc.className, /text-amber-800|text-amber-900/);
+    assert.doesNotMatch(doc.className, /\/80/);
+    assert.match(doc.className, /font-semibold/);
+    assert.doesNotMatch(doc.className, /bg-amber|rounded-full/);
+  });
+
+  it("U2 correccion_enviada: emerald y peso legible", () => {
+    const doc = asesorDocumentacionFilaBadge("—", "", "correccion_enviada");
+    assert.equal(doc.label, "Corrección enviada");
+    assert.match(doc.className, /text-emerald-700/);
+    assert.match(doc.className, /font-semibold|font-medium/);
+  });
+
+  it("U3 estado efectivo Necesita + docs Corrección enviada (dimensiones distintas)", () => {
+    const fila = asesorInboxFilaEstadoLabels({
+      estadoEfectivo: "correccion_requerida",
+      resumenCorreccion: "correccion_enviada",
+      etapaDisplay: "2. Registro",
+    });
+    assert.equal(fila.estadoActual, "Necesita corrección");
+    assert.equal(fila.documentacion, "Corrección enviada");
+    assert.notEqual(fila.estadoActual, fila.documentacion);
+  });
+
+  it("U4 estado efectivo Necesita + documentos Completos es válido", () => {
+    const fila = asesorInboxFilaEstadoLabels({
+      estadoEfectivo: "correccion_requerida",
+      documentacionLabel: "Completos",
+      documentacionClassName: COMPLETOS_PILL,
+      etapaDisplay: "2. Registro",
+    });
+    assert.equal(fila.estadoActual, "Necesita corrección");
+    assert.equal(fila.documentacion, "Completos");
+    const doc = asesorDocumentacionFilaBadge("Completos", COMPLETOS_PILL);
+    assert.equal(doc.label, "Completos");
+    assert.match(doc.className, /bg-green-100/);
+  });
+
+  it("U5 en_tramite + Completos sin regresión", () => {
+    const fila = asesorInboxFilaEstadoLabels({
+      estadoEfectivo: "en_tramite",
+      documentacionLabel: "Completos",
+      documentacionClassName: COMPLETOS_PILL,
+      etapaDisplay: "2. Registro",
+    });
+    assert.equal(fila.estadoActual, "En trámite");
+    assert.equal(fila.documentacion, "Completos");
+  });
+
+  it("encabezado Documentación / corrección y tooltip de divergencia", () => {
+    assert.equal(ASESOR_INBOX_DOCUMENTACION_COL_HEADER, "Documentación / corrección");
+    assert.match(
+      ASESOR_INBOX_DOCUMENTACION_COL_TITLE,
+      /Puede diferir del Estado actual/,
+    );
+    const page = readFileSync(resolve(process.cwd(), "src/app/asesor/page.tsx"), "utf8");
+    assert.match(page, /ASESOR_INBOX_DOCUMENTACION_COL_HEADER/);
+    assert.match(page, /ASESOR_INBOX_DOCUMENTACION_COL_TITLE/);
+    assert.match(
+      page,
+      /if \(c === "faltantes"\) \{\s*return "inline-flex rounded-full bg-gray-100 px-2 py-0\.5 text-xs font-medium text-gray-700";/,
+    );
   });
 });

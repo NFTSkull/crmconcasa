@@ -1,3 +1,7 @@
+## 2026-08-19 - style: inbox asesor Documentación/corrección legible
+
+Causa: «Necesita corrección» en la columna documental usaba `text-amber-900/80` y era ilegible; el asesor confundía Estado actual vs docs/corrección (dimensiones distintas y válidas). Decisión: contraste ámbar oscuro + semibold; encabezado «Documentación / corrección» + title nativo. No se toca `estado_efectivo`, P196–P200, SQL ni Cloud. Citas → **201**.
+
 ## 2026-08-19 - P200: reagenda CRM→Sheets verificable
 
 Causa (caso real 26/08 08:00 Monterrey): CRM `reagendar_biometricos` OK (OLD cancelled + NEW booked + outbox cancel/create P160), pero cancel outbox `dead` `manual_result_conflict` E/F **antes** de la rama REAGENDADO; create `dead` `awaiting_prior_link_clear`. Worker Cloud version 31 (p175, 13 ago) stale vs main. Decisión: `shouldYieldCancelClearToRescheduleHistory` (E/F no terminal en reagenda; cancelación pura intacta); RPC read-model `agenda_booking_sheet_sync_status`; UI no afirma Drive. No se toca `reagendar_biometricos`. Retry canónico `agenda_sheet_requeue_dead_sync`. Citas → **201**.
