@@ -4,7 +4,9 @@
 
 ### Fixed
 
-- **hotfix(mesa): correcciones P130 pendientes visibles en «Correcciones listas para revisar» (LOCAL)** — mig **192**: helper `expediente_tiene_correccion_asesor_pendiente` (`status=pendiente_revision` ∧ `submitted_at IS NOT NULL`). `mesa_bandeja_categoria_resumen` y `asesor_inbox_categoria_correccion` lo evalúan **antes** de la heurística P102/P167. Sin gate de etapa. Legacy DG timestamp / `resubido` intactos. Sort Mesa usa `submitted_at` del lote pendiente. Sin backfill ni UPDATE de lotes. Operación de citas → futura mig **195**. Sin Cloud/push/PR.
+- **hotfix(mesa): Disponibles no muestra rechazo operativo activo (LOCAL)** — mig **195**: `mesa_list_bandeja_page` `sin_asignar` exige `ciclo_estado=activo` ∧ `subestado <> rechazado`. Rechazados intacto. Tras reactivar vuelve a Disponibles. 0 writers/asignación. Operación de citas → **196**.
+
+- **hotfix(mesa): correcciones P130 pendientes visibles en «Correcciones listas para revisar» (LOCAL)** — mig **192**: helper `expediente_tiene_correccion_asesor_pendiente` (`status=pendiente_revision` ∧ `submitted_at IS NOT NULL`). `mesa_bandeja_categoria_resumen` y `asesor_inbox_categoria_correccion` lo evalúan **antes** de la heurística P102/P167. Sin gate de etapa. Legacy DG timestamp / `resubido` intactos. Sort Mesa usa `submitted_at` del lote pendiente. Sin backfill ni UPDATE de lotes. Operación de citas → futura mig **196**. Sin Cloud/push/PR.
 
 - **hotfix(asesor): expedientes terminales fuera de tareas accionables (LOCAL)** — mig **191**: `asesor_inbox_es_accionable` (via `resultado_real`) excluye `cancelado` / `rechazado_mesa` de `pendiente_agendar_biometricos` / `pendiente_agendar_firma` / `pendiente_subir_acuse`. Lista y summary usan el mismo helper. Chips Cancelados / Rechazados por Mesa / corrección documental intactos. Operación de citas (worktree pausado) → futura mig **194**. Sin Cloud/push/PR.
 

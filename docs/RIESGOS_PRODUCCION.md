@@ -37,6 +37,7 @@
 | Dos operadores realizan movimiento manual | Alto | `SELECT FOR UPDATE` + `p_etapa_esperada`; conflicto estable sin evento parcial |
 | Operador escribe «RECHAZO» en motivo de movimiento manual | Alto (falso rechazo operativo) | P093 B1: copy + advertencia UI + atajo a rechazo canónico; no inferir rechazo por texto; RPC de movimiento sin efectos de rechazo |
 | Confundir rechazo operativo con cancelación de trámite / cita cancelada | Alto | P094: señales disjuntas (`subestado=rechazado` vs `ciclo=cancelado`); chip agrupado con subvistas; no inferir por texto |
+| Rechazo operativo (`activo`+`rechazado`) sigue en chip Disponibles | Alto (Mesa toma/trabaja un expediente ya rechazado) | P195: `sin_asignar` exige `subestado IS DISTINCT FROM 'rechazado'`; Rechazados intacto |
 | Contar cancelado/rechazado_mesa en chips de tarea asesor (Agendar biométricos/firma, Subir acuse) | Medio (operación falsa) | P191: `asesor_inbox_es_accionable` vía `resultado_real`; lista=summary |
 | Ocultar correcciones P130 ya enviadas (docs `cliente_*` en `subido`, no `resubido`) | Alto (Mesa no revisa; asesor no ve «Corrección enviada») | Hotfix 192: predicado lote `pendiente_revision`+`submitted_at`; no usar etapa ni heurística documental como gate |
 | Mezclar corrección solicitada por Mesa con actualización espontánea del asesor | Medio (prioridad operativa invertida) | P193: clasificar origen derivado (REQUESTED/ADVISOR/AMBIGUOUS/LEGACY) sin cambiar membresía P192; subfiltros SQL |

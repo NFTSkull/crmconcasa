@@ -1,3 +1,10 @@
+## P195 — Disponibles excluye rechazo operativo activo (LOCAL)
+
+- [x] RPC `mesa_list_bandeja_page` `p_ops_filter=sin_asignar`: `ciclo=activo` ∧ `subestado <> rechazado` ∧ sin `assigned_to` ∧ no `correccion_requerida`.
+- [x] `activo+rechazado` → Disponibles FALSE; Rechazados TRUE.
+- [x] Tras `subestado` deja de ser `rechazado` → Disponibles se reevalúa.
+- [x] SQL `rpc_mesa_disponibles_excluye_rechazado_p195.sql` + TS `mesaOpsUi`. 0 writers. Operación de citas → **196**.
+
 ## P186 — Editor inbox: orden por trabajo pendiente + draft re-precal
 
 - [x] B1A LOCAL: mig **181** `editor_list_expediente_ids_page` + `editor_guardar_borrador_reprecalificacion`; SQL A–AE; contratos Zod. Sin frontend `/editor`, sin Cloud/commit.

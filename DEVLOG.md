@@ -1,3 +1,7 @@
+## 2026-08-19 - hotfix LOCAL: Disponibles excluye rechazo operativo (mig 195)
+
+Causa: `mesa_list_bandeja_page` con `p_ops_filter=sin_asignar` (chip Disponibles) + vista rápida Todos (`ciclo=activo`) devolvía expedientes `subestado=rechazado` sin `assigned_to`. Decisión: predicado Disponibles = activo ∧ subestado distinto de rechazado ∧ sin responsable ∧ no correccion_requerida. Chip Rechazados intacto. Tras reactivar (subestado deja de ser rechazado) vuelve a evaluarse. FE/mock alineados. 0 writers / 0 assigned_to. Operación de citas → **196**.
+
 ## 2026-08-19 - feat LOCAL: detalle robusto cambios asesor (mig 194)
 
 Causa: P193 clasifica origen pero la bandeja recortaba a 2 labels y los 5 lotes vacíos pre-P117 ocultaban evidencia canónica. Decisión: mig **194** read-model — `preview_changes` (máx 3, sin valores), normalización labels en lectura, recover read-time ventana `-60s/+10s` solo si `changes_count=0` (`EXACT` documental / `PARTIAL` DG / `NO_DIFF`). `mesa_get_asesor_cambio_lote` expone `recovered_changes` separado de P130. UI tarjeta (`mesaAsesorCambiosCardUi`) + panel. P192/P193 membership intactos. 0 writers/backfill. Operación de citas → **195**.

@@ -35,6 +35,10 @@ BEGIN
   PERFORM public.__p102_assert(position('SECURITY DEFINER' in v_src) > 0, 'security definer');
   PERFORM public.__p102_assert(position('correccion_enviada' in v_src) > 0, 'quick correccion');
   PERFORM public.__p102_assert(position('sin_asignar' in v_src) > 0, 'ops sin_asignar');
+  PERFORM public.__p102_assert(
+    position('cl.subestado IS DISTINCT FROM ''rechazado''' in v_src) > 0,
+    'P195 disponibles excluye rechazado'
+  );
   PERFORM public.__p102_assert(position('mi_bandeja' in v_src) > 0, 'ops mi_bandeja');
   PERFORM public.__p102_assert(position('rechazados' in v_src) > 0, 'subfiltro rechazados');
   -- P127: actividad Mesa en batch
