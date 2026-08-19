@@ -978,6 +978,11 @@ export class MockExpedientesRepo implements ExpedientesRepo {
             : null,
           cambioRequestType: null,
           cambioRequestAt: null,
+          cambioRevisionEstado: pending
+            ? ("ADVISOR_UPDATE_PENDING_REVIEW" as const)
+            : null,
+          cambioActionableAt: e.asesorCambioLote?.submittedAt ?? null,
+          cambioBatchId: null,
         };
       })
       .sort((a, b) => {

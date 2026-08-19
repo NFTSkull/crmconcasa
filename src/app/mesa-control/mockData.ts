@@ -58,6 +58,9 @@ export interface CasoMock {
     | "RECHAZO_OPERATIVO_CON_CORRECCION"
     | null;
   cambioRequestAt?: string | null;
+  /** P198: episodio efectivo (cola de cambios). */
+  cambioRevisionEstado?: string | null;
+  cambioActionableAt?: string | null;
   /** Reingreso manual / P072. */
   esReingreso?: boolean;
   reingresoManualCount?: number;

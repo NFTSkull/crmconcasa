@@ -96,6 +96,8 @@ import { AgendaBiometricosConfigPanel } from "@/components/mesa-control/AgendaBi
 import { canManageAgendaConfig } from "@/lib/canManageAgendaConfig";
 import {
   formatEnMesaHaceLabel,
+  formatMesaEventoAccionableHaceLabel,
+  mesaEventoAccionableKindFromEstado,
   sortMesaBandejaPorAntiguedad,
 } from "@/lib/mesaBandejaOrden";
 import {
@@ -206,6 +208,8 @@ type CasoConDocs = CasoMock & {
   cambioRevisionOrigen?: MesaCambioRevisionOrigen | null;
   cambioRequestType?: CasoMock["cambioRequestType"];
   cambioRequestAt?: string | null;
+  cambioRevisionEstado?: string | null;
+  cambioActionableAt?: string | null;
 };
 
 type AdminOrigenTab = "todos" | "internos" | "externos";
@@ -305,17 +309,29 @@ function MesaEnMesaHaceBadge({
   fechaEnvioMesa,
   createdAt,
   fechaEntradaMesaActual,
+  revisionEstado,
+  actionableAt,
 }: {
   fechaEnvioMesa?: string | null;
   createdAt?: string | null;
   fechaEntradaMesaActual?: string | null;
+  revisionEstado?: string | null;
+  actionableAt?: string | null;
 }) {
-  const label = formatEnMesaHaceLabel(
-    fechaEnvioMesa,
-    new Date(),
-    createdAt,
-    fechaEntradaMesaActual,
-  );
+  const kind = mesaEventoAccionableKindFromEstado(revisionEstado);
+  const eventIso =
+    (typeof actionableAt === "string" && actionableAt.trim()) ||
+    (typeof fechaEntradaMesaActual === "string" && fechaEntradaMesaActual.trim()) ||
+    null;
+  const label =
+    kind === "nuevo"
+      ? formatEnMesaHaceLabel(
+          fechaEnvioMesa,
+          new Date(),
+          createdAt,
+          fechaEntradaMesaActual,
+        )
+      : formatMesaEventoAccionableHaceLabel(eventIso, kind);
   if (!label) return null;
   return (
     <span
@@ -347,17 +363,24 @@ function MesaCorreccionLecturaBadge({
   estado,
   esCorreccion = false,
   origin = null,
+  revisionEstado = null,
 }: {
   estado?: MesaCorreccionLecturaEstado;
   esCorreccion?: boolean;
   origin?: MesaCambioRevisionOrigen | null;
+  revisionEstado?: string | null;
 }) {
   if (!estado || estado === "no_aplica") return null;
-  const label = mesaCorreccionLecturaLabel(estado, esCorreccion, origin);
+  const label = mesaCorreccionLecturaLabel(
+    estado,
+    esCorreccion,
+    origin,
+    revisionEstado,
+  );
   if (!label) return null;
   const testId =
     estado === "nueva"
-      ? esCorreccion
+      ? esCorreccion || label.startsWith("Corrección") || label.startsWith("Actualización")
         ? "mesa-correccion-nueva"
         : "mesa-nuevo-en-mesa"
       : esCorreccion
@@ -474,6 +497,8 @@ export default function MesaControlPage() {
           : null),
       cambioRequestType: page.cambioRequestType ?? null,
       cambioRequestAt: page.cambioRequestAt ?? null,
+      cambioRevisionEstado: page.cambioRevisionEstado ?? null,
+      cambioActionableAt: page.cambioActionableAt ?? null,
     };
   }, []);
 
@@ -1756,11 +1781,14 @@ export default function MesaControlPage() {
                       fechaEnvioMesa={c.fechaEnvioMesa}
                       createdAt={c.createdAt}
                       fechaEntradaMesaActual={c.fechaEntradaMesaActual}
+                      revisionEstado={c.cambioRevisionEstado}
+                      actionableAt={c.cambioActionableAt}
                     />
                     <MesaCorreccionLecturaBadge
                       estado={c.correccionLecturaEstado}
                       esCorreccion={c.entradaLecturaEsCorreccion}
                       origin={c.cambioRevisionOrigen}
+                      revisionEstado={c.cambioRevisionEstado}
                     />
                     {showAdminOrigenTabs ? (
                       <span className={origenMesaBadgeClass(c.origenMesa ?? null)}>
@@ -1829,6 +1857,7 @@ export default function MesaControlPage() {
                 </div>
                 {(() => {
                   const card = buildMesaAsesorCambiosCardModel({
+                    revisionEstado: c.cambioRevisionEstado ?? null,
                     origin: c.cambioRevisionOrigen ?? null,
                     advisorChangeBatchId: c.advisorChangeBatchId,
                     advisorChangesCount: c.advisorChangesCount,
@@ -1857,7 +1886,32 @@ export default function MesaControlPage() {
                       data-testid="mesa-asesor-cambios-card"
                       data-cambio-origen={c.cambioRevisionOrigen ?? ""}
                     >
-                      {card.historica ? (
+                      {card.detalleNoDisponible ? (
+                        <>
+                          <p className="text-[11px] font-semibold text-sky-950">
+                            {card.header}
+                          </p>
+                          {card.solicitadaAt ? (
+                            <p className="text-[10px] text-sky-900/80">
+                              Solicitada por Mesa: {card.solicitadaAt}
+                            </p>
+                          ) : null}
+                          {card.tipoHumano ? (
+                            <p className="text-[10px] text-sky-900/80">
+                              Tipo: {card.tipoHumano}
+                            </p>
+                          ) : null}
+                          <Link
+                            href={`/mesa-control/${c.id}`}
+                            className={ctaClass}
+                            data-testid="mesa-abrir-correccion-sin-detalle"
+                            onClick={(e) => e.stopPropagation()}
+                            onKeyDown={(e) => e.stopPropagation()}
+                          >
+                            Revisar corrección
+                          </Link>
+                        </>
+                      ) : card.historica ? (
                         <>
                           <p className="text-[11px] font-semibold text-sky-950">
                             {MESA_ASESOR_CAMBIOS_HISTORICO_TITULO}
@@ -2053,6 +2107,16 @@ export default function MesaControlPage() {
                               onKeyDown={(e) => e.stopPropagation()}
                             >
                               {mesaCambioCtaRevisarLabel(c.cambioRevisionOrigen)}
+                            </Link>
+                          ) : card.showAbrirExpediente ? (
+                            <Link
+                              href={`/mesa-control/${c.id}`}
+                              className={ctaClass}
+                              data-testid="mesa-abrir-correccion-sin-detalle"
+                              onClick={(e) => e.stopPropagation()}
+                              onKeyDown={(e) => e.stopPropagation()}
+                            >
+                              Revisar corrección
                             </Link>
                           ) : null}
                         </>

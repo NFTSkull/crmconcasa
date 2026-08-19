@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   formatEnMesaHaceLabel,
+  formatMesaEventoAccionableHaceLabel,
   getMesaEnvioSortTimestamp,
   resolveMesaEnvioIso,
   sortMesaBandejaPorAntiguedad,
@@ -121,5 +122,26 @@ describe("formatEnMesaHaceLabel", () => {
 
   it("sin fecha", () => {
     assert.equal(formatEnMesaHaceLabel(null, now), null);
+  });
+
+  it("P198 M12: antigüedad del lote, no del envío inicial", () => {
+    const now = new Date("2026-08-19T12:00:00.000Z");
+    assert.equal(
+      formatMesaEventoAccionableHaceLabel(
+        "2026-08-17T12:00:00.000Z",
+        "correccion",
+        now,
+      ),
+      "Corrección recibida hace 2 días",
+    );
+    assert.equal(
+      formatEnMesaHaceLabel(
+        "2026-07-21T12:00:00.000Z",
+        now,
+        null,
+        "2026-07-21T12:00:00.000Z",
+      ),
+      "En Mesa hace 29 días",
+    );
   });
 });

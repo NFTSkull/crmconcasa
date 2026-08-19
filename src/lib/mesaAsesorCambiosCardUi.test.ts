@@ -187,4 +187,57 @@ describe("mesaAsesorCambiosCardUi", () => {
     assert.equal(card.header.includes("1 cambio"), false);
     assert.equal(card.showRevisarCambios, false);
   });
+
+  it("P198 M1: corrección activa muestra bloque aunque Documentación sea Faltantes", () => {
+    const card = buildMesaAsesorCambiosCardModel({
+      revisionEstado: "CORRECTION_PENDING_REVIEW",
+      origin: "REQUESTED_CORRECTION",
+      advisorChangeBatchId: "00000000-0000-4000-8000-000000000001",
+      advisorChangesCount: 1,
+      advisorChangesSubmittedAt: "2026-08-17T12:00:00.000Z",
+      cambioRequestAt: "2026-08-10T12:00:00.000Z",
+      cambioRequestType: "SOLICITUD_DATOS_GENERALES",
+      advisorChangesPreview: [
+        {
+          tipo: "campo_actualizado",
+          campo: "plazo",
+          documentKind: null,
+          label: "Plazo actualizado",
+          hasOld: true,
+          hasNew: true,
+          source: "P130",
+        },
+      ],
+      resumenDocumental: "faltantes",
+    });
+    assert.equal(card.showBlock, true);
+    assert.match(card.header, /Corrección recibida/);
+    assert.equal(card.tipoHumano, "Datos generales");
+    assert.equal(card.showRevisarCambios, true);
+  });
+
+  it("P198 M13: enrich falla y el bloque no desaparece", () => {
+    const card = buildMesaAsesorCambiosCardModel({
+      revisionEstado: "CORRECTION_PENDING_REVIEW",
+      origin: "REQUESTED_CORRECTION",
+      advisorChangeBatchId: "00000000-0000-4000-8000-000000000001",
+      advisorChangesCount: 0,
+      resumenDocumental: "faltantes",
+    });
+    assert.equal(card.showBlock, true);
+    assert.equal(card.detalleNoDisponible, true);
+    assert.match(card.header, /detalle no disponible/);
+    assert.equal(card.showAbrirExpediente, true);
+  });
+
+  it("P198 CLOSED no pinta tarjeta por resumenDocumental", () => {
+    const card = buildMesaAsesorCambiosCardModel({
+      revisionEstado: "CLOSED",
+      origin: "REQUESTED_CORRECTION",
+      advisorChangeBatchId: "00000000-0000-4000-8000-000000000001",
+      advisorChangesCount: 1,
+      resumenDocumental: "correccion_enviada",
+    });
+    assert.equal(card.showBlock, false);
+  });
 });

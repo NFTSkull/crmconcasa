@@ -2,7 +2,7 @@
 
 En la bandeja principal, Mesa puede avanzar a la siguiente etapa canónica, marcar `Tiene documentos` y tomar expedientes sin asignar sin abrir el detalle.
 
-Chip **Cambios por revisar** (id interno `correccion_enviada`): lote P130 `pendiente_revision` con `submitted_at` (hotfix 192), más casos legacy P102 sin lote. P196: **Correcciones por revisar** = primer lote P130 posterior a una solicitud Mesa vigente del ciclo; **Actualizaciones del asesor** = lote sin solicitud no consumida. P194 muestra **qué cambió**. Sin gate de etapa. **Disponibles no cambia.**
+Chip **Cambios por revisar** (id interno `correccion_enviada`): **P198** estado efectivo de revisión Mesa. Correcciones = respuesta del asesor aún no procesada; Actualizaciones = update espontáneo aún no procesado. Un lote raw `pendiente_revision` ya cerrado (DG/doc validado) o superado por un re-reject **no** entra. P196: origen REQUESTED = primer lote posterior a la solicitud. P194 muestra **qué cambió**. Sin gate de etapa. **Disponibles no cambia.**
 
 **Inbox asesor chips (P197 LOCAL):** colas usan `asesor_inbox_estado_efectivo`. **P197-B2:** la columna **Estado actual** pinta ese valor; Documentación y Estatus op. son dimensiones secundarias. **P197-B3:** el detalle `/asesor/expediente/[id]` usa el mismo estado principal (no `subestado` como alerta de acción). **Disponibles no cambia.**
 

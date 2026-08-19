@@ -42,6 +42,7 @@
 | Ocultar correcciones P130 ya enviadas (docs `cliente_*` en `subido`, no `resubido`) | Alto (Mesa no revisa; asesor no ve «Corrección enviada») | Hotfix 192: predicado lote `pendiente_revision`+`submitted_at`; no usar etapa ni heurística documental como gate |
 | Mezclar corrección solicitada por Mesa con actualización espontánea del asesor | Medio (prioridad operativa invertida) | P196: una solicitud Mesa solo clasifica el **primer** lote P130 posterior; lotes siguientes = ADVISOR_UPDATE salvo nueva solicitud. P192/Disponibles intactos |
 | Detalle asesor muestra rechazo histórico como tarea | Alto (asesor reenvía o se confunde) | P197-B3: banner principal = `estado_efectivo`; `subestado=rechazado` no gobierna si el episodio ya respondió |
+| Cola Correcciones con lotes raw pendientes ya trabajados o re-rechazados | Alto (trabajo fantasma; badge Nuevo en Mesa) | P198: `mesa_cambio_revision_estado_efectivo`; 0 UPDATE de lotes; Disponibles intacto |
 | Tarjeta genérica «sin detalle» cuando existe evidencia canónica | Medio (Mesa no sabe qué revisar) | P194: `preview_changes` + recover read-time lotes vacíos; no inventar campos (`PARTIAL`/`NO_DIFF`); bandeja sin valores sensibles |
 | Doble booking mismo slot | Medio | UNIQUE parcial agenda + transacción |
 | Doble envío mesa | Bajo | Idempotency key + estado `submitted_to_mesa` |

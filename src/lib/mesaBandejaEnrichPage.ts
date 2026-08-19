@@ -19,6 +19,7 @@ import {
   deriveMesaCorreccionLecturaEstado,
   deriveUltimaCorreccionEnviadaAt,
   mesaEntradaEsPorCorreccion,
+  mesaRevisionEstadoEsCambioPendiente,
   resolveFechaEntradaMesaActual,
   type MesaCorreccionLecturaEstado,
 } from "@/lib/mesaCorreccionEntrada";
@@ -58,6 +59,8 @@ export type MesaBandejaCasoBase = Readonly<{
   submittedToMesa?: boolean;
   origenMesa?: "interno" | "externo" | null;
   fechaEnvioMesa?: string | null;
+  cambioRevisionEstado?: string | null;
+  cambioActionableAt?: string | null;
 }>;
 
 export type MesaBandejaCasoEnriched = MesaBandejaCasoBase & {
@@ -286,19 +289,30 @@ export async function enrichMesaBandejaPageItems<T extends MesaBandejaCasoBase>(
       resubmittedAt,
       historica,
     } = p;
-    const fechaEntradaMesaActual = resolveFechaEntradaMesaActual(
-      c.fechaEnvioMesa ?? null,
-      ultimaCorreccionEnviadaAt,
-      c.createdAt ?? null,
-    );
+    const actionable =
+      typeof c.cambioActionableAt === "string" ? c.cambioActionableAt.trim() : "";
+    const fechaEntradaMesaActual = actionable
+      ? actionable
+      : resolveFechaEntradaMesaActual(
+          c.fechaEnvioMesa ?? null,
+          ultimaCorreccionEnviadaAt,
+          c.createdAt ?? null,
+        );
     const correccionLecturaEstado = deriveMesaCorreccionLecturaEstado(
       fechaEntradaMesaActual,
       getMesaExpedienteLastOpenedAt(c.id, deps.mesaUserId),
     );
-    const entradaLecturaEsCorreccion = mesaEntradaEsPorCorreccion(
-      fechaEntradaMesaActual,
-      ultimaCorreccionEnviadaAt,
-    );
+    const entradaLecturaEsCorreccion = mesaRevisionEstadoEsCambioPendiente(
+      c.cambioRevisionEstado,
+    )
+      ? true
+      : c.cambioRevisionEstado === "WAITING_ADVISOR" ||
+          c.cambioRevisionEstado === "CLOSED"
+        ? false
+        : mesaEntradaEsPorCorreccion(
+            fechaEntradaMesaActual,
+            ultimaCorreccionEnviadaAt,
+          );
     const booking = notificacionPorId.get(c.id) ?? null;
     const flags = bookingFlagsPorId.get(c.id);
     const retencion = retencionPorId.get(c.id);

@@ -150,11 +150,33 @@ export function deriveMesaCorreccionLecturaEstado(
   return openedMs >= entradaMs ? "abierta" : "nueva";
 }
 
+export function mesaRevisionEstadoEsCambioPendiente(
+  revisionEstado: string | null | undefined,
+): boolean {
+  return (
+    revisionEstado === "CORRECTION_PENDING_REVIEW" ||
+    revisionEstado === "ADVISOR_UPDATE_PENDING_REVIEW"
+  );
+}
+
 export function mesaCorreccionLecturaLabel(
   estado: MesaCorreccionLecturaEstado,
   esCorreccion = false,
   origin?: string | null,
+  revisionEstado?: string | null,
 ): string | null {
+  if (revisionEstado === "WAITING_ADVISOR" || revisionEstado === "CLOSED") {
+    return null;
+  }
+  if (mesaRevisionEstadoEsCambioPendiente(revisionEstado)) {
+    esCorreccion = true;
+    if (!origin) {
+      origin =
+        revisionEstado === "ADVISOR_UPDATE_PENDING_REVIEW"
+          ? "ADVISOR_UPDATE"
+          : "REQUESTED_CORRECTION";
+    }
+  }
   if (estado !== "nueva" && estado !== "abierta") return null;
   if (!esCorreccion) {
     return estado === "nueva" ? "Nuevo en Mesa" : "Abierto";

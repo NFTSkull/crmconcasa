@@ -689,6 +689,9 @@ async function fetchExpedientesListForMesaControlPaginated(
       ),
       cambioRequestType: normalizeMesaCambioRequestType(row.cambio_request_type),
       cambioRequestAt: row.cambio_request_at ?? null,
+      cambioRevisionEstado: row.cambio_revision_estado ?? null,
+      cambioActionableAt: row.cambio_actionable_at ?? null,
+      cambioBatchId: row.cambio_batch_id ?? null,
     };
   });
 
