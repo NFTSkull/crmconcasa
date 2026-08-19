@@ -1,3 +1,8 @@
+## P199 — Disponibles = trabajo accionable libre
+
+- [x] Helper `mesa_es_trabajo_accionable_mesa`. Take no cambia (escenario A).
+- [x] D1–D16 SQL; D17 infinite-scroll R1–R8. Citas → **200**.
+
 ## Microfix Mesa — isolation infinite scroll
 
 - [x] R1–R8 `mesaBandejaInfiniteQuery` (stale enrich, 6 de 6, cursor A≠B, append legítimo, subfiltro, inverso, out-of-order, refresh). Sin SQL. Citas → **199**.

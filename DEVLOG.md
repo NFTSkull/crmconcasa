@@ -1,3 +1,7 @@
+## 2026-08-19 - P199: Disponibles = trabajo Mesa accionable libre
+
+Causa: P195 excluía `subestado=rechazado` aunque P198 dijera `CORRECTION_PENDING_REVIEW` y el caso estuviera libre. Decisión: helper `mesa_es_trabajo_accionable_mesa` (pending P198 **o** legado P195 sin WAITING). Asignación sigue en `mesa_list_bandeja_page`. Fase 0 Cloud: 0 pending libres en `en_espera_asesor` → **no** se toca `mesa_take_expediente`. P198/infinite-scroll intactos. Citas → **200**.
+
 ## 2026-08-19 - fix: isolation infinite scroll Mesa (UI)
 
 Causa: `loadServerBandeja` validaba `gen` antes de `enrichMesaBandejaPageItems` y mutaba `casos`/cursor sin re-chequear. Un append de «Cambios» podía anexarse a «Correcciones» (6 de 6 → N). Decisión: identidad = `mesaBandejaInfiniteResetKey`; segundo guard tras cada await; cursor keyed al query; `canAppendMesaBandejaPage` es autoridad (IO solo dispara). P198/Disponibles/SQL intactos. Citas → **199**.

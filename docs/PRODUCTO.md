@@ -2,11 +2,11 @@
 
 En la bandeja principal, Mesa puede avanzar a la siguiente etapa canónica, marcar `Tiene documentos` y tomar expedientes sin asignar sin abrir el detalle.
 
-Chip **Cambios por revisar** (id interno `correccion_enviada`): **P198** estado efectivo de revisión Mesa. Correcciones = respuesta del asesor aún no procesada; Actualizaciones = update espontáneo aún no procesado. Un lote raw `pendiente_revision` ya cerrado (DG/doc validado) o superado por un re-reject **no** entra. P196: origen REQUESTED = primer lote posterior a la solicitud. P194 muestra **qué cambió**. Sin gate de etapa. **Disponibles no cambia.**
+Chip **Cambios por revisar** (id interno `correccion_enviada`): **P198** estado efectivo de revisión Mesa. Correcciones = respuesta del asesor aún no procesada; Actualizaciones = update espontáneo aún no procesado. Un lote raw `pendiente_revision` ya cerrado (DG/doc validado) o superado por un re-reject **no** entra. P196: origen REQUESTED = primer lote posterior a la solicitud. P194 muestra **qué cambió**. Sin gate de etapa.
 
-**Inbox asesor chips (P197 LOCAL):** colas usan `asesor_inbox_estado_efectivo`. **P197-B2:** la columna **Estado actual** pinta ese valor; Documentación y Estatus op. son dimensiones secundarias. **P197-B3:** el detalle `/asesor/expediente/[id]` usa el mismo estado principal (no `subestado` como alerta de acción). **Disponibles no cambia.**
+**Inbox asesor chips (P197 LOCAL):** colas usan `asesor_inbox_estado_efectivo`. **P197-B2:** la columna **Estado actual** pinta ese valor; Documentación y Estatus op. son dimensiones secundarias. **P197-B3:** el detalle `/asesor/expediente/[id]` usa el mismo estado principal (no `subestado` como alerta de acción).
 
-**Disponibles** (asignación `sin_asignar`, P195): ciclo `activo` y `subestado <> rechazado`. Un rechazo operativo activo **no** aparece ahí; sí en **Rechazos y cancelaciones / Rechazados**. Tras reactivar, vuelve a las reglas normales. Sin gate de etapa.
+**Disponibles** (asignación `sin_asignar`, **P199**): todo trabajo Mesa accionable ahora, ciclo `activo`, `assigned_to` NULL y tomable. Incluye correcciones y actualizaciones P198 pending libres. Excluye `WAITING_ADVISOR`, rechazo raw sin respuesta (P195), asignados y cancelados. Si aparece, se puede tomar. Operación de citas → **200**.
 
 # ConCasa CRM — Producto
 

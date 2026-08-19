@@ -22,13 +22,13 @@ export const MESA_OPS_FILTER_CHIPS: ReadonlyArray<{
     id: "sin_asignar",
     label: "Disponibles",
     tooltip:
-      "Sin responsable, ciclo activo y no rechazados. Accionables para «Tomar expediente» (excluye espera de corrección del asesor).",
+      "Trabajo de Mesa libre para tomar, incluidas correcciones y actualizaciones reenviadas.",
   },
   {
     id: "en_espera_asesor",
     label: "Esperando al asesor",
     tooltip:
-      "Mesa solicitó una corrección y el asesor todavía no la ha reenviado.",
+      "Mesa pidió una corrección y todavía no recibió la nueva respuesta.",
   },
   {
     id: "mi_bandeja",
@@ -49,7 +49,7 @@ export const MESA_OPS_FILTER_CHIPS: ReadonlyArray<{
 ];
 
 export const MESA_OPS_FILTER_HELP_TEXT =
-  "Disponibles: libres para tomar (ciclo activo, no rechazados). Esperando al asesor: Mesa pidió corrección y el asesor todavía no la reenvió. Asignados en trabajo: ya tomados por alguien. Todo Mesa: sin filtro de asignación.";
+  "Disponibles: trabajo de Mesa libre para tomar, incluidas correcciones y actualizaciones reenviadas. Esperando al asesor: Mesa pidió una corrección y todavía no recibió la nueva respuesta. Asignados en trabajo: ya tomados por alguien. Todo Mesa: sin filtro de asignación.";
 
 export type MesaOpsStatusKind =
   | "sin_asignar"
@@ -175,14 +175,39 @@ export type MesaOpsFilterableItem = MesaBandejaOrdenItem &
     resumenDocumental?: CategoriaResumenDocumental | null;
     subestado?: string | null;
     cicloEstado?: string | null;
+    cambioRevisionEstado?: string | null;
   }>;
 
-/** Disponibles = ciclo activo, no rechazado, sin responsable, no en espera de asesor. */
+/** P199: trabajo Mesa ahora. La asignación se evalúa aparte. */
+export function mesaEsTrabajoAccionableMesa(opts: {
+  cicloEstado?: string | null;
+  subestado?: string | null;
+  categoria?: string | null;
+  cambioRevisionEstado?: string | null;
+}): boolean {
+  if ((opts.cicloEstado ?? "activo") !== "activo") return false;
+  const st = String(opts.cambioRevisionEstado ?? "").trim();
+  if (
+    st === "CORRECTION_PENDING_REVIEW" ||
+    st === "ADVISOR_UPDATE_PENDING_REVIEW"
+  ) {
+    return true;
+  }
+  if (opts.subestado === "rechazado") return false;
+  if (opts.categoria === "correccion_requerida") return false;
+  if (st === "WAITING_ADVISOR") return false;
+  return true;
+}
+
+/** Disponibles = ciclo activo, sin responsable, trabajo accionable P199. */
 export function esDisponibleParaMesa(item: MesaOpsFilterableItem): boolean {
-  const ciclo = item.cicloEstado ?? "activo";
-  if (ciclo !== "activo") return false;
-  if (item.subestado === "rechazado") return false;
-  return isSinAsignarOps(item.mesaOps) && !estaEnEsperaDeAsesor(item.resumenDocumental);
+  if (!isSinAsignarOps(item.mesaOps)) return false;
+  return mesaEsTrabajoAccionableMesa({
+    cicloEstado: item.cicloEstado,
+    subestado: item.subestado,
+    categoria: item.resumenDocumental,
+    cambioRevisionEstado: item.cambioRevisionEstado,
+  });
 }
 
 export function filterMesaOpsItems<T extends MesaOpsFilterableItem>(

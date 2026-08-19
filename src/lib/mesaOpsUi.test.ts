@@ -10,6 +10,7 @@ import {
   isAssignedToCurrentUser,
   isSinAsignarOps,
   MESA_OPS_FILTER_CHIPS,
+  MESA_OPS_FILTER_HELP_TEXT,
   mergeExpedientesWithMesaOps,
   buildMesaOpsMap,
   resolveMesaOpsAdminCanRelease,
@@ -125,6 +126,42 @@ describe("mesaOpsUi", () => {
     const filtered = filterMesaOpsItems(merged, "sin_asignar", USER_A);
     assert.equal(filtered.length, 1);
     assert.deepEqual(filtered.map((i) => i.id), ["exp-new"]);
+  });
+
+  it("P199 D2: corrección pending + subestado rechazado entra a Disponibles", () => {
+    const merged = mergeExpedientesWithMesaOps(
+      [
+        {
+          ...items[0],
+          subestado: "rechazado",
+          cicloEstado: "activo",
+          cambioRevisionEstado: "CORRECTION_PENDING_REVIEW",
+        },
+      ],
+      buildMesaOpsMap([]),
+    );
+    assert.equal(esDisponibleParaMesa(merged[0]!), true);
+    assert.equal(filterMesaOpsItems(merged, "sin_asignar", USER_A).length, 1);
+  });
+
+  it("P199 D5: WAITING_ADVISOR nunca es Disponible", () => {
+    const merged = mergeExpedientesWithMesaOps(
+      [
+        {
+          ...items[0],
+          subestado: "en_proceso",
+          cicloEstado: "activo",
+          cambioRevisionEstado: "WAITING_ADVISOR",
+        },
+      ],
+      buildMesaOpsMap([]),
+    );
+    assert.equal(esDisponibleParaMesa(merged[0]!), false);
+  });
+
+  it("P199 copy Disponibles/Esperando", () => {
+    assert.match(MESA_OPS_FILTER_HELP_TEXT, /correcciones y actualizaciones reenviadas/);
+    assert.match(MESA_OPS_FILTER_CHIPS[1]!.tooltip, /todavía no recibió la nueva respuesta/);
   });
 
   it("filtro Disponibles excluye activo+rechazado (aunque sin assigned_to)", () => {
