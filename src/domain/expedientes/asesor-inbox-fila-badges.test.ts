@@ -91,6 +91,13 @@ describe("P197-B2 estado actual desde estado_efectivo", () => {
     );
   });
 
+  it("Documentación Corrección enviada es texto emerald, no pill", () => {
+    const doc = asesorDocumentacionFilaBadge("—", "", "correccion_enviada");
+    assert.equal(doc.label, "Corrección enviada");
+    assert.match(doc.className, /text-emerald-700/);
+    assert.doesNotMatch(doc.className, /bg-emerald|border-emerald|rounded-full/);
+  });
+
   it("V1 no duplica Rechazado en estatus cuando necesita corrección", () => {
     const estatus = asesorEstatusOperativoFilaBadge(
       "rechazado",
