@@ -10,6 +10,8 @@
 
 ## [Unreleased]
 
+- **perf(mesa/asesor): first-paint + dedupe summary + enrich batch (P203)** — Mesa: lista `includeCounts=false` pinta tarjetas; counts async race-safe (chips «…», sin 0 falso). Asesor: page/chip no re-fetch summary; single-flight + TTL focus 45s; docs/agenda/retención batch + enrich `allSettled` post-paint. 0 SQL / 0 writers / misma semántica. Citas → **203** (reservado ops; este bloque sin mig).
+
 - **fix(asesor/mesa): episodio = latest request vigente vs latest response (P202)** — mig **202**: WAITING solo si hay solicitud **abierta** del ciclo sin respuesta P130 posterior; lotes/solicitudes pre-`fecha_envio_mesa` no gobiernan. UI: Necesita→«Pendiente de corregir»; Enviada→«Enviada a Mesa». 0 writers.
 
 - **fix(asesor-inbox): Necesita/Enviada = episodio P198 (P201)** — `asesor_inbox_estado_efectivo` consume `mesa_cambio_revision_estado_efectivo`: `CORRECTION_PENDING_REVIEW`→Corrección enviada, `WAITING_ADVISOR`→Necesita. Sin `OR categoria_correccion`. Retención abierta vía helper propio. Columna Documentación secundaria. 0 writers. Mig **201**. Superado en regla temporal por P202.

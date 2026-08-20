@@ -1,3 +1,9 @@
+## P203 — Performance SAFE dashboards (0 SQL)
+
+- [x] MP1–MP3 counts async race-safe; MP4 infinite R1–R8 intactos; MP5/MP6 misma semántica counts/lista.
+- [x] AE2–AE4 page/chip sin summary; mutation sí; AE5–AE7 batch ≡ individual; AE8–AE9 fail-soft; AE10–AE12 TTL + single-flight.
+- [x] 0 writers / 0 mig 203 / 0 smoke. List SQL P198/P202 intacto.
+
 ## P200 — Reagenda CRM→Sheets verificable
 
 - [x] C1–C2 outbox create/cancel+prior (P160 SQL + worker).

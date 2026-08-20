@@ -169,6 +169,11 @@ import {
   mesaBandejaAttemptIsCurrent,
   mesaBandejaQueryIdentity,
 } from "@/lib/mesaBandejaInfiniteQuery";
+import {
+  beginMesaBandejaCountsFetch,
+  shouldApplyMesaBandejaCounts,
+} from "@/lib/mesaBandejaCountsAsync";
+import { mesaPerfMark } from "@/lib/asesorInboxPerf";
 import { hasAlertMessage, MESA_OPS_UPDATED_EVENT } from "@/lib/hasAlertMessage";
 import { NotificationsBell } from "@/components/notifications/NotificationsBell";
 import { buildDashboardNotifications } from "@/lib/dashboardNotifications";
@@ -459,6 +464,9 @@ export default function MesaControlPage() {
   const serverTotalCountRef = useRef(0);
   const loadedCountRef = useRef(0);
   const casosRef = useRef<CasoConDocs[]>([]);
+  /** P203: identidad de counts en vuelo / aplicados (race-safe vs list). */
+  const countsGenRef = useRef(0);
+  const countsOwnedQueryKeyRef = useRef<string | null>(null);
 
   const todayYMD = getTodayYMD();
 
@@ -692,6 +700,46 @@ export default function MesaControlPage() {
 
           let page: PaginatedMesaBandejaResult;
 
+          const fetchCountsAsync = () => {
+            if (append) return;
+            // Nueva identidad de listado: no mostrar counts de otro filtro.
+            if (countsOwnedQueryKeyRef.current !== queryKey) {
+              setServerCounts(null);
+              countsOwnedQueryKeyRef.current = null;
+            }
+            const countsAttempt = beginMesaBandejaCountsFetch(countsGenRef, queryKey);
+            mesaPerfMark("counts-start");
+            void (async () => {
+              try {
+                const countsPage = await repo.listForMesaControlPaginated({
+                  ...baseQuery,
+                  cursor: null,
+                  etapa: etapasFiltro?.[0] ?? null,
+                  // limit 1: counts CTE es sobre el universo; reduce payload de items
+                  limit: 1,
+                  includeCounts: true,
+                });
+                if (
+                  !shouldApplyMesaBandejaCounts({
+                    attempt: countsAttempt,
+                    activeCountsGen: countsGenRef.current,
+                    activeListQueryKey: serverActiveQueryKeyRef.current,
+                  })
+                ) {
+                  return;
+                }
+                if (countsPage.counts) {
+                  setServerCounts(countsPage.counts);
+                  countsOwnedQueryKeyRef.current = queryKey;
+                }
+              } catch {
+                // Fail-soft: tarjetas ya visibles; chips quedan en «…»
+              } finally {
+                mesaPerfMark("counts-end");
+              }
+            })();
+          };
+
           if (etapasFiltro && etapasFiltro.length > 1) {
             // Paso visual con varias internas (p.ej. paso 3 → 3+4): unión completa
             // sin cambiar la RPC (sigue enviando un p_etapa interno por llamada).
@@ -699,25 +747,21 @@ export default function MesaControlPage() {
               return;
             }
             const byId = new Map<string, (typeof page.items)[number]>();
-            let counts: PaginatedMesaBandejaResult["counts"] = null;
             let totalCount = 0;
             for (const etapaInterna of etapasFiltro) {
               let etapaCursor: MesaBandejaCursor | null = null;
-              let includeCounts = counts === null;
               for (;;) {
                 const part = await repo.listForMesaControlPaginated({
                   ...baseQuery,
                   cursor: etapaCursor,
                   etapa: etapaInterna,
-                  includeCounts,
+                  includeCounts: false,
                 });
                 if (!isCurrent()) return;
-                if (part.counts && !counts) counts = part.counts;
                 totalCount += part.totalCount;
                 for (const item of part.items) byId.set(item.id, item);
                 if (!part.hasMore || !part.nextCursor) break;
                 etapaCursor = part.nextCursor;
-                includeCounts = false;
               }
             }
             const items = [...byId.values()].sort((a, b) => {
@@ -729,25 +773,56 @@ export default function MesaControlPage() {
               totalCount,
               hasMore: false,
               nextCursor: null,
-              counts,
+              counts: null,
             };
+            fetchCountsAsync();
           } else {
+            mesaPerfMark("list-nocounts-start");
             page = await repo.listForMesaControlPaginated({
               ...baseQuery,
               cursor,
               etapa: etapasFiltro?.[0] ?? null,
-              includeCounts: !append,
+              // P203: first paint sin counts (~0.7s vs ~3s)
+              includeCounts: false,
             });
+            mesaPerfMark("list-nocounts-end");
             if (!isCurrent()) return;
+            if (!append) fetchCountsAsync();
           }
 
-          const base = page.items.map((exp) => mapExpToCaso(exp));
-          const enrichDeps = await resolveEnrichDeps();
-          if (!isCurrent()) return;
-          const enriched = (await enrichMesaBandejaPageItems(
-            base,
-            enrichDeps,
-          )) as CasoConDocs[];
+          const base = page.items.map((exp) => mapExpToCaso(exp)) as CasoConDocs[];
+
+          // P203: first paint de tarjetas sin esperar enrich ni counts.
+          serverTotalCountRef.current = page.totalCount;
+          setServerTotalCount(page.totalCount);
+          if (!append) {
+            const provisionalHasMore =
+              Boolean(page.hasMore) && base.length < page.totalCount;
+            serverHasMoreRef.current = provisionalHasMore;
+            setServerHasMore(provisionalHasMore);
+            const nextCursor = provisionalHasMore ? page.nextCursor : null;
+            serverCursorRef.current = nextCursor;
+            serverCursorQueryKeyRef.current = nextCursor ? queryKey : null;
+            casosRef.current = base;
+            loadedCountRef.current = base.length;
+            setCasos(base);
+            setLoading(false);
+            mesaPerfMark("cards-painted");
+          }
+
+          let enriched = base;
+          try {
+            mesaPerfMark("enrich-start");
+            const enrichDeps = await resolveEnrichDeps();
+            if (!isCurrent()) return;
+            enriched = (await enrichMesaBandejaPageItems(
+              base,
+              enrichDeps,
+            )) as CasoConDocs[];
+            mesaPerfMark("enrich-end");
+          } catch {
+            // Fail-soft: tarjetas base ya visibles.
+          }
           if (!isCurrent()) return;
 
           // Conservar orden del servidor (sort_ts); no reordenar localmente.
@@ -761,14 +836,14 @@ export default function MesaControlPage() {
           casosRef.current = nextItems;
           loadedCountRef.current = nextItems.length;
           setCasos(nextItems);
-          if (!append && page.counts) setServerCounts(page.counts);
+          // P203: counts llegan async; no aplicar page.counts aquí (list va sin counts).
           serverTotalCountRef.current = page.totalCount;
           setServerTotalCount(page.totalCount);
-          const nextHasMore =
+          const affirmedHasMore =
             Boolean(page.hasMore) && nextItems.length < page.totalCount;
-          serverHasMoreRef.current = nextHasMore;
-          setServerHasMore(nextHasMore);
-          const nextCursor = nextHasMore ? page.nextCursor : null;
+          serverHasMoreRef.current = affirmedHasMore;
+          setServerHasMore(affirmedHasMore);
+          const nextCursor = affirmedHasMore ? page.nextCursor : null;
           serverCursorRef.current = nextCursor;
           serverCursorQueryKeyRef.current = nextCursor ? queryKey : null;
         } catch (err) {
@@ -961,8 +1036,28 @@ export default function MesaControlPage() {
   }, [currentUser, dataSupabase, loadCasos]);
 
   const kpis = useMemo(() => {
-    if (dataSupabase && serverCounts) {
+    if (dataSupabase) {
+      // P203: no inventar counts desde las 25 tarjetas cargadas.
+      if (!serverCounts) {
+        return {
+          pending: true as const,
+          correccionesEnviadas: null,
+          correccionesSolicitadas: null,
+          otrasActualizaciones: null,
+          nuevosPorRevisar: null,
+          citasHoy: null,
+          bloqueadosRechazados: null,
+          enProceso: null,
+          rechazadosOperativo: null,
+          rechazadosActivos: null,
+          canceladosOperativo: null,
+          enValidacionMesa: null,
+          enEsperaAsesor: null,
+          totalBandeja: null,
+        };
+      }
       return {
+        pending: false as const,
         correccionesEnviadas: serverCounts.correccionesEnviadas,
         correccionesSolicitadas: serverCounts.correccionesSolicitadas,
         otrasActualizaciones: serverCounts.otrasActualizaciones,
@@ -1005,6 +1100,7 @@ export default function MesaControlPage() {
       (c) => (c.cicloEstado ?? "activo") === "activo",
     ).length;
     return {
+      pending: false as const,
       correccionesEnviadas,
       correccionesSolicitadas,
       otrasActualizaciones,
@@ -1395,6 +1491,9 @@ export default function MesaControlPage() {
     );
   }
 
+  const mesaKpiCountLabel = (n: number | null | undefined) =>
+    n == null ? "…" : String(n);
+
   const chipBase =
     "rounded-full border px-2.5 py-1 text-xs font-medium transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1";
   const chipInactive = "border-slate-200 bg-white text-slate-700 hover:bg-slate-50";
@@ -1516,7 +1615,7 @@ export default function MesaControlPage() {
               {MESA_QUICK_FILTER_LABELS.correccion_enviada}
             </p>
             <p className="mt-1 text-2xl font-semibold tabular-nums text-sky-950">
-              {kpis.correccionesEnviadas}
+              {mesaKpiCountLabel(kpis.correccionesEnviadas)}
             </p>
           </div>
           <div className="rounded-xl border border-amber-200/70 bg-gradient-to-br from-amber-50/80 to-white p-3 shadow-sm ring-1 ring-amber-100/50">
@@ -1527,7 +1626,7 @@ export default function MesaControlPage() {
               {MESA_QUICK_FILTER_LABELS.nuevos}
             </p>
             <p className="mt-1 text-2xl font-semibold tabular-nums text-amber-950">
-              {kpis.nuevosPorRevisar}
+              {mesaKpiCountLabel(kpis.nuevosPorRevisar)}
             </p>
             <p className="mt-0.5 text-[10px] text-amber-800/80">Pasos 1–2 · pendiente / en proceso</p>
           </div>
@@ -1536,7 +1635,7 @@ export default function MesaControlPage() {
               Citas hoy
             </p>
             <p className="mt-1 text-2xl font-semibold tabular-nums text-blue-950">
-              {kpis.citasHoy}
+              {mesaKpiCountLabel(kpis.citasHoy)}
             </p>
           </div>
           <div className="rounded-xl border border-red-200/70 bg-gradient-to-br from-red-50/60 to-white p-3 shadow-sm ring-1 ring-red-100/50">
@@ -1544,7 +1643,7 @@ export default function MesaControlPage() {
               Bloqueados / rechazados
             </p>
             <p className="mt-1 text-2xl font-semibold tabular-nums text-red-950">
-              {kpis.bloqueadosRechazados}
+              {mesaKpiCountLabel(kpis.bloqueadosRechazados)}
             </p>
             <p className="mt-0.5 text-[10px] text-red-800/75">
               Rechazo mesa o corrección doc./datos requerida
@@ -1555,7 +1654,7 @@ export default function MesaControlPage() {
               En validación mesa
             </p>
             <p className="mt-1 text-2xl font-semibold tabular-nums text-purple-950">
-              {kpis.enValidacionMesa}
+              {mesaKpiCountLabel(kpis.enValidacionMesa)}
             </p>
             <p className="mt-0.5 text-[10px] text-purple-800/75">Etapa documental</p>
           </div>
@@ -1564,7 +1663,7 @@ export default function MesaControlPage() {
               Total en bandeja
             </p>
             <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-900">
-              {kpis.totalBandeja}
+              {mesaKpiCountLabel(kpis.totalBandeja)}
             </p>
             <p className="mt-0.5 text-[10px] text-slate-500">Tras filtros de rol</p>
           </div>
@@ -1594,12 +1693,14 @@ export default function MesaControlPage() {
                 },
               ] satisfies {
                 id: MesaQuickFilter;
-                count?: number;
+                count?: number | null;
               }[]
             ).map(({ id, count }) => {
               const baseLabel = MESA_QUICK_FILTER_LABELS[id];
               const label =
-                typeof count === "number" ? `${baseLabel} (${count})` : baseLabel;
+                count === undefined
+                  ? baseLabel
+                  : `${baseLabel} (${mesaKpiCountLabel(count)})`;
               return (
               <button
                 key={id}
@@ -1624,7 +1725,7 @@ export default function MesaControlPage() {
               data-testid={`mesa-quick-filter-${MESA_CITAS_HOY_CHIP_ID}`}
               title={MESA_CITAS_HOY_TOOLTIP}
             >
-              Citas hoy ({kpis.citasHoy})
+              Citas hoy ({mesaKpiCountLabel(kpis.citasHoy)})
               <svg
                 viewBox="0 0 24 24"
                 fill="none"
@@ -1650,11 +1751,11 @@ export default function MesaControlPage() {
                 [
                   {
                     id: "rechazados" as const,
-                    label: `Rechazados (${kpis.rechazadosActivos})`,
+                    label: `Rechazados (${mesaKpiCountLabel(kpis.rechazadosActivos)})`,
                   },
                   {
                     id: "cancelados" as const,
-                    label: `Cancelados (${kpis.canceladosOperativo})`,
+                    label: `Cancelados (${mesaKpiCountLabel(kpis.canceladosOperativo)})`,
                   },
                 ] satisfies {
                   id: MesaRechazosCancelacionesSubfiltro;
@@ -1702,7 +1803,7 @@ export default function MesaControlPage() {
                   },
                 ] satisfies {
                   id: MesaCambiosPorRevisarSubfiltro;
-                  count: number;
+                  count: number | null;
                 }[]
               ).map(({ id, count }) => (
                 <button
@@ -1717,7 +1818,7 @@ export default function MesaControlPage() {
                   title={MESA_CAMBIOS_SUBFILTRO_TOOLTIPS[id]}
                   data-testid={`mesa-cambios-subfiltro-${id}`}
                 >
-                  {MESA_CAMBIOS_SUBFILTRO_LABELS[id]} ({count})
+                  {MESA_CAMBIOS_SUBFILTRO_LABELS[id]} ({mesaKpiCountLabel(count)})
                 </button>
               ))}
             </div>
@@ -1743,7 +1844,7 @@ export default function MesaControlPage() {
               {MESA_OPS_FILTER_CHIPS.map(({ id, label, tooltip }) => {
                 const chipLabel =
                   id === "en_espera_asesor"
-                    ? `${label} (${kpis.enEsperaAsesor})`
+                    ? `${label} (${mesaKpiCountLabel(kpis.enEsperaAsesor)})`
                     : label;
                 return (
                 <button

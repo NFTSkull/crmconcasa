@@ -44,6 +44,7 @@
 | Mezclar corrección solicitada por Mesa con actualización espontánea del asesor | Medio (prioridad operativa invertida) | P196: una solicitud Mesa solo clasifica el **primer** lote P130 posterior; lotes siguientes = ADVISOR_UPDATE salvo nueva solicitud. P192/Disponibles intactos |
 | Detalle asesor muestra rechazo histórico como tarea | Alto (asesor reenvía o se confunde) | P197-B3 + P201: banner/chip = `estado_efectivo` (P198); `subestado=rechazado` no gobierna si el episodio ya respondió |
 | Chip Necesita por categoria documental stale | Alto (asesor cree que debe corregir algo ya enviado) | P201+P202: sin OR categoria; P202 badges gobernados por estado_efectivo |
+| Counts Mesa async race / 0 falso en chips | Medio (UX confunde vacío con cero) | P203: countsQueryKey+gen; chips «…»; no inventar desde 25 tarjetas |
 | WAITING por lote/solicitud pre-ciclo o ya cerrada | Alto (asesor en Necesita sin tarea real) | P202: ciclo + solicitud vigente; `solicitud_posterior` filtrada |
 | Cola Correcciones con lotes raw pendientes ya trabajados o re-rechazados | Alto (trabajo fantasma; badge Nuevo en Mesa) | P198: `mesa_cambio_revision_estado_efectivo`; 0 UPDATE de lotes |
 | Tarjeta genérica «sin detalle» cuando existe evidencia canónica | Medio (Mesa no sabe qué revisar) | P194: `preview_changes` + recover read-time lotes vacíos; no inventar campos (`PARTIAL`/`NO_DIFF`); bandeja sin valores sensibles |

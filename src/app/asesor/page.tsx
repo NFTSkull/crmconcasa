@@ -49,6 +49,16 @@ import {
   asesorEstatusOperativoFilaBadge,
 } from "@/domain/expedientes/asesor-inbox-fila-badges";
 import { isDataModeSupabase } from "@/lib/dataMode";
+import { isSupabaseConfigured, supabaseBrowser } from "@/lib/supabaseBrowser";
+import {
+  ASESOR_INBOX_FOCUS_TTL_MS,
+  asesorPerfMark,
+  createAsesorSummarySingleFlight,
+  shouldRefreshAsesorListOnFocus,
+  shouldRefreshAsesorSummaryOnFocus,
+} from "@/lib/asesorInboxPerf";
+import { listAsesorAgendaHintsByExpedienteIds } from "@/lib/asesorInboxEnrichBatch";
+import { listRetencionHintsByExpedienteIds } from "@/lib/mesaBandejaAccionesEnrich";
 import {
   countAsesorCorreccionesAbiertas,
   formatCorreccionesPendientesCopy,
@@ -384,6 +394,7 @@ async function fetchAgendaBookingHints(
   agendaBiometricos?: AsesorAgendaBookingHints;
   agendaFirmas?: AsesorAgendaBookingHints;
 }> {
+  // Conservado para tests de equivalencia / fallback mock.
   const [bioActive, bioCancelled, firmaActive, firmaCancelled] = await Promise.all([
     biometricosRepo?.getActiveBooking(expedienteId) ?? Promise.resolve(null),
     biometricosRepo?.getLastCancelledBooking(expedienteId) ?? Promise.resolve(null),
@@ -497,6 +508,11 @@ export default function AsesorDashboardPage() {
   const queryGenRef = useRef(0);
   const exportBusyRef = useRef(false);
   const categoriaRpcPorIdRef = useRef<Record<string, string>>({});
+  const lastListAtRef = useRef(0);
+  const lastSummaryAtRef = useRef(0);
+  const summaryGenRef = useRef(0);
+  const summarySingleFlightRef = useRef(createAsesorSummarySingleFlight<void>());
+  const dashboardNotifsBaseRef = useRef<DashboardNotificationItem[]>([]);
 
   const resumenDocumentalPorId = useMemo(() => {
     const out: Record<string, CategoriaResumenDocumental | undefined> = {};
@@ -563,23 +579,21 @@ export default function AsesorDashboardPage() {
     async (ids: string[]) => {
       const capped = capIdsForDependentLoads(ids);
       if (typeof window === "undefined" || capped.length === 0) return;
-      const entries = await Promise.all(
-        capped.map(async (expId) => {
-          try {
-            const r = await archivosRepo.listResumenByExpediente(expId);
-            return [expId, r] as const;
-          } catch {
-            return [expId, [] as ExpedienteArchivoResumen[]] as const;
+      asesorPerfMark("docsBatch-start");
+      try {
+        const byId = await archivosRepo.listResumenBatchByExpedienteIds(capped);
+        setResumenArchivosPorId((prev) => {
+          const next = { ...prev };
+          for (const id of capped) {
+            next[id] = byId[id] ?? [];
           }
-        }),
-      );
-      setResumenArchivosPorId((prev) => {
-        const next = { ...prev };
-        for (const [id, rows] of entries) {
-          next[id] = rows;
-        }
-        return next;
-      });
+          return next;
+        });
+      } catch {
+        // Fail-soft AE8: filas siguen visibles sin docs.
+      } finally {
+        asesorPerfMark("docsBatch-end");
+      }
     },
     [archivosRepo],
   );
@@ -626,16 +640,51 @@ export default function AsesorDashboardPage() {
         (p) => p.submittedToMesa && p.etapaActual === ASESOR_TAREAS_ETAPA_RETENCION,
       );
 
-      let activeNotificacionIds = new Set<string>();
-      if (biometricosBookingRepo && notificacionCandidates.length > 0) {
-        try {
-          const activeNotificacionById =
-            await biometricosBookingRepo.listActiveNotificacionByExpedienteIds(
-              notificacionCandidates.map((p) => p.id),
-            );
-          activeNotificacionIds = new Set(activeNotificacionById.keys());
-        } catch {
-          activeNotificacionIds = new Set();
+      asesorPerfMark("enrichTotal-start");
+
+      const agendaIds = agendaCandidates.map((p) => p.id);
+      const retencionIds = retencionCandidates.map((p) => p.id);
+      const notifIds = notificacionCandidates.map((p) => p.id);
+
+      const canBatch =
+        dataSupabase && isSupabaseConfigured() && Boolean(supabaseBrowser);
+
+      const [notifSettled, agendaSettled, retencionSettled] = await Promise.allSettled([
+        biometricosBookingRepo && notifIds.length > 0
+          ? biometricosBookingRepo.listActiveNotificacionByExpedienteIds(notifIds)
+          : Promise.resolve(new Map()),
+        canBatch && agendaIds.length > 0
+          ? (async () => {
+              asesorPerfMark("agendaBatch-start");
+              try {
+                return await listAsesorAgendaHintsByExpedienteIds(
+                  supabaseBrowser!,
+                  agendaIds,
+                );
+              } finally {
+                asesorPerfMark("agendaBatch-end");
+              }
+            })()
+          : Promise.resolve(null),
+        canBatch && retencionIds.length > 0
+          ? (async () => {
+              asesorPerfMark("retencionBatch-start");
+              try {
+                return await listRetencionHintsByExpedienteIds(
+                  supabaseBrowser!,
+                  retencionIds,
+                );
+              } finally {
+                asesorPerfMark("retencionBatch-end");
+              }
+            })()
+          : Promise.resolve(null),
+      ]);
+
+      const activeNotificacionIds = new Set<string>();
+      if (notifSettled.status === "fulfilled") {
+        for (const id of (notifSettled.value as Map<string, unknown>).keys()) {
+          activeNotificacionIds.add(id);
         }
       }
 
@@ -647,7 +696,21 @@ export default function AsesorDashboardPage() {
           hasActiveNotificacionBooking: boolean;
         }
       >();
-      if ((biometricosBookingRepo || firmasBookingRepo) && agendaCandidates.length > 0) {
+
+      if (agendaSettled.status === "fulfilled" && agendaSettled.value) {
+        for (const [id, hints] of agendaSettled.value) {
+          agendaHintsById.set(id, {
+            agendaBiometricos: hints.agendaBiometricos,
+            agendaFirmas: hints.agendaFirmas,
+            hasActiveNotificacionBooking: activeNotificacionIds.has(id),
+          });
+        }
+      } else if (
+        !canBatch &&
+        (biometricosBookingRepo || firmasBookingRepo) &&
+        agendaCandidates.length > 0
+      ) {
+        // Fallback mock / sin supabase browser
         const agendaEntries = await Promise.all(
           agendaCandidates.map(async (p) => {
             try {
@@ -679,6 +742,7 @@ export default function AsesorDashboardPage() {
           if (entry) agendaHintsById.set(entry[0], entry[1]);
         }
       }
+
       for (const p of notificacionCandidates) {
         const agenda = agendaHintsById.get(p.id);
         agendaHintsById.set(p.id, {
@@ -688,7 +752,25 @@ export default function AsesorDashboardPage() {
       }
 
       const retencionHintsById = new Map<string, AsesorRetencionHints>();
-      if (retencionRepo && retencionCandidates.length > 0) {
+      if (retencionSettled.status === "fulfilled" && retencionSettled.value) {
+        for (const [id, hint] of retencionSettled.value) {
+          const opcion = hint.opcion;
+          const estado = hint.envioEstado;
+          retencionHintsById.set(id, {
+            opcion,
+            envio:
+              opcion && estado && hint.fechaEnvioMesa
+                ? {
+                    expedienteId: id,
+                    enviado: hint.enviadoAMesa,
+                    fechaEnvioMesa: hint.fechaEnvioMesa,
+                    opcion,
+                    estado,
+                  }
+                : null,
+          });
+        }
+      } else if (retencionRepo && retencionCandidates.length > 0) {
         const retencionEntries = await Promise.all(
           retencionCandidates.map(async (p) => {
             try {
@@ -717,8 +799,80 @@ export default function AsesorDashboardPage() {
         }
         return next;
       });
+      asesorPerfMark("enrichTotal-end");
     },
-    [biometricosBookingRepo, firmasBookingRepo, retencionRepo],
+    [
+      biometricosBookingRepo,
+      dataSupabase,
+      firmasBookingRepo,
+      retencionRepo,
+    ],
+  );
+
+  const applySummarySideEffects = useCallback(
+    async (summary: Awaited<ReturnType<typeof repo.getAsesorInboxSummary>>, gen: number) => {
+      setGlobalTotalCount(summary.counts.total);
+      setKpis(mapAsesorInboxSummaryToKpis(summary));
+      setProgramasUnicos(summary.programas_unicos);
+      const inboxNotifs = mapAsesorInboxNotificationsToDashboard(summary);
+      dashboardNotifsBaseRef.current = inboxNotifs;
+      let mergedNotifs = inboxNotifs;
+      try {
+        const pendingContingencia = await listContingenciaPendientesAsesor();
+        if (gen !== summaryGenRef.current) return;
+        mergedNotifs = mergeExtraordinaryBellNotifications(
+          inboxNotifs,
+          pendingContingencia,
+        );
+      } catch {
+        /* Contingencia opcional */
+      }
+      try {
+        if (inscripcionRepo?.listOpenRequirementsForAsesor) {
+          const openReqs = await inscripcionRepo.listOpenRequirementsForAsesor();
+          if (gen !== summaryGenRef.current) return;
+          const nameById = new Map<string, string>();
+          for (const n of inboxNotifs) {
+            const id = String(n.expedienteId ?? "").trim();
+            const nombre = String(n.clienteNombre ?? "").trim();
+            if (id) nameById.set(id, nombre);
+          }
+          mergedNotifs = mergeInscripcionBellNotifications(
+            mergedNotifs,
+            openReqs,
+            nameById,
+          );
+        }
+      } catch {
+        /* Inscripción opcional */
+      }
+      if (gen !== summaryGenRef.current) return;
+      setDashboardNotifications(mergedNotifs);
+      lastSummaryAtRef.current = Date.now();
+    },
+    [inscripcionRepo, repo],
+  );
+
+  const refreshSummary = useCallback(
+    async (_reason: "initial" | "mutation" | "explicit" | "focus" | "realtime") => {
+      if (!currentUser) return;
+      const key = String(currentUser.email ?? "asesor");
+      asesorPerfMark("summary-start");
+      // Gen dentro del factory: single-flight no invalida el apply del vuelo compartido.
+      await summarySingleFlightRef.current.run(key, async () => {
+        const gen = ++summaryGenRef.current;
+        try {
+          const summary = await repo.getAsesorInboxSummary(
+            ASESOR_INBOX_NOTIF_DEFAULT_LIMIT,
+          );
+          if (gen !== summaryGenRef.current) return;
+          await applySummarySideEffects(summary, gen);
+        } finally {
+          asesorPerfMark("summary-end");
+        }
+      });
+    },
+    [applySummarySideEffects, currentUser, repo],
   );
 
   const loadInbox = useCallback(
@@ -751,10 +905,10 @@ export default function AsesorDashboardPage() {
       });
 
       try {
-        const [pageResult, summary] = await Promise.all([
-          repo.listAsesorInboxPage(listInput),
-          repo.getAsesorInboxSummary(ASESOR_INBOX_NOTIF_DEFAULT_LIMIT),
-        ]);
+        // P203: solo list — summary va por refreshSummary (no page/chip).
+        asesorPerfMark("list-start");
+        const pageResult = await repo.listAsesorInboxPage(listInput);
+        asesorPerfMark("list-end");
         if (gen !== queryGenRef.current) return;
 
         let effectiveResult = pageResult;
@@ -803,7 +957,6 @@ export default function AsesorDashboardPage() {
             reprecal: view.reprecalPorId[exp.id] ?? null,
           });
         });
-        // Preferir resultado_real del RPC si está en categoria map — re-map from raw items
         const mappedWithRpcResult = effectiveResult.items.map((row, idx) => {
           const base = mapped[idx]!;
           return {
@@ -815,50 +968,21 @@ export default function AsesorDashboardPage() {
           };
         });
 
+        // First paint: filas RPC sin esperar enrich.
         setMockPrecalList(mappedWithRpcResult);
         setFilteredTotalCount(view.totalCount);
-        setGlobalTotalCount(summary.counts.total);
-        setKpis(mapAsesorInboxSummaryToKpis(summary));
-        setProgramasUnicos(summary.programas_unicos);
-        const inboxNotifs = mapAsesorInboxNotificationsToDashboard(summary);
-        let mergedNotifs = inboxNotifs;
-        try {
-          const pendingContingencia = await listContingenciaPendientesAsesor();
-          if (gen !== queryGenRef.current) return;
-          mergedNotifs = mergeExtraordinaryBellNotifications(
-            inboxNotifs,
-            pendingContingencia,
-          );
-        } catch {
-          /* Contingencia opcional: no tumbar inbox */
-        }
-        try {
-          if (inscripcionRepo?.listOpenRequirementsForAsesor) {
-            const openReqs =
-              await inscripcionRepo.listOpenRequirementsForAsesor();
-            if (gen !== queryGenRef.current) return;
-            const nameById = new Map(
-              mappedWithRpcResult.map((p) => [
-                String(p.id),
-                String(p.cliente_nombre ?? ""),
-              ]),
-            );
-            mergedNotifs = mergeInscripcionBellNotifications(
-              mergedNotifs,
-              openReqs,
-              nameById,
-            );
-          }
-        } catch {
-          /* Inscripción opcional sin mig 173 Cloud */
-        }
-        setDashboardNotifications(mergedNotifs);
         setListError(null);
+        lastListAtRef.current = Date.now();
+        setListLoading(false);
+
         const ids = capIdsForDependentLoads(mappedWithRpcResult.map((p) => p.id));
         expedienteIdsRef.current = ids;
-        void fetchResumenArchivosPorIds(ids);
-        void fetchClienteDatosEstadoPorIds(ids);
-        void fetchTareasHintsPorIds(mappedWithRpcResult);
+        // B9: enrich en paralelo, fail-soft
+        void Promise.allSettled([
+          fetchResumenArchivosPorIds(ids),
+          fetchClienteDatosEstadoPorIds(ids),
+          fetchTareasHintsPorIds(mappedWithRpcResult),
+        ]);
       } catch (err) {
         if (gen !== queryGenRef.current) return;
         setMockPrecalList([]);
@@ -869,7 +993,6 @@ export default function AsesorDashboardPage() {
         } else {
           setListError("No se pudo cargar el listado de expedientes.");
         }
-      } finally {
         if (gen === queryGenRef.current) {
           setListLoading(false);
         }
@@ -897,7 +1020,8 @@ export default function AsesorDashboardPage() {
 
   const reloadPrecalificaciones = useCallback(() => {
     void loadInbox();
-  }, [loadInbox]);
+    void refreshSummary("mutation");
+  }, [loadInbox, refreshSummary]);
 
   const handleDescargarExcel = useCallback(async () => {
     if (!currentUser?.email) {
@@ -1051,18 +1175,37 @@ export default function AsesorDashboardPage() {
     void loadInbox();
   }, [loadInbox]);
 
-  /** Refetch al volver a la pestaña (sin polling agresivo). */
+  /** P203: summary inicial / cambio de usuario — no en cada page/chip. */
   useEffect(() => {
-    let lastAt = 0;
-    const MIN_MS = 8_000;
+    if (!currentUser) return;
+    void refreshSummary("initial");
+  }, [currentUser?.email, refreshSummary]);
+
+  /** Refetch al volver a la pestaña con TTL 45s (list y summary por separado). */
+  useEffect(() => {
     const refreshIfVisible = () => {
       if (typeof document !== "undefined" && document.visibilityState === "hidden") {
         return;
       }
       const now = Date.now();
-      if (now - lastAt < MIN_MS) return;
-      lastAt = now;
-      void loadInbox();
+      if (
+        shouldRefreshAsesorListOnFocus({
+          lastListAtMs: lastListAtRef.current,
+          nowMs: now,
+          ttlMs: ASESOR_INBOX_FOCUS_TTL_MS,
+        })
+      ) {
+        void loadInbox();
+      }
+      if (
+        shouldRefreshAsesorSummaryOnFocus({
+          lastSummaryAtMs: lastSummaryAtRef.current,
+          nowMs: now,
+          ttlMs: ASESOR_INBOX_FOCUS_TTL_MS,
+        })
+      ) {
+        void refreshSummary("focus");
+      }
     };
     const onFocus = () => refreshIfVisible();
     const onVis = () => {
@@ -1074,7 +1217,7 @@ export default function AsesorDashboardPage() {
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onVis);
     };
-  }, [loadInbox]);
+  }, [loadInbox, refreshSummary]);
 
   useEffect(() => {
     const storageHandler = (e: StorageEvent) => {
