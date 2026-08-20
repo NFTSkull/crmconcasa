@@ -1,3 +1,11 @@
+## Admin — Producción expand + métrica etapa
+
+- [x] Sin etapa: métrica ENVIADOS = enviadosAMesa.
+- [x] Con etapa: métrica = nombre etapa + stageCount (no Enviados).
+- [x] Expandir → `listMesaEnviosPage` on-demand (asesor + bounds + etapaActuales Admin); race-safe; pág. 25.
+- [x] stageCount vs totalCount: aviso si discrepan; no maquillar.
+- [x] Precal/monto/listByAsesor intactos; 0 SQL.
+
 ## Admin — ocultar «Cita para firma» (proyección UI)
 
 - [x] Helper `admin-visible-stages`: 10 pasos; paso 3→`[3,4]`; paso 8→`[9,10]`; Firmado=`[11]`; Pago=`[12]`.

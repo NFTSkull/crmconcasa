@@ -123,7 +123,11 @@ describe("Admin UX B2 montaje", () => {
     assert.match(page, /AdminExpandableAdvisorRow/);
     assert.match(page, /expandedAsesorId/);
     assert.match(page, /goExpedientesAsesor/);
-    assert.match(page, /Ver expedientes de este asesor/);
+    assert.match(page, /adminProductionExpandExpedientesCtaLabel/);
+    assert.match(page, /AdminProductionExpandedExpedientes/);
+    assert.match(page, /listMesaEnviosPage\(filters\)/);
+    assert.match(page, /toggleExpandedAsesor/);
+    assert.match(page, /adminProductionPrimaryMetric/);
     assert.match(
       page,
       /applyAsesorFilter\(id\);\s*handleTabChange\("expedientes"\)/,
@@ -154,10 +158,11 @@ describe("Admin UX B2 montaje", () => {
     assert.match(drawer, /No hay actividad registrada/);
   });
 
-  it("sin nuevas consultas: mismos repos y export intactos; Expedientes por periodo", () => {
+  it("sin nuevas consultas de listado principal; Expandir on-demand reutiliza listMesaEnviosPage", () => {
     assert.match(page, /repo\.getSummary\(filtersBase\)/);
     assert.match(page, /repo\.listByAsesor\(filtersBase\)/);
     assert.match(page, /repo\.listMesaEnviosPage\(mesaListFilters\)/);
+    assert.match(page, /buildAdminProductionExpandFilters/);
     assert.doesNotMatch(page, /listExpedientesSnapshotPage/);
     assert.match(page, /repo\.exportAll/);
     assert.match(page, /Descargar Excel/);
