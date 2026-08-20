@@ -1,3 +1,10 @@
+## Admin — filtros periodo / etapa (UI)
+
+- [x] E1–E8 Expedientes = `listMesaEnviosPage` + bounds; Resumen snapshot independiente; Precal intacta.
+- [x] P1–P6 Producción visible con filtro `row.etapas`; empty sin «quita el filtro».
+- [x] R1 0 «cohorte» en tabs/descripciones Admin.
+- [x] 0 SQL / 0 writers.
+
 ## P203 — Performance SAFE dashboards (0 SQL)
 
 - [x] MP1–MP3 counts async race-safe; MP4 infinite R1–R8 intactos; MP5/MP6 misma semántica counts/lista.

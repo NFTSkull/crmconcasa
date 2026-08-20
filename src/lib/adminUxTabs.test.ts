@@ -71,13 +71,23 @@ describe("Admin UX B1 — pestañas del panel Admin", () => {
     assert.equal(adminGlobalFiltersVisible("bernardo"), false);
   });
 
-  it("Reportes conserva sus subtabs (histórico y cohorte / ingresos)", () => {
+  it("Reportes conserva sus subtabs (histórico por etapas / ingresos)", () => {
     assert.deepEqual(
       ADMIN_REPORTES_SUBTABS.map((s) => s.id),
       ["historico", "ingresos"],
     );
+    assert.deepEqual(
+      ADMIN_REPORTES_SUBTABS.map((s) => s.label),
+      ["Histórico por etapas", "Ingresos"],
+    );
     assert.equal(DEFAULT_ADMIN_REPORTES_SUBTAB, "historico");
     assert.equal(parseAdminReportesSubtab("ingresos"), "ingresos");
     assert.equal(parseAdminReportesSubtab("nada"), "historico");
+    for (const t of ADMIN_TABS) {
+      assert.doesNotMatch(t.description, /cohorte/i);
+    }
+    for (const s of ADMIN_REPORTES_SUBTABS) {
+      assert.doesNotMatch(s.label, /cohorte/i);
+    }
   });
 });

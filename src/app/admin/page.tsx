@@ -46,6 +46,11 @@ import {
   opcionesFiltroPasoAdminDashboard,
   pagesAfterAsesorChange,
 } from "@/domain/admin-production/admin-ui-filters";
+import {
+  adminProductionSelectedStageCount,
+  filterAdminProductionRowsByPaso,
+  shortPasoVisualAdminFilterNombre,
+} from "@/domain/admin-production/admin-production-stage-filter";
 import type { AdminEtapaBucket, AdminPrecalSummary } from "@/domain/admin-production/repo";
 import {
   buildAdminProductionWorkbook,
@@ -152,6 +157,8 @@ export default function AdminDashboardPage() {
   const [error, setError] = useState<string | null>(null);
   const [snapshotLoading, setSnapshotLoading] = useState(true);
   const [snapshotError, setSnapshotError] = useState<string | null>(null);
+  const [mesaLoading, setMesaLoading] = useState(true);
+  const [mesaError, setMesaError] = useState<string | null>(null);
   const [summary, setSummary] = useState<AdminProductionSummary | null>(null);
   const [byEtapa, setByEtapa] = useState<readonly AdminEtapaBucket[]>([]);
   const [snapshotTotal, setSnapshotTotal] = useState(0);
@@ -220,16 +227,18 @@ export default function AdminDashboardPage() {
     [asesorId, estado, buscarDebounced],
   );
 
-  const snapshotListFilters = useMemo(() => {
+  /** Expedientes del periodo (fecha_envio_mesa) — no usar snapshot sin bounds. */
+  const mesaListFilters = useMemo(() => {
+    if (!filtersBase) return null;
     const etapaActuales = etapaActualesFromAdminPasoFilter(etapaActual);
     return {
-      ...snapshotFiltersBase,
+      ...filtersBase,
       etapaActual: etapaActuales?.length === 1 ? etapaActuales[0]! : null,
       etapaActuales,
       page: mesaPage,
       pageSize: PAGE_SIZE,
     };
-  }, [snapshotFiltersBase, etapaActual, mesaPage]);
+  }, [filtersBase, etapaActual, mesaPage]);
 
   useEffect(() => {
     const t = window.setTimeout(() => {
@@ -252,7 +261,15 @@ export default function AdminDashboardPage() {
   }, [asesorId, asesorOptions, asesores]);
 
   const etapaFiltroActiva = etapaActual !== "todas";
-  const showProduccionPorAsesor = !etapaFiltroActiva;
+  const etapaFiltroNombreCorto = shortPasoVisualAdminFilterNombre(etapaActual);
+  const etapaActualesSeleccionadas = useMemo(
+    () => etapaActualesFromAdminPasoFilter(etapaActual),
+    [etapaActual],
+  );
+  const produccionRows = useMemo(
+    () => filterAdminProductionRowsByPaso(asesores, etapaActual),
+    [asesores, etapaActual],
+  );
 
   // Query param visual (?adminTab=) para conservar la pestaña al refrescar.
   // Se lee una sola vez al montar; no interviene el router ni las consultas.
@@ -413,15 +430,11 @@ export default function AdminDashboardPage() {
     setSnapshotLoading(true);
     setSnapshotError(null);
     try {
-      const [snap, list] = await Promise.all([
-        repo.getExpedientesSnapshotEtapas(snapshotFiltersBase),
-        repo.listExpedientesSnapshotPage(snapshotListFilters),
-      ]);
+      // Resumen: stock vigente por etapas — independiente del periodo.
+      const snap = await repo.getExpedientesSnapshotEtapas(snapshotFiltersBase);
       setByEtapa(snap.byEtapa);
       setSnapshotTotal(snap.totalActual);
       setSnapshotGeneratedAt(snap.generatedAt);
-      setMesaItems(list.items);
-      setMesaTotal(list.totalCount);
     } catch (e) {
       setSnapshotError(
         e instanceof Error ? e.message : "No fue posible cargar el estado actual",
@@ -429,7 +442,34 @@ export default function AdminDashboardPage() {
     } finally {
       setSnapshotLoading(false);
     }
-  }, [repo, snapshotFiltersBase, snapshotListFilters]);
+  }, [repo, snapshotFiltersBase]);
+
+  const loadExpedientesPeriodo = useCallback(async () => {
+    if (!mesaListFilters) {
+      setMesaError("Rango de fechas inválido");
+      setMesaLoading(false);
+      setMesaItems([]);
+      setMesaTotal(0);
+      return;
+    }
+    setMesaLoading(true);
+    setMesaError(null);
+    try {
+      const list = await repo.listMesaEnviosPage(mesaListFilters);
+      setMesaItems(list.items);
+      setMesaTotal(list.totalCount);
+    } catch (e) {
+      setMesaError(
+        e instanceof Error
+          ? e.message
+          : "No fue posible cargar los expedientes del periodo",
+      );
+      setMesaItems([]);
+      setMesaTotal(0);
+    } finally {
+      setMesaLoading(false);
+    }
+  }, [repo, mesaListFilters]);
 
   const loadSearch = useCallback(async () => {
     const q = buscarDebounced.trim();
@@ -469,6 +509,10 @@ export default function AdminDashboardPage() {
   }, [currentUser, loadSnapshot]);
 
   useEffect(() => {
+    if (currentUser?.role === "super_admin") void loadExpedientesPeriodo();
+  }, [currentUser, loadExpedientesPeriodo]);
+
+  useEffect(() => {
     if (currentUser?.role === "super_admin") void loadSearch();
   }, [currentUser, loadSearch]);
 
@@ -488,6 +532,7 @@ export default function AdminDashboardPage() {
   const onPreset = (p: AdminPeriodPreset) => {
     setPreset(p);
     setPrecalPage(1);
+    setMesaPage(1);
   };
 
   const clearEtapaFilter = () => {
@@ -659,6 +704,7 @@ export default function AdminDashboardPage() {
                   onChange={(e) => {
                     setCustomFrom(e.target.value);
                     setPrecalPage(1);
+                    setMesaPage(1);
                   }}
                 />
               </label>
@@ -671,6 +717,7 @@ export default function AdminDashboardPage() {
                   onChange={(e) => {
                     setCustomTo(e.target.value);
                     setPrecalPage(1);
+                    setMesaPage(1);
                   }}
                 />
               </label>
@@ -681,14 +728,17 @@ export default function AdminDashboardPage() {
             Periodo activo: {periodoLabel}
           </p>
           <p className="mt-1 text-xs text-gray-700">
-            El periodo aplica a los KPI superiores, producción por asesor,
-            precalificaciones y Excel. El estado actual por etapas es un corte
-            independiente de todos los expedientes vigentes.
+            El periodo aplica a los KPI, Expedientes, Producción,
+            precalificaciones y Excel.
+          </p>
+          <p className="mt-1 text-xs text-gray-700">
+            El estado actual por etapas del Resumen es un corte de todos los
+            expedientes vigentes y no depende del periodo.
           </p>
           <p className="mt-1 text-xs text-gray-600">
             Estos filtros aplican a Resumen, Expedientes y Producción. Los
-            reportes (histórico, cohorte e ingresos) tienen filtros propios
-            dentro de su pestaña.
+            reportes históricos e ingresos tienen filtros propios dentro de su
+            pestaña.
           </p>
 
           <div className="mt-4 grid gap-3 md:grid-cols-4">
@@ -973,7 +1023,7 @@ export default function AdminDashboardPage() {
               <AdminSectionHeader
                 titleId="admin-mesa-expedientes-title"
                 title="Expedientes del flujo operativo de Mesa"
-                description="Estos filtros afectan únicamente los expedientes mostrados; el listado es el corte actual del flujo de Mesa."
+                description="Expedientes enviados a Mesa durante el periodo seleccionado, mostrando su etapa y situación actuales."
               />
               {etapaFiltroNombre ? (
                 <div className="mt-3 flex flex-wrap items-center gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800">
@@ -986,14 +1036,18 @@ export default function AdminDashboardPage() {
                   </Button>
                 </div>
               ) : null}
-              {snapshotLoading && mesaItems.length === 0 && !snapshotError ? (
+              {mesaLoading && mesaItems.length === 0 && !mesaError ? (
                 <p className="mt-3 text-sm text-gray-700">
-                  Calculando estado actual de los expedientes…
+                  Cargando expedientes del periodo…
                 </p>
-              ) : snapshotError ? (
+              ) : mesaError ? (
                 <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-red-700">
-                  <span>No fue posible cargar el estado actual. Reintentar.</span>
-                  <Button type="button" variant="secondary" onClick={() => void loadSnapshot()}>
+                  <span>No fue posible cargar los expedientes del periodo. Reintentar.</span>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    onClick={() => void loadExpedientesPeriodo()}
+                  >
                     Reintentar
                   </Button>
                 </div>
@@ -1001,10 +1055,10 @@ export default function AdminDashboardPage() {
                 <AdminEmptyState
                   title={
                     etapaFiltroNombre
-                      ? `No hay expedientes en ${etapaFiltroNombre} con estos filtros.`
-                      : "No hay expedientes con estos filtros."
+                      ? `No hay expedientes enviados a Mesa en ${etapaFiltroNombre} para el periodo seleccionado.`
+                      : "No hay expedientes enviados a Mesa en el periodo seleccionado."
                   }
-                  description="Prueba limpiar o cambiar los filtros."
+                  description="Prueba limpiar o cambiar el periodo u otros filtros."
                   onClearFilters={clearFilters}
                 />
               ) : (
@@ -1084,7 +1138,7 @@ export default function AdminDashboardPage() {
                   <Button
                     type="button"
                     variant="secondary"
-                    disabled={mesaPage <= 1 || snapshotLoading}
+                    disabled={mesaPage <= 1 || mesaLoading}
                     onClick={() => setMesaPage((p) => Math.max(1, p - 1))}
                   >
                     Anterior
@@ -1096,7 +1150,7 @@ export default function AdminDashboardPage() {
                     type="button"
                     variant="secondary"
                     disabled={
-                      snapshotLoading || mesaPage * PAGE_SIZE >= mesaTotal
+                      mesaLoading || mesaPage * PAGE_SIZE >= mesaTotal
                     }
                     onClick={() => setMesaPage((p) => p + 1)}
                   >
@@ -1294,8 +1348,7 @@ export default function AdminDashboardPage() {
               ))}
             </div>
             <p className="mt-2 text-xs text-slate-500">
-              El resultado de cohorte se calcula dentro del reporte histórico,
-              con los mismos filtros del reporte.
+              El reporte muestra entradas, avances y permanencia por etapa.
             </p>
           </div>
 
@@ -1323,31 +1376,47 @@ export default function AdminDashboardPage() {
         >
           {loading ? (
             <p className="text-gray-700">Cargando producción…</p>
-          ) : showProduccionPorAsesor ? (
+          ) : (
               <section className="rounded-lg border border-slate-200 bg-white p-4">
                 <AdminSectionHeader
                   title={produccionTitle}
                   description="Producción por asesor durante el periodo seleccionado en la barra de filtros. Expande una fila para ver el desglose por etapas."
                 />
-                {asesores.length === 0 ? (
+                {etapaFiltroActiva && etapaFiltroNombreCorto ? (
+                  <p className="mt-2 text-xs text-slate-600">
+                    Filtro activo:{" "}
+                    <strong className="font-semibold text-slate-800">
+                      {etapaFiltroNombreCorto}
+                    </strong>
+                  </p>
+                ) : null}
+                {produccionRows.length === 0 ? (
                   <AdminEmptyState
                     title={
-                      asesorId
-                        ? "No hay producción para este asesor en el periodo seleccionado."
-                        : "No hay resultados para este periodo."
+                      etapaFiltroActiva && etapaFiltroNombreCorto
+                        ? `No hay producción en ${etapaFiltroNombreCorto} para el periodo seleccionado.`
+                        : asesorId
+                          ? "No hay producción para este asesor en el periodo seleccionado."
+                          : "No hay resultados para este periodo."
                     }
                     description="Prueba limpiar o cambiar los filtros."
                     onClearFilters={clearFilters}
                   />
                 ) : (
                   <div className="mt-3 space-y-2">
-                    {asesores.map((a) => {
+                    {produccionRows.map((a) => {
                       const label = formatAsesorExpedienteLabel({
                         fullName: a.asesorNombre,
                         email: a.asesorEmail,
                         fallbackId: a.asesorId,
                       });
                       const expanded = expandedAsesorId === a.asesorId;
+                      const stageCount = etapaFiltroActiva
+                        ? adminProductionSelectedStageCount(
+                            a,
+                            etapaActualesSeleccionadas,
+                          )
+                        : null;
                       return (
                         <AdminExpandableAdvisorRow
                           key={a.asesorId}
@@ -1362,6 +1431,11 @@ export default function AdminDashboardPage() {
                             <div className="grid min-w-0 grid-cols-2 gap-x-3 gap-y-1 text-sm sm:grid-cols-3 lg:grid-cols-6">
                               <div className="min-w-0 sm:col-span-3 lg:col-span-1">
                                 <p className="truncate font-medium text-slate-900">{label}</p>
+                                {stageCount != null && etapaFiltroNombreCorto ? (
+                                  <p className="mt-0.5 text-xs text-slate-600">
+                                    {etapaFiltroNombreCorto}: {stageCount}
+                                  </p>
+                                ) : null}
                               </div>
                               <div>
                                 <p className="text-[11px] uppercase text-slate-500">Enviados</p>
@@ -1402,6 +1476,10 @@ export default function AdminDashboardPage() {
                               <p className="mt-1 text-sm text-slate-800">
                                 {compactEtapas(a.etapas) || "Sin desglose"}
                               </p>
+                              <p className="mt-1 text-[11px] text-slate-500">
+                                Aprobadas / No cumple / monto son totales del periodo
+                                (no se recalculan por etapa).
+                              </p>
                             </div>
                             <div className="flex flex-wrap gap-2">
                               <button
@@ -1426,26 +1504,6 @@ export default function AdminDashboardPage() {
                   </div>
                 )}
               </section>
-          ) : (
-            <section className="rounded-lg border border-slate-200 bg-white p-4">
-              <AdminSectionHeader
-                title={produccionTitle}
-                description="La producción por asesor se calcula sin filtro de etapa. Quita el filtro de etapa para ver la tabla del periodo."
-              />
-              <div className="mt-3 flex flex-wrap items-center gap-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-                <span>
-                  Filtro de etapa activo:{" "}
-                  <strong className="font-semibold">{etapaFiltroNombre}</strong>
-                </span>
-                <Button
-                  type="button"
-                  variant="secondary"
-                  onClick={clearEtapaFilter}
-                >
-                  Quitar filtro de etapa
-                </Button>
-              </div>
-            </section>
           )}
         </div>
       </main>

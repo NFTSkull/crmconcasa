@@ -87,18 +87,23 @@ describe("Admin UX B1 montaje en /admin", () => {
     assert.match(page, /listPrecalificacionesPage|precalItems/);
   });
 
-  it("Reportes: subtabs internos y ambas secciones montadas (histórico+cohorte, ingresos)", () => {
+  it("Reportes: subtabs internos sin jerga técnica visible", () => {
     assert.match(page, /ADMIN_REPORTES_SUBTABS\.map/);
     assert.match(page, /<AdminReporteExpedientesSection \/>/);
     assert.match(page, /<AdminIngresosSection/);
     assert.match(page, /hidden=\{reportesSubtab !== "historico"\}/);
     assert.match(page, /hidden=\{reportesSubtab !== "ingresos"\}/);
+    assert.doesNotMatch(page, /cohorte/i);
   });
 
-  it("Producción permanece accesible: tabla o aviso con opción de quitar filtro de etapa", () => {
+  it("Producción siempre visible: filtra por row.etapas sin ocultar la tabla", () => {
     assert.match(page, /\{produccionTitle\}/);
-    assert.match(page, /showProduccionPorAsesor \?/);
-    assert.match(page, /Quitar filtro de etapa/);
+    assert.match(page, /filterAdminProductionRowsByPaso|produccionRows/);
+    assert.doesNotMatch(page, /showProduccionPorAsesor/);
+    assert.doesNotMatch(
+      page,
+      /Quita el filtro de etapa para ver la tabla/,
+    );
     assert.match(page, /clearEtapaFilter/);
   });
 
@@ -140,12 +145,13 @@ describe("Admin UX B1 montaje en /admin", () => {
     assert.match(page, /titleId="admin-mesa-expedientes-title"/);
   });
 
-  it("sin cambios técnicos: mismos repos y consultas de dominio", () => {
+  it("sin cambios técnicos: mismos repos; Expedientes usa periodo", () => {
     assert.match(page, /useAdminProductionRepo/);
     assert.match(page, /repo\.getSummary\(filtersBase\)/);
     assert.match(page, /repo\.listByAsesor\(filtersBase\)/);
     assert.match(page, /repo\.getExpedientesSnapshotEtapas\(snapshotFiltersBase\)/);
-    assert.match(page, /repo\.listExpedientesSnapshotPage\(snapshotListFilters\)/);
+    assert.match(page, /repo\.listMesaEnviosPage\(mesaListFilters\)/);
+    assert.doesNotMatch(page, /listExpedientesSnapshotPage/);
     assert.match(page, /repo\.getExpedienteMesaTimeline/);
     assert.match(page, /repo\.exportAll/);
   });

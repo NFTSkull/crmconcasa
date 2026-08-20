@@ -36,8 +36,7 @@ export const ADMIN_TABS: readonly AdminTabDef[] = [
   {
     id: "reportes",
     label: "Reportes",
-    description:
-      "Reporte histórico por etapas, resultado de cohorte e ingresos.",
+    description: "Histórico por etapas e ingresos.",
   },
   {
     id: "produccion",
@@ -116,8 +115,8 @@ export function adminGlobalFiltersVisible(tab: AdminTabId): boolean {
 }
 
 // --- Subtabs de Reportes -----------------------------------------------------
-// El resultado de cohorte se calcula dentro del reporte histórico con los
-// mismos filtros y consulta (P149/P153), por lo que comparten subtab.
+// Histórico e ingresos: el detalle de resultado por etapa sigue en el reporte
+// histórico (P149/P153) sin exponer jerga técnica en la UI.
 
 export type AdminReportesSubtabId = "historico" | "ingresos";
 
@@ -125,7 +124,7 @@ export const ADMIN_REPORTES_SUBTABS: readonly {
   readonly id: AdminReportesSubtabId;
   readonly label: string;
 }[] = [
-  { id: "historico", label: "Histórico y cohorte" },
+  { id: "historico", label: "Histórico por etapas" },
   { id: "ingresos", label: "Ingresos" },
 ];
 
