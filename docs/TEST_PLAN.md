@@ -6,6 +6,14 @@
 - [x] stageCount vs totalCount: aviso si discrepan; no maquillar.
 - [x] Precal/monto/listByAsesor intactos; 0 SQL.
 
+## P204-C — UX rechazo operativo abierto (sin auto-reactivar)
+
+- [x] Banner asesor: «Expediente rechazado por Mesa» + «bloqueado hasta que lo reenvíes»; con actividad → «Cambios guardados · Falta reenviar a Mesa»; CTA «Reenviar a Mesa» → solo `reactivar_expediente_rechazado`.
+- [x] Nunca «Corrección enviada» como mensaje final si rechazo operativo abierto (P203 + override UI).
+- [x] Mesa detalle: «Rechazo operativo abierto» + nota «Documentación validada ≠ rechazo cerrado» + CTA «Reactivar expediente».
+- [x] Helper RO `resolveRechazoOperativoAbierto` / `getRechazoOperativoAbierto`; 0 mig; 0 writers nuevos; `mesa_mover` sigue bloqueando `rechazado`.
+- [x] F1–F12 unit; 0 smoke; caso a6290744 sin UPDATE directo.
+
 ## P204-A — Rechazado por Mesa vs Necesita (Asesor)
 
 - [x] Cloud RO: rechazo OP WAITING absorbido por correccion_requerida (chip Rechazados=0).

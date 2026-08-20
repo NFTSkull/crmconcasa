@@ -149,6 +149,7 @@ import { formatMesaAbiertoAhoraBadge } from "@/lib/mesaExpedientePresenciaUi";
 import { MesaExpedienteOpsSection } from "@/components/mesa-control/MesaExpedienteOpsSection";
 import { MesaAsesorCambiosPanel } from "@/components/mesa-control/MesaAsesorCambiosPanel";
 import { MesaControlManualEtapaSection } from "@/components/mesa-control/MesaControlManualEtapaSection";
+import { MesaRechazoOperativoAbiertoBanner } from "@/components/mesa-control/MesaRechazoOperativoAbiertoBanner";
 import { MesaRechazoOperativoPostBiometricosCard } from "@/components/mesa-control/MesaRechazoOperativoPostBiometricosCard";
 import { MesaCancelarExpedienteCard } from "@/components/mesa-control/MesaCancelarExpedienteCard";
 import { MesaExpedienteCanceladoBanner } from "@/components/mesa-control/MesaExpedienteCanceladoBanner";
@@ -2357,6 +2358,18 @@ export function MesaExpedienteDetalleReadOnly() {
         dataModeSupabase
         onUpdated={load}
       />
+
+      {!expedienteCancelado &&
+      (op.subestado ?? "") === "rechazado" &&
+      (op.cicloEstado == null || op.cicloEstado === "activo") ? (
+        <MesaRechazoOperativoAbiertoBanner
+          expedienteId={routeExpedienteId}
+          abierto
+          actorCanReactivar
+          dataModeSupabase
+          onReactivado={load}
+        />
+      ) : null}
 
       {!expedienteCancelado ? (
       <MesaControlManualEtapaSection

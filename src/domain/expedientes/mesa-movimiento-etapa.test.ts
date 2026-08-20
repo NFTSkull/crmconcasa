@@ -139,7 +139,7 @@ test("panel deshabilitado con razón exacta, no oculto, para no elegibles", () =
   assert.equal(rechazado.habilitado, false);
   assert.equal(
     rechazado.razon,
-    "El expediente está rechazado y requiere una reactivación explícita.",
+    "Rechazo operativo abierto. El expediente no puede avanzar hasta ser reactivado.",
   );
 
   const aprobado = getMesaControlManualEstado({

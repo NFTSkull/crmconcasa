@@ -43,6 +43,16 @@ describe("P197-B3 detalle corrección (F1–F12)", () => {
     );
   });
 
+  it("P204-C: rechazo operativo abierto gana sobre Corrección enviada", () => {
+    const v = buildAsesorExpedienteCorreccionView({
+      estadoEfectivo: "correccion_enviada",
+      rechazoOperativoAbierto: true,
+    });
+    assert.equal(v.showRechazoOperativoBanner, true);
+    assert.equal(v.showEnviadaPanel, false);
+    assert.equal(v.estadoEfectivo, "rechazado_mesa");
+  });
+
   it("F3 revisada: en_tramite cierra episodio", () => {
     const v = buildAsesorExpedienteCorreccionView({
       estadoEfectivo: "en_tramite",
