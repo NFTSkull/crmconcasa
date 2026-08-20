@@ -1,6 +1,8 @@
 -- P201: asesor inbox chips alineados a P198. A1–A12. 0 writers.
+-- Tras P202 se re-aplica el contrato temporal vigente.
 \set ON_ERROR_STOP on
 \ir ../migrations/201_asesor_correccion_estado_efectivo_p198.sql
+\ir ../migrations/202_asesor_mesa_correccion_latest_episode.sql
 
 CREATE OR REPLACE FUNCTION public.__p201_assert(p_ok BOOLEAN, p_msg TEXT)
 RETURNS VOID LANGUAGE plpgsql AS $$

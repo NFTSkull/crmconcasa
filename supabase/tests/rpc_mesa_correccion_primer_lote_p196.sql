@@ -1,6 +1,8 @@
 -- P196: causalidad primer lote P130. T1–T9 + contrato. 0 writers.
+-- P202 re-aplica clasificacion con filtro de ciclo.
 \set ON_ERROR_STOP on
 \ir ../migrations/196_mesa_correccion_primer_lote.sql
+\ir ../migrations/202_asesor_mesa_correccion_latest_episode.sql
 
 CREATE OR REPLACE FUNCTION public.__p196_assert(p_ok BOOLEAN, p_msg TEXT)
 RETURNS VOID LANGUAGE plpgsql AS $$

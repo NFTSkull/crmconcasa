@@ -1645,6 +1645,7 @@ export default function AsesorDashboardPage() {
                         documentacionColumnaLabel(estadoDocumentacion),
                         documentacionColumnaBadgeClass(estadoDocumentacion),
                         resumenCorreccion,
+                        estadoEfectivo,
                       );
                       const rowSurfaceClass =
                         estadoEfectivo === "correccion_requerida"

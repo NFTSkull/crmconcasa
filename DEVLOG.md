@@ -1,3 +1,7 @@
+## 2026-08-20 - P202: latest request vigente vs latest response
+
+Causa: P198/P201 marcaban WAITING con lotes AMBIGUOUS pre-`fecha_envio_mesa` + `solicitud_posterior` fuera de ciclo; la UI mezclaba `categoria_correccion=correccion_enviada` histórica bajo chip Necesita. Decisión: helper `mesa_cambio_episodio_latest` (solo solicitudes **abiertas** del ciclo); REPLACE clasificacion/estado_efectivo/asesor con regla temporal; docs secundarios gobernados por `estado_efectivo`. 0 writers. Citas → **203**.
+
 ## 2026-08-20 - P201: chips asesor = episodio P198
 
 Causa: P197 devolvía `correccion_requerida` por `OR categoria_correccion` / flags propios aunque el episodio Mesa ya tuviera respuesta (`CORRECTION_PENDING_REVIEW`) o, al revés, `correccion_enviada` por origin P196 `REQUESTED` aunque P198 ya fuera `WAITING_ADVISOR` (re-reject). Decisión: REPLACE `asesor_inbox_estado_efectivo` consume P198; retención abierta con helper RO aparte; columna Documentación no gobierna chips. 0 writers. Citas → **202**.

@@ -116,7 +116,33 @@ export function asesorDocumentacionFilaBadge(
   estadoDocumentacionLabel: string,
   estadoDocumentacionClassName: string,
   resumenCorreccion?: CategoriaResumenDocumental,
+  estadoEfectivo?: string | null,
 ): AsesorInboxFilaBadge {
+  const estado = (estadoEfectivo ?? "").trim();
+
+  // P202: una sola historia actual. El chip gobierna el texto secundario.
+  if (estado === "correccion_requerida") {
+    return {
+      label: "Pendiente de corregir",
+      className: "text-[10px] font-semibold text-amber-900 sm:text-xs",
+    };
+  }
+  if (estado === "correccion_enviada") {
+    return {
+      label: "Enviada a Mesa",
+      className: "text-[10px] font-semibold text-emerald-700 sm:text-xs",
+    };
+  }
+
+  // Episodio cerrado / flujo normal: documentación real (sin overlay histórico).
+  if (estado !== "") {
+    return {
+      label: estadoDocumentacionLabel,
+      className: `${estadoDocumentacionClassName} text-[10px] sm:text-xs`,
+    };
+  }
+
+  // Fallback mock / sin estado_efectivo.
   if (resumenCorreccion === "correccion_requerida") {
     return {
       label: "Necesita corrección",
@@ -168,6 +194,7 @@ export function asesorInboxFilaEstadoLabels(params: {
     params.documentacionLabel ?? "—",
     params.documentacionClassName ?? "text-xs text-gray-400",
     params.resumenCorreccion,
+    params.estadoEfectivo,
   );
   return {
     estadoActual: estadoActual.label,

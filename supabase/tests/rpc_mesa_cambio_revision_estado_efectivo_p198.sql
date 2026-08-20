@@ -1,6 +1,8 @@
 -- P198: estado efectivo revisión Mesa. M1–M9 + M14 Disponibles. 0 writers.
+-- P202 endurece ciclo/temporal; se aplica encima.
 \set ON_ERROR_STOP on
 \ir ../migrations/198_mesa_cambio_revision_estado_efectivo.sql
+\ir ../migrations/202_asesor_mesa_correccion_latest_episode.sql
 
 CREATE OR REPLACE FUNCTION public.__p198_assert(p_ok BOOLEAN, p_msg TEXT)
 RETURNS VOID LANGUAGE plpgsql AS $$
@@ -861,7 +863,15 @@ BEGIN
   PERFORM public.__p198_assert(v_eff.estado = 'CLOSED', 'M23 pre-corte sí cerrado');
   UPDATE public.expedientes SET fecha_envio_mesa = v_new_envio WHERE id = v_exp;
   SELECT * INTO v_eff FROM public.mesa_cambio_revision_estado_efectivo(v_exp);
-  PERFORM public.__p198_assert(v_eff.estado IS DISTINCT FROM 'CLOSED', 'M23 ciclo nuevo no hereda cierre');
+  -- P202: el lote pre-nuevo-ciclo no gobierna; ciclo nuevo = CLOSED vacío (no PENDING/WAITING heredado).
+  PERFORM public.__p198_assert(v_eff.estado = 'CLOSED', 'M23 ciclo nuevo CLOSED vacío');
+  PERFORM public.__p198_assert(v_eff.batch_id IS NULL, 'M23 sin batch del ciclo nuevo');
+  PERFORM public.__p198_assert(
+    v_eff.estado IS DISTINCT FROM 'CORRECTION_PENDING_REVIEW'
+    AND v_eff.estado IS DISTINCT FROM 'ADVISOR_UPDATE_PENDING_REVIEW'
+    AND v_eff.estado IS DISTINCT FROM 'WAITING_ADVISOR',
+    'M23 no hereda pending/waiting pre-ciclo'
+  );
 
   -- M24 re-reject gana sobre validación ajena
   v_exp := gen_random_uuid();

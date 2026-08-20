@@ -1,8 +1,9 @@
--- P197 S1–S10 adaptados a P201 (episodio P198). 0 writers.
--- Aplica 197 histórico y luego REPLACE P201 (contrato nuevo).
+-- P197 S1–S10 adaptados a P201/P202 (episodio temporal). 0 writers.
+-- Aplica 197 histórico, REPLACE P201 y REPLACE P202 (contrato vigente).
 \set ON_ERROR_STOP on
 \ir ../migrations/197_asesor_inbox_estado_efectivo.sql
 \ir ../migrations/201_asesor_correccion_estado_efectivo_p198.sql
+\ir ../migrations/202_asesor_mesa_correccion_latest_episode.sql
 
 CREATE OR REPLACE FUNCTION public.__p197_assert(p_ok BOOLEAN, p_msg TEXT)
 RETURNS VOID LANGUAGE plpgsql AS $$
