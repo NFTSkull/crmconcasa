@@ -145,16 +145,20 @@ describe("Admin UX B2 montaje", () => {
 
   it("empty states amigables montados", () => {
     assert.match(page, /AdminEmptyState/);
-    assert.match(page, /No hay expedientes con estos filtros/);
+    assert.match(
+      page,
+      /No hay expedientes enviados a Mesa en el periodo seleccionado/,
+    );
     assert.match(page, /No hay resultados para este periodo/);
     assert.match(empty, /Limpiar filtros/);
     assert.match(drawer, /No hay actividad registrada/);
   });
 
-  it("sin nuevas consultas: mismos repos y export intactos", () => {
+  it("sin nuevas consultas: mismos repos y export intactos; Expedientes por periodo", () => {
     assert.match(page, /repo\.getSummary\(filtersBase\)/);
     assert.match(page, /repo\.listByAsesor\(filtersBase\)/);
-    assert.match(page, /repo\.listExpedientesSnapshotPage\(snapshotListFilters\)/);
+    assert.match(page, /repo\.listMesaEnviosPage\(mesaListFilters\)/);
+    assert.doesNotMatch(page, /listExpedientesSnapshotPage/);
     assert.match(page, /repo\.exportAll/);
     assert.match(page, /Descargar Excel/);
     assert.doesNotMatch(page, /fetch\(['"`]\/api/);
