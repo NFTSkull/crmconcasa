@@ -57,10 +57,10 @@ BEGIN
      crypt('x', gen_salt('bf')), NOW(), '{}', '{}', NOW(), NOW());
 
   INSERT INTO public.profiles (
-    id, organization_id, email, full_name, app_role, active
+    id, organization_id, email, full_name, app_role, tipo_mesa, active
   ) VALUES
-    (v_asesor, v_org, 'p204d-asesor@test.local', 'Asesor P204D', 'asesor', true),
-    (v_mesa, v_org, 'p204d-mesa@test.local', 'Mesa P204D', 'mesa_interno', true);
+    (v_asesor, v_org, 'p204d-asesor@test.local', 'Asesor P204D', 'asesor', NULL, true),
+    (v_mesa, v_org, 'p204d-mesa@test.local', 'Mesa P204D', 'mesa_interno', 'interno', true);
 
   -- N5: rechazado etapa1 + DG/docs → avance orquestado 1→2
   INSERT INTO public.expedientes (
