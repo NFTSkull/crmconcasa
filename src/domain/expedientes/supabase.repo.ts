@@ -27,6 +27,10 @@ import {
   type MesaBandejaPageItem,
   type PaginatedMesaBandejaResult,
 } from "./list-for-mesa-control-paginated";
+import {
+  isMesaBandejaCountsRpcMissing,
+  parseMesaBandejaCountsRpcPayload,
+} from "./mesa-bandeja-counts-fast";
 import type { MesaExpedienteEstado } from "@/domain/mesa-ops/types";
 import {
   mapMesaCambiosSubfiltroToRpc,
@@ -856,6 +860,41 @@ export class SupabaseExpedientesRepo implements ExpedientesRepo {
     query: ListForMesaControlPaginatedQuery,
   ): Promise<PaginatedMesaBandejaResult> {
     return fetchExpedientesListForMesaControlPaginated(query);
+  }
+
+  async getMesaBandejaCounts(input: {
+    todayYmd: string | null;
+    origen: string | null;
+  }): Promise<import("./list-for-mesa-control-paginated").MesaBandejaServerCounts | null> {
+    const { client } = await requireSupabaseSession();
+    const { data, error } = await client.rpc("mesa_bandeja_counts_fast", {
+      p_today_ymd: input.todayYmd,
+      p_origen: input.origen,
+    });
+
+    if (error) {
+      if (isMesaBandejaCountsRpcMissing(error)) {
+        const page = await fetchExpedientesListForMesaControlPaginated({
+          limit: 1,
+          cursor: null,
+          quickFilter: "todos",
+          opsFilter: "todo_mesa",
+          buscar: undefined,
+          etapa: null,
+          subestado: null,
+          soloCitasHoy: false,
+          todayYmd: input.todayYmd,
+          origen: input.origen,
+          includeCounts: true,
+        });
+        return page.counts;
+      }
+      throw new ExpedientesSupabaseError(
+        error.message || "No se pudieron cargar los counts de Mesa.",
+      );
+    }
+
+    return parseMesaBandejaCountsRpcPayload(data);
   }
 
   async listForAsesor(_asesorEmail: string): Promise<ExpedienteMock[]> {

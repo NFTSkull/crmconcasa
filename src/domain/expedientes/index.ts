@@ -76,6 +76,11 @@ export {
   normalizeMesaBandejaPageLimit,
   paginateMesaBandejaKeyset,
 } from "./list-for-mesa-control-paginated";
+export {
+  isMesaBandejaCountsRpcMissing,
+  mesaBandejaCountsShouldUseListRpcFallback,
+  parseMesaBandejaCountsRpcPayload,
+} from "./mesa-bandeja-counts-fast";
 export type { CreateExpedienteInput } from "./create-expediente.input";
 export type { UpsertEditorDecisionInput } from "./upsert-editor-decision.input";
 export type {

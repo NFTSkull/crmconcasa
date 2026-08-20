@@ -1090,6 +1090,26 @@ export class MockExpedientesRepo implements ExpedientesRepo {
     };
   }
 
+  async getMesaBandejaCounts(input: {
+    todayYmd: string | null;
+    origen: string | null;
+  }): Promise<import("./list-for-mesa-control-paginated").MesaBandejaServerCounts | null> {
+    const page = await this.listForMesaControlPaginated({
+      limit: 1,
+      cursor: null,
+      quickFilter: "todos",
+      opsFilter: "todo_mesa",
+      buscar: undefined,
+      etapa: null,
+      subestado: null,
+      soloCitasHoy: false,
+      todayYmd: input.todayYmd,
+      origen: input.origen,
+      includeCounts: true,
+    });
+    return page.counts;
+  }
+
   async getById(id: string): Promise<ExpedienteMock | null> {
     const idNorm = String(id).trim();
     if (!idNorm) return null;

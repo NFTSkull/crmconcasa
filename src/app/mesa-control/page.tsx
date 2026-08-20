@@ -711,13 +711,9 @@ export default function MesaControlPage() {
             mesaPerfMark("counts-start");
             void (async () => {
               try {
-                const countsPage = await repo.listForMesaControlPaginated({
-                  ...baseQuery,
-                  cursor: null,
-                  etapa: etapasFiltro?.[0] ?? null,
-                  // limit 1: counts CTE es sobre el universo; reduce payload de items
-                  limit: 1,
-                  includeCounts: true,
+                const counts = await repo.getMesaBandejaCounts({
+                  todayYmd: todayYMD,
+                  origen: baseQuery.origen ?? "todos",
                 });
                 if (
                   !shouldApplyMesaBandejaCounts({
@@ -728,8 +724,8 @@ export default function MesaControlPage() {
                 ) {
                   return;
                 }
-                if (countsPage.counts) {
-                  setServerCounts(countsPage.counts);
+                if (counts) {
+                  setServerCounts(counts);
                   countsOwnedQueryKeyRef.current = queryKey;
                 }
               } catch {

@@ -1,3 +1,7 @@
+## 2026-08-20 - P205-B1: counts-only RPC (paridad 100%)
+
+Causa (PERF-AUDIT): chips vía `mesa_list_bandeja_page(limit=1, includeCounts=true)` re-ejecutaba list+counts (~3.16 s p50). Decisión: RPC dedicada `mesa_bandeja_counts_fast` con CTEs `MATERIALIZED` (categoria + P198 una vez por expediente); FE `getMesaBandejaCounts` + fallback solo PGRST202. List/P198/P199/P204-D intactos. Benchmark TX+ROLLBACK Cloud: OLD p50 ~2891 ms → NEW ~611 ms (−78.9%). Sin Cloud persistente / sin commit aún.
+
 ## 2026-08-20 - P204-D: avance normal visible + movimiento manual override desde rechazo
 
 Causa: panel `MesaCierreValidacionDocumentalSection` exigía `en_validacion_mesa` → con `rechazado` desaparecía el botón normal; `mesa_mover` bloqueaba rechazo. Decisión: mostrar paneles con rechazo (mostrar≠avanzar); orquestador Mesa `mesa_avanzar_etapa_reactivando_si_necesario`; mover manual reactiva+mueve atómicamente; CTA Reactivar permanece (misma etapa). Mig **204**. Sin Cloud/commit aún.

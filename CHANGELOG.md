@@ -10,6 +10,8 @@
 
 ## [Unreleased]
 
+- **perf(mesa): counts-only RPC (P205-B1)** — `mesa_bandeja_counts_fast(today, origen)`: mismos 13 KPIs sin pipeline de list/cursor; categoria+P198 1×/expediente (`MATERIALIZED`). FE `getMesaBandejaCounts` (fallback solo PGRST202). List P203 `includeCounts=false` intacto. Mig **205**. 0 writers.
+
 - **fix(mesa): P204-D — avance/manual desde rechazo operativo** — paneles normales visibles con `subestado=rechazado`; RPC `mesa_avanzar_etapa_reactivando_si_necesario` (reactivar+avance atómico); `mesa_mover` override con reactivación; CTA Reactivar se mantiene. Mig **204**. 0 smoke / 0 Cloud.
 
 - **fix(asesor/mesa): P204-C — UX rechazo operativo abierto** — banner persistente + «Falta reenviar a Mesa»; CTA único `reactivar_expediente_rechazado`; Mesa «Rechazo operativo abierto» + Reactivar; helper RO causal; 0 mig / 0 auto-reactivar / `mesa_mover` intacto.
