@@ -1,3 +1,7 @@
+## 2026-08-20 - P203: performance SAFE dashboards (0 SQL)
+
+Causa: PERF-AUDIT — Mesa counts bloqueaban ~2–3 s el first paint; Asesor re-escaneaba summary en cada page/chip; enrich N+1 (docs×25, agenda×4, retención×2). Decisión: counts async (`p_include_counts=false` + segunda petición race-safe); summary solo initial/mutation/focus-TTL/explicit; single-flight; batch REST docs/agenda/retención + paint list antes de enrich. **No** se materializa estado ni se reescribe P198/P202. SQL 203 = NO (citas ops sigue reservado). 0 writers / 0 smoke.
+
 ## 2026-08-20 - P202: latest request vigente vs latest response
 
 Causa: P198/P201 marcaban WAITING con lotes AMBIGUOUS pre-`fecha_envio_mesa` + `solicitud_posterior` fuera de ciclo; la UI mezclaba `categoria_correccion=correccion_enviada` histórica bajo chip Necesita. Decisión: helper `mesa_cambio_episodio_latest` (solo solicitudes **abiertas** del ciclo); REPLACE clasificacion/estado_efectivo/asesor con regla temporal; docs secundarios gobernados por `estado_efectivo`. 0 writers. Citas → **203**.

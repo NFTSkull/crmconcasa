@@ -16,6 +16,7 @@ export type MesaBandejaRetencionHint = Readonly<{
   opcion: RetencionOpcion | null;
   enviadoAMesa: boolean;
   envioEstado: "enviado" | "correccion_requerida" | null;
+  fechaEnvioMesa: string | null;
 }>;
 
 export async function listActiveBookingFlagsByExpedienteIds(
@@ -57,7 +58,12 @@ export async function listRetencionHintsByExpedienteIds(
   const unique = [...new Set(expedienteIds.map((id) => id.trim()).filter(Boolean))];
   const out = new Map<string, MesaBandejaRetencionHint>();
   for (const id of unique) {
-    out.set(id, { opcion: null, enviadoAMesa: false, envioEstado: null });
+    out.set(id, {
+      opcion: null,
+      enviadoAMesa: false,
+      envioEstado: null,
+      fechaEnvioMesa: null,
+    });
   }
   if (unique.length === 0) return out;
 
@@ -68,7 +74,7 @@ export async function listRetencionHintsByExpedienteIds(
       .in("expediente_id", unique),
     client
       .from("retencion_envios")
-      .select("expediente_id, enviado, opcion, estado")
+      .select("expediente_id, enviado, opcion, estado, fecha_envio_mesa")
       .in("expediente_id", unique),
   ]);
 
@@ -82,6 +88,7 @@ export async function listRetencionHintsByExpedienteIds(
       opcion: null,
       enviadoAMesa: false,
       envioEstado: null,
+      fechaEnvioMesa: null,
     };
     out.set(id, { ...cur, opcion });
   }
@@ -96,10 +103,14 @@ export async function listRetencionHintsByExpedienteIds(
         ? estadoRaw
         : null;
     const opcionRow = String((row as { opcion?: string }).opcion ?? "").trim();
+    const fechaEnvioMesa = String(
+      (row as { fecha_envio_mesa?: string }).fecha_envio_mesa ?? "",
+    ).trim() || null;
     const cur = out.get(id) ?? {
       opcion: null,
       enviadoAMesa: false,
       envioEstado: null,
+      fechaEnvioMesa: null,
     };
     out.set(id, {
       opcion:
@@ -107,6 +118,7 @@ export async function listRetencionHintsByExpedienteIds(
         (opcionRow === "con_sello" || opcionRow === "sin_sello" ? opcionRow : null),
       enviadoAMesa: enviado,
       envioEstado: estado,
+      fechaEnvioMesa,
     });
   }
 

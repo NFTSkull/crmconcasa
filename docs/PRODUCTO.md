@@ -6,6 +6,8 @@ Chip **Cambios por revisar** (id interno `correccion_enviada`): **P198** estado 
 
 **Inbox asesor chips (P202):** colas usan `asesor_inbox_estado_efectivo` con la regla temporal del ciclo (`latest_request` vigente vs `latest_response` P130). **Necesita corrección** = hay solicitud Mesa abierta sin respuesta posterior. **Corrección enviada** = el asesor ya respondió la vigente y Mesa revisa. Documentación secundaria: Necesita→«Pendiente de corregir»; Enviada→«Enviada a Mesa» (nunca «Corrección enviada» histórica bajo Necesita). **P197-B2/B3:** Estado actual / detalle pintan `estado_efectivo`.
 
+**Performance dashboards (P203):** Mesa pinta tarjetas sin esperar KPI counts (counts server-authoritative async). Asesor no re-calcula summary al cambiar página o chip; enrich docs/agenda/retención en batch tras first paint. Misma lista / mismos counts / misma lógica.
+
 **Disponibles** (asignación `sin_asignar`, **P199**): todo trabajo Mesa accionable ahora, ciclo `activo`, `assigned_to` NULL y tomable. Incluye correcciones y actualizaciones P198 pending libres. Excluye `WAITING_ADVISOR`, rechazo raw sin respuesta (P195), asignados y cancelados. Si aparece, se puede tomar.
 
 **Agenda Sheets (P200):** agendar/reagendar biométricos confirma primero CRM. La UI distingue `PENDING` / `SYNCED` / `FAILED` vía `agenda_booking_sheet_sync_status`. Una reagenda deja la fila anterior en Drive como **REAGENDADO** (UUID viejo) y escribe la cita nueva en destino (UUID nuevo). Operación de citas siguiente → **201**.

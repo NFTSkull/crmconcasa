@@ -422,7 +422,8 @@ describe("asesor page B1 contract (source)", () => {
     assert.match(src, /Monto actualizado/);
     assert.match(src, /formatAsesorInboxActualizacion/);
     assert.match(src, /visibilitychange/);
-    assert.match(src, /8_000/);
+    // P203: focus/visibility con TTL (no throttle fijo 8s full-pipeline)
+    assert.match(src, /ASESOR_INBOX_FOCUS_TTL_MS|shouldRefreshAsesorListOnFocus/);
     assert.doesNotMatch(src, /channel\(/);
   });
 
