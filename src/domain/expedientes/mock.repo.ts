@@ -1604,6 +1604,29 @@ export class MockExpedientesRepo implements ExpedientesRepo {
     );
   }
 
+  async getRechazoOperativoAbierto(
+    expedienteId: string,
+  ): Promise<{
+    abierto: boolean;
+    rechazoId: string | null;
+    rechazoAt: string | null;
+  }> {
+    const exp = await this.getById(String(expedienteId));
+    if (!exp) {
+      return { abierto: false, rechazoId: null, rechazoAt: null };
+    }
+    const abierto =
+      exp.operativo.submittedToMesa === true &&
+      exp.operativo.subestado === "rechazado" &&
+      (exp.operativo.cicloEstado == null ||
+        exp.operativo.cicloEstado === "activo");
+    return {
+      abierto,
+      rechazoId: abierto ? `mock-rechazo-${exp.id}` : null,
+      rechazoAt: abierto ? (exp.operativo.updatedAt ?? null) : null,
+    };
+  }
+
   async cancelarExpedienteOperativo(
     _expedienteId: string,
     _input: CancelacionOperativaInput,

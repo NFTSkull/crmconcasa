@@ -122,6 +122,7 @@ import {
   buildAsesorExpedienteCorreccionView,
 } from "@/domain/expedientes/asesor-expediente-correccion-ui";
 import { getAsesorInboxEstadoEfectivoPresentation } from "@/domain/expedientes/asesor-inbox-estado-efectivo";
+import { hasActivityAfterRechazo } from "@/domain/expedientes/rechazo-operativo-abierto";
 import { emptyInfonavitClienteDatosV1 } from "@/domain/expediente-cliente-datos/infonavit-datos";
 
 type ClienteDatosFormState = ExpedienteClienteDatos["datos"];
@@ -318,6 +319,11 @@ export default function AsesorExpedientePage() {
   const [archivosResumen, setArchivosResumen] = useState<
     ExpedienteArchivoResumen[] | null
   >(null);
+  const [rechazoAbiertoMeta, setRechazoAbiertoMeta] = useState<{
+    abierto: boolean;
+    rechazoId: string | null;
+    rechazoAt: string | null;
+  } | null>(null);
   const [archivosLoading, setArchivosLoading] = useState(false);
   const [archivosError, setArchivosError] = useState<string | null>(null);
   const [cancelacionOperativa, setCancelacionOperativa] =
@@ -605,6 +611,15 @@ export default function AsesorExpedientePage() {
       }));
   }, [archivosResumen]);
 
+  const proxyRechazoAbierto = Boolean(
+    !expedienteCancelado &&
+      operativo?.submittedToMesa &&
+      operativo?.subestado === "rechazado" &&
+      (operativo?.cicloEstado == null || operativo?.cicloEstado === "activo"),
+  );
+  const rechazoOperativoAbierto =
+    rechazoAbiertoMeta?.abierto ?? proxyRechazoAbierto;
+
   const correccionView = useMemo(
     () =>
       buildAsesorExpedienteCorreccionView({
@@ -617,6 +632,7 @@ export default function AsesorExpedientePage() {
         ),
         rechazoOperativoMotivo: operativo?.motivoRechazo,
         rechazoOperativoComentario: operativo?.comentarioRechazo,
+        rechazoOperativoAbierto,
       }),
     [
       estadoEfectivo,
@@ -625,24 +641,40 @@ export default function AsesorExpedientePage() {
       documentosRechazadosParaCorreccion,
       operativo?.motivoRechazo,
       operativo?.comentarioRechazo,
+      rechazoOperativoAbierto,
     ],
   );
 
-  const estadoActualPres = getAsesorInboxEstadoEfectivoPresentation(estadoEfectivo);
+  const estadoActualPres = getAsesorInboxEstadoEfectivoPresentation(
+    correccionView.estadoEfectivo || estadoEfectivo,
+  );
 
   const mostrarRechazoOperativoBanner =
     !expedienteCancelado &&
-    (correccionView.showRechazoOperativoBanner ||
-      (estadoEfectivo == null &&
-        Boolean(operativo?.submittedToMesa) &&
-        operativo?.subestado === "rechazado" &&
-        (operativo?.cicloEstado == null || operativo?.cicloEstado === "activo")));
+    (correccionView.showRechazoOperativoBanner || proxyRechazoAbierto);
+
+  const hasActivityAfterRechazoBanner = useMemo(
+    () =>
+      hasActivityAfterRechazo({
+        rechazoAt: rechazoAbiertoMeta?.rechazoAt,
+        activityAts: [
+          ...(archivosResumen?.map((r) => r.created_at) ?? []),
+          clienteDatosMeta?.updatedAt,
+          clienteDatosMeta?.validatedAt,
+        ],
+      }),
+    [
+      rechazoAbiertoMeta?.rechazoAt,
+      archivosResumen,
+      clienteDatosMeta?.updatedAt,
+      clienteDatosMeta?.validatedAt,
+    ],
+  );
 
   const bloquearAgendaPorRechazoVigente =
     expedienteCancelado ||
     correccionView.showRechazoOperativoBanner ||
-    (estadoEfectivo == null && operativo?.subestado === "rechazado");
-
+    proxyRechazoAbierto;
   const puedeEnviarAMesaSupabase = useMemo(
     () =>
       hasMontoAprobado &&
@@ -1048,6 +1080,42 @@ export default function AsesorExpedientePage() {
       cancelled = true;
     };
   }, [archivosRepo, dataSupabase, precal?.id]);
+
+  useEffect(() => {
+    if (!dataSupabase || !precal?.id) {
+      setRechazoAbiertoMeta(null);
+      return;
+    }
+    if (!proxyRechazoAbierto && estadoEfectivo !== "rechazado_mesa") {
+      setRechazoAbiertoMeta(null);
+      return;
+    }
+    let cancelled = false;
+    void repo
+      .getRechazoOperativoAbierto(String(precal.id))
+      .then((meta) => {
+        if (!cancelled) setRechazoAbiertoMeta(meta);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setRechazoAbiertoMeta({
+            abierto: proxyRechazoAbierto,
+            rechazoId: null,
+            rechazoAt: null,
+          });
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    dataSupabase,
+    precal?.id,
+    proxyRechazoAbierto,
+    estadoEfectivo,
+    repo,
+    operativo?.updatedAt,
+  ]);
 
   useEffect(() => {
     if (dataSupabase || !precal?.id) return;
@@ -1546,6 +1614,7 @@ export default function AsesorExpedientePage() {
               etapaActual={operativo?.etapaActual}
               dataModeSupabase={dataSupabase}
               expedienteId={String(precal.id)}
+              hasActivityAfterRechazo={hasActivityAfterRechazoBanner}
               onReenviado={() => void loadExpediente()}
             />
           </div>

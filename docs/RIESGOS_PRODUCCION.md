@@ -36,6 +36,7 @@
 | Dos operadores Mesa avanzan etapa | Medio | Optimistic lock `updated_at` / `version` en RPC |
 | Dos operadores realizan movimiento manual | Alto | `SELECT FOR UPDATE` + `p_etapa_esperada`; conflicto estable sin evento parcial |
 | Operador escribe «RECHAZO» en motivo de movimiento manual | Alto (falso rechazo operativo) | P093 B1: copy + advertencia UI + atajo a rechazo canónico; no inferir rechazo por texto; RPC de movimiento sin efectos de rechazo |
+| Editar/subir/validar docs sin reactivar rechazo operativo | Alto (Mesa bloqueada; UX «ya corregimos») | P204-C: banner persistente + CTA único `reactivar_expediente_rechazado`; no auto-reactivar; `mesa_mover` sigue exigiendo subestado elegible |
 | Confundir rechazo operativo con cancelación de trámite / cita cancelada | Alto | P094: señales disjuntas (`subestado=rechazado` vs `ciclo=cancelado`); chip agrupado con subvistas; no inferir por texto |
 | Rechazo operativo (`activo`+`rechazado`) sigue en chip Disponibles | Alto (Mesa toma/trabaja un expediente ya rechazado) | P195 + P199: rechazo **sin** episodio pending sigue fuera; P198 pending puede entrar porque Mesa ya tiene respuesta |
 | Corrección reenviada libre no aparece en Disponibles | Alto (trabajo que sí se puede tomar queda oculto) | P199: `CORRECTION_PENDING_REVIEW`/`ADVISOR_UPDATE_PENDING_REVIEW` + `assigned_to` NULL sobrescribe `subestado=rechazado` |

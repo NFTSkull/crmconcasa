@@ -1361,7 +1361,7 @@ Captura en la misma TX de `register_expediente_documento_correccion` / `save_cli
 - Un booking `cancelled` solo acredita intento si `cancelled_at` es posterior a la cita. Un booking futuro `booked` bloquea.
 - Registra una fila append-only en `expediente_rechazos_operativos`, cambia únicamente el subestado operativo a `rechazado` y escribe `action_log`.
 - No cancela, reactiva ni modifica bookings, `fecha_cita`, documentos, montos ni notas históricas.
-- **P108A / P099 (UI Mesa):** tarjeta «Rechazar expediente» en los 11 pasos visibles; formulario solo motivo (select + «Otro») y nota opcional; payload biométrico interno `desconocida` + nulls. Cancelación terminal: tarjeta roja «Cancelar trámite». Asesor: chip/filtro `Rechazados` + banner con motivo/nota + CTA «Corregir y reenviar a Mesa»; no confundir con cancelado.
+- **P108A / P099 / P204-C (UI Mesa):** tarjeta «Rechazar expediente» en los 11 pasos visibles; formulario solo motivo (select + «Otro») y nota opcional; payload biométrico interno `desconocida` + nulls. Cancelación terminal: tarjeta roja «Cancelar trámite». Asesor: chip/filtro `Rechazados` + banner persistente «Expediente rechazado por Mesa» + CTA «Reenviar a Mesa» (`reactivar_expediente_rechazado`); con cambios post-rechazo: «Cambios guardados · Falta reenviar a Mesa» (nunca «Corrección enviada» si el rechazo sigue abierto). Mesa detalle: banner «Rechazo operativo abierto» + CTA «Reactivar expediente» (mismo writer). No auto-reactivar al guardar/validar docs.
 
 ### Reactivación (mismo expediente) — P108A
 

@@ -1432,6 +1432,61 @@ export class SupabaseExpedientesRepo implements ExpedientesRepo {
     return refreshed;
   }
 
+  async getRechazoOperativoAbierto(
+    expedienteId: string,
+  ): Promise<{
+    abierto: boolean;
+    rechazoId: string | null;
+    rechazoAt: string | null;
+  }> {
+    const idResult = reingresoExpedienteIdSchema.safeParse(expedienteId);
+    if (!idResult.success) {
+      throw new ExpedientesSupabaseError(
+        "El identificador del expediente no es válido.",
+      );
+    }
+
+    const { client } = await requireSupabaseSession();
+    const { data: rechazo, error: rechazoError } = await client
+      .from("expediente_rechazos_operativos")
+      .select("id, created_at")
+      .eq("expediente_id", idResult.data)
+      .order("created_at", { ascending: false })
+      .order("id", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+
+    if (rechazoError) {
+      throw new ExpedientesSupabaseError(
+        "No se pudo consultar el rechazo operativo vigente.",
+      );
+    }
+    if (!rechazo?.id) {
+      return { abierto: false, rechazoId: null, rechazoAt: null };
+    }
+
+    const { data: reactivacion, error: reacError } = await client
+      .from("expediente_rechazo_reactivaciones")
+      .select("id")
+      .eq("rechazo_id", rechazo.id)
+      .limit(1)
+      .maybeSingle();
+
+    if (reacError) {
+      throw new ExpedientesSupabaseError(
+        "No se pudo consultar la reactivación del rechazo operativo.",
+      );
+    }
+
+    const abierto = !reactivacion?.id;
+    return {
+      abierto,
+      rechazoId: String(rechazo.id),
+      rechazoAt:
+        typeof rechazo.created_at === "string" ? rechazo.created_at : null,
+    };
+  }
+
   async cancelarExpedienteOperativo(
     expedienteId: string,
     input: CancelacionOperativaInput,

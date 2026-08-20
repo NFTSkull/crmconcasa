@@ -153,6 +153,17 @@ export interface ExpedientesRepo {
     input: RechazoOperativoInput,
   ): Promise<ExpedienteMock>;
   reactivarExpedienteRechazado(expedienteId: string): Promise<ExpedienteMock>;
+  /**
+   * P204-C read-only: último rechazo operativo y si tiene reactivación.
+   * Causalidad real (no solo subestado).
+   */
+  getRechazoOperativoAbierto(
+    expedienteId: string,
+  ): Promise<{
+    abierto: boolean;
+    rechazoId: string | null;
+    rechazoAt: string | null;
+  }>;
   cancelarExpedienteOperativo(
     expedienteId: string,
     input: CancelacionOperativaInput,

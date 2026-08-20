@@ -1,3 +1,7 @@
+## 2026-08-20 - P204-C: UX gap rechazo operativo sin reactivación
+
+Causa (caso a6290744 / auditoría RO): 35 rechazos abiertos; 26 con actividad post-rechazo (docs/cambios); 3 con P130 posterior; validar/subir no cierra el rechazo → Mesa `MESA_MOVE_BAD_SUBSTATE`. Decisión: UI canónica — banner persistente + CTA único `reactivar_expediente_rechazado` (asesor «Reenviar a Mesa», Mesa «Reactivar»); helper RO `resolveRechazoOperativoAbierto` + `getRechazoOperativoAbierto`; override UI si estado_efectivo dijera Corrección enviada. Sin auto-reactivar, sin mig, sin UPDATE masivo.
+
 ## 2026-08-20 - P204-A: Rechazado por Mesa vs Necesita corrección
 
 Causa (Cloud RO): 32 expedientes con P198 `WAITING_ADVISOR` + `RECHAZO_OPERATIVO_CON_CORRECCION` salían como `correccion_requerida` → chip Rechazados=0. Decisión: mig **203** read-model — OP WAITING → `rechazado_mesa`; DG/DOC WAITING → Necesita; PENDING_REVIEW → Enviada. P198 Mesa / writers / Disponibles intactos. Proyección: Necesita 71→39; Rechazado 0→32.

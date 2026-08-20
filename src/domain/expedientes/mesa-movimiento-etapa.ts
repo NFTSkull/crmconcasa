@@ -227,7 +227,7 @@ export function getMesaControlManualEstado(input: {
       visible: true,
       habilitado: false,
       razon:
-        "El expediente está rechazado y requiere una reactivación explícita.",
+        "Rechazo operativo abierto. El expediente no puede avanzar hasta ser reactivado.",
     };
   }
   if (!MESA_MOVIMIENTO_SUBESTADOS_ELEGIBLES.includes(input.subestado ?? "")) {

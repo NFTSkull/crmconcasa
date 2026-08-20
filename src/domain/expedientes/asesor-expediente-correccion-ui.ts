@@ -102,12 +102,17 @@ export function buildAsesorExpedienteCorreccionView(input: {
   retencionCorreccionRequerida?: boolean;
   rechazoOperativoMotivo?: string | null;
   rechazoOperativoComentario?: string | null;
+  /** P204-C: causalidad real (último rechazo sin reactivación). */
+  rechazoOperativoAbierto?: boolean;
 }): AsesorExpedienteCorreccionView {
   const estado = (input.estadoEfectivo ?? "").trim() || "en_tramite";
-  const pres = getAsesorInboxEstadoEfectivoPresentation(estado);
+  const rechazoAbierto = input.rechazoOperativoAbierto === true;
+  const estadoUi =
+    rechazoAbierto && estado === "correccion_enviada" ? "rechazado_mesa" : estado;
+  const pres = getAsesorInboxEstadoEfectivoPresentation(estadoUi);
   const actions: AsesorCorreccionActionItem[] = [];
 
-  if (estado === "correccion_requerida") {
+  if (estadoUi === "correccion_requerida") {
     if (input.clienteDatosEstado === "rechazado") {
       actions.push({
         kind: "dg",
@@ -152,12 +157,13 @@ export function buildAsesorExpedienteCorreccionView(input: {
   }
 
   return {
-    estadoEfectivo: estado,
+    estadoEfectivo: estadoUi,
     label: pres.label,
-    showNecesitaPanel: estado === "correccion_requerida",
-    showEnviadaPanel: estado === "correccion_enviada",
-    showRechazoOperativoBanner: estado === "rechazado_mesa",
-    showCanceladoDominante: estado === "cancelado",
+    showNecesitaPanel: estadoUi === "correccion_requerida",
+    showEnviadaPanel: estadoUi === "correccion_enviada" && !rechazoAbierto,
+    showRechazoOperativoBanner:
+      estadoUi === "rechazado_mesa" || rechazoAbierto,
+    showCanceladoDominante: estadoUi === "cancelado",
     actions,
   };
 }

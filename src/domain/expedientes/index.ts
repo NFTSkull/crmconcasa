@@ -235,6 +235,27 @@ export {
   subestadoCanonicoTrasReactivacion,
   type ReactivarExpedienteResponse,
 } from "./reactivar-expediente-rechazado";
+export {
+  ASESOR_RECHAZO_BANNER_BODY,
+  ASESOR_RECHAZO_BANNER_TITLE,
+  ASESOR_RECHAZO_CAMBIOS_GUARDADOS,
+  ASESOR_RECHAZO_FALTA_REENVIAR,
+  ASESOR_REENVIAR_A_MESA_CTA,
+  buildAsesorRechazoOperativoBannerModel,
+  buildMesaRechazoOperativoAbiertoModel,
+  estadoEfectivoCompatibleConRechazoAbierto,
+  hasActivityAfterRechazo,
+  isRechazoOperativoAbierto,
+  MESA_DOC_VALIDADA_NE_RECHAZO_CERRADO,
+  MESA_MOVE_BLOQUEADO_RECHAZO_ABIERTO,
+  MESA_REACTIVAR_EXPEDIENTE_CTA,
+  MESA_RECHAZO_ABIERTO_SUB,
+  MESA_RECHAZO_ABIERTO_TITLE,
+  proxyRechazoOperativoAbiertoDesdeExpediente,
+  resolveRechazoOperativoAbierto,
+  type AsesorRechazoOperativoBannerModel,
+  type MesaRechazoOperativoAbiertoModel,
+} from "./rechazo-operativo-abierto";
 export { EDITOR_LIST_PAGE_SIZE } from "./editor-list-query";
 export type { ExpedienteMock, EditorDecision } from "./mock.repo";
 export { MockExpedientesRepo } from "./mock.repo";

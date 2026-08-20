@@ -162,8 +162,9 @@ describe("P099 cadena rechazo → bandeja asesor", () => {
     assert.match(page, /motivo=\{operativo\?\.motivoRechazo\}/);
     assert.match(page, /comentario=\{operativo\?\.comentarioRechazo\}/);
     assert.match(page, /onReenviado=/);
-    assert.match(banner, /ASESOR_REACTIVAR_RECHAZO_CTA/);
+    assert.match(banner, /buildAsesorRechazoOperativoBannerModel/);
     assert.match(banner, /reactivarExpedienteRechazado/);
+    assert.match(banner, /hasActivityAfterRechazo/);
   });
 
   it("bandeja asesor muestra chip/motivo de rechazo", () => {
