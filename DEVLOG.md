@@ -1,3 +1,7 @@
+## 2026-08-20 - P204-A: Rechazado por Mesa vs Necesita corrección
+
+Causa (Cloud RO): 32 expedientes con P198 `WAITING_ADVISOR` + `RECHAZO_OPERATIVO_CON_CORRECCION` salían como `correccion_requerida` → chip Rechazados=0. Decisión: mig **203** read-model — OP WAITING → `rechazado_mesa`; DG/DOC WAITING → Necesita; PENDING_REVIEW → Enviada. P198 Mesa / writers / Disponibles intactos. Proyección: Necesita 71→39; Rechazado 0→32.
+
 ## 2026-08-20 - Admin Producción: métrica etapa + Expandir expedientes
 
 Causa: con filtro Firmado se veía «Enviados 42» junto a «Firmado: 2»; Expandir no listaba expedientes. Decisión: métrica primaria = stageCount cuando hay etapa; Expandir llama `listMesaEnviosPage` on-demand (1 asesor, race-safe, paginación 25); precal/monto intactos. 0 SQL / 0 writers / 0 smoke.

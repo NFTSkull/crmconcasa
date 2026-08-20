@@ -48,6 +48,26 @@ describe("asesor-inbox-estado-efectivo mock (P197/P201)", () => {
     });
     assert.equal(e, "correccion_requerida");
   });
+
+  it("P204-A: WAITING + OP → rechazado_mesa (no Necesita)", () => {
+    const e = deriveAsesorInboxEstadoEfectivoMock({
+      resultadoReal: "en_tramite",
+      categoriaCorreccion: "correccion_requerida",
+      mesaCambioEstado: "WAITING_ADVISOR",
+      mesaCambioRequestType: "RECHAZO_OPERATIVO_CON_CORRECCION",
+    });
+    assert.equal(e, "rechazado_mesa");
+  });
+
+  it("P204-A: WAITING + DOC → necesita", () => {
+    const e = deriveAsesorInboxEstadoEfectivoMock({
+      resultadoReal: "en_tramite",
+      categoriaCorreccion: null,
+      mesaCambioEstado: "WAITING_ADVISOR",
+      mesaCambioRequestType: "SOLICITUD_DOCUMENTAL",
+    });
+    assert.equal(e, "correccion_requerida");
+  });
 });
 
 describe("P197-B2 presentation (U9 mock = supabase)", () => {

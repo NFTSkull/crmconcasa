@@ -10,6 +10,8 @@
 
 ## [Unreleased]
 
+- **fix(asesor): P204-A — Rechazado por Mesa ≠ Necesita corrección** — mig **203**: `WAITING_ADVISOR` + `RECHAZO_OPERATIVO_CON_CORRECCION` → `rechazado_mesa`. DG/docs siguen en Necesita. 0 writers / P198 Mesa intacto.
+
 - **fix(admin): Producción — métrica por etapa + Expandir con expedientes** — con filtro de etapa la métrica primaria muestra el count de etapa (no «Enviados»); Expandir carga on-demand `listMesaEnviosPage` del asesor. 0 SQL.
 
 - **fix(admin): ocultar «Cita para firma» (etapa 10 legacy, UI)** — proyección Admin 10 pasos; tarjeta/select/Producción agrupan 9+10; label Admin sin «Cita para firma». Catálogo compartido/Mesa/Asesor/DB intactos. 0 SQL.
