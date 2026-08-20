@@ -4,7 +4,7 @@ En la bandeja principal, Mesa puede avanzar a la siguiente etapa canónica, marc
 
 Chip **Cambios por revisar** (id interno `correccion_enviada`): **P198** estado efectivo de revisión Mesa. Correcciones = respuesta del asesor aún no procesada; Actualizaciones = update espontáneo aún no procesado. Un lote raw `pendiente_revision` ya cerrado (DG/doc validado) o superado por un re-reject **no** entra. P196: origen REQUESTED = primer lote posterior a la solicitud. P194 muestra **qué cambió**. Sin gate de etapa.
 
-**Inbox asesor chips (P202):** colas usan `asesor_inbox_estado_efectivo` con la regla temporal del ciclo (`latest_request` vigente vs `latest_response` P130). **Necesita corrección** = hay solicitud Mesa abierta sin respuesta posterior. **Corrección enviada** = el asesor ya respondió la vigente y Mesa revisa. Documentación secundaria: Necesita→«Pendiente de corregir»; Enviada→«Enviada a Mesa» (nunca «Corrección enviada» histórica bajo Necesita). **P197-B2/B3:** Estado actual / detalle pintan `estado_efectivo`.
+**Inbox asesor chips (P202/P204-A):** colas usan `asesor_inbox_estado_efectivo`. **Necesita corrección** = solicitud Mesa DG/documental abierta sin respuesta. **Rechazado por Mesa** = rechazo operativo vigente (`WAITING` + `RECHAZO_OPERATIVO_CON_CORRECCION`) o rechazo sin episodio respondido. **Corrección enviada** = el asesor ya respondió la vigente (lote P130) y Mesa revisa. Documentación secundaria puede diferir del Estado actual.
 
 **Performance dashboards (P203):** Mesa pinta tarjetas sin esperar KPI counts (counts server-authoritative async). Asesor no re-calcula summary al cambiar página o chip; enrich docs/agenda/retención en batch tras first paint. Misma lista / mismos counts / misma lógica.
 

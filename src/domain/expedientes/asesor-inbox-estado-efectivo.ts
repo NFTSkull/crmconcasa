@@ -47,9 +47,9 @@ const PRESENTATION: Record<string, AsesorInboxEstadoEfectivoPresentation> = {
     className: "bg-sky-100 text-sky-800 border border-sky-200",
   },
   rechazado_mesa: {
-    label: "Rechazado por mesa",
+    label: "Rechazado por Mesa",
     semanticVariant: "rechazado_mesa",
-    className: "bg-red-100 text-red-800 border border-red-200",
+    className: "bg-red-100 text-red-900 border border-red-300 font-semibold",
   },
   en_tramite: {
     label: "En trámite",
@@ -95,6 +95,7 @@ export function getAsesorInboxEstadoEfectivoPresentation(
 
 /**
  * Aproximación mock del helper SQL (solo modo mock).
+ * P204-A: WAITING + RECHAZO_OPERATIVO_CON_CORRECCION → rechazado_mesa.
  * P201: no reabre Necesita solo por categoria_correccion si el episodio
  * ya está respondido; en mock no hay P198, así que categoria enviada
  * sigue ganando sobre rechazo de columna, y requerida solo si no hay enviada.
@@ -110,10 +111,18 @@ export function deriveAsesorInboxEstadoEfectivoMock(input: {
     | "CLOSED"
     | "ADVISOR_UPDATE_PENDING_REVIEW"
     | null;
+  /** P198 request_type (p. ej. RECHAZO_OPERATIVO_CON_CORRECCION). */
+  mesaCambioRequestType?: string | null;
 }): AsesorInboxEstadoEfectivo | string {
   if (input.resultadoReal === "cancelado") return "cancelado";
   if (input.mesaCambioEstado === "CORRECTION_PENDING_REVIEW") {
     return "correccion_enviada";
+  }
+  if (
+    input.mesaCambioEstado === "WAITING_ADVISOR" &&
+    input.mesaCambioRequestType === "RECHAZO_OPERATIVO_CON_CORRECCION"
+  ) {
+    return "rechazado_mesa";
   }
   if (input.mesaCambioEstado === "WAITING_ADVISOR") {
     return "correccion_requerida";

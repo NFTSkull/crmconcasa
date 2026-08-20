@@ -6,6 +6,12 @@
 - [x] stageCount vs totalCount: aviso si discrepan; no maquillar.
 - [x] Precal/monto/listByAsesor intactos; 0 SQL.
 
+## P204-A — Rechazado por Mesa vs Necesita (Asesor)
+
+- [x] Cloud RO: rechazo OP WAITING absorbido por correccion_requerida (chip Rechazados=0).
+- [x] Mig **203**: WAITING + `RECHAZO_OPERATIVO_CON_CORRECCION` → `rechazado_mesa`; DG/DOC → Necesita.
+- [x] R1–R10 SQL; overlap Necesita∩Rechazado=0; count=list; 0 writers / P198 Mesa intacto.
+
 ## Admin — ocultar «Cita para firma» (proyección UI)
 
 - [x] Helper `admin-visible-stages`: 10 pasos; paso 3→`[3,4]`; paso 8→`[9,10]`; Firmado=`[11]`; Pago=`[12]`.

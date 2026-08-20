@@ -38,7 +38,7 @@ describe("P197-B2 estado actual desde estado_efectivo", () => {
       etapaDisplay: "2. Registro",
     });
     assert.equal(fila.estadoActual, "Corrección enviada");
-    assert.notEqual(fila.estadoActual, "Rechazado por mesa");
+    assert.notEqual(fila.estadoActual, "Rechazado por Mesa");
     assert.equal(fila.estatus, null);
   });
 
@@ -59,10 +59,10 @@ describe("P197-B2 estado actual desde estado_efectivo", () => {
     assert.equal(fila.documentacion, "Completos");
   });
 
-  it("U4 rechazado_mesa → Rechazado por mesa", () => {
+  it("U4 rechazado_mesa → Rechazado por Mesa", () => {
     assert.equal(
       asesorEstadoActualFilaBadge("rechazado_mesa").label,
-      "Rechazado por mesa",
+      "Rechazado por Mesa",
     );
   });
 
@@ -95,7 +95,7 @@ describe("P197-B2 estado actual desde estado_efectivo", () => {
     );
     assert.notEqual(
       asesorEstadoActualFilaBadge("correccion_enviada").label,
-      "Rechazado por mesa",
+      "Rechazado por Mesa",
     );
   });
 
@@ -150,7 +150,7 @@ describe("P184 asesor inbox fila etapa 12 pago ConCasa", () => {
     assert.ok(!isGreenSuccess(resultado.className));
     assert.notEqual(resultado.label, "En trámite");
     assert.notEqual(estatus?.label, "En proceso");
-    assert.notEqual(resultado.label, "Rechazado por mesa");
+    assert.notEqual(resultado.label, "Rechazado por Mesa");
     assert.notEqual(resultado.label, "Cancelado");
     assert.notEqual(resultado.label, "No cumple (editor)");
   });
@@ -205,7 +205,7 @@ describe("P184 asesor inbox fila etapa 12 pago ConCasa", () => {
       12,
       "pagado",
     );
-    assert.equal(resultado.label, "Rechazado por mesa");
+    assert.equal(resultado.label, "Rechazado por Mesa");
     assert.equal(estatus, null);
   });
 

@@ -1859,12 +1859,12 @@ export default function AsesorDashboardPage() {
                                 className="mt-0.5 inline-flex max-w-full flex-col gap-0.5"
                                 data-testid="asesor-fila-rechazado-mesa"
                               >
-                                <span className="inline-flex w-fit rounded-full bg-red-100 px-1.5 py-0.5 text-[9px] font-semibold text-red-800">
-                                  Rechazado
+                                <span className="inline-flex w-fit rounded-full bg-red-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-red-900">
+                                  Rechazado por Mesa
                                 </span>
                                 {p.operativo.motivoRechazo?.trim() ? (
                                   <span
-                                    className="line-clamp-2 text-[9px] font-normal leading-snug text-red-900/80"
+                                    className="line-clamp-2 text-[9px] font-normal leading-snug text-red-900/90"
                                     title={p.operativo.motivoRechazo}
                                   >
                                     {p.operativo.motivoRechazo}

@@ -90,7 +90,7 @@ describe("P197-B3 detalle corrección (F1–F12)", () => {
     });
     assert.equal(v.showRechazoOperativoBanner, true);
     assert.equal(v.showNecesitaPanel, false);
-    assert.equal(v.label, "Rechazado por mesa");
+    assert.equal(v.label, "Rechazado por Mesa");
   });
 
   it("F8 cancelado domina", () => {
