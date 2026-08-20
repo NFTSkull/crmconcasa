@@ -6,6 +6,12 @@
 - [x] stageCount vs totalCount: aviso si discrepan; no maquillar.
 - [x] Precal/monto/listByAsesor intactos; 0 SQL.
 
+## P206 — Disponibles = todo trabajo accionable Mesa
+
+- [x] `ops_filter=sin_asignar`: ciclo activo ∧ `mesa_es_trabajo_accionable_mesa` (sin `assigned_to` / `estado_mesa`).
+- [x] D1–D3 normal accionable libre/mío/otro → Disponible; D4–D8 pending P198 siempre; D9–D14 exclusiones P199; D15–D16 badges; D17–D20 otros filtros; D21–D22 take/release intactos; D23 SQL↔TS; D24 P205 counts intacto.
+- [x] 0 writers / 0 backfill / helper P199 / P205 counts / quick filters intactos. Mig **206**.
+
 ## P205-B1 — Mesa counts-only RPC
 
 - [x] Congelar 13 campos counts; paridad OLD/NEW todos/interno/externo.

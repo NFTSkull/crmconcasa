@@ -115,17 +115,46 @@ describe("mesaOpsUi", () => {
     assert.equal(filterMesaOpsItems(merged, "todo_mesa", USER_A).length, 3);
   });
 
-  it("filtro Disponibles (sin_asignar) excluye assigned_to", () => {
+  it("P206 D2/D3: Disponibles incluye assigned_to (yo u otro)", () => {
     const merged = mergeExpedientesWithMesaOps(
-      items,
+      items.map((it) => ({
+        ...it,
+        cicloEstado: "activo" as const,
+        subestado: "en_proceso" as const,
+      })),
       buildMesaOpsMap([
         ops({ expedienteId: "exp-mid", estadoMesa: "trabajando", assignedTo: USER_A, assignedAt: "x" }),
         ops({ expedienteId: "exp-old", estadoMesa: "trabajando", assignedTo: USER_B, assignedAt: "x" }),
       ]),
     );
     const filtered = filterMesaOpsItems(merged, "sin_asignar", USER_A);
-    assert.equal(filtered.length, 1);
-    assert.deepEqual(filtered.map((i) => i.id), ["exp-new"]);
+    assert.equal(filtered.length, 3);
+    assert.equal(esDisponibleParaMesa(filtered.find((i) => i.id === "exp-old")!), true);
+    assert.equal(esDisponibleParaMesa(filtered.find((i) => i.id === "exp-mid")!), true);
+    assert.equal(
+      getMesaOpsStatusLabel(
+        ops({
+          expedienteId: "exp-old",
+          estadoMesa: "trabajando",
+          assignedTo: USER_B,
+          assignedAt: "x",
+        }),
+        USER_A,
+      ),
+      "Trabajando por otro usuario",
+    );
+    assert.equal(
+      getMesaOpsStatusLabel(
+        ops({
+          expedienteId: "exp-mid",
+          estadoMesa: "trabajando",
+          assignedTo: USER_A,
+          assignedAt: "x",
+        }),
+        USER_A,
+      ),
+      "Trabajando por ti",
+    );
   });
 
   it("P199 D2: corrección pending + subestado rechazado entra a Disponibles", () => {
@@ -160,7 +189,8 @@ describe("mesaOpsUi", () => {
   });
 
   it("P199 copy Disponibles/Esperando", () => {
-    assert.match(MESA_OPS_FILTER_HELP_TEXT, /correcciones y actualizaciones reenviadas/);
+    assert.match(MESA_OPS_FILTER_HELP_TEXT, /trabajo accionable de Mesa/);
+    assert.match(MESA_OPS_FILTER_CHIPS[0]!.tooltip, /aunque ya lo esté trabajando/);
     assert.match(MESA_OPS_FILTER_CHIPS[1]!.tooltip, /todavía no recibió la nueva respuesta/);
   });
 
@@ -246,17 +276,21 @@ describe("mesaOpsUi", () => {
     );
   });
 
-  it("filtro Sin asignar", () => {
+  it("P206 filtro Disponibles incluye assigned (sin_asignar id)", () => {
     const merged = mergeExpedientesWithMesaOps(
-      items,
+      items.map((it) => ({
+        ...it,
+        cicloEstado: "activo" as const,
+        subestado: "en_proceso" as const,
+      })),
       buildMesaOpsMap([
         ops({ expedienteId: "exp-mid", estadoMesa: "trabajando", assignedTo: USER_A, assignedAt: "x" }),
       ]),
     );
     const filtered = filterMesaOpsItems(merged, "sin_asignar", USER_A);
     assert.deepEqual(
-      filtered.map((i) => i.id),
-      ["exp-old", "exp-new"],
+      filtered.map((i) => i.id).sort(),
+      ["exp-mid", "exp-new", "exp-old"],
     );
   });
 

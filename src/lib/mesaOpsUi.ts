@@ -10,7 +10,7 @@ export type MesaOpsFilter =
   | "mi_bandeja"
   | "en_trabajo";
 
-/** Filtro operativo al cargar `/mesa-control`: expedientes libres para tomar. */
+/** Filtro operativo al cargar `/mesa-control`: todo trabajo accionable Mesa (P206). */
 export const DEFAULT_MESA_OPS_FILTER: MesaOpsFilter = "sin_asignar";
 
 export const MESA_OPS_FILTER_CHIPS: ReadonlyArray<{
@@ -22,7 +22,7 @@ export const MESA_OPS_FILTER_CHIPS: ReadonlyArray<{
     id: "sin_asignar",
     label: "Disponibles",
     tooltip:
-      "Trabajo de Mesa libre para tomar, incluidas correcciones y actualizaciones reenviadas.",
+      "Todo el trabajo que Mesa debe atender ahora (aunque ya lo esté trabajando alguien). La asignación solo informa quién lo atiende.",
   },
   {
     id: "en_espera_asesor",
@@ -49,7 +49,7 @@ export const MESA_OPS_FILTER_CHIPS: ReadonlyArray<{
 ];
 
 export const MESA_OPS_FILTER_HELP_TEXT =
-  "Disponibles: trabajo de Mesa libre para tomar, incluidas correcciones y actualizaciones reenviadas. Esperando al asesor: Mesa pidió una corrección y todavía no recibió la nueva respuesta. Asignados en trabajo: ya tomados por alguien. Todo Mesa: sin filtro de asignación.";
+  "Disponibles: todo el trabajo accionable de Mesa ahora (P199), aunque esté asignado; la tarjeta indica quién lo trabaja. Esperando al asesor: Mesa pidió una corrección y todavía no recibió la nueva respuesta. Asignados en trabajo: ya tomados por alguien. Todo Mesa: sin filtro de asignación.";
 
 export type MesaOpsStatusKind =
   | "sin_asignar"
@@ -199,9 +199,8 @@ export function mesaEsTrabajoAccionableMesa(opts: {
   return true;
 }
 
-/** Disponibles = ciclo activo, sin responsable, trabajo accionable P199. */
+/** P206: Disponibles = trabajo accionable P199 (assignment no oculta). */
 export function esDisponibleParaMesa(item: MesaOpsFilterableItem): boolean {
-  if (!isSinAsignarOps(item.mesaOps)) return false;
   return mesaEsTrabajoAccionableMesa({
     cicloEstado: item.cicloEstado,
     subestado: item.subestado,
