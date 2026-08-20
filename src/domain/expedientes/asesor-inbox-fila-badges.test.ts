@@ -18,6 +18,9 @@ function isGreenSuccess(className: string): boolean {
   return className.includes("bg-green-100") && className.includes("text-green-800");
 }
 
+const COMPLETOS_PILL =
+  "inline-flex rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800";
+
 describe("P197-B2 estado actual desde estado_efectivo", () => {
   it("U1 correccion_requerida → Necesita corrección", () => {
     const b = asesorEstadoActualFilaBadge("correccion_requerida");
@@ -44,13 +47,16 @@ describe("P197-B2 estado actual desde estado_efectivo", () => {
       estadoEfectivo: "en_tramite",
       resultadoReal: "en_tramite",
       resumenCorreccion: "correccion_enviada",
+      documentacionLabel: "Completos",
+      documentacionClassName: COMPLETOS_PILL,
       subestado: "en_proceso",
       cicloEstado: "activo",
       etapaActual: 11,
       etapaDisplay: "11. Firmado",
     });
     assert.equal(fila.estadoActual, "En trámite");
-    assert.equal(fila.documentacion, "Corrección enviada");
+    // P202: episodio cerrado/normal → documentación real, no overlay histórico
+    assert.equal(fila.documentacion, "Completos");
   });
 
   it("U4 rechazado_mesa → Rechazado por mesa", () => {
@@ -261,9 +267,6 @@ describe("P184 asesor inbox fila etapa 12 pago ConCasa", () => {
   });
 });
 
-const COMPLETOS_PILL =
-  "inline-flex rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-800";
-
 describe("asesor inbox documentación/corrección claridad visual", () => {
   it("U1 correccion_requerida: label y ámbar oscuro sin opacity /80", () => {
     const doc = asesorDocumentacionFilaBadge("—", "", "correccion_requerida");
@@ -281,18 +284,18 @@ describe("asesor inbox documentación/corrección claridad visual", () => {
     assert.match(doc.className, /font-semibold|font-medium/);
   });
 
-  it("U3 estado efectivo Necesita + docs Corrección enviada (dimensiones distintas)", () => {
+  it("U3 Necesita: docs = Pendiente de corregir (nunca Corrección enviada histórica)", () => {
     const fila = asesorInboxFilaEstadoLabels({
       estadoEfectivo: "correccion_requerida",
       resumenCorreccion: "correccion_enviada",
       etapaDisplay: "2. Registro",
     });
     assert.equal(fila.estadoActual, "Necesita corrección");
-    assert.equal(fila.documentacion, "Corrección enviada");
-    assert.notEqual(fila.estadoActual, fila.documentacion);
+    assert.equal(fila.documentacion, "Pendiente de corregir");
+    assert.notEqual(fila.documentacion, "Corrección enviada");
   });
 
-  it("U4 estado efectivo Necesita + documentos Completos es válido", () => {
+  it("U4 Necesita: overlay chip gana sobre Completos documental", () => {
     const fila = asesorInboxFilaEstadoLabels({
       estadoEfectivo: "correccion_requerida",
       documentacionLabel: "Completos",
@@ -300,10 +303,14 @@ describe("asesor inbox documentación/corrección claridad visual", () => {
       etapaDisplay: "2. Registro",
     });
     assert.equal(fila.estadoActual, "Necesita corrección");
-    assert.equal(fila.documentacion, "Completos");
-    const doc = asesorDocumentacionFilaBadge("Completos", COMPLETOS_PILL);
-    assert.equal(doc.label, "Completos");
-    assert.match(doc.className, /bg-green-100/);
+    assert.equal(fila.documentacion, "Pendiente de corregir");
+    const doc = asesorDocumentacionFilaBadge(
+      "Completos",
+      COMPLETOS_PILL,
+      undefined,
+      "correccion_requerida",
+    );
+    assert.equal(doc.label, "Pendiente de corregir");
   });
 
   it("U5 en_tramite + Completos sin regresión", () => {
@@ -317,6 +324,16 @@ describe("asesor inbox documentación/corrección claridad visual", () => {
     assert.equal(fila.documentacion, "Completos");
   });
 
+  it("P202 Enviada: docs = Enviada a Mesa", () => {
+    const fila = asesorInboxFilaEstadoLabels({
+      estadoEfectivo: "correccion_enviada",
+      resumenCorreccion: "correccion_requerida",
+      etapaDisplay: "2. Registro",
+    });
+    assert.equal(fila.estadoActual, "Corrección enviada");
+    assert.equal(fila.documentacion, "Enviada a Mesa");
+  });
+
   it("encabezado Documentación / corrección y tooltip de divergencia", () => {
     assert.equal(ASESOR_INBOX_DOCUMENTACION_COL_HEADER, "Documentación / corrección");
     assert.match(
@@ -326,6 +343,7 @@ describe("asesor inbox documentación/corrección claridad visual", () => {
     const page = readFileSync(resolve(process.cwd(), "src/app/asesor/page.tsx"), "utf8");
     assert.match(page, /ASESOR_INBOX_DOCUMENTACION_COL_HEADER/);
     assert.match(page, /ASESOR_INBOX_DOCUMENTACION_COL_TITLE/);
+    assert.match(page, /estadoEfectivo/);
     assert.match(
       page,
       /if \(c === "faltantes"\) \{\s*return "inline-flex rounded-full bg-gray-100 px-2 py-0\.5 text-xs font-medium text-gray-700";/,

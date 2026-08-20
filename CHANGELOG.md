@@ -10,7 +10,9 @@
 
 ## [Unreleased]
 
-- **fix(asesor-inbox): Necesita/Enviada = episodio P198 (P201)** — `asesor_inbox_estado_efectivo` consume `mesa_cambio_revision_estado_efectivo`: `CORRECTION_PENDING_REVIEW`→Corrección enviada, `WAITING_ADVISOR`→Necesita. Sin `OR categoria_correccion`. Retención abierta vía helper propio. Columna Documentación secundaria. 0 writers. Mig **201**.
+- **fix(asesor/mesa): episodio = latest request vigente vs latest response (P202)** — mig **202**: WAITING solo si hay solicitud **abierta** del ciclo sin respuesta P130 posterior; lotes/solicitudes pre-`fecha_envio_mesa` no gobiernan. UI: Necesita→«Pendiente de corregir»; Enviada→«Enviada a Mesa». 0 writers.
+
+- **fix(asesor-inbox): Necesita/Enviada = episodio P198 (P201)** — `asesor_inbox_estado_efectivo` consume `mesa_cambio_revision_estado_efectivo`: `CORRECTION_PENDING_REVIEW`→Corrección enviada, `WAITING_ADVISOR`→Necesita. Sin `OR categoria_correccion`. Retención abierta vía helper propio. Columna Documentación secundaria. 0 writers. Mig **201**. Superado en regla temporal por P202.
 
 - **style(asesor-inbox): estados de Documentación/corrección legibles** — columna `/asesor`: «Necesita corrección» ámbar oscuro `text-amber-900` + `font-semibold` (sin `/80`); «Corrección enviada» `font-semibold`. Encabezado «Documentación / corrección» + `title` de divergencia vs Estado actual. Sin recálculo de `estado_efectivo`. Sin SQL/Cloud.
 

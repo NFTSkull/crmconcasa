@@ -18,6 +18,13 @@
 
 - [x] R1–R8 `mesaBandejaInfiniteQuery` (stale enrich, 6 de 6, cursor A≠B, append legítimo, subfiltro, inverso, out-of-order, refresh). Sin SQL. Citas → **199**.
 
+## P202 — Latest request vigente vs latest response (LOCAL)
+
+- [x] Helper `mesa_cambio_episodio_latest` (solicitudes abiertas del ciclo).
+- [x] WAITING solo si `latest_request > latest_response` (o sin response).
+- [x] E1–E14 (+ E5b cierre DG sin lote). UI badges gobernados por `estado_efectivo`.
+- [x] 0 writers / 0 Disponibles writers / 0 agenda.
+
 ## P201 — Asesor Necesita/Enviada = episodio P198 (LOCAL)
 
 - [x] Helper `asesor_inbox_estado_efectivo` REPLACE consume P198.
