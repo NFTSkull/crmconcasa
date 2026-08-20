@@ -10,6 +10,8 @@
 
 ## [Unreleased]
 
+- **fix(asesor-inbox): Necesita/Enviada = episodio P198 (P201)** — `asesor_inbox_estado_efectivo` consume `mesa_cambio_revision_estado_efectivo`: `CORRECTION_PENDING_REVIEW`→Corrección enviada, `WAITING_ADVISOR`→Necesita. Sin `OR categoria_correccion`. Retención abierta vía helper propio. Columna Documentación secundaria. 0 writers. Mig **201**.
+
 - **style(asesor-inbox): estados de Documentación/corrección legibles** — columna `/asesor`: «Necesita corrección» ámbar oscuro `text-amber-900` + `font-semibold` (sin `/80`); «Corrección enviada» `font-semibold`. Encabezado «Documentación / corrección» + `title` de divergencia vs Estado actual. Sin recálculo de `estado_efectivo`. Sin SQL/Cloud.
 
 - **fix(agenda): reagenda CRM→Sheets con histórico REAGENDADO + sync UI (P200)** — worker ya no mata cancel por E/F en reagenda; Cloud worker stale (p175) a desplegar. RPC `agenda_booking_sheet_sync_status` (mig **200**). UI biométricos: “en CRM · sincronizando…” hasta SYNCED. `reagendar_biometricos` intacto. Sin citas sintéticas.

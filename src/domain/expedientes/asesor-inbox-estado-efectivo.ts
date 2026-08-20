@@ -1,7 +1,7 @@
 /**
- * P197 — presentación del chip inbox.
- * Autoridad de clasificación = SQL `asesor_inbox_estado_efectivo`.
- * Este módulo no reimplementa P196 ni causalidad de lotes.
+ * Presentación del chip inbox asesor.
+ * Autoridad de clasificación = SQL `asesor_inbox_estado_efectivo` (P201 → P198).
+ * Este módulo no reimplementa P196/P198 ni causalidad de lotes.
  */
 export const ASESOR_INBOX_ESTADOS_EFECTIVOS = [
   "cancelado",
@@ -95,18 +95,34 @@ export function getAsesorInboxEstadoEfectivoPresentation(
 
 /**
  * Aproximación mock del helper SQL (solo modo mock).
+ * P201: no reabre Necesita solo por categoria_correccion si el episodio
+ * ya está respondido; en mock no hay P198, así que categoria enviada
+ * sigue ganando sobre rechazo de columna, y requerida solo si no hay enviada.
  * La UI de producción no debe llamar esto: usa `item.estado_efectivo`.
  */
 export function deriveAsesorInboxEstadoEfectivoMock(input: {
   resultadoReal: string;
   categoriaCorreccion: string | null | undefined;
+  /** Opcional: espejo P198 cuando el mock lo conoce. */
+  mesaCambioEstado?:
+    | "CORRECTION_PENDING_REVIEW"
+    | "WAITING_ADVISOR"
+    | "CLOSED"
+    | "ADVISOR_UPDATE_PENDING_REVIEW"
+    | null;
 }): AsesorInboxEstadoEfectivo | string {
   if (input.resultadoReal === "cancelado") return "cancelado";
-  if (input.categoriaCorreccion === "correccion_requerida") {
+  if (input.mesaCambioEstado === "CORRECTION_PENDING_REVIEW") {
+    return "correccion_enviada";
+  }
+  if (input.mesaCambioEstado === "WAITING_ADVISOR") {
     return "correccion_requerida";
   }
   if (input.categoriaCorreccion === "correccion_enviada") {
     return "correccion_enviada";
+  }
+  if (input.categoriaCorreccion === "correccion_requerida") {
+    return "correccion_requerida";
   }
   if (input.resultadoReal === "rechazado_mesa") return "rechazado_mesa";
   return input.resultadoReal;

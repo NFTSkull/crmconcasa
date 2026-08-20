@@ -1,3 +1,7 @@
+## 2026-08-20 - P201: chips asesor = episodio P198
+
+Causa: P197 devolvía `correccion_requerida` por `OR categoria_correccion` / flags propios aunque el episodio Mesa ya tuviera respuesta (`CORRECTION_PENDING_REVIEW`) o, al revés, `correccion_enviada` por origin P196 `REQUESTED` aunque P198 ya fuera `WAITING_ADVISOR` (re-reject). Decisión: REPLACE `asesor_inbox_estado_efectivo` consume P198; retención abierta con helper RO aparte; columna Documentación no gobierna chips. 0 writers. Citas → **202**.
+
 ## 2026-08-19 - style: inbox asesor Documentación/corrección legible
 
 Causa: «Necesita corrección» en la columna documental usaba `text-amber-900/80` y era ilegible; el asesor confundía Estado actual vs docs/corrección (dimensiones distintas y válidas). Decisión: contraste ámbar oscuro + semibold; encabezado «Documentación / corrección» + title nativo. No se toca `estado_efectivo`, P196–P200, SQL ni Cloud. Citas → **201**.

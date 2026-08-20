@@ -6,7 +6,7 @@ import {
 } from "./asesor-inbox-estado-efectivo";
 import { asesorEstadoActualFilaBadge } from "./asesor-inbox-fila-badges";
 
-describe("asesor-inbox-estado-efectivo mock (P197)", () => {
+describe("asesor-inbox-estado-efectivo mock (P197/P201)", () => {
   it("un estado efectivo: enviada gana sobre rechazo de columna", () => {
     const e = deriveAsesorInboxEstadoEfectivoMock({
       resultadoReal: "rechazado_mesa",
@@ -29,6 +29,24 @@ describe("asesor-inbox-estado-efectivo mock (P197)", () => {
       categoriaCorreccion: "correccion_enviada",
     });
     assert.equal(e, "cancelado");
+  });
+
+  it("P201: PENDING_REVIEW → enviada aunque categoria diga requerida", () => {
+    const e = deriveAsesorInboxEstadoEfectivoMock({
+      resultadoReal: "rechazado_mesa",
+      categoriaCorreccion: "correccion_requerida",
+      mesaCambioEstado: "CORRECTION_PENDING_REVIEW",
+    });
+    assert.equal(e, "correccion_enviada");
+  });
+
+  it("P201: WAITING_ADVISOR → necesita", () => {
+    const e = deriveAsesorInboxEstadoEfectivoMock({
+      resultadoReal: "en_tramite",
+      categoriaCorreccion: "correccion_enviada",
+      mesaCambioEstado: "WAITING_ADVISOR",
+    });
+    assert.equal(e, "correccion_requerida");
   });
 });
 

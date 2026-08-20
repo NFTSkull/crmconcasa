@@ -5,7 +5,8 @@ RPCs: `asesor_list_expedientes_page`, `asesor_inbox_summary` (mig. **161**, chip
 Helpers calibrados: `asesor_inbox_categoria_correccion`, `asesor_inbox_pendiente_agendar_biometricos` (mig. **167**).
 **P191:** `asesor_inbox_es_accionable` (via `resultado_real`) — `cancelado` / `rechazado_mesa` no son tarea; los tres `pendiente_*` lo invocan. `isAsesorExpedienteAccionable` en TS.
 **Hotfix 192:** `expediente_tiene_correccion_asesor_pendiente` → `correccion_enviada` antes de heurística documental. Sin gate de etapa.
-**P197-B2:** chips/contadores por `asesor_inbox_estado_efectivo`. Columna UI **Estado actual** = ese campo. `categoria_correccion` = Documentación (secundaria). `/asesor/page.tsx` no reimplementa P196.
+**P201:** chips/contadores por `asesor_inbox_estado_efectivo` alineado a P198 (`WAITING_ADVISOR`→Necesita, `CORRECTION_PENDING_REVIEW`→Enviada). `categoria_correccion` = Documentación (secundaria; no gobierna quick filter).
+**P197-B2:** columna UI **Estado actual** = `estado_efectivo`. `/asesor/page.tsx` no reimplementa P196/P198.
 **P197-B3:** detalle `/asesor/expediente/[id]` mismo `estado_efectivo`; deep link `?focus=correccion` en Necesita.
 **UI `/asesor`:** cableada en B1 UI (sin `listForAsesor`, sin fallback).
 

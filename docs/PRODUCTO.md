@@ -4,7 +4,7 @@ En la bandeja principal, Mesa puede avanzar a la siguiente etapa canónica, marc
 
 Chip **Cambios por revisar** (id interno `correccion_enviada`): **P198** estado efectivo de revisión Mesa. Correcciones = respuesta del asesor aún no procesada; Actualizaciones = update espontáneo aún no procesado. Un lote raw `pendiente_revision` ya cerrado (DG/doc validado) o superado por un re-reject **no** entra. P196: origen REQUESTED = primer lote posterior a la solicitud. P194 muestra **qué cambió**. Sin gate de etapa.
 
-**Inbox asesor chips (P197 LOCAL):** colas usan `asesor_inbox_estado_efectivo`. **P197-B2:** la columna **Estado actual** pinta ese valor; Documentación y Estatus op. son dimensiones secundarias. **P197-B3:** el detalle `/asesor/expediente/[id]` usa el mismo estado principal (no `subestado` como alerta de acción).
+**Inbox asesor chips (P201):** colas usan `asesor_inbox_estado_efectivo` alineado al episodio Mesa P198. **Necesita corrección** = el asesor aún debe responder (`WAITING_ADVISOR` o retención abierta). **Corrección enviada** = ya respondió y Mesa revisa (`CORRECTION_PENDING_REVIEW`). La columna Documentación/corrección es secundaria y puede diferir. **P197-B2/B3:** Estado actual / detalle pintan `estado_efectivo`.
 
 **Disponibles** (asignación `sin_asignar`, **P199**): todo trabajo Mesa accionable ahora, ciclo `activo`, `assigned_to` NULL y tomable. Incluye correcciones y actualizaciones P198 pending libres. Excluye `WAITING_ADVISOR`, rechazo raw sin respuesta (P195), asignados y cancelados. Si aparece, se puede tomar.
 
