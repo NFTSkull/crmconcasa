@@ -1,5 +1,5 @@
 import * as XLSX from "xlsx";
-import { getEtapaOperativaNombre } from "@/domain/expedientes/asesor-seguimiento-operativo";
+import { getAdminEtapaDisplayNombre } from "@/domain/admin-production/admin-visible-stages";
 import { formatAsesorExpedienteLabel } from "@/lib/asesorDisplay";
 import { formatMontoMX } from "@/lib/monto";
 import {
@@ -88,7 +88,11 @@ export function buildAdminProductionWorkbook(input: {
       r.fechaEnvioMesa,
       sanitize(r.clienteNombre),
       sanitize(formatAdminMesaAsesorLabel(r.asesorNombre)),
-      sanitize(r.etapaLabel || getEtapaOperativaNombre(r.etapaActual)),
+      sanitize(
+        r.etapaActual === 10 || /cita para firma/i.test(String(r.etapaLabel ?? ""))
+          ? getAdminEtapaDisplayNombre(r.etapaActual)
+          : r.etapaLabel || getAdminEtapaDisplayNombre(r.etapaActual),
+      ),
       sanitize(r.situacionLabel),
       r.fechaEnvioMesa,
       r.ultimaActividadMesaAt

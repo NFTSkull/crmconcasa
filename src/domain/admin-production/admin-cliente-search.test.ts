@@ -102,6 +102,8 @@ describe("P182 admin search cliente", () => {
     assert.equal(labelAdminSearchMesa({ submittedToMesa: false }), "No enviado a Mesa");
     assert.equal(labelAdminSearchMesa({ submittedToMesa: true }), "Enviado a Mesa");
     assert.match(labelAdminSearchEtapa(1), /Etapa 1 · Integración/);
+    assert.match(labelAdminSearchEtapa(10), /Etapa 10 · Listo para agendar firma/);
+    assert.doesNotMatch(labelAdminSearchEtapa(10), /Cita para firma/);
     assert.equal(
       adminSearchProgramaSolicitadoVisible("mejoravit", "compro_tu_casa"),
       "compro_tu_casa",

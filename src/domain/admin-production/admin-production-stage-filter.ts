@@ -5,11 +5,9 @@
 
 import type { AdminAsesorProductionRow } from "./repo";
 import { etapaActualesFromAdminPasoFilter } from "./admin-ui-filters";
-import {
-  ETAPAS_VISUALES_OPERATIVAS,
-} from "@/domain/expedientes/asesor-seguimiento-operativo";
+import { shortAdminPasoFilterNombre } from "./admin-visible-stages";
 
-/** Suma `row.etapas` para las internas del paso visual (Paso 3 → 3+4). */
+/** Suma `row.etapas` para las internas del paso Admin (p. ej. 9+10). */
 export function adminProductionSelectedStageCount(
   row: Pick<AdminAsesorProductionRow, "etapas">,
   etapaActuales: readonly number[] | null,
@@ -47,13 +45,9 @@ export function filterAdminProductionRowsByPaso(
     .map((x) => x.row);
 }
 
-/** Nombre corto del paso (p. ej. «Inscripción») para copy de filtro activo. */
+/** Nombre corto del paso Admin (p. ej. «Inscripción»). */
 export function shortPasoVisualAdminFilterNombre(
   pasoFilter: string,
 ): string | null {
-  if (pasoFilter === "todas") return null;
-  const paso = Number(pasoFilter);
-  if (!Number.isFinite(paso)) return null;
-  const entry = ETAPAS_VISUALES_OPERATIVAS.find((e) => e.pasoVisual === paso);
-  return entry?.nombre ?? null;
+  return shortAdminPasoFilterNombre(pasoFilter);
 }

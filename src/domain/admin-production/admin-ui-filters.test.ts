@@ -28,52 +28,63 @@ describe("admin-ui-filters — navegación etapa/asesor", () => {
   });
 });
 
-describe("admin-ui-filters — P115 pasos visuales Admin", () => {
-  it("select general muestra exactamente 11 pasos (sin 12 internas)", () => {
+describe("admin-ui-filters — Admin 10 pasos (sin Cita para firma)", () => {
+  it("select muestra 10 pasos consecutivos sin «Cita para firma»", () => {
     const opts = opcionesFiltroPasoAdminDashboard();
-    assert.equal(opts.length, 11);
+    assert.equal(opts.length, 10);
     assert.deepEqual(
       opts.map((o) => o.value),
-      ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10", "11"],
+      ["1", "2", "3", "4", "5", "6", "7", "8", "9", "10"],
     );
-    assert.ok(!opts.some((o) => o.label.includes("Cita agendada (biométricos)")));
+    assert.ok(!opts.some((o) => /cita para firma/i.test(o.label)));
     assert.equal(opts[2]?.label, "3. Listo para cita de biométrico");
-    assert.equal(opts[10]?.label, "11. Pago a ConCasa");
+    assert.equal(opts[7]?.label, "8. Listo para agendar firma");
+    assert.equal(opts[8]?.label, "9. Firmado");
+    assert.equal(opts[9]?.label, "10. Pago a ConCasa");
   });
 
-  it("Paso 3 filtra internas 3 y 4", () => {
+  it("Paso 3 → [3,4]; Paso 8 → [9,10]; Firmado/Pago", () => {
     assert.deepEqual(etapaActualesFromAdminPasoFilter("3"), [3, 4]);
     assert.deepEqual(etapaActualesFromAdminPasoFilter("4"), [5]);
-    assert.deepEqual(etapaActualesFromAdminPasoFilter("11"), [12]);
+    assert.deepEqual(etapaActualesFromAdminPasoFilter("8"), [9, 10]);
+    assert.deepEqual(etapaActualesFromAdminPasoFilter("9"), [11]);
+    assert.deepEqual(etapaActualesFromAdminPasoFilter("10"), [12]);
     assert.equal(etapaActualesFromAdminPasoFilter("todas"), null);
   });
 
-  it("tarjeta interna 3 o 4 activa el mismo paso visual 3", () => {
-    assert.equal(nextPasoVisualFilterFromInternalCard("todas", 3), "3");
-    assert.equal(nextPasoVisualFilterFromInternalCard("todas", 4), "3");
-    assert.equal(nextPasoVisualFilterFromInternalCard("3", 3), "todas");
-    assert.equal(nextPasoVisualFilterFromInternalCard("3", 4), "todas");
-    assert.equal(isAdminPasoVisualFilterPressed("3", 3), true);
-    assert.equal(isAdminPasoVisualFilterPressed("3", 4), true);
-    assert.equal(isAdminPasoVisualFilterPressed("3", 5), false);
+  it("tarjeta interna 9 o 10 activa el mismo paso Admin 8", () => {
+    assert.equal(nextPasoVisualFilterFromInternalCard("todas", 9), "8");
+    assert.equal(nextPasoVisualFilterFromInternalCard("todas", 10), "8");
+    assert.equal(nextPasoVisualFilterFromInternalCard("8", 9), "todas");
+    assert.equal(isAdminPasoVisualFilterPressed("8", 9), true);
+    assert.equal(isAdminPasoVisualFilterPressed("8", 10), true);
+    assert.equal(isAdminPasoVisualFilterPressed("8", 11), false);
   });
 
-  it("etiqueta de filtro usa numeración visual", () => {
-    assert.match(labelPasoVisualAdminFilter("3") ?? "", /Paso 3 de 11/);
+  it("tarjeta interna 3 o 4 activa el mismo paso Admin 3 (P115)", () => {
+    assert.equal(nextPasoVisualFilterFromInternalCard("todas", 3), "3");
+    assert.equal(nextPasoVisualFilterFromInternalCard("todas", 4), "3");
+    assert.equal(isAdminPasoVisualFilterPressed("3", 3), true);
+    assert.equal(isAdminPasoVisualFilterPressed("3", 4), true);
+  });
+
+  it("etiqueta de filtro usa numeración Admin 1–10", () => {
+    assert.match(labelPasoVisualAdminFilter("3") ?? "", /Paso 3 de 10/);
+    assert.match(labelPasoVisualAdminFilter("8") ?? "", /Listo para agendar firma/);
     assert.equal(labelPasoVisualAdminFilter("todas"), null);
   });
 
-  it("matchesAdminEtapaActualFilter respeta [3,4]", () => {
+  it("matchesAdminEtapaActualFilter respeta [9,10]", () => {
     assert.equal(
-      matchesAdminEtapaActualFilter(3, { etapaActuales: [3, 4] }),
+      matchesAdminEtapaActualFilter(9, { etapaActuales: [9, 10] }),
       true,
     );
     assert.equal(
-      matchesAdminEtapaActualFilter(4, { etapaActuales: [3, 4] }),
+      matchesAdminEtapaActualFilter(10, { etapaActuales: [9, 10] }),
       true,
     );
     assert.equal(
-      matchesAdminEtapaActualFilter(5, { etapaActuales: [3, 4] }),
+      matchesAdminEtapaActualFilter(11, { etapaActuales: [9, 10] }),
       false,
     );
   });

@@ -25,7 +25,7 @@ import {
   type AdminMesaEnvioEvent,
   type AdminPrecalEvent,
 } from "@/domain/admin-production";
-import { getEtapaOperativaNombre } from "@/domain/expedientes/asesor-seguimiento-operativo";
+import { getAdminEtapaDisplayNombre } from "@/domain/admin-production/admin-visible-stages";
 import { formatDateTimeMx } from "@/lib/filters";
 import { formatMontoMX } from "@/lib/monto";
 
@@ -178,7 +178,10 @@ function AdminExpedienteDrawerPanel({
   rechazoText,
 }: PanelProps) {
   const [tab, setTab] = useState<AdminExpedienteDrawerTab>("resumen");
-  const etapa = row.etapaLabel || getEtapaOperativaNombre(row.etapaActual);
+  const etapa =
+    row.etapaActual === 10 || /cita para firma/i.test(String(row.etapaLabel ?? ""))
+      ? getAdminEtapaDisplayNombre(row.etapaActual)
+      : row.etapaLabel || getAdminEtapaDisplayNombre(row.etapaActual);
   const tabs: { id: AdminExpedienteDrawerTab; label: string }[] = [
     { id: "resumen", label: "Resumen" },
     { id: "seguimiento", label: "Seguimiento" },

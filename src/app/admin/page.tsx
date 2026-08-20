@@ -9,7 +9,10 @@ import { Select } from "@/components/ui/Select";
 import { formatMontoMX } from "@/lib/monto";
 import { formatDateTimeMx } from "@/lib/filters";
 import { formatAsesorExpedienteLabel } from "@/lib/asesorDisplay";
-import { getEtapaOperativaNombre } from "@/domain/expedientes/asesor-seguimiento-operativo";
+import {
+  getAdminEtapaDisplayNombre,
+  projectAdminVisibleStageBuckets,
+} from "@/domain/admin-production/admin-visible-stages";
 import {
   useAdminProductionRepo,
   resolveAdminPeriodBounds,
@@ -269,6 +272,10 @@ export default function AdminDashboardPage() {
   const produccionRows = useMemo(
     () => filterAdminProductionRowsByPaso(asesores, etapaActual),
     [asesores, etapaActual],
+  );
+  const visibleByEtapa = useMemo(
+    () => projectAdminVisibleStageBuckets(byEtapa, snapshotTotal),
+    [byEtapa, snapshotTotal],
   );
 
   // Query param visual (?adminTab=) para conservar la pestaña al refrescar.
@@ -945,7 +952,7 @@ export default function AdminDashboardPage() {
                     ) : null}
                   </div>
                   <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                    {byEtapa.map((b) => {
+                    {visibleByEtapa.map((b) => {
                       const pressed = isAdminPasoVisualFilterPressed(etapaActual, b.etapa);
                       const empty = b.count === 0;
                       return (
@@ -962,7 +969,7 @@ export default function AdminDashboardPage() {
                         >
                           <div className="flex items-start justify-between gap-2">
                             <p className="text-sm font-medium">
-                              {getEtapaOperativaNombre(b.etapa)}
+                              {getAdminEtapaDisplayNombre(b.etapa)}
                             </p>
                             {pressed ? (
                               <span
@@ -1087,7 +1094,11 @@ export default function AdminDashboardPage() {
                             {formatAdminMesaAsesorLabel(r.asesorNombre)}
                           </td>
                           <td className="py-2.5 pr-3">
-                            {r.etapaLabel || getEtapaOperativaNombre(r.etapaActual)}
+                            {r.etapaActual === 10 ||
+                            /cita para firma/i.test(String(r.etapaLabel ?? ""))
+                              ? getAdminEtapaDisplayNombre(r.etapaActual)
+                              : r.etapaLabel ||
+                                getAdminEtapaDisplayNombre(r.etapaActual)}
                           </td>
                           <td className="py-2.5 pr-3">
                             <AdminStatusBadge

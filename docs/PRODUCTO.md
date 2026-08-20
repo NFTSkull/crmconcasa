@@ -200,7 +200,9 @@ La UI identifica al hijo como **Reingreso / Reinscripción** y **Biométricos re
 
 **P114:** rango opcional Desde/Hasta (fecha canónica de entrada al paso visual, `America/Monterrey`); históricos sin fecha quedan fuera del rango y se reportan; Limpiar filtros; Todos/Todas selección explícita; RPC `…_v2`.
 
-**P115:** el filtro general del dashboard Admin usa los mismos 11 pasos visibles; resumen distingue etapas consultadas vs con resultados; advertencia de exclusión histórica al fijar rango + «Quitar rango».
+**P115:** el filtro general del dashboard Admin partía de 11 pasos visibles (Paso 3→`[3,4]`); resumen distingue etapas consultadas vs con resultados; advertencia de exclusión histórica al fijar rango + «Quitar rango».
+
+**Admin (proyección actual):** 10 pasos visibles consecutivos: se oculta «Cita para firma» (interna 10, legacy). «Listo para agendar firma» agrupa internas `[9,10]` en tarjetas/select/Producción/labels. Sin cambio de DB ni de catálogo compartido Mesa/Asesor.
 
 **P116:** selector de tipo de fecha — por defecto «Fecha de envío a Mesa» (`fecha_envio_mesa`); opción «Fecha de entrada al paso actual» (tracking P114). RPC `…_v3`.
 

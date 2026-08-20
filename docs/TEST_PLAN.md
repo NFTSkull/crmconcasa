@@ -1,3 +1,11 @@
+## Admin — ocultar «Cita para firma» (proyección UI)
+
+- [x] Helper `admin-visible-stages`: 10 pasos; paso 3→`[3,4]`; paso 8→`[9,10]`; Firmado=`[11]`; Pago=`[12]`.
+- [x] Tarjetas Resumen sin etapa 10; count Listo firma = 9+10; total/pct preservados.
+- [x] Select / click / Producción mapean `[9,10]`; label Admin etapa 10 = Listo firma.
+- [x] Catálogo compartido / Mesa / Asesor / reportes históricos sin cambio de datos.
+- [x] 0 SQL / 0 writers / 0 smoke.
+
 ## Admin — filtros periodo / etapa (UI)
 
 - [x] E1–E8 Expedientes = `listMesaEnviosPage` + bounds; Resumen snapshot independiente; Precal intacta.
