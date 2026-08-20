@@ -1154,7 +1154,10 @@ export class SupabaseExpedientesRepo implements ExpedientesRepo {
       rpcArgs.p_comentario = comentarioNorm;
     }
 
-    const { data, error } = await client.rpc("avanzar_etapa_operativa", rpcArgs);
+    const { data, error } = await client.rpc(
+      "mesa_avanzar_etapa_reactivando_si_necesario",
+      rpcArgs,
+    );
 
     if (error) {
       throw mapAvanzarEtapaRpcError(error);

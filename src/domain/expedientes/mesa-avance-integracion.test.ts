@@ -110,10 +110,14 @@ describe("puedeMostrarContinuarIntegracion", () => {
     assert.equal(puedeMostrarContinuarIntegracion(baseCtx({ submittedToMesa: false })), false);
   });
 
-  it("no visible si subestado distinto de en_validacion_mesa", () => {
+  it("no visible con en_proceso; sí con rechazado (P204-D)", () => {
     assert.equal(
       puedeMostrarContinuarIntegracion(baseCtx({ subestado: "en_proceso" })),
       false,
+    );
+    assert.equal(
+      puedeMostrarContinuarIntegracion(baseCtx({ subestado: "rechazado" })),
+      true,
     );
   });
 });
@@ -973,12 +977,12 @@ describe("deriveAvanceOperativo11a12View (P119.4)", () => {
     );
   });
 
-  it("rechazado / ciclo inactivo no muestran", () => {
+  it("rechazado / ciclo inactivo: rechazado SÍ muestra (P204-D); ciclo inactivo no", () => {
     assert.equal(
       deriveAvanceOperativo11a12View(
         avanceCtx({ etapaActual: 11, subestado: "rechazado" }),
       ).mostrar,
-      false,
+      true,
     );
     assert.equal(
       deriveAvanceOperativo11a12View(

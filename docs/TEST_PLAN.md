@@ -6,6 +6,15 @@
 - [x] stageCount vs totalCount: aviso si discrepan; no maquillar.
 - [x] Precal/monto/listByAsesor intactos; 0 SQL.
 
+## P204-D — Avance normal visible + manual override desde rechazo
+
+- [x] Causa: `puedeMostrarContinuarIntegracion` exigía `en_validacion_mesa` → panel null con `rechazado`.
+- [x] Visibilidad: paneles normales muestran con `rechazado`; gates normales siguen en `puedeAvanzar`.
+- [x] RPC `mesa_avanzar_etapa_reactivando_si_necesario` (mig **204**): reactivar+`avanzar_etapa_operativa` atómico.
+- [x] `mesa_mover_etapa_operativa`: si `rechazado`, reactivar+mover atómico; UI aviso + controles enabled.
+- [x] CTA «Reactivar expediente» intacto (misma etapa).
+- [x] Tests N*/M* TS + SQL fixtures; 0 Cloud / 0 smoke.
+
 ## P204-C — UX rechazo operativo abierto (sin auto-reactivar)
 
 - [x] Banner asesor: «Expediente rechazado por Mesa» + «bloqueado hasta que lo reenvíes»; con actividad → «Cambios guardados · Falta reenviar a Mesa»; CTA «Reenviar a Mesa» → solo `reactivar_expediente_rechazado`.
