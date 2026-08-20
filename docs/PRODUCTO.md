@@ -204,6 +204,8 @@ La UI identifica al hijo como **Reingreso / Reinscripción** y **Biométricos re
 
 **Admin (proyección actual):** 10 pasos visibles consecutivos: se oculta «Cita para firma» (interna 10, legacy). «Listo para agendar firma» agrupa internas `[9,10]` en tarjetas/select/Producción/labels. Sin cambio de DB ni de catálogo compartido Mesa/Asesor.
 
+**Admin Producción:** con filtro de etapa, la métrica primaria de cada asesor es el count de esa etapa (`row.etapas`); Expandir carga on-demand los expedientes vía `listMesaEnviosPage` (mismo periodo/asesor/etapa). Aprobadas/No cumple/monto siguen siendo totales del periodo.
+
 **P116:** selector de tipo de fecha — por defecto «Fecha de envío a Mesa» (`fecha_envio_mesa`); opción «Fecha de entrada al paso actual» (tracking P114). RPC `…_v3`.
 
 ### 6.6 Rechazado vs Cancelado (P094 — diseño B0)

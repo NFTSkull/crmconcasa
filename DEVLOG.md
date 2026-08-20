@@ -1,3 +1,7 @@
+## 2026-08-20 - Admin Producción: métrica etapa + Expandir expedientes
+
+Causa: con filtro Firmado se veía «Enviados 42» junto a «Firmado: 2»; Expandir no listaba expedientes. Decisión: métrica primaria = stageCount cuando hay etapa; Expandir llama `listMesaEnviosPage` on-demand (1 asesor, race-safe, paginación 25); precal/monto intactos. 0 SQL / 0 writers / 0 smoke.
+
 ## 2026-08-20 - Admin: ocultar etapa 10 «Cita para firma» (solo UI)
 
 Causa: la etapa interna 10 ya no es del flujo actual pero seguía en tarjetas/select/Producción Admin. Decisión: helper `admin-visible-stages` (10 pasos consecutivos); count/filtro «Listo para agendar firma» = internas `[9,10]`; label Admin remapea 10→9. Sin tocar `ETAPAS_OPERATIVAS_ASESOR`, writers, Mesa, Asesor ni reportes históricos. 0 SQL / 0 smoke.

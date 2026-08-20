@@ -54,6 +54,17 @@ import {
   filterAdminProductionRowsByPaso,
   shortPasoVisualAdminFilterNombre,
 } from "@/domain/admin-production/admin-production-stage-filter";
+import {
+  ADMIN_PRODUCTION_EXPAND_PAGE_SIZE,
+  adminProductionExpandCountMismatch,
+  adminProductionExpandExpedientesCtaLabel,
+  adminProductionExpandIdentityKey,
+  adminProductionExpandSubtitle,
+  adminProductionExpandTitle,
+  adminProductionPrimaryMetric,
+  buildAdminProductionExpandFilters,
+  buildAdminProductionExpandIdentity,
+} from "@/domain/admin-production/admin-production-expand";
 import type { AdminEtapaBucket, AdminPrecalSummary } from "@/domain/admin-production/repo";
 import {
   buildAdminProductionWorkbook,
@@ -66,6 +77,7 @@ import { AdminSectionHeader } from "@/components/admin/AdminSectionHeader";
 import { AdminStatusBadge } from "@/components/admin/AdminStatusBadge";
 import { AdminEmptyState } from "@/components/admin/AdminEmptyState";
 import { AdminExpandableAdvisorRow } from "@/components/admin/AdminExpandableAdvisorRow";
+import { AdminProductionExpandedExpedientes } from "@/components/admin/AdminProductionExpandedExpedientes";
 import { AdminExpedienteDrawer } from "@/components/admin/AdminExpedienteDrawer";
 import { AdminBernardoDashboard } from "@/components/admin/AdminBernardoDashboard";
 import { AdminSearchResultadosSection } from "@/components/admin/AdminSearchResultadosSection";
@@ -142,6 +154,19 @@ export default function AdminDashboardPage() {
   );
   /** B2: una sola fila de producción expandida a la vez (estado predecible). */
   const [expandedAsesorId, setExpandedAsesorId] = useState<string | null>(null);
+  const [expandedProductionPage, setExpandedProductionPage] = useState(1);
+  const [expandedProductionItems, setExpandedProductionItems] = useState<
+    readonly AdminMesaEnvioEvent[]
+  >([]);
+  const [expandedProductionTotal, setExpandedProductionTotal] = useState(0);
+  const [expandedProductionLoading, setExpandedProductionLoading] = useState(false);
+  const [expandedProductionError, setExpandedProductionError] = useState<string | null>(
+    null,
+  );
+  const [expandedProductionQueryKey, setExpandedProductionQueryKey] = useState<
+    string | null
+  >(null);
+  const expandedProductionGenRef = useRef(0);
 
   const [preset, setPreset] = useState<AdminPeriodPreset>("hoy");
   const [customFrom, setCustomFrom] = useState("");
@@ -277,6 +302,109 @@ export default function AdminDashboardPage() {
     () => projectAdminVisibleStageBuckets(byEtapa, snapshotTotal),
     [byEtapa, snapshotTotal],
   );
+
+  const clearExpandedProduction = useCallback(() => {
+    expandedProductionGenRef.current += 1;
+    setExpandedAsesorId(null);
+    setExpandedProductionPage(1);
+    setExpandedProductionItems([]);
+    setExpandedProductionTotal(0);
+    setExpandedProductionLoading(false);
+    setExpandedProductionError(null);
+    setExpandedProductionQueryKey(null);
+  }, []);
+
+  const productionExpandInvalidateKey = useMemo(() => {
+    if (!bounds) return "no-bounds";
+    return [
+      bounds.fromIso,
+      bounds.toExclusiveIso,
+      etapaActual,
+      estado,
+      buscarDebounced,
+      asesorId,
+    ].join("|");
+  }, [bounds, etapaActual, estado, buscarDebounced, asesorId]);
+
+  /** Filtros globales: cerrar expansión (evita datos stale). */
+  useEffect(() => {
+    clearExpandedProduction();
+  }, [productionExpandInvalidateKey, clearExpandedProduction]);
+
+  /** On-demand: una sola fila expandida → listMesaEnviosPage. */
+  useEffect(() => {
+    if (!expandedAsesorId || !filtersBase || !bounds) {
+      return;
+    }
+    const identity = buildAdminProductionExpandIdentity({
+      asesorId: expandedAsesorId,
+      bounds,
+      etapaPaso: etapaActual,
+      estado,
+      page: expandedProductionPage,
+    });
+    const key = adminProductionExpandIdentityKey(identity);
+    const gen = ++expandedProductionGenRef.current;
+    setExpandedProductionQueryKey(key);
+    setExpandedProductionLoading(true);
+    setExpandedProductionError(null);
+
+    const filters = buildAdminProductionExpandFilters({
+      filtersBase,
+      asesorId: expandedAsesorId,
+      etapaPaso: etapaActual,
+      page: expandedProductionPage,
+      pageSize: ADMIN_PRODUCTION_EXPAND_PAGE_SIZE,
+    });
+
+    void repo
+      .listMesaEnviosPage(filters)
+      .then((page) => {
+        if (gen !== expandedProductionGenRef.current) return;
+        setExpandedProductionItems(page.items);
+        setExpandedProductionTotal(page.totalCount);
+      })
+      .catch((e) => {
+        if (gen !== expandedProductionGenRef.current) return;
+        setExpandedProductionItems([]);
+        setExpandedProductionTotal(0);
+        setExpandedProductionError(
+          e instanceof Error ? e.message : "No se pudieron cargar expedientes",
+        );
+      })
+      .finally(() => {
+        if (gen !== expandedProductionGenRef.current) return;
+        setExpandedProductionLoading(false);
+      });
+  }, [
+    expandedAsesorId,
+    expandedProductionPage,
+    filtersBase,
+    bounds,
+    etapaActual,
+    estado,
+    repo,
+  ]);
+
+  const toggleExpandedAsesor = useCallback((id: string) => {
+    setExpandedAsesorId((cur) => {
+      if (cur === id) {
+        expandedProductionGenRef.current += 1;
+        setExpandedProductionPage(1);
+        setExpandedProductionItems([]);
+        setExpandedProductionTotal(0);
+        setExpandedProductionLoading(false);
+        setExpandedProductionError(null);
+        setExpandedProductionQueryKey(null);
+        return null;
+      }
+      setExpandedProductionPage(1);
+      setExpandedProductionItems([]);
+      setExpandedProductionTotal(0);
+      setExpandedProductionError(null);
+      return id;
+    });
+  }, []);
 
   // Query param visual (?adminTab=) para conservar la pestaña al refrescar.
   // Se lee una sola vez al montar; no interviene el router ni las consultas.
@@ -1428,29 +1556,29 @@ export default function AdminDashboardPage() {
                             etapaActualesSeleccionadas,
                           )
                         : null;
+                      const primaryMetric = adminProductionPrimaryMetric({
+                        etapaPasoFilter: etapaActual,
+                        stageCount,
+                        enviadosAMesa: a.enviadosAMesa,
+                      });
                       return (
                         <AdminExpandableAdvisorRow
                           key={a.asesorId}
                           advisorLabel={label}
                           expanded={expanded}
-                          onToggle={() =>
-                            setExpandedAsesorId((cur) =>
-                              cur === a.asesorId ? null : a.asesorId,
-                            )
-                          }
+                          onToggle={() => toggleExpandedAsesor(a.asesorId)}
                           summary={
                             <div className="grid min-w-0 grid-cols-2 gap-x-3 gap-y-1 text-sm sm:grid-cols-3 lg:grid-cols-6">
                               <div className="min-w-0 sm:col-span-3 lg:col-span-1">
                                 <p className="truncate font-medium text-slate-900">{label}</p>
-                                {stageCount != null && etapaFiltroNombreCorto ? (
-                                  <p className="mt-0.5 text-xs text-slate-600">
-                                    {etapaFiltroNombreCorto}: {stageCount}
-                                  </p>
-                                ) : null}
                               </div>
                               <div>
-                                <p className="text-[11px] uppercase text-slate-500">Enviados</p>
-                                <p className="tabular-nums text-slate-900">{a.enviadosAMesa}</p>
+                                <p className="text-[11px] uppercase text-slate-500">
+                                  {primaryMetric.label}
+                                </p>
+                                <p className="tabular-nums text-slate-900">
+                                  {primaryMetric.value}
+                                </p>
                               </div>
                               <div>
                                 <p className="text-[11px] uppercase text-slate-500">Aprobadas</p>
@@ -1480,6 +1608,34 @@ export default function AdminDashboardPage() {
                           }
                         >
                           <div className="space-y-3">
+                            {expanded ? (
+                              <AdminProductionExpandedExpedientes
+                                key={expandedProductionQueryKey ?? a.asesorId}
+                                title={adminProductionExpandTitle({
+                                  etapaPaso: etapaActual,
+                                })}
+                                subtitle={adminProductionExpandSubtitle({
+                                  totalCount: expandedProductionTotal,
+                                  advisorLabel: label,
+                                  etapaPaso: etapaActual,
+                                })}
+                                items={expandedProductionItems}
+                                totalCount={expandedProductionTotal}
+                                page={expandedProductionPage}
+                                pageSize={ADMIN_PRODUCTION_EXPAND_PAGE_SIZE}
+                                loading={expandedProductionLoading}
+                                error={expandedProductionError}
+                                countMismatch={adminProductionExpandCountMismatch({
+                                  stageCount,
+                                  totalCount: expandedProductionTotal,
+                                })}
+                                stageCount={stageCount}
+                                onPageChange={setExpandedProductionPage}
+                                onOpenDetalle={(row, trigger) =>
+                                  void openTimeline(row, trigger)
+                                }
+                              />
+                            ) : null}
                             <div>
                               <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">
                                 Estado actual por etapas
@@ -1498,7 +1654,7 @@ export default function AdminDashboardPage() {
                                 className="rounded-md bg-slate-900 px-3 py-1.5 text-sm font-medium text-white hover:bg-slate-800"
                                 onClick={() => goExpedientesAsesor(a.asesorId)}
                               >
-                                Ver expedientes de este asesor
+                                {adminProductionExpandExpedientesCtaLabel(etapaActual)}
                               </button>
                               <button
                                 type="button"

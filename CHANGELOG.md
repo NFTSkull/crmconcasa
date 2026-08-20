@@ -10,6 +10,8 @@
 
 ## [Unreleased]
 
+- **fix(admin): Producción — métrica por etapa + Expandir con expedientes** — con filtro de etapa la métrica primaria muestra el count de etapa (no «Enviados»); Expandir carga on-demand `listMesaEnviosPage` del asesor. 0 SQL.
+
 - **fix(admin): ocultar «Cita para firma» (etapa 10 legacy, UI)** — proyección Admin 10 pasos; tarjeta/select/Producción agrupan 9+10; label Admin sin «Cita para firma». Catálogo compartido/Mesa/Asesor/DB intactos. 0 SQL.
 
 - **fix(admin): periodo en Expedientes + Producción por etapa + copy (UI)** — Expedientes usa `listMesaEnviosPage` (bounds); Resumen snapshot intacto; Producción siempre visible filtrando `row.etapas`; 0 «cohorte» en UI. 0 SQL. Sin Mesa/Asesor/P203.
