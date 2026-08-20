@@ -92,6 +92,14 @@ export interface ExpedientesRepo {
   listForMesaControlPaginated(
     query: ListForMesaControlPaginatedQuery,
   ): Promise<PaginatedMesaBandejaResult>;
+  /**
+   * P205-B1: KPIs/chips Mesa vía `mesa_bandeja_counts_fast`.
+   * Fallback SOLO si la RPC no existe (PGRST202) → list includeCounts=true limit 1.
+   */
+  getMesaBandejaCounts(input: {
+    todayYmd: string | null;
+    origen: string | null;
+  }): Promise<import("./list-for-mesa-control-paginated").MesaBandejaServerCounts | null>;
   getById(id: string): Promise<ExpedienteMock | null>;
   createExpediente(input: CreateExpedienteInput): Promise<ExpedienteMock>;
   /** P155: gate RO antes de crear / re-precalificar por NSS. */

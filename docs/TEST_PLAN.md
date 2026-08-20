@@ -6,6 +6,14 @@
 - [x] stageCount vs totalCount: aviso si discrepan; no maquillar.
 - [x] Precal/monto/listByAsesor intactos; 0 SQL.
 
+## P205-B1 — Mesa counts-only RPC
+
+- [x] Congelar 13 campos counts; paridad OLD/NEW todos/interno/externo.
+- [x] `mesa_bandeja_counts_fast(today, origen)` MATERIALIZED categoria+P198 1×/fila.
+- [x] FE `getMesaBandejaCounts`; list sigue `includeCounts=false`; fallback solo PGRST202.
+- [x] Benchmark TX+ROLLBACK ≥40% mejora; C14–C18 race/first-paint.
+- [x] 0 writers; list/P198/P199/P204-D intactos; sin Cloud persistente en pre-publicar.
+
 ## P204-D — Avance normal visible + manual override desde rechazo
 
 - [x] Causa: `puedeMostrarContinuarIntegracion` exigía `en_validacion_mesa` → panel null con `rechazado`.

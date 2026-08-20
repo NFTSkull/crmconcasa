@@ -1,0 +1,24 @@
+{
+  "today": "2026-08-20",
+  "note": "Cloud RO freeze pre-P205; no PII; roles see same org universe",
+  "keys": [
+    "bloqueadosRechazados","cancelados","citasHoy","correccionesEnviadas",
+    "correccionesSolicitadas","enEsperaAsesor","enProceso","enValidacionMesa",
+    "nuevos","otrasActualizaciones","rechazados","rechazosCancelaciones","totalBandeja"
+  ],
+  "mesa_admin_todos": {
+    "bloqueadosRechazados":72,"cancelados":10,"citasHoy":24,"correccionesEnviadas":68,
+    "correccionesSolicitadas":6,"enEsperaAsesor":72,"enProceso":333,"enValidacionMesa":1,
+    "nuevos":84,"otrasActualizaciones":62,"rechazados":36,"rechazosCancelaciones":46,"totalBandeja":407
+  },
+  "mesa_admin_interno": {
+    "bloqueadosRechazados":72,"cancelados":10,"citasHoy":24,"correccionesEnviadas":68,
+    "correccionesSolicitadas":6,"enEsperaAsesor":72,"enProceso":333,"enValidacionMesa":1,
+    "nuevos":84,"otrasActualizaciones":62,"rechazados":36,"rechazosCancelaciones":46,"totalBandeja":407
+  },
+  "mesa_admin_externo": {
+    "bloqueadosRechazados":0,"cancelados":0,"citasHoy":0,"correccionesEnviadas":0,
+    "correccionesSolicitadas":0,"enEsperaAsesor":0,"enProceso":0,"enValidacionMesa":0,
+    "nuevos":0,"otrasActualizaciones":0,"rechazados":0,"rechazosCancelaciones":0,"totalBandeja":0
+  }
+}
