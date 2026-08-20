@@ -1,6 +1,8 @@
--- P197: estado efectivo inbox. S1–S10. 0 writers.
+-- P197 S1–S10 adaptados a P201 (episodio P198). 0 writers.
+-- Aplica 197 histórico y luego REPLACE P201 (contrato nuevo).
 \set ON_ERROR_STOP on
 \ir ../migrations/197_asesor_inbox_estado_efectivo.sql
+\ir ../migrations/201_asesor_correccion_estado_efectivo_p198.sql
 
 CREATE OR REPLACE FUNCTION public.__p197_assert(p_ok BOOLEAN, p_msg TEXT)
 RETURNS VOID LANGUAGE plpgsql AS $$
@@ -34,8 +36,19 @@ BEGIN
   SELECT pg_get_functiondef(p.oid) INTO v_src
   FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
   WHERE n.nspname = 'public' AND p.proname = 'asesor_inbox_estado_efectivo';
-  PERFORM public.__p197_assert(position('UPDATE ' in v_src) = 0, 'helper sin UPDATE');
-  PERFORM public.__p197_assert(position('REQUESTED_CORRECTION' in v_src) > 0, 'usa P196');
+  PERFORM public.__p197_assert(
+    position('UPDATE public.' in v_src) = 0
+    AND position('UPDATE ' in replace(v_src, 'ADVISOR_UPDATE', 'ADVISOR_X')) = 0,
+    'helper sin UPDATE'
+  );
+  PERFORM public.__p197_assert(
+    position('mesa_cambio_revision_estado_efectivo' in v_src) > 0,
+    'P201 consume P198'
+  );
+  PERFORM public.__p197_assert(
+    position('asesor_inbox_categoria_correccion' in v_src) = 0,
+    'P201 no OR categoria_correccion'
+  );
   PERFORM public.__p197_assert(position('sin_asignar' in v_src) = 0, 'no toca Disponibles');
 
   SELECT pg_get_functiondef(p.oid) INTO v_src

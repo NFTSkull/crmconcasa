@@ -18,6 +18,13 @@
 
 - [x] R1–R8 `mesaBandejaInfiniteQuery` (stale enrich, 6 de 6, cursor A≠B, append legítimo, subfiltro, inverso, out-of-order, refresh). Sin SQL. Citas → **199**.
 
+## P201 — Asesor Necesita/Enviada = episodio P198 (LOCAL)
+
+- [x] Helper `asesor_inbox_estado_efectivo` REPLACE consume P198.
+- [x] Sin `OR categoria_correccion`. Retención abierta helper propio.
+- [x] A1–A12 + P197 S1–S10 adaptados. List/summary = estado_efectivo.
+- [x] 0 writers / 0 smoke.
+
 ## Microfix Mesa — badge Rechazado vs corrección P198
 
 - [x] U1–U6 `mesaBandejaSubestadoUi`. Sin SQL. Citas → **199**.
