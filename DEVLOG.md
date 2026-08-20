@@ -1,3 +1,7 @@
+## 2026-08-20 - P204-D: avance normal visible + movimiento manual override desde rechazo
+
+Causa: panel `MesaCierreValidacionDocumentalSection` exigía `en_validacion_mesa` → con `rechazado` desaparecía el botón normal; `mesa_mover` bloqueaba rechazo. Decisión: mostrar paneles con rechazo (mostrar≠avanzar); orquestador Mesa `mesa_avanzar_etapa_reactivando_si_necesario`; mover manual reactiva+mueve atómicamente; CTA Reactivar permanece (misma etapa). Mig **204**. Sin Cloud/commit aún.
+
 ## 2026-08-20 - P204-C: UX gap rechazo operativo sin reactivación
 
 Causa (caso a6290744 / auditoría RO): 35 rechazos abiertos; 26 con actividad post-rechazo (docs/cambios); 3 con P130 posterior; validar/subir no cierra el rechazo → Mesa `MESA_MOVE_BAD_SUBSTATE`. Decisión: UI canónica — banner persistente + CTA único `reactivar_expediente_rechazado` (asesor «Reenviar a Mesa», Mesa «Reactivar»); helper RO `resolveRechazoOperativoAbierto` + `getRechazoOperativoAbierto`; override UI si estado_efectivo dijera Corrección enviada. Sin auto-reactivar, sin mig, sin UPDATE masivo.

@@ -70,12 +70,17 @@ function mapComplementarioPresencia(estatus: ResumenEstatus): MesaComplementario
   return "cargado";
 }
 
-/** Muestra el panel de cierre solo en integración post-envío (etapa 1, en validación Mesa). */
+/** Muestra el panel de cierre en integración post-envío (etapa 1).
+ * P204-D: también con rechazo operativo abierto (mostrar ≠ poder avanzar).
+ */
 export function puedeMostrarContinuarIntegracion(ctx: MesaContinuarIntegracionContext): boolean {
   if (!ctx.submittedToMesa) return false;
   if (ctx.cicloEstado != null && ctx.cicloEstado !== "activo") return false;
   if (ctx.etapaActual == null || ctx.etapaActual >= 2) return false;
-  return ctx.etapaActual === 1 && ctx.subestado === "en_validacion_mesa";
+  if (ctx.etapaActual !== 1) return false;
+  return (
+    ctx.subestado === "en_validacion_mesa" || ctx.subestado === "rechazado"
+  );
 }
 
 /** Bloqueos alineados con `avanzar_etapa_operativa` transición 1→2. */
@@ -195,12 +200,12 @@ export type AvanceOperativo2a3View = AvanceOperativoEtapaView;
 /** @deprecated Usar `AvanceOperativoEtapaView`. */
 export type AvanceOperativo3a4View = AvanceOperativoEtapaView;
 
-/** Panel visible solo en etapa 2 / en_proceso post-registro (P2C-12). */
+/** Panel visible en etapa 2 post-registro (P2C-12). P204-D: también si rechazado. */
 export function puedeMostrarAvanceOperativo2a3(ctx: MesaAvanceOperativoContext): boolean {
   if (!ctx.submittedToMesa) return false;
   if (ctx.cicloEstado != null && ctx.cicloEstado !== "activo") return false;
   if (ctx.etapaActual !== 2) return false;
-  return ctx.subestado === "en_proceso";
+  return ctx.subestado === "en_proceso" || ctx.subestado === "rechazado";
 }
 
 export function deriveAvanceOperativo2a3View(
@@ -238,12 +243,12 @@ export type MesaAvanceOperativo4a5Context = MesaAvanceOperativoContext & {
   hasActiveNotificacionBooking?: boolean;
 };
 
-/** Panel visible en etapa 3 con notificación agendada. */
+/** Panel visible en etapa 3 con notificación agendada. P204-D: también si rechazado. */
 export function puedeMostrarAvanceOperativo3a5(ctx: MesaAvanceOperativo4a5Context): boolean {
   if (!ctx.submittedToMesa) return false;
   if (ctx.cicloEstado !== "activo") return false;
   if (ctx.etapaActual !== 3) return false;
-  return ctx.subestado === "en_proceso";
+  return ctx.subestado === "en_proceso" || ctx.subestado === "rechazado";
 }
 
 /** Bloqueos alineados con `avanzar_etapa_operativa` transición 3→5 (notificación). */
@@ -355,12 +360,12 @@ export function isFechaCitaBiometricaPasada(
   return !Number.isNaN(t) && t <= nowMs;
 }
 
-/** Panel visible solo en etapa 5 post-cita (P3N.1). */
+/** Panel visible solo en etapa 5 post-cita (P3N.1). P204-D: también si rechazado. */
 export function puedeMostrarAvanceOperativo5a6(ctx: MesaAvanceOperativo5a6Context): boolean {
   if (!ctx.submittedToMesa) return false;
   if (ctx.cicloEstado !== "activo") return false;
   if (ctx.etapaActual !== 5) return false;
-  return ctx.subestado === "en_proceso";
+  return ctx.subestado === "en_proceso" || ctx.subestado === "rechazado";
 }
 
 /** Bloqueos alineados con `avanzar_etapa_operativa` transición 5→8 (P132-acuse; helpers 5a6). */
@@ -412,7 +417,7 @@ export function puedeMostrarAvanceOperativo6a7(ctx: MesaAvanceOperativoContext):
   if (!ctx.submittedToMesa) return false;
   if (ctx.cicloEstado !== "activo") return false;
   if (ctx.etapaActual !== 6) return false;
-  return ctx.subestado === "en_proceso";
+  return ctx.subestado === "en_proceso" || ctx.subestado === "rechazado";
 }
 
 export function deriveAvanceOperativo6a7View(
@@ -433,7 +438,7 @@ export function puedeMostrarAvanceOperativo7a8(ctx: MesaAvanceOperativoContext):
   if (!ctx.submittedToMesa) return false;
   if (ctx.cicloEstado !== "activo") return false;
   if (ctx.etapaActual !== 7) return false;
-  return ctx.subestado === "en_proceso";
+  return ctx.subestado === "en_proceso" || ctx.subestado === "rechazado";
 }
 
 export function deriveAvanceOperativo7a8View(
@@ -465,7 +470,7 @@ export function puedeMostrarAvanceOperativo8a9(ctx: MesaAvanceOperativo8a9Contex
   if (!ctx.submittedToMesa) return false;
   if (ctx.cicloEstado !== "activo") return false;
   if (ctx.etapaActual !== 8) return false;
-  return ctx.subestado === "en_proceso";
+  return ctx.subestado === "en_proceso" || ctx.subestado === "rechazado";
 }
 
 /** Bloqueos alineados con `avanzar_etapa_operativa` transición 8→9. */
@@ -527,7 +532,7 @@ export function puedeMostrarAvanceOperativo9a10(ctx: MesaAvanceOperativo9a10Cont
   if (!ctx.submittedToMesa) return false;
   if (ctx.cicloEstado !== "activo") return false;
   if (ctx.etapaActual !== 9) return false;
-  return ctx.subestado === "en_proceso";
+  return ctx.subestado === "en_proceso" || ctx.subestado === "rechazado";
 }
 
 /** Bloqueos alineados con `avanzar_etapa_operativa` transición 9→10. */
@@ -578,7 +583,7 @@ export function puedeMostrarAvanceOperativo10a11(
   if (!ctx.submittedToMesa) return false;
   if (ctx.cicloEstado !== "activo") return false;
   if (ctx.etapaActual !== 10) return false;
-  return ctx.subestado === "en_proceso";
+  return ctx.subestado === "en_proceso" || ctx.subestado === "rechazado";
 }
 
 /** Bloqueos alineados con `avanzar_etapa_operativa` transición 10→11. */
@@ -629,7 +634,7 @@ export function puedeMostrarAvanceOperativo11a12(
   if (!ctx.submittedToMesa) return false;
   if (ctx.cicloEstado !== "activo") return false;
   if (ctx.etapaActual !== 11) return false;
-  return ctx.subestado === "en_proceso";
+  return ctx.subestado === "en_proceso" || ctx.subestado === "rechazado";
 }
 
 /** Bloqueos alineados con `avanzar_etapa_operativa` transición 11→12 (solo gates de posición). */

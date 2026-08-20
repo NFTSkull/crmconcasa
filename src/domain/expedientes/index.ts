@@ -161,6 +161,7 @@ export {
   isMesaMoveStageConflictError,
   mapMesaMovimientoRpcError,
   mesaEtapaSchema,
+  MESA_MOVE_RECHAZO_AUTO_REACTIVAR_AVISO,
   MESA_MOVIMIENTO_SUBESTADOS_ELEGIBLES,
   mesaMovimientoHistorialRowSchema,
   mesaMovimientoInputSchema,

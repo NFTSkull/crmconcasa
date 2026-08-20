@@ -13,6 +13,7 @@ import {
   mensajeAdvertenciaMotivoPareceRechazo,
   motivoManualPareceRechazo,
   MESA_MOVIMIENTO_NO_ES_RECHAZO_COPY,
+  MESA_MOVE_RECHAZO_AUTO_REACTIVAR_AVISO,
   MESA_RECHAZO_OPERATIVO_ANCHOR_ID,
   MESA_RECHAZO_OPERATIVO_ATAJO_LABEL,
   puedeConfirmarMovimientoMesa,
@@ -261,6 +262,16 @@ export function MesaControlManualEtapaSection({
           className="mt-3 rounded-md border border-gray-300 bg-gray-100 px-3 py-2 text-sm font-medium text-gray-800"
         >
           Movimiento manual no disponible: {estado.razon}
+        </p>
+      ) : null}
+
+      {habilitado && subestado === "rechazado" ? (
+        <p
+          role="status"
+          data-testid="mesa-movimiento-rechazo-auto-reactivar"
+          className="mt-3 rounded-md border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-950"
+        >
+          {MESA_MOVE_RECHAZO_AUTO_REACTIVAR_AVISO}
         </p>
       ) : null}
 

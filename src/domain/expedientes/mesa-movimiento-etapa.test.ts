@@ -67,7 +67,7 @@ test("control manual solo se muestra a Mesa con estado elegible", () => {
       cicloEstado: "activo",
       subestado: "rechazado",
     }),
-    false,
+    true,
   );
 });
 
@@ -136,11 +136,8 @@ test("panel deshabilitado con razón exacta, no oculto, para no elegibles", () =
     subestado: "rechazado",
   });
   assert.equal(rechazado.visible, true);
-  assert.equal(rechazado.habilitado, false);
-  assert.equal(
-    rechazado.razon,
-    "Rechazo operativo abierto. El expediente no puede avanzar hasta ser reactivado.",
-  );
+  assert.equal(rechazado.habilitado, true);
+  assert.equal(rechazado.razon, null);
 
   const aprobado = getMesaControlManualEstado({
     ...base,
@@ -150,7 +147,7 @@ test("panel deshabilitado con razón exacta, no oculto, para no elegibles", () =
   assert.equal(aprobado.habilitado, false);
   assert.equal(
     aprobado.razon,
-    "El expediente debe estar pendiente, en validación de Mesa o en proceso.",
+    "El expediente debe estar pendiente, en validación de Mesa, en proceso o rechazado (override).",
   );
 });
 

@@ -394,6 +394,8 @@ export function resolveMesaSiguienteEtapaAccion(
   // —— 11: decisión Sí/No pagó solo en detalle (P166) ——
   if (etapa === 11) {
     if (!MESA_TIENE_RPC_CANONICA_11_A_12) return emptyHidden(11, 12);
+    // Pago ConCasa: bandeja no opera el rechazo; se resuelve en detalle (P204-D).
+    if (ctx.subestado === "rechazado") return emptyHidden(11, 12);
     const view = deriveAvanceOperativo11a12View({
       submittedToMesa: Boolean(ctx.submittedToMesa),
       cicloEstado: ctx.cicloEstado ?? "activo",

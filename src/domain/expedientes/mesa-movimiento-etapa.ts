@@ -30,6 +30,8 @@ export const mesaMovimientoResultadoSchema = z.object({
   subestado_anterior: z.string().min(1),
   subestado: z.string().min(1),
   direccion: mesaMovimientoDireccionSchema,
+  reactivado: z.boolean().optional(),
+  reactivacion_id: z.string().uuid().nullable().optional(),
 });
 
 export type MesaMovimientoResultado = z.infer<
@@ -173,12 +175,16 @@ const MESA_MOVIMIENTO_ROLES_PERMITIDOS: readonly string[] = [
   "mesa_control",
 ];
 
-/** Subestados elegibles para movimiento manual (alineados con SQL 076). */
+/** Subestados elegibles para movimiento manual (P204-D: incluye rechazo abierto). */
 export const MESA_MOVIMIENTO_SUBESTADOS_ELEGIBLES: readonly string[] = [
   "pendiente",
   "en_validacion_mesa",
   "en_proceso",
+  "rechazado",
 ];
+
+export const MESA_MOVE_RECHAZO_AUTO_REACTIVAR_AVISO =
+  "Este expediente tiene un rechazo operativo abierto. Al moverlo manualmente, se reactivará automáticamente y el movimiento quedará registrado.";
 
 export type MesaControlManualEstado = Readonly<{
   /** El panel se renderiza (rol Mesa/super_admin). */
@@ -222,20 +228,12 @@ export function getMesaControlManualEstado(input: {
       razon: "El ciclo del expediente no está activo.",
     };
   }
-  if (input.subestado === "rechazado") {
-    return {
-      visible: true,
-      habilitado: false,
-      razon:
-        "Rechazo operativo abierto. El expediente no puede avanzar hasta ser reactivado.",
-    };
-  }
   if (!MESA_MOVIMIENTO_SUBESTADOS_ELEGIBLES.includes(input.subestado ?? "")) {
     return {
       visible: true,
       habilitado: false,
       razon:
-        "El expediente debe estar pendiente, en validación de Mesa o en proceso.",
+        "El expediente debe estar pendiente, en validación de Mesa, en proceso o rechazado (override).",
     };
   }
   return { visible: true, habilitado: true, razon: null };

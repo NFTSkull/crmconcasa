@@ -1363,7 +1363,17 @@ Captura en la misma TX de `register_expediente_documento_correccion` / `save_cli
 - No cancela, reactiva ni modifica bookings, `fecha_cita`, documentos, montos ni notas históricas.
 - **P108A / P099 / P204-C (UI Mesa):** tarjeta «Rechazar expediente» en los 11 pasos visibles; formulario solo motivo (select + «Otro») y nota opcional; payload biométrico interno `desconocida` + nulls. Cancelación terminal: tarjeta roja «Cancelar trámite». Asesor: chip/filtro `Rechazados` + banner persistente «Expediente rechazado por Mesa» + CTA «Reenviar a Mesa» (`reactivar_expediente_rechazado`); con cambios post-rechazo: «Cambios guardados · Falta reenviar a Mesa» (nunca «Corrección enviada» si el rechazo sigue abierto). Mesa detalle: banner «Rechazo operativo abierto» + CTA «Reactivar expediente» (mismo writer). No auto-reactivar al guardar/validar docs.
 
-### Reactivación (mismo expediente) — P108A
+### Reactivación + avance/manual Mesa — P204-D
+
+**Operación:** RPC `mesa_avanzar_etapa_reactivando_si_necesario(p_expediente_id uuid, p_comentario text default null) → jsonb`
+**Migración:** `204_mesa_advance_and_manual_from_rejection.sql`
+
+- Solo roles Mesa (`mesa_admin|mesa_interno|mesa_externo|super_admin`).
+- Si `subestado=rechazado` con rechazo abierto: llama `reactivar_expediente_rechazado` y luego `avanzar_etapa_operativa` en la **misma transacción** (rollback atómico si el avance falla).
+- Si no hay rechazo abierto: solo delega a `avanzar_etapa_operativa` (gates normales intactos).
+- UI Mesa detalle usa este RPC vía `avanzarEtapaOperativa` (Supabase repo).
+
+**Movimiento manual:** `mesa_mover_etapa_operativa` acepta `rechazado` como override: reactiva canónicamente + mueve sin gates de flujo (docs/P198/citas/etc.). Conserva auth, visibilidad, ciclo activo, enviado a Mesa, destino válido, motivo.
 
 **Operación:** RPC `reactivar_expediente_rechazado`
 **Firma:** `reactivar_expediente_rechazado(p_expediente_id uuid) → jsonb`

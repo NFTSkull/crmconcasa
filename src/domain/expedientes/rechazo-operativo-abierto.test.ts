@@ -125,15 +125,15 @@ describe("P204-C rechazo operativo abierto (F1–F12)", () => {
     );
   });
 
-  it("F10 Mesa move antes de reactivar → bloqueado", () => {
+  it("F10 Mesa move con rechazo abierto → habilitado (P204-D override + auto-reactivar)", () => {
     const estado = getMesaControlManualEstado({
       role: "mesa_interno",
       submittedToMesa: true,
       cicloEstado: "activo",
       subestado: "rechazado",
     });
-    assert.equal(estado.habilitado, false);
-    assert.match(estado.razon ?? "", /reactiv/i);
+    assert.equal(estado.habilitado, true);
+    assert.equal(estado.razon, null);
     assert.match(MESA_MOVE_BLOQUEADO_RECHAZO_ABIERTO, /Rechazo operativo abierto/);
   });
 
