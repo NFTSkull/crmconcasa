@@ -67,11 +67,25 @@ describe("Admin producción filtro por etapa P* (row.etapas)", () => {
     assert.equal(
       filterAdminProductionRowsByPaso(
         [row({ asesorId: "a", etapas: { "6": 1 } })],
-        "4", // visual 4 → interna 5; no match
+        "4", // Admin paso 4 → interna 5; no match
       ).length,
       0,
     );
     assert.equal(shortPasoVisualAdminFilterNombre("todas"), null);
     assert.ok(shortPasoVisualAdminFilterNombre("5"));
+  });
+
+  it("A8 Listo firma (paso Admin 8) suma etapas 9+10", () => {
+    const rows = [
+      row({ asesorId: "a", enviadosAMesa: 5, etapas: { "9": 2, "10": 1 } }),
+      row({ asesorId: "b", enviadosAMesa: 3, etapas: { "11": 3 } }),
+      row({ asesorId: "c", enviadosAMesa: 1, etapas: { "10": 1 } }),
+    ];
+    const filtered = filterAdminProductionRowsByPaso(rows, "8");
+    assert.deepEqual(
+      filtered.map((r) => r.asesorId),
+      ["a", "c"],
+    );
+    assert.equal(adminProductionSelectedStageCount(rows[0]!, [9, 10]), 3);
   });
 });

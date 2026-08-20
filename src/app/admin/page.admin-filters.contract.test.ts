@@ -78,6 +78,16 @@ describe("Admin filters contract E1-E8 R1", () => {
     assert.match(tabs, /Histórico por etapas e ingresos/);
   });
 
+  it("Admin proyección: sin Cita para firma; buckets proyectados", () => {
+    assert.match(page, /projectAdminVisibleStageBuckets/);
+    assert.match(page, /getAdminEtapaDisplayNombre/);
+    assert.match(page, /visibleByEtapa\.map/);
+    assert.doesNotMatch(
+      page,
+      /getEtapaOperativaNombre\(b\.etapa\)/,
+    );
+  });
+
   it("matriz: Expedientes y Producción respetan periodo", () => {
     assert.equal(ADMIN_FILTER_MATRIX.expedientesPeriodo.periodo, true);
     assert.equal(ADMIN_FILTER_MATRIX.produccion.periodo, true);

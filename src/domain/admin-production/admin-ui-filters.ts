@@ -1,11 +1,13 @@
 /** Helpers puros de UI Admin (navegación etapa / foco) — testeables sin React. */
 
 import {
-  ETAPAS_VISUALES_OPERATIVAS,
-  mapEtapaInternaAPasoVisual,
-  TOTAL_PASOS_VISUALES_OPERATIVOS,
-} from "@/domain/expedientes/asesor-seguimiento-operativo";
-import { etapasInternasParaFiltroPaso } from "@/domain/expedientes/etapa-numeracion-ux";
+  etapasInternasParaAdminPasoFilter,
+  labelAdminPasoFilter,
+  mapEtapaInternaAAdminPaso,
+  opcionesFiltroPasoAdminVisible,
+  shortAdminPasoFilterNombre,
+  TOTAL_PASOS_ADMIN_VISIBLES,
+} from "./admin-visible-stages";
 
 /** Toggle de tarjeta/filtro: mismo valor activo → "todas"; si no → String(valor). */
 export function nextEtapaFilterFromCard(
@@ -17,14 +19,15 @@ export function nextEtapaFilterFromCard(
 }
 
 /**
- * P115: tarjetas de cohort siguen en etapa interna 1–12; el filtro general
- * usa paso visual 1–11 (interna 3 y 4 → paso 3).
+ * Tarjetas Resumen (etapa interna) → filtro de paso Admin.
+ * Interna 10 (legacy firma) y 9 → mismo paso Admin 8.
+ * Interna 4 (legacy bio) → paso Admin 3 (P115).
  */
 export function nextPasoVisualFilterFromInternalCard(
   currentPasoFilter: string,
   pressedEtapaInterna: number,
 ): string {
-  const paso = mapEtapaInternaAPasoVisual(pressedEtapaInterna);
+  const paso = mapEtapaInternaAAdminPaso(pressedEtapaInterna);
   return nextEtapaFilterFromCard(currentPasoFilter, paso);
 }
 
@@ -33,33 +36,26 @@ export function isAdminPasoVisualFilterPressed(
   etapaInternaBucket: number,
 ): boolean {
   if (currentPasoFilter === "todas") return false;
-  return mapEtapaInternaAPasoVisual(etapaInternaBucket) === Number(currentPasoFilter);
+  return mapEtapaInternaAAdminPaso(etapaInternaBucket) === Number(currentPasoFilter);
 }
 
-/** Opciones del select «Etapa actual» del dashboard Admin: 11 pasos visibles. */
+/** Opciones del select «Etapa actual» Admin: 10 pasos (sin «Cita para firma»). */
 export function opcionesFiltroPasoAdminDashboard(): ReadonlyArray<{
   value: string;
   label: string;
 }> {
-  return ETAPAS_VISUALES_OPERATIVAS.map((e) => ({
-    value: String(e.pasoVisual),
-    label: `${e.pasoVisual}. ${e.nombre}`,
-  }));
+  return opcionesFiltroPasoAdminVisible();
 }
 
 export function labelPasoVisualAdminFilter(pasoFilter: string): string | null {
-  if (pasoFilter === "todas") return null;
-  const paso = Number(pasoFilter);
-  const entry = ETAPAS_VISUALES_OPERATIVAS.find((e) => e.pasoVisual === paso);
-  if (!entry) return null;
-  return `Paso ${entry.pasoVisual} de ${TOTAL_PASOS_VISUALES_OPERATIVOS} — ${entry.nombre}`;
+  return labelAdminPasoFilter(pasoFilter);
 }
 
-/** Internas a enviar a repos/RPC (Paso 3 → [3,4]). */
+/** Internas a enviar a repos/RPC (Admin paso 3 → [3,4]; paso 8 → [9,10]). */
 export function etapaActualesFromAdminPasoFilter(
   pasoFilter: string,
 ): number[] | null {
-  return etapasInternasParaFiltroPaso(pasoFilter);
+  return etapasInternasParaAdminPasoFilter(pasoFilter);
 }
 
 /**
@@ -83,3 +79,5 @@ export function mesaPageAfterEtapaChange(): number {
 export function pagesAfterAsesorChange(): { mesaPage: number; precalPage: number } {
   return { mesaPage: 1, precalPage: 1 };
 }
+
+export { shortAdminPasoFilterNombre, TOTAL_PASOS_ADMIN_VISIBLES };

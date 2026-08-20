@@ -1140,6 +1140,8 @@ Captura en la misma TX de `register_expediente_documento_correccion` / `save_cli
 
 **P115 (solo UI):** filtro general Admin traduce paso visual→internas (Paso 3→`[3,4]`) sin cambiar RPC; resumen UI distingue etapas consultadas vs `meta.pasos` (con resultados); advertencia de rango + «Quitar rango».
 
+**Admin proyección etapa 10 (solo UI):** `admin-visible-stages` — 10 pasos; Paso 8 «Listo para agendar firma»→`[9,10]`; sin tarjeta/select «Cita para firma». 0 SQL/RPC.
+
 ### 15-quater. Reporte v3 + tipo de fecha (P116)
 
 **Operación:** RPC read-only `admin_report_expedientes_asesores_etapas_v3(..., p_tipo_fecha TEXT DEFAULT 'envio_mesa', p_fecha_desde, p_fecha_hasta)` — migración `101_…sql`. P112/P114 intactas.

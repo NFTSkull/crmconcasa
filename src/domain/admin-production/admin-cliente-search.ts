@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { getEtapaOperativaNombre } from "@/domain/expedientes/asesor-seguimiento-operativo";
+import { getAdminEtapaDisplayNombre } from "./admin-visible-stages";
 import { mapProgramaDbToUi } from "@/domain/expedientes/map-programa";
 
 export const ADMIN_CLIENTE_SEARCH_DEFAULT_LIMIT = 20;
@@ -210,7 +210,7 @@ export function labelAdminSearchCiclo(ciclo: string): string {
 }
 
 export function labelAdminSearchEtapa(etapaActual: number): string {
-  return `Etapa ${etapaActual} · ${getEtapaOperativaNombre(etapaActual)}`;
+  return `Etapa ${etapaActual} · ${getAdminEtapaDisplayNombre(etapaActual)}`;
 }
 
 export function labelAdminSearchPrograma(programa: string): string {

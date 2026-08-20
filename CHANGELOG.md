@@ -10,6 +10,8 @@
 
 ## [Unreleased]
 
+- **fix(admin): ocultar «Cita para firma» (etapa 10 legacy, UI)** — proyección Admin 10 pasos; tarjeta/select/Producción agrupan 9+10; label Admin sin «Cita para firma». Catálogo compartido/Mesa/Asesor/DB intactos. 0 SQL.
+
 - **fix(admin): periodo en Expedientes + Producción por etapa + copy (UI)** — Expedientes usa `listMesaEnviosPage` (bounds); Resumen snapshot intacto; Producción siempre visible filtrando `row.etapas`; 0 «cohorte» en UI. 0 SQL. Sin Mesa/Asesor/P203.
 
 - **perf(mesa/asesor): first-paint + dedupe summary + enrich batch (P203)** — Mesa: lista `includeCounts=false` pinta tarjetas; counts async race-safe (chips «…», sin 0 falso). Asesor: page/chip no re-fetch summary; single-flight + TTL focus 45s; docs/agenda/retención batch + enrich `allSettled` post-paint. 0 SQL / 0 writers / misma semántica. Citas → **203** (reservado ops; este bloque sin mig).

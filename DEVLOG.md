@@ -1,3 +1,7 @@
+## 2026-08-20 - Admin: ocultar etapa 10 «Cita para firma» (solo UI)
+
+Causa: la etapa interna 10 ya no es del flujo actual pero seguía en tarjetas/select/Producción Admin. Decisión: helper `admin-visible-stages` (10 pasos consecutivos); count/filtro «Listo para agendar firma» = internas `[9,10]`; label Admin remapea 10→9. Sin tocar `ETAPAS_OPERATIVAS_ASESOR`, writers, Mesa, Asesor ni reportes históricos. 0 SQL / 0 smoke.
+
 ## 2026-08-20 - Admin: periodo Expedientes + etapa Producción + copy
 
 Causa: Expedientes llamaba `listExpedientesSnapshotPage` (sin bounds) con UI de periodo; Producción se ocultaba si `etapa !== todas`; copy «cohorte» confusa. Decisión: Expedientes → `listMesaEnviosPage` del periodo; Resumen conserva snapshot; Producción filtra `row.etapas` en FE; solo copy UI. 0 SQL / 0 writers. Mesa/Asesor/P203 intactos.
