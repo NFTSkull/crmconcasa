@@ -1,3 +1,7 @@
+## 2026-08-20 - P206: Disponibles = todo trabajo accionable (assignment no oculta)
+
+Causa (Fase 0 Cloud RO): actionable P199 = 335; Disponibles hoy = 0 (todos asignados). Semántica «sin asignar» ocultaba el trabajo pendiente. Decisión: REPLACE solo rama `sin_asignar` de `mesa_list_bandeja_page` → `ciclo_activo` ∧ `mesa_es_trabajo_accionable_mesa` (sin gate assignment). TS `esDisponibleParaMesa` = mismo helper. Badges / mi_bandeja / en_trabajo / take/release / P205 counts / helper P199 intactos. Proyección Disponibles 0→335. Mig **206**. Sin Cloud/commit aún.
+
 ## 2026-08-20 - P205-B1: counts-only RPC (paridad 100%)
 
 Causa (PERF-AUDIT): chips vía `mesa_list_bandeja_page(limit=1, includeCounts=true)` re-ejecutaba list+counts (~3.16 s p50). Decisión: RPC dedicada `mesa_bandeja_counts_fast` con CTEs `MATERIALIZED` (categoria + P198 una vez por expediente); FE `getMesaBandejaCounts` + fallback solo PGRST202. List/P198/P199/P204-D intactos. Benchmark TX+ROLLBACK Cloud: OLD p50 ~2891 ms → NEW ~611 ms (−78.9%). Sin Cloud persistente / sin commit aún.
