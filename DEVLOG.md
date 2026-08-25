@@ -1,3 +1,7 @@
+## 2026-08-25 - P208: hard-cap diario Biométricos Monterrey = 15
+
+Causa: el inventario físico (conteo de filas Sheet `available`) actuaba como capacidad. 24-ago ≥17 personas (CRM + manuales). Decisión: regla `agenda_daily_capacity_rules` (bio+MTY=15); occupancy = bookings `booked` + externos/conflict/claimed huérfanos; linked/claimed con booking no duplican. `pg_advisory_xact_lock` por org+kind+fecha+sede antes del lock horario. Gate + claim `SIN_CUPO_DIA`. Overcapacity Sheet → remaining 0, no borrar filas. FE live-sync fail-closed. Reagenda: un TX (cancel+assert+insert) rollback conserva origen. Sin Cloud/commit.
+
 ## 2026-08-25 - P207: Disponibles = Nuevos en Mesa + correcciones reenviadas
 
 Causa: P206 usaba P199 (todo trabajo accionable, incl. ADVISOR_UPDATE y etapas 3–12). Operación pidió solo ingresos nuevos + correcciones que Mesa pidió y el asesor ya reenvió. Decisión: predicado explícito en `sin_asignar`; helper P199 intacto. Nuevos WAITING/categoria requerida/ADVISOR_UPDATE salen (chip Nuevos intacto). Assignment no filtra. Mig **207**. 0 writers. Harness P101 (infinite scroll) usa `todo_mesa` para no mezclar ventana/slice con membresía Disponibles.

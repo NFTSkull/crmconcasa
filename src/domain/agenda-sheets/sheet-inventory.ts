@@ -285,6 +285,7 @@ export function effectiveSheetAwareRemaining(params: {
   inventoryAvailable: number | null;
   inventoryFresh: boolean;
   inventoryEnforced: boolean;
+  dailyRemaining?: number | null;
 }): { remaining: number; blockedReason: string | null } {
   const configRemaining = Math.max(0, Math.trunc(params.configRemaining));
   if (!params.inventoryEnforced) {
@@ -296,8 +297,15 @@ export function effectiveSheetAwareRemaining(params: {
       blockedReason: "Agenda temporalmente no disponible",
     };
   }
+  let remaining = Math.min(
+    configRemaining,
+    Math.max(0, params.inventoryAvailable),
+  );
+  if (params.dailyRemaining != null) {
+    remaining = Math.min(remaining, Math.max(0, Math.trunc(params.dailyRemaining)));
+  }
   return {
-    remaining: Math.min(configRemaining, Math.max(0, params.inventoryAvailable)),
+    remaining,
     blockedReason: null,
   };
 }

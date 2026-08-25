@@ -46,6 +46,15 @@ export function mapBookBiometricosRpcError(error: {
     );
   }
 
+  if (
+    msg.includes("sin_cupo_dia") ||
+    msg.includes("cupo diario")
+  ) {
+    return new AgendaBiometricosSupabaseError(
+      "El cupo diario de biométricos Monterrey está completo (máximo 15 personas).",
+    );
+  }
+
   if (msg.includes("cupo agotado") || msg.includes("capacity")) {
     return new AgendaBiometricosSupabaseError(
       "Este horario ya fue apartado. Selecciona otro horario.",

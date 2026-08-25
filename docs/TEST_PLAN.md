@@ -6,6 +6,12 @@
 - [x] stageCount vs totalCount: aviso si discrepan; no maquillar.
 - [x] Precal/monto/listByAsesor intactos; 0 SQL.
 
+## P208 — Hard-cap diario Biométricos Monterrey = 15
+
+- [x] Occupancy canónica anti doble conteo; remaining = max(0, 15-occ); overcapacity → 0.
+- [x] D1–D30 (TS) + helpers SQL; lock diario; live-sync fail-closed; SIN_CUPO_DIA.
+- [x] Firmas/Inscripción/Apodaca sin tope. 0 mutación histórica. Mig **208**.
+
 ## P207 — Disponibles = Nuevos ∪ CORRECTION_PENDING_REVIEW
 
 - [x] Membresía SQL/TS: nuevos (1–2) o PENDING; sin P199; assignment no oculta.

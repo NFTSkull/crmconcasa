@@ -42,6 +42,14 @@ describe("mapBookBiometricosRpcError", () => {
     );
   });
 
+  it("mapea SIN_CUPO_DIA", () => {
+    const err = mapBookBiometricosRpcError({
+      message:
+        "SIN_CUPO_DIA: El cupo diario de biométricos Monterrey está completo (máximo 15 personas).",
+    });
+    assert.match(err.message, /máximo 15/i);
+  });
+
   it("mapea anticipación mínima", () => {
     const err = mapBookBiometricosRpcError({
       message: "agenda_config: fecha no cumple anticipación mínima",

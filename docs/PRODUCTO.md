@@ -184,6 +184,8 @@ La UI identifica al hijo como **Reingreso / Reinscripción** y **Biométricos re
 
 **Cupos:** tabla `agenda_slot_capacities` + RPCs `list_agenda_slot_capacities` / `upsert_agenda_slot_capacity` (solo Mesa Admin/super_admin para upsert). Override por fecha+hora+sede+kind (`biometricos`|`firmas`); no baja capacidad bajo ocupados. Asesor ve cupos en el picker; sin fila → `capacityPerSlot` semanal.
 
+**P208 — tope diario Biométricos Monterrey:** 15 personas/día (CRM `booked` + ocupaciones manuales Sheet), sin doble conteo linked/claimed. Las filas extra de Google Sheets no aumentan el tope. Firmas / Inscripción / Apodaca sin este tope.
+
 **Sede UI:** columna Sede en `/mesa-control/citas` muestra Monterrey/Apodaca (legacy mapeado); `location_id=notificacion` → «Sin sede» (el badge de tipo sigue «Notificación extraordinaria»).
 
 **Gestionar cita:** Mesa con permiso de cancel/reagendar abre diálogo: Reagendar (flujo existente), Cancelar (`mesa_gestionar_cita` action `cancelar` + decisión persistida), Cancelar y continuar (deshabilitado: requiere RPC dedicada). Asesor ve aviso de la última decisión en cards de agenda.

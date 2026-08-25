@@ -276,6 +276,16 @@ export {
   type LiveSyncMode,
   type LiveSyncResult,
 } from "./live-inventory-sync";
+export {
+  BIOMETRICOS_MONTERREY_DAILY_CAPACITY,
+  LIVE_SYNC_CUPOS_UNVERIFIED_MESSAGE,
+  agendaDailyActiveOccupancy,
+  agendaDailyCapacity,
+  agendaDailyRemaining,
+  effectiveSlotRemainingWithDaily,
+  isInventoryLiveSyncRequired,
+  shouldBlockBookWithoutLiveSync,
+} from "./daily-capacity";
 
 export {
   deriveBiometricEffectiveResult,
