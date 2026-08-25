@@ -19,6 +19,8 @@ export type InventoryAvailabilityResponse = Readonly<{
   fresh: boolean;
   enforced: boolean;
   slots?: readonly InventoryAvailabilitySlot[];
+  daily_remaining?: number | null;
+  dailyRemaining?: number | null;
 }>;
 
 function normalizeInvTime(raw: string): HhmmTime | null {
@@ -72,6 +74,11 @@ export function applySheetInventoryToSlots(
     byTime.set(t, { available, physicalTotal: physicalTotal || available });
   }
 
+  const dailyRemainingRaw =
+    inventory.daily_remaining ?? inventory.dailyRemaining;
+  const dailyRemaining =
+    dailyRemainingRaw == null ? null : Math.max(0, Number(dailyRemainingRaw));
+
   const locationId = slots[0]?.locationId ?? "monterrey";
   const next: AgendaBiometricosSlotAvailability[] = slots.map((slot) => {
     const inv = byTime.get(slot.time);
@@ -81,6 +88,7 @@ export function applySheetInventoryToSlots(
       inventoryAvailable: invAvail,
       inventoryFresh: true,
       inventoryEnforced: true,
+      dailyRemaining,
     });
     const capacity = inv?.physicalTotal
       ? Math.max(slot.capacity, inv.physicalTotal)
@@ -99,7 +107,10 @@ export function applySheetInventoryToSlots(
     // Solo ofrecer horarios con filas físicas reales en Sheet.
     if (inv.physicalTotal < 1 && inv.available < 1) continue;
     const capacity = Math.max(inv.physicalTotal, inv.available);
-    const remaining = inv.available;
+    const remaining =
+      dailyRemaining == null
+        ? inv.available
+        : Math.min(inv.available, dailyRemaining);
     next.push({
       date: bookingDate as YmdDate,
       locationId,

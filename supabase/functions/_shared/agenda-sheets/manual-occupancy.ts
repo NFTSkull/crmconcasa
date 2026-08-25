@@ -119,7 +119,15 @@ export function countAvailableByPhysicalOccupancy(
 /** Hard gate: tras relectura Sheet, ¿queda al menos 1 fila FREE? */
 export function decideBookHardGate(input: {
   liveAvailableForSlot: number;
+  dailyRemaining?: number | null;
 }): { allow: boolean; message: string | null } {
+  if (input.dailyRemaining != null && input.dailyRemaining < 1) {
+    return {
+      allow: false,
+      message:
+        "El cupo diario de biométricos Monterrey está completo (máximo 15 personas).",
+    };
+  }
   if (input.liveAvailableForSlot >= 1) {
     return { allow: true, message: null };
   }

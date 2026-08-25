@@ -55,9 +55,10 @@ export async function invokeAgendaSheetLiveSync(
   const payload = (raw.data && typeof raw.data === "object"
     ? raw.data
     : raw) as Record<string, unknown>;
+  if (payload.fresh !== true && payload.fresh !== false) return null;
   return {
     ok: true,
-    fresh: payload.fresh !== false,
+    fresh: payload.fresh === true,
     enforced: payload.enforced !== false,
     slots: Array.isArray(payload.slots)
       ? (payload.slots as InventoryAvailabilityResponse["slots"])
@@ -65,6 +66,10 @@ export async function invokeAgendaSheetLiveSync(
     refreshed: payload.refreshed === true,
     upserted: Number(payload.upserted) || 0,
     canBook: payload.canBook !== false,
+    daily_remaining:
+      payload.daily_remaining == null && payload.dailyRemaining == null
+        ? undefined
+        : Number(payload.daily_remaining ?? payload.dailyRemaining),
     gateMessage:
       typeof payload.gateMessage === "string" ? payload.gateMessage : null,
     bookMessage:

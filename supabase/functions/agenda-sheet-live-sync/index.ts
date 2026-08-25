@@ -20,6 +20,10 @@ import {
   decideBookHardGate,
 } from "../_shared/agenda-sheets/manual-occupancy.ts";
 import {
+  agendaDailyActiveOccupancy,
+  agendaDailyRemaining,
+} from "../_shared/agenda-sheets/daily-capacity.ts";
+import {
   availabilityHorizonBounds,
   decideLiveSyncScope,
   horizonHttpStatus,
@@ -221,7 +225,11 @@ Deno.serve(async (req) => {
 
     let upserted = 0;
     const anomalies: unknown[] = [];
-    const physicalForGate: { slotTime: string; status: string }[] = [];
+    const physicalForGate: {
+      slotTime: string;
+      status: string;
+      bookingId: string | null;
+    }[] = [];
 
     for (const tab of tabs) {
       if (tab.hidden) continue;
@@ -256,6 +264,7 @@ Deno.serve(async (req) => {
         physicalForGate.push({
           slotTime: String(r.slot_time).slice(0, 5),
           status: r.status,
+          bookingId: r.booking_id ?? null,
         });
       }
 
@@ -309,6 +318,26 @@ Deno.serve(async (req) => {
         physical_total: v.physical_total,
       }));
 
+    const crmIds = [
+      ...new Set(
+        physicalForGate
+          .map((p) => p.bookingId)
+          .filter((id): id is string => Boolean(id)),
+      ),
+    ];
+    const dailyOcc = agendaDailyActiveOccupancy({
+      bookings: crmIds.map((id) => ({ id, status: "booked" })),
+      inventory: physicalForGate.map((p) => ({
+        status: p.status,
+        bookingId: p.bookingId,
+      })),
+    });
+    const dailyMeta = agendaDailyRemaining(
+      kind || "biometricos",
+      locationId || "monterrey",
+      dailyOcc,
+    );
+
     let canBook = true;
     let gateMessage: string | null = null;
     if (mode === "book_gate") {
@@ -316,7 +345,10 @@ Deno.serve(async (req) => {
         return jsonError(400, "invalid_slot_time", "slotTime requerido en book_gate");
       }
       const live = byTime.get(slotTime)?.available ?? 0;
-      const gate = decideBookHardGate({ liveAvailableForSlot: live });
+      const gate = decideBookHardGate({
+        liveAvailableForSlot: live,
+        dailyRemaining: dailyMeta.remaining,
+      });
       canBook = gate.allow;
       gateMessage = gate.message;
     }
@@ -333,6 +365,10 @@ Deno.serve(async (req) => {
       canBook,
       gateMessage,
       bookMessage: BOOK_SLOT_JUST_TAKEN_MESSAGE,
+      daily_capacity: dailyMeta.capacity,
+      daily_occupancy: dailyMeta.occupancy,
+      daily_remaining: dailyMeta.remaining,
+      daily_overcapacity: dailyMeta.overcapacity,
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

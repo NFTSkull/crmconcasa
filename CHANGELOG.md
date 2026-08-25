@@ -10,6 +10,8 @@
 
 ## [Unreleased]
 
+- **fix(agenda): hard-cap diario 15 Biométricos Monterrey (P208)** — CRM booked + `occupied_external` sin doble conteo; filas Sheet extra no crean cupo; lock diario race-safe; live-sync fail-closed. Firmas/Inscripción/Apodaca sin tope. Mig **208**. 0 mutación histórica.
+
 - **fix(mesa): Disponibles = Nuevos ∪ correcciones reenviadas (P207)** — `sin_asignar` ya no usa P199. Membresía = pasos 1–2 (chip Nuevos) o `CORRECTION_PENDING_REVIEW`. Assignment no oculta. `ADVISOR_UPDATE` / WAITING / etapas 3–12 fuera. Mig **207**. 0 writers.
 
 - **fix(mesa): Disponibles = todo trabajo accionable (P206)** — `ops_filter=sin_asignar` deja de exigir `assigned_to` NULL / `estado_mesa` libre; membresía = helper P199. Badges de asignación intactos. Take/release / P205 counts / quick filters sin cambio. Mig **206**. 0 writers.

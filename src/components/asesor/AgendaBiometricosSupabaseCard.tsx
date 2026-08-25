@@ -49,6 +49,10 @@ import {
   LIVE_SYNC_LOADING_LABEL,
   invokeAgendaSheetLiveSync,
 } from "@/domain/agenda-sheets/live-inventory-sync";
+import {
+  LIVE_SYNC_CUPOS_UNVERIFIED_MESSAGE,
+  shouldBlockBookWithoutLiveSync,
+} from "@/domain/agenda-sheets/daily-capacity";
 import { supabaseBrowser } from "@/lib/supabaseBrowser";
 import { fetchAgendaBookingSheetSyncStatus } from "@/domain/agenda-sheets/booking-sheet-sync-status";
 import {
@@ -507,6 +511,22 @@ export function AgendaBiometricosSupabaseCard({
           mode: "book_gate",
           slotTime: timeHhmm,
         });
+        const blocked = shouldBlockBookWithoutLiveSync({
+          kind: "biometricos",
+          locationId: selectedSede.canonicalId,
+          bookingDate: dateYmd,
+          gate,
+        });
+        if (blocked.block) {
+          if (gate) setSheetInventory(gate);
+          setError(
+            blocked.message ??
+              gate?.gateMessage ??
+              LIVE_SYNC_CUPOS_UNVERIFIED_MESSAGE,
+          );
+          await refreshAvailability();
+          return;
+        }
         if (gate) {
           setSheetInventory(gate);
           if (gate.canBook === false) {
@@ -514,6 +534,17 @@ export function AgendaBiometricosSupabaseCard({
             await refreshAvailability();
             return;
           }
+        }
+      } else {
+        const blocked = shouldBlockBookWithoutLiveSync({
+          kind: "biometricos",
+          locationId: selectedSede.canonicalId,
+          bookingDate: dateYmd,
+          gate: null,
+        });
+        if (blocked.block) {
+          setError(blocked.message ?? LIVE_SYNC_CUPOS_UNVERIFIED_MESSAGE);
+          return;
         }
       }
       const booked = await repo.bookBiometricos({
@@ -576,6 +607,22 @@ export function AgendaBiometricosSupabaseCard({
           mode: "book_gate",
           slotTime: timeHhmm,
         });
+        const blocked = shouldBlockBookWithoutLiveSync({
+          kind: "biometricos",
+          locationId: selectedSede.canonicalId,
+          bookingDate: dateYmd,
+          gate,
+        });
+        if (blocked.block) {
+          if (gate) setSheetInventory(gate);
+          setError(
+            blocked.message ??
+              gate?.gateMessage ??
+              LIVE_SYNC_CUPOS_UNVERIFIED_MESSAGE,
+          );
+          await refreshAvailability();
+          return;
+        }
         if (gate) {
           setSheetInventory(gate);
           if (gate.canBook === false) {
@@ -583,6 +630,17 @@ export function AgendaBiometricosSupabaseCard({
             await refreshAvailability();
             return;
           }
+        }
+      } else {
+        const blocked = shouldBlockBookWithoutLiveSync({
+          kind: "biometricos",
+          locationId: selectedSede.canonicalId,
+          bookingDate: dateYmd,
+          gate: null,
+        });
+        if (blocked.block) {
+          setError(blocked.message ?? LIVE_SYNC_CUPOS_UNVERIFIED_MESSAGE);
+          return;
         }
       }
       const res = await repo.reagendarBiometricos({

@@ -558,6 +558,8 @@ Supabase `agenda_bookings`. Sheets no inserta filas directas; toda reserva Sheet
 
 - **P177 UI tab Inscripción (LOCAL):** tercer tab en agenda asesor (Biométricos|Notificación|Inscripción); sin requirement = informativo; Monterrey-only; sin Cloud/Sheet/Edge.
 
+- **P208 hard-cap diario Biométricos Monterrey (LOCAL):** tabla `agenda_daily_capacity_rules` (hoy `biometricos`+`monterrey`=15). Helpers `agenda_daily_capacity` / `agenda_daily_active_occupancy` / `agenda_daily_remaining` / `agenda_advisory_lock_daily_capacity`. Occupancy = `agenda_bookings.status=booked` + inventory `occupied_external|conflict` + `claimed|linked` huérfanos; **no** duplica linked/claimed con booking activo. Gate + claim `SIN_CUPO_DIA`. Availability JSON añade `daily_*` (superset). `book_biometricos` firma/RETURNS intactos. Firmas/Inscripción/Apodaca sin regla. 0 writers de citas. Mig **208**.
+
 - **P176 hotfix disponibilidad:** `agenda_sheet_inventory_availability` vuelve a emitir `fresh/enforced/slots[]` (superset con capacity/available/occupied + inscripcion). Live-sync auth: `profiles.active` + roles reales. Sin cambiar aliases/horas/P170.
 
 - **Inscripción extraordinaria (P175 B5.2 PROD):** Edge webhook+reconcile publican wiring B5.1; secrets `GOOGLE_SHEETS_INSCRIPCION_REQUIREMENTS_FROM_DATE=2026-08-13` + `ENABLED=true`; P170 OFF; sin auto-book; cutoff por booking_date.
