@@ -3,6 +3,7 @@
  * No se usa en modo Supabase; la UI nunca llama listForAsesor.
  */
 import { hasPendingAsesorChanges } from "@/domain/expediente-archivos/derive-resumen-expediente-correccion";
+import { formatAsesorCorreccionExplicacion } from "./asesor-correction-explanation";
 import { matchesAsesorListadoBusqueda } from "@/lib/asesorListadoBusqueda";
 import { isAsesorExpedienteAccionable } from "@/lib/asesorTareasPendientes";
 import { deriveAsesorInboxEstadoEfectivoMock } from "./asesor-inbox-estado-efectivo";
@@ -120,6 +121,10 @@ function toListItem(exp: ExpedienteMock): AsesorListExpedienteItem {
     resultado_real: resultado,
     categoria_correccion: cat,
     estado_efectivo: estadoEfectivoMock(resultado, cat),
+    correccion_explicacion:
+      estadoEfectivoMock(resultado, cat) === "correccion_requerida"
+        ? formatAsesorCorreccionExplicacion(["Datos generales"])
+        : null,
     reprecal_estado: exp.reprecalificacionPendienteId ? "pending" : null,
     reprecal_solicitada_at: exp.reprecalificacionPendienteId
       ? (exp.operativo.updatedAt ?? exp.base.createdAt)

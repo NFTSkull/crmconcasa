@@ -59,10 +59,7 @@ import {
 } from "@/lib/asesorInboxPerf";
 import { listAsesorAgendaHintsByExpedienteIds } from "@/lib/asesorInboxEnrichBatch";
 import { listRetencionHintsByExpedienteIds } from "@/lib/mesaBandejaAccionesEnrich";
-import {
-  countAsesorCorreccionesAbiertas,
-  formatCorreccionesPendientesCopy,
-} from "@/domain/expedientes/asesor-pendientes";
+import { resolveAsesorCorreccionExplicacion } from "@/domain/expedientes/asesor-correction-explanation";
 import {
   deriveEstadoDocumentacionColumnaAsesor,
   deriveResumenExpedienteCorreccion,
@@ -170,6 +167,8 @@ interface PrecalificacionMockLocal {
   categoriaCorreccionRpc?: CategoriaResumenDocumental;
   /** P197: cola/chip. No derivar de columnas. */
   estadoEfectivo?: string | null;
+  /** P209: explicación causal first paint. */
+  correccionExplicacion?: string | null;
   reprecal?: AsesorInboxReprecalMeta | null;
 }
 
@@ -543,6 +542,7 @@ export default function AsesorDashboardPage() {
         resultadoReal?: ResultadoRealExpediente;
         categoriaCorreccion?: CategoriaResumenDocumental;
         estadoEfectivo?: string | null;
+        correccionExplicacion?: string | null;
         reprecal?: AsesorInboxReprecalMeta | null;
       },
     ): PrecalificacionMockLocal => {
@@ -569,6 +569,7 @@ export default function AsesorDashboardPage() {
         reingresoManualAt: e.reingresoManual?.at ?? null,
         categoriaCorreccionRpc: opts?.categoriaCorreccion,
         estadoEfectivo: opts?.estadoEfectivo ?? null,
+        correccionExplicacion: opts?.correccionExplicacion ?? null,
         reprecal: opts?.reprecal ?? null,
       };
     },
@@ -954,6 +955,7 @@ export default function AsesorDashboardPage() {
             resultadoReal: deriveResultadoRealExpediente(exp),
             categoriaCorreccion: catTyped,
             estadoEfectivo: view.estadoEfectivoPorId[exp.id] ?? null,
+            correccionExplicacion: view.correccionExplicacionPorId[exp.id] ?? null,
             reprecal: view.reprecalPorId[exp.id] ?? null,
           });
         });
@@ -965,6 +967,7 @@ export default function AsesorDashboardPage() {
             categoriaCorreccionRpc:
               row.categoria_correccion as CategoriaResumenDocumental,
             estadoEfectivo: row.estado_efectivo ?? null,
+            correccionExplicacion: row.correccion_explicacion ?? null,
           };
         });
 
@@ -1789,6 +1792,7 @@ export default function AsesorDashboardPage() {
                         documentacionColumnaBadgeClass(estadoDocumentacion),
                         resumenCorreccion,
                         estadoEfectivo,
+                        p.correccionExplicacion,
                       );
                       const rowSurfaceClass =
                         estadoEfectivo === "correccion_requerida"
@@ -1826,16 +1830,14 @@ export default function AsesorDashboardPage() {
                               {p.cliente_nombre || "—"}
                             </span>
                             {(() => {
-                              const n = countAsesorCorreccionesAbiertas({
-                                clienteDatosEstado: clienteDatosEstadoPorId[p.id] ?? null,
-                                archivos: resumenArchivosPorId[p.id] ?? null,
+                              const explicacion = resolveAsesorCorreccionExplicacion({
+                                estadoEfectivo,
+                                correccionExplicacion: p.correccionExplicacion,
                               });
-                              if (n <= 0 || estadoEfectivo !== "correccion_requerida") {
-                                return null;
-                              }
+                              if (!explicacion) return null;
                               return (
                                 <span className="mt-0.5 block text-[10px] font-normal leading-tight text-amber-800">
-                                  {formatCorreccionesPendientesCopy(n)}
+                                  {explicacion}
                                 </span>
                               );
                             })()}

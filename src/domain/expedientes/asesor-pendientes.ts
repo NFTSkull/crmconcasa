@@ -16,6 +16,7 @@ import {
   isAsesorPendienteSubirAcuse,
   type AsesorTareaExpedienteInput,
 } from "@/lib/asesorTareasPendientes";
+import { formatAsesorCorreccionExplicacion } from "./asesor-correction-explanation";
 
 /** Docs que el asesor puede corregir tras rechazo Mesa (integración + complementarios). */
 export const ASESOR_DOC_TIPOS_CORREGIBLES = [
@@ -202,10 +203,22 @@ export function labelAdvisorPendingAction(kind: AsesorPendingActionKind): string
   }
 }
 
-export function formatCorreccionesPendientesCopy(count: number): string {
+export function formatCorreccionesPendientesCopy(
+  count: number,
+  labels?: readonly string[],
+): string {
+  if (labels && labels.length > 0) {
+    return formatAsesorCorreccionExplicacion(labels);
+  }
   if (count <= 0) return "";
   if (count === 1) return "Mesa solicita corregir 1 elemento.";
   return `Mesa solicita corregir ${count} elementos.`;
+}
+
+export function listAsesorCorreccionLabels(
+  params: Parameters<typeof listAsesorCorreccionesAbiertas>[0],
+): readonly string[] {
+  return listAsesorCorreccionesAbiertas(params).map((i) => i.label);
 }
 
 export function asesorAcuseResuelto(
