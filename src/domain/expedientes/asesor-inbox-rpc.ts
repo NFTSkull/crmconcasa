@@ -101,6 +101,8 @@ export const asesorListExpedienteItemSchema = z.object({
   categoria_correccion: asesorInboxCategoriaCorreccionSchema,
   /** P197: cola/chip. Ortogonal a columnas resultado_real / categoria_correccion. */
   estado_efectivo: z.string().nullable().optional(),
+  /** P209: explicación causal first paint cuando correccion_requerida. */
+  correccion_explicacion: z.string().nullable().optional(),
   /** P183: estado de re-precal REAL (ortogonal a resultado_real). */
   reprecal_estado: z.enum(["pending", "approved", "no_cumple"]).nullable().optional(),
   reprecal_solicitada_at: z.string().nullable().optional(),

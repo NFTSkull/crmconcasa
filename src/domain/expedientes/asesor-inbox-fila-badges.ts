@@ -117,13 +117,15 @@ export function asesorDocumentacionFilaBadge(
   estadoDocumentacionClassName: string,
   resumenCorreccion?: CategoriaResumenDocumental,
   estadoEfectivo?: string | null,
+  correccionExplicacion?: string | null,
 ): AsesorInboxFilaBadge {
   const estado = (estadoEfectivo ?? "").trim();
+  const explicacion = (correccionExplicacion ?? "").trim();
 
-  // P202: una sola historia actual. El chip gobierna el texto secundario.
+  // P202/P209: una sola historia actual. El chip gobierna el texto secundario.
   if (estado === "correccion_requerida") {
     return {
-      label: "Pendiente de corregir",
+      label: explicacion || "Pendiente de corregir",
       className: "text-[10px] font-semibold text-amber-900 sm:text-xs",
     };
   }
@@ -172,6 +174,7 @@ export function asesorInboxFilaEstadoLabels(params: {
   subestado?: string | null;
   cicloEstado?: string | null;
   etapaDisplay: string;
+  correccionExplicacion?: string | null;
 }): {
   estadoActual: string;
   documentacion: string;
@@ -195,6 +198,7 @@ export function asesorInboxFilaEstadoLabels(params: {
     params.documentacionClassName ?? "text-xs text-gray-400",
     params.resumenCorreccion,
     params.estadoEfectivo,
+    params.correccionExplicacion,
   );
   return {
     estadoActual: estadoActual.label,

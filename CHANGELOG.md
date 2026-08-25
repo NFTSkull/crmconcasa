@@ -10,6 +10,8 @@
 
 ## [Unreleased]
 
+- **fix(asesor): P209 — explicación causal en «Necesita corrección» (first paint)** — mig **209**: `correccion_explicacion` en `asesor_list_expedientes_page` desde P198/retención (labels vigentes); helper TS compartido; inbox deja enrich async para copy. 0 writers / chips P197 intactos.
+
 - **fix(agenda): hard-cap diario 15 Biométricos Monterrey (P208)** — CRM booked + `occupied_external` sin doble conteo; filas Sheet extra no crean cupo; lock diario race-safe; live-sync fail-closed. Firmas/Inscripción/Apodaca sin tope. Mig **208**. 0 mutación histórica.
 
 - **fix(mesa): Disponibles = Nuevos ∪ correcciones reenviadas (P207)** — `sin_asignar` ya no usa P199. Membresía = pasos 1–2 (chip Nuevos) o `CORRECTION_PENDING_REVIEW`. Assignment no oculta. `ADVISOR_UPDATE` / WAITING / etapas 3–12 fuera. Mig **207**. 0 writers.

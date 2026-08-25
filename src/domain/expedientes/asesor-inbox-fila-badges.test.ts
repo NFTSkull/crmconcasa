@@ -284,7 +284,7 @@ describe("asesor inbox documentación/corrección claridad visual", () => {
     assert.match(doc.className, /font-semibold|font-medium/);
   });
 
-  it("U3 Necesita: docs = Pendiente de corregir (nunca Corrección enviada histórica)", () => {
+  it("U3 Necesita: docs = explicación causal o fallback (nunca Corrección enviada histórica)", () => {
     const fila = asesorInboxFilaEstadoLabels({
       estadoEfectivo: "correccion_requerida",
       resumenCorreccion: "correccion_enviada",
@@ -293,6 +293,16 @@ describe("asesor inbox documentación/corrección claridad visual", () => {
     assert.equal(fila.estadoActual, "Necesita corrección");
     assert.equal(fila.documentacion, "Pendiente de corregir");
     assert.notEqual(fila.documentacion, "Corrección enviada");
+
+    const filaConCopy = asesorInboxFilaEstadoLabels({
+      estadoEfectivo: "correccion_requerida",
+      correccionExplicacion: "Mesa solicita corregir: Estado de cuenta.",
+      etapaDisplay: "2. Registro",
+    });
+    assert.equal(
+      filaConCopy.documentacion,
+      "Mesa solicita corregir: Estado de cuenta.",
+    );
   });
 
   it("U4 Necesita: overlay chip gana sobre Completos documental", () => {

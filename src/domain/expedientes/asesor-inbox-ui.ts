@@ -46,6 +46,8 @@ export type AsesorInboxPageViewModel = Readonly<{
   categoriaPorId: Readonly<Record<string, string>>;
   /** P197: estado efectivo de cola (por id). */
   estadoEfectivoPorId: Readonly<Record<string, string>>;
+  /** P209: explicación causal de corrección (por id). */
+  correccionExplicacionPorId: Readonly<Record<string, string>>;
   /** P183: metadata de re-precal REAL (ortogonal a resultado_real). */
   reprecalPorId: Readonly<Record<string, AsesorInboxReprecalMeta>>;
   totalCount: number;
@@ -363,10 +365,13 @@ export function mapAsesorInboxPageResultToViewModel(
 ): AsesorInboxPageViewModel {
   const categoriaPorId: Record<string, string> = {};
   const estadoEfectivoPorId: Record<string, string> = {};
+  const correccionExplicacionPorId: Record<string, string> = {};
   const reprecalPorId: Record<string, AsesorInboxReprecalMeta> = {};
   const items = result.items.map((row) => {
     categoriaPorId[row.id] = row.categoria_correccion;
     if (row.estado_efectivo) estadoEfectivoPorId[row.id] = row.estado_efectivo;
+    const explicacion = (row.correccion_explicacion ?? "").trim();
+    if (explicacion) correccionExplicacionPorId[row.id] = explicacion;
     const meta = mapAsesorInboxReprecalMeta(row);
     if (meta) reprecalPorId[row.id] = meta;
     return mapAsesorInboxListItemToExpedienteMock(row, {
@@ -377,6 +382,7 @@ export function mapAsesorInboxPageResultToViewModel(
     items,
     categoriaPorId,
     estadoEfectivoPorId,
+    correccionExplicacionPorId,
     reprecalPorId,
     totalCount: result.total_count,
     page: result.page,

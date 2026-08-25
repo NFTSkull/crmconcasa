@@ -1,3 +1,7 @@
+## 2026-08-25 - P209: inbox asesor explica qué corregir (first paint)
+
+Causa (Cloud RO): 44 `correccion_requerida`; 6 con enrich count=0 (P198 DG WAITING pero `cliente_datos≠rechazado`); 36 con copy genérico «1 elemento». Root cause: `estado_efectivo` usa P198; copy usaba enrich async (`cliente_datos` + docs rechazados). Decisión: mig **209** — `asesor_inbox_correccion_labels_vigentes` (autoridad P202/P198 + retención) + `correccion_explicacion` en list RPC; FE first paint sin esperar enrich. Fallback único si labels vacíos. 0 writers / chips intactos. Sin Cloud/commit.
+
 ## 2026-08-25 - P208: hard-cap diario Biométricos Monterrey = 15
 
 Causa: el inventario físico (conteo de filas Sheet `available`) actuaba como capacidad. 24-ago ≥17 personas (CRM + manuales). Decisión: regla `agenda_daily_capacity_rules` (bio+MTY=15); occupancy = bookings `booked` + externos/conflict/claimed huérfanos; linked/claimed con booking no duplican. `pg_advisory_xact_lock` por org+kind+fecha+sede antes del lock horario. Gate + claim `SIN_CUPO_DIA`. Overcapacity Sheet → remaining 0, no borrar filas. FE live-sync fail-closed. Reagenda: un TX (cancel+assert+insert) rollback conserva origen. Sin Cloud/commit.
