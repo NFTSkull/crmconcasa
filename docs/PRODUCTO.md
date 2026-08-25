@@ -8,7 +8,7 @@ Chip **Cambios por revisar** (id interno `correccion_enviada`): **P198** estado 
 
 **Performance dashboards (P203 + P205-B1):** Mesa pinta tarjetas sin esperar KPI counts (counts server-authoritative async). Counts vía `mesa_bandeja_counts_fast` (mismos números; sin re-correr list). Asesor no re-calcula summary al cambiar página o chip; enrich docs/agenda/retención en batch tras first paint. Misma lista / mismos counts / misma lógica.
 
-**Disponibles** (asignación `sin_asignar`, **P206**): todo trabajo Mesa accionable ahora según helper P199 (`mesa_es_trabajo_accionable_mesa`), ciclo `activo`. **La asignación no oculta**: puede estar libre, asignado a ti o a otro Mesa; la tarjeta informa quién lo atiende. Incluye correcciones/actualizaciones P198 pending. Excluye `WAITING_ADVISOR`, corrección aún sin respuesta del asesor, rechazo raw sin pending accionable y cancelados. Take/release no cambian.
+**Disponibles** (asignación `sin_asignar`, **P207**): únicamente **Nuevos en Mesa** (pasos 1–2, misma semántica del chip) **o** `CORRECTION_PENDING_REVIEW` (Mesa pidió corrección y el asesor ya reenvió). La asignación no oculta; la tarjeta indica quién trabaja. `ADVISOR_UPDATE`, `WAITING_ADVISOR`, etapas 3–12 normales y Pago ConCasa decidido **no** entran. Helper P199 intacto para otros usos. Take/release no cambian.
 
 **Agenda Sheets (P200):** agendar/reagendar biométricos confirma primero CRM. La UI distingue `PENDING` / `SYNCED` / `FAILED` vía `agenda_booking_sheet_sync_status`. Una reagenda deja la fila anterior en Drive como **REAGENDADO** (UUID viejo) y escribe la cita nueva en destino (UUID nuevo). Operación de citas siguiente → **201**.
 

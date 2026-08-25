@@ -1,3 +1,7 @@
+## 2026-08-25 - P207: Disponibles = Nuevos en Mesa + correcciones reenviadas
+
+Causa: P206 usaba P199 (todo trabajo accionable, incl. ADVISOR_UPDATE y etapas 3–12). Operación pidió solo ingresos nuevos + correcciones que Mesa pidió y el asesor ya reenvió. Decisión: predicado explícito en `sin_asignar`; helper P199 intacto. Nuevos WAITING/categoria requerida/ADVISOR_UPDATE salen (chip Nuevos intacto). Assignment no filtra. Mig **207**. 0 writers. Harness P101 (infinite scroll) usa `todo_mesa` para no mezclar ventana/slice con membresía Disponibles.
+
 ## 2026-08-20 - P206: Disponibles = todo trabajo accionable (assignment no oculta)
 
 Causa (Fase 0 Cloud RO): actionable P199 = 335; Disponibles hoy = 0 (todos asignados). Semántica «sin asignar» ocultaba el trabajo pendiente. Decisión: REPLACE solo rama `sin_asignar` de `mesa_list_bandeja_page` → `ciclo_activo` ∧ `mesa_es_trabajo_accionable_mesa` (sin gate assignment). TS `esDisponibleParaMesa` = mismo helper. Badges / mi_bandeja / en_trabajo / take/release / P205 counts / helper P199 intactos. Proyección Disponibles 0→335. Mig **206**. Sin Cloud/commit aún.

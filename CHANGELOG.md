@@ -10,6 +10,8 @@
 
 ## [Unreleased]
 
+- **fix(mesa): Disponibles = Nuevos ∪ correcciones reenviadas (P207)** — `sin_asignar` ya no usa P199. Membresía = pasos 1–2 (chip Nuevos) o `CORRECTION_PENDING_REVIEW`. Assignment no oculta. `ADVISOR_UPDATE` / WAITING / etapas 3–12 fuera. Mig **207**. 0 writers.
+
 - **fix(mesa): Disponibles = todo trabajo accionable (P206)** — `ops_filter=sin_asignar` deja de exigir `assigned_to` NULL / `estado_mesa` libre; membresía = helper P199. Badges de asignación intactos. Take/release / P205 counts / quick filters sin cambio. Mig **206**. 0 writers.
 
 - **perf(mesa): counts-only RPC (P205-B1)** — `mesa_bandeja_counts_fast(today, origen)`: mismos 13 KPIs sin pipeline de list/cursor; categoria+P198 1×/expediente (`MATERIALIZED`). FE `getMesaBandejaCounts` (fallback solo PGRST202). List P203 `includeCounts=false` intacto. Mig **205**. 0 writers.

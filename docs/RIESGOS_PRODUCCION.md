@@ -40,8 +40,9 @@
 | Panel de avance Mesa desaparece con `subestado=rechazado` | Alto (operador no puede continuar aunque gates PASS) | P204-D: paneles visibles; avance/manual reactivan atómicamente |
 | Confundir rechazo operativo con cancelación de trámite / cita cancelada | Alto | P094: señales disjuntas (`subestado=rechazado` vs `ciclo=cancelado`); chip agrupado con subvistas; no inferir por texto |
 | Rechazo operativo (`activo`+`rechazado`) sigue en chip Disponibles | Alto (Mesa toma/trabaja un expediente ya rechazado) | P195 + P199: rechazo **sin** episodio pending sigue fuera; P198 pending puede entrar porque Mesa ya tiene respuesta |
-| Corrección reenviada libre no aparece en Disponibles | Alto (trabajo que sí se puede tomar queda oculto) | P199 helper + **P206**: pending accionable entra a Disponibles aunque esté asignado; assignment solo badge |
-| Trabajo accionable asignado desaparece de Disponibles | Alto (cola vacía / trabajo invisible) | P206: `sin_asignar` = solo P199 accionable; no gate `assigned_to` |
+| Corrección reenviada no aparece en Disponibles | Alto | P207: `CORRECTION_PENDING_REVIEW` siempre entra (assignment no oculta) |
+| Disponibles llena de etapas 3–12 / actualizaciones espontáneas | Alto (cola ruidosa) | P207: solo Nuevos 1–2 o PENDING; ADVISOR_UPDATE fuera |
+| Trabajo accionable asignado desaparece de Disponibles | Medio | P207: assignment no filtra; badge «Trabajando por…» |
 | Contar cancelado/rechazado_mesa en chips de tarea asesor (Agendar biométricos/firma, Subir acuse) | Medio (operación falsa) | P191: `asesor_inbox_es_accionable` vía `resultado_real`; lista=summary |
 | Ocultar correcciones P130 ya enviadas (docs `cliente_*` en `subido`, no `resubido`) | Alto (Mesa no revisa; asesor no ve «Corrección enviada») | Hotfix 192: predicado lote `pendiente_revision`+`submitted_at`; no usar etapa ni heurística documental como gate |
 | Mezclar corrección solicitada por Mesa con actualización espontánea del asesor | Medio (prioridad operativa invertida) | P196: una solicitud Mesa solo clasifica el **primer** lote P130 posterior; lotes siguientes = ADVISOR_UPDATE salvo nueva solicitud. P192/Disponibles intactos |

@@ -33,6 +33,7 @@ function item(partial: {
   subestado?: string;
   resumenDocumental?: CategoriaResumenDocumental | null;
   cambioRevisionEstado?: string | null;
+  etapaActual?: number;
 }) {
   return {
     id: partial.id,
@@ -42,6 +43,7 @@ function item(partial: {
     subestado: partial.subestado ?? "en_proceso",
     resumenDocumental: partial.resumenDocumental ?? null,
     cambioRevisionEstado: partial.cambioRevisionEstado ?? null,
+    etapaActual: partial.etapaActual ?? 2,
   };
 }
 
@@ -135,12 +137,13 @@ describe("P206 Disponibles = todo trabajo accionable", () => {
     }
   });
 
-  it("D7–D8: ADVISOR_UPDATE_PENDING_REVIEW siempre Disponible", () => {
+  it("P199 D7–D8: ADVISOR_UPDATE sigue accionable; P207 Disponibles NO", () => {
     for (const assignedTo of [null, USER_B]) {
       const merged = mergeExpedientesWithMesaOps(
         [
           item({
             id: "e1",
+            etapaActual: 9,
             cambioRevisionEstado: "ADVISOR_UPDATE_PENDING_REVIEW",
           }),
         ],
@@ -157,7 +160,14 @@ describe("P206 Disponibles = todo trabajo accionable", () => {
             : [],
         ),
       );
-      assert.equal(esDisponibleParaMesa(merged[0]!), true);
+      assert.equal(
+        mesaEsTrabajoAccionableMesa({
+          cicloEstado: "activo",
+          cambioRevisionEstado: "ADVISOR_UPDATE_PENDING_REVIEW",
+        }),
+        true,
+      );
+      assert.equal(esDisponibleParaMesa(merged[0]!), false);
     }
   });
 
