@@ -35,16 +35,19 @@ const items = [
     id: "exp-old",
     fechaEnvioMesa: "2026-01-01T10:00:00.000Z",
     createdAt: "2026-01-01T09:00:00.000Z",
+    etapaActual: 2,
   },
   {
     id: "exp-mid",
     fechaEnvioMesa: "2026-02-01T10:00:00.000Z",
     createdAt: "2026-02-01T09:00:00.000Z",
+    etapaActual: 2,
   },
   {
     id: "exp-new",
     fechaEnvioMesa: "2026-03-01T10:00:00.000Z",
     createdAt: "2026-03-01T09:00:00.000Z",
+    etapaActual: 2,
   },
 ] as const;
 
@@ -188,9 +191,9 @@ describe("mesaOpsUi", () => {
     assert.equal(esDisponibleParaMesa(merged[0]!), false);
   });
 
-  it("P199 copy Disponibles/Esperando", () => {
-    assert.match(MESA_OPS_FILTER_HELP_TEXT, /trabajo accionable de Mesa/);
-    assert.match(MESA_OPS_FILTER_CHIPS[0]!.tooltip, /aunque ya lo esté trabajando/);
+  it("P199 copy Esperando; P207 copy Disponibles", () => {
+    assert.match(MESA_OPS_FILTER_HELP_TEXT, /nuevos en Mesa/i);
+    assert.match(MESA_OPS_FILTER_CHIPS[0]!.tooltip, /correcciones que Mesa pidió/);
     assert.match(MESA_OPS_FILTER_CHIPS[1]!.tooltip, /todavía no recibió la nueva respuesta/);
   });
 

@@ -18,7 +18,7 @@ import {
   type MesaBandejaFiltroItem,
   type MesaBandejaFiltrosState,
 } from "./mesaBandejaFiltros";
-import { applyMesaOpsFilterSorted, DEFAULT_MESA_OPS_FILTER } from "./mesaOpsUi";
+import { applyMesaOpsFilterSorted } from "./mesaOpsUi";
 import { sortMesaBandejaPorAntiguedad } from "./mesaBandejaOrden";
 
 type Caso = MesaBandejaFiltroItem & {
@@ -66,7 +66,8 @@ function filtroState(
   };
 }
 
-/** Flujo P101: full → filtros → orden → slice. */
+/** Flujo P101: full → filtros rápidos → orden → slice.
+ * Ops = Todo Mesa: este suite prueba ventana/slice, no membresía Disponibles P207. */
 function pipeline(
   all: Caso[],
   state: MesaBandejaFiltrosState,
@@ -76,7 +77,7 @@ function pipeline(
   const filtered = aplicarFiltrosBandejaMesa(all, state, todayYMD);
   const sorted = applyMesaOpsFilterSorted(
     sortMesaBandejaPorAntiguedad(filtered),
-    DEFAULT_MESA_OPS_FILTER,
+    "todo_mesa",
     null,
   );
   const visible = sliceMesaBandejaVisible(sorted, visibleCount);

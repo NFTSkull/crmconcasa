@@ -6,6 +6,12 @@
 - [x] stageCount vs totalCount: aviso si discrepan; no maquillar.
 - [x] Precal/monto/listByAsesor intactos; 0 SQL.
 
+## P207 — Disponibles = Nuevos ∪ CORRECTION_PENDING_REVIEW
+
+- [x] Membresía SQL/TS: nuevos (1–2) o PENDING; sin P199; assignment no oculta.
+- [x] T1–T20 (nuevos, PENDING, WAITING, ADVISOR_UPDATE, etapas 5/9/12, cancelado, CLOSED, R1/R2, assignment, quick Nuevos, P205).
+- [x] 0 writers / P198 / P199 / P205 / take-release intactos. Mig **207**.
+
 ## P206 — Disponibles = todo trabajo accionable Mesa
 
 - [x] `ops_filter=sin_asignar`: ciclo activo ∧ `mesa_es_trabajo_accionable_mesa` (sin `assigned_to` / `estado_mesa`).

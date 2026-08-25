@@ -56,7 +56,7 @@ import {
 } from "./asesor-inbox-mock";
 import { hasPendingAsesorChanges } from "@/domain/expediente-archivos/derive-resumen-expediente-correccion";
 import { matchesMesaCambiosSubfiltro } from "@/lib/mesaCambiosRevisionOrigenUi";
-import { mesaEsTrabajoAccionableMesa } from "@/lib/mesaOpsUi";
+import { esDisponibleParaMesa } from "@/lib/mesaOpsUi";
 
 function readMockSessionAsesorEmail(): string | null {
   if (typeof window === "undefined") return null;
@@ -952,11 +952,13 @@ export class MockExpedientesRepo implements ExpedientesRepo {
         });
         const cambio = pending ? "ADVISOR_UPDATE_PENDING_REVIEW" : null;
         if (
-          !mesaEsTrabajoAccionableMesa({
+          !esDisponibleParaMesa({
+            id: e.id,
             cicloEstado: ciclo,
             subestado: sub,
-            categoria: pending ? "correccion_enviada" : null,
+            etapaActual: etapa,
             cambioRevisionEstado: cambio,
+            resumenDocumental: pending ? "correccion_enviada" : null,
           })
         ) {
           return false;

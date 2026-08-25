@@ -10,7 +10,7 @@ export type MesaOpsFilter =
   | "mi_bandeja"
   | "en_trabajo";
 
-/** Filtro operativo al cargar `/mesa-control`: todo trabajo accionable Mesa (P206). */
+/** Filtro operativo al cargar `/mesa-control`: nuevos + correcciones reenviadas (P207). */
 export const DEFAULT_MESA_OPS_FILTER: MesaOpsFilter = "sin_asignar";
 
 export const MESA_OPS_FILTER_CHIPS: ReadonlyArray<{
@@ -22,7 +22,7 @@ export const MESA_OPS_FILTER_CHIPS: ReadonlyArray<{
     id: "sin_asignar",
     label: "Disponibles",
     tooltip:
-      "Todo el trabajo que Mesa debe atender ahora (aunque ya lo esté trabajando alguien). La asignación solo informa quién lo atiende.",
+      "Solo ingresos nuevos a Mesa (pasos 1–2) y correcciones que Mesa pidió y el asesor ya reenvió. Da igual quién los esté trabajando.",
   },
   {
     id: "en_espera_asesor",
@@ -49,7 +49,7 @@ export const MESA_OPS_FILTER_CHIPS: ReadonlyArray<{
 ];
 
 export const MESA_OPS_FILTER_HELP_TEXT =
-  "Disponibles: todo el trabajo accionable de Mesa ahora (P199), aunque esté asignado; la tarjeta indica quién lo trabaja. Esperando al asesor: Mesa pidió una corrección y todavía no recibió la nueva respuesta. Asignados en trabajo: ya tomados por alguien. Todo Mesa: sin filtro de asignación.";
+  "Disponibles: nuevos en Mesa (pasos 1–2) más correcciones ya reenviadas por el asesor. La asignación no oculta; la tarjeta indica quién lo trabaja. Esperando al asesor: Mesa pidió corrección y aún no hay nueva respuesta. Asignados en trabajo: ya tomados. Todo Mesa: sin filtro de asignación.";
 
 export type MesaOpsStatusKind =
   | "sin_asignar"
@@ -176,6 +176,7 @@ export type MesaOpsFilterableItem = MesaBandejaOrdenItem &
     subestado?: string | null;
     cicloEstado?: string | null;
     cambioRevisionEstado?: string | null;
+    etapaActual?: number | null;
   }>;
 
 /** P199: trabajo Mesa ahora. La asignación se evalúa aparte. */
@@ -199,14 +200,20 @@ export function mesaEsTrabajoAccionableMesa(opts: {
   return true;
 }
 
-/** P206: Disponibles = trabajo accionable P199 (assignment no oculta). */
+/** P207: Disponibles = Nuevos en Mesa ∪ CORRECTION_PENDING_REVIEW. No usa P199. */
 export function esDisponibleParaMesa(item: MesaOpsFilterableItem): boolean {
-  return mesaEsTrabajoAccionableMesa({
-    cicloEstado: item.cicloEstado,
-    subestado: item.subestado,
-    categoria: item.resumenDocumental,
-    cambioRevisionEstado: item.cambioRevisionEstado,
-  });
+  if ((item.cicloEstado ?? "activo") !== "activo") return false;
+  if (item.cambioRevisionEstado === "CORRECTION_PENDING_REVIEW") return true;
+  const etapa = Number(item.etapaActual ?? 0);
+  const sub = String(item.subestado || "pendiente");
+  const esNuevo =
+    [1, 2].includes(etapa) &&
+    ["pendiente", "en_validacion_mesa", "en_proceso"].includes(sub);
+  if (!esNuevo) return false;
+  if (item.cambioRevisionEstado === "WAITING_ADVISOR") return false;
+  if (item.cambioRevisionEstado === "ADVISOR_UPDATE_PENDING_REVIEW") return false;
+  if (item.resumenDocumental === "correccion_requerida") return false;
+  return true;
 }
 
 export function filterMesaOpsItems<T extends MesaOpsFilterableItem>(
