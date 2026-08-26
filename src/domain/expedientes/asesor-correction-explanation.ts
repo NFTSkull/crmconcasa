@@ -2,6 +2,7 @@
  * P209 — copy causal compartido inbox + detalle asesor.
  * Espejo SQL: asesor_inbox_format_correccion_explicacion.
  */
+import { formatAsesorCorreccionInboxSecondary, parseAsesorCorreccionResumen } from "./asesor-correccion-detalle";
 
 export const ASESOR_CORRECCION_EXPLICACION_FALLBACK =
   "Mesa tiene una corrección pendiente. Abre el expediente para revisar el detalle.";
@@ -64,9 +65,22 @@ export function resolveAsesorCorreccionExplicacion(params: {
   estadoEfectivo?: string | null;
   correccionExplicacion?: string | null;
   labels?: readonly string[] | null;
+  correccionResumen?: {
+    count: number;
+    labels: string[];
+    first_motivo?: string | null;
+    ux_state?: string | null;
+  } | null;
 }): string | null {
   const estado = (params.estadoEfectivo ?? "").trim();
   if (estado !== "correccion_requerida") return null;
+
+  if (params.correccionResumen && params.correccionResumen.count > 0) {
+    const fromResumen = formatAsesorCorreccionInboxSecondary(
+      parseAsesorCorreccionResumen(params.correccionResumen) ?? undefined,
+    );
+    if (fromResumen) return fromResumen;
+  }
 
   const fromRpc = (params.correccionExplicacion ?? "").trim();
   if (fromRpc) return fromRpc;

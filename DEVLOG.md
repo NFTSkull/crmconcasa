@@ -1,3 +1,7 @@
+## 2026-08-25 - P210: corrección accionable asesor (motivo + reenvío explícito)
+
+Causa (RO Mauricio 3370014e): P209 muestra categoría sin `comentario_rechazo`; guardar DG ≠ respuesta P130 (`ensure_open_lote` reutiliza lote pre-request); copy DG engañoso. Decisión: mig **210** — motivo desde `action_log`/`documento_revisiones` (episodio vigente); `asesor_cambio_create_response_lote` NUEVO (no tocar `ensure_open_lote`); RPC `asesor_reenviar_correccion_a_mesa` copia cambios post-request + submit con `submitted_at > request_at`; P198 transiciona natural a `CORRECTION_PENDING_REVIEW`. FE: panel causal, CTA con confirmación DG, inbox `correccion_resumen`. Cloud apply vía `db query --linked` + `schema_migrations` 210; helpers internos REVOKE anon/auth; perf post-apply B p50 ~841ms ≤ baseline 986ms×1.20; 0 writers de negocio en publicación.
+
 ## 2026-08-25 - P209: inbox asesor explica qué corregir (first paint)
 
 Causa (Cloud RO): 44 `correccion_requerida`; 6 con enrich count=0 (P198 DG WAITING pero `cliente_datos≠rechazado`); 36 con copy genérico «1 elemento». Root cause: `estado_efectivo` usa P198; copy usaba enrich async (`cliente_datos` + docs rechazados). Decisión: mig **209** — `asesor_inbox_correccion_labels_vigentes` (autoridad P202/P198 + retención) + `correccion_explicacion` en list RPC; FE first paint sin esperar enrich. Fallback único si labels vacíos. 0 writers / chips intactos. Sin Cloud/commit.

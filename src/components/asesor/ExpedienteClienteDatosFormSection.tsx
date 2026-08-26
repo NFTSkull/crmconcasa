@@ -60,6 +60,14 @@ interface ExpedienteClienteDatosFormSectionProps {
   esperaMontoMessage: string;
   /** Cuando false, el rechazo DG es historial (episodio enviado/cerrado). Default true. */
   alertaAccionDgActiva?: boolean;
+  /** P210: episodio causal DG abierto (independiente de cliente_datos.estado vivo). */
+  correccionDgActiva?: boolean;
+  /** P210: estado UX derivado del read-model SQL. */
+  correccionDgUxState?:
+    | "PENDIENTE_DE_CORREGIR"
+    | "CAMBIOS_GUARDADOS_SIN_ENVIAR"
+    | "CORRECCION_ENVIADA"
+    | null;
   montoAprobado?: number | null;
   programaDb?: string | null;
   onMontoMejoravitEdited?: () => void;
@@ -128,6 +136,8 @@ export function ExpedienteClienteDatosFormSection({
   onMontoMejoravitEdited,
   onMontoCalculadoEdited,
   alertaAccionDgActiva = true,
+  correccionDgActiva = false,
+  correccionDgUxState = null,
 }: ExpedienteClienteDatosFormSectionProps) {
   const esMejoravit = isProgramaMejoravitDb(programaDb);
   const esCorreccionRechazo = asesorEsCorreccionRechazoClienteDatos(
@@ -290,7 +300,7 @@ export function ExpedienteClienteDatosFormSection({
               : ""}
           </p>
         ) : null}
-        {submittedToMesa && puedeIntegrar ? (
+        {submittedToMesa && puedeIntegrar && !correccionDgActiva ? (
           <p
             className="mt-2 rounded-md border border-sky-100 bg-sky-50 px-2 py-1.5 text-xs text-sky-900"
             role="status"
@@ -299,7 +309,27 @@ export function ExpedienteClienteDatosFormSection({
             información actualizada.
           </p>
         ) : null}
-        {submittedToMesa && clienteDatosMeta?.estado === "completo" ? (
+        {correccionDgActiva &&
+        correccionDgUxState === "PENDIENTE_DE_CORREGIR" ? (
+          <p
+            className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-950"
+            role="status"
+          >
+            Corrige lo indicado por Mesa y guarda tus cambios.
+          </p>
+        ) : null}
+        {correccionDgActiva &&
+        correccionDgUxState === "CAMBIOS_GUARDADOS_SIN_ENVIAR" ? (
+          <p
+            className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-950"
+            role="status"
+          >
+            Cambios guardados. Falta reenviar la corrección a Mesa.
+          </p>
+        ) : null}
+        {submittedToMesa &&
+        clienteDatosMeta?.estado === "completo" &&
+        !correccionDgActiva ? (
           <p className="mt-2 rounded-md border border-sky-100 bg-sky-50 px-2 py-1.5 text-xs text-sky-900">
             Datos guardados — pendiente de revisión por Mesa de control.
           </p>

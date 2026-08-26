@@ -17,6 +17,7 @@ import {
   asesorInboxResultadoRealSchema,
 } from "./asesor-inbox-rpc";
 import { mapProgramaDbToUi } from "./map-programa";
+import { parseAsesorCorreccionResumen } from "./asesor-correccion-detalle";
 import { normalizePagoConcasaResultado } from "./pago-concasa-resultado";
 import {
   deriveResultadoRealExpediente,
@@ -48,6 +49,8 @@ export type AsesorInboxPageViewModel = Readonly<{
   estadoEfectivoPorId: Readonly<Record<string, string>>;
   /** P209: explicación causal de corrección (por id). */
   correccionExplicacionPorId: Readonly<Record<string, string>>;
+  /** P210: resumen causal inbox (por id). */
+  correccionResumenPorId: Readonly<Record<string, import("./asesor-correccion-detalle").AsesorCorreccionResumen>>;
   /** P183: metadata de re-precal REAL (ortogonal a resultado_real). */
   reprecalPorId: Readonly<Record<string, AsesorInboxReprecalMeta>>;
   totalCount: number;
@@ -366,12 +369,18 @@ export function mapAsesorInboxPageResultToViewModel(
   const categoriaPorId: Record<string, string> = {};
   const estadoEfectivoPorId: Record<string, string> = {};
   const correccionExplicacionPorId: Record<string, string> = {};
+  const correccionResumenPorId: Record<
+    string,
+    NonNullable<ReturnType<typeof parseAsesorCorreccionResumen>>
+  > = {};
   const reprecalPorId: Record<string, AsesorInboxReprecalMeta> = {};
   const items = result.items.map((row) => {
     categoriaPorId[row.id] = row.categoria_correccion;
     if (row.estado_efectivo) estadoEfectivoPorId[row.id] = row.estado_efectivo;
     const explicacion = (row.correccion_explicacion ?? "").trim();
     if (explicacion) correccionExplicacionPorId[row.id] = explicacion;
+    const resumen = parseAsesorCorreccionResumen(row.correccion_resumen);
+    if (resumen) correccionResumenPorId[row.id] = resumen;
     const meta = mapAsesorInboxReprecalMeta(row);
     if (meta) reprecalPorId[row.id] = meta;
     return mapAsesorInboxListItemToExpedienteMock(row, {
@@ -383,6 +392,7 @@ export function mapAsesorInboxPageResultToViewModel(
     categoriaPorId,
     estadoEfectivoPorId,
     correccionExplicacionPorId,
+    correccionResumenPorId,
     reprecalPorId,
     totalCount: result.total_count,
     page: result.page,
