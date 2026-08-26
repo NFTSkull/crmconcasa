@@ -8,7 +8,6 @@ import {
   DEFAULT_SPREADSHEET_ID,
   jsonError,
   jsonOk,
-  parseTabDate,
   timingSafeEqual,
 } from "../_shared/agenda-sheets/parsers.ts";
 import { createGoogleSheetsAdapter } from "../_shared/agenda-sheets/google.ts";
@@ -30,6 +29,10 @@ import {
   horizonPublicBody,
   runAvailabilityHorizon,
 } from "../_shared/agenda-sheets/availability-horizon.ts";
+import {
+  parseTabMapJson,
+  resolveSheetTabForDate,
+} from "../_shared/agenda-sheets/resolve-tab.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 
 const START = "2026-07-30";
@@ -185,8 +188,8 @@ Deno.serve(async (req) => {
       timeAliases = [];
     }
 
-    const tabs = await adapter.listSheets();
     if (scopeDecision.kind === "horizon") {
+      const tabs = await adapter.listSheets();
       const bounds = availabilityHorizonBounds(new Date());
       try {
         const horizon = await runAvailabilityHorizon({
@@ -223,6 +226,47 @@ Deno.serve(async (req) => {
       }
     }
 
+    const yearNum = Number.isFinite(year) ? year : 2026;
+    const tabMap = parseTabMapJson(
+      Deno.env.get("GOOGLE_SHEETS_TAB_MAP_JSON") ?? "{}",
+    );
+    const mapHit = resolveSheetTabForDate({
+      bookingDate,
+      tabMap,
+      liveTabs: [],
+      year: yearNum,
+    });
+    let targetTab: { sheetId: number; title: string };
+    if (mapHit.status === "resolved_from_tab_map") {
+      targetTab = { sheetId: mapHit.sheetId, title: mapHit.title };
+    } else {
+      const liveTabs = await adapter.listSheets();
+      const resolved = resolveSheetTabForDate({
+        bookingDate,
+        tabMap,
+        liveTabs,
+        year: yearNum,
+      });
+      if (
+        resolved.status === "resolved_from_tab_map" ||
+        resolved.status === "resolved_from_live_metadata"
+      ) {
+        targetTab = { sheetId: resolved.sheetId, title: resolved.title };
+      } else if (resolved.status === "ambiguous_sheet_for_date") {
+        return jsonError(
+          409,
+          "ambiguous_sheet_for_date",
+          "Varias pestañas Sheet coinciden con la fecha",
+        );
+      } else {
+        return jsonError(
+          404,
+          "missing_sheet_for_date",
+          "No hay pestaña Sheet para la fecha solicitada",
+        );
+      }
+    }
+
     let upserted = 0;
     const anomalies: unknown[] = [];
     const physicalForGate: {
@@ -231,58 +275,50 @@ Deno.serve(async (req) => {
       bookingId: string | null;
     }[] = [];
 
-    for (const tab of tabs) {
-      if (tab.hidden) continue;
-      const titleRaw = String(tab.title ?? "");
-      const titleCmp = titleRaw.trim();
-      if (/^FORMATO$/i.test(titleCmp)) continue;
-      const date = parseTabDate(titleCmp, Number.isFinite(year) ? year : 2026);
-      if (!date || date !== bookingDate) continue;
+    const titleRaw = String(targetTab.title ?? "");
+    const titleEsc = `'${titleRaw.replace(/'/g, "''")}'`;
+    const grid = await adapter.getValues(`${titleEsc}!A1:U200`);
+    const { rows, issues } = buildInventoryUpsertRows({
+      organizationId: orgId,
+      spreadsheetId,
+      sheetId: targetTab.sheetId,
+      sheetTitle: titleRaw,
+      bookingDate,
+      grid,
+      timeAliases,
+    });
+    for (const iss of issues) {
+      anomalies.push({ title: titleRaw, ...iss });
+    }
 
-      const titleEsc = `'${titleRaw.replace(/'/g, "''")}'`;
-      const grid = await adapter.getValues(`${titleEsc}!A1:U200`);
-      const { rows, issues } = buildInventoryUpsertRows({
-        organizationId: orgId,
-        spreadsheetId,
-        sheetId: tab.sheetId,
-        sheetTitle: titleRaw,
-        bookingDate: date,
-        grid,
-        timeAliases,
+    const filtered = rows.filter((r) => {
+      if (kind && r.kind !== kind) return false;
+      if (locationId && r.location_id !== locationId) return false;
+      return true;
+    });
+
+    for (const r of filtered) {
+      physicalForGate.push({
+        slotTime: String(r.slot_time).slice(0, 5),
+        status: r.status,
+        bookingId: r.booking_id ?? null,
       });
-      for (const iss of issues) {
-        anomalies.push({ title: titleRaw, ...iss });
-      }
+    }
 
-      const filtered = rows.filter((r) => {
-        if (kind && r.kind !== kind) return false;
-        if (locationId && r.location_id !== locationId) return false;
-        return true;
+    for (let i = 0; i < filtered.length; i += 200) {
+      const chunk = filtered.slice(i, i + 200);
+      if (chunk.length === 0) continue;
+      const { error } = await supabase.rpc("agenda_sheet_inventory_upsert_batch", {
+        p_rows: chunk,
       });
-
-      for (const r of filtered) {
-        physicalForGate.push({
-          slotTime: String(r.slot_time).slice(0, 5),
-          status: r.status,
-          bookingId: r.booking_id ?? null,
-        });
+      if (error) {
+        return jsonError(
+          500,
+          "upsert_failed",
+          `${error.message}`.slice(0, 240),
+        );
       }
-
-      for (let i = 0; i < filtered.length; i += 200) {
-        const chunk = filtered.slice(i, i + 200);
-        if (chunk.length === 0) continue;
-        const { error } = await supabase.rpc("agenda_sheet_inventory_upsert_batch", {
-          p_rows: chunk,
-        });
-        if (error) {
-          return jsonError(
-            500,
-            "upsert_failed",
-            `${error.message}`.slice(0, 240),
-          );
-        }
-        upserted += chunk.length;
-      }
+      upserted += chunk.length;
     }
 
     // Siempre calcular cupo desde la relectura física (no depender de RPC user-scoped).
