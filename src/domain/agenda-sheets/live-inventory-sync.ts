@@ -19,6 +19,12 @@ export type LiveSyncResult = InventoryAvailabilityResponse & {
   bookMessage?: string;
   anomalies?: unknown[];
   anomaly_count?: number;
+  code?: string | null;
+};
+
+type InvokeErrorLike = {
+  message?: string;
+  context?: Response;
 };
 
 type SupabaseLike = {
@@ -26,36 +32,56 @@ type SupabaseLike = {
     invoke: (
       name: string,
       opts: { body: Record<string, unknown> },
-    ) => Promise<{ data: unknown; error: { message?: string } | null }>;
+    ) => Promise<{ data: unknown; error: InvokeErrorLike | null }>;
   };
 };
 
-export async function invokeAgendaSheetLiveSync(
-  client: SupabaseLike,
-  input: {
-    bookingDate: string;
-    kind: "biometricos" | "firmas" | "inscripcion";
-    locationId: "monterrey" | "apodaca" | string;
-    mode?: LiveSyncMode;
-    slotTime?: string;
-  },
-): Promise<LiveSyncResult | null> {
-  const { data, error } = await client.functions.invoke("agenda-sheet-live-sync", {
-    body: {
-      bookingDate: input.bookingDate,
-      kind: input.kind,
-      locationId: input.locationId,
-      mode: input.mode ?? "availability",
-      slotTime: input.slotTime ?? undefined,
-    },
-  });
-  if (error || !data || typeof data !== "object") return null;
-  const raw = data as Record<string, unknown>;
-  // Edge jsonOk suele envolver en { ok, ... } o devolver plano
-  const payload = (raw.data && typeof raw.data === "object"
-    ? raw.data
-    : raw) as Record<string, unknown>;
-  if (payload.fresh !== true && payload.fresh !== false) return null;
+async function readInvokePayload(
+  data: unknown,
+  error: InvokeErrorLike | null,
+): Promise<Record<string, unknown> | null> {
+  if (data && typeof data === "object") {
+    const raw = data as Record<string, unknown>;
+    const payload =
+      raw.data && typeof raw.data === "object"
+        ? (raw.data as Record<string, unknown>)
+        : raw;
+    return payload;
+  }
+  const ctx = error?.context;
+  if (ctx && typeof ctx.json === "function") {
+    try {
+      const body = await ctx.json();
+      if (body && typeof body === "object") {
+        return body as Record<string, unknown>;
+      }
+    } catch {
+      /* ignore parse errors */
+    }
+  }
+  return null;
+}
+
+function toLiveSyncResult(payload: Record<string, unknown>): LiveSyncResult | null {
+  if (payload.fresh !== true && payload.fresh !== false) {
+    const code = typeof payload.code === "string" ? payload.code : null;
+    if (!code) return null;
+    return {
+      ok: false,
+      fresh: false,
+      enforced: payload.enforced !== false,
+      slots: [],
+      refreshed: false,
+      upserted: 0,
+      canBook: false,
+      gateMessage:
+        typeof payload.gateMessage === "string" ? payload.gateMessage : null,
+      bookMessage: BOOK_SLOT_JUST_TAKEN_MESSAGE,
+      anomalies: [],
+      anomaly_count: 0,
+      code,
+    };
+  }
   return {
     ok: true,
     fresh: payload.fresh === true,
@@ -78,5 +104,30 @@ export async function invokeAgendaSheetLiveSync(
         : BOOK_SLOT_JUST_TAKEN_MESSAGE,
     anomalies: Array.isArray(payload.anomalies) ? payload.anomalies : [],
     anomaly_count: Number(payload.anomaly_count) || 0,
+    code: typeof payload.code === "string" ? payload.code : null,
   };
+}
+
+export async function invokeAgendaSheetLiveSync(
+  client: SupabaseLike,
+  input: {
+    bookingDate: string;
+    kind: "biometricos" | "firmas" | "inscripcion";
+    locationId: "monterrey" | "apodaca" | string;
+    mode?: LiveSyncMode;
+    slotTime?: string;
+  },
+): Promise<LiveSyncResult | null> {
+  const { data, error } = await client.functions.invoke("agenda-sheet-live-sync", {
+    body: {
+      bookingDate: input.bookingDate,
+      kind: input.kind,
+      locationId: input.locationId,
+      mode: input.mode ?? "availability",
+      slotTime: input.slotTime ?? undefined,
+    },
+  });
+  const payload = await readInvokePayload(data, error);
+  if (!payload) return null;
+  return toLiveSyncResult(payload);
 }
