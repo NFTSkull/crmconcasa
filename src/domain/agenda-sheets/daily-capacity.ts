@@ -9,6 +9,9 @@ export const BIOMETRICOS_MONTERREY_DAILY_CAPACITY = 15 as const;
 export const LIVE_SYNC_CUPOS_UNVERIFIED_MESSAGE =
   "No pudimos verificar el cupo en Google Sheets. Intenta de nuevo en unos segundos.";
 
+export const LIVE_SYNC_SHEET_TAB_MISSING_MESSAGE =
+  "No hay agenda en Google Sheets para esta fecha. Elige otra fecha disponible.";
+
 export type DailyCapacityKind = "biometricos" | "firmas" | "inscripcion";
 export type DailyCapacityLocation = "monterrey" | "apodaca" | string;
 
@@ -126,7 +129,7 @@ export function shouldBlockBookWithoutLiveSync(input: {
   kind: string;
   locationId: string;
   bookingDate: string;
-  gate: { fresh?: boolean; canBook?: boolean } | null;
+  gate: { fresh?: boolean; canBook?: boolean; code?: string | null } | null;
 }): { block: boolean; message: string | null } {
   if (!isInventoryLiveSyncRequired(input)) {
     return { block: false, message: null };
@@ -135,6 +138,9 @@ export function shouldBlockBookWithoutLiveSync(input: {
     return { block: true, message: LIVE_SYNC_CUPOS_UNVERIFIED_MESSAGE };
   }
   if (input.gate.fresh !== true) {
+    if (input.gate.code === "missing_sheet_for_date") {
+      return { block: true, message: LIVE_SYNC_SHEET_TAB_MISSING_MESSAGE };
+    }
     return { block: true, message: LIVE_SYNC_CUPOS_UNVERIFIED_MESSAGE };
   }
   if (input.gate.canBook === false) {

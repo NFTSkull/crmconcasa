@@ -168,6 +168,7 @@ export function AgendaBiometricosSupabaseCard({
     null,
   );
   const [inventoryRefreshing, setInventoryRefreshing] = useState(false);
+  const inventorySyncGenRef = useRef(0);
   const syncWatchGen = useRef(0);
 
   const watchSheetSync = useCallback(
@@ -332,6 +333,7 @@ export function AgendaBiometricosSupabaseCard({
 
   useEffect(() => {
     let cancelled = false;
+    const syncGen = ++inventorySyncGenRef.current;
     if (!selectedSede || !dateYmd || !supabaseBrowser) {
       setSheetInventory(null);
       setInventoryRefreshing(false);
@@ -347,9 +349,14 @@ export function AgendaBiometricosSupabaseCard({
           locationId: selectedSede.canonicalId,
           mode: "availability",
         });
-        if (cancelled) return;
+        if (cancelled || syncGen !== inventorySyncGenRef.current) return;
         if (live) {
           setSheetInventory(live);
+          if (live.fresh === true) {
+            setError((prev) =>
+              prev === LIVE_SYNC_CUPOS_UNVERIFIED_MESSAGE ? null : prev,
+            );
+          }
           return;
         }
         const { data, error } = await supabaseBrowser.rpc(
@@ -360,18 +367,26 @@ export function AgendaBiometricosSupabaseCard({
             p_location_id: selectedSede.canonicalId,
           },
         );
-        if (cancelled) return;
+        if (cancelled || syncGen !== inventorySyncGenRef.current) return;
         if (error || !data || typeof data !== "object") {
           setSheetInventory({ fresh: false, enforced: true, slots: [] });
           return;
         }
-        setSheetInventory(data as InventoryAvailabilityResponse);
+        const inv = data as InventoryAvailabilityResponse;
+        setSheetInventory(inv);
+        if (inv.fresh === true) {
+          setError((prev) =>
+            prev === LIVE_SYNC_CUPOS_UNVERIFIED_MESSAGE ? null : prev,
+          );
+        }
       } catch {
-        if (!cancelled) {
+        if (!cancelled && syncGen === inventorySyncGenRef.current) {
           setSheetInventory({ fresh: false, enforced: true, slots: [] });
         }
       } finally {
-        if (!cancelled) setInventoryRefreshing(false);
+        if (!cancelled && syncGen === inventorySyncGenRef.current) {
+          setInventoryRefreshing(false);
+        }
       }
     })();
     return () => {

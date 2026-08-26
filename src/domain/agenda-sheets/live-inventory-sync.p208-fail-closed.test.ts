@@ -109,7 +109,58 @@ describe("P208 FE fail-closed live-sync → 0 book RPC", () => {
     assert.equal(calls, 0);
   });
 
-  it("malformed payload (sin fresh) → null → book 0", async () => {
+  it("invoke 404 body → fresh=false (no null) → book 0", async () => {
+    const out = await invokeAgendaSheetLiveSync(
+      {
+        functions: {
+          invoke: async () =>
+            ({
+              data: null,
+              error: {
+                message: "Edge Function returned a non-2xx status code",
+                context: {
+                  json: async () => ({
+                    ok: false,
+                    code: "missing_sheet_for_date",
+                    fresh: false,
+                    enforced: true,
+                    slots: [],
+                  }),
+                },
+              },
+            }) as { data: unknown; error: { message?: string; context?: Response } | null },
+        },
+      },
+      { bookingDate: "2026-11-01", kind: "biometricos", locationId: "monterrey" },
+    );
+    assert.ok(out);
+    assert.equal(out?.fresh, false);
+    assert.equal(out?.code, "missing_sheet_for_date");
+    let calls = 0;
+    const result = await attemptBookAfterLiveGate({
+      gate: out,
+      repo: {
+        bookBiometricos: () => {
+          calls += 1;
+        },
+      },
+    });
+    assert.equal(result, "blocked");
+    assert.equal(calls, 0);
+  });
+
+  it("missing_sheet fresh=false mensaje distinto a unverified", () => {
+    const blocked = shouldBlockBookWithoutLiveSync({
+      kind: "biometricos",
+      locationId: "monterrey",
+      bookingDate: "2026-11-01",
+      gate: { fresh: false, code: "missing_sheet_for_date" },
+    });
+    assert.equal(blocked.block, true);
+    assert.doesNotMatch(blocked.message ?? "", /verificar el cupo/i);
+  });
+
+  it("malformed payload (sin fresh ni code) → null → book 0", async () => {
     const out = await invokeAgendaSheetLiveSync(
       {
         functions: {

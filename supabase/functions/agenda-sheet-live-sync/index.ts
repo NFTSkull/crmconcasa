@@ -237,33 +237,45 @@ Deno.serve(async (req) => {
       year: yearNum,
     });
     let targetTab: { sheetId: number; title: string };
+    let tabResolve = "tab_map";
     if (mapHit.status === "resolved_from_tab_map") {
       targetTab = { sheetId: mapHit.sheetId, title: mapHit.title };
     } else {
-      const liveTabs = await adapter.listSheets();
-      const resolved = resolveSheetTabForDate({
-        bookingDate,
-        tabMap,
-        liveTabs,
-        year: yearNum,
-      });
-      if (
-        resolved.status === "resolved_from_tab_map" ||
-        resolved.status === "resolved_from_live_metadata"
-      ) {
-        targetTab = { sheetId: resolved.sheetId, title: resolved.title };
-      } else if (resolved.status === "ambiguous_sheet_for_date") {
-        return jsonError(
-          409,
-          "ambiguous_sheet_for_date",
-          "Varias pestañas Sheet coinciden con la fecha",
-        );
+      const { data: invMeta } = await supabase
+        .from("agenda_sheet_slot_inventory")
+        .select("sheet_id, sheet_title")
+        .eq("organization_id", orgId)
+        .eq("booking_date", bookingDate)
+        .limit(1)
+        .maybeSingle();
+      const sheetId = Number(
+        (invMeta as { sheet_id?: number } | null)?.sheet_id ?? 0,
+      );
+      const sheetTitle = String(
+        (invMeta as { sheet_title?: string } | null)?.sheet_title ?? "",
+      ).trim();
+      if (Number.isFinite(sheetId) && sheetId > 0 && sheetTitle.length > 0) {
+        targetTab = { sheetId, title: sheetTitle };
+        tabResolve = "inventory_metadata";
       } else {
-        return jsonError(
-          404,
-          "missing_sheet_for_date",
-          "No hay pestaña Sheet para la fecha solicitada",
-        );
+        console.error("agenda-sheet-live-sync tab missing", {
+          bookingDate,
+          map_hit: false,
+          inventory_hit: false,
+        });
+        return jsonOk({
+          ok: false,
+          code: "missing_sheet_for_date",
+          fresh: false,
+          enforced: bookingDate >= START,
+          refreshed: false,
+          upserted: 0,
+          slots: [],
+          canBook: false,
+          gateMessage: null,
+          bookMessage: BOOK_SLOT_JUST_TAKEN_MESSAGE,
+          tab_resolve: "missing",
+        });
       }
     }
 
@@ -405,6 +417,7 @@ Deno.serve(async (req) => {
       daily_occupancy: dailyMeta.occupancy,
       daily_remaining: dailyMeta.remaining,
       daily_overcapacity: dailyMeta.overcapacity,
+      tab_resolve: tabResolve,
     });
   } catch (e) {
     const msg = e instanceof Error ? e.message : String(e);

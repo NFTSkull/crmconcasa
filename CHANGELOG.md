@@ -10,6 +10,8 @@
 
 ## [Unreleased]
 
+- **hotfix(agenda): biométricos — path asesor JWT + invoke non-2xx (prod 2026-08-26 v2)** — Edge single-date ya no cae en `listSheets()` (~150s); resuelve pestaña vía TAB_MAP → metadata inventario → `200 fresh:false missing_sheet_for_date`. FE parsea body desde `error.context.json()` cuando invoke devuelve non-2xx; generation guard en `AgendaBiometricosSupabaseCard`; mensaje explícito si fecha sin pestaña. JWT asesor: ~1.3–1.9s `fresh=true`; P208 cap15 / P211 intactos. Edge v15 + FE pendiente deploy.
+
 - **hotfix(agenda): live-sync biométricos — TAB_MAP fast path (prod 2026-08-26)** — `agenda-sheet-live-sync` single-date dejaba de llamar `listSheets()` en cada invoke FE (~150s → ~11s); evita timeout cliente → `gate=null` → «No pudimos verificar el cupo…». P208/P211 intactos. Solo Edge redeploy; 0 SQL.
 
 - **feat(asesor): P211 — vigencia documental 45 días (tramo 3–8)** — cols `vigencia_*`; RO+assert; trigger clock/release **sin GUC**; hard-gate RPCs canónicos (book antes P208); Mesa override = no assert; UI detalle. Mig **211** Cloud aplicada.
