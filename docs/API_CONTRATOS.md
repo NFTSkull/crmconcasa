@@ -626,6 +626,28 @@ Rango seguro **O:U** (`ESTADO CRM`…`CRM_SYNC_VERSION`). **A:N se PRESERVA** (H
 
 ---
 
+## 7bis. Vigencia documental 45 días — tramo 3–8 (P211 LOCAL)
+
+**Objetivo:** mientras el expediente esté en etapas **3–8**, ciclo activo, `submitted_to_mesa`, y **sin** `vigencia_documental_liberada_at`, corre un reloj de 45 días naturales (`America/Monterrey`) desde la entrada al tramo (`<3 → 3..8`). Día 0..45 vigente; **>45** vencido.
+
+**Columnas:** `vigencia_documental_started_at`, `vigencia_documental_liberada_at`, `vigencia_reingreso_completado_at` (nullable; auditoría).
+
+**RO:** `expediente_vigencia_documental_estado(uuid)` — única autoridad runtime (no reconstruye historia).
+
+**Assert:** `assert_expediente_vigencia_documental_ok(uuid)` → `VIGENCIA_DOCUMENTAL_REINGRESO_REQUERIDO` si vencido y faltan docs frescos (`cliente_comprobante_domicilio` + `cliente_estado_cuenta`, activos, `created_at` local ≥ primer día vencido). **No** exige `estatus_revision=validado`.
+
+**Release sticky:** primera llegada `etapa_actual >= 9` setea `liberada_at`; Mesa `9→8` **no** reaplica P211 (`reason=already_released`).
+
+**Gates forward (además del trigger clock/release):** `book_biometricos` (antes cupo P208), `agenda_sheet_book_by_nss` (rama biométricos), `avanzar_etapa_operativa` / `_pre_reingreso`, `register_expediente_documento_retencion` (antes side-effects 8→9), `repair_retencion_enviada_a_etapa_9`, `agenda_sheet_apply_operational_result` (avances 3→4/4→5/5→8).
+
+**Mesa override:** `mesa_mover_etapa_operativa` **no** llama assert (sin GUC cliente-spoofable). Trigger solo mantiene clock/release.
+
+**UI:** solo detalle asesor (header + panel «REINGRESO POR VIGENCIA»). No inbox. No crea expediente hijo / P198 / P210.
+
+**Mig:** **211** (local; no Cloud en esta fase).
+
+---
+
 ## 8. Agendar biométricos (asesor)
 
 **Operación:** `POST /agenda/biometricos/bookings` · RPC `book_biometricos`

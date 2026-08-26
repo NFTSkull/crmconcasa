@@ -6,6 +6,13 @@
 - [x] stageCount vs totalCount: aviso si discrepan; no maquillar.
 - [x] Precal/monto/listByAsesor intactos; 0 SQL.
 
+## P211 — Vigencia documental 45 días (tramo 3–8)
+
+- [x] Clock: 2→3 inicia; internos 3↔8 no reset; salida &lt;3 + reentrada nuevo episodio; release sticky ≥9; 9→8 no reaplica.
+- [x] Días Monterrey: 0/44/45 OK; 46 vencido; docs frescos (ambos / parcial / wrong kind / deleted).
+- [x] Forward block T24–T29 y pass T30–T35+T36 con assert; Mesa skip GUC; early assert antes P208 en book.
+- [x] UI header/panel asesor; 0 Cloud writes. Mig **211** local. SQL `rpc_vigencia_documental_p211.sql`.
+
 ## P208 — Hard-cap diario Biométricos Monterrey = 15
 
 - [x] Occupancy canónica anti doble conteo; remaining = max(0, 15-occ); overcapacity → 0.
