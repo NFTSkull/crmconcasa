@@ -92,6 +92,33 @@ describe("agenda-sheets edge-like guards", () => {
     assert.match(src, /decideBookHardGate/);
   });
 
+  it("22b. live-sync CORS: OPTIONS + ACAO en todas las respuestas", () => {
+    const src = readFileSync(
+      new URL(
+        "../../../supabase/functions/agenda-sheet-live-sync/index.ts",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+    assert.match(src, /req\.method === "OPTIONS"/);
+    assert.match(src, /Access-Control-Allow-Origin/);
+    assert.match(src, /authorization, x-client-info, apikey, content-type, x-supabase-api-version/);
+    assert.match(src, /POST, OPTIONS/);
+    assert.match(src, /liveSyncJsonOk/);
+    assert.match(src, /liveSyncJsonError/);
+    assert.match(src, /liveSyncCorsPreflight/);
+    assert.doesNotMatch(
+      readFileSync(
+        new URL(
+          "../../../supabase/functions/_shared/agenda-sheets/parsers.ts",
+          import.meta.url,
+        ),
+        "utf8",
+      ),
+      /Access-Control-Allow-Origin/,
+    );
+  });
+
   it("23. worker CRM→Sheet sigue presente (outbound)", () => {
     const src = readFileSync(
       new URL(

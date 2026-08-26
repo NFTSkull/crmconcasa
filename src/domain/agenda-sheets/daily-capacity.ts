@@ -213,3 +213,50 @@ export function reconcileBookingErrorAfterAvailabilityResync(input: {
   }
   return input.previousError;
 }
+
+export type BiometricBookGateAttempt = {
+  blocked: boolean;
+  bookGateError: string | null;
+  mayCallBookBiometricos: boolean;
+};
+
+/** Hard gate live-sync antes de book_biometricos (fail-closed). */
+export function resolveBiometricBookGateAttempt(input: {
+  kind: string;
+  locationId: string;
+  bookingDate: string;
+  gate: {
+    fresh?: boolean;
+    canBook?: boolean;
+    code?: string | null;
+    gateMessage?: string | null;
+  } | null;
+}): BiometricBookGateAttempt {
+  const blocked = shouldBlockBookWithoutLiveSync(input);
+  if (blocked.block) {
+    return {
+      blocked: true,
+      bookGateError: resolveBookGateBlockMessage({ gate: input.gate, blocked }),
+      mayCallBookBiometricos: false,
+    };
+  }
+  return { blocked: false, bookGateError: null, mayCallBookBiometricos: true };
+}
+
+/** Inventario RPC fresh NO prueba book_gate; nunca limpia el error del gate. */
+export function preserveBookGateErrorAfterAvailabilityFallback(input: {
+  bookGateError: string;
+  inventoryFresh: boolean;
+}): string {
+  void input.inventoryFresh;
+  return input.bookGateError;
+}
+
+/** Label verde solo si no hay fallo activo del hard gate de reserva. */
+export function shouldShowBiometricInventorySyncedLabel(input: {
+  inventoryLabel: string | null;
+  bookGateError: string | null;
+}): boolean {
+  if (input.bookGateError) return false;
+  return input.inventoryLabel === BIOMETRIC_INVENTORY_SYNCED_LABEL;
+}
