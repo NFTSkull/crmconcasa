@@ -131,3 +131,34 @@ export async function invokeAgendaSheetLiveSync(
   if (!payload) return null;
   return toLiveSyncResult(payload);
 }
+
+type SupabaseAvailabilityClient = SupabaseLike & {
+  rpc: (fn: string, args: Record<string, unknown>) => unknown;
+};
+
+/** availability live-sync → fallback RPC inventario (fuente única para FE). */
+export async function fetchBiometricSheetAvailability(
+  client: SupabaseAvailabilityClient,
+  input: {
+    bookingDate: string;
+    locationId: string;
+  },
+): Promise<InventoryAvailabilityResponse> {
+  const live = await invokeAgendaSheetLiveSync(client, {
+    bookingDate: input.bookingDate,
+    kind: "biometricos",
+    locationId: input.locationId,
+    mode: "availability",
+  });
+  if (live) return live;
+  const rpcResult = (await client.rpc("agenda_sheet_inventory_availability", {
+    p_kind: "biometricos",
+    p_date: input.bookingDate,
+    p_location_id: input.locationId,
+  })) as { data: unknown; error: { message?: string } | null };
+  const { data, error } = rpcResult;
+  if (error || !data || typeof data !== "object") {
+    return { fresh: false, enforced: true, slots: [] };
+  }
+  return data as InventoryAvailabilityResponse;
+}
