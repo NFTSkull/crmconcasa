@@ -613,6 +613,11 @@ export class MockExpedientesRepo implements ExpedientesRepo {
     return null;
   }
 
+  async getVigenciaDocumentalEstado(_expedienteId: string) {
+    void _expedienteId;
+    return null;
+  }
+
   async reenviarCorreccionAMesa(_expedienteId: string): Promise<AsesorReenviarCorreccionResult> {
     void _expedienteId;
     throw new Error("reenviarCorreccionAMesa: solo disponible con Supabase");

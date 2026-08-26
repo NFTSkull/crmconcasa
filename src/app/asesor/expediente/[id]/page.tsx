@@ -34,6 +34,7 @@ import {
   AsesorCorreccionAccionablePanel,
   AsesorCorreccionSeccionDgBanner,
 } from "@/components/asesor/AsesorCorreccionAccionablePanel";
+import { AsesorVigenciaDocumentalPanel } from "@/components/asesor/AsesorVigenciaDocumentalPanel";
 import { ReingresoBadge } from "@/components/asesor/ReingresoBadge";
 import { ReingresoManualConfirmDialog } from "@/components/asesor/ReingresoManualConfirmDialog";
 import { Button } from "@/components/ui/Button";
@@ -46,6 +47,10 @@ import {
   type ExpedienteCancelacionRow,
   type ExpedienteMock,
 } from "@/domain/expedientes";
+import {
+  formatVigenciaDocumentalHeader,
+  type ExpedienteVigenciaDocumentalEstado,
+} from "@/domain/expedientes/vigencia-documental";
 import {
   hasReingresoVisible,
   puedeMostrarReingresoManualCard,
@@ -264,6 +269,8 @@ export default function AsesorExpedientePage() {
   const [estadoEfectivo, setEstadoEfectivo] = useState<string | null>(null);
   const [correccionDetalle, setCorreccionDetalle] =
     useState<AsesorCorreccionDetalle | null>(null);
+  const [vigenciaDocumental, setVigenciaDocumental] =
+    useState<ExpedienteVigenciaDocumentalEstado | null>(null);
   const [correccionResubmitting, setCorreccionResubmitting] = useState(false);
   const [checklist, setChecklist] = useState<
     Awaited<ReturnType<typeof getChecklistDocumentos>> | null
@@ -759,11 +766,14 @@ export default function AsesorExpedientePage() {
 
   const loadExpediente = useCallback(async () => {
     try {
-      const [exp, estadoInbox, detalleCorreccion] = await Promise.all([
+      const [exp, estadoInbox, detalleCorreccion, vigencia] = await Promise.all([
         repo.getById(id),
         repo.getAsesorInboxEstadoEfectivo(id).catch(() => null),
         dataSupabase
           ? repo.getAsesorCorreccionDetalle(id).catch(() => null)
+          : Promise.resolve(null),
+        dataSupabase
+          ? repo.getVigenciaDocumentalEstado(id).catch(() => null)
           : Promise.resolve(null),
       ]);
       if (!exp) {
@@ -771,6 +781,7 @@ export default function AsesorExpedientePage() {
         setOperativo(null);
         setEstadoEfectivo(null);
         setCorreccionDetalle(null);
+        setVigenciaDocumental(null);
         setEditorDecision(null);
         setReingreso(undefined);
         setReingresoManual(undefined);
@@ -782,6 +793,7 @@ export default function AsesorExpedientePage() {
       }
       setEstadoEfectivo(estadoInbox);
       setCorreccionDetalle(detalleCorreccion);
+      setVigenciaDocumental(vigencia);
       setLoadError(null);
       setEditorDecision(exp.editorDecision);
       setReingreso(exp.reingreso);
@@ -1559,7 +1571,31 @@ export default function AsesorExpedientePage() {
           <h1 className="text-lg font-semibold text-gray-900">
             ConCasa CRM · Expediente asesor
           </h1>
-          <span />
+          {vigenciaDocumental &&
+          typeof operativo?.etapaActual === "number" ? (
+            (() => {
+              const label = formatVigenciaDocumentalHeader(
+                vigenciaDocumental,
+                operativo.etapaActual,
+              );
+              return label ? (
+                <span
+                  data-testid="asesor-vigencia-documental-header"
+                  className={`text-xs ${
+                    vigenciaDocumental.vencido
+                      ? "font-medium text-amber-800"
+                      : "text-gray-500"
+                  }`}
+                >
+                  {label}
+                </span>
+              ) : (
+                <span />
+              );
+            })()
+          ) : (
+            <span />
+          )}
         </div>
       </header>
       <main className="mx-auto max-w-6xl space-y-6 px-4 py-6">
@@ -1626,6 +1662,17 @@ export default function AsesorExpedientePage() {
           <AsesorExpedienteCanceladoBanner
             cancelacion={cancelacionOperativa}
             formatDateTime={(iso) => (iso ? formatDateTime(iso) : "—")}
+          />
+        ) : null}
+
+        {!expedienteCancelado && dataSupabase && vigenciaDocumental ? (
+          <AsesorVigenciaDocumentalPanel
+            estado={vigenciaDocumental}
+            onFocusDocs={() => {
+              document
+                .getElementById(ASESOR_SECCION_DOCS_ID)
+                ?.scrollIntoView({ behavior: "smooth", block: "start" });
+            }}
           />
         ) : null}
 

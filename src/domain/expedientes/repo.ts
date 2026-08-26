@@ -80,6 +80,12 @@ export interface ExpedientesRepo {
   getAsesorCorreccionDetalle(
     expedienteId: string,
   ): Promise<import("./asesor-correccion-detalle").AsesorCorreccionDetalle | null>;
+  /** P211: vigencia documental tramo 3–8 (días + docs frescos). */
+  getVigenciaDocumentalEstado(
+    expedienteId: string,
+  ): Promise<
+    import("./vigencia-documental").ExpedienteVigenciaDocumentalEstado | null
+  >;
   /** P210: reenvío canónico de corrección a Mesa. */
   reenviarCorreccionAMesa(
     expedienteId: string,

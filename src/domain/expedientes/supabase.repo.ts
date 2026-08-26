@@ -24,6 +24,10 @@ import {
   type AsesorReenviarCorreccionResult,
 } from "./asesor-correccion-detalle";
 import {
+  parseExpedienteVigenciaDocumentalEstado,
+  type ExpedienteVigenciaDocumentalEstado,
+} from "./vigencia-documental";
+import {
   mapNextCursorFromRpc,
   mapRpcCountsToServerCounts,
   mesaListBandejaPageRpcSchema,
@@ -962,6 +966,29 @@ export class SupabaseExpedientesRepo implements ExpedientesRepo {
       );
     }
     return parseAsesorCorreccionDetalle(data);
+  }
+
+  async getVigenciaDocumentalEstado(
+    expedienteId: string,
+  ): Promise<ExpedienteVigenciaDocumentalEstado | null> {
+    const { client } = await requireSupabaseSession();
+    const { data, error } = await client.rpc(
+      "expediente_vigencia_documental_estado",
+      { p_expediente_id: expedienteId },
+    );
+    if (error) {
+      const code = String((error as { code?: string }).code ?? "");
+      if (
+        code === "PGRST202" ||
+        /expediente_vigencia_documental_estado/i.test(error.message ?? "")
+      ) {
+        return null;
+      }
+      throw new ExpedientesSupabaseError(
+        error.message || "No se pudo leer la vigencia documental.",
+      );
+    }
+    return parseExpedienteVigenciaDocumentalEstado(data);
   }
 
   async reenviarCorreccionAMesa(

@@ -34,6 +34,7 @@
 | Riesgo | Impacto | Mitigación |
 |--------|---------|------------|
 | Dos asesores agendan biométricos Monterrey el mismo día (14/15) | Alto (16/15) | P208: `pg_advisory_xact_lock` org+kind+fecha+sede + occupancy ≤15 en assert/claim |
+| Expediente 3–8 supera 45 días sin docs frescos y avanza/agenda | Alto (trámite con docs caducos) | P211: assert + trigger; book falla antes de consumir cupo P208; release sticky ≥9 |
 | Dos operadores Mesa avanzan etapa | Medio | Optimistic lock `updated_at` / `version` en RPC |
 | Dos operadores realizan movimiento manual | Alto | `SELECT FOR UPDATE` + `p_etapa_esperada`; conflicto estable sin evento parcial |
 | Operador escribe «RECHAZO» en motivo de movimiento manual | Alto (falso rechazo operativo) | P093 B1: copy + advertencia UI + atajo a rechazo canónico; no inferir rechazo por texto; RPC de movimiento sin efectos de rechazo |

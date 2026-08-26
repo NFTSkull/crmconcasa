@@ -186,6 +186,8 @@ La UI identifica al hijo como **Reingreso / Reinscripción** y **Biométricos re
 
 **P208 — tope diario Biométricos Monterrey:** 15 personas/día (CRM `booked` + ocupaciones manuales Sheet), sin doble conteo linked/claimed. Las filas extra de Google Sheets no aumentan el tope. Firmas / Inscripción / Apodaca sin este tope.
 
+**P211 — vigencia documental 45 días (tramo 3–8):** el reloj inicia al entrar desde etapa &lt;3; no se reinicia dentro de 3–8; se libera definitivamente al llegar a etapa ≥9 (sticky). Si pasan &gt;45 días naturales (Monterrey) sin comprobante de domicilio + estado de cuenta **frescos**, se bloquea el avance canónico (incl. biométricos antes del cupo P208 y 8→9 por acuse). Label producto: **REINGRESO POR VIGENCIA** (no confundir con reingreso post-biométricos). Mesa puede mover etapas con override.
+
 **Sede UI:** columna Sede en `/mesa-control/citas` muestra Monterrey/Apodaca (legacy mapeado); `location_id=notificacion` → «Sin sede» (el badge de tipo sigue «Notificación extraordinaria»).
 
 **Gestionar cita:** Mesa con permiso de cancel/reagendar abre diálogo: Reagendar (flujo existente), Cancelar (`mesa_gestionar_cita` action `cancelar` + decisión persistida), Cancelar y continuar (deshabilitado: requiere RPC dedicada). Asesor ve aviso de la última decisión en cards de agenda.
