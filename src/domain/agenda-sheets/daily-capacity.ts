@@ -4,6 +4,8 @@
  * 1 persona = 1 lugar. CRM booked + externos Sheet sin doble conteo.
  */
 
+import { BOOK_SLOT_JUST_TAKEN_MESSAGE } from "./manual-occupancy";
+
 export const BIOMETRICOS_MONTERREY_DAILY_CAPACITY = 15 as const;
 
 export const LIVE_SYNC_CUPOS_UNVERIFIED_MESSAGE =
@@ -129,7 +131,12 @@ export function shouldBlockBookWithoutLiveSync(input: {
   kind: string;
   locationId: string;
   bookingDate: string;
-  gate: { fresh?: boolean; canBook?: boolean; code?: string | null } | null;
+  gate: {
+    fresh?: boolean;
+    canBook?: boolean;
+    code?: string | null;
+    gateMessage?: string | null;
+  } | null;
 }): { block: boolean; message: string | null } {
   if (!isInventoryLiveSyncRequired(input)) {
     return { block: false, message: null };
@@ -144,7 +151,65 @@ export function shouldBlockBookWithoutLiveSync(input: {
     return { block: true, message: LIVE_SYNC_CUPOS_UNVERIFIED_MESSAGE };
   }
   if (input.gate.canBook === false) {
-    return { block: true, message: null };
+    const gateMessage =
+      typeof input.gate.gateMessage === "string" ? input.gate.gateMessage.trim() : "";
+    return {
+      block: true,
+      message: gateMessage || BOOK_SLOT_JUST_TAKEN_MESSAGE,
+    };
   }
   return { block: false, message: null };
+}
+
+/** Mensaje de usuario tras hard gate book_gate (nunca UNVERIFIED si fresh=true). */
+export function resolveBookGateBlockMessage(input: {
+  gate: {
+    fresh?: boolean;
+    canBook?: boolean;
+    gateMessage?: string | null;
+    code?: string | null;
+  } | null;
+  blocked: { block: boolean; message: string | null };
+}): string {
+  if (!input.blocked.block) return "";
+  if (input.blocked.message) return input.blocked.message;
+  if (input.gate?.fresh === true) {
+    const gateMessage =
+      typeof input.gate.gateMessage === "string" ? input.gate.gateMessage.trim() : "";
+    if (gateMessage) return gateMessage;
+    if (input.gate.canBook === false) return BOOK_SLOT_JUST_TAKEN_MESSAGE;
+  }
+  if (typeof input.gate?.gateMessage === "string" && input.gate.gateMessage.trim()) {
+    return input.gate.gateMessage.trim();
+  }
+  return LIVE_SYNC_CUPOS_UNVERIFIED_MESSAGE;
+}
+
+export const BIOMETRIC_INVENTORY_SYNCED_LABEL =
+  "Cupos sincronizados con Google Sheets" as const;
+
+/** Invariante UI: inventario fresh + label synced no puede coexistir con UNVERIFIED. */
+export function isContradictoryBiometricInventoryUi(input: {
+  inventoryFresh: boolean;
+  inventoryLabel: string | null;
+  bookingError: string | null;
+}): boolean {
+  return (
+    input.bookingError === LIVE_SYNC_CUPOS_UNVERIFIED_MESSAGE &&
+    input.inventoryFresh === true &&
+    input.inventoryLabel === BIOMETRIC_INVENTORY_SYNCED_LABEL
+  );
+}
+
+export function reconcileBookingErrorAfterAvailabilityResync(input: {
+  previousError: string;
+  inventoryFresh: boolean;
+}): string | null {
+  if (
+    input.previousError === LIVE_SYNC_CUPOS_UNVERIFIED_MESSAGE &&
+    input.inventoryFresh === true
+  ) {
+    return null;
+  }
+  return input.previousError;
 }

@@ -45,12 +45,15 @@ import {
   type InventoryAvailabilityResponse,
 } from "@/domain/agenda-sheets/apply-inventory-availability";
 import {
-  BOOK_SLOT_JUST_TAKEN_MESSAGE,
   LIVE_SYNC_LOADING_LABEL,
+  fetchBiometricSheetAvailability,
   invokeAgendaSheetLiveSync,
 } from "@/domain/agenda-sheets/live-inventory-sync";
 import {
   LIVE_SYNC_CUPOS_UNVERIFIED_MESSAGE,
+  isContradictoryBiometricInventoryUi,
+  reconcileBookingErrorAfterAvailabilityResync,
+  resolveBookGateBlockMessage,
   shouldBlockBookWithoutLiveSync,
 } from "@/domain/agenda-sheets/daily-capacity";
 import { supabaseBrowser } from "@/lib/supabaseBrowser";
@@ -299,6 +302,47 @@ export function AgendaBiometricosSupabaseCard({
     }
   }, [config?.timezone, repo]);
 
+  const loadSheetInventoryForSelection = useCallback(
+    async (syncGen: number): Promise<InventoryAvailabilityResponse | null> => {
+      if (!selectedSede || !dateYmd || !supabaseBrowser) {
+        if (syncGen === inventorySyncGenRef.current) {
+          setSheetInventory(null);
+        }
+        return null;
+      }
+      setInventoryRefreshing(true);
+      try {
+        const inv = await fetchBiometricSheetAvailability(supabaseBrowser, {
+          bookingDate: dateYmd,
+          locationId: selectedSede.canonicalId,
+        });
+        if (syncGen !== inventorySyncGenRef.current) return null;
+        setSheetInventory(inv);
+        if (inv.fresh === true) {
+          setError((prev) =>
+            prev === LIVE_SYNC_CUPOS_UNVERIFIED_MESSAGE ? null : prev,
+          );
+        }
+        return inv;
+      } catch {
+        if (syncGen === inventorySyncGenRef.current) {
+          setSheetInventory({ fresh: false, enforced: true, slots: [] });
+        }
+        return null;
+      } finally {
+        if (syncGen === inventorySyncGenRef.current) {
+          setInventoryRefreshing(false);
+        }
+      }
+    },
+    [dateYmd, selectedSede],
+  );
+
+  const syncCurrentBiometricAvailability = useCallback(async () => {
+    const syncGen = ++inventorySyncGenRef.current;
+    return loadSheetInventoryForSelection(syncGen);
+  }, [loadSheetInventoryForSelection]);
+
   useEffect(() => {
     void load();
   }, [load]);
@@ -332,67 +376,14 @@ export function AgendaBiometricosSupabaseCard({
   }, [capacitiesTick, dateYmd, selectedSede]);
 
   useEffect(() => {
-    let cancelled = false;
     const syncGen = ++inventorySyncGenRef.current;
     if (!selectedSede || !dateYmd || !supabaseBrowser) {
       setSheetInventory(null);
       setInventoryRefreshing(false);
       return;
     }
-    void (async () => {
-      setInventoryRefreshing(true);
-      try {
-        // Obligatorio: refrescar Sheet → inventario ANTES de mostrar disponibilidad.
-        const live = await invokeAgendaSheetLiveSync(supabaseBrowser, {
-          bookingDate: dateYmd,
-          kind: "biometricos",
-          locationId: selectedSede.canonicalId,
-          mode: "availability",
-        });
-        if (cancelled || syncGen !== inventorySyncGenRef.current) return;
-        if (live) {
-          setSheetInventory(live);
-          if (live.fresh === true) {
-            setError((prev) =>
-              prev === LIVE_SYNC_CUPOS_UNVERIFIED_MESSAGE ? null : prev,
-            );
-          }
-          return;
-        }
-        const { data, error } = await supabaseBrowser.rpc(
-          "agenda_sheet_inventory_availability",
-          {
-            p_kind: "biometricos",
-            p_date: dateYmd,
-            p_location_id: selectedSede.canonicalId,
-          },
-        );
-        if (cancelled || syncGen !== inventorySyncGenRef.current) return;
-        if (error || !data || typeof data !== "object") {
-          setSheetInventory({ fresh: false, enforced: true, slots: [] });
-          return;
-        }
-        const inv = data as InventoryAvailabilityResponse;
-        setSheetInventory(inv);
-        if (inv.fresh === true) {
-          setError((prev) =>
-            prev === LIVE_SYNC_CUPOS_UNVERIFIED_MESSAGE ? null : prev,
-          );
-        }
-      } catch {
-        if (!cancelled && syncGen === inventorySyncGenRef.current) {
-          setSheetInventory({ fresh: false, enforced: true, slots: [] });
-        }
-      } finally {
-        if (!cancelled && syncGen === inventorySyncGenRef.current) {
-          setInventoryRefreshing(false);
-        }
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [dateYmd, selectedSede]);
+    void loadSheetInventoryForSelection(syncGen);
+  }, [dateYmd, loadSheetInventoryForSelection, selectedSede]);
 
   const disponibilidadSlots = useMemo(() => {
     if (!config || !selectedSede) return [];
@@ -430,6 +421,20 @@ export function AgendaBiometricosSupabaseCard({
     () => applySheetInventoryToSlots([], sheetInventory, dateYmd),
     [dateYmd, sheetInventory],
   );
+
+  const displayError = useMemo(() => {
+    if (!error) return null;
+    if (
+      isContradictoryBiometricInventoryUi({
+        inventoryFresh: sheetInventory?.fresh === true,
+        inventoryLabel: inventoryUi.inventoryLabel,
+        bookingError: error,
+      })
+    ) {
+      return null;
+    }
+    return error;
+  }, [error, inventoryUi.inventoryLabel, sheetInventory?.fresh]);
 
   const availabilityInsight = useMemo(() => {
     if (!config || !selectedSede) return null;
@@ -533,23 +538,24 @@ export function AgendaBiometricosSupabaseCard({
           gate,
         });
         if (blocked.block) {
+          const msg = resolveBookGateBlockMessage({ gate, blocked });
           if (gate) setSheetInventory(gate);
-          setError(
-            blocked.message ??
-              gate?.gateMessage ??
-              LIVE_SYNC_CUPOS_UNVERIFIED_MESSAGE,
-          );
+          setError(msg);
           await refreshAvailability();
+          const inv = await syncCurrentBiometricAvailability();
+          if (inv?.fresh === true) {
+            setError((prev) =>
+              prev
+                ? reconcileBookingErrorAfterAvailabilityResync({
+                    previousError: prev,
+                    inventoryFresh: true,
+                  })
+                : null,
+            );
+          }
           return;
         }
-        if (gate) {
-          setSheetInventory(gate);
-          if (gate.canBook === false) {
-            setError(gate.gateMessage ?? BOOK_SLOT_JUST_TAKEN_MESSAGE);
-            await refreshAvailability();
-            return;
-          }
-        }
+        if (gate) setSheetInventory(gate);
       } else {
         const blocked = shouldBlockBookWithoutLiveSync({
           kind: "biometricos",
@@ -558,7 +564,7 @@ export function AgendaBiometricosSupabaseCard({
           gate: null,
         });
         if (blocked.block) {
-          setError(blocked.message ?? LIVE_SYNC_CUPOS_UNVERIFIED_MESSAGE);
+          setError(resolveBookGateBlockMessage({ gate: null, blocked }));
           return;
         }
       }
@@ -590,6 +596,7 @@ export function AgendaBiometricosSupabaseCard({
     refreshAvailability,
     repo,
     selectedSede,
+    syncCurrentBiometricAvailability,
     timeHhmm,
     watchSheetSync,
   ]);
@@ -629,23 +636,24 @@ export function AgendaBiometricosSupabaseCard({
           gate,
         });
         if (blocked.block) {
+          const msg = resolveBookGateBlockMessage({ gate, blocked });
           if (gate) setSheetInventory(gate);
-          setError(
-            blocked.message ??
-              gate?.gateMessage ??
-              LIVE_SYNC_CUPOS_UNVERIFIED_MESSAGE,
-          );
+          setError(msg);
           await refreshAvailability();
+          const inv = await syncCurrentBiometricAvailability();
+          if (inv?.fresh === true) {
+            setError((prev) =>
+              prev
+                ? reconcileBookingErrorAfterAvailabilityResync({
+                    previousError: prev,
+                    inventoryFresh: true,
+                  })
+                : null,
+            );
+          }
           return;
         }
-        if (gate) {
-          setSheetInventory(gate);
-          if (gate.canBook === false) {
-            setError(gate.gateMessage ?? BOOK_SLOT_JUST_TAKEN_MESSAGE);
-            await refreshAvailability();
-            return;
-          }
-        }
+        if (gate) setSheetInventory(gate);
       } else {
         const blocked = shouldBlockBookWithoutLiveSync({
           kind: "biometricos",
@@ -654,7 +662,7 @@ export function AgendaBiometricosSupabaseCard({
           gate: null,
         });
         if (blocked.block) {
-          setError(blocked.message ?? LIVE_SYNC_CUPOS_UNVERIFIED_MESSAGE);
+          setError(resolveBookGateBlockMessage({ gate: null, blocked }));
           return;
         }
       }
@@ -687,6 +695,7 @@ export function AgendaBiometricosSupabaseCard({
     refreshAvailability,
     repo,
     selectedSede,
+    syncCurrentBiometricAvailability,
     timeHhmm,
     watchSheetSync,
   ]);
@@ -873,9 +882,9 @@ export function AgendaBiometricosSupabaseCard({
         </p>
       ) : null}
 
-      {error ? (
+      {displayError ? (
         <p role="alert" className="mt-3 text-xs text-red-700">
-          {error}
+          {displayError}
         </p>
       ) : null}
 
