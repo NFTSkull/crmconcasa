@@ -314,7 +314,7 @@ describe("P188 live-sync / migration source contracts", () => {
     assert.match(live, /select\("app_role,active"\)/);
     assert.match(live, /book_gate/);
     assert.match(live, /decideBookHardGate/);
-    assert.match(live, /jsonError\(\s*500,\s*"upsert_failed"/);
+    assert.match(live, /liveSyncJsonError\(\s*500,\s*"upsert_failed"/);
     assert.match(live, /adapter\.getValues/);
   });
 

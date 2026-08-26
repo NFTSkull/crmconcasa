@@ -50,11 +50,8 @@ import {
   invokeAgendaSheetLiveSync,
 } from "@/domain/agenda-sheets/live-inventory-sync";
 import {
-  LIVE_SYNC_CUPOS_UNVERIFIED_MESSAGE,
-  isContradictoryBiometricInventoryUi,
-  reconcileBookingErrorAfterAvailabilityResync,
-  resolveBookGateBlockMessage,
-  shouldBlockBookWithoutLiveSync,
+  resolveBiometricBookGateAttempt,
+  shouldShowBiometricInventorySyncedLabel,
 } from "@/domain/agenda-sheets/daily-capacity";
 import { supabaseBrowser } from "@/lib/supabaseBrowser";
 import { fetchAgendaBookingSheetSyncStatus } from "@/domain/agenda-sheets/booking-sheet-sync-status";
@@ -166,6 +163,7 @@ export function AgendaBiometricosSupabaseCard({
   const [convertSedeId, setConvertSedeId] = useState<CynthiaSedeId>(CYNTHIA_SEDE_MONTERREY_ID);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [bookGateError, setBookGateError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [sheetInventory, setSheetInventory] = useState<InventoryAvailabilityResponse | null>(
     null,
@@ -318,11 +316,6 @@ export function AgendaBiometricosSupabaseCard({
         });
         if (syncGen !== inventorySyncGenRef.current) return null;
         setSheetInventory(inv);
-        if (inv.fresh === true) {
-          setError((prev) =>
-            prev === LIVE_SYNC_CUPOS_UNVERIFIED_MESSAGE ? null : prev,
-          );
-        }
         return inv;
       } catch {
         if (syncGen === inventorySyncGenRef.current) {
@@ -422,19 +415,14 @@ export function AgendaBiometricosSupabaseCard({
     [dateYmd, sheetInventory],
   );
 
-  const displayError = useMemo(() => {
-    if (!error) return null;
-    if (
-      isContradictoryBiometricInventoryUi({
-        inventoryFresh: sheetInventory?.fresh === true,
-        inventoryLabel: inventoryUi.inventoryLabel,
-        bookingError: error,
-      })
-    ) {
-      return null;
-    }
-    return error;
-  }, [error, inventoryUi.inventoryLabel, sheetInventory?.fresh]);
+  const displayError = bookGateError ?? error;
+
+  const inventorySyncedLabel = shouldShowBiometricInventorySyncedLabel({
+    inventoryLabel: inventoryUi.inventoryLabel,
+    bookGateError,
+  })
+    ? inventoryUi.inventoryLabel
+    : null;
 
   const availabilityInsight = useMemo(() => {
     if (!config || !selectedSede) return null;
@@ -466,6 +454,7 @@ export function AgendaBiometricosSupabaseCard({
     if (!activeBooking || !config) return;
     setReagendar(true);
     setError(null);
+    setBookGateError(null);
     setSuccessMsg(null);
     const canonical =
       mapLocationIdToAdvisorCanonical(activeBooking.locationId, config.locations) ??
@@ -505,6 +494,7 @@ export function AgendaBiometricosSupabaseCard({
   const handleBook = useCallback(async () => {
     if (!repo || !config || !selectedSede || !timeHhmm) return;
     setError(null);
+    setBookGateError(null);
     setSuccessMsg(null);
 
     const confirmar = window.confirm(
@@ -531,40 +521,30 @@ export function AgendaBiometricosSupabaseCard({
           mode: "book_gate",
           slotTime: timeHhmm,
         });
-        const blocked = shouldBlockBookWithoutLiveSync({
+        const attempt = resolveBiometricBookGateAttempt({
           kind: "biometricos",
           locationId: selectedSede.canonicalId,
           bookingDate: dateYmd,
           gate,
         });
-        if (blocked.block) {
-          const msg = resolveBookGateBlockMessage({ gate, blocked });
+        if (attempt.blocked) {
           if (gate) setSheetInventory(gate);
-          setError(msg);
+          setBookGateError(attempt.bookGateError);
           await refreshAvailability();
-          const inv = await syncCurrentBiometricAvailability();
-          if (inv?.fresh === true) {
-            setError((prev) =>
-              prev
-                ? reconcileBookingErrorAfterAvailabilityResync({
-                    previousError: prev,
-                    inventoryFresh: true,
-                  })
-                : null,
-            );
-          }
+          await syncCurrentBiometricAvailability();
           return;
         }
+        setBookGateError(null);
         if (gate) setSheetInventory(gate);
       } else {
-        const blocked = shouldBlockBookWithoutLiveSync({
+        const attempt = resolveBiometricBookGateAttempt({
           kind: "biometricos",
           locationId: selectedSede.canonicalId,
           bookingDate: dateYmd,
           gate: null,
         });
-        if (blocked.block) {
-          setError(resolveBookGateBlockMessage({ gate: null, blocked }));
+        if (attempt.blocked) {
+          setBookGateError(attempt.bookGateError);
           return;
         }
       }
@@ -604,6 +584,7 @@ export function AgendaBiometricosSupabaseCard({
   const handleReagendar = useCallback(async () => {
     if (!repo || !config || !selectedSede || !timeHhmm || !activeBooking) return;
     setError(null);
+    setBookGateError(null);
     setSuccessMsg(null);
 
     const confirmar = window.confirm(
@@ -629,40 +610,30 @@ export function AgendaBiometricosSupabaseCard({
           mode: "book_gate",
           slotTime: timeHhmm,
         });
-        const blocked = shouldBlockBookWithoutLiveSync({
+        const attempt = resolveBiometricBookGateAttempt({
           kind: "biometricos",
           locationId: selectedSede.canonicalId,
           bookingDate: dateYmd,
           gate,
         });
-        if (blocked.block) {
-          const msg = resolveBookGateBlockMessage({ gate, blocked });
+        if (attempt.blocked) {
           if (gate) setSheetInventory(gate);
-          setError(msg);
+          setBookGateError(attempt.bookGateError);
           await refreshAvailability();
-          const inv = await syncCurrentBiometricAvailability();
-          if (inv?.fresh === true) {
-            setError((prev) =>
-              prev
-                ? reconcileBookingErrorAfterAvailabilityResync({
-                    previousError: prev,
-                    inventoryFresh: true,
-                  })
-                : null,
-            );
-          }
+          await syncCurrentBiometricAvailability();
           return;
         }
+        setBookGateError(null);
         if (gate) setSheetInventory(gate);
       } else {
-        const blocked = shouldBlockBookWithoutLiveSync({
+        const attempt = resolveBiometricBookGateAttempt({
           kind: "biometricos",
           locationId: selectedSede.canonicalId,
           bookingDate: dateYmd,
           gate: null,
         });
-        if (blocked.block) {
-          setError(resolveBookGateBlockMessage({ gate: null, blocked }));
+        if (attempt.blocked) {
+          setBookGateError(attempt.bookGateError);
           return;
         }
       }
@@ -848,20 +819,24 @@ export function AgendaBiometricosSupabaseCard({
           setSedeCanonicalId(id);
           setTimeHhmm("");
           setError(null);
+          setBookGateError(null);
         }}
         onDateChange={(date) => {
           setDateYmd(date);
           setTimeHhmm("");
           setError(null);
+          setBookGateError(null);
         }}
         onTimeChange={(time) => {
           setTimeHhmm(time);
           setError(null);
+          setBookGateError(null);
         }}
         onGoToNextAvailability={(date, time) => {
           setDateYmd(date);
           setTimeHhmm(time);
           setError(null);
+          setBookGateError(null);
         }}
       />
 
@@ -870,8 +845,8 @@ export function AgendaBiometricosSupabaseCard({
           {LIVE_SYNC_LOADING_LABEL}
         </p>
       ) : null}
-      {inventoryUi.inventoryLabel ? (
-        <p className="mt-2 text-[11px] text-gray-500">{inventoryUi.inventoryLabel}</p>
+      {inventorySyncedLabel ? (
+        <p className="mt-2 text-[11px] text-gray-500">{inventorySyncedLabel}</p>
       ) : null}
       {inventoryUi.blockedReason ? (
         <p
