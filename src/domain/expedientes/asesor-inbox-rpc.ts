@@ -103,6 +103,16 @@ export const asesorListExpedienteItemSchema = z.object({
   estado_efectivo: z.string().nullable().optional(),
   /** P209: explicación causal first paint cuando correccion_requerida. */
   correccion_explicacion: z.string().nullable().optional(),
+  /** P210: resumen compacto (labels + motivo + ux_state). */
+  correccion_resumen: z
+    .object({
+      count: z.number().int().nonnegative(),
+      labels: z.array(z.string()),
+      first_motivo: z.string().nullable().optional(),
+      ux_state: z.string().nullable().optional(),
+    })
+    .nullable()
+    .optional(),
   /** P183: estado de re-precal REAL (ortogonal a resultado_real). */
   reprecal_estado: z.enum(["pending", "approved", "no_cumple"]).nullable().optional(),
   reprecal_solicitada_at: z.string().nullable().optional(),

@@ -30,6 +30,10 @@ import { AsesorReingresoPostBiometricosCard } from "@/components/asesor/AsesorRe
 import { AsesorExpedienteCanceladoBanner } from "@/components/asesor/AsesorExpedienteCanceladoBanner";
 import { AsesorExpedienteRechazadoBanner } from "@/components/asesor/AsesorExpedienteRechazadoBanner";
 import { AsesorExpedienteEstadoActualBanner } from "@/components/asesor/AsesorExpedienteEstadoActualBanner";
+import {
+  AsesorCorreccionAccionablePanel,
+  AsesorCorreccionSeccionDgBanner,
+} from "@/components/asesor/AsesorCorreccionAccionablePanel";
 import { ReingresoBadge } from "@/components/asesor/ReingresoBadge";
 import { ReingresoManualConfirmDialog } from "@/components/asesor/ReingresoManualConfirmDialog";
 import { Button } from "@/components/ui/Button";
@@ -122,6 +126,7 @@ import {
   buildAsesorExpedienteCorreccionView,
 } from "@/domain/expedientes/asesor-expediente-correccion-ui";
 import { getAsesorInboxEstadoEfectivoPresentation } from "@/domain/expedientes/asesor-inbox-estado-efectivo";
+import type { AsesorCorreccionDetalle } from "@/domain/expedientes/asesor-correccion-detalle";
 import { hasActivityAfterRechazo } from "@/domain/expedientes/rechazo-operativo-abierto";
 import { emptyInfonavitClienteDatosV1 } from "@/domain/expediente-cliente-datos/infonavit-datos";
 
@@ -257,6 +262,9 @@ export default function AsesorExpedientePage() {
 
   const [operativo, setOperativo] = useState<OperativoStatus | null>(null);
   const [estadoEfectivo, setEstadoEfectivo] = useState<string | null>(null);
+  const [correccionDetalle, setCorreccionDetalle] =
+    useState<AsesorCorreccionDetalle | null>(null);
+  const [correccionResubmitting, setCorreccionResubmitting] = useState(false);
   const [checklist, setChecklist] = useState<
     Awaited<ReturnType<typeof getChecklistDocumentos>> | null
   >(null);
@@ -751,14 +759,18 @@ export default function AsesorExpedientePage() {
 
   const loadExpediente = useCallback(async () => {
     try {
-      const [exp, estadoInbox] = await Promise.all([
+      const [exp, estadoInbox, detalleCorreccion] = await Promise.all([
         repo.getById(id),
         repo.getAsesorInboxEstadoEfectivo(id).catch(() => null),
+        dataSupabase
+          ? repo.getAsesorCorreccionDetalle(id).catch(() => null)
+          : Promise.resolve(null),
       ]);
       if (!exp) {
         setPrecal(null);
         setOperativo(null);
         setEstadoEfectivo(null);
+        setCorreccionDetalle(null);
         setEditorDecision(null);
         setReingreso(undefined);
         setReingresoManual(undefined);
@@ -769,6 +781,7 @@ export default function AsesorExpedientePage() {
         return;
       }
       setEstadoEfectivo(estadoInbox);
+      setCorreccionDetalle(detalleCorreccion);
       setLoadError(null);
       setEditorDecision(exp.editorDecision);
       setReingreso(exp.reingreso);
@@ -829,7 +842,29 @@ export default function AsesorExpedientePage() {
         setLoadError("No se pudo cargar el expediente.");
       }
     }
-  }, [id, repo]);
+  }, [id, repo, dataSupabase]);
+
+  const handleReenviarCorreccionAMesa = useCallback(async () => {
+    if (!precal?.id || !dataSupabase) return;
+    setCorreccionResubmitting(true);
+    try {
+      await repo.reenviarCorreccionAMesa(String(precal.id));
+      await loadExpediente();
+    } catch (err) {
+      setLoadError(
+        err instanceof Error
+          ? err.message
+          : "No se pudo reenviar la corrección a Mesa.",
+      );
+    } finally {
+      setCorreccionResubmitting(false);
+    }
+  }, [dataSupabase, loadExpediente, precal?.id, repo]);
+
+  const dgCorreccionItem = useMemo(
+    () => correccionDetalle?.items.find((i) => i.type === "datos_generales") ?? null,
+    [correccionDetalle],
+  );
 
   useEffect(() => {
     void loadExpediente();
@@ -1594,7 +1629,21 @@ export default function AsesorExpedientePage() {
           />
         ) : null}
 
-        {!expedienteCancelado ? (
+        {!expedienteCancelado && dataSupabase && correccionDetalle ? (
+          <AsesorCorreccionAccionablePanel
+            detalle={correccionDetalle}
+            estadoEfectivo={estadoEfectivo}
+            resubmitting={correccionResubmitting}
+            formatDateTime={formatDateTime}
+            onFocusSection={(focusId) => {
+              document.getElementById(focusId)?.scrollIntoView({
+                behavior: "smooth",
+                block: "start",
+              });
+            }}
+            onResubmit={handleReenviarCorreccionAMesa}
+          />
+        ) : !expedienteCancelado ? (
           <AsesorExpedienteEstadoActualBanner
             view={correccionView}
             onFocusSection={(focusId) => {
@@ -1835,6 +1884,12 @@ export default function AsesorExpedientePage() {
               </div>
             ) : null}
             <div id={ASESOR_SECCION_DG_ID}>
+            {dgCorreccionItem ? (
+              <AsesorCorreccionSeccionDgBanner
+                motivo={dgCorreccionItem.motivo}
+                localStatus={dgCorreccionItem.local_status}
+              />
+            ) : null}
             <ExpedienteClienteDatosFormSection
               expedienteId={String(precal.id)}
               clienteDatos={clienteDatos}
@@ -1857,8 +1912,12 @@ export default function AsesorExpedientePage() {
               esReingresoActivo={esReingresoActivo}
               dataSupabase
               alertaAccionDgActiva={
-                estadoEfectivo == null || correccionView.showNecesitaPanel
+                dgCorreccionItem != null ||
+                estadoEfectivo == null ||
+                correccionView.showNecesitaPanel
               }
+              correccionDgActiva={dgCorreccionItem != null}
+              correccionDgUxState={correccionDetalle?.ux_state ?? null}
               formatDateTime={formatDateTime}
               onSave={handleSaveClienteDatos}
               esperaMontoMessage={MSJ_ESPERA_MONTO_REVISOR}

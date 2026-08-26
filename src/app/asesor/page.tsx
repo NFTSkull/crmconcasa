@@ -169,6 +169,8 @@ interface PrecalificacionMockLocal {
   estadoEfectivo?: string | null;
   /** P209: explicación causal first paint. */
   correccionExplicacion?: string | null;
+  /** P210: resumen causal inbox. */
+  correccionResumen?: import("@/domain/expedientes/asesor-correccion-detalle").AsesorCorreccionResumen | null;
   reprecal?: AsesorInboxReprecalMeta | null;
 }
 
@@ -543,6 +545,7 @@ export default function AsesorDashboardPage() {
         categoriaCorreccion?: CategoriaResumenDocumental;
         estadoEfectivo?: string | null;
         correccionExplicacion?: string | null;
+        correccionResumen?: import("@/domain/expedientes/asesor-correccion-detalle").AsesorCorreccionResumen | null;
         reprecal?: AsesorInboxReprecalMeta | null;
       },
     ): PrecalificacionMockLocal => {
@@ -570,6 +573,7 @@ export default function AsesorDashboardPage() {
         categoriaCorreccionRpc: opts?.categoriaCorreccion,
         estadoEfectivo: opts?.estadoEfectivo ?? null,
         correccionExplicacion: opts?.correccionExplicacion ?? null,
+        correccionResumen: opts?.correccionResumen ?? null,
         reprecal: opts?.reprecal ?? null,
       };
     },
@@ -956,6 +960,7 @@ export default function AsesorDashboardPage() {
             categoriaCorreccion: catTyped,
             estadoEfectivo: view.estadoEfectivoPorId[exp.id] ?? null,
             correccionExplicacion: view.correccionExplicacionPorId[exp.id] ?? null,
+            correccionResumen: view.correccionResumenPorId[exp.id] ?? null,
             reprecal: view.reprecalPorId[exp.id] ?? null,
           });
         });
@@ -968,6 +973,7 @@ export default function AsesorDashboardPage() {
               row.categoria_correccion as CategoriaResumenDocumental,
             estadoEfectivo: row.estado_efectivo ?? null,
             correccionExplicacion: row.correccion_explicacion ?? null,
+            correccionResumen: view.correccionResumenPorId[row.id] ?? null,
           };
         });
 
@@ -1833,6 +1839,7 @@ export default function AsesorDashboardPage() {
                               const explicacion = resolveAsesorCorreccionExplicacion({
                                 estadoEfectivo,
                                 correccionExplicacion: p.correccionExplicacion,
+                                correccionResumen: p.correccionResumen,
                               });
                               if (!explicacion) return null;
                               return (

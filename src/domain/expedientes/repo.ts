@@ -76,6 +76,14 @@ export interface ExpedientesRepo {
   ): Promise<AsesorInboxSummaryResult>;
   /** P197: estado efectivo del inbox (detalle consume el mismo helper SQL). */
   getAsesorInboxEstadoEfectivo(expedienteId: string): Promise<string | null>;
+  /** P210: read-model causal detalle (motivo exacto + readiness reenvío). */
+  getAsesorCorreccionDetalle(
+    expedienteId: string,
+  ): Promise<import("./asesor-correccion-detalle").AsesorCorreccionDetalle | null>;
+  /** P210: reenvío canónico de corrección a Mesa. */
+  reenviarCorreccionAMesa(
+    expedienteId: string,
+  ): Promise<import("./asesor-correccion-detalle").AsesorReenviarCorreccionResult>;
   listForEditor(query: EditorListQuery): Promise<EditorListPage>;
   /** P185/P186: batch SELECT intentos (resueltos REALES + pending draft). */
   listEditorReprecalMeta(

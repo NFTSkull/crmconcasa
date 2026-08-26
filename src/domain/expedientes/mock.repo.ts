@@ -19,6 +19,7 @@ import type {
   ExpedienteCancelacionRow,
 } from "./mesa-cancelacion-operativa";
 import { deriveAsesorInboxEstadoEfectivoMock } from "./asesor-inbox-estado-efectivo";
+import type { AsesorReenviarCorreccionResult } from "./asesor-correccion-detalle";
 import {
   paginateSortedExpedientes,
   sortExpedientesByCreatedAtDesc,
@@ -605,6 +606,16 @@ export class MockExpedientesRepo implements ExpedientesRepo {
       resultadoReal: resultado,
       categoriaCorreccion: categoria,
     });
+  }
+
+  async getAsesorCorreccionDetalle(_expedienteId: string) {
+    void _expedienteId;
+    return null;
+  }
+
+  async reenviarCorreccionAMesa(_expedienteId: string): Promise<AsesorReenviarCorreccionResult> {
+    void _expedienteId;
+    throw new Error("reenviarCorreccionAMesa: solo disponible con Supabase");
   }
 
   async listForEditor(query: EditorListQuery): Promise<EditorListPage> {

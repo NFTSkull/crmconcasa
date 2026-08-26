@@ -18,6 +18,12 @@ import {
   type AsesorListExpedientesPageResult,
 } from "./asesor-inbox-rpc";
 import {
+  asesorReenviarCorreccionResultSchema,
+  parseAsesorCorreccionDetalle,
+  type AsesorCorreccionDetalle,
+  type AsesorReenviarCorreccionResult,
+} from "./asesor-correccion-detalle";
+import {
   mapNextCursorFromRpc,
   mapRpcCountsToServerCounts,
   mesaListBandejaPageRpcSchema,
@@ -937,6 +943,46 @@ export class SupabaseExpedientesRepo implements ExpedientesRepo {
       );
     }
     return typeof data === "string" && data.trim() ? data.trim() : null;
+  }
+
+  async getAsesorCorreccionDetalle(
+    expedienteId: string,
+  ): Promise<AsesorCorreccionDetalle | null> {
+    const { client } = await requireSupabaseSession();
+    const { data, error } = await client.rpc("asesor_correccion_detalle", {
+      p_expediente_id: expedienteId,
+    });
+    if (error) {
+      const code = String((error as { code?: string }).code ?? "");
+      if (code === "PGRST202" || /asesor_correccion_detalle/i.test(error.message ?? "")) {
+        return null;
+      }
+      throw new ExpedientesSupabaseError(
+        error.message || "No se pudo leer el detalle de corrección.",
+      );
+    }
+    return parseAsesorCorreccionDetalle(data);
+  }
+
+  async reenviarCorreccionAMesa(
+    expedienteId: string,
+  ): Promise<AsesorReenviarCorreccionResult> {
+    const { client } = await requireSupabaseSession();
+    const { data, error } = await client.rpc("asesor_reenviar_correccion_a_mesa", {
+      p_expediente_id: expedienteId,
+    });
+    if (error) {
+      throw new ExpedientesSupabaseError(
+        error.message || "No se pudo reenviar la corrección a Mesa.",
+      );
+    }
+    const parsed = asesorReenviarCorreccionResultSchema.safeParse(data);
+    if (!parsed.success) {
+      throw new ExpedientesSupabaseError(
+        "Respuesta inválida al reenviar la corrección a Mesa.",
+      );
+    }
+    return parsed.data;
   }
 
   async getById(id: string): Promise<ExpedienteMock | null> {

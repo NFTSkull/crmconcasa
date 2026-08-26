@@ -10,6 +10,8 @@
 
 ## [Unreleased]
 
+- **fix(asesor): P210 — corrección accionable (motivo exacto + reenviar a Mesa)** — mig **210**: `asesor_correccion_detalle`, `correccion_resumen` en list, `asesor_cambio_create_response_lote` (NUEVO; `ensure_open_lote` intacto), RPC `asesor_reenviar_correccion_a_mesa`; panel detalle + CTA + copy DG honesto. Cloud aplicada. Perf B p50 841ms (baseline 986ms).
+
 - **fix(asesor): P209 — explicación causal en «Necesita corrección» (first paint)** — mig **209**: `correccion_explicacion` en `asesor_list_expedientes_page` desde P198/retención (labels vigentes); helper TS compartido; inbox deja enrich async para copy. 0 writers / chips P197 intactos.
 
 - **fix(agenda): hard-cap diario 15 Biométricos Monterrey (P208)** — CRM booked + `occupied_external` sin doble conteo; filas Sheet extra no crean cupo; lock diario race-safe; live-sync fail-closed. Firmas/Inscripción/Apodaca sin tope. Mig **208**. 0 mutación histórica.
