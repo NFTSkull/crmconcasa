@@ -77,6 +77,12 @@ CREATE OR REPLACE FUNCTION public.__mesa_ops_rls_test_dml_denied(
 RETURNS BOOLEAN
 LANGUAGE plpgsql
 AS $$
+DECLARE
+  v_n INTEGER := 0;
+  v_estado_before public.mesa_expediente_estado;
+  v_estado_after public.mesa_expediente_estado;
+  v_exists_before BOOLEAN;
+  v_exists_after BOOLEAN;
 BEGIN
   PERFORM public.__mesa_ops_rls_test_set_auth(p_user_id);
   BEGIN
@@ -86,13 +92,34 @@ BEGIN
       ) VALUES (
         p_expediente_id, p_org_id, 'sin_asignar'
       );
+      PERFORM public.__mesa_ops_rls_test_reset_auth();
+      RETURN false;
     ELSIF p_dml = 'update' THEN
+      -- Solo hay POLICY SELECT: UPDATE con GRANT puede no lanzar y afectar 0 filas.
+      SELECT mo.estado_mesa INTO v_estado_before
+      FROM public.mesa_expediente_ops mo
+      WHERE mo.expediente_id = p_expediente_id;
       UPDATE public.mesa_expediente_ops
       SET estado_mesa = 'trabajando'
       WHERE expediente_id = p_expediente_id;
+      GET DIAGNOSTICS v_n = ROW_COUNT;
+      SELECT mo.estado_mesa INTO v_estado_after
+      FROM public.mesa_expediente_ops mo
+      WHERE mo.expediente_id = p_expediente_id;
+      PERFORM public.__mesa_ops_rls_test_reset_auth();
+      RETURN v_n = 0 AND v_estado_after IS NOT DISTINCT FROM v_estado_before;
     ELSIF p_dml = 'delete' THEN
+      SELECT EXISTS (
+        SELECT 1 FROM public.mesa_expediente_ops mo WHERE mo.expediente_id = p_expediente_id
+      ) INTO v_exists_before;
       DELETE FROM public.mesa_expediente_ops
       WHERE expediente_id = p_expediente_id;
+      GET DIAGNOSTICS v_n = ROW_COUNT;
+      SELECT EXISTS (
+        SELECT 1 FROM public.mesa_expediente_ops mo WHERE mo.expediente_id = p_expediente_id
+      ) INTO v_exists_after;
+      PERFORM public.__mesa_ops_rls_test_reset_auth();
+      RETURN v_n = 0 AND v_exists_after IS NOT DISTINCT FROM v_exists_before;
     END IF;
     PERFORM public.__mesa_ops_rls_test_reset_auth();
     RETURN false;

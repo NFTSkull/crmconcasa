@@ -25,7 +25,7 @@ DECLARE
     'min_lead_hours', 48,
     'allowed_weekdays', jsonb_build_array(1, 2, 3),
     'locations', jsonb_build_object(
-      'sede-custom', jsonb_build_object('enabled', true, 'capacity_per_slot', 1)
+      'sede-custom', jsonb_build_object('enabled', true, 'capacity_per_slot', 1, 'capacity_by_time', jsonb_build_object('08:00', 1, '08:30', 1, '09:00', 1, '09:30', 1, '10:00', 1, '11:00', 1, '12:00', 1, '13:00', 1, '14:00', 1, '15:00', 1, '16:00', 1, '17:00', 1))
     ),
     'slots', jsonb_build_array('14:00')
   );
@@ -107,6 +107,33 @@ BEGIN
   PERFORM public.__backfill_firmas_test_assert(v_bookings_after = v_bookings_before, 'test 6: bookings intactos');
 
   -- 7. config backfill permite assert slot (cupo) para firmas
+  -- P124: expand capacity_by_time (normalize legacy no lo trae; assert de cupo lo exige).
+  UPDATE public.agenda_config ac
+  SET config = jsonb_set(
+        ac.config,
+        '{locations}',
+        COALESCE((
+          SELECT jsonb_object_agg(
+            loc_id,
+            CASE
+              WHEN COALESCE((loc_cfg->>'enabled')::boolean, false) IS NOT TRUE THEN loc_cfg
+              ELSE loc_cfg || jsonb_build_object(
+                'capacity_by_time',
+                (
+                  SELECT COALESCE(jsonb_object_agg(slot, GREATEST(1, COALESCE((loc_cfg->>'capacity_per_slot')::int, 1))), '{}'::jsonb)
+                  FROM jsonb_array_elements_text(COALESCE(ac.config->'slots', '[]'::jsonb)) AS slot
+                )
+              )
+            END
+          )
+          FROM jsonb_each(COALESCE(ac.config->'locations', '{}'::jsonb)) AS x(loc_id, loc_cfg)
+        ), '{}'::jsonb),
+        true
+      ),
+      updated_at = NOW()
+  WHERE ac.organization_id = v_org_a
+    AND ac.kind = 'firmas';
+
   v_slot_date := ((NOW() AT TIME ZONE 'America/Monterrey')::date + 10);
   WHILE EXTRACT(ISODOW FROM v_slot_date)::INTEGER NOT IN (1, 2, 3, 4, 5) LOOP
     v_slot_date := v_slot_date + 1;

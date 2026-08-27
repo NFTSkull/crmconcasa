@@ -139,7 +139,8 @@ describe("sheet-inventory", () => {
       sheetTitle: "04 AGOSTO",
       grid: [
         [""], // A1 vacío
-        ["8:00 AM", "", ""],
+        // 07:00 no es plausible Firmas/Bio recovery → issue de encabezado
+        ["7:00 AM", "", ""],
         ["MONTERREY BIOMETRICOS"],
         ["9:00 AM", "", ""],
       ],

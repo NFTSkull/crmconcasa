@@ -182,11 +182,9 @@ BEGIN
           'label', 'Monterrey',
           'capacity_by_time', jsonb_build_object('08:00', 2)
         ),
-        'apodaca', jsonb_build_object(
-          'enabled', true,
-          'capacity_per_slot', 2,
+        'apodaca', jsonb_build_object('enabled', true, 'capacity_per_slot', 2,
           'label', 'Apodaca'
-        )
+        , 'capacity_by_time', jsonb_build_object('08:00', 2, '08:30', 2, '09:00', 2, '09:30', 2, '10:00', 2, '11:00', 2, '12:00', 2, '13:00', 2, '14:00', 2, '15:00', 2, '16:00', 2, '17:00', 2))
       )
     ),
     v_org

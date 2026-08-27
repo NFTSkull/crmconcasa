@@ -211,12 +211,25 @@ describe("P208 daily capacity biometricos Monterrey", () => {
     assert.equal(occ, 1);
   });
 
-  it("D27/D28/D29 Apodaca Firmas Inscripción sin cap diario", () => {
+  it("D27/D28/D29 Apodaca bio sin cap; Firmas P212 monterrey/apodaca=15", () => {
     assert.equal(agendaDailyCapacity("biometricos", "apodaca"), null);
     assert.equal(agendaDailyCapacity("firmas", "monterrey"), null);
+    assert.equal(agendaDailyCapacity("firmas", "apodaca"), null);
+    assert.equal(
+      agendaDailyCapacity("firmas", "monterrey", { enabled: true }),
+      15,
+    );
+    assert.equal(
+      agendaDailyCapacity("firmas", "apodaca", { enabled: true }),
+      15,
+    );
     assert.equal(agendaDailyCapacity("inscripcion", "monterrey"), null);
     assert.equal(
-      agendaDailyRemaining("firmas", "monterrey", 99).remaining,
+      agendaDailyRemaining("firmas", "monterrey", 14, { enabled: true }).remaining,
+      1,
+    );
+    assert.equal(
+      agendaDailyRemaining("firmas", "monterrey", 14).remaining,
       null,
     );
   });

@@ -162,7 +162,7 @@ BEGIN
     'allowed_weekdays', jsonb_build_array(1, 2, 3, 4, 5, 6, 7),
     'min_lead_hours', 0,
     'locations', jsonb_build_object(
-      'sede-centro', jsonb_build_object('enabled', true, 'capacity_per_slot', 99)
+      'sede-centro', jsonb_build_object('enabled', true, 'capacity_per_slot', 99, 'capacity_by_time', jsonb_build_object('08:00', 99, '08:30', 99, '09:00', 99, '09:30', 99, '10:00', 99, '11:00', 99, '12:00', 99, '13:00', 99, '14:00', 99, '15:00', 99, '16:00', 99, '17:00', 99))
     )
   )
   WHERE organization_id = v_org AND kind = 'biometricos';

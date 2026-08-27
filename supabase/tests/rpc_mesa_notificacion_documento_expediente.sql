@@ -91,9 +91,10 @@ BEGIN
     NOT ('notificacion' = ANY(public.integration_doc_tipos_mesa_upload())),
     'allowlist NO usa tipo corto notificacion'
   );
+  -- P132: asesor puede subir cliente_notificacion (gate etapa >= 7 en register).
   PERFORM public.__p092n_assert(
-    NOT ('cliente_notificacion' = ANY(public.integration_doc_tipos_asesor_upload())),
-    'asesor upload sin cliente_notificacion'
+    'cliente_notificacion' = ANY(public.integration_doc_tipos_asesor_upload()),
+    'asesor upload incluye cliente_notificacion (P132)'
   );
   PERFORM public.__p092n_assert(
     NOT ('cliente_notificacion' = ANY(public.integration_doc_tipos_obligatorios())),

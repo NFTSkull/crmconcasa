@@ -54,21 +54,40 @@ DECLARE
 BEGIN
   PERFORM public.__p090_reset();
 
-  -- Fixtures
+  -- Fixtures (cleanup por id + NSS por si quedó residue de otras suites)
+  DELETE FROM public.expediente_paso_visual_transiciones
+  WHERE expediente_id IN (
+    '00000000-0000-4000-9090-000000000001'::uuid,
+    '00000000-0000-4000-9090-000000000002'::uuid,
+    '00000000-0000-4000-9090-000000000003'::uuid,
+    '00000000-0000-4000-9090-000000000004'::uuid,
+    '00000000-0000-4000-9090-000000000005'::uuid
+  );
+  DELETE FROM public.expedientes
+  WHERE id IN (
+    '00000000-0000-4000-9090-000000000001'::uuid,
+    '00000000-0000-4000-9090-000000000002'::uuid,
+    '00000000-0000-4000-9090-000000000003'::uuid,
+    '00000000-0000-4000-9090-000000000004'::uuid,
+    '00000000-0000-4000-9090-000000000005'::uuid
+  )
+  OR (organization_id = '00000000-0000-4000-8000-000000000001'::uuid
+      AND nss IN ('90909000001','90909000002','90909000003','90909000004','90909000005'));
+
   INSERT INTO public.expedientes (
     id, organization_id, asesor_id, programa, nss, cliente_nombre,
     telefono_cliente, origen_mesa, submitted_to_mesa, fecha_envio_mesa,
     etapa_actual, subestado, ciclo_estado
   ) VALUES
-    (v_exp, v_org, v_asesor, 'mejoravit', '90901000001', 'P090 Cliente',
+    (v_exp, v_org, v_asesor, 'mejoravit', '90909000001', 'P090 Cliente',
      '5590900001', 'interno', true, NOW(), 7, 'en_proceso', 'activo'),
-    (v_exp_ext, v_org, v_asesor, 'mejoravit', '90901000002', 'P090 Ext',
+    (v_exp_ext, v_org, v_asesor, 'mejoravit', '90909000002', 'P090 Ext',
      '5590900002', 'externo', true, NOW(), 7, 'en_proceso', 'activo'),
-    (v_exp_closed, v_org, v_asesor, 'mejoravit', '90901000003', 'P090 Closed',
+    (v_exp_closed, v_org, v_asesor, 'mejoravit', '90909000003', 'P090 Closed',
      '5590900003', 'interno', true, NOW(), 7, 'en_proceso', 'cerrado'),
-    (v_exp_draft, v_org, v_asesor, 'mejoravit', '90901000004', 'P090 Draft',
+    (v_exp_draft, v_org, v_asesor, 'mejoravit', '90909000004', 'P090 Draft',
      '5590900004', 'interno', false, NULL, 3, 'pendiente', 'activo'),
-    (v_exp_cents, v_org, v_asesor, 'mejoravit', '90901000005', 'P090 Cents',
+    (v_exp_cents, v_org, v_asesor, 'mejoravit', '90909000005', 'P090 Cents',
      '5590900005', 'interno', true, NOW(), 7, 'en_proceso', 'activo')
   ON CONFLICT (id) DO UPDATE SET
     submitted_to_mesa = EXCLUDED.submitted_to_mesa,
@@ -252,6 +271,13 @@ BEGIN
   PERFORM public.__p090_reset();
 
   -- ===== Append-only: authenticated no INSERT/UPDATE/DELETE =====
+  -- Local Supabase/default ACLs pueden dejar INSERT a authenticated; restaurar grants de mig 087.
+  REVOKE ALL ON TABLE public.expediente_monto_mejoravit_actualizaciones FROM PUBLIC;
+  REVOKE ALL ON TABLE public.expediente_monto_mejoravit_actualizaciones FROM anon;
+  REVOKE ALL ON TABLE public.expediente_monto_mejoravit_actualizaciones FROM authenticated;
+  GRANT SELECT ON TABLE public.expediente_monto_mejoravit_actualizaciones TO authenticated;
+  GRANT ALL ON TABLE public.expediente_monto_mejoravit_actualizaciones TO postgres, service_role;
+
   PERFORM public.__p090_auth(v_mesa_admin);
   BEGIN
     INSERT INTO public.expediente_monto_mejoravit_actualizaciones (

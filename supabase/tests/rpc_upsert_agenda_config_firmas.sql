@@ -45,8 +45,21 @@ AS $$
     'min_lead_hours', 24,
     'allowed_weekdays', jsonb_build_array(1, 2, 3, 4, 5),
     'locations', jsonb_build_object(
-      'mty-centro', jsonb_build_object('enabled', true, 'capacity_per_slot', 3, 'label', 'Centro'),
-      'san-nicolas', jsonb_build_object('enabled', true, 'capacity_per_slot', 2)
+      'mty-centro', jsonb_build_object(
+        'enabled', true,
+        'capacity_per_slot', 3,
+        'label', 'Centro',
+        'capacity_by_time', jsonb_build_object(
+          '09:00', 3, '10:00', 3, '11:00', 3, '12:00', 3, '16:00', 3
+        )
+      ),
+      'san-nicolas', jsonb_build_object(
+        'enabled', true,
+        'capacity_per_slot', 2,
+        'capacity_by_time', jsonb_build_object(
+          '09:00', 2, '10:00', 2, '11:00', 2, '12:00', 2, '16:00', 2
+        )
+      )
     ),
     'slots', jsonb_build_array('09:00', '10:00', '11:00', '12:00', '16:00')
   );
@@ -327,7 +340,7 @@ BEGIN
         '0'::JSONB
       ),
       NULL,
-      'capacity_per_slot debe ser >= 1'
+      'capacity_per_slot'
     ),
     'test 14: capacity < 1'
   );
@@ -373,7 +386,7 @@ BEGIN
     'minLeadDays', 2,
     'allowed_weekdays', jsonb_build_array(1, 2, 3, 4, 5),
     'locations', jsonb_build_object(
-      'mty-centro', jsonb_build_object('enabled', true, 'capacity_per_slot', 3)
+      'mty-centro', jsonb_build_object('enabled', true, 'capacity_per_slot', 3, 'capacity_by_time', jsonb_build_object('09:00', 3, '10:00', 3, '11:00', 3, '12:00', 3, '16:00', 3))
     ),
     'slots', jsonb_build_array('09:00', '10:00')
   );
@@ -427,6 +440,7 @@ BEGIN
 
   -- Teardown
   DELETE FROM public.agenda_bookings WHERE expediente_id = v_exp;
+  DELETE FROM public.expediente_paso_visual_transiciones WHERE expediente_id = v_exp;
   DELETE FROM public.expedientes WHERE id = v_exp;
 
   UPDATE public.agenda_config
@@ -435,6 +449,33 @@ BEGIN
       updated_at = NOW()
   WHERE organization_id = v_org
     AND kind = 'firmas';
+
+  -- Re-expand P124 capacity_by_time tras restaurar seed legacy (suites posteriores usan sede-centro).
+  UPDATE public.agenda_config ac
+  SET config = jsonb_set(
+        ac.config,
+        '{locations}',
+        COALESCE((
+          SELECT jsonb_object_agg(
+            loc_id,
+            CASE
+              WHEN COALESCE((loc_cfg->>'enabled')::boolean, false) IS NOT TRUE THEN loc_cfg
+              ELSE loc_cfg || jsonb_build_object(
+                'capacity_by_time',
+                (
+                  SELECT COALESCE(jsonb_object_agg(slot, GREATEST(1, COALESCE((loc_cfg->>'capacity_per_slot')::int, 1))), '{}'::jsonb)
+                  FROM jsonb_array_elements_text(COALESCE(ac.config->'slots', '[]'::jsonb)) AS slot
+                )
+              )
+            END
+          )
+          FROM jsonb_each(COALESCE(ac.config->'locations', '{}'::jsonb)) AS x(loc_id, loc_cfg)
+        ), '{}'::jsonb),
+        true
+      ),
+      updated_at = NOW()
+  WHERE ac.organization_id = v_org
+    AND ac.kind = 'firmas';
 
   DELETE FROM public.agenda_config
   WHERE organization_id = v_org_b

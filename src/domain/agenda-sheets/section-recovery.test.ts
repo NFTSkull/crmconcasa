@@ -7,14 +7,19 @@ import {
 } from "./section-recovery";
 
 describe("section-recovery", () => {
-  it("Apodaca firmas times", () => {
+  it("Apodaca firmas times (legacy + P212 target)", () => {
     assert.equal(isPlausibleFirmasApodacaTime("10:30"), true);
     assert.equal(isPlausibleFirmasApodacaTime("10:00"), true);
+    assert.equal(isPlausibleFirmasApodacaTime("08:00"), true);
+    assert.equal(isPlausibleFirmasApodacaTime("09:00"), true);
     assert.equal(isPlausibleFirmasApodacaTime("08:30"), false);
   });
 
-  it("Monterrey firmas times", () => {
+  it("Monterrey firmas times (legacy + P212 target)", () => {
+    assert.equal(isPlausibleFirmasMonterreyTime("08:00"), true);
     assert.equal(isPlausibleFirmasMonterreyTime("08:30"), true);
+    assert.equal(isPlausibleFirmasMonterreyTime("09:00"), true);
+    assert.equal(isPlausibleFirmasMonterreyTime("10:00"), true);
     assert.equal(isPlausibleFirmasMonterreyTime("10:30"), false);
   });
 

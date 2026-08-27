@@ -5,8 +5,13 @@
  */
 
 import { BOOK_SLOT_JUST_TAKEN_MESSAGE } from "./manual-occupancy";
+import {
+  FIRMAS_DAILY_CAP_CONTRACT_DEFAULT,
+  type FirmasDailyCapContractState,
+} from "./firmas-bookable-slots";
 
 export const BIOMETRICOS_MONTERREY_DAILY_CAPACITY = 15 as const;
+export const FIRMAS_DAILY_CAPACITY_PER_SEDE = 15 as const;
 
 export const LIVE_SYNC_CUPOS_UNVERIFIED_MESSAGE =
   "No pudimos verificar el cupo en Google Sheets. Intenta de nuevo en unos segundos.";
@@ -27,13 +32,21 @@ export type DailyOccupancyBooking = Readonly<{
   status: string;
 }>;
 
-/** Fuente única: null = sin tope diario (Firmas / Inscripción / Apodaca). */
+/** Fuente única: null = sin tope diario.
+ * Firmas: solo con contrato P212 activo (default OFF → null, legacy pre-P212).
+ */
 export function agendaDailyCapacity(
   kind: DailyCapacityKind | string,
   locationId: DailyCapacityLocation,
+  contract: FirmasDailyCapContractState = FIRMAS_DAILY_CAP_CONTRACT_DEFAULT,
 ): number | null {
   if (kind === "biometricos" && locationId === "monterrey") {
     return BIOMETRICOS_MONTERREY_DAILY_CAPACITY;
+  }
+  if (kind === "firmas" && (locationId === "monterrey" || locationId === "apodaca")) {
+    // Sin bookingDate aquí: enabled=false → null; enabled=true sin from → 15.
+    if (!contract.enabled) return null;
+    return FIRMAS_DAILY_CAPACITY_PER_SEDE;
   }
   return null;
 }
@@ -89,8 +102,9 @@ export function agendaDailyRemaining(
   kind: DailyCapacityKind | string,
   locationId: DailyCapacityLocation,
   occupancy: number,
+  contract: FirmasDailyCapContractState = FIRMAS_DAILY_CAP_CONTRACT_DEFAULT,
 ): { capacity: number | null; occupancy: number; remaining: number | null; overcapacity: boolean } {
-  const capacity = agendaDailyCapacity(kind, locationId);
+  const capacity = agendaDailyCapacity(kind, locationId, contract);
   if (capacity == null) {
     return { capacity: null, occupancy, remaining: null, overcapacity: false };
   }
@@ -120,11 +134,15 @@ export function isInventoryLiveSyncRequired(input: {
   locationId: string;
   bookingDate: string;
 }): boolean {
-  if (input.kind !== "biometricos") return false;
   if (input.locationId !== "monterrey" && input.locationId !== "apodaca") {
     return false;
   }
-  return input.bookingDate >= "2026-07-30";
+  if (input.bookingDate < "2026-07-30") return false;
+  if (input.kind === "biometricos") return true;
+  // Firmas: live-sync obligatorio en era inventario (fail-closed físico).
+  // Sin cutover hardcode 2026-09-01 — el contrato SQL se activa por flag explícito.
+  if (input.kind === "firmas") return true;
+  return false;
 }
 
 export function shouldBlockBookWithoutLiveSync(input: {
@@ -250,6 +268,42 @@ export function preserveBookGateErrorAfterAvailabilityFallback(input: {
 }): string {
   void input.inventoryFresh;
   return input.bookGateError;
+}
+
+export type FirmasBookGateAttempt = BiometricBookGateAttempt;
+
+/** Hard gate live-sync antes de book_firmas / reagendar_firmas (fail-closed). */
+export function resolveFirmasBookGateAttempt(input: {
+  kind: string;
+  locationId: string;
+  bookingDate: string;
+  gate: {
+    fresh?: boolean;
+    canBook?: boolean;
+    code?: string | null;
+    gateMessage?: string | null;
+  } | null;
+}): FirmasBookGateAttempt {
+  const blocked = shouldBlockBookWithoutLiveSync(input);
+  if (blocked.block) {
+    return {
+      blocked: true,
+      bookGateError: resolveBookGateBlockMessage({ gate: input.gate, blocked }),
+      mayCallBookBiometricos: false,
+    };
+  }
+  return { blocked: false, bookGateError: null, mayCallBookBiometricos: true };
+}
+
+export const FIRMAS_INVENTORY_SYNCED_LABEL =
+  "Cupos sincronizados con Google Sheets" as const;
+
+export function shouldShowFirmasInventorySyncedLabel(input: {
+  inventoryLabel: string | null;
+  bookGateError: string | null;
+}): boolean {
+  if (input.bookGateError) return false;
+  return input.inventoryLabel === FIRMAS_INVENTORY_SYNCED_LABEL;
 }
 
 /** Label verde solo si no hay fallo activo del hard gate de reserva. */

@@ -140,6 +140,9 @@ run_sql_test "supabase/tests/rpc_mesa_disponibles_trabajo_accionable_p199.sql"
 run_sql_test "supabase/tests/rpc_mesa_disponibles_todo_accionable_p206.sql"
 run_sql_test "supabase/tests/rpc_mesa_disponibles_nuevos_correcciones_p207.sql"
 run_sql_test "supabase/tests/rpc_agenda_daily_cap_p208.sql"
+run_sql_test "supabase/tests/rpc_agenda_firmas_daily_cap_off_p212.sql"
+run_sql_test "supabase/tests/rpc_agenda_firmas_daily_cap_p212.sql"
+run_sql_test "supabase/tests/rpc_agenda_firmas_concurrency_p212.sql"
 run_sql_test "supabase/tests/rpc_asesor_correccion_estado_efectivo_p201.sql"
 run_sql_test "supabase/tests/rpc_asesor_mesa_correccion_latest_episode_p202.sql"
 run_sql_test "supabase/tests/rpc_asesor_inbox_rechazo_operativo_p204a.sql"
@@ -157,4 +160,12 @@ run_sql_test "supabase/tests/rpc_agenda_sheet_effective_result_p180.sql"
 run_sql_test "supabase/tests/rpc_bernardo_ops_p165.sql"
 run_sql_test "supabase/tests/rpc_vigencia_documental_p211.sql"
 run_sql_test "supabase/tests/rpc_vigencia_documental_p211_cert_final.sql"
+# P212 ON-mode tests may commit enabled=true via implicit DDL; restore INSTALL OFF.
+PGPASSWORD="$DB_PASSWORD" psql -v ON_ERROR_STOP=1 \
+  -h "$DB_HOST" -p "$DB_PORT" -U "$DB_USER" -d "$DB_NAME" \
+  -c "UPDATE public.agenda_firmas_daily_cap_contract
+        SET enabled = FALSE, effective_from = NULL, enabled_at = NULL,
+            note = 'test-sql: restore INSTALL OFF', updated_at = NOW()
+        WHERE singleton;"
+
 echo "SQL tests: ALL PASSED"

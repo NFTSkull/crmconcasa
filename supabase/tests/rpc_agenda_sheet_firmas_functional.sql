@@ -59,6 +59,7 @@ BEGIN
   v_slot2 := ((v_date::TEXT || ' 11:00:00')::TIMESTAMP AT TIME ZONE v_tz);
 
   DELETE FROM public.agenda_bookings WHERE expediente_id IN (v_exp, v_exp2, v_exp3, v_exp4);
+  DELETE FROM public.expediente_paso_visual_transiciones WHERE expediente_id IN (v_exp, v_exp2, v_exp3, v_exp4);
   DELETE FROM public.expedientes WHERE id IN (v_exp, v_exp2, v_exp3, v_exp4);
 
   INSERT INTO public.expedientes (

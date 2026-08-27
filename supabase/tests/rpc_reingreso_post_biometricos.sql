@@ -543,16 +543,27 @@ BEGIN
     ),
     'upsert_editor_decision_pre_reingreso directo'
   );
-  PERFORM public.__p072_expect_priv_denied(
-    v_asesor,
-    format(
-      'SELECT public.register_expediente_documento_pre_reingreso(%L::uuid, %L, %L, %L, %L, 100)',
-      v_child, 'cliente_comprobante_domicilio',
+  -- register_*_pre_reingreso: mig 140 otorgó EXECUTE a authenticated; el bypass
+  -- sigue bloqueado por gates de negocio (no por 42501).
+  PERFORM public.__p072_auth(v_asesor);
+  BEGIN
+    PERFORM public.register_expediente_documento_pre_reingreso(
+      v_child,
+      'cliente_comprobante_domicilio',
       v_org || '/' || v_child || '/cliente_comprobante_domicilio/bypass.pdf',
-      'bypass.pdf', 'application/pdf'
-    ),
-    'register_expediente_documento_pre_reingreso directo'
-  );
+      'bypass.pdf',
+      'application/pdf',
+      100
+    );
+    PERFORM public.__p072_reset();
+    RAISE EXCEPTION 'P072 TEST FAIL: register_expediente_documento_pre_reingreso directo debía fallar';
+  EXCEPTION WHEN OTHERS THEN
+    PERFORM public.__p072_reset();
+    IF SQLERRM LIKE 'P072 TEST FAIL:%' THEN RAISE; END IF;
+    IF SQLERRM !~* 'enviado a Mesa|permission denied|42501|REENTRY|no permitido|no autorizado' THEN
+      RAISE EXCEPTION 'P072 TEST FAIL: register pre_reingreso bypass inesperado: %', SQLERRM;
+    END IF;
+  END;
   PERFORM public.__p072_assert(
     (SELECT etapa_actual = 6 FROM public.expedientes WHERE id = v_child),
     'el hijo permanece en etapa 6 tras los intentos de bypass'

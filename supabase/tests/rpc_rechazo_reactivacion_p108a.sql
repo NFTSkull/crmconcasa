@@ -313,10 +313,16 @@ BEGIN
   PERFORM public.__p108a_expect_reactivar_fail(v_asesor, v_cancel_exp, 'REACTIVATION_CYCLE_NOT_ACTIVE');
 
   -- Permisos: editor no; otro asesor no
-  v_exp := '00000000-0000-4000-9188-000000000105'::UUID;
-  UPDATE public.expedientes
-  SET subestado = 'en_proceso', motivo_rechazo = NULL, comentario_rechazo = NULL
-  WHERE id = v_exp;
+  -- UUID dedicado (no reutilizar …105 del loop 1–12: ese ya tiene rechazo reactivado).
+  v_exp := '00000000-0000-4000-9188-000000000305'::UUID;
+  INSERT INTO public.expedientes (
+    id, organization_id, asesor_id, programa, nss, cliente_nombre,
+    telefono_cliente, origen_mesa, ciclo_estado, submitted_to_mesa,
+    fecha_envio_mesa, etapa_actual, subestado
+  ) VALUES (
+    v_exp, v_org, v_asesor, 'mejoravit', '91880000305', 'Exp permisos mesa',
+    '5518800305', 'interno', 'activo', true, NOW(), 5, 'en_proceso'
+  );
 
   PERFORM public.__p108a_auth(v_mesa);
   PERFORM public.rechazar_etapa_operativa(

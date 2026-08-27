@@ -1,4 +1,5 @@
 -- ConCasa CRM — pruebas P2C-16 RPC enviar_retencion_mesa + hook retención
+-- P132: envío no avanza etapa (8→9 lo hace Acuse / register_retencion).
 -- Uso: PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -f supabase/tests/rpc_enviar_retencion_mesa.sql
 
 \set ON_ERROR_STOP on
@@ -260,7 +261,7 @@ BEGIN
     'test 3'
   );
   SELECT e.etapa_actual INTO v_etapa FROM public.expedientes e WHERE e.id = v_exp_a;
-  PERFORM public.__rpc_ret_test_assert(v_etapa = 9, 'test 4 etapa 9');
+  PERFORM public.__rpc_ret_test_assert(v_etapa = 8, 'test 4 P132 sin avance (queda etapa 8)');
   PERFORM public.__rpc_ret_test_assert(
     EXISTS (SELECT 1 FROM public.action_log al WHERE al.entity_id = v_exp_a AND al.action = 'expediente.enviar_retencion_mesa'),
     'test 5'
@@ -323,7 +324,10 @@ BEGIN
 
   v_result := public.__rpc_ret_test_enviar(v_a1, v_exp_double, 'con_sello');
   PERFORM public.__rpc_ret_test_assert((v_result->>'ok')::boolean = true, 'test 24 setup');
-  -- P079: reintento en etapa 9 es idempotente (no avanza a 10, no falla)
+  -- P132: simular Acuse 8→9; luego P079 idempotencia en etapa ≥9
+  UPDATE public.expedientes
+  SET etapa_actual = 9, updated_at = NOW()
+  WHERE id = v_exp_double;
   v_result := public.__rpc_ret_test_enviar(v_a1, v_exp_double, 'con_sello');
   PERFORM public.__rpc_ret_test_assert(
     (v_result->>'ok')::boolean = true
@@ -359,7 +363,7 @@ BEGIN
     'test 27'
   );
   SELECT e.etapa_actual INTO v_etapa FROM public.expedientes e WHERE e.id = v_exp_resend;
-  PERFORM public.__rpc_ret_test_assert(v_etapa = 9, 'test 27b reenvío queda etapa 9');
+  PERFORM public.__rpc_ret_test_assert(v_etapa = 8, 'test 27b reenvío P132 queda etapa 8');
   PERFORM public.__rpc_ret_test_assert(
     EXISTS (SELECT 1 FROM public.retencion_opciones ro WHERE ro.expediente_id = v_exp_resend AND ro.retencion_opcion = 'sin_sello')
     AND EXISTS (SELECT 1 FROM public.retencion_envios re WHERE re.expediente_id = v_exp_resend AND re.opcion = 'sin_sello'),

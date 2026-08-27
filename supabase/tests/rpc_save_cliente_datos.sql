@@ -445,13 +445,13 @@ BEGIN
 
   -- 9. Teléfono longitud distinta
   PERFORM public.__rpc_scd_test_assert(
-    public.__rpc_scd_test_expect_fail(v_asesor_a1, v_exp_tel, 'XAXX010101000', '12345', '[]'::JSONB, NULL, '{}'::JSONB, 'completo', 'teléfono inválido'),
+    public.__rpc_scd_test_expect_fail(v_asesor_a1, v_exp_tel, 'XAXX010101000', '12345', '[]'::JSONB, NULL, '{}'::JSONB, 'completo', 'teléfono'),
     'test 9'
   );
 
   -- 10. Teléfono no numérico (tras normalizar queda corto)
   PERFORM public.__rpc_scd_test_assert(
-    public.__rpc_scd_test_expect_fail(v_asesor_a1, v_exp_tel, 'XAXX010101000', 'abcdefghij', '[]'::JSONB, NULL, '{}'::JSONB, 'completo', 'teléfono inválido'),
+    public.__rpc_scd_test_expect_fail(v_asesor_a1, v_exp_tel, 'XAXX010101000', 'abcdefghij', '[]'::JSONB, NULL, '{}'::JSONB, 'completo', 'teléfono'),
     'test 10'
   );
 

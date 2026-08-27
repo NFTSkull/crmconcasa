@@ -169,12 +169,12 @@ BEGIN
   VALUES
     (
       v_org, 'firmas',
-      '{"enabled":true,"timezone":"America/Monterrey","min_lead_hours":1,"allowed_weekdays":[1,2,3,4,5],"slots":["10:00","11:00"],"locations":{"p075-sede":{"enabled":true,"capacity_per_slot":50}}}'::JSONB,
+      '{"enabled":true,"timezone":"America/Monterrey","min_lead_hours":1,"allowed_weekdays":[1,2,3,4,5],"slots":["10:00","11:00"],"locations":{"p075-sede":{"enabled":true,"capacity_per_slot":50,"capacity_by_time":{"08:00":50,"09:00":50,"10:00":50,"11:00":50,"12:00":50}}}}'::JSONB,
       v_admin
     ),
     (
       v_other_org, 'firmas',
-      '{"enabled":true,"timezone":"America/Monterrey","min_lead_hours":1,"allowed_weekdays":[1,2,3,4,5],"slots":["10:00","11:00"],"locations":{"p075-sede":{"enabled":true,"capacity_per_slot":50}}}'::JSONB,
+      '{"enabled":true,"timezone":"America/Monterrey","min_lead_hours":1,"allowed_weekdays":[1,2,3,4,5],"slots":["10:00","11:00"],"locations":{"p075-sede":{"enabled":true,"capacity_per_slot":50,"capacity_by_time":{"08:00":50,"09:00":50,"10:00":50,"11:00":50,"12:00":50}}}}'::JSONB,
       v_other_admin
     );
 

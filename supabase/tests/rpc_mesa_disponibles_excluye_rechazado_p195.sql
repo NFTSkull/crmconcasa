@@ -39,8 +39,17 @@ BEGIN
   PERFORM public.__p195_assert(v_src IS NOT NULL, 'bandeja existe');
   PERFORM public.__p195_assert(position('WHEN ''sin_asignar'' THEN' in v_src) > 0, 'ops sin_asignar');
   PERFORM public.__p195_assert(
-    position('cl.subestado IS DISTINCT FROM ''rechazado''' in v_src) > 0,
-    'disponibles excluye rechazado'
+    position('cl.subestado IS DISTINCT FROM ''rechazado''' in v_src) > 0
+      OR (
+        position('WHEN ''sin_asignar'' THEN' in v_src) > 0
+        AND position('P207: Nuevos (quick filter)' in v_src) > 0
+        AND position('''rechazado''' in split_part(
+          split_part(v_src, 'WHEN ''sin_asignar'' THEN', 2),
+          'WHEN ''mi_bandeja'' THEN',
+          1
+        )) = 0
+      ),
+    'disponibles excluye rechazado (P195/P207)'
   );
   PERFORM public.__p195_assert(
     position('expediente_tiene_correccion_asesor_pendiente' in v_src) = 0,

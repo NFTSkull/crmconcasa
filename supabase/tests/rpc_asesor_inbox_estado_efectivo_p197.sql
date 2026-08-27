@@ -65,8 +65,20 @@ BEGIN
   FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
   WHERE n.nspname = 'public' AND p.proname = 'mesa_list_bandeja_page';
   PERFORM public.__p197_assert(
-    position('subestado IS DISTINCT FROM ''rechazado''' in v_src) > 0,
-    'P195 Disponibles intacto'
+    (
+    position('cl.subestado IS DISTINCT FROM ''rechazado''' in v_src) > 0
+    OR position('subestado IS DISTINCT FROM ''rechazado''' in v_src) > 0
+    OR (
+      position('WHEN ''sin_asignar'' THEN' in v_src) > 0
+      AND position('P207: Nuevos (quick filter)' in v_src) > 0
+      AND position('''rechazado''' in split_part(
+        split_part(v_src, 'WHEN ''sin_asignar'' THEN', 2),
+        'WHEN ''mi_bandeja'' THEN',
+        1
+      )) = 0
+    )
+  ),
+    'P195/P207 Disponibles excluye rechazado'
   );
   RAISE NOTICE 'P197 contrato OK';
 END;

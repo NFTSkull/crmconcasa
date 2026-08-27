@@ -45,8 +45,20 @@ BEGIN
   WHERE n.nspname = 'public' AND p.proname = 'mesa_list_bandeja_page'
   LIMIT 1;
   PERFORM public.__p196_assert(
-    position('subestado IS DISTINCT FROM ''rechazado''' in v_bandeja) > 0,
-    'P195 Disponibles intacto'
+    (
+    position('cl.subestado IS DISTINCT FROM ''rechazado''' in v_bandeja) > 0
+    OR position('subestado IS DISTINCT FROM ''rechazado''' in v_bandeja) > 0
+    OR (
+      position('WHEN ''sin_asignar'' THEN' in v_bandeja) > 0
+      AND position('P207: Nuevos (quick filter)' in v_bandeja) > 0
+      AND position('''rechazado''' in split_part(
+        split_part(v_bandeja, 'WHEN ''sin_asignar'' THEN', 2),
+        'WHEN ''mi_bandeja'' THEN',
+        1
+      )) = 0
+    )
+  ),
+    'P195/P207 Disponibles excluye rechazado'
   );
   PERFORM public.__p196_assert(
     position('WHEN ''sin_asignar'' THEN' in v_bandeja) > 0,

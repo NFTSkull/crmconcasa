@@ -109,8 +109,19 @@ BEGIN
   FOREACH v_id IN ARRAY v_ids LOOP
     DELETE FROM public.action_log WHERE entity_id = v_id;
     DELETE FROM public.editor_decisions WHERE expediente_id = v_id;
+    DELETE FROM public.expediente_paso_visual_transiciones WHERE expediente_id = v_id;
     DELETE FROM public.expedientes WHERE id = v_id;
   END LOOP;
+
+  -- Aislar ventana de fechas: suites P083/P084 (y similares) dejan aprobado_at en el mismo día.
+  UPDATE public.editor_decisions ed
+  SET aprobado_at = '2020-01-01T12:00:00-06:00'
+  FROM public.expedientes e
+  WHERE e.id = ed.expediente_id
+    AND e.organization_id = v_org
+    AND ed.expediente_id <> ALL (v_ids)
+    AND ed.aprobado_at >= v_from
+    AND ed.aprobado_at < v_to;
 
   -- A: 50000 Mejoravit asesor1
   INSERT INTO public.expedientes (
@@ -360,6 +371,7 @@ BEGIN
   FOREACH v_id IN ARRAY v_ids LOOP
     DELETE FROM public.action_log WHERE entity_id = v_id;
     DELETE FROM public.editor_decisions WHERE expediente_id = v_id;
+    DELETE FROM public.expediente_paso_visual_transiciones WHERE expediente_id = v_id;
     DELETE FROM public.expedientes WHERE id = v_id;
   END LOOP;
 END;

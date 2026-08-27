@@ -37,8 +37,9 @@ BEGIN
     RAISE EXCEPTION 'notif_apodaca_opcional: P136 espera cliente_notificacion_apodaca en mesa_upload';
   END IF;
 
-  IF 'cliente_notificacion' = ANY(v_opc) THEN
-    RAISE EXCEPTION 'notif_apodaca_opcional: no mezclar cliente_notificacion en opcionales asesor';
+  -- P132: cliente_notificacion también es opcional asesor (distinto de apodaca).
+  IF NOT ('cliente_notificacion' = ANY(v_opc)) THEN
+    RAISE EXCEPTION 'notif_apodaca_opcional: P132 espera cliente_notificacion en opcionales asesor';
   END IF;
 
   IF 'notificacion' = ANY(v_opc) OR 'notificacion' = ANY(v_upload) THEN
@@ -49,7 +50,7 @@ BEGIN
     RAISE EXCEPTION 'notif_apodaca_opcional: falta en reingreso_documentos_reutilizables';
   END IF;
 
-  IF cardinality(v_opc) <> 6 OR cardinality(v_upload) <> 10 THEN
+  IF cardinality(v_opc) <> 7 OR cardinality(v_upload) <> 11 THEN
     RAISE EXCEPTION 'notif_apodaca_opcional: cardinalidad opc=% upload=%', cardinality(v_opc), cardinality(v_upload);
   END IF;
 

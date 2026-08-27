@@ -74,8 +74,20 @@ AS $$
     'min_lead_hours', 24,
     'allowed_weekdays', jsonb_build_array(1, 2, 3, 4, 5),
     'locations', jsonb_build_object(
-      'mty-centro', jsonb_build_object('enabled', true, 'capacity_per_slot', 3),
-      'san-nicolas', jsonb_build_object('enabled', true, 'capacity_per_slot', 2)
+      'mty-centro', jsonb_build_object(
+        'enabled', true,
+        'capacity_per_slot', 3,
+        'capacity_by_time', jsonb_build_object(
+          '09:00', 3, '10:00', 3, '11:00', 3, '12:00', 3, '16:00', 3
+        )
+      ),
+      'san-nicolas', jsonb_build_object(
+        'enabled', true,
+        'capacity_per_slot', 2,
+        'capacity_by_time', jsonb_build_object(
+          '09:00', 2, '10:00', 2, '11:00', 2, '12:00', 2, '16:00', 2
+        )
+      )
     ),
     'slots', jsonb_build_array('09:00', '10:00', '11:00', '12:00', '16:00')
   );
@@ -403,7 +415,7 @@ BEGIN
   PERFORM public.__agenda_cfg_test_assert(
     public.__agenda_cfg_test_expect_book_fail(
       v_asesor, v_exp_base, v_slot_mon10, 'mty-centro',
-      'agenda_config: horarios no configurados'
+      'agenda_config: horario'
     ),
     'test 0d'
   );

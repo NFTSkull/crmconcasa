@@ -40,7 +40,7 @@ RETURNS JSONB LANGUAGE sql IMMUTABLE AS $$
     'enabled', true, 'timezone', 'America/Monterrey', 'min_lead_hours', 24,
     'allowed_weekdays', jsonb_build_array(1, 2, 3, 4, 5),
     'locations', jsonb_build_object(
-      'mty-centro', jsonb_build_object('enabled', true, 'capacity_per_slot', 3)
+      'mty-centro', jsonb_build_object('enabled', true, 'capacity_per_slot', 3, 'capacity_by_time', jsonb_build_object('08:00', 3, '08:30', 3, '09:00', 3, '09:30', 3, '10:00', 3, '11:00', 3, '12:00', 3, '13:00', 3, '14:00', 3, '15:00', 3, '16:00', 3, '17:00', 3))
     ),
     'slots', jsonb_build_array('09:00', '10:00', '11:00', '12:00', '16:00')
   );

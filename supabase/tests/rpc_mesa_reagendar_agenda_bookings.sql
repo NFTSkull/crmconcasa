@@ -57,7 +57,7 @@ BEGIN
       'allowed_weekdays', jsonb_build_array(1,2,3,4,5,6,7),
       'slots', jsonb_build_array('09:00','10:00','11:00','12:00'),
       'locations', jsonb_build_object(
-        'sede-centro', jsonb_build_object('enabled', true, 'capacity_per_slot', p_capacity)
+        'sede-centro', jsonb_build_object('enabled', true, 'capacity_per_slot', p_capacity, 'capacity_by_time', jsonb_build_object('08:00', p_capacity, '08:30', p_capacity, '09:00', p_capacity, '09:30', p_capacity, '10:00', p_capacity, '11:00', p_capacity, '12:00', p_capacity, '13:00', p_capacity, '14:00', p_capacity, '15:00', p_capacity, '16:00', p_capacity, '17:00', p_capacity))
       )
     )
   )
@@ -76,7 +76,7 @@ BEGIN
       'allowed_weekdays', jsonb_build_array(1,2,3,4,5,6,7),
       'slots', jsonb_build_array('09:00','10:00','11:00','12:00'),
       'locations', jsonb_build_object(
-        'mty-centro', jsonb_build_object('enabled', true, 'capacity_per_slot', p_capacity)
+        'mty-centro', jsonb_build_object('enabled', true, 'capacity_per_slot', p_capacity, 'capacity_by_time', jsonb_build_object('08:00', p_capacity, '08:30', p_capacity, '09:00', p_capacity, '09:30', p_capacity, '10:00', p_capacity, '11:00', p_capacity, '12:00', p_capacity, '13:00', p_capacity, '14:00', p_capacity, '15:00', p_capacity, '16:00', p_capacity, '17:00', p_capacity))
       )
     )
   )

@@ -1,4 +1,4 @@
--- ConCasa CRM — pruebas P2C-13 RPC avanzar_etapa_operativa (transición 5→6)
+-- ConCasa CRM — pruebas P2C-13 / P132 RPC avanzar_etapa_operativa (transición canónica 5→8)
 -- Uso: PGPASSWORD=postgres psql -h 127.0.0.1 -p 54322 -U postgres -d postgres -f supabase/tests/rpc_avanzar_etapa_5_6.sql
 
 \set ON_ERROR_STOP on
@@ -213,7 +213,7 @@ DECLARE
   v_fecha_before TIMESTAMPTZ;
   v_roles_revisor INTEGER;
 BEGIN
-  -- Fixtures etapa 5 con cita pasada + booking biométrico (happy path 5→6)
+  -- Fixtures etapa 5 con cita pasada + booking biométrico (happy path 5→8)
   PERFORM public.__rpc_avanzar_56_test_insert_expediente(
     v_exp_admin, v_org_id, v_asesor_a1, '91501000001', 'interno', true, 5::smallint, v_fecha_cita_pasada
   );
@@ -330,8 +330,8 @@ BEGIN
   -- 1. mesa_admin
   v_result := public.__rpc_avanzar_56_test_call_as(v_mesa_admin, v_exp_admin, 'post-biométricos');
   PERFORM public.__rpc_avanzar_56_test_assert(
-    (v_result->>'ok')::boolean = true AND (v_result->>'etapa_actual')::int = 6,
-    'test 1: mesa_admin 5→6'
+    (v_result->>'ok')::boolean = true AND (v_result->>'etapa_actual')::int = 8,
+    'test 1: mesa_admin 5→8'
   );
 
   -- 2. mesa_interno interno
@@ -400,14 +400,14 @@ BEGIN
     'test 23: mensaje cita futura'
   );
 
-  -- 24. cita pasada + booking activo avanza 5→6 (explícito)
+  -- 24. cita pasada + booking activo avanza 5→8 (explícito)
   v_result := public.__rpc_avanzar_56_test_call_as(v_mesa_admin, v_exp_pasada_explicit);
   PERFORM public.__rpc_avanzar_56_test_assert(
-    (v_result->>'ok')::boolean = true AND (v_result->>'etapa_actual')::int = 6,
-    'test 24: cita pasada avanza 5→6'
+    (v_result->>'ok')::boolean = true AND (v_result->>'etapa_actual')::int = 8,
+    'test 24: cita pasada avanza 5→8'
   );
 
-  -- 25. tras 4→5 con cita futura, segundo avance no llega a 6
+  -- 25. tras 4→5 con cita futura, segundo avance no llega a 8
   v_result := public.__rpc_avanzar_56_test_call_as(v_mesa_admin, v_exp_chain);
   PERFORM public.__rpc_avanzar_56_test_assert(
     (v_result->>'ok')::boolean = true AND (v_result->>'etapa_actual')::int = 5,
@@ -447,12 +447,12 @@ BEGIN
     'test 13'
   );
 
-  -- 14. actualiza etapa 6
+  -- 14. actualiza etapa 8
   v_result := public.__rpc_avanzar_56_test_call_as(v_mesa_admin, v_exp_ok);
   PERFORM public.__rpc_avanzar_56_test_assert(
     EXISTS (
       SELECT 1 FROM public.expedientes e
-      WHERE e.id = v_exp_ok AND e.etapa_actual = 6 AND e.subestado = 'en_proceso'
+      WHERE e.id = v_exp_ok AND e.etapa_actual = 8 AND e.subestado = 'en_proceso'
     ),
     'test 14'
   );
@@ -481,28 +481,28 @@ BEGIN
   );
 
   -- 17. action_log
-  v_result := public.__rpc_avanzar_56_test_call_as(v_mesa_admin, v_exp_log, 'avance 5-6');
+  v_result := public.__rpc_avanzar_56_test_call_as(v_mesa_admin, v_exp_log, 'avance 5-8');
   PERFORM public.__rpc_avanzar_56_test_assert(
     EXISTS (
       SELECT 1 FROM public.action_log al
       WHERE al.entity_id = v_exp_log
         AND al.action = 'expediente.avanzar_etapa_operativa'
         AND (al.payload->>'etapa_anterior')::int = 5
-        AND (al.payload->>'etapa_nueva')::int = 6
-        AND al.payload->>'transition' = '5_6'
+        AND (al.payload->>'etapa_nueva')::int = 8
+        AND al.payload->>'transition' = '5_8'
         AND al.payload->>'booking_id' IS NOT NULL
     ),
     'test 17'
   );
 
-  -- 18. no salto 5→7 en una llamada
+  -- 18. una llamada desde 5 llega a 8 (P132; no a 6/7)
   v_result := public.__rpc_avanzar_56_test_call_as(v_mesa_admin, v_exp_skip);
   PERFORM public.__rpc_avanzar_56_test_assert(
-    (v_result->>'etapa_actual')::int = 6,
-    'test 18: una llamada desde 5 llega a 6'
+    (v_result->>'etapa_actual')::int = 8,
+    'test 18: una llamada desde 5 llega a 8'
   );
 
-  -- 19. no permite 7→8 (P2C-14: etapa 6 avanza 6→7)
+  -- 19. no permite 8→9 sin Acuse (fixture ya en etapa 8)
   PERFORM public.__rpc_avanzar_56_test_assert(
     public.__rpc_avanzar_56_test_call_expect_fail(v_mesa_admin, v_exp_etapa6),
     'test 19: no permite 8→9'
@@ -521,7 +521,7 @@ BEGIN
   WHERE t.typname = 'app_role' AND e.enumlabel = 'revisor';
   PERFORM public.__rpc_avanzar_56_test_assert(v_roles_revisor = 0, 'test 21');
 
-  RAISE NOTICE 'RPC avanzar_etapa_operativa 5→6: 25 pruebas OK';
+  RAISE NOTICE 'RPC avanzar_etapa_operativa 5→8: 25 pruebas OK';
 END;
 $$;
 

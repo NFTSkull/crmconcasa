@@ -1,3 +1,13 @@
+## 2026-08-27
+
+
+## 2026-08-27
+
+### Fixed
+- **local SQL harness (firmas-p1):** `scripts/test-sql.sh` 140/140 PASS after `reset-local-db-fresh.sh`; fixtures alineados a P124/P132/P198/P207; `p212-concurrency-race.sh` PASS con contract OFF. Sin cambios a mig 212.
+
+- **fix(local): harness reset fresco P078/seed/P212 OFF** — `scripts/reset-local-db-fresh.sh` (defer 078, reset→172, psql 173–212 por enum 55P04, prereq Auth, seed remount, P124+inventory, contract OFF); `seed.sql` remount Cloud→id canónico; `test-sql.sh` restore OFF. Sin cambios a mig **212**. Suite completa aún corta en P108A (preexistente).
+
 # Changelog
 
 - **fix(mesa): Disponibles = trabajo accionable libre (P199)** — helper `mesa_es_trabajo_accionable_mesa`; `sin_asignar` incluye P198 pending libres (aunque `subestado=rechazado`) y excluye `WAITING_ADVISOR`. Take **no** cambia (Fase 0: 0 pending libres en `en_espera_asesor`). 0 tablas/backfill. Citas → **200**.
@@ -9,6 +19,20 @@
 - **fix(mesa): estado efectivo de cambios por revisar (P198)** — mig **198**: cola = trabajo pendiente ahora. Cierre causal DG/documento/operativo. Re-reject → Esperando. RAW lote intacto. Disponibles P195 intacto. Citas → **199**. Cloud aplicada.
 
 ## [Unreleased]
+
+- **ops(agenda): P212 Firmas Fase 3B — publish code con contract OFF** — SQL full 140/140 + concurrency PASS; live-sync gated (daily Firmas null + 08:00 book_gate block mientras OFF); FE picker sigue `agenda_config` legacy; mig **212** inmutable (sha Cloud); activation script NO ejecutado; worker/reconcile sin redeploy requerido; webhook opcional parser (no crea bookings).
+
+- **ops(agenda): P212 Firmas Fase 3A — source reconcile + Cloud INSTALL contract OFF** — rama `feat/agenda-firmas-daily-cap-p1` integra parser hotfix (section-recovery ≡ live-sync v17 / reconcile v25); mig **212** INSTALL (rules 15/15 + helpers + assert/gate/claim gated; `agenda_daily_capacity` Firmas NULL si OFF; **0** mutación `agenda_config`/bookings/expedientes); activación separada `scripts/p212-activate-firmas.sql` (NO ejecutado); Cloud apply 212 con `enabled=false`; Edges productivas intactas (live-sync v17 / reconcile v25 / worker+webhook v33). Sin FE publish / sin Sheet writes / sin commit.
+
+- **audit(agenda): P212 Firmas Fase 1.8 — canonical template sin blank legacy** — criterio SAFE = format-source por target (ocupada OK, sin copiar values); Edge `agenda-sheet-structure-audit` **v2** modo `template_contract` (22/22 SAFE_CANONICAL_APPEND); `FirmasCanonicalTemplate` MTY08/09/10+APO; simulación 5/5/5; PASTE_NORMAL prohibido; 0 Sheet/Cloud writes; productive Edges intactas.
+
+- **audit(agenda): P212 Firmas Fase 1.7 — structure-audit RO + cutover explícito + future tabs** — Edge nueva `agenda-sheet-structure-audit` (GET-only, worker secret, evidencia estática anti-write); mig **212** sin hardcode `2026-09-01` (`agenda_firmas_daily_cap_contract` default OFF); provisioner idempotente diseño Oct+; 0 Sheet writes / 0 Cloud DB apply / 0 redeploy live-sync/worker.
+
+- **audit(agenda): P212 Firmas Fase 1.6 — append-only al final (plan RO)** — deficit por tab (MTY~9 / APO~15); duplicate Firmas sections parser PASS; lastAppend ≤84 < U200; **STOP_TEMPLATE_UNKNOWN** sin Google SA live. 0 writes.
+
+- **audit(agenda): P212 Firmas Fase 1.5 — validación + planner Cloud RO → STOP_NO_SAFE_CAPACITY** — disco recuperado; typecheck/lint/build OK; 22 tabs Sep-2026 sin 5/5/5 físicos (MTY~6 target / APO 0); baseline biométricos 468 filas; 0 Cloud/Sheet writes. Migration **212** sigue provisional (Cloud max=211).
+
+- **feat(agenda): P212 Firmas Fase 1 — daily cap 15/sede + 5/5/5 + planner RO (local)** — mig **212**: `agenda_firmas_canonical_location_id`, occupancy/remaining canonical-aware, assert con lock diario→horario, horarios nuevos 08/09/10 desde 2026-09-01; FE fail-closed + sync Sheet; Edge live-sync occupancy CRM; planner Sheet NO-SHIFT + checksum biométricos. **0 Cloud apply / 0 Sheet writes / 0 deploy.**
 
 - **hotfix(agenda): biométricos — path asesor JWT + invoke non-2xx (prod 2026-08-26 v2)** — Edge single-date ya no cae en `listSheets()` (~150s); resuelve pestaña vía TAB_MAP → metadata inventario → `200 fresh:false missing_sheet_for_date`. FE parsea body desde `error.context.json()` cuando invoke devuelve non-2xx; generation guard en `AgendaBiometricosSupabaseCard`; mensaje explícito si fecha sin pestaña. JWT asesor: ~1.3–1.9s `fresh=true`; P208 cap15 / P211 intactos. Edge v15 + FE pendiente deploy.
 
