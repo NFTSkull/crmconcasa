@@ -106,7 +106,7 @@ BEGIN
       'allowed_weekdays', jsonb_build_array(1, 2, 3, 4, 5, 6, 7),
       'slots', jsonb_build_array('09:00', '10:00', '11:00', '12:00'),
       'locations', jsonb_build_object(
-        v_loc, jsonb_build_object('enabled', true, 'capacity_per_slot', 8)
+        v_loc, jsonb_build_object('enabled', true, 'capacity_per_slot', 8, 'capacity_by_time', jsonb_build_object('08:00', 8, '08:30', 8, '09:00', 8, '09:30', 8, '10:00', 8, '11:00', 8, '12:00', 8, '13:00', 8, '14:00', 8, '15:00', 8, '16:00', 8, '17:00', 8))
       )
     )
   )

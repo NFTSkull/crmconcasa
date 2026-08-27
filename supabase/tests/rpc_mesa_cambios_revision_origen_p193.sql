@@ -527,7 +527,14 @@ BEGIN
   SELECT count(*)::int INTO v_count
   FROM jsonb_array_elements(coalesce(v_page->'items', '[]'::jsonb)) x
   WHERE x->>'cliente_nombre' LIKE 'P193%';
-  PERFORM public.__p193_assert(v_count >= 11, 'parent lista incluye fixtures P193');
+  -- P198/P202: parent = PENDING_REVIEW. H (AMBIGUOUS pre-envio) e I (LEGACY sin lote)
+  -- quedan CLOSED en estado_efectivo; categoria P192 puede seguir marcándolos.
+  PERFORM public.__p193_assert(v_count >= 9, 'parent lista incluye fixtures P193 actionable');
+
+  SELECT count(*)::int INTO v_count
+  FROM jsonb_array_elements(coalesce(v_page->'items', '[]'::jsonb)) x
+  WHERE x->>'cliente_nombre' IN ('P193 H ambiguous', 'P193 I legacy');
+  PERFORM public.__p193_assert(v_count = 0, 'H/I no en parent P198 (CLOSED)');
 
   -- Natividad-like: parent yes, requested no, otras yes
   SELECT count(*)::int INTO v_count
@@ -596,7 +603,7 @@ BEGIN
   LOOP
     v_seen := v_seen + 1;
   END LOOP;
-  PERFORM public.__p193_assert(v_seen >= 11, 'fixtures en parent');
+  PERFORM public.__p193_assert(v_seen >= 9, 'fixtures en parent actionable');
 
   -- Filtros existentes intactos (nuevos no vacío)
   v_page := public.mesa_list_bandeja_page(

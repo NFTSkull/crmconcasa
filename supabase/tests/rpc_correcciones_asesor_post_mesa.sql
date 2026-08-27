@@ -520,6 +520,11 @@ BEGIN
   WHERE expediente_id IN (
     v_exp_ok, v_exp_valid, v_exp_subido, v_exp_other, v_exp_semanas
   );
+  DELETE FROM public.expediente_paso_visual_transiciones
+  WHERE expediente_id IN (
+    v_exp_ok, v_exp_valid, v_exp_subido, v_exp_other, v_exp_semanas,
+    v_exp_datos, v_exp_datos_val, v_exp_datos_comp
+  );
   DELETE FROM public.expedientes
   WHERE id IN (
     v_exp_ok, v_exp_valid, v_exp_subido, v_exp_other, v_exp_semanas,

@@ -37,7 +37,7 @@ BEGIN
     RAISE EXCEPTION 'acta_digital_opcional: no mezclar con acta Mesa';
   END IF;
 
-  IF cardinality(v_opc) <> 3 OR cardinality(v_upload) <> 7 THEN
+  IF cardinality(v_opc) <> 7 OR cardinality(v_upload) <> 11 THEN
     RAISE EXCEPTION 'acta_digital_opcional: cardinalidad opc=% upload=%', cardinality(v_opc), cardinality(v_upload);
   END IF;
 

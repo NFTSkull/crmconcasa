@@ -94,6 +94,7 @@ BEGIN
   -- --- Fixtures operativos ---
   FOREACH v_id IN ARRAY v_ids LOOP
     DELETE FROM public.action_log WHERE entity_id = v_id;
+    DELETE FROM public.expediente_paso_visual_transiciones WHERE expediente_id = v_id;
     DELETE FROM public.expedientes WHERE id = v_id;
   END LOOP;
 
@@ -196,6 +197,7 @@ BEGIN
 
   FOREACH v_id IN ARRAY v_ids LOOP
     DELETE FROM public.action_log WHERE entity_id = v_id;
+    DELETE FROM public.expediente_paso_visual_transiciones WHERE expediente_id = v_id;
     DELETE FROM public.expedientes WHERE id = v_id;
   END LOOP;
 

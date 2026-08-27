@@ -40,7 +40,13 @@ RETURNS JSONB LANGUAGE sql IMMUTABLE AS $$
     'enabled', true, 'timezone', 'America/Monterrey', 'min_lead_hours', 24,
     'allowed_weekdays', jsonb_build_array(1, 2, 3, 4, 5),
     'locations', jsonb_build_object(
-      'mty-centro', jsonb_build_object('enabled', true, 'capacity_per_slot', 3)
+      'mty-centro', jsonb_build_object(
+        'enabled', true,
+        'capacity_per_slot', 3,
+        'capacity_by_time', jsonb_build_object(
+          '09:00', 3, '10:00', 3, '11:00', 3, '12:00', 3, '16:00', 3
+        )
+      )
     ),
     'slots', jsonb_build_array('09:00', '10:00', '11:00', '12:00', '16:00')
   );
@@ -296,6 +302,9 @@ BEGIN
   INSERT INTO public.editor_decisions (expediente_id, organization_id, decision, monto_aprobado, decided_by)
   VALUES (v_exp_side, v_org, 'aprobado', 100000, v_editor)
   ON CONFLICT (expediente_id) DO NOTHING;
+  UPDATE public.expediente_documentos
+  SET deleted_at = NOW()
+  WHERE expediente_id = v_exp_side AND tipo_documento = 'ine' AND deleted_at IS NULL;
   INSERT INTO public.expediente_documentos (
     organization_id, expediente_id, tipo_documento, storage_path,
     nombre_original, mime_type, size_bytes, estatus_revision, uploaded_by, uploaded_by_role

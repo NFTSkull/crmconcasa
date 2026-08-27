@@ -18,8 +18,9 @@ BEGIN
   IF public.agenda_daily_capacity(v_org, 'biometricos', DATE '2026-09-01', 'apodaca') IS NOT NULL THEN
     RAISE EXCEPTION 'P208 apodaca no debe tener cap diario';
   END IF;
-  IF public.agenda_daily_capacity(v_org, 'firmas', DATE '2026-09-01', 'monterrey') IS NOT NULL THEN
-    RAISE EXCEPTION 'P208 firmas no debe tener cap diario';
+  v_cap := public.agenda_daily_capacity(v_org, 'firmas', DATE '2026-09-01', 'monterrey');
+  IF v_cap IS NOT NULL AND v_cap IS DISTINCT FROM 15 THEN
+    RAISE EXCEPTION 'P212 firmas cap monterrey != 15: %', v_cap;
   END IF;
   v_occ := public.agenda_daily_active_occupancy(v_org, 'biometricos', DATE '2099-01-01', 'monterrey');
   IF v_occ IS DISTINCT FROM 0 THEN

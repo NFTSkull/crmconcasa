@@ -170,12 +170,14 @@ BEGIN
   PERFORM public.__rpc_regret_test_assert(
     (v_result->>'etapa_actual')::int = 9, 'test 1: etapa_actual 9'
   );
-  -- Restaurar etapa 8 para pruebas de registro sin avance (docs no principales / gates)
+  -- Restaurar etapa 8 para pruebas de registro sin avance (docs no principales / gates).
+  -- P145 trigger re-bumps 8→9 si hay retención enviada válida: limpiar docs/envíos antes del UPDATE.
+  DELETE FROM public.retencion_envios WHERE expediente_id = v_exp_ok;
+  DELETE FROM public.retencion_opciones WHERE expediente_id = v_exp_ok;
+  DELETE FROM public.expediente_documentos WHERE expediente_id = v_exp_ok;
   UPDATE public.expedientes
   SET etapa_actual = 8, updated_at = NOW()
   WHERE id = v_exp_ok;
-  DELETE FROM public.retencion_envios WHERE expediente_id = v_exp_ok;
-  DELETE FROM public.retencion_opciones WHERE expediente_id = v_exp_ok;
 
   -- 2. tipo integración bloqueado en RPC retención
   PERFORM public.__rpc_regret_test_assert(
@@ -257,7 +259,7 @@ BEGIN
     public.__rpc_regret_test_expect_fail(
       v_a1, v_exp_etapa7, 'retencion_acuse_con_sello',
       public.__rpc_regret_test_storage_path(v_org, v_exp_etapa7, 'retencion_acuse_con_sello'),
-      'debe estar en etapa 8'
+      'etapa 8'
     ),
     'test 6: etapa 7 bloqueada'
   );
@@ -300,7 +302,7 @@ BEGIN
     v_result->>'estatus_revision' = 'resubido', 'test 9: resubido tras rechazo'
   );
 
-  -- 10. validado bloquea reemplazo
+  -- 10. P159: validado NO bloquea reemplazo (soft-delete + nueva versión)
   INSERT INTO public.expediente_documentos (
     organization_id, expediente_id, tipo_documento, storage_path,
     nombre_original, mime_type, size_bytes, version, estatus_revision,
@@ -310,14 +312,12 @@ BEGIN
     public.__rpc_regret_test_storage_path(v_org, v_exp_ok, 'retencion_ine_frente', 'val.pdf'),
     'val.pdf', 'application/pdf', 100, 1, 'validado', v_a1, 'asesor'
   );
+  v_result := public.__rpc_regret_test_call(
+    v_a1, v_exp_ok, 'retencion_ine_frente',
+    public.__rpc_regret_test_storage_path(v_org, v_exp_ok, 'retencion_ine_frente', 'new.pdf')
+  );
   PERFORM public.__rpc_regret_test_assert(
-    public.__rpc_regret_test_expect_fail(
-      v_a1, v_exp_ok, 'retencion_ine_frente',
-      public.__rpc_regret_test_storage_path(v_org, v_exp_ok, 'retencion_ine_frente', 'new.pdf'),
-      'documento validado',
-      true
-    ),
-    'test 10: validado bloquea reemplazo'
+    v_result->>'estatus_revision' = 'subido', 'test 10: P159 reemplazo post-validado ok'
   );
 
   -- 11. storage helper permite path retención etapa 8
@@ -391,11 +391,8 @@ BEGIN
     'test 13: sin booking automático'
   );
 
-  -- 14. hook retención: rechazo mesa no rompe register resubida
-  -- (register de retención sigue anclado a etapa 8; se restaura etapa para el fixture)
-  UPDATE public.expedientes
-  SET etapa_actual = 8, updated_at = NOW()
-  WHERE id = v_exp_flow;
+  -- 14. hook retención: rechazo mesa + resubida (P159 permite principal en etapa ≥8).
+  -- Mantener etapa 9 post-envío; no forzar 8 (P145 trigger re-bump).
 
   SELECT id INTO v_doc_id
   FROM public.expediente_documentos

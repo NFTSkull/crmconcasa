@@ -40,7 +40,7 @@ RETURNS JSONB LANGUAGE sql IMMUTABLE AS $$
     'enabled', true, 'timezone', 'America/Monterrey', 'min_lead_hours', 24,
     'allowed_weekdays', jsonb_build_array(1, 2, 3, 4, 5),
     'locations', jsonb_build_object(
-      'mty-centro', jsonb_build_object('enabled', true, 'capacity_per_slot', 3)
+      'mty-centro', jsonb_build_object('enabled', true, 'capacity_per_slot', 3, 'capacity_by_time', jsonb_build_object('08:00', 3, '08:30', 3, '09:00', 3, '09:30', 3, '10:00', 3, '11:00', 3, '12:00', 3, '13:00', 3, '14:00', 3, '15:00', 3, '16:00', 3, '17:00', 3))
     ),
     'slots', jsonb_build_array('09:00', '10:00', '11:00', '12:00', '16:00')
   );
@@ -235,9 +235,10 @@ BEGIN
     'mty-centro', 'booked', v_a1
   );
 
-  PERFORM public.__rpc_avanzar_910_test_insert_exp(v_exp_etapa8, v_org, v_a1, '94001600016', 11::smallint);
+  PERFORM public.__rpc_avanzar_910_test_insert_exp(v_exp_etapa8, v_org, v_a1, '94001600016', 12::smallint);
   PERFORM public.__rpc_avanzar_910_test_setup_listo(v_exp_etapa10, v_org, v_a1, '94001700017', public.__rpc_avanzar_910_test_slot_ts(4, '10:00', 20));
-  UPDATE public.expedientes SET etapa_actual = 10 WHERE id = v_exp_etapa10;
+  -- Etapa 12: sin rama de avance (10/11 sí avanzan; no usarlas como “wrong etapa”).
+  UPDATE public.expedientes SET etapa_actual = 12 WHERE id = v_exp_etapa10;
 
   PERFORM public.__rpc_avanzar_910_test_setup_listo(v_exp_asesor, v_org, v_a1, '94001800018', public.__rpc_avanzar_910_test_slot_ts(4, '11:00', 20));
   PERFORM public.__rpc_avanzar_910_test_setup_listo(v_exp_roles, v_org, v_a1, '94001900019', public.__rpc_avanzar_910_test_slot_ts(5, '10:00', 20));
@@ -341,11 +342,11 @@ BEGIN
   -- gates etapa / envío / ciclo / subestado
   PERFORM public.__rpc_avanzar_910_test_assert(
     public.__rpc_avanzar_910_test_expect_fail(v_mesa, v_exp_etapa8, 'transición no permitida'),
-    'test 9: etapa distinta de 9 (11)'
+    'test 9: etapa distinta de 9 (12)'
   );
   PERFORM public.__rpc_avanzar_910_test_assert(
     public.__rpc_avanzar_910_test_expect_fail(v_mesa, v_exp_etapa10, 'transición no permitida'),
-    'test 10: etapa distinta de 9 (10)'
+    'test 10: etapa distinta de 9 (12)'
   );
   PERFORM public.__rpc_avanzar_910_test_assert(
     public.__rpc_avanzar_910_test_expect_fail(v_super, v_exp_not_sent, 'enviado a Mesa'),

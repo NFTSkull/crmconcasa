@@ -42,7 +42,13 @@ RETURNS JSONB LANGUAGE sql IMMUTABLE AS $$
     'enabled', true, 'timezone', 'America/Monterrey', 'min_lead_hours', 24,
     'allowed_weekdays', jsonb_build_array(1, 2, 3, 4, 5),
     'locations', jsonb_build_object(
-      'mty-centro', jsonb_build_object('enabled', true, 'capacity_per_slot', 3)
+      'mty-centro', jsonb_build_object(
+        'enabled', true,
+        'capacity_per_slot', 3,
+        'capacity_by_time', jsonb_build_object(
+          '09:00', 3, '10:00', 3, '11:00', 3, '12:00', 3, '16:00', 3
+        )
+      )
     ),
     'slots', jsonb_build_array('09:00', '10:00', '11:00', '12:00', '16:00')
   );
@@ -443,6 +449,19 @@ BEGIN
 
   -- 35. regresión book_biometricos (sanity en org seed; slot aislado — no colisionar con suites previas)
   v_slot_bio_regression := public.agenda_biometricos_slot_ts(5, '09:00', 25);
+  UPDATE public.agenda_config
+  SET config = jsonb_set(
+    COALESCE(config, '{}'::jsonb),
+    '{locations,sede-centro}',
+    jsonb_build_object(
+      'enabled', true,
+      'capacity_per_slot', 4,
+      'capacity_by_time', jsonb_build_object('09:00', 4, '10:00', 4, '11:00', 4)
+    ),
+    true
+  ),
+  updated_at = NOW()
+  WHERE organization_id = v_org AND kind = 'biometricos';
   PERFORM public.__rpc_firmas_test_insert_exp(
     '00000000-0000-4000-9020-000000000099', v_org, v_a1, '92009900099', 4::smallint
   );

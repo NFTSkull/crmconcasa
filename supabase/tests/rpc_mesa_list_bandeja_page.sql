@@ -36,8 +36,17 @@ BEGIN
   PERFORM public.__p102_assert(position('correccion_enviada' in v_src) > 0, 'quick correccion');
   PERFORM public.__p102_assert(position('sin_asignar' in v_src) > 0, 'ops sin_asignar');
   PERFORM public.__p102_assert(
-    position('cl.subestado IS DISTINCT FROM ''rechazado''' in v_src) > 0,
-    'P195 disponibles excluye rechazado'
+    position('cl.subestado IS DISTINCT FROM ''rechazado''' in v_src) > 0
+      OR (
+        position('WHEN ''sin_asignar'' THEN' in v_src) > 0
+        AND position('P207: Nuevos (quick filter)' in v_src) > 0
+        AND position('''rechazado''' in split_part(
+          split_part(v_src, 'WHEN ''sin_asignar'' THEN', 2),
+          'WHEN ''mi_bandeja'' THEN',
+          1
+        )) = 0
+      ),
+    'P195/P207 disponibles excluye rechazado'
   );
   PERFORM public.__p102_assert(position('mi_bandeja' in v_src) > 0, 'ops mi_bandeja');
   PERFORM public.__p102_assert(position('rechazados' in v_src) > 0, 'subfiltro rechazados');

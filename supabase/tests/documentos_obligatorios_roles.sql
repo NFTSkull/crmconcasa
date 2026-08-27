@@ -39,9 +39,12 @@ BEGIN
      OR 'cliente_acta_nacimiento' = ANY(v_upload)
      OR 'cliente_constancia_sat' = ANY(v_upload)
      OR 'cliente_pagare' = ANY(v_upload)
-     OR 'cliente_notificacion' = ANY(v_upload)
      OR 'cliente_solicitud' = ANY(v_upload) THEN
-    RAISE EXCEPTION 'documentos_obligatorios_roles: acta/SAT/pagaré/notif/solicitud no deben estar en listas asesor';
+    RAISE EXCEPTION 'documentos_obligatorios_roles: acta/SAT/pagaré/solicitud no deben estar en listas asesor; notif no en envio';
+  END IF;
+  -- P132: cliente_notificacion sí en asesor_upload (gate etapa>=7); no en envio/obligatorios.
+  IF NOT ('cliente_notificacion' = ANY(v_upload)) THEN
+    RAISE EXCEPTION 'documentos_obligatorios_roles: P132 espera cliente_notificacion en asesor_upload';
   END IF;
 
   IF v_oblig <> v_envio THEN

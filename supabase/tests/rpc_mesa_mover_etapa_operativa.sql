@@ -228,10 +228,24 @@ BEGIN
     (SELECT etapa_actual = 11 AND subestado = 'en_proceso' FROM public.expedientes WHERE id = v_exp_main),
     'permite etapa 11 sin firma'
   );
+  -- P166: 11→12 exige pago_concasa_resultado (camino canónico decidir_pago_concasa).
+  PERFORM public.__p074_expect_fail(
+    v_mesa, v_exp_main, 12, 11, 'Sin resultado pago',
+    'decidir_pago_concasa: se requiere resultado'
+  );
+  -- no_pagado cumple gate P166 sin disparar ingresos (evita monto/porcentaje).
+  UPDATE public.expedientes
+  SET pago_concasa_resultado = 'no_pagado',
+      pago_concasa_at = NOW(),
+      pago_concasa_by = v_mesa,
+      updated_at = NOW()
+  WHERE id = v_exp_main;
   PERFORM public.__p074_call(v_mesa, v_exp_main, 12, 11, 'Posición manual de pago');
   PERFORM public.__p074_assert(
-    (SELECT etapa_actual = 12 AND ciclo_estado = 'activo' FROM public.expedientes WHERE id = v_exp_main),
-    'permite etapa 12 sin cerrar ciclo ni registrar pago'
+    (SELECT etapa_actual = 12 AND ciclo_estado = 'activo'
+            AND pago_concasa_resultado = 'no_pagado'
+     FROM public.expedientes WHERE id = v_exp_main),
+    'permite etapa 12 con resultado P166 sin cerrar ciclo'
   );
 
   -- Matriz de roles/origen/organización.
@@ -249,7 +263,8 @@ BEGIN
   PERFORM public.__p074_expect_fail(v_mesa, v_exp_not_sent, 3, 2, 'No enviado', 'MESA_MOVE_NOT_SUBMITTED');
   PERFORM public.__p074_expect_fail(v_mesa, v_exp_closed, 7, 6, 'Cerrado', 'MESA_MOVE_CYCLE_NOT_ACTIVE');
   PERFORM public.__p074_expect_fail(v_mesa, v_exp_cancelled, 7, 6, 'Cancelado', 'MESA_MOVE_CYCLE_NOT_ACTIVE');
-  PERFORM public.__p074_expect_fail(v_mesa, v_exp_rejected, 6, 5, 'Rechazado', 'MESA_MOVE_BAD_SUBSTATE');
+  -- P204: rechazado intenta reactivación canónica; sin fila en rechazos → NO_REJECTION.
+  PERFORM public.__p074_expect_fail(v_mesa, v_exp_rejected, 6, 5, 'Rechazado', 'REACTIVATION_NO_REJECTION');
   PERFORM public.__p074_expect_fail(v_mesa, v_exp_approved, 11, 10, 'Aprobado', 'MESA_MOVE_BAD_SUBSTATE');
   PERFORM public.__p074_expect_fail(v_mesa, v_exp_main, 0, 12, 'Destino 0', 'MESA_MOVE_BAD_DESTINATION');
   PERFORM public.__p074_expect_fail(v_mesa, v_exp_main, 13, 12, 'Destino 13', 'MESA_MOVE_BAD_DESTINATION');
@@ -385,7 +400,10 @@ BEGIN
     v_exp_rich, v_org, true, 'con_sello', 'enviado'
   );
 
-  SELECT to_jsonb(e) - ARRAY['etapa_actual', 'subestado', 'updated_at']
+  SELECT to_jsonb(e) - ARRAY[
+    'etapa_actual', 'subestado', 'updated_at',
+    'fecha_entrada_paso_visual_actual'  -- trigger paso visual en cambio de etapa
+  ]
   INTO v_before_exp FROM public.expedientes e WHERE e.id = v_exp_rich;
   SELECT to_jsonb(b) INTO v_before_booking FROM public.agenda_bookings b WHERE b.id = v_booking;
   SELECT to_jsonb(d) INTO v_before_doc FROM public.expediente_documentos d WHERE d.id = v_doc;
@@ -397,9 +415,12 @@ BEGIN
 
   v_result := public.__p074_call(v_mesa, v_exp_rich, 3, 9, 'Retroceso preservando todo');
   PERFORM public.__p074_assert(
-    (SELECT to_jsonb(e) - ARRAY['etapa_actual', 'subestado', 'updated_at'] = v_before_exp
+    (SELECT to_jsonb(e) - ARRAY[
+       'etapa_actual', 'subestado', 'updated_at',
+       'fecha_entrada_paso_visual_actual'
+     ] = v_before_exp
      FROM public.expedientes e WHERE e.id = v_exp_rich),
-    'solo cambia etapa, subestado y updated_at del expediente'
+    'solo cambia etapa/subestado/updated_at (+ marca paso visual)'
   );
   PERFORM public.__p074_assert(
     (SELECT to_jsonb(b) = v_before_booking FROM public.agenda_bookings b WHERE b.id = v_booking),

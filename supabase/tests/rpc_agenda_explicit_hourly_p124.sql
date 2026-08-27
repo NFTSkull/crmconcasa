@@ -38,10 +38,16 @@ BEGIN
   );
   PERFORM public.__p124_assert(v_cap IS NULL, 'sin hora → NULL (no fallback)');
 
+  -- Hora ausente en capacity_by_time: NULL (no usa capacity_per_slot=15).
   v_cap := public.agenda_location_fallback_capacity(
-    '{"capacity_per_slot":15}'::JSONB, '09:00'
+    '{"capacity_per_slot":15,"capacity_by_time":{"08:00":15,"09:00":15,"10:00":15,"11:00":15,"12:00":15,"16:00":15}}'::JSONB, '14:00'
   );
   PERFORM public.__p124_assert(v_cap IS NULL, 'fallback alias tampoco usa capacity_per_slot');
+  -- Hora presente: alias = explicit (no es stub NULL).
+  v_cap := public.agenda_location_fallback_capacity(
+    '{"capacity_per_slot":15,"capacity_by_time":{"08:00":15,"09:00":15,"10:00":15,"11:00":15,"12:00":15,"16:00":15}}'::JSONB, '09:00'
+  );
+  PERFORM public.__p124_assert(v_cap = 15, 'fallback alias lee capacity_by_time cuando existe');
 
   -- Config con solo capacity_by_time en 08:00
   PERFORM set_config('role', 'authenticated', true);

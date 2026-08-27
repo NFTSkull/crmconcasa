@@ -14,7 +14,13 @@ export const AGENDA_SHEET_SYNC_POLL = {
 
 export function agendaBookingCrmSuccessCopy(
   kind: AgendaBookingSheetSyncKind,
+  agendaKind: "biometricos" | "firmas" = "biometricos",
 ): string {
+  if (agendaKind === "firmas") {
+    return kind === "reagendar"
+      ? "Cita de firmas reagendada en CRM · sincronizando con agenda…"
+      : "Cita de firmas guardada en CRM · sincronizando con agenda…";
+  }
   return kind === "reagendar"
     ? "Cita reagendada en CRM · sincronizando con agenda…"
     : "Cita agendada en CRM · sincronizando con agenda…";
@@ -22,7 +28,13 @@ export function agendaBookingCrmSuccessCopy(
 
 export function agendaBookingSyncConfirmedCopy(
   kind: AgendaBookingSheetSyncKind,
+  agendaKind: "biometricos" | "firmas" = "biometricos",
 ): string {
+  if (agendaKind === "firmas") {
+    return kind === "reagendar"
+      ? "Cita de firmas reagendada y sincronizada con agenda."
+      : "Cita de firmas sincronizada con agenda.";
+  }
   return kind === "reagendar"
     ? "Cita reagendada y sincronizada con agenda."
     : "Cita agendada y sincronizada con agenda.";
@@ -41,28 +53,34 @@ export function nextAgendaBookingSheetSyncUi(input: {
   status: AgendaBookingSheetSyncStatus | null;
   attempts: number;
   maxAttempts?: number;
-}): { message: string; continuePolling: boolean } {
+  agendaKind?: "biometricos" | "firmas";
+}): { message: string; continuePolling: boolean; done: boolean } {
   const max = input.maxAttempts ?? AGENDA_SHEET_SYNC_POLL.maxAttempts;
+  const agendaKind = input.agendaKind ?? "biometricos";
   if (input.status === "SYNCED") {
     return {
-      message: agendaBookingSyncConfirmedCopy(input.kind),
+      message: agendaBookingSyncConfirmedCopy(input.kind, agendaKind),
       continuePolling: false,
+      done: true,
     };
   }
   if (input.status === "FAILED") {
     return {
       message: agendaBookingSyncFailedCopy(),
       continuePolling: false,
+      done: true,
     };
   }
   if (input.attempts >= max) {
     return {
       message: agendaBookingSyncPendingTimeoutCopy(),
       continuePolling: false,
+      done: true,
     };
   }
   return {
-    message: agendaBookingCrmSuccessCopy(input.kind),
+    message: agendaBookingCrmSuccessCopy(input.kind, agendaKind),
     continuePolling: true,
+    done: false,
   };
 }

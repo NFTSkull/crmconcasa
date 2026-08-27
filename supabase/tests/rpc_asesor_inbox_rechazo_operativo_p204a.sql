@@ -57,9 +57,11 @@ BEGIN
   v_ids := array_append(v_ids, v_r1);
   INSERT INTO public.expedientes (
     id, organization_id, asesor_id, programa, nss, cliente_nombre,
+    telefono_cliente,
+    origen_mesa,
     submitted_to_mesa, fecha_envio_mesa, etapa_actual, subestado, ciclo_estado
   ) VALUES (
-    v_r1, v_org, v_asesor, 'mejoravit', '99120400001', 'P204A R1',
+    v_r1, v_org, v_asesor, 'mejoravit', '99120400001', 'P204A R1', '5512040001', 'interno',
     true, v_envio, 5, 'en_proceso', 'activo'
   );
   INSERT INTO public.editor_decisions (expediente_id, organization_id, decision)
@@ -95,9 +97,11 @@ BEGIN
   v_ids := array_append(v_ids, v_r2);
   INSERT INTO public.expedientes (
     id, organization_id, asesor_id, programa, nss, cliente_nombre,
+    telefono_cliente,
+    origen_mesa,
     submitted_to_mesa, fecha_envio_mesa, etapa_actual, subestado, ciclo_estado
   ) VALUES (
-    v_r2, v_org, v_asesor, 'mejoravit', '99120400002', 'P204A R2',
+    v_r2, v_org, v_asesor, 'mejoravit', '99120400002', 'P204A R2', '5512040002', 'interno',
     true, v_envio, 2, 'en_proceso', 'activo'
   );
   INSERT INTO public.editor_decisions (expediente_id, organization_id, decision)
@@ -119,10 +123,12 @@ BEGIN
   v_ids := array_append(v_ids, v_r3);
   INSERT INTO public.expedientes (
     id, organization_id, asesor_id, programa, nss, cliente_nombre,
+    telefono_cliente,
+    origen_mesa,
     submitted_to_mesa, fecha_envio_mesa, etapa_actual, subestado, ciclo_estado,
     motivo_rechazo
   ) VALUES (
-    v_r3, v_org, v_asesor, 'mejoravit', '99120400003', 'P204A R3',
+    v_r3, v_org, v_asesor, 'mejoravit', '99120400003', 'P204A R3', '5512040003', 'interno',
     true, v_envio, 5, 'rechazado', 'activo',
     'Biométricos no aprobados'
   );
@@ -151,9 +157,11 @@ BEGIN
   v_ids := array_append(v_ids, v_r5);
   INSERT INTO public.expedientes (
     id, organization_id, asesor_id, programa, nss, cliente_nombre,
+    telefono_cliente,
+    origen_mesa,
     submitted_to_mesa, fecha_envio_mesa, etapa_actual, subestado, ciclo_estado
   ) VALUES (
-    v_r5, v_org, v_asesor, 'mejoravit', '99120400005', 'P204A R5',
+    v_r5, v_org, v_asesor, 'mejoravit', '99120400005', 'P204A R5', '5512040005', 'interno',
     true, v_envio, 5, 'en_proceso', 'activo'
   );
   INSERT INTO public.editor_decisions (expediente_id, organization_id, decision)
@@ -184,9 +192,11 @@ BEGIN
   v_ids := array_append(v_ids, v_r6);
   INSERT INTO public.expedientes (
     id, organization_id, asesor_id, programa, nss, cliente_nombre,
+    telefono_cliente,
+    origen_mesa,
     submitted_to_mesa, fecha_envio_mesa, etapa_actual, subestado, ciclo_estado
   ) VALUES (
-    v_r6, v_org, v_asesor, 'mejoravit', '99120400006', 'P204A R6',
+    v_r6, v_org, v_asesor, 'mejoravit', '99120400006', 'P204A R6', '5512040006', 'interno',
     true, v_envio, 5, 'en_proceso', 'activo'
   );
   INSERT INTO public.editor_decisions (expediente_id, organization_id, decision)
@@ -222,9 +232,11 @@ BEGIN
   v_ids := array_append(v_ids, v_r7);
   INSERT INTO public.expedientes (
     id, organization_id, asesor_id, programa, nss, cliente_nombre,
+    telefono_cliente,
+    origen_mesa,
     submitted_to_mesa, fecha_envio_mesa, etapa_actual, subestado, ciclo_estado
   ) VALUES (
-    v_r7, v_org, v_asesor, 'mejoravit', '99120400007', 'P204A R7',
+    v_r7, v_org, v_asesor, 'mejoravit', '99120400007', 'P204A R7', '5512040007', 'interno',
     true, v_envio, 5, 'rechazado', 'cancelado'
   );
   INSERT INTO public.editor_decisions (expediente_id, organization_id, decision)
@@ -244,9 +256,11 @@ BEGIN
   v_ids := array_append(v_ids, v_r8);
   INSERT INTO public.expedientes (
     id, organization_id, asesor_id, programa, nss, cliente_nombre,
+    telefono_cliente,
+    origen_mesa,
     submitted_to_mesa, fecha_envio_mesa, etapa_actual, subestado, ciclo_estado
   ) VALUES (
-    v_r8, v_org, v_asesor, 'mejoravit', '99120400008', 'P204A R8',
+    v_r8, v_org, v_asesor, 'mejoravit', '99120400008', 'P204A R8', '5512040008', 'interno',
     true, v_envio, 5, 'rechazado', 'activo'
   );
   INSERT INTO public.editor_decisions (expediente_id, organization_id, decision)
@@ -294,6 +308,8 @@ BEGIN
   DELETE FROM public.action_log WHERE entity_id = ANY(v_ids);
   DELETE FROM public.cliente_datos WHERE expediente_id = ANY(v_ids);
   DELETE FROM public.editor_decisions WHERE expediente_id = ANY(v_ids);
+  DELETE FROM public.expediente_paso_visual_transiciones WHERE expediente_id = ANY(v_ids);
+  DELETE FROM public.mesa_expediente_ops WHERE expediente_id = ANY(v_ids);
   DELETE FROM public.expedientes WHERE id = ANY(v_ids);
 
   RAISE NOTICE 'P204-A R1–R10 OK';

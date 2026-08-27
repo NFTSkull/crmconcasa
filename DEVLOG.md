@@ -1,3 +1,68 @@
+## 2026-08-27 - P212 Firmas Fase 3B: source tracking + Edge/FE publish (contract OFF)
+
+SQL full limpio vía harness `reset-local-db-fresh.sh` (P078 Auth + seed canónico + inventory + contract OFF). Fixtures alineados a grants/mig posteriores (P072 register EXECUTE, P166 pago resultado, etc.) sin tocar mig **212** (sha `cd2c56b8…` = Cloud). Live-sync: lee `agenda_firmas_daily_cap_contract`; Firmas daily null si OFF; book_gate 08:00 bloqueado si OFF. FE: `filterFirmasPickerSlotTimes` default OFF → slots de config. Activation `scripts/p212-activate-firmas.sql` intacto/no corrido. Worker v33 / reconcile v25 sin cambio obligatorio. Veredicto objetivo: P212_CODE_PUBLISHED_CONTRACT_OFF.
+
+## 2026-08-27 - Harness local fresco P078 + seed canónico (Fase 3A)
+
+
+## 2026-08-27 - Local SQL harness: test-sql PASS post reset (P212 worktree)
+
+### Decisión
+Tras `reset-local-db-fresh.sh`, alinear fixtures/tests al producto actual (P124/P132/P166/P198/P207) sin tocar mig 212 ni relajar reglas. Suite SQL 140/140 PASS; `p212-concurrency-race.sh` PASS; contract daily-cap OFF.
+
+### Fixtures / asserts clave
+- Teardown upsert agenda: re-expand `capacity_by_time` (P124).
+- Avance bio canónico 5→8; retención sin avance de etapa; wrong-etapa → 12.
+- Bandeja: asserts P195 aceptan filtro P207; P193 parent = PENDING_REVIEW (≥9).
+- Cron P189 por jobname (jobid inestable); P087 aísla ventana de fechas; P204a NOT NULL + cleanup paso_visual.
+
+### No tocado
+- `supabase/migrations/212_agenda_firmas_daily_cap.sql`, Cloud, commit.
+
+### Problema
+`supabase db reset` falla en **078** (Auth UID Cloud ausente). Repair insertando auth+org `50beae49…` deja slug `concasa` con id Cloud; `seed.sql` hacía `ON CONFLICT (slug)` sin cambiar id → fixtures `00000000-…0001` rotos y cascada en `test-sql.sh`. Tests P212 ON pueden dejar contract `enabled=true` (DDL commit).
+
+### Fix mínimo (harness/fixture; sin tocar mig 212 ni asserts de negocio)
+- Además: mig **173** (`ADD VALUE` enum + uso) falla bajo la tx del CLI (`55P04`) → reset `--version 172` y apply `173…212` vía `psql` autocommit.
+- `scripts/fixtures/p078-local-prereq.sql` — auth user + org Cloud antes de aplicar 078.
+- `scripts/reset-local-db-fresh.sh` — defer 078 → reset --no-seed → prereq → 078 → seed → contract OFF.
+- `supabase/seed.sql` — remount Cloud org → id canónico; `ON CONFLICT (id)`.
+- `scripts/test-sql.sh` — restore contract OFF al final.
+
+### Follow-up suite
+- P208 `\ir` 208 DDL-commit pisa `agenda_daily_capacity` → P212 OFF/ON hacen `\ir` 212 al inicio.
+- Asserts allowlist P092/P044/P104 alineados a P132/P136 (notif en upload/opc; mesa_upload=7).
+- Tras seed: re-apply P124 `capacity_by_time` + inventario Sheet disponible (mismo patrón que verify-agenda-sheet-isolated).
+
+
+## 2026-08-27 - P212 Firmas Fase 3A: reconcile + Cloud INSTALL (contract OFF)
+
+Objetivo: una sola fuente (P212 + parser hotfix) y certificar mig 212 en Cloud **sin activar** horarios nuevos. Hard gate: INSTALL ≠ ACTIVATE. Migration 212 crea contract singleton `enabled=false`/`effective_from=NULL`, rules Firmas 15/15 (definición), helpers canónicos, y reemplaza assert/gate/claim_ai con enforcement **solo** si contract ON; `agenda_daily_capacity` retorna NULL para Firmas mientras OFF (inventory_availability no expone daily=15). **No** UPDATE `agenda_config` ni bookings/expedientes. Activación futura atómica en `scripts/p212-activate-firmas.sql` (slots 08/09/10 + enable) — no corrido. Parser `section-recovery` byte-idéntico al hotfix desplegado (SHA `2f535857…`). Local: OFF/ON SQL + concurrency PASS; npm 2577/0. Cloud apply vía `db query --linked -f` + registro `schema_migrations` 212; post: max=212, config/bookings Δ=0, Edges sin redeploy. **P212_INSTALLED_CONTRACT_OFF**. Sin commit/push/PR/FE/Sheet.
+
+## 2026-08-27 - P212 Firmas Fase 2A: piloto append controlado (1 tab)
+
+Provisioner aislado `agenda-sheet-firmas-provisioner` v1: dry_run default; apply exige `confirm=true` + una `bookingDate`. Writes allowlisted (appendDimension ROWS al final, PASTE_FORMAT, row height 21, merge A:G headers nuevos, updateCells solo col A). Tests estáticos anti insertDimension/deleteDimension/PASTE_NORMAL/B:U PASS. Piloto elegido **2026-09-30** (`30 SEPTIEMBRE` / sheetId 1641209889): 0 firmas booked, 0 occ_ext, 0 linked/claimed, más futura. Apply: lastUsed 53 → filas 54–79; MTY +5/+2/+2; APO +5/+5/+5. Post-check Edge: preexisting Δ=0, bio Δ=0, B:U blank, physical 5/5/5, slot_key dup=0 → **PILOT_APPEND_VERIFIED**. 2ª dry_run: add=0 (idempotente). Cloud max 211; `agenda_firmas_daily_cap_contract` ausente (=OFF); 0 bookings; live-sync v16 / worker v33 intactos. Sin rollback destructivo.
+
+## 2026-08-27 - P212 Firmas Fase 1.8: STOP_TEMPLATE → canonical format-source
+
+Criterio relajado: ya no exige blank APO ni `sameTemplateAcrossTargetHours`. Filas ocupadas = fuente de FORMATO/VALIDACIÓN/altura solamente (nunca values/PII/notas/fórmulas booking). Audit Edge v2 `template_contract`: 22/22 **SAFE_CANONICAL_APPEND**; MTY sources 08←08:30 / 09←09:00 / 10←10:00; APO←10:30 (orphan recovery); header canónico MTY height=21 merge A:G; APO header legacy no requerido (`APODACA FIRMAS` canónico nuevo). Fórmulas=0 estructurales; validaciones E:N=0 en live; rowHeight=21. Simulación local 22 tabs 5/5/5, slot_key dup=0, bio/preexisting Δ=0. Provisioner usa `FirmasCanonicalTemplate` (código), no blank hunt; future tabs fail-closed. **READY_FOR_CONTROLLED_APPEND_APPLY** (aún 0 Sheet apply). Live-sync v16 / worker v33 / Cloud 212 no tocados.
+
+## 2026-08-27 - P212 Firmas Fase 1.7: audit RO Edge + cutover explícito + future tabs
+
+Bloqueadores: (A) plantilla A:U live sin SA local → Edge aislada `agenda-sheet-structure-audit` v1 desplegada (scope `spreadsheets.readonly`, auth `x-concasa-worker-secret`, test estático anti-write PASS). Live 22/22 Sep: **STOP_TEMPLATE_MISSING** (APO header/template no detectado; MTY template row existe pero fingerprints inconsistentes entre horas). Header MTY: row height 21, merge A:G. (B) Docker healthy; mig 212 local; SQL P212 + concurrency race PASS; npm 2560/0 fail tras ajuste fixture 07:00. (C) Hardcode `2026-09-01` eliminado → `agenda_firmas_daily_cap_contract` default OFF; activación = publish controlado. (D) Tabs futuras: repo no crea pestañas; strategy = provisioner append-only idempotente + admin trigger; live-sync no escribe estructura. **Veredicto: STOP** (template live no SAFE). Cloud max 211; 0 Sheet writes; 0 Cloud DB apply 212; productive Edges intactas (live-sync v16, worker v33).
+
+## 2026-08-27 - P212 Firmas Fase 1.6: append-only al final + plan 22 tabs → STOP
+
+Estrategia nueva: **append blocks Firmas al final** (headers `MONTERREY/APODACA FIRMAS` compatibles con `parseSection`), nunca insertDimension mid-sheet. Plausible times Firmas ampliados a 08/09/10 (legacy intacto). Tests duplicate-section + simulación inventory PASS. Plan Cloud RO Sep-2026: 22 tabs, max lastAppendRow=84 ≤200, MTY add típico 9 / APO 15, total planned 572 filas. Readers U200 auditados (live-sync/reconcile/horizon/audit/planner). **STOP_TEMPLATE_UNKNOWN** (sin Google SA para contrato formato A:U live). SQL/concurrency aún bloqueados si Docker daemon no responde. 0 writes.
+
+## 2026-08-27 - P212 Firmas Fase 1.5: validación + planner Cloud RO → STOP
+
+Entorno recuperado (ENOSPC→~8–9 Gi libres): backup patch Desktop, limpieza `node_modules` de worktrees cerrados + npm cache. Feature intacto. Cloud max **sigue 211** → 212 provisional OK (no apply). npm typecheck/lint(0 errors)/build/diff-check PASS. npm test full: 2528 pass; 18 fail = P189 parity sin Postgres local (Docker/`supabase start` colgado). Planner Cloud RO Sep-2026: **22 tabs inspectadas, 0 SAFE, 22 STOP** — Monterrey ~6 filas target (0×08:00 + 3×09 + 3×10), Apodaca 0 target (solo 10:30×3). Biométricos baseline 468 filas guardado. NO-SHIFT estricto: sin blanks inventariados suficientes → **STOP_NO_SAFE_CAPACITY** (no insertDimension). Concurrency race script listo; ejecución SQL local bloqueada por Docker. 0 Cloud/Sheet writes.
+
+## 2026-08-26 - P212 Firmas Fase 1 (local): daily cap + planner RO
+
+Decisión negocio: Monterrey y Apodaca **15/día independientes**; horarios nuevos **08/00/09/00/10:00** × **5** filas físicas/sede. Legacy (08:30, 09:30…) grandfather — no migrar `location_id`; `mty-centro` cuenta en Monterrey vía `agenda_firmas_canonical_location_id`. Contrato SQL activo desde **2026-09-01** (no habilitar prod antes de filas Sheet). Lock order: daily → slot. Planner READ-ONLY (`firmas-sheet-structure-planner.ts`): reutilizar blanks → append sin desplazar biométricos → STOP. Checksum PRE/POST biométricos fila a fila. FE: patrón biométricos v4 (`bookGateError`, sync poll). Edge: Firmas daily via RPC canonical occupancy. **Sin commit/Cloud/Sheet/deploy.**
+
 ## 2026-08-26 - HOTFIX prod v2: biométricos path asesor JWT (invoke + listSheets)
 
 Síntoma persistente post-PR #183: UI «No pudimos verificar el cupo…» aunque worker secret `fresh=true`. Root cause compuesto: (1) hotfix v1 aún hacía fallback `listSheets()` si TAB_MAP no resolvía → ~150s timeout invoke; (2) `@supabase/supabase-js` `functions.invoke` en non-2xx devuelve `data:null` sin parsear body → `invokeAgendaSheetLiveSync` retornaba `null` → fail-closed UNVERIFIED aunque Edge respondía `missing_sheet_for_date` en ~1s; (3) posible race FE (respuesta stale pisa fresh=true). Fix v2: Edge elimina `listSheets` en path interactivo; fallback metadata inventario; HTTP 200 `fresh:false code=missing_sheet_for_date`; FE parsea `error.context.json()`; generation guard + limpia error UNVERIFIED al `fresh=true`; mensaje distinto para fecha sin pestaña. Probe JWT asesor real (fetch + invoke): 2026-09-02 ~1.3s fresh=true cap15; 2026-08-27 fresh=true daily_remaining=0; 2026-11-01 fresh=false missing_sheet ~0.8s. RPC fallback asesor fresh=true. P208/P211 intactos. 0 bookings / 0 expedientes.

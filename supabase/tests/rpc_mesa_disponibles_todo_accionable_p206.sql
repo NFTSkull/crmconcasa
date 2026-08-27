@@ -136,10 +136,10 @@ BEGIN
 
   INSERT INTO public.expediente_rechazos_operativos (
     id, organization_id, expediente_id, etapa, subestado_anterior,
-    motivo, comentario, decidido_por, decidido_por_rol
+    motivo, comentario, biometricos_condicion, decidido_por, decidido_por_rol
   ) VALUES (
     '00000000-0000-4000-9206-000000000201', v_org, v_exp_wait, 2, 'en_proceso',
-    'Docs', 'espera asesor', v_mesa, 'mesa_interno'
+    'Docs', 'espera asesor', 'desconocida', v_mesa, 'mesa_interno'
   );
 
   UPDATE public.expedientes

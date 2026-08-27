@@ -317,10 +317,10 @@ BEGIN
   );
   PERFORM public.__p189_b41_assert(v_active, 'job P189 inactive');
 
+  -- Assert por jobname/command (jobid no es estable tras reset parcial 173→212).
   SELECT count(*) INTO v_cnt
   FROM cron.job j
-  WHERE j.jobid = 1
-    AND j.jobname = 'agenda-sheet-sync-worker-every-minute'
+  WHERE j.jobname = 'agenda-sheet-sync-worker-every-minute'
     AND j.schedule = '* * * * *'
     AND j.command = 'SELECT public.agenda_sheet_invoke_sync_worker();'
     AND j.active;
@@ -328,8 +328,7 @@ BEGIN
 
   SELECT count(*) INTO v_cnt
   FROM cron.job j
-  WHERE j.jobid = 2
-    AND j.jobname = 'agenda-sheet-reconcile-every-15m'
+  WHERE j.jobname = 'agenda-sheet-reconcile-every-15m'
     AND j.schedule = '*/15 * * * *'
     AND j.command = 'SELECT public.agenda_sheet_invoke_reconcile();'
     AND j.active;
@@ -337,8 +336,7 @@ BEGIN
 
   SELECT count(*) INTO v_cnt
   FROM cron.job j
-  WHERE j.jobid = 5
-    AND j.jobname = 'agenda-sheet-availability-refresh-every-2h'
+  WHERE j.jobname = 'agenda-sheet-availability-refresh-every-2h'
     AND j.schedule = '7 */2 * * *'
     AND j.command = 'SELECT public.agenda_sheet_invoke_availability_refresh();'
     AND j.active;
@@ -365,11 +363,12 @@ BEGIN
 
   SELECT jobid, schedule, command, active
     INTO v_jobid, v_sched, v_cmd, v_active
-  FROM cron.job WHERE jobid = 1;
+  FROM cron.job
+  WHERE jobname = 'agenda-sheet-sync-worker-every-minute';
   PERFORM public.__p189_b41_assert(
     v_sched = '* * * * *' AND v_active
       AND v_cmd = 'SELECT public.agenda_sheet_invoke_sync_worker();',
-    'jobid 1 mutated after P189 reschedule'
+    'agenda sync mutated after P189 reschedule'
   );
 
   -- -------------------------------------------------------------------------

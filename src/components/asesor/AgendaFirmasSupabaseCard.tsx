@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState, type ReactNode } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/Button";
 import {
   AgendaFirmasSupabaseError,
@@ -40,10 +40,22 @@ import {
   type InventoryAvailabilityResponse,
 } from "@/domain/agenda-sheets/apply-inventory-availability";
 import {
-  BOOK_SLOT_JUST_TAKEN_MESSAGE,
   LIVE_SYNC_LOADING_LABEL,
   invokeAgendaSheetLiveSync,
 } from "@/domain/agenda-sheets/live-inventory-sync";
+import {
+  FIRMAS_INVENTORY_SYNCED_LABEL,
+  resolveFirmasBookGateAttempt,
+  shouldShowFirmasInventorySyncedLabel,
+} from "@/domain/agenda-sheets/daily-capacity";
+import { filterFirmasPickerSlotTimes } from "@/domain/agenda-sheets/firmas-bookable-slots";
+import { fetchAgendaBookingSheetSyncStatus } from "@/domain/agenda-sheets/booking-sheet-sync-status";
+import {
+  AGENDA_SHEET_SYNC_POLL,
+  agendaBookingCrmSuccessCopy,
+  nextAgendaBookingSheetSyncUi,
+  type AgendaBookingSheetSyncKind,
+} from "@/lib/agendaBookingSheetSyncUi";
 import { supabaseBrowser } from "@/lib/supabaseBrowser";
 
 export interface AgendaFirmasSupabaseCardProps {
@@ -143,11 +155,46 @@ export function AgendaFirmasSupabaseCard({
   const [reagendar, setReagendar] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [bookGateError, setBookGateError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [sheetInventory, setSheetInventory] = useState<InventoryAvailabilityResponse | null>(
     null,
   );
   const [inventoryRefreshing, setInventoryRefreshing] = useState(false);
+  const syncWatchGen = useRef(0);
+
+  const watchSheetSync = useCallback(
+    async (bookingId: string, kind: AgendaBookingSheetSyncKind) => {
+      const id = String(bookingId ?? "").trim();
+      const gen = ++syncWatchGen.current;
+      setSuccessMsg(agendaBookingCrmSuccessCopy(kind, "firmas"));
+      if (!id || !supabaseBrowser) return;
+      const max = AGENDA_SHEET_SYNC_POLL.maxAttempts;
+      for (let attempts = 1; attempts <= max; attempts++) {
+        if (gen !== syncWatchGen.current) return;
+        if (attempts > 1) {
+          await new Promise((resolve) =>
+            setTimeout(resolve, AGENDA_SHEET_SYNC_POLL.intervalMs),
+          );
+        }
+        if (gen !== syncWatchGen.current) return;
+        const status = await fetchAgendaBookingSheetSyncStatus(supabaseBrowser, id);
+        if (gen !== syncWatchGen.current) return;
+        const ui = nextAgendaBookingSheetSyncUi({
+          kind,
+          status,
+          attempts,
+          maxAttempts: max,
+          agendaKind: "firmas",
+        });
+        setSuccessMsg(ui.message);
+        if (ui.done || !ui.continuePolling) return;
+      }
+    },
+    [],
+  );
+
+  const displayError = bookGateError ?? error;
 
   const advisorSedeOptions = useMemo(
     () => buildAdvisorSedeOptions(config?.locations ?? []),
@@ -359,8 +406,18 @@ export function AgendaFirmasSupabaseCard({
 
   const disponibilidadSlots = useMemo(() => {
     if (!config || !selectedSede) return [];
+    const bookableTimes = filterFirmasPickerSlotTimes({
+      allSlotTimes: config.slots,
+      bookingDate: dateYmd,
+      reagendar,
+      activeBookingTime: activeBooking?.bookingTime ?? null,
+    }) as readonly HhmmTime[];
+    const filteredConfig =
+      bookableTimes.length === config.slots.length
+        ? config
+        : { ...config, slots: bookableTimes };
     const base = computeAdvisorSlotAvailability({
-      config,
+      config: filteredConfig,
       bookedSlots,
       date: dateYmd,
       canonicalId: selectedSede.canonicalId,
@@ -389,10 +446,25 @@ export function AgendaFirmasSupabaseCard({
     sheetInventory,
   ]);
 
-  const inventoryUi = useMemo(
-    () => applySheetInventoryToSlots([], sheetInventory, dateYmd),
-    [dateYmd, sheetInventory],
-  );
+  const inventoryUi = useMemo(() => {
+    const base = applySheetInventoryToSlots([], sheetInventory, dateYmd);
+    const inventoryFresh = sheetInventory?.fresh === true;
+    const label =
+      inventoryFresh && base.inventoryLabel
+        ? FIRMAS_INVENTORY_SYNCED_LABEL
+        : base.inventoryLabel;
+    return {
+      ...base,
+      inventoryLabel: shouldShowFirmasInventorySyncedLabel({
+        inventoryLabel: label,
+        bookGateError,
+      })
+        ? label
+        : bookGateError
+          ? null
+          : base.inventoryLabel,
+    };
+  }, [bookGateError, dateYmd, sheetInventory]);
 
   const availabilityInsight = useMemo(() => {
     if (!config || !selectedSede) return null;
@@ -463,6 +535,7 @@ export function AgendaFirmasSupabaseCard({
   const handleBook = useCallback(async () => {
     if (!repo || !config || !selectedSede || !timeHhmm) return;
     setError(null);
+    setBookGateError(null);
     setSuccessMsg(null);
 
     const confirmar = window.confirm(
@@ -488,23 +561,28 @@ export function AgendaFirmasSupabaseCard({
           mode: "book_gate",
           slotTime: timeHhmm,
         });
-        if (gate) {
-          setSheetInventory(gate);
-          if (gate.canBook === false) {
-            setError(gate.gateMessage ?? BOOK_SLOT_JUST_TAKEN_MESSAGE);
-            await refreshAvailability();
-            return;
-          }
+        const attempt = resolveFirmasBookGateAttempt({
+          kind: "firmas",
+          locationId: selectedSede.canonicalId,
+          bookingDate: dateYmd,
+          gate,
+        });
+        if (gate) setSheetInventory(gate);
+        if (attempt.blocked) {
+          setBookGateError(attempt.bookGateError);
+          await refreshAvailability();
+          return;
         }
       }
-      await repo.bookFirmas({
+      const booked = await repo.bookFirmas({
         expedienteId,
         scheduledAt,
         locationId: selectedSede.bookLocationId,
       });
-      setSuccessMsg("Cita de firmas agendada correctamente.");
+      setSuccessMsg(agendaBookingCrmSuccessCopy("book", "firmas"));
       await load();
       onUpdated();
+      void watchSheetSync(booked.bookingId, "book");
     } catch (err) {
       setError(
         err instanceof AgendaFirmasSupabaseError
@@ -525,11 +603,13 @@ export function AgendaFirmasSupabaseCard({
     repo,
     selectedSede,
     timeHhmm,
+    watchSheetSync,
   ]);
 
   const handleReagendar = useCallback(async () => {
     if (!repo || !config || !selectedSede || !timeHhmm || !activeBooking) return;
     setError(null);
+    setBookGateError(null);
     setSuccessMsg(null);
 
     const confirmar = window.confirm(
@@ -555,23 +635,28 @@ export function AgendaFirmasSupabaseCard({
           mode: "book_gate",
           slotTime: timeHhmm,
         });
-        if (gate) {
-          setSheetInventory(gate);
-          if (gate.canBook === false) {
-            setError(gate.gateMessage ?? BOOK_SLOT_JUST_TAKEN_MESSAGE);
-            await refreshAvailability();
-            return;
-          }
+        const attempt = resolveFirmasBookGateAttempt({
+          kind: "firmas",
+          locationId: selectedSede.canonicalId,
+          bookingDate: dateYmd,
+          gate,
+        });
+        if (gate) setSheetInventory(gate);
+        if (attempt.blocked) {
+          setBookGateError(attempt.bookGateError);
+          await refreshAvailability();
+          return;
         }
       }
-      await repo.reagendarFirmas({
+      const res = await repo.reagendarFirmas({
         expedienteId,
         scheduledAt,
         locationId: selectedSede.bookLocationId,
       });
-      setSuccessMsg("Cita de firmas reagendada correctamente.");
+      setSuccessMsg(agendaBookingCrmSuccessCopy("reagendar", "firmas"));
       await load();
       onUpdated();
+      void watchSheetSync(res.bookingNuevoId, "reagendar");
     } catch (err) {
       setError(
         err instanceof AgendaFirmasSupabaseError
@@ -593,6 +678,7 @@ export function AgendaFirmasSupabaseCard({
     repo,
     selectedSede,
     timeHhmm,
+    watchSheetSync,
   ]);
 
   const renderFormShell = (
@@ -641,20 +727,24 @@ export function AgendaFirmasSupabaseCard({
           setSedeCanonicalId(id);
           setTimeHhmm("");
           setError(null);
+          setBookGateError(null);
         }}
         onDateChange={(date) => {
           setDateYmd(date);
           setTimeHhmm("");
           setError(null);
+          setBookGateError(null);
         }}
         onTimeChange={(time) => {
           setTimeHhmm(time);
           setError(null);
+          setBookGateError(null);
         }}
         onGoToNextAvailability={(date, time) => {
           setDateYmd(date);
           setTimeHhmm(time);
           setError(null);
+          setBookGateError(null);
         }}
       />
 
@@ -675,9 +765,9 @@ export function AgendaFirmasSupabaseCard({
         </p>
       ) : null}
 
-      {error ? (
+      {displayError ? (
         <p role="alert" className="mt-3 text-xs text-red-700">
-          {error}
+          {displayError}
         </p>
       ) : null}
 
@@ -692,6 +782,7 @@ export function AgendaFirmasSupabaseCard({
           !config?.enabled ||
           !selectedSede ||
           !timeHhmm ||
+          Boolean(bookGateError) ||
           Boolean(inventoryUi.blockedReason) ||
           disponibilidadSlots.every((s) => s.remaining <= 0)
         }

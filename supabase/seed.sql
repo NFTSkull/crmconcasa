@@ -20,6 +20,48 @@
 --   exp_int_draft_a1 00000000-0000-4000-9001-000000000003
 --   exp_int_env_a2   00000000-0000-4000-9001-000000000004
 
+-- P078 (Cloud bootstrap) puede haber creado org 50beae49…/slug=concasa antes del seed.
+-- Suites locales dependen del id canónico 00000000-…0001; ON CONFLICT(slug) no cambia el id.
+DO $$
+DECLARE
+  seed_org CONSTANT uuid := '00000000-0000-4000-8000-000000000001';
+  cloud_org CONSTANT uuid := '50beae49-3961-4163-8e78-2251693f2c19';
+  r RECORD;
+BEGIN
+  IF EXISTS (SELECT 1 FROM public.organizations WHERE id = cloud_org) THEN
+    IF NOT EXISTS (SELECT 1 FROM public.organizations WHERE id = seed_org) THEN
+      INSERT INTO public.organizations (id, slug, name, active)
+      VALUES (seed_org, '__concasa_seed_tmp__', 'ConCasa', true);
+    END IF;
+
+    UPDATE public.organizations
+    SET slug = '__concasa_cloud_old__',
+        updated_at = NOW()
+    WHERE id = cloud_org
+      AND slug = 'concasa';
+
+    FOR r IN
+      SELECT c.table_schema, c.table_name
+      FROM information_schema.columns c
+      JOIN information_schema.tables t
+        ON t.table_schema = c.table_schema
+       AND t.table_name = c.table_name
+      WHERE c.table_schema = 'public'
+        AND c.column_name = 'organization_id'
+        AND t.table_type = 'BASE TABLE'
+    LOOP
+      EXECUTE format(
+        'UPDATE %I.%I SET organization_id = $1 WHERE organization_id = $2',
+        r.table_schema,
+        r.table_name
+      ) USING seed_org, cloud_org;
+    END LOOP;
+
+    DELETE FROM public.organizations WHERE id = cloud_org;
+  END IF;
+END;
+$$;
+
 INSERT INTO public.organizations (id, slug, name, active)
 VALUES (
   '00000000-0000-4000-8000-000000000001',
@@ -27,7 +69,8 @@ VALUES (
   'ConCasa',
   true
 )
-ON CONFLICT (slug) DO UPDATE SET
+ON CONFLICT (id) DO UPDATE SET
+  slug = EXCLUDED.slug,
   name = EXCLUDED.name,
   active = EXCLUDED.active,
   updated_at = NOW();
@@ -225,6 +268,17 @@ VALUES (
   '00000000-0000-4000-8000-000000000001',
   'biometricos',
   '{"minLeadDays":2,"slotsPerDay":4}'::jsonb
+)
+ON CONFLICT (organization_id, kind) DO UPDATE SET
+  config = EXCLUDED.config,
+  updated_at = NOW();
+-- Firmas config mínima (org seed nace post-mig 024; backfill no la ve)
+INSERT INTO public.agenda_config (id, organization_id, kind, config)
+VALUES (
+  '00000000-0000-4000-9002-000000000002',
+  '00000000-0000-4000-8000-000000000001',
+  'firmas',
+  '{"enabled":true,"timezone":"America/Monterrey","min_lead_hours":1,"allowed_weekdays":[1,2,3,4,5],"slots":["10:00","11:00"],"locations":{"mty-centro":{"enabled":true,"capacity_per_slot":3},"san-nicolas":{"enabled":true,"capacity_per_slot":2}}}'::jsonb
 )
 ON CONFLICT (organization_id, kind) DO UPDATE SET
   config = EXCLUDED.config,

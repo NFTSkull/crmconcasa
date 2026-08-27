@@ -65,8 +65,20 @@ BEGIN
     'sin_asignar sigue'
   );
   PERFORM public.__p198_assert(
-    position('cl.subestado IS DISTINCT FROM ''rechazado''' in v_bandeja) > 0,
-    'M14 Disponibles excluye rechazado'
+    (
+    position('cl.subestado IS DISTINCT FROM ''rechazado''' in v_bandeja) > 0
+    OR position('subestado IS DISTINCT FROM ''rechazado''' in v_bandeja) > 0
+    OR (
+      position('WHEN ''sin_asignar'' THEN' in v_bandeja) > 0
+      AND position('P207: Nuevos (quick filter)' in v_bandeja) > 0
+      AND position('''rechazado''' in split_part(
+        split_part(v_bandeja, 'WHEN ''sin_asignar'' THEN', 2),
+        'WHEN ''mi_bandeja'' THEN',
+        1
+      )) = 0
+    )
+  ),
+    'M14 P195/P207 Disponibles excluye rechazado'
   );
   PERFORM public.__p198_assert(
     position('cl.assigned_to IS NULL' in v_bandeja) > 0,

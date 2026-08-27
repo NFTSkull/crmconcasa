@@ -21,7 +21,13 @@ import {
 import {
   agendaDailyActiveOccupancy,
   agendaDailyRemaining,
+  type FirmasDailyCapContractState,
+  FIRMAS_DAILY_CAP_CONTRACT_DEFAULT,
 } from "../_shared/agenda-sheets/daily-capacity.ts";
+import {
+  firmasBookGateBlockedByInactiveContract,
+  resolveFirmasContractForDate,
+} from "../_shared/agenda-sheets/firmas-live-sync-contract.ts";
 import {
   availabilityHorizonBounds,
   decideLiveSyncScope,
@@ -408,17 +414,65 @@ Deno.serve(async (req) => {
           .filter((id): id is string => Boolean(id)),
       ),
     ];
-    const dailyOcc = agendaDailyActiveOccupancy({
-      bookings: crmIds.map((id) => ({ id, status: "booked" })),
-      inventory: physicalForGate.map((p) => ({
-        status: p.status,
-        bookingId: p.bookingId,
-      })),
-    });
+
+    let dailyOcc: number;
+    let firmasContract: FirmasDailyCapContractState = FIRMAS_DAILY_CAP_CONTRACT_DEFAULT;
+    if (kind === "firmas") {
+      const { data: contractRow } = await supabase
+        .from("agenda_firmas_daily_cap_contract")
+        .select("enabled, effective_from")
+        .eq("singleton", true)
+        .maybeSingle();
+      if (contractRow && typeof contractRow === "object") {
+        const row = contractRow as { enabled?: boolean; effective_from?: string | null };
+        firmasContract = resolveFirmasContractForDate(
+          {
+            enabled: row.enabled === true,
+            effectiveFrom: row.effective_from ?? null,
+          },
+          bookingDate,
+        );
+      }
+    }
+
+    if (
+      kind === "firmas" &&
+      locationId &&
+      firmasContract.enabled
+    ) {
+      const { data: occData, error: occErr } = await supabase.rpc(
+        "agenda_firmas_daily_active_occupancy",
+        {
+          p_org: orgId,
+          p_date: bookingDate,
+          p_canonical_location: locationId,
+        },
+      );
+      if (occErr || occData == null || !Number.isFinite(Number(occData))) {
+        dailyOcc = agendaDailyActiveOccupancy({
+          bookings: crmIds.map((id) => ({ id, status: "booked" })),
+          inventory: physicalForGate.map((p) => ({
+            status: p.status,
+            bookingId: p.bookingId,
+          })),
+        });
+      } else {
+        dailyOcc = Number(occData);
+      }
+    } else {
+      dailyOcc = agendaDailyActiveOccupancy({
+        bookings: crmIds.map((id) => ({ id, status: "booked" })),
+        inventory: physicalForGate.map((p) => ({
+          status: p.status,
+          bookingId: p.bookingId,
+        })),
+      });
+    }
     const dailyMeta = agendaDailyRemaining(
       kind || "biometricos",
       locationId || "monterrey",
       dailyOcc,
+      kind === "firmas" ? firmasContract : FIRMAS_DAILY_CAP_CONTRACT_DEFAULT,
     );
 
     let canBook = true;
@@ -427,13 +481,24 @@ Deno.serve(async (req) => {
       if (!/^\d{2}:\d{2}$/.test(slotTime)) {
         return liveSyncJsonError(400, "invalid_slot_time", "slotTime requerido en book_gate");
       }
-      const live = byTime.get(slotTime)?.available ?? 0;
-      const gate = decideBookHardGate({
-        liveAvailableForSlot: live,
-        dailyRemaining: dailyMeta.remaining,
+
+      const inactive = firmasBookGateBlockedByInactiveContract({
+        kind: kind || "",
+        contractEnabled: firmasContract.enabled,
+        slotTime,
       });
-      canBook = gate.allow;
-      gateMessage = gate.message;
+      if (inactive.block) {
+        canBook = false;
+        gateMessage = inactive.message;
+      } else {
+        const live = byTime.get(slotTime)?.available ?? 0;
+        const gate = decideBookHardGate({
+          liveAvailableForSlot: live,
+          dailyRemaining: dailyMeta.remaining,
+        });
+        canBook = gate.allow;
+        gateMessage = gate.message;
+      }
     }
 
     return liveSyncJsonOk({
@@ -452,6 +517,7 @@ Deno.serve(async (req) => {
       daily_occupancy: dailyMeta.occupancy,
       daily_remaining: dailyMeta.remaining,
       daily_overcapacity: dailyMeta.overcapacity,
+      firmas_daily_cap_contract: kind === "firmas" ? firmasContract.enabled : undefined,
       tab_resolve: tabResolve,
     });
   } catch (e) {

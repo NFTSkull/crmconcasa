@@ -498,11 +498,11 @@ BEGIN
     'test 20'
   );
 
-  -- 21. regresión: rama 5→6 sigue activa
+  -- 21. regresión: rama 5→8 (P132) sigue activa
   v_result := public.__rpc_avanzar_67_test_call_as(v_mesa_admin, v_exp_sanity_56);
   PERFORM public.__rpc_avanzar_67_test_assert(
-    (v_result->>'ok')::boolean = true AND (v_result->>'etapa_actual')::int = 6,
-    'test 21: sanity 5→6'
+    (v_result->>'ok')::boolean = true AND (v_result->>'etapa_actual')::int = 8,
+    'test 21: sanity 5→8'
   );
 
   -- 22. no revisor

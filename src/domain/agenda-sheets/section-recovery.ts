@@ -11,14 +11,20 @@ export type SheetSectionRef = Readonly<{
 
 export type SectionHintByRow = ReadonlyMap<number, SheetSectionRef>;
 
-/** Firmas Apodaca: histórico 10:00 y vigente 10:30 (filas 3–5 típicas). */
+/** Firmas Apodaca: legacy 10:00/10:30 + targets físicos 08:00/09:00/10:00. */
 export function isPlausibleFirmasApodacaTime(hhmm: string): boolean {
-  return hhmm === "10:00" || hhmm === "10:30";
+  return (
+    hhmm === "08:00" ||
+    hhmm === "09:00" ||
+    hhmm === "10:00" ||
+    hhmm === "10:30"
+  );
 }
 
-/** Firmas Monterrey: franja matutina canónica del Sheet CITAS 2026. */
+/** Firmas Monterrey: legacy 08:30/09:30 + targets 08:00/09:00/10:00. */
 export function isPlausibleFirmasMonterreyTime(hhmm: string): boolean {
   return (
+    hhmm === "08:00" ||
     hhmm === "08:30" ||
     hhmm === "09:00" ||
     hhmm === "09:30" ||

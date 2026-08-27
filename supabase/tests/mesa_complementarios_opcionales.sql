@@ -36,8 +36,8 @@ BEGIN
     RAISE EXCEPTION 'mesa_complementarios_opcionales: SAT no debe ser obligatorio';
   END IF;
 
-  IF cardinality(v_mesa) <> 6 THEN
-    RAISE EXCEPTION 'mesa_complementarios_opcionales: se esperaban 6 mesa_upload, hay %', cardinality(v_mesa);
+  IF cardinality(v_mesa) <> 7 THEN
+    RAISE EXCEPTION 'mesa_complementarios_opcionales: se esperaban 7 mesa_upload, hay %', cardinality(v_mesa);
   END IF;
 
   IF NOT (v_mesa @> ARRAY[
@@ -46,7 +46,8 @@ BEGIN
     'cliente_constancia_sat',
     'cliente_pagare',
     'cliente_notificacion',
-    'cliente_solicitud'
+    'cliente_solicitud',
+    'cliente_notificacion_apodaca'
   ]::TEXT[]) THEN
     RAISE EXCEPTION 'mesa_complementarios_opcionales: mesa_upload incompleto';
   END IF;
@@ -68,6 +69,6 @@ BEGIN
     RAISE EXCEPTION 'mesa_complementarios_opcionales: obligatorios debe igualar asesor_envio';
   END IF;
 
-  RAISE NOTICE 'mesa_complementarios_opcionales: OK (4 obligatorios, 6 mesa_upload incl. pagaré+notif+solicitud)';
+  RAISE NOTICE 'mesa_complementarios_opcionales: OK (4 obligatorios, 7 mesa_upload incl. pagaré+notif+solicitud+apodaca)';
 END;
 $$;

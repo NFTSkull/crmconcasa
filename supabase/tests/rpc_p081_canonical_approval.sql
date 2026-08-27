@@ -38,6 +38,7 @@ RETURNS VOID LANGUAGE plpgsql AS $$
 BEGIN
   DELETE FROM public.action_log WHERE entity_id = p_id;
   DELETE FROM public.editor_decisions WHERE expediente_id = p_id;
+  DELETE FROM public.expediente_paso_visual_transiciones WHERE expediente_id = p_id;
   DELETE FROM public.expedientes WHERE id = p_id;
 
   INSERT INTO public.expedientes (
@@ -170,6 +171,7 @@ BEGIN
 
   DELETE FROM public.action_log WHERE entity_id IN (v_exp, v_exp2, v_exp3);
   DELETE FROM public.editor_decisions WHERE expediente_id IN (v_exp, v_exp2, v_exp3);
+  DELETE FROM public.expediente_paso_visual_transiciones WHERE expediente_id IN (v_exp, v_exp2, v_exp3);
   DELETE FROM public.expedientes WHERE id IN (v_exp, v_exp2, v_exp3);
 
   RAISE NOTICE 'P081 canonical approval: OK';

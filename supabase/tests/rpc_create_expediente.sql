@@ -112,6 +112,11 @@ BEGIN
     AND e.nss = p_nss
     AND e.programa = p_programa;
 
+  DELETE FROM public.expediente_paso_visual_transiciones t
+  USING public.expedientes e
+  WHERE t.expediente_id = e.id
+    AND e.nss = p_nss
+    AND e.programa = p_programa;
   DELETE FROM public.expedientes e
   WHERE e.nss = p_nss
     AND e.programa = p_programa;
