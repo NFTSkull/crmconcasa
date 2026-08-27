@@ -1,3 +1,7 @@
+## 2026-08-27 - Auto-precalificar Infonavit post-create
+
+Tras `createExpediente`, fire-and-forget con Bearer (sesión localStorage). Route: auth getUser → service role lee `nss` → scraper; mapeo estricto true/false; ambiguo (p.ej. no_cumple_criterios) no auto-rechaza. Mig 213 documenta `auto_upsert_editor_decision` (Cloud ya aplicada). Prueba E2E controlada con NSS sintético: pending_error OK; no tocar NSS reales.
+
 ## 2026-08-27 - P212 Firmas Fase 3C0: blindar activation date (NO activar hoy)
 
 ### Hallazgo

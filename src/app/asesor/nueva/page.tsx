@@ -25,6 +25,7 @@ import type { ReprecalUiMode } from "@/domain/expedientes/asesor-reprecal-flow";
 import type { NssPrecalGateResult } from "@/domain/expedientes/nss-precal-gate";
 import { validateCreatePrecalificacion } from "@/domain/precalificaciones/validators";
 import { isDataModeSupabase } from "@/lib/dataMode";
+import { supabaseBrowser } from "@/lib/supabaseBrowser";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
@@ -194,6 +195,28 @@ export default function NuevaPrecalificacionPage() {
 
       const created = await expedientesRepo.createExpediente(input);
       if (dataSupabase) {
+        if (created.id) {
+          void (async () => {
+            try {
+              const session = (await supabaseBrowser?.auth.getSession())?.data
+                .session;
+              const headers: HeadersInit = {};
+              if (session?.access_token) {
+                headers.Authorization = `Bearer ${session.access_token}`;
+              }
+              await fetch(
+                `/api/precalificaciones/${encodeURIComponent(created.id)}/auto-precalificar`,
+                { method: "POST", headers },
+              );
+            } catch (err) {
+              console.error(
+                "[nueva] auto-precalificar fire-and-forget falló",
+                created.id,
+                err,
+              );
+            }
+          })();
+        }
         setSuccessMsg(
           `Expediente creado correctamente (ID ${created.id.slice(0, 8)}…). ` +
             "Aún no aparecerá en tu bandeja hasta P3B.2; un administrador puede verlo en /admin.",
