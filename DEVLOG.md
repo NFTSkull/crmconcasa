@@ -1,3 +1,15 @@
+## 2026-08-27 - P212 Firmas Fase 3C0: blindar activation date (NO activar hoy)
+
+### Hallazgo
+El script de activación usaba `COALESCE(effective_from, CURRENT_DATE)` y mutaba Firmas a 08/09/10. Ejecutarlo en agosto activaría hoy mientras las tabs 5/5/5 son Sep-2026.
+
+### Decisión
+Hard gate: `(now() AT TIME ZONE 'America/Monterrey')::date < 2026-09-01` → `RAISE EXCEPTION` y ROLLBACK. `effective_from` siempre `DATE '2026-09-01'`. Config target con `capacity_by_time` por sede (MTY/APO), no root global. Preconditions: contract OFF, slots legacy, daily 15/15. 0 writes bookings/expedientes/Sheet. Override solo tests: `app.p212_activate_as_of`.
+
+### Verificación
+pre-Sep (2026-08-27) FAIL controlado + snapshot idéntico; Sep-01 PASS en TX + ROLLBACK. P212/P208 regression PASS. **No Cloud SQL / no Edge / no ejecutar activate.**
+
+
 ## 2026-08-27 - P212 Firmas Fase 3B: source tracking + Edge/FE publish (contract OFF)
 
 SQL full limpio vía harness `reset-local-db-fresh.sh` (P078 Auth + seed canónico + inventory + contract OFF). Fixtures alineados a grants/mig posteriores (P072 register EXECUTE, P166 pago resultado, etc.) sin tocar mig **212** (sha `cd2c56b8…` = Cloud). Live-sync: lee `agenda_firmas_daily_cap_contract`; Firmas daily null si OFF; book_gate 08:00 bloqueado si OFF. FE: `filterFirmasPickerSlotTimes` default OFF → slots de config. Activation `scripts/p212-activate-firmas.sql` intacto/no corrido. Worker v33 / reconcile v25 sin cambio obligatorio. Veredicto objetivo: P212_CODE_PUBLISHED_CONTRACT_OFF.

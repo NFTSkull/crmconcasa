@@ -20,6 +20,8 @@
 
 ## [Unreleased]
 
+- **fix(agenda): P212 Firmas Fase 3C0 — blindar activation date** — `scripts/p212-activate-firmas.sql`: hard gate Monterrey `< 2026-09-01` → RAISE + 0 writes; `effective_from = DATE '2026-09-01'` (nunca CURRENT_DATE); capacity_by_time 5/5/5 por sede; preconditions contract OFF + config legacy. Tests `rpc_p212_activate_guard` + `verify-p212-activate-guard.sh`. **NO activar hoy.** Mig 212 inmutable.
+
 - **ops(agenda): P212 Firmas Fase 3B — publish code con contract OFF** — SQL full 140/140 + concurrency PASS; live-sync gated (daily Firmas null + 08:00 book_gate block mientras OFF); FE picker sigue `agenda_config` legacy; mig **212** inmutable (sha Cloud); activation script NO ejecutado; worker/reconcile sin redeploy requerido; webhook opcional parser (no crea bookings).
 
 - **ops(agenda): P212 Firmas Fase 3A — source reconcile + Cloud INSTALL contract OFF** — rama `feat/agenda-firmas-daily-cap-p1` integra parser hotfix (section-recovery ≡ live-sync v17 / reconcile v25); mig **212** INSTALL (rules 15/15 + helpers + assert/gate/claim gated; `agenda_daily_capacity` Firmas NULL si OFF; **0** mutación `agenda_config`/bookings/expedientes); activación separada `scripts/p212-activate-firmas.sql` (NO ejecutado); Cloud apply 212 con `enabled=false`; Edges productivas intactas (live-sync v17 / reconcile v25 / worker+webhook v33). Sin FE publish / sin Sheet writes / sin commit.

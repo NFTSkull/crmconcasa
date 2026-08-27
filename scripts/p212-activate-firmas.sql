@@ -1,99 +1,196 @@
 -- P212 ACTIVATION (NO es migration automática).
--- Ejecutar SOLO después de: Sheet 22/22 5/5/5 + Edges parser + FE ready + publish controlado.
+-- Ejecutar SOLO en/after 2026-09-01 (fecha local America/Monterrey).
 -- Transaccional: cualquier fallo → ROLLBACK (no dejar config target con contract OFF).
 --
--- NO ejecutar en Fase 3A (INSTALL contract OFF).
+-- PROHIBIDO ejecutar antes de 2026-09-01.
+-- NO usa CURRENT_DATE / COALESCE(effective_from, today).
+-- effective_from siempre = DATE '2026-09-01'.
+--
+-- Test override (solo local): SET LOCAL app.p212_activate_as_of = 'YYYY-MM-DD';
 
 BEGIN;
 
--- Preconditions
 DO $$
 DECLARE
   v_enabled BOOLEAN;
+  v_from DATE;
   v_bio INTEGER;
   v_firmas_mty INTEGER;
   v_firmas_apo INTEGER;
+  v_legacy_slots JSONB := '["08:30","09:00","09:30","10:00","10:30"]'::JSONB;
+  v_target_slots JSONB := '["08:00","09:00","10:00"]'::JSONB;
+  v_target_cbt JSONB := '{"08:00":5,"09:00":5,"10:00":5}'::JSONB;
+  v_cfg JSONB;
+  v_slots JSONB;
+  v_today DATE;
+  v_as_of TEXT;
+  v_org UUID;
+  v_updated INTEGER := 0;
+  v_contract_n INTEGER;
 BEGIN
-  SELECT c.enabled INTO v_enabled
+  -- ---- Fecha efectiva (Monterrey; override solo tests) ----
+  v_as_of := nullif(btrim(current_setting('app.p212_activate_as_of', true)), '');
+  IF v_as_of IS NOT NULL THEN
+    IF v_as_of !~ '^\d{4}-\d{2}-\d{2}$' THEN
+      RAISE EXCEPTION 'P212 activate: app.p212_activate_as_of inválido (%)', v_as_of;
+    END IF;
+    v_today := v_as_of::DATE;
+  ELSE
+    v_today := (now() AT TIME ZONE 'America/Monterrey')::date;
+  END IF;
+
+  IF v_today < DATE '2026-09-01' THEN
+    RAISE EXCEPTION
+      'P212 activation blocked before 2026-09-01 (Monterrey local date=%)',
+      v_today;
+  END IF;
+
+  -- ---- Contract row ----
+  SELECT COUNT(*)::INTEGER INTO v_contract_n
+  FROM public.agenda_firmas_daily_cap_contract c
+  WHERE c.singleton;
+  IF v_contract_n <> 1 THEN
+    RAISE EXCEPTION 'P212 activate precondition: contract row missing';
+  END IF;
+
+  SELECT c.enabled, c.effective_from INTO v_enabled, v_from
   FROM public.agenda_firmas_daily_cap_contract c
   WHERE c.singleton;
 
   IF v_enabled IS DISTINCT FROM FALSE THEN
-    RAISE EXCEPTION 'P212 activate precondition: contract must be enabled=false before activate (got %)', v_enabled;
+    RAISE EXCEPTION
+      'P212 activate precondition: contract must be enabled=false (got %)',
+      v_enabled;
   END IF;
 
+  IF v_from IS NOT NULL AND v_from IS DISTINCT FROM DATE '2026-09-01' THEN
+    RAISE EXCEPTION
+      'P212 activate precondition: unexpected effective_from=% (want NULL or 2026-09-01)',
+      v_from;
+  END IF;
+
+  -- ---- Daily rules ----
   SELECT COUNT(*)::INTEGER INTO v_bio
   FROM public.agenda_daily_capacity_rules
   WHERE kind = 'biometricos' AND location_id = 'monterrey' AND capacity = 15;
   IF v_bio < 1 THEN
     RAISE EXCEPTION 'P212 activate precondition: biometricos/monterrey=15 missing';
   END IF;
-END $$;
 
--- 1) Daily rules Firmas 15/15 (idempotente; INSTALL ya las crea)
-INSERT INTO public.agenda_daily_capacity_rules (kind, location_id, capacity)
-VALUES
-  ('firmas', 'monterrey', 15),
-  ('firmas', 'apodaca', 15)
-ON CONFLICT (kind, location_id) DO UPDATE
-SET capacity = EXCLUDED.capacity, updated_at = NOW();
+  SELECT COUNT(*)::INTEGER INTO v_firmas_mty
+  FROM public.agenda_daily_capacity_rules
+  WHERE kind = 'firmas' AND location_id = 'monterrey' AND capacity = 15;
+  SELECT COUNT(*)::INTEGER INTO v_firmas_apo
+  FROM public.agenda_daily_capacity_rules
+  WHERE kind = 'firmas' AND location_id = 'apodaca' AND capacity = 15;
+  IF v_firmas_mty < 1 OR v_firmas_apo < 1 THEN
+    RAISE EXCEPTION 'P212 activate precondition: firmas daily 15/15 missing (mty=% apo=%)',
+      v_firmas_mty, v_firmas_apo;
+  END IF;
 
--- 2) agenda_config Firmas → slots target 08/09/10 (todas las orgs)
---    Conserva locations/allowed_weekdays/min_lead; solo slots + capacity_by_time.
-UPDATE public.agenda_config
-SET config = jsonb_set(
-  jsonb_set(
-    config,
-    '{slots}',
-    '["08:00","09:00","10:00"]'::JSONB,
-    true
-  ),
-  '{capacity_by_time}',
-  '{"08:00":5,"09:00":5,"10:00":5}'::JSONB,
-  true
-),
-updated_at = NOW()
-WHERE kind = 'firmas';
+  -- ---- agenda_config debe seguir legacy esperado ----
+  FOR v_org, v_cfg IN
+    SELECT ac.organization_id, ac.config
+    FROM public.agenda_config ac
+    WHERE ac.kind = 'firmas'
+  LOOP
+    v_slots := v_cfg->'slots';
+    IF v_slots IS NULL OR v_slots <> v_legacy_slots THEN
+      RAISE EXCEPTION
+        'P212 activate precondition: org % Firmas slots drift (got % want legacy %)',
+        v_org, v_slots, v_legacy_slots;
+    END IF;
 
--- 3) Enable contract (effective_from debe setearse explícitamente en publish)
---    Placeholder: el operador DEBE reemplazar effective_from antes de COMMIT en prod.
-UPDATE public.agenda_firmas_daily_cap_contract
-SET enabled = TRUE,
-    effective_from = COALESCE(effective_from, CURRENT_DATE),
-    enabled_at = NOW(),
-    note = 'P212 activated via scripts/p212-activate-firmas.sql',
+    IF (v_cfg->'locations'->'monterrey') IS NULL
+       OR (v_cfg->'locations'->'apodaca') IS NULL THEN
+      RAISE EXCEPTION
+        'P212 activate precondition: org % missing monterrey/apodaca locations',
+        v_org;
+    END IF;
+
+    -- No sobrescribir si ya está en target
+    IF v_slots = v_target_slots THEN
+      RAISE EXCEPTION
+        'P212 activate precondition: org % already on target slots — STOP',
+        v_org;
+    END IF;
+  END LOOP;
+
+  IF NOT EXISTS (SELECT 1 FROM public.agenda_config WHERE kind = 'firmas') THEN
+    RAISE EXCEPTION 'P212 activate precondition: no agenda_config firmas rows';
+  END IF;
+
+  -- ---- Apply target config (slots + capacity_by_time POR SEDE) ----
+  -- Conserva enabled/timezone/min_lead/allowed_weekdays/locations extras (mty-centro, labels…).
+  UPDATE public.agenda_config ac
+  SET
+    config = jsonb_set(
+      jsonb_set(
+        jsonb_set(
+          ac.config,
+          '{slots}',
+          v_target_slots,
+          true
+        ),
+        '{locations,monterrey,capacity_by_time}',
+        v_target_cbt,
+        true
+      ),
+      '{locations,apodaca,capacity_by_time}',
+      v_target_cbt,
+      true
+    ),
     updated_at = NOW()
-WHERE singleton
-  AND enabled = FALSE;
+  WHERE ac.kind = 'firmas';
 
--- Postconditions
-DO $$
-DECLARE
-  v_enabled BOOLEAN;
-  v_from DATE;
-  v_rules INTEGER;
-  v_cfg_slots JSONB;
-BEGIN
+  GET DIAGNOSTICS v_updated = ROW_COUNT;
+  IF v_updated < 1 THEN
+    RAISE EXCEPTION 'P212 activate: agenda_config firmas update touched 0 rows';
+  END IF;
+
+  -- ---- Enable contract (fecha explícita; NUNCA CURRENT_DATE) ----
+  UPDATE public.agenda_firmas_daily_cap_contract
+  SET enabled = TRUE,
+      effective_from = DATE '2026-09-01',
+      enabled_at = NOW(),
+      note = 'P212 activated via scripts/p212-activate-firmas.sql effective_from=2026-09-01',
+      updated_at = NOW()
+  WHERE singleton
+    AND enabled = FALSE;
+
+  GET DIAGNOSTICS v_updated = ROW_COUNT;
+  IF v_updated <> 1 THEN
+    RAISE EXCEPTION 'P212 activate: contract enable UPDATE matched % rows (want 1)', v_updated;
+  END IF;
+
+  -- ---- Postconditions ----
   SELECT c.enabled, c.effective_from INTO v_enabled, v_from
-  FROM public.agenda_firmas_daily_cap_contract c WHERE c.singleton;
+  FROM public.agenda_firmas_daily_cap_contract c
+  WHERE c.singleton;
+
   IF v_enabled IS NOT TRUE THEN
     RAISE EXCEPTION 'P212 activate postcondition: contract not enabled';
   END IF;
-
-  SELECT COUNT(*)::INTEGER INTO v_rules
-  FROM public.agenda_daily_capacity_rules
-  WHERE kind = 'firmas' AND location_id IN ('monterrey', 'apodaca') AND capacity = 15;
-  IF v_rules <> 2 THEN
-    RAISE EXCEPTION 'P212 activate postcondition: firmas daily rules missing';
+  IF v_from IS DISTINCT FROM DATE '2026-09-01' THEN
+    RAISE EXCEPTION 'P212 activate postcondition: effective_from=% want 2026-09-01', v_from;
   END IF;
 
-  SELECT config->'slots' INTO v_cfg_slots
-  FROM public.agenda_config
-  WHERE kind = 'firmas'
-  LIMIT 1;
-  IF v_cfg_slots IS NULL OR v_cfg_slots <> '["08:00","09:00","10:00"]'::JSONB THEN
-    RAISE EXCEPTION 'P212 activate postcondition: agenda_config slots not target';
-  END IF;
-END $$;
+  FOR v_org, v_cfg IN
+    SELECT ac.organization_id, ac.config
+    FROM public.agenda_config ac
+    WHERE ac.kind = 'firmas'
+  LOOP
+    IF v_cfg->'slots' IS DISTINCT FROM v_target_slots THEN
+      RAISE EXCEPTION 'P212 activate postcondition: org % slots not target', v_org;
+    END IF;
+    IF v_cfg#>'{locations,monterrey,capacity_by_time}' IS DISTINCT FROM v_target_cbt THEN
+      RAISE EXCEPTION 'P212 activate postcondition: org % monterrey capacity_by_time', v_org;
+    END IF;
+    IF v_cfg#>'{locations,apodaca,capacity_by_time}' IS DISTINCT FROM v_target_cbt THEN
+      RAISE EXCEPTION 'P212 activate postcondition: org % apodaca capacity_by_time', v_org;
+    END IF;
+  END LOOP;
+END;
+$$;
 
 COMMIT;
