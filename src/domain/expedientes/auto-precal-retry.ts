@@ -4,7 +4,7 @@
  */
 
 export const AUTO_PRECAL_RETRY_MAX_INTENTOS = 3;
-export const AUTO_PRECAL_RETRY_MIN_AGE_MS = 10 * 60 * 1000;
+export const AUTO_PRECAL_RETRY_MIN_AGE_MS = 5 * 60 * 1000;
 export const AUTO_PRECAL_RETRY_LIMIT = 5;
 
 export type AutoPrecalIntentoRow = {
@@ -28,7 +28,7 @@ export type RetryCandidateInput = {
  * Filtra candidatos:
  * - al menos un intento pending_error + scraper_failed
  * - total intentos < maxIntentos (default 3)
- * - último intento hace ≥ minAgeMs (default 10 min)
+ * - último intento hace ≥ minAgeMs (default 5 min)
  * - orden: último intento más antiguo primero
  * - limit (default 5)
  */

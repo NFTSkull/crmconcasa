@@ -18,7 +18,8 @@ function intento(
 describe("selectAutoPrecalRetryCandidates", () => {
   const now = Date.parse("2026-08-28T12:00:00.000Z");
   const old = "2026-08-28T11:00:00.000Z"; // 60 min ago
-  const recent = "2026-08-28T11:55:00.000Z"; // 5 min ago
+  const recent = "2026-08-28T11:57:00.000Z"; // 3 min ago (< 5 min)
+  const exactlyFive = "2026-08-28T11:55:00.000Z"; // 5 min ago (límite inclusive)
 
   it("excluye backlog sin ningún intento auto-precal", () => {
     const ids = selectAutoPrecalRetryCandidates({
@@ -40,7 +41,7 @@ describe("selectAutoPrecalRetryCandidates", () => {
     assert.deepEqual(ids, []);
   });
 
-  it("incluye pendiente con scraper_failed, <3 intentos, último ≥10 min", () => {
+  it("incluye pendiente con scraper_failed, <3 intentos, último ≥5 min", () => {
     const ids = selectAutoPrecalRetryCandidates({
       pendingExpedienteIds: ["aaaa"],
       intentos: [intento("aaaa", old, "pending_error", "scraper_failed")],
@@ -49,7 +50,18 @@ describe("selectAutoPrecalRetryCandidates", () => {
     assert.deepEqual(ids, ["aaaa"]);
   });
 
-  it("excluye si último intento < 10 min", () => {
+  it("incluye si último intento hace exactamente 5 min", () => {
+    const ids = selectAutoPrecalRetryCandidates({
+      pendingExpedienteIds: ["aaaa"],
+      intentos: [
+        intento("aaaa", exactlyFive, "pending_error", "scraper_failed"),
+      ],
+      nowMs: now,
+    });
+    assert.deepEqual(ids, ["aaaa"]);
+  });
+
+  it("excluye si último intento < 5 min", () => {
     const ids = selectAutoPrecalRetryCandidates({
       pendingExpedienteIds: ["aaaa"],
       intentos: [

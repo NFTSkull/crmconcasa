@@ -1,3 +1,8 @@
+## 2026-08-28 - Auto-precal: cooldown reintentos cron 10→5 min
+
+### Decisión
+`AUTO_PRECAL_RETRY_MIN_AGE_MS` de 10 a 5 minutos para más ventanas entre ejecuciones del cron (`*/5`). Tope de intentos y batch 5 por run sin cambio.
+
 ## 2026-08-28 - Infonavit scraper → editor_decisions → Datos Generales
 
 ### Decisión
@@ -6,7 +11,7 @@ Scraper aprobado envía RFC/N.R.P./empresa/advertencia al RPC `auto_upsert_edito
 ## 2026-08-28 - Auto-precal: reintentos cron + motivo keyword
 
 ### Decisión
-`califica:false` usa `payload.mensaje` (keyword scraper) con fallback genérico. Tabla `auto_precal_intentos` + cron Vercel cada 5 min (`CRON_SECRET`; cooldown reintento 10 min). Solo reintenta `pending_error`+`scraper_failed`; backlog sin intentos excluido.
+`califica:false` usa `payload.mensaje` (keyword scraper) con fallback genérico. Tabla `auto_precal_intentos` + cron Vercel cada 5 min (`CRON_SECRET`; cooldown reintento 5 min). Solo reintenta `pending_error`+`scraper_failed`; backlog sin intentos excluido.
 
 ## 2026-08-28 - Auto-precal: no_cumple_criterios es decisión real
 
