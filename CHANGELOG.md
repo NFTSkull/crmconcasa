@@ -20,6 +20,9 @@
 
 ## [Unreleased]
 
+- **fix(precalificacion): no_cumple_criterios → no_cumple** — `success:false` + `razon=no_cumple_criterios` + `mensaje` string mapea a `auto_upsert_editor_decision` `no_cumple` con `p_motivo` = texto exacto de Infonavit. Timeout scraper **150s**.
+
+
 - **fix(precalificacion): auto-precalificar 202 + after()** — ack inmediato `202 accepted`; scraper/`auto_upsert` en `after()` (sobrevive navegación); cliente await ack ≤5s + logs `[nueva] disparando/ack`.
 
 - **feat(precalificacion): auto-precalificar Infonavit post-create** — `POST /api/precalificaciones/[id]/auto-precalificar` (Bearer + service role); scraper `SCRAPER_*`; `califica===true` → aprobado con saldoSubcuenta; `califica===false` → no_cumple; ambiguo → pending_error. Fire-and-forget desde `/asesor/nueva`. Mig. **213** (documenta RPC ya en Cloud).

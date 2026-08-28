@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 
 import {
   decideAutoPrecalFromScraper,
+  MOTIVO_NO_CUMPLE_CALIFICA_FALSE,
   parseSaldoSubcuenta,
 } from "./auto-precalificar-decision";
 
@@ -29,15 +30,32 @@ describe("auto-precalificar decision mapping", () => {
       { califica: false, mensaje: "SIN APORTACIONES", nss: "1" } as never,
       true,
     );
-    assert.deepEqual(d, { kind: "no_cumple" });
+    assert.deepEqual(d, {
+      kind: "no_cumple",
+      motivo: MOTIVO_NO_CUMPLE_CALIFICA_FALSE,
+    });
   });
 
-  it("no_cumple_criterios sin califica → pending (no auto-rechazo)", () => {
+  it("no_cumple_criterios + mensaje → no_cumple con texto exacto", () => {
+    const mensaje =
+      "No cumples con los criterios mínimos para obtener un crédito.";
     const d = decideAutoPrecalFromScraper(
       {
         success: false,
         razon: "no_cumple_criterios",
-        mensaje: "criterios",
+        mensaje,
+        nss: "00000000012",
+      },
+      true,
+    );
+    assert.deepEqual(d, { kind: "no_cumple", motivo: mensaje });
+  });
+
+  it("no_cumple_criterios sin mensaje → pending", () => {
+    const d = decideAutoPrecalFromScraper(
+      {
+        success: false,
+        razon: "no_cumple_criterios",
       },
       true,
     );

@@ -10,7 +10,7 @@ import {
 export const runtime = "nodejs";
 export const maxDuration = 180;
 
-const SCRAPER_TIMEOUT_MS = 120_000;
+const SCRAPER_TIMEOUT_MS = 150_000;
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -131,7 +131,7 @@ export async function runAutoPrecalificarJob(input: {
     p_expediente_id: expedienteId,
     p_decision: "no_cumple",
     p_monto_aprobado: null,
-    p_motivo: "No calificó según consulta automática de Infonavit",
+    p_motivo: decision.motivo,
   });
   if (rpcErr) {
     console.error(
