@@ -1,3 +1,8 @@
+## 2026-08-28 - Infonavit scraper → editor_decisions → Datos Generales
+
+### Decisión
+Scraper aprobado envía RFC/N.R.P./empresa/advertencia al RPC `auto_upsert_editor_decision` (mig **215**). Formulario asesor pre-llena solo campos vacíos; banner no bloqueante si crédito activo en Infonavit.
+
 ## 2026-08-28 - Auto-precal: reintentos cron + motivo keyword
 
 ### Decisión

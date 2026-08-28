@@ -155,7 +155,7 @@ const EXPEDIENTES_LIST_SELECT = `
     programa,
     programa_solicitado
   ),
-  editor_decisions ( decision, monto_aprobado, notas_revision, aprobado_at, monto_aprobado_al_aprobar, no_cumple_at ),
+  editor_decisions ( decision, monto_aprobado, notas_revision, aprobado_at, monto_aprobado_al_aprobar, no_cumple_at, rfc_infonavit, registro_patronal_infonavit, empresa_infonavit, advertencia_inscripcion ),
   reingreso_rechazo:expediente_rechazos_operativos!expedientes_reingreso_rechazo_padre_fk (
     etapa,
     motivo,

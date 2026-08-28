@@ -9,6 +9,14 @@ export type AutoPrecalScraperPayload = {
   datos?: { saldoSubcuenta?: string | number | null };
   razon?: string;
   mensaje?: string;
+  /** RFC trabajador (pantalla precalificación Infonavit). */
+  rfc?: string | null;
+  /** N.R.P. (formulario inscripción; null si crédito activo u otro caso). */
+  registroPatronal?: string | null;
+  /** Empresa patronal (formulario inscripción). */
+  empresa?: string | null;
+  /** Mensaje Infonavit sin formulario de inscripción (p. ej. crédito activo). */
+  advertenciaInscripcion?: string | null;
 };
 
 export const MOTIVO_NO_CUMPLE_CALIFICA_FALSE =

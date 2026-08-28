@@ -111,6 +111,10 @@ export async function runAutoPrecalificarJob(input: {
           p_decision: "aprobado",
           p_monto_aprobado: decision.monto,
           p_motivo: null,
+          p_rfc: payload.rfc ?? null,
+          p_registro_patronal: payload.registroPatronal ?? null,
+          p_empresa: payload.empresa ?? null,
+          p_advertencia_inscripcion: payload.advertenciaInscripcion ?? null,
         },
       );
       if (rpcErr) {

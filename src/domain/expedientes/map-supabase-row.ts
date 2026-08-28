@@ -16,6 +16,10 @@ export type SupabaseEditorDecisionEmbed = Readonly<{
   aprobado_at?: string | null;
   monto_aprobado_al_aprobar?: number | string | null;
   no_cumple_at?: string | null;
+  rfc_infonavit?: string | null;
+  registro_patronal_infonavit?: string | null;
+  empresa_infonavit?: string | null;
+  advertencia_inscripcion?: string | null;
 }>;
 
 /** Perfil asesor embebido vía FK `asesor_id`. */
@@ -193,6 +197,10 @@ export function mapSupabaseRowToExpedienteMock(
       aprobadoAt: textOrNull(editor?.aprobado_at),
       montoAprobadoAlAprobar: parseMontoAprobado(editor?.monto_aprobado_al_aprobar),
       noCumpleAt: textOrNull(editor?.no_cumple_at),
+      rfc_infonavit: textOrNull(editor?.rfc_infonavit),
+      registro_patronal_infonavit: textOrNull(editor?.registro_patronal_infonavit),
+      empresa_infonavit: textOrNull(editor?.empresa_infonavit),
+      advertencia_inscripcion: textOrNull(editor?.advertencia_inscripcion),
     },
     operativo: {
       etapaActual: etapaActualParaOperativo(etapaPersistida, subestado),
