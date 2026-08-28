@@ -1,3 +1,13 @@
+## 2026-08-28 - Auto-precal: reintentos cron + motivo keyword
+
+### Decisión
+`califica:false` usa `payload.mensaje` (keyword scraper) con fallback genérico. Tabla `auto_precal_intentos` + cron Vercel cada 20 min (`CRON_SECRET`). Solo reintenta `pending_error`+`scraper_failed`; backlog sin intentos excluido.
+
+## 2026-08-28 - Auto-precal: no_cumple_criterios es decisión real
+
+### Decisión
+Tercer caso conocido: `{ success:false, razon:'no_cumple_criterios', mensaje }` → `no_cumple` con `p_motivo` = `mensaje` exacto. `califica===true|false` intacto. Timeout scraper 150s. Cualquier otra forma sigue `pending_error`.
+
 ## 2026-08-27 - Auto-precalificar: 202 Accepted + after()
 
 Prod no veía hits: fire-and-forget + route que bloqueaba 40s en el request. Fix: validar auth/NSS, `after(job)`, responder 202; cliente await ack (timeout 5s, keepalive) antes de redirect; logs browser disparando/ack.

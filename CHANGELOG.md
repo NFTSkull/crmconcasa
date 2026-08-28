@@ -20,6 +20,13 @@
 
 ## [Unreleased]
 
+- **feat(precalificacion): reintentos cron auto-precal** — tabla `auto_precal_intentos` (mig **214**); cada job registra resultado; `GET|POST /api/cron/reintentar-pendientes` con `CRON_SECRET`; solo `scraper_failed`, <3 intentos, ≥10 min, max 5 secuencial; cron `*/20`.
+
+- **fix(precalificacion): califica:false usa mensaje del scraper** — `p_motivo` = keyword Infonavit (`SIN APORTACIONES`, etc.); fallback genérico si falta `mensaje`.
+
+- **fix(precalificacion): no_cumple_criterios → no_cumple** — `success:false` + `razon=no_cumple_criterios` + `mensaje` string mapea a `auto_upsert_editor_decision` `no_cumple` con `p_motivo` = texto exacto de Infonavit. Timeout scraper **150s**.
+
+
 - **fix(precalificacion): auto-precalificar 202 + after()** — ack inmediato `202 accepted`; scraper/`auto_upsert` en `after()` (sobrevive navegación); cliente await ack ≤5s + logs `[nueva] disparando/ack`.
 
 - **feat(precalificacion): auto-precalificar Infonavit post-create** — `POST /api/precalificaciones/[id]/auto-precalificar` (Bearer + service role); scraper `SCRAPER_*`; `califica===true` → aprobado con saldoSubcuenta; `califica===false` → no_cumple; ambiguo → pending_error. Fire-and-forget desde `/asesor/nueva`. Mig. **213** (documenta RPC ya en Cloud).

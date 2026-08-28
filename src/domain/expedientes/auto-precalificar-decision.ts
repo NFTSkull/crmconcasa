@@ -11,9 +11,12 @@ export type AutoPrecalScraperPayload = {
   mensaje?: string;
 };
 
+export const MOTIVO_NO_CUMPLE_CALIFICA_FALSE =
+  "No calificó según consulta automática de Infonavit";
+
 export type AutoPrecalDecision =
   | { kind: "aprobado"; monto: number }
-  | { kind: "no_cumple" }
+  | { kind: "no_cumple"; motivo: string }
   | { kind: "pending_error"; reason: string };
 
 export function parseSaldoSubcuenta(raw: unknown): number | null {
@@ -26,7 +29,8 @@ export function parseSaldoSubcuenta(raw: unknown): number | null {
 }
 
 /**
- * Mapeo estricto: solo califica===true / ===false; resto pending_error.
+ * Mapeo estricto: califica===true / ===false, o success:false +
+ * razon=no_cumple_criterios + mensaje string; resto pending_error.
  * No invoca RPC (solo decide).
  */
 export function decideAutoPrecalFromScraper(
@@ -44,7 +48,18 @@ export function decideAutoPrecalFromScraper(
     return { kind: "aprobado", monto };
   }
   if (payload.califica === false) {
-    return { kind: "no_cumple" };
+    const motivo =
+      typeof payload.mensaje === "string" && payload.mensaje.trim()
+        ? payload.mensaje
+        : MOTIVO_NO_CUMPLE_CALIFICA_FALSE;
+    return { kind: "no_cumple", motivo };
+  }
+  if (
+    payload.success === false &&
+    payload.razon === "no_cumple_criterios" &&
+    typeof payload.mensaje === "string"
+  ) {
+    return { kind: "no_cumple", motivo: payload.mensaje };
   }
   return { kind: "pending_error", reason: "ambiguous_payload" };
 }
