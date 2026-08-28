@@ -117,9 +117,9 @@ Universo del gate (P169): `organization_id` + NSS + `deleted_at IS NULL` + `cicl
 **Cron:** `GET|POST /api/cron/reintentar-pendientes`  
 - Auth: header `x-cron-secret: $CRON_SECRET` **o** `Authorization: Bearer $CRON_SECRET` (Vercel Cron). 401 si no coincide.  
 - Candidatos: `editor_decisions.decision='pendiente'` **y** ≥1 fila `auto_precal_intentos` con `resultado='pending_error'` + `razon='scraper_failed'` (excluye backlog sin auto-precal y excluye solo-`ambiguous_payload`).  
-- Excluye si total intentos ≥ 3 o último intento < 10 min.  
+- Excluye si total intentos ≥ 3 o último intento < 5 min.  
 - Max **5** por run, **secuencial** (`await` en for; nunca `Promise.all`).  
-- Schedule: `vercel.json` `*/5 * * * *` (chequeo; cooldown reintento sigue en 10 min).
+- Schedule: `vercel.json` `*/5 * * * *` (chequeo; cooldown reintento 5 min).
 
 ---
 
