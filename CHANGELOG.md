@@ -20,6 +20,10 @@
 
 ## [Unreleased]
 
+- **feat(precalificacion): campos Infonavit en auto_upsert** — job pasa `p_rfc`, `p_registro_patronal`, `p_empresa`, `p_advertencia_inscripcion` al RPC cuando scraper responde `califica:true`. Mig **215** (columnas `editor_decisions`; aplicar en Cloud manualmente).
+
+- **feat(asesor): autofill Datos Generales desde editor_decisions Infonavit** — pre-llena `rfc`, `registroPatronal`, `empresa` solo si vacíos al hidratar; banner amber si `advertencia_inscripcion`.
+
 - **feat(precalificacion): reintentos cron auto-precal** — tabla `auto_precal_intentos` (mig **214**); cada job registra resultado; `GET|POST /api/cron/reintentar-pendientes` con `CRON_SECRET`; solo `scraper_failed`, <3 intentos, ≥10 min, max 5 secuencial; cron `*/5` (cooldown reintento 10 min intacto).
 
 - **fix(precalificacion): califica:false usa mensaje del scraper** — `p_motivo` = keyword Infonavit (`SIN APORTACIONES`, etc.); fallback genérico si falta `mensaje`.

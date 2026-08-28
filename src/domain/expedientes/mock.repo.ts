@@ -133,6 +133,11 @@ export interface ExpedienteMock {
     montoAprobadoAlAprobar?: number | null;
     /** P083: primera transición a no_cumple (inmutable). */
     noCumpleAt?: string | null;
+    /** P215: datos capturados por scraper Infonavit (auto-precalificar). */
+    rfc_infonavit?: string | null;
+    registro_patronal_infonavit?: string | null;
+    empresa_infonavit?: string | null;
+    advertencia_inscripcion?: string | null;
   };
   operativo: {
     etapaActual: number | null;

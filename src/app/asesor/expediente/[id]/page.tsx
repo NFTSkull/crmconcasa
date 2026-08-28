@@ -134,6 +134,10 @@ import { getAsesorInboxEstadoEfectivoPresentation } from "@/domain/expedientes/a
 import type { AsesorCorreccionDetalle } from "@/domain/expedientes/asesor-correccion-detalle";
 import { hasActivityAfterRechazo } from "@/domain/expedientes/rechazo-operativo-abierto";
 import { emptyInfonavitClienteDatosV1 } from "@/domain/expediente-cliente-datos/infonavit-datos";
+import {
+  applyClienteDatosInfonavitAutofill,
+  formatAdvertenciaInscripcionInfonavit,
+} from "@/lib/clienteDatosInfonavitAutofill";
 
 type ClienteDatosFormState = ExpedienteClienteDatos["datos"];
 
@@ -316,6 +320,8 @@ export default function AsesorExpedientePage() {
   const [editorDecision, setEditorDecision] = useState<
     ExpedienteMock["editorDecision"] | null
   >(null);
+  const editorDecisionRef = useRef(editorDecision);
+  editorDecisionRef.current = editorDecision;
   const [reingreso, setReingreso] =
     useState<ExpedienteMock["reingreso"]>(undefined);
   const [reingresoManual, setReingresoManual] =
@@ -396,6 +402,14 @@ export default function AsesorExpedientePage() {
   const esMejoravit = useMemo(
     () => (precal?.programa ? isProgramaMejoravit(precal.programa) : false),
     [precal?.programa],
+  );
+
+  const advertenciaInscripcionInfonavit = useMemo(
+    () =>
+      formatAdvertenciaInscripcionInfonavit(
+        editorDecision?.advertencia_inscripcion,
+      ),
+    [editorDecision?.advertencia_inscripcion],
   );
 
   const handleClienteDatosChange = useCallback(
@@ -1223,12 +1237,15 @@ export default function AsesorExpedientePage() {
       if (!found) {
         montoMejoravitLockedRef.current = false;
         montoCalculadoLockedRef.current = false;
-        const datosSinOficial = {
-          ...EMPTY_CLIENTE_DATOS,
-          nombreCliente: precal.cliente_nombre || "",
-          nss: precal.nss || "",
-          celular: precal.telefono_cliente || "",
-        };
+        const datosSinOficial = applyClienteDatosInfonavitAutofill(
+          {
+            ...EMPTY_CLIENTE_DATOS,
+            nombreCliente: precal.cliente_nombre || "",
+            nss: precal.nss || "",
+            celular: precal.telefono_cliente || "",
+          },
+          editorDecisionRef.current,
+        );
         setClienteDatos(datosSinOficial);
         setClienteDatosMeta(null);
         offerClienteDatosDraftIfPending(
@@ -1268,11 +1285,14 @@ export default function AsesorExpedientePage() {
         metodoPago: found.datos.metodoPago || found.metodoPago || "",
         notaMesa: found.datos.notaMesa ?? "",
       };
-      const datosHidratados = applyMontoCalculadoSugeridoSiNoBloqueado(
-        datosCargados,
-        montoAprobadoEditor,
-        programaDb,
-        montoCalculadoLockedRef.current,
+      const datosHidratados = applyClienteDatosInfonavitAutofill(
+        applyMontoCalculadoSugeridoSiNoBloqueado(
+          datosCargados,
+          montoAprobadoEditor,
+          programaDb,
+          montoCalculadoLockedRef.current,
+        ),
+        editorDecisionRef.current,
       );
       setClienteDatos(datosHidratados);
       setClienteDatosMeta({
@@ -1972,6 +1992,7 @@ export default function AsesorExpedientePage() {
               programaDb={programaDb}
               onMontoMejoravitEdited={handleMontoMejoravitEdited}
               onMontoCalculadoEdited={handleMontoCalculadoEdited}
+              advertenciaInscripcionInfonavit={advertenciaInscripcionInfonavit}
             />
             </div>
             {esMejoravit && dataSupabase && precal?.id ? (
@@ -2355,6 +2376,7 @@ export default function AsesorExpedientePage() {
               programaDb={programaDb}
               onMontoMejoravitEdited={handleMontoMejoravitEdited}
               onMontoCalculadoEdited={handleMontoCalculadoEdited}
+              advertenciaInscripcionInfonavit={advertenciaInscripcionInfonavit}
             />
             </div>
 

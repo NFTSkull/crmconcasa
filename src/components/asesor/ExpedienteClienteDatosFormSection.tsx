@@ -72,6 +72,8 @@ interface ExpedienteClienteDatosFormSectionProps {
   programaDb?: string | null;
   onMontoMejoravitEdited?: () => void;
   onMontoCalculadoEdited?: () => void;
+  /** Banner no bloqueante: advertencia de inscripción Infonavit (editor_decisions). */
+  advertenciaInscripcionInfonavit?: string | null;
 }
 
 function fieldInputClass(hasError: boolean): string {
@@ -138,6 +140,7 @@ export function ExpedienteClienteDatosFormSection({
   alertaAccionDgActiva = true,
   correccionDgActiva = false,
   correccionDgUxState = null,
+  advertenciaInscripcionInfonavit = null,
 }: ExpedienteClienteDatosFormSectionProps) {
   const esMejoravit = isProgramaMejoravitDb(programaDb);
   const esCorreccionRechazo = asesorEsCorreccionRechazoClienteDatos(
@@ -267,6 +270,15 @@ export function ExpedienteClienteDatosFormSection({
               ))}
             </ul>
           </div>
+        ) : null}
+
+        {advertenciaInscripcionInfonavit ? (
+          <p
+            className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950"
+            role="status"
+          >
+            ⚠️ {advertenciaInscripcionInfonavit}
+          </p>
         ) : null}
 
         {clienteDatosError ? (
