@@ -20,6 +20,8 @@
 
 ## [Unreleased]
 
+- **fix(precalificacion): auto-precalificar 202 + after()** — ack inmediato `202 accepted`; scraper/`auto_upsert` en `after()` (sobrevive navegación); cliente await ack ≤5s + logs `[nueva] disparando/ack`.
+
 - **feat(precalificacion): auto-precalificar Infonavit post-create** — `POST /api/precalificaciones/[id]/auto-precalificar` (Bearer + service role); scraper `SCRAPER_*`; `califica===true` → aprobado con saldoSubcuenta; `califica===false` → no_cumple; ambiguo → pending_error. Fire-and-forget desde `/asesor/nueva`. Mig. **213** (documenta RPC ya en Cloud).
 
 - **fix(agenda): P212 Firmas Fase 3C0 — blindar activation date** — `scripts/p212-activate-firmas.sql`: hard gate Monterrey `< 2026-09-01` → RAISE + 0 writes; `effective_from = DATE '2026-09-01'` (nunca CURRENT_DATE); capacity_by_time 5/5/5 por sede; preconditions contract OFF + config legacy. Tests `rpc_p212_activate_guard` + `verify-p212-activate-guard.sh`. **NO activar hoy.** Mig 212 inmutable.

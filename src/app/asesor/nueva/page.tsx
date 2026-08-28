@@ -196,26 +196,39 @@ export default function NuevaPrecalificacionPage() {
       const created = await expedientesRepo.createExpediente(input);
       if (dataSupabase) {
         if (created.id) {
-          void (async () => {
-            try {
-              const session = (await supabaseBrowser?.auth.getSession())?.data
-                .session;
-              const headers: HeadersInit = {};
-              if (session?.access_token) {
-                headers.Authorization = `Bearer ${session.access_token}`;
-              }
-              await fetch(
-                `/api/precalificaciones/${encodeURIComponent(created.id)}/auto-precalificar`,
-                { method: "POST", headers },
-              );
-            } catch (err) {
-              console.error(
-                "[nueva] auto-precalificar fire-and-forget falló",
-                created.id,
-                err,
-              );
+          try {
+            const session = (await supabaseBrowser?.auth.getSession())?.data
+              .session;
+            const headers: HeadersInit = {};
+            if (session?.access_token) {
+              headers.Authorization = `Bearer ${session.access_token}`;
             }
-          })();
+            console.log(
+              "[nueva] disparando auto-precalificar para",
+              created.id,
+            );
+            // Esperar solo el ack 202 (trabajo largo sigue en after() del servidor).
+            const res = await fetch(
+              `/api/precalificaciones/${encodeURIComponent(created.id)}/auto-precalificar`,
+              {
+                method: "POST",
+                headers,
+                keepalive: true,
+                signal: AbortSignal.timeout(5_000),
+              },
+            );
+            console.log(
+              "[nueva] auto-precalificar ack",
+              created.id,
+              res.status,
+            );
+          } catch (err) {
+            console.error(
+              "[nueva] auto-precalificar ack falló",
+              created.id,
+              err,
+            );
+          }
         }
         setSuccessMsg(
           `Expediente creado correctamente (ID ${created.id.slice(0, 8)}…). ` +

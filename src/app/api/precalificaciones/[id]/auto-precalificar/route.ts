@@ -1,4 +1,5 @@
 import { createClient } from "@supabase/supabase-js";
+import { after } from "next/server";
 import { NextResponse } from "next/server";
 
 import {
@@ -56,6 +57,94 @@ function serviceClient() {
   });
 }
 
+/** Respuesta inmediata: el scraper corre en `after()`. */
+export function autoPrecalAcceptedResponse(expedienteId: string): NextResponse {
+  return NextResponse.json(
+    {
+      ok: true,
+      status: "accepted",
+      expediente_id: expedienteId,
+    },
+    { status: 202 },
+  );
+}
+
+export async function runAutoPrecalificarJob(input: {
+  expedienteId: string;
+  nss: string;
+  scraperUrl: string;
+  scraperSecret: string;
+}): Promise<void> {
+  const { expedienteId, nss, scraperUrl, scraperSecret } = input;
+  const supabase = serviceClient();
+
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), SCRAPER_TIMEOUT_MS);
+  let upstream: Response;
+  let payload: AutoPrecalScraperPayload;
+  try {
+    upstream = await fetch(`${scraperUrl.replace(/\/$/, "")}/precalificar`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "x-scraper-secret": scraperSecret,
+      },
+      body: JSON.stringify({ nss, workerIndex: 0 }),
+      signal: controller.signal,
+    });
+    payload = (await upstream.json()) as AutoPrecalScraperPayload;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+
+  const decision = decideAutoPrecalFromScraper(payload, upstream.ok);
+
+  if (decision.kind === "pending_error") {
+    console.error(
+      `[auto-precalificar] pending_error expediente_id=${expedienteId} nss=${nss} reason=${decision.reason}`,
+      { status: upstream.status, payload },
+    );
+    return;
+  }
+
+  if (decision.kind === "aprobado") {
+    const { error: rpcErr } = await supabase.rpc("auto_upsert_editor_decision", {
+      p_expediente_id: expedienteId,
+      p_decision: "aprobado",
+      p_monto_aprobado: decision.monto,
+      p_motivo: null,
+    });
+    if (rpcErr) {
+      console.error(
+        `[auto-precalificar] RPC aprobado falló expediente_id=${expedienteId} nss=${nss}`,
+        rpcErr.message,
+      );
+      return;
+    }
+    console.log(
+      `[auto-precalificar] aprobado expediente_id=${expedienteId} nss=${nss} monto=${decision.monto}`,
+    );
+    return;
+  }
+
+  const { error: rpcErr } = await supabase.rpc("auto_upsert_editor_decision", {
+    p_expediente_id: expedienteId,
+    p_decision: "no_cumple",
+    p_monto_aprobado: null,
+    p_motivo: "No calificó según consulta automática de Infonavit",
+  });
+  if (rpcErr) {
+    console.error(
+      `[auto-precalificar] RPC no_cumple falló expediente_id=${expedienteId} nss=${nss}`,
+      rpcErr.message,
+    );
+    return;
+  }
+  console.log(
+    `[auto-precalificar] no_cumple expediente_id=${expedienteId} nss=${nss}`,
+  );
+}
+
 export async function POST(request: Request, { params }: RouteParams) {
   const auth = await requireAuthenticatedUser(request);
   if (!auth.ok) return auth.response;
@@ -67,8 +156,6 @@ export async function POST(request: Request, { params }: RouteParams) {
       { status: 400 },
     );
   }
-
-  let nss: string | null = null;
 
   try {
     const supabase = serviceClient();
@@ -90,7 +177,7 @@ export async function POST(request: Request, { params }: RouteParams) {
         reason: "expediente_or_nss_not_found",
       });
     }
-    nss = String(exp.nss).trim();
+    const nss = String(exp.nss).trim();
 
     const scraperUrl = process.env.SCRAPER_SERVICE_URL?.trim();
     const scraperSecret = process.env.SCRAPER_SECRET?.trim();
@@ -105,88 +192,27 @@ export async function POST(request: Request, { params }: RouteParams) {
       });
     }
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), SCRAPER_TIMEOUT_MS);
-    let upstream: Response;
-    let payload: AutoPrecalScraperPayload;
-    try {
-      upstream = await fetch(`${scraperUrl.replace(/\/$/, "")}/precalificar`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-scraper-secret": scraperSecret,
-        },
-        body: JSON.stringify({ nss, workerIndex: 0 }),
-        signal: controller.signal,
-      });
-      payload = (await upstream.json()) as AutoPrecalScraperPayload;
-    } finally {
-      clearTimeout(timeoutId);
-    }
-
-    const decision = decideAutoPrecalFromScraper(payload, upstream.ok);
-
-    if (decision.kind === "pending_error") {
-      console.error(
-        `[auto-precalificar] pending_error expediente_id=${expedienteId} nss=${nss} reason=${decision.reason}`,
-        { status: upstream.status, payload },
-      );
-      return NextResponse.json({
-        ok: true,
-        status: "pending_error",
-        reason: decision.reason,
-      });
-    }
-
-    if (decision.kind === "aprobado") {
-      const { error: rpcErr } = await supabase.rpc(
-        "auto_upsert_editor_decision",
-        {
-          p_expediente_id: expedienteId,
-          p_decision: "aprobado",
-          p_monto_aprobado: decision.monto,
-          p_motivo: null,
-        },
-      );
-      if (rpcErr) {
+    after(() =>
+      runAutoPrecalificarJob({
+        expedienteId,
+        nss,
+        scraperUrl,
+        scraperSecret,
+      }).catch((err) => {
         console.error(
-          `[auto-precalificar] RPC aprobado falló expediente_id=${expedienteId} nss=${nss}`,
-          rpcErr.message,
+          `[auto-precalificar] job falló expediente_id=${expedienteId} nss=${nss}`,
+          err instanceof Error ? err.message : err,
         );
-        return NextResponse.json({
-          ok: true,
-          status: "pending_error",
-          reason: "rpc_failed",
-        });
-      }
-      return NextResponse.json({
-        ok: true,
-        status: "aprobado",
-        monto: decision.monto,
-      });
-    }
+      }),
+    );
 
-    const { error: rpcErr } = await supabase.rpc("auto_upsert_editor_decision", {
-      p_expediente_id: expedienteId,
-      p_decision: "no_cumple",
-      p_monto_aprobado: null,
-      p_motivo: "No calificó según consulta automática de Infonavit",
-    });
-    if (rpcErr) {
-      console.error(
-        `[auto-precalificar] RPC no_cumple falló expediente_id=${expedienteId} nss=${nss}`,
-        rpcErr.message,
-      );
-      return NextResponse.json({
-        ok: true,
-        status: "pending_error",
-        reason: "rpc_failed",
-      });
-    }
-    return NextResponse.json({ ok: true, status: "no_cumple" });
+    console.log(
+      `[auto-precalificar] accepted 202 expediente_id=${expedienteId} nss=${nss} user=${auth.userId}`,
+    );
+    return autoPrecalAcceptedResponse(expedienteId);
   } catch (err) {
     console.error(
-      `[auto-precalificar] fallo expediente_id=${expedienteId} nss=${nss ?? "?"}`,
+      `[auto-precalificar] fallo pre-ack expediente_id=${expedienteId}`,
       err instanceof Error ? err.message : err,
     );
     return NextResponse.json({
