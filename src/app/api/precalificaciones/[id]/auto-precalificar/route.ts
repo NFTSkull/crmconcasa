@@ -2,15 +2,10 @@ import { createClient } from "@supabase/supabase-js";
 import { after } from "next/server";
 import { NextResponse } from "next/server";
 
-import {
-  decideAutoPrecalFromScraper,
-  type AutoPrecalScraperPayload,
-} from "@/domain/expedientes/auto-precalificar-decision";
+import { runAutoPrecalificarJob } from "@/domain/expedientes/auto-precalificar-job";
 
 export const runtime = "nodejs";
 export const maxDuration = 180;
-
-const SCRAPER_TIMEOUT_MS = 150_000;
 
 type RouteParams = { params: Promise<{ id: string }> };
 
@@ -69,81 +64,8 @@ export function autoPrecalAcceptedResponse(expedienteId: string): NextResponse {
   );
 }
 
-export async function runAutoPrecalificarJob(input: {
-  expedienteId: string;
-  nss: string;
-  scraperUrl: string;
-  scraperSecret: string;
-}): Promise<void> {
-  const { expedienteId, nss, scraperUrl, scraperSecret } = input;
-  const supabase = serviceClient();
-
-  const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), SCRAPER_TIMEOUT_MS);
-  let upstream: Response;
-  let payload: AutoPrecalScraperPayload;
-  try {
-    upstream = await fetch(`${scraperUrl.replace(/\/$/, "")}/precalificar`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-scraper-secret": scraperSecret,
-      },
-      body: JSON.stringify({ nss, workerIndex: 0 }),
-      signal: controller.signal,
-    });
-    payload = (await upstream.json()) as AutoPrecalScraperPayload;
-  } finally {
-    clearTimeout(timeoutId);
-  }
-
-  const decision = decideAutoPrecalFromScraper(payload, upstream.ok);
-
-  if (decision.kind === "pending_error") {
-    console.error(
-      `[auto-precalificar] pending_error expediente_id=${expedienteId} nss=${nss} reason=${decision.reason}`,
-      { status: upstream.status, payload },
-    );
-    return;
-  }
-
-  if (decision.kind === "aprobado") {
-    const { error: rpcErr } = await supabase.rpc("auto_upsert_editor_decision", {
-      p_expediente_id: expedienteId,
-      p_decision: "aprobado",
-      p_monto_aprobado: decision.monto,
-      p_motivo: null,
-    });
-    if (rpcErr) {
-      console.error(
-        `[auto-precalificar] RPC aprobado falló expediente_id=${expedienteId} nss=${nss}`,
-        rpcErr.message,
-      );
-      return;
-    }
-    console.log(
-      `[auto-precalificar] aprobado expediente_id=${expedienteId} nss=${nss} monto=${decision.monto}`,
-    );
-    return;
-  }
-
-  const { error: rpcErr } = await supabase.rpc("auto_upsert_editor_decision", {
-    p_expediente_id: expedienteId,
-    p_decision: "no_cumple",
-    p_monto_aprobado: null,
-    p_motivo: decision.motivo,
-  });
-  if (rpcErr) {
-    console.error(
-      `[auto-precalificar] RPC no_cumple falló expediente_id=${expedienteId} nss=${nss}`,
-      rpcErr.message,
-    );
-    return;
-  }
-  console.log(
-    `[auto-precalificar] no_cumple expediente_id=${expedienteId} nss=${nss}`,
-  );
-}
+/** Re-export para callers/tests que importaban el job desde la route. */
+export { runAutoPrecalificarJob } from "@/domain/expedientes/auto-precalificar-job";
 
 export async function POST(request: Request, { params }: RouteParams) {
   const auth = await requireAuthenticatedUser(request);

@@ -48,7 +48,11 @@ export function decideAutoPrecalFromScraper(
     return { kind: "aprobado", monto };
   }
   if (payload.califica === false) {
-    return { kind: "no_cumple", motivo: MOTIVO_NO_CUMPLE_CALIFICA_FALSE };
+    const motivo =
+      typeof payload.mensaje === "string" && payload.mensaje.trim()
+        ? payload.mensaje
+        : MOTIVO_NO_CUMPLE_CALIFICA_FALSE;
+    return { kind: "no_cumple", motivo };
   }
   if (
     payload.success === false &&

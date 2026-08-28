@@ -25,11 +25,23 @@ describe("auto-precalificar decision mapping", () => {
     assert.deepEqual(d, { kind: "aprobado", monto: 38679.9 });
   });
 
-  it("califica false → no_cumple", () => {
+  it("califica false → no_cumple con mensaje del scraper", () => {
     const d = decideAutoPrecalFromScraper(
-      { califica: false, mensaje: "SIN APORTACIONES", nss: "1" } as never,
+      {
+        califica: false,
+        mensaje: "SIN RELACION LABORAL VIGENTE",
+        nss: "1",
+      } as never,
       true,
     );
+    assert.deepEqual(d, {
+      kind: "no_cumple",
+      motivo: "SIN RELACION LABORAL VIGENTE",
+    });
+  });
+
+  it("califica false sin mensaje → no_cumple con fallback genérico", () => {
+    const d = decideAutoPrecalFromScraper({ califica: false }, true);
     assert.deepEqual(d, {
       kind: "no_cumple",
       motivo: MOTIVO_NO_CUMPLE_CALIFICA_FALSE,
