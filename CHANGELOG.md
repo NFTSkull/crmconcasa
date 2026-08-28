@@ -20,7 +20,7 @@
 
 ## [Unreleased]
 
-- **feat(precalificacion): reintentos cron auto-precal** — tabla `auto_precal_intentos` (mig **214**); cada job registra resultado; `GET|POST /api/cron/reintentar-pendientes` con `CRON_SECRET`; solo `scraper_failed`, <3 intentos, ≥10 min, max 5 secuencial; cron `*/20`.
+- **feat(precalificacion): reintentos cron auto-precal** — tabla `auto_precal_intentos` (mig **214**); cada job registra resultado; `GET|POST /api/cron/reintentar-pendientes` con `CRON_SECRET`; solo `scraper_failed`, <3 intentos, ≥10 min, max 5 secuencial; cron `*/5` (cooldown reintento 10 min intacto).
 
 - **fix(precalificacion): califica:false usa mensaje del scraper** — `p_motivo` = keyword Infonavit (`SIN APORTACIONES`, etc.); fallback genérico si falta `mensaje`.
 

@@ -1,7 +1,7 @@
 ## 2026-08-28 - Auto-precal: reintentos cron + motivo keyword
 
 ### Decisión
-`califica:false` usa `payload.mensaje` (keyword scraper) con fallback genérico. Tabla `auto_precal_intentos` + cron Vercel cada 20 min (`CRON_SECRET`). Solo reintenta `pending_error`+`scraper_failed`; backlog sin intentos excluido.
+`califica:false` usa `payload.mensaje` (keyword scraper) con fallback genérico. Tabla `auto_precal_intentos` + cron Vercel cada 5 min (`CRON_SECRET`; cooldown reintento 10 min). Solo reintenta `pending_error`+`scraper_failed`; backlog sin intentos excluido.
 
 ## 2026-08-28 - Auto-precal: no_cumple_criterios es decisión real
 
