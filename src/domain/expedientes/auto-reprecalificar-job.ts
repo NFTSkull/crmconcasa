@@ -1,6 +1,7 @@
 /**
- * Job auto-reprecalificar: scraper + auto_resolver_reprecalificacion.
- * No muta el intento si el scraper falla o el payload es ambiguo.
+ * Job auto-reprecalificar: scraper + auto_resolver_reprecalificacion + registro.
+ * pending_error / scraper fallido → no llama RPC (intento sigue pendiente).
+ * Siempre inserta en auto_reprecal_intentos (cualquier desenlace).
  */
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
@@ -10,6 +11,7 @@ import {
 } from "@/domain/expedientes/auto-precalificar-decision";
 import {
   SCRAPER_TIMEOUT_MS,
+  type AutoPrecalIntentoResultado,
   type AutoPrecalJobResult,
 } from "@/domain/expedientes/auto-precalificar-job";
 
@@ -24,9 +26,28 @@ function serviceClient(): SupabaseClient {
   });
 }
 
+async function recordIntento(
+  supabase: SupabaseClient,
+  intentoId: string,
+  resultado: AutoPrecalIntentoResultado,
+  razon: string | null,
+): Promise<void> {
+  const { error } = await supabase.from("auto_reprecal_intentos").insert({
+    intento_id: intentoId,
+    resultado,
+    razon,
+  });
+  if (error) {
+    console.error(
+      `[auto-reprecalificar] insert intento falló intento_id=${intentoId}`,
+      error.message,
+    );
+  }
+}
+
 /**
  * Corre scraper + auto_resolver_reprecalificacion para un intento pendiente.
- * pending_error / scraper_failed → no llama RPC (intento sigue pendiente).
+ * Siempre intenta insertar en `auto_reprecal_intentos`.
  */
 export async function runAutoReprecalificarJob(input: {
   intentoId: string;
@@ -37,6 +58,9 @@ export async function runAutoReprecalificarJob(input: {
 }): Promise<AutoPrecalJobResult> {
   const { intentoId, nss, scraperUrl, scraperSecret } = input;
   const supabase = input.supabase ?? serviceClient();
+
+  let resultado: AutoPrecalIntentoResultado = "pending_error";
+  let razon: string | null = "scraper_failed";
 
   try {
     const controller = new AbortController();
@@ -61,14 +85,18 @@ export async function runAutoReprecalificarJob(input: {
     const decision = decideAutoPrecalFromScraper(payload, upstream.ok);
 
     if (decision.kind === "pending_error") {
+      resultado = "pending_error";
+      razon = decision.reason;
       console.error(
         `[auto-reprecalificar] pending_error intento_id=${intentoId} nss=${nss} reason=${decision.reason}`,
         { status: upstream.status, payload },
       );
-      return { resultado: "pending_error", razon: decision.reason };
+      return { resultado, razon };
     }
 
     if (decision.kind === "aprobado") {
+      resultado = "aprobado";
+      razon = null;
       const { error: rpcErr } = await supabase.rpc(
         "auto_resolver_reprecalificacion",
         {
@@ -87,14 +115,18 @@ export async function runAutoReprecalificarJob(input: {
           `[auto-reprecalificar] RPC aprobado falló intento_id=${intentoId} nss=${nss}`,
           rpcErr.message,
         );
-        return { resultado: "pending_error", razon: "rpc_failed" };
+        resultado = "pending_error";
+        razon = "rpc_failed";
+        return { resultado, razon };
       }
       console.log(
         `[auto-reprecalificar] aprobado intento_id=${intentoId} nss=${nss} monto=${decision.monto}`,
       );
-      return { resultado: "aprobado", razon: null };
+      return { resultado, razon };
     }
 
+    resultado = "no_cumple";
+    razon = null;
     const { error: rpcErr } = await supabase.rpc(
       "auto_resolver_reprecalificacion",
       {
@@ -109,17 +141,23 @@ export async function runAutoReprecalificarJob(input: {
         `[auto-reprecalificar] RPC no_cumple falló intento_id=${intentoId} nss=${nss}`,
         rpcErr.message,
       );
-      return { resultado: "pending_error", razon: "rpc_failed" };
+      resultado = "pending_error";
+      razon = "rpc_failed";
+      return { resultado, razon };
     }
     console.log(
       `[auto-reprecalificar] no_cumple intento_id=${intentoId} nss=${nss}`,
     );
-    return { resultado: "no_cumple", razon: null };
+    return { resultado, razon };
   } catch (err) {
+    resultado = "pending_error";
+    razon = "scraper_failed";
     console.error(
       `[auto-reprecalificar] job excepción intento_id=${intentoId} nss=${nss}`,
       err instanceof Error ? err.message : err,
     );
-    return { resultado: "pending_error", razon: "scraper_failed" };
+    return { resultado, razon };
+  } finally {
+    await recordIntento(supabase, intentoId, resultado, razon);
   }
 }

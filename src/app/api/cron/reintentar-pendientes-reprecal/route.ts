@@ -2,11 +2,11 @@ import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 
 import {
-  AUTO_PRECAL_RETRY_LIMIT,
-  selectAutoPrecalRetryCandidates,
-  type AutoPrecalIntentoRow,
-} from "@/domain/expedientes/auto-precal-retry";
-import { runAutoPrecalificarJob } from "@/domain/expedientes/auto-precalificar-job";
+  AUTO_REPRECAL_RETRY_LIMIT,
+  selectAutoReprecalRetryCandidates,
+  type AutoReprecalIntentoRow,
+} from "@/domain/expedientes/auto-reprecal-retry";
+import { runAutoReprecalificarJob } from "@/domain/expedientes/auto-reprecalificar-job";
 
 export const runtime = "nodejs";
 /** Hasta 2 jobs × SCRAPER_TIMEOUT_MS(150s) = 300s; cabe en maxDuration default. */
@@ -25,7 +25,7 @@ function serviceClient() {
 
 /**
  * Auth estilo worker Sheets + Vercel Cron:
- * - Header `x-cron-secret: <CRON_SECRET>` (mismo espíritu que `x-concasa-worker-secret`)
+ * - Header `x-cron-secret: <CRON_SECRET>`
  * - o `Authorization: Bearer <CRON_SECRET>` (convención Vercel Cron)
  */
 export function isAuthorizedCron(request: Request): boolean {
@@ -41,7 +41,9 @@ export function isAuthorizedCron(request: Request): boolean {
   return Boolean(bearer) && bearer === secret;
 }
 
-async function handleRetryPendientes(request: Request): Promise<NextResponse> {
+async function handleRetryPendientesReprecal(
+  request: Request,
+): Promise<NextResponse> {
   if (!isAuthorizedCron(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
@@ -58,38 +60,32 @@ async function handleRetryPendientes(request: Request): Promise<NextResponse> {
   const supabase = serviceClient();
 
   const { data: pendingRows, error: pendingErr } = await supabase
-    .from("editor_decisions")
-    .select("expediente_id, expedientes!inner(id, nss, deleted_at)")
-    .eq("decision", "pendiente")
-    .is("expedientes.deleted_at", null);
+    .from("expediente_precalificacion_intentos")
+    .select("id, nss")
+    .eq("decision", "pendiente");
 
   if (pendingErr) {
-    console.error("[cron/reintentar-pendientes] pending query", pendingErr.message);
+    console.error(
+      "[cron/reintentar-pendientes-reprecal] pending query",
+      pendingErr.message,
+    );
     return NextResponse.json(
       { ok: false, error: "pending_query_failed" },
       { status: 500 },
     );
   }
 
-  type PendingJoin = {
-    expediente_id: string;
-    expedientes:
-      | { id: string; nss: string | null; deleted_at: string | null }
-      | { id: string; nss: string | null; deleted_at: string | null }[]
-      | null;
-  };
-
-  const pendingList = (pendingRows ?? []) as PendingJoin[];
+  type PendingRow = { id: string; nss: string | null };
+  const pendingList = (pendingRows ?? []) as PendingRow[];
   const pendingIds: string[] = [];
   const nssById = new Map<string, string>();
 
   for (const row of pendingList) {
-    const exp = Array.isArray(row.expedientes)
-      ? row.expedientes[0]
-      : row.expedientes;
-    if (!exp?.id || !exp.nss) continue;
-    pendingIds.push(exp.id);
-    nssById.set(exp.id, String(exp.nss).trim());
+    if (!row?.id || !row.nss) continue;
+    const nss = String(row.nss).trim();
+    if (!nss) continue;
+    pendingIds.push(row.id);
+    nssById.set(row.id, nss);
   }
 
   if (pendingIds.length === 0) {
@@ -101,15 +97,14 @@ async function handleRetryPendientes(request: Request): Promise<NextResponse> {
     });
   }
 
-  // Solo intentos de expedientes pendientes (no backlog masivo).
   const { data: intentoRows, error: intentosErr } = await supabase
-    .from("auto_precal_intentos")
-    .select("expediente_id, intentado_en, resultado, razon")
-    .in("expediente_id", pendingIds);
+    .from("auto_reprecal_intentos")
+    .select("intento_id, intentado_en, resultado, razon")
+    .in("intento_id", pendingIds);
 
   if (intentosErr) {
     console.error(
-      "[cron/reintentar-pendientes] intentos query",
+      "[cron/reintentar-pendientes-reprecal] intentos query",
       intentosErr.message,
     );
     return NextResponse.json(
@@ -118,36 +113,36 @@ async function handleRetryPendientes(request: Request): Promise<NextResponse> {
     );
   }
 
-  const intentos = (intentoRows ?? []) as AutoPrecalIntentoRow[];
-  const candidateIds = selectAutoPrecalRetryCandidates({
-    pendingExpedienteIds: pendingIds,
+  const intentos = (intentoRows ?? []) as AutoReprecalIntentoRow[];
+  const candidateIds = selectAutoReprecalRetryCandidates({
+    pendingIntentoIds: pendingIds,
     intentos,
-    limit: AUTO_PRECAL_RETRY_LIMIT,
+    limit: AUTO_REPRECAL_RETRY_LIMIT,
   });
 
   console.log(
-    `[cron/reintentar-pendientes] candidates=${candidateIds.length} pending=${pendingIds.length}`,
+    `[cron/reintentar-pendientes-reprecal] candidates=${candidateIds.length} pending=${pendingIds.length}`,
   );
 
   const results: {
-    expediente_id: string;
+    intento_id: string;
     resultado: string;
     razon: string | null;
   }[] = [];
 
   // SECUENCIAL: nunca Promise.all (cada job ~30–45s / hasta timeout scraper).
-  for (const expedienteId of candidateIds) {
-    const nss = nssById.get(expedienteId);
+  for (const intentoId of candidateIds) {
+    const nss = nssById.get(intentoId);
     if (!nss) continue;
-    const outcome = await runAutoPrecalificarJob({
-      expedienteId,
+    const outcome = await runAutoReprecalificarJob({
+      intentoId,
       nss,
       scraperUrl,
       scraperSecret,
       supabase,
     });
     results.push({
-      expediente_id: expedienteId,
+      intento_id: intentoId,
       resultado: outcome.resultado,
       razon: outcome.razon,
     });
@@ -163,10 +158,10 @@ async function handleRetryPendientes(request: Request): Promise<NextResponse> {
 
 /** Vercel Cron invoca GET. */
 export async function GET(request: Request) {
-  return handleRetryPendientes(request);
+  return handleRetryPendientesReprecal(request);
 }
 
 /** Permite disparo manual con el mismo secreto. */
 export async function POST(request: Request) {
-  return handleRetryPendientes(request);
+  return handleRetryPendientesReprecal(request);
 }

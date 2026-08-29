@@ -110,8 +110,8 @@ Universo del gate (P169): `organization_id` + NSS + `deleted_at IS NULL` + `cicl
 **HTTP re-precal path (P216):** `POST /api/precalificaciones/reprecalificacion/[intentoId]/auto-precalificar`  
 - Auth: Bearer JWT (asesor). Responde **202** `{ ok, status:"accepted", intento_id }`; scraper en `after()`.  
 - Lee `expediente_precalificacion_intentos.nss` (service role).  
-- Job: `runAutoReprecalificarJob` → mismo mapeo scraper → `auto_resolver_reprecalificacion` (mig **216**, solo `service_role`) si mapeo conocido.  
-- `pending_error` / scraper fallido: **no** llama RPC; el intento sigue `pendiente` (revisión humana o reintento).  
+- Job: `runAutoReprecalificarJob` → mismo mapeo scraper → `auto_resolver_reprecalificacion` (mig **216**, solo `service_role`) si mapeo conocido; **siempre** inserta `auto_reprecal_intentos` (mig **217**).  
+- `pending_error` / scraper fallido: **no** llama RPC; el intento sigue `pendiente` (revisión humana o reintento cron).  
 - Disparo fire-and-forget tras `asesor_iniciar_reprecalificacion` exitoso (`/asesor/nueva` confirm + `AsesorReprecalificacionActions`).
 
 **Mapeo scraper → decisión:**
@@ -120,15 +120,22 @@ Universo del gate (P169): `organization_id` + NSS + `deleted_at IS NULL` + `cicl
 - `success:false` + `razon=no_cumple_criterios` + `mensaje` string → `no_cumple` (`p_motivo` = mensaje exacto)
 - resto → `pending_error` (sin mutar `editor_decisions` / sin resolver intento)
 
-**Tabla:** `auto_precal_intentos` (mig **214**) — `expediente_id`, `intentado_en`, `resultado` ∈ `aprobado|no_cumple|pending_error`, `razon` nullable. Solo `service_role`. (Usada por el path de alta; el path reprecal no la exige.)
+**Tabla altas:** `auto_precal_intentos` (mig **214**) — `expediente_id`, `intentado_en`, `resultado` ∈ `aprobado|no_cumple|pending_error`, `razon` nullable. Solo `service_role`.
 
-**Cron:** `GET|POST /api/cron/reintentar-pendientes`  
+**Tabla reprecal:** `auto_reprecal_intentos` (mig **217**) — `intento_id` → `expediente_precalificacion_intentos(id)`, `intentado_en`, `resultado` ∈ `aprobado|no_cumple|pending_error`, `razon` nullable. Solo `service_role`.
+
+**Cron altas:** `GET|POST /api/cron/reintentar-pendientes`  
 - Auth: header `x-cron-secret: $CRON_SECRET` **o** `Authorization: Bearer $CRON_SECRET` (Vercel Cron). 401 si no coincide.  
 - Candidatos: `editor_decisions.decision='pendiente'` **y** ≥1 fila `auto_precal_intentos` con `resultado='pending_error'` + `razon='scraper_failed'` (excluye backlog sin auto-precal y excluye solo-`ambiguous_payload`).  
 - Excluye si último intento < 5 min (sin tope de intentos totales; `ambiguous_payload` solo no entra).  
-- Max **5** por run, **secuencial** (`await` en for; nunca `Promise.all`).  
+- Max **2** por run, **secuencial** (`await` en for; nunca `Promise.all`).  
 - Schedule: `vercel.json` `*/5 * * * *` (chequeo; cooldown reintento 5 min).
-- **Nota:** el cron actual cubre altas (`auto_upsert`); no reintenta intentos de reprecal P216.
+
+**Cron reprecal (P217):** `GET|POST /api/cron/reintentar-pendientes-reprecal`  
+- Misma auth `CRON_SECRET`.  
+- Candidatos: `expediente_precalificacion_intentos.decision='pendiente'` **y** ≥1 fila `auto_reprecal_intentos` con `resultado='pending_error'` + `razon='scraper_failed'`.  
+- Cooldown ≥5 min, sin tope de intentos, max **2** secuencial.  
+- Schedule: `vercel.json` `*/5 * * * *` (mismo ritmo que altas; tablas/archivos separados).
 
 ---
 
