@@ -20,6 +20,8 @@
 
 ## [Unreleased]
 
+- **feat(precalificacion): auto-reprecalificar Infonavit (P216)** — `POST /api/precalificaciones/reprecalificacion/[intentoId]/auto-precalificar` (202 + `after()`); RPC `auto_resolver_reprecalificacion` (service_role); disparo tras `iniciarReprecalificacion` en `/asesor/nueva` y detalle. Mig **216**.
+
 - **chore(precalificacion): reintentos cron ilimitados para scraper_failed** — quita tope de intentos totales; cooldown 5 min, batch 5/run y exclusión de `ambiguous_payload` intactos.
 
 - **chore(precalificacion): cooldown reintentos cron 10→5 min** — `AUTO_PRECAL_RETRY_MIN_AGE_MS` a 5 min; tope de intentos y batch por run intactos.

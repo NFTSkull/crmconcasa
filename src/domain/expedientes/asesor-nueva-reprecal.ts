@@ -138,7 +138,7 @@ export function iniciarPayloadFromNuevaForm(
 }
 
 export type ExecuteNuevaReprecalResult =
-  | { ok: true; expedienteId: string }
+  | { ok: true; expedienteId: string; intentoId: string }
   | { ok: false; reason: "in_flight" }
   | { ok: false; reason: "gate"; message: string }
   | { ok: false; reason: "rpc"; error: unknown };
@@ -154,7 +154,7 @@ export async function executeNuevaReprecalConfirm(input: {
   ) => Promise<NssPrecalGateResult>;
   iniciar: (
     payload: IniciarReprecalificacionInput,
-  ) => Promise<{ expediente_id?: string } | unknown>;
+  ) => Promise<{ expediente_id?: string; intento_id?: string } | unknown>;
 }): Promise<ExecuteNuevaReprecalResult> {
   if (!input.guard.begin()) {
     return { ok: false, reason: "in_flight" };
@@ -170,11 +170,29 @@ export async function executeNuevaReprecalConfirm(input: {
       return { ok: false, reason: "gate", message: gateErr };
     }
     const idempotencyKey = input.guard.getIdempotencyKey();
-    await input.iniciar(
+    const started = await input.iniciar(
       iniciarPayloadFromNuevaForm(input.form, idempotencyKey),
     );
     input.guard.clearKey();
-    return { ok: true, expedienteId: input.firstExpedienteId };
+    const intentoId =
+      started &&
+      typeof started === "object" &&
+      "intento_id" in started &&
+      typeof (started as { intento_id?: unknown }).intento_id === "string"
+        ? String((started as { intento_id: string }).intento_id).trim()
+        : "";
+    if (!intentoId) {
+      return {
+        ok: false,
+        reason: "rpc",
+        error: new Error("iniciarReprecalificacion no devolvió intento_id"),
+      };
+    }
+    return {
+      ok: true,
+      expedienteId: input.firstExpedienteId,
+      intentoId,
+    };
   } catch (error) {
     return { ok: false, reason: "rpc", error };
   } finally {
