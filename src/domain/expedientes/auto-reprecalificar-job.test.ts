@@ -4,16 +4,26 @@ import { afterEach, describe, it } from "node:test";
 import { runAutoReprecalificarJob } from "./auto-reprecalificar-job";
 
 type RpcCall = { fn: string; args: Record<string, unknown> };
+type InsertCall = { table: string; row: Record<string, unknown> };
 
 function mockSupabase() {
   const rpcCalls: RpcCall[] = [];
+  const inserts: InsertCall[] = [];
   const supabase = {
     rpc(fn: string, args: Record<string, unknown>) {
       rpcCalls.push({ fn, args });
       return Promise.resolve({ error: null, data: null });
     },
+    from(table: string) {
+      return {
+        insert(row: Record<string, unknown>) {
+          inserts.push({ table, row });
+          return Promise.resolve({ error: null });
+        },
+      };
+    },
   };
-  return { supabase, rpcCalls };
+  return { supabase, rpcCalls, inserts };
 }
 
 describe("runAutoReprecalificarJob", () => {
@@ -24,7 +34,7 @@ describe("runAutoReprecalificarJob", () => {
     globalThis.fetch = originalFetch;
   });
 
-  it("aprobado llama auto_resolver_reprecalificacion con Infonavit", async () => {
+  it("aprobado llama auto_resolver_reprecalificacion con Infonavit y registra intento", async () => {
     globalThis.fetch = (async () =>
       new Response(
         JSON.stringify({
@@ -38,7 +48,7 @@ describe("runAutoReprecalificarJob", () => {
         { status: 200, headers: { "Content-Type": "application/json" } },
       )) as typeof fetch;
 
-    const { supabase, rpcCalls } = mockSupabase();
+    const { supabase, rpcCalls, inserts } = mockSupabase();
     const result = await runAutoReprecalificarJob({
       intentoId,
       nss: "12345678901",
@@ -60,9 +70,16 @@ describe("runAutoReprecalificarJob", () => {
       p_empresa: "ACME SA",
       p_advertencia_inscripcion: null,
     });
+    assert.equal(inserts.length, 1);
+    assert.equal(inserts[0]?.table, "auto_reprecal_intentos");
+    assert.deepEqual(inserts[0]?.row, {
+      intento_id: intentoId,
+      resultado: "aprobado",
+      razon: null,
+    });
   });
 
-  it("no_cumple llama RPC sin campos Infonavit", async () => {
+  it("no_cumple llama RPC sin campos Infonavit y registra intento", async () => {
     globalThis.fetch = (async () =>
       new Response(
         JSON.stringify({
@@ -73,7 +90,7 @@ describe("runAutoReprecalificarJob", () => {
         { status: 200, headers: { "Content-Type": "application/json" } },
       )) as typeof fetch;
 
-    const { supabase, rpcCalls } = mockSupabase();
+    const { supabase, rpcCalls, inserts } = mockSupabase();
     await runAutoReprecalificarJob({
       intentoId,
       nss: "12345678901",
@@ -89,16 +106,21 @@ describe("runAutoReprecalificarJob", () => {
       p_monto_aprobado: null,
       p_motivo: "SIN APORTACIONES",
     });
+    assert.deepEqual(inserts[0]?.row, {
+      intento_id: intentoId,
+      resultado: "no_cumple",
+      razon: null,
+    });
   });
 
-  it("pending_error no llama RPC", async () => {
+  it("pending_error no llama RPC pero sí registra intento", async () => {
     globalThis.fetch = (async () =>
       new Response(JSON.stringify({ success: false, error: "timeout" }), {
         status: 500,
         headers: { "Content-Type": "application/json" },
       })) as typeof fetch;
 
-    const { supabase, rpcCalls } = mockSupabase();
+    const { supabase, rpcCalls, inserts } = mockSupabase();
     const result = await runAutoReprecalificarJob({
       intentoId,
       nss: "12345678901",
@@ -112,5 +134,11 @@ describe("runAutoReprecalificarJob", () => {
       razon: "scraper_failed",
     });
     assert.equal(rpcCalls.length, 0);
+    assert.equal(inserts.length, 1);
+    assert.deepEqual(inserts[0]?.row, {
+      intento_id: intentoId,
+      resultado: "pending_error",
+      razon: "scraper_failed",
+    });
   });
 });

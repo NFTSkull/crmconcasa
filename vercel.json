@@ -4,6 +4,10 @@
     {
       "path": "/api/cron/reintentar-pendientes",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/cron/reintentar-pendientes-reprecal",
+      "schedule": "*/5 * * * *"
     }
   ]
 }

@@ -1,3 +1,8 @@
+## 2026-08-29 - Auto-reprecal: reintentos cron + tabla de seguimiento (P217)
+
+### Decisión
+Misma política que altas (P214/cron) pero tablas/archivos separados: `auto_reprecal_intentos` keyed por `intento_id` (no reusa `auto_precal_intentos`). `runAutoReprecalificarJob` siempre registra corrida. Cron dedicado `/api/cron/reintentar-pendientes-reprecal` (`*/5`) con filtro `pendiente` + `scraper_failed`, cooldown 5 min, batch **2** (2×150s ≤ `maxDuration` 300; evita encimar corridas), sin tope.
+
 ## 2026-08-29 - Auto-reprecalificar Infonavit (P216)
 
 ### Decisión

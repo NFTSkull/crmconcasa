@@ -20,9 +20,11 @@
 
 ## [Unreleased]
 
+- **feat(precalificacion): reintentos cron auto-reprecal (P217)** — tabla `auto_reprecal_intentos`; job registra cada corrida; `GET|POST /api/cron/reintentar-pendientes-reprecal` con `CRON_SECRET`; mismos criterios que altas (`scraper_failed`, ≥5 min, sin tope, max **2** secuencial); cron `*/5`. No toca `auto_precal_intentos`. Batch altas también a **2** (2×150s ≤ `maxDuration` 300 / ventana cron).
+
 - **feat(precalificacion): auto-reprecalificar Infonavit (P216)** — `POST /api/precalificaciones/reprecalificacion/[intentoId]/auto-precalificar` (202 + `after()`); RPC `auto_resolver_reprecalificacion` (service_role); disparo tras `iniciarReprecalificacion` en `/asesor/nueva` y detalle. Mig **216**.
 
-- **chore(precalificacion): reintentos cron ilimitados para scraper_failed** — quita tope de intentos totales; cooldown 5 min, batch 5/run y exclusión de `ambiguous_payload` intactos.
+- **chore(precalificacion): reintentos cron ilimitados para scraper_failed** — quita tope de intentos totales; cooldown 5 min, batch por run y exclusión de `ambiguous_payload` intactos.
 
 - **chore(precalificacion): cooldown reintentos cron 10→5 min** — `AUTO_PRECAL_RETRY_MIN_AGE_MS` a 5 min; tope de intentos y batch por run intactos.
 
@@ -30,7 +32,7 @@
 
 - **feat(asesor): autofill Datos Generales desde editor_decisions Infonavit** — pre-llena `rfc`, `registroPatronal`, `empresa` solo si vacíos al hidratar; banner amber si `advertencia_inscripcion`.
 
-- **feat(precalificacion): reintentos cron auto-precal** — tabla `auto_precal_intentos` (mig **214**); cada job registra resultado; `GET|POST /api/cron/reintentar-pendientes` con `CRON_SECRET`; solo `scraper_failed`, sin tope de intentos, ≥5 min, max 5 secuencial; cron `*/5`.
+- **feat(precalificacion): reintentos cron auto-precal** — tabla `auto_precal_intentos` (mig **214**); cada job registra resultado; `GET|POST /api/cron/reintentar-pendientes` con `CRON_SECRET`; solo `scraper_failed`, sin tope de intentos, ≥5 min, max **2** secuencial; cron `*/5`.
 
 - **fix(precalificacion): califica:false usa mensaje del scraper** — `p_motivo` = keyword Infonavit (`SIN APORTACIONES`, etc.); fallback genérico si falta `mensaje`.
 
