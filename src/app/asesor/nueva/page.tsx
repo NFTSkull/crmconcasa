@@ -22,6 +22,7 @@ import {
   type NuevaReprecalSubmitGuard,
 } from "@/domain/expedientes/asesor-nueva-reprecal";
 import type { ReprecalUiMode } from "@/domain/expedientes/asesor-reprecal-flow";
+import { fireAutoReprecalificarAck } from "@/domain/expedientes/fire-auto-reprecalificar-ack";
 import type { NssPrecalGateResult } from "@/domain/expedientes/nss-precal-gate";
 import { validateCreatePrecalificacion } from "@/domain/precalificaciones/validators";
 import { isDataModeSupabase } from "@/lib/dataMode";
@@ -120,6 +121,16 @@ export default function NuevaPrecalificacionPage() {
           setErrorMsg("No se pudo enviar la precalificación.");
         }
         return;
+      }
+      try {
+        const session = (await supabaseBrowser?.auth.getSession())?.data
+          .session;
+        await fireAutoReprecalificarAck({
+          intentoId: result.intentoId,
+          accessToken: session?.access_token,
+        });
+      } catch {
+        /* ack no bloquea redirect */
       }
       setSuccessMsg(
         confirm.mode === "change_programa"

@@ -54,6 +54,8 @@ describe("P164 UI montaje reprecal detalle / editor / nueva", () => {
   it("nueva precal y cambio convergen en lookupNssPrecalGate + iniciarReprecalificacion", () => {
     assert.match(actions, /lookupNssPrecalGate/);
     assert.match(actions, /iniciarReprecalificacion/);
+    assert.match(actions, /fireAutoReprecalificarAck/);
+    assert.match(nueva, /fireAutoReprecalificarAck/);
     assert.doesNotMatch(actions, /createExpediente/);
     assert.doesNotMatch(actions, /cambiarPrograma\b/);
     assert.doesNotMatch(actions, /iniciarCambioPrograma/);

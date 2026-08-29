@@ -59,10 +59,11 @@ Convenciones:
 
 ## 1bis. Re-precalificar NSS propio activo (P155 / P168 / P169)
 
-**RPCs:** `asesor_lookup_nss_precal_gate` · `asesor_iniciar_reprecalificacion` · `editor_resolver_reprecalificacion` (también vía `upsert_editor_decision` si hay `reprecalificacion_pendiente_id`)
+**RPCs:** `asesor_lookup_nss_precal_gate` · `asesor_iniciar_reprecalificacion` · `editor_resolver_reprecalificacion` (también vía `upsert_editor_decision` si hay `reprecalificacion_pendiente_id`) · `auto_resolver_reprecalificacion` (P216, solo `service_role`, automatización)
 
 **Rol lookup/iniciar:** solo `asesor` autenticado (`auth.uid()` = dueño del expediente).
-**Rol resolver:** `editor` | `super_admin`.
+**Rol resolver manual:** `editor` | `super_admin`.
+**Rol resolver auto:** sistema (`service_role` → perfil automatización).
 
 ### Fuente de verdad
 | Concepto | Dónde |
@@ -106,13 +107,20 @@ Universo del gate (P169): `organization_id` + NSS + `deleted_at IS NULL` + `cicl
 - Auth: Bearer JWT (asesor). Responde **202** `{ ok, status:"accepted", expediente_id }`; scraper en `after()`.  
 - Job: `runAutoPrecalificarJob` (domain) → scraper `SCRAPER_*` → `auto_upsert_editor_decision` si mapeo conocido; siempre inserta `auto_precal_intentos`.
 
+**HTTP re-precal path (P216):** `POST /api/precalificaciones/reprecalificacion/[intentoId]/auto-precalificar`  
+- Auth: Bearer JWT (asesor). Responde **202** `{ ok, status:"accepted", intento_id }`; scraper en `after()`.  
+- Lee `expediente_precalificacion_intentos.nss` (service role).  
+- Job: `runAutoReprecalificarJob` → mismo mapeo scraper → `auto_resolver_reprecalificacion` (mig **216**, solo `service_role`) si mapeo conocido.  
+- `pending_error` / scraper fallido: **no** llama RPC; el intento sigue `pendiente` (revisión humana o reintento).  
+- Disparo fire-and-forget tras `asesor_iniciar_reprecalificacion` exitoso (`/asesor/nueva` confirm + `AsesorReprecalificacionActions`).
+
 **Mapeo scraper → decisión:**
 - `califica===true` + saldo → `aprobado`
 - `califica===false` → `no_cumple` (`p_motivo` = `mensaje` keyword o fallback genérico)
 - `success:false` + `razon=no_cumple_criterios` + `mensaje` string → `no_cumple` (`p_motivo` = mensaje exacto)
-- resto → `pending_error` (sin mutar `editor_decisions`)
+- resto → `pending_error` (sin mutar `editor_decisions` / sin resolver intento)
 
-**Tabla:** `auto_precal_intentos` (mig **214**) — `expediente_id`, `intentado_en`, `resultado` ∈ `aprobado|no_cumple|pending_error`, `razon` nullable. Solo `service_role`.
+**Tabla:** `auto_precal_intentos` (mig **214**) — `expediente_id`, `intentado_en`, `resultado` ∈ `aprobado|no_cumple|pending_error`, `razon` nullable. Solo `service_role`. (Usada por el path de alta; el path reprecal no la exige.)
 
 **Cron:** `GET|POST /api/cron/reintentar-pendientes`  
 - Auth: header `x-cron-secret: $CRON_SECRET` **o** `Authorization: Bearer $CRON_SECRET` (Vercel Cron). 401 si no coincide.  
@@ -120,6 +128,7 @@ Universo del gate (P169): `organization_id` + NSS + `deleted_at IS NULL` + `cicl
 - Excluye si último intento < 5 min (sin tope de intentos totales; `ambiguous_payload` solo no entra).  
 - Max **5** por run, **secuencial** (`await` en for; nunca `Promise.all`).  
 - Schedule: `vercel.json` `*/5 * * * *` (chequeo; cooldown reintento 5 min).
+- **Nota:** el cron actual cubre altas (`auto_upsert`); no reintenta intentos de reprecal P216.
 
 ---
 

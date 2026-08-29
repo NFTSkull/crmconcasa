@@ -1,3 +1,8 @@
+## 2026-08-29 - Auto-reprecalificar Infonavit (P216)
+
+### Decisión
+Tras `asesor_iniciar_reprecalificacion`, fire-and-forget a endpoint por `intento_id` (mismo patrón 202/`after()` que el alta). Job reusa mapeo scraper; RPC nueva `auto_resolver_reprecalificacion` (service_role, actor sistema) espeja `editor_resolver` (permite post-Mesa; `no_cumple` no pisa vigente) y acepta campos Infonavit en aprobado. Fallo/ambiguo no llama RPC → intento queda pendiente para editor.
+
 ## 2026-08-29 - Auto-precal: reintentos cron ilimitados (scraper_failed)
 
 ### Decisión

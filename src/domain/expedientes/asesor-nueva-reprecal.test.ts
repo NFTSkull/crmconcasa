@@ -19,6 +19,7 @@ import {
 
 const EXP_A = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa";
 const EXP_B = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb";
+const INT_A = "dddddddd-dddd-4ddd-8ddd-dddddddddddd";
 
 function gate(
   partial: Partial<NssPrecalGateResult> & Pick<NssPrecalGateResult, "status">,
@@ -69,11 +70,15 @@ describe("P181 /asesor/nueva reprecal propio", () => {
       },
       iniciar: async (payload) => {
         inicios.push(payload.idempotency_key);
-        return { expediente_id: EXP_A };
+        return { expediente_id: EXP_A, intento_id: INT_A };
       },
     });
     void creates;
-    assert.deepEqual(result, { ok: true, expedienteId: EXP_A });
+    assert.deepEqual(result, {
+      ok: true,
+      expedienteId: EXP_A,
+      intentoId: INT_A,
+    });
     assert.equal(lookups.length, 1);
     assert.equal(inicios.length, 1);
     assert.equal(creates.length, 0);
@@ -104,7 +109,7 @@ describe("P181 /asesor/nueva reprecal propio", () => {
       },
       iniciar: async () => {
         iniciarCalls += 1;
-        return {};
+        return { expediente_id: EXP_A, intento_id: INT_A };
       },
     });
     const second = await executeNuevaReprecalConfirm({
@@ -118,7 +123,7 @@ describe("P181 /asesor/nueva reprecal propio", () => {
       },
       iniciar: async () => {
         iniciarCalls += 1;
-        return {};
+        return { expediente_id: EXP_A, intento_id: INT_A };
       },
     });
     assert.deepEqual(second, { ok: false, reason: "in_flight" });
@@ -152,7 +157,7 @@ describe("P181 /asesor/nueva reprecal propio", () => {
         }),
       iniciar: async () => {
         iniciar += 1;
-        return {};
+        return { expediente_id: EXP_A, intento_id: INT_A };
       },
     });
     assert.equal(result.ok, true);
@@ -192,7 +197,7 @@ describe("P181 /asesor/nueva reprecal propio", () => {
       lookup: async () => gate({ status: "reprecal_change_programa" }),
       iniciar: async () => {
         iniciar += 1;
-        return {};
+        return { expediente_id: EXP_A, intento_id: INT_A };
       },
     });
     assert.equal(result.ok, true);

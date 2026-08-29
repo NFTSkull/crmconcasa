@@ -12,8 +12,10 @@ import {
 } from "@/domain/expedientes/asesor-reprecal-flow";
 import type { ExpedienteProgramaUi } from "@/domain/expedientes/create-expediente.input";
 import { newReprecalIdempotencyKey } from "@/domain/expedientes/reprecal-idempotency";
+import { fireAutoReprecalificarAck } from "@/domain/expedientes/fire-auto-reprecalificar-ack";
 import { ExpedientesSupabaseError } from "@/domain/expedientes/supabase.error";
 import { useExpedientesRepo } from "@/domain/expedientes";
+import { supabaseBrowser } from "@/lib/supabaseBrowser";
 
 export type AsesorReprecalificacionActionsProps = {
   expedienteId: string;
@@ -133,6 +135,16 @@ export function AsesorReprecalificacionActions({
         idempotency_key: idempotencyKeyRef.current,
       });
       idempotencyKeyRef.current = null;
+      try {
+        const session = (await supabaseBrowser?.auth.getSession())?.data
+          .session;
+        await fireAutoReprecalificarAck({
+          intentoId: result.intento_id,
+          accessToken: session?.access_token,
+        });
+      } catch {
+        /* ack no bloquea UI */
+      }
       setDialog(null);
       setNuevoPrograma("");
       setSuccessMsg(
@@ -140,7 +152,6 @@ export function AsesorReprecalificacionActions({
           ? "Cambio de programa enviado al Editor. El programa y monto vigentes no cambian hasta que apruebe."
           : "Nueva precalificación enviada al Editor. El monto vigente se conserva hasta que termine la revisión.",
       );
-      void result;
       await onCompleted();
     } catch (err) {
       if (err instanceof ExpedientesSupabaseError) {
