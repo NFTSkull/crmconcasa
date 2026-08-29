@@ -41,7 +41,7 @@ describe("selectAutoPrecalRetryCandidates", () => {
     assert.deepEqual(ids, []);
   });
 
-  it("incluye pendiente con scraper_failed, <3 intentos, último ≥5 min", () => {
+  it("incluye pendiente con scraper_failed, último ≥5 min", () => {
     const ids = selectAutoPrecalRetryCandidates({
       pendingExpedienteIds: ["aaaa"],
       intentos: [intento("aaaa", old, "pending_error", "scraper_failed")],
@@ -72,17 +72,28 @@ describe("selectAutoPrecalRetryCandidates", () => {
     assert.deepEqual(ids, []);
   });
 
-  it("excluye si ya tiene 3+ intentos totales", () => {
+  it("sigue siendo candidato con muchos intentos scraper_failed previos", () => {
+    const intentos = Array.from({ length: 12 }, (_, i) =>
+      intento(
+        "aaaa",
+        `2026-08-28T${String(8 + Math.floor(i / 6)).padStart(2, "0")}:${String((i % 6) * 10).padStart(2, "0")}:00.000Z`,
+        "pending_error",
+        "scraper_failed",
+      ),
+    );
+    // último explícito ≥5 min
+    intentos[intentos.length - 1] = intento(
+      "aaaa",
+      old,
+      "pending_error",
+      "scraper_failed",
+    );
     const ids = selectAutoPrecalRetryCandidates({
       pendingExpedienteIds: ["aaaa"],
-      intentos: [
-        intento("aaaa", "2026-08-28T09:00:00.000Z", "pending_error", "scraper_failed"),
-        intento("aaaa", "2026-08-28T10:00:00.000Z", "pending_error", "scraper_failed"),
-        intento("aaaa", old, "pending_error", "scraper_failed"),
-      ],
+      intentos,
       nowMs: now,
     });
-    assert.deepEqual(ids, []);
+    assert.deepEqual(ids, ["aaaa"]);
   });
 
   it("exige decisión pendiente: id con intentos pero no en pendingExpedienteIds", () => {

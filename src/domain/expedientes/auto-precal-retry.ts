@@ -1,9 +1,9 @@
 /**
  * Selección pura de candidatos a reintento auto-precal (sin I/O).
  * Solo reintenta fallos técnicos scraper_failed; nunca backlog sin intentos.
+ * Sin tope de intentos totales (ilimitado mientras siga pendiente + scraper_failed).
  */
 
-export const AUTO_PRECAL_RETRY_MAX_INTENTOS = 3;
 export const AUTO_PRECAL_RETRY_MIN_AGE_MS = 5 * 60 * 1000;
 export const AUTO_PRECAL_RETRY_LIMIT = 5;
 
@@ -19,7 +19,6 @@ export type RetryCandidateInput = {
   pendingExpedienteIds: string[];
   intentos: AutoPrecalIntentoRow[];
   nowMs?: number;
-  maxIntentos?: number;
   minAgeMs?: number;
   limit?: number;
 };
@@ -27,7 +26,7 @@ export type RetryCandidateInput = {
 /**
  * Filtra candidatos:
  * - al menos un intento pending_error + scraper_failed
- * - total intentos < maxIntentos (default 3)
+ * - sin tope de intentos totales (ambiguous_payload solo nunca entra por sí mismo)
  * - último intento hace ≥ minAgeMs (default 5 min)
  * - orden: último intento más antiguo primero
  * - limit (default 5)
@@ -36,7 +35,6 @@ export function selectAutoPrecalRetryCandidates(
   input: RetryCandidateInput,
 ): string[] {
   const nowMs = input.nowMs ?? Date.now();
-  const maxIntentos = input.maxIntentos ?? AUTO_PRECAL_RETRY_MAX_INTENTOS;
   const minAgeMs = input.minAgeMs ?? AUTO_PRECAL_RETRY_MIN_AGE_MS;
   const limit = input.limit ?? AUTO_PRECAL_RETRY_LIMIT;
 
@@ -58,7 +56,6 @@ export function selectAutoPrecalRetryCandidates(
         r.resultado === "pending_error" && r.razon === "scraper_failed",
     );
     if (!hasScraperFailed) continue;
-    if (rows.length >= maxIntentos) continue;
 
     let lastMs = 0;
     for (const r of rows) {

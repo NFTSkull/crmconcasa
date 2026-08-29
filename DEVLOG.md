@@ -1,3 +1,8 @@
+## 2026-08-29 - Auto-precal: reintentos cron ilimitados (scraper_failed)
+
+### Decisión
+Quitar `AUTO_PRECAL_RETRY_MAX_INTENTOS`. Mientras `decision=pendiente` y haya ≥1 `pending_error`+`scraper_failed`, el cron puede reintentar sin tope de historial. Cooldown 5 min, batch 5/run y exclusión de solo-`ambiguous_payload` sin cambio.
+
 ## 2026-08-28 - Auto-precal: cooldown reintentos cron 10→5 min
 
 ### Decisión
