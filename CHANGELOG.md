@@ -20,6 +20,8 @@
 
 ## [Unreleased]
 
+- **feat(asesor): dashboard líder de equipo** — capabilities `team_dashboard_read` / `create_for_any_advisor`; RPCs `asesor_lider_*` + `list_asesores_activos_org` + `create_expediente_for_asesor`; `/asesor` variante líder (KPIs, donut CSS, filtros, tabla); `/asesor/nueva` selector de asesor titular. Sin hardcode de email en FE. Mig `20260831205958`.
+
 - **fix(precalificacion): monto auto según programa** — `decideAutoPrecalFromScraper` elige `saldoSubcuenta` (`mejoravit`/`subcuenta`) o `montoCredito` (`compro_tu_casa`); jobs/cron/routes pasan el programa objetivo (reprecal: `programa_solicitado`).
 
 - **feat(precalificacion): reintentos cron auto-reprecal (P217)** — tabla `auto_reprecal_intentos`; job registra cada corrida; `GET|POST /api/cron/reintentar-pendientes-reprecal` con `CRON_SECRET`; mismos criterios que altas (`scraper_failed`, ≥5 min, sin tope, max **2** secuencial); cron `*/5`. No toca `auto_precal_intentos`. Batch altas también a **2** (2×150s ≤ `maxDuration` 300 / ventana cron).

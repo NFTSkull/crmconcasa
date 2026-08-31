@@ -107,6 +107,12 @@ import {
   downloadAsesorPrecalificacionesExcel,
   type AsesorExportProgramaFilter,
 } from "@/lib/exportAsesorPrecalificacionesExcel";
+import { AsesorLiderDashboard } from "@/components/asesor/AsesorLiderDashboard";
+import {
+  isAsesorLiderDashboardMode,
+  useAsesorLiderRepo,
+  type AsesorLiderContext,
+} from "@/domain/asesor-lider";
 
 function formatMontoAprobadoFila(
   montoAprobado: number | null | undefined,
@@ -462,7 +468,7 @@ const EMPTY_KPIS: AsesorInboxKpisFromSummary = {
   subirAcuse: 0,
 };
 
-export default function AsesorDashboardPage() {
+function AsesorDashboardNormalPage() {
   const { sessionRepo, currentUser } = useSessionRepo();
   const router = useRouter();
   const [filters, setFilters] = useState<AsesorFiltersState>(INITIAL_FILTERS);
@@ -1999,4 +2005,74 @@ export default function AsesorDashboardPage() {
       </main>
     </div>
   );
+}
+
+/**
+ * Entrada `/asesor`: si el asesor tiene team_dashboard_read + equipo activo,
+ * muestra dashboard líder; si no, el inbox habitual sin cambios.
+ */
+export default function AsesorDashboardPage() {
+  const { sessionRepo, currentUser } = useSessionRepo();
+  const dataSupabase = isDataModeSupabase();
+  const liderRepo = useAsesorLiderRepo();
+  const [liderCtx, setLiderCtx] = useState<AsesorLiderContext | null>(null);
+  const [liderResolved, setLiderResolved] = useState(!dataSupabase);
+
+  useEffect(() => {
+    if (!dataSupabase) {
+      setLiderResolved(true);
+      setLiderCtx(null);
+      return;
+    }
+    if (currentUser === undefined) return;
+    if (!currentUser || currentUser.role !== "asesor") {
+      setLiderResolved(true);
+      setLiderCtx(null);
+      return;
+    }
+    let cancelled = false;
+    setLiderResolved(false);
+    (async () => {
+      try {
+        const ctx = await liderRepo.getContext();
+        if (cancelled) return;
+        setLiderCtx(ctx);
+      } catch (err) {
+        if (process.env.NODE_ENV === "development") {
+          console.warn("[asesor] lider context:", err);
+        }
+        if (!cancelled) setLiderCtx(null);
+      } finally {
+        if (!cancelled) setLiderResolved(true);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [dataSupabase, currentUser, liderRepo]);
+
+  if (currentUser === undefined || (dataSupabase && !liderResolved)) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-gray-100">
+        <p className="text-gray-500">Cargando...</p>
+      </div>
+    );
+  }
+
+  if (
+    dataSupabase &&
+    currentUser?.role === "asesor" &&
+    liderCtx &&
+    isAsesorLiderDashboardMode(liderCtx)
+  ) {
+    return (
+      <AsesorLiderDashboard
+        context={liderCtx}
+        currentUser={currentUser}
+        sessionRepo={sessionRepo}
+      />
+    );
+  }
+
+  return <AsesorDashboardNormalPage />;
 }

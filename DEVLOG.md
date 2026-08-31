@@ -1,3 +1,8 @@
+## 2026-08-31 - Dashboard líder equipo (capabilities)
+
+### Decisión
+Permisos por `profile_capabilities` + liderazgo en `asesor_equipos`, no por email en FE. `/asesor` hace early-branch con `asesor_lider_get_context`: solo si `team_dashboard_read` y `team` no null se pinta `AsesorLiderDashboard`; el resto conserva el inbox. `create_for_any_advisor` es ortogonal al liderazgo (Adriana/Héctor): lista org vía `list_asesores_activos_org` y alta con `create_expediente_for_asesor`. Donut con `conic-gradient` (sin chart lib). Export CSV de la página actual.
+
 ## 2026-08-30 - Auto-precal: monto según programa
 
 ### Decisión
