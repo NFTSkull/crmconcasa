@@ -2,6 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { after } from "next/server";
 import { NextResponse } from "next/server";
 
+import { resolveProgramaParaMonto } from "@/domain/expedientes/auto-precalificar-decision";
 import { runAutoReprecalificarJob } from "@/domain/expedientes/auto-reprecalificar-job";
 
 export const runtime = "nodejs";
@@ -82,7 +83,7 @@ export async function POST(request: Request, { params }: RouteParams) {
     const supabase = serviceClient();
     const { data: intento, error: readErr } = await supabase
       .from("expediente_precalificacion_intentos")
-      .select("id, nss, decision")
+      .select("id, nss, decision, programa, programa_solicitado")
       .eq("id", intentoId)
       .maybeSingle();
 
@@ -108,6 +109,12 @@ export async function POST(request: Request, { params }: RouteParams) {
       });
     }
     const nss = String(intento.nss).trim();
+    const programa =
+      resolveProgramaParaMonto({
+        programa: (intento as { programa?: string | null }).programa,
+        programaSolicitado: (intento as { programa_solicitado?: string | null })
+          .programa_solicitado,
+      }) ?? "";
 
     const scraperUrl = process.env.SCRAPER_SERVICE_URL?.trim();
     const scraperSecret = process.env.SCRAPER_SECRET?.trim();
@@ -126,6 +133,7 @@ export async function POST(request: Request, { params }: RouteParams) {
       runAutoReprecalificarJob({
         intentoId,
         nss,
+        programa,
         scraperUrl,
         scraperSecret,
       }).catch((err) => {

@@ -52,6 +52,7 @@ describe("runAutoPrecalificarJob", () => {
     const result = await runAutoPrecalificarJob({
       expedienteId,
       nss: "12345678901",
+      programa: "mejoravit",
       scraperUrl: "https://scraper.test",
       scraperSecret: "secret",
       supabase: supabase as never,
@@ -93,6 +94,7 @@ describe("runAutoPrecalificarJob", () => {
     await runAutoPrecalificarJob({
       expedienteId: "22222222-2222-4222-8222-222222222222",
       nss: "98765432109",
+      programa: "mejoravit",
       scraperUrl: "https://scraper.test",
       scraperSecret: "secret",
       supabase: supabase as never,
@@ -130,6 +132,7 @@ describe("runAutoPrecalificarJob", () => {
     await runAutoPrecalificarJob({
       expedienteId: "33333333-3333-4333-8333-333333333333",
       nss: "11111111111",
+      programa: "mejoravit",
       scraperUrl: "https://scraper.test",
       scraperSecret: "secret",
       supabase: supabase as never,
@@ -143,5 +146,35 @@ describe("runAutoPrecalificarJob", () => {
       p_motivo: "SIN RELACION LABORAL VIGENTE",
     });
     assert.equal("p_rfc" in (rpcCalls[0]?.args ?? {}), false);
+  });
+
+  it("compro_tu_casa usa montoCredito en el RPC", async () => {
+    globalThis.fetch = (async () =>
+      new Response(
+        JSON.stringify({
+          califica: true,
+          rfc: "XAXX010101000",
+          registroPatronal: null,
+          empresa: null,
+          advertenciaInscripcion: null,
+          datos: {
+            saldoSubcuenta: "189,051.68",
+            montoCredito: "1,290,973.09",
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      )) as typeof fetch;
+
+    const { supabase, rpcCalls } = mockSupabase();
+    await runAutoPrecalificarJob({
+      expedienteId: "44444444-4444-4444-8444-444444444444",
+      nss: "43068952175",
+      programa: "compro_tu_casa",
+      scraperUrl: "https://scraper.test",
+      scraperSecret: "secret",
+      supabase: supabase as never,
+    });
+
+    assert.equal(rpcCalls[0]?.args.p_monto_aprobado, 1290973.09);
   });
 });

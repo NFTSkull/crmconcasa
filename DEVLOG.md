@@ -1,3 +1,8 @@
+## 2026-08-30 - Auto-precal: monto según programa
+
+### Decisión
+El scraper siempre trae `saldoSubcuenta` y `montoCredito`. El monto aprobado debe mapearse por programa DB: Mejoravit/Subcuenta → saldo; Compro tu casa → monto de crédito. En reprecal el programa objetivo es `programa_solicitado` (cambio diferido), no el snapshot vigente del intento.
+
 ## 2026-08-29 - Auto-reprecal: reintentos cron + tabla de seguimiento (P217)
 
 ### Decisión

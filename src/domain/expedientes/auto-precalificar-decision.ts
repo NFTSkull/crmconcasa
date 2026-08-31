@@ -6,7 +6,10 @@ export type AutoPrecalScraperPayload = {
   califica?: boolean;
   success?: boolean;
   error?: string;
-  datos?: { saldoSubcuenta?: string | number | null };
+  datos?: {
+    saldoSubcuenta?: string | number | null;
+    montoCredito?: string | number | null;
+  };
   razon?: string;
   mensaje?: string;
   /** RFC trabajador (pantalla precalificación Infonavit). */
@@ -27,6 +30,40 @@ export type AutoPrecalDecision =
   | { kind: "no_cumple"; motivo: string }
   | { kind: "pending_error"; reason: string };
 
+export type AutoPrecalProgramaDb =
+  | "mejoravit"
+  | "subcuenta"
+  | "compro_tu_casa";
+
+/** Campo scraper → monto según programa DB. */
+export type AutoPrecalMontoField = "saldoSubcuenta" | "montoCredito";
+
+/**
+ * Programa objetivo para el monto:
+ * reprecal con cambio → `programa_solicitado`; si no, vigente.
+ */
+export function resolveProgramaParaMonto(args: {
+  programa?: string | null;
+  programaSolicitado?: string | null;
+}): string | null {
+  const solicitado = String(args.programaSolicitado ?? "").trim();
+  if (solicitado) return solicitado;
+  const vigente = String(args.programa ?? "").trim();
+  return vigente || null;
+}
+
+export function montoFieldForPrograma(
+  programa: string | null | undefined,
+): AutoPrecalMontoField | null {
+  const p = String(programa ?? "")
+    .trim()
+    .toLowerCase();
+  if (p === "mejoravit" || p === "subcuenta") return "saldoSubcuenta";
+  if (p === "compro_tu_casa") return "montoCredito";
+  return null;
+}
+
+/** Parsea montos del scraper (coma miles / número). */
 export function parseSaldoSubcuenta(raw: unknown): number | null {
   if (typeof raw === "number" && Number.isFinite(raw)) return raw;
   if (typeof raw !== "string") return null;
@@ -36,20 +73,33 @@ export function parseSaldoSubcuenta(raw: unknown): number | null {
   return Number.isFinite(n) ? n : null;
 }
 
+export const parseMontoScraper = parseSaldoSubcuenta;
+
 /**
  * Mapeo estricto: califica===true / ===false, o success:false +
  * razon=no_cumple_criterios + mensaje string; resto pending_error.
+ * Monto según programa: mejoravit/subcuenta → saldoSubcuenta;
+ * compro_tu_casa → montoCredito.
  * No invoca RPC (solo decide).
  */
 export function decideAutoPrecalFromScraper(
   payload: AutoPrecalScraperPayload,
   upstreamOk: boolean,
+  programa: string | null | undefined,
 ): AutoPrecalDecision {
   if (!upstreamOk || typeof payload?.error === "string") {
     return { kind: "pending_error", reason: "scraper_failed" };
   }
   if (payload.califica === true) {
-    const monto = parseSaldoSubcuenta(payload.datos?.saldoSubcuenta);
+    const field = montoFieldForPrograma(programa);
+    if (!field) {
+      return { kind: "pending_error", reason: "programa_desconocido" };
+    }
+    const raw =
+      field === "montoCredito"
+        ? payload.datos?.montoCredito
+        : payload.datos?.saldoSubcuenta;
+    const monto = parseMontoScraper(raw);
     if (monto == null || monto <= 0) {
       return { kind: "pending_error", reason: "invalid_saldo" };
     }
