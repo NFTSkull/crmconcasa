@@ -59,7 +59,7 @@ async function handleRetryPendientes(request: Request): Promise<NextResponse> {
 
   const { data: pendingRows, error: pendingErr } = await supabase
     .from("editor_decisions")
-    .select("expediente_id, expedientes!inner(id, nss, deleted_at)")
+    .select("expediente_id, expedientes!inner(id, nss, programa, deleted_at)")
     .eq("decision", "pendiente")
     .is("expedientes.deleted_at", null);
 
@@ -74,14 +74,25 @@ async function handleRetryPendientes(request: Request): Promise<NextResponse> {
   type PendingJoin = {
     expediente_id: string;
     expedientes:
-      | { id: string; nss: string | null; deleted_at: string | null }
-      | { id: string; nss: string | null; deleted_at: string | null }[]
+      | {
+          id: string;
+          nss: string | null;
+          programa: string | null;
+          deleted_at: string | null;
+        }
+      | {
+          id: string;
+          nss: string | null;
+          programa: string | null;
+          deleted_at: string | null;
+        }[]
       | null;
   };
 
   const pendingList = (pendingRows ?? []) as PendingJoin[];
   const pendingIds: string[] = [];
   const nssById = new Map<string, string>();
+  const programaById = new Map<string, string>();
 
   for (const row of pendingList) {
     const exp = Array.isArray(row.expedientes)
@@ -90,6 +101,8 @@ async function handleRetryPendientes(request: Request): Promise<NextResponse> {
     if (!exp?.id || !exp.nss) continue;
     pendingIds.push(exp.id);
     nssById.set(exp.id, String(exp.nss).trim());
+    const programa = String(exp.programa ?? "").trim();
+    if (programa) programaById.set(exp.id, programa);
   }
 
   if (pendingIds.length === 0) {
@@ -142,6 +155,7 @@ async function handleRetryPendientes(request: Request): Promise<NextResponse> {
     const outcome = await runAutoPrecalificarJob({
       expedienteId,
       nss,
+      programa: programaById.get(expedienteId),
       scraperUrl,
       scraperSecret,
       supabase,

@@ -115,7 +115,10 @@ Universo del gate (P169): `organization_id` + NSS + `deleted_at IS NULL` + `cicl
 - Disparo fire-and-forget tras `asesor_iniciar_reprecalificacion` exitoso (`/asesor/nueva` confirm + `AsesorReprecalificacionActions`).
 
 **Mapeo scraper → decisión:**
-- `califica===true` + saldo → `aprobado`
+- `califica===true` + monto según **programa objetivo** → `aprobado`
+  - `mejoravit` | `subcuenta` → `datos.saldoSubcuenta`
+  - `compro_tu_casa` → `datos.montoCredito`
+  - Alta: `expedientes.programa`. Reprecal: `COALESCE(programa_solicitado, programa)` del intento.
 - `califica===false` → `no_cumple` (`p_motivo` = `mensaje` keyword o fallback genérico)
 - `success:false` + `razon=no_cumple_criterios` + `mensaje` string → `no_cumple` (`p_motivo` = mensaje exacto)
 - resto → `pending_error` (sin mutar `editor_decisions` / sin resolver intento)

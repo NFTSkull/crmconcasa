@@ -52,6 +52,7 @@ describe("runAutoReprecalificarJob", () => {
     const result = await runAutoReprecalificarJob({
       intentoId,
       nss: "12345678901",
+      programa: "mejoravit",
       scraperUrl: "https://scraper.test",
       scraperSecret: "secret",
       supabase: supabase as never,
@@ -94,6 +95,7 @@ describe("runAutoReprecalificarJob", () => {
     await runAutoReprecalificarJob({
       intentoId,
       nss: "12345678901",
+      programa: "mejoravit",
       scraperUrl: "https://scraper.test",
       scraperSecret: "secret",
       supabase: supabase as never,
@@ -124,6 +126,7 @@ describe("runAutoReprecalificarJob", () => {
     const result = await runAutoReprecalificarJob({
       intentoId,
       nss: "12345678901",
+      programa: "mejoravit",
       scraperUrl: "https://scraper.test",
       scraperSecret: "secret",
       supabase: supabase as never,
@@ -140,5 +143,31 @@ describe("runAutoReprecalificarJob", () => {
       resultado: "pending_error",
       razon: "scraper_failed",
     });
+  });
+
+  it("compro_tu_casa usa montoCredito al aprobar", async () => {
+    globalThis.fetch = (async () =>
+      new Response(
+        JSON.stringify({
+          califica: true,
+          datos: {
+            saldoSubcuenta: "189,051.68",
+            montoCredito: "1,290,973.09",
+          },
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      )) as typeof fetch;
+
+    const { supabase, rpcCalls } = mockSupabase();
+    await runAutoReprecalificarJob({
+      intentoId,
+      nss: "43068952175",
+      programa: "compro_tu_casa",
+      scraperUrl: "https://scraper.test",
+      scraperSecret: "secret",
+      supabase: supabase as never,
+    });
+
+    assert.equal(rpcCalls[0]?.args.p_monto_aprobado, 1290973.09);
   });
 });

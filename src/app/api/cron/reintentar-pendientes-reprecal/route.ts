@@ -6,6 +6,7 @@ import {
   selectAutoReprecalRetryCandidates,
   type AutoReprecalIntentoRow,
 } from "@/domain/expedientes/auto-reprecal-retry";
+import { resolveProgramaParaMonto } from "@/domain/expedientes/auto-precalificar-decision";
 import { runAutoReprecalificarJob } from "@/domain/expedientes/auto-reprecalificar-job";
 
 export const runtime = "nodejs";
@@ -61,7 +62,7 @@ async function handleRetryPendientesReprecal(
 
   const { data: pendingRows, error: pendingErr } = await supabase
     .from("expediente_precalificacion_intentos")
-    .select("id, nss")
+    .select("id, nss, programa, programa_solicitado")
     .eq("decision", "pendiente");
 
   if (pendingErr) {
@@ -75,10 +76,16 @@ async function handleRetryPendientesReprecal(
     );
   }
 
-  type PendingRow = { id: string; nss: string | null };
+  type PendingRow = {
+    id: string;
+    nss: string | null;
+    programa: string | null;
+    programa_solicitado: string | null;
+  };
   const pendingList = (pendingRows ?? []) as PendingRow[];
   const pendingIds: string[] = [];
   const nssById = new Map<string, string>();
+  const programaById = new Map<string, string>();
 
   for (const row of pendingList) {
     if (!row?.id || !row.nss) continue;
@@ -86,6 +93,11 @@ async function handleRetryPendientesReprecal(
     if (!nss) continue;
     pendingIds.push(row.id);
     nssById.set(row.id, nss);
+    const programa = resolveProgramaParaMonto({
+      programa: row.programa,
+      programaSolicitado: row.programa_solicitado,
+    });
+    if (programa) programaById.set(row.id, programa);
   }
 
   if (pendingIds.length === 0) {
@@ -137,6 +149,7 @@ async function handleRetryPendientesReprecal(
     const outcome = await runAutoReprecalificarJob({
       intentoId,
       nss,
+      programa: programaById.get(intentoId),
       scraperUrl,
       scraperSecret,
       supabase,

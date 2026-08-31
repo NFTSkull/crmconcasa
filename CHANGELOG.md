@@ -20,6 +20,8 @@
 
 ## [Unreleased]
 
+- **fix(precalificacion): monto auto según programa** — `decideAutoPrecalFromScraper` elige `saldoSubcuenta` (`mejoravit`/`subcuenta`) o `montoCredito` (`compro_tu_casa`); jobs/cron/routes pasan el programa objetivo (reprecal: `programa_solicitado`).
+
 - **feat(precalificacion): reintentos cron auto-reprecal (P217)** — tabla `auto_reprecal_intentos`; job registra cada corrida; `GET|POST /api/cron/reintentar-pendientes-reprecal` con `CRON_SECRET`; mismos criterios que altas (`scraper_failed`, ≥5 min, sin tope, max **2** secuencial); cron `*/5`. No toca `auto_precal_intentos`. Batch altas también a **2** (2×150s ≤ `maxDuration` 300 / ventana cron).
 
 - **feat(precalificacion): auto-reprecalificar Infonavit (P216)** — `POST /api/precalificaciones/reprecalificacion/[intentoId]/auto-precalificar` (202 + `after()`); RPC `auto_resolver_reprecalificacion` (service_role); disparo tras `iniciarReprecalificacion` en `/asesor/nueva` y detalle. Mig **216**.

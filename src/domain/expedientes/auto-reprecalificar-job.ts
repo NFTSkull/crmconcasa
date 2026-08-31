@@ -7,6 +7,7 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 import {
   decideAutoPrecalFromScraper,
+  resolveProgramaParaMonto,
   type AutoPrecalScraperPayload,
 } from "@/domain/expedientes/auto-precalificar-decision";
 import {
@@ -14,6 +15,32 @@ import {
   type AutoPrecalIntentoResultado,
   type AutoPrecalJobResult,
 } from "@/domain/expedientes/auto-precalificar-job";
+
+async function loadIntentoPrograma(
+  supabase: SupabaseClient,
+  intentoId: string,
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("expediente_precalificacion_intentos")
+    .select("programa, programa_solicitado")
+    .eq("id", intentoId)
+    .maybeSingle();
+  if (error) {
+    console.error(
+      `[auto-reprecalificar] SELECT programa falló intento_id=${intentoId}`,
+      error.message,
+    );
+    return null;
+  }
+  const row = data as {
+    programa?: string | null;
+    programa_solicitado?: string | null;
+  } | null;
+  return resolveProgramaParaMonto({
+    programa: row?.programa,
+    programaSolicitado: row?.programa_solicitado,
+  });
+}
 
 function serviceClient(): SupabaseClient {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
@@ -52,6 +79,11 @@ async function recordIntento(
 export async function runAutoReprecalificarJob(input: {
   intentoId: string;
   nss: string;
+  /**
+   * Programa objetivo del monto (`programa_solicitado` o vigente).
+   * Si falta, se lee del intento.
+   */
+  programa?: string | null;
   scraperUrl: string;
   scraperSecret: string;
   supabase?: SupabaseClient;
@@ -63,6 +95,18 @@ export async function runAutoReprecalificarJob(input: {
   let razon: string | null = "scraper_failed";
 
   try {
+    const programa =
+      String(input.programa ?? "").trim() ||
+      (await loadIntentoPrograma(supabase, intentoId));
+    if (!programa) {
+      resultado = "pending_error";
+      razon = "programa_not_found";
+      console.error(
+        `[auto-reprecalificar] programa ausente intento_id=${intentoId} nss=${nss}`,
+      );
+      return { resultado, razon };
+    }
+
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), SCRAPER_TIMEOUT_MS);
     let upstream: Response;
@@ -82,7 +126,11 @@ export async function runAutoReprecalificarJob(input: {
       clearTimeout(timeoutId);
     }
 
-    const decision = decideAutoPrecalFromScraper(payload, upstream.ok);
+    const decision = decideAutoPrecalFromScraper(
+      payload,
+      upstream.ok,
+      programa,
+    );
 
     if (decision.kind === "pending_error") {
       resultado = "pending_error";

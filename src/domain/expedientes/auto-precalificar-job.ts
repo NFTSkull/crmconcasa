@@ -9,6 +9,26 @@ import {
   type AutoPrecalScraperPayload,
 } from "@/domain/expedientes/auto-precalificar-decision";
 
+async function loadExpedientePrograma(
+  supabase: SupabaseClient,
+  expedienteId: string,
+): Promise<string | null> {
+  const { data, error } = await supabase
+    .from("expedientes")
+    .select("programa")
+    .eq("id", expedienteId)
+    .maybeSingle();
+  if (error) {
+    console.error(
+      `[auto-precalificar] SELECT programa falló expediente_id=${expedienteId}`,
+      error.message,
+    );
+    return null;
+  }
+  const p = String((data as { programa?: string } | null)?.programa ?? "").trim();
+  return p || null;
+}
+
 export const SCRAPER_TIMEOUT_MS = 150_000;
 
 export type AutoPrecalIntentoResultado =
@@ -58,6 +78,8 @@ async function recordIntento(
 export async function runAutoPrecalificarJob(input: {
   expedienteId: string;
   nss: string;
+  /** Programa DB del expediente; si falta, se lee de `expedientes`. */
+  programa?: string | null;
   scraperUrl: string;
   scraperSecret: string;
   /** Si se omite, se crea service role client. */
@@ -70,6 +92,18 @@ export async function runAutoPrecalificarJob(input: {
   let razon: string | null = "scraper_failed";
 
   try {
+    const programa =
+      String(input.programa ?? "").trim() ||
+      (await loadExpedientePrograma(supabase, expedienteId));
+    if (!programa) {
+      resultado = "pending_error";
+      razon = "programa_not_found";
+      console.error(
+        `[auto-precalificar] programa ausente expediente_id=${expedienteId} nss=${nss}`,
+      );
+      return { resultado, razon };
+    }
+
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), SCRAPER_TIMEOUT_MS);
     let upstream: Response;
@@ -89,7 +123,11 @@ export async function runAutoPrecalificarJob(input: {
       clearTimeout(timeoutId);
     }
 
-    const decision = decideAutoPrecalFromScraper(payload, upstream.ok);
+    const decision = decideAutoPrecalFromScraper(
+      payload,
+      upstream.ok,
+      programa,
+    );
 
     if (decision.kind === "pending_error") {
       resultado = "pending_error";

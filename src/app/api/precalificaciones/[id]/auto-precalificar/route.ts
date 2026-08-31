@@ -83,7 +83,7 @@ export async function POST(request: Request, { params }: RouteParams) {
     const supabase = serviceClient();
     const { data: exp, error: readErr } = await supabase
       .from("expedientes")
-      .select("id, nss")
+      .select("id, nss, programa")
       .eq("id", expedienteId)
       .is("deleted_at", null)
       .maybeSingle();
@@ -100,6 +100,9 @@ export async function POST(request: Request, { params }: RouteParams) {
       });
     }
     const nss = String(exp.nss).trim();
+    const programa = String(
+      (exp as { programa?: string }).programa ?? "",
+    ).trim();
 
     const scraperUrl = process.env.SCRAPER_SERVICE_URL?.trim();
     const scraperSecret = process.env.SCRAPER_SECRET?.trim();
@@ -118,6 +121,7 @@ export async function POST(request: Request, { params }: RouteParams) {
       runAutoPrecalificarJob({
         expedienteId,
         nss,
+        programa,
         scraperUrl,
         scraperSecret,
       }).catch((err) => {
