@@ -109,14 +109,9 @@ CREATE POLICY asesor_equipos_select
   FOR SELECT
   TO authenticated
   USING (
+    -- Acíclico: NO consulta asesor_equipo_miembros.
+    -- Miembros normales no necesitan SELECT directo (get_context es DEFINER).
     leader_id = auth.uid()
-    OR EXISTS (
-      SELECT 1
-      FROM public.asesor_equipo_miembros m
-      WHERE m.team_id = asesor_equipos.id
-        AND m.asesor_id = auth.uid()
-        AND m.active = true
-    )
     OR (
       public.is_super_admin()
       AND organization_id = public.current_organization_id()
@@ -500,17 +495,24 @@ BEGIN
     FROM universe
   ),
   montos AS (
+    -- Fuente canónica Admin P082/P087/P091:
+    -- Mejoravit: LEAST(monto_aprobado_al_aprobar, 169000).
+    -- Otros programas: snapshot sin tope 169k (el tope es exclusivo Mejoravit).
     SELECT coalesce(
       sum(
         CASE
           WHEN ed.decision = 'aprobado'
+               AND e.programa = 'mejoravit'::public.programa
           THEN least(coalesce(ed.monto_aprobado_al_aprobar, 0), 169000)
+          WHEN ed.decision = 'aprobado'
+          THEN coalesce(ed.monto_aprobado_al_aprobar, 0)
           ELSE 0
         END
       ),
       0
     )::numeric(14, 2) AS monto_total
     FROM universe u
+    JOIN public.expedientes e ON e.id = u.id
     LEFT JOIN public.editor_decisions ed ON ed.expediente_id = u.id
   ),
   por_etapa AS (
@@ -521,13 +523,17 @@ BEGIN
         sum(
           CASE
             WHEN ed.decision = 'aprobado'
+                 AND e.programa = 'mejoravit'::public.programa
             THEN least(coalesce(ed.monto_aprobado_al_aprobar, 0), 169000)
+            WHEN ed.decision = 'aprobado'
+            THEN coalesce(ed.monto_aprobado_al_aprobar, 0)
             ELSE 0
           END
         ),
         0
       )::numeric(14, 2) AS monto
     FROM universe u
+    JOIN public.expedientes e ON e.id = u.id
     LEFT JOIN public.editor_decisions ed ON ed.expediente_id = u.id
     GROUP BY u.etapa_actual
   ),

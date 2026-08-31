@@ -1870,7 +1870,7 @@ Errores públicos sin PII: 401 `unauthenticated`, 403 `forbidden` (asesor / sin 
 |---|---|---|
 | `asesor_lider_get_context()` | Asesor activo; **no** raise si falta capability | `{ team_dashboard_read, capabilities: string[], team: {id,nombre,leader_id,organization_id}\|null }` |
 | `asesor_lider_list_members()` | `team_dashboard_read` + liderazgo activo | `{ members: [{id, full_name, email, is_leader, active}] }` |
-| `asesor_lider_get_dashboard(p_asesor_id?, p_fecha_desde?, p_fecha_hasta?)` | Igual + `asesor_id` en scope | `{ activos, cerrados, total, monto_total_aprobado, by_etapa[{etapa,nombre,count,monto}], filters }` — monto cap 169k en aprobado |
+| `asesor_lider_get_dashboard(p_asesor_id?, p_fecha_desde?, p_fecha_hasta?)` | Igual + `asesor_id` en scope | `{ activos, cerrados, total, monto_total_aprobado, by_etapa[{etapa,nombre,count,monto}], filters }` — **monto canónico Admin P087:** Mejoravit `LEAST(monto_aprobado_al_aprobar, 169000)`; `subcuenta` / `compro_tu_casa` aportan el snapshot **sin** tope 169k |
 | `asesor_lider_list_expedientes_page(p_page, p_page_size≤100, p_buscar?, p_asesor_id?, p_etapa_exacta?, p_fecha_desde?, p_fecha_hasta?, p_ciclo?)` | Igual | `{ items[], total_count, page, page_size, has_more }` |
 | `create_expediente_for_asesor(p_asesor_id, p_programa, p_nss, p_cliente_nombre, p_telefono_cliente, p_direccion_opcional?)` | `create_for_any_advisor`; target asesor activo misma org | Paridad gates con `create_expediente` (NSS/teléfono/duplicado/mesa); `action_log` `expediente.create` + `created_for_any_advisor` |
 | `list_asesores_activos_org()` | `create_for_any_advisor` (**no** exige ser líder) | `{ asesores: [{id, full_name, email}] }` orden por nombre |

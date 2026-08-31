@@ -20,6 +20,8 @@
 
 ## [Unreleased]
 
+- **fix(asesor): harden Team Silvia pre-merge** — provisioner compensación inversa (Auth/profile/membership/caps); RLS acíclico equipos↔miembros; tests reales save/doc/enviar delegados; monto dashboard Mejoravit `LEAST(…,169000)` + otros programas sin tope; preflight `STOP_FUNCTION_DRIFT`.
+
 - **feat(asesor): dashboard líder de equipo** — capabilities `team_dashboard_read` / `create_for_any_advisor`; RPCs `asesor_lider_*` + `list_asesores_activos_org` + `create_expediente_for_asesor`; `/asesor` variante líder (KPIs, donut CSS, filtros, tabla); `/asesor/nueva` selector de asesor titular. Sin hardcode de email en FE. Mig `20260831205958`.
 
 - **fix(precalificacion): monto auto según programa** — `decideAutoPrecalFromScraper` elige `saldoSubcuenta` (`mejoravit`/`subcuenta`) o `montoCredito` (`compro_tu_casa`); jobs/cron/routes pasan el programa objetivo (reprecal: `programa_solicitado`).

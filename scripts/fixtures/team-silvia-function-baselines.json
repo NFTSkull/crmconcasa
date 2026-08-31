@@ -1,0 +1,11 @@
+{
+  "captured_at": "2026-08-31T21:35:00Z",
+  "cloud_project": "fvtqbxukqlajezyyvwzy",
+  "note": "Baselines pre-apply de 20260831205958_asesor_equipo_lider_capabilities. Si Cloud diverge → STOP_FUNCTION_DRIFT.",
+  "functions": {
+    "enviar_a_mesa": "e9f514221136e824045bd9e4894852c9d33b6c7bcb7b4b029aa82c31d6b13231",
+    "register_expediente_documento": "e9de5d86c94e6a55a8b0e359dd73df4a43fe9bc72cf8039cee7391597a732899",
+    "register_expediente_documento_pre_reingreso": "071a188f42922c5b58aa9d85e4788b21859a23283e4d578055f6043011cc8a20",
+    "save_cliente_datos": "349265aca91ad56162b9b8a04f700e1ae7ab8a7a7b74349e3ef2008aff699854"
+  }
+}

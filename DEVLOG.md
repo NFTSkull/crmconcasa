@@ -1,3 +1,8 @@
+## 2026-08-31 - Team Silvia hardening B2.1
+
+### Decisión
+Provisioner: flags por write + compensación inversa; `FAILED_COMPENSATION_INCOMPLETE` aborta el batch. Auth sin profile → STOP sin delete/reset. RLS: `asesor_equipos` solo líder/super_admin (sin leer miembros) → grafo acíclico. Monto líder = misma fuente Admin P087 (tope 169k solo Mejoravit). Preflight drift de mutators antes de Cloud apply.
+
 ## 2026-08-31 - Dashboard líder equipo (capabilities)
 
 ### Decisión
