@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { useSessionRepo } from "@/domain/session";
@@ -25,6 +25,12 @@ import type { ReprecalUiMode } from "@/domain/expedientes/asesor-reprecal-flow";
 import { fireAutoReprecalificarAck } from "@/domain/expedientes/fire-auto-reprecalificar-ack";
 import type { NssPrecalGateResult } from "@/domain/expedientes/nss-precal-gate";
 import { validateCreatePrecalificacion } from "@/domain/precalificaciones/validators";
+import {
+  CAP_CREATE_FOR_ANY_ADVISOR,
+  hasCapability,
+  useAsesorLiderRepo,
+  type AsesorActivoOrg,
+} from "@/domain/asesor-lider";
 import { isDataModeSupabase } from "@/lib/dataMode";
 import { supabaseBrowser } from "@/lib/supabaseBrowser";
 import { Button } from "@/components/ui/Button";
@@ -47,15 +53,55 @@ export default function NuevaPrecalificacionPage() {
   const router = useRouter();
   const { currentUser } = useSessionRepo();
   const expedientesRepo = useExpedientesRepo();
+  const liderRepo = useAsesorLiderRepo();
   const dataSupabase = isDataModeSupabase();
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
+  const [canCreateForAny, setCanCreateForAny] = useState(false);
+  const [asesoresOrg, setAsesoresOrg] = useState<readonly AsesorActivoOrg[]>(
+    [],
+  );
+  const [targetAsesorId, setTargetAsesorId] = useState("");
   const guardRef = useRef<NuevaReprecalSubmitGuard | null>(null);
   if (!guardRef.current) {
     guardRef.current = createNuevaReprecalSubmitGuard();
   }
+
+  useEffect(() => {
+    if (!dataSupabase || !currentUser || currentUser.role !== "asesor") {
+      setCanCreateForAny(false);
+      setAsesoresOrg([]);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const ctx = await liderRepo.getContext();
+        if (cancelled) return;
+        const ok = hasCapability(ctx, CAP_CREATE_FOR_ANY_ADVISOR);
+        setCanCreateForAny(ok);
+        if (!ok) {
+          setAsesoresOrg([]);
+          return;
+        }
+        const list = await liderRepo.listAsesoresActivosOrg();
+        if (!cancelled) setAsesoresOrg(list);
+      } catch (err) {
+        if (process.env.NODE_ENV === "development") {
+          console.warn("[nueva] create_for_any_advisor:", err);
+        }
+        if (!cancelled) {
+          setCanCreateForAny(false);
+          setAsesoresOrg([]);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [dataSupabase, currentUser, liderRepo]);
 
   async function readForm(
     form: HTMLFormElement,
@@ -161,8 +207,55 @@ export default function NuevaPrecalificacionPage() {
       return;
     }
 
+    if (canCreateForAny && !targetAsesorId.trim()) {
+      setErrorMsg("Selecciona el asesor titular del expediente.");
+      return;
+    }
+
     setSubmitting(true);
     try {
+      if (dataSupabase && canCreateForAny && targetAsesorId.trim()) {
+        const created = await liderRepo.createExpedienteForAsesor({
+          asesorId: targetAsesorId.trim(),
+          programa: input.programa,
+          programaUi: input.programa,
+          nss: input.nss,
+          cliente_nombre: input.cliente_nombre,
+          telefono_cliente: input.telefono_cliente,
+          direccion_opcional: input.direccion_opcional,
+        });
+        if (created.id) {
+          try {
+            const session = (await supabaseBrowser?.auth.getSession())?.data
+              .session;
+            const headers: HeadersInit = {};
+            if (session?.access_token) {
+              headers.Authorization = `Bearer ${session.access_token}`;
+            }
+            await fetch(
+              `/api/precalificaciones/${encodeURIComponent(created.id)}/auto-precalificar`,
+              {
+                method: "POST",
+                headers,
+                keepalive: true,
+                signal: AbortSignal.timeout(5_000),
+              },
+            );
+          } catch (err) {
+            console.error(
+              "[nueva] auto-precalificar ack falló (for asesor)",
+              created.id,
+              err,
+            );
+          }
+        }
+        setSuccessMsg(
+          `Expediente creado para el asesor seleccionado (ID ${created.id.slice(0, 8)}…).`,
+        );
+        window.setTimeout(() => router.push("/asesor"), 1800);
+        return;
+      }
+
       if (dataSupabase) {
         const gateResult = await expedientesRepo.lookupNssPrecalGate(
           input.nss,
@@ -218,7 +311,6 @@ export default function NuevaPrecalificacionPage() {
               "[nueva] disparando auto-precalificar para",
               created.id,
             );
-            // Esperar solo el ack 202 (trabajo largo sigue en after() del servidor).
             const res = await fetch(
               `/api/precalificaciones/${encodeURIComponent(created.id)}/auto-precalificar`,
               {
@@ -290,6 +382,14 @@ export default function NuevaPrecalificacionPage() {
     confirm?.gate.programa_solicitado ?? confirm?.input.programa,
   );
 
+  const asesorSelectOptions = [
+    { value: "", label: "Selecciona un asesor…" },
+    ...asesoresOrg.map((a) => ({
+      value: a.id,
+      label: a.full_name || a.email,
+    })),
+  ];
+
   return (
     <div className="min-h-screen bg-gray-50">
       <header className="border-b border-gray-200 bg-white px-3 py-3 sm:px-4">
@@ -335,6 +435,17 @@ export default function NuevaPrecalificacionPage() {
             </p>
           ) : null}
           <div className="flex flex-col gap-4">
+            {canCreateForAny ? (
+              <Select
+                name="asesor_titular"
+                label="Asesor titular"
+                options={asesorSelectOptions}
+                required
+                value={targetAsesorId}
+                onChange={(e) => setTargetAsesorId(e.target.value)}
+                className="min-h-[44px] sm:min-h-0"
+              />
+            ) : null}
             <Select
               name="programa"
               label="Programa"
