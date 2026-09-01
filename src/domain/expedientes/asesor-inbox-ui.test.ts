@@ -74,6 +74,41 @@ describe("asesor-inbox-ui B1", () => {
     assert.equal(input.quick_filter, "agendar_biometricos");
   });
 
+  it("P208 owner_asesor_id viaja al RPC cuando se indica titular delegado", () => {
+    const ownerId = "00000000-0000-4000-8001-000000000042";
+    const input = buildAsesorInboxListInput({
+      page: 1,
+      ownerAsesorId: ownerId,
+      filters: {
+        buscar: "",
+        decision: "",
+        estatusOperativo: "",
+        resultadoReal: "",
+        programa: "",
+        etapaExacta: "",
+        fechaDesde: "",
+        fechaHasta: "",
+      },
+      quickFilter: "todos",
+    });
+    assert.equal(input.owner_asesor_id, ownerId);
+    const noOwner = buildAsesorInboxListInput({
+      page: 1,
+      filters: {
+        buscar: "",
+        decision: "",
+        estatusOperativo: "",
+        resultadoReal: "",
+        programa: "",
+        etapaExacta: "",
+        fechaDesde: "",
+        fechaHasta: "",
+      },
+      quickFilter: "todos",
+    });
+    assert.equal(noOwner.owner_asesor_id, null);
+  });
+
   it("U10 chips rápidos viajan en quick_filter RPC, no como filtro local de badges", () => {
     const input = buildAsesorInboxListInput({
       page: 1,

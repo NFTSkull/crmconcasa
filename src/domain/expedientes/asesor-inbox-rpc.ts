@@ -56,6 +56,7 @@ export const asesorListExpedientesPageInputSchema = z.object({
   fecha_desde: z.string().nullable().optional(), // YYYY-MM-DD
   fecha_hasta: z.string().nullable().optional(),
   quick_filter: asesorInboxQuickFilterSchema.default("todos"),
+  owner_asesor_id: z.string().uuid().nullable().optional(),
 });
 
 export type AsesorListExpedientesPageInput = z.infer<

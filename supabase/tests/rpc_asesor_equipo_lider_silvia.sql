@@ -77,8 +77,8 @@ BEGIN
   LIMIT 1;
   PERFORM public.__silvia_assert(v_oid IS NOT NULL, 'save_cliente_datos existe');
   PERFORM public.__silvia_assert(
-    position('integrate_for_any_advisor' in v_src) > 0,
-    '14 save_cliente_datos contiene integrate_for_any_advisor'
+    position('asesor_can_operate_expediente_as' in v_src) > 0,
+    '14 save_cliente_datos usa CAN_OPERATE team-scoped'
   );
 
   SELECT p.oid, pg_get_functiondef(p.oid) INTO v_oid, v_src
@@ -88,8 +88,8 @@ BEGIN
   LIMIT 1;
   PERFORM public.__silvia_assert(v_oid IS NOT NULL, 'enviar_a_mesa existe');
   PERFORM public.__silvia_assert(
-    position('integrate_for_any_advisor' in v_src) > 0,
-    '15 enviar_a_mesa contiene integrate_for_any_advisor'
+    position('asesor_can_operate_expediente_as' in v_src) > 0,
+    '15 enviar_a_mesa usa CAN_OPERATE team-scoped'
   );
 
   SELECT p.oid, pg_get_functiondef(p.oid) INTO v_oid, v_src
@@ -99,9 +99,16 @@ BEGIN
   LIMIT 1;
   PERFORM public.__silvia_assert(v_oid IS NOT NULL, 'can_see_expediente existe');
   PERFORM public.__silvia_assert(
-    position('team_dashboard' in lower(v_src)) = 0
-    AND position('asesor_equipo' in lower(v_src)) = 0,
-    '16 can_see sin team_dashboard/asesor_equipo'
+    position('integrate_for_any_advisor' in v_src) > 0,
+    '16 can_see_expediente contiene integrate_for_any_advisor'
+  );
+  PERFORM public.__silvia_assert(
+    position('asesor_comparten_equipo_activo' in v_src) > 0,
+    '16b can_see usa team scope comparten_equipo'
+  );
+  PERFORM public.__silvia_assert(
+    position('team_dashboard' in lower(v_src)) = 0,
+    '16c can_see sin team_dashboard'
   );
 
   PERFORM public.__silvia_assert(EXISTS (

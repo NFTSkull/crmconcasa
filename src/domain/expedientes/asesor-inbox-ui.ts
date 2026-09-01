@@ -111,8 +111,13 @@ export function buildAsesorInboxListInput(params: {
   pageSize?: number;
   filters: AsesorInboxUiFilters;
   quickFilter: AsesorInboxQuickFilter | string;
+  ownerAsesorId?: string | null;
 }): AsesorListExpedientesPageInput {
   const quickParsed = asesorInboxQuickFilterSchema.safeParse(params.quickFilter);
+  const owner =
+    typeof params.ownerAsesorId === "string" && params.ownerAsesorId.trim() !== ""
+      ? params.ownerAsesorId.trim()
+      : null;
   return {
     page: Math.max(1, Math.floor(params.page) || 1),
     page_size: Math.min(
@@ -128,6 +133,7 @@ export function buildAsesorInboxListInput(params: {
     fecha_desde: emptyToNull(params.filters.fechaDesde),
     fecha_hasta: emptyToNull(params.filters.fechaHasta),
     quick_filter: quickParsed.success ? quickParsed.data : "todos",
+    owner_asesor_id: owner,
   };
 }
 

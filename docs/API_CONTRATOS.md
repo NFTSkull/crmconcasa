@@ -1857,14 +1857,15 @@ Errores públicos sin PII: 401 `unauthenticated`, 403 `forbidden` (asesor / sin 
 
 ## 20. Dashboard líder de equipo + capabilities (Equipo Silvia)
 
-**Migración:** `20260831205958_asesor_equipo_lider_capabilities.sql`
+**Migración Team Silvia:** `20260831205958_asesor_equipo_lider_capabilities.sql`
+**Migración P208 (end-to-end integrate):** `20260901192000_asesor_integrate_for_any_advisor_p208.sql` — helper `asesor_can_operate_expediente_as(actor, expediente_id)`; **no** editar 20260831205958 en Cloud.
 
 **Capabilities** (`profile_capabilities.capability`, sin hardcode de email en FE):
 | Capability | Efecto |
 |---|---|
 | `team_dashboard_read` | Habilita dashboard de equipo en `/asesor` si además es `leader_id` activo de `asesor_equipos` |
-| `create_for_any_advisor` | Alta a nombre de otro asesor (`create_expediente_for_asesor`) + lista org (`list_asesores_activos_org`) |
-| `integrate_for_any_advisor` | Extiende ownership en `save_cliente_datos` (integración) |
+| `create_for_any_advisor` | Alta a nombre de otro asesor del **mismo equipo activo** (`create_expediente_for_asesor` + `asesor_comparten_equipo_activo`) + selector team-scoped (`list_asesores_activos_org`) |
+| `integrate_for_any_advisor` | Operación completa como titular del **mismo equipo activo**: `asesor_can_operate_expediente_as` (= owner OR capability + `asesor_comparten_equipo_activo`), lectura (`can_see_expediente`), Storage pre/post/corrección/retención, RPCs integración/corrección/reingreso/CURP, inbox `p_owner_asesor_id`. **No** same-org fuera de equipo. Actor real en writes/action_log; `expediente.asesor_id` no cambia. |
 
 **Tablas:** `asesor_equipos` (leader_id, org, active) · `asesor_equipo_miembros` (team_id, asesor_id). Scope = líder + miembros activos.
 
@@ -1877,10 +1878,11 @@ Errores públicos sin PII: 401 `unauthenticated`, 403 `forbidden` (asesor / sin 
 | `asesor_lider_get_dashboard(p_asesor_id?, p_fecha_desde?, p_fecha_hasta?)` | Igual + `asesor_id` en scope | `{ activos, cerrados, total, monto_total_aprobado, by_etapa[{etapa,nombre,count,monto}], filters }` — **monto canónico Admin P087:** Mejoravit `LEAST(monto_aprobado_al_aprobar, 169000)`; `subcuenta` / `compro_tu_casa` aportan el snapshot **sin** tope 169k |
 | `asesor_lider_list_expedientes_page(p_page, p_page_size≤100, p_buscar?, p_asesor_id?, p_etapa_exacta?, p_fecha_desde?, p_fecha_hasta?, p_ciclo?)` | Igual | `{ items[], total_count, page, page_size, has_more }` |
 | `create_expediente_for_asesor(p_asesor_id, p_programa, p_nss, p_cliente_nombre, p_telefono_cliente, p_direccion_opcional?)` | `create_for_any_advisor`; target asesor activo misma org | Paridad gates con `create_expediente` (NSS/teléfono/duplicado/mesa); `action_log` `expediente.create` + `created_for_any_advisor` |
-| `list_asesores_activos_org()` | `create_for_any_advisor` (**no** exige ser líder) | `{ asesores: [{id, full_name, email}] }` orden por nombre |
+| `list_asesores_activos_org()` | `create_for_any_advisor` o `integrate_for_any_advisor` (**no** exige ser líder) | `{ asesores: [{id, full_name, email}] }` — **P208 team-scoped:** solo líder + miembros activos de equipos compartidos con el actor (`asesor_comparten_equipo_activo`), no toda la org |
 
 **UI:**
 - `/asesor`: si `team_dashboard_read && team` → `AsesorLiderDashboard` (KPIs, donut CSS, filtros, tabla paginada, export CSV de página). Si no → inbox actual intacto.
-- `/asesor/nueva`: si `create_for_any_advisor` → Select de asesores org vía `list_asesores_activos_org` + `create_expediente_for_asesor`. Usuarios normales sin cambio.
+- `/asesor` + `integrate_for_any_advisor`: barra «Trabajando para:» (`AsesorOperacionDelegadaBar`) + listado vía `asesor_list_expedientes_page(..., p_owner_asesor_id)` del titular seleccionado (**mismo equipo activo**; RPC rechaza 42501 si target fuera de equipo).
+- `/asesor/nueva`: si `create_for_any_advisor` → Select team-scoped vía `list_asesores_activos_org` + `create_expediente_for_asesor`. Usuarios normales sin cambio.
 
 **Dominio FE:** `src/domain/asesor-lider/` (Zod + repos supabase/mock). Permisos solo por capability/RPC; seed SQL puede asignar capability a un perfil, pero el código de aplicación no hardcodea emails.

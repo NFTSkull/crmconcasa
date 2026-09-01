@@ -1,3 +1,11 @@
+## 2026-09-01 - P208: Adriana/Hector captura delegada Equipo Silvia (local, sin Cloud)
+
+### Causa
+RPCs parciales en mig 20260831205958 permitían `integrate_for_any_advisor` en save/doc/enviar, pero Storage helpers, lectura (`can_see_expediente`) e inbox seguían owner-only. P208 v1 ampliaba a same-org (demasiado ancho).
+
+### Decisión
+Helpers `asesor_comparten_equipo_activo` + `asesor_can_operate_expediente_as`: owner OR capability + **mismo equipo activo** (relaciones `asesor_equipos` / `asesor_equipo_miembros`; sin hardcode team_id/email). Mig **20260901192000** (CREATE OR REPLACE; no tocar 20260831205958). `list_asesores_activos_org` team-scoped. Actor real en writes/action_log; titular intacto. FE barra «Trabajando para:». Tests SQL T1–T50 + Team Silvia + FE F1–F13.
+
 ## 2026-09-01 - P207.2: colas operativas excluyen terminales Pago ConCasa (local, sin Cloud)
 
 ### Causa (RO producción)

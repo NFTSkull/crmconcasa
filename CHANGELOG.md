@@ -21,6 +21,8 @@
 ## [Unreleased]
 
 ### Fixed
+- **feat(asesor): P208 captura delegada Equipo Silvia (local, sin Cloud)** — `integrate_for_any_advisor` / `create_for_any_advisor` acotados por `asesor_comparten_equipo_activo` (no same-org); helpers Storage/RPCs/inbox/`can_see`; selector team-scoped. Mig `20260901192000`. Tests T1–T50 + F1–F13.
+
 - **fix(mesa): colas operativas excluyen trámites finalizados Pago ConCasa (P207.2, local)** — Gate NOT_TERMINAL_PAGO en quick/ops operativos y KPIs operativos; `todo_mesa` histórico intacto. Mig. `20260901171420`. Sin Cloud aún.
 
 - **fix(mesa): Disponibles incluye todo cambio pendiente de revisión (P207.1, local)** — `ops_filter=sin_asignar` = Nuevos ∪ `CORRECTION_PENDING_REVIEW` ∪ `ADVISOR_UPDATE_PENDING_REVIEW`; assignment no oculta; `mesa_bandeja_counts_fast.disponibles` alineado con `total_count` de lista. Mig. `20260901164142`. Cloud aplicada.
