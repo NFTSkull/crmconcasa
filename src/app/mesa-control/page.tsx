@@ -22,17 +22,17 @@ import {
 } from "@/lib/mesaExpedienteActividadUi";
 import {
   buildMesaAsesorCambiosCardModel,
+  MESA_CAMBIO_DETALLE_CARGANDO,
+  MESA_CAMBIO_DETALLE_TEMPORAL_NO_DISPONIBLE,
   MESA_CAMBIO_ESTADO_POR_REVISAR,
   mesaCambioFechaLoteLabel,
 } from "@/lib/mesaAsesorCambiosCardUi";
 import {
-  formatMesaAsesorReenviadoAt,
   formatMesaCorreccionMotivoLine,
   MESA_ASESOR_CAMBIOS_ABRIR_EXPEDIENTE_CTA,
   MESA_ASESOR_CAMBIOS_FOCUS,
   MESA_ASESOR_CAMBIOS_HISTORICO_AVISO,
   MESA_ASESOR_CAMBIOS_HISTORICO_TITULO,
-  esCorreccionHistoricaSinDetalle,
   type MesaAsesorCambioHistoryConfidence,
   type MesaAsesorCambioPreviewItem,
 } from "@/lib/mesaAsesorCambiosUi";
@@ -41,12 +41,10 @@ import {
   MESA_CAMBIOS_SUBFILTRO_DEFAULT,
   MESA_CAMBIOS_SUBFILTRO_LABELS,
   MESA_CAMBIOS_SUBFILTRO_TOOLTIPS,
-  mesaCambioCtaRevisarLabel,
   mesaAsesorCambiosLoteVacioAviso,
   mesaAsesorCambiosLoteVacioTitulo,
   mesaCambioDocumentacionLabel,
-  mesaCambioMuestraEstadoPorRevisar,
-  mesaCambioOrigenBadge,
+  mesaCambioMuestraEstadoPorRevisarOperativo,
   type MesaCambiosPorRevisarSubfiltro,
   type MesaCambioRevisionOrigen,
 } from "@/lib/mesaCambiosRevisionOrigenUi";
@@ -224,6 +222,9 @@ type CasoConDocs = CasoMock & {
   cambioRequestAt?: string | null;
   cambioRevisionEstado?: string | null;
   cambioActionableAt?: string | null;
+  cambioBatchId?: string | null;
+  advisorChangesHydrated?: boolean;
+  enrichFailed?: boolean;
 };
 
 type AdminOrigenTab = "todos" | "internos" | "externos";
@@ -262,16 +263,18 @@ function resumenDocumentalLabel(c?: CategoriaResumenDocumental): string {
 function DocumentacionCell({
   c,
   origin,
+  etapaActual,
 }: {
   c?: CategoriaResumenDocumental;
   origin?: MesaCambioRevisionOrigen | null;
+  etapaActual?: number;
 }) {
   if (c === "correccion_enviada") {
     const badge = mesaCambioDocumentacionLabel(origin);
     return (
       <div className="flex max-w-[12rem] flex-col gap-0.5">
         <span className={resumenDocumentalBadgeClass(c)}>{badge}</span>
-        {mesaCambioMuestraEstadoPorRevisar(origin) ? (
+        {mesaCambioMuestraEstadoPorRevisarOperativo(origin, etapaActual) ? (
           <span className="text-[10px] leading-tight text-sky-900/80">
             {MESA_CAMBIO_ESTADO_POR_REVISAR}
           </span>
@@ -526,6 +529,8 @@ export default function MesaControlPage() {
       cambioRequestAt: page.cambioRequestAt ?? null,
       cambioRevisionEstado: page.cambioRevisionEstado ?? null,
       cambioActionableAt: page.cambioActionableAt ?? null,
+      cambioBatchId: page.cambioBatchId ?? null,
+      advisorChangesHydrated: false,
     };
   }, []);
 
@@ -807,6 +812,7 @@ export default function MesaControlPage() {
           }
 
           let enriched = base;
+          let enrichFailed = false;
           try {
             mesaPerfMark("enrich-start");
             const enrichDeps = await resolveEnrichDeps();
@@ -817,8 +823,14 @@ export default function MesaControlPage() {
             )) as CasoConDocs[];
             mesaPerfMark("enrich-end");
           } catch {
+            enrichFailed = true;
             // Fail-soft: tarjetas base ya visibles.
           }
+          enriched = enriched.map((item) => ({
+            ...item,
+            advisorChangesHydrated: true,
+            enrichFailed,
+          }));
           if (!isCurrent()) return;
 
           // Conservar orden del servidor (sort_ts); no reordenar localmente.
@@ -2066,12 +2078,17 @@ export default function MesaControlPage() {
                   <DocumentacionCell
                     c={c.resumenDocumental}
                     origin={c.cambioRevisionOrigen}
+                    etapaActual={c.etapaActual}
                   />
                 </div>
                 {(() => {
                   const card = buildMesaAsesorCambiosCardModel({
                     revisionEstado: c.cambioRevisionEstado ?? null,
                     origin: c.cambioRevisionOrigen ?? null,
+                    etapaActual: c.etapaActual,
+                    primaryCambioBatchId: c.cambioBatchId ?? null,
+                    advisorChangesHydrated: c.advisorChangesHydrated,
+                    enrichFailed: c.enrichFailed,
                     advisorChangeBatchId: c.advisorChangeBatchId,
                     advisorChangesCount: c.advisorChangesCount,
                     advisorChangesSubmittedAt: c.advisorChangesSubmittedAt,
@@ -2099,7 +2116,50 @@ export default function MesaControlPage() {
                       data-testid="mesa-asesor-cambios-card"
                       data-cambio-origen={c.cambioRevisionOrigen ?? ""}
                     >
-                      {card.detalleNoDisponible ? (
+                      {card.detalleLoading ? (
+                        <>
+                          <p className="text-[11px] font-semibold text-sky-950">
+                            {card.header}
+                          </p>
+                          <p
+                            className="text-[10px] text-sky-900/80"
+                            data-testid="mesa-cambio-detalle-cargando"
+                          >
+                            {MESA_CAMBIO_DETALLE_CARGANDO}
+                          </p>
+                        </>
+                      ) : card.detalleTemporalNoDisponible || card.batchMismatch ? (
+                        <>
+                          <p className="text-[11px] font-semibold text-sky-950">
+                            {card.header}
+                          </p>
+                          <p
+                            className="text-[10px] text-sky-900/80"
+                            data-testid="mesa-cambio-detalle-temporal"
+                          >
+                            {MESA_CAMBIO_DETALLE_TEMPORAL_NO_DISPONIBLE}
+                          </p>
+                          {c.cambioRevisionOrigen === "REQUESTED_CORRECTION" && card.solicitadaAt ? (
+                            <p className="text-[10px] text-sky-900/80">
+                              Solicitada por Mesa: {card.solicitadaAt}
+                            </p>
+                          ) : null}
+                          {c.cambioRevisionOrigen === "ADVISOR_UPDATE" && card.loteAt ? (
+                            <p className="text-[10px] text-sky-900/80">
+                              Actualizada por el asesor: {card.loteAt}
+                            </p>
+                          ) : null}
+                          <Link
+                            href={`/mesa-control/${c.id}`}
+                            className={ctaClass}
+                            data-testid="mesa-abrir-correccion-sin-detalle"
+                            onClick={(e) => e.stopPropagation()}
+                            onKeyDown={(e) => e.stopPropagation()}
+                          >
+                            {card.ctaLabel}
+                          </Link>
+                        </>
+                      ) : card.detalleNoDisponible ? (
                         <>
                           <p className="text-[11px] font-semibold text-sky-950">
                             {card.header}
@@ -2258,6 +2318,11 @@ export default function MesaControlPage() {
                               {MESA_CAMBIO_ESTADO_POR_REVISAR}
                             </p>
                           ) : null}
+                          {card.historicaFirmadoBadge ? (
+                            <p className="text-[10px] text-sky-900/80">
+                              {card.historicaFirmadoBadge}
+                            </p>
+                          ) : null}
                           {card.advisorCopy ? (
                             <p className="text-[10px] leading-snug text-sky-900/90">
                               {card.advisorCopy}
@@ -2319,7 +2384,7 @@ export default function MesaControlPage() {
                               onClick={(e) => e.stopPropagation()}
                               onKeyDown={(e) => e.stopPropagation()}
                             >
-                              {mesaCambioCtaRevisarLabel(c.cambioRevisionOrigen)}
+                              {card.ctaLabel}
                             </Link>
                           ) : card.showAbrirExpediente ? (
                             <Link

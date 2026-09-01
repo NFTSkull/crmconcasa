@@ -61,6 +61,8 @@ export type MesaBandejaCasoBase = Readonly<{
   fechaEnvioMesa?: string | null;
   cambioRevisionEstado?: string | null;
   cambioActionableAt?: string | null;
+  /** P207.3 — lote primario del read-model P198 (antes del enrich batch). */
+  cambioBatchId?: string | null;
 }>;
 
 export type MesaBandejaCasoEnriched = MesaBandejaCasoBase & {
@@ -204,6 +206,24 @@ export async function enrichMesaBandejaPageItems<T extends MesaBandejaCasoBase>(
   let advisorChangesById = new Map<string, MesaAsesorCambiosSummaryItem>();
   try {
     advisorChangesById = new Map(await listAdvisorChanges(allExpedienteIds));
+    const pendingRetryIds = base
+      .filter((c) => {
+        const estado = String(c.cambioRevisionEstado ?? "").trim();
+        const pending =
+          estado === "CORRECTION_PENDING_REVIEW" ||
+          estado === "ADVISOR_UPDATE_PENDING_REVIEW";
+        const primary = String(c.cambioBatchId ?? "").trim();
+        if (!pending || !primary) return false;
+        const summary = advisorChangesById.get(c.id);
+        return !summary || String(summary.batchId ?? "").trim() !== primary;
+      })
+      .map((c) => c.id);
+    if (pendingRetryIds.length > 0) {
+      const retryMap = new Map(await listAdvisorChanges(pendingRetryIds));
+      for (const [id, summary] of retryMap) {
+        advisorChangesById.set(id, summary);
+      }
+    }
   } catch {
     advisorChangesById = new Map();
   }

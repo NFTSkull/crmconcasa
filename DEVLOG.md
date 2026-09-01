@@ -1,4 +1,12 @@
-## 2026-09-01 - P208: Adriana/Hector captura delegada Equipo Silvia (local, sin Cloud)
+## 2026-09-01 - P207.3: Firmados fuera de colas de cambios + detalle actualización robusto (local, sin Cloud)
+
+### Causa (RO producción)
+29 expedientes etapa 11 (Firmado) con `pago_concasa_resultado` NULL conservaban lotes históricos `ADVISOR_UPDATE_PENDING_REVIEW` / `CORRECTION_PENDING_REVIEW` anteriores a la firma → 9 seguían en colas operativas de cambios. Caso Luis Aldahir: tarjeta mostraba «detalle no disponible» pese a RPC summary válido (`cambioBatchId` primario no llegaba al card model).
+
+### Decisión
+SQL: gate **NOT_FIRMADO_CAMBIOS** (`etapa_actual < 11` ∧ NOT_TERMINAL_PAGO) solo en quick/ops/KPIs de cambios; `en_proceso`/`mi_bandeja`/`en_trabajo`/`todo_mesa`/`citasHoy` operativo conservan `< 12` donde aplica. FE: propagar `cambioBatchId` P198; loading explícito pre-enrich; 1 retry batch; batch mismatch fail-safe; ADVISOR_UPDATE nunca muestra solicitud Mesa histórica; Firmado en Todo Mesa = histórico sin «Por revisar». Mig `20260901194500` (post-P208). 0 writers.
+
+## 2026-09-01 - P208: Adriana/Hector captura delegada Equipo Silvia (Cloud, PR #202)
 
 ### Causa
 RPCs parciales en mig 20260831205958 permitían `integrate_for_any_advisor` en save/doc/enviar, pero Storage helpers, lectura (`can_see_expediente`) e inbox seguían owner-only. P208 v1 ampliaba a same-org (demasiado ancho).

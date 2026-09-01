@@ -318,4 +318,98 @@ describe("enrichMesaBandejaPageItems P130.2", () => {
     assert.equal(items[0]?.ultimaCorreccionEnviadaAt, "2026-07-21T13:00:00.000Z");
     assert.equal(items[0]?.etapaActual, 11);
   });
+
+  it("P207.3 F1: cambioBatchId primario se conserva tras enrich", async () => {
+    const batchId = "cf197c83-c29f-4e83-a46c-190ca7df1e64";
+    const expId = "00000000-0000-4000-9207-000000000701";
+    const [item] = await enrichMesaBandejaPageItems(
+      [
+        {
+          id: expId,
+          cliente_nombre: "Luis-like",
+          telefono_cliente: "8111111111",
+          programa: "mejoravit",
+          etapaActual: 11,
+          subestado: "en_proceso",
+          cambioRevisionEstado: "ADVISOR_UPDATE_PENDING_REVIEW",
+          cambioBatchId: batchId,
+        },
+      ],
+      {
+        mesaUserId: null,
+        listResumenBatchByExpedienteIds: async () => ({}),
+        listEstadoBatchByExpedienteIds: async () => ({}),
+        listAsesorCambiosSummaryByExpedienteIds: async () =>
+          new Map([
+            [
+              expId,
+              {
+                expedienteId: expId,
+                batchId,
+                status: "pendiente_revision" as const,
+                submittedAt: "2026-08-07T02:50:21.000Z",
+                changesCount: 1,
+                summary: ["Referencias actualizadas"],
+                previewChanges: [],
+                historyConfidence: null,
+                historySource: null,
+                historyNote: null,
+              },
+            ],
+          ]),
+      },
+    );
+    assert.equal(item?.cambioBatchId, batchId);
+    assert.equal(item?.advisorChangeBatchId, batchId);
+    assert.equal(item?.advisorChangesCount, 1);
+  });
+
+  it("P207.3 retry batch: reintenta IDs con lote primario ausente en primer summary", async () => {
+    const batchId = "cf197c83-c29f-4e83-a46c-190ca7df1e64";
+    const expId = "00000000-0000-4000-9207-000000000702";
+    let calls = 0;
+    const [item] = await enrichMesaBandejaPageItems(
+      [
+        {
+          id: expId,
+          cliente_nombre: "Retry",
+          telefono_cliente: "8111111112",
+          programa: "mejoravit",
+          etapaActual: 10,
+          subestado: "en_proceso",
+          cambioRevisionEstado: "ADVISOR_UPDATE_PENDING_REVIEW",
+          cambioBatchId: batchId,
+        },
+      ],
+      {
+        mesaUserId: null,
+        listResumenBatchByExpedienteIds: async () => ({}),
+        listEstadoBatchByExpedienteIds: async () => ({}),
+        listAsesorCambiosSummaryByExpedienteIds: async (ids) => {
+          calls += 1;
+          if (calls === 1) return new Map();
+          assert.deepEqual(ids, [expId]);
+          return new Map([
+            [
+              expId,
+              {
+                expedienteId: expId,
+                batchId,
+                status: "pendiente_revision" as const,
+                submittedAt: "2026-08-07T02:50:21.000Z",
+                changesCount: 1,
+                summary: ["Referencias actualizadas"],
+                previewChanges: [],
+                historyConfidence: null,
+                historySource: null,
+                historyNote: null,
+              },
+            ],
+          ]);
+        },
+      },
+    );
+    assert.equal(calls, 2);
+    assert.equal(item?.advisorChangesCount, 1);
+  });
 });
