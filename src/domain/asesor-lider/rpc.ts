@@ -8,6 +8,7 @@ export const ASESOR_LIDER_MAX_PAGE_SIZE = 100;
 
 export const CAP_TEAM_DASHBOARD_READ = "team_dashboard_read";
 export const CAP_CREATE_FOR_ANY_ADVISOR = "create_for_any_advisor";
+export const CAP_INTEGRATE_FOR_ANY_ADVISOR = "integrate_for_any_advisor";
 
 const uuidSchema = z.string().uuid();
 

@@ -736,6 +736,7 @@ async function fetchAsesorInboxPage(
     p_fecha_desde: input.fecha_desde ?? null,
     p_fecha_hasta: input.fecha_hasta ?? null,
     p_quick_filter: input.quick_filter ?? "todos",
+    p_owner_asesor_id: input.owner_asesor_id ?? null,
   });
 
   if (error) {

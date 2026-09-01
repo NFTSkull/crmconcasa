@@ -108,9 +108,14 @@ import {
   type AsesorExportProgramaFilter,
 } from "@/lib/exportAsesorPrecalificacionesExcel";
 import { AsesorLiderDashboard } from "@/components/asesor/AsesorLiderDashboard";
+import { AsesorOperacionDelegadaBar } from "@/components/asesor/AsesorOperacionDelegadaBar";
 import {
+  CAP_CREATE_FOR_ANY_ADVISOR,
+  CAP_INTEGRATE_FOR_ANY_ADVISOR,
+  hasCapability,
   isAsesorLiderDashboardMode,
   useAsesorLiderRepo,
+  type AsesorActivoOrg,
   type AsesorLiderContext,
 } from "@/domain/asesor-lider";
 
@@ -468,8 +473,13 @@ const EMPTY_KPIS: AsesorInboxKpisFromSummary = {
   subirAcuse: 0,
 };
 
-function AsesorDashboardNormalPage() {
+function AsesorDashboardNormalPage({
+  liderCtx,
+}: {
+  liderCtx: AsesorLiderContext | null;
+}) {
   const { sessionRepo, currentUser } = useSessionRepo();
+  const liderRepo = useAsesorLiderRepo();
   const router = useRouter();
   const [filters, setFilters] = useState<AsesorFiltersState>(INITIAL_FILTERS);
   const [buscarDebounced, setBuscarDebounced] = useState("");
@@ -520,6 +530,12 @@ function AsesorDashboardNormalPage() {
   const summaryGenRef = useRef(0);
   const summarySingleFlightRef = useRef(createAsesorSummarySingleFlight<void>());
   const dashboardNotifsBaseRef = useRef<DashboardNotificationItem[]>([]);
+  const canIntegrateForAny =
+    liderCtx != null && hasCapability(liderCtx, CAP_INTEGRATE_FOR_ANY_ADVISOR);
+  const canCreateForAny =
+    liderCtx != null && hasCapability(liderCtx, CAP_CREATE_FOR_ANY_ADVISOR);
+  const [asesoresOrg, setAsesoresOrg] = useState<readonly AsesorActivoOrg[]>([]);
+  const [ownerAsesorId, setOwnerAsesorId] = useState("");
 
   const resumenDocumentalPorId = useMemo(() => {
     const out: Record<string, CategoriaResumenDocumental | undefined> = {};
@@ -902,6 +918,8 @@ function AsesorDashboardNormalPage() {
       const listInput = buildAsesorInboxListInput({
         page: pageToLoad,
         pageSize: PAGE_SIZE,
+        ownerAsesorId:
+          canIntegrateForAny && ownerAsesorId ? ownerAsesorId : null,
         filters: {
           buscar: buscarDebounced,
           decision: filters.decision,
@@ -1025,6 +1043,8 @@ function AsesorDashboardNormalPage() {
       filters.fechaDesde,
       filters.fechaHasta,
       quickFilter,
+      canIntegrateForAny,
+      ownerAsesorId,
       repo,
       mapExpedienteToLegacy,
       fetchResumenArchivosPorIds,
@@ -1183,8 +1203,42 @@ function AsesorDashboardNormalPage() {
   }, [filters.buscar]);
 
   useEffect(() => {
+    if (!dataSupabase || (!canCreateForAny && !canIntegrateForAny)) {
+      setAsesoresOrg([]);
+      setOwnerAsesorId("");
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      try {
+        const list = await liderRepo.listAsesoresActivosOrg();
+        if (cancelled) return;
+        setAsesoresOrg(list);
+        const self = list.find((a) => a.email === currentUser?.email);
+        const nextOwner = self?.id ?? list[0]?.id ?? "";
+        setOwnerAsesorId((prev) =>
+          prev && list.some((a) => a.id === prev) ? prev : nextOwner,
+        );
+      } catch (err) {
+        if (process.env.NODE_ENV === "development") {
+          console.warn("[asesor] listAsesoresActivosOrg:", err);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    canCreateForAny,
+    canIntegrateForAny,
+    currentUser?.email,
+    dataSupabase,
+    liderRepo,
+  ]);
+
+  useEffect(() => {
     setPage(1);
-  }, [buscarDebounced]);
+  }, [buscarDebounced, ownerAsesorId]);
 
   useEffect(() => {
     void loadInbox();
@@ -1344,9 +1398,23 @@ function AsesorDashboardNormalPage() {
         </div>
       </header>
       <main className="mx-auto w-full max-w-5xl space-y-3 px-3 py-3 sm:px-4 sm:py-4 lg:max-w-7xl lg:px-6 xl:max-w-[1400px]">
+        {canIntegrateForAny && asesoresOrg.length > 0 && ownerAsesorId ? (
+          <AsesorOperacionDelegadaBar
+            asesores={asesoresOrg}
+            currentUserId={
+              asesoresOrg.find((a) => a.email === currentUser.email)?.id ??
+              ownerAsesorId
+            }
+            ownerAsesorId={ownerAsesorId}
+            onOwnerChange={setOwnerAsesorId}
+          />
+        ) : null}
         <div className="flex items-baseline justify-between gap-2 border-b border-gray-200/80 pb-2">
           <h2 className="text-sm font-semibold text-gray-900 sm:text-base">
-            Mis expedientes
+            {canIntegrateForAny && ownerAsesorId !==
+            (asesoresOrg.find((a) => a.email === currentUser.email)?.id ?? "")
+              ? "Expedientes del asesor titular"
+              : "Mis expedientes"}
           </h2>
         </div>
         {listError ? (
@@ -2074,5 +2142,5 @@ export default function AsesorDashboardPage() {
     );
   }
 
-  return <AsesorDashboardNormalPage />;
+  return <AsesorDashboardNormalPage liderCtx={liderCtx} />;
 }
