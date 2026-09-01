@@ -10,7 +10,7 @@ export type MesaOpsFilter =
   | "mi_bandeja"
   | "en_trabajo";
 
-/** Filtro operativo al cargar `/mesa-control`: nuevos + correcciones reenviadas (P207). */
+/** Filtro operativo al cargar `/mesa-control`: expedientes libres para tomar. */
 export const DEFAULT_MESA_OPS_FILTER: MesaOpsFilter = "sin_asignar";
 
 export const MESA_OPS_FILTER_CHIPS: ReadonlyArray<{
@@ -22,7 +22,7 @@ export const MESA_OPS_FILTER_CHIPS: ReadonlyArray<{
     id: "sin_asignar",
     label: "Disponibles",
     tooltip:
-      "Solo ingresos nuevos a Mesa (pasos 1–2) y correcciones que Mesa pidió y el asesor ya reenvió. Da igual quién los esté trabajando.",
+      "Trabajo pendiente de revisión por Mesa: nuevos en integración, correcciones que Mesa pidió y el asesor ya reenvió, y actualizaciones del asesor (excluye esperando corrección del asesor).",
   },
   {
     id: "en_espera_asesor",
@@ -49,7 +49,7 @@ export const MESA_OPS_FILTER_CHIPS: ReadonlyArray<{
 ];
 
 export const MESA_OPS_FILTER_HELP_TEXT =
-  "Disponibles: nuevos en Mesa (pasos 1–2) más correcciones ya reenviadas por el asesor. La asignación no oculta; la tarjeta indica quién lo trabaja. Esperando al asesor: Mesa pidió corrección y aún no hay nueva respuesta. Asignados en trabajo: ya tomados. Todo Mesa: sin filtro de asignación.";
+  "Disponibles: todo cambio pendiente de revisión por Mesa (nuevos en Mesa, correcciones reenviadas y actualizaciones del asesor). Esperando al asesor: Mesa pidió corrección y aún no hay nueva respuesta. Asignados en trabajo: ya tomados. Todo Mesa: sin filtro de asignación.";
 
 export type MesaOpsStatusKind =
   | "sin_asignar"

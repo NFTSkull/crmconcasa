@@ -1,3 +1,11 @@
+## 2026-09-01 - P207.1: Disponibles = todo cambio pendiente de revisión (local, sin Cloud)
+
+### Causa (RO producción)
+P207 excluía `ADVISOR_UPDATE_PENDING_REVIEW` de `sin_asignar`: 87 expedientes con trabajo Mesa pendiente visibles en «Cambios por revisar» pero no en Disponibles (p.ej. Mauricio Garza Rangel, etapa 1).
+
+### Decisión
+Membresía Disponibles = Nuevos plain ∪ `CORRECTION_PENDING_REVIEW` ∪ `ADVISOR_UPDATE_PENDING_REVIEW`. Assignment no filtra. Solo REPLACE `mesa_list_bandeja_page` + alinear `mesa_bandeja_counts_fast.disponibles` (paridad list/chip T29). No tocar take/release, P198 clasificadores, writers, tablas. Mig timestamp `20260901164142`. Rama limpia desde `crmconcasa/main` (`6f8b4ac`).
+
 ## 2026-08-31 - Team Silvia hardening B2.1
 
 ### Decisión
