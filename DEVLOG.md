@@ -1,4 +1,12 @@
-## 2026-09-01 - P207.1: Disponibles = todo cambio pendiente de revisión (local, sin Cloud)
+## 2026-09-01 - P207.2: Disponibles excluye Pago ConCasa finalizado (local, sin Cloud)
+
+### Causa (RO producción)
+31 expedientes etapa 12 + `pago_concasa_resultado` decidido seguían en Disponibles por P207.1 (p.ej. Wilfrido Pérez Reyes: lote ADVISOR anterior al pago final).
+
+### Decisión
+Gate adicional solo en cola operativa Disponibles: `etapa_actual < 12` ∧ `pago_concasa_resultado IS NULL` antes del OR P207.1. Chips `correccionesEnviadas` / `correccionesSolicitadas` / `otrasActualizaciones` sin cambio (historial visible). Solo REPLACE read-models. Mig `20260901171420`.
+
+## 2026-09-01 - P207.1: Disponibles = todo cambio pendiente de revisión (Cloud aplicada)
 
 ### Causa (RO producción)
 P207 excluía `ADVISOR_UPDATE_PENDING_REVIEW` de `sin_asignar`: 87 expedientes con trabajo Mesa pendiente visibles en «Cambios por revisar» pero no en Disponibles (p.ej. Mauricio Garza Rangel, etapa 1).

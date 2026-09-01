@@ -21,7 +21,9 @@
 ## [Unreleased]
 
 ### Fixed
-- **fix(mesa): Disponibles incluye todo cambio pendiente de revisión (P207.1, local)** — `ops_filter=sin_asignar` = Nuevos ∪ `CORRECTION_PENDING_REVIEW` ∪ `ADVISOR_UPDATE_PENDING_REVIEW`; assignment no oculta; `mesa_bandeja_counts_fast.disponibles` alineado con `total_count` de lista. Mig. `20260901164142`. 0 writers. Sin Cloud aún.
+- **fix(mesa): Disponibles excluye trámites finalizados Pago ConCasa (P207.2, local)** — `ops_filter=sin_asignar` exige `etapa_actual < 12` y `pago_concasa_resultado IS NULL` además de regla P207.1; chip `disponibles` alineado; chips correcciones/otras intactos. Mig. `20260901171420`. Sin Cloud aún.
+
+- **fix(mesa): Disponibles incluye todo cambio pendiente de revisión (P207.1, local)** — `ops_filter=sin_asignar` = Nuevos ∪ `CORRECTION_PENDING_REVIEW` ∪ `ADVISOR_UPDATE_PENDING_REVIEW`; assignment no oculta; `mesa_bandeja_counts_fast.disponibles` alineado con `total_count` de lista. Mig. `20260901164142`. Cloud aplicada.
 
 - **fix(asesor): harden Team Silvia pre-merge** — provisioner compensación inversa (Auth/profile/membership/caps); RLS acíclico equipos↔miembros; tests reales save/doc/enviar delegados; monto dashboard Mejoravit `LEAST(…,169000)` + otros programas sin tope; preflight `STOP_FUNCTION_DRIFT`.
 
