@@ -67,6 +67,7 @@ export const MESA_CAMBIO_ADVISOR_COPY =
 
 export const MESA_CAMBIO_CTA_REVISAR_CORRECCION = "Revisar corrección";
 export const MESA_CAMBIO_CTA_REVISAR_CAMBIOS = "Revisar cambios";
+export const MESA_CAMBIO_CTA_VER_CAMBIOS = "Ver cambios";
 
 export function mesaCambioCtaRevisarLabel(
   origin: MesaCambioRevisionOrigen | null | undefined,
@@ -161,6 +162,15 @@ export function mesaCambioMuestraEstadoPorRevisar(
   origin: MesaCambioRevisionOrigen | null | undefined,
 ): boolean {
   return origin === "REQUESTED_CORRECTION" || origin === "ADVISOR_UPDATE";
+}
+
+/** P207.3 — Firmado (etapa ≥ 11) no pertenece a cola operativa de cambios. */
+export function mesaCambioMuestraEstadoPorRevisarOperativo(
+  origin: MesaCambioRevisionOrigen | null | undefined,
+  etapaActual: number | null | undefined,
+): boolean {
+  if ((etapaActual ?? 0) >= 11) return false;
+  return mesaCambioMuestraEstadoPorRevisar(origin);
 }
 
 export function mesaCambioFechaLoteLabel(

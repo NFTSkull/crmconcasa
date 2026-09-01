@@ -61,6 +61,11 @@ export interface CasoMock {
   /** P198: episodio efectivo (cola de cambios). */
   cambioRevisionEstado?: string | null;
   cambioActionableAt?: string | null;
+  /** P207.3 — lote primario P198 (read-model bandeja). */
+  cambioBatchId?: string | null;
+  /** P207.3 — enrich secundario completado (hidratación tarjeta cambios). */
+  advisorChangesHydrated?: boolean;
+  enrichFailed?: boolean;
   /** Reingreso manual / P072. */
   esReingreso?: boolean;
   reingresoManualCount?: number;
