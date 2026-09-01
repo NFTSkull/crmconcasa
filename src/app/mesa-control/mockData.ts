@@ -63,7 +63,9 @@ export interface CasoMock {
   cambioActionableAt?: string | null;
   /** P207.3 — lote primario P198 (read-model bandeja). */
   cambioBatchId?: string | null;
-  /** P207.3 — enrich secundario completado (hidratación tarjeta cambios). */
+  /** P207.4 — estado de hidratación del detalle batch. */
+  advisorChangesDetailStatus?: import("@/lib/mesaAsesorCambiosCardUi").MesaAdvisorChangesDetailStatus;
+  /** @deprecated P207.4 — usar advisorChangesDetailStatus */
   advisorChangesHydrated?: boolean;
   enrichFailed?: boolean;
   /** Reingreso manual / P072. */

@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import type { ExpedienteArchivoResumen } from "@/domain/expediente-archivos";
+import {
+  mesaAsesorCambiosSummaryError,
+  mesaAsesorCambiosSummarySuccess,
+} from "@/domain/expedientes/mesa-asesor-cambios";
 import { enrichMesaBandejaPageItems } from "./mesaBandejaEnrichPage";
 import type { MesaCorreccionSolicitudHistorica } from "./mesaAsesorCambiosUi";
 
@@ -175,7 +179,8 @@ describe("enrichMesaBandejaPageItems P130.2", () => {
         }),
         listEstadoBatchByExpedienteIds: async () => ({}),
         listAsesorCambiosSummaryByExpedienteIds: async () =>
-          new Map([
+          mesaAsesorCambiosSummarySuccess(
+            new Map([
             [
               EXP_LOTE,
               {
@@ -211,6 +216,7 @@ describe("enrichMesaBandejaPageItems P130.2", () => {
               },
             ],
           ]),
+        ),
         listCorreccionSolicitudHistoricaByExpedienteIds: async (ids) => {
           solicitudCalls += 1;
           assert.deepEqual([...ids], [EXP_HIST]);
@@ -295,7 +301,8 @@ describe("enrichMesaBandejaPageItems P130.2", () => {
           [expId]: { estado: "rechazado", updatedAt: null, validatedAt: null },
         }),
         listAsesorCambiosSummaryByExpedienteIds: async () =>
-          new Map([
+          mesaAsesorCambiosSummarySuccess(
+            new Map([
             [
               expId,
               {
@@ -312,6 +319,7 @@ describe("enrichMesaBandejaPageItems P130.2", () => {
               },
             ],
           ]),
+        ),
       },
     );
     assert.equal(items[0]?.resumenDocumental, "correccion_enviada");
@@ -340,7 +348,8 @@ describe("enrichMesaBandejaPageItems P130.2", () => {
         listResumenBatchByExpedienteIds: async () => ({}),
         listEstadoBatchByExpedienteIds: async () => ({}),
         listAsesorCambiosSummaryByExpedienteIds: async () =>
-          new Map([
+          mesaAsesorCambiosSummarySuccess(
+            new Map([
             [
               expId,
               {
@@ -357,6 +366,7 @@ describe("enrichMesaBandejaPageItems P130.2", () => {
               },
             ],
           ]),
+        ),
       },
     );
     assert.equal(item?.cambioBatchId, batchId);
@@ -387,29 +397,60 @@ describe("enrichMesaBandejaPageItems P130.2", () => {
         listEstadoBatchByExpedienteIds: async () => ({}),
         listAsesorCambiosSummaryByExpedienteIds: async (ids) => {
           calls += 1;
-          if (calls === 1) return new Map();
+          if (calls === 1) return mesaAsesorCambiosSummarySuccess(new Map());
           assert.deepEqual(ids, [expId]);
-          return new Map([
-            [
-              expId,
-              {
-                expedienteId: expId,
-                batchId,
-                status: "pendiente_revision" as const,
-                submittedAt: "2026-08-07T02:50:21.000Z",
-                changesCount: 1,
-                summary: ["Referencias actualizadas"],
-                previewChanges: [],
-                historyConfidence: null,
-                historySource: null,
-                historyNote: null,
-              },
-            ],
-          ]);
+          return mesaAsesorCambiosSummarySuccess(
+            new Map([
+              [
+                expId,
+                {
+                  expedienteId: expId,
+                  batchId,
+                  status: "pendiente_revision" as const,
+                  submittedAt: "2026-08-07T02:50:21.000Z",
+                  changesCount: 1,
+                  summary: ["Referencias actualizadas"],
+                  previewChanges: [],
+                  historyConfidence: null,
+                  historySource: null,
+                  historyNote: null,
+                },
+              ],
+            ]),
+          );
         },
       },
     );
     assert.equal(calls, 2);
     assert.equal(item?.advisorChangesCount, 1);
+    assert.equal(item?.advisorChangesDetailStatus, "success");
+  });
+
+  it("P207.4: RPC error sin retry success → advisorChangesDetailStatus error", async () => {
+    const batchId = "a8348100-28ec-419e-bd0e-bdfdde211a39";
+    const expId = "54fca03f-c834-4fcb-acf7-8324f4183968";
+    const [item] = await enrichMesaBandejaPageItems(
+      [
+        {
+          id: expId,
+          cliente_nombre: "Lorena-like",
+          telefono_cliente: "8111111113",
+          programa: "mejoravit",
+          etapaActual: 9,
+          subestado: "en_proceso",
+          cambioRevisionEstado: "CORRECTION_PENDING_REVIEW",
+          cambioBatchId: batchId,
+        },
+      ],
+      {
+        mesaUserId: null,
+        listResumenBatchByExpedienteIds: async () => ({}),
+        listEstadoBatchByExpedienteIds: async () => ({}),
+        listAsesorCambiosSummaryByExpedienteIds: async () =>
+          mesaAsesorCambiosSummaryError("rpc"),
+      },
+    );
+    assert.equal(item?.advisorChangesDetailStatus, "error");
+    assert.equal(item?.advisorChangesCount, null);
   });
 });

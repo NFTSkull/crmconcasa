@@ -31,7 +31,10 @@ import type {
   MesaBandejaActiveBookingFlags,
   MesaBandejaRetencionHint,
 } from "@/lib/mesaBandejaAccionesEnrich";
-import { listAsesorCambiosSummaryByExpedienteIds } from "@/domain/expedientes/mesa-asesor-cambios";
+import {
+  listAsesorCambiosSummaryByExpedienteIds,
+  type MesaAsesorCambiosSummaryResult,
+} from "@/domain/expedientes/mesa-asesor-cambios";
 import { listCorreccionSolicitudHistoricaByExpedienteIds } from "@/domain/expedientes/mesa-correccion-solicitud-historica";
 import type {
   MesaAsesorCambioHistoryConfidence,
@@ -99,7 +102,35 @@ export type MesaBandejaCasoEnriched = MesaBandejaCasoBase & {
   correctionRequestedAt?: string | null;
   correctionRequestedByName?: string | null;
   correctionResubmittedAt?: string | null;
+  /** P207.4 — hidratación del detalle batch (independiente del enrich general). */
+  advisorChangesDetailStatus?: MesaAdvisorChangesDetailStatus;
 };
+
+export type MesaAdvisorChangesDetailStatus = "loading" | "success" | "error";
+
+function isPendingAdvisorChangesReview(
+  revisionEstado: string | null | undefined,
+): boolean {
+  const estado = String(revisionEstado ?? "").trim();
+  return (
+    estado === "CORRECTION_PENDING_REVIEW" ||
+    estado === "ADVISOR_UPDATE_PENDING_REVIEW"
+  );
+}
+
+function deriveAdvisorChangesDetailStatus(input: {
+  cambioRevisionEstado?: string | null;
+  cambioBatchId?: string | null;
+  advisor?: MesaAsesorCambiosSummaryItem;
+}): MesaAdvisorChangesDetailStatus {
+  const primary = String(input.cambioBatchId ?? "").trim();
+  if (!isPendingAdvisorChangesReview(input.cambioRevisionEstado) || !primary) {
+    return "success";
+  }
+  if (!input.advisor) return "error";
+  if (String(input.advisor.batchId ?? "").trim() !== primary) return "error";
+  return "success";
+}
 
 export type EnrichMesaBandejaPageDeps = {
   listResumenBatchByExpedienteIds: (
@@ -128,7 +159,7 @@ export type EnrichMesaBandejaPageDeps = {
   ) => Promise<Map<string, string>>;
   listAsesorCambiosSummaryByExpedienteIds?: (
     ids: readonly string[],
-  ) => Promise<ReadonlyMap<string, MesaAsesorCambiosSummaryItem>>;
+  ) => Promise<MesaAsesorCambiosSummaryResult>;
   listCorreccionSolicitudHistoricaByExpedienteIds?: (
     ids: readonly string[],
     resubmittedAtByExpediente: ReadonlyMap<string, string | null | undefined>,
@@ -205,23 +236,30 @@ export async function enrichMesaBandejaPageItems<T extends MesaBandejaCasoBase>(
     listAsesorCambiosSummaryByExpedienteIds;
   let advisorChangesById = new Map<string, MesaAsesorCambiosSummaryItem>();
   try {
-    advisorChangesById = new Map(await listAdvisorChanges(allExpedienteIds));
+    const firstResult = await listAdvisorChanges(allExpedienteIds);
+    advisorChangesById =
+      firstResult.status === "success"
+        ? new Map(firstResult.items)
+        : new Map<string, MesaAsesorCambiosSummaryItem>();
+
     const pendingRetryIds = base
       .filter((c) => {
-        const estado = String(c.cambioRevisionEstado ?? "").trim();
-        const pending =
-          estado === "CORRECTION_PENDING_REVIEW" ||
-          estado === "ADVISOR_UPDATE_PENDING_REVIEW";
         const primary = String(c.cambioBatchId ?? "").trim();
-        if (!pending || !primary) return false;
+        if (!isPendingAdvisorChangesReview(c.cambioRevisionEstado) || !primary) {
+          return false;
+        }
+        if (firstResult.status === "error") return true;
         const summary = advisorChangesById.get(c.id);
         return !summary || String(summary.batchId ?? "").trim() !== primary;
       })
       .map((c) => c.id);
+
     if (pendingRetryIds.length > 0) {
-      const retryMap = new Map(await listAdvisorChanges(pendingRetryIds));
-      for (const [id, summary] of retryMap) {
-        advisorChangesById.set(id, summary);
+      const retryResult = await listAdvisorChanges(pendingRetryIds);
+      if (retryResult.status === "success") {
+        for (const [id, summary] of retryResult.items) {
+          advisorChangesById.set(id, summary);
+        }
       }
     }
   } catch {
@@ -375,6 +413,11 @@ export async function enrichMesaBandejaPageItems<T extends MesaBandejaCasoBase>(
       correctionResubmittedAt:
         solicitud?.correctionResubmittedAt ??
         (historica ? resubmittedAt : null),
+      advisorChangesDetailStatus: deriveAdvisorChangesDetailStatus({
+        cambioRevisionEstado: c.cambioRevisionEstado,
+        cambioBatchId: c.cambioBatchId,
+        advisor,
+      }),
     };
   });
 }

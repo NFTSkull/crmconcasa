@@ -45,18 +45,26 @@ export const MESA_CAMBIO_DETALLE_NO_DISPONIBLE =
 export const MESA_CAMBIO_ACTUALIZACION_DETALLE_NO_DISPONIBLE =
   "Actualización recibida · detalle no disponible";
 export const MESA_CAMBIO_DETALLE_CARGANDO =
+  "Cargando detalle de corrección…";
+export const MESA_CAMBIO_DETALLE_ACTUALIZACION_CARGANDO =
   "Cargando detalle de actualización…";
-export const MESA_CAMBIO_DETALLE_TEMPORAL_NO_DISPONIBLE =
-  "Detalle temporalmente no disponible";
+export const MESA_CAMBIO_DETALLE_ERROR = "No se pudo cargar el detalle";
+export const MESA_CAMBIO_DETALLE_MISMATCH =
+  "El detalle cambió mientras se cargaba";
+export const MESA_CAMBIO_DETALLE_REINTENTAR = "Reintentar detalle";
 export const MESA_CAMBIO_HISTORICA_FIRMADO =
   "Histórica · recibida antes de Firmado";
+
+export type MesaAdvisorChangesDetailStatus = "loading" | "success" | "error";
 
 export type MesaAsesorCambiosCardInput = Readonly<{
   revisionEstado?: MesaCambioRevisionEstadoEfectivo | string | null;
   origin?: MesaCambioRevisionOrigen | null;
   etapaActual?: number | null;
   primaryCambioBatchId?: string | null;
+  /** @deprecated P207.4 — usar advisorChangesDetailStatus */
   advisorChangesHydrated?: boolean;
+  advisorChangesDetailStatus?: MesaAdvisorChangesDetailStatus;
   enrichFailed?: boolean;
   advisorChangeBatchId?: string | null;
   advisorChangesCount?: number | null;
@@ -104,8 +112,9 @@ export type MesaAsesorCambiosCardModel = Readonly<{
   showAbrirExpediente: boolean;
   ctaLabel: string;
   detalleLoading: boolean;
+  detalleError: boolean;
   detalleNoDisponible: boolean;
-  detalleTemporalNoDisponible: boolean;
+  detalleRetryAvailable: boolean;
   batchMismatch: boolean;
 }>;
 
@@ -135,26 +144,37 @@ export function buildMesaAsesorCambiosCardModel(
   const primaryCambioBatchId = String(input.primaryCambioBatchId ?? "").trim() || null;
   const enrichBatchId = String(input.advisorChangeBatchId ?? "").trim() || null;
   const hasPrimaryBatch = Boolean(primaryCambioBatchId);
-  const advisorChangesHydrated =
-    input.advisorChangesHydrated ?? !hasPrimaryBatch;
+  const detailStatus: MesaAdvisorChangesDetailStatus =
+    input.advisorChangesDetailStatus ??
+    (input.advisorChangesHydrated === false && hasPrimaryBatch
+      ? "loading"
+      : input.advisorChangesHydrated === true || !hasPrimaryBatch
+        ? "success"
+        : "loading");
 
   const revisionEstado = String(input.revisionEstado ?? "").trim();
   const pendingReview = isPendingReview(revisionEstado);
 
   const batchMismatch =
-    advisorChangesHydrated &&
+    detailStatus === "success" &&
     hasPrimaryBatch &&
     Boolean(enrichBatchId) &&
     primaryCambioBatchId !== enrichBatchId;
 
-  const useEnrich = advisorChangesHydrated && !batchMismatch;
+  const useEnrich = detailStatus === "success" && !batchMismatch;
   const displayBatchId = useEnrich ? enrichBatchId : null;
   const displayCount = useEnrich ? input.advisorChangesCount : null;
   const displayPreview = useEnrich ? input.advisorChangesPreview : null;
   const displaySummary = useEnrich ? input.advisorChangesSummary : null;
   const displaySubmittedAt = useEnrich ? input.advisorChangesSubmittedAt : null;
 
-  const detalleLoading = pendingReview && hasPrimaryBatch && !advisorChangesHydrated;
+  const detalleLoading = pendingReview && hasPrimaryBatch && detailStatus === "loading";
+  const detalleError =
+    pendingReview &&
+    hasPrimaryBatch &&
+    (detailStatus === "error" || Boolean(input.enrichFailed)) &&
+    !batchMismatch;
+  const detalleRetryAvailable = detalleError || batchMismatch;
 
   const visibleCount = visibleAdvisorChangesCount({
     advisorChangesCount: displayCount,
@@ -192,19 +212,12 @@ export function buildMesaAsesorCambiosCardModel(
     pendingReview &&
     (changeDetails || hasPrimaryBatch || Boolean(displayBatchId) || loteVacio);
 
-  const detalleTemporalNoDisponible =
-    pendingReview &&
-    advisorChangesHydrated &&
-    !detalleLoading &&
-    (batchMismatch ||
-      (hasPrimaryBatch && !changeDetails && labels.length === 0));
-
   const detalleNoDisponible =
     pendingReview &&
-    advisorChangesHydrated &&
+    detailStatus === "success" &&
     !detalleLoading &&
     !batchMismatch &&
-    !detalleTemporalNoDisponible &&
+    !detalleError &&
     !changeDetails &&
     labels.length === 0 &&
     !hasPrimaryBatch;
@@ -220,19 +233,25 @@ export function buildMesaAsesorCambiosCardModel(
       : origin === "REQUESTED_CORRECTION"
         ? "Corrección recibida"
         : "Cambio por revisar"
-    : batchMismatch || detalleTemporalNoDisponible
+    : batchMismatch
       ? origin === "ADVISOR_UPDATE"
-        ? "Actualización del asesor · detalle temporalmente no disponible"
-        : MESA_CAMBIO_DETALLE_NO_DISPONIBLE
-      : detalleNoDisponible
+        ? "Actualización del asesor"
+        : "Corrección recibida"
+      : detalleError
         ? origin === "ADVISOR_UPDATE"
-          ? MESA_CAMBIO_ACTUALIZACION_DETALLE_NO_DISPONIBLE
-          : MESA_CAMBIO_DETALLE_NO_DISPONIBLE
-        : origin === "REQUESTED_CORRECTION" && pendingReview && !firmadoHistorico
-          ? `Corrección recibida · ${visibleCount} cambio${visibleCount === 1 ? "" : "s"}`
-          : origin
-            ? `${mesaCambioOrigenBadge(origin)} · ${visibleCount} cambio${visibleCount === 1 ? "" : "s"}`
-            : `${visibleCount} cambio${visibleCount === 1 ? "" : "s"}`;
+          ? "Actualización del asesor"
+          : origin === "REQUESTED_CORRECTION"
+            ? "Corrección recibida"
+            : "Cambio por revisar"
+        : detalleNoDisponible
+          ? origin === "ADVISOR_UPDATE"
+            ? MESA_CAMBIO_ACTUALIZACION_DETALLE_NO_DISPONIBLE
+            : MESA_CAMBIO_DETALLE_NO_DISPONIBLE
+          : origin === "REQUESTED_CORRECTION" && pendingReview && !firmadoHistorico
+            ? `Corrección recibida · ${visibleCount} cambio${visibleCount === 1 ? "" : "s"}`
+            : origin
+              ? `${mesaCambioOrigenBadge(origin)} · ${visibleCount} cambio${visibleCount === 1 ? "" : "s"}`
+              : `${visibleCount} cambio${visibleCount === 1 ? "" : "s"}`;
 
   const solicitadaAt =
     origin === "REQUESTED_CORRECTION"
@@ -309,7 +328,7 @@ export function buildMesaAsesorCambiosCardModel(
     showRevisarCambios:
       !detalleNoDisponible &&
       !detalleLoading &&
-      !detalleTemporalNoDisponible &&
+      !detalleError &&
       !batchMismatch &&
       hasMesaAsesorCambiosPanelContent({
         advisorChangeBatchId: displayBatchId ?? primaryCambioBatchId,
@@ -320,12 +339,13 @@ export function buildMesaAsesorCambiosCardModel(
       historica ||
       loteVacio ||
       detalleNoDisponible ||
-      detalleTemporalNoDisponible ||
+      detalleError ||
       batchMismatch,
     ctaLabel,
     detalleLoading,
+    detalleError,
     detalleNoDisponible,
-    detalleTemporalNoDisponible,
+    detalleRetryAvailable,
     batchMismatch,
   };
 }
