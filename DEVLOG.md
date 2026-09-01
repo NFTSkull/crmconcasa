@@ -1,3 +1,11 @@
+## 2026-09-01 - P207.4: hidratación detalle corrección Mesa (local, sin Cloud)
+
+### Causa (RO producción — Lorena Guadalupe Flores Rivera)
+Backend devolvía summary/lote válido (`a8348100-…`, 1 cambio «Estado de cuenta reemplazado») pero FE colapsaba error RPC/parse → `empty Map` y marcaba `advisorChangesHydrated: true` → tarjeta «Detalle temporalmente no disponible».
+
+### Decisión
+Resultado tipado `MesaAsesorCambiosSummaryResult`; `advisorChangesDetailStatus` (`loading|success|error`) por tarjeta; retry batch automático (máx. 2); fallback on-demand summary→`mesa_get_asesor_cambio_lote`; nunca «detalle no disponible» con `primaryCambioBatchId`. 0 SQL/writers.
+
 ## 2026-09-01 - P207.3: Firmados fuera de colas de cambios + detalle actualización robusto (local, sin Cloud)
 
 ### Causa (RO producción)

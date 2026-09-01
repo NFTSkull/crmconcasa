@@ -22,11 +22,16 @@ import {
 } from "@/lib/mesaExpedienteActividadUi";
 import {
   buildMesaAsesorCambiosCardModel,
+  MESA_CAMBIO_DETALLE_ACTUALIZACION_CARGANDO,
   MESA_CAMBIO_DETALLE_CARGANDO,
-  MESA_CAMBIO_DETALLE_TEMPORAL_NO_DISPONIBLE,
+  MESA_CAMBIO_DETALLE_ERROR,
+  MESA_CAMBIO_DETALLE_MISMATCH,
+  MESA_CAMBIO_DETALLE_REINTENTAR,
   MESA_CAMBIO_ESTADO_POR_REVISAR,
   mesaCambioFechaLoteLabel,
+  type MesaAdvisorChangesDetailStatus,
 } from "@/lib/mesaAsesorCambiosCardUi";
+import { fetchAdvisorChangesSummaryForExpediente } from "@/domain/expedientes/mesa-asesor-cambios";
 import {
   formatMesaCorreccionMotivoLine,
   MESA_ASESOR_CAMBIOS_ABRIR_EXPEDIENTE_CTA,
@@ -223,11 +228,31 @@ type CasoConDocs = CasoMock & {
   cambioRevisionEstado?: string | null;
   cambioActionableAt?: string | null;
   cambioBatchId?: string | null;
+  advisorChangesDetailStatus?: MesaAdvisorChangesDetailStatus;
+  /** @deprecated P207.4 — usar advisorChangesDetailStatus */
   advisorChangesHydrated?: boolean;
   enrichFailed?: boolean;
 };
 
 type AdminOrigenTab = "todos" | "internos" | "externos";
+
+function mesaCambioPendingReview(revisionEstado?: string | null): boolean {
+  const estado = String(revisionEstado ?? "").trim();
+  return (
+    estado === "CORRECTION_PENDING_REVIEW" ||
+    estado === "ADVISOR_UPDATE_PENDING_REVIEW"
+  );
+}
+
+function mesaAdvisorChangesDetailStatusInicial(
+  page: { cambioRevisionEstado?: string | null; cambioBatchId?: string | null },
+): MesaAdvisorChangesDetailStatus {
+  const primary = String(page.cambioBatchId ?? "").trim();
+  if (mesaCambioPendingReview(page.cambioRevisionEstado) && primary) {
+    return "loading";
+  }
+  return "success";
+}
 
 function resumenDocumentalBadgeClass(c?: CategoriaResumenDocumental): string {
   if (c === "correccion_enviada") {
@@ -530,7 +555,7 @@ export default function MesaControlPage() {
       cambioRevisionEstado: page.cambioRevisionEstado ?? null,
       cambioActionableAt: page.cambioActionableAt ?? null,
       cambioBatchId: page.cambioBatchId ?? null,
-      advisorChangesHydrated: false,
+      advisorChangesDetailStatus: mesaAdvisorChangesDetailStatusInicial(page),
     };
   }, []);
 
@@ -826,11 +851,20 @@ export default function MesaControlPage() {
             enrichFailed = true;
             // Fail-soft: tarjetas base ya visibles.
           }
-          enriched = enriched.map((item) => ({
-            ...item,
-            advisorChangesHydrated: true,
-            enrichFailed,
-          }));
+          enriched = enriched.map((item) => {
+            const pending = mesaCambioPendingReview(item.cambioRevisionEstado);
+            const primary = String(item.cambioBatchId ?? "").trim();
+            const detailStatus: MesaAdvisorChangesDetailStatus =
+              enrichFailed && pending && primary
+                ? "error"
+                : item.advisorChangesDetailStatus ??
+                  mesaAdvisorChangesDetailStatusInicial(item);
+            return {
+              ...item,
+              advisorChangesDetailStatus: detailStatus,
+              enrichFailed,
+            };
+          });
           if (!isCurrent()) return;
 
           // Conservar orden del servidor (sort_ts); no reordenar localmente.
@@ -1426,11 +1460,53 @@ export default function MesaControlPage() {
 
   const patchCasoLocal = useCallback(
     (expedienteId: string, patch: Partial<CasoConDocs>) => {
-      setCasos((prev) =>
-        prev.map((c) => (c.id === expedienteId ? { ...c, ...patch } : c)),
-      );
+      setCasos((prev) => {
+        const next = prev.map((c) =>
+          c.id === expedienteId ? { ...c, ...patch } : c,
+        );
+        casosRef.current = next;
+        return next;
+      });
     },
     [],
+  );
+
+  const retryAdvisorChangesDetail = useCallback(
+    async (expedienteId: string) => {
+      const caso = casosRef.current.find((c) => c.id === expedienteId);
+      if (!caso) return;
+      patchCasoLocal(expedienteId, { advisorChangesDetailStatus: "loading" });
+      try {
+        const result = await fetchAdvisorChangesSummaryForExpediente(
+          expedienteId,
+          caso.cambioBatchId,
+        );
+        if (result.status === "error") {
+          patchCasoLocal(expedienteId, { advisorChangesDetailStatus: "error" });
+          return;
+        }
+        const item = result.items.get(expedienteId);
+        if (!item) {
+          patchCasoLocal(expedienteId, { advisorChangesDetailStatus: "error" });
+          return;
+        }
+        patchCasoLocal(expedienteId, {
+          advisorChangesDetailStatus: "success",
+          advisorChangeBatchId: item.batchId,
+          advisorChangesCount: item.changesCount,
+          advisorChangesSubmittedAt: item.submittedAt,
+          advisorChangesSummary: item.summary,
+          advisorChangesPreview: item.previewChanges,
+          advisorChangesStatus: item.status,
+          advisorChangesHistoryConfidence: item.historyConfidence,
+          advisorChangesHistorySource: item.historySource,
+          advisorChangesHistoryNote: item.historyNote,
+        });
+      } catch {
+        patchCasoLocal(expedienteId, { advisorChangesDetailStatus: "error" });
+      }
+    },
+    [patchCasoLocal],
   );
 
   const handleSiguienteEtapaRapida = useCallback(
@@ -2087,7 +2163,7 @@ export default function MesaControlPage() {
                     origin: c.cambioRevisionOrigen ?? null,
                     etapaActual: c.etapaActual,
                     primaryCambioBatchId: c.cambioBatchId ?? null,
-                    advisorChangesHydrated: c.advisorChangesHydrated,
+                    advisorChangesDetailStatus: c.advisorChangesDetailStatus,
                     enrichFailed: c.enrichFailed,
                     advisorChangeBatchId: c.advisorChangeBatchId,
                     advisorChangesCount: c.advisorChangesCount,
@@ -2125,19 +2201,21 @@ export default function MesaControlPage() {
                             className="text-[10px] text-sky-900/80"
                             data-testid="mesa-cambio-detalle-cargando"
                           >
-                            {MESA_CAMBIO_DETALLE_CARGANDO}
+                            {c.cambioRevisionOrigen === "ADVISOR_UPDATE"
+                              ? MESA_CAMBIO_DETALLE_ACTUALIZACION_CARGANDO
+                              : MESA_CAMBIO_DETALLE_CARGANDO}
                           </p>
                         </>
-                      ) : card.detalleTemporalNoDisponible || card.batchMismatch ? (
+                      ) : card.detalleError ? (
                         <>
                           <p className="text-[11px] font-semibold text-sky-950">
                             {card.header}
                           </p>
                           <p
                             className="text-[10px] text-sky-900/80"
-                            data-testid="mesa-cambio-detalle-temporal"
+                            data-testid="mesa-cambio-detalle-error"
                           >
-                            {MESA_CAMBIO_DETALLE_TEMPORAL_NO_DISPONIBLE}
+                            {MESA_CAMBIO_DETALLE_ERROR}
                           </p>
                           {c.cambioRevisionOrigen === "REQUESTED_CORRECTION" && card.solicitadaAt ? (
                             <p className="text-[10px] text-sky-900/80">
@@ -2149,15 +2227,45 @@ export default function MesaControlPage() {
                               Actualizada por el asesor: {card.loteAt}
                             </p>
                           ) : null}
-                          <Link
-                            href={`/mesa-control/${c.id}`}
+                          <button
+                            type="button"
                             className={ctaClass}
-                            data-testid="mesa-abrir-correccion-sin-detalle"
-                            onClick={(e) => e.stopPropagation()}
-                            onKeyDown={(e) => e.stopPropagation()}
+                            data-testid="mesa-cambio-reintentar-detalle"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void retryAdvisorChangesDetail(c.id);
+                            }}
                           >
-                            {card.ctaLabel}
-                          </Link>
+                            {MESA_CAMBIO_DETALLE_REINTENTAR}
+                          </button>
+                        </>
+                      ) : card.batchMismatch ? (
+                        <>
+                          <p className="text-[11px] font-semibold text-sky-950">
+                            {card.header}
+                          </p>
+                          <p
+                            className="text-[10px] text-sky-900/80"
+                            data-testid="mesa-cambio-detalle-mismatch"
+                          >
+                            {MESA_CAMBIO_DETALLE_MISMATCH}
+                          </p>
+                          {c.cambioRevisionOrigen === "REQUESTED_CORRECTION" && card.solicitadaAt ? (
+                            <p className="text-[10px] text-sky-900/80">
+                              Solicitada por Mesa: {card.solicitadaAt}
+                            </p>
+                          ) : null}
+                          <button
+                            type="button"
+                            className={ctaClass}
+                            data-testid="mesa-cambio-reintentar-detalle"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              void retryAdvisorChangesDetail(c.id);
+                            }}
+                          >
+                            {MESA_CAMBIO_DETALLE_REINTENTAR}
+                          </button>
                         </>
                       ) : card.detalleNoDisponible ? (
                         <>
@@ -2345,7 +2453,10 @@ export default function MesaControlPage() {
                           ) : null}
                           {c.cambioRevisionOrigen === "REQUESTED_CORRECTION" && card.loteAt ? (
                             <p className="text-[10px] text-sky-900/80">
-                              Reenviada por el asesor: {card.loteAt}
+                              {mesaCambioPendingReview(c.cambioRevisionEstado)
+                                ? "Corrección recibida"
+                                : "Reenviada por el asesor"}
+                              : {card.loteAt}
                             </p>
                           ) : null}
                           {c.cambioRevisionOrigen === "REQUESTED_CORRECTION" && card.tipoHumano ? (

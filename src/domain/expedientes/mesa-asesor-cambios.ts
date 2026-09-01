@@ -163,9 +163,38 @@ function mapChange(row: z.infer<typeof changeSchema>): MesaAsesorCambio {
   };
 }
 
+export type MesaAsesorCambiosSummaryErrorReason =
+  | "rpc"
+  | "parse"
+  | "network"
+  | "not_configured";
+
+export type MesaAsesorCambiosSummaryResult = Readonly<{
+  status: "success" | "error";
+  items: ReadonlyMap<string, MesaAsesorCambiosSummaryItem>;
+  errorReason?: MesaAsesorCambiosSummaryErrorReason;
+}>;
+
+export function mesaAsesorCambiosSummarySuccess(
+  items:
+    | ReadonlyMap<string, MesaAsesorCambiosSummaryItem>
+    | Iterable<readonly [string, MesaAsesorCambiosSummaryItem]>,
+): MesaAsesorCambiosSummaryResult {
+  return {
+    status: "success",
+    items: items instanceof Map ? items : new Map(items),
+  };
+}
+
+export function mesaAsesorCambiosSummaryError(
+  reason: MesaAsesorCambiosSummaryErrorReason,
+): MesaAsesorCambiosSummaryResult {
+  return { status: "error", items: new Map(), errorReason: reason };
+}
+
 export async function listAsesorCambiosSummaryByExpedienteIds(
   expedienteIds: readonly string[],
-): Promise<ReadonlyMap<string, MesaAsesorCambiosSummaryItem>> {
+): Promise<MesaAsesorCambiosSummaryResult> {
   const ids = [
     ...new Set(
       expedienteIds
@@ -173,24 +202,25 @@ export async function listAsesorCambiosSummaryByExpedienteIds(
         .filter((x) => /^[0-9a-f-]{36}$/i.test(x)),
     ),
   ];
-  const empty = new Map<string, MesaAsesorCambiosSummaryItem>();
-  if (ids.length === 0) return empty;
-  if (!isSupabaseConfigured() || !supabaseBrowser) return empty;
+  if (ids.length === 0) return mesaAsesorCambiosSummarySuccess(new Map());
+  if (!isSupabaseConfigured() || !supabaseBrowser) {
+    return mesaAsesorCambiosSummaryError("not_configured");
+  }
   try {
     const { data, error } = await supabaseBrowser.rpc(
       "mesa_list_asesor_cambios_summary",
       { p_expediente_ids: ids },
     );
-    if (error || !data) return empty;
+    if (error || !data) return mesaAsesorCambiosSummaryError("rpc");
     const parsed = listSummaryRpcSchema.safeParse(data);
-    if (!parsed.success) return empty;
+    if (!parsed.success) return mesaAsesorCambiosSummaryError("parse");
     const map = new Map<string, MesaAsesorCambiosSummaryItem>();
     for (const item of parsed.data.items) {
       map.set(item.expediente_id, mapSummaryItem(item));
     }
-    return map;
+    return mesaAsesorCambiosSummarySuccess(map);
   } catch {
-    return empty;
+    return mesaAsesorCambiosSummaryError("network");
   }
 }
 
@@ -239,6 +269,65 @@ export async function fetchMesaAsesorCambioLote(
   } catch {
     return empty;
   }
+}
+
+function mapLoteDetalleToSummaryItem(
+  expedienteId: string,
+  detalle: MesaAsesorCambioLoteDetalle,
+): MesaAsesorCambiosSummaryItem | null {
+  if (!detalle.lote) return null;
+  const changes = [...detalle.changes, ...detalle.recoveredChanges];
+  const previewChanges: MesaAsesorCambioPreviewItem[] = changes.map((c) => ({
+    tipo: c.tipo,
+    campo: c.campo,
+    documentKind: c.documentKind,
+    label: c.label,
+    hasOld: c.valorAnterior != null || Boolean(c.documentoAnteriorId),
+    hasNew: c.valorNuevo != null || Boolean(c.documentoNuevoId),
+    source: normalizeMesaAsesorCambioPreviewSource(c.source ?? "P130"),
+  }));
+  const summary = previewChanges.map((p) => p.label);
+  return {
+    expedienteId,
+    batchId: detalle.lote.id,
+    status: detalle.lote.status,
+    submittedAt: detalle.lote.submittedAt,
+    changesCount: detalle.lote.changesCount || changes.length,
+    summary,
+    previewChanges,
+    historyConfidence: detalle.historyConfidence,
+    historySource: detalle.historySource,
+    historyNote: detalle.historyNote,
+  };
+}
+
+/** P207.4 — retry on-demand: summary batch + fallback puntual a get_lote. */
+export async function fetchAdvisorChangesSummaryForExpediente(
+  expedienteId: string,
+  primaryBatchId?: string | null,
+): Promise<MesaAsesorCambiosSummaryResult> {
+  const summaryResult = await listAsesorCambiosSummaryByExpedienteIds([expedienteId]);
+  const primary = String(primaryBatchId ?? "").trim();
+  if (summaryResult.status === "success") {
+    const item = summaryResult.items.get(expedienteId);
+    if (item && (!primary || String(item.batchId ?? "").trim() === primary)) {
+      return mesaAsesorCambiosSummarySuccess(new Map([[expedienteId, item]]));
+    }
+    if (item && primary && String(item.batchId ?? "").trim() !== primary) {
+      return mesaAsesorCambiosSummaryError("parse");
+    }
+  }
+  const detalle = await fetchMesaAsesorCambioLote(expedienteId);
+  const mapped = mapLoteDetalleToSummaryItem(expedienteId, detalle);
+  if (!mapped) {
+    return summaryResult.status === "error"
+      ? summaryResult
+      : mesaAsesorCambiosSummaryError("rpc");
+  }
+  if (primary && String(mapped.batchId ?? "").trim() !== primary) {
+    return mesaAsesorCambiosSummaryError("parse");
+  }
+  return mesaAsesorCambiosSummarySuccess(new Map([[expedienteId, mapped]]));
 }
 
 export async function marcarMesaAsesorCambiosRevisados(

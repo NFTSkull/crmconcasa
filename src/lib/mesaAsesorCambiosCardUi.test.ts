@@ -250,10 +250,11 @@ describe("mesaAsesorCambiosCardUi", () => {
       revisionEstado: "ADVISOR_UPDATE_PENDING_REVIEW",
       origin: "ADVISOR_UPDATE",
       primaryCambioBatchId: "cf197c83-c29f-4e83-a46c-190ca7df1e64",
-      advisorChangesHydrated: false,
+      advisorChangesDetailStatus: "loading",
     });
     assert.equal(card.detalleLoading, true);
     assert.equal(card.detalleNoDisponible, false);
+    assert.equal(card.detalleError, false);
     assert.match(card.header, /Actualización del asesor/);
   });
 
@@ -267,7 +268,7 @@ describe("mesaAsesorCambiosCardUi", () => {
       advisorChangesCount: 1,
       advisorChangesSummary: ["Referencias actualizadas"],
       advisorChangesSubmittedAt: "2026-08-07T02:50:21.000Z",
-      advisorChangesHydrated: true,
+      advisorChangesDetailStatus: "success",
     });
     assert.match(card.header, /Actualización del asesor · 1 cambio/);
     assert.deepEqual(card.resumenLines, ["Referencias actualizadas"]);
@@ -286,7 +287,7 @@ describe("mesaAsesorCambiosCardUi", () => {
       correctionRequestedAt: "2026-08-05T16:41:00.000Z",
       correctionRequestedByName: "Mesa Admin",
       correctionRequestedReason: "Documento ilegible",
-      advisorChangesHydrated: true,
+      advisorChangesDetailStatus: "success",
     });
     assert.equal(card.solicitadaAt, null);
     assert.equal(card.solicitadaPor, null);
@@ -302,7 +303,7 @@ describe("mesaAsesorCambiosCardUi", () => {
       correctionRequestedReason: "RFC inválido",
       advisorChangeBatchId: "00000000-0000-4000-8000-000000000001",
       advisorChangesCount: 1,
-      advisorChangesHydrated: true,
+      advisorChangesDetailStatus: "success",
     });
     assert.ok(card.solicitadaAt);
     assert.equal(card.motivo, "RFC inválido");
@@ -317,24 +318,28 @@ describe("mesaAsesorCambiosCardUi", () => {
       advisorChangeBatchId: "00000000-0000-4000-8000-000000000099",
       advisorChangesCount: 1,
       advisorChangesSummary: ["Plazo actualizado"],
-      advisorChangesHydrated: true,
+      advisorChangesDetailStatus: "success",
     });
     assert.equal(card.batchMismatch, true);
     assert.equal(card.resumenLines.length, 0);
-    assert.equal(card.detalleTemporalNoDisponible, true);
+    assert.equal(card.detalleError, false);
+    assert.equal(card.detalleRetryAvailable, true);
   });
 
-  it("P207.3 F7: enrich falla con lote primario → detalle temporal, sin solicitud Mesa", () => {
+  it("P207.3 F7: enrich falla con lote primario → error de carga, sin solicitud Mesa", () => {
     const card = buildMesaAsesorCambiosCardModel({
       revisionEstado: "ADVISOR_UPDATE_PENDING_REVIEW",
       origin: "ADVISOR_UPDATE",
       primaryCambioBatchId: "cf197c83-c29f-4e83-a46c-190ca7df1e64",
-      advisorChangesHydrated: true,
+      advisorChangesDetailStatus: "error",
       enrichFailed: true,
     });
-    assert.equal(card.detalleTemporalNoDisponible, true);
+    assert.equal(card.detalleError, true);
+    assert.equal(card.detalleRetryAvailable, true);
     assert.equal(card.solicitadaAt, null);
     assert.equal(card.detalleNoDisponible, false);
+    assert.match(card.header, /Actualización del asesor/);
+    assert.equal(card.header.includes("detalle no disponible"), false);
   });
 
   it("P207.3 F8: Firmado etapa11 histórico visible sin Por revisar", () => {
@@ -346,7 +351,7 @@ describe("mesaAsesorCambiosCardUi", () => {
       advisorChangeBatchId: "cf197c83-c29f-4e83-a46c-190ca7df1e64",
       advisorChangesCount: 1,
       advisorChangesSummary: ["Referencias actualizadas"],
-      advisorChangesHydrated: true,
+      advisorChangesDetailStatus: "success",
     });
     assert.equal(card.firmadoHistorico, true);
     assert.equal(card.estadoPorRevisar, false);
@@ -363,9 +368,187 @@ describe("mesaAsesorCambiosCardUi", () => {
       advisorChangeBatchId: "cf197c83-c29f-4e83-a46c-190ca7df1e64",
       advisorChangesCount: 1,
       advisorChangesSummary: ["Referencias actualizadas"],
-      advisorChangesHydrated: true,
+      advisorChangesDetailStatus: "success",
     });
     assert.equal(card.estadoPorRevisar, true);
     assert.equal(card.historicaFirmadoBadge, null);
+  });
+
+  it("P207.4 F1: primary batch + loading → Cargando detalle", () => {
+    const card = buildMesaAsesorCambiosCardModel({
+      revisionEstado: "CORRECTION_PENDING_REVIEW",
+      origin: "REQUESTED_CORRECTION",
+      primaryCambioBatchId: "a8348100-28ec-419e-bd0e-bdfdde211a39",
+      advisorChangesDetailStatus: "loading",
+    });
+    assert.equal(card.detalleLoading, true);
+    assert.match(card.header, /Corrección recibida/);
+  });
+
+  it("P207.4 F2: RPC success + exact batch + 1 change → detalle visible", () => {
+    const batchId = "a8348100-28ec-419e-bd0e-bdfdde211a39";
+    const card = buildMesaAsesorCambiosCardModel({
+      revisionEstado: "CORRECTION_PENDING_REVIEW",
+      origin: "REQUESTED_CORRECTION",
+      primaryCambioBatchId: batchId,
+      advisorChangeBatchId: batchId,
+      advisorChangesCount: 1,
+      advisorChangesSummary: ["Estado de cuenta reemplazado"],
+      advisorChangesDetailStatus: "success",
+    });
+    assert.match(card.header, /Corrección recibida · 1 cambio/);
+    assert.deepEqual(card.resumenLines, ["Estado de cuenta reemplazado"]);
+    assert.equal(card.detalleError, false);
+    assert.equal(card.showRevisarCambios, true);
+  });
+
+  it("P207.4 F3: Lorena fixture → Estado de cuenta reemplazado visible", () => {
+    const batchId = "a8348100-28ec-419e-bd0e-bdfdde211a39";
+    const card = buildMesaAsesorCambiosCardModel({
+      revisionEstado: "CORRECTION_PENDING_REVIEW",
+      origin: "REQUESTED_CORRECTION",
+      etapaActual: 9,
+      primaryCambioBatchId: batchId,
+      advisorChangeBatchId: batchId,
+      advisorChangesCount: 1,
+      advisorChangesSubmittedAt: "2026-08-12T21:27:15.983Z",
+      cambioRequestAt: "2026-08-12T17:53:37.102Z",
+      advisorChangesPreview: [
+        {
+          tipo: "documento_reemplazado",
+          campo: null,
+          documentKind: "cliente_estado_cuenta",
+          label: "Estado de cuenta reemplazado",
+          hasOld: true,
+          hasNew: true,
+          source: "P130",
+        },
+      ],
+      advisorChangesDetailStatus: "success",
+    });
+    assert.deepEqual(card.resumenLines, ["Estado de cuenta reemplazado"]);
+    assert.ok(card.solicitadaAt);
+    assert.ok(card.loteAt);
+    assert.equal(card.header.includes("detalle no disponible"), false);
+  });
+
+  it("P207.4 F4/F5: RPC error → no detalle no disponible + error copy", () => {
+    const card = buildMesaAsesorCambiosCardModel({
+      revisionEstado: "CORRECTION_PENDING_REVIEW",
+      origin: "REQUESTED_CORRECTION",
+      primaryCambioBatchId: "a8348100-28ec-419e-bd0e-bdfdde211a39",
+      advisorChangesDetailStatus: "error",
+    });
+    assert.equal(card.detalleError, true);
+    assert.equal(card.detalleNoDisponible, false);
+    assert.equal(card.header.includes("detalle no disponible"), false);
+    assert.equal(card.detalleRetryAvailable, true);
+  });
+
+  it("P207.4 F6: retry success → detalle visible", () => {
+    const batchId = "a8348100-28ec-419e-bd0e-bdfdde211a39";
+    const card = buildMesaAsesorCambiosCardModel({
+      revisionEstado: "CORRECTION_PENDING_REVIEW",
+      origin: "REQUESTED_CORRECTION",
+      primaryCambioBatchId: batchId,
+      advisorChangeBatchId: batchId,
+      advisorChangesCount: 1,
+      advisorChangesSummary: ["Estado de cuenta reemplazado"],
+      advisorChangesDetailStatus: "success",
+    });
+    assert.deepEqual(card.resumenLines, ["Estado de cuenta reemplazado"]);
+  });
+
+  it("P207.4 F7: retry fails → Reintentar detalle disponible", () => {
+    const card = buildMesaAsesorCambiosCardModel({
+      revisionEstado: "CORRECTION_PENDING_REVIEW",
+      origin: "REQUESTED_CORRECTION",
+      primaryCambioBatchId: "a8348100-28ec-419e-bd0e-bdfdde211a39",
+      advisorChangesDetailStatus: "error",
+    });
+    assert.equal(card.detalleRetryAvailable, true);
+  });
+
+  it("P207.4 F8: fallback get lote success → detalle visible", () => {
+    const batchId = "a8348100-28ec-419e-bd0e-bdfdde211a39";
+    const card = buildMesaAsesorCambiosCardModel({
+      revisionEstado: "CORRECTION_PENDING_REVIEW",
+      origin: "REQUESTED_CORRECTION",
+      primaryCambioBatchId: batchId,
+      advisorChangeBatchId: batchId,
+      advisorChangesCount: 1,
+      advisorChangesSummary: ["Estado de cuenta reemplazado"],
+      advisorChangesDetailStatus: "success",
+    });
+    assert.equal(card.changeDetails, true);
+  });
+
+  it("P207.4 F9: batch mismatch real → no usar datos equivocados", () => {
+    const card = buildMesaAsesorCambiosCardModel({
+      revisionEstado: "CORRECTION_PENDING_REVIEW",
+      origin: "REQUESTED_CORRECTION",
+      primaryCambioBatchId: "a8348100-28ec-419e-bd0e-bdfdde211a39",
+      advisorChangeBatchId: "00000000-0000-4000-8000-000000000099",
+      advisorChangesCount: 1,
+      advisorChangesSummary: ["Estado de cuenta reemplazado"],
+      advisorChangesDetailStatus: "success",
+    });
+    assert.equal(card.batchMismatch, true);
+    assert.equal(card.resumenLines.length, 0);
+  });
+
+  it("P207.4 F10: success empty + no primary batch histórico → detalle no disponible", () => {
+    const card = buildMesaAsesorCambiosCardModel({
+      revisionEstado: "CORRECTION_PENDING_REVIEW",
+      origin: "REQUESTED_CORRECTION",
+      advisorChangeBatchId: "00000000-0000-4000-8000-000000000001",
+      advisorChangesCount: 0,
+      resumenDocumental: "faltantes",
+      advisorChangesDetailStatus: "success",
+    });
+    assert.equal(card.detalleNoDisponible, true);
+    assert.match(card.header, /detalle no disponible/);
+  });
+
+  it("P207.4 F11: ADVISOR_UPDATE → no Solicitud Mesa falsa", () => {
+    const card = buildMesaAsesorCambiosCardModel({
+      revisionEstado: "ADVISOR_UPDATE_PENDING_REVIEW",
+      origin: "ADVISOR_UPDATE",
+      primaryCambioBatchId: "cf197c83-c29f-4e83-a46c-190ca7df1e64",
+      advisorChangeBatchId: "cf197c83-c29f-4e83-a46c-190ca7df1e64",
+      advisorChangesCount: 1,
+      advisorChangesSummary: ["Referencias actualizadas"],
+      correctionRequestedAt: "2026-08-05T16:41:00.000Z",
+      advisorChangesDetailStatus: "success",
+    });
+    assert.equal(card.solicitadaAt, null);
+  });
+
+  it("P207.4 F12: REQUESTED_CORRECTION → conserva Solicitud Mesa", () => {
+    const card = buildMesaAsesorCambiosCardModel({
+      revisionEstado: "CORRECTION_PENDING_REVIEW",
+      origin: "REQUESTED_CORRECTION",
+      cambioRequestAt: "2026-08-10T12:00:00.000Z",
+      primaryCambioBatchId: "a8348100-28ec-419e-bd0e-bdfdde211a39",
+      advisorChangeBatchId: "a8348100-28ec-419e-bd0e-bdfdde211a39",
+      advisorChangesCount: 1,
+      advisorChangesDetailStatus: "success",
+    });
+    assert.ok(card.solicitadaAt);
+  });
+
+  it("P207.4 F13: Firmado histórico P207.3 → sin regresión", () => {
+    const card = buildMesaAsesorCambiosCardModel({
+      revisionEstado: "ADVISOR_UPDATE_PENDING_REVIEW",
+      origin: "ADVISOR_UPDATE",
+      etapaActual: 11,
+      primaryCambioBatchId: "cf197c83-c29f-4e83-a46c-190ca7df1e64",
+      advisorChangeBatchId: "cf197c83-c29f-4e83-a46c-190ca7df1e64",
+      advisorChangesCount: 1,
+      advisorChangesSummary: ["Referencias actualizadas"],
+      advisorChangesDetailStatus: "success",
+    });
+    assert.equal(card.firmadoHistorico, true);
+    assert.equal(card.estadoPorRevisar, false);
   });
 });
