@@ -1,4 +1,12 @@
-## 2026-09-01 - P207.1: Disponibles = todo cambio pendiente de revisión (local, sin Cloud)
+## 2026-09-01 - P207.2: colas operativas excluyen terminales Pago ConCasa (local, sin Cloud)
+
+### Causa (RO producción)
+Trámites terminal (`etapa≥12` o `pago_concasa_resultado` decidido) seguían en colas operativas además de Disponibles: 37 en Cambios por revisar, 37 en Otras actualizaciones, 134 con `subestado=en_proceso` (p.ej. Wilfrido Pérez Reyes).
+
+### Decisión
+Gate **NOT_TERMINAL_PAGO** inline (`etapa_actual < 12` ∧ `pago_concasa_resultado IS NULL`) en quick filters operativos, ops filters operativos y KPIs operativos (list + counts_fast). `todo_mesa` / `totalBandeja` / rechazos sin cambio (acceso histórico). Solo REPLACE read-models. Mig `20260901171420` (misma migration, sin P207.3).
+
+## 2026-09-01 - P207.1: Disponibles = todo cambio pendiente de revisión (Cloud aplicada)
 
 ### Causa (RO producción)
 P207 excluía `ADVISOR_UPDATE_PENDING_REVIEW` de `sin_asignar`: 87 expedientes con trabajo Mesa pendiente visibles en «Cambios por revisar» pero no en Disponibles (p.ej. Mauricio Garza Rangel, etapa 1).
