@@ -1,4 +1,4 @@
--- P207.2: Disponibles excluye trámites finalizados Pago ConCasa (etapa≥12 o pago_concasa_resultado).
+-- P207.2: colas operativas excluyen trámites finalizados Pago ConCasa (NOT_TERMINAL_PAGO).
 \set ON_ERROR_STOP on
 \ir ../migrations/20260901171420_mesa_disponibles_excluye_pago_concasa_finalizado.sql
 
@@ -30,7 +30,12 @@ BEGIN
 END;
 $$;
 
-CREATE OR REPLACE FUNCTION public.__p2072_in_disponibles(p_mesa UUID, p_id UUID)
+CREATE OR REPLACE FUNCTION public.__p2072_in_queue(
+  p_mesa UUID,
+  p_id UUID,
+  p_quick TEXT,
+  p_ops TEXT
+)
 RETURNS BOOLEAN LANGUAGE plpgsql AS $$
 DECLARE
   v_page JSONB;
@@ -38,12 +43,26 @@ DECLARE
 BEGIN
   PERFORM public.__p2072_auth(p_mesa);
   v_page := public.mesa_list_bandeja_page(
-    500, NULL::timestamptz, NULL::uuid, 'todos', 'sin_asignar', NULL, NULL, NULL, false,
+    500, NULL::timestamptz, NULL::uuid, p_quick, p_ops, NULL, NULL, NULL, false,
     NULL, NULL, NULL, false
   );
   SELECT coalesce(array_agg(x->>'id'), ARRAY[]::text[]) INTO v_ids
   FROM jsonb_array_elements(v_page->'items') x;
   RETURN p_id::text = ANY (v_ids);
+END;
+$$;
+
+CREATE OR REPLACE FUNCTION public.__p2072_list_count(p_mesa UUID, p_quick TEXT, p_ops TEXT)
+RETURNS BIGINT LANGUAGE plpgsql AS $$
+DECLARE
+  v_page JSONB;
+BEGIN
+  PERFORM public.__p2072_auth(p_mesa);
+  v_page := public.mesa_list_bandeja_page(
+    500, NULL::timestamptz, NULL::uuid, p_quick, p_ops, NULL, NULL, NULL, false,
+    NULL, NULL, NULL, true
+  );
+  RETURN (v_page->>'total_count')::bigint;
 END;
 $$;
 
@@ -73,11 +92,7 @@ DECLARE
   v_t14 UUID := '00000000-0000-4000-9207-000000000214';
   v_t15 UUID := '00000000-0000-4000-9207-000000000215';
   v_t16 UUID := '00000000-0000-4000-9207-000000000216';
-  v_t17 UUID := '00000000-0000-4000-9207-000000000217';
-  v_t18 UUID := '00000000-0000-4000-9207-000000000218';
-  v_t19 UUID := '00000000-0000-4000-9207-000000000219';
-  v_t20 UUID := '00000000-0000-4000-9207-000000000220';
-  v_page JSONB;
+  v_term UUID;
   v_list_count BIGINT;
   v_fast_count BIGINT;
 BEGIN
@@ -88,6 +103,13 @@ BEGIN
   PERFORM public.__p2072_assert(position('etapa_actual < 12' in v_src) > 0, 'gate etapa<12');
   PERFORM public.__p2072_assert(position('pago_concasa_resultado IS NULL' in v_src) > 0, 'gate pago NULL');
   PERFORM public.__p2072_assert(position('UPDATE ' in v_src) = 0, 'T19 0 writers list');
+  PERFORM public.__p2072_assert(
+    position('WHEN ''correccion_enviada'' THEN' in v_src) > 0
+      AND position('WHEN ''en_trabajo'' THEN' in v_src) > 0
+      AND (length(v_src) - length(replace(v_src, 'pago_concasa_resultado IS NULL', '')))
+          / length('pago_concasa_resultado IS NULL') >= 12,
+    'NOT_TERMINAL_PAGO en quick/ops operativos'
+  );
 
   SELECT pg_get_functiondef(p.oid) INTO v_src
   FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
@@ -98,8 +120,10 @@ BEGIN
   PERFORM public.__p2072_assert(
     position('''otrasActualizaciones'', count(*) FILTER (
       WHERE ciclo_estado = ''activo''
+        AND etapa_actual < 12
+        AND pago_concasa_resultado IS NULL
         AND cambio_estado = ''ADVISOR_UPDATE_PENDING_REVIEW''' in v_src) > 0,
-    'otrasActualizaciones sin gate Pago ConCasa'
+    'otrasActualizaciones con gate NOT_TERMINAL_PAGO'
   );
 
   INSERT INTO public.organizations (id, slug, name, active)
@@ -148,7 +172,8 @@ BEGIN
   INSERT INTO public.mesa_expediente_ops (
     expediente_id, organization_id, estado_mesa, assigned_to, assigned_at
   ) VALUES
-    (v_t6, v_org, 'trabajando', v_mesa2, NOW());
+    (v_t6, v_org, 'trabajando', v_mesa2, NOW()),
+    (v_t9, v_org, 'trabajando', v_mesa, NOW());
 
   INSERT INTO public.cliente_datos (expediente_id, organization_id, datos, estado)
   VALUES
@@ -212,31 +237,80 @@ BEGIN
   SET reviewed_at = v_l1 + interval '1 hour', reviewed_by = v_mesa, status = 'revisado'
   WHERE expediente_id = v_t14;
 
-  PERFORM public.__p2072_assert(public.__p2072_in_disponibles(v_mesa, v_t1), '1 nuevo etapa1');
-  PERFORM public.__p2072_assert(public.__p2072_in_disponibles(v_mesa, v_t2), '2 nuevo etapa2');
-  PERFORM public.__p2072_assert(public.__p2072_in_disponibles(v_mesa, v_t3), '3 CORRECTION etapa3');
-  PERFORM public.__p2072_assert(public.__p2072_in_disponibles(v_mesa, v_t4), '4 CORRECTION etapa11');
-  PERFORM public.__p2072_assert(public.__p2072_in_disponibles(v_mesa, v_t5), '5 ADVISOR etapa1');
-  PERFORM public.__p2072_assert(public.__p2072_in_disponibles(v_mesa, v_t6), '6 ADVISOR etapa4 assigned');
-  PERFORM public.__p2072_assert(public.__p2072_in_disponibles(v_mesa, v_t7), '7 ADVISOR etapa9');
-  PERFORM public.__p2072_assert(public.__p2072_in_disponibles(v_mesa, v_t8), '8 ADVISOR etapa11');
-  PERFORM public.__p2072_assert(NOT public.__p2072_in_disponibles(v_mesa, v_t9), '9 etapa12 pagado ADVISOR');
-  PERFORM public.__p2072_assert(NOT public.__p2072_in_disponibles(v_mesa, v_t10), '10 etapa12 no_pagado ADVISOR');
-  PERFORM public.__p2072_assert(NOT public.__p2072_in_disponibles(v_mesa, v_t11), '11 etapa12 pagado CORRECTION');
-  PERFORM public.__p2072_assert(NOT public.__p2072_in_disponibles(v_mesa, v_t12), '12 pago anomalo etapa5');
-  PERFORM public.__p2072_assert(NOT public.__p2072_in_disponibles(v_mesa, v_t13), '13 WAITING');
-  PERFORM public.__p2072_assert(NOT public.__p2072_in_disponibles(v_mesa, v_t14), '14 CLOSED');
-  PERFORM public.__p2072_assert(NOT public.__p2072_in_disponibles(v_mesa, v_t15), '15 cancelado');
-  PERFORM public.__p2072_assert(NOT public.__p2072_in_disponibles(v_mesa, v_t16), '16 plain etapa5');
+  -- Disponibles (sin_asignar): activos sí, terminales no
+  PERFORM public.__p2072_assert(public.__p2072_in_queue(v_mesa, v_t1, 'todos', 'sin_asignar'), '1 nuevo etapa1');
+  PERFORM public.__p2072_assert(public.__p2072_in_queue(v_mesa, v_t2, 'todos', 'sin_asignar'), '2 nuevo etapa2');
+  PERFORM public.__p2072_assert(public.__p2072_in_queue(v_mesa, v_t3, 'todos', 'sin_asignar'), '3 CORRECTION etapa3');
+  PERFORM public.__p2072_assert(public.__p2072_in_queue(v_mesa, v_t4, 'todos', 'sin_asignar'), '4 CORRECTION etapa11');
+  PERFORM public.__p2072_assert(public.__p2072_in_queue(v_mesa, v_t5, 'todos', 'sin_asignar'), '5 ADVISOR etapa1 Mauricio-like');
+  PERFORM public.__p2072_assert(public.__p2072_in_queue(v_mesa, v_t6, 'todos', 'sin_asignar'), '6 ADVISOR etapa4 assigned');
+  PERFORM public.__p2072_assert(public.__p2072_in_queue(v_mesa, v_t7, 'todos', 'sin_asignar'), '7 ADVISOR etapa9');
+  PERFORM public.__p2072_assert(public.__p2072_in_queue(v_mesa, v_t8, 'todos', 'sin_asignar'), '8 ADVISOR etapa11');
+  PERFORM public.__p2072_assert(NOT public.__p2072_in_queue(v_mesa, v_t9, 'todos', 'sin_asignar'), '9 etapa12 pagado ADVISOR');
+  PERFORM public.__p2072_assert(NOT public.__p2072_in_queue(v_mesa, v_t10, 'todos', 'sin_asignar'), '10 etapa12 no_pagado ADVISOR');
+  PERFORM public.__p2072_assert(NOT public.__p2072_in_queue(v_mesa, v_t11, 'todos', 'sin_asignar'), '11 etapa12 pagado CORRECTION');
+  PERFORM public.__p2072_assert(NOT public.__p2072_in_queue(v_mesa, v_t12, 'todos', 'sin_asignar'), '12 pago anomalo etapa5');
+  PERFORM public.__p2072_assert(NOT public.__p2072_in_queue(v_mesa, v_t13, 'todos', 'sin_asignar'), '13 WAITING');
+  PERFORM public.__p2072_assert(NOT public.__p2072_in_queue(v_mesa, v_t14, 'todos', 'sin_asignar'), '14 CLOSED');
+  PERFORM public.__p2072_assert(NOT public.__p2072_in_queue(v_mesa, v_t15, 'todos', 'sin_asignar'), '15 cancelado');
+  PERFORM public.__p2072_assert(NOT public.__p2072_in_queue(v_mesa, v_t16, 'todos', 'sin_asignar'), '16 plain etapa5');
 
-  PERFORM public.__p2072_auth(v_mesa);
-  v_page := public.mesa_list_bandeja_page(
-    500, NULL::timestamptz, NULL::uuid, 'todos', 'sin_asignar', NULL, NULL, NULL, false,
-    NULL, NULL, NULL, true
-  );
-  v_list_count := (v_page->>'total_count')::bigint;
+  -- Mauricio-like: cambios / otras
+  PERFORM public.__p2072_assert(public.__p2072_in_queue(v_mesa, v_t5, 'correccion_enviada', 'todo_mesa'), 'Mauricio cambios');
+  PERFORM public.__p2072_assert(public.__p2072_in_queue(v_mesa, v_t5, 'otras_actualizaciones', 'todo_mesa'), 'Mauricio otras');
+  PERFORM public.__p2072_assert(public.__p2072_in_queue(v_mesa, v_t3, 'correccion_enviada', 'todo_mesa'), 'CORR etapa3 cambios');
+  PERFORM public.__p2072_assert(public.__p2072_in_queue(v_mesa, v_t8, 'otras_actualizaciones', 'todo_mesa'), 'ADV etapa11 otras');
+
+  -- Terminales excluidos de colas operativas
+  FOREACH v_term IN ARRAY ARRAY[v_t9, v_t10, v_t11, v_t12] LOOP
+    PERFORM public.__p2072_assert(
+      NOT public.__p2072_in_queue(v_mesa, v_term, 'correccion_enviada', 'todo_mesa'),
+      'terminal NO cambios ' || v_term::text
+    );
+    PERFORM public.__p2072_assert(
+      NOT public.__p2072_in_queue(v_mesa, v_term, 'correccion_solicitada', 'todo_mesa'),
+      'terminal NO correcciones ' || v_term::text
+    );
+    PERFORM public.__p2072_assert(
+      NOT public.__p2072_in_queue(v_mesa, v_term, 'otras_actualizaciones', 'todo_mesa'),
+      'terminal NO otras ' || v_term::text
+    );
+    PERFORM public.__p2072_assert(
+      NOT public.__p2072_in_queue(v_mesa, v_term, 'en_proceso', 'todo_mesa'),
+      'terminal NO en_proceso ' || v_term::text
+    );
+    PERFORM public.__p2072_assert(
+      NOT public.__p2072_in_queue(v_mesa, v_term, 'todos', 'en_trabajo'),
+      'terminal NO en_trabajo ' || v_term::text
+    );
+  END LOOP;
+
+  -- Wilfrido-like (t9): assigned pero terminal
+  PERFORM public.__p2072_assert(NOT public.__p2072_in_queue(v_mesa, v_t9, 'todos', 'mi_bandeja'), 'Wilfrido NO mi_bandeja');
+  PERFORM public.__p2072_assert(NOT public.__p2072_in_queue(v_mesa, v_t9, 'todos', 'en_trabajo'), 'Wilfrido NO en_trabajo');
+
+  -- todo_mesa histórico: terminal sí localizable
+  PERFORM public.__p2072_assert(public.__p2072_in_queue(v_mesa, v_t9, 'todos', 'todo_mesa'), 'terminal SÍ todo_mesa');
+
+  -- Assignment no-terminal sigue en en_trabajo
+  PERFORM public.__p2072_assert(public.__p2072_in_queue(v_mesa2, v_t6, 'todos', 'en_trabajo'), 'T6 assigned en_trabajo');
+
+  -- Paridad list/counts operativos
+  v_list_count := public.__p2072_list_count(v_mesa, 'todos', 'sin_asignar');
   v_fast_count := (public.mesa_bandeja_counts_fast(NULL, NULL)->>'disponibles')::bigint;
-  PERFORM public.__p2072_assert(v_list_count = v_fast_count, '18 list=fast disponibles');
+  PERFORM public.__p2072_assert(v_list_count = v_fast_count, 'paridad disponibles');
+
+  v_list_count := public.__p2072_list_count(v_mesa, 'correccion_enviada', 'todo_mesa');
+  v_fast_count := (public.mesa_bandeja_counts_fast(NULL, NULL)->>'correccionesEnviadas')::bigint;
+  PERFORM public.__p2072_assert(v_list_count = v_fast_count, 'paridad correccionesEnviadas');
+
+  v_list_count := public.__p2072_list_count(v_mesa, 'otras_actualizaciones', 'todo_mesa');
+  v_fast_count := (public.mesa_bandeja_counts_fast(NULL, NULL)->>'otrasActualizaciones')::bigint;
+  PERFORM public.__p2072_assert(v_list_count = v_fast_count, 'paridad otrasActualizaciones');
+
+  v_list_count := public.__p2072_list_count(v_mesa, 'en_proceso', 'todo_mesa');
+  v_fast_count := (public.mesa_bandeja_counts_fast(NULL, NULL)->>'enProceso')::bigint;
+  PERFORM public.__p2072_assert(v_list_count = v_fast_count, 'paridad enProceso');
 
   PERFORM public.__p2072_reset();
   RAISE NOTICE 'P207.2 SQL fixtures OK';
@@ -245,7 +319,8 @@ $$;
 
 ROLLBACK;
 
-DROP FUNCTION IF EXISTS public.__p2072_in_disponibles(UUID, UUID);
+DROP FUNCTION IF EXISTS public.__p2072_list_count(UUID, TEXT, TEXT);
+DROP FUNCTION IF EXISTS public.__p2072_in_queue(UUID, UUID, TEXT, TEXT);
 DROP FUNCTION IF EXISTS public.__p2072_reset();
 DROP FUNCTION IF EXISTS public.__p2072_auth(UUID);
 DROP FUNCTION IF EXISTS public.__p2072_assert(BOOLEAN, TEXT);

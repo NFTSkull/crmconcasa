@@ -1,10 +1,10 @@
-## 2026-09-01 - P207.2: Disponibles excluye Pago ConCasa finalizado (local, sin Cloud)
+## 2026-09-01 - P207.2: colas operativas excluyen terminales Pago ConCasa (local, sin Cloud)
 
 ### Causa (RO producción)
-31 expedientes etapa 12 + `pago_concasa_resultado` decidido seguían en Disponibles por P207.1 (p.ej. Wilfrido Pérez Reyes: lote ADVISOR anterior al pago final).
+Trámites terminal (`etapa≥12` o `pago_concasa_resultado` decidido) seguían en colas operativas además de Disponibles: 37 en Cambios por revisar, 37 en Otras actualizaciones, 134 con `subestado=en_proceso` (p.ej. Wilfrido Pérez Reyes).
 
 ### Decisión
-Gate adicional solo en cola operativa Disponibles: `etapa_actual < 12` ∧ `pago_concasa_resultado IS NULL` antes del OR P207.1. Chips `correccionesEnviadas` / `correccionesSolicitadas` / `otrasActualizaciones` sin cambio (historial visible). Solo REPLACE read-models. Mig `20260901171420`.
+Gate **NOT_TERMINAL_PAGO** inline (`etapa_actual < 12` ∧ `pago_concasa_resultado IS NULL`) en quick filters operativos, ops filters operativos y KPIs operativos (list + counts_fast). `todo_mesa` / `totalBandeja` / rechazos sin cambio (acceso histórico). Solo REPLACE read-models. Mig `20260901171420` (misma migration, sin P207.3).
 
 ## 2026-09-01 - P207.1: Disponibles = todo cambio pendiente de revisión (Cloud aplicada)
 

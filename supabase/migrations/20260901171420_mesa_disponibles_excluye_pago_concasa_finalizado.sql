@@ -1,6 +1,6 @@
--- ConCasa CRM — P207.2: Disponibles excluye trámites finalizados en Pago ConCasa.
--- Gate: ciclo activo ∧ etapa_actual < 12 ∧ pago_concasa_resultado IS NULL ∧ (P207.1 OR).
--- Solo campo `disponibles` en counts; correccionesEnviadas/Solicitadas/otrasActualizaciones intactos.
+-- ConCasa CRM — P207.2: colas operativas excluyen trámites finalizados Pago ConCasa.
+-- NOT_TERMINAL_PAGO: etapa_actual < 12 ∧ pago_concasa_resultado IS NULL.
+-- Aplica a quick/ops operativos y KPIs operativos; todo_mesa/totalBandeja/rechazos intactos.
 -- 0 writers. P207.1 aplicada no se edita.
 
 CREATE OR REPLACE FUNCTION public.mesa_list_bandeja_page(
@@ -169,21 +169,32 @@ BEGIN
         WHEN 'todos' THEN cl.ciclo_estado = 'activo'
         WHEN 'correccion_enviada' THEN
           cl.ciclo_estado = 'activo'
+          AND cl.etapa_actual < 12
+          AND cl.pago_concasa_resultado IS NULL
           AND cl.cambio_eff->>'estado' IN (
             'CORRECTION_PENDING_REVIEW', 'ADVISOR_UPDATE_PENDING_REVIEW'
           )
         WHEN 'correccion_solicitada' THEN
           cl.ciclo_estado = 'activo'
+          AND cl.etapa_actual < 12
+          AND cl.pago_concasa_resultado IS NULL
           AND cl.cambio_eff->>'estado' = 'CORRECTION_PENDING_REVIEW'
         WHEN 'otras_actualizaciones' THEN
           cl.ciclo_estado = 'activo'
+          AND cl.etapa_actual < 12
+          AND cl.pago_concasa_resultado IS NULL
           AND cl.cambio_eff->>'estado' = 'ADVISOR_UPDATE_PENDING_REVIEW'
         WHEN 'nuevos' THEN
           cl.ciclo_estado = 'activo'
+          AND cl.etapa_actual < 12
+          AND cl.pago_concasa_resultado IS NULL
           AND cl.etapa_actual IN (1, 2)
           AND cl.subestado IN ('pendiente', 'en_validacion_mesa', 'en_proceso')
         WHEN 'en_proceso' THEN
-          cl.ciclo_estado = 'activo' AND cl.subestado = 'en_proceso'
+          cl.ciclo_estado = 'activo'
+          AND cl.etapa_actual < 12
+          AND cl.pago_concasa_resultado IS NULL
+          AND cl.subestado = 'en_proceso'
         WHEN 'rechazos_cancelaciones' THEN
           CASE v_rech
             WHEN 'cancelados' THEN cl.ciclo_estado = 'cancelado'
@@ -194,10 +205,14 @@ BEGIN
       AND CASE v_ops
         WHEN 'todo_mesa' THEN TRUE
         WHEN 'en_espera_asesor' THEN
-          cl.categoria = 'correccion_requerida'
-          OR cl.cambio_eff->>'estado' = 'WAITING_ADVISOR'
+          cl.etapa_actual < 12
+          AND cl.pago_concasa_resultado IS NULL
+          AND (
+            cl.categoria = 'correccion_requerida'
+            OR cl.cambio_eff->>'estado' = 'WAITING_ADVISOR'
+          )
         WHEN 'sin_asignar' THEN
-          -- P207.2: P207.1 ∧ no finalizado Pago ConCasa. Assignment no oculta.
+          -- P207.2: P207.1 ∧ NOT_TERMINAL_PAGO. Assignment no oculta.
           cl.ciclo_estado = 'activo'
           AND cl.etapa_actual < 12
           AND cl.pago_concasa_resultado IS NULL
@@ -218,9 +233,15 @@ BEGIN
             )
           )
         WHEN 'mi_bandeja' THEN
-          cl.assigned_to = v_uid AND cl.categoria IS DISTINCT FROM 'correccion_requerida'
+          cl.etapa_actual < 12
+          AND cl.pago_concasa_resultado IS NULL
+          AND cl.assigned_to = v_uid
+          AND cl.categoria IS DISTINCT FROM 'correccion_requerida'
         WHEN 'en_trabajo' THEN
-          cl.assigned_to IS NOT NULL AND cl.categoria IS DISTINCT FROM 'correccion_requerida'
+          cl.etapa_actual < 12
+          AND cl.pago_concasa_resultado IS NULL
+          AND cl.assigned_to IS NOT NULL
+          AND cl.categoria IS DISTINCT FROM 'correccion_requerida'
         ELSE TRUE
       END
   ),
@@ -326,26 +347,39 @@ BEGIN
       ),
             'correccionesEnviadas', count(*) FILTER (
         WHERE ciclo_estado = 'activo'
+          AND etapa_actual < 12
+          AND pago_concasa_resultado IS NULL
           AND cambio_estado IN ('CORRECTION_PENDING_REVIEW', 'ADVISOR_UPDATE_PENDING_REVIEW')
       ),
       'correccionesSolicitadas', count(*) FILTER (
         WHERE ciclo_estado = 'activo'
+          AND etapa_actual < 12
+          AND pago_concasa_resultado IS NULL
           AND cambio_estado = 'CORRECTION_PENDING_REVIEW'
       ),
       'otrasActualizaciones', count(*) FILTER (
         WHERE ciclo_estado = 'activo'
+          AND etapa_actual < 12
+          AND pago_concasa_resultado IS NULL
           AND cambio_estado = 'ADVISOR_UPDATE_PENDING_REVIEW'
       ),
       'nuevos', count(*) FILTER (
         WHERE ciclo_estado = 'activo'
+          AND etapa_actual < 12
+          AND pago_concasa_resultado IS NULL
           AND etapa_actual IN (1, 2)
           AND subestado IN ('pendiente', 'en_validacion_mesa', 'en_proceso')
       ),
       'enProceso', count(*) FILTER (
-        WHERE ciclo_estado = 'activo' AND subestado = 'en_proceso'
+        WHERE ciclo_estado = 'activo'
+          AND etapa_actual < 12
+          AND pago_concasa_resultado IS NULL
+          AND subestado = 'en_proceso'
       ),
       'citasHoy', count(*) FILTER (
         WHERE ciclo_estado = 'activo'
+          AND etapa_actual < 12
+          AND pago_concasa_resultado IS NULL
           AND p_today_ymd IS NOT NULL
           AND to_char(
             (fecha_cita AT TIME ZONE 'America/Monterrey'),
@@ -366,12 +400,16 @@ BEGIN
       ),
       'enValidacionMesa', count(*) FILTER (
         WHERE ciclo_estado = 'activo'
+          AND etapa_actual < 12
+          AND pago_concasa_resultado IS NULL
           AND subestado = 'en_validacion_mesa'
           AND categoria IS DISTINCT FROM 'correccion_enviada'
           AND categoria IS DISTINCT FROM 'correccion_requerida'
       ),
       'enEsperaAsesor', count(*) FILTER (
         WHERE ciclo_estado = 'activo'
+          AND etapa_actual < 12
+          AND pago_concasa_resultado IS NULL
           AND (
             categoria = 'correccion_requerida'
             OR cambio_estado = 'WAITING_ADVISOR'
@@ -433,7 +471,7 @@ $$;
 COMMENT ON FUNCTION public.mesa_list_bandeja_page(
   INTEGER, TIMESTAMPTZ, UUID, TEXT, TEXT, TEXT, INTEGER, TEXT, BOOLEAN, TEXT, TEXT, TEXT, BOOLEAN
 ) IS
-  'P207.2: ops sin_asignar excluye etapa≥12 y pago_concasa_resultado; P207.1 pending ∪ Nuevos plain; assignment no filtra.';
+  'P207.2: ops sin_asignar excluye terminales Pago ConCasa; colas operativas alineadas; todo_mesa histórico; assignment no filtra.';
 
 REVOKE ALL ON FUNCTION public.mesa_list_bandeja_page(
   INTEGER, TIMESTAMPTZ, UUID, TEXT, TEXT, TEXT, INTEGER, TEXT, BOOLEAN, TEXT, TEXT, TEXT, BOOLEAN
@@ -529,26 +567,39 @@ BEGIN
     ),
     'correccionesEnviadas', count(*) FILTER (
       WHERE ciclo_estado = 'activo'
+        AND etapa_actual < 12
+        AND pago_concasa_resultado IS NULL
         AND cambio_estado IN ('CORRECTION_PENDING_REVIEW', 'ADVISOR_UPDATE_PENDING_REVIEW')
     ),
     'correccionesSolicitadas', count(*) FILTER (
       WHERE ciclo_estado = 'activo'
+        AND etapa_actual < 12
+        AND pago_concasa_resultado IS NULL
         AND cambio_estado = 'CORRECTION_PENDING_REVIEW'
     ),
     'otrasActualizaciones', count(*) FILTER (
       WHERE ciclo_estado = 'activo'
+        AND etapa_actual < 12
+        AND pago_concasa_resultado IS NULL
         AND cambio_estado = 'ADVISOR_UPDATE_PENDING_REVIEW'
     ),
     'nuevos', count(*) FILTER (
       WHERE ciclo_estado = 'activo'
+        AND etapa_actual < 12
+        AND pago_concasa_resultado IS NULL
         AND etapa_actual IN (1, 2)
         AND subestado IN ('pendiente', 'en_validacion_mesa', 'en_proceso')
     ),
     'enProceso', count(*) FILTER (
-      WHERE ciclo_estado = 'activo' AND subestado = 'en_proceso'
+      WHERE ciclo_estado = 'activo'
+        AND etapa_actual < 12
+        AND pago_concasa_resultado IS NULL
+        AND subestado = 'en_proceso'
     ),
     'citasHoy', count(*) FILTER (
       WHERE ciclo_estado = 'activo'
+        AND etapa_actual < 12
+        AND pago_concasa_resultado IS NULL
         AND p_today_ymd IS NOT NULL
         AND to_char(
           (fecha_cita AT TIME ZONE 'America/Monterrey'),
@@ -569,12 +620,16 @@ BEGIN
     ),
     'enValidacionMesa', count(*) FILTER (
       WHERE ciclo_estado = 'activo'
+        AND etapa_actual < 12
+        AND pago_concasa_resultado IS NULL
         AND subestado = 'en_validacion_mesa'
         AND categoria IS DISTINCT FROM 'correccion_enviada'
         AND categoria IS DISTINCT FROM 'correccion_requerida'
     ),
     'enEsperaAsesor', count(*) FILTER (
       WHERE ciclo_estado = 'activo'
+        AND etapa_actual < 12
+        AND pago_concasa_resultado IS NULL
         AND (
           categoria = 'correccion_requerida'
           OR cambio_estado = 'WAITING_ADVISOR'
@@ -605,7 +660,7 @@ END;
 $$;
 
 COMMENT ON FUNCTION public.mesa_bandeja_counts_fast(TEXT, TEXT) IS
-  'P207.2: KPIs Mesa. Campo disponibles alineado con ops sin_asignar (P207.2 gate Pago ConCasa).';
+  'P207.2: KPIs operativos excluyen terminales Pago ConCasa; totalBandeja/rechazos intactos.';
 
 REVOKE ALL ON FUNCTION public.mesa_bandeja_counts_fast(TEXT, TEXT) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.mesa_bandeja_counts_fast(TEXT, TEXT) FROM anon;
