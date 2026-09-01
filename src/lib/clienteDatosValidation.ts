@@ -816,12 +816,6 @@ export function validateClienteDatos(
         : data.referencias[1]?.celular ?? "",
     },
   ];
-  if (!requireInfonavit && isTelefonoMexicoValido(inf.referencias[0].celular)) {
-    phoneEntries.push({ slot: "ref1.celular", raw: inf.referencias[0].celular });
-  }
-  if (!requireInfonavit && isTelefonoMexicoValido(inf.referencias[1].celular)) {
-    phoneEntries.push({ slot: "ref2.celular", raw: inf.referencias[1].celular });
-  }
   if (ref1Fijo.ok) {
     phoneEntries.push({ slot: "ref1.telefonoCompleto", raw: ref1Fijo.phone });
   }

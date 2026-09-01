@@ -252,8 +252,8 @@ export function ExpedienteClienteDatosFormSection({
           <p className="mt-2 font-medium text-slate-700">Antes de guardar verifica:</p>
           <ul className="mt-1 list-inside list-disc space-y-0.5">
             <li>NSS y CURP deben corresponder al cliente. RFC es opcional.</li>
-            <li>Los teléfonos deben tener 10 dígitos (pueden repetirse entre expedientes).</li>
-            <li>Las referencias deben tener números diferentes al celular del cliente.</li>
+            <li>Los teléfonos deben tener 10 dígitos y ser distintos dentro del mismo expediente.</li>
+            <li>No repitas el celular del cliente en empresa ni en referencias.</li>
             <li>La dirección de empresa debe ser real y completa.</li>
           </ul>
         </div>

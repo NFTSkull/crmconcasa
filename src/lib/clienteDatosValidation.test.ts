@@ -605,6 +605,40 @@ test("P189 B8: infonavit vacío NO pisa referencias visibles (regresión product
   assert.equal(r.isValid, true);
 });
 
+test("P189 B8: infonavit ref celular espejo de legacy no genera falso duplicado", () => {
+  const inf = emptyInfonavitClienteDatosV1();
+  inf.referencias[0].celular = b8VisibleRefs[0].celular;
+  inf.referencias[1].celular = b8VisibleRefs[1].celular;
+  const data: ClienteDatosFormShape = {
+    ...baseValid,
+    referencias: [
+      { nombre: b8VisibleRefs[0].nombre, celular: b8VisibleRefs[0].celular },
+      { nombre: b8VisibleRefs[1].nombre, celular: b8VisibleRefs[1].celular },
+    ],
+    infonavit: inf,
+  };
+  const r = validateClienteDatos(data, B8_CTX);
+  assert.equal(r.errors.referencia1Celular, undefined);
+  assert.equal(r.errors.referencia2Celular, undefined);
+  assert.equal(r.isValid, true);
+});
+
+test("P189 B8: celular cliente repetido en teléfono empresa bloquea guardado", () => {
+  const r = validateClienteDatos(
+    {
+      ...baseValid,
+      celular: "8119087564",
+      telefonoEmpresa: "8119087564",
+      infonavit: emptyInfonavitClienteDatosV1(),
+    },
+    B8_CTX,
+  );
+  assert.match(
+    r.errors.telefonoEmpresa ?? "",
+    /se repite con celular del cliente/i,
+  );
+});
+
 test("P189 B8: infonavit con refs vacías y otros campos P189 no pisa legacy", () => {
   const inf = emptyInfonavitClienteDatosV1();
   inf.titular.nombres = "TITULAR";
