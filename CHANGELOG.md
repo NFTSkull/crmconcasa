@@ -21,6 +21,8 @@
 ## [Unreleased]
 
 ### Fixed
+- **fix(cliente-datos): teléfonos únicos en datos generales (local)** — Mesa deja de mostrar «Teléfono normalizado» duplicado del celular; validación FE no cuenta dos veces refs legacy+Infonavit espejo; copy del formulario alineado a P189 B2. Sin SQL/Cloud.
+
 - **fix(mesa): hidratación detalle corrección sin falso «no disponible» (P207.4, local)** — `listAsesorCambiosSummaryByExpedienteIds` retorna resultado tipado (`success|error`); enrich distingue loading/success/error por tarjeta; auto-retry batch (máx. 2 llamadas); fallback on-demand `fetchAdvisorChangesSummaryForExpediente`; UI «No se pudo cargar el detalle» + Reintentar. Caso Lorena. Sin SQL/Cloud.
 
 - **fix(mesa): colas de cambios excluyen Firmados + detalle actualización robusto (P207.3, local)** — Gate `etapa_actual < 11` en colas de cambios/correcciones y KPIs operativos de cambios; `en_proceso`/`mi_bandeja`/`en_trabajo`/`todo_mesa` conservan etapa 11 pendiente Pago ConCasa. FE: preserva `cambioBatchId` primario, loading/retry enrich, batch mismatch, copy ADVISOR sin «Solicitada por Mesa» falsa. Mig `20260901194500`. Sin Cloud aún.

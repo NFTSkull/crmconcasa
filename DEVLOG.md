@@ -1,3 +1,11 @@
+## 2026-09-01 - fix: teléfonos únicos datos generales (local, sin Cloud)
+
+### Causa
+Mesa mostraba «Celular» y «Teléfono normalizado» con el mismo valor (columna derivada de `celular`). En formulario legacy (P189 B8), refs Infonavit espejo de legacy se contaban dos veces en `findDuplicateTelefonosIntraExpediente` → falsos positivos o confusión al guardar.
+
+### Decisión
+Quitar fila redundante en `MesaClienteDatosReadOnlySection`; eliminar doble push de refs Infonavit cuando `requireInfonavit=false`; copy de ayuda alineado a unicidad intra-expediente (P189 B2 ya en SQL mig 183). 0 SQL/writers.
+
 ## 2026-09-01 - P207.4: hidratación detalle corrección Mesa (local, sin Cloud)
 
 ### Causa (RO producción — Lorena Guadalupe Flores Rivera)
