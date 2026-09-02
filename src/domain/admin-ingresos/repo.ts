@@ -31,11 +31,33 @@ const ingresosExportSchema = z.object({
 
 export type IngresosExportPayload = z.infer<typeof ingresosExportSchema>;
 
-function mapRpcError(error: { message?: string }): AdminIngresosError {
+async function requireAdminIngresosSession(): Promise<void> {
+  if (!supabaseBrowser) {
+    throw new AdminIngresosError("Supabase no configurado");
+  }
+
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabaseBrowser.auth.getSession();
+
+  if (sessionError || !session?.user) {
+    throw new AdminIngresosError(
+      "Tu sesión de Super Admin expiró. Inicia sesión de nuevo.",
+    );
+  }
+}
+
+function mapRpcError(error: { message?: string; code?: string }): AdminIngresosError {
   const msg = error.message ?? "";
   if (/solo super_admin|admin_production|admin_ingresos/i.test(msg)) {
     return new AdminIngresosError(
       "Solo Super Admin puede consultar el módulo de ingresos.",
+    );
+  }
+  if (error.code === "42501" || /permission denied for function/i.test(msg)) {
+    return new AdminIngresosError(
+      "Tu sesión no tiene autorización para este reporte. Recarga la página o inicia sesión de nuevo.",
     );
   }
   if (/export_limit_exceeded/i.test(msg)) {
@@ -82,6 +104,7 @@ export async function fetchIngresosResumen(
   if (!isSupabaseConfigured() || !supabaseBrowser) {
     throw new AdminIngresosError("Supabase no configurado");
   }
+  await requireAdminIngresosSession();
   const { data, error } = await supabaseBrowser.rpc(
     "super_admin_get_ingresos_resumen",
     rpcArgs(filters),
@@ -102,6 +125,7 @@ export async function fetchIngresosPage(
   if (!isSupabaseConfigured() || !supabaseBrowser) {
     throw new AdminIngresosError("Supabase no configurado");
   }
+  await requireAdminIngresosSession();
   const { data, error } = await supabaseBrowser.rpc(
     "super_admin_list_ingresos_page",
     rpcArgs(filters, page, pageSize),
@@ -121,6 +145,7 @@ export async function fetchIngresosExport(
   if (!isSupabaseConfigured() || !supabaseBrowser) {
     throw new AdminIngresosError("Supabase no configurado");
   }
+  await requireAdminIngresosSession();
   const { data, error } = await supabaseBrowser.rpc(
     "super_admin_export_ingresos",
     {
