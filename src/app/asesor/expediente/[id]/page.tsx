@@ -17,6 +17,7 @@ import { RetencionAcuseAvisoSupabaseCard } from "@/components/asesor/RetencionAc
 import { AsesorIntegracionDocsUpload } from "@/components/asesor/AsesorIntegracionDocsUpload";
 import { AsesorEvidenciaSection } from "@/components/asesor/AsesorEvidenciaSection";
 import { AsesorVigenciaDerechosSection } from "@/components/asesor/AsesorVigenciaDerechosSection";
+import { AsesorConstanciaSituacionFiscalSection } from "@/components/asesor/AsesorConstanciaSituacionFiscalSection";
 import { AsesorSeguimientoOperativo } from "@/components/asesor/AsesorSeguimientoOperativo";
 import { canMountAgendaBiometricosUI } from "@/lib/agendaFirmasBookingsGuard";
 import { AgendaFirmasAsesorCard } from "@/components/asesor/AgendaFirmasAsesorCard";
@@ -79,6 +80,7 @@ import {
   integrationDocsResumenFromArchivoResumen,
   asesorPuedeEditarEvidencia,
   asesorPuedeEditarVigenciaDerechos,
+  asesorPuedeEditarConstanciaSituacionFiscal,
   esReingresoDocumentosEditables,
   useExpedienteArchivosRepo,
   type ExpedienteArchivoResumen,
@@ -779,6 +781,11 @@ export default function AsesorExpedientePage() {
 
   /** Vigencia de derechos: mismo ciclo activo que Evidencia. */
   const puedeEditarVigenciaDerechos = asesorPuedeEditarVigenciaDerechos(
+    operativo?.cicloEstado,
+  );
+
+  /** Constancia SAT asesor: mismo ciclo activo que Vigencia. */
+  const puedeEditarConstanciaSituacionFiscal = asesorPuedeEditarConstanciaSituacionFiscal(
     operativo?.cicloEstado,
   );
 
@@ -2027,6 +2034,13 @@ export default function AsesorExpedientePage() {
               <AsesorVigenciaDerechosSection
                 expedienteId={String(precal.id)}
                 canUpload={puedeEditarVigenciaDerechos}
+                onUploaded={refreshArchivos}
+              />
+            ) : null}
+            {dataSupabase && precal?.id ? (
+              <AsesorConstanciaSituacionFiscalSection
+                expedienteId={String(precal.id)}
+                canUpload={puedeEditarConstanciaSituacionFiscal}
                 onUploaded={refreshArchivos}
               />
             ) : null}

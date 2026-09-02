@@ -432,6 +432,30 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 
 **UI:** `AsesorVigenciaDerechosSection` + `MesaVigenciaDerechosSection`. Fuera de checklist de integración.
 
+### 3octies. Constancia de Situación Fiscal asesor (`cliente_constancia_situacion_fiscal`)
+
+**Separación:** tipo canónico `cliente_constancia_situacion_fiscal` — label UI «Constancia SAT». **No** confundir con Mesa `cliente_constancia_sat` (complementario Mesa · Constancia SAT; allowlist `integration_doc_tipos_mesa_upload()` intacta).
+
+**RPC:** `register_expediente_documento` (asesor dueño o P208 `asesor_can_operate_expediente_as`). Allowlist `integration_doc_tipos_asesor_opcionales()`. Migración `20260903120000_cliente_constancia_situacion_fiscal_opcional.sql`.
+
+| Regla | Valor |
+|-------|--------|
+| Origen | Asesor |
+| Obligatorio | **No** |
+| Gate envío / avance Mesa / `count_integration_docs_*` | **No** |
+| Etapa mínima | ninguna (`0`) |
+| Roles escritura | asesor dueño; Adriana/Hector P208 Equipo Silvia |
+| Lectura | `can_see_expediente` (asesor, Mesa, super_admin) |
+| Mesa upload | **No** (solo ver/descargar) |
+| MIME | PDF genérico (`application/pdf`) |
+| Tamaño | ≤ 15 MiB |
+| Path | `{org}/{expediente}/cliente_constancia_situacion_fiscal/{uuid}.pdf` |
+| Bucket | `expediente-documentos` (privado) |
+| Versionado | soft-delete vigente + N+1 |
+| Preview UI | PDF |
+
+**UI:** `AsesorConstanciaSituacionFiscalSection` + `MesaConstanciaSituacionFiscalSection`. Fuera de checklist de integración.
+
 ---
 
 ## 4. Subir / reemplazar documento

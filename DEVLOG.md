@@ -1,3 +1,11 @@
+## 2026-09-02 - feat: Constancia SAT opcional asesor (`cliente_constancia_situacion_fiscal`)
+
+### Causa
+Operación necesita que el asesor (titular y P208 Equipo Silvia) adjunte Constancia de Situación Fiscal sin mezclarla con el documento Mesa `cliente_constancia_sat`.
+
+### Decisión
+Tipo canónico nuevo `cliente_constancia_situacion_fiscal` en opcionales/upload (no envío/validación Mesa/Mesa upload). Mesa `cliente_constancia_sat` intacto. PDF genérico (sin rama MIME nueva). UI secciones dedicadas Asesor/Mesa (espejo Vigencia). P208 sin tocar helpers (entra por allowlist). Mig `20260903120000`. Cardinalidad 9/13.
+
 ## 2026-09-02 - feat: INE imagen → PDF automático (local, sin SQL)
 
 ### Causa

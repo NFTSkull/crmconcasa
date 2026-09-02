@@ -42,6 +42,7 @@ export const TIPO_DOCUMENTO_CATALOGO = [
   "cliente_notificacion",
   "cliente_solicitud",
   "cliente_vigencia_derechos",
+  "cliente_constancia_situacion_fiscal",
 
   // ===== Acuse / Aviso de retención (etapa operativa 8) =====
   "retencion_acuse_con_sello",
@@ -243,6 +244,17 @@ export const DOCUMENTO_CATALOGO_MAP = Object.freeze({
   cliente_vigencia_derechos: {
     tipo: "cliente_vigencia_derechos",
     label: "Vigencia de derechos",
+    ownerRole: "cliente",
+    obligatorio: "opcional",
+    etapasRequeridas: [],
+  },
+  /**
+   * Constancia de Situación Fiscal — opcional asesor; sección dedicada; no gate.
+   * Distinto de Mesa `cliente_constancia_sat`.
+   */
+  cliente_constancia_situacion_fiscal: {
+    tipo: "cliente_constancia_situacion_fiscal",
+    label: "Constancia SAT",
     ownerRole: "cliente",
     obligatorio: "opcional",
     etapasRequeridas: [],

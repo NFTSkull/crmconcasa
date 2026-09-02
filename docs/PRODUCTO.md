@@ -315,6 +315,16 @@ La sección Datos Generales y el JSON `datos.montoMejoravit` **no** se modifican
 - Path `{org}/{exp}/cliente_vigencia_derechos/{uuid}.{ext}`; una versión activa.
 - P208: Adriana/Hector Equipo Silvia pueden subir en expedientes del equipo.
 
+### 6.12 Constancia de Situación Fiscal asesor (`cliente_constancia_situacion_fiscal`)
+
+- Tipo técnico: `cliente_constancia_situacion_fiscal` (label UI: Constancia SAT). Completamente opcional.
+- **Distinto** de Mesa `cliente_constancia_sat` (complementario Mesa · Constancia SAT; sin cambios).
+- **Asesor:** sección dedicada (mismo patrón visual que Vigencia); subir/reemplazar/descargar; PDF ≤15 MB.
+- **Mesa:** acordeón «Constancia SAT»; solo consulta/descarga (sin upload).
+- No bloquea envío, etapas, cobro ni obligatorios. Sin etapa mínima.
+- Path `{org}/{exp}/cliente_constancia_situacion_fiscal/{uuid}.pdf`; una versión activa.
+- P208: Adriana/Hector Equipo Silvia pueden subir en expedientes del equipo (allowlist opcionales).
+
 ---
 
 ## 7. Documentos
@@ -323,7 +333,7 @@ La sección Datos Generales y el JSON `datos.montoMejoravit` **no** se modifican
 
 **Asesor antes de enviar a Mesa (4 obligatorios):** `cliente_ine_frente`, `cliente_ine_reverso`, `cliente_comprobante_domicilio`, `cliente_estado_cuenta`.
 
-**Asesor opcional (upload, no bloquea envío):** `cliente_semanas_cotizadas`, `cliente_carta_empresa`, `cliente_acta_nacimiento_digital`, `cliente_notificacion_apodaca` (P104 — label UI «Notificación»; upload editable solo sede Apodaca + etapa 8; distinto de `cliente_notificacion` Mesa y de agenda `kind=notificacion`), `asesor_evidencia` (sección dedicada «Evidencia»; allowlist MIME + octet-stream ≤15 MB; no checklist), `cliente_constancia_curp` (P156 — «Constancia CURP»; PDF; piloto validación identidad + RFC estimado; no gate), `cliente_vigencia_derechos` (sección dedicada «Vigencia de derechos»; allowlist MIME + octet-stream ≤15 MB; no checklist).
+**Asesor opcional (upload, no bloquea envío):** `cliente_semanas_cotizadas`, `cliente_carta_empresa`, `cliente_acta_nacimiento_digital`, `cliente_notificacion_apodaca` (P104 — label UI «Notificación»; upload editable solo sede Apodaca + etapa 8; distinto de `cliente_notificacion` Mesa y de agenda `kind=notificacion`), `asesor_evidencia` (sección dedicada «Evidencia»; allowlist MIME + octet-stream ≤15 MB; no checklist), `cliente_constancia_curp` (P156 — «Constancia CURP»; PDF; piloto validación identidad + RFC estimado; no gate), `cliente_vigencia_derechos` (sección dedicada «Vigencia de derechos»; allowlist MIME + octet-stream ≤15 MB; no checklist), `cliente_constancia_situacion_fiscal` (sección dedicada «Constancia SAT»; PDF ≤15 MB; ≠ Mesa `cliente_constancia_sat`; no checklist).
 
 **Mesa de Control (complementarios, no bloquean envío asesor):** `cliente_semanas_cotizadas`, `cliente_acta_nacimiento`, `cliente_constancia_sat` — acta y constancia SAT las sube Mesa; el asesor no las sube.
 
