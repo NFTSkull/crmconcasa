@@ -16,6 +16,7 @@ import { AsesorAgendaFirmasSupabaseGate } from "@/components/asesor/AsesorAgenda
 import { RetencionAcuseAvisoSupabaseCard } from "@/components/asesor/RetencionAcuseAvisoSupabaseCard";
 import { AsesorIntegracionDocsUpload } from "@/components/asesor/AsesorIntegracionDocsUpload";
 import { AsesorEvidenciaSection } from "@/components/asesor/AsesorEvidenciaSection";
+import { AsesorVigenciaDerechosSection } from "@/components/asesor/AsesorVigenciaDerechosSection";
 import { AsesorSeguimientoOperativo } from "@/components/asesor/AsesorSeguimientoOperativo";
 import { canMountAgendaBiometricosUI } from "@/lib/agendaFirmasBookingsGuard";
 import { AgendaFirmasAsesorCard } from "@/components/asesor/AgendaFirmasAsesorCard";
@@ -77,6 +78,7 @@ import {
   integrationDocsCompletos,
   integrationDocsResumenFromArchivoResumen,
   asesorPuedeEditarEvidencia,
+  asesorPuedeEditarVigenciaDerechos,
   esReingresoDocumentosEditables,
   useExpedienteArchivosRepo,
   type ExpedienteArchivoResumen,
@@ -772,6 +774,11 @@ export default function AsesorExpedientePage() {
 
   /** Evidencia: independiente de monto/Pagaré; solo ciclo activo (RPC). */
   const puedeEditarEvidencia = asesorPuedeEditarEvidencia(
+    operativo?.cicloEstado,
+  );
+
+  /** Vigencia de derechos: mismo ciclo activo que Evidencia. */
+  const puedeEditarVigenciaDerechos = asesorPuedeEditarVigenciaDerechos(
     operativo?.cicloEstado,
   );
 
@@ -2013,6 +2020,13 @@ export default function AsesorExpedientePage() {
               <AsesorEvidenciaSection
                 expedienteId={String(precal.id)}
                 canUpload={puedeEditarEvidencia}
+                onUploaded={refreshArchivos}
+              />
+            ) : null}
+            {dataSupabase && precal?.id ? (
+              <AsesorVigenciaDerechosSection
+                expedienteId={String(precal.id)}
+                canUpload={puedeEditarVigenciaDerechos}
                 onUploaded={refreshArchivos}
               />
             ) : null}

@@ -408,6 +408,30 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 
 **UI:** `AsesorEvidenciaSection` + `MesaEvidenciaAsesorSection`. Fuera de checklist de integración.
 
+### 3septies. Vigencia de derechos (`cliente_vigencia_derechos`)
+
+**Separación:** tipo canónico `cliente_vigencia_derechos` — label UI «Vigencia de derechos». No confundir con `vigencia`, `vigencia_derechos` ni con `asesor_evidencia`.
+
+**RPC:** `register_expediente_documento` (asesor dueño o P208 `asesor_can_operate_expediente_as`). Allowlist `integration_doc_tipos_asesor_opcionales()`. Migración `20260902170000_cliente_vigencia_derechos_opcional.sql`.
+
+| Regla | Valor |
+|-------|--------|
+| Origen | Asesor |
+| Obligatorio | **No** |
+| Gate envío / avance Mesa / `count_integration_docs_*` | **No** |
+| Etapa mínima | ninguna (`0`) |
+| Roles escritura | asesor dueño; Adriana/Hector P208 Equipo Silvia |
+| Lectura | `can_see_expediente` (asesor, Mesa, super_admin) |
+| Mesa upload | **No** (solo ver/descargar) |
+| MIME | mismo patrón evidencia: allowlist + `application/octet-stream` (FE `accept=*/*`; MIME vacío/desconocido → octet-stream) |
+| Tamaño | ≤ 15 MiB |
+| Path | `{org}/{expediente}/cliente_vigencia_derechos/{uuid}.{ext}` |
+| Bucket | `expediente-documentos` (privado) |
+| Versionado | soft-delete vigente + N+1 |
+| Preview UI | solo PDF/JPG/JPEG/PNG/WEBP; resto solo descarga |
+
+**UI:** `AsesorVigenciaDerechosSection` + `MesaVigenciaDerechosSection`. Fuera de checklist de integración.
+
 ---
 
 ## 4. Subir / reemplazar documento

@@ -1,3 +1,11 @@
+## 2026-09-02 - feat: Vigencia de derechos opcional (`cliente_vigencia_derechos`)
+
+### Causa
+Operación necesita que asesores puedan adjuntar «Vigencia de derechos» en cualquier expediente sin bloquear envío a Mesa ni avances.
+
+### Decisión
+Tipo canónico único `cliente_vigencia_derechos` en opcionales/upload (no envío/validación Mesa/Mesa upload). MIME espejo `asesor_evidencia` (allowlist + octet-stream; FE `*/*`). UI secciones dedicadas Asesor/Mesa. SQL: `CREATE OR REPLACE` opcionales/upload + `expediente_documento_mime_permitido` (Cloud def 144 + vigencia). P208 sin tocar helpers. Mig `20260902170000`. 0 smoke productivo.
+
 ## 2026-09-02 - fix: restaurar Teléfono normalizado en Mesa (local, sin Cloud)
 
 ### Causa

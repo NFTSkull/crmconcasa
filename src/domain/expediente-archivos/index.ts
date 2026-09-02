@@ -32,6 +32,8 @@ export {
   CLIENTE_SOLICITUD_DOCUMENT_CONTRACT,
   ASESOR_EVIDENCIA_DOCUMENT_TIPO,
   ASESOR_EVIDENCIA_DOCUMENT_CONTRACT,
+  CLIENTE_VIGENCIA_DERECHOS_DOCUMENT_TIPO,
+  CLIENTE_VIGENCIA_DERECHOS_DOCUMENT_CONTRACT,
   INTEGRATION_DOC_TIPOS_OBLIGATORIOS,
   INTEGRATION_DOC_TIPOS_VALIDACION_MESA,
   countIntegrationDocsPresentes,
@@ -114,6 +116,21 @@ export {
   asesorPuedeEditarEvidencia,
   type AsesorEvidenciaDocumento,
 } from "./asesor-evidencia";
+export {
+  CLIENTE_VIGENCIA_DERECHOS_ACCEPT_ATTR,
+  CLIENTE_VIGENCIA_DERECHOS_UPLOAD_HINT,
+  CLIENTE_VIGENCIA_DERECHOS_MIME_PERMITIDOS,
+  buildClienteVigenciaDerechosStoragePath,
+  findClienteVigenciaDerechosFromList,
+  isClienteVigenciaDerechosPreviewableMime,
+  isClienteVigenciaDerechosTipo,
+  resolveClienteVigenciaDerechosUploadMime,
+  sanitizeVigenciaDerechosDisplayName,
+  validateClienteVigenciaDerechosFile,
+  shouldMountAsesorVigenciaDerechosSection,
+  asesorPuedeEditarVigenciaDerechos,
+  type ClienteVigenciaDerechosDocumento,
+} from "./cliente-vigencia-derechos";
 export { mesaPuedeAbrirArchivo } from "./mesa-archivo-acceso";
 export {
   MESA_RECHAZO_MOTIVOS_SUGERIDOS,

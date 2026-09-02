@@ -306,6 +306,15 @@ La sección Datos Generales y el JSON `datos.montoMejoravit` **no** se modifican
 - No bloquea envío, etapas, cobro, Pagaré, monto Mejoravit ni obligatorios.
 - Path `{org}/{exp}/asesor_evidencia/{uuid}.{ext}`; una versión activa.
 
+### 6.11 Vigencia de derechos (`cliente_vigencia_derechos`)
+
+- Tipo técnico: `cliente_vigencia_derechos` (label: Vigencia de derechos). Completamente opcional.
+- **Asesor:** sección dedicada; subir/reemplazar/descargar; Ver solo PDF/JPG/PNG/WEBP; `accept=*/*`; máx. 15 MB.
+- **Mesa:** acordeón «Vigencia de derechos»; solo consulta/descarga (sin upload).
+- No bloquea envío, etapas, cobro ni obligatorios. Sin etapa mínima.
+- Path `{org}/{exp}/cliente_vigencia_derechos/{uuid}.{ext}`; una versión activa.
+- P208: Adriana/Hector Equipo Silvia pueden subir en expedientes del equipo.
+
 ---
 
 ## 7. Documentos
@@ -314,7 +323,7 @@ La sección Datos Generales y el JSON `datos.montoMejoravit` **no** se modifican
 
 **Asesor antes de enviar a Mesa (4 obligatorios):** `cliente_ine_frente`, `cliente_ine_reverso`, `cliente_comprobante_domicilio`, `cliente_estado_cuenta`.
 
-**Asesor opcional (upload, no bloquea envío):** `cliente_semanas_cotizadas`, `cliente_carta_empresa`, `cliente_acta_nacimiento_digital`, `cliente_notificacion_apodaca` (P104 — label UI «Notificación»; upload editable solo sede Apodaca + etapa 8; distinto de `cliente_notificacion` Mesa y de agenda `kind=notificacion`), `asesor_evidencia` (sección dedicada «Evidencia»; allowlist MIME + octet-stream ≤15 MB; no checklist), `cliente_constancia_curp` (P156 — «Constancia CURP»; PDF; piloto validación identidad + RFC estimado; no gate).
+**Asesor opcional (upload, no bloquea envío):** `cliente_semanas_cotizadas`, `cliente_carta_empresa`, `cliente_acta_nacimiento_digital`, `cliente_notificacion_apodaca` (P104 — label UI «Notificación»; upload editable solo sede Apodaca + etapa 8; distinto de `cliente_notificacion` Mesa y de agenda `kind=notificacion`), `asesor_evidencia` (sección dedicada «Evidencia»; allowlist MIME + octet-stream ≤15 MB; no checklist), `cliente_constancia_curp` (P156 — «Constancia CURP»; PDF; piloto validación identidad + RFC estimado; no gate), `cliente_vigencia_derechos` (sección dedicada «Vigencia de derechos»; allowlist MIME + octet-stream ≤15 MB; no checklist).
 
 **Mesa de Control (complementarios, no bloquean envío asesor):** `cliente_semanas_cotizadas`, `cliente_acta_nacimiento`, `cliente_constancia_sat` — acta y constancia SAT las sube Mesa; el asesor no las sube.
 

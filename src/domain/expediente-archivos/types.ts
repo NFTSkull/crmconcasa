@@ -41,6 +41,7 @@ export const TIPO_DOCUMENTO_CATALOGO = [
   "cliente_pagare",
   "cliente_notificacion",
   "cliente_solicitud",
+  "cliente_vigencia_derechos",
 
   // ===== Acuse / Aviso de retención (etapa operativa 8) =====
   "retencion_acuse_con_sello",
@@ -235,6 +236,14 @@ export const DOCUMENTO_CATALOGO_MAP = Object.freeze({
     tipo: "cliente_solicitud",
     label: "Solicitud",
     ownerRole: "mesa",
+    obligatorio: "opcional",
+    etapasRequeridas: [],
+  },
+  /** Vigencia de derechos — opcional; sección dedicada; no gate. */
+  cliente_vigencia_derechos: {
+    tipo: "cliente_vigencia_derechos",
+    label: "Vigencia de derechos",
+    ownerRole: "cliente",
     obligatorio: "opcional",
     etapasRequeridas: [],
   },

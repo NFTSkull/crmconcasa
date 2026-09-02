@@ -27,8 +27,8 @@ function resumenCompletoAsesor(
 describe("INTEGRATION_DOC_TIPOS_VALIDACION_MESA", () => {
   it("validación Mesa y avance 1→2 solo con 4 documentos del asesor", () => {
     assert.equal(INTEGRATION_DOC_TIPOS_ASESOR_ENVIO.length, 4);
-    assert.equal(INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES.length, 7);
-    assert.equal(INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD.length, 11);
+    assert.equal(INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES.length, 8);
+    assert.equal(INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD.length, 12);
     assert.ok(
       (INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES as readonly string[]).includes(
         "cliente_constancia_curp",
