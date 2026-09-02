@@ -26,11 +26,33 @@ export class AdminStageHistoryError extends Error {
   }
 }
 
-function mapRpcError(error: { message?: string }): never {
+async function requireAdminStageHistorySession(): Promise<void> {
+  if (!supabaseBrowser) {
+    throw new AdminStageHistoryError("Supabase no configurado");
+  }
+
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabaseBrowser.auth.getSession();
+
+  if (sessionError || !session?.user) {
+    throw new AdminStageHistoryError(
+      "Tu sesión de Super Admin expiró. Inicia sesión de nuevo.",
+    );
+  }
+}
+
+function mapRpcError(error: { message?: string; code?: string }): never {
   const msg = error.message ?? "";
   if (/solo super_admin|admin_production/i.test(msg)) {
     throw new AdminStageHistoryError(
       "Solo Super Admin puede consultar este reporte.",
+    );
+  }
+  if (error.code === "42501" || /permission denied for function/i.test(msg)) {
+    throw new AdminStageHistoryError(
+      "Tu sesión no tiene autorización para este reporte. Recarga la página o inicia sesión de nuevo.",
     );
   }
   if (
@@ -69,6 +91,7 @@ export async function fetchAdminStageHistorySummary(
     throw new AdminStageHistoryError("Supabase no configurado");
   }
   assertConsultable(filters);
+  await requireAdminStageHistorySession();
 
   const payload = buildAdminStageHistoryRpcPayload(filters);
   const { data, error } = await supabaseBrowser.rpc(
@@ -95,6 +118,7 @@ export async function fetchAdminStageHistoryPage(
     throw new AdminStageHistoryError("Supabase no configurado");
   }
   assertConsultable(filters);
+  await requireAdminStageHistorySession();
 
   const payload = {
     p_page: page,
@@ -142,6 +166,7 @@ export async function fetchAdminStageCohortSummary(
       "El resultado de cohorte requiere etapas y rango de fechas.",
     );
   }
+  await requireAdminStageHistorySession();
 
   const payload = buildAdminStageCohortRpcPayload(filters);
   const { data, error } = await supabaseBrowser.rpc(
@@ -174,6 +199,7 @@ export async function fetchAdminStageCohortPage(
       "El resultado de cohorte requiere etapas y rango de fechas.",
     );
   }
+  await requireAdminStageHistorySession();
 
   const base = buildAdminStageCohortRpcPayload(filters);
   const payload = {
