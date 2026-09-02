@@ -67,3 +67,31 @@ test("admin stage history: valida sesión antes de cada RPC protegida", () => {
     );
   }
 });
+
+test("admin ingresos: valida sesión antes de resumen, página y export", () => {
+  const src = readFileSync(
+    join(process.cwd(), "src/domain/admin-ingresos/repo.ts"),
+    "utf8",
+  );
+
+  assert.match(src, /auth\.getSession\(\)/);
+  assert.match(src, /permission denied for function/i);
+  assert.match(src, /Tu sesión de Super Admin expiró/);
+
+  const guard = "await requireAdminIngresosSession();";
+  assert.equal(src.split(guard).length - 1, 3);
+
+  for (const rpcName of [
+    "super_admin_get_ingresos_resumen",
+    "super_admin_list_ingresos_page",
+    "super_admin_export_ingresos",
+  ]) {
+    const rpcIndex = src.indexOf(`\"${rpcName}\"`);
+    assert.ok(rpcIndex > 0, `${rpcName}: RPC presente`);
+    const guardIndex = src.lastIndexOf(guard, rpcIndex);
+    assert.ok(
+      guardIndex >= 0 && guardIndex < rpcIndex,
+      `${rpcName}: sesión validada antes de RPC`,
+    );
+  }
+});
