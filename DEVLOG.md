@@ -1,3 +1,11 @@
+## 2026-09-02 - feat: INE imagen → PDF automático (local, sin SQL)
+
+### Causa
+Operación quiere que Mesa siempre reciba INE frente/reverso como PDF legible, aunque el asesor seleccione JPG/PNG/WEBP.
+
+### Decisión
+Conversión 100% en navegador (`src/lib/ineImageToPdf.ts` + pdf-lib): canvas → JPEG calidad 0.92 → PDF A4 sin deformar. Integrado en `uploadOrReplace` y `correctArchivoRechazado` (fuente única). UI hint + estados «Convirtiendo…» / «PDF listo · subiendo…». HEIC: solo si el browser decodifica; si no, error claro (no se sube HEIC). Sin migration, sin cambio MIME backend, sin smoke.
+
 ## 2026-09-02 - feat: Vigencia de derechos opcional (`cliente_vigencia_derechos`)
 
 ### Causa

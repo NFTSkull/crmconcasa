@@ -44,6 +44,11 @@ import {
   LIST_RESUMEN_BATCH_CHUNK_SIZE,
   normalizeExpedienteIdsForBatch,
 } from "./list-resumen-batch";
+import {
+  INE_IMAGE_CONVERT_ERROR,
+  isIneImageToPdfError,
+  prepareIneFileForUpload,
+} from "@/lib/ineImageToPdf";
 
 const DOCUMENTOS_SELECT = `
   id,
@@ -285,6 +290,25 @@ export class SupabaseExpedienteArchivosRepo implements ExpedienteArchivosRepo {
     return out;
   }
 
+  /**
+   * Defensa central: INE frente/reverso imagen → PDF local antes de Storage/RPC.
+   * Idempotente si ya es PDF u otro tipo documental.
+   */
+  private async resolveFileForStorageUpload(
+    file: File,
+    tipoDocumento: string,
+  ): Promise<File> {
+    try {
+      const prepared = await prepareIneFileForUpload(file, tipoDocumento);
+      return prepared.file;
+    } catch (err) {
+      if (isIneImageToPdfError(err)) {
+        throw new ExpedienteArchivosSupabaseError(err.message);
+      }
+      throw new ExpedienteArchivosSupabaseError(INE_IMAGE_CONVERT_ERROR);
+    }
+  }
+
   private async uploadOrReplace(params: UploadArchivoParams): Promise<void> {
     const expedienteId = String(params.expedienteId).trim();
     const tipo = params.tipo_documento;
@@ -300,6 +324,14 @@ export class SupabaseExpedienteArchivosRepo implements ExpedienteArchivosRepo {
     const validation = validateExpedienteDocumentoFile(params.file, params.tipo_documento);
     if (!validation.ok) {
       throw new ExpedienteArchivosSupabaseError(validation.message);
+    }
+
+    const uploadFile = await this.resolveFileForStorageUpload(params.file, tipo);
+    if (uploadFile !== params.file) {
+      const postConvert = validateExpedienteDocumentoFile(uploadFile, tipo);
+      if (!postConvert.ok) {
+        throw new ExpedienteArchivosSupabaseError(postConvert.message);
+      }
     }
 
     const { client } = await requireSupabaseSession();
@@ -327,7 +359,7 @@ export class SupabaseExpedienteArchivosRepo implements ExpedienteArchivosRepo {
       }
     }
 
-    const uploadMime = resolveExpedienteDocumentoUploadMime(params.file, tipo);
+    const uploadMime = resolveExpedienteDocumentoUploadMime(uploadFile, tipo);
     if (!uploadMime) {
       throw new ExpedienteArchivosSupabaseError(
         "No se pudo determinar el formato del archivo. Usa PDF o imagen según el tipo de documento.",
@@ -339,12 +371,12 @@ export class SupabaseExpedienteArchivosRepo implements ExpedienteArchivosRepo {
       expedienteId,
       tipoDocumento: tipo,
       mimeType: uploadMime,
-      originalFileName: params.file.name,
+      originalFileName: uploadFile.name,
     });
 
     const { error: uploadError } = await client.storage
       .from(EXPEDIENTE_DOCUMENTOS_BUCKET)
-      .upload(storagePath, params.file, {
+      .upload(storagePath, uploadFile, {
         contentType: uploadMime,
         upsert: false,
       });
@@ -358,9 +390,9 @@ export class SupabaseExpedienteArchivosRepo implements ExpedienteArchivosRepo {
         p_expediente_id: expedienteId,
         p_tipo_documento: tipo,
         p_storage_path: storagePath,
-        p_nombre_original: params.file.name,
+        p_nombre_original: uploadFile.name,
         p_mime_type: uploadMime,
-        p_size_bytes: params.file.size,
+        p_size_bytes: uploadFile.size,
       });
 
       if (rpcError) {
@@ -533,10 +565,18 @@ export class SupabaseExpedienteArchivosRepo implements ExpedienteArchivosRepo {
       throw new ExpedienteArchivosSupabaseError(validation.message);
     }
 
+    const uploadFile = await this.resolveFileForStorageUpload(params.file, tipo);
+    if (uploadFile !== params.file) {
+      const postConvert = validateExpedienteDocumentoFile(uploadFile, tipo);
+      if (!postConvert.ok) {
+        throw new ExpedienteArchivosSupabaseError(postConvert.message);
+      }
+    }
+
     const { client } = await requireSupabaseSession();
     const ctx = await fetchExpedienteMesaUploadContext(client, expedienteId);
 
-    const uploadMime = resolveExpedienteDocumentoUploadMime(params.file, tipo);
+    const uploadMime = resolveExpedienteDocumentoUploadMime(uploadFile, tipo);
     if (!uploadMime) {
       throw new ExpedienteArchivosSupabaseError(
         "No se pudo determinar el formato del archivo. Usa PDF o imagen según el tipo de documento.",
@@ -548,12 +588,12 @@ export class SupabaseExpedienteArchivosRepo implements ExpedienteArchivosRepo {
       expedienteId,
       tipoDocumento: tipo,
       mimeType: uploadMime,
-      originalFileName: params.file.name,
+      originalFileName: uploadFile.name,
     });
 
     const { error: uploadError } = await client.storage
       .from(EXPEDIENTE_DOCUMENTOS_BUCKET)
-      .upload(storagePath, params.file, {
+      .upload(storagePath, uploadFile, {
         contentType: uploadMime,
         upsert: false,
       });
@@ -567,9 +607,9 @@ export class SupabaseExpedienteArchivosRepo implements ExpedienteArchivosRepo {
         p_expediente_id: expedienteId,
         p_tipo_documento: tipo,
         p_storage_path: storagePath,
-        p_nombre_original: params.file.name,
+        p_nombre_original: uploadFile.name,
         p_mime_type: uploadMime,
-        p_size_bytes: params.file.size,
+        p_size_bytes: uploadFile.size,
       });
 
       if (rpcError) {
