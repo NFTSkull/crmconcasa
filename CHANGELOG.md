@@ -20,6 +20,9 @@
 
 ## [Unreleased]
 
+### Added
+- **feat(documentos): Vigencia de derechos opcional** — tipo `cliente_vigencia_derechos` (label «Vigencia de derechos»); asesor upload/reemplazo cualquier formato ≤15 MiB; no gate envío/avance; Mesa read/download sin write; P208 Team Silvia intacto. Mig `20260902170000`.
+
 ### Fixed
 - **fix(mesa): restaurar Teléfono normalizado en datos generales** — se revierte la omisión de UI del PR #205; Contacto vuelve a mostrar Celular + Teléfono normalizado. La unicidad intra-expediente (cliente/empresa/referencias) se mantiene. Sin SQL/Cloud.
 
