@@ -1,10 +1,18 @@
+## 2026-09-02 - fix: restaurar Teléfono normalizado en Mesa (local, sin Cloud)
+
+### Causa
+PR #205 quitó la fila «Teléfono normalizado» en Contacto de Mesa creyendo que era solo duplicado visual. Operación sí lo necesita visible junto al celular.
+
+### Decisión
+Restaurar exactamente el campo en `MesaClienteDatosReadOnlySection`. Se conserva la validación de unicidad intra-expediente del mismo PR (celular ≠ empresa ≠ refs). 0 SQL/writers.
+
 ## 2026-09-01 - fix: teléfonos únicos datos generales (local, sin Cloud)
 
 ### Causa
 Mesa mostraba «Celular» y «Teléfono normalizado» con el mismo valor (columna derivada de `celular`). En formulario legacy (P189 B8), refs Infonavit espejo de legacy se contaban dos veces en `findDuplicateTelefonosIntraExpediente` → falsos positivos o confusión al guardar.
 
 ### Decisión
-Quitar fila redundante en `MesaClienteDatosReadOnlySection`; eliminar doble push de refs Infonavit cuando `requireInfonavit=false`; copy de ayuda alineado a unicidad intra-expediente (P189 B2 ya en SQL mig 183). 0 SQL/writers.
+(Original PR #205) Eliminó fila Mesa por error de interpretación; la parte correcta fue: eliminar doble push de refs Infonavit cuando `requireInfonavit=false`; copy de ayuda alineado a unicidad intra-expediente (P189 B2 ya en SQL mig 183). Restauración UI en entrada 2026-09-02.
 
 ## 2026-09-01 - P207.4: hidratación detalle corrección Mesa (local, sin Cloud)
 

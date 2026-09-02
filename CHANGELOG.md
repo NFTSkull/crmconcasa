@@ -21,7 +21,9 @@
 ## [Unreleased]
 
 ### Fixed
-- **fix(cliente-datos): teléfonos únicos en datos generales (local)** — Mesa deja de mostrar «Teléfono normalizado» duplicado del celular; validación FE no cuenta dos veces refs legacy+Infonavit espejo; copy del formulario alineado a P189 B2. Sin SQL/Cloud.
+- **fix(mesa): restaurar Teléfono normalizado en datos generales** — se revierte la omisión de UI del PR #205; Contacto vuelve a mostrar Celular + Teléfono normalizado. La unicidad intra-expediente (cliente/empresa/referencias) se mantiene. Sin SQL/Cloud.
+
+- **fix(cliente-datos): teléfonos únicos en datos generales (local)** — validación FE no cuenta dos veces refs legacy+Infonavit espejo; copy del formulario alineado a P189 B2. Sin SQL/Cloud.
 
 - **fix(mesa): hidratación detalle corrección sin falso «no disponible» (P207.4, local)** — `listAsesorCambiosSummaryByExpedienteIds` retorna resultado tipado (`success|error`); enrich distingue loading/success/error por tarjeta; auto-retry batch (máx. 2 llamadas); fallback on-demand `fetchAdvisorChangesSummaryForExpediente`; UI «No se pudo cargar el detalle» + Reintentar. Caso Lorena. Sin SQL/Cloud.
 
