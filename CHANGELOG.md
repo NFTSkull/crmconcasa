@@ -21,6 +21,8 @@
 ## [Unreleased]
 
 ### Added
+- **feat(ine): convertir imágenes a PDF antes de subir** — `cliente_ine_frente` / `cliente_ine_reverso`: JPG/PNG/WEBP (y HEIC si el navegador decodifica) se convierten localmente a PDF con pdf-lib; Storage/RPC solo reciben `application/pdf`. PDF directo sin cambio. Sin SQL/Cloud.
+
 - **feat(documentos): Vigencia de derechos opcional** — tipo `cliente_vigencia_derechos` (label «Vigencia de derechos»); asesor upload/reemplazo cualquier formato ≤15 MiB; no gate envío/avance; Mesa read/download sin write; P208 Team Silvia intacto. Mig `20260902170000`.
 
 ### Fixed

@@ -26,8 +26,17 @@ import {
 import {
   getExpedienteDocumentoAcceptAttr,
   isClienteNotificacionApodacaTipo,
+  isIneImageDocumentTipo,
   NOTIFICACION_APODACA_UPLOAD_HINT,
 } from "@/lib/fileUploadValidation";
+import {
+  INE_IMAGE_CONVERTING_STATUS,
+  INE_IMAGE_TO_PDF_HINT,
+  INE_IMAGE_UPLOADING_STATUS,
+  isConvertibleIneImage,
+  isIneImageToPdfError,
+  prepareIneFileForUpload,
+} from "@/lib/ineImageToPdf";
 
 type Props = {
   expedienteId: string;
@@ -124,6 +133,7 @@ function ChecklistUploadList({
   esReingresoActivo,
   readOnlyTipos,
   uploadingTipo,
+  uploadStatusLabel,
   archivoLoadingTipo,
   errorsByTipo,
   onFileChange,
@@ -138,6 +148,7 @@ function ChecklistUploadList({
   esReingresoActivo: boolean;
   readOnlyTipos: ReadonlySet<string>;
   uploadingTipo: IntegrationDocAsesorUploadTipo | null;
+  uploadStatusLabel: string | null;
   archivoLoadingTipo: IntegrationDocAsesorUploadTipo | null;
   errorsByTipo: Partial<Record<IntegrationDocAsesorUploadTipo, string>>;
   onFileChange: (tipo: IntegrationDocAsesorUploadTipo, files: File[]) => void;
@@ -288,12 +299,15 @@ function ChecklistUploadList({
                       compact
                       accept={getExpedienteDocumentoAcceptAttr(item.tipo_documento)}
                       busy={uploading}
+                      busyLabel={uploading ? uploadStatusLabel : null}
                       disabled={disabled}
                       selectedFileName={nombre}
                       hint={
                         isClienteNotificacionApodacaTipo(item.tipo_documento)
                           ? NOTIFICACION_APODACA_UPLOAD_HINT
-                          : undefined
+                          : isIneImageDocumentTipo(item.tipo_documento)
+                            ? INE_IMAGE_TO_PDF_HINT
+                            : undefined
                       }
                       aria-label={
                         esCorreccion
@@ -350,6 +364,7 @@ export function AsesorIntegracionDocsUpload({
   const [uploadingTipo, setUploadingTipo] = useState<IntegrationDocAsesorUploadTipo | null>(
     null,
   );
+  const [uploadStatusLabel, setUploadStatusLabel] = useState<string | null>(null);
   const [archivoLoadingTipo, setArchivoLoadingTipo] =
     useState<IntegrationDocAsesorUploadTipo | null>(null);
   const [preview, setPreview] = useState<MesaArchivoPreviewState | null>(null);
@@ -452,6 +467,11 @@ export function AsesorIntegracionDocsUpload({
       }
 
       setUploadingTipo(tipo);
+      setUploadStatusLabel(
+        isIneImageDocumentTipo(tipo) && isConvertibleIneImage(file)
+          ? INE_IMAGE_CONVERTING_STATUS
+          : "Subiendo…",
+      );
       setErrorsByTipo((prev) => {
         const next = { ...prev };
         delete next[tipo];
@@ -459,6 +479,23 @@ export function AsesorIntegracionDocsUpload({
       });
 
       try {
+        let uploadFile = file;
+        if (isIneImageDocumentTipo(tipo) && isConvertibleIneImage(file)) {
+          try {
+            const prepared = await prepareIneFileForUpload(file, tipo);
+            uploadFile = prepared.file;
+            if (prepared.converted) {
+              setUploadStatusLabel(INE_IMAGE_UPLOADING_STATUS);
+            }
+          } catch (convErr) {
+            const message = isIneImageToPdfError(convErr)
+              ? convErr.message
+              : "No pudimos convertir esta imagen a PDF. Intenta con otra imagen o sube un PDF.";
+            setErrorsByTipo((prev) => ({ ...prev, [tipo]: message }));
+            return;
+          }
+        }
+
         const estatus =
           archivosResumen?.find((a) => a.tipo_documento === tipo)?.estatus_revision ?? "faltante";
         const esCorreccion = asesorDebeUsarCorreccionDocumento(submittedToMesa, estatus);
@@ -469,12 +506,16 @@ export function AsesorIntegracionDocsUpload({
         );
 
         if (esCorreccion) {
-          await repo.correctArchivoRechazado({ expedienteId, tipo_documento: tipo, file });
+          await repo.correctArchivoRechazado({
+            expedienteId,
+            tipo_documento: tipo,
+            file: uploadFile,
+          });
         } else if (esOpcionalPostMesa) {
           await repo.uploadArchivo({
             expedienteId,
             tipo_documento: tipo,
-            file,
+            file: uploadFile,
             uploaded_by_role: "asesor",
             uploaded_by_email: "",
           });
@@ -483,7 +524,7 @@ export function AsesorIntegracionDocsUpload({
           const params = {
             expedienteId,
             tipo_documento: tipo,
-            file,
+            file: uploadFile,
             uploaded_by_role: "asesor",
             uploaded_by_email: "",
           };
@@ -502,6 +543,7 @@ export function AsesorIntegracionDocsUpload({
         setErrorsByTipo((prev) => ({ ...prev, [tipo]: message }));
       } finally {
         setUploadingTipo(null);
+        setUploadStatusLabel(null);
       }
     },
     [archivosResumen, expedienteId, onUploaded, repo, submittedToMesa],
@@ -518,6 +560,7 @@ export function AsesorIntegracionDocsUpload({
     esReingresoActivo: reingresoActivo,
     readOnlyTipos,
     uploadingTipo,
+    uploadStatusLabel,
     archivoLoadingTipo,
     errorsByTipo,
     onFileChange: handleFileChange,

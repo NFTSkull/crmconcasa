@@ -31,6 +31,8 @@ export type DocumentDropzoneProps = Readonly<{
   hint?: string;
   inputId?: string;
   className?: string;
+  /** Texto mientras busy (p. ej. «Convirtiendo imagen a PDF…»). */
+  busyLabel?: string | null;
   /** Compacto para filas de lista. */
   compact?: boolean;
   "aria-label"?: string;
@@ -46,6 +48,7 @@ export function DocumentDropzone({
   selectedFileName = null,
   error = null,
   hint = DOCUMENT_DROPZONE_HINT,
+  busyLabel = null,
   inputId,
   className = "",
   compact = false,
@@ -164,7 +167,7 @@ export function DocumentDropzone({
               : "text-sm font-medium text-slate-800"
           }
         >
-          {busy ? "Subiendo…" : hint}
+          {busy ? busyLabel || "Subiendo…" : hint}
         </p>
         {selectedFileName ? (
           <p
