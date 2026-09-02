@@ -32,7 +32,7 @@ BEGIN
     RAISE EXCEPTION 'carta_empresa_opcional: no debe estar en mesa_upload';
   END IF;
 
-  IF cardinality(v_opc) <> 8 OR cardinality(v_upload) <> 12 THEN
+  IF cardinality(v_opc) <> 9 OR cardinality(v_upload) <> 13 THEN
     RAISE EXCEPTION 'carta_empresa_opcional: cardinalidad opc=% upload=%', cardinality(v_opc), cardinality(v_upload);
   END IF;
 

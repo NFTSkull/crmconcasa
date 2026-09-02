@@ -27,6 +27,7 @@ import { MesaNotificacionDocumentoSection } from "@/components/mesa-control/Mesa
 import { MesaNotificacionApodacaSection } from "@/components/mesa-control/MesaNotificacionApodacaSection";
 import { MesaEvidenciaAsesorSection } from "@/components/mesa-control/MesaEvidenciaAsesorSection";
 import { MesaVigenciaDerechosSection } from "@/components/mesa-control/MesaVigenciaDerechosSection";
+import { MesaConstanciaSituacionFiscalSection } from "@/components/mesa-control/MesaConstanciaSituacionFiscalSection";
 import { MesaInfonavitDocumentosSection } from "@/components/mesa-control/MesaInfonavitDocumentosSection";
 import { MesaSolicitudDocumentoSection } from "@/components/mesa-control/MesaSolicitudDocumentoSection";
 import { MesaAvanceOperativoSection, MESA_AVANCE_OPERATIVO_2A3_COPY, MESA_AVANCE_OPERATIVO_3A5_COPY, MESA_AVANCE_OPERATIVO_4A5_COPY, MESA_AVANCE_OPERATIVO_5A6_COPY, MESA_AVANCE_OPERATIVO_6A7_COPY, MESA_AVANCE_OPERATIVO_7A8_COPY, MESA_AVANCE_OPERATIVO_8A9_COPY, MESA_AVANCE_OPERATIVO_9A10_COPY, MESA_FIRMA_ETAPA10_OPERATIVA_COPY, type MesaAvanceCancelCitaGate } from "@/components/mesa-control/MesaAvanceOperativoSection";
@@ -2011,6 +2012,14 @@ export function MesaExpedienteDetalleReadOnly() {
         summary="Documento opcional · solo consulta"
       >
         <MesaVigenciaDerechosSection expedienteId={routeExpedienteId} />
+      </MesaAccordionSection>
+
+      <MesaAccordionSection
+        id="mesa-constancia-situacion-fiscal"
+        title="Constancia SAT"
+        summary="Documento opcional del asesor · solo consulta"
+      >
+        <MesaConstanciaSituacionFiscalSection expedienteId={routeExpedienteId} />
       </MesaAccordionSection>
 
       <MesaAccordionSection

@@ -122,7 +122,7 @@ BEGIN
     'T3 tipo NO en obligatorios/envio'
   );
   PERFORM public.__cvd_assert(
-    cardinality(v_opc) = 8 AND cardinality(v_upload) = 12,
+    cardinality(v_opc) = 9 AND cardinality(v_upload) = 13,
     format('T3b cardinalidad opc=%s upload=%s', cardinality(v_opc), cardinality(v_upload))
   );
 

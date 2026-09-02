@@ -30,6 +30,7 @@ export const INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES = [
   "asesor_evidencia",
   "cliente_constancia_curp",
   "cliente_vigencia_derechos",
+  "cliente_constancia_situacion_fiscal",
 ] as const;
 
 /**
@@ -181,6 +182,29 @@ export const CLIENTE_VIGENCIA_DERECHOS_DOCUMENT_CONTRACT = Object.freeze({
   esGateAvance: false,
 });
 
+/**
+ * Tipo técnico Constancia de Situación Fiscal asesor (opcional; PDF ≤15 MiB; no gate).
+ * Distinto de Mesa `cliente_constancia_sat`.
+ */
+export const CLIENTE_CONSTANCIA_SITUACION_FISCAL_DOCUMENT_TIPO =
+  "cliente_constancia_situacion_fiscal" as const;
+
+export type ClienteConstanciaSituacionFiscalDocumentTipo =
+  typeof CLIENTE_CONSTANCIA_SITUACION_FISCAL_DOCUMENT_TIPO;
+
+/** Contrato Constancia SAT asesor (opcional; sin etapa mínima; no gate; PDF). */
+export const CLIENTE_CONSTANCIA_SITUACION_FISCAL_DOCUMENT_CONTRACT = Object.freeze({
+  tipo: CLIENTE_CONSTANCIA_SITUACION_FISCAL_DOCUMENT_TIPO,
+  label: "Constancia SAT",
+  origen: "Asesor" as const,
+  formatos: ["pdf"] as const,
+  mimePermitidos: ["application/pdf"] as const,
+  maxBytes: 15 * 1024 * 1024,
+  etapaMinima: 0,
+  obligatorio: false,
+  esGateAvance: false,
+});
+
 /** Allowlist SQL completa Mesa (complementarios UI + Pagaré + Notificación + Solicitud + Apodaca). */
 export const INTEGRATION_DOC_TIPOS_MESA_REGISTER = [
   ...INTEGRATION_DOC_TIPOS_MESA_UPLOAD,
@@ -256,8 +280,9 @@ export const CLIENTE_SOLICITUD_DOCUMENT_CONTRACT = Object.freeze({
 /**
  * Opcionales asesor que Mesa no lista en complementarios (semanas/acta/SAT van ahí).
  * Excluye `cliente_notificacion` (sección dedicada P092/P132),
- * `cliente_notificacion_apodaca`, `asesor_evidencia`, `cliente_constancia_curp`
- * y `cliente_vigencia_derechos` (secciones dedicadas; P156 CURP en Datos Generales).
+ * `cliente_notificacion_apodaca`, `asesor_evidencia`, `cliente_constancia_curp`,
+ * `cliente_vigencia_derechos` y `cliente_constancia_situacion_fiscal`
+ * (secciones dedicadas; P156 CURP en Datos Generales).
  */
 export const INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES_SOLO_ASESOR =
   INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES.filter(
@@ -267,7 +292,8 @@ export const INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES_SOLO_ASESOR =
       tipo !== CLIENTE_NOTIFICACION_APODACA_DOCUMENT_TIPO &&
       tipo !== ASESOR_EVIDENCIA_DOCUMENT_TIPO &&
       tipo !== "cliente_constancia_curp" &&
-      tipo !== CLIENTE_VIGENCIA_DERECHOS_DOCUMENT_TIPO,
+      tipo !== CLIENTE_VIGENCIA_DERECHOS_DOCUMENT_TIPO &&
+      tipo !== CLIENTE_CONSTANCIA_SITUACION_FISCAL_DOCUMENT_TIPO,
   );
 
 export type IntegrationDocMesaUploadTipo = (typeof INTEGRATION_DOC_TIPOS_MESA_UPLOAD)[number];
@@ -393,8 +419,8 @@ export function deriveIntegrationDocsChecklist(
 }
 
 /** Checklist de documentos opcionales de upload asesor (no bloquean envío).
- * Excluye Notificación (sección dedicada), Evidencia, Constancia CURP y
- * Vigencia de derechos (secciones dedicadas). */
+ * Excluye Notificación (sección dedicada), Evidencia, Constancia CURP,
+ * Vigencia de derechos y Constancia SAT asesor (secciones dedicadas). */
 export function deriveIntegrationDocsChecklistOpcionales(
   resumen: IntegrationDocsResumenInput,
 ): IntegrationDocChecklistItem[] {
@@ -403,7 +429,8 @@ export function deriveIntegrationDocsChecklistOpcionales(
       t !== CLIENTE_NOTIFICACION_DOCUMENT_TIPO &&
       t !== ASESOR_EVIDENCIA_DOCUMENT_TIPO &&
       t !== "cliente_constancia_curp" &&
-      t !== CLIENTE_VIGENCIA_DERECHOS_DOCUMENT_TIPO,
+      t !== CLIENTE_VIGENCIA_DERECHOS_DOCUMENT_TIPO &&
+      t !== CLIENTE_CONSTANCIA_SITUACION_FISCAL_DOCUMENT_TIPO,
   );
   return mapChecklistItems(tipos, resumen, true);
 }

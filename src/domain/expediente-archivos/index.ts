@@ -34,6 +34,8 @@ export {
   ASESOR_EVIDENCIA_DOCUMENT_CONTRACT,
   CLIENTE_VIGENCIA_DERECHOS_DOCUMENT_TIPO,
   CLIENTE_VIGENCIA_DERECHOS_DOCUMENT_CONTRACT,
+  CLIENTE_CONSTANCIA_SITUACION_FISCAL_DOCUMENT_TIPO,
+  CLIENTE_CONSTANCIA_SITUACION_FISCAL_DOCUMENT_CONTRACT,
   INTEGRATION_DOC_TIPOS_OBLIGATORIOS,
   INTEGRATION_DOC_TIPOS_VALIDACION_MESA,
   countIntegrationDocsPresentes,
@@ -131,6 +133,19 @@ export {
   asesorPuedeEditarVigenciaDerechos,
   type ClienteVigenciaDerechosDocumento,
 } from "./cliente-vigencia-derechos";
+export {
+  CLIENTE_CONSTANCIA_SITUACION_FISCAL_ACCEPT_ATTR,
+  CLIENTE_CONSTANCIA_SITUACION_FISCAL_UPLOAD_HINT,
+  buildClienteConstanciaSituacionFiscalStoragePath,
+  findClienteConstanciaSituacionFiscalFromList,
+  isClienteConstanciaSituacionFiscalPreviewableMime,
+  isClienteConstanciaSituacionFiscalTipo,
+  sanitizeConstanciaSituacionFiscalDisplayName,
+  validateClienteConstanciaSituacionFiscalFile,
+  shouldMountAsesorConstanciaSituacionFiscalSection,
+  asesorPuedeEditarConstanciaSituacionFiscal,
+  type ClienteConstanciaSituacionFiscalDocumento,
+} from "./cliente-constancia-situacion-fiscal";
 export { mesaPuedeAbrirArchivo } from "./mesa-archivo-acceso";
 export {
   MESA_RECHAZO_MOTIVOS_SUGERIDOS,
