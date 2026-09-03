@@ -232,8 +232,8 @@ export function MesaClienteDatosReadOnlySection({
           <DataCard title="Contacto">
             <DataField label="Celular" value={displayValue(datos.celular)} />
             <DataField
-              label="Teléfono normalizado"
-              value={displayValue(clienteDatos.telefonoNormalizado ?? datos.celular)}
+              label="Teléfono de casa"
+              value={displayValue(clienteDatos.telefonoCasa)}
             />
             <DataField label="Correo" value={displayValue(datos.correo)} />
           </DataCard>
