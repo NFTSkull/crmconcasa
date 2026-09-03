@@ -92,8 +92,10 @@ export type ExpedienteClienteDatos = {
   /** Evidencias guardadas vía `save_cliente_datos` (columna `imagenes`). */
   imagenes?: ClienteDatosImagen[];
 
-  /** Columna `telefono_normalizado` (solo lectura Mesa). */
+  /** Columna `telefono_normalizado`: celular principal normalizado. */
   telefonoNormalizado?: string;
+  /** `expedientes.telefono_cliente`: teléfono de casa capturado en precalificación. */
+  telefonoCasa?: string;
 
   /** Solo aplica cuando `estado === "rechazado"` */
   comentarioRechazo?: string;
@@ -125,4 +127,3 @@ export type UpdateEstadoExpedienteClienteDatosInput = {
   updatedBy: string;
   comentarioRechazo?: string;
 };
-
