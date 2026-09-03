@@ -803,33 +803,65 @@ export default function AdminDashboardPage() {
 
         <section
           hidden={!adminGlobalFiltersVisible(activeTab)}
-          className="sticky top-0 z-10 rounded-lg border border-slate-200 bg-white p-4 shadow-sm">
-          <div className="flex flex-wrap gap-2">
-            {(
-              [
-                ["hoy", "Hoy"],
-                ["semana", "Esta semana"],
-                ["mes", "Este mes"],
-                ["personalizado", "Personalizado"],
-              ] as const
-            ).map(([key, label]) => (
-              <button
-                key={key}
-                type="button"
-                onClick={() => onPreset(key)}
-                className={`rounded-md px-3 py-1.5 text-sm ${
-                  preset === key
-                    ? "bg-slate-900 text-white"
-                    : "bg-slate-100 text-slate-700 hover:bg-slate-200"
-                }`}
-              >
-                {label}
-              </button>
-            ))}
+          className="sticky top-0 z-10 rounded-lg border border-slate-200 bg-white p-3 shadow-sm">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div className="flex flex-wrap gap-1.5">
+              {(
+                [
+                  ["hoy", "Hoy"],
+                  ["semana", "Esta semana"],
+                  ["mes", "Este mes"],
+                  ["personalizado", "Personalizado"],
+                ] as const
+              ).map(([key, label]) => (
+                <button
+                  key={key}
+                  type="button"
+                  onClick={() => onPreset(key)}
+                  className={`rounded-md px-3 py-1.5 text-sm ${
+                    preset === key
+                      ? "bg-slate-900 text-white"
+                      : "bg-slate-100 text-slate-700 hover:bg-slate-200"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
+            <div className="flex items-center gap-2">
+              <p className="text-xs font-medium text-slate-700 sm:text-sm">
+                Periodo activo:{" "}
+                <span className="tabular-nums text-slate-900">{periodoLabel}</span>
+              </p>
+              <details className="relative shrink-0">
+                <summary
+                  aria-label="Información sobre el periodo y los filtros"
+                  className="flex h-6 w-6 cursor-pointer list-none items-center justify-center rounded-full border border-slate-300 bg-white text-xs font-semibold text-slate-600 transition hover:border-slate-400 hover:bg-slate-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-slate-900 [&::-webkit-details-marker]:hidden"
+                >
+                  <span aria-hidden="true">i</span>
+                </summary>
+                <div className="absolute right-0 top-full z-30 mt-2 w-[min(26rem,calc(100vw-2rem))] rounded-lg border border-slate-200 bg-white p-3 text-xs font-normal leading-relaxed text-slate-700 shadow-lg">
+                  <p>
+                    El periodo aplica a los KPI, Expedientes, Producción,
+                    precalificaciones y Excel.
+                  </p>
+                  <p className="mt-2">
+                    El estado actual por etapas del Resumen es un corte de todos los
+                    expedientes vigentes y no depende del periodo.
+                  </p>
+                  <p className="mt-2 text-slate-600">
+                    Estos filtros aplican a Resumen, Expedientes y Producción. Los
+                    reportes históricos e ingresos tienen filtros propios dentro de su
+                    pestaña.
+                  </p>
+                </div>
+              </details>
+            </div>
           </div>
 
           {preset === "personalizado" && (
-            <div className="mt-3 flex flex-wrap gap-3">
+            <div className="mt-2 flex flex-wrap gap-3">
               <label className="text-sm text-slate-600">
                 Desde
                 <Input
@@ -859,24 +891,7 @@ export default function AdminDashboardPage() {
             </div>
           )}
 
-          <p className="mt-3 text-sm font-medium text-slate-800">
-            Periodo activo: {periodoLabel}
-          </p>
-          <p className="mt-1 text-xs text-gray-700">
-            El periodo aplica a los KPI, Expedientes, Producción,
-            precalificaciones y Excel.
-          </p>
-          <p className="mt-1 text-xs text-gray-700">
-            El estado actual por etapas del Resumen es un corte de todos los
-            expedientes vigentes y no depende del periodo.
-          </p>
-          <p className="mt-1 text-xs text-gray-600">
-            Estos filtros aplican a Resumen, Expedientes y Producción. Los
-            reportes históricos e ingresos tienen filtros propios dentro de su
-            pestaña.
-          </p>
-
-          <div className="mt-4 grid gap-3 md:grid-cols-4">
+          <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-[1.2fr_1fr_1fr_1.25fr_auto] xl:items-end">
             <Select
               label="Asesor"
               value={asesorId}
@@ -933,15 +948,24 @@ export default function AdminDashboardPage() {
                 }}
               />
             </label>
-          </div>
-
-          <div className="mt-4 flex flex-wrap gap-2">
-            <Button type="button" variant="secondary" onClick={clearFilters}>
-              Limpiar filtros
-            </Button>
-            <Button type="button" onClick={() => void exportExcel()} disabled={exporting || !bounds}>
-              {exporting ? "Exportando…" : "Descargar Excel"}
-            </Button>
+            <div className="flex flex-wrap gap-2 md:col-span-2 xl:col-span-1 xl:flex-nowrap">
+              <Button
+                type="button"
+                variant="secondary"
+                className="whitespace-nowrap"
+                onClick={clearFilters}
+              >
+                Limpiar filtros
+              </Button>
+              <Button
+                type="button"
+                className="whitespace-nowrap"
+                onClick={() => void exportExcel()}
+                disabled={exporting || !bounds}
+              >
+                {exporting ? "Exportando…" : "Descargar Excel"}
+              </Button>
+            </div>
           </div>
         </section>
 
