@@ -187,7 +187,10 @@ export class SupabaseExpedienteClienteDatosRepo implements ExpedienteClienteDato
       input.datos,
       input.direccionOpcional,
       input.programaDb,
-      { montoCalculadoEsManual: input.montoCalculadoEsManual },
+      {
+        montoCalculadoEsManual: input.montoCalculadoEsManual,
+        perfilCaptura: input.perfilCaptura,
+      },
     );
 
     const { error } = await client.rpc(
@@ -230,7 +233,10 @@ export class SupabaseExpedienteClienteDatosRepo implements ExpedienteClienteDato
       input.datos,
       input.direccionOpcional,
       input.programaDb,
-      { montoCalculadoEsManual: input.montoCalculadoEsManual },
+      {
+        montoCalculadoEsManual: input.montoCalculadoEsManual,
+        perfilCaptura: input.perfilCaptura,
+      },
     );
 
     const { error } = await client.rpc(

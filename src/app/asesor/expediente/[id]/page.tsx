@@ -109,6 +109,12 @@ import {
   type ClienteDatosFieldErrors,
 } from "@/lib/clienteDatosValidation";
 import {
+  EQUIPO_LIDER_EMAIL_SILVIA_REYES,
+  fetchAsesorEnEquipoPorLiderEmail,
+  resolveClienteDatosCapturaVariant,
+  resolveClienteDatosPerfilCaptura,
+} from "@/domain/asesor-equipo/asesor-en-equipo-por-lider-email";
+import {
   applyClienteDatosCobroRecalc,
   applyMontoCalculadoSugeridoSiNoBloqueado,
   applyMontoCalculadoSugeridoSiNoEditado,
@@ -184,6 +190,7 @@ interface PrecalificacionMock {
   telefono_cliente: string;
   direccion_opcional: string;
   asesorId: string;
+  asesorProfileId?: string | null;
   createdAt: string;
 }
 
@@ -305,6 +312,8 @@ export default function AsesorExpedientePage() {
   const [clienteDatosSaving, setClienteDatosSaving] = useState(false);
   const [clienteDatosLoading, setClienteDatosLoading] = useState(false);
   const [clienteDatosSaved, setClienteDatosSaved] = useState(false);
+  const [actorEnEquipoSilvia, setActorEnEquipoSilvia] = useState(false);
+  const [duenoEnEquipoSilvia, setDuenoEnEquipoSilvia] = useState(false);
   const [clienteDatosError, setClienteDatosError] = useState<string | null>(null);
   const [clienteDatosFieldErrors, setClienteDatosFieldErrors] =
     useState<ClienteDatosFieldErrors>({});
@@ -619,6 +628,53 @@ export default function AsesorExpedientePage() {
     persistClienteDatosDraftNow,
   ]);
 
+  const perfilCapturaClienteDatos = useMemo(
+    () =>
+      resolveClienteDatosPerfilCaptura({
+        duenoEnEquipoSilviaConfirmado: duenoEnEquipoSilvia,
+      }),
+    [duenoEnEquipoSilvia],
+  );
+  const capturaVariantClienteDatos = useMemo(
+    () =>
+      resolveClienteDatosCapturaVariant({
+        actorEnEquipoSilviaConfirmado: actorEnEquipoSilvia,
+      }),
+    [actorEnEquipoSilvia],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      const actor = await fetchAsesorEnEquipoPorLiderEmail({
+        leaderEmail: EQUIPO_LIDER_EMAIL_SILVIA_REYES,
+      });
+      if (!cancelled) setActorEnEquipoSilvia(actor === true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    const ownerId = precal?.asesorProfileId?.trim() || "";
+    if (!ownerId) {
+      setDuenoEnEquipoSilvia(false);
+      return;
+    }
+    void (async () => {
+      const ok = await fetchAsesorEnEquipoPorLiderEmail({
+        leaderEmail: EQUIPO_LIDER_EMAIL_SILVIA_REYES,
+        asesorId: ownerId,
+      });
+      if (!cancelled) setDuenoEnEquipoSilvia(ok === true);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [precal?.asesorProfileId]);
+
   const camposFaltantesClienteDatos = useMemo(
     () =>
       getClienteDatosCamposFaltantes(clienteDatos, {
@@ -626,8 +682,15 @@ export default function AsesorExpedientePage() {
         direccionOpcional,
         programaDb,
         requireInfonavit: false,
+        perfilCaptura: perfilCapturaClienteDatos,
       }),
-    [clienteDatos, direccionOpcional, montoAprobadoEditor, programaDb],
+    [
+      clienteDatos,
+      direccionOpcional,
+      montoAprobadoEditor,
+      programaDb,
+      perfilCapturaClienteDatos,
+    ],
   );
 
   const datosGeneralesCompletos = useMemo(() => {
@@ -849,6 +912,7 @@ export default function AsesorExpedientePage() {
         telefono_cliente: exp.base.telefono_cliente,
         direccion_opcional: exp.base.direccion_opcional,
         asesorId: exp.base.asesorId,
+        asesorProfileId: exp.base.asesorProfileId ?? null,
         createdAt: exp.base.createdAt,
       });
       setDireccionOpcional(exp.base.direccion_opcional ?? "");
@@ -1473,6 +1537,7 @@ export default function AsesorExpedientePage() {
       direccionOpcional,
       programaDb,
       requireInfonavit: false,
+      perfilCaptura: perfilCapturaClienteDatos,
     });
     if (!validation.isValid) {
       setClienteDatosShowValidation(true);
@@ -1504,6 +1569,7 @@ export default function AsesorExpedientePage() {
         updatedBy: currentUser.email,
         programaDb,
         montoCalculadoEsManual: montoCalculadoLockedRef.current,
+        perfilCaptura: perfilCapturaClienteDatos,
       };
       const saved = usarCorreccion
         ? await clienteDatosRepo.saveCorreccion(saveInput)
@@ -1562,6 +1628,7 @@ export default function AsesorExpedientePage() {
     esReingresoActivo,
     montoAprobadoEditor,
     programaDb,
+    perfilCapturaClienteDatos,
     loadExpediente,
   ]);
 
@@ -2036,6 +2103,7 @@ export default function AsesorExpedientePage() {
               onMontoMejoravitEdited={handleMontoMejoravitEdited}
               onMontoCalculadoEdited={handleMontoCalculadoEdited}
               advertenciaInscripcionInfonavit={advertenciaInscripcionInfonavit}
+              capturaVariant={capturaVariantClienteDatos}
             />
             </div>
             {esMejoravit && dataSupabase && precal?.id ? (
@@ -2454,6 +2522,7 @@ export default function AsesorExpedientePage() {
               onMontoMejoravitEdited={handleMontoMejoravitEdited}
               onMontoCalculadoEdited={handleMontoCalculadoEdited}
               advertenciaInscripcionInfonavit={advertenciaInscripcionInfonavit}
+              capturaVariant={capturaVariantClienteDatos}
             />
             </div>
 
@@ -2474,6 +2543,7 @@ export default function AsesorExpedientePage() {
                 direccionOpcional,
                 programaDb,
                 requireInfonavit: false,
+                perfilCaptura: perfilCapturaClienteDatos,
               });
               if (camposFaltantes.length > 0) {
                 window.alert(
@@ -2488,6 +2558,7 @@ export default function AsesorExpedientePage() {
                 direccionOpcional,
                 programaDb,
                 requireInfonavit: false,
+                perfilCaptura: perfilCapturaClienteDatos,
               });
               if (!validation.isValid) {
                 setClienteDatosShowValidation(true);
@@ -2512,6 +2583,7 @@ export default function AsesorExpedientePage() {
                   direccionOpcional: domicilioEnvio,
                   updatedBy: currentUser.email,
                   programaDb,
+                  perfilCaptura: perfilCapturaClienteDatos,
                 });
                 setClienteDatosMeta({
                   estado: saved.estado,

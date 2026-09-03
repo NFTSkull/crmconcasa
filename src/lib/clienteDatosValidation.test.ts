@@ -444,6 +444,34 @@ test("P133 plazo con letras → MSJ_DIGITS_ONLY", () => {
   assert.equal(r.errors.plazo, MSJ_DIGITS_ONLY);
 });
 
+test("silvia simplificado: pasa sin refs/correo/plazo; exige celular", () => {
+  const subset = {
+    ...baseValid,
+    correo: "",
+    empresa: "",
+    registroPatronal: "",
+    telefonoEmpresa: "",
+    referencias: [
+      { nombre: "", celular: "" },
+      { nombre: "", celular: "" },
+    ],
+    beneficiario: { nombre: "", parentesco: "" },
+    plazo: "",
+  };
+  const ok = validateClienteDatos(subset, {
+    ...COBRO_CTX,
+    perfilCaptura: "asesor_equipo_silvia_simplificado",
+  });
+  assert.equal(ok.isValid, true);
+
+  const sinCel = validateClienteDatos(
+    { ...subset, celular: "" },
+    { ...COBRO_CTX, perfilCaptura: "asesor_equipo_silvia_simplificado" },
+  );
+  assert.equal(sinCel.isValid, false);
+  assert.ok(sinCel.errors.celular);
+});
+
 test("P189 B2: syncLegacyFromInfonavit deriva nombreCliente sin parsear", () => {
   const synced = syncLegacyFromInfonavit(baseValid);
   assert.equal(synced.nombreCliente, "Juan Perez Lopez");

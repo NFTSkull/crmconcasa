@@ -101,6 +101,19 @@ Universo del gate (P169): `organization_id` + NSS + `deleted_at IS NULL` + `cicl
 
 ---
 
+## 1quinquies. Membresía equipo por email de líder
+
+**RPC:** `asesor_en_equipo_por_lider_email(p_leader_email text, p_asesor_id uuid DEFAULT NULL) → boolean`  
+**Mig:** `20260903160000_asesor_en_equipo_por_lider_email.sql`
+
+- Genérica (sin hardcode de líder en SQL). FE pasa p.ej. `silvia.reyes@concasa.mx`.
+- `p_asesor_id` NULL → evalúa `current_profile_id()` (actor JWT).
+- Fail-closed: email inválido, sin auth, org distinta, rol no autorizado, **0 o >1** equipos activos con ese líder en la org → `false` (+ `WARNING` si ambigüedad de equipos).
+- Usa `asesor_equipos` + `asesor_pertenece_equipo_activo` (mismo espíritu que scope de documentos por equipo).
+- Uso DG: vista simplificada = membresía del **actor**; checklist/validación relajada = membresía del **dueño** (`expedientes.asesor_id`).
+
+---
+
 ## 1quater. Auto-precalificar Infonavit + reintentos cron (P213/P214)
 
 **HTTP create path:** `POST /api/precalificaciones/[id]/auto-precalificar`  
@@ -264,6 +277,7 @@ Solo escribe `expediente_precalificacion_intentos.monto_aprobado` (NULL o >= 0) 
 ### Reglas
 
 - Rol `asesor` (expediente propio).
+- **Perfil captura Equipo Silvia (FE):** dueño con membresía confirmada vía `asesor_en_equipo_por_lider_email('silvia.reyes@concasa.mx', asesor_id)` → `perfilCaptura=asesor_equipo_silvia_simplificado` (checklist/validación reducida; mapper `p_referencias: []`). Vista UI simplificada solo si el **actor JWT** confirma membresía (fail-closed → completo). Sin cambios a `save_cliente_datos` / Mesa.
 - **RFC obligatorio** antes de envío integración (`getClienteDatosCamposFaltantes`).
 - Estado inicial `pendiente` → `completo` al guardar campos mínimos.
 - **P133 — formatos de campo:** nombres (`nombreCliente`, refs, beneficiario/parentesco) solo letras Unicode + espacios/guion/apóstrofe; NSS 11 dígitos; teléfonos vía `normalize_telefono_mexico` (10); CP 5 dígitos; plazo solo dígitos si viene; RFC contrato vigente si no vacío. Validación FE (`clienteDatosFieldFormats` / `validateClienteDatos`) + assert SQL en `save_cliente_datos` / `save_cliente_datos_correccion` sobre payload entrante (mig. 119). Sin CHECK en tablas ni backfill de históricos.

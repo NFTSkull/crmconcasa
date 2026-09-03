@@ -21,6 +21,8 @@
 ## [Unreleased]
 
 ### Added
+- **feat(generales): vista/checklist simplificado Equipo Silvia** — `capturaVariant` en Datos Generales; validación/completitud `asesor_equipo_silvia_simplificado`; mapper `p_referencias: []`; RPC `asesor_en_equipo_por_lider_email` (mig `20260903160000`). Vista por membresía del actor; checklist por `expedientes.asesor_id`. Fail-closed → formulario completo. Sin cambios a `save_cliente_datos` / Mesa.
+
 - **feat(documentos): UI scoped Equipo Silvia (bloque 2)** — RPC `asesor_tipos_documento_visibles`; secciones Asesor gated por array (fail-closed); Mesa RO de los 4 tipos. Mig `20260903150000`.
 
 - **feat(documentos): opcionales scoped por equipo (bloque 1, sin UI)** — tabla `documento_tipo_scope_equipo` + helper `asesor_puede_usar_tipo_documento`; candado en register/correccion y Storage asesor (`upload` / `post_mesa` / `correccion`); tipos `cliente_solicitud_credito`, `cliente_lista_nominal`, `cliente_bajo_protesta`, `cliente_presupuesto` (líder `silvia.reyes@concasa.mx`). Mig `20260903140000`. Cardinalidad 13/17.

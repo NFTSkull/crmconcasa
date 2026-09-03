@@ -15,6 +15,7 @@ import {
   mapDatosInfonavitFromUnknown,
   serializeInfonavitClienteDatosV1,
 } from "./infonavit-datos";
+import type { ClienteDatosPerfilCaptura } from "@/domain/asesor-equipo/asesor-en-equipo-por-lider-email";
 
 export type SupabaseClienteDatosRow = {
   expediente_id: string;
@@ -252,7 +253,10 @@ export function buildSaveClienteDatosRpcPayload(
   datos: ExpedienteClienteDatos["datos"],
   direccionOpcional: string,
   programaDb?: string | null,
-  options?: { montoCalculadoEsManual?: boolean },
+  options?: {
+    montoCalculadoEsManual?: boolean;
+    perfilCaptura?: ClienteDatosPerfilCaptura;
+  },
 ): {
   p_expediente_id: string;
   p_rfc: string;
@@ -275,6 +279,7 @@ export function buildSaveClienteDatosRpcPayload(
   }
 
   const esMejoravit = isProgramaMejoravitDb(programaDb);
+  const silvia = options?.perfilCaptura === "asesor_equipo_silvia_simplificado";
   let montoMejoravitRaw = "";
   let plazo = "";
   if (esMejoravit) {
@@ -284,7 +289,7 @@ export function buildSaveClienteDatosRpcPayload(
       throw new Error("El monto Mejoravit es obligatorio.");
     }
     plazo = datos.plazo.trim();
-    if (!plazo) {
+    if (!silvia && !plazo) {
       throw new Error("El plazo es obligatorio.");
     }
   }
@@ -310,7 +315,9 @@ export function buildSaveClienteDatosRpcPayload(
   };
   if (esMejoravit) {
     p_datos.montoMejoravit = montoMejoravitRaw;
-    p_datos.plazo = plazo;
+    if (!silvia || plazo) {
+      p_datos.plazo = plazo;
+    }
   }
   // Siempre incluir notaMesa: el RPC reemplaza `datos` completo.
   // Omitir la clave al guardar otros campos borraba notas previas.
@@ -327,10 +334,12 @@ export function buildSaveClienteDatosRpcPayload(
     p_expediente_id: expedienteId,
     p_rfc: datos.rfc.trim(),
     p_telefono: datos.celular.trim(),
-    p_referencias: datos.referencias.map((ref) => ({
-      nombre: ref.nombre.trim(),
-      telefono: ref.celular.trim(),
-    })),
+    p_referencias: silvia
+      ? []
+      : datos.referencias.map((ref) => ({
+          nombre: ref.nombre.trim(),
+          telefono: ref.celular.trim(),
+        })),
     p_datos,
     p_estado: "completo",
     p_porcentaje_cobro: pct,
