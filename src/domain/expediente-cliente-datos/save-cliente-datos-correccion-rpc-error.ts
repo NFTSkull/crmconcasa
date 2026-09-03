@@ -45,6 +45,22 @@ export function mapSaveClienteDatosCorreccionRpcError(error: {
     return new ClienteDatosSupabaseError("Revisa el RFC del cliente.");
   }
 
+  if (msg.includes("telefono_casa_invalido")) {
+    return new ClienteDatosSupabaseError(
+      "El teléfono de casa debe tener exactamente 10 dígitos.",
+    );
+  }
+
+  if (
+    msg.includes("telefono_casa_duplicado") ||
+    msg.includes("telefono_casa_duplicado_datos_generales") ||
+    msg.includes("cliente_datos_telefono_casa_duplicado")
+  ) {
+    return new ClienteDatosSupabaseError(
+      "El teléfono de casa no puede repetirse con celular, teléfono empresa ni referencias del mismo expediente.",
+    );
+  }
+
   if (msg.includes("cliente_datos_celular_igual_telefono_casa")) {
     return new ClienteDatosSupabaseError(
       "El celular debe ser distinto al teléfono de casa capturado en la precalificación.",
@@ -58,7 +74,7 @@ export function mapSaveClienteDatosCorreccionRpcError(error: {
   }
 
   if (msg.includes("teléfono")) {
-    return new ClienteDatosSupabaseError("Revisa el teléfono del cliente y referencias.");
+    return new ClienteDatosSupabaseError("Revisa los teléfonos del cliente, empresa y referencias.");
   }
 
   if (msg.includes("faltan datos del cliente") || msg.includes("create_reingreso")) {
