@@ -4,7 +4,14 @@ import {
   INTEGRATION_DOC_TIPOS_ASESOR_ENVIO,
   INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES,
   INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD,
+  INTEGRATION_DOC_TIPOS_ASESOR_SCOPED_POR_EQUIPO,
+  INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES_SOLO_ASESOR,
   INTEGRATION_DOC_TIPOS_VALIDACION_MESA,
+  EQUIPO_LIDER_EMAIL_SILVIA_REYES,
+  CLIENTE_SOLICITUD_CREDITO_DOCUMENT_TIPO,
+  CLIENTE_LISTA_NOMINAL_DOCUMENT_TIPO,
+  CLIENTE_BAJO_PROTESTA_DOCUMENT_TIPO,
+  CLIENTE_PRESUPUESTO_DOCUMENT_TIPO,
   countIntegrationDocsPresentes,
   deriveIntegrationDocsChecklist,
   deriveIntegrationDocsChecklistOpcionales,
@@ -13,6 +20,7 @@ import {
   integrationDocsTodosValidados,
   countIntegrationDocsValidados,
 } from "./integration-docs-completos";
+import { DOCUMENTO_CATALOGO_MAP } from "./types";
 import type { IntegrationDocsResumenInput } from "./integration-docs-completos";
 
 function resumenCompletoAsesor(
@@ -27,8 +35,8 @@ function resumenCompletoAsesor(
 describe("INTEGRATION_DOC_TIPOS_VALIDACION_MESA", () => {
   it("validación Mesa y avance 1→2 solo con 4 documentos del asesor", () => {
     assert.equal(INTEGRATION_DOC_TIPOS_ASESOR_ENVIO.length, 4);
-    assert.equal(INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES.length, 9);
-    assert.equal(INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD.length, 13);
+    assert.equal(INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES.length, 13);
+    assert.equal(INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD.length, 17);
     assert.ok(
       (INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES as readonly string[]).includes(
         "cliente_constancia_curp",
@@ -67,6 +75,44 @@ describe("INTEGRATION_DOC_TIPOS_VALIDACION_MESA", () => {
         "cliente_constancia_sat",
       ),
     );
+  });
+});
+
+describe("INTEGRATION_DOC_TIPOS_ASESOR_SCOPED_POR_EQUIPO", () => {
+  it("cuatro tipos nuevos, distintos de Mesa/Infonavit, scope Silvia", () => {
+    assert.equal(INTEGRATION_DOC_TIPOS_ASESOR_SCOPED_POR_EQUIPO.length, 4);
+    assert.deepEqual(
+      [...INTEGRATION_DOC_TIPOS_ASESOR_SCOPED_POR_EQUIPO],
+      [
+        CLIENTE_SOLICITUD_CREDITO_DOCUMENT_TIPO,
+        CLIENTE_LISTA_NOMINAL_DOCUMENT_TIPO,
+        CLIENTE_BAJO_PROTESTA_DOCUMENT_TIPO,
+        CLIENTE_PRESUPUESTO_DOCUMENT_TIPO,
+      ],
+    );
+    assert.notEqual(CLIENTE_SOLICITUD_CREDITO_DOCUMENT_TIPO, "cliente_solicitud");
+    assert.notEqual(CLIENTE_BAJO_PROTESTA_DOCUMENT_TIPO, "infonavit_carta_bajo_protesta");
+    assert.notEqual(
+      CLIENTE_PRESUPUESTO_DOCUMENT_TIPO,
+      "infonavit_presupuesto_mejoramiento",
+    );
+    for (const tipo of INTEGRATION_DOC_TIPOS_ASESOR_SCOPED_POR_EQUIPO) {
+      assert.ok((INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES as readonly string[]).includes(tipo));
+      assert.ok(
+        !(INTEGRATION_DOC_TIPOS_ASESOR_ENVIO as readonly string[]).includes(tipo),
+      );
+      assert.ok(
+        !(INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES_SOLO_ASESOR as readonly string[]).includes(
+          tipo,
+        ),
+      );
+      assert.equal(
+        DOCUMENTO_CATALOGO_MAP[tipo].scopeEquipo?.leaderEmail,
+        EQUIPO_LIDER_EMAIL_SILVIA_REYES,
+      );
+    }
+    const opc = deriveIntegrationDocsChecklistOpcionales([]);
+    assert.ok(!opc.some((i) => i.tipo_documento === CLIENTE_LISTA_NOMINAL_DOCUMENT_TIPO));
   });
 });
 

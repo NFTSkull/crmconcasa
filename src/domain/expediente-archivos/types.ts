@@ -43,6 +43,10 @@ export const TIPO_DOCUMENTO_CATALOGO = [
   "cliente_solicitud",
   "cliente_vigencia_derechos",
   "cliente_constancia_situacion_fiscal",
+  "cliente_solicitud_credito",
+  "cliente_lista_nominal",
+  "cliente_bajo_protesta",
+  "cliente_presupuesto",
 
   // ===== Acuse / Aviso de retención (etapa operativa 8) =====
   "retencion_acuse_con_sello",
@@ -72,6 +76,12 @@ export type DocumentoObligatorio = "obligatorio" | "opcional";
 
 export type DocumentoStageId = number;
 
+/** Scope opcional: tipo solo para miembros del equipo del líder (email, no UUID). */
+export type DocumentoScopeEquipo = Readonly<{
+  kind: "equipo_por_lider_email";
+  leaderEmail: string;
+}>;
+
 export type DocumentoCatalogoItem = Readonly<{
   tipo: TipoDocumentoCatalogo;
   label: string;
@@ -79,6 +89,8 @@ export type DocumentoCatalogoItem = Readonly<{
   obligatorio: DocumentoObligatorio;
   /** Etapas operativas (ids) donde el documento se requiere. */
   etapasRequeridas: readonly DocumentoStageId[];
+  /** Ausente = todos los asesores. SQL `documento_tipo_scope_equipo` es autoridad. */
+  scopeEquipo?: DocumentoScopeEquipo;
 }>;
 
 /**
@@ -258,6 +270,63 @@ export const DOCUMENTO_CATALOGO_MAP = Object.freeze({
     ownerRole: "cliente",
     obligatorio: "opcional",
     etapasRequeridas: [],
+  },
+  /**
+   * Solicitud de crédito — opcional asesor, scoped equipo (líder email).
+   * Distinto de Mesa `cliente_solicitud` e Infonavit `infonavit_solicitud_inscripcion`.
+   */
+  cliente_solicitud_credito: {
+    tipo: "cliente_solicitud_credito",
+    label: "Solicitud de crédito",
+    ownerRole: "cliente",
+    obligatorio: "opcional",
+    etapasRequeridas: [],
+    scopeEquipo: {
+      kind: "equipo_por_lider_email",
+      leaderEmail: "silvia.reyes@concasa.mx",
+    },
+  },
+  /** Lista Nominal — opcional asesor, scoped equipo. Tipo 100% nuevo. */
+  cliente_lista_nominal: {
+    tipo: "cliente_lista_nominal",
+    label: "Lista Nominal",
+    ownerRole: "cliente",
+    obligatorio: "opcional",
+    etapasRequeridas: [],
+    scopeEquipo: {
+      kind: "equipo_por_lider_email",
+      leaderEmail: "silvia.reyes@concasa.mx",
+    },
+  },
+  /**
+   * Bajo Protesta — opcional asesor, scoped equipo.
+   * Distinto de sistema `infonavit_carta_bajo_protesta`.
+   */
+  cliente_bajo_protesta: {
+    tipo: "cliente_bajo_protesta",
+    label: "Bajo Protesta",
+    ownerRole: "cliente",
+    obligatorio: "opcional",
+    etapasRequeridas: [],
+    scopeEquipo: {
+      kind: "equipo_por_lider_email",
+      leaderEmail: "silvia.reyes@concasa.mx",
+    },
+  },
+  /**
+   * Presupuesto — opcional asesor, scoped equipo.
+   * Distinto de sistema `infonavit_presupuesto_mejoramiento`.
+   */
+  cliente_presupuesto: {
+    tipo: "cliente_presupuesto",
+    label: "Presupuesto",
+    ownerRole: "cliente",
+    obligatorio: "opcional",
+    etapasRequeridas: [],
+    scopeEquipo: {
+      kind: "equipo_por_lider_email",
+      leaderEmail: "silvia.reyes@concasa.mx",
+    },
   },
 
   retencion_acuse_con_sello: {

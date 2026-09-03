@@ -18,6 +18,7 @@ import { AsesorIntegracionDocsUpload } from "@/components/asesor/AsesorIntegraci
 import { AsesorEvidenciaSection } from "@/components/asesor/AsesorEvidenciaSection";
 import { AsesorVigenciaDerechosSection } from "@/components/asesor/AsesorVigenciaDerechosSection";
 import { AsesorConstanciaSituacionFiscalSection } from "@/components/asesor/AsesorConstanciaSituacionFiscalSection";
+import { AsesorScopedEquipoDocumentoSection } from "@/components/asesor/AsesorScopedEquipoDocumentoSection";
 import { AsesorSeguimientoOperativo } from "@/components/asesor/AsesorSeguimientoOperativo";
 import { canMountAgendaBiometricosUI } from "@/lib/agendaFirmasBookingsGuard";
 import { AgendaFirmasAsesorCard } from "@/components/asesor/AgendaFirmasAsesorCard";
@@ -81,9 +82,14 @@ import {
   asesorPuedeEditarEvidencia,
   asesorPuedeEditarVigenciaDerechos,
   asesorPuedeEditarConstanciaSituacionFiscal,
+  asesorPuedeEditarScopedEquipoDocumento,
+  fetchAsesorTiposDocumentoVisibles,
+  shouldMountAsesorScopedEquipoDocumentoSection,
+  SCOPED_EQUIPO_DOCUMENTO_UI,
   esReingresoDocumentosEditables,
   useExpedienteArchivosRepo,
   type ExpedienteArchivoResumen,
+  type IntegrationDocAsesorScopedPorEquipoTipo,
   type IntegrationDocChecklistItem,
 } from "@/domain/expediente-archivos";
 import {
@@ -351,6 +357,10 @@ export default function AsesorExpedientePage() {
   } | null>(null);
   const [archivosLoading, setArchivosLoading] = useState(false);
   const [archivosError, setArchivosError] = useState<string | null>(null);
+  /** Tipos scoped visibles vía RPC; fail-closed → []. */
+  const [tiposDocumentoVisibles, setTiposDocumentoVisibles] = useState<
+    readonly IntegrationDocAsesorScopedPorEquipoTipo[]
+  >([]);
   const [cancelacionOperativa, setCancelacionOperativa] =
     useState<ExpedienteCancelacionRow | null>(null);
   const [reprecalificacionPendienteId, setReprecalificacionPendienteId] =
@@ -786,6 +796,11 @@ export default function AsesorExpedientePage() {
 
   /** Constancia SAT asesor: mismo ciclo activo que Vigencia. */
   const puedeEditarConstanciaSituacionFiscal = asesorPuedeEditarConstanciaSituacionFiscal(
+    operativo?.cicloEstado,
+  );
+
+  /** Docs scoped Equipo Silvia: mismo ciclo activo; montaje gated por RPC. */
+  const puedeEditarScopedEquipoDocumento = asesorPuedeEditarScopedEquipoDocumento(
     operativo?.cicloEstado,
   );
 
@@ -1233,6 +1248,20 @@ export default function AsesorExpedientePage() {
       );
     };
   }, [dataSupabase, precal?.id]);
+
+  useEffect(() => {
+    if (!dataSupabase) {
+      setTiposDocumentoVisibles([]);
+      return;
+    }
+    let cancelled = false;
+    void fetchAsesorTiposDocumentoVisibles().then((tipos) => {
+      if (!cancelled) setTiposDocumentoVisibles(tipos);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [dataSupabase]);
 
   useEffect(() => {
     if (!precal?.id) return;
@@ -2044,6 +2073,26 @@ export default function AsesorExpedientePage() {
                 onUploaded={refreshArchivos}
               />
             ) : null}
+            {dataSupabase &&
+            precal?.id &&
+            SCOPED_EQUIPO_DOCUMENTO_UI.map((doc) =>
+              shouldMountAsesorScopedEquipoDocumentoSection({
+                expedienteId: String(precal.id),
+                tipo: doc.tipo,
+                tiposVisibles: tiposDocumentoVisibles,
+              }) ? (
+                <AsesorScopedEquipoDocumentoSection
+                  key={doc.tipo}
+                  expedienteId={String(precal.id)}
+                  tipo={doc.tipo}
+                  label={doc.label}
+                  uploadHint={doc.uploadHint}
+                  maxBytes={doc.maxBytes}
+                  canUpload={puedeEditarScopedEquipoDocumento}
+                  onUploaded={refreshArchivos}
+                />
+              ) : null,
+            )}
             {dataSupabase && precal?.id ? (
               <AsesorNotificacionDocumentoSection
                 expedienteId={String(precal.id)}

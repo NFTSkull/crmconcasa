@@ -79,8 +79,8 @@ describe("P104 cliente_notificacion_apodaca", () => {
         "cliente_notificacion_apodaca",
       ),
     );
-    assert.equal(INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES.length, 9);
-    assert.equal(INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD.length, 13);
+    assert.equal(INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES.length, 13);
+    assert.equal(INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD.length, 17);
   });
 
   it("no bloquea gate enviar_a_mesa", () => {

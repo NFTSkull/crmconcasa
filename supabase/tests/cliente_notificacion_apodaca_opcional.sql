@@ -50,7 +50,7 @@ BEGIN
     RAISE EXCEPTION 'notif_apodaca_opcional: falta en reingreso_documentos_reutilizables';
   END IF;
 
-  IF cardinality(v_opc) <> 9 OR cardinality(v_upload) <> 13 THEN
+  IF cardinality(v_opc) <> 13 OR cardinality(v_upload) <> 17 THEN
     RAISE EXCEPTION 'notif_apodaca_opcional: cardinalidad opc=% upload=%', cardinality(v_opc), cardinality(v_upload);
   END IF;
 

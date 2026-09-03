@@ -28,6 +28,7 @@ import { MesaNotificacionApodacaSection } from "@/components/mesa-control/MesaNo
 import { MesaEvidenciaAsesorSection } from "@/components/mesa-control/MesaEvidenciaAsesorSection";
 import { MesaVigenciaDerechosSection } from "@/components/mesa-control/MesaVigenciaDerechosSection";
 import { MesaConstanciaSituacionFiscalSection } from "@/components/mesa-control/MesaConstanciaSituacionFiscalSection";
+import { MesaScopedEquipoDocumentoSection } from "@/components/mesa-control/MesaScopedEquipoDocumentoSection";
 import { MesaInfonavitDocumentosSection } from "@/components/mesa-control/MesaInfonavitDocumentosSection";
 import { MesaSolicitudDocumentoSection } from "@/components/mesa-control/MesaSolicitudDocumentoSection";
 import { MesaAvanceOperativoSection, MESA_AVANCE_OPERATIVO_2A3_COPY, MESA_AVANCE_OPERATIVO_3A5_COPY, MESA_AVANCE_OPERATIVO_4A5_COPY, MESA_AVANCE_OPERATIVO_5A6_COPY, MESA_AVANCE_OPERATIVO_6A7_COPY, MESA_AVANCE_OPERATIVO_7A8_COPY, MESA_AVANCE_OPERATIVO_8A9_COPY, MESA_AVANCE_OPERATIVO_9A10_COPY, MESA_FIRMA_ETAPA10_OPERATIVA_COPY, type MesaAvanceCancelCitaGate } from "@/components/mesa-control/MesaAvanceOperativoSection";
@@ -54,6 +55,7 @@ import {
   buildMesaIntegrationDocViews,
   buildMesaComplementariosDocViews,
   ExpedienteArchivosSupabaseError,
+  SCOPED_EQUIPO_DOCUMENTO_UI,
   type EstatusRevision,
   type ExpedienteArchivoListItem,
   type ExpedienteArchivoResumen,
@@ -2021,6 +2023,21 @@ export function MesaExpedienteDetalleReadOnly() {
       >
         <MesaConstanciaSituacionFiscalSection expedienteId={routeExpedienteId} />
       </MesaAccordionSection>
+
+      {SCOPED_EQUIPO_DOCUMENTO_UI.map((doc) => (
+        <MesaAccordionSection
+          key={doc.tipo}
+          id={`mesa-scoped-${doc.tipo}`}
+          title={doc.label}
+          summary="Documento opcional del asesor · solo consulta"
+        >
+          <MesaScopedEquipoDocumentoSection
+            expedienteId={routeExpedienteId}
+            tipo={doc.tipo}
+            label={doc.label}
+          />
+        </MesaAccordionSection>
+      ))}
 
       <MesaAccordionSection
         id="mesa-notificacion-documento"
