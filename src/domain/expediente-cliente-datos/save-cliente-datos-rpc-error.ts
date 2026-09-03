@@ -1,6 +1,6 @@
 import { ClienteDatosSupabaseError } from "./supabase.error";
 
-/** Mapea errores de RPC `save_cliente_datos` a mensajes claros en español. */
+/** Mapea errores de RPC de guardado de Datos Generales a mensajes claros en español. */
 export function mapSaveClienteDatosRpcError(error: {
   code?: string;
   message?: string;
@@ -76,6 +76,22 @@ export function mapSaveClienteDatosRpcError(error: {
 
   if (msg.includes("la dirección es obligatoria")) {
     return new ClienteDatosSupabaseError("La dirección es obligatoria.");
+  }
+
+  if (msg.includes("telefono_casa_invalido")) {
+    return new ClienteDatosSupabaseError(
+      "El teléfono de casa debe tener exactamente 10 dígitos.",
+    );
+  }
+
+  if (
+    msg.includes("telefono_casa_duplicado") ||
+    msg.includes("telefono_casa_duplicado_datos_generales") ||
+    msg.includes("cliente_datos_telefono_casa_duplicado")
+  ) {
+    return new ClienteDatosSupabaseError(
+      "El teléfono de casa no puede repetirse con celular, teléfono empresa ni referencias del mismo expediente.",
+    );
   }
 
   if (msg.includes("teléfono obligatorio")) {
