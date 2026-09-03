@@ -19,6 +19,7 @@ import {
   asesorPuedeEditarClienteDatos,
 } from "@/domain/expediente-archivos/asesor-correccion-post-mesa";
 import { AsesorCurpValidacionSection } from "@/components/asesor/AsesorCurpValidacionSection";
+import type { ClienteDatosCapturaVariant } from "@/domain/asesor-equipo/asesor-en-equipo-por-lider-email";
 
 type ClienteDatosFormState = ExpedienteClienteDatos["datos"];
 
@@ -74,6 +75,8 @@ interface ExpedienteClienteDatosFormSectionProps {
   onMontoCalculadoEdited?: () => void;
   /** Banner no bloqueante: advertencia de inscripción Infonavit (editor_decisions). */
   advertenciaInscripcionInfonavit?: string | null;
+  /** Vista UI. Default completo. `simplificado` solo si el actor JWT confirmó Equipo Silvia. */
+  capturaVariant?: ClienteDatosCapturaVariant;
 }
 
 function fieldInputClass(hasError: boolean): string {
@@ -141,7 +144,9 @@ export function ExpedienteClienteDatosFormSection({
   correccionDgActiva = false,
   correccionDgUxState = null,
   advertenciaInscripcionInfonavit = null,
+  capturaVariant = "completo",
 }: ExpedienteClienteDatosFormSectionProps) {
+  const esSimplificado = capturaVariant === "simplificado";
   const esMejoravit = isProgramaMejoravitDb(programaDb);
   const esCorreccionRechazo = asesorEsCorreccionRechazoClienteDatos(
     submittedToMesa,
@@ -187,7 +192,10 @@ export function ExpedienteClienteDatosFormSection({
   })();
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4">
+    <div
+      className="rounded-lg border border-gray-200 bg-white p-4"
+      data-captura-variant={capturaVariant}
+    >
       <fieldset
         disabled={!puedeEditar || clienteDatosLoading}
         className="min-w-0 border-0 p-0 disabled:opacity-70"
@@ -399,7 +407,7 @@ export function ExpedienteClienteDatosFormSection({
               }
             />
           </DatosField>
-          {expedienteId ? (
+          {!esSimplificado && expedienteId ? (
             <AsesorCurpValidacionSection
               expedienteId={expedienteId}
               curp={clienteDatos.curp}
@@ -418,6 +426,7 @@ export function ExpedienteClienteDatosFormSection({
               }}
             />
           ) : null}
+          {!esSimplificado ? (
           <DatosField label="RFC (opcional)" fieldKey="rfc" error={err("rfc")} showError={showFieldErrors}>
             <input
               className={`${fieldInputClass(Boolean(err("rfc")))} uppercase`}
@@ -430,7 +439,13 @@ export function ExpedienteClienteDatosFormSection({
               }
             />
           </DatosField>
-          <DatosField label="Celular" fieldKey="celular" error={err("celular")} showError={showFieldErrors}>
+          ) : null}
+          <DatosField
+            label={esSimplificado ? "Celular del cliente (obligatorio)" : "Celular"}
+            fieldKey="celular"
+            error={err("celular")}
+            showError={showFieldErrors}
+          >
             <input
               className={fieldInputClass(Boolean(err("celular")))}
               inputMode="tel"
@@ -444,6 +459,8 @@ export function ExpedienteClienteDatosFormSection({
               }
             />
           </DatosField>
+          {!esSimplificado ? (
+          <>
           <DatosField label="Correo" fieldKey="correo" error={err("correo")} showError={showFieldErrors}>
             <input
               className={fieldInputClass(Boolean(err("correo")))}
@@ -488,8 +505,11 @@ export function ExpedienteClienteDatosFormSection({
               }
             />
           </DatosField>
+          </>
+          ) : null}
         </div>
 
+        {!esSimplificado ? (
         <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="rounded-md border border-gray-200 p-3">
             <p className="text-xs font-semibold text-gray-900">Referencias</p>
@@ -593,6 +613,7 @@ export function ExpedienteClienteDatosFormSection({
             </div>
           </div>
         </div>
+        ) : null}
 
         {esMejoravit ? (
         <div className="mt-4 rounded-md border border-gray-200 p-3">
@@ -619,6 +640,7 @@ export function ExpedienteClienteDatosFormSection({
                 placeholder="Ej. 169000"
               />
             </DatosField>
+            {!esSimplificado ? (
             <DatosField
               label="Plazo"
               fieldKey="plazo"
@@ -638,6 +660,7 @@ export function ExpedienteClienteDatosFormSection({
                 placeholder="Ej. 12"
               />
             </DatosField>
+            ) : null}
           </div>
         </div>
         ) : null}

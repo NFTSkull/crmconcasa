@@ -1,3 +1,8 @@
+## 2026-09-03 - Datos Generales simplificado Equipo Silvia
+
+### Decisión
+Vista y checklist reducidos solo con membresía **confirmada** al equipo del líder `silvia.reyes@concasa.mx` (RPC genérica `asesor_en_equipo_por_lider_email`). Fail-closed → comportamiento completo de siempre. Vista mira el **actor JWT**; checklist/validación/envío mira el **dueño** (`expedientes.asesor_id`). Mapper en modo simplificado manda `p_referencias: []` (no stubs) porque el RPC rechaza refs con nombre vacío. No se tocó `save_cliente_datos` ni RPCs de Mesa: el servidor ya no exige los 9 campos omitidos.
+
 ## 2026-09-03 - feat: UI documentos scoped Equipo Silvia (bloque 2)
 
 ### Causa

@@ -399,4 +399,45 @@ describe("buildSaveClienteDatosRpcPayload", () => {
     });
     assert.equal(manual.p_monto_calculado_manual, 17000);
   });
+
+  it("silvia simplificado: p_referencias es [] real y no exige plazo", () => {
+    const payload = buildSaveClienteDatosRpcPayload(
+      "exp-1",
+      {
+        nombreCliente: "Ana",
+        nss: "12345678901",
+        curp: "AAAA900101HDFRRN09",
+        rfc: "",
+        celular: "5512345678",
+        correo: "",
+        empresa: "",
+        registroPatronal: "",
+        telefonoEmpresa: "",
+        referencias: [
+          { nombre: "", celular: "" },
+          { nombre: "", celular: "" },
+        ],
+        beneficiario: { nombre: "", parentesco: "" },
+        direccionEmpresa: {
+          calle: "C1",
+          colonia: "Col",
+          municipio: "Mun",
+          cp: "01000",
+        },
+        montoMejoravit: "150000",
+        plazo: "",
+        porcentajeCobro: "10",
+        montoCalculado: "18000",
+        metodoPago: "transferencia",
+      },
+      "Domicilio 1",
+      "mejoravit",
+      { perfilCaptura: "asesor_equipo_silvia_simplificado" },
+    );
+    assert.deepEqual(payload.p_referencias, []);
+    assert.equal(Array.isArray(payload.p_referencias), true);
+    assert.equal(payload.p_referencias.length, 0);
+    assert.equal(payload.p_datos.plazo, undefined);
+    assert.equal(payload.p_telefono, "5512345678");
+  });
 });

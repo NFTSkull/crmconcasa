@@ -1,4 +1,5 @@
 import type { ExpedienteClienteDatos } from "@/domain/expediente-cliente-datos";
+import type { ClienteDatosPerfilCaptura } from "@/domain/asesor-equipo/asesor-en-equipo-por-lider-email";
 import { emptyInfonavitClienteDatosV1 } from "@/domain/expediente-cliente-datos/infonavit-datos";
 import {
   calcMontoCalculadoCobro,
@@ -15,6 +16,11 @@ export type ClienteDatosCompletenessContext = {
   programaDb?: string | null;
   /** P189: solo cuando SQL/status.required=true. Default false = base pre-P189. */
   requireInfonavit?: boolean;
+  /**
+   * `asesor_equipo_silvia_simplificado` solo cuando el dueño del expediente
+   * confirmó membresía al equipo Silvia (fail-closed → completo).
+   */
+  perfilCaptura?: ClienteDatosPerfilCaptura;
 };
 
 export const CLIENTE_DATOS_NOTA_MESA_MAX_LENGTH = 1000;
@@ -38,6 +44,19 @@ export const CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT_MEJORAVIT_BASE = 24;
 
 /** Campos obligatorios sin sección Crédito Mejoravit / P189. */
 export const CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT_DEFAULT = 22;
+
+/**
+ * Subset Equipo Silvia (sin refs/beneficiario/correo/empresa/tel.empresa/registro/plazo/P189).
+ * Formulario vacío Mejoravit: 13 (nombre/NSS/CURP/celular + dir×4 + domicilio + monto Mejoravit + % + método + monto calculado).
+ */
+export const CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT_SILVIA_SIMPLIFICADO = 11;
+export const CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT_SILVIA_SIMPLIFICADO_MEJORAVIT = 13;
+
+function isSilviaSimplificado(
+  perfil: ClienteDatosPerfilCaptura | undefined,
+): boolean {
+  return perfil === "asesor_equipo_silvia_simplificado";
+}
 
 function pushInfonavitMissing(
   missing: string[],
@@ -119,21 +138,34 @@ export function getClienteDatosCamposFaltantes(
     if (!String(v).trim()) missing.push(label);
   };
   const esMejoravit = isProgramaMejoravitDb(ctx.programaDb);
-  const requireInfonavit = Boolean(ctx.requireInfonavit) && esMejoravit;
+  const silvia = isSilviaSimplificado(ctx.perfilCaptura);
+  const requireInfonavit =
+    !silvia && Boolean(ctx.requireInfonavit) && esMejoravit;
 
   req("NSS", d.nss);
   req("CURP", d.curp);
   req("Celular", d.celular);
-  req("Correo", d.correo);
-  req("Empresa", d.empresa);
-  req("Registro patronal", d.registroPatronal);
-  req("Teléfono empresa", d.telefonoEmpresa);
+  if (!silvia) {
+    req("Correo", d.correo);
+    req("Empresa", d.empresa);
+    req("Registro patronal", d.registroPatronal);
+    req("Teléfono empresa", d.telefonoEmpresa);
+  }
   req("Dirección empresa — calle", d.direccionEmpresa.calle);
   req("Dirección empresa — colonia", d.direccionEmpresa.colonia);
   req("Dirección empresa — municipio", d.direccionEmpresa.municipio);
   req("Dirección empresa — CP", d.direccionEmpresa.cp);
 
-  if (requireInfonavit) {
+  if (silvia) {
+    req("Nombre del cliente", d.nombreCliente);
+    req("Domicilio real del cliente", String(ctx.direccionOpcional ?? ""));
+    if (esMejoravit) {
+      const montoMejoravit = parseMontoCalculadoInput(d.montoMejoravit);
+      if (montoMejoravit == null || montoMejoravit <= 0) {
+        missing.push("Monto Mejoravit");
+      }
+    }
+  } else if (requireInfonavit) {
     pushInfonavitMissing(missing, d);
     const montoMejoravit = parseMontoCalculadoInput(d.montoMejoravit);
     if (montoMejoravit == null || montoMejoravit <= 0) {

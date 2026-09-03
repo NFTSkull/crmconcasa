@@ -1,4 +1,5 @@
 import type { InfonavitClienteDatosV1 } from "./infonavit-datos";
+import type { ClienteDatosPerfilCaptura } from "@/domain/asesor-equipo/asesor-en-equipo-por-lider-email";
 
 export type ExpedienteClienteDatosEstado =
   | "pendiente"
@@ -119,6 +120,11 @@ export type SaveExpedienteClienteDatosInput = {
   programaDb?: string | null;
   /** Si true, envía p_monto_calculado_manual; si false, el servidor recalcula automático. */
   montoCalculadoEsManual?: boolean;
+  /**
+   * Perfil de captura. `asesor_equipo_silvia_simplificado` → `p_referencias: []`
+   * y no exige plazo en Mejoravit.
+   */
+  perfilCaptura?: ClienteDatosPerfilCaptura;
 };
 
 export type UpdateEstadoExpedienteClienteDatosInput = {

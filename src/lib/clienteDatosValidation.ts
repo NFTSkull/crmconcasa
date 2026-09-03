@@ -1,3 +1,4 @@
+import type { ClienteDatosPerfilCaptura } from "@/domain/asesor-equipo/asesor-en-equipo-por-lider-email";
 import type { ClienteDatosFormShape } from "@/lib/clienteDatosFormCompleteness";
 import {
   calcMontoCalculadoCobro,
@@ -47,6 +48,11 @@ export type ClienteDatosValidationContext = {
   programaDb?: string | null;
   /** P189: exigir bloque infonavit. Default false = validación base + formatos opcionales. */
   requireInfonavit?: boolean;
+  /**
+   * Solo `asesor_equipo_silvia_simplificado` cuando el dueño confirmó membresía.
+   * Fail-closed: omitido → validación completa.
+   */
+  perfilCaptura?: ClienteDatosPerfilCaptura;
 };
 
 export type ClienteDatosFieldKey =
@@ -328,7 +334,9 @@ export function validateClienteDatos(
   const errors: ClienteDatosFieldErrors = {};
   const data = normalizeClienteDatosForSave(d);
   const esMejoravit = isProgramaMejoravitDb(ctx.programaDb);
-  const requireInfonavit = Boolean(ctx.requireInfonavit) && esMejoravit;
+  const silvia = ctx.perfilCaptura === "asesor_equipo_silvia_simplificado";
+  const requireInfonavit =
+    !silvia && Boolean(ctx.requireInfonavit) && esMejoravit;
 
   const req = (key: ClienteDatosFieldKey, value: string, label: string) => {
     const msg = reqText(value, label);
@@ -529,12 +537,14 @@ export function validateClienteDatos(
     }
   } else {
     req("nombreCliente", data.nombreCliente, "Nombre del cliente");
-    req("referencia1Nombre", data.referencias[0]?.nombre ?? "", "Nombre de referencia 1");
-    req("referencia1Celular", data.referencias[0]?.celular ?? "", "Celular de referencia 1");
-    req("referencia2Nombre", data.referencias[1]?.nombre ?? "", "Nombre de referencia 2");
-    req("referencia2Celular", data.referencias[1]?.celular ?? "", "Celular de referencia 2");
-    req("beneficiarioNombre", data.beneficiario.nombre, "Beneficiario — nombre");
-    req("beneficiarioParentesco", data.beneficiario.parentesco, "Beneficiario — parentesco");
+    if (!silvia) {
+      req("referencia1Nombre", data.referencias[0]?.nombre ?? "", "Nombre de referencia 1");
+      req("referencia1Celular", data.referencias[0]?.celular ?? "", "Celular de referencia 1");
+      req("referencia2Nombre", data.referencias[1]?.nombre ?? "", "Nombre de referencia 2");
+      req("referencia2Celular", data.referencias[1]?.celular ?? "", "Celular de referencia 2");
+      req("beneficiarioNombre", data.beneficiario.nombre, "Beneficiario — nombre");
+      req("beneficiarioParentesco", data.beneficiario.parentesco, "Beneficiario — parentesco");
+    }
   }
 
   if (esMejoravit && !requireInfonavit) {
@@ -600,10 +610,12 @@ export function validateClienteDatos(
   req("nss", data.nss, "NSS");
   req("curp", data.curp, "CURP");
   req("celular", data.celular, "Celular");
-  req("correo", data.correo, "Correo");
-  req("empresa", data.empresa, "Empresa");
-  req("registroPatronal", data.registroPatronal, "Registro patronal");
-  req("telefonoEmpresa", data.telefonoEmpresa, "Teléfono empresa");
+  if (!silvia) {
+    req("correo", data.correo, "Correo");
+    req("empresa", data.empresa, "Empresa");
+    req("registroPatronal", data.registroPatronal, "Registro patronal");
+    req("telefonoEmpresa", data.telefonoEmpresa, "Teléfono empresa");
+  }
 
   req("direccionCalle", data.direccionEmpresa.calle, "Calle de la empresa");
   req("direccionColonia", data.direccionEmpresa.colonia, "Colonia de la empresa");
@@ -640,9 +652,13 @@ export function validateClienteDatos(
     }
 
     const plazoRaw = String(d.plazo ?? "").trim();
-    if (!plazoRaw) {
-      setError(errors, "plazo", "El plazo es obligatorio.");
-    } else if (!/^\d+$/.test(plazoRaw)) {
+    if (!silvia) {
+      if (!plazoRaw) {
+        setError(errors, "plazo", "El plazo es obligatorio.");
+      } else if (!/^\d+$/.test(plazoRaw)) {
+        setError(errors, "plazo", MSJ_DIGITS_ONLY);
+      }
+    } else if (plazoRaw && !/^\d+$/.test(plazoRaw)) {
       setError(errors, "plazo", MSJ_DIGITS_ONLY);
     }
   } else {
@@ -715,7 +731,9 @@ export function validateClienteDatos(
   const personNameFields: ReadonlyArray<{
     key: ClienteDatosFieldKey;
     raw: string;
-  }> = esMejoravit
+  }> = silvia
+    ? [{ key: "nombreCliente", raw: data.nombreCliente }]
+    : esMejoravit
     ? [
         {
           key: "infonavitTitularNombres",
@@ -760,7 +778,12 @@ export function validateClienteDatos(
     setError(errors, "rfc", "RFC no tiene formato válido.");
   }
 
-  if (!errors.correo && !EMAIL_RE.test(data.correo.trim())) {
+  if (
+    !silvia &&
+    data.correo.trim() &&
+    !errors.correo &&
+    !EMAIL_RE.test(data.correo.trim())
+  ) {
     setError(errors, "correo", "Correo no tiene formato válido.");
   }
 
@@ -772,11 +795,15 @@ export function validateClienteDatos(
   if (!errors.celular && !isTelefonoMexicoValido(data.celular)) {
     setError(errors, "celular", "Celular debe tener 10 dígitos.");
   }
-  if (!errors.telefonoEmpresa && !isTelefonoMexicoValido(data.telefonoEmpresa)) {
+  if (
+    !silvia &&
+    !errors.telefonoEmpresa &&
+    !isTelefonoMexicoValido(data.telefonoEmpresa)
+  ) {
     setError(errors, "telefonoEmpresa", "Teléfono empresa debe tener 10 dígitos.");
   }
 
-  if (!requireInfonavit) {
+  if (!silvia && !requireInfonavit) {
     for (const [idx, key] of [
       [0, "referencia1Celular"],
       [1, "referencia2Celular"],
@@ -800,26 +827,28 @@ export function validateClienteDatos(
     inf.referencias[1].telefono,
   );
 
-  const phoneEntries: TelefonoUnicidadEntry[] = [
-    { slot: "cliente.celular", raw: data.celular },
-    { slot: "empresa.telefono", raw: data.telefonoEmpresa },
-    {
-      slot: "ref1.celular",
-      raw: requireInfonavit
-        ? inf.referencias[0].celular
-        : data.referencias[0]?.celular ?? "",
-    },
-    {
-      slot: "ref2.celular",
-      raw: requireInfonavit
-        ? inf.referencias[1].celular
-        : data.referencias[1]?.celular ?? "",
-    },
-  ];
-  if (ref1Fijo.ok) {
+  const phoneEntries: TelefonoUnicidadEntry[] = silvia
+    ? [{ slot: "cliente.celular", raw: data.celular }]
+    : [
+        { slot: "cliente.celular", raw: data.celular },
+        { slot: "empresa.telefono", raw: data.telefonoEmpresa },
+        {
+          slot: "ref1.celular",
+          raw: requireInfonavit
+            ? inf.referencias[0].celular
+            : data.referencias[0]?.celular ?? "",
+        },
+        {
+          slot: "ref2.celular",
+          raw: requireInfonavit
+            ? inf.referencias[1].celular
+            : data.referencias[1]?.celular ?? "",
+        },
+      ];
+  if (!silvia && ref1Fijo.ok) {
     phoneEntries.push({ slot: "ref1.telefonoCompleto", raw: ref1Fijo.phone });
   }
-  if (ref2Fijo.ok) {
+  if (!silvia && ref2Fijo.ok) {
     phoneEntries.push({ slot: "ref2.telefonoCompleto", raw: ref2Fijo.phone });
   }
 

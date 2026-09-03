@@ -115,6 +115,8 @@ export interface ExpedienteMock {
     telefono_cliente: string;
     direccion_opcional: string;
     asesorId: string;
+    /** UUID `expedientes.asesor_id` (dueño); no el email de display. */
+    asesorProfileId?: string | null;
     /** Nombre del perfil asesor (si disponible). */
     asesorNombre?: string | null;
     /** Email del perfil asesor (si disponible). */

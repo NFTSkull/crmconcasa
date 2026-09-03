@@ -176,6 +176,48 @@ test("getClienteDatosCamposFaltantes: compro_tu_casa sin sección Mejoravit", ()
   assert.equal(CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT_DEFAULT, 22);
 });
 
+test("getClienteDatosCamposFaltantes: silvia simplificado no exige refs/correo/plazo", () => {
+  const subset: ClienteDatosFormShape = {
+    ...vacio,
+    nombreCliente: "Ana",
+    nss: "12345678901",
+    curp: "AAAA900101HDFRRN09",
+    celular: "5512345678",
+    direccionEmpresa: {
+      calle: "C1",
+      colonia: "Col",
+      municipio: "Mun",
+      cp: "01000",
+    },
+    montoMejoravit: "150000",
+    porcentajeCobro: "10",
+    montoCalculado: "18000",
+    metodoPago: "transferencia",
+  };
+  assert.deepEqual(
+    getClienteDatosCamposFaltantes(subset, {
+      montoAprobado: 100_000,
+      direccionOpcional: "Domicilio 1",
+      programaDb: "mejoravit",
+      perfilCaptura: "asesor_equipo_silvia_simplificado",
+    }),
+    [],
+  );
+  assert.equal(
+    getClienteDatosCamposFaltantes(vacio, {
+      programaDb: "mejoravit",
+      perfilCaptura: "asesor_equipo_silvia_simplificado",
+    }).length,
+    13,
+  );
+  assert.ok(
+    !getClienteDatosCamposFaltantes(vacio, {
+      programaDb: "mejoravit",
+      perfilCaptura: "asesor_equipo_silvia_simplificado",
+    }).includes("Plazo"),
+  );
+});
+
 test("getClienteDatosCamposFaltantes: notaMesa vacía no es faltante", () => {
   const ctx = {
     montoAprobado: 100_000,
