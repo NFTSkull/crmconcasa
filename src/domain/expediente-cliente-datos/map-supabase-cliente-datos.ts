@@ -32,6 +32,7 @@ export type SupabaseClienteDatosRow = {
   updated_at: string;
   referencias?: unknown;
   imagenes?: unknown;
+  expediente?: { telefono_cliente?: string | null } | null;
   updated_by_profile?: { email?: string | null } | null;
   validated_by_profile?: { email?: string | null } | null;
   rejected_by_profile?: { email?: string | null } | null;
@@ -57,6 +58,33 @@ function normalizeEstado(value: unknown): ExpedienteClienteDatosEstado {
 
 function asString(value: unknown): string {
   return typeof value === "string" ? value : "";
+}
+
+function normalizeTelefonoForCompare(value: unknown): string {
+  let digits = asString(value).replace(/\D/g, "");
+  if (digits.length === 12 && digits.startsWith("52")) {
+    digits = digits.slice(2);
+  } else if (digits.length === 11 && digits.startsWith("1")) {
+    digits = digits.slice(1);
+  }
+  return digits;
+}
+
+/**
+ * El teléfono de precalificación es el teléfono de casa.
+ * Legacy: si quedó igual al celular por la precarga histórica, se muestra vacío
+ * para no presentar el mismo número como dos contactos distintos.
+ */
+export function readTelefonoCasaDistinct(
+  telefonoCasaRaw: unknown,
+  celularRaw: unknown,
+): string | undefined {
+  const casa = asString(telefonoCasaRaw).trim();
+  if (!casa) return undefined;
+  const casaNorm = normalizeTelefonoForCompare(casa);
+  const celularNorm = normalizeTelefonoForCompare(celularRaw);
+  if (casaNorm && celularNorm && casaNorm === celularNorm) return undefined;
+  return casa;
 }
 
 /** Texto en JSON `datos` (acepta número serializado). */
@@ -160,6 +188,7 @@ export function mapSupabaseRowToExpedienteClienteDatos(
   row: SupabaseClienteDatosRow,
 ): ExpedienteClienteDatos {
   const datos = row.datos ?? {};
+  const celular = asString(datos.celular) || asString(datos.telefono);
 
   return {
     expedienteId: row.expediente_id,
@@ -168,7 +197,7 @@ export function mapSupabaseRowToExpedienteClienteDatos(
       nss: asString(datos.nss),
       curp: asString(datos.curp),
       rfc: asString(datos.rfc),
-      celular: asString(datos.celular) || asString(datos.telefono),
+      celular,
       correo: asString(datos.correo),
       empresa: asString(datos.empresa),
       registroPatronal: asString(datos.registroPatronal),
@@ -196,6 +225,10 @@ export function mapSupabaseRowToExpedienteClienteDatos(
     estado: normalizeEstado(row.estado),
     imagenes: mapImagenes(row.imagenes),
     telefonoNormalizado: row.telefono_normalizado?.trim() || undefined,
+    telefonoCasa: readTelefonoCasaDistinct(
+      row.expediente?.telefono_cliente,
+      row.telefono_normalizado ?? celular,
+    ),
     comentarioRechazo: row.comentario_rechazo?.trim() || undefined,
     validatedAt: row.validated_at ?? undefined,
     validatedBy:
