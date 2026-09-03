@@ -21,6 +21,10 @@
 ## [Unreleased]
 
 ### Added
+- **feat(documentos): UI scoped Equipo Silvia (bloque 2)** — RPC `asesor_tipos_documento_visibles`; secciones Asesor gated por array (fail-closed); Mesa RO de los 4 tipos. Mig `20260903150000`.
+
+- **feat(documentos): opcionales scoped por equipo (bloque 1, sin UI)** — tabla `documento_tipo_scope_equipo` + helper `asesor_puede_usar_tipo_documento`; candado en register/correccion y Storage asesor (`upload` / `post_mesa` / `correccion`); tipos `cliente_solicitud_credito`, `cliente_lista_nominal`, `cliente_bajo_protesta`, `cliente_presupuesto` (líder `silvia.reyes@concasa.mx`). Mig `20260903140000`. Cardinalidad 13/17.
+
 - **feat(documentos): Constancia SAT opcional asesor** — tipo nuevo `cliente_constancia_situacion_fiscal` (label «Constancia SAT»); distinto de Mesa `cliente_constancia_sat` (intacto); PDF ≤15 MiB; sección dedicada Asesor/Mesa (patrón Vigencia); no gate; P208 Team Silvia vía allowlist. Mig `20260903120000`. Cardinalidad opcionales 9 / upload 13.
 
 - **feat(ine): convertir imágenes a PDF antes de subir** — `cliente_ine_frente` / `cliente_ine_reverso`: JPG/PNG/WEBP (y HEIC si el navegador decodifica) se convierten localmente a PDF con pdf-lib; Storage/RPC solo reciben `application/pdf`. PDF directo sin cambio. Sin SQL/Cloud.

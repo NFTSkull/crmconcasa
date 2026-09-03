@@ -36,6 +36,17 @@ export {
   CLIENTE_VIGENCIA_DERECHOS_DOCUMENT_CONTRACT,
   CLIENTE_CONSTANCIA_SITUACION_FISCAL_DOCUMENT_TIPO,
   CLIENTE_CONSTANCIA_SITUACION_FISCAL_DOCUMENT_CONTRACT,
+  EQUIPO_LIDER_EMAIL_SILVIA_REYES,
+  CLIENTE_SOLICITUD_CREDITO_DOCUMENT_TIPO,
+  CLIENTE_SOLICITUD_CREDITO_DOCUMENT_CONTRACT,
+  CLIENTE_LISTA_NOMINAL_DOCUMENT_TIPO,
+  CLIENTE_LISTA_NOMINAL_DOCUMENT_CONTRACT,
+  CLIENTE_BAJO_PROTESTA_DOCUMENT_TIPO,
+  CLIENTE_BAJO_PROTESTA_DOCUMENT_CONTRACT,
+  CLIENTE_PRESUPUESTO_DOCUMENT_TIPO,
+  CLIENTE_PRESUPUESTO_DOCUMENT_CONTRACT,
+  INTEGRATION_DOC_TIPOS_ASESOR_SCOPED_POR_EQUIPO,
+  type IntegrationDocAsesorScopedPorEquipoTipo,
   INTEGRATION_DOC_TIPOS_OBLIGATORIOS,
   INTEGRATION_DOC_TIPOS_VALIDACION_MESA,
   countIntegrationDocsPresentes,
@@ -146,6 +157,24 @@ export {
   asesorPuedeEditarConstanciaSituacionFiscal,
   type ClienteConstanciaSituacionFiscalDocumento,
 } from "./cliente-constancia-situacion-fiscal";
+export {
+  fetchAsesorTiposDocumentoVisibles,
+  parseAsesorTiposDocumentoVisibles,
+  shouldMountAsesorScopedEquipoDocumentoSection,
+} from "./asesor-tipos-documento-visibles";
+export {
+  SCOPED_EQUIPO_DOCUMENTO_UI,
+  SCOPED_EQUIPO_PDF_ACCEPT_ATTR,
+  asesorPuedeEditarScopedEquipoDocumento,
+  findScopedEquipoDocumentoFromList,
+  formatBytesLabel as formatScopedEquipoBytesLabel,
+  getScopedEquipoDocumentoUi,
+  isScopedEquipoPreviewableMime,
+  sanitizeScopedEquipoDisplayName,
+  validateScopedEquipoPdfFile,
+  type ScopedEquipoDocumento,
+  type ScopedEquipoDocumentoUi,
+} from "./cliente-scoped-equipo-documento";
 export { mesaPuedeAbrirArchivo } from "./mesa-archivo-acceso";
 export {
   MESA_RECHAZO_MOTIVOS_SUGERIDOS,

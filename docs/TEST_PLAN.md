@@ -1,3 +1,17 @@
+## Documentos scoped por equipo (bloque 1)
+
+- [x] Tabla `documento_tipo_scope_equipo` + helper fail-closed con WARNING.
+- [x] Candado register + correccion + Storage asesor upload/post_mesa/correccion.
+- [x] 4 tipos nuevos; SQL aislamiento outsider RPC+Storage; cardinalidad 13/17.
+- [x] UI secciones dedicadas + RPC `asesor_tipos_documento_visibles` (bloque 2).
+
+## Documentos scoped por equipo (bloque 2 UI)
+
+- [x] RPC `asesor_tipos_documento_visibles` (miembro 4 / outsider {}).
+- [x] Asesor: montaje gated por array; fail-closed FE.
+- [x] Mesa: 4 acordeones RO.
+- [x] Tests mount + parse fail-closed.
+
 ## Admin — Producción expand + métrica etapa
 
 - [x] Sin etapa: métrica ENVIADOS = enviadosAMesa.

@@ -1,3 +1,22 @@
+## 2026-09-03 - feat: UI documentos scoped Equipo Silvia (bloque 2)
+
+### Causa
+El candado SQL ya aísla upload; falta UI que no muestre los 4 tipos a asesores fuera del equipo.
+
+### Decisión
+RPC `asesor_tipos_documento_visibles` (JWT asesor → text[]). FE fail-closed a `[]`. Secciones Asesor (patrón Constancia SAT, componente parametrizado) solo si el tipo está en el array. Mesa siempre RO. Mig `20260903150000`.
+
+## 2026-09-03 - feat: documentos opcionales scoped por equipo (bloque 1, sin UI)
+
+### Causa
+Equipo Silvia necesita 4 adjuntos propios sin que el resto de asesores los vean ni los registren por API/Storage.
+
+### Decisión
+Política genérica `documento_tipo_scope_equipo` (tipo → email de líder). Helper `asesor_puede_usar_tipo_documento` reusa `asesor_pertenece_equipo_activo`; 0/>1 equipos → WARNING + false. Candado en `register_expediente_documento` (pre-reingreso + rama reingreso), `register_expediente_documento_correccion` (acepta `asesor_upload` incl. opcionales) y las tres functions Storage que alimentan la policy INSERT. Tipos nuevos, distintos de Mesa/Infonavit. Sin UI. Mig `20260903140000`.
+
+### Corrección pre-aprobación
+Al generar la mig se filtró un bloque accidental de P208 (`save_cliente_datos_correccion` + `asesor_enviar_reingreso_a_mesa`) que no debía reescribirse. La mig queda solo con helper + allowlists + 6 funciones documentales. Verificación: cuerpos P208 ≡ mig tras quitar los `IF NOT asesor_puede_usar_tipo_documento`. SQL aislamiento corrido en Homebrew PG (Docker Desktop no levantó :54322).
+
 ## 2026-09-02 - feat: Constancia SAT opcional asesor (`cliente_constancia_situacion_fiscal`)
 
 ### Causa

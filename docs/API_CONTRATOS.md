@@ -456,6 +456,16 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 
 **UI:** `AsesorConstanciaSituacionFiscalSection` + `MesaConstanciaSituacionFiscalSection`. Fuera de checklist de integración.
 
+### 3novies. Documentos opcionales scoped por equipo (`documento_tipo_scope_equipo`)
+
+**Mecanismo:** tabla `documento_tipo_scope_equipo(tipo_documento, leader_email, active)`. Helper `asesor_puede_usar_tipo_documento(actor, tipo)`: sin fila → permitido; con fila → único `asesor_equipos` activo cuyo líder tiene ese email (misma org) + `asesor_pertenece_equipo_activo`. 0 o >1 equipos → `WARNING` + `false`.
+
+**Candado (bloque 1):** `register_expediente_documento` (incl. rama reingreso y `…_pre_reingreso`), `register_expediente_documento_correccion`, y Storage `expediente_documento_storage_asesor_upload_allowed` / `_post_mesa_upload_allowed` / `_correccion_allowed`. Mig `20260903140000_documento_tipo_scope_equipo.sql`.
+
+**UI (bloque 2):** RPC `asesor_tipos_documento_visibles()` → `text[]` de tipos scoped permitidos para el JWT asesor (vacío si no es asesor activo o fail-closed). FE llama 1× al montar expediente; fail-closed de red → `[]` (no monta secciones). Secciones dedicadas Asesor (patrón Constancia SAT) solo si el tipo está en el array. Mesa: acordeones RO siempre (scope = quién sube, no quién ve). Mig `20260903150000_asesor_tipos_documento_visibles.sql`.
+
+**Tipos (≠ Mesa/Infonavit):** `cliente_solicitud_credito`, `cliente_lista_nominal`, `cliente_bajo_protesta`, `cliente_presupuesto`. Seed líder `silvia.reyes@concasa.mx`. Opcionales (no gate). Cardinalidad 13/17.
+
 ---
 
 ## 4. Subir / reemplazar documento

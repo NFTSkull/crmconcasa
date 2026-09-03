@@ -31,6 +31,10 @@ export const INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES = [
   "cliente_constancia_curp",
   "cliente_vigencia_derechos",
   "cliente_constancia_situacion_fiscal",
+  "cliente_solicitud_credito",
+  "cliente_lista_nominal",
+  "cliente_bajo_protesta",
+  "cliente_presupuesto",
 ] as const;
 
 /**
@@ -205,6 +209,74 @@ export const CLIENTE_CONSTANCIA_SITUACION_FISCAL_DOCUMENT_CONTRACT = Object.free
   esGateAvance: false,
 });
 
+/** Email canónico del líder para scope Equipo Silvia (espejo SQL seed). */
+export const EQUIPO_LIDER_EMAIL_SILVIA_REYES = "silvia.reyes@concasa.mx" as const;
+
+export const CLIENTE_SOLICITUD_CREDITO_DOCUMENT_TIPO =
+  "cliente_solicitud_credito" as const;
+export const CLIENTE_LISTA_NOMINAL_DOCUMENT_TIPO = "cliente_lista_nominal" as const;
+export const CLIENTE_BAJO_PROTESTA_DOCUMENT_TIPO = "cliente_bajo_protesta" as const;
+export const CLIENTE_PRESUPUESTO_DOCUMENT_TIPO = "cliente_presupuesto" as const;
+
+/** Tipos opcionales asesor visibles/subibles solo con membresía de equipo (SQL scope). */
+export const INTEGRATION_DOC_TIPOS_ASESOR_SCOPED_POR_EQUIPO = [
+  CLIENTE_SOLICITUD_CREDITO_DOCUMENT_TIPO,
+  CLIENTE_LISTA_NOMINAL_DOCUMENT_TIPO,
+  CLIENTE_BAJO_PROTESTA_DOCUMENT_TIPO,
+  CLIENTE_PRESUPUESTO_DOCUMENT_TIPO,
+] as const;
+
+export type IntegrationDocAsesorScopedPorEquipoTipo =
+  (typeof INTEGRATION_DOC_TIPOS_ASESOR_SCOPED_POR_EQUIPO)[number];
+
+export const CLIENTE_SOLICITUD_CREDITO_DOCUMENT_CONTRACT = Object.freeze({
+  tipo: CLIENTE_SOLICITUD_CREDITO_DOCUMENT_TIPO,
+  label: "Solicitud de crédito",
+  origen: "Asesor" as const,
+  formatos: ["pdf"] as const,
+  mimePermitidos: ["application/pdf"] as const,
+  maxBytes: 15 * 1024 * 1024,
+  etapaMinima: 0,
+  obligatorio: false,
+  esGateAvance: false,
+});
+
+export const CLIENTE_LISTA_NOMINAL_DOCUMENT_CONTRACT = Object.freeze({
+  tipo: CLIENTE_LISTA_NOMINAL_DOCUMENT_TIPO,
+  label: "Lista Nominal",
+  origen: "Asesor" as const,
+  formatos: ["pdf"] as const,
+  mimePermitidos: ["application/pdf"] as const,
+  maxBytes: 15 * 1024 * 1024,
+  etapaMinima: 0,
+  obligatorio: false,
+  esGateAvance: false,
+});
+
+export const CLIENTE_BAJO_PROTESTA_DOCUMENT_CONTRACT = Object.freeze({
+  tipo: CLIENTE_BAJO_PROTESTA_DOCUMENT_TIPO,
+  label: "Bajo Protesta",
+  origen: "Asesor" as const,
+  formatos: ["pdf"] as const,
+  mimePermitidos: ["application/pdf"] as const,
+  maxBytes: 15 * 1024 * 1024,
+  etapaMinima: 0,
+  obligatorio: false,
+  esGateAvance: false,
+});
+
+export const CLIENTE_PRESUPUESTO_DOCUMENT_CONTRACT = Object.freeze({
+  tipo: CLIENTE_PRESUPUESTO_DOCUMENT_TIPO,
+  label: "Presupuesto",
+  origen: "Asesor" as const,
+  formatos: ["pdf"] as const,
+  mimePermitidos: ["application/pdf"] as const,
+  maxBytes: 15 * 1024 * 1024,
+  etapaMinima: 0,
+  obligatorio: false,
+  esGateAvance: false,
+});
+
 /** Allowlist SQL completa Mesa (complementarios UI + Pagaré + Notificación + Solicitud + Apodaca). */
 export const INTEGRATION_DOC_TIPOS_MESA_REGISTER = [
   ...INTEGRATION_DOC_TIPOS_MESA_UPLOAD,
@@ -281,8 +353,8 @@ export const CLIENTE_SOLICITUD_DOCUMENT_CONTRACT = Object.freeze({
  * Opcionales asesor que Mesa no lista en complementarios (semanas/acta/SAT van ahí).
  * Excluye `cliente_notificacion` (sección dedicada P092/P132),
  * `cliente_notificacion_apodaca`, `asesor_evidencia`, `cliente_constancia_curp`,
- * `cliente_vigencia_derechos` y `cliente_constancia_situacion_fiscal`
- * (secciones dedicadas; P156 CURP en Datos Generales).
+ * `cliente_vigencia_derechos`, `cliente_constancia_situacion_fiscal` y
+ * tipos scoped por equipo (solicitud crédito / lista nominal / bajo protesta / presupuesto).
  */
 export const INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES_SOLO_ASESOR =
   INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES.filter(
@@ -293,7 +365,10 @@ export const INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES_SOLO_ASESOR =
       tipo !== ASESOR_EVIDENCIA_DOCUMENT_TIPO &&
       tipo !== "cliente_constancia_curp" &&
       tipo !== CLIENTE_VIGENCIA_DERECHOS_DOCUMENT_TIPO &&
-      tipo !== CLIENTE_CONSTANCIA_SITUACION_FISCAL_DOCUMENT_TIPO,
+      tipo !== CLIENTE_CONSTANCIA_SITUACION_FISCAL_DOCUMENT_TIPO &&
+      !(INTEGRATION_DOC_TIPOS_ASESOR_SCOPED_POR_EQUIPO as readonly string[]).includes(
+        tipo,
+      ),
   );
 
 export type IntegrationDocMesaUploadTipo = (typeof INTEGRATION_DOC_TIPOS_MESA_UPLOAD)[number];
@@ -430,7 +505,8 @@ export function deriveIntegrationDocsChecklistOpcionales(
       t !== ASESOR_EVIDENCIA_DOCUMENT_TIPO &&
       t !== "cliente_constancia_curp" &&
       t !== CLIENTE_VIGENCIA_DERECHOS_DOCUMENT_TIPO &&
-      t !== CLIENTE_CONSTANCIA_SITUACION_FISCAL_DOCUMENT_TIPO,
+      t !== CLIENTE_CONSTANCIA_SITUACION_FISCAL_DOCUMENT_TIPO &&
+      !(INTEGRATION_DOC_TIPOS_ASESOR_SCOPED_POR_EQUIPO as readonly string[]).includes(t),
   );
   return mapChecklistItems(tipos, resumen, true);
 }
