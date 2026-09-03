@@ -37,6 +37,7 @@ const CLIENTE_DATOS_SELECT = `
   porcentaje_cobro,
   monto_calculado,
   metodo_pago,
+  expediente:expedientes!cliente_datos_expediente_id_fkey ( telefono_cliente ),
   updated_by_profile:profiles!cliente_datos_updated_by_fkey ( email ),
   validated_by_profile:profiles!cliente_datos_validated_by_fkey ( email ),
   rejected_by_profile:profiles!cliente_datos_rejected_by_fkey ( email )

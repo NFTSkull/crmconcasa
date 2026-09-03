@@ -45,6 +45,12 @@ export function mapSaveClienteDatosCorreccionRpcError(error: {
     return new ClienteDatosSupabaseError("Revisa el RFC del cliente.");
   }
 
+  if (msg.includes("cliente_datos_celular_igual_telefono_casa")) {
+    return new ClienteDatosSupabaseError(
+      "El celular debe ser distinto al teléfono de casa capturado en la precalificación.",
+    );
+  }
+
   if (msg.includes("cliente_datos_telefono_duplicado")) {
     return new ClienteDatosSupabaseError(
       "No se pueden repetir números telefónicos dentro de los Datos Generales del cliente.",
