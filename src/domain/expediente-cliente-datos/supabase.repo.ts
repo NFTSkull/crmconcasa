@@ -20,6 +20,7 @@ import { ClienteDatosSupabaseError } from "./supabase.error";
 import { emitExpedienteClienteDatosUpdated } from "./emit-updated";
 import type { ExpedienteClienteDatosEstado } from "./types";
 import type { ClienteDatosEstadoBatch } from "./types";
+import { getTelefonoCasaDraft } from "./telefono-casa-draft-store";
 
 const CLIENTE_DATOS_SELECT = `
   expediente_id,
@@ -67,7 +68,7 @@ async function requireSupabaseSession(): Promise<{
   return { client };
 }
 
-/** P3G: lectura RLS + guardado vía RPC `save_cliente_datos`. P3J.4: revisión Mesa vía `update_cliente_datos_revision`. */
+/** P3G: lectura RLS + guardado vía RPC. P218: Datos Generales + teléfono de casa en una transacción. */
 export class SupabaseExpedienteClienteDatosRepo implements ExpedienteClienteDatosRepo {
   async getByExpedienteId(expedienteId: string): Promise<ExpedienteClienteDatos | null> {
     const idNorm = String(expedienteId).trim();
@@ -189,7 +190,14 @@ export class SupabaseExpedienteClienteDatosRepo implements ExpedienteClienteDato
       { montoCalculadoEsManual: input.montoCalculadoEsManual },
     );
 
-    const { error } = await client.rpc("save_cliente_datos", rpcArgs);
+    const { error } = await client.rpc(
+      "asesor_guardar_cliente_datos_con_telefono_casa",
+      {
+        ...rpcArgs,
+        p_telefono_casa: getTelefonoCasaDraft(idNorm) ?? null,
+        p_es_correccion: false,
+      },
+    );
 
     if (error) {
       throw mapSaveClienteDatosRpcError(error);
@@ -224,9 +232,15 @@ export class SupabaseExpedienteClienteDatosRepo implements ExpedienteClienteDato
       input.programaDb,
       { montoCalculadoEsManual: input.montoCalculadoEsManual },
     );
-    const { p_estado: _omit, ...correccionArgs } = rpcArgs;
 
-    const { error } = await client.rpc("save_cliente_datos_correccion", correccionArgs);
+    const { error } = await client.rpc(
+      "asesor_guardar_cliente_datos_con_telefono_casa",
+      {
+        ...rpcArgs,
+        p_telefono_casa: getTelefonoCasaDraft(idNorm) ?? null,
+        p_es_correccion: true,
+      },
+    );
 
     if (error) {
       throw mapSaveClienteDatosCorreccionRpcError(error);
