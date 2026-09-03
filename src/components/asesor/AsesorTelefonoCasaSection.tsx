@@ -18,8 +18,12 @@ function normalizeTelefonoMexico(input: string): string {
 
 function mapTelefonoCasaError(error: { message?: string; details?: string } | null): string {
   const raw = `${error?.message ?? ""} ${error?.details ?? ""}`.toLowerCase();
-  if (raw.includes("cliente_datos_celular_igual_telefono_casa")) {
-    return "El teléfono de casa debe ser distinto al celular del cliente.";
+  if (
+    raw.includes("cliente_datos_celular_igual_telefono_casa") ||
+    raw.includes("telefono_casa_duplicado_datos_generales") ||
+    raw.includes("cliente_datos_telefono_casa_duplicado")
+  ) {
+    return "El teléfono de casa no puede repetirse con ningún teléfono de Datos Generales.";
   }
   if (raw.includes("telefono_casa_invalido")) {
     return "El teléfono de casa debe tener exactamente 10 dígitos.";
@@ -112,12 +116,12 @@ export function AsesorTelefonoCasaSection({ expedienteId, canEdit }: Props) {
   if (!supabaseBrowser) return null;
 
   return (
-    <div className="sm:col-span-2 rounded-md border border-slate-200 bg-slate-50 p-3">
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-        <label className="grid flex-1 gap-1 text-xs text-gray-600">
-          <span className="font-medium text-gray-800">Teléfono de casa</span>
+    <div className="row-start-7 grid min-w-0 gap-1 text-xs text-gray-600 sm:col-start-2 sm:row-start-5">
+      <label className="grid gap-1">
+        <span className="font-medium text-gray-800">Teléfono de casa</span>
+        <div className="flex gap-2">
           <input
-            className={`rounded-md border px-2 py-1 text-sm ${
+            className={`min-w-0 flex-1 rounded-md border px-2 py-1 text-sm ${
               error
                 ? "border-red-400 bg-red-50/40 ring-1 ring-red-200"
                 : "border-gray-300 bg-white"
@@ -126,30 +130,25 @@ export function AsesorTelefonoCasaSection({ expedienteId, canEdit }: Props) {
             disabled={!canEdit || loading || saving}
             inputMode="numeric"
             maxLength={14}
-            placeholder="10 dígitos"
             onChange={(e) => {
               setTelefonoCasa(e.target.value);
               setError(null);
               setSaved(false);
             }}
           />
-        </label>
-        <Button
-          type="button"
-          variant="outline"
-          className="text-xs"
-          disabled={!canEdit || loading || saving || !changed}
-          onClick={() => void handleSave()}
-        >
-          {saving ? "Guardando…" : "Guardar teléfono de casa"}
-        </Button>
-      </div>
-      <p className="mt-1 text-[11px] text-slate-600">
-        Es un dato distinto al celular del cliente. Ambos deben tener 10 dígitos y no pueden ser iguales.
-      </p>
-      {loading ? <p className="mt-1 text-[11px] text-slate-500">Cargando teléfono de casa…</p> : null}
-      {error ? <p className="mt-1 text-[11px] text-red-700" role="alert">{error}</p> : null}
-      {saved ? <p className="mt-1 text-[11px] text-emerald-700" role="status">Teléfono de casa guardado.</p> : null}
+          <Button
+            type="button"
+            variant="outline"
+            className="shrink-0 px-3 text-xs"
+            disabled={!canEdit || loading || saving || !changed}
+            onClick={() => void handleSave()}
+          >
+            {saving ? "Guardando…" : "Guardar"}
+          </Button>
+        </div>
+      </label>
+      {error ? <span className="text-[11px] text-red-700" role="alert">{error}</span> : null}
+      {saved ? <span className="text-[11px] text-emerald-700" role="status">Guardado.</span> : null}
     </div>
   );
 }
