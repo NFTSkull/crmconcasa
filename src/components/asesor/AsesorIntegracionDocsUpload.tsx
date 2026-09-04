@@ -125,6 +125,12 @@ function estatusDetalleLabel(estatus: IntegrationDocChecklistItem["estatus_revis
   return "";
 }
 
+function displayChecklistLabel(item: IntegrationDocChecklistItem): string {
+  if (item.tipo_documento === "cliente_ine_frente") return "INE frente";
+  if (item.tipo_documento === "cliente_ine_reverso") return "INE reverso";
+  return item.label;
+}
+
 function ChecklistUploadList({
   items,
   archivosResumen,
@@ -171,6 +177,7 @@ function ChecklistUploadList({
         const tieneArchivo = Boolean(nombre);
         const forceReadOnly = readOnlyTipos.has(item.tipo_documento);
         const badge = estatusBadge(item, submittedToMesa, esperaRevisionMesa);
+        const displayLabel = displayChecklistLabel(item);
         const esCorreccion = asesorDebeUsarCorreccionDocumento(
           submittedToMesa,
           item.estatus_revision,
@@ -216,7 +223,7 @@ function ChecklistUploadList({
             <div className="flex items-start gap-2">
               <div className="min-w-0 flex-1">
                 <div className="flex flex-wrap items-center gap-2">
-                  <p className="font-medium text-gray-900">{item.label}</p>
+                  <p className="font-medium text-gray-900">{displayLabel}</p>
                   <span
                     className={`inline-flex rounded-full px-2 py-0.5 text-[10px] font-medium ring-1 ring-inset ${badge.className}`}
                   >
@@ -311,10 +318,10 @@ function ChecklistUploadList({
                       }
                       aria-label={
                         esCorreccion
-                          ? `Subir corrección de ${item.label}`
+                          ? `Subir corrección de ${displayLabel}`
                           : tieneArchivo
-                            ? `Reemplazar ${item.label}`
-                            : `Subir ${item.label}`
+                            ? `Reemplazar ${displayLabel}`
+                            : `Subir ${displayLabel}`
                       }
                       onFiles={(files) => void onFileChange(item.tipo_documento, files)}
                     />
