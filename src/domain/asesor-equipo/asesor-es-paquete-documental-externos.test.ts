@@ -181,8 +181,10 @@ describe("page wiring Parte B (mount)", () => {
     );
   });
 
-  it("opcionales extra gated por actorPaqueteExternos (no length===7)", () => {
+  it("opcionales extra gated por actorPaqueteExternos + resolved (no length===7)", () => {
     assert.match(page, /actorPaqueteExternos/);
+    assert.match(page, /actorPaqueteExternosResolved/);
+    assert.match(page, /filterIntegracionChecklistOpcionalesParaActor/);
     assert.doesNotMatch(page, /tiposEnvioObligatorios\.length\s*===\s*7/);
     assert.doesNotMatch(page, /tiposEnvio\.length\s*===\s*7/);
   });

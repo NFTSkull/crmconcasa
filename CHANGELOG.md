@@ -20,6 +20,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- **fix(asesor): ocultar opcionales de integración a externos (Parte B UX)** — evita montar acta digital/carta/semanas/vigencia/constancia SAT/evidencia cuando `actorPaqueteExternos`; espera resolución RPC para no flash; Notificación/Solicitud/Pagaré/Mesa RO intactos. Sin cambio SQL.
+
 ### Added
 - **feat(asesor): paquete documental externos Parte B (FE + wrappers)** — RPCs `asesor_documentos_obligatorios_envio` / `asesor_es_paquete_documental_externos` (mig `20260904214500`); checklist/progreso por **dueño**; captura simplificada + ocultar opcionales por **actor**; externos 7/7 sin INE reverso; internos 4 intactos; Mesa FE sin cambio. Fail-closed → 4 clásicos.
 

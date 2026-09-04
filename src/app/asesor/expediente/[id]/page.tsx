@@ -116,6 +116,10 @@ import {
 } from "@/domain/asesor-equipo/asesor-en-equipo-por-lider-email";
 import { fetchAsesorEsPaqueteDocumentalExternos } from "@/domain/asesor-equipo/asesor-es-paquete-documental-externos";
 import {
+  filterIntegracionChecklistOpcionalesParaActor,
+  shouldMountAsesorIntegracionOpcionalDedicado,
+} from "@/domain/asesor-equipo/asesor-integracion-opcionales-visibility";
+import {
   applyClienteDatosCobroRecalc,
   applyMontoCalculadoSugeridoSiNoBloqueado,
   applyMontoCalculadoSugeridoSiNoEditado,
@@ -314,6 +318,8 @@ export default function AsesorExpedientePage() {
   const [clienteDatosLoading, setClienteDatosLoading] = useState(false);
   const [clienteDatosSaved, setClienteDatosSaved] = useState(false);
   const [actorPaqueteExternos, setActorPaqueteExternos] = useState(false);
+  /** false hasta que termine fetchAsesorEsPaqueteDocumentalExternos (evita flash de opcionales). */
+  const [actorPaqueteExternosResolved, setActorPaqueteExternosResolved] = useState(false);
   const [duenoPaqueteExternos, setDuenoPaqueteExternos] = useState(false);
   const [tiposEnvioObligatorios, setTiposEnvioObligatorios] = useState<
     readonly IntegrationDocAsesorEnvioObligatorioTipo[]
@@ -399,12 +405,14 @@ export default function AsesorExpedientePage() {
 
   const integrationChecklistOpcionales = useMemo((): IntegrationDocChecklistItem[] | null => {
     if (!integrationDocsInput) return null;
-    // Actor externos: no montar opcionales ajenos al paquete (SQL es autoridad; no length===7).
-    if (actorPaqueteExternos) return [];
+    // Actor externos / unresolved: [] — SQL upload_para no permite opcionales de integración.
     const base = deriveIntegrationDocsChecklistOpcionales(integrationDocsInput);
-    // Notificación (`cliente_notificacion_apodaca`): siempre visible/editable al dueño.
-    return filterChecklistOpcionalesNotificacionApodaca(base);
-  }, [integrationDocsInput, actorPaqueteExternos]);
+    const sinApodaca = filterChecklistOpcionalesNotificacionApodaca(base);
+    return filterIntegracionChecklistOpcionalesParaActor(sinApodaca, {
+      actorPaqueteExternos,
+      actorPaqueteResolved: actorPaqueteExternosResolved,
+    });
+  }, [integrationDocsInput, actorPaqueteExternos, actorPaqueteExternosResolved]);
 
   const integrationDocsPresentes = useMemo(() => {
     if (!integrationDocsInput) return 0;
@@ -659,7 +667,10 @@ export default function AsesorExpedientePage() {
     let cancelled = false;
     void (async () => {
       const actor = await fetchAsesorEsPaqueteDocumentalExternos();
-      if (!cancelled) setActorPaqueteExternos(actor === true);
+      if (!cancelled) {
+        setActorPaqueteExternos(actor === true);
+        setActorPaqueteExternosResolved(true);
+      }
     })();
     return () => {
       cancelled = true;
@@ -2138,21 +2149,36 @@ export default function AsesorExpedientePage() {
             {dataSupabase && precal?.id ? (
               <AsesorMesaDocumentosSection expedienteId={String(precal.id)} />
             ) : null}
-            {dataSupabase && precal?.id && !actorPaqueteExternos ? (
+            {dataSupabase &&
+            precal?.id &&
+            shouldMountAsesorIntegracionOpcionalDedicado({
+              actorPaqueteExternos,
+              actorPaqueteResolved: actorPaqueteExternosResolved,
+            }) ? (
               <AsesorEvidenciaSection
                 expedienteId={String(precal.id)}
                 canUpload={puedeEditarEvidencia}
                 onUploaded={refreshArchivos}
               />
             ) : null}
-            {dataSupabase && precal?.id && !actorPaqueteExternos ? (
+            {dataSupabase &&
+            precal?.id &&
+            shouldMountAsesorIntegracionOpcionalDedicado({
+              actorPaqueteExternos,
+              actorPaqueteResolved: actorPaqueteExternosResolved,
+            }) ? (
               <AsesorVigenciaDerechosSection
                 expedienteId={String(precal.id)}
                 canUpload={puedeEditarVigenciaDerechos}
                 onUploaded={refreshArchivos}
               />
             ) : null}
-            {dataSupabase && precal?.id && !actorPaqueteExternos ? (
+            {dataSupabase &&
+            precal?.id &&
+            shouldMountAsesorIntegracionOpcionalDedicado({
+              actorPaqueteExternos,
+              actorPaqueteResolved: actorPaqueteExternosResolved,
+            }) ? (
               <AsesorConstanciaSituacionFiscalSection
                 expedienteId={String(precal.id)}
                 canUpload={puedeEditarConstanciaSituacionFiscal}
@@ -2180,7 +2206,7 @@ export default function AsesorExpedientePage() {
                 />
               ) : null,
             )}
-            {dataSupabase && precal?.id && !actorPaqueteExternos ? (
+            {dataSupabase && precal?.id ? (
               <AsesorNotificacionDocumentoSection
                 expedienteId={String(precal.id)}
                 etapaActual={operativo?.etapaActual ?? null}
@@ -2190,7 +2216,7 @@ export default function AsesorExpedientePage() {
                 }}
               />
             ) : null}
-            {dataSupabase && precal?.id && !actorPaqueteExternos ? (
+            {dataSupabase && precal?.id ? (
               <AsesorSolicitudDocumentoSection
                 expedienteId={String(precal.id)}
                 etapaActual={operativo?.etapaActual ?? null}
