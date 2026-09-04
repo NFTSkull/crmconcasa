@@ -3,7 +3,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabaseBrowser } from "@/lib/supabaseBrowser";
 import { setTelefonoCasaDraft } from "@/domain/expediente-cliente-datos/telefono-casa-draft-store";
-import { clearAutopopulatedCelularInput } from "@/domain/expediente-cliente-datos/telefono-casa-autofill";
 
 type Props = Readonly<{
   expedienteId: string;
@@ -29,17 +28,11 @@ export function AsesorTelefonoCasaSection({ expedienteId, canEdit }: Props) {
     try {
       const { data, error: queryError } = await supabaseBrowser
         .from("expedientes")
-        .select("telefono_cliente")
+        .select("telefono_casa")
         .eq("id", expedienteId)
         .maybeSingle();
       if (queryError) throw queryError;
-      const value = filterTelefonoCasaInput(String(data?.telefono_cliente ?? ""));
-
-      // P219: antes Datos Generales heredaba `telefono_cliente` como `celular`.
-      // Si al hidratar todavía son el mismo número, conservar Casa como autoridad
-      // y limpiar solo el Celular del formulario (sin escribir DB) para obligar
-      // al asesor a capturar un número distinto al guardar.
-      clearAutopopulatedCelularInput(value);
+      const value = filterTelefonoCasaInput(String(data?.telefono_casa ?? ""));
 
       setTelefonoCasa(value);
       setTelefonoCasaDraft(expedienteId, value);

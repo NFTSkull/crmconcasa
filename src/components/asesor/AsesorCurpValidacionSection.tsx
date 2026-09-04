@@ -10,7 +10,7 @@ export type { AsesorCurpValidacionSectionProps } from "./AsesorCurpValidacionSec
 
 /**
  * Datos Generales: mantiene la validación CURP existente intacta y agrega la edición
- * explícita del teléfono de casa (`expedientes.telefono_cliente`).
+ * explícita del teléfono de casa (`expedientes.telefono_casa`).
  */
 export function AsesorCurpValidacionSection(
   props: AsesorCurpValidacionSectionProps,

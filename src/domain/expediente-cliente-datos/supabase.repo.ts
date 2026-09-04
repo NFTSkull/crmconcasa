@@ -38,7 +38,7 @@ const CLIENTE_DATOS_SELECT = `
   porcentaje_cobro,
   monto_calculado,
   metodo_pago,
-  expediente:expedientes!cliente_datos_expediente_id_fkey ( telefono_cliente ),
+  expediente:expedientes!cliente_datos_expediente_id_fkey ( telefono_casa ),
   updated_by_profile:profiles!cliente_datos_updated_by_fkey ( email ),
   validated_by_profile:profiles!cliente_datos_validated_by_fkey ( email ),
   rejected_by_profile:profiles!cliente_datos_rejected_by_fkey ( email )
@@ -68,7 +68,7 @@ async function requireSupabaseSession(): Promise<{
   return { client };
 }
 
-/** P3G: lectura RLS + guardado vía RPC. P218: Datos Generales + teléfono de casa en una transacción. */
+/** P3G: lectura RLS + guardado vía RPC. P218/P224: Datos Generales + teléfono de casa separado en una transacción. */
 export class SupabaseExpedienteClienteDatosRepo implements ExpedienteClienteDatosRepo {
   async getByExpedienteId(expedienteId: string): Promise<ExpedienteClienteDatos | null> {
     const idNorm = String(expedienteId).trim();
