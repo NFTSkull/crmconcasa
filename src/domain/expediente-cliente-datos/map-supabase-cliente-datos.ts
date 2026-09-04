@@ -33,7 +33,7 @@ export type SupabaseClienteDatosRow = {
   updated_at: string;
   referencias?: unknown;
   imagenes?: unknown;
-  expediente?: { telefono_cliente?: string | null } | null;
+  expediente?: { telefono_casa?: string | null } | null;
   updated_by_profile?: { email?: string | null } | null;
   validated_by_profile?: { email?: string | null } | null;
   rejected_by_profile?: { email?: string | null } | null;
@@ -72,9 +72,9 @@ function normalizeTelefonoForCompare(value: unknown): string {
 }
 
 /**
- * El teléfono de precalificación es el teléfono de casa.
- * Legacy: si quedó igual al celular por la precarga histórica, se muestra vacío
- * para no presentar el mismo número como dos contactos distintos.
+ * Teléfono de casa dedicado del expediente.
+ * Si un legado quedó igual al celular, se muestra vacío para no presentar
+ * el mismo número como dos contactos distintos.
  */
 export function readTelefonoCasaDistinct(
   telefonoCasaRaw: unknown,
@@ -227,7 +227,7 @@ export function mapSupabaseRowToExpedienteClienteDatos(
     imagenes: mapImagenes(row.imagenes),
     telefonoNormalizado: row.telefono_normalizado?.trim() || undefined,
     telefonoCasa: readTelefonoCasaDistinct(
-      row.expediente?.telefono_cliente,
+      row.expediente?.telefono_casa,
       row.telefono_normalizado ?? celular,
     ),
     comentarioRechazo: row.comentario_rechazo?.trim() || undefined,
