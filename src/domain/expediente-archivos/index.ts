@@ -5,6 +5,7 @@ import { isDataModeSupabase } from "@/lib/dataMode";
 import { MockExpedienteArchivosIndexedDbRepo } from "./mock-indexeddb.repo";
 import { SupabaseExpedienteArchivosRepo } from "./supabase.repo";
 import type { ExpedienteArchivosRepo } from "./repo";
+import { withExpedienteArchivoMutationEvents } from "./mutation-events";
 
 export type { ExpedienteArchivosRepo } from "./repo";
 export { MockExpedienteArchivosIndexedDbRepo } from "./mock-indexeddb.repo";
@@ -274,7 +275,9 @@ export * from "./retencion-acuse-aviso";
 export function useExpedienteArchivosRepo(): ExpedienteArchivosRepo {
   return useMemo(() => {
     if (isDataModeSupabase()) {
-      return new SupabaseExpedienteArchivosRepo();
+      return withExpedienteArchivoMutationEvents(
+        new SupabaseExpedienteArchivosRepo(),
+      );
     }
     return new MockExpedienteArchivosIndexedDbRepo();
   }, []);
