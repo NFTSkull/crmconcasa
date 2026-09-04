@@ -122,6 +122,16 @@ describe("AsesorScopedEquipoDocumentoSection montaje en página asesor", () => {
       /canUpload=\{puedeEditarScopedEquipoDocumento\}/,
     );
   });
+
+  it("badge Obligatorio/Opcional vía esObligatorio + tiposEnvioObligatorios", () => {
+    const section = readFileSync(
+      join(process.cwd(), "src/components/asesor/AsesorScopedEquipoDocumentoSection.tsx"),
+      "utf8",
+    );
+    assert.match(section, /esObligatorio\?: boolean/);
+    assert.match(section, /esObligatorio \? "Obligatorio" : "Opcional"/);
+    assert.match(pageSrc, /esObligatorio=\{tiposEnvioObligatorios\.includes\(doc\.tipo\)\}/);
+  });
 });
 
 describe("Mesa scoped equipo documentos RO", () => {

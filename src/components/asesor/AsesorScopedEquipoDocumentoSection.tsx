@@ -30,6 +30,8 @@ export type AsesorScopedEquipoDocumentoSectionProps = Readonly<{
   maxBytes: number;
   canUpload: boolean;
   onUploaded?: () => void | Promise<void>;
+  /** Default false → badge «Opcional». El padre decide con tiposEnvioObligatorios. */
+  esObligatorio?: boolean;
 }>;
 
 function formatDateTimeEsMx(iso: string | null | undefined): string {
@@ -54,6 +56,7 @@ export function AsesorScopedEquipoDocumentoSection({
   maxBytes,
   canUpload,
   onUploaded,
+  esObligatorio = false,
 }: AsesorScopedEquipoDocumentoSectionProps) {
   const archivosRepo = useExpedienteArchivosRepo();
   const savingLockRef = useRef(false);
@@ -215,11 +218,13 @@ export function AsesorScopedEquipoDocumentoSection({
       <div className="flex flex-wrap items-center gap-2">
         <h3 className="text-sm font-semibold text-gray-900">{label}</h3>
         <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-2.5 py-0.5 text-xs font-medium text-slate-700">
-          Opcional
+          {esObligatorio ? "Obligatorio" : "Opcional"}
         </span>
       </div>
       <p className="mt-1 text-xs text-gray-600">
-        Documento opcional para compartir información adicional con Mesa de Control.
+        {esObligatorio
+          ? "Documento obligatorio del paquete documental para envío a Mesa."
+          : "Documento opcional para compartir información adicional con Mesa de Control."}
       </p>
 
       {loading ? (

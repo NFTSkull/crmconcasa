@@ -44,6 +44,8 @@ export function buildReingresoManualEnvioPendientes(input: {
   datosGeneralesCompletos: boolean;
   camposFaltantesDatos: readonly string[];
   archivosResumen: readonly ExpedienteArchivoResumen[] | null;
+  /** Default: 4 clásicos. Pasar lista del dueño para externos (7). */
+  tiposEnvio?: readonly string[];
 }): string[] {
   const out: string[] = [];
   if (!input.hasMontoAprobado) out.push("Monto aprobado");
@@ -57,12 +59,13 @@ export function buildReingresoManualEnvioPendientes(input: {
   const byTipo = new Map(
     (input.archivosResumen ?? []).map((r) => [r.tipo_documento, r] as const),
   );
-  for (const tipo of INTEGRATION_DOC_TIPOS_ASESOR_ENVIO) {
-    const row = byTipo.get(tipo);
+  const tipos = input.tiposEnvio ?? INTEGRATION_DOC_TIPOS_ASESOR_ENVIO;
+  for (const tipo of tipos) {
+    const row = byTipo.get(tipo as ExpedienteArchivoResumen["tipo_documento"]);
     const ok = row ? estatusCuentaParaIntegracion(row.estatus_revision) : false;
     if (!ok) {
       const label =
-        DOCUMENTO_CATALOGO_MAP[tipo]?.label ??
+        DOCUMENTO_CATALOGO_MAP[tipo as keyof typeof DOCUMENTO_CATALOGO_MAP]?.label ??
         tipo.replace(/^cliente_/, "").replace(/_/g, " ");
       out.push(label);
     }

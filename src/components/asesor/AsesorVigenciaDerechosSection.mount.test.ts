@@ -28,11 +28,11 @@ describe("AsesorVigenciaDerechosSection montaje en página asesor", () => {
   const pageSrc = readFileSync(pagePath, "utf8");
   const componentSrc = readFileSync(componentPath, "utf8");
 
-  it("la página monta AsesorVigenciaDerechosSection en modo Supabase", () => {
+  it("la página monta AsesorVigenciaDerechosSection en modo Supabase (oculto si actorPaqueteExternos)", () => {
     assert.match(pageSrc, /import\s+\{\s*AsesorVigenciaDerechosSection\s*\}/);
     assert.match(
       pageSrc,
-      /dataSupabase\s*&&\s*precal\?\.id\s*\?\s*\(\s*<AsesorVigenciaDerechosSection/,
+      /dataSupabase\s*&&\s*precal\?\.id\s*&&\s*!actorPaqueteExternos\s*\?\s*\(\s*<AsesorVigenciaDerechosSection/,
     );
   });
 

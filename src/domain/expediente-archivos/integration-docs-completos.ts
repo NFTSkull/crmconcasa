@@ -420,11 +420,12 @@ export function estatusCuentaParaIntegracion(estatus: ResumenEstatus): boolean {
 
 export function countIntegrationDocsPresentes(
   resumen: IntegrationDocsResumenInput,
+  tipos: readonly string[] = INTEGRATION_DOC_TIPOS_ASESOR_ENVIO,
 ): number {
   const byTipo = new Map(resumen.map((r) => [r.tipo_documento, r.estatus_revision]));
   let count = 0;
-  for (const tipo of INTEGRATION_DOC_TIPOS_ASESOR_ENVIO) {
-    const estatus = byTipo.get(tipo);
+  for (const tipo of tipos) {
+    const estatus = byTipo.get(tipo as TipoDocumentoCatalogo);
     if (estatus && estatusCuentaParaIntegracion(estatus)) {
       count += 1;
     }
@@ -432,11 +433,11 @@ export function countIntegrationDocsPresentes(
   return count;
 }
 
-export function integrationDocsCompletos(resumen: IntegrationDocsResumenInput): boolean {
-  return (
-    countIntegrationDocsPresentes(resumen) ===
-    INTEGRATION_DOC_TIPOS_ASESOR_ENVIO.length
-  );
+export function integrationDocsCompletos(
+  resumen: IntegrationDocsResumenInput,
+  tipos: readonly string[] = INTEGRATION_DOC_TIPOS_ASESOR_ENVIO,
+): boolean {
+  return countIntegrationDocsPresentes(resumen, tipos) === tipos.length;
 }
 
 /** `true` solo si el estatus cuenta para `integration_docs_todos_validados` (Mesa 1→2). */
@@ -486,11 +487,16 @@ function mapChecklistItems(
   });
 }
 
-/** Checklist de documentos obligatorios para envío a Mesa (4). */
+/** Checklist de documentos obligatorios para envío a Mesa (default: 4 clásicos). */
 export function deriveIntegrationDocsChecklist(
   resumen: IntegrationDocsResumenInput,
+  tipos: readonly string[] = INTEGRATION_DOC_TIPOS_ASESOR_ENVIO,
 ): IntegrationDocChecklistItem[] {
-  return mapChecklistItems(INTEGRATION_DOC_TIPOS_ASESOR_ENVIO, resumen, false);
+  return mapChecklistItems(
+    tipos as readonly IntegrationDocAsesorUploadTipo[],
+    resumen,
+    false,
+  );
 }
 
 /** Checklist de documentos opcionales de upload asesor (no bloquean envío).

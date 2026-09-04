@@ -25,13 +25,14 @@ describe("ExpedienteClienteDatosFormSection capturaVariant", () => {
     assert.match(src, /Celular del cliente \(obligatorio\)/);
   });
 
-  it("página: vista por actor, checklist por dueño UUID", () => {
-    assert.match(page, /actorEnEquipoSilvia/);
-    assert.match(page, /duenoEnEquipoSilvia/);
+  it("página: vista por actor, checklist por dueño UUID (paquete externos SQL)", () => {
+    assert.match(page, /actorPaqueteExternos/);
+    assert.match(page, /duenoPaqueteExternos/);
     assert.match(page, /asesorProfileId/);
     assert.match(page, /perfilCaptura: perfilCapturaClienteDatos/);
     assert.match(page, /capturaVariant=\{capturaVariantClienteDatos\}/);
     assert.match(page, /resolveClienteDatosPerfilCaptura/);
-    assert.match(page, /fetchAsesorEnEquipoPorLiderEmail/);
+    assert.match(page, /fetchAsesorEsPaqueteDocumentalExternos/);
+    assert.match(page, /fetchAsesorDocumentosObligatoriosEnvio/);
   });
 });

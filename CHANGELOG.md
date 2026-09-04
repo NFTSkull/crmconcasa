@@ -21,6 +21,8 @@
 ## [Unreleased]
 
 ### Added
+- **feat(asesor): paquete documental externos Parte B (FE + wrappers)** — RPCs `asesor_documentos_obligatorios_envio` / `asesor_es_paquete_documental_externos` (mig `20260904214500`); checklist/progreso por **dueño**; captura simplificada + ocultar opcionales por **actor**; externos 7/7 sin INE reverso; internos 4 intactos; Mesa FE sin cambio. Fail-closed → 4 clásicos.
+
 - **feat(generales): vista/checklist simplificado Equipo Silvia** — `capturaVariant` en Datos Generales; validación/completitud `asesor_equipo_silvia_simplificado`; mapper `p_referencias: []`; RPC `asesor_en_equipo_por_lider_email` (mig `20260903160000`). Vista por membresía del actor; checklist por `expedientes.asesor_id`. Fail-closed → formulario completo. Sin cambios a `save_cliente_datos` / Mesa.
 
 - **feat(documentos): UI scoped Equipo Silvia (bloque 2)** — RPC `asesor_tipos_documento_visibles`; secciones Asesor gated por array (fail-closed); Mesa RO de los 4 tipos. Mig `20260903150000`.

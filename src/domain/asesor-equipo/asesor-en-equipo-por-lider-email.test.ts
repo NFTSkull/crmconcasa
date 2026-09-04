@@ -18,30 +18,37 @@ describe("asesor-en-equipo-por-lider-email FE", () => {
     assert.equal(shouldUseClienteDatosVistaSimplificada(undefined), false);
   });
 
-  it("vista por actor; checklist/perfil por dueño", () => {
+  it("vista por actor; checklist/perfil por dueño (paquete externos)", () => {
     assert.equal(
       resolveClienteDatosCapturaVariant({
-        actorEnEquipoSilviaConfirmado: true,
+        actorEnPaqueteExternosConfirmado: true,
       }),
       "simplificado",
     );
     assert.equal(
       resolveClienteDatosCapturaVariant({
-        actorEnEquipoSilviaConfirmado: false,
+        actorEnPaqueteExternosConfirmado: false,
       }),
       "completo",
     );
     assert.equal(
       resolveClienteDatosPerfilCaptura({
-        duenoEnEquipoSilviaConfirmado: true,
+        duenoEnPaqueteExternosConfirmado: true,
       }),
       "asesor_equipo_silvia_simplificado",
     );
     assert.equal(
       resolveClienteDatosPerfilCaptura({
-        duenoEnEquipoSilviaConfirmado: false,
+        duenoEnPaqueteExternosConfirmado: false,
       }),
       "asesor_completo",
+    );
+    // Alias legacy sigue funcionando
+    assert.equal(
+      resolveClienteDatosCapturaVariant({
+        actorEnEquipoSilviaConfirmado: true,
+      }),
+      "simplificado",
     );
   });
 

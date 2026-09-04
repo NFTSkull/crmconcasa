@@ -37,6 +37,7 @@ run_sql_test "supabase/tests/rpc_cliente_constancia_situacion_fiscal_opcional.sq
 run_sql_test "supabase/tests/rpc_documento_tipo_scope_equipo.sql"
 run_sql_test "supabase/tests/rpc_asesor_tipos_documento_visibles.sql"
 run_sql_test "supabase/tests/rpc_asesor_en_equipo_por_lider_email.sql"
+run_sql_test "supabase/tests/rpc_asesor_documentos_obligatorios_envio_wrappers.sql"
 run_sql_test "supabase/tests/notificacion_apodaca_mime_pdf_jpeg_png.sql"
 run_sql_test "supabase/tests/notificacion_apodaca_compartida_sin_gate_etapa.sql"
 run_sql_test "supabase/tests/carta_empresa_image_mime.sql"

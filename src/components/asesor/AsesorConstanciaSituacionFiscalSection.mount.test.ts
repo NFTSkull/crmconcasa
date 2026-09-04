@@ -28,11 +28,11 @@ describe("AsesorConstanciaSituacionFiscalSection montaje en página asesor", () 
   const pageSrc = readFileSync(pagePath, "utf8");
   const componentSrc = readFileSync(componentPath, "utf8");
 
-  it("la página monta AsesorConstanciaSituacionFiscalSection en modo Supabase", () => {
+  it("la página monta AsesorConstanciaSituacionFiscalSection en modo Supabase (oculto si actorPaqueteExternos)", () => {
     assert.match(pageSrc, /import\s+\{\s*AsesorConstanciaSituacionFiscalSection\s*\}/);
     assert.match(
       pageSrc,
-      /dataSupabase\s*&&\s*precal\?\.id\s*\?\s*\(\s*<AsesorConstanciaSituacionFiscalSection/,
+      /dataSupabase\s*&&\s*precal\?\.id\s*&&\s*!actorPaqueteExternos\s*\?\s*\(\s*<AsesorConstanciaSituacionFiscalSection/,
     );
   });
 

@@ -8,6 +8,10 @@ import { isSupabaseConfigured, supabaseBrowser } from "@/lib/supabaseBrowser";
 export const EQUIPO_LIDER_EMAIL_SILVIA_REYES =
   "silvia.reyes@concasa.mx" as const;
 
+/**
+ * Nombre histórico; actualmente representa el perfil simplificado del paquete
+ * documental de externos definido por SQL (Silvia u Orlando).
+ */
 export type ClienteDatosPerfilCaptura =
   | "asesor_completo"
   | "asesor_equipo_silvia_simplificado";
@@ -22,23 +26,33 @@ export function shouldUseClienteDatosVistaSimplificada(
 }
 
 export function resolveClienteDatosPerfilCaptura(params: Readonly<{
-  /** Membresía confirmada del dueño del expediente (`expedientes.asesor_id`). */
-  duenoEnEquipoSilviaConfirmado: boolean | null | undefined;
+  /**
+   * Dueño del expediente en paquete documental externos (SQL).
+   * Alias legacy: `duenoEnEquipoSilviaConfirmado`.
+   */
+  duenoEnPaqueteExternosConfirmado?: boolean | null;
+  /** @deprecated Preferir `duenoEnPaqueteExternosConfirmado`. */
+  duenoEnEquipoSilviaConfirmado?: boolean | null | undefined;
 }>): ClienteDatosPerfilCaptura {
-  return params.duenoEnEquipoSilviaConfirmado === true
-    ? "asesor_equipo_silvia_simplificado"
-    : "asesor_completo";
+  const ok =
+    params.duenoEnPaqueteExternosConfirmado === true ||
+    params.duenoEnEquipoSilviaConfirmado === true;
+  return ok ? "asesor_equipo_silvia_simplificado" : "asesor_completo";
 }
 
 export function resolveClienteDatosCapturaVariant(params: Readonly<{
-  /** Membresía confirmada del actor JWT. */
-  actorEnEquipoSilviaConfirmado: boolean | null | undefined;
+  /**
+   * Actor JWT en paquete documental externos (SQL).
+   * Alias legacy: `actorEnEquipoSilviaConfirmado`.
+   */
+  actorEnPaqueteExternosConfirmado?: boolean | null;
+  /** @deprecated Preferir `actorEnPaqueteExternosConfirmado`. */
+  actorEnEquipoSilviaConfirmado?: boolean | null | undefined;
 }>): ClienteDatosCapturaVariant {
-  return shouldUseClienteDatosVistaSimplificada(
-    params.actorEnEquipoSilviaConfirmado,
-  )
-    ? "simplificado"
-    : "completo";
+  const ok =
+    params.actorEnPaqueteExternosConfirmado === true ||
+    params.actorEnEquipoSilviaConfirmado === true;
+  return shouldUseClienteDatosVistaSimplificada(ok) ? "simplificado" : "completo";
 }
 
 export function parseAsesorEnEquipoPorLiderEmail(raw: unknown): boolean {

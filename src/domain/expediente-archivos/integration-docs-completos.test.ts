@@ -230,6 +230,34 @@ describe("integrationDocsCompletos", () => {
     assert.equal(checklist[2]?.completo, false);
   });
 
+  it("checklist/progress aceptan lista externa 7 (sin reverso); default sigue 4", () => {
+    const externos = [
+      "cliente_ine_frente",
+      "cliente_comprobante_domicilio",
+      "cliente_estado_cuenta",
+      "cliente_solicitud_credito",
+      "cliente_lista_nominal",
+      "cliente_bajo_protesta",
+      "cliente_presupuesto",
+    ] as const;
+    const resumen: IntegrationDocsResumenInput = externos.map((tipo) => ({
+      tipo_documento: tipo,
+      estatus_revision: "subido" as const,
+    }));
+    const checklist = deriveIntegrationDocsChecklist(resumen, externos);
+    assert.equal(checklist.length, 7);
+    assert.ok(!checklist.some((i) => i.tipo_documento === "cliente_ine_reverso"));
+    assert.equal(countIntegrationDocsPresentes(resumen, externos), 7);
+    assert.equal(integrationDocsCompletos(resumen, externos), true);
+
+    const clasico = deriveIntegrationDocsChecklist(resumen);
+    assert.equal(clasico.length, 4);
+    assert.ok(clasico.some((i) => i.tipo_documento === "cliente_ine_reverso"));
+    // frente + domicilio + estado_cuenta presentes; reverso faltante → 3/4
+    assert.equal(countIntegrationDocsPresentes(resumen), 3);
+    assert.equal(integrationDocsCompletos(resumen), false);
+  });
+
   it("deriveIntegrationDocsChecklistOpcionales lista semanas, carta, acta digital y Apodaca", () => {
     const checklist = deriveIntegrationDocsChecklistOpcionales([]);
     assert.equal(checklist.length, 4);

@@ -164,4 +164,27 @@ describe("reingreso-manual helpers", () => {
     assert.match(err.message, /NSS/i);
     assert.doesNotMatch(err.message, /\d{11}/);
   });
+
+  it("buildReingresoManualEnvioPendientes: tiposEnvio externos 7 sin reverso", () => {
+    const externos = [
+      "cliente_ine_frente",
+      "cliente_comprobante_domicilio",
+      "cliente_estado_cuenta",
+      "cliente_solicitud_credito",
+      "cliente_lista_nominal",
+      "cliente_bajo_protesta",
+      "cliente_presupuesto",
+    ] as const;
+    const pendientes = buildReingresoManualEnvioPendientes({
+      hasMontoAprobado: true,
+      datosGeneralesCompletos: true,
+      camposFaltantesDatos: [],
+      archivosResumen: null,
+      tiposEnvio: externos,
+    });
+    assert.equal(pendientes.length, 7);
+    assert.ok(!pendientes.some((p) => /reverso/i.test(p)));
+    assert.ok(pendientes.some((p) => /solicitud/i.test(p)));
+  });
+
 });
