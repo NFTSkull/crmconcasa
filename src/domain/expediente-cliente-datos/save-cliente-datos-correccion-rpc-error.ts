@@ -45,6 +45,10 @@ export function mapSaveClienteDatosCorreccionRpcError(error: {
     return new ClienteDatosSupabaseError("Revisa el RFC del cliente.");
   }
 
+  if (msg.includes("telefono_casa_requerido")) {
+    return new ClienteDatosSupabaseError("El teléfono de casa es obligatorio.");
+  }
+
   if (msg.includes("telefono_casa_invalido")) {
     return new ClienteDatosSupabaseError(
       "El teléfono de casa debe tener exactamente 10 dígitos.",
@@ -63,13 +67,43 @@ export function mapSaveClienteDatosCorreccionRpcError(error: {
 
   if (msg.includes("cliente_datos_celular_igual_telefono_casa")) {
     return new ClienteDatosSupabaseError(
-      "El celular debe ser distinto al teléfono de casa capturado en la precalificación.",
+      "El celular debe ser distinto al teléfono de casa.",
     );
   }
 
   if (msg.includes("cliente_datos_telefono_duplicado")) {
     return new ClienteDatosSupabaseError(
       "No se pueden repetir números telefónicos dentro de los Datos Generales del cliente.",
+    );
+  }
+
+  if (msg.includes("nss debe tener 11 dígitos")) {
+    return new ClienteDatosSupabaseError("El NSS debe tener exactamente 11 dígitos.");
+  }
+  if (msg.includes("cp debe tener 5 dígitos")) {
+    return new ClienteDatosSupabaseError("El código postal debe tener exactamente 5 dígitos.");
+  }
+  if (msg.includes("el plazo solo admite números")) {
+    return new ClienteDatosSupabaseError("El plazo solo admite números.");
+  }
+  if (msg.includes("nombre del cliente solo admite")) {
+    return new ClienteDatosSupabaseError(
+      "El nombre del cliente solo admite letras, espacios, guiones y apóstrofes.",
+    );
+  }
+  if (msg.includes("nombre del beneficiario solo admite")) {
+    return new ClienteDatosSupabaseError(
+      "El nombre del beneficiario solo admite letras, espacios, guiones y apóstrofes.",
+    );
+  }
+  if (msg.includes("nombre de referencia solo admite")) {
+    return new ClienteDatosSupabaseError(
+      "El nombre de las referencias solo admite letras, espacios, guiones y apóstrofes.",
+    );
+  }
+  if (msg.includes("el parentesco solo admite")) {
+    return new ClienteDatosSupabaseError(
+      "El parentesco solo admite letras, espacios, guiones y apóstrofes.",
     );
   }
 
@@ -95,7 +129,7 @@ export function mapSaveClienteDatosCorreccionRpcError(error: {
     );
   }
 
-  // Conservar mensaje SQL útil cuando sea legible
+  // Conservar mensaje SQL útil cuando sea legible.
   if (raw && !msg.includes("save_cliente_datos_correccion:")) {
     return new ClienteDatosSupabaseError(raw);
   }
