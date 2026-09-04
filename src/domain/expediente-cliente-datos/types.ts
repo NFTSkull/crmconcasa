@@ -95,7 +95,7 @@ export type ExpedienteClienteDatos = {
 
   /** Columna `telefono_normalizado`: celular principal normalizado. */
   telefonoNormalizado?: string;
-  /** `expedientes.telefono_cliente`: teléfono de casa capturado en precalificación. */
+  /** `expedientes.telefono_casa`: teléfono de casa separado del celular principal. */
   telefonoCasa?: string;
 
   /** Solo aplica cuando `estado === "rechazado"` */
