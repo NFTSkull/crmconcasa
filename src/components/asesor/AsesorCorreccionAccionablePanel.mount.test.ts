@@ -75,4 +75,11 @@ describe("P210 T18 — action_target / anchors", () => {
     assert.match(detallePage, /AsesorCorreccionAccionablePanel/);
     assert.match(detallePage, /onFocusSection/);
   });
+
+  it("P223 distingue corrección realizada de pendiente y enfatiza el envío", () => {
+    assert.match(panel, /Corrección realizada · falta enviar a Mesa/);
+    assert.match(panel, /La corrección ya está hecha\. No necesitas volver a modificarla/);
+    assert.match(panel, /ENVIAR CAMBIOS A MESA/);
+    assert.match(panel, /Cambio atendido y guardado\./);
+  });
 });
