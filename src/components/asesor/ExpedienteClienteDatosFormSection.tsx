@@ -77,6 +77,14 @@ interface ExpedienteClienteDatosFormSectionProps {
   advertenciaInscripcionInfonavit?: string | null;
   /** Vista UI. Default completo. `simplificado` solo si el actor JWT confirmó Equipo Silvia. */
   capturaVariant?: ClienteDatosCapturaVariant;
+  /** Internos: montar Número de casa. Externos/unknown: false. */
+  showTelefonoCasa?: boolean;
+  /** Error reactivo de teléfono de casa (internos). */
+  telefonoCasaFieldError?: string;
+  /** Callback al tipar casa → estado React del padre (completitud/gates). */
+  onTelefonoCasaChange?: (value: string) => void;
+  /** Mensaje discreto mientras la clasificación de paquete no está resuelta. */
+  clasificacionPerfilMensaje?: string | null;
 }
 
 function fieldInputClass(hasError: boolean): string {
@@ -145,6 +153,10 @@ export function ExpedienteClienteDatosFormSection({
   correccionDgUxState = null,
   advertenciaInscripcionInfonavit = null,
   capturaVariant = "completo",
+  showTelefonoCasa = false,
+  telefonoCasaFieldError,
+  onTelefonoCasaChange,
+  clasificacionPerfilMensaje = null,
 }: ExpedienteClienteDatosFormSectionProps) {
   const esSimplificado = capturaVariant === "simplificado";
   const esMejoravit = isProgramaMejoravitDb(programaDb);
@@ -206,6 +218,11 @@ export function ExpedienteClienteDatosFormSection({
               Datos Generales del Cliente
             </p>
             <p className="mt-1 text-xs text-gray-500">{statusLine}</p>
+            {clasificacionPerfilMensaje ? (
+              <p className="mt-1 text-xs text-slate-600" role="status">
+                {clasificacionPerfilMensaje}
+              </p>
+            ) : null}
             {dataSupabase && camposFaltantes.length > 0 ? (
               <p className="mt-1 text-xs text-amber-800" role="status">
                 Incompleto: faltan {camposFaltantes.length} campo(s) obligatorio(s).
@@ -415,6 +432,9 @@ export function ExpedienteClienteDatosFormSection({
               rfc={clienteDatos.rfc}
               canEdit={puedeEditar}
               submittedToMesa={submittedToMesa}
+              showTelefonoCasa={showTelefonoCasa}
+              telefonoCasaFieldError={telefonoCasaFieldError}
+              onTelefonoCasaChange={onTelefonoCasaChange}
               onApplyRfcEstimado={(rfcEstimado) => {
                 setClienteDatos((p) => ({ ...p, rfc: rfcEstimado }));
               }}
@@ -513,58 +533,105 @@ export function ExpedienteClienteDatosFormSection({
         <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
           <div className="rounded-md border border-gray-200 p-3">
             <p className="text-xs font-semibold text-gray-900">Referencias</p>
-            {[0, 1].map((idx) => (
+            {[0, 1].map((idx) => {
+              const pref = idx === 0 ? "referencia1" : "referencia2";
+              const updateRef = (
+                patch: Partial<(typeof clienteDatos.referencias)[number]>,
+              ) =>
+                setClienteDatos((p) => {
+                  const nextRefs = [...p.referencias];
+                  const cur = nextRefs[idx] ?? {
+                    nombre: "",
+                    nombres: "",
+                    apellidoPaterno: "",
+                    apellidoMaterno: "",
+                    celular: "",
+                  };
+                  const merged = { ...cur, ...patch };
+                  const composed = [
+                    merged.nombres,
+                    merged.apellidoPaterno,
+                    merged.apellidoMaterno,
+                  ]
+                    .map((x) => String(x ?? "").trim())
+                    .filter(Boolean)
+                    .join(" ");
+                  nextRefs[idx] = {
+                    ...merged,
+                    nombre: composed || String(merged.nombre ?? ""),
+                  };
+                  return { ...p, referencias: nextRefs };
+                });
+              return (
               <div key={idx} className="mt-2 grid grid-cols-1 gap-2">
+                <p className="text-[11px] font-medium text-gray-700">
+                  Referencia {idx + 1}
+                </p>
                 <DatosField
-                  label={`Nombre (ref ${idx + 1})`}
-                  fieldKey={idx === 0 ? "referencia1Nombre" : "referencia2Nombre"}
-                  error={err(idx === 0 ? "referencia1Nombre" : "referencia2Nombre")}
+                  label="Nombre(s)"
+                  fieldKey={`${pref}Nombres`}
+                  error={err(`${pref}Nombres`)}
                   showError={showFieldErrors}
                 >
                   <input
-                    className={fieldInputClass(
-                      Boolean(err(idx === 0 ? "referencia1Nombre" : "referencia2Nombre")),
-                    )}
-                    value={clienteDatos.referencias[idx]?.nombre ?? ""}
+                    className={fieldInputClass(Boolean(err(`${pref}Nombres`)))}
+                    value={clienteDatos.referencias[idx]?.nombres ?? ""}
                     onChange={(e) =>
-                      setClienteDatos((p) => {
-                        const nextRefs = [...p.referencias];
-                        nextRefs[idx] = {
-                          ...nextRefs[idx],
-                          nombre: filterPersonNameInput(e.target.value),
-                        };
-                        return { ...p, referencias: nextRefs };
+                      updateRef({ nombres: filterPersonNameInput(e.target.value) })
+                    }
+                  />
+                </DatosField>
+                <DatosField
+                  label="Primer apellido"
+                  fieldKey={`${pref}ApellidoPaterno`}
+                  error={err(`${pref}ApellidoPaterno`)}
+                  showError={showFieldErrors}
+                >
+                  <input
+                    className={fieldInputClass(Boolean(err(`${pref}ApellidoPaterno`)))}
+                    value={clienteDatos.referencias[idx]?.apellidoPaterno ?? ""}
+                    onChange={(e) =>
+                      updateRef({
+                        apellidoPaterno: filterPersonNameInput(e.target.value),
                       })
                     }
                   />
                 </DatosField>
                 <DatosField
-                  label={`Celular (ref ${idx + 1})`}
-                  fieldKey={idx === 0 ? "referencia1Celular" : "referencia2Celular"}
-                  error={err(idx === 0 ? "referencia1Celular" : "referencia2Celular")}
+                  label="Segundo apellido"
+                  fieldKey={`${pref}ApellidoMaterno`}
+                  error={err(`${pref}ApellidoMaterno`)}
                   showError={showFieldErrors}
                 >
                   <input
-                    className={fieldInputClass(
-                      Boolean(err(idx === 0 ? "referencia1Celular" : "referencia2Celular")),
-                    )}
+                    className={fieldInputClass(Boolean(err(`${pref}ApellidoMaterno`)))}
+                    value={clienteDatos.referencias[idx]?.apellidoMaterno ?? ""}
+                    onChange={(e) =>
+                      updateRef({
+                        apellidoMaterno: filterPersonNameInput(e.target.value),
+                      })
+                    }
+                  />
+                </DatosField>
+                <DatosField
+                  label="Celular"
+                  fieldKey={`${pref}Celular`}
+                  error={err(`${pref}Celular`)}
+                  showError={showFieldErrors}
+                >
+                  <input
+                    className={fieldInputClass(Boolean(err(`${pref}Celular`)))}
                     inputMode="tel"
                     autoComplete="tel"
                     value={clienteDatos.referencias[idx]?.celular ?? ""}
                     onChange={(e) =>
-                      setClienteDatos((p) => {
-                        const nextRefs = [...p.referencias];
-                        nextRefs[idx] = {
-                          ...nextRefs[idx],
-                          celular: filterDigitsInput(e.target.value, 15),
-                        };
-                        return { ...p, referencias: nextRefs };
-                      })
+                      updateRef({ celular: filterDigitsInput(e.target.value, 15) })
                     }
                   />
                 </DatosField>
               </div>
-            ))}
+              );
+            })}
           </div>
 
           <div className="rounded-md border border-gray-200 p-3">

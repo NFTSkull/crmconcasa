@@ -16,25 +16,33 @@ describe("resolveAsesorIntegracionOpcionalesVisibility", () => {
     assert.equal(resolveAsesorIntegracionOpcionalesVisibility(null, false), "hide");
   });
 
-  it("externo confirmado → hide", () => {
-    assert.equal(resolveAsesorIntegracionOpcionalesVisibility(true, true), "hide");
+  it("externo confirmado → solo Acta digital", () => {
+    assert.equal(
+      resolveAsesorIntegracionOpcionalesVisibility(true, true),
+      "show_externos_acta_only",
+    );
   });
 
-  it("interno confirmado → show", () => {
-    assert.equal(resolveAsesorIntegracionOpcionalesVisibility(false, true), "show");
+  it("interno confirmado → show_internos", () => {
+    assert.equal(
+      resolveAsesorIntegracionOpcionalesVisibility(false, true),
+      "show_internos",
+    );
   });
 });
 
 describe("opcionales integración: externo vs interno", () => {
   const base = deriveIntegrationDocsChecklistOpcionales([]);
 
-  it("EXTERNO: sin acta digital, carta, semanas ni badge Opcional en checklist", () => {
+  it("EXTERNO: solo Acta digital; sin carta/semanas", () => {
     const filtered = filterIntegracionChecklistOpcionalesParaActor(base, {
       actorPaqueteExternos: true,
       actorPaqueteResolved: true,
     });
-    assert.deepEqual(filtered, []);
-    assert.ok(!filtered.some((i) => i.tipo_documento === "cliente_acta_nacimiento_digital"));
+    assert.deepEqual(
+      filtered.map((i) => i.tipo_documento),
+      ["cliente_acta_nacimiento_digital"],
+    );
     assert.ok(!filtered.some((i) => i.tipo_documento === "cliente_carta_empresa"));
     assert.ok(!filtered.some((i) => i.tipo_documento === "cliente_semanas_cotizadas"));
   });
@@ -87,25 +95,15 @@ describe("page.tsx wiring: acta digital y opcionales externos", () => {
     assert.doesNotMatch(page, /tiposEnvio\.length\s*===\s*7/);
   });
 
-  it("EXTERNO: Evidencia/Vigencia/Constancia SAT gated; scoped con esObligatorio", () => {
-    assert.match(
-      page,
-      /shouldMountAsesorIntegracionOpcionalDedicado\([\s\S]*?\)\s*\?\s*\([\s\S]*?<AsesorEvidenciaSection/,
-    );
-    assert.match(
-      page,
-      /shouldMountAsesorIntegracionOpcionalDedicado\([\s\S]*?\)\s*\?\s*\([\s\S]*?<AsesorVigenciaDerechosSection/,
-    );
-    assert.match(
-      page,
-      /shouldMountAsesorIntegracionOpcionalDedicado\([\s\S]*?\)\s*\?\s*\([\s\S]*?<AsesorConstanciaSituacionFiscalSection/,
-    );
-    assert.match(page, /esObligatorio=\{tiposEnvioObligatorios\.includes\(doc\.tipo\)\}/);
-    assert.match(page, /AsesorScopedEquipoDocumentoSection/);
+  it("dedupe scoped + autoridad actorPaqueteExternos", () => {
+    assert.match(page, /tiposYaEnChecklistObligatorios:\s*tiposEnvioObligatorios/);
+    assert.match(page, /resolveScopedEquipoUploadHint/);
+    assert.match(page, /tiposEnvioResolved/);
+    assert.match(page, /tiposEnvioCoherentesConDueno/);
+    assert.doesNotMatch(page, /tiposEnvioObligatorios\.length\s*===\s*7/);
   });
 
   it("NO oculta Pagaré / Mesa docs / retención por actorPaqueteExternos", () => {
-    // Pagaré y MesaDocumentos sin gate de paquete externos
     assert.match(page, /dataSupabase && precal\?\.id \? \(\s*<AsesorPagareSection/);
     assert.match(
       page,

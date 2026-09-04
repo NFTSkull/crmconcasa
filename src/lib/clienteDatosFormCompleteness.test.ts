@@ -22,8 +22,8 @@ const vacio: ClienteDatosFormShape = {
   registroPatronal: "",
   telefonoEmpresa: "",
   referencias: [
-    { nombre: "", celular: "" },
-    { nombre: "", celular: "" },
+    { nombre: "", nombres: "", apellidoPaterno: "", apellidoMaterno: "", celular: "" },
+    { nombre: "", nombres: "", apellidoPaterno: "", apellidoMaterno: "", celular: "" },
   ],
   beneficiario: { nombre: "", parentesco: "" },
   direccionEmpresa: { calle: "", colonia: "", municipio: "", cp: "" },
@@ -45,8 +45,8 @@ const completoLegacy: ClienteDatosFormShape = {
   registroPatronal: "RP1",
   telefonoEmpresa: "5587654321",
   referencias: [
-    { nombre: "R1", celular: "5511111111" },
-    { nombre: "R2", celular: "5522222222" },
+    { nombre: "R1 A B", nombres: "R1", apellidoPaterno: "A", apellidoMaterno: "B", celular: "5511111111" },
+    { nombre: "R2 C D", nombres: "R2", apellidoPaterno: "C", apellidoMaterno: "D", celular: "5522222222" },
   ],
   beneficiario: { nombre: "B", parentesco: "Hermano" },
   direccionEmpresa: {
@@ -90,6 +90,7 @@ test("getClienteDatosCamposFaltantes: Mejoravit sin vivienda estructurada falla"
 test("getClienteDatosCamposFaltantes: formulario Mejoravit completo no faltantes", () => {
   assert.deepEqual(
     getClienteDatosCamposFaltantes(completoMejoravit, {
+      telefonoCasa: "5533333333",
       montoAprobado: 100_000,
       direccionOpcional: "",
       programaDb: "mejoravit",
@@ -148,7 +149,7 @@ test("getClienteDatosCamposFaltantes: formulario vacío tiene 50 obligatorios en
   assert.equal(CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT_MEJORAVIT, 50);
 });
 
-test("getClienteDatosCamposFaltantes: Mejoravit FLAG OFF usa base 24 (no P189)", () => {
+test("getClienteDatosCamposFaltantes: Mejoravit FLAG OFF usa base 29 (no P189)", () => {
   const m = getClienteDatosCamposFaltantes(
     { ...completoLegacy },
     {
@@ -156,6 +157,7 @@ test("getClienteDatosCamposFaltantes: Mejoravit FLAG OFF usa base 24 (no P189)",
       direccionOpcional: "Calle 1",
       programaDb: "mejoravit",
       requireInfonavit: false,
+      telefonoCasa: "5533333333",
     },
   );
   assert.deepEqual(m, []);
@@ -163,17 +165,22 @@ test("getClienteDatosCamposFaltantes: Mejoravit FLAG OFF usa base 24 (no P189)",
     getClienteDatosCamposFaltantes(vacio, {
       programaDb: "mejoravit",
       requireInfonavit: false,
+      telefonoCasa: "",
     }).length,
     CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT_MEJORAVIT_BASE,
   );
+  assert.equal(CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT_MEJORAVIT_BASE, 29);
 });
 
 test("getClienteDatosCamposFaltantes: compro_tu_casa sin sección Mejoravit", () => {
   assert.equal(
-    getClienteDatosCamposFaltantes(vacio, { programaDb: "compro_tu_casa" }).length,
+    getClienteDatosCamposFaltantes(vacio, {
+      programaDb: "compro_tu_casa",
+      telefonoCasa: "",
+    }).length,
     CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT_DEFAULT,
   );
-  assert.equal(CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT_DEFAULT, 22);
+  assert.equal(CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT_DEFAULT, 27);
 });
 
 test("getClienteDatosCamposFaltantes: silvia simplificado no exige refs/correo/plazo", () => {

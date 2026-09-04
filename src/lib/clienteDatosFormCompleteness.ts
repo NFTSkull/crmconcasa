@@ -1,5 +1,9 @@
 import type { ExpedienteClienteDatos } from "@/domain/expediente-cliente-datos";
-import type { ClienteDatosPerfilCaptura } from "@/domain/asesor-equipo/asesor-en-equipo-por-lider-email";
+import {
+  clienteDatosRequiereTelefonoCasa,
+  isClienteDatosPerfilPendiente,
+  type ClienteDatosPerfilCaptura,
+} from "@/domain/asesor-equipo/asesor-en-equipo-por-lider-email";
 import { emptyInfonavitClienteDatosV1 } from "@/domain/expediente-cliente-datos/infonavit-datos";
 import {
   calcMontoCalculadoCobro,
@@ -7,6 +11,17 @@ import {
   parseMontoCalculadoInput,
   parsePorcentajeCobroInput,
 } from "@/lib/clienteDatosCobro";
+
+/** Misma normalización que `normalizeTelefonoMexico` (sin import circular). */
+function normalizeTelefonoMexicoLocal(input: string): string {
+  let digits = String(input ?? "").replace(/\D/g, "");
+  if (digits.length === 12 && digits.startsWith("52")) {
+    digits = digits.slice(2);
+  } else if (digits.length === 11 && digits.startsWith("1")) {
+    digits = digits.slice(1);
+  }
+  return digits;
+}
 
 export type ClienteDatosFormShape = ExpedienteClienteDatos["datos"];
 
@@ -18,9 +33,15 @@ export type ClienteDatosCompletenessContext = {
   requireInfonavit?: boolean;
   /**
    * `asesor_equipo_silvia_simplificado` solo cuando el dueño del expediente
-   * confirmó membresía al equipo Silvia (fail-closed → completo).
+   * confirmó membresía externa (Silvia|Orlando).
+   * `clasificacion_pendiente` = UNKNOWN (no B1–B5).
    */
   perfilCaptura?: ClienteDatosPerfilCaptura;
+  /**
+   * Solo si `clienteDatosRequiereTelefonoCasa(perfil)`.
+   * Omitir / undefined en externo|unknown → no participa en faltantes.
+   */
+  telefonoCasa?: string;
 };
 
 export const CLIENTE_DATOS_NOTA_MESA_MAX_LENGTH = 1000;
@@ -40,10 +61,10 @@ export function getNotaMesaLongitudError(
 export const CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT_MEJORAVIT = 50;
 
 /** Completitud Mejoravit pre-P189 (sin bloque infonavit). */
-export const CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT_MEJORAVIT_BASE = 24;
+export const CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT_MEJORAVIT_BASE = 29;
 
 /** Campos obligatorios sin sección Crédito Mejoravit / P189. */
-export const CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT_DEFAULT = 22;
+export const CLIENTE_DATOS_OBLIGATORY_FIELD_COUNT_DEFAULT = 27;
 
 /**
  * Subset Equipo Silvia (sin refs/beneficiario/correo/empresa/tel.empresa/registro/plazo/P189).
@@ -120,7 +141,9 @@ function pushBaseNombreRefsBeneficiarioDomicilio(
   };
   req("Nombre del cliente", d.nombreCliente);
   d.referencias.forEach((r, i) => {
-    req(`Referencia ${i + 1} — nombre`, r.nombre);
+    req(`Referencia ${i + 1} — nombre(s)`, String(r.nombres ?? ""));
+    req(`Referencia ${i + 1} — primer apellido`, String(r.apellidoPaterno ?? ""));
+    req(`Referencia ${i + 1} — segundo apellido`, String(r.apellidoMaterno ?? ""));
     req(`Referencia ${i + 1} — celular`, r.celular);
   });
   req("Beneficiario — nombre", d.beneficiario.nombre);
@@ -133,6 +156,10 @@ export function getClienteDatosCamposFaltantes(
   d: ClienteDatosFormShape,
   ctx: ClienteDatosCompletenessContext = {},
 ): string[] {
+  // UNKNOWN ≠ INTERNO: no aplicar B1–B5; incompleto hasta resolver clasificación.
+  if (isClienteDatosPerfilPendiente(ctx.perfilCaptura)) {
+    return ["Validando perfil del expediente"];
+  }
   const missing: string[] = [];
   const req = (label: string, v: string) => {
     if (!String(v).trim()) missing.push(label);
@@ -145,6 +172,20 @@ export function getClienteDatosCamposFaltantes(
   req("NSS", d.nss);
   req("CURP", d.curp);
   req("Celular", d.celular);
+  if (
+    clienteDatosRequiereTelefonoCasa(ctx.perfilCaptura) &&
+    ctx.telefonoCasa !== undefined
+  ) {
+    const casa = String(ctx.telefonoCasa ?? "");
+    req("Teléfono de casa", casa);
+    if (casa.trim()) {
+      const celNorm = normalizeTelefonoMexicoLocal(d.celular);
+      const casaNorm = normalizeTelefonoMexicoLocal(casa);
+      if (celNorm && casaNorm && celNorm === casaNorm) {
+        missing.push("Teléfono de casa distinto al celular");
+      }
+    }
+  }
   if (!silvia) {
     req("Correo", d.correo);
     req("Empresa", d.empresa);

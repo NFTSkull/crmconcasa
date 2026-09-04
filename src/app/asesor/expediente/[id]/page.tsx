@@ -86,6 +86,7 @@ import {
   fetchAsesorTiposDocumentoVisibles,
   fetchAsesorDocumentosObligatoriosEnvio,
   shouldMountAsesorScopedEquipoDocumentoSection,
+  resolveScopedEquipoUploadHint,
   SCOPED_EQUIPO_DOCUMENTO_UI,
   esReingresoDocumentosEditables,
   useExpedienteArchivosRepo,
@@ -96,6 +97,7 @@ import {
 } from "@/domain/expediente-archivos";
 import {
   ClienteDatosSupabaseError,
+  setTelefonoCasaDraft,
   useExpedienteClienteDatosRepo,
   type ExpedienteClienteDatos,
 } from "@/domain/expediente-cliente-datos";
@@ -111,10 +113,13 @@ import {
   type ClienteDatosFieldErrors,
 } from "@/lib/clienteDatosValidation";
 import {
+  clienteDatosRequiereTelefonoCasa,
+  isClienteDatosPerfilPendiente,
   resolveClienteDatosCapturaVariant,
   resolveClienteDatosPerfilCaptura,
+  type PaqueteDocumentalClasificacion,
 } from "@/domain/asesor-equipo/asesor-en-equipo-por-lider-email";
-import { fetchAsesorEsPaqueteDocumentalExternos } from "@/domain/asesor-equipo/asesor-es-paquete-documental-externos";
+import { fetchAsesorEsPaqueteDocumentalExternosClasificacion } from "@/domain/asesor-equipo/asesor-es-paquete-documental-externos";
 import {
   filterIntegracionChecklistOpcionalesParaActor,
   shouldMountAsesorIntegracionOpcionalDedicado,
@@ -173,8 +178,8 @@ const EMPTY_CLIENTE_DATOS: ClienteDatosFormState = {
   registroPatronal: "",
   telefonoEmpresa: "",
   referencias: [
-    { nombre: "", celular: "" },
-    { nombre: "", celular: "" },
+    { nombre: "", nombres: "", apellidoPaterno: "", apellidoMaterno: "", celular: "" },
+    { nombre: "", nombres: "", apellidoPaterno: "", apellidoMaterno: "", celular: "" },
   ],
   beneficiario: { nombre: "", parentesco: "" },
   direccionEmpresa: { calle: "", colonia: "", municipio: "", cp: "" },
@@ -318,9 +323,18 @@ export default function AsesorExpedientePage() {
   const [clienteDatosLoading, setClienteDatosLoading] = useState(false);
   const [clienteDatosSaved, setClienteDatosSaved] = useState(false);
   const [actorPaqueteExternos, setActorPaqueteExternos] = useState(false);
-  /** false hasta que termine fetchAsesorEsPaqueteDocumentalExternos (evita flash de opcionales). */
+  /** false hasta clasificación actor resuelta (evita flash opcionales / B1 UI). */
   const [actorPaqueteExternosResolved, setActorPaqueteExternosResolved] = useState(false);
+  const [actorPaqueteClasificacion, setActorPaqueteClasificacion] =
+    useState<PaqueteDocumentalClasificacion>("unknown");
   const [duenoPaqueteExternos, setDuenoPaqueteExternos] = useState(false);
+  /** Tri-state dueño: UNKNOWN ≠ INTERNO. */
+  const [duenoPaqueteClasificacion, setDuenoPaqueteClasificacion] =
+    useState<PaqueteDocumentalClasificacion>("unknown");
+  /** false hasta resolver docs/clasificación del dueño (evita enviar con fail-closed 4). */
+  const [tiposEnvioResolved, setTiposEnvioResolved] = useState(false);
+  /** React state de teléfono de casa (internos); draft Map sigue alimentando RPC. */
+  const [telefonoCasaValue, setTelefonoCasaValue] = useState("");
   const [tiposEnvioObligatorios, setTiposEnvioObligatorios] = useState<
     readonly IntegrationDocAsesorEnvioObligatorioTipo[]
   >([...INTEGRATION_DOC_TIPOS_ASESOR_ENVIO]);
@@ -405,7 +419,7 @@ export default function AsesorExpedientePage() {
 
   const integrationChecklistOpcionales = useMemo((): IntegrationDocChecklistItem[] | null => {
     if (!integrationDocsInput) return null;
-    // Actor externos / unresolved: [] — SQL upload_para no permite opcionales de integración.
+    // Actor externos: solo Acta digital (upload_para). Unresolved: [] (evita flash).
     const base = deriveIntegrationDocsChecklistOpcionales(integrationDocsInput);
     const sinApodaca = filterChecklistOpcionalesNotificacionApodaca(base);
     return filterIntegracionChecklistOpcionalesParaActor(sinApodaca, {
@@ -651,25 +665,43 @@ export default function AsesorExpedientePage() {
   const perfilCapturaClienteDatos = useMemo(
     () =>
       resolveClienteDatosPerfilCaptura({
+        duenoClasificacion: tiposEnvioResolved
+          ? duenoPaqueteClasificacion
+          : "unknown",
         duenoEnPaqueteExternosConfirmado: duenoPaqueteExternos,
       }),
-    [duenoPaqueteExternos],
+    [duenoPaqueteClasificacion, duenoPaqueteExternos, tiposEnvioResolved],
   );
   const capturaVariantClienteDatos = useMemo(
     () =>
       resolveClienteDatosCapturaVariant({
+        actorClasificacion: actorPaqueteClasificacion,
+        actorClasificacionResuelta: actorPaqueteExternosResolved,
         actorEnPaqueteExternosConfirmado: actorPaqueteExternos,
       }),
-    [actorPaqueteExternos],
+    [
+      actorPaqueteClasificacion,
+      actorPaqueteExternos,
+      actorPaqueteExternosResolved,
+    ],
   );
+
+  const handleTelefonoCasaChange = useCallback((value: string) => {
+    setTelefonoCasaValue(value);
+    if (precal?.id) setTelefonoCasaDraft(String(precal.id), value);
+  }, [precal?.id]);
 
   useEffect(() => {
     let cancelled = false;
+    setActorPaqueteExternosResolved(false);
+    setActorPaqueteClasificacion("unknown");
     void (async () => {
-      const actor = await fetchAsesorEsPaqueteDocumentalExternos();
+      const actor = await fetchAsesorEsPaqueteDocumentalExternosClasificacion();
       if (!cancelled) {
-        setActorPaqueteExternos(actor === true);
-        setActorPaqueteExternosResolved(true);
+        setActorPaqueteClasificacion(actor);
+        setActorPaqueteExternos(actor === "externo");
+        // Solo "resuelto" si la RPC contestó externo|interno (no unknown).
+        setActorPaqueteExternosResolved(actor !== "unknown");
       }
     })();
     return () => {
@@ -680,25 +712,46 @@ export default function AsesorExpedientePage() {
   useEffect(() => {
     let cancelled = false;
     const ownerId = precal?.asesorProfileId?.trim() || "";
+    setTiposEnvioResolved(false);
+    setDuenoPaqueteClasificacion("unknown");
+    if (!precal) {
+      return;
+    }
     if (!ownerId) {
+      // Sin dueño resoluble → UNKNOWN (no asumir interno).
       setDuenoPaqueteExternos(false);
+      setDuenoPaqueteClasificacion("unknown");
       setTiposEnvioObligatorios([...INTEGRATION_DOC_TIPOS_ASESOR_ENVIO]);
+      setTiposEnvioResolved(false);
       return;
     }
     void (async () => {
-      const [ok, tipos] = await Promise.all([
-        fetchAsesorEsPaqueteDocumentalExternos(ownerId),
+      const [clasif, tipos] = await Promise.all([
+        fetchAsesorEsPaqueteDocumentalExternosClasificacion(ownerId),
         fetchAsesorDocumentosObligatoriosEnvio(ownerId),
       ]);
-      if (!cancelled) {
-        setDuenoPaqueteExternos(ok === true);
-        setTiposEnvioObligatorios(tipos);
+      if (cancelled) return;
+      setDuenoPaqueteClasificacion(clasif);
+      if (clasif === "unknown") {
+        // UNKNOWN ≠ INTERNO: no habilitar envío ni B1–B5.
+        setDuenoPaqueteExternos(false);
+        setTiposEnvioObligatorios([...INTEGRATION_DOC_TIPOS_ASESOR_ENVIO]);
+        setTiposEnvioResolved(false);
+        return;
       }
+      setDuenoPaqueteExternos(clasif === "externo");
+      setTiposEnvioObligatorios(tipos);
+      setTiposEnvioResolved(true);
     })();
     return () => {
       cancelled = true;
     };
-  }, [precal?.asesorProfileId]);
+  }, [precal, precal?.asesorProfileId]);
+
+  const requiereTelefonoCasa = useMemo(
+    () => clienteDatosRequiereTelefonoCasa(perfilCapturaClienteDatos),
+    [perfilCapturaClienteDatos],
+  );
 
   const camposFaltantesClienteDatos = useMemo(
     () =>
@@ -708,6 +761,7 @@ export default function AsesorExpedientePage() {
         programaDb,
         requireInfonavit: false,
         perfilCaptura: perfilCapturaClienteDatos,
+        telefonoCasa: requiereTelefonoCasa ? telefonoCasaValue : undefined,
       }),
     [
       clienteDatos,
@@ -715,8 +769,38 @@ export default function AsesorExpedientePage() {
       montoAprobadoEditor,
       programaDb,
       perfilCapturaClienteDatos,
+      requiereTelefonoCasa,
+      telefonoCasaValue,
     ],
   );
+
+  const telefonoCasaFieldError = useMemo(() => {
+    if (!requiereTelefonoCasa) return undefined;
+    const v = validateClienteDatos(clienteDatos, {
+      montoAprobado: montoAprobadoEditor,
+      direccionOpcional,
+      programaDb,
+      requireInfonavit: false,
+      perfilCaptura: perfilCapturaClienteDatos,
+      telefonoCasa: telefonoCasaValue,
+    });
+    return v.errors.telefonoCasa;
+  }, [
+    clienteDatos,
+    direccionOpcional,
+    montoAprobadoEditor,
+    programaDb,
+    perfilCapturaClienteDatos,
+    requiereTelefonoCasa,
+    telefonoCasaValue,
+  ]);
+
+  const clasificacionPerfilMensaje = useMemo(() => {
+    if (isClienteDatosPerfilPendiente(perfilCapturaClienteDatos)) {
+      return "Validando el perfil del expediente… Las acciones de completar/enviar permanecen bloqueadas hasta confirmar si es interno o externo.";
+    }
+    return null;
+  }, [perfilCapturaClienteDatos]);
 
   const datosGeneralesCompletos = useMemo(() => {
     if (camposFaltantesClienteDatos.length > 0) return false;
@@ -806,14 +890,40 @@ export default function AsesorExpedientePage() {
     expedienteCancelado ||
     correccionView.showRechazoOperativoBanner ||
     proxyRechazoAbierto;
+  /**
+   * Si el dueño es externo pero el RPC de tipos falló a 4 clásicos, no habilitar envío:
+   * el backend (envio_para/requeridos) sigue siendo autoridad y rechazaría; evitamos UX engañosa.
+   * UNKNOWN / no resuelto → no coherente (bloqueo seguro).
+   */
+  const tiposEnvioCoherentesConDueno = useMemo(() => {
+    if (!tiposEnvioResolved) return false;
+    if (duenoPaqueteClasificacion === "unknown") return false;
+    if (duenoPaqueteClasificacion === "interno") return true;
+    return tiposEnvioObligatorios.includes(
+      "cliente_constancia_curp" as IntegrationDocAsesorEnvioObligatorioTipo,
+    );
+  }, [
+    duenoPaqueteClasificacion,
+    tiposEnvioObligatorios,
+    tiposEnvioResolved,
+  ]);
+
   const puedeEnviarAMesaSupabase = useMemo(
     () =>
+      tiposEnvioResolved &&
+      duenoPaqueteClasificacion !== "unknown" &&
+      !isClienteDatosPerfilPendiente(perfilCapturaClienteDatos) &&
+      tiposEnvioCoherentesConDueno &&
       hasMontoAprobado &&
       datosGeneralesCompletos &&
       documentosCompletos &&
       !operativo?.submittedToMesa &&
       !expedienteCancelado,
     [
+      tiposEnvioResolved,
+      duenoPaqueteClasificacion,
+      perfilCapturaClienteDatos,
+      tiposEnvioCoherentesConDueno,
       datosGeneralesCompletos,
       documentosCompletos,
       hasMontoAprobado,
@@ -1546,6 +1656,12 @@ export default function AsesorExpedientePage() {
     if (!currentUser?.email) {
       return { ok: false, message: "Sesión inválida." };
     }
+    if (isClienteDatosPerfilPendiente(perfilCapturaClienteDatos)) {
+      const message =
+        "Aún se está validando el perfil del expediente. Intenta de nuevo en un momento.";
+      setClienteDatosError(message);
+      return { ok: false, message };
+    }
     if (!hasMontoAprobado && !esReingresoActivo) {
       window.alert(MSJ_ESPERA_MONTO_REVISOR);
       return { ok: false, message: MSJ_ESPERA_MONTO_REVISOR };
@@ -1567,6 +1683,7 @@ export default function AsesorExpedientePage() {
       programaDb,
       requireInfonavit: false,
       perfilCaptura: perfilCapturaClienteDatos,
+      telefonoCasa: requiereTelefonoCasa ? telefonoCasaValue : undefined,
     });
     if (!validation.isValid) {
       setClienteDatosShowValidation(true);
@@ -1658,6 +1775,8 @@ export default function AsesorExpedientePage() {
     montoAprobadoEditor,
     programaDb,
     perfilCapturaClienteDatos,
+    requiereTelefonoCasa,
+    telefonoCasaValue,
     loadExpediente,
   ]);
 
@@ -2133,6 +2252,10 @@ export default function AsesorExpedientePage() {
               onMontoCalculadoEdited={handleMontoCalculadoEdited}
               advertenciaInscripcionInfonavit={advertenciaInscripcionInfonavit}
               capturaVariant={capturaVariantClienteDatos}
+              showTelefonoCasa={requiereTelefonoCasa}
+              telefonoCasaFieldError={telefonoCasaFieldError}
+              onTelefonoCasaChange={handleTelefonoCasaChange}
+              clasificacionPerfilMensaje={clasificacionPerfilMensaje}
             />
             </div>
             {esMejoravit && dataSupabase && precal?.id ? (
@@ -2187,25 +2310,31 @@ export default function AsesorExpedientePage() {
             ) : null}
             {dataSupabase &&
             precal?.id &&
-            SCOPED_EQUIPO_DOCUMENTO_UI.map((doc) =>
-              shouldMountAsesorScopedEquipoDocumentoSection({
+            SCOPED_EQUIPO_DOCUMENTO_UI.map((doc) => {
+              const esObligatorio = tiposEnvioObligatorios.includes(doc.tipo);
+              return shouldMountAsesorScopedEquipoDocumentoSection({
                 expedienteId: String(precal.id),
                 tipo: doc.tipo,
                 tiposVisibles: tiposDocumentoVisibles,
+                tiposYaEnChecklistObligatorios: tiposEnvioObligatorios,
               }) ? (
                 <AsesorScopedEquipoDocumentoSection
                   key={doc.tipo}
                   expedienteId={String(precal.id)}
                   tipo={doc.tipo}
                   label={doc.label}
-                  uploadHint={doc.uploadHint}
+                  uploadHint={resolveScopedEquipoUploadHint({
+                    label: doc.label,
+                    esObligatorio,
+                    maxBytes: doc.maxBytes,
+                  })}
                   maxBytes={doc.maxBytes}
                   canUpload={puedeEditarScopedEquipoDocumento}
-                  esObligatorio={tiposEnvioObligatorios.includes(doc.tipo)}
+                  esObligatorio={esObligatorio}
                   onUploaded={refreshArchivos}
                 />
-              ) : null,
-            )}
+              ) : null;
+            })}
             {dataSupabase && precal?.id ? (
               <AsesorNotificacionDocumentoSection
                 expedienteId={String(precal.id)}
@@ -2568,6 +2697,10 @@ export default function AsesorExpedientePage() {
               onMontoCalculadoEdited={handleMontoCalculadoEdited}
               advertenciaInscripcionInfonavit={advertenciaInscripcionInfonavit}
               capturaVariant={capturaVariantClienteDatos}
+              showTelefonoCasa={requiereTelefonoCasa}
+              telefonoCasaFieldError={telefonoCasaFieldError}
+              onTelefonoCasaChange={handleTelefonoCasaChange}
+              clasificacionPerfilMensaje={clasificacionPerfilMensaje}
             />
             </div>
 
@@ -2589,6 +2722,7 @@ export default function AsesorExpedientePage() {
                 programaDb,
                 requireInfonavit: false,
                 perfilCaptura: perfilCapturaClienteDatos,
+                telefonoCasa: requiereTelefonoCasa ? telefonoCasaValue : undefined,
               });
               if (camposFaltantes.length > 0) {
                 window.alert(
@@ -2604,6 +2738,7 @@ export default function AsesorExpedientePage() {
                 programaDb,
                 requireInfonavit: false,
                 perfilCaptura: perfilCapturaClienteDatos,
+                telefonoCasa: requiereTelefonoCasa ? telefonoCasaValue : undefined,
               });
               if (!validation.isValid) {
                 setClienteDatosShowValidation(true);

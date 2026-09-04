@@ -28,10 +28,18 @@ export function shouldMountAsesorScopedEquipoDocumentoSection(params: Readonly<{
   expedienteId: string | null | undefined;
   tipo: string;
   tiposVisibles: readonly string[] | null | undefined;
+  /**
+   * Si el tipo ya está en el checklist obligatorio (p. ej. externos 8),
+   * no montar la sección dedicada → evita duplicados.
+   */
+  tiposYaEnChecklistObligatorios?: readonly string[] | null | undefined;
 }>): boolean {
   if (!String(params.expedienteId ?? "").trim()) return false;
   const visibles = params.tiposVisibles ?? [];
-  return visibles.includes(params.tipo);
+  if (!visibles.includes(params.tipo)) return false;
+  const enChecklist = params.tiposYaEnChecklistObligatorios ?? [];
+  if (enChecklist.includes(params.tipo)) return false;
+  return true;
 }
 
 /**

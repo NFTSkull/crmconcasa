@@ -20,6 +20,12 @@
 
 ## [Unreleased]
 
+### Changed
+- **fix(externos): sin Número de casa en Datos Generales** — `clienteDatosRequiereTelefonoCasa`; UI/validación/faltantes/gates OFF; save vía `save_cliente_datos` sin mutar `telefono_casa` histórico.
+- **fix(pre-commit): telefonoCasa reactivo + clasificación tri-state** — `telefonoCasaValue` en page + callback; UNKNOWN≠INTERNO (`clasificacion_pendiente`); envío/guardar bloqueados hasta externo|interno.
+- **feat(locales): CURP obligatorio externos + datos internos (casa/refs)** — mig `20260904230000`; FE 8+dedupe+fail-safe; internos gated. Sin Cloud/deploy en este bloque.
+
+
 ### Fixed
 - **fix(asesor): ocultar opcionales de integración a externos (Parte B UX)** — evita montar acta digital/carta/semanas/vigencia/constancia SAT/evidencia cuando `actorPaqueteExternos`; espera resolución RPC para no flash; Notificación/Solicitud/Pagaré/Mesa RO intactos. Sin cambio SQL.
 

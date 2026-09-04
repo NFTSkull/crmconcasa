@@ -120,13 +120,29 @@ function mapReferencias(
 
   const mapped = raw
     .filter((item): item is ReferenciaJson => !!item && typeof item === "object")
-    .map((item) => ({
-      nombre: asString(item.nombre),
-      celular: asString(item.celular) || asString(item.telefono),
-    }));
+    .map((item) => {
+      const rec = item as ReferenciaJson & {
+        nombres?: unknown;
+        apellidoPaterno?: unknown;
+        apellidoMaterno?: unknown;
+      };
+      return {
+        nombre: asString(rec.nombre),
+        nombres: asString(rec.nombres) || undefined,
+        apellidoPaterno: asString(rec.apellidoPaterno) || undefined,
+        apellidoMaterno: asString(rec.apellidoMaterno) || undefined,
+        celular: asString(rec.celular) || asString(rec.telefono),
+      };
+    });
 
   while (mapped.length < 2) {
-    mapped.push({ nombre: "", celular: "" });
+    mapped.push({
+      nombre: "",
+      nombres: "",
+      apellidoPaterno: "",
+      apellidoMaterno: "",
+      celular: "",
+    });
   }
 
   return mapped.slice(0, 2);

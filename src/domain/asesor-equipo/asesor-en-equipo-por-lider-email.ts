@@ -11,12 +11,22 @@ export const EQUIPO_LIDER_EMAIL_SILVIA_REYES =
 /**
  * Nombre histórico; actualmente representa el perfil simplificado del paquete
  * documental de externos definido por SQL (Silvia u Orlando).
+ *
+ * `clasificacion_pendiente`: RPC de paquete aún no resuelta / error —
+ * UNKNOWN ≠ INTERNO (no activa B1–B5; acciones críticas bloqueadas en UI).
  */
 export type ClienteDatosPerfilCaptura =
   | "asesor_completo"
-  | "asesor_equipo_silvia_simplificado";
+  | "asesor_equipo_silvia_simplificado"
+  | "clasificacion_pendiente";
 
 export type ClienteDatosCapturaVariant = "completo" | "simplificado";
+
+/** Clasificación tri-state del paquete documental (autoridad SQL). */
+export type PaqueteDocumentalClasificacion =
+  | "externo"
+  | "interno"
+  | "unknown";
 
 /** Fail-closed: solo true si confirmación explícita. */
 export function shouldUseClienteDatosVistaSimplificada(
@@ -25,15 +35,55 @@ export function shouldUseClienteDatosVistaSimplificada(
   return membresiaConfirmada === true;
 }
 
+export function isClienteDatosPerfilPendiente(
+  perfil: ClienteDatosPerfilCaptura | null | undefined,
+): boolean {
+  return perfil === "clasificacion_pendiente";
+}
+
+/**
+ * Teléfono de casa (B1) solo para internos.
+ * - `asesor_completo` / perfil omitido (legacy completo) → true
+ * - externo (`asesor_equipo_silvia_simplificado`) → false
+ * - unknown (`clasificacion_pendiente`) → false
+ */
+export function clienteDatosRequiereTelefonoCasa(
+  perfil: ClienteDatosPerfilCaptura | null | undefined,
+): boolean {
+  if (perfil === "asesor_equipo_silvia_simplificado") return false;
+  if (perfil === "clasificacion_pendiente") return false;
+  return true;
+}
+
+/**
+ * Resuelve perfil de captura.
+ * Preferir `duenoClasificacion` tri-state; el booleano legacy trata
+ * `false`/`null` como interno solo cuando no hay tri-state (compat tests).
+ */
 export function resolveClienteDatosPerfilCaptura(params: Readonly<{
+  /**
+   * Tri-state autoridad: externo | interno | unknown.
+   * Si viene definido, manda sobre el booleano legacy.
+   */
+  duenoClasificacion?: PaqueteDocumentalClasificacion | null;
   /**
    * Dueño del expediente en paquete documental externos (SQL).
    * Alias legacy: `duenoEnEquipoSilviaConfirmado`.
+   * Solo usar cuando la clasificación ya está resuelta (true/false reales).
    */
   duenoEnPaqueteExternosConfirmado?: boolean | null;
   /** @deprecated Preferir `duenoEnPaqueteExternosConfirmado`. */
   duenoEnEquipoSilviaConfirmado?: boolean | null | undefined;
 }>): ClienteDatosPerfilCaptura {
+  if (params.duenoClasificacion === "unknown") {
+    return "clasificacion_pendiente";
+  }
+  if (params.duenoClasificacion === "externo") {
+    return "asesor_equipo_silvia_simplificado";
+  }
+  if (params.duenoClasificacion === "interno") {
+    return "asesor_completo";
+  }
   const ok =
     params.duenoEnPaqueteExternosConfirmado === true ||
     params.duenoEnEquipoSilviaConfirmado === true;
@@ -42,6 +92,11 @@ export function resolveClienteDatosPerfilCaptura(params: Readonly<{
 
 export function resolveClienteDatosCapturaVariant(params: Readonly<{
   /**
+   * Tri-state actor JWT. `unknown` / no resuelto → simplificado (no flash B1–B5 UI).
+   */
+  actorClasificacion?: PaqueteDocumentalClasificacion | null;
+  actorClasificacionResuelta?: boolean;
+  /**
    * Actor JWT en paquete documental externos (SQL).
    * Alias legacy: `actorEnEquipoSilviaConfirmado`.
    */
@@ -49,6 +104,18 @@ export function resolveClienteDatosCapturaVariant(params: Readonly<{
   /** @deprecated Preferir `actorEnPaqueteExternosConfirmado`. */
   actorEnEquipoSilviaConfirmado?: boolean | null | undefined;
 }>): ClienteDatosCapturaVariant {
+  if (params.actorClasificacionResuelta === false) {
+    return "simplificado";
+  }
+  if (params.actorClasificacion === "unknown") {
+    return "simplificado";
+  }
+  if (params.actorClasificacion === "externo") {
+    return "simplificado";
+  }
+  if (params.actorClasificacion === "interno") {
+    return "completo";
+  }
   const ok =
     params.actorEnPaqueteExternosConfirmado === true ||
     params.actorEnEquipoSilviaConfirmado === true;

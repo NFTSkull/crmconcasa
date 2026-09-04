@@ -5,8 +5,23 @@
 import { isSupabaseConfigured, supabaseBrowser } from "@/lib/supabaseBrowser";
 import { INTEGRATION_DOC_TIPOS_ASESOR_ENVIO } from "./integration-docs-completos";
 
-/** Espejo exacto del paquete externos Parte A (7, sin INE reverso). */
+/**
+ * Paquete externos actual (SQL `integration_doc_tipos_asesor_envio_para`):
+ * 8 docs, sin INE reverso, con CURP (`cliente_constancia_curp`).
+ */
 export const INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_EXTERNOS = [
+  "cliente_ine_frente",
+  "cliente_comprobante_domicilio",
+  "cliente_estado_cuenta",
+  "cliente_constancia_curp",
+  "cliente_solicitud_credito",
+  "cliente_lista_nominal",
+  "cliente_bajo_protesta",
+  "cliente_presupuesto",
+] as const;
+
+/** Set legacy 7 (Parte A / pre-CURP) — aceptado en parse para no romper entornos sin la mig nueva. */
+export const INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_EXTERNOS_LEGACY_7 = [
   "cliente_ine_frente",
   "cliente_comprobante_domicilio",
   "cliente_estado_cuenta",
@@ -47,8 +62,8 @@ function sameExactSet(
 }
 
 /**
- * Acepta ÚNICAMENTE el set exacto de 4 clásicos o el de 7 externos.
- * Cualquier basura / parcial / desconocido / duplicado → 4 clásicos.
+ * Acepta ÚNICAMENTE set exacto 4 clásicos, 8 externos (+CURP) o legacy 7 externos.
+ * Basura / parcial → 4 clásicos.
  */
 export function parseAsesorDocumentosObligatoriosEnvio(
   raw: unknown,
@@ -66,6 +81,9 @@ export function parseAsesorDocumentosObligatoriosEnvio(
 
   if (sameExactSet(tipos, INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_EXTERNOS)) {
     return [...INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_EXTERNOS];
+  }
+  if (sameExactSet(tipos, INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_EXTERNOS_LEGACY_7)) {
+    return [...INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_EXTERNOS_LEGACY_7];
   }
   if (sameExactSet(tipos, INTEGRATION_DOC_TIPOS_ASESOR_ENVIO)) {
     return [...INTEGRATION_DOC_TIPOS_ASESOR_ENVIO];

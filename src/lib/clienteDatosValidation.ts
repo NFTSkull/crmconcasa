@@ -1,4 +1,8 @@
-import type { ClienteDatosPerfilCaptura } from "@/domain/asesor-equipo/asesor-en-equipo-por-lider-email";
+import {
+  clienteDatosRequiereTelefonoCasa,
+  isClienteDatosPerfilPendiente,
+  type ClienteDatosPerfilCaptura,
+} from "@/domain/asesor-equipo/asesor-en-equipo-por-lider-email";
 import type { ClienteDatosFormShape } from "@/lib/clienteDatosFormCompleteness";
 import {
   calcMontoCalculadoCobro,
@@ -53,6 +57,8 @@ export type ClienteDatosValidationContext = {
    * Fail-closed: omitido → validación completa.
    */
   perfilCaptura?: ClienteDatosPerfilCaptura;
+  /** Solo internos. Externos (perfil silvia) no validan este campo aquí. */
+  telefonoCasa?: string;
 };
 
 export type ClienteDatosFieldKey =
@@ -66,9 +72,16 @@ export type ClienteDatosFieldKey =
   | "registroPatronal"
   | "telefonoEmpresa"
   | "referencia1Nombre"
+  | "referencia1Nombres"
+  | "referencia1ApellidoPaterno"
+  | "referencia1ApellidoMaterno"
   | "referencia1Celular"
   | "referencia2Nombre"
+  | "referencia2Nombres"
+  | "referencia2ApellidoPaterno"
+  | "referencia2ApellidoMaterno"
   | "referencia2Celular"
+  | "telefonoCasa"
   | "beneficiarioNombre"
   | "beneficiarioParentesco"
   | "direccionCalle"
@@ -268,11 +281,24 @@ export function normalizeClienteDatosForSave(
   // (nombre, referencias, beneficiario). Conservar valores visibles del formulario.
   const working: ClienteDatosFormShape = { ...d };
 
-  const refs = (working.referencias ?? []).map((r) => ({
-    ...r,
-    nombre: normalizePersonName(String(r?.nombre ?? "")),
-    celular: normalizeTelefonoMexico(String(r?.celular ?? "")),
-  }));
+  const refs = (working.referencias ?? []).map((r) => {
+    const nombres = normalizePersonName(String(r?.nombres ?? ""));
+    const apellidoPaterno = normalizePersonName(String(r?.apellidoPaterno ?? ""));
+    const apellidoMaterno = normalizePersonName(String(r?.apellidoMaterno ?? ""));
+    const composed = [nombres, apellidoPaterno, apellidoMaterno]
+      .filter(Boolean)
+      .join(" ")
+      .trim();
+    const nombreLegacy = normalizePersonName(String(r?.nombre ?? ""));
+    return {
+      ...r,
+      nombres,
+      apellidoPaterno,
+      apellidoMaterno,
+      nombre: composed || nombreLegacy,
+      celular: normalizeTelefonoMexico(String(r?.celular ?? "")),
+    };
+  });
   return {
     ...working,
     nombreCliente: normalizePersonName(String(working.nombreCliente ?? "")),
@@ -307,6 +333,7 @@ export function normalizeClienteDatosForSave(
 
 const SLOT_TO_FIELD: Record<TelefonoUnicidadSlot, ClienteDatosFieldKey> = {
   "cliente.celular": "celular",
+  "cliente.telefonoCasa": "telefonoCasa",
   "empresa.telefono": "telefonoEmpresa",
   "ref1.telefonoCompleto": "infonavitRef1Telefono",
   "ref1.celular": "infonavitRef1Celular",
@@ -316,6 +343,7 @@ const SLOT_TO_FIELD: Record<TelefonoUnicidadSlot, ClienteDatosFieldKey> = {
 
 const SLOT_LABEL: Record<TelefonoUnicidadSlot, string> = {
   "cliente.celular": "celular del cliente",
+  "cliente.telefonoCasa": "teléfono de casa",
   "empresa.telefono": "teléfono empresa",
   "ref1.telefonoCompleto": "teléfono fijo de referencia 1",
   "ref1.celular": "celular de referencia 1",
@@ -332,6 +360,14 @@ export function validateClienteDatos(
   ctx: ClienteDatosValidationContext = {},
 ): ClienteDatosValidationResult {
   const errors: ClienteDatosFieldErrors = {};
+  // UNKNOWN ≠ INTERNO: no aplicar B1–B5 ni marcar válido.
+  if (isClienteDatosPerfilPendiente(ctx.perfilCaptura)) {
+    return {
+      isValid: false,
+      errors,
+      messages: ["Validando perfil del expediente"],
+    };
+  }
   const data = normalizeClienteDatosForSave(d);
   const esMejoravit = isProgramaMejoravitDb(ctx.programaDb);
   const silvia = ctx.perfilCaptura === "asesor_equipo_silvia_simplificado";
@@ -538,10 +574,36 @@ export function validateClienteDatos(
   } else {
     req("nombreCliente", data.nombreCliente, "Nombre del cliente");
     if (!silvia) {
-      req("referencia1Nombre", data.referencias[0]?.nombre ?? "", "Nombre de referencia 1");
-      req("referencia1Celular", data.referencias[0]?.celular ?? "", "Celular de referencia 1");
-      req("referencia2Nombre", data.referencias[1]?.nombre ?? "", "Nombre de referencia 2");
-      req("referencia2Celular", data.referencias[1]?.celular ?? "", "Celular de referencia 2");
+      for (const [idx, prefix] of [
+        [0, "referencia1"],
+        [1, "referencia2"],
+      ] as const) {
+        const r = data.referencias[idx] ?? { nombre: "", celular: "" };
+        const nombres = String(r.nombres ?? "").trim();
+        const apPat = String(r.apellidoPaterno ?? "").trim();
+        const apMat = String(r.apellidoMaterno ?? "").trim();
+        // Históricos: si solo hay `nombre` combinado, aún exigimos partes al completar.
+        req(
+          `${prefix}Nombres` as ClienteDatosFieldKey,
+          nombres,
+          `Nombre(s) de referencia ${idx + 1}`,
+        );
+        req(
+          `${prefix}ApellidoPaterno` as ClienteDatosFieldKey,
+          apPat,
+          `Primer apellido de referencia ${idx + 1}`,
+        );
+        req(
+          `${prefix}ApellidoMaterno` as ClienteDatosFieldKey,
+          apMat,
+          `Segundo apellido de referencia ${idx + 1}`,
+        );
+        req(
+          `${prefix}Celular` as ClienteDatosFieldKey,
+          r.celular ?? "",
+          `Celular de referencia ${idx + 1}`,
+        );
+      }
       req("beneficiarioNombre", data.beneficiario.nombre, "Beneficiario — nombre");
       req("beneficiarioParentesco", data.beneficiario.parentesco, "Beneficiario — parentesco");
     }
@@ -816,6 +878,29 @@ export function validateClienteDatos(
     }
   }
 
+  // Teléfono de casa: solo internos resueltos (`clienteDatosRequiereTelefonoCasa`).
+  if (
+    clienteDatosRequiereTelefonoCasa(ctx.perfilCaptura) &&
+    ctx.telefonoCasa !== undefined
+  ) {
+    const casa = String(ctx.telefonoCasa ?? "").trim();
+    req("telefonoCasa", casa, "Teléfono de casa");
+    if (!errors.telefonoCasa && casa && !isTelefonoMexicoValido(casa)) {
+      setError(errors, "telefonoCasa", "Teléfono de casa debe tener 10 dígitos.");
+    }
+    if (!errors.telefonoCasa && !errors.celular && casa) {
+      const celNorm = normalizeTelefonoMexico(data.celular);
+      const casaNorm = normalizeTelefonoMexico(casa);
+      if (celNorm && casaNorm && celNorm === casaNorm) {
+        setError(
+          errors,
+          "telefonoCasa",
+          "El teléfono de casa no puede ser igual al celular principal.",
+        );
+      }
+    }
+  }
+
   // Unicidad intra-expediente (matriz genérica)
   const inf = data.infonavit ?? emptyInfonavitClienteDatosV1();
   const ref1Fijo = combineLadaTelefonoMexico(
@@ -831,6 +916,10 @@ export function validateClienteDatos(
     ? [{ slot: "cliente.celular", raw: data.celular }]
     : [
         { slot: "cliente.celular", raw: data.celular },
+        ...(clienteDatosRequiereTelefonoCasa(ctx.perfilCaptura) &&
+        ctx.telefonoCasa !== undefined
+          ? [{ slot: "cliente.telefonoCasa" as const, raw: String(ctx.telefonoCasa ?? "") }]
+          : []),
         { slot: "empresa.telefono", raw: data.telefonoEmpresa },
         {
           slot: "ref1.celular",

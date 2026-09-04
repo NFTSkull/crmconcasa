@@ -4,6 +4,7 @@
 
 export type TelefonoUnicidadSlot =
   | "cliente.celular"
+  | "cliente.telefonoCasa"
   | "empresa.telefono"
   | "ref1.telefonoCompleto"
   | "ref1.celular"

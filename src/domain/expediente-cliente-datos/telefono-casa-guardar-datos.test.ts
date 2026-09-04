@@ -16,12 +16,13 @@ describe("P218/P220 teléfono de casa con Guardar datos", () => {
     expect(src).toContain('aria-required="true"');
   });
 
-  it("save y saveCorreccion usan el RPC atómico", () => {
+  it("save y saveCorreccion usan el RPC atómico solo cuando requiere teléfono de casa", () => {
     const src = source("src/domain/expediente-cliente-datos/supabase.repo.ts");
-    expect(src.match(/asesor_guardar_cliente_datos_con_telefono_casa/g)?.length).toBe(2);
-    expect(src).toContain("p_es_correccion: false");
-    expect(src).toContain("p_es_correccion: true");
+    expect(src).toContain("clienteDatosRequiereTelefonoCasa");
+    expect(src).toContain("asesor_guardar_cliente_datos_con_telefono_casa");
     expect(src).toContain("p_telefono_casa: getTelefonoCasaDraft(idNorm) ?? null");
+    expect(src).toContain('client.rpc("save_cliente_datos"');
+    expect(src).toContain('client.rpc("save_cliente_datos_correccion"');
   });
 
   it("el wrapper base guarda generales y teléfono de casa dentro de la misma función", () => {

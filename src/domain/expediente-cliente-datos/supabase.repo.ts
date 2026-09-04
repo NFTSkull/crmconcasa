@@ -21,6 +21,7 @@ import { emitExpedienteClienteDatosUpdated } from "./emit-updated";
 import type { ExpedienteClienteDatosEstado } from "./types";
 import type { ClienteDatosEstadoBatch } from "./types";
 import { getTelefonoCasaDraft } from "./telefono-casa-draft-store";
+import { clienteDatosRequiereTelefonoCasa } from "@/domain/asesor-equipo/asesor-en-equipo-por-lider-email";
 
 const CLIENTE_DATOS_SELECT = `
   expediente_id,
@@ -193,14 +194,15 @@ export class SupabaseExpedienteClienteDatosRepo implements ExpedienteClienteDato
       },
     );
 
-    const { error } = await client.rpc(
-      "asesor_guardar_cliente_datos_con_telefono_casa",
-      {
-        ...rpcArgs,
-        p_telefono_casa: getTelefonoCasaDraft(idNorm) ?? null,
-        p_es_correccion: false,
-      },
-    );
+    // Internos: wrapper atómico + draft. Externos/unknown: save_cliente_datos
+    // sin tocar expedientes.telefono_casa (preserva histórico; no exige casa).
+    const { error } = clienteDatosRequiereTelefonoCasa(input.perfilCaptura)
+      ? await client.rpc("asesor_guardar_cliente_datos_con_telefono_casa", {
+          ...rpcArgs,
+          p_telefono_casa: getTelefonoCasaDraft(idNorm) ?? null,
+          p_es_correccion: false,
+        })
+      : await client.rpc("save_cliente_datos", rpcArgs);
 
     if (error) {
       throw mapSaveClienteDatosRpcError(error);
@@ -239,14 +241,13 @@ export class SupabaseExpedienteClienteDatosRepo implements ExpedienteClienteDato
       },
     );
 
-    const { error } = await client.rpc(
-      "asesor_guardar_cliente_datos_con_telefono_casa",
-      {
-        ...rpcArgs,
-        p_telefono_casa: getTelefonoCasaDraft(idNorm) ?? null,
-        p_es_correccion: true,
-      },
-    );
+    const { error } = clienteDatosRequiereTelefonoCasa(input.perfilCaptura)
+      ? await client.rpc("asesor_guardar_cliente_datos_con_telefono_casa", {
+          ...rpcArgs,
+          p_telefono_casa: getTelefonoCasaDraft(idNorm) ?? null,
+          p_es_correccion: true,
+        })
+      : await client.rpc("save_cliente_datos_correccion", rpcArgs);
 
     if (error) {
       throw mapSaveClienteDatosCorreccionRpcError(error);

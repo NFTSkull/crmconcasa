@@ -44,6 +44,11 @@ export type AsesorCurpValidacionSectionProps = Readonly<{
   submittedToMesa?: boolean;
   onApplyRfcEstimado: (rfc: string) => void | Promise<void>;
   onApplyNombreFromConstancia?: (nombre: string) => void | Promise<void>;
+  /** Solo internos: montar sección teléfono de casa. */
+  showTelefonoCasa?: boolean;
+  /** Reactivo: error de teléfono de casa (B1/B2) sin esperar blur/guardar. */
+  telefonoCasaFieldError?: string;
+  onTelefonoCasaChange?: (value: string) => void;
 }>;
 
 type RowStatus = "pendiente" | "ok" | "warn" | "error";
