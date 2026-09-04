@@ -71,7 +71,9 @@ export function AsesorTelefonoCasaSection({ expedienteId, canEdit }: Props) {
 
   return (
     <label className="row-start-7 grid min-w-0 gap-1 text-xs text-gray-600 sm:col-start-2 sm:row-start-5">
-      <span className="font-medium text-gray-800">Teléfono de casa</span>
+      <span className="font-medium text-gray-800">
+        Teléfono de casa <span className="text-red-600" aria-hidden="true">*</span>
+      </span>
       <input
         className={`rounded-md border px-2 py-1 text-sm ${
           error
@@ -82,6 +84,8 @@ export function AsesorTelefonoCasaSection({ expedienteId, canEdit }: Props) {
         disabled={!canEdit || loading}
         inputMode="numeric"
         maxLength={10}
+        required
+        aria-required="true"
         onChange={(e) => {
           const value = filterTelefonoCasaInput(e.target.value);
           setTelefonoCasa(value);
