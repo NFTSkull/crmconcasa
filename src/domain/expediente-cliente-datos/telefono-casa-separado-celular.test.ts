@@ -9,6 +9,9 @@ function source(path: string): string {
 const migration = source(
   "supabase/migrations/20260904183000_telefono_casa_separado_celular.sql",
 );
+const syncMigration = source(
+  "supabase/migrations/20260904183500_sync_telefono_principal_desde_cliente_datos.sql",
+);
 
 describe("P224 — teléfono de casa separado del celular principal", () => {
   it("crea telefono_casa y limita la reparación a expedientes tocados por la RPC anterior", () => {
@@ -35,6 +38,14 @@ describe("P224 — teléfono de casa separado del celular principal", () => {
     expect(migration).toContain("BEFORE UPDATE OF telefono_casa");
     expect(migration).toContain("e.telefono_casa::text");
     expect(migration).not.toContain("BEFORE UPDATE OF telefono_cliente");
+  });
+
+  it("sincroniza el teléfono principal cuando cambia el celular validado", () => {
+    expect(syncMigration).toContain(
+      "AFTER INSERT OR UPDATE OF telefono_normalizado",
+    );
+    expect(syncMigration).toContain("SET telefono_cliente = v_celular");
+    expect(syncMigration).not.toContain("SET telefono_casa = v_celular");
   });
 
   it("la UI y el read-model cargan la casa desde el campo dedicado", () => {
