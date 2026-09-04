@@ -84,21 +84,18 @@ export async function fetchAsesorDocumentosObligatoriosEnvio(
   try {
     if (!isSupabaseConfigured() || !supabaseBrowser) return copyClasicos();
 
-    const args: { p_asesor_id?: string } = {};
     const id = String(asesorId ?? "").trim();
-    if (
+    const hasId =
       id &&
       /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
         id,
-      )
-    ) {
-      args.p_asesor_id = id;
-    }
+      );
 
-    const { data, error } = await supabaseBrowser.rpc(
-      "asesor_documentos_obligatorios_envio",
-      args,
-    );
+    const { data, error } = hasId
+      ? await supabaseBrowser.rpc("asesor_documentos_obligatorios_envio", {
+          p_asesor_id: id,
+        })
+      : await supabaseBrowser.rpc("asesor_documentos_obligatorios_envio");
     if (error) return copyClasicos();
     return parseAsesorDocumentosObligatoriosEnvio(data);
   } catch {

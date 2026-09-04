@@ -1,3 +1,34 @@
+## 2026-09-04 - fix: opcionales integración ocultos para externos (Parte B UX)
+
+### Causa
+Externos veían «Cliente · Acta de nacimiento digital» (Opcional) y al subir recibían denegación SQL (`upload_para`). SQL correcto; UI no alineada (y flash con `actorPaqueteExternos` aún unresolved).
+
+### Decisión
+Helper `resolveAsesorIntegracionOpcionalesVisibility`: unresolved|externo → hide; interno confirmado → show. Checklist opcionales filtrado; secciones dedicadas Evidencia/Vigencia/Constancia SAT gated. **No** ocultar Pagaré, Mesa RO, Notificación, Solicitud, retención/acuse. Autoridad: `fetchAsesorEsPaqueteDocumentalExternos` (no `length===7`).
+
+### Inventario montajes integración (pantalla asesor)
+
+| TIPO / sección | EXTERNO | INTERNO | MOTIVO |
+| --- | --- | --- | --- |
+| cliente_ine_frente | visible (oblig.) | visible (oblig.) | paquete envío |
+| cliente_ine_reverso | no | visible (oblig.) | externos sin reverso |
+| cliente_comprobante_domicilio | visible (oblig.) | visible (oblig.) | paquete envío |
+| cliente_estado_cuenta | visible (oblig.) | visible (oblig.) | paquete envío |
+| cliente_solicitud_credito (scoped) | visible Obligatorio | opcional scoped | envío externos / scope equipo |
+| cliente_lista_nominal (scoped) | visible Obligatorio | opcional scoped | idem |
+| cliente_bajo_protesta (scoped) | visible Obligatorio | opcional scoped | idem |
+| cliente_presupuesto (scoped) | visible Obligatorio | opcional scoped | idem |
+| cliente_acta_nacimiento_digital | no | sí Opcional | upload_para externos no lo permite |
+| cliente_carta_empresa | no | sí Opcional | idem |
+| cliente_semanas_cotizadas | no | sí Opcional | idem |
+| cliente_vigencia_derechos | no | sí sección | idem |
+| cliente_constancia_situacion_fiscal | no | sí sección | idem |
+| asesor_evidencia | no | sí sección | idem |
+| cliente_constancia_curp | no (form simplificado) | sí en DG completo | captura simplificada |
+| Pagaré / Mesa docs RO | sí (operativo) | sí | no es opcional integración |
+| Notificación / Solicitud doc | sí (operativo) | sí | etapa posterior; no paquete inicial |
+| Retención / Acuse | sí si aplica | sí | operativo posterior |
+
 ## 2026-09-04 - feat: paquete documental externos Parte B (UI + wrappers)
 
 ### Causa
