@@ -110,7 +110,34 @@ Universo del gate (P169): `organization_id` + NSS + `deleted_at IS NULL` + `cicl
 - `p_asesor_id` NULL → evalúa `current_profile_id()` (actor JWT).
 - Fail-closed: email inválido, sin auth, org distinta, rol no autorizado, **0 o >1** equipos activos con ese líder en la org → `false` (+ `WARNING` si ambigüedad de equipos).
 - Usa `asesor_equipos` + `asesor_pertenece_equipo_activo` (mismo espíritu que scope de documentos por equipo).
-- Uso DG: vista simplificada = membresía del **actor**; checklist/validación relajada = membresía del **dueño** (`expedientes.asesor_id`).
+- Uso histórico DG Equipo Silvia: vista/checklist vía esta RPC. **Parte B** reemplaza esa decisión de captura por `asesor_es_paquete_documental_externos` (ver 1sexies).
+
+---
+
+## 1sexies. Paquete documental externos (Parte B — wrappers UI)
+
+**Autoridad:** helpers Parte A en Cloud (`asesor_paquete_documental_externos`, `integration_doc_tipos_asesor_envio_para`, …).  
+**Mig wrappers:** `20260904214500_asesor_documentos_obligatorios_envio_wrappers.sql`
+
+**RPC:** `asesor_documentos_obligatorios_envio(p_asesor_id uuid DEFAULT NULL) → text[]`  
+- Delega a `integration_doc_tipos_asesor_envio_para(COALESCE(p_asesor_id, current_profile_id()))`.
+- Checklist / progreso / gate envío FE usan el **dueño** del expediente (`expedientes.asesor_id`), no el actor.
+- Fail-closed (sin identity): 4 clásicos (`integration_doc_tipos_asesor_envio()`).
+
+**RPC:** `asesor_es_paquete_documental_externos(p_asesor_id uuid DEFAULT NULL) → boolean`  
+- Delega a `asesor_paquete_documental_externos(COALESCE(...))`.
+- Actor → variante de captura / ocultar opcionales extra.
+- Dueño → perfil `asesor_equipo_silvia_simplificado` (nombre histórico; Silvia **u** Orlando vía SQL).
+- Fail-closed → `false` (formulario completo + 4 docs).
+
+| Perfil | Obligatorios envío | INE reverso | Opcionales integración extra |
+| --- | --- | --- | --- |
+| Interno clásico | 4 | Sí | Sin cambio |
+| Externo (equipos Silvia/Orlando) | 7 | No | No se montan |
+
+**Mesa FE:** `INTEGRATION_DOC_TIPOS_VALIDACION_MESA` intacto en esta Parte B (deuda UI documentada en DEVLOG).
+
+Grants: `REVOKE` PUBLIC/anon; `GRANT EXECUTE` authenticated (+ service_role).
 
 ---
 
@@ -277,7 +304,7 @@ Solo escribe `expediente_precalificacion_intentos.monto_aprobado` (NULL o >= 0) 
 ### Reglas
 
 - Rol `asesor` (expediente propio).
-- **Perfil captura Equipo Silvia (FE):** dueño con membresía confirmada vía `asesor_en_equipo_por_lider_email('silvia.reyes@concasa.mx', asesor_id)` → `perfilCaptura=asesor_equipo_silvia_simplificado` (checklist/validación reducida; mapper `p_referencias: []`). Vista UI simplificada solo si el **actor JWT** confirma membresía (fail-closed → completo). Sin cambios a `save_cliente_datos` / Mesa.
+- **Perfil captura paquete externos (FE Parte B):** dueño con `asesor_es_paquete_documental_externos(asesor_id)` → `perfilCaptura=asesor_equipo_silvia_simplificado` (nombre histórico; SQL = Silvia u Orlando). Vista UI simplificada solo si el **actor JWT** confirma paquete externos (fail-closed → completo). Docs obligatorios vía `asesor_documentos_obligatorios_envio(ownerId)` (4 o 7). Sin cambios a `save_cliente_datos` / Mesa FE.
 - **RFC obligatorio** antes de envío integración (`getClienteDatosCamposFaltantes`).
 - Estado inicial `pendiente` → `completo` al guardar campos mínimos.
 - **P133 — formatos de campo:** nombres (`nombreCliente`, refs, beneficiario/parentesco) solo letras Unicode + espacios/guion/apóstrofe; NSS 11 dígitos; teléfonos vía `normalize_telefono_mexico` (10); CP 5 dígitos; plazo solo dígitos si viene; RFC contrato vigente si no vacío. Validación FE (`clienteDatosFieldFormats` / `validateClienteDatos`) + assert SQL en `save_cliente_datos` / `save_cliente_datos_correccion` sobre payload entrante (mig. 119). Sin CHECK en tablas ni backfill de históricos.

@@ -84,12 +84,14 @@ import {
   asesorPuedeEditarConstanciaSituacionFiscal,
   asesorPuedeEditarScopedEquipoDocumento,
   fetchAsesorTiposDocumentoVisibles,
+  fetchAsesorDocumentosObligatoriosEnvio,
   shouldMountAsesorScopedEquipoDocumentoSection,
   SCOPED_EQUIPO_DOCUMENTO_UI,
   esReingresoDocumentosEditables,
   useExpedienteArchivosRepo,
   type ExpedienteArchivoResumen,
   type IntegrationDocAsesorScopedPorEquipoTipo,
+  type IntegrationDocAsesorEnvioObligatorioTipo,
   type IntegrationDocChecklistItem,
 } from "@/domain/expediente-archivos";
 import {
@@ -109,11 +111,10 @@ import {
   type ClienteDatosFieldErrors,
 } from "@/lib/clienteDatosValidation";
 import {
-  EQUIPO_LIDER_EMAIL_SILVIA_REYES,
-  fetchAsesorEnEquipoPorLiderEmail,
   resolveClienteDatosCapturaVariant,
   resolveClienteDatosPerfilCaptura,
 } from "@/domain/asesor-equipo/asesor-en-equipo-por-lider-email";
+import { fetchAsesorEsPaqueteDocumentalExternos } from "@/domain/asesor-equipo/asesor-es-paquete-documental-externos";
 import {
   applyClienteDatosCobroRecalc,
   applyMontoCalculadoSugeridoSiNoBloqueado,
@@ -312,8 +313,11 @@ export default function AsesorExpedientePage() {
   const [clienteDatosSaving, setClienteDatosSaving] = useState(false);
   const [clienteDatosLoading, setClienteDatosLoading] = useState(false);
   const [clienteDatosSaved, setClienteDatosSaved] = useState(false);
-  const [actorEnEquipoSilvia, setActorEnEquipoSilvia] = useState(false);
-  const [duenoEnEquipoSilvia, setDuenoEnEquipoSilvia] = useState(false);
+  const [actorPaqueteExternos, setActorPaqueteExternos] = useState(false);
+  const [duenoPaqueteExternos, setDuenoPaqueteExternos] = useState(false);
+  const [tiposEnvioObligatorios, setTiposEnvioObligatorios] = useState<
+    readonly IntegrationDocAsesorEnvioObligatorioTipo[]
+  >([...INTEGRATION_DOC_TIPOS_ASESOR_ENVIO]);
   const [clienteDatosError, setClienteDatosError] = useState<string | null>(null);
   const [clienteDatosFieldErrors, setClienteDatosFieldErrors] =
     useState<ClienteDatosFieldErrors>({});
@@ -387,25 +391,33 @@ export default function AsesorExpedientePage() {
 
   const integrationChecklistObligatorios = useMemo((): IntegrationDocChecklistItem[] | null => {
     if (!integrationDocsInput) return null;
-    return deriveIntegrationDocsChecklist(integrationDocsInput);
-  }, [integrationDocsInput]);
+    return deriveIntegrationDocsChecklist(
+      integrationDocsInput,
+      tiposEnvioObligatorios,
+    );
+  }, [integrationDocsInput, tiposEnvioObligatorios]);
 
   const integrationChecklistOpcionales = useMemo((): IntegrationDocChecklistItem[] | null => {
     if (!integrationDocsInput) return null;
+    // Actor externos: no montar opcionales ajenos al paquete (SQL es autoridad; no length===7).
+    if (actorPaqueteExternos) return [];
     const base = deriveIntegrationDocsChecklistOpcionales(integrationDocsInput);
     // Notificación (`cliente_notificacion_apodaca`): siempre visible/editable al dueño.
     return filterChecklistOpcionalesNotificacionApodaca(base);
-  }, [integrationDocsInput]);
+  }, [integrationDocsInput, actorPaqueteExternos]);
 
   const integrationDocsPresentes = useMemo(() => {
     if (!integrationDocsInput) return 0;
-    return countIntegrationDocsPresentes(integrationDocsInput);
-  }, [integrationDocsInput]);
+    return countIntegrationDocsPresentes(
+      integrationDocsInput,
+      tiposEnvioObligatorios,
+    );
+  }, [integrationDocsInput, tiposEnvioObligatorios]);
 
   const documentosCompletos = useMemo(() => {
     if (!integrationDocsInput) return false;
-    return integrationDocsCompletos(integrationDocsInput);
-  }, [integrationDocsInput]);
+    return integrationDocsCompletos(integrationDocsInput, tiposEnvioObligatorios);
+  }, [integrationDocsInput, tiposEnvioObligatorios]);
 
   const hasMontoAprobado = useMemo(
     () => Number(editorDecision?.monto_aprobado ?? 0) > 0,
@@ -631,25 +643,23 @@ export default function AsesorExpedientePage() {
   const perfilCapturaClienteDatos = useMemo(
     () =>
       resolveClienteDatosPerfilCaptura({
-        duenoEnEquipoSilviaConfirmado: duenoEnEquipoSilvia,
+        duenoEnPaqueteExternosConfirmado: duenoPaqueteExternos,
       }),
-    [duenoEnEquipoSilvia],
+    [duenoPaqueteExternos],
   );
   const capturaVariantClienteDatos = useMemo(
     () =>
       resolveClienteDatosCapturaVariant({
-        actorEnEquipoSilviaConfirmado: actorEnEquipoSilvia,
+        actorEnPaqueteExternosConfirmado: actorPaqueteExternos,
       }),
-    [actorEnEquipoSilvia],
+    [actorPaqueteExternos],
   );
 
   useEffect(() => {
     let cancelled = false;
     void (async () => {
-      const actor = await fetchAsesorEnEquipoPorLiderEmail({
-        leaderEmail: EQUIPO_LIDER_EMAIL_SILVIA_REYES,
-      });
-      if (!cancelled) setActorEnEquipoSilvia(actor === true);
+      const actor = await fetchAsesorEsPaqueteDocumentalExternos();
+      if (!cancelled) setActorPaqueteExternos(actor === true);
     })();
     return () => {
       cancelled = true;
@@ -660,15 +670,19 @@ export default function AsesorExpedientePage() {
     let cancelled = false;
     const ownerId = precal?.asesorProfileId?.trim() || "";
     if (!ownerId) {
-      setDuenoEnEquipoSilvia(false);
+      setDuenoPaqueteExternos(false);
+      setTiposEnvioObligatorios([...INTEGRATION_DOC_TIPOS_ASESOR_ENVIO]);
       return;
     }
     void (async () => {
-      const ok = await fetchAsesorEnEquipoPorLiderEmail({
-        leaderEmail: EQUIPO_LIDER_EMAIL_SILVIA_REYES,
-        asesorId: ownerId,
-      });
-      if (!cancelled) setDuenoEnEquipoSilvia(ok === true);
+      const [ok, tipos] = await Promise.all([
+        fetchAsesorEsPaqueteDocumentalExternos(ownerId),
+        fetchAsesorDocumentosObligatoriosEnvio(ownerId),
+      ]);
+      if (!cancelled) {
+        setDuenoPaqueteExternos(ok === true);
+        setTiposEnvioObligatorios(tipos);
+      }
     })();
     return () => {
       cancelled = true;
@@ -835,12 +849,14 @@ export default function AsesorExpedientePage() {
         datosGeneralesCompletos,
         camposFaltantesDatos: camposFaltantesClienteDatos,
         archivosResumen,
+        tiposEnvio: tiposEnvioObligatorios,
       }),
     [
       archivosResumen,
       camposFaltantesClienteDatos,
       datosGeneralesCompletos,
       hasMontoAprobado,
+      tiposEnvioObligatorios,
     ],
   );
 
@@ -1140,6 +1156,7 @@ export default function AsesorExpedientePage() {
       datosGeneralesCompletos,
       camposFaltantesDatos: camposFaltantesClienteDatos,
       archivosResumen,
+      tiposEnvio: tiposEnvioObligatorios,
     });
     if (pendientes.length > 0) {
       const message = formatReingresoEnvioPendientesMessage(pendientes);
@@ -1179,6 +1196,7 @@ export default function AsesorExpedientePage() {
     precal?.id,
     reingresoSaving,
     repo,
+    tiposEnvioObligatorios,
   ]);
 
   const refreshArchivos = useCallback(async () => {
@@ -2120,21 +2138,21 @@ export default function AsesorExpedientePage() {
             {dataSupabase && precal?.id ? (
               <AsesorMesaDocumentosSection expedienteId={String(precal.id)} />
             ) : null}
-            {dataSupabase && precal?.id ? (
+            {dataSupabase && precal?.id && !actorPaqueteExternos ? (
               <AsesorEvidenciaSection
                 expedienteId={String(precal.id)}
                 canUpload={puedeEditarEvidencia}
                 onUploaded={refreshArchivos}
               />
             ) : null}
-            {dataSupabase && precal?.id ? (
+            {dataSupabase && precal?.id && !actorPaqueteExternos ? (
               <AsesorVigenciaDerechosSection
                 expedienteId={String(precal.id)}
                 canUpload={puedeEditarVigenciaDerechos}
                 onUploaded={refreshArchivos}
               />
             ) : null}
-            {dataSupabase && precal?.id ? (
+            {dataSupabase && precal?.id && !actorPaqueteExternos ? (
               <AsesorConstanciaSituacionFiscalSection
                 expedienteId={String(precal.id)}
                 canUpload={puedeEditarConstanciaSituacionFiscal}
@@ -2157,11 +2175,12 @@ export default function AsesorExpedientePage() {
                   uploadHint={doc.uploadHint}
                   maxBytes={doc.maxBytes}
                   canUpload={puedeEditarScopedEquipoDocumento}
+                  esObligatorio={tiposEnvioObligatorios.includes(doc.tipo)}
                   onUploaded={refreshArchivos}
                 />
               ) : null,
             )}
-            {dataSupabase && precal?.id ? (
+            {dataSupabase && precal?.id && !actorPaqueteExternos ? (
               <AsesorNotificacionDocumentoSection
                 expedienteId={String(precal.id)}
                 etapaActual={operativo?.etapaActual ?? null}
@@ -2171,7 +2190,7 @@ export default function AsesorExpedientePage() {
                 }}
               />
             ) : null}
-            {dataSupabase && precal?.id ? (
+            {dataSupabase && precal?.id && !actorPaqueteExternos ? (
               <AsesorSolicitudDocumentoSection
                 expedienteId={String(precal.id)}
                 etapaActual={operativo?.etapaActual ?? null}
@@ -2200,10 +2219,10 @@ export default function AsesorExpedientePage() {
                 <>
                   <p className="mt-2 text-xs text-gray-600">
                     Progreso obligatorio: {integrationDocsPresentes} /{" "}
-                    {INTEGRATION_DOC_TIPOS_ASESOR_ENVIO.length} documentos (
+                    {tiposEnvioObligatorios.length} documentos (
                     {Math.round(
                       (integrationDocsPresentes /
-                        INTEGRATION_DOC_TIPOS_ASESOR_ENVIO.length) *
+                        Math.max(tiposEnvioObligatorios.length, 1)) *
                         100,
                     )}
                     %)

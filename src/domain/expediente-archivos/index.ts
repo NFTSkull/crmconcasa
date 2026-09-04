@@ -70,6 +70,13 @@ export {
   isIntegrationDocAsesorOpcionalTipo,
 } from "./integration-docs-completos";
 export {
+  INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_EXTERNOS,
+  fetchAsesorDocumentosObligatoriosEnvio,
+  parseAsesorDocumentosObligatoriosEnvio,
+  type IntegrationDocAsesorEnvioExternoTipo,
+  type IntegrationDocAsesorEnvioObligatorioTipo,
+} from "./asesor-documentos-obligatorios-envio";
+export {
   CLIENTE_PAGARE_ACCEPT_ATTR,
   buildClientePagareStoragePath,
   canMesaOperatePagare,

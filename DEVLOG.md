@@ -1,3 +1,16 @@
+## 2026-09-04 - feat: paquete documental externos Parte B (UI + wrappers)
+
+### Causa
+Parte A (SQL Cloud) ya define 7 docs para equipos Silvia/Orlando; el FE seguía hardcodeando Silvia para DG y los 4 clásicos para checklist.
+
+### Decisión
+Wrappers `asesor_documentos_obligatorios_envio` / `asesor_es_paquete_documental_externos` (sin reescribir helpers Parte A). Checklist/progreso/reingreso por **dueño**; variante captura y ocultar opcionales extra por **actor**. Perfil TS `asesor_equipo_silvia_simplificado` se mantiene (nombre histórico). Mesa FE (`INTEGRATION_DOC_TIPOS_VALIDACION_MESA`) **no** se toca — deuda UI si validación Mesa dinámica por dueño debe reflejarse en botones.
+
+### Invariantes
+- Interno: 4 docs + INE reverso + opcionales actuales.
+- Externo: 7 docs, sin reverso, sin opcionales extra.
+- Fail-closed → clásico 4.
+
 ## 2026-09-03 - Datos Generales simplificado Equipo Silvia
 
 ### Decisión
