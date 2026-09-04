@@ -130,7 +130,9 @@ describe("AsesorScopedEquipoDocumentoSection montaje en página asesor", () => {
     );
     assert.match(section, /esObligatorio\?: boolean/);
     assert.match(section, /esObligatorio \? "Obligatorio" : "Opcional"/);
-    assert.match(pageSrc, /esObligatorio=\{tiposEnvioObligatorios\.includes\(doc\.tipo\)\}/);
+    assert.match(pageSrc, /const esObligatorio = tiposEnvioObligatorios\.includes\(doc\.tipo\)/);
+    assert.match(pageSrc, /tiposYaEnChecklistObligatorios:\s*tiposEnvioObligatorios/);
+    assert.match(pageSrc, /resolveScopedEquipoUploadHint/);
   });
 });
 

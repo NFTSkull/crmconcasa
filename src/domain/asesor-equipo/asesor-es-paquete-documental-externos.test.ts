@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   parseAsesorEsPaqueteDocumentalExternos,
+  parseAsesorEsPaqueteDocumentalExternosClasificacion,
 } from "./asesor-es-paquete-documental-externos";
 import {
   resolveClienteDatosCapturaVariant,
@@ -25,6 +26,45 @@ describe("parseAsesorEsPaqueteDocumentalExternos", () => {
     assert.equal(parseAsesorEsPaqueteDocumentalExternos("true"), false);
     assert.equal(parseAsesorEsPaqueteDocumentalExternos(1), false);
     assert.equal(parseAsesorEsPaqueteDocumentalExternos(null), false);
+  });
+
+  it("tri-state: true→externo false→interno resto→unknown", () => {
+    assert.equal(
+      parseAsesorEsPaqueteDocumentalExternosClasificacion(true),
+      "externo",
+    );
+    assert.equal(
+      parseAsesorEsPaqueteDocumentalExternosClasificacion(false),
+      "interno",
+    );
+    assert.equal(
+      parseAsesorEsPaqueteDocumentalExternosClasificacion(null),
+      "unknown",
+    );
+    assert.equal(
+      parseAsesorEsPaqueteDocumentalExternosClasificacion("true"),
+      "unknown",
+    );
+  });
+
+  it("perfil/captura: unknown ≠ interno; resolving → simplificado UI", () => {
+    assert.equal(
+      resolveClienteDatosPerfilCaptura({ duenoClasificacion: "unknown" }),
+      "clasificacion_pendiente",
+    );
+    assert.equal(
+      resolveClienteDatosCapturaVariant({
+        actorClasificacionResuelta: false,
+      }),
+      "simplificado",
+    );
+    assert.equal(
+      resolveClienteDatosCapturaVariant({
+        actorClasificacion: "unknown",
+        actorClasificacionResuelta: true,
+      }),
+      "simplificado",
+    );
   });
 });
 
@@ -92,10 +132,10 @@ describe("actor/dueño matrix A/B/C/D", () => {
     };
   }
 
-  it("A) actor externo + dueño externo → vista simplificada + checklist 7", () => {
+  it("A) actor externo + dueño externo → vista simplificada + checklist 8", () => {
     const owner = checklistForOwner(true);
-    assert.equal(owner.tipos.length, 7);
-    assert.equal(owner.presentes, 7);
+    assert.equal(owner.tipos.length, INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_EXTERNOS.length);
+    assert.equal(owner.presentes, INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_EXTERNOS.length);
     assert.equal(owner.completos, true);
     assert.ok(!owner.checklist.some((i) => i.tipo_documento === "cliente_ine_reverso"));
     assert.equal(
@@ -106,9 +146,9 @@ describe("actor/dueño matrix A/B/C/D", () => {
     );
   });
 
-  it("B) actor interno + dueño externo → actor completo, expediente exige 7", () => {
+  it("B) actor interno + dueño externo → actor completo, expediente exige 8", () => {
     const owner = checklistForOwner(true);
-    assert.equal(owner.tipos.length, 7);
+    assert.equal(owner.tipos.length, INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_EXTERNOS.length);
     assert.equal(
       resolveClienteDatosCapturaVariant({
         actorEnPaqueteExternosConfirmado: false,

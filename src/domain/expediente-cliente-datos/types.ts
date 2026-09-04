@@ -49,7 +49,12 @@ export type ExpedienteClienteDatos = {
     registroPatronal: string;
     telefonoEmpresa: string;
     referencias: {
+      /** Legacy combinado; se deriva de nombres+apellidos al guardar cuando existan. */
       nombre: string;
+      /** Internos: nombre(s) estructurado. Opcional en históricos. */
+      nombres?: string;
+      apellidoPaterno?: string;
+      apellidoMaterno?: string;
       celular: string;
     }[];
     beneficiario: {

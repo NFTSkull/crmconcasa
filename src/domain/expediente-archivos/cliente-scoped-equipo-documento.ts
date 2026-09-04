@@ -72,6 +72,17 @@ export function getScopedEquipoDocumentoUi(
   return SCOPED_EQUIPO_DOCUMENTO_UI.find((d) => d.tipo === tipo) ?? null;
 }
 
+/** Copy del dropzone derivado de obligatoriedad (no hardcode por tipo en el padre). */
+export function resolveScopedEquipoUploadHint(params: Readonly<{
+  label: string;
+  esObligatorio: boolean;
+  maxBytes: number;
+}>): string {
+  const mb = Math.max(1, Math.round(params.maxBytes / (1024 * 1024)));
+  const kind = params.esObligatorio ? "obligatorio" : "opcional";
+  return `Documento ${kind}. Sube ${params.label} en PDF (máx. ${mb} MB).`;
+}
+
 export function isScopedEquipoPreviewableMime(
   mime: string | null | undefined,
 ): boolean {

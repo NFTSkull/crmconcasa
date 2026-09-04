@@ -1,3 +1,25 @@
+## 2026-09-04 - externos: sin teléfono de casa en DG
+
+- Bandera central `clienteDatosRequiereTelefonoCasa(perfil)`: solo `asesor_completo`.
+- UI: `showTelefonoCasa` → no monta `AsesorTelefonoCasaSection` en externos/unknown.
+- Completitud/validación/gates: no pasan `telefonoCasa` si no requiere.
+- Save externos: `save_cliente_datos` (no wrapper casa) → no exige ni borra `expedientes.telefono_casa`.
+- Internos: wrapper + draft + React state reactivo intactos.
+
+## 2026-09-04 - pre-commit: telefonoCasa reactivo + UNKNOWN≠INTERNO
+
+- Causa casa: draft Map en `AsesorTelefonoCasaSection` sin state en page → `camposFaltantes`/`useMemo` no re-render al tipar.
+- Fix: `telefonoCasaValue` + `onTelefonoCasaChange`; draft Map solo para RPC save.
+- Causa clasificación: `fetch…Externos` fail-closed `false` ≡ interno.
+- Fix: tri-state `externo|interno|unknown` vía `fetch…Clasificacion`; perfil `clasificacion_pendiente`; `tiposEnvioResolved=false` en unknown; B1–B5 OFF; enviar/guardar bloqueados.
+
+## 2026-09-04 - externos CURP+Acta opcional; internos casa/refs (pre-commit)
+
+- Externos (SQL `asesor_paquete_documental_externos`): envio_para 8 + CURP; upload_para + Acta digital opcional. Mig `20260904230000` (NO Cloud en este bloque). Parte A `04120000` intacta (histórico 7).
+- FE: checklist 8, legacy 7 parseable; dedupe scoped vs checklist; hint desde `esObligatorio`; fail-safe `tiposEnvioResolved` + coherencia CURP.
+- Internos: casa obligatoria ≠ celular; refs nombres+2 apellidos+tel; unicidad intra-expediente. Gated por perfil `asesor_equipo_silvia_simplificado` (dueño externo Silvia|Orlando).
+- Opcionales actor externo: solo Acta (no carta/semanas/SAT dedicados).
+
 ## 2026-09-04 - fix: opcionales integración ocultos para externos (Parte B UX)
 
 ### Causa

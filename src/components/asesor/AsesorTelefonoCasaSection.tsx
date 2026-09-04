@@ -7,16 +7,33 @@ import { setTelefonoCasaDraft } from "@/domain/expediente-cliente-datos/telefono
 type Props = Readonly<{
   expedienteId: string;
   canEdit: boolean;
+  /** Error de validación reactivo (casa vacía / igual a celular, etc.). */
+  fieldError?: string;
+  /** Notifica al padre para re-render de completitud/gates (además del draft RPC). */
+  onTelefonoCasaChange?: (value: string) => void;
 }>;
 
 function filterTelefonoCasaInput(input: string): string {
   return String(input ?? "").replace(/\D/g, "").slice(0, 10);
 }
 
-export function AsesorTelefonoCasaSection({ expedienteId, canEdit }: Props) {
+export function AsesorTelefonoCasaSection({
+  expedienteId,
+  canEdit,
+  fieldError,
+  onTelefonoCasaChange,
+}: Props) {
   const [telefonoCasa, setTelefonoCasa] = useState("");
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const publish = useCallback(
+    (value: string) => {
+      setTelefonoCasaDraft(expedienteId, value);
+      onTelefonoCasaChange?.(value);
+    },
+    [expedienteId, onTelefonoCasaChange],
+  );
 
   const loadTelefono = useCallback(async () => {
     if (!supabaseBrowser || !expedienteId) {
@@ -24,7 +41,7 @@ export function AsesorTelefonoCasaSection({ expedienteId, canEdit }: Props) {
       return;
     }
     setLoading(true);
-    setError(null);
+    setLoadError(null);
     try {
       const { data, error: queryError } = await supabaseBrowser
         .from("expedientes")
@@ -35,13 +52,13 @@ export function AsesorTelefonoCasaSection({ expedienteId, canEdit }: Props) {
       const value = filterTelefonoCasaInput(String(data?.telefono_casa ?? ""));
 
       setTelefonoCasa(value);
-      setTelefonoCasaDraft(expedienteId, value);
+      publish(value);
     } catch {
-      setError("No se pudo cargar el teléfono de casa.");
+      setLoadError("No se pudo cargar el teléfono de casa.");
     } finally {
       setLoading(false);
     }
-  }, [expedienteId]);
+  }, [expedienteId, publish]);
 
   useEffect(() => {
     void loadTelefono();
@@ -62,6 +79,8 @@ export function AsesorTelefonoCasaSection({ expedienteId, canEdit }: Props) {
 
   if (!supabaseBrowser) return null;
 
+  const error = fieldError || loadError;
+
   return (
     <label className="row-start-7 grid min-w-0 gap-1 text-xs text-gray-600 sm:col-start-2 sm:row-start-5">
       <span className="font-medium text-gray-800">
@@ -79,11 +98,12 @@ export function AsesorTelefonoCasaSection({ expedienteId, canEdit }: Props) {
         maxLength={10}
         required
         aria-required="true"
+        aria-invalid={Boolean(error)}
         onChange={(e) => {
           const value = filterTelefonoCasaInput(e.target.value);
           setTelefonoCasa(value);
-          setTelefonoCasaDraft(expedienteId, value);
-          setError(null);
+          publish(value);
+          setLoadError(null);
         }}
       />
       {error ? (

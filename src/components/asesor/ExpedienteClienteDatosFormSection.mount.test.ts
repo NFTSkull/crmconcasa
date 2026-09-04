@@ -31,8 +31,14 @@ describe("ExpedienteClienteDatosFormSection capturaVariant", () => {
     assert.match(page, /asesorProfileId/);
     assert.match(page, /perfilCaptura: perfilCapturaClienteDatos/);
     assert.match(page, /capturaVariant=\{capturaVariantClienteDatos\}/);
+    assert.match(page, /showTelefonoCasa=\{requiereTelefonoCasa\}/);
     assert.match(page, /resolveClienteDatosPerfilCaptura/);
     assert.match(page, /fetchAsesorEsPaqueteDocumentalExternos/);
     assert.match(page, /fetchAsesorDocumentosObligatoriosEnvio/);
+  });
+
+  it("showTelefonoCasa prop cableada al CURP wrapper", () => {
+    assert.match(src, /showTelefonoCasa\?: boolean/);
+    assert.match(src, /showTelefonoCasa=\{showTelefonoCasa\}/);
   });
 });

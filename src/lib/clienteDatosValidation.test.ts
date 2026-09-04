@@ -23,6 +23,7 @@ const COBRO_CTX = {
   direccionOpcional: "Calle Principal 123",
   programaDb: "mejoravit",
   requireInfonavit: true,
+  telefonoCasa: "8555555555",
 };
 
 const baseValid: ClienteDatosFormShape = {
@@ -36,8 +37,8 @@ const baseValid: ClienteDatosFormShape = {
   registroPatronal: "A1234567890",
   telefonoEmpresa: "8187654321",
   referencias: [
-    { nombre: "Ref Uno", celular: "8111111111" },
-    { nombre: "Ref Dos", celular: "8222222222" },
+    { nombre: "Ref Uno A B", nombres: "Ref Uno", apellidoPaterno: "A", apellidoMaterno: "B", celular: "8111111111" },
+    { nombre: "Ref Dos C D", nombres: "Ref Dos", apellidoPaterno: "C", apellidoMaterno: "D", celular: "8222222222" },
   ],
   beneficiario: { nombre: "María", parentesco: "Hermana" },
   direccionEmpresa: {
@@ -597,11 +598,24 @@ const B8_CTX = {
   direccionOpcional: "Calle Principal 123",
   programaDb: "mejoravit",
   requireInfonavit: false,
+  telefonoCasa: "8555555555",
 } as const;
 
 const b8VisibleRefs = [
-  { nombre: "DEBANHI ABIGAIL CASTRO JUAREZ", celular: "8111626717" },
-  { nombre: "NALLELY BERENICE CASTRO JUAREZ", celular: "8118559833" },
+  {
+    nombre: "DEBANHI ABIGAIL CASTRO JUAREZ",
+    nombres: "DEBANHI ABIGAIL",
+    apellidoPaterno: "CASTRO",
+    apellidoMaterno: "JUAREZ",
+    celular: "8111626717",
+  },
+  {
+    nombre: "NALLELY BERENICE CASTRO JUAREZ",
+    nombres: "NALLELY BERENICE",
+    apellidoPaterno: "CASTRO",
+    apellidoMaterno: "JUAREZ",
+    celular: "8118559833",
+  },
 ] as const;
 
 test("P189 B8: infonavit vacío NO pisa referencias visibles (regresión productiva)", () => {
@@ -609,8 +623,8 @@ test("P189 B8: infonavit vacío NO pisa referencias visibles (regresión product
     ...baseValid,
     nombreCliente: "Cliente Visible",
     referencias: [
-      { nombre: b8VisibleRefs[0].nombre, celular: b8VisibleRefs[0].celular },
-      { nombre: b8VisibleRefs[1].nombre, celular: b8VisibleRefs[1].celular },
+      { ...b8VisibleRefs[0] },
+      { ...b8VisibleRefs[1] },
     ],
     beneficiario: { nombre: "Beneficiario Visible", parentesco: "Hermana" },
     infonavit: emptyInfonavitClienteDatosV1(),
@@ -626,9 +640,9 @@ test("P189 B8: infonavit vacío NO pisa referencias visibles (regresión product
   assert.equal(saved.beneficiario.parentesco, "Hermana");
 
   const r = validateClienteDatos(data, B8_CTX);
-  assert.equal(r.errors.referencia1Nombre, undefined);
+  assert.equal(r.errors.referencia1Nombres, undefined);
   assert.equal(r.errors.referencia1Celular, undefined);
-  assert.equal(r.errors.referencia2Nombre, undefined);
+  assert.equal(r.errors.referencia2Nombres, undefined);
   assert.equal(r.errors.referencia2Celular, undefined);
   assert.equal(r.isValid, true);
 });
@@ -640,8 +654,8 @@ test("P189 B8: infonavit ref celular espejo de legacy no genera falso duplicado"
   const data: ClienteDatosFormShape = {
     ...baseValid,
     referencias: [
-      { nombre: b8VisibleRefs[0].nombre, celular: b8VisibleRefs[0].celular },
-      { nombre: b8VisibleRefs[1].nombre, celular: b8VisibleRefs[1].celular },
+      { ...b8VisibleRefs[0] },
+      { ...b8VisibleRefs[1] },
     ],
     infonavit: inf,
   };
@@ -676,24 +690,26 @@ test("P189 B8: infonavit con refs vacías y otros campos P189 no pisa legacy", (
     ...baseValid,
     nombreCliente: "Nombre Legacy",
     referencias: [
-      { nombre: "Ref Legacy Uno", celular: "8111111111" },
-      { nombre: "Ref Legacy Dos", celular: "8222222222" },
+      { nombre: "Ref Legacy Uno", nombres: "Ref Legacy", apellidoPaterno: "Uno", apellidoMaterno: "X", celular: "8111111111" },
+      { nombre: "Ref Legacy Dos", nombres: "Ref Legacy", apellidoPaterno: "Dos", apellidoMaterno: "Y", celular: "8222222222" },
     ],
     beneficiario: { nombre: "Bene Legacy", parentesco: "Madre" },
     infonavit: inf,
   };
   const saved = normalizeClienteDatosForSave(data);
   assert.equal(saved.nombreCliente, "Nombre Legacy");
-  assert.equal(saved.referencias[0]?.nombre, "Ref Legacy Uno");
+  assert.equal(saved.referencias[0]?.nombre, "Ref Legacy Uno X");
   assert.equal(saved.referencias[0]?.celular, "8111111111");
-  assert.equal(saved.referencias[1]?.nombre, "Ref Legacy Dos");
+  assert.equal(saved.referencias[1]?.nombre, "Ref Legacy Dos Y");
   assert.equal(saved.referencias[1]?.celular, "8222222222");
   assert.equal(saved.beneficiario.nombre, "Bene Legacy");
   assert.equal(saved.beneficiario.parentesco, "Madre");
   const r = validateClienteDatos(data, B8_CTX);
-  assert.equal(r.errors.referencia1Nombre, undefined);
+  assert.equal(r.errors.referencia1Nombres, undefined);
+  assert.equal(r.errors.referencia1ApellidoPaterno, undefined);
+  assert.equal(r.errors.referencia1ApellidoMaterno, undefined);
   assert.equal(r.errors.referencia1Celular, undefined);
-  assert.equal(r.errors.referencia2Nombre, undefined);
+  assert.equal(r.errors.referencia2Nombres, undefined);
   assert.equal(r.errors.referencia2Celular, undefined);
 });
 
@@ -705,13 +721,13 @@ test("P189 B8: compro_tu_casa con infonavit vacío conserva refs", () => {
     infonavit: emptyInfonavitClienteDatosV1(),
   };
   const saved = normalizeClienteDatosForSave(data);
-  assert.equal(saved.referencias[0]?.nombre, "Ref Uno");
+  assert.equal(saved.referencias[0]?.nombre, "Ref Uno A B");
   assert.equal(saved.referencias[0]?.celular, "8111111111");
   const r = validateClienteDatos(data, {
     ...B8_CTX,
     programaDb: "compro_tu_casa",
   });
-  assert.equal(r.errors.referencia1Nombre, undefined);
+  assert.equal(r.errors.referencia1Nombres, undefined);
   assert.equal(r.errors.referencia1Celular, undefined);
   assert.equal(r.isValid, true);
 });
@@ -721,15 +737,15 @@ test("P189 B8: referencias siguen obligatorias si realmente están vacías", () 
     {
       ...baseValid,
       referencias: [
-        { nombre: "", celular: "" },
-        { nombre: "", celular: "" },
+        { nombre: "", nombres: "", apellidoPaterno: "", apellidoMaterno: "", celular: "" },
+        { nombre: "", nombres: "", apellidoPaterno: "", apellidoMaterno: "", celular: "" },
       ],
       infonavit: emptyInfonavitClienteDatosV1(),
     },
     B8_CTX,
   );
-  assert.equal(r.errors.referencia1Nombre, "Nombre de referencia 1 es obligatorio.");
+  assert.equal(r.errors.referencia1Nombres, "Nombre(s) de referencia 1 es obligatorio.");
   assert.equal(r.errors.referencia1Celular, "Celular de referencia 1 es obligatorio.");
-  assert.equal(r.errors.referencia2Nombre, "Nombre de referencia 2 es obligatorio.");
+  assert.equal(r.errors.referencia2Nombres, "Nombre(s) de referencia 2 es obligatorio.");
   assert.equal(r.errors.referencia2Celular, "Celular de referencia 2 es obligatorio.");
 });

@@ -173,6 +173,7 @@ export {
 export {
   SCOPED_EQUIPO_DOCUMENTO_UI,
   SCOPED_EQUIPO_PDF_ACCEPT_ATTR,
+  resolveScopedEquipoUploadHint,
   asesorPuedeEditarScopedEquipoDocumento,
   findScopedEquipoDocumentoFromList,
   formatBytesLabel as formatScopedEquipoBytesLabel,

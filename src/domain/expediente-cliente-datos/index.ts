@@ -51,3 +51,4 @@ export function useExpedienteClienteDatosRepo(): ExpedienteClienteDatosRepo {
     return new MockExpedienteClienteDatosLocalStorageRepo();
   }, []);
 }
+export { getTelefonoCasaDraft, setTelefonoCasaDraft, clearTelefonoCasaDraft } from "./telefono-casa-draft-store";
