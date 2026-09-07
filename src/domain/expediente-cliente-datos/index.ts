@@ -30,6 +30,13 @@ export {
   buildSaveClienteDatosRpcPayload,
   mapSupabaseRowToExpedienteClienteDatos,
 } from "./map-supabase-cliente-datos";
+export { parseLegacyReferenciaNombre } from "./parse-legacy-referencia-nombre";
+export {
+  REFERENCIAS_ESTRUCTURADAS_KEY,
+  buildReferenciasEstructuradasForSave,
+  clienteDatosSavedPreservesCapture,
+} from "./referencias-estructuradas";
+export { getTelefonoCasaDraft, setTelefonoCasaDraft, clearTelefonoCasaDraft } from "./telefono-casa-draft-store";
 export {
   emptyInfonavitClienteDatosV1,
   formatInfonavitDwellingAddress,
@@ -51,4 +58,3 @@ export function useExpedienteClienteDatosRepo(): ExpedienteClienteDatosRepo {
     return new MockExpedienteClienteDatosLocalStorageRepo();
   }, []);
 }
-export { getTelefonoCasaDraft, setTelefonoCasaDraft, clearTelefonoCasaDraft } from "./telefono-casa-draft-store";

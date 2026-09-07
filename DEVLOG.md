@@ -1,3 +1,18 @@
+## 2026-09-07 - fix DG: referenciasEstructuradas lossless (post-#230/#231)
+
+### Causa
+`save_cliente_datos` sobrescribe `datos.referencias` con `{nombre,telefono,celular}` → se pierden `nombres/apellidoPaterno/apellidoMaterno`. UI lee partes estructuradas → vacías tras reload. Confirmado en Cloud (601 filas legacy solo `nombre`).
+
+### Decisión
+- FE: `p_datos.referenciasEstructuradas` (sin tocar `p_referencias` ni SQL).
+- Mapper: estructuradas → canónico estructurado → legacy parse (`parseLegacyReferenciaNombre`).
+- Tel canónico SQL gana sobre estructuradas.
+- Autosave localStorage inmediato por tecla; no clear draft si `clienteDatosSavedPreservesCapture` falla.
+- Evento remoto: no force si dirty (salvo descartar/force flag).
+
+### No
+Backfill 601, SQL Cloud, smoke, Mesa docs.
+
 ## 2026-09-07 - fix asesor: borrador DG auto-restore + telefonoCasa persistente
 
 ### Causa

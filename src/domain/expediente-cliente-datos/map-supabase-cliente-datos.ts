@@ -16,6 +16,11 @@ import {
   serializeInfonavitClienteDatosV1,
 } from "./infonavit-datos";
 import type { ClienteDatosPerfilCaptura } from "@/domain/asesor-equipo/asesor-en-equipo-por-lider-email";
+import { parseLegacyReferenciaNombre } from "./parse-legacy-referencia-nombre";
+import {
+  REFERENCIAS_ESTRUCTURADAS_KEY,
+  buildReferenciasEstructuradasForSave,
+} from "./referencias-estructuradas";
 
 export type SupabaseClienteDatosRow = {
   expediente_id: string;
@@ -111,41 +116,78 @@ function mapReferencias(
   datos: Record<string, unknown>,
   referenciasCol: unknown,
 ): ExpedienteClienteDatos["datos"]["referencias"] {
-  const raw =
+  const canonicalRaw =
     Array.isArray(referenciasCol) && referenciasCol.length > 0
       ? referenciasCol
       : Array.isArray(datos.referencias)
         ? datos.referencias
         : [];
 
-  const mapped = raw
-    .filter((item): item is ReferenciaJson => !!item && typeof item === "object")
-    .map((item) => {
-      const rec = item as ReferenciaJson & {
-        nombres?: unknown;
-        apellidoPaterno?: unknown;
-        apellidoMaterno?: unknown;
-      };
-      return {
-        nombre: asString(rec.nombre),
-        nombres: asString(rec.nombres) || undefined,
-        apellidoPaterno: asString(rec.apellidoPaterno) || undefined,
-        apellidoMaterno: asString(rec.apellidoMaterno) || undefined,
-        celular: asString(rec.celular) || asString(rec.telefono),
-      };
-    });
+  const estructuradasRaw = datos[REFERENCIAS_ESTRUCTURADAS_KEY];
+  const estructuradas = Array.isArray(estructuradasRaw) ? estructuradasRaw : [];
 
-  while (mapped.length < 2) {
+  const mapped: ExpedienteClienteDatos["datos"]["referencias"] = [];
+
+  for (let i = 0; i < 2; i += 1) {
+    const canItem =
+      canonicalRaw[i] && typeof canonicalRaw[i] === "object"
+        ? (canonicalRaw[i] as ReferenciaJson & {
+            nombres?: unknown;
+            apellidoPaterno?: unknown;
+            apellidoMaterno?: unknown;
+          })
+        : null;
+    const estItem =
+      estructuradas[i] && typeof estructuradas[i] === "object"
+        ? (estructuradas[i] as Record<string, unknown>)
+        : null;
+
+    // Teléfono canónico: columna SQL / referencias normalizadas (prioridad).
+    const celularCanonico =
+      asString(canItem?.celular) || asString(canItem?.telefono) || "";
+
+    const nombreCanonico = asString(canItem?.nombre);
+    const nombreEst = asString(estItem?.nombre);
+    const nombre = nombreCanonico || nombreEst;
+
+    // 1) Estructurado nuevo en p_datos.referenciasEstructuradas
+    let nombres = asString(estItem?.nombres);
+    let apellidoPaterno = asString(estItem?.apellidoPaterno);
+    let apellidoMaterno = asString(estItem?.apellidoMaterno);
+
+    // 2) Si la fila canónica ya trae partes estructuradas
+    if (!nombres && !apellidoPaterno && !apellidoMaterno && canItem) {
+      nombres = asString(canItem.nombres);
+      apellidoPaterno = asString(canItem.apellidoPaterno);
+      apellidoMaterno = asString(canItem.apellidoMaterno);
+    }
+
+    // 3) Legacy: parsear nombre compuesto con confianza
+    if (!nombres && !apellidoPaterno && !apellidoMaterno && nombre) {
+      const parsed = parseLegacyReferenciaNombre(nombre);
+      if (parsed.parsed) {
+        nombres = parsed.nombres;
+        apellidoPaterno = parsed.apellidoPaterno;
+        apellidoMaterno = parsed.apellidoMaterno;
+      }
+    }
+
+    // Celular de estructuradas solo si canónico vacío (no reintroducir teléfono viejo).
+    const celular =
+      celularCanonico ||
+      asString(estItem?.celular) ||
+      asString(estItem?.telefono);
+
     mapped.push({
-      nombre: "",
-      nombres: "",
-      apellidoPaterno: "",
-      apellidoMaterno: "",
-      celular: "",
+      nombre,
+      nombres: nombres || undefined,
+      apellidoPaterno: apellidoPaterno || undefined,
+      apellidoMaterno: apellidoMaterno || undefined,
+      celular,
     });
   }
 
-  return mapped.slice(0, 2);
+  return mapped;
 }
 
 function mapBeneficiario(
@@ -338,6 +380,14 @@ export function buildSaveClienteDatosRpcPayload(
   // Siempre incluir notaMesa: el RPC reemplaza `datos` completo.
   // Omitir la clave al guardar otros campos borraba notas previas.
   p_datos.notaMesa = String(datos.notaMesa ?? "").trim();
+
+  // Internos: conservar nombres/apellidos de refs sin cambiar contrato p_referencias.
+  // El RPC sobrescribe `referencias` canónicas; esta clave sí sobrevive en p_datos.
+  if (!silvia) {
+    p_datos[REFERENCIAS_ESTRUCTURADAS_KEY] = buildReferenciasEstructuradasForSave(
+      datos.referencias,
+    );
+  }
 
   // P189 B7.1: no autogenerar bloque vacío. Persistir solo si hay captura real.
   if (esMejoravit && hasCapturedInfonavitV1(datos.infonavit)) {
