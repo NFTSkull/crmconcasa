@@ -70,6 +70,9 @@ export function buildMesaIntegrationDocViews(
 ): MesaIntegrationDocView[] {
   const input = integrationDocsResumenFromArchivoResumen(resumenCatalog);
   const requiredSet = new Set(tiposObligatorios);
+  const esContratoExterno =
+    requiredSet.has("cliente_constancia_curp") &&
+    !requiredSet.has("cliente_ine_reverso");
   const obligatorios = deriveIntegrationDocsChecklist(input, tiposObligatorios);
   const opcionales = deriveIntegrationDocsChecklistOpcionalesSoloAsesor(input).filter(
     (item) => !requiredSet.has(item.tipo_documento),
@@ -80,6 +83,10 @@ export function buildMesaIntegrationDocViews(
     const archivo = resolveMesaArchivoPorTipo(item.tipo_documento, resumenCatalog, listaActiva);
     return {
       ...item,
+      label:
+        esContratoExterno && item.tipo_documento === "cliente_ine_frente"
+          ? "INE"
+          : item.label,
       archivo,
       comentario_mesa: archivo?.comentario_mesa ?? null,
     };
