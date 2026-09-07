@@ -240,6 +240,10 @@ export class SupabaseExpedienteClienteDatosRepo implements ExpedienteClienteDato
         perfilCaptura: input.perfilCaptura,
       },
     );
+    // save_cliente_datos_correccion NO acepta p_estado. El wrapper interno sí.
+    // Si enviamos p_estado a PostgREST, la resolución por argumentos falla con PGRST202.
+    const { p_estado: estadoSoloWrapper, ...rpcArgsCorreccion } = rpcArgs;
+    void estadoSoloWrapper;
 
     const { error } = clienteDatosRequiereTelefonoCasa(input.perfilCaptura)
       ? await client.rpc("asesor_guardar_cliente_datos_con_telefono_casa", {
@@ -247,7 +251,7 @@ export class SupabaseExpedienteClienteDatosRepo implements ExpedienteClienteDato
           p_telefono_casa: getTelefonoCasaDraft(idNorm) ?? null,
           p_es_correccion: true,
         })
-      : await client.rpc("save_cliente_datos_correccion", rpcArgs);
+      : await client.rpc("save_cliente_datos_correccion", rpcArgsCorreccion);
 
     if (error) {
       throw mapSaveClienteDatosCorreccionRpcError(error);
