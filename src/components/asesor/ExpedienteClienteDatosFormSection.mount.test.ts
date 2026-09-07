@@ -56,3 +56,32 @@ describe("ExpedienteClienteDatosFormSection capturaVariant", () => {
     assert.match(src, /Borrador guardado automáticamente/);
   });
 });
+
+describe("ExpedienteClienteDatosFormSection panel histórico refs", () => {
+  const src = readFileSync(
+    join(process.cwd(), "src/components/asesor/ExpedienteClienteDatosFormSection.tsx"),
+    "utf8",
+  );
+
+  it("legacyGrandfathered muestra nombre+celular exactos siempre (no solo ambiguos)", () => {
+    assert.match(src, /showLegacyHistorico = refActual\?\.legacyGrandfathered === true/);
+    assert.match(src, /referencia-legacy-nombre-/);
+    assert.match(src, /referencia-legacy-celular-/);
+    assert.match(src, /Nombre completo/);
+    assert.match(src, /Esta referencia fue capturada antes del formato/);
+    assert.match(src, /registro histórico/);
+    // No condicionar el panel a ausencia de partes parseadas.
+    assert.doesNotMatch(
+      src,
+      /legacyGrandfathered === true &&\s*![\s\S]{0,80}apellidoPaterno/,
+    );
+  });
+
+  it("externo/simplificado no monta bloque Referencias", () => {
+    assert.match(src, /\{!esSimplificado \? \([\s\S]*Referencias/);
+  });
+
+  it("updateRef sigue limpiando legacyGrandfathered al editar", () => {
+    assert.match(src, /delete merged\.legacyGrandfathered/);
+  });
+});

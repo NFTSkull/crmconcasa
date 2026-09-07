@@ -1,3 +1,14 @@
+## 2026-09-07 - fix UI: panel refs históricas siempre visibles
+
+### Causa
+Tras grandfather (#234), el hint UI solo aparecía si el parser NO separaba el nombre. Asesores no veían el nombre completo histórico cuando sí se parseaba.
+
+### Decisión
+FE-only: si `legacyGrandfathered`, panel con `ref.nombre` y `ref.celular` exactos siempre. Inputs separados siguen; editar limpia grandfather (#234). Sin SQL/writes/abrir=guardar.
+
+### No
+SQL, backfill, externos, Mesa, P219/P220.
+
 ## 2026-09-07 - fix: Constancia SAT upload opcional para externos (P220)
 
 ### Causa
