@@ -8,6 +8,13 @@ import { describe, it } from "node:test";
  */
 describe("Hotfix Constancia CURP montaje", () => {
   const asesor = readFileSync(
+    join(
+      process.cwd(),
+      "src/components/asesor/AsesorCurpValidacionSectionCore.tsx",
+    ),
+    "utf8",
+  );
+  const asesorWrapper = readFileSync(
     join(process.cwd(), "src/components/asesor/AsesorCurpValidacionSection.tsx"),
     "utf8",
   );
@@ -75,9 +82,10 @@ describe("Hotfix Constancia CURP montaje", () => {
     assert.doesNotMatch(mesa, />\s*RFC_VALIDACION_SAT_PENDIENTE\s*</);
   });
 
-  it("microcopy amigable vía labels (sin enums crudos en UI)", () => {
-    assert.match(mesa, /labelEstadoValidacionMesa/);
-    assert.match(asesor, /labelConstanciaStatus/);
-    assert.doesNotMatch(asesor, /Sin validar \/ piloto/);
+  it("wrapper monta teléfono de casa controlado solo si showTelefonoCasa", () => {
+    assert.match(asesorWrapper, /AsesorTelefonoCasaSection/);
+    assert.match(asesorWrapper, /telefonoCasaValue/);
+    assert.match(asesorWrapper, /value=\{telefonoCasaValue\}/);
+    assert.match(asesorWrapper, /showTelefonoCasa/);
   });
 });

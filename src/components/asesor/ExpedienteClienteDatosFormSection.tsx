@@ -79,10 +79,14 @@ interface ExpedienteClienteDatosFormSectionProps {
   capturaVariant?: ClienteDatosCapturaVariant;
   /** Internos: montar Número de casa. Externos/unknown: false. */
   showTelefonoCasa?: boolean;
+  /** Valor controlado teléfono de casa (internos). */
+  telefonoCasaValue?: string;
   /** Error reactivo de teléfono de casa (internos). */
   telefonoCasaFieldError?: string;
   /** Callback al tipar casa → estado React del padre (completitud/gates). */
   onTelefonoCasaChange?: (value: string) => void;
+  /** Descartar borrador local (opcional; restore es automático). */
+  onDiscardLocalDraft?: () => void;
   /** Mensaje discreto mientras la clasificación de paquete no está resuelta. */
   clasificacionPerfilMensaje?: string | null;
 }
@@ -154,8 +158,10 @@ export function ExpedienteClienteDatosFormSection({
   advertenciaInscripcionInfonavit = null,
   capturaVariant = "completo",
   showTelefonoCasa = false,
+  telefonoCasaValue = "",
   telefonoCasaFieldError,
   onTelefonoCasaChange,
+  onDiscardLocalDraft,
   clasificacionPerfilMensaje = null,
 }: ExpedienteClienteDatosFormSectionProps) {
   const esSimplificado = capturaVariant === "simplificado";
@@ -239,15 +245,28 @@ export function ExpedienteClienteDatosFormSection({
                 className="mt-1 text-xs text-sky-800"
                 role="status"
               >
-                Se recuperó un borrador local. Recuerda presionar Guardar para
-                enviarlo al sistema.
+                Borrador recuperado automáticamente.
+                {onDiscardLocalDraft ? (
+                  <>
+                    {" "}
+                    <button
+                      type="button"
+                      className="underline underline-offset-2 hover:text-sky-950"
+                      onClick={onDiscardLocalDraft}
+                    >
+                      Descartar borrador
+                    </button>
+                  </>
+                ) : null}
               </p>
             ) : null}
             {localDraftSaved || hasUnsavedLocalChanges ? (
               <p className="mt-1 text-xs text-gray-500" role="status">
-                {localDraftSaved ? "Borrador local guardado" : null}
+                {localDraftSaved ? "Borrador guardado automáticamente." : null}
                 {localDraftSaved && hasUnsavedLocalChanges ? " · " : null}
-                {hasUnsavedLocalChanges ? "Tienes cambios sin guardar" : null}
+                {hasUnsavedLocalChanges && !localDraftSaved
+                  ? "Tienes cambios sin guardar"
+                  : null}
               </p>
             ) : null}
           </div>
@@ -433,6 +452,7 @@ export function ExpedienteClienteDatosFormSection({
               canEdit={puedeEditar}
               submittedToMesa={submittedToMesa}
               showTelefonoCasa={showTelefonoCasa}
+              telefonoCasaValue={telefonoCasaValue}
               telefonoCasaFieldError={telefonoCasaFieldError}
               onTelefonoCasaChange={onTelefonoCasaChange}
               onApplyRfcEstimado={(rfcEstimado) => {

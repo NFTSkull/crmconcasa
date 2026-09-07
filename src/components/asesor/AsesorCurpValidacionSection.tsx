@@ -18,16 +18,18 @@ export function AsesorCurpValidacionSection(
 ) {
   const {
     showTelefonoCasa = false,
+    telefonoCasaValue = "",
     telefonoCasaFieldError,
     onTelefonoCasaChange,
     ...curpProps
   } = props;
   return (
     <>
-      {showTelefonoCasa ? (
+      {showTelefonoCasa && onTelefonoCasaChange ? (
         <AsesorTelefonoCasaSection
           expedienteId={props.expedienteId}
           canEdit={props.canEdit}
+          value={telefonoCasaValue}
           fieldError={telefonoCasaFieldError}
           onTelefonoCasaChange={onTelefonoCasaChange}
         />

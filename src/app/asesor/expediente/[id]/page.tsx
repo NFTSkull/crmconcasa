@@ -97,6 +97,7 @@ import {
 } from "@/domain/expediente-archivos";
 import {
   ClienteDatosSupabaseError,
+  clearTelefonoCasaDraft,
   setTelefonoCasaDraft,
   useExpedienteClienteDatosRepo,
   type ExpedienteClienteDatos,
@@ -139,11 +140,13 @@ import {
 } from "@/lib/clienteDatosCobro";
 import {
   CLIENTE_DATOS_DRAFT_DEBOUNCE_MS,
+  flushClienteDatosDraftSnapshot,
   readClienteDatosDraft,
   removeClienteDatosDraft,
-  shouldOfferClienteDatosDraftRestore,
-  writeClienteDatosDraft,
+  shouldAutoRestoreClienteDatosDraft,
+  shouldSkipClienteDatosOfficialRehydrate,
   type ClienteDatosDraft,
+  type ClienteDatosDraftFlushSnapshot,
 } from "@/lib/clienteDatosDraftLocalStorage";
 import { asesorDebeUsarCorreccionClienteDatos } from "@/domain/expediente-archivos/asesor-correccion-post-mesa";
 import {
@@ -349,17 +352,21 @@ export default function AsesorExpedientePage() {
     useState(false);
   const [clienteDatosLocalDraftRestored, setClienteDatosLocalDraftRestored] =
     useState(false);
-  const [clienteDatosPendingDraft, setClienteDatosPendingDraft] =
-    useState<ClienteDatosDraft | null>(null);
   const [clienteDatosHasUnsavedChanges, setClienteDatosHasUnsavedChanges] =
     useState(false);
   const hasUserEditedClienteDatos = useRef(false);
   const suppressDraftAutosave = useRef(false);
   const hasHydratedClienteDatosRef = useRef(false);
-  const clienteDatosDraftFlushRef = useRef({
+  const clienteDatosDraftFlushRef = useRef<ClienteDatosDraftFlushSnapshot>({
     clienteDatos: EMPTY_CLIENTE_DATOS,
     direccionOpcional: "",
+    telefonoCasa: "",
   });
+  /** Expediente cuya DG ya hidratamos; evita re-aplicar DB sobre dirty. */
+  const clienteDatosHydratedForIdRef = useRef<string | null>(null);
+  const forceClienteDatosOfficialReloadRef = useRef(false);
+  const montoAprobadoEditorRef = useRef<number | null>(null);
+  const programaDbRef = useRef<string | null>(null);
   const [editorDecision, setEditorDecision] = useState<
     ExpedienteMock["editorDecision"] | null
   >(null);
@@ -456,6 +463,9 @@ export default function AsesorExpedientePage() {
     [precal?.programa],
   );
 
+  montoAprobadoEditorRef.current = montoAprobadoEditor;
+  programaDbRef.current = programaDb;
+
   const esMejoravit = useMemo(
     () => (precal?.programa ? isProgramaMejoravit(precal.programa) : false),
     [precal?.programa],
@@ -469,37 +479,80 @@ export default function AsesorExpedientePage() {
     [editorDecision?.advertencia_inscripcion],
   );
 
+  const perfilCapturaClienteDatos = useMemo(
+    () =>
+      resolveClienteDatosPerfilCaptura({
+        duenoClasificacion: tiposEnvioResolved
+          ? duenoPaqueteClasificacion
+          : "unknown",
+        duenoEnPaqueteExternosConfirmado: duenoPaqueteExternos,
+      }),
+    [duenoPaqueteClasificacion, duenoPaqueteExternos, tiposEnvioResolved],
+  );
+  const capturaVariantClienteDatos = useMemo(
+    () =>
+      resolveClienteDatosCapturaVariant({
+        actorClasificacion: actorPaqueteClasificacion,
+        actorClasificacionResuelta: actorPaqueteExternosResolved,
+        actorEnPaqueteExternosConfirmado: actorPaqueteExternos,
+      }),
+    [
+      actorPaqueteClasificacion,
+      actorPaqueteExternos,
+      actorPaqueteExternosResolved,
+    ],
+  );
+
+  const syncClienteDatosDraftFlush = useCallback(
+    (patch: Partial<ClienteDatosDraftFlushSnapshot>) => {
+      clienteDatosDraftFlushRef.current = {
+        ...clienteDatosDraftFlushRef.current,
+        ...patch,
+      };
+    },
+    [],
+  );
+
   const handleClienteDatosChange = useCallback(
     (value: SetStateAction<ClienteDatosFormState>) => {
       hasUserEditedClienteDatos.current = true;
       setClienteDatosHasUnsavedChanges(true);
       setClienteDatos((prev) => {
         const next = typeof value === "function" ? value(prev) : value;
-        if (!cobroInputsAfectanMontoCalculado(prev, next) &&
-            !montoCalculadoFieldCambio(prev, next)) {
-          return next;
+        let datos = next;
+        if (
+          cobroInputsAfectanMontoCalculado(prev, next) ||
+          montoCalculadoFieldCambio(prev, next)
+        ) {
+          const recalc = applyClienteDatosCobroRecalc({
+            prev,
+            next,
+            montoEditor: montoAprobadoEditorRef.current,
+            programaDb: programaDbRef.current,
+            bloqueadoManual: montoCalculadoLockedRef.current,
+          });
+          montoCalculadoLockedRef.current = recalc.bloqueadoManual;
+          datos = recalc.datos;
         }
-        const recalc = applyClienteDatosCobroRecalc({
-          prev,
-          next,
-          montoEditor: montoAprobadoEditor,
-          programaDb,
-          bloqueadoManual: montoCalculadoLockedRef.current,
-        });
-        montoCalculadoLockedRef.current = recalc.bloqueadoManual;
-        return recalc.datos;
+        // Flush síncrono: sobrevive refresh antes del debounce / useEffect del ref.
+        syncClienteDatosDraftFlush({ clienteDatos: datos });
+        return datos;
       });
     },
-    [montoAprobadoEditor, programaDb],
+    [syncClienteDatosDraftFlush],
   );
 
   const handleDireccionOpcionalChange = useCallback(
     (value: SetStateAction<string>) => {
       hasUserEditedClienteDatos.current = true;
       setClienteDatosHasUnsavedChanges(true);
-      setDireccionOpcional(value);
+      setDireccionOpcional((prev) => {
+        const next = typeof value === "function" ? value(prev) : value;
+        syncClienteDatosDraftFlush({ direccionOpcional: next });
+        return next;
+      });
     },
-    [],
+    [syncClienteDatosDraftFlush],
   );
 
   const clienteDatosDraftUserKey = currentUser?.email?.trim().toLowerCase() ?? "";
@@ -509,23 +562,22 @@ export default function AsesorExpedientePage() {
     if (!hasUserEditedClienteDatos.current) return;
     if (suppressDraftAutosave.current) return;
     if (!precal?.id || !clienteDatosDraftUserKey) return;
-    const { clienteDatos: datos, direccionOpcional: domicilio } =
-      clienteDatosDraftFlushRef.current;
-    writeClienteDatosDraft(
+    const persistCasa = clienteDatosRequiereTelefonoCasa(perfilCapturaClienteDatos);
+    flushClienteDatosDraftSnapshot(
       clienteDatosDraftUserKey,
       String(precal.id),
-      datos,
-      domicilio,
+      clienteDatosDraftFlushRef.current,
+      { persistTelefonoCasa: persistCasa },
     );
     setClienteDatosLocalDraftSaved(true);
-  }, [clienteDatosDraftUserKey, precal?.id]);
+  }, [clienteDatosDraftUserKey, precal?.id, perfilCapturaClienteDatos]);
 
   const clearClienteDatosLocalDraft = useCallback(
     (expedienteId: string) => {
       if (clienteDatosDraftUserKey) {
         removeClienteDatosDraft(clienteDatosDraftUserKey, expedienteId);
       }
-      setClienteDatosPendingDraft(null);
+      clearTelefonoCasaDraft(expedienteId);
       setClienteDatosLocalDraftSaved(false);
       setClienteDatosLocalDraftRestored(false);
       setClienteDatosHasUnsavedChanges(false);
@@ -534,93 +586,124 @@ export default function AsesorExpedientePage() {
     [clienteDatosDraftUserKey],
   );
 
-  const finishClienteDatosHydration = useCallback(() => {
+  const finishClienteDatosHydration = useCallback((expedienteId: string) => {
+    clienteDatosHydratedForIdRef.current = expedienteId;
     queueMicrotask(() => {
       hasHydratedClienteDatosRef.current = true;
       suppressDraftAutosave.current = false;
     });
   }, []);
 
-  const offerClienteDatosDraftIfPending = useCallback(
-    (
-      expedienteId: string,
-      hydratedDatos: ClienteDatosFormState,
-      hydratedDireccion: string,
-    ) => {
-      if (!clienteDatosDraftUserKey) {
-        setClienteDatosPendingDraft(null);
-        return;
-      }
-
-      const draft = readClienteDatosDraft(clienteDatosDraftUserKey, expedienteId);
-      if (!draft) {
-        setClienteDatosPendingDraft(null);
-        return;
-      }
-
-      if (
-        !shouldOfferClienteDatosDraftRestore(
-          draft,
-          hydratedDatos,
-          hydratedDireccion,
-        )
-      ) {
-        removeClienteDatosDraft(clienteDatosDraftUserKey, expedienteId);
-        setClienteDatosPendingDraft(null);
-        return;
-      }
-
-      setClienteDatosPendingDraft(draft);
-    },
-    [clienteDatosDraftUserKey],
-  );
-
   const applyClienteDatosDraftToForm = useCallback(
-    (draft: ClienteDatosDraft) => {
+    (draft: ClienteDatosDraft, options?: { persistCasa?: boolean }) => {
       suppressDraftAutosave.current = true;
+      const monto = montoAprobadoEditorRef.current;
+      const programa = programaDbRef.current;
       const autoDraft = calcMontoCalculadoCobro(
-        montoAprobadoEditor,
+        monto,
         parsePorcentajeCobroInput(draft.clienteDatos.porcentajeCobro),
-        { programaDb, montoMejoravitForm: draft.clienteDatos.montoMejoravit },
+        { programaDb: programa, montoMejoravitForm: draft.clienteDatos.montoMejoravit },
       );
       montoCalculadoLockedRef.current =
         autoDraft != null &&
         isMontoCalculadoManualRespectoAuto(draft.clienteDatos.montoCalculado, autoDraft);
       const draftConAuto = applyMontoCalculadoSugeridoSiNoBloqueado(
         draft.clienteDatos,
-        montoAprobadoEditor,
-        programaDb,
+        monto,
+        programa,
         montoCalculadoLockedRef.current,
       );
+      const domicilio = draft.direccionOpcional ?? "";
       setClienteDatos(draftConAuto);
       if (draft.direccionOpcional !== undefined) {
         setDireccionOpcional(draft.direccionOpcional);
       }
+      if (options?.persistCasa !== false && typeof draft.telefonoCasa === "string") {
+        setTelefonoCasaValue(draft.telefonoCasa);
+        if (draft.expedienteId) {
+          setTelefonoCasaDraft(draft.expedienteId, draft.telefonoCasa);
+        }
+      }
+      syncClienteDatosDraftFlush({
+        clienteDatos: draftConAuto,
+        direccionOpcional:
+          draft.direccionOpcional !== undefined
+            ? domicilio
+            : clienteDatosDraftFlushRef.current.direccionOpcional,
+        telefonoCasa:
+          options?.persistCasa !== false && typeof draft.telefonoCasa === "string"
+            ? draft.telefonoCasa
+            : clienteDatosDraftFlushRef.current.telefonoCasa,
+      });
       setClienteDatosLocalDraftRestored(true);
+      setClienteDatosLocalDraftSaved(true);
       setClienteDatosHasUnsavedChanges(true);
       hasUserEditedClienteDatos.current = true;
       queueMicrotask(() => {
         suppressDraftAutosave.current = false;
       });
     },
-    [montoAprobadoEditor, programaDb],
+    [syncClienteDatosDraftFlush],
   );
 
-  const handleRestoreClienteDatosDraft = useCallback(() => {
-    if (!clienteDatosPendingDraft) return;
-    applyClienteDatosDraftToForm(clienteDatosPendingDraft);
-    setClienteDatosPendingDraft(null);
-    setClienteDatosLocalDraftSaved(true);
-  }, [applyClienteDatosDraftToForm, clienteDatosPendingDraft]);
+  const autoRestoreClienteDatosDraftIfPending = useCallback(
+    (
+      expedienteId: string,
+      hydratedDatos: ClienteDatosFormState,
+      hydratedDireccion: string,
+      hydratedTelefonoCasa: string,
+    ) => {
+      if (!clienteDatosDraftUserKey) {
+          return;
+      }
+
+      const draft = readClienteDatosDraft(clienteDatosDraftUserKey, expedienteId);
+      if (!draft) {
+          return;
+      }
+
+      if (
+        !shouldAutoRestoreClienteDatosDraft(
+          draft,
+          hydratedDatos,
+          hydratedDireccion,
+          hydratedTelefonoCasa,
+        )
+      ) {
+        removeClienteDatosDraft(clienteDatosDraftUserKey, expedienteId);
+          return;
+      }
+
+      // Restore automático: sin click "Restaurar".
+      // telefonoCasa del draft se aplica al state; externos no lo montan ni validan.
+      applyClienteDatosDraftToForm(draft, { persistCasa: true });
+    },
+    [
+      applyClienteDatosDraftToForm,
+      clienteDatosDraftUserKey,
+    ],
+  );
 
   const handleDiscardClienteDatosDraft = useCallback(() => {
     if (!precal?.id) return;
-    clearClienteDatosLocalDraft(String(precal.id));
+    const expedienteId = String(precal.id);
+    clearClienteDatosLocalDraft(expedienteId);
+    forceClienteDatosOfficialReloadRef.current = true;
+    // Dispara rehidratación oficial vía efecto (mismo evento que save).
+    window.dispatchEvent(
+      new CustomEvent("expediente_cliente_datos_updated", {
+        detail: { expedienteId },
+      }),
+    );
   }, [clearClienteDatosLocalDraft, precal?.id]);
 
   useEffect(() => {
-    clienteDatosDraftFlushRef.current = { clienteDatos, direccionOpcional };
-  }, [clienteDatos, direccionOpcional]);
+    clienteDatosDraftFlushRef.current = {
+      clienteDatos,
+      direccionOpcional,
+      telefonoCasa: telefonoCasaValue,
+    };
+  }, [clienteDatos, direccionOpcional, telefonoCasaValue]);
 
   useEffect(() => {
     if (!hasHydratedClienteDatosRef.current) return;
@@ -635,6 +718,7 @@ export default function AsesorExpedientePage() {
   }, [
     clienteDatos,
     direccionOpcional,
+    telefonoCasaValue,
     clienteDatosDraftUserKey,
     persistClienteDatosDraftNow,
     precal?.id,
@@ -662,34 +746,16 @@ export default function AsesorExpedientePage() {
     persistClienteDatosDraftNow,
   ]);
 
-  const perfilCapturaClienteDatos = useMemo(
-    () =>
-      resolveClienteDatosPerfilCaptura({
-        duenoClasificacion: tiposEnvioResolved
-          ? duenoPaqueteClasificacion
-          : "unknown",
-        duenoEnPaqueteExternosConfirmado: duenoPaqueteExternos,
-      }),
-    [duenoPaqueteClasificacion, duenoPaqueteExternos, tiposEnvioResolved],
+  const handleTelefonoCasaChange = useCallback(
+    (value: string) => {
+      hasUserEditedClienteDatos.current = true;
+      setClienteDatosHasUnsavedChanges(true);
+      setTelefonoCasaValue(value);
+      syncClienteDatosDraftFlush({ telefonoCasa: value });
+      if (precal?.id) setTelefonoCasaDraft(String(precal.id), value);
+    },
+    [precal?.id, syncClienteDatosDraftFlush],
   );
-  const capturaVariantClienteDatos = useMemo(
-    () =>
-      resolveClienteDatosCapturaVariant({
-        actorClasificacion: actorPaqueteClasificacion,
-        actorClasificacionResuelta: actorPaqueteExternosResolved,
-        actorEnPaqueteExternosConfirmado: actorPaqueteExternos,
-      }),
-    [
-      actorPaqueteClasificacion,
-      actorPaqueteExternos,
-      actorPaqueteExternosResolved,
-    ],
-  );
-
-  const handleTelefonoCasaChange = useCallback((value: string) => {
-    setTelefonoCasaValue(value);
-    if (precal?.id) setTelefonoCasaDraft(String(precal.id), value);
-  }, [precal?.id]);
 
   useEffect(() => {
     let cancelled = false;
@@ -1468,18 +1534,48 @@ export default function AsesorExpedientePage() {
 
   useEffect(() => {
     if (!precal?.id) return;
+    const expedienteId = String(precal.id);
     let cancelled = false;
 
-    const applyFound = (found: ExpedienteClienteDatos | null) => {
+    // Cambio real de expediente → permitir hidratación limpia.
+    if (clienteDatosHydratedForIdRef.current !== expedienteId) {
+      clienteDatosHydratedForIdRef.current = null;
+      hasHydratedClienteDatosRef.current = false;
+      hasUserEditedClienteDatos.current = false;
+    }
+
+    const applyFound = (
+      found: ExpedienteClienteDatos | null,
+      options?: { force?: boolean },
+    ) => {
       if (cancelled) return;
+      const force =
+        Boolean(options?.force) || forceClienteDatosOfficialReloadRef.current;
+      if (force) {
+        forceClienteDatosOfficialReloadRef.current = false;
+      }
+      if (
+        shouldSkipClienteDatosOfficialRehydrate({
+          hydratedForExpedienteId: clienteDatosHydratedForIdRef.current,
+          expedienteId,
+          hasUserEdited: hasUserEditedClienteDatos.current,
+          force,
+        })
+      ) {
+        return;
+      }
+
       hasUserEditedClienteDatos.current = false;
       hasHydratedClienteDatosRef.current = false;
       suppressDraftAutosave.current = true;
       setClienteDatosLocalDraftSaved(false);
       setClienteDatosLocalDraftRestored(false);
       setClienteDatosHasUnsavedChanges(false);
-      setClienteDatosPendingDraft(null);
+
       const domicilioOficial = precal.direccion_opcional ?? "";
+      const monto = montoAprobadoEditorRef.current;
+      const programa = programaDbRef.current;
+
       if (!found) {
         montoMejoravitLockedRef.current = false;
         montoCalculadoLockedRef.current = false;
@@ -1494,14 +1590,23 @@ export default function AsesorExpedientePage() {
         );
         setClienteDatos(datosSinOficial);
         setClienteDatosMeta(null);
-        offerClienteDatosDraftIfPending(
-          String(precal.id),
+        setTelefonoCasaValue("");
+        clearTelefonoCasaDraft(expedienteId);
+        syncClienteDatosDraftFlush({
+          clienteDatos: datosSinOficial,
+          direccionOpcional: domicilioOficial,
+          telefonoCasa: "",
+        });
+        autoRestoreClienteDatosDraftIfPending(
+          expedienteId,
           datosSinOficial,
           domicilioOficial,
+          "",
         );
-        finishClienteDatosHydration();
+        finishClienteDatosHydration(expedienteId);
         return;
       }
+
       montoMejoravitLockedRef.current = isMontoMejoravitGuardado(
         found.datos.montoMejoravit ?? "",
       );
@@ -1509,8 +1614,8 @@ export default function AsesorExpedientePage() {
         found.datos.porcentajeCobro ||
           (found.porcentajeCobro != null ? String(found.porcentajeCobro) : ""),
       );
-      const montoAutoCargado = calcMontoCalculadoCobro(montoAprobadoEditor, pctCargado, {
-        programaDb,
+      const montoAutoCargado = calcMontoCalculadoCobro(monto, pctCargado, {
+        programaDb: programa,
         montoMejoravitForm: found.datos.montoMejoravit ?? "",
       });
       const montoCalculadoCargado =
@@ -1534,13 +1639,23 @@ export default function AsesorExpedientePage() {
       const datosHidratados = applyClienteDatosInfonavitAutofill(
         applyMontoCalculadoSugeridoSiNoBloqueado(
           datosCargados,
-          montoAprobadoEditor,
-          programaDb,
+          monto,
+          programa,
           montoCalculadoLockedRef.current,
         ),
         editorDecisionRef.current,
       );
+      const casaOficial = String(found.telefonoCasa ?? "")
+        .replace(/\D/g, "")
+        .slice(0, 10);
       setClienteDatos(datosHidratados);
+      setTelefonoCasaValue(casaOficial);
+      setTelefonoCasaDraft(expedienteId, casaOficial);
+      syncClienteDatosDraftFlush({
+        clienteDatos: datosHidratados,
+        direccionOpcional: domicilioOficial,
+        telefonoCasa: casaOficial,
+      });
       setClienteDatosMeta({
         estado: found.estado,
         comentarioRechazo: found.comentarioRechazo,
@@ -1551,20 +1666,21 @@ export default function AsesorExpedientePage() {
         updatedAt: found.updatedAt,
         updatedBy: found.updatedBy,
       });
-      offerClienteDatosDraftIfPending(
-        String(precal.id),
+      autoRestoreClienteDatosDraftIfPending(
+        expedienteId,
         datosHidratados,
         domicilioOficial,
+        casaOficial,
       );
-      finishClienteDatosHydration();
+      finishClienteDatosHydration(expedienteId);
     };
 
-    const load = () => {
+    const load = (options?: { force?: boolean }) => {
       if (dataSupabase) setClienteDatosLoading(true);
       void clienteDatosRepo
-        .getByExpedienteId(String(precal.id))
+        .getByExpedienteId(expedienteId)
         .then((found) => {
-          applyFound(found);
+          applyFound(found, options);
         })
         .catch((err) => {
           if (cancelled) return;
@@ -1580,23 +1696,18 @@ export default function AsesorExpedientePage() {
 
     load();
 
-    if (dataSupabase) {
-      return () => {
-        cancelled = true;
-      };
-    }
-
     const handler = (e: Event) => {
       const ce = e as CustomEvent<{ expedienteId?: string | null }>;
       const changedId = ce.detail?.expedienteId;
       if (
         changedId != null &&
         changedId !== "" &&
-        String(changedId) !== String(precal.id)
+        String(changedId) !== expedienteId
       ) {
         return;
       }
-      load();
+      // Evento post-save / descartar: forzar snapshot oficial.
+      load({ force: true });
     };
 
     window.addEventListener(
@@ -1611,14 +1722,17 @@ export default function AsesorExpedientePage() {
       );
     };
   }, [
+    autoRestoreClienteDatosDraftIfPending,
     clienteDatosRepo,
     currentUser?.email,
     dataSupabase,
     finishClienteDatosHydration,
-    montoAprobadoEditor,
-    offerClienteDatosDraftIfPending,
+    precal?.direccion_opcional,
+    precal?.cliente_nombre,
+    precal?.nss,
+    precal?.telefono_cliente,
     precal?.id,
-    programaDb,
+    syncClienteDatosDraftFlush,
   ]);
 
   useEffect(() => {
@@ -2104,34 +2218,6 @@ export default function AsesorExpedientePage() {
                 {MSJ_ESPERA_MONTO_REVISOR}
               </div>
             ) : null}
-            {clienteDatosPendingDraft ? (
-              <div
-                role="status"
-                className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950"
-              >
-                <p className="font-medium">
-                  Hay un borrador sin guardar de Datos Generales.
-                </p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    variant="primary"
-                    className="text-xs"
-                    onClick={handleRestoreClienteDatosDraft}
-                  >
-                    Restaurar borrador
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="text-xs"
-                    onClick={handleDiscardClienteDatosDraft}
-                  >
-                    Descartar borrador
-                  </Button>
-                </div>
-              </div>
-            ) : null}
             {esReingresoActivo ? (
               <div
                 role="status"
@@ -2253,8 +2339,10 @@ export default function AsesorExpedientePage() {
               advertenciaInscripcionInfonavit={advertenciaInscripcionInfonavit}
               capturaVariant={capturaVariantClienteDatos}
               showTelefonoCasa={requiereTelefonoCasa}
+              telefonoCasaValue={telefonoCasaValue}
               telefonoCasaFieldError={telefonoCasaFieldError}
               onTelefonoCasaChange={handleTelefonoCasaChange}
+              onDiscardLocalDraft={handleDiscardClienteDatosDraft}
               clasificacionPerfilMensaje={clasificacionPerfilMensaje}
             />
             </div>
@@ -2559,34 +2647,6 @@ export default function AsesorExpedientePage() {
               </div>
             ) : null}
 
-            {clienteDatosPendingDraft ? (
-              <div
-                role="status"
-                className="rounded-lg border border-amber-300 bg-amber-50 px-4 py-3 text-sm text-amber-950"
-              >
-                <p className="font-medium">
-                  Hay un borrador sin guardar de Datos Generales.
-                </p>
-                <div className="mt-2 flex flex-wrap gap-2">
-                  <Button
-                    type="button"
-                    variant="primary"
-                    className="text-xs"
-                    onClick={handleRestoreClienteDatosDraft}
-                  >
-                    Restaurar borrador
-                  </Button>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="text-xs"
-                    onClick={handleDiscardClienteDatosDraft}
-                  >
-                    Descartar borrador
-                  </Button>
-                </div>
-              </div>
-            ) : null}
 
             {esReingresoActivo ? (
               <div
@@ -2698,8 +2758,10 @@ export default function AsesorExpedientePage() {
               advertenciaInscripcionInfonavit={advertenciaInscripcionInfonavit}
               capturaVariant={capturaVariantClienteDatos}
               showTelefonoCasa={requiereTelefonoCasa}
+              telefonoCasaValue={telefonoCasaValue}
               telefonoCasaFieldError={telefonoCasaFieldError}
               onTelefonoCasaChange={handleTelefonoCasaChange}
+              onDiscardLocalDraft={handleDiscardClienteDatosDraft}
               clasificacionPerfilMensaje={clasificacionPerfilMensaje}
             />
             </div>

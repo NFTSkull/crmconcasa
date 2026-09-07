@@ -1,6 +1,10 @@
 import type { ExpedienteClienteDatos } from "@/domain/expediente-cliente-datos";
 import { normalizeClienteDatosForSave } from "./clienteDatosValidation";
 
+/**
+ * v1 + campo opcional `telefonoCasa` (compat: borradores viejos sin el campo siguen válidos).
+ * No subir versión: evita invalidar drafts existentes en localStorage de asesores.
+ */
 export const CLIENTE_DATOS_DRAFT_VERSION = 1;
 
 /** Debounce recomendado para autosave en UI del asesor. */
@@ -13,6 +17,17 @@ export type ClienteDatosDraft = {
   clienteDatos: ExpedienteClienteDatos["datos"];
   /** Domicilio real del cliente (`expedientes.direccion_opcional`), fuera del JSON datos. */
   direccionOpcional?: string;
+  /**
+   * Teléfono de casa (internos). Opcional en v1 para no romper drafts previos.
+   * Externos no deben persistirlo en autosave.
+   */
+  telefonoCasa?: string;
+};
+
+export type ClienteDatosDraftFlushSnapshot = {
+  clienteDatos: ExpedienteClienteDatos["datos"];
+  direccionOpcional: string;
+  telefonoCasa: string;
 };
 
 export function buildClienteDatosDraftKey(
@@ -40,6 +55,8 @@ export function parseClienteDatosDraft(raw: string): ClienteDatosDraft | null {
       clienteDatos: o.clienteDatos as ExpedienteClienteDatos["datos"],
       direccionOpcional:
         typeof o.direccionOpcional === "string" ? o.direccionOpcional : undefined,
+      telefonoCasa:
+        typeof o.telefonoCasa === "string" ? o.telefonoCasa : undefined,
     };
   } catch {
     return null;
@@ -62,10 +79,12 @@ export function isDraftNewerThanOfficial(
 function draftSnapshotKey(
   datos: ExpedienteClienteDatos["datos"],
   direccionOpcional: string,
+  telefonoCasa: string,
 ): string {
   return JSON.stringify({
     datos: normalizeClienteDatosForSave(datos),
     direccionOpcional: direccionOpcional.trim(),
+    telefonoCasa: telefonoCasa.trim(),
   });
 }
 
@@ -74,26 +93,64 @@ export function clienteDatosDraftDiffersFromOfficial(
   draft: ClienteDatosDraft,
   officialDatos: ExpedienteClienteDatos["datos"],
   officialDireccionOpcional: string,
+  officialTelefonoCasa = "",
 ): boolean {
   const draftKey = draftSnapshotKey(
     draft.clienteDatos,
     draft.direccionOpcional ?? "",
+    draft.telefonoCasa ?? "",
   );
-  const officialKey = draftSnapshotKey(officialDatos, officialDireccionOpcional);
+  const officialKey = draftSnapshotKey(
+    officialDatos,
+    officialDireccionOpcional,
+    officialTelefonoCasa,
+  );
   return draftKey !== officialKey;
 }
 
-/** Ofrecer restaurar si el borrador difiere del oficial cargado (no depende solo del reloj). */
-export function shouldOfferClienteDatosDraftRestore(
+/** Decidir si el borrador debe aplicarse automáticamente al hidratar. */
+export function shouldAutoRestoreClienteDatosDraft(
   draft: ClienteDatosDraft,
   officialDatos: ExpedienteClienteDatos["datos"],
   officialDireccionOpcional: string,
+  officialTelefonoCasa = "",
 ): boolean {
   return clienteDatosDraftDiffersFromOfficial(
     draft,
     officialDatos,
     officialDireccionOpcional,
+    officialTelefonoCasa,
   );
+}
+
+/** @deprecated Usar `shouldAutoRestoreClienteDatosDraft`. */
+export function shouldOfferClienteDatosDraftRestore(
+  draft: ClienteDatosDraft,
+  officialDatos: ExpedienteClienteDatos["datos"],
+  officialDireccionOpcional: string,
+  officialTelefonoCasa = "",
+): boolean {
+  return shouldAutoRestoreClienteDatosDraft(
+    draft,
+    officialDatos,
+    officialDireccionOpcional,
+    officialTelefonoCasa,
+  );
+}
+
+/**
+ * Guard: no reemplazar el formulario vivo por snapshot DB si ya hay edición local.
+ * Excepciones: cambio de expediente, force (save OK / descartar borrador).
+ */
+export function shouldSkipClienteDatosOfficialRehydrate(params: Readonly<{
+  hydratedForExpedienteId: string | null;
+  expedienteId: string;
+  hasUserEdited: boolean;
+  force?: boolean;
+}>): boolean {
+  if (params.force) return false;
+  if (params.hydratedForExpedienteId !== params.expedienteId) return false;
+  return params.hasUserEdited;
 }
 
 export function readClienteDatosDraft(
@@ -108,6 +165,7 @@ export function readClienteDatosDraft(
     const draft = parseClienteDatosDraft(raw);
     if (!draft) return null;
     if (draft.expedienteId !== String(expedienteId)) return null;
+    // Compat: aceptar solo la versión actual (v1). Campo telefonoCasa opcional.
     if (draft.draftVersion !== CLIENTE_DATOS_DRAFT_VERSION) return null;
     return draft;
   } catch {
@@ -120,6 +178,7 @@ export function writeClienteDatosDraft(
   expedienteId: string,
   clienteDatos: ExpedienteClienteDatos["datos"],
   direccionOpcional?: string,
+  telefonoCasa?: string,
 ): ClienteDatosDraft {
   const draft: ClienteDatosDraft = {
     expedienteId: String(expedienteId),
@@ -128,12 +187,30 @@ export function writeClienteDatosDraft(
     clienteDatos,
     direccionOpcional:
       typeof direccionOpcional === "string" ? direccionOpcional : undefined,
+    telefonoCasa: typeof telefonoCasa === "string" ? telefonoCasa : undefined,
   };
   if (typeof window !== "undefined") {
     const key = buildClienteDatosDraftKey(userKey, expedienteId);
     window.localStorage.setItem(key, JSON.stringify(draft));
   }
   return draft;
+}
+
+/** Flush síncrono desde snapshot (pagehide / beforeunload / última tecla). */
+export function flushClienteDatosDraftSnapshot(
+  userKey: string,
+  expedienteId: string,
+  snapshot: ClienteDatosDraftFlushSnapshot,
+  options?: Readonly<{ persistTelefonoCasa?: boolean }>,
+): ClienteDatosDraft {
+  const persistCasa = options?.persistTelefonoCasa !== false;
+  return writeClienteDatosDraft(
+    userKey,
+    expedienteId,
+    snapshot.clienteDatos,
+    snapshot.direccionOpcional,
+    persistCasa ? snapshot.telefonoCasa : undefined,
+  );
 }
 
 export function removeClienteDatosDraft(

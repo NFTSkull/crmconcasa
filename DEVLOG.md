@@ -1,3 +1,20 @@
+## 2026-09-07 - fix asesor: borrador DG auto-restore + telefonoCasa persistente
+
+### Causa
+1. `offerClienteDatosDraftIfPending` solo ofrecía «Restaurar» → tras refresh se veía oficial vacío.
+2. `useEffect` de `getByExpedienteId` dependía de monto/programa → rehidratación pisaba dirty.
+3. `telefonoCasa` vivía en Map en memoria → refresh lo perdía.
+4. Flush dependía de useEffect del ref → última tecla antes de pagehide podía perderse.
+
+### Decisión
+- Auto-restore al hidratar si draft difiere; UX «Borrador recuperado automáticamente.» + Descartar opcional.
+- Dirty guard `shouldSkipClienteDatosOfficialRehydrate`; deps sin monto/programa (refs).
+- `ClienteDatosDraft.telefonoCasa?` (v1 compat); sección casa controlled.
+- `syncClienteDatosDraftFlush` en cada change + `flushClienteDatosDraftSnapshot` en pagehide.
+
+### No tocar
+SQL, Mesa docs, NOM-035, smoke.
+
 ## 2026-09-07 - fix Mesa: docs obligatorios por dueño (post-PR #228)
 
 ### Causa
