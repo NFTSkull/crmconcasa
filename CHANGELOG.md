@@ -21,9 +21,9 @@
 ## [Unreleased]
 
 ### Fixed
-- **fix(asesor): borrador Datos Generales se restaura solo** — auto-apply localStorage al hidratar (sin click «Restaurar»); `telefonoCasa` en el mismo draft; flush síncrono de última tecla; dirty guard evita que monto/programa/reclasificación pisen el formulario. Sin SQL.
-
-- **fix(mesa): checklist/gate integración alineado al dueño** — Mesa resuelve obligatorios vía `asesor_documentos_obligatorios_envio` (`asesorProfileId`); checklist dinámico; scoped no duplica si ya obligatorio; error RPC parsea `(X de Y)` sin hardcodear 7/8; fail-safe mientras resuelve. Sin SQL nuevo.
+- **fix(asesor): refs estructuradas sin pérdida en round-trip DG** — `p_datos.referenciasEstructuradas` + mapper/legacy parse; autosave localStorage inmediato; no borrar borrador si save pierde captura; evento remoto no pisa dirty. Sin SQL.
+- **fix(asesor): borrador Datos Generales se restaura solo** — auto-apply localStorage al hidratar; `telefonoCasa` en el mismo draft; dirty guard. Sin SQL.
+- **fix(mesa): label INE para externos** — muestra “INE (frente)” sin exigir reverso.
 
 ### Changed
 - **fix(externos): sin Número de casa en Datos Generales** — `clienteDatosRequiereTelefonoCasa`; UI/validación/faltantes/gates OFF; save vía `save_cliente_datos` sin mutar `telefono_casa` histórico.

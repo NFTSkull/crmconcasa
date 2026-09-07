@@ -48,6 +48,9 @@ describe("ExpedienteClienteDatosFormSection capturaVariant", () => {
     assert.match(page, /shouldSkipClienteDatosOfficialRehydrate/);
     assert.match(page, /flushClienteDatosDraftSnapshot/);
     assert.match(page, /syncClienteDatosDraftFlush/);
+    assert.match(page, /writeClienteDatosDraftImmediate/);
+    assert.match(page, /clienteDatosSavedPreservesCapture/);
+    assert.match(page, /suppressClienteDatosRemoteHydrationRef/);
     assert.doesNotMatch(page, /Restaurar borrador/);
     assert.match(src, /Borrador recuperado automáticamente/);
     assert.match(src, /Borrador guardado automáticamente/);

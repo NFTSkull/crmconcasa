@@ -98,6 +98,7 @@ import {
 import {
   ClienteDatosSupabaseError,
   clearTelefonoCasaDraft,
+  clienteDatosSavedPreservesCapture,
   setTelefonoCasaDraft,
   useExpedienteClienteDatosRepo,
   type ExpedienteClienteDatos,
@@ -365,6 +366,8 @@ export default function AsesorExpedientePage() {
   /** Expediente cuya DG ya hidratamos; evita re-aplicar DB sobre dirty. */
   const clienteDatosHydratedForIdRef = useRef<string | null>(null);
   const forceClienteDatosOfficialReloadRef = useRef(false);
+  /** Evita que el emit del propio save pise el formulario durante el await. */
+  const suppressClienteDatosRemoteHydrationRef = useRef(false);
   const montoAprobadoEditorRef = useRef<number | null>(null);
   const programaDbRef = useRef<string | null>(null);
   const [editorDecision, setEditorDecision] = useState<
@@ -513,6 +516,31 @@ export default function AsesorExpedientePage() {
     [],
   );
 
+  const clienteDatosDraftUserKey = currentUser?.email?.trim().toLowerCase() ?? "";
+
+  const persistClienteDatosDraftNow = useCallback(() => {
+    if (!hasHydratedClienteDatosRef.current) return;
+    if (!hasUserEditedClienteDatos.current) return;
+    if (suppressDraftAutosave.current) return;
+    if (!precal?.id || !clienteDatosDraftUserKey) return;
+    const persistCasa = clienteDatosRequiereTelefonoCasa(perfilCapturaClienteDatos);
+    flushClienteDatosDraftSnapshot(
+      clienteDatosDraftUserKey,
+      String(precal.id),
+      clienteDatosDraftFlushRef.current,
+      { persistTelefonoCasa: persistCasa },
+    );
+    setClienteDatosLocalDraftSaved(true);
+  }, [clienteDatosDraftUserKey, precal?.id, perfilCapturaClienteDatos]);
+
+  /**
+   * Escritura inmediata a localStorage (síncrona).
+   * Se llama DESPUÉS de actualizar el flush ref, fuera del updater de React.
+   */
+  const writeClienteDatosDraftImmediate = useCallback(() => {
+    persistClienteDatosDraftNow();
+  }, [persistClienteDatosDraftNow]);
+
   const handleClienteDatosChange = useCallback(
     (value: SetStateAction<ClienteDatosFormState>) => {
       hasUserEditedClienteDatos.current = true;
@@ -534,12 +562,14 @@ export default function AsesorExpedientePage() {
           montoCalculadoLockedRef.current = recalc.bloqueadoManual;
           datos = recalc.datos;
         }
-        // Flush síncrono: sobrevive refresh antes del debounce / useEffect del ref.
+        // Solo snapshot en ref aquí (Strict Mode puede re-ejecutar el updater).
         syncClienteDatosDraftFlush({ clienteDatos: datos });
         return datos;
       });
+      // localStorage inmediato con el snapshot ya en el ref (última tecla sobrevive refresh).
+      writeClienteDatosDraftImmediate();
     },
-    [syncClienteDatosDraftFlush],
+    [syncClienteDatosDraftFlush, writeClienteDatosDraftImmediate],
   );
 
   const handleDireccionOpcionalChange = useCallback(
@@ -551,26 +581,10 @@ export default function AsesorExpedientePage() {
         syncClienteDatosDraftFlush({ direccionOpcional: next });
         return next;
       });
+      writeClienteDatosDraftImmediate();
     },
-    [syncClienteDatosDraftFlush],
+    [syncClienteDatosDraftFlush, writeClienteDatosDraftImmediate],
   );
-
-  const clienteDatosDraftUserKey = currentUser?.email?.trim().toLowerCase() ?? "";
-
-  const persistClienteDatosDraftNow = useCallback(() => {
-    if (!hasHydratedClienteDatosRef.current) return;
-    if (!hasUserEditedClienteDatos.current) return;
-    if (suppressDraftAutosave.current) return;
-    if (!precal?.id || !clienteDatosDraftUserKey) return;
-    const persistCasa = clienteDatosRequiereTelefonoCasa(perfilCapturaClienteDatos);
-    flushClienteDatosDraftSnapshot(
-      clienteDatosDraftUserKey,
-      String(precal.id),
-      clienteDatosDraftFlushRef.current,
-      { persistTelefonoCasa: persistCasa },
-    );
-    setClienteDatosLocalDraftSaved(true);
-  }, [clienteDatosDraftUserKey, precal?.id, perfilCapturaClienteDatos]);
 
   const clearClienteDatosLocalDraft = useCallback(
     (expedienteId: string) => {
@@ -753,8 +767,9 @@ export default function AsesorExpedientePage() {
       setTelefonoCasaValue(value);
       syncClienteDatosDraftFlush({ telefonoCasa: value });
       if (precal?.id) setTelefonoCasaDraft(String(precal.id), value);
+      writeClienteDatosDraftImmediate();
     },
-    [precal?.id, syncClienteDatosDraftFlush],
+    [precal?.id, syncClienteDatosDraftFlush, writeClienteDatosDraftImmediate],
   );
 
   useEffect(() => {
@@ -1706,8 +1721,17 @@ export default function AsesorExpedientePage() {
       ) {
         return;
       }
-      // Evento post-save / descartar: forzar snapshot oficial.
-      load({ force: true });
+      // Emit del propio save en curso: no pisar.
+      if (suppressClienteDatosRemoteHydrationRef.current) return;
+      // Descartar / rehidratación deliberada.
+      if (forceClienteDatosOfficialReloadRef.current) {
+        forceClienteDatosOfficialReloadRef.current = false;
+        load({ force: true });
+        return;
+      }
+      // Evento genérico mientras hay captura dirty: preservar estado vivo.
+      if (hasUserEditedClienteDatos.current) return;
+      load({ force: false });
     };
 
     window.addEventListener(
@@ -1831,9 +1855,32 @@ export default function AsesorExpedientePage() {
         montoCalculadoEsManual: montoCalculadoLockedRef.current,
         perfilCaptura: perfilCapturaClienteDatos,
       };
+      suppressClienteDatosRemoteHydrationRef.current = true;
       const saved = usarCorreccion
         ? await clienteDatosRepo.saveCorreccion(saveInput)
         : await clienteDatosRepo.save(saveInput);
+
+      const silvia =
+        perfilCapturaClienteDatos === "asesor_equipo_silvia_simplificado";
+      const preserves = clienteDatosSavedPreservesCapture({
+        sent: datosAGuardar,
+        saved: saved.datos,
+        sentDireccionOpcional: domicilioAGuardar,
+        savedDireccionOpcional: domicilioAGuardar,
+        sentTelefonoCasa: requiereTelefonoCasa ? telefonoCasaValue : undefined,
+        savedTelefonoCasa: requiereTelefonoCasa
+          ? saved.telefonoCasa ?? ""
+          : undefined,
+        requireReferenciasEstructuradas: !silvia,
+        requireTelefonoCasa: requiereTelefonoCasa,
+      });
+      if (!preserves) {
+        const message =
+          "Los datos se guardaron pero la respuesta del servidor perdió campos capturados. Se conserva el borrador local; no cierres esta pantalla y reintenta.";
+        setClienteDatosError(message);
+        return { ok: false, message };
+      }
+
       setClienteDatos(datosAGuardar);
       if (isMontoMejoravitGuardado(datosAGuardar.montoMejoravit)) {
         montoMejoravitLockedRef.current = true;
@@ -1873,6 +1920,7 @@ export default function AsesorExpedientePage() {
       setClienteDatosError(message);
       return { ok: false, message };
     } finally {
+      suppressClienteDatosRemoteHydrationRef.current = false;
       setClienteDatosSaving(false);
     }
   }, [
