@@ -293,6 +293,8 @@ export {
   deriveCierreValidacionDocumentalView,
   etapaTrasAvanceIntegracion1a2,
   isFechaCitaBiometricaPasada,
+  MSG_VALIDANDO_REQUISITOS_DOCUMENTALES,
+  resolveTiposObligatoriosMesaIntegracion,
   puedeMostrarAvanceOperativo2a3,
   puedeMostrarAvanceOperativo3a4,
   puedeMostrarAvanceOperativo3a5,

@@ -13,11 +13,31 @@ describe("mapAvanzarEtapaRpcError", () => {
     assert.match(err.message, /datos generales deben estar validados/i);
   });
 
-  it("mapea documentos obligatorios faltantes", () => {
+  it("mapea documentos obligatorios faltantes con contador dinámico (3 de 8)", () => {
     const err = mapAvanzarEtapaRpcError({
-      message: "avanzar_etapa_operativa: faltan documentos obligatorios validados (5 de 7)",
+      message: "avanzar_etapa_operativa: faltan documentos obligatorios validados (3 de 8)",
+    });
+    assert.match(err.message, /3 de 8/);
+    assert.ok(!err.message.includes("7 documentos requeridos"));
+    assert.ok(!err.message.includes("8 documentos requeridos"));
+  });
+
+  it("mapea documentos obligatorios faltantes con contador (4 de 4)", () => {
+    const err = mapAvanzarEtapaRpcError({
+      message: "avanzar_etapa_operativa: faltan documentos obligatorios validados (4 de 4)",
+    });
+    assert.match(err.message, /4 de 4/);
+    assert.ok(!err.message.includes("7 documentos requeridos"));
+  });
+
+  it("mapea documentos obligatorios sin contador → genérico sin número hardcodeado", () => {
+    const err = mapAvanzarEtapaRpcError({
+      message: "avanzar_etapa_operativa: faltan documentos obligatorios validados",
     });
     assert.match(err.message, /documentos obligatorios validados/i);
+    assert.match(err.message, /documentos requeridos/i);
+    assert.ok(!/\d/.test(err.message));
+    assert.ok(!err.message.includes("7 documentos requeridos"));
   });
 
   it("mapea subestado incorrecto", () => {

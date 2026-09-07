@@ -133,9 +133,9 @@ Universo del gate (P169): `organization_id` + NSS + `deleted_at IS NULL` + `cicl
 | Perfil | Obligatorios envío | INE reverso | Opcionales integración extra |
 | --- | --- | --- | --- |
 | Interno clásico | 4 | Sí | Sin cambio |
-| Externo (equipos Silvia/Orlando) | 7 | No | **No se montan** (checklist + secciones dedicadas Evidencia/Vigencia/Constancia SAT). Pagaré/Notificación/Solicitud/Mesa RO/retención intactos. |
+| Externo (equipos Silvia/Orlando) | **8** (+CURP; Acta digital upload opcional, no gate) | No | **No se montan** extras (excepto Acta digital opcional). Pagaré/Notificación/Solicitud/retención intactos. |
 
-**Mesa FE:** `INTEGRATION_DOC_TIPOS_VALIDACION_MESA` intacto en esta Parte B (deuda UI documentada en DEVLOG).
+**Mesa FE:** checklist/gate 1→2 usa `asesor_documentos_obligatorios_envio(expediente.asesor_id)` (`asesorProfileId`). Scoped RO solo si el tipo **no** es obligatorio del dueño. Fail-safe si RPC no resuelve. Error avance parsea `(X de Y)` sin hardcodear cardinalidad.
 
 Grants: `REVOKE` PUBLIC/anon; `GRANT EXECUTE` authenticated (+ service_role).
 

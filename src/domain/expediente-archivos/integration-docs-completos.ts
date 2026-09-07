@@ -445,14 +445,15 @@ export function estatusCuentaComoValidadoMesa(estatus: ResumenEstatus): boolean 
   return estatus === "validado";
 }
 
-/** Espejo de `count_integration_docs_validados` — lista de 4 tipos obligatorios Mesa. */
+/** Espejo de `count_integration_docs_validados` — lista dinámica por dueño (default: 4 clásicos). */
 export function countIntegrationDocsValidados(
   resumen: IntegrationDocsResumenInput,
+  tipos: readonly string[] = INTEGRATION_DOC_TIPOS_VALIDACION_MESA,
 ): number {
   const byTipo = new Map(resumen.map((r) => [r.tipo_documento, r.estatus_revision]));
   let count = 0;
-  for (const tipo of INTEGRATION_DOC_TIPOS_VALIDACION_MESA) {
-    const estatus = byTipo.get(tipo);
+  for (const tipo of tipos) {
+    const estatus = byTipo.get(tipo as TipoDocumentoCatalogo);
     if (estatus && estatusCuentaComoValidadoMesa(estatus)) {
       count += 1;
     }
@@ -461,11 +462,11 @@ export function countIntegrationDocsValidados(
 }
 
 /** Espejo de `integration_docs_todos_validados` — gate avance Mesa 1→2. */
-export function integrationDocsTodosValidados(resumen: IntegrationDocsResumenInput): boolean {
-  return (
-    countIntegrationDocsValidados(resumen) ===
-    INTEGRATION_DOC_TIPOS_VALIDACION_MESA.length
-  );
+export function integrationDocsTodosValidados(
+  resumen: IntegrationDocsResumenInput,
+  tipos: readonly string[] = INTEGRATION_DOC_TIPOS_VALIDACION_MESA,
+): boolean {
+  return countIntegrationDocsValidados(resumen, tipos) === tipos.length;
 }
 
 function mapChecklistItems(

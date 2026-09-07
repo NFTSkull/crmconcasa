@@ -13,6 +13,7 @@ import {
   type ExpedienteArchivoResumen,
   type TipoDocumentoCatalogo,
 } from "./types";
+import { INTEGRATION_DOC_TIPOS_ASESOR_ENVIO } from "./integration-docs-completos";
 
 export type MesaIntegrationDocView = IntegrationDocChecklistItem & {
   archivo: ExpedienteArchivoResumen | null;
@@ -57,16 +58,23 @@ export function resolveMesaArchivoPorTipo(
   return null;
 }
 
-/** Checklist integración asesor (4 obligatorios + opcionales solo asesor) + metadata de archivo para Mesa. */
+/**
+ * Checklist integración asesor para Mesa + metadata de archivo.
+ * `tiposObligatorios` = contrato del dueño (RPC `asesor_documentos_obligatorios_envio`).
+ * Default = 4 clásicos (compat tests / legacy callers).
+ */
 export function buildMesaIntegrationDocViews(
   resumenCatalog: readonly ExpedienteArchivoResumen[],
   listaActiva: readonly ExpedienteArchivoListItem[] = [],
+  tiposObligatorios: readonly string[] = INTEGRATION_DOC_TIPOS_ASESOR_ENVIO,
 ): MesaIntegrationDocView[] {
   const input = integrationDocsResumenFromArchivoResumen(resumenCatalog);
-  const checklist = [
-    ...deriveIntegrationDocsChecklist(input),
-    ...deriveIntegrationDocsChecklistOpcionalesSoloAsesor(input),
-  ];
+  const requiredSet = new Set(tiposObligatorios);
+  const obligatorios = deriveIntegrationDocsChecklist(input, tiposObligatorios);
+  const opcionales = deriveIntegrationDocsChecklistOpcionalesSoloAsesor(input).filter(
+    (item) => !requiredSet.has(item.tipo_documento),
+  );
+  const checklist = [...obligatorios, ...opcionales];
 
   return checklist.map((item) => {
     const archivo = resolveMesaArchivoPorTipo(item.tipo_documento, resumenCatalog, listaActiva);
@@ -76,4 +84,12 @@ export function buildMesaIntegrationDocViews(
       comentario_mesa: archivo?.comentario_mesa ?? null,
     };
   });
+}
+
+/** Scoped read-only Mesa solo si el tipo NO es obligatorio del dueño (evita duplicar checklist). */
+export function shouldMountMesaScopedEquipoDocumentoSection(params: Readonly<{
+  tipo: string;
+  tiposObligatorios: readonly string[];
+}>): boolean {
+  return !params.tiposObligatorios.includes(params.tipo);
 }

@@ -3,6 +3,7 @@ import assert from "node:assert/strict";
 import {
   buildMesaIntegrationDocViews,
   resolveMesaArchivoPorTipo,
+  shouldMountMesaScopedEquipoDocumentoSection,
 } from "./mesa-integration-docs";
 import type { ExpedienteArchivoListItem } from "./map-supabase-expediente-documentos";
 import type { ExpedienteArchivoResumen } from "./types";
@@ -143,4 +144,76 @@ test("buildMesaIntegrationDocViews: subido con id permite abrir; faltante no", (
   assert.equal(ine.archivo?.id, "doc-ine-cat");
   assert.equal(reverso.estatus_revision, "faltante");
   assert.equal(reverso.archivo, null);
+});
+
+test("buildMesaIntegrationDocViews interno: 4 clásicos obligatorios + INE reverso", () => {
+  const views = buildMesaIntegrationDocViews([], [], [
+    "cliente_ine_frente",
+    "cliente_ine_reverso",
+    "cliente_comprobante_domicilio",
+    "cliente_estado_cuenta",
+  ]);
+  const oblig = views.filter((v) => !v.opcional);
+  assert.equal(oblig.length, 4);
+  assert.ok(oblig.some((v) => v.tipo_documento === "cliente_ine_reverso"));
+  assert.ok(!oblig.some((v) => v.tipo_documento === "cliente_constancia_curp"));
+  assert.ok(!oblig.some((v) => v.tipo_documento === "cliente_solicitud_credito"));
+});
+
+test("buildMesaIntegrationDocViews externo: 8 obligatorios; sin INE reverso; acta digital opcional", () => {
+  const externos = [
+    "cliente_ine_frente",
+    "cliente_comprobante_domicilio",
+    "cliente_estado_cuenta",
+    "cliente_constancia_curp",
+    "cliente_solicitud_credito",
+    "cliente_lista_nominal",
+    "cliente_bajo_protesta",
+    "cliente_presupuesto",
+  ] as const;
+  const catalog = [
+    catalogRow("cliente_acta_nacimiento_digital", {
+      estatus_revision: "subido",
+      id: "doc-acta",
+    }),
+    catalogRow("cliente_solicitud_credito", {
+      estatus_revision: "subido",
+      id: "doc-sol",
+    }),
+  ];
+  const views = buildMesaIntegrationDocViews(catalog, [], externos);
+  const oblig = views.filter((v) => !v.opcional);
+  assert.equal(oblig.length, 8);
+  assert.deepEqual(
+    oblig.map((v) => v.tipo_documento),
+    [...externos],
+  );
+  assert.ok(!oblig.some((v) => v.tipo_documento === "cliente_ine_reverso"));
+  const acta = views.find((v) => v.tipo_documento === "cliente_acta_nacimiento_digital");
+  assert.equal(acta?.opcional, true);
+  const sol = views.find((v) => v.tipo_documento === "cliente_solicitud_credito");
+  assert.equal(sol?.opcional, false);
+  assert.equal(sol?.archivo?.id, "doc-sol");
+});
+
+test("shouldMountMesaScopedEquipoDocumentoSection: no duplicar si ya es obligatorio", () => {
+  assert.equal(
+    shouldMountMesaScopedEquipoDocumentoSection({
+      tipo: "cliente_solicitud_credito",
+      tiposObligatorios: ["cliente_solicitud_credito", "cliente_lista_nominal"],
+    }),
+    false,
+  );
+  assert.equal(
+    shouldMountMesaScopedEquipoDocumentoSection({
+      tipo: "cliente_solicitud_credito",
+      tiposObligatorios: [
+        "cliente_ine_frente",
+        "cliente_ine_reverso",
+        "cliente_comprobante_domicilio",
+        "cliente_estado_cuenta",
+      ],
+    }),
+    true,
+  );
 });

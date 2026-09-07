@@ -4,6 +4,7 @@ import {
   INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_EXTERNOS,
   INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_EXTERNOS_LEGACY_7,
   parseAsesorDocumentosObligatoriosEnvio,
+  tryParseAsesorDocumentosObligatoriosEnvio,
 } from "./asesor-documentos-obligatorios-envio";
 import { INTEGRATION_DOC_TIPOS_ASESOR_ENVIO } from "./integration-docs-completos";
 
@@ -81,6 +82,30 @@ describe("parseAsesorDocumentosObligatoriosEnvio (fail-closed)", () => {
         INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_EXTERNOS.slice(0, 7),
       ),
       [...INTEGRATION_DOC_TIPOS_ASESOR_ENVIO],
+    );
+  });
+});
+
+describe("tryParseAsesorDocumentosObligatoriosEnvio (Mesa strict)", () => {
+  it("basura → null (no fingir 4)", () => {
+    assert.equal(tryParseAsesorDocumentosObligatoriosEnvio(null), null);
+    assert.equal(tryParseAsesorDocumentosObligatoriosEnvio(["cliente_fantasma"]), null);
+    assert.equal(
+      tryParseAsesorDocumentosObligatoriosEnvio(
+        INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_EXTERNOS.slice(0, 7),
+      ),
+      null,
+    );
+  });
+
+  it("sets exactos → ok", () => {
+    assert.deepEqual(
+      tryParseAsesorDocumentosObligatoriosEnvio([...INTEGRATION_DOC_TIPOS_ASESOR_ENVIO]),
+      [...INTEGRATION_DOC_TIPOS_ASESOR_ENVIO],
+    );
+    assert.deepEqual(
+      tryParseAsesorDocumentosObligatoriosEnvio([...INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_EXTERNOS]),
+      [...INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_EXTERNOS],
     );
   });
 });
