@@ -21,6 +21,8 @@
 ## [Unreleased]
 
 ### Fixed
+- **fix(asesor): borrador Datos Generales se restaura solo** — auto-apply localStorage al hidratar (sin click «Restaurar»); `telefonoCasa` en el mismo draft; flush síncrono de última tecla; dirty guard evita que monto/programa/reclasificación pisen el formulario. Sin SQL.
+
 - **fix(mesa): checklist/gate integración alineado al dueño** — Mesa resuelve obligatorios vía `asesor_documentos_obligatorios_envio` (`asesorProfileId`); checklist dinámico; scoped no duplica si ya obligatorio; error RPC parsea `(X de Y)` sin hardcodear 7/8; fail-safe mientras resuelve. Sin SQL nuevo.
 
 ### Changed

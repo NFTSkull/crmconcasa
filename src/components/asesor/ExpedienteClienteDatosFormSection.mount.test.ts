@@ -40,5 +40,16 @@ describe("ExpedienteClienteDatosFormSection capturaVariant", () => {
   it("showTelefonoCasa prop cableada al CURP wrapper", () => {
     assert.match(src, /showTelefonoCasa\?: boolean/);
     assert.match(src, /showTelefonoCasa=\{showTelefonoCasa\}/);
+    assert.match(src, /telefonoCasaValue=\{telefonoCasaValue\}/);
+  });
+
+  it("página: restore automático de borrador + flush síncrono + dirty guard", () => {
+    assert.match(page, /autoRestoreClienteDatosDraftIfPending/);
+    assert.match(page, /shouldSkipClienteDatosOfficialRehydrate/);
+    assert.match(page, /flushClienteDatosDraftSnapshot/);
+    assert.match(page, /syncClienteDatosDraftFlush/);
+    assert.doesNotMatch(page, /Restaurar borrador/);
+    assert.match(src, /Borrador recuperado automáticamente/);
+    assert.match(src, /Borrador guardado automáticamente/);
   });
 });

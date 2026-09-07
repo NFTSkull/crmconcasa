@@ -46,6 +46,8 @@ export type AsesorCurpValidacionSectionProps = Readonly<{
   onApplyNombreFromConstancia?: (nombre: string) => void | Promise<void>;
   /** Solo internos: montar sección teléfono de casa. */
   showTelefonoCasa?: boolean;
+  /** Valor controlado del teléfono de casa (padre = fuente de verdad). */
+  telefonoCasaValue?: string;
   /** Reactivo: error de teléfono de casa (B1/B2) sin esperar blur/guardar. */
   telefonoCasaFieldError?: string;
   onTelefonoCasaChange?: (value: string) => void;
