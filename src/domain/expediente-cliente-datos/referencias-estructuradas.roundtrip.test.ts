@@ -219,9 +219,11 @@ describe("referenciasEstructuradas round-trip", () => {
     assert.equal(mapped.datos.referencias[0].apellidoPaterno, "HERRERA");
     assert.equal(mapped.datos.referencias[0].apellidoMaterno, "RAMIREZ");
     assert.equal(mapped.datos.referencias[0].celular, "8133333333");
+    assert.equal(mapped.datos.referencias[0].legacyGrandfathered, true);
     // Ambiguo / corto: conserva nombre, no inventa.
     assert.equal(mapped.datos.referencias[1].nombre, "ANA");
     assert.equal(mapped.datos.referencias[1].celular, "8144444444");
+    assert.equal(mapped.datos.referencias[1].legacyGrandfathered, true);
   });
 
   it("CASO M — externo/silvia: sin referenciasEstructuradas en payload", () => {

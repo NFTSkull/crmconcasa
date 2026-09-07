@@ -568,6 +568,8 @@ export function ExpedienteClienteDatosFormSection({
                     celular: "",
                   };
                   const merged = { ...cur, ...patch };
+                  // Cualquier edición de la ref cancela grandfather → aplica contrato nuevo.
+                  delete merged.legacyGrandfathered;
                   const composed = [
                     merged.nombres,
                     merged.apellidoPaterno,
@@ -582,19 +584,46 @@ export function ExpedienteClienteDatosFormSection({
                   };
                   return { ...p, referencias: nextRefs };
                 });
+              const refActual = clienteDatos.referencias[idx];
+              const showLegacyHint =
+                refActual?.legacyGrandfathered === true &&
+                !(
+                  String(refActual.nombres ?? "").trim() &&
+                  String(refActual.apellidoPaterno ?? "").trim() &&
+                  String(refActual.apellidoMaterno ?? "").trim()
+                );
               return (
               <div key={idx} className="mt-2 grid grid-cols-1 gap-2">
                 <p className="text-[11px] font-medium text-gray-700">
                   Referencia {idx + 1}
                 </p>
+                {showLegacyHint ? (
+                  <div
+                    className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2 text-[11px] text-slate-700"
+                    data-testid={`referencia-legacy-hint-${idx}`}
+                    role="note"
+                  >
+                    <p className="font-medium">
+                      Referencia histórica:{" "}
+                      {String(refActual?.nombre ?? "").trim() || "—"}
+                    </p>
+                    <p className="mt-1 text-slate-600">
+                      Este registro histórico se conserva como fue capturado. Solo
+                      completa los campos separados si necesitas editar la
+                      referencia.
+                    </p>
+                  </div>
+                ) : null}
                 <DatosField
                   label="Nombre(s)"
                   fieldKey={`${pref}Nombres`}
-                  error={err(`${pref}Nombres`)}
+                  error={err(`${pref}Nombres`) || err(`${pref}Nombre`)}
                   showError={showFieldErrors}
                 >
                   <input
-                    className={fieldInputClass(Boolean(err(`${pref}Nombres`)))}
+                    className={fieldInputClass(
+                      Boolean(err(`${pref}Nombres`) || err(`${pref}Nombre`)),
+                    )}
                     value={clienteDatos.referencias[idx]?.nombres ?? ""}
                     onChange={(e) =>
                       updateRef({ nombres: filterPersonNameInput(e.target.value) })

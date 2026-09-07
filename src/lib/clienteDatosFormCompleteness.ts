@@ -11,6 +11,7 @@ import {
   parseMontoCalculadoInput,
   parsePorcentajeCobroInput,
 } from "@/lib/clienteDatosCobro";
+import { referenciaCamposFaltantesContrato } from "@/domain/expediente-cliente-datos/referencias-estructuradas";
 
 /** Misma normalización que `normalizeTelefonoMexico` (sin import circular). */
 function normalizeTelefonoMexicoLocal(input: string): string {
@@ -141,10 +142,9 @@ function pushBaseNombreRefsBeneficiarioDomicilio(
   };
   req("Nombre del cliente", d.nombreCliente);
   d.referencias.forEach((r, i) => {
-    req(`Referencia ${i + 1} — nombre(s)`, String(r.nombres ?? ""));
-    req(`Referencia ${i + 1} — primer apellido`, String(r.apellidoPaterno ?? ""));
-    req(`Referencia ${i + 1} — segundo apellido`, String(r.apellidoMaterno ?? ""));
-    req(`Referencia ${i + 1} — celular`, r.celular);
+    for (const label of referenciaCamposFaltantesContrato(r, i + 1)) {
+      missing.push(label);
+    }
   });
   req("Beneficiario — nombre", d.beneficiario.nombre);
   req("Beneficiario — parentesco", d.beneficiario.parentesco);

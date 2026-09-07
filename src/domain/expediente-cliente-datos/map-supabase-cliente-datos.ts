@@ -112,6 +112,19 @@ export function readClienteDatosPlazo(datos: Record<string, unknown>): string {
   return asDatosTextField(datos.plazo);
 }
 
+function hasStructuredNameParts(obj: {
+  nombres?: unknown;
+  apellidoPaterno?: unknown;
+  apellidoMaterno?: unknown;
+} | null): boolean {
+  if (!obj) return false;
+  return Boolean(
+    asString(obj.nombres) ||
+      asString(obj.apellidoPaterno) ||
+      asString(obj.apellidoMaterno),
+  );
+}
+
 function mapReferencias(
   datos: Record<string, unknown>,
   referenciasCol: unknown,
@@ -150,6 +163,14 @@ function mapReferencias(
     const nombreEst = asString(estItem?.nombre);
     const nombre = nombreCanonico || nombreEst;
 
+    const flaggedLegacy = estItem?.legacyGrandfathered === true;
+
+    // Estructura "real previa" = partes en DB sin bandera grandfather (nueva captura / editada).
+    const structuredPriorInEst =
+      !flaggedLegacy && hasStructuredNameParts(estItem);
+    const structuredPriorInCan = hasStructuredNameParts(canItem);
+    const hadRealStructuredPrior = structuredPriorInEst || structuredPriorInCan;
+
     // 1) Estructurado nuevo en p_datos.referenciasEstructuradas
     let nombres = asString(estItem?.nombres);
     let apellidoPaterno = asString(estItem?.apellidoPaterno);
@@ -162,7 +183,7 @@ function mapReferencias(
       apellidoMaterno = asString(canItem.apellidoMaterno);
     }
 
-    // 3) Legacy: parsear nombre compuesto con confianza
+    // 3) Legacy: parsear nombre compuesto con confianza (UI); no cambia origen grandfather.
     if (!nombres && !apellidoPaterno && !apellidoMaterno && nombre) {
       const parsed = parseLegacyReferenciaNombre(nombre);
       if (parsed.parsed) {
@@ -178,12 +199,21 @@ function mapReferencias(
       asString(estItem?.celular) ||
       asString(estItem?.telefono);
 
+    // Grandfather: contenido almacenado (nombre+celular, sin estructura real previa).
+    // Aunque el parser rellene partes, el origen sigue siendo legacy.
+    const legacyGrandfathered =
+      flaggedLegacy ||
+      (Boolean(nombre.trim()) &&
+        Boolean(celular.trim()) &&
+        !hadRealStructuredPrior);
+
     mapped.push({
       nombre,
       nombres: nombres || undefined,
       apellidoPaterno: apellidoPaterno || undefined,
       apellidoMaterno: apellidoMaterno || undefined,
       celular,
+      ...(legacyGrandfathered ? { legacyGrandfathered: true } : {}),
     });
   }
 

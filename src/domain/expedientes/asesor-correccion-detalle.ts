@@ -142,7 +142,7 @@ export function asesorCorreccionUxCopy(
     case "PENDIENTE_DE_CORREGIR":
       return "Corrige lo indicado por Mesa y guarda o reemplaza la información necesaria.";
     case "CAMBIOS_GUARDADOS_SIN_ENVIAR":
-      return "Cambios guardados. Falta reenviar la corrección a Mesa.";
+      return "PASO 1 COMPLETADO — Corrección guardada. PASO 2 PENDIENTE — Enviar cambios a Mesa.";
     case "CORRECCION_ENVIADA":
       return "Corrección enviada a Mesa. En espera de revisión.";
     default:

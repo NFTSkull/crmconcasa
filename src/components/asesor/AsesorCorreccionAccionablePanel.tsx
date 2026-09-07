@@ -90,7 +90,7 @@ export function AsesorCorreccionAccionablePanel({
     >
       <p className={titleClass}>
         {cambiosGuardados
-          ? "Corrección realizada · falta enviar a Mesa"
+          ? "PASO 1 COMPLETADO — Corrección guardada"
           : "Corrección solicitada por Mesa"}
       </p>
       {view.requestAt && formatDateTime ? (
@@ -102,9 +102,15 @@ export function AsesorCorreccionAccionablePanel({
         <p className={`mt-2 text-xs font-medium ${bodyClass}`}>{view.uxCopy}</p>
       ) : null}
       {cambiosGuardados ? (
-        <p className="mt-2 rounded-md border border-sky-200 bg-white/80 px-3 py-2 text-xs font-medium text-sky-950">
-          La corrección ya está hecha. No necesitas volver a modificarla; solo confirma y envía los cambios a Mesa.
-        </p>
+        <div className="mt-2 space-y-2 rounded-md border border-sky-200 bg-white/80 px-3 py-2 text-xs text-sky-950">
+          <p className="font-semibold">
+            PASO 2 PENDIENTE — Enviar cambios a Mesa
+          </p>
+          <p className="font-medium">
+            La corrección ya está hecha. No necesitas volver a modificarla; solo
+            confirma y envía los cambios a Mesa con el botón de abajo.
+          </p>
+        </div>
       ) : null}
 
       {view.items.length > 0 ? (

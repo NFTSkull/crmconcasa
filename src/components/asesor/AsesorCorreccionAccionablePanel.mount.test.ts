@@ -76,10 +76,12 @@ describe("P210 T18 — action_target / anchors", () => {
     assert.match(detallePage, /onFocusSection/);
   });
 
-  it("P223 distingue corrección realizada de pendiente y enfatiza el envío", () => {
-    assert.match(panel, /Corrección realizada · falta enviar a Mesa/);
-    assert.match(panel, /La corrección ya está hecha\. No necesitas volver a modificarla/);
+  it("P219 distingue PASO 1 guardado vs PASO 2 enviar", () => {
+    assert.match(panel, /PASO 1 COMPLETADO — Corrección guardada/);
+    assert.match(panel, /PASO 2 PENDIENTE — Enviar cambios a Mesa/);
     assert.match(panel, /ENVIAR CAMBIOS A MESA/);
     assert.match(panel, /Cambio atendido y guardado\./);
+    assert.match(detallePage, /Corrección enviada a Mesa/);
+    assert.match(detallePage, /asesor-correccion-enviada-ok/);
   });
 });
