@@ -158,9 +158,11 @@ test("buildMesaIntegrationDocViews interno: 4 clásicos obligatorios + INE rever
   assert.ok(oblig.some((v) => v.tipo_documento === "cliente_ine_reverso"));
   assert.ok(!oblig.some((v) => v.tipo_documento === "cliente_constancia_curp"));
   assert.ok(!oblig.some((v) => v.tipo_documento === "cliente_solicitud_credito"));
+  const ine = oblig.find((v) => v.tipo_documento === "cliente_ine_frente");
+  assert.equal(ine?.label, "Cliente · INE (frente)");
 });
 
-test("buildMesaIntegrationDocViews externo: 8 obligatorios; sin INE reverso; acta digital opcional", () => {
+test("buildMesaIntegrationDocViews externo: 8 obligatorios; label INE; sin INE reverso; acta digital opcional", () => {
   const externos = [
     "cliente_ine_frente",
     "cliente_comprobante_domicilio",
@@ -189,6 +191,8 @@ test("buildMesaIntegrationDocViews externo: 8 obligatorios; sin INE reverso; act
     [...externos],
   );
   assert.ok(!oblig.some((v) => v.tipo_documento === "cliente_ine_reverso"));
+  const ine = oblig.find((v) => v.tipo_documento === "cliente_ine_frente");
+  assert.equal(ine?.label, "INE");
   const acta = views.find((v) => v.tipo_documento === "cliente_acta_nacimiento_digital");
   assert.equal(acta?.opcional, true);
   const sol = views.find((v) => v.tipo_documento === "cliente_solicitud_credito");
