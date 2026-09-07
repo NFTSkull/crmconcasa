@@ -21,8 +21,8 @@ BEGIN
     RAISE EXCEPTION 'Anette Perez activa/asesor no encontrada';
   END IF;
 
-  SELECT count(*), min(t.id)
-  INTO v_team_count, v_team_id
+  SELECT count(*)
+  INTO v_team_count
   FROM public.asesor_equipos t
   JOIN public.profiles lider
     ON lider.id = t.leader_id
@@ -32,9 +32,20 @@ BEGIN
     AND t.organization_id = v_org_id
     AND lower(btrim(lider.email)) = 'silvia.reyes@concasa.mx';
 
-  IF v_team_count <> 1 OR v_team_id IS NULL THEN
+  IF v_team_count <> 1 THEN
     RAISE EXCEPTION 'Se esperaba exactamente 1 Equipo Silvia Reyes activo; encontrados=%', v_team_count;
   END IF;
+
+  SELECT t.id
+  INTO v_team_id
+  FROM public.asesor_equipos t
+  JOIN public.profiles lider
+    ON lider.id = t.leader_id
+   AND lider.active = true
+   AND lider.app_role = 'asesor'
+  WHERE t.active = true
+    AND t.organization_id = v_org_id
+    AND lower(btrim(lider.email)) = 'silvia.reyes@concasa.mx';
 
   INSERT INTO public.asesor_equipo_miembros (team_id, asesor_id, active)
   VALUES (v_team_id, v_anette_id, true)
