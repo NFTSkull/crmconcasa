@@ -20,6 +20,9 @@
 
 ## [Unreleased]
 
+### Fixed
+- **fix(mesa): checklist/gate integración alineado al dueño** — Mesa resuelve obligatorios vía `asesor_documentos_obligatorios_envio` (`asesorProfileId`); checklist dinámico; scoped no duplica si ya obligatorio; error RPC parsea `(X de Y)` sin hardcodear 7/8; fail-safe mientras resuelve. Sin SQL nuevo.
+
 ### Changed
 - **fix(externos): sin Número de casa en Datos Generales** — `clienteDatosRequiereTelefonoCasa`; UI/validación/faltantes/gates OFF; save vía `save_cliente_datos` sin mutar `telefono_casa` histórico.
 - **fix(pre-commit): telefonoCasa reactivo + clasificación tri-state** — `telefonoCasaValue` en page + callback; UNKNOWN≠INTERNO (`clasificacion_pendiente`); envío/guardar bloqueados hasta externo|interno.

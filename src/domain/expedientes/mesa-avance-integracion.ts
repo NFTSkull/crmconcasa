@@ -26,10 +26,19 @@ export type MesaContinuarIntegracionContext = {
   subestado?: string | null;
   clienteDatosEstado?: string | null;
   archivosResumen: readonly ExpedienteArchivoResumen[];
+  /**
+   * Contrato de obligatorios del dueño (RPC `asesor_documentos_obligatorios_envio`).
+   * `undefined` → fallback 4 clásicos (compat tests).
+   * `null` → aún no resuelto / error RPC → fail-safe (no avanzar 1→2).
+   */
+  tiposObligatorios?: readonly string[] | null;
 };
 
+export const MSG_VALIDANDO_REQUISITOS_DOCUMENTALES =
+  "Validando requisitos documentales…";
+
 export type CierreDocumentalDocAsesorItem = {
-  tipo: (typeof INTEGRATION_DOC_TIPOS_VALIDACION_MESA)[number];
+  tipo: string;
   label: string;
   estatus: ResumenEstatus;
   completo: boolean;
@@ -53,8 +62,21 @@ export type CierreValidacionDocumentalView = {
   bloqueos: string[];
 };
 
-function labelDocumento(tipo: (typeof INTEGRATION_DOC_TIPOS_VALIDACION_MESA)[number]): string {
-  return DOCUMENTO_CATALOGO_MAP[tipo]?.label ?? tipo;
+function labelDocumento(tipo: string): string {
+  return (
+    DOCUMENTO_CATALOGO_MAP[tipo as keyof typeof DOCUMENTO_CATALOGO_MAP]?.label ?? tipo
+  );
+}
+
+/** Tipos obligatorios efectivos; `null` = unresolved fail-safe. */
+export function resolveTiposObligatoriosMesaIntegracion(
+  ctx: MesaContinuarIntegracionContext,
+): readonly string[] | null {
+  if (ctx.tiposObligatorios === null) return null;
+  if (ctx.tiposObligatorios === undefined) {
+    return INTEGRATION_DOC_TIPOS_VALIDACION_MESA;
+  }
+  return ctx.tiposObligatorios;
 }
 
 function mensajeEstatusPendiente(estatus: ResumenEstatus): string {
@@ -97,11 +119,17 @@ export function deriveBloqueosContinuarIntegracion(
     bloqueos.push("Datos generales pendientes de validar por Mesa de control.");
   }
 
+  const tipos = resolveTiposObligatoriosMesaIntegracion(ctx);
+  if (tipos === null) {
+    bloqueos.push(MSG_VALIDANDO_REQUISITOS_DOCUMENTALES);
+    return bloqueos;
+  }
+
   const resumen = integrationDocsResumenFromArchivoResumen(ctx.archivosResumen);
   const byTipo = new Map(resumen.map((r) => [r.tipo_documento, r.estatus_revision]));
 
-  for (const tipo of INTEGRATION_DOC_TIPOS_VALIDACION_MESA) {
-    const estatus = byTipo.get(tipo) ?? "faltante";
+  for (const tipo of tipos) {
+    const estatus = byTipo.get(tipo as ExpedienteArchivoResumen["tipo_documento"]) ?? "faltante";
     const label = labelDocumento(tipo);
 
     if (estatus === "faltante") {
@@ -120,8 +148,10 @@ export function deriveBloqueosContinuarIntegracion(
 export function puedeContinuarIntegracion(ctx: MesaContinuarIntegracionContext): boolean {
   if (!puedeMostrarContinuarIntegracion(ctx)) return false;
   if (ctx.clienteDatosEstado !== "validado") return false;
+  const tipos = resolveTiposObligatoriosMesaIntegracion(ctx);
+  if (tipos === null) return false;
   const resumen = integrationDocsResumenFromArchivoResumen(ctx.archivosResumen);
-  return integrationDocsTodosValidados(resumen);
+  return integrationDocsTodosValidados(resumen, tipos);
 }
 
 /** Vista estructurada para el panel «Cierre de validación documental». */
@@ -132,6 +162,7 @@ export function deriveCierreValidacionDocumentalView(
   const bloqueos = deriveBloqueosContinuarIntegracion(ctx);
   const resumen = integrationDocsResumenFromArchivoResumen(ctx.archivosResumen);
   const byTipo = new Map(resumen.map((r) => [r.tipo_documento, r.estatus_revision]));
+  const tipos = resolveTiposObligatoriosMesaIntegracion(ctx);
 
   const datosGeneralesValidados = ctx.clienteDatosEstado === "validado";
   const datosGeneralesDetalle = datosGeneralesValidados
@@ -140,17 +171,21 @@ export function deriveCierreValidacionDocumentalView(
       ? `Estado actual: ${ctx.clienteDatosEstado}`
       : "Pendientes de validar";
 
-  const documentosAsesor = INTEGRATION_DOC_TIPOS_VALIDACION_MESA.map((tipo) => {
-    const estatus = byTipo.get(tipo) ?? "faltante";
-    const completo = estatus === "validado";
-    return {
-      tipo,
-      label: labelDocumento(tipo),
-      estatus,
-      completo,
-      detalle: completo ? "Validado" : mensajeEstatusPendiente(estatus),
-    };
-  });
+  const documentosAsesor =
+    tipos === null
+      ? []
+      : tipos.map((tipo) => {
+          const estatus =
+            byTipo.get(tipo as ExpedienteArchivoResumen["tipo_documento"]) ?? "faltante";
+          const completo = estatus === "validado";
+          return {
+            tipo,
+            label: labelDocumento(tipo),
+            estatus,
+            completo,
+            detalle: completo ? "Validado" : mensajeEstatusPendiente(estatus),
+          };
+        });
 
   const complementarios = INTEGRATION_DOC_TIPOS_MESA_UPLOAD.map((tipo) => {
     const estatus = byTipo.get(tipo) ?? "faltante";

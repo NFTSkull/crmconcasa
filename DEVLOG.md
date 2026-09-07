@@ -1,3 +1,18 @@
+## 2026-09-07 - fix Mesa: docs obligatorios por dueño (post-PR #228)
+
+### Causa
+Tras externos dinámicos en SQL, Mesa FE seguía `deriveIntegrationDocsChecklist` estático (4) + scoped «opcional RO» + mensaje hardcodeado «7 documentos». UI ≠ gate `avanzar_etapa_operativa`.
+
+### Decisión
+- Dueño canónico: `expediente.base.asesorProfileId` (= `expedientes.asesor_id`).
+- Autoridad: `fetchAsesorDocumentosObligatoriosEnvioStrict` (RPC error/parse inválido → no avanzar; mock sin SB → 4).
+- `buildMesaIntegrationDocViews(..., tiposObligatorios)`; `opcional = !required`.
+- Scoped accordion solo si tipo ∉ obligatorios (checklist canónico con Validar).
+- Error RPC: parse `(X de Y)`; genérico sin número si no parsea.
+
+### No tocar
+NOM-035, smoke, Desktop, SQL nuevo, datos.
+
 ## 2026-09-04 - externos: sin teléfono de casa en DG
 
 - Bandera central `clienteDatosRequiereTelefonoCasa(perfil)`: solo `asesor_completo`.

@@ -68,14 +68,23 @@ function sameExactSet(
 export function parseAsesorDocumentosObligatoriosEnvio(
   raw: unknown,
 ): readonly IntegrationDocAsesorEnvioObligatorioTipo[] {
-  if (!Array.isArray(raw)) return copyClasicos();
-  if (raw.length === 0) return copyClasicos();
+  return tryParseAsesorDocumentosObligatoriosEnvio(raw) ?? copyClasicos();
+}
+
+/**
+ * Parse estricto para Mesa: basura / parcial → `null` (no fingir 4 clásicos).
+ */
+export function tryParseAsesorDocumentosObligatoriosEnvio(
+  raw: unknown,
+): readonly IntegrationDocAsesorEnvioObligatorioTipo[] | null {
+  if (!Array.isArray(raw)) return null;
+  if (raw.length === 0) return null;
 
   const tipos: string[] = [];
   for (const item of raw) {
-    if (typeof item !== "string") return copyClasicos();
+    if (typeof item !== "string") return null;
     const t = item.trim();
-    if (!t || !KNOWN.has(t)) return copyClasicos();
+    if (!t || !KNOWN.has(t)) return null;
     tipos.push(t);
   }
 
@@ -88,7 +97,7 @@ export function parseAsesorDocumentosObligatoriosEnvio(
   if (sameExactSet(tipos, INTEGRATION_DOC_TIPOS_ASESOR_ENVIO)) {
     return [...INTEGRATION_DOC_TIPOS_ASESOR_ENVIO];
   }
-  return copyClasicos();
+  return null;
 }
 
 /**
@@ -118,5 +127,43 @@ export async function fetchAsesorDocumentosObligatoriosEnvio(
     return parseAsesorDocumentosObligatoriosEnvio(data);
   } catch {
     return copyClasicos();
+  }
+}
+
+export type FetchAsesorDocumentosObligatoriosEnvioStrictResult =
+  | { ok: true; tipos: readonly IntegrationDocAsesorEnvioObligatorioTipo[] }
+  | { ok: false };
+
+/**
+ * Mesa fail-safe: requiere UUID dueño; error RPC / parse inválido → `{ ok: false }`
+ * (nunca inventa 4 clásicos tras fallo de RPC).
+ * Sin Supabase configurado (mock local) → 4 clásicos resueltos (paridad Asesor).
+ */
+export async function fetchAsesorDocumentosObligatoriosEnvioStrict(
+  asesorId: string,
+): Promise<FetchAsesorDocumentosObligatoriosEnvioStrictResult> {
+  try {
+    const id = String(asesorId ?? "").trim();
+    const hasId =
+      id &&
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+        id,
+      );
+    if (!hasId) return { ok: false };
+
+    if (!isSupabaseConfigured() || !supabaseBrowser) {
+      return { ok: true, tipos: copyClasicos() };
+    }
+
+    const { data, error } = await supabaseBrowser.rpc(
+      "asesor_documentos_obligatorios_envio",
+      { p_asesor_id: id },
+    );
+    if (error) return { ok: false };
+    const tipos = tryParseAsesorDocumentosObligatoriosEnvio(data);
+    if (!tipos) return { ok: false };
+    return { ok: true, tipos };
+  } catch {
+    return { ok: false };
   }
 }

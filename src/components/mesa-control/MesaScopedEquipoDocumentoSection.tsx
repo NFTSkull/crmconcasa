@@ -146,7 +146,7 @@ export function MesaScopedEquipoDocumentoSection({
   return (
     <section aria-label={label} className="px-4 py-3 text-sm text-gray-800">
       <p className="text-xs text-gray-600">
-        Documento opcional cargado por el asesor. Solo consulta y descarga.
+        Documento cargado por el asesor. Solo consulta y descarga.
       </p>
 
       {loading ? (

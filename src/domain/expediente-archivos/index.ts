@@ -72,7 +72,10 @@ export {
 export {
   INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_EXTERNOS,
   fetchAsesorDocumentosObligatoriosEnvio,
+  fetchAsesorDocumentosObligatoriosEnvioStrict,
   parseAsesorDocumentosObligatoriosEnvio,
+  tryParseAsesorDocumentosObligatoriosEnvio,
+  type FetchAsesorDocumentosObligatoriosEnvioStrictResult,
   type IntegrationDocAsesorEnvioExternoTipo,
   type IntegrationDocAsesorEnvioObligatorioTipo,
 } from "./asesor-documentos-obligatorios-envio";
@@ -195,6 +198,7 @@ export { mapUpdateDocumentoRevisionRpcError } from "./update-documento-revision-
 export {
   buildMesaIntegrationDocViews,
   resolveMesaArchivoPorTipo,
+  shouldMountMesaScopedEquipoDocumentoSection,
   type MesaIntegrationDocView,
 } from "./mesa-integration-docs";
 export {

@@ -108,8 +108,18 @@ export function mapAvanzarEtapaRpcError(error: {
   }
 
   if (msg.includes("faltan documentos obligatorios validados")) {
+    const match = raw.match(
+      /faltan documentos obligatorios validados\s*\((\d+)\s*de\s*(\d+)\)/i,
+    );
+    if (match) {
+      const x = match[1];
+      const y = match[2];
+      return new ExpedientesSupabaseError(
+        `Faltan documentos obligatorios validados (${x} de ${y}). Valida los documentos pendientes antes de continuar.`,
+      );
+    }
     return new ExpedientesSupabaseError(
-      "Faltan documentos obligatorios validados. Valida los 7 documentos requeridos antes de continuar.",
+      "Faltan documentos obligatorios validados. Valida los documentos requeridos antes de continuar.",
     );
   }
 

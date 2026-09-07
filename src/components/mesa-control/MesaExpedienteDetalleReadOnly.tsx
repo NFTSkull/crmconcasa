@@ -55,7 +55,9 @@ import {
   buildMesaIntegrationDocViews,
   buildMesaComplementariosDocViews,
   ExpedienteArchivosSupabaseError,
+  fetchAsesorDocumentosObligatoriosEnvioStrict,
   SCOPED_EQUIPO_DOCUMENTO_UI,
+  shouldMountMesaScopedEquipoDocumentoSection,
   type EstatusRevision,
   type ExpedienteArchivoListItem,
   type ExpedienteArchivoResumen,
@@ -276,6 +278,10 @@ export function MesaExpedienteDetalleReadOnly() {
   const [continuarLoading, setContinuarLoading] = useState(false);
   const [continuarError, setContinuarError] = useState<string | null>(null);
   const [continuarSuccess, setContinuarSuccess] = useState<string | null>(null);
+  /** `null` = contratos del dueño aún no resueltos (fail-safe: no avanzar 1→2). */
+  const [tiposObligatoriosDueno, setTiposObligatoriosDueno] = useState<
+    readonly string[] | null
+  >(null);
   const [avance2a3Loading, setAvance2a3Loading] = useState(false);
   const [avance2a3Error, setAvance2a3Error] = useState<string | null>(null);
   const [avance2a3Success, setAvance2a3Success] = useState<string | null>(null);
@@ -532,10 +538,47 @@ export function MesaExpedienteDetalleReadOnly() {
     })();
   }, [activeNotificacionBooking?.createdById]);
 
-  const documentosAsesor = useMemo(
-    () => buildMesaIntegrationDocViews(archivosResumen, archivosLista),
-    [archivosLista, archivosResumen],
-  );
+  /** UUID canónico del dueño = `expedientes.asesor_id` → `base.asesorProfileId`. */
+  const ownerProfileId = expediente?.base.asesorProfileId?.trim() || null;
+
+  useEffect(() => {
+    let cancelled = false;
+    setTiposObligatoriosDueno(null);
+    if (!ownerProfileId) return;
+
+    void (async () => {
+      const result = await fetchAsesorDocumentosObligatoriosEnvioStrict(ownerProfileId);
+      if (cancelled) return;
+      if (result.ok) {
+        setTiposObligatoriosDueno(result.tipos);
+      } else {
+        setTiposObligatoriosDueno(null);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [ownerProfileId]);
+
+  const documentosAsesor = useMemo(() => {
+    if (tiposObligatoriosDueno === null) return [];
+    return buildMesaIntegrationDocViews(
+      archivosResumen,
+      archivosLista,
+      tiposObligatoriosDueno,
+    );
+  }, [archivosLista, archivosResumen, tiposObligatoriosDueno]);
+
+  const scopedEquipoDocsParaMesa = useMemo(() => {
+    if (tiposObligatoriosDueno === null) return [];
+    return SCOPED_EQUIPO_DOCUMENTO_UI.filter((doc) =>
+      shouldMountMesaScopedEquipoDocumentoSection({
+        tipo: doc.tipo,
+        tiposObligatorios: tiposObligatoriosDueno,
+      }),
+    );
+  }, [tiposObligatoriosDueno]);
 
   const documentosComplementarios = useMemo(
     () => buildMesaComplementariosDocViews(archivosResumen, archivosLista),
@@ -1080,8 +1123,9 @@ export function MesaExpedienteDetalleReadOnly() {
       subestado: expediente?.operativo.subestado,
       clienteDatosEstado: clienteDatos?.estado ?? null,
       archivosResumen,
+      tiposObligatorios: tiposObligatoriosDueno,
     }),
-    [archivosResumen, clienteDatos?.estado, expediente],
+    [archivosResumen, clienteDatos?.estado, expediente, tiposObligatoriosDueno],
   );
 
   const cierreValidacionView = useMemo(
@@ -1747,7 +1791,10 @@ export function MesaExpedienteDetalleReadOnly() {
     tieneDatos: Boolean(clienteDatos),
     estado: clienteDatos?.estado ?? null,
   });
-  const documentosSummary = buildIntegracionDocsAccordionSummary(documentosAsesor);
+  const documentosSummary =
+    tiposObligatoriosDueno === null
+      ? "Validando requisitos documentales…"
+      : buildIntegracionDocsAccordionSummary(documentosAsesor);
   const complementariosSummary = buildComplementariosAccordionSummary(documentosComplementarios);
   const retencionSummary = buildRetencionAccordionSummary({
     opcion: retencionOpcionMesa,
@@ -2024,12 +2071,12 @@ export function MesaExpedienteDetalleReadOnly() {
         <MesaConstanciaSituacionFiscalSection expedienteId={routeExpedienteId} />
       </MesaAccordionSection>
 
-      {SCOPED_EQUIPO_DOCUMENTO_UI.map((doc) => (
+      {scopedEquipoDocsParaMesa.map((doc) => (
         <MesaAccordionSection
           key={doc.tipo}
           id={`mesa-scoped-${doc.tipo}`}
           title={doc.label}
-          summary="Documento opcional del asesor · solo consulta"
+          summary="Documento del asesor · solo consulta"
         >
           <MesaScopedEquipoDocumentoSection
             expedienteId={routeExpedienteId}
@@ -2105,6 +2152,14 @@ export function MesaExpedienteDetalleReadOnly() {
             onValidar={(tipo, documentoId) => void handleValidarDocumento(tipo, documentoId)}
             onGuardarRechazo={handleGuardarRechazo}
           />
+          {tiposObligatoriosDueno === null ? (
+            <p
+              className="mt-3 text-sm text-gray-600"
+              data-testid="mesa-validando-requisitos-documentales"
+            >
+              Validando requisitos documentales…
+            </p>
+          ) : null}
         </MesaAccordionSection>
       ) : null}
 

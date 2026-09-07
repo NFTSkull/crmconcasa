@@ -41,7 +41,7 @@ import {
 } from "./mesa-avance-integracion";
 
 function row(
-  tipo: (typeof INTEGRATION_DOC_TIPOS_VALIDACION_MESA)[number],
+  tipo: ExpedienteArchivoResumen["tipo_documento"],
   estatus: ExpedienteArchivoResumen["estatus_revision"],
 ): ExpedienteArchivoResumen {
   return {
@@ -175,6 +175,49 @@ describe("deriveBloqueosContinuarIntegracion", () => {
   it("habilitado si datos + 4 docs asesor están validados", () => {
     assert.deepEqual(deriveBloqueosContinuarIntegracion(baseCtx()), []);
     assert.equal(puedeContinuarIntegracion(baseCtx()), true);
+  });
+
+  it("fail-safe: tiposObligatorios null bloquea avance 1→2", () => {
+    const ctx = baseCtx({ tiposObligatorios: null });
+    const bloqueos = deriveBloqueosContinuarIntegracion(ctx);
+    assert.ok(bloqueos.some((b) => /Validando requisitos documentales/i.test(b)));
+    assert.equal(puedeContinuarIntegracion(ctx), false);
+    assert.equal(deriveCierreValidacionDocumentalView(ctx).puedeAvanzar, false);
+  });
+
+  it("externo: exige 8 docs del dueño; no basta con 4 clásicos", () => {
+    const externos = [
+      "cliente_ine_frente",
+      "cliente_comprobante_domicilio",
+      "cliente_estado_cuenta",
+      "cliente_constancia_curp",
+      "cliente_solicitud_credito",
+      "cliente_lista_nominal",
+      "cliente_bajo_protesta",
+      "cliente_presupuesto",
+    ] as const;
+    const soloClasicos = resumenTodosValidados();
+    const ctxClasicos = baseCtx({
+      archivosResumen: soloClasicos,
+      tiposObligatorios: externos,
+    });
+    assert.equal(puedeContinuarIntegracion(ctxClasicos), false);
+    assert.ok(
+      deriveBloqueosContinuarIntegracion(ctxClasicos).some((b) =>
+        /CURP|Solicitud|Lista|Protesta|Presupuesto/i.test(b),
+      ),
+    );
+
+    const archivos8 = externos.map((t) => row(t, "validado"));
+    const ctxOk = baseCtx({
+      archivosResumen: archivos8,
+      tiposObligatorios: externos,
+    });
+    assert.deepEqual(deriveBloqueosContinuarIntegracion(ctxOk), []);
+    assert.equal(puedeContinuarIntegracion(ctxOk), true);
+    const view = deriveCierreValidacionDocumentalView(ctxOk);
+    assert.equal(view.documentosAsesor.length, 8);
+    assert.ok(!view.documentosAsesor.some((d) => d.tipo === "cliente_ine_reverso"));
   });
 });
 
