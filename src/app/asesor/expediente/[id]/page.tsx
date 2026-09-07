@@ -307,6 +307,7 @@ export default function AsesorExpedientePage() {
   const [vigenciaDocumental, setVigenciaDocumental] =
     useState<ExpedienteVigenciaDocumentalEstado | null>(null);
   const [correccionResubmitting, setCorreccionResubmitting] = useState(false);
+  const [correccionEnviadaOk, setCorreccionEnviadaOk] = useState(false);
   const [checklist, setChecklist] = useState<
     Awaited<ReturnType<typeof getChecklistDocumentos>> | null
   >(null);
@@ -1184,9 +1185,11 @@ export default function AsesorExpedientePage() {
   const handleReenviarCorreccionAMesa = useCallback(async () => {
     if (!precal?.id || !dataSupabase) return;
     setCorreccionResubmitting(true);
+    setCorreccionEnviadaOk(false);
     try {
       await repo.reenviarCorreccionAMesa(String(precal.id));
       await loadExpediente();
+      setCorreccionEnviadaOk(true);
     } catch (err) {
       setLoadError(
         err instanceof Error
@@ -1909,6 +1912,17 @@ export default function AsesorExpedientePage() {
       });
       setClienteDatosSaved(true);
       clearClienteDatosLocalDraft(String(precal.id));
+      // Guardar ≠ enviar: tras corrección, enfocar panel/CTA de reenvío (sin auto-enviar).
+      if (usarCorreccion && typeof window !== "undefined") {
+        window.setTimeout(() => {
+          const panel = document.getElementById(ASESOR_CORRECCION_PANEL_ID);
+          panel?.scrollIntoView({ behavior: "smooth", block: "start" });
+          const cta = document.querySelector(
+            '[data-testid="asesor-correccion-reenviar-cta"]',
+          );
+          if (cta instanceof HTMLElement) cta.focus();
+        }, 120);
+      }
       return { ok: true };
     } catch (err) {
       const message =
@@ -2140,6 +2154,16 @@ export default function AsesorExpedientePage() {
               });
             }}
           />
+        ) : null}
+
+        {correccionEnviadaOk ? (
+          <p
+            role="status"
+            data-testid="asesor-correccion-enviada-ok"
+            className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm font-medium text-emerald-900"
+          >
+            Corrección enviada a Mesa
+          </p>
         ) : null}
 
         {mostrarRechazoOperativoBanner ? (

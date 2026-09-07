@@ -579,30 +579,43 @@ export function validateClienteDatos(
         [1, "referencia2"],
       ] as const) {
         const r = data.referencias[idx] ?? { nombre: "", celular: "" };
-        const nombres = String(r.nombres ?? "").trim();
-        const apPat = String(r.apellidoPaterno ?? "").trim();
-        const apMat = String(r.apellidoMaterno ?? "").trim();
-        // Históricos: si solo hay `nombre` combinado, aún exigimos partes al completar.
-        req(
-          `${prefix}Nombres` as ClienteDatosFieldKey,
-          nombres,
-          `Nombre(s) de referencia ${idx + 1}`,
-        );
-        req(
-          `${prefix}ApellidoPaterno` as ClienteDatosFieldKey,
-          apPat,
-          `Primer apellido de referencia ${idx + 1}`,
-        );
-        req(
-          `${prefix}ApellidoMaterno` as ClienteDatosFieldKey,
-          apMat,
-          `Segundo apellido de referencia ${idx + 1}`,
-        );
-        req(
-          `${prefix}Celular` as ClienteDatosFieldKey,
-          r.celular ?? "",
-          `Celular de referencia ${idx + 1}`,
-        );
+        if (r.legacyGrandfathered === true) {
+          // Histórico válido: nombre combinado + celular; no exigir partes.
+          req(
+            `${prefix}Nombre` as ClienteDatosFieldKey,
+            String(r.nombre ?? ""),
+            `Nombre de referencia ${idx + 1}`,
+          );
+          req(
+            `${prefix}Celular` as ClienteDatosFieldKey,
+            r.celular ?? "",
+            `Celular de referencia ${idx + 1}`,
+          );
+        } else {
+          const nombres = String(r.nombres ?? "").trim();
+          const apPat = String(r.apellidoPaterno ?? "").trim();
+          const apMat = String(r.apellidoMaterno ?? "").trim();
+          req(
+            `${prefix}Nombres` as ClienteDatosFieldKey,
+            nombres,
+            `Nombre(s) de referencia ${idx + 1}`,
+          );
+          req(
+            `${prefix}ApellidoPaterno` as ClienteDatosFieldKey,
+            apPat,
+            `Primer apellido de referencia ${idx + 1}`,
+          );
+          req(
+            `${prefix}ApellidoMaterno` as ClienteDatosFieldKey,
+            apMat,
+            `Segundo apellido de referencia ${idx + 1}`,
+          );
+          req(
+            `${prefix}Celular` as ClienteDatosFieldKey,
+            r.celular ?? "",
+            `Celular de referencia ${idx + 1}`,
+          );
+        }
       }
       req("beneficiarioNombre", data.beneficiario.nombre, "Beneficiario — nombre");
       req("beneficiarioParentesco", data.beneficiario.parentesco, "Beneficiario — parentesco");

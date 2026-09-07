@@ -35,6 +35,9 @@ export {
   REFERENCIAS_ESTRUCTURADAS_KEY,
   buildReferenciasEstructuradasForSave,
   clienteDatosSavedPreservesCapture,
+  referenciaCumpleContratoActual,
+  referenciaCamposFaltantesContrato,
+  referenciaLegacyAmbiguoSinPartes,
 } from "./referencias-estructuradas";
 export { getTelefonoCasaDraft, setTelefonoCasaDraft, clearTelefonoCasaDraft } from "./telefono-casa-draft-store";
 export {

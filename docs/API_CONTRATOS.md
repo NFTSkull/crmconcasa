@@ -1139,6 +1139,8 @@ Rango seguro **O:U** (`ESTADO CRM`…`CRM_SYNC_VERSION`). **A:N se PRESERVA** (H
 **Calibración pendientes (P167):** `167_asesor_pendientes_calibrados.sql` — `asesor_inbox_categoria_correccion` incluye docs `cliente_*` + Acuse/`retencion_envios`; `asesor_inbox_pendiente_agendar_biometricos` incluye reagendar en etapa 4/5 tras cancelación. Label UI chip/KPI: «Necesita corrección». Selector TS: `getAdvisorPrimaryPendingAction` / `listAsesorCorreccionesAbiertas`.
 **P191 (LOCAL, no Cloud):** tareas accionables (`agendar_biometricos` / `agendar_firma` / `subir_acuse`) requieren `asesor_inbox_es_accionable` = `resultado_real NOT IN ('cancelado','rechazado_mesa')`. Lista y summary llaman los mismos `pendiente_*`. Cancelados / Rechazados por Mesa / corrección documental no cambian. Numeración: **191** = ese hotfix.
 **Hotfix 192 (LOCAL, no Cloud):** `asesor_inbox_categoria_correccion` evalúa `expediente_tiene_correccion_asesor_pendiente` (lote P130 `pendiente_revision` + `submitted_at`) **antes** de DG/docs/acuse. Sin gate de etapa. Operación de citas → **193**.
+
+**P219 (LOCAL + Cloud):** REPLACE `asesor_inbox_categoria_correccion` — P198/P202 (`mesa_cambio_revision_estado_efectivo` / `mesa_cambio_episodio_latest`) gobiernan `correccion_*` del episodio vigente. Shortcut P192 solo si `latest_response_at > latest_request_at`. `WAITING_ADVISOR` DG/doc → `correccion_requerida` (nunca `enviada` por lote anterior). Operativo OP no se confunde con DG. Fallback documental/retención P167 intacto. 0 writers / 0 backfill. Sin recursión con `asesor_inbox_estado_efectivo`.
 **UI `/asesor`:** cableada a las RPCs (B1 UI). Sin fallback a `listForAsesor()`. Refetch al focus/visibility (debounce ≥8s).
 
 ### `asesor_list_expedientes_page(...) → jsonb`

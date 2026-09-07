@@ -56,6 +56,11 @@ export type ExpedienteClienteDatos = {
       apellidoPaterno?: string;
       apellidoMaterno?: string;
       celular: string;
+      /**
+       * Histórico válido (nombre+celular sin estructura real previa).
+       * Completitud/validación no exigen partes separadas hasta que el asesor edite.
+       */
+      legacyGrandfathered?: boolean;
     }[];
     beneficiario: {
       nombre: string;

@@ -1,3 +1,19 @@
+## 2026-09-07 - fix: grandfather refs legacy + categoria_correccion episodio (P219)
+
+### Causa A
+`clienteDatosFormCompleteness` / `validateClienteDatos` exigían siempre nombres+apellidos en refs. Históricos (601 exp / 1202 refs) solo tenían `{nombre, celular}` → incompletos / bloqueo guardar-enviar. Incorrecto: estructura es hacia adelante.
+
+### Causa B (Nicolas)
+`asesor_inbox_categoria_correccion` (P192) devolvía `correccion_enviada` por lote P130 pendiente sin comprobar que `submitted_at` responda al último request. `estado_efectivo` ya era `correccion_requerida` (P202) → UI inconsistente. Corrección guardada sin reenviar (`CAMBIOS_GUARDADOS_SIN_ENVIAR`).
+
+### Decisión
+- FE: `legacyGrandfathered` en mapper + `referenciasEstructuradas`; helper único `referenciaCumpleContratoActual`; `updateRef` limpia flag; UI aviso discreto histórico ambiguo.
+- SQL mig **219** READ-MODEL: categoria usa P198/P202 primero; shortcut P192 solo si response > request.
+- UX: PASO 1/2 explícitos; focus CTA tras guardar; “Corrección enviada a Mesa” solo post-RPC.
+
+### No
+Backfill 601, mutar Nicolas/Evelyn, auto-enviar, Desktop, NOM-035, agenda, smoke.
+
 ## 2026-09-07 - fix DG: referenciasEstructuradas lossless (post-#230/#231)
 
 ### Causa

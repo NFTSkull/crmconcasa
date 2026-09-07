@@ -8,10 +8,78 @@ export type ReferenciaEstructuradaPersistida = {
   apellidoPaterno: string;
   apellidoMaterno: string;
   celular: string;
+  /** Solo históricos sin editar; evita perder grandfather al guardar otros campos. */
+  legacyGrandfathered?: boolean;
 };
 
 /** Clave versionable en `p_datos` (sobrevive al RPC; no es `referencias`). */
 export const REFERENCIAS_ESTRUCTURADAS_KEY = "referenciasEstructuradas" as const;
+
+/**
+ * Contrato vigente de una referencia (interno):
+ * - grandfather → nombre combinado + celular
+ * - nuevo/editado → nombres + ambos apellidos + celular
+ */
+export function referenciaCumpleContratoActual(
+  r: ClienteDatosReferenciaCaptura | null | undefined,
+): boolean {
+  if (!r) return false;
+  const celular = String(r.celular ?? "").trim();
+  if (!celular) return false;
+  if (r.legacyGrandfathered === true) {
+    return Boolean(String(r.nombre ?? "").trim());
+  }
+  return Boolean(
+    String(r.nombres ?? "").trim() &&
+      String(r.apellidoPaterno ?? "").trim() &&
+      String(r.apellidoMaterno ?? "").trim(),
+  );
+}
+
+/** Etiquetas de faltantes (completitud); misma semántica que validación. */
+export function referenciaCamposFaltantesContrato(
+  r: ClienteDatosReferenciaCaptura | null | undefined,
+  index1Based: number,
+): string[] {
+  const missing: string[] = [];
+  const n = index1Based;
+  const ref = r ?? { nombre: "", celular: "" };
+  if (ref.legacyGrandfathered === true) {
+    if (!String(ref.nombre ?? "").trim()) {
+      missing.push(`Referencia ${n} — nombre`);
+    }
+    if (!String(ref.celular ?? "").trim()) {
+      missing.push(`Referencia ${n} — celular`);
+    }
+    return missing;
+  }
+  if (!String(ref.nombres ?? "").trim()) {
+    missing.push(`Referencia ${n} — nombre(s)`);
+  }
+  if (!String(ref.apellidoPaterno ?? "").trim()) {
+    missing.push(`Referencia ${n} — primer apellido`);
+  }
+  if (!String(ref.apellidoMaterno ?? "").trim()) {
+    missing.push(`Referencia ${n} — segundo apellido`);
+  }
+  if (!String(ref.celular ?? "").trim()) {
+    missing.push(`Referencia ${n} — celular`);
+  }
+  return missing;
+}
+
+/** ¿Mostrar aviso discreto de histórico ambiguo (sin partes confiables)? */
+export function referenciaLegacyAmbiguoSinPartes(
+  r: ClienteDatosReferenciaCaptura | null | undefined,
+): boolean {
+  if (!r || r.legacyGrandfathered !== true) return false;
+  const hasParts = Boolean(
+    String(r.nombres ?? "").trim() &&
+      String(r.apellidoPaterno ?? "").trim() &&
+      String(r.apellidoMaterno ?? "").trim(),
+  );
+  return !hasParts && Boolean(String(r.nombre ?? "").trim());
+}
 
 export function buildReferenciasEstructuradasForSave(
   referencias: readonly ClienteDatosReferenciaCaptura[],
@@ -19,13 +87,17 @@ export function buildReferenciasEstructuradasForSave(
   const out: ReferenciaEstructuradaPersistida[] = [];
   for (let i = 0; i < 2; i += 1) {
     const r = referencias[i];
-    out.push({
+    const row: ReferenciaEstructuradaPersistida = {
       nombre: String(r?.nombre ?? "").trim(),
       nombres: String(r?.nombres ?? "").trim(),
       apellidoPaterno: String(r?.apellidoPaterno ?? "").trim(),
       apellidoMaterno: String(r?.apellidoMaterno ?? "").trim(),
       celular: String(r?.celular ?? "").trim(),
-    });
+    };
+    if (r?.legacyGrandfathered === true) {
+      row.legacyGrandfathered = true;
+    }
+    out.push(row);
   }
   return out;
 }
@@ -106,6 +178,9 @@ export function clienteDatosSavedPreservesCapture(params: Readonly<{
       const a = sent.referencias[i];
       const b = saved.referencias[i];
       if (!samePhone(a?.celular ?? "", b?.celular ?? "")) return false;
+      if (Boolean(a?.legacyGrandfathered) !== Boolean(b?.legacyGrandfathered)) {
+        return false;
+      }
       if (refHasStructuredNames(a)) {
         if (!same(a?.nombres ?? "", b?.nombres ?? "")) return false;
         if (!same(a?.apellidoPaterno ?? "", b?.apellidoPaterno ?? "")) return false;

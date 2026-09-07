@@ -68,7 +68,11 @@ describe("P210 asesor-correccion-detalle", () => {
   it("T14 estado B copy", () => {
     assert.match(
       asesorCorreccionUxCopy("CAMBIOS_GUARDADOS_SIN_ENVIAR") ?? "",
-      /Falta reenviar/,
+      /PASO 1 COMPLETADO/,
+    );
+    assert.match(
+      asesorCorreccionUxCopy("CAMBIOS_GUARDADOS_SIN_ENVIAR") ?? "",
+      /PASO 2 PENDIENTE/,
     );
   });
 
