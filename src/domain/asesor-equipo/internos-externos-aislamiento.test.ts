@@ -207,6 +207,27 @@ describe("EXTERNOS — CURP / Acta / dedupe / copy", () => {
     assert.doesNotMatch(mig, /GRANT EXECUTE[^\n]+TO anon/);
   });
 
+  it("I2: mig 220 upload externos = 8 + Acta + Constancia SAT; sin constancia_sat Mesa", () => {
+    const mig = readFileSync(
+      join(
+        process.cwd(),
+        "supabase/migrations/220_externos_constancia_sat_upload_opcional.sql",
+      ),
+      "utf8",
+    );
+    assert.match(mig, /CREATE OR REPLACE FUNCTION public\.integration_doc_tipos_asesor_upload_para/);
+    assert.doesNotMatch(
+      mig,
+      /CREATE OR REPLACE FUNCTION public\.integration_doc_tipos_asesor_envio_para/,
+    );
+    assert.match(mig, /cliente_acta_nacimiento_digital/);
+    assert.match(mig, /cliente_constancia_situacion_fiscal/);
+    assert.doesNotMatch(mig, /'cliente_constancia_sat'/);
+    assert.match(mig, /REVOKE ALL ON FUNCTION public\.integration_doc_tipos_asesor_upload_para/);
+    assert.doesNotMatch(mig, /GRANT EXECUTE[^\n]+TO anon/);
+    assert.match(mig, /SECURITY DEFINER/);
+  });
+
   it("11: page fail-safe tiposEnvioResolved + coherencia CURP + tri-state", () => {
     const page = readFileSync(
       join(process.cwd(), "src/app/asesor/expediente/[id]/page.tsx"),
@@ -279,7 +300,7 @@ describe("EXTERNOS — CURP / Acta / dedupe / copy", () => {
       join(process.cwd(), "src/components/asesor/AsesorCurpValidacionSection.tsx"),
       "utf8",
     );
-    assert.match(wrapper, /showTelefonoCasa \? \(/);
+    assert.match(wrapper, /showTelefonoCasa && onTelefonoCasaChange \? \(/);
     assert.match(wrapper, /AsesorTelefonoCasaSection/);
 
     const repo = readFileSync(
@@ -346,7 +367,7 @@ describe("INTERNOS — casa / refs / unicidad", () => {
       join(process.cwd(), "src/components/asesor/AsesorCurpValidacionSection.tsx"),
       "utf8",
     );
-    assert.match(wrapper, /showTelefonoCasa \? \([\s\S]*AsesorTelefonoCasaSection/);
+    assert.match(wrapper, /showTelefonoCasa && onTelefonoCasaChange \? \([\s\S]*AsesorTelefonoCasaSection/);
     const repo = readFileSync(
       join(process.cwd(), "src/domain/expediente-cliente-datos/supabase.repo.ts"),
       "utf8",

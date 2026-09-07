@@ -21,6 +21,7 @@
 ## [Unreleased]
 
 ### Fixed
+- **fix(asesor): Constancia SAT opcional para externos** — mig **220** `upload_para` = envío(8)+Acta+`cliente_constancia_situacion_fiscal`; UI monta sección SAT en externos; Evidencia/Vigencia intactas; obligatorios siguen en 8. Sin `cliente_constancia_sat` Mesa.
 - **fix(asesor): grandfather referencias históricas + categoria_correccion episodio** — refs legacy `{nombre,celular}` no exigen partes; metadata `legacyGrandfathered`; editar limpia grandfather. Mig **219** alinea `asesor_inbox_categoria_correccion` a P198/P202 (lote viejo no gana vs R2). UX PASO1/PASO2 guardar≠enviar. Sin backfill/datos.
 - **fix(asesor): refs estructuradas sin pérdida en round-trip DG** — `p_datos.referenciasEstructuradas` + mapper/legacy parse; autosave localStorage inmediato; no borrar borrador si save pierde captura; evento remoto no pisa dirty. Sin SQL.
 - **fix(asesor): borrador Datos Generales se restaura solo** — auto-apply localStorage al hidratar; `telefonoCasa` en el mismo draft; dirty guard. Sin SQL.

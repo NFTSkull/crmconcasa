@@ -28,12 +28,22 @@ describe("AsesorConstanciaSituacionFiscalSection montaje en página asesor", () 
   const pageSrc = readFileSync(pagePath, "utf8");
   const componentSrc = readFileSync(componentPath, "utf8");
 
-  it("la página monta AsesorConstanciaSituacionFiscalSection en modo Supabase (oculto si paquete externos)", () => {
+  it("la página monta AsesorConstanciaSituacionFiscalSection (internos y externos via regla propia)", () => {
     assert.match(pageSrc, /import\s+\{\s*AsesorConstanciaSituacionFiscalSection\s*\}/);
-    assert.match(pageSrc, /shouldMountAsesorIntegracionOpcionalDedicado/);
+    assert.match(pageSrc, /shouldMountAsesorConstanciaSituacionFiscalForActor/);
     assert.match(
       pageSrc,
-      /shouldMountAsesorIntegracionOpcionalDedicado\([\s\S]*?\)\s*\?\s*\([\s\S]*?<AsesorConstanciaSituacionFiscalSection/,
+      /shouldMountAsesorConstanciaSituacionFiscalForActor\([\s\S]*?\)\s*\?\s*\([\s\S]*?<AsesorConstanciaSituacionFiscalSection/,
+    );
+    assert.match(pageSrc, /shouldMountAsesorIntegracionOpcionalDedicado/);
+    const satIdx = pageSrc.lastIndexOf("<AsesorConstanciaSituacionFiscalSection");
+    const vigIdx = pageSrc.lastIndexOf("<AsesorVigenciaDerechosSection");
+    assert.ok(satIdx > vigIdx && vigIdx > 0);
+    const between = pageSrc.slice(vigIdx, satIdx + 60);
+    assert.match(between, /shouldMountAsesorConstanciaSituacionFiscalForActor/);
+    assert.doesNotMatch(
+      between,
+      /shouldMountAsesorIntegracionOpcionalDedicado\s*\(/,
     );
   });
 

@@ -124,6 +124,7 @@ import {
 import { fetchAsesorEsPaqueteDocumentalExternosClasificacion } from "@/domain/asesor-equipo/asesor-es-paquete-documental-externos";
 import {
   filterIntegracionChecklistOpcionalesParaActor,
+  shouldMountAsesorConstanciaSituacionFiscalForActor,
   shouldMountAsesorIntegracionOpcionalDedicado,
 } from "@/domain/asesor-equipo/asesor-integracion-opcionales-visibility";
 import {
@@ -2458,7 +2459,7 @@ export default function AsesorExpedientePage() {
             ) : null}
             {dataSupabase &&
             precal?.id &&
-            shouldMountAsesorIntegracionOpcionalDedicado({
+            shouldMountAsesorConstanciaSituacionFiscalForActor({
               actorPaqueteExternos,
               actorPaqueteResolved: actorPaqueteExternosResolved,
             }) ? (

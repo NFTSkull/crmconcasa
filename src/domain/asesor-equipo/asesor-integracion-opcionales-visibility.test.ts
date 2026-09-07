@@ -5,6 +5,7 @@ import { join } from "node:path";
 import {
   filterIntegracionChecklistOpcionalesParaActor,
   resolveAsesorIntegracionOpcionalesVisibility,
+  shouldMountAsesorConstanciaSituacionFiscalForActor,
   shouldMountAsesorIntegracionOpcionalDedicado,
 } from "./asesor-integracion-opcionales-visibility";
 import { deriveIntegrationDocsChecklistOpcionales } from "@/domain/expediente-archivos/integration-docs-completos";
@@ -59,7 +60,7 @@ describe("opcionales integración: externo vs interno", () => {
     assert.ok(filtered.every((i) => i.opcional === true));
   });
 
-  it("EXTERNO: no monta secciones dedicadas de integración restringida", () => {
+  it("EXTERNO: no monta Evidencia/Vigencia (dedicadas restringidas)", () => {
     assert.equal(
       shouldMountAsesorIntegracionOpcionalDedicado({
         actorPaqueteExternos: true,
@@ -69,10 +70,73 @@ describe("opcionales integración: externo vs interno", () => {
     );
   });
 
-  it("INTERNO: sí monta secciones dedicadas", () => {
+  it("INTERNO: sí monta Evidencia/Vigencia", () => {
     assert.equal(
       shouldMountAsesorIntegracionOpcionalDedicado({
         actorPaqueteExternos: false,
+        actorPaqueteResolved: true,
+      }),
+      true,
+    );
+  });
+});
+
+describe("shouldMountAsesorConstanciaSituacionFiscalForActor", () => {
+  it("unresolved → false (fail-safe)", () => {
+    assert.equal(
+      shouldMountAsesorConstanciaSituacionFiscalForActor({
+        actorPaqueteExternos: true,
+        actorPaqueteResolved: false,
+      }),
+      false,
+    );
+    assert.equal(
+      shouldMountAsesorConstanciaSituacionFiscalForActor({
+        actorPaqueteExternos: false,
+        actorPaqueteResolved: false,
+      }),
+      false,
+    );
+    assert.equal(
+      shouldMountAsesorConstanciaSituacionFiscalForActor({
+        actorPaqueteExternos: null,
+        actorPaqueteResolved: false,
+      }),
+      false,
+    );
+  });
+
+  it("externo confirmado → monta Constancia SAT", () => {
+    assert.equal(
+      shouldMountAsesorConstanciaSituacionFiscalForActor({
+        actorPaqueteExternos: true,
+        actorPaqueteResolved: true,
+      }),
+      true,
+    );
+  });
+
+  it("interno confirmado → monta Constancia SAT", () => {
+    assert.equal(
+      shouldMountAsesorConstanciaSituacionFiscalForActor({
+        actorPaqueteExternos: false,
+        actorPaqueteResolved: true,
+      }),
+      true,
+    );
+  });
+
+  it("externo: Evidencia/Vigencia siguen OFF; SAT ON (no habilitar todas)", () => {
+    assert.equal(
+      shouldMountAsesorIntegracionOpcionalDedicado({
+        actorPaqueteExternos: true,
+        actorPaqueteResolved: true,
+      }),
+      false,
+    );
+    assert.equal(
+      shouldMountAsesorConstanciaSituacionFiscalForActor({
+        actorPaqueteExternos: true,
         actorPaqueteResolved: true,
       }),
       true,
@@ -90,9 +154,25 @@ describe("page.tsx wiring: acta digital y opcionales externos", () => {
     assert.match(page, /actorPaqueteExternos/);
     assert.match(page, /actorPaqueteExternosResolved/);
     assert.match(page, /shouldMountAsesorIntegracionOpcionalDedicado/);
+    assert.match(page, /shouldMountAsesorConstanciaSituacionFiscalForActor/);
     assert.match(page, /filterIntegracionChecklistOpcionalesParaActor|resolveAsesorIntegracionOpcionalesVisibility/);
     assert.doesNotMatch(page, /tiposEnvioObligatorios\.length\s*===\s*7/);
     assert.doesNotMatch(page, /tiposEnvio\.length\s*===\s*7/);
+  });
+
+  it("Constancia SAT usa regla propia; Evidencia/Vigencia siguen dedicado interno", () => {
+    assert.match(
+      page,
+      /shouldMountAsesorConstanciaSituacionFiscalForActor\([\s\S]*?\)\s*\?\s*\([\s\S]*?<AsesorConstanciaSituacionFiscalSection/,
+    );
+    assert.match(
+      page,
+      /shouldMountAsesorIntegracionOpcionalDedicado\([\s\S]*?\)\s*\?\s*\([\s\S]*?<AsesorEvidenciaSection/,
+    );
+    assert.match(
+      page,
+      /shouldMountAsesorIntegracionOpcionalDedicado\([\s\S]*?\)\s*\?\s*\([\s\S]*?<AsesorVigenciaDerechosSection/,
+    );
   });
 
   it("dedupe scoped + autoridad actorPaqueteExternos", () => {

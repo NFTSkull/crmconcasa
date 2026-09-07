@@ -1,3 +1,16 @@
+## 2026-09-07 - fix: Constancia SAT upload opcional para externos (P220)
+
+### Causa
+`integration_doc_tipos_asesor_upload_para` (20260904230000) solo añadía Acta digital a los 8 de envío. UI montaba `AsesorConstanciaSituacionFiscalSection` solo con `shouldMountAsesorIntegracionOpcionalDedicado` (internos). Silvia no podía subir CSF.
+
+### Decisión
+- Mig **220**: upload externos = envio_para(8) + acta + `cliente_constancia_situacion_fiscal`. `envio_para` intacto (8).
+- UI: `shouldMountAsesorConstanciaSituacionFiscalForActor` (interno+externo; unresolved fail-safe). Evidencia/Vigencia sin cambio.
+- No `cliente_constancia_sat` (Mesa). Sin teléfono empresa en externos. Sin mutar José Alfredo.
+
+### Orden publicación
+Cloud allowlist primero → FE/merge.
+
 ## 2026-09-07 - fix: grandfather refs legacy + categoria_correccion episodio (P219)
 
 ### Causa A
