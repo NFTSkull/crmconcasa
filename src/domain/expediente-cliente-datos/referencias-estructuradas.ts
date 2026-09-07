@@ -81,6 +81,13 @@ export function referenciaLegacyAmbiguoSinPartes(
   return !hasParts && Boolean(String(r.nombre ?? "").trim());
 }
 
+/** Panel histórico: visible siempre que la ref siga grandfathered (parseable o no). */
+export function shouldShowReferenciaHistoricaPanel(
+  r: ClienteDatosReferenciaCaptura | null | undefined,
+): boolean {
+  return r?.legacyGrandfathered === true;
+}
+
 export function buildReferenciasEstructuradasForSave(
   referencias: readonly ClienteDatosReferenciaCaptura[],
 ): ReferenciaEstructuradaPersistida[] {

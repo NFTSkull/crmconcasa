@@ -38,6 +38,7 @@ export {
   referenciaCumpleContratoActual,
   referenciaCamposFaltantesContrato,
   referenciaLegacyAmbiguoSinPartes,
+  shouldShowReferenciaHistoricaPanel,
 } from "./referencias-estructuradas";
 export { getTelefonoCasaDraft, setTelefonoCasaDraft, clearTelefonoCasaDraft } from "./telefono-casa-draft-store";
 export {

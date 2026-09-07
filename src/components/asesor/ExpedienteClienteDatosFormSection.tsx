@@ -585,32 +585,42 @@ export function ExpedienteClienteDatosFormSection({
                   return { ...p, referencias: nextRefs };
                 });
               const refActual = clienteDatos.referencias[idx];
-              const showLegacyHint =
-                refActual?.legacyGrandfathered === true &&
-                !(
-                  String(refActual.nombres ?? "").trim() &&
-                  String(refActual.apellidoPaterno ?? "").trim() &&
-                  String(refActual.apellidoMaterno ?? "").trim()
-                );
+              // Histórico: siempre mostrar nombre+celular exactos (aunque el parser haya separado).
+              const showLegacyHistorico = refActual?.legacyGrandfathered === true;
+              const nombreHistoricoExacto = String(refActual?.nombre ?? "").trim();
+              const celularHistoricoExacto = String(refActual?.celular ?? "").trim();
               return (
               <div key={idx} className="mt-2 grid grid-cols-1 gap-2">
                 <p className="text-[11px] font-medium text-gray-700">
-                  Referencia {idx + 1}
+                  {showLegacyHistorico
+                    ? `Referencia ${idx + 1} — registro histórico`
+                    : `Referencia ${idx + 1}`}
                 </p>
-                {showLegacyHint ? (
+                {showLegacyHistorico ? (
                   <div
-                    className="rounded-md border border-slate-200 bg-slate-50 px-2.5 py-2 text-[11px] text-slate-700"
+                    className="rounded-md border border-sky-200 bg-sky-50/80 px-2.5 py-2 text-[11px] text-slate-800"
                     data-testid={`referencia-legacy-hint-${idx}`}
                     role="note"
                   >
-                    <p className="font-medium">
-                      Referencia histórica:{" "}
-                      {String(refActual?.nombre ?? "").trim() || "—"}
+                    <p className="font-semibold text-slate-900">Referencia histórica</p>
+                    <p className="mt-1.5">
+                      <span className="font-medium text-slate-700">Nombre completo</span>
+                      <br />
+                      <span data-testid={`referencia-legacy-nombre-${idx}`}>
+                        {nombreHistoricoExacto || "—"}
+                      </span>
                     </p>
-                    <p className="mt-1 text-slate-600">
-                      Este registro histórico se conserva como fue capturado. Solo
-                      completa los campos separados si necesitas editar la
-                      referencia.
+                    <p className="mt-1.5">
+                      <span className="font-medium text-slate-700">Celular</span>
+                      <br />
+                      <span data-testid={`referencia-legacy-celular-${idx}`}>
+                        {celularHistoricoExacto || "—"}
+                      </span>
+                    </p>
+                    <p className="mt-2 text-slate-600">
+                      Esta referencia fue capturada antes del formato de nombres y
+                      apellidos. Se conserva como fue enviada y no necesitas volver a
+                      capturarla.
                     </p>
                   </div>
                 ) : null}

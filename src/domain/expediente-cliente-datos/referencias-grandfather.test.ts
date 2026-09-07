@@ -6,6 +6,7 @@ import {
   referenciaCumpleContratoActual,
   referenciaCamposFaltantesContrato,
   referenciaLegacyAmbiguoSinPartes,
+  shouldShowReferenciaHistoricaPanel,
 } from "./referencias-estructuradas";
 import {
   buildSaveClienteDatosRpcPayload,
@@ -317,5 +318,83 @@ describe("P219 grandfather referencias legacy", () => {
     });
     assert.equal(v.errors.referencia1Nombres, undefined);
     assert.equal(v.errors.referencia1Celular, undefined);
+  });
+});
+
+describe("panel histórico referencias (display)", () => {
+  it("A legacy parseable → panel siempre + nombre exacto", () => {
+    const mapped = mapSupabaseRowToExpedienteClienteDatos({
+      expediente_id: "exp-disp-a",
+      datos: { nombreCliente: "X", nss: "1", curp: "C", rfc: "R", celular: "8111111111" },
+      estado: "completo",
+      updated_at: "2026-09-07T00:00:00.000Z",
+      referencias: [
+        { nombre: "JOSE LUIS HERRERA RAMIREZ", telefono: "8111111111" },
+        { nombre: "ANA PEREZ LOPEZ", telefono: "8222222222" },
+      ],
+    });
+    const r0 = mapped.datos.referencias[0];
+    assert.equal(r0.legacyGrandfathered, true);
+    assert.equal(shouldShowReferenciaHistoricaPanel(r0), true);
+    // Parser puede separar, pero el nombre histórico exacto se conserva.
+    assert.equal(r0.nombre, "JOSE LUIS HERRERA RAMIREZ");
+    assert.equal(r0.nombres, "JOSE LUIS");
+    assert.equal(referenciaLegacyAmbiguoSinPartes(r0), false);
+  });
+
+  it("B legacy ambiguo → nombre exacto; no inventa apellidos", () => {
+    const mapped = mapSupabaseRowToExpedienteClienteDatos({
+      expediente_id: "exp-disp-b",
+      datos: { nombreCliente: "X", nss: "1", curp: "C", rfc: "R", celular: "8111111111" },
+      estado: "completo",
+      updated_at: "2026-09-07T00:00:00.000Z",
+      referencias: [
+        { nombre: "JOSE LUIS", telefono: "8111111111" },
+        { nombre: "ANA PEREZ LOPEZ", telefono: "8222222222" },
+      ],
+    });
+    const r0 = mapped.datos.referencias[0];
+    assert.equal(shouldShowReferenciaHistoricaPanel(r0), true);
+    assert.equal(r0.nombre, "JOSE LUIS");
+    assert.equal(r0.nombres ?? "", "");
+    assert.equal(r0.apellidoPaterno ?? "", "");
+  });
+
+  it("C legacy phone exacto en panel", () => {
+    const mapped = mapSupabaseRowToExpedienteClienteDatos({
+      expediente_id: "exp-disp-c",
+      datos: { nombreCliente: "X", nss: "1", curp: "C", rfc: "R", celular: "8111111111" },
+      estado: "completo",
+      updated_at: "2026-09-07T00:00:00.000Z",
+      referencias: [{ nombre: "JOSE LUIS", telefono: "8112345678" }, { nombre: "X Y Z", telefono: "8222222222" }],
+    });
+    assert.equal(mapped.datos.referencias[0].celular, "8112345678");
+    assert.equal(shouldShowReferenciaHistoricaPanel(mapped.datos.referencias[0]), true);
+  });
+
+  it("F legacy sin tocar ref → grandfather intacto (panel sigue)", () => {
+    const r = {
+      nombre: "JOSE LUIS HERRERA RAMIREZ",
+      nombres: "JOSE LUIS",
+      apellidoPaterno: "HERRERA",
+      apellidoMaterno: "RAMIREZ",
+      celular: "8111111111",
+      legacyGrandfathered: true as const,
+    };
+    assert.equal(shouldShowReferenciaHistoricaPanel(r), true);
+    // Simula guardar otro campo: ref sin updateRef → flag permanece.
+    assert.equal(r.legacyGrandfathered, true);
+    assert.equal(r.nombre, "JOSE LUIS HERRERA RAMIREZ");
+  });
+
+  it("I nueva referencia → sin panel histórico", () => {
+    const nueva = {
+      nombre: "JUAN PEREZ LOPEZ",
+      nombres: "JUAN",
+      apellidoPaterno: "PEREZ",
+      apellidoMaterno: "LOPEZ",
+      celular: "8333333333",
+    };
+    assert.equal(shouldShowReferenciaHistoricaPanel(nueva), false);
   });
 });
