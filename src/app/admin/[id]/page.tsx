@@ -1,70 +1,25 @@
 "use client";
 
-import Link from "next/link";
-import { useParams } from "next/navigation";
-import { useEffect, useState } from "react";
-import { useSessionRepo } from "@/domain/session";
-import { usePrecalificacionesRepo } from "@/domain/precalificaciones";
-import type { Precalificacion } from "@/domain/precalificaciones";
-import { FormEditarPrecalificacion } from "@/components/FormEditarPrecalificacion";
+import { useEffect } from "react";
+import { useParams, useRouter } from "next/navigation";
 
-export default function AdminEditarPage() {
+/**
+ * Compatibilidad con enlaces históricos de Admin.
+ * `/admin/:id` ahora representa un expediente operativo; la edición antigua de
+ * precalificación vive en `/admin/precalificacion/:id`.
+ */
+export default function AdminExpedienteCompatPage() {
   const { id } = useParams<{ id: string }>();
-  const { currentUser } = useSessionRepo();
-  const repo = usePrecalificacionesRepo();
-  const [precal, setPrecal] = useState<Precalificacion | null | undefined>(undefined);
+  const router = useRouter();
 
   useEffect(() => {
-    repo.getById(id).then((p) => setPrecal(p ?? null));
-  }, [id, repo]);
-
-  if (currentUser === undefined) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-100">
-        <p className="text-gray-500">Cargando...</p>
-      </div>
-    );
-  }
-  if (!currentUser || currentUser.role !== "super_admin") {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-100">
-        <p className="text-gray-600">
-          <Link href="/login" className="text-blue-600 underline">
-            Inicia sesión como Super Admin
-          </Link>
-        </p>
-      </div>
-    );
-  }
-
-  if (precal === undefined) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-100">
-        <p className="text-gray-500">Cargando...</p>
-      </div>
-    );
-  }
-
-  if (!precal) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-gray-100">
-        <div className="text-center">
-          <p className="text-gray-600">Precalificación no encontrada.</p>
-          <Link href="/admin" className="mt-2 inline-block text-blue-600 underline">
-            Volver al dashboard
-          </Link>
-        </div>
-      </div>
-    );
-  }
+    if (!id) return;
+    router.replace(`/admin/expediente/${encodeURIComponent(id)}`);
+  }, [id, router]);
 
   return (
-    <FormEditarPrecalificacion
-      key={id}
-      id={id}
-      precal={precal}
-      backHref="/admin"
-      redirectTo="/admin"
-    />
+    <div className="flex min-h-screen items-center justify-center bg-slate-100">
+      <p className="text-slate-600">Abriendo expediente completo…</p>
+    </div>
   );
 }
