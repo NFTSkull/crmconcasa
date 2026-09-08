@@ -35,7 +35,7 @@ export type AsesorLiderEtapaBucket = Readonly<{
 
 export type AsesorLiderDashboard = Readonly<{
   activos: number;
-  enviados: number;
+  enviados?: number;
   cerrados: number;
   total: number;
   monto_total_aprobado: number;
