@@ -1,0 +1,1 @@
+DROP INDEX IF EXISTS public.action_log_payload_expediente_created_idx;
