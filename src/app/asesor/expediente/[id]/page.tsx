@@ -525,7 +525,10 @@ export default function AsesorExpedientePage() {
     if (!hasUserEditedClienteDatos.current) return;
     if (suppressDraftAutosave.current) return;
     if (!precal?.id || !clienteDatosDraftUserKey) return;
-    const persistCasa = clienteDatosRequiereTelefonoCasa(perfilCapturaClienteDatos);
+    const persistCasa = clienteDatosRequiereTelefonoCasa(
+      perfilCapturaClienteDatos,
+      operativo?.origenMesa,
+    );
     flushClienteDatosDraftSnapshot(
       clienteDatosDraftUserKey,
       String(precal.id),
@@ -533,7 +536,12 @@ export default function AsesorExpedientePage() {
       { persistTelefonoCasa: persistCasa },
     );
     setClienteDatosLocalDraftSaved(true);
-  }, [clienteDatosDraftUserKey, precal?.id, perfilCapturaClienteDatos]);
+  }, [
+    clienteDatosDraftUserKey,
+    precal?.id,
+    perfilCapturaClienteDatos,
+    operativo?.origenMesa,
+  ]);
 
   /**
    * Escritura inmediata a localStorage (síncrona).
@@ -832,8 +840,12 @@ export default function AsesorExpedientePage() {
   }, [precal, precal?.asesorProfileId]);
 
   const requiereTelefonoCasa = useMemo(
-    () => clienteDatosRequiereTelefonoCasa(perfilCapturaClienteDatos),
-    [perfilCapturaClienteDatos],
+    () =>
+      clienteDatosRequiereTelefonoCasa(
+        perfilCapturaClienteDatos,
+        operativo?.origenMesa,
+      ),
+    [perfilCapturaClienteDatos, operativo?.origenMesa],
   );
 
   const camposFaltantesClienteDatos = useMemo(
@@ -1858,6 +1870,7 @@ export default function AsesorExpedientePage() {
         programaDb,
         montoCalculadoEsManual: montoCalculadoLockedRef.current,
         perfilCaptura: perfilCapturaClienteDatos,
+        origenMesa: operativo?.origenMesa,
       };
       suppressClienteDatosRemoteHydrationRef.current = true;
       const saved = usarCorreccion
@@ -2899,6 +2912,7 @@ export default function AsesorExpedientePage() {
                   updatedBy: currentUser.email,
                   programaDb,
                   perfilCaptura: perfilCapturaClienteDatos,
+                  origenMesa: operativo?.origenMesa,
                 });
                 setClienteDatosMeta({
                   estado: saved.estado,

@@ -4,6 +4,8 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   EQUIPO_LIDER_EMAIL_SILVIA_REYES,
+  clienteDatosRequiereTelefonoCasa,
+  isOrigenMesaExterno,
   parseAsesorEnEquipoPorLiderEmail,
   resolveClienteDatosCapturaVariant,
   resolveClienteDatosPerfilCaptura,
@@ -62,6 +64,25 @@ describe("asesor-en-equipo-por-lider-email FE", () => {
 
   it("email líder Silvia canónico", () => {
     assert.equal(EQUIPO_LIDER_EMAIL_SILVIA_REYES, "silvia.reyes@concasa.mx");
+  });
+
+  it("telefono casa: origen_mesa=externo no exige aunque perfil sea completo", () => {
+    assert.equal(isOrigenMesaExterno("externo"), true);
+    assert.equal(isOrigenMesaExterno(" Externo "), true);
+    assert.equal(isOrigenMesaExterno("interno"), false);
+    assert.equal(isOrigenMesaExterno(null), false);
+    assert.equal(
+      clienteDatosRequiereTelefonoCasa("asesor_completo", "externo"),
+      false,
+    );
+    assert.equal(
+      clienteDatosRequiereTelefonoCasa("asesor_completo", "interno"),
+      true,
+    );
+    assert.equal(
+      clienteDatosRequiereTelefonoCasa("asesor_completo", null),
+      true,
+    );
   });
 
   it("migración declara RPC genérica sin hardcode Silvia en SQL", () => {

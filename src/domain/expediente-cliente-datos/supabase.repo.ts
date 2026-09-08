@@ -194,9 +194,12 @@ export class SupabaseExpedienteClienteDatosRepo implements ExpedienteClienteDato
       },
     );
 
-    // Internos: wrapper atómico + draft. Externos/unknown: save_cliente_datos
-    // sin tocar expedientes.telefono_casa (preserva histórico; no exige casa).
-    const { error } = clienteDatosRequiereTelefonoCasa(input.perfilCaptura)
+    // Internos: wrapper atómico + draft. Externos/unknown/origen_mesa=externo:
+    // save_cliente_datos sin tocar expedientes.telefono_casa (preserva histórico; no exige casa).
+    const { error } = clienteDatosRequiereTelefonoCasa(
+      input.perfilCaptura,
+      input.origenMesa,
+    )
       ? await client.rpc("asesor_guardar_cliente_datos_con_telefono_casa", {
           ...rpcArgs,
           p_telefono_casa: getTelefonoCasaDraft(idNorm) ?? null,
@@ -245,7 +248,10 @@ export class SupabaseExpedienteClienteDatosRepo implements ExpedienteClienteDato
     const { p_estado: estadoSoloWrapper, ...rpcArgsCorreccion } = rpcArgs;
     void estadoSoloWrapper;
 
-    const { error } = clienteDatosRequiereTelefonoCasa(input.perfilCaptura)
+    const { error } = clienteDatosRequiereTelefonoCasa(
+      input.perfilCaptura,
+      input.origenMesa,
+    )
       ? await client.rpc("asesor_guardar_cliente_datos_con_telefono_casa", {
           ...rpcArgs,
           p_telefono_casa: getTelefonoCasaDraft(idNorm) ?? null,

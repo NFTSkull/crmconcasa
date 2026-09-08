@@ -1,3 +1,11 @@
+## 2026-09-08 - externos: telefono casa también por origen_mesa
+
+### Causa
+`clienteDatosRequiereTelefonoCasa` solo miraba paquete Silvia|Orlando. Asesores con `profiles.tipo_asesor_origen='externo'` / `expedientes.origen_mesa='externo'` fuera del equipo seguían viendo «Teléfono de casa es obligatorio» en el formulario completo.
+
+### Decisión
+Segundo criterio: `origen_mesa === 'externo'` → no monta/no valida/no usa wrapper `asesor_guardar_cliente_datos_con_telefono_casa`. Paquete externos e UNKNOWN intactos. Internos (`origen_mesa=interno` + perfil completo) siguen obligatorios.
+
 ## 2026-09-07 - fix UI: panel refs históricas siempre visibles
 
 ### Causa
