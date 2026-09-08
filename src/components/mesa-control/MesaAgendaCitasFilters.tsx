@@ -89,11 +89,19 @@ export function MesaAgendaCitasFilters({
 
 export function MesaAgendaCitasBackLink() {
   return (
-    <Link
-      href="/mesa-control"
-      className="inline-flex items-center text-sm font-medium text-slate-600 hover:text-slate-900"
-    >
-      ← Volver a Mesa Control
-    </Link>
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <Link
+        href="/mesa-control"
+        className="inline-flex items-center text-sm font-medium text-slate-600 hover:text-slate-900"
+      >
+        ← Volver a Mesa Control
+      </Link>
+      <Link
+        href="/mesa-control/citas/hoja"
+        className="inline-flex items-center rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-semibold text-indigo-800 hover:bg-indigo-100"
+      >
+        Abrir vista tipo Drive
+      </Link>
+    </div>
   );
 }
