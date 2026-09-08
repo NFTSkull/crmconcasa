@@ -374,8 +374,24 @@ describe("INTERNOS — casa / refs / unicidad", () => {
     );
     assert.match(
       repo,
-      /clienteDatosRequiereTelefonoCasa\(input\.perfilCaptura\)\s*\?[\s\S]*asesor_guardar_cliente_datos_con_telefono_casa/,
+      /clienteDatosRequiereTelefonoCasa\(\s*input\.perfilCaptura,\s*input\.origenMesa,\s*\)\s*\?[\s\S]*asesor_guardar_cliente_datos_con_telefono_casa/,
     );
+  });
+
+  it("origen_mesa=externo: telefono casa no obligatorio aunque perfil completo", () => {
+    assert.equal(
+      clienteDatosRequiereTelefonoCasa("asesor_completo", "externo"),
+      false,
+    );
+    const page = readFileSync(
+      join(process.cwd(), "src/app/asesor/expediente/[id]/page.tsx"),
+      "utf8",
+    );
+    assert.match(
+      page,
+      /clienteDatosRequiereTelefonoCasa\(\s*perfilCapturaClienteDatos,\s*operativo\?\.origenMesa,\s*\)/,
+    );
+    assert.match(page, /origenMesa: operativo\?\.origenMesa/);
   });
 
   it("reactivo: telefonoCasa vacío→válido→vacío sin tocar otros campos", () => {

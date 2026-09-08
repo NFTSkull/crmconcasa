@@ -21,6 +21,9 @@
 ## [Unreleased]
 
 ### Fixed
+- **fix(externos): teléfono de casa no obligatorio por `origen_mesa`** — además del paquete Silvia|Orlando, `origen_mesa='externo'` (perfil `tipo_asesor_origen`) desactiva UI/validación/save wrapper de casa. Cubre asesores externos fuera del equipo que aún veían el campo obligatorio.
+
+### Fixed
 - **fix(asesor): mostrar refs históricas exactas (nombre+celular)** — panel siempre si `legacyGrandfathered`; sin SQL/backfill; externos sin refs.
 - **fix(asesor): Constancia SAT opcional para externos** — mig **220** `upload_para` = envío(8)+Acta+`cliente_constancia_situacion_fiscal`; UI monta sección SAT en externos; Evidencia/Vigencia intactas; obligatorios siguen en 8. Sin `cliente_constancia_sat` Mesa.
 - **fix(asesor): grandfather referencias históricas + categoria_correccion episodio** — refs legacy `{nombre,celular}` no exigen partes; metadata `legacyGrandfathered`; editar limpia grandfather. Mig **219** alinea `asesor_inbox_categoria_correccion` a P198/P202 (lote viejo no gana vs R2). UX PASO1/PASO2 guardar≠enviar. Sin backfill/datos.

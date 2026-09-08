@@ -135,6 +135,11 @@ export type SaveExpedienteClienteDatosInput = {
    * y no exige plazo en Mejoravit.
    */
   perfilCaptura?: ClienteDatosPerfilCaptura;
+  /**
+   * `expedientes.origen_mesa`. Si es `externo`, no exige teléfono de casa
+   * aunque el perfil de captura sea completo (asesor externo fuera de Silvia|Orlando).
+   */
+  origenMesa?: string | null;
 };
 
 export type UpdateEstadoExpedienteClienteDatosInput = {

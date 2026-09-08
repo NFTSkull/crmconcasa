@@ -41,17 +41,27 @@ export function isClienteDatosPerfilPendiente(
   return perfil === "clasificacion_pendiente";
 }
 
+/** `expedientes.origen_mesa` / `profiles.tipo_asesor_origen`. */
+export function isOrigenMesaExterno(
+  origenMesa: string | null | undefined,
+): boolean {
+  return String(origenMesa ?? "").trim().toLowerCase() === "externo";
+}
+
 /**
  * Teléfono de casa (B1) solo para internos.
  * - `asesor_completo` / perfil omitido (legacy completo) → true
- * - externo (`asesor_equipo_silvia_simplificado`) → false
+ * - paquete externos (`asesor_equipo_silvia_simplificado`) → false
  * - unknown (`clasificacion_pendiente`) → false
+ * - `origen_mesa = 'externo'` (asesor externo fuera de Silvia|Orlando) → false
  */
 export function clienteDatosRequiereTelefonoCasa(
   perfil: ClienteDatosPerfilCaptura | null | undefined,
+  origenMesa?: string | null,
 ): boolean {
   if (perfil === "asesor_equipo_silvia_simplificado") return false;
   if (perfil === "clasificacion_pendiente") return false;
+  if (isOrigenMesaExterno(origenMesa)) return false;
   return true;
 }
 
