@@ -74,6 +74,7 @@ export const asesorLiderEtapaBucketSchema = z.object({
 
 export const asesorLiderDashboardSchema = z.object({
   activos: countFlexible,
+  enviados: countFlexible.optional().default(0),
   cerrados: countFlexible,
   total: countFlexible,
   monto_total_aprobado: z.preprocess((v) => {
