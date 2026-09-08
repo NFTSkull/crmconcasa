@@ -2,13 +2,11 @@ import type { PaqueteDocumentalClasificacion } from "@/domain/asesor-equipo/ases
 
 /**
  * Para externos el Acuse no participa como requisito ni aviso de agenda de firma.
- * Internos/unknown conservan el comportamiento previo (unknown fail-safe).
+ * Solo un interno confirmado conserva el aviso previo. UNKNOWN no inventa requisito.
  */
 export function shouldShowAcusePendienteFirmas(params: Readonly<{
   actorClasificacion: PaqueteDocumentalClasificacion;
   acusePendienteSubir: boolean;
 }>): boolean {
-  if (!params.acusePendienteSubir) return false;
-  if (params.actorClasificacion === "externo") return false;
-  return true;
+  return params.acusePendienteSubir && params.actorClasificacion === "interno";
 }
