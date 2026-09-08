@@ -6,6 +6,11 @@ import {
   canShowAsesorFirmasSupabaseCard,
   useAgendaFirmasBookingRepo,
 } from "@/domain/agenda-firmas";
+import {
+  fetchAsesorEsPaqueteDocumentalExternosClasificacion,
+  type PaqueteDocumentalClasificacion,
+} from "@/domain/asesor-equipo/asesor-es-paquete-documental-externos";
+import { shouldShowAcusePendienteFirmas } from "@/domain/agenda-firmas/acuse-policy";
 
 export type AsesorAgendaFirmasSupabaseGateProps = Readonly<{
   expedienteId: string;
@@ -22,6 +27,9 @@ export type AsesorAgendaFirmasSupabaseGateProps = Readonly<{
  * Etapa 9: montaje síncrono (no depende de bookings).
  * Etapa 10: consulta booking activo / última cancelación.
  * Error al cargar bookings en etapa 10: muestra aviso, no oculta en silencio si hay duda.
+ *
+ * Externos: mismo flujo/cupos/etapas que internos, pero el Acuse no aplica como
+ * requisito ni aviso para agendar/reagendar firma.
  */
 export function AsesorAgendaFirmasSupabaseGate({
   expedienteId,
@@ -41,6 +49,18 @@ export function AsesorAgendaFirmasSupabaseGate({
   );
   const [resolved, setResolved] = useState(() => etapaActual !== 10);
   const [bookingProbeError, setBookingProbeError] = useState<string | null>(null);
+  const [actorClasificacion, setActorClasificacion] =
+    useState<PaqueteDocumentalClasificacion>("unknown");
+
+  useEffect(() => {
+    let cancelled = false;
+    void fetchAsesorEsPaqueteDocumentalExternosClasificacion().then((clasificacion) => {
+      if (!cancelled) setActorClasificacion(clasificacion);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   useEffect(() => {
     setBookingProbeError(null);
@@ -106,6 +126,11 @@ export function AsesorAgendaFirmasSupabaseGate({
 
   if (!resolved || !visible) return null;
 
+  const acusePendienteVisible = shouldShowAcusePendienteFirmas({
+    actorClasificacion,
+    acusePendienteSubir,
+  });
+
   return (
     <>
       {bookingProbeError ? (
@@ -121,7 +146,7 @@ export function AsesorAgendaFirmasSupabaseGate({
         etapaActual={etapaActual}
         fechaCita={fechaCita}
         firmaAgendableDesde={firmaAgendableDesde}
-        acusePendienteSubir={acusePendienteSubir}
+        acusePendienteSubir={acusePendienteVisible}
         onUpdated={onUpdated}
       />
     </>
