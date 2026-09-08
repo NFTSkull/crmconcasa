@@ -334,10 +334,12 @@ export function AsesorLiderDashboard({
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div className="rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
             <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-              {isSilviaDashboard ? "Ingresos" : "Activos"}
+              {isSilviaDashboard ? "Enviados" : "Activos"}
             </p>
             <p className="mt-1 text-2xl font-semibold text-gray-900">
-              {dashboard?.activos ?? "—"}
+              {isSilviaDashboard
+                ? (dashboard?.enviados ?? "—")
+                : (dashboard?.activos ?? "—")}
             </p>
           </div>
           <div className="rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
