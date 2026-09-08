@@ -50,6 +50,8 @@ const DONUT_COLORS = [
   "#78716c",
 ];
 
+const SILVIA_REYES_EMAIL = "silvia.reyes@concasa.mx";
+
 function EtapaDonut({
   buckets,
 }: {
@@ -253,6 +255,8 @@ export function AsesorLiderDashboard({
   );
 
   const teamName = context.team?.nombre ?? "Equipo";
+  const isSilviaDashboard =
+    currentUser.email.trim().toLowerCase() === SILVIA_REYES_EMAIL;
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -330,7 +334,7 @@ export function AsesorLiderDashboard({
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
           <div className="rounded-xl border border-gray-200 bg-white px-4 py-3 shadow-sm">
             <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-              Activos
+              {isSilviaDashboard ? "Ingresos" : "Activos"}
             </p>
             <p className="mt-1 text-2xl font-semibold text-gray-900">
               {dashboard?.activos ?? "—"}
@@ -511,11 +515,26 @@ export function AsesorLiderDashboard({
                           r.monto_aprobado > 0
                         ? formatMontoMX(r.monto_aprobado)
                         : "—";
+                  const isEnMesa = isSilviaDashboard && r.submitted_to_mesa;
                   return (
-                    <tr key={r.id} className="hover:bg-gray-50/80">
+                    <tr
+                      key={r.id}
+                      className={
+                        isEnMesa
+                          ? "bg-blue-50/60 hover:bg-blue-50"
+                          : "hover:bg-gray-50/80"
+                      }
+                    >
                       <td className="px-3 py-2">
-                        <div className="font-medium text-gray-900">
-                          {r.cliente_nombre}
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-medium text-gray-900">
+                            {r.cliente_nombre}
+                          </span>
+                          {isEnMesa ? (
+                            <span className="inline-flex rounded-full border border-blue-200 bg-blue-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-blue-800">
+                              En Mesa
+                            </span>
+                          ) : null}
                         </div>
                         <div className="text-xs text-gray-500">NSS {r.nss}</div>
                       </td>
