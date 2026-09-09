@@ -7,7 +7,7 @@
     },
     {
       "path": "/api/cron/reintentar-pendientes-reprecal",
-      "schedule": "*/5 * * * *"
+      "schedule": "2-59/5 * * * *"
     }
   ]
 }

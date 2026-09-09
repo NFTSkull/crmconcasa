@@ -20,6 +20,9 @@
 
 ## [Unreleased]
 
+### Changed
+- **chore(precal): menos concurrencia hacia scraper Railway** — `AUTO_PRECAL_RETRY_LIMIT` / `AUTO_REPRECAL_RETRY_LIMIT` = 1; cron reprecal desfasado `2-59/5`. Reintentos ilimitados y auto-`after()` intactos.
+
 ### Fixed
 - **fix(externos): teléfono de casa no obligatorio por `origen_mesa`** — además del paquete Silvia|Orlando, `origen_mesa='externo'` (perfil `tipo_asesor_origen`) desactiva UI/validación/save wrapper de casa. Cubre asesores externos fuera del equipo que aún veían el campo obligatorio.
 

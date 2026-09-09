@@ -105,7 +105,22 @@ describe("selectAutoPrecalRetryCandidates", () => {
     assert.deepEqual(ids, []);
   });
 
-  it("limita a 2 y prioriza el último intento más antiguo", () => {
+  it("default limit=1: solo el último intento más antiguo", () => {
+    const pending = ["e1", "e2", "e3"];
+    const intentos = [
+      intento("e1", "2026-08-28T10:50:00.000Z", "pending_error", "scraper_failed"),
+      intento("e2", "2026-08-28T10:40:00.000Z", "pending_error", "scraper_failed"),
+      intento("e3", "2026-08-28T10:30:00.000Z", "pending_error", "scraper_failed"),
+    ];
+    const ids = selectAutoPrecalRetryCandidates({
+      pendingExpedienteIds: pending,
+      intentos,
+      nowMs: now,
+    });
+    assert.deepEqual(ids, ["e3"]);
+  });
+
+  it("limita a 2 (explícito) y prioriza el último intento más antiguo", () => {
     const pending = ["e1", "e2", "e3", "e4", "e5", "e6"];
     const intentos = [
       intento("e1", "2026-08-28T10:50:00.000Z", "pending_error", "scraper_failed"),
