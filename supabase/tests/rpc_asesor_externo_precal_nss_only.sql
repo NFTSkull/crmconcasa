@@ -1,6 +1,6 @@
 -- Precalificación NSS-only: wrappers exclusivos de asesores externos.
 \set ON_ERROR_STOP on
-\ir ../migrations/20260909224000_asesor_externo_precal_nss_only.sql
+\ir ../migrations/20260909230105_asesor_externo_precal_nss_only.sql
 
 BEGIN;
 
