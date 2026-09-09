@@ -48,11 +48,13 @@ describe("mapEnviarAMesaRpcError", () => {
     assert.match(err.message, /completos o validados/i);
   });
 
-  it("mapea documentos incompletos", () => {
+  it("mapea documentos incompletos con conteo claro", () => {
     const err = mapEnviarAMesaRpcError({
       message: "enviar_a_mesa: faltan documentos obligatorios de integración (3 de 5)",
     });
-    assert.match(err.message, /documentos obligatorios de integración/i);
+    assert.match(err.message, /tienes 3 de 5/i);
+    assert.match(err.message, /2 documentos faltantes/i);
+    assert.match(err.message, /marcados como obligatorios/i);
   });
 
   it("mapea ya enviado", () => {

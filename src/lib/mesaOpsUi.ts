@@ -10,8 +10,8 @@ export type MesaOpsFilter =
   | "mi_bandeja"
   | "en_trabajo";
 
-/** Filtro operativo al cargar `/mesa-control`: expedientes libres para tomar. */
-export const DEFAULT_MESA_OPS_FILTER: MesaOpsFilter = "sin_asignar";
+/** Filtro operativo al cargar `/mesa-control`: todo expediente ya enviado y visible para el actor. */
+export const DEFAULT_MESA_OPS_FILTER: MesaOpsFilter = "todo_mesa";
 
 export const MESA_OPS_FILTER_CHIPS: ReadonlyArray<{
   id: MesaOpsFilter;
