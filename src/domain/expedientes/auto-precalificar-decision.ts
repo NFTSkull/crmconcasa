@@ -25,6 +25,28 @@ export type AutoPrecalScraperPayload = {
 export const MOTIVO_NO_CUMPLE_CALIFICA_FALSE =
   "No calificó según consulta automática de Infonavit";
 
+/** Fallo técnico Infonavit (no decisión crediticia). Reintentable por cron. */
+export const REASON_INFONAVIT_SYSTEM_ERROR = "infonavit_system_error";
+
+/**
+ * Mensajes técnicos inequívocos del portal Infonavit (no rechazo crediticio).
+ * Case-insensitive; ignora acentos/espacios extra. Conservador: no match genéricos.
+ */
+export function isInfonavitSystemErrorMessage(mensaje: unknown): boolean {
+  if (typeof mensaje !== "string") return false;
+  const n = mensaje
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toUpperCase()
+    .replace(/\s+/g, " ")
+    .trim();
+  if (!n) return false;
+  if (n.includes("ERROR EN EL SISTEMA")) return true;
+  if (n.includes("INTENTE MAS TARDE")) return true;
+  if (n.includes("INTENTA MAS TARDE")) return true;
+  return false;
+}
+
 export type AutoPrecalDecision =
   | { kind: "aprobado"; monto: number }
   | { kind: "no_cumple"; motivo: string }
@@ -78,6 +100,8 @@ export const parseMontoScraper = parseSaldoSubcuenta;
 /**
  * Mapeo estricto: califica===true / ===false, o success:false +
  * razon=no_cumple_criterios + mensaje string; resto pending_error.
+ * Errores técnicos Infonavit («ERROR EN EL SISTEMA» / «INTENTE MAS TARDE»)
+ * → pending_error (nunca no_cumple), aunque califica===false.
  * Monto según programa: mejoravit/subcuenta → saldoSubcuenta;
  * compro_tu_casa → montoCredito.
  * No invoca RPC (solo decide).
@@ -87,9 +111,17 @@ export function decideAutoPrecalFromScraper(
   upstreamOk: boolean,
   programa: string | null | undefined,
 ): AutoPrecalDecision {
+  // 1) Fallo HTTP / error explícito del scraper
   if (!upstreamOk || typeof payload?.error === "string") {
     return { kind: "pending_error", reason: "scraper_failed" };
   }
+
+  // 2–3) Mensaje técnico/transitorio (gana antes de califica=false)
+  if (isInfonavitSystemErrorMessage(payload.mensaje)) {
+    return { kind: "pending_error", reason: REASON_INFONAVIT_SYSTEM_ERROR };
+  }
+
+  // 4) Aprobado
   if (payload.califica === true) {
     const field = montoFieldForPrograma(programa);
     if (!field) {
@@ -105,6 +137,8 @@ export function decideAutoPrecalFromScraper(
     }
     return { kind: "aprobado", monto };
   }
+
+  // 5) No cumple real (califica false + mensaje no técnico)
   if (payload.califica === false) {
     const motivo =
       typeof payload.mensaje === "string" && payload.mensaje.trim()
@@ -112,12 +146,17 @@ export function decideAutoPrecalFromScraper(
         : MOTIVO_NO_CUMPLE_CALIFICA_FALSE;
     return { kind: "no_cumple", motivo };
   }
+
+  // 6) success=false + no_cumple_criterios + mensaje real
   if (
     payload.success === false &&
     payload.razon === "no_cumple_criterios" &&
     typeof payload.mensaje === "string"
   ) {
+    // Técnico ya cubierto arriba; aquí es rechazo crediticio.
     return { kind: "no_cumple", motivo: payload.mensaje };
   }
+
+  // 7) Ambiguo
   return { kind: "pending_error", reason: "ambiguous_payload" };
 }

@@ -3,9 +3,11 @@ import { describe, it } from "node:test";
 
 import {
   decideAutoPrecalFromScraper,
+  isInfonavitSystemErrorMessage,
   montoFieldForPrograma,
   MOTIVO_NO_CUMPLE_CALIFICA_FALSE,
   parseSaldoSubcuenta,
+  REASON_INFONAVIT_SYSTEM_ERROR,
   resolveProgramaParaMonto,
 } from "./auto-precalificar-decision";
 
@@ -173,5 +175,111 @@ describe("auto-precalificar decision mapping", () => {
       "mejoravit",
     );
     assert.deepEqual(d, { kind: "pending_error", reason: "scraper_failed" });
+  });
+
+  it("califica false + ERROR SISTEMA 923 → pending_error (no no_cumple)", () => {
+    const d = decideAutoPrecalFromScraper(
+      {
+        califica: false,
+        mensaje: "ERROR EN EL SISTEMA. INTENTE MAS TARDE 923-",
+      },
+      true,
+      "mejoravit",
+    );
+    assert.deepEqual(d, {
+      kind: "pending_error",
+      reason: REASON_INFONAVIT_SYSTEM_ERROR,
+    });
+  });
+
+  it("mensaje técnico en minúsculas → pending_error", () => {
+    const d = decideAutoPrecalFromScraper(
+      {
+        califica: false,
+        mensaje: "error en el sistema. intente mas tarde 923-",
+      },
+      true,
+      "mejoravit",
+    );
+    assert.deepEqual(d, {
+      kind: "pending_error",
+      reason: REASON_INFONAVIT_SYSTEM_ERROR,
+    });
+  });
+
+  it("solo INTENTE MAS TARDE → pending_error", () => {
+    const d = decideAutoPrecalFromScraper(
+      { califica: false, mensaje: "INTENTE MAS TARDE" },
+      true,
+      "mejoravit",
+    );
+    assert.deepEqual(d, {
+      kind: "pending_error",
+      reason: REASON_INFONAVIT_SYSTEM_ERROR,
+    });
+  });
+
+  it("INTENTA MAS TARDE (variante) → pending_error", () => {
+    const d = decideAutoPrecalFromScraper(
+      { califica: false, mensaje: "Por favor INTENTA MAS TARDE" },
+      true,
+      "mejoravit",
+    );
+    assert.deepEqual(d, {
+      kind: "pending_error",
+      reason: REASON_INFONAVIT_SYSTEM_ERROR,
+    });
+  });
+
+  it("califica false + SIN APORTACIONES → no_cumple real", () => {
+    const d = decideAutoPrecalFromScraper(
+      { califica: false, mensaje: "SIN APORTACIONES EN LOS ULTIMOS MESES" },
+      true,
+      "mejoravit",
+    );
+    assert.deepEqual(d, {
+      kind: "no_cumple",
+      motivo: "SIN APORTACIONES EN LOS ULTIMOS MESES",
+    });
+  });
+
+  it("califica false + CREDITO VIGENTE → no_cumple real", () => {
+    const d = decideAutoPrecalFromScraper(
+      { califica: false, mensaje: "CREDITO VIGENTE CON INFONAVIT" },
+      true,
+      "mejoravit",
+    );
+    assert.deepEqual(d, {
+      kind: "no_cumple",
+      motivo: "CREDITO VIGENTE CON INFONAVIT",
+    });
+  });
+
+  it("success false + no_cumple_criterios + mensaje técnico → pending_error", () => {
+    const d = decideAutoPrecalFromScraper(
+      {
+        success: false,
+        razon: "no_cumple_criterios",
+        mensaje: "ERROR EN EL SISTEMA. INTENTE MAS TARDE",
+      },
+      true,
+      "mejoravit",
+    );
+    assert.deepEqual(d, {
+      kind: "pending_error",
+      reason: REASON_INFONAVIT_SYSTEM_ERROR,
+    });
+  });
+
+  it("isInfonavitSystemErrorMessage: positivos y negativos", () => {
+    assert.equal(
+      isInfonavitSystemErrorMessage("ERROR EN EL SISTEMA. INTENTE MAS TARDE 923-"),
+      true,
+    );
+    assert.equal(isInfonavitSystemErrorMessage("  error en el sistema  "), true);
+    assert.equal(isInfonavitSystemErrorMessage("SIN APORTACIONES"), false);
+    assert.equal(isInfonavitSystemErrorMessage("CREDITO VIGENTE"), false);
+    assert.equal(isInfonavitSystemErrorMessage(""), false);
+    assert.equal(isInfonavitSystemErrorMessage(null), false);
   });
 });

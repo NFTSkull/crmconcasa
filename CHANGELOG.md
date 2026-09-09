@@ -21,6 +21,9 @@
 ## [Unreleased]
 
 ### Fixed
+- **fix(precal): error técnico Infonavit ≠ no_cumple** — mensajes «ERROR EN EL SISTEMA» / «INTENTE MAS TARDE» → `pending_error`/`infonavit_system_error` (reintentable). No SQL; no remedia JORGE aún.
+
+### Fixed
 - **fix(externos): restaurar Semanas cotizadas + Vigencia opcionales** — mig **224** `upload_para` = envio(8)+acta+SAT+semanas+vigencia; checklist FE Acta+Semanas; Vigencia con helper propio (Evidencia sigue solo internos). `envio_para` intacto (8).
 
 ### Fixed

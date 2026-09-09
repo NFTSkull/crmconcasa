@@ -1,12 +1,30 @@
 /**
  * Selección pura de candidatos a reintento auto-precal (sin I/O).
- * Solo reintenta fallos técnicos scraper_failed; nunca backlog sin intentos.
- * Sin tope de intentos totales (ilimitado mientras siga pendiente + scraper_failed).
+ * Solo reintenta fallos técnicos (scraper_failed | infonavit_system_error);
+ * nunca backlog sin intentos ni ambiguous_payload / invalid_saldo / etc.
+ * Sin tope de intentos totales (ilimitado mientras siga pendiente + razón reintentable).
  */
+
+import { REASON_INFONAVIT_SYSTEM_ERROR } from "./auto-precalificar-decision";
 
 export const AUTO_PRECAL_RETRY_MIN_AGE_MS = 5 * 60 * 1000;
 /** 1 candidato/tick: 1 Playwright a la vez dentro del cron (Railway 1GB). */
 export const AUTO_PRECAL_RETRY_LIMIT = 1;
+
+/** Razones pending_error elegibles para cron de reintento. */
+export const AUTO_PRECAL_RETRYABLE_PENDING_REASONS = new Set<string>([
+  "scraper_failed",
+  REASON_INFONAVIT_SYSTEM_ERROR,
+]);
+
+export function isAutoPrecalRetryablePendingReason(
+  razon: string | null | undefined,
+): boolean {
+  return (
+    typeof razon === "string" &&
+    AUTO_PRECAL_RETRYABLE_PENDING_REASONS.has(razon)
+  );
+}
 
 export type AutoPrecalIntentoRow = {
   expediente_id: string;
@@ -26,7 +44,7 @@ export type RetryCandidateInput = {
 
 /**
  * Filtra candidatos:
- * - al menos un intento pending_error + scraper_failed
+ * - al menos un intento pending_error + razón reintentable
  * - sin tope de intentos totales (ambiguous_payload solo nunca entra por sí mismo)
  * - último intento hace ≥ minAgeMs (default 5 min)
  * - orden: último intento más antiguo primero
@@ -52,11 +70,12 @@ export function selectAutoPrecalRetryCandidates(
   const scored: { id: string; lastMs: number }[] = [];
 
   for (const [id, rows] of byExp) {
-    const hasScraperFailed = rows.some(
+    const hasRetryable = rows.some(
       (r) =>
-        r.resultado === "pending_error" && r.razon === "scraper_failed",
+        r.resultado === "pending_error" &&
+        isAutoPrecalRetryablePendingReason(r.razon),
     );
-    if (!hasScraperFailed) continue;
+    if (!hasRetryable) continue;
 
     let lastMs = 0;
     for (const r of rows) {

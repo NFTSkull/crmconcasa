@@ -1,3 +1,16 @@
+## 2026-09-09 - fix: error técnico Infonavit no es no_cumple
+
+### Causa
+`decideAutoPrecalFromScraper`: `califica===false` + cualquier mensaje → `no_cumple`. Caso JORGE (`5c05c168-…`): mensaje «ERROR EN EL SISTEMA. INTENTE MAS TARDE 923-» quedó como rechazo crediticio; 1 intento `no_cumple`/`razon=null`; cron solo reintenta `scraper_failed` → sin reintento. Monto 99768 fue captura manual posterior del asesor (no del scraper).
+
+### Decisión
+- Helper `isInfonavitSystemErrorMessage` (conservador) → `pending_error` / `infonavit_system_error` **antes** de `califica=false`.
+- Cron precal + reprecal: razones reintentables = `scraper_failed` | `infonavit_system_error`.
+- Misma función en reprecal job. Sin SQL. Sin remediar JORGE en Cloud aún.
+
+### Remediation plan (post-deploy, no ahora)
+Reset canónico a pendiente + reintento automatización; no inventar aprobado SQL; monto manual 99768 no es autoridad del scraper.
+
 ## 2026-09-09 - fix: Semanas + Vigencia opcionales para externos (P224)
 
 ### Causa
