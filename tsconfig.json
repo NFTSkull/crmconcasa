@@ -20,6 +20,9 @@
       }
     ],
     "paths": {
+      "@/components/asesor/ExpedienteClienteDatosFormSection": [
+        "./src/components/asesor/ExpedienteClienteDatosFormSectionExterno.tsx"
+      ],
       "@/*": ["./src/*"]
     }
   },
