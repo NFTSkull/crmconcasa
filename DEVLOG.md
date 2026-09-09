@@ -1,3 +1,16 @@
+## 2026-09-09 - fix: Semanas + Vigencia opcionales para externos (P224)
+
+### Causa
+Tras paquete externo (P220), `upload_para` solo añadía Acta+SAT. FE `filterIntegracionChecklist…` dejaba solo Acta y `shouldMountAsesorIntegracionOpcionalDedicado` ocultaba Vigencia (y Evidencia). Adriana: desaparecieron Semanas y Vigencia; históricos en Cloud confirman que antes se usaban.
+
+### Decisión
+- Mig **224**: upload externos = envio(8) + acta + SAT + `cliente_semanas_cotizadas` + `cliente_vigencia_derechos`. Sin evidencia. Sin tocar envio_para.
+- FE: checklist externos = Acta + Semanas; `shouldMountAsesorVigenciaDerechosForActor` (interno+externo); Evidencia sigue solo-internos; SAT intacto.
+- 0 backfill / 0 mutación docs / 0 P223.
+
+### No
+Obligatorizar Semanas/Vigencia; abrir Evidencia a externos; cambiar MIME/contratos dedicados.
+
 ## 2026-09-09 - fix: RFC oculto simplificado no bloquea Guardar
 
 ### Causa

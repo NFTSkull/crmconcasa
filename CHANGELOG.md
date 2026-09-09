@@ -21,6 +21,9 @@
 ## [Unreleased]
 
 ### Fixed
+- **fix(externos): restaurar Semanas cotizadas + Vigencia opcionales** — mig **224** `upload_para` = envio(8)+acta+SAT+semanas+vigencia; checklist FE Acta+Semanas; Vigencia con helper propio (Evidencia sigue solo internos). `envio_para` intacto (8).
+
+### Fixed
 - **fix(asesor): RFC oculto en perfil Silvia no bloquea Guardar** — draft/localStorage con RFC inválido ya no falla validación ni se envía al RPC; se preserva RFC oficial válido. Plazo/correo/empresa ocultos reconciliados igual. Internos intactos.
 
 ### Changed
