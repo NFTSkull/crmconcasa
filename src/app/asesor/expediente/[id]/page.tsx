@@ -127,6 +127,7 @@ import {
   filterIntegracionChecklistOpcionalesParaActor,
   shouldMountAsesorConstanciaSituacionFiscalForActor,
   shouldMountAsesorIntegracionOpcionalDedicado,
+  shouldMountAsesorVigenciaDerechosForActor,
 } from "@/domain/asesor-equipo/asesor-integracion-opcionales-visibility";
 import {
   applyClienteDatosCobroRecalc,
@@ -2479,7 +2480,7 @@ export default function AsesorExpedientePage() {
             ) : null}
             {dataSupabase &&
             precal?.id &&
-            shouldMountAsesorIntegracionOpcionalDedicado({
+            shouldMountAsesorVigenciaDerechosForActor({
               actorPaqueteExternos,
               actorPaqueteResolved: actorPaqueteExternosResolved,
             }) ? (

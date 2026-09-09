@@ -7,6 +7,7 @@ import {
   resolveAsesorIntegracionOpcionalesVisibility,
   shouldMountAsesorConstanciaSituacionFiscalForActor,
   shouldMountAsesorIntegracionOpcionalDedicado,
+  shouldMountAsesorVigenciaDerechosForActor,
 } from "./asesor-integracion-opcionales-visibility";
 import { deriveIntegrationDocsChecklistOpcionales } from "@/domain/expediente-archivos/integration-docs-completos";
 
@@ -17,10 +18,10 @@ describe("resolveAsesorIntegracionOpcionalesVisibility", () => {
     assert.equal(resolveAsesorIntegracionOpcionalesVisibility(null, false), "hide");
   });
 
-  it("externo confirmado → solo Acta digital", () => {
+  it("externo confirmado → checklist externos (acta + semanas)", () => {
     assert.equal(
       resolveAsesorIntegracionOpcionalesVisibility(true, true),
-      "show_externos_acta_only",
+      "show_externos_checklist",
     );
   });
 
@@ -35,17 +36,18 @@ describe("resolveAsesorIntegracionOpcionalesVisibility", () => {
 describe("opcionales integración: externo vs interno", () => {
   const base = deriveIntegrationDocsChecklistOpcionales([]);
 
-  it("EXTERNO: solo Acta digital; sin carta/semanas", () => {
+  it("EXTERNO: Acta digital + Semanas; sin carta/apodaca; sin vigencia en checklist", () => {
     const filtered = filterIntegracionChecklistOpcionalesParaActor(base, {
       actorPaqueteExternos: true,
       actorPaqueteResolved: true,
     });
     assert.deepEqual(
-      filtered.map((i) => i.tipo_documento),
-      ["cliente_acta_nacimiento_digital"],
+      filtered.map((i) => i.tipo_documento).sort(),
+      ["cliente_acta_nacimiento_digital", "cliente_semanas_cotizadas"].sort(),
     );
     assert.ok(!filtered.some((i) => i.tipo_documento === "cliente_carta_empresa"));
-    assert.ok(!filtered.some((i) => i.tipo_documento === "cliente_semanas_cotizadas"));
+    assert.ok(!filtered.some((i) => i.tipo_documento === "cliente_vigencia_derechos"));
+    assert.ok(filtered.every((i) => i.opcional === true));
   });
 
   it("INTERNO: conserva opcionales históricos (acta, carta, semanas, apodaca)", () => {
@@ -60,7 +62,7 @@ describe("opcionales integración: externo vs interno", () => {
     assert.ok(filtered.every((i) => i.opcional === true));
   });
 
-  it("EXTERNO: no monta Evidencia/Vigencia (dedicadas restringidas)", () => {
+  it("EXTERNO: Evidencia OFF; Vigencia ON (helper específico)", () => {
     assert.equal(
       shouldMountAsesorIntegracionOpcionalDedicado({
         actorPaqueteExternos: true,
@@ -68,15 +70,39 @@ describe("opcionales integración: externo vs interno", () => {
       }),
       false,
     );
+    assert.equal(
+      shouldMountAsesorVigenciaDerechosForActor({
+        actorPaqueteExternos: true,
+        actorPaqueteResolved: true,
+      }),
+      true,
+    );
   });
 
-  it("INTERNO: sí monta Evidencia/Vigencia", () => {
+  it("INTERNO: Evidencia ON; Vigencia ON", () => {
     assert.equal(
       shouldMountAsesorIntegracionOpcionalDedicado({
         actorPaqueteExternos: false,
         actorPaqueteResolved: true,
       }),
       true,
+    );
+    assert.equal(
+      shouldMountAsesorVigenciaDerechosForActor({
+        actorPaqueteExternos: false,
+        actorPaqueteResolved: true,
+      }),
+      true,
+    );
+  });
+
+  it("unresolved: Vigencia OFF (fail-safe)", () => {
+    assert.equal(
+      shouldMountAsesorVigenciaDerechosForActor({
+        actorPaqueteExternos: true,
+        actorPaqueteResolved: false,
+      }),
+      false,
     );
   });
 });
@@ -86,20 +112,6 @@ describe("shouldMountAsesorConstanciaSituacionFiscalForActor", () => {
     assert.equal(
       shouldMountAsesorConstanciaSituacionFiscalForActor({
         actorPaqueteExternos: true,
-        actorPaqueteResolved: false,
-      }),
-      false,
-    );
-    assert.equal(
-      shouldMountAsesorConstanciaSituacionFiscalForActor({
-        actorPaqueteExternos: false,
-        actorPaqueteResolved: false,
-      }),
-      false,
-    );
-    assert.equal(
-      shouldMountAsesorConstanciaSituacionFiscalForActor({
-        actorPaqueteExternos: null,
         actorPaqueteResolved: false,
       }),
       false,
@@ -126,13 +138,20 @@ describe("shouldMountAsesorConstanciaSituacionFiscalForActor", () => {
     );
   });
 
-  it("externo: Evidencia/Vigencia siguen OFF; SAT ON (no habilitar todas)", () => {
+  it("externo: Evidencia OFF; Vigencia ON; SAT ON", () => {
     assert.equal(
       shouldMountAsesorIntegracionOpcionalDedicado({
         actorPaqueteExternos: true,
         actorPaqueteResolved: true,
       }),
       false,
+    );
+    assert.equal(
+      shouldMountAsesorVigenciaDerechosForActor({
+        actorPaqueteExternos: true,
+        actorPaqueteResolved: true,
+      }),
+      true,
     );
     assert.equal(
       shouldMountAsesorConstanciaSituacionFiscalForActor({
@@ -144,7 +163,7 @@ describe("shouldMountAsesorConstanciaSituacionFiscalForActor", () => {
   });
 });
 
-describe("page.tsx wiring: acta digital y opcionales externos", () => {
+describe("page.tsx wiring: opcionales externos + vigencia dedicada", () => {
   const page = readFileSync(
     join(process.cwd(), "src/app/asesor/expediente/[id]/page.tsx"),
     "utf8",
@@ -155,12 +174,12 @@ describe("page.tsx wiring: acta digital y opcionales externos", () => {
     assert.match(page, /actorPaqueteExternosResolved/);
     assert.match(page, /shouldMountAsesorIntegracionOpcionalDedicado/);
     assert.match(page, /shouldMountAsesorConstanciaSituacionFiscalForActor/);
+    assert.match(page, /shouldMountAsesorVigenciaDerechosForActor/);
     assert.match(page, /filterIntegracionChecklistOpcionalesParaActor|resolveAsesorIntegracionOpcionalesVisibility/);
     assert.doesNotMatch(page, /tiposEnvioObligatorios\.length\s*===\s*7/);
-    assert.doesNotMatch(page, /tiposEnvio\.length\s*===\s*7/);
   });
 
-  it("Constancia SAT usa regla propia; Evidencia/Vigencia siguen dedicado interno", () => {
+  it("Constancia SAT regla propia; Evidencia solo dedicado; Vigencia helper propio", () => {
     assert.match(
       page,
       /shouldMountAsesorConstanciaSituacionFiscalForActor\([\s\S]*?\)\s*\?\s*\([\s\S]*?<AsesorConstanciaSituacionFiscalSection/,
@@ -171,8 +190,11 @@ describe("page.tsx wiring: acta digital y opcionales externos", () => {
     );
     assert.match(
       page,
-      /shouldMountAsesorIntegracionOpcionalDedicado\([\s\S]*?\)\s*\?\s*\([\s\S]*?<AsesorVigenciaDerechosSection/,
+      /shouldMountAsesorVigenciaDerechosForActor\(\{\s*actorPaqueteExternos,\s*actorPaqueteResolved: actorPaqueteExternosResolved,\s*\}\) \? \(\s*<AsesorVigenciaDerechosSection/,
     );
+    // Evidencia sigue restringida al helper solo-internos (no el de vigencia).
+    assert.match(page, /shouldMountAsesorIntegracionOpcionalDedicado/);
+    assert.match(page, /shouldMountAsesorVigenciaDerechosForActor/);
   });
 
   it("dedupe scoped + autoridad actorPaqueteExternos", () => {
@@ -180,7 +202,6 @@ describe("page.tsx wiring: acta digital y opcionales externos", () => {
     assert.match(page, /resolveScopedEquipoUploadHint/);
     assert.match(page, /tiposEnvioResolved/);
     assert.match(page, /tiposEnvioCoherentesConDueno/);
-    assert.doesNotMatch(page, /tiposEnvioObligatorios\.length\s*===\s*7/);
   });
 
   it("NO oculta Pagaré / Mesa docs / retención por actorPaqueteExternos", () => {

@@ -1144,7 +1144,9 @@ Rango seguro **O:U** (`ESTADO CRM`…`CRM_SYNC_VERSION`). **A:N se PRESERVA** (H
 
 **P219 (LOCAL + Cloud):** REPLACE `asesor_inbox_categoria_correccion` — P198/P202 (`mesa_cambio_revision_estado_efectivo` / `mesa_cambio_episodio_latest`) gobiernan `correccion_*` del episodio vigente. Shortcut P192 solo si `latest_response_at > latest_request_at`. `WAITING_ADVISOR` DG/doc → `correccion_requerida` (nunca `enviada` por lote anterior). Operativo OP no se confunde con DG. Fallback documental/retención P167 intacto. 0 writers / 0 backfill. Sin recursión con `asesor_inbox_estado_efectivo`.
 
-**P220 (LOCAL + Cloud):** REPLACE `integration_doc_tipos_asesor_upload_para` — externos = `envio_para`(8) + `cliente_acta_nacimiento_digital` + `cliente_constancia_situacion_fiscal` (opcionales). `envio_para` intacto (8). Sin `cliente_constancia_sat` (Mesa). Internos = `upload()` global. UI: `shouldMountAsesorConstanciaSituacionFiscalForActor` (externo+interno; unresolved fail-safe). Evidencia/Vigencia siguen solo internos.
+**P220 (LOCAL + Cloud):** REPLACE `integration_doc_tipos_asesor_upload_para` — externos = `envio_para`(8) + `cliente_acta_nacimiento_digital` + `cliente_constancia_situacion_fiscal` (opcionales). `envio_para` intacto (8). Sin `cliente_constancia_sat` (Mesa). Internos = `upload()` global. UI: `shouldMountAsesorConstanciaSituacionFiscalForActor` (externo+interno; unresolved fail-safe). Evidencia sigue solo internos.
+
+**P224:** REPLACE `upload_para` — añade opcionales `cliente_semanas_cotizadas` + `cliente_vigencia_derechos` (upload=12). `envio_para` sigue en 8. FE: checklist externos = Acta+Semanas; Vigencia vía `shouldMountAsesorVigenciaDerechosForActor` (interno+externo); Evidencia sigue solo internos. Sin backfill.
 **UI `/asesor`:** cableada a las RPCs (B1 UI). Sin fallback a `listForAsesor()`. Refetch al focus/visibility (debounce ≥8s).
 
 ### `asesor_list_expedientes_page(...) → jsonb`
