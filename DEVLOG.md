@@ -1,3 +1,17 @@
+## 2026-09-09 - fix: RFC oculto simplificado no bloquea Guardar
+
+### Causa
+Perfil `asesor_equipo_silvia_simplificado` oculta RFC (y otros), pero `validateClienteDatos` seguía rechazando RFC no vacío inválido. Draft/localStorage podía restaurar RFC basura → toast «RFC no tiene formato válido» sin campo visible. Caso TOMAS (`204dcf31-…`): Cloud `rfc=""`, bloqueo solo client-side.
+
+### Decisión
+- Skip formato RFC/plazo/infonavit-opcional en validación cuando `silvia`.
+- `prepareClienteDatosForPerfilCapturaSave`: descarta RFC inválido de form; preserva oficial válido; no manda `""` sobre oficial válido; preserva correo/empresa/… si form vacío.
+- UI: si queda RFC inválido en state, mostrar campo temporal para corregir/limpiar.
+- Sin SQL/Cloud; sin mutar TOMAS.
+
+### No
+Obligar RFC; tocar telefono_casa; docs externos; internos.
+
 ## 2026-09-08 - scraper Railway: batch 1 + crons desfasados
 
 ### Causa

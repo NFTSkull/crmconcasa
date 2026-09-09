@@ -13,6 +13,7 @@ import {
   normalizeDigitsOnly,
   normalizePersonName,
   normalizeTelefonoMexico,
+  prepareClienteDatosForPerfilCapturaSave,
   syncLegacyFromInfonavit,
   validateClienteDatos,
 } from "@/lib/clienteDatosValidation";
@@ -748,4 +749,115 @@ test("P189 B8: referencias siguen obligatorias si realmente están vacías", () 
   assert.equal(r.errors.referencia1Celular, "Celular de referencia 1 es obligatorio.");
   assert.equal(r.errors.referencia2Nombres, "Nombre(s) de referencia 2 es obligatorio.");
   assert.equal(r.errors.referencia2Celular, "Celular de referencia 2 es obligatorio.");
+});
+
+const SILVIA_CTX = {
+  ...COBRO_CTX,
+  perfilCaptura: "asesor_equipo_silvia_simplificado" as const,
+  requireInfonavit: false,
+};
+
+const silviaBase = (): ClienteDatosFormShape => ({
+  ...baseValid,
+  correo: "",
+  empresa: "",
+  registroPatronal: "",
+  telefonoEmpresa: "",
+  referencias: [
+    { nombre: "", celular: "" },
+    { nombre: "", celular: "" },
+  ],
+  beneficiario: { nombre: "", parentesco: "" },
+  plazo: "",
+  rfc: "",
+});
+
+test("simplificado + RFC vacío → PASS", () => {
+  const r = validateClienteDatos(silviaBase(), SILVIA_CTX);
+  assert.equal(r.isValid, true);
+  assert.equal(r.errors.rfc, undefined);
+});
+
+test("simplificado + stale RFC inválido en draft → no bloquea", () => {
+  const dirty = { ...silviaBase(), rfc: "INVALIDO" };
+  const r = validateClienteDatos(dirty, SILVIA_CTX);
+  assert.equal(r.errors.rfc, undefined);
+  assert.equal(r.isValid, true);
+
+  const prepared = prepareClienteDatosForPerfilCapturaSave(dirty, {
+    perfilCaptura: "asesor_equipo_silvia_simplificado",
+    official: { ...silviaBase(), rfc: "" },
+  });
+  assert.equal(prepared.rfc, "");
+  const after = validateClienteDatos(prepared, SILVIA_CTX);
+  assert.equal(after.isValid, true);
+  assert.equal(normalizeClienteDatosForSave(prepared).rfc, "");
+});
+
+test("simplificado + RFC oficial válido histórico → se preserva", () => {
+  const official = { ...silviaBase(), rfc: "PEGJ850101ABC" };
+  const dirty = { ...silviaBase(), rfc: "BASURA99" };
+  const prepared = prepareClienteDatosForPerfilCapturaSave(dirty, {
+    perfilCaptura: "asesor_equipo_silvia_simplificado",
+    official,
+  });
+  assert.equal(prepared.rfc, "PEGJ850101ABC");
+  assert.equal(validateClienteDatos(prepared, SILVIA_CTX).isValid, true);
+});
+
+test("simplificado + draft vacío no pisa correo/empresa oficiales", () => {
+  const official = {
+    ...silviaBase(),
+    correo: "hist@ejemplo.mx",
+    empresa: "Empresa Histórica SA",
+    registroPatronal: "Y1234567890",
+  };
+  const dirty = silviaBase();
+  const prepared = prepareClienteDatosForPerfilCapturaSave(dirty, {
+    perfilCaptura: "asesor_equipo_silvia_simplificado",
+    official,
+  });
+  assert.equal(prepared.correo, "hist@ejemplo.mx");
+  assert.equal(prepared.empresa, "Empresa Histórica SA");
+  assert.equal(prepared.registroPatronal, "Y1234567890");
+});
+
+test("simplificado + plazo inválido oculto no bloquea; no se envía basura", () => {
+  const dirty = { ...silviaBase(), plazo: "12 meses" };
+  assert.equal(validateClienteDatos(dirty, SILVIA_CTX).errors.plazo, undefined);
+  const prepared = prepareClienteDatosForPerfilCapturaSave(dirty, {
+    perfilCaptura: "asesor_equipo_silvia_simplificado",
+    official: { ...silviaBase(), plazo: "12" },
+  });
+  assert.equal(prepared.plazo, "12");
+});
+
+test("interno + RFC inválido → error visible", () => {
+  const r = validateClienteDatos({ ...baseValid, rfc: "INVALIDO" }, COBRO_CTX);
+  assert.equal(r.errors.rfc, "RFC no tiene formato válido.");
+  assert.equal(r.isValid, false);
+});
+
+test("interno + RFC válido → PASS", () => {
+  const r = validateClienteDatos({ ...baseValid, rfc: "PEGJ850101ABC" }, COBRO_CTX);
+  assert.equal(r.errors.rfc, undefined);
+  assert.equal(r.isValid, true);
+});
+
+test("prepare no-op fuera de simplificado (no borra RFC form)", () => {
+  const form = { ...baseValid, rfc: "INVALIDO" };
+  const out = prepareClienteDatosForPerfilCapturaSave(form, {
+    perfilCaptura: "asesor_completo",
+    official: { ...baseValid, rfc: "PEGJ850101ABC" },
+  });
+  assert.equal(out.rfc, "INVALIDO");
+});
+
+test("simplificado no exige telefono_casa (contrato externos)", () => {
+  const r = validateClienteDatos(silviaBase(), {
+    ...SILVIA_CTX,
+    telefonoCasa: undefined,
+  });
+  assert.equal(r.errors.telefonoCasa, undefined);
+  assert.equal(r.isValid, true);
 });
