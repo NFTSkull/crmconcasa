@@ -52,8 +52,8 @@ const items = [
 ] as const;
 
 describe("mesaOpsUi", () => {
-  it("default operativo al cargar bandeja es Disponibles (sin_asignar)", () => {
-    assert.equal(DEFAULT_MESA_OPS_FILTER, "sin_asignar");
+  it("default operativo al cargar bandeja es Todo Mesa", () => {
+    assert.equal(DEFAULT_MESA_OPS_FILTER, "todo_mesa");
     assert.equal(MESA_OPS_FILTER_CHIPS[0]?.id, "sin_asignar");
     assert.equal(MESA_OPS_FILTER_CHIPS[0]?.label, "Disponibles");
     assert.equal(MESA_OPS_FILTER_CHIPS[1]?.id, "en_espera_asesor");
