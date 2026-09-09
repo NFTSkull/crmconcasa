@@ -219,6 +219,7 @@ Grants: `REVOKE` PUBLIC/anon; `GRANT EXECUTE` authenticated (+ service_role).
 - Solo rol `asesor` (o `super_admin`).
 - `origen_mesa` = `profiles.tipo_asesor_origen` (asesor no elige).
 - **Teléfono de casa (Datos Generales):** obligatorio solo si el dueño es interno resuelto (`perfilCaptura=asesor_completo` **y** `origen_mesa ≠ externo`). Paquete externos (Silvia|Orlando), `clasificacion_pendiente` u `origen_mesa=externo` → campo no montado / no exige / save sin wrapper casa.
+- **Perfil simplificado (Silvia|Orlando):** campos ocultos (RFC, correo, empresa, refs, plazo, …) no bloquean Guardar por formato de draft; `prepareClienteDatosForPerfilCapturaSave` preserva oficiales válidos y no envía RFC inválido al RPC. RFC sigue opcional (no se fuerza `""` sobre histórico válido).
 - Rechazar duplicado **activo** mismo `nss + programa + organization_id`.
 - Si `expediente_anterior_id`: validar que ciclo previo esté `cerrado` o documentar excepción admin.
 

@@ -163,9 +163,103 @@ function isTelefonoMexicoValido(input: string): boolean {
   return /^[0-9]{10}$/.test(norm);
 }
 
-function isRfcMexicoValido(rfc: string): boolean {
-  const v = rfc.trim().toUpperCase();
+/** RFC MX (12–13). Exportado para UI/reconciliación de campos ocultos. */
+export function isRfcMexicoValido(rfc: string): boolean {
+  const v = rfc.trim().toUpperCase().replace(/\s+/g, "");
   return (v.length === 12 || v.length === 13) && RFC_RE.test(v);
+}
+
+function normRfc(raw: string): string {
+  return String(raw ?? "").trim().toUpperCase().replace(/\s+/g, "");
+}
+
+function isEmailLoose(raw: string): boolean {
+  return EMAIL_RE.test(String(raw ?? "").trim());
+}
+
+function isPlazoDigitsOrEmpty(raw: string): boolean {
+  const v = String(raw ?? "").trim();
+  return v === "" || /^\d+$/.test(v);
+}
+
+/**
+ * Perfil `asesor_equipo_silvia_simplificado`: campos ocultos no deben
+ * bloquear ni pisar un oficial válido con basura de draft/localStorage.
+ * No-op fuera de ese perfil.
+ */
+export function prepareClienteDatosForPerfilCapturaSave(
+  form: ClienteDatosFormShape,
+  ctx: {
+    perfilCaptura?: ClienteDatosPerfilCaptura;
+    official?: ClienteDatosFormShape | null;
+  },
+): ClienteDatosFormShape {
+  if (ctx.perfilCaptura !== "asesor_equipo_silvia_simplificado") {
+    return form;
+  }
+  const official = ctx.official ?? null;
+  const pickTextPreserveOfficial = (formVal: string, officialVal: string): string => {
+    const f = String(formVal ?? "").trim();
+    const o = String(officialVal ?? "").trim();
+    if (f) return String(formVal ?? "");
+    return o ? String(officialVal ?? "") : f;
+  };
+  const pickRfc = (): string => {
+    const formRfc = normRfc(form.rfc);
+    const officialRfc = normRfc(official?.rfc ?? "");
+    if (formRfc && isRfcMexicoValido(formRfc)) return formRfc;
+    if (officialRfc && isRfcMexicoValido(officialRfc)) return officialRfc;
+    return "";
+  };
+  const pickPlazo = (): string => {
+    const formPlazo = String(form.plazo ?? "").trim();
+    const officialPlazo = String(official?.plazo ?? "").trim();
+    if (isPlazoDigitsOrEmpty(formPlazo) && formPlazo) return formPlazo;
+    if (isPlazoDigitsOrEmpty(officialPlazo) && officialPlazo) return officialPlazo;
+    if (isPlazoDigitsOrEmpty(formPlazo)) return formPlazo;
+    return "";
+  };
+  const pickCorreo = (): string => {
+    const f = String(form.correo ?? "").trim();
+    const o = String(official?.correo ?? "").trim();
+    if (f && isEmailLoose(f)) return f;
+    if (o && isEmailLoose(o)) return o;
+    if (!f && o) return o;
+    return "";
+  };
+  const pickTelEmpresa = (): string => {
+    const f = normalizeTelefonoMexico(String(form.telefonoEmpresa ?? ""));
+    const o = normalizeTelefonoMexico(String(official?.telefonoEmpresa ?? ""));
+    if (f && isTelefonoMexicoValido(f)) return f;
+    if (o && isTelefonoMexicoValido(o)) return o;
+    if (!String(form.telefonoEmpresa ?? "").trim() && o) return o;
+    return "";
+  };
+
+  return {
+    ...form,
+    rfc: pickRfc(),
+    plazo: pickPlazo(),
+    correo: pickCorreo(),
+    empresa: pickTextPreserveOfficial(form.empresa, official?.empresa ?? ""),
+    registroPatronal: pickTextPreserveOfficial(
+      form.registroPatronal,
+      official?.registroPatronal ?? "",
+    ),
+    telefonoEmpresa: pickTelEmpresa(),
+    beneficiario: {
+      nombre: pickTextPreserveOfficial(
+        form.beneficiario?.nombre ?? "",
+        official?.beneficiario?.nombre ?? "",
+      ),
+      parentesco: pickTextPreserveOfficial(
+        form.beneficiario?.parentesco ?? "",
+        official?.beneficiario?.parentesco ?? "",
+      ),
+    },
+    // UI simplificada no captura bloque Infonavit; no mandar draft stale.
+    infonavit: official?.infonavit ?? form.infonavit,
+  };
 }
 
 function isCurpMexicoValida(curp: string): boolean {
@@ -622,7 +716,9 @@ export function validateClienteDatos(
     }
   }
 
-  if (esMejoravit && !requireInfonavit) {
+  // Formato opcional Infonavit: solo perfil completo (campos visibles).
+  // Simplificado no monta el bloque; un draft stale no debe bloquear Guardar.
+  if (!silvia && esMejoravit && !requireInfonavit) {
     const infOpt = data.infonavit ?? emptyInfonavitClienteDatosV1();
     const vig = infOpt.titular.identificacion.vigencia.trim();
     if (vig) {
@@ -733,12 +829,11 @@ export function validateClienteDatos(
       } else if (!/^\d+$/.test(plazoRaw)) {
         setError(errors, "plazo", MSJ_DIGITS_ONLY);
       }
-    } else if (plazoRaw && !/^\d+$/.test(plazoRaw)) {
-      setError(errors, "plazo", MSJ_DIGITS_ONLY);
     }
+    // Simplificado: plazo oculto — no validar formato (prepare lo limpia al guardar).
   } else {
     const plazoRaw = String(d.plazo ?? "").trim();
-    if (plazoRaw && !/^\d+$/.test(plazoRaw)) {
+    if (!silvia && plazoRaw && !/^\d+$/.test(plazoRaw)) {
       setError(errors, "plazo", MSJ_DIGITS_ONLY);
     }
   }
@@ -849,7 +944,14 @@ export function validateClienteDatos(
     setError(errors, "curp", "CURP no tiene formato válido.");
   }
 
-  if (data.rfc.trim() && !errors.rfc && !isRfcMexicoValido(data.rfc)) {
+  // RFC: opcional. En simplificado el campo está oculto — un draft inválido
+  // no puede bloquear Guardar (prepareClienteDatosForPerfilCapturaSave lo limpia).
+  if (
+    !silvia &&
+    data.rfc.trim() &&
+    !errors.rfc &&
+    !isRfcMexicoValido(data.rfc)
+  ) {
     setError(errors, "rfc", "RFC no tiene formato válido.");
   }
 

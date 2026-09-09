@@ -110,6 +110,7 @@ import {
 import {
   formatClienteDatosValidationSummary,
   normalizeClienteDatosForSave,
+  prepareClienteDatosForPerfilCapturaSave,
   resolveDireccionOpcionalForSave,
   validateClienteDatos,
   type ClienteDatosFieldErrors,
@@ -370,6 +371,8 @@ export default function AsesorExpedientePage() {
   const forceClienteDatosOfficialReloadRef = useRef(false);
   /** Evita que el emit del propio save pise el formulario durante el await. */
   const suppressClienteDatosRemoteHydrationRef = useRef(false);
+  /** Snapshot oficial post-hidratación (antes de draft). Campos ocultos simplificado. */
+  const clienteDatosOfficialRef = useRef<ClienteDatosFormState | null>(null);
   const montoAprobadoEditorRef = useRef<number | null>(null);
   const programaDbRef = useRef<string | null>(null);
   const [editorDecision, setEditorDecision] = useState<
@@ -700,11 +703,20 @@ export default function AsesorExpedientePage() {
 
       // Restore automático: sin click "Restaurar".
       // telefonoCasa del draft se aplica al state; externos no lo montan ni validan.
-      applyClienteDatosDraftToForm(draft, { persistCasa: true });
+      // Simplificado: scrub campos ocultos inválidos vs oficial (RFC, etc.).
+      const draftScrubbed: ClienteDatosDraft = {
+        ...draft,
+        clienteDatos: prepareClienteDatosForPerfilCapturaSave(draft.clienteDatos, {
+          perfilCaptura: perfilCapturaClienteDatos,
+          official: hydratedDatos,
+        }),
+      };
+      applyClienteDatosDraftToForm(draftScrubbed, { persistCasa: true });
     },
     [
       applyClienteDatosDraftToForm,
       clienteDatosDraftUserKey,
+      perfilCapturaClienteDatos,
     ],
   );
 
@@ -1623,6 +1635,7 @@ export default function AsesorExpedientePage() {
         setClienteDatosMeta(null);
         setTelefonoCasaValue("");
         clearTelefonoCasaDraft(expedienteId);
+        clienteDatosOfficialRef.current = null;
         syncClienteDatosDraftFlush({
           clienteDatos: datosSinOficial,
           direccionOpcional: domicilioOficial,
@@ -1679,6 +1692,7 @@ export default function AsesorExpedientePage() {
       const casaOficial = String(found.telefonoCasa ?? "")
         .replace(/\D/g, "")
         .slice(0, 10);
+      clienteDatosOfficialRef.current = datosHidratados;
       setClienteDatos(datosHidratados);
       setTelefonoCasaValue(casaOficial);
       setTelefonoCasaDraft(expedienteId, casaOficial);
@@ -1831,7 +1845,11 @@ export default function AsesorExpedientePage() {
       setClienteDatosError(notaError);
       return { ok: false, message: notaError };
     }
-    const validation = validateClienteDatos(clienteDatos, {
+    const datosPreparados = prepareClienteDatosForPerfilCapturaSave(clienteDatos, {
+      perfilCaptura: perfilCapturaClienteDatos,
+      official: clienteDatosOfficialRef.current,
+    });
+    const validation = validateClienteDatos(datosPreparados, {
       montoAprobado: montoAprobadoEditor,
       direccionOpcional,
       programaDb,
@@ -1851,7 +1869,7 @@ export default function AsesorExpedientePage() {
     setClienteDatosFieldErrors({});
     setClienteDatosShowValidation(false);
     setClienteDatosSaved(false);
-    const datosAGuardar = normalizeClienteDatosForSave(clienteDatos);
+    const datosAGuardar = normalizeClienteDatosForSave(datosPreparados);
     const domicilioAGuardar = resolveDireccionOpcionalForSave({
       programaDb,
       direccionOpcional,
@@ -1899,6 +1917,7 @@ export default function AsesorExpedientePage() {
       }
 
       setClienteDatos(datosAGuardar);
+      clienteDatosOfficialRef.current = datosAGuardar;
       if (isMontoMejoravitGuardado(datosAGuardar.montoMejoravit)) {
         montoMejoravitLockedRef.current = true;
       }
@@ -2880,7 +2899,14 @@ export default function AsesorExpedientePage() {
                 );
                 return false;
               }
-              const validation = validateClienteDatos(clienteDatos, {
+              const datosPreparados = prepareClienteDatosForPerfilCapturaSave(
+                clienteDatos,
+                {
+                  perfilCaptura: perfilCapturaClienteDatos,
+                  official: clienteDatosOfficialRef.current,
+                },
+              );
+              const validation = validateClienteDatos(datosPreparados, {
                 montoAprobado: montoAprobadoEditor,
                 direccionOpcional,
                 programaDb,
@@ -2898,7 +2924,8 @@ export default function AsesorExpedientePage() {
                 window.alert("Sesión inválida.");
                 return false;
               }
-              const datosFormularioActuales = normalizeClienteDatosForSave(clienteDatos);
+              const datosFormularioActuales =
+                normalizeClienteDatosForSave(datosPreparados);
               const domicilioEnvio = resolveDireccionOpcionalForSave({
                 programaDb,
                 direccionOpcional,

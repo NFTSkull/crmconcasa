@@ -4,6 +4,7 @@ import type { Dispatch, ReactNode, SetStateAction } from "react";
 import { Button } from "@/components/ui/Button";
 import type { ExpedienteClienteDatos } from "@/domain/expediente-cliente-datos";
 import type { ClienteDatosFieldErrors, ClienteDatosFieldKey } from "@/lib/clienteDatosValidation";
+import { isRfcMexicoValido } from "@/lib/clienteDatosValidation";
 import {
   filterDigitsInput,
   filterPersonNameInput,
@@ -165,6 +166,11 @@ export function ExpedienteClienteDatosFormSection({
   clasificacionPerfilMensaje = null,
 }: ExpedienteClienteDatosFormSectionProps) {
   const esSimplificado = capturaVariant === "simplificado";
+  // Campo oculto con valor inválido heredado (draft): mostrarlo para poder corregir/limpiar.
+  const mostrarRfcSimplificado =
+    esSimplificado &&
+    Boolean(String(clienteDatos.rfc ?? "").trim()) &&
+    !isRfcMexicoValido(clienteDatos.rfc);
   const esMejoravit = isProgramaMejoravitDb(programaDb);
   const esCorreccionRechazo = asesorEsCorreccionRechazoClienteDatos(
     submittedToMesa,
@@ -466,8 +472,17 @@ export function ExpedienteClienteDatosFormSection({
               }}
             />
           ) : null}
-          {!esSimplificado ? (
-          <DatosField label="RFC (opcional)" fieldKey="rfc" error={err("rfc")} showError={showFieldErrors}>
+          {!esSimplificado || mostrarRfcSimplificado ? (
+          <DatosField
+            label={
+              mostrarRfcSimplificado
+                ? "RFC (corrija o deje vacío — no es obligatorio)"
+                : "RFC (opcional)"
+            }
+            fieldKey="rfc"
+            error={err("rfc")}
+            showError={showFieldErrors}
+          >
             <input
               className={`${fieldInputClass(Boolean(err("rfc")))} uppercase`}
               value={clienteDatos.rfc}
