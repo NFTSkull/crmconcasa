@@ -1,3 +1,16 @@
+## 2026-09-09 - fix(mesa): búsqueda por nombre amplía a Todo Mesa
+
+### Causa
+Default «Disponibles» (`ops_filter=sin_asignar`) se intersectaba con `p_buscar`. Homónimos en etapa ≥3 o ya asignados no aparecían (p. ej. «GARCIA»: ~8 en cola disponibles vs ~32 activos enviados a Mesa).
+
+### Decisión
+- Al haber texto de búsqueda: query efectiva = `todos` + `todo_mesa` (aunque el chip aún no se sincronice).
+- Chips se sincronizan a Todos + Todo Mesa; help bajo el input.
+- Sin SQL / sin cambiar predicado de Disponibles.
+
+### No
+unaccent; buscar en Datos Generales; cambiar page size; smoke.
+
 ## 2026-09-09 - fix: error técnico Infonavit no es no_cumple
 
 ### Causa

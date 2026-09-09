@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  ampliarBandejaParaBusqueda,
   aplicarFiltrosBandejaMesa,
   coincideBusquedaClienteTelefono,
   contarVistaRapida,
@@ -11,9 +12,11 @@ import {
   limpiarFiltrosBandeja,
   matchesMesaQuickFilter,
   MESA_BANDEJA_FILTROS_HELP_TEXT,
+  MESA_BUSQUEDA_AMPLIA_TODO_MESA_HELP,
   MESA_CITAS_HOY_CHIP_ID,
   MESA_CITAS_ROUTE,
   MESA_QUICK_FILTER_LABELS,
+  necesitaAmpliarBandejaParaBusqueda,
   seleccionarAsignacion,
   seleccionarVistaRapida,
   soloDigitos,
@@ -136,6 +139,86 @@ describe("mesaBandejaFiltros — selección principal exclusiva", () => {
   it("constantes de citas hoy", () => {
     assert.equal(MESA_CITAS_HOY_CHIP_ID, "citas_hoy");
     assert.equal(MESA_CITAS_ROUTE, "/mesa-control/citas");
+  });
+});
+
+describe("mesaBandejaFiltros — búsqueda amplía a Todo Mesa", () => {
+  it("necesitaAmpliar cuando hay texto y Disponibles activo", () => {
+    assert.equal(
+      necesitaAmpliarBandejaParaBusqueda({
+        buscar: "Garcia",
+        quickFilter: "todos",
+        opsFilter: "sin_asignar",
+      }),
+      true,
+    );
+  });
+
+  it("necesitaAmpliar cuando hay texto y vista En proceso", () => {
+    assert.equal(
+      necesitaAmpliarBandejaParaBusqueda({
+        buscar: "Garcia",
+        quickFilter: "en_proceso",
+        opsFilter: "todo_mesa",
+      }),
+      true,
+    );
+  });
+
+  it("no amplía si búsqueda vacía", () => {
+    assert.equal(
+      necesitaAmpliarBandejaParaBusqueda({
+        buscar: "  ",
+        quickFilter: "todos",
+        opsFilter: "sin_asignar",
+      }),
+      false,
+    );
+  });
+
+  it("no amplía si ya está en Todos + Todo Mesa", () => {
+    assert.equal(
+      necesitaAmpliarBandejaParaBusqueda({
+        buscar: "Garcia",
+        quickFilter: "todos",
+        opsFilter: "todo_mesa",
+      }),
+      false,
+    );
+  });
+
+  it("ampliarBandejaParaBusqueda deja Todos + Todo Mesa", () => {
+    const next = ampliarBandejaParaBusqueda();
+    assert.equal(next.quickFilter, "todos");
+    assert.equal(next.opsFilter, "todo_mesa");
+    assert.match(MESA_BUSQUEDA_AMPLIA_TODO_MESA_HELP, /Todo Mesa/);
+  });
+
+  it("búsqueda por apellido encuentra homónimos en distintas etapas (Todos)", () => {
+    const homonimos: MesaBandejaFiltroItem[] = [
+      item({
+        cliente_nombre: "ANA GARCIA LOPEZ",
+        etapaActual: 1,
+        subestado: "pendiente",
+      }),
+      item({
+        cliente_nombre: "JUAN GARCIA RUIZ",
+        etapaActual: 9,
+        subestado: "en_proceso",
+      }),
+      item({
+        cliente_nombre: "MARIA PEREZ",
+        etapaActual: 2,
+        subestado: "en_proceso",
+      }),
+    ];
+    const filtered = aplicarFiltrosBandejaMesa(
+      homonimos,
+      estado({ quickFilter: "todos", buscar: "GARCIA" }),
+      HOY,
+    );
+    assert.equal(filtered.length, 2);
+    assert.ok(filtered.every((c) => /GARCIA/i.test(c.cliente_nombre)));
   });
 });
 
