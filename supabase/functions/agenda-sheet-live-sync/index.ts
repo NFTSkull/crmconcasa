@@ -468,12 +468,42 @@ Deno.serve(async (req) => {
         })),
       });
     }
-    const dailyMeta = agendaDailyRemaining(
+
+    let dailyMeta = agendaDailyRemaining(
       kind || "biometricos",
       locationId || "monterrey",
       dailyOcc,
       kind === "firmas" ? firmasContract : FIRMAS_DAILY_CAP_CONTRACT_DEFAULT,
     );
+
+    // Biométricos Monterrey: la capacidad diaria efectiva vive en SQL para poder
+    // aplicar overrides por fecha sin cambiar el resto del calendario. Si el RPC
+    // falla, conservar el fallback de dominio (15) para no ampliar cupo por error.
+    if (kind === "biometricos" && locationId === "monterrey") {
+      const { data: capacityData, error: capacityErr } = await supabase.rpc(
+        "agenda_daily_capacity",
+        {
+          p_org: orgId,
+          p_kind: "biometricos",
+          p_date: bookingDate,
+          p_location: "monterrey",
+        },
+      );
+      if (capacityErr) {
+        console.error("agenda-sheet-live-sync daily capacity", {
+          code: String((capacityErr as { code?: string }).code ?? "").slice(0, 40),
+          message: String(capacityErr.message ?? "").slice(0, 180),
+        });
+      } else if (capacityData != null && Number.isFinite(Number(capacityData))) {
+        const effectiveCapacity = Math.max(0, Math.trunc(Number(capacityData)));
+        dailyMeta = {
+          capacity: effectiveCapacity,
+          occupancy: dailyOcc,
+          remaining: Math.max(0, effectiveCapacity - dailyOcc),
+          overcapacity: dailyOcc > effectiveCapacity,
+        };
+      }
+    }
 
     let canBook = true;
     let gateMessage: string | null = null;
