@@ -1,8 +1,11 @@
 /**
  * Selección pura de candidatos a reintento auto-reprecal (sin I/O).
- * Espejo de auto-precal-retry: solo scraper_failed; nunca backlog sin intentos.
- * Sin tope de intentos totales (ilimitado mientras siga pendiente + scraper_failed).
+ * Espejo de auto-precal-retry: scraper_failed | infonavit_system_error;
+ * nunca backlog sin intentos ni ambiguous_payload.
+ * Sin tope de intentos totales (ilimitado mientras siga pendiente + razón reintentable).
  */
+
+import { isAutoPrecalRetryablePendingReason } from "./auto-precal-retry";
 
 export const AUTO_REPRECAL_RETRY_MIN_AGE_MS = 5 * 60 * 1000;
 /** 1 candidato/tick: 1 Playwright a la vez dentro del cron (Railway 1GB). */
@@ -26,7 +29,7 @@ export type ReprecalRetryCandidateInput = {
 
 /**
  * Filtra candidatos:
- * - al menos un intento pending_error + scraper_failed
+ * - al menos un intento pending_error + razón reintentable
  * - sin tope de intentos totales (ambiguous_payload solo nunca entra por sí mismo)
  * - último intento hace ≥ minAgeMs (default 5 min)
  * - orden: último intento más antiguo primero
@@ -52,11 +55,12 @@ export function selectAutoReprecalRetryCandidates(
   const scored: { id: string; lastMs: number }[] = [];
 
   for (const [id, rows] of byIntento) {
-    const hasScraperFailed = rows.some(
+    const hasRetryable = rows.some(
       (r) =>
-        r.resultado === "pending_error" && r.razon === "scraper_failed",
+        r.resultado === "pending_error" &&
+        isAutoPrecalRetryablePendingReason(r.razon),
     );
-    if (!hasScraperFailed) continue;
+    if (!hasRetryable) continue;
 
     let lastMs = 0;
     for (const r of rows) {

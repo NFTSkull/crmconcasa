@@ -149,4 +149,24 @@ describe("selectAutoReprecalRetryCandidates", () => {
     });
     assert.deepEqual(ids, ["aaaa"]);
   });
+
+  it("incluye pending_error + infonavit_system_error (mismo helper que precal)", () => {
+    const ids = selectAutoReprecalRetryCandidates({
+      pendingIntentoIds: ["aaaa"],
+      intentos: [
+        intento("aaaa", old, "pending_error", "infonavit_system_error"),
+      ],
+      nowMs: now,
+    });
+    assert.deepEqual(ids, ["aaaa"]);
+  });
+
+  it("excluye no_cumple (no reintento automático)", () => {
+    const ids = selectAutoReprecalRetryCandidates({
+      pendingIntentoIds: ["aaaa"],
+      intentos: [intento("aaaa", old, "no_cumple", null)],
+      nowMs: now,
+    });
+    assert.deepEqual(ids, []);
+  });
 });

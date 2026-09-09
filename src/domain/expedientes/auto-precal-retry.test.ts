@@ -150,4 +150,35 @@ describe("selectAutoPrecalRetryCandidates", () => {
     });
     assert.deepEqual(ids, ["aaaa"]);
   });
+
+  it("incluye pending_error + infonavit_system_error", () => {
+    const ids = selectAutoPrecalRetryCandidates({
+      pendingExpedienteIds: ["aaaa"],
+      intentos: [
+        intento("aaaa", old, "pending_error", "infonavit_system_error"),
+      ],
+      nowMs: now,
+    });
+    assert.deepEqual(ids, ["aaaa"]);
+  });
+
+  it("excluye no_cumple (no reintento automático)", () => {
+    const ids = selectAutoPrecalRetryCandidates({
+      pendingExpedienteIds: ["aaaa"],
+      intentos: [intento("aaaa", old, "no_cumple", null)],
+      nowMs: now,
+    });
+    assert.deepEqual(ids, []);
+  });
+
+  it("excluye pending_error + invalid_saldo / programa_desconocido", () => {
+    for (const razon of ["invalid_saldo", "programa_desconocido"]) {
+      const ids = selectAutoPrecalRetryCandidates({
+        pendingExpedienteIds: ["aaaa"],
+        intentos: [intento("aaaa", old, "pending_error", razon)],
+        nowMs: now,
+      });
+      assert.deepEqual(ids, [], razon);
+    }
+  });
 });
