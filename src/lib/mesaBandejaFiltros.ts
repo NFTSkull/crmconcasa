@@ -55,6 +55,14 @@ export const MESA_BANDEJA_FILTROS_HELP_TEXT =
 export const MESA_VISTA_RAPIDA_FORCE_TODO_MESA_HELP =
   "Al elegir una vista rápida, la asignación operativa cambia a «Todo Mesa» para que la lista coincida con el contador. «Citas hoy» abre la pantalla de citas. Los cancelados solo aparecen en «Rechazos y cancelaciones».";
 
+/**
+ * Al buscar por nombre/teléfono/NSS, la bandeja se amplía a Todos + Todo Mesa.
+ * Evita la intersección silenciosa con «Disponibles» (u otras vistas) que ocultaba
+ * homónimos en etapas posteriores o ya asignados.
+ */
+export const MESA_BUSQUEDA_AMPLIA_TODO_MESA_HELP =
+  "Al buscar, la vista pasa a «Todos» y «Todo Mesa» para mostrar todas las coincidencias enviadas a Mesa (no solo Disponibles).";
+
 /** Labels visibles (id interno intacto para RPC/P102). */
 export const MESA_QUICK_FILTER_LABELS: Readonly<Record<MesaQuickFilter, string>> = {
   todos: "Todos",
@@ -162,6 +170,34 @@ export function seleccionarAsignacion(
   return {
     quickFilter: "todos",
     opsFilter: id,
+    rechazosCancelacionesSubfiltro: "rechazados",
+    cambiosSubfiltro: MESA_CAMBIOS_SUBFILTRO_DEFAULT,
+  };
+}
+
+/**
+ * ¿La búsqueda activa requiere ampliar la bandeja?
+ * True si hay texto y aún hay un filtro principal más estrecho que Todos + Todo Mesa.
+ */
+export function necesitaAmpliarBandejaParaBusqueda(params: Readonly<{
+  buscar: string;
+  quickFilter: MesaQuickFilter;
+  opsFilter: MesaOpsFilter;
+}>): boolean {
+  if (!params.buscar.trim()) return false;
+  return (
+    params.opsFilter !== "todo_mesa" || params.quickFilter !== "todos"
+  );
+}
+
+/**
+ * Selección al buscar: Todos + Todo Mesa (misma idea que Vista rápida → Todo Mesa).
+ * No limpia etapa/subestado/citas (filtros adicionales explícitos).
+ */
+export function ampliarBandejaParaBusqueda(): MesaBandejaSeleccionPrincipal {
+  return {
+    quickFilter: "todos",
+    opsFilter: "todo_mesa",
     rechazosCancelacionesSubfiltro: "rechazados",
     cambiosSubfiltro: MESA_CAMBIOS_SUBFILTRO_DEFAULT,
   };

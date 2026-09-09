@@ -21,6 +21,9 @@
 ## [Unreleased]
 
 ### Fixed
+- **fix(mesa): búsqueda por nombre ya no se queda en Disponibles** — al buscar cliente/teléfono la bandeja pasa a «Todos» + «Todo Mesa» (query y chips), evitando ocultar homónimos en etapas posteriores o asignados. Sin SQL.
+
+### Fixed
 - **fix(precal): error técnico Infonavit ≠ no_cumple** — mensajes «ERROR EN EL SISTEMA» / «INTENTE MAS TARDE» → `pending_error`/`infonavit_system_error` (reintentable). No SQL; no remedia JORGE aún.
 
 ### Fixed

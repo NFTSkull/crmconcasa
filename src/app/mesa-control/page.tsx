@@ -122,17 +122,20 @@ import {
 import { MesaOpsBandejaBadge } from "@/components/mesa-control/MesaExpedienteOpsSection";
 import { estaEnEsperaDeAsesor } from "@/lib/mesaBandejaEsperaAsesor";
 import {
+  ampliarBandejaParaBusqueda,
   aplicarFiltrosBandejaMesa,
   contarVistaRapida,
   esNuevoEtapa12,
   limpiarFiltrosBandeja,
   MESA_BANDEJA_FILTROS_HELP_TEXT,
+  MESA_BUSQUEDA_AMPLIA_TODO_MESA_HELP,
   MESA_CITAS_HOY_CHIP_ID,
   MESA_CITAS_HOY_TOOLTIP,
   MESA_CITAS_ROUTE,
   MESA_QUICK_FILTER_LABELS,
   MESA_QUICK_FILTER_TOOLTIPS,
   MESA_VISTA_RAPIDA_FORCE_TODO_MESA_HELP,
+  necesitaAmpliarBandejaParaBusqueda,
   seleccionarAsignacion,
   seleccionarVistaRapida,
   type MesaQuickFilter,
@@ -508,6 +511,36 @@ export default function MesaControlPage() {
     return () => window.clearTimeout(t);
   }, [buscar]);
 
+  /**
+   * Con búsqueda activa, la query usa Todos + Todo Mesa aunque el chip
+   * aún no se haya sincronizado (evita un fetch intermedio bajo Disponibles).
+   */
+  const busquedaActiva = Boolean(buscarDebounced.trim());
+  const opsFilterEfectivo: MesaOpsFilter = busquedaActiva
+    ? "todo_mesa"
+    : mesaOpsFilter;
+  const quickFilterEfectivo: MesaQuickFilter = busquedaActiva
+    ? "todos"
+    : quickFilter;
+
+  /** Sincroniza chips visibles con la ampliación forzada por búsqueda. */
+  useEffect(() => {
+    if (
+      !necesitaAmpliarBandejaParaBusqueda({
+        buscar: buscarDebounced,
+        quickFilter,
+        opsFilter: mesaOpsFilter,
+      })
+    ) {
+      return;
+    }
+    const next = ampliarBandejaParaBusqueda();
+    setQuickFilter(next.quickFilter);
+    setMesaOpsFilter(next.opsFilter);
+    setRechazosCancelacionesSubfiltro(next.rechazosCancelacionesSubfiltro);
+    setCambiosSubfiltro(next.cambiosSubfiltro);
+  }, [buscarDebounced, mesaOpsFilter, quickFilter]);
+
   const mapExpToCaso = useCallback((exp: ExpedienteMock | MesaBandejaPageItem): CasoMock => {
     const rawFe = exp.operativo.fechaEnvioMesa;
     const fechaEnvioMesa =
@@ -652,8 +685,8 @@ export default function MesaControlPage() {
       const showOrigenTabs =
         mesaMockRole === "mesa_control_admin" || mesaMockRole === "mesa_control";
       const queryKey = mesaBandejaQueryIdentity({
-        quickFilter,
-        mesaOpsFilter,
+        quickFilter: quickFilterEfectivo,
+        mesaOpsFilter: opsFilterEfectivo,
         buscar: buscarDebounced,
         etapaFilter,
         subestadoFilter,
@@ -711,8 +744,8 @@ export default function MesaControlPage() {
 
           const baseQuery = {
             limit: MESA_BANDEJA_PAGE_SIZE,
-            quickFilter,
-            opsFilter: mesaOpsFilter,
+            quickFilter: quickFilterEfectivo,
+            opsFilter: opsFilterEfectivo,
             buscar: buscarDebounced,
             subestado: subestadoFilter === "todas" ? null : subestadoFilter,
             soloCitasHoy,
@@ -928,8 +961,8 @@ export default function MesaControlPage() {
       etapaFilter,
       mapExpToCaso,
       mesaMockRole,
-      mesaOpsFilter,
-      quickFilter,
+      opsFilterEfectivo,
+      quickFilterEfectivo,
       rechazosCancelacionesSubfiltro,
       cambiosSubfiltro,
       repo,
@@ -1205,7 +1238,7 @@ export default function MesaControlPage() {
     list = aplicarFiltrosBandejaMesa(
       list,
       {
-        quickFilter,
+        quickFilter: quickFilterEfectivo,
         rechazosCancelacionesSubfiltro,
         cambiosSubfiltro,
         buscar,
@@ -1215,7 +1248,7 @@ export default function MesaControlPage() {
       },
       todayYMD,
     );
-    return applyMesaOpsFilterSorted(list, mesaOpsFilter, currentUserId);
+    return applyMesaOpsFilterSorted(list, opsFilterEfectivo, currentUserId);
   }, [
     adminOrigenTab,
     buscar,
@@ -1223,8 +1256,8 @@ export default function MesaControlPage() {
     currentUserId,
     dataSupabase,
     etapaFilter,
-    mesaOpsFilter,
-    quickFilter,
+    opsFilterEfectivo,
+    quickFilterEfectivo,
     rechazosCancelacionesSubfiltro,
     cambiosSubfiltro,
     showAdminOrigenTabs,
@@ -1234,8 +1267,8 @@ export default function MesaControlPage() {
   ]);
 
   const infiniteResetKey = mesaBandejaInfiniteResetKey({
-    quickFilter,
-    mesaOpsFilter,
+    quickFilter: quickFilterEfectivo,
+    mesaOpsFilter: opsFilterEfectivo,
     buscar: dataSupabase ? buscarDebounced : buscar,
     etapaFilter,
     subestadoFilter,
@@ -1952,13 +1985,24 @@ export default function MesaControlPage() {
         <section className="rounded-xl border border-dashed border-slate-200 bg-slate-50/50 p-3 sm:p-4">
           <p className="mb-3 text-xs font-medium text-slate-600">Filtros adicionales</p>
           <div className="flex flex-wrap items-end gap-3 sm:gap-4">
-            <Input
-              type="search"
-              placeholder="Buscar cliente o teléfono"
-              value={buscar}
-              onChange={(e) => setBuscar(e.target.value)}
-              className="min-w-[min(100%,12rem)] sm:min-w-[200px]"
-            />
+            <div className="flex min-w-[min(100%,12rem)] flex-col gap-1 sm:min-w-[200px]">
+              <Input
+                type="search"
+                placeholder="Buscar cliente o teléfono"
+                value={buscar}
+                onChange={(e) => setBuscar(e.target.value)}
+                className="w-full"
+                aria-describedby="mesa-busqueda-amplia-help"
+              />
+              {buscar.trim() ? (
+                <p
+                  id="mesa-busqueda-amplia-help"
+                  className="text-[11px] leading-snug text-slate-500"
+                >
+                  {MESA_BUSQUEDA_AMPLIA_TODO_MESA_HELP}
+                </p>
+              ) : null}
+            </div>
             <Select
               label="Paso"
               value={etapaFilter}
