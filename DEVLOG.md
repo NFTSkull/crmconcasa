@@ -1,3 +1,11 @@
+## 2026-09-08 - scraper Railway: batch 1 + crons desfasados
+
+### Causa
+Trial 1GB: varios Playwright a la vez (`Login fallido…`, `pthread_create`, abort). Los for de cada cron ya eran secuenciales; la concurrencia venía de batch=2 y ambos crons en `*/5`.
+
+### Decisión
+A) `reintentar-pendientes-reprecal` → `2-59/5 * * * *`. B) `AUTO_*_RETRY_LIMIT = 1`. Sin mutex vs `after()` auto-precal. Reintentos ilimitados intactos.
+
 ## 2026-09-08 - externos: telefono casa también por origen_mesa
 
 ### Causa

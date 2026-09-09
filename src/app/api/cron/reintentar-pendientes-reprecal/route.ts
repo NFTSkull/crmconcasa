@@ -10,7 +10,7 @@ import { resolveProgramaParaMonto } from "@/domain/expedientes/auto-precalificar
 import { runAutoReprecalificarJob } from "@/domain/expedientes/auto-reprecalificar-job";
 
 export const runtime = "nodejs";
-/** Hasta 2 jobs × SCRAPER_TIMEOUT_MS(150s) = 300s; cabe en maxDuration default. */
+/** Hasta 1 job × SCRAPER_TIMEOUT_MS(150s); secuencial; desfasado del cron precal (+2 min). */
 export const maxDuration = 300;
 
 function serviceClient() {

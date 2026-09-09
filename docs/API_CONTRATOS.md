@@ -171,14 +171,14 @@ Grants: `REVOKE` PUBLIC/anon; `GRANT EXECUTE` authenticated (+ service_role).
 - Auth: header `x-cron-secret: $CRON_SECRET` **o** `Authorization: Bearer $CRON_SECRET` (Vercel Cron). 401 si no coincide.  
 - Candidatos: `editor_decisions.decision='pendiente'` **y** ≥1 fila `auto_precal_intentos` con `resultado='pending_error'` + `razon='scraper_failed'` (excluye backlog sin auto-precal y excluye solo-`ambiguous_payload`).  
 - Excluye si último intento < 5 min (sin tope de intentos totales; `ambiguous_payload` solo no entra).  
-- Max **2** por run, **secuencial** (`await` en for; nunca `Promise.all`).  
+- Max **1** por run, **secuencial** (`await` en for; nunca `Promise.all`).  
 - Schedule: `vercel.json` `*/5 * * * *` (chequeo; cooldown reintento 5 min).
 
 **Cron reprecal (P217):** `GET|POST /api/cron/reintentar-pendientes-reprecal`  
 - Misma auth `CRON_SECRET`.  
 - Candidatos: `expediente_precalificacion_intentos.decision='pendiente'` **y** ≥1 fila `auto_reprecal_intentos` con `resultado='pending_error'` + `razon='scraper_failed'`.  
-- Cooldown ≥5 min, sin tope de intentos, max **2** secuencial.  
-- Schedule: `vercel.json` `*/5 * * * *` (mismo ritmo que altas; tablas/archivos separados).
+- Cooldown ≥5 min, sin tope de intentos, max **1** secuencial.  
+- Schedule: `vercel.json` `2-59/5 * * * *` (desfasado +2 min del cron altas; evita 2 Playwright a la vez).
 
 ---
 
