@@ -97,8 +97,17 @@ export function mapEnviarAMesaRpcError(error: {
   }
 
   if (msg.includes("faltan documentos obligatorios de integración")) {
+    const counts = raw.match(/\((\d+)\s+de\s+(\d+)\)/i);
+    if (counts) {
+      const presentes = Number(counts[1]);
+      const requeridos = Number(counts[2]);
+      const faltantes = Math.max(0, requeridos - presentes);
+      return new ExpedientesSupabaseError(
+        `Faltan documentos para enviar a Mesa: tienes ${presentes} de ${requeridos}. Sube los ${faltantes} documentos faltantes marcados como obligatorios.`,
+      );
+    }
     return new ExpedientesSupabaseError(
-      "Faltan documentos obligatorios de integración. Sube todos los documentos requeridos antes de enviar a Mesa.",
+      "Faltan documentos para enviar a Mesa. Sube todos los documentos marcados como obligatorios.",
     );
   }
 
