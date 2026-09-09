@@ -11,10 +11,11 @@ export type SheetSectionRef = Readonly<{
 
 export type SectionHintByRow = ReadonlyMap<number, SheetSectionRef>;
 
-/** Firmas Apodaca: legacy 10:00/10:30 + targets físicos 08:00/09:00/10:00. */
+/** Firmas Apodaca: 08:30 vigente en Drive + legacy/targets 08:00/09:00/10:00/10:30. */
 export function isPlausibleFirmasApodacaTime(hhmm: string): boolean {
   return (
     hhmm === "08:00" ||
+    hhmm === "08:30" ||
     hhmm === "09:00" ||
     hhmm === "10:00" ||
     hhmm === "10:30"
@@ -77,7 +78,8 @@ function allMatch(
 
 /**
  * Resuelve sección para filas-hora huérfanas (sin encabezado activo).
- * Nunca asigna Apodaca a un 08:30 Monterrey ni Monterrey a un bloque 10:30 solo.
+ * La posición física, el siguiente encabezado y los hints prevalecen para
+ * desambiguar horarios compartidos (p.ej. 08:30 entre Apodaca y Monterrey).
  */
 export function resolveOrphanSection(params: {
   orphanTimes: readonly string[];
@@ -104,7 +106,7 @@ export function resolveOrphanSection(params: {
     if (allMatch(times, isPlausibleFirmasMonterreyTime)) {
       return { sede: "monterrey", kind: "firmas" };
     }
-    // 10:30 huérfano entre Monterrey Firmas (sticky) y Monterrey Bio → Apodaca Firmas.
+    // Bloque huérfano compatible entre Monterrey Firmas y Monterrey Bio → Apodaca Firmas.
     if (allMatch(times, isPlausibleFirmasApodacaTime)) {
       return { sede: "apodaca", kind: "firmas" };
     }
@@ -114,7 +116,7 @@ export function resolveOrphanSection(params: {
       return { sede: "apodaca", kind: "firmas" };
     }
   }
-  // Prev Monterrey Firmas + huérfanos 10:00/10:30 sin next aún → Apodaca.
+  // Prev Monterrey Firmas + huérfanos compatibles sin next aún → Apodaca.
   if (
     params.prevSection?.sede === "monterrey" &&
     params.prevSection.kind === "firmas" &&
@@ -123,7 +125,7 @@ export function resolveOrphanSection(params: {
     return { sede: "apodaca", kind: "firmas" };
   }
 
-  // Solo bloque (sin headers posteriores): 10:00/10:30 → Apodaca Firmas.
+  // Solo bloque sin headers posteriores: un bloque compatible se recupera como Apodaca Firmas.
   if (
     !next &&
     !params.prevSection &&

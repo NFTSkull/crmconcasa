@@ -7,12 +7,12 @@ import {
 } from "./section-recovery";
 
 describe("section-recovery", () => {
-  it("Apodaca firmas times (legacy + P212 target)", () => {
+  it("Apodaca firmas times (Drive vigente + legacy/P212)", () => {
     assert.equal(isPlausibleFirmasApodacaTime("10:30"), true);
     assert.equal(isPlausibleFirmasApodacaTime("10:00"), true);
     assert.equal(isPlausibleFirmasApodacaTime("08:00"), true);
+    assert.equal(isPlausibleFirmasApodacaTime("08:30"), true);
     assert.equal(isPlausibleFirmasApodacaTime("09:00"), true);
-    assert.equal(isPlausibleFirmasApodacaTime("08:30"), false);
   });
 
   it("Monterrey firmas times (legacy + P212 target)", () => {
@@ -33,14 +33,14 @@ describe("section-recovery", () => {
     assert.deepEqual(r, { sede: "apodaca", kind: "firmas" });
   });
 
-  it("no asigna Apodaca a 08:30 huérfano", () => {
+  it("next MONTERREY FIRMAS + bloque 08:30 previo → apodaca/firmas", () => {
     const r = resolveOrphanSection({
-      orphanTimes: ["08:30"],
-      orphanSheetRows: [2],
+      orphanTimes: ["08:30", "08:30", "08:30"],
+      orphanSheetRows: [3, 4, 5],
       nextSection: { sede: "monterrey", kind: "firmas" },
       prevSection: null,
     });
-    assert.equal(r, null);
+    assert.deepEqual(r, { sede: "apodaca", kind: "firmas" });
   });
 
   it("hints unánimes ganan", () => {
