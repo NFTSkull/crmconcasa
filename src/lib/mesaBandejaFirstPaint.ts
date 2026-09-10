@@ -67,7 +67,7 @@ export function buildMesaBandejaFirstPaint(
     fechaEntradaMesaActual,
     entradaLecturaEsCorreccion: mesaEntradaEsPorCorreccion(
       fechaEntradaMesaActual,
-      fechaEnvioMesa,
+      actionable || null,
     ),
     correccionLecturaEstado: deriveMesaCorreccionLecturaEstado(
       fechaEntradaMesaActual,
