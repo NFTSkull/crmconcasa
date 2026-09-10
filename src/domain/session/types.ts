@@ -16,4 +16,9 @@ export type Rol =
 export interface UserSession {
   email: string;
   role: Rol;
+  /**
+   * Solo producción/Supabase. Permite adaptar UX de asesor sin confiar en
+   * metadata del navegador; la autoridad sigue siendo `public.profiles`/RPC.
+   */
+  tipoAsesorOrigen?: string | null;
 }
