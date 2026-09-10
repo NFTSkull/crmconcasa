@@ -32,6 +32,9 @@ export function AsesorCorreccionAccionablePanel({
   formatDateTime,
 }: Props) {
   const view = buildAsesorCorreccionViewFromDetalle(detalle, estadoEfectivo);
+  const detallePermiteReenvio =
+    detalle?.ux_state === "CAMBIOS_GUARDADOS_SIN_ENVIAR" &&
+    detalle?.can_resubmit === true;
   const [confirmAck, setConfirmAck] = useState(false);
   const [confirmOpen, setConfirmOpen] = useState(false);
 
@@ -46,13 +49,15 @@ export function AsesorCorreccionAccionablePanel({
     await onResubmit?.();
   }, [onResubmit]);
 
-  if (!view.showPanel) return null;
+  // El detalle causal P210 es la autoridad para el reenvío. El estado general puede
+  // quedar temporalmente en `en_tramite` por RLS después de guardar DG; no ocultar
+  // el CTA cuando el servidor ya confirmó can_resubmit=true.
+  if (!view.showPanel && !detallePermiteReenvio) return null;
 
   const isEnviada =
     estadoEfectivo === "correccion_enviada" ||
     view.uxState === "CORRECCION_ENVIADA";
-  const cambiosGuardados =
-    view.uxState === "CAMBIOS_GUARDADOS_SIN_ENVIAR" && view.canResubmit;
+  const cambiosGuardados = detallePermiteReenvio;
 
   if (isEnviada) {
     return (
@@ -164,7 +169,7 @@ export function AsesorCorreccionAccionablePanel({
         </p>
       )}
 
-      {estadoEfectivo === "correccion_requerida" ? (
+      {(estadoEfectivo === "correccion_requerida" || detallePermiteReenvio) ? (
         <div className={`mt-4 border-t pt-3 ${cambiosGuardados ? "border-sky-200" : "border-amber-200"}`}>
           {view.needsDgConfirmation && view.canResubmit ? (
             <label className={`flex items-start gap-2 text-xs ${bodyClass}`}>
