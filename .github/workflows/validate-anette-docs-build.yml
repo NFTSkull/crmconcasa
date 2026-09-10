@@ -1,0 +1,37 @@
+name: Validate Anette optional docs build
+
+on:
+  push:
+    branches:
+      - feat/anette-solicitud-inscripcion-validacion-ine
+
+permissions:
+  contents: write
+
+jobs:
+  validate:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: feat/anette-solicitud-inscripcion-validacion-ine
+          fetch-depth: 0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Tests focalizados
+        run: |
+          npx tsx --test src/domain/expediente-archivos/anette-documentos-opcionales.test.ts
+          npx tsx --test src/domain/asesor-equipo/asesor-integracion-opcionales-visibility.test.ts
+      - name: Build
+        run: npm run build
+      - name: Remove temporary workflow after PASS
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/validate-anette-docs-build.yml
+          git commit -m "chore: cerrar validación build Anette"
+          git push origin HEAD:feat/anette-solicitud-inscripcion-validacion-ine
