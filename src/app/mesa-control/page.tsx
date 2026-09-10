@@ -142,6 +142,7 @@ import {
   type MesaRechazosCancelacionesSubfiltro,
 } from "@/lib/mesaBandejaFiltros";
 import { enrichMesaBandejaPageItems } from "@/lib/mesaBandejaEnrichPage";
+import { buildMesaBandejaFirstPaint } from "@/lib/mesaBandejaFirstPaint";
 import {
   listActiveBookingFlagsByExpedienteIds,
   listRetencionHintsByExpedienteIds,
@@ -541,11 +542,20 @@ export default function MesaControlPage() {
     setCambiosSubfiltro(next.cambiosSubfiltro);
   }, [buscarDebounced, mesaOpsFilter, quickFilter]);
 
-  const mapExpToCaso = useCallback((exp: ExpedienteMock | MesaBandejaPageItem): CasoMock => {
+  const mapExpToCaso = useCallback((exp: ExpedienteMock | MesaBandejaPageItem): CasoConDocs => {
     const rawFe = exp.operativo.fechaEnvioMesa;
     const fechaEnvioMesa =
       typeof rawFe === "string" && rawFe.trim() !== "" ? rawFe : undefined;
     const page = exp as MesaBandejaPageItem;
+    const firstPaint = buildMesaBandejaFirstPaint({
+      expedienteId: exp.id,
+      fechaEnvioMesa: fechaEnvioMesa ?? null,
+      createdAt: exp.base.createdAt,
+      cambioActionableAt: page.cambioActionableAt ?? null,
+      categoriaResumen: page.categoriaResumen ?? null,
+      opsHint: page.opsHint ?? null,
+      mesaUserId: currentUserIdRef.current,
+    });
     return {
       id: exp.id,
       cliente_nombre: exp.base.cliente_nombre,
@@ -569,6 +579,7 @@ export default function MesaControlPage() {
       submittedToMesa: exp.operativo.submittedToMesa,
       origenMesa: exp.base.origenMesa ?? "interno",
       fechaEnvioMesa,
+      ...firstPaint,
       lastViewedByName: page.lastViewedByName ?? null,
       lastViewedAt: page.lastViewedAt ?? null,
       lastUpdatedByName: page.lastUpdatedByName ?? null,
