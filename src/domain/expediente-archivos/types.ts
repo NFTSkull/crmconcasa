@@ -47,6 +47,8 @@ export const TIPO_DOCUMENTO_CATALOGO = [
   "cliente_lista_nominal",
   "cliente_bajo_protesta",
   "cliente_presupuesto",
+  "cliente_solicitud_inscripcion",
+  "cliente_validacion_ine_60",
 
   // ===== Acuse / Aviso de retención (etapa operativa 8) =====
   "retencion_acuse_con_sello",
@@ -327,6 +329,22 @@ export const DOCUMENTO_CATALOGO_MAP = Object.freeze({
       kind: "equipo_por_lider_email",
       leaderEmail: "silvia.reyes@concasa.mx",
     },
+  },
+  /** Opcional exclusivo de Anette; el scope exacto por email se aplica en SQL/UI. */
+  cliente_solicitud_inscripcion: {
+    tipo: "cliente_solicitud_inscripcion",
+    label: "Solicitud de inscripción (2 hojas)",
+    ownerRole: "cliente",
+    obligatorio: "opcional",
+    etapasRequeridas: [],
+  },
+  /** Opcional exclusivo de Anette; el scope exacto por email se aplica en SQL/UI. */
+  cliente_validacion_ine_60: {
+    tipo: "cliente_validacion_ine_60",
+    label: "Validación INE 60%",
+    ownerRole: "cliente",
+    obligatorio: "opcional",
+    etapasRequeridas: [],
   },
 
   retencion_acuse_con_sello: {
