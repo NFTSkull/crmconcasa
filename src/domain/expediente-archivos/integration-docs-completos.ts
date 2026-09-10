@@ -217,6 +217,10 @@ export const CLIENTE_SOLICITUD_CREDITO_DOCUMENT_TIPO =
 export const CLIENTE_LISTA_NOMINAL_DOCUMENT_TIPO = "cliente_lista_nominal" as const;
 export const CLIENTE_BAJO_PROTESTA_DOCUMENT_TIPO = "cliente_bajo_protesta" as const;
 export const CLIENTE_PRESUPUESTO_DOCUMENT_TIPO = "cliente_presupuesto" as const;
+export const CLIENTE_SOLICITUD_INSCRIPCION_DOCUMENT_TIPO =
+  "cliente_solicitud_inscripcion" as const;
+export const CLIENTE_VALIDACION_INE_60_DOCUMENT_TIPO =
+  "cliente_validacion_ine_60" as const;
 
 /** Tipos opcionales asesor visibles/subibles solo con membresía de equipo (SQL scope). */
 export const INTEGRATION_DOC_TIPOS_ASESOR_SCOPED_POR_EQUIPO = [
@@ -224,6 +228,8 @@ export const INTEGRATION_DOC_TIPOS_ASESOR_SCOPED_POR_EQUIPO = [
   CLIENTE_LISTA_NOMINAL_DOCUMENT_TIPO,
   CLIENTE_BAJO_PROTESTA_DOCUMENT_TIPO,
   CLIENTE_PRESUPUESTO_DOCUMENT_TIPO,
+  CLIENTE_SOLICITUD_INSCRIPCION_DOCUMENT_TIPO,
+  CLIENTE_VALIDACION_INE_60_DOCUMENT_TIPO,
 ] as const;
 
 export type IntegrationDocAsesorScopedPorEquipoTipo =
@@ -268,6 +274,30 @@ export const CLIENTE_BAJO_PROTESTA_DOCUMENT_CONTRACT = Object.freeze({
 export const CLIENTE_PRESUPUESTO_DOCUMENT_CONTRACT = Object.freeze({
   tipo: CLIENTE_PRESUPUESTO_DOCUMENT_TIPO,
   label: "Presupuesto",
+  origen: "Asesor" as const,
+  formatos: ["pdf"] as const,
+  mimePermitidos: ["application/pdf"] as const,
+  maxBytes: 15 * 1024 * 1024,
+  etapaMinima: 0,
+  obligatorio: false,
+  esGateAvance: false,
+});
+
+export const CLIENTE_SOLICITUD_INSCRIPCION_DOCUMENT_CONTRACT = Object.freeze({
+  tipo: CLIENTE_SOLICITUD_INSCRIPCION_DOCUMENT_TIPO,
+  label: "Solicitud de inscripción (2 hojas)",
+  origen: "Asesor" as const,
+  formatos: ["pdf"] as const,
+  mimePermitidos: ["application/pdf"] as const,
+  maxBytes: 15 * 1024 * 1024,
+  etapaMinima: 0,
+  obligatorio: false,
+  esGateAvance: false,
+});
+
+export const CLIENTE_VALIDACION_INE_60_DOCUMENT_CONTRACT = Object.freeze({
+  tipo: CLIENTE_VALIDACION_INE_60_DOCUMENT_TIPO,
+  label: "Validación INE 60%",
   origen: "Asesor" as const,
   formatos: ["pdf"] as const,
   mimePermitidos: ["application/pdf"] as const,
