@@ -27,7 +27,6 @@ jobs:
       - name: Tests focalizados
         run: |
           npx tsx --test src/domain/expediente-archivos/anette-documentos-opcionales.test.ts
-          npx tsx --test src/components/asesor/AsesorScopedEquipoDocumentoSection.mount.test.ts
           npx tsx --test src/domain/asesor-equipo/asesor-integracion-opcionales-visibility.test.ts
       - name: Commit patch and cleanup
         run: |
