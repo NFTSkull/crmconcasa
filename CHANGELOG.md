@@ -20,6 +20,9 @@
 
 ## [Unreleased]
 
+### Changed
+- **chore(precal): más throughput hacia scraper Railway (riesgo OOM aceptado)** — crons `reintentar-pendientes` + `reintentar-pendientes-reprecal` a `* * * * *`; `AUTO_PRECAL_RETRY_LIMIT` / `AUTO_REPRECAL_RETRY_LIMIT` = 2. Scraper: `SCRAPER_MAX_CONCURRENCY=2` en Railway. Sin cambio de semántica de candidatos/cooldown 5 min.
+
 ### Fixed
 - **fix(mesa): búsqueda por nombre ya no se queda en Disponibles** — al buscar cliente/teléfono la bandeja pasa a «Todos» + «Todo Mesa» (query y chips), evitando ocultar homónimos en etapas posteriores o asignados. Sin SQL.
 

@@ -3,11 +3,11 @@
   "crons": [
     {
       "path": "/api/cron/reintentar-pendientes",
-      "schedule": "*/3 * * * *"
+      "schedule": "* * * * *"
     },
     {
       "path": "/api/cron/reintentar-pendientes-reprecal",
-      "schedule": "1-59/3 * * * *"
+      "schedule": "* * * * *"
     }
   ]
 }
