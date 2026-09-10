@@ -8,8 +8,8 @@
 import { REASON_INFONAVIT_SYSTEM_ERROR } from "./auto-precalificar-decision";
 
 export const AUTO_PRECAL_RETRY_MIN_AGE_MS = 5 * 60 * 1000;
-/** 1 candidato/tick: 1 Playwright a la vez dentro del cron (Railway 1GB). */
-export const AUTO_PRECAL_RETRY_LIMIT = 1;
+/** 2 candidatos/tick (riesgo OOM aceptado en Railway 1GB hasta upgrade de plan). */
+export const AUTO_PRECAL_RETRY_LIMIT = 2;
 
 /** Razones pending_error elegibles para cron de reintento. */
 export const AUTO_PRECAL_RETRYABLE_PENDING_REASONS = new Set<string>([
@@ -48,7 +48,7 @@ export type RetryCandidateInput = {
  * - sin tope de intentos totales (ambiguous_payload solo nunca entra por sí mismo)
  * - último intento hace ≥ minAgeMs (default 5 min)
  * - orden: último intento más antiguo primero
- * - limit (default 1)
+ * - limit (default 2)
  */
 export function selectAutoPrecalRetryCandidates(
   input: RetryCandidateInput,

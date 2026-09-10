@@ -1,3 +1,17 @@
+## 2026-09-10 - chore(precal): cron 1 min + batch 2 (OOM aceptado)
+
+### Causa
+Cola de reintentos lenta con Railway 1GB y upgrade de plan aún bloqueado. Negocio acepta ~65–80% riesgo de caída por RAM para ganar throughput.
+
+### Decisión
+- `vercel.json`: ambos crons `* * * * *` (Vercel no desfasá segundos; mismo minuto).
+- `AUTO_PRECAL_RETRY_LIMIT` / `AUTO_REPRECAL_RETRY_LIMIT` = 2 (secuencial en el cron).
+- Scraper Railway: `SCRAPER_MAX_CONCURRENCY=2` (env; el default de código ya era 2, prod tenía 1).
+- Cooldown 5 min y razones reintentables intactos. 0 cambio de writers/semántica de decisión.
+
+### No
+Subir a 3; Promise.all en cron; upgrade de plan (pendiente pago).
+
 ## 2026-09-09 - fix(mesa): búsqueda por nombre amplía a Todo Mesa
 
 ### Causa

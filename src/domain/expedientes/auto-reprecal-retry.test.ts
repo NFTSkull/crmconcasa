@@ -104,7 +104,7 @@ describe("selectAutoReprecalRetryCandidates", () => {
     assert.deepEqual(ids, []);
   });
 
-  it("default limit=1: solo el último intento más antiguo", () => {
+  it("default limit=2: los dos últimos intentos más antiguos", () => {
     const pending = ["i1", "i2", "i3"];
     const intentos = [
       intento("i1", "2026-08-28T10:50:00.000Z", "pending_error", "scraper_failed"),
@@ -116,7 +116,7 @@ describe("selectAutoReprecalRetryCandidates", () => {
       intentos,
       nowMs: now,
     });
-    assert.deepEqual(ids, ["i3"]);
+    assert.deepEqual(ids, ["i3", "i2"]);
   });
 
   it("limita a 2 (explícito) y prioriza el último intento más antiguo", () => {
