@@ -1,0 +1,73 @@
+name: Patch Mesa first paint
+
+on:
+  push:
+    branches:
+      - perf/mesa-first-paint-instant
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: perf/mesa-first-paint-instant
+          fetch-depth: 0
+
+      - name: Patch page.tsx safely
+        shell: python
+        run: |
+          from pathlib import Path
+
+          path = Path("src/app/mesa-control/page.tsx")
+          text = path.read_text()
+
+          replacements = [
+              (
+                  'import { enrichMesaBandejaPageItems } from "@/lib/mesaBandejaEnrichPage";',
+                  'import { enrichMesaBandejaPageItems } from "@/lib/mesaBandejaEnrichPage";\nimport { buildMesaBandejaFirstPaint } from "@/lib/mesaBandejaFirstPaint";',
+              ),
+              (
+                  '  const mapExpToCaso = useCallback((exp: ExpedienteMock | MesaBandejaPageItem): CasoMock => {',
+                  '  const mapExpToCaso = useCallback((exp: ExpedienteMock | MesaBandejaPageItem): CasoConDocs => {',
+              ),
+              (
+                  '    const page = exp as MesaBandejaPageItem;\n    return {',
+                  '''    const page = exp as MesaBandejaPageItem;
+    const firstPaint = buildMesaBandejaFirstPaint({
+      expedienteId: exp.id,
+      fechaEnvioMesa: fechaEnvioMesa ?? null,
+      createdAt: exp.base.createdAt,
+      cambioActionableAt: page.cambioActionableAt ?? null,
+      categoriaResumen: page.categoriaResumen ?? null,
+      opsHint: page.opsHint ?? null,
+      mesaUserId: currentUserIdRef.current,
+    });
+    return {''',
+              ),
+              (
+                  '      fechaEnvioMesa,\n      lastViewedByName: page.lastViewedByName ?? null,',
+                  '      fechaEnvioMesa,\n      ...firstPaint,\n      lastViewedByName: page.lastViewedByName ?? null,',
+              ),
+          ]
+
+          for old, new in replacements:
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"Expected exactly one match, got {count}: {old[:80]!r}")
+              text = text.replace(old, new, 1)
+
+          path.write_text(text)
+
+      - name: Remove temporary workflow and commit patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git rm .github/workflows/patch-mesa-first-paint.yml
+          git add src/app/mesa-control/page.tsx
+          git commit -m "perf(mesa): pintar estado desde respuesta primaria"
+          git push origin HEAD:perf/mesa-first-paint-instant
