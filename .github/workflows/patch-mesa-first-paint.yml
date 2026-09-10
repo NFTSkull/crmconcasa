@@ -22,44 +22,44 @@ jobs:
         run: |
           python - <<'PY'
           from pathlib import Path
-
           path = Path("src/app/mesa-control/page.tsx")
           text = path.read_text()
 
-          replacements = [
-              (
-                  'import { enrichMesaBandejaPageItems } from "@/lib/mesaBandejaEnrichPage";',
-                  'import { enrichMesaBandejaPageItems } from "@/lib/mesaBandejaEnrichPage";\nimport { buildMesaBandejaFirstPaint } from "@/lib/mesaBandejaFirstPaint";',
-              ),
-              (
-                  '  const mapExpToCaso = useCallback((exp: ExpedienteMock | MesaBandejaPageItem): CasoMock => {',
-                  '  const mapExpToCaso = useCallback((exp: ExpedienteMock | MesaBandejaPageItem): CasoConDocs => {',
-              ),
-              (
-                  '    const page = exp as MesaBandejaPageItem;\n    return {',
-                  '''    const page = exp as MesaBandejaPageItem;
-    const firstPaint = buildMesaBandejaFirstPaint({
-      expedienteId: exp.id,
-      fechaEnvioMesa: fechaEnvioMesa ?? null,
-      createdAt: exp.base.createdAt,
-      cambioActionableAt: page.cambioActionableAt ?? null,
-      categoriaResumen: page.categoriaResumen ?? null,
-      opsHint: page.opsHint ?? null,
-      mesaUserId: currentUserIdRef.current,
-    });
-    return {''',
-              ),
-              (
-                  '      fechaEnvioMesa,\n      lastViewedByName: page.lastViewedByName ?? null,',
-                  '      fechaEnvioMesa,\n      ...firstPaint,\n      lastViewedByName: page.lastViewedByName ?? null,',
-              ),
-          ]
+          old = 'import { enrichMesaBandejaPageItems } from "@/lib/mesaBandejaEnrichPage";'
+          new = old + '\nimport { buildMesaBandejaFirstPaint } from "@/lib/mesaBandejaFirstPaint";'
+          if text.count(old) != 1:
+              raise SystemExit(f"import marker count={text.count(old)}")
+          text = text.replace(old, new, 1)
 
-          for old, new in replacements:
-              count = text.count(old)
-              if count != 1:
-                  raise SystemExit(f"Expected exactly one match, got {count}: {old[:80]!r}")
-              text = text.replace(old, new, 1)
+          old = '  const mapExpToCaso = useCallback((exp: ExpedienteMock | MesaBandejaPageItem): CasoMock => {'
+          new = '  const mapExpToCaso = useCallback((exp: ExpedienteMock | MesaBandejaPageItem): CasoConDocs => {'
+          if text.count(old) != 1:
+              raise SystemExit(f"mapper marker count={text.count(old)}")
+          text = text.replace(old, new, 1)
+
+          old = '    const page = exp as MesaBandejaPageItem;\n    return {'
+          new = '\n'.join([
+              '    const page = exp as MesaBandejaPageItem;',
+              '    const firstPaint = buildMesaBandejaFirstPaint({',
+              '      expedienteId: exp.id,',
+              '      fechaEnvioMesa: fechaEnvioMesa ?? null,',
+              '      createdAt: exp.base.createdAt,',
+              '      cambioActionableAt: page.cambioActionableAt ?? null,',
+              '      categoriaResumen: page.categoriaResumen ?? null,',
+              '      opsHint: page.opsHint ?? null,',
+              '      mesaUserId: currentUserIdRef.current,',
+              '    });',
+              '    return {',
+          ])
+          if text.count(old) != 1:
+              raise SystemExit(f"first paint marker count={text.count(old)}")
+          text = text.replace(old, new, 1)
+
+          old = '      fechaEnvioMesa,\n      lastViewedByName: page.lastViewedByName ?? null,'
+          new = '      fechaEnvioMesa,\n      ...firstPaint,\n      lastViewedByName: page.lastViewedByName ?? null,'
+          if text.count(old) != 1:
+              raise SystemExit(f"spread marker count={text.count(old)}")
+          text = text.replace(old, new, 1)
 
           path.write_text(text)
           PY
