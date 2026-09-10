@@ -10,7 +10,7 @@ describe("buildMesaBandejaFirstPaint", () => {
       createdAt: "2026-09-10T11:00:00.000Z",
       categoriaResumen: "pendiente_revision_documental",
       opsHint: {
-        estadoMesa: "en_trabajo",
+        estadoMesa: "trabajando",
         assignedTo: "00000000-0000-4000-8000-000000000002",
         assignedAt: "2026-09-10T12:01:00.000Z",
         lastActivityAt: "2026-09-10T12:02:00.000Z",
@@ -28,7 +28,7 @@ describe("buildMesaBandejaFirstPaint", () => {
       assignedTo: "00000000-0000-4000-8000-000000000002",
       assignedToName: null,
       assignedAt: "2026-09-10T12:01:00.000Z",
-      estadoMesa: "en_trabajo",
+      estadoMesa: "trabajando",
       lastActivityAt: "2026-09-10T12:02:00.000Z",
     });
   });
