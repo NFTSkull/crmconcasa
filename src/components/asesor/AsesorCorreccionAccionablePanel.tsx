@@ -50,8 +50,8 @@ export function AsesorCorreccionAccionablePanel({
   }, [onResubmit]);
 
   // El detalle causal P210 es la autoridad para el reenvío. El estado general puede
-  // quedar temporalmente en `en_tramite` por RLS después de guardar DG; no ocultar
-  // el CTA cuando el servidor ya confirmó can_resubmit=true.
+  // quedar temporalmente en `en_tramite` después de guardar DG; no ocultar el CTA
+  // cuando el servidor ya confirmó can_resubmit=true.
   if (!view.showPanel && !detallePermiteReenvio) return null;
 
   const isEnviada =
@@ -59,23 +59,9 @@ export function AsesorCorreccionAccionablePanel({
     view.uxState === "CORRECCION_ENVIADA";
   const cambiosGuardados = detallePermiteReenvio;
 
-  if (isEnviada) {
-    return (
-      <section
-        id={ASESOR_CORRECCION_PANEL_ID}
-        data-testid="asesor-correccion-accionable"
-        className="rounded-xl border border-sky-300 bg-sky-50 px-4 py-3"
-        role="status"
-      >
-        <p className="text-sm font-semibold uppercase tracking-wide text-sky-950">
-          Corrección enviada a Mesa
-        </p>
-        <p className="mt-1 text-xs text-sky-900">
-          {view.uxCopy ?? "En espera de revisión por Mesa."}
-        </p>
-      </section>
-    );
-  }
+  // Una corrección enviada deja de ser accionable para el asesor. El expediente
+  // vuelve al flujo normal; la página ya muestra una confirmación corta de éxito.
+  if (isEnviada) return null;
 
   const panelClass = cambiosGuardados
     ? "rounded-xl border-2 border-sky-400 bg-sky-50 px-4 py-4"
@@ -95,7 +81,7 @@ export function AsesorCorreccionAccionablePanel({
     >
       <p className={titleClass}>
         {cambiosGuardados
-          ? "PASO 1 COMPLETADO — Corrección guardada"
+          ? "Corrección lista para enviar"
           : "Corrección solicitada por Mesa"}
       </p>
       {view.requestAt && formatDateTime ? (
@@ -103,19 +89,13 @@ export function AsesorCorreccionAccionablePanel({
           Solicitud: {formatDateTime(view.requestAt)}
         </p>
       ) : null}
-      {view.uxCopy ? (
-        <p className={`mt-2 text-xs font-medium ${bodyClass}`}>{view.uxCopy}</p>
-      ) : null}
+
       {cambiosGuardados ? (
-        <div className="mt-2 space-y-2 rounded-md border border-sky-200 bg-white/80 px-3 py-2 text-xs text-sky-950">
-          <p className="font-semibold">
-            PASO 2 PENDIENTE — Enviar cambios a Mesa
-          </p>
-          <p className="font-medium">
-            La corrección ya está hecha. No necesitas volver a modificarla; solo
-            confirma y envía los cambios a Mesa con el botón de abajo.
-          </p>
-        </div>
+        <p className={`mt-2 text-xs font-medium ${bodyClass}`}>
+          PASO 2 PENDIENTE — Enviar cambios a Mesa
+        </p>
+      ) : view.uxCopy ? (
+        <p className={`mt-2 text-xs font-medium ${bodyClass}`}>{view.uxCopy}</p>
       ) : null}
 
       {view.items.length > 0 ? (
@@ -170,7 +150,11 @@ export function AsesorCorreccionAccionablePanel({
       )}
 
       {(estadoEfectivo === "correccion_requerida" || detallePermiteReenvio) ? (
-        <div className={`mt-4 border-t pt-3 ${cambiosGuardados ? "border-sky-200" : "border-amber-200"}`}>
+        <div
+          className={`mt-4 border-t pt-3 ${
+            cambiosGuardados ? "border-sky-200" : "border-amber-200"
+          }`}
+        >
           {view.needsDgConfirmation && view.canResubmit ? (
             <label className={`flex items-start gap-2 text-xs ${bodyClass}`}>
               <input
