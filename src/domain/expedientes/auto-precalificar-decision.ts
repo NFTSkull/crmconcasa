@@ -14,6 +14,8 @@ export type AutoPrecalScraperPayload = {
   mensaje?: string;
   /** RFC trabajador (pantalla precalificación Infonavit). */
   rfc?: string | null;
+  /** Nombre completo del titular (pantalla precalificación Infonavit). */
+  nombre?: string | null;
   /** N.R.P. (formulario inscripción; null si crédito activo u otro caso). */
   registroPatronal?: string | null;
   /** Empresa patronal (formulario inscripción). */

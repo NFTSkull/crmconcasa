@@ -177,4 +177,90 @@ describe("runAutoPrecalificarJob", () => {
 
     assert.equal(rpcCalls[0]?.args.p_monto_aprobado, 1290973.09);
   });
+
+  it("aprobado con nombre llama auto_fill_nombre_infonavit tras upsert", async () => {
+    const scraperBody = {
+      califica: true,
+      rfc: "XAXX010101000",
+      nombre: "MARCOS MARTINEZ ANA CECILIA",
+      registroPatronal: "A1234567890",
+      empresa: "ACME SA",
+      datos: { saldoSubcuenta: "10,000.00" },
+    };
+
+    globalThis.fetch = (async () =>
+      new Response(JSON.stringify(scraperBody), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      })) as typeof fetch;
+
+    const { supabase, rpcCalls } = mockSupabase();
+    const expedienteId = "44444444-4444-4444-8444-444444444444";
+
+    const result = await runAutoPrecalificarJob({
+      expedienteId,
+      nss: "12345678901",
+      programa: "mejoravit",
+      scraperUrl: "https://scraper.test",
+      scraperSecret: "secret",
+      supabase: supabase as never,
+    });
+
+    assert.deepEqual(result, { resultado: "aprobado", razon: null });
+    assert.equal(rpcCalls.length, 2);
+    assert.equal(rpcCalls[0]?.fn, "auto_upsert_editor_decision");
+    assert.equal(rpcCalls[1]?.fn, "auto_fill_nombre_infonavit");
+    assert.deepEqual(rpcCalls[1]?.args, {
+      p_expediente_id: expedienteId,
+      p_nombre_completo: "MARCOS MARTINEZ ANA CECILIA",
+    });
+  });
+
+  it("fallo de auto_fill_nombre_infonavit no tumba el aprobado", async () => {
+    const scraperBody = {
+      califica: true,
+      nombre: "SOLO NOMBRE",
+      datos: { saldoSubcuenta: "1,000.00" },
+    };
+
+    globalThis.fetch = (async () =>
+      new Response(JSON.stringify(scraperBody), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      })) as typeof fetch;
+
+    const rpcCalls: RpcCall[] = [];
+    const supabase = {
+      rpc(fn: string, args: Record<string, unknown>) {
+        rpcCalls.push({ fn, args });
+        if (fn === "auto_fill_nombre_infonavit") {
+          return Promise.resolve({
+            error: { message: "sin_capability" },
+            data: null,
+          });
+        }
+        return Promise.resolve({ error: null, data: null });
+      },
+      from() {
+        return {
+          insert() {
+            return Promise.resolve({ error: null });
+          },
+        };
+      },
+    };
+
+    const result = await runAutoPrecalificarJob({
+      expedienteId: "55555555-5555-4555-8555-555555555555",
+      nss: "12345678901",
+      programa: "mejoravit",
+      scraperUrl: "https://scraper.test",
+      scraperSecret: "secret",
+      supabase: supabase as never,
+    });
+
+    assert.deepEqual(result, { resultado: "aprobado", razon: null });
+    assert.equal(rpcCalls[1]?.fn, "auto_fill_nombre_infonavit");
+  });
+
 });

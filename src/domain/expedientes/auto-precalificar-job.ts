@@ -165,6 +165,21 @@ export async function runAutoPrecalificarJob(input: {
       console.log(
         `[auto-precalificar] aprobado expediente_id=${expedienteId} nss=${nss} monto=${decision.monto}`,
       );
+      if (payload.nombre) {
+        const { error: nombreErr } = await supabase.rpc(
+          "auto_fill_nombre_infonavit",
+          {
+            p_expediente_id: expedienteId,
+            p_nombre_completo: payload.nombre,
+          },
+        );
+        if (nombreErr) {
+          console.error(
+            `[auto-precalificar] RPC auto_fill_nombre_infonavit falló expediente_id=${expedienteId}`,
+            nombreErr.message,
+          );
+        }
+      }
       return { resultado, razon };
     }
 

@@ -1,3 +1,8 @@
+## 2026-09-11 - Autofill nombre Infonavit desde auto-precal (P218)
+
+### Decisión
+Conectar el `nombre` del scraper al RPC Cloud ya desplegado `auto_fill_nombre_infonavit` solo en rama `aprobado` post-upsert exitoso. Best-effort: error de capability/RPC se loguea y el job sigue `aprobado`. Mig **218** solo sincroniza historial del repo (constraint + función); no re-aplicar en Production. Gate por capability del asesor dueño (`autofill_nombre_infonavit`).
+
 ## 2026-09-11 - fix(agenda): availability UI resta manuals CRM
 
 ### Causa
@@ -13,6 +18,7 @@ Asesor veía “1 lugar disponible” (p.ej. Monterrey biométricos 08:00) pero 
 
 ### No
 Ampliar cupo; saltar hard-gate; tocar Sheets/bookings/RLS; P2 inbox.
+
 
 ## 2026-09-10 - chore(precal): cron 1 min + batch 2 (OOM aceptado)
 

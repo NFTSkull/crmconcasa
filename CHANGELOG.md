@@ -22,6 +22,9 @@
 
 ## [Unreleased]
 
+### Added
+- **feat(precalificacion): autofill nombre Infonavit post-aprobado (P218)** — scraper `nombre` → RPC `auto_fill_nombre_infonavit` tras `auto_upsert_editor_decision` exitoso; falla solo log (no tumba aprobado). Capability `autofill_nombre_infonavit`. Mig **218** documenta Cloud ya aplicado (no re-ejecutar Production).
+
 ### Changed
 - **chore(precal): más throughput hacia scraper Railway (riesgo OOM aceptado)** — crons `reintentar-pendientes` + `reintentar-pendientes-reprecal` a `* * * * *`; `AUTO_PRECAL_RETRY_LIMIT` / `AUTO_REPRECAL_RETRY_LIMIT` = 2. Scraper: `SCRAPER_MAX_CONCURRENCY=2` en Railway. Sin cambio de semántica de candidatos/cooldown 5 min.
 
