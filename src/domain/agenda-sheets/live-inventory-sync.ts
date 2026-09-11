@@ -136,7 +136,12 @@ type SupabaseAvailabilityClient = SupabaseLike & {
   rpc: (fn: string, args: Record<string, unknown>) => unknown;
 };
 
-/** availability live-sync → fallback RPC inventario (fuente única para FE). */
+/**
+ * Availability para FE:
+ * - preferir live-sync cuando devuelve inventario fresco;
+ * - si live-sync falla / responde stale, usar el read-model SQL ya sincronizado;
+ * - el book_gate sigue siendo live y fail-closed al confirmar la reserva.
+ */
 export async function fetchBiometricSheetAvailability(
   client: SupabaseAvailabilityClient,
   input: {
@@ -150,15 +155,17 @@ export async function fetchBiometricSheetAvailability(
     locationId: input.locationId,
     mode: "availability",
   });
-  if (live) return live;
+  if (live?.fresh === true) return live;
+
   const rpcResult = (await client.rpc("agenda_sheet_inventory_availability", {
     p_kind: "biometricos",
     p_date: input.bookingDate,
     p_location_id: input.locationId,
   })) as { data: unknown; error: { message?: string } | null };
   const { data, error } = rpcResult;
-  if (error || !data || typeof data !== "object") {
-    return { fresh: false, enforced: true, slots: [] };
+  if (!error && data && typeof data === "object") {
+    return data as InventoryAvailabilityResponse;
   }
-  return data as InventoryAvailabilityResponse;
+
+  return live ?? { fresh: false, enforced: true, slots: [] };
 }
