@@ -1,6 +1,6 @@
 /**
  * Selección pura de candidatos a reintento auto-precal (sin I/O).
- * - Fallos técnicos (scraper_failed | infonavit_system_error) con cooldown base 5 min.
+ * - Fallos técnicos (scraper_failed | infonavit_system_error | scraper_busy) con cooldown base 5 min.
  * - Rachas de scraper_failed: cooldown 5 → 15 → 30 → 60 min (no martillar el mismo caso).
  * - Pendientes con **cero** filas en auto_precal_intentos si decision.created_at ≥ 10 min.
  * - Nunca ambiguous_payload / invalid_saldo / etc. por sí solos.
@@ -8,6 +8,7 @@
  * Batch: 1 candidato/tick (cabe en maxDuration 300 con SCRAPER_TIMEOUT 150s).
  */
 
+import { AUTO_PRECAL_SCRAPER_BUSY_REASON } from "./auto-precal-scraper-lease";
 import { REASON_INFONAVIT_SYSTEM_ERROR } from "./auto-precalificar-decision";
 
 export const AUTO_PRECAL_RETRY_MIN_AGE_MS = 5 * 60 * 1000;
@@ -39,6 +40,7 @@ export const AUTO_PRECAL_SCRAPER_FAILED_BACKOFF_MS = [
 /** Razones pending_error elegibles para cron de reintento. */
 export const AUTO_PRECAL_RETRYABLE_PENDING_REASONS = new Set<string>([
   "scraper_failed",
+  AUTO_PRECAL_SCRAPER_BUSY_REASON,
   REASON_INFONAVIT_SYSTEM_ERROR,
 ]);
 
