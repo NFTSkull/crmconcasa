@@ -175,8 +175,8 @@ Grants: `REVOKE` PUBLIC/anon; `GRANT EXECUTE` authenticated (+ service_role).
 - Auth: header `x-cron-secret: $CRON_SECRET` **o** `Authorization: Bearer $CRON_SECRET` (Vercel Cron). 401 si no coincide.  
 - Candidatos: `editor_decisions.decision='pendiente'` **y** ((≥1 fila `auto_precal_intentos` con `resultado='pending_error'` + razón reintentable (`scraper_failed` | `infonavit_system_error`), último intento ≥5 min) **o** (0 filas en `auto_precal_intentos` y `editor_decisions.created_at` ≥10 min)). Excluye solo-`ambiguous_payload` / `invalid_saldo` / etc. sin intento reintentable.
 - Excluye si último intento < 5 min (sin tope de intentos totales; `ambiguous_payload` solo no entra).  
-- Max **2** por run (`AUTO_PRECAL_RETRY_LIMIT`), **secuencial** (`await` en for; nunca `Promise.all`).  
-- Schedule: `vercel.json` `* * * * *` (cada minuto; cooldown reintento 5 min). Riesgo OOM Railway 1GB aceptado hasta upgrade.
+- Max **1** por run (`AUTO_PRECAL_RETRY_LIMIT`), **secuencial** (`await` en for; nunca `Promise.all`).  
+- Schedule: `vercel.json` `* * * * *` (cada minuto). Cooldown base 5 min; racha `scraper_failed` → 15/30/60 min. Riesgo OOM Railway 1GB aceptado hasta upgrade.
 
 **Cron reprecal (P217):** `GET|POST /api/cron/reintentar-pendientes-reprecal`  
 - Misma auth `CRON_SECRET`.  
