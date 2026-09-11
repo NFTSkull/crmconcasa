@@ -99,7 +99,8 @@ async function claimJobStarted(
 
 /**
  * Corre scraper + upsert decisión. Siempre intenta insertar en
- * `auto_precal_intentos` (aprobado | no_cumple | pending_error).
+ * `auto_precal_intentos` (aprobado | no_cumple | pending_error) cuando realmente
+ * adquiere el scraper. `scraper_busy` no se persiste para no penalizar la cola.
  *
  * Orden de protección:
  * 1) lease global del scraper: una sola navegación Infonavit en todo el CRM;
@@ -120,12 +121,6 @@ export async function runAutoPrecalificarJob(input: {
 
   const scraperLease = await tryClaimAutoPrecalScraperLease(supabase);
   if (!scraperLease.claimed) {
-    await recordIntento(
-      supabase,
-      expedienteId,
-      "pending_error",
-      AUTO_PRECAL_SCRAPER_BUSY_REASON,
-    );
     return {
       resultado: "pending_error",
       razon: AUTO_PRECAL_SCRAPER_BUSY_REASON,
