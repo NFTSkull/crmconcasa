@@ -118,18 +118,29 @@ export async function invokeAgendaSheetLiveSync(
     slotTime?: string;
   },
 ): Promise<LiveSyncResult | null> {
+  const mode = input.mode ?? "availability";
   const { data, error } = await client.functions.invoke("agenda-sheet-live-sync", {
     body: {
       bookingDate: input.bookingDate,
       kind: input.kind,
       locationId: input.locationId,
-      mode: input.mode ?? "availability",
+      mode,
       slotTime: input.slotTime ?? undefined,
     },
   });
   const payload = await readInvokePayload(data, error);
   if (!payload) return null;
-  return toLiveSyncResult(payload);
+  const result = toLiveSyncResult(payload);
+
+  // Firmas: una falla/transitorio del live-sync no debe ocultar un inventario SQL
+  // ya sincronizado y fresco. En availability devolvemos null para que el caller
+  // use agenda_sheet_inventory_availability. El book_gate permanece live y
+  // fail-closed antes de reservar.
+  if (input.kind === "firmas" && mode === "availability" && result?.fresh !== true) {
+    return null;
+  }
+
+  return result;
 }
 
 type SupabaseAvailabilityClient = SupabaseLike & {
