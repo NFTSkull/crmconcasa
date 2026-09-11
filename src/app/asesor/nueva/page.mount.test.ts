@@ -23,6 +23,8 @@ describe("P181 montaje /asesor/nueva reprecal propio", () => {
     assert.match(nueva, /Sí, enviar de nuevo/);
     assert.match(nueva, /Abrir expediente/);
     assert.match(nueva, /createExpediente/);
+    assert.match(nueva, /resolveBearerAccessToken/);
+    assert.match(nueva, /fireAutoPrecalificarAck/);
   });
 
   it("B/J) confirm llama iniciar + redirect detalle", () => {

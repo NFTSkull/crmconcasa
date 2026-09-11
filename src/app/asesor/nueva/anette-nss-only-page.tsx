@@ -12,7 +12,9 @@ import {
   parseAnetteNssOnlyPrepareResult,
   validateAnetteNssOnlyInput,
 } from "@/domain/expedientes/anette-nss-only";
+import { fireAutoPrecalificarAck } from "@/domain/expedientes/fire-auto-precalificar-ack";
 import { fireAutoReprecalificarAck } from "@/domain/expedientes/fire-auto-reprecalificar-ack";
+import { resolveBearerAccessToken } from "@/domain/expedientes/resolve-bearer-access-token";
 import { useSessionRepo } from "@/domain/session";
 import { supabaseBrowser } from "@/lib/supabaseBrowser";
 
@@ -47,8 +49,14 @@ export function AnetteNssOnlyPrecalPage() {
     expedienteId: string;
     intentoId: string | null;
   }): Promise<void> {
-    const session = (await supabaseBrowser?.auth.getSession())?.data.session;
-    const accessToken = session?.access_token;
+    if (!supabaseBrowser) {
+      console.error("[anette-nss-only] sin supabaseBrowser para Bearer");
+      return;
+    }
+    const accessToken = await resolveBearerAccessToken(
+      supabaseBrowser.auth,
+      "anette-nss-only",
+    );
 
     if (input.action === "reprecal") {
       if (!input.intentoId) return;
@@ -59,17 +67,11 @@ export function AnetteNssOnlyPrecalPage() {
       return;
     }
 
-    const headers: HeadersInit = {};
-    if (accessToken) headers.Authorization = `Bearer ${accessToken}`;
-    await fetch(
-      `/api/precalificaciones/${encodeURIComponent(input.expedienteId)}/auto-precalificar`,
-      {
-        method: "POST",
-        headers,
-        keepalive: true,
-        signal: AbortSignal.timeout(5_000),
-      },
-    );
+    await fireAutoPrecalificarAck({
+      expedienteId: input.expedienteId,
+      accessToken,
+      logPrefix: "anette-nss-only",
+    });
   }
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {

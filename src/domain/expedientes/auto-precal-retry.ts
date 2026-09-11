@@ -1,13 +1,16 @@
 /**
  * Selección pura de candidatos a reintento auto-precal (sin I/O).
- * Solo reintenta fallos técnicos (scraper_failed | infonavit_system_error);
- * nunca backlog sin intentos ni ambiguous_payload / invalid_saldo / etc.
+ * - Fallos técnicos (scraper_failed | infonavit_system_error) con cooldown 5 min.
+ * - Pendientes con **cero** filas en auto_precal_intentos si decision.created_at ≥ 10 min.
+ * - Nunca ambiguous_payload / invalid_saldo / etc. por sí solos.
  * Sin tope de intentos totales (ilimitado mientras siga pendiente + razón reintentable).
  */
 
 import { REASON_INFONAVIT_SYSTEM_ERROR } from "./auto-precalificar-decision";
 
 export const AUTO_PRECAL_RETRY_MIN_AGE_MS = 5 * 60 * 1000;
+/** Red de seguridad: pendiente sin ningún intento auto-precal. */
+export const AUTO_PRECAL_ZERO_ATTEMPT_MIN_AGE_MS = 10 * 60 * 1000;
 /** 2 candidatos/tick (riesgo OOM aceptado en Railway 1GB hasta upgrade de plan). */
 export const AUTO_PRECAL_RETRY_LIMIT = 2;
 
@@ -37,17 +40,22 @@ export type RetryCandidateInput = {
   /** Expedientes con editor_decisions.decision = 'pendiente' (y no deleted). */
   pendingExpedienteIds: string[];
   intentos: AutoPrecalIntentoRow[];
+  /**
+   * `editor_decisions.created_at` ISO por expediente (para bucket cero intentos).
+   * Si falta para un id, ese id no entra al bucket cero-intentos.
+   */
+  pendingSinceById?: Record<string, string>;
   nowMs?: number;
   minAgeMs?: number;
+  zeroAttemptMinAgeMs?: number;
   limit?: number;
 };
 
 /**
  * Filtra candidatos:
- * - al menos un intento pending_error + razón reintentable
- * - sin tope de intentos totales (ambiguous_payload solo nunca entra por sí mismo)
- * - último intento hace ≥ minAgeMs (default 5 min)
- * - orden: último intento más antiguo primero
+ * - al menos un intento pending_error + razón reintentable, último ≥ minAgeMs (5)
+ * - o 0 intentos y pending_since ≥ zeroAttemptMinAgeMs (10)
+ * - orden: ancla temporal más antigua primero
  * - limit (default 2)
  */
 export function selectAutoPrecalRetryCandidates(
@@ -55,9 +63,12 @@ export function selectAutoPrecalRetryCandidates(
 ): string[] {
   const nowMs = input.nowMs ?? Date.now();
   const minAgeMs = input.minAgeMs ?? AUTO_PRECAL_RETRY_MIN_AGE_MS;
+  const zeroAttemptMinAgeMs =
+    input.zeroAttemptMinAgeMs ?? AUTO_PRECAL_ZERO_ATTEMPT_MIN_AGE_MS;
   const limit = input.limit ?? AUTO_PRECAL_RETRY_LIMIT;
 
   const pending = new Set(input.pendingExpedienteIds);
+  const pendingSinceById = input.pendingSinceById ?? {};
   const byExp = new Map<string, AutoPrecalIntentoRow[]>();
 
   for (const row of input.intentos) {
@@ -86,6 +97,16 @@ export function selectAutoPrecalRetryCandidates(
     if (nowMs - lastMs < minAgeMs) continue;
 
     scored.push({ id, lastMs });
+  }
+
+  for (const id of pending) {
+    if (byExp.has(id)) continue; // ya tuvo intentos (otra rama)
+    const sinceRaw = pendingSinceById[id];
+    if (!sinceRaw) continue;
+    const sinceMs = Date.parse(sinceRaw);
+    if (!Number.isFinite(sinceMs)) continue;
+    if (nowMs - sinceMs < zeroAttemptMinAgeMs) continue;
+    scored.push({ id, lastMs: sinceMs });
   }
 
   scored.sort((a, b) => a.lastMs - b.lastMs);

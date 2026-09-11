@@ -22,7 +22,9 @@ import {
   type NuevaReprecalSubmitGuard,
 } from "@/domain/expedientes/asesor-nueva-reprecal";
 import type { ReprecalUiMode } from "@/domain/expedientes/asesor-reprecal-flow";
+import { fireAutoPrecalificarAck } from "@/domain/expedientes/fire-auto-precalificar-ack";
 import { fireAutoReprecalificarAck } from "@/domain/expedientes/fire-auto-reprecalificar-ack";
+import { resolveBearerAccessToken } from "@/domain/expedientes/resolve-bearer-access-token";
 import type { NssPrecalGateResult } from "@/domain/expedientes/nss-precal-gate";
 import { validateCreatePrecalificacion } from "@/domain/precalificaciones/validators";
 import {
@@ -169,11 +171,15 @@ export default function NuevaPrecalificacionPage() {
         return;
       }
       try {
-        const session = (await supabaseBrowser?.auth.getSession())?.data
-          .session;
+        const accessToken = supabaseBrowser
+          ? await resolveBearerAccessToken(
+              supabaseBrowser.auth,
+              "nueva-reprecal",
+            )
+          : null;
         await fireAutoReprecalificarAck({
           intentoId: result.intentoId,
-          accessToken: session?.access_token,
+          accessToken,
         });
       } catch {
         /* ack no bloquea redirect */
@@ -226,21 +232,17 @@ export default function NuevaPrecalificacionPage() {
         });
         if (created.id) {
           try {
-            const session = (await supabaseBrowser?.auth.getSession())?.data
-              .session;
-            const headers: HeadersInit = {};
-            if (session?.access_token) {
-              headers.Authorization = `Bearer ${session.access_token}`;
-            }
-            await fetch(
-              `/api/precalificaciones/${encodeURIComponent(created.id)}/auto-precalificar`,
-              {
-                method: "POST",
-                headers,
-                keepalive: true,
-                signal: AbortSignal.timeout(5_000),
-              },
-            );
+            const accessToken = supabaseBrowser
+              ? await resolveBearerAccessToken(
+                  supabaseBrowser.auth,
+                  "nueva-for-asesor",
+                )
+              : null;
+            await fireAutoPrecalificarAck({
+              expedienteId: created.id,
+              accessToken,
+              logPrefix: "nueva-for-asesor",
+            });
           } catch (err) {
             console.error(
               "[nueva] auto-precalificar ack falló (for asesor)",
@@ -301,30 +303,14 @@ export default function NuevaPrecalificacionPage() {
       if (dataSupabase) {
         if (created.id) {
           try {
-            const session = (await supabaseBrowser?.auth.getSession())?.data
-              .session;
-            const headers: HeadersInit = {};
-            if (session?.access_token) {
-              headers.Authorization = `Bearer ${session.access_token}`;
-            }
-            console.log(
-              "[nueva] disparando auto-precalificar para",
-              created.id,
-            );
-            const res = await fetch(
-              `/api/precalificaciones/${encodeURIComponent(created.id)}/auto-precalificar`,
-              {
-                method: "POST",
-                headers,
-                keepalive: true,
-                signal: AbortSignal.timeout(5_000),
-              },
-            );
-            console.log(
-              "[nueva] auto-precalificar ack",
-              created.id,
-              res.status,
-            );
+            const accessToken = supabaseBrowser
+              ? await resolveBearerAccessToken(supabaseBrowser.auth, "nueva")
+              : null;
+            await fireAutoPrecalificarAck({
+              expedienteId: created.id,
+              accessToken,
+              logPrefix: "nueva",
+            });
           } catch (err) {
             console.error(
               "[nueva] auto-precalificar ack falló",
