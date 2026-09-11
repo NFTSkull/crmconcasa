@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRef } from "react";
 import {
   ADMIN_TABS,
@@ -22,6 +23,8 @@ type AdminTabsProps = {
  * Patrón WAI-ARIA tabs: roving tabindex + flechas/Home/End.
  * Solo cambia qué panel es visible; no altera filtros ni datos cargados.
  * Bernardo no aparece aquí (B3: acceso por botón dedicado).
+ * Agenda vive en /admin/agenda para no mantener cargada la agenda pesada
+ * cuando Admin está consultando otras pestañas.
  */
 export function AdminTabs({ active, onChange }: AdminTabsProps) {
   const listRef = useRef<HTMLDivElement | null>(null);
@@ -44,37 +47,46 @@ export function AdminTabs({ active, onChange }: AdminTabsProps) {
 
   return (
     <nav className="border-b border-slate-200 bg-white">
-      <div
-        ref={listRef}
-        role="tablist"
-        aria-label="Secciones del panel de administración"
-        onKeyDown={onKeyDown}
-        className="mx-auto flex max-w-6xl gap-1 overflow-x-auto px-4"
-      >
-        {ADMIN_TABS.map((t) => {
-          const selected = selectedMain === t.id;
-          const focusable =
-            selected || (selectedMain === null && t.id === DEFAULT_ADMIN_TAB);
-          return (
-            <button
-              key={t.id}
-              id={adminTabButtonId(t.id)}
-              type="button"
-              role="tab"
-              aria-selected={selected}
-              aria-controls={adminTabPanelId(t.id)}
-              tabIndex={focusable ? 0 : -1}
-              onClick={() => onChange(t.id)}
-              className={`whitespace-nowrap border-b-2 px-4 py-3 text-sm font-medium outline-none transition focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-1 ${
-                selected
-                  ? "border-slate-900 text-slate-900"
-                  : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-800"
-              }`}
-            >
-              {t.label}
-            </button>
-          );
-        })}
+      <div className="mx-auto flex max-w-6xl items-stretch gap-1 overflow-x-auto px-4">
+        <div
+          ref={listRef}
+          role="tablist"
+          aria-label="Secciones del panel de administración"
+          onKeyDown={onKeyDown}
+          className="flex gap-1"
+        >
+          {ADMIN_TABS.map((t) => {
+            const selected = selectedMain === t.id;
+            const focusable =
+              selected || (selectedMain === null && t.id === DEFAULT_ADMIN_TAB);
+            return (
+              <button
+                key={t.id}
+                id={adminTabButtonId(t.id)}
+                type="button"
+                role="tab"
+                aria-selected={selected}
+                aria-controls={adminTabPanelId(t.id)}
+                tabIndex={focusable ? 0 : -1}
+                onClick={() => onChange(t.id)}
+                className={`whitespace-nowrap border-b-2 px-4 py-3 text-sm font-medium outline-none transition focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-1 ${
+                  selected
+                    ? "border-slate-900 text-slate-900"
+                    : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-800"
+                }`}
+              >
+                {t.label}
+              </button>
+            );
+          })}
+        </div>
+
+        <Link
+          href="/admin/agenda"
+          className="whitespace-nowrap border-b-2 border-transparent px-4 py-3 text-sm font-medium text-slate-500 outline-none transition hover:border-slate-300 hover:text-slate-800 focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-1"
+        >
+          Agenda
+        </Link>
       </div>
     </nav>
   );
