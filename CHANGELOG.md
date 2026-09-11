@@ -1,6 +1,10 @@
 ## [Unreleased]
 
 ### Fixed
+- **fix(precalificacion): lease in-flight + intentos paginados** — `runAutoPrecalificarJob` inserta `job_started` antes del scraper (bloquea cron solapado); racha `scraper_failed` ignora el lease. Cron pagina `auto_precal_intentos` (7d) para no truncar y tratar prioritarios como cero-intentos.
+
+
+### Fixed
 - **fix(precalificacion): prioridad cron por capability** — asesores con `auto_precal_retry_priority` (p.ej. Anette) se eligen antes en `reintentar-pendientes` entre candidatos ya elegibles (edad/backoff intactos).
 
 

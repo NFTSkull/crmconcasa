@@ -1,3 +1,7 @@
+## 2026-09-11 - Auto-precal cron: lease in-flight + intentos paginados
+
+Doble scrape Anette (1 min) no era “prioridad salta edad”: cron `* * * * *` solapaba jobs (intento solo al final) y/o PostgREST truncaba intentos (~1000) → bucket cero-intentos. Fix: claim `job_started` al inicio (fail-closed); streak salta lease; cron pagina intentos 7d. Prioridad sigue post-filtro.
+
 ## 2026-09-11 - Auto-precal cron: prioridad por capability
 
 ### Decisión

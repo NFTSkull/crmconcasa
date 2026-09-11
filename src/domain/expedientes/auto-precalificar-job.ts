@@ -4,6 +4,7 @@
  */
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
+import { AUTO_PRECAL_JOB_STARTED_REASON } from "@/domain/expedientes/auto-precal-retry";
 import {
   decideAutoPrecalFromScraper,
   type AutoPrecalScraperPayload,
@@ -71,9 +72,30 @@ async function recordIntento(
   }
 }
 
+/** Lease in-flight: actualiza lastMs antes del scraper para no solapar cron. */
+async function claimJobStarted(
+  supabase: SupabaseClient,
+  expedienteId: string,
+): Promise<boolean> {
+  const { error } = await supabase.from("auto_precal_intentos").insert({
+    expediente_id: expedienteId,
+    resultado: "pending_error",
+    razon: AUTO_PRECAL_JOB_STARTED_REASON,
+  });
+  if (error) {
+    console.error(
+      `[auto-precalificar] claim job_started falló expediente_id=${expedienteId}`,
+      error.message,
+    );
+    return false;
+  }
+  return true;
+}
+
 /**
  * Corre scraper + upsert decisión. Siempre intenta insertar en
  * `auto_precal_intentos` (aprobado | no_cumple | pending_error).
+ * Antes del scrape inserta lease `job_started` (fail-closed si no puede).
  */
 export async function runAutoPrecalificarJob(input: {
   expedienteId: string;
@@ -87,6 +109,11 @@ export async function runAutoPrecalificarJob(input: {
 }): Promise<AutoPrecalJobResult> {
   const { expedienteId, nss, scraperUrl, scraperSecret } = input;
   const supabase = input.supabase ?? serviceClient();
+
+  const claimed = await claimJobStarted(supabase, expedienteId);
+  if (!claimed) {
+    return { resultado: "pending_error", razon: "claim_failed" };
+  }
 
   let resultado: AutoPrecalIntentoResultado = "pending_error";
   let razon: string | null = "scraper_failed";

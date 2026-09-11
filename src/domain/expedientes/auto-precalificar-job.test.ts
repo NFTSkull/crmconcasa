@@ -263,4 +263,40 @@ describe("runAutoPrecalificarJob", () => {
     assert.equal(rpcCalls[1]?.fn, "auto_fill_nombre_infonavit");
   });
 
+  it("claim_failed: no llama scraper si el lease job_started falla", async () => {
+    let fetchCalls = 0;
+    globalThis.fetch = (async () => {
+      fetchCalls += 1;
+      return new Response("{}", { status: 200 });
+    }) as typeof fetch;
+
+    const supabase = {
+      rpc() {
+        return Promise.resolve({ error: null, data: null });
+      },
+      from() {
+        return {
+          insert() {
+            return Promise.resolve({ error: { message: "insert denied" } });
+          },
+        };
+      },
+    };
+
+    const result = await runAutoPrecalificarJob({
+      expedienteId: "66666666-6666-4666-8666-666666666666",
+      nss: "12345678901",
+      programa: "mejoravit",
+      scraperUrl: "https://scraper.test",
+      scraperSecret: "secret",
+      supabase: supabase as never,
+    });
+
+    assert.deepEqual(result, {
+      resultado: "pending_error",
+      razon: "claim_failed",
+    });
+    assert.equal(fetchCalls, 0);
+  });
+
 });

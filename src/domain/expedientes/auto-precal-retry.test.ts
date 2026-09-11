@@ -28,6 +28,17 @@ describe("consecutiveScraperFailedStreak / cooldown", () => {
     assert.equal(consecutiveScraperFailedStreak(rows), 2);
   });
 
+  it("job_started no rompe racha scraper_failed", () => {
+    assert.equal(
+      consecutiveScraperFailedStreak([
+        intento("a", "2026-08-28T11:50:00.000Z", "pending_error", "job_started"),
+        intento("a", "2026-08-28T11:40:00.000Z", "pending_error", "scraper_failed"),
+        intento("a", "2026-08-28T11:30:00.000Z", "pending_error", "scraper_failed"),
+      ]),
+      2,
+    );
+  });
+
   it("cooldown 5/15/30/60 según racha", () => {
     assert.equal(cooldownMsForScraperFailedStreak(0), 5 * 60 * 1000);
     assert.equal(cooldownMsForScraperFailedStreak(1), 5 * 60 * 1000);
@@ -372,5 +383,43 @@ describe("selectAutoPrecalRetryCandidates", () => {
       limit: 1,
     });
     assert.deepEqual(ids, ["old-plain"]);
+  });
+
+  it("prioridad no salta backoff: falló hace 1 min → no elegible", () => {
+    const oneMinAgo = "2026-08-28T11:59:00.000Z";
+    const ids = selectAutoPrecalRetryCandidates({
+      pendingExpedienteIds: ["prio"],
+      intentos: [
+        intento("prio", oneMinAgo, "pending_error", "scraper_failed"),
+      ],
+      priorityExpedienteIds: ["prio"],
+      nowMs: now,
+      limit: 1,
+    });
+    assert.deepEqual(ids, []);
+  });
+
+  it("job_started reciente bloquea aunque haya scraper_failed viejo (lease in-flight)", () => {
+    const ids = selectAutoPrecalRetryCandidates({
+      pendingExpedienteIds: ["prio"],
+      intentos: [
+        intento(
+          "prio",
+          "2026-08-28T11:59:00.000Z",
+          "pending_error",
+          "job_started",
+        ),
+        intento(
+          "prio",
+          "2026-08-28T11:00:00.000Z",
+          "pending_error",
+          "scraper_failed",
+        ),
+      ],
+      priorityExpedienteIds: ["prio"],
+      nowMs: now,
+      limit: 1,
+    });
+    assert.deepEqual(ids, []);
   });
 });

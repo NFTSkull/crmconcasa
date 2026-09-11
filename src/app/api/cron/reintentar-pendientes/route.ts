@@ -125,24 +125,37 @@ async function handleRetryPendientes(request: Request): Promise<NextResponse> {
     });
   }
 
-  // Solo intentos de expedientes pendientes (no backlog masivo).
-  const { data: intentoRows, error: intentosErr } = await supabase
-    .from("auto_precal_intentos")
-    .select("expediente_id, intentado_en, resultado, razon")
-    .in("expediente_id", pendingIds);
+  // Intentos recientes de pendientes (paginado: evita truncar a ~1000 y
+  // tratar prioritarios como “cero intentos”).
+  const INTENTOS_LOOKBACK_MS = 7 * 24 * 60 * 60 * 1000;
+  const INTENTOS_PAGE = 1000;
+  const sinceIso = new Date(Date.now() - INTENTOS_LOOKBACK_MS).toISOString();
+  const intentos: AutoPrecalIntentoRow[] = [];
+  for (let from = 0; ; from += INTENTOS_PAGE) {
+    const to = from + INTENTOS_PAGE - 1;
+    const { data: intentoRows, error: intentosErr } = await supabase
+      .from("auto_precal_intentos")
+      .select("expediente_id, intentado_en, resultado, razon")
+      .in("expediente_id", pendingIds)
+      .gte("intentado_en", sinceIso)
+      .order("intentado_en", { ascending: false })
+      .range(from, to);
 
-  if (intentosErr) {
-    console.error(
-      "[cron/reintentar-pendientes] intentos query",
-      intentosErr.message,
-    );
-    return NextResponse.json(
-      { ok: false, error: "intentos_query_failed" },
-      { status: 500 },
-    );
+    if (intentosErr) {
+      console.error(
+        "[cron/reintentar-pendientes] intentos query",
+        intentosErr.message,
+      );
+      return NextResponse.json(
+        { ok: false, error: "intentos_query_failed" },
+        { status: 500 },
+      );
+    }
+
+    const chunk = (intentoRows ?? []) as AutoPrecalIntentoRow[];
+    intentos.push(...chunk);
+    if (chunk.length < INTENTOS_PAGE) break;
   }
-
-  const intentos = (intentoRows ?? []) as AutoPrecalIntentoRow[];
 
   const asesorIds = [...new Set(asesorIdByExp.values())];
   const priorityAsesorIds = new Set<string>();
