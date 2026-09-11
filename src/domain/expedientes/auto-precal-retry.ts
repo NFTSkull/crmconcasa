@@ -3,6 +3,7 @@
  * - Fallos técnicos (scraper_failed | infonavit_system_error | scraper_busy) con cooldown base 5 min.
  * - Rachas de scraper_failed: cooldown 5 → 15 → 30 → 60 min (no martillar casos normales).
  * - Prioridad explícita: cooldown técnico corto de 1 min; el lease global sigue serializando Railway.
+ * - `job_started` reciente conserva el bloqueo base de 5 min para no reintentar un job in-flight.
  * - Pendientes con **cero** filas en auto_precal_intentos si decision.created_at ≥ 10 min.
  * - Nunca ambiguous_payload / invalid_saldo / etc. por sí solos.
  * Sin tope de intentos totales (ilimitado mientras siga pendiente + razón reintentable).
@@ -114,7 +115,7 @@ export type RetryCandidateInput = {
   pendingSinceById?: Record<string, string>;
   /**
    * Expedientes de asesores con capability auto_precal_retry_priority.
-   * Ganan el orden y usan cooldown técnico corto de 1 min.
+   * Ganan el orden y usan cooldown técnico corto de 1 min salvo lease in-flight.
    */
   priorityExpedienteIds?: string[];
   nowMs?: number;
@@ -127,7 +128,8 @@ export type RetryCandidateInput = {
  * Filtra candidatos:
  * - al menos un intento pending_error + razón reintentable
  * - normales: cooldown según racha scraper_failed
- * - prioritarios: cooldown técnico fijo de 1 min (lease global serializa el scraper)
+ * - prioritarios: cooldown técnico fijo de 1 min
+ * - `job_started` más reciente: conserva bloqueo base de 5 min
  * - o 0 intentos y pending_since ≥ zeroAttemptMinAgeMs (10)
  * - orden: prioritarios primero; dentro de cada grupo, ancla más antigua primero
  * - limit (default 1)
@@ -164,16 +166,22 @@ export function selectAutoPrecalRetryCandidates(
     if (!hasRetryable) continue;
 
     let lastMs = 0;
+    let lastRow: AutoPrecalIntentoRow | null = null;
     for (const r of rows) {
       const t = Date.parse(r.intentado_en);
-      if (Number.isFinite(t) && t > lastMs) lastMs = t;
+      if (Number.isFinite(t) && t > lastMs) {
+        lastMs = t;
+        lastRow = r;
+      }
     }
-    if (lastMs === 0) continue;
+    if (lastMs === 0 || !lastRow) continue;
 
     const streak = consecutiveScraperFailedStreak(rows);
-    const requiredAgeMs = priority.has(id)
-      ? AUTO_PRECAL_PRIORITY_RETRY_MIN_AGE_MS
-      : cooldownMsForScraperFailedStreak(streak, minAgeMs);
+    const requiredAgeMs = isAutoPrecalJobStartedRow(lastRow)
+      ? minAgeMs
+      : priority.has(id)
+        ? AUTO_PRECAL_PRIORITY_RETRY_MIN_AGE_MS
+        : cooldownMsForScraperFailedStreak(streak, minAgeMs);
     if (nowMs - lastMs < requiredAgeMs) continue;
 
     scored.push({ id, lastMs });
