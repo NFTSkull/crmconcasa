@@ -141,11 +141,14 @@ Grants: `REVOKE` PUBLIC/anon; `GRANT EXECUTE` authenticated (+ service_role).
 
 ---
 
-## 1quater. Auto-precalificar Infonavit + reintentos cron (P213/P214)
+## 1quater. Auto-precalificar Infonavit + reintentos cron (P213/P214/P218)
 
 **HTTP create path:** `POST /api/precalificaciones/[id]/auto-precalificar`  
 - Auth: Bearer JWT (asesor). Responde **202** `{ ok, status:"accepted", expediente_id }`; scraper en `after()`.  
 - Job: `runAutoPrecalificarJob` (domain) → scraper `SCRAPER_*` → `auto_upsert_editor_decision` si mapeo conocido; siempre inserta `auto_precal_intentos`.
+
+
+**Post-aprobado (opcional, P218):** si el scraper trae `nombre`, tras `auto_upsert_editor_decision` exitoso se llama `auto_fill_nombre_infonavit` (capability `autofill_nombre_infonavit` del asesor dueño). Error de esa RPC solo se loguea; no cambia el resultado `aprobado`. Mig **218** documenta RPC/capability ya en Cloud (no re-aplicar Production).
 
 **HTTP re-precal path (P216):** `POST /api/precalificaciones/reprecalificacion/[intentoId]/auto-precalificar`  
 - Auth: Bearer JWT (asesor). Responde **202** `{ ok, status:"accepted", intento_id }`; scraper en `after()`.  
