@@ -1,3 +1,19 @@
+## 2026-09-11 - fix(agenda): availability UI resta manuals CRM
+
+### Causa
+Asesor veía “1 lugar disponible” (p.ej. Monterrey biométricos 08:00) pero al confirmar:
+`SIN_CUPO_REAL_EN_SHEET` / “Ese horario acaba de ocuparse…”.
+`agenda_sheet_inventory_availability` contaba filas `available` crudas;
+`agenda_sheet_inventory_available_count` (book/assert) restaba `agenda_manual_occupancies` (`manual_crm`).
+
+### Decisión
+- Mig `20260911180000`: availability.slot.available = `available_count` (misma semántica que gate).
+- Edge `agenda-sheet-live-sync`: tras upsert, `available` por hora vía RPC `available_count`.
+- Test SQL focalizado `rpc_agenda_inventory_availability_manuals.sql`.
+
+### No
+Ampliar cupo; saltar hard-gate; tocar Sheets/bookings/RLS; P2 inbox.
+
 ## 2026-09-10 - chore(precal): cron 1 min + batch 2 (OOM aceptado)
 
 ### Causa
