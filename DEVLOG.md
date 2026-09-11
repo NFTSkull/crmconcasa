@@ -1,3 +1,16 @@
+## 2026-09-11 - Auto-precal cron: limit 1 + backoff por racha
+
+### Causa
+Cola scraper Railway (1 worker / 1GB): CRM aborta a 150s en espera; el cron elegía siempre el mismo pendiente más viejo cada 5 min (limit 2) y no drenaba el backlog (pending clavado).
+
+### Decisión
+- `AUTO_PRECAL_RETRY_LIMIT = 1` (1×150s cabe en maxDuration 300).
+- Cooldown por racha de `scraper_failed` consecutivos: 5 / 15 / 30 / 60 min.
+- Sin cambios al scraper.
+
+### No
+Subir SCRAPER_TIMEOUT; concurrency 2 en Railway; Promise.all.
+
 ## 2026-09-11 - Auto-precal: Bearer refresh + bucket cero intentos
 
 ### Causa

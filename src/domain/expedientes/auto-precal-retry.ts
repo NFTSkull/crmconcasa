@@ -1,9 +1,11 @@
 /**
  * Selección pura de candidatos a reintento auto-precal (sin I/O).
- * - Fallos técnicos (scraper_failed | infonavit_system_error) con cooldown 5 min.
+ * - Fallos técnicos (scraper_failed | infonavit_system_error) con cooldown base 5 min.
+ * - Rachas de scraper_failed: cooldown 5 → 15 → 30 → 60 min (no martillar el mismo caso).
  * - Pendientes con **cero** filas en auto_precal_intentos si decision.created_at ≥ 10 min.
  * - Nunca ambiguous_payload / invalid_saldo / etc. por sí solos.
  * Sin tope de intentos totales (ilimitado mientras siga pendiente + razón reintentable).
+ * Batch: 1 candidato/tick (cabe en maxDuration 300 con SCRAPER_TIMEOUT 150s).
  */
 
 import { REASON_INFONAVIT_SYSTEM_ERROR } from "./auto-precalificar-decision";
@@ -11,8 +13,19 @@ import { REASON_INFONAVIT_SYSTEM_ERROR } from "./auto-precalificar-decision";
 export const AUTO_PRECAL_RETRY_MIN_AGE_MS = 5 * 60 * 1000;
 /** Red de seguridad: pendiente sin ningún intento auto-precal. */
 export const AUTO_PRECAL_ZERO_ATTEMPT_MIN_AGE_MS = 10 * 60 * 1000;
-/** 2 candidatos/tick (riesgo OOM aceptado en Railway 1GB hasta upgrade de plan). */
-export const AUTO_PRECAL_RETRY_LIMIT = 2;
+/** 1 candidato/tick: evita 2×timeout vs maxDuration 300 y libera slots del backlog. */
+export const AUTO_PRECAL_RETRY_LIMIT = 1;
+
+/**
+ * Cooldown tras racha de `scraper_failed` consecutivos (más reciente primero).
+ * Índice 0 = 1 falla, 1 = 2 fallas, 2 = 3, 3 = 4+.
+ */
+export const AUTO_PRECAL_SCRAPER_FAILED_BACKOFF_MS = [
+  5 * 60 * 1000,
+  15 * 60 * 1000,
+  30 * 60 * 1000,
+  60 * 60 * 1000,
+] as const;
 
 /** Razones pending_error elegibles para cron de reintento. */
 export const AUTO_PRECAL_RETRYABLE_PENDING_REASONS = new Set<string>([
@@ -36,6 +49,37 @@ export type AutoPrecalIntentoRow = {
   razon: string | null;
 };
 
+/**
+ * Cuenta `pending_error`+`scraper_failed` consecutivos desde el intento más reciente.
+ * Cualquier otro resultado/razón corta la racha.
+ */
+export function consecutiveScraperFailedStreak(
+  rows: AutoPrecalIntentoRow[],
+): number {
+  const sorted = [...rows].sort(
+    (a, b) => Date.parse(b.intentado_en) - Date.parse(a.intentado_en),
+  );
+  let streak = 0;
+  for (const r of sorted) {
+    if (r.resultado === "pending_error" && r.razon === "scraper_failed") {
+      streak += 1;
+      continue;
+    }
+    break;
+  }
+  return streak;
+}
+
+/** Cooldown efectivo según racha de scraper_failed (mínimo = base 5 min). */
+export function cooldownMsForScraperFailedStreak(
+  streak: number,
+  baseMinAgeMs: number = AUTO_PRECAL_RETRY_MIN_AGE_MS,
+): number {
+  if (streak <= 0) return baseMinAgeMs;
+  const idx = Math.min(streak, AUTO_PRECAL_SCRAPER_FAILED_BACKOFF_MS.length) - 1;
+  return Math.max(baseMinAgeMs, AUTO_PRECAL_SCRAPER_FAILED_BACKOFF_MS[idx]!);
+}
+
 export type RetryCandidateInput = {
   /** Expedientes con editor_decisions.decision = 'pendiente' (y no deleted). */
   pendingExpedienteIds: string[];
@@ -53,10 +97,10 @@ export type RetryCandidateInput = {
 
 /**
  * Filtra candidatos:
- * - al menos un intento pending_error + razón reintentable, último ≥ minAgeMs (5)
+ * - al menos un intento pending_error + razón reintentable; cooldown según racha scraper_failed
  * - o 0 intentos y pending_since ≥ zeroAttemptMinAgeMs (10)
  * - orden: ancla temporal más antigua primero
- * - limit (default 2)
+ * - limit (default 1)
  */
 export function selectAutoPrecalRetryCandidates(
   input: RetryCandidateInput,
@@ -94,7 +138,10 @@ export function selectAutoPrecalRetryCandidates(
       if (Number.isFinite(t) && t > lastMs) lastMs = t;
     }
     if (lastMs === 0) continue;
-    if (nowMs - lastMs < minAgeMs) continue;
+
+    const streak = consecutiveScraperFailedStreak(rows);
+    const requiredAgeMs = cooldownMsForScraperFailedStreak(streak, minAgeMs);
+    if (nowMs - lastMs < requiredAgeMs) continue;
 
     scored.push({ id, lastMs });
   }

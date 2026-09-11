@@ -9,7 +9,7 @@ import {
 import { runAutoPrecalificarJob } from "@/domain/expedientes/auto-precalificar-job";
 
 export const runtime = "nodejs";
-/** Hasta 1 job × SCRAPER_TIMEOUT_MS(150s); secuencial; desfasado del cron reprecal. */
+/** 1 job × SCRAPER_TIMEOUT_MS(150s) ≤ maxDuration 300; secuencial. */
 export const maxDuration = 300;
 
 function serviceClient() {

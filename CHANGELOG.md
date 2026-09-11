@@ -1,6 +1,10 @@
 ## [Unreleased]
 
 ### Fixed
+- **fix(precalificacion): cron limit 1 + backoff scraper_failed** — `AUTO_PRECAL_RETRY_LIMIT=1`; racha scraper_failed consecutiva alarga cooldown 5→15→30→60 min para no martillar el mismo expediente mientras la cola Railway está saturada.
+
+
+### Fixed
 - **fix(precalificacion): Bearer vigente + cron cero-intentos** — `refreshSession` antes del ack auto-precal (Anette/`/asesor/nueva`); sin fetch sin Bearer. Cron `reintentar-pendientes` también recoge `pendiente` con 0 `auto_precal_intentos` si `editor_decisions.created_at` ≥ 10 min.
 
 
