@@ -21,13 +21,55 @@ describe("selectAutoPrecalRetryCandidates", () => {
   const recent = "2026-08-28T11:57:00.000Z"; // 3 min ago (< 5 min)
   const exactlyFive = "2026-08-28T11:55:00.000Z"; // 5 min ago (límite inclusive)
 
-  it("excluye backlog sin ningún intento auto-precal", () => {
+  it("excluye cero intentos si no hay pendingSinceById", () => {
     const ids = selectAutoPrecalRetryCandidates({
       pendingExpedienteIds: ["aaaa", "bbbb"],
       intentos: [],
       nowMs: now,
     });
     assert.deepEqual(ids, []);
+  });
+
+  it("excluye cero intentos si pending_since < 10 min", () => {
+    const ids = selectAutoPrecalRetryCandidates({
+      pendingExpedienteIds: ["aaaa"],
+      intentos: [],
+      pendingSinceById: { aaaa: recent }, // 3 min
+      nowMs: now,
+    });
+    assert.deepEqual(ids, []);
+  });
+
+  it("incluye cero intentos si pending_since ≥ 10 min", () => {
+    const ids = selectAutoPrecalRetryCandidates({
+      pendingExpedienteIds: ["aaaa"],
+      intentos: [],
+      pendingSinceById: { aaaa: "2026-08-28T11:50:00.000Z" }, // 10 min
+      nowMs: now,
+    });
+    assert.deepEqual(ids, ["aaaa"]);
+  });
+
+  it("mezcla scraper_failed y cero-intentos; prioriza ancla más vieja; limit 2", () => {
+    const ids = selectAutoPrecalRetryCandidates({
+      pendingExpedienteIds: ["old-zero", "mid-fail", "new-zero"],
+      intentos: [
+        intento(
+          "mid-fail",
+          "2026-08-28T11:00:00.000Z",
+          "pending_error",
+          "scraper_failed",
+        ),
+      ],
+      pendingSinceById: {
+        "old-zero": "2026-08-28T10:00:00.000Z",
+        "new-zero": "2026-08-28T11:45:00.000Z", // 15 min — entra
+      },
+      nowMs: now,
+      limit: 2,
+    });
+    // old-zero (10:00) luego mid-fail (11:00); new-zero queda fuera por limit
+    assert.deepEqual(ids, ["old-zero", "mid-fail"]);
   });
 
   it("excluye pending_error ambiguous_payload (no scraper_failed)", () => {

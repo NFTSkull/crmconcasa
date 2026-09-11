@@ -33,8 +33,14 @@ describe("Anette NSS-only montaje /asesor/nueva", () => {
 
   it("usa el RPC NSS-only existente y dispara auto-precal/reprecal", () => {
     assert.match(page, /asesor_preparar_precalificacion_externo_nss/);
-    assert.match(page, /\/auto-precalificar/);
+    assert.match(page, /resolveBearerAccessToken/);
+    assert.match(page, /fireAutoPrecalificarAck/);
     assert.match(page, /fireAutoReprecalificarAck/);
+    const ack = readFileSync(
+      join(process.cwd(), "src/domain/expedientes/fire-auto-precalificar-ack.ts"),
+      "utf8",
+    );
+    assert.match(ack, /\/auto-precalificar/);
   });
 
   it("no reemplaza ni modifica el contrato visual general", () => {

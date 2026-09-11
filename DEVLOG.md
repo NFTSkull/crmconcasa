@@ -1,3 +1,15 @@
+## 2026-09-11 - Auto-precal: Bearer refresh + bucket cero intentos
+
+### Causa
+Anette: 11 POSTs auto-precal 401. Alta vía `supabase.rpc` (client refresca) vs fetch manual con `getSession()` (JWT local, puede estar vencido). Sin Bearer/JWT inválido → 401 → sin `after()` → 0 filas en `auto_precal_intentos`; el cron los excluía a propósito.
+
+### Decisión
+- `resolveBearerAccessToken` (`refreshSession` + fallback `getSession`) + `fireAutoPrecalificarAck` (no fetch sin Bearer; log 401).
+- Cron: bucket pendiente + 0 intentos + `editor_decisions.created_at` ≥ 10 min (misma cola/limit secuencial).
+
+### No
+Cambiar auth de la route; re-aplicar migs; Promise.all en cron.
+
 ## 2026-09-11 - Autofill nombre Infonavit desde auto-precal (P218)
 
 ### Decisión

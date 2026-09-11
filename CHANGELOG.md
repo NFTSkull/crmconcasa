@@ -1,6 +1,10 @@
 ## [Unreleased]
 
 ### Fixed
+- **fix(precalificacion): Bearer vigente + cron cero-intentos** — `refreshSession` antes del ack auto-precal (Anette/`/asesor/nueva`); sin fetch sin Bearer. Cron `reintentar-pendientes` también recoge `pendiente` con 0 `auto_precal_intentos` si `editor_decisions.created_at` ≥ 10 min.
+
+
+### Fixed
 - **fix(agenda): UI cupos biométricos alineada al hard-gate de book** — `agenda_sheet_inventory_availability` ahora usa `agenda_sheet_inventory_available_count` (resta manuals CRM). Evita “1 lugar disponible” + `SIN_CUPO_REAL_EN_SHEET`. Live-sync book_gate/availability también consulta el count SQL tras upsert. Mig `20260911180000`.
 
 ## 2026-08-27
