@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 
 import {
   AUTO_PRECAL_RETRY_LIMIT,
+  AUTO_PRECAL_RETRY_PRIORITY_CAPABILITY,
   selectAutoPrecalRetryCandidates,
   type AutoPrecalIntentoRow,
 } from "@/domain/expedientes/auto-precal-retry";
@@ -60,7 +61,7 @@ async function handleRetryPendientes(request: Request): Promise<NextResponse> {
   const { data: pendingRows, error: pendingErr } = await supabase
     .from("editor_decisions")
     .select(
-      "expediente_id, created_at, expedientes!inner(id, nss, programa, deleted_at)",
+      "expediente_id, created_at, expedientes!inner(id, nss, programa, deleted_at, asesor_id)",
     )
     .eq("decision", "pendiente")
     .is("expedientes.deleted_at", null);
@@ -82,12 +83,14 @@ async function handleRetryPendientes(request: Request): Promise<NextResponse> {
           nss: string | null;
           programa: string | null;
           deleted_at: string | null;
+          asesor_id: string | null;
         }
       | {
           id: string;
           nss: string | null;
           programa: string | null;
           deleted_at: string | null;
+          asesor_id: string | null;
         }[]
       | null;
   };
@@ -97,6 +100,7 @@ async function handleRetryPendientes(request: Request): Promise<NextResponse> {
   const pendingSinceById: Record<string, string> = {};
   const nssById = new Map<string, string>();
   const programaById = new Map<string, string>();
+  const asesorIdByExp = new Map<string, string>();
 
   for (const row of pendingList) {
     const exp = Array.isArray(row.expedientes)
@@ -108,6 +112,8 @@ async function handleRetryPendientes(request: Request): Promise<NextResponse> {
     nssById.set(exp.id, String(exp.nss).trim());
     const programa = String(exp.programa ?? "").trim();
     if (programa) programaById.set(exp.id, programa);
+    const asesorId = String(exp.asesor_id ?? "").trim();
+    if (asesorId) asesorIdByExp.set(exp.id, asesorId);
   }
 
   if (pendingIds.length === 0) {
@@ -137,15 +143,47 @@ async function handleRetryPendientes(request: Request): Promise<NextResponse> {
   }
 
   const intentos = (intentoRows ?? []) as AutoPrecalIntentoRow[];
+
+  const asesorIds = [...new Set(asesorIdByExp.values())];
+  const priorityAsesorIds = new Set<string>();
+  if (asesorIds.length > 0) {
+    const { data: capRows, error: capErr } = await supabase
+      .from("profile_capabilities")
+      .select("profile_id")
+      .eq("capability", AUTO_PRECAL_RETRY_PRIORITY_CAPABILITY)
+      .eq("active", true)
+      .in("profile_id", asesorIds);
+    if (capErr) {
+      console.error(
+        "[cron/reintentar-pendientes] priority capability query",
+        capErr.message,
+      );
+      // Fail-open: sin prioridad, el cron sigue con orden por antigüedad.
+    } else {
+      for (const row of capRows ?? []) {
+        const pid = String(
+          (row as { profile_id?: string }).profile_id ?? "",
+        ).trim();
+        if (pid) priorityAsesorIds.add(pid);
+      }
+    }
+  }
+
+  const priorityExpedienteIds = pendingIds.filter((id) => {
+    const asesorId = asesorIdByExp.get(id);
+    return Boolean(asesorId && priorityAsesorIds.has(asesorId));
+  });
+
   const candidateIds = selectAutoPrecalRetryCandidates({
     pendingExpedienteIds: pendingIds,
     intentos,
     pendingSinceById,
+    priorityExpedienteIds,
     limit: AUTO_PRECAL_RETRY_LIMIT,
   });
 
   console.log(
-    `[cron/reintentar-pendientes] candidates=${candidateIds.length} pending=${pendingIds.length}`,
+    `[cron/reintentar-pendientes] candidates=${candidateIds.length} pending=${pendingIds.length} priority=${priorityExpedienteIds.length}`,
   );
 
   const results: {

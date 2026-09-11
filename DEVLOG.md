@@ -1,3 +1,8 @@
+## 2026-09-11 - Auto-precal cron: prioridad por capability
+
+### Decisión
+`selectAutoPrecalRetryCandidates` acepta `priorityExpedienteIds` (solo orden). Cron carga `profile_capabilities` activas `auto_precal_retry_priority` para `expedientes.asesor_id` de pendientes. Elegibilidad (edad/backoff/cero-intentos) no cambia. Capability ya en Cloud; sin mig nueva.
+
 ## 2026-09-11 - Auto-precal cron: limit 1 + backoff por racha
 
 ### Causa

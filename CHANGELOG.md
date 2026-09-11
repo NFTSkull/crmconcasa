@@ -1,6 +1,10 @@
 ## [Unreleased]
 
 ### Fixed
+- **fix(precalificacion): prioridad cron por capability** — asesores con `auto_precal_retry_priority` (p.ej. Anette) se eligen antes en `reintentar-pendientes` entre candidatos ya elegibles (edad/backoff intactos).
+
+
+### Fixed
 - **fix(precalificacion): cron limit 1 + backoff scraper_failed** — `AUTO_PRECAL_RETRY_LIMIT=1`; racha scraper_failed consecutiva alarga cooldown 5→15→30→60 min para no martillar el mismo expediente mientras la cola Railway está saturada.
 
 
