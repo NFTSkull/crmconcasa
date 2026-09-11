@@ -20,6 +20,12 @@ export const AUTO_PRECAL_RETRY_LIMIT = 1;
 export const AUTO_PRECAL_RETRY_PRIORITY_CAPABILITY = "auto_precal_retry_priority";
 
 /**
+ * Lease in-flight al inicio del job (antes del scraper).
+ * Actualiza `lastMs` para bloquear cron solapado; no es razón reintentable ni corta racha.
+ */
+export const AUTO_PRECAL_JOB_STARTED_REASON = "job_started";
+
+/**
  * Cooldown tras racha de `scraper_failed` consecutivos (más reciente primero).
  * Índice 0 = 1 falla, 1 = 2 fallas, 2 = 3, 3 = 4+.
  */
@@ -52,8 +58,16 @@ export type AutoPrecalIntentoRow = {
   razon: string | null;
 };
 
+export function isAutoPrecalJobStartedRow(row: AutoPrecalIntentoRow): boolean {
+  return (
+    row.resultado === "pending_error" &&
+    row.razon === AUTO_PRECAL_JOB_STARTED_REASON
+  );
+}
+
 /**
  * Cuenta `pending_error`+`scraper_failed` consecutivos desde el intento más reciente.
+ * Filas `job_started` (lease) se ignoran sin cortar la racha.
  * Cualquier otro resultado/razón corta la racha.
  */
 export function consecutiveScraperFailedStreak(
@@ -64,6 +78,7 @@ export function consecutiveScraperFailedStreak(
   );
   let streak = 0;
   for (const r of sorted) {
+    if (isAutoPrecalJobStartedRow(r)) continue;
     if (r.resultado === "pending_error" && r.razon === "scraper_failed") {
       streak += 1;
       continue;
@@ -156,7 +171,20 @@ export function selectAutoPrecalRetryCandidates(
   }
 
   for (const id of pending) {
-    if (byExp.has(id)) continue; // ya tuvo intentos (otra rama)
+    const rows = byExp.get(id);
+    if (rows) {
+      // Intentos reales (no solo lease): ya evaluados arriba.
+      const hasNonLease = rows.some((r) => !isAutoPrecalJobStartedRow(r));
+      if (hasNonLease) continue;
+      // Solo `job_started`: bloquea mientras el lease sea reciente; si expiró,
+      // puede reentrar por bucket cero-intentos (crash tras claim).
+      let lastLeaseMs = 0;
+      for (const r of rows) {
+        const t = Date.parse(r.intentado_en);
+        if (Number.isFinite(t) && t > lastLeaseMs) lastLeaseMs = t;
+      }
+      if (lastLeaseMs > 0 && nowMs - lastLeaseMs < minAgeMs) continue;
+    }
     const sinceRaw = pendingSinceById[id];
     if (!sinceRaw) continue;
     const sinceMs = Date.parse(sinceRaw);

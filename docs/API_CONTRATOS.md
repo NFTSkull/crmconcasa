@@ -145,7 +145,7 @@ Grants: `REVOKE` PUBLIC/anon; `GRANT EXECUTE` authenticated (+ service_role).
 
 **HTTP create path:** `POST /api/precalificaciones/[id]/auto-precalificar`  
 - Auth: Bearer JWT (asesor). Responde **202** `{ ok, status:"accepted", expediente_id }`; scraper en `after()`.  
-- Job: `runAutoPrecalificarJob` (domain) → scraper `SCRAPER_*` → `auto_upsert_editor_decision` si mapeo conocido; siempre inserta `auto_precal_intentos`.
+- Job: `runAutoPrecalificarJob` (domain) → scraper `SCRAPER_*` → `auto_upsert_editor_decision` si mapeo conocido; **antes del scrape** inserta lease `auto_precal_intentos` (`pending_error`/`job_started`); al final inserta el resultado real. Si el lease falla → `claim_failed` (no scrape).
 - Cliente (Anette/`/asesor/nueva`): `resolveBearerAccessToken` (`refreshSession` + fallback) antes del Bearer; sin token no se dispara el fetch.
 
 
@@ -167,16 +167,17 @@ Grants: `REVOKE` PUBLIC/anon; `GRANT EXECUTE` authenticated (+ service_role).
 - `success:false` + `razon=no_cumple_criterios` + `mensaje` string → `no_cumple` (`p_motivo` = mensaje exacto)
 - resto → `pending_error` (sin mutar `editor_decisions` / sin resolver intento)
 
-**Tabla altas:** `auto_precal_intentos` (mig **214**) — `expediente_id`, `intentado_en`, `resultado` ∈ `aprobado|no_cumple|pending_error`, `razon` nullable. Solo `service_role`.
+**Tabla altas:** `auto_precal_intentos` (mig **214**) — `expediente_id`, `intentado_en`, `resultado` ∈ `aprobado|no_cumple|pending_error`, `razon` nullable (`job_started` = lease in-flight; no reintentable; no corta racha `scraper_failed`). Solo `service_role`.
 
 **Tabla reprecal:** `auto_reprecal_intentos` (mig **217**) — `intento_id` → `expediente_precalificacion_intentos(id)`, `intentado_en`, `resultado` ∈ `aprobado|no_cumple|pending_error`, `razon` nullable. Solo `service_role`.
 
 **Cron altas:** `GET|POST /api/cron/reintentar-pendientes`  
 - Auth: header `x-cron-secret: $CRON_SECRET` **o** `Authorization: Bearer $CRON_SECRET` (Vercel Cron). 401 si no coincide.  
 - Candidatos: `editor_decisions.decision='pendiente'` **y** ((≥1 fila `auto_precal_intentos` con `resultado='pending_error'` + razón reintentable (`scraper_failed` | `infonavit_system_error`), último intento ≥5 min) **o** (0 filas en `auto_precal_intentos` y `editor_decisions.created_at` ≥10 min)). Excluye solo-`ambiguous_payload` / `invalid_saldo` / etc. sin intento reintentable.
-- Excluye si último intento < 5 min (sin tope de intentos totales; `ambiguous_payload` solo no entra).  
+- Excluye si último intento (incl. lease `job_started`) < cooldown (base 5 min; racha `scraper_failed` → 15/30/60). Sin tope de intentos totales.
+- Carga de intentos: ventana 7d + paginación (evita truncar ~1000 y falsos cero-intentos).
 - Max **1** por run (`AUTO_PRECAL_RETRY_LIMIT`), **secuencial**. Entre elegibles, prioriza expedientes cuyo `asesor_id` tiene capability `auto_precal_retry_priority`. (`await` en for; nunca `Promise.all`).  
-- Schedule: `vercel.json` `* * * * *` (cada minuto). Cooldown base 5 min; racha `scraper_failed` → 15/30/60 min. Riesgo OOM Railway 1GB aceptado hasta upgrade.
+- Schedule: `vercel.json` `* * * * *` (cada minuto). Riesgo OOM Railway 1GB aceptado hasta upgrade.
 
 **Cron reprecal (P217):** `GET|POST /api/cron/reintentar-pendientes-reprecal`  
 - Misma auth `CRON_SECRET`.  
