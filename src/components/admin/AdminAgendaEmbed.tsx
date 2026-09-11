@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import type { ReactNode } from "react";
+import { useSessionRepo } from "@/domain/session";
 
 type AdminAgendaEmbedProps = Readonly<{
   children: ReactNode;
@@ -14,6 +15,8 @@ type AdminAgendaEmbedProps = Readonly<{
 /**
  * Presenta las vistas operativas existentes de Agenda dentro del contexto Admin
  * sin duplicar su lógica de negocio ni su header de Mesa Control.
+ * La ruta /admin sigue siendo exclusiva de super_admin aunque la agenda base
+ * también sea reutilizada por roles de Mesa en sus rutas originales.
  */
 export function AdminAgendaEmbed({
   children,
@@ -22,6 +25,31 @@ export function AdminAgendaEmbed({
   contextLabel,
   hideMesaAgendaBackLink = false,
 }: AdminAgendaEmbedProps) {
+  const { currentUser } = useSessionRepo();
+
+  if (!currentUser) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
+        <Link href="/login" className="text-sm font-medium text-blue-700 underline">
+          Inicia sesión
+        </Link>
+      </div>
+    );
+  }
+
+  if (currentUser.role !== "super_admin") {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
+        <div className="max-w-md rounded-lg border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-900">
+          <p role="alert">No tienes permiso para abrir la agenda desde el panel Admin.</p>
+          <Link href="/" className="mt-3 inline-block font-medium underline">
+            Volver
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div
       className={`admin-agenda-embed min-h-screen bg-slate-50 ${
