@@ -16,6 +16,9 @@ export const AUTO_PRECAL_ZERO_ATTEMPT_MIN_AGE_MS = 10 * 60 * 1000;
 /** 1 candidato/tick: evita 2×timeout vs maxDuration 300 y libera slots del backlog. */
 export const AUTO_PRECAL_RETRY_LIMIT = 1;
 
+/** Capability en profile_capabilities: asesores prioritarios en el cron de reintentos. */
+export const AUTO_PRECAL_RETRY_PRIORITY_CAPABILITY = "auto_precal_retry_priority";
+
 /**
  * Cooldown tras racha de `scraper_failed` consecutivos (más reciente primero).
  * Índice 0 = 1 falla, 1 = 2 fallas, 2 = 3, 3 = 4+.
@@ -89,6 +92,11 @@ export type RetryCandidateInput = {
    * Si falta para un id, ese id no entra al bucket cero-intentos.
    */
   pendingSinceById?: Record<string, string>;
+  /**
+   * Expedientes de asesores con capability auto_precal_retry_priority.
+   * Solo afecta ORDEN entre ya elegibles (no salta edad/backoff).
+   */
+  priorityExpedienteIds?: string[];
   nowMs?: number;
   minAgeMs?: number;
   zeroAttemptMinAgeMs?: number;
@@ -99,7 +107,7 @@ export type RetryCandidateInput = {
  * Filtra candidatos:
  * - al menos un intento pending_error + razón reintentable; cooldown según racha scraper_failed
  * - o 0 intentos y pending_since ≥ zeroAttemptMinAgeMs (10)
- * - orden: ancla temporal más antigua primero
+ * - orden: prioritarios primero; dentro de cada grupo, ancla más antigua primero
  * - limit (default 1)
  */
 export function selectAutoPrecalRetryCandidates(
@@ -110,6 +118,7 @@ export function selectAutoPrecalRetryCandidates(
   const zeroAttemptMinAgeMs =
     input.zeroAttemptMinAgeMs ?? AUTO_PRECAL_ZERO_ATTEMPT_MIN_AGE_MS;
   const limit = input.limit ?? AUTO_PRECAL_RETRY_LIMIT;
+  const priority = new Set(input.priorityExpedienteIds ?? []);
 
   const pending = new Set(input.pendingExpedienteIds);
   const pendingSinceById = input.pendingSinceById ?? {};
@@ -156,6 +165,11 @@ export function selectAutoPrecalRetryCandidates(
     scored.push({ id, lastMs: sinceMs });
   }
 
-  scored.sort((a, b) => a.lastMs - b.lastMs);
+  scored.sort((a, b) => {
+    const ap = priority.has(a.id) ? 0 : 1;
+    const bp = priority.has(b.id) ? 0 : 1;
+    if (ap !== bp) return ap - bp;
+    return a.lastMs - b.lastMs;
+  });
   return scored.slice(0, limit).map((s) => s.id);
 }

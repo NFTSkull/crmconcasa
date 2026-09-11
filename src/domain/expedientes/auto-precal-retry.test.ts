@@ -302,4 +302,75 @@ describe("selectAutoPrecalRetryCandidates", () => {
       assert.deepEqual(ids, [], razon);
     }
   });
+
+  it("prioridad: elegible prioritario gana a uno más viejo sin prioridad", () => {
+    const ids = selectAutoPrecalRetryCandidates({
+      pendingExpedienteIds: ["old-plain", "new-priority"],
+      intentos: [
+        intento(
+          "old-plain",
+          "2026-08-28T10:00:00.000Z",
+          "pending_error",
+          "scraper_failed",
+        ),
+        intento(
+          "new-priority",
+          "2026-08-28T11:00:00.000Z",
+          "pending_error",
+          "scraper_failed",
+        ),
+      ],
+      priorityExpedienteIds: ["new-priority"],
+      nowMs: now,
+      limit: 1,
+    });
+    assert.deepEqual(ids, ["new-priority"]);
+  });
+
+  it("sin priorityExpedienteIds: orden solo por antigüedad (igual que hoy)", () => {
+    const ids = selectAutoPrecalRetryCandidates({
+      pendingExpedienteIds: ["old-plain", "new-priority"],
+      intentos: [
+        intento(
+          "old-plain",
+          "2026-08-28T10:00:00.000Z",
+          "pending_error",
+          "scraper_failed",
+        ),
+        intento(
+          "new-priority",
+          "2026-08-28T11:00:00.000Z",
+          "pending_error",
+          "scraper_failed",
+        ),
+      ],
+      nowMs: now,
+      limit: 1,
+    });
+    assert.deepEqual(ids, ["old-plain"]);
+  });
+
+  it("prioridad no salta cooldown: prioritario reciente cede al viejo elegible", () => {
+    const ids = selectAutoPrecalRetryCandidates({
+      pendingExpedienteIds: ["old-plain", "hot-priority"],
+      intentos: [
+        intento(
+          "old-plain",
+          "2026-08-28T10:00:00.000Z",
+          "pending_error",
+          "scraper_failed",
+        ),
+        intento(
+          "hot-priority",
+          recent,
+          "pending_error",
+          "scraper_failed",
+        ),
+      ],
+      priorityExpedienteIds: ["hot-priority"],
+      nowMs: now,
+      limit: 1,
+    });
+    assert.deepEqual(ids, ["old-plain"]);
+  });
 });
