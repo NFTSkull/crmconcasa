@@ -6,6 +6,11 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
 import { AUTO_PRECAL_JOB_STARTED_REASON } from "@/domain/expedientes/auto-precal-retry";
 import {
+  AUTO_PRECAL_SCRAPER_BUSY_REASON,
+  releaseAutoPrecalScraperLease,
+  tryClaimAutoPrecalScraperLease,
+} from "@/domain/expedientes/auto-precal-scraper-lease";
+import {
   decideAutoPrecalFromScraper,
   type AutoPrecalScraperPayload,
 } from "@/domain/expedientes/auto-precalificar-decision";
@@ -72,7 +77,7 @@ async function recordIntento(
   }
 }
 
-/** Lease in-flight: actualiza lastMs antes del scraper para no solapar cron. */
+/** Lease por expediente: evita que dos ejecuciones trabajen el mismo NSS a la vez. */
 async function claimJobStarted(
   supabase: SupabaseClient,
   expedienteId: string,
@@ -95,7 +100,10 @@ async function claimJobStarted(
 /**
  * Corre scraper + upsert decisión. Siempre intenta insertar en
  * `auto_precal_intentos` (aprobado | no_cumple | pending_error).
- * Antes del scrape inserta lease `job_started` (fail-closed si no puede).
+ *
+ * Orden de protección:
+ * 1) lease global del scraper: una sola navegación Infonavit en todo el CRM;
+ * 2) lease `job_started` por expediente: evita duplicar el mismo caso.
  */
 export async function runAutoPrecalificarJob(input: {
   expedienteId: string;
@@ -110,134 +118,152 @@ export async function runAutoPrecalificarJob(input: {
   const { expedienteId, nss, scraperUrl, scraperSecret } = input;
   const supabase = input.supabase ?? serviceClient();
 
-  const claimed = await claimJobStarted(supabase, expedienteId);
-  if (!claimed) {
-    return { resultado: "pending_error", razon: "claim_failed" };
+  const scraperLease = await tryClaimAutoPrecalScraperLease(supabase);
+  if (!scraperLease.claimed) {
+    await recordIntento(
+      supabase,
+      expedienteId,
+      "pending_error",
+      AUTO_PRECAL_SCRAPER_BUSY_REASON,
+    );
+    return {
+      resultado: "pending_error",
+      razon: AUTO_PRECAL_SCRAPER_BUSY_REASON,
+    };
   }
 
-  let resultado: AutoPrecalIntentoResultado = "pending_error";
-  let razon: string | null = "scraper_failed";
-
   try {
-    const programa =
-      String(input.programa ?? "").trim() ||
-      (await loadExpedientePrograma(supabase, expedienteId));
-    if (!programa) {
-      resultado = "pending_error";
-      razon = "programa_not_found";
-      console.error(
-        `[auto-precalificar] programa ausente expediente_id=${expedienteId} nss=${nss}`,
-      );
-      return { resultado, razon };
+    const claimed = await claimJobStarted(supabase, expedienteId);
+    if (!claimed) {
+      return { resultado: "pending_error", razon: "claim_failed" };
     }
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), SCRAPER_TIMEOUT_MS);
-    let upstream: Response;
-    let payload: AutoPrecalScraperPayload;
+    let resultado: AutoPrecalIntentoResultado = "pending_error";
+    let razon: string | null = "scraper_failed";
+
     try {
-      upstream = await fetch(`${scraperUrl.replace(/\/$/, "")}/precalificar`, {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "x-scraper-secret": scraperSecret,
-        },
-        body: JSON.stringify({ nss, workerIndex: 0 }),
-        signal: controller.signal,
-      });
-      payload = (await upstream.json()) as AutoPrecalScraperPayload;
-    } finally {
-      clearTimeout(timeoutId);
-    }
+      const programa =
+        String(input.programa ?? "").trim() ||
+        (await loadExpedientePrograma(supabase, expedienteId));
+      if (!programa) {
+        resultado = "pending_error";
+        razon = "programa_not_found";
+        console.error(
+          `[auto-precalificar] programa ausente expediente_id=${expedienteId} nss=${nss}`,
+        );
+        return { resultado, razon };
+      }
 
-    const decision = decideAutoPrecalFromScraper(
-      payload,
-      upstream.ok,
-      programa,
-    );
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), SCRAPER_TIMEOUT_MS);
+      let upstream: Response;
+      let payload: AutoPrecalScraperPayload;
+      try {
+        upstream = await fetch(`${scraperUrl.replace(/\/$/, "")}/precalificar`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "x-scraper-secret": scraperSecret,
+          },
+          body: JSON.stringify({ nss, workerIndex: 0 }),
+          signal: controller.signal,
+        });
+        payload = (await upstream.json()) as AutoPrecalScraperPayload;
+      } finally {
+        clearTimeout(timeoutId);
+      }
 
-    if (decision.kind === "pending_error") {
-      resultado = "pending_error";
-      razon = decision.reason;
-      console.error(
-        `[auto-precalificar] pending_error expediente_id=${expedienteId} nss=${nss} reason=${decision.reason}`,
-        { status: upstream.status, payload },
+      const decision = decideAutoPrecalFromScraper(
+        payload,
+        upstream.ok,
+        programa,
       );
-      return { resultado, razon };
-    }
 
-    if (decision.kind === "aprobado") {
-      resultado = "aprobado";
+      if (decision.kind === "pending_error") {
+        resultado = "pending_error";
+        razon = decision.reason;
+        console.error(
+          `[auto-precalificar] pending_error expediente_id=${expedienteId} nss=${nss} reason=${decision.reason}`,
+          { status: upstream.status, payload },
+        );
+        return { resultado, razon };
+      }
+
+      if (decision.kind === "aprobado") {
+        resultado = "aprobado";
+        razon = null;
+        const { error: rpcErr } = await supabase.rpc(
+          "auto_upsert_editor_decision",
+          {
+            p_expediente_id: expedienteId,
+            p_decision: "aprobado",
+            p_monto_aprobado: decision.monto,
+            p_motivo: null,
+            p_rfc: payload.rfc ?? null,
+            p_registro_patronal: payload.registroPatronal ?? null,
+            p_empresa: payload.empresa ?? null,
+            p_advertencia_inscripcion: payload.advertenciaInscripcion ?? null,
+          },
+        );
+        if (rpcErr) {
+          console.error(
+            `[auto-precalificar] RPC aprobado falló expediente_id=${expedienteId} nss=${nss}`,
+            rpcErr.message,
+          );
+          return { resultado, razon };
+        }
+        console.log(
+          `[auto-precalificar] aprobado expediente_id=${expedienteId} nss=${nss} monto=${decision.monto}`,
+        );
+        if (payload.nombre) {
+          const { error: nombreErr } = await supabase.rpc(
+            "auto_fill_nombre_infonavit",
+            {
+              p_expediente_id: expedienteId,
+              p_nombre_completo: payload.nombre,
+            },
+          );
+          if (nombreErr) {
+            console.error(
+              `[auto-precalificar] RPC auto_fill_nombre_infonavit falló expediente_id=${expedienteId}`,
+              nombreErr.message,
+            );
+          }
+        }
+        return { resultado, razon };
+      }
+
+      resultado = "no_cumple";
       razon = null;
-      const { error: rpcErr } = await supabase.rpc(
-        "auto_upsert_editor_decision",
-        {
-          p_expediente_id: expedienteId,
-          p_decision: "aprobado",
-          p_monto_aprobado: decision.monto,
-          p_motivo: null,
-          p_rfc: payload.rfc ?? null,
-          p_registro_patronal: payload.registroPatronal ?? null,
-          p_empresa: payload.empresa ?? null,
-          p_advertencia_inscripcion: payload.advertenciaInscripcion ?? null,
-        },
-      );
+      const { error: rpcErr } = await supabase.rpc("auto_upsert_editor_decision", {
+        p_expediente_id: expedienteId,
+        p_decision: "no_cumple",
+        p_monto_aprobado: null,
+        p_motivo: decision.motivo,
+      });
       if (rpcErr) {
         console.error(
-          `[auto-precalificar] RPC aprobado falló expediente_id=${expedienteId} nss=${nss}`,
+          `[auto-precalificar] RPC no_cumple falló expediente_id=${expedienteId} nss=${nss}`,
           rpcErr.message,
         );
         return { resultado, razon };
       }
       console.log(
-        `[auto-precalificar] aprobado expediente_id=${expedienteId} nss=${nss} monto=${decision.monto}`,
+        `[auto-precalificar] no_cumple expediente_id=${expedienteId} nss=${nss}`,
       );
-      if (payload.nombre) {
-        const { error: nombreErr } = await supabase.rpc(
-          "auto_fill_nombre_infonavit",
-          {
-            p_expediente_id: expedienteId,
-            p_nombre_completo: payload.nombre,
-          },
-        );
-        if (nombreErr) {
-          console.error(
-            `[auto-precalificar] RPC auto_fill_nombre_infonavit falló expediente_id=${expedienteId}`,
-            nombreErr.message,
-          );
-        }
-      }
       return { resultado, razon };
-    }
-
-    resultado = "no_cumple";
-    razon = null;
-    const { error: rpcErr } = await supabase.rpc("auto_upsert_editor_decision", {
-      p_expediente_id: expedienteId,
-      p_decision: "no_cumple",
-      p_monto_aprobado: null,
-      p_motivo: decision.motivo,
-    });
-    if (rpcErr) {
+    } catch (err) {
+      resultado = "pending_error";
+      razon = "scraper_failed";
       console.error(
-        `[auto-precalificar] RPC no_cumple falló expediente_id=${expedienteId} nss=${nss}`,
-        rpcErr.message,
+        `[auto-precalificar] job excepción expediente_id=${expedienteId} nss=${nss}`,
+        err instanceof Error ? err.message : err,
       );
       return { resultado, razon };
+    } finally {
+      await recordIntento(supabase, expedienteId, resultado, razon);
     }
-    console.log(
-      `[auto-precalificar] no_cumple expediente_id=${expedienteId} nss=${nss}`,
-    );
-    return { resultado, razon };
-  } catch (err) {
-    resultado = "pending_error";
-    razon = "scraper_failed";
-    console.error(
-      `[auto-precalificar] job excepción expediente_id=${expedienteId} nss=${nss}`,
-      err instanceof Error ? err.message : err,
-    );
-    return { resultado, razon };
   } finally {
-    await recordIntento(supabase, expedienteId, resultado, razon);
+    await releaseAutoPrecalScraperLease(supabase, scraperLease.ownerToken);
   }
 }
