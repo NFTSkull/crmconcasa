@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import type { MesaAgendaCitasClientFilters } from "@/lib/mesaAgendaCitasUi";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
@@ -88,16 +89,22 @@ export function MesaAgendaCitasFilters({
 }
 
 export function MesaAgendaCitasBackLink() {
+  const pathname = usePathname();
+  const inAdminAgenda = pathname?.startsWith("/admin/agenda") ?? false;
+  const backHref = inAdminAgenda ? "/admin" : "/mesa-control";
+  const backLabel = inAdminAgenda ? "← Volver al panel Admin" : "← Volver a Mesa Control";
+  const hojaHref = inAdminAgenda ? "/admin/agenda/hoja" : "/mesa-control/citas/hoja";
+
   return (
     <div className="flex flex-wrap items-center justify-between gap-2">
       <Link
-        href="/mesa-control"
+        href={backHref}
         className="inline-flex items-center text-sm font-medium text-slate-600 hover:text-slate-900"
       >
-        ← Volver a Mesa Control
+        {backLabel}
       </Link>
       <Link
-        href="/mesa-control/citas/hoja"
+        href={hojaHref}
         className="inline-flex items-center rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm font-semibold text-indigo-800 hover:bg-indigo-100"
       >
         Abrir vista tipo Drive
