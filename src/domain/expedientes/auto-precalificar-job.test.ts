@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 
+import { AUTO_PRECAL_SCRAPER_BUSY_REASON } from "./auto-precal-scraper-lease";
 import { runAutoPrecalificarJob } from "./auto-precalificar-job";
 
 type RpcCall = { fn: string; args: Record<string, unknown> };
@@ -9,6 +10,12 @@ function mockSupabase() {
   const rpcCalls: RpcCall[] = [];
   const supabase = {
     rpc(fn: string, args: Record<string, unknown>) {
+      if (fn === "auto_precal_scraper_try_claim") {
+        return Promise.resolve({ error: null, data: true });
+      }
+      if (fn === "auto_precal_scraper_release") {
+        return Promise.resolve({ error: null, data: null });
+      }
       rpcCalls.push({ fn, args });
       return Promise.resolve({ error: null, data: null });
     },
@@ -232,6 +239,12 @@ describe("runAutoPrecalificarJob", () => {
     const rpcCalls: RpcCall[] = [];
     const supabase = {
       rpc(fn: string, args: Record<string, unknown>) {
+        if (fn === "auto_precal_scraper_try_claim") {
+          return Promise.resolve({ error: null, data: true });
+        }
+        if (fn === "auto_precal_scraper_release") {
+          return Promise.resolve({ error: null, data: null });
+        }
         rpcCalls.push({ fn, args });
         if (fn === "auto_fill_nombre_infonavit") {
           return Promise.resolve({
@@ -263,6 +276,54 @@ describe("runAutoPrecalificarJob", () => {
     assert.equal(rpcCalls[1]?.fn, "auto_fill_nombre_infonavit");
   });
 
+  it("scraper_busy: no llama scraper y deja intento reintentable", async () => {
+    let fetchCalls = 0;
+    const inserts: Record<string, unknown>[] = [];
+    globalThis.fetch = (async () => {
+      fetchCalls += 1;
+      return new Response("{}", { status: 200 });
+    }) as typeof fetch;
+
+    const supabase = {
+      rpc(fn: string) {
+        if (fn === "auto_precal_scraper_try_claim") {
+          return Promise.resolve({ error: null, data: false });
+        }
+        return Promise.resolve({ error: null, data: null });
+      },
+      from() {
+        return {
+          insert(row: Record<string, unknown>) {
+            inserts.push(row);
+            return Promise.resolve({ error: null });
+          },
+        };
+      },
+    };
+
+    const result = await runAutoPrecalificarJob({
+      expedienteId: "77777777-7777-4777-8777-777777777777",
+      nss: "12345678901",
+      programa: "mejoravit",
+      scraperUrl: "https://scraper.test",
+      scraperSecret: "secret",
+      supabase: supabase as never,
+    });
+
+    assert.deepEqual(result, {
+      resultado: "pending_error",
+      razon: AUTO_PRECAL_SCRAPER_BUSY_REASON,
+    });
+    assert.equal(fetchCalls, 0);
+    assert.deepEqual(inserts, [
+      {
+        expediente_id: "77777777-7777-4777-8777-777777777777",
+        resultado: "pending_error",
+        razon: AUTO_PRECAL_SCRAPER_BUSY_REASON,
+      },
+    ]);
+  });
+
   it("claim_failed: no llama scraper si el lease job_started falla", async () => {
     let fetchCalls = 0;
     globalThis.fetch = (async () => {
@@ -271,7 +332,10 @@ describe("runAutoPrecalificarJob", () => {
     }) as typeof fetch;
 
     const supabase = {
-      rpc() {
+      rpc(fn: string) {
+        if (fn === "auto_precal_scraper_try_claim") {
+          return Promise.resolve({ error: null, data: true });
+        }
         return Promise.resolve({ error: null, data: null });
       },
       from() {
@@ -298,5 +362,4 @@ describe("runAutoPrecalificarJob", () => {
     });
     assert.equal(fetchCalls, 0);
   });
-
 });

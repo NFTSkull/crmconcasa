@@ -11,6 +11,11 @@ import {
   type AutoPrecalScraperPayload,
 } from "@/domain/expedientes/auto-precalificar-decision";
 import {
+  AUTO_PRECAL_SCRAPER_BUSY_REASON,
+  releaseAutoPrecalScraperLease,
+  tryClaimAutoPrecalScraperLease,
+} from "@/domain/expedientes/auto-precal-scraper-lease";
+import {
   SCRAPER_TIMEOUT_MS,
   type AutoPrecalIntentoResultado,
   type AutoPrecalJobResult,
@@ -74,7 +79,8 @@ async function recordIntento(
 
 /**
  * Corre scraper + auto_resolver_reprecalificacion para un intento pendiente.
- * Siempre intenta insertar en `auto_reprecal_intentos`.
+ * Comparte el lease global con altas nuevas: nunca compiten dos navegaciones
+ * Infonavit contra el mismo worker de Railway.
  */
 export async function runAutoReprecalificarJob(input: {
   intentoId: string;
@@ -90,6 +96,20 @@ export async function runAutoReprecalificarJob(input: {
 }): Promise<AutoPrecalJobResult> {
   const { intentoId, nss, scraperUrl, scraperSecret } = input;
   const supabase = input.supabase ?? serviceClient();
+
+  const scraperLease = await tryClaimAutoPrecalScraperLease(supabase);
+  if (!scraperLease.claimed) {
+    await recordIntento(
+      supabase,
+      intentoId,
+      "pending_error",
+      AUTO_PRECAL_SCRAPER_BUSY_REASON,
+    );
+    return {
+      resultado: "pending_error",
+      razon: AUTO_PRECAL_SCRAPER_BUSY_REASON,
+    };
+  }
 
   let resultado: AutoPrecalIntentoResultado = "pending_error";
   let razon: string | null = "scraper_failed";
@@ -207,5 +227,6 @@ export async function runAutoReprecalificarJob(input: {
     return { resultado, razon };
   } finally {
     await recordIntento(supabase, intentoId, resultado, razon);
+    await releaseAutoPrecalScraperLease(supabase, scraperLease.ownerToken);
   }
 }

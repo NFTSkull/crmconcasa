@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
 
+import { AUTO_PRECAL_SCRAPER_BUSY_REASON } from "./auto-precal-scraper-lease";
 import { runAutoReprecalificarJob } from "./auto-reprecalificar-job";
 
 type RpcCall = { fn: string; args: Record<string, unknown> };
@@ -11,6 +12,12 @@ function mockSupabase() {
   const inserts: InsertCall[] = [];
   const supabase = {
     rpc(fn: string, args: Record<string, unknown>) {
+      if (fn === "auto_precal_scraper_try_claim") {
+        return Promise.resolve({ error: null, data: true });
+      }
+      if (fn === "auto_precal_scraper_release") {
+        return Promise.resolve({ error: null, data: null });
+      }
       rpcCalls.push({ fn, args });
       return Promise.resolve({ error: null, data: null });
     },
@@ -169,5 +176,56 @@ describe("runAutoReprecalificarJob", () => {
     });
 
     assert.equal(rpcCalls[0]?.args.p_monto_aprobado, 1290973.09);
+  });
+
+  it("scraper_busy no llama scraper y registra intento reintentable", async () => {
+    let fetchCalls = 0;
+    const inserts: InsertCall[] = [];
+    globalThis.fetch = (async () => {
+      fetchCalls += 1;
+      return new Response("{}", { status: 200 });
+    }) as typeof fetch;
+
+    const supabase = {
+      rpc(fn: string) {
+        if (fn === "auto_precal_scraper_try_claim") {
+          return Promise.resolve({ error: null, data: false });
+        }
+        return Promise.resolve({ error: null, data: null });
+      },
+      from(table: string) {
+        return {
+          insert(row: Record<string, unknown>) {
+            inserts.push({ table, row });
+            return Promise.resolve({ error: null });
+          },
+        };
+      },
+    };
+
+    const result = await runAutoReprecalificarJob({
+      intentoId,
+      nss: "12345678901",
+      programa: "mejoravit",
+      scraperUrl: "https://scraper.test",
+      scraperSecret: "secret",
+      supabase: supabase as never,
+    });
+
+    assert.deepEqual(result, {
+      resultado: "pending_error",
+      razon: AUTO_PRECAL_SCRAPER_BUSY_REASON,
+    });
+    assert.equal(fetchCalls, 0);
+    assert.deepEqual(inserts, [
+      {
+        table: "auto_reprecal_intentos",
+        row: {
+          intento_id: intentoId,
+          resultado: "pending_error",
+          razon: AUTO_PRECAL_SCRAPER_BUSY_REASON,
+        },
+      },
+    ]);
   });
 });
