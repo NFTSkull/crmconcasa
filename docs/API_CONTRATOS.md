@@ -726,7 +726,7 @@ Supabase `agenda_bookings`. Sheets no inserta filas directas; toda reserva Sheet
 - `agenda_sheet_enqueue_cancel_cleanup(p_booking_id)` — encola `booking_cancelled_cleanup` idempotente para booking **cancelled** con evidencia CRM (`service_role`); no UPDATE de outbox histórico done; no muta bookings
 - `agenda_sheet_mark_cancelled_cleared(p_booking_id)` — soft-delete `slot_links` + libera inventario tras limpieza Sheet
 - `agenda_sheet_upsert_link_from_crm` — mapping tras escritura Sheet
-- `agenda_sheet_inventory_availability(p_kind, p_date, p_location_id)` — read-model cupo real (`authenticated`); si enforced y not fresh → `{ ok:true, fresh:false, slots:[] }`; buckets por `slot_time` lógico (+ `sheet_slot_time` informativo)
+- `agenda_sheet_inventory_availability(p_kind, p_date, p_location_id)` — read-model cupo real (`authenticated`); si enforced y not fresh → `{ ok:true, fresh:false, slots:[] }`; buckets por `slot_time` lógico (+ `sheet_slot_time` informativo); **`available` por slot = `agenda_sheet_inventory_available_count`** (resta `agenda_manual_occupancies` manual_crm; paridad con hard-gate book)
 - `agenda_sheet_inventory_upsert_batch(p_rows)` / `mark_linked` / `mark_conflict` — `service_role` only (anti-steal: no degradar claimed/linked con `booking_id`; **`sheet_title` exacto sin `btrim`** — pestañas tipo `03 AGOSTO `; persiste `sheet_slot_time`)
 - `agenda_sheet_ops_upsert_batch(p_rows)` — `service_role` (mig. 165): proyección resultados operativos Sheet
 - `bernardo_ops_summary(p_fecha_desde, p_fecha_hasta)` / `bernardo_ops_detail(p_metric, …)` — solo `super_admin` (Dashboard Bernardo; COMPLETED 1:1)

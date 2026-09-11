@@ -378,9 +378,6 @@ Deno.serve(async (req) => {
     const byTime = new Map<string, { available: number; physical_total: number }>();
     const times = new Set(physicalForGate.map((p) => p.slotTime));
     for (const t of times) {
-      if (kind || locationId) {
-        // physicalForGate ya filtrado
-      }
       const c = countAvailableByPhysicalOccupancy(
         physicalForGate.map((p) => ({
           slotTime: p.slotTime,
@@ -394,8 +391,25 @@ Deno.serve(async (req) => {
         })),
         t,
       );
+      // Tras upsert: misma semántica que book/assert (resta manuals CRM).
+      let effectiveAvail = c.available;
+      if (kind && locationId) {
+        const { data: sqlAvail, error: sqlAvailErr } = await supabase.rpc(
+          "agenda_sheet_inventory_available_count",
+          {
+            p_org: orgId,
+            p_kind: kind,
+            p_date: bookingDate,
+            p_time: t.length === 5 ? `${t}:00` : t,
+            p_location: locationId,
+          },
+        );
+        if (!sqlAvailErr && sqlAvail != null && Number.isFinite(Number(sqlAvail))) {
+          effectiveAvail = Math.max(0, Math.trunc(Number(sqlAvail)));
+        }
+      }
       byTime.set(t, {
-        available: c.available,
+        available: effectiveAvail,
         physical_total: c.physicalTotal,
       });
     }
