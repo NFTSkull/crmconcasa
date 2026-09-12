@@ -1,6 +1,7 @@
 -- Reasignación segura de expediente dentro del mismo equipo activo.
 -- Alcance efectivo actual: Silvia Reyes, al ser líder activa + create/integrate/team_dashboard.
 -- No copia ni recrea expediente: conserva documentos, datos, citas, etapa e historial.
+-- Las proyecciones de agenda se actualizan y las citas activas se reencolan para Drive.
 
 CREATE OR REPLACE FUNCTION public.asesor_reassign_team_context(
   p_expediente_id uuid
@@ -40,7 +41,8 @@ BEGIN
   SELECT * INTO v_exp
   FROM public.expedientes e
   WHERE e.id = p_expediente_id
-    AND e.deleted_at IS NULL;
+    AND e.deleted_at IS NULL
+    AND e.ciclo_estado = 'activo';
 
   IF NOT FOUND OR v_exp.organization_id IS DISTINCT FROM v_actor.organization_id THEN
     RETURN jsonb_build_object('can_reassign', false);
@@ -111,6 +113,9 @@ DECLARE
   v_team public.asesor_equipos%ROWTYPE;
   v_target public.profiles%ROWTYPE;
   v_old_owner public.profiles%ROWTYPE;
+  v_target_label text;
+  v_new_origen public.origen_mesa;
+  v_requeued integer := 0;
 BEGIN
   v_actor_id := public.current_profile_id();
   IF v_actor_id IS NULL THEN
@@ -144,6 +149,11 @@ BEGIN
 
   IF NOT FOUND OR v_exp.deleted_at IS NOT NULL THEN
     RAISE EXCEPTION 'asesor_reassign_team_expediente: expediente no encontrado o eliminado'
+      USING ERRCODE = '22023';
+  END IF;
+
+  IF v_exp.ciclo_estado IS DISTINCT FROM 'activo' THEN
+    RAISE EXCEPTION 'asesor_reassign_team_expediente: solo se pueden reasignar expedientes activos'
       USING ERRCODE = '22023';
   END IF;
 
@@ -183,6 +193,9 @@ BEGIN
   FROM public.profiles p
   WHERE p.id = v_exp.asesor_id;
 
+  v_target_label := COALESCE(NULLIF(btrim(v_target.full_name), ''), v_target.email, '');
+  v_new_origen := COALESCE(v_target.tipo_asesor_origen::text, 'interno')::public.origen_mesa;
+
   IF v_exp.asesor_id = p_target_asesor_id THEN
     RETURN jsonb_build_object(
       'ok', true,
@@ -194,10 +207,79 @@ BEGIN
     );
   END IF;
 
+  -- Fuente de verdad: conserva el mismo expediente_id y todas sus relaciones.
   UPDATE public.expedientes
   SET asesor_id = p_target_asesor_id,
+      origen_mesa = v_new_origen,
       updated_at = now()
   WHERE id = p_expediente_id;
+
+  -- Si había un lote de corrección todavía sin enviar, pasa al nuevo titular.
+  -- Lotes enviados/revisados permanecen históricos y no se reescriben.
+  UPDATE public.expediente_asesor_cambio_lotes
+  SET asesor_id = p_target_asesor_id,
+      updated_at = now()
+  WHERE expediente_id = p_expediente_id
+    AND status = 'borrador'
+    AND submitted_at IS NULL;
+
+  -- Proyección de ocupaciones manuales vinculadas al expediente.
+  UPDATE public.agenda_manual_occupancies
+  SET asesor_id = p_target_asesor_id,
+      asesor_nombre = v_target_label,
+      updated_at = now()
+  WHERE expediente_id = p_expediente_id
+    AND status = 'active'
+    AND cancelled_at IS NULL;
+
+  -- Proyección interna del inventario ya vinculado. El worker de Sheets
+  -- vuelve a leer el asesor desde expedientes antes de escribir al Drive.
+  UPDATE public.agenda_sheet_slot_inventory
+  SET visible_advisor = v_target_label,
+      updated_at = now()
+  WHERE expediente_id = p_expediente_id
+    AND booking_id IS NOT NULL
+    AND status <> 'disabled';
+
+  -- Reencolar citas activas de Biométricos/Firmas para que Google Sheets
+  -- refleje el nuevo asesor sin mover fecha, hora, fila ni booking.
+  INSERT INTO public.agenda_sheet_sync_outbox (
+    organization_id,
+    booking_id,
+    event_type,
+    idempotency_key,
+    payload,
+    status,
+    attempts,
+    available_at
+  )
+  SELECT
+    b.organization_id,
+    b.id,
+    'booking_updated',
+    b.id::text || ':booking_updated:reassign:' || p_target_asesor_id::text || ':' || txid_current()::text,
+    jsonb_build_object(
+      'booking_id', b.id,
+      'organization_id', b.organization_id,
+      'kind', b.kind,
+      'status', b.status,
+      'booking_date', b.booking_date,
+      'booking_time', b.booking_time,
+      'location_id', b.location_id,
+      'expediente_id', b.expediente_id,
+      'event_type', 'booking_updated',
+      'sync_source', 'crm_reassign'
+    ),
+    'pending',
+    0,
+    now()
+  FROM public.agenda_bookings b
+  WHERE b.expediente_id = p_expediente_id
+    AND b.status = 'booked'
+    AND b.kind IN ('biometricos', 'firmas')
+  ON CONFLICT (idempotency_key) DO NOTHING;
+
+  GET DIAGNOSTICS v_requeued = ROW_COUNT;
 
   PERFORM public.log_action(
     v_exp.organization_id,
@@ -213,6 +295,9 @@ BEGIN
       'previous_asesor_email', v_old_owner.email,
       'target_asesor_id', v_target.id,
       'target_asesor_email', v_target.email,
+      'previous_origen_mesa', v_exp.origen_mesa,
+      'target_origen_mesa', v_new_origen,
+      'agenda_bookings_requeued', v_requeued,
       'preserved_related_data', true
     )
   );
@@ -224,17 +309,19 @@ BEGIN
     'previous_asesor_id', v_exp.asesor_id,
     'asesor_id', v_target.id,
     'asesor_email', v_target.email,
-    'asesor_nombre', v_target.full_name
+    'asesor_nombre', v_target.full_name,
+    'origen_mesa', v_new_origen,
+    'agenda_bookings_requeued', v_requeued
   );
 END;
 $function$;
 
-REVOKE ALL ON FUNCTION public.asesor_reassign_team_context(uuid) FROM PUBLIC, anon;
-REVOKE ALL ON FUNCTION public.asesor_reassign_team_expediente(uuid, uuid) FROM PUBLIC, anon;
+REVOKE ALL ON FUNCTION public.asesor_reassign_team_context(uuid) FROM PUBLIC, anon, authenticated;
+REVOKE ALL ON FUNCTION public.asesor_reassign_team_expediente(uuid, uuid) FROM PUBLIC, anon, authenticated;
 GRANT EXECUTE ON FUNCTION public.asesor_reassign_team_context(uuid) TO authenticated;
 GRANT EXECUTE ON FUNCTION public.asesor_reassign_team_expediente(uuid, uuid) TO authenticated;
 
 COMMENT ON FUNCTION public.asesor_reassign_team_context(uuid) IS
-  'Contexto de reasignación para líder integrador; targets limitados al mismo equipo activo.';
+  'Contexto de reasignación para líder integrador; targets limitados al mismo equipo activo y expediente activo.';
 COMMENT ON FUNCTION public.asesor_reassign_team_expediente(uuid, uuid) IS
-  'Reasigna solo expedientes dentro del equipo activo liderado por el actor. Conserva relaciones por expediente_id.';
+  'Reasigna un expediente activo dentro del equipo liderado por el actor; conserva relaciones y reencola agenda para Drive.';
