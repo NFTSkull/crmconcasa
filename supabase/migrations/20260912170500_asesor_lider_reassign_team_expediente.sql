@@ -1,5 +1,5 @@
 -- Reasignación segura de expediente dentro del mismo equipo activo.
--- Alcance efectivo actual: Silvia Reyes, al ser líder activa + create/integrate/team_dashboard.
+-- Alcance estricto: solo silvia.reyes@concasa.mx como líder activa + create/integrate/team_dashboard.
 -- No copia ni recrea expediente: conserva documentos, datos, citas, etapa e historial.
 -- Las proyecciones de agenda se actualizan y las citas activas se reencolan para Drive.
 
@@ -32,6 +32,7 @@ BEGIN
 
   IF NOT FOUND
      OR v_actor.app_role <> 'asesor'
+     OR lower(btrim(COALESCE(v_actor.email, ''))) <> 'silvia.reyes@concasa.mx'
      OR NOT public.profile_has_capability(v_actor_id, 'team_dashboard_read')
      OR NOT public.profile_has_capability(v_actor_id, 'create_for_any_advisor')
      OR NOT public.profile_has_capability(v_actor_id, 'integrate_for_any_advisor') THEN
@@ -130,6 +131,7 @@ BEGIN
 
   IF NOT FOUND
      OR v_actor.app_role <> 'asesor'
+     OR lower(btrim(COALESCE(v_actor.email, ''))) <> 'silvia.reyes@concasa.mx'
      OR NOT public.profile_has_capability(v_actor_id, 'team_dashboard_read')
      OR NOT public.profile_has_capability(v_actor_id, 'create_for_any_advisor')
      OR NOT public.profile_has_capability(v_actor_id, 'integrate_for_any_advisor') THEN
@@ -322,6 +324,6 @@ GRANT EXECUTE ON FUNCTION public.asesor_reassign_team_context(uuid) TO authentic
 GRANT EXECUTE ON FUNCTION public.asesor_reassign_team_expediente(uuid, uuid) TO authenticated;
 
 COMMENT ON FUNCTION public.asesor_reassign_team_context(uuid) IS
-  'Contexto de reasignación para líder integrador; targets limitados al mismo equipo activo y expediente activo.';
+  'Contexto de reasignación exclusivo de Silvia líder integradora; targets del mismo equipo activo y expediente activo.';
 COMMENT ON FUNCTION public.asesor_reassign_team_expediente(uuid, uuid) IS
-  'Reasigna un expediente activo dentro del equipo liderado por el actor; conserva relaciones y reencola agenda para Drive.';
+  'Reasigna un expediente activo del Equipo Silvia; conserva relaciones y reencola agenda para Drive.';
