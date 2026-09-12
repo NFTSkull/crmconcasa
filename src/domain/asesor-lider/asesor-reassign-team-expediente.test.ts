@@ -28,7 +28,7 @@ describe("reasignación de expediente Equipo Silvia", () => {
 
   it("el RPC exige Silvia, liderazgo y las tres capabilities sin borrar relaciones", () => {
     const sql = read(
-      "supabase/migrations/20260912170500_asesor_lider_reassign_team_expediente.sql",
+      "supabase/migrations/20260912174518_asesor_lider_reassign_team_expediente.sql",
     );
     assert.match(sql, /silvia\.reyes@concasa\.mx/);
     assert.match(sql, /t\.leader_id = v_actor_id/);
