@@ -9,35 +9,51 @@ function read(path: string): string {
   return readFileSync(join(ROOT, path), "utf8");
 }
 
-describe("reasignación de expediente Equipo Silvia", () => {
+describe("reasignación de expediente por delegados del equipo", () => {
   it("monta el control sin modificar la página grande del expediente", () => {
     const layout = read("src/app/asesor/expediente/[id]/layout.tsx");
     assert.match(layout, /AsesorReassignTeamExpedienteFloating/);
     assert.match(layout, /expedienteId/);
   });
 
-  it("la UI se limita al usuario de Silvia y confirma preservación", () => {
+  it("la UI delega autorización al backend y confirma preservación", () => {
     const component = read(
       "src/components/asesor/AsesorReassignTeamExpedienteFloating.tsx",
     );
-    assert.match(component, /silvia\.reyes@concasa\.mx/);
+    assert.doesNotMatch(component, /silvia\.reyes@concasa\.mx/);
+    assert.doesNotMatch(component, /useSessionRepo/);
     assert.match(component, /asesor_reassign_team_context/);
     assert.match(component, /asesor_reassign_team_expediente/);
     assert.match(component, /Se conservarán documentos, datos, etapa, citas e historial/);
+    assert.match(component, /auditada a nombre del\s+usuario que realiza el cambio/);
   });
 
-  it("el RPC exige Silvia, liderazgo y las tres capabilities sin borrar relaciones", () => {
+  it("el RPC exige create+integrate y equipo compartido sin abrir acceso global", () => {
     const sql = read(
-      "supabase/migrations/20260912174518_asesor_lider_reassign_team_expediente.sql",
+      "supabase/migrations/20260912180500_asesor_delegates_reassign_team_expediente.sql",
     );
-    assert.match(sql, /silvia\.reyes@concasa\.mx/);
-    assert.match(sql, /t\.leader_id = v_actor_id/);
-    assert.match(sql, /team_dashboard_read/);
+    assert.doesNotMatch(sql, /silvia\.reyes@concasa\.mx/);
+    assert.doesNotMatch(sql, /team_dashboard_read/);
+    assert.doesNotMatch(sql, /t\.leader_id = v_actor_id/);
     assert.match(sql, /create_for_any_advisor/);
     assert.match(sql, /integrate_for_any_advisor/);
-    assert.match(sql, /asesor_pertenece_equipo_activo\(v_team\.id, p_target_asesor_id\)/);
+    assert.match(
+      sql,
+      /asesor_pertenece_equipo_activo\(t\.id, v_actor_id\)/,
+    );
+    assert.match(
+      sql,
+      /asesor_pertenece_equipo_activo\(t\.id, v_exp\.asesor_id\)/,
+    );
+    assert.match(
+      sql,
+      /asesor_pertenece_equipo_activo\(v_team\.id, p_target_asesor_id\)/,
+    );
     assert.match(sql, /v_exp\.ciclo_estado IS DISTINCT FROM 'activo'/);
-    assert.match(sql, /UPDATE public\.expedientes\s+SET asesor_id = p_target_asesor_id/);
+    assert.match(
+      sql,
+      /UPDATE public\.expedientes\s+SET asesor_id = p_target_asesor_id/,
+    );
     assert.match(sql, /origen_mesa = v_new_origen/);
     assert.match(sql, /UPDATE public\.agenda_manual_occupancies/);
     assert.match(sql, /UPDATE public\.agenda_sheet_slot_inventory/);
