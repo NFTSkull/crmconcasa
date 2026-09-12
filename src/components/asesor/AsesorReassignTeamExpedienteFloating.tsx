@@ -2,7 +2,6 @@
 
 import { useEffect, useMemo, useState } from "react";
 
-import { useSessionRepo } from "@/domain/session";
 import { isSupabaseConfigured, supabaseBrowser } from "@/lib/supabaseBrowser";
 
 type TeamTarget = Readonly<{
@@ -27,7 +26,6 @@ function targetLabel(target: TeamTarget): string {
 export function AsesorReassignTeamExpedienteFloating({
   expedienteId,
 }: Readonly<{ expedienteId: string }>) {
-  const { currentUser } = useSessionRepo();
   const [ctx, setCtx] = useState<ReassignContext | null>(null);
   const [open, setOpen] = useState(false);
   const [targetId, setTargetId] = useState("");
@@ -35,12 +33,8 @@ export function AsesorReassignTeamExpedienteFloating({
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const isSilvia =
-    String(currentUser?.email ?? "").trim().toLowerCase() ===
-    "silvia.reyes@concasa.mx";
-
   useEffect(() => {
-    if (!isSilvia || !expedienteId || !isSupabaseConfigured() || !supabaseBrowser) {
+    if (!expedienteId || !isSupabaseConfigured() || !supabaseBrowser) {
       setCtx(null);
       return;
     }
@@ -67,7 +61,11 @@ export function AsesorReassignTeamExpedienteFloating({
       } catch (err) {
         if (!cancelled) {
           setCtx(null);
-          setError(err instanceof Error ? err.message : "No se pudo cargar la reasignación.");
+          setError(
+            err instanceof Error
+              ? err.message
+              : "No se pudo cargar la reasignación.",
+          );
         }
       } finally {
         if (!cancelled) setLoading(false);
@@ -77,14 +75,17 @@ export function AsesorReassignTeamExpedienteFloating({
     return () => {
       cancelled = true;
     };
-  }, [expedienteId, isSilvia]);
+  }, [expedienteId]);
 
   const targets = useMemo(
-    () => (ctx?.targets ?? []).filter((target) => target.id !== ctx?.current_owner?.id),
+    () =>
+      (ctx?.targets ?? []).filter(
+        (target) => target.id !== ctx?.current_owner?.id,
+      ),
     [ctx],
   );
 
-  if (!isSilvia || loading || !ctx?.can_reassign || targets.length === 0) {
+  if (loading || !ctx?.can_reassign || targets.length === 0) {
     return null;
   }
 
@@ -118,7 +119,9 @@ export function AsesorReassignTeamExpedienteFloating({
       if (!result?.ok) throw new Error("No se confirmó la reasignación.");
       window.location.reload();
     } catch (err) {
-      setError(err instanceof Error ? err.message : "No se pudo cambiar el asesor.");
+      setError(
+        err instanceof Error ? err.message : "No se pudo cambiar el asesor.",
+      );
       setSaving(false);
     }
   }
@@ -129,9 +132,12 @@ export function AsesorReassignTeamExpedienteFloating({
         <div className="w-[min(26rem,calc(100vw-2rem))] rounded-xl border border-indigo-200 bg-white p-4 shadow-2xl">
           <div className="mb-3 flex items-start justify-between gap-3">
             <div>
-              <p className="text-sm font-semibold text-gray-900">Cambiar asesor titular</p>
+              <p className="text-sm font-semibold text-gray-900">
+                Cambiar asesor titular
+              </p>
               <p className="mt-1 text-xs text-gray-600">
-                Equipo: {activeCtx.team_name || "Equipo Silvia"}. El expediente no se recrea y conserva toda su información.
+                Equipo: {activeCtx.team_name || "Equipo"}. El expediente no se
+                recrea y conserva toda su información.
               </p>
             </div>
             <button
@@ -147,11 +153,16 @@ export function AsesorReassignTeamExpedienteFloating({
           <div className="mb-3 rounded-md bg-gray-50 px-3 py-2 text-xs text-gray-700">
             Titular actual:{" "}
             <strong>
-              {activeCtx.current_owner ? targetLabel(activeCtx.current_owner) : "—"}
+              {activeCtx.current_owner
+                ? targetLabel(activeCtx.current_owner)
+                : "—"}
             </strong>
           </div>
 
-          <label className="block text-xs font-medium text-gray-700" htmlFor="team-reassign-target">
+          <label
+            className="block text-xs font-medium text-gray-700"
+            htmlFor="team-reassign-target"
+          >
             Nuevo asesor titular
           </label>
           <select
@@ -170,11 +181,16 @@ export function AsesorReassignTeamExpedienteFloating({
           </select>
 
           <p className="mt-2 text-[11px] leading-relaxed text-gray-500">
-            Se conservan documentos, Datos Generales, precalificación, etapa, citas e historial. La reasignación queda auditada a nombre de Silvia.
+            Se conservan documentos, Datos Generales, precalificación, etapa,
+            citas e historial. La reasignación queda auditada a nombre del
+            usuario que realiza el cambio.
           </p>
 
           {error ? (
-            <p role="alert" className="mt-2 rounded-md bg-red-50 px-3 py-2 text-xs text-red-700">
+            <p
+              role="alert"
+              className="mt-2 rounded-md bg-red-50 px-3 py-2 text-xs text-red-700"
+            >
               {error}
             </p>
           ) : null}
