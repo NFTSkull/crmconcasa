@@ -88,12 +88,16 @@ export function AsesorReassignTeamExpedienteFloating({
     return null;
   }
 
+  const activeCtx = ctx;
+
   async function handleReassign() {
     if (!targetId || !supabaseBrowser) return;
     const target = targets.find((item) => item.id === targetId);
     if (!target) return;
 
-    const currentLabel = ctx.current_owner ? targetLabel(ctx.current_owner) : "el asesor actual";
+    const currentLabel = activeCtx.current_owner
+      ? targetLabel(activeCtx.current_owner)
+      : "el asesor actual";
     const confirmed = window.confirm(
       `¿Cambiar el titular de este expediente de ${currentLabel} a ${targetLabel(target)}?\n\nSe conservarán documentos, datos, etapa, citas e historial.`,
     );
@@ -127,7 +131,7 @@ export function AsesorReassignTeamExpedienteFloating({
             <div>
               <p className="text-sm font-semibold text-gray-900">Cambiar asesor titular</p>
               <p className="mt-1 text-xs text-gray-600">
-                Equipo: {ctx.team_name || "Equipo Silvia"}. El expediente no se recrea y conserva toda su información.
+                Equipo: {activeCtx.team_name || "Equipo Silvia"}. El expediente no se recrea y conserva toda su información.
               </p>
             </div>
             <button
@@ -141,7 +145,10 @@ export function AsesorReassignTeamExpedienteFloating({
           </div>
 
           <div className="mb-3 rounded-md bg-gray-50 px-3 py-2 text-xs text-gray-700">
-            Titular actual: <strong>{ctx.current_owner ? targetLabel(ctx.current_owner) : "—"}</strong>
+            Titular actual:{" "}
+            <strong>
+              {activeCtx.current_owner ? targetLabel(activeCtx.current_owner) : "—"}
+            </strong>
           </div>
 
           <label className="block text-xs font-medium text-gray-700" htmlFor="team-reassign-target">
