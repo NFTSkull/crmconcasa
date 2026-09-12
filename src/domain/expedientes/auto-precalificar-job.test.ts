@@ -276,7 +276,7 @@ describe("runAutoPrecalificarJob", () => {
     assert.equal(rpcCalls[1]?.fn, "auto_fill_nombre_infonavit");
   });
 
-  it("scraper_busy: no llama scraper y deja intento reintentable", async () => {
+  it("scraper_busy: no llama scraper ni escribe intento", async () => {
     let fetchCalls = 0;
     const inserts: Record<string, unknown>[] = [];
     globalThis.fetch = (async () => {
@@ -315,13 +315,7 @@ describe("runAutoPrecalificarJob", () => {
       razon: AUTO_PRECAL_SCRAPER_BUSY_REASON,
     });
     assert.equal(fetchCalls, 0);
-    assert.deepEqual(inserts, [
-      {
-        expediente_id: "77777777-7777-4777-8777-777777777777",
-        resultado: "pending_error",
-        razon: AUTO_PRECAL_SCRAPER_BUSY_REASON,
-      },
-    ]);
+    assert.deepEqual(inserts, []);
   });
 
   it("claim_failed: no llama scraper si el lease job_started falla", async () => {

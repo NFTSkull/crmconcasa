@@ -1,7 +1,9 @@
 /**
  * Selección pura de candidatos a reintento auto-precal (sin I/O).
  * - Fallos técnicos (scraper_failed | infonavit_system_error | scraper_busy) con cooldown base 5 min.
- * - Rachas de scraper_failed: cooldown 5 → 15 → 30 → 60 min (no martillar el mismo caso).
+ * - Rachas de scraper_failed: cooldown 5 → 15 → 30 → 60 min (no martillar casos normales).
+ * - Prioridad explícita: cooldown técnico corto de 4 min; el lease global sigue serializando Railway.
+ * - `job_started` reciente conserva el bloqueo base de 5 min para no reintentar un job in-flight.
  * - Pendientes con **cero** filas en auto_precal_intentos si decision.created_at ≥ 10 min.
  * - Nunca ambiguous_payload / invalid_saldo / etc. por sí solos.
  * Sin tope de intentos totales (ilimitado mientras siga pendiente + razón reintentable).
@@ -12,6 +14,8 @@ import { AUTO_PRECAL_SCRAPER_BUSY_REASON } from "./auto-precal-scraper-lease";
 import { REASON_INFONAVIT_SYSTEM_ERROR } from "./auto-precalificar-decision";
 
 export const AUTO_PRECAL_RETRY_MIN_AGE_MS = 5 * 60 * 1000;
+/** Prioritarios: reintento rápido; el lease global impide solapar navegaciones. */
+export const AUTO_PRECAL_PRIORITY_RETRY_MIN_AGE_MS = 4 * 60 * 1000;
 /** Red de seguridad: pendiente sin ningún intento auto-precal. */
 export const AUTO_PRECAL_ZERO_ATTEMPT_MIN_AGE_MS = 10 * 60 * 1000;
 /** 1 candidato/tick: evita 2×timeout vs maxDuration 300 y libera slots del backlog. */
@@ -111,7 +115,7 @@ export type RetryCandidateInput = {
   pendingSinceById?: Record<string, string>;
   /**
    * Expedientes de asesores con capability auto_precal_retry_priority.
-   * Solo afecta ORDEN entre ya elegibles (no salta edad/backoff).
+   * Ganan el orden y usan cooldown técnico corto de 4 min salvo lease in-flight.
    */
   priorityExpedienteIds?: string[];
   nowMs?: number;
@@ -122,7 +126,10 @@ export type RetryCandidateInput = {
 
 /**
  * Filtra candidatos:
- * - al menos un intento pending_error + razón reintentable; cooldown según racha scraper_failed
+ * - al menos un intento pending_error + razón reintentable
+ * - normales: cooldown según racha scraper_failed
+ * - prioritarios: cooldown técnico fijo de 4 min
+ * - `job_started` más reciente: conserva bloqueo base de 5 min
  * - o 0 intentos y pending_since ≥ zeroAttemptMinAgeMs (10)
  * - orden: prioritarios primero; dentro de cada grupo, ancla más antigua primero
  * - limit (default 1)
@@ -159,14 +166,22 @@ export function selectAutoPrecalRetryCandidates(
     if (!hasRetryable) continue;
 
     let lastMs = 0;
+    let lastRow: AutoPrecalIntentoRow | null = null;
     for (const r of rows) {
       const t = Date.parse(r.intentado_en);
-      if (Number.isFinite(t) && t > lastMs) lastMs = t;
+      if (Number.isFinite(t) && t > lastMs) {
+        lastMs = t;
+        lastRow = r;
+      }
     }
-    if (lastMs === 0) continue;
+    if (lastMs === 0 || !lastRow) continue;
 
     const streak = consecutiveScraperFailedStreak(rows);
-    const requiredAgeMs = cooldownMsForScraperFailedStreak(streak, minAgeMs);
+    const requiredAgeMs = isAutoPrecalJobStartedRow(lastRow)
+      ? minAgeMs
+      : priority.has(id)
+        ? AUTO_PRECAL_PRIORITY_RETRY_MIN_AGE_MS
+        : cooldownMsForScraperFailedStreak(streak, minAgeMs);
     if (nowMs - lastMs < requiredAgeMs) continue;
 
     scored.push({ id, lastMs });
