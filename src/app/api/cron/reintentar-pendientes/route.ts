@@ -58,13 +58,18 @@ async function handleRetryPendientes(request: Request): Promise<NextResponse> {
 
   const supabase = serviceClient();
 
+  // Solo son reintentables los pendientes que todavía pueden ser modificados por
+  // auto_upsert_editor_decision. Los ya enviados a Mesa o fuera de ciclo activo
+  // no pueden aceptar la decisión automática y antes desperdiciaban turnos del scraper.
   const { data: pendingRows, error: pendingErr } = await supabase
     .from("editor_decisions")
     .select(
-      "expediente_id, created_at, expedientes!inner(id, nss, programa, deleted_at, asesor_id)",
+      "expediente_id, created_at, expedientes!inner(id, nss, programa, deleted_at, asesor_id, ciclo_estado, submitted_to_mesa)",
     )
     .eq("decision", "pendiente")
-    .is("expedientes.deleted_at", null);
+    .is("expedientes.deleted_at", null)
+    .eq("expedientes.ciclo_estado", "activo")
+    .eq("expedientes.submitted_to_mesa", false);
 
   if (pendingErr) {
     console.error("[cron/reintentar-pendientes] pending query", pendingErr.message);
@@ -84,6 +89,8 @@ async function handleRetryPendientes(request: Request): Promise<NextResponse> {
           programa: string | null;
           deleted_at: string | null;
           asesor_id: string | null;
+          ciclo_estado: string | null;
+          submitted_to_mesa: boolean | null;
         }
       | {
           id: string;
@@ -91,6 +98,8 @@ async function handleRetryPendientes(request: Request): Promise<NextResponse> {
           programa: string | null;
           deleted_at: string | null;
           asesor_id: string | null;
+          ciclo_estado: string | null;
+          submitted_to_mesa: boolean | null;
         }[]
       | null;
   };
@@ -157,6 +166,65 @@ async function handleRetryPendientes(request: Request): Promise<NextResponse> {
     if (chunk.length < INTENTOS_PAGE) break;
   }
 
+  // Señal global de recuperación del scraper: si después del último
+  // scraper_failed de un expediente ya hubo cualquier resultado válido real de
+  // Infonavit (aprobado/no_cumple), no conservamos el backoff largo de la caída
+  // anterior. Se agrega únicamente una fila sintética EN MEMORIA con la misma
+  // ancla temporal para que ese caso vuelva al cooldown base de 5 min. No se
+  // modifica ni borra historial en Supabase.
+  let lastScraperRecoveryMs = 0;
+  const { data: recoveryRows, error: recoveryErr } = await supabase
+    .from("auto_precal_intentos")
+    .select("intentado_en")
+    .in("resultado", ["aprobado", "no_cumple"])
+    .order("intentado_en", { ascending: false })
+    .limit(1);
+  if (recoveryErr) {
+    console.error(
+      "[cron/reintentar-pendientes] recovery query",
+      recoveryErr.message,
+    );
+  } else {
+    const recoveryRaw = String(
+      (recoveryRows?.[0] as { intentado_en?: string } | undefined)?.intentado_en ?? "",
+    );
+    const parsed = Date.parse(recoveryRaw);
+    if (Number.isFinite(parsed)) lastScraperRecoveryMs = parsed;
+  }
+
+  const latestAttemptByExp = new Map<string, AutoPrecalIntentoRow>();
+  for (const row of intentos) {
+    const current = latestAttemptByExp.get(row.expediente_id);
+    if (
+      !current ||
+      Date.parse(row.intentado_en) > Date.parse(current.intentado_en)
+    ) {
+      latestAttemptByExp.set(row.expediente_id, row);
+    }
+  }
+
+  const intentosForSelection = [...intentos];
+  let recoveredFailuresReset = 0;
+  if (lastScraperRecoveryMs > 0) {
+    for (const [expedienteId, lastRow] of latestAttemptByExp) {
+      const lastMs = Date.parse(lastRow.intentado_en);
+      if (
+        lastRow.resultado === "pending_error" &&
+        lastRow.razon === "scraper_failed" &&
+        Number.isFinite(lastMs) &&
+        lastScraperRecoveryMs > lastMs
+      ) {
+        intentosForSelection.push({
+          expediente_id: expedienteId,
+          intentado_en: new Date(lastMs + 1).toISOString(),
+          resultado: "pending_error",
+          razon: "scraper_busy",
+        });
+        recoveredFailuresReset += 1;
+      }
+    }
+  }
+
   const asesorIds = [...new Set(asesorIdByExp.values())];
   const priorityAsesorIds = new Set<string>();
   if (asesorIds.length > 0) {
@@ -189,14 +257,14 @@ async function handleRetryPendientes(request: Request): Promise<NextResponse> {
 
   const candidateIds = selectAutoPrecalRetryCandidates({
     pendingExpedienteIds: pendingIds,
-    intentos,
+    intentos: intentosForSelection,
     pendingSinceById,
     priorityExpedienteIds,
     limit: AUTO_PRECAL_RETRY_LIMIT,
   });
 
   console.log(
-    `[cron/reintentar-pendientes] candidates=${candidateIds.length} pending=${pendingIds.length} priority=${priorityExpedienteIds.length}`,
+    `[cron/reintentar-pendientes] candidates=${candidateIds.length} pending=${pendingIds.length} priority=${priorityExpedienteIds.length} recovered_reset=${recoveredFailuresReset}`,
   );
 
   const results: {
