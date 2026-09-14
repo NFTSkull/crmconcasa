@@ -4,7 +4,7 @@
  * - Rachas de scraper_failed: cooldown 5 → 15 → 30 → 60 min (no martillar casos normales).
  * - Prioridad explícita: cooldown técnico corto de 4 min; el lease global sigue serializando Railway.
  * - `job_started` reciente conserva el bloqueo base de 5 min para no reintentar un job in-flight.
- * - Pendientes con **cero** filas en auto_precal_intentos si decision.created_at ≥ 10 min.
+ * - Pendientes con **cero** filas en auto_precal_intentos: normales a los 10 min; prioritarios a los 2 min.
  * - Nunca ambiguous_payload / invalid_saldo / etc. por sí solos.
  * Sin tope de intentos totales (ilimitado mientras siga pendiente + razón reintentable).
  * Batch: 1 candidato/tick (cabe en maxDuration 300 con SCRAPER_TIMEOUT 150s).
@@ -16,8 +16,10 @@ import { REASON_INFONAVIT_SYSTEM_ERROR } from "./auto-precalificar-decision";
 export const AUTO_PRECAL_RETRY_MIN_AGE_MS = 5 * 60 * 1000;
 /** Prioritarios: reintento rápido; el lease global impide solapar navegaciones. */
 export const AUTO_PRECAL_PRIORITY_RETRY_MIN_AGE_MS = 4 * 60 * 1000;
-/** Red de seguridad: pendiente sin ningún intento auto-precal. */
+/** Red de seguridad normal: pendiente sin ningún intento auto-precal. */
 export const AUTO_PRECAL_ZERO_ATTEMPT_MIN_AGE_MS = 10 * 60 * 1000;
+/** Prioritarios: rescata rápido un cero-intentos sin quitar el lease global. */
+export const AUTO_PRECAL_PRIORITY_ZERO_ATTEMPT_MIN_AGE_MS = 2 * 60 * 1000;
 /** 1 candidato/tick: evita 2×timeout vs maxDuration 300 y libera slots del backlog. */
 export const AUTO_PRECAL_RETRY_LIMIT = 1;
 
@@ -116,6 +118,7 @@ export type RetryCandidateInput = {
   /**
    * Expedientes de asesores con capability auto_precal_retry_priority.
    * Ganan el orden y usan cooldown técnico corto de 4 min salvo lease in-flight.
+   * Si no tienen ningún intento, entran al rescate a los 2 min.
    */
   priorityExpedienteIds?: string[];
   nowMs?: number;
@@ -130,7 +133,7 @@ export type RetryCandidateInput = {
  * - normales: cooldown según racha scraper_failed
  * - prioritarios: cooldown técnico fijo de 4 min
  * - `job_started` más reciente: conserva bloqueo base de 5 min
- * - o 0 intentos y pending_since ≥ zeroAttemptMinAgeMs (10)
+ * - 0 intentos: normales ≥10 min; prioritarios ≥2 min
  * - orden: prioritarios primero; dentro de cada grupo, ancla más antigua primero
  * - limit (default 1)
  */
@@ -206,7 +209,10 @@ export function selectAutoPrecalRetryCandidates(
     if (!sinceRaw) continue;
     const sinceMs = Date.parse(sinceRaw);
     if (!Number.isFinite(sinceMs)) continue;
-    if (nowMs - sinceMs < zeroAttemptMinAgeMs) continue;
+    const requiredZeroAttemptAgeMs = priority.has(id)
+      ? AUTO_PRECAL_PRIORITY_ZERO_ATTEMPT_MIN_AGE_MS
+      : zeroAttemptMinAgeMs;
+    if (nowMs - sinceMs < requiredZeroAttemptAgeMs) continue;
     scored.push({ id, lastMs: sinceMs });
   }
 
