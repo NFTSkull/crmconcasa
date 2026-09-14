@@ -6,8 +6,7 @@ import { isSupabaseConfigured, supabaseBrowser } from "@/lib/supabaseBrowser";
 import { INTEGRATION_DOC_TIPOS_ASESOR_ENVIO } from "./integration-docs-completos";
 
 /**
- * Paquete externo de equipos Silvia/Orlando:
- * 8 docs, sin INE reverso, con CURP (`cliente_constancia_curp`).
+ * Paquete externo genérico (p.ej. Orlando): contrato preexistente, intacto.
  */
 export const INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_EXTERNOS = [
   "cliente_ine_frente",
@@ -21,7 +20,26 @@ export const INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_EXTERNOS = [
 ] as const;
 
 /**
- * Anette externa independiente: mismos documentos base, pero Presupuesto es opcional.
+ * Equipo Silvia (líder + miembros):
+ * - INE frente y reverso
+ * - Comprobante de domicilio
+ * - Acta de nacimiento digital
+ * - Semanas cotizadas O Vigencia de derechos (el slot técnico es semanas;
+ *   vigencia lo satisface por equivalencia en dominio/SQL).
+ *
+ * Estado de cuenta queda opcional y por eso NO aparece en este set.
+ */
+export const INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_SILVIA = [
+  "cliente_ine_frente",
+  "cliente_ine_reverso",
+  "cliente_comprobante_domicilio",
+  "cliente_acta_nacimiento_digital",
+  "cliente_semanas_cotizadas",
+] as const;
+
+/**
+ * Anette externa independiente: mismos documentos preexistentes; Presupuesto opcional.
+ * NO modificar al cambiar Equipo Silvia.
  */
 export const INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_ANETTE = [
   "cliente_ine_frente",
@@ -46,14 +64,18 @@ export const INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_EXTERNOS_LEGACY_7 = [
 
 export type IntegrationDocAsesorEnvioExternoTipo =
   (typeof INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_EXTERNOS)[number];
+export type IntegrationDocAsesorEnvioSilviaTipo =
+  (typeof INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_SILVIA)[number];
 
 export type IntegrationDocAsesorEnvioObligatorioTipo =
   | (typeof INTEGRATION_DOC_TIPOS_ASESOR_ENVIO)[number]
-  | IntegrationDocAsesorEnvioExternoTipo;
+  | IntegrationDocAsesorEnvioExternoTipo
+  | IntegrationDocAsesorEnvioSilviaTipo;
 
 const KNOWN = new Set<string>([
   ...INTEGRATION_DOC_TIPOS_ASESOR_ENVIO,
   ...INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_EXTERNOS,
+  ...INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_SILVIA,
 ]);
 
 function copyClasicos(): IntegrationDocAsesorEnvioObligatorioTipo[] {
@@ -75,7 +97,7 @@ function sameExactSet(
 }
 
 /**
- * Acepta ÚNICAMENTE set exacto 4 clásicos, 8 externos, 7 Anette o legacy 7 externo.
+ * Acepta ÚNICAMENTE los sets contractuales conocidos.
  * Basura / parcial → 4 clásicos.
  */
 export function parseAsesorDocumentosObligatoriosEnvio(
@@ -101,6 +123,9 @@ export function tryParseAsesorDocumentosObligatoriosEnvio(
     tipos.push(t);
   }
 
+  if (sameExactSet(tipos, INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_SILVIA)) {
+    return [...INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_SILVIA];
+  }
   if (sameExactSet(tipos, INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_EXTERNOS)) {
     return [...INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_EXTERNOS];
   }
