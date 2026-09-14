@@ -1,6 +1,6 @@
 /**
  * Presupuesto de Mejoramiento — DOCX nativo editable.
- * Monto = mismo print model que el PDF (Monto Mejoravit).
+ * v3: presupuesto estimado y fecha inferior quedan vacíos para captura/firma manual.
  */
 
 import { Document, Packer, type FileChild } from "docx";
@@ -32,9 +32,9 @@ export async function buildPresupuestoDocx(
       : [editableValue("", { size: 20 })]),
     spacer(),
     sectionTitle("PRESUPUESTO ESTIMADO"),
-    labeledField("Monto Mejoravit ($)", model.montoMejoravit),
+    labeledField("Monto ($)", ""),
     spacer(),
-    labeledField("Fecha", model.presupuestoFecha),
+    labeledField("Fecha", ""),
     blankLine("Firma de la persona Derechohabiente"),
   ];
 
