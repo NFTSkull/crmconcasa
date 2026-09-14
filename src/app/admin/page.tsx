@@ -243,14 +243,20 @@ export default function AdminDashboardPage() {
     };
   }, [bounds, asesorId, etapaActual, estado, buscarDebounced, precalDecision]);
 
-  const snapshotFiltersBase = useMemo(
-    () => ({
+  // Desglose del periodo: respeta periodo/asesor/estado/búsqueda, pero no
+  // la etapa activa, porque el cuadro debe mostrar siempre todas las etapas.
+  const periodStageFiltersBase = useMemo(() => {
+    if (!bounds) return null;
+    return {
+      bounds,
       asesorId: asesorId || null,
+      etapaActual: null as number | null,
+      etapaActuales: null as number[] | null,
       estado,
       buscar: buscarDebounced || null,
-    }),
-    [asesorId, estado, buscarDebounced],
-  );
+      precalDecision,
+    };
+  }, [bounds, asesorId, estado, buscarDebounced, precalDecision]);
 
   const mesaListFilters = useMemo(() => {
     if (!filtersBase) return null;
@@ -295,22 +301,9 @@ export default function AdminDashboardPage() {
     () => projectAdminVisibleStageBuckets(byEtapa, snapshotTotal),
     [byEtapa, snapshotTotal],
   );
-  const visibleByEtapa = useMemo(
-    () =>
-      etapaFiltroActiva
-        ? allVisibleByEtapa.filter((b) =>
-            isAdminPasoVisualFilterPressed(etapaActual, b.etapa),
-          )
-        : allVisibleByEtapa,
-    [allVisibleByEtapa, etapaActual, etapaFiltroActiva],
-  );
-  const visibleSnapshotTotal = useMemo(
-    () =>
-      etapaFiltroActiva
-        ? visibleByEtapa.reduce((sum, b) => sum + b.count, 0)
-        : snapshotTotal,
-    [etapaFiltroActiva, visibleByEtapa, snapshotTotal],
-  );
+  // La etapa seleccionada solo se resalta; jamás oculta las demás tarjetas.
+  const visibleByEtapa = allVisibleByEtapa;
+  const visibleSnapshotTotal = snapshotTotal;
 
   const clearExpandedProduction = useCallback(() => {
     expandedProductionGenRef.current += 1;
@@ -567,21 +560,28 @@ export default function AdminDashboardPage() {
   }, [filtersBase, precalPage, repo]);
 
   const loadSnapshot = useCallback(async () => {
+    if (!periodStageFiltersBase) {
+      setSnapshotError("Rango de fechas inválido");
+      setSnapshotLoading(false);
+      setByEtapa([]);
+      setSnapshotTotal(0);
+      return;
+    }
     setSnapshotLoading(true);
     setSnapshotError(null);
     try {
-      const snap = await repo.getExpedientesSnapshotEtapas(snapshotFiltersBase);
-      setByEtapa(snap.byEtapa);
-      setSnapshotTotal(snap.totalActual);
-      setSnapshotGeneratedAt(snap.generatedAt);
+      const cohort = await repo.getMesaCohortByEtapa(periodStageFiltersBase);
+      setByEtapa(cohort.byEtapa);
+      setSnapshotTotal(cohort.total);
+      setSnapshotGeneratedAt(new Date().toISOString());
     } catch (e) {
       setSnapshotError(
-        e instanceof Error ? e.message : "No fue posible cargar el estado actual",
+        e instanceof Error ? e.message : "No fue posible cargar las etapas del periodo",
       );
     } finally {
       setSnapshotLoading(false);
     }
-  }, [repo, snapshotFiltersBase]);
+  }, [repo, periodStageFiltersBase]);
 
   const loadExpedientesPeriodo = useCallback(async () => {
     if (!mesaListFilters) {
@@ -681,14 +681,14 @@ export default function AdminDashboardPage() {
   };
 
   const onEtapaCardPress = (etapa: number) => {
-    const next = nextPasoVisualFilterFromInternalCard(etapaActual, etapa);
+    // Drill-down estable: si la etapa ya estaba activa, el click vuelve a abrirla
+    // en vez de convertir el filtro a “Todas”. El periodo permanece intacto.
+    const next = nextPasoVisualFilterFromInternalCard("todas", etapa);
     setEtapaActual(next);
     setMesaPage(mesaPageAfterEtapaChange());
     setPrecalPage(1);
-    if (next !== "todas") {
-      handleTabChange("expedientes");
-      requestAnimationFrame(() => focusMesaExpedientes());
-    }
+    handleTabChange("expedientes");
+    requestAnimationFrame(() => focusMesaExpedientes());
   };
 
   const applyAsesorFilter = (id: string) => {
@@ -844,8 +844,8 @@ export default function AdminDashboardPage() {
                     precalificaciones y Excel.
                   </p>
                   <p className="mt-2">
-                    El estado actual por etapas del Resumen es un corte de todos los
-                    expedientes vigentes y no depende del periodo.
+                    El desglose por etapas del Resumen usa el mismo periodo seleccionado
+                    y siempre muestra todas las etapas. La etapa activa solo se resalta.
                   </p>
                   <p className="mt-2 text-slate-600">
                     Asesor, etapa actual y estado se aplican al mismo universo de
@@ -1065,35 +1065,23 @@ export default function AdminDashboardPage() {
 
             <section className="rounded-lg border border-slate-200 bg-white p-4">
               <AdminSectionHeader
-                title={
-                  etapaFiltroNombreCorto
-                    ? `Estado actual · ${etapaFiltroNombreCorto}`
-                    : "Estado actual de los expedientes enviados a Mesa"
-                }
-                description={
-                  etapaFiltroNombreCorto
-                    ? `Corte actual de expedientes vigentes en ${etapaFiltroNombreCorto}. No depende del periodo seleccionado.`
-                    : "Corte actual de los expedientes vigentes que ya ingresaron al flujo de Mesa. No depende del periodo seleccionado. Pulsa una etapa para abrir sus expedientes en la pestaña Expedientes."
-                }
+                title="Etapas del periodo"
+                description={`Todos los expedientes enviados a Mesa en ${periodoLabel}, agrupados por su etapa actual. La etapa activa solo se resalta; no oculta las demás. Pulsa cualquier etapa para ver sus expedientes con este mismo periodo.`}
               />
               {snapshotLoading && byEtapa.length === 0 ? (
                 <p className="mt-3 text-sm text-gray-700">
-                  Calculando estado actual de los expedientes…
+                  Calculando expedientes del periodo por etapa…
                 </p>
               ) : snapshotError ? (
                 <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-red-700">
-                  <span>No fue posible cargar el estado actual. Reintentar.</span>
+                  <span>No fue posible cargar las etapas del periodo. Reintentar.</span>
                   <Button type="button" variant="secondary" onClick={() => void loadSnapshot()}>
                     Reintentar
                   </Button>
                 </div>
               ) : visibleSnapshotTotal === 0 ? (
                 <AdminEmptyState
-                  title={
-                    etapaFiltroNombreCorto
-                      ? `No hay expedientes vigentes en ${etapaFiltroNombreCorto} con estos filtros.`
-                      : "No hay expedientes con estos filtros."
-                  }
+                  title="No hay expedientes enviados a Mesa en el periodo seleccionado."
                   description="Prueba limpiar o cambiar los filtros."
                   onClearFilters={clearFilters}
                 />
@@ -1101,10 +1089,13 @@ export default function AdminDashboardPage() {
                 <>
                   <div className="mt-3 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm text-slate-800">
                     <p>
-                      {etapaFiltroNombreCorto ? "Total en etapa:" : "Total actual:"}{" "}
+                      Total del periodo:{" "}
                       <strong className="font-semibold tabular-nums">
                         {visibleSnapshotTotal} expediente{visibleSnapshotTotal === 1 ? "" : "s"}
                       </strong>
+                    </p>
+                    <p className="text-xs text-gray-700">
+                      Periodo: <strong className="font-medium text-slate-800">{periodoLabel}</strong>
                     </p>
                     {snapshotGeneratedAt ? (
                       <p className="text-xs text-gray-700">
@@ -1152,9 +1143,7 @@ export default function AdminDashboardPage() {
                           <p className="text-xs text-gray-700">
                             {b.count === 0
                               ? "0 expedientes"
-                              : `${b.count} expediente${b.count === 1 ? "" : "s"}${
-                                  etapaFiltroActiva ? "" : ` · ${b.pct}%`
-                                }`}
+                              : `${b.count} expediente${b.count === 1 ? "" : "s"} · ${b.pct}%`}
                           </p>
                         </button>
                       );
@@ -1205,7 +1194,8 @@ export default function AdminDashboardPage() {
                 <div className="mt-3 flex flex-wrap items-center gap-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800">
                   <span>
                     Mostrando expedientes en:{" "}
-                    <strong className="font-semibold">{etapaFiltroNombre}</strong>
+                    <strong className="font-semibold">{etapaFiltroNombre}</strong>{" "}
+                    · Periodo: <strong className="font-semibold tabular-nums">{periodoLabel}</strong>
                   </span>
                   <Button type="button" variant="secondary" onClick={clearEtapaFilter}>
                     Quitar filtro de etapa

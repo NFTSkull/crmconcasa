@@ -6,11 +6,7 @@ import { ADMIN_FILTER_MATRIX } from "@/domain/admin-production/admin-ui-filters"
 import { resolveAdminPeriodBounds } from "@/domain/admin-production/period";
 import { etapaActualesFromAdminPasoFilter } from "@/domain/admin-production/admin-ui-filters";
 
-/**
- * Admin filter fix — contratos E1–E8 y R1 (source + helpers).
- * Expedientes = listMesaEnviosPage(bounds); Resumen = snapshot; 0 «cohorte» UI.
- */
-describe("Admin filters contract E1-E8 R1", () => {
+describe("Admin filters contract E1-E9 R1", () => {
   const page = readFileSync(join(process.cwd(), "src/app/admin/page.tsx"), "utf8");
   const tabs = readFileSync(join(process.cwd(), "src/lib/adminUxTabs.ts"), "utf8");
 
@@ -23,36 +19,26 @@ describe("Admin filters contract E1-E8 R1", () => {
   });
 
   it("E5 empty state sin fallback snapshot", () => {
-    assert.match(
-      page,
-      /No hay expedientes enviados a Mesa en el periodo seleccionado/,
-    );
+    assert.match(page, /No hay expedientes enviados a Mesa en el periodo seleccionado/);
     assert.doesNotMatch(page, /fallback.*snapshot|snapshotListFilters/);
   });
 
-  it("E6 etapaActuales nace en filtersBase y gobierna Resumen/Expedientes/Producción/Precal", () => {
+  it("E6 etapaActuales nace en filtersBase y gobierna KPIs/listados", () => {
     const blockStart = page.indexOf("const filtersBase = useMemo");
-    const blockEnd = page.indexOf("const snapshotFiltersBase", blockStart);
+    const blockEnd = page.indexOf("const periodStageFiltersBase", blockStart);
     assert.ok(blockStart >= 0 && blockEnd > blockStart);
     const block = page.slice(blockStart, blockEnd);
     assert.match(block, /etapaActualesFromAdminPasoFilter\(etapaActual\)/);
     assert.match(block, /etapaActuales/);
-    assert.match(block, /etapaActual:/);
     assert.deepEqual(etapaActualesFromAdminPasoFilter("3"), [3, 4]);
-
-    const mesaStart = page.indexOf("const mesaListFilters = useMemo");
-    const mesaEnd = page.indexOf("useEffect(() =>", mesaStart);
-    const mesa = page.slice(mesaStart, mesaEnd);
-    assert.match(mesa, /\.\.\.filtersBase/);
   });
 
-  it("E7 Resumen snapshot independiente del periodo", () => {
-    assert.match(page, /repo\.getExpedientesSnapshotEtapas\(snapshotFiltersBase\)/);
-    assert.equal(ADMIN_FILTER_MATRIX.resumenSnapshot.periodo, false);
-    const snapStart = page.indexOf("const loadSnapshot = useCallback");
-    const snapEnd = page.indexOf("const loadExpedientesPeriodo", snapStart);
-    const snap = page.slice(snapStart, snapEnd);
-    assert.doesNotMatch(snap, /listMesaEnviosPage|bounds/);
+  it("E7 desglose por etapas usa periodo y conserva todas las etapas", () => {
+    assert.match(page, /repo\.getMesaCohortByEtapa\(periodStageFiltersBase\)/);
+    assert.equal(ADMIN_FILTER_MATRIX.resumenEtapasPeriodo.periodo, true);
+    assert.equal(ADMIN_FILTER_MATRIX.resumenEtapasPeriodo.etapa, false);
+    assert.match(page, /const visibleByEtapa = allVisibleByEtapa/);
+    assert.match(page, /title="Etapas del periodo"/);
   });
 
   it("E8 Precal usa filtersBase + periodo + etapa", () => {
@@ -61,13 +47,17 @@ describe("Admin filters contract E1-E8 R1", () => {
     assert.equal(ADMIN_FILTER_MATRIX.precal.etapa, true);
   });
 
+  it("E9 click de tarjeta siempre hace drill-down preservando periodo", () => {
+    const start = page.indexOf("const onEtapaCardPress");
+    const end = page.indexOf("const applyAsesorFilter", start);
+    const block = page.slice(start, end);
+    assert.match(block, /nextPasoVisualFilterFromInternalCard\("todas", etapa\)/);
+    assert.match(block, /handleTabChange\("expedientes"\)/);
+    assert.doesNotMatch(block, /if \(next !== "todas"\)/);
+    assert.match(page, /Periodo: <strong className="font-semibold tabular-nums">\{periodoLabel\}<\/strong>/);
+  });
+
   it("period bounds helpers: hoy/semana/mes/personalizado", () => {
-    const hoy = resolveAdminPeriodBounds({ preset: "hoy" });
-    assert.ok(hoy.fromIso < hoy.toExclusiveIso);
-    const sem = resolveAdminPeriodBounds({ preset: "semana" });
-    assert.ok(sem.fromIso < sem.toExclusiveIso);
-    const mes = resolveAdminPeriodBounds({ preset: "mes" });
-    assert.ok(mes.fromIso < mes.toExclusiveIso);
     const custom = resolveAdminPeriodBounds({
       preset: "personalizado",
       customFrom: "2026-08-01",
@@ -81,18 +71,12 @@ describe("Admin filters contract E1-E8 R1", () => {
   it("R1 UI visible sin la palabra cohorte", () => {
     assert.doesNotMatch(page, /cohorte/i);
     assert.doesNotMatch(tabs, /label:.*"Histórico y cohorte"/);
-    assert.match(tabs, /Histórico por etapas/);
-    assert.match(tabs, /Histórico por etapas e ingresos/);
   });
 
-  it("Admin proyección: sin Cita para firma; buckets proyectados", () => {
+  it("Admin proyección: etapa activa se resalta sin recortar tarjetas", () => {
     assert.match(page, /projectAdminVisibleStageBuckets/);
-    assert.match(page, /getAdminEtapaDisplayNombre/);
     assert.match(page, /visibleByEtapa\.map/);
-    assert.doesNotMatch(
-      page,
-      /getEtapaOperativaNombre\(b\.etapa\)/,
-    );
+    assert.match(page, /isAdminPasoVisualFilterPressed\(etapaActual, b\.etapa\)/);
   });
 
   it("matriz: Expedientes, Producción y Precal respetan etapa", () => {

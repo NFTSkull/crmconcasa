@@ -71,6 +71,27 @@ function mapPrecalItem(raw: Record<string, unknown>): AdminPrecalEvent {
  * por lo que Resumen, Producción, Precalificaciones y Excel quedan alineados.
  */
 export class StageAwareSupabaseAdminProductionRepo extends SupabaseAdminProductionRepo {
+  override async getMesaCohortByEtapa(filters: AdminProductionFilters) {
+    const client = requireClient();
+    const { data, error } = await client.rpc("admin_get_mesa_period_by_etapa_v2", {
+      p_from: filters.bounds.fromIso,
+      p_to_exclusive: filters.bounds.toExclusiveIso,
+      p_asesor_id: filters.asesorId ?? null,
+      p_estado: adminEstadoRpcParam(filters.estado),
+      p_buscar: filters.buscar ?? null,
+    });
+    if (error) throw new Error(error.message || "No se pudo cargar el desglose por etapa");
+    const row = (data ?? {}) as Record<string, unknown>;
+    const by = Array.isArray(row.by_etapa) ? row.by_etapa : [];
+    return {
+      total: num(row.total),
+      byEtapa: by.map((item) => {
+        const r = item as Record<string, unknown>;
+        return { etapa: num(r.etapa), count: num(r.count), pct: num(r.pct) };
+      }),
+    };
+  }
+
   override async getSummary(
     filters: AdminProductionFilters,
   ): Promise<AdminProductionSummary> {
