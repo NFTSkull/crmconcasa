@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
+  INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_ANETTE,
   INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_EXTERNOS,
   INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_EXTERNOS_LEGACY_7,
   parseAsesorDocumentosObligatoriosEnvio,
@@ -23,6 +24,26 @@ describe("parseAsesorDocumentosObligatoriosEnvio (fail-closed)", () => {
     assert.deepEqual(
       parseAsesorDocumentosObligatoriosEnvio(shuffled),
       [...INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_EXTERNOS],
+    );
+  });
+
+  it("payload exacto Anette 7 con CURP y sin Presupuesto → 7 obligatorios", () => {
+    const shuffled = [
+      "cliente_lista_nominal",
+      "cliente_constancia_curp",
+      "cliente_ine_frente",
+      "cliente_bajo_protesta",
+      "cliente_estado_cuenta",
+      "cliente_solicitud_credito",
+      "cliente_comprobante_domicilio",
+    ];
+    assert.deepEqual(
+      parseAsesorDocumentosObligatoriosEnvio(shuffled),
+      [...INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_ANETTE],
+    );
+    assert.equal(
+      INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_ANETTE.includes("cliente_presupuesto" as never),
+      false,
     );
   });
 
@@ -76,10 +97,10 @@ describe("parseAsesorDocumentosObligatoriosEnvio (fail-closed)", () => {
     );
   });
 
-  it("parcial 7 de 8 → 4", () => {
+  it("parcial 6 de 7 Anette → 4", () => {
     assert.deepEqual(
       parseAsesorDocumentosObligatoriosEnvio(
-        INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_EXTERNOS.slice(0, 7),
+        INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_ANETTE.slice(0, 6),
       ),
       [...INTEGRATION_DOC_TIPOS_ASESOR_ENVIO],
     );
@@ -92,7 +113,7 @@ describe("tryParseAsesorDocumentosObligatoriosEnvio (Mesa strict)", () => {
     assert.equal(tryParseAsesorDocumentosObligatoriosEnvio(["cliente_fantasma"]), null);
     assert.equal(
       tryParseAsesorDocumentosObligatoriosEnvio(
-        INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_EXTERNOS.slice(0, 7),
+        INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_ANETTE.slice(0, 6),
       ),
       null,
     );
@@ -106,6 +127,10 @@ describe("tryParseAsesorDocumentosObligatoriosEnvio (Mesa strict)", () => {
     assert.deepEqual(
       tryParseAsesorDocumentosObligatoriosEnvio([...INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_EXTERNOS]),
       [...INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_EXTERNOS],
+    );
+    assert.deepEqual(
+      tryParseAsesorDocumentosObligatoriosEnvio([...INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_ANETTE]),
+      [...INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_ANETTE],
     );
   });
 });
