@@ -1,0 +1,1001 @@
+"use client";
+
+import type { Dispatch, ReactNode, SetStateAction } from "react";
+import { Button } from "@/components/ui/Button";
+import type { ExpedienteClienteDatos } from "@/domain/expediente-cliente-datos";
+import type { ClienteDatosFieldErrors, ClienteDatosFieldKey } from "@/lib/clienteDatosValidation";
+import { isRfcMexicoValido } from "@/lib/clienteDatosValidation";
+import {
+  filterDigitsInput,
+  filterPersonNameInput,
+} from "@/lib/clienteDatosFieldFormats";
+import {
+  CLIENTE_METODO_PAGO_OPTIONS,
+  isProgramaMejoravitDb,
+  parsePorcentajeCobroInput,
+} from "@/lib/clienteDatosCobro";
+import { CLIENTE_DATOS_NOTA_MESA_MAX_LENGTH } from "@/lib/clienteDatosFormCompleteness";
+import {
+  asesorEsCorreccionRechazoClienteDatos,
+  asesorPuedeEditarClienteDatos,
+} from "@/domain/expediente-archivos/asesor-correccion-post-mesa";
+import { AsesorCurpValidacionSection } from "@/components/asesor/AsesorCurpValidacionSection";
+import type { ClienteDatosCapturaVariant } from "@/domain/asesor-equipo/asesor-en-equipo-por-lider-email";
+
+type ClienteDatosFormState = ExpedienteClienteDatos["datos"];
+
+type ClienteDatosMeta = {
+  estado: ExpedienteClienteDatos["estado"];
+  comentarioRechazo?: string;
+  validatedAt?: string;
+  validatedBy?: string;
+  rejectedAt?: string;
+  rejectedBy?: string;
+  updatedAt: string;
+  updatedBy: string;
+};
+
+interface ExpedienteClienteDatosFormSectionProps {
+  expedienteId: string;
+  clienteDatos: ClienteDatosFormState;
+  setClienteDatos: Dispatch<SetStateAction<ClienteDatosFormState>>;
+  direccionOpcional: string;
+  setDireccionOpcional: Dispatch<SetStateAction<string>>;
+  clienteDatosMeta: ClienteDatosMeta | null;
+  clienteDatosSaving: boolean;
+  clienteDatosLoading?: boolean;
+  clienteDatosSaved?: boolean;
+  clienteDatosError: string | null;
+  localDraftSaved?: boolean;
+  localDraftRestored?: boolean;
+  hasUnsavedLocalChanges?: boolean;
+  camposFaltantes: string[];
+  fieldErrors?: ClienteDatosFieldErrors;
+  showFieldErrors?: boolean;
+  puedeIntegrar: boolean;
+  submittedToMesa?: boolean;
+  /** Reingreso activo (manual etapa 1 o P072 etapa 6): permite editar sin monto. */
+  esReingresoActivo?: boolean;
+  dataSupabase: boolean;
+  formatDateTime: (iso: string) => string;
+  onSave: () => Promise<{ ok: boolean; message?: string }>;
+  esperaMontoMessage: string;
+  /** Cuando false, el rechazo DG es historial (episodio enviado/cerrado). Default true. */
+  alertaAccionDgActiva?: boolean;
+  /** P210: episodio causal DG abierto (independiente de cliente_datos.estado vivo). */
+  correccionDgActiva?: boolean;
+  /** P210: estado UX derivado del read-model SQL. */
+  correccionDgUxState?:
+    | "PENDIENTE_DE_CORREGIR"
+    | "CAMBIOS_GUARDADOS_SIN_ENVIAR"
+    | "CORRECCION_ENVIADA"
+    | null;
+  montoAprobado?: number | null;
+  programaDb?: string | null;
+  onMontoMejoravitEdited?: () => void;
+  onMontoCalculadoEdited?: () => void;
+  /** Banner no bloqueante: advertencia de inscripción Infonavit (editor_decisions). */
+  advertenciaInscripcionInfonavit?: string | null;
+  /** Vista UI. Default completo. `simplificado` solo si el actor JWT confirmó Equipo Silvia. */
+  capturaVariant?: ClienteDatosCapturaVariant;
+  /** Internos: montar Número de casa. Externos/unknown: false. */
+  showTelefonoCasa?: boolean;
+  /** Valor controlado teléfono de casa (internos). */
+  telefonoCasaValue?: string;
+  /** Error reactivo de teléfono de casa (internos). */
+  telefonoCasaFieldError?: string;
+  /** Callback al tipar casa → estado React del padre (completitud/gates). */
+  onTelefonoCasaChange?: (value: string) => void;
+  /** Descartar borrador local (opcional; restore es automático). */
+  onDiscardLocalDraft?: () => void;
+  /** Mensaje discreto mientras la clasificación de paquete no está resuelta. */
+  clasificacionPerfilMensaje?: string | null;
+}
+
+function fieldInputClass(hasError: boolean): string {
+  return hasError
+    ? "rounded-md border border-red-400 bg-red-50/40 px-2 py-1 text-sm ring-1 ring-red-200"
+    : "rounded-md border border-gray-300 px-2 py-1 text-sm";
+}
+
+function DatosField({
+  label,
+  fieldKey,
+  error,
+  showError,
+  children,
+}: {
+  label: string;
+  fieldKey: ClienteDatosFieldKey;
+  error?: string;
+  showError?: boolean;
+  children: ReactNode;
+}) {
+  const visible = showError && Boolean(error);
+  return (
+    <label className="grid gap-1 text-xs text-gray-600" data-field={fieldKey}>
+      <span className="font-medium text-gray-800">{label}</span>
+      {children}
+      {visible ? (
+        <span className="text-[11px] text-red-700" role="alert">
+          {error}
+        </span>
+      ) : null}
+    </label>
+  );
+}
+
+export function ExpedienteClienteDatosFormSection({
+  expedienteId,
+  clienteDatos,
+  setClienteDatos,
+  direccionOpcional,
+  setDireccionOpcional,
+  clienteDatosMeta,
+  clienteDatosSaving,
+  clienteDatosLoading = false,
+  clienteDatosSaved = false,
+  clienteDatosError,
+  localDraftSaved = false,
+  localDraftRestored = false,
+  hasUnsavedLocalChanges = false,
+  camposFaltantes,
+  fieldErrors = {},
+  showFieldErrors = false,
+  puedeIntegrar,
+  submittedToMesa = false,
+  esReingresoActivo = false,
+  dataSupabase,
+  formatDateTime,
+  onSave,
+  esperaMontoMessage,
+  montoAprobado = null,
+  programaDb = null,
+  onMontoMejoravitEdited,
+  onMontoCalculadoEdited,
+  alertaAccionDgActiva = true,
+  correccionDgActiva = false,
+  correccionDgUxState = null,
+  advertenciaInscripcionInfonavit = null,
+  capturaVariant = "completo",
+  showTelefonoCasa = false,
+  telefonoCasaValue = "",
+  telefonoCasaFieldError,
+  onTelefonoCasaChange,
+  onDiscardLocalDraft,
+  clasificacionPerfilMensaje = null,
+}: ExpedienteClienteDatosFormSectionProps) {
+  const esSimplificado = capturaVariant === "simplificado";
+  // Campo oculto con valor inválido heredado (draft): mostrarlo para poder corregir/limpiar.
+  const mostrarRfcSimplificado =
+    esSimplificado &&
+    Boolean(String(clienteDatos.rfc ?? "").trim()) &&
+    !isRfcMexicoValido(clienteDatos.rfc);
+  const esMejoravit = isProgramaMejoravitDb(programaDb);
+  const esCorreccionRechazo = asesorEsCorreccionRechazoClienteDatos(
+    submittedToMesa,
+    clienteDatosMeta?.estado ?? "pendiente",
+  );
+  const puedeEditar = asesorPuedeEditarClienteDatos(
+    submittedToMesa,
+    clienteDatosMeta?.estado ?? "pendiente",
+    { puedeIntegrar, esReingresoActivo },
+  );
+  const saveLabel =
+    esCorreccionRechazo && alertaAccionDgActiva
+      ? "Guardar corrección"
+      : submittedToMesa && clienteDatosMeta
+        ? "Guardar cambios"
+        : dataSupabase
+          ? "Guardar datos"
+          : "Guardar borrador";
+
+  const err = (key: ClienteDatosFieldKey) =>
+    showFieldErrors ? fieldErrors[key] : undefined;
+
+  const validationPreview =
+    showFieldErrors && Object.keys(fieldErrors).length > 0
+      ? Object.values(fieldErrors).slice(0, 5)
+      : [];
+
+  const porcentajeNum = parsePorcentajeCobroInput(clienteDatos.porcentajeCobro);
+  const montoCalculadoError = err("montoCalculado");
+
+  const statusLine = (() => {
+    if (dataSupabase && clienteDatosLoading) return "Cargando datos del cliente…";
+    if (clienteDatosSaving) return "Guardando datos del cliente…";
+    if (dataSupabase && clienteDatosSaved) return "Datos guardados en Supabase.";
+    if (clienteDatosMeta) {
+      return `Estado: ${clienteDatosMeta.estado} · Actualizado: ${formatDateTime(
+        clienteDatosMeta.updatedAt,
+      )} · Por: ${clienteDatosMeta.updatedBy}`;
+    }
+    return dataSupabase
+      ? "Aún no guardado en Supabase."
+      : "Aún no guardado en expediente.";
+  })();
+
+  return (
+    <div
+      className="rounded-lg border border-gray-200 bg-white p-4"
+      data-captura-variant={capturaVariant}
+    >
+      <fieldset
+        disabled={!puedeEditar || clienteDatosLoading}
+        className="min-w-0 border-0 p-0 disabled:opacity-70"
+      >
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div>
+            <p className="text-sm font-semibold text-gray-900">
+              Datos Generales del Cliente
+            </p>
+            <p className="mt-1 text-xs text-gray-500">{statusLine}</p>
+            {clasificacionPerfilMensaje ? (
+              <p className="mt-1 text-xs text-slate-600" role="status">
+                {clasificacionPerfilMensaje}
+              </p>
+            ) : null}
+            {dataSupabase && camposFaltantes.length > 0 ? (
+              <p className="mt-1 text-xs text-amber-800" role="status">
+                Incompleto: faltan {camposFaltantes.length} campo(s) obligatorio(s).
+              </p>
+            ) : null}
+            {!dataSupabase ? (
+              <p className="mt-1 text-xs text-gray-400">
+                Al enviar a mesa se guardan automáticamente si el formulario está
+                completo.
+              </p>
+            ) : null}
+            {localDraftRestored ? (
+              <p
+                className="mt-1 text-xs text-sky-800"
+                role="status"
+              >
+                Borrador recuperado automáticamente.
+                {onDiscardLocalDraft ? (
+                  <>
+                    {" "}
+                    <button
+                      type="button"
+                      className="underline underline-offset-2 hover:text-sky-950"
+                      onClick={onDiscardLocalDraft}
+                    >
+                      Descartar borrador
+                    </button>
+                  </>
+                ) : null}
+              </p>
+            ) : null}
+            {localDraftSaved || hasUnsavedLocalChanges ? (
+              <p className="mt-1 text-xs text-gray-500" role="status">
+                {localDraftSaved ? "Borrador guardado automáticamente." : null}
+                {localDraftSaved && hasUnsavedLocalChanges ? " · " : null}
+                {hasUnsavedLocalChanges && !localDraftSaved
+                  ? "Tienes cambios sin guardar"
+                  : null}
+              </p>
+            ) : null}
+          </div>
+          <Button
+            type="button"
+            variant="outline"
+            className="text-xs"
+            disabled={!puedeEditar || clienteDatosSaving || clienteDatosLoading}
+            onClick={async () => {
+              const r = await onSave();
+              if (!r.ok && r.message && r.message !== esperaMontoMessage) {
+                window.alert(r.message);
+              }
+            }}
+          >
+            {clienteDatosSaving ? "Guardando..." : saveLabel}
+          </Button>
+        </div>
+
+        <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-[11px] leading-relaxed text-slate-600">
+          <p>
+            Captura información real y verificable. No repitas números telefónicos entre
+            cliente, empresa y referencias del mismo expediente.
+            El mismo teléfono sí puede usarse en otros expedientes. Los datos incompletos o
+            falsos pueden causar rechazo.
+          </p>
+          <p className="mt-2 font-medium text-slate-700">Antes de guardar verifica:</p>
+          <ul className="mt-1 list-inside list-disc space-y-0.5">
+            <li>NSS y CURP deben corresponder al cliente. RFC es opcional.</li>
+            <li>Los teléfonos deben tener 10 dígitos y ser distintos dentro del mismo expediente.</li>
+            <li>No repitas el celular del cliente en empresa ni en referencias.</li>
+            <li>La dirección de empresa debe ser real y completa.</li>
+          </ul>
+        </div>
+
+        {validationPreview.length > 0 ? (
+          <div
+            className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950"
+            role="status"
+          >
+            <p className="font-medium">Revisa los siguientes campos:</p>
+            <ul className="mt-1 list-inside list-disc space-y-0.5">
+              {validationPreview.map((msg) => (
+                <li key={msg}>{msg}</li>
+              ))}
+            </ul>
+          </div>
+        ) : null}
+
+        {advertenciaInscripcionInfonavit ? (
+          <p
+            className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-950"
+            role="status"
+          >
+            ⚠️ {advertenciaInscripcionInfonavit}
+          </p>
+        ) : null}
+
+        {clienteDatosError ? (
+          <p className="mt-2 rounded-md border border-red-200 bg-red-50 px-2 py-1.5 text-xs text-red-800">
+            {clienteDatosError}
+          </p>
+        ) : null}
+
+        {clienteDatosMeta?.estado === "rechazado" && alertaAccionDgActiva ? (
+          <p
+            className="mt-2 rounded-md border border-red-200 bg-red-50 px-2 py-1.5 text-xs text-red-900"
+            role="alert"
+          >
+            Los datos fueron rechazados por Mesa. Corrige la información y guarda la corrección.{" "}
+            {clienteDatosMeta.comentarioRechazo?.trim() ? (
+              <span className="block pt-1 font-medium text-red-950">
+                Motivo: {clienteDatosMeta.comentarioRechazo}
+              </span>
+            ) : null}
+            <span className="text-red-800/90">
+              (Actualizado: {formatDateTime(clienteDatosMeta.updatedAt)} · Por:{" "}
+              {clienteDatosMeta.updatedBy})
+            </span>
+          </p>
+        ) : null}
+        {clienteDatosMeta?.estado === "rechazado" && !alertaAccionDgActiva ? (
+          <p className="mt-2 rounded-md border border-slate-200 bg-slate-50 px-2 py-1.5 text-xs text-slate-700">
+            Mesa había rechazado estos datos. Ese rechazo ya no es la tarea actual.
+            {clienteDatosMeta.comentarioRechazo?.trim()
+              ? ` Motivo registrado: ${clienteDatosMeta.comentarioRechazo}`
+              : ""}
+          </p>
+        ) : null}
+        {submittedToMesa && puedeIntegrar && !correccionDgActiva ? (
+          <p
+            className="mt-2 rounded-md border border-sky-100 bg-sky-50 px-2 py-1.5 text-xs text-sky-900"
+            role="status"
+          >
+            Este expediente ya fue enviado a Mesa. Si haces cambios, Mesa Control verá la
+            información actualizada.
+          </p>
+        ) : null}
+        {correccionDgActiva &&
+        correccionDgUxState === "PENDIENTE_DE_CORREGIR" ? (
+          <p
+            className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-950"
+            role="status"
+          >
+            Corrige lo indicado por Mesa y guarda tus cambios.
+          </p>
+        ) : null}
+        {correccionDgActiva &&
+        correccionDgUxState === "CAMBIOS_GUARDADOS_SIN_ENVIAR" ? (
+          <p
+            className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-2 py-1.5 text-xs text-amber-950"
+            role="status"
+          >
+            Cambios guardados. Falta reenviar la corrección a Mesa.
+          </p>
+        ) : null}
+        {submittedToMesa &&
+        clienteDatosMeta?.estado === "completo" &&
+        !correccionDgActiva ? (
+          <p className="mt-2 rounded-md border border-sky-100 bg-sky-50 px-2 py-1.5 text-xs text-sky-900">
+            Datos guardados — pendiente de revisión por Mesa de control.
+          </p>
+        ) : null}
+        {clienteDatosMeta?.estado === "validado" ? (
+          <p
+            className="mt-2 rounded-md border border-green-200 bg-green-50 px-2 py-1.5 text-xs text-green-900"
+            role="status"
+          >
+            Mesa-control validó tus datos generales.{" "}
+            <span className="text-green-800/90">
+              {clienteDatosMeta.validatedAt
+                ? `(Validado: ${formatDateTime(clienteDatosMeta.validatedAt)}`
+                : "(Validado"}
+              {clienteDatosMeta.validatedBy
+                ? ` · Por: ${clienteDatosMeta.validatedBy})`
+                : ")"}
+            </span>
+          </p>
+        ) : null}
+
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <DatosField label="Nombre del cliente" fieldKey="nombreCliente" error={err("nombreCliente")} showError={showFieldErrors}>
+            <input
+              className={fieldInputClass(Boolean(err("nombreCliente")))}
+              value={clienteDatos.nombreCliente}
+              onChange={(e) =>
+                setClienteDatos((p) => ({
+                  ...p,
+                  nombreCliente: filterPersonNameInput(e.target.value),
+                }))
+              }
+            />
+          </DatosField>
+          <DatosField label="NSS" fieldKey="nss" error={err("nss")} showError={showFieldErrors}>
+            <input
+              className={fieldInputClass(Boolean(err("nss")))}
+              inputMode="numeric"
+              autoComplete="off"
+              value={clienteDatos.nss}
+              onChange={(e) =>
+                setClienteDatos((p) => ({
+                  ...p,
+                  nss: filterDigitsInput(e.target.value, 11),
+                }))
+              }
+            />
+          </DatosField>
+          <DatosField label="CURP" fieldKey="curp" error={err("curp")} showError={showFieldErrors}>
+            <input
+              className={`${fieldInputClass(Boolean(err("curp")))} uppercase`}
+              value={clienteDatos.curp}
+              onChange={(e) =>
+                setClienteDatos((p) => ({ ...p, curp: e.target.value.toUpperCase() }))
+              }
+            />
+          </DatosField>
+          {!esSimplificado && expedienteId ? (
+            <AsesorCurpValidacionSection
+              expedienteId={expedienteId}
+              curp={clienteDatos.curp}
+              nombreCliente={clienteDatos.nombreCliente}
+              rfc={clienteDatos.rfc}
+              canEdit={puedeEditar}
+              submittedToMesa={submittedToMesa}
+              showTelefonoCasa={showTelefonoCasa}
+              telefonoCasaValue={telefonoCasaValue}
+              telefonoCasaFieldError={telefonoCasaFieldError}
+              onTelefonoCasaChange={onTelefonoCasaChange}
+              onApplyRfcEstimado={(rfcEstimado) => {
+                setClienteDatos((p) => ({ ...p, rfc: rfcEstimado }));
+              }}
+              onApplyNombreFromConstancia={(nombre) => {
+                setClienteDatos((p) => ({
+                  ...p,
+                  nombreCliente: filterPersonNameInput(nombre),
+                }));
+              }}
+            />
+          ) : null}
+          {!esSimplificado || mostrarRfcSimplificado ? (
+          <DatosField
+            label={
+              mostrarRfcSimplificado
+                ? "RFC (corrija o deje vacío — no es obligatorio)"
+                : "RFC (opcional)"
+            }
+            fieldKey="rfc"
+            error={err("rfc")}
+            showError={showFieldErrors}
+          >
+            <input
+              className={`${fieldInputClass(Boolean(err("rfc")))} uppercase`}
+              value={clienteDatos.rfc}
+              onChange={(e) =>
+                setClienteDatos((p) => ({
+                  ...p,
+                  rfc: e.target.value.toUpperCase().replace(/\s+/g, ""),
+                }))
+              }
+            />
+          </DatosField>
+          ) : null}
+          <DatosField
+            label={esSimplificado ? "Celular del cliente (obligatorio)" : "Celular"}
+            fieldKey="celular"
+            error={err("celular")}
+            showError={showFieldErrors}
+          >
+            <input
+              className={fieldInputClass(Boolean(err("celular")))}
+              inputMode="tel"
+              autoComplete="tel"
+              value={clienteDatos.celular}
+              onChange={(e) =>
+                setClienteDatos((p) => ({
+                  ...p,
+                  celular: filterDigitsInput(e.target.value, 15),
+                }))
+              }
+            />
+          </DatosField>
+          {!esSimplificado ? (
+          <>
+          <DatosField label="Correo" fieldKey="correo" error={err("correo")} showError={showFieldErrors}>
+            <input
+              className={fieldInputClass(Boolean(err("correo")))}
+              value={clienteDatos.correo}
+              onChange={(e) =>
+                setClienteDatos((p) => ({ ...p, correo: e.target.value }))
+              }
+            />
+          </DatosField>
+          <DatosField label="Empresa" fieldKey="empresa" error={err("empresa")} showError={showFieldErrors}>
+            <input
+              className={fieldInputClass(Boolean(err("empresa")))}
+              value={clienteDatos.empresa}
+              onChange={(e) =>
+                setClienteDatos((p) => ({ ...p, empresa: e.target.value }))
+              }
+            />
+          </DatosField>
+          <DatosField label="Registro patronal" fieldKey="registroPatronal" error={err("registroPatronal")} showError={showFieldErrors}>
+            <input
+              className={fieldInputClass(Boolean(err("registroPatronal")))}
+              value={clienteDatos.registroPatronal}
+              onChange={(e) =>
+                setClienteDatos((p) => ({
+                  ...p,
+                  registroPatronal: e.target.value,
+                }))
+              }
+            />
+          </DatosField>
+          <DatosField label="Teléfono empresa" fieldKey="telefonoEmpresa" error={err("telefonoEmpresa")} showError={showFieldErrors}>
+            <input
+              className={fieldInputClass(Boolean(err("telefonoEmpresa")))}
+              inputMode="tel"
+              autoComplete="tel"
+              value={clienteDatos.telefonoEmpresa}
+              onChange={(e) =>
+                setClienteDatos((p) => ({
+                  ...p,
+                  telefonoEmpresa: filterDigitsInput(e.target.value, 15),
+                }))
+              }
+            />
+          </DatosField>
+          </>
+          ) : null}
+        </div>
+
+        {!esSimplificado ? (
+        <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <div className="rounded-md border border-gray-200 p-3">
+            <p className="text-xs font-semibold text-gray-900">Referencias</p>
+            {[0, 1].map((idx) => {
+              const pref = idx === 0 ? "referencia1" : "referencia2";
+              const updateRef = (
+                patch: Partial<(typeof clienteDatos.referencias)[number]>,
+              ) =>
+                setClienteDatos((p) => {
+                  const nextRefs = [...p.referencias];
+                  const cur = nextRefs[idx] ?? {
+                    nombre: "",
+                    nombres: "",
+                    apellidoPaterno: "",
+                    apellidoMaterno: "",
+                    celular: "",
+                  };
+                  const merged = { ...cur, ...patch };
+                  // Cualquier edición de la ref cancela grandfather → aplica contrato nuevo.
+                  delete merged.legacyGrandfathered;
+                  const composed = [
+                    merged.nombres,
+                    merged.apellidoPaterno,
+                    merged.apellidoMaterno,
+                  ]
+                    .map((x) => String(x ?? "").trim())
+                    .filter(Boolean)
+                    .join(" ");
+                  nextRefs[idx] = {
+                    ...merged,
+                    nombre: composed || String(merged.nombre ?? ""),
+                  };
+                  return { ...p, referencias: nextRefs };
+                });
+              const refActual = clienteDatos.referencias[idx];
+              // Histórico: siempre mostrar nombre+celular exactos (aunque el parser haya separado).
+              const showLegacyHistorico = refActual?.legacyGrandfathered === true;
+              const nombreHistoricoExacto = String(refActual?.nombre ?? "").trim();
+              const celularHistoricoExacto = String(refActual?.celular ?? "").trim();
+              return (
+              <div key={idx} className="mt-2 grid grid-cols-1 gap-2">
+                <p className="text-[11px] font-medium text-gray-700">
+                  {showLegacyHistorico
+                    ? `Referencia ${idx + 1} — registro histórico`
+                    : `Referencia ${idx + 1}`}
+                </p>
+                {showLegacyHistorico ? (
+                  <div
+                    className="rounded-md border border-sky-200 bg-sky-50/80 px-2.5 py-2 text-[11px] text-slate-800"
+                    data-testid={`referencia-legacy-hint-${idx}`}
+                    role="note"
+                  >
+                    <p className="font-semibold text-slate-900">Referencia histórica</p>
+                    <p className="mt-1.5">
+                      <span className="font-medium text-slate-700">Nombre completo</span>
+                      <br />
+                      <span data-testid={`referencia-legacy-nombre-${idx}`}>
+                        {nombreHistoricoExacto || "—"}
+                      </span>
+                    </p>
+                    <p className="mt-1.5">
+                      <span className="font-medium text-slate-700">Celular</span>
+                      <br />
+                      <span data-testid={`referencia-legacy-celular-${idx}`}>
+                        {celularHistoricoExacto || "—"}
+                      </span>
+                    </p>
+                    <p className="mt-2 text-slate-600">
+                      Esta referencia fue capturada antes del formato de nombres y
+                      apellidos. Se conserva como fue enviada y no necesitas volver a
+                      capturarla.
+                    </p>
+                  </div>
+                ) : null}
+                <DatosField
+                  label="Nombre(s)"
+                  fieldKey={`${pref}Nombres`}
+                  error={err(`${pref}Nombres`) || err(`${pref}Nombre`)}
+                  showError={showFieldErrors}
+                >
+                  <input
+                    className={fieldInputClass(
+                      Boolean(err(`${pref}Nombres`) || err(`${pref}Nombre`)),
+                    )}
+                    value={clienteDatos.referencias[idx]?.nombres ?? ""}
+                    onChange={(e) =>
+                      updateRef({ nombres: filterPersonNameInput(e.target.value) })
+                    }
+                  />
+                </DatosField>
+                <DatosField
+                  label="Primer apellido"
+                  fieldKey={`${pref}ApellidoPaterno`}
+                  error={err(`${pref}ApellidoPaterno`)}
+                  showError={showFieldErrors}
+                >
+                  <input
+                    className={fieldInputClass(Boolean(err(`${pref}ApellidoPaterno`)))}
+                    value={clienteDatos.referencias[idx]?.apellidoPaterno ?? ""}
+                    onChange={(e) =>
+                      updateRef({
+                        apellidoPaterno: filterPersonNameInput(e.target.value),
+                      })
+                    }
+                  />
+                </DatosField>
+                <DatosField
+                  label="Segundo apellido"
+                  fieldKey={`${pref}ApellidoMaterno`}
+                  error={err(`${pref}ApellidoMaterno`)}
+                  showError={showFieldErrors}
+                >
+                  <input
+                    className={fieldInputClass(Boolean(err(`${pref}ApellidoMaterno`)))}
+                    value={clienteDatos.referencias[idx]?.apellidoMaterno ?? ""}
+                    onChange={(e) =>
+                      updateRef({
+                        apellidoMaterno: filterPersonNameInput(e.target.value),
+                      })
+                    }
+                  />
+                </DatosField>
+                <DatosField
+                  label="Celular"
+                  fieldKey={`${pref}Celular`}
+                  error={err(`${pref}Celular`)}
+                  showError={showFieldErrors}
+                >
+                  <input
+                    className={fieldInputClass(Boolean(err(`${pref}Celular`)))}
+                    inputMode="tel"
+                    autoComplete="tel"
+                    value={clienteDatos.referencias[idx]?.celular ?? ""}
+                    onChange={(e) =>
+                      updateRef({ celular: filterDigitsInput(e.target.value, 15) })
+                    }
+                  />
+                </DatosField>
+              </div>
+              );
+            })}
+          </div>
+
+          <div className="rounded-md border border-gray-200 p-3">
+            <p className="text-xs font-semibold text-gray-900">Beneficiario</p>
+            <div className="mt-2 grid grid-cols-1 gap-2">
+              <DatosField
+                label="Nombre"
+                fieldKey="beneficiarioNombre"
+                error={err("beneficiarioNombre")}
+                showError={showFieldErrors}
+              >
+                <input
+                  className={fieldInputClass(Boolean(err("beneficiarioNombre")))}
+                  value={clienteDatos.beneficiario.nombre}
+                  onChange={(e) =>
+                    setClienteDatos((p) => ({
+                      ...p,
+                      beneficiario: {
+                        ...p.beneficiario,
+                        nombre: filterPersonNameInput(e.target.value),
+                      },
+                    }))
+                  }
+                />
+              </DatosField>
+              <DatosField
+                label="Parentesco"
+                fieldKey="beneficiarioParentesco"
+                error={err("beneficiarioParentesco")}
+                showError={showFieldErrors}
+              >
+                <input
+                  className={fieldInputClass(Boolean(err("beneficiarioParentesco")))}
+                  value={clienteDatos.beneficiario.parentesco}
+                  onChange={(e) =>
+                    setClienteDatos((p) => ({
+                      ...p,
+                      beneficiario: {
+                        ...p.beneficiario,
+                        parentesco: filterPersonNameInput(e.target.value),
+                      },
+                    }))
+                  }
+                />
+              </DatosField>
+            </div>
+          </div>
+        </div>
+        ) : null}
+
+        {esMejoravit ? (
+        <div className="mt-4 rounded-md border border-gray-200 p-3">
+          <p className="text-xs font-semibold text-gray-900">Crédito Mejoravit</p>
+          <p className="mt-1 text-[11px] text-gray-600">
+            Se sugiere desde la subcuenta de vivienda (−11%, tope $169,000). Puedes ajustarlo.
+          </p>
+          <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <DatosField
+              label="Monto Mejoravit"
+              fieldKey="montoMejoravit"
+              error={err("montoMejoravit")}
+              showError={showFieldErrors}
+            >
+              <input
+                type="text"
+                inputMode="decimal"
+                className={fieldInputClass(Boolean(err("montoMejoravit")))}
+                value={clienteDatos.montoMejoravit}
+                onChange={(e) => {
+                  onMontoMejoravitEdited?.();
+                  setClienteDatos((p) => ({ ...p, montoMejoravit: e.target.value }));
+                }}
+                placeholder="Ej. 169000"
+              />
+            </DatosField>
+            {!esSimplificado ? (
+            <DatosField
+              label="Plazo"
+              fieldKey="plazo"
+              error={err("plazo")}
+              showError={showFieldErrors}
+            >
+              <input
+                className={fieldInputClass(Boolean(err("plazo")))}
+                inputMode="numeric"
+                value={clienteDatos.plazo}
+                onChange={(e) =>
+                  setClienteDatos((p) => ({
+                    ...p,
+                    plazo: filterDigitsInput(e.target.value, 3),
+                  }))
+                }
+                placeholder="Ej. 12"
+              />
+            </DatosField>
+            ) : null}
+          </div>
+        </div>
+        ) : null}
+
+        <div className="mt-4 rounded-md border border-gray-200 p-3">
+          <p className="text-xs font-semibold text-gray-900">Domicilio del cliente</p>
+          <div className="mt-2 grid grid-cols-1 gap-2">
+            <DatosField
+              label="Domicilio real del cliente"
+              fieldKey="direccionOpcional"
+              error={err("direccionOpcional")}
+              showError={showFieldErrors}
+            >
+              <input
+                className={fieldInputClass(Boolean(err("direccionOpcional")))}
+                value={direccionOpcional}
+                onChange={(e) => setDireccionOpcional(e.target.value)}
+                placeholder="Calle, número, colonia, municipio"
+              />
+            </DatosField>
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-md border border-gray-200 p-3">
+          <p className="text-xs font-semibold text-gray-900">Dirección de la empresa</p>
+          <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <DatosField
+              label="Calle"
+              fieldKey="direccionCalle"
+              error={err("direccionCalle")}
+              showError={showFieldErrors}
+              >
+              <input
+                className={fieldInputClass(Boolean(err("direccionCalle")))}
+                value={clienteDatos.direccionEmpresa.calle}
+                onChange={(e) =>
+                  setClienteDatos((p) => ({
+                    ...p,
+                    direccionEmpresa: { ...p.direccionEmpresa, calle: e.target.value },
+                  }))
+                }
+              />
+            </DatosField>
+            <DatosField
+              label="Colonia"
+              fieldKey="direccionColonia"
+              error={err("direccionColonia")}
+              showError={showFieldErrors}
+            >
+              <input
+                className={fieldInputClass(Boolean(err("direccionColonia")))}
+                value={clienteDatos.direccionEmpresa.colonia}
+                onChange={(e) =>
+                  setClienteDatos((p) => ({
+                    ...p,
+                    direccionEmpresa: { ...p.direccionEmpresa, colonia: e.target.value },
+                  }))
+                }
+              />
+            </DatosField>
+            <DatosField
+              label="Municipio"
+              fieldKey="direccionMunicipio"
+              error={err("direccionMunicipio")}
+              showError={showFieldErrors}
+            >
+              <input
+                className={fieldInputClass(Boolean(err("direccionMunicipio")))}
+                value={clienteDatos.direccionEmpresa.municipio}
+                onChange={(e) =>
+                  setClienteDatos((p) => ({
+                    ...p,
+                    direccionEmpresa: { ...p.direccionEmpresa, municipio: e.target.value },
+                  }))
+                }
+              />
+            </DatosField>
+            <DatosField
+              label="CP"
+              fieldKey="direccionCp"
+              error={err("direccionCp")}
+              showError={showFieldErrors}
+            >
+              <input
+                className={fieldInputClass(Boolean(err("direccionCp")))}
+                inputMode="numeric"
+                autoComplete="postal-code"
+                value={clienteDatos.direccionEmpresa.cp}
+                onChange={(e) =>
+                  setClienteDatos((p) => ({
+                    ...p,
+                    direccionEmpresa: {
+                      ...p.direccionEmpresa,
+                      cp: filterDigitsInput(e.target.value, 5),
+                    },
+                  }))
+                }
+              />
+            </DatosField>
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-md border border-gray-200 p-3">
+          <p className="text-xs font-semibold text-gray-900">Información de cobro</p>
+          <p className="mt-1 text-[11px] text-gray-600">
+            Se calcula automáticamente con el porcentaje + $3,000, pero puedes ajustarlo si es
+            necesario.
+          </p>
+          <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            <DatosField
+              label="Porcentaje de cobro"
+              fieldKey="porcentajeCobro"
+              error={err("porcentajeCobro")}
+              showError={showFieldErrors}
+            >
+              <div className="flex items-center gap-1">
+                <input
+                  type="number"
+                  min={0}
+                  max={100}
+                  step="0.01"
+                  className={`${fieldInputClass(Boolean(err("porcentajeCobro")))} w-full`}
+                  value={clienteDatos.porcentajeCobro}
+                  onChange={(e) =>
+                    setClienteDatos((p) => ({ ...p, porcentajeCobro: e.target.value }))
+                  }
+                />
+                <span className="text-sm text-gray-600">%</span>
+              </div>
+            </DatosField>
+            <DatosField
+              label="Monto calculado"
+              fieldKey="montoCalculado"
+              error={montoCalculadoError}
+              showError={showFieldErrors}
+            >
+              <input
+                type="text"
+                inputMode="decimal"
+                className={fieldInputClass(Boolean(montoCalculadoError))}
+                value={clienteDatos.montoCalculado}
+                onChange={(e) => {
+                  onMontoCalculadoEdited?.();
+                  setClienteDatos((p) => ({ ...p, montoCalculado: e.target.value }));
+                }}
+                placeholder={
+                  porcentajeNum != null && porcentajeNum > 0 ? "Ej. 18000" : "Captura porcentaje primero"
+                }
+              />
+            </DatosField>
+            <DatosField
+              label="Método de pago"
+              fieldKey="metodoPago"
+              error={err("metodoPago")}
+              showError={showFieldErrors}
+            >
+              <select
+                className={fieldInputClass(Boolean(err("metodoPago")))}
+                value={clienteDatos.metodoPago}
+                onChange={(e) =>
+                  setClienteDatos((p) => ({ ...p, metodoPago: e.target.value }))
+                }
+              >
+                <option value="">Selecciona…</option>
+                {CLIENTE_METODO_PAGO_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </select>
+            </DatosField>
+          </div>
+        </div>
+
+        <div className="mt-4 rounded-md border border-gray-200 p-3">
+          <p className="text-xs font-semibold text-gray-900">Notas para Mesa Control</p>
+          <p className="mt-0.5 text-[11px] text-gray-500">Opcional · visible para Mesa al revisar el expediente</p>
+          <label className="mt-2 grid gap-1 text-xs text-gray-600">
+            <textarea
+              className="min-h-[88px] rounded-md border border-gray-300 px-2 py-1.5 text-sm"
+              rows={4}
+              maxLength={CLIENTE_DATOS_NOTA_MESA_MAX_LENGTH}
+              placeholder="Escribe aquí cualquier observación importante para Mesa Control…"
+              value={clienteDatos.notaMesa ?? ""}
+              onChange={(e) =>
+                setClienteDatos((p) => ({ ...p, notaMesa: e.target.value }))
+              }
+            />
+            <span className="text-[11px] text-gray-400">
+              {(clienteDatos.notaMesa ?? "").length}/{CLIENTE_DATOS_NOTA_MESA_MAX_LENGTH}
+            </span>
+          </label>
+        </div>
+      </fieldset>
+    </div>
+  );
+}
