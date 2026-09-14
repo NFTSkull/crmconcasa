@@ -146,7 +146,7 @@ Grants: `REVOKE` PUBLIC/anon; `GRANT EXECUTE` authenticated (+ service_role).
 **HTTP create path:** `POST /api/precalificaciones/[id]/auto-precalificar`  
 - Auth: Bearer JWT (asesor). Responde **202** `{ ok, status:"accepted", expediente_id }`; scraper en `after()`.  
 - Job: `runAutoPrecalificarJob` (domain) → scraper `SCRAPER_*` → `auto_upsert_editor_decision` si mapeo conocido; **antes del scrape** inserta lease `auto_precal_intentos` (`pending_error`/`job_started`); al final inserta el resultado real. Si el lease falla → `claim_failed` (no scrape).
-- Cliente (Anette/`/asesor/nueva`): `resolveBearerAccessToken` (`refreshSession` + fallback) antes del Bearer; sin token no se dispara el fetch.
+- Cliente (Anette/`/asesor/nueva`): `resolveBearerAccessToken` (usa access_token local si ≥120s de vida; `refreshSession` solo si falta/por vencer; ante Already Used reintenta `getSession`) antes del Bearer; sin token no se dispara el fetch.
 
 
 **Post-aprobado (opcional, P218):** si el scraper trae `nombre`, tras `auto_upsert_editor_decision` exitoso se llama `auto_fill_nombre_infonavit` (capability `autofill_nombre_infonavit` del asesor dueño). Error de esa RPC solo se loguea; no cambia el resultado `aprobado`. Mig **218** documenta RPC/capability ya en Cloud (no re-aplicar Production).

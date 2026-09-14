@@ -1,3 +1,11 @@
+## 2026-09-14 - Auto-precal Bearer: no forzar refreshSession cada submit
+
+### Causa
+Anette: ráfagas de POST `/auto-precalificar` 401 + 0 `auto_precal_intentos`. Helpers del #285 seguían en `anette-nss-only-page` (#298/#299 no los tocaron). `resolveBearerAccessToken` llamaba `refreshSession()` siempre; con `autoRefreshToken: true` y submits ~20–40s → `Invalid Refresh Token: Already Used` → Bearer inválido → 401 sin `after()`.
+
+### Decisión
+Preferir `getSession` si `expires_at` tiene ≥120s; refresh solo si falta/por vencer; si Already Used, reintentar `getSession` breve. Sin mig SQL.
+
 ## 2026-09-11 - Auto-precal cron: lease in-flight + intentos paginados
 
 Doble scrape Anette (1 min) no era “prioridad salta edad”: cron `* * * * *` solapaba jobs (intento solo al final) y/o PostgREST truncaba intentos (~1000) → bucket cero-intentos. Fix: claim `job_started` al inicio (fail-closed); streak salta lease; cron pagina intentos 7d. Prioridad sigue post-filtro.
