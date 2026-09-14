@@ -76,7 +76,7 @@ describe("formatAdvertenciaInscripcionInfonavit", () => {
 
 describe("ExpedienteClienteDatosFormSection banner Infonavit", () => {
   const form = readFileSync(
-    join(process.cwd(), "src/components/asesor/ExpedienteClienteDatosFormSection.tsx"),
+    join(process.cwd(), "src/components/asesor/ExpedienteClienteDatosFormSection.impl.tsx"),
     "utf8",
   );
 
