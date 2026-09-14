@@ -1,6 +1,10 @@
 ## [Unreleased]
 
 ### Fixed
+- **fix(precalificacion): Bearer sin refresh forzado** — `resolveBearerAccessToken` reutiliza access_token local si aún tiene ≥120s de vida; solo `refreshSession` si falta/está por vencer; ante `Already Used` reintenta `getSession` (Anette submits frecuentes + `autoRefreshToken`).
+
+
+### Fixed
 - **fix(precalificacion): lease in-flight + intentos paginados** — `runAutoPrecalificarJob` inserta `job_started` antes del scraper (bloquea cron solapado); racha `scraper_failed` ignora el lease. Cron pagina `auto_precal_intentos` (7d) para no truncar y tratar prioritarios como cero-intentos.
 
 
