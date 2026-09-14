@@ -18,7 +18,7 @@ import {
 
 describe("AsesorIntegracionDocsUpload INE UI contract", () => {
   const uploadSrc = readFileSync(
-    join(process.cwd(), "src/components/asesor/AsesorIntegracionDocsUpload.tsx"),
+    join(process.cwd(), "src/components/asesor/AsesorIntegracionDocsUpload.impl.tsx"),
     "utf8",
   );
   const dropzoneSrc = readFileSync(
