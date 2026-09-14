@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { AsesorInfonavitDocumentosSection } from "@/components/asesor/AsesorInfonavitDocumentosSection";
 import { Button } from "@/components/ui/Button";
 import {
   MesaArchivoPreviewDialog,
@@ -17,6 +18,7 @@ import {
   ExpedienteArchivosSupabaseError,
   useExpedienteArchivosRepo,
 } from "@/domain/expediente-archivos";
+import { isSupabaseConfigured, supabaseBrowser } from "@/lib/supabaseBrowser";
 
 export type AsesorSolicitudDocumentoSectionProps = Readonly<{
   expedienteId: string;
@@ -36,6 +38,10 @@ function formatDateTimeEsMx(iso: string | null | undefined): string {
 /**
  * Solo lectura: consulta metadata activa y preview/descarga.
  * No importa upload ni register_mesa_documento.
+ *
+ * También monta los 3 PDFs INFONAVIT automáticos exclusivamente cuando el
+ * backend confirma que el actor es un asesor interno con visibilidad del
+ * expediente. El gate es fail-closed para no exponerlos a externos.
  */
 export function AsesorSolicitudDocumentoSection({
   expedienteId,
@@ -48,8 +54,38 @@ export function AsesorSolicitudDocumentoSection({
   const [archivoBusy, setArchivoBusy] = useState(false);
   const [archivoError, setArchivoError] = useState<string | null>(null);
   const [preview, setPreview] = useState<MesaArchivoPreviewState | null>(null);
+  const [showInfonavitAuto, setShowInfonavitAuto] = useState(false);
 
   const visible = shouldShowAsesorSolicitudDocumentoSection(etapaActual);
+
+  useEffect(() => {
+    let cancelled = false;
+    setShowInfonavitAuto(false);
+
+    if (!expedienteId || !isSupabaseConfigured() || !supabaseBrowser) {
+      return () => {
+        cancelled = true;
+      };
+    }
+
+    void (async () => {
+      try {
+        const { data, error: rpcError } = await supabaseBrowser.rpc(
+          "asesor_puede_ver_infonavit_auto",
+          { p_expediente_id: expedienteId },
+        );
+        if (!cancelled) {
+          setShowInfonavitAuto(!rpcError && data === true);
+        }
+      } catch {
+        if (!cancelled) setShowInfonavitAuto(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [expedienteId]);
 
   const load = useCallback(async () => {
     if (!visible) return;
@@ -80,7 +116,7 @@ export function AsesorSolicitudDocumentoSection({
     };
   }, [preview?.url]);
 
-  if (!visible) return null;
+  if (!visible && !showInfonavitAuto) return null;
 
   const mapArchivoError = (err: unknown): string => {
     if (err instanceof ExpedienteArchivosSupabaseError) return err.message;
@@ -138,104 +174,116 @@ export function AsesorSolicitudDocumentoSection({
   };
 
   return (
-    <section
-      aria-label="Solicitud"
-      className="rounded-lg border border-slate-200 bg-slate-50/50 px-4 py-4 text-sm text-gray-800"
-    >
-      <div className="flex flex-wrap items-center gap-2">
-        <h3 className="text-sm font-semibold text-gray-900">Solicitud</h3>
-        {documento ? (
-          <span className="inline-flex items-center rounded-full border border-emerald-200 bg-white px-2.5 py-0.5 text-xs font-medium text-emerald-900">
-            Cargado por Mesa
-          </span>
-        ) : (
-          <span className="inline-flex items-center rounded-full border border-amber-200 bg-white px-2.5 py-0.5 text-xs font-medium text-amber-900">
-            Pendiente de Mesa
-          </span>
-        )}
-      </div>
-
-      {loading ? (
-        <p className="mt-2 text-xs text-gray-500">Cargando Solicitud…</p>
-      ) : null}
-
-      {error ? (
-        <p role="alert" className="mt-2 text-xs text-red-700">
-          {error}
-        </p>
-      ) : null}
-
-      {!loading && !error && !documento ? (
-        <p className="mt-2 text-sm text-gray-700">
-          Mesa Control todavía no ha cargado el Solicitud de este expediente.
-        </p>
-      ) : null}
-
-      {!loading && documento ? (
-        <>
-          <p className="mt-2 text-sm text-gray-700">
-            Mesa Control cargó el Solicitud correspondiente a este expediente.
-          </p>
-          <dl className="mt-3 grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
-            <div>
-              <dt className="text-gray-500">Archivo</dt>
-              <dd className="truncate font-medium text-gray-900">{documento.fileName}</dd>
-            </div>
-            <div>
-              <dt className="text-gray-500">Formato</dt>
-              <dd className="font-medium text-gray-900">
-                {formatSolicitudDocumentoMimeLabel(documento.mimeType)}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-gray-500">Fecha</dt>
-              <dd className="font-medium text-gray-900">
-                {formatDateTimeEsMx(documento.createdAt)}
-              </dd>
-            </div>
-            <div>
-              <dt className="text-gray-500">Versión</dt>
-              <dd className="font-medium text-gray-900">{documento.version}</dd>
-            </div>
-          </dl>
-          <div className="mt-3 flex flex-wrap gap-2">
-            <Button
-              type="button"
-              variant="outline"
-              className="h-8 px-2.5 py-0 text-xs"
-              disabled={archivoBusy}
-              aria-label="Ver Solicitud"
-              onClick={() => void handleVer()}
-            >
-              {archivoBusy ? "Abriendo…" : "Ver"}
-            </Button>
-            <Button
-              type="button"
-              variant="secondary"
-              className="h-8 px-2.5 py-0 text-xs"
-              disabled={archivoBusy}
-              aria-label="Descargar Solicitud"
-              onClick={() => void handleDescargar()}
-            >
-              Descargar
-            </Button>
-          </div>
-        </>
-      ) : null}
-
-      {archivoError ? (
-        <p role="alert" className="mt-2 text-xs text-red-700">
-          {archivoError}
-        </p>
-      ) : null}
-
-      {preview ? (
-        <MesaArchivoPreviewDialog
-          preview={preview}
-          onClose={closePreview}
-          onOpenInNewTab={openBlobUrlInNewTab}
+    <>
+      {showInfonavitAuto ? (
+        <AsesorInfonavitDocumentosSection
+          expedienteId={expedienteId}
+          programa="mejoravit"
+          submittedToMesa={true}
         />
       ) : null}
-    </section>
+
+      {visible ? (
+        <section
+          aria-label="Solicitud"
+          className="rounded-lg border border-slate-200 bg-slate-50/50 px-4 py-4 text-sm text-gray-800"
+        >
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="text-sm font-semibold text-gray-900">Solicitud</h3>
+            {documento ? (
+              <span className="inline-flex items-center rounded-full border border-emerald-200 bg-white px-2.5 py-0.5 text-xs font-medium text-emerald-900">
+                Cargado por Mesa
+              </span>
+            ) : (
+              <span className="inline-flex items-center rounded-full border border-amber-200 bg-white px-2.5 py-0.5 text-xs font-medium text-amber-900">
+                Pendiente de Mesa
+              </span>
+            )}
+          </div>
+
+          {loading ? (
+            <p className="mt-2 text-xs text-gray-500">Cargando Solicitud…</p>
+          ) : null}
+
+          {error ? (
+            <p role="alert" className="mt-2 text-xs text-red-700">
+              {error}
+            </p>
+          ) : null}
+
+          {!loading && !error && !documento ? (
+            <p className="mt-2 text-sm text-gray-700">
+              Mesa Control todavía no ha cargado el Solicitud de este expediente.
+            </p>
+          ) : null}
+
+          {!loading && documento ? (
+            <>
+              <p className="mt-2 text-sm text-gray-700">
+                Mesa Control cargó el Solicitud correspondiente a este expediente.
+              </p>
+              <dl className="mt-3 grid grid-cols-1 gap-2 text-xs sm:grid-cols-2">
+                <div>
+                  <dt className="text-gray-500">Archivo</dt>
+                  <dd className="truncate font-medium text-gray-900">{documento.fileName}</dd>
+                </div>
+                <div>
+                  <dt className="text-gray-500">Formato</dt>
+                  <dd className="font-medium text-gray-900">
+                    {formatSolicitudDocumentoMimeLabel(documento.mimeType)}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-gray-500">Fecha</dt>
+                  <dd className="font-medium text-gray-900">
+                    {formatDateTimeEsMx(documento.createdAt)}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-gray-500">Versión</dt>
+                  <dd className="font-medium text-gray-900">{documento.version}</dd>
+                </div>
+              </dl>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="h-8 px-2.5 py-0 text-xs"
+                  disabled={archivoBusy}
+                  aria-label="Ver Solicitud"
+                  onClick={() => void handleVer()}
+                >
+                  {archivoBusy ? "Abriendo…" : "Ver"}
+                </Button>
+                <Button
+                  type="button"
+                  variant="secondary"
+                  className="h-8 px-2.5 py-0 text-xs"
+                  disabled={archivoBusy}
+                  aria-label="Descargar Solicitud"
+                  onClick={() => void handleDescargar()}
+                >
+                  Descargar
+                </Button>
+              </div>
+            </>
+          ) : null}
+
+          {archivoError ? (
+            <p role="alert" className="mt-2 text-xs text-red-700">
+              {archivoError}
+            </p>
+          ) : null}
+
+          {preview ? (
+            <MesaArchivoPreviewDialog
+              preview={preview}
+              onClose={closePreview}
+              onOpenInNewTab={openBlobUrlInNewTab}
+            />
+          ) : null}
+        </section>
+      ) : null}
+    </>
   );
 }

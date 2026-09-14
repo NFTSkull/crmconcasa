@@ -3,22 +3,35 @@ import { describe, it } from "node:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
-describe("AsesorInfonavitDocumentosSection montaje B8", () => {
+describe("AsesorInfonavitDocumentosSection internos", () => {
   const pagePath = join(
     process.cwd(),
     "src/app/asesor/expediente/[id]/page.tsx",
   );
+  const solicitudPath = join(
+    process.cwd(),
+    "src/components/asesor/AsesorSolicitudDocumentoSection.tsx",
+  );
 
   const pageSrc = readFileSync(pagePath, "utf8");
+  const solicitudSrc = readFileSync(solicitudPath, "utf8");
 
-  it("asesor NO monta Documentos INFONAVIT (Mesa-only)", () => {
-    assert.doesNotMatch(pageSrc, /import\s+\{\s*AsesorInfonavitDocumentosSection\s*\}/);
-    assert.doesNotMatch(pageSrc, /<AsesorInfonavitDocumentosSection/);
-    assert.doesNotMatch(pageSrc, /fetchP189InfonavitFeatureStatus/);
-    assert.doesNotMatch(pageSrc, /showInfonavitDatosFields/);
+  it("mantiene el wiring de Solicitud en expediente y monta INFONAVIT desde esa sección", () => {
+    assert.match(pageSrc, /<AsesorSolicitudDocumentoSection/);
+    assert.match(
+      solicitudSrc,
+      /import\s+\{\s*AsesorInfonavitDocumentosSection\s*\}/,
+    );
+    assert.match(solicitudSrc, /<AsesorInfonavitDocumentosSection/);
   });
 
-  it("el componente asesor no pide Word editable", () => {
+  it("usa gate backend fail-closed para internos antes de consultar PDFs", () => {
+    assert.match(solicitudSrc, /asesor_puede_ver_infonavit_auto/);
+    assert.match(solicitudSrc, /setShowInfonavitAuto\(!rpcError && data === true\)/);
+    assert.match(solicitudSrc, /showInfonavitAuto\s*\?\s*\(/);
+  });
+
+  it("el componente asesor sigue siendo solo lectura y no pide Word editable", () => {
     const componentPath = join(
       process.cwd(),
       "src/components/asesor/AsesorInfonavitDocumentosSection.tsx",
@@ -27,5 +40,6 @@ describe("AsesorInfonavitDocumentosSection montaje B8", () => {
     assert.doesNotMatch(componentSrc, /allowWordDownload/);
     assert.doesNotMatch(componentSrc, /Descargar Word editable/);
     assert.doesNotMatch(componentSrc, /infonavit-docx/);
+    assert.match(componentSrc, /Solo lectura/);
   });
 });
