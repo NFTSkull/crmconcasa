@@ -71,6 +71,7 @@ export {
 } from "./integration-docs-completos";
 export {
   INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_EXTERNOS,
+  INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_ANETTE,
   fetchAsesorDocumentosObligatoriosEnvio,
   fetchAsesorDocumentosObligatoriosEnvioStrict,
   parseAsesorDocumentosObligatoriosEnvio,
