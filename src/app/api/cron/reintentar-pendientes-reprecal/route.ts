@@ -62,7 +62,7 @@ async function handleRetryPendientesReprecal(
 
   const { data: pendingRows, error: pendingErr } = await supabase
     .from("expediente_precalificacion_intentos")
-    .select("id, nss, programa, programa_solicitado")
+    .select("id, nss, programa, programa_solicitado, created_at")
     .eq("decision", "pendiente");
 
   if (pendingErr) {
@@ -81,9 +81,11 @@ async function handleRetryPendientesReprecal(
     nss: string | null;
     programa: string | null;
     programa_solicitado: string | null;
+    created_at: string;
   };
   const pendingList = (pendingRows ?? []) as PendingRow[];
   const pendingIds: string[] = [];
+  const pendingSinceById: Record<string, string> = {};
   const nssById = new Map<string, string>();
   const programaById = new Map<string, string>();
 
@@ -92,6 +94,7 @@ async function handleRetryPendientesReprecal(
     const nss = String(row.nss).trim();
     if (!nss) continue;
     pendingIds.push(row.id);
+    pendingSinceById[row.id] = row.created_at;
     nssById.set(row.id, nss);
     const programa = resolveProgramaParaMonto({
       programa: row.programa,
@@ -109,26 +112,38 @@ async function handleRetryPendientesReprecal(
     });
   }
 
-  const { data: intentoRows, error: intentosErr } = await supabase
-    .from("auto_reprecal_intentos")
-    .select("intento_id, intentado_en, resultado, razon")
-    .in("intento_id", pendingIds);
+  // Leer todo el historial: una página truncada no debe convertir un caso
+  // con resultado no reintentable en un supuesto cero-intentos.
+  const intentos: AutoReprecalIntentoRow[] = [];
+  const pageSize = 1000;
+  for (let from = 0; ; from += pageSize) {
+    const { data: intentoRows, error: intentosErr } = await supabase
+      .from("auto_reprecal_intentos")
+      .select("intento_id, intentado_en, resultado, razon")
+      .in("intento_id", pendingIds)
+      .order("intentado_en", { ascending: false })
+      .order("id", { ascending: false })
+      .range(from, from + pageSize - 1);
 
-  if (intentosErr) {
-    console.error(
-      "[cron/reintentar-pendientes-reprecal] intentos query",
-      intentosErr.message,
-    );
-    return NextResponse.json(
-      { ok: false, error: "intentos_query_failed" },
-      { status: 500 },
-    );
+    if (intentosErr) {
+      console.error(
+        "[cron/reintentar-pendientes-reprecal] intentos query",
+        intentosErr.message,
+      );
+      return NextResponse.json(
+        { ok: false, error: "intentos_query_failed" },
+        { status: 500 },
+      );
+    }
+    const chunk = (intentoRows ?? []) as AutoReprecalIntentoRow[];
+    intentos.push(...chunk);
+    if (chunk.length < pageSize) break;
   }
 
-  const intentos = (intentoRows ?? []) as AutoReprecalIntentoRow[];
   const candidateIds = selectAutoReprecalRetryCandidates({
     pendingIntentoIds: pendingIds,
     intentos,
+    pendingSinceById,
     limit: AUTO_REPRECAL_RETRY_LIMIT,
   });
 

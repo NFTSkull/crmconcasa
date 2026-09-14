@@ -21,13 +21,65 @@ describe("selectAutoReprecalRetryCandidates", () => {
   const recent = "2026-08-28T11:57:00.000Z"; // 3 min ago (< 5 min)
   const exactlyFive = "2026-08-28T11:55:00.000Z"; // 5 min ago (límite inclusive)
 
-  it("excluye backlog sin ningún intento auto-reprecal", () => {
+  it("excluye cero intentos cuando no hay fecha de creación confiable", () => {
     const ids = selectAutoReprecalRetryCandidates({
       pendingIntentoIds: ["aaaa", "bbbb"],
       intentos: [],
       nowMs: now,
     });
     assert.deepEqual(ids, []);
+  });
+
+  it("rescata cero intentos desde el límite de cinco minutos", () => {
+    assert.deepEqual(selectAutoReprecalRetryCandidates({
+      pendingIntentoIds: ["old", "boundary", "recent"],
+      pendingSinceById: { old, boundary: exactlyFive, recent },
+      intentos: [], nowMs: now,
+    }), ["old", "boundary"]);
+  });
+
+  it("excluye fechas ausentes, inválidas o futuras", () => {
+    assert.deepEqual(selectAutoReprecalRetryCandidates({
+      pendingIntentoIds: ["missing", "invalid", "future"],
+      pendingSinceById: { invalid: "invalid", future: "2026-08-29T12:00:00Z" },
+      intentos: [], nowMs: now,
+    }), []);
+  });
+
+  it("no rescata respuestas no reintentables aunque la creación sea antigua", () => {
+    for (const [resultado, razon] of [
+      ["pending_error", "ambiguous_payload"],
+      ["pending_error", "rpc_failed"],
+      ["no_cumple", null], ["aprobado", null],
+    ] as const) {
+      assert.deepEqual(selectAutoReprecalRetryCandidates({
+        pendingIntentoIds: ["id"], pendingSinceById: { id: old },
+        intentos: [intento("id", old, resultado, razon)], nowMs: now,
+      }), []);
+    }
+  });
+
+  it("la fecha de creación no evita el cooldown de un intento reciente", () => {
+    assert.deepEqual(selectAutoReprecalRetryCandidates({
+      pendingIntentoIds: ["id"], pendingSinceById: { id: old },
+      intentos: [intento("id", recent, "pending_error", "scraper_failed")], nowMs: now,
+    }), []);
+  });
+
+  it("respeta orden, límite y deduplicación entre rescates y reintentos", () => {
+    assert.deepEqual(selectAutoReprecalRetryCandidates({
+      pendingIntentoIds: ["retry", "zero", "zero"],
+      pendingSinceById: { zero: old, retry: "2026-08-28T09:00:00Z" },
+      intentos: [intento("retry", exactlyFive, "pending_error", "scraper_failed")],
+      nowMs: now, limit: 1,
+    }), ["zero"]);
+  });
+
+  it("una fecha antigua no incluye solicitudes que ya no están pendientes", () => {
+    assert.deepEqual(selectAutoReprecalRetryCandidates({
+      pendingIntentoIds: [], pendingSinceById: { resolved: old },
+      intentos: [], nowMs: now,
+    }), []);
   });
 
   it("excluye pending_error ambiguous_payload (no scraper_failed)", () => {
