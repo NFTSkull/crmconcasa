@@ -30,14 +30,20 @@ describe("Admin filters contract E1-E8 R1", () => {
     assert.doesNotMatch(page, /fallback.*snapshot|snapshotListFilters/);
   });
 
-  it("E6 etapaActuales en mesaListFilters", () => {
-    const blockStart = page.indexOf("const mesaListFilters = useMemo");
-    const blockEnd = page.indexOf("}, [filtersBase, etapaActual, mesaPage]");
+  it("E6 etapaActuales nace en filtersBase y gobierna Resumen/Expedientes/Producción/Precal", () => {
+    const blockStart = page.indexOf("const filtersBase = useMemo");
+    const blockEnd = page.indexOf("const snapshotFiltersBase", blockStart);
     assert.ok(blockStart >= 0 && blockEnd > blockStart);
     const block = page.slice(blockStart, blockEnd);
     assert.match(block, /etapaActualesFromAdminPasoFilter\(etapaActual\)/);
     assert.match(block, /etapaActuales/);
+    assert.match(block, /etapaActual:/);
     assert.deepEqual(etapaActualesFromAdminPasoFilter("3"), [3, 4]);
+
+    const mesaStart = page.indexOf("const mesaListFilters = useMemo");
+    const mesaEnd = page.indexOf("useEffect(() =>", mesaStart);
+    const mesa = page.slice(mesaStart, mesaEnd);
+    assert.match(mesa, /\.\.\.filtersBase/);
   });
 
   it("E7 Resumen snapshot independiente del periodo", () => {
@@ -49,9 +55,10 @@ describe("Admin filters contract E1-E8 R1", () => {
     assert.doesNotMatch(snap, /listMesaEnviosPage|bounds/);
   });
 
-  it("E8 Precal sigue con filtersBase + periodo", () => {
+  it("E8 Precal usa filtersBase + periodo + etapa", () => {
     assert.match(page, /listPrecalificacionesPage\(\{\s*\n\s*\.\.\.filtersBase/);
     assert.equal(ADMIN_FILTER_MATRIX.precal.periodo, true);
+    assert.equal(ADMIN_FILTER_MATRIX.precal.etapa, true);
   });
 
   it("period bounds helpers: hoy/semana/mes/personalizado", () => {
@@ -88,9 +95,11 @@ describe("Admin filters contract E1-E8 R1", () => {
     );
   });
 
-  it("matriz: Expedientes y Producción respetan periodo", () => {
+  it("matriz: Expedientes, Producción y Precal respetan etapa", () => {
     assert.equal(ADMIN_FILTER_MATRIX.expedientesPeriodo.periodo, true);
+    assert.equal(ADMIN_FILTER_MATRIX.expedientesPeriodo.etapa, true);
     assert.equal(ADMIN_FILTER_MATRIX.produccion.periodo, true);
     assert.equal(ADMIN_FILTER_MATRIX.produccion.etapa, true);
+    assert.equal(ADMIN_FILTER_MATRIX.precal.etapa, true);
   });
 });

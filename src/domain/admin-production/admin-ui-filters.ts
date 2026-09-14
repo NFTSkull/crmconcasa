@@ -61,13 +61,13 @@ export function etapaActualesFromAdminPasoFilter(
 /**
  * Matriz de contrato Admin (periodo × panel) — solo documentación testeable.
  * Resumen snapshot: independiente del periodo.
- * Expedientes / Producción / Precal: respetan periodo.
+ * Expedientes / Producción / Precal: respetan periodo y etapa actual.
  */
 export const ADMIN_FILTER_MATRIX = {
   resumenSnapshot: { periodo: false, asesor: true, etapa: true, estado: true },
   expedientesPeriodo: { periodo: true, asesor: true, etapa: true, estado: true },
   produccion: { periodo: true, asesor: true, etapa: true, estado: true },
-  precal: { periodo: true, asesor: true, etapa: false, estado: true },
+  precal: { periodo: true, asesor: true, etapa: true, estado: true },
 } as const;
 
 /** Tras aplicar etapa, la página de expedientes debe reiniciarse a 1. */

@@ -144,15 +144,11 @@ export default function AdminDashboardPage() {
   const repo = useAdminProductionRepo();
   const mesaExpedientesRef = useRef<HTMLElement | null>(null);
 
-  // B1 (solo UX): pestaña activa del panel. No afecta filtros ni consultas;
-  // los paneles inactivos permanecen montados (hidden) para conservar datos.
-  // B3: `bernardo` es vista aparte (no está en el tablist); se guarda la pestaña previa.
   const [activeTab, setActiveTab] = useState<AdminTabId>(DEFAULT_ADMIN_TAB);
   const bernardoReturnTabRef = useRef<AdminMainTabId>(DEFAULT_ADMIN_TAB);
   const [reportesSubtab, setReportesSubtab] = useState<AdminReportesSubtabId>(
     DEFAULT_ADMIN_REPORTES_SUBTAB,
   );
-  /** B2: una sola fila de producción expandida a la vez (estado predecible). */
   const [expandedAsesorId, setExpandedAsesorId] = useState<string | null>(null);
   const [expandedProductionPage, setExpandedProductionPage] = useState(1);
   const [expandedProductionItems, setExpandedProductionItems] = useState<
@@ -235,16 +231,17 @@ export default function AdminDashboardPage() {
 
   const filtersBase = useMemo(() => {
     if (!bounds) return null;
+    const etapaActuales = etapaActualesFromAdminPasoFilter(etapaActual);
     return {
       bounds,
       asesorId: asesorId || null,
-      etapaActual: null as number | null,
-      etapaActuales: null as number[] | null,
+      etapaActual: etapaActuales?.length === 1 ? etapaActuales[0]! : null,
+      etapaActuales,
       estado,
       buscar: buscarDebounced || null,
       precalDecision,
     };
-  }, [bounds, asesorId, estado, buscarDebounced, precalDecision]);
+  }, [bounds, asesorId, etapaActual, estado, buscarDebounced, precalDecision]);
 
   const snapshotFiltersBase = useMemo(
     () => ({
@@ -255,18 +252,14 @@ export default function AdminDashboardPage() {
     [asesorId, estado, buscarDebounced],
   );
 
-  /** Expedientes del periodo (fecha_envio_mesa) — no usar snapshot sin bounds. */
   const mesaListFilters = useMemo(() => {
     if (!filtersBase) return null;
-    const etapaActuales = etapaActualesFromAdminPasoFilter(etapaActual);
     return {
       ...filtersBase,
-      etapaActual: etapaActuales?.length === 1 ? etapaActuales[0]! : null,
-      etapaActuales,
       page: mesaPage,
       pageSize: PAGE_SIZE,
     };
-  }, [filtersBase, etapaActual, mesaPage]);
+  }, [filtersBase, mesaPage]);
 
   useEffect(() => {
     const t = window.setTimeout(() => {
@@ -298,9 +291,25 @@ export default function AdminDashboardPage() {
     () => filterAdminProductionRowsByPaso(asesores, etapaActual),
     [asesores, etapaActual],
   );
-  const visibleByEtapa = useMemo(
+  const allVisibleByEtapa = useMemo(
     () => projectAdminVisibleStageBuckets(byEtapa, snapshotTotal),
     [byEtapa, snapshotTotal],
+  );
+  const visibleByEtapa = useMemo(
+    () =>
+      etapaFiltroActiva
+        ? allVisibleByEtapa.filter((b) =>
+            isAdminPasoVisualFilterPressed(etapaActual, b.etapa),
+          )
+        : allVisibleByEtapa,
+    [allVisibleByEtapa, etapaActual, etapaFiltroActiva],
+  );
+  const visibleSnapshotTotal = useMemo(
+    () =>
+      etapaFiltroActiva
+        ? visibleByEtapa.reduce((sum, b) => sum + b.count, 0)
+        : snapshotTotal,
+    [etapaFiltroActiva, visibleByEtapa, snapshotTotal],
   );
 
   const clearExpandedProduction = useCallback(() => {
@@ -326,12 +335,10 @@ export default function AdminDashboardPage() {
     ].join("|");
   }, [bounds, etapaActual, estado, buscarDebounced, asesorId]);
 
-  /** Filtros globales: cerrar expansión (evita datos stale). */
   useEffect(() => {
     clearExpandedProduction();
   }, [productionExpandInvalidateKey, clearExpandedProduction]);
 
-  /** On-demand: una sola fila expandida → listMesaEnviosPage. */
   useEffect(() => {
     if (!expandedAsesorId || !filtersBase || !bounds) {
       return;
@@ -406,8 +413,6 @@ export default function AdminDashboardPage() {
     });
   }, []);
 
-  // Query param visual (?adminTab=) para conservar la pestaña al refrescar.
-  // Se lee una sola vez al montar; no interviene el router ni las consultas.
   useEffect(() => {
     const param = new URLSearchParams(window.location.search).get(
       ADMIN_TAB_QUERY_PARAM,
@@ -565,7 +570,6 @@ export default function AdminDashboardPage() {
     setSnapshotLoading(true);
     setSnapshotError(null);
     try {
-      // Resumen: stock vigente por etapas — independiente del periodo.
       const snap = await repo.getExpedientesSnapshotEtapas(snapshotFiltersBase);
       setByEtapa(snap.byEtapa);
       setSnapshotTotal(snap.totalActual);
@@ -673,14 +677,15 @@ export default function AdminDashboardPage() {
   const clearEtapaFilter = () => {
     setEtapaActual("todas");
     setMesaPage(1);
+    setPrecalPage(1);
   };
 
   const onEtapaCardPress = (etapa: number) => {
     const next = nextPasoVisualFilterFromInternalCard(etapaActual, etapa);
     setEtapaActual(next);
     setMesaPage(mesaPageAfterEtapaChange());
+    setPrecalPage(1);
     if (next !== "todas") {
-      // La tabla del flujo de Mesa vive en la pestaña Expedientes (B1).
       handleTabChange("expedientes");
       requestAnimationFrame(() => focusMesaExpedientes());
     }
@@ -693,13 +698,11 @@ export default function AdminDashboardPage() {
     setPrecalPage(pages.precalPage);
   };
 
-  /** B2: desde Producción → Expedientes con el filtro de asesor vigente. */
   const goExpedientesAsesor = (id: string) => {
     applyAsesorFilter(id);
     handleTabChange("expedientes");
   };
 
-  /** Precal ya cargada para el drawer (sin consultas nuevas). */
   const drawerPrecal = useMemo(() => {
     if (!timelineTarget) return null;
     return (
@@ -712,12 +715,7 @@ export default function AdminDashboardPage() {
     if (!filtersBase || !bounds) return;
     setExporting(true);
     try {
-      const etapaActuales = etapaActualesFromAdminPasoFilter(etapaActual);
-      const data = await repo.exportAll({
-        ...filtersBase,
-        etapaActual: etapaActuales?.length === 1 ? etapaActuales[0]! : null,
-        etapaActuales,
-      });
+      const data = await repo.exportAll(filtersBase);
       const wb = buildAdminProductionWorkbook({ bounds, ...data });
       downloadAdminProductionWorkbook(wb, bounds);
     } catch (e) {
@@ -747,7 +745,6 @@ export default function AdminDashboardPage() {
     );
   }
 
-  // Nombre completo vía helper pendiente en otra rama; temporalmente email.
   const displayName = currentUser.email?.trim() || "Administrador";
 
   const periodoLabel = bounds
@@ -851,9 +848,8 @@ export default function AdminDashboardPage() {
                     expedientes vigentes y no depende del periodo.
                   </p>
                   <p className="mt-2 text-slate-600">
-                    Estos filtros aplican a Resumen, Expedientes y Producción. Los
-                    reportes históricos e ingresos tienen filtros propios dentro de su
-                    pestaña.
+                    Asesor, etapa actual y estado se aplican al mismo universo de
+                    Resumen, Expedientes, Producción, precalificaciones y Excel.
                   </p>
                 </div>
               </details>
@@ -914,6 +910,7 @@ export default function AdminDashboardPage() {
               onChange={(e) => {
                 setEtapaActual(e.target.value);
                 setMesaPage(1);
+                setPrecalPage(1);
               }}
               options={[
                 { value: "todas", label: "Todas" },
@@ -926,6 +923,7 @@ export default function AdminDashboardPage() {
               onChange={(e) => {
                 setEstado(e.target.value as AdminEstadoFilter);
                 setMesaPage(1);
+                setPrecalPage(1);
               }}
               options={[
                 { value: "todos", label: "Todos" },
@@ -975,7 +973,6 @@ export default function AdminDashboardPage() {
           </div>
         )}
 
-        {/* ── Pestaña: Resumen ─────────────────────────────────────────── */}
         <div
           role="tabpanel"
           id={adminTabPanelId("resumen")}
@@ -998,8 +995,16 @@ export default function AdminDashboardPage() {
         ) : null}
 
         <AdminSectionHeader
-          title="Resumen del periodo"
-          description="KPIs del rango seleccionado. No se mezclan con el localizador de búsqueda."
+          title={
+            etapaFiltroNombreCorto
+              ? `Resumen del periodo · ${etapaFiltroNombreCorto}`
+              : "Resumen del periodo"
+          }
+          description={
+            etapaFiltroNombreCorto
+              ? `KPIs del rango seleccionado limitados a ${etapaFiltroNombreCorto}.`
+              : "KPIs del rango seleccionado. No se mezclan con el localizador de búsqueda."
+          }
         />
         {loading ? (
           <p className="text-gray-700">Cargando producción…</p>
@@ -1060,8 +1065,16 @@ export default function AdminDashboardPage() {
 
             <section className="rounded-lg border border-slate-200 bg-white p-4">
               <AdminSectionHeader
-                title="Estado actual de los expedientes enviados a Mesa"
-                description="Corte actual de los expedientes vigentes que ya ingresaron al flujo de Mesa. No depende del periodo seleccionado. Pulsa una etapa para abrir sus expedientes en la pestaña Expedientes."
+                title={
+                  etapaFiltroNombreCorto
+                    ? `Estado actual · ${etapaFiltroNombreCorto}`
+                    : "Estado actual de los expedientes enviados a Mesa"
+                }
+                description={
+                  etapaFiltroNombreCorto
+                    ? `Corte actual de expedientes vigentes en ${etapaFiltroNombreCorto}. No depende del periodo seleccionado.`
+                    : "Corte actual de los expedientes vigentes que ya ingresaron al flujo de Mesa. No depende del periodo seleccionado. Pulsa una etapa para abrir sus expedientes en la pestaña Expedientes."
+                }
               />
               {snapshotLoading && byEtapa.length === 0 ? (
                 <p className="mt-3 text-sm text-gray-700">
@@ -1074,9 +1087,13 @@ export default function AdminDashboardPage() {
                     Reintentar
                   </Button>
                 </div>
-              ) : snapshotTotal === 0 ? (
+              ) : visibleSnapshotTotal === 0 ? (
                 <AdminEmptyState
-                  title="No hay expedientes con estos filtros."
+                  title={
+                    etapaFiltroNombreCorto
+                      ? `No hay expedientes vigentes en ${etapaFiltroNombreCorto} con estos filtros.`
+                      : "No hay expedientes con estos filtros."
+                  }
                   description="Prueba limpiar o cambiar los filtros."
                   onClearFilters={clearFilters}
                 />
@@ -1084,9 +1101,9 @@ export default function AdminDashboardPage() {
                 <>
                   <div className="mt-3 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm text-slate-800">
                     <p>
-                      Total actual:{" "}
+                      {etapaFiltroNombreCorto ? "Total en etapa:" : "Total actual:"}{" "}
                       <strong className="font-semibold tabular-nums">
-                        {snapshotTotal} expediente{snapshotTotal === 1 ? "" : "s"}
+                        {visibleSnapshotTotal} expediente{visibleSnapshotTotal === 1 ? "" : "s"}
                       </strong>
                     </p>
                     {snapshotGeneratedAt ? (
@@ -1135,7 +1152,9 @@ export default function AdminDashboardPage() {
                           <p className="text-xs text-gray-700">
                             {b.count === 0
                               ? "0 expedientes"
-                              : `${b.count} expediente${b.count === 1 ? "" : "s"} · ${b.pct}%`}
+                              : `${b.count} expediente${b.count === 1 ? "" : "s"}${
+                                  etapaFiltroActiva ? "" : ` · ${b.pct}%`
+                                }`}
                           </p>
                         </button>
                       );
@@ -1145,7 +1164,6 @@ export default function AdminDashboardPage() {
               )}
             </section>
 
-            {/* Accesos rápidos a las demás pestañas (solo navegación visual). */}
             <section aria-label="Accesos rápidos" className="grid gap-3 sm:grid-cols-3">
               {ADMIN_TABS.filter((t) => t.id !== "resumen").map((t) => (
                 <button
@@ -1164,7 +1182,6 @@ export default function AdminDashboardPage() {
             </section>
         </div>
 
-        {/* ── Pestaña: Expedientes ─────────────────────────────────────── */}
         <div
           role="tabpanel"
           id={adminTabPanelId("expedientes")}
@@ -1326,8 +1343,16 @@ export default function AdminDashboardPage() {
             {!loading && (
             <section className="rounded-lg border border-gray-200 bg-white p-4 text-gray-900">
               <AdminSectionHeader
-                title="Precalificaciones"
-                description="El periodo aplica a aprobadas y rechazadas; pendientes muestra el estado actual."
+                title={
+                  etapaFiltroNombreCorto
+                    ? `Precalificaciones · ${etapaFiltroNombreCorto}`
+                    : "Precalificaciones"
+                }
+                description={
+                  etapaFiltroNombreCorto
+                    ? `Resultados del periodo actualmente en ${etapaFiltroNombreCorto}.`
+                    : "El periodo aplica a aprobadas y rechazadas; pendientes muestra el estado actual."
+                }
                 trailing={
                   <Select
                     label="Decisión"
@@ -1480,7 +1505,6 @@ export default function AdminDashboardPage() {
             )}
         </div>
 
-        {/* ── Pestaña: Reportes ────────────────────────────────────────── */}
         <div
           role="tabpanel"
           id={adminTabPanelId("reportes")}
@@ -1529,7 +1553,6 @@ export default function AdminDashboardPage() {
           </div>
         </div>
 
-        {/* ── Pestaña: Producción ──────────────────────────────────────── */}
         <div
           role="tabpanel"
           id={adminTabPanelId("produccion")}
@@ -1543,7 +1566,11 @@ export default function AdminDashboardPage() {
               <section className="rounded-lg border border-slate-200 bg-white p-4">
                 <AdminSectionHeader
                   title={produccionTitle}
-                  description="Producción por asesor durante el periodo seleccionado en la barra de filtros. Expande una fila para ver el desglose por etapas."
+                  description={
+                    etapaFiltroNombreCorto
+                      ? `Producción por asesor durante el periodo, recalculada únicamente para ${etapaFiltroNombreCorto}.`
+                      : "Producción por asesor durante el periodo seleccionado en la barra de filtros. Expande una fila para ver el desglose por etapas."
+                  }
                 />
                 {etapaFiltroActiva && etapaFiltroNombreCorto ? (
                   <p className="mt-2 text-xs text-slate-600">
@@ -1668,8 +1695,9 @@ export default function AdminDashboardPage() {
                                 {compactEtapas(a.etapas) || "Sin desglose"}
                               </p>
                               <p className="mt-1 text-[11px] text-slate-500">
-                                Aprobadas / No cumple / monto son totales del periodo
-                                (no se recalculan por etapa).
+                                {etapaFiltroNombreCorto
+                                  ? `Todos los números de esta fila corresponden a ${etapaFiltroNombreCorto}.`
+                                  : "Aprobadas / No cumple / monto corresponden al periodo seleccionado."}
                               </p>
                             </div>
                             <div className="flex flex-wrap gap-2">
