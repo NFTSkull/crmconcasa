@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useRef } from "react";
 import {
   ADMIN_TABS,
@@ -21,23 +22,33 @@ type AdminTabsProps = {
 /**
  * Barra de navegación por pestañas del panel Admin (B1).
  * Patrón WAI-ARIA tabs: roving tabindex + flechas/Home/End.
- * Solo cambia qué panel es visible; no altera filtros ni datos cargados.
+ * Expedientes tiene ruta dedicada para mostrar el inventario completo, incluidos
+ * los que todavía no se envían a Mesa. El resto conserva el panel histórico.
  * Bernardo no aparece aquí (B3: acceso por botón dedicado).
  * Agenda vive en /admin/agenda para no mantener cargada la agenda pesada
  * cuando Admin está consultando otras pestañas.
  */
 export function AdminTabs({ active, onChange }: AdminTabsProps) {
+  const router = useRouter();
   const listRef = useRef<HTMLDivElement | null>(null);
   const selectedMain: AdminMainTabId | null = isAdminMainTabId(active)
     ? active
     : null;
+
+  const navigateTab = (tab: AdminMainTabId) => {
+    if (tab === "expedientes") {
+      router.push("/admin/expedientes");
+      return;
+    }
+    onChange(tab);
+  };
 
   const onKeyDown = (e: React.KeyboardEvent<HTMLDivElement>) => {
     const base = selectedMain ?? DEFAULT_ADMIN_TAB;
     const next = nextAdminTabIdOnKey(base, e.key);
     if (!next) return;
     e.preventDefault();
-    onChange(next);
+    navigateTab(next);
     requestAnimationFrame(() => {
       listRef.current
         ?.querySelector<HTMLButtonElement>(`#${adminTabButtonId(next)}`)
@@ -68,7 +79,7 @@ export function AdminTabs({ active, onChange }: AdminTabsProps) {
                 aria-selected={selected}
                 aria-controls={adminTabPanelId(t.id)}
                 tabIndex={focusable ? 0 : -1}
-                onClick={() => onChange(t.id)}
+                onClick={() => navigateTab(t.id)}
                 className={`whitespace-nowrap border-b-2 px-4 py-3 text-sm font-medium outline-none transition focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-1 ${
                   selected
                     ? "border-slate-900 text-slate-900"
