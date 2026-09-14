@@ -1,11 +1,13 @@
 /**
- * RPC UI: ¿asesor en paquete documental externos? (Parte A SQL = autoridad).
+ * RPC UI: clasificación del paquete documental / perfil de captura.
  *
  * Tri-state: externo | interno | unknown.
  * UNKNOWN ≠ INTERNO: error / RPC ausente / payload inválido → "unknown".
- * El booleano legacy `fetchAsesorEsPaqueteDocumentalExternos` sigue existiendo
- * solo para callers no críticos (fail-closed → false); el expediente usa
- * `fetchAsesorEsPaqueteDocumentalExternosClasificacion`.
+ *
+ * Sin `asesorId` clasifica al ACTOR para la UX documental (Silvia continúa como
+ * paquete externo). Con `asesorId` clasifica al DUEÑO para Datos Generales:
+ * Equipo Silvia usa captura completa, mientras Anette/otros externos conservan
+ * captura simplificada. Esa separación evita cambiar el enrutamiento operativo.
  */
 import { isSupabaseConfigured, supabaseBrowser } from "@/lib/supabaseBrowser";
 import type { PaqueteDocumentalClasificacion } from "@/domain/asesor-equipo/asesor-en-equipo-por-lider-email";
@@ -43,8 +45,9 @@ export async function fetchAsesorEsPaqueteDocumentalExternosClasificacion(
         id,
       );
 
+    // Dueño explícito → política de CAPTURA. Actor → política documental/UX.
     const { data, error } = hasId
-      ? await supabaseBrowser.rpc("asesor_es_paquete_documental_externos", {
+      ? await supabaseBrowser.rpc("asesor_usa_captura_simplificada", {
           p_asesor_id: id,
         })
       : await supabaseBrowser.rpc("asesor_es_paquete_documental_externos");
@@ -58,7 +61,7 @@ export async function fetchAsesorEsPaqueteDocumentalExternosClasificacion(
 
 /**
  * Legacy booleano. Fail-closed → false (puede confundir UNKNOWN con interno).
- * No usar para gates B1–B5 ni envío crítico; preferir …Clasificacion.
+ * No usar para gates críticos; preferir …Clasificacion.
  */
 export async function fetchAsesorEsPaqueteDocumentalExternos(
   asesorId?: string | null,
