@@ -107,7 +107,7 @@ export interface InfonavitBeneficiarioInput {
 
 export interface InfonavitMejoraInput {
   descripcion?: string | null;
-  /** Se conserva por compatibilidad histórica; v3 no lo imprime en Presupuesto. */
+  /** Se conserva por compatibilidad histórica; mappingVersion>=3 no lo imprime en Presupuesto. */
   presupuestoEstimado?: number | null;
 }
 
@@ -116,6 +116,8 @@ export interface InfonavitMejoraInput {
  * America/Monterrey por el productor. El renderer NO aplica TZ.
  */
 export interface InfonavitPdfSnapshotInput {
+  /** Ausente/1/2 = comportamiento histórico. 3+ activa las reglas documentales nuevas. */
+  mappingVersion?: number | null;
   fechaDocumento: string;
   localidad: string;
   /** Ciudad de cierre Solicitud p.2; si ausente, se usa `localidad`. */
