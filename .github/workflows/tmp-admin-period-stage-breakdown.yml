@@ -1,0 +1,148 @@
+name: Temporary admin period-stage patch
+
+on:
+  push:
+    branches:
+      - fix/admin-period-stage-breakdown
+
+permissions:
+  contents: write
+
+jobs:
+  patch:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: fix/admin-period-stage-breakdown
+          fetch-depth: 0
+
+      - name: Apply focused source patch
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          def replace_once(path: str, old: str, new: str) -> None:
+              p = Path(path)
+              text = p.read_text()
+              count = text.count(old)
+              if count != 1:
+                  raise SystemExit(f"{path}: expected exactly 1 match, found {count}\n--- OLD ---\n{old}")
+              p.write_text(text.replace(old, new, 1))
+
+          page = "src/app/admin/page.tsx"
+
+          replace_once(
+              page,
+              '''  const snapshotFiltersBase = useMemo(\n    () => ({\n      asesorId: asesorId || null,\n      estado,\n      buscar: buscarDebounced || null,\n    }),\n    [asesorId, estado, buscarDebounced],\n  );''',
+              '''  // El desglose de etapas usa el periodo y los filtros globales, pero no\n  // se recorta por la etapa activa: siempre muestra el panorama completo.\n  const periodStageFiltersBase = useMemo(() => {\n    if (!bounds) return null;\n    return {\n      bounds,\n      asesorId: asesorId || null,\n      etapaActual: null as number | null,\n      etapaActuales: null as number[] | null,\n      estado,\n      buscar: buscarDebounced || null,\n      precalDecision,\n    };\n  }, [bounds, asesorId, estado, buscarDebounced, precalDecision]);''',
+          )
+
+          replace_once(
+              page,
+              '''  const visibleByEtapa = useMemo(\n    () =>\n      etapaFiltroActiva\n        ? allVisibleByEtapa.filter((b) =>\n            isAdminPasoVisualFilterPressed(etapaActual, b.etapa),\n          )\n        : allVisibleByEtapa,\n    [allVisibleByEtapa, etapaActual, etapaFiltroActiva],\n  );\n  const visibleSnapshotTotal = useMemo(\n    () =>\n      etapaFiltroActiva\n        ? visibleByEtapa.reduce((sum, b) => sum + b.count, 0)\n        : snapshotTotal,\n    [etapaFiltroActiva, visibleByEtapa, snapshotTotal],\n  );''',
+              '''  // La etapa seleccionada se resalta, pero nunca oculta las demás tarjetas.\n  const visibleByEtapa = allVisibleByEtapa;\n  const visibleSnapshotTotal = snapshotTotal;''',
+          )
+
+          replace_once(
+              page,
+              '''  const loadSnapshot = useCallback(async () => {\n    setSnapshotLoading(true);\n    setSnapshotError(null);\n    try {\n      const snap = await repo.getExpedientesSnapshotEtapas(snapshotFiltersBase);\n      setByEtapa(snap.byEtapa);\n      setSnapshotTotal(snap.totalActual);\n      setSnapshotGeneratedAt(snap.generatedAt);\n    } catch (e) {\n      setSnapshotError(\n        e instanceof Error ? e.message : "No fue posible cargar el estado actual",\n      );\n    } finally {\n      setSnapshotLoading(false);\n    }\n  }, [repo, snapshotFiltersBase]);''',
+              '''  const loadSnapshot = useCallback(async () => {\n    if (!periodStageFiltersBase) {\n      setSnapshotError("Rango de fechas inválido");\n      setSnapshotLoading(false);\n      setByEtapa([]);\n      setSnapshotTotal(0);\n      return;\n    }\n    setSnapshotLoading(true);\n    setSnapshotError(null);\n    try {\n      const cohort = await repo.getMesaCohortByEtapa(periodStageFiltersBase);\n      setByEtapa(cohort.byEtapa);\n      setSnapshotTotal(cohort.total);\n      setSnapshotGeneratedAt(new Date().toISOString());\n    } catch (e) {\n      setSnapshotError(\n        e instanceof Error ? e.message : "No fue posible cargar las etapas del periodo",\n      );\n    } finally {\n      setSnapshotLoading(false);\n    }\n  }, [repo, periodStageFiltersBase]);''',
+          )
+
+          replace_once(
+              page,
+              '''  const onEtapaCardPress = (etapa: number) => {\n    const next = nextPasoVisualFilterFromInternalCard(etapaActual, etapa);\n    setEtapaActual(next);\n    setMesaPage(mesaPageAfterEtapaChange());\n    setPrecalPage(1);\n    if (next !== "todas") {\n      handleTabChange("expedientes");\n      requestAnimationFrame(() => focusMesaExpedientes());\n    }\n  };''',
+              '''  const onEtapaCardPress = (etapa: number) => {\n    // Las tarjetas son drill-down: incluso si ya está activa, el click abre\n    // sus expedientes conservando exactamente el periodo seleccionado.\n    const next = nextPasoVisualFilterFromInternalCard("todas", etapa);\n    setEtapaActual(next);\n    setMesaPage(mesaPageAfterEtapaChange());\n    setPrecalPage(1);\n    handleTabChange("expedientes");\n    requestAnimationFrame(() => focusMesaExpedientes());\n  };''',
+          )
+
+          replace_once(
+              page,
+              '''                  <p className="mt-2">\n                    El estado actual por etapas del Resumen es un corte de todos los\n                    expedientes vigentes y no depende del periodo.\n                  </p>''',
+              '''                  <p className="mt-2">\n                    El desglose por etapas del Resumen usa el mismo periodo seleccionado\n                    y siempre muestra todas las etapas. La etapa activa solo se resalta.\n                  </p>''',
+          )
+
+          replace_once(
+              page,
+              '''              <AdminSectionHeader\n                title={\n                  etapaFiltroNombreCorto\n                    ? `Estado actual · ${etapaFiltroNombreCorto}`\n                    : "Estado actual de los expedientes enviados a Mesa"\n                }\n                description={\n                  etapaFiltroNombreCorto\n                    ? `Corte actual de expedientes vigentes en ${etapaFiltroNombreCorto}. No depende del periodo seleccionado.`\n                    : "Corte actual de los expedientes vigentes que ya ingresaron al flujo de Mesa. No depende del periodo seleccionado. Pulsa una etapa para abrir sus expedientes en la pestaña Expedientes."\n                }\n              />''',
+              '''              <AdminSectionHeader\n                title="Etapas del periodo"\n                description={`Todos los expedientes enviados a Mesa en ${periodoLabel}, agrupados por su etapa actual. La etapa activa solo se resalta; no oculta las demás. Pulsa cualquier etapa para ver sus expedientes con este mismo periodo.`}\n              />''',
+          )
+
+          replace_once(
+              page,
+              '''                  Calculando estado actual de los expedientes…''',
+              '''                  Calculando expedientes del periodo por etapa…''',
+          )
+          replace_once(
+              page,
+              '''                  <span>No fue posible cargar el estado actual. Reintentar.</span>''',
+              '''                  <span>No fue posible cargar las etapas del periodo. Reintentar.</span>''',
+          )
+
+          replace_once(
+              page,
+              '''                  title={\n                    etapaFiltroNombreCorto\n                      ? `No hay expedientes vigentes en ${etapaFiltroNombreCorto} con estos filtros.`\n                      : "No hay expedientes con estos filtros."\n                  }''',
+              '''                  title="No hay expedientes enviados a Mesa en el periodo seleccionado."''',
+          )
+
+          replace_once(
+              page,
+              '''                      {etapaFiltroNombreCorto ? "Total en etapa:" : "Total actual:"}{" "}''',
+              '''                      Total del periodo:{" "}''',
+          )
+
+          replace_once(
+              page,
+              '''                      </strong>\n                    </p>\n                    {snapshotGeneratedAt ? (''',
+              '''                      </strong>\n                    </p>\n                    <p className="text-xs text-gray-700">\n                      Periodo: <strong className="font-medium text-slate-800">{periodoLabel}</strong>\n                    </p>\n                    {snapshotGeneratedAt ? (''',
+          )
+
+          replace_once(
+              page,
+              '''                            {b.count === 0\n                              ? "0 expedientes"\n                              : `${b.count} expediente${b.count === 1 ? "" : "s"}${\n                                  etapaFiltroActiva ? "" : ` · ${b.pct}%`\n                                }`}''',
+              '''                            {b.count === 0\n                              ? "0 expedientes"\n                              : `${b.count} expediente${b.count === 1 ? "" : "s"} · ${b.pct}%`}''',
+          )
+
+          replace_once(
+              page,
+              '''                  <span>\n                    Mostrando expedientes en:{" "}\n                    <strong className="font-semibold">{etapaFiltroNombre}</strong>\n                  </span>''',
+              '''                  <span>\n                    Mostrando expedientes en:{" "}\n                    <strong className="font-semibold">{etapaFiltroNombre}</strong>{" "}\n                    · Periodo: <strong className="font-semibold tabular-nums">{periodoLabel}</strong>\n                  </span>''',
+          )
+
+          # Repo Supabase: el desglose del periodo también respeta búsqueda.
+          repo = "src/domain/admin-production/supabase-stage-filter.repo.ts"
+          marker = '''export class StageAwareSupabaseAdminProductionRepo extends SupabaseAdminProductionRepo {\n  override async getSummary('''
+          insertion = '''export class StageAwareSupabaseAdminProductionRepo extends SupabaseAdminProductionRepo {\n  override async getMesaCohortByEtapa(filters: AdminProductionFilters) {\n    const client = requireClient();\n    const { data, error } = await client.rpc("admin_get_mesa_period_by_etapa_v2", {\n      p_from: filters.bounds.fromIso,\n      p_to_exclusive: filters.bounds.toExclusiveIso,\n      p_asesor_id: filters.asesorId ?? null,\n      p_estado: adminEstadoRpcParam(filters.estado),\n      p_buscar: filters.buscar ?? null,\n    });\n    if (error) throw new Error(error.message || "No se pudo cargar el desglose por etapa");\n    const row = (data ?? {}) as Record<string, unknown>;\n    const by = Array.isArray(row.by_etapa) ? row.by_etapa : [];\n    return {\n      total: num(row.total),\n      byEtapa: by.map((item) => {\n        const r = item as Record<string, unknown>;\n        return { etapa: num(r.etapa), count: num(r.count), pct: num(r.pct) };\n      }),\n    };\n  }\n\n  override async getSummary('''
+          replace_once(repo, marker, insertion)
+
+          # Matriz de contrato: el panel de etapas depende del periodo y NO se recorta por etapa.
+          filters = "src/domain/admin-production/admin-ui-filters.ts"
+          replace_once(
+              filters,
+              ''' * Matriz de contrato Admin (periodo × panel) — solo documentación testeable.\n * Resumen snapshot: independiente del periodo.\n * Expedientes / Producción / Precal: respetan periodo.\n */\nexport const ADMIN_FILTER_MATRIX = {\n  resumenSnapshot: { periodo: false, asesor: true, etapa: true, estado: true },''',
+              ''' * Matriz de contrato Admin (periodo × panel) — solo documentación testeable.\n * El desglose de etapas del Resumen respeta el periodo, pero deliberadamente\n * ignora la etapa activa para conservar visibles todas las etapas.\n * Expedientes / Producción / Precal sí respetan la etapa seleccionada.\n */\nexport const ADMIN_FILTER_MATRIX = {\n  resumenEtapasPeriodo: { periodo: true, asesor: true, etapa: false, estado: true },''',
+          )
+
+          # Contrato de UI actualizado a la semántica solicitada.
+          test = Path("src/app/admin/page.admin-filters.contract.test.ts")
+          test.write_text('''import assert from "node:assert/strict";\nimport { readFileSync } from "node:fs";\nimport { join } from "node:path";\nimport { describe, it } from "node:test";\nimport { ADMIN_FILTER_MATRIX } from "@/domain/admin-production/admin-ui-filters";\nimport { resolveAdminPeriodBounds } from "@/domain/admin-production/period";\nimport { etapaActualesFromAdminPasoFilter } from "@/domain/admin-production/admin-ui-filters";\n\ndescribe("Admin filters contract E1-E9 R1", () => {\n  const page = readFileSync(join(process.cwd(), "src/app/admin/page.tsx"), "utf8");\n  const tabs = readFileSync(join(process.cwd(), "src/lib/adminUxTabs.ts"), "utf8");\n\n  it("E1–E4 Expedientes usa listMesaEnviosPage con mesaListFilters (bounds)", () => {\n    assert.match(page, /const mesaListFilters = useMemo/);\n    assert.match(page, /\\.\\.\\.filtersBase/);\n    assert.match(page, /repo\\.listMesaEnviosPage\\(mesaListFilters\\)/);\n    assert.doesNotMatch(page, /listExpedientesSnapshotPage/);\n    assert.match(page, /loadExpedientesPeriodo/);\n  });\n\n  it("E5 empty state sin fallback snapshot", () => {\n    assert.match(page, /No hay expedientes enviados a Mesa en el periodo seleccionado/);\n    assert.doesNotMatch(page, /fallback.*snapshot|snapshotListFilters/);\n  });\n\n  it("E6 etapaActuales nace en filtersBase y gobierna KPIs/listados", () => {\n    const blockStart = page.indexOf("const filtersBase = useMemo");\n    const blockEnd = page.indexOf("const periodStageFiltersBase", blockStart);\n    assert.ok(blockStart >= 0 && blockEnd > blockStart);\n    const block = page.slice(blockStart, blockEnd);\n    assert.match(block, /etapaActualesFromAdminPasoFilter\\(etapaActual\\)/);\n    assert.match(block, /etapaActuales/);\n    assert.deepEqual(etapaActualesFromAdminPasoFilter("3"), [3, 4]);\n  });\n\n  it("E7 desglose por etapas usa periodo y siempre conserva todas las etapas", () => {\n    assert.match(page, /repo\\.getMesaCohortByEtapa\\(periodStageFiltersBase\\)/);\n    assert.equal(ADMIN_FILTER_MATRIX.resumenEtapasPeriodo.periodo, true);\n    assert.equal(ADMIN_FILTER_MATRIX.resumenEtapasPeriodo.etapa, false);\n    assert.match(page, /const visibleByEtapa = allVisibleByEtapa/);\n    assert.match(page, /title="Etapas del periodo"/);\n    assert.match(page, /Periodo:.*periodoLabel/s);\n  });\n\n  it("E8 Precal usa filtersBase + periodo + etapa", () => {\n    assert.match(page, /listPrecalificacionesPage\\(\\{\\s*\\n\\s*\\.\\.\\.filtersBase/);\n    assert.equal(ADMIN_FILTER_MATRIX.precal.periodo, true);\n    assert.equal(ADMIN_FILTER_MATRIX.precal.etapa, true);\n  });\n\n  it("E9 click de tarjeta siempre hace drill-down preservando periodo", () => {\n    const start = page.indexOf("const onEtapaCardPress");\n    const end = page.indexOf("const applyAsesorFilter", start);\n    const block = page.slice(start, end);\n    assert.match(block, /nextPasoVisualFilterFromInternalCard\\("todas", etapa\\)/);\n    assert.match(block, /handleTabChange\\("expedientes"\\)/);\n    assert.doesNotMatch(block, /if \\(next !== "todas"\\)/);\n    assert.match(page, /Periodo: <strong className="font-semibold tabular-nums">\\{periodoLabel\\}<\\/strong>/);\n  });\n\n  it("period bounds helpers: hoy/semana/mes/personalizado", () => {\n    const hoy = resolveAdminPeriodBounds({ preset: "hoy" });\n    assert.ok(hoy.fromIso < hoy.toExclusiveIso);\n    const sem = resolveAdminPeriodBounds({ preset: "semana" });\n    assert.ok(sem.fromIso < sem.toExclusiveIso);\n    const mes = resolveAdminPeriodBounds({ preset: "mes" });\n    assert.ok(mes.fromIso < mes.toExclusiveIso);\n    const custom = resolveAdminPeriodBounds({\n      preset: "personalizado",\n      customFrom: "2026-08-01",\n      customToInclusive: "2026-08-20",\n    });\n    assert.equal(custom.fromDate, "2026-08-01");\n    assert.equal(custom.toDateInclusive, "2026-08-20");\n    assert.match(custom.toExclusiveIso, /2026-08-21/);\n  });\n\n  it("R1 UI visible sin la palabra cohorte", () => {\n    assert.doesNotMatch(page, /cohorte/i);\n    assert.doesNotMatch(tabs, /label:.*"Histórico y cohorte"/);\n  });\n\n  it("Admin proyección: buckets visibles y etapa activa solo resaltada", () => {\n    assert.match(page, /projectAdminVisibleStageBuckets/);\n    assert.match(page, /getAdminEtapaDisplayNombre/);\n    assert.match(page, /visibleByEtapa\\.map/);\n    assert.match(page, /isAdminPasoVisualFilterPressed\\(etapaActual, b\\.etapa\\)/);\n  });\n\n  it("matriz: Expedientes, Producción y Precal respetan etapa", () => {\n    assert.equal(ADMIN_FILTER_MATRIX.expedientesPeriodo.periodo, true);\n    assert.equal(ADMIN_FILTER_MATRIX.expedientesPeriodo.etapa, true);\n    assert.equal(ADMIN_FILTER_MATRIX.produccion.periodo, true);\n    assert.equal(ADMIN_FILTER_MATRIX.produccion.etapa, true);\n    assert.equal(ADMIN_FILTER_MATRIX.precal.etapa, true);\n  });\n});\n''')
+
+          # Migración read-only para el desglose por etapa del periodo con búsqueda.
+          migration = Path("supabase/migrations/20260914190000_admin_period_stage_breakdown.sql")
+          migration.write_text(r'''-- ConCasa CRM — Admin: desglose completo de etapas dentro del periodo seleccionado.\n-- READ MODEL ONLY: 0 UPDATE / 0 backfill / 0 writers.\n\nCREATE OR REPLACE FUNCTION public.admin_get_mesa_period_by_etapa_v2(\n  p_from TIMESTAMPTZ,\n  p_to_exclusive TIMESTAMPTZ,\n  p_asesor_id UUID DEFAULT NULL,\n  p_estado TEXT DEFAULT NULL,\n  p_buscar TEXT DEFAULT NULL\n)\nRETURNS JSONB\nLANGUAGE plpgsql\nSTABLE\nSECURITY DEFINER\nSET search_path = public\nAS $$\nDECLARE\n  v_total BIGINT;\n  v_rows JSONB;\n  v_q TEXT;\nBEGIN\n  PERFORM public.__admin_require_super_admin();\n\n  IF p_from IS NULL OR p_to_exclusive IS NULL OR p_to_exclusive <= p_from THEN\n    RAISE EXCEPTION 'admin_production: rango inválido' USING ERRCODE = '22023';\n  END IF;\n\n  v_q := nullif(btrim(coalesce(p_buscar, '')), '');\n\n  WITH cohort AS (\n    SELECT e.etapa_actual\n    FROM public.expedientes e\n    LEFT JOIN public.profiles p ON p.id = e.asesor_id\n    WHERE e.deleted_at IS NULL\n      AND e.submitted_to_mesa = TRUE\n      AND e.fecha_envio_mesa IS NOT NULL\n      AND e.fecha_envio_mesa >= p_from\n      AND e.fecha_envio_mesa < p_to_exclusive\n      AND (p_asesor_id IS NULL OR e.asesor_id = p_asesor_id)\n      AND (\n        p_estado IS NULL\n        OR (p_estado = 'activos' AND e.ciclo_estado = 'activo' AND e.subestado <> 'rechazado')\n        OR (p_estado = 'finalizados' AND (e.ciclo_estado = 'cerrado' OR e.etapa_actual >= 11))\n        OR (p_estado = 'rechazados' AND e.subestado = 'rechazado' AND e.ciclo_estado = 'activo')\n        OR (p_estado = 'cancelados' AND e.ciclo_estado = 'cancelado')\n      )\n      AND (\n        v_q IS NULL\n        OR e.cliente_nombre ILIKE '%' || v_q || '%'\n        OR coalesce(p.full_name, '') ILIKE '%' || v_q || '%'\n        OR coalesce(p.email, '') ILIKE '%' || v_q || '%'\n        OR e.programa::text ILIKE '%' || v_q || '%'\n        OR coalesce(e.nss::text, '') ILIKE '%' || v_q || '%'\n      )\n  ),\n  counts AS (\n    SELECT etapa_actual::INT AS etapa, count(*)::BIGINT AS cnt\n    FROM cohort\n    GROUP BY etapa_actual\n  ),\n  totals AS (\n    SELECT count(*)::BIGINT AS total FROM cohort\n  )\n  SELECT\n    t.total,\n    coalesce(\n      jsonb_agg(\n        jsonb_build_object(\n          'etapa', s.etapa,\n          'count', coalesce(c.cnt, 0),\n          'pct', CASE\n            WHEN t.total = 0 THEN 0\n            ELSE round((coalesce(c.cnt, 0)::NUMERIC * 1000 / t.total) / 10.0, 1)\n          END\n        )\n        ORDER BY s.etapa\n      ),\n      '[]'::jsonb\n    )\n  INTO v_total, v_rows\n  FROM totals t\n  CROSS JOIN generate_series(1, 12) AS s(etapa)\n  LEFT JOIN counts c ON c.etapa = s.etapa\n  GROUP BY t.total;\n\n  RETURN jsonb_build_object('total', coalesce(v_total, 0), 'by_etapa', coalesce(v_rows, '[]'::jsonb));\nEND;\n$$;\n\nREVOKE ALL ON FUNCTION public.admin_get_mesa_period_by_etapa_v2(TIMESTAMPTZ, TIMESTAMPTZ, UUID, TEXT, TEXT) FROM PUBLIC;\nREVOKE ALL ON FUNCTION public.admin_get_mesa_period_by_etapa_v2(TIMESTAMPTZ, TIMESTAMPTZ, UUID, TEXT, TEXT) FROM anon;\nGRANT EXECUTE ON FUNCTION public.admin_get_mesa_period_by_etapa_v2(TIMESTAMPTZ, TIMESTAMPTZ, UUID, TEXT, TEXT) TO authenticated;\n\nCOMMENT ON FUNCTION public.admin_get_mesa_period_by_etapa_v2(TIMESTAMPTZ, TIMESTAMPTZ, UUID, TEXT, TEXT) IS\n  'Admin RO: distribución completa por etapa del universo enviado a Mesa dentro del periodo; respeta asesor, estado y búsqueda; la etapa activa no recorta el desglose.';\n'''.replace('\\n', '\n'))
+
+          # El workflow es temporal: se elimina en el mismo commit que deja el cambio real.
+          wf = Path(".github/workflows/tmp-admin-period-stage-breakdown.yml")
+          if wf.exists():
+              wf.unlink()
+          PY
+
+      - name: Commit focused patch
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git diff --cached --check
+          git commit -m "fix(admin): mostrar todas las etapas del periodo"
+          git push origin HEAD:fix/admin-period-stage-breakdown
