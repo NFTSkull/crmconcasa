@@ -4,13 +4,13 @@ import { useMemo } from "react";
 import { isDataModeSupabase } from "@/lib/dataMode";
 import { useExpedientesRepo } from "@/domain/expedientes";
 import { MockAdminProductionRepo } from "./mock.repo";
-import { SupabaseAdminProductionRepo } from "./supabase.repo";
+import { StageAwareSupabaseAdminProductionRepo } from "./supabase-stage-filter.repo";
 import type { AdminProductionRepo } from "./repo";
 
 export function useAdminProductionRepo(): AdminProductionRepo {
   const expedientesRepo = useExpedientesRepo();
   return useMemo(() => {
-    if (isDataModeSupabase()) return new SupabaseAdminProductionRepo();
+    if (isDataModeSupabase()) return new StageAwareSupabaseAdminProductionRepo();
     return new MockAdminProductionRepo(expedientesRepo);
   }, [expedientesRepo]);
 }
