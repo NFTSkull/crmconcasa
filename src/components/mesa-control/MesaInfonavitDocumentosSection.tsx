@@ -1,6 +1,8 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { MesaAccordionSection } from "@/components/mesa-control/MesaAccordionSection";
+import { MESA_INFONAVIT_DOCUMENTS_GENERATED_EVENT } from "@/components/mesa-control/MesaClienteDatosReadOnlySection";
 import {
   InfonavitPdfDocumentosCards,
   useInfonavitPdfSection,
@@ -12,7 +14,7 @@ export type MesaInfonavitDocumentosSectionProps = Readonly<{
   programa: string | null | undefined;
 }>;
 
-export function MesaInfonavitDocumentosSection({
+function MesaInfonavitDocumentosSectionBody({
   expedienteId,
   programa,
 }: MesaInfonavitDocumentosSectionProps) {
@@ -60,5 +62,33 @@ export function MesaInfonavitDocumentosSection({
         ) : null}
       </div>
     </MesaAccordionSection>
+  );
+}
+
+export function MesaInfonavitDocumentosSection({
+  expedienteId,
+  programa,
+}: MesaInfonavitDocumentosSectionProps) {
+  const [refreshKey, setRefreshKey] = useState(0);
+
+  useEffect(() => {
+    const handleGenerated = (event: Event) => {
+      const detail = (event as CustomEvent<{ expedienteId?: string }>).detail;
+      if (detail?.expedienteId !== expedienteId) return;
+      setRefreshKey((current) => current + 1);
+    };
+
+    window.addEventListener(MESA_INFONAVIT_DOCUMENTS_GENERATED_EVENT, handleGenerated);
+    return () => {
+      window.removeEventListener(MESA_INFONAVIT_DOCUMENTS_GENERATED_EVENT, handleGenerated);
+    };
+  }, [expedienteId]);
+
+  return (
+    <MesaInfonavitDocumentosSectionBody
+      key={`${expedienteId}:${refreshKey}`}
+      expedienteId={expedienteId}
+      programa={programa}
+    />
   );
 }
