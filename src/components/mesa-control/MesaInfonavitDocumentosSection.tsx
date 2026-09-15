@@ -31,12 +31,12 @@ export function MesaInfonavitDocumentosSection({
     <MesaAccordionSection
       id="mesa-infonavit-documentos"
       title="Documentos INFONAVIT"
-      summary="Generados automáticamente"
+      summary="Generados desde la revisión de Mesa"
       defaultOpen
     >
       <div className="px-4 py-3 text-sm text-gray-800">
         <p className="text-xs text-gray-600">
-          Generados automáticamente al enviar a Mesa. Solo consulta y descarga.
+          La versión vigente se genera desde Datos generales → Datos para archivos INFONAVIT. Aquí puedes consultar y descargar los 3 documentos terminados.
         </p>
         {s.error ? (
           <p role="alert" className="mt-2 text-xs text-red-700">
