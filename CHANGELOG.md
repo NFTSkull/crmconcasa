@@ -1,5 +1,6 @@
 ## [Unreleased]
 
+- **fix(admin): buscar líder y stage history expanden equipo** — escribir «Silvia» en Buscar ya no deja el total en solo-dueño; `admin_asesor_ids_matching_buscar` + expand en stage history/cohort/report v1–v2 (mig. **226**).
 ### Fixed
 - **fix(admin): rollup líder+equipo en Super Admin** — filtrar por líder (p.ej. Silvia) incluye expedientes del equipo; producción/reporte agrupan miembros bajo el líder (`admin_expand_asesor_ids` / `admin_reporting_asesor_id`, mig. **225**).
 
