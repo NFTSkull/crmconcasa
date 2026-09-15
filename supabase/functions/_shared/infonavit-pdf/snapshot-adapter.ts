@@ -151,6 +151,11 @@ export function adaptB3SnapshotToB1(
   }
 
   const plazoAnios = optionalPlazoAnios(cred.plazoAnios, "plazoAnios");
+  const mappingVersionRaw = optionalNumber(payload.mappingVersion);
+  const mappingVersion =
+    mappingVersionRaw !== null && Number.isInteger(mappingVersionRaw) && mappingVersionRaw >= 1
+      ? mappingVersionRaw
+      : null;
 
   const telefono = asString(c.telefono, "cliente.telefono");
   const ladaTelefono = asString(c.ladaTelefono, "cliente.ladaTelefono");
@@ -162,6 +167,7 @@ export function adaptB3SnapshotToB1(
     optionalString(payload.ciudadCierre, "ciudadCierre") || localidad;
 
   return {
+    mappingVersion,
     fechaDocumento,
     localidad,
     ciudadCierre,

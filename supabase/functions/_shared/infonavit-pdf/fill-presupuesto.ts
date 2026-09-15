@@ -31,6 +31,8 @@ import {
 import type { InfonavitPdfSnapshotInput } from "./types.ts";
 
 const FONT_SIZE = 10;
+const V3_DESC_FONT_SIZE = 9;
+const V3_DESC_MIN_CAPACITY = 68;
 
 function composeDireccionLibre(snapshot: InfonavitPdfSnapshotInput): string {
   const v = snapshot.vivienda;
@@ -70,15 +72,24 @@ export async function fillPresupuesto(args: {
   const dirRaw = composeDireccionLibre(snapshot);
   const dirLinesNarrowFirst = splitAddressThreeLines(dirRaw, caps);
 
+  const isV3 = Number(snapshot.mappingVersion ?? 0) >= 3;
+  // Las propuestas v3 se componen de hasta 4 mejoras, una por renglón.
+  // El template histórico tenía capacidad conservadora de 60 chars a 10pt;
+  // 9pt permite 68 chars sin truncar y evita convertir 4 conceptos válidos en
+  // 5-6 renglones (INFONAVIT_TEXT_OVERFLOW).
+  const descFontSize = isV3 ? V3_DESC_FONT_SIZE : FONT_SIZE;
+  const descCapacity = isV3
+    ? Math.max(caps.descripcionLine ?? 60, V3_DESC_MIN_CAPACITY)
+    : (caps.descripcionLine ?? 60);
+
   const descLines = splitMejoraDescripcion({
     text: blankable(snapshot.mejora?.descripcion),
     maxLines: 4,
-    maxCharsPerLine: caps.descripcionLine ?? 60,
+    maxCharsPerLine: descCapacity,
     documentType: "presupuesto_mejoramiento",
     semanticField: "mejora.descripcion",
   });
 
-  const isV3 = Number(snapshot.mappingVersion ?? 0) >= 3;
   const montoRaw = snapshot.mejora?.presupuestoEstimado;
   const monto =
     isV3 || montoRaw === null || montoRaw === undefined
@@ -92,10 +103,10 @@ export async function fillPresupuesto(args: {
   setTextValue(form, PRESUPUESTO_FIELD.T2_DIR0, dirLinesNarrowFirst[0] ?? "", FONT_SIZE);
   setTextValue(form, PRESUPUESTO_FIELD.T3_DIR1, dirLinesNarrowFirst[1] ?? "", FONT_SIZE);
   setTextValue(form, PRESUPUESTO_FIELD.T4_DIR2, dirLinesNarrowFirst[2] ?? "", FONT_SIZE);
-  setTextValue(form, PRESUPUESTO_FIELD.T5_DESC0, descLines[0] ?? "", FONT_SIZE);
-  setTextValue(form, PRESUPUESTO_FIELD.T6_DESC1, descLines[1] ?? "", FONT_SIZE);
-  setTextValue(form, PRESUPUESTO_FIELD.T7_DESC2, descLines[2] ?? "", FONT_SIZE);
-  setTextValue(form, PRESUPUESTO_FIELD.T8_DESC3, descLines[3] ?? "", FONT_SIZE);
+  setTextValue(form, PRESUPUESTO_FIELD.T5_DESC0, descLines[0] ?? "", descFontSize);
+  setTextValue(form, PRESUPUESTO_FIELD.T6_DESC1, descLines[1] ?? "", descFontSize);
+  setTextValue(form, PRESUPUESTO_FIELD.T7_DESC2, descLines[2] ?? "", descFontSize);
+  setTextValue(form, PRESUPUESTO_FIELD.T8_DESC3, descLines[3] ?? "", descFontSize);
   setTextValue(form, PRESUPUESTO_FIELD.T9_MONTO, monto, FONT_SIZE);
   setTextValue(form, PRESUPUESTO_FIELD.T10_FECHA, fecha, FONT_SIZE);
 
