@@ -1,6 +1,7 @@
 /**
  * Presupuesto de Mejoramiento — DOCX nativo editable.
- * v3: presupuesto estimado y fecha inferior quedan vacíos para captura/firma manual.
+ * mappingVersion>=3 deja presupuesto estimado y fecha inferior vacíos.
+ * Snapshots históricos conservan el comportamiento anterior.
  */
 
 import { Document, Packer, type FileChild } from "docx";
@@ -17,6 +18,7 @@ import type { InfonavitPrintModel } from "./print-model.ts";
 export async function buildPresupuestoDocx(
   model: InfonavitPrintModel,
 ): Promise<Uint8Array> {
+  const isV3 = model.mappingVersion >= 3;
   const children: FileChild[] = [
     heading("PRESUPUESTO DE MEJORAMIENTO"),
     sectionTitle("DATOS GENERALES"),
@@ -32,9 +34,9 @@ export async function buildPresupuestoDocx(
       : [editableValue("", { size: 20 })]),
     spacer(),
     sectionTitle("PRESUPUESTO ESTIMADO"),
-    labeledField("Monto ($)", ""),
+    labeledField("Monto ($)", isV3 ? "" : model.montoMejoravit),
     spacer(),
-    labeledField("Fecha", ""),
+    labeledField("Fecha", isV3 ? "" : model.presupuestoFecha),
     blankLine("Firma de la persona Derechohabiente"),
   ];
 
