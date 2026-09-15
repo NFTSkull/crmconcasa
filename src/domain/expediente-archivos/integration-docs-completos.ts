@@ -5,13 +5,16 @@ export * from "./integration-docs-completos.impl";
 
 type IntegrationResumen = Parameters<typeof Impl.countIntegrationDocsPresentes>[0];
 type ChecklistItem = ReturnType<typeof Impl.deriveIntegrationDocsChecklist>[number];
+type ChecklistStatus = ChecklistItem["estatus_revision"];
 
 const SEMANAS = "cliente_semanas_cotizadas" as const;
 const VIGENCIA = "cliente_vigencia_derechos" as const;
 const ESTADO_CUENTA = "cliente_estado_cuenta" as const;
 
-function resumenMap(resumen: IntegrationResumen) {
-  return new Map(resumen.map((r) => [r.tipo_documento, r.estatus_revision]));
+function resumenMap(resumen: IntegrationResumen): Map<string, ChecklistStatus> {
+  return new Map<string, ChecklistStatus>(
+    resumen.map((r) => [String(r.tipo_documento), r.estatus_revision]),
+  );
 }
 
 /**
@@ -22,7 +25,7 @@ function resumenMap(resumen: IntegrationResumen) {
 function statusParaTipo(
   resumen: IntegrationResumen,
   tipo: string,
-): ChecklistItem["estatus_revision"] {
+): ChecklistStatus {
   const byTipo = resumenMap(resumen);
   if (tipo !== SEMANAS) {
     return byTipo.get(tipo) ?? "faltante";
@@ -81,7 +84,7 @@ export function countIntegrationDocsValidados(
       }
       continue;
     }
-    if (byTipo.get(tipo) === "validado") count += 1;
+    if (byTipo.get(String(tipo)) === "validado") count += 1;
   }
   return count;
 }
