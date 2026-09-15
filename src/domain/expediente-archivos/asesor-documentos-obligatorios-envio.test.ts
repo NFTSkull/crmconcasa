@@ -11,16 +11,20 @@ import {
 import { INTEGRATION_DOC_TIPOS_ASESOR_ENVIO } from "./integration-docs-completos";
 
 describe("parseAsesorDocumentosObligatoriosEnvio (fail-closed)", () => {
-  it("payload exacto Silvia 6 (Cloud) → 6 canónicos (no fallback genérico)", () => {
+  it("payload exacto Silvia 5 (Cloud, sin Constancia obligatoria) → 5 canónicos (no fallback genérico)", () => {
     const shuffled = [
-      "cliente_constancia_situacion_fiscal",
       "cliente_ine_reverso",
       "cliente_semanas_o_vigencia_derechos",
       "cliente_ine_frente",
       "cliente_acta_nacimiento_digital",
       "cliente_comprobante_domicilio",
     ];
-    assert.equal(INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_SILVIA.length, 6);
+    assert.equal(INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_SILVIA.length, 5);
+    assert.ok(
+      !(
+        INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_SILVIA as readonly string[]
+      ).includes("cliente_constancia_situacion_fiscal"),
+    );
     assert.deepEqual(
       parseAsesorDocumentosObligatoriosEnvio(shuffled),
       [...INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_SILVIA],
