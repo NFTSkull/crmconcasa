@@ -71,7 +71,11 @@ export interface InfonavitPrintModel {
   propuesta: string;
   propuestaLines: string[];
   montoMejoravit: string;
+  montoCreditoSolicitado: string;
   plazo: string;
+  porcentajeTitulacion: string;
+  clabeNotaria: string;
+  clabeDerechohabiente: string;
   ref1: InfonavitReferenciaPrint;
   ref2: InfonavitReferenciaPrint;
   beneficiario: InfonavitPersonaPrint & { parentesco: string };
@@ -126,6 +130,12 @@ export function formatPlazoPrint(cred: InfonavitPdfSnapshotInput["credito"]): st
   return String(plazo);
 }
 
+function formatPorcentajePrint(value: string | number | null | undefined): string {
+  if (value === null || value === undefined) return "";
+  if (typeof value === "number") return Number.isFinite(value) ? String(value) : "";
+  return value.trim();
+}
+
 export function buildInfonavitPrintModel(snapshot: InfonavitPdfSnapshotInput): InfonavitPrintModel {
   const c = snapshot.cliente;
   const id = c.identificacion;
@@ -157,7 +167,14 @@ export function buildInfonavitPrintModel(snapshot: InfonavitPdfSnapshotInput): I
     domicilioLibre: composeDireccionLibre(snapshot),
     calle: blankable(viv?.calle) || blankable(viv?.direccionCompleta, { collapseSpaces: true }),
     noExt: blankable(viv?.noExt), noInt: blankable(viv?.noInt), lote: blankable(viv?.lote), manzana: blankable(viv?.manzana), colonia: blankable(viv?.colonia), entidad: blankable(viv?.entidad), municipio: blankable(viv?.municipio), cp: blankable(viv?.cp),
-    propuesta, propuestaLines, montoMejoravit, plazo: formatPlazoPrint(snapshot.credito),
+    propuesta,
+    propuestaLines,
+    montoMejoravit,
+    montoCreditoSolicitado: montoCredito,
+    plazo: formatPlazoPrint(snapshot.credito),
+    porcentajeTitulacion: formatPorcentajePrint(snapshot.destinoRecursos?.porcentajeTitulacion),
+    clabeNotaria: blankable(snapshot.destinoRecursos?.clabeNotaria),
+    clabeDerechohabiente: blankable(snapshot.destinoRecursos?.clabeDerechohabiente),
     ref1: mapRef(refs[0]), ref2: mapRef(refs[1]), beneficiario: mapBen(snapshot.beneficiario),
   };
 }

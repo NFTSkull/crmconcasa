@@ -141,6 +141,7 @@ export function adaptB3SnapshotToB1(
   const emp = payload.empresa;
   const viv = payload.vivienda;
   const cred = payload.credito;
+  const destino = isRecord(payload.destinoRecursos) ? payload.destinoRecursos : null;
   const ben = payload.beneficiario;
   const mej = payload.mejora;
   const id = isRecord(c.identificacion) ? c.identificacion : {};
@@ -237,6 +238,19 @@ export function adaptB3SnapshotToB1(
       montoSolicitado: optionalNumber(cred.montoSolicitado),
       plazoAnios,
     },
+    destinoRecursos: destino
+      ? {
+          porcentajeTitulacion: optionalNumber(destino.porcentajeTitulacion),
+          clabeNotaria: optionalString(
+            destino.clabeNotaria,
+            "destinoRecursos.clabeNotaria",
+          ),
+          clabeDerechohabiente: optionalString(
+            destino.clabeDerechohabiente,
+            "destinoRecursos.clabeDerechohabiente",
+          ),
+        }
+      : undefined,
     referencias: [
       mapReferencia(payload.referencias[0], "referencias[0]"),
       mapReferencia(payload.referencias[1], "referencias[1]"),
