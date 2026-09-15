@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { MesaAccordionSection } from "@/components/mesa-control/MesaAccordionSection";
+import { openBlobUrlInNewTab } from "@/components/mesa-control/MesaArchivoPreviewDialog";
+import { getMesaDocumentoHistoricoBlob } from "@/domain/expediente-archivos/mesa-documento-historico";
 import {
   fetchMesaAsesorCambioLote,
   marcarMesaAsesorCambiosRevisados,
@@ -200,6 +202,23 @@ export function MesaAsesorCambiosPanel({
     [onPreviewDocumento],
   );
 
+  const handlePreviewHistorico = useCallback(async (documentoId: string | null) => {
+    if (!documentoId) return;
+    setDocError(null);
+    try {
+      const blob = await getMesaDocumentoHistoricoBlob(documentoId);
+      const url = URL.createObjectURL(blob);
+      openBlobUrlInNewTab(url);
+      window.setTimeout(() => URL.revokeObjectURL(url), 5 * 60 * 1000);
+    } catch (err) {
+      setDocError(
+        err instanceof Error
+          ? err.message
+          : "No se pudo abrir la versión anterior. Intenta de nuevo.",
+      );
+    }
+  }, []);
+
   // Sin lote o lote con 0 cambios: no montar panel vacío ni deep-link útil.
   const visibleCount =
     (lote?.changesCount ?? 0) > 0
@@ -335,7 +354,7 @@ export function MesaAsesorCambiosPanel({
                                 variant="outline"
                                 className="text-xs"
                                 onClick={() =>
-                                  void handlePreview(change.documentoAnteriorId)
+                                  void handlePreviewHistorico(change.documentoAnteriorId)
                                 }
                               >
                                 Ver versión anterior
