@@ -42,6 +42,8 @@ export const TIPO_DOCUMENTO_CATALOGO = [
   "cliente_notificacion",
   "cliente_solicitud",
   "cliente_vigencia_derechos",
+  /** Paquete nuevo Equipo Silvia: un solo slot (Semanas O Vigencia). */
+  "cliente_semanas_o_vigencia_derechos",
   "cliente_constancia_situacion_fiscal",
   "cliente_solicitud_credito",
   "cliente_lista_nominal",
@@ -259,6 +261,17 @@ export const DOCUMENTO_CATALOGO_MAP = Object.freeze({
     ownerRole: "cliente",
     obligatorio: "opcional",
     etapasRequeridas: [],
+  },
+  /**
+   * Paquete nuevo Equipo Silvia: Semanas cotizadas O Vigencia de derechos
+   * (un solo slot obligatorio). No sustituye los tipos separados históricos.
+   */
+  cliente_semanas_o_vigencia_derechos: {
+    tipo: "cliente_semanas_o_vigencia_derechos",
+    label: "Semanas Cotizadas o Vigencia de Derechos",
+    ownerRole: "cliente",
+    obligatorio: "obligatorio",
+    etapasRequeridas: [1, 2],
   },
   /**
    * Constancia de Situación Fiscal — opcional asesor; sección dedicada; no gate.

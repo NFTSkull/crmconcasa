@@ -175,6 +175,7 @@ describe("P189 B2 mapper/save persistence", () => {
       empresa: "EMP",
       registroPatronal: "Y1",
       telefonoEmpresa: "8187654321",
+      clabe: "",
       referencias: [
         { nombre: "ANA PEREZ DIAZ", celular: "8111111111" },
         { nombre: "LUIS RAMIREZ SOTO", celular: "8222222222" },
@@ -216,6 +217,7 @@ describe("P189 B2 mapper/save persistence", () => {
       empresa: "EMP",
       registroPatronal: "Y1",
       telefonoEmpresa: "8187654321",
+      clabe: "",
       referencias: [
         { nombre: "R1", celular: "8111111111" },
         { nombre: "R2", celular: "8222222222" },
@@ -264,6 +266,7 @@ describe("P189 B7.1 no autogenerar infonavit vacío", () => {
       empresa: "EMP",
       registroPatronal: "Y1",
       telefonoEmpresa: "8187654321",
+      clabe: "",
       referencias: [
         { nombre: "R1", celular: "8111111111" },
         { nombre: "R2", celular: "8222222222" },
@@ -303,6 +306,7 @@ describe("P189 B7.1 no autogenerar infonavit vacío", () => {
       empresa: "EMP",
       registroPatronal: "Y1",
       telefonoEmpresa: "8187654321",
+      clabe: "",
       referencias: [
         { nombre: "ANA PEREZ DIAZ", celular: "8111111111" },
         { nombre: "LUIS RAMIREZ SOTO", celular: "8222222222" },

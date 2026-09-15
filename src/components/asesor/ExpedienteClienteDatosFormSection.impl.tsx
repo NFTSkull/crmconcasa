@@ -80,6 +80,11 @@ interface ExpedienteClienteDatosFormSectionProps {
   capturaVariant?: ClienteDatosCapturaVariant;
   /** Internos: montar Número de casa. Externos/unknown: false. */
   showTelefonoCasa?: boolean;
+  /**
+   * Paquete nuevo Equipo Silvia: mostrar CLABE (18 dígitos, opcional).
+   * Gate: dueño en Equipo Silvia ∧ rollout ON.
+   */
+  mostrarClabe?: boolean;
   /** Valor controlado teléfono de casa (internos). */
   telefonoCasaValue?: string;
   /** Error reactivo de teléfono de casa (internos). */
@@ -159,6 +164,7 @@ export function ExpedienteClienteDatosFormSection({
   advertenciaInscripcionInfonavit = null,
   capturaVariant = "completo",
   showTelefonoCasa = false,
+  mostrarClabe = false,
   telefonoCasaValue = "",
   telefonoCasaFieldError,
   onTelefonoCasaChange,
@@ -440,6 +446,27 @@ export function ExpedienteClienteDatosFormSection({
               }
             />
           </DatosField>
+          {mostrarClabe ? (
+            <DatosField
+              label="CLABE (opcional)"
+              fieldKey="clabe"
+              error={err("clabe")}
+              showError={showFieldErrors}
+            >
+              <input
+                className={fieldInputClass(Boolean(err("clabe")))}
+                inputMode="numeric"
+                autoComplete="off"
+                value={clienteDatos.clabe ?? ""}
+                onChange={(e) =>
+                  setClienteDatos((p) => ({
+                    ...p,
+                    clabe: filterDigitsInput(e.target.value, 18),
+                  }))
+                }
+              />
+            </DatosField>
+          ) : null}
           <DatosField label="CURP" fieldKey="curp" error={err("curp")} showError={showFieldErrors}>
             <input
               className={`${fieldInputClass(Boolean(err("curp")))} uppercase`}

@@ -37,6 +37,7 @@ const baseValid: ClienteDatosFormShape = {
   empresa: "ACME SA",
   registroPatronal: "A1234567890",
   telefonoEmpresa: "8187654321",
+  clabe: "",
   referencias: [
     { nombre: "Ref Uno A B", nombres: "Ref Uno", apellidoPaterno: "A", apellidoMaterno: "B", celular: "8111111111" },
     { nombre: "Ref Dos C D", nombres: "Ref Dos", apellidoPaterno: "C", apellidoMaterno: "D", celular: "8222222222" },
@@ -199,6 +200,7 @@ test("validateClienteDatos: teléfono empresa repetido con celular", () => {
     ...baseValid,
     celular: "8119087564",
     telefonoEmpresa: "(81) 1908-7564",
+  clabe: "",
   }, COBRO_CTX);
   assert.match(
     r.errors.telefonoEmpresa ?? "",
@@ -380,6 +382,29 @@ test("P133.7 NSS conserva ceros iniciales", () => {
   assert.equal(r.isValid, true);
 });
 
+test("CLABE: vacía OK; incompleta/letras inválidas; 18 dígitos OK", () => {
+  assert.equal(
+    validateClienteDatos({ ...baseValid, clabe: "" }, COBRO_CTX).errors.clabe,
+    undefined,
+  );
+  assert.equal(
+    validateClienteDatos({ ...baseValid, clabe: "123" }, COBRO_CTX).errors.clabe,
+    "CLABE debe tener exactamente 18 dígitos.",
+  );
+  assert.equal(
+    validateClienteDatos(
+      { ...baseValid, clabe: "012345678901234567" },
+      COBRO_CTX,
+    ).errors.clabe,
+    undefined,
+  );
+  const normalized = normalizeClienteDatosForSave({
+    ...baseValid,
+    clabe: "0123-4567-8901-2345-67",
+  });
+  assert.equal(normalized.clabe, "012345678901234567");
+});
+
 test("P133.8 teléfono rechaza letras (longitud tras digits-only)", () => {
   const r = validateClienteDatos({ ...baseValid, celular: "81190abc64" }, COBRO_CTX);
   assert.equal(r.errors.celular, "Celular debe tener 10 dígitos.");
@@ -453,6 +478,7 @@ test("silvia simplificado: pasa sin refs/correo/plazo; exige celular", () => {
     empresa: "",
     registroPatronal: "",
     telefonoEmpresa: "",
+    clabe: "",
     referencias: [
       { nombre: "", celular: "" },
       { nombre: "", celular: "" },
@@ -527,6 +553,7 @@ test("P189 B2: teléfonos únicos — ref1 celular == ref1 fijo", () => {
       ...baseValid,
       celular: "8100000001",
       telefonoEmpresa: "8100000002",
+      clabe: "",
       infonavit: fixtureInfonavitCompleto({
         referencias: [
           {
@@ -672,6 +699,7 @@ test("P189 B8: celular cliente repetido en teléfono empresa bloquea guardado", 
       ...baseValid,
       celular: "8119087564",
       telefonoEmpresa: "8119087564",
+      clabe: "",
       infonavit: emptyInfonavitClienteDatosV1(),
     },
     B8_CTX,
@@ -763,6 +791,7 @@ const silviaBase = (): ClienteDatosFormShape => ({
   empresa: "",
   registroPatronal: "",
   telefonoEmpresa: "",
+  clabe: "",
   referencias: [
     { nombre: "", celular: "" },
     { nombre: "", celular: "" },

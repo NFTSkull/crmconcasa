@@ -9,6 +9,7 @@ type ChecklistStatus = ChecklistItem["estatus_revision"];
 
 const SEMANAS = "cliente_semanas_cotizadas" as const;
 const VIGENCIA = "cliente_vigencia_derechos" as const;
+const SEMANAS_O_VIGENCIA = "cliente_semanas_o_vigencia_derechos" as const;
 const ESTADO_CUENTA = "cliente_estado_cuenta" as const;
 
 function resumenMap(resumen: IntegrationResumen): Map<string, ChecklistStatus> {
@@ -18,24 +19,30 @@ function resumenMap(resumen: IntegrationResumen): Map<string, ChecklistStatus> {
 }
 
 /**
- * Para el paquete Silvia, el slot técnico `cliente_semanas_cotizadas` se
- * considera cubierto por Semanas cotizadas O Vigencia de derechos.
- * Fuera de ese slot la semántica permanece idéntica al contrato histórico.
+ * Slot combinado Silvia (`cliente_semanas_o_vigencia_derechos`) o el slot
+ * técnico legacy `cliente_semanas_cotizadas`: cubierto por el propio tipo,
+ * Semanas cotizadas O Vigencia de derechos.
  */
 function statusParaTipo(
   resumen: IntegrationResumen,
   tipo: string,
 ): ChecklistStatus {
   const byTipo = resumenMap(resumen);
-  if (tipo !== SEMANAS) {
+  if (tipo !== SEMANAS && tipo !== SEMANAS_O_VIGENCIA) {
     return byTipo.get(tipo) ?? "faltante";
   }
 
+  const propio = byTipo.get(tipo) ?? "faltante";
   const semanas = byTipo.get(SEMANAS) ?? "faltante";
   const vigencia = byTipo.get(VIGENCIA) ?? "faltante";
+  const combinado = byTipo.get(SEMANAS_O_VIGENCIA) ?? "faltante";
 
+  if (Impl.estatusCuentaParaIntegracion(propio)) return propio;
+  if (Impl.estatusCuentaParaIntegracion(combinado)) return combinado;
   if (Impl.estatusCuentaParaIntegracion(semanas)) return semanas;
   if (Impl.estatusCuentaParaIntegracion(vigencia)) return vigencia;
+  if (propio === "rechazado") return propio;
+  if (combinado === "rechazado") return combinado;
   if (semanas === "rechazado") return semanas;
   if (vigencia === "rechazado") return vigencia;
   return "faltante";
@@ -78,8 +85,12 @@ export function countIntegrationDocsValidados(
   const byTipo = resumenMap(resumen);
   let count = 0;
   for (const tipo of tipos) {
-    if (tipo === SEMANAS) {
-      if (byTipo.get(SEMANAS) === "validado" || byTipo.get(VIGENCIA) === "validado") {
+    if (tipo === SEMANAS || tipo === SEMANAS_O_VIGENCIA) {
+      if (
+        byTipo.get(SEMANAS) === "validado" ||
+        byTipo.get(VIGENCIA) === "validado" ||
+        byTipo.get(SEMANAS_O_VIGENCIA) === "validado"
+      ) {
         count += 1;
       }
       continue;

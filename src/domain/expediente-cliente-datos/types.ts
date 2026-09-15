@@ -48,6 +48,11 @@ export type ExpedienteClienteDatos = {
     empresa: string;
     registroPatronal: string;
     telefonoEmpresa: string;
+    /**
+     * CLABE interbancaria (18 dígitos). Opcional.
+     * UI solo cuando gate paquete nuevo Equipo Silvia.
+     */
+    clabe: string;
     referencias: {
       /** Legacy combinado; se deriva de nombres+apellidos al guardar cuando existan. */
       nombre: string;

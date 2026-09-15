@@ -114,6 +114,24 @@ Universo del gate (P169): `organization_id` + NSS + `deleted_at IS NULL` + `cicl
 
 ---
 
+## 1quinquies-bis. Paquete nuevo Equipo Silvia (rollout UI)
+
+**RPC:** `asesor_equipo_silvia_paquete_nuevo_habilitado() → boolean` (sin args)  
+**Tabla:** `asesor_equipo_paquete_rollout` (Cloud; FE **no** muta). Switch inicial `false`.
+
+**Gate UI** (docs combinado + CLABE):  
+`duenoEnEquipoSilvia(asesor_id) ∧ asesor_equipo_silvia_paquete_nuevo_habilitado()`.
+
+| Pieza | Comportamiento con gate ON |
+| --- | --- |
+| Tipo `cliente_semanas_o_vigencia_derechos` | Label «Semanas Cotizadas o Vigencia de Derechos»; un slot obligatorio vía `integration_doc_tipos_asesor_envio_para(dueño)` / allowlist upload |
+| `cliente_datos.datos.clabe` | String 18 dígitos, **opcional**; vacío OK; no bloquea completitud |
+| Anette / externos históricos | Sin cambio (gate false para ellos) |
+
+Con switch OFF: UI idéntica al contrato previo (no se muestra el slot combinado ni CLABE).
+
+---
+
 ## 1sexies. Paquete documental externos (Parte B — wrappers UI)
 
 **Autoridad:** helpers Parte A en Cloud (`asesor_paquete_documental_externos`, `integration_doc_tipos_asesor_envio_para`, …).  
@@ -138,6 +156,22 @@ Universo del gate (P169): `organization_id` + NSS + `deleted_at IS NULL` + `cicl
 **Mesa FE:** checklist/gate 1→2 usa `asesor_documentos_obligatorios_envio(expediente.asesor_id)` (`asesorProfileId`). Scoped RO solo si el tipo **no** es obligatorio del dueño. Fail-safe si RPC no resuelve. Error avance parsea `(X de Y)` sin hardcodear cardinalidad.
 
 Grants: `REVOKE` PUBLIC/anon; `GRANT EXECUTE` authenticated (+ service_role).
+
+---
+
+## 1septies. Paquete nuevo Equipo Silvia (UI — rollout switch)
+
+**RPC:** `asesor_equipo_silvia_paquete_nuevo_habilitado() → boolean` (sin args).  
+**Tabla:** `asesor_equipo_paquete_rollout` (Cloud; FE **no** muta). Default `nuevo_paquete_habilitado=false`.
+
+**Gate UI (ambos true):** dueño ∈ Equipo Silvia (`asesor_en_equipo_por_lider_email` / `asesor_es_equipo_silvia`) **∧** `asesor_equipo_silvia_paquete_nuevo_habilitado()`.
+
+Con gate ON:
+- Checklist envío respeta `integration_doc_tipos_asesor_envio_para(dueño)` (incluye `cliente_semanas_o_vigencia_derechos` — un solo slot obligatorio; label «Semanas Cotizadas o Vigencia de Derechos»).
+- Upload allowlist FE incluye ese tipo; no cambia Anette ni externos históricos.
+- Datos Generales: campo opcional `cliente_datos.datos.clabe` (18 dígitos si presente; vacío OK; no bloquea completitud).
+
+Con gate OFF: sin slot combinado ni CLABE (comportamiento previo).
 
 ---
 

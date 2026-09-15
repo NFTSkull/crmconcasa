@@ -38,6 +38,7 @@ const baseInternoDatos = () => ({
   empresa: "Empresa SA",
   registroPatronal: "Y1234567890",
   telefonoEmpresa: "8222222222",
+  clabe: "",
   referencias: [
     {
       nombre: "Ana Diaz Ruiz",

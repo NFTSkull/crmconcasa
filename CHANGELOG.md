@@ -4,6 +4,9 @@
 - **fix(admin): rollup líder+equipo en Super Admin** — filtrar por líder (p.ej. Silvia) incluye expedientes del equipo; producción/reporte agrupan miembros bajo el líder (`admin_expand_asesor_ids` / `admin_reporting_asesor_id`, mig. **225**).
 
 ### Added
+- **feat(asesor): UI paquete nuevo Equipo Silvia (gate rollout)** — tipo `cliente_semanas_o_vigencia_derechos` (un slot obligatorio) + campo CLABE opcional en DG; gate `duenoEnEquipoSilvia ∧ asesor_equipo_silvia_paquete_nuevo_habilitado()` (switch Cloud permanece `false`; FE no lo muta). Anette/externos históricos intactos.
+
+### Added
 - **feat(editor): capturar nombre manual si POR CAPTURAR** — en `/editor`, celda Cliente editable (✎) cuando `cliente_nombre` es exactamente `POR CAPTURAR`; blur/Enter → RPC `editor_fill_nombre_infonavit` (ya en Cloud). Sin tocar `auto_fill_nombre_infonavit`.
 
 

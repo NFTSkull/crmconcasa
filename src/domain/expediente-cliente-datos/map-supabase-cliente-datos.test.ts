@@ -22,6 +22,7 @@ describe("mapSupabaseRowToExpedienteClienteDatos", () => {
         empresa: "Empresa SA",
         registroPatronal: "RP-1",
         telefonoEmpresa: "5599999999",
+        clabe: "",
         beneficiario: { nombre: "Ben", parentesco: "Hija" },
         direccionEmpresa: {
           calle: "Calle 1",
@@ -49,6 +50,7 @@ describe("mapSupabaseRowToExpedienteClienteDatos", () => {
     assert.equal(domain.metodoPago, "efectivo");
     assert.equal(domain.estado, "completo");
     assert.equal(domain.datos.nombreCliente, "Marcela");
+    assert.equal(domain.datos.clabe, "");
     assert.equal(domain.datos.referencias[0]?.celular, "5511111111");
     assert.equal(domain.datos.referencias[1]?.celular, "5522222222");
     assert.equal(domain.datos.montoMejoravit, "175000");
@@ -98,6 +100,7 @@ describe("buildSaveClienteDatosRpcPayload", () => {
       empresa: "Empresa SA",
       registroPatronal: "RP-1",
       telefonoEmpresa: "5599999999",
+      clabe: "",
       referencias: [
         { nombre: "Ref 1", celular: "5511111111" },
         { nombre: "Ref 2", celular: "5522222222" },
@@ -135,6 +138,55 @@ describe("buildSaveClienteDatosRpcPayload", () => {
     assert.equal(payload.p_datos.notaMesa, "Observación Mesa");
   });
 
+  it("roundtrip clabe (18 dígitos) en datos JSON", () => {
+    const clabe = "012345678901234567";
+    const domain = mapSupabaseRowToExpedienteClienteDatos({
+      expediente_id: "exp-clabe",
+      estado: "completo",
+      updated_at: "2026-06-15T12:00:00.000Z",
+      datos: {
+        nombreCliente: "Ana",
+        clabe,
+      },
+    });
+    assert.equal(domain.datos.clabe, clabe);
+    const payload = buildSaveClienteDatosRpcPayload(
+      "exp-clabe",
+      {
+        nombreCliente: "Ana",
+        nss: "12345678901",
+        curp: "CURP123",
+        rfc: "XAXX010101000",
+        celular: "5512345678",
+        correo: "ana@concasa.mx",
+        empresa: "Empresa SA",
+        registroPatronal: "RP-1",
+        telefonoEmpresa: "5599999999",
+        clabe,
+        referencias: [
+          { nombre: "Ref 1", celular: "5511111111" },
+          { nombre: "Ref 2", celular: "5522222222" },
+        ],
+        beneficiario: { nombre: "Ben", parentesco: "Hija" },
+        direccionEmpresa: {
+          calle: "Calle 1",
+          colonia: "Centro",
+          municipio: "CDMX",
+          cp: "01000",
+        },
+        montoMejoravit: "",
+        plazo: "",
+        porcentajeCobro: "10",
+        montoCalculado: "2500",
+        metodoPago: "transferencia",
+        notaMesa: "",
+      },
+      "",
+      "compro_tu_casa",
+    );
+    assert.equal(payload.p_datos.clabe, clabe);
+  });
+
   it("incluye notaMesa vacía en payload (RPC reemplaza datos completo)", () => {
     const payload = buildSaveClienteDatosRpcPayload("exp-1", {
       nombreCliente: "Marcela",
@@ -146,6 +198,7 @@ describe("buildSaveClienteDatosRpcPayload", () => {
       empresa: "Empresa SA",
       registroPatronal: "RP-1",
       telefonoEmpresa: "5599999999",
+      clabe: "",
       referencias: [
         { nombre: "Ref 1", celular: "5511111111" },
         { nombre: "Ref 2", celular: "5522222222" },
@@ -179,6 +232,7 @@ describe("buildSaveClienteDatosRpcPayload", () => {
       empresa: "Empresa SA",
       registroPatronal: "RP-1",
       telefonoEmpresa: "5599999999",
+      clabe: "",
       referencias: [
         { nombre: "Ref 1", celular: "5511111111" },
         { nombre: "Ref 2", celular: "5522222222" },
@@ -222,6 +276,7 @@ describe("buildSaveClienteDatosRpcPayload", () => {
         empresa: "Empresa SA",
         registroPatronal: "RP-1",
         telefonoEmpresa: "5599999999",
+        clabe: "",
         referencias: [
           { nombre: "Ref 1", celular: "5511111111" },
           { nombre: "Ref 2", celular: "5522222222" },
@@ -257,6 +312,7 @@ describe("buildSaveClienteDatosRpcPayload", () => {
       empresa: "Empresa SA",
       registroPatronal: "RP-1",
       telefonoEmpresa: "5599999999",
+      clabe: "",
       referencias: [
         { nombre: "Ref 1", celular: "5511111111" },
         { nombre: "Ref 2", celular: "5522222222" },
@@ -290,6 +346,7 @@ describe("buildSaveClienteDatosRpcPayload", () => {
       empresa: "Empresa SA",
       registroPatronal: "RP-1",
       telefonoEmpresa: "5599999999",
+      clabe: "",
       referencias: [
         { nombre: "Ref 1", celular: "5511111111" },
         { nombre: "Ref 2", celular: "5522222222" },
@@ -338,6 +395,7 @@ describe("buildSaveClienteDatosRpcPayload", () => {
         empresa: "Empresa SA",
         registroPatronal: "RP-1",
         telefonoEmpresa: "5599999999",
+        clabe: "",
         referencias: [
           { nombre: "Ref 1", celular: "5511111111" },
           { nombre: "Ref 2", celular: "5522222222" },
@@ -373,6 +431,7 @@ describe("buildSaveClienteDatosRpcPayload", () => {
       empresa: "Empresa SA",
       registroPatronal: "RP-1",
       telefonoEmpresa: "5599999999",
+      clabe: "",
       referencias: [
         { nombre: "Ref 1", celular: "5511111111" },
         { nombre: "Ref 2", celular: "5522222222" },
@@ -413,6 +472,7 @@ describe("buildSaveClienteDatosRpcPayload", () => {
         empresa: "",
         registroPatronal: "",
         telefonoEmpresa: "",
+        clabe: "",
         referencias: [
           { nombre: "", celular: "" },
           { nombre: "", celular: "" },

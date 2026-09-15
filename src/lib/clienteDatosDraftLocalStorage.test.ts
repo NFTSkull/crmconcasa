@@ -55,6 +55,7 @@ const EMPTY = {
   empresa: "",
   registroPatronal: "",
   telefonoEmpresa: "",
+  clabe: "",
   referencias: [] as Array<{ nombre: string; celular: string }>,
   beneficiario: { nombre: "", parentesco: "" },
   direccionEmpresa: { calle: "", colonia: "", municipio: "", cp: "" },
