@@ -1,10 +1,10 @@
 /**
  * Selección pura de candidatos a reintento auto-precal (sin I/O).
- * - Fallos técnicos (scraper_failed | infonavit_system_error | scraper_busy) con cooldown base 5 min.
- * - Rachas de scraper_failed: cooldown 5 → 15 → 30 → 60 min (no martillar casos normales).
- * - Prioridad explícita: cooldown técnico corto de 4 min; el lease global sigue serializando Railway.
- * - `job_started` reciente conserva el bloqueo base de 5 min para no reintentar un job in-flight.
- * - Pendientes con **cero** filas en auto_precal_intentos: normales a los 4 min; prioritarios a los 2 min.
+ * - Fallos técnicos (scraper_failed | infonavit_system_error | scraper_busy) con cooldown base 2 min.
+ * - Rachas de scraper_failed: cooldown 2 → 15 → 30 → 60 min (no martillar casos repetidos).
+ * - Prioridad explícita: cooldown técnico corto de 2 min; el lease global sigue serializando Railway.
+ * - `job_started` reciente conserva el bloqueo base de 2 min para no reintentar un job in-flight.
+ * - Pendientes con **cero** filas en auto_precal_intentos: normales y prioritarios a los 2 min.
  * - Nunca ambiguous_payload / invalid_saldo / etc. por sí solos.
  * Sin tope de intentos totales (ilimitado mientras siga pendiente + razón reintentable).
  * El selector conserva default limit=1; el cron productivo usa un batch explícito de 2.
@@ -13,11 +13,11 @@
 import { AUTO_PRECAL_SCRAPER_BUSY_REASON } from "./auto-precal-scraper-lease";
 import { REASON_INFONAVIT_SYSTEM_ERROR } from "./auto-precalificar-decision";
 
-export const AUTO_PRECAL_RETRY_MIN_AGE_MS = 5 * 60 * 1000;
+export const AUTO_PRECAL_RETRY_MIN_AGE_MS = 2 * 60 * 1000;
 /** Prioritarios: reintento rápido; el lease global impide solapar navegaciones. */
-export const AUTO_PRECAL_PRIORITY_RETRY_MIN_AGE_MS = 4 * 60 * 1000;
+export const AUTO_PRECAL_PRIORITY_RETRY_MIN_AGE_MS = 2 * 60 * 1000;
 /** Red de seguridad normal: pendiente sin ningún intento auto-precal. */
-export const AUTO_PRECAL_ZERO_ATTEMPT_MIN_AGE_MS = 4 * 60 * 1000;
+export const AUTO_PRECAL_ZERO_ATTEMPT_MIN_AGE_MS = 2 * 60 * 1000;
 /** Prioritarios: rescata rápido un cero-intentos sin quitar el lease global. */
 export const AUTO_PRECAL_PRIORITY_ZERO_ATTEMPT_MIN_AGE_MS = 2 * 60 * 1000;
 /** Default puro del selector; callers pueden acotar su propio batch. */
@@ -39,7 +39,7 @@ export const AUTO_PRECAL_JOB_STARTED_REASON = "job_started";
  * Índice 0 = 1 falla, 1 = 2 fallas, 2 = 3, 3 = 4+.
  */
 export const AUTO_PRECAL_SCRAPER_FAILED_BACKOFF_MS = [
-  5 * 60 * 1000,
+  2 * 60 * 1000,
   15 * 60 * 1000,
   30 * 60 * 1000,
   60 * 60 * 1000,
@@ -98,7 +98,7 @@ export function consecutiveScraperFailedStreak(
   return streak;
 }
 
-/** Cooldown efectivo según racha de scraper_failed (mínimo = base 5 min). */
+/** Cooldown efectivo según racha de scraper_failed (mínimo = base 2 min). */
 export function cooldownMsForScraperFailedStreak(
   streak: number,
   baseMinAgeMs: number = AUTO_PRECAL_RETRY_MIN_AGE_MS,
@@ -119,7 +119,7 @@ export type RetryCandidateInput = {
   pendingSinceById?: Record<string, string>;
   /**
    * Expedientes de asesores con capability auto_precal_retry_priority.
-   * Ganan el orden y usan cooldown técnico corto de 4 min salvo lease in-flight.
+   * Ganan el orden y usan cooldown técnico corto de 2 min salvo lease in-flight.
    * Si no tienen ningún intento, entran al rescate a los 2 min.
    */
   priorityExpedienteIds?: string[];
@@ -133,9 +133,9 @@ export type RetryCandidateInput = {
  * Filtra candidatos:
  * - al menos un intento pending_error + razón reintentable
  * - normales: cooldown según racha scraper_failed
- * - prioritarios: cooldown técnico fijo de 4 min
- * - `job_started` más reciente: conserva bloqueo base de 5 min
- * - 0 intentos: normales ≥4 min; prioritarios ≥2 min
+ * - prioritarios: cooldown técnico fijo de 2 min
+ * - `job_started` más reciente: conserva bloqueo base de 2 min
+ * - 0 intentos: normales ≥2 min; prioritarios ≥2 min
  * - orden: prioritarios primero; dentro de cada grupo, ancla más antigua primero
  * - limit (default 1)
  */
