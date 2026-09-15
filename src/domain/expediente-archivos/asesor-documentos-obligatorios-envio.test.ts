@@ -11,15 +11,21 @@ import {
 import { INTEGRATION_DOC_TIPOS_ASESOR_ENVIO } from "./integration-docs-completos";
 
 describe("parseAsesorDocumentosObligatoriosEnvio (fail-closed)", () => {
-  it("payload exacto Silvia 5 (Cloud, sin Constancia obligatoria) → 5 canónicos (no fallback genérico)", () => {
+  it("payload exacto Silvia 6 (Estado de cuenta obligatorio; Constancia opcional) → 6 canónicos", () => {
     const shuffled = [
       "cliente_ine_reverso",
       "cliente_semanas_o_vigencia_derechos",
       "cliente_ine_frente",
+      "cliente_estado_cuenta",
       "cliente_acta_nacimiento_digital",
       "cliente_comprobante_domicilio",
     ];
-    assert.equal(INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_SILVIA.length, 5);
+    assert.equal(INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_SILVIA.length, 6);
+    assert.ok(
+      (INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_SILVIA as readonly string[]).includes(
+        "cliente_estado_cuenta",
+      ),
+    );
     assert.ok(
       !(
         INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_SILVIA as readonly string[]
@@ -32,6 +38,19 @@ describe("parseAsesorDocumentosObligatoriosEnvio (fail-closed)", () => {
     assert.deepEqual(
       tryParseAsesorDocumentosObligatoriosEnvio(shuffled),
       [...INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_SILVIA],
+    );
+  });
+
+  it("Silvia sin Estado de cuenta → fail-closed a clásicos", () => {
+    assert.deepEqual(
+      parseAsesorDocumentosObligatoriosEnvio([
+        "cliente_ine_frente",
+        "cliente_ine_reverso",
+        "cliente_comprobante_domicilio",
+        "cliente_acta_nacimiento_digital",
+        "cliente_semanas_o_vigencia_derechos",
+      ]),
+      [...INTEGRATION_DOC_TIPOS_ASESOR_ENVIO],
     );
   });
 
