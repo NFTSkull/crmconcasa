@@ -1,3 +1,11 @@
+## 2026-09-15 - FE parse Silvia: Constancia SAT faltaba → fallback 4
+
+### Causa
+Cloud `asesor_documentos_obligatorios_envio` / `envio_para` ya devolvían 6 tipos (incluye `cliente_constancia_situacion_fiscal`). FE `INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_SILVIA` tenía 5 → `KNOWN.has` fallaba → fail-closed mudo a 4 clásicos.
+
+### Decisión
+Alinear set Silvia a 6; `console.error` con el tipo ofensor en `tryParseAsesorDocumentosObligatoriosEnvio`. No tocar Anette ni externos históricos.
+
 ## 2026-09-15 - Admin: Buscar «Silvia» dejaba 9 (solo dueño)
 
 ### Causa

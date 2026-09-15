@@ -25,8 +25,11 @@ export const INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_EXTERNOS = [
  * - Comprobante de domicilio
  * - Acta de nacimiento digital
  * - Semanas cotizadas O Vigencia de derechos (tipo combinado)
+ * - Constancia de situación fiscal
  *
  * Estado de cuenta queda opcional y por eso NO aparece en este set.
+ * Debe coincidir exactamente con `integration_doc_tipos_asesor_envio_para` /
+ * `asesor_documentos_obligatorios_envio` cuando el rollout está ON.
  */
 export const INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_SILVIA = [
   "cliente_ine_frente",
@@ -34,6 +37,7 @@ export const INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_SILVIA = [
   "cliente_comprobante_domicilio",
   "cliente_acta_nacimiento_digital",
   "cliente_semanas_o_vigencia_derechos",
+  "cliente_constancia_situacion_fiscal",
 ] as const;
 
 /**
@@ -121,6 +125,7 @@ export function parseAsesorDocumentosObligatoriosEnvio(
 
 /**
  * Parse estricto para Mesa: basura / parcial → `null` (no fingir 4 clásicos).
+ * Tipo desconocido → `console.error` con el tipo ofensor (rastro Vercel).
  */
 export function tryParseAsesorDocumentosObligatoriosEnvio(
   raw: unknown,
@@ -132,7 +137,16 @@ export function tryParseAsesorDocumentosObligatoriosEnvio(
   for (const item of raw) {
     if (typeof item !== "string") return null;
     const t = item.trim();
-    if (!t || !KNOWN.has(t)) return null;
+    if (!t || !KNOWN.has(t)) {
+      console.error(
+        "[asesor_documentos_obligatorios_envio] tipo no reconocido; fail-closed a set contractual (null/4 clásicos)",
+        {
+          tipo: t || "(empty)",
+          payload: raw,
+        },
+      );
+      return null;
+    }
     tipos.push(t);
   }
 
