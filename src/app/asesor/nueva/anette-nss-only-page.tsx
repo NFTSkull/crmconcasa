@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { Select } from "@/components/ui/Select";
 import {
   normalizeAnetteNssOnlyInput,
   parseAnetteNssOnlyPrepareResult,
@@ -17,6 +18,21 @@ import { resolveBearerAccessToken } from "@/domain/expedientes/resolve-bearer-ac
 import { useSessionRepo } from "@/domain/session";
 import { supabaseBrowser } from "@/lib/supabaseBrowser";
 
+type DelegateTarget = Readonly<{
+  id: string;
+  full_name?: string | null;
+  email: string;
+  is_self?: boolean;
+}>;
+
+type DelegateContext = Readonly<{
+  enabled: boolean;
+  can_delegate: boolean;
+  team_id?: string | null;
+  team_name?: string | null;
+  targets?: DelegateTarget[];
+}>;
+
 function newIdempotencyKey(nss: string): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
     return `nss-only-${nss}-${crypto.randomUUID()}`;
@@ -24,10 +40,17 @@ function newIdempotencyKey(nss: string): string {
   return `nss-only-${nss}-${Date.now()}`;
 }
 
+function targetLabel(target: DelegateTarget): string {
+  const name = String(target.full_name ?? "").trim();
+  const label = name ? `${name} · ${target.email}` : target.email;
+  return target.is_self ? `${label} (yo)` : label;
+}
+
 function friendlyRpcError(message: string): string {
   const clean = String(message ?? "").trim();
   if (!clean) return "No se pudo enviar el NSS a precalificación.";
   const markers = [
+    "asesor_preparar_precalificacion_nss_only_para_asesor:",
     "asesor_preparar_precalificacion_nss_only:",
     "asesor_preparar_precalificacion_externo_nss:",
   ];
@@ -48,6 +71,43 @@ export function AnetteNssOnlyPrecalPage() {
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
+  const [delegateCtx, setDelegateCtx] = useState<DelegateContext | null>(null);
+  const [delegateLoading, setDelegateLoading] = useState(false);
+  const [targetAsesorId, setTargetAsesorId] = useState("");
+
+  useEffect(() => {
+    if (currentUser?.role !== "asesor" || !supabaseBrowser) {
+      setDelegateCtx(null);
+      setDelegateLoading(false);
+      setTargetAsesorId("");
+      return;
+    }
+
+    let cancelled = false;
+    setDelegateLoading(true);
+
+    void (async () => {
+      try {
+        const { data, error } = await supabaseBrowser.rpc(
+          "asesor_precal_nss_only_delegate_context",
+        );
+        if (cancelled) return;
+        if (error) {
+          console.error("[nss-only] contexto delegado:", error.message);
+          setDelegateCtx(null);
+          return;
+        }
+        const parsed = (data ?? null) as DelegateContext | null;
+        setDelegateCtx(parsed?.enabled ? parsed : null);
+      } finally {
+        if (!cancelled) setDelegateLoading(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser?.email, currentUser?.role]);
 
   async function triggerAutomaticPrecalification(input: {
     action: "created" | "reprecal";
@@ -90,6 +150,11 @@ export function AnetteNssOnlyPrecalPage() {
       return;
     }
 
+    if (delegateCtx?.can_delegate && !targetAsesorId) {
+      setErrorMsg("Selecciona el asesor titular del expediente.");
+      return;
+    }
+
     let normalizedNss: string;
     try {
       normalizedNss = validateAnetteNssOnlyInput(nss);
@@ -107,19 +172,27 @@ export function AnetteNssOnlyPrecalPage() {
 
     setSubmitting(true);
     try {
-      const { data, error } = await supabaseBrowser.rpc(
-        "asesor_preparar_precalificacion_nss_only",
-        {
-          p_nss: normalizedNss,
-          p_idempotency_key: newIdempotencyKey(normalizedNss),
-        },
-      );
-      if (error) {
-        setErrorMsg(friendlyRpcError(error.message));
+      const idempotencyKey = newIdempotencyKey(normalizedNss);
+      const rpcResult = delegateCtx?.can_delegate
+        ? await supabaseBrowser.rpc(
+            "asesor_preparar_precalificacion_nss_only_para_asesor",
+            {
+              p_target_asesor_id: targetAsesorId,
+              p_nss: normalizedNss,
+              p_idempotency_key: idempotencyKey,
+            },
+          )
+        : await supabaseBrowser.rpc("asesor_preparar_precalificacion_nss_only", {
+            p_nss: normalizedNss,
+            p_idempotency_key: idempotencyKey,
+          });
+
+      if (rpcResult.error) {
+        setErrorMsg(friendlyRpcError(rpcResult.error.message));
         return;
       }
 
-      const prepared = parseAnetteNssOnlyPrepareResult(data);
+      const prepared = parseAnetteNssOnlyPrepareResult(rpcResult.data);
       if (!prepared) {
         setErrorMsg("El CRM devolvió una respuesta inválida al preparar el NSS.");
         return;
@@ -142,7 +215,9 @@ export function AnetteNssOnlyPrecalPage() {
       setSuccessMsg(
         prepared.action === "reprecal"
           ? "NSS enviado nuevamente al Editor y a precalificación automática."
-          : "NSS enviado al Editor y a precalificación automática.",
+          : delegateCtx?.can_delegate
+            ? "NSS enviado al asesor seleccionado, al Editor y a precalificación automática."
+            : "NSS enviado al Editor y a precalificación automática.",
       );
       window.setTimeout(
         () => router.push(`/asesor/expediente/${prepared.expedienteId}`),
@@ -158,6 +233,14 @@ export function AnetteNssOnlyPrecalPage() {
       setSubmitting(false);
     }
   }
+
+  const targetOptions = [
+    { value: "", label: "Selecciona un asesor…" },
+    ...(delegateCtx?.targets ?? []).map((target) => ({
+      value: target.id,
+      label: targetLabel(target),
+    })),
+  ];
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -188,6 +271,14 @@ export function AnetteNssOnlyPrecalPage() {
             precalificación se consultará automáticamente.
           </p>
 
+          {delegateCtx?.can_delegate ? (
+            <p className="mt-2 rounded-md bg-indigo-50 px-3 py-2 text-xs text-indigo-800">
+              Conservas tus permisos de equipo: puedes elegir el asesor titular
+              antes de precalificar. El cambio de asesor dentro del expediente
+              también sigue disponible.
+            </p>
+          ) : null}
+
           {errorMsg ? (
             <p
               role="alert"
@@ -205,7 +296,20 @@ export function AnetteNssOnlyPrecalPage() {
             </p>
           ) : null}
 
-          <div className="mt-5">
+          <div className="mt-5 flex flex-col gap-4">
+            {delegateCtx?.can_delegate ? (
+              <Select
+                name="asesor_titular"
+                label={delegateCtx.team_name ? `Asesor titular · ${delegateCtx.team_name}` : "Asesor titular"}
+                options={targetOptions}
+                required
+                value={targetAsesorId}
+                onChange={(e) => setTargetAsesorId(e.target.value)}
+                disabled={submitting || delegateLoading}
+                className="min-h-[44px] sm:min-h-0"
+              />
+            ) : null}
+
             <Input
               name="nss"
               label="IMSS / NSS"
@@ -226,7 +330,7 @@ export function AnetteNssOnlyPrecalPage() {
             <Button
               type="submit"
               variant="primary"
-              disabled={submitting}
+              disabled={submitting || delegateLoading}
               className="min-h-[44px] w-full touch-manipulation sm:min-h-0 sm:w-auto"
             >
               {submitting ? "Enviando…" : "Precalificar"}
