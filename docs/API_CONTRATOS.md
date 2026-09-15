@@ -1323,7 +1323,7 @@ Captura en la misma TX de `register_expediente_documento_correccion` / `save_cli
 
 **Auth:** solo `super_admin` (`__admin_require_super_admin`); `SECURITY DEFINER` + `STABLE`; GRANT `authenticated`; REVOKE `anon`/`PUBLIC`.
 
-**Filtro asesor / equipo:** `p_asesor_id` de un **líder** con exactamente un equipo activo en su org se expande a líder + miembros (`admin_expand_asesor_ids`, mig. **225**). En agregaciones, miembros reportan bajo `leader_id` (`admin_reporting_asesor_id`).
+**Filtro asesor / equipo:** `p_asesor_id` de un **líder** con exactamente un equipo activo en su org se expande a líder + miembros (`admin_expand_asesor_ids`, mig. **225**). En agregaciones, miembros reportan bajo `leader_id` (`admin_reporting_asesor_id`). **Buscar** por nombre/email de líder también expande al equipo (`admin_asesor_ids_matching_buscar`, mig. **226**); stage history / cohort expanden `p_asesor_ids` igual.
 
 **Universo:** `deleted_at IS NULL`; **sin** filtro de fechas de periodo. **Integración (etapa 1):** solo si `submitted_to_mesa = TRUE` AND `fecha_envio_mesa IS NOT NULL` (misma definición que el KPI «Expedientes enviados a Mesa», sin rango). Etapas ≥2: sin filtro adicional de envío. Pre-Mesa fuera de tarjetas, `total_actual` y drilldown. Filtros opcionales: asesor, estado (mismos predicados P094), búsqueda (cliente/NSS/asesor/programa; mig **177**). Etapa solo en el listado (drilldown); el agregado de tarjetas **no** recibe etapa.
 

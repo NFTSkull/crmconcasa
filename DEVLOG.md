@@ -1,3 +1,11 @@
+## 2026-09-15 - Admin: Buscar «Silvia» dejaba 9 (solo dueño)
+
+### Causa
+Mig 225 expandía `p_asesor_id` (dropdown Asesor → OK ~18), pero el campo **Buscar** hacía `pr.full_name ILIKE` solo del dueño del expediente → Equipo Silvia seguía en 9. Stage history/`p_asesor_ids` tampoco expandía.
+
+### Decisión
+Helper `admin_asesor_ids_matching_buscar` (nombre/email → `admin_expand_asesor_ids`). Patch snapshot/list/mesa buscar + stage history/cohort + report v1/v2. Mig **226** (Cloud aplicada).
+
 ## 2026-09-15 - UI paquete nuevo Equipo Silvia (gated por rollout)
 
 ### Decisión
