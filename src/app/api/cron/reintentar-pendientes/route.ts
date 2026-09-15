@@ -2,7 +2,7 @@ import { createClient } from "@supabase/supabase-js";
 import { NextResponse } from "next/server";
 
 import {
-  AUTO_PRECAL_RETRY_LIMIT,
+  AUTO_PRECAL_CRON_BATCH_LIMIT,
   AUTO_PRECAL_RETRY_PRIORITY_CAPABILITY,
   selectAutoPrecalRetryCandidates,
   type AutoPrecalIntentoRow,
@@ -10,7 +10,7 @@ import {
 import { runAutoPrecalificarJob } from "@/domain/expedientes/auto-precalificar-job";
 
 export const runtime = "nodejs";
-/** 1 job × SCRAPER_TIMEOUT_MS(150s) ≤ maxDuration 300; secuencial. */
+/** Hasta 2 candidatos secuenciales; el lease global evita navegaciones simultáneas. */
 export const maxDuration = 300;
 
 function serviceClient() {
@@ -260,7 +260,7 @@ async function handleRetryPendientes(request: Request): Promise<NextResponse> {
     intentos: intentosForSelection,
     pendingSinceById,
     priorityExpedienteIds,
-    limit: AUTO_PRECAL_RETRY_LIMIT,
+    limit: AUTO_PRECAL_CRON_BATCH_LIMIT,
   });
 
   console.log(
@@ -273,7 +273,7 @@ async function handleRetryPendientes(request: Request): Promise<NextResponse> {
     razon: string | null;
   }[] = [];
 
-  // SECUENCIAL: nunca Promise.all (cada job ~30–45s / hasta timeout scraper).
+  // SECUENCIAL: nunca Promise.all; el lease global mantiene una sola navegación Infonavit.
   for (const expedienteId of candidateIds) {
     const nss = nssById.get(expedienteId);
     if (!nss) continue;
