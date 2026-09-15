@@ -2,11 +2,13 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 
 import {
+  AUTO_PRECAL_WAF_BLOCKED_MIN_AGE_MS,
   consecutiveScraperFailedStreak,
   cooldownMsForScraperFailedStreak,
   selectAutoPrecalRetryCandidates,
   type AutoPrecalIntentoRow,
 } from "./auto-precal-retry";
+import { REASON_INFONAVIT_WAF_BLOCKED } from "./auto-precalificar-decision";
 
 function intento(
   expediente_id: string,
@@ -46,6 +48,58 @@ describe("consecutiveScraperFailedStreak / cooldown", () => {
     assert.equal(cooldownMsForScraperFailedStreak(3), 30 * 60 * 1000);
     assert.equal(cooldownMsForScraperFailedStreak(4), 60 * 60 * 1000);
     assert.equal(cooldownMsForScraperFailedStreak(9), 60 * 60 * 1000);
+  });
+});
+
+describe("infonavit_waf_blocked cooldown fijo 60 min", () => {
+  const now = Date.parse("2026-08-28T12:00:00.000Z");
+  const thirtyMin = "2026-08-28T11:30:00.000Z"; // 30 min — < 60
+  const sixtyFiveMin = "2026-08-28T10:55:00.000Z"; // 65 min — ≥ 60
+
+  it("candidato con waf hace 30 min → no elegible", () => {
+    assert.equal(AUTO_PRECAL_WAF_BLOCKED_MIN_AGE_MS, 60 * 60 * 1000);
+    const ids = selectAutoPrecalRetryCandidates({
+      pendingExpedienteIds: ["waf"],
+      intentos: [
+        intento(
+          "waf",
+          thirtyMin,
+          "pending_error",
+          REASON_INFONAVIT_WAF_BLOCKED,
+        ),
+      ],
+      nowMs: now,
+    });
+    assert.deepEqual(ids, []);
+  });
+
+  it("mismo candidato a los 65 min → sí elegible", () => {
+    const ids = selectAutoPrecalRetryCandidates({
+      pendingExpedienteIds: ["waf"],
+      intentos: [
+        intento(
+          "waf",
+          sixtyFiveMin,
+          "pending_error",
+          REASON_INFONAVIT_WAF_BLOCKED,
+        ),
+      ],
+      nowMs: now,
+    });
+    assert.deepEqual(ids, ["waf"]);
+  });
+
+  it("waf no usa cooldown corto de prioridad (4 min)", () => {
+    const tenMin = "2026-08-28T11:50:00.000Z";
+    const ids = selectAutoPrecalRetryCandidates({
+      pendingExpedienteIds: ["waf"],
+      priorityExpedienteIds: ["waf"],
+      intentos: [
+        intento("waf", tenMin, "pending_error", REASON_INFONAVIT_WAF_BLOCKED),
+      ],
+      nowMs: now,
+    });
+    assert.deepEqual(ids, []);
   });
 });
 

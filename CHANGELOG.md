@@ -1,5 +1,9 @@
 ## [Unreleased]
 
+### Fixed
+- **fix(precalificacion): Akamai → `infonavit_waf_blocked` + retry 60 min** — scraper `akamai_access_denied` mapea a razón distinta de `scraper_failed`; cron reintenta con cooldown fijo 60 min (no escalada 5→15→30→60 ni prioridad 4 min).
+
+
 ### Added
 - **feat(editor): capturar nombre manual si POR CAPTURAR** — en `/editor`, celda Cliente editable (✎) cuando `cliente_nombre` es exactamente `POR CAPTURAR`; blur/Enter → RPC `editor_fill_nombre_infonavit` (ya en Cloud). Sin tocar `auto_fill_nombre_infonavit`.
 

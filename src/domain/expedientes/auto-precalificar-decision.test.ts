@@ -8,6 +8,7 @@ import {
   MOTIVO_NO_CUMPLE_CALIFICA_FALSE,
   parseSaldoSubcuenta,
   REASON_INFONAVIT_SYSTEM_ERROR,
+  REASON_INFONAVIT_WAF_BLOCKED,
   resolveProgramaParaMonto,
 } from "./auto-precalificar-decision";
 
@@ -175,6 +176,22 @@ describe("auto-precalificar decision mapping", () => {
       "mejoravit",
     );
     assert.deepEqual(d, { kind: "pending_error", reason: "scraper_failed" });
+  });
+
+  it("akamai_access_denied → pending_error infonavit_waf_blocked", () => {
+    const d = decideAutoPrecalFromScraper(
+      {
+        error: "akamai_access_denied",
+        reference: "Reference #18.6a3c5d17.1726000000.1a2b3c4d",
+        nss: "12345678901",
+      },
+      false,
+      "mejoravit",
+    );
+    assert.deepEqual(d, {
+      kind: "pending_error",
+      reason: REASON_INFONAVIT_WAF_BLOCKED,
+    });
   });
 
   it("califica false + ERROR SISTEMA 923 → pending_error (no no_cumple)", () => {

@@ -175,8 +175,9 @@ Grants: `REVOKE` PUBLIC/anon; `GRANT EXECUTE` authenticated (+ service_role).
 
 **Cron altas:** `GET|POST /api/cron/reintentar-pendientes`  
 - Auth: header `x-cron-secret: $CRON_SECRET` **o** `Authorization: Bearer $CRON_SECRET` (Vercel Cron). 401 si no coincide.  
-- Candidatos: `editor_decisions.decision='pendiente'` **y** ((≥1 fila `auto_precal_intentos` con `resultado='pending_error'` + razón reintentable (`scraper_failed` | `infonavit_system_error`), último intento ≥5 min) **o** (0 filas en `auto_precal_intentos` y `editor_decisions.created_at` ≥10 min)). Excluye solo-`ambiguous_payload` / `invalid_saldo` / etc. sin intento reintentable.
-- Excluye si último intento (incl. lease `job_started`) < cooldown (base 5 min; racha `scraper_failed` → 15/30/60). Sin tope de intentos totales.
+- Candidatos: `editor_decisions.decision='pendiente'` **y** ((≥1 fila `auto_precal_intentos` con `resultado='pending_error'` + razón reintentable (`scraper_failed` | `infonavit_system_error` | `scraper_busy` | `infonavit_waf_blocked`), último intento ≥ cooldown) **o** (0 filas en `auto_precal_intentos` y `editor_decisions.created_at` ≥10 min)). Excluye solo-`ambiguous_payload` / `invalid_saldo` / etc. sin intento reintentable.
+- Excluye si último intento (incl. lease `job_started`) < cooldown: base 5 min; racha `scraper_failed` → 15/30/60; **`infonavit_waf_blocked` → fijo 60 min** (sin escalada ni prioridad corta). Sin tope de intentos totales.
+- Upstream scraper: `error=akamai_access_denied` → `pending_error`/`infonavit_waf_blocked` (no `scraper_failed`).
 - Carga de intentos: ventana 7d + paginación (evita truncar ~1000 y falsos cero-intentos).
 - Max **1** por run (`AUTO_PRECAL_RETRY_LIMIT`), **secuencial**. Entre elegibles, prioriza expedientes cuyo `asesor_id` tiene capability `auto_precal_retry_priority`. (`await` en for; nunca `Promise.all`).  
 - Schedule: `vercel.json` `* * * * *` (cada minuto). Riesgo OOM Railway 1GB aceptado hasta upgrade.

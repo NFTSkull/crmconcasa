@@ -1,3 +1,7 @@
+## 2026-09-14 - Auto-precal: Akamai WAF como razón propia + retry 60 min
+
+Upstream `error=akamai_access_denied` → `pending_error`/`infonavit_waf_blocked` (no `scraper_failed`). En `selectAutoPrecalRetryCandidates`, si el último intento es WAF usa `AUTO_PRECAL_WAF_BLOCKED_MIN_AGE_MS` (60 min) fijo: no escalada 5→15→30→60 ni cooldown corto de prioridad. Objetivo: reintentar cuando el bloqueo Akamai probablemente ya se levantó, sin martillar cada 5 min.
+
 ## 2026-09-14 - Editor: nombre manual vía editor_fill_nombre_infonavit
 
 ### Decisión
