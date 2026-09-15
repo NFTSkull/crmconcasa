@@ -28,6 +28,7 @@ import {
   type RowSaveState,
 } from "./editor-decision";
 import { createEditorPendingAutosave } from "./editor-pending-autosave";
+import { EditorClienteNombreCell } from "@/components/editor/EditorClienteNombreCell";
 
 const SUPABASE_SAVE_DEBOUNCE_MS = 750;
 const SEARCH_DEBOUNCE_MS = 300;
@@ -722,11 +723,20 @@ export default function EditorDashboardPage() {
                       <td className="truncate px-3 py-2 text-sm text-gray-600">
                         {p.nss || "—"}
                       </td>
-                      <td
-                        className="truncate px-3 py-2 text-sm text-gray-900"
-                        title={p.cliente_nombre || undefined}
-                      >
-                        {p.cliente_nombre || "—"}
+                      <td className="px-3 py-2 text-sm text-gray-900">
+                        <EditorClienteNombreCell
+                          expedienteId={p.id}
+                          clienteNombre={p.cliente_nombre}
+                          onApplied={(nombre) => {
+                            setRows((prev) =>
+                              prev.map((r) =>
+                                r.id === p.id
+                                  ? { ...r, cliente_nombre: nombre }
+                                  : r,
+                              ),
+                            );
+                          }}
+                        />
                         {p.esReingreso ? (
                           <span className="mt-1 block w-fit rounded-full bg-violet-100 px-2 py-0.5 text-[10px] font-semibold text-violet-800">
                             Reingreso · revalidar monto

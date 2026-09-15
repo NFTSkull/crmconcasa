@@ -1,5 +1,9 @@
 ## [Unreleased]
 
+### Added
+- **feat(editor): capturar nombre manual si POR CAPTURAR** — en `/editor`, celda Cliente editable (✎) cuando `cliente_nombre` es exactamente `POR CAPTURAR`; blur/Enter → RPC `editor_fill_nombre_infonavit` (ya en Cloud). Sin tocar `auto_fill_nombre_infonavit`.
+
+
 ### Fixed
 - **fix(precalificacion): Bearer sin refresh forzado** — `resolveBearerAccessToken` reutiliza access_token local si aún tiene ≥120s de vida; solo `refreshSession` si falta/está por vencer; ante `Already Used` reintenta `getSession` (Anette submits frecuentes + `autoRefreshToken`).
 
