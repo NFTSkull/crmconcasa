@@ -2,6 +2,7 @@
  * Selección pura de candidatos a reintento auto-precal (sin I/O).
  * - Fallos técnicos (scraper_failed | infonavit_system_error | scraper_busy) con cooldown base 5 min.
  * - Rachas de scraper_failed: cooldown 5 → 15 → 30 → 60 min (no martillar casos normales).
+ * - `infonavit_waf_blocked` (Akamai): intervalo fijo largo (60 min), sin escalada.
  * - Prioridad explícita: cooldown técnico corto de 4 min; el lease global sigue serializando Railway.
  * - `job_started` reciente conserva el bloqueo base de 5 min para no reintentar un job in-flight.
  * - Pendientes con **cero** filas en auto_precal_intentos: normales a los 10 min; prioritarios a los 2 min.
@@ -11,7 +12,10 @@
  */
 
 import { AUTO_PRECAL_SCRAPER_BUSY_REASON } from "./auto-precal-scraper-lease";
-import { REASON_INFONAVIT_SYSTEM_ERROR } from "./auto-precalificar-decision";
+import {
+  REASON_INFONAVIT_SYSTEM_ERROR,
+  REASON_INFONAVIT_WAF_BLOCKED,
+} from "./auto-precalificar-decision";
 
 export const AUTO_PRECAL_RETRY_MIN_AGE_MS = 5 * 60 * 1000;
 /** Prioritarios: reintento rápido; el lease global impide solapar navegaciones. */
@@ -20,6 +24,11 @@ export const AUTO_PRECAL_PRIORITY_RETRY_MIN_AGE_MS = 4 * 60 * 1000;
 export const AUTO_PRECAL_ZERO_ATTEMPT_MIN_AGE_MS = 10 * 60 * 1000;
 /** Prioritarios: rescata rápido un cero-intentos sin quitar el lease global. */
 export const AUTO_PRECAL_PRIORITY_ZERO_ATTEMPT_MIN_AGE_MS = 2 * 60 * 1000;
+/**
+ * Cooldown fijo para WAF Akamai (`infonavit_waf_blocked`).
+ * Más largo que scraper_failed base; sin escalada 5→15→30→60.
+ */
+export const AUTO_PRECAL_WAF_BLOCKED_MIN_AGE_MS = 60 * 60 * 1000;
 /** 1 candidato/tick: evita 2×timeout vs maxDuration 300 y libera slots del backlog. */
 export const AUTO_PRECAL_RETRY_LIMIT = 1;
 
@@ -48,6 +57,7 @@ export const AUTO_PRECAL_RETRYABLE_PENDING_REASONS = new Set<string>([
   "scraper_failed",
   AUTO_PRECAL_SCRAPER_BUSY_REASON,
   REASON_INFONAVIT_SYSTEM_ERROR,
+  REASON_INFONAVIT_WAF_BLOCKED,
 ]);
 
 export function isAutoPrecalRetryablePendingReason(
@@ -133,6 +143,7 @@ export type RetryCandidateInput = {
  * - normales: cooldown según racha scraper_failed
  * - prioritarios: cooldown técnico fijo de 4 min
  * - `job_started` más reciente: conserva bloqueo base de 5 min
+ * - último intento `infonavit_waf_blocked`: cooldown fijo 60 min (sin escalada ni prioridad corta)
  * - 0 intentos: normales ≥10 min; prioritarios ≥2 min
  * - orden: prioritarios primero; dentro de cada grupo, ancla más antigua primero
  * - limit (default 1)
@@ -180,11 +191,20 @@ export function selectAutoPrecalRetryCandidates(
     if (lastMs === 0 || !lastRow) continue;
 
     const streak = consecutiveScraperFailedStreak(rows);
-    const requiredAgeMs = isAutoPrecalJobStartedRow(lastRow)
-      ? minAgeMs
-      : priority.has(id)
-        ? AUTO_PRECAL_PRIORITY_RETRY_MIN_AGE_MS
-        : cooldownMsForScraperFailedStreak(streak, minAgeMs);
+    const lastIsWafBlocked =
+      lastRow.resultado === "pending_error" &&
+      lastRow.razon === REASON_INFONAVIT_WAF_BLOCKED;
+    // WAF: intervalo fijo largo (no prioridad corta ni escalada scraper_failed).
+    let requiredAgeMs: number;
+    if (isAutoPrecalJobStartedRow(lastRow)) {
+      requiredAgeMs = minAgeMs;
+    } else if (lastIsWafBlocked) {
+      requiredAgeMs = AUTO_PRECAL_WAF_BLOCKED_MIN_AGE_MS;
+    } else if (priority.has(id)) {
+      requiredAgeMs = AUTO_PRECAL_PRIORITY_RETRY_MIN_AGE_MS;
+    } else {
+      requiredAgeMs = cooldownMsForScraperFailedStreak(streak, minAgeMs);
+    }
     if (nowMs - lastMs < requiredAgeMs) continue;
 
     scored.push({ id, lastMs });

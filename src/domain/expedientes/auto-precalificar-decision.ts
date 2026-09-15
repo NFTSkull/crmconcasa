@@ -22,6 +22,10 @@ export type AutoPrecalScraperPayload = {
   empresa?: string | null;
   /** Mensaje Infonavit sin formulario de inscripción (p. ej. crédito activo). */
   advertenciaInscripcion?: string | null;
+  /** Reference # Akamai cuando error=akamai_access_denied. */
+  reference?: string | null;
+  /** NSS eco del scraper (opcional; diagnóstico). */
+  nss?: string | null;
 };
 
 export const MOTIVO_NO_CUMPLE_CALIFICA_FALSE =
@@ -29,6 +33,12 @@ export const MOTIVO_NO_CUMPLE_CALIFICA_FALSE =
 
 /** Fallo técnico Infonavit (no decisión crediticia). Reintentable por cron. */
 export const REASON_INFONAVIT_SYSTEM_ERROR = "infonavit_system_error";
+
+/**
+ * WAF Akamai (Access Denied / edgesuite). Distinto de scraper_failed.
+ * Reintentable por cron con intervalo fijo largo (no escalada 5→15→30→60).
+ */
+export const REASON_INFONAVIT_WAF_BLOCKED = "infonavit_waf_blocked";
 
 /**
  * Mensajes técnicos inequívocos del portal Infonavit (no rechazo crediticio).
@@ -115,6 +125,9 @@ export function decideAutoPrecalFromScraper(
 ): AutoPrecalDecision {
   // 1) Fallo HTTP / error explícito del scraper
   if (!upstreamOk || typeof payload?.error === "string") {
+    if (payload?.error === "akamai_access_denied") {
+      return { kind: "pending_error", reason: REASON_INFONAVIT_WAF_BLOCKED };
+    }
     return { kind: "pending_error", reason: "scraper_failed" };
   }
 
