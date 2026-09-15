@@ -203,4 +203,27 @@ describe("Admin snapshot etapas (independiente del periodo)", () => {
     assert.equal(snap.byEtapa.find((b) => b.etapa === 1)?.count, 0);
     assert.equal(snap.byEtapa.find((b) => b.etapa === 5)?.count, 0);
   });
+
+  it("filtro líder incluye expedientes de miembros del equipo", async () => {
+    const lider = "11111111-1111-4111-8111-111111111111";
+    const miembro = "22222222-2222-4222-8222-222222222222";
+    const ajeno = "33333333-3333-4333-8333-333333333333";
+    const items = [
+      stub({ id: "l1", asesorId: lider, fechaEnvioMesa: "2026-07-10T12:00:00.000Z", etapaActual: 1 }),
+      stub({ id: "m1", asesorId: miembro, fechaEnvioMesa: "2026-07-10T12:00:00.000Z", etapaActual: 3 }),
+      stub({ id: "x1", asesorId: ajeno, fechaEnvioMesa: "2026-07-10T12:00:00.000Z", etapaActual: 2 }),
+    ];
+    const repo = new MockAdminProductionRepo(
+      { listForAdmin: async () => items } as unknown as ExpedientesRepo,
+      [{ leaderId: lider, memberIds: [miembro] }],
+    );
+    const snap = await repo.getExpedientesSnapshotEtapas({
+      asesorId: lider,
+      estado: "todos",
+    });
+    assert.equal(snap.totalActual, 2);
+    assert.equal(snap.byEtapa.find((b) => b.etapa === 1)?.count, 1);
+    assert.equal(snap.byEtapa.find((b) => b.etapa === 3)?.count, 1);
+    assert.equal(snap.byEtapa.find((b) => b.etapa === 2)?.count, 0);
+  });
 });

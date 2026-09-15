@@ -1,5 +1,8 @@
 ## [Unreleased]
 
+### Fixed
+- **fix(admin): rollup líder+equipo en Super Admin** — filtrar por líder (p.ej. Silvia) incluye expedientes del equipo; producción/reporte agrupan miembros bajo el líder (`admin_expand_asesor_ids` / `admin_reporting_asesor_id`, mig. **225**).
+
 ### Added
 - **feat(editor): capturar nombre manual si POR CAPTURAR** — en `/editor`, celda Cliente editable (✎) cuando `cliente_nombre` es exactamente `POR CAPTURAR`; blur/Enter → RPC `editor_fill_nombre_infonavit` (ya en Cloud). Sin tocar `auto_fill_nombre_infonavit`.
 

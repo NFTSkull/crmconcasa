@@ -32,6 +32,11 @@ import {
   type AdminClienteSearchResult,
 } from "./admin-cliente-search";
 import { mapEtapaInternaAPasoVisual } from "@/domain/expedientes/asesor-seguimiento-operativo";
+import {
+  matchesAdminAsesorEquipoFilter,
+  reportingAdminAsesorId,
+  type AdminEquipoRollup,
+} from "./asesor-equipo-rollup";
 
 /** Paridad SQL admin `p_buscar`: cliente / asesor / programa / NSS. */
 export function matchesAdminProductionBuscar(
@@ -221,10 +226,21 @@ function matchesPrecalFilter(
 }
 
 export class MockAdminProductionRepo implements AdminProductionRepo {
-  constructor(private readonly expedientesRepo: ExpedientesRepo) {}
+  constructor(
+    private readonly expedientesRepo: ExpedientesRepo,
+    private readonly equipos: readonly AdminEquipoRollup[] = [],
+  ) {}
 
   private async loadAll(): Promise<ExpedienteMock[]> {
     return this.expedientesRepo.listForAdmin();
+  }
+
+  private matchesAsesor(rowAsesorId: string, filterAsesorId?: string | null) {
+    return matchesAdminAsesorEquipoFilter(
+      rowAsesorId,
+      filterAsesorId,
+      this.equipos,
+    );
   }
 
   private filterMesa(
@@ -236,7 +252,7 @@ export class MockAdminProductionRepo implements AdminProductionRepo {
       .map(mapMesa)
       .filter((r): r is AdminMesaEnvioEvent => r != null)
       .filter((r) => isInstantInPeriod(r.fechaEnvioMesa, filters.bounds))
-      .filter((r) => !filters.asesorId || r.asesorId === filters.asesorId)
+      .filter((r) => this.matchesAsesor(r.asesorId, filters.asesorId))
       .filter((r) => matchesAdminEtapaActualFilter(r.etapaActual, filters))
       .filter((r) =>
         matchesAdminEstadoFilter(
@@ -270,7 +286,7 @@ export class MockAdminProductionRepo implements AdminProductionRepo {
     const dec = filters.precalDecision ?? "resueltas";
     return all
       .map(mapPrecal)
-      .filter((r) => !filters.asesorId || r.asesorId === filters.asesorId)
+      .filter((r) => this.matchesAsesor(r.asesorId, filters.asesorId))
       .filter((r) => matchesPrecalFilter(r, dec, filters.bounds))
       .filter((r) => {
         if (!buscar) return true;
@@ -301,7 +317,7 @@ export class MockAdminProductionRepo implements AdminProductionRepo {
     }
     const all = await this.loadAll();
     const matched = all
-      .filter((e) => !input.asesorId || e.base.asesorId === input.asesorId)
+      .filter((e) => this.matchesAsesor(e.base.asesorId, input.asesorId))
       .filter((e) =>
         matchesAdminClienteSearchQuery(input.buscar, {
           clienteNombre: e.base.cliente_nombre,
@@ -382,7 +398,7 @@ export class MockAdminProductionRepo implements AdminProductionRepo {
         return Boolean(e.operativo.submittedToMesa && e.operativo.fechaEnvioMesa);
       })
       .map(mapSnapshot)
-      .filter((r) => !filters.asesorId || r.asesorId === filters.asesorId)
+      .filter((r) => this.matchesAsesor(r.asesorId, filters.asesorId))
       .filter((r) => matchesAdminEtapaActualFilter(r.etapaActual, filters))
       .filter((r) =>
         matchesAdminEstadoFilter(
@@ -461,7 +477,7 @@ export class MockAdminProductionRepo implements AdminProductionRepo {
     });
     const precal = all
       .map(mapPrecal)
-      .filter((r) => !filters.asesorId || r.asesorId === filters.asesorId);
+      .filter((r) => this.matchesAsesor(r.asesorId, filters.asesorId));
     const map = new Map<string, AdminAsesorProductionRow>();
 
     const ensure = (id: string, nombre: string | null, email: string | null) => {
@@ -490,9 +506,19 @@ export class MockAdminProductionRepo implements AdminProductionRepo {
       return row;
     };
 
+    const leaderMeta = (reportId: string, fallbackNombre: string | null, fallbackEmail: string | null) => {
+      const leaderExp = all.find((e) => e.base.asesorId === reportId);
+      return {
+        nombre: leaderExp?.base.asesorNombre ?? fallbackNombre,
+        email: leaderExp?.base.asesorEmail ?? fallbackEmail,
+      };
+    };
+
     for (const r of mesa) {
-      const row = ensure(r.asesorId, r.asesorNombre, null);
-      map.set(r.asesorId, {
+      const reportId = reportingAdminAsesorId(r.asesorId, this.equipos);
+      const meta = leaderMeta(reportId, r.asesorNombre, null);
+      const row = ensure(reportId, meta.nombre, meta.email);
+      map.set(reportId, {
         ...row,
         enviadosAMesa: row.enviadosAMesa + 1,
         etapas: {
@@ -504,14 +530,18 @@ export class MockAdminProductionRepo implements AdminProductionRepo {
 
     const summaryByAsesor = new Map<string, ReturnType<typeof computeAdminProductionSummary>>();
     for (const r of precal) {
-      ensure(r.asesorId, r.asesorNombre, r.asesorEmail);
-      if (!summaryByAsesor.has(r.asesorId)) {
+      const reportId = reportingAdminAsesorId(r.asesorId, this.equipos);
+      const meta = leaderMeta(reportId, r.asesorNombre, r.asesorEmail);
+      ensure(reportId, meta.nombre, meta.email);
+      if (!summaryByAsesor.has(reportId)) {
         summaryByAsesor.set(
-          r.asesorId,
+          reportId,
           computeAdminProductionSummary({
             bounds: filters.bounds,
             mesaEnvios: [],
-            precalRows: precal.filter((x) => x.asesorId === r.asesorId),
+            precalRows: precal.filter(
+              (x) => reportingAdminAsesorId(x.asesorId, this.equipos) === reportId,
+            ),
           }),
         );
       }
@@ -530,7 +560,8 @@ export class MockAdminProductionRepo implements AdminProductionRepo {
 
     let rows = [...map.values()].sort((a, b) => b.enviadosAMesa - a.enviadosAMesa);
     if (filters.asesorId) {
-      rows = rows.filter((r) => r.asesorId === filters.asesorId);
+      const reportFilter = reportingAdminAsesorId(filters.asesorId, this.equipos);
+      rows = rows.filter((r) => r.asesorId === reportFilter);
     }
     return rows;
   }
