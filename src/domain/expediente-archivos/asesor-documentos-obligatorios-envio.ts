@@ -23,11 +23,11 @@ export const INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_EXTERNOS = [
  * Equipo Silvia (líder + miembros) — paquete nuevo (Cloud):
  * - INE frente y reverso
  * - Comprobante de domicilio
+ * - Estado de cuenta
  * - Acta de nacimiento digital
  * - Semanas cotizadas O Vigencia de derechos (tipo combinado)
  *
- * Constancia de situación fiscal y Estado de cuenta quedan opcionales
- * (no en este set de envío). Debe coincidir exactamente con
+ * Constancia de situación fiscal queda opcional. Debe coincidir exactamente con
  * `integration_doc_tipos_asesor_envio_para` /
  * `asesor_documentos_obligatorios_envio` cuando el rollout está ON.
  */
@@ -35,6 +35,7 @@ export const INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_SILVIA = [
   "cliente_ine_frente",
   "cliente_ine_reverso",
   "cliente_comprobante_domicilio",
+  "cliente_estado_cuenta",
   "cliente_acta_nacimiento_digital",
   "cliente_semanas_o_vigencia_derechos",
 ] as const;
@@ -47,6 +48,7 @@ export const INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_SILVIA_LEGACY_SEMANAS = [
   "cliente_ine_frente",
   "cliente_ine_reverso",
   "cliente_comprobante_domicilio",
+  "cliente_estado_cuenta",
   "cliente_acta_nacimiento_digital",
   "cliente_semanas_cotizadas",
 ] as const;
