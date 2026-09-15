@@ -7,7 +7,6 @@ import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import {
-  isAnetteNssOnlyEmail,
   normalizeAnetteNssOnlyInput,
   parseAnetteNssOnlyPrepareResult,
   validateAnetteNssOnlyInput,
@@ -20,18 +19,24 @@ import { supabaseBrowser } from "@/lib/supabaseBrowser";
 
 function newIdempotencyKey(nss: string): string {
   if (typeof crypto !== "undefined" && "randomUUID" in crypto) {
-    return `anette-nss-${nss}-${crypto.randomUUID()}`;
+    return `nss-only-${nss}-${crypto.randomUUID()}`;
   }
-  return `anette-nss-${nss}-${Date.now()}`;
+  return `nss-only-${nss}-${Date.now()}`;
 }
 
 function friendlyRpcError(message: string): string {
   const clean = String(message ?? "").trim();
   if (!clean) return "No se pudo enviar el NSS a precalificación.";
-  const marker = "asesor_preparar_precalificacion_externo_nss:";
-  const index = clean.toLowerCase().indexOf(marker);
-  if (index >= 0) {
-    return clean.slice(index + marker.length).trim();
+  const markers = [
+    "asesor_preparar_precalificacion_nss_only:",
+    "asesor_preparar_precalificacion_externo_nss:",
+  ];
+  const lower = clean.toLowerCase();
+  for (const marker of markers) {
+    const index = lower.indexOf(marker);
+    if (index >= 0) {
+      return clean.slice(index + marker.length).trim();
+    }
   }
   return clean;
 }
@@ -50,12 +55,12 @@ export function AnetteNssOnlyPrecalPage() {
     intentoId: string | null;
   }): Promise<void> {
     if (!supabaseBrowser) {
-      console.error("[anette-nss-only] sin supabaseBrowser para Bearer");
+      console.error("[nss-only] sin supabaseBrowser para Bearer");
       return;
     }
     const accessToken = await resolveBearerAccessToken(
       supabaseBrowser.auth,
-      "anette-nss-only",
+      "nss-only",
     );
 
     if (input.action === "reprecal") {
@@ -70,7 +75,7 @@ export function AnetteNssOnlyPrecalPage() {
     await fireAutoPrecalificarAck({
       expedienteId: input.expedienteId,
       accessToken,
-      logPrefix: "anette-nss-only",
+      logPrefix: "nss-only",
     });
   }
 
@@ -80,10 +85,7 @@ export function AnetteNssOnlyPrecalPage() {
     setErrorMsg(null);
     setSuccessMsg(null);
 
-    if (
-      currentUser?.role !== "asesor" ||
-      !isAnetteNssOnlyEmail(currentUser.email)
-    ) {
+    if (currentUser?.role !== "asesor") {
       setErrorMsg("Este flujo de NSS no está habilitado para este usuario.");
       return;
     }
@@ -106,7 +108,7 @@ export function AnetteNssOnlyPrecalPage() {
     setSubmitting(true);
     try {
       const { data, error } = await supabaseBrowser.rpc(
-        "asesor_preparar_precalificacion_externo_nss",
+        "asesor_preparar_precalificacion_nss_only",
         {
           p_nss: normalizedNss,
           p_idempotency_key: newIdempotencyKey(normalizedNss),
@@ -131,7 +133,7 @@ export function AnetteNssOnlyPrecalPage() {
         });
       } catch (err) {
         console.error(
-          "[anette-nss-only] auto-precalificar ack falló",
+          "[nss-only] auto-precalificar ack falló",
           prepared.expedienteId,
           err,
         );
