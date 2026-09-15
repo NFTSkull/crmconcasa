@@ -80,6 +80,15 @@ export interface InfonavitCreditoInput {
   plazoMeses?: number | null;
 }
 
+export interface InfonavitDestinoRecursosInput {
+  /** Porcentaje para titulación; vacío cuando no aplica. */
+  porcentajeTitulacion?: string | number | null;
+  /** CLABE de la notaría, 18 dígitos cuando aplica. */
+  clabeNotaria?: string | null;
+  /** CLABE del derechohabiente, 18 dígitos cuando aplica. */
+  clabeDerechohabiente?: string | null;
+}
+
 export interface InfonavitReferenciaInput {
   apellidoPaterno?: string | null;
   apellidoMaterno?: string | null;
@@ -98,14 +107,17 @@ export interface InfonavitBeneficiarioInput {
 
 export interface InfonavitMejoraInput {
   descripcion?: string | null;
+  /** Se conserva por compatibilidad histórica; mappingVersion>=3 no lo imprime en Presupuesto. */
   presupuestoEstimado?: number | null;
 }
 
 /**
  * Snapshot canónico. `fechaDocumento` = YYYY-MM-DD ya resuelto a
- * America/Monterrey por el productor (futuro B3). El renderer NO aplica TZ.
+ * America/Monterrey por el productor. El renderer NO aplica TZ.
  */
 export interface InfonavitPdfSnapshotInput {
+  /** Ausente/1/2 = comportamiento histórico. 3+ activa las reglas documentales nuevas. */
+  mappingVersion?: number | null;
   fechaDocumento: string;
   localidad: string;
   /** Ciudad de cierre Solicitud p.2; si ausente, se usa `localidad`. */
@@ -114,6 +126,7 @@ export interface InfonavitPdfSnapshotInput {
   empresa?: InfonavitEmpresaInput | null;
   vivienda?: InfonavitViviendaInput | null;
   credito?: InfonavitCreditoInput | null;
+  destinoRecursos?: InfonavitDestinoRecursosInput | null;
   referencias?: InfonavitReferenciaInput[] | null;
   beneficiario?: InfonavitBeneficiarioInput | null;
   mejora?: InfonavitMejoraInput | null;

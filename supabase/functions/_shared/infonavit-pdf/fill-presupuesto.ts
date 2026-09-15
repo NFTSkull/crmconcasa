@@ -1,6 +1,8 @@
 /**
- * Fill Presupuesto Mejoramiento — mapping B0.
+ * Fill Presupuesto Mejoramiento.
  * texto0 + texto11 = nombre con split determinista por palabras.
+ * mappingVersion>=3: NO auto llenar presupuesto estimado ni fecha inferior.
+ * Snapshots históricos conservan su render anterior.
  * No dibujar firma. No flatten aquí.
  */
 
@@ -76,54 +78,26 @@ export async function fillPresupuesto(args: {
     semanticField: "mejora.descripcion",
   });
 
+  const isV3 = Number(snapshot.mappingVersion ?? 0) >= 3;
   const montoRaw = snapshot.mejora?.presupuestoEstimado;
   const monto =
-    montoRaw === null || montoRaw === undefined
+    isV3 || montoRaw === null || montoRaw === undefined
       ? ""
       : formatMoneyMx(montoRaw, { withSymbol: false });
+  const fecha = isV3 ? "" : formatPresupuestoFecha(snapshot.fechaDocumento);
 
   setTextValue(form, PRESUPUESTO_FIELD.T0_NOMBRE, line0, FONT_SIZE);
-  setTextValue(
-    form,
-    PRESUPUESTO_FIELD.T11_NOMBRE_OVERFLOW,
-    line11,
-    FONT_SIZE,
-  );
-  setTextValue(
-    form,
-    PRESUPUESTO_FIELD.T1_NSS,
-    blankable(snapshot.cliente.nss),
-    FONT_SIZE,
-  );
-  setTextValue(
-    form,
-    PRESUPUESTO_FIELD.T2_DIR0,
-    dirLinesNarrowFirst[0] ?? "",
-    FONT_SIZE,
-  );
-  setTextValue(
-    form,
-    PRESUPUESTO_FIELD.T3_DIR1,
-    dirLinesNarrowFirst[1] ?? "",
-    FONT_SIZE,
-  );
-  setTextValue(
-    form,
-    PRESUPUESTO_FIELD.T4_DIR2,
-    dirLinesNarrowFirst[2] ?? "",
-    FONT_SIZE,
-  );
+  setTextValue(form, PRESUPUESTO_FIELD.T11_NOMBRE_OVERFLOW, line11, FONT_SIZE);
+  setTextValue(form, PRESUPUESTO_FIELD.T1_NSS, blankable(snapshot.cliente.nss), FONT_SIZE);
+  setTextValue(form, PRESUPUESTO_FIELD.T2_DIR0, dirLinesNarrowFirst[0] ?? "", FONT_SIZE);
+  setTextValue(form, PRESUPUESTO_FIELD.T3_DIR1, dirLinesNarrowFirst[1] ?? "", FONT_SIZE);
+  setTextValue(form, PRESUPUESTO_FIELD.T4_DIR2, dirLinesNarrowFirst[2] ?? "", FONT_SIZE);
   setTextValue(form, PRESUPUESTO_FIELD.T5_DESC0, descLines[0] ?? "", FONT_SIZE);
   setTextValue(form, PRESUPUESTO_FIELD.T6_DESC1, descLines[1] ?? "", FONT_SIZE);
   setTextValue(form, PRESUPUESTO_FIELD.T7_DESC2, descLines[2] ?? "", FONT_SIZE);
   setTextValue(form, PRESUPUESTO_FIELD.T8_DESC3, descLines[3] ?? "", FONT_SIZE);
   setTextValue(form, PRESUPUESTO_FIELD.T9_MONTO, monto, FONT_SIZE);
-  setTextValue(
-    form,
-    PRESUPUESTO_FIELD.T10_FECHA,
-    formatPresupuestoFecha(snapshot.fechaDocumento),
-    FONT_SIZE,
-  );
+  setTextValue(form, PRESUPUESTO_FIELD.T10_FECHA, fecha, FONT_SIZE);
 
   const font = await embedHelvetica(doc);
   updateAllTextAppearances(form, font);
