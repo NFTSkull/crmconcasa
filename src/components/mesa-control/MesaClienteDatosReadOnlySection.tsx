@@ -7,6 +7,9 @@ import { MesaInfonavitGenerarDocumentosForm } from "@/components/mesa-control/Me
 type Props = ComponentProps<typeof MesaClienteDatosReadOnlySectionImpl>;
 type Tab = "asesor" | "infonavit";
 
+export const MESA_INFONAVIT_DOCUMENTS_GENERATED_EVENT =
+  "concasa:mesa-infonavit-documents-generated";
+
 export function MesaClienteDatosReadOnlySection(props: Props) {
   const [tab, setTab] = useState<Tab>("asesor");
 
@@ -45,7 +48,19 @@ export function MesaClienteDatosReadOnlySection(props: Props) {
         <MesaClienteDatosReadOnlySectionImpl {...props} />
       ) : (
         <div className="px-4 pb-4 pt-2">
-          <MesaInfonavitGenerarDocumentosForm expedienteId={props.expedienteId} />
+          <MesaInfonavitGenerarDocumentosForm
+            expedienteId={props.expedienteId}
+            onGenerated={(submissionVersion) => {
+              window.dispatchEvent(
+                new CustomEvent(MESA_INFONAVIT_DOCUMENTS_GENERATED_EVENT, {
+                  detail: {
+                    expedienteId: props.expedienteId,
+                    submissionVersion,
+                  },
+                }),
+              );
+            }}
+          />
         </div>
       )}
     </div>
