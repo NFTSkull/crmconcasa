@@ -1,3 +1,8 @@
+## 2026-09-15 - Silvia: Constancia SAT opcional otra vez (set envío = 5)
+
+### Decisión
+Producto: Constancia de Situación Fiscal no es gate de envío. Cloud `envio_para` ya regresa 5. FE `sameExactSet` exige match exacto → hay que bajar `INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_SILVIA` de 6→5 o el parse vuelve a degradar a 4 clásicos.
+
 ## 2026-09-15 - FE parse Silvia: Constancia SAT faltaba → fallback 4
 
 ### Causa

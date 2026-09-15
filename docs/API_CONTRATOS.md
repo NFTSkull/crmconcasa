@@ -124,7 +124,7 @@ Universo del gate (P169): `organization_id` + NSS + `deleted_at IS NULL` + `cicl
 
 | Pieza | Comportamiento con gate ON |
 | --- | --- |
-| Obligatorios envío (6) | `cliente_ine_frente`, `cliente_ine_reverso`, `cliente_comprobante_domicilio`, `cliente_acta_nacimiento_digital`, `cliente_semanas_o_vigencia_derechos`, `cliente_constancia_situacion_fiscal` — FE `INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_SILVIA` debe coincidir exacto con `asesor_documentos_obligatorios_envio` / `envio_para` (si no, fail-closed a 4 clásicos) |
+| Obligatorios envío (5) | `cliente_ine_frente`, `cliente_ine_reverso`, `cliente_comprobante_domicilio`, `cliente_acta_nacimiento_digital`, `cliente_semanas_o_vigencia_derechos` — FE `INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_SILVIA` debe coincidir exacto con `asesor_documentos_obligatorios_envio` / `envio_para` (si no, fail-closed a 4 clásicos). `cliente_constancia_situacion_fiscal` queda **opcional** (sección dedicada). |
 | Tipo `cliente_semanas_o_vigencia_derechos` | Label «Semanas Cotizadas o Vigencia de Derechos»; un slot obligatorio vía `integration_doc_tipos_asesor_envio_para(dueño)` / allowlist upload |
 | `cliente_datos.datos.clabe` | String 18 dígitos, **opcional**; vacío OK; no bloquea completitud |
 | Anette / externos históricos | Sin cambio (gate false para ellos) |
