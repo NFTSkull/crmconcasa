@@ -1,3 +1,8 @@
+## 2026-09-15 - Admin: Equipo Silvia (y líderes) cuentan como un solo número
+
+### Decisión
+Super Admin filtraba `e.asesor_id = p_asesor_id` exacto. Regla: líder + miembros = un bloque. Helpers `admin_expand_asesor_ids` / `admin_reporting_asesor_id`; patch snapshot/production/reporte v3. Mig **225**.
+
 ## 2026-09-14 - Editor: nombre manual vía editor_fill_nombre_infonavit
 
 ### Decisión
