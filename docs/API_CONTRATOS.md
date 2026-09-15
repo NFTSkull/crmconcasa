@@ -151,6 +151,8 @@ Grants: `REVOKE` PUBLIC/anon; `GRANT EXECUTE` authenticated (+ service_role).
 
 **Post-aprobado (opcional, P218):** si el scraper trae `nombre`, tras `auto_upsert_editor_decision` exitoso se llama `auto_fill_nombre_infonavit` (capability `autofill_nombre_infonavit` del asesor dueño). Error de esa RPC solo se loguea; no cambia el resultado `aprobado`. Mig **218** documenta RPC/capability ya en Cloud (no re-aplicar Production).
 
+**Editor UI (manual):** en `/editor`, si `cliente_nombre` es exactamente `POR CAPTURAR`, la celda Cliente permite captura manual vía RPC `editor_fill_nombre_infonavit` (`p_expediente_id`, `p_nombre_completo`); no sustituye el autofill automático.
+
 **HTTP re-precal path (P216):** `POST /api/precalificaciones/reprecalificacion/[intentoId]/auto-precalificar`  
 - Auth: Bearer JWT (asesor). Responde **202** `{ ok, status:"accepted", intento_id }`; scraper en `after()`.  
 - Lee `expediente_precalificacion_intentos.nss` (service role).  

@@ -1,3 +1,8 @@
+## 2026-09-14 - Editor: nombre manual vía editor_fill_nombre_infonavit
+
+### Decisión
+Si el listado muestra `cliente_nombre === "POR CAPTURAR"`, la celda ofrece input (✎) y llama `editor_fill_nombre_infonavit` (RPC ya en Cloud). Éxito → actualiza fila local; fallo → aviso discreto. No toca `auto_fill_nombre_infonavit` ni el job auto-precal. Badge Reingreso permanece en `page.tsx`.
+
 ## 2026-09-14 - Auto-precal Bearer: no forzar refreshSession cada submit
 
 ### Causa
