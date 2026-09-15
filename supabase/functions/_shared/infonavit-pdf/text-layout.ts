@@ -110,51 +110,48 @@ export function splitTextToLines(args: SplitLinesArgs): string[] {
 }
 
 /**
- * Descripción de mejora: si el productor ya mandó líneas (`\n`),
- * respetarlas (propuesta determinística P189). Si no, wrap por palabras.
+ * Descripción de mejora: respeta los saltos de línea como separadores semánticos,
+ * pero si una línea rebasa la capacidad visual la envuelve por palabras en lugar
+ * de fallar por una frase normal. Nunca trunca: si el conjunto completo no cabe
+ * en maxLines, conserva el fail-safe INFONAVIT_TEXT_OVERFLOW.
  */
 export function splitMejoraDescripcion(args: SplitLinesArgs): string[] {
   const raw = (args.text ?? "").trim();
   if (!raw.includes("\n")) {
     return splitTextToLines(args);
   }
+
   assertCapacity(args);
   const parts = raw
     .split(/\n/)
     .map((s) => s.trim())
     .filter((s) => s.length > 0);
-  if (parts.length > args.maxLines) {
-    throw new InfonavitPdfError(
-      "INFONAVIT_TEXT_OVERFLOW",
-      "texto excede máximo de líneas",
-      {
-        documentType: args.documentType,
-        semanticField: args.semanticField,
-        maxLines: args.maxLines,
-        reason: "too_many_lines",
-      },
-    );
-  }
+
+  const lines: string[] = [];
   for (const part of parts) {
-    if (part.length > args.maxCharsPerLine) {
+    const wrapped = splitTextToLines({
+      ...args,
+      text: part,
+      maxLines: args.maxLines,
+    }).filter((line) => line.length > 0);
+
+    if (lines.length + wrapped.length > args.maxLines) {
       throw new InfonavitPdfError(
         "INFONAVIT_TEXT_OVERFLOW",
-        "palabra excede capacidad de línea",
+        "texto excede máximo de líneas",
         {
           documentType: args.documentType,
           semanticField: args.semanticField,
           maxLines: args.maxLines,
-          reason: "word_too_long",
-          maxCharsPerLine: args.maxCharsPerLine,
-          wordLength: part.length,
+          reason: "too_many_lines_after_wrap",
         },
       );
     }
+
+    lines.push(...wrapped);
   }
-  const lines = Array.from({ length: args.maxLines }, () => "");
-  parts.forEach((part, i) => {
-    lines[i] = part;
-  });
+
+  while (lines.length < args.maxLines) lines.push("");
   return lines;
 }
 
