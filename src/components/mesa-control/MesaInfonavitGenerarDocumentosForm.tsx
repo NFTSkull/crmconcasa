@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import { isSupabaseConfigured, supabaseBrowser } from "@/lib/supabaseBrowser";
 
@@ -104,6 +104,22 @@ export type MesaInfonavitGenerarDocumentosFormProps = Readonly<{
 }>;
 
 type UnknownRecord = Record<string, unknown>;
+
+type StoredMesaInfonavitDraft = Readonly<{
+  version: 1;
+  expedienteId: string;
+  savedAt: string;
+  draft: MesaInfonavitDocumentDraft;
+}>;
+
+type LocalSaveState = "idle" | "restored" | "saved";
+
+const MESA_INFONAVIT_LOCAL_DRAFT_VERSION = 1 as const;
+const MESA_INFONAVIT_LOCAL_DRAFT_PREFIX = "concasa:mesa-infonavit-draft:v1:";
+
+function localDraftKey(expedienteId: string): string {
+  return `${MESA_INFONAVIT_LOCAL_DRAFT_PREFIX}${expedienteId}`;
+}
 
 function recordOf(value: unknown): UnknownRecord {
   return value && typeof value === "object" && !Array.isArray(value)
@@ -220,6 +236,41 @@ function parseDraft(value: unknown): MesaInfonavitDocumentDraft {
   };
 }
 
+function readLocalDraft(expedienteId: string): MesaInfonavitDocumentDraft | null {
+  if (typeof window === "undefined" || !expedienteId) return null;
+  try {
+    const raw = window.localStorage.getItem(localDraftKey(expedienteId));
+    if (!raw) return null;
+    const envelope = recordOf(JSON.parse(raw));
+    if (
+      envelope.version !== MESA_INFONAVIT_LOCAL_DRAFT_VERSION ||
+      envelope.expedienteId !== expedienteId ||
+      !envelope.draft
+    ) {
+      return null;
+    }
+    return parseDraft(envelope.draft);
+  } catch {
+    return null;
+  }
+}
+
+function writeLocalDraft(expedienteId: string, draft: MesaInfonavitDocumentDraft): boolean {
+  if (typeof window === "undefined" || !expedienteId) return false;
+  try {
+    const envelope: StoredMesaInfonavitDraft = {
+      version: MESA_INFONAVIT_LOCAL_DRAFT_VERSION,
+      expedienteId,
+      savedAt: new Date().toISOString(),
+      draft,
+    };
+    window.localStorage.setItem(localDraftKey(expedienteId), JSON.stringify(envelope));
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 function errorMessage(error: unknown, fallback: string): string {
   if (error && typeof error === "object" && "message" in error) {
     const message = String((error as { message?: unknown }).message ?? "").trim();
@@ -308,11 +359,29 @@ export function MesaInfonavitGenerarDocumentosForm({
   const [generating, setGenerating] = useState(false);
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  const [localSaveState, setLocalSaveState] = useState<LocalSaveState>("idle");
+  const hydratedExpedienteRef = useRef<string | null>(null);
 
-  const loadDraft = useCallback(async () => {
+  const loadDraft = useCallback(async (options?: { forceServer?: boolean }) => {
+    const forceServer = options?.forceServer === true;
+    hydratedExpedienteRef.current = null;
     setLoading(true);
     setLoadError(null);
     setSuccess(null);
+    setGenerateError(null);
+    setLocalSaveState("idle");
+
+    if (!forceServer) {
+      const local = readLocalDraft(expedienteId);
+      if (local) {
+        setDraft(local);
+        hydratedExpedienteRef.current = expedienteId;
+        setLocalSaveState("restored");
+        setLoading(false);
+        return;
+      }
+    }
+
     try {
       if (!isSupabaseConfigured() || !supabaseBrowser) {
         throw new Error("Supabase no está configurado.");
@@ -322,7 +391,12 @@ export function MesaInfonavitGenerarDocumentosForm({
         { p_expediente_id: expedienteId },
       );
       if (error) throw error;
-      setDraft(parseDraft(data));
+      const nextDraft = parseDraft(data);
+      setDraft(nextDraft);
+      hydratedExpedienteRef.current = expedienteId;
+      if (writeLocalDraft(expedienteId, nextDraft)) {
+        setLocalSaveState("saved");
+      }
     } catch (error) {
       setDraft(null);
       setLoadError(
@@ -336,6 +410,16 @@ export function MesaInfonavitGenerarDocumentosForm({
   useEffect(() => {
     void loadDraft();
   }, [loadDraft]);
+
+  useEffect(() => {
+    if (!draft || hydratedExpedienteRef.current !== expedienteId) return;
+    const timer = window.setTimeout(() => {
+      if (writeLocalDraft(expedienteId, draft)) {
+        setLocalSaveState("saved");
+      }
+    }, 150);
+    return () => window.clearTimeout(timer);
+  }, [draft, expedienteId]);
 
   const missingCore = useMemo(() => {
     if (!draft) return [] as string[];
@@ -480,6 +564,8 @@ export function MesaInfonavitGenerarDocumentosForm({
       const response = recordOf(data);
       const version = num(response.submission_version);
       const versionInt = version === null ? 0 : Math.trunc(version);
+      writeLocalDraft(expedienteId, draft);
+      setLocalSaveState("saved");
       setSuccess(
         `Generación iniciada correctamente${version !== null ? ` · versión ${versionInt}` : ""}.`,
       );
@@ -509,8 +595,15 @@ export function MesaInfonavitGenerarDocumentosForm({
   return (
     <div className="space-y-5">
       <div className="rounded-md border border-violet-200 bg-violet-50 px-3 py-2 text-xs text-violet-950">
-        Los campos parten de Datos Generales. Los cambios de esta pestaña solo afectan la nueva
-        versión de los 3 documentos INFONAVIT; no modifican Datos Generales, etapas ni citas.
+        <p>
+          Los campos parten de Datos Generales. Los cambios de esta pestaña solo afectan la nueva
+          versión de los 3 documentos INFONAVIT; no modifican Datos Generales, etapas ni citas.
+        </p>
+        <p className="mt-1 font-medium text-violet-800">
+          {localSaveState === "restored"
+            ? "Cambios locales restaurados para este expediente."
+            : "Cambios guardados automáticamente en este navegador por expediente."}
+        </p>
       </div>
 
       <div className="space-y-3">
@@ -636,7 +729,13 @@ export function MesaInfonavitGenerarDocumentosForm({
         <Button type="button" onClick={() => void handleGenerate()} disabled={generating}>
           {generating ? "Generando…" : "Generar los 3 documentos"}
         </Button>
-        <Button type="button" variant="outline" onClick={() => void loadDraft()} disabled={generating}>
+        <Button
+          type="button"
+          variant="outline"
+          onClick={() => void loadDraft({ forceServer: true })}
+          disabled={generating}
+          title="Descarta los cambios locales de esta pestaña y vuelve a copiar los Datos Generales actuales."
+        >
           Recargar desde Datos Generales
         </Button>
       </div>
