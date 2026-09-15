@@ -27,6 +27,7 @@ import { fireAutoReprecalificarAck } from "@/domain/expedientes/fire-auto-reprec
 import { resolveBearerAccessToken } from "@/domain/expedientes/resolve-bearer-access-token";
 import type { NssPrecalGateResult } from "@/domain/expedientes/nss-precal-gate";
 import { validateCreatePrecalificacion } from "@/domain/precalificaciones/validators";
+import { isAsesorExternoOrigin } from "@/domain/precalificaciones/asesor-externo-nss-only";
 import {
   CAP_CREATE_FOR_ANY_ADVISOR,
   hasCapability,
@@ -35,6 +36,7 @@ import {
 } from "@/domain/asesor-lider";
 import { isDataModeSupabase } from "@/lib/dataMode";
 import { supabaseBrowser } from "@/lib/supabaseBrowser";
+import { AsesorExternoNuevaPrecalificacion } from "@/components/asesor/AsesorExternoNuevaPrecalificacion";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
@@ -72,7 +74,12 @@ export default function NuevaPrecalificacionPage() {
   }
 
   useEffect(() => {
-    if (!dataSupabase || !currentUser || currentUser.role !== "asesor") {
+    if (
+      !dataSupabase ||
+      !currentUser ||
+      currentUser.role !== "asesor" ||
+      isAsesorExternoOrigin(currentUser.tipoAsesorOrigen)
+    ) {
       setCanCreateForAny(false);
       setAsesoresOrg([]);
       return;
@@ -357,6 +364,13 @@ export default function NuevaPrecalificacionPage() {
         </p>
       </div>
     );
+  }
+
+  if (
+    dataSupabase &&
+    isAsesorExternoOrigin(currentUser.tipoAsesorOrigen)
+  ) {
+    return <AsesorExternoNuevaPrecalificacion />;
   }
 
   const pendingId = confirm?.gate.reprecalificacion_pendiente_id;
