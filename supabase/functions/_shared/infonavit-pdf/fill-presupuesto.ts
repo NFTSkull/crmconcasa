@@ -1,12 +1,18 @@
 /**
  * Fill Presupuesto Mejoramiento.
  * texto0 + texto11 = nombre con split determinista por palabras.
- * Regla v3: NO auto llenar presupuesto estimado ni fecha inferior.
+ * mappingVersion>=3: NO auto llenar presupuesto estimado ni fecha inferior.
+ * Snapshots históricos conservan su render anterior.
  * No dibujar firma. No flatten aquí.
  */
 
 import type { PDFDocument } from "pdf-lib";
-import { blankable, formatNombreCompleto } from "./formatters.ts";
+import {
+  blankable,
+  formatMoneyMx,
+  formatNombreCompleto,
+  formatPresupuestoFecha,
+} from "./formatters.ts";
 import {
   embedHelvetica,
   resetAllFormFields,
@@ -72,6 +78,14 @@ export async function fillPresupuesto(args: {
     semanticField: "mejora.descripcion",
   });
 
+  const isV3 = Number(snapshot.mappingVersion ?? 0) >= 3;
+  const montoRaw = snapshot.mejora?.presupuestoEstimado;
+  const monto =
+    isV3 || montoRaw === null || montoRaw === undefined
+      ? ""
+      : formatMoneyMx(montoRaw, { withSymbol: false });
+  const fecha = isV3 ? "" : formatPresupuestoFecha(snapshot.fechaDocumento);
+
   setTextValue(form, PRESUPUESTO_FIELD.T0_NOMBRE, line0, FONT_SIZE);
   setTextValue(form, PRESUPUESTO_FIELD.T11_NOMBRE_OVERFLOW, line11, FONT_SIZE);
   setTextValue(form, PRESUPUESTO_FIELD.T1_NSS, blankable(snapshot.cliente.nss), FONT_SIZE);
@@ -82,10 +96,8 @@ export async function fillPresupuesto(args: {
   setTextValue(form, PRESUPUESTO_FIELD.T6_DESC1, descLines[1] ?? "", FONT_SIZE);
   setTextValue(form, PRESUPUESTO_FIELD.T7_DESC2, descLines[2] ?? "", FONT_SIZE);
   setTextValue(form, PRESUPUESTO_FIELD.T8_DESC3, descLines[3] ?? "", FONT_SIZE);
-
-  // El formato oficial conserva sus rótulos; la automatización deja ambos campos vacíos.
-  setTextValue(form, PRESUPUESTO_FIELD.T9_MONTO, "", FONT_SIZE);
-  setTextValue(form, PRESUPUESTO_FIELD.T10_FECHA, "", FONT_SIZE);
+  setTextValue(form, PRESUPUESTO_FIELD.T9_MONTO, monto, FONT_SIZE);
+  setTextValue(form, PRESUPUESTO_FIELD.T10_FECHA, fecha, FONT_SIZE);
 
   const font = await embedHelvetica(doc);
   updateAllTextAppearances(form, font);
