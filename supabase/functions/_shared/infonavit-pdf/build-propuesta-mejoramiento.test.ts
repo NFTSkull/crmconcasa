@@ -4,55 +4,55 @@ import {
   bandaPropuestaMejoramiento,
   buildPropuestaMejoramiento,
   lineasPropuestaMejoramiento,
-  PROPUESTA_BAND_90_130,
+  PROPUESTA_MAYOR_100K,
 } from "./build-propuesta-mejoramiento.ts";
 
-describe("buildPropuestaMejoramiento", () => {
-  it("bandas determinísticas", () => {
-    assert.equal(bandaPropuestaMejoramiento(50000), "hasta_50000");
-    assert.equal(bandaPropuestaMejoramiento(50000.01), "50000_90000");
-    assert.equal(bandaPropuestaMejoramiento(90000), "50000_90000");
-    assert.equal(bandaPropuestaMejoramiento(90000.01), "90000_130000");
-    assert.equal(bandaPropuestaMejoramiento(102529.36), "90000_130000");
-    assert.equal(bandaPropuestaMejoramiento(130000), "90000_130000");
-    assert.equal(bandaPropuestaMejoramiento(130000.01), "130000_169000");
+describe("buildPropuestaMejoramiento v5", () => {
+  it("respeta el corte exacto de 100k", () => {
+    assert.equal(bandaPropuestaMejoramiento(40000), "hasta_40000");
+    assert.equal(bandaPropuestaMejoramiento(40000.01), "40000_100000");
+    assert.equal(bandaPropuestaMejoramiento(100000), "40000_100000");
+    assert.equal(bandaPropuestaMejoramiento(100000.01), "mayor_100000");
   });
 
-  it("102529.36 → 4 conceptos banda 90k–130k", () => {
-    const lines = lineasPropuestaMejoramiento(102529.36);
-    assert.equal(lines.length, 4);
-    assert.deepEqual(lines, [...PROPUESTA_BAND_90_130]);
-    for (const line of lines) {
-      assert.ok(line.length <= 60, `"${line}" excede 60 (${line.length})`);
+  it("arriba de 100k usa una sola línea de paneles solares", () => {
+    assert.deepEqual(lineasPropuestaMejoramiento(102529.36, "exp-1|v2"), [
+      PROPUESTA_MAYOR_100K,
+    ]);
+    assert.equal(
+      buildPropuestaMejoramiento(102529.36, "exp-1|v2"),
+      "Instalación de paneles solares.",
+    );
+  });
+
+  it("hasta 100k devuelve exactamente una mejora corta sin saltos", () => {
+    for (const monto of [25000, 40000, 40000.01, 75000, 100000]) {
+      const text = buildPropuestaMejoramiento(monto, `exp-${monto}|v1`);
+      assert.ok(text.length > 0);
+      assert.ok(text.length <= 48, `Texto demasiado largo: ${text}`);
+      assert.equal(text.includes("\n"), false);
+      assert.equal(lineasPropuestaMejoramiento(monto, `exp-${monto}|v1`).length, 1);
     }
-    const text = buildPropuestaMejoramiento(102529.36);
-    assert.equal(text, PROPUESTA_BAND_90_130.join("\n"));
-    assert.equal(text.split("\n").length, 4);
   });
 
-  it("hasta 50k → 3 conceptos", () => {
-    assert.equal(lineasPropuestaMejoramiento(49999).length, 3);
+  it("la misma seed produce exactamente la misma frase para Carta y Presupuesto", () => {
+    const carta = buildPropuestaMejoramiento(82000, "cliente-abc|v3");
+    const presupuesto = buildPropuestaMejoramiento(82000, "cliente-abc|v3");
+    assert.equal(carta, presupuesto);
   });
 
-  it("50k–90k → 3 conceptos", () => {
-    assert.equal(lineasPropuestaMejoramiento(75000).length, 3);
+  it("seeds distintas permiten variar la mejora hasta 100k", () => {
+    const textos = new Set(
+      ["a", "b", "c", "d", "e", "f", "g", "h"].map((seed) =>
+        buildPropuestaMejoramiento(82000, seed),
+      ),
+    );
+    assert.ok(textos.size > 1);
   });
 
-  it("130k–169k → 4 conceptos mayor alcance", () => {
-    assert.equal(lineasPropuestaMejoramiento(150000).length, 4);
-    assert.match(buildPropuestaMejoramiento(150000), /mayor alcance/i);
-  });
-
-  it("monto inválido → vacío", () => {
+  it("monto inválido devuelve vacío", () => {
     assert.equal(buildPropuestaMejoramiento(null), "");
     assert.equal(buildPropuestaMejoramiento(0), "");
     assert.equal(buildPropuestaMejoramiento(-1), "");
-  });
-
-  it("es determinístico", () => {
-    assert.equal(
-      buildPropuestaMejoramiento(102529.36),
-      buildPropuestaMejoramiento(102529.36),
-    );
   });
 });
