@@ -1,5 +1,6 @@
 ## [Unreleased]
 
+- **fix(asesor): parse Silvia 6 docs (Constancia SAT)** — `INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_SILVIA` + `KNOWN` alinean con Cloud (`…+cliente_constancia_situacion_fiscal`); sin eso el checklist caía a 4 genéricos. `tryParse…` loguea el tipo desconocido. Anette/externos intactos.
 - **fix(admin): buscar líder y stage history expanden equipo** — escribir «Silvia» en Buscar ya no deja el total en solo-dueño; `admin_asesor_ids_matching_buscar` + expand en stage history/cohort/report v1–v2 (mig. **226**).
 ### Fixed
 - **fix(admin): rollup líder+equipo en Super Admin** — filtrar por líder (p.ej. Silvia) incluye expedientes del equipo; producción/reporte agrupan miembros bajo el líder (`admin_expand_asesor_ids` / `admin_reporting_asesor_id`, mig. **225**).

@@ -4,12 +4,33 @@ import {
   INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_ANETTE,
   INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_EXTERNOS,
   INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_EXTERNOS_LEGACY_7,
+  INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_SILVIA,
   parseAsesorDocumentosObligatoriosEnvio,
   tryParseAsesorDocumentosObligatoriosEnvio,
 } from "./asesor-documentos-obligatorios-envio";
 import { INTEGRATION_DOC_TIPOS_ASESOR_ENVIO } from "./integration-docs-completos";
 
 describe("parseAsesorDocumentosObligatoriosEnvio (fail-closed)", () => {
+  it("payload exacto Silvia 6 (Cloud) → 6 canónicos (no fallback genérico)", () => {
+    const shuffled = [
+      "cliente_constancia_situacion_fiscal",
+      "cliente_ine_reverso",
+      "cliente_semanas_o_vigencia_derechos",
+      "cliente_ine_frente",
+      "cliente_acta_nacimiento_digital",
+      "cliente_comprobante_domicilio",
+    ];
+    assert.equal(INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_SILVIA.length, 6);
+    assert.deepEqual(
+      parseAsesorDocumentosObligatoriosEnvio(shuffled),
+      [...INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_SILVIA],
+    );
+    assert.deepEqual(
+      tryParseAsesorDocumentosObligatoriosEnvio(shuffled),
+      [...INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_SILVIA],
+    );
+  });
+
   it("payload exacto 8 (+CURP) → 8 canónicos", () => {
     const shuffled = [
       "cliente_presupuesto",
@@ -84,17 +105,37 @@ describe("parseAsesorDocumentosObligatoriosEnvio (fail-closed)", () => {
     ]);
   });
 
-  it("tipo desconocido → 4 (no parcial)", () => {
-    assert.deepEqual(
-      parseAsesorDocumentosObligatoriosEnvio([
+  it("tipo desconocido → 4 (no parcial) y loguea el tipo ofensor", () => {
+    const errors: unknown[][] = [];
+    const orig = console.error;
+    console.error = (...args: unknown[]) => {
+      errors.push(args);
+    };
+    try {
+      assert.deepEqual(
+        parseAsesorDocumentosObligatoriosEnvio([
+          "cliente_ine_frente",
+          "cliente_ine_reverso",
+          "cliente_comprobante_domicilio",
+          "cliente_estado_cuenta",
+          "cliente_fantasma",
+        ]),
+        [...INTEGRATION_DOC_TIPOS_ASESOR_ENVIO],
+      );
+      assert.equal(tryParseAsesorDocumentosObligatoriosEnvio([
         "cliente_ine_frente",
-        "cliente_ine_reverso",
-        "cliente_comprobante_domicilio",
-        "cliente_estado_cuenta",
         "cliente_fantasma",
-      ]),
-      [...INTEGRATION_DOC_TIPOS_ASESOR_ENVIO],
-    );
+      ]), null);
+      assert.ok(errors.length >= 1);
+      const joined = errors.map((a) => String(a[0])).join("\n");
+      assert.match(joined, /tipo no reconocido/);
+      const meta = errors.find((a) => a[1] && typeof a[1] === "object")?.[1] as {
+        tipo?: string;
+      };
+      assert.equal(meta?.tipo, "cliente_fantasma");
+    } finally {
+      console.error = orig;
+    }
   });
 
   it("parcial 6 de 7 Anette → 4", () => {
@@ -131,6 +172,10 @@ describe("tryParseAsesorDocumentosObligatoriosEnvio (Mesa strict)", () => {
     assert.deepEqual(
       tryParseAsesorDocumentosObligatoriosEnvio([...INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_ANETTE]),
       [...INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_ANETTE],
+    );
+    assert.deepEqual(
+      tryParseAsesorDocumentosObligatoriosEnvio([...INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_SILVIA]),
+      [...INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_SILVIA],
     );
   });
 });
