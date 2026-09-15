@@ -26,6 +26,7 @@ const legacyCompleto: ClienteDatosFormShape = {
   empresa: "ACME SA",
   registroPatronal: "A1234567890",
   telefonoEmpresa: "8187654321",
+  clabe: "",
   referencias: [
     { nombre: "Ref Uno", celular: "8111111111" },
     { nombre: "Ref Dos", celular: "8222222222" },

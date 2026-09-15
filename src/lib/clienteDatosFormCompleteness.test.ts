@@ -21,6 +21,7 @@ const vacio: ClienteDatosFormShape = {
   empresa: "",
   registroPatronal: "",
   telefonoEmpresa: "",
+  clabe: "",
   referencias: [
     { nombre: "", nombres: "", apellidoPaterno: "", apellidoMaterno: "", celular: "" },
     { nombre: "", nombres: "", apellidoPaterno: "", apellidoMaterno: "", celular: "" },
@@ -44,6 +45,7 @@ const completoLegacy: ClienteDatosFormShape = {
   empresa: "ACME",
   registroPatronal: "RP1",
   telefonoEmpresa: "5587654321",
+  clabe: "",
   referencias: [
     { nombre: "R1 A B", nombres: "R1", apellidoPaterno: "A", apellidoMaterno: "B", celular: "5511111111" },
     { nombre: "R2 C D", nombres: "R2", apellidoPaterno: "C", apellidoMaterno: "D", celular: "5522222222" },
@@ -67,6 +69,18 @@ const completoMejoravit: ClienteDatosFormShape = {
   nombreCliente: "ANGELA MUNOZ PENA",
   infonavit: fixtureInfonavitCompleto(),
 };
+
+test("getClienteDatosCamposFaltantes: CLABE no bloquea completitud", () => {
+  const m = getClienteDatosCamposFaltantes(completoLegacy, {
+    programaDb: "compro_tu_casa",
+  });
+  assert.equal(m.some((x) => /clabe/i.test(x)), false);
+  const withClabe = getClienteDatosCamposFaltantes(
+    { ...completoLegacy, clabe: "123" },
+    { programaDb: "compro_tu_casa" },
+  );
+  assert.equal(withClabe.some((x) => /clabe/i.test(x)), false);
+});
 
 test("getClienteDatosCamposFaltantes: formulario vacío lista muchos campos", () => {
   const m = getClienteDatosCamposFaltantes(vacio, { programaDb: "compro_tu_casa" });

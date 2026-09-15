@@ -88,6 +88,7 @@ function rowToDomain(row: StoredRow): ExpedienteClienteDatos | null {
   const datos: ExpedienteClienteDatos["datos"] = {
     ...(row.datos as ExpedienteClienteDatos["datos"]),
     rfc: typeof rawDatos.rfc === "string" ? rawDatos.rfc : "",
+    clabe: typeof rawDatos.clabe === "string" ? rawDatos.clabe : "",
     porcentajeCobro:
       typeof rawDatos.porcentajeCobro === "string" ? rawDatos.porcentajeCobro : "",
     montoCalculado:

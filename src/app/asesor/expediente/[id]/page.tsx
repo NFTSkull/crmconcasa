@@ -117,12 +117,18 @@ import {
 } from "@/lib/clienteDatosValidation";
 import {
   clienteDatosRequiereTelefonoCasa,
+  EQUIPO_LIDER_EMAIL_SILVIA_REYES,
+  fetchAsesorEnEquipoPorLiderEmail,
   isClienteDatosPerfilPendiente,
   resolveClienteDatosCapturaVariant,
   resolveClienteDatosPerfilCaptura,
   type PaqueteDocumentalClasificacion,
 } from "@/domain/asesor-equipo/asesor-en-equipo-por-lider-email";
 import { fetchAsesorEsPaqueteDocumentalExternosClasificacion } from "@/domain/asesor-equipo/asesor-es-paquete-documental-externos";
+import {
+  fetchAsesorEquipoSilviaPaqueteNuevoHabilitado,
+  isSilviaPaqueteNuevoGate,
+} from "@/domain/asesor-equipo/asesor-equipo-silvia-paquete-nuevo";
 import {
   filterIntegracionChecklistOpcionalesParaActor,
   shouldMountAsesorConstanciaSituacionFiscalForActor,
@@ -184,6 +190,7 @@ const EMPTY_CLIENTE_DATOS: ClienteDatosFormState = {
   empresa: "",
   registroPatronal: "",
   telefonoEmpresa: "",
+  clabe: "",
   referencias: [
     { nombre: "", nombres: "", apellidoPaterno: "", apellidoMaterno: "", celular: "" },
     { nombre: "", nombres: "", apellidoPaterno: "", apellidoMaterno: "", celular: "" },
@@ -339,6 +346,10 @@ export default function AsesorExpedientePage() {
   /** Tri-state dueño: UNKNOWN ≠ INTERNO. */
   const [duenoPaqueteClasificacion, setDuenoPaqueteClasificacion] =
     useState<PaqueteDocumentalClasificacion>("unknown");
+  /** Membresía Equipo Silvia del dueño (fail-closed). */
+  const [duenoEnEquipoSilvia, setDuenoEnEquipoSilvia] = useState(false);
+  /** Switch Cloud `asesor_equipo_silvia_paquete_nuevo_habilitado` (fail-closed). */
+  const [paqueteNuevoHabilitado, setPaqueteNuevoHabilitado] = useState(false);
   /** false hasta resolver docs/clasificación del dueño (evita enviar con fail-closed 4). */
   const [tiposEnvioResolved, setTiposEnvioResolved] = useState(false);
   /** React state de teléfono de casa (internos); draft Map sigue alimentando RPC. */
@@ -433,16 +444,40 @@ export default function AsesorExpedientePage() {
     );
   }, [integrationDocsInput, tiposEnvioObligatorios]);
 
+  const esPaqueteNuevoSilvia = useMemo(
+    () =>
+      isSilviaPaqueteNuevoGate({
+        duenoEnEquipoSilvia,
+        paqueteNuevoHabilitado,
+      }),
+    [duenoEnEquipoSilvia, paqueteNuevoHabilitado],
+  );
+  const mostrarClabePaqueteNuevo = esPaqueteNuevoSilvia;
+
   const integrationChecklistOpcionales = useMemo((): IntegrationDocChecklistItem[] | null => {
     if (!integrationDocsInput) return null;
     // Actor externos: solo Acta digital (upload_para). Unresolved: [] (evita flash).
     const base = deriveIntegrationDocsChecklistOpcionales(integrationDocsInput);
     const sinApodaca = filterChecklistOpcionalesNotificacionApodaca(base);
-    return filterIntegracionChecklistOpcionalesParaActor(sinApodaca, {
+    const filtered = filterIntegracionChecklistOpcionalesParaActor(sinApodaca, {
       actorPaqueteExternos,
       actorPaqueteResolved: actorPaqueteExternosResolved,
     });
-  }, [integrationDocsInput, actorPaqueteExternos, actorPaqueteExternosResolved]);
+    // Paquete nuevo Silvia: un solo slot Semanas|Vigencia → no duplicar en opcionales.
+    if (esPaqueteNuevoSilvia) {
+      return filtered.filter(
+        (i) =>
+          i.tipo_documento !== "cliente_semanas_cotizadas" &&
+          i.tipo_documento !== "cliente_vigencia_derechos",
+      );
+    }
+    return filtered;
+  }, [
+    integrationDocsInput,
+    actorPaqueteExternos,
+    actorPaqueteExternosResolved,
+    esPaqueteNuevoSilvia,
+  ]);
 
   const integrationDocsPresentes = useMemo(() => {
     if (!integrationDocsInput) return 0;
@@ -818,6 +853,7 @@ export default function AsesorExpedientePage() {
     const ownerId = precal?.asesorProfileId?.trim() || "";
     setTiposEnvioResolved(false);
     setDuenoPaqueteClasificacion("unknown");
+    setDuenoEnEquipoSilvia(false);
     if (!precal) {
       return;
     }
@@ -825,16 +861,24 @@ export default function AsesorExpedientePage() {
       // Sin dueño resoluble → UNKNOWN (no asumir interno).
       setDuenoPaqueteExternos(false);
       setDuenoPaqueteClasificacion("unknown");
+      setDuenoEnEquipoSilvia(false);
       setTiposEnvioObligatorios([...INTEGRATION_DOC_TIPOS_ASESOR_ENVIO]);
       setTiposEnvioResolved(false);
       return;
     }
     void (async () => {
-      const [clasif, tipos] = await Promise.all([
+      const [clasif, tipos, enEquipoSilvia, rolloutOn] = await Promise.all([
         fetchAsesorEsPaqueteDocumentalExternosClasificacion(ownerId),
         fetchAsesorDocumentosObligatoriosEnvio(ownerId),
+        fetchAsesorEnEquipoPorLiderEmail({
+          leaderEmail: EQUIPO_LIDER_EMAIL_SILVIA_REYES,
+          asesorId: ownerId,
+        }),
+        fetchAsesorEquipoSilviaPaqueteNuevoHabilitado(),
       ]);
       if (cancelled) return;
+      setDuenoEnEquipoSilvia(enEquipoSilvia);
+      setPaqueteNuevoHabilitado(rolloutOn);
       setDuenoPaqueteClasificacion(clasif);
       if (clasif === "unknown") {
         // UNKNOWN ≠ INTERNO: no habilitar envío ni B1–B5.
@@ -2450,6 +2494,7 @@ export default function AsesorExpedientePage() {
               onTelefonoCasaChange={handleTelefonoCasaChange}
               onDiscardLocalDraft={handleDiscardClienteDatosDraft}
               clasificacionPerfilMensaje={clasificacionPerfilMensaje}
+              mostrarClabe={mostrarClabePaqueteNuevo}
             />
             </div>
             {esMejoravit && dataSupabase && precal?.id ? (
@@ -2480,6 +2525,7 @@ export default function AsesorExpedientePage() {
             ) : null}
             {dataSupabase &&
             precal?.id &&
+            !esPaqueteNuevoSilvia &&
             shouldMountAsesorVigenciaDerechosForActor({
               actorPaqueteExternos,
               actorPaqueteResolved: actorPaqueteExternosResolved,
@@ -2869,6 +2915,7 @@ export default function AsesorExpedientePage() {
               onTelefonoCasaChange={handleTelefonoCasaChange}
               onDiscardLocalDraft={handleDiscardClienteDatosDraft}
               clasificacionPerfilMensaje={clasificacionPerfilMensaje}
+              mostrarClabe={mostrarClabePaqueteNuevo}
             />
             </div>
 

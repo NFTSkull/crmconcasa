@@ -1,7 +1,21 @@
+## 2026-09-15 - UI paquete nuevo Equipo Silvia (gated por rollout)
+
+### Decisión
+Gate FE = `duenoEnEquipoSilvia && asesor_equipo_silvia_paquete_nuevo_habilitado()` (fail-closed). El switch Cloud permanece en false; la UI queda lista sin mutar `asesor_equipo_paquete_rollout`.
+
+### Qué
+- Catálogo + allowlist upload: `cliente_semanas_o_vigencia_derechos` (label canónico; obligatorio en catálogo).
+- Checklist: cuando el gate está ON, `asesor_documentos_obligatorios_envio(dueño)` / `envio_para` trae el set Silvia (parse acepta set combinado y legacy con `cliente_semanas_cotizadas`); se ocultan Semanas/Vigencia sueltos en opcionales y la sección dedicada de Vigencia.
+- CLABE en `cliente_datos.datos.clabe`: mapper roundtrip, validación 18 dígitos si presente, no bloquea completitud; prop `mostrarClabe` en DG.
+
+### No
+Flip del switch; cambios a Anette / paquete externo histórico; mig SQL nueva.
+
 ## 2026-09-15 - Admin: Equipo Silvia (y líderes) cuentan como un solo número
 
 ### Decisión
 Super Admin filtraba `e.asesor_id = p_asesor_id` exacto. Regla: líder + miembros = un bloque. Helpers `admin_expand_asesor_ids` / `admin_reporting_asesor_id`; patch snapshot/production/reporte v3. Mig **225**.
+
 
 ## 2026-09-14 - Editor: nombre manual vía editor_fill_nombre_infonavit
 

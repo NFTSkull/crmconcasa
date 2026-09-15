@@ -291,6 +291,7 @@ export function mapSupabaseRowToExpedienteClienteDatos(
       empresa: asString(datos.empresa),
       registroPatronal: asString(datos.registroPatronal),
       telefonoEmpresa: asString(datos.telefonoEmpresa),
+      clabe: asString(datos.clabe),
       referencias: mapReferencias(datos, row.referencias),
       beneficiario: mapBeneficiario(datos.beneficiario),
       direccionEmpresa: mapDireccionEmpresa(datos.direccionEmpresa),
@@ -390,6 +391,8 @@ export function buildSaveClienteDatosRpcPayload(
     empresa: datos.empresa.trim(),
     registroPatronal: datos.registroPatronal.trim(),
     telefonoEmpresa: datos.telefonoEmpresa.trim(),
+    // Siempre string ("" si ausente) para ciclo DB ↔ formulario sin perder la clave.
+    clabe: String(datos.clabe ?? "").trim(),
     beneficiario: {
       nombre: datos.beneficiario.nombre.trim(),
       parentesco: datos.beneficiario.parentesco.trim(),

@@ -38,11 +38,24 @@ export const INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES = [
 ] as const;
 
 /**
+ * Paquete nuevo Equipo Silvia: un solo slot técnico (Cloud `envio_para` / `upload_para`).
+ * Distinto de `cliente_semanas_cotizadas` y `cliente_vigencia_derechos` históricos.
+ */
+export const CLIENTE_SEMANAS_O_VIGENCIA_DERECHOS_DOCUMENT_TIPO =
+  "cliente_semanas_o_vigencia_derechos" as const;
+
+export type ClienteSemanasOVigenciaDerechosDocumentTipo =
+  typeof CLIENTE_SEMANAS_O_VIGENCIA_DERECHOS_DOCUMENT_TIPO;
+
+/**
  * Espejo de `integration_doc_tipos_asesor_upload()` — permitidos en Storage/RPC.
+ * Incluye el tipo combinado Silvia (solo aparece en checklist cuando el gate
+ * paquete nuevo está ON vía RPC `envio_para`).
  */
 export const INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD = [
   ...INTEGRATION_DOC_TIPOS_ASESOR_ENVIO,
   ...INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES,
+  CLIENTE_SEMANAS_O_VIGENCIA_DERECHOS_DOCUMENT_TIPO,
 ] as const;
 
 /** P104/P136: tipo técnico `cliente_notificacion_apodaca` (asesor + Mesa upload/reemplazo/eliminar). */

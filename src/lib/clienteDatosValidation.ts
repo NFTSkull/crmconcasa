@@ -71,6 +71,7 @@ export type ClienteDatosFieldKey =
   | "empresa"
   | "registroPatronal"
   | "telefonoEmpresa"
+  | "clabe"
   | "referencia1Nombre"
   | "referencia1Nombres"
   | "referencia1ApellidoPaterno"
@@ -401,6 +402,7 @@ export function normalizeClienteDatosForSave(
     rfc: String(working.rfc ?? "").trim().toUpperCase().replace(/\s+/g, ""),
     celular: normalizeTelefonoMexico(String(working.celular ?? "")),
     telefonoEmpresa: normalizeTelefonoMexico(String(working.telefonoEmpresa ?? "")),
+    clabe: normalizeDigitsOnly(String(working.clabe ?? "")),
     referencias: refs.length >= 2 ? refs : [
       refs[0] ?? { nombre: "", celular: "" },
       refs[1] ?? { nombre: "", celular: "" },
@@ -938,6 +940,14 @@ export function validateClienteDatos(
 
   if (!errors.nss && !/^\d{11}$/.test(normalizeDigitsOnly(data.nss))) {
     setError(errors, "nss", "NSS debe tener 11 dígitos.");
+  }
+
+  // CLABE: opcional; si hay valor, exactamente 18 dígitos.
+  {
+    const clabeDigits = normalizeDigitsOnly(String(data.clabe ?? ""));
+    if (clabeDigits && !errors.clabe && !/^\d{18}$/.test(clabeDigits)) {
+      setError(errors, "clabe", "CLABE debe tener exactamente 18 dígitos.");
+    }
   }
 
   if (!errors.curp && !isCurpMexicoValida(data.curp)) {

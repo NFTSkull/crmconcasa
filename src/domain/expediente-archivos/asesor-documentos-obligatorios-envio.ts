@@ -20,16 +20,27 @@ export const INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_EXTERNOS = [
 ] as const;
 
 /**
- * Equipo Silvia (líder + miembros):
+ * Equipo Silvia (líder + miembros) — paquete nuevo (Cloud):
  * - INE frente y reverso
  * - Comprobante de domicilio
  * - Acta de nacimiento digital
- * - Semanas cotizadas O Vigencia de derechos (el slot técnico es semanas;
- *   vigencia lo satisface por equivalencia en dominio/SQL).
+ * - Semanas cotizadas O Vigencia de derechos (tipo combinado)
  *
  * Estado de cuenta queda opcional y por eso NO aparece en este set.
  */
 export const INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_SILVIA = [
+  "cliente_ine_frente",
+  "cliente_ine_reverso",
+  "cliente_comprobante_domicilio",
+  "cliente_acta_nacimiento_digital",
+  "cliente_semanas_o_vigencia_derechos",
+] as const;
+
+/**
+ * Transicional: algunos entornos aún emiten el slot técnico
+ * `cliente_semanas_cotizadas` (equivalencia vigencia en SQL).
+ */
+export const INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_SILVIA_LEGACY_SEMANAS = [
   "cliente_ine_frente",
   "cliente_ine_reverso",
   "cliente_comprobante_domicilio",
@@ -65,7 +76,8 @@ export const INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_EXTERNOS_LEGACY_7 = [
 export type IntegrationDocAsesorEnvioExternoTipo =
   (typeof INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_EXTERNOS)[number];
 export type IntegrationDocAsesorEnvioSilviaTipo =
-  (typeof INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_SILVIA)[number];
+  | (typeof INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_SILVIA)[number]
+  | (typeof INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_SILVIA_LEGACY_SEMANAS)[number];
 
 export type IntegrationDocAsesorEnvioObligatorioTipo =
   | (typeof INTEGRATION_DOC_TIPOS_ASESOR_ENVIO)[number]
@@ -76,6 +88,7 @@ const KNOWN = new Set<string>([
   ...INTEGRATION_DOC_TIPOS_ASESOR_ENVIO,
   ...INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_EXTERNOS,
   ...INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_SILVIA,
+  ...INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_SILVIA_LEGACY_SEMANAS,
 ]);
 
 function copyClasicos(): IntegrationDocAsesorEnvioObligatorioTipo[] {
@@ -125,6 +138,9 @@ export function tryParseAsesorDocumentosObligatoriosEnvio(
 
   if (sameExactSet(tipos, INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_SILVIA)) {
     return [...INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_SILVIA];
+  }
+  if (sameExactSet(tipos, INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_SILVIA_LEGACY_SEMANAS)) {
+    return [...INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_SILVIA_LEGACY_SEMANAS];
   }
   if (sameExactSet(tipos, INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_EXTERNOS)) {
     return [...INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_EXTERNOS];

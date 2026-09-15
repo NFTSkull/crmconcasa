@@ -59,6 +59,7 @@ test("ExpedienteClienteDatos: shape mínimo válido", () => {
       empresa: "ACME",
       registroPatronal: "RP-1",
       telefonoEmpresa: "5555555555",
+      clabe: "",
       referencias: [{ nombre: "Ref 1", celular: "5511111111" }],
       beneficiario: { nombre: "Ana", parentesco: "Esposa" },
       direccionEmpresa: {

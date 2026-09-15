@@ -30,6 +30,7 @@ function baseCompleto(
     empresa: "ACME",
     registroPatronal: "RP123",
     telefonoEmpresa: "8188888888",
+    clabe: "",
     referencias: refs,
     beneficiario: { nombre: "BENEFICIO", parentesco: "HIJO" },
     direccionEmpresa: {

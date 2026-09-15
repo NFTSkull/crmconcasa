@@ -30,6 +30,7 @@ const BASE_DATOS: ClienteDatosFormShape = {
   empresa: "",
   registroPatronal: "",
   telefonoEmpresa: "",
+  clabe: "",
   referencias: [
     { nombre: "", celular: "" },
     { nombre: "", celular: "" },

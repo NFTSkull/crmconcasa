@@ -46,6 +46,20 @@ describe("ExpedienteClienteDatosFormSection capturaVariant", () => {
     assert.match(page, /fetchAsesorDocumentosObligatoriosEnvio/);
   });
 
+  it("página: gate paquete nuevo Silvia (membresía ∧ rollout) → mostrarClabe", () => {
+    assert.match(page, /fetchAsesorEquipoSilviaPaqueteNuevoHabilitado/);
+    assert.match(page, /fetchAsesorEnEquipoPorLiderEmail/);
+    assert.match(page, /isSilviaPaqueteNuevoGate/);
+    assert.match(page, /esPaqueteNuevoSilvia/);
+    assert.match(page, /mostrarClabe=\{mostrarClabePaqueteNuevo\}/);
+  });
+
+  it("formulario declara prop mostrarClabe y campo CLABE", () => {
+    assert.match(src, /mostrarClabe\?: boolean/);
+    assert.match(src, /CLABE \(opcional\)/);
+    assert.match(src, /filterDigitsInput\(e\.target\.value, 18\)/);
+  });
+
   it("showTelefonoCasa prop cableada al CURP wrapper", () => {
     assert.match(src, /showTelefonoCasa\?: boolean/);
     assert.match(src, /showTelefonoCasa=\{showTelefonoCasa\}/);

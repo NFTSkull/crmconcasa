@@ -27,6 +27,7 @@ function baseDatos(
     empresa: "ACME",
     registroPatronal: "RP123",
     telefonoEmpresa: "8188888888",
+    clabe: "",
     referencias: [
       {
         nombre: "JUAN CARLOS PEREZ LOPEZ",
