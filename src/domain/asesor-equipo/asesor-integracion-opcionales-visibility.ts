@@ -3,8 +3,9 @@
  * Autoridad: `asesor_es_paquete_documental_externos` (actor JWT).
  *
  * - unresolved: ocultar extras (evita flash / upload denegado)
- * - externo confirmado: Acta digital + Semanas cotizadas en checklist
- *   (opcionales; no bloquean envío). Constancia SAT y Vigencia = secciones dedicadas.
+ * - externo confirmado: Acta digital + Semanas cotizadas + Estado de cuenta
+ *   candidatos al checklist. El componente elimina automáticamente cualquier
+ *   tipo que ya sea obligatorio para el paquete del dueño.
  * - interno confirmado: todos los opcionales históricos del checklist
  *
  * Evidencia dedicada: solo internos (`shouldMountAsesorIntegracionOpcionalDedicado`).
@@ -23,6 +24,9 @@ export const INTEGRATION_DOC_TIPO_ACTA_DIGITAL_EXTERNO =
 export const INTEGRATION_DOC_TIPO_SEMANAS_COTIZADAS =
   "cliente_semanas_cotizadas" as const;
 
+export const INTEGRATION_DOC_TIPO_ESTADO_CUENTA =
+  "cliente_estado_cuenta" as const;
+
 /** Constancia SAT asesor (no Mesa `cliente_constancia_sat`); opcional en upload externos. */
 export const INTEGRATION_DOC_TIPO_CONSTANCIA_SAT_ASESOR =
   "cliente_constancia_situacion_fiscal" as const;
@@ -31,6 +35,7 @@ export const INTEGRATION_DOC_TIPO_CONSTANCIA_SAT_ASESOR =
 export const INTEGRATION_DOC_TIPOS_CHECKLIST_EXTERNOS = [
   INTEGRATION_DOC_TIPO_ACTA_DIGITAL_EXTERNO,
   INTEGRATION_DOC_TIPO_SEMANAS_COTIZADAS,
+  INTEGRATION_DOC_TIPO_ESTADO_CUENTA,
 ] as const;
 
 export function resolveAsesorIntegracionOpcionalesVisibility(
@@ -77,7 +82,6 @@ export function shouldMountAsesorConstanciaSituacionFiscalForActor(params: Reado
   actorPaqueteResolved: boolean;
 }>): boolean {
   if (!params.actorPaqueteResolved) return false;
-  // Interno o externo confirmado.
   return params.actorPaqueteExternos === true || params.actorPaqueteExternos === false;
 }
 
@@ -85,8 +89,8 @@ type ChecklistItemConTipo = { tipo_documento: string };
 
 /**
  * Filtra checklist de opcionales de integración según actor.
- * Externo → Acta digital + Semanas. Interno → lista completa. Unresolved → [].
- * Vigencia y Constancia SAT no van aquí (secciones dedicadas).
+ * Externo → Acta digital + Semanas + Estado de cuenta. Interno → lista completa.
+ * Unresolved → []. Vigencia y Constancia SAT no van aquí (secciones dedicadas).
  */
 export function filterIntegracionChecklistOpcionalesParaActor<
   T extends ChecklistItemConTipo,

@@ -1,0 +1,540 @@
+import {
+  DOCUMENTO_CATALOGO_MAP,
+  type ExpedienteArchivoResumen,
+  type ResumenEstatus,
+  type TipoDocumentoCatalogo,
+} from "./types";
+
+/**
+ * Espejo de `integration_doc_tipos_asesor_envio()` (migración 028).
+ * Documentos obligatorios que el asesor debe completar antes de `enviar_a_mesa`.
+ */
+export const INTEGRATION_DOC_TIPOS_ASESOR_ENVIO = [
+  "cliente_ine_frente",
+  "cliente_ine_reverso",
+  "cliente_comprobante_domicilio",
+  "cliente_estado_cuenta",
+] as const;
+
+/**
+ * Espejo de `integration_doc_tipos_asesor_opcionales()` — no bloquean envío.
+ * Incluye P104 `cliente_notificacion_apodaca` y P132 `cliente_notificacion`
+ * (≠ agenda `kind=notificacion`; sección dedicada, no checklist integración).
+ */
+export const INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES = [
+  "cliente_semanas_cotizadas",
+  "cliente_carta_empresa",
+  "cliente_acta_nacimiento_digital",
+  "cliente_notificacion_apodaca",
+  "cliente_notificacion",
+  "asesor_evidencia",
+  "cliente_constancia_curp",
+  "cliente_vigencia_derechos",
+  "cliente_constancia_situacion_fiscal",
+  "cliente_solicitud_credito",
+  "cliente_lista_nominal",
+  "cliente_bajo_protesta",
+  "cliente_presupuesto",
+] as const;
+
+/**
+ * Espejo de `integration_doc_tipos_asesor_upload()` — permitidos en Storage/RPC.
+ */
+export const INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD = [
+  ...INTEGRATION_DOC_TIPOS_ASESOR_ENVIO,
+  ...INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES,
+] as const;
+
+/** P104/P136: tipo técnico `cliente_notificacion_apodaca` (asesor + Mesa upload/reemplazo/eliminar). */
+export const CLIENTE_NOTIFICACION_APODACA_DOCUMENT_TIPO =
+  "cliente_notificacion_apodaca" as const;
+
+export type ClienteNotificacionApodacaDocumentTipo =
+  typeof CLIENTE_NOTIFICACION_APODACA_DOCUMENT_TIPO;
+
+/** Contrato Notificación (tipo interno apodaca; PDF/JPEG/PNG ≤15 MiB; Asesor|Mesa; cualquier etapa/sede; opcional; no gate). */
+export const CLIENTE_NOTIFICACION_APODACA_DOCUMENT_CONTRACT = Object.freeze({
+  tipo: CLIENTE_NOTIFICACION_APODACA_DOCUMENT_TIPO,
+  label: "Notificación",
+  origen: "Asesor|Mesa" as const,
+  formatos: ["PDF", "JPG", "JPEG", "PNG"] as const,
+  mimePermitidos: [
+    "application/pdf",
+    "image/jpeg",
+    "image/png",
+  ] as const,
+  maxBytes: 15 * 1024 * 1024,
+  etapaMinima: 0,
+  obligatorio: false,
+  esGateAvance: false,
+});
+
+/**
+ * Espejo de `integration_doc_tipos_obligatorios()` — validación Mesa y avance 1→2 (4).
+ * Complementarios Mesa (semanas/acta/SAT) son opcionales (migración 032).
+ */
+export const INTEGRATION_DOC_TIPOS_VALIDACION_MESA = [
+  ...INTEGRATION_DOC_TIPOS_ASESOR_ENVIO,
+] as const;
+
+/**
+ * Espejo de `integration_doc_tipos_mesa_upload()` **para UI de complementarios**
+ * (semanas, acta, SAT). Pagaré, Notificación y Solicitud están en la allowlist SQL Mesa
+ * pero se renderizan en secciones propias; no se listan aquí para no duplicar botones.
+ */
+export const INTEGRATION_DOC_TIPOS_MESA_UPLOAD = [
+  "cliente_semanas_cotizadas",
+  "cliente_acta_nacimiento",
+  "cliente_constancia_sat",
+] as const;
+
+/** Tipo técnico Pagaré (P090). Registro vía `register_mesa_documento`; etapa mínima 7. */
+export const CLIENTE_PAGARE_DOCUMENT_TIPO = "cliente_pagare" as const;
+
+export type ClientePagareDocumentTipo = typeof CLIENTE_PAGARE_DOCUMENT_TIPO;
+
+/**
+ * Tipo técnico documento Notificación (P092).
+ * Distinto de `agenda_bookings.kind = 'notificacion'` (agenda/P070 — intacto).
+ */
+export const CLIENTE_NOTIFICACION_DOCUMENT_TIPO = "cliente_notificacion" as const;
+
+export type ClienteNotificacionDocumentTipo =
+  typeof CLIENTE_NOTIFICACION_DOCUMENT_TIPO;
+
+/**
+ * Tipo técnico documento Solicitud (P096).
+ * Nunca usar el tipo corto `solicitud`. Independiente de Pagaré y Notificación.
+ */
+export const CLIENTE_SOLICITUD_DOCUMENT_TIPO = "cliente_solicitud" as const;
+
+export type ClienteSolicitudDocumentTipo = typeof CLIENTE_SOLICITUD_DOCUMENT_TIPO;
+
+/** Tipo técnico Evidencia opcional del asesor (cualquier MIME ≤15 MiB; no gate). */
+export const ASESOR_EVIDENCIA_DOCUMENT_TIPO = "asesor_evidencia" as const;
+
+export type AsesorEvidenciaDocumentTipo = typeof ASESOR_EVIDENCIA_DOCUMENT_TIPO;
+
+/** Contrato Evidencia (opcional; sin etapa mínima; no gate; MIME libre). */
+export const ASESOR_EVIDENCIA_DOCUMENT_CONTRACT = Object.freeze({
+  tipo: ASESOR_EVIDENCIA_DOCUMENT_TIPO,
+  label: "Evidencia",
+  origen: "Asesor" as const,
+  formatos: ["allowlist"] as const,
+  mimePermitidos: [
+    "application/pdf",
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+    "text/plain",
+    "text/csv",
+    "application/json",
+    "application/xml",
+    "application/zip",
+    "application/x-rar-compressed",
+    "application/vnd.rar",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.ms-powerpoint",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "application/octet-stream",
+  ] as const,
+  maxBytes: 15 * 1024 * 1024,
+  etapaMinima: 0,
+  obligatorio: false,
+  esGateAvance: false,
+});
+
+/** Tipo técnico Vigencia de derechos (opcional; cualquier MIME ≤15 MiB; no gate). */
+export const CLIENTE_VIGENCIA_DERECHOS_DOCUMENT_TIPO =
+  "cliente_vigencia_derechos" as const;
+
+export type ClienteVigenciaDerechosDocumentTipo =
+  typeof CLIENTE_VIGENCIA_DERECHOS_DOCUMENT_TIPO;
+
+/** Contrato Vigencia de derechos (opcional; sin etapa mínima; no gate; MIME libre). */
+export const CLIENTE_VIGENCIA_DERECHOS_DOCUMENT_CONTRACT = Object.freeze({
+  tipo: CLIENTE_VIGENCIA_DERECHOS_DOCUMENT_TIPO,
+  label: "Vigencia de derechos",
+  origen: "Asesor" as const,
+  formatos: ["allowlist"] as const,
+  mimePermitidos: [
+    "application/pdf",
+    "image/jpeg",
+    "image/png",
+    "image/webp",
+    "text/plain",
+    "text/csv",
+    "application/json",
+    "application/xml",
+    "application/zip",
+    "application/x-rar-compressed",
+    "application/vnd.rar",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "application/vnd.ms-powerpoint",
+    "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+    "application/octet-stream",
+  ] as const,
+  maxBytes: 15 * 1024 * 1024,
+  etapaMinima: 0,
+  obligatorio: false,
+  esGateAvance: false,
+});
+
+/**
+ * Tipo técnico Constancia de Situación Fiscal asesor (opcional; PDF ≤15 MiB; no gate).
+ * Distinto de Mesa `cliente_constancia_sat`.
+ */
+export const CLIENTE_CONSTANCIA_SITUACION_FISCAL_DOCUMENT_TIPO =
+  "cliente_constancia_situacion_fiscal" as const;
+
+export type ClienteConstanciaSituacionFiscalDocumentTipo =
+  typeof CLIENTE_CONSTANCIA_SITUACION_FISCAL_DOCUMENT_TIPO;
+
+/** Contrato Constancia SAT asesor (opcional; sin etapa mínima; no gate; PDF). */
+export const CLIENTE_CONSTANCIA_SITUACION_FISCAL_DOCUMENT_CONTRACT = Object.freeze({
+  tipo: CLIENTE_CONSTANCIA_SITUACION_FISCAL_DOCUMENT_TIPO,
+  label: "Constancia SAT",
+  origen: "Asesor" as const,
+  formatos: ["pdf"] as const,
+  mimePermitidos: ["application/pdf"] as const,
+  maxBytes: 15 * 1024 * 1024,
+  etapaMinima: 0,
+  obligatorio: false,
+  esGateAvance: false,
+});
+
+/** Email canónico del líder para scope Equipo Silvia (espejo SQL seed). */
+export const EQUIPO_LIDER_EMAIL_SILVIA_REYES = "silvia.reyes@concasa.mx" as const;
+
+export const CLIENTE_SOLICITUD_CREDITO_DOCUMENT_TIPO =
+  "cliente_solicitud_credito" as const;
+export const CLIENTE_LISTA_NOMINAL_DOCUMENT_TIPO = "cliente_lista_nominal" as const;
+export const CLIENTE_BAJO_PROTESTA_DOCUMENT_TIPO = "cliente_bajo_protesta" as const;
+export const CLIENTE_PRESUPUESTO_DOCUMENT_TIPO = "cliente_presupuesto" as const;
+
+/** Tipos opcionales asesor visibles/subibles solo con membresía de equipo (SQL scope). */
+export const INTEGRATION_DOC_TIPOS_ASESOR_SCOPED_POR_EQUIPO = [
+  CLIENTE_SOLICITUD_CREDITO_DOCUMENT_TIPO,
+  CLIENTE_LISTA_NOMINAL_DOCUMENT_TIPO,
+  CLIENTE_BAJO_PROTESTA_DOCUMENT_TIPO,
+  CLIENTE_PRESUPUESTO_DOCUMENT_TIPO,
+] as const;
+
+export type IntegrationDocAsesorScopedPorEquipoTipo =
+  (typeof INTEGRATION_DOC_TIPOS_ASESOR_SCOPED_POR_EQUIPO)[number];
+
+export const CLIENTE_SOLICITUD_CREDITO_DOCUMENT_CONTRACT = Object.freeze({
+  tipo: CLIENTE_SOLICITUD_CREDITO_DOCUMENT_TIPO,
+  label: "Solicitud de crédito",
+  origen: "Asesor" as const,
+  formatos: ["pdf"] as const,
+  mimePermitidos: ["application/pdf"] as const,
+  maxBytes: 15 * 1024 * 1024,
+  etapaMinima: 0,
+  obligatorio: false,
+  esGateAvance: false,
+});
+
+export const CLIENTE_LISTA_NOMINAL_DOCUMENT_CONTRACT = Object.freeze({
+  tipo: CLIENTE_LISTA_NOMINAL_DOCUMENT_TIPO,
+  label: "Lista Nominal",
+  origen: "Asesor" as const,
+  formatos: ["pdf"] as const,
+  mimePermitidos: ["application/pdf"] as const,
+  maxBytes: 15 * 1024 * 1024,
+  etapaMinima: 0,
+  obligatorio: false,
+  esGateAvance: false,
+});
+
+export const CLIENTE_BAJO_PROTESTA_DOCUMENT_CONTRACT = Object.freeze({
+  tipo: CLIENTE_BAJO_PROTESTA_DOCUMENT_TIPO,
+  label: "Bajo Protesta",
+  origen: "Asesor" as const,
+  formatos: ["pdf"] as const,
+  mimePermitidos: ["application/pdf"] as const,
+  maxBytes: 15 * 1024 * 1024,
+  etapaMinima: 0,
+  obligatorio: false,
+  esGateAvance: false,
+});
+
+export const CLIENTE_PRESUPUESTO_DOCUMENT_CONTRACT = Object.freeze({
+  tipo: CLIENTE_PRESUPUESTO_DOCUMENT_TIPO,
+  label: "Presupuesto",
+  origen: "Asesor" as const,
+  formatos: ["pdf"] as const,
+  mimePermitidos: ["application/pdf"] as const,
+  maxBytes: 15 * 1024 * 1024,
+  etapaMinima: 0,
+  obligatorio: false,
+  esGateAvance: false,
+});
+
+/** Allowlist SQL completa Mesa (complementarios UI + Pagaré + Notificación + Solicitud + Apodaca). */
+export const INTEGRATION_DOC_TIPOS_MESA_REGISTER = [
+  ...INTEGRATION_DOC_TIPOS_MESA_UPLOAD,
+  CLIENTE_PAGARE_DOCUMENT_TIPO,
+  CLIENTE_NOTIFICACION_DOCUMENT_TIPO,
+  CLIENTE_SOLICITUD_DOCUMENT_TIPO,
+  CLIENTE_NOTIFICACION_APODACA_DOCUMENT_TIPO,
+] as const;
+
+export type IntegrationDocMesaRegisterTipo =
+  (typeof INTEGRATION_DOC_TIPOS_MESA_REGISTER)[number];
+
+/** Contrato Pagaré (P090 B4 UI Mesa + asesor RO). */
+export const CLIENTE_PAGARE_DOCUMENT_CONTRACT = Object.freeze({
+  tipo: CLIENTE_PAGARE_DOCUMENT_TIPO,
+  label: "Pagaré",
+  origen: "Mesa" as const,
+  formatos: ["PDF", "JPG", "JPEG", "PNG"] as const,
+  mimePermitidos: [
+    "application/pdf",
+    "image/jpeg",
+    "image/png",
+  ] as const,
+  maxBytes: 15 * 1024 * 1024,
+  etapaMinima: 7,
+  obligatorio: false,
+  esGateAvance: false,
+});
+
+/**
+ * Contrato documento Notificación (P092 + P132-acuse).
+ * Independiente de `CLIENTE_PAGARE_DOCUMENT_CONTRACT`. No usa el string `notificacion`.
+ * Storage: `{orgId}/{expedienteId}/cliente_notificacion/{uuid}.{ext}` (bucket privado).
+ * P132-acuse: carga/reemplazo Asesor|Mesa; ya no es gate de avance (Acuse libera firma).
+ */
+export const CLIENTE_NOTIFICACION_DOCUMENT_CONTRACT = Object.freeze({
+  tipo: CLIENTE_NOTIFICACION_DOCUMENT_TIPO,
+  label: "Notificación",
+  origen: "Asesor|Mesa" as const,
+  formatos: ["PDF", "JPG", "JPEG", "PNG"] as const,
+  mimePermitidos: [
+    "application/pdf",
+    "image/jpeg",
+    "image/png",
+  ] as const,
+  maxBytes: 15 * 1024 * 1024,
+  etapaMinima: 7,
+  obligatorio: false,
+  /** P132-acuse: Notificación no dispara avance ni firma_agendable_desde. */
+  esGateAvance: false,
+});
+
+/**
+ * Contrato documento Solicitud (P096). Independiente de Pagaré/Notificación.
+ * Storage: `{orgId}/{expedienteId}/cliente_solicitud/{uuid}.{ext}` (bucket privado).
+ */
+export const CLIENTE_SOLICITUD_DOCUMENT_CONTRACT = Object.freeze({
+  tipo: CLIENTE_SOLICITUD_DOCUMENT_TIPO,
+  label: "Solicitud",
+  origen: "Mesa" as const,
+  formatos: ["PDF", "JPG", "JPEG", "PNG"] as const,
+  mimePermitidos: [
+    "application/pdf",
+    "image/jpeg",
+    "image/png",
+  ] as const,
+  maxBytes: 15 * 1024 * 1024,
+  etapaMinima: 7,
+  obligatorio: false,
+  esGateAvance: false,
+});
+
+/**
+ * Opcionales asesor que Mesa no lista en complementarios (semanas/acta/SAT van ahí).
+ * Excluye `cliente_notificacion` (sección dedicada P092/P132),
+ * `cliente_notificacion_apodaca`, `asesor_evidencia`, `cliente_constancia_curp`,
+ * `cliente_vigencia_derechos`, `cliente_constancia_situacion_fiscal` y
+ * tipos scoped por equipo (solicitud crédito / lista nominal / bajo protesta / presupuesto).
+ */
+export const INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES_SOLO_ASESOR =
+  INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES.filter(
+    (tipo) =>
+      !(INTEGRATION_DOC_TIPOS_MESA_UPLOAD as readonly string[]).includes(tipo) &&
+      tipo !== CLIENTE_NOTIFICACION_DOCUMENT_TIPO &&
+      tipo !== CLIENTE_NOTIFICACION_APODACA_DOCUMENT_TIPO &&
+      tipo !== ASESOR_EVIDENCIA_DOCUMENT_TIPO &&
+      tipo !== "cliente_constancia_curp" &&
+      tipo !== CLIENTE_VIGENCIA_DERECHOS_DOCUMENT_TIPO &&
+      tipo !== CLIENTE_CONSTANCIA_SITUACION_FISCAL_DOCUMENT_TIPO &&
+      !(INTEGRATION_DOC_TIPOS_ASESOR_SCOPED_POR_EQUIPO as readonly string[]).includes(
+        tipo,
+      ),
+  );
+
+export type IntegrationDocMesaUploadTipo = (typeof INTEGRATION_DOC_TIPOS_MESA_UPLOAD)[number];
+
+/** @deprecated Usar `INTEGRATION_DOC_TIPOS_ASESOR_ENVIO` o `INTEGRATION_DOC_TIPOS_VALIDACION_MESA`. */
+export const INTEGRATION_DOC_TIPOS_OBLIGATORIOS = INTEGRATION_DOC_TIPOS_VALIDACION_MESA;
+
+export type IntegrationDocAsesorEnvioTipo =
+  (typeof INTEGRATION_DOC_TIPOS_ASESOR_ENVIO)[number];
+
+export type IntegrationDocAsesorOpcionalTipo =
+  (typeof INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES)[number];
+
+export type IntegrationDocAsesorUploadTipo =
+  (typeof INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD)[number];
+
+export function isIntegrationDocAsesorOpcionalTipo(
+  tipo: IntegrationDocAsesorUploadTipo,
+): tipo is IntegrationDocAsesorOpcionalTipo {
+  return (INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES as readonly string[]).includes(tipo);
+}
+
+/** @deprecated Usar `IntegrationDocAsesorEnvioTipo` o `IntegrationDocAsesorUploadTipo`. */
+export type IntegrationDocTipo = IntegrationDocAsesorEnvioTipo;
+
+const ESTATUS_CUENTA_INTEGRACION = new Set<ResumenEstatus>([
+  "subido",
+  "resubido",
+  "validado",
+]);
+
+export type IntegrationDocChecklistItem = {
+  tipo_documento: IntegrationDocAsesorUploadTipo;
+  label: string;
+  estatus_revision: ResumenEstatus;
+  completo: boolean;
+  opcional: boolean;
+};
+
+export type IntegrationDocsResumenInput = ReadonlyArray<{
+  tipo_documento: TipoDocumentoCatalogo;
+  estatus_revision: ResumenEstatus;
+}>;
+
+/** `true` si el estatus cuenta para `enviar_a_mesa` / `count_integration_docs_presentes`. */
+export function estatusCuentaParaIntegracion(estatus: ResumenEstatus): boolean {
+  return ESTATUS_CUENTA_INTEGRACION.has(estatus);
+}
+
+export function countIntegrationDocsPresentes(
+  resumen: IntegrationDocsResumenInput,
+  tipos: readonly string[] = INTEGRATION_DOC_TIPOS_ASESOR_ENVIO,
+): number {
+  const byTipo = new Map(resumen.map((r) => [r.tipo_documento, r.estatus_revision]));
+  let count = 0;
+  for (const tipo of tipos) {
+    const estatus = byTipo.get(tipo as TipoDocumentoCatalogo);
+    if (estatus && estatusCuentaParaIntegracion(estatus)) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
+export function integrationDocsCompletos(
+  resumen: IntegrationDocsResumenInput,
+  tipos: readonly string[] = INTEGRATION_DOC_TIPOS_ASESOR_ENVIO,
+): boolean {
+  return countIntegrationDocsPresentes(resumen, tipos) === tipos.length;
+}
+
+/** `true` solo si el estatus cuenta para `integration_docs_todos_validados` (Mesa 1→2). */
+export function estatusCuentaComoValidadoMesa(estatus: ResumenEstatus): boolean {
+  return estatus === "validado";
+}
+
+/** Espejo de `count_integration_docs_validados` — lista dinámica por dueño (default: 4 clásicos). */
+export function countIntegrationDocsValidados(
+  resumen: IntegrationDocsResumenInput,
+  tipos: readonly string[] = INTEGRATION_DOC_TIPOS_VALIDACION_MESA,
+): number {
+  const byTipo = new Map(resumen.map((r) => [r.tipo_documento, r.estatus_revision]));
+  let count = 0;
+  for (const tipo of tipos) {
+    const estatus = byTipo.get(tipo as TipoDocumentoCatalogo);
+    if (estatus && estatusCuentaComoValidadoMesa(estatus)) {
+      count += 1;
+    }
+  }
+  return count;
+}
+
+/** Espejo de `integration_docs_todos_validados` — gate avance Mesa 1→2. */
+export function integrationDocsTodosValidados(
+  resumen: IntegrationDocsResumenInput,
+  tipos: readonly string[] = INTEGRATION_DOC_TIPOS_VALIDACION_MESA,
+): boolean {
+  return countIntegrationDocsValidados(resumen, tipos) === tipos.length;
+}
+
+function mapChecklistItems(
+  tipos: readonly IntegrationDocAsesorUploadTipo[],
+  resumen: IntegrationDocsResumenInput,
+  opcional: boolean,
+): IntegrationDocChecklistItem[] {
+  const byTipo = new Map(resumen.map((r) => [r.tipo_documento, r.estatus_revision]));
+
+  return tipos.map((tipo) => {
+    const estatus_revision = byTipo.get(tipo) ?? "faltante";
+    return {
+      tipo_documento: tipo,
+      label: DOCUMENTO_CATALOGO_MAP[tipo].label,
+      estatus_revision,
+      completo: estatusCuentaParaIntegracion(estatus_revision),
+      opcional,
+    };
+  });
+}
+
+/** Checklist de documentos obligatorios para envío a Mesa (default: 4 clásicos). */
+export function deriveIntegrationDocsChecklist(
+  resumen: IntegrationDocsResumenInput,
+  tipos: readonly string[] = INTEGRATION_DOC_TIPOS_ASESOR_ENVIO,
+): IntegrationDocChecklistItem[] {
+  return mapChecklistItems(
+    tipos as readonly IntegrationDocAsesorUploadTipo[],
+    resumen,
+    false,
+  );
+}
+
+/** Checklist de documentos opcionales de upload asesor (no bloquean envío).
+ * Excluye Notificación (sección dedicada), Evidencia, Constancia CURP,
+ * Vigencia de derechos y Constancia SAT asesor (secciones dedicadas). */
+export function deriveIntegrationDocsChecklistOpcionales(
+  resumen: IntegrationDocsResumenInput,
+): IntegrationDocChecklistItem[] {
+  const tipos = INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES.filter(
+    (t) =>
+      t !== CLIENTE_NOTIFICACION_DOCUMENT_TIPO &&
+      t !== ASESOR_EVIDENCIA_DOCUMENT_TIPO &&
+      t !== "cliente_constancia_curp" &&
+      t !== CLIENTE_VIGENCIA_DERECHOS_DOCUMENT_TIPO &&
+      t !== CLIENTE_CONSTANCIA_SITUACION_FISCAL_DOCUMENT_TIPO &&
+      !(INTEGRATION_DOC_TIPOS_ASESOR_SCOPED_POR_EQUIPO as readonly string[]).includes(t),
+  );
+  return mapChecklistItems(tipos, resumen, true);
+}
+
+/** Opcionales asesor visibles en Mesa documentos del cliente (excluye complementarios Mesa). */
+export function deriveIntegrationDocsChecklistOpcionalesSoloAsesor(
+  resumen: IntegrationDocsResumenInput,
+): IntegrationDocChecklistItem[] {
+  return mapChecklistItems(
+    INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES_SOLO_ASESOR,
+    resumen,
+    true,
+  );
+}
+
+/** Adapta `ExpedienteArchivoResumen[]` al input del checklist de integración asesor. */
+export function integrationDocsResumenFromArchivoResumen(
+  resumen: readonly ExpedienteArchivoResumen[],
+): IntegrationDocsResumenInput {
+  return resumen.map((r) => ({
+    tipo_documento: r.tipo_documento,
+    estatus_revision: r.estatus_revision,
+  }));
+}

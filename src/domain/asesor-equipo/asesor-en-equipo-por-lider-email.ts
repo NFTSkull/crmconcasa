@@ -49,16 +49,18 @@ export function isOrigenMesaExterno(
 }
 
 /**
- * Teléfono de casa (B1) solo para internos.
- * - `asesor_completo` / perfil omitido (legacy completo) → true
- * - paquete externos (`asesor_equipo_silvia_simplificado`) → false
- * - unknown (`clasificacion_pendiente`) → false
- * - `origen_mesa = 'externo'` (asesor externo fuera de Silvia|Orlando) → false
+ * Teléfono de casa (B1) solo para perfiles de captura completos.
+ *
+ * `asesor_completo` manda sobre `origen_mesa`: Equipo Silvia conserva su
+ * enrutamiento operativo externo, pero desde este cambio usa las mismas reglas
+ * de Datos Generales que internos. Anette/otros externos siguen llegando como
+ * perfil simplificado y por tanto NO exigen casa.
  */
 export function clienteDatosRequiereTelefonoCasa(
   perfil: ClienteDatosPerfilCaptura | null | undefined,
   origenMesa?: string | null,
 ): boolean {
+  if (perfil === "asesor_completo") return true;
   if (perfil === "asesor_equipo_silvia_simplificado") return false;
   if (perfil === "clasificacion_pendiente") return false;
   if (isOrigenMesaExterno(origenMesa)) return false;

@@ -28,7 +28,7 @@ describe("Hotfix Constancia CURP montaje", () => {
   const form = readFileSync(
     join(
       process.cwd(),
-      "src/components/asesor/ExpedienteClienteDatosFormSection.tsx",
+      "src/components/asesor/ExpedienteClienteDatosFormSection.impl.tsx",
     ),
     "utf8",
   );
@@ -75,7 +75,6 @@ describe("Hotfix Constancia CURP montaje", () => {
     assert.match(mesa, />\s*Ver\s*</);
     assert.match(mesa, />\s*Descargar\s*</);
     assert.doesNotMatch(mesa, /Acta digital/);
-    // Enums solo como argumento a labels, no como texto visible crudo.
     assert.match(mesa, /labelEstadoValidacionMesa/);
     assert.match(mesa, /RFC_VALIDACION_SAT_PENDIENTE/);
     assert.doesNotMatch(mesa, />\s*ERROR_ANALISIS\s*</);

@@ -5,6 +5,10 @@ import { join } from "node:path";
 
 describe("ExpedienteClienteDatosFormSection capturaVariant", () => {
   const src = readFileSync(
+    join(process.cwd(), "src/components/asesor/ExpedienteClienteDatosFormSection.impl.tsx"),
+    "utf8",
+  );
+  const wrapper = readFileSync(
     join(process.cwd(), "src/components/asesor/ExpedienteClienteDatosFormSection.tsx"),
     "utf8",
   );
@@ -17,6 +21,11 @@ describe("ExpedienteClienteDatosFormSection capturaVariant", () => {
     assert.match(src, /capturaVariant\?: ClienteDatosCapturaVariant/);
     assert.match(src, /data-captura-variant=\{capturaVariant\}/);
     assert.match(src, /esSimplificado = capturaVariant === "simplificado"/);
+  });
+
+  it("wrapper fuerza completo cuando el dueño requiere teléfono casa", () => {
+    assert.match(wrapper, /props\.showTelefonoCasa\s*\?\s*"completo"/);
+    assert.match(wrapper, /capturaVariant=\{capturaVariant\}/);
   });
 
   it("simplificado omite CURP piloto, RFC, refs/beneficiario y plazo", () => {
@@ -59,7 +68,7 @@ describe("ExpedienteClienteDatosFormSection capturaVariant", () => {
 
 describe("ExpedienteClienteDatosFormSection panel histórico refs", () => {
   const src = readFileSync(
-    join(process.cwd(), "src/components/asesor/ExpedienteClienteDatosFormSection.tsx"),
+    join(process.cwd(), "src/components/asesor/ExpedienteClienteDatosFormSection.impl.tsx"),
     "utf8",
   );
 
@@ -70,7 +79,6 @@ describe("ExpedienteClienteDatosFormSection panel histórico refs", () => {
     assert.match(src, /Nombre completo/);
     assert.match(src, /Esta referencia fue capturada antes del formato/);
     assert.match(src, /registro histórico/);
-    // No condicionar el panel a ausencia de partes parseadas.
     assert.doesNotMatch(
       src,
       /legacyGrandfathered === true &&\s*![\s\S]{0,80}apellidoPaterno/,
