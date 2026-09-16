@@ -12,12 +12,12 @@ Agregar información al Resumen sin modificar las métricas existentes:
 
 Por cada uno de los 11 pasos visuales canónicos:
 
-- **Llegaron en periodo**: expediente único que tuvo su primera entrada al paso o avanzó desde un paso anterior dentro del rango.
+- **Llegaron en periodo**: expediente único que tuvo una entrada a ese paso dentro del rango. Incluye primera entrada, avance, reingreso o retroceso para no ocultar actividad real de una etapa.
 - **De antes**: parte de «Llegaron en periodo» cuya `fecha_envio_mesa` es anterior al inicio del rango.
 - **Ingresaron en rango**: parte de «Llegaron en periodo» cuya `fecha_envio_mesa` está dentro del rango.
 - **Ahora**: stock vigente en ese paso, independiente del rango de fechas.
 
-Un retroceso no se cuenta como avance. Un expediente puede aparecer en más de un paso durante el mismo rango si avanzó por varios pasos.
+Cada expediente cuenta una sola vez por etapa dentro del rango, aunque reingrese varias veces. Un expediente sí puede aparecer en más de una etapa durante el mismo rango si pasó por varias.
 
 ## Cobertura histórica
 
