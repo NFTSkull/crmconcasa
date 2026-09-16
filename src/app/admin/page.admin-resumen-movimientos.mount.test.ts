@@ -1,0 +1,60 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { describe, it } from "node:test";
+
+describe("Admin resumen — movimientos del periodo + foto actual", () => {
+  const page = readFileSync(
+    join(process.cwd(), "src/app/admin/page.tsx"),
+    "utf8",
+  );
+  const component = readFileSync(
+    join(process.cwd(), "src/components/admin/AdminResumenEtapasActividad.tsx"),
+    "utf8",
+  );
+  const migration = readFileSync(
+    join(
+      process.cwd(),
+      "supabase/migrations/20260916233000_admin_resumen_movimientos_etapas.sql",
+    ),
+    "utf8",
+  );
+
+  it("conserva Etapas del periodo y agrega el nuevo bloque sin reemplazarlo", () => {
+    assert.match(page, /title="Etapas del periodo"/);
+    assert.match(page, /<AdminResumenEtapasActividad/);
+    assert.match(page, /bounds=\{bounds\}/);
+    assert.match(page, /periodoLabel=\{periodoLabel\}/);
+    assert.match(page, /selectedInternalStages=\{etapaActualesSeleccionadas\}/);
+  });
+
+  it("el bloque usa el mismo rango, asesor, estado y búsqueda del Resumen", () => {
+    assert.match(page, /asesorId=\{asesorId \|\| null\}/);
+    assert.match(page, /estado=\{estado\}/);
+    assert.match(page, /buscar=\{buscarDebounced \|\| null\}/);
+    assert.match(component, /p_from: bounds\.fromIso/);
+    assert.match(component, /p_to_exclusive: bounds\.toExclusiveIso/);
+  });
+
+  it("muestra avance del periodo, origen previo y foto actual por los 11 pasos", () => {
+    assert.match(component, /Llegaron en periodo/);
+    assert.match(component, /De antes/);
+    assert.match(component, /Ingresaron en rango/);
+    assert.match(component, /Foto actual/);
+    assert.match(component, /ETAPAS_VISUALES_OPERATIVAS\.map/);
+    assert.match(component, /historyCompleteForPeriod/);
+  });
+
+  it("la RPC es read-only y no convierte retrocesos en avances", () => {
+    assert.match(migration, /LANGUAGE plpgsql\s+STABLE\s+SECURITY DEFINER/);
+    assert.match(
+      migration,
+      /t\.paso_visual_anterior IS NULL[\s\S]*t\.paso_visual_nuevo > t\.paso_visual_anterior/,
+    );
+    assert.match(migration, /m\.fecha_envio_mesa < p_from/);
+    assert.match(migration, /admin_expedientes_snapshot_etapas/);
+    assert.doesNotMatch(migration, /\bUPDATE\b/i);
+    assert.doesNotMatch(migration, /\bDELETE\b/i);
+    assert.doesNotMatch(migration, /\bINSERT\b/i);
+  });
+});
