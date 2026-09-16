@@ -1,8 +1,7 @@
 /**
  * Fill Presupuesto Mejoramiento.
  * texto0 + texto11 = nombre con split determinista por palabras.
- * mappingVersion>=3: NO auto llenar presupuesto estimado ni fecha inferior.
- * mappingVersion>=4: imprime una sola mejora.
+ * mappingVersion>=3: una sola mejora, SIN presupuesto estimado ni fecha inferior.
  * Snapshots históricos conservan su render anterior.
  * No dibujar firma. No flatten aquí.
  */
@@ -74,7 +73,6 @@ export async function fillPresupuesto(args: {
   const dirLinesNarrowFirst = splitAddressThreeLines(dirRaw, caps);
 
   const isV3 = Number(snapshot.mappingVersion ?? 0) >= 3;
-  const isV4 = Number(snapshot.mappingVersion ?? 0) >= 4;
   const descFontSize = isV3 ? V3_DESC_FONT_SIZE : FONT_SIZE;
   const descCapacity = isV3
     ? Math.max(caps.descripcionLine ?? 60, V3_DESC_MIN_CAPACITY)
@@ -82,7 +80,7 @@ export async function fillPresupuesto(args: {
 
   const descLines = splitMejoraDescripcion({
     text: blankable(snapshot.mejora?.descripcion),
-    maxLines: isV4 ? 1 : 4,
+    maxLines: isV3 ? 1 : 4,
     maxCharsPerLine: descCapacity,
     documentType: "presupuesto_mejoramiento",
     semanticField: "mejora.descripcion",
