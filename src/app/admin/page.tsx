@@ -82,6 +82,7 @@ import { AdminExpedienteDrawer } from "@/components/admin/AdminExpedienteDrawer"
 import { AdminBernardoDashboard } from "@/components/admin/AdminBernardoDashboard";
 import { AdminSearchResultadosSection } from "@/components/admin/AdminSearchResultadosSection";
 import { AdminSearchExpedientePanel } from "@/components/admin/AdminSearchExpedientePanel";
+import { AdminResumenEtapasActividad } from "@/components/admin/AdminResumenEtapasActividad";
 import {
   ADMIN_REPORTES_SUBTABS,
   ADMIN_TAB_QUERY_PARAM,
@@ -1152,6 +1153,17 @@ export default function AdminDashboardPage() {
                 </>
               )}
             </section>
+
+            {bounds ? (
+              <AdminResumenEtapasActividad
+                bounds={bounds}
+                periodoLabel={periodoLabel}
+                asesorId={asesorId || null}
+                estado={estado}
+                buscar={buscarDebounced || null}
+                selectedInternalStages={etapaActualesSeleccionadas}
+              />
+            ) : null}
 
             <section aria-label="Accesos rápidos" className="grid gap-3 sm:grid-cols-3">
               {ADMIN_TABS.filter((t) => t.id !== "resumen").map((t) => (
