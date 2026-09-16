@@ -57,11 +57,8 @@ BEGIN
     JOIN public.expedientes e ON e.id = t.expediente_id
     WHERE t.fecha_entrada >= p_from
       AND t.fecha_entrada < p_to_exclusive
-      -- Solo avance real o primera entrada. Un retroceso no se reporta como avance.
-      AND (
-        t.paso_visual_anterior IS NULL
-        OR t.paso_visual_nuevo > t.paso_visual_anterior
-      )
+      -- Toda entrada a una etapa cuenta como actividad del periodo. Esto incluye
+      -- reingresos/retrocesos: el objetivo es responder qué pasó por cada etapa.
       AND e.deleted_at IS NULL
       AND e.submitted_to_mesa = TRUE
       AND e.fecha_envio_mesa IS NOT NULL
@@ -130,10 +127,6 @@ BEGIN
     JOIN public.expedientes e ON e.id = t.expediente_id
     WHERE t.fecha_entrada >= p_from
       AND t.fecha_entrada < p_to_exclusive
-      AND (
-        t.paso_visual_anterior IS NULL
-        OR t.paso_visual_nuevo > t.paso_visual_anterior
-      )
       AND e.deleted_at IS NULL
       AND e.submitted_to_mesa = TRUE
       AND e.fecha_envio_mesa IS NOT NULL
@@ -186,7 +179,7 @@ BEGIN
     'snapshot', COALESCE(v_snapshot, '{}'::JSONB),
     'timezone', 'America/Monterrey',
     'asesor_fuente', 'actual',
-    'nota', 'Movimientos = primera entrada o avance hacia un paso visual posterior dentro del periodo. Venían de antes = fecha_envio_mesa anterior al inicio del periodo. Foto actual = stock vigente, independiente de las fechas.'
+    'nota', 'Movimientos = expedientes únicos que entraron a cada paso visual dentro del periodo; incluye reingresos o retrocesos para no ocultar actividad de una etapa. Venían de antes = fecha_envio_mesa anterior al inicio del periodo. Foto actual = stock vigente, independiente de las fechas.'
   );
 END;
 $$;
@@ -194,7 +187,7 @@ $$;
 COMMENT ON FUNCTION public.admin_resumen_movimientos_etapas(
   TIMESTAMPTZ, TIMESTAMPTZ, UUID, TEXT, TEXT
 ) IS
-  'Admin RO: movimientos/avances del periodo por paso visual + foto actual. Solo super_admin; sin escrituras.';
+  'Admin RO: entradas/movimientos del periodo por paso visual + foto actual. Solo super_admin; sin escrituras.';
 
 REVOKE ALL ON FUNCTION public.admin_resumen_movimientos_etapas(
   TIMESTAMPTZ, TIMESTAMPTZ, UUID, TEXT, TEXT
