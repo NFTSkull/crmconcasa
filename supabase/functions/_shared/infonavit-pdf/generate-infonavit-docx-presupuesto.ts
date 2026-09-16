@@ -1,6 +1,6 @@
 /**
  * Presupuesto de Mejoramiento — DOCX nativo editable.
- * mappingVersion>=3 deja presupuesto estimado y fecha inferior vacíos.
+ * mappingVersion>=3 deja una sola mejora, presupuesto estimado y fecha inferior vacíos.
  * Snapshots históricos conservan el comportamiento anterior.
  */
 
@@ -19,6 +19,9 @@ export async function buildPresupuestoDocx(
   model: InfonavitPrintModel,
 ): Promise<Uint8Array> {
   const isV3 = model.mappingVersion >= 3;
+  const propuestaLines = isV3
+    ? model.propuestaLines.slice(0, 1)
+    : model.propuestaLines;
   const children: FileChild[] = [
     heading("PRESUPUESTO DE MEJORAMIENTO"),
     sectionTitle("DATOS GENERALES"),
@@ -29,8 +32,8 @@ export async function buildPresupuestoDocx(
     labeledField("Dirección donde se realizará la mejora", model.domicilioLibre),
     spacer(),
     sectionTitle("BREVE DESCRIPCIÓN DE LA MEJORA A REALIZAR"),
-    ...(model.propuestaLines.length > 0
-      ? model.propuestaLines.map((line) => editableValue(line, { size: 20 }))
+    ...(propuestaLines.length > 0
+      ? propuestaLines.map((line) => editableValue(line, { size: 20 }))
       : [editableValue("", { size: 20 })]),
     spacer(),
     sectionTitle("PRESUPUESTO ESTIMADO"),

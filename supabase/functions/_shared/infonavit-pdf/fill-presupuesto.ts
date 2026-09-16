@@ -1,7 +1,7 @@
 /**
  * Fill Presupuesto Mejoramiento.
  * texto0 + texto11 = nombre con split determinista por palabras.
- * mappingVersion>=3: NO auto llenar presupuesto estimado ni fecha inferior.
+ * mappingVersion>=3: una sola mejora, SIN presupuesto estimado ni fecha inferior.
  * Snapshots históricos conservan su render anterior.
  * No dibujar firma. No flatten aquí.
  */
@@ -73,10 +73,6 @@ export async function fillPresupuesto(args: {
   const dirLinesNarrowFirst = splitAddressThreeLines(dirRaw, caps);
 
   const isV3 = Number(snapshot.mappingVersion ?? 0) >= 3;
-  // Las propuestas v3 se componen de hasta 4 mejoras, una por renglón.
-  // El template histórico tenía capacidad conservadora de 60 chars a 10pt;
-  // 9pt permite 68 chars sin truncar y evita convertir 4 conceptos válidos en
-  // 5-6 renglones (INFONAVIT_TEXT_OVERFLOW).
   const descFontSize = isV3 ? V3_DESC_FONT_SIZE : FONT_SIZE;
   const descCapacity = isV3
     ? Math.max(caps.descripcionLine ?? 60, V3_DESC_MIN_CAPACITY)
@@ -84,7 +80,7 @@ export async function fillPresupuesto(args: {
 
   const descLines = splitMejoraDescripcion({
     text: blankable(snapshot.mejora?.descripcion),
-    maxLines: 4,
+    maxLines: isV3 ? 1 : 4,
     maxCharsPerLine: descCapacity,
     documentType: "presupuesto_mejoramiento",
     semanticField: "mejora.descripcion",

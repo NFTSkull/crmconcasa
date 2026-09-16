@@ -1,6 +1,7 @@
 /**
  * Fill Carta Bajo Protesta — mapping B0 exacto por nombre AcroForm.
  * Campo de texto8 = nombre textual (NO firma / rúbrica / imagen).
+ * mappingVersion>=3 imprime una sola mejora en §IV.
  * No flatten aquí — lo hace generateInfonavitPdf.
  */
 
@@ -34,9 +35,10 @@ export async function fillBajoProtesta(args: {
   const caps = contract.capacities;
   const fecha = formatBajoProtestaDateParts(snapshot.fechaDocumento);
   const nombre = formatNombreCompleto(snapshot.cliente);
+  const isV3 = Number(snapshot.mappingVersion ?? 0) >= 3;
   const descLines = splitMejoraDescripcion({
     text: blankable(snapshot.mejora?.descripcion),
-    maxLines: 4,
+    maxLines: isV3 ? 1 : 4,
     maxCharsPerLine: caps.descripcionLine ?? 72,
     documentType: "carta_bajo_protesta",
     semanticField: "mejora.descripcion",

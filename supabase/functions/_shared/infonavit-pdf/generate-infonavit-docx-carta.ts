@@ -1,6 +1,7 @@
 /**
  * Carta Bajo Protesta — DOCX nativo editable.
  * Texto oficial + valores del print model. Sin imágenes.
+ * mappingVersion>=3 imprime una sola mejora en el apartado IV.
  */
 
 import { Document, Packer, PageBreak, Paragraph, type FileChild } from "docx";
@@ -35,6 +36,9 @@ const CLAUSES_P2: string[] = [
 
 export async function buildCartaDocx(model: InfonavitPrintModel): Promise<Uint8Array> {
   const fechaLine = `${model.cartaFecha.day} de ${model.cartaFecha.month} de 20${model.cartaFecha.year2}`;
+  const propuestaLines = model.mappingVersion >= 3
+    ? model.propuestaLines.slice(0, 1)
+    : model.propuestaLines;
   const children: FileChild[] = [
     heading("CARTA BAJO PROTESTA DE DECIR VERDAD"),
     subheading("“Mejoravit solo para ti”"),
@@ -46,8 +50,8 @@ export async function buildCartaDocx(model: InfonavitPrintModel): Promise<Uint8A
     new Paragraph({ children: [new PageBreak()] }),
     p(CLAUSES_P2[0]!, { size: 20, spaceAfter: 120 }),
     sectionTitle("Describa brevemente la mejora o remodelación a realizar."),
-    ...(model.propuestaLines.length > 0
-      ? model.propuestaLines.map((line) => editableValue(line, { size: 20 }))
+    ...(propuestaLines.length > 0
+      ? propuestaLines.map((line) => editableValue(line, { size: 20 }))
       : [editableValue("", { size: 20 })]),
     spacer(),
     ...CLAUSES_P2.slice(1).map((t) => p(t, { size: 20, spaceAfter: 120 })),
