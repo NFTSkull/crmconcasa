@@ -15,7 +15,7 @@ describe("Admin resumen — movimientos del periodo + foto actual", () => {
   const migration = readFileSync(
     join(
       process.cwd(),
-      "supabase/migrations/20260916233000_admin_resumen_movimientos_etapas.sql",
+      "supabase/migrations/20260916234343_admin_resumen_movimientos_etapas.sql",
     ),
     "utf8",
   );
