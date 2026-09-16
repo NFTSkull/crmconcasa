@@ -40,10 +40,11 @@ describe("buildPropuestaMejoramiento", () => {
     assert.equal(buildPropuestaMejoramiento(95000), PROPUESTA_80000_100000);
   });
 
-  it("arriba de 100k siempre usa paneles solares", () => {
+  it("arriba de 100k usa exactamente Instalación de paneles solares", () => {
+    assert.equal(PROPUESTA_MAS_100000, "Instalación de paneles solares");
     for (const monto of [100000.01, 102529.36, 138132, 169000, 250000]) {
-      assert.equal(buildPropuestaMejoramiento(monto), PROPUESTA_MAS_100000);
-      assert.match(buildPropuestaMejoramiento(monto), /paneles solares/i);
+      assert.equal(buildPropuestaMejoramiento(monto), "Instalación de paneles solares");
+      assert.equal(buildPropuestaMejoramiento(monto).split("\n").length, 1);
     }
   });
 
