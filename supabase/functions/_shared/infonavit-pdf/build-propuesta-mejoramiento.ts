@@ -8,7 +8,7 @@
  * - $30k–$60k: impermeabilización/humedad;
  * - $60k–$80k: pisos/recubrimientos;
  * - $80k–$100k: baño/grifería;
- * - > $100k: sistema fotovoltaico con paneles solares.
+ * - > $100k: Instalación de paneles solares.
  */
 
 export const PROPUESTA_HASTA_30000 =
@@ -19,8 +19,7 @@ export const PROPUESTA_60000_80000 =
   "Renovación de pisos cerámicos, adhesivos y recubrimientos.";
 export const PROPUESTA_80000_100000 =
   "Mejoras de baño con grifería, sanitario y accesorios.";
-export const PROPUESTA_MAS_100000 =
-  "Instalación de sistema fotovoltaico con paneles solares.";
+export const PROPUESTA_MAS_100000 = "Instalación de paneles solares";
 
 export type PropuestaMejoramientoBanda =
   | "hasta_30000"
