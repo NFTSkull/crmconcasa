@@ -36,7 +36,7 @@ describe("Admin resumen — movimientos del periodo + foto actual", () => {
     assert.match(component, /p_to_exclusive: bounds\.toExclusiveIso/);
   });
 
-  it("muestra avance del periodo, origen previo y foto actual por los 11 pasos", () => {
+  it("muestra movimiento del periodo, origen previo y foto actual por los 11 pasos", () => {
     assert.match(component, /Llegaron en periodo/);
     assert.match(component, /De antes/);
     assert.match(component, /Ingresaron en rango/);
@@ -45,14 +45,17 @@ describe("Admin resumen — movimientos del periodo + foto actual", () => {
     assert.match(component, /historyCompleteForPeriod/);
   });
 
-  it("la RPC es read-only y no convierte retrocesos en avances", () => {
+  it("la RPC es read-only y cuenta toda entrada a una etapa dentro del rango", () => {
     assert.match(migration, /LANGUAGE plpgsql\s+STABLE\s+SECURITY DEFINER/);
-    assert.match(
-      migration,
-      /t\.paso_visual_anterior IS NULL[\s\S]*t\.paso_visual_nuevo > t\.paso_visual_anterior/,
-    );
+    assert.match(migration, /t\.paso_visual_nuevo::INT AS paso_visual/);
+    assert.match(migration, /t\.fecha_entrada >= p_from/);
+    assert.match(migration, /t\.fecha_entrada < p_to_exclusive/);
     assert.match(migration, /m\.fecha_envio_mesa < p_from/);
     assert.match(migration, /admin_expedientes_snapshot_etapas/);
+    assert.doesNotMatch(
+      migration,
+      /AND \(\s*t\.paso_visual_anterior IS NULL[\s\S]*t\.paso_visual_nuevo > t\.paso_visual_anterior/,
+    );
     assert.doesNotMatch(migration, /\bUPDATE\b/i);
     assert.doesNotMatch(migration, /\bDELETE\b/i);
     assert.doesNotMatch(migration, /\bINSERT\b/i);
