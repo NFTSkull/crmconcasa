@@ -241,9 +241,9 @@ export function AdminResumenEtapasActividad({
             Movimientos del periodo + foto actual
           </h2>
           <p className="mt-1 max-w-4xl text-sm text-slate-600">
-            Por etapa: muestra quién llegó o avanzó durante {periodoLabel}, incluso si
-            su expediente venía de un periodo anterior. “Ahora” es la foto vigente del
-            CRM y no depende de la fecha seleccionada.
+            Por etapa: muestra qué expedientes pasaron por ella durante {periodoLabel},
+            aunque hayan ingresado a Mesa en un periodo anterior. “Ahora” es la foto
+            vigente del CRM y no depende de la fecha seleccionada.
           </p>
         </div>
         {data?.generatedAt ? (
@@ -269,7 +269,7 @@ export function AdminResumenEtapasActividad({
           <div className="mt-3 flex flex-wrap gap-2 text-xs">
             <span className="rounded-full bg-slate-100 px-3 py-1.5 text-slate-800">
               <strong className="tabular-nums">{data.totalExpedientesMovidos}</strong>{" "}
-              expediente{data.totalExpedientesMovidos === 1 ? "" : "s"} con avance
+              expediente{data.totalExpedientesMovidos === 1 ? "" : "s"} con movimiento
               en el periodo
             </span>
             <span className="rounded-full bg-slate-100 px-3 py-1.5 text-slate-800">
@@ -361,10 +361,11 @@ export function AdminResumenEtapasActividad({
           </div>
 
           <p className="mt-3 text-[11px] leading-relaxed text-slate-500">
-            “Llegaron en periodo” cuenta la primera entrada o un avance hacia un paso
-            posterior; los retrocesos no se cuentan como avance. Para el historial se
-            usan los 11 pasos canónicos: la cita biométrica legacy se agrupa con “Listo
-            para cita de biométrico”.
+            “Llegaron en periodo” cuenta cada expediente una sola vez por etapa si entró
+            a ella durante el rango. Incluye reingresos o retrocesos para no ocultar
+            actividad real de una etapa. Para el historial se usan los 11 pasos
+            canónicos: la cita biométrica legacy se agrupa con “Listo para cita de
+            biométrico”.
           </p>
         </>
       ) : null}
