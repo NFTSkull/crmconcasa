@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+- **feat(mesa): validación checksum CLABE mexicana** — helper `clabe-mexico` + generación Mesa exige dígito verificador en CLABE del derechohabiente (vacío sigue OK; T31/T32 vacíos).
+
 - **fix(mesa): ocultar % titulación y CLABE notaría en captura Infonavit** — sección 4 solo monto/plazo/CLABE derechohabiente; T31/T32 forzados a `""` en draft/localStorage/payload; T33 intacto.
 
 - **fix(asesor): Silvia paquete nuevo = 5 obligatorios** — Constancia SAT vuelve a opcional; `INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_SILVIA` alinea con Cloud `envio_para` (sin `cliente_constancia_situacion_fiscal`). Anette/externos intactos.

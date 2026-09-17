@@ -2,7 +2,30 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
+import {
+  isValidClabeMexico,
+  normalizeClabeMexico,
+} from "@/domain/expediente-cliente-datos/clabe-mexico";
 import { isSupabaseConfigured, supabaseBrowser } from "@/lib/supabaseBrowser";
+
+export const MESA_CLABE_DERECHOHABIENTE_INVALID_MSG =
+  "La CLABE del derechohabiente no es válida. Verifica los 18 dígitos.";
+
+/**
+ * Validación previa a generar: vacío OK; si hay valor, exige CLABE normalizable + checksum.
+ * No muta drafts — solo decide si se puede generar.
+ */
+export function validateClabeDerechohabienteForGenerate(
+  raw: string,
+): { ok: true; normalized: string } | { ok: false; message: string } {
+  const trimmed = String(raw ?? "").trim();
+  if (!trimmed) return { ok: true, normalized: "" };
+  const normalized = normalizeClabeMexico(trimmed);
+  if (!normalized || !isValidClabeMexico(normalized)) {
+    return { ok: false, message: MESA_CLABE_DERECHOHABIENTE_INVALID_MSG };
+  }
+  return { ok: true, normalized };
+}
 
 type IdentificacionDraft = {
   tipo: string;
@@ -154,17 +177,30 @@ export function normalizeDestinoRecursosForCapture(
   };
 }
 
-/** Payload de generación: fuerza T31/T32 vacíos sin tocar T33 ni el resto del draft. */
+/** Payload de generación: fuerza T31/T32 vacíos; normaliza T33 si es CLABE válida. */
 export function buildMesaInfonavitGeneratePayload(
   draft: MesaInfonavitDocumentDraft,
 ): MesaInfonavitDocumentDraft {
+  const destino = normalizeDestinoRecursosForCapture(draft.destinoRecursos);
+  const rawClabe = destino.clabeDerechohabiente.trim();
+  let clabeDerechohabiente = rawClabe;
+  if (rawClabe) {
+    const normalized = normalizeClabeMexico(rawClabe);
+    if (normalized && isValidClabeMexico(normalized)) {
+      clabeDerechohabiente = normalized;
+    }
+  }
   return {
     ...draft,
     credito: {
       montoSolicitado: draft.credito.montoSolicitado,
       plazoAnios: draft.credito.plazoAnios,
     },
-    destinoRecursos: normalizeDestinoRecursosForCapture(draft.destinoRecursos),
+    destinoRecursos: {
+      porcentajeTitulacion: "",
+      clabeNotaria: "",
+      clabeDerechohabiente,
+    },
     mejora: {
       ...draft.mejora,
       presupuestoEstimado: null,
@@ -576,18 +612,25 @@ export function MesaInfonavitGenerarDocumentosForm({
       return;
     }
 
-    const clabeDh = draft.destinoRecursos.clabeDerechohabiente.trim();
-    if (clabeDh && !/^\d{18}$/.test(clabeDh)) {
-      setGenerateError(
-        "CLABE del derechohabiente: usa exactamente 18 dígitos o déjala vacía.",
-      );
+    const clabeCheck = validateClabeDerechohabienteForGenerate(
+      draft.destinoRecursos.clabeDerechohabiente,
+    );
+    if (!clabeCheck.ok) {
+      setGenerateError(clabeCheck.message);
       return;
     }
 
     setGenerating(true);
     try {
       if (!supabaseBrowser) throw new Error("Supabase no está configurado.");
-      const payload = buildMesaInfonavitGeneratePayload(draft);
+      const payload = buildMesaInfonavitGeneratePayload({
+        ...draft,
+        destinoRecursos: {
+          ...draft.destinoRecursos,
+          clabeDerechohabiente: clabeCheck.normalized,
+        },
+      });
+
       const { data, error } = await supabaseBrowser.rpc(
         "mesa_generar_infonavit_documentos",
         { p_expediente_id: expedienteId, p_payload: payload },
@@ -713,10 +756,8 @@ export function MesaInfonavitGenerarDocumentosForm({
           <Field
             label="CLABE del derechohabiente"
             value={draft.destinoRecursos.clabeDerechohabiente}
-            onChange={(v) =>
-              updateDestinoClabeDerechohabiente(v.replace(/\D/g, "").slice(0, 18))
-            }
-            maxLength={18}
+            onChange={(v) => updateDestinoClabeDerechohabiente(v)}
+            maxLength={40}
           />
         </div>
       </div>

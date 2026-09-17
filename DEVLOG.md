@@ -3,6 +3,17 @@
 ### Decisión
 Producto: Constancia de Situación Fiscal no es gate de envío. Cloud `envio_para` ya regresa 5. FE `sameExactSet` exige match exacto → hay que bajar `INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_SILVIA` de 6→5 o el parse vuelve a degradar a 4 clásicos.
 
+## 2026-09-17 - P1: isValidClabeMexico (checksum Banxico)
+
+### Decisión
+Preparar extracción futura de estado de cuenta con validador determinístico compartido. Mesa solo mejora validación de CLABE derechohabiente al generar; drafts inválidos no se borran al cargar.
+
+### Qué
+`src/domain/expediente-cliente-datos/clabe-mexico.ts` (normalize + check digit + isValid). Integración en `MesaInfonavitGenerarDocumentosForm`.
+
+### No
+OCR, SQL, worker, T31/T32, agenda/citas/Sheets.
+
 ## 2026-09-17 - P0 Mesa: retirar captura % titulación y CLABE notaría
 
 ### Decisión
