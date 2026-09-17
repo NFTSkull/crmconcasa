@@ -39,13 +39,14 @@ describe("Admin resumen — flujo unificado del periodo y foto actual", () => {
     assert.match(component, /p_to_exclusive: bounds\.toExclusiveIso/);
   });
 
-  it("presenta actividad, permanencia de la cohorte y foto actual en cada paso", () => {
+  it("presenta actividad, ubicación de ingresos y foto actual en una sola tabla", () => {
     assert.match(component, /Flujo de expedientes/);
-    assert.match(component, /Pasaron aquí/);
+    assert.match(component, /Pasaron en el periodo/);
     assert.match(component, /Siguen aquí/);
-    assert.match(component, /Total hoy/);
-    assert.match(component, /venían de antes/);
-    assert.match(component, /ingresaron en el rango/);
+    assert.match(component, /Total actual/);
+    assert.match(component, /ya venían de antes/);
+    assert.match(component, /ingresaron a Mesa en el rango/);
+    assert.match(component, /<table/);
     assert.match(component, /ETAPAS_VISUALES_OPERATIVAS\.map/);
     assert.match(component, /historyCompleteForPeriod/);
   });
