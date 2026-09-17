@@ -163,3 +163,25 @@ UI-only: al enfocar campos en `MesaInfonavitGenerarDocumentosForm`, Mesa ve el d
 
 Blob privado (`getArchivoBlob` → `URL.createObjectURL` / `revokeObjectURL`). Reutiliza `MesaArchivoPreviewDialog`. **No** enqueue, provider, autofill ni mutación de `cliente_datos`.
 
+## P4B — CLABE shadow desde texto embebido del Estado de cuenta
+
+Detección **client-side** cuando Mesa enfoca CLABE y existe `cliente_estado_cuenta` PDF:
+
+Estado de cuenta (blob privado P4A)
+→ `extractPdfEmbeddedText` (pdfjs, sin OCR)
+→ candidatos 18 dígitos (espacios/guiones)
+→ `normalizeClabeMexico` + `isValidClabeMexico` (P1)
+→ score por proximidad a etiquetas (`CLABE`, `CLABE INTERBANCARIA`, …)
+→ UI sugerencia (`detected` / `ambiguous` / `not_found` / `no_text_layer` / `unsupported`)
+
+**Umbral DETECTED:** score alto (etiqueta a ≤40 chars del candidato). Checksum solo **no** basta.
+
+| Garantía | Estado |
+|---|---|
+| Sin OCR | sí |
+| Sin provider externo | sí |
+| Sin persistencia DB / localStorage / logs del raw text | sí |
+| Sin autofill / sin mutar draft | sí |
+| PDF escaneado / imagen | revisión manual |
+| P2/P3 worker | **no** conectado |
+

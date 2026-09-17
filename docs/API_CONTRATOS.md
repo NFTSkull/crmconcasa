@@ -1984,6 +1984,14 @@ Detalle: `docs/DOCUMENT_EXTRACTIONS.md`.
 
 Vault `document_extraction_worker_enabled` DEFAULT OFF. Edge `document-extraction-worker` + secret `DOCUMENT_EXTRACTION_WORKER_SECRET` / header `x-concasa-doc-extraction-secret`. Provider solo `shadow` (no-op). **Sin** upload hook / cron Production / OCR.
 
+## 19quinquies-c. P4B — Detección CLABE shadow (UI, sin RPC)
+
+**Sin migración / sin RPC / sin Cloud.** Client-side sobre el blob P4A del Estado de cuenta:
+
+- Parser `clabe-bank-statement` + `extractPdfEmbeddedText` + checksum P1.
+- Solo UI sugerencia en `context===clabe`. **Prohibido** autofill / `setDraft` / `cliente_datos`.
+- Texto extraído solo en memoria; no `action_log` / no `document_extractions`.
+
 ## 19quinquies-b. P4A — Preview documento fuente en captura Infonavit (UI)
 
 **Sin migración / sin RPC nueva.** Solo frontend Mesa:
