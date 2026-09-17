@@ -317,7 +317,7 @@ BEGIN
     'tipo no allowlist rechazado'
   );
 
-  -- FK documento inexistente
+  -- FK / align: documento inexistente (trigger BEFORE puede ganar a FK)
   BEGIN
     INSERT INTO public.document_extractions (
       organization_id, expediente_id, documento_id, document_version,
@@ -326,10 +326,16 @@ BEGIN
       v_org, v_exp, v_doc_missing, 1,
       'cliente_ine_frente', 'shadow', 'p2-fk', 'pending'
     );
-    RAISE EXCEPTION 'P2 DX TEST FAIL: FK debió fallar';
+    RAISE EXCEPTION 'P2 DX TEST FAIL: documento inexistente debió fallar';
   EXCEPTION
     WHEN foreign_key_violation THEN
       NULL;
+    WHEN OTHERS THEN
+      IF SQLERRM LIKE '%documento_id inexistente%' THEN
+        NULL;
+      ELSE
+        RAISE;
+      END IF;
   END;
 
   -- Segunda extraction (doc B) para mismatch tests
