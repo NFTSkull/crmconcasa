@@ -124,14 +124,15 @@ test("dos homoclaves de la misma base CURP quedan ambiguas sin evidencia exacta"
   assert.equal(edc.reason, "ambiguous_candidates");
 });
 
-test("CURP ausente o inválida mantiene comportamiento contextual previo", () => {
+test("sin corroboración independiente no selecciona aunque el contexto parezca fuerte", () => {
   const edc = selectEstadoCuentaRfc({
     text: "TITULAR JUAN PEREZ GARCIA RFC ABCD0101019A1",
     curpValidadaLocalmente: "NO-VALIDA",
     clienteNombre: CLIENT,
   });
-  assert.equal(edc.status, "selected");
-  assert.equal(edc.rfc, "ABCD0101019A1");
+  assert.equal(edc.status, "unknown");
+  assert.equal(edc.rfc, null);
+  assert.equal(edc.reason, "insufficient_corroboration");
 });
 
 test("penaliza solo el RFC inmediatamente etiquetado como banco", () => {
@@ -152,7 +153,7 @@ test("penaliza solo el RFC inmediatamente etiquetado como banco", () => {
   assert.equal(client.reasons.includes("base_curp_match"), true);
 });
 
-test("descarta RFC del banco si existe candidato del titular con contexto fuerte", () => {
+test("descarta RFC del banco si existe candidato del titular corroborado", () => {
   const edc = selectEstadoCuentaRfc({
     text: [
       "BANCO EJEMPLO SA RFC DEL BANCO BANC010101AAA",
@@ -165,12 +166,12 @@ test("descarta RFC del banco si existe candidato del titular con contexto fuerte
   assert.equal(edc.rfc, "ABCD0101019A1");
 });
 
-test("dos candidatos sin contexto suficiente quedan UNKNOWN, nunca rechazo", () => {
+test("candidatos sin fuente independiente quedan UNKNOWN, nunca rechazo", () => {
   const edc = selectEstadoCuentaRfc({
     text: "REFERENCIAS ABCD0101019A1 WXYZ020202ABC",
   });
   assert.equal(edc.status, "unknown");
-  assert.equal(edc.reason, "ambiguous_candidates");
+  assert.equal(edc.reason, "insufficient_corroboration");
 });
 
 test("PDF sin RFC completo queda UNKNOWN", () => {
