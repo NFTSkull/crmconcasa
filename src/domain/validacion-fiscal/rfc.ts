@@ -1,3 +1,5 @@
+import { validateCurpLocal } from "../identidad-curp/curp-local";
+
 export type RfcShape = "full13" | "base10" | "invalid" | "missing";
 
 export type RfcSourceRelation =
@@ -43,7 +45,6 @@ export type FiscalRfcResolution = Readonly<{
 const RFC_FULL13_RE = /^[A-ZÑ&]{4}\d{6}[A-Z0-9]{3}$/u;
 const RFC_BASE10_RE = /^[A-ZÑ&]{4}\d{6}$/u;
 const FULL_RFC_IN_TEXT_RE = /(^|[^A-Z0-9Ñ&])([A-ZÑ&]{4}\d{6}[A-Z0-9]{3})(?![A-Z0-9Ñ&])/gu;
-const CURP_RE = /^[A-Z0-9]{18}$/;
 
 function foldText(value: string): string {
   return String(value ?? "")
@@ -59,17 +60,10 @@ export function normalizeRfc(value: string | null | undefined): string {
     .replace(/[^A-Z0-9Ñ&]/gu, "");
 }
 
-export function normalizeCurp(value: string | null | undefined): string {
-  return String(value ?? "")
-    .trim()
-    .toUpperCase()
-    .replace(/[^A-Z0-9]/g, "");
-}
-
 export function curpRfcBase10(value: string | null | undefined): string | null {
-  const curp = normalizeCurp(value);
-  if (!CURP_RE.test(curp)) return null;
-  const base = curp.slice(0, 10);
+  const validation = validateCurpLocal({ curp: String(value ?? "") });
+  if (validation.status !== "VALIDA_LOCALMENTE") return null;
+  const base = validation.normalized.slice(0, 10);
   return RFC_BASE10_RE.test(base) ? base : null;
 }
 
