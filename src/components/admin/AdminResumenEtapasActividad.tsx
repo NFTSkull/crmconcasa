@@ -178,12 +178,12 @@ function newestIso(a: string | null, b: string | null): string | null {
   return aMs >= bMs ? a : b;
 }
 
-function toneForPaso(paso: number): string {
-  if (paso <= 2) return "border-slate-200 bg-slate-50";
-  if (paso <= 4) return "border-cyan-200 bg-cyan-50/60";
-  if (paso <= 7) return "border-amber-200 bg-amber-50/60";
-  if (paso <= 9) return "border-violet-200 bg-violet-50/60";
-  return "border-emerald-200 bg-emerald-50/60";
+function stageBadgeClass(paso: number): string {
+  if (paso <= 2) return "bg-slate-100 text-slate-700";
+  if (paso <= 4) return "bg-cyan-50 text-cyan-800";
+  if (paso <= 7) return "bg-amber-50 text-amber-900";
+  if (paso <= 9) return "bg-violet-50 text-violet-800";
+  return "bg-emerald-50 text-emerald-800";
 }
 
 function percent(count: number, total: number): number {
@@ -282,17 +282,21 @@ export function AdminResumenEtapasActividad({
   );
   const updatedAt = newestIso(data?.generatedAt ?? null, cohortGeneratedAt);
 
+  const cohortTotalDisplay =
+    cohortLoading && cohortBuckets.length === 0 ? "…" : String(cohortTotal);
+  const movementsTotalDisplay =
+    loading && !data ? "…" : error ? "—" : String(data?.totalExpedientesMovidos ?? 0);
+  const stockTotalDisplay =
+    loading && !data ? "…" : error ? "—" : String(data?.stockTotal ?? 0);
+
   return (
     <section className="rounded-lg border border-slate-200 bg-white p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-base font-semibold text-slate-900">
-            Flujo de expedientes
-          </h2>
-          <p className="mt-1 max-w-4xl text-sm text-slate-600">
-            Una sola vista para saber qué se movió durante {periodoLabel}, dónde están
-            hoy los expedientes que ingresaron en ese periodo y cuál es la carga total
-            actual del CRM.
+          <h2 className="text-base font-semibold text-slate-900">Flujo de expedientes</h2>
+          <p className="mt-1 text-sm text-slate-600">
+            Periodo: <strong className="font-medium text-slate-800">{periodoLabel}</strong> ·
+            compara lo que se movió en el rango con la ubicación actual.
           </p>
         </div>
         {updatedAt ? (
@@ -302,56 +306,30 @@ export function AdminResumenEtapasActividad({
         ) : null}
       </div>
 
-      <div className="mt-3 grid gap-2 sm:grid-cols-3">
-        <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2.5">
-          <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
-            Ingresaron a Mesa
-          </p>
-          <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-950">
-            {cohortLoading && cohortBuckets.length === 0 ? "…" : cohortTotal}
-          </p>
-          <p className="mt-0.5 text-[11px] text-slate-600">Dentro del periodo</p>
-        </div>
-        <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2.5">
-          <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
-            Tuvieron movimiento
-          </p>
-          <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-950">
-            {loading && !data ? "…" : (data?.totalExpedientesMovidos ?? "—")}
-          </p>
-          <p className="mt-0.5 text-[11px] text-slate-600">
-            Aunque hayan ingresado antes
-          </p>
-        </div>
-        <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2.5">
-          <p className="text-[11px] font-medium uppercase tracking-wide text-slate-500">
-            Expedientes hoy
-          </p>
-          <p className="mt-1 text-2xl font-semibold tabular-nums text-slate-950">
-            {loading && !data ? "…" : (data?.stockTotal ?? "—")}
-          </p>
-          <p className="mt-0.5 text-[11px] text-slate-600">Foto actual del CRM</p>
-        </div>
+      <div className="mt-3 flex flex-wrap gap-2 text-xs">
+        <span className="rounded-full bg-slate-100 px-3 py-1.5 text-slate-800">
+          <strong className="tabular-nums">{cohortTotalDisplay}</strong> ingresos del periodo
+        </span>
+        <span className="rounded-full bg-slate-100 px-3 py-1.5 text-slate-800">
+          <strong className="tabular-nums">{movementsTotalDisplay}</strong> expedientes con movimiento
+        </span>
+        <span className="rounded-full bg-slate-100 px-3 py-1.5 text-slate-800">
+          <strong className="tabular-nums">{stockTotalDisplay}</strong> expedientes actuales
+        </span>
+        {loading || cohortLoading ? (
+          <span className="px-2 py-1.5 text-slate-500">Actualizando…</span>
+        ) : null}
       </div>
 
-      <div className="mt-3 grid gap-2 text-[11px] text-slate-600 sm:grid-cols-3">
-        <p>
-          <strong className="font-semibold text-slate-800">Pasaron aquí:</strong>{" "}
-          actividad ocurrida dentro del periodo.
-        </p>
-        <p>
-          <strong className="font-semibold text-slate-800">Siguen aquí:</strong>{" "}
-          ubicación actual de los que ingresaron a Mesa en el periodo.
-        </p>
-        <p>
-          <strong className="font-semibold text-slate-800">Total hoy:</strong>{" "}
-          todos los expedientes que actualmente están en esa etapa.
-        </p>
+      <div className="mt-3 rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-relaxed text-slate-600">
+        <strong className="font-semibold text-slate-800">Pasaron en el periodo</strong> = tuvieron actividad en esa etapa. {" "}
+        <strong className="font-semibold text-slate-800">Siguen aquí</strong> = de los ingresos del periodo, están actualmente ahí. {" "}
+        <strong className="font-semibold text-slate-800">Total actual</strong> = todos los expedientes que hoy están en esa etapa.
       </div>
 
       {error ? (
         <div className="mt-3 flex flex-wrap items-center gap-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-          <span>No fue posible cargar movimientos y foto actual.</span>
+          <span>No fue posible cargar movimientos y total actual.</span>
           <Button type="button" variant="secondary" onClick={() => void load()}>
             Reintentar
           </Button>
@@ -370,102 +348,112 @@ export function AdminResumenEtapasActividad({
       {data && !data.historyCompleteForPeriod ? (
         <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-950">
           El historial de movimientos existe desde{" "}
-          <strong>{formatCoverageDate(data.historyCoverageFrom)}</strong>. Si el rango
-          inicia antes, la foto actual y la ubicación de la cohorte siguen disponibles,
-          pero los movimientos anteriores a esa fecha no pueden reconstruirse.
+          <strong>{formatCoverageDate(data.historyCoverageFrom)}</strong>. Si el rango inicia antes,
+          los movimientos anteriores a esa fecha no pueden reconstruirse; la ubicación actual de los
+          ingresos del periodo y el total actual siguen disponibles.
         </div>
       ) : null}
 
-      <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-        {ETAPAS_VISUALES_OPERATIVAS.map((etapa) => {
-          const mov = movimientosByPaso.get(etapa.pasoVisual);
-          const stock = stockByPaso.get(etapa.pasoVisual);
-          const active = selectedVisualSteps.has(etapa.pasoVisual);
-          const llegaron = mov?.llegaronCount ?? 0;
-          const anteriores = mov?.venianDeAntesCount ?? 0;
-          const delPeriodo = mov?.cohortePeriodoCount ?? 0;
-          const siguenAqui = cohortByPaso.get(etapa.pasoVisual) ?? 0;
-          const siguenPct = percent(siguenAqui, cohortTotal);
-          const ahora = stock?.count ?? 0;
+      <div className="mt-3 overflow-x-auto rounded-md border border-slate-200">
+        <table className="min-w-[760px] w-full border-collapse text-left text-sm">
+          <thead className="bg-slate-50 text-xs text-slate-600">
+            <tr className="border-b border-slate-200">
+              <th className="px-3 py-2.5 font-semibold">Etapa</th>
+              <th className="px-3 py-2.5 font-semibold">Pasaron en el periodo</th>
+              <th className="px-3 py-2.5 font-semibold">
+                De {cohortTotalDisplay} ingresos, siguen aquí
+              </th>
+              <th className="px-3 py-2.5 font-semibold">Total actual</th>
+            </tr>
+          </thead>
+          <tbody>
+            {ETAPAS_VISUALES_OPERATIVAS.map((etapa) => {
+              const mov = movimientosByPaso.get(etapa.pasoVisual);
+              const stock = stockByPaso.get(etapa.pasoVisual);
+              const active = selectedVisualSteps.has(etapa.pasoVisual);
+              const llegaron = mov?.llegaronCount ?? 0;
+              const anteriores = mov?.venianDeAntesCount ?? 0;
+              const delPeriodo = mov?.cohortePeriodoCount ?? 0;
+              const siguenAqui = cohortByPaso.get(etapa.pasoVisual) ?? 0;
+              const siguenPct = percent(siguenAqui, cohortTotal);
+              const ahora = stock?.count ?? 0;
+              const movimientosDisponibles = !error && (data != null || !loading);
+              const ingresosDisponibles = !cohortError && !(cohortLoading && cohortBuckets.length === 0);
 
-          return (
-            <button
-              key={etapa.pasoVisual}
-              type="button"
-              aria-pressed={active}
-              onClick={() => onStagePress(etapa.etapaInterna)}
-              className={`rounded-md border p-3 text-left transition hover:border-slate-400 hover:shadow-sm ${toneForPaso(
-                etapa.pasoVisual,
-              )} ${active ? "ring-2 ring-slate-900 ring-offset-1" : ""}`}
-            >
-              <div className="flex items-start justify-between gap-2">
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                    Paso {etapa.pasoVisual}
-                  </p>
-                  <p className="mt-0.5 text-sm font-semibold text-slate-900">
-                    {etapa.nombre}
-                  </p>
-                </div>
-                {active ? (
-                  <span className="rounded bg-slate-900 px-1.5 py-0.5 text-[10px] font-semibold uppercase text-white">
-                    Filtro
-                  </span>
-                ) : null}
-              </div>
-
-              <div className="mt-3 grid grid-cols-3 gap-2">
-                <div>
-                  <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">
-                    Pasaron aquí
-                  </p>
-                  <p className="mt-0.5 text-xl font-semibold leading-none tabular-nums text-slate-950">
-                    {loading && !data ? "…" : error ? "—" : llegaron}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">
-                    Siguen aquí
-                  </p>
-                  <p className="mt-0.5 text-xl font-semibold leading-none tabular-nums text-slate-950">
-                    {cohortLoading && cohortBuckets.length === 0
-                      ? "…"
-                      : cohortError
-                        ? "—"
-                        : siguenAqui}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-[10px] font-medium uppercase tracking-wide text-slate-500">
-                    Total hoy
-                  </p>
-                  <p className="mt-0.5 text-xl font-semibold leading-none tabular-nums text-slate-950">
-                    {loading && !data ? "…" : error ? "—" : ahora}
-                  </p>
-                </div>
-              </div>
-
-              <div className="mt-2 border-t border-slate-200/80 pt-2 text-[11px] leading-relaxed text-slate-600">
-                <p>
-                  De los que pasaron aquí: <strong className="tabular-nums text-slate-900">{delPeriodo}</strong>{" "}
-                  ingresaron en el rango · <strong className="tabular-nums text-slate-900">{anteriores}</strong>{" "}
-                  venían de antes.
-                </p>
-                <p className="mt-0.5">
-                  De los {cohortTotal} ingresos del periodo, <strong className="tabular-nums text-slate-900">{siguenAqui}</strong>{" "}
-                  siguen aquí{cohortTotal > 0 ? ` (${siguenPct}%)` : ""}.
-                </p>
-              </div>
-            </button>
-          );
-        })}
+              return (
+                <tr
+                  key={etapa.pasoVisual}
+                  className={`border-b border-slate-100 last:border-b-0 ${
+                    active ? "bg-blue-50/60" : "bg-white hover:bg-slate-50/70"
+                  }`}
+                >
+                  <td className="px-3 py-3 align-top">
+                    <div className="flex items-start gap-2">
+                      <span
+                        className={`mt-0.5 shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase ${stageBadgeClass(
+                          etapa.pasoVisual,
+                        )}`}
+                      >
+                        Paso {etapa.pasoVisual}
+                      </span>
+                      <div className="min-w-0">
+                        <button
+                          type="button"
+                          onClick={() => onStagePress(etapa.etapaInterna)}
+                          className="text-left font-semibold text-slate-900 hover:text-blue-700 hover:underline"
+                          title={`Ver expedientes de ${etapa.nombre}`}
+                        >
+                          {etapa.nombre}
+                        </button>
+                        {active ? (
+                          <p className="mt-0.5 text-[11px] font-medium text-blue-700">Filtro activo</p>
+                        ) : null}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-3 py-3 align-top">
+                    <p className="text-xl font-semibold leading-none tabular-nums text-slate-950">
+                      {loading && !data ? "…" : movimientosDisponibles ? llegaron : "—"}
+                    </p>
+                    <p className="mt-1 text-[11px] leading-relaxed text-slate-500">
+                      {movimientosDisponibles
+                        ? `${delPeriodo} ingresaron a Mesa en el rango · ${anteriores} ya venían de antes`
+                        : "Desglose no disponible"}
+                    </p>
+                  </td>
+                  <td className="px-3 py-3 align-top">
+                    <p className="text-xl font-semibold leading-none tabular-nums text-slate-950">
+                      {cohortLoading && cohortBuckets.length === 0
+                        ? "…"
+                        : ingresosDisponibles
+                          ? siguenAqui
+                          : "—"}
+                    </p>
+                    <p className="mt-1 text-[11px] text-slate-500">
+                      {ingresosDisponibles && cohortTotal > 0
+                        ? `${siguenPct}% de los ingresos del periodo`
+                        : cohortTotal === 0 && ingresosDisponibles
+                          ? "Sin ingresos en el periodo"
+                          : "Ubicación no disponible"}
+                    </p>
+                  </td>
+                  <td className="px-3 py-3 align-top">
+                    <p className="text-xl font-semibold leading-none tabular-nums text-slate-950">
+                      {loading && !data ? "…" : movimientosDisponibles ? ahora : "—"}
+                    </p>
+                    <p className="mt-1 text-[11px] text-slate-500">Foto vigente del CRM</p>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
       </div>
 
       <p className="mt-3 text-[11px] leading-relaxed text-slate-500">
-        “Pasaron aquí” cuenta cada expediente una sola vez por etapa dentro del rango,
-        aunque haya reingresado. “Siguen aquí” usa la cohorte enviada a Mesa dentro del
-        rango. “Total hoy” es independiente de la fecha seleccionada. La cita biométrica
-        legacy se agrupa con “Listo para cita de biométrico”.
+        Cada expediente cuenta una sola vez por etapa dentro del rango, aunque reingrese. Puede aparecer
+        en varias filas si pasó por varias etapas. La cita biométrica legacy se agrupa con “Listo para cita
+        de biométrico”.
       </p>
     </section>
   );
