@@ -56,8 +56,11 @@ type CreditoDraft = {
 };
 
 type DestinoRecursosDraft = {
+  /** Compatibilidad snapshot/PDF T31 — siempre "" en captura Mesa (P0). */
   porcentajeTitulacion: string;
+  /** Compatibilidad snapshot/PDF T32 — siempre "" en captura Mesa (P0). */
   clabeNotaria: string;
+  /** T33 — editable; se conserva. */
   clabeDerechohabiente: string;
 };
 
@@ -132,6 +135,43 @@ function str(value: unknown): string {
   return String(value);
 }
 
+/**
+ * P0: % titulación y CLABE notaría ya no se capturan.
+ * Se conservan en el contrato pero siempre vacíos (anula drafts/localStorage viejos).
+ * `clabeDerechohabiente` se preserva intacta.
+ */
+export function normalizeDestinoRecursosForCapture(
+  destino: Partial<DestinoRecursosDraft> | null | undefined,
+): DestinoRecursosDraft {
+  const raw =
+    destino && typeof destino === "object"
+      ? (destino as DestinoRecursosDraft).clabeDerechohabiente
+      : "";
+  return {
+    porcentajeTitulacion: "",
+    clabeNotaria: "",
+    clabeDerechohabiente: str(raw),
+  };
+}
+
+/** Payload de generación: fuerza T31/T32 vacíos sin tocar T33 ni el resto del draft. */
+export function buildMesaInfonavitGeneratePayload(
+  draft: MesaInfonavitDocumentDraft,
+): MesaInfonavitDocumentDraft {
+  return {
+    ...draft,
+    credito: {
+      montoSolicitado: draft.credito.montoSolicitado,
+      plazoAnios: draft.credito.plazoAnios,
+    },
+    destinoRecursos: normalizeDestinoRecursosForCapture(draft.destinoRecursos),
+    mejora: {
+      ...draft.mejora,
+      presupuestoEstimado: null,
+    },
+  };
+}
+
 function num(value: unknown): number | null {
   if (typeof value === "number" && Number.isFinite(value)) return value;
   const normalized = str(value).replace(/,/g, "").trim();
@@ -152,7 +192,9 @@ function parseReference(value: unknown): ReferenciaDraft {
   };
 }
 
-function parseDraft(value: unknown): MesaInfonavitDocumentDraft {
+export function parseMesaInfonavitDocumentDraft(
+  value: unknown,
+): MesaInfonavitDocumentDraft {
   const root = recordOf(value);
   const c = recordOf(root.cliente);
   const id = recordOf(c.identificacion);
@@ -217,11 +259,11 @@ function parseDraft(value: unknown): MesaInfonavitDocumentDraft {
       montoSolicitado: num(credito.montoSolicitado),
       plazoAnios: num(credito.plazoAnios),
     },
-    destinoRecursos: {
+    destinoRecursos: normalizeDestinoRecursosForCapture({
       porcentajeTitulacion: str(destino.porcentajeTitulacion),
       clabeNotaria: str(destino.clabeNotaria),
       clabeDerechohabiente: str(destino.clabeDerechohabiente),
-    },
+    }),
     referencias,
     beneficiario: {
       parentesco: str(ben.parentesco),
@@ -234,6 +276,10 @@ function parseDraft(value: unknown): MesaInfonavitDocumentDraft {
       presupuestoEstimado: null,
     },
   };
+}
+
+function parseDraft(value: unknown): MesaInfonavitDocumentDraft {
+  return parseMesaInfonavitDocumentDraft(value);
 }
 
 function readLocalDraft(expedienteId: string): MesaInfonavitDocumentDraft | null {
@@ -258,11 +304,15 @@ function readLocalDraft(expedienteId: string): MesaInfonavitDocumentDraft | null
 function writeLocalDraft(expedienteId: string, draft: MesaInfonavitDocumentDraft): boolean {
   if (typeof window === "undefined" || !expedienteId) return false;
   try {
+    const normalized: MesaInfonavitDocumentDraft = {
+      ...draft,
+      destinoRecursos: normalizeDestinoRecursosForCapture(draft.destinoRecursos),
+    };
     const envelope: StoredMesaInfonavitDraft = {
       version: MESA_INFONAVIT_LOCAL_DRAFT_VERSION,
       expedienteId,
       savedAt: new Date().toISOString(),
-      draft,
+      draft: normalized,
     };
     window.localStorage.setItem(localDraftKey(expedienteId), JSON.stringify(envelope));
     return true;
@@ -473,13 +523,16 @@ export function MesaInfonavitGenerarDocumentosForm({
       prev ? { ...prev, credito: { ...prev.credito, [key]: value } } : prev,
     );
   };
-  const updateDestino = <K extends keyof DestinoRecursosDraft>(
-    key: K,
-    value: DestinoRecursosDraft[K],
-  ) => {
+  const updateDestinoClabeDerechohabiente = (value: string) => {
     setDraft((prev) =>
       prev
-        ? { ...prev, destinoRecursos: { ...prev.destinoRecursos, [key]: value } }
+        ? {
+            ...prev,
+            destinoRecursos: normalizeDestinoRecursosForCapture({
+              ...prev.destinoRecursos,
+              clabeDerechohabiente: value,
+            }),
+          }
         : prev,
     );
   };
@@ -523,39 +576,18 @@ export function MesaInfonavitGenerarDocumentosForm({
       return;
     }
 
-    const porcentaje = draft.destinoRecursos.porcentajeTitulacion.trim();
-    if (porcentaje) {
-      const p = Number(porcentaje);
-      if (!Number.isFinite(p) || p < 0 || p > 30) {
-        setGenerateError("El porcentaje de titulación debe estar entre 0 y 30.");
-        return;
-      }
-    }
-
-    for (const [label, clabe] of [
-      ["CLABE notaría", draft.destinoRecursos.clabeNotaria],
-      ["CLABE derechohabiente", draft.destinoRecursos.clabeDerechohabiente],
-    ] as const) {
-      if (clabe.trim() && !/^\d{18}$/.test(clabe.trim())) {
-        setGenerateError(`${label}: usa exactamente 18 dígitos o déjala vacía.`);
-        return;
-      }
+    const clabeDh = draft.destinoRecursos.clabeDerechohabiente.trim();
+    if (clabeDh && !/^\d{18}$/.test(clabeDh)) {
+      setGenerateError(
+        "CLABE del derechohabiente: usa exactamente 18 dígitos o déjala vacía.",
+      );
+      return;
     }
 
     setGenerating(true);
     try {
       if (!supabaseBrowser) throw new Error("Supabase no está configurado.");
-      const payload: MesaInfonavitDocumentDraft = {
-        ...draft,
-        credito: {
-          montoSolicitado: draft.credito.montoSolicitado,
-          plazoAnios: draft.credito.plazoAnios,
-        },
-        mejora: {
-          ...draft.mejora,
-          presupuestoEstimado: null,
-        },
-      };
+      const payload = buildMesaInfonavitGeneratePayload(draft);
       const { data, error } = await supabaseBrowser.rpc(
         "mesa_generar_infonavit_documentos",
         { p_expediente_id: expedienteId, p_payload: payload },
@@ -564,7 +596,8 @@ export function MesaInfonavitGenerarDocumentosForm({
       const response = recordOf(data);
       const version = num(response.submission_version);
       const versionInt = version === null ? 0 : Math.trunc(version);
-      writeLocalDraft(expedienteId, draft);
+      writeLocalDraft(expedienteId, payload);
+      setDraft(payload);
       setLocalSaveState("saved");
       setSuccess(
         `Generación iniciada correctamente${version !== null ? ` · versión ${versionInt}` : ""}.`,
@@ -660,13 +693,31 @@ export function MesaInfonavitGenerarDocumentosForm({
       <div className="space-y-3">
         <SectionTitle>4. Crédito y destino de recursos</SectionTitle>
         <div className="grid gap-3 md:grid-cols-3">
-          <Field label="Monto de crédito solicitado *" type="number" value={draft.credito.montoSolicitado} onChange={(v) => updateCredito("montoSolicitado", v.trim() ? Number(v) : null)} required />
-          <Field label="Plazo solicitado (años)" type="number" value={draft.credito.plazoAnios} onChange={(v) => updateCredito("plazoAnios", v.trim() ? Number(v) : null)} />
-          <Field label="% para titulación (máx. 30)" type="number" value={draft.destinoRecursos.porcentajeTitulacion} onChange={(v) => updateDestino("porcentajeTitulacion", v)} />
-          <div className="md:col-span-3 grid gap-3 md:grid-cols-2">
-            <Field label="CLABE de la notaría" value={draft.destinoRecursos.clabeNotaria} onChange={(v) => updateDestino("clabeNotaria", v.replace(/\D/g, "").slice(0, 18))} maxLength={18} />
-            <Field label="CLABE del derechohabiente" value={draft.destinoRecursos.clabeDerechohabiente} onChange={(v) => updateDestino("clabeDerechohabiente", v.replace(/\D/g, "").slice(0, 18))} maxLength={18} />
-          </div>
+          <Field
+            label="Monto de crédito solicitado *"
+            type="number"
+            value={draft.credito.montoSolicitado}
+            onChange={(v) =>
+              updateCredito("montoSolicitado", v.trim() ? Number(v) : null)
+            }
+            required
+          />
+          <Field
+            label="Plazo solicitado (años)"
+            type="number"
+            value={draft.credito.plazoAnios}
+            onChange={(v) =>
+              updateCredito("plazoAnios", v.trim() ? Number(v) : null)
+            }
+          />
+          <Field
+            label="CLABE del derechohabiente"
+            value={draft.destinoRecursos.clabeDerechohabiente}
+            onChange={(v) =>
+              updateDestinoClabeDerechohabiente(v.replace(/\D/g, "").slice(0, 18))
+            }
+            maxLength={18}
+          />
         </div>
       </div>
 

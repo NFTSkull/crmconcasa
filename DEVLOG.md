@@ -3,6 +3,17 @@
 ### Decisión
 Producto: Constancia de Situación Fiscal no es gate de envío. Cloud `envio_para` ya regresa 5. FE `sameExactSet` exige match exacto → hay que bajar `INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_SILVIA` de 6→5 o el parse vuelve a degradar a 4 clásicos.
 
+## 2026-09-17 - P0 Mesa: retirar captura % titulación y CLABE notaría
+
+### Decisión
+Esos campos confundían y no se usaban. Se ocultan en UI Mesa; el contrato snapshot/PDF conserva T31/T32 vacíos. CLABE derechohabiente (T33) sigue capturándose.
+
+### Qué
+`normalizeDestinoRecursosForCapture` + fail-safe en parse/localStorage/payload. Sin migraciones ni worker.
+
+### No
+OCR, extracciones, split-view, agenda/citas/Sheets.
+
 ## 2026-09-15 - FE parse Silvia: Constancia SAT faltaba → fallback 4
 
 ### Causa

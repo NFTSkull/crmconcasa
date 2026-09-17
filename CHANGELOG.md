@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+- **fix(mesa): ocultar % titulación y CLABE notaría en captura Infonavit** — sección 4 solo monto/plazo/CLABE derechohabiente; T31/T32 forzados a `""` en draft/localStorage/payload; T33 intacto.
+
 - **fix(asesor): Silvia paquete nuevo = 5 obligatorios** — Constancia SAT vuelve a opcional; `INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_SILVIA` alinea con Cloud `envio_para` (sin `cliente_constancia_situacion_fiscal`). Anette/externos intactos.
 - **fix(asesor): parse Silvia 6 docs (Constancia SAT)** — `INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_SILVIA` + `KNOWN` alinean con Cloud (`…+cliente_constancia_situacion_fiscal`); sin eso el checklist caía a 4 genéricos. `tryParse…` loguea el tipo desconocido. Anette/externos intactos.
 - **fix(admin): buscar líder y stage history expanden equipo** — escribir «Silvia» en Buscar ya no deja el total en solo-dueño; `admin_asesor_ids_matching_buscar` + expand en stage history/cohort/report v1–v2 (mig. **226**).
