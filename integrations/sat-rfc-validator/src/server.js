@@ -10,6 +10,7 @@ const PORT = Number(process.env.PORT || 3002)
 const MODE = String(process.env.SAT_VALIDATOR_MODE || 'fixture').toLowerCase()
 const SECRET = String(process.env.SAT_VALIDATOR_SECRET || '')
 const queue = new PQueue({ concurrency: Math.max(1, Number(process.env.SAT_MAX_CONCURRENCY || 1)) })
+let publicSampleE2eConsumed = false
 
 app.get('/health', (_req, res) => {
   res.json({ ok: true, mode: MODE === 'live' ? 'live' : 'fixture' })
@@ -49,14 +50,15 @@ app.post('/validate', async (req, res) => {
   })
 })
 
-// TEMP E2E ONLY: official SAT guide example; remove before merge.
-app.post('/e2e-public-sat-example', async (req, res) => {
-  if (!SECRET || req.header('x-concasa-worker-secret') !== SECRET) {
-    return res.status(401).json({ ok: false, code: 'UNAUTHORIZED' })
-  }
+// TEMP ONE-SHOT E2E ONLY: official SAT guide example; remove before merge.
+app.get('/e2e-public-sat-example-20260917-once', async (_req, res) => {
   if (MODE !== 'live') {
     return res.status(409).json({ ok: false, code: 'LIVE_MODE_REQUIRED' })
   }
+  if (publicSampleE2eConsumed) {
+    return res.status(410).json({ ok: false, code: 'E2E_ALREADY_CONSUMED' })
+  }
+  publicSampleE2eConsumed = true
 
   return queue.add(async () => {
     try {
