@@ -97,10 +97,21 @@ LANGUAGE sql
 IMMUTABLE
 SET search_path = public
 AS $$
-  SELECT CASE
-    WHEN NULLIF(btrim(COALESCE(p_code, '')), '') IS NULL THEN 'internal_error'
-    WHEN length(btrim(p_code)) > 64 THEN left(btrim(p_code), 64)
-    ELSE btrim(p_code)
+  SELECT CASE btrim(COALESCE(p_code, ''))
+    WHEN 'feature_off' THEN 'feature_off'
+    WHEN 'unsupported_provider' THEN 'unsupported_provider'
+    WHEN 'document_not_current' THEN 'document_not_current'
+    WHEN 'document_not_found' THEN 'document_not_found'
+    WHEN 'storage_missing' THEN 'storage_missing'
+    WHEN 'storage_download_failed' THEN 'storage_download_failed'
+    WHEN 'provider_failed' THEN 'provider_failed'
+    WHEN 'lease_expired' THEN 'lease_expired'
+    WHEN 'max_attempts_exceeded' THEN 'max_attempts_exceeded'
+    WHEN 'complete_conflict' THEN 'complete_conflict'
+    WHEN 'auth_failed' THEN 'auth_failed'
+    WHEN 'invalid_args' THEN 'invalid_args'
+    WHEN 'internal_error' THEN 'internal_error'
+    ELSE 'internal_error'
   END;
 $$;
 
@@ -235,6 +246,32 @@ BEGIN
   v_limit := GREATEST(1, LEAST(COALESCE(p_limit, 3), 5));
   v_lease := public.document_extraction_worker_lease_interval();
 
+  -- processing + lease vencido + attempts agotados → dead (no reclaim infinito)
+  WITH exhausted AS (
+    UPDATE public.document_extraction_jobs j
+    SET
+      status = 'dead',
+      last_error_code = 'max_attempts_exceeded',
+      lease_expires_at = NULL,
+      updated_at = NOW()
+    WHERE j.status = 'processing'
+      AND j.lease_expires_at IS NOT NULL
+      AND j.lease_expires_at < NOW()
+      AND j.attempts >= j.max_attempts
+    RETURNING j.id, j.extraction_id, j.organization_id, j.documento_id,
+              j.document_type, j.provider, j.attempts
+  )
+  UPDATE public.document_extractions e
+  SET
+    status = 'failed',
+    error_code = 'max_attempts_exceeded',
+    error_safe = 'max_attempts_exceeded',
+    processed_at = COALESCE(e.processed_at, NOW()),
+    updated_at = NOW()
+  FROM exhausted x
+  WHERE e.id = x.extraction_id
+    AND e.status IN ('pending', 'processing', 'failed');
+
   WITH candidates AS (
     SELECT j.id
     FROM public.document_extraction_jobs j
@@ -249,6 +286,7 @@ BEGIN
           j.status = 'processing'
           AND j.lease_expires_at IS NOT NULL
           AND j.lease_expires_at < NOW()
+          AND j.attempts < j.max_attempts
         )
       )
     ORDER BY j.available_at ASC, j.created_at ASC
@@ -474,6 +512,18 @@ BEGIN
 
   IF p_lease_claimed_at IS NOT NULL
      AND v_job.claimed_at IS DISTINCT FROM p_lease_claimed_at THEN
+    RETURN jsonb_build_object(
+      'ok', false,
+      'error_code', 'lease_expired',
+      'lease_lost', true,
+      'job_id', v_job.id
+    );
+  END IF;
+
+  -- Lease temporal vencido: mismo contrato que complete_job
+  IF v_job.status = 'processing'
+     AND v_job.lease_expires_at IS NOT NULL
+     AND v_job.lease_expires_at < NOW() THEN
     RETURN jsonb_build_object(
       'ok', false,
       'error_code', 'lease_expired',

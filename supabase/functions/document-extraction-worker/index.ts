@@ -99,6 +99,23 @@ Deno.serve(async (req: Request) => {
         if (!meta.storage_path || !meta.storage_bucket) {
           return { ok: false, error_code: "storage_missing" };
         }
+        // Lectura privada real (service role). P3 descarta bytes; shadow no procesa.
+        const { data, error } = await sb.storage
+          .from(meta.storage_bucket)
+          .download(meta.storage_path);
+        if (error || !data) {
+          const msg = (error?.message ?? "").toLowerCase();
+          if (
+            msg.includes("not found") ||
+            msg.includes("object not found") ||
+            msg.includes("404")
+          ) {
+            return { ok: false, error_code: "storage_missing" };
+          }
+          return { ok: false, error_code: "storage_download_failed" };
+        }
+        // Descartar inmediatamente — no loguear / no persistir / no pasar a provider
+        void data;
         return { ok: true };
       },
       complete: async ({ jobId, leaseClaimedAt, normalized, raw }) => {

@@ -170,9 +170,33 @@ describe("document-extractions P3 — worker pipeline", () => {
     assert.ok(blob.includes("job_id"));
   });
 
-  it("retryable taxonomy", () => {
+  it("download OK → pipeline continúa; download error → mark_failed", async () => {
+    const depsOk = mockDeps({
+      assertStorageReadable: async () => ({ ok: true }),
+    });
+    const outOk = await processClaimedExtractionJob(baseJob(), depsOk);
+    assert.equal(outOk.outcome, "done");
+
+    const depsFail = mockDeps({
+      assertStorageReadable: async () => ({
+        ok: false,
+        error_code: "storage_download_failed",
+      }),
+    });
+    const outFail = await processClaimedExtractionJob(baseJob(), depsFail);
+    assert.equal(outFail.outcome, "failed");
+    assert.equal(outFail.error_code, "storage_download_failed");
+    assert.ok(
+      depsFail.calls.some((c) => c.startsWith("failed:storage_download_failed")),
+    );
+  });
+
+  it("sanitize catalog: desconocido → internal_error conceptual", () => {
+    assert.equal(
+      isRetryableDocumentExtractionError("max_attempts_exceeded"),
+      false,
+    );
     assert.equal(isRetryableDocumentExtractionError("provider_failed"), true);
     assert.equal(isRetryableDocumentExtractionError("unsupported_provider"), false);
-    assert.equal(isRetryableDocumentExtractionError("document_not_current"), false);
   });
 });

@@ -221,16 +221,94 @@ BEGIN
   v_attempts := (v_claim2->'claimed'->0->>'attempts')::INT;
   PERFORM public.__p3_dx_assert(v_attempts >= 2, 'attempts incrementa en reclaim');
 
-  -- 10/11) v1 claimed + v2 → stale; complete no revive
-  -- Finish current lease job first as stale path on v1 ine:
-  -- soft-delete v1, insert v2, mark stale via complete check
-  -- Use a fresh enqueue for race:
-  -- Cancel/finish lease job as failed non-retry to clear
+  -- mark_failed con lease expirado → rechazado (no muta)
+  UPDATE public.document_extraction_jobs
+  SET lease_expires_at = NOW() - INTERVAL '1 second'
+  WHERE id = v_job_id;
   v_claimed_at := (v_claim2->'claimed'->0->>'claimed_at')::TIMESTAMPTZ;
-  PERFORM public.document_extraction_mark_failed(
-    v_job_id, 'internal_error', false, v_claimed_at
+  SELECT status INTO v_status FROM public.document_extraction_jobs WHERE id = v_job_id;
+  v_r := public.document_extraction_mark_failed(
+    v_job_id, 'provider_failed', true, v_claimed_at
+  );
+  PERFORM public.__p3_dx_assert(
+    (v_r->>'ok')::boolean IS FALSE
+    AND v_r->>'error_code' = 'lease_expired'
+    AND (v_r->>'lease_lost')::boolean IS TRUE,
+    'mark_failed lease expirado rechazado'
+  );
+  PERFORM public.__p3_dx_assert(
+    (SELECT status FROM public.document_extraction_jobs WHERE id = v_job_id) = 'processing',
+    'job sigue processing tras mark_failed lease_expired'
   );
 
+  -- Nuevo reclaim (attempts aún < max default 5) sí puede fallar
+  v_claim := public.document_extraction_claim_jobs(1);
+  PERFORM public.__p3_dx_assert(
+    (v_claim->'claimed'->0->>'job_id')::UUID = v_job_id,
+    'reclaim tras lease_expired mark_failed'
+  );
+  v_claimed_at := (v_claim->'claimed'->0->>'claimed_at')::TIMESTAMPTZ;
+  v_r := public.document_extraction_mark_failed(
+    v_job_id, 'internal_error', false, v_claimed_at
+  );
+  PERFORM public.__p3_dx_assert(v_r->>'status' = 'dead', 'nuevo claimant puede dead');
+
+  -- max_attempts=2: claim1 → expire → reclaim2 → expire → claim NO lo devuelve → dead
+  v_r := public.enqueue_document_extraction(v_doc_v1, 'shadow', 'p3-maxlease');
+  PERFORM public.__p3_dx_assert((v_r->>'enqueued')::boolean, 'enqueue maxlease');
+  UPDATE public.document_extraction_jobs
+  SET max_attempts = 2
+  WHERE documento_id = v_doc_v1 AND provider_version = 'p3-maxlease';
+
+  v_claim := public.document_extraction_claim_jobs(1);
+  v_job_id := (v_claim->'claimed'->0->>'job_id')::UUID;
+  v_ext_id := (v_claim->'claimed'->0->>'extraction_id')::UUID;
+  PERFORM public.__p3_dx_assert(
+    (v_claim->'claimed'->0->>'attempts')::INT = 1,
+    'maxlease attempt 1'
+  );
+  UPDATE public.document_extraction_jobs
+  SET lease_expires_at = NOW() - INTERVAL '1 second'
+  WHERE id = v_job_id;
+
+  v_claim := public.document_extraction_claim_jobs(1);
+  PERFORM public.__p3_dx_assert(
+    (v_claim->'claimed'->0->>'job_id')::UUID = v_job_id
+    AND (v_claim->'claimed'->0->>'attempts')::INT = 2,
+    'maxlease reclaim attempt 2'
+  );
+  UPDATE public.document_extraction_jobs
+  SET lease_expires_at = NOW() - INTERVAL '1 second'
+  WHERE id = v_job_id;
+
+  v_claim := public.document_extraction_claim_jobs(5);
+  PERFORM public.__p3_dx_assert(
+    NOT EXISTS (
+      SELECT 1 FROM jsonb_array_elements(v_claim->'claimed') x
+      WHERE (x->>'job_id')::UUID = v_job_id
+    ),
+    'maxlease no reclaim tras max'
+  );
+  SELECT status INTO v_status
+  FROM public.document_extraction_jobs WHERE id = v_job_id;
+  PERFORM public.__p3_dx_assert(v_status = 'dead', 'maxlease job dead');
+  PERFORM public.__p3_dx_assert(
+    (SELECT last_error_code FROM public.document_extraction_jobs WHERE id = v_job_id)
+      = 'max_attempts_exceeded',
+    'maxlease error_code'
+  );
+  PERFORM public.__p3_dx_assert(
+    (SELECT status FROM public.document_extractions WHERE id = v_ext_id) = 'failed',
+    'maxlease extraction failed'
+  );
+
+  -- sanitize: texto arbitrario → internal_error
+  PERFORM public.__p3_dx_assert(
+    public.document_extraction_sanitize_error_code('CURP=XXXX stacktrace') = 'internal_error',
+    'sanitize allowlist'
+  );
+
+  -- 10/11) v1 claimed + v2 → stale; complete no revive
   v_r := public.enqueue_document_extraction(v_doc_v1, 'shadow', 'p3-stale');
   PERFORM public.__p3_dx_assert((v_r->>'enqueued')::boolean, 'enqueue stale race');
   v_claim := public.document_extraction_claim_jobs(1);

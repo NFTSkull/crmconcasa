@@ -11,6 +11,7 @@ export const DOCUMENT_EXTRACTION_ERROR_CODES = [
   "storage_download_failed",
   "provider_failed",
   "lease_expired",
+  "max_attempts_exceeded",
   "complete_conflict",
   "internal_error",
   "auth_failed",
@@ -51,6 +52,7 @@ export function isRetryableDocumentExtractionError(
     case "complete_conflict":
     case "auth_failed":
     case "invalid_args":
+    case "max_attempts_exceeded":
       return false;
     default:
       return false;

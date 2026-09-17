@@ -1,6 +1,6 @@
 ## [Unreleased]
 
-- **feat(document-extractions): P3 worker shadow claim/lease** — RPC claim/complete/fail/stale, Edge `document-extraction-worker`, provider shadow no-op, flag worker DEFAULT OFF. Sin OCR, sin upload hook, sin Cloud apply.
+- **fix(document-extractions): P3 lease max_attempts + storage download** — reclaim exhausted→dead; mark_failed respeta lease_expires_at; worker download privado service-role; sanitize error_code allowlist.
 
 - **feat(document-extractions): P2 shadow infra (sin OCR)** — tablas `document_extractions` + `document_extraction_jobs`, enqueue service_role, Vault flag DEFAULT OFF, allowlist 4 docs, stale por reemplazo. Sin cableado a upload, sin provider, sin autofill, sin Cloud apply.
 
