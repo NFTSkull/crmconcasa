@@ -5,7 +5,11 @@ import { join } from "node:path";
 
 import {
   collectValidClabeCandidates,
+  canRunClabeDetection,
   detectClabeFromBankStatementText,
+  detectClabeUnsupportedForMime,
+  findBoundedClabeRawSpans,
+  isPdfMimeType,
   shouldRunClabeShadowDetection,
 } from "./clabe-bank-statement";
 import { isValidClabeMexico } from "@/domain/expediente-cliente-datos/clabe-mexico";
@@ -172,5 +176,103 @@ describe("P4B clabe-bank-statement parser", () => {
     assert.equal(shouldRunClabeShadowDetection("identidad"), false);
     assert.equal(shouldRunClabeShadowDetection("vivienda"), false);
     assert.equal(shouldRunClabeShadowDetection("none"), false);
+  });
+
+  it("boundary: 19 dígitos con primeros 18 = CLABE válida → NOT detected", () => {
+    const text = `CLABE ${VALID_A}9\n`.repeat(3);
+    assert.equal(isValidClabeMexico(VALID_A), true);
+    assert.equal(findBoundedClabeRawSpans(`CLABE ${VALID_A}9`).length, 0);
+    const r = detectClabeFromBankStatementText(text);
+    assert.notEqual(r.status, "detected");
+    assert.equal(r.status, "not_found");
+  });
+
+  it("boundary: dígito extra antes de CLABE válida → NOT detected", () => {
+    const text = `CLABE 9${VALID_A}\n`.repeat(3);
+    assert.equal(findBoundedClabeRawSpans(`CLABE 9${VALID_A}`).length, 0);
+    const r = detectClabeFromBankStatementText(text);
+    assert.equal(r.status, "not_found");
+  });
+
+  it("boundary: 20 dígitos → NOT detected", () => {
+    const text = `CLABE ${VALID_A}00\n`.repeat(3);
+    assert.equal(findBoundedClabeRawSpans(`CLABE ${VALID_A}00`).length, 0);
+    const r = detectClabeFromBankStatementText(text);
+    assert.equal(r.status, "not_found");
+  });
+
+  it("boundary: CLABE delimitada por texto/puntuación → detected", () => {
+    const text = `CLABE:${VALID_A}.\nTitular demo banco\n`.repeat(2);
+    const r = detectClabeFromBankStatementText(text);
+    assert.equal(r.status, "detected");
+    if (r.status === "detected") assert.equal(r.clabe, VALID_A);
+  });
+
+  it("boundary: espacios/guiones permitidos siguen funcionando", () => {
+    assert.equal(
+      detectClabeFromBankStatementText(
+        `CLABE INTERBANCARIA 032 180 000118359719\nfin\n`.repeat(2),
+      ).status,
+      "detected",
+    );
+    assert.equal(
+      detectClabeFromBankStatementText(
+        `CUENTA CLABE 032-180-000118359719\nfin\n`.repeat(2),
+      ).status,
+      "detected",
+    );
+  });
+
+  it("MIME: application/pdf y con parámetros; imágenes unsupported", () => {
+    assert.equal(isPdfMimeType("application/pdf"), true);
+    assert.equal(isPdfMimeType("application/pdf; charset=binary"), true);
+    assert.equal(isPdfMimeType("APPLICATION/PDF"), true);
+    assert.equal(detectClabeUnsupportedForMime("application/pdf"), false);
+    assert.equal(
+      detectClabeUnsupportedForMime("application/pdf; charset=binary"),
+      false,
+    );
+    assert.equal(detectClabeUnsupportedForMime("image/jpeg"), true);
+    assert.equal(detectClabeUnsupportedForMime("image/png"), true);
+  });
+
+  it("race A→B: blob A no puede analizarse como documento B", () => {
+    const base = {
+      context: "clabe",
+      kind: "cliente_estado_cuenta",
+      mime: "application/pdf",
+    } as const;
+
+    // Row B activo, blob aún de A
+    const mismatch = canRunClabeDetection({
+      ...base,
+      activeDocumentId: "doc-B",
+      blobDocumentId: "doc-A",
+    });
+    assert.equal(mismatch.ok, false);
+    if (!mismatch.ok) assert.equal(mismatch.reason, "blob_mismatch");
+
+    // Sin blob todavía
+    const waiting = canRunClabeDetection({
+      ...base,
+      activeDocumentId: "doc-B",
+      blobDocumentId: null,
+    });
+    assert.equal(waiting.ok, false);
+    if (!waiting.ok) assert.equal(waiting.reason, "no_blob");
+
+    // Blob B listo
+    const ready = canRunClabeDetection({
+      ...base,
+      activeDocumentId: "doc-B",
+      blobDocumentId: "doc-B",
+    });
+    assert.equal(ready.ok, true);
+
+    // Solo B se cachearía bajo B (contrato de keys)
+    const cache = new Map<string, string>();
+    if (ready.ok) cache.set("doc-B", "result-B");
+    assert.equal(cache.has("doc-A"), false);
+    assert.equal(cache.get("doc-B"), "result-B");
   });
 });

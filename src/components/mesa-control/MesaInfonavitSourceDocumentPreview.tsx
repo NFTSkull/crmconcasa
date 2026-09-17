@@ -27,9 +27,10 @@ import {
   type InfonavitSourcePreviewContext,
 } from "@/domain/document-extractions/infonavit-source-preview";
 import {
+  canRunClabeDetection,
   detectClabeFromBankStatementPdfBytes,
-  detectClabeUnsupportedForMime,
   shouldRunClabeShadowDetection,
+  type ActiveDocumentBlob,
   type ClabeBankStatementDetection,
 } from "@/domain/document-extractions/clabe-bank-statement";
 import { MesaClabeShadowDetectionPanel } from "@/components/mesa-control/MesaClabeShadowDetectionPanel";
@@ -75,7 +76,8 @@ export function MesaInfonavitSourceDocumentPreview({
   const [blobError, setBlobError] = useState<string | null>(null);
   const [preview, setPreview] = useState<MesaArchivoPreviewState | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
-  const [activeBlob, setActiveBlob] = useState<Blob | null>(null);
+  const [activeDocumentBlob, setActiveDocumentBlob] =
+    useState<ActiveDocumentBlob | null>(null);
   const [clabeAnalyzing, setClabeAnalyzing] = useState(false);
   const [clabeDetection, setClabeDetection] =
     useState<ClabeBankStatementDetection | null>(null);
@@ -162,9 +164,10 @@ export function MesaInfonavitSourceDocumentPreview({
 
     setBlobError(null);
     setModalOpen(false);
+    // Limpia blob previo de inmediato al cambiar de documento
+    setActiveDocumentBlob(null);
 
     if (!docId || !activeRow) {
-      setActiveBlob(null);
       setPreview((prev) => {
         if (prev?.url) URL.revokeObjectURL(prev.url);
         return null;
@@ -173,12 +176,11 @@ export function MesaInfonavitSourceDocumentPreview({
     }
 
     setLoadingBlob(true);
-    setActiveBlob(null);
     void (async () => {
       try {
         const blob = await archivosRepo.getArchivoBlob(docId);
         if (cancelled) return;
-        setActiveBlob(blob);
+        setActiveDocumentBlob({ documentoId: docId, blob });
         const url = URL.createObjectURL(blob);
         setPreview((prev) => {
           if (prev?.url) URL.revokeObjectURL(prev.url);
@@ -192,7 +194,7 @@ export function MesaInfonavitSourceDocumentPreview({
         });
       } catch (err) {
         if (cancelled) return;
-        setActiveBlob(null);
+        setActiveDocumentBlob(null);
         setPreview((prev) => {
           if (prev?.url) URL.revokeObjectURL(prev.url);
           return null;
@@ -239,52 +241,65 @@ export function MesaInfonavitSourceDocumentPreview({
     const docId = activeRow?.id ?? null;
     const mime = activeRow?.mime_type ?? preview?.mime_type ?? "";
 
-    if (!docId || activeKind !== "cliente_estado_cuenta") {
-      setClabeAnalyzing(false);
-      setClabeDetection(null);
+    const gate = canRunClabeDetection({
+      context,
+      kind: activeKind,
+      activeDocumentId: docId,
+      blobDocumentId: activeDocumentBlob?.documentoId ?? null,
+      mime,
+    });
+
+    if (!gate.ok) {
+      if (gate.reason === "unsupported_mime") {
+        setClabeAnalyzing(false);
+        setClabeDetection({ status: "unsupported" });
+        return;
+      }
+      if (
+        gate.reason === "wrong_kind" ||
+        gate.reason === "no_document" ||
+        gate.reason === "wrong_context"
+      ) {
+        setClabeAnalyzing(false);
+        setClabeDetection(null);
+        return;
+      }
+      // no_blob | blob_mismatch | no_mime → esperar blob/metadata correctos
       return;
     }
 
-    if (!mime) {
-      // espera metadata MIME del documento activo
-      return;
-    }
-
-    if (detectClabeUnsupportedForMime(mime)) {
-      setClabeAnalyzing(false);
-      setClabeDetection({ status: "unsupported" });
-      return;
-    }
-
-    const cached = clabeCacheRef.current.get(docId);
+    const cached = clabeCacheRef.current.get(docId!);
     if (cached) {
       setClabeAnalyzing(false);
       setClabeDetection(cached);
       return;
     }
 
-    if (!activeBlob) {
-      // espera blob del preview
-      return;
-    }
-
+    const blobForDoc = activeDocumentBlob!;
     const gen = ++clabeGenRef.current;
+    const expectedDocId = docId!;
     setClabeAnalyzing(true);
     setClabeDetection(null);
 
     let cancelled = false;
     void (async () => {
       try {
-        const buf = await activeBlob.arrayBuffer();
+        const buf = await blobForDoc.blob.arrayBuffer();
         if (cancelled || gen !== clabeGenRef.current) return;
+        if (blobForDoc.documentoId !== expectedDocId) return;
         const result = await detectClabeFromBankStatementPdfBytes(buf);
         if (cancelled || gen !== clabeGenRef.current) return;
-        clabeCacheRef.current.set(docId, result);
+        if (blobForDoc.documentoId !== expectedDocId) return;
+        // Solo cachear si la corrida sigue vigente para este documento
+        clabeCacheRef.current.set(expectedDocId, result);
         setClabeDetection(result);
       } catch {
         if (cancelled || gen !== clabeGenRef.current) return;
-        const fallback: ClabeBankStatementDetection = { status: "no_text_layer" };
-        clabeCacheRef.current.set(docId, fallback);
+        if (blobForDoc.documentoId !== expectedDocId) return;
+        const fallback: ClabeBankStatementDetection = {
+          status: "no_text_layer",
+        };
+        clabeCacheRef.current.set(expectedDocId, fallback);
         setClabeDetection(fallback);
       } finally {
         if (!cancelled && gen === clabeGenRef.current) {
@@ -301,7 +316,7 @@ export function MesaInfonavitSourceDocumentPreview({
     activeRow?.id,
     activeRow?.mime_type,
     activeKind,
-    activeBlob,
+    activeDocumentBlob,
     preview?.mime_type,
   ]);
 

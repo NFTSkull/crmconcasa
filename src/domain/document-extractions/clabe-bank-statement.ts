@@ -28,6 +28,12 @@ export type ClabeBankStatementDetection =
   | { status: "no_text_layer" }
   | { status: "unsupported" };
 
+/** Blob privado ligado explícitamente al documento del que proviene. */
+export type ActiveDocumentBlob = Readonly<{
+  documentoId: string;
+  blob: Blob;
+}>;
+
 /** Distancia máx. (chars) etiqueta→candidato para score alto (DETECTED). */
 export const CLABE_CONTEXT_HIGH_MAX_DISTANCE = 40;
 
@@ -39,12 +45,6 @@ export const CLABE_CONTEXT_MED_MIN_SCORE = 70;
 
 /** Score mínimo para DETECTED (etiqueta CLABE claramente cercana). */
 export const CLABE_CONTEXT_HIGH_MIN_SCORE = 100;
-
-/**
- * 18 dígitos con espacios/guiones opcionales entre dígitos.
- * No acepta letras ni otros separadores (puntos, etc.).
- */
-const CLABE_RAW_CANDIDATE_RE = /\d(?:[\s-]?\d){17}/g;
 
 /**
  * Etiquetas (case-insensitive). Orden: más específicas primero.
@@ -63,6 +63,82 @@ type ScoredCandidate = Readonly<{
   score: number;
   index: number;
 }>;
+
+function isDigitChar(ch: string): boolean {
+  return ch >= "0" && ch <= "9";
+}
+
+/**
+ * Spans crudos con exactamente 18 dígitos lógicos (espacios/guiones opcionales).
+ * Rechaza secuencias embebidas en 19+ dígitos (antes o después).
+ */
+export function findBoundedClabeRawSpans(
+  text: string,
+): ReadonlyArray<{ raw: string; index: number }> {
+  const source = String(text ?? "");
+  const out: { raw: string; index: number }[] = [];
+  let i = 0;
+
+  while (i < source.length) {
+    if (!isDigitChar(source[i]!)) {
+      i += 1;
+      continue;
+    }
+
+    // No empezar si el char anterior es dígito (ya estaríamos dentro de un run)
+    if (i > 0 && isDigitChar(source[i - 1]!)) {
+      i += 1;
+      continue;
+    }
+
+    const start = i;
+    let digits = 0;
+    let j = i;
+    let lastDigitEnd = i;
+
+    while (j < source.length) {
+      const ch = source[j]!;
+      if (isDigitChar(ch)) {
+        digits += 1;
+        lastDigitEnd = j + 1;
+        j += 1;
+        continue;
+      }
+      if ((ch === " " || ch === "-") && digits > 0 && digits < 18) {
+        if (j + 1 < source.length && isDigitChar(source[j + 1]!)) {
+          j += 1;
+          continue;
+        }
+      }
+      break;
+    }
+
+    // Si hay más dígitos pegados después del run parcial/completo, saltar el run entero
+    if (lastDigitEnd < source.length && isDigitChar(source[lastDigitEnd]!)) {
+      let k = lastDigitEnd;
+      while (k < source.length) {
+        const ch = source[k]!;
+        if (isDigitChar(ch) || ch === " " || ch === "-") {
+          k += 1;
+          continue;
+        }
+        break;
+      }
+      i = Math.max(k, start + 1);
+      continue;
+    }
+
+    if (digits === 18) {
+      out.push({ raw: source.slice(start, lastDigitEnd), index: start });
+      i = lastDigitEnd;
+      continue;
+    }
+
+    i = Math.max(j, start + 1);
+  }
+
+  return out;
+}
 
 function scoreClabeContext(text: string, candidateIndex: number): number {
   const windowStart = Math.max(0, candidateIndex - 160);
@@ -87,7 +163,7 @@ function scoreClabeContext(text: string, candidateIndex: number): number {
 }
 
 /**
- * Extrae candidatos crudos (solo dígitos / espacio / guion) y normaliza con P1.
+ * Extrae candidatos crudos delimitados y normaliza con P1.
  * Descarta checksum inválido y normalizaciones nulas (letras, etc.).
  */
 export function collectValidClabeCandidates(
@@ -96,21 +172,18 @@ export function collectValidClabeCandidates(
   const source = String(text ?? "");
   const byClabe = new Map<string, ScoredCandidate>();
 
-  CLABE_RAW_CANDIDATE_RE.lastIndex = 0;
-  let match: RegExpExecArray | null;
-  while ((match = CLABE_RAW_CANDIDATE_RE.exec(source)) !== null) {
-    const raw = match[0];
-    const normalized = normalizeClabeMexico(raw);
+  for (const span of findBoundedClabeRawSpans(source)) {
+    const normalized = normalizeClabeMexico(span.raw);
     if (normalized === null || normalized.length !== 18) continue;
     if (!isValidClabeMexico(normalized)) continue;
 
-    const score = scoreClabeContext(source, match.index);
+    const score = scoreClabeContext(source, span.index);
     const prev = byClabe.get(normalized);
     if (!prev || score > prev.score) {
       byClabe.set(normalized, {
         clabe: normalized,
         score,
-        index: match.index,
+        index: span.index,
       });
     }
   }
@@ -151,7 +224,6 @@ export function detectClabeFromBankStatementText(
   if (contextual.length >= 2) {
     const unique = [...new Set(contextual.map((c) => c.clabe))];
     if (unique.length === 1 && high.length >= 1) {
-      // misma CLABE repetida con contexto → detected
       return {
         status: "detected",
         clabe: unique[0]!,
@@ -170,13 +242,56 @@ export function detectClabeFromBankStatementText(
     }
   }
 
-  // Un solo medium sin high, o solo checksum sin etiqueta → no autoseleccionar
   return { status: "not_found" };
+}
+
+/** Normaliza MIME (quita parámetros tipo `; charset=binary`). */
+export function normalizeMimeType(mime: string): string {
+  return String(mime ?? "").toLowerCase().trim().split(";")[0]!.trim();
+}
+
+export function isPdfMimeType(mime: string): boolean {
+  return normalizeMimeType(mime) === "application/pdf";
 }
 
 /** Mime no PDF → unsupported (UI). */
 export function detectClabeUnsupportedForMime(mime: string): boolean {
-  return mime.toLowerCase().trim() !== "application/pdf";
+  return !isPdfMimeType(mime);
+}
+
+/**
+ * Guard puro: ¿se puede lanzar análisis CLABE con este par documento↔blob?
+ * Evita parsear blob A con docId B.
+ */
+export function canRunClabeDetection(input: {
+  context: string;
+  kind: string | null | undefined;
+  activeDocumentId: string | null | undefined;
+  blobDocumentId: string | null | undefined;
+  mime: string;
+}): { ok: true } | { ok: false; reason: string } {
+  if (!shouldRunClabeShadowDetection(input.context)) {
+    return { ok: false, reason: "wrong_context" };
+  }
+  if (input.kind !== "cliente_estado_cuenta") {
+    return { ok: false, reason: "wrong_kind" };
+  }
+  if (!input.activeDocumentId) {
+    return { ok: false, reason: "no_document" };
+  }
+  if (!input.blobDocumentId) {
+    return { ok: false, reason: "no_blob" };
+  }
+  if (input.blobDocumentId !== input.activeDocumentId) {
+    return { ok: false, reason: "blob_mismatch" };
+  }
+  if (!String(input.mime ?? "").trim()) {
+    return { ok: false, reason: "no_mime" };
+  }
+  if (detectClabeUnsupportedForMime(input.mime)) {
+    return { ok: false, reason: "unsupported_mime" };
+  }
+  return { ok: true };
 }
 
 /**

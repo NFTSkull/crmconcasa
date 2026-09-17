@@ -74,6 +74,10 @@ describe("P4B Mesa CLABE shadow UI contrato", () => {
     assert.match(previewSrc, /clabeCacheRef\.current\.clear\(\)/);
     assert.match(previewSrc, /clabeGenRef\.current \+= 1/);
     assert.match(previewSrc, /gen !== clabeGenRef\.current/);
+    assert.match(previewSrc, /ActiveDocumentBlob|activeDocumentBlob/);
+    assert.match(previewSrc, /documentoId:\s*docId/);
+    assert.match(previewSrc, /canRunClabeDetection/);
+    assert.match(previewSrc, /blob_mismatch|blobDocumentId/);
   });
 
   it("24. unmount/race no actualiza estado viejo", () => {
