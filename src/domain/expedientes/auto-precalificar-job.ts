@@ -10,6 +10,7 @@ import {
   releaseAutoPrecalScraperLease,
   tryClaimAutoPrecalScraperLease,
 } from "@/domain/expedientes/auto-precal-scraper-lease";
+import { classifyAutoPrecalImmediateRetry } from "@/domain/expedientes/auto-precal-immediate-retry";
 import {
   decideAutoPrecalFromScraper,
   type AutoPrecalScraperPayload,
@@ -36,6 +37,7 @@ async function loadExpedientePrograma(
 }
 
 export const SCRAPER_TIMEOUT_MS = 150_000;
+const IMMEDIATE_RETRY_FIRST_ATTEMPT_MAX_MS = 20_000;
 
 export type AutoPrecalIntentoResultado =
   | "aprobado"
@@ -56,6 +58,33 @@ function serviceClient(): SupabaseClient {
   return createClient(url, key, {
     auth: { persistSession: false, autoRefreshToken: false },
   });
+}
+
+async function fetchScraperOnce(input: {
+  scraperUrl: string;
+  scraperSecret: string;
+  nss: string;
+}): Promise<{ upstream: Response; payload: AutoPrecalScraperPayload }> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), SCRAPER_TIMEOUT_MS);
+  try {
+    const upstream = await fetch(
+      `${input.scraperUrl.replace(/\/$/, "")}/precalificar`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "x-scraper-secret": input.scraperSecret,
+        },
+        body: JSON.stringify({ nss: input.nss, workerIndex: 0 }),
+        signal: controller.signal,
+      },
+    );
+    const payload = (await upstream.json()) as AutoPrecalScraperPayload;
+    return { upstream, payload };
+  } finally {
+    clearTimeout(timeoutId);
+  }
 }
 
 async function recordIntento(
@@ -105,6 +134,11 @@ async function claimJobStarted(
  * Orden de protección:
  * 1) lease global del scraper: una sola navegación Infonavit en todo el CRM;
  * 2) lease `job_started` por expediente: evita duplicar el mismo caso.
+ *
+ * Resiliencia puntual:
+ * - si el scraper devuelve un fallo técnico transitorio conocido y rápido,
+ *   se hace UN segundo request dentro del mismo lease;
+ * - cualquier segundo fallo conserva exactamente el fallback/cooldown del cron.
  */
 export async function runAutoPrecalificarJob(input: {
   expedienteId: string;
@@ -149,23 +183,31 @@ export async function runAutoPrecalificarJob(input: {
         return { resultado, razon };
       }
 
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), SCRAPER_TIMEOUT_MS);
-      let upstream: Response;
-      let payload: AutoPrecalScraperPayload;
-      try {
-        upstream = await fetch(`${scraperUrl.replace(/\/$/, "")}/precalificar`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "x-scraper-secret": scraperSecret,
-          },
-          body: JSON.stringify({ nss, workerIndex: 0 }),
-          signal: controller.signal,
-        });
-        payload = (await upstream.json()) as AutoPrecalScraperPayload;
-      } finally {
-        clearTimeout(timeoutId);
+      const firstStartedAt = Date.now();
+      let { upstream, payload } = await fetchScraperOnce({
+        scraperUrl,
+        scraperSecret,
+        nss,
+      });
+      const firstMs = Date.now() - firstStartedAt;
+      const immediateRetryKind = classifyAutoPrecalImmediateRetry(payload);
+
+      if (
+        immediateRetryKind &&
+        firstMs <= IMMEDIATE_RETRY_FIRST_ATTEMPT_MAX_MS
+      ) {
+        console.warn(
+          `[auto-precalificar] immediate_retry_transient expediente_id=${expedienteId} nss=${nss} kind=${immediateRetryKind} first_ms=${firstMs} attempt=2/2`,
+        );
+        const secondStartedAt = Date.now();
+        ({ upstream, payload } = await fetchScraperOnce({
+          scraperUrl,
+          scraperSecret,
+          nss,
+        }));
+        console.log(
+          `[auto-precalificar] immediate_retry_completed expediente_id=${expedienteId} nss=${nss} kind=${immediateRetryKind} second_ms=${Date.now() - secondStartedAt} status=${upstream.status}`,
+        );
       }
 
       const decision = decideAutoPrecalFromScraper(
