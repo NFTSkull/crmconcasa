@@ -122,8 +122,28 @@ function refHasStructuredNames(r: ClienteDatosReferenciaCaptura | undefined): bo
   );
 }
 
+function normNumeric(raw: string): number | null {
+  const normalized = String(raw ?? "")
+    .trim()
+    .replace(/[$,\s]/g, "");
+  if (!normalized) return null;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function sameNumericText(a: string, b: string): boolean {
+  const left = normNumeric(a);
+  const right = normNumeric(b);
+  if (left == null || right == null) {
+    return String(a ?? "").trim() === String(b ?? "").trim();
+  }
+  return Math.abs(left - right) < 0.000001;
+}
+
 /**
  * Tras save exitoso: no borrar borrador local si la respuesta perdió captura crítica.
+ * La comprobación es semántica: valores numéricos serializados por Postgres pueden
+ * volver con otra representación equivalente (ej. `12.50` → `12.5`) sin pérdida real.
  */
 export function clienteDatosSavedPreservesCapture(params: Readonly<{
   sent: ExpedienteClienteDatos["datos"];
@@ -165,10 +185,21 @@ export function clienteDatosSavedPreservesCapture(params: Readonly<{
   if (!same(sent.direccionEmpresa.colonia, saved.direccionEmpresa.colonia)) return false;
   if (!same(sent.direccionEmpresa.municipio, saved.direccionEmpresa.municipio)) return false;
   if (!same(sent.direccionEmpresa.cp, saved.direccionEmpresa.cp)) return false;
-  if (!same(sent.montoMejoravit ?? "", saved.montoMejoravit ?? "")) return false;
+  if (!sameNumericText(sent.montoMejoravit ?? "", saved.montoMejoravit ?? "")) {
+    return false;
+  }
   if (!same(sent.plazo ?? "", saved.plazo ?? "")) return false;
-  if (!same(sent.porcentajeCobro ?? "", saved.porcentajeCobro ?? "")) return false;
-  if (!same(sent.metodoPago ?? "", saved.metodoPago ?? "")) return false;
+  if (!sameNumericText(sent.porcentajeCobro ?? "", saved.porcentajeCobro ?? "")) {
+    return false;
+  }
+  if (
+    !same(
+      String(sent.metodoPago ?? "").toLowerCase(),
+      String(saved.metodoPago ?? "").toLowerCase(),
+    )
+  ) {
+    return false;
+  }
   if (!same(sent.notaMesa ?? "", saved.notaMesa ?? "")) return false;
   if (
     savedDireccionOpcional != null &&

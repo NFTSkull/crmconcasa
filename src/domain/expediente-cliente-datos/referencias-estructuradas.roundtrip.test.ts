@@ -288,6 +288,42 @@ describe("clienteDatosSavedPreservesCapture", () => {
     );
   });
 
+  it("PASS cuando Postgres devuelve porcentaje numéricamente equivalente", () => {
+    const sent = baseDatos({ porcentajeCobro: "12.50" });
+    const saved = baseDatos({ porcentajeCobro: "12.5" });
+    assert.equal(
+      clienteDatosSavedPreservesCapture({
+        sent,
+        saved,
+        sentDireccionOpcional: "DOM",
+        savedDireccionOpcional: "DOM",
+        requireReferenciasEstructuradas: false,
+      }),
+      true,
+    );
+  });
+
+  it("PASS en perfil simplificado aunque las referencias no regresen", () => {
+    const sent = baseDatos({
+      porcentajeCobro: "15.00",
+      referencias: [],
+    });
+    const saved = baseDatos({
+      porcentajeCobro: "15",
+      referencias: [],
+    });
+    assert.equal(
+      clienteDatosSavedPreservesCapture({
+        sent,
+        saved,
+        sentDireccionOpcional: "DOM",
+        savedDireccionOpcional: "DOM",
+        requireReferenciasEstructuradas: false,
+      }),
+      true,
+    );
+  });
+
   it("FAIL si saved pierde apellidos de refs", () => {
     const sent = baseDatos();
     const saved = baseDatos({
@@ -302,6 +338,29 @@ describe("clienteDatosSavedPreservesCapture", () => {
         saved,
         sentDireccionOpcional: "DOM",
         requireReferenciasEstructuradas: true,
+      }),
+      false,
+    );
+  });
+
+  it("FAIL si realmente desaparece un campo crítico", () => {
+    const sent = baseDatos({ porcentajeCobro: "12.50" });
+    const saved = baseDatos({
+      porcentajeCobro: "12.5",
+      direccionEmpresa: {
+        calle: "CALLE 1",
+        colonia: "COL",
+        municipio: "MTY",
+        cp: "",
+      },
+    });
+    assert.equal(
+      clienteDatosSavedPreservesCapture({
+        sent,
+        saved,
+        sentDireccionOpcional: "DOM",
+        savedDireccionOpcional: "DOM",
+        requireReferenciasEstructuradas: false,
       }),
       false,
     );
