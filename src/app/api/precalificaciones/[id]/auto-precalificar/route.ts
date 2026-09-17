@@ -124,6 +124,7 @@ export async function POST(request: Request, { params }: RouteParams) {
         programa,
         scraperUrl,
         scraperSecret,
+        allowImmediateTransientRetry: true,
       }).catch((err) => {
         console.error(
           `[auto-precalificar] job falló expediente_id=${expedienteId} nss=${nss}`,
