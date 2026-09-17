@@ -3,6 +3,17 @@
 ### Decisión
 Producto: Constancia de Situación Fiscal no es gate de envío. Cloud `envio_para` ya regresa 5. FE `sameExactSet` exige match exacto → hay que bajar `INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_SILVIA` de 6→5 o el parse vuelve a degradar a 4 clásicos.
 
+## 2026-09-17 - P3: document_extractions worker shadow
+
+### Decisión
+Motor ejecutable shadow separado de OCR real: claim SKIP LOCKED + lease 5m, complete atómico con doble check de vigencia, provider `shadow` no-op. Flags enqueue/worker independientes DEFAULT OFF. Secret worker propio (no Sheets/P189).
+
+### Qué
+Mig `20260917220000_document_extractions_worker_shadow_p3.sql`; Edge `document-extraction-worker`; pipeline/tests TS; SQL runtime P3.
+
+### No
+OCR/providers externos/autofill/upload hook/Cloud cron/agenda/P189.
+
 ## 2026-09-17 - P2: document_extractions shadow (sin OCR)
 
 ### Decisión

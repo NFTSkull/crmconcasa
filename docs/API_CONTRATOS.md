@@ -1970,6 +1970,20 @@ Tablas: `document_extractions` (resultado; `payload_raw` = PII) + `document_extr
 
 Detalle: `docs/DOCUMENT_EXTRACTIONS.md`.
 
+## 19quinquies-ter. Document Extractions P3 — worker shadow claim/lease (LOCAL, sin OCR)
+
+**Migración:** `20260917220000_document_extractions_worker_shadow_p3.sql` (**NO Cloud apply**).
+
+| RPC | Rol |
+|---|---|
+| `document_extraction_claim_jobs(p_limit)` | SKIP LOCKED + lease 5m; batch ≤5; sin PII |
+| `document_extraction_load_job_meta(job_id)` | storage path/mime; sin payload_raw |
+| `document_extraction_complete_job(...)` | done atómico; double-check current; stale no revive |
+| `document_extraction_mark_failed(...)` | backoff o dead |
+| `document_extraction_mark_stale(...)` | job+extraction stale |
+
+Vault `document_extraction_worker_enabled` DEFAULT OFF. Edge `document-extraction-worker` + secret `DOCUMENT_EXTRACTION_WORKER_SECRET` / header `x-concasa-doc-extraction-secret`. Provider solo `shadow` (no-op). **Sin** upload hook / cron Production / OCR.
+
 ## 19sexies. P189 B5 — Visibilidad / preview / descarga (LOCAL)
 
 **Migración:** `187_infonavit_pdf_read_model.sql` (NO Cloud apply). 183–186 intactas. No modifica worker/cron/Vault/templates.
