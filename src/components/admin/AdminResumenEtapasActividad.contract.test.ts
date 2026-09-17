@@ -40,6 +40,12 @@ describe("AdminResumenEtapasActividad contrato visual", () => {
     assert.doesNotMatch(source, /Paso 11/);
   });
 
+  it("Buscar queda como localizador y no cambia el universo del Resumen", () => {
+    assert.match(source, /p_buscar: null/);
+    assert.match(source, /Buscar es un localizador/);
+    assert.match(source, /esta vista conserva las cifras generales del periodo/);
+  });
+
   it("conserva cobertura histórica y fuentes read-only", () => {
     assert.match(source, /historyCompleteForPeriod/);
     assert.match(source, /historyCoverageFrom/);

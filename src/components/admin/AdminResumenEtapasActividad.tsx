@@ -282,7 +282,7 @@ export function AdminResumenEtapasActividad({
           p_to_exclusive: bounds.toExclusiveIso,
           p_asesor_id: asesorId,
           p_estado: estado === "todos" ? null : estado,
-          p_buscar: buscar?.trim() || null,
+          p_buscar: null,
         },
       );
       if (rpcError) throw new Error(rpcError.message || "No se pudo cargar el resumen");
@@ -298,7 +298,7 @@ export function AdminResumenEtapasActividad({
     } finally {
       if (seq === seqRef.current) setLoading(false);
     }
-  }, [bounds.fromIso, bounds.toExclusiveIso, asesorId, estado, buscar]);
+  }, [bounds.fromIso, bounds.toExclusiveIso, asesorId, estado]);
 
   useEffect(() => {
     void load();
@@ -359,6 +359,13 @@ export function AdminResumenEtapasActividad({
             </p>
           ) : null}
         </div>
+
+        {buscar ? (
+          <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-2 text-xs leading-relaxed text-slate-600">
+            <strong className="font-semibold text-slate-800">Buscar es un localizador.</strong>{" "}
+            Los resultados encontrados se muestran aparte; esta vista conserva las cifras generales del periodo para que todos los indicadores usen la misma base.
+          </div>
+        ) : null}
 
         {selectedStage ? (
           <div className="mt-4 grid gap-3 md:grid-cols-3">
