@@ -9,17 +9,18 @@ describe("AdminResumenEtapasActividad contrato visual", () => {
     "utf8",
   );
 
-  it("unifica cohorte, movimientos y foto actual en una sola lectura por etapa", () => {
+  it("unifica ingresos, movimientos y foto actual en una tabla por etapa", () => {
     assert.match(source, /Flujo de expedientes/);
-    assert.match(source, /Pasaron aquí/);
+    assert.match(source, /Pasaron en el periodo/);
     assert.match(source, /Siguen aquí/);
-    assert.match(source, /Total hoy/);
-    assert.match(source, /Ingresaron a Mesa/);
-    assert.match(source, /Tuvieron movimiento/);
-    assert.match(source, /Expedientes hoy/);
+    assert.match(source, /Total actual/);
+    assert.match(source, /ingresos del periodo/);
+    assert.match(source, /expedientes con movimiento/);
+    assert.match(source, /expedientes actuales/);
+    assert.match(source, /<table/);
   });
 
-  it("conserva los 11 pasos canónicos y alinea la cohorte interna al mismo paso visual", () => {
+  it("conserva los 11 pasos canónicos y alinea los ingresos al mismo paso visual", () => {
     assert.match(source, /ETAPAS_VISUALES_OPERATIVAS\.map/);
     assert.match(source, /mapEtapaInternaAPasoVisual\(bucket\.etapa\)/);
     assert.match(source, /cohortBuckets/);
