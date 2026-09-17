@@ -27,7 +27,7 @@ describe("Admin filters contract E1-E9 R1", () => {
     assert.doesNotMatch(page, /fallback.*snapshot|snapshotListFilters/);
   });
 
-  it("E6 etapaActuales nace en filtersBase y gobierna KPIs/listados", () => {
+  it("E6 etapa gobierna listados operativos pero no los cinco KPIs generales", () => {
     const blockStart = page.indexOf("const filtersBase = useMemo");
     const blockEnd = page.indexOf("const periodStageFiltersBase", blockStart);
     assert.ok(blockStart >= 0 && blockEnd > blockStart);
@@ -35,16 +35,22 @@ describe("Admin filters contract E1-E9 R1", () => {
     assert.match(block, /etapaActualesFromAdminPasoFilter\(etapaActual\)/);
     assert.match(block, /etapaActuales/);
     assert.deepEqual(etapaActualesFromAdminPasoFilter("3"), [3, 4]);
+
+    assert.match(page, /repo\.getSummary\(periodStageFiltersBase\)/);
+    assert.doesNotMatch(page, /repo\.getSummary\(filtersBase\)/);
+    assert.match(page, /Estas cinco métricas muestran el periodo completo/);
   });
 
-  it("E7 resumen unificado usa periodo y conserva todas las etapas", () => {
+  it("E7 resumen usa periodo y una sola numeración Admin de 10 etapas", () => {
     assert.match(page, /repo\.getMesaCohortByEtapa\(periodStageFiltersBase\)/);
     assert.equal(ADMIN_FILTER_MATRIX.resumenEtapasPeriodo.periodo, true);
     assert.equal(ADMIN_FILTER_MATRIX.resumenEtapasPeriodo.etapa, false);
     assert.match(page, /<AdminResumenEtapasActividad/);
     assert.match(page, /cohortBuckets=\{byEtapa\}/);
-    assert.match(component, /ETAPAS_VISUALES_OPERATIVAS\.map/);
-    assert.match(component, /mapEtapaInternaAPasoVisual\(bucket\.etapa\)/);
+    assert.match(component, /ADMIN_VISIBLE_STAGES\.map/);
+    assert.match(component, /mapEtapaInternaAAdminPaso\(bucket\.etapa\)/);
+    assert.match(component, /by_paso_admin/);
+    assert.match(component, /TOTAL_PASOS_ADMIN_VISIBLES/);
   });
 
   it("E8 Precal usa filtersBase + periodo + etapa", () => {
@@ -53,13 +59,12 @@ describe("Admin filters contract E1-E9 R1", () => {
     assert.equal(ADMIN_FILTER_MATRIX.precal.etapa, true);
   });
 
-  it("E9 click de tarjeta siempre hace drill-down preservando periodo", () => {
+  it("E9 click de etapa siempre hace drill-down preservando periodo", () => {
     const start = page.indexOf("const onEtapaCardPress");
     const end = page.indexOf("const applyAsesorFilter", start);
     const block = page.slice(start, end);
     assert.match(block, /nextPasoVisualFilterFromInternalCard\("todas", etapa\)/);
     assert.match(block, /handleTabChange\("expedientes"\)/);
-    assert.doesNotMatch(block, /if \(next !== "todas"\)/);
     assert.match(page, /Periodo: <strong className="font-semibold tabular-nums">\{periodoLabel\}<\/strong>/);
   });
 
@@ -80,10 +85,11 @@ describe("Admin filters contract E1-E9 R1", () => {
     assert.doesNotMatch(tabs, /label:.*"Histórico y cohorte"/);
   });
 
-  it("Resumen unificado resalta etapa activa sin recortar tarjetas", () => {
-    assert.match(component, /selectedVisualSteps\.has\(etapa\.pasoVisual\)/);
-    assert.match(component, /ETAPAS_VISUALES_OPERATIVAS\.map/);
+  it("Resumen enfoca la etapa seleccionada sin alterar la base del periodo", () => {
+    assert.match(component, /const selectedStage = useMemo/);
+    assert.match(component, /ADMIN_VISIBLE_STAGES\.find/);
     assert.match(page, /selectedInternalStages=\{etapaActualesSeleccionadas\}/);
+    assert.match(component, /Paso \{selectedStage\.pasoAdmin\} de \{TOTAL_PASOS_ADMIN_VISIBLES\}/);
   });
 
   it("matriz: Expedientes, Producción y Precal respetan etapa", () => {

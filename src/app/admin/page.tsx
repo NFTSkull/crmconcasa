@@ -244,8 +244,8 @@ export default function AdminDashboardPage() {
     };
   }, [bounds, asesorId, etapaActual, estado, buscarDebounced, precalDecision]);
 
-  // Desglose del periodo: respeta periodo/asesor/estado/búsqueda, pero no
-  // la etapa activa, porque el cuadro debe mostrar siempre todas las etapas.
+  // Resumen ejecutivo del periodo: conserva asesor/estado/búsqueda y deja la
+  // etapa activa únicamente para el detalle operativo, no para los KPI generales.
   const periodStageFiltersBase = useMemo(() => {
     if (!bounds) return null;
     return {
@@ -302,7 +302,6 @@ export default function AdminDashboardPage() {
     () => projectAdminVisibleStageBuckets(byEtapa, snapshotTotal),
     [byEtapa, snapshotTotal],
   );
-  // La etapa seleccionada solo se resalta; jamás oculta las demás tarjetas.
   const visibleByEtapa = allVisibleByEtapa;
   const visibleSnapshotTotal = snapshotTotal;
 
@@ -528,7 +527,7 @@ export default function AdminDashboardPage() {
   }, [timelineOpen, closeTimeline]);
 
   const load = useCallback(async () => {
-    if (!filtersBase) {
+    if (!filtersBase || !periodStageFiltersBase) {
       setError("Rango de fechas inválido");
       setLoading(false);
       return;
@@ -538,7 +537,7 @@ export default function AdminDashboardPage() {
     try {
       const filtersSinAsesor = { ...filtersBase, asesorId: null };
       const [s, as, asOpts, precal] = await Promise.all([
-        repo.getSummary(filtersBase),
+        repo.getSummary(periodStageFiltersBase),
         repo.listByAsesor(filtersBase),
         repo.listByAsesor(filtersSinAsesor),
         repo.listPrecalificacionesPage({
@@ -558,7 +557,7 @@ export default function AdminDashboardPage() {
     } finally {
       setLoading(false);
     }
-  }, [filtersBase, precalPage, repo]);
+  }, [filtersBase, periodStageFiltersBase, precalPage, repo]);
 
   const loadSnapshot = useCallback(async () => {
     if (!periodStageFiltersBase) {
@@ -682,8 +681,6 @@ export default function AdminDashboardPage() {
   };
 
   const onEtapaCardPress = (etapa: number) => {
-    // Drill-down estable: si la etapa ya estaba activa, el click vuelve a abrirla
-    // en vez de convertir el filtro a “Todas”. El periodo permanece intacto.
     const next = nextPasoVisualFilterFromInternalCard("todas", etapa);
     setEtapaActual(next);
     setMesaPage(mesaPageAfterEtapaChange());
@@ -841,16 +838,16 @@ export default function AdminDashboardPage() {
                 </summary>
                 <div className="absolute right-0 top-full z-30 mt-2 w-[min(26rem,calc(100vw-2rem))] rounded-lg border border-slate-200 bg-white p-3 text-xs font-normal leading-relaxed text-slate-700 shadow-lg">
                   <p>
-                    El periodo aplica a los KPI, Expedientes, Producción,
+                    El periodo aplica a los KPI generales, Expedientes, Producción,
                     precalificaciones y Excel.
                   </p>
                   <p className="mt-2">
-                    El desglose por etapas del Resumen usa el mismo periodo seleccionado
-                    y siempre muestra todas las etapas. La etapa activa solo se resalta.
+                    En Resumen, la etapa seleccionada abre un detalle operativo, pero no cambia
+                    las cinco cifras generales del periodo.
                   </p>
                   <p className="mt-2 text-slate-600">
-                    Asesor, etapa actual y estado se aplican al mismo universo de
-                    Resumen, Expedientes, Producción, precalificaciones y Excel.
+                    Asesor, estado y búsqueda sí se conservan en el Resumen. La etapa actual
+                    sigue filtrando Expedientes, Producción, precalificaciones y Excel.
                   </p>
                 </div>
               </details>
@@ -996,46 +993,43 @@ export default function AdminDashboardPage() {
         ) : null}
 
         <AdminSectionHeader
-          title={
-            etapaFiltroNombreCorto
-              ? `Resumen del periodo · ${etapaFiltroNombreCorto}`
-              : "Resumen del periodo"
-          }
+          title="Resumen del periodo"
           description={
             etapaFiltroNombreCorto
-              ? `KPIs del rango seleccionado limitados a ${etapaFiltroNombreCorto}.`
-              : "KPIs del rango seleccionado. No se mezclan con el localizador de búsqueda."
+              ? `Estas cinco métricas muestran el periodo completo. El filtro de etapa se explica abajo en el detalle de ${etapaFiltroNombreCorto}.`
+              : "Métricas generales del rango seleccionado. Cada tarjeta indica la fecha que usa para contar."
           }
         />
         {loading ? (
           <p className="text-gray-700">Cargando producción…</p>
         ) : (
+          <>
             <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
               {[
                 {
-                  title: "Ingresos",
+                  title: "Ingresos a Mesa",
                   value: summary?.enviadosAMesa ?? 0,
-                  hint: `Expedientes enviados a Mesa · ${periodoLabel}`,
+                  hint: `Enviados a Mesa · ${periodoLabel}`,
                 },
                 {
                   title: "Precal. aprobadas",
                   value: summary?.precalificacionesAprobadas ?? 0,
-                  hint: "Según fecha de aprobación",
+                  hint: "Aprobaciones registradas en el periodo",
                 },
                 {
                   title: "No cumple",
                   value: summary?.precalificacionesNoCumple ?? 0,
-                  hint: "Según fecha de rechazo",
+                  hint: "Rechazos registrados en el periodo",
                 },
                 {
                   title: "Aprobadas > $20k",
                   value: summary?.aprobadasMayorA20000 ?? 0,
-                  hint: "Monto al aprobar",
+                  hint: "Aprobaciones del periodo con monto > $20k",
                 },
                 {
                   title: "Monto Mejoravit",
                   value: formatMontoMX(summary?.montoAprobadoTotal ?? 0),
-                  hint: "Total aprobado · Mejoravit",
+                  hint: "Monto aprobado registrado en el periodo",
                 },
               ].map((card) => {
                 const isMontoKpi = card.title === "Monto Mejoravit";
@@ -1062,6 +1056,10 @@ export default function AdminDashboardPage() {
                 );
               })}
             </section>
+            <p className="mt-2 text-xs leading-relaxed text-slate-500">
+              Ingresos usa la fecha de envío a Mesa. Aprobadas y No cumple usan la fecha de resolución de la precalificación; por eso no deben sumarse ni compararse como partes de un mismo total.
+            </p>
+          </>
         )}
 
             {bounds ? (
