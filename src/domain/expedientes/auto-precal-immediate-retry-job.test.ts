@@ -64,6 +64,7 @@ describe("auto-precal reintento inmediato transitorio", () => {
       programa: "mejoravit",
       scraperUrl: "https://scraper.test",
       scraperSecret: "secret",
+      allowImmediateTransientRetry: true,
       supabase: supabase as never,
     });
 
@@ -96,6 +97,7 @@ describe("auto-precal reintento inmediato transitorio", () => {
       programa: "mejoravit",
       scraperUrl: "https://scraper.test",
       scraperSecret: "secret",
+      allowImmediateTransientRetry: true,
       supabase: supabase as never,
     });
 
@@ -130,6 +132,7 @@ describe("auto-precal reintento inmediato transitorio", () => {
       programa: "mejoravit",
       scraperUrl: "https://scraper.test",
       scraperSecret: "secret",
+      allowImmediateTransientRetry: true,
       supabase: supabase as never,
     });
 
@@ -138,5 +141,32 @@ describe("auto-precal reintento inmediato transitorio", () => {
       razon: "scraper_failed",
     });
     assert.equal(fetchCalls, 2);
+  });
+
+  it("sin opt-in, un fallo transitorio conserva un solo request para el cron", async () => {
+    let fetchCalls = 0;
+    globalThis.fetch = (async () => {
+      fetchCalls += 1;
+      return new Response(
+        JSON.stringify({ error: "Login fallido después de 3 intentos" }),
+        { status: 500, headers: { "Content-Type": "application/json" } },
+      );
+    }) as typeof fetch;
+
+    const { supabase } = mockSupabase();
+    const result = await runAutoPrecalificarJob({
+      expedienteId: "44444444-4444-4444-8444-444444444444",
+      nss: "12345678901",
+      programa: "mejoravit",
+      scraperUrl: "https://scraper.test",
+      scraperSecret: "secret",
+      supabase: supabase as never,
+    });
+
+    assert.deepEqual(result, {
+      resultado: "pending_error",
+      razon: "scraper_failed",
+    });
+    assert.equal(fetchCalls, 1);
   });
 });
