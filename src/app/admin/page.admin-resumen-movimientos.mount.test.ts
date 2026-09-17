@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, it } from "node:test";
 
-describe("Admin resumen — flujo unificado del periodo y foto actual", () => {
+describe("Admin resumen — distribución actual + actividad del periodo", () => {
   const page = readFileSync(
     join(process.cwd(), "src/app/admin/page.tsx"),
     "utf8",
@@ -20,12 +20,11 @@ describe("Admin resumen — flujo unificado del periodo y foto actual", () => {
     "utf8",
   );
 
-  it("monta una sola vista y reutiliza el desglose del periodo dentro del mismo bloque", () => {
+  it("monta una sola vista y reutiliza las fuentes read-only existentes", () => {
     assert.doesNotMatch(page, /title="Etapas del periodo"/);
     assert.match(page, /<AdminResumenEtapasActividad/);
     assert.match(page, /bounds=\{bounds\}/);
     assert.match(page, /periodoLabel=\{periodoLabel\}/);
-    assert.match(page, /selectedInternalStages=\{etapaActualesSeleccionadas\}/);
     assert.match(page, /cohortBuckets=\{byEtapa\}/);
     assert.match(page, /cohortTotal=\{snapshotTotal\}/);
     assert.match(page, /onStagePress=\{onEtapaCardPress\}/);
@@ -39,14 +38,14 @@ describe("Admin resumen — flujo unificado del periodo y foto actual", () => {
     assert.match(component, /p_to_exclusive: bounds\.toExclusiveIso/);
   });
 
-  it("presenta actividad, ubicación de ingresos y foto actual en una sola tabla", () => {
-    assert.match(component, /Flujo de expedientes/);
-    assert.match(component, /Pasaron en el periodo/);
-    assert.match(component, /Siguen aquí/);
-    assert.match(component, /Total actual/);
-    assert.match(component, /ya venían de antes/);
-    assert.match(component, /ingresaron a Mesa en el rango/);
-    assert.match(component, /<table/);
+  it("separa ubicación actual de actividad histórica para no mezclar significados", () => {
+    assert.match(component, /Distribución actual de los ingresos del periodo/);
+    assert.match(component, /de los ingresos siguen aquí/);
+    assert.match(component, /CRM hoy:/);
+    assert.match(component, /<details/);
+    assert.match(component, /Ver actividad del periodo por etapa/);
+    assert.match(component, /Pasaron por aquí/);
+    assert.match(component, /Venían de antes/);
     assert.match(component, /ETAPAS_VISUALES_OPERATIVAS\.map/);
     assert.match(component, /historyCompleteForPeriod/);
   });
