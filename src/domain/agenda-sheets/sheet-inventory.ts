@@ -40,7 +40,7 @@ export type ParsedPhysicalSlotRow = Readonly<{
   locationId: "monterrey" | "apodaca";
   /** Horario lógico CRM (post-alias). */
   slotTime: string;
-  /** Horario físico columna A del Sheet. */
+  /** Horario físico columna A. */
   sheetSlotTime: string;
   slotKey: string;
   status: InventoryRowStatus;
@@ -64,6 +64,8 @@ export type SheetInventoryParseIssue = Readonly<{
 }>;
 
 const NO_HAY_CITAS_RE = /^NO\s+HAY\s+CITAS\b/i;
+/** Bloque operativo ajeno a la agenda. Nunca debe consumir cupo de citas. */
+const NON_AGENDA_BLOCK_RE = /^LEO\b/i;
 
 function cell(row: readonly string[] | undefined, idx: number): string {
   return String(row?.[idx] ?? "").trim();
@@ -100,6 +102,7 @@ export function parsePhysicalInventoryFromGrid(params: {
   let section: SheetSectionRef | null = null;
   let orphans: OrphanBuf[] = [];
   let orphanPrevSection: SheetSectionRef | null = null;
+  let ignoringNonAgendaBlock = false;
 
   const emitSlot = (
     sheetRow: number,
@@ -196,6 +199,22 @@ export function parsePhysicalInventoryFromGrid(params: {
     const sheetRow = i + 1;
     const row = grid[i] ?? [];
     const a = cell(row, 0);
+
+    if (NON_AGENDA_BLOCK_RE.test(a)) {
+      flushOrphans(null);
+      section = null;
+      ignoringNonAgendaBlock = true;
+      continue;
+    }
+
+    if (ignoringNonAgendaBlock) {
+      const nextSection = parseSheetSectionHeader(a);
+      if (nextSection.ok) {
+        section = nextSection.value;
+        ignoringNonAgendaBlock = false;
+      }
+      continue;
+    }
 
     if (!a) {
       const nssBlank = cell(row, 1);
