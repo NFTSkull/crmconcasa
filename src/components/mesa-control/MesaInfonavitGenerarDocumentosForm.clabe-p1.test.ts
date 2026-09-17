@@ -145,4 +145,65 @@ describe("Mesa Infonavit P1 CLABE checksum", () => {
     assert.match(fillSrc, /T33_BLANK/);
     assert.match(fillSrc, /clabeDerechohabiente/);
   });
+
+  it("onChange NO limpia letras ni puntos silenciosamente (regresión)", () => {
+    const formSrc = readFileSync(
+      join(
+        process.cwd(),
+        "src/components/mesa-control/MesaInfonavitGenerarDocumentosForm.tsx",
+      ),
+      "utf8",
+    );
+    // El campo CLABE debe pasar el valor crudo al updater (sin replace que borre basura).
+    assert.match(
+      formSrc,
+      /label="CLABE del derechohabiente"[\s\S]*?onChange=\{\(v\) => updateDestinoClabeDerechohabiente\(v\)\}/,
+    );
+    assert.doesNotMatch(
+      formSrc,
+      /updateDestinoClabeDerechohabiente\(\s*v\.replace/,
+    );
+
+    assert.equal(
+      validateClabeDerechohabienteForGenerate("03218000011835971A").ok,
+      false,
+    );
+    assert.equal(
+      validateClabeDerechohabienteForGenerate("0321.8000.0118.3597.19").ok,
+      false,
+    );
+    assert.equal(
+      validateClabeDerechohabienteForGenerate("0321 8000 0118 3597 19").ok,
+      true,
+    );
+    assert.equal(
+      validateClabeDerechohabienteForGenerate("0321-8000-0118-3597-19").ok,
+      true,
+    );
+
+    // Valor con letra se conserva en draft (no se “arregla” al parsear destino).
+    const withLetter = parseMesaInfonavitDocumentDraft({
+      destinoRecursos: { clabeDerechohabiente: "03218000011835971A" },
+    });
+    assert.equal(
+      withLetter.destinoRecursos.clabeDerechohabiente,
+      "03218000011835971A",
+    );
+    assert.equal(withLetter.destinoRecursos.porcentajeTitulacion, "");
+    assert.equal(withLetter.destinoRecursos.clabeNotaria, "");
+
+    const payload = buildMesaInfonavitGeneratePayload(
+      minimalDraft({
+        porcentajeTitulacion: "",
+        clabeNotaria: "",
+        clabeDerechohabiente: "0321-8000-0118-3597-19",
+      }),
+    );
+    assert.equal(payload.destinoRecursos.porcentajeTitulacion, "");
+    assert.equal(payload.destinoRecursos.clabeNotaria, "");
+    assert.equal(
+      payload.destinoRecursos.clabeDerechohabiente,
+      "032180000118359719",
+    );
+  });
 });

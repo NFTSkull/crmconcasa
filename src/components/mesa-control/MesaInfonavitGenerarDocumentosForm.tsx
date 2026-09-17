@@ -756,13 +756,8 @@ export function MesaInfonavitGenerarDocumentosForm({
           <Field
             label="CLABE del derechohabiente"
             value={draft.destinoRecursos.clabeDerechohabiente}
-            onChange={(v) =>
-              updateDestinoClabeDerechohabiente(
-                // Digitos / espacios / guiones; letras y basura se rechazan (no se “arreglan”).
-                v.replace(/[^\d\s-]/g, "").slice(0, 27),
-              )
-            }
-            maxLength={27}
+            onChange={(v) => updateDestinoClabeDerechohabiente(v)}
+            maxLength={40}
           />
         </div>
       </div>
