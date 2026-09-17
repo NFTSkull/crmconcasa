@@ -8,6 +8,10 @@ import { etapaActualesFromAdminPasoFilter } from "@/domain/admin-production/admi
 
 describe("Admin filters contract E1-E9 R1", () => {
   const page = readFileSync(join(process.cwd(), "src/app/admin/page.tsx"), "utf8");
+  const component = readFileSync(
+    join(process.cwd(), "src/components/admin/AdminResumenEtapasActividad.tsx"),
+    "utf8",
+  );
   const tabs = readFileSync(join(process.cwd(), "src/lib/adminUxTabs.ts"), "utf8");
 
   it("E1–E4 Expedientes usa listMesaEnviosPage con mesaListFilters (bounds)", () => {
@@ -33,12 +37,14 @@ describe("Admin filters contract E1-E9 R1", () => {
     assert.deepEqual(etapaActualesFromAdminPasoFilter("3"), [3, 4]);
   });
 
-  it("E7 desglose por etapas usa periodo y conserva todas las etapas", () => {
+  it("E7 resumen unificado usa periodo y conserva todas las etapas", () => {
     assert.match(page, /repo\.getMesaCohortByEtapa\(periodStageFiltersBase\)/);
     assert.equal(ADMIN_FILTER_MATRIX.resumenEtapasPeriodo.periodo, true);
     assert.equal(ADMIN_FILTER_MATRIX.resumenEtapasPeriodo.etapa, false);
-    assert.match(page, /const visibleByEtapa = allVisibleByEtapa/);
-    assert.match(page, /title="Etapas del periodo"/);
+    assert.match(page, /<AdminResumenEtapasActividad/);
+    assert.match(page, /cohortBuckets=\{byEtapa\}/);
+    assert.match(component, /ETAPAS_VISUALES_OPERATIVAS\.map/);
+    assert.match(component, /mapEtapaInternaAPasoVisual\(bucket\.etapa\)/);
   });
 
   it("E8 Precal usa filtersBase + periodo + etapa", () => {
@@ -69,14 +75,15 @@ describe("Admin filters contract E1-E9 R1", () => {
   });
 
   it("R1 UI visible sin la palabra cohorte", () => {
-    assert.doesNotMatch(page, /cohorte/i);
+    assert.doesNotMatch(page, />[^<]*cohorte[^<]*</i);
+    assert.doesNotMatch(component, />[^<]*cohorte[^<]*</i);
     assert.doesNotMatch(tabs, /label:.*"Histórico y cohorte"/);
   });
 
-  it("Admin proyección: etapa activa se resalta sin recortar tarjetas", () => {
-    assert.match(page, /projectAdminVisibleStageBuckets/);
-    assert.match(page, /visibleByEtapa\.map/);
-    assert.match(page, /isAdminPasoVisualFilterPressed\(etapaActual, b\.etapa\)/);
+  it("Resumen unificado resalta etapa activa sin recortar tarjetas", () => {
+    assert.match(component, /selectedVisualSteps\.has\(etapa\.pasoVisual\)/);
+    assert.match(component, /ETAPAS_VISUALES_OPERATIVAS\.map/);
+    assert.match(page, /selectedInternalStages=\{etapaActualesSeleccionadas\}/);
   });
 
   it("matriz: Expedientes, Producción y Precal respetan etapa", () => {
