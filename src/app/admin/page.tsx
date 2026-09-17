@@ -1064,96 +1064,6 @@ export default function AdminDashboardPage() {
             </section>
         )}
 
-            <section className="rounded-lg border border-slate-200 bg-white p-4">
-              <AdminSectionHeader
-                title="Etapas del periodo"
-                description={`Todos los expedientes enviados a Mesa en ${periodoLabel}, agrupados por su etapa actual. La etapa activa solo se resalta; no oculta las demás. Pulsa cualquier etapa para ver sus expedientes con este mismo periodo.`}
-              />
-              {snapshotLoading && byEtapa.length === 0 ? (
-                <p className="mt-3 text-sm text-gray-700">
-                  Calculando expedientes del periodo por etapa…
-                </p>
-              ) : snapshotError ? (
-                <div className="mt-3 flex flex-wrap items-center gap-3 text-sm text-red-700">
-                  <span>No fue posible cargar las etapas del periodo. Reintentar.</span>
-                  <Button type="button" variant="secondary" onClick={() => void loadSnapshot()}>
-                    Reintentar
-                  </Button>
-                </div>
-              ) : visibleSnapshotTotal === 0 ? (
-                <AdminEmptyState
-                  title="No hay expedientes enviados a Mesa en el periodo seleccionado."
-                  description="Prueba limpiar o cambiar los filtros."
-                  onClearFilters={clearFilters}
-                />
-              ) : (
-                <>
-                  <div className="mt-3 flex flex-wrap items-baseline gap-x-4 gap-y-1 text-sm text-slate-800">
-                    <p>
-                      Total del periodo:{" "}
-                      <strong className="font-semibold tabular-nums">
-                        {visibleSnapshotTotal} expediente{visibleSnapshotTotal === 1 ? "" : "s"}
-                      </strong>
-                    </p>
-                    <p className="text-xs text-gray-700">
-                      Periodo: <strong className="font-medium text-slate-800">{periodoLabel}</strong>
-                    </p>
-                    {snapshotGeneratedAt ? (
-                      <p className="text-xs text-gray-700">
-                        Actualizado:{" "}
-                        {new Date(snapshotGeneratedAt).toLocaleTimeString("es-MX", {
-                          hour: "2-digit",
-                          minute: "2-digit",
-                          second: "2-digit",
-                        })}
-                      </p>
-                    ) : null}
-                    {snapshotLoading ? (
-                      <p className="text-xs text-gray-600">Actualizando…</p>
-                    ) : null}
-                  </div>
-                  <div className="mt-3 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
-                    {visibleByEtapa.map((b) => {
-                      const pressed = isAdminPasoVisualFilterPressed(etapaActual, b.etapa);
-                      const empty = b.count === 0;
-                      return (
-                        <button
-                          key={b.etapa}
-                          type="button"
-                          aria-pressed={pressed}
-                          onClick={() => onEtapaCardPress(b.etapa)}
-                          className={`rounded-md border px-3 py-2 text-left transition cursor-pointer ${etapaTone(b.etapa)} ${
-                            pressed
-                              ? "border-slate-900 bg-white shadow-sm ring-2 ring-slate-900 ring-offset-1"
-                              : "hover:border-slate-400 hover:shadow-sm"
-                          } ${empty && !pressed ? "opacity-70" : ""}`}
-                        >
-                          <div className="flex items-start justify-between gap-2">
-                            <p className="text-sm font-medium">
-                              {getAdminEtapaDisplayNombre(b.etapa)}
-                            </p>
-                            {pressed ? (
-                              <span
-                                aria-hidden="true"
-                                className="mt-0.5 inline-flex h-5 min-w-5 items-center justify-center rounded-sm bg-slate-900 px-1 text-[10px] font-semibold uppercase tracking-wide text-white"
-                              >
-                                Activa
-                              </span>
-                            ) : null}
-                          </div>
-                          <p className="text-xs text-gray-700">
-                            {b.count === 0
-                              ? "0 expedientes"
-                              : `${b.count} expediente${b.count === 1 ? "" : "s"} · ${b.pct}%`}
-                          </p>
-                        </button>
-                      );
-                    })}
-                  </div>
-                </>
-              )}
-            </section>
-
             {bounds ? (
               <AdminResumenEtapasActividad
                 bounds={bounds}
@@ -1162,6 +1072,13 @@ export default function AdminDashboardPage() {
                 estado={estado}
                 buscar={buscarDebounced || null}
                 selectedInternalStages={etapaActualesSeleccionadas}
+                cohortBuckets={byEtapa}
+                cohortTotal={snapshotTotal}
+                cohortLoading={snapshotLoading}
+                cohortError={snapshotError}
+                cohortGeneratedAt={snapshotGeneratedAt}
+                onRetryCohort={() => void loadSnapshot()}
+                onStagePress={onEtapaCardPress}
               />
             ) : null}
 

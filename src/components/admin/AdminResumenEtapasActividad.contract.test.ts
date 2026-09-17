@@ -9,15 +9,21 @@ describe("AdminResumenEtapasActividad contrato visual", () => {
     "utf8",
   );
 
-  it("explica claramente los cuatro números por etapa", () => {
-    assert.match(source, /Llegaron en periodo/);
-    assert.match(source, />Ahora</);
-    assert.match(source, /De antes/);
-    assert.match(source, /Ingresaron en rango/);
+  it("unifica ingresos, movimientos y foto actual en una tabla por etapa", () => {
+    assert.match(source, /Flujo de expedientes/);
+    assert.match(source, /Pasaron en el periodo/);
+    assert.match(source, /Siguen aquí/);
+    assert.match(source, /Total actual/);
+    assert.match(source, /ingresos del periodo/);
+    assert.match(source, /expedientes con movimiento/);
+    assert.match(source, /expedientes actuales/);
+    assert.match(source, /<table/);
   });
 
-  it("mantiene los 11 pasos canónicos y avisa cobertura incompleta", () => {
+  it("conserva los 11 pasos canónicos y alinea los ingresos al mismo paso visual", () => {
     assert.match(source, /ETAPAS_VISUALES_OPERATIVAS\.map/);
+    assert.match(source, /mapEtapaInternaAPasoVisual\(bucket\.etapa\)/);
+    assert.match(source, /cohortBuckets/);
     assert.match(source, /historyCompleteForPeriod/);
     assert.match(source, /historyCoverageFrom/);
   });
