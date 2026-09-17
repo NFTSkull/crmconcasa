@@ -17,6 +17,8 @@ import {
 import { manualOccupancyFingerprint } from "./manual-occupancy.ts";
 
 const NO_HAY_CITAS_RE = /^NO\s+HAY\s+CITAS\b/i;
+/** Bloque operativo ajeno a la agenda. Nunca debe consumir cupo de citas. */
+const NON_AGENDA_BLOCK_RE = /^LEO\b/i;
 const UUID_RE =
   /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
 
@@ -90,6 +92,7 @@ export function buildInventoryUpsertRows(params: {
   let section: SheetSectionRef | null = null;
   let orphans: OrphanBuf[] = [];
   let orphanPrevSection: SheetSectionRef | null = null;
+  let ignoringNonAgendaBlock = false;
 
   const emitSlot = (
     sheetRow: number,
@@ -198,6 +201,26 @@ export function buildInventoryUpsertRows(params: {
     const sheetRow = i + 1;
     const row = grid[i] ?? [];
     const a = cell(row, 0);
+
+    if (NON_AGENDA_BLOCK_RE.test(a)) {
+      flushOrphans(null);
+      section = null;
+      ignoringNonAgendaBlock = true;
+      continue;
+    }
+
+    if (ignoringNonAgendaBlock) {
+      const nextRaw = parseSection(a);
+      if (nextRaw) {
+        section = {
+          sede: nextRaw.sede,
+          kind: nextRaw.kind,
+        } as SheetSectionRef;
+        ignoringNonAgendaBlock = false;
+      }
+      continue;
+    }
+
     if (!a) {
       const nssBlank = cell(row, 1);
       const nameBlank = cell(row, 2);
