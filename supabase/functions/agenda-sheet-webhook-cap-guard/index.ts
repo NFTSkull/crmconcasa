@@ -1,6 +1,6 @@
 // P213 — hard-cap delante del webhook Sheets → CRM.
 // Relee la sección física completa antes de procesar una entrada manual nueva.
-// Biométricos Monterrey: máximo 15 entre CRM + manuales.
+// Biométricos Monterrey/Apodaca: máximo 15 entre CRM + manuales.
 // Si una entrada nueva sería la #16, limpia SOLO B:D + O:U; A y E:N se preservan.
 
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
@@ -8,22 +8,22 @@ import {
   DEFAULT_SPREADSHEET_ID,
   parseTabDate,
   timingSafeEqual,
-} from "https://raw.githubusercontent.com/NFTSkull/crmconcasa/f9ce39f29ad074b1c9e6991f33e76b49f463e7f2/supabase/functions/_shared/agenda-sheets/parsers.ts";
+} from "https://raw.githubusercontent.com/NFTSkull/crmconcasa/b64663f9026816c63db5c69c7d9e6dfad1bc435a/supabase/functions/_shared/agenda-sheets/parsers.ts";
 import {
   COL_INDEX,
   a1BdRange,
   a1FullReadRange,
   a1TechRange,
-} from "https://raw.githubusercontent.com/NFTSkull/crmconcasa/f9ce39f29ad074b1c9e6991f33e76b49f463e7f2/supabase/functions/_shared/agenda-sheets/tech-columns.ts";
+} from "https://raw.githubusercontent.com/NFTSkull/crmconcasa/b64663f9026816c63db5c69c7d9e6dfad1bc435a/supabase/functions/_shared/agenda-sheets/tech-columns.ts";
 import {
   createGoogleSheetsAdapter,
   type SheetsAdapter,
-} from "https://raw.githubusercontent.com/NFTSkull/crmconcasa/f9ce39f29ad074b1c9e6991f33e76b49f463e7f2/supabase/functions/_shared/agenda-sheets/google.ts";
+} from "https://raw.githubusercontent.com/NFTSkull/crmconcasa/b64663f9026816c63db5c69c7d9e6dfad1bc435a/supabase/functions/_shared/agenda-sheets/google.ts";
 import {
   buildInventoryUpsertRows,
   type InventoryUpsertRow,
-} from "https://raw.githubusercontent.com/NFTSkull/crmconcasa/f9ce39f29ad074b1c9e6991f33e76b49f463e7f2/supabase/functions/_shared/agenda-sheets/inventory-from-grid.ts";
-import type { AgendaSheetTimeAlias } from "https://raw.githubusercontent.com/NFTSkull/crmconcasa/f9ce39f29ad074b1c9e6991f33e76b49f463e7f2/supabase/functions/_shared/agenda-sheets/time-aliases.ts";
+} from "https://raw.githubusercontent.com/NFTSkull/crmconcasa/b64663f9026816c63db5c69c7d9e6dfad1bc435a/supabase/functions/_shared/agenda-sheets/inventory-from-grid.ts";
+import type { AgendaSheetTimeAlias } from "https://raw.githubusercontent.com/NFTSkull/crmconcasa/b64663f9026816c63db5c69c7d9e6dfad1bc435a/supabase/functions/_shared/agenda-sheets/time-aliases.ts";
 
 type WebhookBody = {
   spreadsheetId?: string;
@@ -155,6 +155,7 @@ async function logRejection(
     sheetTitle: string;
     sheetRow: number;
     bookingDate: string;
+    locationId: string;
     reason: string;
     occupancy?: number | null;
     capacity?: number | null;
@@ -176,7 +177,7 @@ async function logRejection(
         sheet_row: input.sheetRow,
         booking_date: input.bookingDate,
         kind: "biometricos",
-        location_id: "monterrey",
+        location_id: input.locationId,
         occupancy: input.occupancy ?? null,
         capacity: input.capacity ?? null,
       },
@@ -237,7 +238,7 @@ async function failClosedNewManual(
     code: "daily_capacity_full",
     message:
       input.message ??
-      "El cupo diario de biométricos Monterrey está completo (máximo 15 personas). La fila no fue agregada.",
+      `El cupo diario de biométricos ${input.locationId === "apodaca" ? "Apodaca" : "Monterrey"} está completo (máximo 15 personas). La fila no fue agregada.`,
     capacity: input.capacity ?? 15,
     occupancy: input.occupancy ?? null,
     row_cleared: true,
@@ -374,8 +375,12 @@ Deno.serve(async (req) => {
       (r) => r.sheet_row === body.rowNumber && r.status !== "disabled",
     );
 
-    // Solo hard-cap Biométricos Monterrey. Todo lo demás conserva core.
-    if (!target || target.kind !== "biometricos" || target.location_id !== "monterrey") {
+    // Hard-cap Biométricos en Monterrey y Apodaca. Todo lo demás conserva core.
+    if (
+      !target ||
+      target.kind !== "biometricos" ||
+      !["monterrey", "apodaca"].includes(target.location_id)
+    ) {
       const core = await proxyCore(baseUrl, secret, raw);
       return new Response(core.text, {
         status: core.response.status,
@@ -397,7 +402,7 @@ Deno.serve(async (req) => {
     // Refrescar todos los cupos físicos actuales EXCEPTO la fila que se está intentando
     // agregar. Así la candidata no se cuenta a sí misma antes de agenda_sheet_book_by_nss.
     const scopeRows = parsed.rows.filter(
-      (r) => r.kind === "biometricos" && r.location_id === "monterrey",
+      (r) => r.kind === "biometricos" && r.location_id === target.location_id,
     );
     const refreshRows: InventoryUpsertRow[] = scopeRows.filter(
       (r) => r.sheet_row !== body.rowNumber,
@@ -437,7 +442,7 @@ Deno.serve(async (req) => {
       p_sheet_id: body.sheetId,
       p_booking_date: bookingDate,
       p_kind: "biometricos",
-      p_location_id: "monterrey",
+      p_location_id: target.location_id,
       p_seen_rows: seenRows,
     });
     if (pruneErr && !targetWasOccupied && targetVisible) {
@@ -463,19 +468,19 @@ Deno.serve(async (req) => {
           p_org: organizationId,
           p_kind: "biometricos",
           p_date: bookingDate,
-          p_location: "monterrey",
+          p_location: target.location_id,
         }),
         supabase.rpc("agenda_daily_remaining", {
           p_org: organizationId,
           p_kind: "biometricos",
           p_date: bookingDate,
-          p_location: "monterrey",
+          p_location: target.location_id,
         }),
         supabase.rpc("agenda_daily_active_occupancy", {
           p_org: organizationId,
           p_kind: "biometricos",
           p_date: bookingDate,
-          p_location: "monterrey",
+          p_location: target.location_id,
         }),
       ]);
 
@@ -518,7 +523,7 @@ Deno.serve(async (req) => {
           p_org: organizationId,
           p_kind: "biometricos",
           p_date: bookingDate,
-          p_location: "monterrey",
+          p_location: target.location_id,
         }),
       ]);
       const targetAfter = (targetAfterRaw ?? null) as InventoryRowState | null;
