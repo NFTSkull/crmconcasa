@@ -3,7 +3,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, it } from "node:test";
 
-describe("Admin resumen — movimientos del periodo + foto actual", () => {
+describe("Admin resumen — flujo unificado del periodo y foto actual", () => {
   const page = readFileSync(
     join(process.cwd(), "src/app/admin/page.tsx"),
     "utf8",
@@ -20,15 +20,18 @@ describe("Admin resumen — movimientos del periodo + foto actual", () => {
     "utf8",
   );
 
-  it("conserva Etapas del periodo y agrega el nuevo bloque sin reemplazarlo", () => {
-    assert.match(page, /title="Etapas del periodo"/);
+  it("monta una sola vista y reutiliza el desglose del periodo dentro del mismo bloque", () => {
+    assert.doesNotMatch(page, /title="Etapas del periodo"/);
     assert.match(page, /<AdminResumenEtapasActividad/);
     assert.match(page, /bounds=\{bounds\}/);
     assert.match(page, /periodoLabel=\{periodoLabel\}/);
     assert.match(page, /selectedInternalStages=\{etapaActualesSeleccionadas\}/);
+    assert.match(page, /cohortBuckets=\{byEtapa\}/);
+    assert.match(page, /cohortTotal=\{snapshotTotal\}/);
+    assert.match(page, /onStagePress=\{onEtapaCardPress\}/);
   });
 
-  it("el bloque usa el mismo rango, asesor, estado y búsqueda del Resumen", () => {
+  it("la vista usa el mismo rango, asesor, estado y búsqueda del Resumen", () => {
     assert.match(page, /asesorId=\{asesorId \|\| null\}/);
     assert.match(page, /estado=\{estado\}/);
     assert.match(page, /buscar=\{buscarDebounced \|\| null\}/);
@@ -36,16 +39,18 @@ describe("Admin resumen — movimientos del periodo + foto actual", () => {
     assert.match(component, /p_to_exclusive: bounds\.toExclusiveIso/);
   });
 
-  it("muestra movimiento del periodo, origen previo y foto actual por los 11 pasos", () => {
-    assert.match(component, /Llegaron en periodo/);
-    assert.match(component, /De antes/);
-    assert.match(component, /Ingresaron en rango/);
-    assert.match(component, /Foto actual/);
+  it("presenta actividad, permanencia de la cohorte y foto actual en cada paso", () => {
+    assert.match(component, /Flujo de expedientes/);
+    assert.match(component, /Pasaron aquí/);
+    assert.match(component, /Siguen aquí/);
+    assert.match(component, /Total hoy/);
+    assert.match(component, /venían de antes/);
+    assert.match(component, /ingresaron en el rango/);
     assert.match(component, /ETAPAS_VISUALES_OPERATIVAS\.map/);
     assert.match(component, /historyCompleteForPeriod/);
   });
 
-  it("la RPC es read-only y cuenta toda entrada a una etapa dentro del rango", () => {
+  it("la RPC histórica sigue read-only y cuenta toda entrada a una etapa dentro del rango", () => {
     assert.match(migration, /LANGUAGE plpgsql\s+STABLE\s+SECURITY DEFINER/);
     assert.match(migration, /t\.paso_visual_nuevo::INT AS paso_visual/);
     assert.match(migration, /t\.fecha_entrada >= p_from/);
