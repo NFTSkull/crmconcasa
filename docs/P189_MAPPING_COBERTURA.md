@@ -12,4 +12,6 @@ Fuente de verdad ejecutable: `supabase/functions/_shared/infonavit-pdf/p189-fiel
 
 **Número de identificación:** el CRM no define si es clave de elector, OCR o CIC. `datos.infonavit.titular.identificacion` es texto libre y B8 no lo captura. **REQUIERE DECISIÓN DE NEGOCIO** (Fase 2).
 
+**Destino de recursos (Solicitud T31–T33):** Mesa P0 ya no captura `% titulación` ni `CLABE notaría` → T31/T32 siempre vacíos en nuevas generaciones (layout PDF/DOCX intacto). **T33** se llena desde `destinoRecursos.clabeDerechohabiente` cuando Mesa lo captura (`fill-solicitud.ts`).
+
 Ver entregable de certificación para tablas campo → fuente.
