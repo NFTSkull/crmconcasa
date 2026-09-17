@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+- **docs(document-extractions): requisito UX Mesa split-view P4/P5** — mapeo campo→documento (INE/estado cuenta/CFE), preview privado sticky; sin implementar UI.
+
 - **fix(document-extractions): P3 lease max_attempts + storage download** — reclaim exhausted→dead; mark_failed respeta lease_expires_at; worker download privado service-role; sanitize error_code allowlist.
 
 - **feat(document-extractions): P2 shadow infra (sin OCR)** — tablas `document_extractions` + `document_extraction_jobs`, enqueue service_role, Vault flag DEFAULT OFF, allowlist 4 docs, stale por reemplazo. Sin cableado a upload, sin provider, sin autofill, sin Cloud apply.
