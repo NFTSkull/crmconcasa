@@ -9,15 +9,20 @@ describe("AdminResumenEtapasActividad contrato visual", () => {
     "utf8",
   );
 
-  it("unifica ingresos, movimientos y foto actual en una tabla por etapa", () => {
-    assert.match(source, /Flujo de expedientes/);
-    assert.match(source, /Pasaron en el periodo/);
-    assert.match(source, /Siguen aquí/);
-    assert.match(source, /Total actual/);
-    assert.match(source, /ingresos del periodo/);
-    assert.match(source, /expedientes con movimiento/);
-    assert.match(source, /expedientes actuales/);
-    assert.match(source, /<table/);
+  it("prioriza dónde están hoy los ingresos del periodo", () => {
+    assert.match(source, /¿Dónde están hoy los expedientes que ingresaron en el periodo\?/);
+    assert.match(source, /Distribución actual de los ingresos del periodo/);
+    assert.match(source, /de los ingresos siguen aquí/);
+    assert.match(source, /CRM hoy:/);
+    assert.match(source, /style=\{\{ width:/);
+  });
+
+  it("deja la actividad histórica como detalle secundario desplegable", () => {
+    assert.match(source, /<details/);
+    assert.match(source, /Ver actividad del periodo por etapa/);
+    assert.match(source, /Pasaron por aquí/);
+    assert.match(source, /Ingresaron en el periodo/);
+    assert.match(source, /Venían de antes/);
   });
 
   it("conserva los 11 pasos canónicos y alinea los ingresos al mismo paso visual", () => {
