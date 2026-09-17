@@ -1953,6 +1953,23 @@ Secret incorrecto → worker 401, outbox sigue `pending`, `attempts` intactos. E
 
 **Fuera de B4.1:** UI Mesa/asesor (B5), Cloud cron/Vault/deploy.
 
+## 19quinquies-bis. Document Extractions P2 — shadow infra (LOCAL, sin OCR)
+
+**Migración:** `20260917210000_document_extractions_shadow_p2.sql` (**NO Cloud apply** en este PR).
+
+Tablas: `document_extractions` (resultado; `payload_raw` = PII) + `document_extraction_jobs` (cola separada de P189). FORCE RLS; `REVOKE ALL` a `anon`/`authenticated`.
+
+**RPC** `enqueue_document_extraction(documento_id, provider?, provider_version?) → jsonb`
+
+- Solo `service_role`. Resuelve org/expediente/tipo/version server-side.
+- Allowlist: `cliente_ine_frente` | `cliente_ine_reverso` | `cliente_comprobante_domicilio` | `cliente_estado_cuenta`.
+- Vault `document_extraction_enqueue_enabled` (+ `activation_at` opcional) DEFAULT OFF fail-closed.
+- Idempotente UNIQUE `(documento_id, provider, provider_version)`.
+- Marca versiones previas del mismo tipo como `stale`.
+- **No** cableado a `register_expediente_documento`. Sin claim/OCR/autofill.
+
+Detalle: `docs/DOCUMENT_EXTRACTIONS.md`.
+
 ## 19sexies. P189 B5 — Visibilidad / preview / descarga (LOCAL)
 
 **Migración:** `187_infonavit_pdf_read_model.sql` (NO Cloud apply). 183–186 intactas. No modifica worker/cron/Vault/templates.

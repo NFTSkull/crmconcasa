@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+- **feat(document-extractions): P2 shadow infra (sin OCR)** — tablas `document_extractions` + `document_extraction_jobs`, enqueue service_role, Vault flag DEFAULT OFF, allowlist 4 docs, stale por reemplazo. Sin cableado a upload, sin provider, sin autofill, sin Cloud apply.
+
 - **feat(mesa): validación checksum CLABE mexicana** — helper `clabe-mexico` + generación Mesa exige dígito verificador en CLABE del derechohabiente (vacío sigue OK; T31/T32 vacíos).
 
 - **fix(mesa): ocultar % titulación y CLABE notaría en captura Infonavit** — sección 4 solo monto/plazo/CLABE derechohabiente; T31/T32 forzados a `""` en draft/localStorage/payload; T33 intacto.
