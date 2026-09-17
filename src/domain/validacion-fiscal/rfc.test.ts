@@ -1,6 +1,8 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  curpRfcBase10,
+  extractEstadoCuentaRfcCandidates,
   normalizeRfc,
   rfcShape,
   selectEstadoCuentaRfc,
@@ -8,11 +10,17 @@ import {
 } from "./rfc";
 
 const CLIENT = "JUAN PEREZ GARCIA";
+const CURP_ABCD = "ABCD010101HNLXXX01";
 
 test("normaliza RFC sin alterar Ñ/&", () => {
   assert.equal(normalizeRfc(" abcd-010101-9a1 "), "ABCD0101019A1");
   assert.equal(rfcShape("ABCD0101019A1"), "full13");
   assert.equal(rfcShape("ABCD010101"), "base10");
+});
+
+test("deriva base RFC solo desde CURP de 18 caracteres utilizable", () => {
+  assert.equal(curpRfcBase10(CURP_ABCD), "ABCD010101");
+  assert.equal(curpRfcBase10("CURP-MAL"), null);
 });
 
 test("Bansefi sin homoclave + EDC completo con misma base usa EDC", () => {
@@ -63,6 +71,83 @@ test("si DG difiere del EDC, exige actualización solo después de SAT PASS", ()
   assert.equal(r.fiscalRfc, "WXYZ020202ABC");
   assert.equal(r.datosGeneralesRelation, "different");
   assert.equal(r.shouldUpdateDatosGeneralesAfterSatPass, true);
+});
+
+test("DG vacío + RFC banco + RFC titular usa CURP validada para elegir al titular", () => {
+  const edc = selectEstadoCuentaRfc({
+    text: [
+      "BANCO EJEMPLO RFC DEL BANCO BANC991231AAA",
+      "TITULAR JUAN PEREZ GARCIA RFC ABCD0101019A1",
+      "CLABE 012345678901234567",
+    ].join(" | "),
+    curpValidadaLocalmente: CURP_ABCD,
+    clienteNombre: CLIENT,
+  });
+  assert.equal(edc.status, "selected");
+  assert.equal(edc.rfc, "ABCD0101019A1");
+  assert.equal(edc.reason, "curp_base_match");
+  assert.equal(edc.confidence, "high");
+});
+
+test("CURP validada en conflicto veta incluso un RFC exacto de DG", () => {
+  const edc = selectEstadoCuentaRfc({
+    text: "TITULAR JUAN PEREZ GARCIA RFC ABCD0101019A1",
+    rfcDatosGenerales: "ABCD0101019A1",
+    curpValidadaLocalmente: "WXYZ020202HNLXXX01",
+    clienteNombre: CLIENT,
+  });
+  assert.equal(edc.status, "unknown");
+  assert.equal(edc.rfc, null);
+  assert.equal(edc.reason, "curp_base_conflict");
+});
+
+test("Bansefi base10 + CURP validada + EDC full conserva candidato fiscal completo", () => {
+  const edc = selectEstadoCuentaRfc({
+    text: "CUENTAHABIENTE JUAN PEREZ GARCIA RFC ABCD0101019A1",
+    rfcInfonavit: "ABCD010101",
+    curpValidadaLocalmente: CURP_ABCD,
+    clienteNombre: CLIENT,
+  });
+  assert.equal(edc.status, "selected");
+  assert.equal(edc.rfc, "ABCD0101019A1");
+  assert.equal(edc.reason, "base_expected_match");
+});
+
+test("dos homoclaves de la misma base CURP quedan ambiguas sin evidencia exacta", () => {
+  const edc = selectEstadoCuentaRfc({
+    text: "RFC ABCD0101019A1 RFC ABCD010101ZZ9",
+    curpValidadaLocalmente: CURP_ABCD,
+  });
+  assert.equal(edc.status, "unknown");
+  assert.equal(edc.reason, "ambiguous_candidates");
+});
+
+test("CURP ausente o inutilizable mantiene comportamiento contextual previo", () => {
+  const edc = selectEstadoCuentaRfc({
+    text: "TITULAR JUAN PEREZ GARCIA RFC ABCD0101019A1",
+    curpValidadaLocalmente: "NO-VALIDA",
+    clienteNombre: CLIENT,
+  });
+  assert.equal(edc.status, "selected");
+  assert.equal(edc.rfc, "ABCD0101019A1");
+});
+
+test("penaliza solo el RFC inmediatamente etiquetado como banco", () => {
+  const candidates = extractEstadoCuentaRfcCandidates({
+    text: [
+      "RFC DEL BANCO BANC991231AAA",
+      "TITULAR JUAN PEREZ GARCIA RFC ABCD0101019A1",
+    ].join(" | "),
+    curpValidadaLocalmente: CURP_ABCD,
+    clienteNombre: CLIENT,
+  });
+  const bank = candidates.find((c) => c.rfc === "BANC991231AAA");
+  const client = candidates.find((c) => c.rfc === "ABCD0101019A1");
+  assert.ok(bank);
+  assert.ok(client);
+  assert.equal(bank.reasons.includes("bank_rfc_context"), true);
+  assert.equal(client.reasons.includes("bank_rfc_context"), false);
+  assert.equal(client.reasons.includes("base_curp_match"), true);
 });
 
 test("descarta RFC del banco si existe candidato del titular con contexto fuerte", () => {
