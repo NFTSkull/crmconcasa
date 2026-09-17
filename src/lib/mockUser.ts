@@ -9,6 +9,18 @@ export type MockUserV1 = Readonly<{
   name: string;
 }>;
 
+/**
+ * Operadoras Mesa Interno con capability `ver_externos_mesa` confirmada en Production.
+ *
+ * `mesa_control` es el rol UI legacy que ya habilita la bandeja mixta y su selector
+ * Todos / Internos / Externos. La autoridad real sigue en Supabase: profiles.app_role,
+ * RLS/RPC y `profile_capabilities`; este puente no amplía acceso de backend.
+ */
+const MESA_ORIGEN_MIXTO_EMAILS = new Set([
+  "mesa.interno03@concasa.mx", // Sara
+  "mesa.interno04@concasa.mx", // Kass
+]);
+
 /** `revisor` es alias legacy del mock; en producción solo existe `editor`. */
 export function normalizeLegacyMockRole(role: string): string {
   const trimmed = role.trim();
@@ -42,16 +54,31 @@ export function readMockUser(): MockUserV1 | null {
   return safeParse(window.localStorage.getItem(MOCK_USER_KEY));
 }
 
+function resolveMesaOrigenMixtoRole(role: string, email: string | null | undefined): string {
+  const normalizedRole = normalizeLegacyMockRole(role);
+  const normalizedEmail = String(email ?? "").trim().toLowerCase();
+  if (
+    normalizedRole === "mesa_control_interno" &&
+    MESA_ORIGEN_MIXTO_EMAILS.has(normalizedEmail)
+  ) {
+    return "mesa_control";
+  }
+  return normalizedRole;
+}
+
 /**
  * Rol efectivo para permisos mock: prioriza `mock_user.role`, luego `mock_role` legacy.
+ * Sara/Kass conservan su app_role real `mesa_interno`; únicamente la proyección UI
+ * usa `mesa_control` para reflejar la capability de bandeja mixta ya otorgada.
  */
 export function getEffectiveMockRole(): string | null {
   const u = readMockUser();
-  if (u?.role) return normalizeLegacyMockRole(u.role);
+  if (u?.role) return resolveMesaOrigenMixtoRole(u.role, u.email);
   if (typeof window === "undefined") return null;
   const legacy = window.localStorage.getItem("mock_role");
   if (!legacy?.trim()) return null;
-  return normalizeLegacyMockRole(legacy);
+  const email = window.localStorage.getItem("mock_email");
+  return resolveMesaOrigenMixtoRole(legacy, email);
 }
 
 export function getEffectiveMockEmail(): string | null {
