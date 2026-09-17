@@ -12,12 +12,9 @@ export function canFilterMesaOrigen(params: {
     return true;
   }
 
-  if (sessionRole === "mesa_control_admin") {
+  if (sessionRole === "mesa_admin" || sessionRole === "super_admin") {
     return true;
   }
 
-  return (
-    sessionRole === "mesa_control_interno" &&
-    params.hasExternalCapability === true
-  );
+  return sessionRole === "mesa_interno" && params.hasExternalCapability === true;
 }
