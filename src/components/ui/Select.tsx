@@ -20,7 +20,7 @@ export function Select({
 }: SelectProps) {
   const selectId = id ?? props.name;
   return (
-    <div className="flex flex-col gap-1">
+    <div className="flex flex-col gap-1" data-select-label={label || undefined}>
       {label && (
         <label htmlFor={selectId} className="text-sm font-medium text-gray-700">
           {label}
