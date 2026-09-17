@@ -25,6 +25,7 @@ export type EstadoCuentaRfcSelection = Readonly<{
     | "base_expected_match"
     | "curp_base_match"
     | "curp_base_conflict"
+    | "insufficient_corroboration"
     | "single_contextual_candidate"
     | "unique_high_score_candidate"
     | "no_full_rfc"
@@ -236,6 +237,19 @@ export function selectEstadoCuentaRfc(args: {
       rfc: null,
       confidence: "none",
       reason: "curp_base_conflict",
+      candidates,
+    };
+  }
+
+  const hasIndependentCorroboration = Boolean(
+    rfcBase10(inf) || rfcBase10(dg) || curpBase,
+  );
+  if (!hasIndependentCorroboration) {
+    return {
+      status: "unknown",
+      rfc: null,
+      confidence: "none",
+      reason: "insufficient_corroboration",
       candidates,
     };
   }
