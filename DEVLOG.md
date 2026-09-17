@@ -3,6 +3,17 @@
 ### Decisión
 Producto: Constancia de Situación Fiscal no es gate de envío. Cloud `envio_para` ya regresa 5. FE `sameExactSet` exige match exacto → hay que bajar `INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_SILVIA` de 6→5 o el parse vuelve a degradar a 4 clásicos.
 
+## 2026-09-17 - P2: document_extractions shadow (sin OCR)
+
+### Decisión
+Separar cola propia (`document_extraction_jobs`) de P189 outbox. UNIQUE por `(documento_id, provider, provider_version)` porque cada reemplazo crea UUID nuevo. Enqueue service_role + Vault fail-closed OFF; no cablear `register_expediente_documento` hasta P3.
+
+### Qué
+Mig `20260917210000_document_extractions_shadow_p2.sql`; dominio TS allowlist/contrato; docs `DOCUMENT_EXTRACTIONS.md`; test SQL + estático.
+
+### No
+OCR/provider/autofill/`cliente_datos`/expedientes/P189/Storage/agenda/Sheets/Cloud apply/backfill.
+
 ## 2026-09-17 - P1: isValidClabeMexico (checksum Banxico)
 
 ### Decisión
