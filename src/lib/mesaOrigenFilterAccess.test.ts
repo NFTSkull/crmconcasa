@@ -14,20 +14,21 @@ describe("Mesa origen filter access", () => {
   it("mantiene acceso para administración y rol legacy", () => {
     assert.equal(canFilterMesaOrigen({ mockRole: "mesa_control_admin" }), true);
     assert.equal(canFilterMesaOrigen({ mockRole: "mesa_control" }), true);
-    assert.equal(canFilterMesaOrigen({ sessionRole: "mesa_control_admin" }), true);
+    assert.equal(canFilterMesaOrigen({ sessionRole: "mesa_admin" }), true);
+    assert.equal(canFilterMesaOrigen({ sessionRole: "super_admin" }), true);
   });
 
   it("habilita Mesa Interno solo cuando tiene ver_externos_mesa", () => {
     assert.equal(
       canFilterMesaOrigen({
-        sessionRole: "mesa_control_interno",
+        sessionRole: "mesa_interno",
         hasExternalCapability: true,
       }),
       true,
     );
     assert.equal(
       canFilterMesaOrigen({
-        sessionRole: "mesa_control_interno",
+        sessionRole: "mesa_interno",
         hasExternalCapability: false,
       }),
       false,
@@ -37,7 +38,7 @@ describe("Mesa origen filter access", () => {
   it("no amplía acceso de Mesa Externo ni asesores", () => {
     assert.equal(
       canFilterMesaOrigen({
-        sessionRole: "mesa_control_externo",
+        sessionRole: "mesa_externo",
         hasExternalCapability: true,
       }),
       false,
