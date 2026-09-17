@@ -13,10 +13,11 @@ const mesaPage = readFileSync(
   "utf8",
 );
 
-describe("Mesa — filtro de origen para Sara y Kass", () => {
-  it("proyecta solo Sara/Kass a la vista mixta ya soportada por la bandeja", () => {
+describe("Mesa — filtro de origen para operadoras autorizadas", () => {
+  it("proyecta Sara, Kass y Mirna a la vista mixta ya soportada por la bandeja", () => {
     assert.match(mockUser, /mesa\.interno03@concasa\.mx/);
     assert.match(mockUser, /mesa\.interno04@concasa\.mx/);
+    assert.match(mockUser, /mesa5@concasa\.mx/);
     assert.match(mockUser, /normalizedRole === "mesa_control_interno"/);
     assert.match(mockUser, /return "mesa_control"/);
   });
