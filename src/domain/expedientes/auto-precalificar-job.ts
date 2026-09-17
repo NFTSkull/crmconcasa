@@ -135,10 +135,11 @@ async function claimJobStarted(
  * 1) lease global del scraper: una sola navegación Infonavit en todo el CRM;
  * 2) lease `job_started` por expediente: evita duplicar el mismo caso.
  *
- * Resiliencia puntual:
+ * Resiliencia puntual (solo cuando el caller hace opt-in):
  * - si el scraper devuelve un fallo técnico transitorio conocido y rápido,
  *   se hace UN segundo request dentro del mismo lease;
  * - cualquier segundo fallo conserva exactamente el fallback/cooldown del cron.
+ * El cron no habilita este opt-in para conservar su presupuesto de ejecución.
  */
 export async function runAutoPrecalificarJob(input: {
   expedienteId: string;
@@ -147,6 +148,8 @@ export async function runAutoPrecalificarJob(input: {
   programa?: string | null;
   scraperUrl: string;
   scraperSecret: string;
+  /** Solo el disparo interactivo inicial debe habilitar este segundo intento. */
+  allowImmediateTransientRetry?: boolean;
   /** Si se omite, se crea service role client. */
   supabase?: SupabaseClient;
 }): Promise<AutoPrecalJobResult> {
@@ -193,6 +196,7 @@ export async function runAutoPrecalificarJob(input: {
       const immediateRetryKind = classifyAutoPrecalImmediateRetry(payload);
 
       if (
+        input.allowImmediateTransientRetry === true &&
         immediateRetryKind &&
         firstMs <= IMMEDIATE_RETRY_FIRST_ATTEMPT_MAX_MS
       ) {
