@@ -49,6 +49,53 @@ app.post('/validate', async (req, res) => {
   })
 })
 
+// TEMP E2E ONLY: official SAT guide example; remove before merge.
+app.post('/e2e-public-sat-example', async (req, res) => {
+  if (!SECRET || req.header('x-concasa-worker-secret') !== SECRET) {
+    return res.status(401).json({ ok: false, code: 'UNAUTHORIZED' })
+  }
+  if (MODE !== 'live') {
+    return res.status(409).json({ ok: false, code: 'LIVE_MODE_REQUIRED' })
+  }
+
+  return queue.add(async () => {
+    try {
+      console.log('[sat-validator] PUBLIC_SAMPLE_E2E_START')
+      const result = await validateFiscalLive({
+        rfc: 'GAGD841118JT8',
+        curp: 'GAGD841118MGTRML03',
+        capsolverApiKey: process.env.CAPSOLVER_API_KEY,
+      })
+      console.log(`[sat-validator] PUBLIC_SAMPLE_E2E_DONE semantic=${result.semantic}`)
+      return res.json({
+        ok: result.ok,
+        semantic: result.semantic,
+        rfc: {
+          status: result.rfc?.status ?? null,
+          evidencePresent: Boolean(result.rfc?.evidence),
+        },
+        curp: {
+          status: result.curp?.status ?? null,
+          evidencePresent: Boolean(result.curp?.evidence),
+        },
+        writesProduction: false,
+        piiReturned: false,
+      })
+    } catch (error) {
+      console.error('[sat-validator] PUBLIC_SAMPLE_E2E_ERROR', error instanceof Error ? error.message : 'unknown')
+      return res.status(503).json({
+        ok: false,
+        semantic: 'retry',
+        code: 'TECHNICAL_FAILURE',
+        rfc: { status: 'unknown', evidencePresent: false },
+        curp: { status: 'not_run', evidencePresent: false },
+        writesProduction: false,
+        piiReturned: false,
+      })
+    }
+  })
+})
+
 app.listen(PORT, '0.0.0.0', () => {
   console.log(`[sat-validator] listening port=${PORT} mode=${MODE === 'live' ? 'live' : 'fixture'}`)
 })
