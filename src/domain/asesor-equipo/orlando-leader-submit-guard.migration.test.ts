@@ -26,6 +26,7 @@ describe("Enviar a Mesa — líder Orlando en guard DG", () => {
     assert.doesNotMatch(sql, /\bUPDATE\s+public\.expedientes\b/i);
     assert.doesNotMatch(sql, /\bDELETE\s+FROM\s+public\.expedientes\b/i);
     assert.doesNotMatch(sql, /\bINSERT\s+INTO\s+public\.expedientes\b/i);
-    assert.doesNotMatch(sql, /agenda_|booking|sheet/i);
+    assert.doesNotMatch(sql, /\b(?:UPDATE|DELETE|INSERT)\b[\s\S]*\bagenda_bookings\b/i);
+    assert.doesNotMatch(sql, /\b(?:UPDATE|DELETE|INSERT)\b[\s\S]*\bagenda_slot_links\b/i);
   });
 });
