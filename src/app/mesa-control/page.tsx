@@ -191,6 +191,10 @@ import {
 } from "@/domain/agenda-biometricos";
 import { resolveProfileDisplayLabel } from "@/lib/mesaNotificacionExtraordinariaUi";
 import { isSupabaseConfigured, supabaseBrowser } from "@/lib/supabaseBrowser";
+import {
+  MESA_ORIGEN_FILTER_CAPABILITY,
+  canFilterMesaOrigen,
+} from "@/lib/mesaOrigenFilterAccess";
 
 type CasoConDocs = CasoMock & {
   resumenDocumental?: CategoriaResumenDocumental;
@@ -477,6 +481,7 @@ export default function MesaControlPage() {
   const [cambiosSubfiltro, setCambiosSubfiltro] =
     useState<MesaCambiosPorRevisarSubfiltro>(MESA_CAMBIOS_SUBFILTRO_DEFAULT);
   const [adminOrigenTab, setAdminOrigenTab] = useState<AdminOrigenTab>("todos");
+  const [hasMesaOrigenCapability, setHasMesaOrigenCapability] = useState(false);
   const currentUserIdRef = useRef<string | null>(null);
   const [visibleCount, setVisibleCount] = useState(MESA_BANDEJA_INITIAL_VISIBLE);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -504,6 +509,11 @@ export default function MesaControlPage() {
 
   const mesaMockRole =
     typeof window !== "undefined" ? getEffectiveMockRole() : null;
+  const showMesaOrigenTabs = canFilterMesaOrigen({
+    mockRole: mesaMockRole,
+    sessionRole: currentUser?.role ?? null,
+    hasExternalCapability: hasMesaOrigenCapability,
+  });
 
   useEffect(() => {
     const t = window.setTimeout(() => {
@@ -693,8 +703,7 @@ export default function MesaControlPage() {
     (opciones?: { silencioso?: boolean; append?: boolean }) => {
       if (!currentUser || !dataSupabase) return;
       const append = Boolean(opciones?.append);
-      const showOrigenTabs =
-        mesaMockRole === "mesa_control_admin" || mesaMockRole === "mesa_control";
+      const showOrigenTabs = showMesaOrigenTabs;
       const queryKey = mesaBandejaQueryIdentity({
         quickFilter: quickFilterEfectivo,
         mesaOpsFilter: opsFilterEfectivo,
@@ -764,11 +773,7 @@ export default function MesaControlPage() {
             rechazosSub: rechazosCancelacionesSubfiltro,
             cambiosSubfiltro,
             origen: mapAdminOrigenTabToRpc(
-              (typeof window !== "undefined" &&
-                (getEffectiveMockRole() === "mesa_control_admin" ||
-                  getEffectiveMockRole() === "mesa_control"))
-                ? adminOrigenTab
-                : "todos",
+              showMesaOrigenTabs ? adminOrigenTab : "todos",
             ),
           } as const;
 
@@ -971,13 +976,13 @@ export default function MesaControlPage() {
       dataSupabase,
       etapaFilter,
       mapExpToCaso,
-      mesaMockRole,
       opsFilterEfectivo,
       quickFilterEfectivo,
       rechazosCancelacionesSubfiltro,
       cambiosSubfiltro,
       repo,
       resolveEnrichDeps,
+      showMesaOrigenTabs,
       soloCitasHoy,
       subestadoFilter,
       todayYMD,
@@ -1041,6 +1046,36 @@ export default function MesaControlPage() {
       setCurrentUserId(id);
     });
   }, [mesaOpsRepo]);
+
+  useEffect(() => {
+    if (
+      !dataSupabase ||
+      !supabaseBrowser ||
+      !currentUserId ||
+      currentUser?.role !== "mesa_control_interno"
+    ) {
+      setHasMesaOrigenCapability(false);
+      return;
+    }
+
+    let cancelled = false;
+    void supabaseBrowser
+      .rpc("profile_has_capability", {
+        p_profile_id: currentUserId,
+        p_capability: MESA_ORIGEN_FILTER_CAPABILITY,
+      })
+      .then(({ data, error }) => {
+        if (cancelled) return;
+        setHasMesaOrigenCapability(!error && data === true);
+      })
+      .catch(() => {
+        if (!cancelled) setHasMesaOrigenCapability(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser?.role, currentUserId, dataSupabase]);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -1230,15 +1265,20 @@ export default function MesaControlPage() {
     );
   }, [casos, todayYMD]);
 
-  const showAdminOrigenTabs =
-    mesaMockRole === "mesa_control_admin" || mesaMockRole === "mesa_control";
+  const showAdminOrigenTabs = showMesaOrigenTabs;
+
+  useEffect(() => {
+    if (!showAdminOrigenTabs && adminOrigenTab !== "todos") {
+      setAdminOrigenTab("todos");
+    }
+  }, [adminOrigenTab, showAdminOrigenTabs]);
 
   const filteredCasos = useMemo(() => {
     if (dataSupabase) {
       // P102: el servidor ya aplicó filtros + orden; `casos` = páginas acumuladas.
       return casos;
     }
-    // Orden mock: rol/visibilidad ya aplicados en carga → origen (solo admin) →
+    // Orden mock: rol/visibilidad ya aplicados en carga → origen →
     // vista rápida → búsqueda → etapa → subestado → citas hoy → asignación + orden.
     let list = [...casos];
     if (showAdminOrigenTabs && adminOrigenTab === "internos") {
@@ -1452,6 +1492,7 @@ export default function MesaControlPage() {
   });
 
   const hayFiltrosActivos =
+    (showAdminOrigenTabs && adminOrigenTab !== "todos") ||
     quickFilter !== "todos" ||
     mesaOpsFilter !== "todo_mesa" ||
     buscar.trim() !== "" ||
@@ -1480,6 +1521,7 @@ export default function MesaControlPage() {
 
   const handleLimpiarFiltros = useCallback(() => {
     const next = limpiarFiltrosBandeja();
+    setAdminOrigenTab("todos");
     setQuickFilter(next.quickFilter);
     setRechazosCancelacionesSubfiltro(next.rechazosCancelacionesSubfiltro);
     setCambiosSubfiltro(next.cambiosSubfiltro);
@@ -1699,9 +1741,12 @@ export default function MesaControlPage() {
           </p>
         ) : null}
         {showAdminOrigenTabs ? (
-          <section className="rounded-xl border border-slate-200/90 bg-white p-3 shadow-sm sm:p-4">
+          <section
+            className="rounded-xl border border-slate-200/90 bg-white p-3 shadow-sm sm:p-4"
+            data-testid="mesa-origen-filter"
+          >
             <p className="mb-2 text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-              Origen comercial (solo administración)
+              Origen
             </p>
             <div className="flex flex-wrap gap-1.5" role="tablist" aria-label="Filtro por origen">
               {(
@@ -1718,6 +1763,7 @@ export default function MesaControlPage() {
                   aria-selected={adminOrigenTab === id}
                   onClick={() => setAdminOrigenTab(id)}
                   className={`${chipBase} ${adminOrigenTab === id ? chipActive : chipInactive}`}
+                  data-testid={`mesa-origen-${id}`}
                 >
                   {label}
                 </button>
