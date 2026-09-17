@@ -93,3 +93,60 @@ Cualquier otro provider → `unsupported_provider` → dead (no retry).
 - Cron Production / Cloud apply
 - Agenda / citas / cupos / Sheets
 - Cambios P189 snapshot/PDF
+
+---
+
+## Requisito UX obligatorio (P4/P5) — NO implementado aún
+
+Contrato de producto para captura/revisión Infonavit en **Mesa**.  
+**P2/P3 no incluyen esta UI.** Implementar en fases futuras (P4/P5), no en el worker shadow.
+
+### Objetivo
+
+Al capturar/revisar campos Infonavit en Mesa debe existir vista del **documento fuente** junto al formulario, sin abrir otra pestaña.
+
+### Layout
+
+| Viewport | Comportamiento |
+|---|---|
+| **Desktop** | Split view: izquierda formulario/campos; derecha preview privado **sticky** del documento correspondiente |
+| **Mobile** | Modal/drawer reutilizando infraestructura actual de preview privado |
+
+Reutilizar siempre que sea posible:
+
+- `MesaArchivoPreviewDialog`
+- blobs privados existentes
+
+**Prohibido:** URLs públicas permanentes. Solo blob URL temporal + `revokeObjectURL` correcto.
+
+### Mapeo campo → documento visible
+
+| Contexto / campos | Documento a mostrar | Notas |
+|---|---|---|
+| Identidad: nombres, apellidos, CURP, tipo ID, número ID, vigencia | **INE** | Selector claro **Frente \| Reverso** según docs disponibles |
+| RFC | **Estado de cuenta** | Solo referencia visual humana. **NO** fuente automática de RFC. RFC fuera de autofill por ahora |
+| CLABE del derechohabiente | **Estado de cuenta** | Sí es documento fuente de la CLABE |
+| Dirección / vivienda | **Únicamente comprobante de domicilio** | No usar INE como principal. Si CFE: extracción futura prioriza bloque domicilio superior izquierdo |
+
+**T7 — Número identificación:** sigue **BLOQUEADO** para autofill. No decidir todavía CIC / OCR / clave elector.
+
+### Navegación (intención)
+
+- click/foco en identidad → preview INE  
+- click/foco en RFC → preview Estado de cuenta  
+- click/foco en CLABE → preview Estado de cuenta  
+- click/foco en vivienda/dirección → preview Comprobante de domicilio  
+
+### Reglas del preview
+
+- documento privado; blob URL temporal; `revokeObjectURL` al cerrar/cambiar
+- sin descargas automáticas; sin afectar Storage; sin modificar documento; sin duplicar uploads
+- si falta el documento → estado **"Documento no disponible"** sin bloquear captura manual
+- si hubo reemplazo → mostrar **solo** la versión activa (`deleted_at IS NULL` / current)
+
+### Fuera de alcance de este requisito documental
+
+- Implementar OCR/provider real
+- Autofill a `cliente_datos`
+- Conectar upload → enqueue
+- Cloud apply / Production
