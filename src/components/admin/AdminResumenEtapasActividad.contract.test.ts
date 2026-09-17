@@ -11,7 +11,7 @@ describe("AdminResumenEtapasActividad contrato visual", () => {
 
   it("prioriza dónde están hoy los ingresos del periodo", () => {
     assert.match(source, /Distribución actual de los ingresos del periodo/);
-    assert.match(source, /de \$\{cohortTotalDisplay\} ingresos/);
+    assert.match(source, /de los \{cohortTotalDisplay\} ingresos/);
     assert.match(source, /CRM hoy:/);
     assert.match(source, /style=\{\{ width:/);
   });
