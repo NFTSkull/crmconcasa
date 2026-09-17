@@ -7,6 +7,12 @@ import {
   normalizeClabeMexico,
 } from "@/domain/expediente-cliente-datos/clabe-mexico";
 import { isSupabaseConfigured, supabaseBrowser } from "@/lib/supabaseBrowser";
+import { MesaInfonavitSourceDocumentPreview } from "@/components/mesa-control/MesaInfonavitSourceDocumentPreview";
+import {
+  resolveInfonavitSourcePreviewContext,
+  type InfonavitSourceFieldKey,
+  type InfonavitSourcePreviewContext,
+} from "@/domain/document-extractions/infonavit-source-preview";
 
 export const MESA_CLABE_DERECHOHABIENTE_INVALID_MSG =
   "La CLABE del derechohabiente no es válida. Verifica los 18 dígitos.";
@@ -373,6 +379,7 @@ type FieldProps = Readonly<{
   placeholder?: string;
   required?: boolean;
   maxLength?: number;
+  onFocusField?: () => void;
 }>;
 
 function Field({
@@ -383,6 +390,7 @@ function Field({
   placeholder,
   required,
   maxLength,
+  onFocusField,
 }: FieldProps) {
   return (
     <label className="block text-xs font-medium text-gray-700">
@@ -391,6 +399,7 @@ function Field({
         type={type}
         value={value ?? ""}
         onChange={(event) => onChange(event.target.value)}
+        onFocus={() => onFocusField?.()}
         placeholder={placeholder}
         required={required}
         maxLength={maxLength}
@@ -405,15 +414,23 @@ type SelectFieldProps = Readonly<{
   value: string;
   onChange: (value: string) => void;
   options: ReadonlyArray<Readonly<{ value: string; label: string }>>;
+  onFocusField?: () => void;
 }>;
 
-function SelectField({ label, value, onChange, options }: SelectFieldProps) {
+function SelectField({
+  label,
+  value,
+  onChange,
+  options,
+  onFocusField,
+}: SelectFieldProps) {
   return (
     <label className="block text-xs font-medium text-gray-700">
       <span>{label}</span>
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
+        onFocus={() => onFocusField?.()}
         className="mt-1 h-9 w-full rounded-md border border-gray-300 bg-white px-2.5 text-sm text-gray-900 outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500"
       >
         <option value="">Sin seleccionar</option>
@@ -446,7 +463,13 @@ export function MesaInfonavitGenerarDocumentosForm({
   const [generateError, setGenerateError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [localSaveState, setLocalSaveState] = useState<LocalSaveState>("idle");
+  const [sourceContext, setSourceContext] =
+    useState<InfonavitSourcePreviewContext>("identidad");
   const hydratedExpedienteRef = useRef<string | null>(null);
+
+  const focusSource = useCallback((field: InfonavitSourceFieldKey) => {
+    setSourceContext(resolveInfonavitSourcePreviewContext(field));
+  }, []);
 
   const loadDraft = useCallback(async (options?: { forceServer?: boolean }) => {
     const forceServer = options?.forceServer === true;
@@ -669,7 +692,11 @@ export function MesaInfonavitGenerarDocumentosForm({
   }
 
   return (
-    <div className="space-y-5">
+    <div
+      className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(300px,0.8fr)] xl:items-start"
+      data-testid="mesa-infonavit-generar-layout"
+    >
+      <div className="space-y-5">
       <div className="rounded-md border border-violet-200 bg-violet-50 px-3 py-2 text-xs text-violet-950">
         <p>
           Los campos parten de Datos Generales. Los cambios de esta pestaña solo afectan la nueva
@@ -686,14 +713,14 @@ export function MesaInfonavitGenerarDocumentosForm({
         <SectionTitle>1. Identificación de la persona derechohabiente</SectionTitle>
         <div className="grid gap-3 md:grid-cols-3">
           <Field label="NSS *" value={draft.cliente.nss} onChange={(v) => updateCliente("nss", v)} required />
-          <Field label="CURP" value={draft.cliente.curp} onChange={(v) => updateCliente("curp", v.toUpperCase())} />
-          <Field label="RFC" value={draft.cliente.rfc} onChange={(v) => updateCliente("rfc", v.toUpperCase())} />
-          <Field label="Apellido paterno *" value={draft.cliente.apellidoPaterno} onChange={(v) => updateCliente("apellidoPaterno", v.toUpperCase())} required />
-          <Field label="Apellido materno" value={draft.cliente.apellidoMaterno} onChange={(v) => updateCliente("apellidoMaterno", v.toUpperCase())} />
-          <Field label="Nombre(s) *" value={draft.cliente.nombres} onChange={(v) => updateCliente("nombres", v.toUpperCase())} required />
-          <Field label="Tipo identificación" value={draft.cliente.identificacion.tipo} onChange={(v) => updateIdentificacion("tipo", v)} />
-          <Field label="Número identificación" value={draft.cliente.identificacion.numero} onChange={(v) => updateIdentificacion("numero", v)} />
-          <Field label="Vigencia identificación" value={draft.cliente.identificacion.vigencia} onChange={(v) => updateIdentificacion("vigencia", v)} placeholder="dd/mm/aaaa" />
+          <Field label="CURP" value={draft.cliente.curp} onChange={(v) => updateCliente("curp", v.toUpperCase())} onFocusField={() => focusSource("curp")} />
+          <Field label="RFC" value={draft.cliente.rfc} onChange={(v) => updateCliente("rfc", v.toUpperCase())} onFocusField={() => focusSource("rfc")} />
+          <Field label="Apellido paterno *" value={draft.cliente.apellidoPaterno} onChange={(v) => updateCliente("apellidoPaterno", v.toUpperCase())} onFocusField={() => focusSource("apellidoPaterno")} required />
+          <Field label="Apellido materno" value={draft.cliente.apellidoMaterno} onChange={(v) => updateCliente("apellidoMaterno", v.toUpperCase())} onFocusField={() => focusSource("apellidoMaterno")} />
+          <Field label="Nombre(s) *" value={draft.cliente.nombres} onChange={(v) => updateCliente("nombres", v.toUpperCase())} onFocusField={() => focusSource("nombres")} required />
+          <Field label="Tipo identificación" value={draft.cliente.identificacion.tipo} onChange={(v) => updateIdentificacion("tipo", v)} onFocusField={() => focusSource("identificacionTipo")} />
+          <Field label="Número identificación" value={draft.cliente.identificacion.numero} onChange={(v) => updateIdentificacion("numero", v)} onFocusField={() => focusSource("identificacionNumero")} />
+          <Field label="Vigencia identificación" value={draft.cliente.identificacion.vigencia} onChange={(v) => updateIdentificacion("vigencia", v)} onFocusField={() => focusSource("identificacionVigencia")} placeholder="dd/mm/aaaa" />
           <Field label="LADA" value={draft.cliente.ladaTelefono} onChange={(v) => updateCliente("ladaTelefono", v)} />
           <Field label="Teléfono" value={draft.cliente.telefono} onChange={(v) => updateCliente("telefono", v)} />
           <Field label="Celular" value={draft.cliente.celular} onChange={(v) => updateCliente("celular", v)} />
@@ -720,16 +747,16 @@ export function MesaInfonavitGenerarDocumentosForm({
       <div className="space-y-3">
         <SectionTitle>3. Vivienda a mejorar</SectionTitle>
         <div className="grid gap-3 md:grid-cols-4">
-          <div className="md:col-span-2"><Field label="Calle" value={draft.vivienda.calle} onChange={(v) => updateVivienda("calle", v.toUpperCase())} /></div>
-          <Field label="No. ext." value={draft.vivienda.noExt} onChange={(v) => updateVivienda("noExt", v)} />
-          <Field label="No. int." value={draft.vivienda.noInt} onChange={(v) => updateVivienda("noInt", v)} />
-          <Field label="Lote" value={draft.vivienda.lote} onChange={(v) => updateVivienda("lote", v)} />
-          <Field label="Manzana" value={draft.vivienda.manzana} onChange={(v) => updateVivienda("manzana", v)} />
-          <Field label="Colonia" value={draft.vivienda.colonia} onChange={(v) => updateVivienda("colonia", v.toUpperCase())} />
-          <Field label="Código postal" value={draft.vivienda.cp} onChange={(v) => updateVivienda("cp", v)} />
-          <Field label="Entidad" value={draft.vivienda.entidad} onChange={(v) => updateVivienda("entidad", v.toUpperCase())} />
-          <Field label="Municipio / alcaldía" value={draft.vivienda.municipio} onChange={(v) => updateVivienda("municipio", v.toUpperCase())} />
-          <SelectField label="La vivienda es" value={draft.vivienda.tipoPropiedad} onChange={(v) => updateVivienda("tipoPropiedad", v)} options={[{ value: "propia", label: "Propia" }, { value: "conyuge_concubino", label: "Cónyuge o concubino(a)" }, { value: "familiar", label: "Familiar" }]} />
+          <div className="md:col-span-2"><Field label="Calle" value={draft.vivienda.calle} onChange={(v) => updateVivienda("calle", v.toUpperCase())} onFocusField={() => focusSource("viviendaCalle")} /></div>
+          <Field label="No. ext." value={draft.vivienda.noExt} onChange={(v) => updateVivienda("noExt", v)} onFocusField={() => focusSource("viviendaNoExt")} />
+          <Field label="No. int." value={draft.vivienda.noInt} onChange={(v) => updateVivienda("noInt", v)} onFocusField={() => focusSource("viviendaNoInt")} />
+          <Field label="Lote" value={draft.vivienda.lote} onChange={(v) => updateVivienda("lote", v)} onFocusField={() => focusSource("viviendaLote")} />
+          <Field label="Manzana" value={draft.vivienda.manzana} onChange={(v) => updateVivienda("manzana", v)} onFocusField={() => focusSource("viviendaManzana")} />
+          <Field label="Colonia" value={draft.vivienda.colonia} onChange={(v) => updateVivienda("colonia", v.toUpperCase())} onFocusField={() => focusSource("viviendaColonia")} />
+          <Field label="Código postal" value={draft.vivienda.cp} onChange={(v) => updateVivienda("cp", v)} onFocusField={() => focusSource("viviendaCp")} />
+          <Field label="Entidad" value={draft.vivienda.entidad} onChange={(v) => updateVivienda("entidad", v.toUpperCase())} onFocusField={() => focusSource("viviendaEntidad")} />
+          <Field label="Municipio / alcaldía" value={draft.vivienda.municipio} onChange={(v) => updateVivienda("municipio", v.toUpperCase())} onFocusField={() => focusSource("viviendaMunicipio")} />
+          <SelectField label="La vivienda es" value={draft.vivienda.tipoPropiedad} onChange={(v) => updateVivienda("tipoPropiedad", v)} onFocusField={() => focusSource("viviendaTipoPropiedad")} options={[{ value: "propia", label: "Propia" }, { value: "conyuge_concubino", label: "Cónyuge o concubino(a)" }, { value: "familiar", label: "Familiar" }]} />
         </div>
       </div>
 
@@ -757,6 +784,7 @@ export function MesaInfonavitGenerarDocumentosForm({
             label="CLABE del derechohabiente"
             value={draft.destinoRecursos.clabeDerechohabiente}
             onChange={(v) => updateDestinoClabeDerechohabiente(v)}
+            onFocusField={() => focusSource("clabeDerechohabiente")}
             maxLength={40}
           />
         </div>
@@ -830,6 +858,15 @@ export function MesaInfonavitGenerarDocumentosForm({
         >
           Recargar desde Datos Generales
         </Button>
+      </div>
+      </div>
+
+      <div className="xl:sticky xl:top-20">
+        <MesaInfonavitSourceDocumentPreview
+          expedienteId={expedienteId}
+          context={sourceContext}
+          className="max-h-[min(70vh,720px)] xl:max-h-[calc(100vh-6rem)]"
+        />
       </div>
     </div>
   );
