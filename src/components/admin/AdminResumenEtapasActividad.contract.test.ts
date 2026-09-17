@@ -8,6 +8,13 @@ describe("AdminResumenEtapasActividad contrato visual", () => {
     join(process.cwd(), "src/components/admin/AdminResumenEtapasActividad.tsx"),
     "utf8",
   );
+  const paso1Migration = readFileSync(
+    join(
+      process.cwd(),
+      "supabase/migrations/20260917172500_admin_resumen_paso1_envio_mesa.sql",
+    ),
+    "utf8",
+  );
 
   it("prioriza dónde están hoy los ingresos del periodo", () => {
     assert.match(source, /Distribución actual de los ingresos del periodo/);
@@ -50,5 +57,15 @@ describe("AdminResumenEtapasActividad contrato visual", () => {
     assert.match(source, /historyCompleteForPeriod/);
     assert.match(source, /historyCoverageFrom/);
     assert.match(source, /admin_resumen_movimientos_etapas/);
+  });
+
+  it("Paso 1 usa ingreso real a Mesa y no la creación técnica del expediente", () => {
+    assert.match(paso1Migration, /Paso visual 1 = ingreso real a Mesa dentro del rango/);
+    assert.match(paso1Migration, /e\.fecha_envio_mesa >= p_from/);
+    assert.match(paso1Migration, /WHEN s\.paso_admin = 1 THEN cs\.total/);
+    assert.match(paso1Migration, /WHEN s\.paso_admin = 1 THEN 0::BIGINT/);
+    assert.match(paso1Migration, /movement_semantics_version', 2/);
+    assert.doesNotMatch(paso1Migration, /UPDATE public\.expedientes/);
+    assert.doesNotMatch(paso1Migration, /DELETE FROM public\.expediente_paso_visual_transiciones/);
   });
 });
