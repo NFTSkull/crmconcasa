@@ -21,6 +21,8 @@ export type EstadoCuentaRfcSelection = Readonly<{
   reason:
     | "exact_expected_match"
     | "base_expected_match"
+    | "curp_base_match"
+    | "curp_base_conflict"
     | "single_contextual_candidate"
     | "unique_high_score_candidate"
     | "no_full_rfc"
@@ -41,6 +43,7 @@ export type FiscalRfcResolution = Readonly<{
 const RFC_FULL13_RE = /^[A-ZÑ&]{4}\d{6}[A-Z0-9]{3}$/u;
 const RFC_BASE10_RE = /^[A-ZÑ&]{4}\d{6}$/u;
 const FULL_RFC_IN_TEXT_RE = /(^|[^A-Z0-9Ñ&])([A-ZÑ&]{4}\d{6}[A-Z0-9]{3})(?![A-Z0-9Ñ&])/gu;
+const CURP_RE = /^[A-Z0-9]{18}$/;
 
 function foldText(value: string): string {
   return String(value ?? "")
@@ -54,6 +57,20 @@ export function normalizeRfc(value: string | null | undefined): string {
     .trim()
     .toUpperCase()
     .replace(/[^A-Z0-9Ñ&]/gu, "");
+}
+
+export function normalizeCurp(value: string | null | undefined): string {
+  return String(value ?? "")
+    .trim()
+    .toUpperCase()
+    .replace(/[^A-Z0-9]/g, "");
+}
+
+export function curpRfcBase10(value: string | null | undefined): string | null {
+  const curp = normalizeCurp(value);
+  if (!CURP_RE.test(curp)) return null;
+  const base = curp.slice(0, 10);
+  return RFC_BASE10_RE.test(base) ? base : null;
 }
 
 export function rfcShape(value: string | null | undefined): RfcShape {
@@ -93,11 +110,20 @@ function nameTokens(clienteNombre: string | null | undefined): string[] {
     .slice(0, 6);
 }
 
+function isBankRfcLabelImmediatelyBefore(value: string): boolean {
+  const left = foldText(value).replace(/\s+/g, " ").slice(-72);
+  return /(?:RFC\s+(?:DEL\s+)?(?:BANCO|EMISOR|INSTITUCION)|(?:BANCO|EMISOR|INSTITUCION)\s+(?:RFC|R\.?F\.?C\.?))\s*[:#-]?\s*$/.test(
+    left,
+  );
+}
+
 function scoreCandidate(args: {
   rfc: string;
   context: string;
+  immediateBefore: string;
   rfcInfonavit?: string | null;
   rfcDatosGenerales?: string | null;
+  curpValidadaLocalmente?: string | null;
   clienteNombre?: string | null;
 }): EstadoCuentaRfcCandidate {
   const folded = foldText(args.context);
@@ -112,7 +138,7 @@ function scoreCandidate(args: {
     score += 2;
     reasons.push("near_holder_label");
   }
-  if (/RFC\s+(DEL\s+)?BANCO|RFC\s+(DEL\s+)?EMISOR|RFC\s+(DE\s+LA\s+)?INSTITUCION/.test(folded)) {
+  if (isBankRfcLabelImmediatelyBefore(args.immediateBefore)) {
     score -= 8;
     reasons.push("bank_rfc_context");
   }
@@ -129,6 +155,7 @@ function scoreCandidate(args: {
 
   const inf = normalizeRfc(args.rfcInfonavit);
   const dg = normalizeRfc(args.rfcDatosGenerales);
+  const curpBase = curpRfcBase10(args.curpValidadaLocalmente);
   if (rfcShape(inf) === "full13" && args.rfc === inf) {
     score += 12;
     reasons.push("exact_infonavit_match");
@@ -143,6 +170,10 @@ function scoreCandidate(args: {
     score += 5;
     reasons.push("base_dg_match");
   }
+  if (curpBase && args.rfc.slice(0, 10) === curpBase) {
+    score += 10;
+    reasons.push("base_curp_match");
+  }
 
   return { rfc: args.rfc, score, context: args.context, reasons };
 }
@@ -151,6 +182,7 @@ export function extractEstadoCuentaRfcCandidates(args: {
   text: string;
   rfcInfonavit?: string | null;
   rfcDatosGenerales?: string | null;
+  curpValidadaLocalmente?: string | null;
   clienteNombre?: string | null;
 }): EstadoCuentaRfcCandidate[] {
   const upper = String(args.text ?? "").toUpperCase();
@@ -158,14 +190,19 @@ export function extractEstadoCuentaRfcCandidates(args: {
   for (const match of upper.matchAll(FULL_RFC_IN_TEXT_RE)) {
     const rfc = normalizeRfc(match[2]);
     if (rfcShape(rfc) !== "full13") continue;
-    const start = Math.max(0, (match.index ?? 0) - 100);
-    const end = Math.min(upper.length, (match.index ?? 0) + match[0].length + 100);
+    const matchIndex = match.index ?? 0;
+    const rfcIndex = matchIndex + String(match[1] ?? "").length;
+    const start = Math.max(0, rfcIndex - 100);
+    const end = Math.min(upper.length, rfcIndex + rfc.length + 100);
     const context = upper.slice(start, end).replace(/\s+/g, " ").trim();
+    const immediateBefore = upper.slice(Math.max(0, rfcIndex - 72), rfcIndex);
     const candidate = scoreCandidate({
       rfc,
       context,
+      immediateBefore,
       rfcInfonavit: args.rfcInfonavit,
       rfcDatosGenerales: args.rfcDatosGenerales,
+      curpValidadaLocalmente: args.curpValidadaLocalmente,
       clienteNombre: args.clienteNombre,
     });
     const prev = dedup.get(rfc);
@@ -178,6 +215,7 @@ export function selectEstadoCuentaRfc(args: {
   text: string;
   rfcInfonavit?: string | null;
   rfcDatosGenerales?: string | null;
+  curpValidadaLocalmente?: string | null;
   clienteNombre?: string | null;
 }): EstadoCuentaRfcSelection {
   const candidates = extractEstadoCuentaRfcCandidates(args);
@@ -193,8 +231,22 @@ export function selectEstadoCuentaRfc(args: {
 
   const inf = normalizeRfc(args.rfcInfonavit);
   const dg = normalizeRfc(args.rfcDatosGenerales);
+  const curpBase = curpRfcBase10(args.curpValidadaLocalmente);
+  const candidatePool = curpBase
+    ? candidates.filter((c) => c.rfc.slice(0, 10) === curpBase)
+    : candidates;
 
-  const exactExpected = candidates.filter(
+  if (curpBase && candidatePool.length === 0) {
+    return {
+      status: "unknown",
+      rfc: null,
+      confidence: "none",
+      reason: "curp_base_conflict",
+      candidates,
+    };
+  }
+
+  const exactExpected = candidatePool.filter(
     (c) =>
       (rfcShape(inf) === "full13" && c.rfc === inf) ||
       (rfcShape(dg) === "full13" && c.rfc === dg),
@@ -210,7 +262,7 @@ export function selectEstadoCuentaRfc(args: {
   }
 
   const bases = [rfcBase10(inf), rfcBase10(dg)].filter(Boolean) as string[];
-  const baseExpected = candidates.filter((c) => bases.includes(c.rfc.slice(0, 10)));
+  const baseExpected = candidatePool.filter((c) => bases.includes(c.rfc.slice(0, 10)));
   if (baseExpected.length === 1) {
     return {
       status: "selected",
@@ -221,17 +273,27 @@ export function selectEstadoCuentaRfc(args: {
     };
   }
 
-  if (candidates.length === 1 && candidates[0].score >= 4) {
+  if (curpBase && candidatePool.length === 1) {
     return {
       status: "selected",
-      rfc: candidates[0].rfc,
+      rfc: candidatePool[0].rfc,
+      confidence: "high",
+      reason: "curp_base_match",
+      candidates,
+    };
+  }
+
+  if (candidatePool.length === 1 && candidatePool[0].score >= 4) {
+    return {
+      status: "selected",
+      rfc: candidatePool[0].rfc,
       confidence: "medium",
       reason: "single_contextual_candidate",
       candidates,
     };
   }
 
-  const [first, second] = candidates;
+  const [first, second] = candidatePool;
   if (first && first.score >= 7 && (!second || first.score - second.score >= 4)) {
     return {
       status: "selected",
