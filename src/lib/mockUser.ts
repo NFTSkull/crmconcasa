@@ -19,6 +19,7 @@ export type MockUserV1 = Readonly<{
 const MESA_ORIGEN_MIXTO_EMAILS = new Set([
   "mesa.interno03@concasa.mx", // Sara
   "mesa.interno04@concasa.mx", // Kass
+  "mesa5@concasa.mx", // Mirna
 ]);
 
 /** `revisor` es alias legacy del mock; en producción solo existe `editor`. */
@@ -68,8 +69,8 @@ function resolveMesaOrigenMixtoRole(role: string, email: string | null | undefin
 
 /**
  * Rol efectivo para permisos mock: prioriza `mock_user.role`, luego `mock_role` legacy.
- * Sara/Kass conservan su app_role real `mesa_interno`; únicamente la proyección UI
- * usa `mesa_control` para reflejar la capability de bandeja mixta ya otorgada.
+ * Las operadoras autorizadas conservan su app_role real `mesa_interno`; únicamente la
+ * proyección UI usa `mesa_control` para reflejar la capability de bandeja mixta ya otorgada.
  */
 export function getEffectiveMockRole(): string | null {
   const u = readMockUser();
