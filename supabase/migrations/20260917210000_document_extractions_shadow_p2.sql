@@ -291,6 +291,70 @@ CREATE TRIGGER document_extraction_jobs_align_documento
   EXECUTE FUNCTION public.trg_document_extraction_row_align_documento();
 
 -- =============================================================================
+-- 5b) Integridad: job.extraction_id ↔ misma extracción lógica
+-- =============================================================================
+CREATE OR REPLACE FUNCTION public.trg_document_extraction_job_align_extraction()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER
+SET search_path = public
+AS $$
+DECLARE
+  v_ext RECORD;
+BEGIN
+  IF NEW.extraction_id IS NULL THEN
+    RAISE EXCEPTION 'document_extraction_job: extraction_id requerido';
+  END IF;
+
+  SELECT
+    e.organization_id,
+    e.expediente_id,
+    e.documento_id,
+    e.document_version,
+    e.document_type,
+    e.provider,
+    e.provider_version
+  INTO v_ext
+  FROM public.document_extractions e
+  WHERE e.id = NEW.extraction_id;
+
+  IF NOT FOUND THEN
+    RAISE EXCEPTION 'document_extraction_job: extraction_id inexistente';
+  END IF;
+
+  IF NEW.organization_id IS DISTINCT FROM v_ext.organization_id
+     OR NEW.expediente_id IS DISTINCT FROM v_ext.expediente_id
+     OR NEW.documento_id IS DISTINCT FROM v_ext.documento_id
+     OR NEW.document_version IS DISTINCT FROM v_ext.document_version
+     OR NEW.document_type IS DISTINCT FROM v_ext.document_type
+     OR NEW.provider IS DISTINCT FROM v_ext.provider
+     OR NEW.provider_version IS DISTINCT FROM v_ext.provider_version
+  THEN
+    RAISE EXCEPTION 'document_extraction_job: extraction_id desalineado';
+  END IF;
+
+  NEW.updated_at := NOW();
+  RETURN NEW;
+END;
+$$;
+
+COMMENT ON FUNCTION public.trg_document_extraction_job_align_extraction() IS
+  'P2: job debe apuntar a extraction del mismo doc/provider/versión/org.';
+
+REVOKE ALL ON FUNCTION public.trg_document_extraction_job_align_extraction()
+  FROM PUBLIC, anon, authenticated;
+
+DROP TRIGGER IF EXISTS document_extraction_jobs_align_extraction
+  ON public.document_extraction_jobs;
+CREATE TRIGGER document_extraction_jobs_align_extraction
+  BEFORE INSERT OR UPDATE OF
+    extraction_id, organization_id, expediente_id, documento_id,
+    document_version, document_type, provider, provider_version
+  ON public.document_extraction_jobs
+  FOR EACH ROW
+  EXECUTE FUNCTION public.trg_document_extraction_job_align_extraction();
+
+-- =============================================================================
 -- 6) ¿Documento vigente (current)?
 -- =============================================================================
 CREATE OR REPLACE FUNCTION public.document_extraction_documento_is_current(

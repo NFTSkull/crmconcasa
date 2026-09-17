@@ -162,14 +162,40 @@ describe("document-extractions P2 — contrato migration estática", () => {
     assert.equal(sql.includes("cupos"), false);
   });
 
-  it("integridad FK + align trigger", () => {
+  it("integridad FK + align triggers (documento + extraction↔job)", () => {
     const sql = migrationSql();
     assert.match(
       sql,
       /documento_id UUID NOT NULL REFERENCES public\.expediente_documentos\(id\)/,
     );
     assert.match(sql, /trg_document_extraction_row_align_documento/);
+    assert.match(sql, /trg_document_extraction_job_align_extraction/);
+    assert.match(sql, /extraction_id desalineado/);
     assert.match(sql, /SET search_path = public/);
+  });
+
+  it("SQL test: UUIDs válidos + TRANSACTION/ROLLBACK", () => {
+    const sqlPath = join(
+      ROOT,
+      "supabase/tests/rpc_document_extractions_shadow_p2.sql",
+    );
+    const sql = readFileSync(sqlPath, "utf8");
+    assert.match(sql, /^BEGIN;/m);
+    assert.match(sql, /^ROLLBACK;/m);
+    assert.equal(sql.includes("a2dx0000"), false);
+    const uuidLits = [...sql.matchAll(/'([0-9a-fA-FxX-]{36})'/g)].map((m) => m[1]);
+    assert.ok(uuidLits.length >= 5, "debe haber fixtures UUID");
+    for (const u of uuidLits) {
+      assert.match(
+        u,
+        /^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$/,
+        `UUID inválido: ${u}`,
+      );
+    }
+    assert.match(sql, /extraction_id desalineado/);
+    assert.match(sql, /job otro documento rechazado/);
+    assert.match(sql, /job provider distinto rechazado/);
+    assert.match(sql, /job provider_version distinta rechazado/);
   });
 
   it("docs + SQL test existen", () => {
