@@ -8,22 +8,22 @@ import {
   DEFAULT_SPREADSHEET_ID,
   parseTabDate,
   timingSafeEqual,
-} from "https://raw.githubusercontent.com/NFTSkull/crmconcasa/b64663f9026816c63db5c69c7d9e6dfad1bc435a/supabase/functions/_shared/agenda-sheets/parsers.ts";
+} from "https://raw.githubusercontent.com/NFTSkull/crmconcasa/f9ce39f29ad074b1c9e6991f33e76b49f463e7f2/supabase/functions/_shared/agenda-sheets/parsers.ts";
 import {
   COL_INDEX,
   a1BdRange,
   a1FullReadRange,
   a1TechRange,
-} from "https://raw.githubusercontent.com/NFTSkull/crmconcasa/b64663f9026816c63db5c69c7d9e6dfad1bc435a/supabase/functions/_shared/agenda-sheets/tech-columns.ts";
+} from "https://raw.githubusercontent.com/NFTSkull/crmconcasa/f9ce39f29ad074b1c9e6991f33e76b49f463e7f2/supabase/functions/_shared/agenda-sheets/tech-columns.ts";
 import {
   createGoogleSheetsAdapter,
   type SheetsAdapter,
-} from "https://raw.githubusercontent.com/NFTSkull/crmconcasa/b64663f9026816c63db5c69c7d9e6dfad1bc435a/supabase/functions/_shared/agenda-sheets/google.ts";
+} from "https://raw.githubusercontent.com/NFTSkull/crmconcasa/f9ce39f29ad074b1c9e6991f33e76b49f463e7f2/supabase/functions/_shared/agenda-sheets/google.ts";
 import {
   buildInventoryUpsertRows,
   type InventoryUpsertRow,
 } from "https://raw.githubusercontent.com/NFTSkull/crmconcasa/b64663f9026816c63db5c69c7d9e6dfad1bc435a/supabase/functions/_shared/agenda-sheets/inventory-from-grid.ts";
-import type { AgendaSheetTimeAlias } from "https://raw.githubusercontent.com/NFTSkull/crmconcasa/b64663f9026816c63db5c69c7d9e6dfad1bc435a/supabase/functions/_shared/agenda-sheets/time-aliases.ts";
+import type { AgendaSheetTimeAlias } from "https://raw.githubusercontent.com/NFTSkull/crmconcasa/f9ce39f29ad074b1c9e6991f33e76b49f463e7f2/supabase/functions/_shared/agenda-sheets/time-aliases.ts";
 
 type WebhookBody = {
   spreadsheetId?: string;
