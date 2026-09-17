@@ -219,7 +219,21 @@ export function AdminResumenEtapasActividad({
   const [error, setError] = useState<string | null>(null);
   const seqRef = useRef(0);
 
-  const hasExternalStageFilter = (selectedInternalStages?.length ?? 0) > 0;
+  const selectedVisualSteps = useMemo(() => {
+    const out = new Set<number>();
+    for (const etapa of selectedInternalStages ?? []) {
+      out.add(mapEtapaInternaAPasoVisual(etapa));
+    }
+    return out;
+  }, [selectedInternalStages]);
+
+  const selectedStage = useMemo(
+    () =>
+      ETAPAS_VISUALES_OPERATIVAS.find((etapa) =>
+        selectedVisualSteps.has(etapa.pasoVisual),
+      ) ?? null,
+    [selectedVisualSteps],
+  );
 
   const cohortByPaso = useMemo(() => {
     const out = new Map<number, number>();
@@ -291,6 +305,16 @@ export function AdminResumenEtapasActividad({
   const stockTotalDisplay =
     loading && !data ? "…" : error ? "—" : String(data?.stockTotal ?? 0);
 
+  const selectedMovement = selectedStage
+    ? movimientosByPaso.get(selectedStage.pasoVisual)
+    : null;
+  const selectedCohortCount = selectedStage
+    ? cohortByPaso.get(selectedStage.pasoVisual) ?? 0
+    : 0;
+  const selectedStockCount = selectedStage
+    ? stockByPaso.get(selectedStage.pasoVisual)?.count ?? 0
+    : 0;
+
   return (
     <section className="rounded-xl border border-slate-200 bg-white shadow-sm">
       <div className="border-b border-slate-100 px-5 py-4">
@@ -300,10 +324,14 @@ export function AdminResumenEtapasActividad({
               Resumen operativo
             </p>
             <h2 className="mt-1 text-lg font-semibold text-slate-950">
-              ¿Dónde están hoy los expedientes que ingresaron en el periodo?
+              {selectedStage
+                ? `${selectedStage.nombre}: lectura clara del filtro`
+                : "¿Dónde están hoy los expedientes que ingresaron en el periodo?"}
             </h2>
             <p className="mt-1 text-sm text-slate-600">
-              {periodoLabel} · La cifra principal siempre parte de los expedientes que entraron a Mesa en este rango.
+              {selectedStage
+                ? `${periodoLabel} · Los tres números de abajo responden preguntas distintas sobre esta misma etapa.`
+                : `${periodoLabel} · La cifra principal siempre parte de los expedientes que entraron a Mesa en este rango.`}
             </p>
           </div>
           {updatedAt ? (
@@ -313,41 +341,78 @@ export function AdminResumenEtapasActividad({
           ) : null}
         </div>
 
-        {hasExternalStageFilter ? (
-          <div className="mt-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-2 text-xs text-blue-900">
-            Hay una etapa seleccionada en el filtro superior. Esta vista conserva el flujo completo del periodo para no mezclar métricas; al pulsar una etapa se abre el detalle de Expedientes filtrado.
+        {selectedStage ? (
+          <div className="mt-4 grid gap-3 md:grid-cols-3">
+            <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-4">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-blue-700">
+                De los ingresos del periodo
+              </p>
+              <p className="mt-1 text-3xl font-semibold tabular-nums text-slate-950">
+                {cohortLoading && cohortBuckets.length === 0
+                  ? "…"
+                  : cohortError
+                    ? "—"
+                    : selectedCohortCount}
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-slate-600">
+                de {cohortTotalDisplay} están hoy en {selectedStage.nombre}
+                {cohortTotal > 0 ? ` · ${percent(selectedCohortCount, cohortTotal)}%` : ""}
+              </p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-white px-4 py-4">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                Pasaron por esta etapa
+              </p>
+              <p className="mt-1 text-3xl font-semibold tabular-nums text-slate-950">
+                {loading && !data ? "…" : error ? "—" : selectedMovement?.llegaronCount ?? 0}
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-slate-600">
+                durante el periodo · {selectedMovement?.cohortePeriodoCount ?? 0} ingresaron en el rango y {selectedMovement?.venianDeAntesCount ?? 0} venían de antes
+              </p>
+            </div>
+            <div className="rounded-xl border border-slate-200 bg-white px-4 py-4">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                Total CRM hoy
+              </p>
+              <p className="mt-1 text-3xl font-semibold tabular-nums text-slate-950">
+                {loading && !data ? "…" : error ? "—" : selectedStockCount}
+              </p>
+              <p className="mt-1 text-xs leading-relaxed text-slate-600">
+                todos los expedientes que hoy están en {selectedStage.nombre}, sin importar cuándo ingresaron
+              </p>
+            </div>
           </div>
-        ) : null}
-
-        <div className="mt-4 grid gap-3 sm:grid-cols-3">
-          <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-              Ingresaron a Mesa
-            </p>
-            <p className="mt-1 text-3xl font-semibold tabular-nums text-slate-950">
-              {cohortTotalDisplay}
-            </p>
-            <p className="mt-1 text-xs text-slate-500">Base de este resumen</p>
+        ) : (
+          <div className="mt-4 grid gap-3 sm:grid-cols-3">
+            <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                Ingresaron a Mesa
+              </p>
+              <p className="mt-1 text-3xl font-semibold tabular-nums text-slate-950">
+                {cohortTotalDisplay}
+              </p>
+              <p className="mt-1 text-xs text-slate-500">Base de este resumen</p>
+            </div>
+            <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                Tuvieron movimiento
+              </p>
+              <p className="mt-1 text-3xl font-semibold tabular-nums text-slate-950">
+                {movementsTotalDisplay}
+              </p>
+              <p className="mt-1 text-xs text-slate-500">Incluye expedientes que venían de antes</p>
+            </div>
+            <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                Total actual del CRM
+              </p>
+              <p className="mt-1 text-3xl font-semibold tabular-nums text-slate-950">
+                {stockTotalDisplay}
+              </p>
+              <p className="mt-1 text-xs text-slate-500">No depende de la fecha seleccionada</p>
+            </div>
           </div>
-          <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-              Tuvieron movimiento
-            </p>
-            <p className="mt-1 text-3xl font-semibold tabular-nums text-slate-950">
-              {movementsTotalDisplay}
-            </p>
-            <p className="mt-1 text-xs text-slate-500">Incluye expedientes que venían de antes</p>
-          </div>
-          <div className="rounded-lg border border-slate-200 bg-white px-4 py-3">
-            <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-              Total actual del CRM
-            </p>
-            <p className="mt-1 text-3xl font-semibold tabular-nums text-slate-950">
-              {stockTotalDisplay}
-            </p>
-            <p className="mt-1 text-xs text-slate-500">No depende de la fecha seleccionada</p>
-          </div>
-        </div>
+        )}
       </div>
 
       {error ? (
@@ -375,92 +440,115 @@ export function AdminResumenEtapasActividad({
       ) : null}
 
       <div className="px-5 py-5">
-        <div className="flex flex-wrap items-end justify-between gap-2">
-          <div>
-            <h3 className="text-base font-semibold text-slate-950">
-              Distribución actual de los ingresos del periodo
-            </h3>
-            <p className="mt-1 text-xs text-slate-500">
-              Cada barra responde: de los {cohortTotalDisplay} que ingresaron a Mesa, ¿cuántos están hoy en esta etapa?
-            </p>
+        {selectedStage ? (
+          <div className="rounded-xl border border-slate-200 bg-slate-50 px-4 py-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <div className="flex items-center gap-2">
+                  <span className={`rounded px-2 py-1 text-[10px] font-semibold uppercase ${stageBadgeClass(selectedStage.pasoVisual)}`}>
+                    Paso {selectedStage.pasoVisual}
+                  </span>
+                  <h3 className="text-base font-semibold text-slate-950">{selectedStage.nombre}</h3>
+                </div>
+                <p className="mt-2 max-w-3xl text-xs leading-relaxed text-slate-600">
+                  La primera cifra coincide con la pregunta “de los que ingresaron en el periodo, ¿cuántos siguen hoy aquí?”. La segunda mide actividad dentro del rango. La tercera es la carga total vigente de esta etapa.
+                </p>
+              </div>
+              <Button type="button" onClick={() => onStagePress(selectedStage.etapaInterna)}>
+                Ver expedientes de esta etapa
+              </Button>
+            </div>
           </div>
-          <p className="text-xs text-slate-500">Haz clic en una etapa para abrir sus expedientes</p>
-        </div>
+        ) : (
+          <>
+            <div className="flex flex-wrap items-end justify-between gap-2">
+              <div>
+                <h3 className="text-base font-semibold text-slate-950">
+                  Distribución actual de los ingresos del periodo
+                </h3>
+                <p className="mt-1 text-xs text-slate-500">
+                  Cada barra responde: de los {cohortTotalDisplay} que ingresaron a Mesa, ¿cuántos están hoy en esta etapa?
+                </p>
+              </div>
+              <p className="text-xs text-slate-500">Haz clic en una etapa para abrir sus expedientes</p>
+            </div>
 
-        <div className="mt-4 grid gap-2 lg:grid-cols-2">
-          {ETAPAS_VISUALES_OPERATIVAS.map((etapa) => {
-            const siguenAqui = cohortByPaso.get(etapa.pasoVisual) ?? 0;
-            const siguenPct = percent(siguenAqui, cohortTotal);
-            const stock = stockByPaso.get(etapa.pasoVisual);
-            const totalActual = stock?.count ?? 0;
-            const ubicacionDisponible = !cohortError && !(cohortLoading && cohortBuckets.length === 0);
-            const stockDisponible = !error && (data != null || !loading);
+            <div className="mt-4 grid gap-2 lg:grid-cols-2">
+              {ETAPAS_VISUALES_OPERATIVAS.map((etapa) => {
+                const siguenAqui = cohortByPaso.get(etapa.pasoVisual) ?? 0;
+                const siguenPct = percent(siguenAqui, cohortTotal);
+                const stock = stockByPaso.get(etapa.pasoVisual);
+                const totalActual = stock?.count ?? 0;
+                const ubicacionDisponible = !cohortError && !(cohortLoading && cohortBuckets.length === 0);
+                const stockDisponible = !error && (data != null || !loading);
 
-            return (
-              <button
-                key={etapa.pasoVisual}
-                type="button"
-                onClick={() => onStagePress(etapa.etapaInterna)}
-                className="group rounded-lg border border-slate-200 bg-white px-3 py-3 text-left transition hover:border-slate-400 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
-                title={`Ver expedientes de ${etapa.nombre}`}
-              >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span
-                        className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase ${stageBadgeClass(
-                          etapa.pasoVisual,
-                        )}`}
-                      >
-                        Paso {etapa.pasoVisual}
+                return (
+                  <button
+                    key={etapa.pasoVisual}
+                    type="button"
+                    onClick={() => onStagePress(etapa.etapaInterna)}
+                    className="group rounded-lg border border-slate-200 bg-white px-3 py-3 text-left transition hover:border-slate-400 hover:shadow-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                    title={`Ver expedientes de ${etapa.nombre}`}
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={`shrink-0 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase ${stageBadgeClass(
+                              etapa.pasoVisual,
+                            )}`}
+                          >
+                            Paso {etapa.pasoVisual}
+                          </span>
+                          <span className="truncate text-sm font-semibold text-slate-900 group-hover:text-blue-700">
+                            {etapa.nombre}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="shrink-0 text-right">
+                        <p className="text-lg font-semibold leading-none tabular-nums text-slate-950">
+                          {cohortLoading && cohortBuckets.length === 0
+                            ? "…"
+                            : ubicacionDisponible
+                              ? `${siguenAqui}`
+                              : "—"}
+                          {ubicacionDisponible && cohortTotal > 0 ? (
+                            <span className="ml-1 text-xs font-medium text-slate-400">/ {cohortTotal}</span>
+                          ) : null}
+                        </p>
+                        <p className="mt-1 text-[11px] font-medium text-slate-500">
+                          {ubicacionDisponible && cohortTotal > 0
+                            ? `${siguenPct}% del periodo`
+                            : cohortTotal === 0 && ubicacionDisponible
+                              ? "Sin ingresos"
+                              : "Sin dato"}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
+                      <div
+                        className={`h-full rounded-full transition-all ${progressClass(etapa.pasoVisual)}`}
+                        style={{ width: `${Math.min(100, Math.max(0, siguenPct))}%` }}
+                      />
+                    </div>
+
+                    <div className="mt-2 flex items-center justify-between gap-3 text-[11px] text-slate-500">
+                      <span>
+                        {ubicacionDisponible
+                          ? `${siguenAqui} de los ingresos siguen aquí`
+                          : "Ubicación no disponible"}
                       </span>
-                      <span className="truncate text-sm font-semibold text-slate-900 group-hover:text-blue-700">
-                        {etapa.nombre}
+                      <span className="shrink-0">
+                        CRM hoy: <strong className="font-semibold tabular-nums text-slate-700">{stockDisponible ? totalActual : "—"}</strong>
                       </span>
                     </div>
-                  </div>
-                  <div className="shrink-0 text-right">
-                    <p className="text-lg font-semibold leading-none tabular-nums text-slate-950">
-                      {cohortLoading && cohortBuckets.length === 0
-                        ? "…"
-                        : ubicacionDisponible
-                          ? `${siguenAqui}`
-                          : "—"}
-                      {ubicacionDisponible && cohortTotal > 0 ? (
-                        <span className="ml-1 text-xs font-medium text-slate-400">/ {cohortTotal}</span>
-                      ) : null}
-                    </p>
-                    <p className="mt-1 text-[11px] font-medium text-slate-500">
-                      {ubicacionDisponible && cohortTotal > 0
-                        ? `${siguenPct}% del periodo`
-                        : cohortTotal === 0 && ubicacionDisponible
-                          ? "Sin ingresos"
-                          : "Sin dato"}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="mt-3 h-2 overflow-hidden rounded-full bg-slate-100">
-                  <div
-                    className={`h-full rounded-full transition-all ${progressClass(etapa.pasoVisual)}`}
-                    style={{ width: `${Math.min(100, Math.max(0, siguenPct))}%` }}
-                  />
-                </div>
-
-                <div className="mt-2 flex items-center justify-between gap-3 text-[11px] text-slate-500">
-                  <span>
-                    {ubicacionDisponible
-                      ? `${siguenAqui} de los ingresos siguen aquí`
-                      : "Ubicación no disponible"}
-                  </span>
-                  <span className="shrink-0">
-                    CRM hoy: <strong className="font-semibold tabular-nums text-slate-700">{stockDisponible ? totalActual : "—"}</strong>
-                  </span>
-                </div>
-              </button>
-            );
-          })}
-        </div>
+                  </button>
+                );
+              })}
+            </div>
+          </>
+        )}
 
         <details className="mt-5 rounded-lg border border-slate-200 bg-slate-50/70">
           <summary className="cursor-pointer select-none px-4 py-3 text-sm font-semibold text-slate-800 hover:text-slate-950">
