@@ -150,3 +150,16 @@ Reutilizar siempre que sea posible:
 - Autofill a `cliente_datos`
 - Conectar upload → enqueue
 - Cloud apply / Production
+
+## P4A — Preview fuente en captura Mesa (sin OCR)
+
+UI-only: al enfocar campos en `MesaInfonavitGenerarDocumentosForm`, Mesa ve el documento **current** (`deleted_at IS NULL` vía `listByExpediente` + `rowMasRecientePorTipoDocumento`):
+
+| Contexto | Documento |
+|----------|-----------|
+| Identidad (nombre, CURP, ID…) | `cliente_ine_frente` / `cliente_ine_reverso` |
+| RFC / CLABE derechohabiente | `cliente_estado_cuenta` |
+| Vivienda | `cliente_comprobante_domicilio` |
+
+Blob privado (`getArchivoBlob` → `URL.createObjectURL` / `revokeObjectURL`). Reutiliza `MesaArchivoPreviewDialog`. **No** enqueue, provider, autofill ni mutación de `cliente_datos`.
+

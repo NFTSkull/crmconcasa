@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+- **feat(mesa): P4A preview documento fuente en captura Infonavit** — split desktop sticky + modal vista grande; mapeo identidad→INE / RFC·CLABE→estado cuenta / vivienda→comprobante; blob privado create/revoke ObjectURL. Sin OCR/autofill/migrations.
+
 - **docs(document-extractions): requisito UX Mesa split-view P4/P5** — mapeo campo→documento (INE/estado cuenta/CFE), preview privado sticky; sin implementar UI.
 
 - **fix(document-extractions): P3 lease max_attempts + storage download** — reclaim exhausted→dead; mark_failed respeta lease_expires_at; worker download privado service-role; sanitize error_code allowlist.

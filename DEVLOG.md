@@ -1,3 +1,16 @@
+## 2026-09-17 - P4A: preview documento fuente Infonavit (Mesa)
+
+### Decisión
+Separar preview visual (P4A) de OCR/extracción (P4). Mesa ve el documento current mientras captura; sin autofill ni providers.
+
+### Qué
+- Mapping `infonavit-source-preview.ts` (campo→contexto→tipo doc).
+- `MesaInfonavitSourceDocumentPreview` reutiliza `listByExpediente` + `getArchivoBlob` + `MesaArchivoPreviewDialog`.
+- Form: grid sticky desktop; foco de campo cambia contexto (no por tecla).
+
+### No
+OCR/OpenAI/Document AI/Azure, autofill, enqueue, flags P2/P3, migrations, Cloud, agenda/Sheets, cambios P189 generation.
+
 ## 2026-09-15 - Silvia: Constancia SAT opcional otra vez (set envío = 5)
 
 ### Decisión

@@ -1984,6 +1984,16 @@ Detalle: `docs/DOCUMENT_EXTRACTIONS.md`.
 
 Vault `document_extraction_worker_enabled` DEFAULT OFF. Edge `document-extraction-worker` + secret `DOCUMENT_EXTRACTION_WORKER_SECRET` / header `x-concasa-doc-extraction-secret`. Provider solo `shadow` (no-op). **Sin** upload hook / cron Production / OCR.
 
+## 19quinquies-b. P4A — Preview documento fuente en captura Infonavit (UI)
+
+**Sin migración / sin RPC nueva.** Solo frontend Mesa:
+
+- `MesaInfonavitGenerarDocumentosForm` + `MesaInfonavitSourceDocumentPreview`.
+- Documentos current: `listByExpediente` (`deleted_at IS NULL`) + `rowMasRecientePorTipoDocumento`.
+- Blob privado: `getArchivoBlob` → `URL.createObjectURL` / `revokeObjectURL` (reusa `MesaArchivoPreviewDialog`).
+- Mapeo: identidad→INE frente/reverso; RFC/CLABE→`cliente_estado_cuenta`; vivienda→`cliente_comprobante_domicilio`.
+- **No** OCR, enqueue, autofill, mutación `cliente_datos`/expedientes, ni cambio a generación P189.
+
 ## 19sexies. P189 B5 — Visibilidad / preview / descarga (LOCAL)
 
 **Migración:** `187_infonavit_pdf_read_model.sql` (NO Cloud apply). 183–186 intactas. No modifica worker/cron/Vault/templates.
