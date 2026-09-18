@@ -18,6 +18,9 @@ export type DocumentOcrResult = Readonly<{
 export const DEFAULT_DOCUMENT_OCR_URL =
   "https://concasa-document-ocr-production.up.railway.app";
 
+const OCR_MEMORY_CACHE = new Map<string, Promise<DocumentOcrResult>>();
+const MAX_OCR_MEMORY_CACHE_ENTRIES = 24;
+
 function endpoint(): string {
   return (
     process.env.NEXT_PUBLIC_DOCUMENT_OCR_URL?.trim() ||
@@ -26,6 +29,38 @@ function endpoint(): string {
 }
 
 export async function extractDocumentTextViaOcr(input: {
+  blob: Blob;
+  documentType: OcrDocumentType;
+  filename?: string | null;
+  signal?: AbortSignal;
+  /** Dedupe únicamente en memoria de la pestaña; nunca persiste texto OCR. */
+  cacheKey?: string | null;
+}): Promise<DocumentOcrResult> {
+  const key = input.cacheKey?.trim() || null;
+  if (key) {
+    const cached = OCR_MEMORY_CACHE.get(key);
+    if (cached) return cached;
+  }
+
+  const request = extractDocumentTextViaOcrUncached(input);
+  if (!key) return request;
+
+  OCR_MEMORY_CACHE.set(key, request);
+  while (OCR_MEMORY_CACHE.size > MAX_OCR_MEMORY_CACHE_ENTRIES) {
+    const oldest = OCR_MEMORY_CACHE.keys().next().value as string | undefined;
+    if (!oldest) break;
+    OCR_MEMORY_CACHE.delete(oldest);
+  }
+
+  try {
+    return await request;
+  } catch (error) {
+    OCR_MEMORY_CACHE.delete(key);
+    throw error;
+  }
+}
+
+async function extractDocumentTextViaOcrUncached(input: {
   blob: Blob;
   documentType: OcrDocumentType;
   filename?: string | null;
