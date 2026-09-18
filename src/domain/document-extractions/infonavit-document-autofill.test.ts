@@ -193,6 +193,29 @@ describe("P4C document autofill parser", () => {
     );
   });
 
+  it("CFE usa el último número como exterior e infiere colonia residencial sin etiqueta", () => {
+    const patch = buildInfonavitDocumentAutofillPatch({
+      comprobanteDomicilio: [
+        "CFE COMISION FEDERAL DE ELECTRICIDAD",
+        "CLIENTE PRUEBA",
+        "CALLE 9 52 C.P. 66460",
+        "LAS PUENTES RESID",
+        "SAN NICOLAS DE LOS G, N.L.",
+        "NO. DE SERVICIO: 123456789012",
+      ].join("\n"),
+    });
+
+    assert.equal(patch.vivienda.calle?.value, "CALLE 9");
+    assert.equal(patch.vivienda.noExt?.value, "52");
+    assert.equal(patch.vivienda.cp?.value, "66460");
+    assert.equal(patch.vivienda.colonia?.value, "LAS PUENTES RESID");
+    assert.equal(
+      patch.vivienda.municipio?.value,
+      "SAN NICOLÁS DE LOS GARZA",
+    );
+    assert.equal(patch.vivienda.entidad?.value, "NUEVO LEÓN");
+  });
+
   it("comprobante extrae domicilio de bloque con CP", () => {
     const patch = buildInfonavitDocumentAutofillPatch({
       comprobanteDomicilio: [
