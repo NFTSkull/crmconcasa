@@ -204,6 +204,10 @@ export async function POST(request: Request, { params }: RouteParams) {
     const datos = clienteRes.data.datos as Record<string, unknown>;
     const curp = String(datos.curp ?? "").trim().toUpperCase();
     const rfcDatosGenerales = String(datos.rfc ?? "").trim().toUpperCase();
+    const rfcInfonavit = String(editorRes.data?.rfc_infonavit ?? "")
+      .trim()
+      .toUpperCase();
+    const estadoCuentaStoragePath = String(documentoRes.data.storage_path);
     const nombreCliente =
       String(datos.nombreCliente ?? "").trim() ||
       String(expediente.cliente_nombre ?? "").trim();
@@ -224,13 +228,13 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     const selection = selectEstadoCuentaRfc({
       text: extracted.text,
-      rfcInfonavit: editorRes.data?.rfc_infonavit ?? null,
+      rfcInfonavit: rfcInfonavit || null,
       rfcDatosGenerales,
       curpValidadaLocalmente: curp,
       clienteNombre: nombreCliente,
     });
     const resolution = resolveFiscalRfc({
-      rfcInfonavit: editorRes.data?.rfc_infonavit ?? null,
+      rfcInfonavit: rfcInfonavit || null,
       rfcDatosGenerales,
       estadoCuenta: selection,
     });
@@ -269,7 +273,61 @@ export async function POST(request: Request, { params }: RouteParams) {
     if (decision.kind === "invalid") return invalid(decision.code);
     if (decision.kind === "retry") return retry(decision.code);
 
-    // ÚNICA escritura del flujo: solo después de PASS RFC + CURP en worker LIVE.
+    // TOCTOU guard: el PASS solo sirve para los mismos insumos que se validaron.
+    const [currentClienteRes, currentEditorRes, currentDocumentoRes] = await Promise.all([
+      client
+        .from("cliente_datos")
+        .select("datos")
+        .eq("expediente_id", expedienteId)
+        .maybeSingle(),
+      client
+        .from("editor_decisions")
+        .select("rfc_infonavit")
+        .eq("expediente_id", expedienteId)
+        .maybeSingle(),
+      client
+        .from("expediente_documentos")
+        .select("storage_path, created_at")
+        .eq("expediente_id", expedienteId)
+        .eq("tipo_documento", ESTADO_CUENTA)
+        .is("deleted_at", null)
+        .order("created_at", { ascending: false })
+        .limit(1)
+        .maybeSingle(),
+    ]);
+    if (
+      currentClienteRes.error ||
+      currentEditorRes.error ||
+      currentDocumentoRes.error ||
+      !currentClienteRes.data?.datos ||
+      !currentDocumentoRes.data?.storage_path
+    ) {
+      return retry("FISCAL_INPUT_RECHECK_FAILED");
+    }
+
+    const currentDatos = currentClienteRes.data.datos as Record<string, unknown>;
+    const currentCurp = String(currentDatos.curp ?? "").trim().toUpperCase();
+    const currentRfcDatos = String(currentDatos.rfc ?? "").trim().toUpperCase();
+    const currentRfcInfonavit = String(currentEditorRes.data?.rfc_infonavit ?? "")
+      .trim()
+      .toUpperCase();
+    const currentNombre =
+      String(currentDatos.nombreCliente ?? "").trim() ||
+      String(expediente.cliente_nombre ?? "").trim();
+    const currentEstadoCuentaPath = String(currentDocumentoRes.data.storage_path);
+
+    if (
+      currentCurp !== curpLocal.normalized ||
+      currentRfcDatos !== rfcDatosGenerales ||
+      currentRfcInfonavit !== rfcInfonavit ||
+      currentNombre !== nombreCliente ||
+      currentEstadoCuentaPath !== estadoCuentaStoragePath
+    ) {
+      return retry("FISCAL_INPUT_CHANGED", 409);
+    }
+
+    // ÚNICA escritura del flujo: solo después de PASS RFC + CURP en worker LIVE
+    // y después de confirmar que los insumos no cambiaron durante la validación.
     const { data: sent, error: sendError } = await client.rpc("enviar_a_mesa", {
       p_expediente_id: expedienteId,
     });
