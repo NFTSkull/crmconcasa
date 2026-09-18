@@ -3,8 +3,12 @@
 export type AdminMesaTimelineEvent = Readonly<{
   at: string;
   action: string;
-  /** Actor general derivado del código de acción (Mesa|Asesor|Sistema). */
+  /** Grupo humano del actor (Mesa|Asesor|Editor|Super Admin|Sistema). */
   actorGeneral: string | null;
+  /** Nombre real del perfil que generó el evento, cuando existe. */
+  actorName: string | null;
+  /** Rol persistido en action_log. */
+  actorRole: string | null;
   summary: Readonly<Record<string, string | null>>;
 }>;
 
@@ -22,9 +26,19 @@ export function labelAdminMesaAction(action: string | null | undefined): string 
     case "cliente_datos.revision.update":
       return "Revisión de datos generales Mesa";
     case "expediente.documento.asesor_correccion":
-      return "Asesor reenvió documento";
+      return "Asesor reenvió documento corregido";
+    case "expediente.documento.register":
+      return "Documento cargado por asesor";
+    case "expediente.documento.replace":
+      return "Documento reemplazado por asesor";
+    case "cliente_datos.save":
+      return "Datos generales guardados";
     case "cliente_datos.correccion_post_mesa":
       return "Asesor corrigió datos generales";
+    case "cliente_datos.actualizado_post_mesa":
+      return "Asesor actualizó datos generales";
+    case "asesor.correccion.reenviada_a_mesa":
+      return "Asesor reenvió corrección a Mesa";
     case "expediente.avanzar_etapa_operativa":
       return "Avance de etapa";
     case "mesa.expediente.mover_etapa":
@@ -50,6 +64,8 @@ export function labelAdminMesaAction(action: string | null | undefined): string 
     case "agenda.biometricos.reagendar":
     case "agenda.biometricos.mesa_reagendar":
       return "Cita biométricos reagendada";
+    case "agenda.notificacion.mesa_reagendar":
+      return "Cita de notificación reagendada por Mesa";
     case "agenda.firmas.book":
     case "agenda.firmas.mesa_book":
       return "Cita de firma agendada";
@@ -66,6 +82,39 @@ export function labelAdminMesaAction(action: string | null | undefined): string 
     default:
       return "Actividad";
   }
+}
+
+export function labelAdminMesaTimelineEvent(
+  event: Pick<AdminMesaTimelineEvent, "action" | "summary">,
+): string {
+  const estadoNuevo = String(event.summary.estado_nuevo ?? "").trim();
+  const estatusNuevo = String(event.summary.estatus_nuevo ?? "").trim();
+
+  if (
+    event.action === "cliente_datos.revision.update" &&
+    estadoNuevo === "rechazado"
+  ) {
+    return "Mesa solicitó corrección de datos generales";
+  }
+  if (
+    event.action === "documento.revision.update" &&
+    estatusNuevo === "rechazado"
+  ) {
+    return "Mesa solicitó corrección de documento";
+  }
+  if (
+    event.action === "cliente_datos.revision.update" &&
+    estadoNuevo === "completo"
+  ) {
+    return "Mesa validó datos generales";
+  }
+  if (
+    event.action === "documento.revision.update" &&
+    estatusNuevo === "validado"
+  ) {
+    return "Mesa validó documento";
+  }
+  return labelAdminMesaAction(event.action);
 }
 
 /** Whitelist documentada: última actividad Mesa (solo códigos de flujo Mesa). */
@@ -92,7 +141,12 @@ export const ADMIN_MESA_TIMELINE_ACTIONS = [
   "expediente.enviar_a_mesa",
   ...ADMIN_MESA_LAST_ACTIVITY_ACTIONS,
   "expediente.documento.asesor_correccion",
+  "expediente.documento.register",
+  "expediente.documento.replace",
+  "cliente_datos.save",
   "cliente_datos.correccion_post_mesa",
+  "cliente_datos.actualizado_post_mesa",
+  "asesor.correccion.reenviada_a_mesa",
   "expediente.enviar_retencion_mesa",
   "expediente.reingreso.crear",
   "expediente.reingreso.cerrar_anterior",
@@ -107,11 +161,24 @@ export const ADMIN_MESA_TIMELINE_ACTIONS = [
 /** Claves permitidas en summary de timeline (nunca payload completo). */
 export const ADMIN_MESA_TIMELINE_SUMMARY_KEYS = [
   "tipo_documento",
+  "nombre_original",
   "estatus_nuevo",
   "estatus_anterior",
+  "estado_nuevo",
+  "estado_anterior",
   "etapa_destino",
   "etapa_origen",
+  "etapa_nueva",
+  "etapa_anterior",
   "motivo",
+  "comentario_rechazo",
+  "comentario",
+  "request_type",
+  "request_at",
+  "submitted_at",
+  "copied_cambios",
+  "lote_id",
+  "reemplazo",
   "is_resend",
 ] as const;
 
@@ -140,15 +207,23 @@ export function sanitizeAdminTimelineSummary(
   const out: Record<string, string | null> = {};
   for (const key of ADMIN_MESA_TIMELINE_SUMMARY_KEYS) {
     const max =
-      key === "motivo"
-        ? SAFE_TEXT_MAX
-        : key === "tipo_documento"
-          ? 120
-          : key.startsWith("etapa_")
-            ? 10
-            : key === "is_resend"
-              ? 5
-              : 40;
+      key === "comentario_rechazo" || key === "comentario"
+        ? 1200
+        : key === "motivo"
+          ? 800
+          : key === "nombre_original"
+            ? 240
+            : key === "tipo_documento"
+              ? 160
+              : key === "request_type" || key === "lote_id"
+                ? 100
+                : key === "request_at" || key === "submitted_at"
+                  ? 80
+                  : key.startsWith("etapa_")
+                    ? 10
+                    : key === "is_resend" || key === "reemplazo"
+                      ? 5
+                      : 60;
     out[key] = sanitizeAdminSafeText(raw?.[key], max);
   }
   return out;
@@ -173,4 +248,40 @@ export function formatAdminMesaEsperaLabel(input: {
     return "Pendiente · fecha no disponible";
   }
   return label;
+}
+
+
+/** Hora de negocio del CRM: siempre Monterrey, independiente del dispositivo del Admin. */
+export function formatAdminTimelineDateTimeMx(
+  value: string | null | undefined,
+): string {
+  const raw = String(value ?? "").trim();
+  if (!raw) return "—";
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return "—";
+  return d.toLocaleString("es-MX", {
+    timeZone: "America/Monterrey",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    second: "2-digit",
+    hour12: false,
+  });
+}
+
+export function labelAdminCorrectionRequestType(
+  value: string | null | undefined,
+): string | null {
+  switch (String(value ?? "").trim()) {
+    case "SOLICITUD_DATOS_GENERALES":
+      return "Datos generales";
+    case "SOLICITUD_DOCUMENTAL":
+      return "Documento";
+    case "RECHAZO_OPERATIVO_CON_CORRECCION":
+      return "Rechazo operativo con corrección";
+    default:
+      return sanitizeAdminSafeText(value, 100);
+  }
 }

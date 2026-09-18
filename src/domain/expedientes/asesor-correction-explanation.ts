@@ -69,6 +69,7 @@ export function resolveAsesorCorreccionExplicacion(params: {
     count: number;
     labels: string[];
     first_motivo?: string | null;
+    request_at?: string | null;
     ux_state?: string | null;
   } | null;
 }): string | null {

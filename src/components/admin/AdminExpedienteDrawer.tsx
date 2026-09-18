@@ -14,7 +14,10 @@ import { AdminStatusBadge } from "@/components/admin/AdminStatusBadge";
 import {
   formatAdminMesaAsesorLabel,
   formatAdminMesaEsperaLabel,
+  formatAdminTimelineDateTimeMx,
+  labelAdminCorrectionRequestType,
   labelAdminMesaAction,
+  labelAdminMesaTimelineEvent,
   sanitizeAdminMotivo,
   type AdminMesaTimelineEvent,
 } from "@/domain/admin-production/mesa-seguimiento";
@@ -350,7 +353,7 @@ function AdminExpedienteDrawerPanel({
           {tab === "seguimiento" ? (
             <div>
               <p className="text-xs text-slate-500">
-                Más reciente primero · solo lectura
+                Más reciente primero · hora de Monterrey · solo lectura
               </p>
               {timelineLoading ? (
                 <p className="mt-4 text-sm text-slate-700">Cargando seguimiento…</p>
@@ -365,19 +368,38 @@ function AdminExpedienteDrawerPanel({
                   <ol className="mt-4 list-decimal space-y-3 pl-5 text-sm text-slate-800">
                     {timelineItems.map((ev, idx) => {
                       const doc = ev.summary.tipo_documento?.trim();
-                      const motivo = sanitizeAdminMotivo(ev.summary.motivo);
-                      const showMotivo = Boolean(ev.summary.motivo?.trim());
+                      const motivoRaw =
+                        ev.summary.comentario_rechazo?.trim() ||
+                        ev.summary.comentario?.trim() ||
+                        ev.summary.motivo?.trim() ||
+                        "";
+                      const motivo = sanitizeAdminMotivo(motivoRaw);
+                      const requestType = labelAdminCorrectionRequestType(
+                        ev.summary.request_type,
+                      );
+                      const requestAt = ev.summary.request_at?.trim();
+                      const submittedAt = ev.summary.submitted_at?.trim();
+                      const actor =
+                        ev.actorName && ev.actorGeneral
+                          ? `${ev.actorName} · ${ev.actorGeneral}`
+                          : ev.actorName || ev.actorGeneral || ev.actorRole;
+                      const estadoAnterior =
+                        ev.summary.estado_anterior?.trim() ||
+                        ev.summary.estatus_anterior?.trim();
+                      const estadoNuevo =
+                        ev.summary.estado_nuevo?.trim() ||
+                        ev.summary.estatus_nuevo?.trim();
                       return (
                         <li key={`${ev.at}-${ev.action}-${idx}`}>
                           <span className="whitespace-nowrap font-medium text-slate-900">
-                            {formatDateTimeMx(ev.at)}
+                            {formatAdminTimelineDateTimeMx(ev.at)}
                           </span>
                           {" · "}
-                          <span>{labelAdminMesaAction(ev.action)}</span>
-                          {ev.actorGeneral ? (
+                          <span>{labelAdminMesaTimelineEvent(ev)}</span>
+                          {actor ? (
                             <span className="text-xs text-slate-600">
                               {" "}
-                              ({ev.actorGeneral})
+                              ({actor})
                             </span>
                           ) : null}
                           {doc ? (
@@ -385,9 +407,34 @@ function AdminExpedienteDrawerPanel({
                               Documento: {doc}
                             </p>
                           ) : null}
-                          {showMotivo ? (
+                          {estadoAnterior || estadoNuevo ? (
+                            <p className="mt-0.5 text-xs text-slate-700">
+                              Estado: {estadoAnterior || "—"} → {estadoNuevo || "—"}
+                            </p>
+                          ) : null}
+                          {motivoRaw ? (
                             <p className="mt-0.5 text-xs text-slate-700">
                               Motivo: {motivo}
+                            </p>
+                          ) : null}
+                          {requestType ? (
+                            <p className="mt-0.5 text-xs text-slate-700">
+                              Tipo de solicitud: {requestType}
+                            </p>
+                          ) : null}
+                          {requestAt ? (
+                            <p className="mt-0.5 text-xs text-slate-600">
+                              Solicitud de Mesa: {formatAdminTimelineDateTimeMx(requestAt)}
+                            </p>
+                          ) : null}
+                          {submittedAt ? (
+                            <p className="mt-0.5 text-xs text-slate-600">
+                              Reenviada por asesor: {formatAdminTimelineDateTimeMx(submittedAt)}
+                            </p>
+                          ) : null}
+                          {ev.summary.copied_cambios?.trim() ? (
+                            <p className="mt-0.5 text-xs text-slate-600">
+                              Cambios incluidos: {ev.summary.copied_cambios}
                             </p>
                           ) : null}
                         </li>

@@ -481,6 +481,8 @@ export class SupabaseAdminProductionRepo implements AdminProductionRepo {
           at: str(r.at),
           action: str(r.action),
           actorGeneral: strOrNull(r.actor_general),
+          actorName: strOrNull(r.actor_name),
+          actorRole: strOrNull(r.actor_role),
           summary: sanitizeAdminTimelineSummary(summaryRaw),
         };
       }),

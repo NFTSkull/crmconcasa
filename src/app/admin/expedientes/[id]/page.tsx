@@ -9,7 +9,15 @@ import {
   type AdminExpedienteFullDetail,
 } from "@/domain/admin-expediente-detail";
 import { getAdminEtapaDisplayNombre } from "@/domain/admin-production/admin-visible-stages";
-import { labelAdminMesaAction } from "@/domain/admin-production/mesa-seguimiento";
+import {
+  formatAdminTimelineDateTimeMx,
+  labelAdminCorrectionRequestType,
+  labelAdminMesaAction,
+  labelAdminMesaTimelineEvent,
+  sanitizeAdminMotivo,
+  sanitizeAdminTimelineSummary,
+  type AdminMesaTimelineEvent,
+} from "@/domain/admin-production/mesa-seguimiento";
 import {
   ExpedienteArchivosSupabaseError,
   useExpedienteArchivosRepo,
@@ -123,6 +131,38 @@ function actionLabel(action: string): string {
   }
 }
 
+const CORRECTION_TIMELINE_ACTIONS = new Set([
+  "cliente_datos.revision.update",
+  "documento.revision.update",
+  "cliente_datos.save",
+  "cliente_datos.correccion_post_mesa",
+  "cliente_datos.actualizado_post_mesa",
+  "expediente.documento.asesor_correccion",
+  "expediente.documento.register",
+  "expediente.documento.replace",
+  "asesor.correccion.reenviada_a_mesa",
+]);
+
+function toAdminMesaTimelineEvent(raw: AdminDetailRecord): AdminMesaTimelineEvent {
+  return {
+    at: str(raw.at),
+    action: str(raw.action),
+    actorGeneral: str(raw.actor_general) || null,
+    actorName: str(raw.actor_name) || null,
+    actorRole: str(raw.actor_role) || null,
+    summary: sanitizeAdminTimelineSummary(record(raw.summary)),
+  };
+}
+
+function isCorrectionRequestEvent(ev: AdminMesaTimelineEvent): boolean {
+  const estadoNuevo = str(ev.summary.estado_nuevo).trim();
+  const estatusNuevo = str(ev.summary.estatus_nuevo).trim();
+  return (
+    (ev.action === "cliente_datos.revision.update" && estadoNuevo === "rechazado") ||
+    (ev.action === "documento.revision.update" && estatusNuevo === "rechazado")
+  );
+}
+
 function Card({ label, value }: { label: string; value: ReactNode }) {
   return (
     <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
@@ -224,6 +264,20 @@ export default function AdminExpedienteTransparenciaPage() {
 
   const expediente = detail?.expediente ?? {};
   const asesor = useMemo(() => record(expediente.asesor), [expediente.asesor]);
+  const correctionTimeline = useMemo(() => {
+    const timeline = (detail?.mesa_timeline ?? []).map(toAdminMesaTimelineEvent);
+    const requestTimes = timeline
+      .filter(isCorrectionRequestEvent)
+      .map((ev) => Date.parse(ev.at))
+      .filter((t) => Number.isFinite(t));
+    if (requestTimes.length === 0) return [] as AdminMesaTimelineEvent[];
+    const firstRequestAt = Math.min(...requestTimes);
+    return timeline.filter((ev) => {
+      if (!CORRECTION_TIMELINE_ACTIONS.has(ev.action)) return false;
+      const at = Date.parse(ev.at);
+      return Number.isFinite(at) && at >= firstRequestAt;
+    });
+  }, [detail?.mesa_timeline]);
 
   const openDocument = async (doc: AdminDetailRecord) => {
     const docId = str(doc.id).trim();
@@ -447,7 +501,92 @@ export default function AdminExpedienteTransparenciaPage() {
           )}
         </Section>
 
-        <Section title={`Correcciones (${detail.correcciones.length})`} description="Qué se pidió corregir, cuándo se creó, cuándo se reenvió y qué valores cambiaron.">
+        <Section
+          title={`Eventos de corrección (${correctionTimeline.length})`}
+          description="Auditoría del ciclo: solicitud de Mesa, cambios del asesor, reenvío y revisión. Todas las horas se muestran en Monterrey."
+        >
+          {correctionTimeline.length === 0 ? (
+            <p className="text-sm text-slate-500">
+              No hay un ciclo de corrección solicitado por Mesa registrado.
+            </p>
+          ) : (
+            <ol className="space-y-3 border-l border-amber-300 pl-5">
+              {correctionTimeline.map((ev, index) => {
+                const summary = ev.summary;
+                const motivoRaw =
+                  str(summary.comentario_rechazo).trim() ||
+                  str(summary.comentario).trim() ||
+                  str(summary.motivo).trim();
+                const requestType = labelAdminCorrectionRequestType(
+                  summary.request_type,
+                );
+                const estadoAnterior =
+                  str(summary.estado_anterior).trim() ||
+                  str(summary.estatus_anterior).trim();
+                const estadoNuevo =
+                  str(summary.estado_nuevo).trim() ||
+                  str(summary.estatus_nuevo).trim();
+                const actor =
+                  ev.actorName && ev.actorGeneral
+                    ? `${ev.actorName} · ${ev.actorGeneral}`
+                    : ev.actorName || ev.actorGeneral || actorLabel(ev.actorRole);
+                return (
+                  <li key={`${ev.at}-${ev.action}-${index}`} className="relative rounded-lg border border-amber-100 bg-amber-50/40 p-3">
+                    <span className="absolute -left-[1.58rem] top-5 h-2.5 w-2.5 rounded-full bg-amber-600" />
+                    <p className="text-sm font-semibold text-slate-950">
+                      {formatAdminTimelineDateTimeMx(ev.at)} · {labelAdminMesaTimelineEvent(ev)}
+                    </p>
+                    <p className="mt-0.5 text-xs text-slate-600">{actor}</p>
+                    {motivoRaw ? (
+                      <p className="mt-2 text-sm text-amber-950">
+                        <span className="font-semibold">Motivo:</span>{" "}
+                        {sanitizeAdminMotivo(motivoRaw)}
+                      </p>
+                    ) : null}
+                    {str(summary.tipo_documento).trim() ? (
+                      <p className="mt-1 text-xs text-slate-700">
+                        <span className="font-semibold">Documento:</span>{" "}
+                        {str(summary.tipo_documento)}
+                      </p>
+                    ) : null}
+                    {estadoAnterior || estadoNuevo ? (
+                      <p className="mt-1 text-xs text-slate-700">
+                        <span className="font-semibold">Estado:</span>{" "}
+                        {estadoAnterior || "—"} → {estadoNuevo || "—"}
+                      </p>
+                    ) : null}
+                    {requestType ? (
+                      <p className="mt-1 text-xs text-slate-700">
+                        <span className="font-semibold">Tipo de solicitud:</span>{" "}
+                        {requestType}
+                      </p>
+                    ) : null}
+                    {str(summary.request_at).trim() ? (
+                      <p className="mt-1 text-xs text-slate-700">
+                        <span className="font-semibold">Solicitud de Mesa:</span>{" "}
+                        {formatAdminTimelineDateTimeMx(summary.request_at)}
+                      </p>
+                    ) : null}
+                    {str(summary.submitted_at).trim() ? (
+                      <p className="mt-1 text-xs text-slate-700">
+                        <span className="font-semibold">Reenvío del asesor:</span>{" "}
+                        {formatAdminTimelineDateTimeMx(summary.submitted_at)}
+                      </p>
+                    ) : null}
+                    {str(summary.copied_cambios).trim() ? (
+                      <p className="mt-1 text-xs text-slate-700">
+                        <span className="font-semibold">Cambios incluidos:</span>{" "}
+                        {str(summary.copied_cambios)}
+                      </p>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ol>
+          )}
+        </Section>
+
+        <Section title={`Lotes de respuesta del asesor (${detail.correcciones.length})`} description="Lotes creados por el asesor para responder a Mesa, sus cambios, reenvío y revisión.">
           {detail.correcciones.length === 0 ? <p className="text-sm text-slate-500">No se han solicitado correcciones.</p> : (
             <div className="space-y-3">
               {detail.correcciones.map((lote, index) => {
@@ -456,7 +595,7 @@ export default function AdminExpedienteTransparenciaPage() {
                   <article key={str(lote.id) || index} className="rounded-lg border border-amber-200 bg-amber-50/40 p-4">
                     <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
                       <Card label="Estado" value={str(lote.status) || "—"} />
-                      <Card label="Solicitada / creada" value={fmtDateTime(lote.created_at)} />
+                      <Card label="Lote creado" value={fmtDateTime(lote.created_at)} />
                       <Card label="Reenviada" value={fmtDateTime(lote.submitted_at)} />
                       <Card label="Revisada" value={fmtDateTime(lote.reviewed_at)} />
                     </div>

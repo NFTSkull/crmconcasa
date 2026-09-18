@@ -595,6 +595,8 @@ export class MockAdminProductionRepo implements AdminProductionRepo {
               at: fecha,
               action: "expediente.enviar_a_mesa",
               actorGeneral: "Asesor",
+              actorName: "Asesor Demo",
+              actorRole: "asesor",
               summary: {} as Record<string, string | null>,
             },
           ]
