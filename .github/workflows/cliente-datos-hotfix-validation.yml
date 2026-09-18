@@ -1,0 +1,49 @@
+name: Cliente datos hotfix validation
+
+on:
+  pull_request:
+    paths:
+      - "src/lib/clienteDatosDraftLocalStorage.ts"
+      - "src/lib/clienteDatosDraftLocalStorage.test.ts"
+      - "src/app/asesor/expediente/[id]/page.tsx"
+      - "src/components/asesor/ExpedienteClienteDatosFormSection.mount.test.ts"
+      - "src/domain/expedientes/infonavit-scraper-name.ts"
+      - "src/domain/expedientes/infonavit-scraper-name.test.ts"
+      - "src/domain/expedientes/auto-precalificar-job.ts"
+      - "src/domain/expedientes/auto-precalificar-job.test.ts"
+      - "supabase/migrations/*fix_infonavit_nombre_hash_and_validate.sql"
+      - ".github/workflows/cliente-datos-hotfix-validation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Targeted regression tests
+        run: >
+          npx tsx --test
+          src/lib/clienteDatosDraftLocalStorage.test.ts
+          src/domain/expedientes/infonavit-scraper-name.test.ts
+          src/domain/expedientes/auto-precalificar-job.test.ts
+          src/components/asesor/ExpedienteClienteDatosFormSection.mount.test.ts
+      - name: ESLint touched TypeScript
+        run: >
+          npx eslint
+          src/lib/clienteDatosDraftLocalStorage.ts
+          src/lib/clienteDatosDraftLocalStorage.test.ts
+          src/app/asesor/expediente/[id]/page.tsx
+          src/components/asesor/ExpedienteClienteDatosFormSection.mount.test.ts
+          src/domain/expedientes/infonavit-scraper-name.ts
+          src/domain/expedientes/infonavit-scraper-name.test.ts
+          src/domain/expedientes/auto-precalificar-job.ts
+          src/domain/expedientes/auto-precalificar-job.test.ts
