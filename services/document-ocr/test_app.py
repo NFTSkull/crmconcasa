@@ -2,7 +2,13 @@ import io
 
 from PIL import Image
 
-from app import enough_embedded_text, extract_document_text, normalize_mime, preprocess_image
+from app import (
+    enough_embedded_text,
+    extract_document_text,
+    normalize_mime,
+    ocr_image,
+    preprocess_image,
+)
 
 
 def test_normalize_mime():
@@ -36,3 +42,36 @@ def test_preprocess_scales_small_image():
     image = Image.new("RGB", (600, 300), "white")
     out = preprocess_image(image)
     assert max(out.size) >= 1800
+
+
+def test_ine_runs_second_adaptive_sparse_pass(monkeypatch):
+    image = Image.new("RGB", (900, 600), "white")
+    calls = []
+
+    def fake_ocr(*args, **kwargs):
+        calls.append(kwargs.get("config", ""))
+        return "NOMBRE ZAMUDIO CAMPOS GERARDO" if len(calls) == 1 else "SEXO H\nVIGENCIA\n2023 2033"
+
+    monkeypatch.setattr("app.pytesseract.image_to_string", fake_ocr)
+    text = ocr_image(image, "cliente_ine_frente")
+
+    assert len(calls) == 2
+    assert "psm 6" in calls[0]
+    assert "psm 11" in calls[1]
+    assert "SEXO H" in text
+    assert "2033" in text
+
+
+def test_non_ine_keeps_single_pass(monkeypatch):
+    image = Image.new("RGB", (900, 600), "white")
+    calls = []
+
+    def fake_ocr(*args, **kwargs):
+        calls.append(kwargs.get("config", ""))
+        return "CFE"
+
+    monkeypatch.setattr("app.pytesseract.image_to_string", fake_ocr)
+    text = ocr_image(image, "cliente_comprobante_domicilio")
+
+    assert text == "CFE"
+    assert len(calls) == 1
