@@ -657,7 +657,6 @@ export function MesaInfonavitGenerarDocumentosForm({
   const draftRef = useRef<MesaInfonavitDocumentDraft | null>(null);
   const autofillRunKeyRef = useRef<string | null>(null);
   const autofillInFlightKeyRef = useRef<string | null>(null);
-  const autoRejectedIneDocIdsRef = useRef<Set<string>>(new Set());
 
   const focusSource = useCallback((field: InfonavitSourceFieldKey) => {
     setSourceContext(resolveInfonavitSourcePreviewContext(field));
@@ -736,7 +735,6 @@ export function MesaInfonavitGenerarDocumentosForm({
   }, [loadDraft]);
 
   useEffect(() => {
-    autoRejectedIneDocIdsRef.current.clear();
     setIneValidity(null);
   }, [expedienteId]);
 
@@ -900,48 +898,11 @@ export function MesaInfonavitGenerarDocumentosForm({
           validity.status === "expired" &&
           validity.expirationYear !== null
         ) {
-          if (validity.canAutoReject) {
-            const comentario =
-              `INE vencida: la credencial muestra vigencia ${validity.expirationYear}. Debe cargarse una INE vigente.`;
-            const ineDocs = [
-              docs.cliente_ine_frente,
-              docs.cliente_ine_reverso,
-            ].filter(
-              (doc): doc is ExpedienteArchivoListItem => doc != null,
-            );
-
-            for (const doc of ineDocs) {
-              if (
-                doc.estatus_revision === "rechazado" ||
-                autoRejectedIneDocIdsRef.current.has(doc.id)
-              ) {
-                continue;
-              }
-              autoRejectedIneDocIdsRef.current.add(doc.id);
-              try {
-                await archivosRepo.updateRevision(doc.id, {
-                  estatus_revision: "rechazado",
-                  comentario_mesa: comentario,
-                });
-              } catch (error) {
-                autoRejectedIneDocIdsRef.current.delete(doc.id);
-                errors.push(
-                  errorMessage(
-                    error,
-                    "Se detectó una INE vencida, pero no se pudo marcar automáticamente para corrección.",
-                  ),
-                );
-              }
-            }
-
-            validityWarnings.push(
-              `INE vencida (vigencia ${validity.expirationYear}). Frente y reverso actuales se enviaron a corrección para que el asesor cargue una credencial vigente.`,
-            );
-          } else {
-            validityWarnings.push(
-              `El reverso sugiere vigencia ${validity.expirationYear}, pero no se rechazó automáticamente porque la vigencia visible del frente no pudo confirmarse. Revísala manualmente.`,
-            );
-          }
+          validityWarnings.push(
+            validity.canAutoReject
+              ? `INE vencida (vigencia ${validity.expirationYear}). No se puede generar hasta que el asesor sustituya la credencial.`
+              : `El reverso sugiere vigencia ${validity.expirationYear}, pero el frente no la confirmó. Revísala manualmente antes de continuar.`,
+          );
         } else if (validity.status === "unknown") {
           validityWarnings.push(
             "No se pudo confirmar automáticamente la vigencia visible de la INE. Revisa el frente antes de continuar.",
