@@ -994,7 +994,22 @@ Deno.serve(async (req) => {
                   const livePriorId = String(
                     livePrior[COL_INDEX.bookingId] ?? "",
                   ).trim();
-                  if (livePriorId === priorId) {
+                  const { data: expectedExp } = await supabase
+                    .from("expedientes")
+                    .select("nss")
+                    .eq("id", payload.expediente_id)
+                    .maybeSingle();
+                  const expectedPriorNss = String(
+                    (expectedExp as { nss?: string } | null)?.nss ?? "",
+                  ).trim();
+                  const livePriorNss = String(
+                    livePrior[COL_INDEX.nss] ?? "",
+                  ).trim();
+                  if (
+                    livePriorId === priorId &&
+                    expectedPriorNss.length > 0 &&
+                    livePriorNss === expectedPriorNss
+                  ) {
                     const beforeAN = Array.from({ length: 14 }, (_, i) =>
                       String(livePrior[i] ?? "")
                     );
@@ -1432,6 +1447,8 @@ Deno.serve(async (req) => {
                 "id,sheet_id,sheet_title,sheet_row,slot_key,sheet_slot_time,status",
               )
               .eq("organization_id", payload.organization_id)
+              .eq("spreadsheet_id", spreadsheetId)
+              .eq("sheet_id", tab.sheetId)
               .eq("booking_date", date)
               .eq("kind", kind)
               .eq("location_id", locationId)
