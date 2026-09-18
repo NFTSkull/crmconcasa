@@ -134,7 +134,9 @@ def _ine_orientation_score(text: str, document_type: str) -> int:
 
 
 def orient_ine_image(image: Image.Image, document_type: str) -> Image.Image:
-    base = ImageOps.exif_transpose(image)
+    # Normalizamos modo para que rotate(fillcolor="white") sea estable también
+    # con PNG/WebP que lleguen como P, LA o RGBA.
+    base = ImageOps.exif_transpose(image).convert("RGB")
     best = base
     best_score = -1
 
