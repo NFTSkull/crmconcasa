@@ -57,9 +57,10 @@ describe("Mesa Citas — cierre operativo por booking", () => {
     assert.doesNotMatch(migration, /UPDATE public\.agenda_bookings/);
   });
 
-  it("frontend usa la RPC por booking y no el avance genérico por expediente", () => {
+  it("frontend usa RPC por booking y conserva Notificación con avance genérico", () => {
     assert.match(repoSource, /mesa_completar_cita_operativa/);
     assert.match(clientSource, /completarMesaAgendaCitaOperativa/);
-    assert.doesNotMatch(clientSource, /expedientesRepo\.avanzarEtapaOperativa/);
+    assert.match(clientSource, /item\.kind === "notificacion"/);
+    assert.match(clientSource, /expedientesRepo\.avanzarEtapaOperativa\(expedienteId\)/);
   });
 });
