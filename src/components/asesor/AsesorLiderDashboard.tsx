@@ -501,7 +501,7 @@ export function AsesorLiderDashboard({
             <Select
               label="Estado en Mesa"
               name="estado_mesa"
-              options={ESTADO_MESA_OPTIONS}
+              options={[...ESTADO_MESA_OPTIONS]}
               value={estadoMesa}
               onChange={(e) => {
                 setEstadoMesa(e.target.value as EstadoMesaFilter);
