@@ -1,3 +1,16 @@
+## 2026-09-17 - P4B: CLABE shadow desde Estado de cuenta
+
+### Decisión
+Demostrar precisión del parser client-side (texto embebido + checksum P1 + proximidad a etiqueta CLABE) como sugerencia visual antes de cualquier autofill o provider server-side.
+
+### Qué
+- `clabe-bank-statement.ts`: candidatos 18d, score por etiqueta, estados detected/ambiguous/not_found/no_text_layer/unsupported.
+- UI en `MesaInfonavitSourceDocumentPreview` solo si `context===clabe`; cache en memoria por documento_id; race guard.
+- Reutiliza `extractPdfEmbeddedText` (pdfjs) y helpers P1.
+
+### No
+OCR, OpenAI/Azure/Document AI, autofill, setDraft, migrations, Cloud, enqueue P2/P3, RFC parse, action_log/raw text persistence.
+
 ## 2026-09-17 - P4A: preview documento fuente Infonavit (Mesa)
 
 ### Decisión

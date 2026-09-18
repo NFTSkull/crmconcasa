@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import {
   MesaArchivoPreviewDialog,
@@ -26,6 +26,16 @@ import {
   type InfonavitSourceDocKind,
   type InfonavitSourcePreviewContext,
 } from "@/domain/document-extractions/infonavit-source-preview";
+import {
+  canRunClabeDetection,
+  detectClabeFromBankStatementPdfBytes,
+  resolveVisibleClabeDetection,
+  shouldRunClabeShadowDetection,
+  type ActiveDocumentBlob,
+  type ClabeDetectionForDocument,
+  type ClabeBankStatementDetection,
+} from "@/domain/document-extractions/clabe-bank-statement";
+import { MesaClabeShadowDetectionPanel } from "@/components/mesa-control/MesaClabeShadowDetectionPanel";
 
 export type MesaInfonavitSourceDocumentPreviewProps = Readonly<{
   expedienteId: string;
@@ -68,6 +78,15 @@ export function MesaInfonavitSourceDocumentPreview({
   const [blobError, setBlobError] = useState<string | null>(null);
   const [preview, setPreview] = useState<MesaArchivoPreviewState | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [activeDocumentBlob, setActiveDocumentBlob] =
+    useState<ActiveDocumentBlob | null>(null);
+  const [clabeAnalyzing, setClabeAnalyzing] = useState(false);
+  const [clabeDetection, setClabeDetection] =
+    useState<ClabeDetectionForDocument | null>(null);
+  const clabeCacheRef = useRef<Map<string, ClabeBankStatementDetection>>(
+    new Map(),
+  );
+  const clabeGenRef = useRef(0);
 
   const loadIndex = useCallback(async () => {
     setListError(null);
@@ -147,6 +166,8 @@ export function MesaInfonavitSourceDocumentPreview({
 
     setBlobError(null);
     setModalOpen(false);
+    // Limpia blob previo de inmediato al cambiar de documento
+    setActiveDocumentBlob(null);
 
     if (!docId || !activeRow) {
       setPreview((prev) => {
@@ -161,6 +182,7 @@ export function MesaInfonavitSourceDocumentPreview({
       try {
         const blob = await archivosRepo.getArchivoBlob(docId);
         if (cancelled) return;
+        setActiveDocumentBlob({ documentoId: docId, blob });
         const url = URL.createObjectURL(blob);
         setPreview((prev) => {
           if (prev?.url) URL.revokeObjectURL(prev.url);
@@ -174,6 +196,7 @@ export function MesaInfonavitSourceDocumentPreview({
         });
       } catch (err) {
         if (cancelled) return;
+        setActiveDocumentBlob(null);
         setPreview((prev) => {
           if (prev?.url) URL.revokeObjectURL(prev.url);
           return null;
@@ -200,10 +223,117 @@ export function MesaInfonavitSourceDocumentPreview({
     };
   }, [preview?.url]);
 
-  // Cambio de expediente: limpiar lado INE
+  // Cambio de expediente: limpiar lado INE + cache CLABE shadow
   useEffect(() => {
     setIneSide(null);
+    clabeCacheRef.current.clear();
+    setClabeDetection(null);
+    setClabeAnalyzing(false);
+    clabeGenRef.current += 1;
   }, [expedienteId]);
+
+  // P4B: detección CLABE solo en context=clabe (shadow, sin escritura al formulario)
+  useEffect(() => {
+    if (!shouldRunClabeShadowDetection(context)) {
+      setClabeAnalyzing(false);
+      setClabeDetection(null);
+      return;
+    }
+
+    const docId = activeRow?.id ?? null;
+    const mime = activeRow?.mime_type ?? preview?.mime_type ?? "";
+
+    const gate = canRunClabeDetection({
+      context,
+      kind: activeKind,
+      activeDocumentId: docId,
+      blobDocumentId: activeDocumentBlob?.documentoId ?? null,
+      mime,
+    });
+
+    if (!gate.ok) {
+      if (gate.reason === "unsupported_mime" && docId) {
+        setClabeAnalyzing(false);
+        setClabeDetection({
+          documentoId: docId,
+          result: { status: "unsupported" },
+        });
+        return;
+      }
+      // Cambio A→B / espera blob: no conservar detección del documento anterior
+      if (
+        gate.reason === "no_blob" ||
+        gate.reason === "blob_mismatch" ||
+        gate.reason === "no_mime" ||
+        gate.reason === "wrong_kind" ||
+        gate.reason === "no_document" ||
+        gate.reason === "wrong_context" ||
+        gate.reason === "unsupported_mime"
+      ) {
+        setClabeAnalyzing(false);
+        setClabeDetection(null);
+        return;
+      }
+      setClabeAnalyzing(false);
+      setClabeDetection(null);
+      return;
+    }
+
+    const cached = clabeCacheRef.current.get(docId!);
+    if (cached) {
+      setClabeAnalyzing(false);
+      setClabeDetection({ documentoId: docId!, result: cached });
+      return;
+    }
+
+    const blobForDoc = activeDocumentBlob!;
+    const gen = ++clabeGenRef.current;
+    const expectedDocId = docId!;
+    setClabeAnalyzing(true);
+    setClabeDetection(null);
+
+    let cancelled = false;
+    void (async () => {
+      try {
+        const buf = await blobForDoc.blob.arrayBuffer();
+        if (cancelled || gen !== clabeGenRef.current) return;
+        if (blobForDoc.documentoId !== expectedDocId) return;
+        const result = await detectClabeFromBankStatementPdfBytes(buf);
+        if (cancelled || gen !== clabeGenRef.current) return;
+        if (blobForDoc.documentoId !== expectedDocId) return;
+        clabeCacheRef.current.set(expectedDocId, result);
+        setClabeDetection({ documentoId: expectedDocId, result });
+      } catch {
+        if (cancelled || gen !== clabeGenRef.current) return;
+        if (blobForDoc.documentoId !== expectedDocId) return;
+        const fallback: ClabeBankStatementDetection = {
+          status: "no_text_layer",
+        };
+        clabeCacheRef.current.set(expectedDocId, fallback);
+        setClabeDetection({ documentoId: expectedDocId, result: fallback });
+      } finally {
+        if (!cancelled && gen === clabeGenRef.current) {
+          setClabeAnalyzing(false);
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    context,
+    activeRow?.id,
+    activeRow?.mime_type,
+    activeKind,
+    activeDocumentBlob,
+    preview?.mime_type,
+  ]);
+
+  const visibleClabeDetection = resolveVisibleClabeDetection({
+    activeDocumentId: activeRow?.id ?? null,
+    detection: clabeDetection,
+  });
 
   const title =
     activeKind != null
@@ -273,6 +403,13 @@ export function MesaInfonavitSourceDocumentPreview({
             Reverso
           </Button>
         </div>
+      ) : null}
+
+      {shouldRunClabeShadowDetection(context) ? (
+        <MesaClabeShadowDetectionPanel
+          analyzing={clabeAnalyzing}
+          result={visibleClabeDetection}
+        />
       ) : null}
 
       <div className="min-h-[280px] flex-1 bg-gray-50 p-3 lg:min-h-[420px]">
