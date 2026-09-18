@@ -110,12 +110,32 @@ export function MesaIneValidityGuard({
           const comentario =
             `INE vencida: la credencial muestra vigencia ${year}. Debe cargarse una INE vigente.`;
           const currentSides = [frente, reverso].filter(
-            (doc): doc is ExpedienteArchivoListItem =>
-              doc != null && REJECTABLE_STATUSES.has(doc.estatus_revision),
+            (doc): doc is ExpedienteArchivoListItem => doc != null,
+          );
+          const alreadyRejected = currentSides.filter(
+            (doc) => doc.estatus_revision === "rechazado",
+          ).length;
+          const rejectable = currentSides.filter((doc) =>
+            REJECTABLE_STATUSES.has(doc.estatus_revision),
+          );
+          const hasProtectedStatus = currentSides.some(
+            (doc) =>
+              doc.estatus_revision !== "rechazado" &&
+              !REJECTABLE_STATUSES.has(doc.estatus_revision),
           );
 
+          if (hasProtectedStatus) {
+            setState({
+              status: "review",
+              assessment,
+              message:
+                "La INE aparece vencida, pero una de sus caras ya tiene una revisión previa. No se cambió automáticamente ese estado; Mesa debe revisarla y devolverla manualmente.",
+            });
+            return;
+          }
+
           let rejected = 0;
-          for (const doc of currentSides) {
+          for (const doc of rejectable) {
             try {
               await archivosRepo.updateRevision(doc.id, {
                 estatus_revision: "rechazado",
@@ -128,14 +148,18 @@ export function MesaIneValidityGuard({
           }
           if (cancelled) return;
 
+          const allRejected =
+            alreadyRejected + rejected === currentSides.length &&
+            currentSides.length > 0;
+
           setState(
-            rejected > 0
+            allRejected
               ? { status: "expired", assessment, rejected }
               : {
                   status: "review",
                   assessment,
                   message:
-                    "La INE aparece vencida, pero no se pudo registrar automáticamente la corrección. Revísala manualmente.",
+                    "La INE aparece vencida, pero no se pudo registrar completa la corrección automática. Revísala manualmente.",
                 },
           );
           return;
