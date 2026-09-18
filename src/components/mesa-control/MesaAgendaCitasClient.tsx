@@ -654,7 +654,7 @@ export function MesaAgendaCitasClient() {
       bulkBusyRef.current = false;
       setBulkBusy(false);
     }
-  }, [selectedBookingIds, loadedEntries, bulkRole, expedientesRepo, loadEntries]);
+  }, [selectedBookingIds, loadedEntries, bulkRole, loadEntries]);
 
   const handleRequestBulkStageAdvance = useCallback(() => {
     if (bulkBusyRef.current) return;
@@ -735,7 +735,7 @@ export function MesaAgendaCitasClient() {
       bulkBusyRef.current = false;
       setBulkBusy(false);
     }
-  }, [selectedBookingIds, loadedEntries, bulkRole, loadEntries]);
+  }, [selectedBookingIds, loadedEntries, bulkRole, expedientesRepo, loadEntries]);
 
   const entriesByBookingId = useMemo(() => {
     const map = new Map<string, MesaAgendaBookingEntry>();
