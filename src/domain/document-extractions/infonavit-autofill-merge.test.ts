@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { mergeInfonavitDocumentAutofill } from "./infonavit-autofill-merge";
-import type { InfonavitDocumentAutofillPatch } from "./infonavit-document-autofill";
+import type {
+  AutofillFieldSource,
+  InfonavitDocumentAutofillPatch,
+} from "./infonavit-document-autofill";
 
 function draft() {
   return {
@@ -29,7 +32,7 @@ function draft() {
   };
 }
 
-const high = (value: string, source: any) => ({
+const high = (value: string, source: AutofillFieldSource) => ({
   value,
   source,
   confidence: "high" as const,
