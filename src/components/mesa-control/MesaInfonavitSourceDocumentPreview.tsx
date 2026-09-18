@@ -484,14 +484,20 @@ export function MesaInfonavitSourceDocumentPreview({
             </p>
           </div>
         ) : isArchivoPreviewImageMime(preview.mime_type) ? (
-          <div className="flex h-full justify-center">
+          <button
+            type="button"
+            className="flex h-full w-full cursor-zoom-in justify-center rounded bg-transparent"
+            onClick={() => setModalOpen(true)}
+            aria-label="Ampliar documento"
+            title="Haz clic para ampliar"
+          >
             {/* eslint-disable-next-line @next/next/no-img-element -- blob URL privado */}
             <img
               src={preview.url}
               alt={preview.nombre_original}
               className="max-h-[min(60vh,640px)] max-w-full object-contain"
             />
-          </div>
+          </button>
         ) : isArchivoPreviewPdfMime(preview.mime_type) ? (
           <iframe
             title={preview.nombre_original}

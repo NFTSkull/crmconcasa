@@ -157,24 +157,36 @@ function parseIneGender(text: string): "M" | "F" | null {
 
 function parseIneValidity(text: string): string | null {
   const t = upper(text);
-  // OCR de credenciales fotografiadas puede convertir el guion en comillas,
-  // espacios o ruido. Exigimos la etiqueta VIGENCIA y dos años plausibles,
-  // pero toleramos hasta 6 caracteres no numéricos entre ambos.
-  const range = t.match(
-    /\bVIGENCIA\b[^0-9]{0,16}(20\d{2})[^0-9]{1,6}(20\d{2})\b/,
-  );
-  const single = t.match(/\bVIGENCIA\b[^0-9]{0,16}(20\d{2})\b/);
-  const year = Number(range?.[2] ?? single?.[1] ?? 0);
-  if (!Number.isInteger(year) || year < 2020 || year > 2050) return null;
-  return `31/12/${year}`;
+  const labelIndex = t.search(/\bVIGENCIA\b/);
+  if (labelIndex < 0) return null;
+
+  // Limitar la corrección O/0 e I/1 a la ventana numérica posterior a VIGENCIA
+  // evita alterar nombres/CURP y tolera OCR como "2O25 - 2O35".
+  const window = t
+    .slice(labelIndex, labelIndex + 96)
+    .replace(/[OQ]/g, "0")
+    .replace(/[I|L]/g, "1");
+  const years = [...window.matchAll(/\b(20\d{2})\b/g)]
+    .map((match) => Number(match[1]))
+    .filter((year) => Number.isInteger(year) && year >= 2020 && year <= 2050);
+
+  const year = years.length >= 2 ? years[1] : years[0];
+  return year ? `31/12/${year}` : null;
 }
 
 function parseIneOcrNumber(text: string): string | null {
   const t = upper(text);
-  const explicit = t.match(
-    /\b(?:OCR|0CR)\b[^0-9O]{0,20}([0-9O]{12,13})\b/,
+  const labelIndex = t.search(/\b(?:OCR|0CR)\b/);
+  if (labelIndex < 0) return null;
+
+  const window = t.slice(labelIndex, labelIndex + 96);
+  const explicit = window.match(
+    /\b(?:OCR|0CR)\b[^0-9OQ]{0,20}((?:[0-9OQ][\s.\-:]*){12,13})/,
   );
-  return explicit?.[1]?.replace(/O/g, "0") ?? null;
+  if (!explicit?.[1]) return null;
+
+  const digits = explicit[1].replace(/[OQ]/g, "0").replace(/\D/g, "");
+  return /^\d{12,13}$/.test(digits) ? digits : null;
 }
 
 function high(
@@ -486,12 +498,89 @@ function isCfeCorporateLine(line: string): boolean {
 }
 
 function municipalityFromText(raw: string): string | undefined {
+  const normalized = normalizedComparable(raw);
+  // CFE suele abreviar "SAN NICOLAS DE LOS G., N.L." y el OCR puede perder
+  // "ARZA". Esa forma sigue siendo inequívoca dentro de Nuevo León.
+  if (/\bSAN\s+NICOLAS\s+DE\s+LOS\s+G(?:\b|\s|,|\.)/.test(normalized)) {
+    return "SAN NICOLÁS DE LOS GARZA";
+  }
+
   const comparable = alnumComparable(raw);
   for (const municipality of NL_MUNICIPALITIES) {
     if (comparable.includes(alnumComparable(municipality))) {
       return municipality === "ESCOBEDO"
         ? "GENERAL ESCOBEDO"
         : municipality.toLocaleUpperCase("es-MX");
+    }
+  }
+  return undefined;
+}
+
+function parseCfeStreetLine(
+  raw: string,
+): { calle: string; noExt: string } | null {
+  const withoutCp = compactLine(
+    raw.replace(/\bC\.?\s*P\.?\s*[:\-]?\s*\d{5}.*$/i, ""),
+  );
+  if (!withoutCp) return null;
+
+  if (
+    /\b(?:TOTAL|PAGO|PAGAR|LIMITE|CORTE|PERIODO|TARIFA|CUENTA|RMU|RPU|SERVICIO|FACTURADO|LECTURA)\b/i.test(
+      withoutCp,
+    )
+  ) {
+    return null;
+  }
+
+  const explicit = withoutCp.match(
+    /^(.{2,70}?)\s+(?:#|NO\.?|NUM\.?|N[ÚU]MERO)\s*[:#-]?\s*([0-9]+[A-Z0-9-]*)\s*$/i,
+  );
+  if (explicit?.[1] && explicit?.[2]) {
+    return {
+      calle: compactLine(explicit[1]),
+      noExt: explicit[2],
+    };
+  }
+
+  const numbers = [
+    ...withoutCp.matchAll(/\b([0-9]+[A-Z0-9-]*)\b/g),
+  ];
+  const last = numbers.at(-1);
+  if (!last || last.index == null) return null;
+
+  // En "CALLE 9 52" el 9 forma parte del nombre de la calle y 52 es exterior.
+  // Tomar siempre el último bloque numérico evita cortar "CALLE 9" como "CALLE".
+  const candidate = compactLine(withoutCp.slice(0, last.index));
+  if (
+    candidate.length < 2 ||
+    !/[A-ZÁÉÍÓÚÜÑ]/i.test(candidate) ||
+    /^(MONTERREY|APODACA|GUADALUPE|JUAREZ|JUÁREZ)$/i.test(candidate)
+  ) {
+    return null;
+  }
+
+  return { calle: candidate, noExt: last[1] };
+}
+
+function parseCfeResidentialColonia(
+  lines: readonly string[],
+): string | undefined {
+  for (const raw of lines) {
+    const cleaned = compactLine(
+      raw
+        .replace(/\bC\.?\s*P\.?\s*[:\-]?\s*\d{5}.*$/i, "")
+        .replace(/\b\d{5}\b.*$/i, ""),
+    );
+    if (!cleaned) continue;
+    if (
+      /\b(?:COL(?:ONIA)?|FRACC(?:IONAMIENTO)?|RESID(?:ENCIAL)?|RDCIAL)\b/i.test(
+        cleaned,
+      )
+    ) {
+      const explicit = cleaned.match(
+        /\b(?:COL(?:ONIA)?|FRACC(?:IONAMIENTO)?)\.?\s+(.+)$/i,
+      );
+      return compactLine(explicit?.[1] ?? cleaned);
     }
   }
   return undefined;
@@ -537,20 +626,10 @@ function parseCfeAddressCandidate(text: string): {
   let streetIndex = -1;
 
   for (let i = 0; i < block.length; i++) {
-    const line = block[i]!;
-    const street = line.match(
-      /^(.{3,60}?)\s+(?:#|NO\.?|NUM\.?|N[ÚU]MERO\s*)?([0-9]+[A-Z0-9-]*)\b/i,
-    );
-    if (!street?.[1] || !street?.[2]) continue;
-    const candidate = compactLine(street[1]);
-    if (
-      !/[A-ZÁÉÍÓÚÜÑ]/i.test(candidate) ||
-      /^(MONTERREY|APODACA|GUADALUPE|JUAREZ|JUÁREZ)$/i.test(candidate)
-    ) {
-      continue;
-    }
-    calle = candidate;
-    noExt = street[2];
+    const parsed = parseCfeStreetLine(block[i]!);
+    if (!parsed) continue;
+    calle = parsed.calle;
+    noExt = parsed.noExt;
     streetIndex = i;
     break;
   }
@@ -579,7 +658,9 @@ function parseCfeAddressCandidate(text: string): {
   const col = addressJoined.match(
     /\b(?:COL(?:ONIA)?|FRACC(?:IONAMIENTO)?)\.?\s+([A-ZÁÉÍÓÚÜÑ0-9 .'-]{3,45}?)(?=\s+(?:C\.?P\.?|\d{5}\b|NUEVO\s+LE[OÓ]N|N\.?L\.?\b|MONTERREY|APODACA|GUADALUPE|GENERAL\s+ESCOBEDO|SAN\s+NICOL))/i,
   );
-  const colonia = col?.[1] ? compactLine(col[1]) : undefined;
+  const colonia = col?.[1]
+    ? compactLine(col[1])
+    : parseCfeResidentialColonia(addressBlock.slice(1));
 
   const noInt = addressJoined.match(
     /\b(?:INT(?:ERIOR)?|DEPTO|DEP(?:ARTAMENTO)?)\.?\s*[:#-]?\s*([A-Z0-9-]{1,10})\b/i,

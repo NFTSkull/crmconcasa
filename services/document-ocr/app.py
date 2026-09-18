@@ -26,7 +26,7 @@ ALLOWED_TYPES = {
     "cliente_estado_cuenta",
 }
 
-app = FastAPI(title="ConCasa Document OCR", version="1.1.0")
+app = FastAPI(title="ConCasa Document OCR", version="1.2.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -145,23 +145,122 @@ def adaptive_binary_variant(image: Image.Image) -> Image.Image:
     return Image.fromarray(binary)
 
 
-def ocr_image(image: Image.Image, document_type: str) -> str:
-    primary = preprocess_image(image)
-    primary_psm = "6" if document_type != "cliente_ine_reverso" else "11"
-    parts = [
-        pytesseract.image_to_string(
-            primary,
+def _ine_orientation_score(text: str, document_type: str) -> int:
+    normalized = re.sub(r"[^A-Z0-9<>]+", " ", (text or "").upper())
+    if document_type == "cliente_ine_reverso":
+        weighted = {
+            "OCR": 7,
+            "0CR": 7,
+            "IDMEX": 7,
+            "CIC": 4,
+            "<<": 4,
+            "MEX": 1,
+            "INSTITUTO": 1,
+            "ELECTORAL": 1,
+        }
+    else:
+        weighted = {
+            "VIGENCIA": 6,
+            "CURP": 5,
+            "SEXO": 5,
+            "NOMBRE": 3,
+            "DOMICILIO": 2,
+            "CLAVE DE ELECTOR": 3,
+            "INSTITUTO": 1,
+            "NACIONAL": 1,
+            "ELECTORAL": 1,
+        }
+    return sum(weight for marker, weight in weighted.items() if marker in normalized)
+
+
+def _ine_orientation_needs_retry(text: str, document_type: str) -> bool:
+    normalized = (text or "").upper()
+    if document_type == "cliente_ine_reverso":
+        return not re.search(r"\\b(?:OCR|0CR|CIC)\\b|IDMEX|<<", normalized)
+    # Frente: si falta VIGENCIA o SEXO, una foto 90° puede haber producido
+    # nombre/CURP parciales pero seguir perdiendo los campos pequeños.
+    return "VIGENCIA" not in normalized or "SEXO" not in normalized
+
+
+def _orientation_probe_image(image: Image.Image) -> Image.Image:
+    probe = ImageOps.exif_transpose(image).convert("L")
+    longest = max(probe.size)
+    if longest > 1400:
+        scale = 1400 / max(1, longest)
+        probe = probe.resize(
+            (max(1, round(probe.width * scale)), max(1, round(probe.height * scale))),
+            Image.Resampling.BILINEAR,
+        )
+    probe = ImageOps.autocontrast(probe, cutoff=1)
+    return probe
+
+
+def _best_ine_orientation(
+    image: Image.Image,
+    document_type: str,
+    current_text: str,
+) -> tuple[Image.Image, int]:
+    base = ImageOps.exif_transpose(image)
+    current_score = _ine_orientation_score(current_text, document_type)
+    best_score = current_score
+    best_degrees = 0
+
+    # Una INE es horizontal. En fotos verticales priorizamos 90/270; en una foto
+    # horizontal probamos primero 180 para cubrir credenciales al revés.
+    if base.height > base.width * 1.05:
+        candidates = (90, 270, 180)
+    else:
+        candidates = (180, 90, 270)
+
+    for degrees in candidates:
+        rotated = base.rotate(degrees, expand=True)
+        probe = _orientation_probe_image(rotated)
+        probe_text = pytesseract.image_to_string(
+            probe,
             lang="spa+eng",
-            config=f"--oem 1 --psm {primary_psm} preserve_interword_spaces=1",
+            config="--oem 1 --psm 11 preserve_interword_spaces=1",
         ).strip()
-    ]
+        score = _ine_orientation_score(probe_text, document_type)
+        if score > best_score:
+            best_score = score
+            best_degrees = degrees
+
+    if best_degrees == 0:
+        return base, 0
+    return base.rotate(best_degrees, expand=True), best_degrees
+
+
+def ocr_image(image: Image.Image, document_type: str) -> str:
+    working = ImageOps.exif_transpose(image)
+    primary = preprocess_image(working)
+    primary_psm = "6" if document_type != "cliente_ine_reverso" else "11"
+    primary_text = pytesseract.image_to_string(
+        primary,
+        lang="spa+eng",
+        config=f"--oem 1 --psm {primary_psm} preserve_interword_spaces=1",
+    ).strip()
+
+    if document_type.startswith("cliente_ine_") and _ine_orientation_needs_retry(
+        primary_text, document_type
+    ):
+        oriented, degrees = _best_ine_orientation(
+            working, document_type, primary_text
+        )
+        if degrees:
+            working = oriented
+            primary = preprocess_image(working)
+            primary_text = pytesseract.image_to_string(
+                primary,
+                lang="spa+eng",
+                config=f"--oem 1 --psm {primary_psm} preserve_interword_spaces=1",
+            ).strip()
+
+    parts = [primary_text]
 
     # Las INE fotografiadas suelen tener texto pequeño sobre fondos de seguridad.
-    # Un pase binario sparse-text recupera etiquetas como SEXO/VIGENCIA que PSM 6
-    # puede perder. Concatenamos resultados; el parser posterior sigue siendo
-    # determinista y solo acepta valores explícitos de alta confianza.
+    # El pase adaptativo se ejecuta sobre la orientación ya corregida.
     if document_type.startswith("cliente_ine_"):
-        adaptive = adaptive_binary_variant(image)
+        adaptive = adaptive_binary_variant(working)
         parts.append(
             pytesseract.image_to_string(
                 adaptive,
@@ -206,7 +305,7 @@ def extract_document_text(data: bytes, mime: str, document_type: str) -> tuple[s
 
 @app.get("/health")
 def health() -> dict:
-    return {"ok": True, "service": "document-ocr", "version": "1.1.0"}
+    return {"ok": True, "service": "document-ocr", "version": "1.2.0"}
 
 
 @app.post("/v1/extract")

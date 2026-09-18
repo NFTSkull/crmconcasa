@@ -15,10 +15,15 @@ const mappingPath = join(
   process.cwd(),
   "src/domain/document-extractions/infonavit-source-preview.ts",
 );
+const dialogPath = join(
+  process.cwd(),
+  "src/components/mesa-control/MesaArchivoPreviewDialog.tsx",
+);
 
 const previewSrc = readFileSync(previewPath, "utf8");
 const formSrc = readFileSync(formPath, "utf8");
 const mappingSrc = readFileSync(mappingPath, "utf8");
+const dialogSrc = readFileSync(dialogPath, "utf8");
 
 describe("P4A MesaInfonavitSourceDocumentPreview contrato", () => {
   it("11–12. createObjectURL + revokeObjectURL al cambiar y unmount", () => {
@@ -42,6 +47,16 @@ describe("P4A MesaInfonavitSourceDocumentPreview contrato", () => {
     assert.match(previewSrc, /rowMasRecientePorTipoDocumento/);
     assert.match(previewSrc, /Documento no disponible/);
     assert.match(previewSrc, /Abrir vista grande/);
+  });
+
+  it("visor de imagen permite zoom hasta 200% y rotación manual", () => {
+    assert.match(dialogSrc, /Math\.min\(2, value \+ 0\.25\)/);
+    assert.match(dialogSrc, /zoomPercent/);
+    assert.match(dialogSrc, /Girar izq\./);
+    assert.match(dialogSrc, /Girar der\./);
+    assert.match(dialogSrc, /rotate\(\$\{rotation\}deg\)/);
+    assert.match(previewSrc, /cursor-zoom-in/);
+    assert.match(previewSrc, /setModalOpen\(true\)/);
   });
 
   it("tipos exactos INE / estado cuenta / comprobante", () => {
