@@ -98,7 +98,7 @@ describe("P4C document autofill parser", () => {
     );
   });
 
-  it("comprobante de otra persona no autollenna vivienda", () => {
+  it("comprobante cargado manda en vivienda aunque el titular sea otra persona", () => {
     const patch = buildInfonavitDocumentAutofillPatch(
       {
         comprobanteDomicilio: [
@@ -111,11 +111,13 @@ describe("P4C document autofill parser", () => {
       { expectedClienteNombre: "GERARDO ZAMUDIO CAMPOS" },
     );
 
-    assert.deepEqual(patch.vivienda, {});
+    assert.equal(patch.vivienda.calle?.value, "POLIGONO");
+    assert.equal(patch.vivienda.noExt?.value, "9196");
+    assert.equal(patch.vivienda.cp?.value, "64106");
     assert.equal(patch.issues?.[0]?.code, "subject_mismatch");
   });
 
-  it("estado de cuenta de otra persona no autollenna CLABE", () => {
+  it("estado de cuenta cargado manda en CLABE aunque el titular difiera", () => {
     const patch = buildInfonavitDocumentAutofillPatch(
       {
         estadoCuenta: [
@@ -126,7 +128,10 @@ describe("P4C document autofill parser", () => {
       { expectedClienteNombre: "GERARDO ZAMUDIO CAMPOS" },
     );
 
-    assert.equal(patch.clabeDerechohabiente, undefined);
+    assert.equal(
+      patch.clabeDerechohabiente?.value,
+      "032180000118359719",
+    );
     assert.equal(patch.issues?.[0]?.source, "cliente_estado_cuenta");
   });
 

@@ -40,7 +40,7 @@ const high = (value: string, source: AutofillFieldSource) => ({
 });
 
 describe("P4C autofill merge", () => {
-  it("llena solo vacíos y marca origen", () => {
+  it("llena campos detectados y marca origen", () => {
     const patch: InfonavitDocumentAutofillPatch = {
       cliente: {
         curp: high("PEPL900101HNLRPN09", "cliente_ine_frente"),
@@ -83,7 +83,7 @@ describe("P4C autofill merge", () => {
     assert.equal(out.conflicts.length, 0);
   });
 
-  it("mismatch no sobreescribe silenciosamente", () => {
+  it("mismatch aplica documento fuente y conserva diferencia para revisión", () => {
     const patch: InfonavitDocumentAutofillPatch = {
       cliente: {
         apellidoPaterno: high("RAMIREZ", "cliente_ine_frente"),
@@ -91,8 +91,39 @@ describe("P4C autofill merge", () => {
       vivienda: {},
     };
     const out = mergeInfonavitDocumentAutofill(draft(), patch);
-    assert.equal(out.draft.cliente.apellidoPaterno, "PEREZ");
+    assert.equal(out.draft.cliente.apellidoPaterno, "RAMIREZ");
     assert.equal(out.conflicts.length, 1);
+    assert.equal(out.conflicts[0]?.current, "PEREZ");
     assert.equal(out.conflicts[0]?.detected, "RAMIREZ");
+    assert.ok(out.applied.includes("cliente.apellidoPaterno"));
+    assert.equal(
+      out.sourceByField["cliente.apellidoPaterno"],
+      "INE · automático",
+    );
+  });
+
+  it("comprobante y estado de cuenta sustituyen valores previos de Generales", () => {
+    const base = draft();
+    base.vivienda.cp = "64000";
+    base.destinoRecursos.clabeDerechohabiente = "012345678901234567";
+
+    const patch: InfonavitDocumentAutofillPatch = {
+      cliente: {},
+      vivienda: {
+        cp: high("66600", "cliente_comprobante_domicilio"),
+      },
+      clabeDerechohabiente: high(
+        "032180000118359719",
+        "cliente_estado_cuenta",
+      ),
+    };
+
+    const out = mergeInfonavitDocumentAutofill(base, patch);
+    assert.equal(out.draft.vivienda.cp, "66600");
+    assert.equal(
+      out.draft.destinoRecursos.clabeDerechohabiente,
+      "032180000118359719",
+    );
+    assert.equal(out.conflicts.length, 2);
   });
 });
