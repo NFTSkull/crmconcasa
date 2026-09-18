@@ -43,6 +43,23 @@ describe("P4C document autofill parser", () => {
     assert.equal(patch.cliente.genero?.value, "F");
   });
 
+
+  it("vigencia tolera separador ruidoso de OCR pero exige etiqueta", () => {
+    const patch = buildInfonavitDocumentAutofillPatch({
+      ineFrente: "SEXO H\nVIGENCIA\n2023\" 2033--",
+    });
+    assert.equal(patch.cliente.genero?.value, "M");
+    assert.equal(
+      patch.cliente.identificacionVigencia?.value,
+      "31/12/2033",
+    );
+
+    const noLabel = buildInfonavitDocumentAutofillPatch({
+      ineFrente: "2023 2033",
+    });
+    assert.equal(noLabel.cliente.identificacionVigencia, undefined);
+  });
+
   it("T7 solo usa OCR explícitamente etiquetado", () => {
     const explicit = buildInfonavitDocumentAutofillPatch({
       ineReverso: "CIC 123456789 OCR 0852070785064 IDMEX123",
