@@ -60,7 +60,7 @@ describe("P4B Mesa CLABE shadow UI contrato", () => {
   });
 
   it("CLABE ya aplicada por OCR manda sobre shadow no_text_layer", () => {
-    assert.match(previewSrc, /clabeAutofillValue/);
+    assert.match(previewSrc, /clabeAppliedValue/);
     assert.match(previewSrc, /appliedClabeDetection/);
     assert.match(
       previewSrc,
