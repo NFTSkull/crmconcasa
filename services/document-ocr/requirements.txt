@@ -7,3 +7,4 @@ Pillow==11.3.0
 PyJWT[crypto]==2.10.1
 pytest==8.4.2
 httpx==0.28.1
+opencv-python-headless==4.13.0.92
