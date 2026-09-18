@@ -539,9 +539,7 @@ function parseAddressCandidate(text: string): {
 
 function parseComprobante(
   text: string,
-  expectedName?: string | null,
 ): InfonavitDocumentAutofillPatch["vivienda"] {
-  if (!documentMatchesExpectedName(text, expectedName)) return {};
   const parsed = parseAddressCandidate(text);
   const out: {
     direccionCompleta?: AutofillValue;
@@ -593,7 +591,7 @@ export function buildInfonavitDocumentAutofillPatch(
   const cliente = parseIne(front, reverse, expectedName);
   const comprobanteMatches =
     !comprobante.trim() || documentMatchesExpectedName(comprobante, expectedName);
-  const vivienda = parseComprobante(comprobante, expectedName);
+  const vivienda = parseComprobante(comprobante);
   const clabeDetection = estado.trim()
     ? detectClabeFromBankStatementText(estado)
     : undefined;
@@ -601,7 +599,7 @@ export function buildInfonavitDocumentAutofillPatch(
     !estado.trim() || documentMatchesExpectedName(estado, expectedName);
 
   const clabeDerechohabiente =
-    estadoMatches && clabeDetection?.status === "detected"
+    clabeDetection?.status === "detected"
       ? high(
           clabeDetection.clabe,
           "cliente_estado_cuenta",
@@ -615,7 +613,7 @@ export function buildInfonavitDocumentAutofillPatch(
       source: "cliente_comprobante_domicilio",
       code: "subject_mismatch",
       message:
-        "El comprobante de domicilio no coincide suficientemente con el nombre del derechohabiente; no se usó para autollenar la vivienda.",
+        "El titular del comprobante no coincide con Datos Generales; se usó de todos modos como fuente de la dirección cargada en el expediente.",
     });
   }
   if (estado.trim() && !estadoMatches) {
@@ -623,7 +621,7 @@ export function buildInfonavitDocumentAutofillPatch(
       source: "cliente_estado_cuenta",
       code: "subject_mismatch",
       message:
-        "El estado de cuenta no coincide suficientemente con el nombre del derechohabiente; no se usó para autollenar la CLABE.",
+        "El titular del estado de cuenta no coincide con Datos Generales; si la CLABE fue detectada con etiqueta y checksum válidos, se usó como fuente del documento cargado.",
     });
   }
 
