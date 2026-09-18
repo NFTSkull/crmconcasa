@@ -19,6 +19,26 @@ import type { SessionRepo, UserSession } from "@/domain/session";
 import { formatDateTimeMx } from "@/lib/filters";
 import { formatMontoMX } from "@/lib/monto";
 
+type EstadoMesaFilter =
+  | ""
+  | "en_mesa"
+  | "rechazados_mesa"
+  | "correccion_requerida"
+  | "correccion_enviada"
+  | "cancelados";
+
+const ESTADO_MESA_OPTIONS: ReadonlyArray<{
+  value: EstadoMesaFilter;
+  label: string;
+}> = [
+  { value: "", label: "Todos los estados" },
+  { value: "en_mesa", label: "En Mesa" },
+  { value: "rechazados_mesa", label: "Rechazados por Mesa" },
+  { value: "correccion_requerida", label: "Necesita corrección" },
+  { value: "correccion_enviada", label: "Corrección enviada" },
+  { value: "cancelados", label: "Cancelados" },
+];
+
 const ETAPA_OPTIONS = [
   { value: "", label: "Todas las etapas" },
   { value: "1", label: "1 · Integración" },
@@ -51,6 +71,58 @@ const DONUT_COLORS = [
 ];
 
 const SILVIA_REYES_EMAIL = "silvia.reyes@concasa.mx";
+
+function mesaStatusMeta(row: AsesorLiderExpedienteRow): {
+  label: string;
+  badgeClass: string;
+  rowClass: string;
+} {
+  switch (row.estado_efectivo) {
+    case "rechazado_mesa":
+      return {
+        label: "Rechazado por Mesa",
+        badgeClass:
+          "border-red-300 bg-red-100 text-red-800",
+        rowClass: "bg-red-50/70 hover:bg-red-50",
+      };
+    case "correccion_requerida":
+      return {
+        label: "Necesita corrección",
+        badgeClass:
+          "border-amber-300 bg-amber-100 text-amber-900",
+        rowClass: "bg-amber-50/60 hover:bg-amber-50",
+      };
+    case "correccion_enviada":
+      return {
+        label: "Corrección enviada",
+        badgeClass:
+          "border-indigo-300 bg-indigo-100 text-indigo-800",
+        rowClass: "bg-indigo-50/50 hover:bg-indigo-50",
+      };
+    case "cancelado":
+      return {
+        label: "Cancelado",
+        badgeClass:
+          "border-slate-300 bg-slate-100 text-slate-800",
+        rowClass: "bg-slate-50/70 hover:bg-slate-100/70",
+      };
+    default:
+      if (row.submitted_to_mesa) {
+        return {
+          label: "En Mesa",
+          badgeClass:
+            "border-blue-200 bg-blue-100 text-blue-800",
+          rowClass: "bg-blue-50/50 hover:bg-blue-50",
+        };
+      }
+      return {
+        label: "No enviado",
+        badgeClass:
+          "border-gray-200 bg-gray-100 text-gray-700",
+        rowClass: "hover:bg-gray-50/80",
+      };
+  }
+}
 
 function EtapaDonut({
   buckets,
@@ -107,6 +179,7 @@ function downloadCsv(
     "asesor",
     "etapa",
     "ciclo",
+    "estado_mesa",
     "decision",
     "monto",
     "creado",
@@ -119,6 +192,7 @@ function downloadCsv(
       r.asesor_nombre ?? "",
       String(r.etapa_actual ?? ""),
       r.ciclo_estado ?? "",
+      mesaStatusMeta(r).label,
       r.decision ?? "",
       String(r.monto_aprobado_al_aprobar ?? r.monto_aprobado ?? ""),
       r.created_at,
@@ -159,6 +233,7 @@ export function AsesorLiderDashboard({
   const [buscar, setBuscar] = useState("");
   const [buscarDebounced, setBuscarDebounced] = useState("");
   const [etapaExacta, setEtapaExacta] = useState("");
+  const [estadoMesa, setEstadoMesa] = useState<EstadoMesaFilter>("");
   const [loading, setLoading] = useState(true);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
@@ -205,7 +280,7 @@ export function AsesorLiderDashboard({
           etapa_exacta: etapaNum,
           fecha_desde: fechaDesde || null,
           fecha_hasta: fechaHasta || null,
-          ciclo: null,
+          ciclo: estadoMesa || null,
         }),
       ]);
       setDashboard(dash);
@@ -232,6 +307,7 @@ export function AsesorLiderDashboard({
     fechaHasta,
     buscarDebounced,
     etapaExacta,
+    estadoMesa,
   ]);
 
   useEffect(() => {
@@ -366,7 +442,7 @@ export function AsesorLiderDashboard({
         </div>
 
         <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-6">
             <Select
               label="Asesor"
               name="filtro_asesor"
@@ -418,6 +494,17 @@ export function AsesorLiderDashboard({
               value={etapaExacta}
               onChange={(e) => {
                 setEtapaExacta(e.target.value);
+                setPage(1);
+              }}
+              className="min-h-[44px] sm:min-h-0"
+            />
+            <Select
+              label="Estado en Mesa"
+              name="estado_mesa"
+              options={ESTADO_MESA_OPTIONS}
+              value={estadoMesa}
+              onChange={(e) => {
+                setEstadoMesa(e.target.value as EstadoMesaFilter);
                 setPage(1);
               }}
               className="min-h-[44px] sm:min-h-0"
@@ -487,6 +574,9 @@ export function AsesorLiderDashboard({
                     Etapa
                   </th>
                   <th className="px-3 py-2 text-left font-medium text-gray-600">
+                    Estado Mesa
+                  </th>
+                  <th className="px-3 py-2 text-left font-medium text-gray-600">
                     Monto
                   </th>
                   <th className="px-3 py-2 text-left font-medium text-gray-600">
@@ -501,7 +591,7 @@ export function AsesorLiderDashboard({
                 {rows.length === 0 && !loading ? (
                   <tr>
                     <td
-                      colSpan={6}
+                      colSpan={7}
                       className="px-3 py-6 text-center text-gray-500"
                     >
                       No hay expedientes con estos filtros.
@@ -517,26 +607,15 @@ export function AsesorLiderDashboard({
                           r.monto_aprobado > 0
                         ? formatMontoMX(r.monto_aprobado)
                         : "—";
-                  const isEnMesa = isSilviaDashboard && r.submitted_to_mesa;
+                  const mesaStatus = mesaStatusMeta(r);
                   return (
                     <tr
                       key={r.id}
-                      className={
-                        isEnMesa
-                          ? "bg-blue-50/60 hover:bg-blue-50"
-                          : "hover:bg-gray-50/80"
-                      }
+                      className={mesaStatus.rowClass}
                     >
                       <td className="px-3 py-2">
-                        <div className="flex flex-wrap items-center gap-2">
-                          <span className="font-medium text-gray-900">
-                            {r.cliente_nombre}
-                          </span>
-                          {isEnMesa ? (
-                            <span className="inline-flex rounded-full border border-blue-200 bg-blue-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide text-blue-800">
-                              En Mesa
-                            </span>
-                          ) : null}
+                        <div className="font-medium text-gray-900">
+                          {r.cliente_nombre}
                         </div>
                         <div className="text-xs text-gray-500">NSS {r.nss}</div>
                       </td>
@@ -550,6 +629,13 @@ export function AsesorLiderDashboard({
                             ({r.ciclo_estado})
                           </span>
                         ) : null}
+                      </td>
+                      <td className="px-3 py-2">
+                        <span
+                          className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold ${mesaStatus.badgeClass}`}
+                        >
+                          {mesaStatus.label}
+                        </span>
                       </td>
                       <td className="px-3 py-2 text-gray-700">{monto}</td>
                       <td className="px-3 py-2 text-gray-600">
