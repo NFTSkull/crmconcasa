@@ -9,6 +9,7 @@ import type {
 import {
   ASESOR_LIDER_DEFAULT_PAGE_SIZE,
   normalizeAsesorLiderPageOptions,
+  type AsesorLiderListPageInput,
 } from "./rpc";
 
 const MOCK_TEAM_ID = "11111111-1111-4111-8111-111111111111";
@@ -98,10 +99,9 @@ export class AsesorLiderMockRepo {
     return sampleDashboard();
   }
 
-  async listExpedientesPage(input?: {
-    page?: number;
-    page_size?: number;
-  }): Promise<AsesorLiderExpedientesPage> {
+  async listExpedientesPage(
+    input: Partial<AsesorLiderListPageInput> = {},
+  ): Promise<AsesorLiderExpedientesPage> {
     const { page, pageSize } = normalizeAsesorLiderPageOptions({
       page: input?.page,
       pageSize: input?.page_size ?? ASESOR_LIDER_DEFAULT_PAGE_SIZE,
@@ -118,6 +118,7 @@ export class AsesorLiderMockRepo {
         ciclo_estado: "activo",
         subestado: "pendiente",
         submitted_to_mesa: false,
+        estado_efectivo: "en_tramite",
         monto_aprobado: null,
         monto_aprobado_al_aprobar: null,
         decision: "pendiente",
