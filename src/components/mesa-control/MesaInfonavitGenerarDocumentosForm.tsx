@@ -29,6 +29,7 @@ import {
 import {
   buildInfonavitDocumentAutofillPatch,
   comparableAutofillValue,
+  isIneValidityExpired,
   type InfonavitDocumentTexts,
 } from "@/domain/document-extractions/infonavit-document-autofill";
 import { parseLegacyReferenciaNombre } from "@/domain/expediente-cliente-datos/parse-legacy-referencia-nombre";
@@ -892,6 +893,49 @@ export function MesaInfonavitGenerarDocumentosForm({
           expectedClienteNombre,
         });
 
+        const autoReviewWarnings: string[] = [];
+        const detectedValidity = patch.cliente.identificacionVigencia;
+        const expired =
+          detectedValidity != null
+            ? isIneValidityExpired(detectedValidity.value)
+            : null;
+
+        if (expired === true) {
+          const pendingIneDocs = [
+            docs.cliente_ine_frente,
+            docs.cliente_ine_reverso,
+          ].filter(
+            (
+              doc,
+            ): doc is ExpedienteArchivoListItem =>
+              Boolean(doc) &&
+              (doc!.estatus_revision === "subido" ||
+                doc!.estatus_revision === "resubido"),
+          );
+
+          for (const doc of pendingIneDocs) {
+            try {
+              await archivosRepo.updateRevision(doc.id, {
+                estatus_revision: "rechazado",
+                comentario_mesa: `Documento vencido — INE con vigencia ${detectedValidity.value}.`,
+              });
+            } catch (error) {
+              errors.push(
+                errorMessage(
+                  error,
+                  "Se detectó una INE vencida, pero no se pudo registrar automáticamente el rechazo documental.",
+                ),
+              );
+            }
+          }
+
+          if (pendingIneDocs.length > 0) {
+            autoReviewWarnings.push(
+              `INE vencida: vigencia ${detectedValidity.value}. Se rechazó automáticamente para corrección del asesor.`,
+            );
+          }
+        }
+
         let mergeBase = current;
         const ineNameRejected = (patch.issues ?? []).some(
           (issue) =>
@@ -910,7 +954,10 @@ export function MesaInfonavitGenerarDocumentosForm({
         const merged = mergeInfonavitDocumentAutofill(mergeBase, patch);
         if (cancelled) return;
 
-        const warnings = (patch.issues ?? []).map((issue) => issue.message);
+        const warnings = [
+          ...(patch.issues ?? []).map((issue) => issue.message),
+          ...autoReviewWarnings,
+        ];
         setDraft(merged.draft);
         setAutofillSources({ ...merged.sourceByField });
         setAutofillConflicts(merged.conflicts);
