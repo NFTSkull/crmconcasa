@@ -94,6 +94,76 @@ test("CASO A — captura parcial + refresh: restore automático sin click", () =
   }
 });
 
+test("CASO A2 — draft viejo no tapa información oficial más reciente", () => {
+  const draft: ClienteDatosDraft = {
+    expedienteId: "exp-stale",
+    updatedAt: "2026-09-17T10:00:00.000Z",
+    draftVersion: CLIENTE_DATOS_DRAFT_VERSION,
+    clienteDatos: { ...EMPTY, nombreCliente: "" } as ClienteDatosDraft["clienteDatos"],
+    direccionOpcional: "",
+  };
+  const official = {
+    ...EMPTY,
+    nombreCliente: "PAVEL TORRES HERNANDEZ",
+    celular: "8138696620",
+  } as ClienteDatosDraft["clienteDatos"];
+
+  assert.equal(
+    shouldAutoRestoreClienteDatosDraft(
+      draft,
+      official,
+      "CENZONTLEZ 118",
+      "",
+      "2026-09-18T04:15:32.000Z",
+    ),
+    false,
+  );
+});
+
+test("CASO A3 — draft realmente más nuevo sí puede restaurarse", () => {
+  const draft: ClienteDatosDraft = {
+    expedienteId: "exp-newer",
+    updatedAt: "2026-09-18T04:20:00.000Z",
+    draftVersion: CLIENTE_DATOS_DRAFT_VERSION,
+    clienteDatos: {
+      ...EMPTY,
+      nombreCliente: "PAVEL TORRES HERNANDEZ",
+      correo: "nuevo@example.com",
+    } as ClienteDatosDraft["clienteDatos"],
+    direccionOpcional: "CENZONTLEZ 118",
+  };
+  const official = {
+    ...EMPTY,
+    nombreCliente: "PAVEL TORRES HERNANDEZ",
+  } as ClienteDatosDraft["clienteDatos"];
+
+  assert.equal(
+    shouldAutoRestoreClienteDatosDraft(
+      draft,
+      official,
+      "CENZONTLEZ 118",
+      "",
+      "2026-09-18T04:15:32.000Z",
+    ),
+    true,
+  );
+});
+
+test("CASO A4 — sin timestamp oficial conserva compatibilidad", () => {
+  const draft: ClienteDatosDraft = {
+    expedienteId: "exp-no-ts",
+    updatedAt: "2026-09-17T10:00:00.000Z",
+    draftVersion: CLIENTE_DATOS_DRAFT_VERSION,
+    clienteDatos: { ...EMPTY, nombreCliente: "BORRADOR" } as ClienteDatosDraft["clienteDatos"],
+    direccionOpcional: "",
+  };
+
+  assert.equal(
+    shouldAutoRestoreClienteDatosDraft(draft, { ...EMPTY }, "", "", null),
+    true,
+  );
+});
+
 test("CASO B — flush antes del debounce conserva última tecla", () => {
   installLocalStorage();
   try {
