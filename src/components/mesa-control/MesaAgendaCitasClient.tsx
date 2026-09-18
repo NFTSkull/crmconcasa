@@ -57,6 +57,7 @@ import {
 } from "@/components/mesa-control/MesaReagendarCitaDialog";
 import { NotificationsBell } from "@/components/notifications/NotificationsBell";
 import { Button } from "@/components/ui/Button";
+import { useExpedientesRepo } from "@/domain/expedientes";
 import { getEffectiveMockName, getEffectiveMockRole } from "@/lib/mockUser";
 import {
   MESA_CANCEL_SUCCESS_MESSAGE,
@@ -126,6 +127,7 @@ import {
 
 export function MesaAgendaCitasClient() {
   const { sessionRepo, currentUser } = useSessionRepo();
+  const expedientesRepo = useExpedientesRepo();
   const agendaBookingRepo = useAgendaBiometricosBookingRepo();
   const firmasBookingRepo = useAgendaFirmasBookingRepo();
   const inscripcionRepo = useAgendaInscripcionRepo();
@@ -652,7 +654,7 @@ export function MesaAgendaCitasClient() {
       bulkBusyRef.current = false;
       setBulkBusy(false);
     }
-  }, [selectedBookingIds, loadedEntries, bulkRole, loadEntries]);
+  }, [selectedBookingIds, loadedEntries, bulkRole, expedientesRepo, loadEntries]);
 
   const handleRequestBulkStageAdvance = useCallback(() => {
     if (bulkBusyRef.current) return;
@@ -698,7 +700,11 @@ export function MesaAgendaCitasClient() {
         selectedBookingIds: selectedSnapshot,
         loadedEntries,
         role: bulkRole,
-        advance: async (_expedienteId, representativeBookingId) => {
+        advance: async (expedienteId, representativeBookingId, item) => {
+          if (item.kind === "notificacion") {
+            await expedientesRepo.avanzarEtapaOperativa(expedienteId);
+            return;
+          }
           await completarMesaAgendaCitaOperativa({
             bookingId: representativeBookingId,
           });
