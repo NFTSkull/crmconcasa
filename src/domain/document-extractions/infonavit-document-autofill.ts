@@ -20,7 +20,7 @@ export type AutofillValue<T = string> = Readonly<{
 
 export type AutofillDocumentIssue = Readonly<{
   source: AutofillFieldSource;
-  code: "subject_mismatch";
+  code: "subject_mismatch" | "low_confidence";
   message: string;
 }>;
 
@@ -280,7 +280,10 @@ function parseIne(
   front: string,
   reverse: string,
   expectedName?: string | null,
-): InfonavitDocumentAutofillPatch["cliente"] {
+): Readonly<{
+  cliente: InfonavitDocumentAutofillPatch["cliente"];
+  frontNameRejected: boolean;
+}> {
   const out: {
     nombres?: AutofillValue;
     apellidoPaterno?: AutofillValue;
@@ -291,21 +294,41 @@ function parseIne(
     identificacionNumero?: AutofillValue;
     identificacionVigencia?: AutofillValue;
   } = {};
+  let frontNameRejected = false;
 
   if (front.trim()) {
     const name = parseIneNameBlock(front);
     if (name.nombres && name.apellidoPaterno && name.apellidoMaterno) {
-      out.nombres = high(name.nombres, "cliente_ine_frente", "ine_nombre_block");
-      out.apellidoPaterno = high(
+      const parsedFullName = [
+        name.nombres,
         name.apellidoPaterno,
-        "cliente_ine_frente",
-        "ine_nombre_block",
-      );
-      out.apellidoMaterno = high(
         name.apellidoMaterno,
-        "cliente_ine_frente",
-        "ine_nombre_block",
-      );
+      ].join(" ");
+      const nameMatchesExpected =
+        !expectedName ||
+        documentMatchesExpectedName(parsedFullName, expectedName);
+
+      if (nameMatchesExpected) {
+        out.nombres = high(
+          name.nombres,
+          "cliente_ine_frente",
+          "ine_nombre_block",
+        );
+        out.apellidoPaterno = high(
+          name.apellidoPaterno,
+          "cliente_ine_frente",
+          "ine_nombre_block",
+        );
+        out.apellidoMaterno = high(
+          name.apellidoMaterno,
+          "cliente_ine_frente",
+          "ine_nombre_block",
+        );
+      } else {
+        // Nunca sustituir un nombre correcto de Generales con ruido OCR del INE.
+        // El reverso/MRZ todavía puede aportar identidad si sí coincide.
+        frontNameRejected = true;
+      }
     }
 
     const curp = parseCurp(front);
@@ -401,7 +424,7 @@ function parseIne(
     }
   }
 
-  return out;
+  return { cliente: out, frontNameRejected };
 }
 
 const NL_MUNICIPALITIES = [
@@ -432,6 +455,166 @@ const NL_MUNICIPALITIES = [
   "ZUAZUA",
 ] as const;
 
+function normalizedComparable(raw: string): string {
+  return upper(raw)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^A-Z0-9]+/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function isCfeDocument(lines: readonly string[]): boolean {
+  const joined = normalizedComparable(lines.slice(0, 40).join(" "));
+  return (
+    joined.includes("COMISION FEDERAL DE ELECTRICIDAD") ||
+    /(^|\s)CFE(\s|$)/.test(joined)
+  );
+}
+
+function isCfeCorporateLine(line: string): boolean {
+  const normalized = normalizedComparable(line);
+  return (
+    normalized.includes("COMISION FEDERAL DE ELECTRICIDAD") ||
+    normalized.includes("PASEO DE LA REFORMA") ||
+    normalized.includes("ALCALDIA CUAUHTEMOC") ||
+    normalized.includes("CIUDAD DE MEXICO") ||
+    normalized.includes("RFC CFE") ||
+    normalized.includes("BASICA") ||
+    normalized.includes("CORPORATIVO")
+  );
+}
+
+function municipalityFromText(raw: string): string | undefined {
+  const comparable = alnumComparable(raw);
+  for (const municipality of NL_MUNICIPALITIES) {
+    if (comparable.includes(alnumComparable(municipality))) {
+      return municipality === "ESCOBEDO"
+        ? "GENERAL ESCOBEDO"
+        : municipality.toLocaleUpperCase("es-MX");
+    }
+  }
+  return undefined;
+}
+
+/**
+ * CFE imprime también su domicilio corporativo (p. ej. Paseo de la Reforma 164,
+ * CP 06600). Para vivienda solo es autoridad el bloque del cliente que está
+ * inmediatamente antes de NO. DE SERVICIO / RMU.
+ */
+function parseCfeAddressCandidate(text: string): {
+  direccionCompleta?: string;
+  calle?: string;
+  noExt?: string;
+  noInt?: string;
+  lote?: string;
+  manzana?: string;
+  colonia?: string;
+  entidad?: string;
+  municipio?: string;
+  cp?: string;
+} | null {
+  const lines = normalizedLines(text);
+  if (!isCfeDocument(lines)) return null;
+
+  const serviceIdx = lines.findIndex((line) =>
+    /\b(?:NO\.?\s*DE\s*SERVICIO|N[ÚU]MERO\s+DE\s+SERVICIO|RMU|RPU)\b/i.test(
+      line,
+    ),
+  );
+  if (serviceIdx < 0) return null;
+
+  const rawBlock = lines.slice(Math.max(0, serviceIdx - 10), serviceIdx);
+  const block = rawBlock.filter(
+    (line) =>
+      !isCfeCorporateLine(line) &&
+      !/\bTOTAL\s+A\s+PAGAR\b|\bPAGAR\b|\$\s*\d/i.test(line),
+  );
+  if (block.length === 0) return null;
+
+  let calle: string | undefined;
+  let noExt: string | undefined;
+  let streetIndex = -1;
+
+  for (let i = 0; i < block.length; i++) {
+    const line = block[i]!;
+    const street = line.match(
+      /^(.{3,60}?)\s+(?:#|NO\.?|NUM\.?|N[ÚU]MERO\s*)?([0-9]+[A-Z0-9-]*)\b/i,
+    );
+    if (!street?.[1] || !street?.[2]) continue;
+    const candidate = compactLine(street[1]);
+    if (
+      !/[A-ZÁÉÍÓÚÜÑ]/i.test(candidate) ||
+      /^(MONTERREY|APODACA|GUADALUPE|JUAREZ|JUÁREZ)$/i.test(candidate)
+    ) {
+      continue;
+    }
+    calle = candidate;
+    noExt = street[2];
+    streetIndex = i;
+    break;
+  }
+
+  if (!calle || !noExt) return null;
+
+  const addressBlock = block.slice(streetIndex);
+  const addressJoined = addressBlock.join(" ");
+
+  const cpCandidates: string[] = [];
+  for (const line of addressBlock) {
+    const matches = [...line.matchAll(/(?:\bC\.?\s*P\.?\s*[:\-]?\s*)?(\d{5})\b/gi)];
+    for (const match of matches) {
+      const cp = match[1];
+      if (cp && cp !== "00000") cpCandidates.push(cp);
+    }
+  }
+  const cp = cpCandidates.at(-1);
+
+  const municipio = municipalityFromText(addressJoined);
+  const entidad =
+    /\bNUEVO\s+LE[OÓ]N\b|\bN\.?\s*L\.?\b/i.test(addressJoined)
+      ? "NUEVO LEÓN"
+      : undefined;
+
+  const col = addressJoined.match(
+    /\b(?:COL(?:ONIA)?|FRACC(?:IONAMIENTO)?)\.?\s+([A-ZÁÉÍÓÚÜÑ0-9 .'-]{3,45}?)(?=\s+(?:C\.?P\.?|\d{5}\b|NUEVO\s+LE[OÓ]N|N\.?L\.?\b|MONTERREY|APODACA|GUADALUPE|GENERAL\s+ESCOBEDO|SAN\s+NICOL))/i,
+  );
+  const colonia = col?.[1] ? compactLine(col[1]) : undefined;
+
+  const noInt = addressJoined.match(
+    /\b(?:INT(?:ERIOR)?|DEPTO|DEP(?:ARTAMENTO)?)\.?\s*[:#-]?\s*([A-Z0-9-]{1,10})\b/i,
+  )?.[1];
+  const lote = addressJoined.match(
+    /\b(?:LOTE|LT)\.?\s*[:#-]?\s*([A-Z0-9-]+)\b/i,
+  )?.[1];
+  const manzana = addressJoined.match(
+    /\b(?:MANZANA|MZA?|MZ)\.?\s*[:#-]?\s*([A-Z0-9-]+)\b/i,
+  )?.[1];
+
+  const direccionCompleta = [
+    [calle, noExt].filter(Boolean).join(" "),
+    colonia ? `COL. ${colonia}` : "",
+    municipio ?? "",
+    entidad ?? "",
+    cp ? `CP ${cp}` : "",
+  ]
+    .filter(Boolean)
+    .join(", ");
+
+  return {
+    ...(direccionCompleta ? { direccionCompleta } : {}),
+    calle,
+    noExt,
+    ...(noInt ? { noInt } : {}),
+    ...(lote ? { lote } : {}),
+    ...(manzana ? { manzana } : {}),
+    ...(colonia ? { colonia } : {}),
+    ...(entidad ? { entidad } : {}),
+    ...(municipio ? { municipio } : {}),
+    ...(cp ? { cp } : {}),
+  };
+}
+
 function parseAddressCandidate(text: string): {
   direccionCompleta?: string;
   calle?: string;
@@ -447,12 +630,15 @@ function parseAddressCandidate(text: string): {
   const lines = normalizedLines(text);
   if (lines.length === 0) return {};
 
+  const cfe = parseCfeAddressCandidate(text);
+  if (cfe) return cfe;
+
   const cpIndexes = lines
     .map((line, index) => ({
       index,
       match: line.match(/(?:\bC\.?\s*P\.?\s*[:\-]?\s*)?(\d{5})\b/i),
     }))
-    .filter((row) => row.match != null);
+    .filter((row) => row.match != null && row.match?.[1] !== "00000");
 
   if (cpIndexes.length === 0) return {};
 
@@ -587,7 +773,8 @@ export function buildInfonavitDocumentAutofillPatch(
   const estado = texts.estadoCuenta ?? "";
 
   const expectedName = options.expectedClienteNombre ?? null;
-  const cliente = parseIne(front, reverse, expectedName);
+  const ine = parseIne(front, reverse, expectedName);
+  const cliente = ine.cliente;
   const comprobanteMatches =
     !comprobante.trim() || documentMatchesExpectedName(comprobante, expectedName);
   const vivienda = parseComprobante(comprobante);
@@ -607,6 +794,17 @@ export function buildInfonavitDocumentAutofillPatch(
       : undefined;
 
   const issues: AutofillDocumentIssue[] = [];
+  if (
+    ine.frontNameRejected &&
+    !(cliente.nombres && cliente.apellidoPaterno && cliente.apellidoMaterno)
+  ) {
+    issues.push({
+      source: "cliente_ine_frente",
+      code: "low_confidence",
+      message:
+        "La INE no permitió leer el nombre con suficiente confianza; se conservaron los datos correctos de Datos Generales para no reemplazarlos con ruido OCR.",
+    });
+  }
   if (comprobante.trim() && !comprobanteMatches) {
     issues.push({
       source: "cliente_comprobante_domicilio",
