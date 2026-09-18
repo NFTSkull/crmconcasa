@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/Button";
 import {
   isArchivoPreviewImageMime,
@@ -23,6 +24,16 @@ export function MesaArchivoPreviewDialog({
   onClose,
   onOpenInNewTab,
 }: MesaArchivoPreviewDialogProps) {
+  const [zoom, setZoom] = useState(1);
+  const [rotation, setRotation] = useState(0);
+
+  useEffect(() => {
+    setZoom(1);
+    setRotation(0);
+  }, [preview.url]);
+
+  const zoomPercent = Math.round(zoom * 100);
+
   return (
     <div
       className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 p-4"
@@ -49,14 +60,79 @@ export function MesaArchivoPreviewDialog({
             Cerrar
           </Button>
         </div>
+        {isArchivoPreviewImageMime(preview.mime_type) ? (
+          <div className="flex flex-wrap items-center gap-2 border-b border-gray-100 bg-white px-3 py-2">
+            <Button
+              type="button"
+              variant="outline"
+              className="px-2 py-1 text-xs"
+              disabled={zoom <= 1}
+              onClick={() => setZoom((value) => Math.max(1, value - 0.25))}
+              aria-label="Alejar imagen"
+            >
+              −
+            </Button>
+            <span className="min-w-12 text-center text-xs font-medium text-gray-700">
+              {zoomPercent}%
+            </span>
+            <Button
+              type="button"
+              variant="outline"
+              className="px-2 py-1 text-xs"
+              disabled={zoom >= 2}
+              onClick={() => setZoom((value) => Math.min(2, value + 0.25))}
+              aria-label="Acercar imagen"
+            >
+              +
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="px-2 py-1 text-xs"
+              onClick={() => setRotation((value) => value - 90)}
+            >
+              Girar izq.
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="px-2 py-1 text-xs"
+              onClick={() => setRotation((value) => value + 90)}
+            >
+              Girar der.
+            </Button>
+            <Button
+              type="button"
+              variant="outline"
+              className="px-2 py-1 text-xs"
+              disabled={zoom === 1 && rotation === 0}
+              onClick={() => {
+                setZoom(1);
+                setRotation(0);
+              }}
+            >
+              Restablecer
+            </Button>
+          </div>
+        ) : null}
         <div className="min-h-0 flex-1 overflow-auto bg-gray-50 p-3">
           {isArchivoPreviewImageMime(preview.mime_type) ? (
-            <div className="flex justify-center">
+            <div
+              className={[
+                "flex min-h-full justify-center",
+                Math.abs(rotation % 180) === 90 ? "py-24" : "",
+              ].join(" ")}
+            >
               {/* eslint-disable-next-line @next/next/no-img-element -- blob URL modal */}
               <img
                 src={preview.url}
                 alt={preview.nombre_original}
-                className="max-h-[min(70vh,720px)] max-w-full object-contain"
+                className="h-auto object-contain transition-transform duration-150"
+                style={{
+                  width: `${zoom * 100}%`,
+                  maxWidth: "none",
+                  transform: `rotate(${rotation}deg)`,
+                }}
               />
             </div>
           ) : isArchivoPreviewPdfMime(preview.mime_type) ? (
