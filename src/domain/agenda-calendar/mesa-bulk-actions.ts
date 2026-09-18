@@ -1,12 +1,11 @@
 /**
  * P089: elegibilidad predictiva, selección múltiple y acciones masivas locales.
- * Drive: `mesa_set_agenda_drive_validation`. Avance: `avanzar_etapa_operativa` (autoridad final).
+ * Drive: `mesa_set_agenda_drive_validation`.
+ * Cierre operativo: `mesa_completar_cita_operativa` usa booking_id como autoridad y lleva
+ * biométricos/inscripción a Acuse, firma a Firmado.
  *
- * P172 B1.1: `avanzar_etapa_operativa` no recibe booking_id → no hay guard SQL por booking
- * original de contingencia. B2 debe excluir bookings con
- * `contingencyOriginalBlockedActions(...).bulkSelect` antes de `executeBulkStageAdvance`.
- * Server-side: P170 SKIPPED_CONTINGENCY + trigger BOOKING_UNDER_CONTINGENCY en mutaciones
- * de agenda_bookings.
+ * P172: la UI sigue excluyendo bookings bajo contingencia y la RPC vuelve a validarlo
+ * server-side antes de cualquier avance.
  */
 import type {
   MesaAgendaBookingEntry,
