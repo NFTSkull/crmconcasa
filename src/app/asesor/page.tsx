@@ -119,6 +119,24 @@ import {
   type AsesorLiderContext,
 } from "@/domain/asesor-lider";
 
+function formatAsesorCorrectionRequestAt(
+  iso: string | null | undefined,
+): string | null {
+  const raw = String(iso ?? "").trim();
+  if (!raw) return null;
+  const d = new Date(raw);
+  if (Number.isNaN(d.getTime())) return null;
+  return d.toLocaleString("es-MX", {
+    timeZone: "America/Monterrey",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  });
+}
+
 function formatMontoAprobadoFila(
   montoAprobado: number | null | undefined,
   decision: string,
@@ -1874,6 +1892,14 @@ function AsesorDashboardNormalPage({
                         estadoEfectivo,
                         p.correccionExplicacion,
                       );
+                      const correccionDetalle = resolveAsesorCorreccionExplicacion({
+                        estadoEfectivo,
+                        correccionExplicacion: p.correccionExplicacion,
+                        correccionResumen: p.correccionResumen,
+                      });
+                      const correccionSolicitadaAt = formatAsesorCorrectionRequestAt(
+                        p.correccionResumen?.request_at,
+                      );
                       const rowSurfaceClass =
                         estadoEfectivo === "correccion_requerida"
                           ? "cursor-pointer bg-amber-50/40 hover:bg-amber-50/70"
@@ -1909,19 +1935,6 @@ function AsesorDashboardNormalPage({
                             <span className="block truncate">
                               {p.cliente_nombre || "—"}
                             </span>
-                            {(() => {
-                              const explicacion = resolveAsesorCorreccionExplicacion({
-                                estadoEfectivo,
-                                correccionExplicacion: p.correccionExplicacion,
-                                correccionResumen: p.correccionResumen,
-                              });
-                              if (!explicacion) return null;
-                              return (
-                                <span className="mt-0.5 block text-[10px] font-normal leading-tight text-amber-800">
-                                  {explicacion}
-                                </span>
-                              );
-                            })()}
                             {p.esReingreso ? (
                               <span className="mt-0.5 inline-flex flex-col gap-0.5">
                                 <span className="inline-flex w-fit rounded-full bg-violet-100 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-violet-900">
@@ -1985,12 +1998,20 @@ function AsesorDashboardNormalPage({
                             ) : null}
                             </div>
                           </td>
-                          <td className="max-w-[140px] px-2 py-1.5 align-top">
+                          <td className="max-w-[180px] px-2 py-1.5 align-top">
                             <span
-                              className={`${documentacionBadge.className} text-[10px] sm:text-xs`}
+                              className={`${documentacionBadge.className} whitespace-pre-line text-[10px] leading-snug sm:text-xs`}
                             >
-                              {documentacionBadge.label}
+                              {correccionDetalle || documentacionBadge.label}
                             </span>
+                            {correccionSolicitadaAt ? (
+                              <span
+                                className="mt-1 block text-[9px] font-medium leading-tight text-amber-800 sm:text-[10px]"
+                                data-testid="asesor-correccion-request-at"
+                              >
+                                Solicitada por Mesa: {correccionSolicitadaAt}
+                              </span>
+                            ) : null}
                           </td>
                           <td className="max-w-[min(200px,28vw)] px-2 py-1.5 align-top text-[10px] leading-snug text-gray-600 sm:text-xs">
                             <span className="line-clamp-2" title={etapaDisplay}>
