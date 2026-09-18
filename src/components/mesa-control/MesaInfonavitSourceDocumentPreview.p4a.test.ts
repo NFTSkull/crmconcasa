@@ -82,13 +82,14 @@ describe("P4A MesaInfonavitSourceDocumentPreview contrato", () => {
     assert.match(formSrc, /isValidClabeMexico/);
   });
 
-  it("17. generación P189 no cambia (RPC + payload builder)", () => {
+  it("17. generación P189 no cambia; P4C OCR queda solo en preparación del draft", () => {
     assert.match(formSrc, /buildMesaInfonavitGeneratePayload/);
     assert.match(formSrc, /mesa_generar_infonavit_documentos/);
     assert.doesNotMatch(formSrc, /enqueue_document_extraction/);
-    assert.doesNotMatch(formSrc, /OpenAI|Document AI|Azure|ocr/i);
+    assert.match(formSrc, /extractDocumentTextViaOcr/);
+    assert.doesNotMatch(formSrc, /OpenAI|Document AI|Azure/i);
     assert.doesNotMatch(previewSrc, /enqueue_document_extraction/);
-    assert.doesNotMatch(previewSrc, /OpenAI|Document AI|Azure|ocr/i);
+    assert.doesNotMatch(previewSrc, /OpenAI|Document AI|Azure/i);
   });
 
   it("no autofill / no mutate cliente_datos desde preview", () => {
