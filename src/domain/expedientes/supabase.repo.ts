@@ -10,6 +10,7 @@ import {
 } from "./list-for-asesor-paginated";
 import {
   ASESOR_INBOX_NOTIF_DEFAULT_LIMIT,
+  asesorInboxOwnerCountsResultSchema,
   asesorInboxSummaryResultSchema,
   asesorListExpedientesPageInputSchema,
   asesorListExpedientesPageResultSchema,
@@ -762,6 +763,7 @@ async function fetchAsesorInboxPage(
 
 async function fetchAsesorInboxSummary(
   notifLimit?: number,
+  ownerAsesorId?: string | null,
 ): Promise<AsesorInboxSummaryResult> {
   const { client } = await requireSupabaseSession();
   const limit = Math.min(
@@ -791,7 +793,39 @@ async function fetchAsesorInboxSummary(
       "Respuesta inválida al cargar el resumen del inbox asesor.",
     );
   }
-  return parsed.data;
+
+  const ownerId = String(ownerAsesorId ?? "").trim();
+  if (!ownerId) return parsed.data;
+
+  const { data: ownerData, error: ownerError } = await client.rpc(
+    "asesor_inbox_counts_for_owner",
+    { p_owner_asesor_id: ownerId },
+  );
+
+  if (ownerError) {
+    const msg = String(ownerError.message ?? "");
+    // Ventana de deploy: conservar resumen propio si Cloud todavía no tiene la RPC.
+    if (/could not find|does not exist|PGRST202/i.test(msg)) {
+      return parsed.data;
+    }
+    throw new ExpedientesSupabaseError(
+      ownerError.message ||
+        "No se pudo cargar el resumen del asesor titular seleccionado.",
+    );
+  }
+
+  const ownerParsed = asesorInboxOwnerCountsResultSchema.safeParse(ownerData);
+  if (!ownerParsed.success) {
+    throw new ExpedientesSupabaseError(
+      "Respuesta inválida al cargar el resumen del asesor titular seleccionado.",
+    );
+  }
+
+  return {
+    ...parsed.data,
+    counts: ownerParsed.data.counts,
+    programas_unicos: ownerParsed.data.programas_unicos,
+  };
 }
 
 async function fetchExpedienteById(id: string): Promise<ExpedienteMock | null> {
@@ -929,8 +963,9 @@ export class SupabaseExpedientesRepo implements ExpedientesRepo {
 
   async getAsesorInboxSummary(
     notifLimit?: number,
+    ownerAsesorId?: string | null,
   ): Promise<AsesorInboxSummaryResult> {
-    return fetchAsesorInboxSummary(notifLimit);
+    return fetchAsesorInboxSummary(notifLimit, ownerAsesorId);
   }
 
   async getAsesorInboxEstadoEfectivo(expedienteId: string): Promise<string | null> {
