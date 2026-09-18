@@ -118,6 +118,70 @@ export async function setMesaAgendaDriveValidation(params: Readonly<{
   };
 }
 
+export type MesaCompletarCitaOperativaResult = Readonly<{
+  ok: boolean;
+  idempotent: boolean;
+  bookingId: string;
+  expedienteId: string;
+  kind: string;
+  etapaAnterior: number;
+  etapaActual: number;
+}>;
+
+/**
+ * Cierra operativamente una cita ya ocurrida y lleva el expediente a su destino canónico:
+ * biométricos → Acuse, inscripción → Acuse, firma → Firmado.
+ */
+export async function completarMesaAgendaCitaOperativa(params: Readonly<{
+  bookingId: string;
+}>): Promise<MesaCompletarCitaOperativaResult> {
+  const bookingId = params.bookingId.trim();
+  if (!bookingId) {
+    throw new MesaAgendaBookingsSupabaseError("booking_id es obligatorio.");
+  }
+
+  if (!isSupabaseConfigured() || !supabaseBrowser) {
+    throw new MesaAgendaBookingsSupabaseError("Supabase no está configurado.");
+  }
+
+  const {
+    data: { session },
+    error: sessionError,
+  } = await supabaseBrowser.auth.getSession();
+
+  if (sessionError || !session?.user) {
+    throw new MesaAgendaBookingsSupabaseError("No hay sesión activa.");
+  }
+
+  const { data, error } = await supabaseBrowser.rpc("mesa_completar_cita_operativa", {
+    p_booking_id: bookingId,
+  });
+
+  if (error) {
+    throw new MesaAgendaBookingsSupabaseError(error.message || "No se pudo completar la cita.");
+  }
+
+  const row = (data ?? {}) as Readonly<{
+    ok?: boolean;
+    idempotent?: boolean;
+    booking_id?: string;
+    expediente_id?: string;
+    kind?: string;
+    etapa_anterior?: number;
+    etapa_actual?: number;
+  }>;
+
+  return {
+    ok: row.ok === true,
+    idempotent: row.idempotent === true,
+    bookingId: String(row.booking_id ?? bookingId),
+    expedienteId: String(row.expediente_id ?? ""),
+    kind: String(row.kind ?? ""),
+    etapaAnterior: Number(row.etapa_anterior ?? 0),
+    etapaActual: Number(row.etapa_actual ?? 0),
+  };
+}
+
 export type MesaSetAgendaReportGroupResult = Readonly<{
   ok: boolean;
   bookingId: string;

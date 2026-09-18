@@ -17,6 +17,7 @@ import {
 } from "@/domain/agenda-inscripcion";
 import { SupabaseAgendaInscripcionRepo } from "@/domain/agenda-inscripcion/supabase.repo";
 import {
+  completarMesaAgendaCitaOperativa,
   fetchMesaAgendaBookings,
   setMesaAgendaDriveValidation,
 } from "@/domain/agenda-calendar/mesa.repo";
@@ -56,7 +57,7 @@ import {
 } from "@/components/mesa-control/MesaReagendarCitaDialog";
 import { NotificationsBell } from "@/components/notifications/NotificationsBell";
 import { Button } from "@/components/ui/Button";
-import { useExpedientesRepo, ExpedientesSupabaseError } from "@/domain/expedientes";
+import { useExpedientesRepo } from "@/domain/expedientes";
 import { getEffectiveMockName, getEffectiveMockRole } from "@/lib/mockUser";
 import {
   MESA_CANCEL_SUCCESS_MESSAGE,
@@ -699,8 +700,14 @@ export function MesaAgendaCitasClient() {
         selectedBookingIds: selectedSnapshot,
         loadedEntries,
         role: bulkRole,
-        advance: async (expedienteId) => {
-          await expedientesRepo.avanzarEtapaOperativa(expedienteId);
+        advance: async (expedienteId, representativeBookingId, item) => {
+          if (item.kind === "notificacion") {
+            await expedientesRepo.avanzarEtapaOperativa(expedienteId);
+            return;
+          }
+          await completarMesaAgendaCitaOperativa({
+            bookingId: representativeBookingId,
+          });
         },
         onProgress: (done, total) => {
           setBulkProgressLabel(`Avanzando ${done} de ${total} expedientes…`);
@@ -717,11 +724,9 @@ export function MesaAgendaCitasClient() {
       await loadEntries();
     } catch (err) {
       const message =
-        err instanceof ExpedientesSupabaseError
-          ? err.message
-          : err instanceof Error && err.message.trim()
-            ? err.message.trim()
-            : "No se pudo completar el avance masivo de etapa.";
+        err instanceof Error && err.message.trim()
+          ? err.message.trim()
+          : "No se pudo completar el avance masivo de etapa.";
       setDriveError(message);
       setBulkAdvanceConfirmOpen(false);
       setBulkAdvancePlan(null);

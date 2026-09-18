@@ -1,12 +1,11 @@
 /**
  * P089: elegibilidad predictiva, selección múltiple y acciones masivas locales.
- * Drive: `mesa_set_agenda_drive_validation`. Avance: `avanzar_etapa_operativa` (autoridad final).
+ * Drive: `mesa_set_agenda_drive_validation`.
+ * Cierre operativo: `mesa_completar_cita_operativa` usa booking_id como autoridad y lleva
+ * biométricos/inscripción a Acuse, firma a Firmado.
  *
- * P172 B1.1: `avanzar_etapa_operativa` no recibe booking_id → no hay guard SQL por booking
- * original de contingencia. B2 debe excluir bookings con
- * `contingencyOriginalBlockedActions(...).bulkSelect` antes de `executeBulkStageAdvance`.
- * Server-side: P170 SKIPPED_CONTINGENCY + trigger BOOKING_UNDER_CONTINGENCY en mutaciones
- * de agenda_bookings.
+ * P172: la UI sigue excluyendo bookings bajo contingencia y la RPC vuelve a validarlo
+ * server-side antes de cualquier avance.
  */
 import type {
   MesaAgendaBookingEntry,
@@ -148,15 +147,7 @@ export function getBulkAdvanceEligibility(
     };
   }
 
-  if (kind === "biometricos" && etapa === 4) {
-    return {
-      eligible: true,
-      reason: null,
-      transition: { fromStage: 4, toStage: 5, kind },
-    };
-  }
-
-  if (kind === "biometricos" && etapa === 5) {
+  if (kind === "biometricos" && (etapa === 4 || etapa === 5)) {
     if (sub && sub !== "en_proceso") {
       return { eligible: false, reason: "Etapa no compatible", transition: null };
     }
@@ -171,26 +162,54 @@ export function getBulkAdvanceEligibility(
     return {
       eligible: true,
       reason: null,
-      transition: { fromStage: 5, toStage: 8, kind },
+      transition: { fromStage: etapa, toStage: 8, kind },
     };
   }
 
-  // Firma con booking activo en etapa 9: el backend autoritativo
-  // avanzar_etapa_operativa valida fecha_cita + booking firmas y ejecuta 9→10.
-  // Drive no es requisito para el avance; una cita ya validada sigue seleccionable.
-  if (kind === "firmas" && etapa === 9) {
+  // Inscripción extraordinaria: al concluir la cita, Mesa la cierra y lleva a Acuse.
+  // La RPC server-side cierra también el requerimiento asociado en la misma transacción.
+  if (kind === "inscripcion" && etapa >= 3 && etapa <= 7) {
     if (sub && sub !== "en_proceso") {
       return { eligible: false, reason: "Etapa no compatible", transition: null };
+    }
+    const iso = mesaAgendaBookingInstantIso(entry);
+    if (!isFechaCitaBiometricaPasada(iso, nowMs)) {
+      return {
+        eligible: false,
+        reason: "La cita todavía no ocurre",
+        transition: null,
+      };
     }
     return {
       eligible: true,
       reason: null,
-      transition: { fromStage: 9, toStage: 10, kind },
+      transition: { fromStage: etapa, toStage: 8, kind },
     };
   }
 
-  // Etapas de firma que no corresponden al avance 9→10 permanecen protegidas.
-  if (kind === "firmas" && (etapa === 8 || etapa === 3)) {
+  // Firma ocurrida: la operación canónica completa 9→10→11 o 10→11 y termina en Firmado.
+  // Drive no es requisito para el avance.
+  if (kind === "firmas" && (etapa === 9 || etapa === 10)) {
+    if (sub && sub !== "en_proceso") {
+      return { eligible: false, reason: "Etapa no compatible", transition: null };
+    }
+    const iso = mesaAgendaBookingInstantIso(entry);
+    if (!isFechaCitaBiometricaPasada(iso, nowMs)) {
+      return {
+        eligible: false,
+        reason: "La cita todavía no ocurre",
+        transition: null,
+      };
+    }
+    return {
+      eligible: true,
+      reason: null,
+      transition: { fromStage: etapa, toStage: 11, kind },
+    };
+  }
+
+  // Otras etapas de firma permanecen protegidas.
+  if (kind === "firmas") {
     return {
       eligible: false,
       reason: "Etapa no compatible",
@@ -798,7 +817,11 @@ export async function executeBulkStageAdvance(params: Readonly<{
   loadedEntries: readonly MesaAgendaBookingEntry[];
   role: string | null | undefined;
   nowMs?: number;
-  advance: (expedienteId: string) => Promise<unknown>;
+  advance: (
+    expedienteId: string,
+    representativeBookingId: string,
+    item: BulkAdvancePlanItem,
+  ) => Promise<unknown>;
   concurrency?: number;
   onProgress?: (done: number, total: number) => void;
 }>): Promise<BulkStageAdvanceSummary> {
@@ -819,7 +842,11 @@ export async function executeBulkStageAdvance(params: Readonly<{
     params.concurrency ?? MESA_BULK_ADVANCE_CONCURRENCY,
     async (item) => {
       try {
-        await params.advance(item.expedienteId);
+        await params.advance(
+          item.expedienteId,
+          item.representativeBookingId,
+          item,
+        );
         done += 1;
         params.onProgress?.(done, total);
         return {
@@ -897,6 +924,8 @@ export function mesaAgendaKindBulkLabel(kind: string): string {
       return "biométricos";
     case "firmas":
       return "firmas";
+    case "inscripcion":
+      return "inscripción";
     default:
       return kind;
   }

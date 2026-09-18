@@ -107,14 +107,20 @@ test("Avance — notificación 3→5", () => {
   assert.deepEqual(r.transition, { fromStage: 3, toStage: 5, kind: "notificacion" });
 });
 
-test("Avance — biométricos 4→5", () => {
+test("Avance — biométricos 4→8 con cita ocurrida", () => {
   const r = getBulkAdvanceEligibility(
-    entry({ bookingId: "b1", kind: "biometricos", etapaActual: 4 }),
+    entry({
+      bookingId: "b1",
+      kind: "biometricos",
+      etapaActual: 4,
+      bookingDate: "2026-07-19",
+      bookingTime: "09:00",
+    }),
     ROLE,
     NOW,
   );
   assert.equal(r.eligible, true);
-  assert.deepEqual(r.transition, { fromStage: 4, toStage: 5, kind: "biometricos" });
+  assert.deepEqual(r.transition, { fromStage: 4, toStage: 8, kind: "biometricos" });
 });
 
 test("Avance — biométricos 5→8 con cita ocurrida", () => {
@@ -151,18 +157,70 @@ test("Avance — biométricos 5 sin cita ocurrida", () => {
   assert.equal(r.reason, "La cita todavía no ocurre");
 });
 
-test("Avance — firmas 9→10 elegible aunque Drive ya esté validado", () => {
+
+test("Avance — inscripción 4→8 con cita ocurrida y Drive validado", () => {
   const e = entry({
-    bookingId: "f1",
-    kind: "firmas",
-    etapaActual: 9,
+    bookingId: "i1",
+    kind: "inscripcion",
+    etapaActual: 4,
+    bookingDate: "2026-07-19",
+    bookingTime: "11:00",
     subestado: "en_proceso",
     driveValidated: true,
   });
   const r = getBulkAdvanceEligibility(e, ROLE, NOW);
   assert.equal(getBulkDriveEligibility(e, ROLE).eligible, false);
   assert.equal(r.eligible, true);
-  assert.deepEqual(r.transition, { fromStage: 9, toStage: 10, kind: "firmas" });
+  assert.deepEqual(r.transition, { fromStage: 4, toStage: 8, kind: "inscripcion" });
+  assert.equal(isBulkSelectable(e, ROLE, NOW), true);
+});
+
+test("Avance — inscripción futura no se puede cerrar", () => {
+  const r = getBulkAdvanceEligibility(
+    entry({
+      bookingId: "i1",
+      kind: "inscripcion",
+      etapaActual: 4,
+      bookingDate: "2026-07-21",
+      bookingTime: "11:00",
+    }),
+    ROLE,
+    NOW,
+  );
+  assert.equal(r.eligible, false);
+  assert.equal(r.reason, "La cita todavía no ocurre");
+});
+
+test("Avance — firma futura no se puede marcar como Firmado", () => {
+  const r = getBulkAdvanceEligibility(
+    entry({
+      bookingId: "f1",
+      kind: "firmas",
+      etapaActual: 9,
+      bookingDate: "2026-07-21",
+      bookingTime: "10:00",
+    }),
+    ROLE,
+    NOW,
+  );
+  assert.equal(r.eligible, false);
+  assert.equal(r.reason, "La cita todavía no ocurre");
+});
+
+test("Avance — firmas 9→11 elegible aunque Drive ya esté validado", () => {
+  const e = entry({
+    bookingId: "f1",
+    kind: "firmas",
+    etapaActual: 9,
+    bookingDate: "2026-07-19",
+    bookingTime: "09:00",
+    subestado: "en_proceso",
+    driveValidated: true,
+  });
+  const r = getBulkAdvanceEligibility(e, ROLE, NOW);
+  assert.equal(getBulkDriveEligibility(e, ROLE).eligible, false);
+  assert.equal(r.eligible, true);
+  assert.deepEqual(r.transition, { fromStage: 9, toStage: 11, kind: "firmas" });
   assert.equal(isBulkSelectable(e, ROLE, NOW), true);
 });
 
@@ -528,13 +586,15 @@ test("planBulkStageAdvance — 5→8 antes de cita no elegible", () => {
   assert.equal(plan.items[0]?.reason, "La cita todavía no ocurre");
 });
 
-test("planBulkStageAdvance — firmas 9 no elegible; cancelado omitido", () => {
+test("planBulkStageAdvance — firmas 9→11 elegible; cancelado omitido", () => {
   const rows = [
     entry({
       bookingId: "f1",
       expedienteId: "exp-f",
       kind: "firmas",
       etapaActual: 9,
+      bookingDate: "2026-07-19",
+      bookingTime: "09:00",
     }),
     entry({
       bookingId: "c1",
@@ -544,9 +604,11 @@ test("planBulkStageAdvance — firmas 9 no elegible; cancelado omitido", () => {
     }),
   ];
   const plan = planBulkStageAdvance(new Set(["f1", "c1"]), rows, ROLE, NOW);
-  assert.equal(plan.eligibleExpedientes, 0);
-  assert.equal(plan.skippedExpedientes, 2);
-  assert.ok(plan.items.every((i) => !i.eligible));
+  assert.equal(plan.eligibleExpedientes, 1);
+  assert.equal(plan.skippedExpedientes, 1);
+  const firma = plan.items.find((i) => i.expedienteId === "exp-f");
+  assert.equal(firma?.eligible, true);
+  assert.equal(firma?.toStage, 11);
 });
 
 test("planBulkStageAdvance — rol no permitido", () => {
@@ -603,17 +665,17 @@ test("executeBulkStageAdvance — una llamada por expediente, parcial, concurren
     role: ROLE,
     nowMs: NOW,
     concurrency: 2,
-    advance: async (id) => {
+    advance: async (id, representativeBookingId) => {
       inFlight += 1;
       maxInFlight = Math.max(maxInFlight, inFlight);
-      calls.push(id);
+      calls.push(`${id}:${representativeBookingId}`);
       await new Promise((r) => setTimeout(r, 5));
       inFlight -= 1;
       if (id === "eb") throw new Error("No hay una transición de etapa disponible para el estado actual del expediente.");
     },
   });
-  assert.deepEqual(calls.sort(), ["ea", "eb", "ec"]);
-  assert.equal(calls.filter((c) => c === "ea").length, 1);
+  assert.deepEqual(calls.sort(), ["ea:a1", "eb:b1", "ec:c1"]);
+  assert.equal(calls.filter((c) => c.startsWith("ea:")).length, 1);
   assert.ok(maxInFlight <= 2);
   assert.equal(summary.succeeded, 2);
   assert.equal(summary.failed, 1);
@@ -640,4 +702,5 @@ test("mapBulkAdvanceFailureReason y label kind", () => {
     "El expediente cambió de etapa antes de procesarse.",
   );
   assert.equal(mesaAgendaKindBulkLabel("biometricos"), "biométricos");
+  assert.equal(mesaAgendaKindBulkLabel("inscripcion"), "inscripción");
 });
