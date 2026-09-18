@@ -5,6 +5,7 @@ import type { ClabeBankStatementDetection } from "@/domain/document-extractions/
 export type MesaClabeShadowDetectionPanelProps = Readonly<{
   analyzing: boolean;
   result: ClabeBankStatementDetection | null;
+  applied?: boolean;
 }>;
 
 /**
@@ -13,6 +14,7 @@ export type MesaClabeShadowDetectionPanelProps = Readonly<{
 export function MesaClabeShadowDetectionPanel({
   analyzing,
   result,
+  applied = false,
 }: MesaClabeShadowDetectionPanelProps) {
   return (
     <div
@@ -45,7 +47,9 @@ export function MesaClabeShadowDetectionPanel({
             Checksum válido. Verifica que coincida con el documento.
           </p>
           <p className="text-[11px] text-slate-500">
-            Sugerencia de referencia — no se escribe en el formulario.
+            {applied
+              ? "Aplicada automáticamente al formulario desde el Estado de cuenta."
+              : "Sugerencia de referencia — no se escribe en el formulario."}
           </p>
         </div>
       ) : null}
