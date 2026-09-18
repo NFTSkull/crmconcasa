@@ -18,7 +18,7 @@ function buildProxyConfig() {
   console.log(`[sat-validator] PROXY_ENABLED country=${country}`)
   return {
     server,
-    username: `grecojcwy1-country-${country}-session-${sessionId}`,
+    username: country === 'mx'\n      ? `grecojcwy1-country-mx-state-nuevoleon-session-${sessionId}`\n      : `grecojcwy1-country-${country}-session-${sessionId}`,
     password,
   }
 }
@@ -33,7 +33,7 @@ async function navigateSatPage(page, url, readySelector, label) {
       return
     } catch (error) {
       lastError = error
-      console.warn(`[sat-validator] ${label}_PAGE_RETRY attempt=${attempt} reason=${error instanceof Error ? error.name : 'unknown'}`)
+      console.warn(`[sat-validator] ${label}_PAGE_RETRY attempt=${attempt} reason=${error instanceof Error ? error.name : 'unknown'} message=${error instanceof Error ? String(error.message).replace(/https?:\\/\\/[^\\s]+/g, '[url]') : 'unknown'}`)
       if (attempt < 2) await page.waitForTimeout(2_000)
     }
   }
