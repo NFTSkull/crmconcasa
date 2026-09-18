@@ -36,6 +36,10 @@ import {
   mergeInfonavitDocumentAutofill,
   type InfonavitAutofillConflict,
 } from "@/domain/document-extractions/infonavit-autofill-merge";
+import {
+  evaluateIneValidity,
+  type IneValidityAssessment,
+} from "@/domain/document-extractions/ine-validity";
 
 export const MESA_CLABE_DERECHOHABIENTE_INVALID_MSG =
   "La CLABE del derechohabiente no es válida. Verifica los 18 dígitos.";
@@ -645,6 +649,9 @@ export function MesaInfonavitGenerarDocumentosForm({
   const [autofillConflicts, setAutofillConflicts] =
     useState<InfonavitAutofillConflict[]>([]);
   const [autofillRetryNonce, setAutofillRetryNonce] = useState(0);
+  const [ineValidity, setIneValidity] = useState<IneValidityAssessment | null>(
+    null,
+  );
   const archivosRepo = useExpedienteArchivosRepo();
   const hydratedExpedienteRef = useRef<string | null>(null);
   const draftRef = useRef<MesaInfonavitDocumentDraft | null>(null);
@@ -726,6 +733,10 @@ export function MesaInfonavitGenerarDocumentosForm({
   useEffect(() => {
     void loadDraft();
   }, [loadDraft]);
+
+  useEffect(() => {
+    setIneValidity(null);
+  }, [expedienteId]);
 
   useEffect(() => {
     draftRef.current = draft;
@@ -876,6 +887,30 @@ export function MesaInfonavitGenerarDocumentosForm({
           else texts[result.target] = result.text;
         }
 
+        const validity = evaluateIneValidity({
+          frontText: texts.ineFrente,
+          reverseText: texts.ineReverso,
+        });
+        if (!cancelled) setIneValidity(validity);
+
+        const validityWarnings: string[] = [];
+        if (
+          validity.status === "expired" &&
+          validity.expirationYear !== null
+        ) {
+          validityWarnings.push(
+            validity.canAutoReject
+              ? `INE vencida (vigencia ${validity.expirationYear}). No se puede generar hasta que el asesor sustituya la credencial.`
+              : `El reverso sugiere vigencia ${validity.expirationYear}, pero el frente no la confirmó. Revísala manualmente antes de continuar.`,
+          );
+        } else if (validity.status === "unknown") {
+          validityWarnings.push(
+            "No se pudo confirmar automáticamente la vigencia visible de la INE. Revisa el frente antes de continuar.",
+          );
+        }
+
+        if (cancelled) return;
+
         const current = draftRef.current;
         if (!current) return;
         const expectedClienteNombre =
@@ -910,7 +945,10 @@ export function MesaInfonavitGenerarDocumentosForm({
         const merged = mergeInfonavitDocumentAutofill(mergeBase, patch);
         if (cancelled) return;
 
-        const warnings = (patch.issues ?? []).map((issue) => issue.message);
+        const warnings = [
+          ...(patch.issues ?? []).map((issue) => issue.message),
+          ...validityWarnings,
+        ];
         setDraft(merged.draft);
         setAutofillSources({ ...merged.sourceByField });
         setAutofillConflicts(merged.conflicts);
@@ -1068,6 +1106,13 @@ export function MesaInfonavitGenerarDocumentosForm({
 
     if (missingCore.length > 0) {
       setGenerateError(`Completa antes de generar: ${missingCore.join(", ")}.`);
+      return;
+    }
+
+    if (ineValidity?.canAutoReject) {
+      setGenerateError(
+        `No se puede generar con una INE vencida (vigencia ${ineValidity.expirationYear}). El asesor debe sustituir frente y reverso por una INE vigente.`,
+      );
       return;
     }
 
