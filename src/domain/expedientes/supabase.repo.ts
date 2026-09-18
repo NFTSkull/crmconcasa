@@ -59,7 +59,6 @@ import {
   type NssPrecalGateResult,
 } from "./nss-precal-gate";
 import { ExpedientesSupabaseError } from "./supabase.error";
-import { mapEnviarAMesaRpcError } from "./enviar-mesa-rpc-error";
 import {
   mapEnviarMesaFiscalHttpError,
   type EnviarMesaFiscalHttpBody,
