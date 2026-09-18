@@ -245,6 +245,43 @@ export function normalizeDestinoRecursosForCapture(
   };
 }
 
+function compactAddressPart(value: string): string {
+  return str(value).trim().replace(/\s+/g, " ");
+}
+
+/**
+ * La vivienda se captura/editan en campos estructurados. Antes de congelar el
+ * snapshot reconstruimos direccionCompleta para que PDF/DOCX no reutilicen una
+ * dirección legacy distinta a lo que Mesa ve en pantalla.
+ */
+function composeMesaInfonavitDireccionCompleta(vivienda: ViviendaDraft): string {
+  const calle = compactAddressPart(vivienda.calle);
+  const noExt = compactAddressPart(vivienda.noExt);
+  const noInt = compactAddressPart(vivienda.noInt);
+  const lote = compactAddressPart(vivienda.lote);
+  const manzana = compactAddressPart(vivienda.manzana);
+  const colonia = compactAddressPart(vivienda.colonia);
+  const municipio = compactAddressPart(vivienda.municipio);
+  const entidad = compactAddressPart(vivienda.entidad);
+  const cp = compactAddressPart(vivienda.cp);
+
+  const parts = [
+    calle,
+    noExt ? `No. ${noExt}` : "",
+    noInt ? `Int. ${noInt}` : "",
+    lote ? `Lote ${lote}` : "",
+    manzana ? `Mz. ${manzana}` : "",
+    colonia ? `Col. ${colonia}` : "",
+    municipio,
+    entidad,
+    cp ? `CP ${cp}` : "",
+  ].filter((part) => part.length > 0);
+
+  return parts.length > 0
+    ? parts.join(", ")
+    : compactAddressPart(vivienda.direccionCompleta);
+}
+
 /** Payload de generación: fuerza T31/T32 vacíos; normaliza T33 si es CLABE válida. */
 export function buildMesaInfonavitGeneratePayload(
   draft: MesaInfonavitDocumentDraft,
@@ -260,6 +297,10 @@ export function buildMesaInfonavitGeneratePayload(
   }
   return {
     ...draft,
+    vivienda: {
+      ...draft.vivienda,
+      direccionCompleta: composeMesaInfonavitDireccionCompleta(draft.vivienda),
+    },
     credito: {
       montoSolicitado: draft.credito.montoSolicitado,
       plazoAnios: draft.credito.plazoAnios,
@@ -693,29 +734,18 @@ export function MesaInfonavitGenerarDocumentosForm({
           warnings: [],
         });
 
-        const currentBefore = draftRef.current;
-        const identityAlreadyStructured = Boolean(
-          currentBefore?.cliente.nombres.trim() &&
-            currentBefore.cliente.apellidoPaterno.trim() &&
-            currentBefore.cliente.curp.trim(),
-        );
-
         const jobs: Array<{
           type: OcrDocumentType;
           target: keyof InfonavitDocumentTexts;
           doc: ExpedienteArchivoListItem | null;
         }> = [
-          // Si Datos Generales ya traen identidad base, el reverso MRZ confirma
-          // nombre y obtiene sexo/vigencia. Evitamos OCR del frente pesado.
-          ...(identityAlreadyStructured
-            ? []
-            : [
-                {
-                  type: "cliente_ine_frente" as const,
-                  target: "ineFrente" as const,
-                  doc: docs.cliente_ine_frente,
-                },
-              ]),
+          // INE es autoridad de identidad en esta captura; se lee siempre el frente
+          // aunque Datos Generales ya tengan nombre/CURP.
+          {
+            type: "cliente_ine_frente",
+            target: "ineFrente",
+            doc: docs.cliente_ine_frente,
+          },
           {
             type: "cliente_ine_reverso",
             target: "ineReverso",
@@ -1059,8 +1089,8 @@ export function MesaInfonavitGenerarDocumentosForm({
               {autofillConflicts.length > 0 ? (
                 <div className="mt-1 space-y-1">
                   <p>
-                    {autofillConflicts.length} diferencias requieren revisión; no se
-                    sobrescribieron silenciosamente.
+                    {autofillConflicts.length} diferencias detectadas: se aplicó el
+                    valor del documento fuente. Revisa antes de generar si hace falta.
                   </p>
                   <ul className="list-disc space-y-0.5 pl-4">
                     {autofillConflicts.slice(0, 8).map((conflict) => (
@@ -1068,8 +1098,8 @@ export function MesaInfonavitGenerarDocumentosForm({
                         <span className="font-medium">
                           {autofillFieldLabel(conflict.field)}
                         </span>
-                        : actual “{conflict.current}” · {conflict.sourceLabel} detectó
-                        “{conflict.detected}”.
+                        : Datos Generales “{conflict.current}” · {conflict.sourceLabel}
+                        aplicó “{conflict.detected}”.
                       </li>
                     ))}
                   </ul>
