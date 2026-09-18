@@ -7,7 +7,7 @@ const ROOT = process.cwd();
 const migration = readFileSync(
   join(
     ROOT,
-    "supabase/migrations/20260918173000_mesa_completar_cita_operativa.sql",
+    "supabase/migrations/20260918173144_mesa_completar_cita_operativa.sql",
   ),
   "utf8",
 );
