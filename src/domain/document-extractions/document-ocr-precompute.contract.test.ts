@@ -103,6 +103,8 @@ describe("INFONAVIT OCR precalentado", () => {
     assert.match(validityGuard, /REJECTABLE_STATUSES/);
     assert.match(validityGuard, /archivosRepo\.updateRevision/);
     assert.match(validityGuard, /estatus_revision: "rechazado"/);
+    assert.match(validityGuard, /EXPEDIENTE_ARCHIVOS_UPDATED_EVENT/);
+    assert.match(validityGuard, /EXPEDIENTE_CORRECCION_REFRESH_EVENT/);
     assert.match(validityGuard, /INE vencida/);
   });
 
