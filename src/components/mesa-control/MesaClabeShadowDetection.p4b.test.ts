@@ -59,6 +59,17 @@ describe("P4B Mesa CLABE shadow UI contrato", () => {
     assert.doesNotMatch(formSrc, /detectClabeFromBankStatement/);
   });
 
+  it("CLABE ya aplicada por OCR manda sobre shadow no_text_layer", () => {
+    assert.match(previewSrc, /clabeAppliedValue/);
+    assert.match(previewSrc, /appliedClabeDetection/);
+    assert.match(
+      previewSrc,
+      /visibleClabeDetection\s*=\s*appliedClabeDetection\s*\?\?\s*shadowClabeDetection/,
+    );
+    assert.match(panelSrc, /Aplicada automáticamente al formulario/);
+    assert.match(previewSrc, /applied=\{Boolean\(appliedClabeDetection\)\}/);
+  });
+
   it("21. ambiguous no elige candidato", () => {
     assert.match(panelSrc, /varias CLABE posibles/);
     assert.match(panelSrc, /result\.candidates\.map/);

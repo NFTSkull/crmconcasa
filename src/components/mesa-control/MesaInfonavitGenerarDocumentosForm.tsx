@@ -24,8 +24,10 @@ import {
 } from "@/domain/document-extractions/document-ocr-client";
 import {
   buildInfonavitDocumentAutofillPatch,
+  comparableAutofillValue,
   type InfonavitDocumentTexts,
 } from "@/domain/document-extractions/infonavit-document-autofill";
+import { parseLegacyReferenciaNombre } from "@/domain/expediente-cliente-datos/parse-legacy-referencia-nombre";
 import {
   mergeInfonavitDocumentAutofill,
   type InfonavitAutofillConflict,
@@ -76,6 +78,35 @@ type ClienteDraft = {
   regimenMatrimonial: string;
   identificacion: IdentificacionDraft;
 };
+
+export function repairMesaInfonavitClienteNameFromCanonical(
+  cliente: ClienteDraft,
+): ClienteDraft {
+  const canonical = parseLegacyReferenciaNombre(cliente.nombreCompleto);
+  if (!canonical.parsed) return cliente;
+
+  const currentParts = [
+    cliente.nombres,
+    cliente.apellidoPaterno,
+    cliente.apellidoMaterno,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  if (
+    comparableAutofillValue(currentParts) ===
+    comparableAutofillValue(cliente.nombreCompleto)
+  ) {
+    return cliente;
+  }
+
+  return {
+    ...cliente,
+    nombres: canonical.nombres,
+    apellidoPaterno: canonical.apellidoPaterno,
+    apellidoMaterno: canonical.apellidoMaterno,
+  };
+}
 
 type EmpresaDraft = {
   nombre: string;
@@ -824,18 +855,36 @@ export function MesaInfonavitGenerarDocumentosForm({
 
         const current = draftRef.current;
         if (!current) return;
-        const expectedClienteNombre = [
-          current.cliente.nombres,
-          current.cliente.apellidoPaterno,
-          current.cliente.apellidoMaterno,
-        ]
-          .filter(Boolean)
-          .join(" ");
+        const expectedClienteNombre =
+          current.cliente.nombreCompleto.trim() ||
+          [
+            current.cliente.nombres,
+            current.cliente.apellidoPaterno,
+            current.cliente.apellidoMaterno,
+          ]
+            .filter(Boolean)
+            .join(" ");
 
         const patch = buildInfonavitDocumentAutofillPatch(texts, {
           expectedClienteNombre,
         });
-        const merged = mergeInfonavitDocumentAutofill(current, patch);
+
+        let mergeBase = current;
+        const ineNameRejected = (patch.issues ?? []).some(
+          (issue) =>
+            issue.source === "cliente_ine_frente" &&
+            issue.code === "low_confidence",
+        );
+        if (ineNameRejected && current.cliente.nombreCompleto.trim()) {
+          const repairedCliente =
+            repairMesaInfonavitClienteNameFromCanonical(current.cliente);
+          if (repairedCliente !== current.cliente) {
+            mergeBase = structuredClone(current);
+            mergeBase.cliente = repairedCliente;
+          }
+        }
+
+        const merged = mergeInfonavitDocumentAutofill(mergeBase, patch);
         if (cancelled) return;
 
         const warnings = (patch.issues ?? []).map((issue) => issue.message);
@@ -1334,6 +1383,11 @@ export function MesaInfonavitGenerarDocumentosForm({
               expedienteId={expedienteId}
               context={sourceContext}
               requestedIneSide={requestedIneSide}
+              clabeAppliedValue={
+                autofillSources["destinoRecursos.clabeDerechohabiente"]
+                  ? draft.destinoRecursos.clabeDerechohabiente
+                  : null
+              }
               className="max-h-[min(70vh,720px)]"
             />
           </div>

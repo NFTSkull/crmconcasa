@@ -7,6 +7,7 @@ import {
   buildMesaInfonavitGeneratePayload,
   MESA_CLABE_DERECHOHABIENTE_INVALID_MSG,
   parseMesaInfonavitDocumentDraft,
+  repairMesaInfonavitClienteNameFromCanonical,
   validateClabeDerechohabienteForGenerate,
   type MesaInfonavitDocumentDraft,
 } from "./MesaInfonavitGenerarDocumentosForm";
@@ -86,6 +87,46 @@ function minimalDraft(
     mejora: { descripcion: "", presupuestoEstimado: null },
   };
 }
+
+describe("Mesa Infonavit nombre canónico", () => {
+  it("repara un borrador local contaminado por OCR usando nombreCompleto", () => {
+    const draft = minimalDraft({
+      porcentajeTitulacion: "",
+      clabeNotaria: "",
+      clabeDerechohabiente: "",
+    });
+    draft.cliente = {
+      ...draft.cliente,
+      nombreCompleto: "CARLOS GUADALUPE SANTIAGO RAMOS",
+      nombres: "DITE BERD",
+      apellidoPaterno: "AD",
+      apellidoMaterno: "EC",
+    };
+
+    const repaired = repairMesaInfonavitClienteNameFromCanonical(draft.cliente);
+    assert.equal(repaired.nombres, "CARLOS GUADALUPE");
+    assert.equal(repaired.apellidoPaterno, "SANTIAGO");
+    assert.equal(repaired.apellidoMaterno, "RAMOS");
+  });
+
+  it("no toca partes que ya corresponden al nombre canónico", () => {
+    const draft = minimalDraft({
+      porcentajeTitulacion: "",
+      clabeNotaria: "",
+      clabeDerechohabiente: "",
+    });
+    draft.cliente = {
+      ...draft.cliente,
+      nombreCompleto: "CARLOS GUADALUPE SANTIAGO RAMOS",
+      nombres: "CARLOS GUADALUPE",
+      apellidoPaterno: "SANTIAGO",
+      apellidoMaterno: "RAMOS",
+    };
+
+    const repaired = repairMesaInfonavitClienteNameFromCanonical(draft.cliente);
+    assert.equal(repaired, draft.cliente);
+  });
+});
 
 describe("Mesa Infonavit P1 CLABE checksum", () => {
   it("vacío permitido al generar", () => {

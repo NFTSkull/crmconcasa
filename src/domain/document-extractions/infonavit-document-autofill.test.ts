@@ -76,6 +76,36 @@ describe("P4C document autofill parser", () => {
   });
 
 
+  it("INE no reemplaza nombre correcto con ruido OCR", () => {
+    const patch = buildInfonavitDocumentAutofillPatch(
+      {
+        ineFrente: [
+          "INSTITUTO NACIONAL ELECTORAL",
+          "NOMBRE",
+          "AD",
+          "EC",
+          "DITE BERD",
+          "CURP SARC970707HNLNMR03",
+          "SEXO H",
+          "VIGENCIA 2026",
+        ].join("\n"),
+      },
+      { expectedClienteNombre: "CARLOS GUADALUPE SANTIAGO RAMOS" },
+    );
+
+    assert.equal(patch.cliente.nombres, undefined);
+    assert.equal(patch.cliente.apellidoPaterno, undefined);
+    assert.equal(patch.cliente.apellidoMaterno, undefined);
+    assert.equal(patch.cliente.curp?.value, "SARC970707HNLNMR03");
+    assert.equal(patch.cliente.genero?.value, "M");
+    assert.equal(
+      patch.cliente.identificacionVigencia?.value,
+      "31/12/2026",
+    );
+    assert.equal(patch.issues?.[0]?.code, "low_confidence");
+    assert.equal(patch.issues?.[0]?.source, "cliente_ine_frente");
+  });
+
   it("INE reverso MRZ recupera nombre, sexo y vigencia", () => {
     const patch = buildInfonavitDocumentAutofillPatch(
       {
@@ -133,6 +163,34 @@ describe("P4C document autofill parser", () => {
       "032180000118359719",
     );
     assert.equal(patch.issues?.[0]?.source, "cliente_estado_cuenta");
+  });
+
+  it("CFE prioriza domicilio del cliente y excluye Paseo de la Reforma corporativo", () => {
+    const patch = buildInfonavitDocumentAutofillPatch({
+      comprobanteDomicilio: [
+        "CFE Comisión Federal de Electricidad",
+        "AV. PASEO DE LA REFORMA 164",
+        "ALCALDIA CUAUHTEMOC, 06600 CIUDAD DE MEXICO",
+        "MENDOZA GUERRERO JORGE ARMANDO",
+        "INDEPENDENCIA 1719 CP 00000",
+        "PALMAS Y LAUREL",
+        "MONTERREY C.P.64530",
+        "MONTERREY N.L.,N.L.",
+        "NO. DE SERVICIO: 374180802409",
+        "RMU: 64530 18-08-29 MEGJ-790516 005 CFE",
+      ].join("\n"),
+    });
+
+    assert.equal(patch.vivienda.calle?.value, "INDEPENDENCIA");
+    assert.equal(patch.vivienda.noExt?.value, "1719");
+    assert.equal(patch.vivienda.cp?.value, "64530");
+    assert.equal(patch.vivienda.municipio?.value, "MONTERREY");
+    assert.equal(patch.vivienda.entidad?.value, "NUEVO LEÓN");
+    assert.equal(patch.vivienda.colonia, undefined);
+    assert.doesNotMatch(
+      patch.vivienda.direccionCompleta?.value ?? "",
+      /PASEO DE LA REFORMA|06600|CUAUHTEMOC/i,
+    );
   });
 
   it("comprobante extrae domicilio de bloque con CP", () => {

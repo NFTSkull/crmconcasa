@@ -36,6 +36,10 @@ import {
   type ClabeBankStatementDetection,
 } from "@/domain/document-extractions/clabe-bank-statement";
 import { MesaClabeShadowDetectionPanel } from "@/components/mesa-control/MesaClabeShadowDetectionPanel";
+import {
+  isValidClabeMexico,
+  normalizeClabeMexico,
+} from "@/domain/expediente-cliente-datos/clabe-mexico";
 
 export type MesaInfonavitSourceDocumentPreviewProps = Readonly<{
   expedienteId: string;
@@ -48,6 +52,8 @@ export type MesaInfonavitSourceDocumentPreviewProps = Readonly<{
   forceOpenSignal?: number;
   /** Permite que botones externos pidan INE frente o reverso. */
   requestedIneSide?: "frente" | "reverso" | null;
+  /** CLABE ya aplicada por el formulario; evita que el panel shadow muestre un estado contradictorio. */
+  clabeAppliedValue?: string | null;
 }>;
 
 type DocIndex = Readonly<{
@@ -70,6 +76,7 @@ export function MesaInfonavitSourceDocumentPreview({
   className,
   forceOpenSignal,
   requestedIneSide,
+  clabeAppliedValue,
 }: MesaInfonavitSourceDocumentPreviewProps) {
   const archivosRepo = useExpedienteArchivosRepo();
   const [index, setIndex] = useState<DocIndex>({
@@ -342,10 +349,26 @@ export function MesaInfonavitSourceDocumentPreview({
     preview?.mime_type,
   ]);
 
-  const visibleClabeDetection = resolveVisibleClabeDetection({
+  const shadowClabeDetection = resolveVisibleClabeDetection({
     activeDocumentId: activeRow?.id ?? null,
     detection: clabeDetection,
   });
+
+  const appliedClabeDetection = useMemo<ClabeBankStatementDetection | null>(() => {
+    const normalized = normalizeClabeMexico(clabeAppliedValue ?? "");
+    if (!normalized || !isValidClabeMexico(normalized)) return null;
+    return {
+      status: "detected",
+      clabe: normalized,
+      checksumValid: true,
+      candidateCount: 1,
+      confidence: "high",
+      reason: "clabe_label_nearby",
+    };
+  }, [clabeAppliedValue]);
+
+  const visibleClabeDetection =
+    appliedClabeDetection ?? shadowClabeDetection;
 
   useEffect(() => {
     const next = forceOpenSignal ?? 0;
@@ -383,7 +406,7 @@ export function MesaInfonavitSourceDocumentPreview({
           ) : null}
           {context === "identidad" ? (
             <p className="text-[11px] text-gray-500">
-              Número de identificación (T7) no se completa automáticamente.
+              Número de identificación se completa solo si el reverso permite detectar el OCR con certeza; si no, se captura manualmente.
             </p>
           ) : null}
         </div>
@@ -426,8 +449,9 @@ export function MesaInfonavitSourceDocumentPreview({
 
       {shouldRunClabeShadowDetection(context) ? (
         <MesaClabeShadowDetectionPanel
-          analyzing={clabeAnalyzing}
+          analyzing={clabeAnalyzing && !appliedClabeDetection}
           result={visibleClabeDetection}
+          applied={Boolean(appliedClabeDetection)}
         />
       ) : null}
 
