@@ -238,4 +238,27 @@ describe("P4C document autofill parser", () => {
       comparableAutofillValue("Nuevo Leon"),
     );
   });
+
+  it("INE reverso acepta MRZ M/F y normaliza vigencia al cierre del año", () => {
+    const patch = buildInfonavitDocumentAutofillPatch({
+      ineReverso: [
+        "IDMEX0000000000<<<<<<<<<<<<<<<",
+        "9001010F2512317MEX<<<<<<<<<<<8",
+        "PEREZ<LOPEZ<<MARIA<<<<<<<<<<<<",
+      ].join("\n"),
+    });
+    assert.equal(patch.cliente.genero?.value, "F");
+    assert.equal(patch.cliente.identificacionVigencia?.value, "31/12/2025");
+  });
+
+  it("numero OCR acepta espacios guiones y O confundida con cero", () => {
+    const patch = buildInfonavitDocumentAutofillPatch({
+      ineReverso: [
+        "INSTITUTO NACIONAL ELECTORAL",
+        "OCR 1234-5678 9O123",
+      ].join("\n"),
+    });
+    assert.equal(patch.cliente.identificacionNumero?.value, "1234567890123");
+  });
+
 });
