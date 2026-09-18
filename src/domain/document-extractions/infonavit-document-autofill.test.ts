@@ -21,7 +21,7 @@ describe("P4C document autofill parser", () => {
         "CURP PEPL900101HNLRPN09",
         "SEXO H",
         "VIGENCIA 2023 - 2033",
-      ].join("\\n"),
+      ].join("\n"),
     });
     assert.equal(patch.cliente.apellidoPaterno?.value, "PEREZ");
     assert.equal(patch.cliente.apellidoMaterno?.value, "LOPEZ");
@@ -38,7 +38,7 @@ describe("P4C document autofill parser", () => {
   it("SEXO M de INE se traduce a F del formulario", () => {
     const patch = buildInfonavitDocumentAutofillPatch({
       ineFrente:
-        "NOMBRE\\nRAMIREZ\\nGARCIA\\nMARIA\\nCURP RAGM900101MNLMRR09\\nSEXO M\\nVIGENCIA 2031",
+        "NOMBRE\nRAMIREZ\nGARCIA\nMARIA\nCURP RAGM900101MNLMRR09\nSEXO M\nVIGENCIA 2031",
     });
     assert.equal(patch.cliente.genero?.value, "F");
   });
@@ -67,7 +67,7 @@ describe("P4C document autofill parser", () => {
         "COL. PASEO REAL",
         "APODACA NUEVO LEON C.P. 66600",
         "TOTAL A PAGAR",
-      ].join("\\n"),
+      ].join("\n"),
     });
     assert.equal(patch.vivienda.calle?.value, "AV LAS TORRES");
     assert.equal(patch.vivienda.noExt?.value, "145");
@@ -81,7 +81,7 @@ describe("P4C document autofill parser", () => {
       estadoCuenta: Array.from(
         { length: 3 },
         () => `CLABE INTERBANCARIA ${CLABE}\nTitular demo`,
-      ).join("\\n"),
+      ).join("\n"),
     });
     assert.equal(patch.clabeDetection?.status, "detected");
     assert.equal(patch.clabeDerechohabiente?.value, CLABE);
@@ -92,7 +92,7 @@ describe("P4C document autofill parser", () => {
       estadoCuenta: Array.from(
         { length: 3 },
         () => `Cuenta bancaria ${CLABE}\nTitular demo`,
-      ).join("\\n"),
+      ).join("\n"),
     });
     assert.equal(patch.clabeDerechohabiente, undefined);
   });
