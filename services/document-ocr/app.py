@@ -26,7 +26,7 @@ ALLOWED_TYPES = {
     "cliente_estado_cuenta",
 }
 
-app = FastAPI(title="ConCasa Document OCR", version="1.1.0")
+app = FastAPI(title="ConCasa Document OCR", version="1.2.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -98,6 +98,105 @@ def enough_embedded_text(text: str) -> bool:
     return len(compact) >= 80
 
 
+def _orientation_probe(image: Image.Image) -> Image.Image:
+    probe = ImageOps.exif_transpose(image).convert("L")
+    longest = max(probe.size)
+    if longest > 1200:
+        scale = 1200 / max(1, longest)
+        probe = probe.resize(
+            (max(1, round(probe.width * scale)), max(1, round(probe.height * scale))),
+            Image.Resampling.BILINEAR,
+        )
+    probe = ImageOps.autocontrast(probe, cutoff=1)
+    return probe
+
+
+def _ine_orientation_score(text: str, document_type: str) -> int:
+    raw = (text or "").upper()
+    markers = (
+        "INSTITUTO",
+        "NACIONAL",
+        "ELECTORAL",
+        "CREDENCIAL",
+        "NOMBRE",
+        "CURP",
+        "VIGENCIA",
+        "SEXO",
+        "OCR",
+        "0CR",
+    )
+    score = sum(2 for marker in markers if marker in raw)
+    if document_type == "cliente_ine_reverso":
+        score += 2 if "MEX" in raw else 0
+        score += 2 if "<<" in raw else 0
+        score += 2 if re.search(r"\d{6}.{0,3}[MHF]\d{6}", raw) else 0
+    return score
+
+
+def orient_ine_image(image: Image.Image, document_type: str) -> Image.Image:
+    base = ImageOps.exif_transpose(image)
+    best = base
+    best_score = -1
+
+    # Si ya está derecha y las etiquetas principales se leen bien, evitamos
+    # tres OCR extra. Esto mantiene barato el caso normal.
+    first_probe = pytesseract.image_to_string(
+        _orientation_probe(base),
+        lang="spa+eng",
+        config="--oem 1 --psm 11 preserve_interword_spaces=1",
+    )
+    first_score = _ine_orientation_score(first_probe, document_type)
+    if first_score >= 6:
+        return base
+    best_score = first_score
+
+    for degrees in (90, 180, 270):
+        candidate = base.rotate(degrees, expand=True, fillcolor="white")
+        probe_text = pytesseract.image_to_string(
+            _orientation_probe(candidate),
+            lang="spa+eng",
+            config="--oem 1 --psm 11 preserve_interword_spaces=1",
+        )
+        score = _ine_orientation_score(probe_text, document_type)
+        if score > best_score:
+            best_score = score
+            best = candidate
+
+    return best
+
+
+def deskew_small_angle(image: Image.Image) -> Image.Image:
+    gray = np.array(image.convert("L"))
+    if gray.size == 0:
+        return image
+
+    _, binary = cv2.threshold(
+        gray,
+        0,
+        255,
+        cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU,
+    )
+    coords = np.column_stack(np.where(binary > 0))
+    if len(coords) < 100:
+        return image
+
+    angle = cv2.minAreaRect(coords)[-1]
+    if angle < -45:
+        angle = -(90 + angle)
+    else:
+        angle = -angle
+
+    if abs(angle) < 0.35 or abs(angle) > 12:
+        return image
+
+    return image.rotate(
+        angle,
+        resample=Image.Resampling.BICUBIC,
+        expand=True,
+        fillcolor="white",
+    )
+
+
 def extract_embedded_pdf_text(data: bytes, max_pages: int = 4) -> tuple[str, int]:
     doc = fitz.open(stream=data, filetype="pdf")
     parts: list[str] = []
@@ -146,7 +245,12 @@ def adaptive_binary_variant(image: Image.Image) -> Image.Image:
 
 
 def ocr_image(image: Image.Image, document_type: str) -> str:
-    primary = preprocess_image(image)
+    source = ImageOps.exif_transpose(image)
+    if document_type.startswith("cliente_ine_"):
+        source = orient_ine_image(source, document_type)
+        source = deskew_small_angle(source)
+
+    primary = preprocess_image(source)
     primary_psm = "6" if document_type != "cliente_ine_reverso" else "11"
     parts = [
         pytesseract.image_to_string(
@@ -161,7 +265,7 @@ def ocr_image(image: Image.Image, document_type: str) -> str:
     # puede perder. Concatenamos resultados; el parser posterior sigue siendo
     # determinista y solo acepta valores explícitos de alta confianza.
     if document_type.startswith("cliente_ine_"):
-        adaptive = adaptive_binary_variant(image)
+        adaptive = adaptive_binary_variant(source)
         parts.append(
             pytesseract.image_to_string(
                 adaptive,
@@ -206,7 +310,7 @@ def extract_document_text(data: bytes, mime: str, document_type: str) -> tuple[s
 
 @app.get("/health")
 def health() -> dict:
-    return {"ok": True, "service": "document-ocr", "version": "1.1.0"}
+    return {"ok": True, "service": "document-ocr", "version": "1.2.0"}
 
 
 @app.post("/v1/extract")
