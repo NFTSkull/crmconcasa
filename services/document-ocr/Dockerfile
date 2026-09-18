@@ -14,11 +14,11 @@ RUN apt-get update \
 
 WORKDIR /app
 
-COPY services/document-ocr/requirements.txt ./requirements.txt
+COPY requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY services/document-ocr/app.py ./app.py
-COPY services/document-ocr/test_app.py ./test_app.py
+COPY app.py ./app.py
+COPY test_app.py ./test_app.py
 
 EXPOSE 8080
 
