@@ -10,6 +10,7 @@ const NAV_TIMEOUT = 60_000
 function buildProxyConfig() {
   const server = String(process.env.PROXY_URL || '').trim()
   const password = String(process.env.PROXY_PASS || '').trim()
+  console.log(`[sat-validator] RUNTIME_ENV proxyUrlPresent=${Boolean(server)} proxyPassPresent=${Boolean(password)} proxyCountryPresent=${Boolean(String(process.env.PROXY_COUNTRY || '').trim())} capsolverPresent=${Boolean(String(process.env.CAPSOLVER_API_KEY || '').trim())}`)
   if (!server || !password) return undefined
 
   const country = String(process.env.PROXY_COUNTRY || 'mx').trim().toLowerCase() || 'mx'
