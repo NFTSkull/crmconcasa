@@ -224,17 +224,8 @@ export function AgendaInscripcionSupabaseCard({
     setError(null);
     setSuccess(null);
     try {
-      try {
-        await invokeAgendaSheetLiveSync(supabaseBrowser!, {
-          kind: "inscripcion",
-          mode: "book_gate",
-          bookingDate: date,
-          locationId: INSCRIPCION_SEDE,
-        });
-      } catch {
-        /* RPC claim es autoridad */
-      }
-      // Un solo RPC: book_inscripcion_extraordinaria autocrea requirement si falta.
+      // El repo hace book_gate live contra Google Sheets con slot 11:00
+      // y luego la RPC/trigger aplica el hard-cap diario.
       const result = await repo.book({
         expedienteId,
         bookingDate: date,
@@ -269,16 +260,7 @@ export function AgendaInscripcionSupabaseCard({
     setError(null);
     setSuccess(null);
     try {
-      try {
-        await invokeAgendaSheetLiveSync(supabaseBrowser!, {
-          kind: "inscripcion",
-          mode: "book_gate",
-          bookingDate: date,
-          locationId: INSCRIPCION_SEDE,
-        });
-      } catch {
-        /* claim atómico en RPC */
-      }
+      // Reagenda refresca inventario en el repo; la autoridad final es SQL.
       const result = await repo.reagendar({
         expedienteId,
         bookingDate: date,
