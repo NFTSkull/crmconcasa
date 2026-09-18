@@ -46,6 +46,8 @@ export type MesaInfonavitSourceDocumentPreviewProps = Readonly<{
   preferModal?: boolean;
   /** Incrementar para abrir en grande el documento correspondiente al contexto actual. */
   forceOpenSignal?: number;
+  /** Permite que botones externos pidan INE frente o reverso. */
+  requestedIneSide?: "frente" | "reverso" | null;
 }>;
 
 type DocIndex = Readonly<{
@@ -67,6 +69,7 @@ export function MesaInfonavitSourceDocumentPreview({
   context,
   className,
   forceOpenSignal,
+  requestedIneSide,
 }: MesaInfonavitSourceDocumentPreviewProps) {
   const archivosRepo = useExpedienteArchivosRepo();
   const [index, setIndex] = useState<DocIndex>({
@@ -133,6 +136,11 @@ export function MesaInfonavitSourceDocumentPreview({
       });
     });
   }, [context, index.frente, index.reverso]);
+
+  useEffect(() => {
+    if (context !== "identidad" || !requestedIneSide) return;
+    setIneSide(requestedIneSide);
+  }, [context, requestedIneSide]);
 
   const activeKind = useMemo(
     () =>
