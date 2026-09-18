@@ -4,6 +4,7 @@ import {
   asesorCorreccionUxCopy,
   buildAsesorCorreccionViewFromDetalle,
   formatAsesorCorreccionInboxSecondary,
+  parseAsesorCorreccionResumen,
   type AsesorCorreccionDetalle,
 } from "./asesor-correccion-detalle";
 import { resolveAsesorCorreccionExplicacion } from "./asesor-correction-explanation";
@@ -46,6 +47,17 @@ describe("P210 asesor-correccion-detalle", () => {
     });
     assert.match(text ?? "", /Datos generales/);
     assert.match(text ?? "", /RFC DEL EDC NO EXISTE/);
+  });
+
+  it("T11.1 conserva request_at de la solicitud Mesa en el resumen", () => {
+    const parsed = parseAsesorCorreccionResumen({
+      count: 1,
+      labels: ["Datos generales"],
+      first_motivo: "El IMSS reporta inconsistencias",
+      request_at: "2026-09-08T17:00:48.97934+00:00",
+      ux_state: "PENDIENTE_DE_CORREGIR",
+    });
+    assert.equal(parsed?.request_at, "2026-09-08T17:00:48.97934+00:00");
   });
 
   it("T10 multi inbox compacto", () => {
