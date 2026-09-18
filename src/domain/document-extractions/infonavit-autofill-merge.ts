@@ -171,7 +171,7 @@ export function mergeInfonavitDocumentAutofill<T extends InfonavitAutofillTarget
     "cp",
   ] as const) {
     merge(
-      ${vivienda.${key}},
+      `vivienda.${key}`,
       next.vivienda[key],
       patch.vivienda[key],
       (value) => {
