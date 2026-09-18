@@ -18,6 +18,12 @@ export type AutofillValue<T = string> = Readonly<{
   rule: string;
 }>;
 
+export type AutofillDocumentIssue = Readonly<{
+  source: AutofillFieldSource;
+  code: "subject_mismatch";
+  message: string;
+}>;
+
 export type InfonavitDocumentAutofillPatch = Readonly<{
   cliente: Readonly<{
     nombres?: AutofillValue;
@@ -43,6 +49,11 @@ export type InfonavitDocumentAutofillPatch = Readonly<{
   }>;
   clabeDerechohabiente?: AutofillValue;
   clabeDetection?: ClabeBankStatementDetection;
+  issues: ReadonlyArray<AutofillDocumentIssue>;
+}>;
+
+export type InfonavitDocumentAutofillOptions = Readonly<{
+  expectedClienteNombre?: string | null;
 }>;
 
 export type InfonavitDocumentTexts = Readonly<{
@@ -174,9 +185,101 @@ function high(
   return { value: compactLine(value), source, confidence: "high", rule };
 }
 
+const NAME_STOPWORDS = new Set(["DE", "DEL", "LA", "LAS", "LOS", "Y"]);
+
+function significantNameTokens(raw: string): string[] {
+  return upper(raw)
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .split(/[^A-Z]+/)
+    .filter((token) => token.length >= 3 && !NAME_STOPWORDS.has(token));
+}
+
+function documentMatchesExpectedName(
+  text: string,
+  expectedName: string | null | undefined,
+): boolean {
+  const tokens = significantNameTokens(expectedName ?? "");
+  if (tokens.length < 2) return true;
+  const haystack = alnumComparable(text);
+  const matches = tokens.filter((token) => haystack.includes(token)).length;
+  return matches >= Math.min(2, tokens.length);
+}
+
+function parseIneMrz(text: string): {
+  nombres?: string;
+  apellidoPaterno?: string;
+  apellidoMaterno?: string;
+  genero?: "M" | "F";
+  vigencia?: string;
+} {
+  const lines = upper(text)
+    .split(/\n+/)
+    .map((line) =>
+      line
+        .replace(/[«‹]/g, "<")
+        .replace(/\s+/g, "")
+        .replace(/[^A-Z0-9<]/g, ""),
+    )
+    .filter(Boolean);
+
+  const out: {
+    nombres?: string;
+    apellidoPaterno?: string;
+    apellidoMaterno?: string;
+    genero?: "M" | "F";
+    vigencia?: string;
+  } = {};
+
+  const dataLine = lines.find((line) =>
+    /\d{6}[0-9A-Z]?[HM]\d{6}[0-9A-Z]?/.test(line),
+  );
+  const data = dataLine?.match(
+    /\d{6}[0-9A-Z]?([HM])(\d{2})(\d{2})(\d{2})[0-9A-Z]?/,
+  );
+  if (data) {
+    out.genero = data[1] === "H" ? "M" : "F";
+    const yy = Number(data[2]);
+    const mm = Number(data[3]);
+    const dd = Number(data[4]);
+    const year = 2000 + yy;
+    if (
+      year >= 2020 &&
+      year <= 2050 &&
+      mm >= 1 &&
+      mm <= 12 &&
+      dd >= 1 &&
+      dd <= 31
+    ) {
+      out.vigencia = `${String(dd).padStart(2, "0")}/${String(mm).padStart(
+        2,
+        "0",
+      )}/${year}`;
+    }
+  }
+
+  const nameLine = lines.find(
+    (line) =>
+      line.includes("<<") &&
+      !/\d/.test(line) &&
+      /^[A-Z<]{8,}$/.test(line),
+  );
+  if (nameLine) {
+    const [surnamesRaw, namesRaw = ""] = nameLine.split("<<", 2);
+    const surnames = surnamesRaw.split("<").filter(Boolean);
+    const nombres = namesRaw.split("<").filter(Boolean).join(" ");
+    if (surnames[0]) out.apellidoPaterno = surnames[0];
+    if (surnames[1]) out.apellidoMaterno = surnames[1];
+    if (nombres) out.nombres = nombres;
+  }
+
+  return out;
+}
+
 function parseIne(
   front: string,
   reverse: string,
+  expectedName?: string | null,
 ): InfonavitDocumentAutofillPatch["cliente"] {
   const out: {
     nombres?: AutofillValue;
@@ -236,13 +339,66 @@ function parseIne(
     );
   }
 
-  const ocr = parseIneOcrNumber(reverse);
-  if (ocr) {
-    out.identificacionNumero = high(
-      ocr,
-      "cliente_ine_reverso",
-      "ine_ocr_explicit",
-    );
+  const mrz = parseIneMrz(reverse);
+  const mrzName = [
+    mrz.nombres,
+    mrz.apellidoPaterno,
+    mrz.apellidoMaterno,
+  ]
+    .filter(Boolean)
+    .join(" ");
+  const reverseMatches =
+    !expectedName ||
+    (mrzName
+      ? documentMatchesExpectedName(mrzName, expectedName)
+      : documentMatchesExpectedName(reverse, expectedName));
+
+  if (reverseMatches) {
+    if (!out.nombres && mrz.nombres) {
+      out.nombres = high(
+        mrz.nombres,
+        "cliente_ine_reverso",
+        "ine_mrz_name",
+      );
+    }
+    if (!out.apellidoPaterno && mrz.apellidoPaterno) {
+      out.apellidoPaterno = high(
+        mrz.apellidoPaterno,
+        "cliente_ine_reverso",
+        "ine_mrz_name",
+      );
+    }
+    if (!out.apellidoMaterno && mrz.apellidoMaterno) {
+      out.apellidoMaterno = high(
+        mrz.apellidoMaterno,
+        "cliente_ine_reverso",
+        "ine_mrz_name",
+      );
+    }
+    if (!out.genero && mrz.genero) {
+      out.genero = {
+        value: mrz.genero,
+        source: "cliente_ine_reverso",
+        confidence: "high",
+        rule: "ine_mrz_gender",
+      };
+    }
+    if (!out.identificacionVigencia && mrz.vigencia) {
+      out.identificacionVigencia = high(
+        mrz.vigencia,
+        "cliente_ine_reverso",
+        "ine_mrz_expiry",
+      );
+    }
+
+    const ocr = parseIneOcrNumber(reverse);
+    if (ocr) {
+      out.identificacionNumero = high(
+        ocr,
+        "cliente_ine_reverso",
+        "ine_ocr_explicit",
+      );
+    }
   }
 
   return out;
@@ -383,7 +539,9 @@ function parseAddressCandidate(text: string): {
 
 function parseComprobante(
   text: string,
+  expectedName?: string | null,
 ): InfonavitDocumentAutofillPatch["vivienda"] {
+  if (!documentMatchesExpectedName(text, expectedName)) return {};
   const parsed = parseAddressCandidate(text);
   const out: {
     direccionCompleta?: AutofillValue;
@@ -424,20 +582,26 @@ function parseComprobante(
 
 export function buildInfonavitDocumentAutofillPatch(
   texts: InfonavitDocumentTexts,
+  options: InfonavitDocumentAutofillOptions = {},
 ): InfonavitDocumentAutofillPatch {
   const front = texts.ineFrente ?? "";
   const reverse = texts.ineReverso ?? "";
   const comprobante = texts.comprobanteDomicilio ?? "";
   const estado = texts.estadoCuenta ?? "";
 
-  const cliente = parseIne(front, reverse);
-  const vivienda = parseComprobante(comprobante);
+  const expectedName = options.expectedClienteNombre ?? null;
+  const cliente = parseIne(front, reverse, expectedName);
+  const comprobanteMatches =
+    !comprobante.trim() || documentMatchesExpectedName(comprobante, expectedName);
+  const vivienda = parseComprobante(comprobante, expectedName);
   const clabeDetection = estado.trim()
     ? detectClabeFromBankStatementText(estado)
     : undefined;
+  const estadoMatches =
+    !estado.trim() || documentMatchesExpectedName(estado, expectedName);
 
   const clabeDerechohabiente =
-    clabeDetection?.status === "detected"
+    estadoMatches && clabeDetection?.status === "detected"
       ? high(
           clabeDetection.clabe,
           "cliente_estado_cuenta",
@@ -445,11 +609,30 @@ export function buildInfonavitDocumentAutofillPatch(
         )
       : undefined;
 
+  const issues: AutofillDocumentIssue[] = [];
+  if (comprobante.trim() && !comprobanteMatches) {
+    issues.push({
+      source: "cliente_comprobante_domicilio",
+      code: "subject_mismatch",
+      message:
+        "El comprobante de domicilio no coincide suficientemente con el nombre del derechohabiente; no se usó para autollenar la vivienda.",
+    });
+  }
+  if (estado.trim() && !estadoMatches) {
+    issues.push({
+      source: "cliente_estado_cuenta",
+      code: "subject_mismatch",
+      message:
+        "El estado de cuenta no coincide suficientemente con el nombre del derechohabiente; no se usó para autollenar la CLABE.",
+    });
+  }
+
   return {
     cliente,
     vivienda,
     clabeDerechohabiente,
     clabeDetection,
+    issues,
   };
 }
 
