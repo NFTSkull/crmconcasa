@@ -80,7 +80,7 @@ describe("P4C document autofill parser", () => {
     const patch = buildInfonavitDocumentAutofillPatch({
       estadoCuenta: Array.from(
         { length: 3 },
-        () => ${CLABE INTERBANCARIA ${CLABE}\\nTitular demo},
+        () => `CLABE INTERBANCARIA ${CLABE}\nTitular demo`,
       ).join("\\n"),
     });
     assert.equal(patch.clabeDetection?.status, "detected");
@@ -91,7 +91,7 @@ describe("P4C document autofill parser", () => {
     const patch = buildInfonavitDocumentAutofillPatch({
       estadoCuenta: Array.from(
         { length: 3 },
-        () => ${Cuenta bancaria ${CLABE}\\nTitular demo},
+        () => `Cuenta bancaria ${CLABE}\nTitular demo`,
       ).join("\\n"),
     });
     assert.equal(patch.clabeDerechohabiente, undefined);
