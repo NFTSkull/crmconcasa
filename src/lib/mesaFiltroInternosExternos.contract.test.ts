@@ -11,7 +11,7 @@ const page = readFileSync(
 const migration = readFileSync(
   join(
     root,
-    "supabase/migrations/20260918190000_mesa_filtro_internos_externos_sara_kass.sql",
+    "supabase/migrations/20260918190254_mesa_filtro_internos_externos_sara_kass.sql",
   ),
   "utf8",
 );
