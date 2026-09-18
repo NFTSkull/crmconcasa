@@ -67,6 +67,23 @@ export function canAccessMesaAgendaCitasPage(role: string | null | undefined): b
 }
 
 /**
+ * Rol efectivo para acciones de Mesa: la sesión autenticada real manda.
+ * El mock solo existe como fallback de desarrollo y nunca debe pisar una sesión Mesa válida.
+ */
+export function resolveMesaAgendaAuthorizedRole(params: Readonly<{
+  sessionRole?: string | null;
+  mockRole?: string | null;
+}>): string | null {
+  const sessionRole = String(params.sessionRole ?? "").trim();
+  if (canAccessMesaAgendaCitasPage(sessionRole)) return sessionRole;
+
+  const mockRole = String(params.mockRole ?? "").trim();
+  if (canAccessMesaAgendaCitasPage(mockRole)) return mockRole;
+
+  return null;
+}
+
+/**
  * Descarga Excel de citas (P095/P111): mismos roles que la pantalla.
  * Incluye `mesa_admin` / `mesa_control_admin` y `super_admin`; excluye asesor.
  */
