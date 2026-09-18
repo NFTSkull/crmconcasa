@@ -34,6 +34,9 @@ import {
 export const MESA_CLABE_DERECHOHABIENTE_INVALID_MSG =
   "La CLABE del derechohabiente no es válida. Verifica los 18 dígitos.";
 
+export const MESA_INFONAVIT_DIRECCION_REQUERIDA_MSG =
+  "La dirección de la vivienda es obligatoria para generar la propuesta. Verifica los datos de Vivienda a mejorar.";
+
 /**
  * Validación previa a generar: vacío OK; si hay valor, exige CLABE normalizable + checksum.
  * No muta drafts — solo decide si se puede generar.
@@ -254,7 +257,9 @@ function compactAddressPart(value: string): string {
  * snapshot reconstruimos direccionCompleta para que PDF/DOCX no reutilicen una
  * dirección legacy distinta a lo que Mesa ve en pantalla.
  */
-function composeMesaInfonavitDireccionCompleta(vivienda: ViviendaDraft): string {
+export function composeMesaInfonavitDireccionCompleta(
+  vivienda: ViviendaDraft,
+): string {
   const calle = compactAddressPart(vivienda.calle);
   const noExt = compactAddressPart(vivienda.noExt);
   const noInt = compactAddressPart(vivienda.noInt);
@@ -280,6 +285,12 @@ function composeMesaInfonavitDireccionCompleta(vivienda: ViviendaDraft): string 
   return parts.length > 0
     ? parts.join(", ")
     : compactAddressPart(vivienda.direccionCompleta);
+}
+
+export function hasMesaInfonavitDireccionForGenerate(
+  vivienda: ViviendaDraft,
+): boolean {
+  return composeMesaInfonavitDireccionCompleta(vivienda).length > 0;
 }
 
 /** Payload de generación: fuerza T31/T32 vacíos; normaliza T33 si es CLABE válida. */
@@ -890,6 +901,9 @@ export function MesaInfonavitGenerarDocumentosForm({
     if (!draft.cliente.apellidoPaterno.trim()) missing.push("apellido paterno");
     if (!draft.empresa.nombre.trim()) missing.push("empresa/patrón");
     if (!draft.empresa.registroPatronal.trim()) missing.push("registro patronal");
+    if (!hasMesaInfonavitDireccionForGenerate(draft.vivienda)) {
+      missing.push("dirección de la vivienda");
+    }
     if (!draft.credito.montoSolicitado || draft.credito.montoSolicitado <= 0) {
       missing.push("monto solicitado");
     }
