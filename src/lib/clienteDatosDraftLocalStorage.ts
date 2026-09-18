@@ -114,7 +114,17 @@ export function shouldAutoRestoreClienteDatosDraft(
   officialDatos: ExpedienteClienteDatos["datos"],
   officialDireccionOpcional: string,
   officialTelefonoCasa = "",
+  officialUpdatedAt?: string | null,
 ): boolean {
+  // Nunca permitir que un borrador local viejo (incluido uno vacío) tape
+  // información más reciente ya guardada en servidor.
+  if (
+    officialUpdatedAt &&
+    !isDraftNewerThanOfficial(draft.updatedAt, officialUpdatedAt)
+  ) {
+    return false;
+  }
+
   return clienteDatosDraftDiffersFromOfficial(
     draft,
     officialDatos,
@@ -129,12 +139,14 @@ export function shouldOfferClienteDatosDraftRestore(
   officialDatos: ExpedienteClienteDatos["datos"],
   officialDireccionOpcional: string,
   officialTelefonoCasa = "",
+  officialUpdatedAt?: string | null,
 ): boolean {
   return shouldAutoRestoreClienteDatosDraft(
     draft,
     officialDatos,
     officialDireccionOpcional,
     officialTelefonoCasa,
+    officialUpdatedAt,
   );
 }
 
