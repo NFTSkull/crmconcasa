@@ -2,6 +2,7 @@ import {
   detectClabeFromBankStatementText,
   type ClabeBankStatementDetection,
 } from "@/domain/document-extractions/clabe-bank-statement";
+import { parseIneMrzT7Number } from "@/domain/document-extractions/ine-validity";
 
 export type AutofillFieldSource =
   | "cliente_ine_frente"
@@ -174,19 +175,26 @@ function parseIneValidity(text: string): string | null {
   return year ? `31/12/${year}` : null;
 }
 
-function parseIneOcrNumber(text: string): string | null {
+function parseIneIdentificationNumber(
+  text: string,
+): { value: string; rule: string } | null {
   const t = upper(text);
   const labelIndex = t.search(/\b(?:OCR|0CR)\b/);
-  if (labelIndex < 0) return null;
+  if (labelIndex >= 0) {
+    const window = t.slice(labelIndex, labelIndex + 96);
+    const explicit = window.match(
+      /\b(?:OCR|0CR)\b[^0-9OQ]{0,20}((?:[0-9OQ][\s.\-:]*){12,13})/,
+    );
+    if (explicit?.[1]) {
+      const digits = explicit[1].replace(/[OQ]/g, "0").replace(/\D/g, "");
+      if (/^\d{12,13}$/.test(digits)) {
+        return { value: digits, rule: "ine_ocr_explicit" };
+      }
+    }
+  }
 
-  const window = t.slice(labelIndex, labelIndex + 96);
-  const explicit = window.match(
-    /\b(?:OCR|0CR)\b[^0-9OQ]{0,20}((?:[0-9OQ][\s.\-:]*){12,13})/,
-  );
-  if (!explicit?.[1]) return null;
-
-  const digits = explicit[1].replace(/[OQ]/g, "0").replace(/\D/g, "");
-  return /^\d{12,13}$/.test(digits) ? digits : null;
+  const t7 = parseIneMrzT7Number(text);
+  return t7 ? { value: t7, rule: "ine_mrz_t7" } : null;
 }
 
 function high(
@@ -426,12 +434,12 @@ function parseIne(
       );
     }
 
-    const ocr = parseIneOcrNumber(reverse);
-    if (ocr) {
+    const identificationNumber = parseIneIdentificationNumber(reverse);
+    if (identificationNumber) {
       out.identificacionNumero = high(
-        ocr,
+        identificationNumber.value,
         "cliente_ine_reverso",
-        "ine_ocr_explicit",
+        identificationNumber.rule,
       );
     }
   }
@@ -520,7 +528,10 @@ function parseCfeStreetLine(
   raw: string,
 ): { calle: string; noExt: string } | null {
   const withoutCp = compactLine(
-    raw.replace(/\bC\.?\s*P\.?\s*[:\-]?\s*\d{5}.*$/i, ""),
+    raw.replace(
+      /\bC\.?\s*P\.?\s*[:.\-]?\s*\d{4,5}\b.*$/i,
+      "",
+    ),
   );
   if (!withoutCp) return null;
 
