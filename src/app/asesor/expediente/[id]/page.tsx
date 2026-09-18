@@ -715,6 +715,7 @@ export default function AsesorExpedientePage() {
       hydratedDatos: ClienteDatosFormState,
       hydratedDireccion: string,
       hydratedTelefonoCasa: string,
+      officialUpdatedAt?: string | null,
     ) => {
       if (!clienteDatosDraftUserKey) {
           return;
@@ -731,6 +732,7 @@ export default function AsesorExpedientePage() {
           hydratedDatos,
           hydratedDireccion,
           hydratedTelefonoCasa,
+          officialUpdatedAt,
         )
       ) {
         removeClienteDatosDraft(clienteDatosDraftUserKey, expedienteId);
@@ -1761,6 +1763,7 @@ export default function AsesorExpedientePage() {
         datosHidratados,
         domicilioOficial,
         casaOficial,
+        found.updatedAt,
       );
       finishClienteDatosHydration(expedienteId);
     };
