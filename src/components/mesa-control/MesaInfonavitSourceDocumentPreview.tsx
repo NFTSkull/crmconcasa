@@ -36,6 +36,10 @@ import {
   type ClabeBankStatementDetection,
 } from "@/domain/document-extractions/clabe-bank-statement";
 import { MesaClabeShadowDetectionPanel } from "@/components/mesa-control/MesaClabeShadowDetectionPanel";
+import {
+  isValidClabeMexico,
+  normalizeClabeMexico,
+} from "@/domain/expediente-cliente-datos/clabe-mexico";
 
 export type MesaInfonavitSourceDocumentPreviewProps = Readonly<{
   expedienteId: string;
@@ -48,6 +52,8 @@ export type MesaInfonavitSourceDocumentPreviewProps = Readonly<{
   forceOpenSignal?: number;
   /** Permite que botones externos pidan INE frente o reverso. */
   requestedIneSide?: "frente" | "reverso" | null;
+  /** CLABE ya aplicada por el autofill OCR; evita que el panel shadow contradiga al formulario. */
+  clabeAutofillValue?: string | null;
 }>;
 
 type DocIndex = Readonly<{
@@ -70,6 +76,7 @@ export function MesaInfonavitSourceDocumentPreview({
   className,
   forceOpenSignal,
   requestedIneSide,
+  clabeAutofillValue,
 }: MesaInfonavitSourceDocumentPreviewProps) {
   const archivosRepo = useExpedienteArchivosRepo();
   const [index, setIndex] = useState<DocIndex>({
@@ -342,10 +349,26 @@ export function MesaInfonavitSourceDocumentPreview({
     preview?.mime_type,
   ]);
 
-  const visibleClabeDetection = resolveVisibleClabeDetection({
+  const shadowClabeDetection = resolveVisibleClabeDetection({
     activeDocumentId: activeRow?.id ?? null,
     detection: clabeDetection,
   });
+
+  const appliedClabeDetection = useMemo<ClabeBankStatementDetection | null>(() => {
+    const normalized = normalizeClabeMexico(clabeAutofillValue ?? "");
+    if (!normalized || !isValidClabeMexico(normalized)) return null;
+    return {
+      status: "detected",
+      clabe: normalized,
+      checksumValid: true,
+      candidateCount: 1,
+      confidence: "high",
+      reason: "clabe_label_nearby",
+    };
+  }, [clabeAutofillValue]);
+
+  const visibleClabeDetection =
+    appliedClabeDetection ?? shadowClabeDetection;
 
   useEffect(() => {
     const next = forceOpenSignal ?? 0;
