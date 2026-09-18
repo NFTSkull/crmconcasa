@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, type ComponentProps } from "react";
+import { useState, type ComponentProps } from "react";
 import { MesaClienteDatosReadOnlySection as MesaClienteDatosReadOnlySectionImpl } from "@/components/mesa-control/MesaClienteDatosReadOnlySection.impl";
 import { MesaInfonavitGenerarDocumentosForm } from "@/components/mesa-control/MesaInfonavitGenerarDocumentosForm";
 import { MesaIneValidityGuard } from "@/components/mesa-control/MesaIneValidityGuard";
@@ -70,13 +70,17 @@ function MesaInfonavitInlineDownloads({ expedienteId }: { expedienteId: string }
 }
 
 export function MesaClienteDatosReadOnlySection(props: Props) {
+  return (
+    <MesaClienteDatosReadOnlySectionByExpediente
+      key={props.expedienteId}
+      {...props}
+    />
+  );
+}
+
+function MesaClienteDatosReadOnlySectionByExpediente(props: Props) {
   const [tab, setTab] = useState<Tab>("asesor");
   const [generationRefreshKey, setGenerationRefreshKey] = useState(0);
-
-  useEffect(() => {
-    setTab("asesor");
-    setGenerationRefreshKey(0);
-  }, [props.expedienteId]);
 
   return (
     <div className={props.embedded ? "bg-white" : "space-y-3"}>
