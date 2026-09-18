@@ -24,8 +24,10 @@ import {
 } from "@/domain/document-extractions/document-ocr-client";
 import {
   buildInfonavitDocumentAutofillPatch,
+  comparableAutofillValue,
   type InfonavitDocumentTexts,
 } from "@/domain/document-extractions/infonavit-document-autofill";
+import { parseLegacyReferenciaNombre } from "@/domain/expediente-cliente-datos/parse-legacy-referencia-nombre";
 import {
   mergeInfonavitDocumentAutofill,
   type InfonavitAutofillConflict,
@@ -824,18 +826,51 @@ export function MesaInfonavitGenerarDocumentosForm({
 
         const current = draftRef.current;
         if (!current) return;
-        const expectedClienteNombre = [
-          current.cliente.nombres,
-          current.cliente.apellidoPaterno,
-          current.cliente.apellidoMaterno,
-        ]
-          .filter(Boolean)
-          .join(" ");
+        const expectedClienteNombre =
+          current.cliente.nombreCompleto.trim() ||
+          [
+            current.cliente.nombres,
+            current.cliente.apellidoPaterno,
+            current.cliente.apellidoMaterno,
+          ]
+            .filter(Boolean)
+            .join(" ");
 
         const patch = buildInfonavitDocumentAutofillPatch(texts, {
           expectedClienteNombre,
         });
-        const merged = mergeInfonavitDocumentAutofill(current, patch);
+
+        let mergeBase = current;
+        const ineNameRejected = (patch.issues ?? []).some(
+          (issue) =>
+            issue.source === "cliente_ine_frente" &&
+            issue.code === "low_confidence",
+        );
+        if (ineNameRejected && current.cliente.nombreCompleto.trim()) {
+          const canonical = parseLegacyReferenciaNombre(
+            current.cliente.nombreCompleto,
+          );
+          const currentParts = [
+            current.cliente.nombres,
+            current.cliente.apellidoPaterno,
+            current.cliente.apellidoMaterno,
+          ]
+            .filter(Boolean)
+            .join(" ");
+
+          if (
+            canonical.parsed &&
+            comparableAutofillValue(currentParts) !==
+              comparableAutofillValue(current.cliente.nombreCompleto)
+          ) {
+            mergeBase = structuredClone(current);
+            mergeBase.cliente.nombres = canonical.nombres;
+            mergeBase.cliente.apellidoPaterno = canonical.apellidoPaterno;
+            mergeBase.cliente.apellidoMaterno = canonical.apellidoMaterno;
+          }
+        }
+
+        const merged = mergeInfonavitDocumentAutofill(mergeBase, patch);
         if (cancelled) return;
 
         const warnings = (patch.issues ?? []).map((issue) => issue.message);
