@@ -3,6 +3,7 @@
 import { useEffect, useState, type ComponentProps } from "react";
 import { MesaClienteDatosReadOnlySection as MesaClienteDatosReadOnlySectionImpl } from "@/components/mesa-control/MesaClienteDatosReadOnlySection.impl";
 import { MesaInfonavitGenerarDocumentosForm } from "@/components/mesa-control/MesaInfonavitGenerarDocumentosForm";
+import { MesaIneValidityGuard } from "@/components/mesa-control/MesaIneValidityGuard";
 import {
   InfonavitPdfDocumentosCards,
   useInfonavitPdfSection,
@@ -79,6 +80,7 @@ export function MesaClienteDatosReadOnlySection(props: Props) {
 
   return (
     <div className={props.embedded ? "bg-white" : "space-y-3"}>
+      <MesaIneValidityGuard expedienteId={props.expedienteId} />
       <div className="mx-4 mt-3 flex flex-wrap gap-2 rounded-lg border border-gray-200 bg-gray-50 p-1.5">
         <button
           type="button"
