@@ -59,7 +59,7 @@ export function MesaAgendaBulkAdvanceConfirmDialog({
         onClick={(e) => e.stopPropagation()}
       >
         <h2 id="mesa-bulk-advance-title" className="text-base font-semibold text-gray-900">
-          Pasar expedientes a la siguiente etapa
+          Completar citas y avanzar expedientes
         </h2>
 
         <dl className="mt-3 grid gap-1 text-sm text-gray-700">
@@ -83,7 +83,7 @@ export function MesaAgendaBulkAdvanceConfirmDialog({
 
         {groups.length > 0 ? (
           <div className="mt-3">
-            <p className="text-sm font-medium text-gray-800">Se intentará avanzar:</p>
+            <p className="text-sm font-medium text-gray-800">Destino operativo:</p>
             <ul className="mt-1 list-disc space-y-1 pl-5 text-sm text-gray-700">
               {groups.map((g) => (
                 <li key={`${g.kind}-${g.fromStage}-${g.toStage}`}>
@@ -110,7 +110,8 @@ export function MesaAgendaBulkAdvanceConfirmDialog({
           <li>no modifica documentos;</li>
           <li>no cancela ni reagenda citas;</li>
           <li>no modifica datos del cliente;</li>
-          <li>utiliza las reglas actuales de Mesa.</li>
+          <li>biométricos e inscripción terminan en Acuse; firma termina en Firmado;</li>
+          <li>utiliza reglas server-side de Mesa y valida que la cita ya haya ocurrido.</li>
         </ul>
 
         {progressLabel ? (
@@ -132,7 +133,7 @@ export function MesaAgendaBulkAdvanceConfirmDialog({
           >
             {saving
               ? "Avanzando…"
-              : `Avanzar ${eligible} expediente${eligible === 1 ? "" : "s"}`}
+              : `Completar ${eligible} expediente${eligible === 1 ? "" : "s"}`}
           </Button>
         </div>
       </div>
