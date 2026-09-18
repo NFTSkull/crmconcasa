@@ -18,7 +18,9 @@ function buildProxyConfig() {
   console.log(`[sat-validator] PROXY_ENABLED country=${country}`)
   return {
     server,
-    username: country === 'mx'\n      ? `grecojcwy1-country-mx-state-nuevoleon-session-${sessionId}`\n      : `grecojcwy1-country-${country}-session-${sessionId}`,
+    username: country === 'mx'
+      ? `grecojcwy1-country-mx-state-nuevoleon-session-${sessionId}`
+      : `grecojcwy1-country-${country}-session-${sessionId}`,
     password,
   }
 }
