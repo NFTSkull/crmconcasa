@@ -16,6 +16,13 @@ describe("INE validity", () => {
     );
   });
 
+  it("tolera O por cero dentro del bloque VIGENCIA", () => {
+    assert.equal(
+      parseExplicitIneValidityYear("VIGENCIA 2O16 - 2O26"),
+      2026,
+    );
+  });
+
   it("INE con vigencia del año actual sigue vigente hasta el cierre del año", () => {
     const result = evaluateIneValidity({
       frontText: "VIGENCIA 2016-2026",
