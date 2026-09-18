@@ -68,8 +68,16 @@ describe("P4A MesaInfonavitSourceDocumentPreview contrato", () => {
     assert.match(formSrc, /infonavit-source-section-clabe/);
     assert.match(formSrc, /infonavit-source-preview-vivienda/);
     assert.match(formSrc, /infonavit-source-preview-clabe/);
+    assert.match(formSrc, /xl:grid-cols-\[minmax\(0,1fr\)_360px\]/);
+    assert.match(formSrc, /Nombre\(s\) \*/);
+    assert.match(formSrc, /1\. Identificación de la persona derechohabiente/);
     assert.doesNotMatch(formSrc, /forceOpenSignal=/);
-    assert.doesNotMatch(formSrc, /xl:sticky xl:top-20/);
+    assert.doesNotMatch(formSrc, /xl:sticky/);
+    // No grid global envolviendo todo el formulario
+    assert.doesNotMatch(
+      formSrc,
+      /data-testid="mesa-infonavit-generar-layout"[\s\S]{0,120}xl:grid-cols-\[minmax\(0,1\.2fr\)/,
+    );
     // generación intacta
     assert.match(formSrc, /mesa_generar_infonavit_documentos/);
     assert.match(formSrc, /handleGenerate/);

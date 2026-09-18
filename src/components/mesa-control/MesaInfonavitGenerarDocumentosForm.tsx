@@ -1107,58 +1107,59 @@ export function MesaInfonavitGenerarDocumentosForm({
 
       <div
         className={
-          (sourceContext === "identidad" || sourceContext === "rfc")
-            ? "grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(300px,0.8fr)] xl:items-start"
-            : ""
+          sourceContext === "identidad" || sourceContext === "rfc"
+            ? "grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-start"
+            : undefined
         }
         data-testid="infonavit-source-section-identidad"
       >
-        <div className="space-y-3">
-        <SectionTitle
-          actions={
-            <>
-              <Button
-                type="button"
-                variant="outline"
-                className="px-2 py-1 text-[11px]"
-                onClick={() => openSourceDocument("identidad", "frente")}
-              >
-                Ver INE frente
-              </Button>
-              <Button
-                type="button"
-                variant="outline"
-                className="px-2 py-1 text-[11px]"
-                onClick={() => openSourceDocument("identidad", "reverso")}
-              >
-                Ver INE reverso
-              </Button>
-            </>
-          }
-        >
-          1. Identificación de la persona derechohabiente
-        </SectionTitle>
-        <div className="grid gap-3 md:grid-cols-3">
-          <Field label="NSS *" value={draft.cliente.nss} onChange={(v) => updateCliente("nss", v)} required />
-          <Field label="CURP" value={draft.cliente.curp} onChange={(v) => updateCliente("curp", v.toUpperCase())} onFocusField={() => focusSource("curp")} sourceLabel={autofillSources["cliente.curp"]} />
-          <Field label="RFC" value={draft.cliente.rfc} onChange={(v) => updateCliente("rfc", v.toUpperCase())} onFocusField={() => focusSource("rfc")} />
-          <Field label="Apellido paterno *" value={draft.cliente.apellidoPaterno} onChange={(v) => updateCliente("apellidoPaterno", v.toUpperCase())} onFocusField={() => focusSource("apellidoPaterno")} sourceLabel={autofillSources["cliente.apellidoPaterno"]} required />
-          <Field label="Apellido materno" value={draft.cliente.apellidoMaterno} onChange={(v) => updateCliente("apellidoMaterno", v.toUpperCase())} onFocusField={() => focusSource("apellidoMaterno")} sourceLabel={autofillSources["cliente.apellidoMaterno"]} />
-          <Field label="Nombre(s) *" value={draft.cliente.nombres} onChange={(v) => updateCliente("nombres", v.toUpperCase())} onFocusField={() => focusSource("nombres")} sourceLabel={autofillSources["cliente.nombres"]} required />
-          <Field label="Tipo identificación" value={draft.cliente.identificacion.tipo} onChange={(v) => updateIdentificacion("tipo", v)} onFocusField={() => focusSource("identificacionTipo")} sourceLabel={autofillSources["cliente.identificacion.tipo"]} />
-          <Field label="Número identificación" value={draft.cliente.identificacion.numero} onChange={(v) => updateIdentificacion("numero", v)} onFocusField={() => focusSource("identificacionNumero")} sourceLabel={autofillSources["cliente.identificacion.numero"]} />
-          <Field label="Vigencia identificación" value={draft.cliente.identificacion.vigencia} onChange={(v) => updateIdentificacion("vigencia", v)} onFocusField={() => focusSource("identificacionVigencia")} sourceLabel={autofillSources["cliente.identificacion.vigencia"]} placeholder="dd/mm/aaaa" />
-          <Field label="LADA" value={draft.cliente.ladaTelefono} onChange={(v) => updateCliente("ladaTelefono", v)} />
-          <Field label="Teléfono" value={draft.cliente.telefono} onChange={(v) => updateCliente("telefono", v)} />
-          <Field label="Celular" value={draft.cliente.celular} onChange={(v) => updateCliente("celular", v)} />
-          <Field label="Correo" type="email" value={draft.cliente.correo} onChange={(v) => updateCliente("correo", v)} />
-          <SelectField label="Género" value={draft.cliente.genero} onChange={(v) => updateCliente("genero", v)} sourceLabel={autofillSources["cliente.genero"]} options={[{ value: "M", label: "Masculino" }, { value: "F", label: "Femenino" }]} />
-          <SelectField label="Estado civil" value={draft.cliente.estadoCivil} onChange={(v) => updateCliente("estadoCivil", v)} options={[{ value: "soltero", label: "Soltero(a)" }, { value: "casado", label: "Casado(a)" }]} />
-          <SelectField label="Régimen matrimonial" value={draft.cliente.regimenMatrimonial} onChange={(v) => updateCliente("regimenMatrimonial", v)} options={[{ value: "separacion_bienes", label: "Separación de bienes" }, { value: "sociedad_conyugal", label: "Sociedad conyugal" }]} />
+        <div className="min-w-0 space-y-3">
+          <SectionTitle
+            actions={
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="px-2 py-1 text-[11px]"
+                  onClick={() => openSourceDocument("identidad", "frente")}
+                >
+                  Ver INE frente
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="px-2 py-1 text-[11px]"
+                  onClick={() => openSourceDocument("identidad", "reverso")}
+                >
+                  Ver INE reverso
+                </Button>
+              </>
+            }
+          >
+            1. Identificación de la persona derechohabiente
+          </SectionTitle>
+          <div className="grid gap-3 md:grid-cols-3">
+            <Field label="NSS *" value={draft.cliente.nss} onChange={(v) => updateCliente("nss", v)} required />
+            <Field label="CURP" value={draft.cliente.curp} onChange={(v) => updateCliente("curp", v.toUpperCase())} onFocusField={() => focusSource("curp")} sourceLabel={autofillSources["cliente.curp"]} />
+            <Field label="RFC" value={draft.cliente.rfc} onChange={(v) => updateCliente("rfc", v.toUpperCase())} onFocusField={() => focusSource("rfc")} />
+            <Field label="Apellido paterno *" value={draft.cliente.apellidoPaterno} onChange={(v) => updateCliente("apellidoPaterno", v.toUpperCase())} onFocusField={() => focusSource("apellidoPaterno")} sourceLabel={autofillSources["cliente.apellidoPaterno"]} required />
+            <Field label="Apellido materno" value={draft.cliente.apellidoMaterno} onChange={(v) => updateCliente("apellidoMaterno", v.toUpperCase())} onFocusField={() => focusSource("apellidoMaterno")} sourceLabel={autofillSources["cliente.apellidoMaterno"]} />
+            <Field label="Nombre(s) *" value={draft.cliente.nombres} onChange={(v) => updateCliente("nombres", v.toUpperCase())} onFocusField={() => focusSource("nombres")} sourceLabel={autofillSources["cliente.nombres"]} required />
+            <Field label="Tipo identificación" value={draft.cliente.identificacion.tipo} onChange={(v) => updateIdentificacion("tipo", v)} onFocusField={() => focusSource("identificacionTipo")} sourceLabel={autofillSources["cliente.identificacion.tipo"]} />
+            <Field label="Número identificación" value={draft.cliente.identificacion.numero} onChange={(v) => updateIdentificacion("numero", v)} onFocusField={() => focusSource("identificacionNumero")} sourceLabel={autofillSources["cliente.identificacion.numero"]} />
+            <Field label="Vigencia identificación" value={draft.cliente.identificacion.vigencia} onChange={(v) => updateIdentificacion("vigencia", v)} onFocusField={() => focusSource("identificacionVigencia")} sourceLabel={autofillSources["cliente.identificacion.vigencia"]} placeholder="dd/mm/aaaa" />
+            <Field label="LADA" value={draft.cliente.ladaTelefono} onChange={(v) => updateCliente("ladaTelefono", v)} />
+            <Field label="Teléfono" value={draft.cliente.telefono} onChange={(v) => updateCliente("telefono", v)} />
+            <Field label="Celular" value={draft.cliente.celular} onChange={(v) => updateCliente("celular", v)} />
+            <Field label="Correo" type="email" value={draft.cliente.correo} onChange={(v) => updateCliente("correo", v)} />
+            <SelectField label="Género" value={draft.cliente.genero} onChange={(v) => updateCliente("genero", v)} sourceLabel={autofillSources["cliente.genero"]} options={[{ value: "M", label: "Masculino" }, { value: "F", label: "Femenino" }]} />
+            <SelectField label="Estado civil" value={draft.cliente.estadoCivil} onChange={(v) => updateCliente("estadoCivil", v)} options={[{ value: "soltero", label: "Soltero(a)" }, { value: "casado", label: "Casado(a)" }]} />
+            <SelectField label="Régimen matrimonial" value={draft.cliente.regimenMatrimonial} onChange={(v) => updateCliente("regimenMatrimonial", v)} options={[{ value: "separacion_bienes", label: "Separación de bienes" }, { value: "sociedad_conyugal", label: "Sociedad conyugal" }]} />
+          </div>
         </div>
-        </div>
-        {(sourceContext === "identidad" || sourceContext === "rfc") ? (
-          <div className="xl:self-start" data-testid="infonavit-source-preview-identidad">
+
+        {sourceContext === "identidad" || sourceContext === "rfc" ? (
+          <div className="min-w-0 xl:self-start" data-testid="infonavit-source-preview-identidad">
             <MesaInfonavitSourceDocumentPreview
               expedienteId={expedienteId}
               context={sourceContext}
@@ -1184,42 +1185,43 @@ export function MesaInfonavitGenerarDocumentosForm({
 
       <div
         className={
-          (sourceContext === "vivienda")
-            ? "grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(300px,0.8fr)] xl:items-start"
-            : ""
+          sourceContext === "vivienda"
+            ? "grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-start"
+            : undefined
         }
         data-testid="infonavit-source-section-vivienda"
       >
-        <div className="space-y-3">
-        <SectionTitle
-          actions={
-            <Button
-              type="button"
-              variant="outline"
-              className="px-2 py-1 text-[11px]"
-              onClick={() => openSourceDocument("vivienda")}
-            >
-              Ver comprobante
-            </Button>
-          }
-        >
-          3. Vivienda a mejorar
-        </SectionTitle>
-        <div className="grid gap-3 md:grid-cols-4">
-          <div className="md:col-span-2"><Field label="Calle" value={draft.vivienda.calle} onChange={(v) => updateVivienda("calle", v.toUpperCase())} onFocusField={() => focusSource("viviendaCalle")} sourceLabel={autofillSources["vivienda.calle"]} /></div>
-          <Field label="No. ext." value={draft.vivienda.noExt} onChange={(v) => updateVivienda("noExt", v)} onFocusField={() => focusSource("viviendaNoExt")} sourceLabel={autofillSources["vivienda.noExt"]} />
-          <Field label="No. int." value={draft.vivienda.noInt} onChange={(v) => updateVivienda("noInt", v)} onFocusField={() => focusSource("viviendaNoInt")} sourceLabel={autofillSources["vivienda.noInt"]} />
-          <Field label="Lote" value={draft.vivienda.lote} onChange={(v) => updateVivienda("lote", v)} onFocusField={() => focusSource("viviendaLote")} sourceLabel={autofillSources["vivienda.lote"]} />
-          <Field label="Manzana" value={draft.vivienda.manzana} onChange={(v) => updateVivienda("manzana", v)} onFocusField={() => focusSource("viviendaManzana")} sourceLabel={autofillSources["vivienda.manzana"]} />
-          <Field label="Colonia" value={draft.vivienda.colonia} onChange={(v) => updateVivienda("colonia", v.toUpperCase())} onFocusField={() => focusSource("viviendaColonia")} sourceLabel={autofillSources["vivienda.colonia"]} />
-          <Field label="Código postal" value={draft.vivienda.cp} onChange={(v) => updateVivienda("cp", v)} onFocusField={() => focusSource("viviendaCp")} sourceLabel={autofillSources["vivienda.cp"]} />
-          <Field label="Entidad" value={draft.vivienda.entidad} onChange={(v) => updateVivienda("entidad", v.toUpperCase())} onFocusField={() => focusSource("viviendaEntidad")} sourceLabel={autofillSources["vivienda.entidad"]} />
-          <Field label="Municipio / alcaldía" value={draft.vivienda.municipio} onChange={(v) => updateVivienda("municipio", v.toUpperCase())} onFocusField={() => focusSource("viviendaMunicipio")} sourceLabel={autofillSources["vivienda.municipio"]} />
-          <SelectField label="La vivienda es" value={draft.vivienda.tipoPropiedad} onChange={(v) => updateVivienda("tipoPropiedad", v)} onFocusField={() => focusSource("viviendaTipoPropiedad")} options={[{ value: "propia", label: "Propia" }, { value: "conyuge_concubino", label: "Cónyuge o concubino(a)" }, { value: "familiar", label: "Familiar" }]} />
+        <div className="min-w-0 space-y-3">
+          <SectionTitle
+            actions={
+              <Button
+                type="button"
+                variant="outline"
+                className="px-2 py-1 text-[11px]"
+                onClick={() => openSourceDocument("vivienda")}
+              >
+                Ver comprobante
+              </Button>
+            }
+          >
+            3. Vivienda a mejorar
+          </SectionTitle>
+          <div className="grid gap-3 md:grid-cols-4">
+            <div className="md:col-span-2"><Field label="Calle" value={draft.vivienda.calle} onChange={(v) => updateVivienda("calle", v.toUpperCase())} onFocusField={() => focusSource("viviendaCalle")} sourceLabel={autofillSources["vivienda.calle"]} /></div>
+            <Field label="No. ext." value={draft.vivienda.noExt} onChange={(v) => updateVivienda("noExt", v)} onFocusField={() => focusSource("viviendaNoExt")} sourceLabel={autofillSources["vivienda.noExt"]} />
+            <Field label="No. int." value={draft.vivienda.noInt} onChange={(v) => updateVivienda("noInt", v)} onFocusField={() => focusSource("viviendaNoInt")} sourceLabel={autofillSources["vivienda.noInt"]} />
+            <Field label="Lote" value={draft.vivienda.lote} onChange={(v) => updateVivienda("lote", v)} onFocusField={() => focusSource("viviendaLote")} sourceLabel={autofillSources["vivienda.lote"]} />
+            <Field label="Manzana" value={draft.vivienda.manzana} onChange={(v) => updateVivienda("manzana", v)} onFocusField={() => focusSource("viviendaManzana")} sourceLabel={autofillSources["vivienda.manzana"]} />
+            <Field label="Colonia" value={draft.vivienda.colonia} onChange={(v) => updateVivienda("colonia", v.toUpperCase())} onFocusField={() => focusSource("viviendaColonia")} sourceLabel={autofillSources["vivienda.colonia"]} />
+            <Field label="Código postal" value={draft.vivienda.cp} onChange={(v) => updateVivienda("cp", v)} onFocusField={() => focusSource("viviendaCp")} sourceLabel={autofillSources["vivienda.cp"]} />
+            <Field label="Entidad" value={draft.vivienda.entidad} onChange={(v) => updateVivienda("entidad", v.toUpperCase())} onFocusField={() => focusSource("viviendaEntidad")} sourceLabel={autofillSources["vivienda.entidad"]} />
+            <Field label="Municipio / alcaldía" value={draft.vivienda.municipio} onChange={(v) => updateVivienda("municipio", v.toUpperCase())} onFocusField={() => focusSource("viviendaMunicipio")} sourceLabel={autofillSources["vivienda.municipio"]} />
+            <SelectField label="La vivienda es" value={draft.vivienda.tipoPropiedad} onChange={(v) => updateVivienda("tipoPropiedad", v)} onFocusField={() => focusSource("viviendaTipoPropiedad")} options={[{ value: "propia", label: "Propia" }, { value: "conyuge_concubino", label: "Cónyuge o concubino(a)" }, { value: "familiar", label: "Familiar" }]} />
+          </div>
         </div>
-        </div>
-        {(sourceContext === "vivienda") ? (
-          <div className="xl:self-start" data-testid="infonavit-source-preview-vivienda">
+
+        {sourceContext === "vivienda" ? (
+          <div className="min-w-0 xl:self-start" data-testid="infonavit-source-preview-vivienda">
             <MesaInfonavitSourceDocumentPreview
               expedienteId={expedienteId}
               context={sourceContext}
@@ -1232,57 +1234,58 @@ export function MesaInfonavitGenerarDocumentosForm({
 
       <div
         className={
-          (sourceContext === "clabe")
-            ? "grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(300px,0.8fr)] xl:items-start"
-            : ""
+          sourceContext === "clabe"
+            ? "grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-start"
+            : undefined
         }
         data-testid="infonavit-source-section-clabe"
       >
-        <div className="space-y-3">
-        <SectionTitle
-          actions={
-            <Button
-              type="button"
-              variant="outline"
-              className="px-2 py-1 text-[11px]"
-              onClick={() => openSourceDocument("clabe")}
-            >
-              Ver estado de cuenta
-            </Button>
-          }
-        >
-          4. Crédito y destino de recursos
-        </SectionTitle>
-        <div className="grid gap-3 md:grid-cols-3">
-          <Field
-            label="Monto de crédito solicitado *"
-            type="number"
-            value={draft.credito.montoSolicitado}
-            onChange={(v) =>
-              updateCredito("montoSolicitado", v.trim() ? Number(v) : null)
+        <div className="min-w-0 space-y-3">
+          <SectionTitle
+            actions={
+              <Button
+                type="button"
+                variant="outline"
+                className="px-2 py-1 text-[11px]"
+                onClick={() => openSourceDocument("clabe")}
+              >
+                Ver estado de cuenta
+              </Button>
             }
-            required
-          />
-          <Field
-            label="Plazo solicitado (años)"
-            type="number"
-            value={draft.credito.plazoAnios}
-            onChange={(v) =>
-              updateCredito("plazoAnios", v.trim() ? Number(v) : null)
-            }
-          />
-          <Field
-            label="CLABE del derechohabiente"
-            value={draft.destinoRecursos.clabeDerechohabiente}
-            onChange={(v) => updateDestinoClabeDerechohabiente(v)}
-            onFocusField={() => focusSource("clabeDerechohabiente")}
-            sourceLabel={autofillSources["destinoRecursos.clabeDerechohabiente"]}
-            maxLength={40}
-          />
+          >
+            4. Crédito y destino de recursos
+          </SectionTitle>
+          <div className="grid gap-3 md:grid-cols-3">
+            <Field
+              label="Monto de crédito solicitado *"
+              type="number"
+              value={draft.credito.montoSolicitado}
+              onChange={(v) =>
+                updateCredito("montoSolicitado", v.trim() ? Number(v) : null)
+              }
+              required
+            />
+            <Field
+              label="Plazo solicitado (años)"
+              type="number"
+              value={draft.credito.plazoAnios}
+              onChange={(v) =>
+                updateCredito("plazoAnios", v.trim() ? Number(v) : null)
+              }
+            />
+            <Field
+              label="CLABE del derechohabiente"
+              value={draft.destinoRecursos.clabeDerechohabiente}
+              onChange={(v) => updateDestinoClabeDerechohabiente(v)}
+              onFocusField={() => focusSource("clabeDerechohabiente")}
+              sourceLabel={autofillSources["destinoRecursos.clabeDerechohabiente"]}
+              maxLength={40}
+            />
+          </div>
         </div>
-        </div>
-        {(sourceContext === "clabe") ? (
-          <div className="xl:self-start" data-testid="infonavit-source-preview-clabe">
+
+        {sourceContext === "clabe" ? (
+          <div className="min-w-0 xl:self-start" data-testid="infonavit-source-preview-clabe">
             <MesaInfonavitSourceDocumentPreview
               expedienteId={expedienteId}
               context={sourceContext}
