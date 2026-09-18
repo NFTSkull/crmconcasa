@@ -84,6 +84,7 @@ BEGIN
     visible_nss = NULL,
     visible_name = NULL,
     visible_advisor = NULL,
+    manual_occupancy_fingerprint = NULL,
     last_error = 'stale_coordinate_reassigned',
     updated_at = NOW()
   WHERE id = v_old.id;
@@ -99,6 +100,7 @@ BEGIN
     visible_nss = NULL,
     visible_name = NULL,
     visible_advisor = NULL,
+    manual_occupancy_fingerprint = NULL,
     last_error = NULL,
     updated_at = NOW()
   WHERE id = v_target.id;
@@ -243,6 +245,7 @@ BEGIN
     visible_nss = NULL,
     visible_name = NULL,
     visible_advisor = NULL,
+    manual_occupancy_fingerprint = NULL,
     last_error = 'same_slot_rebound_elsewhere',
     updated_at = NOW()
   WHERE booking_id = p_new_booking_id
@@ -260,6 +263,7 @@ BEGIN
     claimed_at = COALESCE(claimed_at, NOW()),
     linked_at = NOW(),
     occupancy_source = 'crm',
+    manual_occupancy_fingerprint = NULL,
     last_error = NULL,
     updated_at = NOW()
   WHERE id = v_target.id;
