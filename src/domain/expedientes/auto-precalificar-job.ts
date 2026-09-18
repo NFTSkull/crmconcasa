@@ -14,6 +14,7 @@ import {
   decideAutoPrecalFromScraper,
   type AutoPrecalScraperPayload,
 } from "@/domain/expedientes/auto-precalificar-decision";
+import { normalizeInfonavitScraperPersonName } from "@/domain/expedientes/infonavit-scraper-name";
 
 async function loadExpedientePrograma(
   supabase: SupabaseClient,
@@ -210,12 +211,15 @@ export async function runAutoPrecalificarJob(input: {
         console.log(
           `[auto-precalificar] aprobado expediente_id=${expedienteId} nss=${nss} monto=${decision.monto}`,
         );
-        if (payload.nombre) {
+        const nombreNormalizado = normalizeInfonavitScraperPersonName(
+          payload.nombre,
+        );
+        if (nombreNormalizado) {
           const { error: nombreErr } = await supabase.rpc(
             "auto_fill_nombre_infonavit",
             {
               p_expediente_id: expedienteId,
-              p_nombre_completo: payload.nombre,
+              p_nombre_completo: nombreNormalizado,
             },
           );
           if (nombreErr) {
@@ -224,6 +228,10 @@ export async function runAutoPrecalificarJob(input: {
               nombreErr.message,
             );
           }
+        } else if (payload.nombre) {
+          console.warn(
+            `[auto-precalificar] nombre scraper inválido; se omite autofill expediente_id=${expedienteId}`,
+          );
         }
         return { resultado, razon };
       }
