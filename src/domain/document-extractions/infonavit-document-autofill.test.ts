@@ -165,6 +165,50 @@ describe("P4C document autofill parser", () => {
     assert.equal(patch.issues?.[0]?.source, "cliente_estado_cuenta");
   });
 
+  it("INE vigencia tolera O/0 y OCR reverso con separadores", () => {
+    const patch = buildInfonavitDocumentAutofillPatch({
+      ineFrente: [
+        "INSTITUTO NACIONAL ELECTORAL",
+        "NOMBRE",
+        "AYALA",
+        "CAMARILLO",
+        "JUAN PABLO",
+        "CURP AACJ801018HNLYMN02",
+        "SEXO H",
+        "VIGENCIA 2O25 - 2O35",
+      ].join("\n"),
+      ineReverso: "CIC 123456789\nOCR: 0852 0707 8506 4\nIDMEX123456789",
+    });
+
+    assert.equal(patch.cliente.identificacionVigencia?.value, "31/12/2035");
+    assert.equal(patch.cliente.identificacionNumero?.value, "0852070785064");
+  });
+
+  it("CFE CALLE 9 52 conserva 9 en calle y usa 52 como exterior", () => {
+    const patch = buildInfonavitDocumentAutofillPatch({
+      comprobanteDomicilio: [
+        "CFE Comisión Federal de Electricidad",
+        "AYALA CAMARILLO JUAN PABLO",
+        "CALLE 9 52 C.P. 66460",
+        "RICARDO CARRILLO ENRIQUE",
+        "LAS PUENTES RESID C.P. 66460",
+        "SAN NICOLAS DE LOS G., N.L.",
+        "NO. DE SERVICIO: 377160604197",
+        "RMU: 66460 16-07-02 AACJ-801018 001 CFE",
+      ].join("\n"),
+    });
+
+    assert.equal(patch.vivienda.calle?.value, "CALLE 9");
+    assert.equal(patch.vivienda.noExt?.value, "52");
+    assert.equal(patch.vivienda.colonia?.value, "LAS PUENTES RESID");
+    assert.equal(patch.vivienda.cp?.value, "66460");
+    assert.equal(
+      patch.vivienda.municipio?.value,
+      "SAN NICOLÁS DE LOS GARZA",
+    );
+    assert.equal(patch.vivienda.entidad?.value, "NUEVO LEÓN");
+  });
+
   it("CFE prioriza domicilio del cliente y excluye Paseo de la Reforma corporativo", () => {
     const patch = buildInfonavitDocumentAutofillPatch({
       comprobanteDomicilio: [
