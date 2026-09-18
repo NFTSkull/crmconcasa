@@ -16,6 +16,7 @@ import {
   formatAdminMesaEsperaLabel,
   formatAdminTimelineDateTimeMx,
   labelAdminCorrectionRequestType,
+  labelAdminMesaAction,
   labelAdminMesaTimelineEvent,
   sanitizeAdminMotivo,
   type AdminMesaTimelineEvent,
