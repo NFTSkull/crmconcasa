@@ -49,7 +49,7 @@ export type InfonavitDocumentAutofillPatch = Readonly<{
   }>;
   clabeDerechohabiente?: AutofillValue;
   clabeDetection?: ClabeBankStatementDetection;
-  issues: ReadonlyArray<AutofillDocumentIssue>;
+  issues?: ReadonlyArray<AutofillDocumentIssue>;
 }>;
 
 export type InfonavitDocumentAutofillOptions = Readonly<{
