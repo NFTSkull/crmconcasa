@@ -40,6 +40,8 @@ export const asesorCorreccionResumenSchema = z.object({
   count: z.number().int().nonnegative(),
   labels: z.array(z.string()),
   first_motivo: z.string().nullable().optional(),
+  /** Hora canónica en que Mesa abrió la solicitud vigente. */
+  request_at: z.string().nullable().optional(),
   ux_state: asesorCorreccionUxStateSchema.nullable().optional(),
 });
 
