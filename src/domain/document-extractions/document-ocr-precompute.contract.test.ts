@@ -12,6 +12,22 @@ const upload = readFileSync(
   join(root, "src/components/asesor/AsesorIntegracionDocsUpload.impl.tsx"),
   "utf8",
 );
+const generales = readFileSync(
+  join(root, "src/components/mesa-control/MesaClienteDatosReadOnlySection.tsx"),
+  "utf8",
+);
+const validityGuard = readFileSync(
+  join(root, "src/components/mesa-control/MesaIneValidityGuard.tsx"),
+  "utf8",
+);
+const previewDialog = readFileSync(
+  join(root, "src/components/mesa-control/MesaArchivoPreviewDialog.tsx"),
+  "utf8",
+);
+const ocrService = readFileSync(
+  join(root, "services/document-ocr/app.py"),
+  "utf8",
+);
 const edge = readFileSync(
   join(root, "supabase/functions/document-ocr-precompute/index.ts"),
   "utf8",
@@ -71,4 +87,39 @@ describe("INFONAVIT OCR precalentado", () => {
     assert.match(migration, /documento_id UUID PRIMARY KEY/);
     assert.match(form, /cached\.documentoId === job\.doc\.id/);
   });
+
+  it("Generales monta el guard de vigencia sin depender de la pestaña INFONAVIT", () => {
+    const guardIdx = generales.indexOf(
+      "<MesaIneValidityGuard expedienteId={props.expedienteId} />",
+    );
+    const tabIdx = generales.indexOf('tab === "asesor"');
+    assert.ok(guardIdx > 0);
+    assert.ok(tabIdx > guardIdx);
+  });
+
+  it("guard rechaza solo vigencia explícita vencida y usa la RPC canónica del repo", () => {
+    assert.match(validityGuard, /evaluateIneValidity/);
+    assert.match(validityGuard, /assessment\.canAutoReject/);
+    assert.match(validityGuard, /REJECTABLE_STATUSES/);
+    assert.match(validityGuard, /archivosRepo\.updateRevision/);
+    assert.match(validityGuard, /estatus_revision: "rechazado"/);
+    assert.match(validityGuard, /INE vencida/);
+  });
+
+  it("visor grande permite zoom y rotación sin alterar el archivo", () => {
+    assert.match(previewDialog, /setZoom\(2\)/);
+    assert.match(previewDialog, /changeZoom\(-0\.25\)/);
+    assert.match(previewDialog, /setRotation\(\(value\) => value - 90\)/);
+    assert.match(previewDialog, /setRotation\(\(value\) => value \+ 90\)/);
+    assert.match(previewDialog, /transform:.*rotate/s);
+  });
+
+  it("OCR de INE prueba orientación y deskew antes de la lectura final", () => {
+    assert.match(ocrService, /def orient_ine_image/);
+    assert.match(ocrService, /for degrees in \(90, 180, 270\)/);
+    assert.match(ocrService, /def deskew_small_angle/);
+    assert.match(ocrService, /source = orient_ine_image/);
+    assert.match(ocrService, /source = deskew_small_angle/);
+  });
+
 });
