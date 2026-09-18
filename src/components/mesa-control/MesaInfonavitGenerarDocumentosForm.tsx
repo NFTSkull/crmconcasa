@@ -183,6 +183,44 @@ export function normalizeDestinoRecursosForCapture(
   };
 }
 
+function compactAddressPart(value: string): string {
+  return str(value).trim().replace(/\\s+/g, " ");
+}
+
+/**
+ * Mesa edita la dirección en campos estructurados, pero el draft también conserva
+ * `direccionCompleta` del expediente original. El worker convierte ese campo en
+ * `direccionLibre` y lo prioriza en Presupuesto/DOCX, así que debe reconstruirse
+ * con los valores visibles actuales antes de congelar el snapshot.
+ */
+function composeMesaInfonavitDireccionCompleta(vivienda: ViviendaDraft): string {
+  const calle = compactAddressPart(vivienda.calle);
+  const noExt = compactAddressPart(vivienda.noExt);
+  const noInt = compactAddressPart(vivienda.noInt);
+  const lote = compactAddressPart(vivienda.lote);
+  const manzana = compactAddressPart(vivienda.manzana);
+  const colonia = compactAddressPart(vivienda.colonia);
+  const municipio = compactAddressPart(vivienda.municipio);
+  const entidad = compactAddressPart(vivienda.entidad);
+  const cp = compactAddressPart(vivienda.cp);
+
+  const parts = [
+    calle,
+    noExt ? `No. ${noExt}` : "",
+    noInt ? `Int. ${noInt}` : "",
+    lote ? `Lote ${lote}` : "",
+    manzana ? `Mz. ${manzana}` : "",
+    colonia ? `Col. ${colonia}` : "",
+    municipio,
+    entidad,
+    cp ? `CP ${cp}` : "",
+  ].filter((part) => part.length > 0);
+
+  return parts.length > 0
+    ? parts.join(", ")
+    : compactAddressPart(vivienda.direccionCompleta);
+}
+
 /** Payload de generación: fuerza T31/T32 vacíos; normaliza T33 si es CLABE válida. */
 export function buildMesaInfonavitGeneratePayload(
   draft: MesaInfonavitDocumentDraft,
@@ -198,6 +236,10 @@ export function buildMesaInfonavitGeneratePayload(
   }
   return {
     ...draft,
+    vivienda: {
+      ...draft.vivienda,
+      direccionCompleta: composeMesaInfonavitDireccionCompleta(draft.vivienda),
+    },
     credito: {
       montoSolicitado: draft.credito.montoSolicitado,
       plazoAnios: draft.credito.plazoAnios,
