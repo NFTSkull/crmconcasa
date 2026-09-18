@@ -37,7 +37,7 @@ export function MesaAgendaBulkSelectionBar({
   return (
     <section
       aria-label="Selección múltiple de citas"
-      className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm"
+      className="sticky top-2 z-20 rounded-xl border border-slate-200 bg-white/95 px-4 py-3 shadow-sm backdrop-blur"
     >
       <div className="flex flex-wrap items-center gap-3">
         <label className="inline-flex items-center gap-2 text-sm font-medium text-slate-800">
@@ -50,7 +50,7 @@ export function MesaAgendaBulkSelectionBar({
             onChange={(e) => onHeaderCheckedChange(e.target.checked)}
             aria-label="Seleccionar o deseleccionar elegibles visibles"
           />
-          Selección
+          Seleccionar todos
         </label>
 
         <button

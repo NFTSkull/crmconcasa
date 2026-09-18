@@ -151,20 +151,19 @@ test("Avance — biométricos 5 sin cita ocurrida", () => {
   assert.equal(r.reason, "La cita todavía no ocurre");
 });
 
-test("Avance — firmas 9 no elegible (solo booking asesor)", () => {
-  const r = getBulkAdvanceEligibility(
-    entry({
-      bookingId: "f1",
-      kind: "firmas",
-      etapaActual: 9,
-      subestado: "en_proceso",
-    }),
-    ROLE,
-    NOW,
-  );
-  assert.equal(r.eligible, false);
-  assert.equal(r.transition, null);
-  assert.equal(r.reason, "Etapa no compatible");
+test("Avance — firmas 9→10 elegible aunque Drive ya esté validado", () => {
+  const e = entry({
+    bookingId: "f1",
+    kind: "firmas",
+    etapaActual: 9,
+    subestado: "en_proceso",
+    driveValidated: true,
+  });
+  const r = getBulkAdvanceEligibility(e, ROLE, NOW);
+  assert.equal(getBulkDriveEligibility(e, ROLE).eligible, false);
+  assert.equal(r.eligible, true);
+  assert.deepEqual(r.transition, { fromStage: 9, toStage: 10, kind: "firmas" });
+  assert.equal(isBulkSelectable(e, ROLE, NOW), true);
 });
 
 test("Avance — etapa incompatible", () => {

@@ -1304,6 +1304,8 @@ export function MesaAgendaCitasClient() {
             entries={visibleEntries}
             sortBy={sortBy}
             onSortChange={setSortBy}
+            bulkHeaderState={bulkSummary.headerState}
+            onBulkHeaderCheckedChange={handleBulkHeaderCheckedChange}
             {...sharedListProps}
           />
         ) : null}

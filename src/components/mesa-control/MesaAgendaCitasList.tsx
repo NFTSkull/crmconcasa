@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import type { MesaAgendaBookingEntry } from "@/domain/agenda-calendar/mesa.types";
 import { mesaAgendaBookingPersonDisplayName } from "@/domain/agenda-calendar/mesa.mapper";
 import { MesaAgendaCitaCard, MesaAgendaEntryActions } from "@/components/mesa-control/MesaAgendaCitasEntryParts";
@@ -52,6 +53,8 @@ type MesaAgendaCitasListProps = Readonly<{
   onRequestGestionar?: (entry: MesaAgendaBookingEntry) => void;
   onToggleDriveValidation?: (entry: MesaAgendaBookingEntry) => void;
   selectedBookingIds?: ReadonlySet<string>;
+  bulkHeaderState?: "none" | "some" | "all";
+  onBulkHeaderCheckedChange?: (checked: boolean) => void;
   isBulkRowSelectable?: (entry: MesaAgendaBookingEntry) => boolean;
   bulkNotSelectableReason?: (entry: MesaAgendaBookingEntry) => string;
   onBulkRowCheckedChange?: (entry: MesaAgendaBookingEntry, checked: boolean) => void;
@@ -94,6 +97,8 @@ export function MesaAgendaCitasList({
   onRequestGestionar,
   onToggleDriveValidation,
   selectedBookingIds,
+  bulkHeaderState = "none",
+  onBulkHeaderCheckedChange,
   isBulkRowSelectable,
   bulkNotSelectableReason,
   onBulkRowCheckedChange,
@@ -102,6 +107,13 @@ export function MesaAgendaCitasList({
   contingencyByBookingId,
 }: MesaAgendaCitasListProps) {
   const showBulk = Boolean(selectedBookingIds && onBulkRowCheckedChange && isBulkRowSelectable);
+  const bulkHeaderRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    if (!bulkHeaderRef.current) return;
+    bulkHeaderRef.current.indeterminate = showBulk && bulkHeaderState === "some";
+  }, [showBulk, bulkHeaderState]);
+
   return (
     <>
       <div className="mb-3 max-w-xs">
@@ -118,7 +130,24 @@ export function MesaAgendaCitasList({
         <table className="min-w-full divide-y divide-slate-200 text-sm">
           <thead className="bg-slate-50 text-left text-xs font-semibold uppercase tracking-wide text-slate-500">
             <tr>
-              {showBulk ? <th className="px-3 py-3 w-10">Sel.</th> : null}
+              {showBulk ? (
+                <th className="px-3 py-3 w-24">
+                  <label className="inline-flex cursor-pointer items-center gap-1.5 normal-case tracking-normal text-slate-700">
+                    <input
+                      ref={bulkHeaderRef}
+                      type="checkbox"
+                      className="h-4 w-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-50"
+                      checked={bulkHeaderState === "all"}
+                      disabled={bulkBusy || !onBulkHeaderCheckedChange}
+                      onChange={(event) =>
+                        onBulkHeaderCheckedChange?.(event.target.checked)
+                      }
+                      aria-label="Seleccionar todos los elegibles visibles"
+                    />
+                    <span>Todos</span>
+                  </label>
+                </th>
+              ) : null}
               <th className="px-4 py-3">Fecha y hora</th>
               <th className="px-4 py-3">Tipo</th>
               <th className="px-4 py-3">Cliente / NSS</th>
