@@ -63,7 +63,13 @@ describe("P4A MesaInfonavitSourceDocumentPreview contrato", () => {
     assert.match(formSrc, /focusSource\("rfc"\)/);
     assert.match(formSrc, /focusSource\("clabeDerechohabiente"\)/);
     assert.match(formSrc, /focusSource\("viviendaCalle"\)/);
-    assert.match(formSrc, /xl:sticky/);
+    assert.match(formSrc, /infonavit-source-section-identidad/);
+    assert.match(formSrc, /infonavit-source-section-vivienda/);
+    assert.match(formSrc, /infonavit-source-section-clabe/);
+    assert.match(formSrc, /infonavit-source-preview-vivienda/);
+    assert.match(formSrc, /infonavit-source-preview-clabe/);
+    assert.doesNotMatch(formSrc, /forceOpenSignal=/);
+    assert.doesNotMatch(formSrc, /xl:sticky xl:top-20/);
     // generación intacta
     assert.match(formSrc, /mesa_generar_infonavit_documentos/);
     assert.match(formSrc, /handleGenerate/);
