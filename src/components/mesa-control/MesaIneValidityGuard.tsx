@@ -7,6 +7,10 @@ import {
   type ExpedienteArchivoListItem,
 } from "@/domain/expediente-archivos";
 import {
+  EXPEDIENTE_ARCHIVOS_UPDATED_EVENT,
+  EXPEDIENTE_CORRECCION_REFRESH_EVENT,
+} from "@/domain/expediente-archivos/mutation-events";
+import {
   extractDocumentTextViaOcr,
   type OcrDocumentType,
 } from "@/domain/document-extractions/document-ocr-client";
@@ -151,6 +155,16 @@ export function MesaIneValidityGuard({
           const allRejected =
             alreadyRejected + rejected === currentSides.length &&
             currentSides.length > 0;
+
+          if (allRejected && rejected > 0 && typeof window !== "undefined") {
+            const detail = { expedienteId };
+            window.dispatchEvent(
+              new CustomEvent(EXPEDIENTE_ARCHIVOS_UPDATED_EVENT, { detail }),
+            );
+            window.dispatchEvent(
+              new CustomEvent(EXPEDIENTE_CORRECCION_REFRESH_EVENT, { detail }),
+            );
+          }
 
           setState(
             allRejected
