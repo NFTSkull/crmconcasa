@@ -279,6 +279,8 @@ export async function POST(request: Request, { params }: RouteParams) {
           ok: false,
           status: "send_failed_after_fiscal_pass",
           code: sendError.code || "ENVIAR_A_MESA_FAILED",
+          message: sendError.message || null,
+          details: sendError.details || null,
           submitted_to_mesa: false,
         },
         { status: 409 },
