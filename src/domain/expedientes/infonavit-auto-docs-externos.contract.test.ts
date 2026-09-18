@@ -7,7 +7,7 @@ const root = process.cwd();
 const migration = readFileSync(
   join(
     root,
-    "supabase/migrations/20260918184500_infonavit_auto_docs_asesores_externos.sql",
+    "supabase/migrations/20260918184710_infonavit_auto_docs_asesores_externos.sql",
   ),
   "utf8",
 );
