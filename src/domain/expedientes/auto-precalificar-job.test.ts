@@ -223,6 +223,38 @@ describe("runAutoPrecalificarJob", () => {
     });
   });
 
+  it("normaliza # a Ñ antes del RPC de nombre", async () => {
+    const scraperBody = {
+      califica: true,
+      nombre: "MORENO PI#A ALAN ANTOVELI",
+      datos: { saldoSubcuenta: "10,000.00" },
+    };
+
+    globalThis.fetch = (async () =>
+      new Response(JSON.stringify(scraperBody), {
+        status: 200,
+        headers: { "Content-Type": "application/json" },
+      })) as typeof fetch;
+
+    const { supabase, rpcCalls } = mockSupabase();
+    const expedienteId = "44444444-4444-4444-8444-444444444445";
+
+    await runAutoPrecalificarJob({
+      expedienteId,
+      nss: "09109117045",
+      programa: "mejoravit",
+      scraperUrl: "https://scraper.test",
+      scraperSecret: "secret",
+      supabase: supabase as never,
+    });
+
+    assert.equal(rpcCalls[1]?.fn, "auto_fill_nombre_infonavit");
+    assert.equal(
+      rpcCalls[1]?.args.p_nombre_completo,
+      "MORENO PIÑA ALAN ANTOVELI",
+    );
+  });
+
   it("fallo de auto_fill_nombre_infonavit no tumba el aprobado", async () => {
     const scraperBody = {
       califica: true,
