@@ -5,6 +5,7 @@ from PIL import Image
 from app import (
     enough_embedded_text,
     extract_document_text,
+    normalize_ine_orientation,
     normalize_mime,
     ocr_image,
     preprocess_image,
@@ -47,6 +48,7 @@ def test_preprocess_scales_small_image():
 def test_ine_runs_second_adaptive_sparse_pass(monkeypatch):
     image = Image.new("RGB", (900, 600), "white")
     calls = []
+    monkeypatch.setattr("app.normalize_ine_orientation", lambda value: value)
 
     def fake_ocr(*args, **kwargs):
         calls.append(kwargs.get("config", ""))
@@ -75,3 +77,17 @@ def test_non_ine_keeps_single_pass(monkeypatch):
 
     assert text == "CFE"
     assert len(calls) == 1
+
+
+def test_ine_orientation_prefers_keyword_rich_rotation(monkeypatch):
+    image = Image.new("RGB", (800, 400), "white")
+
+    def fake_probe(candidate):
+        if candidate.height > candidate.width:
+            return "INSTITUTO NACIONAL ELECTORAL NOMBRE CURP VIGENCIA"
+        return "ruido sin etiquetas"
+
+    monkeypatch.setattr("app._orientation_probe_text", fake_probe)
+    oriented = normalize_ine_orientation(image)
+
+    assert oriented.size == (400, 800)
