@@ -113,7 +113,7 @@ describe("INFONAVIT OCR precalentado", () => {
     assert.match(previewDialog, /changeZoom\(-0\.25\)/);
     assert.match(previewDialog, /setRotation\(\(value\) => value - 90\)/);
     assert.match(previewDialog, /setRotation\(\(value\) => value \+ 90\)/);
-    assert.match(previewDialog, /transform:.*rotate/s);
+    assert.match(previewDialog, /transform:[\s\S]*rotate/);
   });
 
   it("OCR de INE prueba orientación y deskew antes de la lectura final", () => {
