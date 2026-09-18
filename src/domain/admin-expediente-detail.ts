@@ -14,6 +14,8 @@ export type AdminExpedienteFullDetail = Readonly<{
   reactivaciones: readonly AdminDetailRecord[];
   retencion: AdminDetailRecord;
   historial: readonly AdminDetailRecord[];
+  /** Timeline operativo paginado completo, incluyendo ciclo de corrección. */
+  mesa_timeline: readonly AdminDetailRecord[];
 }>;
 
 function asRecord(value: unknown): AdminDetailRecord {
@@ -24,6 +26,36 @@ function asRecord(value: unknown): AdminDetailRecord {
 
 function asArray(value: unknown): AdminDetailRecord[] {
   return Array.isArray(value) ? value.map(asRecord) : [];
+}
+
+async function fetchAllAdminMesaTimeline(
+  expedienteId: string,
+): Promise<AdminDetailRecord[]> {
+  if (!supabaseBrowser) return [];
+  const limit = 100;
+  let offset = 0;
+  const out: AdminDetailRecord[] = [];
+
+  for (let page = 0; page < 1000; page += 1) {
+    const { data, error } = await supabaseBrowser.rpc(
+      "admin_get_expediente_mesa_timeline",
+      {
+        p_expediente_id: expedienteId,
+        p_limit: limit,
+        p_offset: offset,
+      },
+    );
+    if (error) {
+      throw new Error(error.message || "No se pudo cargar el timeline del expediente");
+    }
+    const root = asRecord(data);
+    const items = asArray(root.items);
+    out.push(...items);
+    if (!Boolean(root.has_more) || items.length === 0) break;
+    offset += items.length;
+  }
+
+  return out;
 }
 
 export async function fetchAdminExpedienteFullDetail(
@@ -48,6 +80,10 @@ export async function fetchAdminExpedienteFullDetail(
     throw new Error("Expediente no encontrado");
   }
 
+  const mesaTimeline = expediente.submitted_to_mesa
+    ? await fetchAllAdminMesaTimeline(expedienteId)
+    : [];
+
   return {
     expediente,
     precalificacion:
@@ -66,5 +102,6 @@ export async function fetchAdminExpedienteFullDetail(
     reactivaciones: asArray(root.reactivaciones),
     retencion: asRecord(root.retencion),
     historial: asArray(root.historial),
+    mesa_timeline: mesaTimeline,
   };
 }
