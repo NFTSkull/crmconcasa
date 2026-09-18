@@ -52,7 +52,7 @@ export type MesaInfonavitSourceDocumentPreviewProps = Readonly<{
   forceOpenSignal?: number;
   /** Permite que botones externos pidan INE frente o reverso. */
   requestedIneSide?: "frente" | "reverso" | null;
-  /** CLABE ya aplicada por el autofill OCR; evita que el panel shadow contradiga al formulario. */
+  /** CLABE ya aplicada por el formulario; evita que el panel shadow muestre un estado contradictorio. */
   clabeAppliedValue?: string | null;
 }>;
 
