@@ -50,10 +50,16 @@ export type AdvanceBulkEligibility = BulkEligibility &
 export type BulkSelectionSummary = Readonly<{
   selectedBookingCount: number;
   uniqueExpedienteCount: number;
+  /** Seleccionados elegibles para Drive. */
   eligibleDriveCount: number;
-  /** Expedientes únicos (no bookings) elegibles para avance entre la selección. */
+  /** Expedientes únicos elegibles para avance entre la selección. */
   eligibleAdvanceExpedienteCount: number;
+  /** Citas visibles elegibles para al menos una acción masiva. */
   eligibleVisibleCount: number;
+  /** Citas visibles elegibles específicamente para Drive. */
+  eligibleDriveVisibleCount: number;
+  /** Expedientes únicos visibles elegibles específicamente para avance. */
+  eligibleAdvanceVisibleExpedienteCount: number;
   selectedEligibleVisibleCount: number;
   headerState: "none" | "some" | "all";
   limitCapped: boolean;
@@ -128,17 +134,29 @@ export function getBulkAdvanceEligibility(
     return { eligible: false, reason: "La cita no está activa", transition: null };
   }
   if (!entry.submittedToMesa) {
-    return { eligible: false, reason: "Etapa no compatible", transition: null };
+    return { eligible: false, reason: "El expediente todavía no está enviado a Mesa", transition: null };
   }
 
   const etapa = entry.etapaActual;
   const kind = entry.kind;
   const sub = String(entry.subestado ?? "").trim();
 
+  if (sub === "rechazado") {
+    return {
+      eligible: false,
+      reason: "Rechazado por Mesa: requiere corrección antes de avanzar",
+      transition: null,
+    };
+  }
+
   // Predictivo: no exige Drive. Sin cicloEstado en el listado (residual documentado).
   if (kind === "notificacion" && etapa === 3) {
     if (sub && sub !== "en_proceso") {
-      return { eligible: false, reason: "Etapa no compatible", transition: null };
+      return {
+        eligible: false,
+        reason: "El expediente no está en proceso para avanzar",
+        transition: null,
+      };
     }
     return {
       eligible: true,
@@ -149,7 +167,11 @@ export function getBulkAdvanceEligibility(
 
   if (kind === "biometricos" && (etapa === 4 || etapa === 5)) {
     if (sub && sub !== "en_proceso") {
-      return { eligible: false, reason: "Etapa no compatible", transition: null };
+      return {
+        eligible: false,
+        reason: "El expediente no está en proceso para avanzar",
+        transition: null,
+      };
     }
     const iso = mesaAgendaBookingInstantIso(entry);
     if (!isFechaCitaBiometricaPasada(iso, nowMs)) {
@@ -170,7 +192,11 @@ export function getBulkAdvanceEligibility(
   // La RPC server-side cierra también el requerimiento asociado en la misma transacción.
   if (kind === "inscripcion" && etapa >= 3 && etapa <= 7) {
     if (sub && sub !== "en_proceso") {
-      return { eligible: false, reason: "Etapa no compatible", transition: null };
+      return {
+        eligible: false,
+        reason: "El expediente no está en proceso para avanzar",
+        transition: null,
+      };
     }
     const iso = mesaAgendaBookingInstantIso(entry);
     if (!isFechaCitaBiometricaPasada(iso, nowMs)) {
@@ -191,7 +217,11 @@ export function getBulkAdvanceEligibility(
   // Drive no es requisito para el avance.
   if (kind === "firmas" && (etapa === 9 || etapa === 10)) {
     if (sub && sub !== "en_proceso") {
-      return { eligible: false, reason: "Etapa no compatible", transition: null };
+      return {
+        eligible: false,
+        reason: "El expediente no está en proceso para avanzar",
+        transition: null,
+      };
     }
     const iso = mesaAgendaBookingInstantIso(entry);
     if (!isFechaCitaBiometricaPasada(iso, nowMs)) {
@@ -205,6 +235,14 @@ export function getBulkAdvanceEligibility(
       eligible: true,
       reason: null,
       transition: { fromStage: etapa, toStage: 11, kind },
+    };
+  }
+
+  if (kind === "biometricos" && typeof etapa === "number" && etapa > 5) {
+    return {
+      eligible: false,
+      reason: "La cita de biométricos ya no corresponde a la etapa actual",
+      transition: null,
     };
   }
 
@@ -339,6 +377,18 @@ export function buildBulkSelectionSummary(
     headerState = "some";
   }
 
+  const visibleAdvanceExpedientes = new Set<string>();
+  let eligibleDriveVisibleCount = 0;
+  for (const entry of visibleEntries) {
+    if (getBulkDriveEligibility(entry, role).eligible) {
+      eligibleDriveVisibleCount += 1;
+    }
+    const advance = getBulkAdvanceEligibility(entry, role, nowMs);
+    if (advance.eligible && hasExpedienteId(entry)) {
+      visibleAdvanceExpedientes.add(entry.expedienteId);
+    }
+  }
+
   const selectedEntries = visibleEntries.filter((e) =>
     selectedBookingIds.has(e.bookingId),
   );
@@ -367,6 +417,8 @@ export function buildBulkSelectionSummary(
     eligibleDriveCount,
     eligibleAdvanceExpedienteCount: advanceExpedientes.size,
     eligibleVisibleCount: eligibleIds.length,
+    eligibleDriveVisibleCount,
+    eligibleAdvanceVisibleExpedienteCount: visibleAdvanceExpedientes.size,
     selectedEligibleVisibleCount,
     headerState,
     limitCapped,
