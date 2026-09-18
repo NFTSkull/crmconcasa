@@ -27,10 +27,20 @@ function plausibleYear(value: unknown): number | null {
  */
 export function parseExplicitIneValidityYear(frontText: string): number | null {
   const text = upper(frontText);
-  const range = text.match(
+  const labelIndex = text.indexOf("VIGENCIA");
+  if (labelIndex < 0) return null;
+
+  // Acotamos la corrección O→0 al bloque de VIGENCIA; no alteramos nombres,
+  // CURP u otros campos del OCR.
+  const validityBlock = text
+    .slice(labelIndex, labelIndex + 80)
+    .replace(/O/g, "0");
+  const range = validityBlock.match(
     /\bVIGENCIA\b[^0-9]{0,16}(20\d{2})[^0-9]{1,8}(20\d{2})\b/,
   );
-  const single = text.match(/\bVIGENCIA\b[^0-9]{0,16}(20\d{2})\b/);
+  const single = validityBlock.match(
+    /\bVIGENCIA\b[^0-9]{0,16}(20\d{2})\b/,
+  );
   return plausibleYear(range?.[2] ?? single?.[1] ?? null);
 }
 
