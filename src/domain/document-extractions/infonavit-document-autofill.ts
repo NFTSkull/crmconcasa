@@ -152,7 +152,7 @@ function parseIneValidity(text: string): string | null {
   const single = t.match(/\bVIGENCIA\s*[:\-]?\s*(20\d{2})\b/);
   const year = Number(range?.[2] ?? single?.[1] ?? 0);
   if (!Number.isInteger(year) || year < 2020 || year > 2050) return null;
-  return ${31/12/${year}};
+  return `31/12/${year}`;
 }
 
 function parseIneOcrNumber(text: string): string | null {
@@ -410,7 +410,7 @@ function parseComprobante(
       out[key] = high(
         value,
         "cliente_comprobante_domicilio",
-        ${comprobante_${key}},
+        `comprobante_${key}`,
       );
     }
   }
