@@ -50,7 +50,11 @@ def test_ine_runs_second_adaptive_sparse_pass(monkeypatch):
 
     def fake_ocr(*args, **kwargs):
         calls.append(kwargs.get("config", ""))
-        return "NOMBRE ZAMUDIO CAMPOS GERARDO" if len(calls) == 1 else "SEXO H\nVIGENCIA\n2023 2033"
+        return (
+            "NOMBRE ZAMUDIO CAMPOS GERARDO\nCURP ZACG900101HNLMPR09\nSEXO H\nVIGENCIA 2023 2033"
+            if len(calls) == 1
+            else "SEXO H\nVIGENCIA\n2023 2033"
+        )
 
     monkeypatch.setattr("app.pytesseract.image_to_string", fake_ocr)
     text = ocr_image(image, "cliente_ine_frente")
@@ -60,6 +64,41 @@ def test_ine_runs_second_adaptive_sparse_pass(monkeypatch):
     assert "psm 11" in calls[1]
     assert "SEXO H" in text
     assert "2033" in text
+
+
+def test_ine_portrait_photo_auto_rotates_before_full_ocr(monkeypatch):
+    image = Image.new("RGB", (600, 1000), "white")
+    calls = []
+
+    def fake_ocr(img, *args, **kwargs):
+        calls.append((img.size, kwargs.get("config", "")))
+        if img.width > img.height:
+            return (
+                "INSTITUTO NACIONAL ELECTORAL\n"
+                "NOMBRE\nAYALA\nCAMARILLO\nJUAN PABLO\n"
+                "CURP AACJ801018HNLYMN02\nSEXO H\nVIGENCIA 2025-2035"
+            )
+        return "NOMBRE\nAYALA\nCAMARILLO\nJUAN PABLO\nCURP AACJ801018HNLYMN02"
+
+    monkeypatch.setattr("app.pytesseract.image_to_string", fake_ocr)
+    text = ocr_image(image, "cliente_ine_frente")
+
+    assert "VIGENCIA 2025-2035" in text
+    assert any(width > height for (width, height), _ in calls)
+
+
+def test_ine_reverse_portrait_recovers_ocr_marker_after_rotation(monkeypatch):
+    image = Image.new("RGB", (600, 1000), "white")
+
+    def fake_ocr(img, *args, **kwargs):
+        if img.width > img.height:
+            return "IDMEX1234567890\nOCR 0852070785064\nCIC 123456789"
+        return "MEXICO"
+
+    monkeypatch.setattr("app.pytesseract.image_to_string", fake_ocr)
+    text = ocr_image(image, "cliente_ine_reverso")
+
+    assert "OCR 0852070785064" in text
 
 
 def test_non_ine_keeps_single_pass(monkeypatch):
