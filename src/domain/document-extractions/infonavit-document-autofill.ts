@@ -480,12 +480,94 @@ function isCfeCorporateLine(line: string): boolean {
 }
 
 function municipalityFromText(raw: string): string | undefined {
+  const comparableText = normalizedComparable(raw);
+  if (/\bSAN NICOLAS DE LOS G(?:ARZA)?\b/.test(comparableText)) {
+    return "SAN NICOLÁS DE LOS GARZA";
+  }
+
   const comparable = alnumComparable(raw);
   for (const municipality of NL_MUNICIPALITIES) {
     if (comparable.includes(alnumComparable(municipality))) {
-      return municipality === "ESCOBEDO"
-        ? "GENERAL ESCOBEDO"
-        : municipality.toLocaleUpperCase("es-MX");
+      if (municipality === "ESCOBEDO") return "GENERAL ESCOBEDO";
+      if (alnumComparable(municipality) === "SANNICOLASDELOSGARZA") {
+        return "SAN NICOLÁS DE LOS GARZA";
+      }
+      return municipality.toLocaleUpperCase("es-MX");
+    }
+  }
+  return undefined;
+}
+
+function parseCfeStreetLine(
+  raw: string,
+): { calle: string; noExt: string } | null {
+  const withoutCp = compactLine(
+    raw.replace(
+      /\s+(?:C\.?\s*P\.?\s*[:\-]?\s*)?\d{5}\b.*$/i,
+      "",
+    ),
+  );
+  if (!withoutCp) return null;
+
+  const explicit = withoutCp.match(
+    /^(.{2,70}?)\s+(?:#|NO\.?|NUM\.?|N[ÚU]MERO\s*)\s*([0-9]+[A-Z0-9-]*)$/i,
+  );
+  if (explicit?.[1] && explicit?.[2]) {
+    const calle = compactLine(explicit[1]);
+    return /[A-ZÁÉÍÓÚÜÑ]/i.test(calle)
+      ? { calle, noExt: explicit[2] }
+      : null;
+  }
+
+  const numbers = [
+    ...withoutCp.matchAll(/\b[0-9]+[A-Z0-9-]*\b/gi),
+  ];
+  const exterior = numbers.at(-1);
+  if (!exterior || exterior.index == null) return null;
+
+  const calle = compactLine(withoutCp.slice(0, exterior.index));
+  if (!/[A-ZÁÉÍÓÚÜÑ]/i.test(calle)) return null;
+  if (
+    /^(MONTERREY|APODACA|GUADALUPE|JUAREZ|JUÁREZ|SAN\s+NICOLAS)/i.test(
+      calle,
+    )
+  ) {
+    return null;
+  }
+
+  return { calle, noExt: exterior[0] };
+}
+
+function inferCfeUnlabelledColonia(
+  addressBlock: readonly string[],
+  streetIndex: number,
+): string | undefined {
+  for (let i = streetIndex + 1; i < addressBlock.length; i++) {
+    const line = compactLine(addressBlock[i] ?? "");
+    if (!line) continue;
+    if (
+      /\b(?:C\.?\s*P\.?\s*)?\d{5}\b/i.test(line) ||
+      /\bNUEVO\s+LE[OÓ]N\b|\bN\.?\s*L\.?\b/i.test(line) ||
+      municipalityFromText(line) ||
+      /\b(?:NO\.?\s*DE\s*SERVICIO|RMU|RPU|TOTAL|PAGAR|TARIFA|MEDIDOR)\b/i.test(
+        line,
+      )
+    ) {
+      continue;
+    }
+
+    const clean = line
+      .replace(/^\s*(?:COL(?:ONIA)?|FRACC(?:IONAMIENTO)?)\.?\s*/i, "")
+      .trim();
+    if (
+      clean.length >= 3 &&
+      clean.length <= 45 &&
+      /[A-ZÁÉÍÓÚÜÑ]/i.test(clean) &&
+      /\b(?:RESID(?:ENCIAL)?|FRACC(?:IONAMIENTO)?|COL(?:ONIA)?|SECTOR|BARRIO|HACIENDA|PRIVADA|VILLAS?)\b/i.test(
+        clean,
+      )
+    ) {
+      return clean;
     }
   }
   return undefined;
@@ -531,20 +613,10 @@ function parseCfeAddressCandidate(text: string): {
   let streetIndex = -1;
 
   for (let i = 0; i < block.length; i++) {
-    const line = block[i]!;
-    const street = line.match(
-      /^(.{3,60}?)\s+(?:#|NO\.?|NUM\.?|N[ÚU]MERO\s*)?([0-9]+[A-Z0-9-]*)\b/i,
-    );
-    if (!street?.[1] || !street?.[2]) continue;
-    const candidate = compactLine(street[1]);
-    if (
-      !/[A-ZÁÉÍÓÚÜÑ]/i.test(candidate) ||
-      /^(MONTERREY|APODACA|GUADALUPE|JUAREZ|JUÁREZ)$/i.test(candidate)
-    ) {
-      continue;
-    }
-    calle = candidate;
-    noExt = street[2];
+    const street = parseCfeStreetLine(block[i]!);
+    if (!street) continue;
+    calle = street.calle;
+    noExt = street.noExt;
     streetIndex = i;
     break;
   }
@@ -573,7 +645,9 @@ function parseCfeAddressCandidate(text: string): {
   const col = addressJoined.match(
     /\b(?:COL(?:ONIA)?|FRACC(?:IONAMIENTO)?)\.?\s+([A-ZÁÉÍÓÚÜÑ0-9 .'-]{3,45}?)(?=\s+(?:C\.?P\.?|\d{5}\b|NUEVO\s+LE[OÓ]N|N\.?L\.?\b|MONTERREY|APODACA|GUADALUPE|GENERAL\s+ESCOBEDO|SAN\s+NICOL))/i,
   );
-  const colonia = col?.[1] ? compactLine(col[1]) : undefined;
+  const colonia = col?.[1]
+    ? compactLine(col[1])
+    : inferCfeUnlabelledColonia(addressBlock, 0);
 
   const noInt = addressJoined.match(
     /\b(?:INT(?:ERIOR)?|DEPTO|DEP(?:ARTAMENTO)?)\.?\s*[:#-]?\s*([A-Z0-9-]{1,10})\b/i,
