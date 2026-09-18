@@ -7,6 +7,21 @@ const CURP_URL = 'https://agsc.siat.sat.gob.mx/PTSC/ConsultaIdCSIAT/'
 const STEP_TIMEOUT = 20_000
 const NAV_TIMEOUT = 60_000
 
+function buildProxyConfig() {
+  const server = String(process.env.PROXY_URL || '').trim()
+  const password = String(process.env.PROXY_PASS || '').trim()
+  if (!server || !password) return undefined
+
+  const country = String(process.env.PROXY_COUNTRY || 'mx').trim().toLowerCase() || 'mx'
+  const sessionId = `sat${Date.now()}${Math.random().toString(36).slice(2, 8)}`
+  console.log(`[sat-validator] PROXY_ENABLED country=${country}`)
+  return {
+    server,
+    username: `grecojcwy1-country-${country}-session-${sessionId}`,
+    password,
+  }
+}
+
 async function navigateSatPage(page, url, readySelector, label) {
   let lastError = null
   for (let attempt = 1; attempt <= 2; attempt += 1) {
@@ -86,16 +101,20 @@ async function validateCurp(page, curp, apiKey) {
 }
 
 export async function validateFiscalLive({ rfc, curp, capsolverApiKey }) {
+  const proxy = buildProxyConfig()
   const browser = await chromium.launch({
     headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--ignore-certificate-errors'],
+    proxy,
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-http2', '--ignore-certificate-errors'],
   })
   try {
     const context = await browser.newContext({
       ignoreHTTPSErrors: true,
+      proxy,
       locale: 'es-MX',
       timezoneId: 'America/Monterrey',
       userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      extraHTTPHeaders: { 'Accept-Language': 'es-MX,es;q=0.9' },
     })
     const page = await context.newPage()
     const rfcResult = await validateRfc(page, rfc, capsolverApiKey)
