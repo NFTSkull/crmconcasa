@@ -746,6 +746,7 @@ export function MesaInfonavitGenerarDocumentosForm({
                 documentType: job.type,
                 filename: job.doc.nombre_original,
                 signal: controller.signal,
+                cacheKey: `${job.doc.id}:${job.type}:retry-${autofillRetryNonce}`,
               });
               return {
                 target: job.target,
