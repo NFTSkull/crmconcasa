@@ -181,6 +181,31 @@ const EMPTY_AUTOFILL_STATE: DocumentAutofillState = {
   errors: [],
 };
 
+const AUTOFILL_FIELD_LABELS: Readonly<Record<string, string>> = {
+  "cliente.nombres": "Nombre(s)",
+  "cliente.apellidoPaterno": "Apellido paterno",
+  "cliente.apellidoMaterno": "Apellido materno",
+  "cliente.curp": "CURP",
+  "cliente.genero": "Género",
+  "cliente.identificacion.tipo": "Tipo de identificación",
+  "cliente.identificacion.numero": "Número de identificación",
+  "cliente.identificacion.vigencia": "Vigencia de identificación",
+  "vivienda.calle": "Calle",
+  "vivienda.noExt": "No. exterior",
+  "vivienda.noInt": "No. interior",
+  "vivienda.lote": "Lote",
+  "vivienda.manzana": "Manzana",
+  "vivienda.colonia": "Colonia",
+  "vivienda.entidad": "Entidad",
+  "vivienda.municipio": "Municipio",
+  "vivienda.cp": "Código postal",
+  "destinoRecursos.clabeDerechohabiente": "CLABE",
+};
+
+function autofillFieldLabel(field: string): string {
+  return AUTOFILL_FIELD_LABELS[field] ?? field;
+}
+
 const MESA_INFONAVIT_LOCAL_DRAFT_VERSION = 1 as const;
 const MESA_INFONAVIT_LOCAL_DRAFT_PREFIX = "concasa:mesa-infonavit-draft:v1:";
 
@@ -982,10 +1007,23 @@ export function MesaInfonavitGenerarDocumentosForm({
                 {autofillState.confirmed} confirmados con documento.
               </p>
               {autofillConflicts.length > 0 ? (
-                <p className="mt-1">
-                  {autofillConflicts.length} diferencias requieren revisión; no se
-                  sobrescribieron silenciosamente.
-                </p>
+                <div className="mt-1 space-y-1">
+                  <p>
+                    {autofillConflicts.length} diferencias requieren revisión; no se
+                    sobrescribieron silenciosamente.
+                  </p>
+                  <ul className="list-disc space-y-0.5 pl-4">
+                    {autofillConflicts.slice(0, 8).map((conflict) => (
+                      <li key={conflict.field}>
+                        <span className="font-medium">
+                          {autofillFieldLabel(conflict.field)}
+                        </span>
+                        : actual “{conflict.current}” · {conflict.sourceLabel} detectó
+                        “{conflict.detected}”.
+                      </li>
+                    ))}
+                  </ul>
+                </div>
               ) : null}
               {autofillState.errors.length > 0 ? (
                 <p className="mt-1">
