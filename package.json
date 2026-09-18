@@ -38,7 +38,8 @@
     "verify:p189-b5": "bash scripts/verify-p189-b5-read-model-local.sh",
     "verify:p189-b7": "bash scripts/verify-p189-b7-feature-flag-local.sh",
     "test:p4a": "tsx --test src/domain/document-extractions/infonavit-source-preview.test.ts src/components/mesa-control/MesaInfonavitSourceDocumentPreview.p4a.test.ts src/components/mesa-control/MesaInfonavitGenerarDocumentosForm.destino-p0.test.ts src/components/mesa-control/MesaInfonavitGenerarDocumentosForm.clabe-p1.test.ts src/domain/expediente-cliente-datos/clabe-mexico.test.ts",
-    "test:p4b": "tsx --test src/domain/document-extractions/clabe-bank-statement.test.ts src/components/mesa-control/MesaClabeShadowDetection.p4b.test.ts"
+    "test:p4b": "tsx --test src/domain/document-extractions/clabe-bank-statement.test.ts src/components/mesa-control/MesaClabeShadowDetection.p4b.test.ts",
+    "test:p4c": "tsx --test src/domain/document-extractions/infonavit-document-autofill.test.ts src/domain/document-extractions/infonavit-autofill-merge.test.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.2",
