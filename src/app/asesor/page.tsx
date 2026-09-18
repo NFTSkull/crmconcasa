@@ -1126,6 +1126,8 @@ function AsesorDashboardNormalPage({
           etapa_exacta: null,
           fecha_desde: null,
           fecha_hasta: null,
+          owner_asesor_id:
+            canIntegrateForAny && ownerAsesorId ? ownerAsesorId : null,
         },
         pageSize: ASESOR_INBOX_MAX_PAGE_SIZE,
         asesorEmail: currentUser.email,
@@ -1150,7 +1152,13 @@ function AsesorDashboardNormalPage({
       setExportExcelLoading(false);
       setExportProgress(null);
     }
-  }, [currentUser?.email, exportProgramaFilter, repo]);
+  }, [
+    canIntegrateForAny,
+    currentUser?.email,
+    exportProgramaFilter,
+    ownerAsesorId,
+    repo,
+  ]);
 
   const totalPages = asesorInboxTotalPages(filteredTotalCount, PAGE_SIZE);
   const safePage = clampAsesorInboxPage(page, filteredTotalCount, PAGE_SIZE);
