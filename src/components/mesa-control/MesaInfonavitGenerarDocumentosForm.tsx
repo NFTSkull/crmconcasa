@@ -1369,6 +1369,11 @@ export function MesaInfonavitGenerarDocumentosForm({
               expedienteId={expedienteId}
               context={sourceContext}
               requestedIneSide={requestedIneSide}
+              clabeAutofillValue={
+                autofillSources["destinoRecursos.clabeDerechohabiente"]
+                  ? draft.destinoRecursos.clabeDerechohabiente
+                  : null
+              }
               className="max-h-[min(70vh,720px)]"
             />
           </div>
