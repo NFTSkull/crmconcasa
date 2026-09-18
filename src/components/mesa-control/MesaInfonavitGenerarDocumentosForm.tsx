@@ -981,9 +981,9 @@ export function MesaInfonavitGenerarDocumentosForm({
                 Automatización documental: {autofillState.applied} campos llenados ·{" "}
                 {autofillState.confirmed} confirmados con documento.
               </p>
-              {autofillState.conflicts > 0 ? (
+              {autofillConflicts.length > 0 ? (
                 <p className="mt-1">
-                  {autofillState.conflicts} diferencias requieren revisión; no se
+                  {autofillConflicts.length} diferencias requieren revisión; no se
                   sobrescribieron silenciosamente.
                 </p>
               ) : null}
