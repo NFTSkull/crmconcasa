@@ -59,7 +59,7 @@ export function MesaAgendaBulkSelectionBar({
           disabled={busy || summary.eligibleVisibleCount === 0}
           onClick={onSelectAllEligible}
         >
-          Seleccionar elegibles visibles
+          Seleccionar elegibles visibles ({summary.eligibleVisibleCount})
         </button>
 
         <button
@@ -98,18 +98,24 @@ export function MesaAgendaBulkSelectionBar({
           <dd className="inline tabular-nums">{summary.selectedBookingCount}</dd>
         </div>
         <div>
-          <dt className="inline font-medium text-slate-700">Expedientes únicos: </dt>
+          <dt className="inline font-medium text-slate-700">Expedientes seleccionados: </dt>
           <dd className="inline tabular-nums">{summary.uniqueExpedienteCount}</dd>
         </div>
         <div>
-          <dt className="inline font-medium text-slate-700">Elegibles para validar en Drive: </dt>
-          <dd className="inline tabular-nums">{summary.eligibleDriveCount}</dd>
+          <dt className="inline font-medium text-slate-700">Elegibles visibles para avanzar: </dt>
+          <dd className="inline tabular-nums">{summary.eligibleAdvanceVisibleExpedienteCount}</dd>
         </div>
         <div>
-          <dt className="inline font-medium text-slate-700">
-            Expedientes elegibles para avanzar:{" "}
-          </dt>
+          <dt className="inline font-medium text-slate-700">Seleccionados para avanzar: </dt>
           <dd className="inline tabular-nums">{summary.eligibleAdvanceExpedienteCount}</dd>
+        </div>
+        <div>
+          <dt className="inline font-medium text-slate-700">Elegibles visibles para Drive: </dt>
+          <dd className="inline tabular-nums">{summary.eligibleDriveVisibleCount}</dd>
+        </div>
+        <div>
+          <dt className="inline font-medium text-slate-700">Seleccionados para Drive: </dt>
+          <dd className="inline tabular-nums">{summary.eligibleDriveCount}</dd>
         </div>
       </dl>
 
