@@ -27,7 +27,7 @@ describe("Mesa INE validity guard contract", () => {
     assert.ok(tabIdx > guardIdx);
   });
 
-  it("auto-rechaza solo lectura explícita vencida y estados actuales corregibles", () => {
+  it("auto-rechaza vigencia vencida solo cuando assessment la considera confiable", () => {
     assert.match(guard, /assessment\.canAutoReject/);
     assert.match(guard, /REJECTABLE_STATUSES/);
     assert.match(guard, /"subido", "resubido"/);
@@ -36,13 +36,13 @@ describe("Mesa INE validity guard contract", () => {
     assert.match(guard, /hasProtectedStatus/);
   });
 
-  it("si OCR es dudoso pide revisión manual en vez de rechazar", () => {
+  it("si OCR/MRZ es dudoso pide revisión manual en vez de rechazar", () => {
     assert.match(guard, /status === "unknown"/);
     assert.match(guard, /Revísala antes de validar/);
-    assert.match(guard, /nunca auto-rechaza solo/);
+    assert.match(guard, /MRZ\/T7/);
   });
 
-  it("bloquea generación cuando el frente confirmó INE vencida", () => {
+  it("bloquea generación cuando la vigencia confiable está vencida", () => {
     assert.match(form, /ineValidity\?\.canAutoReject/);
     assert.match(form, /No se puede generar con una INE vencida/);
   });

@@ -97,7 +97,8 @@ export function MesaIneValidityGuard({
         let assessment = evaluateIneValidity({ frontText });
 
         // El frente manda. Solo si no se pudo leer la vigencia visible,
-        // consultamos reverso como respaldo informativo; nunca auto-rechaza solo.
+        // consultamos reverso. El reverso solo permite auto-rechazo cuando
+        // trae MRZ estructurado + T7 de 13 dígitos, no por texto suelto.
         if (assessment.status === "unknown" && reverso) {
           const reverseText = await readText(
             cache,
@@ -189,7 +190,7 @@ export function MesaIneValidityGuard({
           assessment,
           message:
             assessment.status === "expired"
-              ? "El reverso sugiere una vigencia vencida, pero el frente no la confirmó. Revísala manualmente antes de validar."
+              ? "El reverso sugiere una vigencia vencida, pero no tuvo suficientes señales MRZ/T7 para rechazo automático. Revísala manualmente antes de validar."
               : "No se pudo confirmar automáticamente la vigencia visible de la INE. Revísala antes de validar.",
         });
       } catch {
@@ -245,8 +246,9 @@ export function MesaIneValidityGuard({
         role="alert"
         data-testid="mesa-ine-validity-guard"
       >
-        INE vencida · vigencia {state.assessment.expirationYear}. Se marcó para
-        corrección y el asesor deberá sustituir la credencial vigente.
+        INE vencida · vigencia{" "}
+        {state.assessment.displayVigencia ?? state.assessment.expirationYear}. Se
+        marcó para corrección y el asesor deberá sustituir la credencial vigente.
       </div>
     );
   }
