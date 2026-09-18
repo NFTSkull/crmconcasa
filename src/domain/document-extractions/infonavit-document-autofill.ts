@@ -146,10 +146,13 @@ function parseIneGender(text: string): "M" | "F" | null {
 
 function parseIneValidity(text: string): string | null {
   const t = upper(text);
+  // OCR de credenciales fotografiadas puede convertir el guion en comillas,
+  // espacios o ruido. Exigimos la etiqueta VIGENCIA y dos años plausibles,
+  // pero toleramos hasta 6 caracteres no numéricos entre ambos.
   const range = t.match(
-    /\bVIGENCIA\s*[:\-]?\s*(\d{4})\s*(?:-|A|AL)\s*(\d{4})\b/,
+    /\bVIGENCIA\b[^0-9]{0,16}(20\d{2})[^0-9]{1,6}(20\d{2})\b/,
   );
-  const single = t.match(/\bVIGENCIA\s*[:\-]?\s*(20\d{2})\b/);
+  const single = t.match(/\bVIGENCIA\b[^0-9]{0,16}(20\d{2})\b/);
   const year = Number(range?.[2] ?? single?.[1] ?? 0);
   if (!Number.isInteger(year) || year < 2020 || year > 2050) return null;
   return `31/12/${year}`;
