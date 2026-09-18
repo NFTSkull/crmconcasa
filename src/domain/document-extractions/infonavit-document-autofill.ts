@@ -2,6 +2,7 @@ import {
   detectClabeFromBankStatementText,
   type ClabeBankStatementDetection,
 } from "@/domain/document-extractions/clabe-bank-statement";
+import { parseExplicitIneValidityYear } from "@/domain/document-extractions/ine-validity";
 
 export type AutofillFieldSource =
   | "cliente_ine_frente"
@@ -156,25 +157,19 @@ function parseIneGender(text: string): "M" | "F" | null {
 }
 
 function parseIneValidity(text: string): string | null {
-  const t = upper(text);
-  // OCR de credenciales fotografiadas puede convertir el guion en comillas,
-  // espacios o ruido. Exigimos la etiqueta VIGENCIA y dos años plausibles,
-  // pero toleramos hasta 6 caracteres no numéricos entre ambos.
-  const range = t.match(
-    /\bVIGENCIA\b[^0-9]{0,16}(20\d{2})[^0-9]{1,6}(20\d{2})\b/,
-  );
-  const single = t.match(/\bVIGENCIA\b[^0-9]{0,16}(20\d{2})\b/);
-  const year = Number(range?.[2] ?? single?.[1] ?? 0);
-  if (!Number.isInteger(year) || year < 2020 || year > 2050) return null;
-  return `31/12/${year}`;
+  const year = parseExplicitIneValidityYear(text);
+  return year === null ? null : `31/12/${year}`;
 }
 
 function parseIneOcrNumber(text: string): string | null {
   const t = upper(text);
-  const explicit = t.match(
-    /\b(?:OCR|0CR)\b[^0-9O]{0,20}([0-9O]{12,13})\b/,
-  );
-  return explicit?.[1]?.replace(/O/g, "0") ?? null;
+  const labeled = t.match(/\b(?:OCR|0CR)\b[^\n]{0,48}/);
+  if (!labeled) return null;
+  const digits = labeled[0]
+    .replace(/\b(?:OCR|0CR)\b/i, "")
+    .replace(/O/g, "0")
+    .replace(/[^0-9]/g, "");
+  return /^\d{12,13}$/.test(digits) ? digits : null;
 }
 
 function high(
@@ -232,13 +227,13 @@ function parseIneMrz(text: string): {
   } = {};
 
   const dataLine = lines.find((line) =>
-    /\d{6}[0-9A-Z]?[HM]\d{6}[0-9A-Z]?/.test(line),
+    /\d{6}[0-9A-Z]?[MHF]\d{6}[0-9A-Z]?/.test(line),
   );
   const data = dataLine?.match(
-    /\d{6}[0-9A-Z]?([HM])(\d{2})(\d{2})(\d{2})[0-9A-Z]?/,
+    /\d{6}[0-9A-Z]?([MHF])(\d{2})(\d{2})(\d{2})[0-9A-Z]?/,
   );
   if (data) {
-    out.genero = data[1] === "H" ? "M" : "F";
+    out.genero = data[1] === "F" ? "F" : "M";
     const yy = Number(data[2]);
     const mm = Number(data[3]);
     const dd = Number(data[4]);
@@ -251,10 +246,9 @@ function parseIneMrz(text: string): {
       dd >= 1 &&
       dd <= 31
     ) {
-      out.vigencia = `${String(dd).padStart(2, "0")}/${String(mm).padStart(
-        2,
-        "0",
-      )}/${year}`;
+      // La vigencia legal de la credencial se expresa por año. El MRZ solo
+      // respalda el año; no usamos mes/día para declarar una caducidad anticipada.
+      out.vigencia = `31/12/${year}`;
     }
   }
 
