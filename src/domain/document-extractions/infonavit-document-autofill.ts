@@ -614,7 +614,15 @@ function parseCfeAddressCandidate(text: string): {
       ) {
         continue;
       }
-      if (/[A-ZÁÉÍÓÚÜÑ]/i.test(candidate) && candidate.length <= 45) {
+      const hasImplicitColoniaCue =
+        /\b(?:RESID(?:ENCIAL)?|FRACC(?:IONAMIENTO)?|COL(?:ONIA)?|SECTOR|PRIVADA|VILLAS?)\.?\b/i.test(
+          candidate,
+        );
+      if (
+        hasImplicitColoniaCue &&
+        /[A-ZÁÉÍÓÚÜÑ]/i.test(candidate) &&
+        candidate.length <= 45
+      ) {
         colonia = candidate
           .replace(/\bRESID\.?$/i, "RESIDENCIAL")
           .trim();
