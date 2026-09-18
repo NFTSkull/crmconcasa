@@ -3,6 +3,7 @@ import { describe, it } from "node:test";
 import {
   buildInfonavitDocumentAutofillPatch,
   comparableAutofillValue,
+  isIneValidityExpired,
 } from "./infonavit-document-autofill";
 
 const CLABE = "032180000118359719";
@@ -126,6 +127,67 @@ describe("P4C document autofill parser", () => {
       patch.cliente.identificacionVigencia?.value,
       "31/12/2033",
     );
+  });
+
+
+  it("T7 tolera OCR separado por espacios y guiones", () => {
+    const patch = buildInfonavitDocumentAutofillPatch({
+      ineReverso: "OCR 0852 0707-85064",
+    });
+    assert.equal(
+      patch.cliente.identificacionNumero?.value,
+      "0852070785064",
+    );
+  });
+
+  it("MRZ M/F usa sexo internacional y fecha completa de vigencia", () => {
+    const patch = buildInfonavitDocumentAutofillPatch({
+      ineFrente: "VIGENCIA 2023 - 2033",
+      ineReverso: [
+        "IDMEX2565181189<<2588067552701",
+        "8410308M3306305MEX<04<<26018<7",
+        "ZAMUDIO<CAMPOS<<GERARDO<<<<<<",
+      ].join("\n"),
+    });
+
+    assert.equal(patch.cliente.genero?.value, "M");
+    assert.equal(
+      patch.cliente.identificacionVigencia?.value,
+      "30/06/2033",
+    );
+    assert.equal(
+      patch.cliente.identificacionVigencia?.source,
+      "cliente_ine_reverso",
+    );
+  });
+
+  it("vigencia INE compara día mes y año sin rechazar formatos inciertos", () => {
+    const now = new Date(2026, 8, 18);
+    assert.equal(isIneValidityExpired("17/09/2026", now), true);
+    assert.equal(isIneValidityExpired("18/09/2026", now), false);
+    assert.equal(isIneValidityExpired("31/12/2025", now), true);
+    assert.equal(isIneValidityExpired("31/12/2030", now), false);
+    assert.equal(isIneValidityExpired("2030", now), null);
+  });
+
+  it("CFE usa último número antes del CP y detecta colonia sin etiqueta", () => {
+    const patch = buildInfonavitDocumentAutofillPatch({
+      comprobanteDomicilio: [
+        "CFE Comisión Federal de Electricidad",
+        "JUAN PEREZ LOPEZ",
+        "CALLE 9 52 C.P. 66460",
+        "LAS PUENTES RESID",
+        "SAN NICOLAS DE LOS G, N.L.",
+        "NO. DE SERVICIO: 1234567890",
+      ].join("\n"),
+    });
+
+    assert.equal(patch.vivienda.calle?.value, "CALLE 9");
+    assert.equal(patch.vivienda.noExt?.value, "52");
+    assert.equal(patch.vivienda.cp?.value, "66460");
+    assert.equal(patch.vivienda.colonia?.value, "LAS PUENTES RESIDENCIAL");
+    assert.equal(patch.vivienda.municipio?.value, "SAN NICOLÁS DE LOS GARZA");
+    assert.equal(patch.vivienda.entidad?.value, "NUEVO LEÓN");
   });
 
   it("comprobante cargado manda en vivienda aunque el titular sea otra persona", () => {
