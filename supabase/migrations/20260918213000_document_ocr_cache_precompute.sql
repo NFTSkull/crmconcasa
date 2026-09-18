@@ -121,8 +121,18 @@ BEGIN
   ON CONFLICT (documento_id) DO UPDATE SET
     status = CASE
       WHEN public.document_ocr_cache.status = 'done' THEN 'done'
-      WHEN public.document_ocr_cache.status = 'processing' THEN 'processing'
+      WHEN public.document_ocr_cache.status = 'processing'
+           AND public.document_ocr_cache.started_at > NOW() - INTERVAL '2 minutes'
+        THEN 'processing'
       ELSE 'pending'
+    END,
+    started_at = CASE
+      WHEN public.document_ocr_cache.status = 'processing'
+           AND public.document_ocr_cache.started_at > NOW() - INTERVAL '2 minutes'
+        THEN public.document_ocr_cache.started_at
+      WHEN public.document_ocr_cache.status = 'done'
+        THEN public.document_ocr_cache.started_at
+      ELSE NULL
     END,
     error_code = CASE
       WHEN public.document_ocr_cache.status = 'done' THEN public.document_ocr_cache.error_code
