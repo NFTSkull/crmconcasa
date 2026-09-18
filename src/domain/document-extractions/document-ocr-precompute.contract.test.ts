@@ -19,7 +19,7 @@ const edge = readFileSync(
 const migration = readFileSync(
   join(
     root,
-    "supabase/migrations/20260918213000_document_ocr_cache_precompute.sql",
+    "supabase/migrations/20260918225154_document_ocr_cache_precompute.sql",
   ),
   "utf8",
 );
