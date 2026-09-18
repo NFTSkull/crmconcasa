@@ -149,6 +149,76 @@ test("CASO A3 — draft realmente más nuevo sí puede restaurarse", () => {
   );
 });
 
+test("CASO A3b — draft nuevo pero casi vacío NO tapa expediente oficial completo", () => {
+  const draft: ClienteDatosDraft = {
+    expedienteId: "exp-reingreso",
+    updatedAt: "2026-09-18T05:00:00.000Z",
+    draftVersion: CLIENTE_DATOS_DRAFT_VERSION,
+    clienteDatos: {
+      ...EMPTY,
+      nombreCliente: "",
+    } as ClienteDatosDraft["clienteDatos"],
+    direccionOpcional: "",
+  };
+  const official = {
+    ...EMPTY,
+    nombreCliente: "URIAS PAVEL JEHU TORRES HERNANDEZ",
+    nss: "05159780872",
+    curp: "TOHU970320HNLRRR09",
+    rfc: "TOHU970320SJ8",
+    celular: "8138696620",
+    correo: "jehuth.31@icloud.com",
+    empresa: "CENTRO DIGITAL PRODUCCION",
+  } as ClienteDatosDraft["clienteDatos"];
+
+  assert.equal(
+    shouldAutoRestoreClienteDatosDraft(
+      draft,
+      official,
+      "CENZONTLEZ 118",
+      "",
+      "2026-09-18T04:15:32.000Z",
+    ),
+    false,
+  );
+});
+
+test("CASO A3c — draft con nombre inválido no revive artefacto # sobre oficial válido", () => {
+  const draft: ClienteDatosDraft = {
+    expedienteId: "exp-enie",
+    updatedAt: "2026-09-18T05:00:00.000Z",
+    draftVersion: CLIENTE_DATOS_DRAFT_VERSION,
+    clienteDatos: {
+      ...EMPTY,
+      nombreCliente: "MORENO PI#A ALAN ANTOVELI",
+      nss: "09109117045",
+      celular: "8683122127",
+      empresa: "EMPRESA DEMO",
+      correo: "demo@example.com",
+    } as ClienteDatosDraft["clienteDatos"],
+    direccionOpcional: "",
+  };
+  const official = {
+    ...EMPTY,
+    nombreCliente: "MORENO PIÑA ALAN ANTOVELI",
+    nss: "09109117045",
+    celular: "8683122127",
+    empresa: "EMPRESA DEMO",
+    correo: "demo@example.com",
+  } as ClienteDatosDraft["clienteDatos"];
+
+  assert.equal(
+    shouldAutoRestoreClienteDatosDraft(
+      draft,
+      official,
+      "",
+      "",
+      "2026-09-18T04:43:33.000Z",
+    ),
+    false,
+  );
+});
+
 test("CASO A4 — sin timestamp oficial conserva compatibilidad", () => {
   const draft: ClienteDatosDraft = {
     expedienteId: "exp-no-ts",

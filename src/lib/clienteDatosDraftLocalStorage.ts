@@ -1,5 +1,6 @@
 import type { ExpedienteClienteDatos } from "@/domain/expediente-cliente-datos";
 import { normalizeClienteDatosForSave } from "./clienteDatosValidation";
+import { isValidPersonName } from "./clienteDatosFieldFormats";
 
 /**
  * v1 + campo opcional `telefonoCasa` (compat: borradores viejos sin el campo siguen válidos).
@@ -108,6 +109,87 @@ export function clienteDatosDraftDiffersFromOfficial(
   return draftKey !== officialKey;
 }
 
+function coreClienteDatosFilledCount(
+  datos: ExpedienteClienteDatos["datos"],
+): number {
+  const values = [
+    datos.nombreCliente,
+    datos.nss,
+    datos.curp,
+    datos.rfc,
+    datos.celular,
+    datos.correo,
+    datos.empresa,
+    datos.registroPatronal,
+    datos.telefonoEmpresa,
+    datos.clabe,
+    datos.montoMejoravit,
+    datos.plazo,
+    datos.beneficiario?.nombre,
+    datos.beneficiario?.parentesco,
+    datos.direccionEmpresa?.calle,
+    datos.direccionEmpresa?.colonia,
+    datos.direccionEmpresa?.municipio,
+    datos.direccionEmpresa?.cp,
+    ...(Array.isArray(datos.referencias)
+      ? datos.referencias.flatMap((ref) => [ref?.nombre, ref?.celular])
+      : []),
+  ];
+  return values.filter((value) => String(value ?? "").trim().length > 0).length;
+}
+
+function draftHasInvalidPersonNameWhileOfficialIsValid(
+  draft: ClienteDatosDraft,
+  officialDatos: ExpedienteClienteDatos["datos"],
+): boolean {
+  const pairs: Array<readonly [string, string]> = [
+    [draft.clienteDatos.nombreCliente ?? "", officialDatos.nombreCliente ?? ""],
+    [
+      draft.clienteDatos.beneficiario?.nombre ?? "",
+      officialDatos.beneficiario?.nombre ?? "",
+    ],
+  ];
+
+  const maxRefs = Math.max(
+    draft.clienteDatos.referencias?.length ?? 0,
+    officialDatos.referencias?.length ?? 0,
+  );
+  for (let index = 0; index < maxRefs; index += 1) {
+    pairs.push([
+      draft.clienteDatos.referencias?.[index]?.nombre ?? "",
+      officialDatos.referencias?.[index]?.nombre ?? "",
+    ]);
+  }
+
+  return pairs.some(([draftName, officialName]) => {
+    const draftTrimmed = String(draftName ?? "").trim();
+    const officialTrimmed = String(officialName ?? "").trim();
+    return (
+      draftTrimmed.length > 0 &&
+      !isValidPersonName(draftTrimmed) &&
+      officialTrimmed.length > 0 &&
+      isValidPersonName(officialTrimmed)
+    );
+  });
+}
+
+function draftIsSuspiciouslySparseVsOfficial(
+  draft: ClienteDatosDraft,
+  officialDatos: ExpedienteClienteDatos["datos"],
+  officialDireccionOpcional: string,
+): boolean {
+  const draftCount =
+    coreClienteDatosFilledCount(draft.clienteDatos) +
+    (String(draft.direccionOpcional ?? "").trim() ? 1 : 0);
+  const officialCount =
+    coreClienteDatosFilledCount(officialDatos) +
+    (String(officialDireccionOpcional ?? "").trim() ? 1 : 0);
+
+  // Protege reingresos/correcciones contra un snapshot local vacío o casi vacío
+  // que, por timestamp, podría tapar una captura oficial ya completa.
+  return officialCount >= 4 && draftCount <= 1;
+}
+
 /** Decidir si el borrador debe aplicarse automáticamente al hidratar. */
 export function shouldAutoRestoreClienteDatosDraft(
   draft: ClienteDatosDraft,
@@ -116,12 +198,29 @@ export function shouldAutoRestoreClienteDatosDraft(
   officialTelefonoCasa = "",
   officialUpdatedAt?: string | null,
 ): boolean {
-  // Nunca permitir que un borrador local viejo (incluido uno vacío) tape
-  // información más reciente ya guardada en servidor.
+  // Nunca permitir que un borrador local viejo tape información más reciente.
   if (
     officialUpdatedAt &&
     !isDraftNewerThanOfficial(draft.updatedAt, officialUpdatedAt)
   ) {
+    return false;
+  }
+
+  // Aunque sea más nuevo, un draft casi vacío nunca debe ocultar una captura
+  // oficial completa. Este caso puede aparecer por pestañas antiguas/reingresos.
+  if (
+    draftIsSuspiciouslySparseVsOfficial(
+      draft,
+      officialDatos,
+      officialDireccionOpcional,
+    )
+  ) {
+    return false;
+  }
+
+  // Si una automatización antigua dejó un artefacto inválido (ej. PI#A),
+  // preferimos el valor oficial válido y descartamos ese draft local.
+  if (draftHasInvalidPersonNameWhileOfficialIsValid(draft, officialDatos)) {
     return false;
   }
 
