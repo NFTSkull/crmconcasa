@@ -45,6 +45,7 @@ import {
   MESA_REAGENDAR_ADMIN_ROLES,
   MESA_REAGENDAR_SUCCESS_MESSAGE,
   normalizeMesaReagendarGateRole,
+  resolveMesaAgendaAuthorizedRole,
   resolveMesaAgendaFetchRange,
   resolveMesaReagendarAdminRole,
   shiftMesaAgendaDayYmd,
@@ -106,6 +107,38 @@ describe("mesaAgendaCitasUi navegación", () => {
     assert.equal(
       buildMesaExpedienteDetailHref("exp-abc-123"),
       "/mesa-control/exp-abc-123",
+    );
+  });
+});
+
+describe("mesaAgendaCitasUi rol efectivo", () => {
+  it("prioriza la sesión Mesa sobre un mock legacy no autorizado", () => {
+    assert.equal(
+      resolveMesaAgendaAuthorizedRole({
+        sessionRole: "mesa_interno",
+        mockRole: "asesor",
+      }),
+      "mesa_interno",
+    );
+  });
+
+  it("usa mock Mesa solo como fallback cuando la sesión no autoriza", () => {
+    assert.equal(
+      resolveMesaAgendaAuthorizedRole({
+        sessionRole: "asesor",
+        mockRole: "mesa_control_admin",
+      }),
+      "mesa_control_admin",
+    );
+  });
+
+  it("no habilita acciones si ni sesión ni mock son roles Mesa", () => {
+    assert.equal(
+      resolveMesaAgendaAuthorizedRole({
+        sessionRole: "asesor",
+        mockRole: "editor",
+      }),
+      null,
     );
   });
 });

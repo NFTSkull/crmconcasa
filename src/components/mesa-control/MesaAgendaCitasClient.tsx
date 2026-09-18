@@ -90,6 +90,7 @@ import {
   MESA_AGENDA_DEFAULT_SORT,
   MESA_AGENDA_DEFAULT_VIEW,
   MESA_REAGENDAR_SUCCESS_MESSAGE,
+  resolveMesaAgendaAuthorizedRole,
   resolveMesaAgendaFetchRange,
   shiftMesaAgendaDayYmd,
   todayMesaAgendaYmd,
@@ -197,7 +198,7 @@ export function MesaAgendaCitasClient() {
     mockRole,
     sessionRole,
   });
-  const bulkRole = mockRole || sessionRole;
+  const bulkRole = resolveMesaAgendaAuthorizedRole({ sessionRole, mockRole });
   const canDeclareContingencia =
     canDeclareAgendaContingencia(mockRole) ||
     canDeclareAgendaContingencia(sessionRole);
