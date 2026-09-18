@@ -736,40 +736,34 @@ export function MesaInfonavitGenerarDocumentosForm({
         ];
 
         const results = await Promise.all(
-          jobs
-            .filter(
-              (
-                job,
-              ): job is typeof job & { doc: ExpedienteArchivoListItem } =>
-                job.doc != null,
-            )
-            .map(async (job) => {
-              try {
-                const blob = await archivosRepo.getArchivoBlob(job.doc.id);
-                if (cancelled) return null;
-                const extracted = await extractDocumentTextViaOcr({
-                  blob,
-                  documentType: job.type,
-                  filename: job.doc.nombre_original,
-                  signal: controller.signal,
-                });
-                return {
-                  target: job.target,
-                  text: extracted.text,
-                  error: null as string | null,
-                };
-              } catch (error) {
-                if (controller.signal.aborted) return null;
-                return {
-                  target: job.target,
-                  text: "",
-                  error: errorMessage(
-                    error,
-                    `No se pudo leer ${job.type.replaceAll("_", " ")}.`,
-                  ),
-                };
-              }
-            }),
+          jobs.map(async (job) => {
+            if (!job.doc) return null;
+            try {
+              const blob = await archivosRepo.getArchivoBlob(job.doc.id);
+              if (cancelled) return null;
+              const extracted = await extractDocumentTextViaOcr({
+                blob,
+                documentType: job.type,
+                filename: job.doc.nombre_original,
+                signal: controller.signal,
+              });
+              return {
+                target: job.target,
+                text: extracted.text,
+                error: null as string | null,
+              };
+            } catch (error) {
+              if (controller.signal.aborted) return null;
+              return {
+                target: job.target,
+                text: "",
+                error: errorMessage(
+                  error,
+                  `No se pudo leer ${job.type.replaceAll("_", " ")}.`,
+                ),
+              };
+            }
+          }),
         );
 
         if (cancelled) return;
