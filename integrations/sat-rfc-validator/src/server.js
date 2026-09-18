@@ -111,7 +111,7 @@ app.get('/e2e-real-expediente-20260917-once', async (_req, res) => {
   const nss = String(process.env.E2E_REAL_NSS || '').trim()
   const rfc = String(process.env.E2E_REAL_RFC || '').trim().toUpperCase()
   const curp = String(process.env.E2E_REAL_CURP || '').trim().toUpperCase()
-  if (!/^\\d{11}$/.test(nss) || !/^[A-ZÑ&]{4}\\d{6}[A-Z0-9]{3}$/u.test(rfc) || !/^[A-Z0-9]{18}$/.test(curp)) {
+  if (!/^\d{11}$/.test(nss) || !/^[A-ZÑ&]{4}\d{6}[A-Z0-9]{3}$/u.test(rfc) || !/^[A-Z0-9]{18}$/.test(curp)) {
     return res.status(409).json({ ok: false, code: 'E2E_REAL_DATA_NOT_CONFIGURED' })
   }
 
