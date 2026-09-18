@@ -296,6 +296,22 @@ type QuickFilterAsesor =
   | "agendar_firma"
   | "subir_acuse";
 
+const ASESOR_ESTADO_MESA_OPTIONS: ReadonlyArray<{
+  value: QuickFilterAsesor;
+  label: string;
+}> = [
+  { value: "todos", label: "Todos" },
+  { value: "en_tramite", label: "En trámite" },
+  { value: "correccion_requerida", label: "Necesita corrección" },
+  { value: "correccion_enviada", label: "Corrección enviada a Mesa" },
+  { value: "rechazados_mesa", label: "Rechazados por Mesa" },
+  { value: "cancelados", label: "Cancelados" },
+];
+
+const ASESOR_ESTADO_MESA_IDS = new Set<QuickFilterAsesor>(
+  ASESOR_ESTADO_MESA_OPTIONS.map((option) => option.value),
+);
+
 type QuickFilterChipTone = "default" | "warn" | "indigo" | "violet" | "amber" | "slate";
 
 type QuickFilterChipConfig = {
@@ -901,7 +917,11 @@ function AsesorDashboardNormalPage({
   const refreshSummary = useCallback(
     async (_reason: "initial" | "mutation" | "explicit" | "focus" | "realtime") => {
       if (!currentUser) return;
-      const key = String(currentUser.email ?? "asesor");
+      const scopedOwnerId =
+        canIntegrateForAny && ownerAsesorId ? ownerAsesorId : null;
+      const key = `${String(currentUser.email ?? "asesor")}:owner:${
+        scopedOwnerId ?? "self"
+      }`;
       asesorPerfMark("summary-start");
       // Gen dentro del factory: single-flight no invalida el apply del vuelo compartido.
       await summarySingleFlightRef.current.run(key, async () => {
@@ -909,6 +929,7 @@ function AsesorDashboardNormalPage({
         try {
           const summary = await repo.getAsesorInboxSummary(
             ASESOR_INBOX_NOTIF_DEFAULT_LIMIT,
+            scopedOwnerId,
           );
           if (gen !== summaryGenRef.current) return;
           await applySummarySideEffects(summary, gen);
@@ -917,7 +938,13 @@ function AsesorDashboardNormalPage({
         }
       });
     },
-    [applySummarySideEffects, currentUser, repo],
+    [
+      applySummarySideEffects,
+      canIntegrateForAny,
+      currentUser,
+      ownerAsesorId,
+      repo,
+    ],
   );
 
   const loadInbox = useCallback(
@@ -1099,6 +1126,8 @@ function AsesorDashboardNormalPage({
           etapa_exacta: null,
           fecha_desde: null,
           fecha_hasta: null,
+          owner_asesor_id:
+            canIntegrateForAny && ownerAsesorId ? ownerAsesorId : null,
         },
         pageSize: ASESOR_INBOX_MAX_PAGE_SIZE,
         asesorEmail: currentUser.email,
@@ -1123,7 +1152,13 @@ function AsesorDashboardNormalPage({
       setExportExcelLoading(false);
       setExportProgress(null);
     }
-  }, [currentUser?.email, exportProgramaFilter, repo]);
+  }, [
+    canIntegrateForAny,
+    currentUser?.email,
+    exportProgramaFilter,
+    ownerAsesorId,
+    repo,
+  ]);
 
   const totalPages = asesorInboxTotalPages(filteredTotalCount, PAGE_SIZE);
   const safePage = clampAsesorInboxPage(page, filteredTotalCount, PAGE_SIZE);
@@ -1565,6 +1600,28 @@ function AsesorDashboardNormalPage({
               {exportExcelMessage}
             </p>
           ) : null}
+          <div className="mt-2.5 rounded-md border border-red-100 bg-red-50/30 p-2.5">
+            <div className="max-w-sm">
+              <Select
+                id="asesor-estado-mesa"
+                label="Estado en Mesa"
+                value={
+                  ASESOR_ESTADO_MESA_IDS.has(quickFilter)
+                    ? quickFilter
+                    : "todos"
+                }
+                onChange={(e) =>
+                  handleQuickFilterChange(e.target.value as QuickFilterAsesor)
+                }
+                options={[...ASESOR_ESTADO_MESA_OPTIONS]}
+                className="py-1.5 text-sm"
+              />
+            </div>
+            <p className="mt-1 text-[10px] leading-tight text-gray-600">
+              Usa “Rechazados por Mesa” para ver únicamente los expedientes
+              rechazados del asesor titular seleccionado.
+            </p>
+          </div>
           <div className="mt-2.5 flex flex-wrap items-center gap-2">
             <div
               className="flex flex-wrap gap-1.5"

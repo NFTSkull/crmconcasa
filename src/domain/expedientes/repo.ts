@@ -73,6 +73,7 @@ export interface ExpedientesRepo {
   /** B1.5/B1 UI: KPIs/chips + programas + notifications globales. */
   getAsesorInboxSummary(
     notifLimit?: number,
+    ownerAsesorId?: string | null,
   ): Promise<AsesorInboxSummaryResult>;
   /** P197: estado efectivo del inbox (detalle consume el mismo helper SQL). */
   getAsesorInboxEstadoEfectivo(expedienteId: string): Promise<string | null>;

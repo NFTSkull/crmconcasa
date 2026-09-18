@@ -58,6 +58,7 @@ export type AsesorLiderExpedienteRow = Readonly<{
   ciclo_estado?: string | null;
   subestado?: string | null;
   submitted_to_mesa: boolean;
+  estado_efectivo?: string | null;
   monto_aprobado?: number | null;
   monto_aprobado_al_aprobar?: number | null;
   decision?: string | null;
@@ -85,7 +86,15 @@ export type AsesorLiderDashboardFilters = Readonly<{
   fechaHasta: string | null;
   buscar: string | null;
   etapaExacta: number | null;
-  ciclo: "activo" | "cerrado" | null;
+  ciclo:
+    | "activo"
+    | "cerrado"
+    | "en_mesa"
+    | "rechazados_mesa"
+    | "correccion_requerida"
+    | "correccion_enviada"
+    | "cancelados"
+    | null;
   page: number;
   pageSize: number;
 }>;

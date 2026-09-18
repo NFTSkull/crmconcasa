@@ -178,6 +178,16 @@ export type AsesorInboxSummaryResult = z.infer<
   typeof asesorInboxSummaryResultSchema
 >;
 
+/** KPIs/programas para el titular delegado seleccionado; sin notificaciones. */
+export const asesorInboxOwnerCountsResultSchema = z.object({
+  counts: asesorInboxCountsSchema,
+  programas_unicos: z.array(z.string()),
+});
+
+export type AsesorInboxOwnerCountsResult = z.infer<
+  typeof asesorInboxOwnerCountsResultSchema
+>;
+
 /** Normaliza page/page_size como la RPC (default 25, max 100). */
 export function normalizeAsesorInboxPageOptions(input: {
   page?: number;

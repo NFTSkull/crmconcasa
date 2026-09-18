@@ -108,6 +108,8 @@ export const asesorLiderExpedienteRowSchema = z.object({
   ciclo_estado: z.string().nullable().optional(),
   subestado: z.string().nullable().optional(),
   submitted_to_mesa: z.boolean(),
+  /** Estado canónico del inbox: distingue En Mesa, rechazo, corrección y cancelación. */
+  estado_efectivo: z.string().nullable().optional(),
   monto_aprobado: numericFlexible.optional(),
   monto_aprobado_al_aprobar: numericFlexible.optional(),
   decision: z.string().nullable().optional(),
@@ -150,7 +152,18 @@ export const asesorLiderListPageInputSchema = z.object({
   etapa_exacta: z.number().int().min(1).max(12).nullable().optional(),
   fecha_desde: z.string().nullable().optional(),
   fecha_hasta: z.string().nullable().optional(),
-  ciclo: z.enum(["activo", "cerrado"]).nullable().optional(),
+  ciclo: z
+    .enum([
+      "activo",
+      "cerrado",
+      "en_mesa",
+      "rechazados_mesa",
+      "correccion_requerida",
+      "correccion_enviada",
+      "cancelados",
+    ])
+    .nullable()
+    .optional(),
 });
 
 export type AsesorLiderListPageInput = z.infer<
