@@ -5,7 +5,7 @@ import { describe, it } from "node:test";
 
 const root = process.cwd();
 const migration = readFileSync(
-  join(root, "supabase/migrations/20260918181500_inscripcion_cupo_4_septiembre.sql"),
+  join(root, "supabase/migrations/20260918181244_inscripcion_cupo_4_septiembre.sql"),
   "utf8",
 );
 const repoSource = readFileSync(
