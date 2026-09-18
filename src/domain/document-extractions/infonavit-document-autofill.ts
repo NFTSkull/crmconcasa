@@ -172,9 +172,11 @@ function parseIneValidity(text: string): string | null {
 function parseIneOcrNumber(text: string): string | null {
   const t = upper(text);
   const explicit = t.match(
-    /\b(?:OCR|0CR)\b[^0-9O]{0,20}([0-9O]{12,13})\b/,
+    /\b(?:OCR|0CR)\b[^0-9O]{0,20}((?:[0-9O][\s-]*){12,13})/i,
   );
-  return explicit?.[1]?.replace(/O/g, "0") ?? null;
+  if (!explicit?.[1]) return null;
+  const normalized = explicit[1].replace(/O/g, "0").replace(/[^0-9]/g, "");
+  return /^\d{12,13}$/.test(normalized) ? normalized : null;
 }
 
 function high(
@@ -232,13 +234,15 @@ function parseIneMrz(text: string): {
   } = {};
 
   const dataLine = lines.find((line) =>
-    /\d{6}[0-9A-Z]?[HM]\d{6}[0-9A-Z]?/.test(line),
+    /\d{6}[0-9A-Z]?[HMF]\d{6}[0-9A-Z]?/.test(line),
   );
   const data = dataLine?.match(
-    /\d{6}[0-9A-Z]?([HM])(\d{2})(\d{2})(\d{2})[0-9A-Z]?/,
+    /\d{6}[0-9A-Z]?([HMF])(\d{2})(\d{2})(\d{2})[0-9A-Z]?/,
   );
   if (data) {
-    out.genero = data[1] === "H" ? "M" : "F";
+    // MRZ internacional usa M/F. Conservamos H como tolerancia a credenciales/OCR
+    // que lo expresan en español.
+    out.genero = data[1] === "F" ? "F" : "M";
     const yy = Number(data[2]);
     const mm = Number(data[3]);
     const dd = Number(data[4]);
@@ -406,7 +410,8 @@ function parseIne(
         rule: "ine_mrz_gender",
       };
     }
-    if (!out.identificacionVigencia && mrz.vigencia) {
+    if (mrz.vigencia) {
+      // El reverso aporta día/mes/año; es más preciso que el año impreso al frente.
       out.identificacionVigencia = high(
         mrz.vigencia,
         "cliente_ine_reverso",
@@ -487,6 +492,12 @@ function isCfeCorporateLine(line: string): boolean {
 
 function municipalityFromText(raw: string): string | undefined {
   const comparable = alnumComparable(raw);
+  if (
+    comparable.includes("SANNICOLASDELOSG") ||
+    comparable.includes("SANNICOLASDELOSGNL")
+  ) {
+    return "SAN NICOLÁS DE LOS GARZA";
+  }
   for (const municipality of NL_MUNICIPALITIES) {
     if (comparable.includes(alnumComparable(municipality))) {
       return municipality === "ESCOBEDO"
@@ -538,11 +549,20 @@ function parseCfeAddressCandidate(text: string): {
 
   for (let i = 0; i < block.length; i++) {
     const line = block[i]!;
-    const street = line.match(
-      /^(.{3,60}?)\s+(?:#|NO\.?|NUM\.?|N[ÚU]MERO\s*)?([0-9]+[A-Z0-9-]*)\b/i,
+    const beforeCp = line
+      .replace(/\bC\.?\s*P\.?\s*[:\-]?\s*\d{5}\b.*$/i, "")
+      .trim();
+    const numberMatches = [
+      ...beforeCp.matchAll(/\b([0-9]+[A-Z0-9-]*)\b/g),
+    ];
+    const lastNumber = numberMatches.at(-1);
+    if (!lastNumber?.[1] || lastNumber.index == null) continue;
+
+    const candidate = compactLine(
+      beforeCp
+        .slice(0, lastNumber.index)
+        .replace(/\s+(?:#|NO\.?|NUM\.?|N[ÚU]MERO)\s*$/i, ""),
     );
-    if (!street?.[1] || !street?.[2]) continue;
-    const candidate = compactLine(street[1]);
     if (
       !/[A-ZÁÉÍÓÚÜÑ]/i.test(candidate) ||
       /^(MONTERREY|APODACA|GUADALUPE|JUAREZ|JUÁREZ)$/i.test(candidate)
@@ -550,7 +570,7 @@ function parseCfeAddressCandidate(text: string): {
       continue;
     }
     calle = candidate;
-    noExt = street[2];
+    noExt = lastNumber[1];
     streetIndex = i;
     break;
   }
@@ -579,7 +599,29 @@ function parseCfeAddressCandidate(text: string): {
   const col = addressJoined.match(
     /\b(?:COL(?:ONIA)?|FRACC(?:IONAMIENTO)?)\.?\s+([A-ZÁÉÍÓÚÜÑ0-9 .'-]{3,45}?)(?=\s+(?:C\.?P\.?|\d{5}\b|NUEVO\s+LE[OÓ]N|N\.?L\.?\b|MONTERREY|APODACA|GUADALUPE|GENERAL\s+ESCOBEDO|SAN\s+NICOL))/i,
   );
-  const colonia = col?.[1] ? compactLine(col[1]) : undefined;
+  let colonia = col?.[1] ? compactLine(col[1]) : undefined;
+  if (!colonia && streetIndex >= 0) {
+    for (const line of addressBlock.slice(1, 4)) {
+      const candidate = compactLine(
+        line.replace(/\bC\.?\s*P\.?\s*[:\-]?\s*\d{5}\b.*$/i, ""),
+      );
+      if (
+        !candidate ||
+        /\bNUEVO\s+LE[OÓ]N\b|\bN\.?\s*L\.?\b/i.test(candidate) ||
+        municipalityFromText(candidate) ||
+        /^\d{5}$/.test(candidate) ||
+        /\b(?:NO\.?\s*DE\s*SERVICIO|RMU|RPU)\b/i.test(candidate)
+      ) {
+        continue;
+      }
+      if (/[A-ZÁÉÍÓÚÜÑ]/i.test(candidate) && candidate.length <= 45) {
+        colonia = candidate
+          .replace(/\bRESID\.?$/i, "RESIDENCIAL")
+          .trim();
+        break;
+      }
+    }
+  }
 
   const noInt = addressJoined.match(
     /\b(?:INT(?:ERIOR)?|DEPTO|DEP(?:ARTAMENTO)?)\.?\s*[:#-]?\s*([A-Z0-9-]{1,10})\b/i,
@@ -829,6 +871,35 @@ export function buildInfonavitDocumentAutofillPatch(
     clabeDetection,
     issues,
   };
+}
+
+export function isIneValidityExpired(
+  raw: string | null | undefined,
+  now: Date = new Date(),
+): boolean | null {
+  const match = String(raw ?? "").trim().match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (!match) return null;
+  const day = Number(match[1]);
+  const month = Number(match[2]);
+  const year = Number(match[3]);
+  const expiresAt = new Date(Date.UTC(year, month - 1, day, 23, 59, 59, 999));
+  if (
+    expiresAt.getUTCFullYear() !== year ||
+    expiresAt.getUTCMonth() !== month - 1 ||
+    expiresAt.getUTCDate() !== day
+  ) {
+    return null;
+  }
+  const todayUtc = Date.UTC(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+    0,
+    0,
+    0,
+    0,
+  );
+  return expiresAt.getTime() < todayUtc;
 }
 
 export function comparableAutofillValue(raw: string | null | undefined): string {
