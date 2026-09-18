@@ -514,7 +514,6 @@ function parseAddressCandidate(text: string): {
 
   for (const line of block) {
     if (
-      /\b(?:C\.?P\.?\s*)?\d{5}\b/i.test(line) ||
       /CFE|SUMINISTRO|SERVICIO|TARIFA|MEDIDOR|TOTAL|PAGAR|CUENTA|RPU/i.test(
         line,
       )
