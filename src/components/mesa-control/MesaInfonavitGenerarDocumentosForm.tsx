@@ -1156,7 +1156,8 @@ export function MesaInfonavitGenerarDocumentosForm({
           <SelectField label="Estado civil" value={draft.cliente.estadoCivil} onChange={(v) => updateCliente("estadoCivil", v)} options={[{ value: "soltero", label: "Soltero(a)" }, { value: "casado", label: "Casado(a)" }]} />
           <SelectField label="Régimen matrimonial" value={draft.cliente.regimenMatrimonial} onChange={(v) => updateCliente("regimenMatrimonial", v)} options={[{ value: "separacion_bienes", label: "Separación de bienes" }, { value: "sociedad_conyugal", label: "Sociedad conyugal" }]} />
         </div>
-        (sourceContext === "identidad" || sourceContext === "rfc") ? (
+        </div>
+        {(sourceContext === "identidad" || sourceContext === "rfc") ? (
           <div className="xl:self-start" data-testid="infonavit-source-preview-identidad">
             <MesaInfonavitSourceDocumentPreview
               expedienteId={expedienteId}
@@ -1216,7 +1217,8 @@ export function MesaInfonavitGenerarDocumentosForm({
           <Field label="Municipio / alcaldía" value={draft.vivienda.municipio} onChange={(v) => updateVivienda("municipio", v.toUpperCase())} onFocusField={() => focusSource("viviendaMunicipio")} sourceLabel={autofillSources["vivienda.municipio"]} />
           <SelectField label="La vivienda es" value={draft.vivienda.tipoPropiedad} onChange={(v) => updateVivienda("tipoPropiedad", v)} onFocusField={() => focusSource("viviendaTipoPropiedad")} options={[{ value: "propia", label: "Propia" }, { value: "conyuge_concubino", label: "Cónyuge o concubino(a)" }, { value: "familiar", label: "Familiar" }]} />
         </div>
-        (sourceContext === "vivienda") ? (
+        </div>
+        {(sourceContext === "vivienda") ? (
           <div className="xl:self-start" data-testid="infonavit-source-preview-vivienda">
             <MesaInfonavitSourceDocumentPreview
               expedienteId={expedienteId}
@@ -1278,7 +1280,8 @@ export function MesaInfonavitGenerarDocumentosForm({
             maxLength={40}
           />
         </div>
-        (sourceContext === "clabe") ? (
+        </div>
+        {(sourceContext === "clabe") ? (
           <div className="xl:self-start" data-testid="infonavit-source-preview-clabe">
             <MesaInfonavitSourceDocumentPreview
               expedienteId={expedienteId}
