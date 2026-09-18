@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Button } from "@/components/ui/Button";
 import {
   isArchivoPreviewImageMime,
@@ -19,7 +19,18 @@ type MesaArchivoPreviewDialogProps = {
   onOpenInNewTab: (blobUrl: string) => void;
 };
 
-export function MesaArchivoPreviewDialog({
+export function MesaArchivoPreviewDialog(
+  props: MesaArchivoPreviewDialogProps,
+) {
+  return (
+    <MesaArchivoPreviewDialogInner
+      key={props.preview.url}
+      {...props}
+    />
+  );
+}
+
+function MesaArchivoPreviewDialogInner({
   preview,
   onClose,
   onOpenInNewTab,
@@ -27,11 +38,6 @@ export function MesaArchivoPreviewDialog({
   const [zoom, setZoom] = useState(1);
   const [rotation, setRotation] = useState(0);
   const isImage = isArchivoPreviewImageMime(preview.mime_type);
-
-  useEffect(() => {
-    setZoom(1);
-    setRotation(0);
-  }, [preview.url]);
 
   const changeZoom = (delta: number) => {
     setZoom((current) =>
