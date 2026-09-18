@@ -36,7 +36,8 @@
     "verify:p189-b4": "bash scripts/verify-p189-b4-worker-local.sh",
     "verify:p189-b41": "bash scripts/verify-p189-b41-auto-worker-local.sh",
     "verify:p189-b5": "bash scripts/verify-p189-b5-read-model-local.sh",
-    "verify:p189-b7": "bash scripts/verify-p189-b7-feature-flag-local.sh"
+    "verify:p189-b7": "bash scripts/verify-p189-b7-feature-flag-local.sh",
+    "postbuild": "tsx scripts/fiscal-real-e2e-preview.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.108.2",
