@@ -23,6 +23,10 @@ import {
   type OcrDocumentType,
 } from "@/domain/document-extractions/document-ocr-client";
 import {
+  getMesaInfonavitOcrCache,
+  type MesaInfonavitOcrCache,
+} from "@/domain/document-extractions/document-ocr-precompute-client";
+import {
   buildInfonavitDocumentAutofillPatch,
   comparableAutofillValue,
   type InfonavitDocumentTexts,
@@ -805,9 +809,28 @@ export function MesaInfonavitGenerarDocumentosForm({
           },
         ];
 
+        const cachedOcr: MesaInfonavitOcrCache =
+          autofillRetryNonce === 0
+            ? await getMesaInfonavitOcrCache(expedienteId)
+            : {};
+
         const results = await Promise.all(
           jobs.map(async (job) => {
             if (!job.doc) return null;
+
+            const cached = cachedOcr[job.type];
+            if (
+              cached?.status === "done" &&
+              cached.documentoId === job.doc.id &&
+              cached.text.trim()
+            ) {
+              return {
+                target: job.target,
+                text: cached.text,
+                error: null as string | null,
+              };
+            }
+
             try {
               const blob = await archivosRepo.getArchivoBlob(job.doc.id);
               if (cancelled) return null;
