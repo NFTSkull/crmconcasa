@@ -22,10 +22,14 @@ import { formatMontoMX } from "@/lib/monto";
 type EstadoMesaFilter =
   | ""
   | "en_mesa"
+  | "en_tramite"
   | "rechazados_mesa"
   | "correccion_requerida"
   | "correccion_enviada"
-  | "cancelados";
+  | "cancelados"
+  | "agendar_biometricos"
+  | "agendar_firma"
+  | "subir_acuse";
 
 const ESTADO_MESA_OPTIONS: ReadonlyArray<{
   value: EstadoMesaFilter;
@@ -33,11 +37,121 @@ const ESTADO_MESA_OPTIONS: ReadonlyArray<{
 }> = [
   { value: "", label: "Todos los estados" },
   { value: "en_mesa", label: "En Mesa" },
+  { value: "en_tramite", label: "En trámite" },
   { value: "rechazados_mesa", label: "Rechazados por Mesa" },
   { value: "correccion_requerida", label: "Necesita corrección" },
   { value: "correccion_enviada", label: "Corrección enviada" },
   { value: "cancelados", label: "Cancelados" },
+  { value: "agendar_biometricos", label: "Agendar biométricos" },
+  { value: "agendar_firma", label: "Agendar firma" },
+  { value: "subir_acuse", label: "Subir acuse" },
 ];
+
+const QUICK_FILTERS: ReadonlyArray<{
+  value: EstadoMesaFilter;
+  label: string;
+  countKey:
+    | "todos"
+    | "en_mesa"
+    | "en_tramite"
+    | "correccion_requerida"
+    | "correccion_enviada"
+    | "rechazados_mesa"
+    | "cancelados"
+    | "agendar_biometricos"
+    | "agendar_firma"
+    | "subir_acuse";
+  tone:
+    | "default"
+    | "blue"
+    | "amber"
+    | "indigo"
+    | "red"
+    | "slate"
+    | "violet"
+    | "orange";
+}> = [
+  { value: "", label: "Todos", countKey: "todos", tone: "default" },
+  { value: "en_mesa", label: "En Mesa", countKey: "en_mesa", tone: "blue" },
+  { value: "en_tramite", label: "En trámite", countKey: "en_tramite", tone: "blue" },
+  {
+    value: "correccion_requerida",
+    label: "Necesita corrección",
+    countKey: "correccion_requerida",
+    tone: "amber",
+  },
+  {
+    value: "correccion_enviada",
+    label: "Corrección enviada",
+    countKey: "correccion_enviada",
+    tone: "indigo",
+  },
+  {
+    value: "rechazados_mesa",
+    label: "Rechazados por Mesa",
+    countKey: "rechazados_mesa",
+    tone: "red",
+  },
+  { value: "cancelados", label: "Cancelados", countKey: "cancelados", tone: "slate" },
+  {
+    value: "agendar_biometricos",
+    label: "Agendar biométricos",
+    countKey: "agendar_biometricos",
+    tone: "indigo",
+  },
+  {
+    value: "agendar_firma",
+    label: "Agendar firma",
+    countKey: "agendar_firma",
+    tone: "violet",
+  },
+  {
+    value: "subir_acuse",
+    label: "Subir acuse",
+    countKey: "subir_acuse",
+    tone: "orange",
+  },
+];
+
+function quickFilterClassName(
+  tone: (typeof QUICK_FILTERS)[number]["tone"],
+  selected: boolean,
+  count: number,
+): string {
+  const base =
+    "inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1.5 text-xs font-medium transition-colors";
+  if (selected) {
+    if (tone === "red") return `${base} border-red-700 bg-red-600 text-white shadow-sm`;
+    if (tone === "amber") return `${base} border-amber-700 bg-amber-600 text-white shadow-sm`;
+    if (tone === "indigo") return `${base} border-indigo-700 bg-indigo-600 text-white shadow-sm`;
+    if (tone === "violet") return `${base} border-violet-700 bg-violet-600 text-white shadow-sm`;
+    if (tone === "orange") return `${base} border-orange-700 bg-orange-600 text-white shadow-sm`;
+    if (tone === "slate") return `${base} border-slate-700 bg-slate-600 text-white shadow-sm`;
+    return `${base} border-blue-700 bg-blue-600 text-white shadow-sm`;
+  }
+  if (tone === "red" && count > 0) {
+    return `${base} border-red-300 bg-red-50 text-red-900 hover:bg-red-100`;
+  }
+  if (tone === "amber" && count > 0) {
+    return `${base} border-amber-300 bg-amber-50 text-amber-950 hover:bg-amber-100`;
+  }
+  if (tone === "indigo" && count > 0) {
+    return `${base} border-indigo-300 bg-indigo-50 text-indigo-900 hover:bg-indigo-100`;
+  }
+  if (tone === "violet" && count > 0) {
+    return `${base} border-violet-300 bg-violet-50 text-violet-900 hover:bg-violet-100`;
+  }
+  if (tone === "orange" && count > 0) {
+    return `${base} border-orange-300 bg-orange-50 text-orange-900 hover:bg-orange-100`;
+  }
+  if (tone === "slate" && count > 0) {
+    return `${base} border-slate-300 bg-slate-100 text-slate-900 hover:bg-slate-200`;
+  }
+  if (tone === "blue" && count > 0) {
+    return `${base} border-blue-300 bg-blue-50 text-blue-900 hover:bg-blue-100`;
+  }
+  return `${base} border-gray-200 bg-gray-50 text-gray-700 hover:bg-gray-100`;
+}
 
 const ETAPA_OPTIONS = [
   { value: "", label: "Todas las etapas" },
@@ -511,6 +625,64 @@ export function AsesorLiderDashboard({
             />
           </div>
         </div>
+
+        <section
+          className="rounded-xl border border-gray-200 bg-white p-3 shadow-sm"
+          aria-label="Filtros rápidos del equipo"
+        >
+          <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900">
+                Filtros rápidos
+              </h3>
+              <p className="text-xs text-gray-500">
+                Mismo control operativo del inbox de asesores; respeta asesor y rango de fechas.
+              </p>
+            </div>
+            {estadoMesa ? (
+              <button
+                type="button"
+                className="text-xs font-medium text-blue-700 hover:underline"
+                onClick={() => {
+                  setEstadoMesa("");
+                  setPage(1);
+                }}
+              >
+                Limpiar filtro rápido
+              </button>
+            ) : null}
+          </div>
+          <div className="flex flex-wrap gap-1.5">
+            {QUICK_FILTERS.map((filter) => {
+              const count =
+                dashboard?.quick_counts?.[filter.countKey] ??
+                (filter.countKey === "todos" ? dashboard?.total : undefined) ??
+                0;
+              const selected = estadoMesa === filter.value;
+              return (
+                <button
+                  key={filter.value || "todos"}
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() => {
+                    setEstadoMesa(filter.value);
+                    setPage(1);
+                  }}
+                  className={quickFilterClassName(filter.tone, selected, count)}
+                >
+                  <span>{filter.label}</span>
+                  <span
+                    className={`inline-flex min-w-5 items-center justify-center rounded-full px-1 text-[10px] font-bold tabular-nums ${
+                      selected ? "bg-white/20 text-white" : "bg-white text-current"
+                    }`}
+                  >
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        </section>
 
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
           <div className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">

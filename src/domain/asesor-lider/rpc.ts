@@ -72,11 +72,25 @@ export const asesorLiderEtapaBucketSchema = z.object({
   }, z.number().nonnegative()),
 });
 
+export const asesorLiderQuickCountsSchema = z.object({
+  todos: countFlexible,
+  en_mesa: countFlexible,
+  en_tramite: countFlexible,
+  correccion_requerida: countFlexible,
+  correccion_enviada: countFlexible,
+  rechazados_mesa: countFlexible,
+  cancelados: countFlexible,
+  agendar_biometricos: countFlexible,
+  agendar_firma: countFlexible,
+  subir_acuse: countFlexible,
+});
+
 export const asesorLiderDashboardSchema = z.object({
   activos: countFlexible,
   enviados: countFlexible.optional().default(0),
   cerrados: countFlexible,
   total: countFlexible,
+  quick_counts: asesorLiderQuickCountsSchema.optional(),
   monto_total_aprobado: z.preprocess((v) => {
     if (typeof v === "number") return v;
     if (typeof v === "string" && v.trim() !== "") {
@@ -157,10 +171,14 @@ export const asesorLiderListPageInputSchema = z.object({
       "activo",
       "cerrado",
       "en_mesa",
+      "en_tramite",
       "rechazados_mesa",
       "correccion_requerida",
       "correccion_enviada",
       "cancelados",
+      "agendar_biometricos",
+      "agendar_firma",
+      "subir_acuse",
     ])
     .nullable()
     .optional(),
