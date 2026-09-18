@@ -53,7 +53,7 @@ export type MesaInfonavitSourceDocumentPreviewProps = Readonly<{
   /** Permite que botones externos pidan INE frente o reverso. */
   requestedIneSide?: "frente" | "reverso" | null;
   /** CLABE ya aplicada por el autofill OCR; evita que el panel shadow contradiga al formulario. */
-  clabeAutofillValue?: string | null;
+  clabeAppliedValue?: string | null;
 }>;
 
 type DocIndex = Readonly<{
@@ -76,7 +76,7 @@ export function MesaInfonavitSourceDocumentPreview({
   className,
   forceOpenSignal,
   requestedIneSide,
-  clabeAutofillValue,
+  clabeAppliedValue,
 }: MesaInfonavitSourceDocumentPreviewProps) {
   const archivosRepo = useExpedienteArchivosRepo();
   const [index, setIndex] = useState<DocIndex>({
@@ -355,7 +355,7 @@ export function MesaInfonavitSourceDocumentPreview({
   });
 
   const appliedClabeDetection = useMemo<ClabeBankStatementDetection | null>(() => {
-    const normalized = normalizeClabeMexico(clabeAutofillValue ?? "");
+    const normalized = normalizeClabeMexico(clabeAppliedValue ?? "");
     if (!normalized || !isValidClabeMexico(normalized)) return null;
     return {
       status: "detected",
@@ -365,7 +365,7 @@ export function MesaInfonavitSourceDocumentPreview({
       confidence: "high",
       reason: "clabe_label_nearby",
     };
-  }, [clabeAutofillValue]);
+  }, [clabeAppliedValue]);
 
   const visibleClabeDetection =
     appliedClabeDetection ?? shadowClabeDetection;
