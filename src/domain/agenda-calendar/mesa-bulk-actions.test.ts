@@ -224,6 +224,19 @@ test("Avance — firmas 9→11 elegible aunque Drive ya esté validado", () => {
   assert.equal(isBulkSelectable(e, ROLE, NOW), true);
 });
 
+test("Avance — biométricos ya superados no usa cita histórica para avanzar", () => {
+  const r = getBulkAdvanceEligibility(
+    entry({ bookingId: "b1", kind: "biometricos", etapaActual: 9 }),
+    ROLE,
+    NOW,
+  );
+  assert.equal(r.eligible, false);
+  assert.equal(
+    r.reason,
+    "La cita de biométricos ya no corresponde a la etapa actual",
+  );
+});
+
 test("Avance — etapa incompatible", () => {
   const r = getBulkAdvanceEligibility(
     entry({ bookingId: "b1", kind: "biometricos", etapaActual: 6 }),
@@ -231,7 +244,43 @@ test("Avance — etapa incompatible", () => {
     NOW,
   );
   assert.equal(r.eligible, false);
-  assert.equal(r.reason, "Etapa no compatible");
+  assert.equal(
+    r.reason,
+    "La cita de biométricos ya no corresponde a la etapa actual",
+  );
+});
+
+test("Avance — rechazo operativo sigue protegido y explica el bloqueo", () => {
+  const r = getBulkAdvanceEligibility(
+    entry({
+      bookingId: "b-rechazado",
+      kind: "biometricos",
+      etapaActual: 4,
+      subestado: "rechazado",
+      driveValidated: true,
+    }),
+    "mesa_control_admin",
+    NOW,
+  );
+  assert.equal(r.eligible, false);
+  assert.equal(
+    r.reason,
+    "Rechazado por Mesa: requiere corrección antes de avanzar",
+  );
+  assert.match(
+    formatBulkNotSelectableReason(
+      entry({
+        bookingId: "b-rechazado",
+        kind: "biometricos",
+        etapaActual: 4,
+        subestado: "rechazado",
+        driveValidated: true,
+      }),
+      "mesa_control_admin",
+      NOW,
+    ),
+    /Rechazado por Mesa/,
+  );
 });
 
 test("Avance — booking cancelado", () => {
@@ -364,6 +413,56 @@ test("headerState indeterminado / all / none", () => {
 
   const all = buildBulkSelectionSummary(rows, new Set(["a", "b", "c"]), ROLE, NOW);
   assert.equal(all.headerState, "all");
+});
+
+test("resumen distingue elegibles visibles de seleccionados", () => {
+  const rows = [
+    entry({
+      bookingId: "ok-1",
+      expedienteId: "exp-1",
+      etapaActual: 4,
+      subestado: "en_proceso",
+      driveValidated: true,
+    }),
+    entry({
+      bookingId: "ok-2",
+      expedienteId: "exp-2",
+      etapaActual: 4,
+      subestado: "en_proceso",
+      driveValidated: false,
+    }),
+    entry({
+      bookingId: "rechazado",
+      expedienteId: "exp-3",
+      etapaActual: 4,
+      subestado: "rechazado",
+      driveValidated: true,
+    }),
+    entry({
+      bookingId: "historico",
+      expedienteId: "exp-4",
+      etapaActual: 9,
+      subestado: "en_proceso",
+      driveValidated: true,
+    }),
+  ];
+
+  const none = buildBulkSelectionSummary(rows, new Set(), "mesa_control_admin", NOW);
+  assert.equal(none.eligibleAdvanceVisibleExpedienteCount, 2);
+  assert.equal(none.eligibleDriveVisibleCount, 1);
+  assert.equal(none.eligibleVisibleCount, 2);
+  assert.equal(none.eligibleAdvanceExpedienteCount, 0);
+  assert.equal(none.eligibleDriveCount, 0);
+
+  const selected = buildBulkSelectionSummary(
+    rows,
+    new Set(["ok-1", "ok-2"]),
+    "mesa_control_admin",
+    NOW,
+  );
+  assert.equal(selected.eligibleAdvanceVisibleExpedienteCount, 2);
+  assert.equal(selected.eligibleAdvanceExpedienteCount, 2);
+  assert.equal(selected.eligibleDriveCount, 1);
 });
 
 test("refetch — elimina IDs ausentes e inelegibles", () => {
