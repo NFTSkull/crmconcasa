@@ -5,6 +5,9 @@ on:
     paths:
       - "src/components/mesa-control/MesaInfonavitGenerarDocumentosForm.tsx"
       - "src/components/mesa-control/MesaInfonavitSourceDocumentPreview.tsx"
+      - "src/components/mesa-control/MesaClienteDatosReadOnlySection.tsx"
+      - "src/components/mesa-control/MesaIneValidityGuard.tsx"
+      - "src/components/mesa-control/MesaArchivoPreviewDialog.tsx"
       - "src/domain/document-extractions/**"
       - "services/document-ocr/**"
       - "package.json"
@@ -42,7 +45,7 @@ jobs:
             exit 0
           fi
 
-          if grep -E 'src/(components/mesa-control/MesaInfonavitGenerarDocumentosForm\.tsx|components/mesa-control/MesaInfonavitSourceDocumentPreview\.tsx|domain/document-extractions/document-ocr-client\.ts|domain/document-extractions/infonavit-document-autofill(\.test)?\.ts|domain/document-extractions/infonavit-autofill-merge(\.test)?\.ts)' /tmp/p4c-typecheck.log; then
+          if grep -E 'src/(components/mesa-control/MesaInfonavitGenerarDocumentosForm\.tsx|components/mesa-control/MesaInfonavitSourceDocumentPreview\.tsx|components/mesa-control/MesaClienteDatosReadOnlySection\.tsx|components/mesa-control/MesaIneValidityGuard\.tsx|components/mesa-control/MesaArchivoPreviewDialog\.tsx|domain/document-extractions/document-ocr-client\.ts|domain/document-extractions/infonavit-document-autofill(\.test)?\.ts|domain/document-extractions/infonavit-autofill-merge(\.test)?\.ts|domain/document-extractions/ine-validity(\.test)?\.ts|domain/document-extractions/document-ocr-precompute\.contract\.test\.ts)' /tmp/p4c-typecheck.log; then
             echo "TypeScript error attributable to P4C files."
             exit 1
           fi
@@ -53,11 +56,17 @@ jobs:
           npx eslint
           src/components/mesa-control/MesaInfonavitGenerarDocumentosForm.tsx
           src/components/mesa-control/MesaInfonavitSourceDocumentPreview.tsx
+          src/components/mesa-control/MesaClienteDatosReadOnlySection.tsx
+          src/components/mesa-control/MesaIneValidityGuard.tsx
+          src/components/mesa-control/MesaArchivoPreviewDialog.tsx
           src/domain/document-extractions/document-ocr-client.ts
           src/domain/document-extractions/infonavit-document-autofill.ts
           src/domain/document-extractions/infonavit-document-autofill.test.ts
           src/domain/document-extractions/infonavit-autofill-merge.ts
           src/domain/document-extractions/infonavit-autofill-merge.test.ts
+          src/domain/document-extractions/ine-validity.ts
+          src/domain/document-extractions/ine-validity.test.ts
+          src/domain/document-extractions/document-ocr-precompute.contract.test.ts
 
   ocr:
     runs-on: ubuntu-latest
