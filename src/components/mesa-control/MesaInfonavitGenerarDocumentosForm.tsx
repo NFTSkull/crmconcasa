@@ -549,7 +549,6 @@ export function MesaInfonavitGenerarDocumentosForm({
   const [localSaveState, setLocalSaveState] = useState<LocalSaveState>("idle");
   const [sourceContext, setSourceContext] =
     useState<InfonavitSourcePreviewContext>("identidad");
-  const [sourceOpenSignal, setSourceOpenSignal] = useState(0);
   const [requestedIneSide, setRequestedIneSide] =
     useState<"frente" | "reverso" | null>("frente");
   const [autofillState, setAutofillState] =
@@ -576,7 +575,6 @@ export function MesaInfonavitGenerarDocumentosForm({
     ) => {
       setSourceContext(context);
       setRequestedIneSide(ineSide ?? null);
-      setSourceOpenSignal((value) => value + 1);
     },
     [],
   );
@@ -1021,10 +1019,9 @@ export function MesaInfonavitGenerarDocumentosForm({
 
   return (
     <div
-      className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(300px,0.8fr)] xl:items-start"
+      className="space-y-5"
       data-testid="mesa-infonavit-generar-layout"
     >
-      <div className="space-y-5">
       <div className="rounded-md border border-violet-200 bg-violet-50 px-3 py-2 text-xs text-violet-950">
         <p>
           Los campos parten de Datos Generales. Los cambios de esta pestaña solo afectan la nueva
@@ -1108,7 +1105,15 @@ export function MesaInfonavitGenerarDocumentosForm({
         </div>
       ) : null}
 
-      <div className="space-y-3">
+      <div
+        className={
+          (sourceContext === "identidad" || sourceContext === "rfc")
+            ? "grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(300px,0.8fr)] xl:items-start"
+            : ""
+        }
+        data-testid="infonavit-source-section-identidad"
+      >
+        <div className="space-y-3">
         <SectionTitle
           actions={
             <>
@@ -1151,6 +1156,16 @@ export function MesaInfonavitGenerarDocumentosForm({
           <SelectField label="Estado civil" value={draft.cliente.estadoCivil} onChange={(v) => updateCliente("estadoCivil", v)} options={[{ value: "soltero", label: "Soltero(a)" }, { value: "casado", label: "Casado(a)" }]} />
           <SelectField label="Régimen matrimonial" value={draft.cliente.regimenMatrimonial} onChange={(v) => updateCliente("regimenMatrimonial", v)} options={[{ value: "separacion_bienes", label: "Separación de bienes" }, { value: "sociedad_conyugal", label: "Sociedad conyugal" }]} />
         </div>
+        (sourceContext === "identidad" || sourceContext === "rfc") ? (
+          <div className="xl:self-start" data-testid="infonavit-source-preview-identidad">
+            <MesaInfonavitSourceDocumentPreview
+              expedienteId={expedienteId}
+              context={sourceContext}
+              requestedIneSide={requestedIneSide}
+              className="max-h-[min(70vh,720px)]"
+            />
+          </div>
+        ) : null}
       </div>
 
       <div className="space-y-3">
@@ -1166,7 +1181,15 @@ export function MesaInfonavitGenerarDocumentosForm({
         </div>
       </div>
 
-      <div className="space-y-3">
+      <div
+        className={
+          (sourceContext === "vivienda")
+            ? "grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(300px,0.8fr)] xl:items-start"
+            : ""
+        }
+        data-testid="infonavit-source-section-vivienda"
+      >
+        <div className="space-y-3">
         <SectionTitle
           actions={
             <Button
@@ -1193,9 +1216,27 @@ export function MesaInfonavitGenerarDocumentosForm({
           <Field label="Municipio / alcaldía" value={draft.vivienda.municipio} onChange={(v) => updateVivienda("municipio", v.toUpperCase())} onFocusField={() => focusSource("viviendaMunicipio")} sourceLabel={autofillSources["vivienda.municipio"]} />
           <SelectField label="La vivienda es" value={draft.vivienda.tipoPropiedad} onChange={(v) => updateVivienda("tipoPropiedad", v)} onFocusField={() => focusSource("viviendaTipoPropiedad")} options={[{ value: "propia", label: "Propia" }, { value: "conyuge_concubino", label: "Cónyuge o concubino(a)" }, { value: "familiar", label: "Familiar" }]} />
         </div>
+        (sourceContext === "vivienda") ? (
+          <div className="xl:self-start" data-testid="infonavit-source-preview-vivienda">
+            <MesaInfonavitSourceDocumentPreview
+              expedienteId={expedienteId}
+              context={sourceContext}
+              requestedIneSide={requestedIneSide}
+              className="max-h-[min(70vh,720px)]"
+            />
+          </div>
+        ) : null}
       </div>
 
-      <div className="space-y-3">
+      <div
+        className={
+          (sourceContext === "clabe")
+            ? "grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(300px,0.8fr)] xl:items-start"
+            : ""
+        }
+        data-testid="infonavit-source-section-clabe"
+      >
+        <div className="space-y-3">
         <SectionTitle
           actions={
             <Button
@@ -1237,6 +1278,16 @@ export function MesaInfonavitGenerarDocumentosForm({
             maxLength={40}
           />
         </div>
+        (sourceContext === "clabe") ? (
+          <div className="xl:self-start" data-testid="infonavit-source-preview-clabe">
+            <MesaInfonavitSourceDocumentPreview
+              expedienteId={expedienteId}
+              context={sourceContext}
+              requestedIneSide={requestedIneSide}
+              className="max-h-[min(70vh,720px)]"
+            />
+          </div>
+        ) : null}
       </div>
 
       <div className="space-y-3">
@@ -1307,17 +1358,6 @@ export function MesaInfonavitGenerarDocumentosForm({
         >
           Recargar desde Datos Generales
         </Button>
-      </div>
-      </div>
-
-      <div className="xl:sticky xl:top-20">
-        <MesaInfonavitSourceDocumentPreview
-          expedienteId={expedienteId}
-          context={sourceContext}
-          forceOpenSignal={sourceOpenSignal}
-          requestedIneSide={requestedIneSide}
-          className="max-h-[min(70vh,720px)] xl:max-h-[calc(100vh-6rem)]"
-        />
       </div>
     </div>
   );
