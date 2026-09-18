@@ -13,6 +13,23 @@ import {
   type InfonavitSourceFieldKey,
   type InfonavitSourcePreviewContext,
 } from "@/domain/document-extractions/infonavit-source-preview";
+import {
+  rowMasRecientePorTipoDocumento,
+  useExpedienteArchivosRepo,
+  type ExpedienteArchivoListItem,
+} from "@/domain/expediente-archivos";
+import {
+  extractDocumentTextViaOcr,
+  type OcrDocumentType,
+} from "@/domain/document-extractions/document-ocr-client";
+import {
+  buildInfonavitDocumentAutofillPatch,
+  type InfonavitDocumentTexts,
+} from "@/domain/document-extractions/infonavit-document-autofill";
+import {
+  mergeInfonavitDocumentAutofill,
+  type InfonavitAutofillConflict,
+} from "@/domain/document-extractions/infonavit-autofill-merge";
 
 export const MESA_CLABE_DERECHOHABIENTE_INVALID_MSG =
   "La CLABE del derechohabiente no es válida. Verifica los 18 dígitos.";
@@ -145,6 +162,24 @@ type StoredMesaInfonavitDraft = Readonly<{
 }>;
 
 type LocalSaveState = "idle" | "restored" | "saved";
+
+type DocumentAutofillStatus = "idle" | "reading" | "done" | "partial" | "error";
+
+type DocumentAutofillState = Readonly<{
+  status: DocumentAutofillStatus;
+  applied: number;
+  confirmed: number;
+  conflicts: number;
+  errors: string[];
+}>;
+
+const EMPTY_AUTOFILL_STATE: DocumentAutofillState = {
+  status: "idle",
+  applied: 0,
+  confirmed: 0,
+  conflicts: 0,
+  errors: [],
+};
 
 const MESA_INFONAVIT_LOCAL_DRAFT_VERSION = 1 as const;
 const MESA_INFONAVIT_LOCAL_DRAFT_PREFIX = "concasa:mesa-infonavit-draft:v1:";
@@ -380,6 +415,7 @@ type FieldProps = Readonly<{
   required?: boolean;
   maxLength?: number;
   onFocusField?: () => void;
+  sourceLabel?: string;
 }>;
 
 function Field({
@@ -391,10 +427,18 @@ function Field({
   required,
   maxLength,
   onFocusField,
+  sourceLabel,
 }: FieldProps) {
   return (
     <label className="block text-xs font-medium text-gray-700">
-      <span>{label}</span>
+      <span className="flex items-center gap-1.5">
+        <span>{label}</span>
+        {sourceLabel ? (
+          <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">
+            {sourceLabel}
+          </span>
+        ) : null}
+      </span>
       <input
         type={type}
         value={value ?? ""}
@@ -415,6 +459,7 @@ type SelectFieldProps = Readonly<{
   onChange: (value: string) => void;
   options: ReadonlyArray<Readonly<{ value: string; label: string }>>;
   onFocusField?: () => void;
+  sourceLabel?: string;
 }>;
 
 function SelectField({
@@ -423,10 +468,18 @@ function SelectField({
   onChange,
   options,
   onFocusField,
+  sourceLabel,
 }: SelectFieldProps) {
   return (
     <label className="block text-xs font-medium text-gray-700">
-      <span>{label}</span>
+      <span className="flex items-center gap-1.5">
+        <span>{label}</span>
+        {sourceLabel ? (
+          <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">
+            {sourceLabel}
+          </span>
+        ) : null}
+      </span>
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
@@ -444,11 +497,15 @@ function SelectField({
   );
 }
 
-function SectionTitle({ children }: Readonly<{ children: React.ReactNode }>) {
+function SectionTitle({
+  children,
+  actions,
+}: Readonly<{ children: React.ReactNode; actions?: React.ReactNode }>) {
   return (
-    <h4 className="border-b border-gray-200 pb-1 text-sm font-semibold text-gray-900">
-      {children}
-    </h4>
+    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 pb-1">
+      <h4 className="text-sm font-semibold text-gray-900">{children}</h4>
+      {actions ? <div className="flex flex-wrap items-center gap-1">{actions}</div> : null}
+    </div>
   );
 }
 
@@ -465,10 +522,44 @@ export function MesaInfonavitGenerarDocumentosForm({
   const [localSaveState, setLocalSaveState] = useState<LocalSaveState>("idle");
   const [sourceContext, setSourceContext] =
     useState<InfonavitSourcePreviewContext>("identidad");
+  const [sourceOpenSignal, setSourceOpenSignal] = useState(0);
+  const [requestedIneSide, setRequestedIneSide] =
+    useState<"frente" | "reverso" | null>("frente");
+  const [autofillState, setAutofillState] =
+    useState<DocumentAutofillState>(EMPTY_AUTOFILL_STATE);
+  const [autofillSources, setAutofillSources] =
+    useState<Record<string, string>>({});
+  const [autofillConflicts, setAutofillConflicts] =
+    useState<InfonavitAutofillConflict[]>([]);
+  const [autofillRetryNonce, setAutofillRetryNonce] = useState(0);
+  const archivosRepo = useExpedienteArchivosRepo();
   const hydratedExpedienteRef = useRef<string | null>(null);
+  const draftRef = useRef<MesaInfonavitDocumentDraft | null>(null);
+  const autofillRunKeyRef = useRef<string | null>(null);
 
   const focusSource = useCallback((field: InfonavitSourceFieldKey) => {
     setSourceContext(resolveInfonavitSourcePreviewContext(field));
+  }, []);
+
+  const openSourceDocument = useCallback(
+    (
+      context: InfonavitSourcePreviewContext,
+      ineSide?: "frente" | "reverso",
+    ) => {
+      setSourceContext(context);
+      setRequestedIneSide(ineSide ?? null);
+      setSourceOpenSignal((value) => value + 1);
+    },
+    [],
+  );
+
+  const clearAutofillSource = useCallback((field: string) => {
+    setAutofillSources((prev) => {
+      if (!(field in prev)) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
   }, []);
 
   const loadDraft = useCallback(async (options?: { forceServer?: boolean }) => {
@@ -521,6 +612,158 @@ export function MesaInfonavitGenerarDocumentosForm({
   }, [loadDraft]);
 
   useEffect(() => {
+    draftRef.current = draft;
+  }, [draft]);
+
+  const draftReady =
+    draft != null && hydratedExpedienteRef.current === expedienteId;
+
+  useEffect(() => {
+    if (!draftReady) return;
+
+    let cancelled = false;
+    const controller = new AbortController();
+
+    void (async () => {
+      try {
+        const list = await archivosRepo.listByExpediente(expedienteId);
+        if (cancelled) return;
+
+        const pick = (
+          type: OcrDocumentType,
+        ): ExpedienteArchivoListItem | null =>
+          rowMasRecientePorTipoDocumento(list, type) ?? null;
+
+        const docs = {
+          cliente_ine_frente: pick("cliente_ine_frente"),
+          cliente_ine_reverso: pick("cliente_ine_reverso"),
+          cliente_comprobante_domicilio: pick(
+            "cliente_comprobante_domicilio",
+          ),
+          cliente_estado_cuenta: pick("cliente_estado_cuenta"),
+        } satisfies Record<OcrDocumentType, ExpedienteArchivoListItem | null>;
+
+        const runKey = Object.entries(docs)
+          .map(([type, doc]) => `${type}:${doc?.id ?? "none"}`)
+          .join("|");
+
+        if (autofillRunKeyRef.current === runKey) return;
+
+        setAutofillState({
+          status: "reading",
+          applied: 0,
+          confirmed: 0,
+          conflicts: 0,
+          errors: [],
+        });
+
+        const texts: {
+          ineFrente?: string;
+          ineReverso?: string;
+          comprobanteDomicilio?: string;
+          estadoCuenta?: string;
+        } = {};
+        const errors: string[] = [];
+
+        const jobs: Array<{
+          type: OcrDocumentType;
+          target: keyof InfonavitDocumentTexts;
+          doc: ExpedienteArchivoListItem | null;
+        }> = [
+          {
+            type: "cliente_ine_frente",
+            target: "ineFrente",
+            doc: docs.cliente_ine_frente,
+          },
+          {
+            type: "cliente_ine_reverso",
+            target: "ineReverso",
+            doc: docs.cliente_ine_reverso,
+          },
+          {
+            type: "cliente_comprobante_domicilio",
+            target: "comprobanteDomicilio",
+            doc: docs.cliente_comprobante_domicilio,
+          },
+          {
+            type: "cliente_estado_cuenta",
+            target: "estadoCuenta",
+            doc: docs.cliente_estado_cuenta,
+          },
+        ];
+
+        for (const job of jobs) {
+          if (!job.doc || cancelled) continue;
+          try {
+            const blob = await archivosRepo.getArchivoBlob(job.doc.id);
+            if (cancelled) return;
+            const extracted = await extractDocumentTextViaOcr({
+              blob,
+              documentType: job.type,
+              filename: job.doc.nombre_original,
+              signal: controller.signal,
+            });
+            texts[job.target] = extracted.text;
+          } catch (error) {
+            if (controller.signal.aborted) return;
+            errors.push(
+              errorMessage(
+                error,
+                `No se pudo leer ${job.type.replaceAll("_", " ")}.`,
+              ),
+            );
+          }
+        }
+
+        if (cancelled) return;
+
+        const patch = buildInfonavitDocumentAutofillPatch(texts);
+        const current = draftRef.current;
+        if (!current) return;
+
+        const merged = mergeInfonavitDocumentAutofill(current, patch);
+        if (cancelled) return;
+
+        setDraft(merged.draft);
+        setAutofillSources({ ...merged.sourceByField });
+        setAutofillConflicts(merged.conflicts);
+        setAutofillState({
+          status: errors.length > 0 ? "partial" : "done",
+          applied: merged.applied.length,
+          confirmed: merged.confirmed.length,
+          conflicts: merged.conflicts.length,
+          errors,
+        });
+        autofillRunKeyRef.current = runKey;
+      } catch (error) {
+        if (cancelled || controller.signal.aborted) return;
+        setAutofillState({
+          status: "error",
+          applied: 0,
+          confirmed: 0,
+          conflicts: 0,
+          errors: [
+            errorMessage(
+              error,
+              "No se pudo iniciar la lectura automática de documentos.",
+            ),
+          ],
+        });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [
+    archivosRepo,
+    autofillRetryNonce,
+    draftReady,
+    expedienteId,
+  ]);
+
+  useEffect(() => {
     if (!draft || hydratedExpedienteRef.current !== expedienteId) return;
     const timer = window.setTimeout(() => {
       if (writeLocalDraft(expedienteId, draft)) {
@@ -547,6 +790,7 @@ export function MesaInfonavitGenerarDocumentosForm({
   }, [draft]);
 
   const updateCliente = <K extends keyof ClienteDraft>(key: K, value: ClienteDraft[K]) => {
+    clearAutofillSource(`cliente.${String(key)}`);
     setDraft((prev) =>
       prev ? { ...prev, cliente: { ...prev.cliente, [key]: value } } : prev,
     );
@@ -555,6 +799,7 @@ export function MesaInfonavitGenerarDocumentosForm({
     key: K,
     value: IdentificacionDraft[K],
   ) => {
+    clearAutofillSource(`cliente.identificacion.${String(key)}`);
     setDraft((prev) =>
       prev
         ? {
@@ -573,6 +818,7 @@ export function MesaInfonavitGenerarDocumentosForm({
     );
   };
   const updateVivienda = <K extends keyof ViviendaDraft>(key: K, value: ViviendaDraft[K]) => {
+    clearAutofillSource(`vivienda.${String(key)}`);
     setDraft((prev) =>
       prev ? { ...prev, vivienda: { ...prev.vivienda, [key]: value } } : prev,
     );
@@ -583,6 +829,7 @@ export function MesaInfonavitGenerarDocumentosForm({
     );
   };
   const updateDestinoClabeDerechohabiente = (value: string) => {
+    clearAutofillSource("destinoRecursos.clabeDerechohabiente");
     setDraft((prev) =>
       prev
         ? {
