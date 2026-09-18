@@ -33,11 +33,25 @@ export type AsesorLiderEtapaBucket = Readonly<{
   monto: number;
 }>;
 
+export type AsesorLiderQuickCounts = Readonly<{
+  todos: number;
+  en_mesa: number;
+  en_tramite: number;
+  correccion_requerida: number;
+  correccion_enviada: number;
+  rechazados_mesa: number;
+  cancelados: number;
+  agendar_biometricos: number;
+  agendar_firma: number;
+  subir_acuse: number;
+}>;
+
 export type AsesorLiderDashboard = Readonly<{
   activos: number;
   enviados?: number;
   cerrados: number;
   total: number;
+  quick_counts?: AsesorLiderQuickCounts;
   monto_total_aprobado: number;
   by_etapa: readonly AsesorLiderEtapaBucket[];
   filters: Readonly<{
@@ -90,10 +104,14 @@ export type AsesorLiderDashboardFilters = Readonly<{
     | "activo"
     | "cerrado"
     | "en_mesa"
+    | "en_tramite"
     | "rechazados_mesa"
     | "correccion_requerida"
     | "correccion_enviada"
     | "cancelados"
+    | "agendar_biometricos"
+    | "agendar_firma"
+    | "subir_acuse"
     | null;
   page: number;
   pageSize: number;
