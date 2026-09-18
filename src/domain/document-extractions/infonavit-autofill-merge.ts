@@ -101,12 +101,17 @@ export function mergeInfonavitDocumentAutofill<T extends InfonavitAutofillTarget
       return;
     }
 
+    // En captura INFONAVIT el documento fuente es autoridad para estos campos.
+    // Conservamos la diferencia para auditoría/UX, pero aplicamos el valor detectado.
     conflicts.push({
       field,
       current,
       detected,
       sourceLabel,
     });
+    assign(detected);
+    applied.push(field);
+    sourceByField[field] = sourceLabel;
   };
 
   merge("cliente.nombres", next.cliente.nombres, patch.cliente.nombres, (v) => {
