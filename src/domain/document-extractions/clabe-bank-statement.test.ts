@@ -10,6 +10,7 @@ import {
   detectClabeUnsupportedForMime,
   findBoundedClabeRawSpans,
   isPdfMimeType,
+  resolveVisibleClabeDetection,
   shouldRunClabeShadowDetection,
 } from "./clabe-bank-statement";
 import { isValidClabeMexico } from "@/domain/expediente-cliente-datos/clabe-mexico";
@@ -201,6 +202,26 @@ describe("P4B clabe-bank-statement parser", () => {
     assert.equal(r.status, "not_found");
   });
 
+  it("boundary: 19º dígito tras espacio/guion → 0 spans / not_found", () => {
+    assert.equal(findBoundedClabeRawSpans(`CLABE ${VALID_A} 9`).length, 0);
+    assert.equal(findBoundedClabeRawSpans(`CLABE ${VALID_A}-9`).length, 0);
+    assert.equal(findBoundedClabeRawSpans(`CLABE ${VALID_A} 00`).length, 0);
+    assert.equal(findBoundedClabeRawSpans(`CLABE ${VALID_A}-00`).length, 0);
+    assert.equal(
+      detectClabeFromBankStatementText(`CLABE ${VALID_A} 9\n`.repeat(3)).status,
+      "not_found",
+    );
+    assert.equal(
+      detectClabeFromBankStatementText(`CLABE ${VALID_A}-9\n`.repeat(3)).status,
+      "not_found",
+    );
+    assert.equal(
+      detectClabeFromBankStatementText(`CLABE ${VALID_A} 00\n`.repeat(3))
+        .status,
+      "not_found",
+    );
+  });
+
   it("boundary: CLABE delimitada por texto/puntuación → detected", () => {
     const text = `CLABE:${VALID_A}.\nTitular demo banco\n`.repeat(2);
     const r = detectClabeFromBankStatementText(text);
@@ -243,7 +264,6 @@ describe("P4B clabe-bank-statement parser", () => {
       mime: "application/pdf",
     } as const;
 
-    // Row B activo, blob aún de A
     const mismatch = canRunClabeDetection({
       ...base,
       activeDocumentId: "doc-B",
@@ -252,7 +272,6 @@ describe("P4B clabe-bank-statement parser", () => {
     assert.equal(mismatch.ok, false);
     if (!mismatch.ok) assert.equal(mismatch.reason, "blob_mismatch");
 
-    // Sin blob todavía
     const waiting = canRunClabeDetection({
       ...base,
       activeDocumentId: "doc-B",
@@ -261,7 +280,6 @@ describe("P4B clabe-bank-statement parser", () => {
     assert.equal(waiting.ok, false);
     if (!waiting.ok) assert.equal(waiting.reason, "no_blob");
 
-    // Blob B listo
     const ready = canRunClabeDetection({
       ...base,
       activeDocumentId: "doc-B",
@@ -269,10 +287,71 @@ describe("P4B clabe-bank-statement parser", () => {
     });
     assert.equal(ready.ok, true);
 
-    // Solo B se cachearía bajo B (contrato de keys)
     const cache = new Map<string, string>();
     if (ready.ok) cache.set("doc-B", "result-B");
     assert.equal(cache.has("doc-A"), false);
     assert.equal(cache.get("doc-B"), "result-B");
+  });
+
+  it("race A→B: resultado A deja de ser visible al cambiar activeDocumentId a B", () => {
+    const detectionA = {
+      documentoId: "doc-A",
+      result: {
+        status: "detected" as const,
+        clabe: VALID_A,
+        checksumValid: true as const,
+        candidateCount: 1,
+        confidence: "high" as const,
+        reason: "clabe_label_nearby" as const,
+      },
+    };
+
+    // Visible bajo A
+    assert.equal(
+      resolveVisibleClabeDetection({
+        activeDocumentId: "doc-A",
+        detection: detectionA,
+      })?.status,
+      "detected",
+    );
+
+    // Al pasar a B (aún sin blob B / detection A en estado): A ya no se muestra
+    assert.equal(
+      resolveVisibleClabeDetection({
+        activeDocumentId: "doc-B",
+        detection: detectionA,
+      }),
+      null,
+    );
+
+    // blob A no analiza B
+    const gate = canRunClabeDetection({
+      context: "clabe",
+      kind: "cliente_estado_cuenta",
+      activeDocumentId: "doc-B",
+      blobDocumentId: "doc-A",
+      mime: "application/pdf",
+    });
+    assert.equal(gate.ok, false);
+
+    // Solo resultado B bajo B
+    const detectionB = {
+      documentoId: "doc-B",
+      result: { status: "not_found" as const },
+    };
+    assert.equal(
+      resolveVisibleClabeDetection({
+        activeDocumentId: "doc-B",
+        detection: detectionB,
+      })?.status,
+      "not_found",
+    );
+    assert.equal(
+      resolveVisibleClabeDetection({
+        activeDocumentId: "doc-B",
+        detection: detectionA,
+      }),
+      null,
+    );
   });
 });

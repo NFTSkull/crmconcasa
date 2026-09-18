@@ -29,8 +29,10 @@ import {
 import {
   canRunClabeDetection,
   detectClabeFromBankStatementPdfBytes,
+  resolveVisibleClabeDetection,
   shouldRunClabeShadowDetection,
   type ActiveDocumentBlob,
+  type ClabeDetectionForDocument,
   type ClabeBankStatementDetection,
 } from "@/domain/document-extractions/clabe-bank-statement";
 import { MesaClabeShadowDetectionPanel } from "@/components/mesa-control/MesaClabeShadowDetectionPanel";
@@ -80,7 +82,7 @@ export function MesaInfonavitSourceDocumentPreview({
     useState<ActiveDocumentBlob | null>(null);
   const [clabeAnalyzing, setClabeAnalyzing] = useState(false);
   const [clabeDetection, setClabeDetection] =
-    useState<ClabeBankStatementDetection | null>(null);
+    useState<ClabeDetectionForDocument | null>(null);
   const clabeCacheRef = useRef<Map<string, ClabeBankStatementDetection>>(
     new Map(),
   );
@@ -250,28 +252,37 @@ export function MesaInfonavitSourceDocumentPreview({
     });
 
     if (!gate.ok) {
-      if (gate.reason === "unsupported_mime") {
+      if (gate.reason === "unsupported_mime" && docId) {
         setClabeAnalyzing(false);
-        setClabeDetection({ status: "unsupported" });
+        setClabeDetection({
+          documentoId: docId,
+          result: { status: "unsupported" },
+        });
         return;
       }
+      // Cambio A→B / espera blob: no conservar detección del documento anterior
       if (
+        gate.reason === "no_blob" ||
+        gate.reason === "blob_mismatch" ||
+        gate.reason === "no_mime" ||
         gate.reason === "wrong_kind" ||
         gate.reason === "no_document" ||
-        gate.reason === "wrong_context"
+        gate.reason === "wrong_context" ||
+        gate.reason === "unsupported_mime"
       ) {
         setClabeAnalyzing(false);
         setClabeDetection(null);
         return;
       }
-      // no_blob | blob_mismatch | no_mime → esperar blob/metadata correctos
+      setClabeAnalyzing(false);
+      setClabeDetection(null);
       return;
     }
 
     const cached = clabeCacheRef.current.get(docId!);
     if (cached) {
       setClabeAnalyzing(false);
-      setClabeDetection(cached);
+      setClabeDetection({ documentoId: docId!, result: cached });
       return;
     }
 
@@ -290,9 +301,8 @@ export function MesaInfonavitSourceDocumentPreview({
         const result = await detectClabeFromBankStatementPdfBytes(buf);
         if (cancelled || gen !== clabeGenRef.current) return;
         if (blobForDoc.documentoId !== expectedDocId) return;
-        // Solo cachear si la corrida sigue vigente para este documento
         clabeCacheRef.current.set(expectedDocId, result);
-        setClabeDetection(result);
+        setClabeDetection({ documentoId: expectedDocId, result });
       } catch {
         if (cancelled || gen !== clabeGenRef.current) return;
         if (blobForDoc.documentoId !== expectedDocId) return;
@@ -300,7 +310,7 @@ export function MesaInfonavitSourceDocumentPreview({
           status: "no_text_layer",
         };
         clabeCacheRef.current.set(expectedDocId, fallback);
-        setClabeDetection(fallback);
+        setClabeDetection({ documentoId: expectedDocId, result: fallback });
       } finally {
         if (!cancelled && gen === clabeGenRef.current) {
           setClabeAnalyzing(false);
@@ -319,6 +329,11 @@ export function MesaInfonavitSourceDocumentPreview({
     activeDocumentBlob,
     preview?.mime_type,
   ]);
+
+  const visibleClabeDetection = resolveVisibleClabeDetection({
+    activeDocumentId: activeRow?.id ?? null,
+    detection: clabeDetection,
+  });
 
   const title =
     activeKind != null
@@ -393,7 +408,7 @@ export function MesaInfonavitSourceDocumentPreview({
       {shouldRunClabeShadowDetection(context) ? (
         <MesaClabeShadowDetectionPanel
           analyzing={clabeAnalyzing}
-          result={clabeDetection}
+          result={visibleClabeDetection}
         />
       ) : null}
 

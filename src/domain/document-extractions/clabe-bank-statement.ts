@@ -70,7 +70,8 @@ function isDigitChar(ch: string): boolean {
 
 /**
  * Spans crudos con exactamente 18 dígitos lógicos (espacios/guiones opcionales).
- * Rechaza secuencias embebidas en 19+ dígitos (antes o después).
+ * Rechaza secuencias embebidas en 19+ dígitos (antes o después), incluso si el
+ * dígito extra viene tras espacio o guion (`…719 9`, `…719-9`).
  */
 export function findBoundedClabeRawSpans(
   text: string,
@@ -84,8 +85,6 @@ export function findBoundedClabeRawSpans(
       i += 1;
       continue;
     }
-
-    // No empezar si el char anterior es dígito (ya estaríamos dentro de un run)
     if (i > 0 && isDigitChar(source[i - 1]!)) {
       i += 1;
       continue;
@@ -104,6 +103,7 @@ export function findBoundedClabeRawSpans(
         j += 1;
         continue;
       }
+      // Separadores internos solo mientras aún no completamos 18 dígitos
       if ((ch === " " || ch === "-") && digits > 0 && digits < 18) {
         if (j + 1 < source.length && isDigitChar(source[j + 1]!)) {
           j += 1;
@@ -113,28 +113,33 @@ export function findBoundedClabeRawSpans(
       break;
     }
 
-    // Si hay más dígitos pegados después del run parcial/completo, saltar el run entero
-    if (lastDigitEnd < source.length && isDigitChar(source[lastDigitEnd]!)) {
-      let k = lastDigitEnd;
-      while (k < source.length) {
-        const ch = source[k]!;
+    // ¿Hay más dígitos del mismo run lógico después (contiguos o vía espacio/guion)?
+    let probe = lastDigitEnd;
+    while (probe < source.length && (source[probe] === " " || source[probe] === "-")) {
+      probe += 1;
+    }
+    const hasExtraDigits =
+      (lastDigitEnd < source.length && isDigitChar(source[lastDigitEnd]!)) ||
+      (probe > lastDigitEnd &&
+        probe < source.length &&
+        isDigitChar(source[probe]!));
+
+    if (digits !== 18 || hasExtraDigits) {
+      let skip = Math.max(probe, lastDigitEnd, j);
+      while (skip < source.length) {
+        const ch = source[skip]!;
         if (isDigitChar(ch) || ch === " " || ch === "-") {
-          k += 1;
+          skip += 1;
           continue;
         }
         break;
       }
-      i = Math.max(k, start + 1);
+      i = Math.max(skip, start + 1);
       continue;
     }
 
-    if (digits === 18) {
-      out.push({ raw: source.slice(start, lastDigitEnd), index: start });
-      i = lastDigitEnd;
-      continue;
-    }
-
-    i = Math.max(j, start + 1);
+    out.push({ raw: source.slice(start, lastDigitEnd), index: start });
+    i = lastDigitEnd;
   }
 
   return out;
@@ -313,4 +318,25 @@ export function shouldRunClabeShadowDetection(
   context: string,
 ): boolean {
   return context === "clabe";
+}
+
+/** Resultado de detección ligado al documento que lo produjo. */
+export type ClabeDetectionForDocument = Readonly<{
+  documentoId: string;
+  result: ClabeBankStatementDetection;
+}>;
+
+/**
+ * Solo muestra detección si pertenece al documento activo.
+ * Al cambiar A→B, el resultado de A deja de ser visible de inmediato.
+ */
+export function resolveVisibleClabeDetection(input: {
+  activeDocumentId: string | null | undefined;
+  detection: ClabeDetectionForDocument | null | undefined;
+}): ClabeBankStatementDetection | null {
+  const activeId = input.activeDocumentId ?? null;
+  const detection = input.detection ?? null;
+  if (!activeId || !detection) return null;
+  if (detection.documentoId !== activeId) return null;
+  return detection.result;
 }
