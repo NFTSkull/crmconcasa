@@ -75,6 +75,61 @@ describe("P4C document autofill parser", () => {
     assert.equal(noLabel.cliente.identificacionNumero, undefined);
   });
 
+
+  it("INE reverso MRZ recupera nombre, sexo y vigencia", () => {
+    const patch = buildInfonavitDocumentAutofillPatch(
+      {
+        ineReverso: [
+          "IDMEX2565181189<<2588067552701",
+          "8410308H3312315MEX<04<<26018<7",
+          "ZAMUDIO<CAMPOS<<GERARDO<<<<<<",
+        ].join("\n"),
+      },
+      { expectedClienteNombre: "GERARDO ZAMUDIO CAMPOS" },
+    );
+
+    assert.equal(patch.cliente.apellidoPaterno?.value, "ZAMUDIO");
+    assert.equal(patch.cliente.apellidoMaterno?.value, "CAMPOS");
+    assert.equal(patch.cliente.nombres?.value, "GERARDO");
+    assert.equal(patch.cliente.genero?.value, "M");
+    assert.equal(
+      patch.cliente.identificacionVigencia?.value,
+      "31/12/2033",
+    );
+  });
+
+  it("comprobante de otra persona no autollenna vivienda", () => {
+    const patch = buildInfonavitDocumentAutofillPatch(
+      {
+        comprobanteDomicilio: [
+          "SIGALA ALEMAN MARIA DE LA PAZ",
+          "POLIGONO 9196 CP 64106",
+          "AV PASEO DE LA REFORMA 164",
+          "JUAREZ CP 06600",
+        ].join("\n"),
+      },
+      { expectedClienteNombre: "GERARDO ZAMUDIO CAMPOS" },
+    );
+
+    assert.deepEqual(patch.vivienda, {});
+    assert.equal(patch.issues?.[0]?.code, "subject_mismatch");
+  });
+
+  it("estado de cuenta de otra persona no autollenna CLABE", () => {
+    const patch = buildInfonavitDocumentAutofillPatch(
+      {
+        estadoCuenta: [
+          "TITULAR MARIA SIGALA ALEMAN",
+          "CLABE INTERBANCARIA 032180000118359719",
+        ].join("\n"),
+      },
+      { expectedClienteNombre: "GERARDO ZAMUDIO CAMPOS" },
+    );
+
+    assert.equal(patch.clabeDerechohabiente, undefined);
+    assert.equal(patch.issues?.[0]?.source, "cliente_estado_cuenta");
+  });
+
   it("comprobante extrae domicilio de bloque con CP", () => {
     const patch = buildInfonavitDocumentAutofillPatch({
       comprobanteDomicilio: [
