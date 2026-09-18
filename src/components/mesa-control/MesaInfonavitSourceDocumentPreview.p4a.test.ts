@@ -63,7 +63,21 @@ describe("P4A MesaInfonavitSourceDocumentPreview contrato", () => {
     assert.match(formSrc, /focusSource\("rfc"\)/);
     assert.match(formSrc, /focusSource\("clabeDerechohabiente"\)/);
     assert.match(formSrc, /focusSource\("viviendaCalle"\)/);
-    assert.match(formSrc, /xl:sticky/);
+    assert.match(formSrc, /infonavit-source-section-identidad/);
+    assert.match(formSrc, /infonavit-source-section-vivienda/);
+    assert.match(formSrc, /infonavit-source-section-clabe/);
+    assert.match(formSrc, /infonavit-source-preview-vivienda/);
+    assert.match(formSrc, /infonavit-source-preview-clabe/);
+    assert.match(formSrc, /xl:grid-cols-\[minmax\(0,1fr\)_360px\]/);
+    assert.match(formSrc, /Nombre\(s\) \*/);
+    assert.match(formSrc, /1\. Identificación de la persona derechohabiente/);
+    assert.doesNotMatch(formSrc, /forceOpenSignal=/);
+    assert.doesNotMatch(formSrc, /xl:sticky/);
+    // No grid global envolviendo todo el formulario
+    assert.doesNotMatch(
+      formSrc,
+      /data-testid="mesa-infonavit-generar-layout"[\s\S]{0,120}xl:grid-cols-\[minmax\(0,1\.2fr\)/,
+    );
     // generación intacta
     assert.match(formSrc, /mesa_generar_infonavit_documentos/);
     assert.match(formSrc, /handleGenerate/);
@@ -82,13 +96,14 @@ describe("P4A MesaInfonavitSourceDocumentPreview contrato", () => {
     assert.match(formSrc, /isValidClabeMexico/);
   });
 
-  it("17. generación P189 no cambia (RPC + payload builder)", () => {
+  it("17. generación P189 no cambia; P4C OCR queda solo en preparación del draft", () => {
     assert.match(formSrc, /buildMesaInfonavitGeneratePayload/);
     assert.match(formSrc, /mesa_generar_infonavit_documentos/);
     assert.doesNotMatch(formSrc, /enqueue_document_extraction/);
-    assert.doesNotMatch(formSrc, /OpenAI|Document AI|Azure|ocr/i);
+    assert.match(formSrc, /extractDocumentTextViaOcr/);
+    assert.doesNotMatch(formSrc, /OpenAI|Document AI|Azure/i);
     assert.doesNotMatch(previewSrc, /enqueue_document_extraction/);
-    assert.doesNotMatch(previewSrc, /OpenAI|Document AI|Azure|ocr/i);
+    assert.doesNotMatch(previewSrc, /OpenAI|Document AI|Azure/i);
   });
 
   it("no autofill / no mutate cliente_datos desde preview", () => {

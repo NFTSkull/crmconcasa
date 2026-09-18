@@ -1,0 +1,76 @@
+name: P4C Infonavit document autofill validation
+
+on:
+  pull_request:
+    paths:
+      - "src/components/mesa-control/MesaInfonavitGenerarDocumentosForm.tsx"
+      - "src/components/mesa-control/MesaInfonavitSourceDocumentPreview.tsx"
+      - "src/domain/document-extractions/**"
+      - "services/document-ocr/**"
+      - "package.json"
+      - "package-lock.json"
+      - ".github/workflows/p4c-validation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  frontend:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run test:p4c
+      - run: npm run test:p4b
+      - run: npm run test:p4a
+      - run: npm run test:p189-b5
+      - name: Typecheck P4C (baseline-aware)
+        shell: bash
+        run: |
+          set +e
+          npm run typecheck 2>&1 | tee /tmp/p4c-typecheck.log
+          status=${PIPESTATUS[0]}
+          set -e
+
+          if [ "$status" -eq 0 ]; then
+            exit 0
+          fi
+
+          if grep -E 'src/(components/mesa-control/MesaInfonavitGenerarDocumentosForm\.tsx|components/mesa-control/MesaInfonavitSourceDocumentPreview\.tsx|domain/document-extractions/document-ocr-client\.ts|domain/document-extractions/infonavit-document-autofill(\.test)?\.ts|domain/document-extractions/infonavit-autofill-merge(\.test)?\.ts)' /tmp/p4c-typecheck.log; then
+            echo "TypeScript error attributable to P4C files."
+            exit 1
+          fi
+
+          echo "tsc reported only pre-existing baseline errors outside P4C files."
+      - name: ESLint P4C files
+        run: >
+          npx eslint
+          src/components/mesa-control/MesaInfonavitGenerarDocumentosForm.tsx
+          src/components/mesa-control/MesaInfonavitSourceDocumentPreview.tsx
+          src/domain/document-extractions/document-ocr-client.ts
+          src/domain/document-extractions/infonavit-document-autofill.ts
+          src/domain/document-extractions/infonavit-document-autofill.test.ts
+          src/domain/document-extractions/infonavit-autofill-merge.ts
+          src/domain/document-extractions/infonavit-autofill-merge.test.ts
+
+  ocr:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: services/document-ocr
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: services/document-ocr/requirements.txt
+      - run: pip install -r requirements.txt
+      - run: pytest -q

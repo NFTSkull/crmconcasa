@@ -44,6 +44,10 @@ export type MesaInfonavitSourceDocumentPreviewProps = Readonly<{
   className?: string;
   /** Forzar modal (mobile); si null, usa dialog solo al pedir "vista grande" */
   preferModal?: boolean;
+  /** Incrementar para abrir en grande el documento correspondiente al contexto actual. */
+  forceOpenSignal?: number;
+  /** Permite que botones externos pidan INE frente o reverso. */
+  requestedIneSide?: "frente" | "reverso" | null;
 }>;
 
 type DocIndex = Readonly<{
@@ -64,6 +68,8 @@ export function MesaInfonavitSourceDocumentPreview({
   expedienteId,
   context,
   className,
+  forceOpenSignal,
+  requestedIneSide,
 }: MesaInfonavitSourceDocumentPreviewProps) {
   const archivosRepo = useExpedienteArchivosRepo();
   const [index, setIndex] = useState<DocIndex>({
@@ -87,6 +93,7 @@ export function MesaInfonavitSourceDocumentPreview({
     new Map(),
   );
   const clabeGenRef = useRef(0);
+  const forceOpenSignalRef = useRef(forceOpenSignal ?? 0);
 
   const loadIndex = useCallback(async () => {
     setListError(null);
@@ -129,6 +136,11 @@ export function MesaInfonavitSourceDocumentPreview({
       });
     });
   }, [context, index.frente, index.reverso]);
+
+  useEffect(() => {
+    if (context !== "identidad" || !requestedIneSide) return;
+    setIneSide(requestedIneSide);
+  }, [context, requestedIneSide]);
 
   const activeKind = useMemo(
     () =>
@@ -334,6 +346,13 @@ export function MesaInfonavitSourceDocumentPreview({
     activeDocumentId: activeRow?.id ?? null,
     detection: clabeDetection,
   });
+
+  useEffect(() => {
+    const next = forceOpenSignal ?? 0;
+    if (!preview || next <= forceOpenSignalRef.current) return;
+    forceOpenSignalRef.current = next;
+    setModalOpen(true);
+  }, [forceOpenSignal, preview]);
 
   const title =
     activeKind != null

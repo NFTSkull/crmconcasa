@@ -13,6 +13,23 @@ import {
   type InfonavitSourceFieldKey,
   type InfonavitSourcePreviewContext,
 } from "@/domain/document-extractions/infonavit-source-preview";
+import {
+  rowMasRecientePorTipoDocumento,
+  useExpedienteArchivosRepo,
+  type ExpedienteArchivoListItem,
+} from "@/domain/expediente-archivos";
+import {
+  extractDocumentTextViaOcr,
+  type OcrDocumentType,
+} from "@/domain/document-extractions/document-ocr-client";
+import {
+  buildInfonavitDocumentAutofillPatch,
+  type InfonavitDocumentTexts,
+} from "@/domain/document-extractions/infonavit-document-autofill";
+import {
+  mergeInfonavitDocumentAutofill,
+  type InfonavitAutofillConflict,
+} from "@/domain/document-extractions/infonavit-autofill-merge";
 
 export const MESA_CLABE_DERECHOHABIENTE_INVALID_MSG =
   "La CLABE del derechohabiente no es válida. Verifica los 18 dígitos.";
@@ -145,6 +162,51 @@ type StoredMesaInfonavitDraft = Readonly<{
 }>;
 
 type LocalSaveState = "idle" | "restored" | "saved";
+
+type DocumentAutofillStatus = "idle" | "reading" | "done" | "partial" | "error";
+
+type DocumentAutofillState = Readonly<{
+  status: DocumentAutofillStatus;
+  applied: number;
+  confirmed: number;
+  conflicts: number;
+  errors: string[];
+  warnings: string[];
+}>;
+
+const EMPTY_AUTOFILL_STATE: DocumentAutofillState = {
+  status: "idle",
+  applied: 0,
+  confirmed: 0,
+  conflicts: 0,
+  errors: [],
+  warnings: [],
+};
+
+const AUTOFILL_FIELD_LABELS: Readonly<Record<string, string>> = {
+  "cliente.nombres": "Nombre(s)",
+  "cliente.apellidoPaterno": "Apellido paterno",
+  "cliente.apellidoMaterno": "Apellido materno",
+  "cliente.curp": "CURP",
+  "cliente.genero": "Género",
+  "cliente.identificacion.tipo": "Tipo de identificación",
+  "cliente.identificacion.numero": "Número de identificación",
+  "cliente.identificacion.vigencia": "Vigencia de identificación",
+  "vivienda.calle": "Calle",
+  "vivienda.noExt": "No. exterior",
+  "vivienda.noInt": "No. interior",
+  "vivienda.lote": "Lote",
+  "vivienda.manzana": "Manzana",
+  "vivienda.colonia": "Colonia",
+  "vivienda.entidad": "Entidad",
+  "vivienda.municipio": "Municipio",
+  "vivienda.cp": "Código postal",
+  "destinoRecursos.clabeDerechohabiente": "CLABE",
+};
+
+function autofillFieldLabel(field: string): string {
+  return AUTOFILL_FIELD_LABELS[field] ?? field;
+}
 
 const MESA_INFONAVIT_LOCAL_DRAFT_VERSION = 1 as const;
 const MESA_INFONAVIT_LOCAL_DRAFT_PREFIX = "concasa:mesa-infonavit-draft:v1:";
@@ -380,6 +442,7 @@ type FieldProps = Readonly<{
   required?: boolean;
   maxLength?: number;
   onFocusField?: () => void;
+  sourceLabel?: string;
 }>;
 
 function Field({
@@ -391,10 +454,18 @@ function Field({
   required,
   maxLength,
   onFocusField,
+  sourceLabel,
 }: FieldProps) {
   return (
     <label className="block text-xs font-medium text-gray-700">
-      <span>{label}</span>
+      <span className="flex items-center gap-1.5">
+        <span>{label}</span>
+        {sourceLabel ? (
+          <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">
+            {sourceLabel}
+          </span>
+        ) : null}
+      </span>
       <input
         type={type}
         value={value ?? ""}
@@ -415,6 +486,7 @@ type SelectFieldProps = Readonly<{
   onChange: (value: string) => void;
   options: ReadonlyArray<Readonly<{ value: string; label: string }>>;
   onFocusField?: () => void;
+  sourceLabel?: string;
 }>;
 
 function SelectField({
@@ -423,10 +495,18 @@ function SelectField({
   onChange,
   options,
   onFocusField,
+  sourceLabel,
 }: SelectFieldProps) {
   return (
     <label className="block text-xs font-medium text-gray-700">
-      <span>{label}</span>
+      <span className="flex items-center gap-1.5">
+        <span>{label}</span>
+        {sourceLabel ? (
+          <span className="rounded-full bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">
+            {sourceLabel}
+          </span>
+        ) : null}
+      </span>
       <select
         value={value}
         onChange={(event) => onChange(event.target.value)}
@@ -444,11 +524,15 @@ function SelectField({
   );
 }
 
-function SectionTitle({ children }: Readonly<{ children: React.ReactNode }>) {
+function SectionTitle({
+  children,
+  actions,
+}: Readonly<{ children: React.ReactNode; actions?: React.ReactNode }>) {
   return (
-    <h4 className="border-b border-gray-200 pb-1 text-sm font-semibold text-gray-900">
-      {children}
-    </h4>
+    <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 pb-1">
+      <h4 className="text-sm font-semibold text-gray-900">{children}</h4>
+      {actions ? <div className="flex flex-wrap items-center gap-1">{actions}</div> : null}
+    </div>
   );
 }
 
@@ -465,10 +549,43 @@ export function MesaInfonavitGenerarDocumentosForm({
   const [localSaveState, setLocalSaveState] = useState<LocalSaveState>("idle");
   const [sourceContext, setSourceContext] =
     useState<InfonavitSourcePreviewContext>("identidad");
+  const [requestedIneSide, setRequestedIneSide] =
+    useState<"frente" | "reverso" | null>("frente");
+  const [autofillState, setAutofillState] =
+    useState<DocumentAutofillState>(EMPTY_AUTOFILL_STATE);
+  const [autofillSources, setAutofillSources] =
+    useState<Record<string, string>>({});
+  const [autofillConflicts, setAutofillConflicts] =
+    useState<InfonavitAutofillConflict[]>([]);
+  const [autofillRetryNonce, setAutofillRetryNonce] = useState(0);
+  const archivosRepo = useExpedienteArchivosRepo();
   const hydratedExpedienteRef = useRef<string | null>(null);
+  const draftRef = useRef<MesaInfonavitDocumentDraft | null>(null);
+  const autofillRunKeyRef = useRef<string | null>(null);
+  const autofillInFlightKeyRef = useRef<string | null>(null);
 
   const focusSource = useCallback((field: InfonavitSourceFieldKey) => {
     setSourceContext(resolveInfonavitSourcePreviewContext(field));
+  }, []);
+
+  const openSourceDocument = useCallback(
+    (
+      context: InfonavitSourcePreviewContext,
+      ineSide?: "frente" | "reverso",
+    ) => {
+      setSourceContext(context);
+      setRequestedIneSide(ineSide ?? null);
+    },
+    [],
+  );
+
+  const clearAutofillSource = useCallback((field: string) => {
+    setAutofillSources((prev) => {
+      if (!(field in prev)) return prev;
+      const next = { ...prev };
+      delete next[field];
+      return next;
+    });
   }, []);
 
   const loadDraft = useCallback(async (options?: { forceServer?: boolean }) => {
@@ -479,6 +596,9 @@ export function MesaInfonavitGenerarDocumentosForm({
     setSuccess(null);
     setGenerateError(null);
     setLocalSaveState("idle");
+    setAutofillSources({});
+    setAutofillConflicts([]);
+    setAutofillState(EMPTY_AUTOFILL_STATE);
 
     if (!forceServer) {
       const local = readLocalDraft(expedienteId);
@@ -521,6 +641,208 @@ export function MesaInfonavitGenerarDocumentosForm({
   }, [loadDraft]);
 
   useEffect(() => {
+    draftRef.current = draft;
+  }, [draft]);
+
+  const draftReady =
+    draft != null && hydratedExpedienteRef.current === expedienteId;
+
+  useEffect(() => {
+    if (!draftReady) return;
+
+    let cancelled = false;
+    const controller = new AbortController();
+
+    void (async () => {
+      try {
+        const list = await archivosRepo.listByExpediente(expedienteId);
+        if (cancelled) return;
+
+        const pick = (
+          type: OcrDocumentType,
+        ): ExpedienteArchivoListItem | null =>
+          rowMasRecientePorTipoDocumento(list, type) ?? null;
+
+        const docs = {
+          cliente_ine_frente: pick("cliente_ine_frente"),
+          cliente_ine_reverso: pick("cliente_ine_reverso"),
+          cliente_comprobante_domicilio: pick(
+            "cliente_comprobante_domicilio",
+          ),
+          cliente_estado_cuenta: pick("cliente_estado_cuenta"),
+        } satisfies Record<OcrDocumentType, ExpedienteArchivoListItem | null>;
+
+        const runKey = Object.entries(docs)
+          .map(([type, doc]) => `${type}:${doc?.id ?? "none"}`)
+          .join("|");
+
+        if (
+          autofillRunKeyRef.current === runKey ||
+          autofillInFlightKeyRef.current === runKey
+        ) {
+          return;
+        }
+        autofillInFlightKeyRef.current = runKey;
+
+        setAutofillState({
+          status: "reading",
+          applied: 0,
+          confirmed: 0,
+          conflicts: 0,
+          errors: [],
+          warnings: [],
+        });
+
+        const currentBefore = draftRef.current;
+        const identityAlreadyStructured = Boolean(
+          currentBefore?.cliente.nombres.trim() &&
+            currentBefore.cliente.apellidoPaterno.trim() &&
+            currentBefore.cliente.curp.trim(),
+        );
+
+        const jobs: Array<{
+          type: OcrDocumentType;
+          target: keyof InfonavitDocumentTexts;
+          doc: ExpedienteArchivoListItem | null;
+        }> = [
+          // Si Datos Generales ya traen identidad base, el reverso MRZ confirma
+          // nombre y obtiene sexo/vigencia. Evitamos OCR del frente pesado.
+          ...(identityAlreadyStructured
+            ? []
+            : [
+                {
+                  type: "cliente_ine_frente" as const,
+                  target: "ineFrente" as const,
+                  doc: docs.cliente_ine_frente,
+                },
+              ]),
+          {
+            type: "cliente_ine_reverso",
+            target: "ineReverso",
+            doc: docs.cliente_ine_reverso,
+          },
+          {
+            type: "cliente_comprobante_domicilio",
+            target: "comprobanteDomicilio",
+            doc: docs.cliente_comprobante_domicilio,
+          },
+          {
+            type: "cliente_estado_cuenta",
+            target: "estadoCuenta",
+            doc: docs.cliente_estado_cuenta,
+          },
+        ];
+
+        const results = await Promise.all(
+          jobs.map(async (job) => {
+            if (!job.doc) return null;
+            try {
+              const blob = await archivosRepo.getArchivoBlob(job.doc.id);
+              if (cancelled) return null;
+              const extracted = await extractDocumentTextViaOcr({
+                blob,
+                documentType: job.type,
+                filename: job.doc.nombre_original,
+                signal: controller.signal,
+                cacheKey: `${job.doc.id}:${job.type}:retry-${autofillRetryNonce}`,
+              });
+              return {
+                target: job.target,
+                text: extracted.text,
+                error: null as string | null,
+              };
+            } catch (error) {
+              if (controller.signal.aborted) return null;
+              return {
+                target: job.target,
+                text: "",
+                error: errorMessage(
+                  error,
+                  `No se pudo leer ${job.type.replaceAll("_", " ")}.`,
+                ),
+              };
+            }
+          }),
+        );
+
+        if (cancelled) return;
+
+        const texts: {
+          ineFrente?: string;
+          ineReverso?: string;
+          comprobanteDomicilio?: string;
+          estadoCuenta?: string;
+        } = {};
+        const errors: string[] = [];
+
+        for (const result of results) {
+          if (!result) continue;
+          if (result.error) errors.push(result.error);
+          else texts[result.target] = result.text;
+        }
+
+        const current = draftRef.current;
+        if (!current) return;
+        const expectedClienteNombre = [
+          current.cliente.nombres,
+          current.cliente.apellidoPaterno,
+          current.cliente.apellidoMaterno,
+        ]
+          .filter(Boolean)
+          .join(" ");
+
+        const patch = buildInfonavitDocumentAutofillPatch(texts, {
+          expectedClienteNombre,
+        });
+        const merged = mergeInfonavitDocumentAutofill(current, patch);
+        if (cancelled) return;
+
+        const warnings = (patch.issues ?? []).map((issue) => issue.message);
+        setDraft(merged.draft);
+        setAutofillSources({ ...merged.sourceByField });
+        setAutofillConflicts(merged.conflicts);
+        setAutofillState({
+          status:
+            errors.length > 0 || warnings.length > 0 ? "partial" : "done",
+          applied: merged.applied.length,
+          confirmed: merged.confirmed.length,
+          conflicts: merged.conflicts.length,
+          errors,
+          warnings,
+        });
+        autofillRunKeyRef.current = runKey;
+        autofillInFlightKeyRef.current = null;
+      } catch (error) {
+        autofillInFlightKeyRef.current = null;
+        if (cancelled || controller.signal.aborted) return;
+        setAutofillState({
+          status: "error",
+          applied: 0,
+          confirmed: 0,
+          conflicts: 0,
+          warnings: [],
+          errors: [
+            errorMessage(
+              error,
+              "No se pudo iniciar la lectura automática de documentos.",
+            ),
+          ],
+        });
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+      controller.abort();
+    };
+  }, [
+    archivosRepo,
+    autofillRetryNonce,
+    draftReady,
+    expedienteId,
+  ]);
+
+  useEffect(() => {
     if (!draft || hydratedExpedienteRef.current !== expedienteId) return;
     const timer = window.setTimeout(() => {
       if (writeLocalDraft(expedienteId, draft)) {
@@ -547,6 +869,7 @@ export function MesaInfonavitGenerarDocumentosForm({
   }, [draft]);
 
   const updateCliente = <K extends keyof ClienteDraft>(key: K, value: ClienteDraft[K]) => {
+    clearAutofillSource(`cliente.${String(key)}`);
     setDraft((prev) =>
       prev ? { ...prev, cliente: { ...prev.cliente, [key]: value } } : prev,
     );
@@ -555,6 +878,7 @@ export function MesaInfonavitGenerarDocumentosForm({
     key: K,
     value: IdentificacionDraft[K],
   ) => {
+    clearAutofillSource(`cliente.identificacion.${String(key)}`);
     setDraft((prev) =>
       prev
         ? {
@@ -573,6 +897,7 @@ export function MesaInfonavitGenerarDocumentosForm({
     );
   };
   const updateVivienda = <K extends keyof ViviendaDraft>(key: K, value: ViviendaDraft[K]) => {
+    clearAutofillSource(`vivienda.${String(key)}`);
     setDraft((prev) =>
       prev ? { ...prev, vivienda: { ...prev.vivienda, [key]: value } } : prev,
     );
@@ -583,6 +908,7 @@ export function MesaInfonavitGenerarDocumentosForm({
     );
   };
   const updateDestinoClabeDerechohabiente = (value: string) => {
+    clearAutofillSource("destinoRecursos.clabeDerechohabiente");
     setDraft((prev) =>
       prev
         ? {
@@ -693,10 +1019,9 @@ export function MesaInfonavitGenerarDocumentosForm({
 
   return (
     <div
-      className="grid gap-4 xl:grid-cols-[minmax(0,1.2fr)_minmax(300px,0.8fr)] xl:items-start"
+      className="space-y-5"
       data-testid="mesa-infonavit-generar-layout"
     >
-      <div className="space-y-5">
       <div className="rounded-md border border-violet-200 bg-violet-50 px-3 py-2 text-xs text-violet-950">
         <p>
           Los campos parten de Datos Generales. Los cambios de esta pestaña solo afectan la nueva
@@ -709,26 +1034,140 @@ export function MesaInfonavitGenerarDocumentosForm({
         </p>
       </div>
 
-      <div className="space-y-3">
-        <SectionTitle>1. Identificación de la persona derechohabiente</SectionTitle>
-        <div className="grid gap-3 md:grid-cols-3">
-          <Field label="NSS *" value={draft.cliente.nss} onChange={(v) => updateCliente("nss", v)} required />
-          <Field label="CURP" value={draft.cliente.curp} onChange={(v) => updateCliente("curp", v.toUpperCase())} onFocusField={() => focusSource("curp")} />
-          <Field label="RFC" value={draft.cliente.rfc} onChange={(v) => updateCliente("rfc", v.toUpperCase())} onFocusField={() => focusSource("rfc")} />
-          <Field label="Apellido paterno *" value={draft.cliente.apellidoPaterno} onChange={(v) => updateCliente("apellidoPaterno", v.toUpperCase())} onFocusField={() => focusSource("apellidoPaterno")} required />
-          <Field label="Apellido materno" value={draft.cliente.apellidoMaterno} onChange={(v) => updateCliente("apellidoMaterno", v.toUpperCase())} onFocusField={() => focusSource("apellidoMaterno")} />
-          <Field label="Nombre(s) *" value={draft.cliente.nombres} onChange={(v) => updateCliente("nombres", v.toUpperCase())} onFocusField={() => focusSource("nombres")} required />
-          <Field label="Tipo identificación" value={draft.cliente.identificacion.tipo} onChange={(v) => updateIdentificacion("tipo", v)} onFocusField={() => focusSource("identificacionTipo")} />
-          <Field label="Número identificación" value={draft.cliente.identificacion.numero} onChange={(v) => updateIdentificacion("numero", v)} onFocusField={() => focusSource("identificacionNumero")} />
-          <Field label="Vigencia identificación" value={draft.cliente.identificacion.vigencia} onChange={(v) => updateIdentificacion("vigencia", v)} onFocusField={() => focusSource("identificacionVigencia")} placeholder="dd/mm/aaaa" />
-          <Field label="LADA" value={draft.cliente.ladaTelefono} onChange={(v) => updateCliente("ladaTelefono", v)} />
-          <Field label="Teléfono" value={draft.cliente.telefono} onChange={(v) => updateCliente("telefono", v)} />
-          <Field label="Celular" value={draft.cliente.celular} onChange={(v) => updateCliente("celular", v)} />
-          <Field label="Correo" type="email" value={draft.cliente.correo} onChange={(v) => updateCliente("correo", v)} />
-          <SelectField label="Género" value={draft.cliente.genero} onChange={(v) => updateCliente("genero", v)} options={[{ value: "M", label: "Masculino" }, { value: "F", label: "Femenino" }]} />
-          <SelectField label="Estado civil" value={draft.cliente.estadoCivil} onChange={(v) => updateCliente("estadoCivil", v)} options={[{ value: "soltero", label: "Soltero(a)" }, { value: "casado", label: "Casado(a)" }]} />
-          <SelectField label="Régimen matrimonial" value={draft.cliente.regimenMatrimonial} onChange={(v) => updateCliente("regimenMatrimonial", v)} options={[{ value: "separacion_bienes", label: "Separación de bienes" }, { value: "sociedad_conyugal", label: "Sociedad conyugal" }]} />
+      {autofillState.status !== "idle" ? (
+        <div
+          className={[
+            "rounded-md border px-3 py-2 text-xs",
+            autofillState.status === "error"
+              ? "border-red-200 bg-red-50 text-red-900"
+              : autofillState.status === "partial" || autofillState.conflicts > 0
+                ? "border-amber-200 bg-amber-50 text-amber-950"
+                : "border-emerald-200 bg-emerald-50 text-emerald-950",
+          ].join(" ")}
+          data-testid="infonavit-document-autofill-status"
+        >
+          {autofillState.status === "reading" ? (
+            <p className="font-medium">
+              Leyendo INE, comprobante de domicilio y estado de cuenta…
+            </p>
+          ) : (
+            <>
+              <p className="font-medium">
+                Automatización documental: {autofillState.applied} campos llenados ·{" "}
+                {autofillState.confirmed} confirmados con documento.
+              </p>
+              {autofillConflicts.length > 0 ? (
+                <div className="mt-1 space-y-1">
+                  <p>
+                    {autofillConflicts.length} diferencias requieren revisión; no se
+                    sobrescribieron silenciosamente.
+                  </p>
+                  <ul className="list-disc space-y-0.5 pl-4">
+                    {autofillConflicts.slice(0, 8).map((conflict) => (
+                      <li key={conflict.field}>
+                        <span className="font-medium">
+                          {autofillFieldLabel(conflict.field)}
+                        </span>
+                        : actual “{conflict.current}” · {conflict.sourceLabel} detectó
+                        “{conflict.detected}”.
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              ) : null}
+              {autofillState.errors.length > 0 ? (
+                <p className="mt-1">
+                  {autofillState.errors.length} documento(s) no pudieron leerse
+                  automáticamente. Puedes seguir manualmente o reintentar.
+                </p>
+              ) : null}
+              {autofillState.warnings.length > 0 ? (
+                <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                  {autofillState.warnings.map((warning) => (
+                    <li key={warning}>{warning}</li>
+                  ))}
+                </ul>
+              ) : null}
+              <Button
+                type="button"
+                variant="outline"
+                className="mt-2 px-2 py-1 text-[11px]"
+                onClick={() => {
+                  autofillRunKeyRef.current = null;
+                  autofillInFlightKeyRef.current = null;
+                  setAutofillRetryNonce((value) => value + 1);
+                }}
+              >
+                Volver a leer documentos
+              </Button>
+            </>
+          )}
         </div>
+      ) : null}
+
+      <div
+        className={
+          sourceContext === "identidad" || sourceContext === "rfc"
+            ? "grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-start"
+            : undefined
+        }
+        data-testid="infonavit-source-section-identidad"
+      >
+        <div className="min-w-0 space-y-3">
+          <SectionTitle
+            actions={
+              <>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="px-2 py-1 text-[11px]"
+                  onClick={() => openSourceDocument("identidad", "frente")}
+                >
+                  Ver INE frente
+                </Button>
+                <Button
+                  type="button"
+                  variant="outline"
+                  className="px-2 py-1 text-[11px]"
+                  onClick={() => openSourceDocument("identidad", "reverso")}
+                >
+                  Ver INE reverso
+                </Button>
+              </>
+            }
+          >
+            1. Identificación de la persona derechohabiente
+          </SectionTitle>
+          <div className="grid gap-3 md:grid-cols-3">
+            <Field label="NSS *" value={draft.cliente.nss} onChange={(v) => updateCliente("nss", v)} required />
+            <Field label="CURP" value={draft.cliente.curp} onChange={(v) => updateCliente("curp", v.toUpperCase())} onFocusField={() => focusSource("curp")} sourceLabel={autofillSources["cliente.curp"]} />
+            <Field label="RFC" value={draft.cliente.rfc} onChange={(v) => updateCliente("rfc", v.toUpperCase())} onFocusField={() => focusSource("rfc")} />
+            <Field label="Apellido paterno *" value={draft.cliente.apellidoPaterno} onChange={(v) => updateCliente("apellidoPaterno", v.toUpperCase())} onFocusField={() => focusSource("apellidoPaterno")} sourceLabel={autofillSources["cliente.apellidoPaterno"]} required />
+            <Field label="Apellido materno" value={draft.cliente.apellidoMaterno} onChange={(v) => updateCliente("apellidoMaterno", v.toUpperCase())} onFocusField={() => focusSource("apellidoMaterno")} sourceLabel={autofillSources["cliente.apellidoMaterno"]} />
+            <Field label="Nombre(s) *" value={draft.cliente.nombres} onChange={(v) => updateCliente("nombres", v.toUpperCase())} onFocusField={() => focusSource("nombres")} sourceLabel={autofillSources["cliente.nombres"]} required />
+            <Field label="Tipo identificación" value={draft.cliente.identificacion.tipo} onChange={(v) => updateIdentificacion("tipo", v)} onFocusField={() => focusSource("identificacionTipo")} sourceLabel={autofillSources["cliente.identificacion.tipo"]} />
+            <Field label="Número identificación" value={draft.cliente.identificacion.numero} onChange={(v) => updateIdentificacion("numero", v)} onFocusField={() => focusSource("identificacionNumero")} sourceLabel={autofillSources["cliente.identificacion.numero"]} />
+            <Field label="Vigencia identificación" value={draft.cliente.identificacion.vigencia} onChange={(v) => updateIdentificacion("vigencia", v)} onFocusField={() => focusSource("identificacionVigencia")} sourceLabel={autofillSources["cliente.identificacion.vigencia"]} placeholder="dd/mm/aaaa" />
+            <Field label="LADA" value={draft.cliente.ladaTelefono} onChange={(v) => updateCliente("ladaTelefono", v)} />
+            <Field label="Teléfono" value={draft.cliente.telefono} onChange={(v) => updateCliente("telefono", v)} />
+            <Field label="Celular" value={draft.cliente.celular} onChange={(v) => updateCliente("celular", v)} />
+            <Field label="Correo" type="email" value={draft.cliente.correo} onChange={(v) => updateCliente("correo", v)} />
+            <SelectField label="Género" value={draft.cliente.genero} onChange={(v) => updateCliente("genero", v)} sourceLabel={autofillSources["cliente.genero"]} options={[{ value: "M", label: "Masculino" }, { value: "F", label: "Femenino" }]} />
+            <SelectField label="Estado civil" value={draft.cliente.estadoCivil} onChange={(v) => updateCliente("estadoCivil", v)} options={[{ value: "soltero", label: "Soltero(a)" }, { value: "casado", label: "Casado(a)" }]} />
+            <SelectField label="Régimen matrimonial" value={draft.cliente.regimenMatrimonial} onChange={(v) => updateCliente("regimenMatrimonial", v)} options={[{ value: "separacion_bienes", label: "Separación de bienes" }, { value: "sociedad_conyugal", label: "Sociedad conyugal" }]} />
+          </div>
+        </div>
+
+        {sourceContext === "identidad" || sourceContext === "rfc" ? (
+          <div className="min-w-0 xl:self-start" data-testid="infonavit-source-preview-identidad">
+            <MesaInfonavitSourceDocumentPreview
+              expedienteId={expedienteId}
+              context={sourceContext}
+              requestedIneSide={requestedIneSide}
+              className="max-h-[min(70vh,720px)]"
+            />
+          </div>
+        ) : null}
       </div>
 
       <div className="space-y-3">
@@ -744,50 +1183,117 @@ export function MesaInfonavitGenerarDocumentosForm({
         </div>
       </div>
 
-      <div className="space-y-3">
-        <SectionTitle>3. Vivienda a mejorar</SectionTitle>
-        <div className="grid gap-3 md:grid-cols-4">
-          <div className="md:col-span-2"><Field label="Calle" value={draft.vivienda.calle} onChange={(v) => updateVivienda("calle", v.toUpperCase())} onFocusField={() => focusSource("viviendaCalle")} /></div>
-          <Field label="No. ext." value={draft.vivienda.noExt} onChange={(v) => updateVivienda("noExt", v)} onFocusField={() => focusSource("viviendaNoExt")} />
-          <Field label="No. int." value={draft.vivienda.noInt} onChange={(v) => updateVivienda("noInt", v)} onFocusField={() => focusSource("viviendaNoInt")} />
-          <Field label="Lote" value={draft.vivienda.lote} onChange={(v) => updateVivienda("lote", v)} onFocusField={() => focusSource("viviendaLote")} />
-          <Field label="Manzana" value={draft.vivienda.manzana} onChange={(v) => updateVivienda("manzana", v)} onFocusField={() => focusSource("viviendaManzana")} />
-          <Field label="Colonia" value={draft.vivienda.colonia} onChange={(v) => updateVivienda("colonia", v.toUpperCase())} onFocusField={() => focusSource("viviendaColonia")} />
-          <Field label="Código postal" value={draft.vivienda.cp} onChange={(v) => updateVivienda("cp", v)} onFocusField={() => focusSource("viviendaCp")} />
-          <Field label="Entidad" value={draft.vivienda.entidad} onChange={(v) => updateVivienda("entidad", v.toUpperCase())} onFocusField={() => focusSource("viviendaEntidad")} />
-          <Field label="Municipio / alcaldía" value={draft.vivienda.municipio} onChange={(v) => updateVivienda("municipio", v.toUpperCase())} onFocusField={() => focusSource("viviendaMunicipio")} />
-          <SelectField label="La vivienda es" value={draft.vivienda.tipoPropiedad} onChange={(v) => updateVivienda("tipoPropiedad", v)} onFocusField={() => focusSource("viviendaTipoPropiedad")} options={[{ value: "propia", label: "Propia" }, { value: "conyuge_concubino", label: "Cónyuge o concubino(a)" }, { value: "familiar", label: "Familiar" }]} />
+      <div
+        className={
+          sourceContext === "vivienda"
+            ? "grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-start"
+            : undefined
+        }
+        data-testid="infonavit-source-section-vivienda"
+      >
+        <div className="min-w-0 space-y-3">
+          <SectionTitle
+            actions={
+              <Button
+                type="button"
+                variant="outline"
+                className="px-2 py-1 text-[11px]"
+                onClick={() => openSourceDocument("vivienda")}
+              >
+                Ver comprobante
+              </Button>
+            }
+          >
+            3. Vivienda a mejorar
+          </SectionTitle>
+          <div className="grid gap-3 md:grid-cols-4">
+            <div className="md:col-span-2"><Field label="Calle" value={draft.vivienda.calle} onChange={(v) => updateVivienda("calle", v.toUpperCase())} onFocusField={() => focusSource("viviendaCalle")} sourceLabel={autofillSources["vivienda.calle"]} /></div>
+            <Field label="No. ext." value={draft.vivienda.noExt} onChange={(v) => updateVivienda("noExt", v)} onFocusField={() => focusSource("viviendaNoExt")} sourceLabel={autofillSources["vivienda.noExt"]} />
+            <Field label="No. int." value={draft.vivienda.noInt} onChange={(v) => updateVivienda("noInt", v)} onFocusField={() => focusSource("viviendaNoInt")} sourceLabel={autofillSources["vivienda.noInt"]} />
+            <Field label="Lote" value={draft.vivienda.lote} onChange={(v) => updateVivienda("lote", v)} onFocusField={() => focusSource("viviendaLote")} sourceLabel={autofillSources["vivienda.lote"]} />
+            <Field label="Manzana" value={draft.vivienda.manzana} onChange={(v) => updateVivienda("manzana", v)} onFocusField={() => focusSource("viviendaManzana")} sourceLabel={autofillSources["vivienda.manzana"]} />
+            <Field label="Colonia" value={draft.vivienda.colonia} onChange={(v) => updateVivienda("colonia", v.toUpperCase())} onFocusField={() => focusSource("viviendaColonia")} sourceLabel={autofillSources["vivienda.colonia"]} />
+            <Field label="Código postal" value={draft.vivienda.cp} onChange={(v) => updateVivienda("cp", v)} onFocusField={() => focusSource("viviendaCp")} sourceLabel={autofillSources["vivienda.cp"]} />
+            <Field label="Entidad" value={draft.vivienda.entidad} onChange={(v) => updateVivienda("entidad", v.toUpperCase())} onFocusField={() => focusSource("viviendaEntidad")} sourceLabel={autofillSources["vivienda.entidad"]} />
+            <Field label="Municipio / alcaldía" value={draft.vivienda.municipio} onChange={(v) => updateVivienda("municipio", v.toUpperCase())} onFocusField={() => focusSource("viviendaMunicipio")} sourceLabel={autofillSources["vivienda.municipio"]} />
+            <SelectField label="La vivienda es" value={draft.vivienda.tipoPropiedad} onChange={(v) => updateVivienda("tipoPropiedad", v)} onFocusField={() => focusSource("viviendaTipoPropiedad")} options={[{ value: "propia", label: "Propia" }, { value: "conyuge_concubino", label: "Cónyuge o concubino(a)" }, { value: "familiar", label: "Familiar" }]} />
+          </div>
         </div>
+
+        {sourceContext === "vivienda" ? (
+          <div className="min-w-0 xl:self-start" data-testid="infonavit-source-preview-vivienda">
+            <MesaInfonavitSourceDocumentPreview
+              expedienteId={expedienteId}
+              context={sourceContext}
+              requestedIneSide={requestedIneSide}
+              className="max-h-[min(70vh,720px)]"
+            />
+          </div>
+        ) : null}
       </div>
 
-      <div className="space-y-3">
-        <SectionTitle>4. Crédito y destino de recursos</SectionTitle>
-        <div className="grid gap-3 md:grid-cols-3">
-          <Field
-            label="Monto de crédito solicitado *"
-            type="number"
-            value={draft.credito.montoSolicitado}
-            onChange={(v) =>
-              updateCredito("montoSolicitado", v.trim() ? Number(v) : null)
+      <div
+        className={
+          sourceContext === "clabe"
+            ? "grid gap-4 xl:grid-cols-[minmax(0,1fr)_360px] xl:items-start"
+            : undefined
+        }
+        data-testid="infonavit-source-section-clabe"
+      >
+        <div className="min-w-0 space-y-3">
+          <SectionTitle
+            actions={
+              <Button
+                type="button"
+                variant="outline"
+                className="px-2 py-1 text-[11px]"
+                onClick={() => openSourceDocument("clabe")}
+              >
+                Ver estado de cuenta
+              </Button>
             }
-            required
-          />
-          <Field
-            label="Plazo solicitado (años)"
-            type="number"
-            value={draft.credito.plazoAnios}
-            onChange={(v) =>
-              updateCredito("plazoAnios", v.trim() ? Number(v) : null)
-            }
-          />
-          <Field
-            label="CLABE del derechohabiente"
-            value={draft.destinoRecursos.clabeDerechohabiente}
-            onChange={(v) => updateDestinoClabeDerechohabiente(v)}
-            onFocusField={() => focusSource("clabeDerechohabiente")}
-            maxLength={40}
-          />
+          >
+            4. Crédito y destino de recursos
+          </SectionTitle>
+          <div className="grid gap-3 md:grid-cols-3">
+            <Field
+              label="Monto de crédito solicitado *"
+              type="number"
+              value={draft.credito.montoSolicitado}
+              onChange={(v) =>
+                updateCredito("montoSolicitado", v.trim() ? Number(v) : null)
+              }
+              required
+            />
+            <Field
+              label="Plazo solicitado (años)"
+              type="number"
+              value={draft.credito.plazoAnios}
+              onChange={(v) =>
+                updateCredito("plazoAnios", v.trim() ? Number(v) : null)
+              }
+            />
+            <Field
+              label="CLABE del derechohabiente"
+              value={draft.destinoRecursos.clabeDerechohabiente}
+              onChange={(v) => updateDestinoClabeDerechohabiente(v)}
+              onFocusField={() => focusSource("clabeDerechohabiente")}
+              sourceLabel={autofillSources["destinoRecursos.clabeDerechohabiente"]}
+              maxLength={40}
+            />
+          </div>
         </div>
+
+        {sourceContext === "clabe" ? (
+          <div className="min-w-0 xl:self-start" data-testid="infonavit-source-preview-clabe">
+            <MesaInfonavitSourceDocumentPreview
+              expedienteId={expedienteId}
+              context={sourceContext}
+              requestedIneSide={requestedIneSide}
+              className="max-h-[min(70vh,720px)]"
+            />
+          </div>
+        ) : null}
       </div>
 
       <div className="space-y-3">
@@ -858,15 +1364,6 @@ export function MesaInfonavitGenerarDocumentosForm({
         >
           Recargar desde Datos Generales
         </Button>
-      </div>
-      </div>
-
-      <div className="xl:sticky xl:top-20">
-        <MesaInfonavitSourceDocumentPreview
-          expedienteId={expedienteId}
-          context={sourceContext}
-          className="max-h-[min(70vh,720px)] xl:max-h-[calc(100vh-6rem)]"
-        />
       </div>
     </div>
   );
