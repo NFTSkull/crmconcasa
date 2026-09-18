@@ -53,6 +53,11 @@ export function mapEnviarMesaFiscalHttpError(
       "No se pudo determinar con seguridad el RFC fiscal del cliente. El expediente no se envió a Mesa.",
     );
   }
+  if (code === "FISCAL_INPUT_CHANGED" || code === "FISCAL_INPUT_RECHECK_FAILED") {
+    return new ExpedientesSupabaseError(
+      "Los datos fiscales o el Estado de Cuenta cambiaron durante la validación. No se envió a Mesa; intenta nuevamente.",
+    );
+  }
   if (
     code.startsWith("SAT_") ||
     code === "TECHNICAL_FAILURE" ||
