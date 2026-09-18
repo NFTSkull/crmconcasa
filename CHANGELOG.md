@@ -1,3 +1,5 @@
+- **fix(infonavit): propuesta nunca sin dirección (Production 2026-09-18)** — la dirección visible de Vivienda a mejorar se recompone antes del snapshot (Calle/No./Int./Lote/Mz./Colonia/Municipio/Entidad/CP); SQL repite la composición y recupera el domicilio base si el payload viene vacío; si no existe domicilio, bloquea generación con `INFONAVIT_DIRECCION_REQUERIDA`. PDF y Word consumen el mismo snapshot. Sin backfill ni cambios a agenda/citas/cupos. PR #367.
+
 ## [Unreleased]
 
 - **feat(mesa): P4B detección CLABE shadow desde Estado de cuenta** — texto embebido PDF (`extractPdfEmbeddedText`) + checksum P1 + contexto etiqueta; sugerencia visual sin autofill/DB/OCR/provider. Fix: candidatos delimitados (no embebidos en 19+ dígitos); blob ligado a `documentoId`.
