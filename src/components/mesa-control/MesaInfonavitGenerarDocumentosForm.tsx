@@ -22,7 +22,10 @@ import {
   extractDocumentTextViaOcr,
   type OcrDocumentType,
 } from "@/domain/document-extractions/document-ocr-client";
-import { getMesaInfonavitOcrCache } from "@/domain/document-extractions/document-ocr-precompute-client";
+import {
+  getMesaInfonavitOcrCache,
+  type MesaInfonavitOcrCache,
+} from "@/domain/document-extractions/document-ocr-precompute-client";
 import {
   buildInfonavitDocumentAutofillPatch,
   comparableAutofillValue,
@@ -806,7 +809,7 @@ export function MesaInfonavitGenerarDocumentosForm({
           },
         ];
 
-        const cachedOcr =
+        const cachedOcr: MesaInfonavitOcrCache =
           autofillRetryNonce === 0
             ? await getMesaInfonavitOcrCache(expedienteId)
             : {};
