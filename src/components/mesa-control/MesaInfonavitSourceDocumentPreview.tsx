@@ -406,7 +406,7 @@ export function MesaInfonavitSourceDocumentPreview({
           ) : null}
           {context === "identidad" ? (
             <p className="text-[11px] text-gray-500">
-              Número de identificación (T7) no se completa automáticamente.
+              Número de identificación se completa solo si el reverso permite detectar el OCR con certeza; si no, se captura manualmente.
             </p>
           ) : null}
         </div>
@@ -449,8 +449,9 @@ export function MesaInfonavitSourceDocumentPreview({
 
       {shouldRunClabeShadowDetection(context) ? (
         <MesaClabeShadowDetectionPanel
-          analyzing={clabeAnalyzing}
+          analyzing={clabeAnalyzing && !appliedClabeDetection}
           result={visibleClabeDetection}
+          applied={Boolean(appliedClabeDetection)}
         />
       ) : null}
 
