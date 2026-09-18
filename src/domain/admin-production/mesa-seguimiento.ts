@@ -84,6 +84,39 @@ export function labelAdminMesaAction(action: string | null | undefined): string 
   }
 }
 
+export function labelAdminMesaTimelineEvent(
+  event: Pick<AdminMesaTimelineEvent, "action" | "summary">,
+): string {
+  const estadoNuevo = String(event.summary.estado_nuevo ?? "").trim();
+  const estatusNuevo = String(event.summary.estatus_nuevo ?? "").trim();
+
+  if (
+    event.action === "cliente_datos.revision.update" &&
+    estadoNuevo === "rechazado"
+  ) {
+    return "Mesa solicitó corrección de datos generales";
+  }
+  if (
+    event.action === "documento.revision.update" &&
+    estatusNuevo === "rechazado"
+  ) {
+    return "Mesa solicitó corrección de documento";
+  }
+  if (
+    event.action === "cliente_datos.revision.update" &&
+    estadoNuevo === "completo"
+  ) {
+    return "Mesa validó datos generales";
+  }
+  if (
+    event.action === "documento.revision.update" &&
+    estatusNuevo === "validado"
+  ) {
+    return "Mesa validó documento";
+  }
+  return labelAdminMesaAction(event.action);
+}
+
 /** Whitelist documentada: última actividad Mesa (solo códigos de flujo Mesa). */
 export const ADMIN_MESA_LAST_ACTIVITY_ACTIONS = [
   "documento.revision.update",
