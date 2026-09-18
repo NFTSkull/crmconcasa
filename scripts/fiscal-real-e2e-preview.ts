@@ -23,8 +23,25 @@ async function main() {
     return;
   }
 
-  const supabaseUrl = String(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "").trim();
-  const serviceRole = String(process.env.SUPABASE_SERVICE_ROLE_KEY ?? "").trim();
+  const supabaseEnvNames = Object.keys(process.env)
+    .filter((name) => /SUPABASE|POSTGRES/i.test(name))
+    .sort();
+  console.log(
+    "[fiscal-real-e2e-postbuild] SERVER_ENV_NAMES " +
+      JSON.stringify(supabaseEnvNames),
+  );
+
+  const supabaseUrl = String(
+    process.env.NEXT_PUBLIC_SUPABASE_URL ??
+      process.env.SUPABASE_URL ??
+      "",
+  ).trim();
+  const serviceRole = String(
+    process.env.SUPABASE_SERVICE_ROLE_KEY ??
+      process.env.SUPABASE_SECRET_KEY ??
+      process.env.SUPABASE_SERVICE_KEY ??
+      "",
+  ).trim();
   if (!supabaseUrl || !serviceRole) {
     throw new Error("MISSING_SUPABASE_SERVER_ENV");
   }
