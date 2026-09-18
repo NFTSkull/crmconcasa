@@ -47,14 +47,14 @@ export async function extractDocumentTextViaOcr(input: {
   form.append(
     "file",
     input.blob,
-    input.filename?.trim() || ${input.documentType}.pdf,
+    input.filename?.trim() || `${input.documentType}.pdf`,
   );
   form.append("document_type", input.documentType);
 
-  const response = await fetch(${endpoint()}/v1/extract, {
+  const response = await fetch(`${endpoint()}/v1/extract`, {
     method: "POST",
     headers: {
-      Authorization: ${Bearer ${session.access_token}},
+      Authorization: `Bearer ${session.access_token}`,
     },
     body: form,
     signal: input.signal,
@@ -74,7 +74,7 @@ export async function extractDocumentTextViaOcr(input: {
   if (!response.ok || !body?.ok) {
     const reason =
       typeof body?.detail === "string" ? body.detail : "ocr_unavailable";
-    throw new Error(${No se pudo leer el documento (${reason}).});
+    throw new Error(`No se pudo leer el documento (${reason}).`);
   }
 
   return {
