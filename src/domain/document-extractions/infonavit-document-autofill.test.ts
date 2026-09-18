@@ -278,7 +278,7 @@ describe("P4C document autofill parser", () => {
     const patch = buildInfonavitDocumentAutofillPatch({
       ineReverso: [
         "INSTITUTO NACIONAL ELECTORAL",
-        "OCR 1234-5678 9O123",
+        "OCR 1234-5678 9O123 CIC 987654321",
       ].join("\n"),
     });
     assert.equal(patch.cliente.identificacionNumero?.value, "1234567890123");
