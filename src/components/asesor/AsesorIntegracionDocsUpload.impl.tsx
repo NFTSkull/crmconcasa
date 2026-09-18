@@ -37,6 +37,10 @@ import {
   isIneImageToPdfError,
   prepareIneFileForUpload,
 } from "@/lib/ineImageToPdf";
+import {
+  isOcrPrecomputeDocumentType,
+  requestDocumentOcrPrecompute,
+} from "@/domain/document-extractions/document-ocr-precompute-client";
 
 type Props = {
   expedienteId: string;
@@ -541,6 +545,19 @@ export function AsesorIntegracionDocsUpload({
             await repo.uploadArchivo(params);
           }
         }
+
+        if (isOcrPrecomputeDocumentType(tipo)) {
+          setUploadStatusLabel("Preparando datos…");
+          try {
+            await requestDocumentOcrPrecompute({
+              expedienteId,
+              documentType: tipo,
+            });
+          } catch {
+            // Fail-open: la subida ya quedó registrada y Mesa conserva OCR on-demand.
+          }
+        }
+
         onUploaded();
       } catch (err) {
         const message =
