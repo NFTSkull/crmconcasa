@@ -36,6 +36,15 @@ describe("mapEnviarMesaFiscalHttpError", () => {
     assert.doesNotMatch(message, /inválid/i);
   });
 
+  it("si cambian los insumos durante SAT obliga a revalidar", () => {
+    const message = mapEnviarMesaFiscalHttpError({
+      code: "FISCAL_INPUT_CHANGED",
+      status: "retry",
+    }).message;
+    assert.match(message, /cambiaron durante la validación/i);
+    assert.match(message, /No se envió a Mesa/i);
+  });
+
   it("tras PASS fiscal conserva mapper de la RPC existente", () => {
     const error = mapEnviarMesaFiscalHttpError({
       status: "send_failed_after_fiscal_pass",
