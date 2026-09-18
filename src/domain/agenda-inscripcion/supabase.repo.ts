@@ -12,6 +12,11 @@ import {
   mapMesaSolicitarInscripcionRpcError,
 } from "./rpc-error";
 import { AgendaInscripcionError } from "./supabase.error";
+import {
+  BOOK_SLOT_JUST_TAKEN_MESSAGE,
+  invokeAgendaSheetLiveSync,
+} from "@/domain/agenda-sheets/live-inventory-sync";
+import { LIVE_SYNC_CUPOS_UNVERIFIED_MESSAGE } from "@/domain/agenda-sheets/daily-capacity";
 import type {
   AgendaInscripcionRepo,
   BookInscripcionParams,
@@ -104,6 +109,33 @@ function mapActiveBooking(row: BookingRow): AgendaInscripcionActiveBooking {
     status: "booked",
     kind: INSCRIPCION_BOOKING_KIND,
   };
+}
+
+async function refreshInscripcionInventoryBeforeMutation(
+  sb: SupabaseClient,
+  params: Readonly<{
+    bookingDate: string;
+    locationId: string;
+    mode: "book_gate" | "availability";
+  }>,
+): Promise<void> {
+  const live = await invokeAgendaSheetLiveSync(sb, {
+    kind: INSCRIPCION_BOOKING_KIND,
+    mode: params.mode,
+    bookingDate: params.bookingDate,
+    locationId: params.locationId,
+    slotTime:
+      params.mode === "book_gate" ? INSCRIPCION_FIXED_TIME : undefined,
+  });
+
+  if (!live || live.fresh !== true) {
+    throw new AgendaInscripcionError(LIVE_SYNC_CUPOS_UNVERIFIED_MESSAGE);
+  }
+  if (params.mode === "book_gate" && live.canBook === false) {
+    throw new AgendaInscripcionError(
+      live.gateMessage?.trim() || live.bookMessage || BOOK_SLOT_JUST_TAKEN_MESSAGE,
+    );
+  }
 }
 
 function mutationFromError(e: unknown): InscripcionMutationResult {
@@ -241,6 +273,9 @@ export class SupabaseAgendaInscripcionRepo implements AgendaInscripcionRepo {
 
     const payload = data as {
       ok?: boolean;
+      daily_capacity?: number | null;
+      daily_remaining?: number | null;
+      daily_occupancy?: number | null;
       slots?: ReadonlyArray<{
         slot_time?: string;
         sheet_slot_time?: string | null;
@@ -256,9 +291,34 @@ export class SupabaseAgendaInscripcionRepo implements AgendaInscripcionRepo {
       return t === INSCRIPCION_FIXED_TIME;
     });
 
-    const available = Number(match?.available ?? 0);
-    const capacity = Number(match?.capacity ?? available);
-    const occupied = Number(match?.occupied ?? Math.max(0, capacity - available));
+    const physicalAvailable = Math.max(0, Number(match?.available ?? 0));
+    const physicalCapacity = Math.max(
+      0,
+      Number(match?.capacity ?? physicalAvailable),
+    );
+    const dailyCapacityRaw = payload?.daily_capacity;
+    const dailyRemainingRaw = payload?.daily_remaining;
+    const dailyCapacity =
+      dailyCapacityRaw == null || !Number.isFinite(Number(dailyCapacityRaw))
+        ? null
+        : Math.max(0, Number(dailyCapacityRaw));
+    const dailyRemaining =
+      dailyRemainingRaw == null || !Number.isFinite(Number(dailyRemainingRaw))
+        ? null
+        : Math.max(0, Number(dailyRemainingRaw));
+
+    // Septiembre: la capacidad de negocio manda sobre filas fantasma del inventario.
+    // El Sheet puede reducir el cupo (captura manual), nunca ampliarlo arriba del hard-cap.
+    const capacity =
+      dailyCapacity == null
+        ? physicalCapacity
+        : Math.min(physicalCapacity, dailyCapacity);
+    const available = Math.min(
+      physicalAvailable,
+      capacity,
+      dailyRemaining == null ? Number.POSITIVE_INFINITY : dailyRemaining,
+    );
+    const occupied = Math.max(0, capacity - available);
 
     return [
       {
@@ -275,6 +335,11 @@ export class SupabaseAgendaInscripcionRepo implements AgendaInscripcionRepo {
   async book(params: BookInscripcionParams): Promise<InscripcionMutationResult> {
     try {
       const sb = clientOrThrow();
+      await refreshInscripcionInventoryBeforeMutation(sb, {
+        bookingDate: params.bookingDate,
+        locationId: params.locationId,
+        mode: "book_gate",
+      });
       const { data, error } = await sb.rpc("book_inscripcion_extraordinaria", {
         p_expediente_id: params.expedienteId,
         p_booking_date: params.bookingDate,
@@ -369,6 +434,13 @@ export class SupabaseAgendaInscripcionRepo implements AgendaInscripcionRepo {
   ): Promise<InscripcionMutationResult> {
     try {
       const sb = clientOrThrow();
+      // Relee Sheet sin bloquear por el lugar que ya ocupa la cita actual;
+      // la RPC/trigger libera la cita anterior y valida atómicamente el destino.
+      await refreshInscripcionInventoryBeforeMutation(sb, {
+        bookingDate: params.bookingDate,
+        locationId: params.locationId,
+        mode: "availability",
+      });
       const { data, error } = await sb.rpc(
         "reagendar_inscripcion_extraordinaria",
         {
