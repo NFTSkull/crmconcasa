@@ -9,6 +9,8 @@ from typing import Literal
 
 import fitz
 import jwt
+import cv2
+import numpy as np
 import pytesseract
 from fastapi import FastAPI, File, Form, Header, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
@@ -24,7 +26,7 @@ ALLOWED_TYPES = {
     "cliente_estado_cuenta",
 }
 
-app = FastAPI(title="ConCasa Document OCR", version="1.0.0")
+app = FastAPI(title="ConCasa Document OCR", version="1.1.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -119,14 +121,56 @@ def preprocess_image(image: Image.Image) -> Image.Image:
     return img
 
 
+def adaptive_binary_variant(image: Image.Image) -> Image.Image:
+    base = ImageOps.exif_transpose(image).convert("L")
+    longest = max(base.size)
+    if longest < 2600:
+        scale = min(6.0, 2600 / max(1, longest))
+        base = base.resize(
+            (max(1, round(base.width * scale)), max(1, round(base.height * scale))),
+            Image.Resampling.LANCZOS,
+        )
+
+    arr = np.array(base)
+    clahe = cv2.createCLAHE(clipLimit=2.5, tileGridSize=(8, 8)).apply(arr)
+    denoised = cv2.bilateralFilter(clahe, 7, 30, 30)
+    binary = cv2.adaptiveThreshold(
+        denoised,
+        255,
+        cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
+        cv2.THRESH_BINARY,
+        31,
+        9,
+    )
+    return Image.fromarray(binary)
+
+
 def ocr_image(image: Image.Image, document_type: str) -> str:
-    img = preprocess_image(image)
-    psm = "6" if document_type != "cliente_ine_reverso" else "11"
-    return pytesseract.image_to_string(
-        img,
-        lang="spa+eng",
-        config=f"--oem 1 --psm {psm} preserve_interword_spaces=1",
-    ).strip()
+    primary = preprocess_image(image)
+    primary_psm = "6" if document_type != "cliente_ine_reverso" else "11"
+    parts = [
+        pytesseract.image_to_string(
+            primary,
+            lang="spa+eng",
+            config=f"--oem 1 --psm {primary_psm} preserve_interword_spaces=1",
+        ).strip()
+    ]
+
+    # Las INE fotografiadas suelen tener texto pequeño sobre fondos de seguridad.
+    # Un pase binario sparse-text recupera etiquetas como SEXO/VIGENCIA que PSM 6
+    # puede perder. Concatenamos resultados; el parser posterior sigue siendo
+    # determinista y solo acepta valores explícitos de alta confianza.
+    if document_type.startswith("cliente_ine_"):
+        adaptive = adaptive_binary_variant(image)
+        parts.append(
+            pytesseract.image_to_string(
+                adaptive,
+                lang="spa+eng",
+                config="--oem 1 --psm 11 preserve_interword_spaces=1",
+            ).strip()
+        )
+
+    return "\n".join(part for part in parts if part).strip()
 
 
 def render_pdf_page(page: fitz.Page, dpi: int = 300) -> Image.Image:
@@ -162,7 +206,7 @@ def extract_document_text(data: bytes, mime: str, document_type: str) -> tuple[s
 
 @app.get("/health")
 def health() -> dict:
-    return {"ok": True, "service": "document-ocr", "version": "1.0.0"}
+    return {"ok": True, "service": "document-ocr", "version": "1.1.0"}
 
 
 @app.post("/v1/extract")
