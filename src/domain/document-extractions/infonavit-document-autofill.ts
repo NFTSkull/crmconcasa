@@ -163,12 +163,14 @@ function parseIneValidity(text: string): string | null {
 
 function parseIneOcrNumber(text: string): string | null {
   const t = upper(text);
-  const labeled = t.match(/\b(?:OCR|0CR)\b[^\n]{0,48}/);
-  if (!labeled) return null;
-  const digits = labeled[0]
-    .replace(/\b(?:OCR|0CR)\b/i, "")
-    .replace(/O/g, "0")
-    .replace(/[^0-9]/g, "");
+  const labeled = t.match(/\b(?:OCR|0CR)\b([^\n]{0,48})/);
+  if (!labeled?.[1]) return null;
+
+  const afterLabel = labeled[1].replace(/O/g, "0").trim();
+  // Cortamos cuando empieza otra etiqueta alfabética (p. ej. CIC), para no
+  // concatenar sus dígitos con el número OCR.
+  const candidate = afterLabel.split(/[A-NP-ZÁÉÍÓÚÜÑ]{2,}/, 1)[0] ?? "";
+  const digits = candidate.replace(/[^0-9]/g, "");
   return /^\d{12,13}$/.test(digits) ? digits : null;
 }
 
