@@ -248,6 +248,9 @@ export class SupabaseAgendaInscripcionRepo implements AgendaInscripcionRepo {
         capacity?: number;
         occupied?: number;
       }>;
+      daily_capacity?: number | null;
+      daily_occupancy?: number | null;
+      daily_remaining?: number | null;
     } | null;
 
     const slots = payload?.slots ?? [];
@@ -256,9 +259,50 @@ export class SupabaseAgendaInscripcionRepo implements AgendaInscripcionRepo {
       return t === INSCRIPCION_FIXED_TIME;
     });
 
-    const available = Number(match?.available ?? 0);
-    const capacity = Number(match?.capacity ?? available);
-    const occupied = Number(match?.occupied ?? Math.max(0, capacity - available));
+    const physicalAvailable = Math.max(0, Number(match?.available ?? 0));
+    const physicalCapacity = Math.max(
+      0,
+      Number(match?.capacity ?? physicalAvailable),
+    );
+    const physicalOccupied = Math.max(
+      0,
+      Number(match?.occupied ?? Math.max(0, physicalCapacity - physicalAvailable)),
+    );
+
+    const dailyCapacityRaw = Number(payload?.daily_capacity);
+    const dailyOccupancyRaw = Number(payload?.daily_occupancy);
+    const dailyRemainingRaw = Number(payload?.daily_remaining);
+    const hasDailyCapacity =
+      payload?.daily_capacity != null && Number.isFinite(dailyCapacityRaw);
+    const hasDailyOccupancy =
+      payload?.daily_occupancy != null && Number.isFinite(dailyOccupancyRaw);
+    const hasDailyRemaining =
+      payload?.daily_remaining != null && Number.isFinite(dailyRemainingRaw);
+
+    const dailyCapacity = hasDailyCapacity
+      ? Math.max(0, Math.trunc(dailyCapacityRaw))
+      : null;
+    const dailyOccupancy = hasDailyOccupancy
+      ? Math.max(0, Math.trunc(dailyOccupancyRaw))
+      : null;
+    const dailyRemaining = hasDailyRemaining
+      ? Math.max(0, Math.trunc(dailyRemainingRaw))
+      : null;
+
+    // Cupo efectivo = la restricción más estricta entre filas físicas y hard-cap diario.
+    // Así una captura manual en Sheet consume cupo aunque no exista un booking CRM.
+    const available =
+      dailyRemaining == null
+        ? physicalAvailable
+        : Math.min(physicalAvailable, dailyRemaining);
+    const capacity =
+      dailyCapacity == null
+        ? physicalCapacity
+        : Math.min(physicalCapacity, dailyCapacity);
+    const occupied =
+      dailyOccupancy == null
+        ? physicalOccupied
+        : Math.min(capacity, dailyOccupancy);
 
     return [
       {
