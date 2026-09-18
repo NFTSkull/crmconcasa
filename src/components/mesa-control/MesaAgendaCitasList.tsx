@@ -184,17 +184,24 @@ export function MesaAgendaCitasList({
                 >
                   {showBulk ? (
                     <td className="px-3 py-3 align-middle">
-                      <MesaAgendaBulkRowCheckbox
-                        bookingId={entry.bookingId}
-                        checked={checked}
-                        disabled={!selectable || bulkBusy}
-                        title={
-                          bulkBusy
-                            ? "Operación masiva en curso"
-                            : reason
-                        }
-                        onCheckedChange={(next) => onBulkRowCheckedChange?.(entry, next)}
-                      />
+                      <div className="flex flex-col items-start gap-1">
+                        <MesaAgendaBulkRowCheckbox
+                          bookingId={entry.bookingId}
+                          checked={checked}
+                          disabled={!selectable || bulkBusy}
+                          title={
+                            bulkBusy
+                              ? "Operación masiva en curso"
+                              : reason
+                          }
+                          onCheckedChange={(next) => onBulkRowCheckedChange?.(entry, next)}
+                        />
+                        {!selectable && !bulkBusy ? (
+                          <span className="max-w-40 text-[10px] leading-tight text-amber-800">
+                            {reason}
+                          </span>
+                        ) : null}
+                      </div>
                     </td>
                   ) : null}
                   <td className="px-4 py-3 whitespace-nowrap">
