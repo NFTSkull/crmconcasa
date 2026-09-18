@@ -79,6 +79,35 @@ type ClienteDraft = {
   identificacion: IdentificacionDraft;
 };
 
+export function repairMesaInfonavitClienteNameFromCanonical(
+  cliente: ClienteDraft,
+): ClienteDraft {
+  const canonical = parseLegacyReferenciaNombre(cliente.nombreCompleto);
+  if (!canonical.parsed) return cliente;
+
+  const currentParts = [
+    cliente.nombres,
+    cliente.apellidoPaterno,
+    cliente.apellidoMaterno,
+  ]
+    .filter(Boolean)
+    .join(" ");
+
+  if (
+    comparableAutofillValue(currentParts) ===
+    comparableAutofillValue(cliente.nombreCompleto)
+  ) {
+    return cliente;
+  }
+
+  return {
+    ...cliente,
+    nombres: canonical.nombres,
+    apellidoPaterno: canonical.apellidoPaterno,
+    apellidoMaterno: canonical.apellidoMaterno,
+  };
+}
+
 type EmpresaDraft = {
   nombre: string;
   registroPatronal: string;
@@ -847,26 +876,11 @@ export function MesaInfonavitGenerarDocumentosForm({
             issue.code === "low_confidence",
         );
         if (ineNameRejected && current.cliente.nombreCompleto.trim()) {
-          const canonical = parseLegacyReferenciaNombre(
-            current.cliente.nombreCompleto,
-          );
-          const currentParts = [
-            current.cliente.nombres,
-            current.cliente.apellidoPaterno,
-            current.cliente.apellidoMaterno,
-          ]
-            .filter(Boolean)
-            .join(" ");
-
-          if (
-            canonical.parsed &&
-            comparableAutofillValue(currentParts) !==
-              comparableAutofillValue(current.cliente.nombreCompleto)
-          ) {
+          const repairedCliente =
+            repairMesaInfonavitClienteNameFromCanonical(current.cliente);
+          if (repairedCliente !== current.cliente) {
             mergeBase = structuredClone(current);
-            mergeBase.cliente.nombres = canonical.nombres;
-            mergeBase.cliente.apellidoPaterno = canonical.apellidoPaterno;
-            mergeBase.cliente.apellidoMaterno = canonical.apellidoMaterno;
+            mergeBase.cliente = repairedCliente;
           }
         }
 
