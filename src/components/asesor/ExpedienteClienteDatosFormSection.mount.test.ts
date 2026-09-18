@@ -107,3 +107,15 @@ describe("ExpedienteClienteDatosFormSection panel histórico refs", () => {
     assert.match(src, /delete merged\.legacyGrandfathered/);
   });
 });
+
+
+it("página: borrador local solo restaura si es posterior al cliente_datos oficial", () => {
+  assert.match(
+    page,
+    /autoRestoreClienteDatosDraftIfPending\([\s\S]*?found\.updatedAt/,
+  );
+  assert.match(
+    page,
+    /shouldAutoRestoreClienteDatosDraft\([\s\S]*?officialUpdatedAt/,
+  );
+});
