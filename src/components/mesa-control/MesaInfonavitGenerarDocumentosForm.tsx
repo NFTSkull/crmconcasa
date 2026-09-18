@@ -171,6 +171,7 @@ type DocumentAutofillState = Readonly<{
   confirmed: number;
   conflicts: number;
   errors: string[];
+  warnings: string[];
 }>;
 
 const EMPTY_AUTOFILL_STATE: DocumentAutofillState = {
@@ -179,6 +180,7 @@ const EMPTY_AUTOFILL_STATE: DocumentAutofillState = {
   confirmed: 0,
   conflicts: 0,
   errors: [],
+  warnings: [],
 };
 
 const AUTOFILL_FIELD_LABELS: Readonly<Record<string, string>> = {
@@ -561,6 +563,7 @@ export function MesaInfonavitGenerarDocumentosForm({
   const hydratedExpedienteRef = useRef<string | null>(null);
   const draftRef = useRef<MesaInfonavitDocumentDraft | null>(null);
   const autofillRunKeyRef = useRef<string | null>(null);
+  const autofillInFlightKeyRef = useRef<string | null>(null);
 
   const focusSource = useCallback((field: InfonavitSourceFieldKey) => {
     setSourceContext(resolveInfonavitSourcePreviewContext(field));
@@ -675,7 +678,13 @@ export function MesaInfonavitGenerarDocumentosForm({
           .map(([type, doc]) => `${type}:${doc?.id ?? "none"}`)
           .join("|");
 
-        if (autofillRunKeyRef.current === runKey) return;
+        if (
+          autofillRunKeyRef.current === runKey ||
+          autofillInFlightKeyRef.current === runKey
+        ) {
+          return;
+        }
+        autofillInFlightKeyRef.current = runKey;
 
         setAutofillState({
           status: "reading",
@@ -683,26 +692,32 @@ export function MesaInfonavitGenerarDocumentosForm({
           confirmed: 0,
           conflicts: 0,
           errors: [],
+          warnings: [],
         });
 
-        const texts: {
-          ineFrente?: string;
-          ineReverso?: string;
-          comprobanteDomicilio?: string;
-          estadoCuenta?: string;
-        } = {};
-        const errors: string[] = [];
+        const currentBefore = draftRef.current;
+        const identityAlreadyStructured = Boolean(
+          currentBefore?.cliente.nombres.trim() &&
+            currentBefore.cliente.apellidoPaterno.trim() &&
+            currentBefore.cliente.curp.trim(),
+        );
 
         const jobs: Array<{
           type: OcrDocumentType;
           target: keyof InfonavitDocumentTexts;
           doc: ExpedienteArchivoListItem | null;
         }> = [
-          {
-            type: "cliente_ine_frente",
-            target: "ineFrente",
-            doc: docs.cliente_ine_frente,
-          },
+          // Si Datos Generales ya traen identidad base, el reverso MRZ confirma
+          // nombre y obtiene sexo/vigencia. Evitamos OCR del frente pesado.
+          ...(identityAlreadyStructured
+            ? []
+            : [
+                {
+                  type: "cliente_ine_frente" as const,
+                  target: "ineFrente" as const,
+                  doc: docs.cliente_ine_frente,
+                },
+              ]),
           {
             type: "cliente_ine_reverso",
             target: "ineReverso",
@@ -720,56 +735,99 @@ export function MesaInfonavitGenerarDocumentosForm({
           },
         ];
 
-        for (const job of jobs) {
-          if (!job.doc || cancelled) continue;
-          try {
-            const blob = await archivosRepo.getArchivoBlob(job.doc.id);
-            if (cancelled) return;
-            const extracted = await extractDocumentTextViaOcr({
-              blob,
-              documentType: job.type,
-              filename: job.doc.nombre_original,
-              signal: controller.signal,
-            });
-            texts[job.target] = extracted.text;
-          } catch (error) {
-            if (controller.signal.aborted) return;
-            errors.push(
-              errorMessage(
-                error,
-                `No se pudo leer ${job.type.replaceAll("_", " ")}.`,
-              ),
-            );
-          }
-        }
+        const results = await Promise.all(
+          jobs
+            .filter(
+              (
+                job,
+              ): job is typeof job & { doc: ExpedienteArchivoListItem } =>
+                job.doc != null,
+            )
+            .map(async (job) => {
+              try {
+                const blob = await archivosRepo.getArchivoBlob(job.doc.id);
+                if (cancelled) return null;
+                const extracted = await extractDocumentTextViaOcr({
+                  blob,
+                  documentType: job.type,
+                  filename: job.doc.nombre_original,
+                  signal: controller.signal,
+                });
+                return {
+                  target: job.target,
+                  text: extracted.text,
+                  error: null as string | null,
+                };
+              } catch (error) {
+                if (controller.signal.aborted) return null;
+                return {
+                  target: job.target,
+                  text: "",
+                  error: errorMessage(
+                    error,
+                    `No se pudo leer ${job.type.replaceAll("_", " ")}.`,
+                  ),
+                };
+              }
+            }),
+        );
 
         if (cancelled) return;
 
-        const patch = buildInfonavitDocumentAutofillPatch(texts);
+        const texts: {
+          ineFrente?: string;
+          ineReverso?: string;
+          comprobanteDomicilio?: string;
+          estadoCuenta?: string;
+        } = {};
+        const errors: string[] = [];
+
+        for (const result of results) {
+          if (!result) continue;
+          if (result.error) errors.push(result.error);
+          else texts[result.target] = result.text;
+        }
+
         const current = draftRef.current;
         if (!current) return;
+        const expectedClienteNombre = [
+          current.cliente.nombres,
+          current.cliente.apellidoPaterno,
+          current.cliente.apellidoMaterno,
+        ]
+          .filter(Boolean)
+          .join(" ");
 
+        const patch = buildInfonavitDocumentAutofillPatch(texts, {
+          expectedClienteNombre,
+        });
         const merged = mergeInfonavitDocumentAutofill(current, patch);
         if (cancelled) return;
 
+        const warnings = (patch.issues ?? []).map((issue) => issue.message);
         setDraft(merged.draft);
         setAutofillSources({ ...merged.sourceByField });
         setAutofillConflicts(merged.conflicts);
         setAutofillState({
-          status: errors.length > 0 ? "partial" : "done",
+          status:
+            errors.length > 0 || warnings.length > 0 ? "partial" : "done",
           applied: merged.applied.length,
           confirmed: merged.confirmed.length,
           conflicts: merged.conflicts.length,
           errors,
+          warnings,
         });
         autofillRunKeyRef.current = runKey;
+        autofillInFlightKeyRef.current = null;
       } catch (error) {
+        autofillInFlightKeyRef.current = null;
         if (cancelled || controller.signal.aborted) return;
         setAutofillState({
           status: "error",
           applied: 0,
           confirmed: 0,
           conflicts: 0,
+          warnings: [],
           errors: [
             errorMessage(
               error,
@@ -1031,12 +1089,20 @@ export function MesaInfonavitGenerarDocumentosForm({
                   automáticamente. Puedes seguir manualmente o reintentar.
                 </p>
               ) : null}
+              {autofillState.warnings.length > 0 ? (
+                <ul className="mt-1 list-disc space-y-0.5 pl-4">
+                  {autofillState.warnings.map((warning) => (
+                    <li key={warning}>{warning}</li>
+                  ))}
+                </ul>
+              ) : null}
               <Button
                 type="button"
                 variant="outline"
                 className="mt-2 px-2 py-1 text-[11px]"
                 onClick={() => {
                   autofillRunKeyRef.current = null;
+                  autofillInFlightKeyRef.current = null;
                   setAutofillRetryNonce((value) => value + 1);
                 }}
               >
