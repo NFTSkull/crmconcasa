@@ -39,9 +39,9 @@ function formatDateTimeEsMx(iso: string | null | undefined): string {
  * Solo lectura: consulta metadata activa y preview/descarga.
  * No importa upload ni register_mesa_documento.
  *
- * También monta los 3 PDFs INFONAVIT automáticos exclusivamente cuando el
- * backend confirma que el actor es un asesor interno con visibilidad del
- * expediente. El gate es fail-closed para no exponerlos a externos.
+ * También monta los 3 PDFs INFONAVIT automáticos cuando el backend confirma
+ * que el actor es un asesor activo (interno o externo) con visibilidad real
+ * del expediente. El gate sigue fail-closed por can_see_expediente().
  */
 export function AsesorSolicitudDocumentoSection({
   expedienteId,
