@@ -110,6 +110,8 @@ export const asesorListExpedienteItemSchema = z.object({
       count: z.number().int().nonnegative(),
       labels: z.array(z.string()),
       first_motivo: z.string().nullable().optional(),
+      /** Timestamp canónico de la solicitud Mesa vigente. */
+      request_at: z.string().nullable().optional(),
       ux_state: z.string().nullable().optional(),
     })
     .nullable()
