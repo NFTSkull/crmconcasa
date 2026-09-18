@@ -44,7 +44,7 @@ export function MesaAgendaBulkAdvanceResultPanel({
           {!hasIncidents ? (
             <p className="mt-1">
               {summary.succeeded} expediente{summary.succeeded === 1 ? "" : "s"}{" "}
-              {summary.succeeded === 1 ? "pasó" : "pasaron"} correctamente a la siguiente etapa.
+              {summary.succeeded === 1 ? "llegó" : "llegaron"} correctamente a su destino operativo.
             </p>
           ) : (
             <ul className="mt-2 list-disc space-y-0.5 pl-5">
@@ -68,8 +68,8 @@ export function MesaAgendaBulkAdvanceResultPanel({
             </ul>
           )}
           <p className="mt-2 text-xs opacity-90">
-            Esta acción no valida Drive. Usa las reglas actuales de{" "}
-            <code className="text-[11px]">avanzar_etapa_operativa</code>.
+            Esta acción no valida Drive ni modifica la cita. Usa{" "}
+            <code className="text-[11px]">mesa_completar_cita_operativa</code>.
           </p>
         </div>
         <button
