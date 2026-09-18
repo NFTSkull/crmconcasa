@@ -930,6 +930,181 @@ Deno.serve(async (req) => {
           const bookingId = String(ev.booking_id ?? "");
           const priorId = String(payload.prior_cancelled_booking_id ?? "").trim();
 
+          // Self-heal: una reagenda al MISMO slot no debe quedar bloqueada por
+          // metadata/link del booking cancelado. Reutiliza la misma fila física,
+          // cambia únicamente O:U y reata inventario/link de forma transaccional.
+          const priorTime = parseTime(
+            String(payload.prior_booking_time ?? "").slice(0, 5),
+          );
+          const sameSlotReschedule = Boolean(
+            priorId &&
+              String(payload.prior_booking_date ?? "") === date &&
+              priorTime === time &&
+              String(payload.prior_location_id ?? "").trim().toLowerCase() ===
+                locationId.trim().toLowerCase(),
+          );
+          if (sameSlotReschedule) {
+            const { data: priorBooking } = await supabase
+              .from("agenda_bookings")
+              .select(
+                "id,organization_id,expediente_id,kind,status,booking_date,booking_time,location_id",
+              )
+              .eq("id", priorId)
+              .maybeSingle();
+            const priorRec = priorBooking as Record<string, unknown> | null;
+            const priorMatches =
+              priorRec != null &&
+              String(priorRec.status ?? "") === "cancelled" &&
+              String(priorRec.expediente_id ?? "") ===
+                String(payload.expediente_id ?? "") &&
+              String(priorRec.kind ?? "") === kind &&
+              String(priorRec.booking_date ?? "") === date &&
+              parseTime(String(priorRec.booking_time ?? "").slice(0, 5)) === time &&
+              String(priorRec.location_id ?? "").trim().toLowerCase() ===
+                locationId.trim().toLowerCase();
+
+            if (priorMatches) {
+              const { data: priorLinks } = await supabase
+                .from("agenda_sheet_slot_links")
+                .select("id,sheet_id,sheet_title,row_number")
+                .eq("booking_id", priorId)
+                .is("deleted_at", null)
+                .limit(2);
+              if ((priorLinks ?? []).length === 1) {
+                const pl = (priorLinks ?? [])[0] as Record<string, unknown>;
+                const pSheetId = Number(pl.sheet_id ?? 0);
+                const pTitle = await resolveLiveTitle(
+                  pSheetId,
+                  String(pl.sheet_title ?? ""),
+                );
+                let pGrid: string[][] = [];
+                try {
+                  pGrid = await adapter.getValues(a1FullTabAuRange(pTitle));
+                } catch {
+                  pGrid = [];
+                }
+                const located = locateSheetRowByBookingId(pGrid, priorId);
+                const pRow = located || Number(pl.row_number ?? 0);
+                if (pTitle && pSheetId > 0 && pRow > 0) {
+                  let livePrior = (pGrid[pRow - 1] ?? []) as string[];
+                  if (!livePrior.length) {
+                    const one = await adapter.getValues(a1FullReadRange(pTitle, pRow));
+                    livePrior = (one[0] ?? []) as string[];
+                  }
+                  const livePriorId = String(
+                    livePrior[COL_INDEX.bookingId] ?? "",
+                  ).trim();
+                  const { data: expectedExp } = await supabase
+                    .from("expedientes")
+                    .select("nss")
+                    .eq("id", payload.expediente_id)
+                    .maybeSingle();
+                  const expectedPriorNss = String(
+                    (expectedExp as { nss?: string } | null)?.nss ?? "",
+                  ).trim();
+                  const livePriorNss = String(
+                    livePrior[COL_INDEX.nss] ?? "",
+                  ).trim();
+                  if (
+                    livePriorId === priorId &&
+                    expectedPriorNss.length > 0 &&
+                    livePriorNss === expectedPriorNss
+                  ) {
+                    const beforeAN = Array.from({ length: 14 }, (_, i) =>
+                      String(livePrior[i] ?? "")
+                    );
+                    const oldTech = Array.from({ length: 7 }, (_, i) =>
+                      String(livePrior[14 + i] ?? "")
+                    );
+                    const existingSlotKey = String(
+                      livePrior[COL_INDEX.slotKey] ?? "",
+                    ).trim();
+                    const slotKey = existingSlotKey ||
+                      buildPhysicalSheetRowKey({
+                        kind,
+                        bookingDate: date,
+                        logicalStartTime: time,
+                        sheetStartTime:
+                          parseTime(String(livePrior[COL_INDEX.hora] ?? "")) ??
+                            time,
+                        locationId,
+                        sheetId: pSheetId,
+                        rowNumber: pRow,
+                      });
+                    const oldVersion = Number(
+                      String(livePrior[COL_INDEX.syncVersion] ?? "0"),
+                    );
+                    await adapter.batchUpdateValues([
+                      {
+                        range: a1TechRange(pTitle, pRow),
+                        values: [buildTechWriteRow({
+                          estado: "SINCRONIZADO",
+                          bookingId,
+                          expedienteId: String(payload.expediente_id ?? ""),
+                          slotKey,
+                          syncSource: "crm",
+                          syncUpdatedAt: new Date().toISOString(),
+                          syncVersion:
+                            Number.isFinite(oldVersion) && oldVersion > 0
+                              ? oldVersion + 1
+                              : 1,
+                        })],
+                      },
+                    ]);
+
+                    const verifySame = await adapter.getValues(
+                      a1FullReadRange(pTitle, pRow),
+                    );
+                    const vrSame = verifySame[0] ?? [];
+                    const anPreserved = beforeAN.every(
+                      (v, i) => String(vrSame[i] ?? "") === v,
+                    );
+                    const reboundOnSheet =
+                      String(vrSame[COL_INDEX.bookingId] ?? "").trim() === bookingId;
+
+                    if (anPreserved && reboundOnSheet) {
+                      const { data: rebound, error: reboundErr } = await supabase.rpc(
+                        "agenda_sheet_rebind_same_slot_reschedule",
+                        {
+                          p_prior_booking_id: priorId,
+                          p_new_booking_id: bookingId,
+                          p_sheet_id: pSheetId,
+                          p_sheet_row: pRow,
+                        },
+                      );
+                      const reboundOk =
+                        !reboundErr &&
+                        Boolean((rebound as { ok?: boolean } | null)?.ok);
+                      if (reboundOk) {
+                        await supabase.rpc("agenda_sheet_mark_outbox", {
+                          p_id: ev.id,
+                          p_status: "done",
+                        });
+                        done++;
+                        continue;
+                      }
+                    }
+
+                    // Fail-safe: si DB no confirmó el rebind, restaurar O:U exacto.
+                    await adapter.batchUpdateValues([
+                      {
+                        range: a1TechRange(pTitle, pRow),
+                        values: [oldTech],
+                      },
+                    ]);
+                    await supabase.rpc("agenda_sheet_mark_outbox", {
+                      p_id: ev.id,
+                      p_status: "failed",
+                      p_error: "same_slot_reschedule_rebind_failed",
+                    });
+                    failed++;
+                    continue;
+                  }
+                }
+              }
+            }
+          }
+
           // Gate: no escribir nueva fila si la anterior del reagendo no está limpia.
           if (priorId) {
             const { data: priorOutbox } = await supabase
@@ -1258,21 +1433,98 @@ Deno.serve(async (req) => {
               kind,
               logicalStartTime: time,
             });
-          // A debe coincidir con algún físico del pool (p.ej. 10:00 o 11:00 para lógico 10:00).
-          if (
+          // A debe ser una hora física válida. Encabezados, filas LEO u otras
+          // coordenadas desplazadas nunca son destino de una cita.
+          const targetHasValidPhysicalTime = Boolean(
             horaCell &&
-            !physicalPool.includes(horaCell) &&
-            horaCell !== expectedSheetTime
-          ) {
+              (physicalPool.includes(horaCell) || horaCell === expectedSheetTime),
+          );
+          if (!targetHasValidPhysicalTime) {
+            let relocated = false;
+            const { data: candidates, error: candidateErr } = await supabase
+              .from("agenda_sheet_slot_inventory")
+              .select(
+                "id,sheet_id,sheet_title,sheet_row,slot_key,sheet_slot_time,status",
+              )
+              .eq("organization_id", payload.organization_id)
+              .eq("spreadsheet_id", spreadsheetId)
+              .eq("sheet_id", tab.sheetId)
+              .eq("booking_date", date)
+              .eq("kind", kind)
+              .eq("location_id", locationId)
+              .eq("slot_time", `${time}:00`)
+              .eq("status", "available")
+              .is("booking_id", null)
+              .order("sheet_row", { ascending: true })
+              .limit(20);
+
+            if (!candidateErr) {
+              for (const cand of candidates ?? []) {
+                const rec = cand as Record<string, unknown>;
+                const candidateRow = Number(rec.sheet_row ?? 0);
+                const candidateSheetId = Number(rec.sheet_id ?? 0);
+                if (
+                  candidateRow <= 0 ||
+                  candidateSheetId <= 0 ||
+                  (candidateSheetId === tab.sheetId && candidateRow === targetRow)
+                ) {
+                  continue;
+                }
+                const candidateTitle = await resolveLiveTitle(
+                  candidateSheetId,
+                  String(rec.sheet_title ?? tab.title),
+                );
+                const liveCandidate = await adapter.getValues(
+                  a1FullReadRange(candidateTitle, candidateRow),
+                );
+                const cr = liveCandidate[0] ?? [];
+                const candidateHora = parseTime(
+                  String(cr[COL_INDEX.hora] ?? ""),
+                );
+                const validCandidateTime = Boolean(
+                  candidateHora &&
+                    (physicalPool.includes(candidateHora) ||
+                      candidateHora === expectedSheetTime),
+                );
+                const candidateOccupied = [
+                  COL_INDEX.nss,
+                  COL_INDEX.nombre,
+                  COL_INDEX.asesor,
+                  COL_INDEX.bookingId,
+                ].some((idx) => String(cr[idx] ?? "").trim().length > 0);
+                if (!validCandidateTime || candidateOccupied) continue;
+
+                const { data: repair, error: repairErr } = await supabase.rpc(
+                  "agenda_sheet_inventory_reassign_claim",
+                  {
+                    p_booking_id: bookingId,
+                    p_to_inventory_id: String(rec.id ?? ""),
+                  },
+                );
+                if (
+                  !repairErr &&
+                  Boolean((repair as { ok?: boolean } | null)?.ok)
+                ) {
+                  relocated = true;
+                  break;
+                }
+              }
+            }
+
             await supabase.rpc("agenda_sheet_mark_outbox", {
               p_id: ev.id,
               p_status: "failed",
-              p_error: "sheet_row_conflict:hora",
+              p_error: relocated
+                ? "stale_coordinate_reassigned"
+                : horaCell
+                ? "sheet_row_conflict:hora"
+                : "sheet_row_conflict:no_slot_time",
+              ...(relocated ? { p_backoff_seconds: 1 } : {}),
             });
-            if (payload.inventory_id) {
+            if (!relocated && payload.inventory_id) {
               await supabase.rpc("agenda_sheet_inventory_mark_conflict", {
                 p_id: payload.inventory_id,
-                p_error: "hora_mismatch",
+                p_error: horaCell ? "hora_mismatch" : "missing_slot_time",
               });
             }
             failed++;
