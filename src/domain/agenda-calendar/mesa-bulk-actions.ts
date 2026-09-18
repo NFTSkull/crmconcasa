@@ -175,8 +175,22 @@ export function getBulkAdvanceEligibility(
     };
   }
 
-  // P133: firmas 9→10 solo vía booking del asesor; no avance masivo Mesa.
-  if (kind === "firmas" && (etapa === 9 || etapa === 8 || etapa === 3)) {
+  // Firma con booking activo en etapa 9: el backend autoritativo
+  // avanzar_etapa_operativa valida fecha_cita + booking firmas y ejecuta 9→10.
+  // Drive no es requisito para el avance; una cita ya validada sigue seleccionable.
+  if (kind === "firmas" && etapa === 9) {
+    if (sub && sub !== "en_proceso") {
+      return { eligible: false, reason: "Etapa no compatible", transition: null };
+    }
+    return {
+      eligible: true,
+      reason: null,
+      transition: { fromStage: 9, toStage: 10, kind },
+    };
+  }
+
+  // Etapas de firma que no corresponden al avance 9→10 permanecen protegidas.
+  if (kind === "firmas" && (etapa === 8 || etapa === 3)) {
     return {
       eligible: false,
       reason: "Etapa no compatible",
