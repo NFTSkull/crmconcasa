@@ -145,7 +145,68 @@ def adaptive_binary_variant(image: Image.Image) -> Image.Image:
     return Image.fromarray(binary)
 
 
+INE_ORIENTATION_KEYWORDS = (
+    "INSTITUTO",
+    "NACIONAL",
+    "ELECTORAL",
+    "NOMBRE",
+    "CURP",
+    "VIGENCIA",
+    "SEXO",
+    "DOMICILIO",
+    "OCR",
+    "CIC",
+)
+
+
+def _orientation_probe_text(image: Image.Image) -> str:
+    probe = ImageOps.exif_transpose(image).convert("L")
+    longest = max(probe.size)
+    if longest > 1400:
+        scale = 1400 / max(1, longest)
+        probe = probe.resize(
+            (max(1, round(probe.width * scale)), max(1, round(probe.height * scale))),
+            Image.Resampling.LANCZOS,
+        )
+    probe = ImageOps.autocontrast(probe, cutoff=1)
+    return pytesseract.image_to_string(
+        probe,
+        lang="spa+eng",
+        config="--oem 1 --psm 11",
+    ).upper()
+
+
+def _score_ine_orientation(text: str) -> int:
+    normalized = re.sub(r"\s+", " ", text or "").upper()
+    score = sum(3 for keyword in INE_ORIENTATION_KEYWORDS if keyword in normalized)
+    score += len(re.findall(r"\b[A-Z]{4}\d{6}[HM][A-Z]{5}[A-Z0-9]\d\b", normalized)) * 8
+    score += len(re.findall(r"\bVIGENCIA\b", normalized)) * 5
+    return score
+
+
+def normalize_ine_orientation(image: Image.Image) -> Image.Image:
+    base = ImageOps.exif_transpose(image)
+    candidates = [
+        (0, base),
+        (90, base.rotate(90, expand=True)),
+        (180, base.rotate(180, expand=True)),
+        (270, base.rotate(270, expand=True)),
+    ]
+    scored: list[tuple[int, int, Image.Image]] = []
+    for degrees, candidate in candidates:
+        try:
+            score = _score_ine_orientation(_orientation_probe_text(candidate))
+        except Exception:
+            score = -1
+        scored.append((score, -degrees, candidate))
+    scored.sort(key=lambda row: (row[0], row[1]), reverse=True)
+    return scored[0][2]
+
+
 def ocr_image(image: Image.Image, document_type: str) -> str:
+    if document_type.startswith("cliente_ine_"):
+        image = normalize_ine_orientation(image)
+
     primary = preprocess_image(image)
     primary_psm = "6" if document_type != "cliente_ine_reverso" else "11"
     parts = [
