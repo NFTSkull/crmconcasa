@@ -156,9 +156,11 @@ function parseIneValidity(text: string): string | null {
 }
 
 function parseIneOcrNumber(text: string): string | null {
-  const t = upper(text).replace(/[O]/g, "0");
-  const explicit = t.match(/\bOCR\b[^0-9]{0,20}(\d{12,13})\b/);
-  return explicit?.[1] ?? null;
+  const t = upper(text);
+  const explicit = t.match(
+    /\b(?:OCR|0CR)\b[^0-9O]{0,20}([0-9O]{12,13})\b/,
+  );
+  return explicit?.[1]?.replace(/O/g, "0") ?? null;
 }
 
 function high(
