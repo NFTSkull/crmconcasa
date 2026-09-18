@@ -21,6 +21,65 @@ function plausibleYear(value: unknown): number | null {
   return Number.isInteger(year) && year >= 2020 && year <= 2050 ? year : null;
 }
 
+function normalizedMrzLines(raw: string): string[] {
+  return upper(raw)
+    .split(/\n+/)
+    .map((line) =>
+      line
+        .replace(/[«‹]/g, "<")
+        .replace(/\s+/g, "")
+        .replace(/[^A-Z0-9<]/g, ""),
+    )
+    .filter(Boolean);
+}
+
+function normalizeNumericOcr(raw: string): string {
+  return raw
+    .replace(/[OQ]/g, "0")
+    .replace(/[IL|]/g, "1");
+}
+
+export function parseIneMrzT7Number(reverseText: string): string | null {
+  const lines = normalizedMrzLines(reverseText);
+  for (const line of lines) {
+    if (!line.includes("IDMEX")) continue;
+    const match = line.match(/IDMEX[A-Z0-9]{6,20}<{2,}([0-9OQIL]{13})(?:<|$)/);
+    if (!match?.[1]) continue;
+    const digits = normalizeNumericOcr(match[1]).replace(/\D/g, "");
+    if (/^\d{13}$/.test(digits)) return digits;
+  }
+  return null;
+}
+
+export function parseIneMrzValidityDate(reverseText: string): string | null {
+  const lines = normalizedMrzLines(reverseText);
+  for (const line of lines) {
+    const match = line.match(
+      /([0-9OQIL]{6})[0-9A-Z]?([MHF])([0-9OQIL]{6})[0-9A-Z]?MEX/,
+    );
+    if (!match?.[3]) continue;
+
+    const expiry = normalizeNumericOcr(match[3]);
+    if (!/^\d{6}$/.test(expiry)) continue;
+
+    const yy = Number(expiry.slice(0, 2));
+    const mm = Number(expiry.slice(2, 4));
+    const dd = Number(expiry.slice(4, 6));
+    const year = plausibleYear(2000 + yy);
+    if (
+      year === null ||
+      mm < 1 ||
+      mm > 12 ||
+      dd < 1 ||
+      dd > 31
+    ) {
+      continue;
+    }
+    return `${year}-${String(mm).padStart(2, "0")}-${String(dd).padStart(2, "0")}`;
+  }
+  return null;
+}
+
 /**
  * La Credencial para Votar expresa su vigencia por año. Cuando aparece un rango
  * (p. ej. "VIGENCIA 2016-2026") el segundo año es el de expiración.
@@ -50,36 +109,9 @@ export function parseExplicitIneValidityYear(frontText: string): number | null {
  * la vigencia visible de la credencial. Nunca auto-rechaza por sí solo.
  */
 export function parseIneMrzValidityYear(reverseText: string): number | null {
-  const lines = upper(reverseText)
-    .split(/\n+/)
-    .map((line) =>
-      line
-        .replace(/[«‹]/g, "<")
-        .replace(/\s+/g, "")
-        .replace(/[^A-Z0-9<]/g, ""),
-    )
-    .filter(Boolean);
-
-  for (const line of lines) {
-    const match = line.match(
-      /\d{6}[0-9A-Z]?[MHF](\d{2})(\d{2})(\d{2})[0-9A-Z]?/,
-    );
-    if (!match) continue;
-    const year = plausibleYear(2000 + Number(match[1]));
-    const month = Number(match[2]);
-    const day = Number(match[3]);
-    if (
-      year !== null &&
-      month >= 1 &&
-      month <= 12 &&
-      day >= 1 &&
-      day <= 31
-    ) {
-      return year;
-    }
-  }
-
-  return null;
+  const date = parseIneMrzValidityDate(reverseText);
+  if (!date) return null;
+  return plausibleYear(date.slice(0, 4));
 }
 
 function assessmentForYear(
@@ -98,6 +130,39 @@ function assessmentForYear(
   };
 }
 
+function assessmentForMrzDate(
+  isoDate: string,
+  now: Date,
+  reverseText: string,
+): IneValidityAssessment {
+  const [yearRaw, monthRaw, dayRaw] = isoDate.split("-");
+  const year = Number(yearRaw);
+  const month = Number(monthRaw);
+  const day = Number(dayRaw);
+  const expiryUtc = Date.UTC(year, month - 1, day, 23, 59, 59, 999);
+  const nowUtc = Date.UTC(
+    now.getFullYear(),
+    now.getMonth(),
+    now.getDate(),
+    12,
+    0,
+    0,
+    0,
+  );
+  const expired = expiryUtc < nowUtc;
+  const t7 = parseIneMrzT7Number(reverseText);
+
+  return {
+    status: expired ? "expired" : "valid",
+    source: "reverse_mrz",
+    expirationYear: year,
+    displayVigencia: `${String(day).padStart(2, "0")}/${String(month).padStart(2, "0")}/${year}`,
+    // Auto-rechazo por reverso solo cuando hay dos señales MRZ independientes:
+    // fecha estructurada + T7 de 13 dígitos después de <<.
+    canAutoReject: expired && t7 !== null,
+  };
+}
+
 export function evaluateIneValidity(input: Readonly<{
   frontText?: string | null;
   reverseText?: string | null;
@@ -109,9 +174,10 @@ export function evaluateIneValidity(input: Readonly<{
     return assessmentForYear(explicitYear, now, "front_explicit");
   }
 
-  const mrzYear = parseIneMrzValidityYear(input.reverseText ?? "");
-  if (mrzYear !== null) {
-    return assessmentForYear(mrzYear, now, "reverse_mrz");
+  const reverseText = input.reverseText ?? "";
+  const mrzDate = parseIneMrzValidityDate(reverseText);
+  if (mrzDate !== null) {
+    return assessmentForMrzDate(mrzDate, now, reverseText);
   }
 
   return {
