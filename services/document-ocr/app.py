@@ -1287,6 +1287,15 @@ def ocr_image(image: Image.Image, document_type: str) -> str:
         unique_consensus = list(dict.fromkeys(consensus))
         if len(unique_consensus) == 1:
             parts.append(f"INE_T7_VERIFIED {unique_consensus[0]}")
+        elif (
+            not primary_candidates
+            and len(focused_candidates) == 1
+            and _ine_reverse_has_structured_mrz(focused_mrz or "")
+        ):
+            # El pase focalizado puede recuperar por sí solo un reverso que la
+            # lectura general no alcanzó a leer. Si además trae estructura MRZ
+            # completa (T7 + fecha/sexo), lo aceptamos como señal fuerte.
+            parts.append(f"INE_T7_VERIFIED {focused_candidates[0]}")
         elif primary_candidates or focused_candidates:
             parts.append("INE_T7_UNVERIFIED")
 
