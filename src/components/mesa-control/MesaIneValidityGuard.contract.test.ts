@@ -48,6 +48,13 @@ describe("Mesa INE validity guard contract", () => {
     assert.match(guard, /MRZ\/T7/);
   });
 
+  it("muestra y captura la vigencia únicamente como año", () => {
+    assert.match(form, /Vigencia identificación \(año\)/);
+    assert.match(form, /placeholder="aaaa"/);
+    assert.doesNotMatch(form, /placeholder="dd\/mm\/aaaa"/);
+    assert.match(guard, /assessment\.expirationYear/);
+  });
+
   it("bloquea generación cuando la vigencia confiable está vencida", () => {
     assert.match(form, /ineValidity\?\.canAutoReject/);
     assert.match(form, /No se puede generar con una INE vencida/);
