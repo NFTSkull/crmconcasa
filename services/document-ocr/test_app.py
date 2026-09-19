@@ -1,6 +1,6 @@
 import io
 
-from PIL import Image
+from PIL import Image, ImageDraw
 
 from app import (
     enough_embedded_text,
@@ -10,6 +10,8 @@ from app import (
     preprocess_image,
     _verify_t7_trailing_digit,
     _ine_front_validity_focus_text,
+    _ine_card_crop,
+    _ine_reverse_mrz_focus_text,
     _has_clabe_like_candidate,
     _strict_labeled_clabe_candidates,
     _clabe_checksum_valid,
@@ -407,3 +409,50 @@ def test_banorte_accepts_exact_clabe_row():
     )
     assert _strict_labeled_clabe_candidates(text) == ["072580013691192354"]
     assert _has_clabe_like_candidate(text) is True
+
+
+
+def test_ine_card_crop_isolates_small_landscape_credential():
+    image = Image.new("RGB", (1200, 800), (70, 70, 70))
+    draw = ImageDraw.Draw(image)
+    draw.rounded_rectangle(
+        (250, 180, 950, 620),
+        radius=24,
+        fill=(225, 225, 220),
+    )
+    cropped = _ine_card_crop(image)
+
+    assert cropped.width < image.width
+    assert cropped.height < image.height
+    aspect = max(cropped.size) / min(cropped.size)
+    assert 1.25 <= aspect <= 1.95
+
+
+def test_ine_reverse_focus_crops_card_before_mrz(monkeypatch):
+    image = Image.new("RGB", (1200, 800), "gray")
+    card = Image.new("RGB", (760, 480), "white")
+    seen = []
+
+    def fake_card_crop(source):
+        seen.append(("card", source.size))
+        return card
+
+    def fake_mrz_crop(source):
+        seen.append(("mrz", source.size))
+        return source
+
+    monkeypatch.setattr("app._ine_card_crop", fake_card_crop)
+    monkeypatch.setattr("app._ine_reverse_mrz_crop", fake_mrz_crop)
+    monkeypatch.setattr(
+        "app.adaptive_binary_variant",
+        lambda source: source.convert("L"),
+    )
+    monkeypatch.setattr(
+        "app.pytesseract.image_to_string",
+        lambda *args, **kwargs: "IDMEX1805965336<<0795082079976",
+    )
+
+    text = _ine_reverse_mrz_focus_text(image)
+
+    assert text.endswith("0795082079976")
+    assert seen == [("card", (1200, 800)), ("mrz", (760, 480))]
