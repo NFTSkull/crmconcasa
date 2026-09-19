@@ -57,31 +57,46 @@ function isRealDate(year: number, month: number, day: number): boolean {
 }
 
 export function parseIneMrzT7Number(reverseText: string): string | null {
+  const rawUpper = upper(reverseText);
+
+  // El servicio OCR marca explícitamente cuándo dos lecturas independientes
+  // coinciden. Esa señal manda sobre cualquier texto ruidoso adicional.
+  const verified = rawUpper.match(/\bINE_T7_VERIFIED\s*[:\-]?\s*(\d{13})\b/);
+  if (verified?.[1]) return verified[1];
+
+  // Si las lecturas discrepan, fallamos cerrado: es preferible dejar el campo
+  // vacío para revisión manual que autollenar un dígito equivocado.
+  if (/\bINE_T7_UNVERIFIED\b/.test(rawUpper)) return null;
+
   const lines = normalizedMrzLines(reverseText);
   const compact = lines.join("");
   if (!compact) return null;
 
   const numeric = "[0-9OQILZSBG]";
+  const candidates = new Set<string>();
+  const addCandidate = (raw: string | undefined) => {
+    if (!raw) return;
+    const digits = normalizeNumericOcr(raw).replace(/\D/g, "");
+    if (/^\d{13}$/.test(digits)) candidates.add(digits);
+  };
 
   // Primero conservar el final de línea como frontera. La cámara/OCR puede
-  // convertir uno de los dos signos << en un dígito (p. ej. "...3365<079..."),
-  // así que en una línea anclada a DMEX toleramos un solo "<".
+  // convertir uno de los dos signos << en un dígito, así que en una línea
+  // anclada a DMEX toleramos un solo "<".
   for (const line of lines) {
     const anchoredLine = line.match(
       new RegExp(
         `(?:[I1T]?DMEX)${numeric}{9,12}<+(${numeric}{13})(?:<|$)`,
       ),
     );
-    if (anchoredLine?.[1]) {
-      const digits = normalizeNumericOcr(anchoredLine[1]).replace(/\D/g, "");
-      if (/^\d{13}$/.test(digits)) return digits;
-    }
+    addCandidate(anchoredLine?.[1]);
 
-    if (!line.includes("<<")) continue;
-    const sameLine = line.match(new RegExp(`<{2,}(${numeric}{13})(?:<|$)`));
-    if (!sameLine?.[1]) continue;
-    const digits = normalizeNumericOcr(sameLine[1]).replace(/\D/g, "");
-    if (/^\d{13}$/.test(digits)) return digits;
+    if (line.includes("<<")) {
+      const sameLine = line.match(
+        new RegExp(`<{2,}(${numeric}{13})(?:<|$)`),
+      );
+      addCandidate(sameLine?.[1]);
+    }
   }
 
   const dmexIndex = compact.search(/(?:[I1T]?DMEX)/);
@@ -92,32 +107,28 @@ export function parseIneMrzT7Number(reverseText: string): string | null {
         `(?:[I1T]?DMEX)${numeric}{9,12}<+(${numeric}{13})`,
       ),
     );
-    if (anchored?.[1]) {
-      const digits = normalizeNumericOcr(anchored[1]).replace(/\D/g, "");
-      if (/^\d{13}$/.test(digits)) return digits;
-    }
+    addCandidate(anchored?.[1]);
   }
 
   // Si Tesseract partió IDMEX y el separador en dos líneas, mantenemos un
-  // fallback muy acotado: 1-4 caracteres numéricos antes de << y T7 de 13.
-  if (!compact.includes("MEX") && !compact.includes("DMEX")) return null;
-  for (const line of lines) {
-    const splitLine = line.match(
-      new RegExp(`^${numeric}{1,4}<{1,}(${numeric}{13})(?:<|$)`),
-    );
-    if (splitLine?.[1]) {
-      const digits = normalizeNumericOcr(splitLine[1]).replace(/\D/g, "");
-      if (/^\d{13}$/.test(digits)) return digits;
-    }
+  // fallback muy acotado.
+  if (compact.includes("MEX") || compact.includes("DMEX")) {
+    for (const line of lines) {
+      const splitLine = line.match(
+        new RegExp(`^${numeric}{1,4}<{1,}(${numeric}{13})(?:<|$)`),
+      );
+      addCandidate(splitLine?.[1]);
 
-    const fallback = line.match(
-      new RegExp(`<{2,}(${numeric}{13})(?:<|$)`),
-    );
-    if (!fallback?.[1]) continue;
-    const digits = normalizeNumericOcr(fallback[1]).replace(/\D/g, "");
-    if (/^\d{13}$/.test(digits)) return digits;
+      const fallback = line.match(
+        new RegExp(`<{2,}(${numeric}{13})(?:<|$)`),
+      );
+      addCandidate(fallback?.[1]);
+    }
   }
-  return null;
+
+  // Sin marcador de consenso (p. ej. texto embebido de PDF), solo aceptamos
+  // cuando todas las apariciones estructurales apuntan al mismo T7.
+  return candidates.size === 1 ? [...candidates][0]! : null;
 }
 
 export function parseIneMrzValidityDate(reverseText: string): string | null {
