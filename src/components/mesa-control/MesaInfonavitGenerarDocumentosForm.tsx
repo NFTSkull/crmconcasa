@@ -524,6 +524,33 @@ function errorMessage(error: unknown, fallback: string): string {
   return fallback;
 }
 
+async function mapWithConcurrency<T, R>(
+  items: readonly T[],
+  limit: number,
+  worker: (item: T, index: number) => Promise<R>,
+): Promise<R[]> {
+  if (items.length === 0) return [];
+  const results = new Array<R>(items.length);
+  let nextIndex = 0;
+
+  const consume = async () => {
+    while (true) {
+      const index = nextIndex;
+      if (index >= items.length) return;
+      nextIndex += 1;
+      results[index] = await worker(items[index]!, index);
+    }
+  };
+
+  await Promise.all(
+    Array.from(
+      { length: Math.min(Math.max(1, limit), items.length) },
+      () => consume(),
+    ),
+  );
+  return results;
+}
+
 type FieldProps = Readonly<{
   label: string;
   value: string | number | null;
@@ -847,8 +874,10 @@ export function MesaInfonavitGenerarDocumentosForm({
           }
         }
 
-        const results = await Promise.all(
-          jobs.map(async (job) => {
+        // Tesseract es CPU-bound. Lanzar 4 documentos simultáneos en la única
+        // réplica de Railway provoca cola y tiempos de 15–25 s. Dos lectores
+        // concurrentes mantienen paralelismo sin saturar el proceso.
+        const results = await mapWithConcurrency(jobs, 2, async (job) => {
             if (!job.doc) return null;
 
             const cached = cachedOcr[job.type];
@@ -872,7 +901,10 @@ export function MesaInfonavitGenerarDocumentosForm({
                 documentType: job.type,
                 filename: job.doc.nombre_original,
                 signal: controller.signal,
-                cacheKey: `${job.doc.id}:${job.type}:retry-${autofillRetryNonce}`,
+                cacheKey:
+                  autofillRetryNonce === 0
+                    ? `document-ocr:${job.doc.id}:${job.type}`
+                    : `document-ocr:${job.doc.id}:${job.type}:retry-${autofillRetryNonce}`,
               });
               return {
                 target: job.target,
@@ -890,7 +922,7 @@ export function MesaInfonavitGenerarDocumentosForm({
                 ),
               };
             }
-          }),
+          },
         );
 
         if (cancelled) return;
