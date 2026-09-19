@@ -719,6 +719,10 @@ export function MesaInfonavitGenerarDocumentosForm({
 
   const focusSource = useCallback((field: InfonavitSourceFieldKey) => {
     setSourceContext(resolveInfonavitSourcePreviewContext(field));
+    if (field === "identificacionNumero") {
+      // El número de identificación se verifica en el T7/MRZ del reverso.
+      setRequestedIneSide("reverso");
+    }
   }, []);
 
   const openSourceDocument = useCallback(
