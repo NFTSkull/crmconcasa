@@ -409,8 +409,8 @@ describe("P4C document autofill parser", () => {
     );
 
     assert.equal(patch.cliente.apellidoPaterno, undefined);
-    assert.equal(patch.cliente.apellidoMaterno?.value, "ALONZO");
-    assert.equal(patch.cliente.nombres?.value, "REYNARIO");
+    assert.equal(patch.cliente.apellidoMaterno, undefined);
+    assert.equal(patch.cliente.nombres, undefined);
     assert.equal(patch.cliente.curp, undefined);
     assert.equal(patch.cliente.identificacionVigencia?.value, "31/12/2033");
     assert.ok(
@@ -481,9 +481,9 @@ describe("P4C document autofill parser", () => {
       },
     );
 
-    assert.equal(patch.cliente.apellidoPaterno?.value, "ANZALDO");
-    assert.equal(patch.cliente.apellidoMaterno?.value, "MARTINEZ");
-    assert.equal(patch.cliente.nombres?.value, "JUAN MANUEL");
+    assert.equal(patch.cliente.apellidoPaterno, undefined);
+    assert.equal(patch.cliente.apellidoMaterno, undefined);
+    assert.equal(patch.cliente.nombres, undefined);
     assert.equal(
       patch.cliente.identificacionNumero?.value,
       "1589023509985",
@@ -491,6 +491,38 @@ describe("P4C document autofill parser", () => {
     assert.equal(
       patch.cliente.identificacionVigencia?.value,
       "31/12/2030",
+    );
+  });
+
+  it("INE solo sugiere si el nombre completo difiere; nunca autollenna nombre", () => {
+    const patch = buildInfonavitDocumentAutofillPatch(
+      {
+        ineFrente: [
+          "NOMBRE",
+          "RAMIREZ",
+          "HERNANDEZ",
+          "ELISA VANESSA",
+          "CURP RAHE811223MNLMRL00",
+          "SEXO M",
+          "VIGENCIA 2021 - 2031",
+        ].join("\n"),
+      },
+      {
+        expectedClienteNombre: "ELISA VANESSA GARCIA HERNANDEZ",
+        expectedCurp: "RAHE811223MNLMRL00",
+      },
+    );
+
+    assert.equal(patch.cliente.nombres, undefined);
+    assert.equal(patch.cliente.apellidoPaterno, undefined);
+    assert.equal(patch.cliente.apellidoMaterno, undefined);
+    assert.ok(
+      patch.issues?.some(
+        (issue) =>
+          issue.source === "cliente_ine_frente" &&
+          issue.code === "subject_mismatch" &&
+          issue.message.includes("No se modificó el nombre"),
+      ),
     );
   });
 
