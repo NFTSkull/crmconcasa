@@ -53,7 +53,7 @@ async function readText(
     blob,
     documentType: type,
     filename: doc.nombre_original,
-    cacheKey: `ine-validity:${doc.id}:${type}`,
+    cacheKey: `document-ocr:${doc.id}:${type}`,
   });
   return { text: extracted.text, fromCache: false };
 }
