@@ -75,6 +75,8 @@ describe("P4A MesaInfonavitSourceDocumentPreview contrato", () => {
     assert.match(previewSrc, /data-inline-ine-fit="contain"/);
     assert.match(previewSrc, /infonavit-inline-ine-stage/);
     assert.match(previewSrc, /max-h-full max-w-full object-contain/);
+    assert.match(previewSrc, /overflow-auto overscroll-contain/);
+    assert.match(previewSrc, /tabIndex=\{0\}/);
     assert.doesNotMatch(previewSrc, /object-cover/);
     // El <img> no fuerza width% ni maxWidth:none (eso recortaba en zoom 100%).
     // El stage sí escala con zoom (layout) — eso es correcto.
@@ -129,10 +131,25 @@ describe("P4A MesaInfonavitSourceDocumentPreview contrato", () => {
     assert.match(formSrc, /handleGenerate/);
   });
 
-  it("Número identificación enfoca automáticamente el reverso de la INE", () => {
+  it("Número identificación reaplica automáticamente el reverso de la INE en cada focus", () => {
     assert.match(formSrc, /field === "identificacionNumero"/);
     assert.match(formSrc, /setRequestedIneSide\("reverso"\)/);
+    assert.match(formSrc, /setRequestedIneSideVersion\(\(value\) => value \+ 1\)/);
     assert.match(formSrc, /focusSource\("identificacionNumero"\)/);
+    assert.match(formSrc, /requestedIneSideVersion=\{requestedIneSideVersion\}/);
+    assert.match(previewSrc, /requestedIneSideVersion/);
+    assert.match(
+      previewSrc,
+      /\[context, requestedIneSide, requestedIneSideVersion\]/,
+    );
+  });
+
+  it("visor de identidad no vuelve a recortarse por max-height del aside", () => {
+    assert.match(formSrc, /sourceContext === "identidad"[\s\S]{0,100}"max-h-none"/);
+    assert.doesNotMatch(
+      formSrc,
+      /sourceContext === "identidad"[\s\S]{0,240}className="max-h-\[min\(70vh,720px\)\]"/,
+    );
   });
 
   it("15. P0 T31/T32 siguen blank (sin reintroducir captura)", () => {
