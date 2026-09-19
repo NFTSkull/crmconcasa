@@ -26,39 +26,79 @@ function normalizedMrzLines(raw: string): string[] {
     .split(/\n+/)
     .map((line) =>
       line
-        .replace(/[«‹]/g, "<")
+        .replace(/[«‹»›>]/g, "<")
         .replace(/\s+/g, "")
         .replace(/[^A-Z0-9<]/g, ""),
     )
     .filter(Boolean);
 }
 
+function normalizedMrzText(raw: string): string {
+  return normalizedMrzLines(raw).join("");
+}
+
 function normalizeNumericOcr(raw: string): string {
   return raw
     .replace(/[OQ]/g, "0")
-    .replace(/[IL|]/g, "1");
+    .replace(/[IL|]/g, "1")
+    .replace(/Z/g, "2")
+    .replace(/S/g, "5")
+    .replace(/G/g, "6")
+    .replace(/B/g, "8");
+}
+
+function isRealDate(year: number, month: number, day: number): boolean {
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return (
+    date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day
+  );
 }
 
 export function parseIneMrzT7Number(reverseText: string): string | null {
-  const lines = normalizedMrzLines(reverseText);
-  for (const line of lines) {
-    if (!line.includes("IDMEX")) continue;
-    const match = line.match(/IDMEX[A-Z0-9]{6,20}<{2,}([0-9OQIL]{13})(?:<|$)/);
-    if (!match?.[1]) continue;
-    const digits = normalizeNumericOcr(match[1]).replace(/\D/g, "");
-    if (/^\d{13}$/.test(digits)) return digits;
+  const compact = normalizedMrzText(reverseText);
+  if (!compact) return null;
+
+  const numeric = "[0-9OQILZSBG]";
+  const idIndex = compact.indexOf("IDMEX");
+  if (idIndex >= 0) {
+    const anchoredWindow = compact.slice(idIndex, idIndex + 96);
+    const anchored = anchoredWindow.match(
+      new RegExp(`<{2,}(${numeric}{13})(?:<|$)`),
+    );
+    if (anchored?.[1]) {
+      const digits = normalizeNumericOcr(anchored[1]).replace(/\D/g, "");
+      if (/^\d{13}$/.test(digits)) return digits;
+    }
   }
-  return null;
+
+  // Algunos OCR pierden una letra de IDMEX o parten la primera línea del MRZ.
+  // En ese caso aceptamos el T7 solo si conserva señales inequívocas de MRZ:
+  // MEX + separador doble + exactamente 13 caracteres numéricos OCR.
+  if (!compact.includes("MEX") || !compact.includes("<<")) return null;
+  const fallback = compact.match(
+    new RegExp(`<{2,}(${numeric}{13})(?:<|$)`),
+  );
+  if (!fallback?.[1]) return null;
+  const digits = normalizeNumericOcr(fallback[1]).replace(/\D/g, "");
+  return /^\d{13}$/.test(digits) ? digits : null;
 }
 
 export function parseIneMrzValidityDate(reverseText: string): string | null {
-  const lines = normalizedMrzLines(reverseText);
-  for (const line of lines) {
-    const match = line.match(
-      /([0-9OQIL]{6})[0-9A-Z]?([MHF])([0-9OQIL]{6})[0-9A-Z]?MEX/,
-    );
-    if (!match?.[3]) continue;
+  const compact = normalizedMrzText(reverseText);
+  if (!compact) return null;
 
+  const numeric = "[0-9OQILZSBG]";
+  const matches = compact.matchAll(
+    new RegExp(
+      `(${numeric}{6})[0-9A-Z]?([MHF])(${numeric}{6})[0-9A-Z]?(?:MEX|<)`,
+      "g",
+    ),
+  );
+
+  for (const match of matches) {
+    if (!match?.[3]) continue;
     const expiry = normalizeNumericOcr(match[3]);
     if (!/^\d{6}$/.test(expiry)) continue;
 
@@ -71,7 +111,8 @@ export function parseIneMrzValidityDate(reverseText: string): string | null {
       mm < 1 ||
       mm > 12 ||
       dd < 1 ||
-      dd > 31
+      dd > 31 ||
+      !isRealDate(year, mm, dd)
     ) {
       continue;
     }
