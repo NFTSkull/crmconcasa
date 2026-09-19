@@ -524,6 +524,15 @@ function writeLocalDraft(expedienteId: string, draft: MesaInfonavitDocumentDraft
   try {
     const normalized: MesaInfonavitDocumentDraft = {
       ...draft,
+      cliente: {
+        ...draft.cliente,
+        identificacion: {
+          ...draft.cliente.identificacion,
+          vigencia: normalizeMesaIneValidityYear(
+            draft.cliente.identificacion.vigencia,
+          ),
+        },
+      },
       destinoRecursos: normalizeDestinoRecursosForCapture(draft.destinoRecursos),
     };
     const envelope: StoredMesaInfonavitDraft = {
