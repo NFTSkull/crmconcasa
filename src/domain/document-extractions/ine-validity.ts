@@ -63,23 +63,34 @@ export function parseIneMrzT7Number(reverseText: string): string | null {
 
   const numeric = "[0-9OQILZSBG]";
 
-  // Primero conservar el final de línea como frontera: Tesseract suele partir
-  // justo después del T7 y la siguiente línea empieza inmediatamente con fecha.
+  // Primero conservar el final de línea como frontera. La cámara/OCR puede
+  // convertir uno de los dos signos << en un dígito (p. ej. "...3365<079..."),
+  // así que en una línea anclada a DMEX toleramos un solo "<".
   for (const line of lines) {
-    if (!line.includes("IDMEX") && !line.includes("<<")) continue;
+    const anchoredLine = line.match(
+      new RegExp(
+        `(?:[I1T]?DMEX)${numeric}{9,12}<+(${numeric}{13})(?:<|$)`,
+      ),
+    );
+    if (anchoredLine?.[1]) {
+      const digits = normalizeNumericOcr(anchoredLine[1]).replace(/\D/g, "");
+      if (/^\d{13}$/.test(digits)) return digits;
+    }
+
+    if (!line.includes("<<")) continue;
     const sameLine = line.match(new RegExp(`<{2,}(${numeric}{13})(?:<|$)`));
     if (!sameLine?.[1]) continue;
     const digits = normalizeNumericOcr(sameLine[1]).replace(/\D/g, "");
     if (/^\d{13}$/.test(digits)) return digits;
   }
 
-  const idIndex = compact.indexOf("IDMEX");
-  if (idIndex >= 0) {
-    const anchoredWindow = compact.slice(idIndex, idIndex + 96);
-    // En texto colapsado puede seguir inmediatamente la segunda línea MRZ;
-    // el anclaje IDMEX + << hace suficientemente específica esta lectura.
+  const dmexIndex = compact.search(/(?:[I1T]?DMEX)/);
+  if (dmexIndex >= 0) {
+    const anchoredWindow = compact.slice(dmexIndex, dmexIndex + 96);
     const anchored = anchoredWindow.match(
-      new RegExp(`<{2,}(${numeric}{13})`),
+      new RegExp(
+        `(?:[I1T]?DMEX)${numeric}{9,12}<+(${numeric}{13})`,
+      ),
     );
     if (anchored?.[1]) {
       const digits = normalizeNumericOcr(anchored[1]).replace(/\D/g, "");
@@ -87,10 +98,18 @@ export function parseIneMrzT7Number(reverseText: string): string | null {
     }
   }
 
-  // Algunos OCR pierden una letra de IDMEX. Exigimos MEX + separador doble y
-  // mantenemos frontera para no tomar 13 dígitos arbitrarios de otra línea.
-  if (!compact.includes("MEX") || !compact.includes("<<")) return null;
+  // Si Tesseract partió IDMEX y el separador en dos líneas, mantenemos un
+  // fallback muy acotado: 1-4 caracteres numéricos antes de << y T7 de 13.
+  if (!compact.includes("MEX") && !compact.includes("DMEX")) return null;
   for (const line of lines) {
+    const splitLine = line.match(
+      new RegExp(`^${numeric}{1,4}<{1,}(${numeric}{13})(?:<|$)`),
+    );
+    if (splitLine?.[1]) {
+      const digits = normalizeNumericOcr(splitLine[1]).replace(/\D/g, "");
+      if (/^\d{13}$/.test(digits)) return digits;
+    }
+
     const fallback = line.match(
       new RegExp(`<{2,}(${numeric}{13})(?:<|$)`),
     );
