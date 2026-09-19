@@ -644,6 +644,18 @@ function isLikelyCfeColoniaFallback(raw: string): boolean {
   if (/^(?:ENTRE\s+)?[A-ZÁÉÍÓÚÜÑ0-9 .'-]{1,32}\s+Y\s+[A-ZÁÉÍÓÚÜÑ0-9 .'-]{1,32}$/i.test(cleaned)) {
     return false;
   }
+
+  const municipality = municipalityFromText(cleaned);
+  if (
+    municipality &&
+    (alnumComparable(cleaned) === alnumComparable(municipality) ||
+      (municipality === "GENERAL ESCOBEDO" &&
+        alnumComparable(cleaned) === alnumComparable("ESCOBEDO")) ||
+      (municipality === "GENERAL ZUAZUA" &&
+        alnumComparable(cleaned) === alnumComparable("ZUAZUA")))
+  ) {
+    return false;
+  }
   return true;
 }
 
@@ -751,15 +763,23 @@ function parseCfeAddressCandidate(text: string): {
   const addressBlock = block.slice(streetIndex);
   const addressJoined = addressBlock.join(" ");
 
-  const cpCandidates: string[] = [];
+  const explicitCpCandidates: string[] = [];
+  const fallbackCpCandidates: string[] = [];
   for (const line of addressBlock) {
-    const matches = [...line.matchAll(/(?:\bC\.?\s*P\.?\s*[:\-]?\s*)?(\d{5})\b/gi)];
-    for (const match of matches) {
+    for (const match of line.matchAll(
+      /\bC\.?\s*P\.?\s*[:.\-]?\s*(\d{5})\b/gi,
+    )) {
       const cp = match[1];
-      if (cp && cp !== "00000") cpCandidates.push(cp);
+      if (cp && cp !== "00000") explicitCpCandidates.push(cp);
+    }
+    for (const match of line.matchAll(/\b(\d{5})\b/g)) {
+      const cp = match[1];
+      if (cp && cp !== "00000") fallbackCpCandidates.push(cp);
     }
   }
-  const cp = cpCandidates.at(-1);
+  // Un RFC/RMU puede contener secuencias de 5 dígitos. Cuando CFE imprime
+  // explícitamente C.P., esa etiqueta siempre tiene prioridad.
+  const cp = explicitCpCandidates.at(-1) ?? fallbackCpCandidates.at(-1);
 
   const municipio = municipalityFromText(addressJoined);
   const entidad =
