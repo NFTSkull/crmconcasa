@@ -620,3 +620,36 @@ def test_banorte_real_row_is_one_reliable_clabe():
         "072580004193933444"
     ]
     assert _has_clabe_like_candidate(text) is True
+
+
+
+def test_ine_ocr_crops_small_card_before_primary_read(monkeypatch):
+    photo = Image.new("RGB", (2400, 3200), "gray")
+    card = Image.new("RGB", (1200, 760), "white")
+    seen = []
+
+    def fake_card_crop(source):
+        seen.append(("crop", source.size))
+        return card
+
+    def fake_preprocess(source):
+        seen.append(("preprocess", source.size))
+        return source.convert("L")
+
+    def fake_primary(source, document_type, psm):
+        seen.append(("primary", source.size, document_type, psm))
+        return "NOMBRE RODRIGUEZ LUGO EDWIN ROGELIO\nVIGENCIA 2022 2032"
+
+    monkeypatch.setattr("app._ine_card_crop", fake_card_crop)
+    monkeypatch.setattr("app.preprocess_image", fake_preprocess)
+    monkeypatch.setattr("app._primary_ocr_text", fake_primary)
+
+    text = ocr_image(photo, "cliente_ine_frente")
+
+    assert "VIGENCIA 2022 2032" in text
+    assert seen[0] == ("crop", (2400, 3200))
+    assert ("preprocess", (1200, 760)) in seen
+    assert any(
+        item[:3] == ("primary", (1200, 760), "cliente_ine_frente")
+        for item in seen
+    )
