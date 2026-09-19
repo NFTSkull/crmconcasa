@@ -111,8 +111,8 @@ describe("P4B Mesa CLABE shadow UI contrato", () => {
     assert.match(previewSrc, /URL\.createObjectURL/);
     assert.match(previewSrc, /URL\.revokeObjectURL/);
     assert.match(previewSrc, /MesaArchivoPreviewDialog/);
-    assert.match(previewSrc, /setIneSide\("frente"\)/);
-    assert.match(previewSrc, /setIneSide\("reverso"\)/);
+    assert.match(previewSrc, /selectIneSide\("frente"\)/);
+    assert.match(previewSrc, /selectIneSide\("reverso"\)/);
     assert.match(previewSrc, /getArchivoBlob/);
     assert.doesNotMatch(previewSrc, /getPublicUrl|createSignedUrl/);
   });

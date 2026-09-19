@@ -91,6 +91,8 @@ export function MesaInfonavitSourceDocumentPreview({
   const [blobError, setBlobError] = useState<string | null>(null);
   const [preview, setPreview] = useState<MesaArchivoPreviewState | null>(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [inlineIneZoom, setInlineIneZoom] = useState(1);
+  const [inlineIneRotation, setInlineIneRotation] = useState(0);
   const [activeDocumentBlob, setActiveDocumentBlob] =
     useState<ActiveDocumentBlob | null>(null);
   const [clabeAnalyzing, setClabeAnalyzing] = useState(false);
@@ -396,6 +398,19 @@ export function MesaInfonavitSourceDocumentPreview({
 
   const showIneToggle =
     context === "identidad" && (index.frente != null || index.reverso != null);
+  const isInlineIneImage =
+    showIneToggle &&
+    (activeKind === "cliente_ine_frente" ||
+      activeKind === "cliente_ine_reverso") &&
+    preview != null &&
+    isArchivoPreviewImageMime(preview.mime_type);
+  const inlineIneZoomPercent = Math.round(inlineIneZoom * 100);
+
+  const selectIneSide = (side: "frente" | "reverso") => {
+    setIneSide(side);
+    setInlineIneZoom(1);
+    setInlineIneRotation(0);
+  };
 
   return (
     <aside
@@ -439,7 +454,7 @@ export function MesaInfonavitSourceDocumentPreview({
             variant={ineSide === "frente" || (!ineSide && index.frente) ? "primary" : "outline"}
             className="px-2 py-1 text-[11px]"
             disabled={!index.frente}
-            onClick={() => setIneSide("frente")}
+            onClick={() => selectIneSide("frente")}
             aria-pressed={ineSideToDocKind("frente") === activeKind}
           >
             Frente
@@ -449,10 +464,73 @@ export function MesaInfonavitSourceDocumentPreview({
             variant={ineSide === "reverso" ? "primary" : "outline"}
             className="px-2 py-1 text-[11px]"
             disabled={!index.reverso}
-            onClick={() => setIneSide("reverso")}
+            onClick={() => selectIneSide("reverso")}
             aria-pressed={ineSideToDocKind("reverso") === activeKind}
           >
             Reverso
+          </Button>
+        </div>
+      ) : null}
+
+      {isInlineIneImage ? (
+        <div
+          className="flex flex-wrap items-center gap-1.5 border-b border-gray-100 bg-white px-3 py-2"
+          data-testid="infonavit-inline-ine-controls"
+        >
+          <Button
+            type="button"
+            variant="outline"
+            className="px-2 py-1 text-[11px]"
+            disabled={inlineIneZoom <= 0.5}
+            onClick={() =>
+              setInlineIneZoom((value) => Math.max(0.5, value - 0.25))
+            }
+            aria-label="Alejar INE"
+          >
+            −
+          </Button>
+          <span className="min-w-12 text-center text-[11px] font-medium text-gray-700">
+            {inlineIneZoomPercent}%
+          </span>
+          <Button
+            type="button"
+            variant="outline"
+            className="px-2 py-1 text-[11px]"
+            disabled={inlineIneZoom >= 4}
+            onClick={() =>
+              setInlineIneZoom((value) => Math.min(4, value + 0.25))
+            }
+            aria-label="Acercar INE"
+          >
+            +
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="px-2 py-1 text-[11px]"
+            onClick={() => setInlineIneRotation((value) => value - 90)}
+          >
+            Girar izq.
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="px-2 py-1 text-[11px]"
+            onClick={() => setInlineIneRotation((value) => value + 90)}
+          >
+            Girar der.
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            className="px-2 py-1 text-[11px]"
+            disabled={inlineIneZoom === 1 && inlineIneRotation === 0}
+            onClick={() => {
+              setInlineIneZoom(1);
+              setInlineIneRotation(0);
+            }}
+          >
+            Restablecer
           </Button>
         </div>
       ) : null}
@@ -494,20 +572,46 @@ export function MesaInfonavitSourceDocumentPreview({
             </p>
           </div>
         ) : isArchivoPreviewImageMime(preview.mime_type) ? (
-          <button
-            type="button"
-            className="flex h-full w-full cursor-zoom-in justify-center rounded bg-transparent"
-            onClick={() => setModalOpen(true)}
-            aria-label="Ampliar documento"
-            title="Haz clic para ampliar"
-          >
-            {/* eslint-disable-next-line @next/next/no-img-element -- blob URL privado */}
-            <img
-              src={preview.url}
-              alt={preview.nombre_original}
-              className="max-h-[min(60vh,640px)] max-w-full object-contain"
-            />
-          </button>
+          isInlineIneImage ? (
+            <div
+              className="h-[min(60vh,640px)] w-full overflow-auto rounded bg-gray-50"
+              data-testid="infonavit-inline-ine-image"
+            >
+              <div
+                className={[
+                  "flex min-h-full min-w-full justify-center",
+                  Math.abs(inlineIneRotation % 180) === 90 ? "py-24" : "",
+                ].join(" ")}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element -- blob URL privado */}
+                <img
+                  src={preview.url}
+                  alt={preview.nombre_original}
+                  className="h-auto object-contain transition-transform duration-150"
+                  style={{
+                    width: `${inlineIneZoom * 100}%`,
+                    maxWidth: "none",
+                    transform: `rotate(${inlineIneRotation}deg)`,
+                  }}
+                />
+              </div>
+            </div>
+          ) : (
+            <button
+              type="button"
+              className="flex h-full w-full cursor-zoom-in justify-center rounded bg-transparent"
+              onClick={() => setModalOpen(true)}
+              aria-label="Ampliar documento"
+              title="Haz clic para ampliar"
+            >
+              {/* eslint-disable-next-line @next/next/no-img-element -- blob URL privado */}
+              <img
+                src={preview.url}
+                alt={preview.nombre_original}
+                className="max-h-[min(60vh,640px)] max-w-full object-contain"
+              />
+            </button>
+          )
         ) : isArchivoPreviewPdfMime(preview.mime_type) ? (
           <iframe
             title={preview.nombre_original}

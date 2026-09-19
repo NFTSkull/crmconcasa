@@ -130,6 +130,30 @@ describe("P4C document autofill parser", () => {
     );
   });
 
+  it("INE pequeña real: vigencia 2032 y T7 1035119541872", () => {
+    const patch = buildInfonavitDocumentAutofillPatch({
+      ineFrente: [
+        "INSTITUTO NACIONAL ELECTORAL",
+        "NOMBRE RODRIGUEZ LUGO EDWIN ROGELIO",
+        "CURP ROLE990817HDGDGD00",
+        "SEXO H",
+        "EMISION 2022 VIGENCIA 2032",
+      ].join("\n"),
+      ineReverso: [
+        "IDMEX2377351125<<1035119541872",
+        "9908176H3212312MEX<02<<03344<3",
+        "RODRIGUEZ<LUGO<<EDWIN<ROGELIO<",
+      ].join("\n"),
+    });
+
+    assert.equal(patch.cliente.identificacionVigencia?.value, "2032");
+    assert.equal(
+      patch.cliente.identificacionNumero?.value,
+      "1035119541872",
+    );
+    assert.equal(patch.cliente.genero?.value, "M");
+  });
+
   it("INE no reemplaza nombre correcto con ruido OCR", () => {
     const patch = buildInfonavitDocumentAutofillPatch(
       {
