@@ -226,6 +226,29 @@ describe("P4C document autofill parser", () => {
     assert.equal(patch.vivienda.colonia?.value, "REAL DE PALMAS");
   });
 
+  it("CFE toma colonia completa antes de C.P. y no confunde GRAL. con colonia", () => {
+    const patch = buildInfonavitDocumentAutofillPatch({
+      comprobanteDomicilio: [
+        "CFE Comisión Federal de Electricidad",
+        "PUENTE RODRIGUEZ CLAUDIA E",
+        "TORRECERA 104",
+        "IBIZA SANTA ELENA",
+        "VALLE DE SANTA ELENA C.P.65776",
+        "GRAL. ZUAZUA N.L.,N.L.",
+        "NO. DE SERVICIO:371230400197",
+        "RMU:65776 23-04-03 PURC-811128 040 CFE",
+      ].join("\n"),
+    });
+
+    assert.equal(patch.vivienda.calle?.value, "TORRECERA");
+    assert.equal(patch.vivienda.noExt?.value, "104");
+    assert.equal(patch.vivienda.colonia?.value, "VALLE DE SANTA ELENA");
+    assert.equal(patch.vivienda.cp?.value, "65776");
+    assert.equal(patch.vivienda.municipio?.value, "ZUAZUA");
+    assert.equal(patch.vivienda.entidad?.value, "NUEVO LEÓN");
+    assert.notEqual(patch.vivienda.colonia?.value, "GRAL.");
+  });
+
   it("CFE actual toma colonia por estructura aunque no diga COLONIA", () => {
     const patch = buildInfonavitDocumentAutofillPatch({
       comprobanteDomicilio: [
