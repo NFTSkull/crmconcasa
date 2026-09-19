@@ -184,6 +184,9 @@ def _ine_front_name_block_looks_complete(text: str) -> bool:
         values: list[str] = []
         inline = re.sub(r"^NOMBRE(?:S)?\s*:?-?\s*", "", line).strip()
         if inline:
+            inline_words = re.findall(r"[A-ZÁÉÍÓÚÜÑ]{2,}", inline)
+            if len(inline_words) >= 3:
+                return True
             values.append(inline)
         for candidate in lines[idx + 1:idx + 7]:
             if stops.match(candidate):
