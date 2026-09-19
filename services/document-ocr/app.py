@@ -930,6 +930,13 @@ def _verify_t7_trailing_digit(image: Image.Image, tokens: list[dict]) -> None:
         if verified == normalized_current:
             return
 
+        # Un microrecorte de un solo carácter puede confundir 0/6, 3/5, etc.
+        # Nunca dejamos que esa lectura pequeña reemplace un dígito que la
+        # línea MRZ completa ya leyó como número. Solo sirve para resolver un
+        # carácter alfabético típico de OCR (O/Q/I/L/Z/S/G/B) a su dígito.
+        if current.isdigit():
+            return
+
         corrected = cleaned[:char_index] + verified + cleaned[char_index + 1 :]
         token["text"] = corrected
         return
@@ -951,6 +958,36 @@ def _primary_ocr_text(image: Image.Image, document_type: str, psm: str) -> str:
     tokens = _ocr_tokens(image, config)
     _verify_t7_trailing_digit(image, tokens)
     return _ocr_tokens_to_text(tokens)
+
+
+def _ine_t7_candidates(text: str) -> list[str]:
+    normalized = re.sub(r"[^A-Z0-9<>]+", "", (text or "").upper())
+    normalized = normalized.replace(">", "<")
+    numeric = r"[0-9OQILZSBG]"
+
+    def to_digits(raw: str) -> str:
+        return (
+            raw.replace("O", "0")
+            .replace("Q", "0")
+            .replace("I", "1")
+            .replace("L", "1")
+            .replace("Z", "2")
+            .replace("S", "5")
+            .replace("G", "6")
+            .replace("B", "8")
+        )
+
+    values: list[str] = []
+    patterns = (
+        rf"(?:[I1T]?DMEX){numeric}{{9,12}}<<+({numeric}{{13}})",
+        rf"<<+({numeric}{{13}})(?:<|$)",
+    )
+    for pattern in patterns:
+        for match in re.finditer(pattern, normalized):
+            value = to_digits(match.group(1))
+            if re.fullmatch(r"\d{13}", value) and value not in values:
+                values.append(value)
+    return values
 
 
 def _ine_reverse_has_t7(text: str) -> bool:
@@ -1231,11 +1268,27 @@ def ocr_image(image: Image.Image, document_type: str) -> str:
                 parts.append(focused)
 
     if document_type == "cliente_ine_reverso":
-        combined = "\n".join(part for part in parts if part).strip()
-        if not _ine_reverse_has_t7(combined):
-            focused_mrz = _ine_reverse_mrz_focus_text(working)
-            if focused_mrz:
-                parts.append(focused_mrz)
+        # Precisión > adivinanza: siempre contrastamos el T7 de la lectura
+        # completa con una lectura independiente de la franja MRZ. Si ambas
+        # coinciden marcamos el número como verificado. Si discrepan (o solo una
+        # logra leerlo), devolvemos UNVERIFIED para que el frontend NO autofille
+        # un número potencialmente incorrecto y permita revisión manual.
+        focused_mrz = _ine_reverse_mrz_focus_text(working)
+        if focused_mrz:
+            parts.append(focused_mrz)
+
+        primary_candidates = _ine_t7_candidates(primary_text)
+        focused_candidates = _ine_t7_candidates(focused_mrz or "")
+        consensus = [
+            value
+            for value in primary_candidates
+            if value in focused_candidates
+        ]
+        unique_consensus = list(dict.fromkeys(consensus))
+        if len(unique_consensus) == 1:
+            parts.append(f"INE_T7_VERIFIED {unique_consensus[0]}")
+        elif primary_candidates or focused_candidates:
+            parts.append("INE_T7_UNVERIFIED")
 
     return "\n".join(part for part in parts if part).strip()
 
@@ -1324,7 +1377,7 @@ def extract_document_text(data: bytes, mime: str, document_type: str) -> tuple[s
 
 @app.get("/health")
 def health() -> dict:
-    return {"ok": True, "service": "document-ocr", "version": "1.4.2"}
+    return {"ok": True, "service": "document-ocr", "version": "1.4.3"}
 
 
 @app.post("/v1/extract")
