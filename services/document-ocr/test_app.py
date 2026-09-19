@@ -14,6 +14,7 @@ from app import (
     _ine_card_crop,
     _ine_reverse_mrz_focus_text,
     _has_clabe_like_candidate,
+    _bank_statement_clabe_focus_text,
     _strict_labeled_clabe_candidates,
     _clabe_checksum_valid,
 )
@@ -566,3 +567,56 @@ def test_ine_reverse_focus_keeps_binary_as_fallback(monkeypatch):
     text = _ine_reverse_mrz_focus_text(image)
 
     assert "1786018292055" in text
+
+
+
+def test_bank_statement_layout_focus_recovers_banorte_clabe(monkeypatch):
+    image = Image.new("RGB", (1600, 2200), "white")
+
+    # Primera lectura de página falla en la CLABE.
+    reads = iter(
+        [
+            "ESTADO DE CUENTA\nRESUMEN INTEGRAL",
+            "No. de Cuenta    CLABE\n0419393344 072 580 00419393344 4",
+            "0419393344 072 580 00419393344 4",
+        ]
+    )
+    monkeypatch.setattr(
+        "app.pytesseract.image_to_string",
+        lambda *args, **kwargs: next(reads),
+    )
+    monkeypatch.setattr(
+        "app._ocr_tokens",
+        lambda *args, **kwargs: [
+            {
+                "text": "CLABE",
+                "conf": 92.0,
+                "left": 690,
+                "top": 700,
+                "width": 90,
+                "height": 28,
+                "line_key": (1, 1, 1, 1),
+            },
+        ],
+    )
+
+    text = _bank_statement_clabe_focus_text(image)
+
+    assert "072 580 00419393344 4" in text
+    assert _has_clabe_like_candidate(text) is True
+
+
+def test_banorte_real_row_is_one_reliable_clabe():
+    text = "\n".join(
+        [
+            "BANORTE",
+            "RESUMEN INTEGRAL",
+            "No. de Cuenta CLABE Saldo anterior",
+            "ROM 0419393344 072 580 00419393344 4 $5,173.85",
+        ]
+    )
+
+    assert _strict_labeled_clabe_candidates(text) == [
+        "072580004193933444"
+    ]
+    assert _has_clabe_like_candidate(text) is True
