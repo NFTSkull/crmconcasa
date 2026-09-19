@@ -450,6 +450,50 @@ describe("P4C document autofill parser", () => {
     );
   });
 
+
+  it("INE recupera ANZALDO MARTINEZ JUAN MANUEL, vigencia y T7 del reverso", () => {
+    const patch = buildInfonavitDocumentAutofillPatch(
+      {
+        ineFrente: [
+          "INSTITUTO NACIONAL ELECTORAL",
+          "NOMBRE",
+          "DO",
+          "MARTINEZ",
+          "JUAN MAN",
+          "CURP AAMJ830601HMCNRN09",
+          "SEXO H",
+          "VIGENCIA",
+          "NOMBRE",
+          "ANZALDO",
+          "MARTINEZ",
+          "JUAN MANUEL",
+          "VIGENCIA 2020 - 2030",
+        ].join("\n"),
+        ineReverso: [
+          "IDMEX2067045710<<1589023509985",
+          "8306018H3012316MEX<04<<18985<9",
+          "ANZALDO<MARTINEZ<<JUAN<MANUEL<",
+        ].join("\n"),
+      },
+      {
+        expectedClienteNombre: "JUAN MANUEL ANZALDO MARTINEZ",
+        expectedCurp: "AAMJ830601HMCNRN09",
+      },
+    );
+
+    assert.equal(patch.cliente.apellidoPaterno?.value, "ANZALDO");
+    assert.equal(patch.cliente.apellidoMaterno?.value, "MARTINEZ");
+    assert.equal(patch.cliente.nombres?.value, "JUAN MANUEL");
+    assert.equal(
+      patch.cliente.identificacionNumero?.value,
+      "1589023509985",
+    );
+    assert.equal(
+      patch.cliente.identificacionVigencia?.value,
+      "31/12/2030",
+    );
+  });
+
   it("comprobante extrae domicilio de bloque con CP", () => {
     const patch = buildInfonavitDocumentAutofillPatch({
       comprobanteDomicilio: [

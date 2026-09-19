@@ -103,10 +103,18 @@ export function findBoundedClabeRawSpans(
         j += 1;
         continue;
       }
-      // Separadores internos solo mientras aún no completamos 18 dígitos
-      if ((ch === " " || ch === "-") && digits > 0 && digits < 18) {
-        if (j + 1 < source.length && isDigitChar(source[j + 1]!)) {
-          j += 1;
+      // Separadores internos solo mientras aún no completamos 18 dígitos.
+      // OCR/PDF puede partir la CLABE con espacios, tabs o saltos de línea.
+      if ((/\s/.test(ch) || ch === "-") && digits > 0 && digits < 18) {
+        let next = j + 1;
+        while (
+          next < source.length &&
+          (/\s/.test(source[next]!) || source[next] === "-")
+        ) {
+          next += 1;
+        }
+        if (next < source.length && isDigitChar(source[next]!)) {
+          j = next;
           continue;
         }
       }
@@ -115,7 +123,10 @@ export function findBoundedClabeRawSpans(
 
     // ¿Hay más dígitos del mismo run lógico después (contiguos o vía espacio/guion)?
     let probe = lastDigitEnd;
-    while (probe < source.length && (source[probe] === " " || source[probe] === "-")) {
+    while (
+      probe < source.length &&
+      (/\s/.test(source[probe]!) || source[probe] === "-")
+    ) {
       probe += 1;
     }
     const hasExtraDigits =
@@ -128,7 +139,7 @@ export function findBoundedClabeRawSpans(
       let skip = Math.max(probe, lastDigitEnd, j);
       while (skip < source.length) {
         const ch = source[skip]!;
-        if (isDigitChar(ch) || ch === " " || ch === "-") {
+        if (isDigitChar(ch) || /\s/.test(ch) || ch === "-") {
           skip += 1;
           continue;
         }
