@@ -129,6 +129,12 @@ describe("P4A MesaInfonavitSourceDocumentPreview contrato", () => {
     assert.match(formSrc, /handleGenerate/);
   });
 
+  it("Número identificación enfoca automáticamente el reverso de la INE", () => {
+    assert.match(formSrc, /field === "identificacionNumero"/);
+    assert.match(formSrc, /setRequestedIneSide\("reverso"\)/);
+    assert.match(formSrc, /focusSource\("identificacionNumero"\)/);
+  });
+
   it("15. P0 T31/T32 siguen blank (sin reintroducir captura)", () => {
     assert.doesNotMatch(formSrc, /% para titulación/);
     assert.doesNotMatch(formSrc, /CLABE de la notaría/);
