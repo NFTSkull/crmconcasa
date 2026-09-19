@@ -691,8 +691,7 @@ function parseCfeStreetLine(
   const candidate = compactLine(withoutCp.slice(0, last.index));
   if (
     candidate.length < 2 ||
-    !/[A-ZÁÉÍÓÚÜÑ]/i.test(candidate) ||
-    /^(MONTERREY|APODACA|GUADALUPE|JUAREZ|JUÁREZ)$/i.test(candidate)
+    !/[A-ZÁÉÍÓÚÜÑ]/i.test(candidate)
   ) {
     return null;
   }
