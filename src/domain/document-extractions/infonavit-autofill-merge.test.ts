@@ -70,36 +70,26 @@ describe("P4C autofill merge", () => {
     );
   });
 
-  it("confirma coincidencia sin reescribir", () => {
+  it("nombres y apellidos nunca se modifican desde OCR/INE", () => {
     const patch: InfonavitDocumentAutofillPatch = {
       cliente: {
-        nombres: high("Juan Carlos", "cliente_ine_frente"),
-      },
-      vivienda: {},
-    };
-    const out = mergeInfonavitDocumentAutofill(draft(), patch);
-    assert.deepEqual(out.applied, []);
-    assert.deepEqual(out.confirmed, ["cliente.nombres"]);
-    assert.equal(out.conflicts.length, 0);
-  });
-
-  it("mismatch aplica documento fuente y conserva diferencia para revisión", () => {
-    const patch: InfonavitDocumentAutofillPatch = {
-      cliente: {
+        nombres: high("OTRO NOMBRE", "cliente_ine_frente"),
         apellidoPaterno: high("RAMIREZ", "cliente_ine_frente"),
+        apellidoMaterno: high("HERNANDEZ", "cliente_ine_frente"),
       },
       vivienda: {},
     };
     const out = mergeInfonavitDocumentAutofill(draft(), patch);
-    assert.equal(out.draft.cliente.apellidoPaterno, "RAMIREZ");
-    assert.equal(out.conflicts.length, 1);
-    assert.equal(out.conflicts[0]?.current, "PEREZ");
-    assert.equal(out.conflicts[0]?.detected, "RAMIREZ");
-    assert.ok(out.applied.includes("cliente.apellidoPaterno"));
-    assert.equal(
-      out.sourceByField["cliente.apellidoPaterno"],
-      "INE · automático",
-    );
+
+    assert.equal(out.draft.cliente.nombres, "JUAN CARLOS");
+    assert.equal(out.draft.cliente.apellidoPaterno, "PEREZ");
+    assert.equal(out.draft.cliente.apellidoMaterno, "LOPEZ");
+    assert.deepEqual(out.applied, []);
+    assert.deepEqual(out.confirmed, []);
+    assert.equal(out.conflicts.length, 0);
+    assert.equal(out.sourceByField["cliente.nombres"], undefined);
+    assert.equal(out.sourceByField["cliente.apellidoPaterno"], undefined);
+    assert.equal(out.sourceByField["cliente.apellidoMaterno"], undefined);
   });
 
   it("comprobante y estado de cuenta sustituyen valores previos de Generales", () => {
