@@ -93,6 +93,19 @@ describe("INE validity", () => {
     assert.equal(parseIneMrzValidityDate(reverse), "2025-12-31");
   });
 
+  it("MRZ recupera T7 aunque Tesseract parta IDMEX y el prefijo en varias líneas", () => {
+    const reverse = [
+      "IDMEX22",
+      "2197692",
+      "4<<1786018292055",
+      "6309141H3112319MEX<04<<22078<7",
+      "CHAIRES<RODRIGUEZ<<RAUL<<<<<<<",
+    ].join("\n");
+
+    assert.equal(parseIneMrzT7Number(reverse), "1786018292055");
+    assert.equal(parseIneMrzValidityDate(reverse), "2031-12-31");
+  });
+
   it("MRZ compara la fecha exacta contra el día actual", () => {
     const reverse = [
       "IDMEX2840877688<<2653076233570",

@@ -329,14 +329,53 @@ def _ine_reverse_mrz_focus_text(image: Image.Image) -> str:
     Pase final del MRZ/T7 con whitelist. Si la credencial ocupa solo una parte
     de la foto, primero la aísla para que los 13 dígitos no se pierdan entre
     fondo/piso/hoja; después limita el OCR a la franja MRZ.
+
+    La primera lectura usa escala de grises/alto contraste. En fotos reales de
+    celular la binarización adaptativa puede comerse los signos << o transformar
+    dígitos finos; solo se usa como respaldo si la lectura gris no entrega T7.
     """
     card = _ine_card_crop(image)
     crop = _ine_reverse_mrz_crop(card)
+
+    gray = crop.convert("L")
+    longest = max(gray.size)
+    if longest > 2600:
+        scale = 2600 / max(1, longest)
+        gray = gray.resize(
+            (max(1, round(gray.width * scale)), max(1, round(gray.height * scale))),
+            Image.Resampling.LANCZOS,
+        )
+    elif longest < 2200:
+        scale = min(5.0, 2200 / max(1, longest))
+        gray = gray.resize(
+            (max(1, round(gray.width * scale)), max(1, round(gray.height * scale))),
+            Image.Resampling.LANCZOS,
+        )
+    gray = ImageOps.autocontrast(gray, cutoff=1)
+    gray = ImageEnhance.Contrast(gray).enhance(1.45)
+    gray = gray.filter(ImageFilter.SHARPEN)
+
+    config_gray = (
+        "--oem 1 --psm 11 "
+        "-c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789<"
+    )
+    gray_text = pytesseract.image_to_string(
+        gray,
+        lang="eng",
+        config=config_gray,
+    ).strip()
+    if _ine_reverse_has_t7(gray_text):
+        return gray_text
+
     focused = adaptive_binary_variant(crop)
-    return pytesseract.image_to_string(
+    binary_text = pytesseract.image_to_string(
         focused,
         lang="eng",
         config="--oem 1 --psm 6 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789<",
+    ).strip()
+
+    return "\n".join(
+        part for part in (gray_text, binary_text) if part
     ).strip()
 
 
@@ -651,6 +690,15 @@ def _ine_reverse_has_t7(text: str) -> bool:
     compact = re.sub(r"[^A-Z0-9<>]+", "", (text or "").upper())
     compact = compact.replace(">", "<")
     numeric = r"[0-9OQILZSBG]"
+    # Cuando OCR parte la primera línea MRZ en varios renglones, al compactar
+    # el T7 queda seguido inmediatamente por la segunda línea. IDMEX + 9-12
+    # caracteres de documento + << es un anclaje suficiente para aceptar los
+    # 13 dígitos sin exigir frontera posterior.
+    if re.search(
+        rf"(?:[I1T]?DMEX){numeric}{{9,12}}<<+{numeric}{{13}}",
+        compact,
+    ):
+        return True
     return bool(re.search(rf"<<+{numeric}{{13}}(?:<|$)", compact))
 
 
@@ -658,7 +706,13 @@ def _ine_reverse_has_structured_mrz(text: str) -> bool:
     compact = re.sub(r"[^A-Z0-9<>]+", "", (text or "").upper())
     compact = compact.replace(">", "<")
     numeric = r"[0-9OQILZSBG]"
-    has_t7 = bool(re.search(rf"<<+{numeric}{{13}}(?:<|$)", compact))
+    has_t7 = bool(
+        re.search(
+            rf"(?:[I1T]?DMEX){numeric}{{9,12}}<<+{numeric}{{13}}",
+            compact,
+        )
+        or re.search(rf"<<+{numeric}{{13}}(?:<|$)", compact)
+    )
     has_expiry = bool(
         re.search(
             rf"{numeric}{{6}}[0-9A-Z]?[MHF]{numeric}{{6}}[0-9A-Z]?(?:MEX|<)",
