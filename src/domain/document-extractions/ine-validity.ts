@@ -158,7 +158,8 @@ export function parseIneMrzValidityDate(reverseText: string): string | null {
 
 /**
  * La Credencial para Votar expresa su vigencia por año. Cuando aparece un rango
- * (p. ej. "VIGENCIA 2016-2026") el segundo año es el de expiración.
+ * (p. ej. "VIGENCIA 2016-2026" / "2024 - 2034" / "2024/2034") el ÚLTIMO año
+ * del bloque anclado a VIGENCIA es el de expiración.
  */
 export function parseExplicitIneValidityYear(frontText: string): number | null {
   const text = upper(frontText);
@@ -170,13 +171,13 @@ export function parseExplicitIneValidityYear(frontText: string): number | null {
   const validityBlock = text
     .slice(labelIndex, labelIndex + 80)
     .replace(/O/g, "0");
-  const range = validityBlock.match(
-    /\bVIGENCIA\b[^0-9]{0,16}(20\d{2})[^0-9]{1,8}(20\d{2})\b/,
-  );
-  const single = validityBlock.match(
-    /\bVIGENCIA\b[^0-9]{0,16}(20\d{2})\b/,
-  );
-  return plausibleYear(range?.[2] ?? single?.[1] ?? null);
+  const years = [...validityBlock.matchAll(/\b(20\d{2})\b/g)]
+    .map((match) => Number(match[1]))
+    .filter((year) => plausibleYear(year) !== null);
+  if (years.length === 0) return null;
+  // VERSIÓN ANTERIOR (respaldo): range?.[2] ?? single?.[1]
+  // Ahora: último año del bloque VIGENCIA (rango o año único).
+  return plausibleYear(years[years.length - 1] ?? null);
 }
 
 /**

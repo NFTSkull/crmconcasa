@@ -2,6 +2,8 @@
 
 ## [Unreleased]
 
+- **fix(infonavit): vigencia final INE + preview contain** — rango `VIGENCIA 2024-2034` (guion/slash/espacio) guarda el **último** año anclado al bloque VIGENCIA; OCR enriquece si solo leyó el año inicial; preview inline Mesa usa `object-contain` (max-w/h 100%) sin `object-cover` ni width forzado que recortaba a 100%. Zoom/giro/Frente·Reverso/vista grande intactos. Sin DB/agenda/Sheets.
+
 - **feat(mesa): P4B detección CLABE shadow desde Estado de cuenta** — texto embebido PDF (`extractPdfEmbeddedText`) + checksum P1 + contexto etiqueta; sugerencia visual sin autofill/DB/OCR/provider. Fix: candidatos delimitados (no embebidos en 19+ dígitos); blob ligado a `documentoId`.
 
 - **feat(mesa): P4A preview documento fuente en captura Infonavit** — split desktop sticky + modal vista grande; mapeo identidad→INE / RFC·CLABE→estado cuenta / vivienda→comprobante; blob privado create/revoke ObjectURL. Sin OCR/autofill/migrations.

@@ -18,6 +18,31 @@ describe("INE validity", () => {
     );
   });
 
+  it("rango con guion VIGENCIA 2024 - 2034 → año final", () => {
+    assert.equal(
+      parseExplicitIneValidityYear("VIGENCIA 2024 - 2034"),
+      2034,
+    );
+  });
+
+  it("rango con slash VIGENCIA 2024/2034 → año final", () => {
+    assert.equal(
+      parseExplicitIneValidityYear("VIGENCIA 2024/2034"),
+      2034,
+    );
+  });
+
+  it("rango con espacio VIGENCIA 2024 2034 → año final", () => {
+    assert.equal(
+      parseExplicitIneValidityYear("VIGENCIA 2024 2034"),
+      2034,
+    );
+  });
+
+  it("año único VIGENCIA 2034 → 2034", () => {
+    assert.equal(parseExplicitIneValidityYear("VIGENCIA 2034"), 2034);
+  });
+
   it("tolera O por cero dentro del bloque VIGENCIA", () => {
     assert.equal(
       parseExplicitIneValidityYear("VIGENCIA 2O16 - 2O26"),

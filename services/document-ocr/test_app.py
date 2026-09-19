@@ -337,6 +337,39 @@ def test_ine_validity_hint_does_not_use_single_broad_year_as_vigencia(monkeypatc
     assert text == ""
 
 
+def test_ocr_enriches_when_primary_only_has_start_year_of_range(monkeypatch):
+    """
+    Bug real: OCR primario lee 'VIGENCIA 2024' (inicio del rango 2024-2034)
+    y antes se consideraba 'readable' → no se corría el pase focalizado.
+    Debe enriquecer hasta recuperar el año final.
+    """
+    image = Image.new("RGB", (1200, 760), "white")
+
+    monkeypatch.setattr("app._ine_card_crop", lambda source: source)
+    monkeypatch.setattr("app.preprocess_image", lambda source: source)
+    monkeypatch.setattr(
+        "app._primary_ocr_text",
+        lambda *args, **kwargs: (
+            "INSTITUTO NACIONAL ELECTORAL\n"
+            "NOMBRE ANDRADE ORTA EMANUEL\n"
+            "VIGENCIA 2024"
+        ),
+    )
+    monkeypatch.setattr(
+        "app._ine_orientation_needs_retry",
+        lambda *args, **kwargs: False,
+    )
+    monkeypatch.setattr(
+        "app._ine_front_validity_focus_text",
+        lambda *args, **kwargs: "VIGENCIA 2024 2034",
+    )
+
+    text = ocr_image(image, "cliente_ine_frente")
+
+    assert "VIGENCIA 2024" in text
+    assert "2034" in text
+
+
 def test_ine_validity_focus_recovers_two_years_when_label_pass_misses_numbers(monkeypatch):
     image = Image.new("RGB", (1200, 760), "white")
     reads = iter([

@@ -71,6 +71,25 @@ describe("P4A MesaInfonavitSourceDocumentPreview contrato", () => {
     assert.match(previewSrc, /cliente_ine_reverso/);
   });
 
+  it("INE inline: object-contain a 100% sin object-cover ni width forzado que recorte", () => {
+    assert.match(previewSrc, /data-inline-ine-fit="contain"/);
+    assert.match(previewSrc, /infonavit-inline-ine-stage/);
+    assert.match(previewSrc, /max-h-full max-w-full object-contain/);
+    assert.doesNotMatch(previewSrc, /object-cover/);
+    // El <img> no fuerza width% ni maxWidth:none (eso recortaba en zoom 100%).
+    // El stage sí escala con zoom (layout) — eso es correcto.
+    const imgBlock = previewSrc.match(
+      /data-inline-ine-fit="contain"[\s\S]{0,280}style=\{\{[\s\S]{0,200}\}\}/,
+    );
+    assert.ok(imgBlock, "bloque style del img inline INE");
+    assert.doesNotMatch(imgBlock[0]!, /width:/);
+    assert.doesNotMatch(imgBlock[0]!, /maxWidth:\s*"none"/);
+    assert.match(previewSrc, /Frente/);
+    assert.match(previewSrc, /Reverso/);
+    assert.match(previewSrc, /Abrir vista grande/);
+    assert.match(previewSrc, /Restablecer/);
+  });
+
   it("tipos exactos INE / estado cuenta / comprobante", () => {
     for (const tipo of [
       "cliente_ine_frente",

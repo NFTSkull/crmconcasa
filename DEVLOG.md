@@ -1,3 +1,16 @@
+## 2026-09-19 - fix: vigencia final INE + preview contain
+
+### Causa
+1. **Vigencia:** parsers TS ya tomaban el 2.º año en rangos cortos, pero OCR marcaba “readable” con **1** año tras `VIGENCIA` (p. ej. solo `2024` de `2024-2034`) y saltaba el pase focalizado; el draft quedaba con el año de inicio.
+2. **Preview:** el `<img>` inline forzaba `width: zoom*100%` + `maxWidth: none`, llenando el viewport en ancho y recortando alto (no era `object-cover`, pero el efecto era crop).
+
+### Decisión
+- OCR: enriquecer si el bloque VIGENCIA tiene &lt;2 años; parsers TS: último año del bloque anclado (no del documento entero).
+- Preview: stage escala con zoom; img `max-w/h-full object-contain` + rotate; a 100% la credencial cabe completa.
+
+### Fuera de alcance
+Sin migraciones, UPDATE/DELETE/backfill, citas/cupos/agenda/Sheets, CLABE/RFC/monto/plazo/PDF, autofill de nombres.
+
 ## 2026-09-17 - P4B: CLABE shadow desde Estado de cuenta
 
 ### Decisión

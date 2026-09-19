@@ -221,7 +221,9 @@ function parseIneValidity(text: string): string | null {
     .map((match) => Number(match[1]))
     .filter((year) => Number.isInteger(year) && year >= 2020 && year <= 2050);
 
-  const year = years.length >= 2 ? years[1] : years[0];
+  // Último año del bloque VIGENCIA (rango → año final; año único → ese).
+  // VERSIÓN ANTERIOR: years.length >= 2 ? years[1] : years[0]
+  const year = years.length > 0 ? years[years.length - 1] : null;
   return year ? String(year) : null;
 }
 
