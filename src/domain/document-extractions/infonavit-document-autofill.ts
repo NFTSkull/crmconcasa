@@ -58,6 +58,7 @@ export type InfonavitDocumentAutofillPatch = Readonly<{
 
 export type InfonavitDocumentAutofillOptions = Readonly<{
   expectedClienteNombre?: string | null;
+  expectedCurp?: string | null;
 }>;
 
 export type InfonavitDocumentTexts = Readonly<{
@@ -102,6 +103,8 @@ function isLikelyPersonLine(raw: string): boolean {
   const clean = cleanPersonLine(raw);
   if (!clean || /\d/.test(clean)) return false;
   if (clean.length < 2 || clean.length > 45) return false;
+  // Evita aceptar basura OCR como "S." como apellido completo.
+  if (!/[A-ZÁÉÍÓÚÜÑ]{2}/i.test(clean)) return false;
   return !/(INSTITUTO|NACIONAL|ELECTORAL|CREDENCIAL|VOTAR|DOMICILIO|CURP|SEXO|VIGENCIA|CLAVE|ELECTOR|SECCI[OÓ]N|EMISI[OÓ]N|LOCALIDAD|M[ÉE]XICO)/i.test(
     clean,
   );
@@ -116,11 +119,14 @@ function parseIneNameBlock(text: string): {
   const idx = lines.findIndex((line) => /^NOMBRE(?:S)?\b/.test(line));
   if (idx < 0) return {};
 
-  const values: string[] = [];
-  const inline = cleanPersonLine(
-    lines[idx]!.replace(/^NOMBRE(?:S)?\s*:?-?\s*/i, ""),
-  );
-  if (isLikelyPersonLine(inline)) values.push(inline);
+  // Mantener posición de los renglones es más seguro que compactarlos:
+  // si OCR lee "ROJAS" como "S.", no queremos desplazar ALONZO a paterno.
+  const slots: Array<string | null> = [];
+  const inlineRaw = lines[idx]!.replace(/^NOMBRE(?:S)?\s*:?-?\s*/i, "");
+  const inline = cleanPersonLine(inlineRaw);
+  if (inlineRaw.trim()) {
+    slots.push(isLikelyPersonLine(inline) ? inline : null);
+  }
 
   for (let i = idx + 1; i < Math.min(lines.length, idx + 7); i++) {
     const line = lines[i]!;
@@ -132,15 +138,19 @@ function parseIneNameBlock(text: string): {
       break;
     }
     const clean = cleanPersonLine(line);
-    if (isLikelyPersonLine(clean)) values.push(clean);
-    if (values.length >= 4) break;
+    slots.push(isLikelyPersonLine(clean) ? clean : null);
+    if (slots.length >= 4) break;
   }
 
-  if (values.length < 3) return {};
+  if (slots.length < 3) return {};
+  const nombres = slots
+    .slice(2)
+    .filter((value): value is string => Boolean(value))
+    .join(" ");
   return {
-    apellidoPaterno: values[0],
-    apellidoMaterno: values[1],
-    nombres: values.slice(2).join(" "),
+    ...(slots[0] ? { apellidoPaterno: slots[0] } : {}),
+    ...(slots[1] ? { apellidoMaterno: slots[1] } : {}),
+    ...(nombres ? { nombres } : {}),
   };
 }
 
@@ -229,6 +239,25 @@ function documentMatchesExpectedName(
   return matches >= Math.min(2, tokens.length);
 }
 
+function personComponentMatchesExpected(
+  candidate: string,
+  expectedName: string | null | undefined,
+): boolean {
+  if (!expectedName?.trim()) return true;
+  const expectedTokens = new Set(significantNameTokens(expectedName));
+  const candidateTokens = significantNameTokens(candidate);
+  if (candidateTokens.length > 0) {
+    return candidateTokens.every((token) => expectedTokens.has(token));
+  }
+
+  const compact = alnumComparable(candidate);
+  return compact.length >= 2 && alnumComparable(expectedName).includes(compact);
+}
+
+function normalizeCurpCandidate(raw: string | null | undefined): string {
+  return upper(raw ?? "").replace(/[^A-Z0-9]/g, "");
+}
+
 function parseIneMrz(text: string): {
   nombres?: string;
   apellidoPaterno?: string;
@@ -303,9 +332,11 @@ function parseIne(
   front: string,
   reverse: string,
   expectedName?: string | null,
+  expectedCurp?: string | null,
 ): Readonly<{
   cliente: InfonavitDocumentAutofillPatch["cliente"];
   frontNameRejected: boolean;
+  frontCurpRejected: boolean;
 }> {
   const out: {
     nombres?: AutofillValue;
@@ -318,35 +349,68 @@ function parseIne(
     identificacionVigencia?: AutofillValue;
   } = {};
   let frontNameRejected = false;
+  let frontCurpRejected = false;
 
   if (front.trim()) {
     const name = parseIneNameBlock(front);
-    if (name.nombres && name.apellidoPaterno && name.apellidoMaterno) {
-      const parsedFullName = [
-        name.nombres,
-        name.apellidoPaterno,
-        name.apellidoMaterno,
-      ].join(" ");
+    const parsedNameParts = [
+      name.nombres,
+      name.apellidoPaterno,
+      name.apellidoMaterno,
+    ].filter((value): value is string => Boolean(value));
+    if (parsedNameParts.length >= 2) {
+      const parsedFullName = parsedNameParts.join(" ");
       const nameMatchesExpected =
         !expectedName ||
         documentMatchesExpectedName(parsedFullName, expectedName);
 
       if (nameMatchesExpected) {
-        out.nombres = high(
-          name.nombres,
-          "cliente_ine_frente",
-          "ine_nombre_block",
-        );
-        out.apellidoPaterno = high(
-          name.apellidoPaterno,
-          "cliente_ine_frente",
-          "ine_nombre_block",
-        );
-        out.apellidoMaterno = high(
-          name.apellidoMaterno,
-          "cliente_ine_frente",
-          "ine_nombre_block",
-        );
+        const componentCandidates = [
+          {
+            value: name.nombres,
+            apply: (value: string) => {
+              out.nombres = high(
+                value,
+                "cliente_ine_frente",
+                "ine_nombre_block",
+              );
+            },
+          },
+          {
+            value: name.apellidoPaterno,
+            apply: (value: string) => {
+              out.apellidoPaterno = high(
+                value,
+                "cliente_ine_frente",
+                "ine_nombre_block",
+              );
+            },
+          },
+          {
+            value: name.apellidoMaterno,
+            apply: (value: string) => {
+              out.apellidoMaterno = high(
+                value,
+                "cliente_ine_frente",
+                "ine_nombre_block",
+              );
+            },
+          },
+        ];
+
+        for (const component of componentCandidates) {
+          if (!component.value) {
+            if (expectedName) frontNameRejected = true;
+            continue;
+          }
+          if (personComponentMatchesExpected(component.value, expectedName)) {
+            component.apply(component.value);
+          } else {
+            // Dos partes correctas no autorizan a sobrescribir una tercera
+            // claramente dañada por OCR (ej. ROJAS -> "S").
+            frontNameRejected = true;
+          }
+        }
       } else {
         // Nunca sustituir un nombre correcto de Generales con ruido OCR del INE.
         // El reverso/MRZ todavía puede aportar identidad si sí coincide.
@@ -356,7 +420,19 @@ function parseIne(
 
     const curp = parseCurp(front);
     if (curp) {
-      out.curp = high(curp, "cliente_ine_frente", "ine_curp_regex");
+      const expectedCurpNormalized = normalizeCurpCandidate(expectedCurp);
+      const detectedCurpNormalized = normalizeCurpCandidate(curp);
+      if (
+        expectedCurpNormalized &&
+        expectedCurpNormalized.length === 18 &&
+        expectedCurpNormalized !== detectedCurpNormalized
+      ) {
+        // CURP es un identificador exacto: si OCR difiere de un valor ya
+        // capturado, no lo reemplazamos silenciosamente.
+        frontCurpRejected = true;
+      } else {
+        out.curp = high(curp, "cliente_ine_frente", "ine_curp_regex");
+      }
     }
 
     const genero = parseIneGender(front);
@@ -465,7 +541,7 @@ function parseIne(
     }
   }
 
-  return { cliente: out, frontNameRejected };
+  return { cliente: out, frontNameRejected, frontCurpRejected };
 }
 
 const NL_MUNICIPALITIES = [
@@ -506,10 +582,15 @@ function normalizedComparable(raw: string): string {
 }
 
 function isCfeDocument(lines: readonly string[]): boolean {
-  const joined = normalizedComparable(lines.slice(0, 40).join(" "));
+  const joined = normalizedComparable(lines.slice(0, 60).join(" "));
+  const hasServiceNumber = /\bNO\s+DE\s+SERVICIO\b/.test(joined);
+  const hasRmu = /\bRMU\b/.test(joined);
   return (
     joined.includes("COMISION FEDERAL DE ELECTRICIDAD") ||
-    /(^|\s)CFE(\s|$)/.test(joined)
+    /(^|\s)CFE(\s|$)/.test(joined) ||
+    // El OCR puede perder el logotipo/nombre CFE, pero NO. DE SERVICIO + RMU
+    // juntos identifican de forma fuerte el formato del recibo.
+    (hasServiceNumber && hasRmu)
   );
 }
 
@@ -541,6 +622,31 @@ function municipalityFromText(raw: string): string | undefined {
         ? "GENERAL ESCOBEDO"
         : municipality.toLocaleUpperCase("es-MX");
     }
+  }
+  return undefined;
+}
+
+
+function municipalityFromCfeLocationLines(
+  linesAfterStreet: readonly string[],
+): string | undefined {
+  // En CFE una calle puede llamarse GUADALUPE, MONTERREY, etc. No debemos
+  // inferir municipio desde la calle. Buscamos desde el final las líneas de
+  // ubicación (N.L./Nuevo León/CP), que corresponden al bloque territorial.
+  for (let i = linesAfterStreet.length - 1; i >= 0; i--) {
+    const line = linesAfterStreet[i]!;
+    const anchored =
+      /\bN\.?\s*L\.?\b|\bNUEVO\s+LE[OÓ]N\b|C\.?\s*P\.?\s*[:.\-]?\s*\d{4,5}\b/i.test(
+        line,
+      );
+    if (!anchored) continue;
+    const municipality = municipalityFromText(line);
+    if (municipality) return municipality;
+  }
+
+  for (let i = linesAfterStreet.length - 1; i >= 0; i--) {
+    const municipality = municipalityFromText(linesAfterStreet[i]!);
+    if (municipality) return municipality;
   }
   return undefined;
 }
@@ -585,8 +691,7 @@ function parseCfeStreetLine(
   const candidate = compactLine(withoutCp.slice(0, last.index));
   if (
     candidate.length < 2 ||
-    !/[A-ZÁÉÍÓÚÜÑ]/i.test(candidate) ||
-    /^(MONTERREY|APODACA|GUADALUPE|JUAREZ|JUÁREZ)$/i.test(candidate)
+    !/[A-ZÁÉÍÓÚÜÑ]/i.test(candidate)
   ) {
     return null;
   }
@@ -806,6 +911,7 @@ function parseCfeAddressCandidate(text: string): {
   if (!calle || !noExt) return null;
 
   const addressBlock = block.slice(streetIndex);
+  const addressLinesAfterStreet = addressBlock.slice(1);
   const addressJoined = addressBlock.join(" ");
 
   const explicitCpCandidates: string[] = [];
@@ -826,9 +932,12 @@ function parseCfeAddressCandidate(text: string): {
   // explícitamente C.P., esa etiqueta siempre tiene prioridad.
   const cp = explicitCpCandidates.at(-1) ?? fallbackCpCandidates.at(-1);
 
-  const municipio = municipalityFromText(addressJoined);
+  const municipio =
+    municipalityFromCfeLocationLines(addressLinesAfterStreet) ??
+    municipalityFromText(addressJoined);
+  const locationJoined = addressLinesAfterStreet.join(" ");
   const entidad =
-    /\bNUEVO\s+LE[OÓ]N\b|\bN\.?\s*L\.?\b/i.test(addressJoined)
+    /\bNUEVO\s+LE[OÓ]N\b|\bN\.?\s*L\.?\b/i.test(locationJoined)
       ? "NUEVO LEÓN"
       : undefined;
 
@@ -1033,7 +1142,8 @@ export function buildInfonavitDocumentAutofillPatch(
   const estado = texts.estadoCuenta ?? "";
 
   const expectedName = options.expectedClienteNombre ?? null;
-  const ine = parseIne(front, reverse, expectedName);
+  const expectedCurp = options.expectedCurp ?? null;
+  const ine = parseIne(front, reverse, expectedName, expectedCurp);
   const cliente = ine.cliente;
   const comprobanteMatches =
     !comprobante.trim() || documentMatchesExpectedName(comprobante, expectedName);
@@ -1063,6 +1173,14 @@ export function buildInfonavitDocumentAutofillPatch(
       code: "low_confidence",
       message:
         "La INE no permitió leer el nombre con suficiente confianza; se conservaron los datos correctos de Datos Generales para no reemplazarlos con ruido OCR.",
+    });
+  }
+  if (ine.frontCurpRejected) {
+    issues.push({
+      source: "cliente_ine_frente",
+      code: "low_confidence",
+      message:
+        "La CURP leída por OCR no coincide exactamente con Datos Generales; se conservó la CURP capturada para evitar sustituirla por una lectura dudosa.",
     });
   }
   if (comprobante.trim() && !comprobanteMatches) {

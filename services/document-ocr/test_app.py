@@ -9,6 +9,7 @@ from app import (
     ocr_image,
     preprocess_image,
     _verify_t7_trailing_digit,
+    _ine_front_validity_focus_text,
 )
 
 
@@ -251,3 +252,21 @@ def test_ine_front_skips_focused_pass_when_year_is_already_readable(monkeypatch)
 
     text = ocr_image(image, "cliente_ine_frente")
     assert "2026" in text
+
+
+def test_ine_validity_focus_recovers_two_years_when_label_pass_misses_numbers(monkeypatch):
+    image = Image.new("RGB", (1200, 760), "white")
+    reads = iter([
+        "VIGENCIA",
+        "SECCION 2157",
+        "1991 03 2023 2033",
+    ])
+
+    monkeypatch.setattr(
+        "app.pytesseract.image_to_string",
+        lambda *args, **kwargs: next(reads),
+    )
+
+    text = _ine_front_validity_focus_text(image)
+
+    assert "VIGENCIA 2023 2033" in text

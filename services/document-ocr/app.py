@@ -153,6 +153,58 @@ def _has_readable_ine_validity(text: str) -> bool:
     return re.search(r"20\d{2}", block) is not None
 
 
+def _ine_front_validity_year_hint(image: Image.Image) -> str:
+    """
+    Último recurso seguro para frentes donde se ve VIGENCIA pero Tesseract
+    pierde la etiqueta o los años. Solo emite un hint si detecta dos años
+    plausibles 20xx en la zona inferior derecha de la credencial.
+    """
+    base = ImageOps.exif_transpose(image).convert("L")
+    width, height = base.size
+    if width < 8 or height < 8:
+        return ""
+
+    crop = base.crop(
+        (
+            round(width * 0.45),
+            round(height * 0.50),
+            width,
+            height,
+        )
+    )
+    longest = max(crop.size)
+    if longest < 3200:
+        scale = min(7.0, 3200 / max(1, longest))
+        crop = crop.resize(
+            (max(1, round(crop.width * scale)), max(1, round(crop.height * scale))),
+            Image.Resampling.LANCZOS,
+        )
+    crop = ImageOps.autocontrast(crop, cutoff=1)
+    crop = ImageEnhance.Contrast(crop).enhance(1.55)
+    crop = crop.filter(ImageFilter.SHARPEN)
+
+    raw = pytesseract.image_to_string(
+        crop,
+        lang="eng",
+        config="--oem 1 --psm 11 -c tessedit_char_whitelist=0123456789-/ ",
+    )
+    years = []
+    for match in re.findall(r"20\d{2}", raw):
+        year = int(match)
+        if 2020 <= year <= 2050 and year not in years:
+            years.append(year)
+
+    if len(years) < 2:
+        return ""
+
+    # INE imprime emisión/inicio y fin de vigencia; el segundo no debe ser
+    # anterior al primero ni absurdamente lejano.
+    first, second = years[0], years[1]
+    if second < first or second - first > 15:
+        return ""
+    return f"VIGENCIA {first} {second}"
+
+
 def _ine_front_validity_focus_text(image: Image.Image) -> str:
     """
     Pase dirigido a la zona donde INE imprime VIGENCIA.
@@ -190,6 +242,12 @@ def _ine_front_validity_focus_text(image: Image.Image) -> str:
             parts.append(text)
         if _has_readable_ine_validity("\n".join(parts)):
             break
+
+    combined = "\n".join(parts).strip()
+    if not _has_readable_ine_validity(combined):
+        hint = _ine_front_validity_year_hint(base)
+        if hint:
+            parts.append(hint)
 
     return "\n".join(parts).strip()
 
