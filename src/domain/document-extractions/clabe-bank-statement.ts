@@ -8,7 +8,6 @@ import {
   isValidClabeMexico,
   normalizeClabeMexico,
 } from "@/domain/expediente-cliente-datos/clabe-mexico";
-import { extractPdfEmbeddedText } from "@/domain/identidad-curp/pdf-extract-text";
 
 export type ClabeBankStatementDetection =
   | {
@@ -57,6 +56,116 @@ const CLABE_LABEL_PATTERNS: readonly RegExp[] = [
   /transferencias?\s*(?:\/\s*)?interbancarias?/gi,
   /\bclabe\b/gi,
 ];
+
+
+const BANK_CODE_HINTS: ReadonlyArray<Readonly<{ pattern: RegExp; code: string }>> = [
+  { pattern: /\bBANORTE\b|BANCO\s+MERCANTIL\s+DEL\s+NORTE/i, code: "072" },
+  { pattern: /\bBANREGIO\b|BANCO\s+REGIONAL/i, code: "058" },
+  { pattern: /\bBBVA\b|BBVA\s+MEXICO|BBVA\s+BANCOMER/i, code: "012" },
+  { pattern: /\bSANTANDER\b/i, code: "014" },
+  { pattern: /\bHSBC\b/i, code: "021" },
+  { pattern: /\bSCOTIABANK\b|SCOTIABANK\s+INVERLAT/i, code: "044" },
+  { pattern: /\bBANAMEX\b|\bCITIBANAMEX\b/i, code: "002" },
+  { pattern: /\bBAJIO\b|BANCO\s+DEL\s+BAJIO/i, code: "030" },
+  { pattern: /\bINBURSA\b/i, code: "036" },
+  { pattern: /\bMIFEL\b/i, code: "042" },
+  { pattern: /\bAFIRME\b/i, code: "062" },
+  { pattern: /\bAZTECA\b/i, code: "127" },
+  { pattern: /\bCOMPARTAMOS\b/i, code: "130" },
+  { pattern: /\bMULTIVA\b/i, code: "132" },
+  { pattern: /\bACTINVER\b/i, code: "133" },
+  { pattern: /\bINTERCAM\b/i, code: "136" },
+  { pattern: /\bBANCOPPEL\b|BANCO\s+COPPEL/i, code: "137" },
+  { pattern: /\bBBASE\b|BANCO\s+BASE/i, code: "145" },
+  { pattern: /\bBANCREA\b/i, code: "152" },
+  { pattern: /\bINVEX\b/i, code: "059" },
+  { pattern: /\bBANSI\b/i, code: "060" },
+];
+
+function normalizedBankText(raw: string): string {
+  return String(raw ?? "")
+    .toLocaleUpperCase("es-MX")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function detectBankCodeHints(text: string): string[] {
+  // El banco emisor normalmente aparece al inicio. Limitar la ventana evita
+  // inferir el banco a partir de movimientos/beneficiarios de otras entidades.
+  const head = normalizedBankText(text).slice(0, 2800);
+  const codes = new Set<string>();
+  for (const hint of BANK_CODE_HINTS) {
+    if (hint.pattern.test(head)) codes.add(hint.code);
+  }
+  return [...codes];
+}
+
+function validClabesInFragment(fragment: string): string[] {
+  const source = String(fragment ?? "");
+  const out = new Set<string>();
+  // En tablas puede haber otro campo numérico antes de la CLABE en la misma
+  // fila (p. ej. No. de Cuenta). Buscamos un bloque de exactamente 18 dígitos
+  // sin permitir que absorba números de columnas vecinas.
+  const pattern = /(?<!\d)(?:\d[\s.\-:/]*){17}\d(?![\s.\-:/]*\d)/g;
+  for (const match of source.matchAll(pattern)) {
+    const normalized = normalizeClabeMexico(match[0]);
+    if (!normalized || normalized.length !== 18) continue;
+    if (!isValidClabeMexico(normalized)) continue;
+    out.add(normalized);
+  }
+  return [...out];
+}
+
+/**
+ * Extrae primero candidatos realmente asociados a una fila/etiqueta CLABE.
+ * Soporta:
+ *   "CLABE 072 580 ..."
+ *   "No. de Cuenta   CLABE" + siguiente fila con cuenta + CLABE
+ *   "CLABE 012 700" + resto en el siguiente renglón OCR
+ */
+export function collectStrictLabeledClabeCandidates(text: string): string[] {
+  const lines = String(text ?? "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const out = new Set<string>();
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i]!;
+    const label = /\bCLABE\b/i.exec(line);
+    if (!label) continue;
+
+    const afterLabel = line.slice(label.index + label[0].length).trim();
+    for (const value of validClabesInFragment(afterLabel)) out.add(value);
+
+    const next = lines[i + 1] ?? "";
+    if (!next) continue;
+
+    // Si la misma línea ya comenzó la CLABE pero quedó cortada por OCR,
+    // unimos solo la cola posterior a la etiqueta con el renglón siguiente.
+    if (/\d/.test(afterLabel)) {
+      for (const value of validClabesInFragment(`${afterLabel} ${next}`)) {
+        out.add(value);
+      }
+    } else {
+      // En tablas (No. de Cuenta | CLABE), la fila de valores viene debajo.
+      // Buscamos una CLABE completa en esa fila sin mezclar líneas posteriores.
+      for (const value of validClabesInFragment(next)) out.add(value);
+    }
+  }
+
+  return [...out];
+}
+
+function chooseByBankHint(
+  candidates: readonly string[],
+  bankCodes: readonly string[],
+): string[] {
+  if (bankCodes.length !== 1) return [...candidates];
+  return candidates.filter((candidate) => candidate.startsWith(bankCodes[0]!));
+}
 
 type ScoredCandidate = Readonly<{
   clabe: string;
@@ -218,12 +327,48 @@ export function detectClabeFromBankStatementText(
     return { status: "no_text_layer" };
   }
 
+  const bankCodes = detectBankCodeHints(trimmed);
+  const strict = collectStrictLabeledClabeCandidates(trimmed);
+  const strictFiltered = chooseByBankHint(strict, bankCodes);
+
+  if (strictFiltered.length === 1) {
+    return {
+      status: "detected",
+      clabe: strictFiltered[0]!,
+      checksumValid: true,
+      candidateCount: 1,
+      confidence: "high",
+      reason: "clabe_label_nearby",
+    };
+  }
+
+  if (strictFiltered.length >= 2) {
+    return {
+      status: "ambiguous",
+      candidates: [...new Set(strictFiltered)],
+      candidateCount: [...new Set(strictFiltered)].length,
+    };
+  }
+
+  // Si reconocimos claramente el banco y la única CLABE de la fila pertenece
+  // a otro código bancario, no la aceptamos aunque su checksum sea válido.
+  if (bankCodes.length === 1 && strict.length > 0 && strictFiltered.length === 0) {
+    return { status: "not_found" };
+  }
+
   const valid = collectValidClabeCandidates(trimmed);
-  const contextual = valid.filter(
-    (c) => c.score >= CLABE_CONTEXT_MED_MIN_SCORE,
+  let contextual = valid.filter(
+    (candidate) => candidate.score >= CLABE_CONTEXT_MED_MIN_SCORE,
   );
+
+  if (bankCodes.length === 1) {
+    contextual = contextual.filter((candidate) =>
+      candidate.clabe.startsWith(bankCodes[0]!),
+    );
+  }
+
   const high = contextual.filter(
-    (c) => c.score >= CLABE_CONTEXT_HIGH_MIN_SCORE,
+    (candidate) => candidate.score >= CLABE_CONTEXT_HIGH_MIN_SCORE,
   );
 
   if (high.length === 1 && contextual.length === 1) {
@@ -238,7 +383,7 @@ export function detectClabeFromBankStatementText(
   }
 
   if (contextual.length >= 2) {
-    const unique = [...new Set(contextual.map((c) => c.clabe))];
+    const unique = [...new Set(contextual.map((candidate) => candidate.clabe))];
     if (unique.length === 1 && high.length >= 1) {
       return {
         status: "detected",
@@ -317,11 +462,65 @@ export function canRunClabeDetection(input: {
 export async function detectClabeFromBankStatementPdfBytes(
   data: ArrayBuffer | Uint8Array,
 ): Promise<ClabeBankStatementDetection> {
-  const extracted = await extractPdfEmbeddedText(data);
-  if (!extracted.ok) {
+  try {
+    const pdfjs = await import("pdfjs-dist/legacy/build/pdf.mjs");
+    const bytes = data instanceof Uint8Array ? data : new Uint8Array(data);
+    const loadingTask = pdfjs.getDocument({
+      data: bytes,
+      useSystemFonts: true,
+    });
+    const doc = await loadingTask.promise;
+    const pageCount = Math.min(doc.numPages, 3);
+    let text = "";
+
+    for (let pageNo = 1; pageNo <= pageCount; pageNo++) {
+      const page = await doc.getPage(pageNo);
+      const content = await page.getTextContent();
+      const rows: Array<{ y: number; items: Array<{ x: number; text: string }> }> = [];
+
+      for (const item of content.items) {
+        if (!("str" in item)) continue;
+        const value = String(item.str ?? "").trim();
+        if (!value) continue;
+        const transform =
+          "transform" in item && Array.isArray(item.transform)
+            ? item.transform
+            : null;
+        const x = Number(transform?.[4] ?? 0);
+        const y = Number(transform?.[5] ?? 0);
+
+        let row = rows.find((candidate) => Math.abs(candidate.y - y) <= 2.5);
+        if (!row) {
+          row = { y, items: [] };
+          rows.push(row);
+        }
+        row.items.push({ x, text: value });
+      }
+
+      rows.sort((a, b) => b.y - a.y);
+      const pageText = rows
+        .map((row) =>
+          row.items
+            .sort((a, b) => a.x - b.x)
+            .map((item) => item.text)
+            .join(" "),
+        )
+        .join("\n");
+      text += `${pageText}\n`;
+
+      // La CLABE suele estar en la primera o segunda página. Si ya tenemos una
+      // detección estructural confiable, no parseamos el resto del PDF.
+      const partial = detectClabeFromBankStatementText(text);
+      if (partial.status === "detected") return partial;
+    }
+
+    if (text.replace(/\s+/g, "").length < 40) {
+      return { status: "no_text_layer" };
+    }
+    return detectClabeFromBankStatementText(text);
+  } catch {
     return { status: "no_text_layer" };
   }
-  return detectClabeFromBankStatementText(extracted.text);
 }
 
 /** True solo en contexto captura CLABE (P4B). RFC/identidad/vivienda = false. */

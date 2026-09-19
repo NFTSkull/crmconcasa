@@ -59,8 +59,10 @@ describe("P4B Mesa CLABE shadow UI contrato", () => {
     assert.doesNotMatch(formSrc, /detectClabeFromBankStatement/);
   });
 
-  it("CLABE ya aplicada por OCR manda sobre shadow no_text_layer", () => {
+  it("CLABE ya aplicada por OCR manda sobre shadow y evita análisis duplicado", () => {
     assert.match(previewSrc, /clabeAppliedValue/);
+    assert.match(previewSrc, /alreadyApplied/);
+    assert.match(previewSrc, /isValidClabeMexico\(alreadyApplied\)/);
     assert.match(previewSrc, /appliedClabeDetection/);
     assert.match(
       previewSrc,
@@ -124,6 +126,8 @@ describe("P4B Mesa CLABE shadow UI contrato", () => {
       parserSrc,
       /OpenAI|Document AI|Azure|enqueue_document_extraction/i,
     );
-    assert.match(parserSrc, /extractPdfEmbeddedText/);
+    assert.match(parserSrc, /pdfjs-dist\/legacy\/build\/pdf\.mjs/);
+    assert.match(parserSrc, /Math\.min\(doc\.numPages, 3\)/);
+    assert.match(parserSrc, /Math\.abs\(candidate\.y - y\) <= 2\.5/);
   });
 });

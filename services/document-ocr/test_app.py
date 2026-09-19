@@ -11,6 +11,8 @@ from app import (
     _verify_t7_trailing_digit,
     _ine_front_validity_focus_text,
     _has_clabe_like_candidate,
+    _strict_labeled_clabe_candidates,
+    _clabe_checksum_valid,
 )
 
 
@@ -47,6 +49,32 @@ def test_preprocess_scales_small_image():
     assert max(out.size) >= 1800
 
 
+def test_preprocess_caps_large_phone_photo():
+    image = Image.new("RGB", (4032, 3024), "white")
+    out = preprocess_image(image)
+    assert max(out.size) == 2600
+
+
+def test_ine_front_does_not_spend_extra_pass_only_for_missing_gender(monkeypatch):
+    image = Image.new("RGB", (900, 600), "white")
+    primary_calls = []
+
+    def fake_primary(*args, **kwargs):
+        primary_calls.append("primary")
+        return "NOMBRE PRUEBA\nCURP ABCD000000HNLRRR00\nVIGENCIA 2023 2033"
+
+    monkeypatch.setattr("app._primary_ocr_text", fake_primary)
+
+    def unexpected_focus(*args, **kwargs):
+        raise AssertionError("validity focus should not run")
+
+    monkeypatch.setattr("app._ine_front_validity_focus_text", unexpected_focus)
+
+    text = ocr_image(image, "cliente_ine_frente")
+    assert primary_calls == ["primary"]
+    assert "2033" in text
+
+
 def test_ine_skips_adaptive_pass_when_critical_fields_are_present(monkeypatch):
     image = Image.new("RGB", (900, 600), "white")
     calls = []
@@ -67,26 +95,24 @@ def test_ine_skips_adaptive_pass_when_critical_fields_are_present(monkeypatch):
     assert "2033" in text
 
 
-def test_ine_runs_adaptive_pass_only_when_critical_fields_are_missing(monkeypatch):
+def test_ine_front_uses_focused_validity_instead_of_full_second_pass(monkeypatch):
     image = Image.new("RGB", (900, 600), "white")
-    calls = []
+    primary_calls = []
 
-    def fake_ocr(*args, **kwargs):
-        calls.append(kwargs.get("config", ""))
-        return (
-            "NOMBRE ZAMUDIO CAMPOS GERARDO\nCURP ZACG900101HNLMPR09"
-            if len(calls) == 1
-            else "SEXO H\nVIGENCIA\n2023 2033"
-        )
+    def fake_primary(*args, **kwargs):
+        primary_calls.append("primary")
+        return "NOMBRE ZAMUDIO CAMPOS GERARDO\nCURP ZACG900101HNLMPR09"
 
-    monkeypatch.setattr("app.pytesseract.image_to_string", fake_ocr)
+    monkeypatch.setattr("app._primary_ocr_text", fake_primary)
+    monkeypatch.setattr(
+        "app._ine_front_validity_focus_text",
+        lambda *args, **kwargs: "VIGENCIA 2023 2033",
+    )
+
     text = ocr_image(image, "cliente_ine_frente")
 
-    assert len(calls) == 2
-    assert "psm 6" in calls[0]
-    assert "psm 11" in calls[1]
-    assert "SEXO H" in text
-    assert "2033" in text
+    assert primary_calls == ["primary"]
+    assert "VIGENCIA 2023 2033" in text
 
 
 def test_ine_portrait_photo_auto_rotates_before_full_ocr(monkeypatch):
@@ -235,7 +261,8 @@ def test_ine_front_runs_focused_validity_pass_when_general_ocr_misses_year(monke
     text = ocr_image(image, "cliente_ine_frente")
 
     assert "VIGENCIA 2016 - 2026" in text
-    assert len(calls) >= 2
+    # Solo una lectura completa; la vigencia faltante se resuelve con crop focalizado.
+    assert len(calls) == 1
 
 
 def test_ine_front_skips_focused_pass_when_year_is_already_readable(monkeypatch):
@@ -332,6 +359,8 @@ def test_ine_reverse_adds_mrz_focus_when_t7_is_missing(monkeypatch):
 
 def test_bank_statement_adds_clabe_focus_when_general_ocr_misses_it(monkeypatch):
     image = Image.new("RGB", (1600, 2200), "white")
+    buf = io.BytesIO()
+    image.save(buf, format="JPEG")
 
     monkeypatch.setattr(
         "app._primary_ocr_text",
@@ -342,6 +371,39 @@ def test_bank_statement_adds_clabe_focus_when_general_ocr_misses_it(monkeypatch)
         lambda *args, **kwargs: "No. Cuenta CLABE 012 700 01524466095 8",
     )
 
-    text = ocr_image(image, "cliente_estado_cuenta")
+    text, engine, pages = extract_document_text(
+        buf.getvalue(), "image/jpeg", "cliente_estado_cuenta"
+    )
 
     assert "012 700 01524466095 8" in text
+    assert engine == "tesseract"
+    assert pages == 1
+
+
+def test_clabe_checksum_banorte_real_case():
+    assert _clabe_checksum_valid("072580013691192354")
+    assert _clabe_checksum_valid("012180015250829604")
+
+
+def test_banorte_rejects_other_bank_even_if_checksum_is_valid():
+    text = "\n".join(
+        [
+            "ESTADO DE CUENTA NOMINA BANORTE S/CH",
+            "CLABE 012180015250829604",
+            "SALDO FINAL",
+        ]
+    )
+    assert _has_clabe_like_candidate(text) is False
+
+
+def test_banorte_accepts_exact_clabe_row():
+    text = "\n".join(
+        [
+            "ESTADO DE CUENTA NOMINA BANORTE S/CH",
+            "RESUMEN INTEGRAL",
+            "No. de Cuenta    CLABE",
+            "1369119235       072 580 01369119235 4",
+        ]
+    )
+    assert _strict_labeled_clabe_candidates(text) == ["072580013691192354"]
+    assert _has_clabe_like_candidate(text) is True

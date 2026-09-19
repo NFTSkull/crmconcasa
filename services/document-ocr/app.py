@@ -4,6 +4,7 @@ import io
 import os
 import re
 import time
+import unicodedata
 from functools import lru_cache
 from typing import Literal
 
@@ -109,8 +110,15 @@ def extract_embedded_pdf_text(data: bytes, max_pages: int = 4) -> tuple[str, int
 
 def preprocess_image(image: Image.Image) -> Image.Image:
     img = ImageOps.exif_transpose(image).convert("L")
-    if max(img.size) < 1800:
-        scale = min(3.0, 1800 / max(1, max(img.size)))
+    longest = max(img.size)
+    if longest > 2600:
+        scale = 2600 / max(1, longest)
+        img = img.resize(
+            (max(1, round(img.width * scale)), max(1, round(img.height * scale))),
+            Image.Resampling.LANCZOS,
+        )
+    elif longest < 1800:
+        scale = min(3.0, 1800 / max(1, longest))
         img = img.resize(
             (max(1, round(img.width * scale)), max(1, round(img.height * scale))),
             Image.Resampling.LANCZOS,
@@ -120,12 +128,17 @@ def preprocess_image(image: Image.Image) -> Image.Image:
     img = img.filter(ImageFilter.SHARPEN)
     return img
 
-
 def adaptive_binary_variant(image: Image.Image) -> Image.Image:
     base = ImageOps.exif_transpose(image).convert("L")
     longest = max(base.size)
-    if longest < 2600:
-        scale = min(6.0, 2600 / max(1, longest))
+    if longest > 2800:
+        scale = 2800 / max(1, longest)
+        base = base.resize(
+            (max(1, round(base.width * scale)), max(1, round(base.height * scale))),
+            Image.Resampling.LANCZOS,
+        )
+    elif longest < 2400:
+        scale = min(5.0, 2400 / max(1, longest))
         base = base.resize(
             (max(1, round(base.width * scale)), max(1, round(base.height * scale))),
             Image.Resampling.LANCZOS,
@@ -144,22 +157,109 @@ def adaptive_binary_variant(image: Image.Image) -> Image.Image:
     )
     return Image.fromarray(binary)
 
+def _clabe_checksum_valid(value: str) -> bool:
+    digits = re.sub(r"\D", "", value or "")
+    if len(digits) != 18:
+        return False
+    weights = (3, 7, 1)
+    total = sum((int(digits[idx]) * weights[idx % 3]) % 10 for idx in range(17))
+    expected = (10 - (total % 10)) % 10
+    return expected == int(digits[17])
+
+
+def _valid_clabes_in_fragment(fragment: str) -> list[str]:
+    source = fragment or ""
+    pattern = re.compile(
+        r"(?<!\d)(?:\d[\s.\-:/]*){17}\d(?![\s.\-:/]*\d)"
+    )
+    values: list[str] = []
+    for match in pattern.finditer(source):
+        digits = re.sub(r"\D", "", match.group(0))
+        if len(digits) == 18 and _clabe_checksum_valid(digits) and digits not in values:
+            values.append(digits)
+    return values
+
+
+_BANK_CODE_HINTS: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"\bBANORTE\b|BANCO\s+MERCANTIL\s+DEL\s+NORTE", re.I), "072"),
+    (re.compile(r"\bBANREGIO\b|BANCO\s+REGIONAL", re.I), "058"),
+    (re.compile(r"\bBBVA\b|BBVA\s+MEXICO|BBVA\s+BANCOMER", re.I), "012"),
+    (re.compile(r"\bSANTANDER\b", re.I), "014"),
+    (re.compile(r"\bHSBC\b", re.I), "021"),
+    (re.compile(r"\bSCOTIABANK\b|SCOTIABANK\s+INVERLAT", re.I), "044"),
+    (re.compile(r"\bBANAMEX\b|\bCITIBANAMEX\b", re.I), "002"),
+    (re.compile(r"\bBAJIO\b|BANCO\s+DEL\s+BAJIO", re.I), "030"),
+    (re.compile(r"\bINBURSA\b", re.I), "036"),
+    (re.compile(r"\bMIFEL\b", re.I), "042"),
+    (re.compile(r"\bAFIRME\b", re.I), "062"),
+    (re.compile(r"\bAZTECA\b", re.I), "127"),
+    (re.compile(r"\bCOMPARTAMOS\b", re.I), "130"),
+    (re.compile(r"\bMULTIVA\b", re.I), "132"),
+    (re.compile(r"\bACTINVER\b", re.I), "133"),
+    (re.compile(r"\bINTERCAM\b", re.I), "136"),
+    (re.compile(r"\bBANCOPPEL\b|BANCO\s+COPPEL", re.I), "137"),
+    (re.compile(r"\bBBASE\b|BANCO\s+BASE", re.I), "145"),
+    (re.compile(r"\bBANCREA\b", re.I), "152"),
+    (re.compile(r"\bINVEX\b", re.I), "059"),
+    (re.compile(r"\bBANSI\b", re.I), "060"),
+)
+
+
+def _bank_code_hints(text: str) -> list[str]:
+    head = unicodedata.normalize("NFD", (text or "").upper())[:2800]
+    head = "".join(ch for ch in head if unicodedata.category(ch) != "Mn")
+    codes: list[str] = []
+    for pattern, code in _BANK_CODE_HINTS:
+        if pattern.search(head) and code not in codes:
+            codes.append(code)
+    return codes
+
+
+def _strict_labeled_clabe_candidates(text: str) -> list[str]:
+    lines = [line.strip() for line in (text or "").splitlines() if line.strip()]
+    values: list[str] = []
+
+    def add(fragment: str) -> None:
+        for value in _valid_clabes_in_fragment(fragment):
+            if value not in values:
+                values.append(value)
+
+    for idx, line in enumerate(lines):
+        label = re.search(r"\bCLABE\b", line, re.I)
+        if not label:
+            continue
+
+        tail = line[label.end():].strip()
+        add(tail)
+        if idx + 1 >= len(lines):
+            continue
+
+        next_line = lines[idx + 1]
+        if re.search(r"\d", tail):
+            add(f"{tail} {next_line}")
+        else:
+            add(next_line)
+
+    return values
+
+
+def _reliable_clabe_candidates(text: str) -> list[str]:
+    strict = _strict_labeled_clabe_candidates(text)
+    bank_codes = _bank_code_hints(text)
+    if len(bank_codes) == 1:
+        matching = [value for value in strict if value.startswith(bank_codes[0])]
+        return matching
+    return strict
+
 
 def _has_clabe_like_candidate(text: str) -> bool:
-    source = (text or "").upper()
-    for label in re.finditer(r"\bCLABE\b", source):
-        window = source[label.end():label.end() + 140]
-        for match in re.finditer(r"(?:\d[\s.\-:/]*){18}", window):
-            digits = re.sub(r"\D", "", match.group(0))
-            if len(digits) == 18:
-                return True
-    return False
+    return len(_reliable_clabe_candidates(text)) == 1
 
 
 def _bank_statement_clabe_focus_text(image: Image.Image) -> str:
     """
-    Segundo pase solo cuando el OCR general no encontró una CLABE usable.
-    No asume banco/layout: usa la página completa en modo sparse text.
+    Pase reforzado solo después de que las páginas rápidas no encontraron
+    una CLABE estructuralmente confiable.
     """
     focused = adaptive_binary_variant(image)
     return pytesseract.image_to_string(
@@ -266,8 +366,14 @@ def _ine_front_validity_year_hint(image: Image.Image) -> str:
         )
     )
     longest = max(crop.size)
-    if longest < 3200:
-        scale = min(7.0, 3200 / max(1, longest))
+    if longest > 2600:
+        scale = 2600 / max(1, longest)
+        crop = crop.resize(
+            (max(1, round(crop.width * scale)), max(1, round(crop.height * scale))),
+            Image.Resampling.LANCZOS,
+        )
+    elif longest < 2200:
+        scale = min(5.0, 2200 / max(1, longest))
         crop = crop.resize(
             (max(1, round(crop.width * scale)), max(1, round(crop.height * scale))),
             Image.Resampling.LANCZOS,
@@ -317,8 +423,14 @@ def _ine_front_validity_focus_text(image: Image.Image) -> str:
     for region in regions:
         gray = region.convert("L")
         longest = max(gray.size)
-        if longest < 3000:
-            scale = min(6.0, 3000 / max(1, longest))
+        if longest > 2600:
+            scale = 2600 / max(1, longest)
+            gray = gray.resize(
+                (max(1, round(gray.width * scale)), max(1, round(gray.height * scale))),
+                Image.Resampling.LANCZOS,
+            )
+        elif longest < 2200:
+            scale = min(5.0, 2200 / max(1, longest))
             gray = gray.resize(
                 (max(1, round(gray.width * scale)), max(1, round(gray.height * scale))),
                 Image.Resampling.LANCZOS,
@@ -376,11 +488,14 @@ def _ine_orientation_score(text: str, document_type: str) -> int:
 def _ine_orientation_needs_retry(text: str, document_type: str) -> bool:
     normalized = (text or "").upper()
     if document_type == "cliente_ine_reverso":
-        return not re.search(r"\\b(?:OCR|0CR|CIC)\\b|IDMEX|<<", normalized)
-    # Frente: si falta VIGENCIA o SEXO, una foto 90° puede haber producido
-    # nombre/CURP parciales pero seguir perdiendo los campos pequeños.
-    return "VIGENCIA" not in normalized or "SEXO" not in normalized
-
+        return not re.search(r"\b(?:OCR|0CR|CIC)\b|IDMEX|<<", normalized)
+    # No rotar todo el frente solo porque el texto pequeño de VIGENCIA faltó.
+    # Si hay marcadores claros de frente, la orientación ya es correcta y se
+    # usa el crop focalizado de vigencia.
+    return not any(
+        marker in normalized
+        for marker in ("INSTITUTO", "ELECTORAL", "NOMBRE", "CURP", "DOMICILIO")
+    )
 
 def _ocr_tokens_to_text(tokens: list[dict]) -> str:
     lines: dict[tuple[int, int, int, int], list[str]] = {}
@@ -530,6 +645,13 @@ def _primary_ocr_text(image: Image.Image, document_type: str, psm: str) -> str:
     return _ocr_tokens_to_text(tokens)
 
 
+def _ine_reverse_has_t7(text: str) -> bool:
+    compact = re.sub(r"[^A-Z0-9<>]+", "", (text or "").upper())
+    compact = compact.replace(">", "<")
+    numeric = r"[0-9OQILZSBG]"
+    return bool(re.search(rf"<<+{numeric}{{13}}(?:<|$)", compact))
+
+
 def _ine_reverse_has_structured_mrz(text: str) -> bool:
     compact = re.sub(r"[^A-Z0-9<>]+", "", (text or "").upper())
     compact = compact.replace(">", "<")
@@ -545,13 +667,11 @@ def _ine_reverse_has_structured_mrz(text: str) -> bool:
 
 
 def _ine_needs_adaptive_pass(text: str, document_type: str) -> bool:
-    normalized = (text or "").upper()
     if document_type == "cliente_ine_reverso":
-        return not _ine_reverse_has_structured_mrz(normalized)
+        return not _ine_reverse_has_t7(text)
     if document_type == "cliente_ine_frente":
-        return "VIGENCIA" not in normalized or "SEXO" not in normalized
+        return not _has_readable_ine_validity(text)
     return False
-
 
 def _ine_reverse_mrz_crop(image: Image.Image) -> Image.Image:
     base = ImageOps.exif_transpose(image)
@@ -584,12 +704,10 @@ def _best_ine_orientation(
     best_score = current_score
     best_degrees = 0
 
-    # Una INE es horizontal. En fotos verticales priorizamos 90/270; en una foto
-    # horizontal probamos primero 180 para cubrir credenciales al revés.
-    if base.height > base.width * 1.05:
-        candidates = (90, 270, 180)
-    else:
-        candidates = (180, 90, 270)
+    # Una credencial físicamente vertical solo necesita probar 90/270.
+    # Una ya horizontal únicamente puede estar al revés (180). Evitamos tres
+    # Tesseract probes por caso.
+    candidates = (90, 270) if base.height > base.width * 1.05 else (180,)
 
     for degrees in candidates:
         rotated = base.rotate(degrees, expand=True)
@@ -603,18 +721,16 @@ def _best_ine_orientation(
         if score > best_score:
             best_score = score
             best_degrees = degrees
+        if score >= 10:
+            break
 
     if best_degrees == 0:
         return base, 0
     return base.rotate(best_degrees, expand=True), best_degrees
 
-
 def ocr_image(image: Image.Image, document_type: str) -> str:
     working = ImageOps.exif_transpose(image)
 
-    # Una foto vertical de INE casi siempre está físicamente a 90°. Resolver la
-    # orientación con probes pequeños ANTES del OCR a resolución completa evita
-    # gastar un pase caro que luego se descarta.
     if (
         document_type.startswith("cliente_ine_")
         and working.height > working.width * 1.05
@@ -627,13 +743,12 @@ def ocr_image(image: Image.Image, document_type: str) -> str:
     primary_psm = "6" if document_type != "cliente_ine_reverso" else "11"
     primary_text = _primary_ocr_text(primary, document_type, primary_psm)
 
-    primary_orientation_score = _ine_orientation_score(
-        primary_text, document_type
-    )
+    # Solo corregimos orientación si la lectura parece realmente girada, no
+    # simplemente porque falte un campo pequeño.
     if (
         document_type.startswith("cliente_ine_")
         and _ine_orientation_needs_retry(primary_text, document_type)
-        and primary_orientation_score < 6
+        and _ine_orientation_score(primary_text, document_type) < 5
     ):
         oriented, degrees = _best_ine_orientation(
             working, document_type, primary_text
@@ -647,51 +762,21 @@ def ocr_image(image: Image.Image, document_type: str) -> str:
 
     parts = [primary_text]
 
-    # No duplicar OCR cuando el primer pase ya encontró los campos críticos.
-    # En reverso, el fallback se limita a la zona MRZ para ganar precisión y
-    # reducir píxeles/latencia; en frente se conserva la imagen completa.
-    if document_type.startswith("cliente_ine_") and _ine_needs_adaptive_pass(
-        primary_text, document_type
-    ):
-        adaptive_source = (
-            _ine_reverse_mrz_crop(working)
-            if document_type == "cliente_ine_reverso"
-            else working
-        )
-        adaptive = adaptive_binary_variant(adaptive_source)
-        adaptive_psm = "6" if document_type == "cliente_ine_reverso" else "11"
-        parts.append(
-            pytesseract.image_to_string(
-                adaptive,
-                lang="spa+eng",
-                config=f"--oem 1 --psm {adaptive_psm} preserve_interword_spaces=1",
-            ).strip()
-        )
-
     if document_type == "cliente_ine_frente":
         combined = "\n".join(part for part in parts if part).strip()
         if not _has_readable_ine_validity(combined):
             focused = _ine_front_validity_focus_text(working)
             if focused:
                 parts.append(focused)
-                combined = "\n".join(part for part in parts if part).strip()
 
     if document_type == "cliente_ine_reverso":
         combined = "\n".join(part for part in parts if part).strip()
-        if not _ine_reverse_has_structured_mrz(combined):
+        if not _ine_reverse_has_t7(combined):
             focused_mrz = _ine_reverse_mrz_focus_text(working)
             if focused_mrz:
                 parts.append(focused_mrz)
 
-    if document_type == "cliente_estado_cuenta":
-        combined = "\n".join(part for part in parts if part).strip()
-        if not _has_clabe_like_candidate(combined):
-            focused_clabe = _bank_statement_clabe_focus_text(working)
-            if focused_clabe:
-                parts.append(focused_clabe)
-
     return "\n".join(part for part in parts if part).strip()
-
 
 def render_pdf_page(page: fitz.Page, dpi: int = 300) -> Image.Image:
     zoom = dpi / 72.0
@@ -702,15 +787,44 @@ def render_pdf_page(page: fitz.Page, dpi: int = 300) -> Image.Image:
 def ocr_pdf(data: bytes, document_type: str) -> tuple[str, int]:
     doc = fitz.open(stream=data, filetype="pdf")
     max_pages = 2 if document_type.startswith("cliente_ine_") else min(3, len(doc))
+
+    if document_type == "cliente_estado_cuenta":
+        parts: list[str] = []
+        processed = 0
+
+        # Primera pasada: una sola lectura por página y corte temprano.
+        for idx in range(min(len(doc), max_pages)):
+            image = render_pdf_page(doc[idx], dpi=260)
+            page_text = ocr_image(image, document_type)
+            parts.append(page_text)
+            processed = idx + 1
+            combined = "\n".join(part for part in parts if part).strip()
+            if _has_clabe_like_candidate(combined):
+                return combined, processed
+
+        # Solo si ninguna página rápida fue suficiente hacemos el OCR reforzado.
+        for idx in range(min(len(doc), max_pages)):
+            image = render_pdf_page(doc[idx], dpi=260)
+            focused = _bank_statement_clabe_focus_text(image)
+            if focused:
+                parts.append(focused)
+            combined = "\n".join(part for part in parts if part).strip()
+            if _has_clabe_like_candidate(combined):
+                return combined, max(processed, idx + 1)
+
+        return "\n".join(part for part in parts if part).strip(), processed
+
     parts: list[str] = []
     for idx in range(min(len(doc), max_pages)):
         parts.append(ocr_image(render_pdf_page(doc[idx]), document_type))
     return "\n".join(parts).strip(), min(len(doc), max_pages)
 
-
 def extract_document_text(data: bytes, mime: str, document_type: str) -> tuple[str, str, int]:
     if mime in {"application/pdf", "application/x-pdf"}:
-        embedded, embedded_pages = extract_embedded_pdf_text(data)
+        embedded, embedded_pages = extract_embedded_pdf_text(
+            data,
+            max_pages=3 if document_type == "cliente_estado_cuenta" else 4,
+        )
         if enough_embedded_text(embedded):
             if (
                 document_type != "cliente_estado_cuenta"
@@ -735,6 +849,13 @@ def extract_document_text(data: bytes, mime: str, document_type: str) -> tuple[s
     if mime in {"image/jpeg", "image/jpg", "image/png", "image/webp"}:
         image = Image.open(io.BytesIO(data))
         text = ocr_image(image, document_type)
+        if (
+            document_type == "cliente_estado_cuenta"
+            and not _has_clabe_like_candidate(text)
+        ):
+            focused = _bank_statement_clabe_focus_text(image)
+            if focused:
+                text = "\n".join(part for part in (text, focused) if part)
         return text[:MAX_TEXT_CHARS], "tesseract", 1
 
     raise HTTPException(status_code=415, detail="unsupported_mime")
