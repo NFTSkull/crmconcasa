@@ -857,8 +857,8 @@ function parseCfeAddressCandidate(text: string): {
   if (serviceIdx < 0) return null;
 
   // El encabezado corporativo de CFE puede intercalarse en el orden OCR.
-  // Tomamos una ventana algo más amplia, pero elegimos la calle válida MÁS
-  // CERCANA a NO. DE SERVICIO; así el domicilio del cliente gana al corporativo.
+  // Tomamos una ventana algo más amplia; después filtramos explícitamente el
+  // domicilio corporativo antes de buscar la calle del bloque del cliente.
   const rawBlock = lines.slice(Math.max(0, serviceIdx - 16), serviceIdx);
   const block = rawBlock.filter(
     (line) =>
