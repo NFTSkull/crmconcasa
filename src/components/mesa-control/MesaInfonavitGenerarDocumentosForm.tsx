@@ -820,10 +820,32 @@ export function MesaInfonavitGenerarDocumentosForm({
           },
         ];
 
-        const cachedOcr: MesaInfonavitOcrCache =
+        let cachedOcr: MesaInfonavitOcrCache =
           autofillRetryNonce === 0
             ? await getMesaInfonavitOcrCache(expedienteId)
             : {};
+
+        // Si el asesor acaba de subir documentos, el precalentado puede seguir
+        // trabajando en Railway. Darle una ventana breve evita lanzar el mismo
+        // OCR otra vez desde Mesa y competir por CPU, que era una fuente real
+        // de latencia. Si no termina pronto, conserva el fallback on-demand.
+        if (autofillRetryNonce === 0) {
+          const hasCurrentPrecompute = () =>
+            jobs.some((job) => {
+              if (!job.doc) return false;
+              const cached = cachedOcr[job.type];
+              return (
+                cached?.documentoId === job.doc.id &&
+                (cached.status === "pending" || cached.status === "processing")
+              );
+            });
+
+          for (let attempt = 0; attempt < 3 && hasCurrentPrecompute(); attempt++) {
+            await new Promise((resolve) => window.setTimeout(resolve, 350));
+            if (cancelled) return;
+            cachedOcr = await getMesaInfonavitOcrCache(expedienteId);
+          }
+        }
 
         const results = await Promise.all(
           jobs.map(async (job) => {
