@@ -1024,6 +1024,12 @@ def _best_ine_orientation(
 def ocr_image(image: Image.Image, document_type: str) -> str:
     working = ImageOps.exif_transpose(image)
 
+    if document_type.startswith("cliente_ine_"):
+        # Fotos de celular suelen incluir mucha mesa/pared/sombra alrededor de
+        # la credencial. Aislamos primero la tarjeta para dedicar la resolución
+        # OCR a sus textos pequeños (VIGENCIA y MRZ/T7).
+        working = _ine_card_crop(working)
+
     if (
         document_type.startswith("cliente_ine_")
         and working.height > working.width * 1.05
