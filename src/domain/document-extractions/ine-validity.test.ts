@@ -131,6 +131,41 @@ describe("INE validity", () => {
     assert.equal(parseIneMrzValidityDate(reverse), "2031-12-31");
   });
 
+  it("T7 verificado por consenso manda aunque una lectura cruda difiera", () => {
+    const reverse = [
+      "IDMEX2930763080<<3049078375316",
+      "INE_T7_VERIFIED 3049078375310",
+    ].join("\n");
+    assert.equal(parseIneMrzT7Number(reverse), "3049078375310");
+  });
+
+  it("T7 con lecturas discrepantes falla cerrado y no adivina el último dígito", () => {
+    const reverse = [
+      "IDMEX2930763080<<3049078375316",
+      "IDMEX2930763080<<3049078375310",
+      "INE_T7_UNVERIFIED",
+    ].join("\n");
+    assert.equal(parseIneMrzT7Number(reverse), null);
+  });
+
+  it("texto MRZ sin marcador solo acepta un único T7 estructural", () => {
+    assert.equal(
+      parseIneMrzT7Number(
+        "IDMEX2930763080<<3049078375310\nCARDENAS<BLANCO<<JORGE<DAVID",
+      ),
+      "3049078375310",
+    );
+    assert.equal(
+      parseIneMrzT7Number(
+        [
+          "IDMEX2930763080<<3049078375316",
+          "IDMEX2930763080<<3049078375310",
+        ].join("\n"),
+      ),
+      null,
+    );
+  });
+
   it("MRZ compara la fecha exacta contra el día actual", () => {
     const reverse = [
       "IDMEX2840877688<<2653076233570",
