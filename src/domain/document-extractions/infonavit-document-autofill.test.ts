@@ -137,6 +137,29 @@ describe("P4C document autofill parser", () => {
   });
 
 
+  it("INE real Garrido/Armendariz: T7 después de << llena número identificación", () => {
+    const patch = buildInfonavitDocumentAutofillPatch({
+      ineReverso: [
+        "IDMEX2120512054<<2213082197980",
+        "9104071H3112319MEX<02<<04429<9",
+        "GARRIDO<ARMENDARIZ<<JUAN<ROBERT",
+      ].join("\n"),
+    });
+
+    assert.equal(
+      patch.cliente.identificacionNumero?.value,
+      "2213082197980",
+    );
+    assert.equal(
+      patch.cliente.identificacionNumero?.rule,
+      "ine_mrz_t7",
+    );
+    assert.equal(
+      patch.cliente.identificacionVigencia?.value,
+      "2031",
+    );
+  });
+
   it("INE T7 tolera un signo < perdido o convertido por OCR", () => {
     const inline = buildInfonavitDocumentAutofillPatch({
       ineReverso: [
@@ -324,6 +347,28 @@ describe("P4C document autofill parser", () => {
       patch.vivienda.direccionCompleta?.value ?? "",
       /DOMICILIO FISCAL|64060|CONTRATO/i,
     );
+  });
+
+  it("CFE con CP parcial al final de calle conserva exterior real", () => {
+    const patch = buildInfonavitDocumentAutofillPatch({
+      comprobanteDomicilio: [
+        "CFE Comisión Federal de Electricidad",
+        "ARMENDARIZ RUIS GERONIMA",
+        "PASEO DE LOS FAISANES 401 CP.6",
+        "P CANARIOS P FAISANES",
+        "COLIBRIES 1 E C.P.66640",
+        "APODACA N.L.,N.L.",
+        "NO. DE SERVICIO:370150202169",
+        "RMU:66640 15-02-10 XAXX-010101 001 CFE",
+      ].join("\n"),
+    });
+
+    assert.equal(patch.vivienda.calle?.value, "PASEO DE LOS FAISANES");
+    assert.equal(patch.vivienda.noExt?.value, "401");
+    assert.equal(patch.vivienda.colonia?.value, "COLIBRIES 1 E");
+    assert.equal(patch.vivienda.cp?.value, "66640");
+    assert.equal(patch.vivienda.municipio?.value, "APODACA");
+    assert.equal(patch.vivienda.entidad?.value, "NUEVO LEÓN");
   });
 
   it("CFE CP.0000 no se confunde con número exterior", () => {
