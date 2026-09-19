@@ -1085,6 +1085,96 @@ function parseLabeledServiceAddressCandidate(text: string): {
   };
 }
 
+/**
+ * Compañía Mexicana de Gas imprime el domicilio del cliente en un bloque
+ * "DATOS GENERALES" con etiquetas propias:
+ *   Calle: HACIENDA ANAHUAC # 509
+ *   Colonia: HACIENDAS DE ESCOBEDO
+ *   Mpo/Edo: ESCOBEDO, C.P. 66057
+ *
+ * Este parser está deliberadamente limitado a ese proveedor para no alterar
+ * CFE ni los comprobantes genéricos que ya funcionan.
+ */
+function parseMexicanaGasAddressCandidate(text: string): {
+  direccionCompleta?: string;
+  calle?: string;
+  noExt?: string;
+  colonia?: string;
+  entidad?: string;
+  municipio?: string;
+  cp?: string;
+} | null {
+  const lines = normalizedLines(text);
+  const head = normalizedComparable(lines.slice(0, 30).join(" "));
+  if (!head.includes("MEXICANA DE GAS")) return null;
+
+  const calleLine = lines.find((line) => /^CALLE\s*[:\-]/i.test(line));
+  const coloniaLine = lines.find((line) => /^COLONIA\s*[:\-]/i.test(line));
+  const locationLine = lines.find((line) =>
+    /^MPO\s*\/\s*EDO\s*[:\-]/i.test(line),
+  );
+
+  if (!calleLine) return null;
+
+  const calleRaw = compactLine(
+    calleLine.replace(/^CALLE\s*[:\-]\s*/i, ""),
+  );
+  const streetMatch =
+    calleRaw.match(/^(.{2,70}?)\s+#\s*([0-9]+[A-Z0-9-]*)\s*$/i) ??
+    calleRaw.match(/^(.{2,70}?)\s+([0-9]+[A-Z0-9-]*)\s*$/i);
+  if (!streetMatch?.[1] || !streetMatch?.[2]) return null;
+
+  const calle = compactLine(streetMatch[1]).replace(/\s*#\s*$/, "");
+  const noExt = streetMatch[2];
+  if (!calle || !/[A-ZÁÉÍÓÚÜÑ]/i.test(calle)) return null;
+
+  const colonia = coloniaLine
+    ? compactLine(coloniaLine.replace(/^COLONIA\s*[:\-]\s*/i, ""))
+    : undefined;
+
+  const locationRaw = locationLine
+    ? compactLine(locationLine.replace(/^MPO\s*\/\s*EDO\s*[:\-]\s*/i, ""))
+    : "";
+  const cp =
+    locationRaw.match(/C\.?\s*P\.?\s*[:.\-]?\s*(\d{5})\b/i)?.[1] ??
+    lines
+      .map((line) => line.match(/C\.?\s*P\.?\s*[:.\-]?\s*(\d{5})\b/i)?.[1])
+      .find((value): value is string => Boolean(value));
+  const locationWithoutCp = compactLine(
+    locationRaw
+      .replace(/,?\s*C\.?\s*P\.?\s*[:.\-]?\s*\d{5}\b.*$/i, "")
+      .replace(/[,;]+$/, ""),
+  );
+  const municipio = locationWithoutCp
+    ? municipalityFromText(locationWithoutCp)
+    : undefined;
+
+  // Este formato usa "Mpo/Edo" pero en el ejemplo imprime solo el municipio.
+  // Si el valor corresponde inequívocamente a nuestro catálogo de Nuevo León,
+  // completamos la entidad sin adivinar desde números o encabezados fiscales.
+  const entidad = municipio ? "NUEVO LEÓN" : undefined;
+
+  const direccionCompleta = [
+    [calle, noExt].filter(Boolean).join(" "),
+    colonia ? `COL. ${colonia}` : "",
+    municipio ?? "",
+    entidad ?? "",
+    cp ? `CP ${cp}` : "",
+  ]
+    .filter(Boolean)
+    .join(", ");
+
+  return {
+    ...(direccionCompleta ? { direccionCompleta } : {}),
+    calle,
+    noExt,
+    ...(colonia ? { colonia } : {}),
+    ...(entidad ? { entidad } : {}),
+    ...(municipio ? { municipio } : {}),
+    ...(cp ? { cp } : {}),
+  };
+}
+
 function parseAddressCandidate(text: string): {
   direccionCompleta?: string;
   calle?: string;
@@ -1099,6 +1189,9 @@ function parseAddressCandidate(text: string): {
 } {
   const lines = normalizedLines(text);
   if (lines.length === 0) return {};
+
+  const mexicanaGas = parseMexicanaGasAddressCandidate(text);
+  if (mexicanaGas) return mexicanaGas;
 
   const cfe = parseCfeAddressCandidate(text);
   if (cfe) return cfe;
