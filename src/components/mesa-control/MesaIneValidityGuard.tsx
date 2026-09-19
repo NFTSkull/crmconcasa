@@ -53,7 +53,7 @@ async function readText(
     blob,
     documentType: type,
     filename: doc.nombre_original,
-    cacheKey: `document-ocr:${doc.id}:${type}`,
+    cacheKey: `document-ocr:${doc.id}:${type}:critical-v3`,
   });
   return { text: extracted.text, fromCache: false };
 }
@@ -68,7 +68,7 @@ async function readFreshText(
     blob,
     documentType: type,
     filename: doc.nombre_original,
-    cacheKey: `ine-validity-fresh-v2:${doc.id}:${type}`,
+    cacheKey: `document-ocr:${doc.id}:${type}:critical-v3`,
   });
   return extracted.text;
 }
