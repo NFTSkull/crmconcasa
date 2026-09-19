@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 
 import {
+  collectStrictLabeledClabeCandidates,
   collectValidClabeCandidates,
   canRunClabeDetection,
   detectClabeFromBankStatementText,
@@ -82,6 +83,59 @@ describe("P4B clabe-bank-statement parser", () => {
     if (r.status === "detected") {
       assert.equal(r.clabe, "012700015244660958");
     }
+  });
+
+  it("Banorte: prioriza CLABE de la fila exacta aunque exista otra CLABE válida", () => {
+    const correct = "072580013691192354";
+    const wrongButChecksumValid = "012180015250829604";
+    assert.equal(isValidClabeMexico(correct), true);
+    assert.equal(isValidClabeMexico(wrongButChecksumValid), true);
+
+    const text = [
+      "ESTADO DE CUENTA NOMINA BANORTE S/CH",
+      "RESUMEN INTEGRAL",
+      "No. de Cuenta    CLABE",
+      "1369119235       072 580 01369119235 4",
+      `Referencia CLABE ${wrongButChecksumValid}`,
+      "Saldo final",
+    ].join("\n");
+
+    const strict = collectStrictLabeledClabeCandidates(text);
+    assert.ok(strict.includes(correct));
+    assert.ok(strict.includes(wrongButChecksumValid));
+
+    const result = detectClabeFromBankStatementText(text);
+    assert.equal(result.status, "detected");
+    if (result.status === "detected") {
+      assert.equal(result.clabe, correct);
+      assert.equal(result.clabe.slice(0, 3), "072");
+    }
+  });
+
+  it("Banorte: checksum válido de otro banco no se acepta por sí solo", () => {
+    const wrongButChecksumValid = "012180015250829604";
+    const text = [
+      "BANORTE NOMINA",
+      `CLABE ${wrongButChecksumValid}`,
+      "Estado de cuenta del cliente",
+    ].join("\n");
+
+    const result = detectClabeFromBankStatementText(text);
+    assert.equal(result.status, "not_found");
+  });
+
+  it("tabla visual CLABE: encabezado en una fila y valores en la siguiente", () => {
+    const correct = "072580013691192354";
+    const text = [
+      "BANORTE",
+      "No. de Cuenta CLABE",
+      "1369119235 072 580 01369119235 4",
+      "Movimientos",
+    ].join("\n");
+
+    const result = detectClabeFromBankStatementText(text);
+    assert.equal(result.status, "detected");
+    if (result.status === "detected") assert.equal(result.clabe, correct);
   });
 
   it("4. checksum inválido → not_found", () => {
