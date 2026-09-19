@@ -6,6 +6,7 @@ on:
       - "src/components/mesa-control/MesaInfonavitGenerarDocumentosForm.tsx"
       - "src/components/mesa-control/MesaInfonavitSourceDocumentPreview.tsx"
       - "src/components/mesa-control/MesaClienteDatosReadOnlySection.tsx"
+      - "src/components/mesa-control/MesaExpedienteDetalleReadOnly.tsx"
       - "src/components/mesa-control/MesaIneValidityGuard.tsx"
       - "src/components/mesa-control/MesaIneValidityGuard.contract.test.ts"
       - "src/domain/document-extractions/**"
@@ -45,7 +46,7 @@ jobs:
             exit 0
           fi
 
-          if grep -E 'src/(components/mesa-control/MesaInfonavitGenerarDocumentosForm\.tsx|components/mesa-control/MesaInfonavitSourceDocumentPreview\.tsx|components/mesa-control/MesaClienteDatosReadOnlySection\.tsx|components/mesa-control/MesaIneValidityGuard(\.contract\.test)?\.tsx|domain/document-extractions/document-ocr-client\.ts|domain/document-extractions/infonavit-document-autofill(\.test)?\.ts|domain/document-extractions/infonavit-autofill-merge(\.test)?\.ts)' /tmp/p4c-typecheck.log; then
+          if grep -E 'src/(components/mesa-control/MesaInfonavitGenerarDocumentosForm\.tsx|components/mesa-control/MesaInfonavitSourceDocumentPreview\.tsx|components/mesa-control/MesaClienteDatosReadOnlySection\.tsx|components/mesa-control/MesaExpedienteDetalleReadOnly\.tsx|components/mesa-control/MesaIneValidityGuard(\.contract\.test)?\.tsx|domain/document-extractions/document-ocr-client\.ts|domain/document-extractions/infonavit-document-autofill(\.test)?\.ts|domain/document-extractions/infonavit-autofill-merge(\.test)?\.ts)' /tmp/p4c-typecheck.log; then
             echo "TypeScript error attributable to P4C files."
             exit 1
           fi
@@ -57,6 +58,7 @@ jobs:
           src/components/mesa-control/MesaInfonavitGenerarDocumentosForm.tsx
           src/components/mesa-control/MesaInfonavitSourceDocumentPreview.tsx
           src/components/mesa-control/MesaClienteDatosReadOnlySection.tsx
+          src/components/mesa-control/MesaExpedienteDetalleReadOnly.tsx
           src/components/mesa-control/MesaIneValidityGuard.tsx
           src/components/mesa-control/MesaIneValidityGuard.contract.test.ts
           src/domain/document-extractions/document-ocr-client.ts

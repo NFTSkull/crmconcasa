@@ -4,8 +4,8 @@ import { join } from "node:path";
 import { describe, it } from "node:test";
 
 const root = process.cwd();
-const generales = readFileSync(
-  join(root, "src/components/mesa-control/MesaClienteDatosReadOnlySection.tsx"),
+const detalle = readFileSync(
+  join(root, "src/components/mesa-control/MesaExpedienteDetalleReadOnly.tsx"),
   "utf8",
 );
 const guard = readFileSync(
@@ -18,13 +18,13 @@ const form = readFileSync(
 );
 
 describe("Mesa INE validity guard contract", () => {
-  it("corre al abrir Generales, antes de elegir pestaña", () => {
-    const guardIdx = generales.indexOf(
-      "<MesaIneValidityGuard expedienteId={props.expedienteId} />",
+  it("corre al abrir el expediente, fuera del acordeón de Generales", () => {
+    const guardIdx = detalle.indexOf(
+      "<MesaIneValidityGuard expedienteId={routeExpedienteId} />",
     );
-    const tabIdx = generales.indexOf('tab === "asesor"');
+    const generalesIdx = detalle.indexOf('id="mesa-datos-generales"');
     assert.ok(guardIdx > 0);
-    assert.ok(tabIdx > guardIdx);
+    assert.ok(generalesIdx > guardIdx);
   });
 
   it("auto-rechaza vigencia vencida solo cuando assessment la considera confiable", () => {
@@ -34,6 +34,12 @@ describe("Mesa INE validity guard contract", () => {
     assert.match(guard, /archivosRepo\.updateRevision/);
     assert.match(guard, /estatus_revision: "rechazado"/);
     assert.match(guard, /hasProtectedStatus/);
+  });
+
+  it("si cache OCR no trae vigencia, fuerza una lectura fresca antes de rendirse", () => {
+    assert.match(guard, /frontRead\.fromCache/);
+    assert.match(guard, /readFreshText/);
+    assert.match(guard, /ine-validity-fresh-v2/);
   });
 
   it("si OCR/MRZ es dudoso pide revisión manual en vez de rechazar", () => {

@@ -37,15 +37,15 @@ async function readText(
   doc: ExpedienteArchivoListItem | null,
   type: OcrDocumentType,
   getBlob: (id: string) => Promise<Blob>,
-): Promise<string> {
-  if (!doc) return "";
+): Promise<{ text: string; fromCache: boolean }> {
+  if (!doc) return { text: "", fromCache: false };
   const cached = cache[type];
   if (
     cached?.status === "done" &&
     cached.documentoId === doc.id &&
     cached.text.trim()
   ) {
-    return cached.text;
+    return { text: cached.text, fromCache: true };
   }
 
   const blob = await getBlob(doc.id);
@@ -54,6 +54,21 @@ async function readText(
     documentType: type,
     filename: doc.nombre_original,
     cacheKey: `ine-validity:${doc.id}:${type}`,
+  });
+  return { text: extracted.text, fromCache: false };
+}
+
+async function readFreshText(
+  doc: ExpedienteArchivoListItem,
+  type: OcrDocumentType,
+  getBlob: (id: string) => Promise<Blob>,
+): Promise<string> {
+  const blob = await getBlob(doc.id);
+  const extracted = await extractDocumentTextViaOcr({
+    blob,
+    documentType: type,
+    filename: doc.nombre_original,
+    cacheKey: `ine-validity-fresh-v2:${doc.id}:${type}`,
   });
   return extracted.text;
 }
@@ -86,7 +101,7 @@ export function MesaIneValidityGuard({
         const cache = await getMesaInfonavitOcrCache(expedienteId);
         if (cancelled) return;
 
-        const frontText = await readText(
+        const frontRead = await readText(
           cache,
           frente,
           "cliente_ine_frente",
@@ -94,20 +109,53 @@ export function MesaIneValidityGuard({
         );
         if (cancelled) return;
 
+        let frontText = frontRead.text;
         let assessment = evaluateIneValidity({ frontText });
+
+        // Un cache "done" puede venir de una pasada anterior que leyó NOMBRE/CURP
+        // pero perdió el año pequeño de VIGENCIA. Si el frente quedó incierto,
+        // hacemos una lectura fresca con el OCR actual y su pase focalizado.
+        if (assessment.status === "unknown" && frontRead.fromCache) {
+          try {
+            frontText = await readFreshText(
+              frente,
+              "cliente_ine_frente",
+              (id) => archivosRepo.getArchivoBlob(id),
+            );
+            if (cancelled) return;
+            assessment = evaluateIneValidity({ frontText });
+          } catch {
+            // Fail-safe: conservamos el texto cacheado y seguimos a reverso/manual.
+          }
+        }
 
         // El frente manda. Solo si no se pudo leer la vigencia visible,
         // consultamos reverso. El reverso solo permite auto-rechazo cuando
         // trae MRZ estructurado + T7 de 13 dígitos, no por texto suelto.
         if (assessment.status === "unknown" && reverso) {
-          const reverseText = await readText(
+          const reverseRead = await readText(
             cache,
             reverso,
             "cliente_ine_reverso",
             (id) => archivosRepo.getArchivoBlob(id),
           );
           if (cancelled) return;
+          let reverseText = reverseRead.text;
           assessment = evaluateIneValidity({ frontText, reverseText });
+
+          if (assessment.status === "unknown" && reverseRead.fromCache) {
+            try {
+              reverseText = await readFreshText(
+                reverso,
+                "cliente_ine_reverso",
+                (id) => archivosRepo.getArchivoBlob(id),
+              );
+              if (cancelled) return;
+              assessment = evaluateIneValidity({ frontText, reverseText });
+            } catch {
+              // La revisión manual sigue siendo el fallback seguro.
+            }
+          }
         }
 
         if (assessment.status === "expired" && assessment.canAutoReject) {

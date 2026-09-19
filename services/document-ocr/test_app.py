@@ -114,3 +114,40 @@ def test_non_ine_keeps_single_pass(monkeypatch):
 
     assert text == "CFE"
     assert len(calls) == 1
+
+
+def test_ine_front_runs_focused_validity_pass_when_general_ocr_misses_year(monkeypatch):
+    image = Image.new("RGB", (1000, 630), "white")
+    calls = []
+
+    def fake_ocr(*args, **kwargs):
+        calls.append(kwargs.get("config", ""))
+        return "INSTITUTO NACIONAL ELECTORAL\nNOMBRE PRUEBA\nCURP ABCD000000HNLRRR00\nVIGENCIA"
+
+    monkeypatch.setattr("app.pytesseract.image_to_string", fake_ocr)
+    monkeypatch.setattr(
+        "app._ine_front_validity_focus_text",
+        lambda source: "VIGENCIA 2016 - 2026",
+    )
+
+    text = ocr_image(image, "cliente_ine_frente")
+
+    assert "VIGENCIA 2016 - 2026" in text
+    assert len(calls) >= 2
+
+
+def test_ine_front_skips_focused_pass_when_year_is_already_readable(monkeypatch):
+    image = Image.new("RGB", (1000, 630), "white")
+
+    monkeypatch.setattr(
+        "app.pytesseract.image_to_string",
+        lambda *args, **kwargs: "SEXO H\nVIGENCIA 2016 - 2026",
+    )
+
+    def unexpected_focus(*args, **kwargs):
+        raise AssertionError("focused pass should not run")
+
+    monkeypatch.setattr("app._ine_front_validity_focus_text", unexpected_focus)
+
+    text = ocr_image(image, "cliente_ine_frente")
+    assert "2026" in text
