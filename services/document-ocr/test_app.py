@@ -11,6 +11,8 @@ from app import (
     _verify_t7_trailing_digit,
     _ine_front_validity_focus_text,
     _has_clabe_like_candidate,
+    _strict_labeled_clabe_candidates,
+    _clabe_checksum_valid,
 )
 
 
@@ -345,3 +347,32 @@ def test_bank_statement_adds_clabe_focus_when_general_ocr_misses_it(monkeypatch)
     text = ocr_image(image, "cliente_estado_cuenta")
 
     assert "012 700 01524466095 8" in text
+
+
+def test_clabe_checksum_banorte_real_case():
+    assert _clabe_checksum_valid("072580013691192354")
+    assert _clabe_checksum_valid("012180015250829604")
+
+
+def test_banorte_rejects_other_bank_even_if_checksum_is_valid():
+    text = "\n".join(
+        [
+            "ESTADO DE CUENTA NOMINA BANORTE S/CH",
+            "CLABE 012180015250829604",
+            "SALDO FINAL",
+        ]
+    )
+    assert _has_clabe_like_candidate(text) is False
+
+
+def test_banorte_accepts_exact_clabe_row():
+    text = "\n".join(
+        [
+            "ESTADO DE CUENTA NOMINA BANORTE S/CH",
+            "RESUMEN INTEGRAL",
+            "No. de Cuenta    CLABE",
+            "1369119235       072 580 01369119235 4",
+        ]
+    )
+    assert _strict_labeled_clabe_candidates(text) == ["072580013691192354"]
+    assert _has_clabe_like_candidate(text) is True
