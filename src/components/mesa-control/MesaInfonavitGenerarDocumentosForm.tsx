@@ -701,6 +701,7 @@ export function MesaInfonavitGenerarDocumentosForm({
     useState<InfonavitSourcePreviewContext>("identidad");
   const [requestedIneSide, setRequestedIneSide] =
     useState<"frente" | "reverso" | null>("frente");
+  const [requestedIneSideVersion, setRequestedIneSideVersion] = useState(0);
   const [autofillState, setAutofillState] =
     useState<DocumentAutofillState>(EMPTY_AUTOFILL_STATE);
   const [autofillSources, setAutofillSources] =
@@ -721,7 +722,10 @@ export function MesaInfonavitGenerarDocumentosForm({
     setSourceContext(resolveInfonavitSourcePreviewContext(field));
     if (field === "identificacionNumero") {
       // El número de identificación se verifica en el T7/MRZ del reverso.
+      // El contador hace que cada focus vuelva a solicitar Reverso aunque el
+      // usuario haya cambiado manualmente a Frente después del focus anterior.
       setRequestedIneSide("reverso");
+      setRequestedIneSideVersion((value) => value + 1);
     }
   }, []);
 
@@ -732,6 +736,9 @@ export function MesaInfonavitGenerarDocumentosForm({
     ) => {
       setSourceContext(context);
       setRequestedIneSide(ineSide ?? null);
+      if (ineSide) {
+        setRequestedIneSideVersion((value) => value + 1);
+      }
     },
     [],
   );
@@ -1431,7 +1438,12 @@ export function MesaInfonavitGenerarDocumentosForm({
               expedienteId={expedienteId}
               context={sourceContext}
               requestedIneSide={requestedIneSide}
-              className="max-h-[min(70vh,720px)]"
+              requestedIneSideVersion={requestedIneSideVersion}
+              className={
+                sourceContext === "identidad"
+                  ? "max-h-none"
+                  : "max-h-[min(70vh,720px)]"
+              }
             />
           </div>
         ) : null}
