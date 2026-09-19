@@ -8,7 +8,7 @@ import {
 const CLABE = "032180000118359719";
 
 describe("P4C document autofill parser", () => {
-  it("INE frente extrae nombre, CURP, sexo y vigencia", () => {
+  it("INE frente conserva nombre de Generales y extrae CURP, sexo y vigencia", () => {
     const patch = buildInfonavitDocumentAutofillPatch({
       ineFrente: [
         "INSTITUTO NACIONAL ELECTORAL",
@@ -23,9 +23,9 @@ describe("P4C document autofill parser", () => {
         "VIGENCIA 2023 - 2033",
       ].join("\n"),
     });
-    assert.equal(patch.cliente.apellidoPaterno?.value, "PEREZ");
-    assert.equal(patch.cliente.apellidoMaterno?.value, "LOPEZ");
-    assert.equal(patch.cliente.nombres?.value, "JUAN CARLOS");
+    assert.equal(patch.cliente.apellidoPaterno, undefined);
+    assert.equal(patch.cliente.apellidoMaterno, undefined);
+    assert.equal(patch.cliente.nombres, undefined);
     assert.equal(patch.cliente.curp?.value, "PEPL900101HNLRPN09");
     assert.equal(patch.cliente.genero?.value, "M");
     assert.equal(patch.cliente.identificacionTipo?.value, "INE");
@@ -93,6 +93,14 @@ describe("P4C document autofill parser", () => {
       ineReverso: "2653076233570",
     });
     assert.equal(noLabelOrMrz.cliente.identificacionNumero, undefined);
+
+    const t7WithoutReadableDate = buildInfonavitDocumentAutofillPatch({
+      ineReverso: "IDMEX2067045710<<1589023509985",
+    });
+    assert.equal(
+      t7WithoutReadableDate.cliente.identificacionNumero?.value,
+      "1589023509985",
+    );
   });
 
 
@@ -122,11 +130,13 @@ describe("P4C document autofill parser", () => {
       patch.cliente.identificacionVigencia?.value,
       "31/12/2026",
     );
-    assert.equal(patch.issues?.[0]?.code, "low_confidence");
-    assert.equal(patch.issues?.[0]?.source, "cliente_ine_frente");
+    assert.equal(
+      patch.issues?.some((issue) => issue.source === "cliente_ine_frente"),
+      false,
+    );
   });
 
-  it("INE reverso MRZ recupera nombre, sexo y vigencia", () => {
+  it("INE reverso MRZ recupera T7, sexo y vigencia sin tocar nombre", () => {
     const patch = buildInfonavitDocumentAutofillPatch(
       {
         ineReverso: [
@@ -138,9 +148,10 @@ describe("P4C document autofill parser", () => {
       { expectedClienteNombre: "GERARDO ZAMUDIO CAMPOS" },
     );
 
-    assert.equal(patch.cliente.apellidoPaterno?.value, "ZAMUDIO");
-    assert.equal(patch.cliente.apellidoMaterno?.value, "CAMPOS");
-    assert.equal(patch.cliente.nombres?.value, "GERARDO");
+    assert.equal(patch.cliente.apellidoPaterno, undefined);
+    assert.equal(patch.cliente.apellidoMaterno, undefined);
+    assert.equal(patch.cliente.nombres, undefined);
+    assert.equal(patch.cliente.identificacionNumero?.value, "2588067552701");
     assert.equal(patch.cliente.genero?.value, "M");
     assert.equal(
       patch.cliente.identificacionVigencia?.value,
