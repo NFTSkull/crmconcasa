@@ -119,11 +119,14 @@ function parseIneNameBlock(text: string): {
   const idx = lines.findIndex((line) => /^NOMBRE(?:S)?\b/.test(line));
   if (idx < 0) return {};
 
-  const values: string[] = [];
-  const inline = cleanPersonLine(
-    lines[idx]!.replace(/^NOMBRE(?:S)?\s*:?-?\s*/i, ""),
-  );
-  if (isLikelyPersonLine(inline)) values.push(inline);
+  // Mantener posición de los renglones es más seguro que compactarlos:
+  // si OCR lee "ROJAS" como "S.", no queremos desplazar ALONZO a paterno.
+  const slots: Array<string | null> = [];
+  const inlineRaw = lines[idx]!.replace(/^NOMBRE(?:S)?\s*:?-?\s*/i, "");
+  const inline = cleanPersonLine(inlineRaw);
+  if (inlineRaw.trim()) {
+    slots.push(isLikelyPersonLine(inline) ? inline : null);
+  }
 
   for (let i = idx + 1; i < Math.min(lines.length, idx + 7); i++) {
     const line = lines[i]!;
@@ -135,15 +138,19 @@ function parseIneNameBlock(text: string): {
       break;
     }
     const clean = cleanPersonLine(line);
-    if (isLikelyPersonLine(clean)) values.push(clean);
-    if (values.length >= 4) break;
+    slots.push(isLikelyPersonLine(clean) ? clean : null);
+    if (slots.length >= 4) break;
   }
 
-  if (values.length < 3) return {};
+  if (slots.length < 3) return {};
+  const nombres = slots
+    .slice(2)
+    .filter((value): value is string => Boolean(value))
+    .join(" ");
   return {
-    apellidoPaterno: values[0],
-    apellidoMaterno: values[1],
-    nombres: values.slice(2).join(" "),
+    ...(slots[0] ? { apellidoPaterno: slots[0] } : {}),
+    ...(slots[1] ? { apellidoMaterno: slots[1] } : {}),
+    ...(nombres ? { nombres } : {}),
   };
 }
 
@@ -346,12 +353,13 @@ function parseIne(
 
   if (front.trim()) {
     const name = parseIneNameBlock(front);
-    if (name.nombres && name.apellidoPaterno && name.apellidoMaterno) {
-      const parsedFullName = [
-        name.nombres,
-        name.apellidoPaterno,
-        name.apellidoMaterno,
-      ].join(" ");
+    const parsedNameParts = [
+      name.nombres,
+      name.apellidoPaterno,
+      name.apellidoMaterno,
+    ].filter((value): value is string => Boolean(value));
+    if (parsedNameParts.length >= 2) {
+      const parsedFullName = parsedNameParts.join(" ");
       const nameMatchesExpected =
         !expectedName ||
         documentMatchesExpectedName(parsedFullName, expectedName);
@@ -360,9 +368,9 @@ function parseIne(
         const componentCandidates = [
           {
             value: name.nombres,
-            apply: () => {
+            apply: (value: string) => {
               out.nombres = high(
-                name.nombres!,
+                value,
                 "cliente_ine_frente",
                 "ine_nombre_block",
               );
@@ -370,9 +378,9 @@ function parseIne(
           },
           {
             value: name.apellidoPaterno,
-            apply: () => {
+            apply: (value: string) => {
               out.apellidoPaterno = high(
-                name.apellidoPaterno!,
+                value,
                 "cliente_ine_frente",
                 "ine_nombre_block",
               );
@@ -380,9 +388,9 @@ function parseIne(
           },
           {
             value: name.apellidoMaterno,
-            apply: () => {
+            apply: (value: string) => {
               out.apellidoMaterno = high(
-                name.apellidoMaterno!,
+                value,
                 "cliente_ine_frente",
                 "ine_nombre_block",
               );
@@ -391,8 +399,12 @@ function parseIne(
         ];
 
         for (const component of componentCandidates) {
-          if (personComponentMatchesExpected(component.value!, expectedName)) {
-            component.apply();
+          if (!component.value) {
+            if (expectedName) frontNameRejected = true;
+            continue;
+          }
+          if (personComponentMatchesExpected(component.value, expectedName)) {
+            component.apply(component.value);
           } else {
             // Dos partes correctas no autorizan a sobrescribir una tercera
             // claramente dañada por OCR (ej. ROJAS -> "S").
