@@ -550,7 +550,7 @@ function parseCfeStreetLine(
 ): { calle: string; noExt: string } | null {
   const withoutCp = compactLine(
     raw.replace(
-      /\bC\.?\s*P\.?\s*[:.\-]?\s*\d{4,5}\b.*$/i,
+      /C\.?\s*P\.?\s*[:.\-]?\s*\d{4,5}\b.*$/i,
       "",
     ),
   );
@@ -600,7 +600,7 @@ function parseCfeResidentialColonia(
   for (const raw of lines) {
     const cleaned = compactLine(
       raw
-        .replace(/\bC\.?\s*P\.?\s*[:.\-]?\s*\d{4,5}.*$/i, "")
+        .replace(/C\.?\s*P\.?\s*[:.\-]?\s*\d{4,5}.*$/i, "")
         .replace(/\b\d{5}\b.*$/i, ""),
     );
     if (!cleaned) continue;
@@ -621,7 +621,7 @@ function parseCfeResidentialColonia(
 function cleanCfeLocationLine(raw: string): string {
   return compactLine(
     raw
-      .replace(/\bC\.?\s*P\.?\s*[:.\-]?\s*\d{4,5}\b.*$/i, "")
+      .replace(/C\.?\s*P\.?\s*[:.\-]?\s*\d{4,5}\b.*$/i, "")
       .replace(/\bN\.?\s*L\.?\s*(?:,\s*N\.?\s*L\.?)?\s*$/i, ""),
   );
 }
@@ -697,7 +697,7 @@ function parseCfeStructuralColonia(
 
     const hasLocationAnchor =
       municipalityFromText(line) !== undefined ||
-      /\bN\.?\s*L\.?\b|\bNUEVO\s+LE[OÓ]N\b|\bC\.?\s*P\.?\s*[:.\-]?\s*\d{4,5}\b/i.test(
+      /\bN\.?\s*L\.?\b|\bNUEVO\s+LE[OÓ]N\b|C\.?\s*P\.?\s*[:.\-]?\s*\d{4,5}\b/i.test(
         line,
       );
     if (!hasLocationAnchor || i === 0) continue;
@@ -767,7 +767,7 @@ function parseCfeAddressCandidate(text: string): {
   const fallbackCpCandidates: string[] = [];
   for (const line of addressBlock) {
     for (const match of line.matchAll(
-      /\bC\.?\s*P\.?\s*[:.\-]?\s*(\d{5})\b/gi,
+      /C\.?\s*P\.?\s*[:.\-]?\s*(\d{5})\b/gi,
     )) {
       const cp = match[1];
       if (cp && cp !== "00000") explicitCpCandidates.push(cp);

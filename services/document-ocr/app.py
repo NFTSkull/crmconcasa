@@ -26,7 +26,7 @@ ALLOWED_TYPES = {
     "cliente_estado_cuenta",
 }
 
-app = FastAPI(title="ConCasa Document OCR", version="1.3.0")
+app = FastAPI(title="ConCasa Document OCR", version="1.4.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -231,6 +231,154 @@ def _ine_orientation_needs_retry(text: str, document_type: str) -> bool:
     return "VIGENCIA" not in normalized or "SEXO" not in normalized
 
 
+def _ocr_tokens_to_text(tokens: list[dict]) -> str:
+    lines: dict[tuple[int, int, int, int], list[str]] = {}
+    for token in tokens:
+        key = token["line_key"]
+        lines.setdefault(key, []).append(token["text"])
+    return "\n".join(" ".join(parts) for parts in lines.values()).strip()
+
+
+def _ocr_tokens(image: Image.Image, config: str) -> list[dict]:
+    data = pytesseract.image_to_data(
+        image,
+        lang="spa+eng",
+        config=config,
+        output_type=pytesseract.Output.DICT,
+    )
+    tokens: list[dict] = []
+    count = len(data.get("text", []))
+    for idx in range(count):
+        raw = str(data["text"][idx] or "").strip()
+        if not raw:
+            continue
+        tokens.append(
+            {
+                "text": raw,
+                "conf": float(data["conf"][idx]) if str(data["conf"][idx]).strip() else -1.0,
+                "left": int(data["left"][idx]),
+                "top": int(data["top"][idx]),
+                "width": int(data["width"][idx]),
+                "height": int(data["height"][idx]),
+                "line_key": (
+                    int(data["page_num"][idx]),
+                    int(data["block_num"][idx]),
+                    int(data["par_num"][idx]),
+                    int(data["line_num"][idx]),
+                ),
+            }
+        )
+    return tokens
+
+
+def _normalize_mrz_token(raw: str) -> str:
+    return re.sub(
+        r"[^A-Z0-9<]",
+        "",
+        (raw or "").upper().replace(">", "<").replace("«", "<").replace("‹", "<"),
+    )
+
+
+def _read_single_digit(image: Image.Image) -> str | None:
+    if image.width < 2 or image.height < 2:
+        return None
+    gray = ImageOps.autocontrast(image.convert("L"), cutoff=1)
+    target_height = 240
+    if gray.height < target_height:
+        scale = min(8.0, target_height / max(1, gray.height))
+        gray = gray.resize(
+            (max(1, round(gray.width * scale)), max(1, round(gray.height * scale))),
+            Image.Resampling.LANCZOS,
+        )
+
+    arr = np.array(gray)
+    _, binary = cv2.threshold(arr, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+
+    config = "--oem 1 --psm 13 -c tessedit_char_whitelist=0123456789"
+    candidates: list[str] = []
+    for variant in (gray, Image.fromarray(binary)):
+        value = re.sub(
+            r"\D",
+            "",
+            pytesseract.image_to_string(
+                variant,
+                lang="eng",
+                config=config,
+            ),
+        )
+        if len(value) == 1:
+            candidates.append(value)
+
+    if len(candidates) >= 2 and len(set(candidates)) == 1:
+        return candidates[0]
+    return None
+
+
+def _verify_t7_trailing_digit(image: Image.Image, tokens: list[dict]) -> None:
+    numeric = r"[0-9OQILZSBG]"
+    for token in tokens:
+        cleaned = _normalize_mrz_token(token["text"])
+        match = re.search(rf"<<+({numeric}{{13}})(?:<|$)", cleaned)
+        if not match:
+            continue
+
+        width = max(1, int(token["width"]))
+        height = max(1, int(token["height"]))
+        char_count = max(1, len(cleaned))
+        char_width = width / char_count
+        char_index = match.start(1) + 12
+
+        left = int(token["left"] + char_width * (char_index - 0.30))
+        right = int(token["left"] + char_width * (char_index + 1.30))
+        top = int(token["top"] - height * 0.20)
+        bottom = int(token["top"] + height * 1.20)
+
+        left = max(0, left)
+        top = max(0, top)
+        right = min(image.width, max(left + 2, right))
+        bottom = min(image.height, max(top + 2, bottom))
+        focused = image.crop((left, top, right, bottom))
+        verified = _read_single_digit(focused)
+        if not verified:
+            continue
+
+        current = cleaned[char_index]
+        normalized_current = (
+            current.replace("O", "0")
+            .replace("Q", "0")
+            .replace("I", "1")
+            .replace("L", "1")
+            .replace("Z", "2")
+            .replace("S", "5")
+            .replace("G", "6")
+            .replace("B", "8")
+        )
+        if verified == normalized_current:
+            return
+
+        corrected = cleaned[:char_index] + verified + cleaned[char_index + 1 :]
+        token["text"] = corrected
+        return
+
+
+def _primary_ocr_text(image: Image.Image, document_type: str, psm: str) -> str:
+    config = f"--oem 1 --psm {psm} preserve_interword_spaces=1"
+    if document_type != "cliente_ine_reverso":
+        return pytesseract.image_to_string(
+            image,
+            lang="spa+eng",
+            config=config,
+        ).strip()
+
+    # El reverso usa TSV para conservar la caja del primer renglón MRZ. El T7
+    # queda al borde derecho y Tesseract puede confundir especialmente el último
+    # dígito; una microlectura de esa celda verifica ese único carácter sin
+    # volver a procesar toda la credencial.
+    tokens = _ocr_tokens(image, config)
+    _verify_t7_trailing_digit(image, tokens)
+    return _ocr_tokens_to_text(tokens)
+
+
 def _ine_reverse_has_structured_mrz(text: str) -> bool:
     compact = re.sub(r"[^A-Z0-9<>]+", "", (text or "").upper())
     compact = compact.replace(">", "<")
@@ -326,11 +474,7 @@ def ocr_image(image: Image.Image, document_type: str) -> str:
 
     primary = preprocess_image(working)
     primary_psm = "6" if document_type != "cliente_ine_reverso" else "11"
-    primary_text = pytesseract.image_to_string(
-        primary,
-        lang="spa+eng",
-        config=f"--oem 1 --psm {primary_psm} preserve_interword_spaces=1",
-    ).strip()
+    primary_text = _primary_ocr_text(primary, document_type, primary_psm)
 
     primary_orientation_score = _ine_orientation_score(
         primary_text, document_type
@@ -346,11 +490,9 @@ def ocr_image(image: Image.Image, document_type: str) -> str:
         if degrees:
             working = oriented
             primary = preprocess_image(working)
-            primary_text = pytesseract.image_to_string(
-                primary,
-                lang="spa+eng",
-                config=f"--oem 1 --psm {primary_psm} preserve_interword_spaces=1",
-            ).strip()
+            primary_text = _primary_ocr_text(
+                primary, document_type, primary_psm
+            )
 
     parts = [primary_text]
 
@@ -418,7 +560,7 @@ def extract_document_text(data: bytes, mime: str, document_type: str) -> tuple[s
 
 @app.get("/health")
 def health() -> dict:
-    return {"ok": True, "service": "document-ocr", "version": "1.3.0"}
+    return {"ok": True, "service": "document-ocr", "version": "1.4.0"}
 
 
 @app.post("/v1/extract")
