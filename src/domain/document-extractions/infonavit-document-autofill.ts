@@ -276,6 +276,17 @@ function documentMatchesExpectedName(
   return matches >= Math.min(2, tokens.length);
 }
 
+function completeIneNameMatchesExpected(
+  detected: string,
+  expected: string,
+): boolean {
+  const detectedTokens = significantNameTokens(detected).sort();
+  const expectedTokens = significantNameTokens(expected).sort();
+  if (detectedTokens.length < 3 || expectedTokens.length < 2) return true;
+  if (detectedTokens.length !== expectedTokens.length) return false;
+  return detectedTokens.every((token, index) => token === expectedTokens[index]);
+}
+
 function normalizeCurpCandidate(raw: string | null | undefined): string {
   return upper(raw ?? "").replace(/[^A-Z0-9]/g, "");
 }
@@ -380,7 +391,14 @@ function parseIne(
     // La INE solo se compara cuando las tres partes se leyeron completas;
     // nunca se usa para sobrescribir nombres/apellidos.
     const name = parseIneNameBlock(front);
-    if (name.nombres && name.apellidoPaterno && name.apellidoMaterno) {
+    if (
+      name.nombres &&
+      name.apellidoPaterno &&
+      name.apellidoMaterno &&
+      significantNameTokens(name.nombres).length > 0 &&
+      significantNameTokens(name.apellidoPaterno).length > 0 &&
+      significantNameTokens(name.apellidoMaterno).length > 0
+    ) {
       detectedFrontName = [
         name.nombres,
         name.apellidoPaterno,
@@ -388,7 +406,7 @@ function parseIne(
       ].join(" ");
       frontNameMismatch = Boolean(
         expectedName &&
-          !documentMatchesExpectedName(detectedFrontName, expectedName),
+          !completeIneNameMatchesExpected(detectedFrontName, expectedName),
       );
     }
 
