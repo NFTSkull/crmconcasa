@@ -349,6 +349,39 @@ describe("P4C document autofill parser", () => {
     );
   });
 
+  it("Mexicana de Gas separa etiquetas Calle/Colonia/Mpo-Edo sin contaminar la calle", () => {
+    const patch = buildInfonavitDocumentAutofillPatch({
+      comprobanteDomicilio: [
+        "Compañía Mexicana de Gas S.A.P.I. de C.V.",
+        "Empresa 100% mexicana comprometida con la sociedad",
+        "DATOS GENERALES",
+        "Nombre: MARÍA DEL SOCORRO HERRERA LONGORIA",
+        "Calle: HACIENDA ANAHUAC # 509",
+        "Colonia: HACIENDAS DE ESCOBEDO",
+        "Mpo/Edo: ESCOBEDO, C.P. 66057",
+        "R.F.C.: XAXX010101000",
+        "DETALLES DE FACTURACIÓN",
+      ].join("\n"),
+    });
+
+    assert.equal(patch.vivienda.calle?.value, "HACIENDA ANAHUAC");
+    assert.equal(patch.vivienda.noExt?.value, "509");
+    assert.equal(
+      patch.vivienda.colonia?.value,
+      "HACIENDAS DE ESCOBEDO",
+    );
+    assert.equal(patch.vivienda.cp?.value, "66057");
+    assert.equal(
+      patch.vivienda.municipio?.value,
+      "GENERAL ESCOBEDO",
+    );
+    assert.equal(patch.vivienda.entidad?.value, "NUEVO LEÓN");
+    assert.doesNotMatch(
+      patch.vivienda.calle?.value ?? "",
+      /^CALLE\b|#|509/,
+    );
+  });
+
   it("CFE Montemorelos toma domicilio del cliente y nunca Paseo de la Reforma", () => {
     const patch = buildInfonavitDocumentAutofillPatch({
       comprobanteDomicilio: [
