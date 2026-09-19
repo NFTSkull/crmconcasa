@@ -268,6 +268,20 @@ function str(value: unknown): string {
   return String(value);
 }
 
+export function normalizeMesaIneValidityYear(value: unknown): string {
+  const raw = str(value).trim();
+  if (!raw) return "";
+
+  const years = [...raw.matchAll(/\b(20\d{2})\b/g)]
+    .map((match) => match[1])
+    .filter((year): year is string => Boolean(year));
+  if (years.length > 0) return years.at(-1)!;
+
+  // Permite captura manual progresiva: 2 → 20 → 203 → 2031.
+  const digits = raw.replace(/\D/g, "");
+  return digits.length <= 4 ? digits : "";
+}
+
 /**
  * P0: % titulación y CLABE notaría ya no se capturan.
  * Se conservan en el contrato pero siempre vacíos (anula drafts/localStorage viejos).
@@ -347,6 +361,15 @@ export function buildMesaInfonavitGeneratePayload(
   }
   return {
     ...draft,
+    cliente: {
+      ...draft.cliente,
+      identificacion: {
+        ...draft.cliente.identificacion,
+        vigencia: normalizeMesaIneValidityYear(
+          draft.cliente.identificacion.vigencia,
+        ),
+      },
+    },
     vivienda: {
       ...draft.vivienda,
       direccionCompleta: composeMesaInfonavitDireccionCompleta(draft.vivienda),
@@ -427,7 +450,7 @@ export function parseMesaInfonavitDocumentDraft(
       identificacion: {
         tipo: str(id.tipo),
         numero: str(id.numero),
-        vigencia: str(id.vigencia),
+        vigencia: normalizeMesaIneValidityYear(id.vigencia),
       },
     },
     empresa: {
@@ -1378,7 +1401,7 @@ export function MesaInfonavitGenerarDocumentosForm({
             <Field label="Nombre(s) *" value={draft.cliente.nombres} onChange={(v) => updateCliente("nombres", v.toUpperCase())} onFocusField={() => focusSource("nombres")} sourceLabel={autofillSources["cliente.nombres"]} required />
             <Field label="Tipo identificación" value={draft.cliente.identificacion.tipo} onChange={(v) => updateIdentificacion("tipo", v)} onFocusField={() => focusSource("identificacionTipo")} sourceLabel={autofillSources["cliente.identificacion.tipo"]} />
             <Field label="Número identificación" value={draft.cliente.identificacion.numero} onChange={(v) => updateIdentificacion("numero", v)} onFocusField={() => focusSource("identificacionNumero")} sourceLabel={autofillSources["cliente.identificacion.numero"]} />
-            <Field label="Vigencia identificación" value={draft.cliente.identificacion.vigencia} onChange={(v) => updateIdentificacion("vigencia", v)} onFocusField={() => focusSource("identificacionVigencia")} sourceLabel={autofillSources["cliente.identificacion.vigencia"]} placeholder="dd/mm/aaaa" />
+            <Field label="Vigencia identificación (año)" value={draft.cliente.identificacion.vigencia} onChange={(v) => updateIdentificacion("vigencia", normalizeMesaIneValidityYear(v))} onFocusField={() => focusSource("identificacionVigencia")} sourceLabel={autofillSources["cliente.identificacion.vigencia"]} placeholder="aaaa" maxLength={4} />
             <Field label="LADA" value={draft.cliente.ladaTelefono} onChange={(v) => updateCliente("ladaTelefono", v)} />
             <Field label="Teléfono" value={draft.cliente.telefono} onChange={(v) => updateCliente("telefono", v)} />
             <Field label="Celular" value={draft.cliente.celular} onChange={(v) => updateCliente("celular", v)} />
