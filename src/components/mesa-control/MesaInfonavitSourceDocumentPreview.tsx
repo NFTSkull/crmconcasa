@@ -338,7 +338,10 @@ export function MesaInfonavitSourceDocumentPreview({
         // mismo OCR central del autofill. El cacheKey coincide con el formulario,
         // por lo que si ambos corren a la vez comparten la misma promesa y no
         // duplican trabajo en Railway.
-        if (result.status !== "detected") {
+        if (
+          result.status === "no_text_layer" ||
+          result.status === "not_found"
+        ) {
           const extracted = await extractDocumentTextViaOcr({
             blob: blobForDoc.blob,
             documentType: "cliente_estado_cuenta",
