@@ -662,6 +662,16 @@ function parseCfeResidentialColonia(
   lines: readonly string[],
 ): string | undefined {
   for (const raw of lines) {
+    // Formato real CFE: "LOS FRESNOS FRACC.P.67515". En este layout
+    // FRACC. cierra el nombre de colonia y P. introduce el código postal.
+    const fraccBeforePostal = raw.match(
+      /^(.+?)\s+FRACC(?:IONAMIENTO)?\.?\s*(?:C\.?\s*)?P\.?\s*[:.\-]?\s*\d{4,5}\b/i,
+    );
+    if (fraccBeforePostal?.[1]) {
+      const candidate = compactLine(fraccBeforePostal[1]);
+      if (candidate) return candidate;
+    }
+
     const cleaned = compactLine(
       raw
         .replace(/C\.?\s*P\.?\s*[:.\-]?\s*\d{4,5}.*$/i, "")
@@ -846,7 +856,10 @@ function parseCfeAddressCandidate(text: string): {
   );
   if (serviceIdx < 0) return null;
 
-  const rawBlock = lines.slice(Math.max(0, serviceIdx - 10), serviceIdx);
+  // El encabezado corporativo de CFE puede intercalarse en el orden OCR.
+  // Tomamos una ventana algo más amplia, pero elegimos la calle válida MÁS
+  // CERCANA a NO. DE SERVICIO; así el domicilio del cliente gana al corporativo.
+  const rawBlock = lines.slice(Math.max(0, serviceIdx - 16), serviceIdx);
   const block = rawBlock.filter(
     (line) =>
       !isCfeCorporateLine(line) &&
@@ -858,7 +871,7 @@ function parseCfeAddressCandidate(text: string): {
   let noExt: string | undefined;
   let streetIndex = -1;
 
-  for (let i = 0; i < block.length; i++) {
+  for (let i = block.length - 1; i >= 0; i--) {
     const parsed = parseCfeStreetLine(block[i]!);
     if (!parsed) continue;
     calle = parsed.calle;
@@ -1087,8 +1100,15 @@ function parseAddressCandidate(text: string): {
   const lines = normalizedLines(text);
   if (lines.length === 0) return {};
 
-  const cfe = parseCfeAddressCandidate(text);
-  if (cfe) return cfe;
+  if (isCfeDocument(lines)) {
+    const cfe = parseCfeAddressCandidate(text);
+    if (cfe) return cfe;
+
+    // En CFE nunca caemos al parser genérico de CP: el documento también trae
+    // el domicilio corporativo de CFE y sería peor llenar datos falsos.
+    // Solo aceptamos el bloque explícito DIRECCIÓN/DOMICILIO DE SERVICIO.
+    return parseLabeledServiceAddressCandidate(text) ?? {};
+  }
 
   const serviceAddress = parseLabeledServiceAddressCandidate(text);
   if (serviceAddress) return serviceAddress;
