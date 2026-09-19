@@ -634,7 +634,8 @@ function isLikelyCfeColoniaFallback(raw: string): boolean {
     !/[A-ZÁÉÍÓÚÜÑ]/i.test(cleaned) ||
     /\b(?:DIRECCI[OÓ]N|SERVICIO|DATOS|FISCALES|NOMBRE|CONTRATO|SITIO|MEDIDOR|LECTURA|TARIFA|FACTURACI[OÓ]N|TOTAL|PAGO|PAGAR|RMU|RPU)\b/i.test(
       cleaned,
-    )
+    ) ||
+    /^(?:GRAL|GENERAL|MPO|MUNICIPIO|N\.?\s*L\.?)\.?$/i.test(cleaned)
   ) {
     return false;
   }
@@ -682,6 +683,50 @@ function cfeColoniaPrefixBeforeMunicipality(raw: string): string | undefined {
       if (!matches || start === 0) continue;
       const candidate = compactLine(originalTokens.slice(0, start).join(" "));
       if (isLikelyCfeColoniaFallback(candidate)) return candidate;
+    }
+  }
+  return undefined;
+}
+
+function parseCfeColoniaBeforeExplicitCp(
+  addressLinesAfterStreet: readonly string[],
+): string | undefined {
+  for (const raw of addressLinesAfterStreet) {
+    const cpMatch = /C\.?\s*P\.?\s*[:.\-]?\s*(\d{5})\b/i.exec(raw);
+    if (!cpMatch?.[1] || cpMatch[1] === "00000" || cpMatch.index == null) {
+      continue;
+    }
+
+    const beforeCp = compactLine(raw.slice(0, cpMatch.index));
+    if (!beforeCp) continue;
+
+    // CFE suele juntar colonia + municipio + CP en una sola línea.
+    // Si hay municipio, conservamos únicamente el prefijo de colonia.
+    const beforeMunicipality = cfeColoniaPrefixBeforeMunicipality(beforeCp);
+    if (beforeMunicipality) return beforeMunicipality;
+
+    // Una línea puramente municipal, por ejemplo "MONTERREY C.P.64530" o
+    // "PESQUERIA NL C.P.99999", nunca debe convertirse en colonia.
+    const municipality = municipalityFromText(beforeCp);
+    if (municipality) {
+      const comparable = alnumComparable(beforeCp);
+      const municipalityComparable = alnumComparable(municipality);
+      const withoutState = comparable
+        .replace(/NUEVOLEON/g, "")
+        .replace(/NL/g, "");
+      if (
+        withoutState === municipalityComparable ||
+        (municipality === "GENERAL ZUAZUA" &&
+          /^(?:GRAL|GENERAL)?ZUAZUA$/.test(withoutState)) ||
+        (municipality === "ZUAZUA" &&
+          /^(?:GRAL|GENERAL)?ZUAZUA$/.test(withoutState))
+      ) {
+        continue;
+      }
+    }
+
+    if (isLikelyCfeColoniaFallback(beforeCp)) {
+      return cleanCfeLocationLine(beforeCp);
     }
   }
   return undefined;
@@ -793,6 +838,7 @@ function parseCfeAddressCandidate(text: string): {
   const colonia = col?.[1]
     ? compactLine(col[1])
     : parseCfeResidentialColonia(addressBlock.slice(1)) ??
+      parseCfeColoniaBeforeExplicitCp(addressBlock.slice(1)) ??
       parseCfeStructuralColonia(addressBlock.slice(1));
 
   const noInt = addressJoined.match(
