@@ -230,15 +230,29 @@ def _strict_labeled_clabe_candidates(text: str) -> list[str]:
             continue
 
         tail = line[label.end():].strip()
-        add(tail)
-        if idx + 1 >= len(lines):
+        direct = _valid_clabes_in_fragment(tail)
+        if direct:
+            for value in direct:
+                if value not in values:
+                    values.append(value)
             continue
 
-        next_line = lines[idx + 1]
-        if re.search(r"\d", tail):
-            add(f"{tail} {next_line}")
-        else:
-            add(next_line)
+        # Algunos PDF/OCR reordenan columnas y dejan la etiqueta CLABE
+        # separada 1–3 renglones del valor visible. Solo ampliamos ese
+        # vecindario corto y nos detenemos en el primer nivel con una CLABE
+        # válida de 18 dígitos + checksum.
+        neighborhood = [tail]
+        for offset in range(1, 4):
+            if idx + offset >= len(lines):
+                break
+            neighborhood.append(lines[idx + offset])
+            found = _valid_clabes_in_fragment(" ".join(neighborhood))
+            if not found:
+                continue
+            for value in found:
+                if value not in values:
+                    values.append(value)
+            break
 
     return values
 
