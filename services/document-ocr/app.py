@@ -215,6 +215,39 @@ def _bank_code_hints(text: str) -> list[str]:
     return codes
 
 
+def _banorte_summary_integral_clabe_candidates(text: str) -> list[str]:
+    """
+    Banorte imprime la CLABE en RESUMEN INTEGRAL. PDF/OCR puede separar el
+    encabezado CLABE, producto, número de cuenta y valor en varios renglones.
+    Esta regla queda acotada a Banorte + RESUMEN INTEGRAL y exige código 072
+    más checksum válido para no confundir movimientos/referencias.
+    """
+    lines = [line.strip() for line in (text or "").splitlines() if line.strip()]
+    normalized = re.sub(r"\s+", " ", (text or "").upper())
+    if not re.search(r"\bBANORTE\b", normalized, re.I):
+        return []
+    if not re.search(r"\bRESUMEN\s+INTEGRAL\b", normalized, re.I):
+        return []
+
+    values: list[str] = []
+    for idx, line in enumerate(lines):
+        if not re.search(r"\bCLABE\b", line, re.I):
+            continue
+
+        section = " ".join(lines[max(0, idx - 8): min(len(lines), idx + 10)])
+        if not re.search(r"\bRESUMEN\s+INTEGRAL\b", section, re.I):
+            continue
+        if not re.search(r"\bBANORTE\b", section, re.I):
+            continue
+
+        row_window = " ".join(lines[idx + 1: min(len(lines), idx + 9)])
+        for value in _valid_clabes_in_fragment(row_window):
+            if value.startswith("072") and value not in values:
+                values.append(value)
+
+    return values
+
+
 def _strict_labeled_clabe_candidates(text: str) -> list[str]:
     lines = [line.strip() for line in (text or "").splitlines() if line.strip()]
     values: list[str] = []
@@ -258,6 +291,10 @@ def _strict_labeled_clabe_candidates(text: str) -> list[str]:
 
 
 def _reliable_clabe_candidates(text: str) -> list[str]:
+    banorte_summary = _banorte_summary_integral_clabe_candidates(text)
+    if banorte_summary:
+        return banorte_summary
+
     strict = _strict_labeled_clabe_candidates(text)
     bank_codes = _bank_code_hints(text)
     if len(bank_codes) == 1:
