@@ -602,20 +602,31 @@ export function MesaInfonavitSourceDocumentPreview({
               className="h-[min(60vh,640px)] w-full overflow-auto rounded bg-gray-50"
               data-testid="infonavit-inline-ine-image"
             >
+              {/*
+                Zoom 100%: wrapper = viewport; img max-w/h 100% + object-contain
+                → credencial completa sin crop.
+                Zoom >100%: wrapper crece (layout real) para permitir scroll.
+              */}
               <div
                 className={[
-                  "flex min-h-full min-w-full justify-center",
-                  Math.abs(inlineIneRotation % 180) === 90 ? "py-24" : "",
+                  "flex items-center justify-center",
+                  Math.abs(inlineIneRotation % 180) === 90 ? "p-8" : "",
                 ].join(" ")}
+                style={{
+                  width: `${inlineIneZoom * 100}%`,
+                  height: `${inlineIneZoom * 100}%`,
+                  minWidth: "100%",
+                  minHeight: "100%",
+                }}
+                data-testid="infonavit-inline-ine-stage"
               >
                 {/* eslint-disable-next-line @next/next/no-img-element -- blob URL privado */}
                 <img
                   src={preview.url}
                   alt={preview.nombre_original}
-                  className="h-auto object-contain transition-transform duration-150"
+                  className="max-h-full max-w-full object-contain transition-transform duration-150"
+                  data-inline-ine-fit="contain"
                   style={{
-                    width: `${inlineIneZoom * 100}%`,
-                    maxWidth: "none",
                     transform: `rotate(${inlineIneRotation}deg)`,
                   }}
                 />

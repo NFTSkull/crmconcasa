@@ -221,7 +221,9 @@ function parseIneValidity(text: string): string | null {
     .map((match) => Number(match[1]))
     .filter((year) => Number.isInteger(year) && year >= 2020 && year <= 2050);
 
-  const year = years.length >= 2 ? years[1] : years[0];
+  // Último año del bloque VIGENCIA (rango → año final; año único → ese).
+  // VERSIÓN ANTERIOR: years.length >= 2 ? years[1] : years[0]
+  const year = years.length > 0 ? years[years.length - 1] : null;
   return year ? String(year) : null;
 }
 
@@ -607,10 +609,15 @@ function parseCfeStreetLine(
   raw: string,
 ): { calle: string; noExt: string } | null {
   const withoutCp = compactLine(
-    raw.replace(
-      /C\.?\s*P\.?\s*[:.\-]?\s*\d{4,5}\b.*$/i,
-      "",
-    ),
+    raw
+      .replace(
+        /C\.?\s*P\.?\s*[:.\-]?\s*\d{4,5}\b.*$/i,
+        "",
+      )
+      // OCR real de CFE puede dejar un fragmento incompleto como "CP.6"
+      // al final del renglón. Un CP mexicano requiere 5 dígitos, así que ese
+      // sufijo no puede ser el exterior ni parte de la calle.
+      .replace(/\s+C\.?\s*P\.?\s*[:.\-]?\s*\d{0,3}\s*$/i, ""),
   );
   if (!withoutCp) return null;
 

@@ -35,6 +35,39 @@ describe("P4C document autofill parser", () => {
     );
   });
 
+  it("vigencia INE: rangos 2024-2034 / slash / espacio → año final 2034", () => {
+    for (const label of [
+      "VIGENCIA 2024 - 2034",
+      "VIGENCIA 2024/2034",
+      "VIGENCIA 2024 2034",
+    ]) {
+      const patch = buildInfonavitDocumentAutofillPatch({
+        ineFrente: `SEXO H\n${label}`,
+      });
+      assert.equal(
+        patch.cliente.identificacionVigencia?.value,
+        "2034",
+        label,
+      );
+    }
+    const single = buildInfonavitDocumentAutofillPatch({
+      ineFrente: "SEXO H\nVIGENCIA 2034",
+    });
+    assert.equal(single.cliente.identificacionVigencia?.value, "2034");
+  });
+
+  it("años ajenos fuera del bloque VIGENCIA no desplazan el año final", () => {
+    const patch = buildInfonavitDocumentAutofillPatch({
+      ineFrente: [
+        "FECHA DE NACIMIENTO 1990",
+        "SEXO H",
+        "VIGENCIA 2024 - 2034",
+        "SECCION 2157",
+      ].join("\n"),
+    });
+    assert.equal(patch.cliente.identificacionVigencia?.value, "2034");
+  });
+
   it("SEXO M de INE se traduce a F del formulario", () => {
     const patch = buildInfonavitDocumentAutofillPatch({
       ineFrente:
@@ -103,6 +136,29 @@ describe("P4C document autofill parser", () => {
     );
   });
 
+
+  it("INE real Garrido/Armendariz: T7 después de << llena número identificación", () => {
+    const patch = buildInfonavitDocumentAutofillPatch({
+      ineReverso: [
+        "IDMEX2120512054<<2213082197980",
+        "9104071H3112319MEX<02<<04429<9",
+        "GARRIDO<ARMENDARIZ<<JUAN<ROBERT",
+      ].join("\n"),
+    });
+
+    assert.equal(
+      patch.cliente.identificacionNumero?.value,
+      "2213082197980",
+    );
+    assert.equal(
+      patch.cliente.identificacionNumero?.rule,
+      "ine_mrz_t7",
+    );
+    assert.equal(
+      patch.cliente.identificacionVigencia?.value,
+      "2031",
+    );
+  });
 
   it("INE T7 tolera un signo < perdido o convertido por OCR", () => {
     const inline = buildInfonavitDocumentAutofillPatch({
@@ -291,6 +347,28 @@ describe("P4C document autofill parser", () => {
       patch.vivienda.direccionCompleta?.value ?? "",
       /DOMICILIO FISCAL|64060|CONTRATO/i,
     );
+  });
+
+  it("CFE con CP parcial al final de calle conserva exterior real", () => {
+    const patch = buildInfonavitDocumentAutofillPatch({
+      comprobanteDomicilio: [
+        "CFE Comisión Federal de Electricidad",
+        "ARMENDARIZ RUIS GERONIMA",
+        "PASEO DE LOS FAISANES 401 CP.6",
+        "P CANARIOS P FAISANES",
+        "COLIBRIES 1 E C.P.66640",
+        "APODACA N.L.,N.L.",
+        "NO. DE SERVICIO:370150202169",
+        "RMU:66640 15-02-10 XAXX-010101 001 CFE",
+      ].join("\n"),
+    });
+
+    assert.equal(patch.vivienda.calle?.value, "PASEO DE LOS FAISANES");
+    assert.equal(patch.vivienda.noExt?.value, "401");
+    assert.equal(patch.vivienda.colonia?.value, "COLIBRIES 1 E");
+    assert.equal(patch.vivienda.cp?.value, "66640");
+    assert.equal(patch.vivienda.municipio?.value, "APODACA");
+    assert.equal(patch.vivienda.entidad?.value, "NUEVO LEÓN");
   });
 
   it("CFE CP.0000 no se confunde con número exterior", () => {

@@ -472,12 +472,35 @@ def _ine_reverse_mrz_focus_text(image: Image.Image) -> str:
     ).strip()
 
 
-def _has_readable_ine_validity(text: str) -> bool:
+def _ine_vigencia_years(text: str) -> list[int]:
+    """Años 20xx anclados al bloque VIGENCIA (completitud OCR; no validación final)."""
     normalized = (text or "").upper().replace("O", "0")
     if "VIGENCIA" not in normalized:
-        return False
-    block = normalized[normalized.index("VIGENCIA"):normalized.index("VIGENCIA") + 120]
-    return re.search(r"20\d{2}", block) is not None
+        return []
+    start = normalized.index("VIGENCIA")
+    block = normalized[start : start + 120]
+    years: list[int] = []
+    for match in re.findall(r"20\d{2}", block):
+        year = int(match)
+        # Incluye años de inicio del rango (p. ej. 2016 en 2016-2026).
+        # El año final válido lo deciden los parsers TS (umbral distinto).
+        if 2000 <= year <= 2050 and year not in years:
+            years.append(year)
+    return years
+
+
+def _has_readable_ine_validity(text: str) -> bool:
+    """Hay al menos un año legible tras VIGENCIA (puede ser incompleto)."""
+    return len(_ine_vigencia_years(text)) >= 1
+
+
+def _needs_ine_validity_enrichment(text: str) -> bool:
+    """
+    Si el bloque VIGENCIA trae 0 años, o solo 1 (p. ej. OCR leyó 2024 de
+    '2024 - 2034' y perdió el final), intentamos un pase/hint focalizado.
+    Con 2+ años ya tenemos rango y no hace falta martillar Tesseract.
+    """
+    return len(_ine_vigencia_years(text)) < 2
 
 
 def _ine_front_validity_year_hint(image: Image.Image) -> str:
@@ -577,12 +600,14 @@ def _ine_front_validity_year_hint(image: Image.Image) -> str:
     if len(tight_years) == 1:
         return f"VIGENCIA {tight_years[0]}"
 
-    # Si el microrecorte trae dos años, el último suele ser la vigencia.
+    # Si el microrecorte trae dos años, el último es la vigencia (año final).
     if len(tight_years) >= 2:
         for first in tight_years[:-1]:
             for second in tight_years[1:]:
                 if second >= first and second - first <= 15:
                     return f"VIGENCIA {first} {second}"
+        # Sin par válido por delta, devolvemos primer+último del bloque.
+        return f"VIGENCIA {tight_years[0]} {tight_years[-1]}"
 
     return ""
 
@@ -628,11 +653,12 @@ def _ine_front_validity_focus_text(image: Image.Image) -> str:
         ).strip()
         if text:
             parts.append(text)
-        if _has_readable_ine_validity("\n".join(parts)):
+        # Con 2 años en el bloque VIGENCIA ya tenemos rango; paramos.
+        if not _needs_ine_validity_enrichment("\n".join(parts)):
             break
 
     combined = "\n".join(parts).strip()
-    if not _has_readable_ine_validity(combined):
+    if _needs_ine_validity_enrichment(combined):
         hint = _ine_front_validity_year_hint(base)
         if hint:
             parts.append(hint)
@@ -868,7 +894,8 @@ def _ine_needs_adaptive_pass(text: str, document_type: str) -> bool:
     if document_type == "cliente_ine_reverso":
         return not _ine_reverse_has_t7(text)
     if document_type == "cliente_ine_frente":
-        return not _has_readable_ine_validity(text)
+        # También enriquecer cuando solo hay un año (rango incompleto).
+        return _needs_ine_validity_enrichment(text)
     return False
 
 def _ine_card_crop(image: Image.Image) -> Image.Image:
@@ -1077,7 +1104,9 @@ def ocr_image(image: Image.Image, document_type: str) -> str:
 
     if document_type == "cliente_ine_frente":
         combined = "\n".join(part for part in parts if part).strip()
-        if not _has_readable_ine_validity(combined):
+        # Con un solo año tras VIGENCIA (p. ej. "2024" de "2024 - 2034")
+        # todavía intentamos el pase focalizado para recuperar el año final.
+        if _needs_ine_validity_enrichment(combined):
             focused = _ine_front_validity_focus_text(working)
             if focused:
                 parts.append(focused)

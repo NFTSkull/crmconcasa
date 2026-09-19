@@ -134,6 +134,8 @@ describe("Mesa Infonavit vigencia INE solo año", () => {
     assert.equal(normalizeMesaIneValidityYear("31/12/2031"), "2031");
     assert.equal(normalizeMesaIneValidityYear("2031-12-31"), "2031");
     assert.equal(normalizeMesaIneValidityYear("2021 - 2031"), "2031");
+    assert.equal(normalizeMesaIneValidityYear("2024 - 2034"), "2034");
+    assert.equal(normalizeMesaIneValidityYear("2024/2034"), "2034");
     assert.equal(normalizeMesaIneValidityYear("2031"), "2031");
   });
 
