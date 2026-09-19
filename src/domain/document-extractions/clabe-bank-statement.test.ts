@@ -69,6 +69,21 @@ describe("P4B clabe-bank-statement parser", () => {
     }
   });
 
+  it("CLABE puede venir partida por salto de línea del OCR", () => {
+    const text = [
+      "Estado de cuenta",
+      "No. Cuenta CLABE 012 700",
+      "01524466095 8",
+      "Sucursal 5104",
+    ].join("\n");
+
+    const r = detectClabeFromBankStatementText(text);
+    assert.equal(r.status, "detected");
+    if (r.status === "detected") {
+      assert.equal(r.clabe, "012700015244660958");
+    }
+  });
+
   it("4. checksum inválido → not_found", () => {
     const text = `CLABE ${INVALID_CS}\n`.repeat(3);
     assert.equal(isValidClabeMexico(INVALID_CS), false);
