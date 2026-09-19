@@ -690,6 +690,15 @@ def _ine_reverse_has_t7(text: str) -> bool:
     compact = re.sub(r"[^A-Z0-9<>]+", "", (text or "").upper())
     compact = compact.replace(">", "<")
     numeric = r"[0-9OQILZSBG]"
+    # Cuando OCR parte la primera línea MRZ en varios renglones, al compactar
+    # el T7 queda seguido inmediatamente por la segunda línea. IDMEX + 9-12
+    # caracteres de documento + << es un anclaje suficiente para aceptar los
+    # 13 dígitos sin exigir frontera posterior.
+    if re.search(
+        rf"(?:[I1T]?DMEX){numeric}{{9,12}}<<+{numeric}{{13}}",
+        compact,
+    ):
+        return True
     return bool(re.search(rf"<<+{numeric}{{13}}(?:<|$)", compact))
 
 
@@ -697,7 +706,13 @@ def _ine_reverse_has_structured_mrz(text: str) -> bool:
     compact = re.sub(r"[^A-Z0-9<>]+", "", (text or "").upper())
     compact = compact.replace(">", "<")
     numeric = r"[0-9OQILZSBG]"
-    has_t7 = bool(re.search(rf"<<+{numeric}{{13}}(?:<|$)", compact))
+    has_t7 = bool(
+        re.search(
+            rf"(?:[I1T]?DMEX){numeric}{{9,12}}<<+{numeric}{{13}}",
+            compact,
+        )
+        or re.search(rf"<<+{numeric}{{13}}(?:<|$)", compact)
+    )
     has_expiry = bool(
         re.search(
             rf"{numeric}{{6}}[0-9A-Z]?[MHF]{numeric}{{6}}[0-9A-Z]?(?:MEX|<)",
