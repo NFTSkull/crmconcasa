@@ -250,8 +250,9 @@ function personComponentMatchesExpected(
     return candidateTokens.every((token) => expectedTokens.has(token));
   }
 
-  const compact = alnumComparable(candidate);
-  return compact.length >= 2 && alnumComparable(expectedName).includes(compact);
+  // Fragmentos muy cortos como "DO" (OCR de ANZALDO) no prueban identidad:
+  // pueden aparecer dentro de un apellido correcto y provocar un reemplazo malo.
+  return false;
 }
 
 function normalizeCurpCandidate(raw: string | null | undefined): string {
