@@ -10,6 +10,7 @@ from app import (
     preprocess_image,
     _verify_t7_trailing_digit,
     _ine_front_validity_focus_text,
+    _ine_front_validity_year_hint,
     _ine_card_crop,
     _ine_reverse_mrz_focus_text,
     _has_clabe_like_candidate,
@@ -282,6 +283,23 @@ def test_ine_front_skips_focused_pass_when_year_is_already_readable(monkeypatch)
 
     text = ocr_image(image, "cliente_ine_frente")
     assert "2026" in text
+
+
+def test_ine_validity_hint_accepts_pre_2020_emission_with_current_expiry(monkeypatch):
+    image = Image.new("RGB", (1200, 760), "white")
+
+    monkeypatch.setattr(
+        "app._ine_card_crop",
+        lambda source: source,
+    )
+    monkeypatch.setattr(
+        "app.pytesseract.image_to_string",
+        lambda *args, **kwargs: "1999 04 2017 2027",
+    )
+
+    text = _ine_front_validity_year_hint(image)
+
+    assert text == "VIGENCIA 2017 2027"
 
 
 def test_ine_validity_focus_recovers_two_years_when_label_pass_misses_numbers(monkeypatch):
