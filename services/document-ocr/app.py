@@ -393,7 +393,8 @@ def _ine_front_validity_year_hint(image: Image.Image) -> str:
     pierde la etiqueta o los años. Primero aísla la credencial para que una INE
     pequeña dentro de una foto de celular no pierda la línea inferior.
     """
-    base = _ine_card_crop(image).convert("L")
+    # El caller ya entrega la credencial aislada cuando es posible.
+    base = ImageOps.exif_transpose(image).convert("L")
     width, height = base.size
     if width < 8 or height < 8:
         return ""
