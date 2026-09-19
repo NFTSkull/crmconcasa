@@ -939,6 +939,135 @@ function parseCfeAddressCandidate(text: string): {
   };
 }
 
+function parseLabeledServiceAddressCandidate(text: string): {
+  direccionCompleta?: string;
+  calle?: string;
+  noExt?: string;
+  noInt?: string;
+  lote?: string;
+  manzana?: string;
+  colonia?: string;
+  entidad?: string;
+  municipio?: string;
+  cp?: string;
+} | null {
+  const lines = normalizedLines(text);
+  const labelPattern =
+    /\b(?:DIRECCI[OÓ]N|DOMICILIO)\s+(?:DE(?:L)?\s+)?(?:SERVICIO|SUMINISTRO)\b/i;
+  const labelIndex = lines.findIndex((line) => labelPattern.test(line));
+  if (labelIndex < 0) return null;
+
+  const labelLine = lines[labelIndex]!;
+  const inline = compactLine(labelLine.replace(labelPattern, ""));
+  const addressLines: string[] = [];
+  if (inline) addressLines.push(inline);
+
+  for (let i = labelIndex + 1; i < Math.min(lines.length, labelIndex + 8); i++) {
+    const line = lines[i]!;
+    if (
+      /\b(?:DATOS\s+FISCALES|CONTRATO|N\.?I\.?R\.?|SITIO|MEDIDOR|LECTURA|TARIFA|FACTURACI[OÓ]N|TOTAL|SALDO|PERIODO|FECHA\s+DE\s+CORTE)\b/i.test(
+        line,
+      )
+    ) {
+      break;
+    }
+    addressLines.push(line);
+  }
+
+  if (addressLines.length === 0) return null;
+
+  let calle: string | undefined;
+  let noExt: string | undefined;
+  let streetIndex = -1;
+  for (let i = 0; i < addressLines.length; i++) {
+    const parsed = parseCfeStreetLine(addressLines[i]!);
+    if (!parsed) continue;
+    calle = parsed.calle;
+    noExt = parsed.noExt;
+    streetIndex = i;
+    break;
+  }
+  if (!calle || !noExt || streetIndex < 0) return null;
+
+  const scoped = addressLines.slice(streetIndex);
+  const afterStreet = scoped.slice(1);
+  const joined = scoped.join(" ");
+
+  const explicitCp = [...joined.matchAll(/C\.?\s*P\.?\s*[:.\-]?\s*(\d{5})\b/gi)]
+    .map((match) => match[1])
+    .filter((value): value is string => Boolean(value) && value !== "00000");
+  const fallbackCp = [...joined.matchAll(/\b(\d{5})\b/g)]
+    .map((match) => match[1])
+    .filter((value): value is string => Boolean(value) && value !== "00000");
+  const cp = explicitCp.at(-1) ?? fallbackCp.at(-1);
+
+  const municipio =
+    municipalityFromCfeLocationLines(afterStreet) ??
+    municipalityFromText(joined);
+  const entidad =
+    /\bNUEVO\s+LE[OÓ]N\b|\bN\.?\s*L\.?\b/i.test(joined)
+      ? "NUEVO LEÓN"
+      : undefined;
+
+  const explicitColonia = joined.match(
+    /\b(?:COL(?:ONIA)?|FRACC(?:IONAMIENTO)?)\.?\s+([A-ZÁÉÍÓÚÜÑ0-9 .'-]{3,60}?)(?=\s+(?:C\.?P\.?|\d{5}\b|NUEVO\s+LE[OÓ]N|N\.?L\.?\b|MONTERREY|APODACA|GUADALUPE|GENERAL\s+ESCOBEDO|SAN\s+NICOL|JU[ÁA]REZ|PESQUER[IÍ]A))/i,
+  );
+
+  let colonia = explicitColonia?.[1]
+    ? compactLine(explicitColonia[1])
+    : undefined;
+
+  if (!colonia) {
+    for (const raw of afterStreet) {
+      const cleaned = cleanCfeLocationLine(raw);
+      if (!cleaned) continue;
+      const locationAnchor =
+        municipalityFromText(raw) !== undefined ||
+        /\bN\.?\s*L\.?\b|\bNUEVO\s+LE[OÓ]N\b|C\.?\s*P\.?\s*[:.\-]?\s*\d{5}\b/i.test(
+          raw,
+        );
+      if (locationAnchor) break;
+      if (isLikelyCfeColoniaFallback(cleaned)) {
+        colonia = cleaned;
+        break;
+      }
+    }
+  }
+
+  const noInt = joined.match(
+    /\b(?:INT(?:ERIOR)?|DEPTO|DEP(?:ARTAMENTO)?)\.?\s*[:#-]?\s*([A-Z0-9-]{1,10})\b/i,
+  )?.[1];
+  const lote = joined.match(
+    /\b(?:LOTE|LT)\.?\s*[:#-]?\s*([A-Z0-9-]+)\b/i,
+  )?.[1];
+  const manzana = joined.match(
+    /\b(?:MANZANA|MZA?|MZ)\.?\s*[:#-]?\s*([A-Z0-9-]+)\b/i,
+  )?.[1];
+
+  const direccionCompleta = [
+    [calle, noExt].filter(Boolean).join(" "),
+    colonia ? `COL. ${colonia}` : "",
+    municipio ?? "",
+    entidad ?? "",
+    cp ? `CP ${cp}` : "",
+  ]
+    .filter(Boolean)
+    .join(", ");
+
+  return {
+    ...(direccionCompleta ? { direccionCompleta } : {}),
+    calle,
+    noExt,
+    ...(noInt ? { noInt } : {}),
+    ...(lote ? { lote } : {}),
+    ...(manzana ? { manzana } : {}),
+    ...(colonia ? { colonia } : {}),
+    ...(entidad ? { entidad } : {}),
+    ...(municipio ? { municipio } : {}),
+    ...(cp ? { cp } : {}),
+  };
+}
+
 function parseAddressCandidate(text: string): {
   direccionCompleta?: string;
   calle?: string;
@@ -956,6 +1085,9 @@ function parseAddressCandidate(text: string): {
 
   const cfe = parseCfeAddressCandidate(text);
   if (cfe) return cfe;
+
+  const serviceAddress = parseLabeledServiceAddressCandidate(text);
+  if (serviceAddress) return serviceAddress;
 
   const cpIndexes = lines
     .map((line, index) => ({

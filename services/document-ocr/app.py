@@ -326,10 +326,12 @@ def _ine_front_name_focus_text(image: Image.Image) -> str:
 
 def _ine_reverse_mrz_focus_text(image: Image.Image) -> str:
     """
-    Pase final del MRZ/T7 con whitelist para recuperar los 13 dígitos después
-    de << y la línea de fecha/sexo, sin volver a procesar toda la foto.
+    Pase final del MRZ/T7 con whitelist. Si la credencial ocupa solo una parte
+    de la foto, primero la aísla para que los 13 dígitos no se pierdan entre
+    fondo/piso/hoja; después limita el OCR a la franja MRZ.
     """
-    crop = _ine_reverse_mrz_crop(image)
+    card = _ine_card_crop(image)
+    crop = _ine_reverse_mrz_crop(card)
     focused = adaptive_binary_variant(crop)
     return pytesseract.image_to_string(
         focused,
@@ -672,6 +674,115 @@ def _ine_needs_adaptive_pass(text: str, document_type: str) -> bool:
     if document_type == "cliente_ine_frente":
         return not _has_readable_ine_validity(text)
     return False
+
+def _ine_card_crop(image: Image.Image) -> Image.Image:
+    """
+    Recorta conservadoramente una credencial pequeña fotografiada sobre una
+    superficie grande. Solo acepta rectángulos con proporción cercana a una
+    tarjeta y área intermedia; si no hay señal fuerte, conserva la foto completa.
+    """
+    base = ImageOps.exif_transpose(image).convert("RGB")
+    width, height = base.size
+    if width < 120 or height < 80:
+        return base
+
+    arr = np.array(base)
+    longest = max(width, height)
+    scale = min(1.0, 1400 / max(1, longest))
+    if scale < 1.0:
+        small = cv2.resize(
+            arr,
+            (max(1, round(width * scale)), max(1, round(height * scale))),
+            interpolation=cv2.INTER_AREA,
+        )
+    else:
+        small = arr
+
+    gray = cv2.cvtColor(small, cv2.COLOR_RGB2GRAY)
+    h, w = gray.shape
+    masks: list[np.ndarray] = []
+
+    _, otsu = cv2.threshold(
+        gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU
+    )
+    _, otsu_inv = cv2.threshold(
+        gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU
+    )
+    masks.extend((otsu, otsu_inv))
+
+    for percentile in (60, 70, 80):
+        threshold = float(np.percentile(gray, percentile))
+        masks.append((gray >= threshold).astype(np.uint8) * 255)
+        masks.append((gray <= threshold).astype(np.uint8) * 255)
+
+    kernel_size = max(5, round(min(h, w) * 0.018))
+    if kernel_size % 2 == 0:
+        kernel_size += 1
+    kernel = cv2.getStructuringElement(
+        cv2.MORPH_RECT, (kernel_size, kernel_size)
+    )
+
+    best: tuple[float, tuple[int, int, int, int]] | None = None
+    frame_area = max(1, w * h)
+
+    for mask in masks:
+        closed = cv2.morphologyEx(
+            mask, cv2.MORPH_CLOSE, kernel, iterations=2
+        )
+        contours, _ = cv2.findContours(
+            closed, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
+        )
+        for contour in contours:
+            x, y, box_w, box_h = cv2.boundingRect(contour)
+            if box_w <= 0 or box_h <= 0:
+                continue
+
+            box_area = box_w * box_h
+            area_ratio = box_area / frame_area
+            aspect = max(box_w, box_h) / max(1, min(box_w, box_h))
+            fill = cv2.contourArea(contour) / max(1, box_area)
+            if not (
+                0.06 <= area_ratio <= 0.62
+                and 1.28 <= aspect <= 1.90
+                and fill >= 0.52
+            ):
+                continue
+
+            touches = sum(
+                (
+                    x <= 2,
+                    y <= 2,
+                    x + box_w >= w - 2,
+                    y + box_h >= h - 2,
+                )
+            )
+            if touches >= 2:
+                continue
+
+            score = (
+                area_ratio * fill
+                - abs(aspect - 1.58) * 0.04
+                - touches * 0.02
+            )
+            if best is None or score > best[0]:
+                best = (score, (x, y, box_w, box_h))
+
+    if best is None:
+        return base
+
+    _, (x, y, box_w, box_h) = best
+    inv = 1.0 / max(scale, 1e-9)
+    margin_x = box_w * 0.04
+    margin_y = box_h * 0.04
+    left = max(0, round((x - margin_x) * inv))
+    top = max(0, round((y - margin_y) * inv))
+    right = min(width, round((x + box_w + margin_x) * inv))
+    bottom = min(height, round((y + box_h + margin_y) * inv))
+
+    if right - left < 80 or bottom - top < 50:
+        return base
+    return base.crop((left, top, right, bottom))
+
 
 def _ine_reverse_mrz_crop(image: Image.Image) -> Image.Image:
     base = ImageOps.exif_transpose(image)
