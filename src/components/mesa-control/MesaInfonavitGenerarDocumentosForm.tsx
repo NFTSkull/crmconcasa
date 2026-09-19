@@ -886,11 +886,17 @@ export function MesaInfonavitGenerarDocumentosForm({
               cached.documentoId === job.doc.id &&
               cached.text.trim()
             ) {
-              return {
-                target: job.target,
-                text: cached.text,
-                error: null as string | null,
-              };
+              const frontCacheNeedsRefresh =
+                job.type === "cliente_ine_frente" &&
+                evaluateIneValidity({ frontText: cached.text }).status ===
+                  "unknown";
+              if (!frontCacheNeedsRefresh) {
+                return {
+                  target: job.target,
+                  text: cached.text,
+                  error: null as string | null,
+                };
+              }
             }
 
             try {
@@ -903,7 +909,7 @@ export function MesaInfonavitGenerarDocumentosForm({
                 signal: controller.signal,
                 cacheKey:
                   autofillRetryNonce === 0
-                    ? `document-ocr:${job.doc.id}:${job.type}`
+                    ? `document-ocr:${job.doc.id}:${job.type}:fresh-vigencia-v2`
                     : `document-ocr:${job.doc.id}:${job.type}:retry-${autofillRetryNonce}`,
               });
               return {
