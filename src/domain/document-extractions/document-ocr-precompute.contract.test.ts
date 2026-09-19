@@ -23,6 +23,10 @@ const migration = readFileSync(
   ),
   "utf8",
 );
+const ocrDockerfile = readFileSync(
+  join(root, "services/document-ocr/Dockerfile"),
+  "utf8",
+);
 
 describe("INFONAVIT OCR precalentado", () => {
   it("Mesa consulta cache antes de descargar o invocar OCR", () => {
@@ -65,6 +69,11 @@ describe("INFONAVIT OCR precalentado", () => {
     );
     assert.match(migration, /can_see_expediente\(p_expediente_id\)/);
     assert.match(migration, /mesa_get_infonavit_ocr_cache/);
+  });
+
+  it("servicio OCR acepta dos lecturas concurrentes sin cambiar el contrato HTTP", () => {
+    assert.match(ocrDockerfile, /uvicorn app:app/);
+    assert.match(ocrDockerfile, /--workers 2/);
   });
 
   it("una versión nueva no reutiliza OCR de otro documento", () => {
