@@ -59,6 +59,18 @@ describe("P4A MesaInfonavitSourceDocumentPreview contrato", () => {
     assert.match(previewSrc, /setModalOpen\(true\)/);
   });
 
+  it("INE tiene zoom y giro inline sin obligar a abrir modal", () => {
+    assert.match(previewSrc, /infonavit-inline-ine-controls/);
+    assert.match(previewSrc, /infonavit-inline-ine-image/);
+    assert.match(previewSrc, /Math\.min\(4, value \+ 0\.25\)/);
+    assert.match(previewSrc, /Girar izq\./);
+    assert.match(previewSrc, /Girar der\./);
+    assert.match(previewSrc, /rotate\(\$\{inlineIneRotation\}deg\)/);
+    assert.match(previewSrc, /isInlineIneImage/);
+    assert.match(previewSrc, /cliente_ine_frente/);
+    assert.match(previewSrc, /cliente_ine_reverso/);
+  });
+
   it("tipos exactos INE / estado cuenta / comprobante", () => {
     for (const tipo of [
       "cliente_ine_frente",
