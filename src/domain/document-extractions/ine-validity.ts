@@ -181,8 +181,8 @@ export function parseExplicitIneValidityYear(frontText: string): number | null {
 
 /**
  * Respaldo de lectura. El MRZ puede contener una fecha técnica, pero para la
- * vigencia operativa usamos únicamente su año y lo llevamos a 31/12, igual que
- * la vigencia visible de la credencial. Nunca auto-rechaza por sí solo.
+ * vigencia mostrada/capturada usamos únicamente su año, igual que la vigencia
+ * visible de la credencial.
  */
 export function parseIneMrzValidityYear(reverseText: string): number | null {
   const date = parseIneMrzValidityDate(reverseText);
@@ -201,7 +201,7 @@ function assessmentForYear(
     status: expired ? "expired" : "valid",
     source,
     expirationYear: year,
-    displayVigencia: `31/12/${year}`,
+    displayVigencia: String(year),
     canAutoReject: expired && source === "front_explicit",
   };
 }
@@ -232,7 +232,7 @@ function assessmentForMrzDate(
     status: expired ? "expired" : "valid",
     source: "reverse_mrz",
     expirationYear: year,
-    displayVigencia: `${String(day).padStart(2, "0")}/${String(month).padStart(2, "0")}/${year}`,
+    displayVigencia: String(year),
     // Auto-rechazo por reverso solo cuando hay dos señales MRZ independientes:
     // fecha estructurada + T7 de 13 dígitos después de <<.
     canAutoReject: expired && t7 !== null,

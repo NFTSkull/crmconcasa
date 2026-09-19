@@ -31,7 +31,7 @@ describe("P4C document autofill parser", () => {
     assert.equal(patch.cliente.identificacionTipo?.value, "INE");
     assert.equal(
       patch.cliente.identificacionVigencia?.value,
-      "31/12/2033",
+      "2033",
     );
   });
 
@@ -51,7 +51,7 @@ describe("P4C document autofill parser", () => {
     assert.equal(patch.cliente.genero?.value, "M");
     assert.equal(
       patch.cliente.identificacionVigencia?.value,
-      "31/12/2033",
+      "2033",
     );
 
     const noLabel = buildInfonavitDocumentAutofillPatch({
@@ -86,7 +86,7 @@ describe("P4C document autofill parser", () => {
     );
     assert.equal(
       mrz.cliente.identificacionVigencia?.value,
-      "31/12/2025",
+      "2025",
     );
 
     const noLabelOrMrz = buildInfonavitDocumentAutofillPatch({
@@ -154,7 +154,7 @@ describe("P4C document autofill parser", () => {
     assert.equal(patch.cliente.genero?.value, "M");
     assert.equal(
       patch.cliente.identificacionVigencia?.value,
-      "31/12/2026",
+      "2026",
     );
     assert.equal(
       patch.issues?.some((issue) => issue.source === "cliente_ine_frente"),
@@ -181,7 +181,7 @@ describe("P4C document autofill parser", () => {
     assert.equal(patch.cliente.genero?.value, "M");
     assert.equal(
       patch.cliente.identificacionVigencia?.value,
-      "31/12/2033",
+      "2033",
     );
   });
 
@@ -237,7 +237,7 @@ describe("P4C document autofill parser", () => {
       ineReverso: "CIC 123456789\nOCR: 0852 0707 8506 4\nIDMEX123456789",
     });
 
-    assert.equal(patch.cliente.identificacionVigencia?.value, "31/12/2035");
+    assert.equal(patch.cliente.identificacionVigencia?.value, "2035");
     assert.equal(patch.cliente.identificacionNumero?.value, "0852070785064");
   });
 
@@ -389,7 +389,7 @@ describe("P4C document autofill parser", () => {
     );
     assert.equal(
       patch.cliente.identificacionVigencia?.value,
-      "31/12/2025",
+      "2025",
     );
   });
 
@@ -477,7 +477,7 @@ describe("P4C document autofill parser", () => {
     assert.equal(patch.cliente.apellidoMaterno, undefined);
     assert.equal(patch.cliente.nombres, undefined);
     assert.equal(patch.cliente.curp, undefined);
-    assert.equal(patch.cliente.identificacionVigencia?.value, "31/12/2033");
+    assert.equal(patch.cliente.identificacionVigencia?.value, "2033");
     assert.ok(
       patch.issues?.some(
         (issue) =>
@@ -555,7 +555,7 @@ describe("P4C document autofill parser", () => {
     );
     assert.equal(
       patch.cliente.identificacionVigencia?.value,
-      "31/12/2030",
+      "2030",
     );
   });
 

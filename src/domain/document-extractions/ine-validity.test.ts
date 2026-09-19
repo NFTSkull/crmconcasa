@@ -31,7 +31,7 @@ describe("INE validity", () => {
       now: NOW,
     });
     assert.equal(result.status, "valid");
-    assert.equal(result.displayVigencia, "31/12/2026");
+    assert.equal(result.displayVigencia, "2026");
     assert.equal(result.canAutoReject, false);
   });
 
@@ -76,7 +76,7 @@ describe("INE validity", () => {
     assert.equal(parseIneMrzValidityDate(reverse), "2025-12-31");
     const result = evaluateIneValidity({ reverseText: reverse, now: NOW });
     assert.equal(result.status, "expired");
-    assert.equal(result.displayVigencia, "31/12/2025");
+    assert.equal(result.displayVigencia, "2025");
     assert.equal(result.canAutoReject, true);
   });
 
@@ -113,7 +113,7 @@ describe("INE validity", () => {
     ].join("\n");
     const result = evaluateIneValidity({ reverseText: reverse, now: NOW });
     assert.equal(result.status, "expired");
-    assert.equal(result.displayVigencia, "17/09/2026");
+    assert.equal(result.displayVigencia, "2026");
     assert.equal(result.canAutoReject, true);
   });
 

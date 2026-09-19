@@ -279,8 +279,8 @@ export function MesaIneValidityGuard({
         data-testid="mesa-ine-validity-guard"
       >
         INE vigente
-        {state.assessment.displayVigencia
-          ? ` · vigencia hasta ${state.assessment.displayVigencia}`
+        {state.assessment.expirationYear
+          ? ` · vigencia ${state.assessment.expirationYear}`
           : ""}
         .
       </div>
@@ -295,8 +295,8 @@ export function MesaIneValidityGuard({
         data-testid="mesa-ine-validity-guard"
       >
         INE vencida · vigencia{" "}
-        {state.assessment.displayVigencia ?? state.assessment.expirationYear}. Se
-        marcó para corrección y el asesor deberá sustituir la credencial vigente.
+        {state.assessment.expirationYear}. Se marcó para corrección y el asesor
+        deberá sustituir la credencial vigente.
       </div>
     );
   }

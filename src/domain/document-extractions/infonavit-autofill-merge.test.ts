@@ -45,7 +45,7 @@ describe("P4C autofill merge", () => {
       cliente: {
         curp: high("PEPL900101HNLRPN09", "cliente_ine_frente"),
         identificacionTipo: high("INE", "cliente_ine_frente"),
-        identificacionVigencia: high("31/12/2033", "cliente_ine_frente"),
+        identificacionVigencia: high("2033", "cliente_ine_frente"),
       },
       vivienda: {
         cp: high("66600", "cliente_comprobante_domicilio"),
