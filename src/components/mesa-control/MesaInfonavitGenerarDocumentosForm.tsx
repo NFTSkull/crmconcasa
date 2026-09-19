@@ -867,8 +867,8 @@ export function MesaInfonavitGenerarDocumentosForm({
               );
             });
 
-          for (let attempt = 0; attempt < 3 && hasCurrentPrecompute(); attempt++) {
-            await new Promise((resolve) => window.setTimeout(resolve, 350));
+          for (let attempt = 0; attempt < 10 && hasCurrentPrecompute(); attempt++) {
+            await new Promise((resolve) => window.setTimeout(resolve, 400));
             if (cancelled) return;
             cachedOcr = await getMesaInfonavitOcrCache(expedienteId);
           }
