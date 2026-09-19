@@ -1073,6 +1073,12 @@ export function MesaInfonavitGenerarDocumentosForm({
     if (!draft.cliente.nss.trim()) missing.push("NSS");
     if (!draft.cliente.nombres.trim()) missing.push("nombre(s)");
     if (!draft.cliente.apellidoPaterno.trim()) missing.push("apellido paterno");
+    if (!draft.cliente.identificacion.numero.trim()) {
+      missing.push("número de identificación INE");
+    }
+    if (!draft.cliente.identificacion.vigencia.trim()) {
+      missing.push("vigencia de la INE");
+    }
     if (!draft.empresa.nombre.trim()) missing.push("empresa/patrón");
     if (!draft.empresa.registroPatronal.trim()) missing.push("registro patronal");
     if (!hasMesaInfonavitDireccionForGenerate(draft.vivienda)) {
