@@ -390,10 +390,10 @@ def _has_readable_ine_validity(text: str) -> bool:
 def _ine_front_validity_year_hint(image: Image.Image) -> str:
     """
     Último recurso seguro para frentes donde se ve VIGENCIA pero Tesseract
-    pierde la etiqueta o los años. Solo emite un hint si detecta dos años
-    plausibles 20xx en la zona inferior derecha de la credencial.
+    pierde la etiqueta o los años. Primero aísla la credencial para que una INE
+    pequeña dentro de una foto de celular no pierda la línea inferior.
     """
-    base = ImageOps.exif_transpose(image).convert("L")
+    base = _ine_card_crop(image).convert("L")
     width, height = base.size
     if width < 8 or height < 8:
         return ""
@@ -431,18 +431,26 @@ def _ine_front_validity_year_hint(image: Image.Image) -> str:
     years = []
     for match in re.findall(r"20\d{2}", raw):
         year = int(match)
-        if 2020 <= year <= 2050 and year not in years:
+        # Credenciales aún vigentes pueden haberse emitido antes de 2020
+        # (p. ej. EMISIÓN 2017 · VIGENCIA 2027). El primer año puede ser
+        # histórico; el segundo sí debe ser una vigencia plausible.
+        if 2000 <= year <= 2050 and year not in years:
             years.append(year)
 
     if len(years) < 2:
         return ""
 
-    # INE imprime emisión/inicio y fin de vigencia; el segundo no debe ser
-    # anterior al primero ni absurdamente lejano.
-    first, second = years[0], years[1]
-    if second < first or second - first > 15:
-        return ""
-    return f"VIGENCIA {first} {second}"
+    # INE imprime emisión/inicio y fin de vigencia; tomamos el primer par
+    # cronológico razonable cuya vigencia final sea 2020+.
+    for idx, first in enumerate(years[:-1]):
+        for second in years[idx + 1:]:
+            if (
+                2020 <= second <= 2050
+                and second >= first
+                and second - first <= 15
+            ):
+                return f"VIGENCIA {first} {second}"
+    return ""
 
 
 def _ine_front_validity_focus_text(image: Image.Image) -> str:
@@ -450,7 +458,7 @@ def _ine_front_validity_focus_text(image: Image.Image) -> str:
     Pase dirigido a la zona donde INE imprime VIGENCIA.
     Trabaja sobre copia normalizada; nunca modifica el archivo original.
     """
-    base = ImageOps.exif_transpose(image).convert("RGB")
+    base = _ine_card_crop(image).convert("RGB")
     width, height = base.size
     if width <= 0 or height <= 0:
         return ""
