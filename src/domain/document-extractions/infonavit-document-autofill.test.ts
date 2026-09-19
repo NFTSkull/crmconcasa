@@ -381,6 +381,75 @@ describe("P4C document autofill parser", () => {
     );
   });
 
+
+
+  it("INE conserva ROJAS y CURP de Generales cuando OCR corrompe un componente", () => {
+    const patch = buildInfonavitDocumentAutofillPatch(
+      {
+        ineFrente: [
+          "INSTITUTO NACIONAL ELECTORAL",
+          "NOMBRE",
+          "S.",
+          "ALONZO",
+          "REYNARIO",
+          "DOMICILIO",
+          "C GUADALUPE 556",
+          "COL NUEVA ESPERANZA 66064",
+          "GRAL ESCOBEDO N.L.",
+          "CURP",
+          "ROAR681003HNLILYO7",
+          "SEXO H",
+          "VIGENCIA 2023 2033",
+        ].join("\n"),
+      },
+      {
+        expectedClienteNombre: "REYNARIO ROJAS ALONZO",
+        expectedCurp: "ROAR681003HNLJLY07",
+      },
+    );
+
+    assert.equal(patch.cliente.apellidoPaterno, undefined);
+    assert.equal(patch.cliente.apellidoMaterno?.value, "ALONZO");
+    assert.equal(patch.cliente.nombres?.value, "REYNARIO");
+    assert.equal(patch.cliente.curp, undefined);
+    assert.equal(patch.cliente.identificacionVigencia?.value, "31/12/2033");
+    assert.ok(
+      patch.issues?.some(
+        (issue) =>
+          issue.source === "cliente_ine_frente" &&
+          issue.message.includes("CURP"),
+      ),
+    );
+  });
+
+  it("CFE usa domicilio del cliente aunque OCR pierda el encabezado CFE", () => {
+    const patch = buildInfonavitDocumentAutofillPatch({
+      comprobanteDomicilio: [
+        "Av. Paseo de la Reforma 164, Col. Juárez,",
+        "Alcaldía: Cuauhtémoc, Código Postal: 06600,",
+        "Ciudad de México.",
+        "ROJAS A REYNARIO",
+        "GUADALUPE 556",
+        "MONTERREY E ITURBIDE",
+        "NVA ESPERANZAC.P.66064",
+        "ESCOBEDO,N.L.",
+        "NO. DE SERVICIO:414000300534",
+        "RMU:66064 00-03-01 XAXX-010101 019 CFE",
+      ].join("\n"),
+    });
+
+    assert.equal(patch.vivienda.calle?.value, "GUADALUPE");
+    assert.equal(patch.vivienda.noExt?.value, "556");
+    assert.equal(patch.vivienda.colonia?.value, "NVA ESPERANZA");
+    assert.equal(patch.vivienda.cp?.value, "66064");
+    assert.equal(patch.vivienda.municipio?.value, "GENERAL ESCOBEDO");
+    assert.equal(patch.vivienda.entidad?.value, "NUEVO LEÓN");
+    assert.doesNotMatch(
+      patch.vivienda.direccionCompleta?.value ?? "",
+      /PASEO DE LA REFORMA|06600|CUAUHTEMOC/i,
+    );
+  });
+
   it("comprobante extrae domicilio de bloque con CP", () => {
     const patch = buildInfonavitDocumentAutofillPatch({
       comprobanteDomicilio: [
