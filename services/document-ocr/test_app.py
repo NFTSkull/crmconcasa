@@ -261,7 +261,8 @@ def test_ine_front_runs_focused_validity_pass_when_general_ocr_misses_year(monke
     text = ocr_image(image, "cliente_ine_frente")
 
     assert "VIGENCIA 2016 - 2026" in text
-    assert len(calls) >= 2
+    # Solo una lectura completa; la vigencia faltante se resuelve con crop focalizado.
+    assert len(calls) == 1
 
 
 def test_ine_front_skips_focused_pass_when_year_is_already_readable(monkeypatch):
