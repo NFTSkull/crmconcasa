@@ -52,6 +52,23 @@ describe("P4B clabe-bank-statement parser", () => {
     if (r.status === "detected") assert.equal(r.clabe, VALID_A);
   });
 
+  it("estado de cuenta real: No. Cuenta CLABE segmentada → detected", () => {
+    const text = [
+      "Estado de Cuenta Libretón Básico Cuenta Digital",
+      "R.F.C AAMJ830601DZ6",
+      "No. Cuenta CLABE 012 700 01524466095 8",
+      "Sucursal 5104",
+      "Plaza Sendero San Luis Potosi",
+    ].join("\n");
+
+    const r = detectClabeFromBankStatementText(text);
+    assert.equal(r.status, "detected");
+    if (r.status === "detected") {
+      assert.equal(r.clabe, "012700015244660958");
+      assert.equal(r.checksumValid, true);
+    }
+  });
+
   it("4. checksum inválido → not_found", () => {
     const text = `CLABE ${INVALID_CS}\n`.repeat(3);
     assert.equal(isValidClabeMexico(INVALID_CS), false);
