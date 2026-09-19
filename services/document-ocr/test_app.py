@@ -720,6 +720,33 @@ def test_bank_statement_layout_focus_recovers_banorte_clabe(monkeypatch):
     assert _has_clabe_like_candidate(text) is True
 
 
+def test_banorte_nomina_summary_integral_split_columns_is_reliable():
+    text = "\n".join(
+        [
+            "ESTADO DE CUENTA BANORTE",
+            "MAYRA ALEJANDRA SALAS MALDONADO",
+            "RESUMEN INTEGRAL",
+            "Producto",
+            "No. de Cuenta",
+            "CLABE",
+            "NOMINA BANORTE SIN CHEQUERA",
+            "1358474929",
+            "072 580 013584749296",
+            "TOTAL",
+            "DETALLE",
+            "Referencia 137813104029612820",
+            "Referencia 124180701256427037",
+            "Referencia 002813905458882610",
+            "Referencia 638180010131594330",
+            "Referencia 722969012054199222",
+            "Referencia 638180010131993876",
+        ]
+    )
+
+    assert _clabe_checksum_valid("072580013584749296")
+    assert _has_clabe_like_candidate(text) is True
+
+
 def test_banorte_real_row_is_one_reliable_clabe():
     text = "\n".join(
         [

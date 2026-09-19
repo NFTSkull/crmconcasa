@@ -119,6 +119,48 @@ function validClabesInFragment(fragment: string): string[] {
 }
 
 /**
+ * Banorte suele imprimir la CLABE dentro de "RESUMEN INTEGRAL", pero PDF/OCR
+ * puede separar encabezados y valores en varios renglones:
+ *   Producto
+ *   No. de Cuenta
+ *   CLABE
+ *   NOMINA BANORTE SIN CHEQUERA
+ *   1358474929
+ *   072 580 013584749296
+ *
+ * Acotamos la regla a Banorte + RESUMEN INTEGRAL y exigimos checksum + código
+ * bancario 072. Así no elegimos números de movimientos o referencias.
+ */
+function collectBanorteSummaryIntegralClabeCandidates(text: string): string[] {
+  const lines = String(text ?? "")
+    .split(/\r?\n/)
+    .map((line) => line.trim())
+    .filter(Boolean);
+  const normalized = normalizedBankText(text);
+  if (!/\bBANORTE\b/i.test(normalized)) return [];
+  if (!/\bRESUMEN\s+INTEGRAL\b/i.test(normalized)) return [];
+
+  const out = new Set<string>();
+  for (let i = 0; i < lines.length; i++) {
+    if (!/\bCLABE\b/i.test(lines[i]!)) continue;
+
+    const sectionStart = Math.max(0, i - 8);
+    const sectionEnd = Math.min(lines.length, i + 10);
+    const section = lines.slice(sectionStart, sectionEnd).join(" ");
+    if (!/\bRESUMEN\s+INTEGRAL\b/i.test(section)) continue;
+    if (!/\bBANORTE\b/i.test(section)) continue;
+
+    const rowWindow = lines
+      .slice(i + 1, Math.min(lines.length, i + 9))
+      .join(" ");
+    for (const value of validClabesInFragment(rowWindow)) {
+      if (value.startsWith("072")) out.add(value);
+    }
+  }
+  return [...out];
+}
+
+/**
  * Extrae primero candidatos realmente asociados a una fila/etiqueta CLABE.
  * Soporta:
  *   "CLABE 072 580 ..."
@@ -334,6 +376,27 @@ export function detectClabeFromBankStatementText(
   }
 
   const bankCodes = detectBankCodeHints(trimmed);
+
+  const banorteSummary =
+    collectBanorteSummaryIntegralClabeCandidates(trimmed);
+  if (banorteSummary.length === 1) {
+    return {
+      status: "detected",
+      clabe: banorteSummary[0]!,
+      checksumValid: true,
+      candidateCount: 1,
+      confidence: "high",
+      reason: "clabe_label_nearby",
+    };
+  }
+  if (banorteSummary.length >= 2) {
+    return {
+      status: "ambiguous",
+      candidates: banorteSummary,
+      candidateCount: banorteSummary.length,
+    };
+  }
+
   const strict = collectStrictLabeledClabeCandidates(trimmed);
   const strictFiltered = chooseByBankHint(strict, bankCodes);
 

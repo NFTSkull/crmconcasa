@@ -121,6 +121,39 @@ describe("P4B clabe-bank-statement parser", () => {
     }
   });
 
+  it("Banorte nómina: RESUMEN INTEGRAL separado por columnas elige la CLABE visible", () => {
+    const correct = "072580013584749296";
+    assert.equal(isValidClabeMexico(correct), true);
+
+    const text = [
+      "ESTADO DE CUENTA BANORTE",
+      "MAYRA ALEJANDRA SALAS MALDONADO",
+      "RESUMEN INTEGRAL",
+      "Producto",
+      "No. de Cuenta",
+      "CLABE",
+      "NOMINA BANORTE SIN CHEQUERA",
+      "1358474929",
+      "072 580 013584749296",
+      "TOTAL",
+      "DETALLE",
+      "Referencia 137813104029612820",
+      "Referencia 124180701256427037",
+      "Referencia 002813905458882610",
+      "Referencia 638180010131594330",
+      "Referencia 722969012054199222",
+      "Referencia 638180010131993876",
+    ].join("\n");
+
+    const result = detectClabeFromBankStatementText(text);
+    assert.equal(result.status, "detected");
+    if (result.status === "detected") {
+      assert.equal(result.clabe, correct);
+      assert.equal(result.candidateCount, 1);
+      assert.equal(result.checksumValid, true);
+    }
+  });
+
   it("Banorte: prioriza CLABE de la fila exacta aunque exista otra CLABE válida", () => {
     const correct = "072580013691192354";
     const wrongButChecksumValid = "012180015250829604";
