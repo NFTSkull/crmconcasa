@@ -181,8 +181,8 @@ export function parseExplicitIneValidityYear(frontText: string): number | null {
 
 /**
  * Respaldo de lectura. El MRZ puede contener una fecha técnica, pero para la
- * vigencia operativa usamos únicamente su año y lo llevamos a 31/12, igual que
- * la vigencia visible de la credencial. Nunca auto-rechaza por sí solo.
+ * vigencia mostrada/capturada usamos únicamente su año, igual que la vigencia
+ * visible de la credencial.
  */
 export function parseIneMrzValidityYear(reverseText: string): number | null {
   const date = parseIneMrzValidityDate(reverseText);
