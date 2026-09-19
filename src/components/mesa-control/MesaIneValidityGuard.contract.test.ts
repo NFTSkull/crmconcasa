@@ -36,10 +36,14 @@ describe("Mesa INE validity guard contract", () => {
     assert.match(guard, /hasProtectedStatus/);
   });
 
-  it("si cache OCR no trae vigencia, fuerza una lectura fresca antes de rendirse", () => {
+  it("si cache OCR no trae vigencia, refresca sin duplicar la lectura central", () => {
     assert.match(guard, /frontRead\.fromCache/);
     assert.match(guard, /readFreshText/);
-    assert.match(guard, /ine-validity-fresh-v2/);
+    assert.match(
+      guard,
+      /document-ocr:\$\{doc\.id\}:\$\{type\}:critical-v3/,
+    );
+    assert.doesNotMatch(guard, /ine-validity-fresh-v2/);
   });
 
   it("si OCR/MRZ es dudoso pide revisión manual en vez de rechazar", () => {
