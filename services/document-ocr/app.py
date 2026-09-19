@@ -1032,16 +1032,23 @@ def _best_ine_orientation(
     image: Image.Image,
     document_type: str,
     current_text: str,
+    *,
+    exhaustive: bool = False,
 ) -> tuple[Image.Image, int]:
     base = ImageOps.exif_transpose(image)
     current_score = _ine_orientation_score(current_text, document_type)
     best_score = current_score
     best_degrees = 0
 
-    # Una credencial físicamente vertical solo necesita probar 90/270.
-    # Una ya horizontal únicamente puede estar al revés (180). Evitamos tres
-    # Tesseract probes por caso.
-    candidates = (90, 270) if base.height > base.width * 1.05 else (180,)
+    # La primera pasada conserva la heurística barata por proporción. Si la
+    # lectura primaria quedó sin marcadores confiables hacemos un retry
+    # exhaustivo: una foto puede ser horizontal aunque la credencial esté
+    # físicamente de lado (mucho fondo alrededor o crop conservador), y en ese
+    # caso probar solo 180 jamás recupera 90/270.
+    if exhaustive:
+        candidates = (90, 180, 270)
+    else:
+        candidates = (90, 270) if base.height > base.width * 1.05 else (180,)
 
     for degrees in candidates:
         rotated = base.rotate(degrees, expand=True)
@@ -1091,7 +1098,10 @@ def ocr_image(image: Image.Image, document_type: str) -> str:
         and _ine_orientation_score(primary_text, document_type) < 5
     ):
         oriented, degrees = _best_ine_orientation(
-            working, document_type, primary_text
+            working,
+            document_type,
+            primary_text,
+            exhaustive=True,
         )
         if degrees:
             working = oriented
@@ -1205,7 +1215,7 @@ def extract_document_text(data: bytes, mime: str, document_type: str) -> tuple[s
 
 @app.get("/health")
 def health() -> dict:
-    return {"ok": True, "service": "document-ocr", "version": "1.4.0"}
+    return {"ok": True, "service": "document-ocr", "version": "1.4.1"}
 
 
 @app.post("/v1/extract")
