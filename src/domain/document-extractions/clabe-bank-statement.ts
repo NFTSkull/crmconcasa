@@ -86,7 +86,7 @@ function normalizedBankText(raw: string): string {
   return String(raw ?? "")
     .toLocaleUpperCase("es-MX")
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, " ")
+    .replace(/[\u0300-\u036f]/g, "")
     .replace(/\s+/g, " ")
     .trim();
 }
