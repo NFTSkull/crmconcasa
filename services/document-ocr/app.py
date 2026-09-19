@@ -473,7 +473,7 @@ def _ine_reverse_mrz_focus_text(image: Image.Image) -> str:
 
 
 def _ine_vigencia_years(text: str) -> list[int]:
-    """Años 20xx anclados al bloque VIGENCIA (no de todo el documento)."""
+    """Años 20xx anclados al bloque VIGENCIA (completitud OCR; no validación final)."""
     normalized = (text or "").upper().replace("O", "0")
     if "VIGENCIA" not in normalized:
         return []
@@ -482,7 +482,9 @@ def _ine_vigencia_years(text: str) -> list[int]:
     years: list[int] = []
     for match in re.findall(r"20\d{2}", block):
         year = int(match)
-        if 2020 <= year <= 2050 and year not in years:
+        # Incluye años de inicio del rango (p. ej. 2016 en 2016-2026).
+        # El año final válido lo deciden los parsers TS (umbral distinto).
+        if 2000 <= year <= 2050 and year not in years:
             years.append(year)
     return years
 

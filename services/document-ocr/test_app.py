@@ -13,6 +13,8 @@ from app import (
     _ine_front_validity_year_hint,
     _ine_card_crop,
     _ine_reverse_mrz_focus_text,
+    _ine_vigencia_years,
+    _needs_ine_validity_enrichment,
     _has_clabe_like_candidate,
     _bank_statement_clabe_focus_text,
     _strict_labeled_clabe_candidates,
@@ -284,6 +286,20 @@ def test_ine_front_skips_focused_pass_when_year_is_already_readable(monkeypatch)
 
     text = ocr_image(image, "cliente_ine_frente")
     assert "2026" in text
+
+
+def test_ine_vigencia_years_counts_pre_2020_start_of_range():
+    """
+    Completitud OCR: 2016 en 'VIGENCIA 2016 - 2026' cuenta (rango completo).
+    No aplica el umbral 2020 de los parsers TS de año final.
+    """
+    assert _ine_vigencia_years("VIGENCIA 2016 - 2026") == [2016, 2026]
+    assert _ine_vigencia_years("VIGENCIA 2017 - 2027") == [2017, 2027]
+    assert _ine_vigencia_years("VIGENCIA 2024 - 2034") == [2024, 2034]
+    assert _needs_ine_validity_enrichment("VIGENCIA 2016 - 2026") is False
+    assert _needs_ine_validity_enrichment("VIGENCIA 2017 - 2027") is False
+    assert _needs_ine_validity_enrichment("VIGENCIA 2024 - 2034") is False
+    assert _needs_ine_validity_enrichment("VIGENCIA 2024") is True
 
 
 def test_ine_validity_hint_accepts_pre_2020_emission_with_current_expiry(monkeypatch):
