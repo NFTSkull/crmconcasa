@@ -52,8 +52,10 @@ export type MesaInfonavitSourceDocumentPreviewProps = Readonly<{
   preferModal?: boolean;
   /** Incrementar para abrir en grande el documento correspondiente al contexto actual. */
   forceOpenSignal?: number;
-  /** Permite que botones externos pidan INE frente o reverso. */
+  /** Permite que botones/campos externos pidan INE frente o reverso. */
   requestedIneSide?: "frente" | "reverso" | null;
+  /** Cambia en cada solicitud para reaplicar el lado aunque sea el mismo valor. */
+  requestedIneSideVersion?: number;
   /** CLABE ya aplicada por el formulario; evita que el panel shadow muestre un estado contradictorio. */
   clabeAppliedValue?: string | null;
 }>;
@@ -78,6 +80,7 @@ export function MesaInfonavitSourceDocumentPreview({
   className,
   forceOpenSignal,
   requestedIneSide,
+  requestedIneSideVersion,
   clabeAppliedValue,
 }: MesaInfonavitSourceDocumentPreviewProps) {
   const archivosRepo = useExpedienteArchivosRepo();
@@ -151,7 +154,10 @@ export function MesaInfonavitSourceDocumentPreview({
   useEffect(() => {
     if (context !== "identidad" || !requestedIneSide) return;
     setIneSide(requestedIneSide);
-  }, [context, requestedIneSide]);
+    // Cada solicitud externa abre el lado pedido en una vista limpia y navegable.
+    setInlineIneZoom(1);
+    setInlineIneRotation(0);
+  }, [context, requestedIneSide, requestedIneSideVersion]);
 
   const activeKind = useMemo(
     () =>
@@ -599,8 +605,10 @@ export function MesaInfonavitSourceDocumentPreview({
         ) : isArchivoPreviewImageMime(preview.mime_type) ? (
           isInlineIneImage ? (
             <div
-              className="h-[min(60vh,640px)] w-full overflow-auto rounded bg-gray-50"
+              className="h-[min(60vh,640px)] w-full overflow-auto overscroll-contain rounded bg-gray-50"
               data-testid="infonavit-inline-ine-image"
+              tabIndex={0}
+              aria-label="INE ampliable; usa zoom y desplázate dentro de esta área"
             >
               {/*
                 Zoom 100%: wrapper = viewport; img max-w/h 100% + object-contain
