@@ -279,7 +279,7 @@ def test_clabe_like_candidate_accepts_segmented_real_format():
     )
 
 
-def test_ine_front_adds_name_focus_when_general_name_is_truncated(monkeypatch):
+def test_ine_front_does_not_run_extra_name_focus(monkeypatch):
     image = Image.new("RGB", (1200, 760), "white")
 
     monkeypatch.setattr(
@@ -289,15 +289,17 @@ def test_ine_front_adds_name_focus_when_general_name_is_truncated(monkeypatch):
             "CURP AAMJ830601HMCNRN09\nSEXO H\nVIGENCIA 2020 2030"
         ),
     )
+
+    def unexpected_name_focus(*args, **kwargs):
+        raise AssertionError("name focus should not run")
+
     monkeypatch.setattr(
         "app._ine_front_name_focus_text",
-        lambda *args, **kwargs: "NOMBRE\nANZALDO\nMARTINEZ\nJUAN MANUEL",
+        unexpected_name_focus,
     )
 
     text = ocr_image(image, "cliente_ine_frente")
 
-    assert "ANZALDO" in text
-    assert "JUAN MANUEL" in text
     assert "VIGENCIA 2020 2030" in text
 
 

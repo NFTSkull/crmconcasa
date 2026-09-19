@@ -276,20 +276,15 @@ function documentMatchesExpectedName(
   return matches >= Math.min(2, tokens.length);
 }
 
-function personComponentMatchesExpected(
-  candidate: string,
-  expectedName: string | null | undefined,
+function completeIneNameMatchesExpected(
+  detected: string,
+  expected: string,
 ): boolean {
-  if (!expectedName?.trim()) return true;
-  const expectedTokens = new Set(significantNameTokens(expectedName));
-  const candidateTokens = significantNameTokens(candidate);
-  if (candidateTokens.length > 0) {
-    return candidateTokens.every((token) => expectedTokens.has(token));
-  }
-
-  // Fragmentos muy cortos como "DO" (OCR de ANZALDO) no prueban identidad:
-  // pueden aparecer dentro de un apellido correcto y provocar un reemplazo malo.
-  return false;
+  const detectedTokens = significantNameTokens(detected).sort();
+  const expectedTokens = significantNameTokens(expected).sort();
+  if (detectedTokens.length < 3 || expectedTokens.length < 2) return true;
+  if (detectedTokens.length !== expectedTokens.length) return false;
+  return detectedTokens.every((token, index) => token === expectedTokens[index]);
 }
 
 function normalizeCurpCandidate(raw: string | null | undefined): string {
@@ -373,7 +368,8 @@ function parseIne(
   expectedCurp?: string | null,
 ): Readonly<{
   cliente: InfonavitDocumentAutofillPatch["cliente"];
-  frontNameRejected: boolean;
+  frontNameMismatch: boolean;
+  detectedFrontName: string | null;
   frontCurpRejected: boolean;
 }> {
   const out: {
@@ -386,74 +382,32 @@ function parseIne(
     identificacionNumero?: AutofillValue;
     identificacionVigencia?: AutofillValue;
   } = {};
-  let frontNameRejected = false;
+  let frontNameMismatch = false;
+  let detectedFrontName: string | null = null;
   let frontCurpRejected = false;
 
   if (front.trim()) {
+    // El nombre capturado en Datos Generales es la fuente operativa.
+    // La INE solo se compara cuando las tres partes se leyeron completas;
+    // nunca se usa para sobrescribir nombres/apellidos.
     const name = parseIneNameBlock(front);
-    const parsedNameParts = [
-      name.nombres,
-      name.apellidoPaterno,
-      name.apellidoMaterno,
-    ].filter((value): value is string => Boolean(value));
-    if (parsedNameParts.length >= 2) {
-      const parsedFullName = parsedNameParts.join(" ");
-      const nameMatchesExpected =
-        !expectedName ||
-        documentMatchesExpectedName(parsedFullName, expectedName);
-
-      if (nameMatchesExpected) {
-        const componentCandidates = [
-          {
-            value: name.nombres,
-            apply: (value: string) => {
-              out.nombres = high(
-                value,
-                "cliente_ine_frente",
-                "ine_nombre_block",
-              );
-            },
-          },
-          {
-            value: name.apellidoPaterno,
-            apply: (value: string) => {
-              out.apellidoPaterno = high(
-                value,
-                "cliente_ine_frente",
-                "ine_nombre_block",
-              );
-            },
-          },
-          {
-            value: name.apellidoMaterno,
-            apply: (value: string) => {
-              out.apellidoMaterno = high(
-                value,
-                "cliente_ine_frente",
-                "ine_nombre_block",
-              );
-            },
-          },
-        ];
-
-        for (const component of componentCandidates) {
-          if (!component.value) {
-            if (expectedName) frontNameRejected = true;
-            continue;
-          }
-          if (personComponentMatchesExpected(component.value, expectedName)) {
-            component.apply(component.value);
-          } else {
-            // Dos partes correctas no autorizan a sobrescribir una tercera
-            // claramente dañada por OCR (ej. ROJAS -> "S").
-            frontNameRejected = true;
-          }
-        }
-      } else {
-        // Nunca sustituir un nombre correcto de Generales con ruido OCR del INE.
-        // El reverso/MRZ todavía puede aportar identidad si sí coincide.
-        frontNameRejected = true;
-      }
+    if (
+      name.nombres &&
+      name.apellidoPaterno &&
+      name.apellidoMaterno &&
+      significantNameTokens(name.nombres).length > 0 &&
+      significantNameTokens(name.apellidoPaterno).length > 0 &&
+      significantNameTokens(name.apellidoMaterno).length > 0
+    ) {
+      detectedFrontName = [
+        name.nombres,
+        name.apellidoPaterno,
+        name.apellidoMaterno,
+      ].join(" ");
+      frontNameMismatch = Boolean(
+        expectedName &&
+          !completeIneNameMatchesExpected(detectedFrontName, expectedName),
+      );
     }
 
     const curp = parseCurp(front);
@@ -465,8 +419,6 @@ function parseIne(
         expectedCurpNormalized.length === 18 &&
         expectedCurpNormalized !== detectedCurpNormalized
       ) {
-        // CURP es un identificador exacto: si OCR difiere de un valor ya
-        // capturado, no lo reemplazamos silenciosamente.
         frontCurpRejected = true;
       } else {
         out.curp = high(curp, "cliente_ine_frente", "ine_curp_regex");
@@ -500,86 +452,51 @@ function parseIne(
   }
 
   const mrz = parseIneMrz(reverse);
-  const mrzName = [
-    mrz.nombres,
-    mrz.apellidoPaterno,
-    mrz.apellidoMaterno,
-  ]
-    .filter(Boolean)
-    .join(" ");
-  const reverseMatches =
-    !expectedName ||
-    (mrzName
-      ? documentMatchesExpectedName(mrzName, expectedName)
-      : documentMatchesExpectedName(reverse, expectedName));
   const identificationNumber = parseIneIdentificationNumber(reverse);
   const mrzValidityDate = parseIneMrzValidityDate(reverse);
-  const hasStructuredReverseIdentity =
-    identificationNumber !== null && mrzValidityDate !== null;
-  // El OCR del reverso puede leer perfectamente MRZ/T7 y perder la línea de
-  // nombre. No descartamos esos dos campos estructurados solo por esa pérdida,
-  // siempre que el frente no haya demostrado pertenecer a otra persona.
-  const structuredReverseTrusted =
-    reverseMatches || (!frontNameRejected && hasStructuredReverseIdentity);
 
-  if (reverseMatches) {
-    if (!out.nombres && mrz.nombres) {
-      out.nombres = high(
-        mrz.nombres,
-        "cliente_ine_reverso",
-        "ine_mrz_name",
-      );
-    }
-    if (!out.apellidoPaterno && mrz.apellidoPaterno) {
-      out.apellidoPaterno = high(
-        mrz.apellidoPaterno,
-        "cliente_ine_reverso",
-        "ine_mrz_name",
-      );
-    }
-    if (!out.apellidoMaterno && mrz.apellidoMaterno) {
-      out.apellidoMaterno = high(
-        mrz.apellidoMaterno,
-        "cliente_ine_reverso",
-        "ine_mrz_name",
-      );
-    }
-    if (!out.genero && mrz.genero) {
-      out.genero = {
-        value: mrz.genero,
-        source: "cliente_ine_reverso",
-        confidence: "high",
-        rule: "ine_mrz_gender",
-      };
-    }
-    if (!out.identificacionVigencia && mrz.vigencia) {
-      out.identificacionVigencia = high(
-        mrz.vigencia,
-        "cliente_ine_reverso",
-        "ine_mrz_expiry",
-      );
-    }
+  // El reverso es la fuente del número de identificación. El T7 es independiente
+  // de que la fecha MRZ o el nombre también hayan sido leídos correctamente.
+  if (!out.genero && mrz.genero) {
+    out.genero = {
+      value: mrz.genero,
+      source: "cliente_ine_reverso",
+      confidence: "high",
+      rule: "ine_mrz_gender",
+    };
   }
 
-  if (structuredReverseTrusted) {
-    if (!out.identificacionVigencia && mrzValidityDate) {
-      const [year, month, day] = mrzValidityDate.split("-");
-      out.identificacionVigencia = high(
-        `${day}/${month}/${year}`,
-        "cliente_ine_reverso",
-        "ine_mrz_expiry",
-      );
-    }
-    if (identificationNumber) {
-      out.identificacionNumero = high(
-        identificationNumber.value,
-        "cliente_ine_reverso",
-        identificationNumber.rule,
-      );
-    }
+  if (!out.identificacionVigencia && mrz.vigencia) {
+    out.identificacionVigencia = high(
+      mrz.vigencia,
+      "cliente_ine_reverso",
+      "ine_mrz_expiry",
+    );
   }
 
-  return { cliente: out, frontNameRejected, frontCurpRejected };
+  if (!out.identificacionVigencia && mrzValidityDate) {
+    const [year, month, day] = mrzValidityDate.split("-");
+    out.identificacionVigencia = high(
+      `${day}/${month}/${year}`,
+      "cliente_ine_reverso",
+      "ine_mrz_expiry",
+    );
+  }
+
+  if (identificationNumber) {
+    out.identificacionNumero = high(
+      identificationNumber.value,
+      "cliente_ine_reverso",
+      identificationNumber.rule,
+    );
+  }
+
+  return {
+    cliente: out,
+    frontNameMismatch,
+    detectedFrontName,
+    frontCurpRejected,
+  };
 }
 
 const NL_MUNICIPALITIES = [
@@ -1203,14 +1120,15 @@ export function buildInfonavitDocumentAutofillPatch(
 
   const issues: AutofillDocumentIssue[] = [];
   if (
-    ine.frontNameRejected &&
-    !(cliente.nombres && cliente.apellidoPaterno && cliente.apellidoMaterno)
+    ine.frontNameMismatch &&
+    ine.detectedFrontName &&
+    expectedName?.trim()
   ) {
     issues.push({
       source: "cliente_ine_frente",
-      code: "low_confidence",
+      code: "subject_mismatch",
       message:
-        "La INE no permitió leer el nombre con suficiente confianza; se conservaron los datos correctos de Datos Generales para no reemplazarlos con ruido OCR.",
+        `La INE parece mostrar “${ine.detectedFrontName}”, diferente al nombre de Datos Generales “${expectedName}”. No se modificó el nombre; revísalo manualmente si hace falta.`,
     });
   }
   if (ine.frontCurpRejected) {

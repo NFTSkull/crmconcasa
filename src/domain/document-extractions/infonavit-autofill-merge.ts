@@ -114,25 +114,9 @@ export function mergeInfonavitDocumentAutofill<T extends InfonavitAutofillTarget
     sourceByField[field] = sourceLabel;
   };
 
-  merge("cliente.nombres", next.cliente.nombres, patch.cliente.nombres, (v) => {
-    next.cliente.nombres = v;
-  });
-  merge(
-    "cliente.apellidoPaterno",
-    next.cliente.apellidoPaterno,
-    patch.cliente.apellidoPaterno,
-    (v) => {
-      next.cliente.apellidoPaterno = v;
-    },
-  );
-  merge(
-    "cliente.apellidoMaterno",
-    next.cliente.apellidoMaterno,
-    patch.cliente.apellidoMaterno,
-    (v) => {
-      next.cliente.apellidoMaterno = v;
-    },
-  );
+  // Nombres y apellidos nunca se modifican automáticamente desde OCR/INE.
+  // Datos Generales permanece como fuente; cualquier diferencia se reporta
+  // como sugerencia/issue desde el parser.
   merge("cliente.curp", next.cliente.curp, patch.cliente.curp, (v) => {
     next.cliente.curp = v;
   });

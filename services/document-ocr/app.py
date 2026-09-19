@@ -676,11 +676,6 @@ def ocr_image(image: Image.Image, document_type: str) -> str:
                 parts.append(focused)
                 combined = "\n".join(part for part in parts if part).strip()
 
-        if not _ine_front_name_block_looks_complete(combined):
-            focused_name = _ine_front_name_focus_text(working)
-            if focused_name:
-                parts.append(focused_name)
-
     if document_type == "cliente_ine_reverso":
         combined = "\n".join(part for part in parts if part).strip()
         if not _ine_reverse_has_structured_mrz(combined):
