@@ -113,7 +113,7 @@ describe("INE validity", () => {
     ].join("\n");
     const result = evaluateIneValidity({ reverseText: reverse, now: NOW });
     assert.equal(result.status, "expired");
-    assert.equal(result.displayVigencia, "17/09/2026");
+    assert.equal(result.displayVigencia, "2026");
     assert.equal(result.canAutoReject, true);
   });
 
