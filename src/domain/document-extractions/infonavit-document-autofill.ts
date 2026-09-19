@@ -116,41 +116,78 @@ function parseIneNameBlock(text: string): {
   nombres?: string;
 } {
   const lines = normalizedLines(text);
-  const idx = lines.findIndex((line) => /^NOMBRE(?:S)?\b/.test(line));
-  if (idx < 0) return {};
+  const indexes = lines
+    .map((line, index) => (/^NOMBRE(?:S)?\b/.test(line) ? index : -1))
+    .filter((index) => index >= 0);
+  if (indexes.length === 0) return {};
 
-  // Mantener posición de los renglones es más seguro que compactarlos:
-  // si OCR lee "ROJAS" como "S.", no queremos desplazar ALONZO a paterno.
-  const slots: Array<string | null> = [];
-  const inlineRaw = lines[idx]!.replace(/^NOMBRE(?:S)?\s*:?-?\s*/i, "");
-  const inline = cleanPersonLine(inlineRaw);
-  if (inlineRaw.trim()) {
-    slots.push(isLikelyPersonLine(inline) ? inline : null);
-  }
+  let best:
+    | {
+        apellidoPaterno?: string;
+        apellidoMaterno?: string;
+        nombres?: string;
+        score: number;
+      }
+    | null = null;
 
-  for (let i = idx + 1; i < Math.min(lines.length, idx + 7); i++) {
-    const line = lines[i]!;
-    if (
-      /^(DOMICILIO|CURP|SEXO|CLAVE\s+DE\s+ELECTOR|VIGENCIA|SECCI[OÓ]N|FECHA\s+DE\s+NACIMIENTO)/i.test(
-        line,
-      )
-    ) {
-      break;
+  for (const idx of indexes) {
+    // Mantener posición de los renglones es más seguro que compactarlos:
+    // si OCR lee ANZALDO como "DO", no desplazamos MARTINEZ a paterno.
+    const slots: Array<string | null> = [];
+    const inlineRaw = lines[idx]!.replace(/^NOMBRE(?:S)?\s*:?-?\s*/i, "");
+    const inline = cleanPersonLine(inlineRaw);
+    if (inlineRaw.trim()) {
+      slots.push(isLikelyPersonLine(inline) ? inline : null);
     }
-    const clean = cleanPersonLine(line);
-    slots.push(isLikelyPersonLine(clean) ? clean : null);
-    if (slots.length >= 4) break;
+
+    for (let i = idx + 1; i < Math.min(lines.length, idx + 7); i++) {
+      const line = lines[i]!;
+      if (
+        /^(DOMICILIO|CURP|SEXO|CLAVE\s+DE\s+ELECTOR|VIGENCIA|SECCI[OÓ]N|FECHA\s+DE\s+NACIMIENTO)/i.test(
+          line,
+        )
+      ) {
+        break;
+      }
+      const clean = cleanPersonLine(line);
+      slots.push(isLikelyPersonLine(clean) ? clean : null);
+      if (slots.length >= 4) break;
+    }
+
+    if (slots.length < 3) continue;
+    const nombres = slots
+      .slice(2)
+      .filter((value): value is string => Boolean(value))
+      .join(" ");
+    const candidate = {
+      ...(slots[0] ? { apellidoPaterno: slots[0] } : {}),
+      ...(slots[1] ? { apellidoMaterno: slots[1] } : {}),
+      ...(nombres ? { nombres } : {}),
+    };
+
+    const values = [
+      candidate.apellidoPaterno,
+      candidate.apellidoMaterno,
+      candidate.nombres,
+    ].filter((value): value is string => Boolean(value));
+    const score =
+      values.length * 100 +
+      values.reduce((sum, value) => sum + alnumComparable(value).length, 0);
+
+    if (!best || score > best.score) {
+      best = { ...candidate, score };
+    }
   }
 
-  if (slots.length < 3) return {};
-  const nombres = slots
-    .slice(2)
-    .filter((value): value is string => Boolean(value))
-    .join(" ");
+  if (!best) return {};
   return {
-    ...(slots[0] ? { apellidoPaterno: slots[0] } : {}),
-    ...(slots[1] ? { apellidoMaterno: slots[1] } : {}),
-    ...(nombres ? { nombres } : {}),
+    ...(best.apellidoPaterno
+      ? { apellidoPaterno: best.apellidoPaterno }
+      : {}),
+    ...(best.apellidoMaterno
+      ? { apellidoMaterno: best.apellidoMaterno }
+      : {}),
+    ...(best.nombres ? { nombres: best.nombres } : {}),
   };
 }
 
