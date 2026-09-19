@@ -85,6 +85,23 @@ describe("P4B clabe-bank-statement parser", () => {
     }
   });
 
+  it("Banorte resumen integral real: detecta 072580004193933444", () => {
+    const text = [
+      "BANORTE",
+      "RESUMEN INTEGRAL",
+      "No. de Cuenta CLABE Saldo anterior",
+      "ROM 0419393344 072 580 00419393344 4 $5,173.85",
+      "CUENTA ENLACE PERSONAL",
+    ].join("\n");
+
+    const result = detectClabeFromBankStatementText(text);
+    assert.equal(result.status, "detected");
+    if (result.status === "detected") {
+      assert.equal(result.clabe, "072580004193933444");
+      assert.equal(result.checksumValid, true);
+    }
+  });
+
   it("Banorte: prioriza CLABE de la fila exacta aunque exista otra CLABE válida", () => {
     const correct = "072580013691192354";
     const wrongButChecksumValid = "012180015250829604";
