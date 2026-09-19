@@ -145,6 +145,55 @@ def adaptive_binary_variant(image: Image.Image) -> Image.Image:
     return Image.fromarray(binary)
 
 
+def _has_readable_ine_validity(text: str) -> bool:
+    normalized = (text or "").upper().replace("O", "0")
+    if "VIGENCIA" not in normalized:
+        return False
+    block = normalized[normalized.index("VIGENCIA"):normalized.index("VIGENCIA") + 120]
+    return re.search(r"20\d{2}", block) is not None
+
+
+def _ine_front_validity_focus_text(image: Image.Image) -> str:
+    """
+    Pase dirigido a la zona donde INE imprime VIGENCIA.
+    Trabaja sobre copia normalizada; nunca modifica el archivo original.
+    """
+    base = ImageOps.exif_transpose(image).convert("RGB")
+    width, height = base.size
+    if width <= 0 or height <= 0:
+        return ""
+
+    regions = [
+        base.crop((0, round(height * 0.48), width, height)),
+        base.crop((round(width * 0.42), round(height * 0.38), width, height)),
+    ]
+
+    parts: list[str] = []
+    for region in regions:
+        gray = region.convert("L")
+        longest = max(gray.size)
+        if longest < 3000:
+            scale = min(6.0, 3000 / max(1, longest))
+            gray = gray.resize(
+                (max(1, round(gray.width * scale)), max(1, round(gray.height * scale))),
+                Image.Resampling.LANCZOS,
+            )
+        gray = ImageOps.autocontrast(gray, cutoff=1)
+        gray = ImageEnhance.Contrast(gray).enhance(1.45)
+        gray = gray.filter(ImageFilter.SHARPEN)
+        text = pytesseract.image_to_string(
+            gray,
+            lang="spa+eng",
+            config="--oem 1 --psm 11 preserve_interword_spaces=1",
+        ).strip()
+        if text:
+            parts.append(text)
+        if _has_readable_ine_validity("\n".join(parts)):
+            break
+
+    return "\n".join(parts).strip()
+
+
 def _ine_orientation_score(text: str, document_type: str) -> int:
     normalized = re.sub(r"[^A-Z0-9<>]+", " ", (text or "").upper())
     if document_type == "cliente_ine_reverso":
@@ -268,6 +317,13 @@ def ocr_image(image: Image.Image, document_type: str) -> str:
                 config="--oem 1 --psm 11 preserve_interword_spaces=1",
             ).strip()
         )
+
+    if document_type == "cliente_ine_frente":
+        combined = "\n".join(part for part in parts if part).strip()
+        if not _has_readable_ine_validity(combined):
+            focused = _ine_front_validity_focus_text(working)
+            if focused:
+                parts.append(focused)
 
     return "\n".join(part for part in parts if part).strip()
 
