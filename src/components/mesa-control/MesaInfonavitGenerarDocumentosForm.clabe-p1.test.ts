@@ -6,6 +6,7 @@ import { join } from "node:path";
 import {
   buildMesaInfonavitGeneratePayload,
   MESA_CLABE_DERECHOHABIENTE_INVALID_MSG,
+  normalizeMesaIneValidityYear,
   parseMesaInfonavitDocumentDraft,
   repairMesaInfonavitClienteNameFromCanonical,
   validateClabeDerechohabienteForGenerate,
@@ -125,6 +126,48 @@ describe("Mesa Infonavit nombre canónico", () => {
 
     const repaired = repairMesaInfonavitClienteNameFromCanonical(draft.cliente);
     assert.equal(repaired, draft.cliente);
+  });
+});
+
+describe("Mesa Infonavit vigencia INE solo año", () => {
+  it("normaliza fechas y rangos a únicamente el año final", () => {
+    assert.equal(normalizeMesaIneValidityYear("31/12/2031"), "2031");
+    assert.equal(normalizeMesaIneValidityYear("2031-12-31"), "2031");
+    assert.equal(normalizeMesaIneValidityYear("2021 - 2031"), "2031");
+    assert.equal(normalizeMesaIneValidityYear("2031"), "2031");
+  });
+
+  it("permite captura manual progresiva de cuatro dígitos", () => {
+    assert.equal(normalizeMesaIneValidityYear("2"), "2");
+    assert.equal(normalizeMesaIneValidityYear("20"), "20");
+    assert.equal(normalizeMesaIneValidityYear("203"), "203");
+    assert.equal(normalizeMesaIneValidityYear("2031"), "2031");
+  });
+
+  it("normaliza vigencia legacy al cargar y al generar", () => {
+    const parsed = parseMesaInfonavitDocumentDraft({
+      cliente: {
+        identificacion: {
+          tipo: "INE",
+          numero: "1786018292055",
+          vigencia: "2031-12-31",
+        },
+      },
+    });
+    assert.equal(parsed.cliente.identificacion.vigencia, "2031");
+
+    const draft = minimalDraft({
+      porcentajeTitulacion: "",
+      clabeNotaria: "",
+      clabeDerechohabiente: "",
+    });
+    draft.cliente.identificacion = {
+      tipo: "INE",
+      numero: "1786018292055",
+      vigencia: "31/12/2031",
+    };
+    const payload = buildMesaInfonavitGeneratePayload(draft);
+    assert.equal(payload.cliente.identificacion.vigencia, "2031");
   });
 });
 
