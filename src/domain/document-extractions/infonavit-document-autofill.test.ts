@@ -184,6 +184,30 @@ describe("P4C document autofill parser", () => {
     assert.equal(patch.cliente.genero?.value, "M");
   });
 
+  it("INE real Cardenas/Blanco: consenso corrige 5316 vs 5310 y evita dato incorrecto", () => {
+    const verified = buildInfonavitDocumentAutofillPatch({
+      ineReverso: [
+        "IDMEX2930763080<<3049078375316",
+        "8907161H3612314MEX<04<<07904<8",
+        "CARDENAS<BLANCO<<JORGE<DAVID<<",
+        "INE_T7_VERIFIED 3049078375310",
+      ].join("\n"),
+    });
+    assert.equal(
+      verified.cliente.identificacionNumero?.value,
+      "3049078375310",
+    );
+
+    const uncertain = buildInfonavitDocumentAutofillPatch({
+      ineReverso: [
+        "IDMEX2930763080<<3049078375316",
+        "IDMEX2930763080<<3049078375310",
+        "INE_T7_UNVERIFIED",
+      ].join("\n"),
+    });
+    assert.equal(uncertain.cliente.identificacionNumero, undefined);
+  });
+
   it("INE T7 tolera un signo < perdido o convertido por OCR", () => {
     const inline = buildInfonavitDocumentAutofillPatch({
       ineReverso: [
