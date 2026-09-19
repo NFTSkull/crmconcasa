@@ -979,6 +979,7 @@ export function MesaInfonavitGenerarDocumentosForm({
 
         const patch = buildInfonavitDocumentAutofillPatch(texts, {
           expectedClienteNombre,
+          expectedCurp: current.cliente.curp,
         });
 
         let mergeBase = current;
