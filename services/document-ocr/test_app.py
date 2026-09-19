@@ -456,3 +456,61 @@ def test_ine_reverse_focus_crops_card_before_mrz(monkeypatch):
 
     assert text.endswith("0795082079976")
     assert seen == [("card", (1200, 800)), ("mrz", (760, 480))]
+
+
+
+def test_ine_reverse_focus_prefers_gray_when_binary_would_destroy_t7(monkeypatch):
+    image = Image.new("RGB", (1200, 800), "gray")
+    card = Image.new("RGB", (760, 480), "white")
+    calls = []
+
+    monkeypatch.setattr("app._ine_card_crop", lambda source: card)
+    monkeypatch.setattr("app._ine_reverse_mrz_crop", lambda source: source)
+
+    def unexpected_binary(*args, **kwargs):
+        raise AssertionError("binary fallback should not run when gray already has T7")
+
+    monkeypatch.setattr("app.adaptive_binary_variant", unexpected_binary)
+
+    def fake_ocr(*args, **kwargs):
+        calls.append(kwargs.get("config", ""))
+        return (
+            "IDMEX22\n"
+            "2197692\n"
+            "4<<1786018292055\n"
+            "6309141H3112319MEX<04<<22078<7"
+        )
+
+    monkeypatch.setattr("app.pytesseract.image_to_string", fake_ocr)
+
+    text = _ine_reverse_mrz_focus_text(image)
+
+    assert "1786018292055" in text.replace("\n", "")
+    assert len(calls) == 1
+    assert "--psm 11" in calls[0]
+
+
+def test_ine_reverse_focus_keeps_binary_as_fallback(monkeypatch):
+    image = Image.new("RGB", (1200, 800), "gray")
+    card = Image.new("RGB", (760, 480), "white")
+    reads = iter(
+        [
+            "IDMEX2221976924",
+            "IDMEX2221976924<<1786018292055",
+        ]
+    )
+
+    monkeypatch.setattr("app._ine_card_crop", lambda source: card)
+    monkeypatch.setattr("app._ine_reverse_mrz_crop", lambda source: source)
+    monkeypatch.setattr(
+        "app.adaptive_binary_variant",
+        lambda source: source.convert("L"),
+    )
+    monkeypatch.setattr(
+        "app.pytesseract.image_to_string",
+        lambda *args, **kwargs: next(reads),
+    )
+
+    text = _ine_reverse_mrz_focus_text(image)
+
+    assert "1786018292055" in text
