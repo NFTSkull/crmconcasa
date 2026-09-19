@@ -259,6 +259,15 @@ export function MesaInfonavitSourceDocumentPreview({
       return;
     }
 
+    // Si el pipeline central ya aplicó una CLABE válida, no volvemos a parsear
+    // el mismo PDF en el navegador. Evita trabajo duplicado y estados divergentes.
+    const alreadyApplied = normalizeClabeMexico(clabeAppliedValue ?? "");
+    if (alreadyApplied && isValidClabeMexico(alreadyApplied)) {
+      setClabeAnalyzing(false);
+      setClabeDetection(null);
+      return;
+    }
+
     const docId = activeRow?.id ?? null;
     const mime = activeRow?.mime_type ?? preview?.mime_type ?? "";
 
@@ -347,6 +356,7 @@ export function MesaInfonavitSourceDocumentPreview({
     activeKind,
     activeDocumentBlob,
     preview?.mime_type,
+    clabeAppliedValue,
   ]);
 
   const shadowClabeDetection = resolveVisibleClabeDetection({
