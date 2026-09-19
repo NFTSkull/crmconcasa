@@ -60,7 +60,10 @@ import {
   type NssPrecalGateResult,
 } from "./nss-precal-gate";
 import { ExpedientesSupabaseError } from "./supabase.error";
-import { mapEnviarAMesaRpcError } from "./enviar-mesa-rpc-error";
+import {
+  mapEnviarMesaFiscalHttpError,
+  type EnviarMesaFiscalHttpBody,
+} from "./enviar-mesa-fiscal-client";
 import { mapAsesorEnviarReingresoRpcError } from "./reingreso-manual";
 import { mapAvanzarEtapaRpcError } from "./avanzar-etapa-rpc-error";
 import { mapAsesorUpdateMontoAprobadoRpcError } from "./asesor-update-monto-aprobado-rpc-error";
@@ -341,6 +344,7 @@ function mapReprecalificacionRpcError(error: {
 async function requireSupabaseSession(): Promise<{
   client: SupabaseClient;
   userId: string;
+  accessToken: string;
 }> {
   if (!isSupabaseConfigured() || !supabaseBrowser) {
     throw new ExpedientesSupabaseError(
@@ -360,7 +364,11 @@ async function requireSupabaseSession(): Promise<{
     );
   }
 
-  return { client, userId: session.user.id };
+  return {
+    client,
+    userId: session.user.id,
+    accessToken: session.access_token,
+  };
 }
 
 async function fetchExpedientesList(options?: {
@@ -1136,19 +1144,39 @@ export class SupabaseExpedientesRepo implements ExpedientesRepo {
       throw new ExpedientesSupabaseError("El identificador del expediente es obligatorio.");
     }
 
-    const { client } = await requireSupabaseSession();
+    const { accessToken } = await requireSupabaseSession();
 
-    const { data, error } = await client.rpc("enviar_a_mesa", {
-      p_expediente_id: idNorm,
-    });
-
-    if (error) {
-      throw mapEnviarAMesaRpcError(error);
+    let response: Response;
+    try {
+      response = await fetch(
+        `/api/expedientes/${encodeURIComponent(idNorm)}/enviar-mesa-fiscal`,
+        {
+          method: "POST",
+          headers: { Authorization: `Bearer ${accessToken}` },
+          cache: "no-store",
+          signal: AbortSignal.timeout(175_000),
+        },
+      );
+    } catch {
+      throw new ExpedientesSupabaseError(
+        "No se pudo completar la validación fiscal. El expediente no se envió a Mesa; intenta nuevamente.",
+      );
     }
 
-    if (!data || typeof data !== "object") {
+    let body: EnviarMesaFiscalHttpBody | null = null;
+    try {
+      body = (await response.json()) as EnviarMesaFiscalHttpBody;
+    } catch {
+      body = null;
+    }
+
+    if (!response.ok) {
+      throw mapEnviarMesaFiscalHttpError(body);
+    }
+
+    if (body?.status !== "sent" && body?.status !== "already_sent") {
       throw new ExpedientesSupabaseError(
-        "No se pudo enviar a Mesa. Respuesta vacía del servidor.",
+        "La validación fiscal no confirmó el envío a Mesa. Intenta nuevamente.",
       );
     }
 
