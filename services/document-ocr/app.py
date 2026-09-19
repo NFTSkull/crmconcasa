@@ -260,13 +260,92 @@ def _bank_statement_clabe_focus_text(image: Image.Image) -> str:
     """
     Pase reforzado solo después de que las páginas rápidas no encontraron
     una CLABE estructuralmente confiable.
+
+    Primero prueba la página binarizada. Si falla, conserva estructura mediante
+    TSV en escala de grises y localiza la etiqueta CLABE. Solo entonces amplía
+    una franja corta alrededor/debajo de esa etiqueta para leer los 18 dígitos
+    con mayor resolución. Evita volver a OCR toda la hoja a máxima resolución.
     """
-    focused = adaptive_binary_variant(image)
-    return pytesseract.image_to_string(
+    base = ImageOps.exif_transpose(image).convert("RGB")
+    focused = adaptive_binary_variant(base)
+    primary = pytesseract.image_to_string(
         focused,
         lang="spa+eng",
         config="--oem 1 --psm 11 preserve_interword_spaces=1",
     ).strip()
+    if _has_clabe_like_candidate(primary):
+        return primary
+
+    gray = preprocess_image(base)
+    token_config = "--oem 1 --psm 11 preserve_interword_spaces=1"
+    tokens = _ocr_tokens(gray, token_config)
+    gray_text = _ocr_tokens_to_text(tokens)
+    parts = [part for part in (primary, gray_text) if part]
+
+    combined = "\n".join(parts).strip()
+    if _has_clabe_like_candidate(combined):
+        return combined
+
+    anchors = []
+    for token in tokens:
+        normalized = re.sub(r"[^A-Z]", "", str(token.get("text", "")).upper())
+        if normalized.startswith("CLAB"):
+            anchors.append(token)
+
+    for anchor in anchors[:4]:
+        token_left = int(anchor.get("left", 0))
+        token_top = int(anchor.get("top", 0))
+        token_width = max(1, int(anchor.get("width", 1)))
+        token_height = max(1, int(anchor.get("height", 1)))
+
+        left = max(0, token_left - round(gray.width * 0.20))
+        right = min(
+            gray.width,
+            token_left + token_width + round(gray.width * 0.38),
+        )
+        top = max(0, token_top - token_height * 2)
+        bottom = min(gray.height, token_top + token_height * 9)
+        if right - left < 20 or bottom - top < 10:
+            continue
+
+        region = gray.crop((left, top, right, bottom))
+        longest = max(region.size)
+        if longest < 2200:
+            scale = min(6.0, 2200 / max(1, longest))
+            region = region.resize(
+                (
+                    max(1, round(region.width * scale)),
+                    max(1, round(region.height * scale)),
+                ),
+                Image.Resampling.LANCZOS,
+            )
+        region = ImageOps.autocontrast(region, cutoff=1)
+        region = ImageEnhance.Contrast(region).enhance(1.45)
+        region = region.filter(ImageFilter.SHARPEN)
+
+        structured = pytesseract.image_to_string(
+            region,
+            lang="spa+eng",
+            config="--oem 1 --psm 6 preserve_interword_spaces=1",
+        ).strip()
+        digits = pytesseract.image_to_string(
+            region,
+            lang="eng",
+            config="--oem 1 --psm 6 -c tessedit_char_whitelist=0123456789 ",
+        ).strip()
+
+        if structured:
+            parts.append(structured)
+        if digits:
+            # Anclamos explícitamente la microlectura a CLABE para que el parser
+            # pueda separar No. de Cuenta (10 dígitos) de la CLABE (18).
+            parts.append(f"CLABE {digits}")
+
+        combined = "\n".join(parts).strip()
+        if _has_clabe_like_candidate(combined):
+            return combined
+
+    return "\n".join(parts).strip()
 
 
 def _ine_front_name_block_looks_complete(text: str) -> bool:
