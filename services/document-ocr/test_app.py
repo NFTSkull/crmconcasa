@@ -44,14 +44,34 @@ def test_preprocess_scales_small_image():
     assert max(out.size) >= 1800
 
 
-def test_ine_runs_second_adaptive_sparse_pass(monkeypatch):
+def test_ine_skips_adaptive_pass_when_critical_fields_are_present(monkeypatch):
     image = Image.new("RGB", (900, 600), "white")
     calls = []
 
     def fake_ocr(*args, **kwargs):
         calls.append(kwargs.get("config", ""))
         return (
-            "NOMBRE ZAMUDIO CAMPOS GERARDO\nCURP ZACG900101HNLMPR09\nSEXO H\nVIGENCIA 2023 2033"
+            "NOMBRE ZAMUDIO CAMPOS GERARDO\nCURP ZACG900101HNLMPR09\n"
+            "SEXO H\nVIGENCIA 2023 2033"
+        )
+
+    monkeypatch.setattr("app.pytesseract.image_to_string", fake_ocr)
+    text = ocr_image(image, "cliente_ine_frente")
+
+    assert len(calls) == 1
+    assert "psm 6" in calls[0]
+    assert "SEXO H" in text
+    assert "2033" in text
+
+
+def test_ine_runs_adaptive_pass_only_when_critical_fields_are_missing(monkeypatch):
+    image = Image.new("RGB", (900, 600), "white")
+    calls = []
+
+    def fake_ocr(*args, **kwargs):
+        calls.append(kwargs.get("config", ""))
+        return (
+            "NOMBRE ZAMUDIO CAMPOS GERARDO\nCURP ZACG900101HNLMPR09"
             if len(calls) == 1
             else "SEXO H\nVIGENCIA\n2023 2033"
         )
@@ -99,6 +119,28 @@ def test_ine_reverse_portrait_recovers_ocr_marker_after_rotation(monkeypatch):
     text = ocr_image(image, "cliente_ine_reverso")
 
     assert "OCR 0852070785064" in text
+
+
+
+
+
+def test_ine_reverse_skips_adaptive_when_t7_and_expiry_are_already_read(monkeypatch):
+    image = Image.new("RGB", (1000, 600), "white")
+    calls = []
+
+    def fake_ocr(*args, **kwargs):
+        calls.append(kwargs.get("config", ""))
+        return (
+            "IDMEX2840877688<<2653076233570<\n"
+            "8801030M2512311MEX<02<<<<<<<<<<"
+        )
+
+    monkeypatch.setattr("app.pytesseract.image_to_string", fake_ocr)
+    text = ocr_image(image, "cliente_ine_reverso")
+
+    assert len(calls) == 1
+    assert "2653076233570" in text
+    assert "251231" in text
 
 
 def test_non_ine_keeps_single_pass(monkeypatch):

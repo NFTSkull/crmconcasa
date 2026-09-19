@@ -2,7 +2,10 @@ import {
   detectClabeFromBankStatementText,
   type ClabeBankStatementDetection,
 } from "@/domain/document-extractions/clabe-bank-statement";
-import { parseIneMrzT7Number } from "@/domain/document-extractions/ine-validity";
+import {
+  parseIneMrzT7Number,
+  parseIneMrzValidityDate,
+} from "@/domain/document-extractions/ine-validity";
 
 export type AutofillFieldSource =
   | "cliente_ine_frente"
@@ -395,6 +398,15 @@ function parseIne(
     (mrzName
       ? documentMatchesExpectedName(mrzName, expectedName)
       : documentMatchesExpectedName(reverse, expectedName));
+  const identificationNumber = parseIneIdentificationNumber(reverse);
+  const mrzValidityDate = parseIneMrzValidityDate(reverse);
+  const hasStructuredReverseIdentity =
+    identificationNumber !== null && mrzValidityDate !== null;
+  // El OCR del reverso puede leer perfectamente MRZ/T7 y perder la línea de
+  // nombre. No descartamos esos dos campos estructurados solo por esa pérdida,
+  // siempre que el frente no haya demostrado pertenecer a otra persona.
+  const structuredReverseTrusted =
+    reverseMatches || (!frontNameRejected && hasStructuredReverseIdentity);
 
   if (reverseMatches) {
     if (!out.nombres && mrz.nombres) {
@@ -433,8 +445,17 @@ function parseIne(
         "ine_mrz_expiry",
       );
     }
+  }
 
-    const identificationNumber = parseIneIdentificationNumber(reverse);
+  if (structuredReverseTrusted) {
+    if (!out.identificacionVigencia && mrzValidityDate) {
+      const [year, month, day] = mrzValidityDate.split("-");
+      out.identificacionVigencia = high(
+        `${day}/${month}/${year}`,
+        "cliente_ine_reverso",
+        "ine_mrz_expiry",
+      );
+    }
     if (identificationNumber) {
       out.identificacionNumero = high(
         identificationNumber.value,
@@ -579,7 +600,7 @@ function parseCfeResidentialColonia(
   for (const raw of lines) {
     const cleaned = compactLine(
       raw
-        .replace(/\bC\.?\s*P\.?\s*[:\-]?\s*\d{5}.*$/i, "")
+        .replace(/\bC\.?\s*P\.?\s*[:.\-]?\s*\d{4,5}.*$/i, "")
         .replace(/\b\d{5}\b.*$/i, ""),
     );
     if (!cleaned) continue;
@@ -592,6 +613,98 @@ function parseCfeResidentialColonia(
         /\b(?:COL(?:ONIA)?|FRACC(?:IONAMIENTO)?)\.?\s+(.+)$/i,
       );
       return compactLine(explicit?.[1] ?? cleaned);
+    }
+  }
+  return undefined;
+}
+
+function cleanCfeLocationLine(raw: string): string {
+  return compactLine(
+    raw
+      .replace(/\bC\.?\s*P\.?\s*[:.\-]?\s*\d{4,5}\b.*$/i, "")
+      .replace(/\bN\.?\s*L\.?\s*(?:,\s*N\.?\s*L\.?)?\s*$/i, ""),
+  );
+}
+
+function isLikelyCfeColoniaFallback(raw: string): boolean {
+  const cleaned = cleanCfeLocationLine(raw);
+  if (
+    cleaned.length < 3 ||
+    cleaned.length > 70 ||
+    !/[A-ZÁÉÍÓÚÜÑ]/i.test(cleaned) ||
+    /\b(?:DIRECCI[OÓ]N|SERVICIO|DATOS|FISCALES|NOMBRE|CONTRATO|SITIO|MEDIDOR|LECTURA|TARIFA|FACTURACI[OÓ]N|TOTAL|PAGO|PAGAR|RMU|RPU)\b/i.test(
+      cleaned,
+    )
+  ) {
+    return false;
+  }
+
+  // CFE suele imprimir entrecalles como "PALMAS Y LAUREL" o
+  // "M JARDIN Y M LAGO". Ese renglón no debe convertirse en colonia.
+  if (/^(?:ENTRE\s+)?[A-ZÁÉÍÓÚÜÑ0-9 .'-]{1,32}\s+Y\s+[A-ZÁÉÍÓÚÜÑ0-9 .'-]{1,32}$/i.test(cleaned)) {
+    return false;
+  }
+
+  const municipality = municipalityFromText(cleaned);
+  if (
+    municipality &&
+    (alnumComparable(cleaned) === alnumComparable(municipality) ||
+      (municipality === "GENERAL ESCOBEDO" &&
+        alnumComparable(cleaned) === alnumComparable("ESCOBEDO")) ||
+      (municipality === "GENERAL ZUAZUA" &&
+        alnumComparable(cleaned) === alnumComparable("ZUAZUA")))
+  ) {
+    return false;
+  }
+  return true;
+}
+
+function cfeColoniaPrefixBeforeMunicipality(raw: string): string | undefined {
+  const cleaned = cleanCfeLocationLine(raw);
+  if (!cleaned) return undefined;
+
+  const originalTokens = cleaned.split(/\s+/).filter(Boolean);
+  const normalizedTokens = originalTokens.map((token) => normalizedComparable(token));
+  const aliases = [...NL_MUNICIPALITIES].sort(
+    (a, b) => normalizedComparable(b).split(" ").length - normalizedComparable(a).split(" ").length,
+  );
+
+  for (const municipality of aliases) {
+    const municipalityTokens = normalizedComparable(municipality).split(" ");
+    for (
+      let start = 0;
+      start <= normalizedTokens.length - municipalityTokens.length;
+      start++
+    ) {
+      const matches = municipalityTokens.every(
+        (token, offset) => normalizedTokens[start + offset] === token,
+      );
+      if (!matches || start === 0) continue;
+      const candidate = compactLine(originalTokens.slice(0, start).join(" "));
+      if (isLikelyCfeColoniaFallback(candidate)) return candidate;
+    }
+  }
+  return undefined;
+}
+
+function parseCfeStructuralColonia(
+  addressLinesAfterStreet: readonly string[],
+): string | undefined {
+  for (let i = 0; i < addressLinesAfterStreet.length; i++) {
+    const line = addressLinesAfterStreet[i]!;
+    const prefix = cfeColoniaPrefixBeforeMunicipality(line);
+    if (prefix) return prefix;
+
+    const hasLocationAnchor =
+      municipalityFromText(line) !== undefined ||
+      /\bN\.?\s*L\.?\b|\bNUEVO\s+LE[OÓ]N\b|\bC\.?\s*P\.?\s*[:.\-]?\s*\d{4,5}\b/i.test(
+        line,
+      );
+    if (!hasLocationAnchor || i === 0) continue;
+
+    const previous = addressLinesAfterStreet[i - 1]!;
+    if (isLikelyCfeColoniaFallback(previous)) {
+      return cleanCfeLocationLine(previous);
     }
   }
   return undefined;
@@ -650,15 +763,23 @@ function parseCfeAddressCandidate(text: string): {
   const addressBlock = block.slice(streetIndex);
   const addressJoined = addressBlock.join(" ");
 
-  const cpCandidates: string[] = [];
+  const explicitCpCandidates: string[] = [];
+  const fallbackCpCandidates: string[] = [];
   for (const line of addressBlock) {
-    const matches = [...line.matchAll(/(?:\bC\.?\s*P\.?\s*[:\-]?\s*)?(\d{5})\b/gi)];
-    for (const match of matches) {
+    for (const match of line.matchAll(
+      /\bC\.?\s*P\.?\s*[:.\-]?\s*(\d{5})\b/gi,
+    )) {
       const cp = match[1];
-      if (cp && cp !== "00000") cpCandidates.push(cp);
+      if (cp && cp !== "00000") explicitCpCandidates.push(cp);
+    }
+    for (const match of line.matchAll(/\b(\d{5})\b/g)) {
+      const cp = match[1];
+      if (cp && cp !== "00000") fallbackCpCandidates.push(cp);
     }
   }
-  const cp = cpCandidates.at(-1);
+  // Un RFC/RMU puede contener secuencias de 5 dígitos. Cuando CFE imprime
+  // explícitamente C.P., esa etiqueta siempre tiene prioridad.
+  const cp = explicitCpCandidates.at(-1) ?? fallbackCpCandidates.at(-1);
 
   const municipio = municipalityFromText(addressJoined);
   const entidad =
@@ -671,7 +792,8 @@ function parseCfeAddressCandidate(text: string): {
   );
   const colonia = col?.[1]
     ? compactLine(col[1])
-    : parseCfeResidentialColonia(addressBlock.slice(1));
+    : parseCfeResidentialColonia(addressBlock.slice(1)) ??
+      parseCfeStructuralColonia(addressBlock.slice(1));
 
   const noInt = addressJoined.match(
     /\b(?:INT(?:ERIOR)?|DEPTO|DEP(?:ARTAMENTO)?)\.?\s*[:#-]?\s*([A-Z0-9-]{1,10})\b/i,

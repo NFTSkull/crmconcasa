@@ -80,6 +80,19 @@ describe("INE validity", () => {
     assert.equal(result.canAutoReject, true);
   });
 
+  it("MRZ tolera saltos de línea, > y confusiones numéricas comunes", () => {
+    const reverse = [
+      "IDMEX2840877688",
+      ">>2653O7623357O<",
+      "88O1O3OM",
+      "2512311",
+      "MEX<02<<<<<<<<<<",
+    ].join("\n");
+
+    assert.equal(parseIneMrzT7Number(reverse), "2653076233570");
+    assert.equal(parseIneMrzValidityDate(reverse), "2025-12-31");
+  });
+
   it("MRZ compara la fecha exacta contra el día actual", () => {
     const reverse = [
       "IDMEX2840877688<<2653076233570",
