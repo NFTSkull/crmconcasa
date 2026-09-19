@@ -889,31 +889,11 @@ export function MesaInfonavitGenerarDocumentosForm({
               let cacheNeedsRefresh = false;
 
               if (job.type === "cliente_ine_frente") {
-                const currentForQuality = draftRef.current;
-                const expectedNameForQuality =
-                  currentForQuality?.cliente.nombreCompleto.trim() ||
-                  [
-                    currentForQuality?.cliente.nombres,
-                    currentForQuality?.cliente.apellidoPaterno,
-                    currentForQuality?.cliente.apellidoMaterno,
-                  ]
-                    .filter(Boolean)
-                    .join(" ");
-                const cachedPatch = buildInfonavitDocumentAutofillPatch(
-                  { ineFrente: cached.text },
-                  {
-                    expectedClienteNombre: expectedNameForQuality,
-                    expectedCurp: currentForQuality?.cliente.curp,
-                  },
-                );
-                const nameComplete = Boolean(
-                  cachedPatch.cliente.nombres &&
-                    cachedPatch.cliente.apellidoPaterno &&
-                    cachedPatch.cliente.apellidoMaterno,
-                );
+                // El nombre ya no es criterio de calidad: nunca se autofillea.
+                // Solo forzamos relectura si falta la vigencia, que sí es crítica.
                 cacheNeedsRefresh =
                   evaluateIneValidity({ frontText: cached.text }).status ===
-                    "unknown" || !nameComplete;
+                  "unknown";
               } else if (job.type === "cliente_ine_reverso") {
                 const cachedPatch = buildInfonavitDocumentAutofillPatch({
                   ineReverso: cached.text,
@@ -1024,22 +1004,9 @@ export function MesaInfonavitGenerarDocumentosForm({
           expectedCurp: current.cliente.curp,
         });
 
-        let mergeBase = current;
-        const ineNameRejected = (patch.issues ?? []).some(
-          (issue) =>
-            issue.source === "cliente_ine_frente" &&
-            issue.code === "low_confidence",
-        );
-        if (ineNameRejected && current.cliente.nombreCompleto.trim()) {
-          const repairedCliente =
-            repairMesaInfonavitClienteNameFromCanonical(current.cliente);
-          if (repairedCliente !== current.cliente) {
-            mergeBase = structuredClone(current);
-            mergeBase.cliente = repairedCliente;
-          }
-        }
-
-        const merged = mergeInfonavitDocumentAutofill(mergeBase, patch);
+        // El OCR/INE nunca modifica nombres o apellidos. Datos Generales
+        // permanece intacto; una diferencia clara se muestra solo como aviso.
+        const merged = mergeInfonavitDocumentAutofill(current, patch);
         if (cancelled) return;
 
         const warnings = [
