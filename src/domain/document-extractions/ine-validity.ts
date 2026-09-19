@@ -57,15 +57,29 @@ function isRealDate(year: number, month: number, day: number): boolean {
 }
 
 export function parseIneMrzT7Number(reverseText: string): string | null {
-  const compact = normalizedMrzText(reverseText);
+  const lines = normalizedMrzLines(reverseText);
+  const compact = lines.join("");
   if (!compact) return null;
 
   const numeric = "[0-9OQILZSBG]";
+
+  // Primero conservar el final de línea como frontera: Tesseract suele partir
+  // justo después del T7 y la siguiente línea empieza inmediatamente con fecha.
+  for (const line of lines) {
+    if (!line.includes("IDMEX") && !line.includes("<<")) continue;
+    const sameLine = line.match(new RegExp(`<{2,}(${numeric}{13})(?:<|$)`));
+    if (!sameLine?.[1]) continue;
+    const digits = normalizeNumericOcr(sameLine[1]).replace(/\D/g, "");
+    if (/^\d{13}$/.test(digits)) return digits;
+  }
+
   const idIndex = compact.indexOf("IDMEX");
   if (idIndex >= 0) {
     const anchoredWindow = compact.slice(idIndex, idIndex + 96);
+    // En texto colapsado puede seguir inmediatamente la segunda línea MRZ;
+    // el anclaje IDMEX + << hace suficientemente específica esta lectura.
     const anchored = anchoredWindow.match(
-      new RegExp(`<{2,}(${numeric}{13})(?:<|$)`),
+      new RegExp(`<{2,}(${numeric}{13})`),
     );
     if (anchored?.[1]) {
       const digits = normalizeNumericOcr(anchored[1]).replace(/\D/g, "");
@@ -73,16 +87,18 @@ export function parseIneMrzT7Number(reverseText: string): string | null {
     }
   }
 
-  // Algunos OCR pierden una letra de IDMEX o parten la primera línea del MRZ.
-  // En ese caso aceptamos el T7 solo si conserva señales inequívocas de MRZ:
-  // MEX + separador doble + exactamente 13 caracteres numéricos OCR.
+  // Algunos OCR pierden una letra de IDMEX. Exigimos MEX + separador doble y
+  // mantenemos frontera para no tomar 13 dígitos arbitrarios de otra línea.
   if (!compact.includes("MEX") || !compact.includes("<<")) return null;
-  const fallback = compact.match(
-    new RegExp(`<{2,}(${numeric}{13})(?:<|$)`),
-  );
-  if (!fallback?.[1]) return null;
-  const digits = normalizeNumericOcr(fallback[1]).replace(/\D/g, "");
-  return /^\d{13}$/.test(digits) ? digits : null;
+  for (const line of lines) {
+    const fallback = line.match(
+      new RegExp(`<{2,}(${numeric}{13})(?:<|$)`),
+    );
+    if (!fallback?.[1]) continue;
+    const digits = normalizeNumericOcr(fallback[1]).replace(/\D/g, "");
+    if (/^\d{13}$/.test(digits)) return digits;
+  }
+  return null;
 }
 
 export function parseIneMrzValidityDate(reverseText: string): string | null {
