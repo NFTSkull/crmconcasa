@@ -406,7 +406,7 @@ export function MesaInfonavitSourceDocumentPreview({
           ) : null}
           {context === "identidad" ? (
             <p className="text-[11px] text-gray-500">
-              Número de identificación se completa solo si el reverso permite detectar el OCR con certeza; si no, se captura manualmente.
+              Nombre y apellidos se conservan de Datos Generales. La INE solo avisa si detecta una diferencia. Número de identificación se obtiene del reverso y vigencia del frente; si no se leen con certeza, se capturan manualmente.
             </p>
           ) : null}
         </div>
