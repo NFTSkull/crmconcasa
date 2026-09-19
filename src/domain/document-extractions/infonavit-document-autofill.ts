@@ -658,6 +658,26 @@ function parseCfeStreetLine(
   return { calle: candidate, noExt: last[1] };
 }
 
+function parseCfeManzanaLoteStreetLine(
+  raw: string,
+): { calle: string; manzana: string; lote: string } | null {
+  const cleaned = compactLine(
+    raw.replace(/C\.?\s*P\.?\s*[:.\-]?\s*\d{4,5}\b.*$/i, ""),
+  );
+  const match = cleaned.match(
+    /^(.{2,70}?)\s+M(?:ANZANA|ZA)?\.?\s*[:#-]?\s*([A-Z0-9-]+)\s+L(?:OTE|T)?\.?\s*[:#-]?\s*([A-Z0-9-]+)\s*$/i,
+  );
+  if (!match?.[1] || !match?.[2] || !match?.[3]) return null;
+
+  const calle = compactLine(match[1]);
+  if (!calle || !/[A-ZÁÉÍÓÚÜÑ]/i.test(calle)) return null;
+  return {
+    calle,
+    manzana: match[2],
+    lote: match[3],
+  };
+}
+
 function parseCfeResidentialColonia(
   lines: readonly string[],
 ): string | undefined {
@@ -869,9 +889,20 @@ function parseCfeAddressCandidate(text: string): {
 
   let calle: string | undefined;
   let noExt: string | undefined;
+  let manzanaFromStreet: string | undefined;
+  let loteFromStreet: string | undefined;
   let streetIndex = -1;
 
   for (let i = 0; i < block.length; i++) {
+    const manzanaLote = parseCfeManzanaLoteStreetLine(block[i]!);
+    if (manzanaLote) {
+      calle = manzanaLote.calle;
+      manzanaFromStreet = manzanaLote.manzana;
+      loteFromStreet = manzanaLote.lote;
+      streetIndex = i;
+      break;
+    }
+
     const parsed = parseCfeStreetLine(block[i]!);
     if (!parsed) continue;
     calle = parsed.calle;
@@ -880,7 +911,7 @@ function parseCfeAddressCandidate(text: string): {
     break;
   }
 
-  if (!calle || !noExt) return null;
+  if (!calle || (!noExt && !loteFromStreet)) return null;
 
   const addressBlock = block.slice(streetIndex);
   const addressLinesAfterStreet = addressBlock.slice(1);
@@ -925,12 +956,14 @@ function parseCfeAddressCandidate(text: string): {
   const noInt = addressJoined.match(
     /\b(?:INT(?:ERIOR)?|DEPTO|DEP(?:ARTAMENTO)?)\.?\s*[:#-]?\s*([A-Z0-9-]{1,10})\b/i,
   )?.[1];
-  const lote = addressJoined.match(
-    /\b(?:LOTE|LT)\.?\s*[:#-]?\s*([A-Z0-9-]+)\b/i,
-  )?.[1];
-  const manzana = addressJoined.match(
-    /\b(?:MANZANA|MZA?|MZ)\.?\s*[:#-]?\s*([A-Z0-9-]+)\b/i,
-  )?.[1];
+  const lote =
+    addressJoined.match(
+      /\b(?:LOTE|LT)\.?\s*[:#-]?\s*([A-Z0-9-]+)\b/i,
+    )?.[1] ?? loteFromStreet;
+  const manzana =
+    addressJoined.match(
+      /\b(?:MANZANA|MZA?|MZ)\.?\s*[:#-]?\s*([A-Z0-9-]+)\b/i,
+    )?.[1] ?? manzanaFromStreet;
 
   const direccionCompleta = [
     [calle, noExt].filter(Boolean).join(" "),

@@ -382,6 +382,30 @@ describe("P4C document autofill parser", () => {
     );
   });
 
+  it("CFE M. 64 L. 28 separa calle, manzana y lote sin inventar exterior", () => {
+    const patch = buildInfonavitDocumentAutofillPatch({
+      comprobanteDomicilio: [
+        "CFE Comisión Federal de Electricidad",
+        "MORALES C JOSE DE J",
+        "ALAMILLO M. 64 L. 28",
+        "LOS ENCINOS Y NARANJO Y NISPERO",
+        "LOS ENCINOS JUAREZ X MALL V C.P.67275",
+        "CD BENITO JUAREZ,N.L.",
+        "NO. DE SERVICIO:400970921981",
+        "RMU:67275 97-08-18 XAXX-010101 005 CFE",
+      ].join("\n"),
+    });
+
+    assert.equal(patch.vivienda.calle?.value, "ALAMILLO");
+    assert.equal(patch.vivienda.noExt, undefined);
+    assert.equal(patch.vivienda.manzana?.value, "64");
+    assert.equal(patch.vivienda.lote?.value, "28");
+    assert.equal(patch.vivienda.colonia?.value, "LOS ENCINOS");
+    assert.equal(patch.vivienda.cp?.value, "67275");
+    assert.equal(patch.vivienda.municipio?.value, "JUAREZ");
+    assert.equal(patch.vivienda.entidad?.value, "NUEVO LEÓN");
+  });
+
   it("CFE Montemorelos toma domicilio del cliente y nunca Paseo de la Reforma", () => {
     const patch = buildInfonavitDocumentAutofillPatch({
       comprobanteDomicilio: [

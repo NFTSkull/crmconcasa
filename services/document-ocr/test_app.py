@@ -143,6 +143,61 @@ def test_ine_portrait_photo_auto_rotates_before_full_ocr(monkeypatch):
     assert any(width > height for (width, height), _ in calls)
 
 
+def test_ine_front_landscape_frame_recovers_sideways_card_on_exhaustive_retry(monkeypatch):
+    image = Image.new("RGB", (1200, 800), "white")
+
+    monkeypatch.setattr("app._ine_card_crop", lambda source: source)
+
+    def fake_ocr(img, *args, **kwargs):
+        if img.height > img.width:
+            return (
+                "INSTITUTO NACIONAL ELECTORAL\n"
+                "NOMBRE VILLALBA MENDOZA LEOBARDO\n"
+                "CURP VIML841208HNLLNB08\n"
+                "SEXO H\n"
+                "VIGENCIA 2026-2036"
+            )
+        return "ruido sin marcadores"
+
+    monkeypatch.setattr("app.pytesseract.image_to_string", fake_ocr)
+
+    text = ocr_image(image, "cliente_ine_frente")
+
+    assert "SEXO H" in text
+    assert "VIGENCIA 2026-2036" in text
+
+
+def test_ine_reverse_landscape_frame_recovers_sideways_t7_on_exhaustive_retry(monkeypatch):
+    image = Image.new("RGB", (1200, 800), "white")
+
+    monkeypatch.setattr("app._ine_card_crop", lambda source: source)
+
+    def fake_probe(img, *args, **kwargs):
+        if img.height > img.width:
+            return (
+                "IDMEX2120512054<<2213082197980\n"
+                "8412081H3612310MEX<02<<<<<<<<<<"
+            )
+        return "MEXICO"
+
+    def fake_primary(img, document_type, psm):
+        assert document_type == "cliente_ine_reverso"
+        if img.height > img.width:
+            return (
+                "IDMEX2120512054<<2213082197980\n"
+                "8412081H3612310MEX<02<<<<<<<<<<"
+            )
+        return "MEXICO"
+
+    monkeypatch.setattr("app.pytesseract.image_to_string", fake_probe)
+    monkeypatch.setattr("app._primary_ocr_text", fake_primary)
+
+    text = ocr_image(image, "cliente_ine_reverso")
+
+    assert "2213082197980" in text
+    assert "361231" in text
+
+
 def test_ine_reverse_portrait_recovers_ocr_marker_after_rotation(monkeypatch):
     image = Image.new("RGB", (600, 1000), "white")
 
