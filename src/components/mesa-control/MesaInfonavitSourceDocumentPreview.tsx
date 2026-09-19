@@ -335,7 +335,7 @@ export function MesaInfonavitSourceDocumentPreview({
 
         // Muchos estados de cuenta son PDF escaneado o traen una capa de texto
         // incompleta. Si el parser local no obtuvo una CLABE, reutilizamos el
-        // mismo OCR central del autofill. El cacheKey coincide con el formulario,
+        // mismo OCR central de documentos. El cacheKey coincide con el formulario,
         // por lo que si ambos corren a la vez comparten la misma promesa y no
         // duplican trabajo en Railway.
         if (
