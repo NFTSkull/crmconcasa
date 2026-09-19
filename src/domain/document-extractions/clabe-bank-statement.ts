@@ -138,7 +138,6 @@ export function collectStrictLabeledClabeCandidates(text: string): string[] {
     if (!label) continue;
 
     const afterLabel = line.slice(label.index + label[0].length).trim();
-    for (const value of validClabesInFragment(afterLabel)) out.add(value);
 
     // Primero preferimos una CLABE completa en la misma línea.
     const direct = validClabesInFragment(afterLabel);
