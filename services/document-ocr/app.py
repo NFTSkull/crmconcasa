@@ -283,8 +283,13 @@ def ocr_image(image: Image.Image, document_type: str) -> str:
         config=f"--oem 1 --psm {primary_psm} preserve_interword_spaces=1",
     ).strip()
 
-    if document_type.startswith("cliente_ine_") and _ine_orientation_needs_retry(
+    primary_orientation_score = _ine_orientation_score(
         primary_text, document_type
+    )
+    if (
+        document_type.startswith("cliente_ine_")
+        and _ine_orientation_needs_retry(primary_text, document_type)
+        and primary_orientation_score < 6
     ):
         oriented, degrees = _best_ine_orientation(
             working, document_type, primary_text
