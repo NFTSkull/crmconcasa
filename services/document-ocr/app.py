@@ -145,6 +145,96 @@ def adaptive_binary_variant(image: Image.Image) -> Image.Image:
     return Image.fromarray(binary)
 
 
+def _has_clabe_like_candidate(text: str) -> bool:
+    source = (text or "").upper()
+    for label in re.finditer(r"\bCLABE\b", source):
+        window = source[label.end():label.end() + 140]
+        for match in re.finditer(r"(?:\d[\s.\-:/]*){18}", window):
+            digits = re.sub(r"\D", "", match.group(0))
+            if len(digits) == 18:
+                return True
+    return False
+
+
+def _bank_statement_clabe_focus_text(image: Image.Image) -> str:
+    """
+    Segundo pase solo cuando el OCR general no encontró una CLABE usable.
+    No asume banco/layout: usa la página completa en modo sparse text.
+    """
+    focused = adaptive_binary_variant(image)
+    return pytesseract.image_to_string(
+        focused,
+        lang="spa+eng",
+        config="--oem 1 --psm 11 preserve_interword_spaces=1",
+    ).strip()
+
+
+def _ine_front_name_block_looks_complete(text: str) -> bool:
+    lines = [
+        re.sub(r"\s+", " ", line.strip().upper())
+        for line in (text or "").splitlines()
+        if line.strip()
+    ]
+    stops = re.compile(
+        r"^(DOMICILIO|CURP|SEXO|CLAVE\s+DE\s+ELECTOR|VIGENCIA|SECCI[OÓ]N|FECHA\s+DE\s+NACIMIENTO)"
+    )
+    for idx, line in enumerate(lines):
+        if not re.match(r"^NOMBRE(?:S)?\b", line):
+            continue
+        values: list[str] = []
+        inline = re.sub(r"^NOMBRE(?:S)?\s*:?-?\s*", "", line).strip()
+        if inline:
+            values.append(inline)
+        for candidate in lines[idx + 1:idx + 7]:
+            if stops.match(candidate):
+                break
+            letters = re.sub(r"[^A-ZÁÉÍÓÚÜÑ]", "", candidate)
+            if len(letters) >= 3:
+                values.append(candidate)
+            if len(values) >= 3:
+                return True
+    return False
+
+
+def _ine_front_name_focus_text(image: Image.Image) -> str:
+    """
+    Relectura del bloque NOMBRE. Las INE actuales mantienen ese bloque en la
+    zona central-superior; se usa solo si la lectura general quedó incompleta.
+    """
+    base = ImageOps.exif_transpose(image).convert("RGB")
+    width, height = base.size
+    if width < 8 or height < 8:
+        return ""
+    region = base.crop(
+        (
+            round(width * 0.24),
+            round(height * 0.20),
+            round(width * 0.84),
+            round(height * 0.62),
+        )
+    )
+    focused = preprocess_image(region)
+    return pytesseract.image_to_string(
+        focused,
+        lang="spa+eng",
+        config="--oem 1 --psm 6 preserve_interword_spaces=1",
+    ).strip()
+
+
+def _ine_reverse_mrz_focus_text(image: Image.Image) -> str:
+    """
+    Pase final del MRZ/T7 con whitelist para recuperar los 13 dígitos después
+    de << y la línea de fecha/sexo, sin volver a procesar toda la foto.
+    """
+    crop = _ine_reverse_mrz_crop(image)
+    focused = adaptive_binary_variant(crop)
+    return pytesseract.image_to_string(
+        focused,
+        lang="eng",
+        config="--oem 1 --psm 6 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789<",
+    ).strip()
+
+
 def _has_readable_ine_validity(text: str) -> bool:
     normalized = (text or "").upper().replace("O", "0")
     if "VIGENCIA" not in normalized:
@@ -581,6 +671,26 @@ def ocr_image(image: Image.Image, document_type: str) -> str:
             focused = _ine_front_validity_focus_text(working)
             if focused:
                 parts.append(focused)
+                combined = "\n".join(part for part in parts if part).strip()
+
+        if not _ine_front_name_block_looks_complete(combined):
+            focused_name = _ine_front_name_focus_text(working)
+            if focused_name:
+                parts.append(focused_name)
+
+    if document_type == "cliente_ine_reverso":
+        combined = "\n".join(part for part in parts if part).strip()
+        if not _ine_reverse_has_structured_mrz(combined):
+            focused_mrz = _ine_reverse_mrz_focus_text(working)
+            if focused_mrz:
+                parts.append(focused_mrz)
+
+    if document_type == "cliente_estado_cuenta":
+        combined = "\n".join(part for part in parts if part).strip()
+        if not _has_clabe_like_candidate(combined):
+            focused_clabe = _bank_statement_clabe_focus_text(working)
+            if focused_clabe:
+                parts.append(focused_clabe)
 
     return "\n".join(part for part in parts if part).strip()
 
@@ -604,7 +714,23 @@ def extract_document_text(data: bytes, mime: str, document_type: str) -> tuple[s
     if mime in {"application/pdf", "application/x-pdf"}:
         embedded, embedded_pages = extract_embedded_pdf_text(data)
         if enough_embedded_text(embedded):
-            return embedded[:MAX_TEXT_CHARS], "embedded_text", embedded_pages
+            if (
+                document_type != "cliente_estado_cuenta"
+                or _has_clabe_like_candidate(embedded)
+            ):
+                return embedded[:MAX_TEXT_CHARS], "embedded_text", embedded_pages
+
+            # Algunos estados de cuenta traen una capa de texto parcial que
+            # satisface el umbral general pero omite la tabla donde está CLABE.
+            # En ese caso conservamos lo embebido y añadimos OCR de hasta 3 págs.
+            ocr_text, ocr_pages = ocr_pdf(data, document_type)
+            combined = "\n".join(
+                part for part in (embedded, ocr_text) if part
+            ).strip()
+            return combined[:MAX_TEXT_CHARS], "embedded_text+tesseract", max(
+                embedded_pages, ocr_pages
+            )
+
         text, pages = ocr_pdf(data, document_type)
         return text[:MAX_TEXT_CHARS], "tesseract", pages
 
