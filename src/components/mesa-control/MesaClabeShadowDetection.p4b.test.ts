@@ -123,7 +123,7 @@ describe("P4B Mesa CLABE shadow UI contrato", () => {
     assert.doesNotMatch(previewSrc, /getPublicUrl|createSignedUrl/);
   });
 
-  it("cero OCR / provider / enqueue / migration hooks", () => {
+  it("sin provider externo / enqueue / migration hooks", () => {
     assert.doesNotMatch(
       previewSrc,
       /OpenAI|Document AI|Azure|enqueue_document_extraction/i,
