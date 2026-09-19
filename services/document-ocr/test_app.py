@@ -10,6 +10,7 @@ from app import (
     preprocess_image,
     _verify_t7_trailing_digit,
     _ine_front_validity_focus_text,
+    _has_clabe_like_candidate,
 )
 
 
@@ -270,3 +271,75 @@ def test_ine_validity_focus_recovers_two_years_when_label_pass_misses_numbers(mo
     text = _ine_front_validity_focus_text(image)
 
     assert "VIGENCIA 2023 2033" in text
+
+
+def test_clabe_like_candidate_accepts_segmented_real_format():
+    assert _has_clabe_like_candidate(
+        "No. Cuenta CLABE 012 700 01524466095 8"
+    )
+
+
+def test_ine_front_adds_name_focus_when_general_name_is_truncated(monkeypatch):
+    image = Image.new("RGB", (1200, 760), "white")
+
+    monkeypatch.setattr(
+        "app._primary_ocr_text",
+        lambda *args, **kwargs: (
+            "NOMBRE\nDO\nMARTINEZ\nJUAN MAN\n"
+            "CURP AAMJ830601HMCNRN09\nSEXO H\nVIGENCIA 2020 2030"
+        ),
+    )
+    monkeypatch.setattr(
+        "app._ine_front_name_focus_text",
+        lambda *args, **kwargs: "NOMBRE\nANZALDO\nMARTINEZ\nJUAN MANUEL",
+    )
+
+    text = ocr_image(image, "cliente_ine_frente")
+
+    assert "ANZALDO" in text
+    assert "JUAN MANUEL" in text
+    assert "VIGENCIA 2020 2030" in text
+
+
+def test_ine_reverse_adds_mrz_focus_when_t7_is_missing(monkeypatch):
+    image = Image.new("RGB", (1200, 760), "white")
+
+    monkeypatch.setattr(
+        "app._primary_ocr_text",
+        lambda *args, **kwargs: "IDMEX2067045710",
+    )
+    monkeypatch.setattr(
+        "app.pytesseract.image_to_string",
+        lambda *args, **kwargs: "",
+    )
+    monkeypatch.setattr(
+        "app._ine_reverse_mrz_focus_text",
+        lambda *args, **kwargs: (
+            "IDMEX2067045710<<1589023509985\n"
+            "8306018H3012316MEX<04<<18985<9\n"
+            "ANZALDO<MARTINEZ<<JUAN<MANUEL<"
+        ),
+    )
+
+    text = ocr_image(image, "cliente_ine_reverso")
+
+    assert "1589023509985" in text
+    assert "301231" in text
+    assert "ANZALDO<MARTINEZ<<JUAN<MANUEL<" in text
+
+
+def test_bank_statement_adds_clabe_focus_when_general_ocr_misses_it(monkeypatch):
+    image = Image.new("RGB", (1600, 2200), "white")
+
+    monkeypatch.setattr(
+        "app._primary_ocr_text",
+        lambda *args, **kwargs: "ESTADO DE CUENTA\nNO. DE CLIENTE 97977789",
+    )
+    monkeypatch.setattr(
+        "app._bank_statement_clabe_focus_text",
+        lambda *args, **kwargs: "No. Cuenta CLABE 012 700 01524466095 8",
+    )
+
+    text = ocr_image(image, "cliente_estado_cuenta")
+
+    assert "012 700 01524466095 8" in text
