@@ -1046,18 +1046,28 @@ def _best_ine_orientation(
     # físicamente de lado (mucho fondo alrededor o crop conservador), y en ese
     # caso probar solo 180 jamás recupera 90/270.
     if exhaustive:
-        candidates = (90, 180, 270)
+        # En el retry caro priorizamos 90/270 porque el caso problemático es
+        # una credencial físicamente de lado dentro de un marco horizontal.
+        candidates = (90, 270, 180)
     else:
         candidates = (90, 270) if base.height > base.width * 1.05 else (180,)
 
     for degrees in candidates:
         rotated = base.rotate(degrees, expand=True)
-        probe = _orientation_probe_image(rotated)
-        probe_text = pytesseract.image_to_string(
-            probe,
-            lang="spa+eng",
-            config="--oem 1 --psm 11 preserve_interword_spaces=1",
-        ).strip()
+        if exhaustive:
+            # El probe liviano puede fallar con credenciales pequeñas o con
+            # mucho fondo. Solo en este fallback usamos el mismo preprocesado
+            # y PSM de la lectura final para escoger la orientación.
+            prepared = preprocess_image(rotated)
+            psm = "6" if document_type != "cliente_ine_reverso" else "11"
+            probe_text = _primary_ocr_text(prepared, document_type, psm)
+        else:
+            probe = _orientation_probe_image(rotated)
+            probe_text = pytesseract.image_to_string(
+                probe,
+                lang="spa+eng",
+                config="--oem 1 --psm 11 preserve_interword_spaces=1",
+            ).strip()
         score = _ine_orientation_score(probe_text, document_type)
         if score > best_score:
             best_score = score
@@ -1215,7 +1225,7 @@ def extract_document_text(data: bytes, mime: str, document_type: str) -> tuple[s
 
 @app.get("/health")
 def health() -> dict:
-    return {"ok": True, "service": "document-ocr", "version": "1.4.1"}
+    return {"ok": True, "service": "document-ocr", "version": "1.4.2"}
 
 
 @app.post("/v1/extract")
