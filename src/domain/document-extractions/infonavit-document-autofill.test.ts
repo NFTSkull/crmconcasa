@@ -104,6 +104,32 @@ describe("P4C document autofill parser", () => {
   });
 
 
+  it("INE T7 tolera un signo < perdido o convertido por OCR", () => {
+    const inline = buildInfonavitDocumentAutofillPatch({
+      ineReverso: [
+        "TDMEX18059653365<0795082079976",
+        "7209112H2812313MEX<01<<20562<3",
+        "CARRIZALES<BENITEZ<<DANIEL<<<<",
+      ].join("\n"),
+    });
+    assert.equal(
+      inline.cliente.identificacionNumero?.value,
+      "0795082079976",
+    );
+
+    const split = buildInfonavitDocumentAutofillPatch({
+      ineReverso: [
+        "1DMEX18059653",
+        "36<0795082079976",
+        "7209112H2812313MEX<01<<20562<3",
+      ].join("\n"),
+    });
+    assert.equal(
+      split.cliente.identificacionNumero?.value,
+      "0795082079976",
+    );
+  });
+
   it("INE no reemplaza nombre correcto con ruido OCR", () => {
     const patch = buildInfonavitDocumentAutofillPatch(
       {
@@ -213,6 +239,34 @@ describe("P4C document autofill parser", () => {
 
     assert.equal(patch.cliente.identificacionVigencia?.value, "31/12/2035");
     assert.equal(patch.cliente.identificacionNumero?.value, "0852070785064");
+  });
+
+  it("recibo de agua toma colonia estructural desde DIRECCION DE SERVICIO", () => {
+    const patch = buildInfonavitDocumentAutofillPatch({
+      comprobanteDomicilio: [
+        "YA TENEMOS AGUA",
+        "NOMBRE LEONARDO PUENTE AGUILAR",
+        "DIRECCION DE SERVICIO",
+        "Paseo de los Olivos 311",
+        "Gardenias",
+        "Juárez NL C.P. 67276",
+        "DATOS FISCALES",
+        "R.F.C. XAXX010101000",
+        "DOMICILIO FISCAL: 64060",
+        "CONTRATO 550045201",
+      ].join("\n"),
+    });
+
+    assert.equal(patch.vivienda.calle?.value, "PASEO DE LOS OLIVOS");
+    assert.equal(patch.vivienda.noExt?.value, "311");
+    assert.equal(patch.vivienda.colonia?.value, "GARDENIAS");
+    assert.equal(patch.vivienda.municipio?.value, "JUÁREZ");
+    assert.equal(patch.vivienda.entidad?.value, "NUEVO LEÓN");
+    assert.equal(patch.vivienda.cp?.value, "67276");
+    assert.doesNotMatch(
+      patch.vivienda.direccionCompleta?.value ?? "",
+      /DOMICILIO FISCAL|64060|CONTRATO/i,
+    );
   });
 
   it("CFE CP.0000 no se confunde con número exterior", () => {
