@@ -103,9 +103,14 @@ function detectBankCodeHints(text: string): string[] {
 }
 
 function validClabesInFragment(fragment: string): string[] {
+  const source = String(fragment ?? "");
   const out = new Set<string>();
-  for (const span of findBoundedClabeRawSpans(fragment)) {
-    const normalized = normalizeClabeMexico(span.raw);
+  // En tablas puede haber otro campo numérico antes de la CLABE en la misma
+  // fila (p. ej. No. de Cuenta). Buscamos un bloque de exactamente 18 dígitos
+  // sin permitir que absorba números de columnas vecinas.
+  const pattern = /(?<!\d)(?:\d[\s.\-:/]*){17}\d(?![\s.\-:/]*\d)/g;
+  for (const match of source.matchAll(pattern)) {
+    const normalized = normalizeClabeMexico(match[0]);
     if (!normalized || normalized.length !== 18) continue;
     if (!isValidClabeMexico(normalized)) continue;
     out.add(normalized);
