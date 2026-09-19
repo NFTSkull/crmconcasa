@@ -436,11 +436,9 @@ function parseIne(
   const mrz = parseIneMrz(reverse);
   const identificationNumber = parseIneIdentificationNumber(reverse);
   const mrzValidityDate = parseIneMrzValidityDate(reverse);
-  const hasStructuredReverseIdentity =
-    identificationNumber !== null && mrzValidityDate !== null;
 
-  // El reverso es la fuente del número de identificación. No lo condicionamos
-  // a que OCR haya leído el nombre: T7 + fecha MRZ son señales estructuradas.
+  // El reverso es la fuente del número de identificación. El T7 es independiente
+  // de que la fecha MRZ o el nombre también hayan sido leídos correctamente.
   if (!out.genero && mrz.genero) {
     out.genero = {
       value: mrz.genero,
@@ -458,22 +456,21 @@ function parseIne(
     );
   }
 
-  if (hasStructuredReverseIdentity) {
-    if (!out.identificacionVigencia && mrzValidityDate) {
-      const [year, month, day] = mrzValidityDate.split("-");
-      out.identificacionVigencia = high(
-        `${day}/${month}/${year}`,
-        "cliente_ine_reverso",
-        "ine_mrz_expiry",
-      );
-    }
-    if (identificationNumber) {
-      out.identificacionNumero = high(
-        identificationNumber.value,
-        "cliente_ine_reverso",
-        identificationNumber.rule,
-      );
-    }
+  if (!out.identificacionVigencia && mrzValidityDate) {
+    const [year, month, day] = mrzValidityDate.split("-");
+    out.identificacionVigencia = high(
+      `${day}/${month}/${year}`,
+      "cliente_ine_reverso",
+      "ine_mrz_expiry",
+    );
+  }
+
+  if (identificationNumber) {
+    out.identificacionNumero = high(
+      identificationNumber.value,
+      "cliente_ine_reverso",
+      identificationNumber.rule,
+    );
   }
 
   return {
