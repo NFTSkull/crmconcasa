@@ -662,6 +662,16 @@ function parseCfeResidentialColonia(
   lines: readonly string[],
 ): string | undefined {
   for (const raw of lines) {
+    // Formato real CFE: "LOS FRESNOS FRACC.P.67515". En este layout
+    // FRACC. cierra el nombre de colonia y P. introduce el código postal.
+    const fraccBeforePostal = raw.match(
+      /^(.+?)\s+FRACC(?:IONAMIENTO)?\.?\s*(?:C\.?\s*)?P\.?\s*[:.\-]?\s*\d{4,5}\b/i,
+    );
+    if (fraccBeforePostal?.[1]) {
+      const candidate = compactLine(fraccBeforePostal[1]);
+      if (candidate) return candidate;
+    }
+
     const cleaned = compactLine(
       raw
         .replace(/C\.?\s*P\.?\s*[:.\-]?\s*\d{4,5}.*$/i, "")
@@ -846,7 +856,10 @@ function parseCfeAddressCandidate(text: string): {
   );
   if (serviceIdx < 0) return null;
 
-  const rawBlock = lines.slice(Math.max(0, serviceIdx - 10), serviceIdx);
+  // El encabezado corporativo de CFE puede intercalarse en el orden OCR.
+  // Tomamos una ventana algo más amplia; después filtramos explícitamente el
+  // domicilio corporativo antes de buscar la calle del bloque del cliente.
+  const rawBlock = lines.slice(Math.max(0, serviceIdx - 16), serviceIdx);
   const block = rawBlock.filter(
     (line) =>
       !isCfeCorporateLine(line) &&
@@ -1089,6 +1102,19 @@ function parseAddressCandidate(text: string): {
 
   const cfe = parseCfeAddressCandidate(text);
   if (cfe) return cfe;
+
+  const hasCfeServiceAnchor = lines.some((line) =>
+    /\b(?:NO\.?\s*DE\s*SERVICIO|N[ÚU]MERO\s+DE\s+SERVICIO|RMU|RPU)\b/i.test(
+      line,
+    ),
+  );
+  if (isCfeDocument(lines) && hasCfeServiceAnchor) {
+    // En un CFE real con ancla de servicio nunca caemos al parser genérico de
+    // CP: el mismo recibo trae el domicilio corporativo y sería peor llenar
+    // Paseo de la Reforma / 06600. Solo queda como respaldo un bloque
+    // explícito DIRECCIÓN/DOMICILIO DE SERVICIO.
+    return parseLabeledServiceAddressCandidate(text) ?? {};
+  }
 
   const serviceAddress = parseLabeledServiceAddressCandidate(text);
   if (serviceAddress) return serviceAddress;
