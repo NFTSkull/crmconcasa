@@ -22,4 +22,4 @@ COPY test_app.py ./test_app.py
 
 EXPOSE 8080
 
-CMD ["sh", "-c", "uvicorn app:app --host 0.0.0.0 --port ${PORT:-8080}"]
+CMD ["sh", "-c", "uvicorn app:app --host 0.0.0.0 --port ${PORT:-8080} --workers 2"]
