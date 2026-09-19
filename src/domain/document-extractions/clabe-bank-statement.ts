@@ -150,7 +150,7 @@ export function collectStrictLabeledClabeCandidates(text: string): string[] {
     // Algunos PDF/OCR conservan las columnas fuera de orden: la etiqueta CLABE
     // puede quedar separada 1–3 renglones del valor visible. Ampliamos solo ese
     // vecindario corto, deteniéndonos en el primer nivel que entregue una CLABE
-    // válida de 18 dígitos + checksum. Así no barrremos todo el estado de cuenta.
+    // válida de 18 dígitos + checksum. Así no barremos todo el estado de cuenta.
     const neighborhood: string[] = [afterLabel];
     for (let offset = 1; offset <= 3; offset++) {
       const nearby = lines[i + offset];
