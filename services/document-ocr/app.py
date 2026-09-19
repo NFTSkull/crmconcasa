@@ -456,57 +456,119 @@ def _ine_front_name_focus_text(image: Image.Image) -> str:
 
 def _ine_reverse_mrz_focus_text(image: Image.Image) -> str:
     """
-    Pase final del MRZ/T7 con whitelist. Si la credencial ocupa solo una parte
-    de la foto, primero la aísla para que los 13 dígitos no se pierdan entre
-    fondo/piso/hoja; después limita el OCR a la franja MRZ.
+    Pase final del MRZ/T7 con whitelist.
 
-    La primera lectura usa escala de grises/alto contraste. En fotos reales de
-    celular la binarización adaptativa puede comerse los signos << o transformar
-    dígitos finos; solo se usa como respaldo si la lectura gris no entrega T7.
+    El reverso real puede llegar horizontal, vertical, de cabeza o con EXIF ya
+    perdido. No asumimos que "abajo" de la foto sea la franja MRZ: primero
+    probamos la orientación actual y, solo si no aparece un T7 válido, probamos
+    90/270/180. La lectura gris se usa para elegir orientación; la binaria se
+    reserva como respaldo para las mejores candidatas y así no penalizar todos
+    los casos normales.
     """
     card = _ine_card_crop(image)
-    crop = _ine_reverse_mrz_crop(card)
-
-    gray = crop.convert("L")
-    longest = max(gray.size)
-    if longest > 2600:
-        scale = 2600 / max(1, longest)
-        gray = gray.resize(
-            (max(1, round(gray.width * scale)), max(1, round(gray.height * scale))),
-            Image.Resampling.LANCZOS,
-        )
-    elif longest < 2200:
-        scale = min(5.0, 2200 / max(1, longest))
-        gray = gray.resize(
-            (max(1, round(gray.width * scale)), max(1, round(gray.height * scale))),
-            Image.Resampling.LANCZOS,
-        )
-    gray = ImageOps.autocontrast(gray, cutoff=1)
-    gray = ImageEnhance.Contrast(gray).enhance(1.45)
-    gray = gray.filter(ImageFilter.SHARPEN)
-
     config_gray = (
         "--oem 1 --psm 11 "
         "-c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789<"
     )
-    gray_text = pytesseract.image_to_string(
-        gray,
-        lang="eng",
-        config=config_gray,
-    ).strip()
-    if _ine_reverse_has_t7(gray_text):
-        return gray_text
+    config_binary = (
+        "--oem 1 --psm 6 "
+        "-c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789<"
+    )
 
-    focused = adaptive_binary_variant(crop)
-    binary_text = pytesseract.image_to_string(
-        focused,
-        lang="eng",
-        config="--oem 1 --psm 6 -c tessedit_char_whitelist=ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789<",
-    ).strip()
+    def gray_read(oriented: Image.Image) -> str:
+        crop = _ine_reverse_mrz_crop(oriented)
+        gray = crop.convert("L")
+        longest = max(gray.size)
+        if longest > 2600:
+            scale = 2600 / max(1, longest)
+            gray = gray.resize(
+                (
+                    max(1, round(gray.width * scale)),
+                    max(1, round(gray.height * scale)),
+                ),
+                Image.Resampling.LANCZOS,
+            )
+        elif longest < 2200:
+            scale = min(5.0, 2200 / max(1, longest))
+            gray = gray.resize(
+                (
+                    max(1, round(gray.width * scale)),
+                    max(1, round(gray.height * scale)),
+                ),
+                Image.Resampling.LANCZOS,
+            )
+        gray = ImageOps.autocontrast(gray, cutoff=1)
+        gray = ImageEnhance.Contrast(gray).enhance(1.45)
+        gray = gray.filter(ImageFilter.SHARPEN)
+        return pytesseract.image_to_string(
+            gray,
+            lang="eng",
+            config=config_gray,
+        ).strip()
 
-    return "\n".join(
-        part for part in (gray_text, binary_text) if part
-    ).strip()
+    def binary_read(oriented: Image.Image) -> str:
+        crop = _ine_reverse_mrz_crop(oriented)
+        focused = adaptive_binary_variant(crop)
+        return pytesseract.image_to_string(
+            focused,
+            lang="eng",
+            config=config_binary,
+        ).strip()
+
+    orientations = [
+        (0, card),
+        (90, card.rotate(90, expand=True)),
+        (270, card.rotate(270, expand=True)),
+        (180, card.rotate(180, expand=True)),
+    ]
+
+    ranked: list[tuple[int, int, Image.Image, str]] = []
+    for order, (degrees, oriented) in enumerate(orientations):
+        gray_text = gray_read(oriented)
+        if _ine_reverse_has_t7(gray_text):
+            return gray_text
+        score = _ine_orientation_score(gray_text, "cliente_ine_reverso")
+        ranked.append((score, -order, oriented, gray_text))
+
+        # Caso normal: antes de gastar rotaciones completas, conserva el
+        # respaldo binario de la orientación original.
+        if degrees == 0:
+            binary_text = binary_read(oriented)
+            combined = "\n".join(
+                part for part in (gray_text, binary_text) if part
+            ).strip()
+            if _ine_reverse_has_t7(combined):
+                return combined
+            ranked[-1] = (
+                max(score, _ine_orientation_score(combined, "cliente_ine_reverso")),
+                -order,
+                oriented,
+                combined,
+            )
+
+    # Si ninguna lectura gris encontró T7, aplicar binarización solo a las dos
+    # orientaciones con mejor señal MRZ. Esto cubre fotos de lado/de cabeza sin
+    # convertir el fallback en ocho OCR completos por documento.
+    ranked.sort(key=lambda item: (item[0], item[1]), reverse=True)
+    best_text = ranked[0][3] if ranked else ""
+    best_score = ranked[0][0] if ranked else -1
+
+    for score, _, oriented, gray_text in ranked[:2]:
+        binary_text = binary_read(oriented)
+        combined = "\n".join(
+            part for part in (gray_text, binary_text) if part
+        ).strip()
+        if _ine_reverse_has_t7(combined):
+            return combined
+        combined_score = _ine_orientation_score(
+            combined, "cliente_ine_reverso"
+        )
+        if combined_score > best_score:
+            best_score = combined_score
+            best_text = combined
+
+    return best_text
+
 
 
 def _ine_vigencia_years(text: str) -> list[int]:

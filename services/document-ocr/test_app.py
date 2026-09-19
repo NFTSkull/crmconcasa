@@ -626,6 +626,37 @@ def test_ine_reverse_focus_crops_card_before_mrz(monkeypatch):
 
 
 
+def test_ine_reverse_focus_recovers_sideways_real_t7(monkeypatch):
+    image = Image.new("RGB", (1200, 800), "gray")
+    card = Image.new("RGB", (760, 480), "white")
+    seen = []
+
+    monkeypatch.setattr("app._ine_card_crop", lambda source: card)
+    monkeypatch.setattr("app._ine_reverse_mrz_crop", lambda source: source)
+    monkeypatch.setattr(
+        "app.adaptive_binary_variant",
+        lambda source: source.convert("L"),
+    )
+
+    def fake_ocr(img, *args, **kwargs):
+        seen.append(img.size)
+        if img.height > img.width:
+            return (
+                "IDMEX1657306701<<2006119425664\n"
+                "9804164H2712310MEX<00<102796<0\n"
+                "VASQUEZ<ALVARADO<<JOSE<DANIEL<"
+            )
+        return "IDMEX1657306701"
+
+    monkeypatch.setattr("app.pytesseract.image_to_string", fake_ocr)
+
+    text = _ine_reverse_mrz_focus_text(image)
+
+    assert "2006119425664" in text
+    assert _ine_reverse_has_t7(text) is True
+    assert any(height > width for width, height in seen)
+
+
 def test_ine_reverse_focus_prefers_gray_when_binary_would_destroy_t7(monkeypatch):
     image = Image.new("RGB", (1200, 800), "gray")
     card = Image.new("RGB", (760, 480), "white")

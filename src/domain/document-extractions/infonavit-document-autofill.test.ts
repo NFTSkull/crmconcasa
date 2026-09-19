@@ -160,6 +160,30 @@ describe("P4C document autofill parser", () => {
     );
   });
 
+  it("INE reverso real Vasquez/Alvarado detecta OCR de 13 dígitos", () => {
+    const patch = buildInfonavitDocumentAutofillPatch({
+      ineReverso: [
+        "IDMEX1657306701<<2006119425664",
+        "9804164H2712310MEX<00<102796<0",
+        "VASQUEZ<ALVARADO<<JOSE<DANIEL<",
+      ].join("\n"),
+    });
+
+    assert.equal(
+      patch.cliente.identificacionNumero?.value,
+      "2006119425664",
+    );
+    assert.equal(
+      patch.cliente.identificacionNumero?.rule,
+      "ine_mrz_t7",
+    );
+    assert.equal(
+      patch.cliente.identificacionVigencia?.value,
+      "2027",
+    );
+    assert.equal(patch.cliente.genero?.value, "M");
+  });
+
   it("INE T7 tolera un signo < perdido o convertido por OCR", () => {
     const inline = buildInfonavitDocumentAutofillPatch({
       ineReverso: [
