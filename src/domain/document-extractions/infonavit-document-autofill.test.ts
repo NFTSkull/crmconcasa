@@ -223,6 +223,63 @@ describe("P4C document autofill parser", () => {
     assert.equal(patch.vivienda.cp?.value, "65760");
     assert.equal(patch.vivienda.municipio?.value, "ZUAZUA");
     assert.equal(patch.vivienda.entidad?.value, "NUEVO LEÓN");
+    assert.equal(patch.vivienda.colonia?.value, "REAL DE PALMAS");
+  });
+
+  it("CFE actual toma colonia por estructura aunque no diga COLONIA", () => {
+    const patch = buildInfonavitDocumentAutofillPatch({
+      comprobanteDomicilio: [
+        "CFE Comisión Federal de Electricidad",
+        "NOMBRE TOMAS MORALES HERNANDEZ",
+        "DIRECCIÓN DE SERVICIO",
+        "Fermo 116",
+        "Valle de Sta Maria Sec Verona",
+        "Pesqueria NL C.P. 99999",
+        "DATOS FISCALES",
+        "R.F.C. XAXX010101000",
+        "NO. DE SERVICIO: 610410401",
+      ].join("\n"),
+    });
+
+    assert.equal(patch.vivienda.calle?.value, "FERMO");
+    assert.equal(patch.vivienda.noExt?.value, "116");
+    assert.equal(
+      patch.vivienda.colonia?.value,
+      "VALLE DE STA MARIA SEC VERONA",
+    );
+    assert.equal(patch.vivienda.cp?.value, "99999");
+    assert.equal(patch.vivienda.municipio?.value, "PESQUERIA");
+    assert.equal(patch.vivienda.entidad?.value, "NUEVO LEÓN");
+  });
+
+  it("INE llena T7 y vigencia aunque el OCR del reverso pierda el nombre", () => {
+    const patch = buildInfonavitDocumentAutofillPatch(
+      {
+        ineFrente: [
+          "INSTITUTO NACIONAL ELECTORAL",
+          "NOMBRE",
+          "CARRASCO",
+          "MIJANGOS",
+          "ANAHI",
+        ].join("\n"),
+        ineReverso: [
+          "IDMEX2840877688",
+          "<<2653076233570<",
+          "8801030M2512311",
+          "MEX<02<<<<<<<<<<",
+        ].join("\n"),
+      },
+      { expectedClienteNombre: "ANAHI CARRASCO MIJANGOS" },
+    );
+
+    assert.equal(
+      patch.cliente.identificacionNumero?.value,
+      "2653076233570",
+    );
+    assert.equal(
+      patch.cliente.identificacionVigencia?.value,
+      "31/12/2025",
+    );
   });
 
   it("CFE CALLE 9 52 conserva 9 en calle y usa 52 como exterior", () => {
