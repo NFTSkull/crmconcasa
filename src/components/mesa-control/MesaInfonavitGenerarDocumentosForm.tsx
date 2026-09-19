@@ -31,6 +31,7 @@ import {
   comparableAutofillValue,
   type InfonavitDocumentTexts,
 } from "@/domain/document-extractions/infonavit-document-autofill";
+import { detectClabeFromBankStatementText } from "@/domain/document-extractions/clabe-bank-statement";
 import { parseLegacyReferenciaNombre } from "@/domain/expediente-cliente-datos/parse-legacy-referencia-nombre";
 import {
   mergeInfonavitDocumentAutofill,
@@ -886,11 +887,46 @@ export function MesaInfonavitGenerarDocumentosForm({
               cached.documentoId === job.doc.id &&
               cached.text.trim()
             ) {
-              const frontCacheNeedsRefresh =
-                job.type === "cliente_ine_frente" &&
-                evaluateIneValidity({ frontText: cached.text }).status ===
-                  "unknown";
-              if (!frontCacheNeedsRefresh) {
+              let cacheNeedsRefresh = false;
+
+              if (job.type === "cliente_ine_frente") {
+                const currentForQuality = draftRef.current;
+                const expectedNameForQuality =
+                  currentForQuality?.cliente.nombreCompleto.trim() ||
+                  [
+                    currentForQuality?.cliente.nombres,
+                    currentForQuality?.cliente.apellidoPaterno,
+                    currentForQuality?.cliente.apellidoMaterno,
+                  ]
+                    .filter(Boolean)
+                    .join(" ");
+                const cachedPatch = buildInfonavitDocumentAutofillPatch(
+                  { ineFrente: cached.text },
+                  {
+                    expectedClienteNombre: expectedNameForQuality,
+                    expectedCurp: currentForQuality?.cliente.curp,
+                  },
+                );
+                const nameComplete = Boolean(
+                  cachedPatch.cliente.nombres &&
+                    cachedPatch.cliente.apellidoPaterno &&
+                    cachedPatch.cliente.apellidoMaterno,
+                );
+                cacheNeedsRefresh =
+                  evaluateIneValidity({ frontText: cached.text }).status ===
+                    "unknown" || !nameComplete;
+              } else if (job.type === "cliente_ine_reverso") {
+                const cachedPatch = buildInfonavitDocumentAutofillPatch({
+                  ineReverso: cached.text,
+                });
+                cacheNeedsRefresh = !cachedPatch.cliente.identificacionNumero;
+              } else if (job.type === "cliente_estado_cuenta") {
+                cacheNeedsRefresh =
+                  detectClabeFromBankStatementText(cached.text).status !==
+                  "detected";
+              }
+
+              if (!cacheNeedsRefresh) {
                 return {
                   target: job.target,
                   text: cached.text,
@@ -909,7 +945,7 @@ export function MesaInfonavitGenerarDocumentosForm({
                 signal: controller.signal,
                 cacheKey:
                   autofillRetryNonce === 0
-                    ? `document-ocr:${job.doc.id}:${job.type}:fresh-vigencia-v2`
+                    ? `document-ocr:${job.doc.id}:${job.type}:critical-v3`
                     : `document-ocr:${job.doc.id}:${job.type}:retry-${autofillRetryNonce}`,
               });
               return {
