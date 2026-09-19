@@ -138,21 +138,27 @@ export function collectStrictLabeledClabeCandidates(text: string): string[] {
     if (!label) continue;
 
     const afterLabel = line.slice(label.index + label[0].length).trim();
-    for (const value of validClabesInFragment(afterLabel)) out.add(value);
 
-    const next = lines[i + 1] ?? "";
-    if (!next) continue;
+    // Primero preferimos una CLABE completa en la misma línea.
+    const direct = validClabesInFragment(afterLabel);
+    if (direct.length > 0) {
+      for (const value of direct) out.add(value);
+      continue;
+    }
 
-    // Si la misma línea ya comenzó la CLABE pero quedó cortada por OCR,
-    // unimos solo la cola posterior a la etiqueta con el renglón siguiente.
-    if (/\d/.test(afterLabel)) {
-      for (const value of validClabesInFragment(`${afterLabel} ${next}`)) {
-        out.add(value);
-      }
-    } else {
-      // En tablas (No. de Cuenta | CLABE), la fila de valores viene debajo.
-      // Buscamos una CLABE completa en esa fila sin mezclar líneas posteriores.
-      for (const value of validClabesInFragment(next)) out.add(value);
+    // Algunos PDF/OCR conservan las columnas fuera de orden: la etiqueta CLABE
+    // puede quedar separada 1–3 renglones del valor visible. Ampliamos solo ese
+    // vecindario corto, deteniéndonos en el primer nivel que entregue una CLABE
+    // válida de 18 dígitos + checksum. Así no barremos todo el estado de cuenta.
+    const neighborhood: string[] = [afterLabel];
+    for (let offset = 1; offset <= 3; offset++) {
+      const nearby = lines[i + offset];
+      if (!nearby) break;
+      neighborhood.push(nearby);
+      const values = validClabesInFragment(neighborhood.join(" "));
+      if (values.length === 0) continue;
+      for (const value of values) out.add(value);
+      break;
     }
   }
 

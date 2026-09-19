@@ -102,6 +102,25 @@ describe("P4B clabe-bank-statement parser", () => {
     }
   });
 
+  it("Citibanamex: CLABE de 18 dígitos separada por layout PDF → detected", () => {
+    const text = [
+      "CITIBANAMEX",
+      "RESUMEN GENERAL",
+      "PRODUCTO/SERVICIO CONTRATO SALDO ANTERIOR",
+      "CLABE Interbancaria",
+      "MiCuenta 101028075095",
+      "002090905200268771",
+      "SALDO AL 05/JUN/2026",
+    ].join("\n");
+
+    const result = detectClabeFromBankStatementText(text);
+    assert.equal(result.status, "detected");
+    if (result.status === "detected") {
+      assert.equal(result.clabe, "002090905200268771");
+      assert.equal(result.checksumValid, true);
+    }
+  });
+
   it("Banorte: prioriza CLABE de la fila exacta aunque exista otra CLABE válida", () => {
     const correct = "072580013691192354";
     const wrongButChecksumValid = "012180015250829604";

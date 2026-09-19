@@ -26,9 +26,15 @@ const formSrc = readFileSync(formPath, "utf8");
 const parserSrc = readFileSync(parserPath, "utf8");
 
 describe("P4B Mesa CLABE shadow UI contrato", () => {
-  it("16. context clabe dispara análisis", () => {
+  it("16. context clabe dispara análisis con fallback OCR", () => {
     assert.match(previewSrc, /shouldRunClabeShadowDetection\(context\)/);
     assert.match(previewSrc, /detectClabeFromBankStatementPdfBytes/);
+    assert.match(previewSrc, /extractDocumentTextViaOcr/);
+    assert.match(previewSrc, /detectClabeFromBankStatementText\(extracted\.text\)/);
+    assert.match(
+      previewSrc,
+      /document-ocr:\$\{expectedDocId\}:cliente_estado_cuenta:critical-v3/,
+    );
     assert.match(previewSrc, /MesaClabeShadowDetectionPanel/);
     assert.match(previewSrc, /Buscando CLABE|clabeAnalyzing/);
   });
@@ -117,7 +123,7 @@ describe("P4B Mesa CLABE shadow UI contrato", () => {
     assert.doesNotMatch(previewSrc, /getPublicUrl|createSignedUrl/);
   });
 
-  it("cero OCR / provider / enqueue / migration hooks", () => {
+  it("sin provider externo / enqueue / migration hooks", () => {
     assert.doesNotMatch(
       previewSrc,
       /OpenAI|Document AI|Azure|enqueue_document_extraction/i,

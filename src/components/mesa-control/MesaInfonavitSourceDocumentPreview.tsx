@@ -29,6 +29,7 @@ import {
 import {
   canRunClabeDetection,
   detectClabeFromBankStatementPdfBytes,
+  detectClabeFromBankStatementText,
   resolveVisibleClabeDetection,
   shouldRunClabeShadowDetection,
   type ActiveDocumentBlob,
@@ -40,6 +41,7 @@ import {
   isValidClabeMexico,
   normalizeClabeMexico,
 } from "@/domain/expediente-cliente-datos/clabe-mexico";
+import { extractDocumentTextViaOcr } from "@/domain/document-extractions/document-ocr-client";
 
 export type MesaInfonavitSourceDocumentPreviewProps = Readonly<{
   expedienteId: string;
@@ -328,7 +330,29 @@ export function MesaInfonavitSourceDocumentPreview({
         const buf = await blobForDoc.blob.arrayBuffer();
         if (cancelled || gen !== clabeGenRef.current) return;
         if (blobForDoc.documentoId !== expectedDocId) return;
-        const result = await detectClabeFromBankStatementPdfBytes(buf);
+
+        let result = await detectClabeFromBankStatementPdfBytes(buf);
+
+        // Muchos estados de cuenta son PDF escaneado o traen una capa de texto
+        // incompleta. Si el parser local no obtuvo una CLABE, reutilizamos el
+        // mismo OCR central de documentos. El cacheKey coincide con el formulario,
+        // por lo que si ambos corren a la vez comparten la misma promesa y no
+        // duplican trabajo en Railway.
+        if (
+          result.status === "no_text_layer" ||
+          result.status === "not_found"
+        ) {
+          const extracted = await extractDocumentTextViaOcr({
+            blob: blobForDoc.blob,
+            documentType: "cliente_estado_cuenta",
+            filename: activeRow?.nombre_original,
+            cacheKey: `document-ocr:${expectedDocId}:cliente_estado_cuenta:critical-v3`,
+          });
+          if (cancelled || gen !== clabeGenRef.current) return;
+          if (blobForDoc.documentoId !== expectedDocId) return;
+          result = detectClabeFromBankStatementText(extracted.text);
+        }
+
         if (cancelled || gen !== clabeGenRef.current) return;
         if (blobForDoc.documentoId !== expectedDocId) return;
         clabeCacheRef.current.set(expectedDocId, result);
@@ -355,6 +379,7 @@ export function MesaInfonavitSourceDocumentPreview({
     context,
     activeRow?.id,
     activeRow?.mime_type,
+    activeRow?.nombre_original,
     activeKind,
     activeDocumentBlob,
     preview?.mime_type,

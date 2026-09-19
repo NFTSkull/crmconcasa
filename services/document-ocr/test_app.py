@@ -622,6 +622,25 @@ def test_banorte_real_row_is_one_reliable_clabe():
     assert _has_clabe_like_candidate(text) is True
 
 
+def test_citibanamex_clabe_two_lines_after_label_is_reliable():
+    text = "\n".join(
+        [
+            "CITIBANAMEX",
+            "RESUMEN GENERAL",
+            "PRODUCTO/SERVICIO CONTRATO SALDO ANTERIOR",
+            "CLABE Interbancaria",
+            "MiCuenta 101028075095",
+            "002090905200268771",
+            "SALDO AL 05/JUN/2026",
+        ]
+    )
+
+    assert _strict_labeled_clabe_candidates(text) == [
+        "002090905200268771"
+    ]
+    assert _has_clabe_like_candidate(text) is True
+
+
 
 def test_ine_ocr_crops_small_card_before_primary_read(monkeypatch):
     photo = Image.new("RGB", (2400, 3200), "gray")
