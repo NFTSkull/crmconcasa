@@ -302,6 +302,40 @@ def test_ine_validity_hint_accepts_pre_2020_emission_with_current_expiry(monkeyp
     assert text == "VIGENCIA 2017 2027"
 
 
+def test_ine_validity_hint_recovers_single_year_from_tight_vigencia_cell(monkeypatch):
+    image = Image.new("RGB", (1200, 760), "white")
+    reads = iter([
+        "1999 04 2017",
+        "2027",
+    ])
+
+    monkeypatch.setattr(
+        "app.pytesseract.image_to_string",
+        lambda *args, **kwargs: next(reads),
+    )
+
+    text = _ine_front_validity_year_hint(image)
+
+    assert text == "VIGENCIA 2027"
+
+
+def test_ine_validity_hint_does_not_use_single_broad_year_as_vigencia(monkeypatch):
+    image = Image.new("RGB", (1200, 760), "white")
+    reads = iter([
+        "2017",
+        "",
+    ])
+
+    monkeypatch.setattr(
+        "app.pytesseract.image_to_string",
+        lambda *args, **kwargs: next(reads),
+    )
+
+    text = _ine_front_validity_year_hint(image)
+
+    assert text == ""
+
+
 def test_ine_validity_focus_recovers_two_years_when_label_pass_misses_numbers(monkeypatch):
     image = Image.new("RGB", (1200, 760), "white")
     reads = iter([

@@ -390,59 +390,63 @@ def _has_readable_ine_validity(text: str) -> bool:
 def _ine_front_validity_year_hint(image: Image.Image) -> str:
     """
     Último recurso seguro para frentes donde se ve VIGENCIA pero Tesseract
-    pierde la etiqueta o los años. Primero aísla la credencial para que una INE
-    pequeña dentro de una foto de celular no pierda la línea inferior.
+    pierde la etiqueta o parte de los años. Primero intenta reconstruir
+    emisión+vigencia desde un recorte amplio. Si eso falla, hace una microlectura
+    únicamente del extremo inferior derecho, donde INE imprime VIGENCIA, para
+    aceptar un solo año final sin confundir fecha de nacimiento/sección.
     """
-    # El caller ya entrega la credencial aislada cuando es posible.
     base = ImageOps.exif_transpose(image).convert("L")
     width, height = base.size
     if width < 8 or height < 8:
         return ""
 
-    crop = base.crop(
-        (
-            round(width * 0.45),
-            round(height * 0.50),
-            width,
-            height,
+    def prepare(region: Image.Image) -> Image.Image:
+        longest = max(region.size)
+        if longest > 2600:
+            scale = 2600 / max(1, longest)
+            region = region.resize(
+                (
+                    max(1, round(region.width * scale)),
+                    max(1, round(region.height * scale)),
+                ),
+                Image.Resampling.LANCZOS,
+            )
+        elif longest < 2200:
+            scale = min(6.0, 2200 / max(1, longest))
+            region = region.resize(
+                (
+                    max(1, round(region.width * scale)),
+                    max(1, round(region.height * scale)),
+                ),
+                Image.Resampling.LANCZOS,
+            )
+        region = ImageOps.autocontrast(region, cutoff=1)
+        region = ImageEnhance.Contrast(region).enhance(1.55)
+        return region.filter(ImageFilter.SHARPEN)
+
+    broad = prepare(
+        base.crop(
+            (
+                round(width * 0.45),
+                round(height * 0.50),
+                width,
+                height,
+            )
         )
     )
-    longest = max(crop.size)
-    if longest > 2600:
-        scale = 2600 / max(1, longest)
-        crop = crop.resize(
-            (max(1, round(crop.width * scale)), max(1, round(crop.height * scale))),
-            Image.Resampling.LANCZOS,
-        )
-    elif longest < 2200:
-        scale = min(5.0, 2200 / max(1, longest))
-        crop = crop.resize(
-            (max(1, round(crop.width * scale)), max(1, round(crop.height * scale))),
-            Image.Resampling.LANCZOS,
-        )
-    crop = ImageOps.autocontrast(crop, cutoff=1)
-    crop = ImageEnhance.Contrast(crop).enhance(1.55)
-    crop = crop.filter(ImageFilter.SHARPEN)
-
     raw = pytesseract.image_to_string(
-        crop,
+        broad,
         lang="eng",
         config="--oem 1 --psm 11 -c tessedit_char_whitelist=0123456789-/ ",
     )
-    years = []
+
+    years: list[int] = []
     for match in re.findall(r"20\d{2}", raw):
         year = int(match)
-        # Credenciales aún vigentes pueden haberse emitido antes de 2020
-        # (p. ej. EMISIÓN 2017 · VIGENCIA 2027). El primer año puede ser
-        # histórico; el segundo sí debe ser una vigencia plausible.
         if 2000 <= year <= 2050 and year not in years:
             years.append(year)
 
-    if len(years) < 2:
-        return ""
-
-    # INE imprime emisión/inicio y fin de vigencia; tomamos el primer par
-    # cronológico razonable cuya vigencia final sea 2020+.
+    # Caso normal: emisión/inicio + vigencia final.
     for idx, first in enumerate(years[:-1]):
         for second in years[idx + 1:]:
             if (
@@ -451,6 +455,42 @@ def _ine_front_validity_year_hint(image: Image.Image) -> str:
                 and second - first <= 15
             ):
                 return f"VIGENCIA {first} {second}"
+
+    # Respaldo para credenciales pequeñas en fotos grandes: aislamos solo la
+    # celda inferior derecha de VIGENCIA. Aquí un único 20xx es suficientemente
+    # específico; no usamos un 20xx único del recorte amplio porque podría ser
+    # EMISIÓN.
+    tight = prepare(
+        base.crop(
+            (
+                round(width * 0.68),
+                round(height * 0.62),
+                width,
+                height,
+            )
+        )
+    )
+    tight_raw = pytesseract.image_to_string(
+        tight,
+        lang="eng",
+        config="--oem 1 --psm 11 -c tessedit_char_whitelist=0123456789-/ ",
+    )
+    tight_years = []
+    for match in re.findall(r"20\d{2}", tight_raw):
+        year = int(match)
+        if 2020 <= year <= 2050 and year not in tight_years:
+            tight_years.append(year)
+
+    if len(tight_years) == 1:
+        return f"VIGENCIA {tight_years[0]}"
+
+    # Si el microrecorte trae dos años, el último suele ser la vigencia.
+    if len(tight_years) >= 2:
+        for first in tight_years[:-1]:
+            for second in tight_years[1:]:
+                if second >= first and second - first <= 15:
+                    return f"VIGENCIA {first} {second}"
+
     return ""
 
 
