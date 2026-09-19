@@ -260,7 +260,7 @@ describe("P4C document autofill parser", () => {
     assert.equal(patch.vivienda.calle?.value, "PASEO DE LOS OLIVOS");
     assert.equal(patch.vivienda.noExt?.value, "311");
     assert.equal(patch.vivienda.colonia?.value, "GARDENIAS");
-    assert.equal(patch.vivienda.municipio?.value, "JUÁREZ");
+    assert.equal(patch.vivienda.municipio?.value, "JUAREZ");
     assert.equal(patch.vivienda.entidad?.value, "NUEVO LEÓN");
     assert.equal(patch.vivienda.cp?.value, "67276");
     assert.doesNotMatch(
