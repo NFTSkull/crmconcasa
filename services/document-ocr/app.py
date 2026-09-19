@@ -110,8 +110,15 @@ def extract_embedded_pdf_text(data: bytes, max_pages: int = 4) -> tuple[str, int
 
 def preprocess_image(image: Image.Image) -> Image.Image:
     img = ImageOps.exif_transpose(image).convert("L")
-    if max(img.size) < 1800:
-        scale = min(3.0, 1800 / max(1, max(img.size)))
+    longest = max(img.size)
+    if longest > 2600:
+        scale = 2600 / max(1, longest)
+        img = img.resize(
+            (max(1, round(img.width * scale)), max(1, round(img.height * scale))),
+            Image.Resampling.LANCZOS,
+        )
+    elif longest < 1800:
+        scale = min(3.0, 1800 / max(1, longest))
         img = img.resize(
             (max(1, round(img.width * scale)), max(1, round(img.height * scale))),
             Image.Resampling.LANCZOS,
@@ -121,12 +128,17 @@ def preprocess_image(image: Image.Image) -> Image.Image:
     img = img.filter(ImageFilter.SHARPEN)
     return img
 
-
 def adaptive_binary_variant(image: Image.Image) -> Image.Image:
     base = ImageOps.exif_transpose(image).convert("L")
     longest = max(base.size)
-    if longest < 2600:
-        scale = min(6.0, 2600 / max(1, longest))
+    if longest > 2800:
+        scale = 2800 / max(1, longest)
+        base = base.resize(
+            (max(1, round(base.width * scale)), max(1, round(base.height * scale))),
+            Image.Resampling.LANCZOS,
+        )
+    elif longest < 2400:
+        scale = min(5.0, 2400 / max(1, longest))
         base = base.resize(
             (max(1, round(base.width * scale)), max(1, round(base.height * scale))),
             Image.Resampling.LANCZOS,
@@ -144,7 +156,6 @@ def adaptive_binary_variant(image: Image.Image) -> Image.Image:
         9,
     )
     return Image.fromarray(binary)
-
 
 def _clabe_checksum_valid(value: str) -> bool:
     digits = re.sub(r"\D", "", value or "")
@@ -355,8 +366,14 @@ def _ine_front_validity_year_hint(image: Image.Image) -> str:
         )
     )
     longest = max(crop.size)
-    if longest < 3200:
-        scale = min(7.0, 3200 / max(1, longest))
+    if longest > 2600:
+        scale = 2600 / max(1, longest)
+        crop = crop.resize(
+            (max(1, round(crop.width * scale)), max(1, round(crop.height * scale))),
+            Image.Resampling.LANCZOS,
+        )
+    elif longest < 2200:
+        scale = min(5.0, 2200 / max(1, longest))
         crop = crop.resize(
             (max(1, round(crop.width * scale)), max(1, round(crop.height * scale))),
             Image.Resampling.LANCZOS,
@@ -406,8 +423,14 @@ def _ine_front_validity_focus_text(image: Image.Image) -> str:
     for region in regions:
         gray = region.convert("L")
         longest = max(gray.size)
-        if longest < 3000:
-            scale = min(6.0, 3000 / max(1, longest))
+        if longest > 2600:
+            scale = 2600 / max(1, longest)
+            gray = gray.resize(
+                (max(1, round(gray.width * scale)), max(1, round(gray.height * scale))),
+                Image.Resampling.LANCZOS,
+            )
+        elif longest < 2200:
+            scale = min(5.0, 2200 / max(1, longest))
             gray = gray.resize(
                 (max(1, round(gray.width * scale)), max(1, round(gray.height * scale))),
                 Image.Resampling.LANCZOS,
@@ -465,11 +488,14 @@ def _ine_orientation_score(text: str, document_type: str) -> int:
 def _ine_orientation_needs_retry(text: str, document_type: str) -> bool:
     normalized = (text or "").upper()
     if document_type == "cliente_ine_reverso":
-        return not re.search(r"\\b(?:OCR|0CR|CIC)\\b|IDMEX|<<", normalized)
-    # Frente: si falta VIGENCIA o SEXO, una foto 90° puede haber producido
-    # nombre/CURP parciales pero seguir perdiendo los campos pequeños.
-    return "VIGENCIA" not in normalized or "SEXO" not in normalized
-
+        return not re.search(r"\b(?:OCR|0CR|CIC)\b|IDMEX|<<", normalized)
+    # No rotar todo el frente solo porque el texto pequeño de VIGENCIA faltó.
+    # Si hay marcadores claros de frente, la orientación ya es correcta y se
+    # usa el crop focalizado de vigencia.
+    return not any(
+        marker in normalized
+        for marker in ("INSTITUTO", "ELECTORAL", "NOMBRE", "CURP", "DOMICILIO")
+    )
 
 def _ocr_tokens_to_text(tokens: list[dict]) -> str:
     lines: dict[tuple[int, int, int, int], list[str]] = {}
@@ -619,6 +645,13 @@ def _primary_ocr_text(image: Image.Image, document_type: str, psm: str) -> str:
     return _ocr_tokens_to_text(tokens)
 
 
+def _ine_reverse_has_t7(text: str) -> bool:
+    compact = re.sub(r"[^A-Z0-9<>]+", "", (text or "").upper())
+    compact = compact.replace(">", "<")
+    numeric = r"[0-9OQILZSBG]"
+    return bool(re.search(rf"<<+{numeric}{{13}}(?:<|$)", compact))
+
+
 def _ine_reverse_has_structured_mrz(text: str) -> bool:
     compact = re.sub(r"[^A-Z0-9<>]+", "", (text or "").upper())
     compact = compact.replace(">", "<")
@@ -634,13 +667,11 @@ def _ine_reverse_has_structured_mrz(text: str) -> bool:
 
 
 def _ine_needs_adaptive_pass(text: str, document_type: str) -> bool:
-    normalized = (text or "").upper()
     if document_type == "cliente_ine_reverso":
-        return not _ine_reverse_has_structured_mrz(normalized)
+        return not _ine_reverse_has_t7(text)
     if document_type == "cliente_ine_frente":
-        return "VIGENCIA" not in normalized or "SEXO" not in normalized
+        return not _has_readable_ine_validity(text)
     return False
-
 
 def _ine_reverse_mrz_crop(image: Image.Image) -> Image.Image:
     base = ImageOps.exif_transpose(image)
@@ -673,12 +704,10 @@ def _best_ine_orientation(
     best_score = current_score
     best_degrees = 0
 
-    # Una INE es horizontal. En fotos verticales priorizamos 90/270; en una foto
-    # horizontal probamos primero 180 para cubrir credenciales al revés.
-    if base.height > base.width * 1.05:
-        candidates = (90, 270, 180)
-    else:
-        candidates = (180, 90, 270)
+    # Una credencial físicamente vertical solo necesita probar 90/270.
+    # Una ya horizontal únicamente puede estar al revés (180). Evitamos tres
+    # Tesseract probes por caso.
+    candidates = (90, 270) if base.height > base.width * 1.05 else (180,)
 
     for degrees in candidates:
         rotated = base.rotate(degrees, expand=True)
@@ -692,18 +721,16 @@ def _best_ine_orientation(
         if score > best_score:
             best_score = score
             best_degrees = degrees
+        if score >= 10:
+            break
 
     if best_degrees == 0:
         return base, 0
     return base.rotate(best_degrees, expand=True), best_degrees
 
-
 def ocr_image(image: Image.Image, document_type: str) -> str:
     working = ImageOps.exif_transpose(image)
 
-    # Una foto vertical de INE casi siempre está físicamente a 90°. Resolver la
-    # orientación con probes pequeños ANTES del OCR a resolución completa evita
-    # gastar un pase caro que luego se descarta.
     if (
         document_type.startswith("cliente_ine_")
         and working.height > working.width * 1.05
@@ -716,13 +743,12 @@ def ocr_image(image: Image.Image, document_type: str) -> str:
     primary_psm = "6" if document_type != "cliente_ine_reverso" else "11"
     primary_text = _primary_ocr_text(primary, document_type, primary_psm)
 
-    primary_orientation_score = _ine_orientation_score(
-        primary_text, document_type
-    )
+    # Solo corregimos orientación si la lectura parece realmente girada, no
+    # simplemente porque falte un campo pequeño.
     if (
         document_type.startswith("cliente_ine_")
         and _ine_orientation_needs_retry(primary_text, document_type)
-        and primary_orientation_score < 6
+        and _ine_orientation_score(primary_text, document_type) < 5
     ):
         oriented, degrees = _best_ine_orientation(
             working, document_type, primary_text
@@ -736,44 +762,21 @@ def ocr_image(image: Image.Image, document_type: str) -> str:
 
     parts = [primary_text]
 
-    # No duplicar OCR cuando el primer pase ya encontró los campos críticos.
-    # En reverso, el fallback se limita a la zona MRZ para ganar precisión y
-    # reducir píxeles/latencia; en frente se conserva la imagen completa.
-    if document_type.startswith("cliente_ine_") and _ine_needs_adaptive_pass(
-        primary_text, document_type
-    ):
-        adaptive_source = (
-            _ine_reverse_mrz_crop(working)
-            if document_type == "cliente_ine_reverso"
-            else working
-        )
-        adaptive = adaptive_binary_variant(adaptive_source)
-        adaptive_psm = "6" if document_type == "cliente_ine_reverso" else "11"
-        parts.append(
-            pytesseract.image_to_string(
-                adaptive,
-                lang="spa+eng",
-                config=f"--oem 1 --psm {adaptive_psm} preserve_interword_spaces=1",
-            ).strip()
-        )
-
     if document_type == "cliente_ine_frente":
         combined = "\n".join(part for part in parts if part).strip()
         if not _has_readable_ine_validity(combined):
             focused = _ine_front_validity_focus_text(working)
             if focused:
                 parts.append(focused)
-                combined = "\n".join(part for part in parts if part).strip()
 
     if document_type == "cliente_ine_reverso":
         combined = "\n".join(part for part in parts if part).strip()
-        if not _ine_reverse_has_structured_mrz(combined):
+        if not _ine_reverse_has_t7(combined):
             focused_mrz = _ine_reverse_mrz_focus_text(working)
             if focused_mrz:
                 parts.append(focused_mrz)
 
     return "\n".join(part for part in parts if part).strip()
-
 
 def render_pdf_page(page: fitz.Page, dpi: int = 300) -> Image.Image:
     zoom = dpi / 72.0
