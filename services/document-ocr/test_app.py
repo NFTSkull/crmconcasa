@@ -231,30 +231,34 @@ def test_ine_reverse_real_garrido_mrz_has_t7():
     assert _ine_reverse_has_t7(text) is True
 
 
-def test_ine_reverse_skips_adaptive_when_t7_and_expiry_are_already_read(monkeypatch):
+def test_ine_reverse_verifies_t7_with_independent_mrz_read(monkeypatch):
     image = Image.new("RGB", (1000, 600), "white")
     calls = []
 
+    primary = (
+        "IDMEX2840877688<<2653076233570<\n"
+        "8801030M2512311MEX<02<<<<<<<<<<"
+    )
+
     def fake_primary(*args, **kwargs):
         calls.append("primary")
-        return (
-            "IDMEX2840877688<<2653076233570<\n"
-            "8801030M2512311MEX<02<<<<<<<<<<"
-        )
+        return primary
 
     monkeypatch.setattr("app._primary_ocr_text", fake_primary)
+    monkeypatch.setattr("app._ine_reverse_mrz_focus_text", lambda *_: primary)
+
     text = ocr_image(image, "cliente_ine_reverso")
 
     assert calls == ["primary"]
-    assert "2653076233570" in text
+    assert "INE_T7_VERIFIED 2653076233570" in text
     assert "251231" in text
 
 
-def test_t7_microread_corrects_only_trailing_digit_when_two_variants_agree(monkeypatch):
+def test_t7_microread_never_replaces_one_numeric_digit_with_another(monkeypatch):
     image = Image.new("L", (1200, 220), "white")
     tokens = [
         {
-            "text": "IDMEX1788034184<<2732122056445",
+            "text": "IDMEX2930763080<<3049078375310",
             "conf": 46.0,
             "left": 80,
             "top": 60,
@@ -263,7 +267,7 @@ def test_t7_microread_corrects_only_trailing_digit_when_two_variants_agree(monke
             "line_key": (1, 1, 1, 1),
         }
     ]
-    reads = iter(["3", "3"])
+    reads = iter(["6", "6"])
 
     monkeypatch.setattr(
         "app.pytesseract.image_to_string",
@@ -272,7 +276,9 @@ def test_t7_microread_corrects_only_trailing_digit_when_two_variants_agree(monke
 
     _verify_t7_trailing_digit(image, tokens)
 
-    assert tokens[0]["text"].endswith("2732122056443")
+    # Caso real: el microrecorte confundió visualmente 0 con 6. La lectura
+    # pequeña ya no puede pisar un dígito leído por la línea MRZ completa.
+    assert tokens[0]["text"].endswith("3049078375310")
 
 
 def test_t7_microread_keeps_original_when_verifiers_disagree(monkeypatch):
@@ -298,6 +304,31 @@ def test_t7_microread_keeps_original_when_verifiers_disagree(monkeypatch):
     _verify_t7_trailing_digit(image, tokens)
 
     assert tokens[0]["text"].endswith("2732122056445")
+
+
+def test_ine_reverse_disagreement_marks_t7_unverified(monkeypatch):
+    image = Image.new("RGB", (1000, 600), "white")
+
+    monkeypatch.setattr(
+        "app._primary_ocr_text",
+        lambda *args, **kwargs: (
+            "IDMEX2930763080<<3049078375316\n"
+            "8907161H3612314MEX<04<<07904<8"
+        ),
+    )
+    monkeypatch.setattr(
+        "app._ine_reverse_mrz_focus_text",
+        lambda *args, **kwargs: (
+            "IDMEX2930763080<<3049078375310\n"
+            "8907161H3612314MEX<04<<07904<8"
+        ),
+    )
+
+    text = ocr_image(image, "cliente_ine_reverso")
+
+    assert "INE_T7_UNVERIFIED" in text
+    assert "3049078375316" in text
+    assert "3049078375310" in text
 
 
 def test_non_ine_keeps_single_pass(monkeypatch):
@@ -502,6 +533,12 @@ def test_ine_front_does_not_run_extra_name_focus(monkeypatch):
 def test_ine_reverse_adds_mrz_focus_when_t7_is_missing(monkeypatch):
     image = Image.new("RGB", (1200, 760), "white")
 
+    focused = (
+        "IDMEX2067045710<<1589023509985\n"
+        "8306018H3012316MEX<04<<18985<9\n"
+        "ANZALDO<MARTINEZ<<JUAN<MANUEL<"
+    )
+
     monkeypatch.setattr(
         "app._primary_ocr_text",
         lambda *args, **kwargs: "IDMEX2067045710",
@@ -512,16 +549,13 @@ def test_ine_reverse_adds_mrz_focus_when_t7_is_missing(monkeypatch):
     )
     monkeypatch.setattr(
         "app._ine_reverse_mrz_focus_text",
-        lambda *args, **kwargs: (
-            "IDMEX2067045710<<1589023509985\n"
-            "8306018H3012316MEX<04<<18985<9\n"
-            "ANZALDO<MARTINEZ<<JUAN<MANUEL<"
-        ),
+        lambda *args, **kwargs: focused,
     )
 
     text = ocr_image(image, "cliente_ine_reverso")
 
     assert "1589023509985" in text
+    assert "INE_T7_VERIFIED 1589023509985" in text
     assert "301231" in text
     assert "ANZALDO<MARTINEZ<<JUAN<MANUEL<" in text
 
