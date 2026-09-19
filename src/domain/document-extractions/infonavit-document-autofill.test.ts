@@ -349,6 +349,35 @@ describe("P4C document autofill parser", () => {
     );
   });
 
+  it("CFE Montemorelos toma domicilio del cliente y nunca Paseo de la Reforma", () => {
+    const patch = buildInfonavitDocumentAutofillPatch({
+      comprobanteDomicilio: [
+        "CFE Comisión Federal de Electricidad",
+        "Av. Paseo de la Reforma 164, Col. Juarez",
+        "Alcaldía: Cuauhtémoc, Código Postal 06600",
+        "Ciudad de México. RFC: CFE370814QI0",
+        "MARIN G MANUEL",
+        "DEL SAUZ 206 CP.00000",
+        "OYAMEL Y ABEDUL",
+        "LOS FRESNOS FRACC.P.67515",
+        "MONTEMORELOS,N.L.",
+        "NO. DE SERVICIO:395080201430",
+        "RMU:67515 08-02-23 XAXX-010101 001 CFE",
+      ].join("\n"),
+    });
+
+    assert.equal(patch.vivienda.calle?.value, "DEL SAUZ");
+    assert.equal(patch.vivienda.noExt?.value, "206");
+    assert.equal(patch.vivienda.colonia?.value, "LOS FRESNOS");
+    assert.equal(patch.vivienda.cp?.value, "67515");
+    assert.equal(patch.vivienda.municipio?.value, "MONTEMORELOS");
+    assert.equal(patch.vivienda.entidad?.value, "NUEVO LEÓN");
+    assert.doesNotMatch(
+      patch.vivienda.direccionCompleta?.value ?? "",
+      /PASEO DE LA REFORMA|06600|CUAUHTEMOC|JUAREZ/i,
+    );
+  });
+
   it("CFE con CP parcial al final de calle conserva exterior real", () => {
     const patch = buildInfonavitDocumentAutofillPatch({
       comprobanteDomicilio: [
