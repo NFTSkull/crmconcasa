@@ -31,7 +31,6 @@ import {
   comparableAutofillValue,
   type InfonavitDocumentTexts,
 } from "@/domain/document-extractions/infonavit-document-autofill";
-import { detectClabeFromBankStatementText } from "@/domain/document-extractions/clabe-bank-statement";
 import { parseLegacyReferenciaNombre } from "@/domain/expediente-cliente-datos/parse-legacy-referencia-nombre";
 import {
   mergeInfonavitDocumentAutofill,
@@ -921,9 +920,10 @@ export function MesaInfonavitGenerarDocumentosForm({
                 });
                 cacheNeedsRefresh = !cachedPatch.cliente.identificacionNumero;
               } else if (job.type === "cliente_estado_cuenta") {
-                cacheNeedsRefresh =
-                  detectClabeFromBankStatementText(cached.text).status !==
-                  "detected";
+                const cachedPatch = buildInfonavitDocumentAutofillPatch({
+                  estadoCuenta: cached.text,
+                });
+                cacheNeedsRefresh = !cachedPatch.clabeDerechohabiente;
               }
 
               if (!cacheNeedsRefresh) {
