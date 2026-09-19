@@ -252,6 +252,29 @@ describe("P4C document autofill parser", () => {
     assert.equal(patch.vivienda.entidad?.value, "NUEVO LEÓN");
   });
 
+  it("CFE separa colonia cuando C.P. viene pegado sin espacio", () => {
+    const patch = buildInfonavitDocumentAutofillPatch({
+      comprobanteDomicilio: [
+        "CFE Comisión Federal de Electricidad",
+        "HUERECA MTZ JOSE VALENTIN",
+        "SINURG 205",
+        "ZEUS Y RPV SINURG",
+        "BOSQUES DEL SOLC.P.66469",
+        "GUADALUPE NL N.L.",
+        "NO. DE SERVICIO: 370960701293",
+        "RMU: 66469 96-07-29 XAXX-010101 006 CFE",
+      ].join("\n"),
+    });
+
+    assert.equal(patch.vivienda.calle?.value, "SINURG");
+    assert.equal(patch.vivienda.noExt?.value, "205");
+    assert.equal(patch.vivienda.colonia?.value, "BOSQUES DEL SOL");
+    assert.equal(patch.vivienda.cp?.value, "66469");
+    assert.equal(patch.vivienda.municipio?.value, "GUADALUPE");
+    assert.equal(patch.vivienda.entidad?.value, "NUEVO LEÓN");
+    assert.doesNotMatch(patch.vivienda.colonia?.value ?? "", /C\.?P\.?|66469/i);
+  });
+
   it("INE llena T7 y vigencia aunque el OCR del reverso pierda el nombre", () => {
     const patch = buildInfonavitDocumentAutofillPatch(
       {
