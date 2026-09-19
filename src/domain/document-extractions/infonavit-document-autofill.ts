@@ -871,7 +871,7 @@ function parseCfeAddressCandidate(text: string): {
   let noExt: string | undefined;
   let streetIndex = -1;
 
-  for (let i = block.length - 1; i >= 0; i--) {
+  for (let i = 0; i < block.length; i++) {
     const parsed = parseCfeStreetLine(block[i]!);
     if (!parsed) continue;
     calle = parsed.calle;
@@ -1100,13 +1100,19 @@ function parseAddressCandidate(text: string): {
   const lines = normalizedLines(text);
   if (lines.length === 0) return {};
 
-  if (isCfeDocument(lines)) {
-    const cfe = parseCfeAddressCandidate(text);
-    if (cfe) return cfe;
+  const cfe = parseCfeAddressCandidate(text);
+  if (cfe) return cfe;
 
-    // En CFE nunca caemos al parser genérico de CP: el documento también trae
-    // el domicilio corporativo de CFE y sería peor llenar datos falsos.
-    // Solo aceptamos el bloque explícito DIRECCIÓN/DOMICILIO DE SERVICIO.
+  const hasCfeServiceAnchor = lines.some((line) =>
+    /\b(?:NO\.?\s*DE\s*SERVICIO|N[ÚU]MERO\s+DE\s+SERVICIO|RMU|RPU)\b/i.test(
+      line,
+    ),
+  );
+  if (isCfeDocument(lines) && hasCfeServiceAnchor) {
+    // En un CFE real con ancla de servicio nunca caemos al parser genérico de
+    // CP: el mismo recibo trae el domicilio corporativo y sería peor llenar
+    // Paseo de la Reforma / 06600. Solo queda como respaldo un bloque
+    // explícito DIRECCIÓN/DOMICILIO DE SERVICIO.
     return parseLabeledServiceAddressCandidate(text) ?? {};
   }
 
