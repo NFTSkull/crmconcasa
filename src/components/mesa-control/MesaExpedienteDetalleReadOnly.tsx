@@ -21,6 +21,7 @@ import {
   buildRetencionAccordionSummary,
 } from "@/components/mesa-control/MesaExpedienteDocumentosResumen";
 import { MesaClienteDatosReadOnlySection } from "@/components/mesa-control/MesaClienteDatosReadOnlySection";
+import { MesaIneValidityGuard } from "@/components/mesa-control/MesaIneValidityGuard";
 import { MesaMontoMejoravitActualizadoSection } from "@/components/mesa-control/MesaMontoMejoravitActualizadoSection";
 import { MesaPagareSection } from "@/components/mesa-control/MesaPagareSection";
 import { MesaNotificacionDocumentoSection } from "@/components/mesa-control/MesaNotificacionDocumentoSection";
@@ -1965,6 +1966,8 @@ export function MesaExpedienteDetalleReadOnly() {
         puedeMarcarRevisados={puedeOperarMesa}
         onPreviewDocumento={handlePreviewDocumentoById}
       />
+
+      <MesaIneValidityGuard expedienteId={routeExpedienteId} />
 
       <MesaAccordionSection
         id="mesa-editor"
