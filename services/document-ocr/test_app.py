@@ -13,6 +13,7 @@ from app import (
     _ine_front_validity_year_hint,
     _ine_card_crop,
     _ine_reverse_mrz_focus_text,
+    _ine_reverse_has_t7,
     _ine_vigencia_years,
     _needs_ine_validity_enrichment,
     _has_clabe_like_candidate,
@@ -164,6 +165,15 @@ def test_ine_reverse_portrait_recovers_ocr_marker_after_rotation(monkeypatch):
 
 
 
+
+
+def test_ine_reverse_real_garrido_mrz_has_t7():
+    text = (
+        "IDMEX2120512054<<2213082197980\n"
+        "9104071H3112319MEX<02<<04429<9\n"
+        "GARRIDO<ARMENDARIZ<<JUAN<ROBERT"
+    )
+    assert _ine_reverse_has_t7(text) is True
 
 
 def test_ine_reverse_skips_adaptive_when_t7_and_expiry_are_already_read(monkeypatch):
