@@ -222,7 +222,7 @@ function parseIneValidity(text: string): string | null {
     .filter((year) => Number.isInteger(year) && year >= 2020 && year <= 2050);
 
   const year = years.length >= 2 ? years[1] : years[0];
-  return year ? `31/12/${year}` : null;
+  return year ? String(year) : null;
 }
 
 function parseIneIdentificationNumber(
@@ -336,10 +336,7 @@ function parseIneMrz(text: string): {
       dd >= 1 &&
       dd <= 31
     ) {
-      out.vigencia = `${String(dd).padStart(2, "0")}/${String(mm).padStart(
-        2,
-        "0",
-      )}/${year}`;
+      out.vigencia = String(year);
     }
   }
 
@@ -440,7 +437,7 @@ function parseIne(
       out.identificacionVigencia = high(
         vigencia,
         "cliente_ine_frente",
-        "ine_vigencia_year_to_dec31",
+        "ine_vigencia_year",
       );
     }
 
@@ -475,11 +472,11 @@ function parseIne(
   }
 
   if (!out.identificacionVigencia && mrzValidityDate) {
-    const [year, month, day] = mrzValidityDate.split("-");
+    const [year] = mrzValidityDate.split("-");
     out.identificacionVigencia = high(
-      `${day}/${month}/${year}`,
+      year,
       "cliente_ine_reverso",
-      "ine_mrz_expiry",
+      "ine_mrz_expiry_year",
     );
   }
 
