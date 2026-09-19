@@ -149,7 +149,10 @@ def test_ine_front_landscape_frame_recovers_sideways_card_on_exhaustive_retry(mo
     monkeypatch.setattr("app._ine_card_crop", lambda source: source)
 
     def fake_ocr(img, *args, **kwargs):
-        if img.height > img.width:
+        config = str(kwargs.get("config", ""))
+        # El probe liviano (--psm 11) falla aun en la orientación correcta;
+        # la lectura completa del frente (--psm 6) sí reconoce la credencial.
+        if img.height > img.width and "--psm 6" in config:
             return (
                 "INSTITUTO NACIONAL ELECTORAL\n"
                 "NOMBRE VILLALBA MENDOZA LEOBARDO\n"
@@ -173,11 +176,8 @@ def test_ine_reverse_landscape_frame_recovers_sideways_t7_on_exhaustive_retry(mo
     monkeypatch.setattr("app._ine_card_crop", lambda source: source)
 
     def fake_probe(img, *args, **kwargs):
-        if img.height > img.width:
-            return (
-                "IDMEX2120512054<<2213082197980\n"
-                "8412081H3612310MEX<02<<<<<<<<<<"
-            )
+        # Simula el caso real donde el probe rápido no logra leer el MRZ
+        # aunque la lectura completa del lado correcto sí pueda hacerlo.
         return "MEXICO"
 
     def fake_primary(img, document_type, psm):
