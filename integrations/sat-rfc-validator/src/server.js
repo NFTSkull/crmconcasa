@@ -2,6 +2,7 @@ import express from 'express'
 import PQueue from 'p-queue'
 import { validateRequestPayload, fixtureValidationResult } from './contracts.js'
 import { validateFiscalLive } from './live-validator.js'
+import { buildPlaywrightProxy, satRuntimeReadiness } from './runtime-config.js'
 
 const app = express()
 app.use(express.json({ limit: '32kb' }))
@@ -12,7 +13,8 @@ const SECRET = String(process.env.SAT_VALIDATOR_SECRET || '')
 const queue = new PQueue({ concurrency: Math.max(1, Number(process.env.SAT_MAX_CONCURRENCY || 1)) })
 
 app.get('/health', (_req, res) => {
-  res.json({ ok: true, mode: MODE === 'live' ? 'live' : 'fixture' })
+  const readiness = satRuntimeReadiness(process.env)
+  return res.status(readiness.ok ? 200 : 503).json(readiness)
 })
 
 app.post('/validate', async (req, res) => {
@@ -30,10 +32,22 @@ app.post('/validate', async (req, res) => {
       if (parsed.fixtureScenario) {
         return res.status(400).json({ ok: false, code: 'FIXTURE_DISABLED_IN_LIVE' })
       }
+      const readiness = satRuntimeReadiness(process.env)
+      if (!readiness.ok) {
+        return res.status(503).json({
+          ok: false,
+          semantic: 'retry',
+          code: 'SAT_RUNTIME_NOT_READY',
+          rfc: { status: 'unknown', evidence: null },
+          curp: { status: 'not_run', evidence: null },
+        })
+      }
+
       const result = await validateFiscalLive({
         rfc: parsed.rfc,
         curp: parsed.curp,
         capsolverApiKey: process.env.CAPSOLVER_API_KEY,
+        proxy: buildPlaywrightProxy(process.env),
       })
       return res.json(result)
     } catch (error) {
