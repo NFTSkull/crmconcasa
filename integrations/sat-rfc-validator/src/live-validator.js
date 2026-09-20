@@ -58,9 +58,10 @@ async function validateCurp(page, curp, apiKey) {
   }
 }
 
-export async function validateFiscalLive({ rfc, curp, capsolverApiKey }) {
+export async function validateFiscalLive({ rfc, curp, capsolverApiKey, proxy }) {
   const browser = await chromium.launch({
     headless: true,
+    proxy,
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--ignore-certificate-errors'],
   })
   try {
