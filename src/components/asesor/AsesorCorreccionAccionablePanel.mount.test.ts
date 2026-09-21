@@ -22,6 +22,10 @@ describe("P210 T18 — action_target / anchors", () => {
     join(process.cwd(), "src/app/asesor/expediente/[id]/page.tsx"),
     "utf8",
   );
+  const docsUpload = readFileSync(
+    join(process.cwd(), "src/components/asesor/AsesorIntegracionDocsUpload.impl.tsx"),
+    "utf8",
+  );
 
   const dgItem: AsesorCorreccionItem = {
     type: "datos_generales",
@@ -83,5 +87,19 @@ describe("P210 T18 — action_target / anchors", () => {
     assert.match(panel, /Cambio atendido y guardado\./);
     assert.match(detallePage, /Corrección enviada a Mesa/);
     assert.match(detallePage, /asesor-correccion-enviada-ok/);
+  });
+
+  it("refresca el read-model de corrección después de subir un documento", () => {
+    assert.match(detallePage, /const refreshArchivosYCorreccion = useCallback/);
+    assert.match(detallePage, /repo\.getAsesorInboxEstadoEfectivo\(expedienteId\)/);
+    assert.match(detallePage, /repo\.getAsesorCorreccionDetalle\(expedienteId\)/);
+    assert.match(detallePage, /onUploaded=\{refreshArchivosYCorreccion\}/);
+  });
+
+  it("explica que un reemplazo post-Mesa queda registrado sin reenviar el expediente", () => {
+    assert.match(
+      docsUpload,
+      /queda registrado en el mismo expediente para revisión; no necesitas volver/,
+    );
   });
 });

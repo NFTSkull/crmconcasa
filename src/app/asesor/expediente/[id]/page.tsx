@@ -1499,6 +1499,35 @@ export default function AsesorExpedientePage() {
     }
   }, [archivosRepo, dataSupabase, precal?.id]);
 
+  /**
+   * Mantiene sincronizados documentos + estado causal de corrección.
+   * Una corrección post-Mesa puede cambiar el estado efectivo en la misma TX
+   * del upload; refrescar solo archivos deja el CTA con información vieja.
+   */
+  const refreshArchivosYCorreccion = useCallback(async () => {
+    try {
+      await refreshArchivos();
+    } catch {
+      // El upload ya quedó persistido; el propio panel de documentos muestra
+      // el error de recarga sin convertirlo en un falso "falló la subida".
+      return;
+    }
+
+    if (!dataSupabase || !precal?.id) return;
+    const expedienteId = String(precal.id);
+
+    try {
+      const [estadoInbox, detalleCorreccion] = await Promise.all([
+        repo.getAsesorInboxEstadoEfectivo(expedienteId),
+        repo.getAsesorCorreccionDetalle(expedienteId),
+      ]);
+      setEstadoEfectivo(estadoInbox);
+      setCorreccionDetalle(detalleCorreccion);
+    } catch {
+      // Fail-open de UI: conserva el último read-model; documentos ya refrescaron.
+    }
+  }, [dataSupabase, precal?.id, refreshArchivos, repo]);
+
   useEffect(() => {
     if (!dataSupabase || !precal?.id) return;
     let cancelled = false;
@@ -2638,7 +2667,7 @@ export default function AsesorExpedientePage() {
                     esReingresoActivo={esReingresoActivo}
                     readOnlyOpcionalTipos={[]}
                     esperaRevisionMesa={correccionView.showEnviadaPanel}
-                    onUploaded={refreshArchivos}
+                    onUploaded={refreshArchivosYCorreccion}
                   />
                 </>
               ) : null}
