@@ -6,6 +6,7 @@ import { join } from "node:path";
 import {
   buildMesaInfonavitGeneratePayload,
   MESA_CLABE_DERECHOHABIENTE_INVALID_MSG,
+  normalizeMesaIneValidityForDocuments,
   normalizeMesaIneValidityYear,
   parseMesaInfonavitDocumentDraft,
   repairMesaInfonavitClienteNameFromCanonical,
@@ -129,7 +130,7 @@ describe("Mesa Infonavit nombre canónico", () => {
   });
 });
 
-describe("Mesa Infonavit vigencia INE solo año", () => {
+describe("Mesa Infonavit vigencia INE para documentos", () => {
   it("normaliza fechas y rangos a únicamente el año final", () => {
     assert.equal(normalizeMesaIneValidityYear("31/12/2031"), "2031");
     assert.equal(normalizeMesaIneValidityYear("2031-12-31"), "2031");
@@ -139,14 +140,28 @@ describe("Mesa Infonavit vigencia INE solo año", () => {
     assert.equal(normalizeMesaIneValidityYear("2031"), "2031");
   });
 
-  it("permite captura manual progresiva de cuatro dígitos", () => {
-    assert.equal(normalizeMesaIneValidityYear("2"), "2");
-    assert.equal(normalizeMesaIneValidityYear("20"), "20");
-    assert.equal(normalizeMesaIneValidityYear("203"), "203");
-    assert.equal(normalizeMesaIneValidityYear("2031"), "2031");
+  it("antepone 31/12 y permite captura manual progresiva del año", () => {
+    assert.equal(normalizeMesaIneValidityForDocuments("2"), "31/12/2");
+    assert.equal(normalizeMesaIneValidityForDocuments("20"), "31/12/20");
+    assert.equal(normalizeMesaIneValidityForDocuments("203"), "31/12/203");
+    assert.equal(normalizeMesaIneValidityForDocuments("2031"), "31/12/2031");
+    assert.equal(
+      normalizeMesaIneValidityForDocuments("31/12/203"),
+      "31/12/203",
+    );
+    assert.equal(normalizeMesaIneValidityForDocuments(""), "");
   });
 
-  it("normaliza vigencia legacy al cargar y al generar", () => {
+  it("normaliza año, fecha legacy y rangos al formato 31/12/AAAA al cargar y generar", () => {
+    assert.equal(
+      normalizeMesaIneValidityForDocuments("2024 - 2034"),
+      "31/12/2034",
+    );
+    assert.equal(
+      normalizeMesaIneValidityForDocuments("2031-12-31"),
+      "31/12/2031",
+    );
+
     const parsed = parseMesaInfonavitDocumentDraft({
       cliente: {
         identificacion: {
@@ -156,7 +171,7 @@ describe("Mesa Infonavit vigencia INE solo año", () => {
         },
       },
     });
-    assert.equal(parsed.cliente.identificacion.vigencia, "2031");
+    assert.equal(parsed.cliente.identificacion.vigencia, "31/12/2031");
 
     const draft = minimalDraft({
       porcentajeTitulacion: "",
@@ -166,10 +181,10 @@ describe("Mesa Infonavit vigencia INE solo año", () => {
     draft.cliente.identificacion = {
       tipo: "INE",
       numero: "1786018292055",
-      vigencia: "31/12/2031",
+      vigencia: "2031",
     };
     const payload = buildMesaInfonavitGeneratePayload(draft);
-    assert.equal(payload.cliente.identificacion.vigencia, "2031");
+    assert.equal(payload.cliente.identificacion.vigencia, "31/12/2031");
   });
 });
 
