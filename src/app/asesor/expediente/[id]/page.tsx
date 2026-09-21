@@ -594,28 +594,31 @@ export default function AsesorExpedientePage() {
     (value: SetStateAction<ClienteDatosFormState>) => {
       hasUserEditedClienteDatos.current = true;
       setClienteDatosHasUnsavedChanges(true);
-      setClienteDatos((prev) => {
-        const next = typeof value === "function" ? value(prev) : value;
-        let datos = next;
-        if (
-          cobroInputsAfectanMontoCalculado(prev, next) ||
-          montoCalculadoFieldCambio(prev, next)
-        ) {
-          const recalc = applyClienteDatosCobroRecalc({
-            prev,
-            next,
-            montoEditor: montoAprobadoEditorRef.current,
-            programaDb: programaDbRef.current,
-            bloqueadoManual: montoCalculadoLockedRef.current,
-          });
-          montoCalculadoLockedRef.current = recalc.bloqueadoManual;
-          datos = recalc.datos;
-        }
-        // Solo snapshot en ref aquí (Strict Mode puede re-ejecutar el updater).
-        syncClienteDatosDraftFlush({ clienteDatos: datos });
-        return datos;
-      });
-      // localStorage inmediato con el snapshot ya en el ref (última tecla sobrevive refresh).
+
+      // Calcular contra el snapshot síncrono y actualizarlo ANTES de escribir
+      // localStorage. Un updater de React puede ejecutarse después del handler;
+      // si el usuario navega/cierra en ese intervalo, la última edición se perdía.
+      const prev = clienteDatosDraftFlushRef.current.clienteDatos;
+      const next = typeof value === "function" ? value(prev) : value;
+      let datos = next;
+      if (
+        cobroInputsAfectanMontoCalculado(prev, next) ||
+        montoCalculadoFieldCambio(prev, next)
+      ) {
+        const recalc = applyClienteDatosCobroRecalc({
+          prev,
+          next,
+          montoEditor: montoAprobadoEditorRef.current,
+          programaDb: programaDbRef.current,
+          bloqueadoManual: montoCalculadoLockedRef.current,
+        });
+        montoCalculadoLockedRef.current = recalc.bloqueadoManual;
+        datos = recalc.datos;
+      }
+
+      syncClienteDatosDraftFlush({ clienteDatos: datos });
+      setClienteDatos(datos);
+      // localStorage inmediato: la última tecla ya está en el ref al ejecutar.
       writeClienteDatosDraftImmediate();
     },
     [syncClienteDatosDraftFlush, writeClienteDatosDraftImmediate],
@@ -625,11 +628,11 @@ export default function AsesorExpedientePage() {
     (value: SetStateAction<string>) => {
       hasUserEditedClienteDatos.current = true;
       setClienteDatosHasUnsavedChanges(true);
-      setDireccionOpcional((prev) => {
-        const next = typeof value === "function" ? value(prev) : value;
-        syncClienteDatosDraftFlush({ direccionOpcional: next });
-        return next;
-      });
+
+      const prev = clienteDatosDraftFlushRef.current.direccionOpcional;
+      const next = typeof value === "function" ? value(prev) : value;
+      syncClienteDatosDraftFlush({ direccionOpcional: next });
+      setDireccionOpcional(next);
       writeClienteDatosDraftImmediate();
     },
     [syncClienteDatosDraftFlush, writeClienteDatosDraftImmediate],
