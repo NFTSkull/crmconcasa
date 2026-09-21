@@ -1,5 +1,6 @@
 import type { ResumenEstatus } from "./types";
 import {
+  CLIENTE_SEMANAS_O_VIGENCIA_DERECHOS_DOCUMENT_TIPO,
   INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD,
   isIntegrationDocAsesorOpcionalTipo,
   type IntegrationDocAsesorUploadTipo,
@@ -79,6 +80,27 @@ export function asesorPuedeSubirOpcionalFaltantePostMesa(
 }
 
 /**
+ * Compatibilidad del rollout Equipo Silvia.
+ *
+ * Expedientes enviados antes de que existiera el slot combinado pueden quedar
+ * post-Mesa con `cliente_semanas_o_vigencia_derechos` en estado faltante.
+ * La defensa SQL decide si el expediente concreto es grandfathered; en UI este
+ * tipo se habilita para que el usuario pueda intentar completar el faltante.
+ * No abre otros documentos obligatorios faltantes.
+ */
+export function asesorPuedeSubirSemanasOVigenciaFaltantePostMesa(
+  submittedToMesa: boolean,
+  estatusRevision: ResumenEstatus,
+  tipoDocumento: IntegrationDocAsesorUploadTipo,
+): boolean {
+  return (
+    submittedToMesa &&
+    estatusRevision === "faltante" &&
+    tipoDocumento === CLIENTE_SEMANAS_O_VIGENCIA_DERECHOS_DOCUMENT_TIPO
+  );
+}
+
+/**
  * Reingreso activo: cualquier tipo de `integration_doc_tipos_asesor_upload`
  * (faltante o con archivo) editable aunque el expediente ya esté enviado a Mesa.
  */
@@ -152,6 +174,16 @@ export function asesorPuedeSubirOCorregirDocumento(
   ) {
     return true;
   }
+  if (
+    tipoDocumento &&
+    asesorPuedeSubirSemanasOVigenciaFaltantePostMesa(
+      submittedToMesa,
+      estatusRevision,
+      tipoDocumento,
+    )
+  ) {
+    return true;
+  }
   if (asesorPuedeReemplazarDocumentoExistentePostMesa(submittedToMesa, estatusRevision)) {
     return true;
   }
@@ -202,6 +234,16 @@ export function asesorDocumentoUploadMode(
   if (
     tipoDocumento &&
     asesorPuedeSubirOpcionalFaltantePostMesa(
+      submittedToMesa,
+      estatusRevision,
+      tipoDocumento,
+    )
+  ) {
+    return "normal";
+  }
+  if (
+    tipoDocumento &&
+    asesorPuedeSubirSemanasOVigenciaFaltantePostMesa(
       submittedToMesa,
       estatusRevision,
       tipoDocumento,

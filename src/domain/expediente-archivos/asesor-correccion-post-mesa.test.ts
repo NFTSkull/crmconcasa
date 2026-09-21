@@ -13,6 +13,7 @@ import {
   asesorPuedeSubirDocumentoPreMesa,
   asesorPuedeSubirDocumentoNuevoReingreso,
   asesorPuedeSubirOpcionalFaltantePostMesa,
+  asesorPuedeSubirSemanasOVigenciaFaltantePostMesa,
   asesorPuedeSubirOCorregirDocumento,
   esReingresoDatosEditables,
   esReingresoDocumentosEditables,
@@ -170,6 +171,58 @@ describe("asesor corrección post-Mesa (helpers UI)", () => {
         estatusRevision: "faltante",
         tipoDocumento: "cliente_comprobante_domicilio",
       }),
+      false,
+    );
+  });
+
+  it("post-Mesa permite completar Semanas|Vigencia faltante sin abrir otros obligatorios", () => {
+    assert.equal(
+      asesorPuedeSubirSemanasOVigenciaFaltantePostMesa(
+        true,
+        "faltante",
+        "cliente_semanas_o_vigencia_derechos",
+      ),
+      true,
+    );
+    assert.equal(
+      asesorPuedeSubirOCorregirDocumento(
+        true,
+        "faltante",
+        "cliente_semanas_o_vigencia_derechos",
+        false,
+      ),
+      true,
+    );
+    assert.equal(
+      asesorPuedeMostrarUploadDocumento({
+        puedeIntegrar: false,
+        submittedToMesa: true,
+        estatusRevision: "faltante",
+        tipoDocumento: "cliente_semanas_o_vigencia_derechos",
+        esReingresoActivo: false,
+      }),
+      true,
+    );
+    assert.equal(
+      asesorDocumentoUploadMode(
+        true,
+        "faltante",
+        "cliente_semanas_o_vigencia_derechos",
+        false,
+      ),
+      "normal",
+    );
+
+    assert.equal(
+      asesorPuedeSubirSemanasOVigenciaFaltantePostMesa(
+        true,
+        "faltante",
+        "cliente_ine_frente",
+      ),
+      false,
+    );
+    assert.equal(
+      asesorPuedeSubirOCorregirDocumento(true, "faltante", "cliente_ine_frente", false),
       false,
     );
   });

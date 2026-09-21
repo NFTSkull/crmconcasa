@@ -36,7 +36,10 @@ import {
   INTEGRATION_DOC_TIPOS_ASESOR_OPCIONALES,
   INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD,
 } from "./integration-docs-completos";
-import { esReingresoDocumentosEditables } from "./asesor-correccion-post-mesa";
+import {
+  asesorPuedeSubirSemanasOVigenciaFaltantePostMesa,
+  esReingresoDocumentosEditables,
+} from "./asesor-correccion-post-mesa";
 import { mapSupabaseStorageUploadError } from "./map-storage-upload-error";
 import { resolveExpedienteDocumentoUploadMime } from "@/lib/fileUploadValidation";
 import {
@@ -349,9 +352,20 @@ export class SupabaseExpedienteArchivosRepo implements ExpedienteArchivosRepo {
       const esReingresoDoc =
         ctx.esReingresoDocsEditables &&
         (INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD as readonly string[]).includes(tipo);
+      const esSemanasOVigenciaFaltante = asesorPuedeSubirSemanasOVigenciaFaltantePostMesa(
+        true,
+        row?.estatus_revision ?? "faltante",
+        tipo,
+      );
 
-      if (tieneDocumentoActivo || esOpcionalFaltante || esReingresoDoc) {
-        // Reemplazo post-Mesa, opcional faltante, o cualquier doc asesor en reingreso activo.
+      if (
+        tieneDocumentoActivo ||
+        esOpcionalFaltante ||
+        esReingresoDoc ||
+        esSemanasOVigenciaFaltante
+      ) {
+        // Reemplazo post-Mesa, opcional faltante, reingreso activo o compat
+        // del slot Semanas|Vigencia introducido después del envío histórico.
       } else {
         throw new ExpedienteArchivosSupabaseError(
           "No puedes crear documentos obligatorios faltantes: el expediente ya fue enviado a Mesa.",
@@ -386,7 +400,23 @@ export class SupabaseExpedienteArchivosRepo implements ExpedienteArchivosRepo {
     }
 
     try {
-      const { error: rpcError } = await client.rpc("register_expediente_documento", {
+      const resumenPostMesa = ctx.submittedToMesa
+        ? await this.listResumenByExpediente(expedienteId)
+        : [];
+      const filaActual = resumenPostMesa.find((r) => r.tipo_documento === tipo);
+      const usarCompatSemanasOVigencia =
+        ctx.submittedToMesa &&
+        asesorPuedeSubirSemanasOVigenciaFaltantePostMesa(
+          true,
+          filaActual?.estatus_revision ?? "faltante",
+          tipo,
+        ) &&
+        !filaActual?.id;
+
+      const rpcName = usarCompatSemanasOVigencia
+        ? "register_expediente_documento_silvia_combined_post_mesa"
+        : "register_expediente_documento";
+      const { error: rpcError } = await client.rpc(rpcName, {
         p_expediente_id: expedienteId,
         p_tipo_documento: tipo,
         p_storage_path: storagePath,
