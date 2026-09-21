@@ -99,6 +99,7 @@ function toUserSession(resolved: ResolvedSupabaseProfile): UserSession {
   return {
     email: resolved.email,
     role: resolved.sessionRole,
+    tipoAsesorOrigen: resolved.tipoAsesorOrigen,
   };
 }
 
