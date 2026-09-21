@@ -52,10 +52,11 @@ describe("Mesa INE validity guard contract", () => {
     assert.match(guard, /MRZ\/T7/);
   });
 
-  it("muestra y captura la vigencia únicamente como año", () => {
-    assert.match(form, /Vigencia identificación \(año\)/);
-    assert.match(form, /placeholder="aaaa"/);
-    assert.doesNotMatch(form, /placeholder="dd\/mm\/aaaa"/);
+  it("muestra la vigencia como 31/12/año y permite captura manual", () => {
+    assert.match(form, /label="Vigencia identificación"/);
+    assert.match(form, /placeholder="31\/12\/aaaa"/);
+    assert.match(form, /maxLength=\{10\}/);
+    assert.match(form, /normalizeMesaIneValidityForDocuments\(v\)/);
     assert.match(guard, /assessment\.expirationYear/);
   });
 
