@@ -72,6 +72,14 @@ describe("ExpedienteClienteDatosFormSection capturaVariant", () => {
     assert.match(page, /flushClienteDatosDraftSnapshot/);
     assert.match(page, /syncClienteDatosDraftFlush/);
     assert.match(page, /writeClienteDatosDraftImmediate/);
+    assert.match(
+      page,
+      /const prev = clienteDatosDraftFlushRef\.current\.clienteDatos;[\s\S]*?syncClienteDatosDraftFlush\(\{ clienteDatos: datos \}\);[\s\S]*?setClienteDatos\(datos\);[\s\S]*?writeClienteDatosDraftImmediate\(\);/,
+    );
+    assert.match(
+      page,
+      /const prev = clienteDatosDraftFlushRef\.current\.direccionOpcional;[\s\S]*?syncClienteDatosDraftFlush\(\{ direccionOpcional: next \}\);[\s\S]*?setDireccionOpcional\(next\);[\s\S]*?writeClienteDatosDraftImmediate\(\);/,
+    );
     assert.match(page, /clienteDatosSavedPreservesCapture/);
     assert.match(page, /suppressClienteDatosRemoteHydrationRef/);
     assert.doesNotMatch(page, /Restaurar borrador/);
