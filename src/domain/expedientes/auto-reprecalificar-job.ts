@@ -1,7 +1,7 @@
 /**
  * Job auto-reprecalificar: scraper + auto_resolver_reprecalificacion + registro.
  * pending_error / scraper fallido → no llama RPC (intento sigue pendiente).
- * Siempre inserta en auto_reprecal_intentos (cualquier desenlace).
+ * Inserta en auto_reprecal_intentos solo cuando realmente adquiere el scraper.
  */
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 
@@ -99,12 +99,8 @@ export async function runAutoReprecalificarJob(input: {
 
   const scraperLease = await tryClaimAutoPrecalScraperLease(supabase);
   if (!scraperLease.claimed) {
-    await recordIntento(
-      supabase,
-      intentoId,
-      "pending_error",
-      AUTO_PRECAL_SCRAPER_BUSY_REASON,
-    );
+    // No hubo intento real contra Infonavit: solo perdimos el turno del lease.
+    // No persistir scraper_busy evita inflar historial y alterar cooldowns/reintentos.
     return {
       resultado: "pending_error",
       razon: AUTO_PRECAL_SCRAPER_BUSY_REASON,
