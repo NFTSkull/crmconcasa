@@ -635,8 +635,9 @@ export function AsesorIntegracionDocsUpload({
       ) : null}
       {submittedToMesa && esperaRevisionMesa ? (
         <p className="rounded-md border border-sky-100 bg-sky-50 px-2 py-1.5 text-xs text-sky-900">
-          Corrección enviada. Mesa está revisando los documentos. El estatus rojo anterior es
-          historial técnico, no una tarea nueva.
+          Corrección enviada. Mesa está revisando los documentos. Si reemplazas otro documento
+          solicitado, queda registrado en el mismo expediente para revisión; no necesitas volver
+          a usar “Enviar a Mesa”.
         </p>
       ) : null}
 
