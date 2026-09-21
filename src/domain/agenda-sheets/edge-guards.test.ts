@@ -65,6 +65,29 @@ describe("agenda-sheets edge-like guards", () => {
     assert.match(src, /applyOperationalResult|upsertAndApplyOperationalResultRow/);
   });
 
+  it("21a. bloque LEO es no-op antes de limpiar o proxyear al core", () => {
+    const src = readFileSync(
+      new URL(
+        "../../../supabase/functions/agenda-sheet-webhook-cap-guard/index.ts",
+        import.meta.url,
+      ),
+      "utf8",
+    );
+    assert.match(src, /function isLeoNonAgendaRow/);
+    assert.match(src, /parseSection/);
+    assert.match(src, /code: "non_agenda_leo"/);
+    assert.match(src, /CRM no modifica esta fila/);
+
+    const guardPos = src.indexOf("isLeoNonAgendaRow(grid, body.rowNumber)");
+    const clearPos = src.indexOf("manual_entry_without_slot");
+    assert.ok(guardPos >= 0);
+    assert.ok(clearPos >= 0);
+    assert.ok(
+      guardPos < clearPos,
+      "LEO debe salir como no-op antes de cualquier limpieza de fila manual",
+    );
+  });
+
   it("21b. reconcile aplica ops P170 tras proyección", () => {
     const src = readFileSync(
       new URL(
