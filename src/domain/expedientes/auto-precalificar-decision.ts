@@ -29,6 +29,7 @@ export const MOTIVO_NO_CUMPLE_CALIFICA_FALSE =
 
 /** Fallo técnico Infonavit (no decisión crediticia). Reintentable por cron. */
 export const REASON_INFONAVIT_SYSTEM_ERROR = "infonavit_system_error";
+export const REASON_PROXY_UNAVAILABLE = "proxy_unavailable";
 
 /**
  * Mensajes técnicos inequívocos del portal Infonavit (no rechazo crediticio).
@@ -115,6 +116,9 @@ export function decideAutoPrecalFromScraper(
 ): AutoPrecalDecision {
   // 1) Fallo HTTP / error explícito del scraper
   if (!upstreamOk || typeof payload?.error === "string") {
+    if (payload?.error === REASON_PROXY_UNAVAILABLE) {
+      return { kind: "pending_error", reason: REASON_PROXY_UNAVAILABLE };
+    }
     return { kind: "pending_error", reason: "scraper_failed" };
   }
 
