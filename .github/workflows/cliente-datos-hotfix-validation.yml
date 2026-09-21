@@ -47,3 +47,5 @@ jobs:
           src/domain/expedientes/infonavit-scraper-name.test.ts
           src/domain/expedientes/auto-precalificar-job.ts
           src/domain/expedientes/auto-precalificar-job.test.ts
+      - name: Production build guard
+        run: npm run build
