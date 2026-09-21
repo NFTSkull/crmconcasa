@@ -178,7 +178,7 @@ describe("runAutoReprecalificarJob", () => {
     assert.equal(rpcCalls[0]?.args.p_monto_aprobado, 1290973.09);
   });
 
-  it("scraper_busy no llama scraper y registra intento reintentable", async () => {
+  it("scraper_busy no llama scraper ni registra intento", async () => {
     let fetchCalls = 0;
     const inserts: InsertCall[] = [];
     globalThis.fetch = (async () => {
@@ -217,15 +217,6 @@ describe("runAutoReprecalificarJob", () => {
       razon: AUTO_PRECAL_SCRAPER_BUSY_REASON,
     });
     assert.equal(fetchCalls, 0);
-    assert.deepEqual(inserts, [
-      {
-        table: "auto_reprecal_intentos",
-        row: {
-          intento_id: intentoId,
-          resultado: "pending_error",
-          razon: AUTO_PRECAL_SCRAPER_BUSY_REASON,
-        },
-      },
-    ]);
+    assert.deepEqual(inserts, []);
   });
 });
