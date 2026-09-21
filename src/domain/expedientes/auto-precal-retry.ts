@@ -124,7 +124,7 @@ export type RetryCandidateInput = {
   /**
    * Expedientes de asesores con capability auto_precal_retry_priority.
    * Ganan el orden y usan cooldown técnico corto de 2 min salvo lease in-flight.
-   * Si no tienen ningún intento, entran al rescate a los 2 min.
+   * Si no tienen ningún intento, entran al rescate a los 20 s.
    */
   priorityExpedienteIds?: string[];
   nowMs?: number;
@@ -139,7 +139,7 @@ export type RetryCandidateInput = {
  * - normales: cooldown según racha scraper_failed
  * - prioritarios: cooldown técnico fijo de 2 min
  * - `job_started` más reciente: conserva bloqueo base de 2 min
- * - 0 intentos: normales ≥2 min; prioritarios ≥2 min
+ * - 0 intentos: normales y prioritarios ≥20 s
  * - orden: prioritarios primero; dentro de cada grupo, ancla más antigua primero
  * - limit (default 1)
  */
