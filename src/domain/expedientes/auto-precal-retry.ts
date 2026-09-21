@@ -4,7 +4,7 @@
  * - Rachas de scraper_failed: cooldown 2 → 15 → 30 → 60 min (no martillar casos repetidos).
  * - Prioridad explícita: cooldown técnico corto de 2 min; el lease global sigue serializando Railway.
  * - `job_started` reciente conserva el bloqueo base de 2 min para no reintentar un job in-flight.
- * - Pendientes con **cero** filas en auto_precal_intentos: normales y prioritarios a los 2 min.
+ * - Pendientes con **cero** filas en auto_precal_intentos: rescate rápido a los 20 s.
  * - Nunca ambiguous_payload / invalid_saldo / etc. por sí solos.
  * Sin tope de intentos totales (ilimitado mientras siga pendiente + razón reintentable).
  * El selector conserva default limit=1; el cron productivo usa un batch explícito de 2.
@@ -19,10 +19,10 @@ import {
 export const AUTO_PRECAL_RETRY_MIN_AGE_MS = 2 * 60 * 1000;
 /** Prioritarios: reintento rápido; el lease global impide solapar navegaciones. */
 export const AUTO_PRECAL_PRIORITY_RETRY_MIN_AGE_MS = 2 * 60 * 1000;
-/** Red de seguridad normal: pendiente sin ningún intento auto-precal. */
-export const AUTO_PRECAL_ZERO_ATTEMPT_MIN_AGE_MS = 2 * 60 * 1000;
-/** Prioritarios: rescata rápido un cero-intentos sin quitar el lease global. */
-export const AUTO_PRECAL_PRIORITY_ZERO_ATTEMPT_MIN_AGE_MS = 2 * 60 * 1000;
+/** Red de seguridad: pendiente sin ningún intento auto-precal tras un 202 huérfano. */
+export const AUTO_PRECAL_ZERO_ATTEMPT_MIN_AGE_MS = 20 * 1000;
+/** Prioritarios: mismo rescate rápido; el lease global sigue evitando doble navegación. */
+export const AUTO_PRECAL_PRIORITY_ZERO_ATTEMPT_MIN_AGE_MS = 20 * 1000;
 /** Default puro del selector; callers pueden acotar su propio batch. */
 export const AUTO_PRECAL_RETRY_LIMIT = 1;
 /** Cron productivo: dos casos secuenciales por tick para drenar ráfagas. */
@@ -124,7 +124,7 @@ export type RetryCandidateInput = {
   /**
    * Expedientes de asesores con capability auto_precal_retry_priority.
    * Ganan el orden y usan cooldown técnico corto de 2 min salvo lease in-flight.
-   * Si no tienen ningún intento, entran al rescate a los 2 min.
+   * Si no tienen ningún intento, entran al rescate a los 20 s.
    */
   priorityExpedienteIds?: string[];
   nowMs?: number;
@@ -139,7 +139,7 @@ export type RetryCandidateInput = {
  * - normales: cooldown según racha scraper_failed
  * - prioritarios: cooldown técnico fijo de 2 min
  * - `job_started` más reciente: conserva bloqueo base de 2 min
- * - 0 intentos: normales ≥2 min; prioritarios ≥2 min
+ * - 0 intentos: normales y prioritarios ≥20 s
  * - orden: prioritarios primero; dentro de cada grupo, ancla más antigua primero
  * - limit (default 1)
  */

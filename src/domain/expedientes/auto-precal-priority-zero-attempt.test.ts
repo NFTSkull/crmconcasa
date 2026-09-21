@@ -3,35 +3,58 @@ import { describe, it } from "node:test";
 
 import {
   AUTO_PRECAL_PRIORITY_ZERO_ATTEMPT_MIN_AGE_MS,
+  AUTO_PRECAL_ZERO_ATTEMPT_MIN_AGE_MS,
   selectAutoPrecalRetryCandidates,
 } from "./auto-precal-retry";
 
-describe("auto-precal prioridad cero intentos", () => {
-  const nowMs = Date.parse("2026-09-14T20:20:00.000Z");
+describe("auto-precal rescate cero intentos", () => {
+  const nowMs = Date.parse("2026-09-21T22:30:12.000Z");
 
-  it("prioritario entra a los 2 minutos aunque el normal espere 10", () => {
+  it("cero intentos todavía no entra a los 19 segundos", () => {
+    const ids = selectAutoPrecalRetryCandidates({
+      pendingExpedienteIds: ["anette"],
+      intentos: [],
+      pendingSinceById: {
+        anette: "2026-09-21T22:29:53.000Z",
+      },
+      priorityExpedienteIds: ["anette"],
+      nowMs,
+    });
+
+    assert.equal(AUTO_PRECAL_ZERO_ATTEMPT_MIN_AGE_MS, 20 * 1000);
+    assert.equal(AUTO_PRECAL_PRIORITY_ZERO_ATTEMPT_MIN_AGE_MS, 20 * 1000);
+    assert.deepEqual(ids, []);
+  });
+
+  it("cero intentos entra desde los 20 segundos", () => {
     const ids = selectAutoPrecalRetryCandidates({
       pendingExpedienteIds: ["anette", "normal"],
       intentos: [],
       pendingSinceById: {
-        anette: "2026-09-14T20:18:00.000Z",
-        normal: "2026-09-14T20:00:00.000Z",
+        anette: "2026-09-21T22:29:52.000Z",
+        normal: "2026-09-21T22:29:51.000Z",
       },
       priorityExpedienteIds: ["anette"],
       nowMs,
       limit: 2,
     });
 
-    assert.equal(AUTO_PRECAL_PRIORITY_ZERO_ATTEMPT_MIN_AGE_MS, 2 * 60 * 1000);
     assert.deepEqual(ids, ["anette", "normal"]);
   });
 
-  it("prioritario con menos de 2 minutos todavía no entra", () => {
+  it("job_started reciente conserva bloqueo de 2 minutos", () => {
     const ids = selectAutoPrecalRetryCandidates({
       pendingExpedienteIds: ["anette"],
-      intentos: [],
+      intentos: [
+        {
+          expediente_id: "anette",
+          intentado_en: "2026-09-21T22:29:52.000Z",
+          resultado: "pending_error",
+          razon: "job_started",
+        },
+      ],
       pendingSinceById: {
-        anette: "2026-09-14T20:18:01.000Z",
+        anette: "2026-09-21T22:20:00.000Z",
       },
       priorityExpedienteIds: ["anette"],
       nowMs,
@@ -40,13 +63,18 @@ describe("auto-precal prioridad cero intentos", () => {
     assert.deepEqual(ids, []);
   });
 
-  it("normal conserva la red de seguridad de 10 minutos", () => {
+  it("scraper_failed reciente conserva su cooldown técnico", () => {
     const ids = selectAutoPrecalRetryCandidates({
-      pendingExpedienteIds: ["normal"],
-      intentos: [],
-      pendingSinceById: {
-        normal: "2026-09-14T20:17:00.000Z",
-      },
+      pendingExpedienteIds: ["anette"],
+      intentos: [
+        {
+          expediente_id: "anette",
+          intentado_en: "2026-09-21T22:29:12.000Z",
+          resultado: "pending_error",
+          razon: "scraper_failed",
+        },
+      ],
+      priorityExpedienteIds: ["anette"],
       nowMs,
     });
 
