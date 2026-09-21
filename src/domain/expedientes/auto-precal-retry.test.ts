@@ -283,6 +283,17 @@ describe("selectAutoPrecalRetryCandidates", () => {
     assert.deepEqual(ids, ["aaaa"]);
   });
 
+  it("incluye pending_error + proxy_unavailable", () => {
+    const ids = selectAutoPrecalRetryCandidates({
+      pendingExpedienteIds: ["aaaa"],
+      intentos: [
+        intento("aaaa", old, "pending_error", "proxy_unavailable"),
+      ],
+      nowMs: now,
+    });
+    assert.deepEqual(ids, ["aaaa"]);
+  });
+
   it("incluye pending_error + infonavit_system_error", () => {
     const ids = selectAutoPrecalRetryCandidates({
       pendingExpedienteIds: ["aaaa"],

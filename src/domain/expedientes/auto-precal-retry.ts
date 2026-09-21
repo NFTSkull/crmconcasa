@@ -11,7 +11,10 @@
  */
 
 import { AUTO_PRECAL_SCRAPER_BUSY_REASON } from "./auto-precal-scraper-lease";
-import { REASON_INFONAVIT_SYSTEM_ERROR } from "./auto-precalificar-decision";
+import {
+  REASON_INFONAVIT_SYSTEM_ERROR,
+  REASON_PROXY_UNAVAILABLE,
+} from "./auto-precalificar-decision";
 
 export const AUTO_PRECAL_RETRY_MIN_AGE_MS = 2 * 60 * 1000;
 /** Prioritarios: reintento rápido; el lease global impide solapar navegaciones. */
@@ -50,6 +53,7 @@ export const AUTO_PRECAL_RETRYABLE_PENDING_REASONS = new Set<string>([
   "scraper_failed",
   AUTO_PRECAL_SCRAPER_BUSY_REASON,
   REASON_INFONAVIT_SYSTEM_ERROR,
+  REASON_PROXY_UNAVAILABLE,
 ]);
 
 export function isAutoPrecalRetryablePendingReason(

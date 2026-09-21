@@ -8,6 +8,7 @@ import {
   MOTIVO_NO_CUMPLE_CALIFICA_FALSE,
   parseSaldoSubcuenta,
   REASON_INFONAVIT_SYSTEM_ERROR,
+  REASON_PROXY_UNAVAILABLE,
   resolveProgramaParaMonto,
 } from "./auto-precalificar-decision";
 
@@ -166,6 +167,18 @@ describe("auto-precalificar decision mapping", () => {
     if (d.kind === "pending_error") {
       assert.equal(d.reason, "ambiguous_payload");
     }
+  });
+
+  it("proxy_unavailable → pending específico y recuperable", () => {
+    const d = decideAutoPrecalFromScraper(
+      { error: "proxy_unavailable" },
+      false,
+      "mejoravit",
+    );
+    assert.deepEqual(d, {
+      kind: "pending_error",
+      reason: REASON_PROXY_UNAVAILABLE,
+    });
   });
 
   it("error scraper → pending", () => {
