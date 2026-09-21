@@ -41,6 +41,7 @@ import {
   isOcrPrecomputeDocumentType,
   requestDocumentOcrPrecompute,
 } from "@/domain/document-extractions/document-ocr-precompute-client";
+import { INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_SILVIA } from "@/domain/expediente-archivos/asesor-documentos-obligatorios-envio";
 
 type Props = {
   expedienteId: string;
@@ -150,6 +151,7 @@ function ChecklistUploadList({
   onVerArchivo,
   onDescargarArchivo,
   esperaRevisionMesa,
+  esPaqueteSilvia,
 }: {
   items: IntegrationDocChecklistItem[];
   archivosResumen: ExpedienteArchivoResumen[] | null;
@@ -168,6 +170,7 @@ function ChecklistUploadList({
     archivo: ExpedienteArchivoResumen,
   ) => void;
   esperaRevisionMesa: boolean;
+  esPaqueteSilvia: boolean;
 }) {
   return (
     <ul className="space-y-2 text-xs text-gray-800">
@@ -214,6 +217,7 @@ function ChecklistUploadList({
           tipoDocumento: item.tipo_documento,
           esReingresoActivo,
           forceReadOnly,
+          esPaqueteSilvia,
         });
         const disabled = !puedeSubirItem || uploading;
         const fechaSubida = formatUploadDate(archivo?.created_at);
@@ -367,6 +371,13 @@ export function AsesorIntegracionDocsUpload({
   onUploaded,
 }: Props) {
   const reingresoActivo = Boolean(esReingresoActivo ?? esReingresoEtapa6);
+  const esPaqueteSilvia = useMemo(() => {
+    const actuales = new Set(checklistObligatorios.map((item) => item.tipo_documento));
+    return (
+      actuales.size === INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_SILVIA.length &&
+      INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_SILVIA.every((tipo) => actuales.has(tipo))
+    );
+  }, [checklistObligatorios]);
   const readOnlyTipos = useMemo(
     () => new Set(readOnlyOpcionalTipos),
     [readOnlyOpcionalTipos],
@@ -591,6 +602,7 @@ export function AsesorIntegracionDocsUpload({
     onVerArchivo: handleVerArchivo,
     onDescargarArchivo: handleDescargarArchivo,
     esperaRevisionMesa,
+    esPaqueteSilvia,
   };
 
   return (
