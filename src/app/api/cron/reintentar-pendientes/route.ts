@@ -275,6 +275,28 @@ async function handleRetryPendientes(request: Request): Promise<NextResponse> {
 
   // SECUENCIAL: nunca Promise.all; el lease global mantiene una sola navegación Infonavit.
   for (const expedienteId of candidateIds) {
+    // Revalidación justo antes del job: si el after() original terminó tarde,
+    // no volver a consultar Infonavit desde el cron.
+    const { data: stillPending, error: stillPendingErr } = await supabase
+      .from("editor_decisions")
+      .select("expediente_id")
+      .eq("expediente_id", expedienteId)
+      .eq("decision", "pendiente")
+      .maybeSingle();
+    if (stillPendingErr) {
+      console.error(
+        `[cron/reintentar-pendientes] recheck pending expediente_id=${expedienteId}`,
+        stillPendingErr.message,
+      );
+      continue;
+    }
+    if (!stillPending) {
+      console.log(
+        `[cron/reintentar-pendientes] skip resuelto antes de ejecutar expediente_id=${expedienteId}`,
+      );
+      continue;
+    }
+
     const nss = nssById.get(expedienteId);
     if (!nss) continue;
     const outcome = await runAutoPrecalificarJob({
