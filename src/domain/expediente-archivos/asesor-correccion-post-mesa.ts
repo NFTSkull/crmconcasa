@@ -5,6 +5,7 @@ import {
   isIntegrationDocAsesorOpcionalTipo,
   type IntegrationDocAsesorUploadTipo,
 } from "./integration-docs-completos";
+import { INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_SILVIA } from "./asesor-documentos-obligatorios-envio";
 
 /**
  * Tipos que el reingreso activo permite subir/reemplazar post-envío.
@@ -101,6 +102,28 @@ export function asesorPuedeSubirSemanasOVigenciaFaltantePostMesa(
 }
 
 /**
+ * Compatibilidad rollout Equipo Silvia para expedientes ya enviados a Mesa:
+ * permite intentar el primer upload de un obligatorio actual que siga faltante.
+ * La UI debe pasar `esPaqueteSilvia=true`; SQL/RLS vuelve a validar equipo,
+ * dueño, rollout y ausencia real del documento.
+ */
+export function asesorPuedeSubirObligatorioSilviaFaltantePostMesa(
+  submittedToMesa: boolean,
+  estatusRevision: ResumenEstatus,
+  tipoDocumento: string,
+  esPaqueteSilvia: boolean,
+): boolean {
+  return (
+    submittedToMesa &&
+    estatusRevision === "faltante" &&
+    esPaqueteSilvia &&
+    (INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_SILVIA as readonly string[]).includes(
+      tipoDocumento,
+    )
+  );
+}
+
+/**
  * Reingreso activo: cualquier tipo de `integration_doc_tipos_asesor_upload`
  * (faltante o con archivo) editable aunque el expediente ya esté enviado a Mesa.
  */
@@ -149,6 +172,7 @@ export function asesorPuedeSubirOCorregirDocumento(
   estatusRevision: ResumenEstatus,
   tipoDocumento?: IntegrationDocAsesorUploadTipo,
   esReingresoActivo = false,
+  esPaqueteSilvia = false,
 ): boolean {
   if (!submittedToMesa) return true;
   if (asesorPuedeCorregirDocumentoRechazado(submittedToMesa, estatusRevision)) {
@@ -170,6 +194,17 @@ export function asesorPuedeSubirOCorregirDocumento(
       submittedToMesa,
       estatusRevision,
       tipoDocumento,
+    )
+  ) {
+    return true;
+  }
+  if (
+    tipoDocumento &&
+    asesorPuedeSubirObligatorioSilviaFaltantePostMesa(
+      submittedToMesa,
+      estatusRevision,
+      tipoDocumento,
+      esPaqueteSilvia,
     )
   ) {
     return true;
@@ -201,6 +236,7 @@ export function asesorPuedeMostrarUploadDocumento(params: {
   tipoDocumento: IntegrationDocAsesorUploadTipo;
   esReingresoActivo?: boolean;
   forceReadOnly?: boolean;
+  esPaqueteSilvia?: boolean;
 }): boolean {
   if (params.forceReadOnly) return false;
   const permitido = asesorPuedeSubirOCorregirDocumento(
@@ -208,6 +244,7 @@ export function asesorPuedeMostrarUploadDocumento(params: {
     params.estatusRevision,
     params.tipoDocumento,
     params.esReingresoActivo ?? false,
+    params.esPaqueteSilvia ?? false,
   );
   if (!permitido) return false;
   if (!params.submittedToMesa) return params.puedeIntegrar;
@@ -228,6 +265,7 @@ export function asesorDocumentoUploadMode(
   estatusRevision: ResumenEstatus,
   tipoDocumento?: IntegrationDocAsesorUploadTipo,
   esReingresoActivo = false,
+  esPaqueteSilvia = false,
 ): AsesorDocumentoUploadMode | null {
   if (!submittedToMesa) return "normal";
   if (estatusRevision === "rechazado") return "correccion";
@@ -237,6 +275,17 @@ export function asesorDocumentoUploadMode(
       submittedToMesa,
       estatusRevision,
       tipoDocumento,
+    )
+  ) {
+    return "normal";
+  }
+  if (
+    tipoDocumento &&
+    asesorPuedeSubirObligatorioSilviaFaltantePostMesa(
+      submittedToMesa,
+      estatusRevision,
+      tipoDocumento,
+      esPaqueteSilvia,
     )
   ) {
     return "normal";

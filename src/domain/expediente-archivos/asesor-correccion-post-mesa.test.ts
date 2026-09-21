@@ -12,6 +12,7 @@ import {
   asesorPuedeReemplazarDocumentoExistentePostMesa,
   asesorPuedeSubirDocumentoPreMesa,
   asesorPuedeSubirDocumentoNuevoReingreso,
+  asesorPuedeSubirObligatorioSilviaFaltantePostMesa,
   asesorPuedeSubirOpcionalFaltantePostMesa,
   asesorPuedeSubirSemanasOVigenciaFaltantePostMesa,
   asesorPuedeSubirOCorregirDocumento,
@@ -171,6 +172,81 @@ describe("asesor corrección post-Mesa (helpers UI)", () => {
         estatusRevision: "faltante",
         tipoDocumento: "cliente_comprobante_domicilio",
       }),
+      false,
+    );
+  });
+
+  it("post-Mesa permite obligatorio faltante solo para paquete Silvia", () => {
+    assert.equal(
+      asesorPuedeSubirObligatorioSilviaFaltantePostMesa(
+        true,
+        "faltante",
+        "cliente_ine_reverso",
+        true,
+      ),
+      true,
+    );
+    assert.equal(
+      asesorPuedeSubirOCorregirDocumento(
+        true,
+        "faltante",
+        "cliente_ine_reverso",
+        false,
+        true,
+      ),
+      true,
+    );
+    assert.equal(
+      asesorPuedeMostrarUploadDocumento({
+        puedeIntegrar: false,
+        submittedToMesa: true,
+        estatusRevision: "faltante",
+        tipoDocumento: "cliente_ine_reverso",
+        esReingresoActivo: false,
+        esPaqueteSilvia: true,
+      }),
+      true,
+    );
+    assert.equal(
+      asesorDocumentoUploadMode(
+        true,
+        "faltante",
+        "cliente_ine_reverso",
+        false,
+        true,
+      ),
+      "normal",
+    );
+
+    // Sin paquete Silvia, el mismo obligatorio sigue cerrado post-Mesa.
+    assert.equal(
+      asesorPuedeSubirObligatorioSilviaFaltantePostMesa(
+        true,
+        "faltante",
+        "cliente_ine_reverso",
+        false,
+      ),
+      false,
+    );
+    assert.equal(
+      asesorPuedeSubirOCorregirDocumento(
+        true,
+        "faltante",
+        "cliente_ine_reverso",
+        false,
+        false,
+      ),
+      false,
+    );
+
+    // Un tipo que no pertenece al set obligatorio Silvia tampoco se abre.
+    assert.equal(
+      asesorPuedeSubirObligatorioSilviaFaltantePostMesa(
+        true,
+        "faltante",
+        "cliente_constancia_curp",
+        true,
+      ),
       false,
     );
   });

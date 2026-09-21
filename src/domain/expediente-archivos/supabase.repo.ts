@@ -37,7 +37,7 @@ import {
   INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD,
 } from "./integration-docs-completos";
 import {
-  asesorPuedeSubirSemanasOVigenciaFaltantePostMesa,
+  asesorPuedeSubirObligatorioSilviaFaltantePostMesa,
   esReingresoDocumentosEditables,
 } from "./asesor-correccion-post-mesa";
 import { mapSupabaseStorageUploadError } from "./map-storage-upload-error";
@@ -352,20 +352,22 @@ export class SupabaseExpedienteArchivosRepo implements ExpedienteArchivosRepo {
       const esReingresoDoc =
         ctx.esReingresoDocsEditables &&
         (INTEGRATION_DOC_TIPOS_ASESOR_UPLOAD as readonly string[]).includes(tipo);
-      const esSemanasOVigenciaFaltante = asesorPuedeSubirSemanasOVigenciaFaltantePostMesa(
-        true,
-        row?.estatus_revision ?? "faltante",
-        tipo,
-      );
+      const esObligatorioSilviaFaltante =
+        asesorPuedeSubirObligatorioSilviaFaltantePostMesa(
+          true,
+          row?.estatus_revision ?? "faltante",
+          tipo,
+          true,
+        );
 
       if (
         tieneDocumentoActivo ||
         esOpcionalFaltante ||
         esReingresoDoc ||
-        esSemanasOVigenciaFaltante
+        esObligatorioSilviaFaltante
       ) {
         // Reemplazo post-Mesa, opcional faltante, reingreso activo o compat
-        // del slot Semanas|Vigencia introducido después del envío histórico.
+        // de obligatorios del paquete Silvia introducidos tras envíos históricos.
       } else {
         throw new ExpedienteArchivosSupabaseError(
           "No puedes crear documentos obligatorios faltantes: el expediente ya fue enviado a Mesa.",
@@ -404,16 +406,17 @@ export class SupabaseExpedienteArchivosRepo implements ExpedienteArchivosRepo {
         ? await this.listResumenByExpediente(expedienteId)
         : [];
       const filaActual = resumenPostMesa.find((r) => r.tipo_documento === tipo);
-      const usarCompatSemanasOVigencia =
+      const usarCompatSilviaObligatorioFaltante =
         ctx.submittedToMesa &&
-        asesorPuedeSubirSemanasOVigenciaFaltantePostMesa(
+        asesorPuedeSubirObligatorioSilviaFaltantePostMesa(
           true,
           filaActual?.estatus_revision ?? "faltante",
           tipo,
+          true,
         ) &&
         !filaActual?.id;
 
-      const rpcName = usarCompatSemanasOVigencia
+      const rpcName = usarCompatSilviaObligatorioFaltante
         ? "register_expediente_documento_silvia_combined_post_mesa"
         : "register_expediente_documento";
       const { error: rpcError } = await client.rpc(rpcName, {
