@@ -91,7 +91,7 @@ export function asesorPuedeSubirOpcionalFaltantePostMesa(
 export function asesorPuedeSubirSemanasOVigenciaFaltantePostMesa(
   submittedToMesa: boolean,
   estatusRevision: ResumenEstatus,
-  tipoDocumento: IntegrationDocAsesorUploadTipo,
+  tipoDocumento: string,
 ): boolean {
   return (
     submittedToMesa &&
