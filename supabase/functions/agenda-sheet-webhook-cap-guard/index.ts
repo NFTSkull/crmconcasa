@@ -6,6 +6,7 @@
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.1";
 import {
   DEFAULT_SPREADSHEET_ID,
+  parseSection,
   parseTabDate,
   timingSafeEqual,
 } from "https://raw.githubusercontent.com/NFTSkull/crmconcasa/f9ce39f29ad074b1c9e6991f33e76b49f463e7f2/supabase/functions/_shared/agenda-sheets/parsers.ts";
@@ -62,6 +63,32 @@ function rowHasVisibleManualData(row: ReadonlyArray<unknown>): boolean {
       String(row[COL_INDEX.nombre] ?? "").trim() ||
       String(row[COL_INDEX.asesor] ?? "").trim()
   );
+}
+
+/**
+ * LEO / HACER PAGARÉS es un bloque operativo manual ajeno a la agenda CRM.
+ * Desde la fila cuyo A empieza con "LEO" hasta el siguiente encabezado real
+ * (Monterrey/Apodaca + Firmas/Biométricos/Inscripción), el webhook debe ser no-op.
+ */
+function isLeoNonAgendaRow(
+  grid: ReadonlyArray<ReadonlyArray<unknown>>,
+  rowNumber: number,
+): boolean {
+  let inLeoBlock = false;
+  const lastIndex = Math.min(Math.max(0, rowNumber), grid.length);
+
+  for (let i = 0; i < lastIndex; i++) {
+    const a = String(grid[i]?.[COL_INDEX.hora] ?? "").trim();
+    if (/^LEO\b/i.test(a)) {
+      inLeoBlock = true;
+      continue;
+    }
+    if (inLeoBlock && parseSection(a)) {
+      inLeoBlock = false;
+    }
+  }
+
+  return inLeoBlock;
 }
 
 function priorInventoryConsumesPhysicalRow(row: InventoryRowState | null): boolean {
@@ -327,6 +354,18 @@ Deno.serve(async (req) => {
 
     const titleEsc = `'${String(body.sheetTitle).replace(/'/g, "''")}'`;
     const grid = await adapter.getValues(`${titleEsc}!A1:U200`);
+
+    // LEO / HACER PAGARÉS es captura manual independiente. Nunca enviarla al
+    // core, nunca limpiarla y nunca incorporarla al inventario/cupo CRM.
+    if (isLeoNonAgendaRow(grid, body.rowNumber)) {
+      return json(200, {
+        ok: true,
+        ignored: true,
+        code: "non_agenda_leo",
+        message: "LEO / HACER PAGARÉS: captura manual guardada; CRM no modifica esta fila.",
+      });
+    }
+
     const targetPhysicalRow = grid[body.rowNumber - 1] ?? [];
     const targetBookingCell = String(
       targetPhysicalRow[COL_INDEX.bookingId] ?? "",
