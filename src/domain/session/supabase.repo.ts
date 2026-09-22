@@ -5,6 +5,7 @@ import type { MockStoreContextValue } from "@/context/MockStoreContext";
 import type { Rol as MockStoreRol } from "@/lib/mock-store";
 import { persistMockUser, clearMockUser } from "@/lib/mockUser";
 import { normalizeLoginIdentifier } from "@/lib/normalizeLoginIdentifier";
+import { normalizePersonName } from "@/lib/clienteDatosFieldFormats";
 import { supabaseBrowser } from "@/lib/supabaseBrowser";
 import type { SessionRepo } from "./repo";
 import type { Rol, UserSession } from "./types";
