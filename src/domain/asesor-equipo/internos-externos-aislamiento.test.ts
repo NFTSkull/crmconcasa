@@ -23,7 +23,11 @@ import {
   filterIntegracionChecklistOpcionalesParaActor,
   shouldMountAsesorIntegracionOpcionalDedicado,
 } from "@/domain/asesor-equipo/asesor-integracion-opcionales-visibility";
-import { resolveClienteDatosPerfilCaptura, clienteDatosRequiereTelefonoCasa } from "@/domain/asesor-equipo/asesor-en-equipo-por-lider-email";
+import {
+  resolveClienteDatosPerfilCaptura,
+  clienteDatosRequiereContactoMesa,
+  clienteDatosRequiereTelefonoCasa,
+} from "@/domain/asesor-equipo/asesor-en-equipo-por-lider-email";
 import { getClienteDatosCamposFaltantes } from "@/lib/clienteDatosFormCompleteness";
 import { validateClienteDatos } from "@/lib/clienteDatosValidation";
 import { emptyInfonavitClienteDatosV1 } from "@/domain/expediente-cliente-datos/infonavit-datos";
@@ -245,11 +249,16 @@ describe("EXTERNOS — CURP / Acta / dedupe / copy", () => {
     assert.match(page, /clienteDatosRequiereTelefonoCasa/);
   });
 
-  it("EXTERNO: sin telefonoCasa en faltantes/validación/UI mount; histórico ignorado", () => {
+  it("EXTERNO: conserva vista simplificada pero exige correo + casa antes de Mesa", () => {
     assert.equal(
       clienteDatosRequiereTelefonoCasa("asesor_equipo_silvia_simplificado"),
       false,
     );
+    assert.equal(
+      clienteDatosRequiereContactoMesa("asesor_equipo_silvia_simplificado"),
+      true,
+    );
+
     const d = baseInternoDatos();
     d.referencias = [
       { nombre: "", nombres: "", apellidoPaterno: "", apellidoMaterno: "", celular: "" },
@@ -261,57 +270,40 @@ describe("EXTERNOS — CURP / Acta / dedupe / copy", () => {
     d.telefonoEmpresa = "";
     d.beneficiario = { nombre: "", parentesco: "" };
     d.plazo = "";
+
     const ctxExt = {
       montoAprobado: 100000,
       direccionOpcional: "Domicilio real",
       programaDb: "credito_infonavit" as const,
       requireInfonavit: false,
       perfilCaptura: "asesor_equipo_silvia_simplificado" as const,
-      telefonoCasa: undefined as string | undefined,
+      telefonoCasa: "",
     };
-    assert.ok(
-      !getClienteDatosCamposFaltantes(d, ctxExt).some((x) => /casa/i.test(x)),
-    );
-    const vEmpty = validateClienteDatos(d, { ...ctxExt, telefonoCasa: undefined });
-    assert.equal(vEmpty.errors.telefonoCasa, undefined);
-    assert.equal(vEmpty.isValid, true);
 
-    // Histórico / valor accidental en ctx: requiere=false → no valida ni duplica vs casa
-    const vHist = validateClienteDatos(d, {
-      ...ctxExt,
-      // page no pasa telefonoCasa; si se forzara, requiereTelefonoCasa lo ignora
-      telefonoCasa: "8111111111",
-    });
-    // Con silvia, clienteDatosRequiereTelefonoCasa=false → no entra al bloque casa
-    // aunque el ctx traiga un valor (defensa en depth).
-    assert.equal(
-      clienteDatosRequiereTelefonoCasa(ctxExt.perfilCaptura),
-      false,
-    );
-    // Simula contrato real de page: undefined
-    assert.equal(
-      validateClienteDatos(d, { ...ctxExt, telefonoCasa: undefined }).isValid,
-      true,
-    );
-    // Defensa: aunque pasen valor, no debe aplicar B1/B2 de casa
-    assert.equal(vHist.errors.telefonoCasa, undefined);
-    assert.equal(vHist.isValid, true);
+    const faltantes = getClienteDatosCamposFaltantes(d, ctxExt);
+    assert.ok(faltantes.some((x) => /Correo/i.test(x)));
+    assert.ok(faltantes.some((x) => /Teléfono de casa/i.test(x)));
 
-    const wrapper = readFileSync(
-      join(process.cwd(), "src/components/asesor/AsesorCurpValidacionSection.tsx"),
+    const v = validateClienteDatos(d, ctxExt);
+    assert.equal(v.isValid, false);
+    assert.ok(v.errors.correo);
+    assert.ok(v.errors.telefonoCasa);
+
+    const form = readFileSync(
+      join(process.cwd(), "src/components/asesor/ExpedienteClienteDatosFormSection.impl.tsx"),
       "utf8",
     );
-    assert.match(wrapper, /showTelefonoCasa && onTelefonoCasaChange \? \(/);
-    assert.match(wrapper, /AsesorTelefonoCasaSection/);
+    assert.match(form, /Correo \(obligatorio\)/);
+    assert.match(form, /Teléfono de casa \(obligatorio\)/);
+    assert.match(form, /requireTelefonoCasaContacto/);
 
     const repo = readFileSync(
       join(process.cwd(), "src/domain/expediente-cliente-datos/supabase.repo.ts"),
       "utf8",
     );
-    assert.match(repo, /clienteDatosRequiereTelefonoCasa/);
-    assert.match(repo, /save_cliente_datos/);
-  });
-});
+    assert.match(repo, /clienteDatosRequiereContactoMesa/);
+    assert.match(repo, /asesor_guardar_cliente_datos_con_telefono_casa/);
+  });});
 
 describe("INTERNOS — casa / refs / unicidad", () => {
   const ctxOk = {
