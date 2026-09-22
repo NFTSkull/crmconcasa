@@ -16,6 +16,7 @@ import {
   serializeInfonavitClienteDatosV1,
 } from "./infonavit-datos";
 import type { ClienteDatosPerfilCaptura } from "@/domain/asesor-equipo/asesor-en-equipo-por-lider-email";
+import { normalizePersonName } from "@/lib/clienteDatosFieldFormats";
 import { parseLegacyReferenciaNombre } from "./parse-legacy-referencia-nombre";
 import {
   REFERENCIAS_ESTRUCTURADAS_KEY,
@@ -282,7 +283,7 @@ export function mapSupabaseRowToExpedienteClienteDatos(
   return {
     expedienteId: row.expediente_id,
     datos: {
-      nombreCliente: asString(datos.nombreCliente),
+      nombreCliente: normalizePersonName(asString(datos.nombreCliente)),
       nss: asString(datos.nss),
       curp: asString(datos.curp),
       rfc: asString(datos.rfc),
@@ -384,7 +385,7 @@ export function buildSaveClienteDatosRpcPayload(
   }
 
   const p_datos: Record<string, unknown> = {
-    nombreCliente: datos.nombreCliente.trim(),
+    nombreCliente: normalizePersonName(datos.nombreCliente),
     nss: datos.nss.trim(),
     curp: datos.curp.trim(),
     correo: datos.correo.trim(),
