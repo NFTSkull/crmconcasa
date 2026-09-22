@@ -51,6 +51,7 @@ import {
 import type { CreateExpedienteInput, ExpedienteProgramaUi } from "./create-expediente.input";
 import type { ExpedienteMock } from "./mock.repo";
 import { mapProgramaUiToDb } from "./map-programa";
+import { normalizePersonName } from "@/lib/clienteDatosFieldFormats";
 import {
   iniciarReprecalificacionResultSchema,
   messageForNssPrecalGateStatus,
@@ -1058,7 +1059,7 @@ export class SupabaseExpedientesRepo implements ExpedientesRepo {
     const { data, error } = await client.rpc("create_expediente", {
       p_programa: mapProgramaUiToDb(input.programa),
       p_nss: input.nss.trim(),
-      p_cliente_nombre: input.cliente_nombre.trim(),
+      p_cliente_nombre: normalizePersonName(input.cliente_nombre),
       p_telefono_cliente: input.telefono_cliente.trim(),
       p_direccion_opcional: input.direccion_opcional.trim(),
     });
