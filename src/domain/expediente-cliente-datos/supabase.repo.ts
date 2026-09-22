@@ -196,10 +196,7 @@ export class SupabaseExpedienteClienteDatosRepo implements ExpedienteClienteDato
 
     // Todo perfil resuelto: wrapper atómico para guardar también teléfono de casa.
     // UNKNOWN conserva el flujo previo hasta que la clasificación se resuelva.
-    const { error } = clienteDatosRequiereContactoMesa(
-      input.perfilCaptura,
-      input.origenMesa,
-    )
+    const { error } = clienteDatosRequiereContactoMesa(input.perfilCaptura)
       ? await client.rpc("asesor_guardar_cliente_datos_con_telefono_casa", {
           ...rpcArgs,
           p_telefono_casa: getTelefonoCasaDraft(idNorm) ?? null,
@@ -248,10 +245,7 @@ export class SupabaseExpedienteClienteDatosRepo implements ExpedienteClienteDato
     const { p_estado: estadoSoloWrapper, ...rpcArgsCorreccion } = rpcArgs;
     void estadoSoloWrapper;
 
-    const { error } = clienteDatosRequiereContactoMesa(
-      input.perfilCaptura,
-      input.origenMesa,
-    )
+    const { error } = clienteDatosRequiereContactoMesa(input.perfilCaptura)
       ? await client.rpc("asesor_guardar_cliente_datos_con_telefono_casa", {
           ...rpcArgs,
           p_telefono_casa: getTelefonoCasaDraft(idNorm) ?? null,
