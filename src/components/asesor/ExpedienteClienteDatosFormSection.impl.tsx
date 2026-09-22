@@ -164,6 +164,7 @@ export function ExpedienteClienteDatosFormSection({
   advertenciaInscripcionInfonavit = null,
   capturaVariant = "completo",
   showTelefonoCasa = false,
+  requireTelefonoCasaContacto = false,
   mostrarClabe = false,
   telefonoCasaValue = "",
   telefonoCasaFieldError,
@@ -541,17 +542,42 @@ export function ExpedienteClienteDatosFormSection({
               }
             />
           </DatosField>
-          {!esSimplificado ? (
-          <>
-          <DatosField label="Correo" fieldKey="correo" error={err("correo")} showError={showFieldErrors}>
+          <DatosField
+            label="Correo (obligatorio)"
+            fieldKey="correo"
+            error={err("correo")}
+            showError={showFieldErrors}
+          >
             <input
               className={fieldInputClass(Boolean(err("correo")))}
+              inputMode="email"
+              autoComplete="email"
               value={clienteDatos.correo}
               onChange={(e) =>
                 setClienteDatos((p) => ({ ...p, correo: e.target.value }))
               }
             />
           </DatosField>
+          {esSimplificado && requireTelefonoCasaContacto ? (
+            <DatosField
+              label="Teléfono de casa (obligatorio)"
+              fieldKey="telefonoCasa"
+              error={telefonoCasaFieldError}
+              showError={showFieldErrors}
+            >
+              <input
+                className={fieldInputClass(Boolean(telefonoCasaFieldError))}
+                inputMode="tel"
+                autoComplete="tel"
+                value={telefonoCasaValue}
+                onChange={(e) =>
+                  onTelefonoCasaChange?.(filterDigitsInput(e.target.value, 15))
+                }
+              />
+            </DatosField>
+          ) : null}
+          {!esSimplificado ? (
+          <>
           <DatosField label="Empresa" fieldKey="empresa" error={err("empresa")} showError={showFieldErrors}>
             <input
               className={fieldInputClass(Boolean(err("empresa")))}
