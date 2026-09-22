@@ -1,3 +1,4 @@
+// Diagnostic-only PR: validate Mesa owner alias build fix.
 import type { ExpedienteClienteDatos } from "@/domain/expediente-cliente-datos";
 import { normalizeClienteDatosForSave } from "./clienteDatosValidation";
 import { isValidPersonName } from "./clienteDatosFieldFormats";
