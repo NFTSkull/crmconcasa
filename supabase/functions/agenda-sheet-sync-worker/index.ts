@@ -1591,12 +1591,16 @@ Deno.serve(async (req) => {
           const expectedNss = String((exp as { nss?: string } | null)?.nss ?? "").trim();
           const expectedName = String(
             (exp as { cliente_nombre?: string } | null)?.cliente_nombre ?? "",
-          ).trim();
+          )
+            .trim()
+            .toLocaleUpperCase("es-MX");
           const expectedAdvisor = String(
             (asesor as { full_name?: string; email?: string } | null)?.full_name ||
               (asesor as { email?: string } | null)?.email ||
               "",
-          ).trim();
+          )
+            .trim()
+            .toLocaleUpperCase("es-MX");
           const slotKey =
             slotKeyFromInv ||
             buildPhysicalSheetRowKey({
