@@ -40,6 +40,7 @@ import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
 import { PROGRAMAS } from "@/lib/mock-store";
+import { filterPersonNameInput, normalizePersonName } from "@/lib/clienteDatosFieldFormats";
 
 function onlyDigits(s: string): string {
   return s.replace(/\D/g, "");
@@ -111,9 +112,9 @@ export default function NuevaPrecalificacionPage() {
   ): Promise<CreateExpedienteInput> {
     const programa = (form.elements.namedItem("programa") as HTMLSelectElement)
       .value as CreateExpedienteInput["programa"];
-    const cliente_nombre = (
-      form.elements.namedItem("cliente_nombre") as HTMLInputElement
-    ).value.trim();
+    const cliente_nombre = normalizePersonName(
+      (form.elements.namedItem("cliente_nombre") as HTMLInputElement).value,
+    );
     const telefonoRaw = (
       form.elements.namedItem("telefono_cliente") as HTMLInputElement
     ).value;
@@ -447,9 +448,12 @@ export default function NuevaPrecalificacionPage() {
             <Input
               name="cliente_nombre"
               label="Nombre del cliente"
-              placeholder="Nombre completo"
+              placeholder="NOMBRE COMPLETO"
               required
-              className="min-h-[44px] sm:min-h-0"
+              className="min-h-[44px] uppercase sm:min-h-0"
+              onInput={(e) => {
+                e.currentTarget.value = filterPersonNameInput(e.currentTarget.value);
+              }}
             />
             <Input
               name="telefono_cliente"
