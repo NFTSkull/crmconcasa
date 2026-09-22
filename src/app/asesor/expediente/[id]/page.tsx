@@ -1,4 +1,5 @@
 "use client";
+// Diagnostic-only PR: force the existing production-build guard against current main.
 
 import Link from "next/link";
 import { useParams } from "next/navigation";
