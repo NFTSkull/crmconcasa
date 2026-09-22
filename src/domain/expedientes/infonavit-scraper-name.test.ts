@@ -14,6 +14,13 @@ describe("normalizeInfonavitScraperPersonName", () => {
     );
   });
 
+  it("convierte nombres mixtos a mayúsculas conservando acentos", () => {
+    assert.equal(
+      normalizeInfonavitScraperPersonName("García de la Cruz Ana María"),
+      "GARCÍA DE LA CRUZ ANA MARÍA",
+    );
+  });
+
   it("conserva Ñ/acentos/guion/apóstrofe válidos", () => {
     assert.equal(
       normalizeInfonavitScraperPersonName("PEÑA O'CONNOR ANA-MARÍA"),
