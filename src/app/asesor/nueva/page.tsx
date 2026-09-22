@@ -35,6 +35,7 @@ import {
 } from "@/domain/asesor-lider";
 import { isDataModeSupabase } from "@/lib/dataMode";
 import { supabaseBrowser } from "@/lib/supabaseBrowser";
+import { AutoPrecalAvailabilityAlert } from "@/components/asesor/AutoPrecalAvailabilityAlert";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
@@ -399,6 +400,7 @@ export default function NuevaPrecalificacionPage() {
           <h2 className="mb-4 text-lg font-medium text-gray-900 sm:mb-6">
             Datos de precalificación
           </h2>
+          {dataSupabase ? <AutoPrecalAvailabilityAlert /> : null}
           {dataSupabase ? (
             <p className="mb-4 text-sm text-gray-600">
               Los datos se guardarán en Supabase (expediente real).
