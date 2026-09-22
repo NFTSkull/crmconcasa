@@ -7,6 +7,7 @@ import {
   montoFieldForPrograma,
   MOTIVO_NO_CUMPLE_CALIFICA_FALSE,
   parseSaldoSubcuenta,
+  REASON_AKAMAI_ACCESS_DENIED,
   REASON_INFONAVIT_SYSTEM_ERROR,
   REASON_PROXY_UNAVAILABLE,
   resolveProgramaParaMonto,
@@ -178,6 +179,18 @@ describe("auto-precalificar decision mapping", () => {
     assert.deepEqual(d, {
       kind: "pending_error",
       reason: REASON_PROXY_UNAVAILABLE,
+    });
+  });
+
+  it("akamai_access_denied → pending específico para alerta", () => {
+    const d = decideAutoPrecalFromScraper(
+      { error: "akamai_access_denied" },
+      false,
+      "mejoravit",
+    );
+    assert.deepEqual(d, {
+      kind: "pending_error",
+      reason: REASON_AKAMAI_ACCESS_DENIED,
     });
   });
 

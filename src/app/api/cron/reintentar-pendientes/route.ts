@@ -7,6 +7,7 @@ import {
   selectAutoPrecalRetryCandidates,
   type AutoPrecalIntentoRow,
 } from "@/domain/expedientes/auto-precal-retry";
+import { REASON_AKAMAI_ACCESS_DENIED } from "@/domain/expedientes/auto-precalificar-decision";
 import { runAutoPrecalificarJob } from "@/domain/expedientes/auto-precalificar-job";
 
 export const runtime = "nodejs";
@@ -210,7 +211,8 @@ async function handleRetryPendientes(request: Request): Promise<NextResponse> {
       const lastMs = Date.parse(lastRow.intentado_en);
       if (
         lastRow.resultado === "pending_error" &&
-        lastRow.razon === "scraper_failed" &&
+        (lastRow.razon === "scraper_failed" ||
+          lastRow.razon === REASON_AKAMAI_ACCESS_DENIED) &&
         Number.isFinite(lastMs) &&
         lastScraperRecoveryMs > lastMs
       ) {

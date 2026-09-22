@@ -12,6 +12,7 @@
 
 import { AUTO_PRECAL_SCRAPER_BUSY_REASON } from "./auto-precal-scraper-lease";
 import {
+  REASON_AKAMAI_ACCESS_DENIED,
   REASON_INFONAVIT_SYSTEM_ERROR,
   REASON_PROXY_UNAVAILABLE,
 } from "./auto-precalificar-decision";
@@ -51,6 +52,7 @@ export const AUTO_PRECAL_SCRAPER_FAILED_BACKOFF_MS = [
 /** Razones pending_error elegibles para cron de reintento. */
 export const AUTO_PRECAL_RETRYABLE_PENDING_REASONS = new Set<string>([
   "scraper_failed",
+  REASON_AKAMAI_ACCESS_DENIED,
   AUTO_PRECAL_SCRAPER_BUSY_REASON,
   REASON_INFONAVIT_SYSTEM_ERROR,
   REASON_PROXY_UNAVAILABLE,
@@ -93,7 +95,10 @@ export function consecutiveScraperFailedStreak(
   let streak = 0;
   for (const r of sorted) {
     if (isAutoPrecalJobStartedRow(r)) continue;
-    if (r.resultado === "pending_error" && r.razon === "scraper_failed") {
+    if (
+      r.resultado === "pending_error" &&
+      (r.razon === "scraper_failed" || r.razon === REASON_AKAMAI_ACCESS_DENIED)
+    ) {
       streak += 1;
       continue;
     }
