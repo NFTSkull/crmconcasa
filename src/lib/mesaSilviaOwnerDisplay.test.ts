@@ -22,6 +22,10 @@ describe("Mesa — alias visual Equipo Silvia", () => {
     ),
     "utf8",
   );
+  const expedientesRepo = readFileSync(
+    join(process.cwd(), "src/domain/expedientes/supabase.repo.ts"),
+    "utf8",
+  );
 
   it("la proyección Mesa aliasa solo el nombre visible de Silvia y su equipo", () => {
     assert.match(
@@ -35,8 +39,20 @@ describe("Mesa — alias visual Equipo Silvia", () => {
     assert.match(migration, /No altera datos ni métricas/);
   });
 
-  it("la bandeja Mesa usa la proyección exclusiva de Mesa", () => {
-    assert.match(mesaPage, /"mesa_get_asesor_display_batch"/);
+  it("la bandeja Mesa aplica el alias solo al dueño del expediente", () => {
+    assert.match(
+      expedientesRepo,
+      /fetchMesaOwnerDisplayMap[\s\S]*"mesa_get_asesor_display_batch"/,
+    );
+    assert.match(
+      expedientesRepo,
+      /fetchExpedientesListForMesaControlPaginated[\s\S]*fetchMesaOwnerDisplayMap/,
+    );
+  });
+
+  it("la auditoría de agenda conserva el nombre real del actor", () => {
+    assert.match(mesaPage, /"get_asesor_display_batch"/);
+    assert.doesNotMatch(mesaPage, /"mesa_get_asesor_display_batch"/);
   });
 
   it("el detalle Mesa aliasa al dueño pero conserva auditoría de agenda", () => {
