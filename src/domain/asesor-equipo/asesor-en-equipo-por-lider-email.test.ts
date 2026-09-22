@@ -4,6 +4,7 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
   EQUIPO_LIDER_EMAIL_SILVIA_REYES,
+  clienteDatosRequiereContactoMesa,
   clienteDatosRequiereTelefonoCasa,
   isOrigenMesaExterno,
   parseAsesorEnEquipoPorLiderEmail,
@@ -82,6 +83,18 @@ describe("asesor-en-equipo-por-lider-email FE", () => {
     assert.equal(
       clienteDatosRequiereTelefonoCasa("asesor_completo", null),
       true,
+    );
+  });
+
+  it("contacto Mesa exige casa también en perfil externo simplificado", () => {
+    assert.equal(clienteDatosRequiereContactoMesa("asesor_completo"), true);
+    assert.equal(
+      clienteDatosRequiereContactoMesa("asesor_equipo_silvia_simplificado"),
+      true,
+    );
+    assert.equal(
+      clienteDatosRequiereContactoMesa("clasificacion_pendiente"),
+      false,
     );
   });
 

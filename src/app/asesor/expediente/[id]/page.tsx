@@ -116,6 +116,7 @@ import {
   type ClienteDatosFieldErrors,
 } from "@/lib/clienteDatosValidation";
 import {
+  clienteDatosRequiereContactoMesa,
   clienteDatosRequiereTelefonoCasa,
   EQUIPO_LIDER_EMAIL_SILVIA_REYES,
   fetchAsesorEnEquipoPorLiderEmail,
@@ -564,9 +565,8 @@ export default function AsesorExpedientePage() {
     if (!hasUserEditedClienteDatos.current) return;
     if (suppressDraftAutosave.current) return;
     if (!precal?.id || !clienteDatosDraftUserKey) return;
-    const persistCasa = clienteDatosRequiereTelefonoCasa(
+    const persistCasa = clienteDatosRequiereContactoMesa(
       perfilCapturaClienteDatos,
-      operativo?.origenMesa,
     );
     flushClienteDatosDraftSnapshot(
       clienteDatosDraftUserKey,
@@ -910,6 +910,11 @@ export default function AsesorExpedientePage() {
     [perfilCapturaClienteDatos, operativo?.origenMesa],
   );
 
+  const requiereContactoMesa = useMemo(
+    () => clienteDatosRequiereContactoMesa(perfilCapturaClienteDatos),
+    [perfilCapturaClienteDatos],
+  );
+
   const camposFaltantesClienteDatos = useMemo(
     () =>
       getClienteDatosCamposFaltantes(clienteDatos, {
@@ -918,7 +923,7 @@ export default function AsesorExpedientePage() {
         programaDb,
         requireInfonavit: false,
         perfilCaptura: perfilCapturaClienteDatos,
-        telefonoCasa: requiereTelefonoCasa ? telefonoCasaValue : undefined,
+        telefonoCasa: requiereContactoMesa ? telefonoCasaValue : undefined,
       }),
     [
       clienteDatos,
@@ -926,13 +931,13 @@ export default function AsesorExpedientePage() {
       montoAprobadoEditor,
       programaDb,
       perfilCapturaClienteDatos,
-      requiereTelefonoCasa,
+      requiereContactoMesa,
       telefonoCasaValue,
     ],
   );
 
   const telefonoCasaFieldError = useMemo(() => {
-    if (!requiereTelefonoCasa) return undefined;
+    if (!requiereContactoMesa) return undefined;
     const v = validateClienteDatos(clienteDatos, {
       montoAprobado: montoAprobadoEditor,
       direccionOpcional,
@@ -948,7 +953,7 @@ export default function AsesorExpedientePage() {
     montoAprobadoEditor,
     programaDb,
     perfilCapturaClienteDatos,
-    requiereTelefonoCasa,
+    requiereContactoMesa,
     telefonoCasaValue,
   ]);
 
@@ -1935,7 +1940,7 @@ export default function AsesorExpedientePage() {
       programaDb,
       requireInfonavit: false,
       perfilCaptura: perfilCapturaClienteDatos,
-      telefonoCasa: requiereTelefonoCasa ? telefonoCasaValue : undefined,
+      telefonoCasa: requiereContactoMesa ? telefonoCasaValue : undefined,
     });
     if (!validation.isValid) {
       setClienteDatosShowValidation(true);
@@ -1982,12 +1987,12 @@ export default function AsesorExpedientePage() {
         saved: saved.datos,
         sentDireccionOpcional: domicilioAGuardar,
         savedDireccionOpcional: domicilioAGuardar,
-        sentTelefonoCasa: requiereTelefonoCasa ? telefonoCasaValue : undefined,
-        savedTelefonoCasa: requiereTelefonoCasa
+        sentTelefonoCasa: requiereContactoMesa ? telefonoCasaValue : undefined,
+        savedTelefonoCasa: requiereContactoMesa
           ? saved.telefonoCasa ?? ""
           : undefined,
         requireReferenciasEstructuradas: !silvia,
-        requireTelefonoCasa: requiereTelefonoCasa,
+        requireTelefonoCasa: requiereContactoMesa,
       });
       if (!preserves) {
         const message =
@@ -2064,7 +2069,7 @@ export default function AsesorExpedientePage() {
     montoAprobadoEditor,
     programaDb,
     perfilCapturaClienteDatos,
-    requiereTelefonoCasa,
+    requiereContactoMesa,
     telefonoCasaValue,
     loadExpediente,
   ]);
@@ -2524,6 +2529,7 @@ export default function AsesorExpedientePage() {
               advertenciaInscripcionInfonavit={advertenciaInscripcionInfonavit}
               capturaVariant={capturaVariantClienteDatos}
               showTelefonoCasa={requiereTelefonoCasa}
+              requireTelefonoCasaContacto={requiereContactoMesa}
               telefonoCasaValue={telefonoCasaValue}
               telefonoCasaFieldError={telefonoCasaFieldError}
               onTelefonoCasaChange={handleTelefonoCasaChange}
@@ -2945,6 +2951,7 @@ export default function AsesorExpedientePage() {
               advertenciaInscripcionInfonavit={advertenciaInscripcionInfonavit}
               capturaVariant={capturaVariantClienteDatos}
               showTelefonoCasa={requiereTelefonoCasa}
+              requireTelefonoCasaContacto={requiereContactoMesa}
               telefonoCasaValue={telefonoCasaValue}
               telefonoCasaFieldError={telefonoCasaFieldError}
               onTelefonoCasaChange={handleTelefonoCasaChange}
@@ -2972,7 +2979,7 @@ export default function AsesorExpedientePage() {
                 programaDb,
                 requireInfonavit: false,
                 perfilCaptura: perfilCapturaClienteDatos,
-                telefonoCasa: requiereTelefonoCasa ? telefonoCasaValue : undefined,
+                telefonoCasa: requiereContactoMesa ? telefonoCasaValue : undefined,
               });
               if (camposFaltantes.length > 0) {
                 window.alert(
@@ -2995,7 +3002,7 @@ export default function AsesorExpedientePage() {
                 programaDb,
                 requireInfonavit: false,
                 perfilCaptura: perfilCapturaClienteDatos,
-                telefonoCasa: requiereTelefonoCasa ? telefonoCasaValue : undefined,
+                telefonoCasa: requiereContactoMesa ? telefonoCasaValue : undefined,
               });
               if (!validation.isValid) {
                 setClienteDatosShowValidation(true);

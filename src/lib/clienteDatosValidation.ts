@@ -1,5 +1,5 @@
 import {
-  clienteDatosRequiereTelefonoCasa,
+  clienteDatosRequiereContactoMesa,
   isClienteDatosPerfilPendiente,
   type ClienteDatosPerfilCaptura,
 } from "@/domain/asesor-equipo/asesor-en-equipo-por-lider-email";
@@ -783,8 +783,8 @@ export function validateClienteDatos(
   req("nss", data.nss, "NSS");
   req("curp", data.curp, "CURP");
   req("celular", data.celular, "Celular");
+  req("correo", data.correo, "Correo");
   if (!silvia) {
-    req("correo", data.correo, "Correo");
     req("empresa", data.empresa, "Empresa");
     req("registroPatronal", data.registroPatronal, "Registro patronal");
     req("telefonoEmpresa", data.telefonoEmpresa, "Teléfono empresa");
@@ -966,7 +966,6 @@ export function validateClienteDatos(
   }
 
   if (
-    !silvia &&
     data.correo.trim() &&
     !errors.correo &&
     !EMAIL_RE.test(data.correo.trim())
@@ -1003,11 +1002,8 @@ export function validateClienteDatos(
     }
   }
 
-  // Teléfono de casa: solo internos resueltos (`clienteDatosRequiereTelefonoCasa`).
-  if (
-    clienteDatosRequiereTelefonoCasa(ctx.perfilCaptura) &&
-    ctx.telefonoCasa !== undefined
-  ) {
+  // Teléfono de casa: contacto mínimo para todo perfil resuelto antes de Mesa.
+  if (clienteDatosRequiereContactoMesa(ctx.perfilCaptura)) {
     const casa = String(ctx.telefonoCasa ?? "").trim();
     req("telefonoCasa", casa, "Teléfono de casa");
     if (!errors.telefonoCasa && casa && !isTelefonoMexicoValido(casa)) {
@@ -1041,8 +1037,7 @@ export function validateClienteDatos(
     ? [{ slot: "cliente.celular", raw: data.celular }]
     : [
         { slot: "cliente.celular", raw: data.celular },
-        ...(clienteDatosRequiereTelefonoCasa(ctx.perfilCaptura) &&
-        ctx.telefonoCasa !== undefined
+        ...(clienteDatosRequiereContactoMesa(ctx.perfilCaptura)
           ? [{ slot: "cliente.telefonoCasa" as const, raw: String(ctx.telefonoCasa ?? "") }]
           : []),
         { slot: "empresa.telefono", raw: data.telefonoEmpresa },

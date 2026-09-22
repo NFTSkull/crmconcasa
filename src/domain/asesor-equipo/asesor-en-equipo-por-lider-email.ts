@@ -68,6 +68,21 @@ export function clienteDatosRequiereTelefonoCasa(
 }
 
 /**
+ * Contacto mínimo obligatorio antes de Mesa.
+ * A diferencia de B1, también aplica a perfiles externos simplificados:
+ * correo + teléfono de casa deben existir antes del envío.
+ * UNKNOWN permanece fail-closed hasta resolver clasificación.
+ */
+export function clienteDatosRequiereContactoMesa(
+  perfil: ClienteDatosPerfilCaptura | null | undefined,
+): boolean {
+  return (
+    perfil === "asesor_completo" ||
+    perfil === "asesor_equipo_silvia_simplificado"
+  );
+}
+
+/**
  * Resuelve perfil de captura.
  * Preferir `duenoClasificacion` tri-state; el booleano legacy trata
  * `false`/`null` como interno solo cuando no hay tri-state (compat tests).

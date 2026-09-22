@@ -19,9 +19,9 @@ describe("P218/P220 teléfono de casa con Guardar datos", () => {
     assert.ok(src.includes("value={value}"));
   });
 
-  it("save y saveCorreccion usan el RPC atómico solo cuando requiere teléfono de casa", () => {
+  it("save y saveCorreccion usan el RPC atómico para todo perfil resuelto", () => {
     const src = source("src/domain/expediente-cliente-datos/supabase.repo.ts");
-    assert.ok(src.includes("clienteDatosRequiereTelefonoCasa"));
+    assert.ok(src.includes("clienteDatosRequiereContactoMesa"));
     assert.ok(src.includes("asesor_guardar_cliente_datos_con_telefono_casa"));
     assert.ok(src.includes("p_telefono_casa: getTelefonoCasaDraft(idNorm) ?? null"));
     assert.ok(src.includes('client.rpc("save_cliente_datos"'));
