@@ -7,6 +7,7 @@ import {
 } from "./mock.repo";
 import { mapProgramaDbToUi } from "./map-programa";
 import { normalizePagoConcasaResultado } from "./pago-concasa-resultado";
+import { normalizePersonName } from "@/lib/clienteDatosFieldFormats";
 
 /** Fila anidada de `editor_decisions` (1:1; Supabase puede devolver objeto o array). */
 export type SupabaseEditorDecisionEmbed = Readonly<{
@@ -180,12 +181,12 @@ export function mapSupabaseRowToExpedienteMock(
     base: {
       programa: mapProgramaDbToUi(row.programa ?? ""),
       nss: row.nss ?? "",
-      cliente_nombre: row.cliente_nombre ?? "",
+      cliente_nombre: normalizePersonName(row.cliente_nombre ?? ""),
       telefono_cliente: row.telefono_cliente ?? "",
       direccion_opcional: row.direccion_opcional?.trim() ?? "",
       asesorId: resolveAsesorId(row, asesor),
       asesorProfileId: row.asesor_id?.trim() || null,
-      asesorNombre: textOrNull(asesor?.full_name),
+      asesorNombre: textOrNull(normalizePersonName(asesor?.full_name ?? "")),
       asesorEmail: textOrNull(asesor?.email),
       createdAt: isoOrNow(row.created_at),
       origenMesa,
@@ -275,7 +276,7 @@ export function mapCreateExpedienteRpcToExpedienteMock(
     base: {
       programa: mapProgramaDbToUi(row.programa ?? ""),
       nss: row.nss ?? "",
-      cliente_nombre: row.cliente_nombre ?? "",
+      cliente_nombre: normalizePersonName(row.cliente_nombre ?? ""),
       telefono_cliente: row.telefono_cliente ?? "",
       direccion_opcional: row.direccion_opcional?.trim() ?? "",
       asesorId: asesorEmailFallback.trim() || row.asesor_id?.trim() || "",

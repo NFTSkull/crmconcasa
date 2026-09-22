@@ -9,7 +9,8 @@ export function normalizeInfonavitScraperPersonName(
   const normalized = String(input ?? "")
     .replace(/#/g, "Ñ")
     .trim()
-    .replace(/\s+/g, " ");
+    .replace(/\s+/g, " ")
+    .toLocaleUpperCase("es-MX");
 
   if (!normalized) return null;
   if (!/^[\p{L}\p{M}\s'\u2019-]+$/u.test(normalized)) return null;

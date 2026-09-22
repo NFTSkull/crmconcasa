@@ -5,6 +5,7 @@ import type { MockStoreContextValue } from "@/context/MockStoreContext";
 import type { Rol as MockStoreRol } from "@/lib/mock-store";
 import { persistMockUser, clearMockUser } from "@/lib/mockUser";
 import { normalizeLoginIdentifier } from "@/lib/normalizeLoginIdentifier";
+import { normalizePersonName } from "@/lib/clienteDatosFieldFormats";
 import { supabaseBrowser } from "@/lib/supabaseBrowser";
 import type { SessionRepo } from "./repo";
 import type { Rol, UserSession } from "./types";
@@ -86,7 +87,7 @@ function resolveProfileRow(row: ProfileRow): ResolvedSupabaseProfile {
   const mockRole = mapAppRoleToMockRole(row.app_role);
   return {
     email: row.email.trim(),
-    fullName: row.full_name.trim() || row.email.trim(),
+    fullName: normalizePersonName(row.full_name) || row.email.trim(),
     mockRole,
     sessionRole: mapMockRoleToSessionRole(mockRole),
     organizationId: row.organization_id,

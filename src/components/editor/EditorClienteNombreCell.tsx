@@ -4,6 +4,7 @@ import { useState } from "react";
 
 import { isPorCapturarNombre } from "@/components/editor/editor-cliente-nombre";
 import { supabaseBrowser } from "@/lib/supabaseBrowser";
+import { filterPersonNameInput, normalizePersonName } from "@/lib/clienteDatosFieldFormats";
 
 type Props = {
   expedienteId: string;
@@ -33,7 +34,7 @@ export function EditorClienteNombreCell({
   }
 
   async function commit() {
-    const nombre = draft.trim();
+    const nombre = normalizePersonName(draft);
     if (!nombre || saving) return;
     if (!supabaseBrowser) {
       setAviso("No se pudo aplicar");
@@ -83,8 +84,8 @@ export function EditorClienteNombreCell({
           disabled={saving}
           placeholder="Nombre completo"
           aria-label="Capturar nombre del cliente"
-          className="min-h-[32px] w-full rounded border border-amber-300 bg-amber-50 px-2 py-1 text-sm text-gray-900 outline-none focus:border-amber-500"
-          onChange={(e) => setDraft(e.target.value)}
+          className="min-h-[32px] w-full rounded border border-amber-300 bg-amber-50 px-2 py-1 text-sm uppercase text-gray-900 outline-none focus:border-amber-500"
+          onChange={(e) => setDraft(filterPersonNameInput(e.target.value))}
           onBlur={() => {
             void commit();
           }}

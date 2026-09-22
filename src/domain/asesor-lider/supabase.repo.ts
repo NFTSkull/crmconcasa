@@ -3,6 +3,7 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { isSupabaseConfigured, supabaseBrowser } from "@/lib/supabaseBrowser";
 import { mapProgramaUiToDb } from "@/domain/expedientes/map-programa";
+import { normalizePersonName } from "@/lib/clienteDatosFieldFormats";
 import {
   asesorLiderContextSchema,
   asesorLiderDashboardSchema,
@@ -174,7 +175,7 @@ export class AsesorLiderSupabaseRepo {
       p_asesor_id: input.asesorId.trim(),
       p_programa: programaDb,
       p_nss: input.nss.trim(),
-      p_cliente_nombre: input.cliente_nombre.trim(),
+      p_cliente_nombre: normalizePersonName(input.cliente_nombre),
       p_telefono_cliente: input.telefono_cliente.trim(),
       p_direccion_opcional: (input.direccion_opcional ?? "").trim(),
     });

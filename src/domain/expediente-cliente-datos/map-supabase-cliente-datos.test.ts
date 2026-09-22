@@ -49,7 +49,7 @@ describe("mapSupabaseRowToExpedienteClienteDatos", () => {
     assert.equal(domain.montoCalculado, 1875);
     assert.equal(domain.metodoPago, "efectivo");
     assert.equal(domain.estado, "completo");
-    assert.equal(domain.datos.nombreCliente, "Marcela");
+    assert.equal(domain.datos.nombreCliente, "MARCELA");
     assert.equal(domain.datos.clabe, "");
     assert.equal(domain.datos.referencias[0]?.celular, "5511111111");
     assert.equal(domain.datos.referencias[1]?.celular, "5522222222");
@@ -134,7 +134,7 @@ describe("buildSaveClienteDatosRpcPayload", () => {
       nombre: "Ref 1",
       telefono: "5511111111",
     });
-    assert.equal(payload.p_datos.nombreCliente, "Marcela");
+    assert.equal(payload.p_datos.nombreCliente, "MARCELA");
     assert.equal(payload.p_datos.notaMesa, "Observación Mesa");
   });
 

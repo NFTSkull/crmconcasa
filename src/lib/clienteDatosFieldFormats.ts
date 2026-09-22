@@ -9,11 +9,12 @@ export const MSJ_DIGITS_ONLY = "Este campo solo admite números.";
 const PERSON_NAME_CHAR_RE = /[\p{L}\p{M}\s'\u2019-]/u;
 const PERSON_NAME_FULL_RE = /^[\p{L}\p{M}\s'\u2019-]*$/u;
 
-/** trim + colapsar espacios internos; NO quitar acentos; NO forzar mayúsculas */
+/** trim + colapsar espacios internos; conserva acentos y normaliza a MAYÚSCULAS. */
 export function normalizePersonName(input: string): string {
   return String(input ?? "")
     .trim()
-    .replace(/\s+/g, " ");
+    .replace(/\s+/g, " ")
+    .toLocaleUpperCase("es-MX");
 }
 
 /**
@@ -29,6 +30,7 @@ export function isValidPersonName(input: string): boolean {
 /**
  * Al tipear/pegar: conserva solo chars válidos.
  * Colapsa dobles espacios; no aplica trim completo de bordes.
+ * Todo nombre capturado queda visualmente en MAYÚSCULAS.
  */
 export function filterPersonNameInput(input: string): string {
   const raw = String(input ?? "");
@@ -36,7 +38,7 @@ export function filterPersonNameInput(input: string): string {
   for (const ch of raw) {
     if (PERSON_NAME_CHAR_RE.test(ch)) out += ch;
   }
-  return out.replace(/ {2,}/g, " ");
+  return out.replace(/ {2,}/g, " ").toLocaleUpperCase("es-MX");
 }
 
 /** Solo 0-9; conserva ceros iniciales (string). */
