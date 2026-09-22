@@ -30,6 +30,8 @@ describe("EditorClienteNombreCell montaje", () => {
     assert.match(cell, /editor_fill_nombre_infonavit/);
     assert.match(cell, /p_expediente_id:\s*expedienteId/);
     assert.match(cell, /p_nombre_completo:\s*nombre/);
+    assert.match(cell, /normalizePersonName\(draft\)/);
+    assert.match(cell, /filterPersonNameInput\(e\.target\.value\)/);
     assert.match(cell, /onBlur/);
     assert.match(cell, /Enter/);
     assert.doesNotMatch(cell, /auto_fill_nombre_infonavit/);
