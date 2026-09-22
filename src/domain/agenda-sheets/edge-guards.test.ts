@@ -151,5 +151,11 @@ describe("agenda-sheets edge-like guards", () => {
       "utf8",
     );
     assert.match(src, /outbox|booking_created|GOOGLE_SHEETS_SYNC_ENABLED/);
+    assert.match(src, /const expectedName =/);
+    assert.match(src, /const expectedAdvisor =/);
+    assert.ok(
+      (src.match(/\.toLocaleUpperCase\("es-MX"\)/g) ?? []).length >= 2,
+      "cliente y asesor deben escribirse a Sheets en mayúsculas",
+    );
   });
 });
