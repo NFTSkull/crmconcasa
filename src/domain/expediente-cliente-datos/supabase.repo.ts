@@ -21,7 +21,7 @@ import { emitExpedienteClienteDatosUpdated } from "./emit-updated";
 import type { ExpedienteClienteDatosEstado } from "./types";
 import type { ClienteDatosEstadoBatch } from "./types";
 import { getTelefonoCasaDraft } from "./telefono-casa-draft-store";
-import { clienteDatosRequiereTelefonoCasa } from "@/domain/asesor-equipo/asesor-en-equipo-por-lider-email";
+import { clienteDatosRequiereContactoMesa } from "@/domain/asesor-equipo/asesor-en-equipo-por-lider-email";
 
 const CLIENTE_DATOS_SELECT = `
   expediente_id,
@@ -194,9 +194,9 @@ export class SupabaseExpedienteClienteDatosRepo implements ExpedienteClienteDato
       },
     );
 
-    // Internos: wrapper atómico + draft. Externos/unknown/origen_mesa=externo:
-    // save_cliente_datos sin tocar expedientes.telefono_casa (preserva histórico; no exige casa).
-    const { error } = clienteDatosRequiereTelefonoCasa(
+    // Todo perfil resuelto: wrapper atómico para guardar también teléfono de casa.
+    // UNKNOWN conserva el flujo previo hasta que la clasificación se resuelva.
+    const { error } = clienteDatosRequiereContactoMesa(
       input.perfilCaptura,
       input.origenMesa,
     )
@@ -248,7 +248,7 @@ export class SupabaseExpedienteClienteDatosRepo implements ExpedienteClienteDato
     const { p_estado: estadoSoloWrapper, ...rpcArgsCorreccion } = rpcArgs;
     void estadoSoloWrapper;
 
-    const { error } = clienteDatosRequiereTelefonoCasa(
+    const { error } = clienteDatosRequiereContactoMesa(
       input.perfilCaptura,
       input.origenMesa,
     )
