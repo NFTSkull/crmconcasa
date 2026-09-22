@@ -411,7 +411,8 @@ export function MesaExpedienteDetalleReadOnly() {
           return;
         }
 
-        const [datos, archivos, lista, booking, notificacionBooking, bioConfig, firmasBooking, firmasCfg, bioCancelled, firmasCancelled, cancelacion] =
+        const ownerProfileIdMesa = exp.base.asesorProfileId?.trim() || null;
+        const [datos, archivos, lista, booking, notificacionBooking, bioConfig, firmasBooking, firmasCfg, bioCancelled, firmasCancelled, cancelacion, ownerDisplay] =
           await Promise.all([
           clienteDatosRepo.getByExpedienteId(routeExpedienteId).catch(() => null),
           archivosRepo.listResumenByExpediente(routeExpedienteId).catch(() => []),
@@ -442,9 +443,37 @@ export function MesaExpedienteDetalleReadOnly() {
                 .getUltimaCancelacionOperativa(routeExpedienteId)
                 .catch(() => null)
             : Promise.resolve(null),
+          ownerProfileIdMesa && isSupabaseConfigured() && supabaseBrowser
+            ? supabaseBrowser
+                .rpc("mesa_get_asesor_display_batch", {
+                  p_asesor_ids: [ownerProfileIdMesa],
+                })
+                .then(({ data }) => {
+                  const row = (data ?? [])[0] as
+                    | {
+                        asesor_id?: string;
+                        full_name?: string | null;
+                        email?: string | null;
+                      }
+                    | undefined;
+                  return row ?? null;
+                })
+                .catch(() => null)
+            : Promise.resolve(null),
         ]);
 
-        setExpediente(exp);
+        const expedienteMesa = ownerDisplay
+          ? {
+              ...exp,
+              base: {
+                ...exp.base,
+                asesorNombre: ownerDisplay.full_name ?? exp.base.asesorNombre,
+                asesorEmail: ownerDisplay.email ?? exp.base.asesorEmail,
+              },
+            }
+          : exp;
+
+        setExpediente(expedienteMesa);
         setClienteDatos(datos);
         setArchivosResumen(archivos);
         setArchivosLista(lista);
