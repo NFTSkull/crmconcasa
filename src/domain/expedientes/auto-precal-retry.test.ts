@@ -28,6 +28,16 @@ describe("consecutiveScraperFailedStreak / cooldown", () => {
     assert.equal(consecutiveScraperFailedStreak(rows), 2);
   });
 
+  it("akamai_access_denied conserva el mismo backoff que scraper_failed", () => {
+    assert.equal(
+      consecutiveScraperFailedStreak([
+        intento("a", "2026-08-28T11:50:00.000Z", "pending_error", "akamai_access_denied"),
+        intento("a", "2026-08-28T11:40:00.000Z", "pending_error", "scraper_failed"),
+      ]),
+      2,
+    );
+  });
+
   it("job_started no rompe racha scraper_failed", () => {
     assert.equal(
       consecutiveScraperFailedStreak([
@@ -277,6 +287,17 @@ describe("selectAutoPrecalRetryCandidates", () => {
       intentos: [
         intento("aaaa", "2026-08-28T10:00:00.000Z", "pending_error", "ambiguous_payload"),
         intento("aaaa", old, "pending_error", "scraper_failed"),
+      ],
+      nowMs: now,
+    });
+    assert.deepEqual(ids, ["aaaa"]);
+  });
+
+  it("incluye pending_error + akamai_access_denied sin cambiar el retry", () => {
+    const ids = selectAutoPrecalRetryCandidates({
+      pendingExpedienteIds: ["aaaa"],
+      intentos: [
+        intento("aaaa", old, "pending_error", "akamai_access_denied"),
       ],
       nowMs: now,
     });
