@@ -78,6 +78,24 @@ export function mapEnviarAMesaRpcError(error: {
     );
   }
 
+  if (msg.includes("contacto_correo_requerido")) {
+    return new ExpedientesSupabaseError(
+      "El correo del cliente es obligatorio antes de enviar a Mesa.",
+    );
+  }
+
+  if (msg.includes("contacto_correo_invalido")) {
+    return new ExpedientesSupabaseError(
+      "El correo del cliente no tiene un formato válido.",
+    );
+  }
+
+  if (msg.includes("contacto_telefono_casa_requerido")) {
+    return new ExpedientesSupabaseError(
+      "El teléfono de casa del cliente es obligatorio antes de enviar a Mesa.",
+    );
+  }
+
   if (msg.includes("rfc del cliente es obligatorio")) {
     return new ExpedientesSupabaseError(
       "El RFC del cliente es obligatorio antes de enviar a Mesa.",
