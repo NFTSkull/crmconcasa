@@ -16,7 +16,8 @@ export function AutoPrecalAvailabilityAlert() {
   const [blocked, setBlocked] = useState(false);
 
   useEffect(() => {
-    if (!supabaseBrowser) return;
+    const client = supabaseBrowser;
+    if (!client) return;
 
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | null = null;
@@ -24,7 +25,7 @@ export function AutoPrecalAvailabilityAlert() {
     const check = async () => {
       try {
         const accessToken = await resolveBearerAccessToken(
-          supabaseBrowser.auth,
+          client.auth,
           "auto-precal-health",
         );
         if (!accessToken || cancelled) return;
