@@ -1,3 +1,4 @@
+// Diagnostic-only PR: force the existing production-build guard against current main.
 import type { ExpedienteClienteDatos } from "@/domain/expediente-cliente-datos";
 import { normalizeClienteDatosForSave } from "./clienteDatosValidation";
 import { isValidPersonName } from "./clienteDatosFieldFormats";
