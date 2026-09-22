@@ -783,11 +783,12 @@ const SILVIA_CTX = {
   ...COBRO_CTX,
   perfilCaptura: "asesor_equipo_silvia_simplificado" as const,
   requireInfonavit: false,
+  telefonoCasa: "8188887777",
 };
 
 const silviaBase = (): ClienteDatosFormShape => ({
   ...baseValid,
-  correo: "",
+  correo: "externo@ejemplo.mx",
   empresa: "",
   registroPatronal: "",
   telefonoEmpresa: "",
@@ -841,7 +842,7 @@ test("simplificado + draft vacío no pisa correo/empresa oficiales", () => {
     empresa: "Empresa Histórica SA",
     registroPatronal: "Y1234567890",
   };
-  const dirty = silviaBase();
+  const dirty = { ...silviaBase(), correo: "" };
   const prepared = prepareClienteDatosForPerfilCapturaSave(dirty, {
     perfilCaptura: "asesor_equipo_silvia_simplificado",
     official,
@@ -882,11 +883,23 @@ test("prepare no-op fuera de simplificado (no borra RFC form)", () => {
   assert.equal(out.rfc, "INVALIDO");
 });
 
-test("simplificado no exige telefono_casa (contrato externos)", () => {
-  const r = validateClienteDatos(silviaBase(), {
+test("simplificado exige correo y teléfono de casa antes de Mesa", () => {
+  const sinCasa = validateClienteDatos(silviaBase(), {
     ...SILVIA_CTX,
-    telefonoCasa: undefined,
+    telefonoCasa: "",
   });
-  assert.equal(r.errors.telefonoCasa, undefined);
-  assert.equal(r.isValid, true);
+  assert.ok(sinCasa.errors.telefonoCasa);
+  assert.equal(sinCasa.isValid, false);
+
+  const sinCorreo = validateClienteDatos(
+    { ...silviaBase(), correo: "" },
+    SILVIA_CTX,
+  );
+  assert.equal(sinCorreo.errors.correo, "Correo es obligatorio.");
+  assert.equal(sinCorreo.isValid, false);
+
+  const ok = validateClienteDatos(silviaBase(), SILVIA_CTX);
+  assert.equal(ok.errors.telefonoCasa, undefined);
+  assert.equal(ok.errors.correo, undefined);
+  assert.equal(ok.isValid, true);
 });
