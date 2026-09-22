@@ -444,10 +444,11 @@ export function MesaExpedienteDetalleReadOnly() {
                 .catch(() => null)
             : Promise.resolve(null),
           ownerProfileIdMesa && isSupabaseConfigured() && supabaseBrowser
-            ? supabaseBrowser
-                .rpc("mesa_get_asesor_display_batch", {
+            ? Promise.resolve(
+                supabaseBrowser.rpc("mesa_get_asesor_display_batch", {
                   p_asesor_ids: [ownerProfileIdMesa],
-                })
+                }),
+              )
                 .then(({ data }) => {
                   const row = (data ?? [])[0] as
                     | {
