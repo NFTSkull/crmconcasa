@@ -55,6 +55,13 @@ describe("Mesa — alias visual Equipo Silvia", () => {
     assert.doesNotMatch(mesaPage, /"mesa_get_asesor_display_batch"/);
   });
 
+  it("los listados generales conservan el nombre real del asesor", () => {
+    assert.match(
+      expedientesRepo,
+      /async function fetchExpedientesList\(options[\s\S]*fetchAsesorDisplayMap/,
+    );
+  });
+
   it("el detalle Mesa aliasa al dueño pero conserva auditoría de agenda", () => {
     assert.match(
       mesaDetalle,
