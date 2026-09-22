@@ -109,4 +109,19 @@ describe("mapEnviarAMesaRpcError", () => {
     assert.match(err.message, /NSS/i);
     assert.doesNotMatch(err.message, /184000/);
   });
+  it("mapea contacto obligatorio antes de Mesa", () => {
+    assert.equal(
+      mapEnviarAMesaRpcError({
+        message: "enviar_a_mesa: CONTACTO_CORREO_REQUERIDO",
+      }).message,
+      "El correo del cliente es obligatorio antes de enviar a Mesa.",
+    );
+    assert.equal(
+      mapEnviarAMesaRpcError({
+        message: "enviar_a_mesa: CONTACTO_TELEFONO_CASA_REQUERIDO",
+      }).message,
+      "El teléfono de casa del cliente es obligatorio antes de enviar a Mesa.",
+    );
+  });
+
 });
