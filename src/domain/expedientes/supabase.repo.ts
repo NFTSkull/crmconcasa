@@ -419,23 +419,11 @@ async function fetchExpedientesList(options?: {
   }
 
   const rows = data as SupabaseExpedienteListRow[];
-  const ownerDisplayMap = await fetchMesaOwnerDisplayMap(
+  const asesorMap = await fetchAsesorDisplayMap(
     client,
     rows.map((row) => row.asesor_id),
   );
-  return mapRowsToExpedienteMocks(rows, new Map()).map((exp) => {
-    const ownerId = exp.base.asesorProfileId?.trim() || "";
-    const owner = ownerDisplayMap.get(ownerId);
-    if (!owner) return exp;
-    return {
-      ...exp,
-      base: {
-        ...exp.base,
-        asesorNombre: owner.full_name ?? exp.base.asesorNombre,
-        asesorEmail: owner.email ?? exp.base.asesorEmail,
-      },
-    };
-  });
+  return mapRowsToExpedienteMocks(rows, asesorMap);
 }
 
 async function fetchExpedientesListPaginatedForAsesor(
@@ -614,11 +602,23 @@ async function fetchExpedientesListForMesaControl(): Promise<ExpedienteMock[]> {
   }
 
   const rows = data as SupabaseExpedienteListRow[];
-  const asesorMap = await fetchAsesorDisplayMap(
+  const ownerDisplayMap = await fetchMesaOwnerDisplayMap(
     client,
     rows.map((row) => row.asesor_id),
   );
-  return mapRowsToExpedienteMocks(rows, asesorMap);
+  return mapRowsToExpedienteMocks(rows, new Map()).map((exp) => {
+    const ownerId = exp.base.asesorProfileId?.trim() || "";
+    const owner = ownerDisplayMap.get(ownerId);
+    if (!owner) return exp;
+    return {
+      ...exp,
+      base: {
+        ...exp.base,
+        asesorNombre: owner.full_name ?? exp.base.asesorNombre,
+        asesorEmail: owner.email ?? exp.base.asesorEmail,
+      },
+    };
+  });
 }
 
 async function fetchExpedientesListForMesaControlPaginated(
