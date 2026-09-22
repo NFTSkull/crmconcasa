@@ -86,7 +86,7 @@ function resolveProfileRow(row: ProfileRow): ResolvedSupabaseProfile {
   const mockRole = mapAppRoleToMockRole(row.app_role);
   return {
     email: row.email.trim(),
-    fullName: row.full_name.trim() || row.email.trim(),
+    fullName: normalizePersonName(row.full_name) || row.email.trim(),
     mockRole,
     sessionRole: mapMockRoleToSessionRole(mockRole),
     organizationId: row.organization_id,
