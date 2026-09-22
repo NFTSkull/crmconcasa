@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 
+import { AutoPrecalAvailabilityAlert } from "@/components/asesor/AutoPrecalAvailabilityAlert";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
@@ -270,6 +271,10 @@ export function AnetteNssOnlyPrecalPage() {
             Captura únicamente el NSS. El expediente se enviará al Editor y la
             precalificación se consultará automáticamente.
           </p>
+
+          <div className="mt-4">
+            <AutoPrecalAvailabilityAlert />
+          </div>
 
           {delegateCtx?.can_delegate ? (
             <p className="mt-2 rounded-md bg-indigo-50 px-3 py-2 text-xs text-indigo-800">
