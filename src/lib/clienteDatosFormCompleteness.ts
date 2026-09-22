@@ -172,10 +172,7 @@ export function getClienteDatosCamposFaltantes(
   req("NSS", d.nss);
   req("CURP", d.curp);
   req("Celular", d.celular);
-  if (
-    clienteDatosRequiereContactoMesa(ctx.perfilCaptura) &&
-    ctx.telefonoCasa !== undefined
-  ) {
+  if (clienteDatosRequiereContactoMesa(ctx.perfilCaptura)) {
     const casa = String(ctx.telefonoCasa ?? "");
     req("Teléfono de casa", casa);
     if (casa.trim()) {
