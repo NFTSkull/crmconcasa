@@ -204,6 +204,34 @@ async function fetchAsesorDisplayMap(
   return map;
 }
 
+async function fetchMesaOwnerDisplayMap(
+  client: SupabaseClient,
+  asesorIds: string[],
+): Promise<Map<string, SupabaseAsesorProfileEmbed>> {
+  const unique = [...new Set(asesorIds.map((id) => id.trim()).filter(Boolean))];
+  const map = new Map<string, SupabaseAsesorProfileEmbed>();
+  if (unique.length === 0) return map;
+
+  const { data, error } = await client.rpc("mesa_get_asesor_display_batch", {
+    p_asesor_ids: unique,
+  });
+
+  if (error) {
+    return map;
+  }
+
+  for (const row of (data ?? []) as AsesorDisplayRow[]) {
+    const id = String(row.asesor_id ?? "").trim();
+    if (!id) continue;
+    map.set(id, {
+      full_name: row.full_name,
+      email: row.email,
+    });
+  }
+
+  return map;
+}
+
 function mapRowsToExpedienteMocks(
   rows: SupabaseExpedienteListRow[],
   asesorMap: Map<string, SupabaseAsesorProfileEmbed>,
@@ -391,11 +419,23 @@ async function fetchExpedientesList(options?: {
   }
 
   const rows = data as SupabaseExpedienteListRow[];
-  const asesorMap = await fetchAsesorDisplayMap(
+  const ownerDisplayMap = await fetchMesaOwnerDisplayMap(
     client,
     rows.map((row) => row.asesor_id),
   );
-  return mapRowsToExpedienteMocks(rows, asesorMap);
+  return mapRowsToExpedienteMocks(rows, new Map()).map((exp) => {
+    const ownerId = exp.base.asesorProfileId?.trim() || "";
+    const owner = ownerDisplayMap.get(ownerId);
+    if (!owner) return exp;
+    return {
+      ...exp,
+      base: {
+        ...exp.base,
+        asesorNombre: owner.full_name ?? exp.base.asesorNombre,
+        asesorEmail: owner.email ?? exp.base.asesorEmail,
+      },
+    };
+  });
 }
 
 async function fetchExpedientesListPaginatedForAsesor(
@@ -630,7 +670,7 @@ async function fetchExpedientesListForMesaControlPaginated(
   }
 
   const payload = parsed.data;
-  const asesorMap = await fetchAsesorDisplayMap(
+  const ownerDisplayMap = await fetchMesaOwnerDisplayMap(
     client,
     payload.items.map((row) => String(row.asesor_id ?? "")),
   );
@@ -664,7 +704,7 @@ async function fetchExpedientesListForMesaControlPaginated(
     };
     const base = mapSupabaseRowToExpedienteMock(
       listRow,
-      asesorMap.get(String(row.asesor_id ?? "")) ?? null,
+      ownerDisplayMap.get(String(row.asesor_id ?? "")) ?? null,
     );
     const sortTs =
       (typeof row.sort_ts === "string" && row.sort_ts.trim()) ||
