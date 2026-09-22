@@ -1003,10 +1003,7 @@ export function validateClienteDatos(
   }
 
   // Teléfono de casa: contacto mínimo para todo perfil resuelto antes de Mesa.
-  if (
-    clienteDatosRequiereContactoMesa(ctx.perfilCaptura) &&
-    ctx.telefonoCasa !== undefined
-  ) {
+  if (clienteDatosRequiereContactoMesa(ctx.perfilCaptura)) {
     const casa = String(ctx.telefonoCasa ?? "").trim();
     req("telefonoCasa", casa, "Teléfono de casa");
     if (!errors.telefonoCasa && casa && !isTelefonoMexicoValido(casa)) {
@@ -1040,8 +1037,7 @@ export function validateClienteDatos(
     ? [{ slot: "cliente.celular", raw: data.celular }]
     : [
         { slot: "cliente.celular", raw: data.celular },
-        ...(clienteDatosRequiereContactoMesa(ctx.perfilCaptura) &&
-        ctx.telefonoCasa !== undefined
+        ...(clienteDatosRequiereContactoMesa(ctx.perfilCaptura)
           ? [{ slot: "cliente.telefonoCasa" as const, raw: String(ctx.telefonoCasa ?? "") }]
           : []),
         { slot: "empresa.telefono", raw: data.telefonoEmpresa },
