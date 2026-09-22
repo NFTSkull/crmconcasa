@@ -370,7 +370,7 @@ test("P133.5 isValidPersonName: Juan123 inválido", () => {
 test("P133.6 isValidPersonName: emojis y símbolos inválidos", () => {
   assert.equal(isValidPersonName("Juan😀"), false);
   assert.equal(isValidPersonName("Juan@Pérez"), false);
-  assert.equal(filterPersonNameInput("Juan😀123"), "Juan");
+  assert.equal(filterPersonNameInput("Juan😀123"), "JUAN");
 });
 
 test("P133.7 NSS conserva ceros iniciales", () => {
@@ -462,8 +462,8 @@ test("P133.12 montos conservan decimales", () => {
 test("P133.13 pegado limpia caracteres inválidos en numéricos", () => {
   assert.equal(filterDigitsInput("NSS: 01234-567-890", 11), "01234567890");
   assert.equal(filterDigitsInput("tel +52 (81) 1908-7564", 15), "528119087564");
-  assert.equal(normalizePersonName("  José   María  "), "José María");
-  assert.equal(filterPersonNameInput("José María 123!"), "José María ");
+  assert.equal(normalizePersonName("  José   María  "), "JOSÉ MARÍA");
+  assert.equal(filterPersonNameInput("José María 123!"), "JOSÉ MARÍA ");
 });
 
 test("P133 plazo con letras → MSJ_DIGITS_ONLY", () => {
