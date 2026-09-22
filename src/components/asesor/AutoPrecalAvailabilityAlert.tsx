@@ -34,14 +34,18 @@ export function AutoPrecalAvailabilityAlert() {
           headers: { Authorization: `Bearer ${accessToken}` },
           cache: "no-store",
         });
-        if (!res.ok || cancelled) return;
+        if (!res.ok || cancelled) {
+          if (!cancelled) setBlocked(false);
+          return;
+        }
 
         const payload = (await res.json()) as HealthPayload;
         if (!cancelled) {
           setBlocked(payload.ok === true && payload.blocked_by_akamai === true);
         }
       } catch {
-        // El monitor nunca debe bloquear captura ni mostrar una falsa caída.
+        // El monitor nunca debe bloquear captura ni mantener una falsa caída.
+        if (!cancelled) setBlocked(false);
       } finally {
         if (!cancelled) {
           timer = setTimeout(check, POLL_MS);
@@ -51,7 +55,11 @@ export function AutoPrecalAvailabilityAlert() {
 
     void check();
 
-    const onFocus = () => void check();
+    const onFocus = () => {
+      if (timer) clearTimeout(timer);
+      timer = null;
+      void check();
+    };
     window.addEventListener("focus", onFocus);
 
     return () => {
