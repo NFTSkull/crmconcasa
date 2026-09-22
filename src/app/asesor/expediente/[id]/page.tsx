@@ -931,7 +931,7 @@ export default function AsesorExpedientePage() {
       montoAprobadoEditor,
       programaDb,
       perfilCapturaClienteDatos,
-      requiereTelefonoCasa,
+      requiereContactoMesa,
       telefonoCasaValue,
     ],
   );
