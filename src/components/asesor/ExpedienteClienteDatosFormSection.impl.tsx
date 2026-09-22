@@ -78,8 +78,13 @@ interface ExpedienteClienteDatosFormSectionProps {
   advertenciaInscripcionInfonavit?: string | null;
   /** Vista UI. Default completo. `simplificado` solo si el actor JWT confirmó Equipo Silvia. */
   capturaVariant?: ClienteDatosCapturaVariant;
-  /** Internos: montar Número de casa. Externos/unknown: false. */
+  /** B1 histórico: montar bloque completo de Número de casa. */
   showTelefonoCasa?: boolean;
+  /**
+   * Contacto mínimo antes de Mesa: en vista simplificada muestra únicamente
+   * teléfono de casa, sin convertir el resto del formulario a perfil completo.
+   */
+  requireTelefonoCasaContacto?: boolean;
   /**
    * Paquete nuevo Equipo Silvia: mostrar CLABE (18 dígitos, opcional).
    * Gate: dueño en Equipo Silvia ∧ rollout ON.
