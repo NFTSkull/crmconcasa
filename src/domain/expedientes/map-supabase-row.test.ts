@@ -41,7 +41,7 @@ test("mapSupabaseRowToExpedienteMock: fila completa con asesor y decisión", () 
   });
 
   assert.equal(mock.base.programa, "Mejoravit");
-  assert.equal(mock.base.cliente_nombre, "NUEVO CLIENTE");
+  assert.equal(mock.base.cliente_nombre, "ANA TEST");
   assert.equal(mock.base.asesorId, "asesor@concasa.mx");
   assert.equal(mock.base.asesorNombre, "ASESOR UNO");
   assert.equal(mock.base.asesorEmail, "asesor@concasa.mx");
@@ -132,7 +132,7 @@ test("mapCreateExpedienteRpcToExpedienteMock: respuesta RPC create", () => {
 
   assert.equal(mock.id, "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
   assert.equal(mock.base.programa, "Mejoravit");
-  assert.equal(mock.base.cliente_nombre, "ANA TEST");
+  assert.equal(mock.base.cliente_nombre, "NUEVO CLIENTE");
   assert.equal(mock.base.asesorId, "asesor@concasa.mx");
   assert.equal(mock.editorDecision.decision, "pendiente");
   assert.equal(mock.operativo.etapaActual, 1);
