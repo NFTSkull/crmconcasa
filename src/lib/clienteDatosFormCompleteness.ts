@@ -1,6 +1,6 @@
 import type { ExpedienteClienteDatos } from "@/domain/expediente-cliente-datos";
 import {
-  clienteDatosRequiereTelefonoCasa,
+  clienteDatosRequiereContactoMesa,
   isClienteDatosPerfilPendiente,
   type ClienteDatosPerfilCaptura,
 } from "@/domain/asesor-equipo/asesor-en-equipo-por-lider-email";
@@ -39,8 +39,8 @@ export type ClienteDatosCompletenessContext = {
    */
   perfilCaptura?: ClienteDatosPerfilCaptura;
   /**
-   * Solo si `clienteDatosRequiereTelefonoCasa(perfil)`.
-   * Omitir / undefined en externo|unknown → no participa en faltantes.
+   * Solo si el perfil ya fue resuelto; internos y externos deben llevar
+   * teléfono de casa antes de Mesa. UNKNOWN no participa todavía.
    */
   telefonoCasa?: string;
 };
@@ -173,7 +173,7 @@ export function getClienteDatosCamposFaltantes(
   req("CURP", d.curp);
   req("Celular", d.celular);
   if (
-    clienteDatosRequiereTelefonoCasa(ctx.perfilCaptura) &&
+    clienteDatosRequiereContactoMesa(ctx.perfilCaptura) &&
     ctx.telefonoCasa !== undefined
   ) {
     const casa = String(ctx.telefonoCasa ?? "");
@@ -186,8 +186,8 @@ export function getClienteDatosCamposFaltantes(
       }
     }
   }
+  req("Correo", d.correo);
   if (!silvia) {
-    req("Correo", d.correo);
     req("Empresa", d.empresa);
     req("Registro patronal", d.registroPatronal);
     req("Teléfono empresa", d.telefonoEmpresa);
