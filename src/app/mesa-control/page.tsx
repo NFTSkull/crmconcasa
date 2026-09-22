@@ -687,7 +687,7 @@ export default function MesaControlPage() {
               if (creatorIds.length === 0) return labels;
               try {
                 const { data } = await supabaseBrowser!.rpc(
-                  "get_asesor_display_batch",
+                  "mesa_get_asesor_display_batch",
                   { p_asesor_ids: creatorIds },
                 );
                 for (const row of (data ?? []) as Array<{
