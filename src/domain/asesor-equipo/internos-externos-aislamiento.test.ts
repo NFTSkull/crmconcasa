@@ -303,7 +303,8 @@ describe("EXTERNOS — CURP / Acta / dedupe / copy", () => {
     );
     assert.match(repo, /clienteDatosRequiereContactoMesa/);
     assert.match(repo, /asesor_guardar_cliente_datos_con_telefono_casa/);
-  });});
+  });
+});
 
 describe("INTERNOS — casa / refs / unicidad", () => {
   const ctxOk = {
@@ -355,7 +356,7 @@ describe("INTERNOS — casa / refs / unicidad", () => {
       "utf8",
     );
     assert.match(page, /showTelefonoCasa=\{requiereTelefonoCasa\}/);
-    assert.match(page, /telefonoCasa: requiereTelefonoCasa \? telefonoCasaValue/);
+    assert.match(page, /telefonoCasa: requiereContactoMesa \? telefonoCasaValue/);
     const wrapper = readFileSync(
       join(process.cwd(), "src/components/asesor/AsesorCurpValidacionSection.tsx"),
       "utf8",
