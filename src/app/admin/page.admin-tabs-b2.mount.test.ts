@@ -158,12 +158,13 @@ describe("Admin UX B2 montaje", () => {
     assert.match(drawer, /No hay actividad registrada/);
   });
 
-  it("sin nuevas consultas de listado principal; Expandir on-demand reutiliza listMesaEnviosPage", () => {
-    assert.match(page, /repo\.getSummary\(filtersBase\)/);
+  it("sin nuevas consultas de listado principal; Expandir on-demand; snapshot solo Alcance pendientes", () => {
+    assert.match(page, /repo\.getSummary\(periodStageFiltersBase\)/);
     assert.match(page, /repo\.listByAsesor\(filtersBase\)/);
     assert.match(page, /repo\.listMesaEnviosPage\(mesaListFilters\)/);
     assert.match(page, /buildAdminProductionExpandFilters/);
-    assert.doesNotMatch(page, /listExpedientesSnapshotPage/);
+    assert.match(page, /listExpedientesSnapshotPage/);
+    assert.match(page, /correccionAlcance|ADMIN_CORRECCION_ALCANCE_OPTIONS/);
     assert.match(page, /repo\.exportAll/);
     assert.match(page, /Descargar Excel/);
     assert.doesNotMatch(page, /fetch\(['"`]\/api/);

@@ -14,12 +14,15 @@ describe("Admin filters contract E1-E9 R1", () => {
   );
   const tabs = readFileSync(join(process.cwd(), "src/lib/adminUxTabs.ts"), "utf8");
 
-  it("E1–E4 Expedientes usa listMesaEnviosPage con mesaListFilters (bounds)", () => {
+  it("E1–E4 Expedientes default usa listMesaEnviosPage; snapshot solo en Alcance pendientes", () => {
     assert.match(page, /const mesaListFilters = useMemo/);
     assert.match(page, /\.\.\.filtersBase/);
     assert.match(page, /repo\.listMesaEnviosPage\(mesaListFilters\)/);
-    assert.doesNotMatch(page, /listExpedientesSnapshotPage/);
     assert.match(page, /loadExpedientesPeriodo/);
+    // Snapshot permitido únicamente vía pipeline de correcciones / pendientes actuales.
+    assert.match(page, /listExpedientesSnapshotPage/);
+    assert.match(page, /ADMIN_CORRECCION_ALCANCE_OPTIONS|correccionAlcance/);
+    assert.match(page, /loadAdminCorreccionUniverse/);
   });
 
   it("E5 empty state sin fallback snapshot", () => {

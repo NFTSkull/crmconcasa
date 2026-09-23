@@ -1,3 +1,4 @@
+import type { AsesorCorreccionDetalle } from "@/domain/expedientes/asesor-correccion-detalle";
 import type { AdminPeriodBounds } from "./period";
 import type { AdminMesaEnvioEvent, AdminPrecalEvent, AdminProductionSummary } from "./metrics";
 import type { AdminMesaTimelineEvent } from "./mesa-seguimiento";
@@ -165,4 +166,11 @@ export interface AdminProductionRepo {
     summary: AdminProductionSummary;
     precalSummary: AdminPrecalSummary;
   }>;
+  /**
+   * RO: detalle canónico de corrección (RPC asesor_correccion_detalle).
+   * null = sin corrección vigente / no aplicable. Error técnico → throw (caller fail-soft).
+   */
+  getExpedienteCorreccionDetalle(
+    expedienteId: string,
+  ): Promise<AsesorCorreccionDetalle | null>;
 }

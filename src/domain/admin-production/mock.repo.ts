@@ -1,5 +1,6 @@
 import type { ExpedientesRepo } from "@/domain/expedientes/repo";
 import type { ExpedienteMock } from "@/domain/expedientes/mock.repo";
+import type { AsesorCorreccionDetalle } from "@/domain/expedientes/asesor-correccion-detalle";
 import { formatAsesorExpedienteLabel } from "@/lib/asesorDisplay";
 import {
   computeAdminPrecalSummary,
@@ -625,5 +626,12 @@ export class MockAdminProductionRepo implements AdminProductionRepo {
     const summary = await this.getSummary(filters);
     const precalSummary = computeAdminPrecalSummary(precalificaciones);
     return { mesaEnvios, precalificaciones, asesores, summary, precalSummary };
+  }
+
+  /** Mock: sin correcciones vigentes (null). Tests inyectan getDetalle propio. */
+  async getExpedienteCorreccionDetalle(
+    _expedienteId: string,
+  ): Promise<AsesorCorreccionDetalle | null> {
+    return null;
   }
 }

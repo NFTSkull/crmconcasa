@@ -145,14 +145,15 @@ describe("Admin UX B1 montaje en /admin", () => {
     assert.match(page, /titleId="admin-mesa-expedientes-title"/);
   });
 
-  it("sin cambios técnicos: mismos repos; Expedientes usa periodo", () => {
+  it("sin cambios técnicos: mismos repos; Expedientes usa periodo; snapshot solo correcciones", () => {
     assert.match(page, /useAdminProductionRepo/);
-    assert.match(page, /repo\.getSummary\(filtersBase\)/);
+    assert.match(page, /repo\.getSummary\(periodStageFiltersBase\)/);
     assert.match(page, /repo\.listByAsesor\(filtersBase\)/);
-    assert.match(page, /repo\.getExpedientesSnapshotEtapas\(snapshotFiltersBase\)/);
     assert.match(page, /repo\.listMesaEnviosPage\(mesaListFilters\)/);
-    assert.doesNotMatch(page, /listExpedientesSnapshotPage/);
     assert.match(page, /repo\.getExpedienteMesaTimeline/);
     assert.match(page, /repo\.exportAll/);
+    // Snapshot solo para Alcance=Pendientes actuales (correcciones), no como listado default.
+    assert.match(page, /listExpedientesSnapshotPage/);
+    assert.match(page, /correccionAlcance|ADMIN_CORRECCION_ALCANCE_OPTIONS/);
   });
 });
