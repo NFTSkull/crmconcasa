@@ -4,6 +4,7 @@
 
 import { z } from "zod";
 import { isSupabaseConfigured, supabaseBrowser } from "@/lib/supabaseBrowser";
+import { fetchMesaOwnerDisplayByExpedienteIds } from "@/lib/mesaOwnerDisplay";
 import {
   normalizeMesaAsesorCambioHistoryConfidence,
   normalizeMesaAsesorCambioLabel,
@@ -254,8 +255,19 @@ export async function fetchMesaAsesorCambioLote(
     if (error || !data) return empty;
     const parsed = getLoteRpcSchema.safeParse(data);
     if (!parsed.success) return empty;
+
+    const mappedLote = parsed.data.lote ? mapLote(parsed.data.lote) : null;
+    const ownerDisplay = mappedLote
+      ? await fetchMesaOwnerDisplayByExpedienteIds([id])
+      : new Map();
+    const display = ownerDisplay.get(id);
+    const lote =
+      mappedLote && display?.fullName
+        ? { ...mappedLote, asesorNombre: display.fullName }
+        : mappedLote;
+
     return {
-      lote: parsed.data.lote ? mapLote(parsed.data.lote) : null,
+      lote,
       changes: parsed.data.changes.map(mapChange),
       recoveredChanges: parsed.data.recovered_changes.map(mapChange),
       historyConfidence: normalizeMesaAsesorCambioHistoryConfidence(
