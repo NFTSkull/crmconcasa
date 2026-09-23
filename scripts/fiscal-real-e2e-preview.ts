@@ -7,6 +7,7 @@ import {
   selectEstadoCuentaRfc,
 } from "../src/domain/validacion-fiscal/rfc";
 
+// Preview-only: worker no-proxy confirmado READY antes de esta corrida.
 const TARGET_BRANCH = "test/fiscal-real-e2e-expediente-20260917";
 const WORKER_URL =
   "https://sat-rfc-validator-real-e2e-temp-production.up.railway.app/e2e-real-expediente-20260917-once";
