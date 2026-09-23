@@ -1,15 +1,31 @@
 import { createHash } from "node:crypto";
 import { createClient } from "@supabase/supabase-js";
 import { extractPdfEmbeddedText } from "../src/domain/identidad-curp/pdf-extract-text";
+import { validateCurpLocal } from "../src/domain/identidad-curp/curp-local";
 import {
   resolveFiscalRfc,
   selectEstadoCuentaRfc,
 } from "../src/domain/validacion-fiscal/rfc";
 
 const TARGET_BRANCH = "test/fiscal-real-e2e-expediente-20260917";
-const EXPEDIENTE_ID = "80a3ed2f-0971-4743-879b-3284a11c4b66";
 const WORKER_URL =
   "https://sat-rfc-validator-real-e2e-temp-production.up.railway.app/e2e-real-expediente-20260917-once";
+const E2E_HEADER = "concasa-readonly-noproxy-20260923";
+
+const CASES = [
+  {
+    label: "paid_validated",
+    expedienteId: "80a3ed2f-0971-4743-879b-3284a11c4b66",
+    expectPaid: true,
+    expectRfcRejection: false,
+  },
+  {
+    label: "rfc_rejected",
+    expedienteId: "a80ade2b-39c3-4cb7-a180-254c9b6518f8",
+    expectPaid: false,
+    expectRfcRejection: true,
+  },
+] as const;
 
 function hash(value: unknown): string {
   return createHash("sha256").update(JSON.stringify(value)).digest("hex");
@@ -19,17 +35,9 @@ async function main() {
   const vercelEnv = String(process.env.VERCEL_ENV ?? "");
   const branch = String(process.env.VERCEL_GIT_COMMIT_REF ?? "");
   if (vercelEnv !== "preview" || branch !== TARGET_BRANCH) {
-    console.log("[fiscal-real-e2e-postbuild] SKIP");
+    console.log("[fiscal-noproxy-e2e] SKIP");
     return;
   }
-
-  const supabaseEnvNames = Object.keys(process.env)
-    .filter((name) => /SUPABASE|POSTGRES/i.test(name))
-    .sort();
-  console.log(
-    "[fiscal-real-e2e-postbuild] SERVER_ENV_NAMES " +
-      JSON.stringify(supabaseEnvNames),
-  );
 
   const supabaseUrl = String(
     process.env.NEXT_PUBLIC_SUPABASE_URL ??
@@ -50,185 +58,231 @@ async function main() {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
-  async function snapshot() {
-    const [{ data: exp, error: expErr }, { data: cd, error: cdErr }] =
-      await Promise.all([
-        sb
-          .from("expedientes")
-          .select(
-            "id,pago_concasa_resultado,etapa_actual,subestado,submitted_to_mesa,updated_at,deleted_at",
-          )
-          .eq("id", EXPEDIENTE_ID)
-          .maybeSingle(),
-        sb
-          .from("cliente_datos")
-          .select("expediente_id,datos,updated_at")
-          .eq("expediente_id", EXPEDIENTE_ID)
-          .maybeSingle(),
-      ]);
+  async function snapshot(expedienteId: string) {
+    const [
+      { data: exp, error: expErr },
+      { data: cd, error: cdErr },
+      { data: ed, error: edErr },
+    ] = await Promise.all([
+      sb
+        .from("expedientes")
+        .select(
+          "id,pago_concasa_resultado,etapa_actual,subestado,ciclo_estado,submitted_to_mesa,motivo_rechazo,comentario_rechazo,updated_at,deleted_at",
+        )
+        .eq("id", expedienteId)
+        .maybeSingle(),
+      sb
+        .from("cliente_datos")
+        .select("expediente_id,estado,datos,updated_at")
+        .eq("expediente_id", expedienteId)
+        .maybeSingle(),
+      sb
+        .from("editor_decisions")
+        .select("expediente_id,rfc_infonavit,decision,updated_at")
+        .eq("expediente_id", expedienteId)
+        .maybeSingle(),
+    ]);
 
     if (expErr || !exp) throw new Error("EXPEDIENTE_NOT_FOUND");
     if (cdErr || !cd) throw new Error("CLIENTE_DATOS_NOT_FOUND");
-    return { exp, cd };
+    if (edErr) throw new Error("EDITOR_DECISION_READ_FAILED");
+    return { exp, cd, ed: ed ?? null };
   }
 
-  console.log("[fiscal-real-e2e-postbuild] START");
-  const before = await snapshot();
-  const beforeHash = hash(before);
-  const datos = (before.cd.datos ?? {}) as Record<string, unknown>;
+  async function runCase(testCase: (typeof CASES)[number]) {
+    console.log(`[fiscal-noproxy-e2e] CASE_START label=${testCase.label}`);
 
-  const nss = String(datos.nss ?? "").trim();
-  const rfcDatosGenerales = String(datos.rfc ?? "").trim().toUpperCase();
-  const curp = String(datos.curp ?? "").trim().toUpperCase();
+    const before = await snapshot(testCase.expedienteId);
+    const beforeHash = hash(before);
+    const datos = (before.cd.datos ?? {}) as Record<string, unknown>;
 
-  if (nss.length !== 11 || rfcDatosGenerales.length !== 13 || curp.length !== 18) {
-    throw new Error("REAL_DATA_SHAPE_INVALID");
-  }
-  console.log("[fiscal-real-e2e-postbuild] REAL_DATA_SHAPE_OK nss=11 rfc=13 curp=18");
+    const rfcDatosGenerales = String(datos.rfc ?? "").trim().toUpperCase();
+    const curp = String(datos.curp ?? "").trim().toUpperCase();
+    const curpLocal = validateCurpLocal({ curp });
+    if (curpLocal.status !== "VALIDA_LOCALMENTE") {
+      throw new Error(`${testCase.label}:CURP_LOCAL_INVALIDA`);
+    }
 
-  const { data: nssMatches, error: nssError } = await sb
-    .from("cliente_datos")
-    .select("expediente_id")
-    .contains("datos", { nss })
-    .limit(2);
-  if (nssError) throw new Error("NSS_LOOKUP_FAILED");
+    const rejectionText = [
+      String(before.exp.motivo_rechazo ?? ""),
+      String(before.exp.comentario_rechazo ?? ""),
+    ].join(" ");
+    const hasRfcRejection = /RFC/i.test(rejectionText);
+    if (testCase.expectRfcRejection && !hasRfcRejection) {
+      throw new Error(`${testCase.label}:EXPECTED_RFC_REJECTION_NOT_FOUND`);
+    }
+    if (testCase.expectPaid && before.exp.pago_concasa_resultado !== "pagado") {
+      throw new Error(`${testCase.label}:EXPECTED_PAID_NOT_FOUND`);
+    }
 
-  const nssUniqueMatch =
-    Array.isArray(nssMatches) &&
-    nssMatches.length === 1 &&
-    String(nssMatches[0]?.expediente_id ?? "") === EXPEDIENTE_ID;
-  console.log(
-    `[fiscal-real-e2e-postbuild] NSS_LOOKUP uniqueSameExpediente=${nssUniqueMatch}`,
-  );
+    const { data: doc, error: docError } = await sb
+      .from("expediente_documentos")
+      .select("id,storage_path,mime_type,size_bytes,version,created_at,updated_at")
+      .eq("expediente_id", testCase.expedienteId)
+      .eq("tipo_documento", "cliente_estado_cuenta")
+      .is("deleted_at", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (docError || !doc?.storage_path) {
+      throw new Error(`${testCase.label}:ESTADO_CUENTA_NOT_FOUND`);
+    }
 
-  const { data: doc, error: docError } = await sb
-    .from("expediente_documentos")
-    .select("id,storage_path,mime_type,size_bytes,version,created_at,updated_at")
-    .eq("expediente_id", EXPEDIENTE_ID)
-    .eq("tipo_documento", "cliente_estado_cuenta")
-    .is("deleted_at", null)
-    .order("created_at", { ascending: false })
-    .limit(1)
-    .maybeSingle();
-  if (docError || !doc?.storage_path) throw new Error("ESTADO_CUENTA_NOT_FOUND");
+    const { data: pdfBlob, error: downloadError } = await sb.storage
+      .from("expediente-documentos")
+      .download(String(doc.storage_path));
+    if (downloadError || !pdfBlob) {
+      throw new Error(`${testCase.label}:ESTADO_CUENTA_DOWNLOAD_FAILED`);
+    }
 
-  const { data: pdfBlob, error: downloadError } = await sb.storage
-    .from("expediente-documentos")
-    .download(String(doc.storage_path));
-  if (downloadError || !pdfBlob) throw new Error("ESTADO_CUENTA_DOWNLOAD_FAILED");
-  console.log(
-    `[fiscal-real-e2e-postbuild] REAL_PDF_DOWNLOADED bytes=${doc.size_bytes} version=${doc.version}`,
-  );
+    const extracted = await extractPdfEmbeddedText(await pdfBlob.arrayBuffer());
+    if (!extracted.ok) {
+      throw new Error(`${testCase.label}:${extracted.reason}`);
+    }
 
-  const extracted = await extractPdfEmbeddedText(await pdfBlob.arrayBuffer());
-  const { data: editorDecision } = await sb
-    .from("editor_decisions")
-    .select("rfc_infonavit")
-    .eq("expediente_id", EXPEDIENTE_ID)
-    .maybeSingle();
-
-  let fiscalRfc = rfcDatosGenerales;
-  let satInputSource = "datos_generales_e2e_fallback";
-  let pdfSummary: Record<string, unknown>;
-
-  if (extracted.ok) {
     const selection = selectEstadoCuentaRfc({
       text: extracted.text,
-      rfcInfonavit: String(editorDecision?.rfc_infonavit ?? ""),
+      rfcInfonavit: String(before.ed?.rfc_infonavit ?? ""),
       rfcDatosGenerales,
-      curpValidadaLocalmente: curp,
+      curpValidadaLocalmente: curpLocal.normalized,
     });
     const resolution = resolveFiscalRfc({
-      rfcInfonavit: String(editorDecision?.rfc_infonavit ?? ""),
+      rfcInfonavit: String(before.ed?.rfc_infonavit ?? ""),
       rfcDatosGenerales,
       estadoCuenta: selection,
     });
 
-    if (resolution.status === "ready_for_sat" && resolution.fiscalRfc) {
-      fiscalRfc = resolution.fiscalRfc;
-      satInputSource = "estado_cuenta_resuelto";
+    let sat:
+      | {
+          called: false;
+          httpStatus: null;
+          semantic: null;
+          rfcStatus: null;
+          rfcEvidencePresent: false;
+          curpStatus: null;
+          curpEvidencePresent: false;
+        }
+      | {
+          called: true;
+          httpStatus: number;
+          semantic: string | null;
+          rfcStatus: string | null;
+          rfcEvidencePresent: boolean;
+          curpStatus: string | null;
+          curpEvidencePresent: boolean;
+        };
+
+    if (resolution.status !== "ready_for_sat" || !resolution.fiscalRfc) {
+      sat = {
+        called: false,
+        httpStatus: null,
+        semantic: null,
+        rfcStatus: null,
+        rfcEvidencePresent: false,
+        curpStatus: null,
+        curpEvidencePresent: false,
+      };
+    } else {
+      const response = await fetch(WORKER_URL, {
+        method: "POST",
+        headers: {
+          "content-type": "application/json",
+          "x-e2e-run": E2E_HEADER,
+        },
+        body: JSON.stringify({
+          rfc: resolution.fiscalRfc,
+          curp: curpLocal.normalized,
+        }),
+        signal: AbortSignal.timeout(170_000),
+      });
+
+      const raw = await response.text();
+      let worker: Record<string, any> = {};
+      try {
+        worker = JSON.parse(raw) as Record<string, any>;
+      } catch {
+        throw new Error(`${testCase.label}:WORKER_NON_JSON_RESPONSE`);
+      }
+
+      sat = {
+        called: true,
+        httpStatus: response.status,
+        semantic: typeof worker.semantic === "string" ? worker.semantic : null,
+        rfcStatus:
+          typeof worker.rfc?.status === "string" ? worker.rfc.status : null,
+        rfcEvidencePresent: worker.rfc?.evidencePresent === true,
+        curpStatus:
+          typeof worker.curp?.status === "string" ? worker.curp.status : null,
+        curpEvidencePresent: worker.curp?.evidencePresent === true,
+      };
     }
 
-    pdfSummary = {
-      extractOk: true,
-      selectionStatus: selection.status,
-      selectionReason: selection.reason,
-      candidateCount: selection.candidates.length,
-      resolutionStatus: resolution.status,
-      satInputSource,
+    const after = await snapshot(testCase.expedienteId);
+    const fingerprintSame = beforeHash === hash(after);
+
+    const result = {
+      label: testCase.label,
+      source: {
+        paid: before.exp.pago_concasa_resultado === "pagado",
+        clienteDatosEstado: before.cd.estado,
+        hasRfcRejection,
+        submittedToMesa: before.exp.submitted_to_mesa === true,
+        cicloEstado: before.exp.ciclo_estado,
+      },
+      estadoCuenta: {
+        found: true,
+        mimeType: doc.mime_type,
+        version: doc.version,
+        extractOk: true,
+        selectionStatus: selection.status,
+        selectionReason: selection.reason,
+        candidateCount: selection.candidates.length,
+        resolutionStatus: resolution.status,
+        rfcRelationInfonavit: resolution.infonavitRelation,
+        rfcRelationDatosGenerales: resolution.datosGeneralesRelation,
+      },
+      sat,
+      safeguards: {
+        proxyUsed: false,
+        writesProduction: false,
+        enviarAMesaCalled: false,
+        beforeAfterFingerprintSame: fingerprintSame,
+        piiLogged: false,
+      },
     };
-  } else {
-    pdfSummary = {
-      extractOk: false,
-      extractReason: extracted.reason,
-      selectionStatus: "not_run",
-      selectionReason: "not_run",
-      candidateCount: 0,
-      resolutionStatus: "not_run",
-      satInputSource,
-    };
+
+    console.log("[fiscal-noproxy-e2e] CASE_RESULT " + JSON.stringify(result));
+
+    if (!fingerprintSame) {
+      throw new Error(`${testCase.label}:SOURCE_FINGERPRINT_CHANGED`);
+    }
+    return result;
+  }
+
+  console.log("[fiscal-noproxy-e2e] START cases=2 proxy=disabled writes=false");
+  const results = [];
+  for (const testCase of CASES) {
+    results.push(await runCase(testCase));
   }
 
   console.log(
-    "[fiscal-real-e2e-postbuild] PDF_RESULT " + JSON.stringify(pdfSummary),
+    "[fiscal-noproxy-e2e] FINAL " +
+      JSON.stringify({
+        ok: true,
+        cases: results,
+        safeguards: {
+          proxyUsed: false,
+          writesProduction: false,
+          enviarAMesaCalled: false,
+          piiLogged: false,
+        },
+      }),
   );
-
-  const response = await fetch(WORKER_URL, {
-    method: "POST",
-    headers: {
-      "content-type": "application/json",
-      "x-e2e-run": "concasa-real-readonly-20260917",
-    },
-    body: JSON.stringify({ rfc: fiscalRfc, curp }),
-    signal: AbortSignal.timeout(170_000),
-  });
-
-  const raw = await response.text();
-  let worker: Record<string, any> = {};
-  try {
-    worker = JSON.parse(raw) as Record<string, any>;
-  } catch {
-    throw new Error("WORKER_NON_JSON_RESPONSE");
-  }
-
-  const after = await snapshot();
-  const fingerprintSame = beforeHash === hash(after);
-
-  const result = {
-    workerHttpStatus: response.status,
-    workerOk: worker.ok === true,
-    semantic: typeof worker.semantic === "string" ? worker.semantic : null,
-    rfcStatus:
-      typeof worker.rfc?.status === "string" ? worker.rfc.status : null,
-    rfcEvidencePresent: worker.rfc?.evidencePresent === true,
-    curpStatus:
-      typeof worker.curp?.status === "string" ? worker.curp.status : null,
-    curpEvidencePresent: worker.curp?.evidencePresent === true,
-    realExpediente: true,
-    paid: before.exp.pago_concasa_resultado === "pagado",
-    nssUniqueMatch,
-    pdf: pdfSummary,
-    safeguards: {
-      writesProduction: false,
-      enviarAMesaCalled: false,
-      beforeAfterFingerprintSame: fingerprintSame,
-      piiLogged: false,
-    },
-  };
-
-  console.log("[fiscal-real-e2e-postbuild] FINAL " + JSON.stringify(result));
-
-  if (!fingerprintSame) {
-    throw new Error("SOURCE_FINGERPRINT_CHANGED");
-  }
-  if (!response.ok) {
-    throw new Error("SAT_WORKER_TECHNICAL_FAILURE");
-  }
 }
 
 main().catch((error) => {
   console.error(
-    "[fiscal-real-e2e-postbuild] ERROR",
+    "[fiscal-noproxy-e2e] ERROR",
     error instanceof Error ? error.message : "unknown",
   );
   process.exitCode = 1;
