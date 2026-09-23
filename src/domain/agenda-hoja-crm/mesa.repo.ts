@@ -1,4 +1,5 @@
 import { supabaseBrowser } from "@/lib/supabaseBrowser";
+import { fetchMesaOwnerDisplayByExpedienteIds } from "@/lib/mesaOwnerDisplay";
 
 export type AgendaHojaColor = "GREEN" | "RED" | "ORANGE" | "OTHER" | "UNKNOWN";
 export type AgendaHojaRowSource = "inventory" | "manual";
@@ -140,7 +141,22 @@ export async function fetchAgendaHojaCrm(dateYmd: string): Promise<AgendaHojaRow
     p_date: dateYmd,
   });
   if (error) throw new AgendaHojaCrmError(mapRpcError(error.message));
-  return ((data ?? []) as RpcRow[]).map(mapRow);
+  const rows = ((data ?? []) as RpcRow[]).map(mapRow);
+  const ownerDisplay = await fetchMesaOwnerDisplayByExpedienteIds(
+    rows
+      .map((row) => row.expedienteId)
+      .filter((id): id is string => Boolean(id)),
+  );
+
+  return rows.map((row) => {
+    if (!row.expedienteId) return row;
+    const display = ownerDisplay.get(row.expedienteId);
+    if (!display?.fullName) return row;
+    return {
+      ...row,
+      asesorNombre: display.fullName,
+    };
+  });
 }
 
 export type SaveAgendaHojaResultInput = Readonly<{
