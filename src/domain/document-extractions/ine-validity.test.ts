@@ -39,6 +39,26 @@ describe("INE validity", () => {
     );
   });
 
+  it("OCR con columnas desordenadas conserva el año final 2035", () => {
+    const text = [
+      "MEGM790219HCSNZG01",
+      "VIGENCIA",
+      "‘|",
+      "y",
+      "FECHA DE NACIMIENTO — SECCIÓN",
+      "(0)",
+      "19/02/1979",
+      "2380",
+      "2025 2035",
+    ].join("\n");
+
+    assert.equal(parseExplicitIneValidityYear(text), 2035);
+    const result = evaluateIneValidity({ frontText: text, now: NOW });
+    assert.equal(result.status, "valid");
+    assert.equal(result.expirationYear, 2035);
+    assert.equal(result.canAutoReject, false);
+  });
+
   it("año único VIGENCIA 2034 → 2034", () => {
     assert.equal(parseExplicitIneValidityYear("VIGENCIA 2034"), 2034);
   });
@@ -68,6 +88,17 @@ describe("INE validity", () => {
     assert.equal(result.status, "expired");
     assert.equal(result.expirationYear, 2025);
     assert.equal(result.canAutoReject, true);
+    assert.equal(result.source, "front_explicit");
+  });
+
+  it("año único vencido no se auto-rechaza porque puede ser inicio de rango truncado", () => {
+    const result = evaluateIneValidity({
+      frontText: "VIGENCIA 2025",
+      now: NOW,
+    });
+    assert.equal(result.status, "expired");
+    assert.equal(result.expirationYear, 2025);
+    assert.equal(result.canAutoReject, false);
     assert.equal(result.source, "front_explicit");
   });
 
