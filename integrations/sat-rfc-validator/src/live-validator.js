@@ -1,6 +1,7 @@
 import { chromium } from 'playwright'
 import { solveImageCaptcha } from './capsolver.js'
 import { classifyRfcSatText, classifyCurpSatText } from './sat-results.js'
+import { buildPlaywrightProxy } from './runtime-config.js'
 
 const RFC_URL = 'https://agsc.siat.sat.gob.mx/PTSC/ValidaRFC/index.jsf'
 const CURP_URL = 'https://agsc.siat.sat.gob.mx/PTSC/ConsultaIdCSIAT/'
@@ -24,11 +25,15 @@ async function navigateSatPage(page, url, readySelector, label) {
   throw lastError ?? new Error(`${label}_PAGE_NOT_READY`)
 }
 
-async function solveCaptchaOnPage(page, imageSelector, inputSelector, apiKey, label) {
+async function solveCaptchaOnPage(page, imageSelector, inputSelector, apiKey, label, websiteURL) {
   const image = page.locator(imageSelector)
   await image.waitFor({ state: 'visible', timeout: STEP_TIMEOUT })
   const png = await image.screenshot()
-  const text = await solveImageCaptcha(png, apiKey)
+  const text = await solveImageCaptcha(png, apiKey, {
+    expectedLength: 5,
+    maxFormatAttempts: 5,
+    websiteURL,
+  })
   if (!String(text ?? '').trim()) throw new Error(`${label}_CAPTCHA_EMPTY`)
   console.log(`[sat-validator] ${label}_CAPTCHA_SOLVED`)
   await page.locator(inputSelector).fill(text)
@@ -38,7 +43,7 @@ async function validateRfc(page, rfc, apiKey) {
   await navigateSatPage(page, RFC_URL, '#captchaSession', 'RFC')
 
   for (let attempt = 1; attempt <= 3; attempt += 1) {
-    await solveCaptchaOnPage(page, '#captchaSession', '[name="formMain:captchaInput"]', apiKey, 'RFC')
+    await solveCaptchaOnPage(page, '#captchaSession', '[name="formMain:captchaInput"]', apiKey, 'RFC', RFC_URL)
     await page.getByRole('button', { name: /^Aceptar$/i }).click()
     try {
       await page.locator('[name="formMain:valRFC"]').waitFor({ state: 'visible', timeout: 10_000 })
@@ -71,7 +76,7 @@ async function validateCurp(page, curp, apiKey) {
   await page.locator('#formapp\\:val').waitFor({ state: 'visible', timeout: STEP_TIMEOUT })
   await page.locator('#formapp\\:val').fill(curp)
   console.log('[sat-validator] CURP_FIELD_FILLED')
-  await solveCaptchaOnPage(page, '#captchaSession', 'input[name="formapp:j_idt34:captcha"]', apiKey, 'CURP')
+  await solveCaptchaOnPage(page, '#captchaSession', 'input[name="formapp:j_idt34:captcha"]', apiKey, 'CURP', CURP_URL)
   await page.getByRole('button', { name: /^Consultar$/i }).click()
   console.log('[sat-validator] CURP_CAPTCHA_SUBMITTED')
   await page.waitForLoadState('domcontentloaded', { timeout: STEP_TIMEOUT }).catch(() => {})
@@ -88,6 +93,7 @@ async function validateCurp(page, curp, apiKey) {
 export async function validateFiscalLive({ rfc, curp, capsolverApiKey }) {
   const browser = await chromium.launch({
     headless: true,
+    proxy: buildPlaywrightProxy(process.env),
     args: ['--no-sandbox', '--disable-setuid-sandbox', '--ignore-certificate-errors'],
   })
   try {
