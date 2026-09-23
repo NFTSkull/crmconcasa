@@ -1,0 +1,35 @@
+name: SAT egress smoke 20260923
+
+on:
+  push:
+    branches:
+      - test/sat-egress-smoke-20260923
+
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Probe SAT RFC endpoint
+        shell: bash
+        run: |
+          set +e
+          echo "RFC_PROBE_START"
+          curl -L -sS -o /tmp/rfc.html -w "RFC_HTTP=%{http_code} CONNECT=%{time_connect} STARTTRANSFER=%{time_starttransfer} TOTAL=%{time_total}\n"             --connect-timeout 10 --max-time 30             -A "Mozilla/5.0"             "https://agsc.siat.sat.gob.mx/PTSC/ValidaRFC/index.jsf"
+          rc=$?
+          echo "RFC_CURL_EXIT=$rc"
+          wc -c /tmp/rfc.html 2>/dev/null || true
+          head -c 120 /tmp/rfc.html 2>/dev/null | tr '\n' ' ' || true
+          echo
+
+      - name: Probe SAT CURP endpoint
+        shell: bash
+        run: |
+          set +e
+          echo "CURP_PROBE_START"
+          curl -L -sS -o /tmp/curp.html -w "CURP_HTTP=%{http_code} CONNECT=%{time_connect} STARTTRANSFER=%{time_starttransfer} TOTAL=%{time_total}\n"             --connect-timeout 10 --max-time 30             -A "Mozilla/5.0"             "https://agsc.siat.sat.gob.mx/PTSC/ConsultaIdCSIAT/"
+          rc=$?
+          echo "CURP_CURL_EXIT=$rc"
+          wc -c /tmp/curp.html 2>/dev/null || true
+          head -c 120 /tmp/curp.html 2>/dev/null | tr '\n' ' ' || true
+          echo
