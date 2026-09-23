@@ -232,9 +232,26 @@ export function buildAdminCorreccionesReportModel(args: {
   };
 }
 
+/** Normaliza tipografía Unicode no soportada por Helvetica/WinAnsi. */
+export function normalizePdfText(text: string): string {
+  return text
+    .replace(/\u00a0/g, " ")
+    .replace(/[•·]/g, "-")
+    .replace(/[—–]/g, "-")
+    .replace(/…/g, "...")
+    .replace(/[“”]/g, '"')
+    .replace(/[‘’]/g, "'")
+    .replace(/[\u200b-\u200d\ufeff]/g, "")
+    .replace(/[ \t]+/g, " ");
+}
+
+export function normalizePdfLines(lines: readonly string[]): string[] {
+  return lines.map(normalizePdfText);
+}
+
 /** Texto WinAnsi-safe para Helvetica (pdf-lib). */
 export function pdfWinAnsiSafe(text: string): string {
-  return Array.from(text)
+  return Array.from(normalizePdfText(text))
     .map((ch) => {
       const code = ch.charCodeAt(0);
       if (code === 0x09 || code === 0x0a || code === 0x0d) return " ";
@@ -419,7 +436,7 @@ function estimateCardHeight(
   if (entry.banner) h += 16;
   h += 16; // CORRECCIONES
   for (const it of entry.items) {
-    const head = `• ${it.typeLabel} — ${it.label}`;
+    const head = `- ${it.typeLabel} - ${it.label}`;
     h += wrapLines(fontBold, head, 10, CONTENT_W - 12).length * 14;
     h += wrapLines(font, `Motivo: ${it.motivo}`, 9, CONTENT_W - 20).length * 12;
     h += 12; // local status
@@ -474,7 +491,7 @@ function drawEntryCard(ctx: DrawCtx, entry: AdminCorreccionesPdfEntryModel): voi
     });
   } else {
     for (const it of entry.items) {
-      drawWrapped(ctx, `• ${it.typeLabel} — ${it.label}`, {
+      drawWrapped(ctx, `- ${it.typeLabel} - ${it.label}`, {
         size: 10,
         bold: true,
         indent: 6,
