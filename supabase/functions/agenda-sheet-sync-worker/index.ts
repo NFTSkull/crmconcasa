@@ -173,7 +173,7 @@ Deno.serve(async (req) => {
           row_number: row,
           live: summarizeLiveRowAU(fr),
           clear_ranges: decision.classification === "safe_to_clear"
-            ? cancelClearBatchRanges(title, row)
+            ? cancelClearBatchRanges(title, row, decision.clearEtoF)
             : [],
           classification: decision.classification,
           reason: decision.reason,
@@ -860,8 +860,8 @@ Deno.serve(async (req) => {
             continue;
           }
 
-          // safe_to_clear → values.batchClear únicamente B:D y O:U
-          const clearRanges = cancelClearBatchRanges(title, row);
+          // safe_to_clear → B:D + O:U; E:F solo si contienen marcador CRM exacto
+          const clearRanges = cancelClearBatchRanges(title, row, decision.clearEtoF);
           const preClearRow = fr;
           await adapter.batchClear(clearRanges);
 

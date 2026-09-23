@@ -1,7 +1,7 @@
 /**
  * Contrato de limpieza de fila Sheet tras cancelación/reagenda CRM.
  * Propiedad solo por booking_id + source=crm (nunca solo NSS/nombre/hora).
- * Limpieza: solo B:D y O:U (batchClear). Nunca escribe A ni G:N.
+ * Limpieza: B:D + O:U; E:F solo para marcador técnico `CONF CRM`. Nunca A ni G:N.
  */
 
 export type CancelClearClassification =
@@ -55,14 +55,44 @@ export function preserveGNUnchanged(
   return a.length === b.length && a.every((v, i) => v === b[i]);
 }
 
-/** E/F con texto humano (no vacío). */
+function isCrmConfirmationMarker(value: string): boolean {
+  return String(value ?? "")
+    .trim()
+    .toUpperCase()
+    .replace(/\s+/g, " ") === "CONF CRM";
+}
+
+/**
+ * E/F con resultado humano.
+ * `CONF CRM` es metadata operativa del CRM, no resultado de asistencia:
+ * puede limpiarse al cancelar una cita CRM-owned.
+ */
+export function inspectResultCellsEF(
+  row: ReadonlyArray<string | null | undefined>,
+): { conflict: boolean; columns: string[]; crmMarkerColumns: string[] } {
+  const cols: string[] = [];
+  const crmMarkerColumns: string[] = [];
+  for (const [idx, col] of [[4, "E"], [5, "F"]] as const) {
+    const value = cell(row, idx);
+    if (!value) continue;
+    if (isCrmConfirmationMarker(value)) {
+      crmMarkerColumns.push(col);
+    } else {
+      cols.push(col);
+    }
+  }
+  return {
+    conflict: cols.length > 0,
+    columns: cols,
+    crmMarkerColumns,
+  };
+}
+
 export function hasHumanResultInEF(
   row: ReadonlyArray<string | null | undefined>,
 ): { conflict: boolean; columns: string[] } {
-  const cols: string[] = [];
-  if (cell(row, 4)) cols.push("E");
-  if (cell(row, 5)) cols.push("F");
-  return { conflict: cols.length > 0, columns: cols };
+  const inspected = inspectResultCellsEF(row);
+  return { conflict: inspected.conflict, columns: inspected.columns };
 }
 
 export function classifyCancelRowClearance(input: {
@@ -83,7 +113,7 @@ export function classifyCancelRowClearance(input: {
   const source = cell(row, 18).toLowerCase();
   const techAny = [14, 15, 16, 17, 18, 19, 20].some((i) => cell(row, i));
   const visibleAny = Boolean(nss || nombre || asesor);
-  const ef = hasHumanResultInEF(row);
+  const ef = inspectResultCellsEF(row);
 
   if (!bookingId) {
     return {
@@ -207,7 +237,7 @@ export function classifyCancelRowClearance(input: {
       : "source=crm + booking_id exacto",
     keepHora: hora,
     clearBtoD: true,
-    clearEtoF: false, // E/F ya vacíos; no escribir
+    clearEtoF: ef.crmMarkerColumns.length > 0,
     clearOU: true,
     conflictingColumns: [],
     terminalNoRetry: false,
@@ -216,15 +246,18 @@ export function classifyCancelRowClearance(input: {
 
 /**
  * Rangos A1 a limpiar con values.batchClear.
- * Solo B:D y O:U — nunca A ni E:N / G:N.
+ * Siempre B:D + O:U; E:F únicamente cuando contienen marcador CRM (`CONF CRM`).
+ * Nunca A ni G:N.
  */
 export function cancelClearBatchRanges(
   sheetTitle: string,
   rowNumber: number,
+  clearEtoF = false,
 ): string[] {
   const titleEsc = `'${sheetTitle.replace(/'/g, "''")}'`;
   return [
     `${titleEsc}!B${rowNumber}:D${rowNumber}`,
+    ...(clearEtoF ? [`${titleEsc}!E${rowNumber}:F${rowNumber}`] : []),
     `${titleEsc}!O${rowNumber}:U${rowNumber}`,
   ];
 }
