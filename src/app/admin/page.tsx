@@ -1043,7 +1043,7 @@ export default function AdminDashboardPage() {
             </div>
           )}
 
-          <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-[1fr_0.85fr_0.85fr_0.95fr_0.95fr_1.1fr_auto] xl:items-end">
+          <div className="mt-3 grid gap-3 md:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6 2xl:items-end">
             <Select
               label="Asesor"
               value={asesorId}
@@ -1122,7 +1122,7 @@ export default function AdminDashboardPage() {
                 }}
               />
             </label>
-            <div className="flex flex-wrap gap-2 md:col-span-2 xl:col-span-1 xl:flex-nowrap">
+            <div className="flex flex-wrap justify-end gap-2 md:col-span-2 xl:col-span-3 2xl:col-span-6">
               <Button
                 type="button"
                 variant="secondary"
