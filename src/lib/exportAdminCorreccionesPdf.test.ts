@@ -11,6 +11,9 @@ import {
   buildAdminCorreccionesPdfFilename,
   buildAdminCorreccionesReportModel,
   collectAdminCorreccionesReportPlainText,
+  normalizePdfLines,
+  normalizePdfText,
+  pdfWinAnsiSafe,
   sanitizeAdminCorreccionesPdfFilenamePart,
   shouldDownloadAdminCorreccionesPdf,
   stubAdminMesaForCorreccionPdf,
@@ -74,6 +77,24 @@ function row(
 }
 
 describe("exportAdminCorreccionesPdf", () => {
+  it("normaliza tipografía no soportada sin perder acentos", () => {
+    assert.equal(
+      normalizePdfText("• Documento — INE frente · revisión… “válida”"),
+      '- Documento - INE frente - revisión... "válida"',
+    );
+    assert.equal(normalizePdfText("Corrección de José Muñoz"), "Corrección de José Muñoz");
+    assert.deepEqual(
+      normalizePdfLines(["• Uno", "Dos — tres"]),
+      ["- Uno", "Dos - tres"],
+    );
+  });
+
+  it("pdfWinAnsiSafe ya no convierte viñetas o guiones tipográficos en ?", () => {
+    const safe = pdfWinAnsiSafe("• Datos generales — Datos generales");
+    assert.equal(safe, "- Datos generales - Datos generales");
+    assert.doesNotMatch(safe, /\?/);
+  });
+
   it("incluye label + motivo exacto del RPC", () => {
     const model = buildAdminCorreccionesReportModel({
       rows: [row("e1", "PENDIENTE_DE_CORREGIR")],
