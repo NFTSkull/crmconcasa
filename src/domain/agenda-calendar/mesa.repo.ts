@@ -2,6 +2,7 @@
 
 import { isSupabaseConfigured, supabaseBrowser } from "@/lib/supabaseBrowser";
 import { assertCalendarDateRange } from "@/lib/asesorAgendaCalendar";
+import { fetchMesaOwnerDisplayByAsesorIds } from "@/lib/mesaOwnerDisplay";
 import {
   mapMesaAgendaBookingRpcRows,
   mapMesaAgendaBookingsRpcError,
@@ -64,7 +65,22 @@ export async function fetchMesaAgendaBookings(
   }
 
   const rows = (data ?? []) as MesaAgendaBookingRpcRow[];
-  return mapMesaAgendaBookingRpcRows(rows);
+  const entries = mapMesaAgendaBookingRpcRows(rows);
+  const ownerDisplay = await fetchMesaOwnerDisplayByAsesorIds(
+    entries.map((entry) => entry.asesor.id),
+  );
+
+  return entries.map((entry) => {
+    const display = ownerDisplay.get(entry.asesor.id);
+    if (!display?.fullName) return entry;
+    return {
+      ...entry,
+      asesor: {
+        ...entry.asesor,
+        fullName: display.fullName,
+      },
+    };
+  });
 }
 
 export type MesaSetAgendaDriveValidationResult = Readonly<{
