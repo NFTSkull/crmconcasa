@@ -1332,6 +1332,8 @@ Captura en la misma TX de `register_expediente_documento_correccion` / `save_cli
 
 **UI `/admin`:** sección «Estado actual de los expedientes enviados a Mesa» + listado «Expedientes del flujo operativo de Mesa»; independiente de Hoy/semana/mes. KPI superiores y Excel siguen en universo por periodo (`fecha_envio_mesa`).
 
+**UI filtro Corrección + PDF (RO, sin migración):** reutiliza `asesor_correccion_detalle(p_expediente_id)` (parse `parseAsesorCorreccionDetalle`). Filtro `ux_state`: `PENDIENTE_DE_CORREGIR` | `CAMBIOS_GUARDADOS_SIN_ENVIAR` | `CORRECCION_ENVIADA`. **Alcance:** `periodo_seleccionado` (default, `exportAll` + bounds) | `pendientes_actuales` (`listExpedientesSnapshotPage` / stock vigente, **sin** from/to). Enrich concurrencia 5 + paginación 25 en memoria. PDF: motivo = `item.label`/`item.motivo`; sin NSS/RFC/CURP/CLABE/URLs. Excel intacto.
+
 ### 15-novies. Localizador Admin cliente/NSS (P182)
 
 **Operación:** RPC read-only `admin_search_cliente_expedientes(p_buscar TEXT, p_limit INTEGER DEFAULT 20, p_asesor_id UUID DEFAULT NULL)` — migración **179** (local B1; no Cloud).

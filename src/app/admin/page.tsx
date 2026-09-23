@@ -50,6 +50,22 @@ import {
   pagesAfterAsesorChange,
 } from "@/domain/admin-production/admin-ui-filters";
 import {
+  ADMIN_CORRECCION_ALCANCE_OPTIONS,
+  ADMIN_CORRECCION_FILTER_OPTIONS,
+  needsAdminCorreccionUniversePipeline,
+  paginateAdminFilteredItems,
+  type AdminCorreccionAlcance,
+  type AdminCorreccionFilter,
+} from "@/domain/admin-production/admin-correccion-filter";
+import {
+  enrichAdminMesaWithCorreccionDetalle,
+  selectAdminCorreccionRows,
+} from "@/domain/admin-production/admin-correccion-enrich";
+import {
+  adminSnapshotFiltersFromProduction,
+  loadAdminCorreccionUniverse,
+} from "@/domain/admin-production/admin-correccion-universe";
+import {
   adminProductionSelectedStageCount,
   filterAdminProductionRowsByPaso,
   shortPasoVisualAdminFilterNombre,
@@ -70,6 +86,12 @@ import {
   buildAdminProductionWorkbook,
   downloadAdminProductionWorkbook,
 } from "@/lib/exportAdminProductionExcel";
+import {
+  ADMIN_CORRECCIONES_PDF_EMPTY_MESSAGE,
+  buildAdminCorreccionesPdfBytes,
+  buildAdminCorreccionesPdfFilename,
+  downloadAdminCorreccionesPdf,
+} from "@/lib/exportAdminCorreccionesPdf";
 import { AdminReporteExpedientesSection } from "@/components/admin/AdminReporteExpedientesSection";
 import { AdminIngresosSection } from "@/components/admin/AdminIngresosSection";
 import { AdminTabs } from "@/components/admin/AdminTabs";
@@ -171,6 +193,10 @@ export default function AdminDashboardPage() {
   const [asesorId, setAsesorId] = useState<string>("");
   const [etapaActual, setEtapaActual] = useState<string>("todas");
   const [estado, setEstado] = useState<AdminEstadoFilter>("todos");
+  const [correccionFilter, setCorreccionFilter] =
+    useState<AdminCorreccionFilter>("todas");
+  const [correccionAlcance, setCorreccionAlcance] =
+    useState<AdminCorreccionAlcance>("periodo_seleccionado");
   const [buscar, setBuscar] = useState("");
   const [buscarDebounced, setBuscarDebounced] = useState("");
   const [precalDecision, setPrecalDecision] =
@@ -198,6 +224,8 @@ export default function AdminDashboardPage() {
   const [precalTotal, setPrecalTotal] = useState(0);
   const [precalSummary, setPrecalSummary] = useState<AdminPrecalSummary | null>(null);
   const [exporting, setExporting] = useState(false);
+  const [exportingPdf, setExportingPdf] = useState(false);
+  const [pdfEmptyMessage, setPdfEmptyMessage] = useState<string | null>(null);
   const [timelineOpen, setTimelineOpen] = useState(false);
   const [timelineTarget, setTimelineTarget] = useState<AdminMesaEnvioEvent | null>(null);
   const [timelineItems, setTimelineItems] = useState<readonly AdminMesaTimelineEvent[]>([]);
@@ -267,6 +295,21 @@ export default function AdminDashboardPage() {
       pageSize: PAGE_SIZE,
     };
   }, [filtersBase, mesaPage]);
+
+  const snapshotFiltersBase = useMemo(() => {
+    if (!filtersBase) {
+      // Sin bounds aún: construir snapshot desde selects (pendientes actuales).
+      const etapaActuales = etapaActualesFromAdminPasoFilter(etapaActual);
+      return adminSnapshotFiltersFromProduction({
+        asesorId: asesorId || null,
+        etapaActual: etapaActuales?.length === 1 ? etapaActuales[0]! : null,
+        etapaActuales,
+        estado,
+        buscar: buscarDebounced || null,
+      });
+    }
+    return adminSnapshotFiltersFromProduction(filtersBase);
+  }, [filtersBase, asesorId, etapaActual, estado, buscarDebounced]);
 
   useEffect(() => {
     const t = window.setTimeout(() => {
@@ -584,19 +627,73 @@ export default function AdminDashboardPage() {
   }, [repo, periodStageFiltersBase]);
 
   const loadExpedientesPeriodo = useCallback(async () => {
-    if (!mesaListFilters) {
+    const usePipeline = needsAdminCorreccionUniversePipeline({
+      filter: correccionFilter,
+      alcance: correccionAlcance,
+    });
+
+    if (!usePipeline) {
+      if (!mesaListFilters) {
+        setMesaError("Rango de fechas inválido");
+        setMesaLoading(false);
+        setMesaItems([]);
+        setMesaTotal(0);
+        return;
+      }
+      setMesaLoading(true);
+      setMesaError(null);
+      try {
+        const list = await repo.listMesaEnviosPage(mesaListFilters);
+        setMesaItems(list.items);
+        setMesaTotal(list.totalCount);
+      } catch (e) {
+        setMesaError(
+          e instanceof Error
+            ? e.message
+            : "No fue posible cargar los expedientes del periodo",
+        );
+        setMesaItems([]);
+        setMesaTotal(0);
+      } finally {
+        setMesaLoading(false);
+      }
+      return;
+    }
+
+    // Pipeline correcciones: periodo (exportAll) o stock vigente (snapshot).
+    if (
+      correccionAlcance === "periodo_seleccionado" &&
+      (!filtersBase || !mesaListFilters)
+    ) {
       setMesaError("Rango de fechas inválido");
       setMesaLoading(false);
       setMesaItems([]);
       setMesaTotal(0);
       return;
     }
+
     setMesaLoading(true);
     setMesaError(null);
     try {
-      const list = await repo.listMesaEnviosPage(mesaListFilters);
-      setMesaItems(list.items);
-      setMesaTotal(list.totalCount);
+      const universe = await loadAdminCorreccionUniverse({
+        alcance: correccionAlcance,
+        exportAll: (f) => repo.exportAll(f),
+        periodFilters: filtersBase,
+        listSnapshotPage: (f) => repo.listExpedientesSnapshotPage(f),
+        snapshotFilters: snapshotFiltersBase,
+      });
+      const enriched = await enrichAdminMesaWithCorreccionDetalle(
+        universe.mesaEnvios,
+        (id) => repo.getExpedienteCorreccionDetalle(id),
+      );
+      const filtered = selectAdminCorreccionRows(enriched, correccionFilter);
+      const page = paginateAdminFilteredItems(
+        filtered.map((r) => r.mesa),
+        mesaListFilters?.page ?? mesaPage,
+        mesaListFilters?.pageSize ?? PAGE_SIZE,
+      );
+      setMesaItems(page.items);
+      setMesaTotal(page.totalCount);
     } catch (e) {
       setMesaError(
         e instanceof Error
@@ -608,7 +705,15 @@ export default function AdminDashboardPage() {
     } finally {
       setMesaLoading(false);
     }
-  }, [repo, mesaListFilters]);
+  }, [
+    repo,
+    mesaListFilters,
+    filtersBase,
+    snapshotFiltersBase,
+    correccionFilter,
+    correccionAlcance,
+    mesaPage,
+  ]);
 
   const loadSearch = useCallback(async () => {
     const q = buscarDebounced.trim();
@@ -662,10 +767,13 @@ export default function AdminDashboardPage() {
     setAsesorId("");
     setEtapaActual("todas");
     setEstado("todos");
+    setCorreccionFilter("todas");
+    setCorreccionAlcance("periodo_seleccionado");
     setBuscar("");
     setPrecalDecision("resueltas");
     setMesaPage(1);
     setPrecalPage(1);
+    setPdfEmptyMessage(null);
   };
 
   const onPreset = (p: AdminPeriodPreset) => {
@@ -720,6 +828,56 @@ export default function AdminDashboardPage() {
       setError(e instanceof Error ? e.message : "Error al exportar Excel");
     } finally {
       setExporting(false);
+    }
+  };
+
+  const exportPdfCorrecciones = async () => {
+    if (
+      correccionAlcance === "periodo_seleccionado" &&
+      (!filtersBase || !bounds)
+    ) {
+      return;
+    }
+    setExportingPdf(true);
+    setPdfEmptyMessage(null);
+    try {
+      const universe = await loadAdminCorreccionUniverse({
+        alcance: correccionAlcance,
+        exportAll: (f) => repo.exportAll(f),
+        periodFilters: filtersBase,
+        listSnapshotPage: (f) => repo.listExpedientesSnapshotPage(f),
+        snapshotFilters: snapshotFiltersBase,
+      });
+      const enriched = await enrichAdminMesaWithCorreccionDetalle(
+        universe.mesaEnvios,
+        (id) => repo.getExpedienteCorreccionDetalle(id),
+      );
+      const rows = selectAdminCorreccionRows(enriched, correccionFilter);
+      const { bytes, empty } = await buildAdminCorreccionesPdfBytes({
+        rows,
+        alcance: correccionAlcance,
+        bounds,
+        filter: correccionFilter,
+        asesorNombreSeleccionado: selectedAsesorLabel,
+      });
+      if (empty || !bytes) {
+        setPdfEmptyMessage(ADMIN_CORRECCIONES_PDF_EMPTY_MESSAGE);
+        return;
+      }
+      downloadAdminCorreccionesPdf(
+        bytes,
+        buildAdminCorreccionesPdfFilename({
+          alcance: correccionAlcance,
+          asesorNombre: selectedAsesorLabel,
+          bounds,
+        }),
+      );
+    } catch (e) {
+      setError(
+        e instanceof Error ? e.message : "Error al generar PDF de correcciones",
+      );
+    } finally {
+      setExportingPdf(false);
     }
   };
 
@@ -885,7 +1043,7 @@ export default function AdminDashboardPage() {
             </div>
           )}
 
-          <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-[1.2fr_1fr_1fr_1.25fr_auto] xl:items-end">
+          <div className="mt-3 grid gap-2 md:grid-cols-2 xl:grid-cols-[1fr_0.85fr_0.85fr_0.95fr_0.95fr_1.1fr_auto] xl:items-end">
             <Select
               label="Asesor"
               value={asesorId}
@@ -931,6 +1089,26 @@ export default function AdminDashboardPage() {
                 { value: "cancelados", label: "Cancelados" },
               ]}
             />
+            <Select
+              label="Corrección"
+              value={correccionFilter}
+              onChange={(e) => {
+                setCorreccionFilter(e.target.value as AdminCorreccionFilter);
+                setMesaPage(1);
+                setPdfEmptyMessage(null);
+              }}
+              options={[...ADMIN_CORRECCION_FILTER_OPTIONS]}
+            />
+            <Select
+              label="Alcance"
+              value={correccionAlcance}
+              onChange={(e) => {
+                setCorreccionAlcance(e.target.value as AdminCorreccionAlcance);
+                setMesaPage(1);
+                setPdfEmptyMessage(null);
+              }}
+              options={[...ADMIN_CORRECCION_ALCANCE_OPTIONS]}
+            />
             <label className="text-sm text-slate-600">
               Buscar
               <Input
@@ -957,12 +1135,30 @@ export default function AdminDashboardPage() {
                 type="button"
                 className="whitespace-nowrap"
                 onClick={() => void exportExcel()}
-                disabled={exporting || !bounds}
+                disabled={exporting || exportingPdf || !bounds}
               >
                 {exporting ? "Exportando…" : "Descargar Excel"}
               </Button>
+              <Button
+                type="button"
+                variant="secondary"
+                className="whitespace-nowrap"
+                onClick={() => void exportPdfCorrecciones()}
+                disabled={
+                  exporting ||
+                  exportingPdf ||
+                  (correccionAlcance === "periodo_seleccionado" && !bounds)
+                }
+              >
+                {exportingPdf ? "Generando PDF…" : "Descargar PDF correcciones"}
+              </Button>
             </div>
           </div>
+          {pdfEmptyMessage ? (
+            <p className="mt-2 text-sm text-amber-800" role="status">
+              {pdfEmptyMessage}
+            </p>
+          ) : null}
         </section>
 
         {error && (

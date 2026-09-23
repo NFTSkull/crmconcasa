@@ -22,6 +22,17 @@ export type {
   AdminEstadoFilter,
   AdminPrecalDecisionFilter,
 } from "./repo";
+export type { AdminCorreccionFilter, AdminCorreccionAlcance } from "./admin-correccion-filter";
+export {
+  ADMIN_CORRECCION_FILTER_OPTIONS,
+  ADMIN_CORRECCION_ALCANCE_OPTIONS,
+  adminCorreccionFilterLabel,
+  adminCorreccionAlcanceLabel,
+  adminCorreccionUxStateLabel,
+  isAdminCorreccionFilterActive,
+  isAdminCorreccionAlcancePendientesActuales,
+  needsAdminCorreccionUniversePipeline,
+} from "./admin-correccion-filter";
 export type { AdminPeriodBounds, AdminPeriodPreset } from "./period";
 export {
   resolveAdminPeriodBounds,

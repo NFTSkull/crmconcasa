@@ -1,5 +1,9 @@
 import { isSupabaseConfigured, supabaseBrowser } from "@/lib/supabaseBrowser";
 import {
+  parseAsesorCorreccionDetalle,
+  type AsesorCorreccionDetalle,
+} from "@/domain/expedientes/asesor-correccion-detalle";
+import {
   resolvePrecalVisibleFecha,
   type AdminMesaEnvioEvent,
   type AdminPrecalEvent,
@@ -516,6 +520,21 @@ export class SupabaseAdminProductionRepo implements AdminProductionRepo {
       precalificaciones,
       precalSummary: precalFirst.summary,
     };
+  }
+
+  async getExpedienteCorreccionDetalle(
+    expedienteId: string,
+  ): Promise<AsesorCorreccionDetalle | null> {
+    const client = requireClient();
+    const { data, error } = await client.rpc("asesor_correccion_detalle", {
+      p_expediente_id: expedienteId,
+    });
+    if (error) {
+      throw new Error(
+        error.message || "No se pudo leer el detalle de corrección.",
+      );
+    }
+    return parseAsesorCorreccionDetalle(data);
   }
 
   private async fetchAllPages<T>(

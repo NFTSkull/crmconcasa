@@ -1,3 +1,24 @@
+## 2026-09-23 - Admin: alcance Pendientes actuales (correcciones)
+
+### Decisión
+El periodo (`fecha_envio_mesa`) no basta para WhatsApp de pendientes reales. Alcance opt-in «Pendientes actuales» reutiliza `admin_list_expedientes_snapshot_page` / `listExpedientesSnapshotPage` (sin from/to) y conserva asesor/etapa/estado/buscar + `ux_state`.
+
+### No
+Migración, Excel, writers, merge/deploy.
+
+## 2026-09-23 - Admin: filtro Corrección + PDF (RO)
+
+### Decisión
+Reutilizar `asesor_correccion_detalle` como única fuente de motivos/estado (`ux_state`). Sin migración: Super Admin ya puede ejecutar el RPC (el gate «solo dueño» aplica solo a rol asesor). Listado filtrado y PDF parten de `exportAll` + enrich con concurrencia 5 (fail-soft).
+
+### Qué
+- Filtro UI: Todas / Pendiente de corregir / Falta reenviar / Reenviada · esperando Mesa.
+- `getExpedienteCorreccionDetalle` en AdminProductionRepo.
+- `exportAdminCorreccionesPdf` (modelo → pdf-lib → download). Sin PII (NSS/RFC/CURP/CLABE/URLs).
+
+### No
+Merge/deploy, writers, citas/agenda, Excel intacto, segunda lógica de correcciones.
+
 ## 2026-09-19 - fix: vigencia final INE + preview contain
 
 ### Causa

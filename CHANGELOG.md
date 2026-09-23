@@ -1,6 +1,8 @@
-- **fix(infonavit): propuesta nunca sin dirección (Production 2026-09-18)** — la dirección visible de Vivienda a mejorar se recompone antes del snapshot (Calle/No./Int./Lote/Mz./Colonia/Municipio/Entidad/CP); SQL repite la composición y recupera el domicilio base si el payload viene vacío; si no existe domicilio, bloquea generación con `INFONAVIT_DIRECCION_REQUERIDA`. PDF y Word consumen el mismo snapshot. Sin backfill ni cambios a agenda/citas/cupos. PR #367.
-
 ## [Unreleased]
+
+- **feat(admin): alcance Pendientes actuales en correcciones** — selector Alcance (Periodo | Pendientes actuales); stock vigente vía `listExpedientesSnapshotPage` sin bounds; PDF muestra Corte (no periodo engañoso). Excel intacto. Sin migración.
+
+- **feat(admin): filtro Corrección + PDF de pendientes** — en Expedientes Mesa: filtro por `ux_state` canónico (`asesor_correccion_detalle`); PDF A4 con label/motivo exactos (pdf-lib); exporta el conjunto completo vía `exportAll` (no solo la página). Sin migración; RO; agenda/escrituras intactos.
 
 - **fix(infonavit): vigencia final INE + preview contain** — rango `VIGENCIA 2024-2034` (guion/slash/espacio) guarda el **último** año anclado al bloque VIGENCIA; OCR enriquece si solo leyó el año inicial; preview inline Mesa usa `object-contain` (max-w/h 100%) sin `object-cover` ni width forzado que recortaba a 100%. Zoom/giro/Frente·Reverso/vista grande intactos. Sin DB/agenda/Sheets.
 
