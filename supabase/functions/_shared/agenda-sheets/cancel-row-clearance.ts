@@ -1,7 +1,7 @@
 /**
  * Contrato de limpieza de fila Sheet tras cancelación/reagenda CRM.
  * Propiedad solo por booking_id + source=crm (nunca solo NSS/nombre/hora).
- * Limpieza: solo B:D y O:U (batchClear). Nunca escribe A ni G:N.
+ * Limpieza: B:D + O:U; E:F solo para marcador técnico `CONF CRM`. Nunca A ni G:N.
  */
 
 export type CancelClearClassification =
