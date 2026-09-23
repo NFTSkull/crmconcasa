@@ -49,6 +49,52 @@ describe("cancel-row-clearance", () => {
     assert.ok(!ranges.some((x) => /G|H|I|J|K|L|M|N/.test(x.split("!")[1] ?? "")));
   });
 
+  it("CONF CRM es marcador del sistema: permite clear y limpia E:F", () => {
+    const r = rowAU({
+      0: "8:00",
+      1: "43079040135",
+      2: "SANJUANA CAROLINA SANCHEZ GOMEZ",
+      3: "LAURA VENEGAS",
+      4: "CONF CRM",
+      14: "SINCRONIZADO",
+      15: booking,
+      16: "exp-1",
+      18: "crm",
+      20: "1",
+    });
+    const d = classifyCancelRowClearance({
+      row: r,
+      cancelledBookingId: booking,
+      cancelledExpedienteId: "exp-1",
+    });
+    assert.equal(d.classification, "safe_to_clear");
+    assert.equal(d.clearBtoD, true);
+    assert.equal(d.clearEtoF, true);
+    assert.equal(d.clearOU, true);
+    assert.deepEqual(
+      cancelClearBatchRanges("24 SEPTIEMBRE", 28, d.clearEtoF),
+      [
+        "'24 SEPTIEMBRE'!B28:D28",
+        "'24 SEPTIEMBRE'!E28:F28",
+        "'24 SEPTIEMBRE'!O28:U28",
+      ],
+    );
+  });
+
+  it("CONF CRM tolera mayúsculas/espacios sin abrir otros resultados", () => {
+    const d = classifyCancelRowClearance({
+      row: rowAU({
+        0: "8:00",
+        4: "  conf   crm ",
+        15: booking,
+        18: "crm",
+      }),
+      cancelledBookingId: booking,
+    });
+    assert.equal(d.classification, "safe_to_clear");
+    assert.equal(d.clearEtoF, true);
+  });
+
   it("José live X/X → manual_result_conflict terminal", () => {
     const r = rowAU({
       0: "10:00 AM",
