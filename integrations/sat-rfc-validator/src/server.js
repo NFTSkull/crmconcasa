@@ -12,6 +12,21 @@ const MODE = String(process.env.SAT_VALIDATOR_MODE || 'fixture').toLowerCase()
 const SECRET = String(process.env.SAT_VALIDATOR_SECRET || '')
 const queue = new PQueue({ concurrency: Math.max(1, Number(process.env.SAT_MAX_CONCURRENCY || 1)) })
 
+
+function classifyTechnicalError(error) {
+  const message = error instanceof Error ? String(error.message || '') : ''
+  if (message === 'SAT_RFC_CAPTCHA_NOT_ACCEPTED') {
+    return { code: 'RFC_CAPTCHA_REJECTED', stage: 'rfc_captcha' }
+  }
+  if (message === 'SAT_RFC_PAGE_TIMEOUT' || /page\.goto: Timeout|Timeout 60000ms exceeded|TimeoutError/i.test(message)) {
+    return { code: 'SAT_RFC_PAGE_TIMEOUT', stage: 'rfc_page' }
+  }
+  if (/^CAPSOLVER_[A-Z0-9_]+$/.test(message)) {
+    return { code: message, stage: 'capsolver' }
+  }
+  return { code: 'TECHNICAL_FAILURE', stage: 'unknown' }
+}
+
 app.get('/health', (_req, res) => {
   const readiness = satRuntimeReadiness(process.env)
   return res.status(readiness.ok ? 200 : 503).json(readiness)
@@ -51,11 +66,13 @@ app.post('/validate', async (req, res) => {
       })
       return res.json(result)
     } catch (error) {
-      console.error('[sat-validator] job failed', error instanceof Error ? error.message : 'unknown')
+      const failure = classifyTechnicalError(error)
+      console.error(`[sat-validator] job failed code=${failure.code} stage=${failure.stage}`)
       return res.status(503).json({
         ok: false,
         semantic: 'retry',
-        code: 'TECHNICAL_FAILURE',
+        code: failure.code,
+        stage: failure.stage,
         rfc: { status: 'unknown', evidence: null },
         curp: { status: 'not_run', evidence: null },
       })
