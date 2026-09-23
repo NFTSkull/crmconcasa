@@ -273,7 +273,7 @@ SELECT jsonb_agg(q) AS rows FROM (
       terminalNoRetry: decision.terminalNoRetry,
       clear_ranges:
         decision.classification === "safe_to_clear"
-          ? cancelClearBatchRanges(title, row)
+          ? cancelClearBatchRanges(title, row, decision.clearEtoF)
           : [],
       action:
         decision.classification === "safe_to_clear"
