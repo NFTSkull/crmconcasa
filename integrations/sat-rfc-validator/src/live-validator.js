@@ -12,18 +12,27 @@ async function solveCaptchaOnPage(page, imageSelector, inputSelector, apiKey) {
   const png = await image.screenshot()
   const text = await solveImageCaptcha(png, apiKey)
   await page.locator(inputSelector).fill(text)
+  return { solverChars: String(text).length }
 }
 
 async function validateRfc(page, rfc, apiKey) {
-  await page.goto(RFC_URL, { waitUntil: 'domcontentloaded', timeout: 60_000 })
+  try {
+    await page.goto(RFC_URL, { waitUntil: 'domcontentloaded', timeout: 60_000 })
+  } catch (error) {
+    if (error instanceof Error && (error.name === 'TimeoutError' || /Timeout 60000ms exceeded/i.test(error.message))) {
+      throw new Error('SAT_RFC_PAGE_TIMEOUT')
+    }
+    throw error
+  }
 
   for (let attempt = 1; attempt <= 3; attempt += 1) {
-    await solveCaptchaOnPage(page, '#captchaSession', '[name="formMain:captchaInput"]', apiKey)
+    const captcha = await solveCaptchaOnPage(page, '#captchaSession', '[name="formMain:captchaInput"]', apiKey)
     await page.getByRole('button', { name: /^Aceptar$/i }).click()
     try {
       await page.locator('[name="formMain:valRFC"]').waitFor({ state: 'visible', timeout: 10_000 })
       break
     } catch {
+      console.warn(`[sat-validator] RFC_CAPTCHA_REJECTED attempt=${attempt} solver_chars=${captcha.solverChars}`)
       if (attempt === 3) throw new Error('SAT_RFC_CAPTCHA_NOT_ACCEPTED')
     }
   }
