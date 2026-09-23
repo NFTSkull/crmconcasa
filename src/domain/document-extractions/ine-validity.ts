@@ -167,27 +167,31 @@ export function parseIneMrzValidityDate(reverseText: string): string | null {
   return null;
 }
 
+function parseExplicitIneValidityYears(frontText: string): number[] {
+  const text = upper(frontText);
+  const labelIndex = text.indexOf("VIGENCIA");
+  if (labelIndex < 0) return [];
+
+  // El OCR de INE puede desordenar columnas y dejar "2025 2035" varias líneas
+  // después de la etiqueta VIGENCIA. 80 caracteres era demasiado corto y podía
+  // capturar solo el primer año del rango (inicio) como si fuera expiración.
+  // El bloque sigue acotado y solo admite años plausibles 2020–2050.
+  const validityBlock = text
+    .slice(labelIndex, labelIndex + 260)
+    .replace(/O/g, "0");
+  return [...validityBlock.matchAll(/\b(20\d{2})\b/g)]
+    .map((match) => Number(match[1]))
+    .filter((year) => plausibleYear(year) !== null);
+}
+
 /**
  * La Credencial para Votar expresa su vigencia por año. Cuando aparece un rango
  * (p. ej. "VIGENCIA 2016-2026" / "2024 - 2034" / "2024/2034") el ÚLTIMO año
  * del bloque anclado a VIGENCIA es el de expiración.
  */
 export function parseExplicitIneValidityYear(frontText: string): number | null {
-  const text = upper(frontText);
-  const labelIndex = text.indexOf("VIGENCIA");
-  if (labelIndex < 0) return null;
-
-  // Acotamos la corrección O→0 al bloque de VIGENCIA; no alteramos nombres,
-  // CURP u otros campos del OCR.
-  const validityBlock = text
-    .slice(labelIndex, labelIndex + 80)
-    .replace(/O/g, "0");
-  const years = [...validityBlock.matchAll(/\b(20\d{2})\b/g)]
-    .map((match) => Number(match[1]))
-    .filter((year) => plausibleYear(year) !== null);
+  const years = parseExplicitIneValidityYears(frontText);
   if (years.length === 0) return null;
-  // VERSIÓN ANTERIOR (respaldo): range?.[2] ?? single?.[1]
-  // Ahora: último año del bloque VIGENCIA (rango o año único).
   return plausibleYear(years[years.length - 1] ?? null);
 }
 
@@ -257,9 +261,22 @@ export function evaluateIneValidity(input: Readonly<{
   now?: Date;
 }>): IneValidityAssessment {
   const now = input.now ?? new Date();
-  const explicitYear = parseExplicitIneValidityYear(input.frontText ?? "");
+  const frontText = input.frontText ?? "";
+  const explicitYears = parseExplicitIneValidityYears(frontText);
+  const explicitYear =
+    explicitYears.length > 0
+      ? plausibleYear(explicitYears[explicitYears.length - 1] ?? null)
+      : null;
   if (explicitYear !== null) {
-    return assessmentForYear(explicitYear, now, "front_explicit");
+    const assessment = assessmentForYear(explicitYear, now, "front_explicit");
+    return {
+      ...assessment,
+      // Fail-safe: un único año OCR puede ser el inicio de un rango cuyo año
+      // final quedó fuera de lectura. Solo permitimos rechazo automático cuando
+      // el frente aportó al menos dos años plausibles dentro de VIGENCIA.
+      canAutoReject:
+        assessment.status === "expired" && explicitYears.length >= 2,
+    };
   }
 
   const reverseText = input.reverseText ?? "";
