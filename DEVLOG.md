@@ -1,3 +1,10 @@
+## 2026-09-24 - Gate: diagnostics, timeouts, INVALIDO fail-closed, candado
+
+- Prod `schema_migrations`: Mario `20260924195716` y mesa_move `20260924183449` con `created_by` email + `statements` completos (Dashboard/SQL Editor; no `db push`). 214 = stub `db query --linked`. Apply 228: SQL Editor + INSERT `version=228` / `name=fiscal_sat_gate_server_write` (sin choque). Merge local `chore/backfill-mig-20260924195716`.
+- Worker: `/health` → present/absent CapSolver+secret; `GET /diagnostics/sat` (secret, solo `#captchaSession`).
+- Route: `maxDuration` 60, worker timeout 50s (corrige 180 + `AbortSignal.timeout(150_000)`); cliente 60s (corrige 175s). Candado `fiscalValidationInFlight`. INVALIDO ignora error de register → ahora retry como REVISION_MANUAL.
+- Sin UI `admin_aprobar`: piloto atorado = quitar asesor; botón requisito pre-global.
+
 ## 2026-09-24 - Merge main 6f884f6 en feat fiscal (pre-228 prod)
 
 - Delta `77f5f5f..6f884f61`: 1 commit (`fix(db): evitar retry storm…`) + mig timestamp `20260924183449` (solo `mesa_mover_etapa_operativa` ERRCODE 40001→22023).

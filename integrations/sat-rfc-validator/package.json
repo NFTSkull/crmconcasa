@@ -4,7 +4,7 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "test": "node --test test/*.test.js",
+    "test": "SAT_VALIDATOR_NO_LISTEN=1 node --test test/*.test.js",
     "start": "node --env-file-if-exists=.env src/server.js",
     "benchmark:captcha": "node --env-file-if-exists=.env scripts/benchmark-captcha.js",
     "smoke:e2e": "node --env-file-if-exists=.env scripts/smoke-e2e.js"

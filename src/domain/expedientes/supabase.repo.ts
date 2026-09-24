@@ -1195,7 +1195,8 @@ export class SupabaseExpedientesRepo implements ExpedientesRepo {
           method: "POST",
           headers: { Authorization: `Bearer ${accessToken}` },
           cache: "no-store",
-          signal: AbortSignal.timeout(175_000),
+          // Alineado a maxDuration 60s de la route (presupuesto worker 50s).
+          signal: AbortSignal.timeout(60_000),
         },
       );
     } catch {

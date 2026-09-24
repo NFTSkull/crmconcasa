@@ -330,6 +330,42 @@ async function validateCurp(page, curp, apiKey) {
     : { status: 'unknown', evidence: null, captcha: metrics }
 }
 
+/**
+ * Diagnóstico de red/SAT: abre la página RFC hasta #captchaSession.
+ * No resuelve captcha ni consulta RFC/CURP (sin datos de clientes).
+ */
+export async function probeSatRfcPageLoad() {
+  const started = Date.now()
+  const browser = await chromium.launch({
+    headless: true,
+    args: ['--no-sandbox', '--disable-setuid-sandbox', '--ignore-certificate-errors'],
+  })
+  try {
+    const context = await browser.newContext({
+      ignoreHTTPSErrors: true,
+      locale: 'es-MX',
+      timezoneId: 'America/Monterrey',
+      userAgent:
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    })
+    const page = await context.newPage()
+    await navigateSatPage(page, RFC_URL, '#captchaSession', 'RFC_DIAG')
+    return {
+      ok: true,
+      loadMs: Date.now() - started,
+      error: null,
+    }
+  } catch (error) {
+    return {
+      ok: false,
+      loadMs: Date.now() - started,
+      error: error instanceof Error ? error.message : String(error),
+    }
+  } finally {
+    await browser.close().catch(() => {})
+  }
+}
+
 export async function validateFiscalLive({ rfc, curp, capsolverApiKey }) {
   const browser = await chromium.launch({
     headless: true,

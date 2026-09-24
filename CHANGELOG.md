@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+- **fix(fiscal P228):** timeouts route `maxDuration=60` / worker 50s (antes 180/150s); candado in-flight por expediente; INVALIDO con fallo de `server_registrar` → `retry` `FISCAL_REGISTER_FAILED` (nunca Mesa). Worker: `/health` present/absent + `GET /diagnostics/sat`. Runbook §a diagnostics gate; §b apply 228 sin `db push` + registro `schema_migrations`; §e/§g sin UI super_admin (quitar del piloto).
+
 - **docs(fiscal P228):** runbook — CapSolver compartida; smoke con envíos reales; piloto asesor de confianza; respaldo defs pre-228; TX BEGIN/COMMIT; Railway→main; borrar rama; nota Vercel Preview; mig manual (sin auto-deploy GitHub a prod).
 
 - **fix(fiscal P228):** fail-open solo si mig 228 ausente (`42883`/`PGRST202`); resto fail-closed. Runbook `docs/RUNBOOK_FISCAL_SAT_GATE.md`. `super_admin`; `asesor_registrar` = p208 + guards; REVISION_MANUAL; CTA; rollback p208+grants. Hardening `app_settings` REVOKE + `extensions.digest`.

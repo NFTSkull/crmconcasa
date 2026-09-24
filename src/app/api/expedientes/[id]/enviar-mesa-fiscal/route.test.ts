@@ -4,6 +4,9 @@ import { describe, it } from "node:test";
 import {
   classifyFiscalWorkerForMesa,
   isMissingFiscalGateRpcError,
+  registerInvalidoOrRetry,
+  FISCAL_WORKER_TIMEOUT_MS,
+  maxDuration,
 } from "./route";
 
 describe("enviar-mesa-fiscal missing mig 228 fail-open", () => {
@@ -111,5 +114,57 @@ describe("enviar-mesa-fiscal worker decision", () => {
       }),
       { kind: "retry", code: "SAT_RESULTADO_NO_CONCLUYENTE" },
     );
+  });
+});
+
+describe("enviar-mesa-fiscal timeouts", () => {
+  it("maxDuration 60 y presupuesto worker 50s", () => {
+    assert.equal(maxDuration, 60);
+    assert.equal(FISCAL_WORKER_TIMEOUT_MS, 50_000);
+  });
+});
+
+describe("registerInvalidoOrRetry", () => {
+  const base = {
+    expedienteId: "11111111-1111-4111-8111-111111111111",
+    fiscalRfc: "ABCD010101XXX",
+    edcDocumentoId: "22222222-2222-4222-8222-222222222222",
+    edcVersion: 1,
+    code: "RFC_INVALIDO_SAT",
+  };
+
+  it("si el RPC falla → retry FISCAL_REGISTER_FAILED (nunca invalid / nunca Mesa)", async () => {
+    const res = await registerInvalidoOrRetry({
+      ...base,
+      rpc: async () => ({ error: { code: "42501" } }),
+    });
+    assert.equal(res.status, 409);
+    const body = await res.json();
+    assert.equal(body.status, "retry");
+    assert.equal(body.code, "42501");
+    assert.equal(body.submitted_to_mesa, false);
+  });
+
+  it("si el RPC falla sin code → FISCAL_REGISTER_FAILED", async () => {
+    const res = await registerInvalidoOrRetry({
+      ...base,
+      rpc: async () => ({ error: {} }),
+    });
+    const body = await res.json();
+    assert.equal(body.status, "retry");
+    assert.equal(body.code, "FISCAL_REGISTER_FAILED");
+    assert.equal(body.submitted_to_mesa, false);
+  });
+
+  it("si el RPC ok → invalid (no envía a Mesa)", async () => {
+    const res = await registerInvalidoOrRetry({
+      ...base,
+      rpc: async () => ({ error: null }),
+    });
+    assert.equal(res.status, 422);
+    const body = await res.json();
+    assert.equal(body.status, "invalid");
+    assert.equal(body.code, "RFC_INVALIDO_SAT");
+    assert.equal(body.submitted_to_mesa, false);
   });
 });

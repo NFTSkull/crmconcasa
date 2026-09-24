@@ -4,13 +4,18 @@ import { z } from "zod";
 
 import { extractPdfEmbeddedText } from "@/domain/identidad-curp/pdf-extract-text";
 import { validateCurpLocal } from "@/domain/identidad-curp/curp-local";
+import { fiscalValidationInFlight } from "@/domain/expedientes/fiscal-validation-inflight";
 import {
   resolveFiscalRfc,
   selectEstadoCuentaRfc,
 } from "@/domain/validacion-fiscal/rfc";
 
 export const runtime = "nodejs";
-export const maxDuration = 180;
+/** Techo Vercel: 60s. Presupuesto operativo de la route: 50s (worker). */
+export const maxDuration = 60;
+
+/** Timeout por llamada al worker SAT (presupuesto total acordado). */
+export const FISCAL_WORKER_TIMEOUT_MS = 50_000;
 
 const DOCUMENT_BUCKET = "expediente-documentos";
 const ESTADO_CUENTA = "cliente_estado_cuenta";
@@ -155,6 +160,7 @@ async function failWithRevisionManual(args: {
 }): Promise<NextResponse> {
   const registered = await registerRevisionManual(args);
   if (!registered.ok) {
+    // Igual que INVALIDO: si no se puede registrar, nunca Mesa ni status terminal falso.
     return NextResponse.json(
       {
         ok: false,
@@ -166,6 +172,38 @@ async function failWithRevisionManual(args: {
     );
   }
   return revisionManual(args.code, args.httpStatus ?? 503);
+}
+
+/**
+ * Persiste INVALIDO; si el RPC falla → retry FISCAL_REGISTER_FAILED (nunca invalid / nunca Mesa).
+ */
+export async function registerInvalidoOrRetry(args: {
+  expedienteId: string;
+  fiscalRfc: string;
+  edcDocumentoId: string;
+  edcVersion: number;
+  code: string;
+  rpc: (payload: {
+    p_expediente_id: string;
+    p_estado: string;
+    p_resultado_resumido: Record<string, unknown>;
+    p_fiscal_rfc: string;
+    p_edc_documento_id: string;
+    p_edc_version: number;
+  }) => Promise<{ error: { code?: string } | null }>;
+}): Promise<NextResponse> {
+  const { error } = await args.rpc({
+    p_expediente_id: args.expedienteId,
+    p_estado: "RFC_VALIDACION_SAT_INVALIDO",
+    p_resultado_resumido: { code: args.code, source: "sat_worker" },
+    p_fiscal_rfc: args.fiscalRfc,
+    p_edc_documento_id: args.edcDocumentoId,
+    p_edc_version: args.edcVersion,
+  });
+  if (error) {
+    return retry(error.code || "FISCAL_REGISTER_FAILED", 409);
+  }
+  return invalid(args.code);
 }
 
 export function classifyFiscalWorkerForMesa(body: FiscalWorkerBody):
@@ -284,6 +322,10 @@ export async function POST(request: Request, { params }: RouteParams) {
     return NextResponse.json({ ok: false, code: "INVALID_ID" }, { status: 400 });
   }
   const expedienteId = idParsed.data;
+
+  if (!fiscalValidationInFlight.tryAcquire(expedienteId)) {
+    return retry("FISCAL_VALIDATION_IN_PROGRESS", 409);
+  }
 
   try {
     const { client } = auth;
@@ -437,7 +479,7 @@ export async function POST(request: Request, { params }: RouteParams) {
           curp: curpLocal.normalized,
         }),
         cache: "no-store",
-        signal: AbortSignal.timeout(150_000),
+        signal: AbortSignal.timeout(FISCAL_WORKER_TIMEOUT_MS),
       });
       workerBody = (await workerResponse.json()) as FiscalWorkerBody;
       if (!workerResponse.ok && workerBody?.semantic !== "invalid") {
@@ -462,17 +504,21 @@ export async function POST(request: Request, { params }: RouteParams) {
     const decision = classifyFiscalWorkerForMesa(workerBody);
     if (decision.kind === "invalid") {
       const admin = serviceRoleClient();
-      if (admin) {
-        await admin.rpc("server_registrar_validacion_fiscal_sat", {
-          p_expediente_id: expedienteId,
-          p_estado: "RFC_VALIDACION_SAT_INVALIDO",
-          p_resultado_resumido: { code: decision.code, source: "sat_worker" },
-          p_fiscal_rfc: resolution.fiscalRfc,
-          p_edc_documento_id: edcDocumentoId,
-          p_edc_version: edcVersion,
-        });
-      }
-      return invalid(decision.code);
+      if (!admin) return retry("SERVICE_ROLE_NOT_CONFIGURED");
+      return registerInvalidoOrRetry({
+        expedienteId,
+        fiscalRfc: resolution.fiscalRfc,
+        edcDocumentoId,
+        edcVersion,
+        code: decision.code,
+        rpc: async (payload) => {
+          const { error } = await admin.rpc(
+            "server_registrar_validacion_fiscal_sat",
+            payload,
+          );
+          return { error };
+        },
+      });
     }
     if (decision.kind === "retry") {
       return failWithRevisionManual({
@@ -564,5 +610,7 @@ export async function POST(request: Request, { params }: RouteParams) {
       error instanceof Error ? error.message : "unknown",
     );
     return retry("UNEXPECTED_EXCEPTION");
+  } finally {
+    fiscalValidationInFlight.release(expedienteId);
   }
 }

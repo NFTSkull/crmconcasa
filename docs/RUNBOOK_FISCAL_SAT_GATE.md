@@ -72,9 +72,19 @@ No mergear a `main` antes de que la 228 esté aplicada y verificada en producci�
 ### Verificar OK
 
 ```bash
+# 1) Health — ok, mode, present/absent de secretos (nunca valores)
 curl -sS "$SAT_VALIDATOR_URL/health"
-# Esperado: {"ok":true,"mode":"live", ...}
+# Esperado (ejemplo):
+# {"ok":true,"mode":"live","CAPSOLVER_API_KEY":"present","SAT_VALIDATOR_SECRET":"present"}
+
+# 2) Diagnóstico SAT (obligatorio antes de §b) — abre página RFC hasta #captchaSession;
+#    no resuelve captcha ni consulta RFC. Sin datos de clientes.
+curl -sS -H "x-concasa-worker-secret: $SAT_VALIDATOR_SECRET" \
+  "$SAT_VALIDATOR_URL/diagnostics/sat"
+# Esperado OK: {"ok":true,"loadMs":<número>,"error":null}
 ```
+
+Si `/diagnostics/sat` falla (`ok:false` o HTTP ≠ 200): **NO avanzar al paso b**. Reportar `error` + `loadMs` y corregir red/Railway/SAT antes de tocar Supabase.
 
 **Saldo CapSolver (obligatorio):** ambos servicios (`mejoravit-scraper` y este worker) comparten la misma API key y el **mismo saldo**. En el dashboard de CapSolver, activar una **alerta de saldo bajo** (threshold conservador) para no quedarse sin OCR a mitad de operación.
 
@@ -83,17 +93,80 @@ curl -sS "$SAT_VALIDATOR_URL/health"
 | Síntoma | Acción |
 |---------|--------|
 | `/health` no responde | Revisar Root Directory = `integrations/sat-rfc-validator`, Dockerfile, logs Railway, `PORT` |
+| `CAPSOLVER_API_KEY`/`SAT_VALIDATOR_SECRET` = `absent` | Completar variables en Railway y redeploy; no pegar valores en chats/logs |
 | Build sin Chromium / Playwright crash | Confirmar que el builder usa el `Dockerfile` (imagen `playwright:v1.55.0-noble`), no un builder genérico sin browsers |
 | `mode` ≠ `live` | Corregir `SAT_VALIDATOR_MODE=live` y redeploy |
+| `/diagnostics/sat` 401 | Alinear header `x-concasa-worker-secret` con `SAT_VALIDATOR_SECRET` del servicio |
+| `/diagnostics/sat` ok:false / timeout | Red Railway→SAT, Chromium, o SAT caído; **no** aplicar §b hasta que cargue `#captchaSession` |
 | CapSolver auth errors | Verificar que se **copió** la key de `mejoravit-scraper` (sin tipografiar mal); no regenerar key en CapSolver |
 | Saldo agotado | Recargar CapSolver; ambos servicios se recuperan con el mismo saldo |
-| No avanzar | **No** toques prod CRM ni Supabase hasta tener health live |
+| No avanzar | **No** toques prod CRM ni Supabase hasta tener health live **y** diagnostics ok |
 
 ---
 
 ## b. Supabase producción — migración 228
 
 La migración y el rollback van en **una sola transacción** (`BEGIN` … `COMMIT`). Si cualquier sentencia falla, no queda estado a medias: **se aplica completa o no se aplica**.
+
+**Prerrequisito:** §a con `/health` live **y** `/diagnostics/sat` ok. Si diagnostics falla, **no** aplicar la 228.
+
+### Mecanismo de registro (mismo que Mario `20260924195716`)
+
+En prod, las migraciones recientes aplicadas “a mano” (p.ej. `20260924183449` mesa_move y `20260924195716` mario_morales) quedan en `supabase_migrations.schema_migrations` con:
+
+| Columna | Mario / mesa_move |
+|--------|-------------------|
+| `version` | timestamp del archivo |
+| `name` | sufijo del archivo |
+| `statements` | array con el SQL completo |
+| `created_by` | email del operador Dashboard (`greco.1998@hotmail.com`) |
+| `idempotency_key` | null |
+
+**No** usar `supabase db push` del árbol completo (aplicaría pendientes no deseados).
+
+### Cómo aplicar solo la 228 (sin db push)
+
+1. Confirmar que **no** existe ya:
+
+```sql
+SELECT version, name FROM supabase_migrations.schema_migrations
+WHERE version = '228' OR name ILIKE '%fiscal_sat_gate%';
+-- Esperado: 0 filas
+```
+
+2. En el **SQL Editor** de Supabase (sesión del mismo operador que aplicó Mario), pegar y ejecutar **todo** el archivo  
+   `supabase/migrations/228_fiscal_sat_gate_server_write.sql` (incluye `BEGIN`/`COMMIT`).
+
+3. Registrar el historial **con el mismo mecanismo** (version/name del archivo local; no inventar timestamp). Pegar el contenido íntegro del archivo 228 como literal:
+
+```sql
+INSERT INTO supabase_migrations.schema_migrations (version, name, statements)
+VALUES (
+  '228',
+  'fiscal_sat_gate_server_write',
+  ARRAY[$mig$
+-- pegar aquí el contenido íntegro de 228_fiscal_sat_gate_server_write.sql
+$mig$]
+)
+ON CONFLICT DO NOTHING;
+```
+
+> Nota: si el SQL Editor rellena `created_by` automáticamente al aplicar migraciones vía UI de Migrations, ese valor debe coincidir con el operador (como Mario). Un `INSERT` crudo puede dejar `created_by` null (como la 214 vía `db query --linked`); es aceptable si `version`/`name`/`statements` quedan correctos. **Alternativa CLI** (solo el archivo, no el árbol):  
+> `npx supabase db query --linked -f supabase/migrations/228_fiscal_sat_gate_server_write.sql`  
+> y luego el mismo `INSERT` de registro (literal completo o stub estilo 214).
+
+**Quedará:** `version='228'`, `name='fiscal_sat_gate_server_write'`. Verificado en prod (lectura 2026-09-24): **no** existe `228` ni nombre fiscal_sat; sin choque con `20260924195716` / `20260924183449`.
+
+### Query de confirmación de registro
+
+```sql
+SELECT version, name, created_by,
+       cardinality(statements) AS n_stmts,
+       left(coalesce(statements[1], ''), 80) AS stmt0
+FROM supabase_migrations.schema_migrations
+WHERE version = '228';
+-- Esperado: 1 fila; name = fiscal_sat_gate_server_write; n_stmts >= 1
+```
 
 ### Antes de apply — respaldo local de defs
 
@@ -119,13 +192,17 @@ Conservar también a mano el archivo `supabase/rollback/228_fiscal_sat_gate_serv
 
 ### Qué hacer
 
-1. Operador corre **todo** el archivo `228_fiscal_sat_gate_server_write.sql` en `fvtqbxukqlajezyyvwzy` (incluye `BEGIN`/`COMMIT`).  
-2. **No** correr el rollback salvo incidente (ver §h).  
-3. Solo después de verificación OK → autorizar merge a `main` y deploy Vercel (§c).
+1. Operador corre **todo** el archivo `228_fiscal_sat_gate_server_write.sql` en `fvtqbxukqlajezyyvwzy` (incluye `BEGIN`/`COMMIT`) — ver procedimiento arriba.  
+2. Registrar en `schema_migrations` (`version=228`, `name=fiscal_sat_gate_server_write`).  
+3. **No** correr el rollback salvo incidente (ver §h).  
+4. Solo después de verificación OK → autorizar merge a `main` y deploy Vercel (§c).
 
 ### Queries de verificación post-apply
 
 ```sql
+-- Registro en historial
+SELECT version, name FROM supabase_migrations.schema_migrations WHERE version = '228';
+
 -- Gate apagado + piloto vacío
 SELECT key, value
 FROM public.app_settings
@@ -173,6 +250,7 @@ ORDER BY 1;
 | settings_upd = true | `REVOKE ALL ON app_settings FROM authenticated; GRANT SELECT …` |
 | Gate enabled true por error | Apagado de emergencia §g inmediatamente |
 | Necesitas restaurar defs | Usar archivos de respaldo `$STAMP` y/o el ROLLBACK transaccional §h |
+| Historial sin fila `228` | Ejecutar el `INSERT` de registro; no re-aplicar el SQL si las RPCs ya existen |
 
 ---
 
@@ -281,7 +359,7 @@ SELECT value FROM public.app_settings WHERE key = 'fiscal_sat_gate_pilot_asesore
 | **Pass** | Validar con **envíos reales** del asesor piloto (sus expedientes listos) | Llegan a Mesa si VALIDADO; es operación real |
 | **RFC inválido** | Expediente de **prueba** (nunca debe llegar a Mesa) | Esperado: `INVALIDO`; `submitted_to_mesa=false` |
 | **Revisión manual** | Expediente de **prueba** (timeout/captcha/worker) | Esperado: `REVISION_MANUAL` + CTA; **no** Mesa |
-| **Aprobación super_admin** | Solo sobre un expediente **real** que haya quedado en `REVISION_MANUAL` de verdad | `admin_aprobar_envio_mesa_sin_fiscal` como `super_admin`; **nunca** aprobar un expediente de prueba “inventado” |
+| **Aprobación super_admin** | **Sin UI todavía** (RPC `admin_aprobar_envio_mesa_sin_fiscal` existe en mig 228; no hay botón en el CRM) | Durante el piloto: expediente atorado → **quitar al asesor del piloto** (§e Quitar). El botón UI super_admin es **requisito antes del encendido global** (§g). No inventar bypasses |
 | **Reingreso** | Flujo reingreso real/piloto | Sin gate fiscal (igual que hoy) |
 
 ### Verificar OK
@@ -314,6 +392,8 @@ SET value = (
 WHERE key = 'fiscal_sat_gate_pilot_asesores';
 ```
 
+**Expediente atorado en piloto (sin UI de aprobación):** quitar al asesor del piloto con el SQL de arriba. El envío vuelve al path pre-gate (fail-open del flag: gate no aplica). **No** llamar `admin_aprobar_envio_mesa_sin_fiscal` desde consola/SQL ad-hoc en piloto salvo incidente autorizado. Antes de §g (encendido global) hace falta UI super_admin para esa RPC.
+
 ---
 
 ## f. Apagar / eliminar servicio temporal e2e
@@ -337,6 +417,8 @@ Si el CRM aún tiene la URL del temp: actualizar Vercel `SAT_VALIDATOR_URL` y re
 ## g. Encendido global y apagado de emergencia
 
 ### Encendido global (solo tras piloto OK)
+
+**Requisito previo:** UI super_admin para `admin_aprobar_envio_mesa_sin_fiscal` (hoy **no** existe en el CRM). Sin ese botón no encender global: un atorado en `REVISION_MANUAL` no tendría resolución operativa.
 
 ```sql
 UPDATE public.app_settings
