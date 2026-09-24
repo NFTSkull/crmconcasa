@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+- **docs(fiscal P228):** runbook — CapSolver key compartida con `mejoravit-scraper` (copiar, no mutar); Root Directory `integrations/sat-rfc-validator`; Chromium vía imagen Playwright; push rama → 228 → merge `main`/Vercel; alerta saldo bajo CapSolver.
+
 - **fix(fiscal P228):** fail-open solo si mig 228 ausente (`42883`/`PGRST202`); resto fail-closed. Runbook `docs/RUNBOOK_FISCAL_SAT_GATE.md`. `super_admin`; `asesor_registrar` = p208 + guards; REVISION_MANUAL; CTA; rollback p208+grants. Hardening `app_settings` REVOKE + `extensions.digest`.
 
 - **feat(fiscal): gate SAT pre-Mesa (P228)** — mig. `228_fiscal_sat_gate_server_write`: `enviar_a_mesa_core` + flag `fiscal_sat_gate_enabled` + piloto `fiscal_sat_gate_pilot_asesores`; binding EDC+CURP+RFC hashes; `server_registrar_validacion_fiscal_sat` (service_role); admin `APROBADO_ADMIN`. Route `/api/expedientes/[id]/enviar-mesa-fiscal` solo llama worker si el gate aplica. Default OFF = comportamiento actual. Rollback en `supabase/rollback/`. **No aplicado en producción.**

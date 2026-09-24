@@ -1,4 +1,11 @@
+## 2026-09-24 - Runbook: CapSolver compartida + push por rama
+
+- `CAPSOLVER_API_KEY`: copiar desde `mejoravit-scraper` (Railway `fulfilling-bravery`); no key nueva; no mutar ese servicio. Alerta saldo bajo CapSolver (saldo compartido).
+- Railway: Root Directory `integrations/sat-rfc-validator`; Dockerfile Playwright noble (Chromium incluido).
+- Git: push rama para worker; merge a `main` solo en paso Vercel post-mig 228.
+
 ## 2026-09-24 - B1 cierre: fail-open orden deploy + runbook
+
 
 - Route: si `fiscal_sat_gate_applies_to_expediente` no existe (`42883`/`PGRST202`) → warning + `enviar_a_mesa` (fail-open). Cualquier otro error del gate → fail-closed.
 - `docs/RUNBOOK_FISCAL_SAT_GATE.md`: Railway → mig 228 → Vercel → smoke OFF → piloto → temp off → global / emergencia / rollback.

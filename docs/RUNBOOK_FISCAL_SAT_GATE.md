@@ -5,11 +5,24 @@
 **Rollback:** `supabase/rollback/228_fiscal_sat_gate_server_write_ROLLBACK.sql`  
 **Prod Supabase:** `fvtqbxukqlajezyyvwzy` (solo cuando el operador autorice apply)  
 **CRM:** Vercel `crmconcasa`  
-**Worker:** Railway — servicio **nuevo** (no tocar `mejoravit-scraper`)
+**Worker:** Railway — proyecto `fulfilling-bravery`, servicio **nuevo** (no tocar `mejoravit-scraper`)
 
-**Orden obligatorio:** Railway worker → Supabase mig 228 → env Vercel → deploy CRM → smoke gate OFF → piloto → apagar temp → (opcional) encendido global.
+**Orden obligatorio:** push de la **rama** (no `main`) → Railway worker → Supabase mig 228 → merge a `main` + env Vercel + deploy CRM → smoke gate OFF → piloto → apagar temp → (opcional) encendido global.
 
 Si el CRM se despliega **antes** de la mig 228, la route detecta RPC ausente (`42883` / `PGRST202`) y hace **fail-open** a `enviar_a_mesa` (comportamiento actual) con warning en logs. Cualquier otro error del gate es **fail-closed**.
+
+---
+
+## Estrategia de git / push
+
+| Paso | Qué | A dónde |
+|------|-----|---------|
+| 1 | Subir `feat/fiscal-sat-gate-worker-capsolver` | Remote como **rama** (no merge a `main`) |
+| 2 | Railway despliega el worker desde esa rama | Root: `integrations/sat-rfc-validator` |
+| 3 | Operador aplica mig **228** en prod | SQL solo |
+| 4 | Merge de la rama a `main` + deploy Vercel | **Solo después** de la 228 |
+
+No mergear a `main` antes de que la 228 esté aplicada y verificada en producción.
 
 ---
 
@@ -17,21 +30,33 @@ Si el CRM se despliega **antes** de la mig 228, la route detecta RPC ausente (`4
 
 ### Qué hacer
 
-1. Crear un servicio **nuevo** a partir de `integrations/sat-rfc-validator` (Dockerfile del repo).  
-   **No** modificar ni redeployar `mejoravit-scraper`.
-2. Variables de entorno (valores **nuevos**, no reutilizar los del temp e2e):
+1. **Push** de `feat/fiscal-sat-gate-worker-capsolver` al remote (rama, no `main`) para que Railway pueda construir.
+2. En Railway (proyecto `fulfilling-bravery`): crear un servicio **nuevo** conectado a ese repo/rama.  
+   **No** modificar, redeployar ni cambiar variables de `mejoravit-scraper`.
+3. Configuración del servicio:
+
+| Setting | Valor |
+|---------|--------|
+| **Root Directory** | `integrations/sat-rfc-validator` |
+| **Builder** | Dockerfile (archivo `integrations/sat-rfc-validator/Dockerfile`) |
+| Branch | `feat/fiscal-sat-gate-worker-capsolver` (hasta el merge a `main`) |
+
+**Chromium / Playwright:** el `Dockerfile` usa la imagen oficial  
+`FROM mcr.microsoft.com/playwright:v1.55.0-noble`, que **ya incluye Chromium** y dependencias del sistema. No hace falta nixpacks ni `npx playwright install` en el deploy de Railway si se construye con ese Dockerfile.
+
+4. Variables de entorno:
 
 | Variable | Valor |
 |----------|--------|
 | `SAT_VALIDATOR_MODE` | `live` |
-| `SAT_VALIDATOR_SECRET` | secreto largo aleatorio (mismo que pondrás en Vercel) |
-| `CAPSOLVER_API_KEY` | API key **nueva** de CapSolver |
+| `SAT_VALIDATOR_SECRET` | secreto largo aleatorio **nuevo** (mismo que pondrás en Vercel) |
+| `CAPSOLVER_API_KEY` | **La misma** que tiene hoy `mejoravit-scraper` en Railway. Copiar el valor desde ese servicio; **no** crear key nueva; **no** editar el servicio `mejoravit-scraper`. |
 | `CAPTCHA_CASE` | `upper` |
 | `CAPSOLVER_MODULE` | `common` |
 | `SAT_MAX_CONCURRENCY` | `1` |
 | `PORT` | el que asigne Railway (health en `/health`) |
 
-3. Deploy y anotar la URL pública HTTPS (sin slash final), p. ej. `https://sat-rfc-validator-xxxx.up.railway.app`.
+5. Deploy y anotar la URL pública HTTPS (sin slash final), p. ej. `https://sat-rfc-validator-xxxx.up.railway.app`.
 
 ### Verificar OK
 
@@ -40,13 +65,17 @@ curl -sS "$SAT_VALIDATOR_URL/health"
 # Esperado: {"ok":true,"mode":"live", ...}
 ```
 
+**Saldo CapSolver (obligatorio):** ambos servicios (`mejoravit-scraper` y este worker) comparten la misma API key y el **mismo saldo**. En el dashboard de CapSolver, activar una **alerta de saldo bajo** (threshold conservador) para no quedarse sin OCR a mitad de operación.
+
 ### Si falla
 
 | Síntoma | Acción |
 |---------|--------|
-| `/health` no responde | Revisar deploy, logs Railway, `PORT`, firewall |
+| `/health` no responde | Revisar Root Directory = `integrations/sat-rfc-validator`, Dockerfile, logs Railway, `PORT` |
+| Build sin Chromium / Playwright crash | Confirmar que el builder usa el `Dockerfile` (imagen `playwright:v1.55.0-noble`), no un builder genérico sin browsers |
 | `mode` ≠ `live` | Corregir `SAT_VALIDATOR_MODE=live` y redeploy |
-| CapSolver errors en logs | Validar `CAPSOLVER_API_KEY`, saldo CapSolver, `CAPSOLVER_MODULE=common` |
+| CapSolver auth errors | Verificar que se **copió** la key de `mejoravit-scraper` (sin tipografiar mal); no regenerar key en CapSolver |
+| Saldo agotado | Recargar CapSolver; ambos servicios se recuperan con el mismo saldo |
 | No avanzar | **No** toques prod CRM ni Supabase hasta tener health live |
 
 ---
@@ -57,6 +86,7 @@ curl -sS "$SAT_VALIDATOR_URL/health"
 
 1. Operador corre **solo** `228_fiscal_sat_gate_server_write.sql` en `fvtqbxukqlajezyyvwzy` (SQL editor / CLI autorizado).  
 2. **No** correr el rollback salvo incidente (ver §h).
+3. Solo después de verificación OK → autorizar merge a `main` y deploy Vercel (§c).
 
 ### Queries de verificación post-apply
 
@@ -103,26 +133,27 @@ ORDER BY 1;
 
 | Síntoma | Acción |
 |---------|--------|
-| Apply a medias | **No** deploy CRM. Correr rollback §h o restaurar defs; reintentar 228 en ventana controlada |
+| Apply a medias | **No** merge/deploy CRM. Correr rollback §h o restaurar defs; reintentar 228 en ventana controlada |
 | `auth_can_core = true` | Revisar GRANT/REVOKE de la mig; no continuar |
 | settings_upd = true | `REVOKE ALL ON app_settings FROM authenticated; GRANT SELECT …` como en la mig |
 | Gate enabled true por error | Apagado de emergencia §g inmediatamente |
 
 ---
 
-## c. Vercel — env + deploy CRM
+## c. Vercel — merge a main + env + deploy CRM
 
 ### Qué hacer
 
-1. En el proyecto Vercel de CRM, agregar (Production):
+1. **Solo si §b está OK:** merge de `feat/fiscal-sat-gate-worker-capsolver` → `main` (PR o merge autorizado).
+2. En el proyecto Vercel de CRM, agregar (Production):
 
 | Variable | Valor |
 |----------|--------|
 | `SAT_VALIDATOR_URL` | URL del servicio Railway (§a), sin `/` final |
-| `SAT_VALIDATOR_SECRET` | **el mismo** que en Railway |
+| `SAT_VALIDATOR_SECRET` | **el mismo** que en Railway (no la CapSolver key) |
 | `SUPABASE_SERVICE_ROLE_KEY` | ya debe existir (server-only; nunca `NEXT_PUBLIC_*`) |
 
-2. Deploy del CRM con el commit que incluye la route `enviar-mesa-fiscal` (después de §b preferible; si CRM llega antes, fail-open cubre ausencia de 228).
+3. Deploy del CRM desde `main` (incluye route `enviar-mesa-fiscal`). Preferible **después** de la 228; si por error el CRM llegara antes, el fail-open cubre RPC ausente.
 
 ### Verificar OK
 
@@ -135,7 +166,7 @@ ORDER BY 1;
 |---------|--------|
 | Build fail | No promover; revert deploy Vercel |
 | Worker URL mal | Corregir env y redeploy; no tocar Supabase |
-| Secret mismatch | Alinear Railway ↔ Vercel; redeploy |
+| Secret mismatch | Alinear Railway ↔ Vercel `SAT_VALIDATOR_SECRET`; redeploy |
 
 ---
 
@@ -291,7 +322,7 @@ Ver §g apagado de emergencia.
 
 ### 2) Revertir deploy CRM (Vercel)
 
-- Rollback al deployment anterior (sin route fiscal / sin dependencia del worker).  
+- Rollback al deployment anterior en `main` (sin route fiscal / sin dependencia del worker).  
 - O quitar `SAT_VALIDATOR_*` si se deja código fail-open.  
 **Verificar:** UI envía a Mesa; sin errores nuevos.
 
@@ -322,7 +353,8 @@ SELECT EXISTS (
 
 - Pausar/eliminar el servicio nuevo del worker.  
 - Temp e2e ya debió eliminarse en §f.  
-**Verificar:** no quedan URLs worker en Vercel apuntando a servicios muertos (o fall-open/cerrado según diseño del código desplegado).
+- **No** tocar `mejoravit-scraper` ni rotar la CapSolver key compartida solo por este rollback.  
+**Verificar:** no quedan URLs worker en Vercel apuntando a servicios muertos (o fall-open/cerrado según el código desplegado).
 
 ### Si el rollback SQL falla
 
@@ -334,4 +366,5 @@ No improvisar. Restaurar defs desde backup / snapshot; abrir incidente. **No** d
 
 - Producto / API: `docs/FISCAL_SAT_GATE.md`, `docs/API_CONTRATOS.md` §5  
 - Tests SQL: `supabase/tests/rpc_fiscal_sat_gate_p228.sql` (nunca en prod)  
-- Worker: `integrations/sat-rfc-validator/README.md`
+- Worker: `integrations/sat-rfc-validator/README.md`  
+- Dockerfile Chromium: `integrations/sat-rfc-validator/Dockerfile` → `mcr.microsoft.com/playwright:v1.55.0-noble`
