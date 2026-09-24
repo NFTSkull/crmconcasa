@@ -1,4 +1,12 @@
+## 2026-09-24 - Merge main 6f884f6 en feat fiscal (pre-228 prod)
+
+- Delta `77f5f5f..6f884f61`: 1 commit (`fix(db): evitar retry storm…`) + mig timestamp `20260924183449` (solo `mesa_mover_etapa_operativa` ERRCODE 40001→22023).
+- Prod: esa mig **ya aplicada**; defs `enviar_a_mesa` / `asesor_registrar` **idénticas** a auditoría (sin ajuste 228/rollback).
+- Merge ort sin conflictos. Numeración 228 vs timestamp: sin choque.
+- Nota: prod también tiene `20260924195716` mario_morales (no está en `crmconcasa/main` de este fetch).
+
 ## 2026-09-24 - Runbook v2 + TX en mig 228
+
 
 - Mig/rollback 228 envueltos en `BEGIN`/`COMMIT` (sin CONCURRENTLY).
 - Smoke d = envíos reales + action_log 1h; piloto e = asesor real; inválido/RM en prueba; super_admin solo RM real.
