@@ -147,6 +147,14 @@ function getClient(): SupabaseClient {
   return supabaseBrowser;
 }
 
+function clearLocalSessionState(store: MockStoreContextValue): void {
+  clearMockUser();
+  if (typeof window !== "undefined") {
+    localStorage.removeItem(SESSION_KEY);
+  }
+  store.logout();
+}
+
 /**
  * Sesión vía Supabase Auth + `public.profiles`.
  * Persiste `mock_user` / `mock_role` / `mock_email` como puente temporal para la UI mock.
@@ -162,6 +170,9 @@ export class SupabaseSessionRepo implements SessionRepo {
     } = await client.auth.getSession();
 
     if (sessionError || !session?.user) {
+      // Fail closed: si Supabase perdió/invalidó la sesión, el puente legacy
+      // jamás debe mantener la UI autenticada por sí solo.
+      clearLocalSessionState(this.store);
       return null;
     }
 
@@ -173,11 +184,7 @@ export class SupabaseSessionRepo implements SessionRepo {
     } catch (err) {
       if (err instanceof SupabaseSessionError) {
         await client.auth.signOut();
-        clearMockUser();
-        if (typeof window !== "undefined") {
-          localStorage.removeItem(SESSION_KEY);
-        }
-        this.store.logout();
+        clearLocalSessionState(this.store);
       }
       return null;
     }
@@ -239,10 +246,6 @@ export class SupabaseSessionRepo implements SessionRepo {
     if (client) {
       await client.auth.signOut();
     }
-    this.store.logout();
-    clearMockUser();
-    if (typeof window !== "undefined") {
-      localStorage.removeItem(SESSION_KEY);
-    }
+    clearLocalSessionState(this.store);
   }
 }
