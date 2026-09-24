@@ -32,13 +32,21 @@ export function useSessionRepo(): {
   currentUser: UserSession | null | undefined;
 } {
   const store = useMockStore();
+  const { login: bridgeLogin, logout: bridgeLogout } = store;
   const supabaseAuthEnabled = isSupabaseAuthEnabled();
-  const sessionRepo = useMemo(() => {
-    if (supabaseAuthEnabled) {
-      return new SupabaseSessionRepo(store);
-    }
-    return new MockSessionRepo(store);
-  }, [store, supabaseAuthEnabled]);
+
+  // En producción el repositorio Supabase debe permanecer estable aunque cambie
+  // el estado del MockStore. Sus callbacks login/logout son useCallback estables.
+  const supabaseSessionRepo = useMemo(
+    () =>
+      new SupabaseSessionRepo({
+        login: bridgeLogin,
+        logout: bridgeLogout,
+      }),
+    [bridgeLogin, bridgeLogout],
+  );
+  const mockSessionRepo = useMemo(() => new MockSessionRepo(store), [store]);
+  const sessionRepo = supabaseAuthEnabled ? supabaseSessionRepo : mockSessionRepo;
   /**
    * Siempre `undefined` en el primer render (SSR + hidratación) para evitar mismatch:
    * no leer localStorage en el inicializador de useState (solo existe en cliente).
@@ -62,7 +70,7 @@ export function useSessionRepo(): {
       if (typeof window !== "undefined") {
         window.localStorage.removeItem("concasa_session");
       }
-      store.logout();
+      bridgeLogout();
       setCurrentUser(null);
 
       if (
@@ -76,7 +84,7 @@ export function useSessionRepo(): {
     return () => {
       subscription.unsubscribe();
     };
-  }, [store, supabaseAuthEnabled]);
+  }, [bridgeLogout, supabaseAuthEnabled]);
 
   useEffect(() => {
     let cancelled = false;

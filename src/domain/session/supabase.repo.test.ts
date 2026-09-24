@@ -136,3 +136,36 @@ test("useSessionRepo: SIGNED_OUT limpia bridge y corta la UI autenticada", () =>
   assert.match(src, /setCurrentUser\(null\)/);
   assert.match(src, /window\.location\.replace\("\/login"\)/);
 });
+
+
+test("useSessionRepo: repositorio Supabase no depende del objeto store mutable", () => {
+  const src = readFileSync(
+    join(process.cwd(), "src/domain/session/index.ts"),
+    "utf8",
+  );
+
+  assert.match(src, /const \{ login: bridgeLogin, logout: bridgeLogout \} = store;/);
+  assert.match(
+    src,
+    /const supabaseSessionRepo = useMemo\([\s\S]*new SupabaseSessionRepo\([\s\S]*login: bridgeLogin,[\s\S]*logout: bridgeLogout,[\s\S]*\[bridgeLogin, bridgeLogout\]/,
+  );
+  assert.doesNotMatch(
+    src,
+    /new SupabaseSessionRepo\(store\)/,
+  );
+  assert.match(
+    src,
+    /const sessionRepo = supabaseAuthEnabled \? supabaseSessionRepo : mockSessionRepo;/,
+  );
+});
+
+test("useSessionRepo: listener SIGNED_OUT no se resuscribe por cada cambio del store", () => {
+  const src = readFileSync(
+    join(process.cwd(), "src/domain/session/index.ts"),
+    "utf8",
+  );
+
+  assert.match(src, /bridgeLogout\(\);/);
+  assert.match(src, /\}, \[bridgeLogout, supabaseAuthEnabled\]\);/);
+  assert.doesNotMatch(src, /\}, \[store, supabaseAuthEnabled\]\);/);
+});
