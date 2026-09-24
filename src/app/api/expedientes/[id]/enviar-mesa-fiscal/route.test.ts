@@ -8,6 +8,11 @@ import {
   FISCAL_WORKER_TIMEOUT_MS,
   maxDuration,
 } from "./route";
+import {
+  FISCAL_MIN_BACKUP_ATTEMPT_MS,
+  pickCapturedBackupRfc,
+  planFiscalBackupAttempt,
+} from "@/domain/validacion-fiscal/rfc";
 
 describe("enviar-mesa-fiscal missing mig 228 fail-open", () => {
   it("42883 / PGRST202 → fail-open (RPC gate ausente)", () => {
@@ -166,5 +171,81 @@ describe("registerInvalidoOrRetry", () => {
     assert.equal(body.status, "invalid");
     assert.equal(body.code, "RFC_INVALIDO_SAT");
     assert.equal(body.submitted_to_mesa, false);
+  });
+});
+
+/**
+ * Contratos del 2º intento (tryBackup en route.ts): planFiscalBackupAttempt
+ * es lo que decide validate / INVALIDO / RM / sin cupo antes del fetch SAT.
+ */
+describe("enviar-mesa-fiscal tryBackup (2º intento)", () => {
+  const CURP = "BADD900101HDFMLN03";
+  const backupOk = pickCapturedBackupRfc({
+    rfcInfonavit: "BADD9001019A1",
+    rfcDatosGenerales: null,
+    curpValidadaLocalmente: CURP,
+  });
+
+  it("PDF sin RFC + respaldo válido → validate (2º intento)", () => {
+    assert.equal(backupOk.ok, true);
+    const plan = planFiscalBackupAttempt({
+      remainingMs: 40_000,
+      backup: backupOk,
+      afterPdfInvalid: false,
+      hasPdfRfc: false,
+    });
+    assert.deepEqual(plan, { kind: "validate", timeoutMs: 40_000 });
+  });
+
+  it("PDF inválido en SAT + respaldo válido → validate (2º intento)", () => {
+    const plan = planFiscalBackupAttempt({
+      remainingMs: 25_000,
+      backup: backupOk,
+      afterPdfInvalid: true,
+      hasPdfRfc: true,
+    });
+    assert.equal(plan.kind, "validate");
+    if (plan.kind === "validate") assert.equal(plan.timeoutMs, 25_000);
+  });
+
+  it("PDF inválido en SAT + sin respaldo usable → register_invalid_pdf", () => {
+    const noBackup = pickCapturedBackupRfc({
+      rfcInfonavit: "CADD9102029A1",
+      rfcDatosGenerales: null,
+      curpValidadaLocalmente: CURP,
+    });
+    assert.equal(noBackup.ok, false);
+    const plan = planFiscalBackupAttempt({
+      remainingMs: 40_000,
+      backup: noBackup,
+      afterPdfInvalid: true,
+      hasPdfRfc: true,
+    });
+    assert.deepEqual(plan, { kind: "register_invalid_pdf" });
+  });
+
+  it("respaldo sin tiempo (< MIN) → budget_exceeded", () => {
+    const plan = planFiscalBackupAttempt({
+      remainingMs: FISCAL_MIN_BACKUP_ATTEMPT_MS - 1,
+      backup: backupOk,
+      afterPdfInvalid: true,
+      hasPdfRfc: true,
+    });
+    assert.deepEqual(plan, { kind: "budget_exceeded" });
+  });
+
+  it("PDF sin RFC + sin respaldo → revision_manual", () => {
+    const noBackup = pickCapturedBackupRfc({
+      rfcInfonavit: null,
+      rfcDatosGenerales: null,
+      curpValidadaLocalmente: CURP,
+    });
+    const plan = planFiscalBackupAttempt({
+      remainingMs: 40_000,
+      backup: noBackup,
+      afterPdfInvalid: false,
+      hasPdfRfc: false,
+    });
+    assert.equal(plan.kind, "revision_manual");
   });
 });

@@ -1,3 +1,10 @@
+## 2026-09-24 - Re-review main d5dc8b5 pre-apply 228 (solo lectura)
+
+- Delta `6f884f6..d5dc8b5`: 1 commit + mig `20260924215803` (`mesa_take_expediente` no exclusivo). **Fuera** del perímetro 228.
+- Prod: esa mig **ya aplicada**; defs `enviar_a_mesa` / `asesor_registrar` ≡ rollback 228 (body norm). Sin regenerar `~/Desktop/p228-apply/`.
+- Mario `20260924195716` sigue en prod; en Git solo en feat/backfill (aún no en `crmconcasa/main`).
+- Merge `crmconcasa/main` → feat ort (sin conflictos). `planFiscalBackupAttempt` + tests tryBackup en `route.test.ts`.
+
 ## 2026-09-24 - RFC respaldo CURP-base tras PDF fallido/inválido
 
 - Domino `pickCapturedBackupRfc` + `buildValidadoResumen`; route intenta PDF primero, luego respaldo (infonavit→DG) si base=CURP.

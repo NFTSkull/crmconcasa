@@ -10,6 +10,7 @@ import {
   buildValidadoResumen,
   FISCAL_ROUTE_BUDGET_MS,
   pickCapturedBackupRfc,
+  planFiscalBackupAttempt,
   remainingFiscalBudgetMs,
   resolveFiscalRfc,
   selectEstadoCuentaRfc,
@@ -635,52 +636,61 @@ export async function POST(request: Request, { params }: RouteParams) {
       reason: FiscalBackupReason,
       afterPdfInvalid: boolean,
     ): Promise<NextResponse> => {
-      if (!backupPick.ok) {
-        if (afterPdfInvalid && pdfRfc) {
-          const admin = serviceRoleClient();
-          if (!admin) return retry("SERVICE_ROLE_NOT_CONFIGURED");
-          return registerInvalidoOrRetry({
-            expedienteId,
-            fiscalRfc: pdfRfc,
-            edcDocumentoId,
-            edcVersion,
-            code: "RFC_INVALIDO_SAT",
-            resultadoExtra: {
-              backup_skipped: backupPick.reason,
-              backup_reason: reason,
-            },
-            rpc: async (payload) => {
-              const { error } = await admin.rpc(
-                "server_registrar_validacion_fiscal_sat",
-                payload,
-              );
-              return { error };
-            },
-          });
-        }
-        return revisionManual(
-          `RFC_NO_RESUELTO_BACKUP_${backupPick.reason.toUpperCase()}`,
-        );
+      const plan = planFiscalBackupAttempt({
+        remainingMs: remainingFiscalBudgetMs(deadlineAt),
+        backup: backupPick,
+        afterPdfInvalid,
+        hasPdfRfc: Boolean(pdfRfc),
+      });
+
+      if (plan.kind === "register_invalid_pdf") {
+        const admin = serviceRoleClient();
+        if (!admin) return retry("SERVICE_ROLE_NOT_CONFIGURED");
+        return registerInvalidoOrRetry({
+          expedienteId,
+          fiscalRfc: pdfRfc!,
+          edcDocumentoId,
+          edcVersion,
+          code: "RFC_INVALIDO_SAT",
+          resultadoExtra: {
+            backup_skipped: backupPick.ok ? undefined : backupPick.reason,
+            backup_reason: reason,
+          },
+          rpc: async (payload) => {
+            const { error } = await admin.rpc(
+              "server_registrar_validacion_fiscal_sat",
+              payload,
+            );
+            return { error };
+          },
+        });
       }
 
-      const timeoutMs = workerAttemptTimeoutMs(remainingFiscalBudgetMs(deadlineAt));
-      if (timeoutMs == null) {
+      if (plan.kind === "revision_manual") {
+        return revisionManual(plan.code);
+      }
+
+      if (plan.kind === "budget_exceeded") {
         return failWithRevisionManual({
           expedienteId,
-          fiscalRfc: backupPick.rfc,
+          fiscalRfc: backupPick.ok ? backupPick.rfc : pdfRfc!,
           edcDocumentoId,
           edcVersion,
           code: "FISCAL_BUDGET_EXCEEDED_FOR_BACKUP",
         });
       }
 
+      // plan.kind === "validate"
       const sat = await callSatWorker({
         url: worker.url,
         secret: worker.secret,
-        rfc: backupPick.rfc,
+        rfc: backupPick.ok ? backupPick.rfc : "",
         curp: curpLocal.normalized,
-        timeoutMs,
+        timeoutMs: plan.timeoutMs,
       });
+      if (!backupPick.ok) {
+        return revisionManual("RFC_NO_RESUELTO_BACKUP_MISSING");
+      }
       if (sat.kind === "exception") {
         return failWithRevisionManual({
           expedienteId,

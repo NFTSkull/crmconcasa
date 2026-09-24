@@ -473,6 +473,36 @@ export function workerAttemptTimeoutMs(
   return Math.min(FISCAL_ROUTE_BUDGET_MS, remainingMs);
 }
 
+/**
+ * Plan del 2º intento (tryBackup): decide validar respaldo, INVALIDO, RM o sin cupo.
+ * Usado por la route para no duplicar ramas.
+ */
+export type FiscalBackupAttemptPlan =
+  | { kind: "validate"; timeoutMs: number }
+  | { kind: "register_invalid_pdf" }
+  | { kind: "revision_manual"; code: string }
+  | { kind: "budget_exceeded" };
+
+export function planFiscalBackupAttempt(args: {
+  remainingMs: number;
+  backup: CapturedBackupPick;
+  afterPdfInvalid: boolean;
+  hasPdfRfc: boolean;
+}): FiscalBackupAttemptPlan {
+  if (!args.backup.ok) {
+    if (args.afterPdfInvalid && args.hasPdfRfc) {
+      return { kind: "register_invalid_pdf" };
+    }
+    return {
+      kind: "revision_manual",
+      code: `RFC_NO_RESUELTO_BACKUP_${args.backup.reason.toUpperCase()}`,
+    };
+  }
+  const timeoutMs = workerAttemptTimeoutMs(args.remainingMs);
+  if (timeoutMs == null) return { kind: "budget_exceeded" };
+  return { kind: "validate", timeoutMs };
+}
+
 export function backupReasonFromPdfGap(args: {
   extractOk: boolean;
   extractReason?: string | null;
