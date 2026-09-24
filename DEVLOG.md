@@ -1,3 +1,9 @@
+## 2026-09-24 - RFC respaldo CURP-base tras PDF fallido/inválido
+
+- Domino `pickCapturedBackupRfc` + `buildValidadoResumen`; route intenta PDF primero, luego respaldo (infonavit→DG) si base=CURP.
+- Binding 228 intacto (`rfc_datos_sha256` / `rfc_infonavit_sha256`): cambio en capturados exige revalidar.
+- Presupuesto 50s: 2º validate solo si queda ≥8s.
+
 ## 2026-09-24 - Runbook: INSERT schema_migrations misma TX + candado
 
 - Apply 228: el `INSERT` en `schema_migrations` va **antes del `COMMIT`** de la misma TX (paquete `~/Desktop/p228-apply/02_aplicar_228.sql`).

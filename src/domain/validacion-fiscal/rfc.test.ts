@@ -1,12 +1,20 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import {
+  backupReasonFromPdfGap,
+  buildValidadoResumen,
   curpRfcBase10,
   extractEstadoCuentaRfcCandidates,
+  FISCAL_MIN_BACKUP_ATTEMPT_MS,
+  FISCAL_ROUTE_BUDGET_MS,
+  homoclaveDiffers,
+  maskFiscalId,
   normalizeRfc,
+  pickCapturedBackupRfc,
   rfcShape,
   selectEstadoCuentaRfc,
   resolveFiscalRfc,
+  workerAttemptTimeoutMs,
 } from "./rfc";
 
 const CLIENT = "JUAN PEREZ GARCIA";
@@ -182,4 +190,95 @@ test("PDF sin RFC completo queda UNKNOWN", () => {
   const r = resolveFiscalRfc({ rfcInfonavit: "ABCD010101", estadoCuenta: edc });
   assert.equal(edc.status, "unknown");
   assert.equal(r.status, "unknown");
+});
+
+test("pickCapturedBackupRfc: prioriza rfc_infonavit full13 con base CURP", () => {
+  const pick = pickCapturedBackupRfc({
+    rfcInfonavit: "BADD9001019A1",
+    rfcDatosGenerales: "BADD900101ZZ9",
+    curpValidadaLocalmente: CURP_BADD,
+  });
+  assert.deepEqual(pick, {
+    ok: true,
+    rfc: "BADD9001019A1",
+    field: "rfc_infonavit",
+  });
+});
+
+test("pickCapturedBackupRfc: si infonavit vacío usa DG con base CURP", () => {
+  const pick = pickCapturedBackupRfc({
+    rfcInfonavit: null,
+    rfcDatosGenerales: "BADD9001019A1",
+    curpValidadaLocalmente: CURP_BADD,
+  });
+  assert.equal(pick.ok, true);
+  if (pick.ok) {
+    assert.equal(pick.field, "rfc_datos_generales");
+    assert.equal(pick.rfc, "BADD9001019A1");
+  }
+});
+
+test("pickCapturedBackupRfc: base distinta a CURP no se usa (caso mismatch)", () => {
+  const pick = pickCapturedBackupRfc({
+    rfcInfonavit: "CADD9102029A1",
+    rfcDatosGenerales: "BADD9001019A1",
+    curpValidadaLocalmente: CURP_BADD,
+  });
+  assert.deepEqual(pick, { ok: false, reason: "curp_base_mismatch" });
+});
+
+test("caso 142-like: PDF homoclave distinta + respaldo válido; resumen marca diferencia", () => {
+  const pdfRfc = "BADD9001011L8";
+  const backup = pickCapturedBackupRfc({
+    rfcInfonavit: "BADD900101I93",
+    rfcDatosGenerales: "BADD900101I93",
+    curpValidadaLocalmente: CURP_BADD,
+  });
+  assert.equal(backup.ok, true);
+  assert.equal(homoclaveDiffers(pdfRfc, backup.ok ? backup.rfc : null), true);
+  if (!backup.ok) throw new Error("expected backup");
+  const resumen = buildValidadoResumen({
+    fiscalRfc: backup.rfc,
+    rfcSource: "respaldo_capturado",
+    backupReason: "pdf_sat_invalid",
+    backupField: backup.field,
+    pdfRfc,
+  });
+  assert.equal(resumen.rfc_source, "respaldo_capturado");
+  assert.equal(resumen.backup_reason, "pdf_sat_invalid");
+  assert.equal(resumen.pdf_homoclave_differed, true);
+  assert.equal(resumen.pdf_rfc_masked, maskFiscalId(pdfRfc));
+  assert.equal(resumen.fiscal_rfc_masked, maskFiscalId(backup.rfc));
+  assert.doesNotMatch(JSON.stringify(resumen), /BADD9001011L8|BADD900101I93/);
+});
+
+test("PDF ilegible → motivo de respaldo pdf_PDF_NO_LEGIBLE", () => {
+  assert.equal(
+    backupReasonFromPdfGap({ extractOk: false, extractReason: "PDF_NO_LEGIBLE" }),
+    "pdf_PDF_NO_LEGIBLE",
+  );
+  assert.equal(
+    backupReasonFromPdfGap({ extractOk: true, selectionReason: "no_full_rfc" }),
+    "pdf_no_full_rfc",
+  );
+});
+
+test("presupuesto: sin tiempo para respaldo (< MIN) → null timeout", () => {
+  assert.equal(FISCAL_ROUTE_BUDGET_MS, 50_000);
+  assert.equal(
+    workerAttemptTimeoutMs(FISCAL_MIN_BACKUP_ATTEMPT_MS - 1),
+    null,
+  );
+  assert.equal(workerAttemptTimeoutMs(12_000), 12_000);
+  assert.equal(workerAttemptTimeoutMs(50_000, { minMs: 1_000 }), 50_000);
+});
+
+test("pass desde estado_cuenta no incluye campos de respaldo", () => {
+  const r = buildValidadoResumen({
+    fiscalRfc: "BADD9001019A1",
+    rfcSource: "estado_cuenta",
+  });
+  assert.equal(r.rfc_source, "estado_cuenta");
+  assert.equal(r.backup_reason, undefined);
+  assert.equal(r.pdf_homoclave_differed, undefined);
 });

@@ -351,3 +351,137 @@ export function resolveFiscalRfc(args: {
     reason: "estado_cuenta_selected",
   };
 }
+
+/** Máscara segura para logs / resultado_resumido (nunca RFC completo). */
+export function maskFiscalId(value: string | null | undefined): string {
+  const s = normalizeRfc(value);
+  if (!s) return "-";
+  return `${s.slice(0, 4)}***`;
+}
+
+export type CapturedBackupPick =
+  | {
+      ok: true;
+      rfc: string;
+      field: "rfc_infonavit" | "rfc_datos_generales";
+    }
+  | {
+      ok: false;
+      reason: "missing" | "not_full13" | "curp_base_mismatch" | "curp_invalid";
+    };
+
+/**
+ * Respaldo capturado: rfc_infonavit si no vacío; si vacío, RFC de datos generales.
+ * Solo full13 cuya base10 coincide con la CURP del expediente.
+ */
+export function pickCapturedBackupRfc(args: {
+  rfcInfonavit?: string | null;
+  rfcDatosGenerales?: string | null;
+  curpValidadaLocalmente: string;
+}): CapturedBackupPick {
+  const curpBase = curpRfcBase10(args.curpValidadaLocalmente);
+  if (!curpBase) return { ok: false, reason: "curp_invalid" };
+
+  const inf = normalizeRfc(args.rfcInfonavit);
+  if (inf) {
+    if (rfcShape(inf) !== "full13") return { ok: false, reason: "not_full13" };
+    if (inf.slice(0, 10) !== curpBase) return { ok: false, reason: "curp_base_mismatch" };
+    return { ok: true, rfc: inf, field: "rfc_infonavit" };
+  }
+
+  const dg = normalizeRfc(args.rfcDatosGenerales);
+  if (!dg) return { ok: false, reason: "missing" };
+  if (rfcShape(dg) !== "full13") return { ok: false, reason: "not_full13" };
+  if (dg.slice(0, 10) !== curpBase) return { ok: false, reason: "curp_base_mismatch" };
+  return { ok: true, rfc: dg, field: "rfc_datos_generales" };
+}
+
+export function homoclaveDiffers(
+  rfcA: string | null | undefined,
+  rfcB: string | null | undefined,
+): boolean {
+  const a = normalizeRfc(rfcA);
+  const b = normalizeRfc(rfcB);
+  if (rfcShape(a) !== "full13" || rfcShape(b) !== "full13") return false;
+  if (a.slice(0, 10) !== b.slice(0, 10)) return false;
+  return a.slice(10) !== b.slice(10);
+}
+
+export type FiscalBackupReason =
+  | "pdf_PDF_NO_LEGIBLE"
+  | "pdf_ERROR_ANALISIS"
+  | "pdf_no_full_rfc"
+  | "pdf_curp_base_conflict"
+  | "pdf_insufficient_corroboration"
+  | "pdf_ambiguous_candidates"
+  | "pdf_estado_cuenta_unknown"
+  | "pdf_sat_invalid"
+  | (string & {});
+
+export type FiscalValidadoResumen = Readonly<{
+  source: "sat_worker";
+  semantic: "pass";
+  rfc_source: "estado_cuenta" | "respaldo_capturado";
+  fiscal_rfc_masked: string;
+  backup_reason?: FiscalBackupReason;
+  backup_field?: "rfc_infonavit" | "rfc_datos_generales";
+  pdf_homoclave_differed?: boolean;
+  pdf_rfc_masked?: string;
+}>;
+
+export function buildValidadoResumen(args: {
+  fiscalRfc: string;
+  rfcSource: "estado_cuenta" | "respaldo_capturado";
+  backupReason?: FiscalBackupReason;
+  backupField?: "rfc_infonavit" | "rfc_datos_generales";
+  pdfRfc?: string | null;
+}): FiscalValidadoResumen {
+  const base: FiscalValidadoResumen = {
+    source: "sat_worker",
+    semantic: "pass",
+    rfc_source: args.rfcSource,
+    fiscal_rfc_masked: maskFiscalId(args.fiscalRfc),
+  };
+  if (args.rfcSource === "estado_cuenta") return base;
+  const pdfMasked = args.pdfRfc ? maskFiscalId(args.pdfRfc) : undefined;
+  return {
+    ...base,
+    backup_reason: args.backupReason,
+    backup_field: args.backupField,
+    pdf_homoclave_differed: args.pdfRfc
+      ? homoclaveDiffers(args.pdfRfc, args.fiscalRfc)
+      : undefined,
+    pdf_rfc_masked: pdfMasked,
+  };
+}
+
+/** Presupuesto total acordado para llamadas al worker en la route. */
+export const FISCAL_ROUTE_BUDGET_MS = 50_000;
+/** Mínimo para intentar un segundo validate (respaldo); si no cabe → REVISION_MANUAL. */
+export const FISCAL_MIN_BACKUP_ATTEMPT_MS = 8_000;
+
+export function remainingFiscalBudgetMs(deadlineAt: number, now = Date.now()): number {
+  return Math.max(0, deadlineAt - now);
+}
+
+export function workerAttemptTimeoutMs(
+  remainingMs: number,
+  opts?: { minMs?: number },
+): number | null {
+  const minMs = opts?.minMs ?? FISCAL_MIN_BACKUP_ATTEMPT_MS;
+  if (remainingMs < minMs) return null;
+  return Math.min(FISCAL_ROUTE_BUDGET_MS, remainingMs);
+}
+
+export function backupReasonFromPdfGap(args: {
+  extractOk: boolean;
+  extractReason?: string | null;
+  selectionReason?: string | null;
+}): FiscalBackupReason {
+  if (!args.extractOk) {
+    const r = String(args.extractReason ?? "ERROR_ANALISIS");
+    return `pdf_${r}` as FiscalBackupReason;
+  }
+  const sel = String(args.selectionReason ?? "estado_cuenta_unknown");
+  return `pdf_${sel}` as FiscalBackupReason;
+}
