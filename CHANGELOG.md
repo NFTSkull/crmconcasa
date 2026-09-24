@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+- **feat(sat-validator): proxy residencial Playwright** — `SAT_PROXY_URL` / `SAT_PROXY_USER_PREFIX` / `SAT_PROXY_PASSWORD`; username `<prefix>-session-<id>-ttl-5` por `/validate` (misma sesión RFC+CURP); sin URL → directo. `/health.proxy` present|absent; `/diagnostics/sat.proxy` used|direct. Sin log de credenciales.
+
 - **test(fiscal P228):** `route.test.ts` cubre 2º intento (`planFiscalBackupAttempt` / tryBackup): PDF sin RFC + respaldo, PDF inválido SAT + respaldo, sin cupo (`budget_exceeded`).
 
 - **fix(fiscal P228):** RFC fiscal — si el PDF no resuelve o el SAT lo marca inválido, intenta respaldo `rfc_infonavit`/DG solo si base10 = CURP; metadata `rfc_source` en VALIDADO; presupuesto 50s para 2º intento.

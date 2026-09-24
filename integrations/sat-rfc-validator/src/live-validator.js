@@ -4,6 +4,43 @@ import { chromium } from 'playwright'
 import { solveCaptcha } from './captcha-solver.js'
 import { preprocessCaptchaImage } from './captcha-preprocess.js'
 import { classifyRfcSatText, classifyCurpSatText, isCaptchaRejectedText } from './sat-results.js'
+import {
+  buildSatProxyConfig,
+  newProxySessionId,
+  proxySafeSummary,
+  satProxyPresence,
+} from './proxy-config.js'
+
+const LAUNCH_ARGS = ['--no-sandbox', '--disable-setuid-sandbox', '--ignore-certificate-errors']
+
+/**
+ * @param {{ sessionId?: string }} [opts]
+ * @returns {Promise<import('playwright').Browser>}
+ */
+async function launchSatBrowser(opts = {}) {
+  const proxy = buildSatProxyConfig(opts)
+  const summary = proxySafeSummary(proxy)
+  if (summary.used) {
+    console.log(
+      `[sat-validator] PROXY present host=${summary.serverHost} sessionHint=${summary.sessionHint}`,
+    )
+  } else {
+    console.log('[sat-validator] PROXY absent (direct)')
+  }
+  /** @type {import('playwright').LaunchOptions} */
+  const launchOpts = {
+    headless: true,
+    args: LAUNCH_ARGS,
+  }
+  if (proxy) {
+    launchOpts.proxy = {
+      server: proxy.server,
+      username: proxy.username,
+      password: proxy.password,
+    }
+  }
+  return chromium.launch(launchOpts)
+}
 
 const RFC_URL = 'https://agsc.siat.sat.gob.mx/PTSC/ValidaRFC/index.jsf'
 const CURP_URL = 'https://agsc.siat.sat.gob.mx/PTSC/ConsultaIdCSIAT/'
@@ -333,14 +370,15 @@ async function validateCurp(page, curp, apiKey) {
 /**
  * Diagnóstico de red/SAT: abre la página RFC hasta #captchaSession.
  * No resuelve captcha ni consulta RFC/CURP (sin datos de clientes).
+ * Usa proxy si SAT_PROXY_URL está definida (misma convención que /validate).
  */
 export async function probeSatRfcPageLoad() {
   const started = Date.now()
-  const browser = await chromium.launch({
-    headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--ignore-certificate-errors'],
-  })
+  const usedProxy = satProxyPresence() === 'present'
+  const sessionId = usedProxy ? newProxySessionId() : undefined
+  let browser
   try {
+    browser = await launchSatBrowser(sessionId ? { sessionId } : {})
     const context = await browser.newContext({
       ignoreHTTPSErrors: true,
       locale: 'es-MX',
@@ -354,23 +392,27 @@ export async function probeSatRfcPageLoad() {
       ok: true,
       loadMs: Date.now() - started,
       error: null,
+      proxy: usedProxy ? 'used' : 'direct',
     }
   } catch (error) {
     return {
       ok: false,
       loadMs: Date.now() - started,
       error: error instanceof Error ? error.message : String(error),
+      proxy: usedProxy ? 'used' : 'direct',
     }
   } finally {
-    await browser.close().catch(() => {})
+    if (browser) await browser.close().catch(() => {})
   }
 }
 
+/**
+ * Validación live RFC+CURP. Un sessionId de proxy por llamada (misma sesión ambos).
+ */
 export async function validateFiscalLive({ rfc, curp, capsolverApiKey }) {
-  const browser = await chromium.launch({
-    headless: true,
-    args: ['--no-sandbox', '--disable-setuid-sandbox', '--ignore-certificate-errors'],
-  })
+  const sessionId =
+    satProxyPresence() === 'present' ? newProxySessionId() : undefined
+  const browser = await launchSatBrowser(sessionId ? { sessionId } : {})
   try {
     const context = await browser.newContext({
       ignoreHTTPSErrors: true,

@@ -2,6 +2,7 @@ import express from 'express'
 import PQueue from 'p-queue'
 import { validateRequestPayload, fixtureValidationResult } from './contracts.js'
 import { probeSatRfcPageLoad, validateFiscalLive } from './live-validator.js'
+import { satProxyPresence } from './proxy-config.js'
 
 const PORT = Number(process.env.PORT || 3002)
 
@@ -24,6 +25,7 @@ export function buildHealthPayload() {
       ? 'present'
       : 'absent',
     SAT_VALIDATOR_SECRET: currentSecret() ? 'present' : 'absent',
+    proxy: satProxyPresence(),
   }
 }
 
@@ -61,12 +63,14 @@ export function createApp(options = {}) {
         ok: result.ok,
         loadMs: result.loadMs,
         error: result.error,
+        proxy: result.proxy ?? (satProxyPresence() === 'present' ? 'used' : 'direct'),
       })
     } catch (error) {
       return res.status(503).json({
         ok: false,
         loadMs: null,
         error: error instanceof Error ? error.message : String(error),
+        proxy: satProxyPresence() === 'present' ? 'used' : 'direct',
       })
     }
   })
