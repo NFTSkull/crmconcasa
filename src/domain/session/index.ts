@@ -69,7 +69,7 @@ export function useSessionRepo(): {
         typeof window !== "undefined" &&
         window.location.pathname !== "/login"
       ) {
-        window.location.replace("/login?reason=session_expired");
+        window.location.replace("/login");
       }
     });
 
