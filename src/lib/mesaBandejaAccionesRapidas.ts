@@ -590,11 +590,14 @@ export function resolveMesaTomarExpedienteAccion(params: {
   }
 
   if (!isSinAsignarOps(params.ops) && params.ops?.assignedTo) {
+    const assignedName = params.assignedDisplayName?.trim();
     return {
-      visible: false,
+      visible: true,
       assignedToMe: false,
       assignedToOther: true,
-      assignedLabel: params.assignedDisplayName?.trim() || "Asignado",
+      assignedLabel: assignedName
+        ? `Actualmente asignado a ${assignedName}`
+        : "Actualmente asignado a otro usuario",
     };
   }
 
