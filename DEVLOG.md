@@ -1,3 +1,9 @@
+## 2026-09-24 - Worker SAT: proxy residencial (proxies.fo)
+
+- `integrations/sat-rfc-validator`: `proxy-config.js` + `chromium.launch({ proxy })` si `SAT_PROXY_URL`.
+- Username: `<SAT_PROXY_USER_PREFIX>-session-<hex>-ttl-5`; un sessionId por `/validate` (RFC+CURP).
+- Health/diagnostics reportan presencia/uso sin credenciales. Tests en `proxy-config.test.js` + health.
+
 ## 2026-09-24 - Re-review main d5dc8b5 pre-apply 228 (solo lectura)
 
 - Delta `6f884f6..d5dc8b5`: 1 commit + mig `20260924215803` (`mesa_take_expediente` no exclusivo). **Fuera** del perímetro 228.
