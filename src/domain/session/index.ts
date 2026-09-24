@@ -32,6 +32,7 @@ export function useSessionRepo(): {
   currentUser: UserSession | null | undefined;
 } {
   const store = useMockStore();
+  const { login: bridgeLogin, logout: bridgeLogout } = store;
   const supabaseAuthEnabled = isSupabaseAuthEnabled();
 
   // En producción el repositorio Supabase debe permanecer estable aunque cambie
@@ -39,10 +40,10 @@ export function useSessionRepo(): {
   const supabaseSessionRepo = useMemo(
     () =>
       new SupabaseSessionRepo({
-        login: store.login,
-        logout: store.logout,
+        login: bridgeLogin,
+        logout: bridgeLogout,
       }),
-    [store.login, store.logout],
+    [bridgeLogin, bridgeLogout],
   );
   const mockSessionRepo = useMemo(() => new MockSessionRepo(store), [store]);
   const sessionRepo = supabaseAuthEnabled ? supabaseSessionRepo : mockSessionRepo;
@@ -69,7 +70,7 @@ export function useSessionRepo(): {
       if (typeof window !== "undefined") {
         window.localStorage.removeItem("concasa_session");
       }
-      store.logout();
+      bridgeLogout();
       setCurrentUser(null);
 
       if (
@@ -83,7 +84,7 @@ export function useSessionRepo(): {
     return () => {
       subscription.unsubscribe();
     };
-  }, [store.logout, supabaseAuthEnabled]);
+  }, [bridgeLogout, supabaseAuthEnabled]);
 
   useEffect(() => {
     let cancelled = false;
