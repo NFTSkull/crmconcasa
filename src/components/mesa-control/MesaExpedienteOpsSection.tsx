@@ -187,7 +187,7 @@ export function MesaExpedienteOpsSection({
       return "Este expediente está marcado como tuyo en Mesa.";
     }
     if (assignedToOther) {
-      return "Este expediente ya está siendo trabajado por otro usuario de Mesa.";
+      return "Este expediente está asignado a otro usuario, pero puedes tomarlo si vas a trabajarlo.";
     }
     return null;
   }, [sinAsignar, assignedToMe, assignedToOther]);
@@ -227,7 +227,7 @@ export function MesaExpedienteOpsSection({
       ) : null}
 
       <div className="mt-4 flex flex-wrap gap-2">
-        {sinAsignar ? (
+        {sinAsignar || assignedToOther ? (
           <Button
             type="button"
             disabled={actionLoading}

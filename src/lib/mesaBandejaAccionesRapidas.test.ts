@@ -346,7 +346,7 @@ describe("mesaBandejaAccionesRapidas P119.3/P119.4/P133", () => {
     assert.equal(canMesaToggleMarcadorRole("asesor"), false);
   });
 
-  it("tomar: visible si sin asignar; no tomar ajeno", () => {
+  it("tomar: visible si sin asignar y permite reasignar ajeno", () => {
     assert.equal(
       resolveMesaTomarExpedienteAccion({
         ops: null,
@@ -372,8 +372,9 @@ describe("mesaBandejaAccionesRapidas P119.3/P119.4/P133", () => {
       cicloEstado: "activo",
       assignedDisplayName: "Otro",
     });
-    assert.equal(other.visible, false);
+    assert.equal(other.visible, true);
     assert.equal(other.assignedToOther, true);
+    assert.equal(other.assignedLabel, "Actualmente asignado a Otro");
   });
 
   it("mapa canónico 5→8 (no +1) y sin entradas 3/8/9", () => {
