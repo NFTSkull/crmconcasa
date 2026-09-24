@@ -754,8 +754,41 @@ export function AgendaBiometricosSupabaseCard({
     </div>
   );
 
-  const renderNotificacionTab = () =>
-    repo ? (
+  const renderNotificacionTab = () => {
+    if (puedeConvertir && activeBooking) {
+      return (
+        <div
+          className="mt-3 rounded-lg border border-amber-200 bg-amber-50/70 p-3"
+          data-testid="agenda-tab-panel-notificacion"
+        >
+          <p className="text-xs font-semibold text-amber-950">
+            Este expediente tiene una cita biométrica activa.
+          </p>
+          <p className="mt-1 text-[11px] leading-snug text-amber-900">
+            Para cambiarla a Notificación extraordinaria no debes crear una cita nueva.
+            Usa la conversión para cancelar Biométricos y crear la Notificación a las
+            12:00 PM en una sola operación.
+          </p>
+          <Button
+            type="button"
+            variant="outline"
+            className="mt-3 w-full border-amber-400 text-xs text-amber-950 hover:bg-amber-100"
+            disabled={saving}
+            onClick={() => {
+              setError(null);
+              setSuccessMsg(null);
+              setAgendaTab("biometricos");
+              setConvertMode(true);
+              if (config) setConvertDateYmd(todayYmdInTimezone(config.timezone));
+            }}
+          >
+            Cambiar a Notificación extraordinaria
+          </Button>
+        </div>
+      );
+    }
+
+    return repo ? (
       <div className="mt-3" data-testid="agenda-tab-panel-notificacion">
         <AgendaNotificacionSupabaseTab
           expedienteId={expedienteId}
@@ -769,6 +802,7 @@ export function AgendaBiometricosSupabaseCard({
         />
       </div>
     ) : null;
+  };
 
   const renderFormShell = (
     title: string,
