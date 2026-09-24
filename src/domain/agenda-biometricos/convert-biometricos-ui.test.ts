@@ -84,6 +84,22 @@ describe("P070 convert UI gates + card wiring", () => {
     assert.doesNotMatch(convertBlock, /driveValidated|Validado en Drive/);
   });
 
+  it("tab Notificación en etapa 4 con bio activo guía a conversión y no al book directo", () => {
+    const src = readFileSync(
+      join(process.cwd(), "src/components/asesor/AgendaBiometricosSupabaseCard.tsx"),
+      "utf8",
+    );
+    const block = src.slice(
+      src.indexOf("const renderNotificacionTab"),
+      src.indexOf("const renderFormShell"),
+    );
+    assert.match(block, /Este expediente tiene una cita biométrica activa/);
+    assert.match(block, /no debes crear una cita nueva/);
+    assert.match(block, /setAgendaTab\("biometricos"\)/);
+    assert.match(block, /setConvertMode\(true\)/);
+    assert.match(block, /Cambiar a Notificación extraordinaria/);
+  });
+
   it("tabs Bio/Notificación/Inscripción siempre visibles en agenda (P177)", () => {
     const src = readFileSync(
       join(process.cwd(), "src/components/asesor/AgendaBiometricosSupabaseCard.tsx"),
