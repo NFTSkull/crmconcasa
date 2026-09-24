@@ -1,3 +1,10 @@
+## 2026-09-24 - Runbook v2 + TX en mig 228
+
+- Mig/rollback 228 envueltos en `BEGIN`/`COMMIT` (sin CONCURRENTLY).
+- Smoke d = envíos reales + action_log 1h; piloto e = asesor real; inválido/RM en prueba; super_admin solo RM real.
+- Supabase prod: sin auto-migración al merge (lectura API + DEPLOY_TARGETS).
+- Railway post-merge → branch `main`; borrar feat remota al estabilizar; nota Vercel Preview→prod DB.
+
 ## 2026-09-24 - Runbook: CapSolver compartida + push por rama
 
 - `CAPSOLVER_API_KEY`: copiar desde `mejoravit-scraper` (Railway `fulfilling-bravery`); no key nueva; no mutar ese servicio. Alerta saldo bajo CapSolver (saldo compartido).

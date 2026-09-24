@@ -1,13 +1,13 @@
 # Runbook — Gate fiscal SAT (P228) a producción
 
 **Rama / commit local:** `feat/fiscal-sat-gate-worker-capsolver`  
-**Migración:** `supabase/migrations/228_fiscal_sat_gate_server_write.sql`  
-**Rollback:** `supabase/rollback/228_fiscal_sat_gate_server_write_ROLLBACK.sql`  
+**Migración:** `supabase/migrations/228_fiscal_sat_gate_server_write.sql` (transacción `BEGIN`…`COMMIT`: completa o nada)  
+**Rollback:** `supabase/rollback/228_fiscal_sat_gate_server_write_ROLLBACK.sql` (idem, transaccional)  
 **Prod Supabase:** `fvtqbxukqlajezyyvwzy` (solo cuando el operador autorice apply)  
 **CRM:** Vercel `crmconcasa`  
 **Worker:** Railway — proyecto `fulfilling-bravery`, servicio **nuevo** (no tocar `mejoravit-scraper`)
 
-**Orden obligatorio:** push de la **rama** (no `main`) → Railway worker → Supabase mig 228 → merge a `main` + env Vercel + deploy CRM → smoke gate OFF → piloto → apagar temp → (opcional) encendido global.
+**Orden obligatorio:** push de la **rama** (no `main`) → Railway worker → respaldo defs + mig 228 (manual) → merge a `main` + env Vercel + deploy CRM → smoke con envíos reales → piloto → worker a `main` → apagar temp → (opcional) encendido global → borrar rama remota.
 
 Si el CRM se despliega **antes** de la mig 228, la route detecta RPC ausente (`42883` / `PGRST202`) y hace **fail-open** a `enviar_a_mesa` (comportamiento actual) con warning en logs. Cualquier otro error del gate es **fail-closed**.
 
@@ -19,8 +19,19 @@ Si el CRM se despliega **antes** de la mig 228, la route detecta RPC ausente (`4
 |------|-----|---------|
 | 1 | Subir `feat/fiscal-sat-gate-worker-capsolver` | Remote como **rama** (no merge a `main`) |
 | 2 | Railway despliega el worker desde esa rama | Root: `integrations/sat-rfc-validator` |
-| 3 | Operador aplica mig **228** en prod | SQL solo |
-| 4 | Merge de la rama a `main` + deploy Vercel | **Solo después** de la 228 |
+| 3 | Operador aplica mig **228** en prod (manual) | SQL en transacción |
+| 4 | Merge de la rama a `main` + deploy Vercel | **Solo después** de la 228 verificada |
+| 5 | Railway: cambiar branch del worker a `main` | Re-verificar `/health` |
+| 6 | Cuando todo estable: borrar rama remota | `feat/fiscal-sat-gate-worker-capsolver` |
+
+**Integración Supabase ↔ GitHub (lectura Management API + repo, 2026-09-24):** no hay evidencia de auto-apply de migraciones a **producción** al hacer push/merge. El historial de migraciones Cloud se aplica con autorización explícita (`docs/DEPLOY_TARGETS.md`). No hay workflow de GitHub Actions que haga `db push` a prod. Los preview branches de Supabase son independientes; **no** sustituyen el apply manual de la 228 en `fvtqbxukqlajezyyvwzy`.
+
+- **Push de la rama:** no aplica la 228 en prod. Puede generar **Vercel Preview** (ver nota abajo).
+- **Merge a `main`:** despliega el CRM en Vercel; **no** corre sola la 228 en prod. La mig sigue siendo paso §b (operador).
+
+### Nota — Vercel Preview al push de la rama
+
+El push de `feat/fiscal-sat-gate-worker-capsolver` suele crear un **preview deployment** de Vercel. Ese preview **apunta a la base de producción** (mismas `NEXT_PUBLIC_SUPABASE_*`). **No compartir esa URL** ni usarla para pruebas: cualquier acción real pega en prod. Usar solo el deploy de Production tras el merge (§c), o entornos explícitamente aislados.
 
 No mergear a `main` antes de que la 228 esté aplicada y verificada en producción.
 
@@ -30,7 +41,7 @@ No mergear a `main` antes de que la 228 esté aplicada y verificada en producci�
 
 ### Qué hacer
 
-1. **Push** de `feat/fiscal-sat-gate-worker-capsolver` al remote (rama, no `main`) para que Railway pueda construir.
+1. **Push** de `feat/fiscal-sat-gate-worker-capsolver` al remote (rama, no `main`) para que Railway pueda construir. Recordar la nota de Vercel Preview arriba.
 2. En Railway (proyecto `fulfilling-bravery`): crear un servicio **nuevo** conectado a ese repo/rama.  
    **No** modificar, redeployar ni cambiar variables de `mejoravit-scraper`.
 3. Configuración del servicio:
@@ -39,7 +50,7 @@ No mergear a `main` antes de que la 228 esté aplicada y verificada en producci�
 |---------|--------|
 | **Root Directory** | `integrations/sat-rfc-validator` |
 | **Builder** | Dockerfile (archivo `integrations/sat-rfc-validator/Dockerfile`) |
-| Branch | `feat/fiscal-sat-gate-worker-capsolver` (hasta el merge a `main`) |
+| Branch | `feat/fiscal-sat-gate-worker-capsolver` (hasta §c.5) |
 
 **Chromium / Playwright:** el `Dockerfile` usa la imagen oficial  
 `FROM mcr.microsoft.com/playwright:v1.55.0-noble`, que **ya incluye Chromium** y dependencias del sistema. No hace falta nixpacks ni `npx playwright install` en el deploy de Railway si se construye con ese Dockerfile.
@@ -82,10 +93,34 @@ curl -sS "$SAT_VALIDATOR_URL/health"
 
 ## b. Supabase producción — migración 228
 
+La migración y el rollback van en **una sola transacción** (`BEGIN` … `COMMIT`). Si cualquier sentencia falla, no queda estado a medias: **se aplica completa o no se aplica**.
+
+### Antes de apply — respaldo local de defs
+
+En SQL editor (solo lectura) o `psql` de prod, guardar en el laptop (no en el repo):
+
+```bash
+# Ejemplo local (fecha ISO); NO committear estos archivos
+STAMP=$(date -u +%Y%m%dT%H%M%SZ)
+# Pegar salida de:
+```
+
+```sql
+-- Guardar resultado en: backups/prod-enviar_a_mesa-$STAMP.sql
+SELECT pg_get_functiondef('public.enviar_a_mesa(uuid)'::regprocedure);
+
+-- Guardar resultado en: backups/prod-asesor_registrar_validacion_identidad-$STAMP.sql
+SELECT pg_get_functiondef(
+  'public.asesor_registrar_validacion_identidad(uuid,text,text,text,jsonb,uuid,integer,text,text)'::regprocedure
+);
+```
+
+Conservar también a mano el archivo `supabase/rollback/228_fiscal_sat_gate_server_write_ROLLBACK.sql` de la misma versión del commit desplegado.
+
 ### Qué hacer
 
-1. Operador corre **solo** `228_fiscal_sat_gate_server_write.sql` en `fvtqbxukqlajezyyvwzy` (SQL editor / CLI autorizado).  
-2. **No** correr el rollback salvo incidente (ver §h).
+1. Operador corre **todo** el archivo `228_fiscal_sat_gate_server_write.sql` en `fvtqbxukqlajezyyvwzy` (incluye `BEGIN`/`COMMIT`).  
+2. **No** correr el rollback salvo incidente (ver §h).  
 3. Solo después de verificación OK → autorizar merge a `main` y deploy Vercel (§c).
 
 ### Queries de verificación post-apply
@@ -133,10 +168,11 @@ ORDER BY 1;
 
 | Síntoma | Acción |
 |---------|--------|
-| Apply a medias | **No** merge/deploy CRM. Correr rollback §h o restaurar defs; reintentar 228 en ventana controlada |
-| `auth_can_core = true` | Revisar GRANT/REVOKE de la mig; no continuar |
-| settings_upd = true | `REVOKE ALL ON app_settings FROM authenticated; GRANT SELECT …` como en la mig |
+| Error a mitad (rollback automático de la TX) | Estado pre-228 intacto. Corregir script; reintentar el archivo completo. No merge/deploy CRM |
+| `auth_can_core = true` | Revisar GRANT/REVOKE; no continuar |
+| settings_upd = true | `REVOKE ALL ON app_settings FROM authenticated; GRANT SELECT …` |
 | Gate enabled true por error | Apagado de emergencia §g inmediatamente |
+| Necesitas restaurar defs | Usar archivos de respaldo `$STAMP` y/o el ROLLBACK transaccional §h |
 
 ---
 
@@ -155,9 +191,22 @@ ORDER BY 1;
 
 3. Deploy del CRM desde `main` (incluye route `enviar-mesa-fiscal`). Preferible **después** de la 228; si por error el CRM llegara antes, el fail-open cubre RPC ausente.
 
-### Verificar OK
+### c.5 Railway — apuntar worker a `main`
 
-- Deploy verde en Vercel.
+Después del merge:
+
+1. En el servicio nuevo del worker: cambiar **Branch** de `feat/fiscal-sat-gate-worker-capsolver` → `main`.
+2. Redeploy (si Railway no lo hace solo).
+3. Verificar de nuevo:
+
+```bash
+curl -sS "$SAT_VALIDATOR_URL/health"
+# Esperado: {"ok":true,"mode":"live", ...}
+```
+
+### Verificar OK (Vercel)
+
+- Deploy verde en Vercel Production.
 - Logs: sin spam de `SUPABASE_NOT_CONFIGURED` / `SAT_WORKER_NOT_CONFIGURED` en envíos con gate OFF (worker no se llama).
 
 ### Si falla
@@ -167,48 +216,55 @@ ORDER BY 1;
 | Build fail | No promover; revert deploy Vercel |
 | Worker URL mal | Corregir env y redeploy; no tocar Supabase |
 | Secret mismatch | Alinear Railway ↔ Vercel `SAT_VALIDATOR_SECRET`; redeploy |
+| `/health` falla tras cambiar a `main` | Revisar que `main` contiene `integrations/sat-rfc-validator`; revert branch del servicio a la feat si hace falta |
 
 ---
 
-## d. Smoke con gate apagado
+## d. Smoke con gate OFF — envíos reales (no expediente de prueba)
+
+**No** fabricar un envío de prueba a Mesa: un `enviar_a_mesa` exitoso marca `submitted_to_mesa`, entra a la bandeja de Mesa, y si el expediente es `programa=mejoravit` y el feature P189 está ON, encola snapshot + 3 PDFs Infonavit **internos** (outbox CRM para Mesa; no es un portal/API externo de Infonavit, pero sí trabajo real de Mesa).
 
 ### Qué hacer
 
 1. Confirmar settings (§b): `enabled=false`, piloto `[]`.
-2. Con un asesor de prueba: flujo normal integración → **Enviar a Mesa**.
-3. Esperado: envío **igual que hoy** (sin CapSolver, sin `REVISION_MANUAL`).
+2. Tras el deploy Production: observar los **primeros envíos reales** de asesores (operación normal).
+3. Query de control (última hora):
+
+```sql
+SELECT created_at, actor_id, entity_id, action, payload
+FROM public.action_log
+WHERE action ILIKE '%enviar_a_mesa%'
+  AND created_at > now() - interval '1 hour'
+ORDER BY created_at DESC
+LIMIT 50;
+```
+
+4. Revisar logs de Vercel Production: sin errores nuevos del gate/worker; sin ráfagas de `FISCAL_*` / `SAT_WORKER_*` cuando el gate no aplica.
 
 ### Verificar OK
 
-```sql
-SELECT submitted_to_mesa, fecha_envio_mesa
-FROM public.expedientes WHERE id = '<EXP_ID>';
--- submitted_to_mesa = true
-
-SELECT * FROM public.action_log
-WHERE entity_id = '<EXP_ID>'
-  AND action ILIKE '%enviar_a_mesa%'
-ORDER BY created_at DESC LIMIT 5;
-```
-
-En logs Vercel: **no** debería aparecer llamada al worker SAT (gate no aplica).
+- Aparecen `expediente.enviar_a_mesa` (o acción equivalente) de asesores reales.
+- Expedientes correspondientes con `submitted_to_mesa = true`.
+- Logs Vercel limpios respecto al gate con flag OFF.
 
 ### Si falla
 
 | Síntoma | Acción |
 |---------|--------|
-| Error fiscal / CTA Reintentar con gate OFF | Revisar piloto accidental; `SELECT value FROM app_settings WHERE key='fiscal_sat_gate_pilot_asesores'` |
-| Warning fail-open mig ausente | La 228 no está en prod → volver a §b |
-| Envío roto igual que sin este release | Rollback CRM (§h); investigar fuera del gate |
+| Errores fiscales / CTA con gate OFF | Revisar piloto accidental; `SELECT value FROM app_settings WHERE key='fiscal_sat_gate_pilot_asesores'` |
+| Warning fail-open mig ausente | La 228 no está en prod → §b |
+| Caída general de envíos | Rollback CRM (§h); no “arreglar” con expedientes de prueba a Mesa |
 
 ---
 
-## e. Piloto — agregar asesor de prueba y casos
+## e. Piloto — asesor real de confianza
 
-### SQL agregar profile del asesor de prueba
+El operador elige el **profile id** de un asesor real de confianza. Piloto = `expedientes.asesor_id` (dueño).
+
+### SQL agregar al piloto
 
 ```sql
--- Reemplazar <PROFILE_UUID> por el id de profiles del asesor de prueba (dueño del expediente).
+-- Reemplazar <PROFILE_UUID> por el profile id del asesor real elegido.
 UPDATE public.app_settings
 SET value = coalesce(value, '[]'::jsonb) || jsonb_build_array('<PROFILE_UUID>'::text),
     updated_at = now()
@@ -218,17 +274,15 @@ WHERE key = 'fiscal_sat_gate_pilot_asesores'
 SELECT value FROM public.app_settings WHERE key = 'fiscal_sat_gate_pilot_asesores';
 ```
 
-Piloto usa **`expedientes.asesor_id`** (dueño), no el actor delegado.
+### Casos
 
-### Casos a probar
-
-| Caso | Pasos | Esperado |
-|------|--------|----------|
-| Pass | Expediente listo + EDC/CURP/RFC coherentes → Enviar | Worker live → `VALIDADO` → `submitted_to_mesa=true` |
-| RFC inválido | RFC que SAT marque inválido | `INVALIDO`; **no** Mesa; sin envío |
-| Revisión manual | Forzar retry/captcha/timeout / worker caído | `REVISION_MANUAL` + CTA «Reintentar validación»; **no** Mesa |
-| Aprobación super_admin | Con `REVISION_MANUAL` vigente: `admin_aprobar_envio_mesa_sin_fiscal(exp, motivo≥10)` como `super_admin` | `APROBADO_ADMIN` + envío; `mesa_admin` debe fallar |
-| Reingreso | Expediente ya en mesa / flujo reingreso | `asesor_enviar_reingreso_a_mesa` **sin** gate fiscal (igual que hoy) |
+| Caso | Cómo | Notas |
+|------|------|--------|
+| **Pass** | Validar con **envíos reales** del asesor piloto (sus expedientes listos) | Llegan a Mesa si VALIDADO; es operación real |
+| **RFC inválido** | Expediente de **prueba** (nunca debe llegar a Mesa) | Esperado: `INVALIDO`; `submitted_to_mesa=false` |
+| **Revisión manual** | Expediente de **prueba** (timeout/captcha/worker) | Esperado: `REVISION_MANUAL` + CTA; **no** Mesa |
+| **Aprobación super_admin** | Solo sobre un expediente **real** que haya quedado en `REVISION_MANUAL` de verdad | `admin_aprobar_envio_mesa_sin_fiscal` como `super_admin`; **nunca** aprobar un expediente de prueba “inventado” |
+| **Reingreso** | Flujo reingreso real/piloto | Sin gate fiscal (igual que hoy) |
 
 ### Verificar OK
 
@@ -243,9 +297,9 @@ ORDER BY created_at DESC;
 
 | Síntoma | Acción |
 |---------|--------|
-| Gate no aplica al piloto | Confirmar UUID = `expedientes.asesor_id`, no otro profile |
-| Worker timeout → sin REVISION_MANUAL | Revisar service role + RPC `server_registrar…`; no forzar Mesa |
-| super_admin no aprueba | Rol real en `profiles.app_role`; motivo ≥ 10 |
+| Gate no aplica | UUID = `expedientes.asesor_id` del dueño |
+| Worker timeout sin `REVISION_MANUAL` | Service role + `server_registrar…`; no forzar Mesa |
+| Tentación de “probar pass” con dummy a Mesa | No: contaminaría bandeja Mesa / outbox P189 |
 
 ### Quitar del piloto
 
@@ -267,7 +321,7 @@ WHERE key = 'fiscal_sat_gate_pilot_asesores';
 ### Qué hacer
 
 1. En Railway: pausar o **eliminar** `sat-rfc-validator-real-e2e-temp-production`.
-2. Confirmar que el CRM apunta solo al servicio **nuevo** (§a), no al temp.
+2. Confirmar que el CRM apunta solo al servicio **nuevo** (§a / §c.5), no al temp.
 
 ### Verificar OK
 
@@ -293,7 +347,7 @@ SELECT value FROM public.app_settings WHERE key = 'fiscal_sat_gate_enabled';
 -- Esperado: true
 ```
 
-Smoke rápido: un expediente de asesor **no** piloto tampoco debe enviar sin VALIDADO/APROBADO_ADMIN.
+Smoke: un expediente de asesor **fuera** del piloto tampoco envía sin VALIDADO/APROBADO_ADMIN.
 
 ### Apagado de emergencia
 
@@ -307,7 +361,7 @@ SET value = '[]'::jsonb, updated_at = now()
 WHERE key = 'fiscal_sat_gate_pilot_asesores';
 ```
 
-Verificar: `enabled=false`, piloto `[]`, un envío normal a Mesa vuelve a comportarse como pre-gate.
+Verificar: `enabled=false`, piloto `[]`, envíos reales vuelven a comportarse como pre-gate.
 
 ---
 
@@ -322,13 +376,12 @@ Ver §g apagado de emergencia.
 
 ### 2) Revertir deploy CRM (Vercel)
 
-- Rollback al deployment anterior en `main` (sin route fiscal / sin dependencia del worker).  
-- O quitar `SAT_VALIDATOR_*` si se deja código fail-open.  
+- Rollback al deployment anterior en `main`.  
 **Verificar:** UI envía a Mesa; sin errores nuevos.
 
 ### 3) Rollback SQL mig 228 (Supabase)
 
-Correr `supabase/rollback/228_fiscal_sat_gate_server_write_ROLLBACK.sql` en prod **solo con autorización**.
+Correr **todo** `228_…_ROLLBACK.sql` (transacción `BEGIN`/`COMMIT`) **solo con autorización**.
 
 Restaura:
 
@@ -336,6 +389,8 @@ Restaura:
 - `asesor_registrar_validacion_identidad` → cuerpo p208
 - DROP helpers gate / core / server_registrar / admin_aprobar
 - Grants como en prod pre-228
+
+Contrastar con los archivos de respaldo `$STAMP` del §b si hace falta.
 
 **Verificar:**
 
@@ -354,11 +409,19 @@ SELECT EXISTS (
 - Pausar/eliminar el servicio nuevo del worker.  
 - Temp e2e ya debió eliminarse en §f.  
 - **No** tocar `mejoravit-scraper` ni rotar la CapSolver key compartida solo por este rollback.  
-**Verificar:** no quedan URLs worker en Vercel apuntando a servicios muertos (o fall-open/cerrado según el código desplegado).
+
+### 5) Borrar rama remota (cuando todo estable o tras abortar el rollout)
+
+```bash
+# Tras confirmar Production estable (o tras rollback completo):
+git push <remote> --delete feat/fiscal-sat-gate-worker-capsolver
+```
+
+También se puede cerrar/archivar el PR. No borrar la rama local de respaldo hasta que el operador lo indique.
 
 ### Si el rollback SQL falla
 
-No improvisar. Restaurar defs desde backup / snapshot; abrir incidente. **No** dejar `enviar_a_mesa_core` a medias con GRANT a `authenticated`.
+No improvisar. Restaurar defs desde los archivos `$STAMP` del §b; abrir incidente. **No** dejar `enviar_a_mesa_core` a medias con GRANT a `authenticated`.
 
 ---
 
@@ -367,4 +430,5 @@ No improvisar. Restaurar defs desde backup / snapshot; abrir incidente. **No** d
 - Producto / API: `docs/FISCAL_SAT_GATE.md`, `docs/API_CONTRATOS.md` §5  
 - Tests SQL: `supabase/tests/rpc_fiscal_sat_gate_p228.sql` (nunca en prod)  
 - Worker: `integrations/sat-rfc-validator/README.md`  
-- Dockerfile Chromium: `integrations/sat-rfc-validator/Dockerfile` → `mcr.microsoft.com/playwright:v1.55.0-noble`
+- Dockerfile Chromium: `integrations/sat-rfc-validator/Dockerfile` → `mcr.microsoft.com/playwright:v1.55.0-noble`  
+- Deploy: `docs/DEPLOY_TARGETS.md` (migraciones solo con autorización explícita)

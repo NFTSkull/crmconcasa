@@ -3,6 +3,8 @@
 -- Restaura grants de cliente_validaciones_identidad como en producción pre-228.
 -- NO borra app_settings ni filas de validación.
 
+BEGIN;
+
 CREATE OR REPLACE FUNCTION public.enviar_a_mesa(p_expediente_id uuid)
  RETURNS jsonb
  LANGUAGE plpgsql
@@ -330,3 +332,5 @@ DROP FUNCTION IF EXISTS public.fiscal_sat_gate_applies_to_expediente(UUID);
 DROP FUNCTION IF EXISTS public.fiscal_sat_binding_matches(JSONB, UUID);
 DROP FUNCTION IF EXISTS public.fiscal_sat_binding_snapshot(UUID);
 DROP FUNCTION IF EXISTS public.app_setting_bool(TEXT, BOOLEAN);
+
+COMMIT;

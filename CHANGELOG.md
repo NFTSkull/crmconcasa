@@ -1,6 +1,6 @@
 ## [Unreleased]
 
-- **docs(fiscal P228):** runbook — CapSolver key compartida con `mejoravit-scraper` (copiar, no mutar); Root Directory `integrations/sat-rfc-validator`; Chromium vía imagen Playwright; push rama → 228 → merge `main`/Vercel; alerta saldo bajo CapSolver.
+- **docs(fiscal P228):** runbook — CapSolver compartida; smoke con envíos reales; piloto asesor de confianza; respaldo defs pre-228; TX BEGIN/COMMIT; Railway→main; borrar rama; nota Vercel Preview; mig manual (sin auto-deploy GitHub a prod).
 
 - **fix(fiscal P228):** fail-open solo si mig 228 ausente (`42883`/`PGRST202`); resto fail-closed. Runbook `docs/RUNBOOK_FISCAL_SAT_GATE.md`. `super_admin`; `asesor_registrar` = p208 + guards; REVISION_MANUAL; CTA; rollback p208+grants. Hardening `app_settings` REVOKE + `extensions.digest`.
 

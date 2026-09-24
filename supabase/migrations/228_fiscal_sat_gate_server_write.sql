@@ -5,6 +5,8 @@
 -- Nota: en main el slot 220 ya existía (externos constancia SAT); este bloque es 228.
 -- =============================================================================
 
+BEGIN;
+
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
 -- ---------------------------------------------------------------------------
@@ -945,3 +947,5 @@ $$;
 REVOKE ALL ON FUNCTION public.admin_aprobar_envio_mesa_sin_fiscal(UUID, TEXT) FROM PUBLIC;
 REVOKE ALL ON FUNCTION public.admin_aprobar_envio_mesa_sin_fiscal(UUID, TEXT) FROM anon;
 GRANT EXECUTE ON FUNCTION public.admin_aprobar_envio_mesa_sin_fiscal(UUID, TEXT) TO authenticated;
+
+COMMIT;
