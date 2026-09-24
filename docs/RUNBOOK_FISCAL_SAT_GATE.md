@@ -11,6 +11,12 @@
 
 Si el CRM se despliega **antes** de la mig 228, la route detecta RPC ausente (`42883` / `PGRST202`) y hace **fail-open** a `enviar_a_mesa` (comportamiento actual) con warning en logs. Cualquier otro error del gate es **fail-closed**.
 
+### Limitación — candado por expediente (in-memory)
+
+La route `enviar-mesa-fiscal` usa un `Set` en proceso (`fiscalValidationInFlight`) para rechazar un segundo POST concurrente del mismo expediente (`FISCAL_VALIDATION_IN_PROGRESS`). La UI deshabilita el botón mientras `enviandoMesa`.
+
+**Alcance:** protege doble click / dos pestañas contra la **misma instancia** serverless. **No** es un candado distribuido entre instancias de Vercel. Suficiente para el piloto; no sustituye un lock en DB si el encendido global exige exclusión fuerte multi-instancia.
+
 ---
 
 ## Estrategia de git / push
@@ -134,26 +140,28 @@ WHERE version = '228' OR name ILIKE '%fiscal_sat_gate%';
 -- Esperado: 0 filas
 ```
 
-2. En el **SQL Editor** de Supabase (sesión del mismo operador que aplicó Mario), pegar y ejecutar **todo** el archivo  
-   `supabase/migrations/228_fiscal_sat_gate_server_write.sql` (incluye `BEGIN`/`COMMIT`).
+2. Pegar en el **SQL Editor** de prod **un solo script** = contenido de  
+   `supabase/migrations/228_fiscal_sat_gate_server_write.sql` **más** el `INSERT` de historial **dentro de la misma transacción**, **inmediatamente antes del `COMMIT`**.  
+   No correr el `INSERT` en una segunda ejecución: si el DDL aplicó y el registro fallara aparte, el historial quedaría desfasado.
 
-3. Registrar el historial **con el mismo mecanismo** (version/name del archivo local; no inventar timestamp). Pegar el contenido íntegro del archivo 228 como literal:
+Fragmento final (antes del `COMMIT` del archivo 228):
 
 ```sql
+-- … cuerpo íntegro de 228_fiscal_sat_gate_server_write.sql hasta antes de COMMIT …
+
 INSERT INTO supabase_migrations.schema_migrations (version, name, statements)
 VALUES (
   '228',
   'fiscal_sat_gate_server_write',
-  ARRAY[$mig$
--- pegar aquí el contenido íntegro de 228_fiscal_sat_gate_server_write.sql
-$mig$]
-)
-ON CONFLICT DO NOTHING;
+  ARRAY['-- applied via SQL Editor (same TX as 228_fiscal_sat_gate_server_write.sql)']
+);
+
+COMMIT;
 ```
 
-> Nota: si el SQL Editor rellena `created_by` automáticamente al aplicar migraciones vía UI de Migrations, ese valor debe coincidir con el operador (como Mario). Un `INSERT` crudo puede dejar `created_by` null (como la 214 vía `db query --linked`); es aceptable si `version`/`name`/`statements` quedan correctos. **Alternativa CLI** (solo el archivo, no el árbol):  
-> `npx supabase db query --linked -f supabase/migrations/228_fiscal_sat_gate_server_write.sql`  
-> y luego el mismo `INSERT` de registro (literal completo o stub estilo 214).
+Paquete listo para pegar (fuera del repo): `~/Desktop/p228-apply/02_aplicar_228.sql` (= mig 228 del repo + ese `INSERT` antes del `COMMIT`).
+
+> `created_by` puede quedar null en un `INSERT` crudo (como la 214 vía `db query --linked`); es aceptable si `version`/`name`/`statements` quedan correctos. **No** usar `db push` del árbol.
 
 **Quedará:** `version='228'`, `name='fiscal_sat_gate_server_write'`. Verificado en prod (lectura 2026-09-24): **no** existe `228` ni nombre fiscal_sat; sin choque con `20260924195716` / `20260924183449`.
 
@@ -170,13 +178,7 @@ WHERE version = '228';
 
 ### Antes de apply — respaldo local de defs
 
-En SQL editor (solo lectura) o `psql` de prod, guardar en el laptop (no en el repo):
-
-```bash
-# Ejemplo local (fecha ISO); NO committear estos archivos
-STAMP=$(date -u +%Y%m%dT%H%M%SZ)
-# Pegar salida de:
-```
+En SQL editor (solo lectura) o `psql` de prod, guardar en el laptop (no en el repo). Ver también `~/Desktop/p228-apply/01_respaldo.sql`.
 
 ```sql
 -- Guardar resultado en: backups/prod-enviar_a_mesa-$STAMP.sql
@@ -188,14 +190,13 @@ SELECT pg_get_functiondef(
 );
 ```
 
-Conservar también a mano el archivo `supabase/rollback/228_fiscal_sat_gate_server_write_ROLLBACK.sql` de la misma versión del commit desplegado.
+Conservar también a mano el archivo `supabase/rollback/228_fiscal_sat_gate_server_write_ROLLBACK.sql` de la misma versión del commit desplegado (copia en `~/Desktop/p228-apply/04_rollback.sql`).
 
 ### Qué hacer
 
-1. Operador corre **todo** el archivo `228_fiscal_sat_gate_server_write.sql` en `fvtqbxukqlajezyyvwzy` (incluye `BEGIN`/`COMMIT`) — ver procedimiento arriba.  
-2. Registrar en `schema_migrations` (`version=228`, `name=fiscal_sat_gate_server_write`).  
-3. **No** correr el rollback salvo incidente (ver §h).  
-4. Solo después de verificación OK → autorizar merge a `main` y deploy Vercel (§c).
+1. Operador corre **todo** `02_aplicar_228.sql` (o el archivo 228 + `INSERT` antes del `COMMIT`) en `fvtqbxukqlajezyyvwzy` — **una sola TX**.  
+2. **No** correr el rollback salvo incidente (ver §h).  
+3. Solo después de verificación OK → autorizar merge a `main` y deploy Vercel (§c).
 
 ### Queries de verificación post-apply
 

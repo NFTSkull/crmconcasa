@@ -1,3 +1,8 @@
+## 2026-09-24 - Runbook: INSERT schema_migrations misma TX + candado
+
+- Apply 228: el `INSERT` en `schema_migrations` va **antes del `COMMIT`** de la misma TX (paquete `~/Desktop/p228-apply/02_aplicar_228.sql`).
+- Candado `fiscalValidationInFlight`: solo misma instancia serverless; UI `enviandoMesa` complementa.
+
 ## 2026-09-24 - Gate: diagnostics, timeouts, INVALIDO fail-closed, candado
 
 - Prod `schema_migrations`: Mario `20260924195716` y mesa_move `20260924183449` con `created_by` email + `statements` completos (Dashboard/SQL Editor; no `db push`). 214 = stub `db query --linked`. Apply 228: SQL Editor + INSERT `version=228` / `name=fiscal_sat_gate_server_write` (sin choque). Merge local `chore/backfill-mig-20260924195716`.
