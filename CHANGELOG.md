@@ -1,5 +1,9 @@
 ## [Unreleased]
 
+- **fix(fiscal P228):** fail-open solo si mig 228 ausente (`42883`/`PGRST202`); resto fail-closed. Runbook `docs/RUNBOOK_FISCAL_SAT_GATE.md`. `super_admin`; `asesor_registrar` = p208 + guards; REVISION_MANUAL; CTA; rollback p208+grants. Hardening `app_settings` REVOKE + `extensions.digest`.
+
+- **feat(fiscal): gate SAT pre-Mesa (P228)** — mig. `228_fiscal_sat_gate_server_write`: `enviar_a_mesa_core` + flag `fiscal_sat_gate_enabled` + piloto `fiscal_sat_gate_pilot_asesores`; binding EDC+CURP+RFC hashes; `server_registrar_validacion_fiscal_sat` (service_role); admin `APROBADO_ADMIN`. Route `/api/expedientes/[id]/enviar-mesa-fiscal` solo llama worker si el gate aplica. Default OFF = comportamiento actual. Rollback en `supabase/rollback/`. **No aplicado en producción.**
+
 - **feat(admin): alcance Pendientes actuales en correcciones** — selector Alcance (Periodo | Pendientes actuales); stock vigente vía `listExpedientesSnapshotPage` sin bounds; PDF muestra Corte (no periodo engañoso). Excel intacto. Sin migración.
 
 - **feat(admin): filtro Corrección + PDF de pendientes** — en Expedientes Mesa: filtro por `ux_state` canónico (`asesor_correccion_detalle`); PDF A4 con label/motivo exactos (pdf-lib); exporta el conjunto completo vía `exportAll` (no solo la página). Sin migración; RO; agenda/escrituras intactos.

@@ -310,6 +310,15 @@
 - SQL: `supabase/tests/rpc_cliente_constancia_curp_validaciones.sql`. FE: `src/domain/identidad-curp/identidad-curp.test.ts`.
 - Probe local flags-only: `npx tsx scripts/probe-curp-constancia-local.ts` (PDF en `/tmp`, no al repo).
 
+## P228 — Gate fiscal SAT (pre-Mesa)
+
+- Flag OFF + piloto vacío → `enviar_a_mesa` / route sin worker (igual que hoy).
+- Asesor en piloto sin VALIDADO → DB bloquea envío; route sí llama worker (para intentar VALIDADO).
+- Asesor fuera de piloto + gate OFF → sin worker, envío actual.
+- VALIDADO/APROBADO_ADMIN + binding; cambio CURP / `datos.rfc` / `rfc_infonavit` / EDC → `allows_envio=false`.
+- PENDIENTE no pisa terminales (`unchanged`).
+- SQL: `supabase/tests/rpc_fiscal_sat_gate_p228.sql` (solo local Docker o preview branch — **nunca** prod).
+
 ## Hotfix — Re-precalificar NSS propio activo (P155 / P168 / P169)
 
 - [x] Gate: own / otro asesor / ambiguo / ok_create (universo = ciclo activo; **sin** exigir `submitted_to_mesa` desde P169).

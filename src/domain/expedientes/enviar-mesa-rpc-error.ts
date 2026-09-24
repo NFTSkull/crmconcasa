@@ -163,6 +163,17 @@ export function mapEnviarAMesaRpcError(error: {
     );
   }
 
+  if (
+    msg.includes("requiere validación sat") ||
+    msg.includes("requiere validación fiscal") ||
+    msg.includes("huella vigente")
+  ) {
+    return new ExpedientesSupabaseError(
+      "Este expediente necesita validación fiscal del SAT antes de enviarse a Mesa",
+      { code: "FISCAL_SAT_GATE_REQUIRED", cta: "reintentar_validacion" },
+    );
+  }
+
   return new ExpedientesSupabaseError(
     "No se pudo enviar a Mesa. Intenta de nuevo más tarde.",
   );

@@ -400,6 +400,9 @@ export default function AsesorExpedientePage() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [enviandoMesa, setEnviandoMesa] = useState(false);
   const [enviarMesaError, setEnviarMesaError] = useState<string | null>(null);
+  const [enviarMesaCta, setEnviarMesaCta] = useState<"reintentar_validacion" | null>(
+    null,
+  );
   const [enviarMesaExito, setEnviarMesaExito] = useState<string | null>(null);
   const [reingresoDialogOpen, setReingresoDialogOpen] = useState(false);
   const [reingresoSaving, setReingresoSaving] = useState(false);
@@ -1410,6 +1413,7 @@ export default function AsesorExpedientePage() {
 
     setEnviandoMesa(true);
     setEnviarMesaError(null);
+    setEnviarMesaCta(null);
     setEnviarMesaExito(null);
 
     try {
@@ -1419,8 +1423,10 @@ export default function AsesorExpedientePage() {
     } catch (err) {
       if (err instanceof ExpedientesSupabaseError) {
         setEnviarMesaError(err.message);
+        setEnviarMesaCta(err.cta === "reintentar_validacion" ? "reintentar_validacion" : null);
       } else {
         setEnviarMesaError("No se pudo enviar a Mesa. Intenta de nuevo más tarde.");
+        setEnviarMesaCta(null);
       }
     } finally {
       setEnviandoMesa(false);
@@ -2713,12 +2719,23 @@ export default function AsesorExpedientePage() {
                 </p>
               ) : null}
               {enviarMesaError ? (
-                <p
+                <div
                   role="alert"
                   className="mt-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800"
                 >
-                  {enviarMesaError}
-                </p>
+                  <p>{enviarMesaError}</p>
+                  {enviarMesaCta === "reintentar_validacion" && !operativo?.submittedToMesa ? (
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      className="mt-3"
+                      disabled={!puedeEnviarAMesaSupabase || enviandoMesa}
+                      onClick={() => void handleEnviarAMesaSupabase()}
+                    >
+                      {enviandoMesa ? "Reintentando…" : "Reintentar validación"}
+                    </Button>
+                  ) : null}
+                </div>
               ) : null}
               {operativo?.submittedToMesa ? (
                 <div className="mt-3 flex flex-wrap items-center gap-2">

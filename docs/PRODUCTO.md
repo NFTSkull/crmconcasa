@@ -340,6 +340,8 @@ La sección Datos Generales y el JSON `datos.montoMejoravit` **no** se modifican
 
 **Asesor antes de enviar a Mesa (4 obligatorios):** `cliente_ine_frente`, `cliente_ine_reverso`, `cliente_comprobante_domicilio`, `cliente_estado_cuenta`.
 
+**Gate fiscal SAT (P228, opt-in):** si `fiscal_sat_gate_enabled` o el asesor está en `fiscal_sat_gate_pilot_asesores`, el envío exige validación SAT vigente (`VALIDADO` o `APROBADO_ADMIN`) con binding EDC+CURP+RFCs. Default OFF = mismo flujo que hoy.
+
 **Asesor opcional (upload, no bloquea envío):** `cliente_semanas_cotizadas`, `cliente_carta_empresa`, `cliente_acta_nacimiento_digital`, `cliente_notificacion_apodaca` (P104 — label UI «Notificación»; upload editable solo sede Apodaca + etapa 8; distinto de `cliente_notificacion` Mesa y de agenda `kind=notificacion`), `asesor_evidencia` (sección dedicada «Evidencia»; allowlist MIME + octet-stream ≤15 MB; no checklist), `cliente_constancia_curp` (P156 — «Constancia CURP»; PDF; piloto validación identidad + RFC estimado; no gate), `cliente_vigencia_derechos` (sección dedicada «Vigencia de derechos»; allowlist MIME + octet-stream ≤15 MB; no checklist), `cliente_constancia_situacion_fiscal` (sección dedicada «Constancia SAT»; PDF ≤15 MB; ≠ Mesa `cliente_constancia_sat`; no checklist), `cliente_solicitud_credito` / `cliente_lista_nominal` / `cliente_bajo_protesta` / `cliente_presupuesto` (scoped equipo vía `documento_tipo_scope_equipo`; sin UI en este bloque; ≠ Mesa/Infonavit homónimos).
 
 **Mesa de Control (complementarios, no bloquean envío asesor):** `cliente_semanas_cotizadas`, `cliente_acta_nacimiento`, `cliente_constancia_sat` — acta y constancia SAT las sube Mesa; el asesor no las sube.

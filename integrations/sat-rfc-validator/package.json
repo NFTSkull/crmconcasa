@@ -1,0 +1,18 @@
+{
+  "name": "concasa-sat-rfc-validator",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test test/*.test.js",
+    "start": "node --env-file-if-exists=.env src/server.js",
+    "benchmark:captcha": "node --env-file-if-exists=.env scripts/benchmark-captcha.js",
+    "smoke:e2e": "node --env-file-if-exists=.env scripts/smoke-e2e.js"
+  },
+  "dependencies": {
+    "express": "5.1.0",
+    "p-queue": "8.1.0",
+    "playwright": "1.55.0",
+    "sharp": "0.33.5"
+  }
+}

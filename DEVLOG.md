@@ -1,3 +1,44 @@
+## 2026-09-24 - B1 cierre: fail-open orden deploy + runbook
+
+- Route: si `fiscal_sat_gate_applies_to_expediente` no existe (`42883`/`PGRST202`) → warning + `enviar_a_mesa` (fail-open). Cualquier otro error del gate → fail-closed.
+- `docs/RUNBOOK_FISCAL_SAT_GATE.md`: Railway → mig 228 → Vercel → smoke OFF → piloto → temp off → global / emergencia / rollback.
+- Worker `integrations/sat-rfc-validator` idéntico a `5160f36` (feat/sat-captcha-ocr-accuracy).
+
+## 2026-09-24 - B1 gate fiscal: preview branch + hardening
+
+- Preview `fiscal-p228-audit2` (with_data, Micro): SQL A–N+extras **OK**; rollback defs `enviar_a_mesa` / `asesor_registrar_validacion_identidad` **idénticas** al clone pre-228; branch eliminado. Sin push/deploy/escrituras en `fvtqbxukqlajezyyvwzy`.
+- `app_settings`: REVOKE explícito a `authenticated` (grants previos en clone no bastaba con REVOKE PUBLIC).
+- `digest` → `extensions.digest` (pgcrypto en schema `extensions` + `search_path=public`).
+- Fixture P228: `telefono_casa` + `referencias` + `direccionEmpresa` (integridad datos generales prod).
+
+## 2026-09-24 - B1 gate fiscal: fixes auditoría
+
+### Decisión
+- Override solo `super_admin` (enum real).
+- `asesor_registrar` = cuerpo p208 + 2 guards rfc_validacion_sat.
+- Route escribe `REVISION_MANUAL` al agotar reintentos técnicos (nunca Mesa).
+- Piloto = `expedientes.asesor_id` (dueño). Reingreso/reactivación/retención sin gate.
+- Rollback → p208 + `20260904120000` + grants tabla como prod.
+
+### No
+Push/deploy/escrituras en prod.
+
+## 2026-09-24 - B1 gate fiscal SAT (P228) local
+
+### Decisión
+- Gate en DB (`enviar_a_mesa_core`), no solo en la route: el asesor no puede saltárselo con RPC directa.
+- Binding check (no huella bit-idéntica): EDC id+versión + `curp_sha256` + sha256 de `editor_decisions.rfc_infonavit` + sha256 de `cliente_datos.datos->>'rfc'`. Mismo para `APROBADO_ADMIN`.
+- Piloto: `fiscal_sat_gate_enabled` OR `asesor_id` ∈ `fiscal_sat_gate_pilot_asesores` (JSON array). Route no llama worker si no aplica.
+- Numeración: en `main` el slot 220 ya era externos-constancia; este bloque va como **228**.
+
+### Qué
+- Mig + rollback + SQL tests `rpc_fiscal_sat_gate_p228.sql`.
+- Route + `enviarAMesa` → HTTP fiscal; worker CapSolver solo si gate aplica.
+- Docs API_CONTRATOS §5 / §1ter.
+
+### No
+Push, deploy, apply en Cloud/producción (`fvtqbxukqlajezyyvwzy`). Preview branch Supabase: costo Micro ~$0.01344/h — esperar OK antes de crear.
+
 ## 2026-09-23 - Admin: alcance Pendientes actuales (correcciones)
 
 ### Decisión

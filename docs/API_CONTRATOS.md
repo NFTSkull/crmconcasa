@@ -51,7 +51,9 @@ Convenciones:
 
 **RFC:** siempre estimado; nunca `RFC_OFICIAL_CONFIRMADO` en este flujo. Label UI: «RFC estimado (pendiente de confirmación oficial).» / «Confirmación oficial pendiente.»
 
-**Feature flag:** `NEXT_PUBLIC_CURP_VALIDACION_PILOTO` (default habilitado salvo `"false"`). **No** gate de `enviar_a_mesa` en piloto.
+**Feature flag:** `NEXT_PUBLIC_CURP_VALIDACION_PILOTO` (default habilitado salvo `"false"`).
+
+**Gate fiscal SAT (P228):** opcional; ver §5. `asesor_registrar_validacion_identidad` para `rfc_validacion_sat` solo acepta `RFC_VALIDACION_SAT_PENDIENTE` y **no pisa** vigentes terminales (`VALIDADO`/`INVALIDO`/`REVISION_MANUAL`/`APROBADO_ADMIN`). Escritura terminal solo vía `server_registrar_validacion_fiscal_sat` (`service_role`) o `admin_aprobar_envio_mesa_sin_fiscal` (admin).
 
 **RLS:** SELECT si `can_see_expediente`; mutaciones solo vía RPC.
 
@@ -586,7 +588,8 @@ Otros tipos Mesa (acta/SAT/semanas) conservan MIME PDF-only.
 
 ## 5. Enviar integración a Mesa
 
-**Operación:** `POST /expedientes/{id}/enviar-mesa` · RPC `enviar_a_mesa(p_expediente_id uuid) → jsonb`
+**Operación (UI asesor):** `POST /api/expedientes/{id}/enviar-mesa-fiscal` (Bearer JWT) → RPC `enviar_a_mesa`  
+**RPC directa:** `enviar_a_mesa(p_expediente_id uuid) → jsonb` (authenticated, asesor dueño) → núcleo interno `enviar_a_mesa_core` (sin GRANT)
 
 ### Request
 
@@ -607,12 +610,43 @@ No hay `docs_snapshot`: el RPC no recibe checklist ni payload de documentos.
 }
 ```
 
+### Gate fiscal SAT (P228 / mig. 228)
+
+- **Settings** (`app_settings`, lectura authenticated; escritura solo service_role/postgres):
+  - `fiscal_sat_gate_enabled` (bool, default `false`)
+  - `fiscal_sat_gate_pilot_asesores` (JSON array de profile ids, default `[]`)
+- **Aplica** si `enabled=true` **O** el `asesor_id` del expediente está en el piloto (`fiscal_sat_gate_applies_to_expediente`).
+- Si aplica: `enviar_a_mesa_core` exige `rfc_validacion_sat` vigente `RFC_VALIDACION_SAT_VALIDADO` o `RFC_VALIDACION_SAT_APROBADO_ADMIN` **y** binding vigente (EDC id+versión + `curp_sha256` + `rfc_datos_sha256` + `rfc_infonavit_sha256`). Si CURP/RFC datos/RFC Infonavit/EDC cambian → no permite envío.
+- Route: si el gate **no** aplica → llama `enviar_a_mesa` **sin** worker SAT. Si aplica y ya `allows_envio` → envía sin CapSolver. Si aplica y falta → worker live → `server_registrar_validacion_fiscal_sat` (service_role) → `enviar_a_mesa`.
+- Admin bypass: `admin_aprobar_envio_mesa_sin_fiscal(p_expediente_id, p_motivo)` (**solo `super_admin`**, motivo ≥10) congela binding y escribe `APROBADO_ADMIN`, luego `core`. `mesa_admin` no puede.
+
+Piloto — agregar / quitar asesor:
+
+```sql
+-- Agregar
+UPDATE public.app_settings
+SET value = coalesce(value, '[]'::jsonb) || jsonb_build_array('<PROFILE_UUID>'::text),
+    updated_at = now()
+WHERE key = 'fiscal_sat_gate_pilot_asesores'
+  AND NOT (value @> jsonb_build_array('<PROFILE_UUID>'::text));
+
+-- Quitar
+UPDATE public.app_settings
+SET value = (
+      SELECT coalesce(jsonb_agg(to_jsonb(x)), '[]'::jsonb)
+      FROM jsonb_array_elements_text(value) AS t(x)
+      WHERE x <> '<PROFILE_UUID>'
+    ),
+    updated_at = now()
+WHERE key = 'fiscal_sat_gate_pilot_asesores';
+```
+
 ### Reglas (B0D4 + P189 B3)
 
 - Gate: monto editor > 0 + `cliente_datos` `completo|validado` + cobro + 4 docs integración (`cliente_ine_frente|reverso`, `cliente_comprobante_domicilio`, `cliente_estado_cuenta`) + NSS no bloqueado.
-- RFC **no** es gate de envío.
+- RFC **no** es gate de envío cuando el gate fiscal está OFF y el asesor no está en piloto.
 - **NO** incrementar a etapa 2 (`etapaAlEnviarAMesaDesdeAsesor` → 1).
-- `action_log`: `expediente.enviar_a_mesa`.
+- `action_log`: `expediente.enviar_a_mesa` (+ `fiscal_sat_gate` bool).
 - P189 (solo `programa=mejoravit`): assert `datos.infonavit` persistidos **antes** del UPDATE; tras UPDATE, misma TX: 1 snapshot inmutable (`submission_version=0`, `kind=initial`) + 3 outbox `pending`. Otros programas: 0 filas P189.
 - PDFs P189 **no** entran a `integration_doc_tipos_asesor_envio` ni al conteo de docs de etapa.
 
