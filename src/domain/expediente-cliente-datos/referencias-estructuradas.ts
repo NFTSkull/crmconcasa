@@ -1,4 +1,5 @@
 import type { ExpedienteClienteDatos } from "./types";
+import { parseMontoCalculadoInput } from "@/lib/clienteDatosCobro";
 
 export type ClienteDatosReferenciaCaptura = ExpedienteClienteDatos["datos"]["referencias"][number];
 
@@ -123,12 +124,7 @@ function refHasStructuredNames(r: ClienteDatosReferenciaCaptura | undefined): bo
 }
 
 function normNumeric(raw: string): number | null {
-  const normalized = String(raw ?? "")
-    .trim()
-    .replace(/[$,\s]/g, "");
-  if (!normalized) return null;
-  const parsed = Number(normalized);
-  return Number.isFinite(parsed) ? parsed : null;
+  return parseMontoCalculadoInput(String(raw ?? ""));
 }
 
 function sameNumericText(a: string, b: string): boolean {
