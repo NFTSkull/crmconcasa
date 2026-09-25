@@ -82,7 +82,7 @@ describe("INE validity", () => {
 
   it("INE con vigencia de un año anterior se puede auto-rechazar", () => {
     const result = evaluateIneValidity({
-      frontText: "VIGENCIA 2015 2025",
+      frontText: "VIGENCIA 2020 2025",
       now: NOW,
     });
     assert.equal(result.status, "expired");
