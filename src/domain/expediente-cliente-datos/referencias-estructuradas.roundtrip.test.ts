@@ -303,6 +303,21 @@ describe("clienteDatosSavedPreservesCapture", () => {
     );
   });
 
+  it("PASS cuando monto Mejoravit formateado vuelve normalizado", () => {
+    const sent = baseDatos({ montoMejoravit: "169.039.02" });
+    const saved = baseDatos({ montoMejoravit: "169039.02" });
+    assert.equal(
+      clienteDatosSavedPreservesCapture({
+        sent,
+        saved,
+        sentDireccionOpcional: "DOM",
+        savedDireccionOpcional: "DOM",
+        requireReferenciasEstructuradas: false,
+      }),
+      true,
+    );
+  });
+
   it("PASS en perfil simplificado aunque las referencias no regresen", () => {
     const sent = baseDatos({
       porcentajeCobro: "15.00",
