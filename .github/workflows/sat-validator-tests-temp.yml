@@ -1,0 +1,35 @@
+name: SAT validator tests temporary
+
+on:
+  push:
+    branches:
+      - test/sat-validator-ci-20260925
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "integrations/sat-rfc-validator/**"
+      - ".github/workflows/sat-validator-tests-temp.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  sat-validator-tests:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: integrations/sat-rfc-validator
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: integrations/sat-rfc-validator/package-lock.json
+      - name: Install
+        run: npm ci
+      - name: Test
+        run: npm test
