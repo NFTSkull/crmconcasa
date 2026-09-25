@@ -337,3 +337,15 @@ test("sin RFC visible en Estado de Cuenta no promueve el RFC capturado como fuen
   if (r.status !== "unknown") throw new Error("expected unknown");
   assert.equal(r.fiscalRfc, null);
 });
+
+
+test("resumen VALIDADO registra si RFC EDC vino de texto embebido u OCR", () => {
+  const r = buildValidadoResumen({
+    fiscalRfc: "BADD9001019A1",
+    rfcSource: "estado_cuenta",
+    edcReadSource: "ocr_cache",
+  });
+  assert.equal(r.rfc_source, "estado_cuenta");
+  assert.equal(r.edc_read_source, "ocr_cache");
+  assert.equal(r.backup_reason, undefined);
+});
