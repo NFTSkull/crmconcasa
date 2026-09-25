@@ -65,7 +65,14 @@ test('GET /diagnostics/sat exige secret y no consulta RFC', async () => {
     const ok = await fetchDiag(app, 'diag-secret')
     assert.equal(ok.status, 200)
     const body = await ok.json()
-    assert.deepEqual(body, { ok: true, loadMs: 42, error: null, proxy: 'direct', sessionsUsed: null })
+    assert.deepEqual(body, {
+      ok: true,
+      loadMs: 42,
+      error: null,
+      proxy: 'direct',
+      sessionsUsed: null,
+      resourcesBlocked: null,
+    })
     assert.equal(calls.length, 1)
     assert.doesNotMatch(JSON.stringify(body), /RFC|CURP|cliente/i)
   } finally {

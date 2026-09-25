@@ -15,6 +15,7 @@ import {
   requestBudgetMs,
   satProxyPresence,
 } from './proxy-config.js'
+import { attachResourceBlocker } from './resource-blocker.js'
 
 const LAUNCH_ARGS = ['--no-sandbox', '--disable-setuid-sandbox', '--ignore-certificate-errors']
 /** Mínimo ms restantes para abrir otra sesión de proxy. */
@@ -426,16 +427,19 @@ export async function probeSatRfcPageLoad() {
           'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
       })
       const page = await context.newPage()
+      const blocker = await attachResourceBlocker(page, 'RFC_DIAG')
       await navigateSatPage(page, RFC_URL, '#captchaSession', 'RFC_DIAG', {
         navTimeoutMs,
         readyTimeoutMs: Math.min(30_000, Math.max(3_000, remaining - navTimeoutMs)),
       })
+      blocker.flush('ready')
       return {
         ok: true,
         loadMs: Date.now() - started,
         error: null,
         proxy: usedProxy ? 'used' : 'direct',
         sessionsUsed,
+        resourcesBlocked: blocker.counter.blocked,
       }
     } catch (error) {
       lastError = error
@@ -496,13 +500,16 @@ async function validateFiscalLiveOnce({
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
     })
     const page = await context.newPage()
+    const blocker = await attachResourceBlocker(page, 'VALIDATE')
     const rfcResult = await validateRfc(page, rfc, capsolverApiKey)
+    blocker.flush('after_rfc')
     if (rfcResult.status === 'captcha_failed') {
       return {
         ok: false,
         semantic: 'retry',
         rfc: rfcResult,
         curp: { status: 'not_run', evidence: null, captcha: null },
+        resourcesBlocked: blocker.counter.blocked,
       }
     }
     if (rfcResult.status !== 'valid') {
@@ -511,6 +518,7 @@ async function validateFiscalLiveOnce({
         semantic: rfcResult.status === 'invalid' ? 'invalid' : 'retry',
         rfc: rfcResult,
         curp: { status: 'not_run', evidence: null, captcha: null },
+        resourcesBlocked: blocker.counter.blocked,
       }
     }
     if (remaining() < MIN_MS_FOR_NEW_SESSION) {
@@ -520,15 +528,18 @@ async function validateFiscalLiveOnce({
         rfc: rfcResult,
         curp: { status: 'not_run', evidence: null, captcha: null },
         code: 'BUDGET_EXCEEDED_BEFORE_CURP',
+        resourcesBlocked: blocker.counter.blocked,
       }
     }
     const curpResult = await validateCurp(page, curp, capsolverApiKey)
+    blocker.flush('after_curp')
     if (curpResult.status === 'captcha_failed') {
       return {
         ok: false,
         semantic: 'retry',
         rfc: rfcResult,
         curp: curpResult,
+        resourcesBlocked: blocker.counter.blocked,
       }
     }
     return {
@@ -541,6 +552,7 @@ async function validateFiscalLiveOnce({
             : 'retry',
       rfc: rfcResult,
       curp: curpResult,
+      resourcesBlocked: blocker.counter.blocked,
     }
   } finally {
     await browser.close().catch(() => {})

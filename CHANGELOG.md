@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+- **perf(sat-validator): bloquear fuentes/media/trackers** — `page.route` ahorra proxy; captcha + script/css/xhr/img SAT intactos. Log `RESOURCE_BLOCK blocked=N`. Gateway worker: `pr-us.proxies.fo` (scraper sigue en `pr-eu`).
+
 - **fix(sat-validator): rotar sesión proxy ante red** — hasta 3 `sessionId` por `/validate` y `/diagnostics/sat` si `ERR_TUNNEL_*` / `ERR_EMPTY_RESPONSE` / timeouts de `page.goto` (no clicks/captcha); captcha/RFC inválido no rotan. Log `PROXY_SESSION_FAIL` + `sessionsUsed` en diagnostics.
 
 - **feat(sat-validator): proxy residencial Playwright** — `SAT_PROXY_URL` / `SAT_PROXY_USER_PREFIX` / `SAT_PROXY_PASSWORD`; username `<prefix>-session-<id>-ttl-5` por `/validate` (misma sesión RFC+CURP); sin URL → directo. `/health.proxy` present|absent; `/diagnostics/sat.proxy` used|direct. Sin log de credenciales.

@@ -65,6 +65,7 @@ export function createApp(options = {}) {
         error: result.error,
         proxy: result.proxy ?? (satProxyPresence() === 'present' ? 'used' : 'direct'),
         sessionsUsed: result.sessionsUsed ?? null,
+        resourcesBlocked: result.resourcesBlocked ?? null,
       })
     } catch (error) {
       return res.status(503).json({
@@ -73,6 +74,7 @@ export function createApp(options = {}) {
         error: error instanceof Error ? error.message : String(error),
         proxy: satProxyPresence() === 'present' ? 'used' : 'direct',
         sessionsUsed: null,
+        resourcesBlocked: null,
       })
     }
   })
