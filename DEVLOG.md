@@ -1,3 +1,8 @@
+## 2026-09-24 - Worker SAT: pr-us + resource blocker
+
+- Railway `sat-rfc-validator`: `SAT_PROXY_URL=http://pr-us.proxies.fo:13337` (fijo); scraper intacto en `pr-eu`.
+- `resource-blocker.js`: bloquea font/media/trackers; permite captcha + assets SAT. Log `RESOURCE_BLOCK`.
+
 ## 2026-09-24 - Worker SAT: rotar IP ante errores de proxy/red
 
 - Hasta 3 sesiones/`sessionId` por solicitud (`planProxySessionRetry` + presupuesto 50s).
