@@ -349,3 +349,18 @@ test("resumen VALIDADO registra si RFC EDC vino de texto embebido u OCR", () => 
   assert.equal(r.edc_read_source, "ocr_cache");
   assert.equal(r.backup_reason, undefined);
 });
+
+
+test("Estado de Cuenta puede auditar relectura OCR puntual al enviar", () => {
+  const r = resolveEstadoCuentaFiscalRfc({
+    embeddedText: "",
+    ocrText: "TITULAR JUAN PEREZ GARCIA RFC BADD9001019A1",
+    ocrReadSource: "ocr_live",
+    curpValidadaLocalmente: CURP_BADD,
+    clienteNombre: CLIENT,
+  });
+  assert.equal(r.status, "ready_for_sat");
+  if (r.status !== "ready_for_sat") throw new Error("expected ready");
+  assert.equal(r.fiscalRfc, "BADD9001019A1");
+  assert.equal(r.readSource, "ocr_live");
+});
