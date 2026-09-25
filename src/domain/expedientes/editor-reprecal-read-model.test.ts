@@ -328,7 +328,8 @@ describe("P185 editor dashboard source", () => {
     assert.match(src, /visibilitychange/);
     assert.match(src, /shouldSkipEditorFocusRefresh/);
     assert.match(src, /scheduleSupabaseSave/);
-    assert.doesNotMatch(src, /setInterval/);
+    assert.match(src, /setInterval\(refreshIfVisible, 15_000\)/);
+    assert.match(src, /clearInterval\(intervalId\)/);
   });
 
   it("detalle pending sigue vaciando con helper compartido", () => {
