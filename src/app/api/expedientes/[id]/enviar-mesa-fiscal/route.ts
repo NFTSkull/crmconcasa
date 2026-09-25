@@ -8,9 +8,12 @@ import { fiscalValidationInFlight } from "@/domain/expedientes/fiscal-validation
 import {
   backupReasonFromPdfGap,
   buildValidadoResumen,
+  curpRfcBase10,
   FISCAL_ROUTE_BUDGET_MS,
+  normalizeRfc,
   remainingFiscalBudgetMs,
   resolveEstadoCuentaFiscalRfc,
+  rfcShape,
   workerAttemptTimeoutMs,
   type FiscalBackupReason,
   type FiscalValidadoResumen,
@@ -558,21 +561,52 @@ export async function POST(request: Request, { params }: RouteParams) {
     // El upload del asesor ya precalienta OCR para cliente_estado_cuenta.
     // Para PDFs escaneados, usamos únicamente el cache ligado al documento/version actual.
     let cachedOcrText = "";
+    let cachedFiscalRfc = "";
+    let cachedFiscalStatus = "";
+    let cachedFiscalReadSource = "";
     const ocrAdmin = serviceRoleClient();
     if (ocrAdmin) {
       const { data: ocrCache, error: ocrCacheError } = await ocrAdmin
         .from("document_ocr_cache")
-        .select("status, ocr_text")
+        .select(
+          "status, ocr_text, fiscal_rfc, fiscal_rfc_status, fiscal_rfc_read_source",
+        )
         .eq("documento_id", edcDocumentoId)
         .maybeSingle();
-      if (
-        !ocrCacheError &&
-        ocrCache?.status === "done" &&
-        typeof ocrCache.ocr_text === "string"
-      ) {
-        cachedOcrText = ocrCache.ocr_text;
+      if (!ocrCacheError && ocrCache) {
+        if (
+          ocrCache.status === "done" &&
+          typeof ocrCache.ocr_text === "string"
+        ) {
+          cachedOcrText = ocrCache.ocr_text;
+        }
+        cachedFiscalRfc =
+          typeof ocrCache.fiscal_rfc === "string" ? ocrCache.fiscal_rfc : "";
+        cachedFiscalStatus =
+          typeof ocrCache.fiscal_rfc_status === "string"
+            ? ocrCache.fiscal_rfc_status
+            : "";
+        cachedFiscalReadSource =
+          typeof ocrCache.fiscal_rfc_read_source === "string"
+            ? ocrCache.fiscal_rfc_read_source
+            : "";
       }
     }
+
+    const normalizedCachedFiscalRfc = normalizeRfc(cachedFiscalRfc);
+    const currentCurpBase = curpRfcBase10(curpLocal.normalized);
+    const embeddedUpper = extracted.ok ? extracted.text.toUpperCase() : "";
+    const ocrUpper = cachedOcrText.toUpperCase();
+    const cachedFiscalRfcStillInDocument =
+      Boolean(normalizedCachedFiscalRfc) &&
+      (embeddedUpper.includes(normalizedCachedFiscalRfc) ||
+        ocrUpper.includes(normalizedCachedFiscalRfc));
+    const cachedFiscalRfcUsable =
+      cachedFiscalStatus === "ready" &&
+      rfcShape(normalizedCachedFiscalRfc) === "full13" &&
+      Boolean(currentCurpBase) &&
+      normalizedCachedFiscalRfc.slice(0, 10) === currentCurpBase &&
+      cachedFiscalRfcStillInDocument;
 
     let estadoCuentaRfc = resolveEstadoCuentaFiscalRfc({
       embeddedText: extracted.ok ? extracted.text : "",
@@ -612,7 +646,15 @@ export async function POST(request: Request, { params }: RouteParams) {
     let edcReadSource: "embedded_text" | "ocr_cache" | "ocr_live" | null = null;
     let pdfGapReason: FiscalBackupReason | null = null;
 
-    if (estadoCuentaRfc.status === "ready_for_sat") {
+    if (cachedFiscalRfcUsable) {
+      pdfRfc = normalizedCachedFiscalRfc;
+      edcReadSource =
+        cachedFiscalReadSource === "embedded_text" ||
+        cachedFiscalReadSource === "ocr_cache" ||
+        cachedFiscalReadSource === "ocr_live"
+          ? cachedFiscalReadSource
+          : "ocr_cache";
+    } else if (estadoCuentaRfc.status === "ready_for_sat") {
       pdfRfc = estadoCuentaRfc.fiscalRfc;
       edcReadSource = estadoCuentaRfc.readSource;
     } else if (!extracted.ok && !cachedOcrText) {
