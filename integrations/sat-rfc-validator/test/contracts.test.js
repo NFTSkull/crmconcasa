@@ -1,5 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
+import { readFileSync } from 'node:fs'
 import { validateRequestPayload, fixtureValidationResult } from '../src/contracts.js'
 import { classifyRfcSatText, classifyCurpSatText, isCaptchaRejectedText } from '../src/sat-results.js'
 import { normalizeCaptchaOcr, captchaCaseMode } from '../src/captcha-solver.js'
@@ -76,4 +77,18 @@ test('CAPSOLVER_MODULE: common (default) / none', () => {
   assert.equal(capsolverModuleMode(undefined), 'common')
   assert.equal(capsolverModuleMode('NONE'), 'none')
   assert.equal(capsolverModuleMode('weird'), 'common')
+})
+
+
+test('RFC flow espera overlay SAT y no refresca mientras la decisión es ambigua', () => {
+  const src = readFileSync(new URL('../src/live-validator.js', import.meta.url), 'utf8')
+  assert.match(src, /waitForRfcOverlayIdle/)
+  assert.match(src, /dialogEspera_modal/)
+  assert.match(src, /RFC_CAPTCHA_DECISION_TIMEOUT/)
+  assert.match(src, /RFC_CAPTCHA_DECISION_UNKNOWN/)
+  assert.match(src, /SAT_OVERLAY_STILL_ACTIVE/)
+  assert.doesNotMatch(
+    src,
+    /getByRole\('button', \{ name: \/\^Aceptar\$\/i \}\)\.click\(\)\s*\n\s*await page\.waitForTimeout\(500\)/,
+  )
 })
