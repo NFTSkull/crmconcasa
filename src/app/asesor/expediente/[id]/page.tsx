@@ -3214,6 +3214,32 @@ export default function AsesorExpedientePage() {
         </div>
         )}
       </main>
+      {enviandoMesa ? (
+        <div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-gray-950/40 px-4 backdrop-blur-[1px]"
+          role="status"
+          aria-live="assertive"
+          aria-busy="true"
+          data-testid="asesor-enviar-mesa-validando-rfc"
+        >
+          <div className="w-full max-w-sm rounded-2xl border border-gray-200 bg-white p-6 text-center shadow-2xl">
+            <div
+              className="mx-auto h-12 w-12 animate-spin rounded-full border-4 border-gray-200 border-t-blue-600"
+              aria-hidden="true"
+            />
+            <p className="mt-5 text-lg font-semibold text-gray-900">
+              Validando RFC
+            </p>
+            <p className="mt-2 text-sm leading-6 text-gray-600">
+              Estamos validando el RFC antes de enviar el expediente a Mesa.
+              Este proceso puede tardar unos segundos.
+            </p>
+            <p className="mt-3 text-xs font-medium text-gray-500">
+              No cierres ni recargues esta pantalla.
+            </p>
+          </div>
+        </div>
+      ) : null}
       {reingresoDialogOpen ? (
         <ReingresoManualConfirmDialog
           saving={reingresoSaving}
