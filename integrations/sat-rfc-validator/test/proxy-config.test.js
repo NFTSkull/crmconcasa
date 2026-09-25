@@ -139,6 +139,10 @@ test('isProxyOrNetworkError detecta t√∫nel/empty/timeout; no captcha ni RFC inv√
     true,
   )
   assert.equal(
+    isProxyOrNetworkError(new Error('locator.click: Timeout 30000ms exceeded.')),
+    false,
+  )
+  assert.equal(
     isProxyOrNetworkError(new Error('ERR_PROXY_CONNECTION_FAILED')),
     true,
   )

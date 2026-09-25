@@ -53,10 +53,8 @@ export function requestBudgetMs() {
 export function isProxyOrNetworkError(error) {
   const msg = error instanceof Error ? `${error.name}: ${error.message}` : String(error)
   if (PROXY_NETWORK_ERROR_MARKERS.some((m) => msg.includes(m))) return true
-  // Playwright page.goto / waitFor timeouts
-  if (/Timeout/i.test(msg) && /(page\.goto|Navigation|waiting for|exceeded)/i.test(msg)) {
-    return true
-  }
+  // Solo timeouts de navegación (page.goto), no de clicks/captcha/selectores.
+  if (/page\.goto:.*Timeout/i.test(msg) || /Navigation timeout/i.test(msg)) return true
   if (/net::ERR_/i.test(msg)) return true
   return false
 }
