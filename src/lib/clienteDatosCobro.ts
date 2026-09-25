@@ -27,11 +27,36 @@ export function parsePorcentajeCobroInput(raw: string): number | null {
   return n;
 }
 
-export function parseMontoCalculadoInput(raw: string): number | null {
+export function normalizeMontoCalculadoInput(raw: string): string | null {
   const v = String(raw ?? "")
     .trim()
     .replace(/\$/g, "")
-    .replace(/,/g, "");
+    .replace(/\s+/g, "");
+  if (!v || !/^\d+(?:[.,]\d+)*$/.test(v)) return null;
+
+  const parts = v.split(/[.,]/);
+  if (parts.length === 1) return parts[0] ?? null;
+
+  const last = parts.at(-1) ?? "";
+  const middleGroups = parts.slice(1, -1);
+
+  // Dinero: 1–2 dígitos finales = decimales. Separadores anteriores
+  // se interpretan como miles (ej. 169.039.02 → 169039.02).
+  if (last.length >= 1 && last.length <= 2) {
+    if (middleGroups.some((group) => group.length !== 3)) return null;
+    return `${parts.slice(0, -1).join("")}.${last}`;
+  }
+
+  // Sin decimales: todos los grupos posteriores deben ser miles.
+  if (parts.slice(1).every((group) => group.length === 3)) {
+    return parts.join("");
+  }
+
+  return null;
+}
+
+export function parseMontoCalculadoInput(raw: string): number | null {
+  const v = normalizeMontoCalculadoInput(raw);
   if (!v) return null;
   const n = Number(v);
   if (!Number.isFinite(n)) return null;

@@ -112,7 +112,7 @@ describe("buildSaveClienteDatosRpcPayload", () => {
         municipio: "CDMX",
         cp: "01000",
       },
-      montoMejoravit: "150000",
+      montoMejoravit: "169.039.02",
       plazo: "12 meses",
       porcentajeCobro: "10",
       montoCalculado: "2500",
@@ -128,7 +128,7 @@ describe("buildSaveClienteDatosRpcPayload", () => {
     assert.equal(payload.p_monto_calculado_manual, null);
     assert.equal(payload.p_telefono, "(55) 1234-5678");
     assert.equal(payload.p_estado, "completo");
-    assert.equal(payload.p_datos.montoMejoravit, "150000");
+    assert.equal(payload.p_datos.montoMejoravit, "169039.02");
     assert.equal(payload.p_datos.plazo, "12 meses");
     assert.deepEqual(payload.p_referencias[0], {
       nombre: "Ref 1",

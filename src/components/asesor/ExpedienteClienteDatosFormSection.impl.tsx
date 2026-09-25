@@ -818,7 +818,7 @@ export function ExpedienteClienteDatosFormSection({
         <div className="mt-4 rounded-md border border-gray-200 p-3">
           <p className="text-xs font-semibold text-gray-900">Crédito Mejoravit</p>
           <p className="mt-1 text-[11px] text-gray-600">
-            Se sugiere desde la subcuenta de vivienda (−11%, tope $169,000). Puedes ajustarlo.
+            Se sugiere desde la subcuenta de vivienda (−11%; sugerencia automática con tope $169,000). Puedes capturar el monto real autorizado.
           </p>
           <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
             <DatosField

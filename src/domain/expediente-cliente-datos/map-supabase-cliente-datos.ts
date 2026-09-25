@@ -5,6 +5,7 @@ import type {
 } from "./types";
 import {
   isProgramaMejoravitDb,
+  normalizeMontoCalculadoInput,
   parseMontoCalculadoInput,
   parsePorcentajeCobroInput,
   resolveMontoCalculadoManualForRpc,
@@ -374,10 +375,18 @@ export function buildSaveClienteDatosRpcPayload(
   let plazo = "";
   if (esMejoravit) {
     montoMejoravitRaw = datos.montoMejoravit.trim();
+    const montoMejoravitNormalizado = normalizeMontoCalculadoInput(montoMejoravitRaw);
     const montoMejoravit = parseMontoCalculadoInput(montoMejoravitRaw);
-    if (!montoMejoravitRaw || montoMejoravit == null || montoMejoravit <= 0) {
+    if (
+      !montoMejoravitRaw ||
+      !montoMejoravitNormalizado ||
+      montoMejoravit == null ||
+      montoMejoravit <= 0
+    ) {
       throw new Error("El monto Mejoravit es obligatorio.");
     }
+    // Persistir formato canónico para que SQL/PDF/cálculos reciban un NUMERIC válido.
+    montoMejoravitRaw = montoMejoravitNormalizado;
     plazo = datos.plazo.trim();
     if (!silvia && !plazo) {
       throw new Error("El plazo es obligatorio.");
