@@ -95,3 +95,77 @@ test("admin ingresos: valida sesión antes de resumen, página y export", () => 
     );
   }
 });
+
+
+test("sesión Supabase: limpia puente local si getSession deja de ser válido", () => {
+  const src = readFileSync(
+    join(process.cwd(), "src/domain/session/supabase.repo.ts"),
+    "utf8",
+  );
+
+  assert.match(
+    src,
+    /if \(sessionError \|\| !session\?\.user\) \{[\s\S]*clearLocalSessionState\(this\.store\);[\s\S]*return null;/,
+  );
+  assert.match(src, /localStorage\.removeItem\(SESSION_KEY\)/);
+});
+
+test("useSessionRepo: en Supabase no acepta mock_user como sesión real", () => {
+  const src = readFileSync(
+    join(process.cwd(), "src/domain/session/index.ts"),
+    "utf8",
+  );
+
+  assert.match(src, /if \(!supabaseAuthEnabled && mockEmail && mockRole\)/);
+  assert.match(
+    src,
+    /if \(supabaseAuthEnabled\) \{\s*setCurrentUser\(user\);\s*return;/,
+  );
+});
+
+test("useSessionRepo: SIGNED_OUT limpia bridge y corta la UI autenticada", () => {
+  const src = readFileSync(
+    join(process.cwd(), "src/domain/session/index.ts"),
+    "utf8",
+  );
+
+  assert.match(src, /auth\.onAuthStateChange/);
+  assert.match(src, /event !== "SIGNED_OUT"/);
+  assert.match(src, /clearMockUser\(\)/);
+  assert.match(src, /localStorage\.removeItem\("concasa_session"\)/);
+  assert.match(src, /setCurrentUser\(null\)/);
+  assert.match(src, /window\.location\.replace\("\/login"\)/);
+});
+
+
+test("useSessionRepo: repositorio Supabase no depende del objeto store mutable", () => {
+  const src = readFileSync(
+    join(process.cwd(), "src/domain/session/index.ts"),
+    "utf8",
+  );
+
+  assert.match(src, /const \{ login: bridgeLogin, logout: bridgeLogout \} = store;/);
+  assert.match(
+    src,
+    /const supabaseSessionRepo = useMemo\([\s\S]*new SupabaseSessionRepo\([\s\S]*login: bridgeLogin,[\s\S]*logout: bridgeLogout,[\s\S]*\[bridgeLogin, bridgeLogout\]/,
+  );
+  assert.doesNotMatch(
+    src,
+    /new SupabaseSessionRepo\(store\)/,
+  );
+  assert.match(
+    src,
+    /const sessionRepo = supabaseAuthEnabled \? supabaseSessionRepo : mockSessionRepo;/,
+  );
+});
+
+test("useSessionRepo: listener SIGNED_OUT no se resuscribe por cada cambio del store", () => {
+  const src = readFileSync(
+    join(process.cwd(), "src/domain/session/index.ts"),
+    "utf8",
+  );
+
+  assert.match(src, /bridgeLogout\(\);/);
+  assert.match(src, /\}, \[bridgeLogout, supabaseAuthEnabled\]\);/);
+  assert.doesNotMatch(src, /\}, \[store, supabaseAuthEnabled\]\);/);
+});

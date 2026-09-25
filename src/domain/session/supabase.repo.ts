@@ -1,7 +1,6 @@
 "use client";
 
 import type { SupabaseClient } from "@supabase/supabase-js";
-import type { MockStoreContextValue } from "@/context/MockStoreContext";
 import type { Rol as MockStoreRol } from "@/lib/mock-store";
 import { persistMockUser, clearMockUser } from "@/lib/mockUser";
 import { normalizeLoginIdentifier } from "@/lib/normalizeLoginIdentifier";
@@ -20,6 +19,11 @@ const APP_ROLE_TO_MOCK: Readonly<Record<string, string>> = {
   mesa_interno: "mesa_control_interno",
   mesa_externo: "mesa_control_externo",
 };
+
+type SessionStoreBridge = Readonly<{
+  login: (email: string, password: string, rol: MockStoreRol) => void;
+  logout: () => void;
+}>;
 
 type ProfileRow = Readonly<{
   email: string;
@@ -147,12 +151,20 @@ function getClient(): SupabaseClient {
   return supabaseBrowser;
 }
 
+function clearLocalSessionState(store: SessionStoreBridge): void {
+  clearMockUser();
+  if (typeof window !== "undefined") {
+    localStorage.removeItem(SESSION_KEY);
+  }
+  store.logout();
+}
+
 /**
  * Sesión vía Supabase Auth + `public.profiles`.
  * Persiste `mock_user` / `mock_role` / `mock_email` como puente temporal para la UI mock.
  */
 export class SupabaseSessionRepo implements SessionRepo {
-  constructor(private store: MockStoreContextValue) {}
+  constructor(private store: SessionStoreBridge) {}
 
   async getCurrentUser(): Promise<UserSession | null> {
     const client = getClient();
@@ -162,6 +174,9 @@ export class SupabaseSessionRepo implements SessionRepo {
     } = await client.auth.getSession();
 
     if (sessionError || !session?.user) {
+      // Fail closed: si Supabase perdió/invalidó la sesión, el puente legacy
+      // jamás debe mantener la UI autenticada por sí solo.
+      clearLocalSessionState(this.store);
       return null;
     }
 
@@ -173,11 +188,7 @@ export class SupabaseSessionRepo implements SessionRepo {
     } catch (err) {
       if (err instanceof SupabaseSessionError) {
         await client.auth.signOut();
-        clearMockUser();
-        if (typeof window !== "undefined") {
-          localStorage.removeItem(SESSION_KEY);
-        }
-        this.store.logout();
+        clearLocalSessionState(this.store);
       }
       return null;
     }
@@ -239,10 +250,6 @@ export class SupabaseSessionRepo implements SessionRepo {
     if (client) {
       await client.auth.signOut();
     }
-    this.store.logout();
-    clearMockUser();
-    if (typeof window !== "undefined") {
-      localStorage.removeItem(SESSION_KEY);
-    }
+    clearLocalSessionState(this.store);
   }
 }

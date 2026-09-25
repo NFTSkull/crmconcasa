@@ -1,0 +1,37 @@
+name: Session auth validation
+
+on:
+  pull_request:
+    paths:
+      - "src/domain/session/**"
+      - "src/lib/mockUser.ts"
+      - "src/lib/supabaseBrowser.ts"
+      - ".github/workflows/session-auth-validation.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Session regression tests
+        run: npx tsx --test src/domain/session/supabase.repo.test.ts src/lib/mockUser.test.ts
+      - name: ESLint session files
+        run: >
+          npx eslint
+          src/domain/session/index.ts
+          src/domain/session/supabase.repo.ts
+          src/domain/session/supabase.repo.test.ts
+          src/lib/mockUser.ts
+          src/lib/supabaseBrowser.ts
+      - name: Production build guard
+        run: npm run build
