@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useRef, useState } from "react";
+import { AdminFiscalRevisionManualPanel } from "@/components/admin/AdminFiscalRevisionManualPanel";
 import { AdminTabs } from "@/components/admin/AdminTabs";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -175,6 +176,8 @@ export default function AdminExpedientesPage() {
       <AdminTabs active="expedientes" onChange={handleTabChange} />
 
       <main className="mx-auto max-w-7xl space-y-5 px-4 py-6">
+        <AdminFiscalRevisionManualPanel />
+
         <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div>

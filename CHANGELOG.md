@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+- **feat(admin): aprobar envío sin SAT** — panel super_admin en `/admin/expedientes` (+ detalle) para vigentes `REVISION_MANUAL`; `GET /api/admin/fiscal-revision-manual` + `POST /api/admin/fiscal-aprobar-envio-mesa` (JWT → RPC `admin_aprobar_envio_mesa_sin_fiscal`); sin RFC/CURP en listado.
+
 - **perf(sat-validator): bloquear fuentes/media/trackers** — `page.route` ahorra proxy; captcha + script/css/xhr/img SAT intactos. Log `RESOURCE_BLOCK blocked=N`. Gateway worker: `pr-us.proxies.fo` (scraper sigue en `pr-eu`).
 
 - **fix(sat-validator): rotar sesión proxy ante red** — hasta 3 `sessionId` por `/validate` y `/diagnostics/sat` si `ERR_TUNNEL_*` / `ERR_EMPTY_RESPONSE` / timeouts de `page.goto` (no clicks/captcha); captcha/RFC inválido no rotan. Log `PROXY_SESSION_FAIL` + `sessionsUsed` en diagnostics.

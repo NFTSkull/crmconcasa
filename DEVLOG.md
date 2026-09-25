@@ -1,3 +1,9 @@
+## 2026-09-24 - UI super_admin: aprobar envío sin validación SAT
+
+- Requisito previo a encender `fiscal_sat_gate_enabled` global: listado + botón con motivo ≥10.
+- API server-side con JWT del usuario (no service_role en el approve); listado usa service_role tras chequear super_admin.
+- Sin PII fiscal completa en respuestas; NSS enmascarado; `assertNoPiiInItem` de defensa.
+
 ## 2026-09-24 - Worker SAT: pr-us + resource blocker
 
 - Railway `sat-rfc-validator`: `SAT_PROXY_URL=http://pr-us.proxies.fo:13337` (fijo); scraper intacto en `pr-eu`.

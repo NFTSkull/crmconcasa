@@ -18,6 +18,7 @@ import {
   sanitizeAdminTimelineSummary,
   type AdminMesaTimelineEvent,
 } from "@/domain/admin-production/mesa-seguimiento";
+import { AdminFiscalRevisionManualPanel } from "@/components/admin/AdminFiscalRevisionManualPanel";
 import {
   ExpedienteArchivosSupabaseError,
   useExpedienteArchivosRepo,
@@ -390,6 +391,9 @@ export default function AdminExpedienteTransparenciaPage() {
           {str(expediente.direccion_opcional) ? (
             <p className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-800"><span className="font-semibold">Dirección:</span> {str(expediente.direccion_opcional)}</p>
           ) : null}
+          <div className="mt-4">
+            <AdminFiscalRevisionManualPanel expedienteId={str(expediente.id)} />
+          </div>
         </Section>
 
         <Section title="Precalificación" description="Resultado vigente y datos guardados por Editor.">

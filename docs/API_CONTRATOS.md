@@ -619,6 +619,9 @@ No hay `docs_snapshot`: el RPC no recibe checklist ni payload de documentos.
 - Si aplica: `enviar_a_mesa_core` exige `rfc_validacion_sat` vigente `RFC_VALIDACION_SAT_VALIDADO` o `RFC_VALIDACION_SAT_APROBADO_ADMIN` **y** binding vigente (EDC id+versión + `curp_sha256` + `rfc_datos_sha256` + `rfc_infonavit_sha256`). Si CURP/RFC datos/RFC Infonavit/EDC cambian → no permite envío.
 - Route: si el gate **no** aplica → llama `enviar_a_mesa` **sin** worker SAT. Si aplica y ya `allows_envio` → envía sin CapSolver. Si aplica y falta → worker live → `server_registrar_validacion_fiscal_sat` (service_role) → `enviar_a_mesa`.
 - Admin bypass: `admin_aprobar_envio_mesa_sin_fiscal(p_expediente_id, p_motivo)` (**solo `super_admin`**, motivo ≥10) congela binding y escribe `APROBADO_ADMIN`, luego `core`. `mesa_admin` no puede.
+- **UI super_admin:** listado en `/admin/expedientes` (+ botón en detalle) de vigentes `RFC_VALIDACION_SAT_REVISION_MANUAL` (motivo resumido sin RFC/CURP; NSS enmascarado).
+  - `GET /api/admin/fiscal-revision-manual` → `{ ok, items[], count }` (Bearer JWT; 403 si no super_admin).
+  - `POST /api/admin/fiscal-aprobar-envio-mesa` body `{ expedienteId, motivo }` (Zod ≥10) → RPC con JWT del usuario; 403 mesa/asesor.
 
 Piloto — agregar / quitar asesor:
 
