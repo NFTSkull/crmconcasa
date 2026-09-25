@@ -20,6 +20,10 @@ from app import (
     _bank_statement_clabe_focus_text,
     _strict_labeled_clabe_candidates,
     _clabe_checksum_valid,
+    _rfc_like_candidates,
+    _has_rfc_like_candidate,
+    _bank_statement_text_complete,
+    _bank_statement_rfc_focus_text,
 )
 
 
@@ -573,6 +577,10 @@ def test_bank_statement_adds_clabe_focus_when_general_ocr_misses_it(monkeypatch)
         "app._bank_statement_clabe_focus_text",
         lambda *args, **kwargs: "No. Cuenta CLABE 012 700 01524466095 8",
     )
+    monkeypatch.setattr(
+        "app._bank_statement_rfc_focus_text",
+        lambda *args, **kwargs: "TITULAR RFC BADD9001019A1",
+    )
 
     text, engine, pages = extract_document_text(
         buf.getvalue(), "image/jpeg", "cliente_estado_cuenta"
@@ -878,3 +886,83 @@ def test_ine_ocr_crops_small_card_before_primary_read(monkeypatch):
         item[:3] == ("primary", (1200, 760), "cliente_ine_frente")
         for item in seen
     )
+
+
+def test_rfc_like_candidate_accepts_contiguous_and_segmented_person_rfc():
+    assert _rfc_like_candidates("RFC BADD9001019A1") == ["BADD9001019A1"]
+    assert _rfc_like_candidates("RFC BADD 900101 9A1") == ["BADD9001019A1"]
+    assert _has_rfc_like_candidate("RFC BADD-900101-9A1") is True
+
+
+def test_bank_statement_is_complete_only_with_clabe_and_rfc():
+    clabe_only = "\n".join([
+        "ESTADO DE CUENTA",
+        "CLABE 012 700 01524466095 8",
+    ])
+    rfc_only = "TITULAR JUAN PEREZ GARCIA RFC BADD9001019A1"
+    complete = "\n".join([clabe_only, rfc_only])
+
+    assert _has_clabe_like_candidate(clabe_only) is True
+    assert _has_rfc_like_candidate(rfc_only) is True
+    assert _bank_statement_text_complete(clabe_only) is False
+    assert _bank_statement_text_complete(rfc_only) is False
+    assert _bank_statement_text_complete(complete) is True
+
+
+def test_bank_statement_image_combines_clabe_and_rfc_focused_reads(monkeypatch):
+    image = Image.new("RGB", (1600, 2200), "white")
+    buf = io.BytesIO()
+    image.save(buf, format="JPEG")
+
+    monkeypatch.setattr(
+        "app._primary_ocr_text",
+        lambda *args, **kwargs: "ESTADO DE CUENTA\nNO. DE CLIENTE 97977789",
+    )
+    monkeypatch.setattr(
+        "app._bank_statement_clabe_focus_text",
+        lambda *args, **kwargs: "CLABE 012 700 01524466095 8",
+    )
+    monkeypatch.setattr(
+        "app._bank_statement_rfc_focus_text",
+        lambda *args, **kwargs: "TITULAR JUAN PEREZ GARCIA RFC BADD9001019A1",
+    )
+
+    text, engine, pages = extract_document_text(
+        buf.getvalue(), "image/jpeg", "cliente_estado_cuenta"
+    )
+
+    assert "012 700 01524466095 8" in text
+    assert "BADD9001019A1" in text
+    assert _bank_statement_text_complete(text) is True
+    assert engine == "tesseract"
+    assert pages == 1
+
+
+def test_bank_statement_rfc_focus_keeps_rfc_context_for_final_selector(monkeypatch):
+    image = Image.new("RGB", (1600, 2200), "white")
+
+    monkeypatch.setattr("app.preprocess_image", lambda source: source.convert("L"))
+    monkeypatch.setattr(
+        "app._ocr_tokens",
+        lambda *args, **kwargs: [
+            {
+                "text": "RFC",
+                "conf": 95.0,
+                "left": 300,
+                "top": 500,
+                "width": 70,
+                "height": 30,
+                "line_key": (1, 1, 1, 1),
+            }
+        ],
+    )
+    monkeypatch.setattr("app._ocr_tokens_to_text", lambda tokens: "RFC")
+    monkeypatch.setattr(
+        "app.pytesseract.image_to_string",
+        lambda *args, **kwargs: "TITULAR JUAN PEREZ GARCIA RFC BADD 900101 9A1",
+    )
+
+    text = _bank_statement_rfc_focus_text(image)
+
+    assert "BADD9001019A1" in text
+    assert "RFC BADD9001019A1" in text
