@@ -54,6 +54,89 @@ export async function requestDocumentOcrPrecompute(input: {
   }
 }
 
+export type FiscalRfcPrecomputeResult = Readonly<{
+  status: "ready" | "pending" | "unknown";
+  rfcMasked?: string;
+  readSource?: "embedded_text" | "ocr_cache" | "ocr_live";
+  confidence?: "high" | "medium" | "none";
+  reason?: string;
+}>;
+
+export async function requestEstadoCuentaFiscalRfcPrecompute(input: {
+  expedienteId: string;
+}): Promise<FiscalRfcPrecomputeResult> {
+  if (!supabaseBrowser) {
+    return { status: "unknown", reason: "supabase_unavailable" };
+  }
+
+  const expedienteId = input.expedienteId.trim();
+  if (!expedienteId) {
+    return { status: "unknown", reason: "invalid_expediente" };
+  }
+
+  const {
+    data: { session },
+    error,
+  } = await supabaseBrowser.auth.getSession();
+  if (error || !session?.access_token) {
+    throw new Error("Sesión expirada. Inicia sesión de nuevo.");
+  }
+
+  const response = await fetch(
+    `/api/expedientes/${encodeURIComponent(expedienteId)}/fiscal-rfc-precompute`,
+    {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${session.access_token}`,
+      },
+      cache: "no-store",
+    },
+  );
+
+  const body = (await response.json().catch(() => null)) as
+    | {
+        ok?: boolean;
+        status?: unknown;
+        rfcMasked?: unknown;
+        readSource?: unknown;
+        confidence?: unknown;
+        reason?: unknown;
+        code?: unknown;
+      }
+    | null;
+
+  if (!response.ok || body?.ok !== true) {
+    throw new Error(
+      typeof body?.code === "string"
+        ? `No se pudo preparar el RFC fiscal (${body.code}).`
+        : "No se pudo preparar el RFC fiscal.",
+    );
+  }
+
+  const status =
+    body.status === "ready" || body.status === "pending" || body.status === "unknown"
+      ? body.status
+      : "unknown";
+
+  return {
+    status,
+    rfcMasked: typeof body.rfcMasked === "string" ? body.rfcMasked : undefined,
+    readSource:
+      body.readSource === "embedded_text" ||
+      body.readSource === "ocr_cache" ||
+      body.readSource === "ocr_live"
+        ? body.readSource
+        : undefined,
+    confidence:
+      body.confidence === "high" ||
+      body.confidence === "medium" ||
+      body.confidence === "none"
+        ? body.confidence
+        : undefined,
+    reason: typeof body.reason === "string" ? body.reason : undefined,
+  };
+}
+
 function parseEntry(value: unknown): CachedDocumentOcrEntry | null {
   if (!value || typeof value !== "object" || Array.isArray(value)) return null;
   const row = value as Record<string, unknown>;
