@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+- **fix(sat-validator): rotar sesión proxy ante red** — hasta 3 `sessionId` por `/validate` y `/diagnostics/sat` si `ERR_TUNNEL_*` / `ERR_EMPTY_RESPONSE` / timeouts de `page.goto`; captcha/RFC inválido no rotan. Log `PROXY_SESSION_FAIL` + `sessionsUsed` en diagnostics.
+
 - **feat(sat-validator): proxy residencial Playwright** — `SAT_PROXY_URL` / `SAT_PROXY_USER_PREFIX` / `SAT_PROXY_PASSWORD`; username `<prefix>-session-<id>-ttl-5` por `/validate` (misma sesión RFC+CURP); sin URL → directo. `/health.proxy` present|absent; `/diagnostics/sat.proxy` used|direct. Sin log de credenciales.
 
 - **test(fiscal P228):** `route.test.ts` cubre 2º intento (`planFiscalBackupAttempt` / tryBackup): PDF sin RFC + respaldo, PDF inválido SAT + respaldo, sin cupo (`budget_exceeded`).

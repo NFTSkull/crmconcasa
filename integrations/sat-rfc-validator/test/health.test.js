@@ -65,7 +65,7 @@ test('GET /diagnostics/sat exige secret y no consulta RFC', async () => {
     const ok = await fetchDiag(app, 'diag-secret')
     assert.equal(ok.status, 200)
     const body = await ok.json()
-    assert.deepEqual(body, { ok: true, loadMs: 42, error: null, proxy: 'direct' })
+    assert.deepEqual(body, { ok: true, loadMs: 42, error: null, proxy: 'direct', sessionsUsed: null })
     assert.equal(calls.length, 1)
     assert.doesNotMatch(JSON.stringify(body), /RFC|CURP|cliente/i)
   } finally {
@@ -108,6 +108,7 @@ test('GET /diagnostics/sat reporta proxy used cuando el probe lo indica', async 
       loadMs: 10,
       error: null,
       proxy: 'used',
+      sessionsUsed: 2,
     }),
   })
   try {
@@ -115,6 +116,7 @@ test('GET /diagnostics/sat reporta proxy used cuando el probe lo indica', async 
     assert.equal(res.status, 200)
     const body = await res.json()
     assert.equal(body.proxy, 'used')
+    assert.equal(body.sessionsUsed, 2)
     assert.doesNotMatch(JSON.stringify(body), /example\.proxy|password|user/i)
   } finally {
     if (prevSecret === undefined) delete process.env.SAT_VALIDATOR_SECRET

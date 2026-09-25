@@ -6,26 +6,34 @@ import { preprocessCaptchaImage } from './captcha-preprocess.js'
 import { classifyRfcSatText, classifyCurpSatText, isCaptchaRejectedText } from './sat-results.js'
 import {
   buildSatProxyConfig,
+  isProxyOrNetworkError,
+  maxProxySessions,
   newProxySessionId,
+  planProxySessionRetry,
+  proxyNetworkErrorType,
   proxySafeSummary,
+  requestBudgetMs,
   satProxyPresence,
 } from './proxy-config.js'
 
 const LAUNCH_ARGS = ['--no-sandbox', '--disable-setuid-sandbox', '--ignore-certificate-errors']
+/** Mínimo ms restantes para abrir otra sesión de proxy. */
+const MIN_MS_FOR_NEW_SESSION = 8_000
 
 /**
- * @param {{ sessionId?: string }} [opts]
+ * @param {{ sessionId?: string, sessionNum?: number }} [opts]
  * @returns {Promise<import('playwright').Browser>}
  */
 async function launchSatBrowser(opts = {}) {
   const proxy = buildSatProxyConfig(opts)
   const summary = proxySafeSummary(proxy)
+  const sessionNum = opts.sessionNum ?? 1
   if (summary.used) {
     console.log(
-      `[sat-validator] PROXY present host=${summary.serverHost} sessionHint=${summary.sessionHint}`,
+      `[sat-validator] PROXY present session=${sessionNum}/${maxProxySessions()} host=${summary.serverHost} sessionHint=${summary.sessionHint}`,
     )
   } else {
-    console.log('[sat-validator] PROXY absent (direct)')
+    console.log(`[sat-validator] PROXY absent (direct) session=${sessionNum}`)
   }
   /** @type {import('playwright').LaunchOptions} */
   const launchOpts = {
@@ -45,7 +53,7 @@ async function launchSatBrowser(opts = {}) {
 const RFC_URL = 'https://agsc.siat.sat.gob.mx/PTSC/ValidaRFC/index.jsf'
 const CURP_URL = 'https://agsc.siat.sat.gob.mx/PTSC/ConsultaIdCSIAT/'
 const STEP_TIMEOUT = 20_000
-const NAV_TIMEOUT = 60_000
+const NAV_TIMEOUT = 45_000
 const REFRESH_SELECTOR = 'a:has(img[src*="reloadCaptcha"]), img[src*="reloadCaptcha"]'
 
 function debugSatEnabled() {
@@ -113,17 +121,31 @@ async function saveDebugAfterSubmit(page, label, attempt) {
   }
 }
 
-async function navigateSatPage(page, url, readySelector, label) {
+/**
+ * @param {import('playwright').Page} page
+ * @param {string} url
+ * @param {string} readySelector
+ * @param {string} label
+ * @param {{ navTimeoutMs?: number, readyTimeoutMs?: number }} [opts]
+ */
+async function navigateSatPage(page, url, readySelector, label, opts = {}) {
+  const navTimeout = Math.max(5_000, opts.navTimeoutMs ?? NAV_TIMEOUT)
+  const readyTimeout = Math.max(3_000, opts.readyTimeoutMs ?? 30_000)
   let lastError = null
   for (let attempt = 1; attempt <= 2; attempt += 1) {
     try {
-      await page.goto(url, { waitUntil: 'commit', timeout: NAV_TIMEOUT })
-      await page.locator(readySelector).waitFor({ state: 'visible', timeout: 30_000 })
+      await page.goto(url, { waitUntil: 'commit', timeout: navTimeout })
+      await page.locator(readySelector).waitFor({ state: 'visible', timeout: readyTimeout })
       console.log(`[sat-validator] ${label}_PAGE_READY attempt=${attempt}`)
       return
     } catch (error) {
       lastError = error
-      console.warn(`[sat-validator] ${label}_PAGE_RETRY attempt=${attempt} reason=${error instanceof Error ? error.name : 'unknown'}`)
+      const errType = proxyNetworkErrorType(error)
+      console.warn(
+        `[sat-validator] ${label}_PAGE_RETRY attempt=${attempt} errorType=${errType}`,
+      )
+      // Proxy/red: no reintentar misma IP; el caller rota sesión.
+      if (isProxyOrNetworkError(error)) throw error
       if (attempt < 2) await page.waitForTimeout(2_000)
     }
   }
@@ -369,57 +391,109 @@ async function validateCurp(page, curp, apiKey) {
 
 /**
  * Diagnóstico de red/SAT: abre la página RFC hasta #captchaSession.
- * No resuelve captcha ni consulta RFC/CURP (sin datos de clientes).
- * Usa proxy si SAT_PROXY_URL está definida (misma convención que /validate).
+ * Hasta 3 sesiones de proxy ante error de red (misma lógica que /validate).
  */
 export async function probeSatRfcPageLoad() {
   const started = Date.now()
+  const deadline = started + requestBudgetMs()
   const usedProxy = satProxyPresence() === 'present'
-  const sessionId = usedProxy ? newProxySessionId() : undefined
-  let browser
-  try {
-    browser = await launchSatBrowser(sessionId ? { sessionId } : {})
-    const context = await browser.newContext({
-      ignoreHTTPSErrors: true,
-      locale: 'es-MX',
-      timezoneId: 'America/Monterrey',
-      userAgent:
-        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-    })
-    const page = await context.newPage()
-    await navigateSatPage(page, RFC_URL, '#captchaSession', 'RFC_DIAG')
-    return {
-      ok: true,
-      loadMs: Date.now() - started,
-      error: null,
-      proxy: usedProxy ? 'used' : 'direct',
+  const maxSessions = maxProxySessions()
+  let sessionsUsed = 0
+  let lastError = null
+
+  for (let sessionNum = 1; sessionNum <= maxSessions; sessionNum += 1) {
+    const remaining = deadline - Date.now()
+    if (sessionNum > 1 && remaining < MIN_MS_FOR_NEW_SESSION) {
+      console.warn(
+        `[sat-validator] PROXY_SESSION_SKIP session=${sessionNum} reason=BUDGET remainingMs=${Math.max(0, remaining)}`,
+      )
+      break
     }
-  } catch (error) {
-    return {
-      ok: false,
-      loadMs: Date.now() - started,
-      error: error instanceof Error ? error.message : String(error),
-      proxy: usedProxy ? 'used' : 'direct',
+    const sessionId = usedProxy ? newProxySessionId() : undefined
+    sessionsUsed = sessionNum
+    let browser
+    try {
+      browser = await launchSatBrowser({
+        sessionId,
+        sessionNum,
+      })
+      const navTimeoutMs = Math.min(NAV_TIMEOUT, Math.max(5_000, remaining - 2_000))
+      const context = await browser.newContext({
+        ignoreHTTPSErrors: true,
+        locale: 'es-MX',
+        timezoneId: 'America/Monterrey',
+        userAgent:
+          'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      })
+      const page = await context.newPage()
+      await navigateSatPage(page, RFC_URL, '#captchaSession', 'RFC_DIAG', {
+        navTimeoutMs,
+        readyTimeoutMs: Math.min(30_000, Math.max(3_000, remaining - navTimeoutMs)),
+      })
+      return {
+        ok: true,
+        loadMs: Date.now() - started,
+        error: null,
+        proxy: usedProxy ? 'used' : 'direct',
+        sessionsUsed,
+      }
+    } catch (error) {
+      lastError = error
+      const plan = planProxySessionRetry({
+        error,
+        sessionNum,
+        maxSessions,
+        remainingMs: deadline - Date.now(),
+        minMsForNewSession: MIN_MS_FOR_NEW_SESSION,
+      })
+      console.warn(
+        `[sat-validator] PROXY_SESSION_FAIL session=${sessionNum}/${maxSessions} errorType=${plan.errorType} rotate=${plan.rotate} reason=${plan.reason}`,
+      )
+      if (!plan.rotate) {
+        return {
+          ok: false,
+          loadMs: Date.now() - started,
+          error: error instanceof Error ? error.message : String(error),
+          proxy: usedProxy ? 'used' : 'direct',
+          sessionsUsed,
+        }
+      }
+    } finally {
+      if (browser) await browser.close().catch(() => {})
     }
-  } finally {
-    if (browser) await browser.close().catch(() => {})
+  }
+
+  return {
+    ok: false,
+    loadMs: Date.now() - started,
+    error: lastError instanceof Error ? lastError.message : String(lastError || 'PROXY_SESSIONS_EXHAUSTED'),
+    proxy: usedProxy ? 'used' : 'direct',
+    sessionsUsed,
   }
 }
 
 /**
- * Validación live RFC+CURP. Un sessionId de proxy por llamada (misma sesión ambos).
+ * Un intento de validación con una sola sesión de proxy (RFC+CURP).
+ * @param {{ rfc: string, curp: string, capsolverApiKey?: string, sessionId?: string, sessionNum: number, deadline: number }} args
  */
-export async function validateFiscalLive({ rfc, curp, capsolverApiKey }) {
-  const sessionId =
-    satProxyPresence() === 'present' ? newProxySessionId() : undefined
-  const browser = await launchSatBrowser(sessionId ? { sessionId } : {})
+async function validateFiscalLiveOnce({
+  rfc,
+  curp,
+  capsolverApiKey,
+  sessionId,
+  sessionNum,
+  deadline,
+}) {
+  const remaining = () => Math.max(0, deadline - Date.now())
+  const browser = await launchSatBrowser({ sessionId, sessionNum })
   try {
     const context = await browser.newContext({
       ignoreHTTPSErrors: true,
       locale: 'es-MX',
       timezoneId: 'America/Monterrey',
       deviceScaleFactor: 3,
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      userAgent:
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
     })
     const page = await context.newPage()
     const rfcResult = await validateRfc(page, rfc, capsolverApiKey)
@@ -439,6 +513,15 @@ export async function validateFiscalLive({ rfc, curp, capsolverApiKey }) {
         curp: { status: 'not_run', evidence: null, captcha: null },
       }
     }
+    if (remaining() < MIN_MS_FOR_NEW_SESSION) {
+      return {
+        ok: false,
+        semantic: 'retry',
+        rfc: rfcResult,
+        curp: { status: 'not_run', evidence: null, captcha: null },
+        code: 'BUDGET_EXCEEDED_BEFORE_CURP',
+      }
+    }
     const curpResult = await validateCurp(page, curp, capsolverApiKey)
     if (curpResult.status === 'captcha_failed') {
       return {
@@ -450,11 +533,93 @@ export async function validateFiscalLive({ rfc, curp, capsolverApiKey }) {
     }
     return {
       ok: curpResult.status === 'valid',
-      semantic: curpResult.status === 'valid' ? 'pass' : curpResult.status === 'invalid' ? 'invalid' : 'retry',
+      semantic:
+        curpResult.status === 'valid'
+          ? 'pass'
+          : curpResult.status === 'invalid'
+            ? 'invalid'
+            : 'retry',
       rfc: rfcResult,
       curp: curpResult,
     }
   } finally {
     await browser.close().catch(() => {})
+  }
+}
+
+/**
+ * Validación live RFC+CURP.
+ * Misma sesión proxy para RFC+CURP dentro de un intento.
+ * Ante error de red/proxy: cierra browser y reinicia flujo completo con sessionId nuevo (máx 3).
+ * Captcha rechazado / RFC inválido NO rotan sesión.
+ */
+export async function validateFiscalLive({ rfc, curp, capsolverApiKey }) {
+  const started = Date.now()
+  const deadline = started + requestBudgetMs()
+  const usedProxy = satProxyPresence() === 'present'
+  const maxSessions = maxProxySessions()
+  let sessionsUsed = 0
+  let lastNetworkError = null
+
+  for (let sessionNum = 1; sessionNum <= maxSessions; sessionNum += 1) {
+    const remaining = deadline - Date.now()
+    if (sessionNum > 1 && remaining < MIN_MS_FOR_NEW_SESSION) {
+      console.warn(
+        `[sat-validator] PROXY_SESSION_SKIP session=${sessionNum} reason=BUDGET remainingMs=${Math.max(0, remaining)}`,
+      )
+      break
+    }
+    const sessionId = usedProxy ? newProxySessionId() : undefined
+    sessionsUsed = sessionNum
+    try {
+      const result = await validateFiscalLiveOnce({
+        rfc,
+        curp,
+        capsolverApiKey,
+        sessionId,
+        sessionNum,
+        deadline,
+      })
+      return { ...result, sessionsUsed }
+    } catch (error) {
+      lastNetworkError = error
+      const plan = planProxySessionRetry({
+        error,
+        sessionNum,
+        maxSessions,
+        remainingMs: deadline - Date.now(),
+        minMsForNewSession: MIN_MS_FOR_NEW_SESSION,
+      })
+      console.warn(
+        `[sat-validator] PROXY_SESSION_FAIL session=${sessionNum}/${maxSessions} errorType=${plan.errorType} rotate=${plan.rotate} reason=${plan.reason}`,
+      )
+      if (!plan.rotate) {
+        console.error(
+          '[sat-validator] job failed',
+          error instanceof Error ? error.message : 'unknown',
+        )
+        return {
+          ok: false,
+          semantic: 'retry',
+          code: 'TECHNICAL_FAILURE',
+          rfc: { status: 'unknown', evidence: null },
+          curp: { status: 'not_run', evidence: null },
+          sessionsUsed,
+        }
+      }
+    }
+  }
+
+  console.error(
+    '[sat-validator] PROXY_SESSIONS_EXHAUSTED',
+    lastNetworkError instanceof Error ? lastNetworkError.message : 'unknown',
+  )
+  return {
+    ok: false,
+    semantic: 'retry',
+    code: 'TECHNICAL_FAILURE',
+    rfc: { status: 'unknown', evidence: null },
+    curp: { status: 'not_run', evidence: null },
+    sessionsUsed,
   }
 }

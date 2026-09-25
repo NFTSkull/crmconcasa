@@ -2,8 +2,13 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {
   buildSatProxyConfig,
+  isProxyOrNetworkError,
+  maxProxySessions,
   newProxySessionId,
+  planProxySessionRetry,
+  proxyNetworkErrorType,
   proxySafeSummary,
+  requestBudgetMs,
   satProxyPresence,
 } from '../src/proxy-config.js'
 
@@ -118,4 +123,81 @@ test('misma sessionId reutilizable RFC+CURP (una llamada)', () => {
       assert.equal(a.username, 'pref-session-1111222233334444-ttl-5')
     },
   )
+})
+
+test('isProxyOrNetworkError detecta túnel/empty/timeout; no captcha ni RFC inválido', () => {
+  assert.equal(
+    isProxyOrNetworkError(new Error('page.goto: net::ERR_TUNNEL_CONNECTION_FAILED at https://x')),
+    true,
+  )
+  assert.equal(
+    isProxyOrNetworkError(new Error('page.goto: net::ERR_EMPTY_RESPONSE at https://x')),
+    true,
+  )
+  assert.equal(
+    isProxyOrNetworkError(new Error('page.goto: Timeout 45000ms exceeded')),
+    true,
+  )
+  assert.equal(
+    isProxyOrNetworkError(new Error('ERR_PROXY_CONNECTION_FAILED')),
+    true,
+  )
+  assert.equal(
+    isProxyOrNetworkError(new Error('ERR_CONNECTION_RESET')),
+    true,
+  )
+  // SAT business / captcha — no rotar
+  assert.equal(
+    isProxyOrNetworkError(new Error('EL CODIGO QUE ESCRIBIO NO ES CORRECTO')),
+    false,
+  )
+  assert.equal(
+    isProxyOrNetworkError(new Error('EL RFC CAPTURADO NO SE ENCUENTRA EN LA LISTA')),
+    false,
+  )
+  assert.equal(proxyNetworkErrorType(new Error('net::ERR_EMPTY_RESPONSE')), 'ERR_EMPTY_RESPONSE')
+  assert.equal(
+    proxyNetworkErrorType(new Error('page.goto: Timeout 45000ms exceeded')),
+    'NAV_TIMEOUT',
+  )
+})
+
+test('planProxySessionRetry rota en red hasta max; no rota por presupuesto/máx', () => {
+  const tunnel = new Error('net::ERR_TUNNEL_CONNECTION_FAILED')
+  assert.deepEqual(
+    planProxySessionRetry({ error: tunnel, sessionNum: 1, maxSessions: 3, remainingMs: 40_000 }),
+    { rotate: true, reason: 'NETWORK', errorType: 'ERR_TUNNEL_CONNECTION_FAILED' },
+  )
+  assert.equal(
+    planProxySessionRetry({ error: tunnel, sessionNum: 3, maxSessions: 3, remainingMs: 40_000 }).rotate,
+    false,
+  )
+  assert.equal(
+    planProxySessionRetry({ error: tunnel, sessionNum: 3, maxSessions: 3, remainingMs: 40_000 }).reason,
+    'MAX_SESSIONS',
+  )
+  assert.equal(
+    planProxySessionRetry({ error: tunnel, sessionNum: 1, maxSessions: 3, remainingMs: 500 }).reason,
+    'BUDGET',
+  )
+  assert.equal(
+    planProxySessionRetry({
+      error: new Error('EL CODIGO QUE ESCRIBIO NO ES CORRECTO'),
+      sessionNum: 1,
+      maxSessions: 3,
+      remainingMs: 40_000,
+    }).reason,
+    'NOT_NETWORK',
+  )
+})
+
+test('maxProxySessions y requestBudgetMs defaults/clamp', () => {
+  withEnv({ SAT_PROXY_MAX_SESSIONS: undefined, SAT_REQUEST_BUDGET_MS: undefined }, () => {
+    assert.equal(maxProxySessions(), 3)
+    assert.equal(requestBudgetMs(), 50_000)
+  })
+  withEnv({ SAT_PROXY_MAX_SESSIONS: '99', SAT_REQUEST_BUDGET_MS: '1000' }, () => {
+    assert.equal(maxProxySessions(), 5)
+    assert.equal(requestBudgetMs(), 10_000)
+  })
 })

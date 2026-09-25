@@ -64,6 +64,7 @@ export function createApp(options = {}) {
         loadMs: result.loadMs,
         error: result.error,
         proxy: result.proxy ?? (satProxyPresence() === 'present' ? 'used' : 'direct'),
+        sessionsUsed: result.sessionsUsed ?? null,
       })
     } catch (error) {
       return res.status(503).json({
@@ -71,6 +72,7 @@ export function createApp(options = {}) {
         loadMs: null,
         error: error instanceof Error ? error.message : String(error),
         proxy: satProxyPresence() === 'present' ? 'used' : 'direct',
+        sessionsUsed: null,
       })
     }
   })
