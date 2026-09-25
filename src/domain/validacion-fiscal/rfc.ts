@@ -352,7 +352,7 @@ export function resolveFiscalRfc(args: {
   };
 }
 
-export type EstadoCuentaRfcReadSource = "embedded_text" | "ocr_cache";
+export type EstadoCuentaRfcReadSource = "embedded_text" | "ocr_cache" | "ocr_live";
 
 export type EstadoCuentaFiscalResolution =
   | Readonly<{
@@ -374,6 +374,7 @@ export type EstadoCuentaFiscalResolution =
 export function resolveEstadoCuentaFiscalRfc(args: {
   embeddedText?: string | null;
   ocrText?: string | null;
+  ocrReadSource?: Extract<EstadoCuentaRfcReadSource, "ocr_cache" | "ocr_live">;
   rfcInfonavit?: string | null;
   rfcDatosGenerales?: string | null;
   curpValidadaLocalmente?: string | null;
@@ -417,7 +418,7 @@ export function resolveEstadoCuentaFiscalRfc(args: {
   const embedded = evaluate(args.embeddedText, "embedded_text");
   if ("status" in embedded) return embedded;
 
-  const ocr = evaluate(args.ocrText, "ocr_cache");
+  const ocr = evaluate(args.ocrText, args.ocrReadSource ?? "ocr_cache");
   if ("status" in ocr) return ocr;
 
   return {
