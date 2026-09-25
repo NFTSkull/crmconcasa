@@ -1,0 +1,50 @@
+name: Fiscal RFC pre-Mesa validation
+
+on:
+  pull_request:
+    paths:
+      - "src/app/api/expedientes/[id]/enviar-mesa-fiscal/**"
+      - "src/domain/validacion-fiscal/**"
+      - "src/domain/expedientes/enviar-mesa-fiscal-client.ts"
+      - "src/domain/expedientes/enviar-mesa-fiscal-client.test.ts"
+      - "src/domain/expedientes/fiscal-sat-gate-p228.contract.test.ts"
+      - "services/document-ocr/**"
+      - ".github/workflows/fiscal-rfc-validation.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  fiscal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Fiscal RFC contract tests
+        run: |
+          npx tsx --test \
+            src/domain/expedientes/enviar-mesa-fiscal-client.test.ts \
+            src/domain/expedientes/fiscal-sat-gate-p228.contract.test.ts \
+            'src/app/api/expedientes/[id]/enviar-mesa-fiscal/route.test.ts' \
+            src/domain/validacion-fiscal/rfc.test.ts \
+            src/domain/validacion-fiscal/sat-result.test.ts
+
+  ocr:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    defaults:
+      run:
+        working-directory: services/document-ocr
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r requirements.txt
+      - name: Bank statement OCR tests
+        run: pytest -q
