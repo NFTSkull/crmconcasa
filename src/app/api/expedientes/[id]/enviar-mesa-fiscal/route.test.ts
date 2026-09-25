@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 
 import {
@@ -8,11 +9,6 @@ import {
   FISCAL_WORKER_TIMEOUT_MS,
   maxDuration,
 } from "./route";
-import {
-  FISCAL_MIN_BACKUP_ATTEMPT_MS,
-  pickCapturedBackupRfc,
-  planFiscalBackupAttempt,
-} from "@/domain/validacion-fiscal/rfc";
 
 describe("enviar-mesa-fiscal missing mig 228 fail-open", () => {
   it("42883 / PGRST202 → fail-open (RPC gate ausente)", () => {
@@ -129,6 +125,25 @@ describe("enviar-mesa-fiscal timeouts", () => {
   });
 });
 
+describe("enviar-mesa-fiscal fuente RFC", () => {
+  it("solo envía al SAT el RFC resuelto desde Estado de Cuenta", () => {
+    const src = readFileSync(
+      new URL("./route.ts", import.meta.url),
+      "utf8",
+    );
+    assert.match(src, /RFC del Estado de Cuenta vigente: única fuente enviada al SAT/);
+    assert.match(src, /rfc_source: "estado_cuenta"/);
+    assert.match(src, /RFC_ESTADO_CUENTA_NO_RESUELTO_/);
+    assert.match(src, /fiscal_rfc_status/);
+    assert.match(src, /cachedFiscalRfcUsable/);
+    assert.match(src, /cachedFiscalRfcStillInDocument/);
+    assert.match(src, /normalizedCachedFiscalRfc\.slice\(0, 10\) === currentCurpBase/);
+    assert.doesNotMatch(src, /pickCapturedBackupRfc/);
+    assert.doesNotMatch(src, /const tryBackup/);
+    assert.doesNotMatch(src, /rfcSource: "respaldo_capturado"/);
+  });
+});
+
 describe("registerInvalidoOrRetry", () => {
   const base = {
     expedienteId: "11111111-1111-4111-8111-111111111111",
@@ -174,78 +189,73 @@ describe("registerInvalidoOrRetry", () => {
   });
 });
 
-/**
- * Contratos del 2º intento (tryBackup en route.ts): planFiscalBackupAttempt
- * es lo que decide validate / INVALIDO / RM / sin cupo antes del fetch SAT.
- */
-describe("enviar-mesa-fiscal tryBackup (2º intento)", () => {
-  const CURP = "BADD900101HDFMLN03";
-  const backupOk = pickCapturedBackupRfc({
-    rfcInfonavit: "BADD9001019A1",
-    rfcDatosGenerales: null,
-    curpValidadaLocalmente: CURP,
+
+describe("extractEstadoCuentaOcrLive", () => {
+  it("usa el OCR autenticado del mismo Estado de Cuenta", async () => {
+    const originalFetch = globalThis.fetch;
+    let seenAuth = "";
+    let seenType = "";
+    globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+      seenAuth = String(new Headers(init?.headers).get("authorization") ?? "");
+      const form = init?.body as FormData;
+      seenType = String(form.get("document_type") ?? "");
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          text: "TITULAR PRUEBA RFC BADD9001019A1",
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }) as typeof fetch;
+
+    try {
+      const result = await extractEstadoCuentaOcrLive({
+        pdf: new Blob(["pdf"], { type: "application/pdf" }),
+        token: "jwt-test",
+        timeoutMs: 5_000,
+      });
+      assert.equal(result.ok, true);
+      if (!result.ok) throw new Error("expected OCR success");
+      assert.match(result.text, /BADD9001019A1/);
+      assert.equal(seenAuth, "Bearer jwt-test");
+      assert.equal(seenType, "cliente_estado_cuenta");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 
-  it("PDF sin RFC + respaldo válido → validate (2º intento)", () => {
-    assert.equal(backupOk.ok, true);
-    const plan = planFiscalBackupAttempt({
-      remainingMs: 40_000,
-      backup: backupOk,
-      afterPdfInvalid: false,
-      hasPdfRfc: false,
+  it("no inicia OCR si ya no cabe dentro del presupuesto", async () => {
+    const result = await extractEstadoCuentaOcrLive({
+      pdf: new Blob(["pdf"], { type: "application/pdf" }),
+      token: "jwt-test",
+      timeoutMs: 999,
     });
-    assert.deepEqual(plan, { kind: "validate", timeoutMs: 40_000 });
+    assert.deepEqual(result, {
+      ok: false,
+      code: "ESTADO_CUENTA_OCR_BUDGET_EXCEEDED",
+    });
   });
 
-  it("PDF inválido en SAT + respaldo válido → validate (2º intento)", () => {
-    const plan = planFiscalBackupAttempt({
-      remainingMs: 25_000,
-      backup: backupOk,
-      afterPdfInvalid: true,
-      hasPdfRfc: true,
-    });
-    assert.equal(plan.kind, "validate");
-    if (plan.kind === "validate") assert.equal(plan.timeoutMs, 25_000);
-  });
+  it("falla cerrado ante rechazo de autenticación OCR", async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async () =>
+      new Response(JSON.stringify({ ok: false }), {
+        status: 403,
+        headers: { "content-type": "application/json" },
+      })) as typeof fetch;
 
-  it("PDF inválido en SAT + sin respaldo usable → register_invalid_pdf", () => {
-    const noBackup = pickCapturedBackupRfc({
-      rfcInfonavit: "CADD9102029A1",
-      rfcDatosGenerales: null,
-      curpValidadaLocalmente: CURP,
-    });
-    assert.equal(noBackup.ok, false);
-    const plan = planFiscalBackupAttempt({
-      remainingMs: 40_000,
-      backup: noBackup,
-      afterPdfInvalid: true,
-      hasPdfRfc: true,
-    });
-    assert.deepEqual(plan, { kind: "register_invalid_pdf" });
-  });
-
-  it("respaldo sin tiempo (< MIN) → budget_exceeded", () => {
-    const plan = planFiscalBackupAttempt({
-      remainingMs: FISCAL_MIN_BACKUP_ATTEMPT_MS - 1,
-      backup: backupOk,
-      afterPdfInvalid: true,
-      hasPdfRfc: true,
-    });
-    assert.deepEqual(plan, { kind: "budget_exceeded" });
-  });
-
-  it("PDF sin RFC + sin respaldo → revision_manual", () => {
-    const noBackup = pickCapturedBackupRfc({
-      rfcInfonavit: null,
-      rfcDatosGenerales: null,
-      curpValidadaLocalmente: CURP,
-    });
-    const plan = planFiscalBackupAttempt({
-      remainingMs: 40_000,
-      backup: noBackup,
-      afterPdfInvalid: false,
-      hasPdfRfc: false,
-    });
-    assert.equal(plan.kind, "revision_manual");
+    try {
+      const result = await extractEstadoCuentaOcrLive({
+        pdf: new Blob(["pdf"], { type: "application/pdf" }),
+        token: "jwt-test",
+        timeoutMs: 5_000,
+      });
+      assert.deepEqual(result, {
+        ok: false,
+        code: "ESTADO_CUENTA_OCR_AUTH_FAILED",
+      });
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
   });
 });
