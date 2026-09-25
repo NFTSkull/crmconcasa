@@ -63,10 +63,15 @@ test("parsePorcentajeCobroInput acepta decimales", () => {
   assert.equal(parsePorcentajeCobroInput("10"), 10);
 });
 
-test("parseMontoCalculadoInput acepta montos", () => {
+test("parseMontoCalculadoInput acepta montos y formatos MX/US", () => {
   assert.equal(parseMontoCalculadoInput("2500"), 2500);
   assert.equal(parseMontoCalculadoInput("$2,500.50"), 2500.5);
+  assert.equal(parseMontoCalculadoInput("169.039.02"), 169039.02);
+  assert.equal(parseMontoCalculadoInput("169,039.02"), 169039.02);
+  assert.equal(parseMontoCalculadoInput("169.039,02"), 169039.02);
+  assert.equal(parseMontoCalculadoInput("169,039"), 169039);
   assert.equal(parseMontoCalculadoInput(""), null);
+  assert.equal(parseMontoCalculadoInput("12.34.56"), null);
 });
 
 test("calcMontoMejoravitDesdeEditor — casos de negocio", () => {
