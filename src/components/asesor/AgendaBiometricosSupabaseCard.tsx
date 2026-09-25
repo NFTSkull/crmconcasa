@@ -42,6 +42,7 @@ import {
 import type { SlotCapacityOverrides } from "@/domain/agenda-biometricos/weekly-availability";
 import {
   applySheetInventoryToSlots,
+  failClosedSlotsWhileInventoryRefreshing,
   type InventoryAvailabilityResponse,
 } from "@/domain/agenda-sheets/apply-inventory-availability";
 import {
@@ -267,6 +268,9 @@ export function AgendaBiometricosSupabaseCard({
           : (sedeOptions[0]?.canonicalId ?? ""),
       );
       setDateYmd(today);
+      inventorySyncGenRef.current += 1;
+      setSheetInventory(null);
+      setInventoryRefreshing(true);
       setTimeHhmm("");
       setReagendar(false);
       setConvertMode(false);
@@ -398,7 +402,8 @@ export function AgendaBiometricosSupabaseCard({
       selectedSede,
       config.locations,
     );
-    return applySheetInventoryToSlots(adjusted, sheetInventory, dateYmd).slots;
+    const sheetAware = applySheetInventoryToSlots(adjusted, sheetInventory, dateYmd).slots;
+    return failClosedSlotsWhileInventoryRefreshing(sheetAware, inventoryRefreshing);
   }, [
     activeBooking,
     bookedSlots,
@@ -408,6 +413,7 @@ export function AgendaBiometricosSupabaseCard({
     reagendar,
     selectedSede,
     sheetInventory,
+    inventoryRefreshing,
   ]);
 
   const inventoryUi = useMemo(
@@ -459,6 +465,9 @@ export function AgendaBiometricosSupabaseCard({
     const canonical =
       mapLocationIdToAdvisorCanonical(activeBooking.locationId, config.locations) ??
       sedeCanonicalId;
+    inventorySyncGenRef.current += 1;
+    setSheetInventory(null);
+    setInventoryRefreshing(true);
     setSedeCanonicalId(canonical);
     setDateYmd(activeBooking.bookingDate as YmdDate);
     setTimeHhmm(activeBooking.bookingTime as HhmmTime);
@@ -814,14 +823,20 @@ export function AgendaBiometricosSupabaseCard({
         timeHhmm={timeHhmm}
         disponibilidadSlots={disponibilidadSlots}
         availabilityInsight={availabilityInsight}
-        saving={saving}
+        saving={saving || inventoryRefreshing}
         onSedeChange={(id) => {
+          inventorySyncGenRef.current += 1;
+          setSheetInventory(null);
+          setInventoryRefreshing(true);
           setSedeCanonicalId(id);
           setTimeHhmm("");
           setError(null);
           setBookGateError(null);
         }}
         onDateChange={(date) => {
+          inventorySyncGenRef.current += 1;
+          setSheetInventory(null);
+          setInventoryRefreshing(true);
           setDateYmd(date);
           setTimeHhmm("");
           setError(null);
@@ -833,6 +848,9 @@ export function AgendaBiometricosSupabaseCard({
           setBookGateError(null);
         }}
         onGoToNextAvailability={(date, time) => {
+          inventorySyncGenRef.current += 1;
+          setSheetInventory(null);
+          setInventoryRefreshing(true);
           setDateYmd(date);
           setTimeHhmm(time);
           setError(null);
@@ -845,10 +863,10 @@ export function AgendaBiometricosSupabaseCard({
           {LIVE_SYNC_LOADING_LABEL}
         </p>
       ) : null}
-      {inventorySyncedLabel ? (
+      {!inventoryRefreshing && inventorySyncedLabel ? (
         <p className="mt-2 text-[11px] text-gray-500">{inventorySyncedLabel}</p>
       ) : null}
-      {inventoryUi.blockedReason ? (
+      {!inventoryRefreshing && inventoryUi.blockedReason ? (
         <p
           role="status"
           className="mt-2 rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-xs text-gray-700"
@@ -871,6 +889,7 @@ export function AgendaBiometricosSupabaseCard({
         className="mt-4 w-full text-xs"
         disabled={
           saving ||
+          inventoryRefreshing ||
           !config?.enabled ||
           !selectedSede ||
           !timeHhmm ||
