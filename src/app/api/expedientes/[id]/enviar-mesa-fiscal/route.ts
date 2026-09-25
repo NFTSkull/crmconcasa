@@ -72,7 +72,7 @@ type EstadoCuentaOcrLiveResult =
   | { ok: true; text: string }
   | { ok: false; code: string };
 
-async function extractEstadoCuentaOcrLive(args: {
+export async function extractEstadoCuentaOcrLive(args: {
   pdf: Blob;
   token: string;
   timeoutMs: number;
