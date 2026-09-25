@@ -184,3 +184,74 @@ describe("registerInvalidoOrRetry", () => {
     assert.equal(body.submitted_to_mesa, false);
   });
 });
+
+
+describe("extractEstadoCuentaOcrLive", () => {
+  it("usa el OCR autenticado del mismo Estado de Cuenta", async () => {
+    const originalFetch = globalThis.fetch;
+    let seenAuth = "";
+    let seenType = "";
+    globalThis.fetch = (async (_input: RequestInfo | URL, init?: RequestInit) => {
+      seenAuth = String(new Headers(init?.headers).get("authorization") ?? "");
+      const form = init?.body as FormData;
+      seenType = String(form.get("document_type") ?? "");
+      return new Response(
+        JSON.stringify({
+          ok: true,
+          text: "TITULAR PRUEBA RFC BADD9001019A1",
+        }),
+        { status: 200, headers: { "content-type": "application/json" } },
+      );
+    }) as typeof fetch;
+
+    try {
+      const result = await extractEstadoCuentaOcrLive({
+        pdf: new Blob(["pdf"], { type: "application/pdf" }),
+        token: "jwt-test",
+        timeoutMs: 5_000,
+      });
+      assert.equal(result.ok, true);
+      if (!result.ok) throw new Error("expected OCR success");
+      assert.match(result.text, /BADD9001019A1/);
+      assert.equal(seenAuth, "Bearer jwt-test");
+      assert.equal(seenType, "cliente_estado_cuenta");
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+
+  it("no inicia OCR si ya no cabe dentro del presupuesto", async () => {
+    const result = await extractEstadoCuentaOcrLive({
+      pdf: new Blob(["pdf"], { type: "application/pdf" }),
+      token: "jwt-test",
+      timeoutMs: 999,
+    });
+    assert.deepEqual(result, {
+      ok: false,
+      code: "ESTADO_CUENTA_OCR_BUDGET_EXCEEDED",
+    });
+  });
+
+  it("falla cerrado ante rechazo de autenticación OCR", async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = (async () =>
+      new Response(JSON.stringify({ ok: false }), {
+        status: 403,
+        headers: { "content-type": "application/json" },
+      })) as typeof fetch;
+
+    try {
+      const result = await extractEstadoCuentaOcrLive({
+        pdf: new Blob(["pdf"], { type: "application/pdf" }),
+        token: "jwt-test",
+        timeoutMs: 5_000,
+      });
+      assert.deepEqual(result, {
+        ok: false,
+        code: "ESTADO_CUENTA_OCR_AUTH_FAILED",
+      });
+    } finally {
+      globalThis.fetch = originalFetch;
+    }
+  });
+});
