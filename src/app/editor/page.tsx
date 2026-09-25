@@ -259,9 +259,11 @@ export default function EditorDashboardPage() {
       }
       refreshIfVisible();
     };
+    const intervalId = window.setInterval(refreshIfVisible, 15_000);
     window.addEventListener("focus", onFocus);
     document.addEventListener("visibilitychange", onVis);
     return () => {
+      window.clearInterval(intervalId);
       window.removeEventListener("focus", onFocus);
       document.removeEventListener("visibilitychange", onVis);
     };
