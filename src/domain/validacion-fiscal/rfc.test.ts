@@ -14,6 +14,7 @@ import {
   rfcShape,
   selectEstadoCuentaRfc,
   resolveFiscalRfc,
+  resolveEstadoCuentaFiscalRfc,
   workerAttemptTimeoutMs,
 } from "./rfc";
 
@@ -281,4 +282,58 @@ test("pass desde estado_cuenta no incluye campos de respaldo", () => {
   assert.equal(r.rfc_source, "estado_cuenta");
   assert.equal(r.backup_reason, undefined);
   assert.equal(r.pdf_homoclave_differed, undefined);
+});
+
+
+test("Estado de Cuenta escaneado: usa OCR cacheado si no hay texto embebido", () => {
+  const r = resolveEstadoCuentaFiscalRfc({
+    embeddedText: "",
+    ocrText: "TITULAR JUAN PEREZ GARCIA RFC BADD9001019A1",
+    curpValidadaLocalmente: CURP_BADD,
+    clienteNombre: CLIENT,
+  });
+  assert.equal(r.status, "ready_for_sat");
+  if (r.status !== "ready_for_sat") throw new Error("expected ready");
+  assert.equal(r.fiscalRfc, "BADD9001019A1");
+  assert.equal(r.readSource, "ocr_cache");
+});
+
+test("Estado de Cuenta: texto embebido válido gana antes que OCR", () => {
+  const r = resolveEstadoCuentaFiscalRfc({
+    embeddedText: "TITULAR JUAN PEREZ GARCIA RFC BADD9001019A1",
+    ocrText: "TITULAR JUAN PEREZ GARCIA RFC BADD900101ZZ9",
+    curpValidadaLocalmente: CURP_BADD,
+    clienteNombre: CLIENT,
+  });
+  assert.equal(r.status, "ready_for_sat");
+  if (r.status !== "ready_for_sat") throw new Error("expected ready");
+  assert.equal(r.fiscalRfc, "BADD9001019A1");
+  assert.equal(r.readSource, "embedded_text");
+});
+
+test("Estado de Cuenta ambiguo en texto embebido puede resolverse con OCR de la misma versión", () => {
+  const r = resolveEstadoCuentaFiscalRfc({
+    embeddedText: "RFC BADD9001019A1 RFC BADD900101ZZ9",
+    ocrText: "CUENTAHABIENTE JUAN PEREZ GARCIA RFC BADD9001019A1",
+    curpValidadaLocalmente: CURP_BADD,
+    clienteNombre: CLIENT,
+  });
+  assert.equal(r.status, "ready_for_sat");
+  if (r.status !== "ready_for_sat") throw new Error("expected ready");
+  assert.equal(r.fiscalRfc, "BADD9001019A1");
+  assert.equal(r.readSource, "ocr_cache");
+});
+
+test("sin RFC visible en Estado de Cuenta no promueve el RFC capturado como fuente documental", () => {
+  const r = resolveEstadoCuentaFiscalRfc({
+    embeddedText: "ESTADO DE CUENTA SIN RFC DEL TITULAR",
+    ocrText: "",
+    rfcInfonavit: "BADD9001019A1",
+    rfcDatosGenerales: "BADD9001019A1",
+    curpValidadaLocalmente: CURP_BADD,
+    clienteNombre: CLIENT,
+  });
+  assert.equal(r.status, "unknown");
+  if (r.status !== "unknown") throw new Error("expected unknown");
+  assert.equal(r.fiscalRfc, null);
 });
