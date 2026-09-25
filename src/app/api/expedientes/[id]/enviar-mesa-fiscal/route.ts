@@ -9,8 +9,6 @@ import {
   backupReasonFromPdfGap,
   buildValidadoResumen,
   FISCAL_ROUTE_BUDGET_MS,
-  pickCapturedBackupRfc,
-  planFiscalBackupAttempt,
   remainingFiscalBudgetMs,
   resolveEstadoCuentaFiscalRfc,
   workerAttemptTimeoutMs,
@@ -550,20 +548,21 @@ export async function POST(request: Request, { params }: RouteParams) {
       });
     }
 
+    // El RFC fiscal automático debe provenir del Estado de Cuenta vigente.
+    // RFC Infonavit/Datos Generales solo corroboran candidatos del documento;
+    // nunca sustituyen silenciosamente la fuente documental.
+    if (!pdfRfc) {
+      const reason = String(pdfGapReason ?? "pdf_estado_cuenta_unknown")
+        .replace(/^pdf_/i, "")
+        .toUpperCase();
+      return revisionManual(`RFC_ESTADO_CUENTA_NO_RESUELTO_${reason}`, 409);
+    }
+
     const worker = await requireLiveWorker();
     if (!worker.ok) {
-      const backupForRm = pickCapturedBackupRfc({
-        rfcInfonavit,
-        rfcDatosGenerales,
-        curpValidadaLocalmente: curpLocal.normalized,
-      });
-      const rfcForRm = pdfRfc ?? (backupForRm.ok ? backupForRm.rfc : null);
-      if (!rfcForRm) {
-        return revisionManual(worker.code);
-      }
       return failWithRevisionManual({
         expedienteId,
-        fiscalRfc: rfcForRm,
+        fiscalRfc: pdfRfc,
         edcDocumentoId,
         edcVersion,
         code: worker.code,
@@ -571,11 +570,6 @@ export async function POST(request: Request, { params }: RouteParams) {
     }
 
     const deadlineAt = Date.now() + FISCAL_ROUTE_BUDGET_MS;
-    const backupPick = pickCapturedBackupRfc({
-      rfcInfonavit,
-      rfcDatosGenerales,
-      curpValidadaLocalmente: curpLocal.normalized,
-    });
 
     const finishPass = async (
       fiscalRfc: string,
@@ -652,201 +646,90 @@ export async function POST(request: Request, { params }: RouteParams) {
       return callEnviarAMesa(client, expedienteId);
     };
 
-    const tryBackup = async (
-      reason: FiscalBackupReason,
-      afterPdfInvalid: boolean,
-    ): Promise<NextResponse> => {
-      const plan = planFiscalBackupAttempt({
-        remainingMs: remainingFiscalBudgetMs(deadlineAt),
-        backup: backupPick,
-        afterPdfInvalid,
-        hasPdfRfc: Boolean(pdfRfc),
-      });
-
-      if (plan.kind === "register_invalid_pdf") {
-        const admin = serviceRoleClient();
-        if (!admin) return retry("SERVICE_ROLE_NOT_CONFIGURED");
-        return registerInvalidoOrRetry({
-          expedienteId,
-          fiscalRfc: pdfRfc!,
-          edcDocumentoId,
-          edcVersion,
-          code: "RFC_INVALIDO_SAT",
-          resultadoExtra: {
-            backup_skipped: backupPick.ok ? undefined : backupPick.reason,
-            backup_reason: reason,
-          },
-          rpc: async (payload) => {
-            const { error } = await admin.rpc(
-              "server_registrar_validacion_fiscal_sat",
-              payload,
-            );
-            return { error };
-          },
-        });
-      }
-
-      if (plan.kind === "revision_manual") {
-        return revisionManual(plan.code);
-      }
-
-      if (plan.kind === "budget_exceeded") {
-        return failWithRevisionManual({
-          expedienteId,
-          fiscalRfc: backupPick.ok ? backupPick.rfc : pdfRfc!,
-          edcDocumentoId,
-          edcVersion,
-          code: "FISCAL_BUDGET_EXCEEDED_FOR_BACKUP",
-        });
-      }
-
-      // plan.kind === "validate"
-      const sat = await callSatWorker({
-        url: worker.url,
-        secret: worker.secret,
-        rfc: backupPick.ok ? backupPick.rfc : "",
-        curp: curpLocal.normalized,
-        timeoutMs: plan.timeoutMs,
-      });
-      if (!backupPick.ok) {
-        return revisionManual("RFC_NO_RESUELTO_BACKUP_MISSING");
-      }
-      if (sat.kind === "exception") {
-        return failWithRevisionManual({
-          expedienteId,
-          fiscalRfc: backupPick.rfc,
-          edcDocumentoId,
-          edcVersion,
-          code: sat.code,
-        });
-      }
-      if (!sat.httpOk && sat.body?.semantic !== "invalid") {
-        return failWithRevisionManual({
-          expedienteId,
-          fiscalRfc: backupPick.rfc,
-          edcDocumentoId,
-          edcVersion,
-          code: sat.body?.code || "SAT_WORKER_FAILED",
-        });
-      }
-      const decision = classifyFiscalWorkerForMesa(sat.body);
-      if (decision.kind === "pass") {
-        return finishPass(
-          backupPick.rfc,
-          buildValidadoResumen({
-            fiscalRfc: backupPick.rfc,
-            rfcSource: "respaldo_capturado",
-            backupReason: reason,
-            backupField: backupPick.field,
-            pdfRfc,
-          }),
-        );
-      }
-      if (decision.kind === "invalid") {
-        const admin = serviceRoleClient();
-        if (!admin) return retry("SERVICE_ROLE_NOT_CONFIGURED");
-        const resumenMeta = buildValidadoResumen({
-          fiscalRfc: backupPick.rfc,
-          rfcSource: "respaldo_capturado",
-          backupReason: reason,
-          backupField: backupPick.field,
-          pdfRfc,
-        });
-        return registerInvalidoOrRetry({
-          expedienteId,
-          fiscalRfc: backupPick.rfc,
-          edcDocumentoId,
-          edcVersion,
-          code: decision.code,
-          resultadoExtra: {
-            rfc_source: "respaldo_capturado",
-            backup_reason: reason,
-            backup_field: backupPick.field,
-            pdf_rfc_masked: resumenMeta.pdf_rfc_masked,
-            pdf_homoclave_differed: resumenMeta.pdf_homoclave_differed,
-          },
-          rpc: async (payload) => {
-            const { error } = await admin.rpc(
-              "server_registrar_validacion_fiscal_sat",
-              payload,
-            );
-            return { error };
-          },
-        });
-      }
-      return failWithRevisionManual({
-        expedienteId,
-        fiscalRfc: backupPick.rfc,
-        edcDocumentoId,
-        edcVersion,
-        code: decision.code,
-      });
-    };
-
-    // 1) Primero RFC del Estado de Cuenta si se resolvió.
-    if (pdfRfc) {
-      const timeoutMs = workerAttemptTimeoutMs(remainingFiscalBudgetMs(deadlineAt), {
-        minMs: 1_000,
-      });
-      if (timeoutMs == null) {
-        return failWithRevisionManual({
-          expedienteId,
-          fiscalRfc: pdfRfc,
-          edcDocumentoId,
-          edcVersion,
-          code: "FISCAL_BUDGET_EXCEEDED",
-        });
-      }
-      const sat = await callSatWorker({
-        url: worker.url,
-        secret: worker.secret,
-        rfc: pdfRfc,
-        curp: curpLocal.normalized,
-        timeoutMs,
-      });
-      if (sat.kind === "exception") {
-        return failWithRevisionManual({
-          expedienteId,
-          fiscalRfc: pdfRfc,
-          edcDocumentoId,
-          edcVersion,
-          code: sat.code,
-        });
-      }
-      if (!sat.httpOk && sat.body?.semantic !== "invalid") {
-        return failWithRevisionManual({
-          expedienteId,
-          fiscalRfc: pdfRfc,
-          edcDocumentoId,
-          edcVersion,
-          code: sat.body?.code || "SAT_WORKER_FAILED",
-        });
-      }
-      const decision = classifyFiscalWorkerForMesa(sat.body);
-      if (decision.kind === "pass") {
-        return finishPass(
-          pdfRfc,
-          buildValidadoResumen({
-            fiscalRfc: pdfRfc,
-            rfcSource: "estado_cuenta",
-            edcReadSource: edcReadSource ?? undefined,
-          }),
-        );
-      }
-      if (decision.kind === "invalid") {
-        return tryBackup("pdf_sat_invalid", true);
-      }
+    // RFC del Estado de Cuenta vigente: única fuente enviada al SAT.
+    const timeoutMs = workerAttemptTimeoutMs(remainingFiscalBudgetMs(deadlineAt), {
+      minMs: 1_000,
+    });
+    if (timeoutMs == null) {
       return failWithRevisionManual({
         expedienteId,
         fiscalRfc: pdfRfc,
         edcDocumentoId,
         edcVersion,
-        code: decision.code,
+        code: "FISCAL_BUDGET_EXCEEDED",
       });
     }
 
-    // 2) PDF sin RFC → respaldo capturado (si cabe en presupuesto).
-    return tryBackup(pdfGapReason ?? "pdf_estado_cuenta_unknown", false);
+    const sat = await callSatWorker({
+      url: worker.url,
+      secret: worker.secret,
+      rfc: pdfRfc,
+      curp: curpLocal.normalized,
+      timeoutMs,
+    });
+
+    if (sat.kind === "exception") {
+      return failWithRevisionManual({
+        expedienteId,
+        fiscalRfc: pdfRfc,
+        edcDocumentoId,
+        edcVersion,
+        code: sat.code,
+      });
+    }
+
+    if (!sat.httpOk && sat.body?.semantic !== "invalid") {
+      return failWithRevisionManual({
+        expedienteId,
+        fiscalRfc: pdfRfc,
+        edcDocumentoId,
+        edcVersion,
+        code: sat.body?.code || "SAT_WORKER_FAILED",
+      });
+    }
+
+    const decision = classifyFiscalWorkerForMesa(sat.body);
+    if (decision.kind === "pass") {
+      return finishPass(
+        pdfRfc,
+        buildValidadoResumen({
+          fiscalRfc: pdfRfc,
+          rfcSource: "estado_cuenta",
+          edcReadSource: edcReadSource ?? undefined,
+        }),
+      );
+    }
+
+    if (decision.kind === "invalid") {
+      const admin = serviceRoleClient();
+      if (!admin) return retry("SERVICE_ROLE_NOT_CONFIGURED");
+      return registerInvalidoOrRetry({
+        expedienteId,
+        fiscalRfc: pdfRfc,
+        edcDocumentoId,
+        edcVersion,
+        code: decision.code,
+        resultadoExtra: {
+          rfc_source: "estado_cuenta",
+          edc_read_source: edcReadSource ?? undefined,
+        },
+        rpc: async (payload) => {
+          const { error } = await admin.rpc(
+            "server_registrar_validacion_fiscal_sat",
+            payload,
+          );
+          return { error };
+        },
+      });
+    }
+
+    return failWithRevisionManual({
+      expedienteId,
+      fiscalRfc: pdfRfc,
+      edcDocumentoId,
+      edcVersion,
+      code: decision.code,
+    });
   } catch (error) {
     console.error(
       `[enviar-mesa-fiscal] fallo expediente_id=${expedienteId} user=${auth.userId}`,
