@@ -1,3 +1,9 @@
+## 2026-09-24 - Worker SAT: rotar IP ante errores de proxy/red
+
+- Hasta 3 sesiones/`sessionId` por solicitud (`planProxySessionRetry` + presupuesto 50s).
+- `/validate` reinicia RFC+CURP completo con sesión nueva; captcha/RFC inválido no rotan.
+- Diagnostics reporta `sessionsUsed`. Logs: `PROXY_SESSION_FAIL session=N errorType=…`.
+
 ## 2026-09-24 - Worker SAT: proxy residencial (proxies.fo)
 
 - `integrations/sat-rfc-validator`: `proxy-config.js` + `chromium.launch({ proxy })` si `SAT_PROXY_URL`.
