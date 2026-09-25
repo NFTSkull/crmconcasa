@@ -27,7 +27,7 @@ ALLOWED_TYPES = {
     "cliente_estado_cuenta",
 }
 
-app = FastAPI(title="ConCasa Document OCR", version="1.4.0")
+app = FastAPI(title="ConCasa Document OCR", version="1.4.4")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -305,6 +305,98 @@ def _reliable_clabe_candidates(text: str) -> list[str]:
 
 def _has_clabe_like_candidate(text: str) -> bool:
     return len(_reliable_clabe_candidates(text)) == 1
+
+
+_RFC_FULL_FLEX_RE = re.compile(
+    r"(?<![A-Z0-9Ñ&])([A-ZÑ&]{4})[\s.\-:/]*([0-9]{6})[\s.\-:/]*([A-Z0-9]{3})(?![A-Z0-9Ñ&])",
+    re.I,
+)
+
+
+def _rfc_like_candidates(text: str) -> list[str]:
+    values: list[str] = []
+    for match in _RFC_FULL_FLEX_RE.finditer((text or "").upper()):
+        value = "".join(match.groups()).upper()
+        if value not in values:
+            values.append(value)
+    return values
+
+
+def _has_rfc_like_candidate(text: str) -> bool:
+    return len(_rfc_like_candidates(text)) >= 1
+
+
+def _bank_statement_text_complete(text: str) -> bool:
+    return _has_clabe_like_candidate(text) and _has_rfc_like_candidate(text)
+
+
+def _bank_statement_rfc_focus_text(image: Image.Image) -> str:
+    """
+    Relectura focalizada de RFC en Estado de Cuenta.
+
+    No decide cuál RFC pertenece al titular: solo recupera candidatos alrededor
+    de etiquetas RFC. La selección final se hace en TypeScript usando CURP,
+    nombre y contexto para evitar confundir RFC del banco/emisor.
+    """
+    base = ImageOps.exif_transpose(image).convert("RGB")
+    gray = preprocess_image(base)
+    token_config = "--oem 1 --psm 11 preserve_interword_spaces=1"
+    tokens = _ocr_tokens(gray, token_config)
+    gray_text = _ocr_tokens_to_text(tokens)
+    parts = [gray_text] if gray_text else []
+
+    if _has_rfc_like_candidate(gray_text):
+        return gray_text
+
+    anchors = []
+    for token in tokens:
+        normalized = re.sub(r"[^A-Z]", "", str(token.get("text", "")).upper())
+        if normalized == "RFC" or normalized.startswith("RFC"):
+            anchors.append(token)
+
+    for anchor in anchors[:6]:
+        token_left = int(anchor.get("left", 0))
+        token_top = int(anchor.get("top", 0))
+        token_width = max(1, int(anchor.get("width", 1)))
+        token_height = max(1, int(anchor.get("height", 1)))
+
+        left = max(0, token_left - round(gray.width * 0.30))
+        right = min(gray.width, token_left + token_width + round(gray.width * 0.48))
+        top = max(0, token_top - token_height * 5)
+        bottom = min(gray.height, token_top + token_height * 8)
+        if right - left < 20 or bottom - top < 10:
+            continue
+
+        region = gray.crop((left, top, right, bottom))
+        longest = max(region.size)
+        if longest < 2200:
+            scale = min(6.0, 2200 / max(1, longest))
+            region = region.resize(
+                (
+                    max(1, round(region.width * scale)),
+                    max(1, round(region.height * scale)),
+                ),
+                Image.Resampling.LANCZOS,
+            )
+        region = ImageOps.autocontrast(region, cutoff=1)
+        region = ImageEnhance.Contrast(region).enhance(1.45)
+        region = region.filter(ImageFilter.SHARPEN)
+
+        structured = pytesseract.image_to_string(
+            region,
+            lang="spa+eng",
+            config="--oem 1 --psm 6 preserve_interword_spaces=1",
+        ).strip()
+        if structured:
+            parts.append(structured)
+            for candidate in _rfc_like_candidates(structured):
+                parts.append(f"RFC {candidate}")
+
+        combined = "\n".join(part for part in parts if part).strip()
+        if _has_rfc_like_candidate(combined):
+            return combined
+
+    return "\n".join(part for part in parts if part).strip()
 
 
 def _bank_statement_clabe_focus_text(image: Image.Image) -> str:
@@ -1315,24 +1407,32 @@ def ocr_pdf(data: bytes, document_type: str) -> tuple[str, int]:
         parts: list[str] = []
         processed = 0
 
-        # Primera pasada: una sola lectura por página y corte temprano.
+        # Primera pasada: lectura general por página. Para el Estado de Cuenta
+        # ya no cortamos solo por CLABE: fiscal necesita también señal de RFC.
         for idx in range(min(len(doc), max_pages)):
             image = render_pdf_page(doc[idx], dpi=260)
             page_text = ocr_image(image, document_type)
             parts.append(page_text)
             processed = idx + 1
             combined = "\n".join(part for part in parts if part).strip()
-            if _has_clabe_like_candidate(combined):
+            if _bank_statement_text_complete(combined):
                 return combined, processed
 
-        # Solo si ninguna página rápida fue suficiente hacemos el OCR reforzado.
+        # Si falta CLABE o RFC, hacemos solo la relectura focalizada necesaria.
         for idx in range(min(len(doc), max_pages)):
             image = render_pdf_page(doc[idx], dpi=260)
-            focused = _bank_statement_clabe_focus_text(image)
-            if focused:
-                parts.append(focused)
             combined = "\n".join(part for part in parts if part).strip()
-            if _has_clabe_like_candidate(combined):
+            if not _has_clabe_like_candidate(combined):
+                focused_clabe = _bank_statement_clabe_focus_text(image)
+                if focused_clabe:
+                    parts.append(focused_clabe)
+            combined = "\n".join(part for part in parts if part).strip()
+            if not _has_rfc_like_candidate(combined):
+                focused_rfc = _bank_statement_rfc_focus_text(image)
+                if focused_rfc:
+                    parts.append(focused_rfc)
+            combined = "\n".join(part for part in parts if part).strip()
+            if _bank_statement_text_complete(combined):
                 return combined, max(processed, idx + 1)
 
         return "\n".join(part for part in parts if part).strip(), processed
@@ -1351,13 +1451,12 @@ def extract_document_text(data: bytes, mime: str, document_type: str) -> tuple[s
         if enough_embedded_text(embedded):
             if (
                 document_type != "cliente_estado_cuenta"
-                or _has_clabe_like_candidate(embedded)
+                or _bank_statement_text_complete(embedded)
             ):
                 return embedded[:MAX_TEXT_CHARS], "embedded_text", embedded_pages
 
-            # Algunos estados de cuenta traen una capa de texto parcial que
-            # satisface el umbral general pero omite la tabla donde está CLABE.
-            # En ese caso conservamos lo embebido y añadimos OCR de hasta 3 págs.
+            # En Estado de Cuenta, una capa parcial puede traer CLABE pero omitir
+            # RFC (o al revés). Conservamos lo embebido y completamos con OCR.
             ocr_text, ocr_pages = ocr_pdf(data, document_type)
             combined = "\n".join(
                 part for part in (embedded, ocr_text) if part
@@ -1372,13 +1471,18 @@ def extract_document_text(data: bytes, mime: str, document_type: str) -> tuple[s
     if mime in {"image/jpeg", "image/jpg", "image/png", "image/webp"}:
         image = Image.open(io.BytesIO(data))
         text = ocr_image(image, document_type)
-        if (
-            document_type == "cliente_estado_cuenta"
-            and not _has_clabe_like_candidate(text)
-        ):
-            focused = _bank_statement_clabe_focus_text(image)
-            if focused:
-                text = "\n".join(part for part in (text, focused) if part)
+        if document_type == "cliente_estado_cuenta":
+            parts = [text] if text else []
+            if not _has_clabe_like_candidate(text):
+                focused_clabe = _bank_statement_clabe_focus_text(image)
+                if focused_clabe:
+                    parts.append(focused_clabe)
+            combined = "\n".join(part for part in parts if part).strip()
+            if not _has_rfc_like_candidate(combined):
+                focused_rfc = _bank_statement_rfc_focus_text(image)
+                if focused_rfc:
+                    parts.append(focused_rfc)
+            text = "\n".join(part for part in parts if part).strip()
         return text[:MAX_TEXT_CHARS], "tesseract", 1
 
     raise HTTPException(status_code=415, detail="unsupported_mime")
@@ -1386,7 +1490,7 @@ def extract_document_text(data: bytes, mime: str, document_type: str) -> tuple[s
 
 @app.get("/health")
 def health() -> dict:
-    return {"ok": True, "service": "document-ocr", "version": "1.4.3"}
+    return {"ok": True, "service": "document-ocr", "version": "1.4.4"}
 
 
 @app.post("/v1/extract")
