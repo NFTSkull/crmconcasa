@@ -500,6 +500,7 @@ export type FiscalValidadoResumen = Readonly<{
   semantic: "pass";
   rfc_source: "estado_cuenta" | "respaldo_capturado";
   fiscal_rfc_masked: string;
+  edc_read_source?: EstadoCuentaRfcReadSource;
   backup_reason?: FiscalBackupReason;
   backup_field?: "rfc_infonavit" | "rfc_datos_generales";
   pdf_homoclave_differed?: boolean;
@@ -509,6 +510,7 @@ export type FiscalValidadoResumen = Readonly<{
 export function buildValidadoResumen(args: {
   fiscalRfc: string;
   rfcSource: "estado_cuenta" | "respaldo_capturado";
+  edcReadSource?: EstadoCuentaRfcReadSource;
   backupReason?: FiscalBackupReason;
   backupField?: "rfc_infonavit" | "rfc_datos_generales";
   pdfRfc?: string | null;
@@ -519,7 +521,12 @@ export function buildValidadoResumen(args: {
     rfc_source: args.rfcSource,
     fiscal_rfc_masked: maskFiscalId(args.fiscalRfc),
   };
-  if (args.rfcSource === "estado_cuenta") return base;
+  if (args.rfcSource === "estado_cuenta") {
+    return {
+      ...base,
+      edc_read_source: args.edcReadSource,
+    };
+  }
   const pdfMasked = args.pdfRfc ? maskFiscalId(args.pdfRfc) : undefined;
   return {
     ...base,
