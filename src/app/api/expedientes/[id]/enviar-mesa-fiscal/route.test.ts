@@ -134,6 +134,10 @@ describe("enviar-mesa-fiscal fuente RFC", () => {
     assert.match(src, /RFC del Estado de Cuenta vigente: única fuente enviada al SAT/);
     assert.match(src, /rfc_source: "estado_cuenta"/);
     assert.match(src, /RFC_ESTADO_CUENTA_NO_RESUELTO_/);
+    assert.match(src, /fiscal_rfc_status/);
+    assert.match(src, /cachedFiscalRfcUsable/);
+    assert.match(src, /cachedFiscalRfcStillInDocument/);
+    assert.match(src, /normalizedCachedFiscalRfc\.slice\(0, 10\) === currentCurpBase/);
     assert.doesNotMatch(src, /pickCapturedBackupRfc/);
     assert.doesNotMatch(src, /const tryBackup/);
     assert.doesNotMatch(src, /rfcSource: "respaldo_capturado"/);
