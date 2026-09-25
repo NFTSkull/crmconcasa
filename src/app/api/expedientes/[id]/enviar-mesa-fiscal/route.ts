@@ -12,6 +12,7 @@ import {
   pickCapturedBackupRfc,
   planFiscalBackupAttempt,
   remainingFiscalBudgetMs,
+  resolveEstadoCuentaFiscalRfc,
   resolveFiscalRfc,
   selectEstadoCuentaRfc,
   workerAttemptTimeoutMs,
@@ -499,35 +500,56 @@ export async function POST(request: Request, { params }: RouteParams) {
     if (pdfError || !pdf) return retry("ESTADO_CUENTA_DOWNLOAD_FAILED");
 
     const extracted = await extractPdfEmbeddedText(await pdf.arrayBuffer());
+
+    // El upload del asesor ya precalienta OCR para cliente_estado_cuenta.
+    // Para PDFs escaneados, usamos únicamente el cache ligado al documento/version actual.
+    let cachedOcrText = "";
+    const ocrAdmin = serviceRoleClient();
+    if (ocrAdmin) {
+      const { data: ocrCache, error: ocrCacheError } = await ocrAdmin
+        .from("document_ocr_cache")
+        .select("status, ocr_text")
+        .eq("documento_id", edcDocumentoId)
+        .maybeSingle();
+      if (
+        !ocrCacheError &&
+        ocrCache?.status === "done" &&
+        typeof ocrCache.ocr_text === "string"
+      ) {
+        cachedOcrText = ocrCache.ocr_text;
+      }
+    }
+
+    const estadoCuentaRfc = resolveEstadoCuentaFiscalRfc({
+      embeddedText: extracted.ok ? extracted.text : "",
+      ocrText: cachedOcrText,
+      rfcInfonavit: rfcInfonavit || null,
+      rfcDatosGenerales,
+      curpValidadaLocalmente: curpLocal.normalized,
+      clienteNombre: nombreCliente,
+    });
+
     let pdfRfc: string | null = null;
+    let edcReadSource: "embedded_text" | "ocr_cache" | null = null;
     let pdfGapReason: FiscalBackupReason | null = null;
 
-    if (!extracted.ok) {
+    if (estadoCuentaRfc.status === "ready_for_sat") {
+      pdfRfc = estadoCuentaRfc.fiscalRfc;
+      edcReadSource = estadoCuentaRfc.readSource;
+    } else if (!extracted.ok && !cachedOcrText) {
       pdfGapReason = backupReasonFromPdfGap({
         extractOk: false,
         extractReason: extracted.reason,
       });
     } else {
-      const selection = selectEstadoCuentaRfc({
-        text: extracted.text,
-        rfcInfonavit: rfcInfonavit || null,
-        rfcDatosGenerales,
-        curpValidadaLocalmente: curp,
-        clienteNombre: nombreCliente,
+      const selectionReason =
+        estadoCuentaRfc.ocrReason !== "no_text"
+          ? estadoCuentaRfc.ocrReason
+          : estadoCuentaRfc.embeddedReason;
+      pdfGapReason = backupReasonFromPdfGap({
+        extractOk: true,
+        selectionReason,
       });
-      const resolution = resolveFiscalRfc({
-        rfcInfonavit: rfcInfonavit || null,
-        rfcDatosGenerales,
-        estadoCuenta: selection,
-      });
-      if (resolution.status === "ready_for_sat" && resolution.fiscalRfc) {
-        pdfRfc = resolution.fiscalRfc;
-      } else {
-        pdfGapReason = backupReasonFromPdfGap({
-          extractOk: true,
-          selectionReason: selection.reason,
-        });
-      }
     }
 
     const worker = await requireLiveWorker();
@@ -809,6 +831,7 @@ export async function POST(request: Request, { params }: RouteParams) {
           buildValidadoResumen({
             fiscalRfc: pdfRfc,
             rfcSource: "estado_cuenta",
+            edcReadSource: edcReadSource ?? undefined,
           }),
         );
       }
