@@ -153,7 +153,44 @@ async function navigateSatPage(page, url, readySelector, label, opts = {}) {
   throw lastError ?? new Error(`${label}_PAGE_NOT_READY`)
 }
 
+async function waitForRfcOverlayIdle(page, timeoutMs = STEP_TIMEOUT) {
+  const overlay = page.locator('[id="formMain:dialogEspera_modal"]')
+  if ((await overlay.count()) === 0) return true
+  try {
+    await overlay.waitFor({ state: 'hidden', timeout: timeoutMs })
+    return true
+  } catch {
+    return false
+  }
+}
+
+async function waitForRfcCaptchaDecision(page) {
+  const idle = await waitForRfcOverlayIdle(page)
+  if (!idle) {
+    return { accepted: false, captchaRejected: false, timedOut: true }
+  }
+
+  const deadline = Date.now() + STEP_TIMEOUT
+  while (Date.now() < deadline) {
+    const accepted = await page
+      .locator('[name="formMain:valRFC"]')
+      .isVisible()
+      .catch(() => false)
+    const bodyText = await page.locator('body').innerText().catch(() => '')
+    const captchaRejected = isCaptchaRejectedText(bodyText)
+
+    if (accepted || captchaRejected) {
+      return { accepted, captchaRejected, timedOut: false }
+    }
+
+    await page.waitForTimeout(200)
+  }
+
+  return { accepted: false, captchaRejected: false, timedOut: true }
+}
+
 async function refreshCaptchaImage(page) {
+  if (!(await waitForRfcOverlayIdle(page, 5_000))) return false
   const captcha = page.locator('#captchaSession')
   await captcha.waitFor({ state: 'visible', timeout: STEP_TIMEOUT })
   const before = await captcha.getAttribute('src')
@@ -267,15 +304,15 @@ async function validateRfc(page, rfc, apiKey) {
 
     metrics.submitAttempts = submit
     await page.getByRole('button', { name: /^Aceptar$/i }).click()
-    await page.waitForTimeout(500)
+
+    const decision = await waitForRfcCaptchaDecision(page)
     await saveDebugAfterSubmit(page, 'RFC', submit)
 
-    const bodyText = await page.locator('body').innerText().catch(() => '')
-    const accepted = await page.locator('[name="formMain:valRFC"]').isVisible().catch(() => false)
-    lastCaptchaRejected = isCaptchaRejectedText(bodyText)
+    const accepted = decision.accepted
+    lastCaptchaRejected = decision.captchaRejected
 
     console.log(
-      `[sat-validator] RFC_CAPTCHA_SUBMIT submit=${submit}/${maxSubmit} ocrLen=${text.length} filter=pass satAccepted=${accepted} captchaRejected=${lastCaptchaRejected}`,
+      `[sat-validator] RFC_CAPTCHA_SUBMIT submit=${submit}/${maxSubmit} ocrLen=${text.length} filter=pass satAccepted=${accepted} captchaRejected=${lastCaptchaRejected} timedOut=${decision.timedOut}`,
     )
 
     if (accepted) {
@@ -283,9 +320,18 @@ async function validateRfc(page, rfc, apiKey) {
       break
     }
 
+    if (decision.timedOut) {
+      console.warn('[sat-validator] RFC_CAPTCHA_DECISION_TIMEOUT')
+      return { status: 'unknown', evidence: null, captcha: metrics }
+    }
+
+    if (!lastCaptchaRejected) {
+      console.warn('[sat-validator] RFC_CAPTCHA_DECISION_UNKNOWN')
+      return { status: 'unknown', evidence: null, captcha: metrics }
+    }
+
     if (submit === maxSubmit) {
-      if (lastCaptchaRejected) return { status: 'captcha_failed', evidence: null, captcha: metrics }
-      throw new Error('SAT_RFC_CAPTCHA_NOT_ACCEPTED')
+      return { status: 'captcha_failed', evidence: null, captcha: metrics }
     }
 
     await bumpRefresh(metrics, page, async () => {
@@ -297,6 +343,13 @@ async function validateRfc(page, rfc, apiKey) {
   await page.locator('[name="formMain:valRFC"]').fill(rfc)
   console.log('[sat-validator] RFC_FIELD_FILLED')
   await page.locator('[id="formMain:consulta"]').click()
+
+  const outcomeIdle = await waitForRfcOverlayIdle(page)
+  if (!outcomeIdle) {
+    console.warn('[sat-validator] RFC_OUTCOME_TIMEOUT reason=SAT_OVERLAY_STILL_ACTIVE')
+    return { status: 'unknown', evidence: null, captcha: metrics }
+  }
+
   // Válido → #formMain:pnlResulRFC; inválido/no registrado → #formMain:messageConsultaRFC
   const rfcValidPanel = page.locator('[id="formMain:pnlResulRFC"]')
   const rfcInvalidMsg = page.locator('[id="formMain:messageConsultaRFC"]')
