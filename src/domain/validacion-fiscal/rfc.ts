@@ -352,6 +352,83 @@ export function resolveFiscalRfc(args: {
   };
 }
 
+export type EstadoCuentaRfcReadSource = "embedded_text" | "ocr_cache";
+
+export type EstadoCuentaFiscalResolution =
+  | Readonly<{
+      status: "ready_for_sat";
+      fiscalRfc: string;
+      readSource: EstadoCuentaRfcReadSource;
+      selectionReason: EstadoCuentaRfcSelection["reason"];
+      confidence: EstadoCuentaRfcSelection["confidence"];
+      resolution: FiscalRfcResolution;
+    }>
+  | Readonly<{
+      status: "unknown";
+      fiscalRfc: null;
+      readSource: null;
+      embeddedReason: EstadoCuentaRfcSelection["reason"] | "no_text";
+      ocrReason: EstadoCuentaRfcSelection["reason"] | "no_text";
+    }>;
+
+export function resolveEstadoCuentaFiscalRfc(args: {
+  embeddedText?: string | null;
+  ocrText?: string | null;
+  rfcInfonavit?: string | null;
+  rfcDatosGenerales?: string | null;
+  curpValidadaLocalmente?: string | null;
+  clienteNombre?: string | null;
+}): EstadoCuentaFiscalResolution {
+  const evaluate = (
+    text: string | null | undefined,
+    readSource: EstadoCuentaRfcReadSource,
+  ):
+    | Extract<EstadoCuentaFiscalResolution, { status: "ready_for_sat" }>
+    | { reason: EstadoCuentaRfcSelection["reason"] | "no_text" } => {
+    const clean = String(text ?? "").trim();
+    if (!clean) return { reason: "no_text" };
+
+    const selection = selectEstadoCuentaRfc({
+      text: clean,
+      rfcInfonavit: args.rfcInfonavit,
+      rfcDatosGenerales: args.rfcDatosGenerales,
+      curpValidadaLocalmente: args.curpValidadaLocalmente,
+      clienteNombre: args.clienteNombre,
+    });
+    const resolution = resolveFiscalRfc({
+      rfcInfonavit: args.rfcInfonavit,
+      rfcDatosGenerales: args.rfcDatosGenerales,
+      estadoCuenta: selection,
+    });
+
+    if (resolution.status === "ready_for_sat" && resolution.fiscalRfc) {
+      return {
+        status: "ready_for_sat",
+        fiscalRfc: resolution.fiscalRfc,
+        readSource,
+        selectionReason: selection.reason,
+        confidence: selection.confidence,
+        resolution,
+      };
+    }
+    return { reason: selection.reason };
+  };
+
+  const embedded = evaluate(args.embeddedText, "embedded_text");
+  if ("status" in embedded) return embedded;
+
+  const ocr = evaluate(args.ocrText, "ocr_cache");
+  if ("status" in ocr) return ocr;
+
+  return {
+    status: "unknown",
+    fiscalRfc: null,
+    readSource: null,
+    embeddedReason: embedded.reason,
+    ocrReason: ocr.reason,
+  };
+}
+
 /** Máscara segura para logs / resultado_resumido (nunca RFC completo). */
 export function maskFiscalId(value: string | null | undefined): string {
   const s = normalizeRfc(value);
