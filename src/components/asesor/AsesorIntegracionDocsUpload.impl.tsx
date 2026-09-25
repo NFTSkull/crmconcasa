@@ -40,6 +40,7 @@ import {
 import {
   isOcrPrecomputeDocumentType,
   requestDocumentOcrPrecompute,
+  requestEstadoCuentaFiscalRfcPrecompute,
 } from "@/domain/document-extractions/document-ocr-precompute-client";
 import { INTEGRATION_DOC_TIPOS_ASESOR_ENVIO_SILVIA } from "@/domain/expediente-archivos/asesor-documentos-obligatorios-envio";
 
@@ -566,6 +567,16 @@ export function AsesorIntegracionDocsUpload({
             });
           } catch {
             // Fail-open: la subida ya quedó registrada y Mesa conserva OCR on-demand.
+          }
+
+          if (tipo === "cliente_estado_cuenta") {
+            setUploadStatusLabel("Detectando RFC del Estado de Cuenta…");
+            try {
+              await requestEstadoCuentaFiscalRfcPrecompute({ expedienteId });
+            } catch {
+              // Fail-open en upload: Enviar a Mesa vuelve a resolver desde el
+              // mismo documento vigente y nunca sustituye con RFC de Bansefi.
+            }
           }
         }
 
