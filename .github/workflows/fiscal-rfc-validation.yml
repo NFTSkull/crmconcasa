@@ -4,7 +4,11 @@ on:
   pull_request:
     paths:
       - "src/app/api/expedientes/[id]/enviar-mesa-fiscal/**"
+      - "src/app/api/expedientes/[id]/fiscal-rfc-precompute/**"
       - "src/domain/validacion-fiscal/**"
+      - "src/domain/document-extractions/document-ocr-precompute-client.ts"
+      - "src/components/asesor/AsesorIntegracionDocsUpload.impl.tsx"
+      - "supabase/migrations/*document_ocr_fiscal_rfc_candidate.sql"
       - "src/domain/expedientes/enviar-mesa-fiscal-client.ts"
       - "src/domain/expedientes/enviar-mesa-fiscal-client.test.ts"
       - "src/domain/expedientes/fiscal-sat-gate-p228.contract.test.ts"
@@ -31,6 +35,7 @@ jobs:
             src/domain/expedientes/enviar-mesa-fiscal-client.test.ts \
             src/domain/expedientes/fiscal-sat-gate-p228.contract.test.ts \
             'src/app/api/expedientes/[id]/enviar-mesa-fiscal/route.test.ts' \
+            'src/app/api/expedientes/[id]/fiscal-rfc-precompute/route.test.ts' \
             src/domain/validacion-fiscal/rfc.test.ts \
             src/domain/validacion-fiscal/sat-result.test.ts
 
