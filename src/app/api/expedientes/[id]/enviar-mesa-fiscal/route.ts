@@ -60,6 +60,62 @@ function serviceRoleClient(): SupabaseClient | null {
   });
 }
 
+
+function documentOcrBaseUrl(): string {
+  return (
+    process.env.DOCUMENT_OCR_URL?.trim() ||
+    "https://concasa-document-ocr-production.up.railway.app"
+  ).replace(/\/+$/, "");
+}
+
+type EstadoCuentaOcrLiveResult =
+  | { ok: true; text: string }
+  | { ok: false; code: string };
+
+async function extractEstadoCuentaOcrLive(args: {
+  pdf: Blob;
+  token: string;
+  timeoutMs: number;
+}): Promise<EstadoCuentaOcrLiveResult> {
+  if (args.timeoutMs < 1_000) {
+    return { ok: false, code: "ESTADO_CUENTA_OCR_BUDGET_EXCEEDED" };
+  }
+
+  const form = new FormData();
+  form.append("file", args.pdf, "estado-cuenta.pdf");
+  form.append("document_type", ESTADO_CUENTA);
+
+  try {
+    const response = await fetch(`${documentOcrBaseUrl()}/v1/extract`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${args.token}` },
+      body: form,
+      cache: "no-store",
+      signal: AbortSignal.timeout(args.timeoutMs),
+    });
+
+    const body = (await response.json().catch(() => null)) as
+      | { ok?: boolean; text?: unknown; detail?: unknown }
+      | null;
+
+    if (!response.ok || body?.ok !== true) {
+      return {
+        ok: false,
+        code:
+          response.status === 401 || response.status === 403
+            ? "ESTADO_CUENTA_OCR_AUTH_FAILED"
+            : "ESTADO_CUENTA_OCR_FAILED",
+      };
+    }
+
+    const text = typeof body.text === "string" ? body.text.trim() : "";
+    if (!text) return { ok: false, code: "ESTADO_CUENTA_OCR_EMPTY" };
+    return { ok: true, text };
+  } catch {
+    return { ok: false, code: "ESTADO_CUENTA_OCR_UNREACHABLE" };
+  }
+}
+
 async function authenticatedClient(
   request: Request,
 ): Promise<
@@ -489,6 +545,8 @@ export async function POST(request: Request, { params }: RouteParams) {
       return invalid("CURP_LOCAL_INVALIDA");
     }
 
+    const deadlineAt = Date.now() + FISCAL_ROUTE_BUDGET_MS;
+
     const { data: pdf, error: pdfError } = await client.storage
       .from(DOCUMENT_BUCKET)
       .download(String(documentoRes.data.storage_path));
@@ -516,7 +574,7 @@ export async function POST(request: Request, { params }: RouteParams) {
       }
     }
 
-    const estadoCuentaRfc = resolveEstadoCuentaFiscalRfc({
+    let estadoCuentaRfc = resolveEstadoCuentaFiscalRfc({
       embeddedText: extracted.ok ? extracted.text : "",
       ocrText: cachedOcrText,
       rfcInfonavit: rfcInfonavit || null,
@@ -525,8 +583,33 @@ export async function POST(request: Request, { params }: RouteParams) {
       clienteNombre: nombreCliente,
     });
 
+    // Compatibilidad con expedientes cuyo cache OCR fue generado antes de que
+    // Estado de Cuenta incluyera RFC como campo de primera clase.
+    if (estadoCuentaRfc.status !== "ready_for_sat") {
+      const remaining = remainingFiscalBudgetMs(deadlineAt);
+      const ocrTimeoutMs = Math.min(15_000, Math.max(0, remaining - 8_000));
+      if (ocrTimeoutMs >= 1_000) {
+        const liveOcr = await extractEstadoCuentaOcrLive({
+          pdf,
+          token: auth.token,
+          timeoutMs: ocrTimeoutMs,
+        });
+        if (liveOcr.ok) {
+          estadoCuentaRfc = resolveEstadoCuentaFiscalRfc({
+            embeddedText: extracted.ok ? extracted.text : "",
+            ocrText: liveOcr.text,
+            ocrReadSource: "ocr_live",
+            rfcInfonavit: rfcInfonavit || null,
+            rfcDatosGenerales,
+            curpValidadaLocalmente: curpLocal.normalized,
+            clienteNombre: nombreCliente,
+          });
+        }
+      }
+    }
+
     let pdfRfc: string | null = null;
-    let edcReadSource: "embedded_text" | "ocr_cache" | null = null;
+    let edcReadSource: "embedded_text" | "ocr_cache" | "ocr_live" | null = null;
     let pdfGapReason: FiscalBackupReason | null = null;
 
     if (estadoCuentaRfc.status === "ready_for_sat") {
@@ -568,8 +651,6 @@ export async function POST(request: Request, { params }: RouteParams) {
         code: worker.code,
       });
     }
-
-    const deadlineAt = Date.now() + FISCAL_ROUTE_BUDGET_MS;
 
     const finishPass = async (
       fiscalRfc: string,
