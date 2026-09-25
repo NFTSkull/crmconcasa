@@ -13,8 +13,6 @@ import {
   planFiscalBackupAttempt,
   remainingFiscalBudgetMs,
   resolveEstadoCuentaFiscalRfc,
-  resolveFiscalRfc,
-  selectEstadoCuentaRfc,
   workerAttemptTimeoutMs,
   type FiscalBackupReason,
   type FiscalValidadoResumen,
