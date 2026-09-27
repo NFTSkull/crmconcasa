@@ -11,6 +11,7 @@ import {
   curpRfcBase10,
   FISCAL_ROUTE_BUDGET_MS,
   normalizeRfc,
+  pickCapturedBackupRfc,
   remainingFiscalBudgetMs,
   resolveEstadoCuentaFiscalRfc,
   rfcShape,
@@ -349,6 +350,47 @@ export function classifyFiscalWorkerForMesa(body: FiscalWorkerBody):
 }
 
 /**
+ * Respaldo fiscal SOLO para un falso negativo probable del OCR:
+ * - Infonavit y Datos Generales deben traer exactamente el mismo RFC full13.
+ * - La base10 debe coincidir con la CURP validada localmente.
+ * - El RFC corroborado debe ser distinto del leído del Estado de Cuenta.
+ *
+ * Aun cumpliendo esto, el respaldo NO autoriza Mesa por sí solo: siempre se
+ * vuelve a validar en vivo contra SAT.
+ */
+export function pickCorroboratedBackupRfc(args: {
+  rfcInfonavit?: string | null;
+  rfcDatosGenerales?: string | null;
+  curpValidadaLocalmente: string;
+  pdfRfc?: string | null;
+}):
+  | { ok: true; rfc: string; field: "rfc_infonavit" | "rfc_datos_generales" }
+  | { ok: false; reason: string } {
+  const infonavit = normalizeRfc(args.rfcInfonavit);
+  const datosGenerales = normalizeRfc(args.rfcDatosGenerales);
+  const pdf = normalizeRfc(args.pdfRfc);
+
+  if (
+    rfcShape(infonavit) !== "full13" ||
+    rfcShape(datosGenerales) !== "full13"
+  ) {
+    return { ok: false, reason: "captured_sources_incomplete" };
+  }
+  if (infonavit !== datosGenerales) {
+    return { ok: false, reason: "captured_sources_disagree" };
+  }
+
+  const picked = pickCapturedBackupRfc({
+    rfcInfonavit: infonavit,
+    rfcDatosGenerales: datosGenerales,
+    curpValidadaLocalmente: args.curpValidadaLocalmente,
+  });
+  if (!picked.ok) return picked;
+  if (picked.rfc === pdf) return { ok: false, reason: "same_as_pdf" };
+  return picked;
+}
+
+/**
  * Fail-open SOLO si la mig. 228 no está aplicada (RPC gate ausente).
  * Postgres `42883` / PostgREST `PGRST202`. Cualquier otro error → fail-closed.
  */
@@ -683,6 +725,13 @@ export async function POST(request: Request, { params }: RouteParams) {
       return revisionManual(`RFC_ESTADO_CUENTA_NO_RESUELTO_${reason}`, 409);
     }
 
+    const corroboratedBackup = pickCorroboratedBackupRfc({
+      rfcInfonavit: rfcInfonavit || null,
+      rfcDatosGenerales,
+      curpValidadaLocalmente: curpLocal.normalized,
+      pdfRfc,
+    });
+
     const worker = await requireLiveWorker();
     if (!worker.ok) {
       return failWithRevisionManual({
@@ -769,7 +818,7 @@ export async function POST(request: Request, { params }: RouteParams) {
       return callEnviarAMesa(client, expedienteId);
     };
 
-    // RFC del Estado de Cuenta vigente: única fuente enviada al SAT.
+    // RFC del Estado de Cuenta vigente: fuente primaria enviada al SAT.
     const timeoutMs = workerAttemptTimeoutMs(remainingFiscalBudgetMs(deadlineAt), {
       minMs: 1_000,
     });
@@ -824,6 +873,109 @@ export async function POST(request: Request, { params }: RouteParams) {
     }
 
     if (decision.kind === "invalid") {
+      // Si SAT invalida el RFC leído del Estado de Cuenta, solo damos un segundo
+      // intento cuando Infonavit + Datos Generales corroboran exactamente otro RFC
+      // y éste comparte base10 con la CURP. El segundo RFC también debe pasar SAT.
+      if (
+        decision.code === "RFC_INVALIDO_SAT" &&
+        corroboratedBackup.ok
+      ) {
+        const backupTimeoutMs = workerAttemptTimeoutMs(
+          remainingFiscalBudgetMs(deadlineAt),
+        );
+        if (backupTimeoutMs == null) {
+          return failWithRevisionManual({
+            expedienteId,
+            fiscalRfc: corroboratedBackup.rfc,
+            edcDocumentoId,
+            edcVersion,
+            code: "FISCAL_BUDGET_EXCEEDED_FOR_CORROBORATED_BACKUP",
+          });
+        }
+
+        const backupSat = await callSatWorker({
+          url: worker.url,
+          secret: worker.secret,
+          rfc: corroboratedBackup.rfc,
+          curp: curpLocal.normalized,
+          timeoutMs: backupTimeoutMs,
+        });
+
+        if (backupSat.kind === "exception") {
+          return failWithRevisionManual({
+            expedienteId,
+            fiscalRfc: corroboratedBackup.rfc,
+            edcDocumentoId,
+            edcVersion,
+            code: backupSat.code,
+          });
+        }
+        if (!backupSat.httpOk && backupSat.body?.semantic !== "invalid") {
+          return failWithRevisionManual({
+            expedienteId,
+            fiscalRfc: corroboratedBackup.rfc,
+            edcDocumentoId,
+            edcVersion,
+            code: backupSat.body?.code || "SAT_WORKER_FAILED",
+          });
+        }
+
+        const backupDecision = classifyFiscalWorkerForMesa(backupSat.body);
+        if (backupDecision.kind === "pass") {
+          return finishPass(
+            corroboratedBackup.rfc,
+            buildValidadoResumen({
+              fiscalRfc: corroboratedBackup.rfc,
+              rfcSource: "respaldo_capturado",
+              backupReason: "pdf_sat_invalid",
+              backupField: corroboratedBackup.field,
+              pdfRfc,
+            }),
+          );
+        }
+
+        if (backupDecision.kind === "invalid") {
+          const admin = serviceRoleClient();
+          if (!admin) return retry("SERVICE_ROLE_NOT_CONFIGURED");
+          const resumenMeta = buildValidadoResumen({
+            fiscalRfc: corroboratedBackup.rfc,
+            rfcSource: "respaldo_capturado",
+            backupReason: "pdf_sat_invalid",
+            backupField: corroboratedBackup.field,
+            pdfRfc,
+          });
+          return registerInvalidoOrRetry({
+            expedienteId,
+            fiscalRfc: corroboratedBackup.rfc,
+            edcDocumentoId,
+            edcVersion,
+            code: backupDecision.code,
+            resultadoExtra: {
+              rfc_source: "respaldo_capturado",
+              backup_reason: "pdf_sat_invalid",
+              backup_field: corroboratedBackup.field,
+              pdf_rfc_masked: resumenMeta.pdf_rfc_masked,
+              pdf_homoclave_differed: resumenMeta.pdf_homoclave_differed,
+            },
+            rpc: async (payload) => {
+              const { error } = await admin.rpc(
+                "server_registrar_validacion_fiscal_sat",
+                payload,
+              );
+              return { error };
+            },
+          });
+        }
+
+        return failWithRevisionManual({
+          expedienteId,
+          fiscalRfc: corroboratedBackup.rfc,
+          edcDocumentoId,
+          edcVersion,
+          code: backupDecision.code,
+        });
+      }
+
       const admin = serviceRoleClient();
       if (!admin) return retry("SERVICE_ROLE_NOT_CONFIGURED");
       return registerInvalidoOrRetry({
@@ -835,6 +987,9 @@ export async function POST(request: Request, { params }: RouteParams) {
         resultadoExtra: {
           rfc_source: "estado_cuenta",
           edc_read_source: edcReadSource ?? undefined,
+          corroborated_backup_skipped: corroboratedBackup.ok
+            ? undefined
+            : corroboratedBackup.reason,
         },
         rpc: async (payload) => {
           const { error } = await admin.rpc(
