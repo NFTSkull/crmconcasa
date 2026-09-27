@@ -822,14 +822,15 @@ export async function POST(request: Request, { params }: RouteParams) {
       return callEnviarAMesa(client, expedienteId);
     };
 
-    // RFC del Estado de Cuenta vigente: fuente primaria enviada al SAT.
+    // Valida primero el RFC documental; cuando no hubo RFC legible en el
+    // Estado de Cuenta, valida el RFC corroborado por Infonavit + DG + CURP.
     const timeoutMs = workerAttemptTimeoutMs(remainingFiscalBudgetMs(deadlineAt), {
       minMs: 1_000,
     });
     if (timeoutMs == null) {
       return failWithRevisionManual({
         expedienteId,
-        fiscalRfc: pdfRfc,
+        fiscalRfc: fiscalRfcPrimary,
         edcDocumentoId,
         edcVersion,
         code: "FISCAL_BUDGET_EXCEEDED",
@@ -839,7 +840,7 @@ export async function POST(request: Request, { params }: RouteParams) {
     const sat = await callSatWorker({
       url: worker.url,
       secret: worker.secret,
-      rfc: pdfRfc,
+      rfc: fiscalRfcPrimary,
       curp: curpLocal.normalized,
       timeoutMs,
     });
@@ -847,7 +848,7 @@ export async function POST(request: Request, { params }: RouteParams) {
     if (sat.kind === "exception") {
       return failWithRevisionManual({
         expedienteId,
-        fiscalRfc: pdfRfc,
+        fiscalRfc: fiscalRfcPrimary,
         edcDocumentoId,
         edcVersion,
         code: sat.code,
@@ -857,7 +858,7 @@ export async function POST(request: Request, { params }: RouteParams) {
     if (!sat.httpOk && sat.body?.semantic !== "invalid") {
       return failWithRevisionManual({
         expedienteId,
-        fiscalRfc: pdfRfc,
+        fiscalRfc: fiscalRfcPrimary,
         edcDocumentoId,
         edcVersion,
         code: sat.body?.code || "SAT_WORKER_FAILED",
@@ -866,10 +867,23 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     const decision = classifyFiscalWorkerForMesa(sat.body);
     if (decision.kind === "pass") {
+      if (gapUsesCorroboratedBackup && corroboratedBackup.ok) {
+        return finishPass(
+          corroboratedBackup.rfc,
+          buildValidadoResumen({
+            fiscalRfc: corroboratedBackup.rfc,
+            rfcSource: "respaldo_capturado",
+            backupReason: pdfGapReason ?? "pdf_estado_cuenta_unknown",
+            backupField: corroboratedBackup.field,
+            pdfRfc: null,
+          }),
+        );
+      }
+
       return finishPass(
-        pdfRfc,
+        fiscalRfcPrimary,
         buildValidadoResumen({
-          fiscalRfc: pdfRfc,
+          fiscalRfc: fiscalRfcPrimary,
           rfcSource: "estado_cuenta",
           edcReadSource: edcReadSource ?? undefined,
         }),
@@ -880,7 +894,9 @@ export async function POST(request: Request, { params }: RouteParams) {
       // Si SAT invalida el RFC leído del Estado de Cuenta, solo damos un segundo
       // intento cuando Infonavit + Datos Generales corroboran exactamente otro RFC
       // y éste comparte base10 con la CURP. El segundo RFC también debe pasar SAT.
+      // Cuando el intento primario YA fue el respaldo por PDF sin texto, no se repite.
       if (
+        !gapUsesCorroboratedBackup &&
         decision.code === "RFC_INVALIDO_SAT" &&
         corroboratedBackup.ok
       ) {
@@ -982,19 +998,37 @@ export async function POST(request: Request, { params }: RouteParams) {
 
       const admin = serviceRoleClient();
       if (!admin) return retry("SERVICE_ROLE_NOT_CONFIGURED");
+      const invalidMeta =
+        gapUsesCorroboratedBackup && corroboratedBackup.ok
+          ? buildValidadoResumen({
+              fiscalRfc: fiscalRfcPrimary,
+              rfcSource: "respaldo_capturado",
+              backupReason: pdfGapReason ?? "pdf_estado_cuenta_unknown",
+              backupField: corroboratedBackup.field,
+              pdfRfc: null,
+            })
+          : null;
       return registerInvalidoOrRetry({
         expedienteId,
-        fiscalRfc: pdfRfc,
+        fiscalRfc: fiscalRfcPrimary,
         edcDocumentoId,
         edcVersion,
         code: decision.code,
-        resultadoExtra: {
-          rfc_source: "estado_cuenta",
-          edc_read_source: edcReadSource ?? undefined,
-          corroborated_backup_skipped: corroboratedBackup.ok
-            ? undefined
-            : corroboratedBackup.reason,
-        },
+        resultadoExtra: gapUsesCorroboratedBackup && corroboratedBackup.ok
+          ? {
+              rfc_source: "respaldo_capturado",
+              backup_reason: pdfGapReason ?? "pdf_estado_cuenta_unknown",
+              backup_field: corroboratedBackup.field,
+              pdf_rfc_masked: invalidMeta?.pdf_rfc_masked,
+              pdf_homoclave_differed: invalidMeta?.pdf_homoclave_differed,
+            }
+          : {
+              rfc_source: "estado_cuenta",
+              edc_read_source: edcReadSource ?? undefined,
+              corroborated_backup_skipped: corroboratedBackup.ok
+                ? undefined
+                : corroboratedBackup.reason,
+            },
         rpc: async (payload) => {
           const { error } = await admin.rpc(
             "server_registrar_validacion_fiscal_sat",
@@ -1007,7 +1041,7 @@ export async function POST(request: Request, { params }: RouteParams) {
 
     return failWithRevisionManual({
       expedienteId,
-      fiscalRfc: pdfRfc,
+      fiscalRfc: fiscalRfcPrimary,
       edcDocumentoId,
       edcVersion,
       code: decision.code,
