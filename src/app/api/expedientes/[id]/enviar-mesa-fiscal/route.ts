@@ -818,7 +818,7 @@ export async function POST(request: Request, { params }: RouteParams) {
       return callEnviarAMesa(client, expedienteId);
     };
 
-    // RFC del Estado de Cuenta vigente: única fuente enviada al SAT.
+    // RFC del Estado de Cuenta vigente: fuente primaria enviada al SAT.
     const timeoutMs = workerAttemptTimeoutMs(remainingFiscalBudgetMs(deadlineAt), {
       minMs: 1_000,
     });
