@@ -132,7 +132,7 @@ describe("enviar-mesa-fiscal fuente RFC", () => {
       new URL("./route.ts", import.meta.url),
       "utf8",
     );
-    assert.match(src, /RFC del Estado de Cuenta vigente: única fuente enviada al SAT/);
+    assert.match(src, /RFC del Estado de Cuenta vigente: fuente primaria enviada al SAT/);
     assert.match(src, /rfc_source: "estado_cuenta"/);
     assert.match(src, /RFC_ESTADO_CUENTA_NO_RESUELTO_/);
     assert.match(src, /fiscal_rfc_status/);
