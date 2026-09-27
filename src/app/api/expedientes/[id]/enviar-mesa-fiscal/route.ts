@@ -715,28 +715,32 @@ export async function POST(request: Request, { params }: RouteParams) {
       });
     }
 
-    // El RFC fiscal automático debe provenir del Estado de Cuenta vigente.
-    // RFC Infonavit/Datos Generales solo corroboran candidatos del documento;
-    // nunca sustituyen silenciosamente la fuente documental.
-    if (!pdfRfc) {
-      const reason = String(pdfGapReason ?? "pdf_estado_cuenta_unknown")
-        .replace(/^pdf_/i, "")
-        .toUpperCase();
-      return revisionManual(`RFC_ESTADO_CUENTA_NO_RESUELTO_${reason}`, 409);
-    }
-
+    // Estado de Cuenta sigue siendo la fuente primaria. Si no puede producir
+    // RFC (p. ej. PDF escaneado/no_text), permitimos un candidato corroborado
+    // SOLO cuando Infonavit + Datos Generales coinciden exactamente y comparten
+    // base10 con la CURP. Ese candidato todavía debe pasar SAT en vivo.
     const corroboratedBackup = pickCorroboratedBackupRfc({
       rfcInfonavit: rfcInfonavit || null,
       rfcDatosGenerales,
       curpValidadaLocalmente: curpLocal.normalized,
       pdfRfc,
     });
+    const gapUsesCorroboratedBackup = !pdfRfc && corroboratedBackup.ok;
+    const fiscalRfcPrimary =
+      pdfRfc ?? (corroboratedBackup.ok ? corroboratedBackup.rfc : null);
+
+    if (!fiscalRfcPrimary) {
+      const reason = String(pdfGapReason ?? "pdf_estado_cuenta_unknown")
+        .replace(/^pdf_/i, "")
+        .toUpperCase();
+      return revisionManual(`RFC_ESTADO_CUENTA_NO_RESUELTO_${reason}`, 409);
+    }
 
     const worker = await requireLiveWorker();
     if (!worker.ok) {
       return failWithRevisionManual({
         expedienteId,
-        fiscalRfc: pdfRfc,
+        fiscalRfc: fiscalRfcPrimary,
         edcDocumentoId,
         edcVersion,
         code: worker.code,
