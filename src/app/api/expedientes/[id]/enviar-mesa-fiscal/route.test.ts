@@ -132,7 +132,7 @@ describe("enviar-mesa-fiscal fuente RFC", () => {
       new URL("./route.ts", import.meta.url),
       "utf8",
     );
-    assert.match(src, /RFC del Estado de Cuenta vigente: fuente primaria enviada al SAT/);
+    assert.match(src, /Estado de Cuenta sigue siendo la fuente primaria/);
     assert.match(src, /rfc_source: "estado_cuenta"/);
     assert.match(src, /RFC_ESTADO_CUENTA_NO_RESUELTO_/);
     assert.match(src, /fiscal_rfc_status/);
@@ -143,6 +143,8 @@ describe("enviar-mesa-fiscal fuente RFC", () => {
     assert.match(src, /decision\.code === "RFC_INVALIDO_SAT"/);
     assert.match(src, /rfcSource: "respaldo_capturado"/);
     assert.match(src, /backupReason: "pdf_sat_invalid"/);
+    assert.match(src, /gapUsesCorroboratedBackup/);
+    assert.match(src, /pdfGapReason \?\? "pdf_estado_cuenta_unknown"/);
   });
 });
 
@@ -150,14 +152,30 @@ describe("pickCorroboratedBackupRfc", () => {
   it("acepta I/1 de OCR solo si Infonavit y DG coinciden y la base CURP empata", () => {
     assert.deepEqual(
       pickCorroboratedBackupRfc({
-        rfcInfonavit: "MAMC920303I40",
-        rfcDatosGenerales: "MAMC920303I40",
-        curpValidadaLocalmente: "MAMC920303HCLRTR00",
-        pdfRfc: "MAMC920303140",
+        rfcInfonavit: "ABCD900805XYZ",
+        rfcDatosGenerales: "ABCD900805XYZ",
+        curpValidadaLocalmente: "ABCD900805HDFRRL09",
+        pdfRfc: "ABCD9008051YZ",
       }),
       {
         ok: true,
-        rfc: "MAMC920303I40",
+        rfc: "ABCD900805XYZ",
+        field: "rfc_infonavit",
+      },
+    );
+  });
+
+  it("acepta respaldo corroborado cuando el Estado de Cuenta no produjo RFC", () => {
+    assert.deepEqual(
+      pickCorroboratedBackupRfc({
+        rfcInfonavit: "ABCD900805XYZ",
+        rfcDatosGenerales: "ABCD900805XYZ",
+        curpValidadaLocalmente: "ABCD900805HDFRRL09",
+        pdfRfc: null,
+      }),
+      {
+        ok: true,
+        rfc: "ABCD900805XYZ",
         field: "rfc_infonavit",
       },
     );
@@ -165,10 +183,10 @@ describe("pickCorroboratedBackupRfc", () => {
 
   it("no usa respaldo si Infonavit y DG no coinciden exactamente", () => {
     const result = pickCorroboratedBackupRfc({
-      rfcInfonavit: "MAMC920303I40",
-      rfcDatosGenerales: "MAMC9203031A0",
-      curpValidadaLocalmente: "MAMC920303HCLRTR00",
-      pdfRfc: "MAMC920303140",
+      rfcInfonavit: "ABCD900805XYZ",
+      rfcDatosGenerales: "ABCD900805QRS",
+      curpValidadaLocalmente: "ABCD900805HDFRRL09",
+      pdfRfc: "ABCD9008051YZ",
     });
     assert.deepEqual(result, {
       ok: false,
@@ -178,10 +196,10 @@ describe("pickCorroboratedBackupRfc", () => {
 
   it("no repite el mismo RFC que ya invalidó SAT", () => {
     const result = pickCorroboratedBackupRfc({
-      rfcInfonavit: "MAMC920303I40",
-      rfcDatosGenerales: "MAMC920303I40",
-      curpValidadaLocalmente: "MAMC920303HCLRTR00",
-      pdfRfc: "MAMC920303I40",
+      rfcInfonavit: "ABCD900805XYZ",
+      rfcDatosGenerales: "ABCD900805XYZ",
+      curpValidadaLocalmente: "ABCD900805HDFRRL09",
+      pdfRfc: "ABCD900805XYZ",
     });
     assert.deepEqual(result, { ok: false, reason: "same_as_pdf" });
   });
@@ -190,8 +208,8 @@ describe("pickCorroboratedBackupRfc", () => {
     const result = pickCorroboratedBackupRfc({
       rfcInfonavit: "XXXX920303I40",
       rfcDatosGenerales: "XXXX920303I40",
-      curpValidadaLocalmente: "MAMC920303HCLRTR00",
-      pdfRfc: "MAMC920303140",
+      curpValidadaLocalmente: "ABCD900805HDFRRL09",
+      pdfRfc: "ABCD9008051YZ",
     });
     assert.equal(result.ok, false);
     if (result.ok) throw new Error("expected rejected backup");
