@@ -132,7 +132,7 @@ describe("enviar-mesa-fiscal fuente RFC", () => {
       new URL("./route.ts", import.meta.url),
       "utf8",
     );
-    assert.match(src, /RFC del Estado de Cuenta vigente: fuente primaria enviada al SAT/);
+    assert.match(src, /Estado de Cuenta sigue siendo la fuente primaria/);
     assert.match(src, /rfc_source: "estado_cuenta"/);
     assert.match(src, /RFC_ESTADO_CUENTA_NO_RESUELTO_/);
     assert.match(src, /fiscal_rfc_status/);
@@ -143,6 +143,8 @@ describe("enviar-mesa-fiscal fuente RFC", () => {
     assert.match(src, /decision\.code === "RFC_INVALIDO_SAT"/);
     assert.match(src, /rfcSource: "respaldo_capturado"/);
     assert.match(src, /backupReason: "pdf_sat_invalid"/);
+    assert.match(src, /gapUsesCorroboratedBackup/);
+    assert.match(src, /pdfGapReason \?\? "pdf_estado_cuenta_unknown"/);
   });
 });
 
@@ -158,6 +160,22 @@ describe("pickCorroboratedBackupRfc", () => {
       {
         ok: true,
         rfc: "MAMC920303I40",
+        field: "rfc_infonavit",
+      },
+    );
+  });
+
+  it("acepta respaldo corroborado cuando el Estado de Cuenta no produjo RFC", () => {
+    assert.deepEqual(
+      pickCorroboratedBackupRfc({
+        rfcInfonavit: "ABCD900805XYZ",
+        rfcDatosGenerales: "ABCD900805XYZ",
+        curpValidadaLocalmente: "ABCD900805HDFRRL09",
+        pdfRfc: null,
+      }),
+      {
+        ok: true,
+        rfc: "ABCD900805XYZ",
         field: "rfc_infonavit",
       },
     );
