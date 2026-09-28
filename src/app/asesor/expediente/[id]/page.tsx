@@ -31,6 +31,7 @@ import { AsesorSolicitudDocumentoSection } from "@/components/asesor/AsesorSolic
 import { AsesorReprecalificacionActions } from "@/components/asesor/AsesorReprecalificacionActions";
 import { AsesorReingresoPostBiometricosCard } from "@/components/asesor/AsesorReingresoPostBiometricosCard";
 import { AsesorExpedienteCanceladoBanner } from "@/components/asesor/AsesorExpedienteCanceladoBanner";
+import { AsesorCancelarExpedienteCard } from "@/components/asesor/AsesorCancelarExpedienteCard";
 import { AsesorExpedienteRechazadoBanner } from "@/components/asesor/AsesorExpedienteRechazadoBanner";
 import { AsesorExpedienteEstadoActualBanner } from "@/components/asesor/AsesorExpedienteEstadoActualBanner";
 import {
@@ -2251,6 +2252,15 @@ export default function AsesorExpedientePage() {
           <AsesorExpedienteCanceladoBanner
             cancelacion={cancelacionOperativa}
             formatDateTime={(iso) => (iso ? formatDateTime(iso) : "—")}
+          />
+        ) : null}
+
+        {!expedienteCancelado ? (
+          <AsesorCancelarExpedienteCard
+            expedienteId={String(precal.id)}
+            cicloEstado={operativo?.cicloEstado}
+            dataModeSupabase={dataSupabase}
+            onUpdated={() => void loadExpediente()}
           />
         ) : null}
 
