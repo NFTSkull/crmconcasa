@@ -124,3 +124,53 @@ export const MESA_CANCELACION_OPERATIVA_CARD_INTRO =
   "El cliente no continuará con el trámite.";
 
 export const MESA_CANCELACION_OPERATIVA_CARD_CTA = "Cancelar trámite";
+
+
+const ASESOR_CANCEL_MESSAGES: Readonly<Record<string, string>> = {
+  ASESOR_CANCEL_EXP_UNAUTHORIZED:
+    "No tienes permiso para cancelar este expediente.",
+  ASESOR_CANCEL_EXP_NOT_FOUND: "No se encontró el expediente a cancelar.",
+  ASESOR_CANCEL_EXP_ALREADY_CANCELLED: "El expediente ya está cancelado.",
+  ASESOR_CANCEL_EXP_CYCLE_NOT_ACTIVE:
+    "Solo se pueden cancelar expedientes con ciclo activo.",
+  ASESOR_CANCEL_EXP_REASON_REQUIRED:
+    "Escribe el motivo por el que se cancela el trámite.",
+  ASESOR_CANCEL_EXP_REASON_TOO_LONG:
+    "El motivo no puede exceder 500 caracteres.",
+  ASESOR_CANCEL_EXP_COMMENT_TOO_LONG:
+    "El comentario no puede exceder 2000 caracteres.",
+  ASESOR_CANCEL_EXP_BOOKING_MUTATION:
+    "La cancelación no debe alterar la agenda. Intenta de nuevo.",
+};
+
+export function mapAsesorCancelacionRpcError(
+  error: RpcErrorLike,
+  fallback = "No se pudo cancelar el trámite.",
+): ExpedientesSupabaseError {
+  const source = `${error.message ?? ""} ${error.details ?? ""}`;
+  const code =
+    Object.keys(ASESOR_CANCEL_MESSAGES).find((key) => source.includes(key)) ??
+    null;
+  if (code) {
+    return new ExpedientesSupabaseError(
+      ASESOR_CANCEL_MESSAGES[code] ?? fallback,
+    );
+  }
+  if (error.code === "42501") {
+    return new ExpedientesSupabaseError(
+      "No tienes permiso para cancelar este expediente.",
+    );
+  }
+  return new ExpedientesSupabaseError(fallback);
+}
+
+export function esElegibleCancelacionAsesor(input: {
+  dataModeSupabase: boolean;
+  cicloEstado: string | null | undefined;
+}): boolean {
+  return input.dataModeSupabase && input.cicloEstado === "activo";
+}
+
+export const ASESOR_CANCELACION_TRAMITE_TITLE = "Cancelar trámite";
+export const ASESOR_CANCELACION_TRAMITE_INTRO =
+  "Úsalo cuando el cliente ya no quiera continuar. El expediente pasará a Cancelados.";

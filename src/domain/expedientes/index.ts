@@ -202,11 +202,15 @@ export {
 } from "./mesa-rechazo-operativo-motivos";
 export { buildRechazoOperativoPayload } from "./mesa-rechazo-operativo-payload";
 export {
+  ASESOR_CANCELACION_TRAMITE_INTRO,
+  ASESOR_CANCELACION_TRAMITE_TITLE,
   cancelacionOperativaInputSchema,
   cancelacionOperativaResponseSchema,
+  esElegibleCancelacionAsesor,
   esElegibleCancelacionOperativa,
   esExpedienteCancelado,
   getMesaCancelacionErrorCode,
+  mapAsesorCancelacionRpcError,
   mapMesaCancelacionRpcError,
   MESA_CANCELACION_OPERATIVA_ANCHOR_ID,
   MESA_CANCELACION_OPERATIVA_CARD_BADGE,
