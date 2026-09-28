@@ -1,7 +1,7 @@
 /**
  * Bloqueo de recursos no esenciales vía page.route (ahorro de ancho de banda proxy).
- * Nunca bloquea captcha (#captchaSession / reloadCaptcha) ni assets del propio SAT
- * (script/stylesheet/xhr/fetch/document/image en sat.gob.mx).
+ * Nunca bloquea captcha (#captchaSession / reloadCaptcha) ni recursos funcionales
+ * del SAT. Solo elimina fuentes/media/trackers e imágenes claramente decorativas.
  */
 
 /** Hosts SAT / gobierno necesarios para el formulario. */
@@ -54,6 +54,24 @@ export function isCaptchaUrl(url) {
 }
 
 /**
+ * Imágenes del SAT que son puramente visuales y no forman parte del CAPTCHA.
+ * Conservador a propósito: si no estamos seguros, se permite.
+ * @param {string} url
+ */
+export function isDecorativeSatImage(url) {
+  if (!isSatHost(url)) return false
+  if (isCaptchaUrl(url)) return false
+  try {
+    const u = new URL(url)
+    return /(?:^|[\/_.-])(logo|banner|header|footer|favicon|escudo|gobmx|satlogo)(?:[\/_.-]|$)/i.test(
+      u.pathname,
+    )
+  } catch {
+    return false
+  }
+}
+
+/**
  * Decisión pura (testeable).
  * @param {{ url: string, resourceType: string }} req
  * @returns {{ block: boolean, reason: string }}
@@ -87,11 +105,10 @@ export function shouldBlockRequest(req) {
     /* ignore */
   }
 
-  // En SAT, las imágenes decorativas (logos, banners, íconos) no son
-  // necesarias para completar RFC/CURP. El CAPTCHA ya fue permitido arriba.
-  // Bloquearlas reduce tráfico residencial sin tocar HTML/JS/CSS/XHR.
-  if (isSatHost(url) && type === 'image') {
-    return { block: true, reason: 'sat_nonessential_image' }
+  // En SAT solo bloqueamos imágenes inequívocamente decorativas.
+  // El resto se permite para no arriesgar CAPTCHAs servidos con URL dinámica.
+  if (type === 'image' && isDecorativeSatImage(url)) {
+    return { block: true, reason: 'sat_decorative_image' }
   }
 
   // En hosts SAT: permitir script/css/xhr/fetch/document/other.
