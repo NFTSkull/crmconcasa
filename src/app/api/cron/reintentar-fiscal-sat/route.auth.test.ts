@@ -28,6 +28,11 @@ describe("cron reintentar-fiscal-sat", () => {
     expect(isTechnicalRetryCode("TECHNICAL_FAILURE")).toBe(true);
     expect(isTechnicalRetryCode("SAT_WORKER_EXCEPTION")).toBe(true);
     expect(isTechnicalRetryCode("AUTO_RETRY_IN_PROGRESS")).toBe(true);
+    expect(isTechnicalRetryCode("502")).toBe(true);
+    expect(isTechnicalRetryCode("503")).toBe(true);
+    expect(isTechnicalRetryCode("429")).toBe(true);
+    expect(isTechnicalRetryCode("408")).toBe(true);
+    expect(isTechnicalRetryCode("400")).toBe(false);
     expect(isTechnicalRetryCode("RFC_INVALIDO_SAT")).toBe(false);
     expect(isTechnicalRetryCode("CURP_INVALIDA_SAT")).toBe(false);
   });
