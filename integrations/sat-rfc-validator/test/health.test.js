@@ -48,7 +48,11 @@ test('buildHealthPayload reporta present/absent sin valores', () => {
 
 test('GET /diagnostics/sat exige secret y no consulta RFC', async () => {
   const prevSecret = process.env.SAT_VALIDATOR_SECRET
+  const prevProxyEnabled = process.env.SAT_PROXY_ENABLED
+  const prevProxy = process.env.SAT_PROXY_URL
   process.env.SAT_VALIDATOR_SECRET = 'diag-secret'
+  delete process.env.SAT_PROXY_ENABLED
+  delete process.env.SAT_PROXY_URL
   const calls = []
   const app = createApp({
     probeSat: async () => {
@@ -72,12 +76,18 @@ test('GET /diagnostics/sat exige secret y no consulta RFC', async () => {
       proxy: 'direct',
       sessionsUsed: null,
       resourcesBlocked: null,
+      networkBytes: null,
+      networkMb: null,
     })
     assert.equal(calls.length, 1)
     assert.doesNotMatch(JSON.stringify(body), /RFC|CURP|cliente/i)
   } finally {
     if (prevSecret === undefined) delete process.env.SAT_VALIDATOR_SECRET
     else process.env.SAT_VALIDATOR_SECRET = prevSecret
+    if (prevProxyEnabled === undefined) delete process.env.SAT_PROXY_ENABLED
+    else process.env.SAT_PROXY_ENABLED = prevProxyEnabled
+    if (prevProxy === undefined) delete process.env.SAT_PROXY_URL
+    else process.env.SAT_PROXY_URL = prevProxy
   }
 })
 
@@ -106,8 +116,10 @@ test('GET /diagnostics/sat falla cerrado con error y loadMs', async () => {
 
 test('GET /diagnostics/sat reporta proxy used cuando el probe lo indica', async () => {
   const prevSecret = process.env.SAT_VALIDATOR_SECRET
+  const prevProxyEnabled = process.env.SAT_PROXY_ENABLED
   const prevProxy = process.env.SAT_PROXY_URL
   process.env.SAT_VALIDATOR_SECRET = 'diag-secret'
+  process.env.SAT_PROXY_ENABLED = 'true'
   process.env.SAT_PROXY_URL = 'http://example.proxy:1'
   const app = createApp({
     probeSat: async () => ({
@@ -128,6 +140,8 @@ test('GET /diagnostics/sat reporta proxy used cuando el probe lo indica', async 
   } finally {
     if (prevSecret === undefined) delete process.env.SAT_VALIDATOR_SECRET
     else process.env.SAT_VALIDATOR_SECRET = prevSecret
+    if (prevProxyEnabled === undefined) delete process.env.SAT_PROXY_ENABLED
+    else process.env.SAT_PROXY_ENABLED = prevProxyEnabled
     if (prevProxy === undefined) delete process.env.SAT_PROXY_URL
     else process.env.SAT_PROXY_URL = prevProxy
   }
