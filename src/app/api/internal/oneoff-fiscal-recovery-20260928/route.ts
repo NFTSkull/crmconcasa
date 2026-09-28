@@ -51,9 +51,18 @@ export async function GET(request: NextRequest) {
     auth: { persistSession: false, autoRefreshToken: false },
   });
 
+  const targetKey = request.nextUrl.searchParams.get("target")?.trim() || "";
+  const selectedTargets = targetKey
+    ? TARGETS.filter((target) => target.key === targetKey)
+    : TARGETS;
+
+  if (targetKey && selectedTargets.length === 0) {
+    return fail("TARGET_NOT_FOUND", 404);
+  }
+
   const results: Array<Record<string, unknown>> = [];
 
-  for (const target of TARGETS) {
+  for (const target of selectedTargets) {
     const { data: expediente, error: expError } = await admin
       .from("expedientes")
       .select("id, organization_id, cliente_nombre, submitted_to_mesa, ciclo_estado")
