@@ -191,6 +191,11 @@ export interface ExpedientesRepo {
     expedienteId: string,
     input: CancelacionOperativaInput,
   ): Promise<ExpedienteMock>;
+  /** Asesor dueño/equipo cancela terminalmente el trámite; pasa a Cancelados. */
+  cancelarExpedienteAsesor(
+    expedienteId: string,
+    input: CancelacionOperativaInput,
+  ): Promise<ExpedienteMock>;
   getUltimaCancelacionOperativa(
     expedienteId: string,
   ): Promise<ExpedienteCancelacionRow | null>;
