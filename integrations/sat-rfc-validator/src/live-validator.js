@@ -495,7 +495,7 @@ export async function probeSatRfcPageLoad() {
         error: null,
         proxy: usedProxy ? 'used' : 'direct',
         sessionsUsed,
-        ...usage(),
+        resourcesBlocked: blocker.counter.blocked,
         networkBytes: networkUsage.encodedBytes,
         networkMb: networkUsage.encodedMb,
       }
@@ -563,7 +563,7 @@ async function validateFiscalLiveOnce({
     const usage = () => {
       const n = network.snapshot()
       return {
-        ...usage(),
+        resourcesBlocked: blocker.counter.blocked,
         networkBytes: n.encodedBytes,
         networkMb: n.encodedMb,
       }
