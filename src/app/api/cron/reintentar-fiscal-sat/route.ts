@@ -679,28 +679,80 @@ async function handle(request: Request): Promise<NextResponse> {
   const admin = serviceClient();
   const cutoff = new Date(Date.now() - RETRY_COOLDOWN_MS).toISOString();
 
-  const { data: rows, error } = await admin
-    .from("cliente_validaciones_identidad")
-    .select("expediente_id, created_at, resultado_resumido")
-    .eq("tipo", "rfc_validacion_sat")
-    .eq("vigente", true)
-    .eq("estado", "RFC_VALIDACION_SAT_REVISION_MANUAL")
-    .lte("created_at", cutoff)
-    .order("created_at", { ascending: true })
-    .limit(25);
+  const pageSize = 100;
+  let candidate:
+    | {
+        expediente_id: string;
+        created_at: string;
+        resultado_resumido: Record<string, unknown> | null;
+      }
+    | undefined;
 
-  if (error) {
-    console.error("[cron/reintentar-fiscal-sat] candidate query", error.message);
-    return NextResponse.json(
-      { ok: false, error: "candidate_query_failed" },
-      { status: 500 },
-    );
+  // Hay validaciones históricas vigentes de expedientes que ya entraron a Mesa.
+  // Se filtran ANTES de elegir candidato para que nunca consuman el único slot
+  // de reintento de la corrida.
+  for (let from = 0; from < 1000 && !candidate; from += pageSize) {
+    const { data: rows, error } = await admin
+      .from("cliente_validaciones_identidad")
+      .select("expediente_id, created_at, resultado_resumido")
+      .eq("tipo", "rfc_validacion_sat")
+      .eq("vigente", true)
+      .eq("estado", "RFC_VALIDACION_SAT_REVISION_MANUAL")
+      .lte("created_at", cutoff)
+      .order("created_at", { ascending: true })
+      .range(from, from + pageSize - 1);
+
+    if (error) {
+      console.error("[cron/reintentar-fiscal-sat] candidate query", error.message);
+      return NextResponse.json(
+        { ok: false, error: "candidate_query_failed" },
+        { status: 500 },
+      );
+    }
+
+    const technicalRows = (rows ?? []).filter((row) => {
+      const resumen = (row.resultado_resumido ?? {}) as Record<string, unknown>;
+      return isTechnicalRetryCode(resumen.code);
+    });
+
+    const ids = [
+      ...new Set(
+        technicalRows
+          .map((row) => String(row.expediente_id ?? "").trim())
+          .filter(Boolean),
+      ),
+    ];
+
+    if (ids.length > 0) {
+      const { data: pendingRows, error: pendingError } = await admin
+        .from("expedientes")
+        .select("id")
+        .in("id", ids)
+        .eq("submitted_to_mesa", false)
+        .eq("ciclo_estado", "activo")
+        .is("deleted_at", null);
+
+      if (pendingError) {
+        console.error(
+          "[cron/reintentar-fiscal-sat] pending expedientes query",
+          pendingError.message,
+        );
+        return NextResponse.json(
+          { ok: false, error: "pending_expedientes_query_failed" },
+          { status: 500 },
+        );
+      }
+
+      const pendingIds = new Set(
+        (pendingRows ?? []).map((row) => String(row.id)),
+      );
+      candidate = technicalRows.find((row) =>
+        pendingIds.has(String(row.expediente_id)),
+      ) as typeof candidate;
+    }
+
+    if ((rows ?? []).length < pageSize) break;
   }
-
-  const candidate = (rows ?? []).find((row) => {
-    const resumen = (row.resultado_resumido ?? {}) as Record<string, unknown>;
-    return isTechnicalRetryCode(resumen.code);
-  });
 
   if (!candidate?.expediente_id) {
     return NextResponse.json({
