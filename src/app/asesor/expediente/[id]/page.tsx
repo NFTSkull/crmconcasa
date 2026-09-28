@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, type SetStateAction 
 import { useSessionRepo } from "@/domain/session";
 import { AgendaBiometricosCard } from "@/components/asesor/AgendaBiometricosCard";
 import { AsesorAgendaBiometricosSupabaseGate } from "@/components/asesor/AsesorAgendaBiometricosSupabaseGate";
+import { AsesorAgendaInscripcionSupabaseGate } from "@/components/asesor/AgendaInscripcionSupabaseCard";
 import { AgendaExtraordinaryRebookCard } from "@/components/asesor/AgendaExtraordinaryRebookCard";
 import {
   listContingenciaExpedienteAsesor,
@@ -2825,6 +2826,18 @@ export default function AsesorExpedientePage() {
                 submittedToMesa={operativo?.submittedToMesa ?? false}
                 etapaActual={operativo?.etapaActual}
                 fechaCita={operativo?.fechaCita}
+                onUpdated={() => void loadExpediente()}
+              />
+            ) : null}
+            {canMountAgendaBiometricosUI() &&
+            precal?.id &&
+            !bloquearAgendaPorRechazoVigente &&
+            typeof operativo?.etapaActual === "number" &&
+            operativo.etapaActual >= 6 &&
+            operativo.etapaActual <= 7 ? (
+              <AsesorAgendaInscripcionSupabaseGate
+                expedienteId={String(precal.id)}
+                embedded
                 onUpdated={() => void loadExpediente()}
               />
             ) : null}

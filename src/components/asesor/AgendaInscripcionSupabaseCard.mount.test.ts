@@ -9,12 +9,14 @@ import { join } from "node:path";
 const root = process.cwd();
 
 describe("P175 B2 / P177 mount contracts", () => {
-  it("asesor expediente: Inscripción embebida en bio (sin gate standalone)", () => {
+  it("asesor expediente: Inscripción embebida en bio y standalone en etapas 6–7", () => {
     const page = readFileSync(
       join(root, "src/app/asesor/expediente/[id]/page.tsx"),
       "utf8",
     );
-    assert.doesNotMatch(page, /AsesorAgendaInscripcionSupabaseGate/);
+    assert.match(page, /AsesorAgendaInscripcionSupabaseGate/);
+    assert.match(page, /operativo\.etapaActual >= 6/);
+    assert.match(page, /operativo\.etapaActual <= 7/);
     assert.match(page, /AsesorAgendaBiometricosSupabaseGate/);
     const bio = readFileSync(
       join(root, "src/components/asesor/AgendaBiometricosSupabaseCard.tsx"),
