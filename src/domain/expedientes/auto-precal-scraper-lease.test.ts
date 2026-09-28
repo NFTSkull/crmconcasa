@@ -31,7 +31,10 @@ function fakeClock() {
   };
 }
 
-function claimSequence(results: boolean[], onClaim?: () => void) {
+function claimSequence(
+  results: (boolean | "rpc_error")[],
+  onClaim?: () => void,
+) {
   const claimTokens: string[] = [];
   let i = 0;
   const supabase = {
@@ -39,9 +42,12 @@ function claimSequence(results: boolean[], onClaim?: () => void) {
       if (fn === "auto_precal_scraper_try_claim") {
         onClaim?.();
         claimTokens.push(String(args.p_owner_token));
-        const data = results[Math.min(i, results.length - 1)];
+        const next = results[Math.min(i, results.length - 1)];
         i += 1;
-        return Promise.resolve({ error: null, data });
+        if (next === "rpc_error") {
+          return Promise.resolve({ error: { message: "boom" }, data: null });
+        }
+        return Promise.resolve({ error: null, data: next });
       }
       return Promise.resolve({ error: null, data: null });
     },
@@ -86,7 +92,32 @@ describe("auto-precal scraper global lease", () => {
       },
     };
     const claim = await tryClaimAutoPrecalScraperLease(supabase as never);
-    assert.deepEqual(claim, { claimed: false, ownerToken: null });
+    assert.deepEqual(claim, {
+      claimed: false,
+      ownerToken: null,
+      claimError: false,
+    });
+  });
+
+  it("error del RPC se distingue de lease ocupado", async () => {
+    const supabase = {
+      rpc() {
+        return Promise.resolve({ error: { message: "boom" }, data: null });
+      },
+    };
+    const claim = await tryClaimAutoPrecalScraperLease(supabase as never);
+    assert.deepEqual(claim, {
+      claimed: false,
+      ownerToken: null,
+      claimError: true,
+    });
+  });
+
+  it("lease adquirido marca claimError=false", async () => {
+    const { supabase } = claimSequence([true]);
+    const claim = await tryClaimAutoPrecalScraperLease(supabase as never);
+    assert.equal(claim.claimed, true);
+    assert.equal(claim.claimError, false);
   });
 
   it("scraper_busy es reintentable", () => {
@@ -153,6 +184,7 @@ describe("waitForAutoPrecalScraperLease", () => {
     assert.deepEqual(claim, {
       claimed: false,
       ownerToken: null,
+      claimError: false,
       waitedMs: 10_000,
     });
     assert.equal(
@@ -160,6 +192,26 @@ describe("waitForAutoPrecalScraperLease", () => {
       10_000,
     );
     assert.equal(claimTokens.length, 10);
+  });
+
+  it("error del RPC durante la espera aborta de inmediato", async () => {
+    const clock = fakeClock();
+    const { supabase, claimTokens } = claimSequence(["rpc_error", true]);
+
+    const claim = await waitForAutoPrecalScraperLease(
+      supabase as never,
+      10_000,
+      clock.deps,
+    );
+
+    assert.deepEqual(claim, {
+      claimed: false,
+      ownerToken: null,
+      claimError: true,
+      waitedMs: 1_000,
+    });
+    assert.deepEqual(clock.sleeps, [1_000]);
+    assert.equal(claimTokens.length, 1);
   });
 
   it("último sleep se recorta al tiempo restante", async () => {

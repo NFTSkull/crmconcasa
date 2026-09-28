@@ -18,6 +18,8 @@ export const AUTO_PRECAL_SCRAPER_BUSY_POLL_MS = 1_000;
 type ScraperLeaseClaim = {
   claimed: boolean;
   ownerToken: string | null;
+  /** true = el RPC falló (infra), no que el lease esté ocupado. */
+  claimError: boolean;
 };
 
 export type ScraperLeaseWaitDeps = {
@@ -51,18 +53,19 @@ export async function tryClaimAutoPrecalScraperLease(
       "[auto-precalificar] claim lease global del scraper falló",
       error.message,
     );
-    return { claimed: false, ownerToken: null };
+    return { claimed: false, ownerToken: null, claimError: true };
   }
 
   if (data !== true) {
-    return { claimed: false, ownerToken: null };
+    return { claimed: false, ownerToken: null, claimError: false };
   }
 
-  return { claimed: true, ownerToken };
+  return { claimed: true, ownerToken, claimError: false };
 }
 
 /**
- * Reintenta el claim (≈1/s) hasta `waitMs` tras un primer claim fallido.
+ * Reintenta el claim (≈1/s) hasta `waitMs` mientras el lease esté ocupado.
+ * Un error del RPC corta la espera de inmediato (`claimError: true`).
  * Solo devuelve owner token del claim exitoso: nunca hay dos leases propios.
  */
 export async function waitForAutoPrecalScraperLease(
@@ -79,11 +82,16 @@ export async function waitForAutoPrecalScraperLease(
   for (;;) {
     const remaining = deadline - now();
     if (remaining <= 0) {
-      return { claimed: false, ownerToken: null, waitedMs: now() - startedAt };
+      return {
+        claimed: false,
+        ownerToken: null,
+        claimError: false,
+        waitedMs: now() - startedAt,
+      };
     }
     await sleep(Math.min(AUTO_PRECAL_SCRAPER_BUSY_POLL_MS, remaining));
     const claim = await tryClaimAutoPrecalScraperLease(supabase);
-    if (claim.claimed) {
+    if (claim.claimed || claim.claimError) {
       return { ...claim, waitedMs: now() - startedAt };
     }
   }

@@ -134,7 +134,11 @@ export async function runAutoPrecalificarJob(input: {
   const scraperBusyWaitMs = clampAutoPrecalScraperBusyWaitMs(
     input.scraperBusyWaitMs,
   );
-  if (!scraperLease.claimed && scraperBusyWaitMs > 0) {
+  if (
+    !scraperLease.claimed &&
+    !scraperLease.claimError &&
+    scraperBusyWaitMs > 0
+  ) {
     console.log(
       `[auto-precalificar] scraper ocupado; espera corta expediente_id=${expedienteId} max_wait_ms=${scraperBusyWaitMs}`,
     );
@@ -143,10 +147,18 @@ export async function runAutoPrecalificarJob(input: {
       scraperBusyWaitMs,
       input.scraperLeaseWaitDeps,
     );
-    scraperLease = { claimed: waited.claimed, ownerToken: waited.ownerToken };
+    scraperLease = {
+      claimed: waited.claimed,
+      ownerToken: waited.ownerToken,
+      claimError: waited.claimError,
+    };
     if (waited.claimed) {
       console.log(
         `[auto-precalificar] lease adquirido tras espera expediente_id=${expedienteId} waited_ms=${waited.waitedMs}`,
+      );
+    } else if (waited.claimError) {
+      console.error(
+        `[auto-precalificar] espera de lease abortada por error de claim expediente_id=${expedienteId} waited_ms=${waited.waitedMs}`,
       );
     } else {
       console.log(

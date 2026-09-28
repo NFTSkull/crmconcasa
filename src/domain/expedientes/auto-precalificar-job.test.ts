@@ -409,7 +409,7 @@ describe("runAutoPrecalificarJob espera corta del lease global", () => {
     return () => calls;
   }
 
-  function leaseHarness(claimResults: boolean[]) {
+  function leaseHarness(claimResults: (boolean | "rpc_error")[]) {
     let t = 0;
     let i = 0;
     const sleeps: number[] = [];
@@ -421,9 +421,12 @@ describe("runAutoPrecalificarJob espera corta del lease global", () => {
       rpc(fn: string, args: Record<string, unknown>) {
         if (fn === "auto_precal_scraper_try_claim") {
           claimTokens.push(String(args.p_owner_token));
-          const data = claimResults[Math.min(i, claimResults.length - 1)];
+          const next = claimResults[Math.min(i, claimResults.length - 1)];
           i += 1;
-          return Promise.resolve({ error: null, data });
+          if (next === "rpc_error") {
+            return Promise.resolve({ error: { message: "boom" }, data: null });
+          }
+          return Promise.resolve({ error: null, data: next });
         }
         if (fn === "auto_precal_scraper_release") {
           releaseTokens.push(String(args.p_owner_token));
@@ -534,6 +537,56 @@ describe("runAutoPrecalificarJob espera corta del lease global", () => {
       10_000,
     );
     assert.equal(h.claimTokens.length, 11);
+    assert.equal(
+      h.inserts.some((r) => r.razon === "scraper_failed"),
+      false,
+    );
+    assert.deepEqual(h.inserts, []);
+    assert.deepEqual(h.releaseTokens, []);
+    assert.deepEqual(h.rpcCalls, []);
+  });
+
+  it("claim inicial con error de RPC: no espera, no scraper, no intentos, no release", async () => {
+    const fetchCalls = aprobadoFetch();
+    const h = leaseHarness(["rpc_error", true]);
+
+    const result = await runAutoPrecalificarJob({
+      ...baseInput,
+      supabase: h.supabase as never,
+      scraperBusyWaitMs: 10_000,
+      scraperLeaseWaitDeps: h.deps,
+    });
+
+    assert.deepEqual(result, {
+      resultado: "pending_error",
+      razon: AUTO_PRECAL_SCRAPER_BUSY_REASON,
+    });
+    assert.equal(h.claimTokens.length, 1);
+    assert.deepEqual(h.sleeps, []);
+    assert.equal(fetchCalls(), 0);
+    assert.deepEqual(h.inserts, []);
+    assert.deepEqual(h.releaseTokens, []);
+    assert.deepEqual(h.rpcCalls, []);
+  });
+
+  it("error de RPC durante la espera: aborta tras 1s, sin scraper ni scraper_failed", async () => {
+    const fetchCalls = aprobadoFetch();
+    const h = leaseHarness([false, "rpc_error", true]);
+
+    const result = await runAutoPrecalificarJob({
+      ...baseInput,
+      supabase: h.supabase as never,
+      scraperBusyWaitMs: 10_000,
+      scraperLeaseWaitDeps: h.deps,
+    });
+
+    assert.deepEqual(result, {
+      resultado: "pending_error",
+      razon: AUTO_PRECAL_SCRAPER_BUSY_REASON,
+    });
+    assert.deepEqual(h.sleeps, [1_000]);
+    assert.equal(h.claimTokens.length, 2);
+    assert.equal(fetchCalls(), 0);
     assert.equal(
       h.inserts.some((r) => r.razon === "scraper_failed"),
       false,
