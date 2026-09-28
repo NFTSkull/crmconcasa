@@ -74,7 +74,12 @@ export function isAuthorizedCron(request: Request): boolean {
 }
 
 export function isTechnicalRetryCode(value: unknown): boolean {
-  return TECHNICAL_RETRY_CODES.has(String(value ?? "").trim().toUpperCase());
+  const code = String(value ?? "").trim().toUpperCase();
+  if (TECHNICAL_RETRY_CODES.has(code)) return true;
+
+  // Errores HTTP transitorios del worker/SAT también deben volver a la cola.
+  // Nunca incluye 4xx semánticos de RFC/CURP inválido.
+  return code === "408" || code === "429" || /^5\d\d$/.test(code);
 }
 
 async function requireLiveWorker(): Promise<
