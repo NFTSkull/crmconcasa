@@ -8,6 +8,10 @@
     {
       "path": "/api/cron/reintentar-pendientes-reprecal",
       "schedule": "*/3 * * * *"
+    },
+    {
+      "path": "/api/cron/reintentar-fiscal-sat",
+      "schedule": "*/3 * * * *"
     }
   ]
 }
