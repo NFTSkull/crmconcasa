@@ -43,10 +43,12 @@ describe("P177/P178 agenda tabs Inscripción", () => {
     );
   });
 
-  it("embed Inscripción card; no duplicate standalone mount", () => {
+  it("embed Inscripción en bio; standalone solo para etapas 6–7", () => {
     assert.match(bio, /AgendaInscripcionSupabaseCard/);
     assert.match(bio, /embedded/);
-    assert.doesNotMatch(page, /AsesorAgendaInscripcionSupabaseGate/);
+    assert.match(page, /AsesorAgendaInscripcionSupabaseGate/);
+    assert.match(page, /operativo\.etapaActual >= 6/);
+    assert.match(page, /operativo\.etapaActual <= 7/);
     assert.match(page, /AsesorAgendaBiometricosSupabaseGate/);
   });
 
