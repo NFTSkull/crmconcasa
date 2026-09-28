@@ -10,10 +10,11 @@ const POLL_MS = 10_000;
 type HealthPayload = {
   ok?: boolean;
   blocked_by_akamai?: boolean;
+  portal_unavailable?: boolean;
 };
 
 export function AutoPrecalAvailabilityAlert() {
-  const [blocked, setBlocked] = useState(false);
+  const [unavailable, setUnavailable] = useState(false);
 
   useEffect(() => {
     const client = supabaseBrowser;
@@ -36,17 +37,21 @@ export function AutoPrecalAvailabilityAlert() {
           cache: "no-store",
         });
         if (!res.ok || cancelled) {
-          if (!cancelled) setBlocked(false);
+          if (!cancelled) setUnavailable(false);
           return;
         }
 
         const payload = (await res.json()) as HealthPayload;
         if (!cancelled) {
-          setBlocked(payload.ok === true && payload.blocked_by_akamai === true);
+          setUnavailable(
+            payload.ok === true &&
+              (payload.portal_unavailable === true ||
+                payload.blocked_by_akamai === true),
+          );
         }
       } catch {
         // El monitor nunca debe bloquear captura ni mantener una falsa caída.
-        if (!cancelled) setBlocked(false);
+        if (!cancelled) setUnavailable(false);
       } finally {
         if (!cancelled) {
           timer = setTimeout(check, POLL_MS);
@@ -70,20 +75,24 @@ export function AutoPrecalAvailabilityAlert() {
     };
   }, []);
 
-  if (!blocked) return null;
+  if (!unavailable) return null;
 
   return (
     <div
       role="alert"
-      className="mb-4 rounded-md border border-red-300 bg-red-50 px-3 py-3 text-sm text-red-900"
+      className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-4 text-sm text-amber-950"
     >
-      <p className="font-semibold">
-        La página de Infonavit está temporalmente no disponible para la
-        precalificación automática.
+      <p className="text-base font-semibold">
+        La página de Bansefi / Infonavit está temporalmente caída.
       </p>
       <p className="mt-1">
-        El expediente se guardará como pendiente y se reintentará
-        automáticamente. No es necesario volver a capturarlo.
+        Puedes seguir enviando precalificaciones. Las solicitudes se guardarán
+        como pendientes y el sistema las reintentará automáticamente en cuanto
+        el servicio vuelva a responder.
+      </p>
+      <p className="mt-2 text-xs font-medium">
+        Este aviso desaparecerá automáticamente cuando Bansefi vuelva a
+        funcionar.
       </p>
     </div>
   );
