@@ -13,11 +13,21 @@ export type ClienteMetodoPago = (typeof CLIENTE_METODO_PAGO_OPTIONS)[number]["va
 export const MONTO_MEJORAVIT_TOPE = 169000;
 export const MONTO_MEJORAVIT_FACTOR = 0.89;
 export const MONTO_CALCULADO_COBRO_BASE_FIJA = 3000;
+export const MONTO_CALCULADO_COBRO_BASE_FIJA_ANETTE = 3300;
 
 export type CalcMontoCalculadoCobroContext = {
   programaDb?: string | null;
   montoMejoravitForm?: string | null;
+  cargoFijo?: number | null;
 };
+
+export function resolveCargoFijoCobroPorAsesorEmail(
+  email: string | null | undefined,
+): number {
+  return String(email ?? "").trim().toLowerCase() === "anette.perez@concasa.mx"
+    ? MONTO_CALCULADO_COBRO_BASE_FIJA_ANETTE
+    : MONTO_CALCULADO_COBRO_BASE_FIJA;
+}
 
 export function parsePorcentajeCobroInput(raw: string): number | null {
   const v = String(raw ?? "").trim().replace(",", ".");
@@ -126,8 +136,13 @@ export function calcMontoCalculadoCobro(
   porcentajeCobro: number | null | undefined,
   context?: string | null | CalcMontoCalculadoCobroContext,
 ): number | null {
-  const { programaDb, montoMejoravitForm } = resolveCalcCobroContext(context);
+  const { programaDb, montoMejoravitForm, cargoFijo } =
+    resolveCalcCobroContext(context);
   const baseCobro = calcBaseCobro(programaDb, montoEditor, montoMejoravitForm);
+  const cargo =
+    cargoFijo != null && Number.isFinite(cargoFijo) && cargoFijo > 0
+      ? cargoFijo
+      : MONTO_CALCULADO_COBRO_BASE_FIJA;
   if (
     baseCobro == null ||
     porcentajeCobro == null ||
@@ -138,8 +153,7 @@ export function calcMontoCalculadoCobro(
   }
   return (
     Math.round(
-      ((baseCobro * porcentajeCobro) / 100 + MONTO_CALCULADO_COBRO_BASE_FIJA) *
-        100,
+      ((baseCobro * porcentajeCobro) / 100 + cargo) * 100,
     ) / 100
   );
 }
@@ -226,6 +240,7 @@ export function applyClienteDatosCobroRecalc(params: {
   montoEditor: number | null | undefined;
   programaDb: string | null | undefined;
   bloqueadoManual: boolean;
+  cargoFijo?: number | null;
 }): { datos: ClienteDatosFormShape; bloqueadoManual: boolean } {
   let bloqueado = params.bloqueadoManual;
 
@@ -243,6 +258,7 @@ export function applyClienteDatosCobroRecalc(params: {
         params.next,
         params.montoEditor,
         params.programaDb,
+        params.cargoFijo,
       ),
       bloqueadoManual: bloqueado,
     };
@@ -255,6 +271,7 @@ export function applyClienteDatosCobroRecalc(params: {
         params.montoEditor,
         params.programaDb,
         bloqueado,
+        params.cargoFijo,
       ),
       bloqueadoManual: bloqueado,
     };
@@ -269,9 +286,15 @@ export function applyMontoCalculadoSugeridoSiNoBloqueado(
   montoEditor: number | null | undefined,
   programaDb: string | null | undefined,
   bloqueadoManual: boolean,
+  cargoFijo?: number | null,
 ): ClienteDatosFormShape {
   if (bloqueadoManual) return datos;
-  return applyMontoCalculadoSugeridoSiNoEditado(datos, montoEditor, programaDb);
+  return applyMontoCalculadoSugeridoSiNoEditado(
+    datos,
+    montoEditor,
+    programaDb,
+    cargoFijo,
+  );
 }
 
 export function formatMontoCalculadoSugerido(value: number | null | undefined): string {
@@ -284,11 +307,13 @@ export function applyMontoCalculadoSugeridoSiNoEditado(
   datos: ClienteDatosFormShape,
   montoEditor: number | null | undefined,
   programaDb: string | null | undefined,
+  cargoFijo?: number | null,
 ): ClienteDatosFormShape {
   const pct = parsePorcentajeCobroInput(datos.porcentajeCobro);
   const auto = calcMontoCalculadoCobro(montoEditor, pct, {
     programaDb,
     montoMejoravitForm: datos.montoMejoravit,
+    cargoFijo,
   });
   if (auto == null) {
     return datos;
