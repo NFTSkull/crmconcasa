@@ -3,6 +3,9 @@ import { describe, it } from "node:test";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import {
+  ASESOR_CANCELACION_TRAMITE_INTRO,
+  ASESOR_CANCELACION_TRAMITE_TITLE,
+  esElegibleCancelacionAsesor,
   MESA_CANCELACION_OPERATIVA_CARD_BADGE,
   MESA_CANCELACION_OPERATIVA_CARD_CTA,
   MESA_CANCELACION_OPERATIVA_CARD_INTRO,
@@ -175,5 +178,53 @@ describe("P099 cadena rechazo → bandeja asesor", () => {
     assert.match(page, /asesor-fila-rechazado-mesa/);
     assert.match(page, /p\.operativo\.motivoRechazo/);
     assert.match(page, /rechazados_mesa/);
+  });
+});
+
+
+describe("Asesor cancelar trámite", () => {
+  it("solo se ofrece en Supabase con ciclo activo", () => {
+    assert.equal(
+      esElegibleCancelacionAsesor({
+        dataModeSupabase: true,
+        cicloEstado: "activo",
+      }),
+      true,
+    );
+    assert.equal(
+      esElegibleCancelacionAsesor({
+        dataModeSupabase: true,
+        cicloEstado: "cancelado",
+      }),
+      false,
+    );
+    assert.equal(
+      esElegibleCancelacionAsesor({
+        dataModeSupabase: false,
+        cicloEstado: "activo",
+      }),
+      false,
+    );
+    assert.equal(ASESOR_CANCELACION_TRAMITE_TITLE, "Cancelar trámite");
+    assert.match(ASESOR_CANCELACION_TRAMITE_INTRO, /pasará a Cancelados/i);
+  });
+
+  it("detalle del asesor monta la acción y confirma la cancelación", () => {
+    const page = readFileSync(
+      join(process.cwd(), "src/app/asesor/expediente/[id]/page.tsx"),
+      "utf8",
+    );
+    const card = readFileSync(
+      join(
+        process.cwd(),
+        "src/components/asesor/AsesorCancelarExpedienteCard.tsx",
+      ),
+      "utf8",
+    );
+    assert.match(page, /AsesorCancelarExpedienteCard/);
+    assert.match(page, /cicloEstado={operativo?.cicloEstado}/);
+    assert.match(card, /cancelarExpedienteAsesor/);
+    assert.match(card, /data-testid="asesor-cancelar-tramite"/);
+    assert.match(card, /El expediente pasará a/);
   });
 });
