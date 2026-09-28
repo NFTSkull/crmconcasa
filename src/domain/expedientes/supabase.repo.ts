@@ -85,6 +85,7 @@ import {
 } from "./reactivar-expediente-rechazado";
 import {
   cancelacionOperativaInputSchema,
+  mapAsesorCancelacionRpcError,
   mapMesaCancelacionRpcError,
   type CancelacionOperativaInput,
   type ExpedienteCancelacionRow,
@@ -1738,6 +1739,53 @@ export class SupabaseExpedientesRepo implements ExpedientesRepo {
       throw mapMesaCancelacionRpcError(
         error,
         "No se pudo registrar la cancelación operativa.",
+      );
+    }
+    if (!data || typeof data !== "object") {
+      throw new ExpedientesSupabaseError(
+        "La cancelación se registró sin una respuesta válida.",
+      );
+    }
+
+    const refreshed = await fetchExpedienteById(idResult.data);
+    if (!refreshed) {
+      throw new ExpedientesSupabaseError(
+        "La cancelación se registró, pero no se pudo recargar el expediente.",
+      );
+    }
+    return refreshed;
+  }
+
+  async cancelarExpedienteAsesor(
+    expedienteId: string,
+    input: CancelacionOperativaInput,
+  ): Promise<ExpedienteMock> {
+    const idResult = reingresoExpedienteIdSchema.safeParse(expedienteId);
+    const inputResult = cancelacionOperativaInputSchema.safeParse(input);
+    if (!idResult.success) {
+      throw new ExpedientesSupabaseError(
+        "El identificador del expediente no es válido.",
+      );
+    }
+    if (!inputResult.success) {
+      throw new ExpedientesSupabaseError(
+        inputResult.error.issues[0]?.message ??
+          "Los datos de la cancelación no son válidos.",
+      );
+    }
+
+    const { client } = await requireSupabaseSession();
+    const value = inputResult.data;
+    const { data, error } = await client.rpc("asesor_cancelar_tramite", {
+      p_expediente_id: idResult.data,
+      p_motivo: value.motivo,
+      p_comentario: value.comentario || null,
+    });
+
+    if (error) {
+      throw mapAsesorCancelacionRpcError(
+        error,
+        "No se pudo cancelar el trámite.",
       );
     }
     if (!data || typeof data !== "object") {
