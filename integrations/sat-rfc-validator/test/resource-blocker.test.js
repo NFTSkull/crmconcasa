@@ -2,7 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { shouldBlockRequest, isCaptchaUrl, isSatHost } from '../src/resource-blocker.js'
 
-test('permite captcha y hosts SAT (script/css/xhr/image)', () => {
+test('permite captcha y recursos funcionales SAT; bloquea imágenes decorativas', () => {
   assert.equal(isCaptchaUrl('https://agsc.siat.sat.gob.mx/PTSC/ValidaRFC/captcha.jpg'), true)
   assert.equal(isSatHost('https://agsc.siat.sat.gob.mx/PTSC/ValidaRFC/index.jsf'), true)
 
@@ -39,7 +39,7 @@ test('permite captcha y hosts SAT (script/css/xhr/image)', () => {
       url: 'https://agsc.siat.sat.gob.mx/PTSC/ValidaRFC/logo.png',
       resourceType: 'image',
     }),
-    { block: false, reason: 'sat' },
+    { block: true, reason: 'sat_nonessential_image' },
   )
 })
 
