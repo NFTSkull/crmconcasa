@@ -66,6 +66,7 @@ begin
   select
     e.id,
     e.organization_id,
+    e.asesor_id,
     e.etapa_actual,
     e.subestado,
     e.submitted_to_mesa,
@@ -81,12 +82,8 @@ begin
       using errcode = 'P0002';
   end if;
 
-  if v_exp.organization_id is distinct from v_actor_org then
-    raise exception 'ASESOR_CANCEL_EXP_UNAUTHORIZED: expediente fuera de la organización'
-      using errcode = '42501';
-  end if;
-
-  if not public.asesor_can_operate_expediente_as(v_actor_id, p_expediente_id) then
+  if v_exp.organization_id is distinct from v_actor_org
+     or v_exp.asesor_id is distinct from v_actor_id then
     raise exception 'ASESOR_CANCEL_EXP_UNAUTHORIZED: expediente no pertenece al asesor'
       using errcode = '42501';
   end if;
@@ -177,4 +174,4 @@ revoke all on function public.asesor_cancelar_tramite(uuid,text,text) from anon;
 grant execute on function public.asesor_cancelar_tramite(uuid,text,text) to authenticated;
 
 comment on function public.asesor_cancelar_tramite(uuid,text,text) is
-  'Asesor cancela terminalmente un expediente propio/operable. Conserva historial y agenda; ciclo_estado pasa a cancelado.';
+  'Asesor cancela terminalmente un expediente propio. Conserva historial y agenda; ciclo_estado pasa a cancelado.';
