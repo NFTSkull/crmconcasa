@@ -152,7 +152,7 @@ describe("agenda-sheet sync title space + requeue (mig. 134)", () => {
     assert.match(worker, /clearedByBooking/);
   });
 
-  it("reagendado histórico: REAGENDADO + replacement + reindex (no clear PII)", () => {
+  it("reagendado histórico: conserva auditoría sin PII visible ni fila fantasma", () => {
     assert.match(worker, /isRescheduleCancelContext/);
     assert.match(worker, /inspectRescheduleHistoryState/);
     assert.match(worker, /buildRescheduledHistoryTechRow/);
@@ -160,10 +160,11 @@ describe("agenda-sheet sync title space + requeue (mig. 134)", () => {
     assert.match(worker, /buildOrangeHistoryFormatRequests/);
     assert.match(worker, /historyByBooking/);
     assert.match(worker, /isPriorSheetStillActivelyOwned/);
+    assert.match(worker, /clearRescheduledHistoryPii/);
+    assert.match(worker, /reschedule_history_pii_clear_verify_failed/);
     assert.match(worker, /batchUpdateSpreadsheet/);
     assert.match(worker, /locateSheetRowByBookingId/);
     assert.match(worker, /sortRescheduleJobsForTabSafety/);
-    assert.match(worker, /decideHistoryRollbackFromGrid/);
     assert.match(worker, /a1FullTabAuRange/);
     const cancelStart = worker.indexOf("// Cancelación / cleanup");
     const cancelEnd = worker.indexOf("// booking_created desde CRM");
@@ -171,7 +172,8 @@ describe("agenda-sheet sync title space + requeue (mig. 134)", () => {
     const cancelBlock = worker.slice(cancelStart, cancelEnd);
     assert.match(cancelBlock, /rescheduleCtx/);
     assert.match(cancelBlock, /REAGENDADO|buildRescheduledHistoryTechRow/);
-    // Cancelación pura sigue con batchClear; reagendo usa batchUpdateValues.
+    // Reagenda conserva la auditoría técnica, pero B:D se limpia y G:N no se toca.
+    assert.match(cancelBlock, /clearRescheduledHistoryPii/);
     assert.match(cancelBlock, /batchClear/);
     assert.match(cancelBlock, /shouldYieldCancelClearToRescheduleHistory/);
     const yieldIdx = cancelBlock.indexOf("shouldYieldCancelClearToRescheduleHistory");
@@ -183,6 +185,26 @@ describe("agenda-sheet sync title space + requeue (mig. 134)", () => {
       conflictDeadIdx > yieldIdx,
       "C4: E/F conflict no marca dead antes de evaluar reagenda",
     );
+  });
+
+  it("reagenda: un fallo al crear la nueva cita no resucita la cancelada", () => {
+    const restoreStart = worker.indexOf("const restorePriorSheetRow = async");
+    assert.ok(restoreStart > 0, "rollback helper presente");
+    const restoreBlock = worker.slice(restoreStart, restoreStart + 1800);
+    assert.match(restoreBlock, /select\("status"\)/);
+    assert.match(restoreBlock, /=== "cancelled"/);
+    assert.match(
+      restoreBlock,
+      /una cita cancelada no vuelve a aparecer en Sheet/,
+    );
+
+    const gateStart = worker.indexOf("// Gate: no escribir nueva fila");
+    const gateBlock = worker.slice(gateStart, gateStart + 6500);
+    assert.match(gateBlock, /Compatibilidad con filas históricas/);
+    assert.match(gateBlock, /clearRescheduledHistoryPii/);
+    assert.match(gateBlock, /Self-heal de la falla histórica/);
+    assert.match(gateBlock, /classifyCancelRowClearance/);
+    assert.match(gateBlock, /agenda_sheet_mark_cancelled_cleared/);
   });
 
   it("dry_run_cancel_cleanup exige secreto worker antes del body", () => {
