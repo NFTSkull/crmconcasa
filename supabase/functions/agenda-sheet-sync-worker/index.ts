@@ -254,8 +254,47 @@ Deno.serve(async (req) => {
       return fallbackTitle;
     };
 
-    /** Best-effort: reescribe B:D+O:U de la cita anterior si create falló tras clear. */
+    /**
+     * Una fila histórica de reagenda nunca debe conservar NSS/NOMBRE/ASESOR.
+     * La auditoría vive en O:U + action_log; G:N se conserva intacto.
+     */
+    const clearRescheduledHistoryPii = async (
+      sheetTitle: string,
+      sheetRow: number,
+      expectedHora: string,
+      expectedGN: readonly string[],
+    ) => {
+      await adapter.batchClear([a1BdRange(sheetTitle, sheetRow)]);
+      const verify = await adapter.getValues(a1FullReadRange(sheetTitle, sheetRow));
+      const row = verify[0] ?? [];
+      const bcdEmpty = [1, 2, 3].every(
+        (idx) => String(row[idx] ?? "").trim().length === 0,
+      );
+      const horaOk = String(row[0] ?? "") === expectedHora;
+      const gnOk = expectedGN.every(
+        (value, i) => String(row[6 + i] ?? "") === value,
+      );
+      if (!bcdEmpty || !horaOk || !gnOk) {
+        throw new Error("reschedule_history_pii_clear_verify_failed");
+      }
+    };
+
+    /** Best-effort rollback: jamás resucitar visualmente un booking ya cancelado. */
     const restorePriorSheetRow = async (priorBookingId: string) => {
+      const { data: priorBooking, error: priorBookingErr } = await supabase
+        .from("agenda_bookings")
+        .select("status")
+        .eq("id", priorBookingId)
+        .maybeSingle();
+      if (
+        priorBookingErr ||
+        !priorBooking ||
+        String((priorBooking as { status?: string }).status ?? "") === "cancelled"
+      ) {
+        // CRM es fuente de verdad: una cita cancelada no vuelve a aparecer en Sheet
+        // aunque la escritura de la nueva cita falle y tenga que reintentarse.
+        return;
+      }
       const hist = historyByBooking.get(priorBookingId);
       if (
         shouldRollbackHistoryAfterCreateFailure({
@@ -599,8 +638,8 @@ Deno.serve(async (req) => {
             continue;
           }
 
-          // Reagendo: conservar fila + REAGENDADO naranja + replacement FREE.
-          // Cancelación pura: batchClear B:D + O:U (P160).
+          // Reagendo: conservar evidencia técnica REAGENDADO sin PII visible
+          // (B:D siempre vacío) + replacement FREE. Cancelación pura: clear B:D + O:U.
           if (rescheduleCtx) {
             const inspection = inspectRescheduleHistoryState({
               historyRowNumber: row,
@@ -641,6 +680,12 @@ Deno.serve(async (req) => {
             );
 
             if (inspection.phase === "already_complete") {
+              await clearRescheduledHistoryPii(
+                title,
+                row,
+                horaBefore,
+                gnBefore,
+              );
               historyByBooking.set(bookingId, {
                 mode: "history",
                 bookingId,
@@ -664,7 +709,8 @@ Deno.serve(async (req) => {
               continue;
             }
 
-            // Marcar histórico (conserva B:D / G:N).
+            // Marcar histórico: conserva G:N, pero B:D se limpia para que la
+            // cita cancelada jamás siga apareciendo como una segunda cita visible.
             if (
               inspection.phase === "need_full" ||
               inspection.phase === "need_replacement_only"
@@ -689,6 +735,12 @@ Deno.serve(async (req) => {
                   }),
                 );
               }
+              await clearRescheduledHistoryPii(
+                title,
+                row,
+                horaBefore,
+                gnBefore,
+              );
             }
 
             if (
@@ -1156,15 +1208,83 @@ Deno.serve(async (req) => {
                   const live = await adapter.getValues(
                     a1FullReadRange(pTitle, pRow),
                   );
-                  const liveP = String(live[0]?.[COL_INDEX.bookingId] ?? "").trim();
+                  let liveRow = (live[0] ?? []) as string[];
+                  const liveP = String(liveRow[COL_INDEX.bookingId] ?? "").trim();
                   const liveEstado = String(
-                    live[0]?.[COL_INDEX.estado] ?? "",
+                    liveRow[COL_INDEX.estado] ?? "",
                   ).trim();
+
+                  // Compatibilidad con filas históricas creadas antes de este fix:
+                  // REAGENDADO puede conservar PII visible. Limpiarla es seguro
+                  // porque P identifica inequívocamente al booking cancelado.
+                  if (
+                    liveP === priorId &&
+                    liveEstado.toLocaleUpperCase("es-MX").includes("REAGENDADO") &&
+                    [1, 2, 3].some(
+                      (idx) => String(liveRow[idx] ?? "").trim().length > 0,
+                    )
+                  ) {
+                    await clearRescheduledHistoryPii(
+                      pTitle,
+                      pRow,
+                      String(liveRow[0] ?? ""),
+                      snapshotPreserveGN(liveRow),
+                    );
+                    const refreshed = await adapter.getValues(
+                      a1FullReadRange(pTitle, pRow),
+                    );
+                    liveRow = (refreshed[0] ?? []) as string[];
+                  }
+
                   priorSheetOwned = isPriorSheetStillActivelyOwned({
-                    sheetBookingId: liveP,
-                    sheetEstado: liveEstado,
+                    sheetBookingId: String(
+                      liveRow[COL_INDEX.bookingId] ?? "",
+                    ).trim(),
+                    sheetEstado: String(
+                      liveRow[COL_INDEX.estado] ?? "",
+                    ).trim(),
                     priorBookingId: priorId,
                   });
+
+                  // Self-heal de la falla histórica que dejó a Pedro duplicado:
+                  // si cancel está done pero Sheet restauró la fila como activa,
+                  // limpiar físicamente esa fila antes de escribir la nueva.
+                  if (priorSheetOwned) {
+                    const clearDecision = classifyCancelRowClearance({
+                      row: liveRow,
+                      cancelledBookingId: priorId,
+                      cancelledExpedienteId: String(
+                        payload.expediente_id ?? "",
+                      ),
+                    });
+                    if (clearDecision.classification === "safe_to_clear") {
+                      const expectedHora = String(liveRow[0] ?? "");
+                      const expectedGN = snapshotPreserveGN(liveRow);
+                      await adapter.batchClear(
+                        cancelClearBatchRanges(
+                          pTitle,
+                          pRow,
+                          clearDecision.clearEtoF,
+                        ),
+                      );
+                      const verifyPrior = await adapter.getValues(
+                        a1FullReadRange(pTitle, pRow),
+                      );
+                      const verifyDecision = verifyClearedRowReadback({
+                        row: verifyPrior[0] ?? [],
+                        expectedHora,
+                        expectedGN,
+                        expectedEFEmpty: true,
+                      });
+                      if (verifyDecision.ok) {
+                        await supabase.rpc(
+                          "agenda_sheet_mark_cancelled_cleared",
+                          { p_booking_id: priorId },
+                        );
+                        priorSheetOwned = false;
+                      }
+                    }
+                  }
                 } catch {
                   priorSheetOwned = false;
                 }
