@@ -967,7 +967,8 @@ export function ExpedienteClienteDatosFormSection({
         <div className="mt-4 rounded-md border border-gray-200 p-3">
           <p className="text-xs font-semibold text-gray-900">Información de cobro</p>
           <p className="mt-1 text-[11px] text-gray-600">
-            Se calcula automáticamente con el porcentaje + ${cargoFijoCobro.toLocaleString("es-MX", {
+            Se calcula automáticamente con el porcentaje +{" "}
+            {cargoFijoCobro.toLocaleString("es-MX", {
               style: "currency",
               currency: "MXN",
               minimumFractionDigits: 0,
