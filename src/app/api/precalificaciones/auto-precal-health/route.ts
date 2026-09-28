@@ -73,6 +73,8 @@ export async function GET(request: Request) {
       {
         ok: true,
         blocked_by_akamai: state.blockedByAkamai,
+        portal_unavailable: state.portalUnavailable,
+        reason: state.reason,
         detected_at: state.detectedAt,
       },
       {
@@ -87,7 +89,13 @@ export async function GET(request: Request) {
     );
     // Falla silenciosa: nunca mostrar una falsa alerta por un error del status.
     return NextResponse.json(
-      { ok: false, blocked_by_akamai: false, detected_at: null },
+      {
+        ok: false,
+        blocked_by_akamai: false,
+        portal_unavailable: false,
+        reason: null,
+        detected_at: null,
+      },
       {
         status: 200,
         headers: { "Cache-Control": "no-store" },
