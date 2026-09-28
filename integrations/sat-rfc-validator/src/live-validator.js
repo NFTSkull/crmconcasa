@@ -18,13 +18,18 @@ import {
 import { attachResourceBlocker } from './resource-blocker.js'
 import { attachNetworkMeter } from './network-meter.js'
 
-const LAUNCH_ARGS = ['--no-sandbox', '--disable-setuid-sandbox', '--ignore-certificate-errors']
+const LAUNCH_ARGS = [
+  '--no-sandbox',
+  '--disable-setuid-sandbox',
+  '--disable-http2',
+  '--ignore-certificate-errors',
+]
 /** Mínimo ms restantes para abrir otra sesión de proxy. */
 const MIN_MS_FOR_NEW_SESSION = 8_000
 
 /**
  * @param {{ sessionId?: string, sessionNum?: number }} [opts]
- * @returns {Promise<import('playwright').Browser>}
+ * @returns {Promise<{ browser: import('playwright').Browser, proxy: { server: string, username?: string, password?: string } | undefined }>}
  */
 async function launchSatBrowser(opts = {}) {
   const proxy = buildSatProxyConfig(opts)
@@ -49,7 +54,8 @@ async function launchSatBrowser(opts = {}) {
       password: proxy.password,
     }
   }
-  return chromium.launch(launchOpts)
+  const browser = await chromium.launch(launchOpts)
+  return { browser, proxy }
 }
 
 const RFC_URL = 'https://agsc.siat.sat.gob.mx/PTSC/ValidaRFC/index.jsf'
@@ -468,15 +474,18 @@ export async function probeSatRfcPageLoad() {
     sessionsUsed = sessionNum
     let browser
     try {
-      browser = await launchSatBrowser({
+      const launched = await launchSatBrowser({
         sessionId,
         sessionNum,
       })
+      browser = launched.browser
       const navTimeoutMs = Math.min(NAV_TIMEOUT, Math.max(5_000, remaining - 2_000))
       const context = await browser.newContext({
         ignoreHTTPSErrors: true,
+        ...(launched.proxy ? { proxy: launched.proxy } : {}),
         locale: 'es-MX',
         timezoneId: 'America/Monterrey',
+        extraHTTPHeaders: { 'Accept-Language': 'es-MX,es;q=0.9' },
         userAgent:
           'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
       })
@@ -547,12 +556,15 @@ async function validateFiscalLiveOnce({
   deadline,
 }) {
   const remaining = () => Math.max(0, deadline - Date.now())
-  const browser = await launchSatBrowser({ sessionId, sessionNum })
+  const launched = await launchSatBrowser({ sessionId, sessionNum })
+  const browser = launched.browser
   try {
     const context = await browser.newContext({
       ignoreHTTPSErrors: true,
+      ...(launched.proxy ? { proxy: launched.proxy } : {}),
       locale: 'es-MX',
       timezoneId: 'America/Monterrey',
+      extraHTTPHeaders: { 'Accept-Language': 'es-MX,es;q=0.9' },
       deviceScaleFactor: 3,
       userAgent:
         'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
