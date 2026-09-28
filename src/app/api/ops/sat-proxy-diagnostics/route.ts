@@ -16,7 +16,7 @@ export async function GET() {
   }
 
   try {
-    const response = await fetch(`${url}/diagnostics/sat`, {
+    const response = await fetch(`${url}/diagnostics/proxy`, {
       method: "GET",
       headers: {
         "x-concasa-worker-secret": secret,
