@@ -389,3 +389,268 @@ describe("runAutoPrecalificarJob", () => {
     assert.equal(fetchCalls, 0);
   });
 });
+
+describe("runAutoPrecalificarJob espera corta del lease global", () => {
+  const originalFetch = globalThis.fetch;
+
+  afterEach(() => {
+    globalThis.fetch = originalFetch;
+  });
+
+  function aprobadoFetch() {
+    let calls = 0;
+    globalThis.fetch = (async () => {
+      calls += 1;
+      return new Response(
+        JSON.stringify({ califica: true, datos: { saldoSubcuenta: "10,000.00" } }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }) as typeof fetch;
+    return () => calls;
+  }
+
+  function leaseHarness(claimResults: (boolean | "rpc_error")[]) {
+    let t = 0;
+    let i = 0;
+    const sleeps: number[] = [];
+    const claimTokens: string[] = [];
+    const releaseTokens: string[] = [];
+    const inserts: Record<string, unknown>[] = [];
+    const rpcCalls: RpcCall[] = [];
+    const supabase = {
+      rpc(fn: string, args: Record<string, unknown>) {
+        if (fn === "auto_precal_scraper_try_claim") {
+          claimTokens.push(String(args.p_owner_token));
+          const next = claimResults[Math.min(i, claimResults.length - 1)];
+          i += 1;
+          if (next === "rpc_error") {
+            return Promise.resolve({ error: { message: "boom" }, data: null });
+          }
+          return Promise.resolve({ error: null, data: next });
+        }
+        if (fn === "auto_precal_scraper_release") {
+          releaseTokens.push(String(args.p_owner_token));
+          return Promise.resolve({ error: null, data: null });
+        }
+        rpcCalls.push({ fn, args });
+        return Promise.resolve({ error: null, data: null });
+      },
+      from() {
+        return {
+          insert(row: Record<string, unknown>) {
+            inserts.push(row);
+            return Promise.resolve({ error: null });
+          },
+        };
+      },
+    };
+    const deps = {
+      now: () => t,
+      sleep: async (ms: number) => {
+        sleeps.push(ms);
+        t += ms;
+      },
+    };
+    return { supabase, deps, sleeps, claimTokens, releaseTokens, inserts, rpcCalls };
+  }
+
+  const baseInput = {
+    expedienteId: "88888888-8888-4888-8888-888888888888",
+    nss: "12345678901",
+    programa: "mejoravit",
+    scraperUrl: "https://scraper.test",
+    scraperSecret: "secret",
+  };
+
+  it("lease libre de inmediato: un claim, sin sleep, scraper una vez", async () => {
+    const fetchCalls = aprobadoFetch();
+    const h = leaseHarness([true]);
+
+    const result = await runAutoPrecalificarJob({
+      ...baseInput,
+      supabase: h.supabase as never,
+      scraperBusyWaitMs: 10_000,
+      scraperLeaseWaitDeps: h.deps,
+    });
+
+    assert.deepEqual(result, { resultado: "aprobado", razon: null });
+    assert.equal(h.claimTokens.length, 1);
+    assert.deepEqual(h.sleeps, []);
+    assert.equal(fetchCalls(), 1);
+    assert.deepEqual(h.releaseTokens, [h.claimTokens[0]]);
+    assert.deepEqual(
+      h.inserts.map((r) => [r.resultado, r.razon]),
+      [
+        ["pending_error", "job_started"],
+        ["aprobado", null],
+      ],
+    );
+    assert.equal(h.rpcCalls[0]?.fn, "auto_upsert_editor_decision");
+  });
+
+  it("ocupado, ocupado, libre: espera con sleep, adquiere y procesa normal", async () => {
+    const fetchCalls = aprobadoFetch();
+    const h = leaseHarness([false, false, true]);
+
+    const result = await runAutoPrecalificarJob({
+      ...baseInput,
+      supabase: h.supabase as never,
+      scraperBusyWaitMs: 10_000,
+      scraperLeaseWaitDeps: h.deps,
+    });
+
+    assert.deepEqual(result, { resultado: "aprobado", razon: null });
+    assert.deepEqual(h.sleeps, [1_000, 1_000]);
+    assert.equal(h.claimTokens.length, 3);
+    assert.equal(fetchCalls(), 1);
+    // Solo se libera el token del claim exitoso: nunca dos leases propios.
+    assert.deepEqual(h.releaseTokens, [h.claimTokens[2]]);
+    assert.deepEqual(
+      h.inserts.map((r) => [r.resultado, r.razon]),
+      [
+        ["pending_error", "job_started"],
+        ["aprobado", null],
+      ],
+    );
+    assert.equal(h.rpcCalls.length, 1);
+    assert.equal(h.rpcCalls[0]?.fn, "auto_upsert_editor_decision");
+  });
+
+  it("ocupado toda la ventana: scraper_busy, sin scraper ni intentos persistidos", async () => {
+    const fetchCalls = aprobadoFetch();
+    const h = leaseHarness([false]);
+
+    const result = await runAutoPrecalificarJob({
+      ...baseInput,
+      supabase: h.supabase as never,
+      scraperBusyWaitMs: 10_000,
+      scraperLeaseWaitDeps: h.deps,
+    });
+
+    assert.deepEqual(result, {
+      resultado: "pending_error",
+      razon: AUTO_PRECAL_SCRAPER_BUSY_REASON,
+    });
+    assert.equal(fetchCalls(), 0);
+    assert.equal(
+      h.sleeps.reduce((a, b) => a + b, 0),
+      10_000,
+    );
+    assert.equal(h.claimTokens.length, 11);
+    assert.equal(
+      h.inserts.some((r) => r.razon === "scraper_failed"),
+      false,
+    );
+    assert.deepEqual(h.inserts, []);
+    assert.deepEqual(h.releaseTokens, []);
+    assert.deepEqual(h.rpcCalls, []);
+  });
+
+  it("claim inicial con error de RPC: no espera, no scraper, no intentos, no release", async () => {
+    const fetchCalls = aprobadoFetch();
+    const h = leaseHarness(["rpc_error", true]);
+
+    const result = await runAutoPrecalificarJob({
+      ...baseInput,
+      supabase: h.supabase as never,
+      scraperBusyWaitMs: 10_000,
+      scraperLeaseWaitDeps: h.deps,
+    });
+
+    assert.deepEqual(result, {
+      resultado: "pending_error",
+      razon: AUTO_PRECAL_SCRAPER_BUSY_REASON,
+    });
+    assert.equal(h.claimTokens.length, 1);
+    assert.deepEqual(h.sleeps, []);
+    assert.equal(fetchCalls(), 0);
+    assert.deepEqual(h.inserts, []);
+    assert.deepEqual(h.releaseTokens, []);
+    assert.deepEqual(h.rpcCalls, []);
+  });
+
+  it("error de RPC durante la espera: aborta tras 1s, sin scraper ni scraper_failed", async () => {
+    const fetchCalls = aprobadoFetch();
+    const h = leaseHarness([false, "rpc_error", true]);
+
+    const result = await runAutoPrecalificarJob({
+      ...baseInput,
+      supabase: h.supabase as never,
+      scraperBusyWaitMs: 10_000,
+      scraperLeaseWaitDeps: h.deps,
+    });
+
+    assert.deepEqual(result, {
+      resultado: "pending_error",
+      razon: AUTO_PRECAL_SCRAPER_BUSY_REASON,
+    });
+    assert.deepEqual(h.sleeps, [1_000]);
+    assert.equal(h.claimTokens.length, 2);
+    assert.equal(fetchCalls(), 0);
+    assert.equal(
+      h.inserts.some((r) => r.razon === "scraper_failed"),
+      false,
+    );
+    assert.deepEqual(h.inserts, []);
+    assert.deepEqual(h.releaseTokens, []);
+    assert.deepEqual(h.rpcCalls, []);
+  });
+
+  it("scraperBusyWaitMs omitido: comportamiento anterior (1 claim, sin sleep)", async () => {
+    const fetchCalls = aprobadoFetch();
+    const h = leaseHarness([false, true]);
+
+    const result = await runAutoPrecalificarJob({
+      ...baseInput,
+      supabase: h.supabase as never,
+      scraperLeaseWaitDeps: h.deps,
+    });
+
+    assert.deepEqual(result, {
+      resultado: "pending_error",
+      razon: AUTO_PRECAL_SCRAPER_BUSY_REASON,
+    });
+    assert.equal(h.claimTokens.length, 1);
+    assert.deepEqual(h.sleeps, []);
+    assert.equal(fetchCalls(), 0);
+    assert.deepEqual(h.inserts, []);
+  });
+
+  it("scraperBusyWaitMs 0: comportamiento anterior (1 claim, sin sleep)", async () => {
+    const fetchCalls = aprobadoFetch();
+    const h = leaseHarness([false, true]);
+
+    const result = await runAutoPrecalificarJob({
+      ...baseInput,
+      supabase: h.supabase as never,
+      scraperBusyWaitMs: 0,
+      scraperLeaseWaitDeps: h.deps,
+    });
+
+    assert.deepEqual(result, {
+      resultado: "pending_error",
+      razon: AUTO_PRECAL_SCRAPER_BUSY_REASON,
+    });
+    assert.equal(h.claimTokens.length, 1);
+    assert.deepEqual(h.sleeps, []);
+    assert.equal(fetchCalls(), 0);
+    assert.deepEqual(h.inserts, []);
+  });
+
+  it("scraperBusyWaitMs mayor a 10s se recorta a 10s", async () => {
+    aprobadoFetch();
+    const h = leaseHarness([false]);
+
+    await runAutoPrecalificarJob({
+      ...baseInput,
+      supabase: h.supabase as never,
+      scraperBusyWaitMs: 60_000,
+      scraperLeaseWaitDeps: h.deps,
+    });
+
+    assert.equal(
+      h.sleeps.reduce((a, b) => a + b, 0),
+      10_000,
+    );
+  });
+});

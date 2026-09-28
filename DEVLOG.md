@@ -1,3 +1,11 @@
+## 2026-09-28 - Auto-precal: espera corta por lease global (solo disparo HTTP inicial)
+
+- Motivo: con el lease ocupado, el alta nueva devolvía `scraper_busy` antes de `job_started` y esperaba al rescate cero-intentos del cron (≥20s + tick de 1 min; casos de ~54s antes de arrancar).
+- Decisión: `runAutoPrecalificarJob({ scraperBusyWaitMs })` default 0; solo la route HTTP inicial pasa 10_000. Poll 1s con `await sleep`, deadline por reloj; tope duro 10s (`maxDuration=180` − scraper 150s).
+- `tryClaimAutoPrecalScraperLease` intacta (la usa re-precal); helper nuevo `waitForAutoPrecalScraperLease`. Solo se conserva/libera el token del claim exitoso.
+- Sin cambios: TTL 180s, `SCRAPER_MAX_CONCURRENCY`, cron secuencial, `scraper_busy` no se persiste, backoff, re-precal, DB/RLS.
+- Rollback: `f859853b440430ed9928816f02967f80466be165`.
+
 ## 2026-09-24 - UI super_admin: aprobar envío sin validación SAT
 
 - Requisito previo a encender `fiscal_sat_gate_enabled` global: listado + botón con motivo ≥10.

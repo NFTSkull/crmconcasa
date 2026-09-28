@@ -7,8 +7,11 @@ import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { AUTO_PRECAL_JOB_STARTED_REASON } from "@/domain/expedientes/auto-precal-retry";
 import {
   AUTO_PRECAL_SCRAPER_BUSY_REASON,
+  clampAutoPrecalScraperBusyWaitMs,
   releaseAutoPrecalScraperLease,
   tryClaimAutoPrecalScraperLease,
+  waitForAutoPrecalScraperLease,
+  type ScraperLeaseWaitDeps,
 } from "@/domain/expedientes/auto-precal-scraper-lease";
 import {
   decideAutoPrecalFromScraper,
@@ -116,11 +119,53 @@ export async function runAutoPrecalificarJob(input: {
   scraperSecret: string;
   /** Si se omite, se crea service role client. */
   supabase?: SupabaseClient;
+  /**
+   * Espera máxima (ms) por el lease global si está ocupado. Default 0 = sin
+   * espera (cron y demás callers). Tope duro 10s.
+   */
+  scraperBusyWaitMs?: number;
+  /** Solo tests: sleep/reloj inyectables para la espera del lease. */
+  scraperLeaseWaitDeps?: ScraperLeaseWaitDeps;
 }): Promise<AutoPrecalJobResult> {
   const { expedienteId, nss, scraperUrl, scraperSecret } = input;
   const supabase = input.supabase ?? serviceClient();
 
-  const scraperLease = await tryClaimAutoPrecalScraperLease(supabase);
+  let scraperLease = await tryClaimAutoPrecalScraperLease(supabase);
+  const scraperBusyWaitMs = clampAutoPrecalScraperBusyWaitMs(
+    input.scraperBusyWaitMs,
+  );
+  if (
+    !scraperLease.claimed &&
+    !scraperLease.claimError &&
+    scraperBusyWaitMs > 0
+  ) {
+    console.log(
+      `[auto-precalificar] scraper ocupado; espera corta expediente_id=${expedienteId} max_wait_ms=${scraperBusyWaitMs}`,
+    );
+    const waited = await waitForAutoPrecalScraperLease(
+      supabase,
+      scraperBusyWaitMs,
+      input.scraperLeaseWaitDeps,
+    );
+    scraperLease = {
+      claimed: waited.claimed,
+      ownerToken: waited.ownerToken,
+      claimError: waited.claimError,
+    };
+    if (waited.claimed) {
+      console.log(
+        `[auto-precalificar] lease adquirido tras espera expediente_id=${expedienteId} waited_ms=${waited.waitedMs}`,
+      );
+    } else if (waited.claimError) {
+      console.error(
+        `[auto-precalificar] espera de lease abortada por error de claim expediente_id=${expedienteId} waited_ms=${waited.waitedMs}`,
+      );
+    } else {
+      console.log(
+        `[auto-precalificar] lease sigue ocupado tras espera expediente_id=${expedienteId} waited_ms=${waited.waitedMs}`,
+      );
+    }
+  }
   if (!scraperLease.claimed) {
     return {
       resultado: "pending_error",
