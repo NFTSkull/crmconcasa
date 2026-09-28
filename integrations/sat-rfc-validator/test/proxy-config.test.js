@@ -30,18 +30,28 @@ function withEnv(vars, fn) {
   }
 }
 
-test('satProxyPresence present/absent sin filtrar URL completa en logs del helper', () => {
-  withEnv({ SAT_PROXY_URL: undefined }, () => {
+test('satProxyPresence exige habilitación explícita y URL', () => {
+  withEnv({ SAT_PROXY_ENABLED: undefined, SAT_PROXY_URL: undefined }, () => {
     assert.equal(satProxyPresence(), 'absent')
   })
-  withEnv({ SAT_PROXY_URL: 'http://pr-eu.proxies.fo:13337' }, () => {
-    assert.equal(satProxyPresence(), 'present')
-  })
+  withEnv(
+    { SAT_PROXY_ENABLED: undefined, SAT_PROXY_URL: 'http://pr-eu.proxies.fo:13337' },
+    () => {
+      assert.equal(satProxyPresence(), 'absent')
+    },
+  )
+  withEnv(
+    { SAT_PROXY_ENABLED: 'true', SAT_PROXY_URL: 'http://pr-eu.proxies.fo:13337' },
+    () => {
+      assert.equal(satProxyPresence(), 'present')
+    },
+  )
 })
 
 test('buildSatProxyConfig undefined si no hay SAT_PROXY_URL', () => {
   withEnv(
     {
+      SAT_PROXY_ENABLED: 'true',
       SAT_PROXY_URL: undefined,
       SAT_PROXY_USER_PREFIX: 'grecojcwy1-country-mx-state-nuevoleon',
       SAT_PROXY_PASSWORD: 'secret-never-log',
@@ -55,6 +65,7 @@ test('buildSatProxyConfig undefined si no hay SAT_PROXY_URL', () => {
 test('buildSatProxyConfig arma username prefix-session-id-ttl-5', () => {
   withEnv(
     {
+      SAT_PROXY_ENABLED: 'true',
       SAT_PROXY_URL: 'http://pr-eu.proxies.fo:13337',
       SAT_PROXY_USER_PREFIX: 'grecojcwy1-country-mx-state-nuevoleon',
       SAT_PROXY_PASSWORD: 'secret-never-log',
@@ -80,6 +91,7 @@ test('buildSatProxyConfig arma username prefix-session-id-ttl-5', () => {
 test('buildSatProxyConfig exige prefix y password si hay URL', () => {
   withEnv(
     {
+      SAT_PROXY_ENABLED: 'true',
       SAT_PROXY_URL: 'http://pr-eu.proxies.fo:13337',
       SAT_PROXY_USER_PREFIX: undefined,
       SAT_PROXY_PASSWORD: 'x',
@@ -90,6 +102,7 @@ test('buildSatProxyConfig exige prefix y password si hay URL', () => {
   )
   withEnv(
     {
+      SAT_PROXY_ENABLED: 'true',
       SAT_PROXY_URL: 'http://pr-eu.proxies.fo:13337',
       SAT_PROXY_USER_PREFIX: 'grecojcwy1-country-mx-state-nuevoleon',
       SAT_PROXY_PASSWORD: '',
@@ -111,6 +124,7 @@ test('newProxySessionId es hex aleatorio', () => {
 test('misma sessionId reutilizable RFC+CURP (una llamada)', () => {
   withEnv(
     {
+      SAT_PROXY_ENABLED: 'true',
       SAT_PROXY_URL: 'http://host:1',
       SAT_PROXY_USER_PREFIX: 'pref',
       SAT_PROXY_PASSWORD: 'pw',
