@@ -5,7 +5,9 @@ import { randomBytes } from 'node:crypto'
  * Nunca loguear password ni username completo con secretos.
  *
  * Env:
- * - SAT_PROXY_URL (ej. http://host:port) — si ausente → conexión directa
+ * - SAT_PROXY_ENABLED=true — habilita explícitamente el uso de proxy
+ * - SAT_PROXY_URL (ej. http://host:port) — ignorado salvo que SAT_PROXY_ENABLED=true
+ * - Por defecto SAT usa conexión directa, aunque SAT_PROXY_URL exista en Railway.
  * - SAT_PROXY_USER_PREFIX (ej. grecojcwy1-country-mx-state-nuevoleon)
  * - SAT_PROXY_PASSWORD
  * - SAT_PROXY_MAX_SESSIONS (default 3) — rotaciones ante error de red/proxy
@@ -32,7 +34,8 @@ export const PROXY_NETWORK_ERROR_MARKERS = [
 
 /** @returns {'present'|'absent'} */
 export function satProxyPresence() {
-  return String(process.env.SAT_PROXY_URL || '').trim() ? 'present' : 'absent'
+  const enabled = String(process.env.SAT_PROXY_ENABLED || '').trim().toLowerCase() === 'true'
+  return enabled && String(process.env.SAT_PROXY_URL || '').trim() ? 'present' : 'absent'
 }
 
 /** Máx. sesiones/IP por solicitud (default 3). */
@@ -109,6 +112,9 @@ export function newProxySessionId(bytes = 8) {
  * @returns {{ server: string, username: string, password: string } | undefined}
  */
 export function buildSatProxyConfig(opts = {}) {
+  const enabled = String(process.env.SAT_PROXY_ENABLED || '').trim().toLowerCase() === 'true'
+  if (!enabled) return undefined
+
   const server = String(process.env.SAT_PROXY_URL || '').trim()
   if (!server) return undefined
 
