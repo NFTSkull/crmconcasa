@@ -18,19 +18,6 @@ export async function attachNetworkMeter(context, page, label) {
     cachedResponses: 0,
   }
 
-  const session = await context.newCDPSession(page)
-  await session.send('Network.enable')
-
-  session.on('Network.loadingFinished', (event) => {
-    const n = Number(event?.encodedDataLength || 0)
-    if (Number.isFinite(n) && n > 0) counter.encodedBytes += n
-    counter.requestsFinished += 1
-  })
-
-  session.on('Network.requestServedFromCache', () => {
-    counter.cachedResponses += 1
-  })
-
   const snapshot = () => ({
     encodedBytes: Math.round(counter.encodedBytes),
     encodedMb: Number((counter.encodedBytes / 1024 / 1024).toFixed(3)),
@@ -44,6 +31,28 @@ export async function attachNetworkMeter(context, page, label) {
       `[sat-validator] NETWORK_USAGE page=${label} phase=${phase} bytes=${s.encodedBytes} mb=${s.encodedMb} requests=${s.requestsFinished} cached=${s.cachedResponses}`,
     )
     return s
+  }
+
+  try {
+    const session = await context.newCDPSession(page)
+    await session.send('Network.enable')
+
+    session.on('Network.loadingFinished', (event) => {
+      const n = Number(event?.encodedDataLength || 0)
+      if (Number.isFinite(n) && n > 0) counter.encodedBytes += n
+      counter.requestsFinished += 1
+    })
+
+    session.on('Network.requestServedFromCache', () => {
+      counter.cachedResponses += 1
+    })
+  } catch (error) {
+    // La telemetría nunca debe bloquear la validación fiscal.
+    console.warn(
+      `[sat-validator] NETWORK_USAGE_UNAVAILABLE page=${label} error=${
+        error instanceof Error ? error.message : 'unknown'
+      }`,
+    )
   }
 
   return { counter, snapshot, flush }
