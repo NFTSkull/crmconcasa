@@ -627,7 +627,7 @@ export default function AsesorExpedientePage() {
       // localStorage inmediato: la última tecla ya está en el ref al ejecutar.
       writeClienteDatosDraftImmediate();
     },
-    [syncClienteDatosDraftFlush, writeClienteDatosDraftImmediate],
+    [cargoFijoCobro, syncClienteDatosDraftFlush, writeClienteDatosDraftImmediate],
   );
 
   const handleDireccionOpcionalChange = useCallback(
