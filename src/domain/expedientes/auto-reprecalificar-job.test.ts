@@ -46,7 +46,8 @@ describe("runAutoReprecalificarJob", () => {
       new Response(
         JSON.stringify({
           califica: true,
-          rfc: "XAXX010101000",
+          rfc: "xaxx010101000",
+          nombre: "PEREZ MU#OZ ANA MARIA",
           registroPatronal: "A1234567890",
           empresa: "ACME SA",
           advertenciaInscripcion: null,
@@ -66,7 +67,7 @@ describe("runAutoReprecalificarJob", () => {
     });
 
     assert.deepEqual(result, { resultado: "aprobado", razon: null });
-    assert.equal(rpcCalls.length, 1);
+    assert.equal(rpcCalls.length, 2);
     assert.equal(rpcCalls[0]?.fn, "auto_resolver_reprecalificacion");
     assert.deepEqual(rpcCalls[0]?.args, {
       p_intento_id: intentoId,
@@ -77,6 +78,11 @@ describe("runAutoReprecalificarJob", () => {
       p_registro_patronal: "A1234567890",
       p_empresa: "ACME SA",
       p_advertencia_inscripcion: null,
+    });
+    assert.equal(rpcCalls[1]?.fn, "auto_refresh_nombre_infonavit_reprecal");
+    assert.deepEqual(rpcCalls[1]?.args, {
+      p_intento_id: intentoId,
+      p_nombre_completo: "PEREZ MUÑOZ ANA MARIA",
     });
     assert.equal(inserts.length, 1);
     assert.equal(inserts[0]?.table, "auto_reprecal_intentos");
