@@ -14,7 +14,8 @@ export const dynamic = "force-dynamic";
 export const maxDuration = 120;
 
 const ESTADO_CUENTA = "cliente_estado_cuenta";
-const RETRY_COOLDOWN_MS = 2 * 60 * 1000;
+const FIRST_RETRY_COOLDOWN_MS = 2 * 60 * 1000;
+const AUTO_RETRY_COOLDOWN_MS = 15 * 60 * 1000;
 const SAT_WORKER_TIMEOUT_MS = 50_000;
 
 const TECHNICAL_RETRY_CODES = new Set([
@@ -80,6 +81,23 @@ export function isTechnicalRetryCode(value: unknown): boolean {
   // Errores HTTP transitorios del worker/SAT también deben volver a la cola.
   // Nunca incluye 4xx semánticos de RFC/CURP inválido.
   return code === "408" || code === "429" || /^5\d\d$/.test(code);
+}
+
+export function fiscalRetryCooldownMs(
+  resultado: Record<string, unknown> | null | undefined,
+): number {
+  const autoRetry = resultado?.auto_retry === true || resultado?.auto_retry === "true";
+  return autoRetry ? AUTO_RETRY_COOLDOWN_MS : FIRST_RETRY_COOLDOWN_MS;
+}
+
+export function fiscalRetryReady(
+  createdAt: string,
+  resultado: Record<string, unknown> | null | undefined,
+  nowMs = Date.now(),
+): boolean {
+  const createdMs = Date.parse(createdAt);
+  if (!Number.isFinite(createdMs)) return false;
+  return nowMs - createdMs >= fiscalRetryCooldownMs(resultado);
 }
 
 async function requireLiveWorker(): Promise<
@@ -682,7 +700,7 @@ async function handle(request: Request): Promise<NextResponse> {
   }
 
   const admin = serviceClient();
-  const cutoff = new Date(Date.now() - RETRY_COOLDOWN_MS).toISOString();
+  const cutoff = new Date(Date.now() - FIRST_RETRY_COOLDOWN_MS).toISOString();
 
   const pageSize = 100;
   let candidate:
@@ -717,7 +735,10 @@ async function handle(request: Request): Promise<NextResponse> {
 
     const technicalRows = (rows ?? []).filter((row) => {
       const resumen = (row.resultado_resumido ?? {}) as Record<string, unknown>;
-      return isTechnicalRetryCode(resumen.code);
+      return (
+        isTechnicalRetryCode(resumen.code) &&
+        fiscalRetryReady(String(row.created_at), resumen)
+      );
     });
 
     const ids = [
