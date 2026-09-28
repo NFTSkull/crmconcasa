@@ -16,6 +16,7 @@ import {
   satProxyPresence,
 } from './proxy-config.js'
 import { attachResourceBlocker } from './resource-blocker.js'
+import { attachNetworkMeter } from './network-meter.js'
 
 const LAUNCH_ARGS = ['--no-sandbox', '--disable-setuid-sandbox', '--ignore-certificate-errors']
 /** Mínimo ms restantes para abrir otra sesión de proxy. */
@@ -481,11 +482,13 @@ export async function probeSatRfcPageLoad() {
       })
       const page = await context.newPage()
       const blocker = await attachResourceBlocker(page, 'RFC_DIAG')
+      const network = await attachNetworkMeter(context, page, 'RFC_DIAG')
       await navigateSatPage(page, RFC_URL, '#captchaSession', 'RFC_DIAG', {
         navTimeoutMs,
         readyTimeoutMs: Math.min(30_000, Math.max(3_000, remaining - navTimeoutMs)),
       })
       blocker.flush('ready')
+      const networkUsage = network.flush('ready')
       return {
         ok: true,
         loadMs: Date.now() - started,
@@ -493,6 +496,8 @@ export async function probeSatRfcPageLoad() {
         proxy: usedProxy ? 'used' : 'direct',
         sessionsUsed,
         resourcesBlocked: blocker.counter.blocked,
+        networkBytes: networkUsage.encodedBytes,
+        networkMb: networkUsage.encodedMb,
       }
     } catch (error) {
       lastError = error
@@ -554,6 +559,15 @@ async function validateFiscalLiveOnce({
     })
     const page = await context.newPage()
     const blocker = await attachResourceBlocker(page, 'VALIDATE')
+    const network = await attachNetworkMeter(context, page, 'VALIDATE')
+    const usage = () => {
+      const n = network.snapshot()
+      return {
+        resourcesBlocked: blocker.counter.blocked,
+        networkBytes: n.encodedBytes,
+        networkMb: n.encodedMb,
+      }
+    }
     const rfcResult = await validateRfc(page, rfc, capsolverApiKey)
     blocker.flush('after_rfc')
     if (rfcResult.status === 'captcha_failed') {
@@ -562,7 +576,7 @@ async function validateFiscalLiveOnce({
         semantic: 'retry',
         rfc: rfcResult,
         curp: { status: 'not_run', evidence: null, captcha: null },
-        resourcesBlocked: blocker.counter.blocked,
+        ...usage(),
       }
     }
     if (rfcResult.status !== 'valid') {
@@ -571,7 +585,7 @@ async function validateFiscalLiveOnce({
         semantic: rfcResult.status === 'invalid' ? 'invalid' : 'retry',
         rfc: rfcResult,
         curp: { status: 'not_run', evidence: null, captcha: null },
-        resourcesBlocked: blocker.counter.blocked,
+        ...usage(),
       }
     }
     if (remaining() < MIN_MS_FOR_NEW_SESSION) {
@@ -581,7 +595,7 @@ async function validateFiscalLiveOnce({
         rfc: rfcResult,
         curp: { status: 'not_run', evidence: null, captcha: null },
         code: 'BUDGET_EXCEEDED_BEFORE_CURP',
-        resourcesBlocked: blocker.counter.blocked,
+        ...usage(),
       }
     }
     const curpResult = await validateCurp(page, curp, capsolverApiKey)
@@ -592,10 +606,10 @@ async function validateFiscalLiveOnce({
         semantic: 'retry',
         rfc: rfcResult,
         curp: curpResult,
-        resourcesBlocked: blocker.counter.blocked,
+        ...usage(),
       }
     }
-    return {
+    const result = {
       ok: curpResult.status === 'valid',
       semantic:
         curpResult.status === 'valid'
@@ -605,8 +619,10 @@ async function validateFiscalLiveOnce({
             : 'retry',
       rfc: rfcResult,
       curp: curpResult,
-      resourcesBlocked: blocker.counter.blocked,
+      ...usage(),
     }
+    network.flush('complete')
+    return result
   } finally {
     await browser.close().catch(() => {})
   }

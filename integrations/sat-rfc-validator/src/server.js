@@ -66,6 +66,8 @@ export function createApp(options = {}) {
         proxy: result.proxy ?? (satProxyPresence() === 'present' ? 'used' : 'direct'),
         sessionsUsed: result.sessionsUsed ?? null,
         resourcesBlocked: result.resourcesBlocked ?? null,
+        networkBytes: result.networkBytes ?? null,
+        networkMb: result.networkMb ?? null,
       })
     } catch (error) {
       return res.status(503).json({
