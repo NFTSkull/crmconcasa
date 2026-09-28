@@ -1,9 +1,8 @@
 import express from 'express'
 import PQueue from 'p-queue'
-import { chromium } from 'playwright'
 import { validateRequestPayload, fixtureValidationResult } from './contracts.js'
 import { probeSatRfcPageLoad, validateFiscalLive } from './live-validator.js'
-import { buildSatProxyConfig, satProxyPresence } from './proxy-config.js'
+import { satProxyPresence } from './proxy-config.js'
 
 const PORT = Number(process.env.PORT || 3002)
 
@@ -56,58 +55,6 @@ export function createApp(options = {}) {
    * Abre la página RFC del SAT hasta #captchaSession.
    * No resuelve captcha ni consulta RFC. Sin datos de clientes.
    */
-  app.get('/diagnostics/proxy', async (req, res) => {
-    if (!requireWorkerSecret(req, res)) return
-    const started = Date.now()
-    let browser
-    try {
-      const proxy = buildSatProxyConfig({ sessionId: 'diag123' })
-      if (!proxy) {
-        return res.status(503).json({
-          ok: false,
-          loadMs: Date.now() - started,
-          error: 'PROXY_NOT_CONFIGURED',
-          proxy: 'absent',
-        })
-      }
-
-      browser = await chromium.launch({
-        headless: true,
-        proxy: {
-          server: proxy.server,
-          username: proxy.username,
-          password: proxy.password,
-        },
-        args: ['--no-sandbox', '--disable-setuid-sandbox', '--ignore-certificate-errors'],
-      })
-      const context = await browser.newContext({ ignoreHTTPSErrors: true })
-      const page = await context.newPage()
-      const response = await page.goto('https://example.com', {
-        waitUntil: 'commit',
-        timeout: 15_000,
-      })
-
-      return res.json({
-        ok: true,
-        loadMs: Date.now() - started,
-        status: response?.status() ?? null,
-        proxy: 'used',
-      })
-    } catch (error) {
-      return res.status(503).json({
-        ok: false,
-        loadMs: Date.now() - started,
-        error:
-          error instanceof Error
-            ? error.message.replace(/https?:\/\/[^\s]+/g, '[target]')
-            : String(error),
-        proxy: 'used',
-      })
-    } finally {
-      if (browser) await browser.close().catch(() => {})
-    }
-  })
-
   app.get('/diagnostics/sat', async (req, res) => {
     if (!requireWorkerSecret(req, res)) return
     try {
