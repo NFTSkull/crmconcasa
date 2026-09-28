@@ -148,6 +148,7 @@ import {
   isProgramaMejoravitDb,
   montoCalculadoFieldCambio,
   parsePorcentajeCobroInput,
+  resolveCargoFijoCobroPorAsesorEmail,
 } from "@/lib/clienteDatosCobro";
 import {
   CLIENTE_DATOS_DRAFT_DEBOUNCE_MS,
@@ -562,6 +563,7 @@ export default function AsesorExpedientePage() {
   );
 
   const clienteDatosDraftUserKey = currentUser?.email?.trim().toLowerCase() ?? "";
+  const cargoFijoCobro = resolveCargoFijoCobroPorAsesorEmail(currentUser?.email);
 
   const persistClienteDatosDraftNow = useCallback(() => {
     if (!hasHydratedClienteDatosRef.current) return;
@@ -614,6 +616,7 @@ export default function AsesorExpedientePage() {
           montoEditor: montoAprobadoEditorRef.current,
           programaDb: programaDbRef.current,
           bloqueadoManual: montoCalculadoLockedRef.current,
+          cargoFijo: cargoFijoCobro,
         });
         montoCalculadoLockedRef.current = recalc.bloqueadoManual;
         datos = recalc.datos;
@@ -671,7 +674,11 @@ export default function AsesorExpedientePage() {
       const autoDraft = calcMontoCalculadoCobro(
         monto,
         parsePorcentajeCobroInput(draft.clienteDatos.porcentajeCobro),
-        { programaDb: programa, montoMejoravitForm: draft.clienteDatos.montoMejoravit },
+        {
+          programaDb: programa,
+          montoMejoravitForm: draft.clienteDatos.montoMejoravit,
+          cargoFijo: cargoFijoCobro,
+        },
       );
       montoCalculadoLockedRef.current =
         autoDraft != null &&
@@ -681,6 +688,7 @@ export default function AsesorExpedientePage() {
         monto,
         programa,
         montoCalculadoLockedRef.current,
+        cargoFijoCobro,
       );
       const domicilio = draft.direccionOpcional ?? "";
       setClienteDatos(draftConAuto);
@@ -712,7 +720,7 @@ export default function AsesorExpedientePage() {
         suppressDraftAutosave.current = false;
       });
     },
-    [syncClienteDatosDraftFlush],
+    [cargoFijoCobro, syncClienteDatosDraftFlush],
   );
 
   const autoRestoreClienteDatosDraftIfPending = useCallback(
@@ -1751,6 +1759,7 @@ export default function AsesorExpedientePage() {
       const montoAutoCargado = calcMontoCalculadoCobro(monto, pctCargado, {
         programaDb: programa,
         montoMejoravitForm: found.datos.montoMejoravit ?? "",
+        cargoFijo: cargoFijoCobro,
       });
       const montoCalculadoCargado =
         found.datos.montoCalculado ||
@@ -1776,6 +1785,7 @@ export default function AsesorExpedientePage() {
           monto,
           programa,
           montoCalculadoLockedRef.current,
+          cargoFijoCobro,
         ),
         editorDecisionRef.current,
       );
@@ -2530,6 +2540,7 @@ export default function AsesorExpedientePage() {
               esperaMontoMessage={MSJ_ESPERA_MONTO_REVISOR}
               montoAprobado={montoAprobadoEditor}
               programaDb={programaDb}
+              cargoFijoCobro={cargoFijoCobro}
               onMontoMejoravitEdited={handleMontoMejoravitEdited}
               onMontoCalculadoEdited={handleMontoCalculadoEdited}
               advertenciaInscripcionInfonavit={advertenciaInscripcionInfonavit}
@@ -2963,6 +2974,7 @@ export default function AsesorExpedientePage() {
               esperaMontoMessage={MSJ_ESPERA_MONTO_REVISOR}
               montoAprobado={montoAprobadoEditor}
               programaDb={programaDb}
+              cargoFijoCobro={cargoFijoCobro}
               onMontoMejoravitEdited={handleMontoMejoravitEdited}
               onMontoCalculadoEdited={handleMontoCalculadoEdited}
               advertenciaInscripcionInfonavit={advertenciaInscripcionInfonavit}
