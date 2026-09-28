@@ -1684,6 +1684,17 @@ export class MockExpedientesRepo implements ExpedientesRepo {
     );
   }
 
+  async cancelarExpedienteAsesor(
+    _expedienteId: string,
+    _input: CancelacionOperativaInput,
+  ): Promise<ExpedienteMock> {
+    void _expedienteId;
+    void _input;
+    throw new Error(
+      "La cancelación del asesor solo está disponible en modo Supabase.",
+    );
+  }
+
   async getUltimaCancelacionOperativa(
     _expedienteId: string,
   ): Promise<ExpedienteCancelacionRow | null> {
