@@ -1,6 +1,11 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { shouldBlockRequest, isCaptchaUrl, isSatHost } from '../src/resource-blocker.js'
+import {
+  shouldBlockRequest,
+  isCaptchaUrl,
+  isDecorativeSatImage,
+  isSatHost,
+} from '../src/resource-blocker.js'
 
 test('permite captcha y recursos funcionales SAT; bloquea imágenes decorativas', () => {
   assert.equal(isCaptchaUrl('https://agsc.siat.sat.gob.mx/PTSC/ValidaRFC/captcha.jpg'), true)
@@ -39,7 +44,20 @@ test('permite captcha y recursos funcionales SAT; bloquea imágenes decorativas'
       url: 'https://agsc.siat.sat.gob.mx/PTSC/ValidaRFC/logo.png',
       resourceType: 'image',
     }),
-    { block: true, reason: 'sat_nonessential_image' },
+    { block: true, reason: 'sat_decorative_image' },
+  )
+  assert.equal(
+    isDecorativeSatImage(
+      'https://agsc.siat.sat.gob.mx/javax.faces.resource/dynamiccontent.properties?pfdrid=abc',
+    ),
+    false,
+  )
+  assert.deepEqual(
+    shouldBlockRequest({
+      url: 'https://agsc.siat.sat.gob.mx/javax.faces.resource/dynamiccontent.properties?pfdrid=abc',
+      resourceType: 'image',
+    }),
+    { block: false, reason: 'sat' },
   )
 })
 
