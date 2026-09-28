@@ -55,5 +55,7 @@ export async function attachNetworkMeter(context, page, label) {
     )
   }
 
+  page.on('close', () => flush('close'))
+
   return { counter, snapshot, flush }
 }
