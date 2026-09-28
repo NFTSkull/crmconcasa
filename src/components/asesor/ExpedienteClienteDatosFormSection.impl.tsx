@@ -72,6 +72,7 @@ interface ExpedienteClienteDatosFormSectionProps {
     | null;
   montoAprobado?: number | null;
   programaDb?: string | null;
+  cargoFijoCobro?: number;
   onMontoMejoravitEdited?: () => void;
   onMontoCalculadoEdited?: () => void;
   /** Banner no bloqueante: advertencia de inscripción Infonavit (editor_decisions). */
@@ -161,6 +162,7 @@ export function ExpedienteClienteDatosFormSection({
   esperaMontoMessage,
   montoAprobado = null,
   programaDb = null,
+  cargoFijoCobro = 3000,
   onMontoMejoravitEdited,
   onMontoCalculadoEdited,
   alertaAccionDgActiva = true,
@@ -965,8 +967,13 @@ export function ExpedienteClienteDatosFormSection({
         <div className="mt-4 rounded-md border border-gray-200 p-3">
           <p className="text-xs font-semibold text-gray-900">Información de cobro</p>
           <p className="mt-1 text-[11px] text-gray-600">
-            Se calcula automáticamente con el porcentaje + $3,000, pero puedes ajustarlo si es
-            necesario.
+            Se calcula automáticamente con el porcentaje +{" "}
+            {cargoFijoCobro.toLocaleString("es-MX", {
+              style: "currency",
+              currency: "MXN",
+              minimumFractionDigits: 0,
+              maximumFractionDigits: 0,
+            })}, pero puedes ajustarlo si es necesario.
           </p>
           <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
             <DatosField
