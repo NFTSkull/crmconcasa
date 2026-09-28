@@ -183,6 +183,7 @@ Con gate OFF: sin slot combinado ni CLABE (comportamiento previo).
 **HTTP create path:** `POST /api/precalificaciones/[id]/auto-precalificar`  
 - Auth: Bearer JWT (asesor). Responde **202** `{ ok, status:"accepted", expediente_id }`; scraper en `after()`.  
 - Job: `runAutoPrecalificarJob` (domain) → scraper `SCRAPER_*` → `auto_upsert_editor_decision` si mapeo conocido; **antes del scrape** inserta lease `auto_precal_intentos` (`pending_error`/`job_started`); al final inserta el resultado real. Si el lease falla → `claim_failed` (no scrape).
+- Lease global ocupado: solo esta route pasa `scraperBusyWaitMs: 10_000` → dentro de `after()` reintenta el claim ≈1/s hasta 10s (tope duro); si sigue ocupado → `scraper_busy` sin persistir (fallback cron). Cron/re-precal: default 0 (sin espera).
 - Cliente (Anette/`/asesor/nueva`): `resolveBearerAccessToken` (usa access_token local si ≥120s de vida; `refreshSession` solo si falta/por vencer; ante Already Used reintenta `getSession`) antes del Bearer; sin token no se dispara el fetch.
 
 

@@ -1,5 +1,7 @@
 ## [Unreleased]
 
+- **perf(precalificacion): espera corta del lease global en el disparo inicial** — `POST /api/precalificaciones/[id]/auto-precalificar` sigue respondiendo 202 inmediato; dentro de `after()` el job reintenta el lease global ≈1/s hasta 10s antes de caer a `scraper_busy` (fallback cron intacto). Opción `scraperBusyWaitMs` (default 0) → cron y re-precal sin cambio. Sin cambios en scraper, concurrencia, TTL 180s, DB ni reglas de negocio.
+
 - **feat(admin): aprobar envío sin SAT** — panel super_admin en `/admin/expedientes` (+ detalle) para vigentes `REVISION_MANUAL`; `GET /api/admin/fiscal-revision-manual` + `POST /api/admin/fiscal-aprobar-envio-mesa` (JWT → RPC `admin_aprobar_envio_mesa_sin_fiscal`); sin RFC/CURP en listado.
 
 - **perf(sat-validator): bloquear fuentes/media/trackers** — `page.route` ahorra proxy; captcha + script/css/xhr/img SAT intactos. Log `RESOURCE_BLOCK blocked=N`. Gateway worker: `pr-us.proxies.fo` (scraper sigue en `pr-eu`).
