@@ -18,6 +18,7 @@ import {
   parseMontoCalculadoInput,
   parsePorcentajeCobroInput,
   resolveMontoCalculadoManualForRpc,
+  resolveCargoFijoCobroPorAsesorEmail,
 } from "./clienteDatosCobro";
 
 const BASE_DATOS: ClienteDatosFormShape = {
@@ -384,4 +385,32 @@ test("applyClienteDatosCobroRecalc: montoMejoravit no pisa manual bloqueado", ()
     bloqueadoManual: true,
   });
   assert.equal(datos.montoCalculado, "17000");
+});
+
+
+test("Anette usa cargo fijo 3300; los demás conservan 3000", () => {
+  assert.equal(resolveCargoFijoCobroPorAsesorEmail("anette.perez@concasa.mx"), 3300);
+  assert.equal(resolveCargoFijoCobroPorAsesorEmail(" ANETTE.PEREZ@CONCASA.MX "), 3300);
+  assert.equal(resolveCargoFijoCobroPorAsesorEmail("mario.morales@concasa.mx"), 3000);
+  assert.equal(resolveCargoFijoCobroPorAsesorEmail("jose.luis.ledezma@concasa.mx"), 3000);
+  assert.equal(resolveCargoFijoCobroPorAsesorEmail(null), 3000);
+});
+
+test("Anette: cálculo automático usa porcentaje + 3300", () => {
+  assert.equal(
+    calcMontoCalculadoCobro(150000, 10, {
+      programaDb: "compro_tu_casa",
+      cargoFijo: 3300,
+    }),
+    18300,
+  );
+  const { datos } = applyClienteDatosCobroRecalc({
+    prev: { ...BASE_DATOS, porcentajeCobro: "10", montoCalculado: "18000" },
+    next: { ...BASE_DATOS, porcentajeCobro: "12", montoCalculado: "18000" },
+    montoEditor: 150000,
+    programaDb: "compro_tu_casa",
+    bloqueadoManual: false,
+    cargoFijo: 3300,
+  });
+  assert.equal(datos.montoCalculado, "21300");
 });
