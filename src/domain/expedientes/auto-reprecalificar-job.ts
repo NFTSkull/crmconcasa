@@ -20,6 +20,7 @@ import {
   type AutoPrecalIntentoResultado,
   type AutoPrecalJobResult,
 } from "@/domain/expedientes/auto-precalificar-job";
+import { normalizeInfonavitScraperPersonName } from "@/domain/expedientes/infonavit-scraper-name";
 
 async function loadIntentoPrograma(
   supabase: SupabaseClient,
@@ -161,6 +162,13 @@ export async function runAutoReprecalificarJob(input: {
     if (decision.kind === "aprobado") {
       resultado = "aprobado";
       razon = null;
+      const rfcActual = String(payload.rfc ?? "").trim().toUpperCase() || null;
+      const registroPatronalActual =
+        String(payload.registroPatronal ?? "").trim() || null;
+      const empresaActual = String(payload.empresa ?? "").trim() || null;
+      const advertenciaActual =
+        String(payload.advertenciaInscripcion ?? "").trim() || null;
+
       const { error: rpcErr } = await supabase.rpc(
         "auto_resolver_reprecalificacion",
         {
@@ -168,10 +176,10 @@ export async function runAutoReprecalificarJob(input: {
           p_decision: "aprobado",
           p_monto_aprobado: decision.monto,
           p_motivo: null,
-          p_rfc: payload.rfc ?? null,
-          p_registro_patronal: payload.registroPatronal ?? null,
-          p_empresa: payload.empresa ?? null,
-          p_advertencia_inscripcion: payload.advertenciaInscripcion ?? null,
+          p_rfc: rfcActual,
+          p_registro_patronal: registroPatronalActual,
+          p_empresa: empresaActual,
+          p_advertencia_inscripcion: advertenciaActual,
         },
       );
       if (rpcErr) {
@@ -183,8 +191,29 @@ export async function runAutoReprecalificarJob(input: {
         razon = "rpc_failed";
         return { resultado, razon };
       }
+      const nombreActual = normalizeInfonavitScraperPersonName(payload.nombre);
+      if (nombreActual) {
+        const { error: nombreErr } = await supabase.rpc(
+          "auto_refresh_nombre_infonavit_reprecal",
+          {
+            p_intento_id: intentoId,
+            p_nombre_completo: nombreActual,
+          },
+        );
+        if (nombreErr) {
+          console.error(
+            `[auto-reprecalificar] RPC auto_refresh_nombre_infonavit_reprecal falló intento_id=${intentoId} nss=${nss}`,
+            nombreErr.message,
+          );
+        }
+      } else if (payload.nombre) {
+        console.warn(
+          `[auto-reprecalificar] nombre scraper inválido; se omite refresh intento_id=${intentoId} nss=${nss}`,
+        );
+      }
+
       console.log(
-        `[auto-reprecalificar] aprobado intento_id=${intentoId} nss=${nss} monto=${decision.monto}`,
+        `[auto-reprecalificar] aprobado intento_id=${intentoId} nss=${nss} monto=${decision.monto} rfc=${rfcActual ?? "null"}`,
       );
       return { resultado, razon };
     }
