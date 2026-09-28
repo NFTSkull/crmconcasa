@@ -1878,6 +1878,7 @@ export default function AsesorExpedientePage() {
     };
   }, [
     autoRestoreClienteDatosDraftIfPending,
+    cargoFijoCobro,
     clienteDatosRepo,
     currentUser?.email,
     dataSupabase,
