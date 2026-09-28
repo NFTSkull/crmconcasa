@@ -87,7 +87,14 @@ export function shouldBlockRequest(req) {
     /* ignore */
   }
 
-  // En hosts SAT: permitir script/css/xhr/fetch/document/image/other
+  // En SAT, las imágenes decorativas (logos, banners, íconos) no son
+  // necesarias para completar RFC/CURP. El CAPTCHA ya fue permitido arriba.
+  // Bloquearlas reduce tráfico residencial sin tocar HTML/JS/CSS/XHR.
+  if (isSatHost(url) && type === 'image') {
+    return { block: true, reason: 'sat_nonessential_image' }
+  }
+
+  // En hosts SAT: permitir script/css/xhr/fetch/document/other.
   if (isSatHost(url)) {
     return { block: false, reason: 'sat' }
   }
