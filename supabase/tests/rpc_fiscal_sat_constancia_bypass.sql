@@ -19,6 +19,7 @@ DECLARE
   v_asesor UUID := '00000000-0000-4000-9281-000000000011';
   v_exp UUID := '00000000-0000-4000-9281-000000000021';
   v_doc UUID := '00000000-0000-4000-9281-000000000031';
+  v_binding JSONB;
 BEGIN
   INSERT INTO public.organizations (id, slug, name, active)
   VALUES (v_org, 'fiscal-constancia-gate', 'Fiscal Constancia Gate', true)
@@ -60,6 +61,21 @@ BEGIN
     ciclo_estado = 'activo',
     submitted_to_mesa = false;
 
+  INSERT INTO public.cliente_datos (
+    expediente_id, organization_id, datos, estado
+  ) VALUES (
+    v_exp, v_org,
+    jsonb_build_object(
+      'curp', 'BADD900101HDFMLN03',
+      'rfc', 'BADD9001019A1'
+    ),
+    'completo'
+  )
+  ON CONFLICT (expediente_id) DO UPDATE SET
+    organization_id = EXCLUDED.organization_id,
+    datos = EXCLUDED.datos,
+    estado = EXCLUDED.estado;
+
   INSERT INTO public.app_settings (key, value)
   VALUES ('fiscal_sat_gate_enabled', 'true'::jsonb)
   ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = now();
@@ -86,6 +102,40 @@ BEGIN
     public.fiscal_sat_gate_applies_to_expediente(v_exp),
     'constancia activa NO debe omitir gate SAT con global ON'
   );
+  PERFORM public.__fiscal_constancia_assert(
+    NOT public.fiscal_sat_gate_allows_envio(v_exp),
+    'subir constancia por sí sola no autoriza: debe extraerse/ligarse su RFC'
+  );
+
+  v_binding := public.fiscal_constancia_binding_snapshot(v_exp);
+  INSERT INTO public.cliente_validaciones_identidad (
+    organization_id, expediente_id, tipo, estado, metodo, proveedor,
+    documento_id, documento_version, input_fingerprint, resultado_resumido,
+    vigente
+  ) VALUES (
+    v_org, v_exp, 'rfc_validacion_sat', 'RFC_VALIDACION_CONSTANCIA_VALIDADA',
+    'pdf_constancia', 'sat_constancia',
+    v_doc, 1, 'fixture-constancia-validada',
+    v_binding || jsonb_build_object(
+      'source', 'constancia_sat',
+      'semantic', 'pass',
+      'rfc_source', 'constancia_situacion_fiscal'
+    ),
+    true
+  );
+
+  PERFORM public.__fiscal_constancia_assert(
+    public.fiscal_sat_gate_allows_envio(v_exp),
+    'constancia con RFC ligado a documento/CURP/RFC vigentes debe autorizar Mesa'
+  );
+
+  UPDATE public.cliente_validaciones_identidad
+  SET vigente = false,
+      invalidado_at = now(),
+      invalidado_motivo = 'fixture_constancia_retirada'
+  WHERE expediente_id = v_exp
+    AND tipo = 'rfc_validacion_sat'
+    AND vigente = true;
 
   UPDATE public.expediente_documentos
   SET deleted_at = now()
