@@ -52,6 +52,8 @@ const REACTIVATION_MESSAGES: Readonly<Record<string, string>> = {
   REACTIVATION_STAGE_OUT_OF_RANGE: "La etapa del expediente no es válida.",
   REACTIVATION_SIDE_EFFECT:
     "La reactivación se detuvo para no alterar citas o documentos.",
+  NOTIFICACION_VENCIDA_ESTADO_CUENTA_REQUERIDO:
+    "Antes de reenviar este expediente a Mesa, carga un Estado de Cuenta actualizado posterior al rechazo por Notificación vencida.",
 };
 
 export function getReactivacionErrorCode(error: RpcErrorLike): string | null {
