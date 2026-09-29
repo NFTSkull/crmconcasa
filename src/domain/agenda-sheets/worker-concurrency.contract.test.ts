@@ -152,7 +152,7 @@ describe("agenda-sheet sync title space + requeue (mig. 134)", () => {
     assert.match(worker, /clearedByBooking/);
   });
 
-  it("reagendado histórico: conserva nombre visible sin fila fantasma", () => {
+  it("reagendado histórico: conserva B:D completos y crea fila libre sin fantasma", () => {
     assert.match(worker, /isRescheduleCancelContext/);
     assert.match(worker, /inspectRescheduleHistoryState/);
     assert.match(worker, /buildRescheduledHistoryTechRow/);
@@ -160,7 +160,7 @@ describe("agenda-sheet sync title space + requeue (mig. 134)", () => {
     assert.match(worker, /buildOrangeHistoryFormatRequests/);
     assert.match(worker, /historyByBooking/);
     assert.match(worker, /isPriorSheetStillActivelyOwned/);
-    assert.match(worker, /clearRescheduledHistoryPii/);
+    assert.match(worker, /preserveRescheduledHistoryVisibleData/);
     assert.match(worker, /reschedule_history_pii_clear_verify_failed/);
     assert.match(worker, /batchUpdateSpreadsheet/);
     assert.match(worker, /locateSheetRowByBookingId/);
@@ -172,11 +172,12 @@ describe("agenda-sheet sync title space + requeue (mig. 134)", () => {
     const cancelBlock = worker.slice(cancelStart, cancelEnd);
     assert.match(cancelBlock, /rescheduleCtx/);
     assert.match(cancelBlock, /REAGENDADO|buildRescheduledHistoryTechRow/);
-    // Reagenda conserva nombre en C; limpia NSS/asesor y G:N no se toca.
-    assert.match(cancelBlock, /clearRescheduledHistoryPii/);
-    assert.match(worker, /reschedule_history_name_missing/);
+    // Reagenda conserva NSS/NOMBRE/ASESOR en B:D; G:N no se toca y replacement queda libre.
+    assert.match(cancelBlock, /preserveRescheduledHistoryVisibleData/);
+    assert.match(worker, /reschedule_history_visible_data_missing/);
     assert.match(worker, /cliente_nombre/);
-    assert.match(worker, /nameOk/);
+    assert.match(worker, /full_name/);
+    assert.match(worker, /bcdOk/);
     assert.match(cancelBlock, /batchClear/);
     assert.match(cancelBlock, /shouldYieldCancelClearToRescheduleHistory/);
     const yieldIdx = cancelBlock.indexOf("shouldYieldCancelClearToRescheduleHistory");
@@ -204,7 +205,7 @@ describe("agenda-sheet sync title space + requeue (mig. 134)", () => {
     const gateStart = worker.indexOf("// Gate: no escribir nueva fila");
     const gateBlock = worker.slice(gateStart, gateStart + 6500);
     assert.match(gateBlock, /Compatibilidad con filas históricas/);
-    assert.match(gateBlock, /clearRescheduledHistoryPii/);
+    assert.match(gateBlock, /preserveRescheduledHistoryVisibleData/);
     assert.match(gateBlock, /Self-heal de la falla histórica/);
     assert.match(gateBlock, /classifyCancelRowClearance/);
     assert.match(gateBlock, /agenda_sheet_mark_cancelled_cleared/);
