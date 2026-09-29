@@ -1,4 +1,4 @@
--- ConCasa CRM — Constancia de Situación Fiscal omite SAT externo pre-Mesa.
+-- ConCasa CRM — La Constancia de Situación Fiscal NO omite SAT externo pre-Mesa.
 -- Solo local/CI. Todo corre en transacción y ROLLBACK.
 \set ON_ERROR_STOP on
 
@@ -8,7 +8,7 @@ CREATE OR REPLACE FUNCTION public.__fiscal_constancia_assert(p_ok BOOLEAN, p_msg
 RETURNS VOID LANGUAGE plpgsql AS $$
 BEGIN
   IF NOT p_ok THEN
-    RAISE EXCEPTION 'FISCAL CONSTANCIA BYPASS FAIL: %', p_msg;
+    RAISE EXCEPTION 'FISCAL CONSTANCIA GATE FAIL: %', p_msg;
   END IF;
 END;
 $$;
@@ -21,7 +21,7 @@ DECLARE
   v_doc UUID := '00000000-0000-4000-9281-000000000031';
 BEGIN
   INSERT INTO public.organizations (id, slug, name, active)
-  VALUES (v_org, 'fiscal-constancia-bypass', 'Fiscal Constancia Bypass', true)
+  VALUES (v_org, 'fiscal-constancia-gate', 'Fiscal Constancia Gate', true)
   ON CONFLICT (id) DO UPDATE SET active = true;
 
   INSERT INTO auth.users (
@@ -29,7 +29,7 @@ BEGIN
     raw_app_meta_data, raw_user_meta_data, created_at, updated_at
   ) VALUES (
     v_asesor, 'authenticated', 'authenticated',
-    'fiscal-constancia-bypass@test.local',
+    'fiscal-constancia-gate@test.local',
     crypt('x', gen_salt('bf')), now(), '{}', '{}', now(), now()
   )
   ON CONFLICT (id) DO NOTHING;
@@ -37,7 +37,7 @@ BEGIN
   INSERT INTO public.profiles (
     id, organization_id, email, full_name, app_role, tipo_asesor_origen, active
   ) VALUES (
-    v_asesor, v_org, 'fiscal-constancia-bypass@test.local',
+    v_asesor, v_org, 'fiscal-constancia-gate@test.local',
     'Asesor Fiscal Constancia', 'asesor', 'interno', true
   )
   ON CONFLICT (id) DO UPDATE SET
@@ -83,8 +83,8 @@ BEGIN
     'constancia activa debe detectarse'
   );
   PERFORM public.__fiscal_constancia_assert(
-    NOT public.fiscal_sat_gate_applies_to_expediente(v_exp),
-    'constancia activa debe omitir gate SAT aun con global ON'
+    public.fiscal_sat_gate_applies_to_expediente(v_exp),
+    'constancia activa NO debe omitir gate SAT con global ON'
   );
 
   UPDATE public.expediente_documentos
@@ -97,7 +97,7 @@ BEGIN
   );
   PERFORM public.__fiscal_constancia_assert(
     public.fiscal_sat_gate_applies_to_expediente(v_exp),
-    'al quitar constancia debe volver a aplicar SAT'
+    'al quitar constancia el gate debe seguir aplicando'
   );
 
   INSERT INTO public.expediente_documentos (
@@ -111,7 +111,7 @@ BEGIN
 
   PERFORM public.__fiscal_constancia_assert(
     public.fiscal_sat_gate_applies_to_expediente(v_exp),
-    'cliente_constancia_sat de Mesa no sustituye la constancia fiscal del asesor'
+    'cliente_constancia_sat de Mesa tampoco debe desactivar SAT pre-Mesa'
   );
 END;
 $$;
