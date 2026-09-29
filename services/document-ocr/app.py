@@ -3,8 +3,11 @@ from __future__ import annotations
 import io
 import os
 import re
+import subprocess
+import tempfile
 import time
 import unicodedata
+from pathlib import Path
 from functools import lru_cache
 from typing import Literal
 
@@ -1442,12 +1445,119 @@ def ocr_pdf(data: bytes, document_type: str) -> tuple[str, int]:
         parts.append(ocr_image(render_pdf_page(doc[idx]), document_type))
     return "\n".join(parts).strip(), min(len(doc), max_pages)
 
+def _ocr_estado_cuenta_images(images: list[Image.Image]) -> tuple[str, int]:
+    parts: list[str] = []
+    processed = 0
+
+    for idx, image in enumerate(images):
+        page_text = ocr_image(image, "cliente_estado_cuenta")
+        parts.append(page_text)
+        processed = idx + 1
+        combined = "\n".join(part for part in parts if part).strip()
+        if _bank_statement_text_complete(combined):
+            return combined, processed
+
+    for idx, image in enumerate(images):
+        combined = "\n".join(part for part in parts if part).strip()
+        if not _has_clabe_like_candidate(combined):
+            focused_clabe = _bank_statement_clabe_focus_text(image)
+            if focused_clabe:
+                parts.append(focused_clabe)
+        combined = "\n".join(part for part in parts if part).strip()
+        if not _has_rfc_like_candidate(combined):
+            focused_rfc = _bank_statement_rfc_focus_text(image)
+            if focused_rfc:
+                parts.append(focused_rfc)
+        combined = "\n".join(part for part in parts if part).strip()
+        if _bank_statement_text_complete(combined):
+            return combined, max(processed, idx + 1)
+
+    return "\n".join(part for part in parts if part).strip(), processed
+
+
+def ocr_pdf_poppler(data: bytes, document_type: str) -> tuple[str, int]:
+    """Fallback independiente de MuPDF para PDFs que fitz no puede abrir/renderizar."""
+    max_pages = 2 if document_type.startswith("cliente_ine_") else 3
+    with tempfile.TemporaryDirectory(prefix="concasa-ocr-") as tmp:
+        tmp_path = Path(tmp)
+        input_path = tmp_path / "input.pdf"
+        output_prefix = tmp_path / "page"
+        input_path.write_bytes(data)
+
+        completed = subprocess.run(
+            [
+                "pdftoppm",
+                "-f",
+                "1",
+                "-l",
+                str(max_pages),
+                "-r",
+                "220",
+                "-png",
+                str(input_path),
+                str(output_prefix),
+            ],
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            timeout=25,
+            check=False,
+        )
+        if completed.returncode != 0:
+            raise RuntimeError("poppler_render_failed")
+
+        page_paths = sorted(
+            tmp_path.glob("page-*.png"),
+            key=lambda p: int(re.search(r"(\d+)$", p.stem).group(1))
+            if re.search(r"(\d+)$", p.stem)
+            else 0,
+        )
+        if not page_paths:
+            raise RuntimeError("poppler_no_pages")
+
+        images: list[Image.Image] = []
+        for path in page_paths[:max_pages]:
+            with Image.open(path) as image:
+                images.append(image.convert("RGB").copy())
+
+        if document_type == "cliente_estado_cuenta":
+            return _ocr_estado_cuenta_images(images)
+
+        parts = [ocr_image(image, document_type) for image in images]
+        return "\n".join(part for part in parts if part).strip(), len(images)
+
+
+def _ocr_pdf_with_fallback(data: bytes, document_type: str) -> tuple[str, int, str]:
+    try:
+        text, pages = ocr_pdf(data, document_type)
+        return text, pages, "tesseract"
+    except Exception as exc:
+        # Solo clase de error; nunca texto del documento ni PII.
+        print(
+            f"OCR_PDF_MUPDF_FAILED type={type(exc).__name__} document_type={document_type}",
+            flush=True,
+        )
+
+    text, pages = ocr_pdf_poppler(data, document_type)
+    return text, pages, "tesseract_poppler"
+
+
 def extract_document_text(data: bytes, mime: str, document_type: str) -> tuple[str, str, int]:
     if mime in {"application/pdf", "application/x-pdf"}:
-        embedded, embedded_pages = extract_embedded_pdf_text(
-            data,
-            max_pages=3 if document_type == "cliente_estado_cuenta" else 4,
-        )
+        try:
+            embedded, embedded_pages = extract_embedded_pdf_text(
+                data,
+                max_pages=3 if document_type == "cliente_estado_cuenta" else 4,
+            )
+        except Exception as exc:
+            # Algunos estados de cuenta válidos tienen una estructura PDF que
+            # MuPDF no logra parsear. No abortamos: pasamos al rasterizador
+            # independiente de Poppler.
+            print(
+                f"OCR_PDF_EMBEDDED_FAILED type={type(exc).__name__} document_type={document_type}",
+                flush=True,
+            )
+            embedded, embedded_pages = "", 0
+
         if enough_embedded_text(embedded):
             if (
                 document_type != "cliente_estado_cuenta"
@@ -1457,16 +1567,18 @@ def extract_document_text(data: bytes, mime: str, document_type: str) -> tuple[s
 
             # En Estado de Cuenta, una capa parcial puede traer CLABE pero omitir
             # RFC (o al revés). Conservamos lo embebido y completamos con OCR.
-            ocr_text, ocr_pages = ocr_pdf(data, document_type)
+            ocr_text, ocr_pages, ocr_engine = _ocr_pdf_with_fallback(
+                data, document_type
+            )
             combined = "\n".join(
                 part for part in (embedded, ocr_text) if part
             ).strip()
-            return combined[:MAX_TEXT_CHARS], "embedded_text+tesseract", max(
+            return combined[:MAX_TEXT_CHARS], f"embedded_text+{ocr_engine}", max(
                 embedded_pages, ocr_pages
             )
 
-        text, pages = ocr_pdf(data, document_type)
-        return text[:MAX_TEXT_CHARS], "tesseract", pages
+        text, pages, engine = _ocr_pdf_with_fallback(data, document_type)
+        return text[:MAX_TEXT_CHARS], engine, pages
 
     if mime in {"image/jpeg", "image/jpg", "image/png", "image/webp"}:
         image = Image.open(io.BytesIO(data))
@@ -1521,8 +1633,12 @@ async def extract(
         text, engine, pages = extract_document_text(data, mime, document_type)
     except HTTPException:
         raise
-    except Exception:
-        # Nunca incluir texto/PII ni excepción cruda en la respuesta.
+    except Exception as exc:
+        # Nunca incluir texto/PII ni excepción cruda en la respuesta/log.
+        print(
+            f"OCR_EXTRACT_FAILED type={type(exc).__name__} document_type={document_type} mime={mime} size={len(data)}",
+            flush=True,
+        )
         raise HTTPException(status_code=422, detail="ocr_failed")
 
     return {
