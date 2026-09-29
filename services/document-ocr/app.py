@@ -28,9 +28,10 @@ ALLOWED_TYPES = {
     "cliente_ine_reverso",
     "cliente_comprobante_domicilio",
     "cliente_estado_cuenta",
+    "cliente_constancia_situacion_fiscal",
 }
 
-app = FastAPI(title="ConCasa Document OCR", version="1.4.4")
+app = FastAPI(title="ConCasa Document OCR", version="1.4.5")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
