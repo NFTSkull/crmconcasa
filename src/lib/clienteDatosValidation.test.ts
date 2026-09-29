@@ -341,16 +341,19 @@ test("validateClienteDatos: monto calculado se deriva con base fija", () => {
 
 // --- P133 field formats (casos 1–13) ---
 
-test("P133.1 isValidPersonName: José María válido", () => {
-  assert.equal(isValidPersonName("José María"), true);
+test("P133.1 isValidPersonName: acentos no son válidos en valor persistible", () => {
+  assert.equal(isValidPersonName("José María"), false);
+  assert.equal(isValidPersonName("JOSE MARIA"), true);
 });
 
-test("P133.2 isValidPersonName: Muñoz válido", () => {
+test("P133.2 isValidPersonName: Ñ se conserva y es válida", () => {
   assert.equal(isValidPersonName("Muñoz"), true);
+  assert.equal(normalizePersonName("Muñoz"), "MUÑOZ");
 });
 
-test("P133.3 isValidPersonName: Pérez-García válido", () => {
-  assert.equal(isValidPersonName("Pérez-García"), true);
+test("P133.3 isValidPersonName: guion válido después de quitar acentos", () => {
+  assert.equal(isValidPersonName("Pérez-García"), false);
+  assert.equal(filterPersonNameInput("Pérez-García"), "PEREZ-GARCIA");
 });
 
 test("P133.4 isValidPersonName: O'Connor válido", () => {
@@ -462,8 +465,9 @@ test("P133.12 montos conservan decimales", () => {
 test("P133.13 pegado limpia caracteres inválidos en numéricos", () => {
   assert.equal(filterDigitsInput("NSS: 01234-567-890", 11), "01234567890");
   assert.equal(filterDigitsInput("tel +52 (81) 1908-7564", 15), "528119087564");
-  assert.equal(normalizePersonName("  José   María  "), "JOSÉ MARÍA");
-  assert.equal(filterPersonNameInput("José María 123!"), "JOSÉ MARÍA ");
+  assert.equal(normalizePersonName("  José   María Muñoz  "), "JOSE MARIA MUÑOZ");
+  assert.equal(filterPersonNameInput("José María Muñoz 123!"), "JOSE MARIA MUÑOZ ");
+  assert.equal(filterPersonNameInput("ÁÉÍÓÚ Ü Ñandú"), "AEIOU U ÑANDU");
 });
 
 test("P133 plazo con letras → MSJ_DIGITS_ONLY", () => {
