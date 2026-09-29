@@ -3,6 +3,7 @@ import io
 from PIL import Image, ImageDraw
 
 from app import (
+    ALLOWED_TYPES,
     enough_embedded_text,
     extract_document_text,
     normalize_mime,
@@ -36,6 +37,10 @@ def test_normalize_mime():
 def test_embedded_text_threshold():
     assert enough_embedded_text("CLABE " + "1234567890 " * 10)
     assert not enough_embedded_text("INE")
+
+
+def test_constancia_sat_is_allowed_for_fiscal_ocr():
+    assert "cliente_constancia_situacion_fiscal" in ALLOWED_TYPES
 
 
 def test_image_ocr_pipeline_shape(monkeypatch):
