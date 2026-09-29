@@ -146,15 +146,18 @@ describe("enviar-mesa-fiscal fuente RFC", () => {
     assert.match(src, /gapUsesCorroboratedBackup/);
     assert.match(src, /pdfGapReason \?\? "pdf_estado_cuenta_unknown"/);
     assert.match(src, /cliente_constancia_situacion_fiscal/);
+    assert.match(src, /fiscal_sat_constancia_uploaded/);
+    assert.match(src, /tryAutofillRfcFromConstancia/);
     assert.match(src, /resolveConstanciaFiscalRfc/);
     assert.match(src, /server_sync_rfc_datos_generales_from_constancia/);
-    assert.match(src, /server_registrar_validacion_fiscal_constancia/);
-    const constanciaPos = src.indexOf("Fuente prioritaria: Constancia de Situación Fiscal oficial");
-    const estadoCuentaPos = src.indexOf("const { data: pdf, error: pdfError }");
-    assert.ok(constanciaPos >= 0, "debe existir flujo de Constancia SAT");
+    assert.doesNotMatch(src, /server_registrar_validacion_fiscal_constancia/);
+    assert.match(src, /NO bloqueamos el envío y NO llamamos al SAT externo/);
+    const constanciaPos = src.indexOf("fiscal_sat_constancia_uploaded");
+    const gatePos = src.indexOf("fiscal_sat_gate_applies_to_expediente", constanciaPos);
+    assert.ok(constanciaPos >= 0, "debe revisar Constancia SAT primero");
     assert.ok(
-      estadoCuentaPos > constanciaPos,
-      "Constancia SAT debe evaluarse antes del Estado de Cuenta/SAT externo",
+      gatePos > constanciaPos,
+      "con Constancia se debe resolver el bypass antes del gate SAT",
     );
     assert.match(src, /server_sync_rfc_datos_generales_from_sat/);
     const syncPos = src.indexOf("syncDatosGeneralesRfcFromSat({");
