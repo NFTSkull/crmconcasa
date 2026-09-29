@@ -174,6 +174,7 @@ describe("agenda-sheet sync title space + requeue (mig. 134)", () => {
     assert.match(cancelBlock, /REAGENDADO|buildRescheduledHistoryTechRow/);
     // Reagenda conserva NSS/NOMBRE/ASESOR en B:D; G:N no se toca y replacement queda libre.
     assert.match(cancelBlock, /preserveRescheduledHistoryVisibleData/);
+    assert.match(cancelBlock, /decision\.classification === "already_absent"[\s\S]*!rescheduleCtx/);
     assert.match(worker, /reschedule_history_visible_data_missing/);
     assert.match(worker, /cliente_nombre/);
     assert.match(worker, /full_name/);
