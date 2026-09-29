@@ -256,68 +256,88 @@ Deno.serve(async (req) => {
 
     /**
      * Fila histórica de reagenda:
-     * - conserva SOLO el NOMBRE visible (C) como registro humano;
-     * - limpia NSS (B) y ASESOR (D);
-     * - mantiene O:U=REAGENDADO y G:N intactos.
+     * - conserva NSS + NOMBRE + ASESOR visibles (B:D) como registro;
+     * - mantiene O:U=REAGENDADO y G:N intactos;
+     * - la fila replacement es la única que queda vacía para reutilizar el cupo.
      *
-     * Con O=REAGENDADO el inventario la trata como disabled, por lo que el
-     * nombre histórico NO consume cupo ni resucita la cita cancelada.
+     * Con O=REAGENDADO el inventario trata la fila histórica como disabled, por
+     * lo que conservar B:D NO consume cupo ni revive la cita cancelada.
      */
-    const clearRescheduledHistoryPii = async (
+    const preserveRescheduledHistoryVisibleData = async (
       sheetTitle: string,
       sheetRow: number,
       expectedHora: string,
       expectedGN: readonly string[],
+      visibleNss: string,
       visibleName: string,
+      visibleAdvisor: string,
       expedienteId: string,
     ) => {
-      let historyName = String(visibleName ?? "").trim();
-      if (!historyName) {
-        if (!expedienteId) {
-          throw new Error("reschedule_history_name_missing");
-        }
+      let nss = String(visibleNss ?? "").trim();
+      let name = String(visibleName ?? "").trim();
+      let advisor = String(visibleAdvisor ?? "").trim();
+
+      // Self-heal para históricos ya vaciados por versiones anteriores.
+      if ((!nss || !name || !advisor) && expedienteId) {
         const { data: expediente, error: expedienteErr } = await supabase
           .from("expedientes")
-          .select("cliente_nombre")
+          .select("nss,cliente_nombre,asesor_id")
           .eq("id", expedienteId)
           .maybeSingle();
         if (expedienteErr) {
           throw new Error(
-            `reschedule_history_name_lookup_failed:${expedienteErr.message}`,
+            `reschedule_history_visible_lookup_failed:${expedienteErr.message}`,
           );
         }
-        historyName = String(
-          (expediente as { cliente_nombre?: string } | null)?.cliente_nombre ?? "",
-        ).trim();
-        if (!historyName) {
-          throw new Error("reschedule_history_name_missing");
+        const exp = expediente as {
+          nss?: string;
+          cliente_nombre?: string;
+          asesor_id?: string;
+        } | null;
+        if (!nss) nss = String(exp?.nss ?? "").trim();
+        if (!name) name = String(exp?.cliente_nombre ?? "").trim();
+
+        const asesorId = String(exp?.asesor_id ?? "").trim();
+        if (!advisor && asesorId) {
+          const { data: profile, error: profileErr } = await supabase
+            .from("profiles")
+            .select("full_name")
+            .eq("id", asesorId)
+            .maybeSingle();
+          if (profileErr) {
+            throw new Error(
+              `reschedule_history_advisor_lookup_failed:${profileErr.message}`,
+            );
+          }
+          advisor = String(
+            (profile as { full_name?: string } | null)?.full_name ?? "",
+          ).trim();
         }
       }
 
-      const titleEsc = `'${sheetTitle.replace(/'/g, "''")}'`;
-      await adapter.batchClear([
-        `${titleEsc}!B${sheetRow}:B${sheetRow}`,
-        `${titleEsc}!D${sheetRow}:D${sheetRow}`,
-      ]);
+      if (!nss || !name || !advisor) {
+        throw new Error("reschedule_history_visible_data_missing");
+      }
+
       await adapter.batchUpdateValues([
         {
-          range: `${titleEsc}!C${sheetRow}:C${sheetRow}`,
-          values: [[historyName]],
+          range: a1BdRange(sheetTitle, sheetRow),
+          values: [[nss, name, advisor]],
         },
       ]);
 
       const verify = await adapter.getValues(a1FullReadRange(sheetTitle, sheetRow));
       const row = verify[0] ?? [];
-      const bdEmpty = [1, 3].every(
-        (idx) => String(row[idx] ?? "").trim().length === 0,
-      );
-      const nameOk = String(row[2] ?? "").trim() === historyName;
+      const bcdOk =
+        String(row[1] ?? "").trim() === nss &&
+        String(row[2] ?? "").trim() === name &&
+        String(row[3] ?? "").trim() === advisor;
       const horaOk = String(row[0] ?? "") === expectedHora;
       const gnOk = expectedGN.every(
         (value, i) => String(row[6 + i] ?? "") === value,
       );
-      if (!bdEmpty || !nameOk || !horaOk || !gnOk) {
-        throw new Error("reschedule_history_pii_clear_verify_failed");
+      if (!bcdOk || !horaOk || !gnOk) {
+        throw new Error("reschedule_history_visible_preserve_verify_failed");
       }
     };
 
@@ -622,12 +642,14 @@ Deno.serve(async (req) => {
 
           if (decision.classification === "already_absent") {
             if (rescheduleCtx) {
-              await clearRescheduledHistoryPii(
+              await preserveRescheduledHistoryVisibleData(
                 title,
                 row,
                 horaBefore,
                 gnBefore,
+                String(fr[COL_INDEX.nss] ?? ""),
                 String(fr[COL_INDEX.nombre] ?? ""),
+                String(fr[COL_INDEX.asesor] ?? ""),
                 String(payload.expediente_id ?? fr[COL_INDEX.expedienteId] ?? ""),
               );
             }
@@ -690,8 +712,8 @@ Deno.serve(async (req) => {
             continue;
           }
 
-          // Reagendo: conservar evidencia REAGENDADO y SOLO el nombre histórico
-          // en C; B(NSS) y D(asesor) quedan vacíos. Cancelación pura: clear B:D + O:U.
+          // Reagendo: conservar evidencia REAGENDADO y B:D completos en la fila
+          // histórica; la fila replacement es la única vacía. Cancelación pura: clear B:D + O:U.
           if (rescheduleCtx) {
             const inspection = inspectRescheduleHistoryState({
               historyRowNumber: row,
@@ -732,12 +754,14 @@ Deno.serve(async (req) => {
             );
 
             if (inspection.phase === "already_complete") {
-              await clearRescheduledHistoryPii(
+              await preserveRescheduledHistoryVisibleData(
                 title,
                 row,
                 horaBefore,
                 gnBefore,
+                String(fr[COL_INDEX.nss] ?? ""),
                 String(fr[COL_INDEX.nombre] ?? ""),
+                String(fr[COL_INDEX.asesor] ?? ""),
                 String(payload.expediente_id ?? fr[COL_INDEX.expedienteId] ?? ""),
               );
               historyByBooking.set(bookingId, {
@@ -763,8 +787,8 @@ Deno.serve(async (req) => {
               continue;
             }
 
-            // Marcar histórico: conserva G:N y el nombre en C; limpia B/D.
-            // O=REAGENDADO mantiene la fila disabled y evita una cita fantasma.
+            // Marcar histórico: conserva B:D y G:N completos.
+            // O=REAGENDADO mantiene la fila disabled; replacement vacío conserva cupo.
             if (
               inspection.phase === "need_full" ||
               inspection.phase === "need_replacement_only"
@@ -789,12 +813,14 @@ Deno.serve(async (req) => {
                   }),
                 );
               }
-              await clearRescheduledHistoryPii(
+              await preserveRescheduledHistoryVisibleData(
                 title,
                 row,
                 horaBefore,
                 gnBefore,
+                String(fr[COL_INDEX.nss] ?? ""),
                 String(fr[COL_INDEX.nombre] ?? ""),
+                String(fr[COL_INDEX.asesor] ?? ""),
                 String(payload.expediente_id ?? fr[COL_INDEX.expedienteId] ?? ""),
               );
             }
@@ -1271,21 +1297,23 @@ Deno.serve(async (req) => {
                   ).trim();
 
                   // Compatibilidad con filas históricas creadas antes de este fix:
-                  // REAGENDADO puede conservar PII visible. Limpiarla es seguro
-                  // porque P identifica inequívocamente al booking cancelado.
+                  // si REAGENDADO perdió B:D, reconstruirlos sin tocar resultados,
+                  // horario, notas ni la fila replacement.
                   if (
                     liveP === priorId &&
                     liveEstado.toLocaleUpperCase("es-MX").includes("REAGENDADO") &&
                     [1, 2, 3].some(
-                      (idx) => String(liveRow[idx] ?? "").trim().length > 0,
+                      (idx) => String(liveRow[idx] ?? "").trim().length === 0,
                     )
                   ) {
-                    await clearRescheduledHistoryPii(
+                    await preserveRescheduledHistoryVisibleData(
                       pTitle,
                       pRow,
                       String(liveRow[0] ?? ""),
                       snapshotPreserveGN(liveRow),
+                      String(liveRow[COL_INDEX.nss] ?? ""),
                       String(liveRow[COL_INDEX.nombre] ?? ""),
+                      String(liveRow[COL_INDEX.asesor] ?? ""),
                       String(liveRow[COL_INDEX.expedienteId] ?? payload.expediente_id ?? ""),
                     );
                     const refreshed = await adapter.getValues(
