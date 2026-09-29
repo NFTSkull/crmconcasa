@@ -412,7 +412,6 @@ export function MesaExpedienteDetalleReadOnly() {
           return;
         }
 
-        const ownerProfileIdMesa = exp.base.asesorProfileId?.trim() || null;
         const [datos, archivos, lista, booking, notificacionBooking, bioConfig, firmasBooking, firmasCfg, bioCancelled, firmasCancelled, cancelacion, ownerDisplay] =
           await Promise.all([
           clienteDatosRepo.getByExpedienteId(routeExpedienteId).catch(() => null),
@@ -444,15 +443,16 @@ export function MesaExpedienteDetalleReadOnly() {
                 .getUltimaCancelacionOperativa(routeExpedienteId)
                 .catch(() => null)
             : Promise.resolve(null),
-          ownerProfileIdMesa && isSupabaseConfigured() && supabaseBrowser
+          routeExpedienteId && isSupabaseConfigured() && supabaseBrowser
             ? Promise.resolve(
-                supabaseBrowser.rpc("mesa_get_asesor_display_batch", {
-                  p_asesor_ids: [ownerProfileIdMesa],
+                supabaseBrowser.rpc("mesa_get_expediente_owner_display_batch", {
+                  p_expediente_ids: [routeExpedienteId],
                 }),
               )
                 .then(({ data }) => {
                   const row = (data ?? [])[0] as
                     | {
+                        expediente_id?: string;
                         asesor_id?: string;
                         full_name?: string | null;
                         email?: string | null;
@@ -464,16 +464,17 @@ export function MesaExpedienteDetalleReadOnly() {
             : Promise.resolve(null),
         ]);
 
-        const expedienteMesa = ownerDisplay
-          ? {
-              ...exp,
-              base: {
-                ...exp.base,
-                asesorNombre: ownerDisplay.full_name ?? exp.base.asesorNombre,
-                asesorEmail: ownerDisplay.email ?? exp.base.asesorEmail,
-              },
-            }
-          : exp;
+        // Mesa fail-closed: el dueño visible siempre sale del read-model Mesa.
+        // Si el alias no se puede resolver, no caer al nombre real del perfil
+        // (p. ej. un miembro del Equipo Silvia); mostramos un valor neutro.
+        const expedienteMesa = {
+          ...exp,
+          base: {
+            ...exp.base,
+            asesorNombre: ownerDisplay?.full_name?.trim() || "—",
+            asesorEmail: ownerDisplay?.email?.trim() || null,
+          },
+        };
 
         setExpediente(expedienteMesa);
         setClienteDatos(datos);
