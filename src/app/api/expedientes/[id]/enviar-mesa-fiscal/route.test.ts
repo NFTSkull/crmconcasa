@@ -145,6 +145,14 @@ describe("enviar-mesa-fiscal fuente RFC", () => {
     assert.match(src, /backupReason: "pdf_sat_invalid"/);
     assert.match(src, /gapUsesCorroboratedBackup/);
     assert.match(src, /pdfGapReason \?\? "pdf_estado_cuenta_unknown"/);
+    assert.match(src, /server_sync_rfc_datos_generales_from_sat/);
+    const syncPos = src.indexOf("syncDatosGeneralesRfcFromSat({");
+    const registerPos = src.indexOf("registerValidadoOrRetry({", syncPos);
+    assert.ok(syncPos >= 0, "debe persistir RFC SAT en Datos Generales");
+    assert.ok(
+      registerPos > syncPos,
+      "la persistencia de RFC debe ocurrir antes de registrar la huella VALIDADO",
+    );
   });
 });
 

@@ -298,6 +298,36 @@ async function registerValidadoOrRetry(args: {
   return { ok: true };
 }
 
+async function syncDatosGeneralesRfcFromSat(args: {
+  expedienteId: string;
+  fiscalRfc: string;
+  expectedCurp: string;
+  expectedRfcDatos: string;
+  edcDocumentoId: string;
+  edcVersion: number;
+}): Promise<{ ok: true } | { ok: false; code: string }> {
+  const admin = serviceRoleClient();
+  if (!admin) return { ok: false, code: "SERVICE_ROLE_NOT_CONFIGURED" };
+
+  const { error } = await admin.rpc("server_sync_rfc_datos_generales_from_sat", {
+    p_expediente_id: args.expedienteId,
+    p_fiscal_rfc: args.fiscalRfc,
+    p_expected_curp: args.expectedCurp,
+    p_expected_rfc_datos: args.expectedRfcDatos,
+    p_edc_documento_id: args.edcDocumentoId,
+    p_edc_version: args.edcVersion,
+  });
+
+  if (error) {
+    if (String(error.code ?? "").trim() === "40001") {
+      return { ok: false, code: "FISCAL_INPUT_CHANGED" };
+    }
+    return { ok: false, code: error.code || "FISCAL_RFC_DG_SYNC_FAILED" };
+  }
+
+  return { ok: true };
+}
+
 async function callSatWorker(args: {
   url: string;
   secret: string;
@@ -811,6 +841,21 @@ export async function POST(request: Request, { params }: RouteParams) {
         currentEdcVersion !== edcVersion
       ) {
         return retry("FISCAL_INPUT_CHANGED", 409);
+      }
+
+      // El RFC que pasó SAT se vuelve el RFC canónico de Datos Generales.
+      // Se persiste ANTES de registrar la validación para que la huella fiscal
+      // incluya exactamente el RFC que acaba de aprobar SAT.
+      const syncedRfc = await syncDatosGeneralesRfcFromSat({
+        expedienteId,
+        fiscalRfc,
+        expectedCurp: curpLocal.normalized,
+        expectedRfcDatos: rfcDatosGenerales,
+        edcDocumentoId,
+        edcVersion,
+      });
+      if (!syncedRfc.ok) {
+        return retry(syncedRfc.code, 409);
       }
 
       const registered = await registerValidadoOrRetry({
