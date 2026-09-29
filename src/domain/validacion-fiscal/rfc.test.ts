@@ -219,6 +219,19 @@ test("pickCapturedBackupRfc: si infonavit vacío usa DG con base CURP", () => {
   }
 });
 
+test("pickCapturedBackupRfc: RFC y CURP pueden diferir en prefijo si comparten fecha", () => {
+  const pick = pickCapturedBackupRfc({
+    rfcInfonavit: null,
+    rfcDatosGenerales: "NEIC730512PJ6",
+    curpValidadaLocalmente: "IACN730512HSPBRR03",
+  });
+  assert.deepEqual(pick, {
+    ok: true,
+    rfc: "NEIC730512PJ6",
+    field: "rfc_datos_generales",
+  });
+});
+
 test("pickCapturedBackupRfc: base distinta a CURP no se usa (caso mismatch)", () => {
   const pick = pickCapturedBackupRfc({
     rfcInfonavit: "CADD9102029A1",

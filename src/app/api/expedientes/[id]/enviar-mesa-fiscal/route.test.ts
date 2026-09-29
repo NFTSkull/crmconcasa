@@ -181,6 +181,22 @@ describe("pickCorroboratedBackupRfc", () => {
     );
   });
 
+  it("histórico sin RFC Infonavit: permite DG full13 con misma fecha CURP para validar en SAT", () => {
+    assert.deepEqual(
+      pickCorroboratedBackupRfc({
+        rfcInfonavit: null,
+        rfcDatosGenerales: "NEIC730512PJ6",
+        curpValidadaLocalmente: "IACN730512HSPBRR03",
+        pdfRfc: null,
+      }),
+      {
+        ok: true,
+        rfc: "NEIC730512PJ6",
+        field: "rfc_datos_generales",
+      },
+    );
+  });
+
   it("no usa respaldo si Infonavit y DG no coinciden exactamente", () => {
     const result = pickCorroboratedBackupRfc({
       rfcInfonavit: "ABCD900805XYZ",
