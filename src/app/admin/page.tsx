@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSessionRepo } from "@/domain/session";
+import { fetchAdminExpedientesOverviewAsesores } from "@/domain/admin-expedientes-overview";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
@@ -579,7 +580,7 @@ export default function AdminDashboardPage() {
     setError(null);
     try {
       const filtersSinAsesor = { ...filtersBase, asesorId: null };
-      const [s, as, asOpts, precal] = await Promise.all([
+      const [s, as, asOpts, precal, activeAsesores] = await Promise.all([
         repo.getSummary(periodStageFiltersBase),
         repo.listByAsesor(filtersBase),
         repo.listByAsesor(filtersSinAsesor),
@@ -588,10 +589,12 @@ export default function AdminDashboardPage() {
           page: precalPage,
           pageSize: PAGE_SIZE,
         }),
+        fetchAdminExpedientesOverviewAsesores(),
       ]);
+      const activeAsesorIds = new Set(activeAsesores.map((a) => a.asesorId));
       setSummary(s);
       setAsesores(as);
-      setAsesorOptions(asOpts);
+      setAsesorOptions(asOpts.filter((a) => activeAsesorIds.has(a.asesorId)));
       setPrecalItems(precal.items);
       setPrecalTotal(precal.totalCount);
       setPrecalSummary(precal.summary);
