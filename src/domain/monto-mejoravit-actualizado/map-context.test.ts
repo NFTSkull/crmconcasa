@@ -97,9 +97,16 @@ describe("mapExpedienteMontoMejoravitContext", () => {
     assert.equal(ctx.ultimaActualizacion?.updatedByName, "Mesa Admin");
   });
 
-  it("falla si cargo_fijo != 3000", () => {
+  it("acepta cargo_fijo dinámico del backend (Anette = 3300)", () => {
+    const ctx = mapExpedienteMontoMejoravitContext(
+      sampleContext({ cargo_fijo: 3300 }),
+    );
+    assert.equal(ctx.cargoFijo, 3300);
+  });
+
+  it("rechaza cargo_fijo no positivo", () => {
     assert.throws(
-      () => mapExpedienteMontoMejoravitContext(sampleContext({ cargo_fijo: 2500 })),
+      () => mapExpedienteMontoMejoravitContext(sampleContext({ cargo_fijo: 0 })),
       MontoMejoravitContextParseError,
     );
   });

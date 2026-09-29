@@ -125,7 +125,7 @@ export function MesaMontoMejoravitActualizadoDialog({
         <p className="mt-2 text-sm text-gray-700">
           Esta actualización no modifica los Datos Generales ni el monto aprobado
           original. Se actualizará el monto operativo vigente y se recalculará el
-          cobro con el porcentaje existente más $3,000.
+          cobro con el porcentaje existente más {formatMoneyMx(context.cargoFijo)}.
         </p>
 
         {context.porcentajeCobro == null ? (

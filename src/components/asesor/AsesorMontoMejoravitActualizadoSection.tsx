@@ -16,9 +16,6 @@ export type AsesorMontoMejoravitActualizadoSectionProps = Readonly<{
   expedienteId: string;
 }>;
 
-const ASESOR_COPY =
-  "Mesa Control actualizó el monto operativo de Mejoravit de este expediente. El monto aprobado original se conserva y el cobro fue recalculado con el porcentaje registrado más $3,000.";
-
 export function AsesorMontoMejoravitActualizadoSection({
   expedienteId,
 }: AsesorMontoMejoravitActualizadoSectionProps) {
@@ -78,7 +75,11 @@ export function AsesorMontoMejoravitActualizadoSection({
           Actualizado por Mesa
         </span>
       </div>
-      <p className="mt-2 text-sm text-gray-700">{ASESOR_COPY}</p>
+      <p className="mt-2 text-sm text-gray-700">
+        Mesa Control actualizó el monto operativo de Mejoravit de este expediente.
+        El monto aprobado original se conserva y el cobro fue recalculado con el
+        porcentaje registrado más {formatMoneyMx(context.cargoFijo)}.
+      </p>
 
       <dl className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
         <Item
