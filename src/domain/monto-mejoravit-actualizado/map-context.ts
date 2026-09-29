@@ -136,9 +136,9 @@ export function mapExpedienteMontoMejoravitContext(
   }
 
   const cargoFijo = parseRequiredNumber(row.cargo_fijo, "cargo_fijo");
-  if (cargoFijo !== 3000) {
+  if (cargoFijo <= 0) {
     throw new MontoMejoravitContextParseError(
-      "Cargo fijo inesperado en el contexto de monto Mejoravit.",
+      "Cargo fijo inválido en el contexto de monto Mejoravit.",
     );
   }
 
