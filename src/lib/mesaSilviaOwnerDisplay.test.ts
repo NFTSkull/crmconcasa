@@ -62,7 +62,7 @@ describe("Mesa — alias visual Equipo Silvia", () => {
     assert.match(migration, /No altera datos ni métricas/);
   });
 
-  it("la bandeja Mesa aplica el alias solo al dueño del expediente", () => {
+  it("la bandeja Mesa aplica el alias solo al dueño del expediente y falla cerrada", () => {
     assert.match(
       expedientesRepo,
       /fetchMesaOwnerDisplayMap[\s\S]*"mesa_get_asesor_display_batch"/,
@@ -70,6 +70,18 @@ describe("Mesa — alias visual Equipo Silvia", () => {
     assert.match(
       expedientesRepo,
       /fetchExpedientesListForMesaControlPaginated[\s\S]*fetchMesaOwnerDisplayMap/,
+    );
+    assert.doesNotMatch(
+      expedientesRepo,
+      /if \(!owner\) return exp;/,
+    );
+    assert.match(
+      expedientesRepo,
+      /asesorNombre: owner\?\.full_name\?\.trim\(\) \|\| "—"/,
+    );
+    assert.match(
+      expedientesRepo,
+      /asesorNombre: ownerDisplay\?\.full_name\?\.trim\(\) \|\| "—"/,
     );
   });
 
@@ -85,10 +97,18 @@ describe("Mesa — alias visual Equipo Silvia", () => {
     );
   });
 
-  it("el detalle Mesa aliasa al dueño pero conserva auditoría de agenda", () => {
+  it("el detalle Mesa resuelve por expediente y nunca cae al nombre real", () => {
     assert.match(
       mesaDetalle,
-      /ownerProfileIdMesa[\s\S]*"mesa_get_asesor_display_batch"/,
+      /"mesa_get_expediente_owner_display_batch"[\s\S]*p_expediente_ids: \[routeExpedienteId\]/,
+    );
+    assert.doesNotMatch(
+      mesaDetalle,
+      /ownerDisplay\.full_name \?\? exp\.base\.asesorNombre/,
+    );
+    assert.match(
+      mesaDetalle,
+      /asesorNombre: ownerDisplay\?\.full_name\?\.trim\(\) \|\| "—"/,
     );
     assert.match(
       mesaDetalle,
