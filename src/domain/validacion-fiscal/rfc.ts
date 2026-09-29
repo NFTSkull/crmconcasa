@@ -450,27 +450,46 @@ export type CapturedBackupPick =
 
 /**
  * Respaldo capturado: rfc_infonavit si no vacío; si vacío, RFC de datos generales.
- * Solo full13 cuya base10 coincide con la CURP del expediente.
+ * El RFC debe ser full13 y compartir la fecha YYMMDD con la CURP validada.
+ *
+ * IMPORTANTE: RFC y CURP de persona física NO necesariamente comparten las
+ * primeras cuatro letras. Comparar base10 completa produce falsos negativos
+ * válidos (p. ej. NEIC730512... vs IACN730512...).
  */
 export function pickCapturedBackupRfc(args: {
   rfcInfonavit?: string | null;
   rfcDatosGenerales?: string | null;
   curpValidadaLocalmente: string;
 }): CapturedBackupPick {
-  const curpBase = curpRfcBase10(args.curpValidadaLocalmente);
-  if (!curpBase) return { ok: false, reason: "curp_invalid" };
+  const curpValidation = validateCurpLocal({
+    curp: String(args.curpValidadaLocalmente ?? ""),
+  });
+  if (curpValidation.status !== "VALIDA_LOCALMENTE") {
+    return { ok: false, reason: "curp_invalid" };
+  }
+  const curpBirthDate = curpValidation.normalized.slice(4, 10);
+
+  const validateCandidate = (
+    rfc: string,
+  ): { ok: true } | { ok: false; reason: "not_full13" | "curp_base_mismatch" } => {
+    if (rfcShape(rfc) !== "full13") return { ok: false, reason: "not_full13" };
+    if (rfc.slice(4, 10) !== curpBirthDate) {
+      return { ok: false, reason: "curp_base_mismatch" };
+    }
+    return { ok: true };
+  };
 
   const inf = normalizeRfc(args.rfcInfonavit);
   if (inf) {
-    if (rfcShape(inf) !== "full13") return { ok: false, reason: "not_full13" };
-    if (inf.slice(0, 10) !== curpBase) return { ok: false, reason: "curp_base_mismatch" };
+    const checked = validateCandidate(inf);
+    if (!checked.ok) return checked;
     return { ok: true, rfc: inf, field: "rfc_infonavit" };
   }
 
   const dg = normalizeRfc(args.rfcDatosGenerales);
   if (!dg) return { ok: false, reason: "missing" };
-  if (rfcShape(dg) !== "full13") return { ok: false, reason: "not_full13" };
-  if (dg.slice(0, 10) !== curpBase) return { ok: false, reason: "curp_base_mismatch" };
+  const checked = validateCandidate(dg);
+  if (!checked.ok) return checked;
   return { ok: true, rfc: dg, field: "rfc_datos_generales" };
 }
 
