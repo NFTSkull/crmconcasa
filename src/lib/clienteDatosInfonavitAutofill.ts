@@ -13,17 +13,24 @@ export type ClienteDatosInfonavitAutofillShape = Readonly<{
 }>;
 
 /**
- * Pre-llena RFC, registro patronal y empresa solo si el campo del formulario
- * está vacío (trim). Nunca sobrescribe valor capturado o guardado.
+ * Pre-llena RFC, registro patronal y empresa desde Infonavit.
+ * Por defecto conserva valores ya capturados. Con `preferIncoming`, una
+ * re-precalificación fresca manda sobre esos tres campos (uso controlado Anette).
  */
 export function applyClienteDatosInfonavitAutofill<
   T extends ClienteDatosInfonavitAutofillShape,
->(datos: T, source: EditorDecisionInfonavitSource | null | undefined): T {
+>(
+  datos: T,
+  source: EditorDecisionInfonavitSource | null | undefined,
+  options?: Readonly<{ preferIncoming?: boolean }>,
+): T {
   if (!source) return datos;
 
+  const preferIncoming = options?.preferIncoming === true;
   const pick = (current: string, incoming: string | null | undefined): string => {
-    if (String(current ?? "").trim()) return current;
     const v = String(incoming ?? "").trim();
+    if (preferIncoming && v) return v;
+    if (String(current ?? "").trim()) return current;
     return v || current;
   };
 
