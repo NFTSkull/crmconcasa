@@ -370,18 +370,22 @@ export function pickCorroboratedBackupRfc(args: {
   const datosGenerales = normalizeRfc(args.rfcDatosGenerales);
   const pdf = normalizeRfc(args.pdfRfc);
 
-  if (
-    rfcShape(infonavit) !== "full13" ||
-    rfcShape(datosGenerales) !== "full13"
-  ) {
+  if (rfcShape(datosGenerales) !== "full13") {
     return { ok: false, reason: "captured_sources_incomplete" };
   }
-  if (infonavit !== datosGenerales) {
+
+  // Expedientes históricos pueden no tener rfc_infonavit persistido. En ese
+  // caso, DG full13 + fecha compatible con CURP puede ir a SAT como respaldo;
+  // nunca autoriza Mesa por sí solo.
+  if (infonavit && rfcShape(infonavit) !== "full13") {
+    return { ok: false, reason: "captured_sources_incomplete" };
+  }
+  if (infonavit && infonavit !== datosGenerales) {
     return { ok: false, reason: "captured_sources_disagree" };
   }
 
   const picked = pickCapturedBackupRfc({
-    rfcInfonavit: infonavit,
+    rfcInfonavit: infonavit || null,
     rfcDatosGenerales: datosGenerales,
     curpValidadaLocalmente: args.curpValidadaLocalmente,
   });
