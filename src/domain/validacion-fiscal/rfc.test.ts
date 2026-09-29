@@ -199,14 +199,14 @@ test("Constancia SAT: toma el único RFC full13 cuya fecha coincide con CURP", (
   const r = resolveConstanciaFiscalRfc({
     text: [
       "CONSTANCIA DE SITUACION FISCAL",
-      "RFC: QUAC700805ABC",
+      "RFC: BADD9001019A1",
       "OTRO IDENTIFICADOR BANC991231AAA",
     ].join("\n"),
-    curpValidadaLocalmente: "QUAC700805HNLRRR01",
+    curpValidadaLocalmente: CURP_BADD,
   });
   assert.deepEqual(r, {
     status: "ready",
-    fiscalRfc: "QUAC700805ABC",
+    fiscalRfc: "BADD9001019A1",
     confidence: "high",
     reason: "single_birthdate_match",
   });
@@ -223,8 +223,8 @@ test("Constancia SAT: no depende del orden del nombre; solo fecha CURP + RFC imp
 
 test("Constancia SAT: dos RFC con misma fecha quedan ambiguos", () => {
   const r = resolveConstanciaFiscalRfc({
-    text: "RFC QUAC700805ABC RFC ZZZZ700805XYZ",
-    curpValidadaLocalmente: "QUAC700805HNLRRR01",
+    text: "RFC BADD9001019A1 RFC ZZZZ900101XYZ",
+    curpValidadaLocalmente: CURP_BADD,
   });
   assert.deepEqual(r, {
     status: "unknown",
