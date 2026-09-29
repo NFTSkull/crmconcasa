@@ -565,6 +565,8 @@ export default function AsesorExpedientePage() {
   );
 
   const clienteDatosDraftUserKey = currentUser?.email?.trim().toLowerCase() ?? "";
+  const esCuentaAnette =
+    clienteDatosDraftUserKey === "anette.perez@concasa.mx";
   const cargoFijoCobro = resolveCargoFijoCobroPorAsesorEmail(currentUser?.email);
 
   const persistClienteDatosDraftNow = useCallback(() => {
@@ -1730,6 +1732,7 @@ export default function AsesorExpedientePage() {
             celular: precal.telefono_cliente || "",
           },
           editorDecisionRef.current,
+          { preferIncoming: esCuentaAnette },
         );
         setClienteDatos(datosSinOficial);
         setClienteDatosMeta(null);
@@ -1790,6 +1793,7 @@ export default function AsesorExpedientePage() {
           cargoFijoCobro,
         ),
         editorDecisionRef.current,
+        { preferIncoming: esCuentaAnette },
       );
       const casaOficial = String(found.telefonoCasa ?? "")
         .replace(/\D/g, "")
@@ -1884,6 +1888,7 @@ export default function AsesorExpedientePage() {
     clienteDatosRepo,
     currentUser?.email,
     dataSupabase,
+    esCuentaAnette,
     finishClienteDatosHydration,
     precal?.direccion_opcional,
     precal?.cliente_nombre,
@@ -1891,6 +1896,25 @@ export default function AsesorExpedientePage() {
     precal?.telefono_cliente,
     precal?.id,
     syncClienteDatosDraftFlush,
+  ]);
+
+  useEffect(() => {
+    if (!esCuentaAnette || !precal?.id) return;
+    if (!hasHydratedClienteDatosRef.current) return;
+    if (hasUserEditedClienteDatos.current) return;
+
+    forceClienteDatosOfficialReloadRef.current = true;
+    window.dispatchEvent(
+      new CustomEvent("expediente_cliente_datos_updated", {
+        detail: { expedienteId: String(precal.id) },
+      }),
+    );
+  }, [
+    esCuentaAnette,
+    precal?.id,
+    editorDecision?.rfc_infonavit,
+    editorDecision?.registro_patronal_infonavit,
+    editorDecision?.empresa_infonavit,
   ]);
 
   useEffect(() => {
@@ -2424,7 +2448,19 @@ export default function AsesorExpedientePage() {
                       ? editorDecision.monto_aprobado
                       : null
                   }
-                  onCompleted={() => void loadExpediente()}
+                  onCompleted={async () => {
+                    await loadExpediente();
+                    if (esCuentaAnette) {
+                      window.setTimeout(() => {
+                        forceClienteDatosOfficialReloadRef.current = true;
+                        window.dispatchEvent(
+                          new CustomEvent("expediente_cliente_datos_updated", {
+                            detail: { expedienteId: String(precal.id) },
+                          }),
+                        );
+                      }, 0);
+                    }
+                  }}
                 />
               ) : null}
             </div>
@@ -2565,6 +2601,7 @@ export default function AsesorExpedientePage() {
               onDiscardLocalDraft={handleDiscardClienteDatosDraft}
               clasificacionPerfilMensaje={clasificacionPerfilMensaje}
               mostrarClabe={mostrarClabePaqueteNuevo}
+              allowPrecalInfonavitEdit={esCuentaAnette}
             />
             </div>
             {esMejoravit && dataSupabase && precal?.id ? (

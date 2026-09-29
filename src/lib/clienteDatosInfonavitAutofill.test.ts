@@ -43,6 +43,40 @@ describe("applyClienteDatosInfonavitAutofill", () => {
     assert.equal(out.empresa, "EMPRESA MANUAL SA");
   });
 
+  it("preferIncoming refresca valores cuando una re-precalificación cambia Infonavit", () => {
+    const out = applyClienteDatosInfonavitAutofill(
+      {
+        rfc: "RFC-ANTERIOR",
+        registroPatronal: "RP-ANTERIOR",
+        empresa: "EMPRESA ANTERIOR",
+      },
+      source,
+      { preferIncoming: true },
+    );
+    assert.equal(out.rfc, source.rfc_infonavit);
+    assert.equal(out.registroPatronal, source.registro_patronal_infonavit);
+    assert.equal(out.empresa, source.empresa_infonavit);
+  });
+
+  it("preferIncoming no borra un valor si Infonavit no devolvió ese campo", () => {
+    const out = applyClienteDatosInfonavitAutofill(
+      {
+        rfc: "RFC-MANUAL",
+        registroPatronal: "RP-MANUAL",
+        empresa: "EMPRESA MANUAL",
+      },
+      {
+        rfc_infonavit: null,
+        registro_patronal_infonavit: "",
+        empresa_infonavit: "EMPRESA NUEVA",
+      },
+      { preferIncoming: true },
+    );
+    assert.equal(out.rfc, "RFC-MANUAL");
+    assert.equal(out.registroPatronal, "RP-MANUAL");
+    assert.equal(out.empresa, "EMPRESA NUEVA");
+  });
+
   it("solo rellena los vacíos cuando hay mezcla", () => {
     const out = applyClienteDatosInfonavitAutofill(
       { ...baseDatos, rfc: "YA-HAY-RFC" },

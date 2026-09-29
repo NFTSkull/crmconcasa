@@ -43,12 +43,13 @@ describe("INFONAVIT automático — externos", () => {
     assert.match(solicitud, /showInfonavitAuto\s*\?\s*\(/);
   });
 
-  it("Datos Generales externos conservan autofill Infonavit visible", () => {
-    assert.match(externoDatos, /applyClienteDatosInfonavitAutofill/);
+  it("Datos Generales externos conservan Infonavit visible y Anette puede editarlo", () => {
     assert.match(externoDatos, /Datos de precalificación Infonavit/);
-    assert.match(externoDatos, /RFC/);
-    assert.match(externoDatos, /Registro patronal/);
-    assert.match(externoDatos, /Empresa/);
+    assert.match(externoDatos, /allowPrecalInfonavitEdit/);
+    assert.match(externoDatos, /asesor-precal-infonavit-rfc-input/);
+    assert.match(externoDatos, /asesor-precal-infonavit-registro-patronal-input/);
+    assert.match(externoDatos, /asesor-precal-infonavit-empresa-input/);
+    assert.match(externoDatos, /Solo lectura/);
   });
 
   it("cambio no toca generación, outbox, citas ni Storage write", () => {
@@ -56,5 +57,38 @@ describe("INFONAVIT automático — externos", () => {
     assert.doesNotMatch(migration, /INSERT\s+INTO\s+public\.infonavit_pdf_outbox/i);
     assert.doesNotMatch(migration, /agenda_bookings/i);
     assert.doesNotMatch(migration, /storage\.objects/i);
+  });
+});
+
+
+describe("Anette — protección de generales y re-precal", () => {
+  const page = readFileSync(
+    join(root, "src/app/asesor/expediente/[id]/page.tsx"),
+    "utf8",
+  );
+  const guardMigration = readFileSync(
+    join(
+      root,
+      "supabase/migrations/20260929110000_anette_preservar_generales_y_sync_infonavit.sql",
+    ),
+    "utf8",
+  );
+
+  it("habilita edición solo por cuenta Anette y prioriza fuente fresca", () => {
+    assert.match(page, /anette\.perez@concasa\.mx/);
+    assert.match(page, /allowPrecalInfonavitEdit=\{esCuentaAnette\}/);
+    assert.match(page, /preferIncoming: esCuentaAnette/);
+  });
+
+  it("protege teléfono, casa y domicilio; sincroniza Infonavit sin tocar otros campos", () => {
+    assert.match(guardMigration, /trg_anette_preservar_contacto_expediente/);
+    assert.match(guardMigration, /old\.direccion_opcional/);
+    assert.match(guardMigration, /old\.telefono_cliente/);
+    assert.match(guardMigration, /old\.telefono_casa/);
+    assert.match(guardMigration, /trg_anette_sync_infonavit_desde_editor_decision/);
+    assert.match(guardMigration, /registroPatronal/);
+    assert.match(guardMigration, /empresa/);
+    assert.doesNotMatch(guardMigration, /agenda_bookings/);
+    assert.doesNotMatch(guardMigration, /storage\.objects/);
   });
 });
