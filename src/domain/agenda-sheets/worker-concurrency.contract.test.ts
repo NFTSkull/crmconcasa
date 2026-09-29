@@ -152,7 +152,7 @@ describe("agenda-sheet sync title space + requeue (mig. 134)", () => {
     assert.match(worker, /clearedByBooking/);
   });
 
-  it("reagendado histórico: conserva auditoría sin PII visible ni fila fantasma", () => {
+  it("reagendado histórico: conserva nombre visible sin fila fantasma", () => {
     assert.match(worker, /isRescheduleCancelContext/);
     assert.match(worker, /inspectRescheduleHistoryState/);
     assert.match(worker, /buildRescheduledHistoryTechRow/);
@@ -172,8 +172,11 @@ describe("agenda-sheet sync title space + requeue (mig. 134)", () => {
     const cancelBlock = worker.slice(cancelStart, cancelEnd);
     assert.match(cancelBlock, /rescheduleCtx/);
     assert.match(cancelBlock, /REAGENDADO|buildRescheduledHistoryTechRow/);
-    // Reagenda conserva la auditoría técnica, pero B:D se limpia y G:N no se toca.
+    // Reagenda conserva nombre en C; limpia NSS/asesor y G:N no se toca.
     assert.match(cancelBlock, /clearRescheduledHistoryPii/);
+    assert.match(worker, /reschedule_history_name_missing/);
+    assert.match(worker, /cliente_nombre/);
+    assert.match(worker, /nameOk/);
     assert.match(cancelBlock, /batchClear/);
     assert.match(cancelBlock, /shouldYieldCancelClearToRescheduleHistory/);
     const yieldIdx = cancelBlock.indexOf("shouldYieldCancelClearToRescheduleHistory");
