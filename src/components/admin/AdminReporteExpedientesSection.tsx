@@ -4,10 +4,7 @@ import { useCallback, useEffect, useId, useMemo, useRef, useState } from "react"
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
-import {
-  asesoresCatalogFromReport,
-  fetchAdminReportAsesoresCatalog,
-} from "@/domain/admin-report-asesores-etapas";
+import { fetchAdminExpedientesOverviewAsesores } from "@/domain/admin-expedientes-overview";
 import {
   ADMIN_STAGE_HISTORY_ALL_PASO_VALUES,
   ADMIN_STAGE_HISTORY_ESTADO_OPTIONS,
@@ -148,9 +145,15 @@ export function AdminReporteExpedientesSection() {
     void (async () => {
       setLoadingOptions(true);
       try {
-        const data = await fetchAdminReportAsesoresCatalog();
+        const data = await fetchAdminExpedientesOverviewAsesores();
         if (!cancelled) {
-          setAsesorOptions(asesoresCatalogFromReport(data));
+          setAsesorOptions(
+            data.map((a) => ({
+              id: a.asesorId,
+              nombre: a.asesorNombre || a.asesorEmail || "Asesor sin nombre",
+              email: a.asesorEmail,
+            })),
+          );
         }
       } catch {
         if (!cancelled) setAsesorOptions([]);
