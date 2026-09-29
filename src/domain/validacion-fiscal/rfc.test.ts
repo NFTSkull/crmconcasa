@@ -15,6 +15,7 @@ import {
   selectEstadoCuentaRfc,
   resolveFiscalRfc,
   resolveEstadoCuentaFiscalRfc,
+  resolveConstanciaFiscalRfc,
   workerAttemptTimeoutMs,
 } from "./rfc";
 
@@ -191,6 +192,45 @@ test("PDF sin RFC completo queda UNKNOWN", () => {
   const r = resolveFiscalRfc({ rfcInfonavit: "ABCD010101", estadoCuenta: edc });
   assert.equal(edc.status, "unknown");
   assert.equal(r.status, "unknown");
+});
+
+
+test("Constancia SAT: toma el único RFC full13 cuya fecha coincide con CURP", () => {
+  const r = resolveConstanciaFiscalRfc({
+    text: [
+      "CONSTANCIA DE SITUACION FISCAL",
+      "RFC: BADD9001019A1",
+      "OTRO IDENTIFICADOR BANC991231AAA",
+    ].join("\n"),
+    curpValidadaLocalmente: CURP_BADD,
+  });
+  assert.deepEqual(r, {
+    status: "ready",
+    fiscalRfc: "BADD9001019A1",
+    confidence: "high",
+    reason: "single_birthdate_match",
+  });
+});
+
+test("Constancia SAT: no depende del orden del nombre; solo fecha CURP + RFC impreso", () => {
+  const r = resolveConstanciaFiscalRfc({
+    text: "RFC: NEIC730512PJ6",
+    curpValidadaLocalmente: "IACN730512HSPBRR03",
+  });
+  assert.equal(r.status, "ready");
+  if (r.status === "ready") assert.equal(r.fiscalRfc, "NEIC730512PJ6");
+});
+
+test("Constancia SAT: dos RFC con misma fecha quedan ambiguos", () => {
+  const r = resolveConstanciaFiscalRfc({
+    text: "RFC BADD9001019A1 RFC ZZZZ900101XYZ",
+    curpValidadaLocalmente: CURP_BADD,
+  });
+  assert.deepEqual(r, {
+    status: "unknown",
+    fiscalRfc: null,
+    reason: "ambiguous_birthdate_matches",
+  });
 });
 
 test("pickCapturedBackupRfc: prioriza rfc_infonavit full13 con base CURP", () => {

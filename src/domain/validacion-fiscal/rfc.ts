@@ -493,6 +493,72 @@ export function pickCapturedBackupRfc(args: {
   return { ok: true, rfc: dg, field: "rfc_datos_generales" };
 }
 
+
+export type ConstanciaFiscalRfcResolution =
+  | {
+      status: "ready";
+      fiscalRfc: string;
+      confidence: "high";
+      reason: "single_birthdate_match";
+    }
+  | {
+      status: "unknown";
+      fiscalRfc: null;
+      reason:
+        | "curp_invalid"
+        | "no_full_rfc"
+        | "birthdate_mismatch"
+        | "ambiguous_birthdate_matches";
+    };
+
+/**
+ * La Constancia de Situación Fiscal es una fuente fiscal oficial.
+ * Para asociar el RFC al cliente NO usamos el orden del nombre calculado.
+ * Seleccionamos un RFC full13 impreso en la constancia cuya fecha YYMMDD
+ * coincide con la CURP validada localmente. Si hay más de uno, fail-closed.
+ */
+export function resolveConstanciaFiscalRfc(args: {
+  text: string | null | undefined;
+  curpValidadaLocalmente: string;
+}): ConstanciaFiscalRfcResolution {
+  const curpValidation = validateCurpLocal({
+    curp: String(args.curpValidadaLocalmente ?? ""),
+  });
+  if (curpValidation.status !== "VALIDA_LOCALMENTE") {
+    return { status: "unknown", fiscalRfc: null, reason: "curp_invalid" };
+  }
+
+  const upper = String(args.text ?? "").toUpperCase();
+  const all = new Set<string>();
+  for (const match of upper.matchAll(FULL_RFC_IN_TEXT_RE)) {
+    const rfc = normalizeRfc(match[2]);
+    if (rfcShape(rfc) === "full13") all.add(rfc);
+  }
+  if (all.size === 0) {
+    return { status: "unknown", fiscalRfc: null, reason: "no_full_rfc" };
+  }
+
+  const birthDate = curpValidation.normalized.slice(4, 10);
+  const matches = [...all].filter((rfc) => rfc.slice(4, 10) === birthDate);
+  if (matches.length === 0) {
+    return { status: "unknown", fiscalRfc: null, reason: "birthdate_mismatch" };
+  }
+  if (matches.length > 1) {
+    return {
+      status: "unknown",
+      fiscalRfc: null,
+      reason: "ambiguous_birthdate_matches",
+    };
+  }
+
+  return {
+    status: "ready",
+    fiscalRfc: matches[0],
+    confidence: "high",
+    reason: "single_birthdate_match",
+  };
+}
+
 export function homoclaveDiffers(
   rfcA: string | null | undefined,
   rfcB: string | null | undefined,
