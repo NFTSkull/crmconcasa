@@ -26,6 +26,7 @@ import { MesaMontoMejoravitActualizadoSection } from "@/components/mesa-control/
 import { MesaPagareSection } from "@/components/mesa-control/MesaPagareSection";
 import { MesaNotificacionDocumentoSection } from "@/components/mesa-control/MesaNotificacionDocumentoSection";
 import { MesaNotificacionApodacaSection } from "@/components/mesa-control/MesaNotificacionApodacaSection";
+import { MesaNotificacionVigenciaCountdown } from "@/components/mesa-control/MesaNotificacionVigenciaCountdown";
 import { MesaEvidenciaAsesorSection } from "@/components/mesa-control/MesaEvidenciaAsesorSection";
 import { MesaVigenciaDerechosSection } from "@/components/mesa-control/MesaVigenciaDerechosSection";
 import { MesaConstanciaSituacionFiscalSection } from "@/components/mesa-control/MesaConstanciaSituacionFiscalSection";
@@ -2118,6 +2119,8 @@ export function MesaExpedienteDetalleReadOnly() {
           />
         </MesaAccordionSection>
       ))}
+
+      <MesaNotificacionVigenciaCountdown expedienteId={routeExpedienteId} />
 
       <MesaAccordionSection
         id="mesa-notificacion-documento"
