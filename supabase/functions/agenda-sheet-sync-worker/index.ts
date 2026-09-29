@@ -640,19 +640,12 @@ Deno.serve(async (req) => {
             if ((relatedCreates ?? []).length > 0) rescheduleCtx = true;
           }
 
-          if (decision.classification === "already_absent") {
-            if (rescheduleCtx) {
-              await preserveRescheduledHistoryVisibleData(
-                title,
-                row,
-                horaBefore,
-                gnBefore,
-                String(fr[COL_INDEX.nss] ?? ""),
-                String(fr[COL_INDEX.nombre] ?? ""),
-                String(fr[COL_INDEX.asesor] ?? ""),
-                String(payload.expediente_id ?? fr[COL_INDEX.expedienteId] ?? ""),
-              );
-            }
+          // Cancelación pura ya ausente: terminar. En una REAGENDA no cortar
+          // aquí: todavía hay que verificar que exista la fila replacement libre.
+          if (
+            decision.classification === "already_absent" &&
+            !rescheduleCtx
+          ) {
             await supabase.rpc("agenda_sheet_mark_cancelled_cleared", {
               p_booking_id: bookingId,
             });
