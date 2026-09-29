@@ -39,16 +39,16 @@ BEGIN
 
   -- Person name
   PERFORM public.__p133_assert(
-    public.cliente_datos_is_valid_person_name('José María') IS TRUE,
-    'José María válido'
+    public.cliente_datos_is_valid_person_name('José María') IS FALSE,
+    'José María inválido por acentos'
   );
   PERFORM public.__p133_assert(
     public.cliente_datos_is_valid_person_name('Muñoz') IS TRUE,
-    'Muñoz válido'
+    'Muñoz válido: Ñ permitida'
   );
   PERFORM public.__p133_assert(
-    public.cliente_datos_is_valid_person_name('Pérez-García') IS TRUE,
-    'Pérez-García válido'
+    public.cliente_datos_is_valid_person_name('Pérez-García') IS FALSE,
+    'Pérez-García inválido por acentos'
   );
   PERFORM public.__p133_assert(
     public.cliente_datos_is_valid_person_name('O''Connor') IS TRUE,
@@ -63,8 +63,8 @@ BEGIN
     'nombre vacío = true'
   );
   PERFORM public.__p133_assert(
-    public.cliente_datos_normalize_person_name('  Ana   Sofía  ') = 'Ana Sofía',
-    'normalize colapsa espacios'
+    public.cliente_datos_normalize_person_name('  Ana   Sofía Muñoz  ') = 'ANA SOFIA MUÑOZ',
+    'normalize mayúsculas + quita acentos + conserva Ñ'
   );
 
   -- lunes-style business-days: N/A para P133 (sin lógica de calendario)
