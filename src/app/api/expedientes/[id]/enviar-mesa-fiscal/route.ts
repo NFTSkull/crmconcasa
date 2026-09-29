@@ -411,40 +411,6 @@ async function syncDatosGeneralesRfcFromConstancia(args: {
   return { ok: true };
 }
 
-async function registerConstanciaValidadoOrRetry(args: {
-  expedienteId: string;
-  fiscalRfc: string;
-  constanciaDocumentoId: string;
-  constanciaVersion: number;
-  readSource: "embedded_text" | "ocr_live";
-}): Promise<{ ok: true } | { ok: false; code: string }> {
-  const admin = serviceRoleClient();
-  if (!admin) return { ok: false, code: "SERVICE_ROLE_NOT_CONFIGURED" };
-
-  const { error } = await admin.rpc(
-    "server_registrar_validacion_fiscal_constancia",
-    {
-      p_expediente_id: args.expedienteId,
-      p_fiscal_rfc: args.fiscalRfc,
-      p_constancia_documento_id: args.constanciaDocumentoId,
-      p_constancia_version: args.constanciaVersion,
-      p_resultado_resumido: {
-        source: "constancia_sat",
-        semantic: "pass",
-        read_source: args.readSource,
-      },
-    },
-  );
-
-  if (error) {
-    return {
-      ok: false,
-      code: error.code || "CONSTANCIA_FISCAL_REGISTER_FAILED",
-    };
-  }
-  return { ok: true };
-}
-
 async function callSatWorker(args: {
   url: string;
   secret: string;
@@ -594,6 +560,88 @@ async function requireLiveWorker(): Promise<
   }
 }
 
+async function tryAutofillRfcFromConstancia(args: {
+  client: SupabaseClient;
+  expedienteId: string;
+  token: string;
+}): Promise<void> {
+  const [clienteRes, constanciaRes] = await Promise.all([
+    args.client
+      .from("cliente_datos")
+      .select("datos")
+      .eq("expediente_id", args.expedienteId)
+      .maybeSingle(),
+    args.client
+      .from("expediente_documentos")
+      .select("id, storage_path, version")
+      .eq("expediente_id", args.expedienteId)
+      .eq("tipo_documento", CONSTANCIA_SAT)
+      .is("deleted_at", null)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ]);
+
+  if (
+    clienteRes.error ||
+    constanciaRes.error ||
+    !clienteRes.data?.datos ||
+    !constanciaRes.data?.id ||
+    !constanciaRes.data?.storage_path
+  ) {
+    return;
+  }
+
+  const datos = clienteRes.data.datos as Record<string, unknown>;
+  const curp = String(datos.curp ?? "").trim().toUpperCase();
+  const rfcDatosGenerales = String(datos.rfc ?? "").trim().toUpperCase();
+  const curpLocal = validateCurpLocal({ curp });
+  if (curpLocal.status !== "VALIDA_LOCALMENTE") return;
+
+  const { data: constanciaPdf, error: downloadError } = await args.client.storage
+    .from(DOCUMENT_BUCKET)
+    .download(String(constanciaRes.data.storage_path));
+  if (downloadError || !constanciaPdf) return;
+
+  const embedded = await extractPdfEmbeddedText(await constanciaPdf.arrayBuffer());
+  let resolved = resolveConstanciaFiscalRfc({
+    text: embedded.ok ? embedded.text : "",
+    curpValidadaLocalmente: curpLocal.normalized,
+  });
+
+  if (resolved.status !== "ready") {
+    const live = await extractConstanciaOcrLive({
+      pdf: constanciaPdf,
+      token: args.token,
+      timeoutMs: 12_000,
+    });
+    if (live.ok) {
+      resolved = resolveConstanciaFiscalRfc({
+        text: live.text,
+        curpValidadaLocalmente: curpLocal.normalized,
+      });
+    }
+  }
+
+  if (resolved.status !== "ready") return;
+
+  const synced = await syncDatosGeneralesRfcFromConstancia({
+    expedienteId: args.expedienteId,
+    fiscalRfc: resolved.fiscalRfc,
+    expectedCurp: curpLocal.normalized,
+    expectedRfcDatos: rfcDatosGenerales,
+    constanciaDocumentoId: String(constanciaRes.data.id),
+    constanciaVersion: Number(constanciaRes.data.version ?? 0),
+  });
+
+  if (!synced.ok) {
+    console.warn("[enviar-mesa-fiscal] Constancia SAT presente; RFC no se autocompletó", {
+      code: synced.code,
+      expedienteId: args.expedienteId,
+    });
+  }
+}
+
 async function callEnviarAMesa(
   client: SupabaseClient,
   expedienteId: string,
@@ -660,6 +708,34 @@ export async function POST(request: Request, { params }: RouteParams) {
       );
     }
 
+    // Regla de negocio: una Constancia de Situación Fiscal activa sustituye
+    // por completo el gate RFC/SAT. Intentamos autocompletar el RFC desde el
+    // propio PDF únicamente como dato de captura; si no se puede leer, NO
+    // bloqueamos el envío y NO llamamos al SAT externo.
+    const { data: constanciaUploaded, error: constanciaUploadedError } =
+      await client.rpc("fiscal_sat_constancia_uploaded", {
+        p_expediente_id: expedienteId,
+      });
+
+    if (!constanciaUploadedError && constanciaUploaded === true) {
+      try {
+        await tryAutofillRfcFromConstancia({
+          client,
+          expedienteId,
+          token: auth.token,
+        });
+      } catch (error) {
+        console.warn(
+          "[enviar-mesa-fiscal] Constancia SAT presente; autofill RFC omitido sin bloquear Mesa",
+          {
+            expedienteId,
+            code: error instanceof Error ? error.name : "UNKNOWN",
+          },
+        );
+      }
+      return callEnviarAMesa(client, expedienteId);
+    }
+
     // Gate: solo worker SAT si flag global O asesor dueño en piloto.
     // Orden de deploy: CRM puede llegar antes que mig 228 → fail-open solo si RPC ausente.
     const { data: gateApplies, error: gateError } = await client.rpc(
@@ -694,7 +770,7 @@ export async function POST(request: Request, { params }: RouteParams) {
       return callEnviarAMesa(client, expedienteId);
     }
 
-    const [clienteRes, editorRes, documentoRes, constanciaRes] = await Promise.all([
+    const [clienteRes, editorRes, documentoRes] = await Promise.all([
       client
         .from("cliente_datos")
         .select("datos, estado")
@@ -714,21 +790,11 @@ export async function POST(request: Request, { params }: RouteParams) {
         .order("created_at", { ascending: false })
         .limit(1)
         .maybeSingle(),
-      client
-        .from("expediente_documentos")
-        .select("id, storage_path, created_at, version")
-        .eq("expediente_id", expedienteId)
-        .eq("tipo_documento", CONSTANCIA_SAT)
-        .is("deleted_at", null)
-        .order("created_at", { ascending: false })
-        .limit(1)
-        .maybeSingle(),
     ]);
 
     if (clienteRes.error || !clienteRes.data?.datos) return retry("CLIENTE_DATOS_READ_FAILED");
     if (editorRes.error) return retry("EDITOR_DECISION_READ_FAILED");
     if (documentoRes.error) return retry("ESTADO_CUENTA_READ_FAILED");
-    if (constanciaRes.error) return retry("CONSTANCIA_SAT_READ_FAILED");
     if (!documentoRes.data?.storage_path || !documentoRes.data?.id) {
       return retry("ESTADO_CUENTA_FALTANTE", 409);
     }
@@ -752,80 +818,6 @@ export async function POST(request: Request, { params }: RouteParams) {
     }
 
     const deadlineAt = Date.now() + FISCAL_ROUTE_BUDGET_MS;
-
-    // Fuente prioritaria: Constancia de Situación Fiscal oficial.
-    // Si podemos resolver su RFC y ligarlo por fecha a la CURP, NO llamamos
-    // al SAT externo: persistimos ese RFC, registramos evidencia vinculada a
-    // documento/version y enviamos a Mesa.
-    if (
-      constanciaRes.data?.id &&
-      constanciaRes.data?.storage_path
-    ) {
-      const constanciaDocumentoId = String(constanciaRes.data.id);
-      const constanciaVersion = Number(constanciaRes.data.version ?? 0);
-      const { data: constanciaPdf, error: constanciaDownloadError } =
-        await client.storage
-          .from(DOCUMENT_BUCKET)
-          .download(String(constanciaRes.data.storage_path));
-
-      if (!constanciaDownloadError && constanciaPdf) {
-        const embeddedConstancia = await extractPdfEmbeddedText(
-          await constanciaPdf.arrayBuffer(),
-        );
-        let constanciaText = embeddedConstancia.ok ? embeddedConstancia.text : "";
-        let constanciaReadSource: "embedded_text" | "ocr_live" =
-          "embedded_text";
-        let constanciaRfc = resolveConstanciaFiscalRfc({
-          text: constanciaText,
-          curpValidadaLocalmente: curpLocal.normalized,
-        });
-
-        if (constanciaRfc.status !== "ready") {
-          const remaining = remainingFiscalBudgetMs(deadlineAt);
-          const ocrTimeoutMs = Math.min(15_000, Math.max(0, remaining - 8_000));
-          if (ocrTimeoutMs >= 1_000) {
-            const liveConstancia = await extractConstanciaOcrLive({
-              pdf: constanciaPdf,
-              token: auth.token,
-              timeoutMs: ocrTimeoutMs,
-            });
-            if (liveConstancia.ok) {
-              constanciaText = liveConstancia.text;
-              constanciaReadSource = "ocr_live";
-              constanciaRfc = resolveConstanciaFiscalRfc({
-                text: constanciaText,
-                curpValidadaLocalmente: curpLocal.normalized,
-              });
-            }
-          }
-        }
-
-        if (constanciaRfc.status === "ready") {
-          const synced = await syncDatosGeneralesRfcFromConstancia({
-            expedienteId,
-            fiscalRfc: constanciaRfc.fiscalRfc,
-            expectedCurp: curpLocal.normalized,
-            expectedRfcDatos: rfcDatosGenerales,
-            constanciaDocumentoId,
-            constanciaVersion,
-          });
-          if (!synced.ok) return retry(synced.code, 409);
-
-          const registered = await registerConstanciaValidadoOrRetry({
-            expedienteId,
-            fiscalRfc: constanciaRfc.fiscalRfc,
-            constanciaDocumentoId,
-            constanciaVersion,
-            readSource: constanciaReadSource,
-          });
-          if (!registered.ok) return retry(registered.code, 409);
-
-          return callEnviarAMesa(client, expedienteId);
-        }
-      }
-      // Si la constancia no puede resolverse con seguridad, conservamos el
-      // flujo Estado de Cuenta -> SAT como fallback; nunca inventamos RFC.
-    }
 
     const { data: pdf, error: pdfError } = await client.storage
       .from(DOCUMENT_BUCKET)
