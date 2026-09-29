@@ -618,13 +618,14 @@ async function fetchExpedientesListForMesaControl(): Promise<ExpedienteMock[]> {
   return mapRowsToExpedienteMocks(rows, new Map()).map((exp) => {
     const ownerId = exp.base.asesorProfileId?.trim() || "";
     const owner = ownerDisplayMap.get(ownerId);
-    if (!owner) return exp;
     return {
       ...exp,
       base: {
         ...exp.base,
-        asesorNombre: owner.full_name ?? exp.base.asesorNombre,
-        asesorEmail: owner.email ?? exp.base.asesorEmail,
+        // Mesa fail-closed: nunca reutilizar el embed real si el read-model
+        // de dueño visible no respondió. Evita exponer miembros del Equipo Silvia.
+        asesorNombre: owner?.full_name?.trim() || "—",
+        asesorEmail: owner?.email?.trim() || null,
       },
     };
   });
@@ -711,10 +712,19 @@ async function fetchExpedientesListForMesaControlPaginated(
       reingreso_manual_by: row.reingreso_manual_by,
       pago_concasa_resultado: row.pago_concasa_resultado,
     };
-    const base = mapSupabaseRowToExpedienteMock(
-      listRow,
-      ownerDisplayMap.get(String(row.asesor_id ?? "")) ?? null,
-    );
+    const ownerDisplay =
+      ownerDisplayMap.get(String(row.asesor_id ?? "")) ?? null;
+    const baseRaw = mapSupabaseRowToExpedienteMock(listRow, ownerDisplay);
+    const base: ExpedienteMock = {
+      ...baseRaw,
+      base: {
+        ...baseRaw.base,
+        // Igual que el detalle: si el alias Mesa no se resolvió, no mostrar
+        // identidad real ni UUID como sustituto visible.
+        asesorNombre: ownerDisplay?.full_name?.trim() || "—",
+        asesorEmail: ownerDisplay?.email?.trim() || null,
+      },
+    };
     const sortTs =
       (typeof row.sort_ts === "string" && row.sort_ts.trim()) ||
       base.operativo.fechaEnvioMesa ||
