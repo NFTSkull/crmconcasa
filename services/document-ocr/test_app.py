@@ -24,6 +24,7 @@ from app import (
     _has_rfc_like_candidate,
     _bank_statement_text_complete,
     _bank_statement_rfc_focus_text,
+    _ocr_pdf_with_fallback,
 )
 
 
@@ -52,6 +53,41 @@ def test_image_ocr_pipeline_shape(monkeypatch):
     assert "PEPL900101HNLRPN09" in text
     assert engine == "tesseract"
     assert pages == 1
+
+def test_pdf_uses_poppler_when_mupdf_ocr_fails(monkeypatch):
+    monkeypatch.setattr("app.ocr_pdf", lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("fitz")))
+    monkeypatch.setattr(
+        "app.ocr_pdf_poppler",
+        lambda *_args, **_kwargs: ("RFC QUAC700805ABC", 1),
+    )
+
+    text, pages, engine = _ocr_pdf_with_fallback(
+        b"%PDF-test", "cliente_estado_cuenta"
+    )
+
+    assert text == "RFC QUAC700805ABC"
+    assert pages == 1
+    assert engine == "tesseract_poppler"
+
+
+def test_pdf_embedded_failure_falls_back_instead_of_returning_422(monkeypatch):
+    monkeypatch.setattr(
+        "app.extract_embedded_pdf_text",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("broken-xref")),
+    )
+    monkeypatch.setattr(
+        "app._ocr_pdf_with_fallback",
+        lambda *_args, **_kwargs: ("RFC QUAC700805ABC", 1, "tesseract_poppler"),
+    )
+
+    text, engine, pages = extract_document_text(
+        b"%PDF-test", "application/pdf", "cliente_estado_cuenta"
+    )
+
+    assert "QUAC700805ABC" in text
+    assert engine == "tesseract_poppler"
+    assert pages == 1
+
 
 
 def test_preprocess_scales_small_image():
