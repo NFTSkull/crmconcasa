@@ -7,6 +7,7 @@
 export type AdminMainTabId =
   | "resumen"
   | "expedientes"
+  | "precalificaciones"
   | "reportes"
   | "produccion";
 
@@ -32,6 +33,12 @@ export const ADMIN_TABS: readonly AdminTabDef[] = [
     label: "Expedientes",
     description:
       "Flujo operativo de Mesa y precalificaciones, con búsqueda y filtros.",
+  },
+  {
+    id: "precalificaciones",
+    label: "Precalificaciones",
+    description:
+      "Rendimiento por asesor: NSS repetidos, montos, topados y conversión a Mesa.",
   },
   {
     id: "reportes",
