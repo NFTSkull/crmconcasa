@@ -6,4 +6,4 @@ export const NOTIFICACION_FIXED_TIME_DISPLAY = "12:00 PM" as const;
 export const NOTIFICACION_LOCATION_ID = "notificacion" as const;
 
 export const NOTIFICACION_UI_HINT =
-  "Notificación a las 12:00 PM · comparte el mismo cupo de Inscripción en Drive";
+  "Notificación a las 12:00 PM · en Monterrey comparte el mismo cupo de Inscripción en Drive";
