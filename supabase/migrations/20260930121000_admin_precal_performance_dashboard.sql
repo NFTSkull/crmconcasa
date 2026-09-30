@@ -197,25 +197,19 @@ BEGIN
       count(*) FILTER (WHERE decision = 'pendiente')::INTEGER AS pendientes,
       count(*) FILTER (WHERE decision IN ('aprobado', 'no_cumple'))::INTEGER AS resueltas,
       coalesce(avg(
-        CASE
-          WHEN decision = 'aprobado' AND monto_aprobado > 0
-            THEN CASE
-              WHEN lower(programa) = 'mejoravit' THEN least(monto_aprobado, 169000)
-              ELSE monto_aprobado
-            END
-          ELSE NULL
-        END
+        least(monto_aprobado, 169000)
+      ) FILTER (
+        WHERE decision = 'aprobado'
+          AND lower(programa) = 'mejoravit'
+          AND monto_aprobado > 0
       ), 0)::NUMERIC(14,2) AS monto_promedio,
       coalesce(sum(monto_aprobado) FILTER (WHERE decision = 'aprobado' AND monto_aprobado > 0), 0)::NUMERIC(16,2) AS monto_total_raw,
       coalesce(sum(
-        CASE
-          WHEN decision = 'aprobado' AND monto_aprobado > 0
-            THEN CASE
-              WHEN lower(programa) = 'mejoravit' THEN least(monto_aprobado, 169000)
-              ELSE monto_aprobado
-            END
-          ELSE 0
-        END
+        least(monto_aprobado, 169000)
+      ) FILTER (
+        WHERE decision = 'aprobado'
+          AND lower(programa) = 'mejoravit'
+          AND monto_aprobado > 0
       ), 0)::NUMERIC(16,2) AS monto_total_admin,
       count(DISTINCT expediente_id)::INTEGER AS expedientes_generados,
       count(DISTINCT expediente_id) FILTER (WHERE submitted_to_mesa)::INTEGER AS expedientes_en_mesa,
@@ -237,14 +231,11 @@ BEGIN
       count(*) FILTER (WHERE p.decision = 'no_cumple')::INTEGER AS no_cumple,
       count(*) FILTER (WHERE p.decision = 'pendiente')::INTEGER AS pendientes,
       coalesce(avg(
-        CASE
-          WHEN p.decision = 'aprobado' AND p.monto_aprobado > 0
-            THEN CASE
-              WHEN lower(p.programa) = 'mejoravit' THEN least(p.monto_aprobado, 169000)
-              ELSE p.monto_aprobado
-            END
-          ELSE NULL
-        END
+        least(p.monto_aprobado, 169000)
+      ) FILTER (
+        WHERE p.decision = 'aprobado'
+          AND lower(p.programa) = 'mejoravit'
+          AND p.monto_aprobado > 0
       ), 0)::NUMERIC(14,2) AS monto_promedio,
       count(DISTINCT p.nss) FILTER (WHERE p.topado_169k)::INTEGER AS topados_nss,
       count(DISTINCT p.nss) FILTER (WHERE p.topado_169k AND p.submitted_to_mesa)::INTEGER AS topados_nss_en_mesa
