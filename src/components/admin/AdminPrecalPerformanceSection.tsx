@@ -19,6 +19,11 @@ import {
 import { formatAsesorExpedienteLabel } from "@/lib/asesorDisplay";
 import { formatDateTimeMx } from "@/lib/filters";
 import { formatMontoMX } from "@/lib/monto";
+import {
+  buildAdminPrecalPerformanceWorkbook,
+  downloadAdminPrecalPerformanceWorkbook,
+  fetchAllAdminPrecalPerformanceForExcel,
+} from "@/lib/exportAdminPrecalPerformanceExcel";
 
 const PAGE_SIZE = 50;
 
@@ -70,6 +75,8 @@ export function AdminPrecalPerformanceSection({
   const [data, setData] = useState<AdminPrecalPerformanceResult | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
 
   useEffect(() => {
     setPage(1);
@@ -118,6 +125,52 @@ export function AdminPrecalPerformanceSection({
 
   const advisorRows = useMemo(() => data?.asesores ?? [], [data?.asesores]);
 
+  async function exportExcel() {
+    if (exporting) return;
+    setExporting(true);
+    setExportError(null);
+    try {
+      const exportData = await fetchAllAdminPrecalPerformanceForExcel({
+        fromIso,
+        toExclusiveIso,
+        asesorId: asesorId || null,
+        search: search || null,
+      });
+      const selectedAdvisor =
+        asesorId && exportData.asesores.length > 0
+          ? exportData.asesores.find((row) => row.asesorId === asesorId) ??
+            exportData.asesores[0]
+          : null;
+      const wb = buildAdminPrecalPerformanceWorkbook({
+        data: exportData,
+        fromIso,
+        toExclusiveIso,
+        periodoLabel,
+        asesorFiltroLabel: selectedAdvisor
+          ? advisorLabel(
+              selectedAdvisor.asesorNombre,
+              selectedAdvisor.asesorEmail,
+              selectedAdvisor.asesorId,
+            )
+          : "Todos los asesores",
+        search: search || null,
+      });
+      downloadAdminPrecalPerformanceWorkbook({
+        wb,
+        fromIso,
+        toExclusiveIso,
+      });
+    } catch (err) {
+      setExportError(
+        err instanceof Error
+          ? err.message
+          : "No se pudo generar el Excel de precalificaciones.",
+      );
+    } finally {
+      setExporting(false);
+    }
+  }
+
   if (loading && !data) {
     return (
       <section className="rounded-lg border border-slate-200 bg-white p-4">
@@ -142,7 +195,22 @@ export function AdminPrecalPerformanceSection({
         <AdminSectionHeader
           title="Rendimiento de precalificaciones"
           description={`Cohorte de precalificaciones del periodo ${periodoLabel}. Separa re-precalificaciones del mismo asesor de NSS compartidos entre asesores distintos, y mide monto, aprobación y conversión a Mesa.`}
+          trailing={
+            <Button
+              type="button"
+              variant="primary"
+              onClick={() => void exportExcel()}
+              disabled={exporting || loading}
+            >
+              {exporting ? "Generando Excel…" : "Exportar Excel"}
+            </Button>
+          }
         />
+        {exportError ? (
+          <p className="mt-3 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-800">
+            {exportError}
+          </p>
+        ) : null}
         <div className="mt-3 rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-xs leading-relaxed text-blue-900">
           <strong>Cómo leerlo:</strong> una re-precalificación del mismo asesor
           <strong> no cuenta como NSS compartido</strong>. “NSS compartido” significa
