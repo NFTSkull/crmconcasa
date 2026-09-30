@@ -116,7 +116,10 @@ describe("P177/P178 agenda tabs Inscripción", () => {
       notif,
       /El expediente permanece en etapa 3 hasta que Mesa apruebe la notificación/,
     );
-    assert.match(notifConstants, /comparte el mismo cupo de Inscripción en Drive/);
+    assert.match(
+      notifConstants,
+      /en Monterrey comparte el mismo cupo de Inscripción en Drive/,
+    );
     assert.doesNotMatch(notifConstants, /cupo ilimitado/);
 
     assert.match(
