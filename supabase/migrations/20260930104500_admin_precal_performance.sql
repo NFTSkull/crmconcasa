@@ -203,9 +203,22 @@ BEGIN
           1
         ),
       'monto_promedio_aprobado',
-        round(avg(b.monto_operativo) FILTER (WHERE b.decision = 'aprobado'), 2),
+        round(
+          avg(b.monto_operativo) FILTER (
+            WHERE b.decision = 'aprobado' AND lower(b.programa) = 'mejoravit'
+          ),
+          2
+        ),
       'monto_total_aprobado',
-        round(coalesce(sum(b.monto_operativo) FILTER (WHERE b.decision = 'aprobado'), 0), 2),
+        round(
+          coalesce(
+            sum(b.monto_operativo) FILTER (
+              WHERE b.decision = 'aprobado' AND lower(b.programa) = 'mejoravit'
+            ),
+            0
+          ),
+          2
+        ),
       'topados_169k', count(*) FILTER (WHERE b.topado_169k)::BIGINT,
       'topados_169k_a_mesa',
         count(*) FILTER (WHERE b.topado_169k AND b.submitted_to_mesa)::BIGINT,
@@ -272,10 +285,21 @@ BEGIN
             ),
           1
         ) AS tasa_aprobacion,
-        round(avg(b.monto_operativo) FILTER (WHERE b.decision = 'aprobado'), 2)
-          AS monto_promedio_aprobado,
-        round(coalesce(sum(b.monto_operativo) FILTER (WHERE b.decision = 'aprobado'), 0), 2)
-          AS monto_total_aprobado,
+        round(
+          avg(b.monto_operativo) FILTER (
+            WHERE b.decision = 'aprobado' AND lower(b.programa) = 'mejoravit'
+          ),
+          2
+        ) AS monto_promedio_aprobado,
+        round(
+          coalesce(
+            sum(b.monto_operativo) FILTER (
+              WHERE b.decision = 'aprobado' AND lower(b.programa) = 'mejoravit'
+            ),
+            0
+          ),
+          2
+        ) AS monto_total_aprobado,
         count(*) FILTER (WHERE b.topado_169k)::BIGINT AS topados_169k,
         count(*) FILTER (WHERE b.topado_169k AND b.submitted_to_mesa)::BIGINT
           AS topados_169k_a_mesa,
@@ -366,6 +390,6 @@ GRANT EXECUTE ON FUNCTION public.admin_precal_performance(
 COMMENT ON FUNCTION public.admin_precal_performance(
   TIMESTAMPTZ, TIMESTAMPTZ, UUID, TEXT, TEXT, INTEGER, INTEGER
 ) IS
-  'Super Admin RO: rendimiento integral de precalificaciones por periodo/asesor, repetición NSS, montos operativos Mejoravit topados a 169k y conversión a Mesa.';
+  'Super Admin RO: rendimiento integral de precalificaciones por periodo/asesor, repetición NSS, promedio/total Mejoravit con tope operativo 169k y conversión a Mesa.';
 
 COMMIT;
