@@ -331,7 +331,7 @@ export function AdminPrecalPerformanceSection({
       <section className="rounded-lg border border-slate-200 bg-white p-4">
         <AdminSectionHeader
           title="Detalle de precalificaciones"
-          description="Cada fila representa una precalificación real. Las re-precalificaciones aparecen como intentos separados para que el volumen no quede oculto."
+          description="Cada fila representa una precalificación real. Las re-precalificaciones se muestran aparte y NO hacen que un NSS se marque como compartido. Para cruzar dos asesores: usa «Ver solo» en el primero, activa «Compartidos entre asesores» y escribe el nombre del segundo en Buscar."
         />
 
         <div className="mt-3 flex flex-wrap gap-2">
@@ -366,7 +366,7 @@ export function AdminPrecalPerformanceSection({
         ) : data ? (
           <>
             <div className="mt-3 overflow-x-auto">
-              <table className="min-w-[1380px] text-left text-sm text-slate-900">
+              <table className="min-w-[1640px] text-left text-sm text-slate-900">
                 <thead className="border-b border-slate-200 text-xs uppercase text-slate-600">
                   <tr>
                     <th className="py-2 pr-3">Fecha</th>
@@ -426,13 +426,54 @@ export function AdminPrecalPerformanceSection({
                           </span>
                         ) : null}
                       </td>
-                      <td className="py-2.5 pr-3">
-                        {item.nssPrecalHistoricas > 1 ? (
-                          <span className="inline-flex rounded-md bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900">
-                            {item.nssPrecalHistoricas} históricas
-                          </span>
+                      <td className="min-w-[20rem] py-2.5 pr-3">
+                        <div className="flex flex-wrap gap-1">
+                          {item.compartidoEntreAsesores ? (
+                            <span className="inline-flex rounded-md bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900">
+                              Compartido · {item.asesoresNssCount} asesores
+                            </span>
+                          ) : (
+                            <span className="inline-flex rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
+                              1 asesor
+                            </span>
+                          )}
+                          {item.isReprecalificacion ? (
+                            <span className="inline-flex rounded-md bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-900">
+                              Re-precalificación
+                            </span>
+                          ) : null}
+                        </div>
+                        {item.compartidoEntreAsesores ? (
+                          <div className="mt-1.5 space-y-1 text-xs text-slate-600">
+                            {item.asesoresNss.map((advisor) => (
+                              <div key={advisor.asesorId}>
+                                <strong className="font-medium text-slate-800">
+                                  {formatAsesorExpedienteLabel({
+                                    fullName: advisor.asesorNombre,
+                                    email: advisor.asesorEmail,
+                                    fallbackId: advisor.asesorId,
+                                  })}
+                                </strong>
+                                {" · "}
+                                {advisor.precalificaciones} precal
+                                {advisor.precalificaciones === 1 ? "" : "s"}
+                                {" · "}
+                                {advisor.montoPromedio > 0
+                                  ? `${formatMontoMX(advisor.montoPromedio)} prom.`
+                                  : "sin monto prom."}
+                                {" · "}
+                                {advisor.expedientesEnMesa} Mesa
+                              </div>
+                            ))}
+                          </div>
+                        ) : item.isReprecalificacion ? (
+                          <p className="mt-1 text-xs text-slate-500">
+                            Mismo asesor; no se considera NSS compartido.
+                          </p>
                         ) : (
-                          <span className="text-xs text-slate-500">Único</span>
+                          <p className="mt-1 text-xs text-slate-500">
+                            Sin cruce con otro asesor en el periodo.
+                          </p>
                         )}
                       </td>
                       <td className="py-2.5 pr-3">
