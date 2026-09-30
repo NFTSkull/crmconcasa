@@ -23,6 +23,13 @@ describe("Admin — rendimiento de precalificaciones", () => {
     assert.match(page, /adminTabPanelId\("precalificaciones"\)/);
   });
 
+  it("usa ancho ampliado y la tabla de asesores no fuerza scroll horizontal", () => {
+    assert.match(page, /max-w-\[1760px\]/);
+    assert.match(panel, /w-full table-fixed/);
+    assert.match(panel, /overflow-hidden/);
+    assert.doesNotMatch(panel, /min-w-\[1240px\]/);
+  });
+
   it("muestra los KPI solicitados", () => {
     assert.match(panel, /Precalificaciones/);
     assert.match(panel, /NSS compartidos entre asesores/);

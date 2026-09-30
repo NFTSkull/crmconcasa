@@ -949,7 +949,13 @@ export default function AdminDashboardPage() {
         <AdminTabs active={activeTab} onChange={handleTabChange} />
       ) : null}
 
-      <main className="mx-auto max-w-6xl space-y-6 px-4 py-6">
+      <main
+        className={
+          activeTab === "precalificaciones"
+            ? "mx-auto w-full max-w-[1760px] space-y-6 px-3 py-5 sm:px-4 xl:px-5"
+            : "mx-auto max-w-6xl space-y-6 px-4 py-6"
+        }
+      >
         {isAdminBernardoView(activeTab) ? (
           <AdminBernardoDashboard
             repo={repo}

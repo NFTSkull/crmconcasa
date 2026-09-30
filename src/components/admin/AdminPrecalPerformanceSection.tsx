@@ -311,22 +311,60 @@ export function AdminPrecalPerformanceSection({
                 description="Cambia el periodo o limpia los filtros."
               />
             ) : (
-              <div className="mt-3 overflow-x-auto">
-                <table className="min-w-[1240px] text-left text-sm text-slate-900">
-                  <thead className="border-b border-slate-200 text-xs uppercase text-slate-600">
+              <div className="mt-3 w-full overflow-hidden">
+                <table className="w-full table-fixed text-left text-[12px] leading-tight text-slate-900 xl:text-[13px]">
+                  <colgroup>
+                    <col className="w-[18%]" />
+                    <col className="w-[5.5%]" />
+                    <col className="w-[6%]" />
+                    <col className="w-[6%]" />
+                    <col className="w-[7.5%]" />
+                    <col className="w-[6%]" />
+                    <col className="w-[7%]" />
+                    <col className="w-[8.5%]" />
+                    <col className="w-[8%]" />
+                    <col className="w-[8%]" />
+                    <col className="w-[7%]" />
+                    <col className="w-[5.5%]" />
+                  </colgroup>
+                  <thead className="border-b border-slate-200 text-[10px] uppercase leading-tight text-slate-600 xl:text-[11px]">
                     <tr>
-                      <th className="py-2 pr-3">Asesor</th>
-                      <th className="py-2 pr-3 text-right">Precals</th>
-                      <th className="py-2 pr-3 text-right">NSS únicos</th>
-                      <th className="py-2 pr-3 text-right">Re-precals</th>
-                      <th className="py-2 pr-3 text-right">NSS compartidos</th>
-                      <th className="py-2 pr-3 text-right">Aprobadas</th>
-                      <th className="py-2 pr-3 text-right">% aprobación</th>
-                      <th className="py-2 pr-3 text-right">Monto prom.</th>
-                      <th className="py-2 pr-3 text-right">Topados 169k</th>
-                      <th className="py-2 pr-3 text-right">Expedientes a Mesa</th>
-                      <th className="py-2 pr-3 text-right">% conversión</th>
-                      <th className="py-2">Acción</th>
+                      <th className="py-2 pr-2">Asesor</th>
+                      <th className="px-1 py-2 text-right">Precals</th>
+                      <th className="px-1 py-2 text-right">
+                        <span className="block">NSS</span>
+                        <span className="block">únicos</span>
+                      </th>
+                      <th className="px-1 py-2 text-right">
+                        <span className="block">Re-</span>
+                        <span className="block">precals</span>
+                      </th>
+                      <th className="px-1 py-2 text-right">
+                        <span className="block">NSS</span>
+                        <span className="block">compartidos</span>
+                      </th>
+                      <th className="px-1 py-2 text-right">Aprobadas</th>
+                      <th className="px-1 py-2 text-right">
+                        <span className="block">%</span>
+                        <span className="block">aprobación</span>
+                      </th>
+                      <th className="px-1 py-2 text-right">
+                        <span className="block">Monto</span>
+                        <span className="block">prom.</span>
+                      </th>
+                      <th className="px-1 py-2 text-right">
+                        <span className="block">Topados</span>
+                        <span className="block">169k</span>
+                      </th>
+                      <th className="px-1 py-2 text-right">
+                        <span className="block">Exp. a</span>
+                        <span className="block">Mesa</span>
+                      </th>
+                      <th className="px-1 py-2 text-right">
+                        <span className="block">%</span>
+                        <span className="block">conv.</span>
+                      </th>
+                      <th className="py-2 pl-1 text-right">Acción</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -341,47 +379,51 @@ export function AdminPrecalPerformanceSection({
                           key={row.asesorId}
                           className="border-b border-slate-100 align-middle hover:bg-slate-50"
                         >
-                          <td className="py-2.5 pr-3 font-medium">{advisorLabel}</td>
-                          <td className="py-2.5 pr-3 text-right tabular-nums">
+                          <td className="break-words py-2.5 pr-2 font-medium leading-snug">
+                            {advisorLabel}
+                          </td>
+                          <td className="whitespace-nowrap px-1 py-2.5 text-right tabular-nums">
                             {row.totalPrecalificaciones}
                           </td>
-                          <td className="py-2.5 pr-3 text-right tabular-nums">
+                          <td className="whitespace-nowrap px-1 py-2.5 text-right tabular-nums">
                             {row.nssUnicos}
                           </td>
-                          <td className="py-2.5 pr-3 text-right tabular-nums">
+                          <td className="whitespace-nowrap px-1 py-2.5 text-right tabular-nums">
                             {row.reprecalificaciones}
                           </td>
-                          <td className="py-2.5 pr-3 text-right tabular-nums">
+                          <td className="whitespace-nowrap px-1 py-2.5 text-right tabular-nums">
                             {row.nssCompartidos}
                           </td>
-                          <td className="py-2.5 pr-3 text-right tabular-nums">
+                          <td className="whitespace-nowrap px-1 py-2.5 text-right tabular-nums">
                             {row.aprobadas}
                           </td>
-                          <td className="py-2.5 pr-3 text-right tabular-nums">
+                          <td className="whitespace-nowrap px-1 py-2.5 text-right tabular-nums">
                             {pct(row.tasaAprobacionPct)}
                           </td>
-                          <td className="py-2.5 pr-3 text-right tabular-nums">
+                          <td className="whitespace-nowrap px-1 py-2.5 text-right tabular-nums">
                             {formatMontoMX(row.montoPromedio)}
                           </td>
-                          <td className="py-2.5 pr-3 text-right tabular-nums">
-                            {row.topadosNss}
+                          <td className="px-1 py-2.5 text-right tabular-nums">
+                            <span className="block whitespace-nowrap font-medium">
+                              {row.topadosNss}
+                            </span>
                             {row.topadosNss > 0 ? (
-                              <span className="ml-1 text-xs text-slate-500">
-                                ({row.topadosNssEnMesa} Mesa)
+                              <span className="block whitespace-nowrap text-[10px] text-slate-500 xl:text-[11px]">
+                                {row.topadosNssEnMesa} Mesa
                               </span>
                             ) : null}
                           </td>
-                          <td className="py-2.5 pr-3 text-right tabular-nums">
+                          <td className="whitespace-nowrap px-1 py-2.5 text-right tabular-nums">
                             {row.expedientesEnMesa}
                           </td>
-                          <td className="py-2.5 pr-3 text-right tabular-nums">
+                          <td className="whitespace-nowrap px-1 py-2.5 text-right tabular-nums">
                             {pct(row.conversionMesaPct)}
                           </td>
-                          <td className="py-2.5">
+                          <td className="py-2.5 pl-1 text-right">
                             {onSelectAsesor ? (
                               <button
                                 type="button"
-                                className="text-blue-700 underline"
+                                className="whitespace-nowrap text-[11px] font-medium text-blue-700 underline underline-offset-2 xl:text-xs"
                                 onClick={() => onSelectAsesor(row.asesorId)}
                               >
                                 Ver solo
