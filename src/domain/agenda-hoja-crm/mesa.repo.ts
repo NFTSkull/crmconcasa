@@ -2,7 +2,7 @@ import { supabaseBrowser } from "@/lib/supabaseBrowser";
 import { fetchMesaOwnerDisplayByExpedienteIds } from "@/lib/mesaOwnerDisplay";
 
 export type AgendaHojaColor = "GREEN" | "RED" | "ORANGE" | "OTHER" | "UNKNOWN";
-export type AgendaHojaRowSource = "inventory" | "manual";
+export type AgendaHojaRowSource = "inventory" | "manual" | "leo";
 
 export type AgendaHojaRow = Readonly<{
   rowSource: AgendaHojaRowSource;
@@ -68,7 +68,7 @@ function toTime(v: unknown): string {
 function mapRow(row: RpcRow): AgendaHojaRow {
   const kind = str(row.kind);
   return {
-    rowSource: str(row.row_source) === "manual" ? "manual" : "inventory",
+    rowSource: str(row.row_source) === "manual" ? "manual" : str(row.row_source) === "leo" ? "leo" : "inventory",
     rowId: str(row.row_id),
     manualOccupancyId: nullableStr(row.manual_occupancy_id),
     inventoryId: nullableStr(row.inventory_id),
