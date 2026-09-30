@@ -7,6 +7,13 @@ import { supabaseBrowser } from "@/lib/supabaseBrowser";
 
 const POLL_MS = 10_000;
 
+/**
+ * Aviso operativo temporal solicitado por Mesa/operación.
+ * No bloquea la captura ni el envío de precalificaciones.
+ * Cambiar a false cuando se confirme que Bansefi/Infonavit volvió estable.
+ */
+const FORCE_BANSEFI_TEMPORARY_OUTAGE_NOTICE = true;
+
 type HealthPayload = {
   ok?: boolean;
   blocked_by_akamai?: boolean;
@@ -75,25 +82,42 @@ export function AutoPrecalAvailabilityAlert() {
     };
   }, []);
 
-  if (!unavailable) return null;
+  const visible =
+    FORCE_BANSEFI_TEMPORARY_OUTAGE_NOTICE || unavailable;
+
+  if (!visible) return null;
 
   return (
     <div
       role="alert"
       className="mb-4 rounded-lg border border-amber-300 bg-amber-50 px-4 py-4 text-sm text-amber-950"
     >
-      <p className="text-base font-semibold">
-        La página de Bansefi / Infonavit está temporalmente caída.
-      </p>
-      <p className="mt-1">
-        Puedes seguir enviando precalificaciones. Las solicitudes se guardarán
-        como pendientes y el sistema las reintentará automáticamente en cuanto
-        el servicio vuelva a responder.
-      </p>
-      <p className="mt-2 text-xs font-medium">
-        Este aviso desaparecerá automáticamente cuando Bansefi vuelva a
-        funcionar.
-      </p>
+      <div className="flex items-start gap-3">
+        <span
+          aria-hidden="true"
+          className="mt-0.5 inline-flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-amber-200 text-base"
+        >
+          ⚠
+        </span>
+        <div>
+          <p className="text-base font-bold">
+            Bansefi / Infonavit presenta una caída temporal.
+          </p>
+          <p className="mt-1 font-medium">
+            Sí puedes seguir precalificando normalmente.
+          </p>
+          <p className="mt-1">
+            Si Bansefi no responde en ese momento, la solicitud quedará
+            pendiente y el sistema seguirá intentando procesarla cuando el
+            servicio vuelva a responder.
+          </p>
+          <p className="mt-2 text-xs font-semibold">
+            No es necesario volver a capturar el NSS. Este aviso es temporal y
+            se retirará en cuanto se confirme que el portal volvió a funcionar
+            de forma estable.
+          </p>
+        </div>
+      </div>
     </div>
   );
 }
