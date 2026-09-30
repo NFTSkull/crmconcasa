@@ -104,6 +104,12 @@ export type AdminPrecalEvent = Readonly<{
   aprobadoAt: string | null;
   noCumpleAt: string | null;
   clienteNombre: string;
+  /** NSS completo visible solo en Super Admin / export Admin. Siempre tratar como texto. */
+  nss?: string | null;
+  /** Expedientes no eliminados que comparten este NSS dentro de la organización. */
+  nssExpedientesTotal?: number;
+  /** Veces históricas que este NSS fue precalificado: intento inicial + re-precalificaciones. */
+  nssPrecalificacionesTotal?: number;
   asesorId: string;
   asesorNombre: string | null;
   asesorEmail: string | null;
