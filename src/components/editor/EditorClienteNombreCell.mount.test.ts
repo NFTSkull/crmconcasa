@@ -3,11 +3,13 @@ import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import { describe, it } from "node:test";
 
-import { isPorCapturarNombre } from "./editor-cliente-nombre";
-
-describe("EditorClienteNombreCell montaje", () => {
-  const cell = readFileSync(
+describe("Editor captura de identidad patronal", () => {
+  const nameCell = readFileSync(
     join(process.cwd(), "src/components/editor/EditorClienteNombreCell.tsx"),
+    "utf8",
+  );
+  const metadataCell = readFileSync(
+    join(process.cwd(), "src/components/editor/EditorPrecalMetadataCell.tsx"),
     "utf8",
   );
   const page = readFileSync(
@@ -15,33 +17,32 @@ describe("EditorClienteNombreCell montaje", () => {
     "utf8",
   );
 
-  it('POR CAPTURAR muestra input editable; nombre normal texto plano', () => {
-    assert.equal(isPorCapturarNombre("POR CAPTURAR"), true);
-    assert.equal(isPorCapturarNombre("  POR CAPTURAR  "), true);
-    assert.equal(isPorCapturarNombre("MARIA LOPEZ"), false);
-    assert.equal(isPorCapturarNombre(""), false);
-    assert.match(cell, /isPorCapturarNombre/);
-    assert.match(cell, /<input/);
-    assert.match(cell, /placeholder="Nombre completo"/);
-    assert.match(cell, /clienteNombre \|\| "—"/);
+  it("todas las filas muestran input editable para nombre", () => {
+    assert.match(nameCell, /value=\{draft\}/);
+    assert.match(nameCell, /placeholder="Nombre completo"/);
+    assert.match(nameCell, /editor_update_precal_field/);
+    assert.match(nameCell, /p_field:\s*"cliente_nombre"/);
+    assert.match(nameCell, /normalizePersonName\(draft\)/);
+    assert.match(nameCell, /filterPersonNameInput\(e\.target\.value\)/);
+    assert.match(nameCell, /onBlur/);
+    assert.match(nameCell, /Enter/);
+    assert.doesNotMatch(nameCell, /editor_fill_nombre_infonavit/);
   });
 
-  it("al confirmar (blur/Enter) llama editor_fill_nombre_infonavit con args correctos", () => {
-    assert.match(cell, /editor_fill_nombre_infonavit/);
-    assert.match(cell, /p_expediente_id:\s*expedienteId/);
-    assert.match(cell, /p_nombre_completo:\s*nombre/);
-    assert.match(cell, /normalizePersonName\(draft\)/);
-    assert.match(cell, /filterPersonNameInput\(e\.target\.value\)/);
-    assert.match(cell, /onBlur/);
-    assert.match(cell, /Enter/);
-    assert.doesNotMatch(cell, /auto_fill_nombre_infonavit/);
+  it("registro patronal y empresa usan el mismo writer auditado", () => {
+    assert.match(metadataCell, /editor_update_precal_field/);
+    assert.match(metadataCell, /p_field:\s*field/);
+    assert.match(metadataCell, /toUpperCase\(\)/);
+    assert.match(page, /field="registro_patronal"/);
+    assert.match(page, /field="empresa"/);
+    assert.match(page, /Registro patronal/);
+    assert.match(page, /Nombre de la empresa/);
   });
 
-  it("editor lista monta la celda (sin <td> interno) y conserva badge Reingreso", () => {
-    assert.match(page, /EditorClienteNombreCell/);
-    assert.match(page, /onApplied=\{/);
-    assert.match(page, /cliente_nombre:\s*nombre/);
-    assert.match(page, /Reingreso · revalidar monto/);
-    assert.doesNotMatch(cell, /<td[\s>]/);
+  it("la tabla conserva monto y notas y suma las dos columnas nuevas", () => {
+    assert.match(page, /Monto aprobado/);
+    assert.match(page, /Notas/);
+    assert.match(page, /colSpan=\{11\}/);
+    assert.match(page, /min-w-\[1900px\]/);
   });
 });
