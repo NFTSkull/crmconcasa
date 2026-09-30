@@ -58,7 +58,7 @@ export function AdminTabs({ active, onChange }: AdminTabsProps) {
 
   return (
     <nav className="border-b border-slate-200 bg-white">
-      <div className="mx-auto flex max-w-6xl items-stretch gap-1 overflow-x-auto px-4">
+      <div className="mx-auto flex w-full max-w-[1760px] items-stretch gap-1 overflow-x-auto px-3 sm:px-4 xl:px-5">
         <div
           ref={listRef}
           role="tablist"
