@@ -193,14 +193,9 @@ export function AdminPrecalPerformanceSection({
                 hint: "Suma de aprobaciones del periodo",
               },
               {
-                label: "Expedientes generados",
-                value: summary.expedientesGenerados.toLocaleString("es-MX"),
-                hint: "Expedientes únicos detrás de las precalificaciones",
-              },
-              {
-                label: "Entraron a Mesa",
-                value: `${summary.expedientesEnMesa.toLocaleString("es-MX")} / ${summary.expedientesGenerados.toLocaleString("es-MX")}`,
-                hint: `${pct(summary.conversionMesaPct)} de los expedientes precalificados`,
+                label: "Expedientes enviados a Mesa",
+                value: summary.expedientesEnMesa.toLocaleString("es-MX"),
+                hint: `${pct(summary.conversionMesaPct)} de ${summary.expedientesGenerados.toLocaleString("es-MX")} casos precalificados distintos`,
               },
               {
                 label: "Topados $169k",
@@ -228,7 +223,7 @@ export function AdminPrecalPerformanceSection({
           <section className="rounded-lg border border-slate-200 bg-white p-4">
             <AdminSectionHeader
               title="Rendimiento por asesor"
-              description="Compara volumen, re-precalificación, NSS compartidos con otros asesores, aprobación, monto y conversión a Mesa. Usa «Ver solo» para aislar a un asesor."
+              description="Compara volumen, re-precalificación, NSS compartidos con otros asesores, aprobación, monto y conversión a trámite. Aquí «Expedientes a Mesa» significa casos que sí fueron enviados a Mesa; no se usa «expediente» para los simples registros de precalificación."
             />
             {advisorRows.length === 0 ? (
               <AdminEmptyState
@@ -237,7 +232,7 @@ export function AdminPrecalPerformanceSection({
               />
             ) : (
               <div className="mt-3 overflow-x-auto">
-                <table className="min-w-[1320px] text-left text-sm text-slate-900">
+                <table className="min-w-[1240px] text-left text-sm text-slate-900">
                   <thead className="border-b border-slate-200 text-xs uppercase text-slate-600">
                     <tr>
                       <th className="py-2 pr-3">Asesor</th>
@@ -245,13 +240,12 @@ export function AdminPrecalPerformanceSection({
                       <th className="py-2 pr-3 text-right">NSS únicos</th>
                       <th className="py-2 pr-3 text-right">Re-precals</th>
                       <th className="py-2 pr-3 text-right">NSS compartidos</th>
-                      <th className="py-2 pr-3 text-right">Expedientes</th>
                       <th className="py-2 pr-3 text-right">Aprobadas</th>
                       <th className="py-2 pr-3 text-right">% aprobación</th>
                       <th className="py-2 pr-3 text-right">Monto prom.</th>
                       <th className="py-2 pr-3 text-right">Topados 169k</th>
-                      <th className="py-2 pr-3 text-right">A Mesa</th>
-                      <th className="py-2 pr-3 text-right">% a Mesa</th>
+                      <th className="py-2 pr-3 text-right">Expedientes a Mesa</th>
+                      <th className="py-2 pr-3 text-right">% conversión</th>
                       <th className="py-2">Acción</th>
                     </tr>
                   </thead>
@@ -279,9 +273,6 @@ export function AdminPrecalPerformanceSection({
                           </td>
                           <td className="py-2.5 pr-3 text-right tabular-nums">
                             {row.nssCompartidos}
-                          </td>
-                          <td className="py-2.5 pr-3 text-right tabular-nums">
-                            {row.expedientesGenerados}
                           </td>
                           <td className="py-2.5 pr-3 text-right tabular-nums">
                             {row.aprobadas}
