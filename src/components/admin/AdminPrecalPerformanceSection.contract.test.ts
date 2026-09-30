@@ -28,7 +28,8 @@ describe("Admin — rendimiento de precalificaciones", () => {
     assert.match(panel, /NSS compartidos entre asesores/);
     assert.match(panel, /Re-precalificaciones/);
     assert.match(panel, /Monto promedio aprobado/);
-    assert.match(panel, /Entraron a Mesa/);
+    assert.match(panel, /Expedientes enviados a Mesa/);
+    assert.match(panel, /Expedientes a Mesa/);
     assert.match(panel, /Topados \$169k/);
     assert.match(panel, /Rendimiento por asesor/);
   });
