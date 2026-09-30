@@ -247,9 +247,9 @@ export type AddAgendaManualInput = Readonly<{
   notes: string;
 }>;
 
-export async function addAgendaManual(input: AddAgendaManualInput): Promise<void> {
+export async function addAgendaManual(input: AddAgendaManualInput): Promise<string> {
   const client = await requireSession();
-  const { error } = await client.rpc("agenda_hoja_crm_add_manual", {
+  const { data, error } = await client.rpc("agenda_hoja_crm_add_manual", {
     p_booking_date: input.bookingDate,
     p_booking_time: input.logicalTime,
     p_kind: input.kind,
@@ -261,6 +261,16 @@ export async function addAgendaManual(input: AddAgendaManualInput): Promise<void
     p_notes: input.notes || null,
   });
   if (error) throw new AgendaHojaCrmError(mapRpcError(error.message));
+  const manualId =
+    data && typeof data === "object"
+      ? str((data as RpcRow).manual_occupancy_id).trim()
+      : "";
+  if (!manualId) {
+    throw new AgendaHojaCrmError(
+      "La fila se ocupó, pero no se pudo identificar la captura manual. Actualiza la hoja.",
+    );
+  }
+  return manualId;
 }
 
 export type AddAgendaLeoManualInput = Readonly<{
