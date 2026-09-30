@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   applySheetInventoryToSlots,
+  failClosedSlotsWhileInventoryRefreshing,
   type InventoryAvailabilityResponse,
 } from "./apply-inventory-availability";
 import type { AgendaBiometricosSlotAvailability } from "@/domain/agenda-biometricos/types";
@@ -116,4 +117,28 @@ describe("applySheetInventoryToSlots — discrepancia Horario lleno", () => {
     assert.equal(s1000?.remaining, 3);
     assert.equal(slots.find((s) => s.time === "08:30")?.remaining, 0);
   });
+
+  it("refresh activo nunca expone remaining viejo como disponible", () => {
+    const stale: AgendaBiometricosSlotAvailability[] = [
+      { ...base08, remaining: 2 },
+      { ...base10, remaining: 2 },
+    ];
+    const guarded = failClosedSlotsWhileInventoryRefreshing(stale, true);
+    assert.deepEqual(
+      guarded.map((slot) => slot.remaining),
+      [0, 0],
+    );
+    assert.deepEqual(
+      stale.map((slot) => slot.remaining),
+      [2, 2],
+      "no debe mutar el arreglo original",
+    );
+  });
+
+  it("sin refresh conserva los cupos calculados", () => {
+    const current = [{ ...base08, remaining: 2 }];
+    const guarded = failClosedSlotsWhileInventoryRefreshing(current, false);
+    assert.equal(guarded[0]?.remaining, 2);
+  });
+
 });
