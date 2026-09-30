@@ -43,6 +43,7 @@ const FILTERS: readonly {
   { value: "todos", label: "Todas" },
   { value: "compartidos", label: "Compartidos entre asesores" },
   { value: "reprecalificaciones", label: "Re-precalificaciones" },
+  { value: "mayor_20k", label: "Aprobadas > $20k" },
   { value: "topados", label: "Topados $169k" },
   { value: "mesa", label: "Entraron a Mesa" },
   { value: "no_mesa", label: "No entraron a Mesa" },
@@ -227,8 +228,10 @@ export function AdminPrecalPerformanceSection({
           <strong>Cómo leerlo:</strong> una re-precalificación del mismo asesor
           <strong> no cuenta como NSS compartido</strong>. “NSS compartido” significa
           que el mismo NSS fue precalificado por dos o más asesores distintos dentro
-          del periodo. “Entró a Mesa” usa el estado actual del expediente. Para
-          Mejoravit, promedio y monto operativo respetan el tope de{" "}
+          del periodo. La <strong>conversión a Mesa</strong> se calcula únicamente
+          sobre los <strong>casos aprobados con monto mayor a $20,000</strong>:
+          casos &gt; $20k enviados a Mesa / casos &gt; $20k. Para Mejoravit,
+          promedio y monto operativo respetan el tope de{" "}
           <strong>$169,000</strong>.
         </div>
       </section>
@@ -273,9 +276,9 @@ export function AdminPrecalPerformanceSection({
                 hint: "Suma de aprobaciones del periodo",
               },
               {
-                label: "Expedientes enviados a Mesa",
-                value: summary.expedientesEnMesa.toLocaleString("es-MX"),
-                hint: `${pct(summary.conversionMesaPct)} de ${summary.expedientesGenerados.toLocaleString("es-MX")} casos precalificados distintos`,
+                label: "Aprobadas > $20k",
+                value: summary.casosMayor20k.toLocaleString("es-MX"),
+                hint: `${summary.casosMayor20kEnMesa.toLocaleString("es-MX")} a Mesa · ${pct(summary.conversionMayor20kPct)} de conversión`,
               },
               {
                 label: "Topados $169k",
@@ -303,7 +306,7 @@ export function AdminPrecalPerformanceSection({
           <section className="rounded-lg border border-slate-200 bg-white p-4">
             <AdminSectionHeader
               title="Rendimiento por asesor"
-              description="Compara volumen, re-precalificación, NSS compartidos con otros asesores, aprobación, monto y conversión a trámite. Aquí «Expedientes a Mesa» significa casos que sí fueron enviados a Mesa; no se usa «expediente» para los simples registros de precalificación."
+              description="Compara volumen, re-precalificación, NSS compartidos, aprobación y monto. La conversión operativa se mide solo sobre casos aprobados > $20k: cuántos de esos casos llegaron a Mesa."
             />
             {advisorRows.length === 0 ? (
               <AdminEmptyState
@@ -315,14 +318,14 @@ export function AdminPrecalPerformanceSection({
                 <table className="w-full table-fixed text-left text-[12px] leading-tight text-slate-900 xl:text-[13px]">
                   <colgroup>
                     <col className="w-[18%]" />
+                    <col className="w-[5%]" />
                     <col className="w-[5.5%]" />
-                    <col className="w-[6%]" />
-                    <col className="w-[6%]" />
-                    <col className="w-[7.5%]" />
-                    <col className="w-[6%]" />
+                    <col className="w-[5.5%]" />
                     <col className="w-[7%]" />
-                    <col className="w-[8.5%]" />
+                    <col className="w-[5.5%]" />
+                    <col className="w-[6.5%]" />
                     <col className="w-[8%]" />
+                    <col className="w-[7%]" />
                     <col className="w-[8%]" />
                     <col className="w-[7%]" />
                     <col className="w-[5.5%]" />
@@ -349,20 +352,20 @@ export function AdminPrecalPerformanceSection({
                         <span className="block">aprobación</span>
                       </th>
                       <th className="px-1 py-2 text-right">
+                        <span className="block">Aprob.</span>
+                        <span className="block">&gt; $20k</span>
+                      </th>
+                      <th className="px-1 py-2 text-right">
+                        <span className="block">% &gt;$20k</span>
+                        <span className="block">a Mesa</span>
+                      </th>
+                      <th className="px-1 py-2 text-right">
                         <span className="block">Monto</span>
                         <span className="block">prom.</span>
                       </th>
                       <th className="px-1 py-2 text-right">
                         <span className="block">Topados</span>
                         <span className="block">169k</span>
-                      </th>
-                      <th className="px-1 py-2 text-right">
-                        <span className="block">Exp. a</span>
-                        <span className="block">Mesa</span>
-                      </th>
-                      <th className="px-1 py-2 text-right">
-                        <span className="block">%</span>
-                        <span className="block">conv.</span>
                       </th>
                       <th className="py-2 pl-1 text-right">Acción</th>
                     </tr>
@@ -400,6 +403,17 @@ export function AdminPrecalPerformanceSection({
                           <td className="whitespace-nowrap px-1 py-2.5 text-right tabular-nums">
                             {pct(row.tasaAprobacionPct)}
                           </td>
+                          <td className="px-1 py-2.5 text-right tabular-nums">
+                            <span className="block whitespace-nowrap font-semibold">
+                              {row.casosMayor20k}
+                            </span>
+                            <span className="block whitespace-nowrap text-[10px] text-slate-500 xl:text-[11px]">
+                              {row.casosMayor20kEnMesa} Mesa
+                            </span>
+                          </td>
+                          <td className="whitespace-nowrap px-1 py-2.5 text-right font-semibold tabular-nums text-slate-950">
+                            {pct(row.conversionMayor20kPct)}
+                          </td>
                           <td className="whitespace-nowrap px-1 py-2.5 text-right tabular-nums">
                             {formatMontoMX(row.montoPromedio)}
                           </td>
@@ -412,12 +426,6 @@ export function AdminPrecalPerformanceSection({
                                 {row.topadosNssEnMesa} Mesa
                               </span>
                             ) : null}
-                          </td>
-                          <td className="whitespace-nowrap px-1 py-2.5 text-right tabular-nums">
-                            {row.expedientesEnMesa}
-                          </td>
-                          <td className="whitespace-nowrap px-1 py-2.5 text-right tabular-nums">
-                            {pct(row.conversionMesaPct)}
                           </td>
                           <td className="py-2.5 pl-1 text-right">
                             {onSelectAsesor ? (
@@ -533,6 +541,11 @@ export function AdminPrecalPerformanceSection({
                                 : item.montoAprobado,
                             )
                           : "—"}
+                        {item.aprobadoMayor20k ? (
+                          <span className="ml-2 inline-flex rounded-md bg-emerald-100 px-2 py-0.5 text-xs font-semibold text-emerald-900">
+                            &gt; $20k
+                          </span>
+                        ) : null}
                         {item.topado169k ? (
                           <span className="ml-2 inline-flex rounded-md bg-violet-100 px-2 py-0.5 text-xs font-semibold text-violet-900">
                             Topado
