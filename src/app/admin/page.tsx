@@ -1001,15 +1001,16 @@ export default function AdminDashboardPage() {
                 <div className="absolute right-0 top-full z-30 mt-2 w-[min(26rem,calc(100vw-2rem))] rounded-lg border border-slate-200 bg-white p-3 text-xs font-normal leading-relaxed text-slate-700 shadow-lg">
                   <p>
                     El periodo aplica a los KPI generales, Expedientes, Producción,
-                    precalificaciones y Excel.
+                    Precalificaciones y Excel.
                   </p>
                   <p className="mt-2">
                     En Resumen, la etapa seleccionada abre un detalle operativo, pero no cambia
                     las cinco cifras generales del periodo.
                   </p>
                   <p className="mt-2 text-slate-600">
-                    Asesor, estado y búsqueda sí se conservan en el Resumen. La etapa actual
-                    sigue filtrando Expedientes, Producción, precalificaciones y Excel.
+                    En Precalificaciones se usan periodo, asesor y búsqueda; sus controles
+                    internos permiten aislar NSS repetidos, topados y conversión a Mesa.
+                    En las demás vistas se conservan los filtros operativos de etapa, estado y corrección.
                   </p>
                 </div>
               </details>
@@ -1064,55 +1065,59 @@ export default function AdminDashboardPage() {
                 })),
               ]}
             />
-            <Select
-              label="Etapa actual"
-              value={etapaActual}
-              onChange={(e) => {
-                setEtapaActual(e.target.value);
-                setMesaPage(1);
-                setPrecalPage(1);
-              }}
-              options={[
-                { value: "todas", label: "Todas" },
-                ...opcionesFiltroPasoAdminDashboard(),
-              ]}
-            />
-            <Select
-              label="Estado"
-              value={estado}
-              onChange={(e) => {
-                setEstado(e.target.value as AdminEstadoFilter);
-                setMesaPage(1);
-                setPrecalPage(1);
-              }}
-              options={[
-                { value: "todos", label: "Todos" },
-                { value: "activos", label: "Activos" },
-                { value: "finalizados", label: "Finalizados" },
-                { value: "rechazados", label: "Rechazados" },
-                { value: "cancelados", label: "Cancelados" },
-              ]}
-            />
-            <Select
-              label="Corrección"
-              value={correccionFilter}
-              onChange={(e) => {
-                setCorreccionFilter(e.target.value as AdminCorreccionFilter);
-                setMesaPage(1);
-                setPdfEmptyMessage(null);
-              }}
-              options={[...ADMIN_CORRECCION_FILTER_OPTIONS]}
-            />
-            <Select
-              label="Alcance"
-              value={correccionAlcance}
-              onChange={(e) => {
-                setCorreccionAlcance(e.target.value as AdminCorreccionAlcance);
-                setMesaPage(1);
-                setPdfEmptyMessage(null);
-              }}
-              options={[...ADMIN_CORRECCION_ALCANCE_OPTIONS]}
-            />
+            {activeTab !== "precalificaciones" ? (
+              <>
+                            <Select
+                              label="Etapa actual"
+                              value={etapaActual}
+                              onChange={(e) => {
+                                setEtapaActual(e.target.value);
+                                setMesaPage(1);
+                                setPrecalPage(1);
+                              }}
+                              options={[
+                                { value: "todas", label: "Todas" },
+                                ...opcionesFiltroPasoAdminDashboard(),
+                              ]}
+                            />
+                            <Select
+                              label="Estado"
+                              value={estado}
+                              onChange={(e) => {
+                                setEstado(e.target.value as AdminEstadoFilter);
+                                setMesaPage(1);
+                                setPrecalPage(1);
+                              }}
+                              options={[
+                                { value: "todos", label: "Todos" },
+                                { value: "activos", label: "Activos" },
+                                { value: "finalizados", label: "Finalizados" },
+                                { value: "rechazados", label: "Rechazados" },
+                                { value: "cancelados", label: "Cancelados" },
+                              ]}
+                            />
+                            <Select
+                              label="Corrección"
+                              value={correccionFilter}
+                              onChange={(e) => {
+                                setCorreccionFilter(e.target.value as AdminCorreccionFilter);
+                                setMesaPage(1);
+                                setPdfEmptyMessage(null);
+                              }}
+                              options={[...ADMIN_CORRECCION_FILTER_OPTIONS]}
+                            />
+                            <Select
+                              label="Alcance"
+                              value={correccionAlcance}
+                              onChange={(e) => {
+                                setCorreccionAlcance(e.target.value as AdminCorreccionAlcance);
+                                setMesaPage(1);
+                                setPdfEmptyMessage(null);
+                              }}
+                              options={[...ADMIN_CORRECCION_ALCANCE_OPTIONS]}
+                            />
+                              </>
+            ) : null}
             <label className="text-sm text-slate-600">
               Buscar
               <Input
@@ -1135,27 +1140,31 @@ export default function AdminDashboardPage() {
               >
                 Limpiar filtros
               </Button>
-              <Button
-                type="button"
-                className="whitespace-nowrap"
-                onClick={() => void exportExcel()}
-                disabled={exporting || exportingPdf || !bounds}
-              >
-                {exporting ? "Exportando…" : "Descargar Excel"}
-              </Button>
-              <Button
-                type="button"
-                variant="secondary"
-                className="whitespace-nowrap"
-                onClick={() => void exportPdfCorrecciones()}
-                disabled={
-                  exporting ||
-                  exportingPdf ||
-                  (correccionAlcance === "periodo_seleccionado" && !bounds)
-                }
-              >
-                {exportingPdf ? "Generando PDF…" : "Descargar PDF correcciones"}
-              </Button>
+              {activeTab !== "precalificaciones" ? (
+                <>
+                  <Button
+                    type="button"
+                    className="whitespace-nowrap"
+                    onClick={() => void exportExcel()}
+                    disabled={exporting || exportingPdf || !bounds}
+                  >
+                    {exporting ? "Exportando…" : "Descargar Excel"}
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    className="whitespace-nowrap"
+                    onClick={() => void exportPdfCorrecciones()}
+                    disabled={
+                      exporting ||
+                      exportingPdf ||
+                      (correccionAlcance === "periodo_seleccionado" && !bounds)
+                    }
+                  >
+                    {exportingPdf ? "Generando PDF…" : "Descargar PDF correcciones"}
+                  </Button>
+                </>
+              ) : null}
             </div>
           </div>
           {pdfEmptyMessage ? (
