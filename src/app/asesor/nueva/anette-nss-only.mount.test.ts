@@ -94,11 +94,11 @@ describe("NSS-only Anette + Equipo Silvia en /asesor/nueva", () => {
     assert.match(reassign, /Se conservan documentos, Datos Generales, precalificación, etapa/);
   });
 
-  it("habilita autofill de nombre para Silvia/equipo y conserva respaldo manual del Editor", () => {
+  it("habilita autofill de nombre para Silvia/equipo y conserva edición manual del Editor", () => {
     assert.match(migration, /autofill_nombre_infonavit/);
     assert.match(migration, /asesor_es_equipo_silvia\(p\.id\)/);
-    assert.match(editorCell, /POR CAPTURAR/);
-    assert.match(editorCell, /editor_fill_nombre_infonavit/);
+    assert.match(editorCell, /isPorCapturarNombre/);
+    assert.match(editorCell, /editor_update_precal_nombre/);
   });
 
   it("no reemplaza ni modifica el contrato visual general para otros asesores", () => {
