@@ -155,7 +155,7 @@ export function AdminPrecalPerformanceSection({
 
       {summary ? (
         <>
-          <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
             {[
               {
                 label: "Precalificaciones",
@@ -163,9 +163,14 @@ export function AdminPrecalPerformanceSection({
                 hint: `${summary.nssUnicos.toLocaleString("es-MX")} NSS únicos`,
               },
               {
-                label: "NSS repetidos",
-                value: summary.nssRepetidos.toLocaleString("es-MX"),
-                hint: `${summary.repeticionesExtraPeriodo.toLocaleString("es-MX")} repeticiones extra dentro del periodo`,
+                label: "Re-precalificaciones",
+                value: summary.reprecalificaciones.toLocaleString("es-MX"),
+                hint: "Mismo expediente vuelve a consultarse; no cuenta como NSS compartido",
+              },
+              {
+                label: "NSS compartidos entre asesores",
+                value: summary.nssCompartidos.toLocaleString("es-MX"),
+                hint: "Mismo NSS precalificado por 2+ asesores distintos en el periodo",
               },
               {
                 label: "Aprobadas",
@@ -186,6 +191,11 @@ export function AdminPrecalPerformanceSection({
                 label: "Monto aprobado operativo",
                 value: formatMontoMX(summary.montoTotalAdmin),
                 hint: "Suma de aprobaciones del periodo",
+              },
+              {
+                label: "Expedientes generados",
+                value: summary.expedientesGenerados.toLocaleString("es-MX"),
+                hint: "Expedientes únicos detrás de las precalificaciones",
               },
               {
                 label: "Entraron a Mesa",
