@@ -351,7 +351,7 @@ export default function AdminExpedienteTransparenciaPage() {
   return (
     <div className="min-h-screen bg-slate-100">
       <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto max-w-7xl px-4 py-4">
+        <div className="mx-auto w-full max-w-[1760px] px-3 py-4 sm:px-4 xl:px-5">
           <Link href="/admin/expedientes" className="text-sm font-medium text-blue-700 underline underline-offset-2">← Volver a Expedientes</Link>
           <div className="mt-3 flex flex-wrap items-start justify-between gap-3">
             <div>
@@ -368,7 +368,7 @@ export default function AdminExpedienteTransparenciaPage() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl space-y-5 px-4 py-6">
+      <main className="mx-auto w-full max-w-[1760px] space-y-5 px-3 py-5 sm:px-4 xl:px-5">
         <Section title="Resumen y envío a Mesa" description="Estado actual, identidad del expediente y hora exacta de envío.">
           <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Card label="Expediente" value={str(expediente.id)} />

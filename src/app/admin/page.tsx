@@ -920,7 +920,7 @@ export default function AdminDashboardPage() {
   return (
     <div className="min-h-screen bg-slate-100">
       <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-4">
+        <div className="mx-auto flex w-full max-w-[1760px] flex-wrap items-center justify-between gap-3 px-3 py-4 sm:px-4 xl:px-5">
           <div>
             <h1 className="text-xl font-semibold text-slate-900">
               Administración
@@ -949,13 +949,7 @@ export default function AdminDashboardPage() {
         <AdminTabs active={activeTab} onChange={handleTabChange} />
       ) : null}
 
-      <main
-        className={
-          activeTab === "precalificaciones"
-            ? "mx-auto w-full max-w-[1760px] space-y-6 px-3 py-5 sm:px-4 xl:px-5"
-            : "mx-auto max-w-6xl space-y-6 px-4 py-6"
-        }
-      >
+      <main className="mx-auto w-full max-w-[1760px] space-y-6 px-3 py-5 sm:px-4 xl:px-5">
         {isAdminBernardoView(activeTab) ? (
           <AdminBernardoDashboard
             repo={repo}
