@@ -126,7 +126,14 @@ BEGIN
     RETURN NEW;
   END IF;
 
-  v_location := lower(btrim(COALESCE(NEW.location_id, OLD.location_id, 'monterrey')));
+  v_location := lower(
+    btrim(
+      CASE
+        WHEN TG_OP = 'INSERT' THEN COALESCE(NEW.location_id, 'monterrey')
+        ELSE COALESCE(OLD.location_id, NEW.location_id, 'monterrey')
+      END
+    )
+  );
 
   -- En INSERT este trigger corre después de aa_* y ya existe claim.
   -- En CANCEL corre antes de z_agenda_sheet_inventory_release_au.
