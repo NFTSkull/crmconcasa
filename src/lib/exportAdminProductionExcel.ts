@@ -32,6 +32,88 @@ function asesorLabelOther(nombre: string | null, email: string | null, id: strin
   return formatAsesorExpedienteLabel({ fullName: nombre, email, fallbackId: id });
 }
 
+export type AdminPrecalNssRepeatRow = Readonly<{
+  nss: string;
+  precalificacionesHistoricas: number;
+  expedientesConNss: number;
+  filasEnReporte: number;
+  clientes: string;
+  asesores: string;
+  programas: string;
+  ultimaFechaEnReporte: string | null;
+}>;
+
+export function summarizeAdminPrecalNssRepeats(
+  rows: readonly AdminPrecalEvent[],
+): AdminPrecalNssRepeatRow[] {
+  const grouped = new Map<
+    string,
+    {
+      precalificacionesHistoricas: number;
+      expedientesConNss: number;
+      filasEnReporte: number;
+      clientes: Set<string>;
+      asesores: Set<string>;
+      programas: Set<string>;
+      ultimaFechaEnReporte: string | null;
+    }
+  >();
+
+  for (const row of rows) {
+    const nss = row.nss?.trim() || "";
+    if (!nss) continue;
+    const current = grouped.get(nss) ?? {
+      precalificacionesHistoricas: 1,
+      expedientesConNss: 1,
+      filasEnReporte: 0,
+      clientes: new Set<string>(),
+      asesores: new Set<string>(),
+      programas: new Set<string>(),
+      ultimaFechaEnReporte: null,
+    };
+    current.precalificacionesHistoricas = Math.max(
+      current.precalificacionesHistoricas,
+      row.nssPrecalificacionesTotal ?? 1,
+    );
+    current.expedientesConNss = Math.max(
+      current.expedientesConNss,
+      row.nssExpedientesTotal ?? 1,
+    );
+    current.filasEnReporte += 1;
+    if (row.clienteNombre.trim()) current.clientes.add(row.clienteNombre.trim());
+    const asesor = asesorLabelOther(row.asesorNombre, row.asesorEmail, row.asesorId);
+    if (asesor.trim()) current.asesores.add(asesor.trim());
+    if (row.programa.trim()) current.programas.add(row.programa.trim());
+    if (
+      row.fecha &&
+      (!current.ultimaFechaEnReporte ||
+        Date.parse(row.fecha) > Date.parse(current.ultimaFechaEnReporte))
+    ) {
+      current.ultimaFechaEnReporte = row.fecha;
+    }
+    grouped.set(nss, current);
+  }
+
+  return [...grouped.entries()]
+    .filter(([, value]) => value.precalificacionesHistoricas > 1)
+    .map(([nss, value]) => ({
+      nss,
+      precalificacionesHistoricas: value.precalificacionesHistoricas,
+      expedientesConNss: value.expedientesConNss,
+      filasEnReporte: value.filasEnReporte,
+      clientes: [...value.clientes].sort().join(" | "),
+      asesores: [...value.asesores].sort().join(" | "),
+      programas: [...value.programas].sort().join(" | "),
+      ultimaFechaEnReporte: value.ultimaFechaEnReporte,
+    }))
+    .sort(
+      (a, b) =>
+        b.precalificacionesHistoricas - a.precalificacionesHistoricas ||
+        b.expedientesConNss - a.expedientesConNss ||
+        a.nss.localeCompare(b.nss),
+    );
+}
+
 export function buildAdminProductionWorkbook(input: {
   bounds: AdminPeriodBounds;
   summary: AdminProductionSummary;
@@ -41,6 +123,14 @@ export function buildAdminProductionWorkbook(input: {
   asesores: readonly AdminAsesorProductionRow[];
 }): XLSX.WorkBook {
   const wb = XLSX.utils.book_new();
+  const nssRepetidos = summarizeAdminPrecalNssRepeats(input.precalificaciones);
+  const nssUnicosEnReporte = new Set(
+    input.precalificaciones.map((r) => r.nss?.trim()).filter(Boolean),
+  ).size;
+  const maxPrecalificacionesPorNss = input.precalificaciones.reduce(
+    (max, row) => Math.max(max, row.nssPrecalificacionesTotal ?? 1),
+    0,
+  );
 
   const resumen = XLSX.utils.aoa_to_sheet([
     ["Periodo desde", input.bounds.fromDate],
@@ -58,6 +148,11 @@ export function buildAdminProductionWorkbook(input: {
     ["Pendientes actuales", input.precalSummary.pendientesActualesCount],
     ["Monto aprobado Mejoravit", input.precalSummary.montoMejoravitTotal],
     ["Promedio aprobado Mejoravit", input.precalSummary.montoMejoravitPromedio],
+    [],
+    ["Control NSS de precalificaciones"],
+    ["NSS únicos en este reporte", nssUnicosEnReporte],
+    ["NSS con repetición histórica", nssRepetidos.length],
+    ["Máximo de precalificaciones para un NSS", maxPrecalificacionesPorNss],
   ]);
   XLSX.utils.book_append_sheet(wb, resumen, "Resumen");
 
@@ -123,32 +218,97 @@ export function buildAdminProductionWorkbook(input: {
   const preAoa: (string | number | null)[][] = [
     [
       "Fecha canónica",
+      "NSS",
       "Cliente",
       "Asesor",
       "Decisión",
       "Monto al aprobar",
       "Programa",
+      "Precalificaciones históricas NSS",
+      "Expedientes con este NSS",
+      "NSS repetido",
     ],
-    ...input.precalificaciones.map((r) => [
-      r.decision === "pendiente" ? null : r.fecha,
-      sanitize(r.clienteNombre),
-      sanitize(asesorLabelOther(r.asesorNombre, r.asesorEmail, r.asesorId)),
-      sanitize(labelEditorDecision(r.decision)),
-      r.montoSnapshotNoRecuperable
-        ? formatPrecalMontoAlAprobarDisplay(
-            {
-              montoAprobadoAlAprobar: r.montoAprobadoAlAprobar,
-              montoSnapshotNoRecuperable: true,
-            },
-            formatMontoMX,
-          )
-        : r.decision === "aprobado"
-          ? r.montoAprobadoAlAprobar
-          : null,
-      sanitize(r.programa),
+    ...input.precalificaciones.map((r) => {
+      const repeticiones = Math.max(1, r.nssPrecalificacionesTotal ?? 1);
+      return [
+        r.decision === "pendiente" ? null : r.fecha,
+        r.nss?.trim() || null,
+        sanitize(r.clienteNombre),
+        sanitize(asesorLabelOther(r.asesorNombre, r.asesorEmail, r.asesorId)),
+        sanitize(labelEditorDecision(r.decision)),
+        r.montoSnapshotNoRecuperable
+          ? formatPrecalMontoAlAprobarDisplay(
+              {
+                montoAprobadoAlAprobar: r.montoAprobadoAlAprobar,
+                montoSnapshotNoRecuperable: true,
+              },
+              formatMontoMX,
+            )
+          : r.decision === "aprobado"
+            ? r.montoAprobadoAlAprobar
+            : null,
+        sanitize(r.programa),
+        repeticiones,
+        Math.max(1, r.nssExpedientesTotal ?? 1),
+        repeticiones > 1 ? "Sí" : "No",
+      ];
+    }),
+  ];
+  const preSheet = XLSX.utils.aoa_to_sheet(preAoa);
+  preSheet["!cols"] = [
+    { wch: 21 },
+    { wch: 14 },
+    { wch: 34 },
+    { wch: 28 },
+    { wch: 22 },
+    { wch: 20 },
+    { wch: 16 },
+    { wch: 28 },
+    { wch: 23 },
+    { wch: 14 },
+  ];
+  if (preAoa.length > 1) {
+    preSheet["!autofilter"] = { ref: `A1:J${preAoa.length}` };
+  }
+  XLSX.utils.book_append_sheet(wb, preSheet, "Precalificaciones");
+
+  const repetidosAoa: (string | number | null)[][] = [
+    [
+      "NSS",
+      "Precalificaciones históricas",
+      "Expedientes con este NSS",
+      "Filas en este reporte",
+      "Clientes en este reporte",
+      "Asesores en este reporte",
+      "Programas",
+      "Última fecha en este reporte",
+    ],
+    ...nssRepetidos.map((r) => [
+      r.nss,
+      r.precalificacionesHistoricas,
+      r.expedientesConNss,
+      r.filasEnReporte,
+      sanitize(r.clientes),
+      sanitize(r.asesores),
+      sanitize(r.programas),
+      r.ultimaFechaEnReporte,
     ]),
   ];
-  XLSX.utils.book_append_sheet(wb, XLSX.utils.aoa_to_sheet(preAoa), "Precalificaciones");
+  const repetidosSheet = XLSX.utils.aoa_to_sheet(repetidosAoa);
+  repetidosSheet["!cols"] = [
+    { wch: 14 },
+    { wch: 28 },
+    { wch: 23 },
+    { wch: 20 },
+    { wch: 42 },
+    { wch: 36 },
+    { wch: 20 },
+    { wch: 25 },
+  ];
+  if (repetidosAoa.length > 1) {
+    repetidosSheet["!autofilter"] = { ref: `A1:H${repetidosAoa.length}` };
+  }
+  XLSX.utils.book_append_sheet(wb, repetidosSheet, "NSS repetidos");
 
   const asAoa: (string | number | null)[][] = [
     [
@@ -213,8 +373,13 @@ export async function accumulatePaginatedExport<T>(input: {
   return items;
 }
 
-export function assertExportHasNoPii(sheetValues: unknown[][]): void {
-  const banned = /\b(nss|telefono|uuid|http|payload|actor_id|expediente_id)\b/i;
+export function assertExportHasNoPii(
+  sheetValues: unknown[][],
+  options: { allowNss?: boolean } = {},
+): void {
+  const banned = options.allowNss
+    ? /\b(telefono|uuid|http|payload|actor_id|expediente_id)\b/i
+    : /\b(nss|telefono|uuid|http|payload|actor_id|expediente_id)\b/i;
   for (const row of sheetValues) {
     for (const cell of row) {
       if (typeof cell === "string" && banned.test(cell)) {
