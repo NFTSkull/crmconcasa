@@ -129,6 +129,12 @@ function mapRpcError(raw: string | undefined): string {
   if (/SIN_CUPO_REAL_EN_SHEET|SIN_CUPO_DIA/i.test(message)) {
     return "Ese lugar ya está ocupado o el cupo del día está completo. Actualiza la hoja y elige otro espacio.";
   }
+  if (/LEO_CUPO_COMPLETO/i.test(message)) {
+    return "LEO ya tiene sus 5 lugares ocupados para ese día.";
+  }
+  if (/LEO_DUPLICADO/i.test(message)) {
+    return "Ese NSS ya está capturado en LEO para ese día.";
+  }
   if (/no autorizado|rol no autorizado|42501/i.test(message)) {
     return "No tienes permiso para editar la hoja operativa.";
   }
@@ -148,7 +154,7 @@ export async function fetchAgendaHojaCrm(dateYmd: string): Promise<AgendaHojaRow
       .filter((id): id is string => Boolean(id)),
   );
 
-  return rows.map((row) => {
+  const hydratedRows = rows.map((row) => {
     if (!row.expedienteId) return row;
     const display = ownerDisplay.get(row.expedienteId);
     if (!display?.fullName) return row;
@@ -157,6 +163,48 @@ export async function fetchAgendaHojaCrm(dateYmd: string): Promise<AgendaHojaRow
       asesorNombre: display.fullName,
     };
   });
+
+  const leoRows = hydratedRows.filter(
+    (row) => row.locationId === "leo" && row.kind === "biometricos",
+  );
+  const missingLeoSlots = Math.max(0, 5 - leoRows.length);
+  if (missingLeoSlots === 0) return hydratedRows;
+
+  const leoPlaceholders: AgendaHojaRow[] = Array.from(
+    { length: missingLeoSlots },
+    (_, index) => ({
+      rowSource: "leo",
+      rowId: `leo-available-${dateYmd}-${leoRows.length + index + 1}`,
+      manualOccupancyId: null,
+      inventoryId: null,
+      bookingId: null,
+      expedienteId: null,
+      bookingDate: dateYmd,
+      kind: "biometricos",
+      locationId: "leo",
+      logicalTime: "00:00",
+      displayTime: "00:00",
+      rowStatus: "leo_available",
+      originLabel: "Disponible LEO",
+      nss: "",
+      clienteNombre: "",
+      asesorNombre: "",
+      biometricResultRaw: "",
+      biometricColor: "UNKNOWN",
+      notificationResultRaw: "",
+      notificationColor: "UNKNOWN",
+      signatureResultRaw: "",
+      signatureColor: "UNKNOWN",
+      notesRaw: "",
+      sheetTitle: null,
+      sheetRow: null,
+      editable: false,
+      available: true,
+      crmOverride: false,
+    }),
+  );
+
+  return [...hydratedRows, ...leoPlaceholders];
 }
 
 export type SaveAgendaHojaResultInput = Readonly<{
@@ -210,6 +258,36 @@ export async function addAgendaManual(input: AddAgendaManualInput): Promise<void
     p_nss: input.nss || null,
     p_cliente_nombre: input.clienteNombre,
     p_asesor_nombre: input.asesorNombre || null,
+    p_notes: input.notes || null,
+  });
+  if (error) throw new AgendaHojaCrmError(mapRpcError(error.message));
+}
+
+export type AddAgendaLeoManualInput = Readonly<{
+  bookingDate: string;
+  bookingTime: string;
+  nss: string;
+  clienteNombre: string;
+  asesorNombre: string;
+  biometricResultRaw: string;
+  biometricColor: AgendaHojaColor;
+  notificationResultRaw: string;
+  notificationColor: AgendaHojaColor;
+  notes: string;
+}>;
+
+export async function addAgendaLeoManual(input: AddAgendaLeoManualInput): Promise<void> {
+  const client = await requireSession();
+  const { error } = await client.rpc("agenda_hoja_crm_add_leo_manual", {
+    p_booking_date: input.bookingDate,
+    p_booking_time: input.bookingTime,
+    p_nss: input.nss,
+    p_cliente_nombre: input.clienteNombre,
+    p_asesor_nombre: input.asesorNombre,
+    p_biometric_result_raw: input.biometricResultRaw || null,
+    p_biometric_color: input.biometricColor,
+    p_notification_result_raw: input.notificationResultRaw || null,
+    p_notification_color: input.notificationColor,
     p_notes: input.notes || null,
   });
   if (error) throw new AgendaHojaCrmError(mapRpcError(error.message));
