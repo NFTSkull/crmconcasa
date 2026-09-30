@@ -228,7 +228,7 @@ export function AdminPrecalPerformanceSection({
           <section className="rounded-lg border border-slate-200 bg-white p-4">
             <AdminSectionHeader
               title="Rendimiento por asesor"
-              description="Compara volumen, repetición, aprobación, monto y conversión a Mesa. Usa «Ver solo» para aislar a un asesor con el filtro global."
+              description="Compara volumen, re-precalificación, NSS compartidos con otros asesores, aprobación, monto y conversión a Mesa. Usa «Ver solo» para aislar a un asesor."
             />
             {advisorRows.length === 0 ? (
               <AdminEmptyState
@@ -237,13 +237,14 @@ export function AdminPrecalPerformanceSection({
               />
             ) : (
               <div className="mt-3 overflow-x-auto">
-                <table className="min-w-[1180px] text-left text-sm text-slate-900">
+                <table className="min-w-[1320px] text-left text-sm text-slate-900">
                   <thead className="border-b border-slate-200 text-xs uppercase text-slate-600">
                     <tr>
                       <th className="py-2 pr-3">Asesor</th>
                       <th className="py-2 pr-3 text-right">Precals</th>
                       <th className="py-2 pr-3 text-right">NSS únicos</th>
-                      <th className="py-2 pr-3 text-right">NSS repetidos</th>
+                      <th className="py-2 pr-3 text-right">Re-precals</th>
+                      <th className="py-2 pr-3 text-right">NSS compartidos</th>
                       <th className="py-2 pr-3 text-right">Expedientes</th>
                       <th className="py-2 pr-3 text-right">Aprobadas</th>
                       <th className="py-2 pr-3 text-right">% aprobación</th>
@@ -274,7 +275,10 @@ export function AdminPrecalPerformanceSection({
                             {row.nssUnicos}
                           </td>
                           <td className="py-2.5 pr-3 text-right tabular-nums">
-                            {row.nssRepetidos}
+                            {row.reprecalificaciones}
+                          </td>
+                          <td className="py-2.5 pr-3 text-right tabular-nums">
+                            {row.nssCompartidos}
                           </td>
                           <td className="py-2.5 pr-3 text-right tabular-nums">
                             {row.expedientesGenerados}
