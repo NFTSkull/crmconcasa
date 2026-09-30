@@ -109,6 +109,7 @@ import {
 } from "@/lib/exportAsesorPrecalificacionesExcel";
 import { AsesorLiderDashboard } from "@/components/asesor/AsesorLiderDashboard";
 import { AsesorOperacionDelegadaBar } from "@/components/asesor/AsesorOperacionDelegadaBar";
+import { PrecalificadorNssOnlyDashboard } from "@/components/asesor/PrecalificadorNssOnlyDashboard";
 import {
   CAP_CREATE_FOR_ANY_ADVISOR,
   CAP_INTEGRATE_FOR_ANY_ADVISOR,
@@ -570,6 +571,10 @@ function AsesorDashboardNormalPage({
     liderCtx != null && hasCapability(liderCtx, CAP_CREATE_FOR_ANY_ADVISOR);
   const [asesoresOrg, setAsesoresOrg] = useState<readonly AsesorActivoOrg[]>([]);
   const [ownerAsesorId, setOwnerAsesorId] = useState("");
+  const [precalificadoresLigados, setPrecalificadoresLigados] = useState<
+    readonly { id: string; full_name: string; email: string }[]
+  >([]);
+  const [precalificadorOrigenId, setPrecalificadorOrigenId] = useState("");
 
   const resumenDocumentalPorId = useMemo(() => {
     const out: Record<string, CategoriaResumenDocumental | undefined> = {};
@@ -943,6 +948,7 @@ function AsesorDashboardNormalPage({
       canIntegrateForAny,
       currentUser,
       ownerAsesorId,
+      precalificadorOrigenId,
       repo,
     ],
   );
@@ -965,6 +971,7 @@ function AsesorDashboardNormalPage({
         pageSize: PAGE_SIZE,
         ownerAsesorId:
           canIntegrateForAny && ownerAsesorId ? ownerAsesorId : null,
+        precalificadorOrigenId: precalificadorOrigenId || null,
         filters: {
           buscar: buscarDebounced,
           decision: filters.decision,
@@ -1180,12 +1187,14 @@ function AsesorDashboardNormalPage({
     filters.etapaExacta !== "" ||
     filters.programa !== "" ||
     filters.fechaDesde !== "" ||
-    filters.fechaHasta !== "";
+    filters.fechaHasta !== "" ||
+    precalificadorOrigenId !== "";
 
   const handleClearFilters = () => {
     setFilters(INITIAL_FILTERS);
     setBuscarDebounced("");
     setQuickFilter("todos");
+    setPrecalificadorOrigenId("");
     setPage(1);
   };
 
@@ -1290,8 +1299,45 @@ function AsesorDashboardNormalPage({
   ]);
 
   useEffect(() => {
+    if (!dataSupabase || !supabaseBrowser || !currentUser) {
+      setPrecalificadoresLigados([]);
+      setPrecalificadorOrigenId("");
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const { data, error } = await supabaseBrowser.rpc(
+        "asesor_precalificadores_para_titular",
+      );
+      if (cancelled) return;
+      if (error || !Array.isArray(data)) {
+        setPrecalificadoresLigados([]);
+        setPrecalificadorOrigenId("");
+        return;
+      }
+      const rows = data
+        .map((raw) => {
+          const r = raw as Record<string, unknown>;
+          return {
+            id: String(r.id ?? "").trim(),
+            full_name: String(r.full_name ?? "").trim(),
+            email: String(r.email ?? "").trim(),
+          };
+        })
+        .filter((r) => r.id);
+      setPrecalificadoresLigados(rows);
+      setPrecalificadorOrigenId((prev) =>
+        prev && rows.some((r) => r.id === prev) ? prev : "",
+      );
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [currentUser?.email, dataSupabase]);
+
+  useEffect(() => {
     setPage(1);
-  }, [buscarDebounced, ownerAsesorId]);
+  }, [buscarDebounced, ownerAsesorId, precalificadorOrigenId]);
 
   useEffect(() => {
     void loadInbox();
@@ -1461,6 +1507,29 @@ function AsesorDashboardNormalPage({
             ownerAsesorId={ownerAsesorId}
             onOwnerChange={setOwnerAsesorId}
           />
+        ) : null}
+        {precalificadoresLigados.length > 0 ? (
+          <div className="rounded-lg border border-violet-200 bg-violet-50/60 p-3 shadow-sm">
+            <div className="max-w-md">
+              <Select
+                id="asesor-precalificador-origen"
+                label="Origen de precalificación"
+                value={precalificadorOrigenId}
+                onChange={(e) => setPrecalificadorOrigenId(e.target.value)}
+                options={[
+                  { value: "", label: "Todas mis precalificaciones" },
+                  ...precalificadoresLigados.map((p) => ({
+                    value: p.id,
+                    label: `Solo ${p.full_name || p.email}`,
+                  })),
+                ]}
+              />
+            </div>
+            <p className="mt-1 text-xs text-violet-800">
+              Permite separar los expedientes que fueron iniciados por tu usuario
+              precalificador sin cambiar su titularidad: siguen siendo tuyos.
+            </p>
+          </div>
         ) : null}
         <div className="flex items-baseline justify-between gap-2 border-b border-gray-200/80 pb-2">
           <h2 className="text-sm font-semibold text-gray-900 sm:text-base">
@@ -2203,6 +2272,15 @@ export default function AsesorDashboardPage() {
         <p className="text-gray-500">Cargando...</p>
       </div>
     );
+  }
+
+  if (
+    dataSupabase &&
+    currentUser?.role === "asesor" &&
+    liderCtx &&
+    hasCapability(liderCtx, "precalificador_nss_only")
+  ) {
+    return <PrecalificadorNssOnlyDashboard />;
   }
 
   if (
