@@ -10,6 +10,26 @@ const panel = readFileSync(
   join(root, "src/components/admin/AdminPrecalPerformanceSection.tsx"),
   "utf8",
 );
+const adminTabs = readFileSync(
+  join(root, "src/components/admin/AdminTabs.tsx"),
+  "utf8",
+);
+const expedientesPage = readFileSync(
+  join(root, "src/app/admin/expedientes/page.tsx"),
+  "utf8",
+);
+const expedienteDetailPage = readFileSync(
+  join(root, "src/app/admin/expediente/[id]/page.tsx"),
+  "utf8",
+);
+const expedientesDetailPage = readFileSync(
+  join(root, "src/app/admin/expedientes/[id]/page.tsx"),
+  "utf8",
+);
+const agendaEmbed = readFileSync(
+  join(root, "src/components/admin/AdminAgendaEmbed.tsx"),
+  "utf8",
+);
 const migration = readFileSync(
   join(root, "supabase/migrations/20260930203500_admin_precal_over20k_conversion.sql"),
   "utf8",
@@ -23,8 +43,20 @@ describe("Admin — rendimiento de precalificaciones", () => {
     assert.match(page, /adminTabPanelId\("precalificaciones"\)/);
   });
 
-  it("usa ancho ampliado y la tabla de asesores no fuerza scroll horizontal", () => {
-    assert.match(page, /max-w-\[1760px\]/);
+  it("usa el mismo ancho ampliado en todo el panel Admin y la tabla no fuerza scroll horizontal", () => {
+    for (const source of [
+      page,
+      adminTabs,
+      expedientesPage,
+      expedienteDetailPage,
+      expedientesDetailPage,
+      agendaEmbed,
+    ]) {
+      assert.match(source, /max-w-\[1760px\]/);
+    }
+    assert.doesNotMatch(page, /max-w-6xl/);
+    assert.doesNotMatch(adminTabs, /max-w-6xl/);
+    assert.doesNotMatch(expedientesPage, /max-w-7xl/);
     assert.match(panel, /w-full table-fixed/);
     assert.match(panel, /overflow-hidden/);
     assert.doesNotMatch(panel, /min-w-\[1240px\]/);
