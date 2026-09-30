@@ -57,7 +57,7 @@ export function AdminAgendaEmbed({
       }`}
     >
       <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3 px-4 py-3">
+        <div className="mx-auto flex w-full max-w-[1760px] items-center justify-between gap-3 px-3 py-3 sm:px-4 xl:px-5">
           <div>
             <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
               Panel de administración
