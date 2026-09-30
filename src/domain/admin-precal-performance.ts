@@ -48,6 +48,20 @@ export type AdminPrecalPerformanceAdvisor = Readonly<{
   conversionMesaPct: number;
 }>;
 
+export type AdminPrecalNssAdvisorBreakdown = Readonly<{
+  asesorId: string;
+  asesorNombre: string | null;
+  asesorEmail: string | null;
+  precalificaciones: number;
+  reprecalificaciones: number;
+  aprobadas: number;
+  noCumple: number;
+  pendientes: number;
+  expedientes: number;
+  expedientesEnMesa: number;
+  montoPromedio: number;
+}>;
+
 export type AdminPrecalPerformanceItem = Readonly<{
   attemptKey: string;
   intentoId: string | null;
@@ -55,6 +69,11 @@ export type AdminPrecalPerformanceItem = Readonly<{
   fecha: string;
   nss: string;
   nssPrecalHistoricas: number;
+  nssPrecalPeriodo: number;
+  isReprecalificacion: boolean;
+  compartidoEntreAsesores: boolean;
+  asesoresNssCount: number;
+  asesoresNss: readonly AdminPrecalNssAdvisorBreakdown[];
   clienteNombre: string;
   asesorId: string;
   asesorNombre: string | null;
@@ -110,8 +129,8 @@ function mapSummary(raw: Record<string, unknown>): AdminPrecalPerformanceSummary
   return {
     totalPrecalificaciones: num(raw.total_precalificaciones),
     nssUnicos: num(raw.nss_unicos),
-    nssRepetidos: num(raw.nss_repetidos),
-    repeticionesExtraPeriodo: num(raw.repeticiones_extra_periodo),
+    nssCompartidos: num(raw.nss_compartidos),
+    reprecalificaciones: num(raw.reprecalificaciones),
     aprobadas: num(raw.aprobadas),
     noCumple: num(raw.no_cumple),
     pendientes: num(raw.pendientes),
@@ -135,7 +154,8 @@ function mapAdvisor(raw: Record<string, unknown>): AdminPrecalPerformanceAdvisor
     asesorEmail: strOrNull(raw.asesor_email),
     totalPrecalificaciones: num(raw.total_precalificaciones),
     nssUnicos: num(raw.nss_unicos),
-    nssRepetidos: num(raw.nss_repetidos),
+    nssCompartidos: num(raw.nss_compartidos),
+    reprecalificaciones: num(raw.reprecalificaciones),
     expedientesGenerados: num(raw.expedientes_generados),
     expedientesEnMesa: num(raw.expedientes_en_mesa),
     aprobadas: num(raw.aprobadas),
