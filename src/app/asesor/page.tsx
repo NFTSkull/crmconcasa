@@ -926,7 +926,7 @@ function AsesorDashboardNormalPage({
         canIntegrateForAny && ownerAsesorId ? ownerAsesorId : null;
       const key = `${String(currentUser.email ?? "asesor")}:owner:${
         scopedOwnerId ?? "self"
-      }`;
+      }:precalificador:${precalificadorOrigenId || "todos"}`;
       asesorPerfMark("summary-start");
       // Gen dentro del factory: single-flight no invalida el apply del vuelo compartido.
       await summarySingleFlightRef.current.run(key, async () => {
@@ -935,6 +935,7 @@ function AsesorDashboardNormalPage({
           const summary = await repo.getAsesorInboxSummary(
             ASESOR_INBOX_NOTIF_DEFAULT_LIMIT,
             scopedOwnerId,
+            precalificadorOrigenId || null,
           );
           if (gen !== summaryGenRef.current) return;
           await applySummarySideEffects(summary, gen);
