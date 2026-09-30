@@ -72,12 +72,15 @@ const COLOR_ACTIONS: ReadonlyArray<{
   },
 ];
 
+// Mismo orden visual que CITAS 2026:
+ // Apodaca Firmas → Monterrey Firmas → Monterrey Biométricos → LEO
+ // → Apodaca Biométricos → Monterrey Inscripción.
 const SECTIONS = [
+  { locationId: "apodaca", kind: "firmas", label: "APODACA · FIRMAS", short: "Apodaca Firmas" },
+  { locationId: "monterrey", kind: "firmas", label: "MONTERREY · FIRMAS", short: "MTY Firmas" },
   { locationId: "monterrey", kind: "biometricos", label: "MONTERREY · BIOMÉTRICOS", short: "MTY Biométricos" },
   { locationId: "leo", kind: "biometricos", label: "LEO / HACER PAGARÉS", short: "LEO / Hacer pagarés" },
   { locationId: "apodaca", kind: "biometricos", label: "APODACA · BIOMÉTRICOS", short: "Apodaca Biométricos" },
-  { locationId: "monterrey", kind: "firmas", label: "MONTERREY · FIRMAS", short: "MTY Firmas" },
-  { locationId: "apodaca", kind: "firmas", label: "APODACA · FIRMAS", short: "Apodaca Firmas" },
   { locationId: "monterrey", kind: "inscripcion", label: "MONTERREY · INSCRIPCIÓN", short: "Inscripción" },
 ] as const;
 
@@ -318,11 +321,22 @@ function EditableAgendaRow({
   onAddManual: (row: AgendaHojaRow) => void;
 }>) {
   const [draft, setDraft] = useState<RowDraft>(() => draftFromRow(row));
+  const [manualTime, setManualTime] = useState(
+    row.locationId === "leo" ? "" : row.logicalTime,
+  );
+  const [manualNss, setManualNss] = useState("");
+  const [manualCliente, setManualCliente] = useState("");
+  const [manualAsesor, setManualAsesor] = useState("");
   const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
     setDraft(draftFromRow(row));
+    setManualTime(row.locationId === "leo" ? "" : row.logicalTime);
+    setManualNss("");
+    setManualCliente("");
+    setManualAsesor("");
+    setMessage(null);
   }, [row]);
 
   const dirty = useMemo(
@@ -332,6 +346,75 @@ function EditableAgendaRow({
 
   const alert = rowHasAlert(row);
   const stickyTone = alert ? "bg-red-50" : dirty ? "bg-amber-50" : "bg-white";
+
+  const manualNssDigits = manualNss.replace(/\D/g, "");
+  const availableCanSave =
+    row.available &&
+    manualCliente.trim().length > 0 &&
+    (manualNss.trim().length === 0 || manualNssDigits.length === 11) &&
+    (row.locationId !== "leo" ||
+      (manualTime.length > 0 &&
+        manualNssDigits.length === 11 &&
+        manualAsesor.trim().length > 0));
+
+  const handleAvailableSave = async () => {
+    if (!row.available || !availableCanSave || saving) return;
+    setSaving(true);
+    setMessage(null);
+    try {
+      if (row.locationId === "leo") {
+        await addAgendaLeoManual({
+          bookingDate: row.bookingDate,
+          bookingTime: manualTime,
+          nss: manualNssDigits,
+          clienteNombre: manualCliente,
+          asesorNombre: manualAsesor,
+          biometricResultRaw: draft.biometricResultRaw,
+          biometricColor: draft.biometricColor,
+          notificationResultRaw: draft.notificationResultRaw,
+          notificationColor: draft.notificationColor,
+          notes: draft.notesRaw,
+        });
+      } else {
+        const manualId = await addAgendaManual({
+          bookingDate: row.bookingDate,
+          logicalTime: row.logicalTime,
+          displayTime: row.displayTime,
+          kind: row.kind,
+          locationId: row.locationId,
+          nss: manualNss,
+          clienteNombre: manualCliente,
+          asesorNombre: manualAsesor,
+          notes: draft.notesRaw,
+        });
+
+        const hasOperationalData =
+          draft.biometricResultRaw.trim().length > 0 ||
+          draft.notificationResultRaw.trim().length > 0 ||
+          draft.signatureResultRaw.trim().length > 0 ||
+          draft.biometricColor !== "UNKNOWN" ||
+          draft.notificationColor !== "UNKNOWN" ||
+          draft.signatureColor !== "UNKNOWN";
+
+        if (hasOperationalData) {
+          await saveAgendaHojaResult({
+            rowSource: "manual",
+            rowId: manualId,
+            ...draft,
+          });
+        }
+      }
+
+      setMessage("Guardado");
+      await onReload();
+    } catch (error) {
+      setMessage(
+        error instanceof Error ? error.message : "No se pudo ocupar el lugar.",
+      );
+    } finally {
+      setSaving(false);
+    }
+  };
 
   const handleSave = async () => {
     if (!row.editable || !dirty || saving) return;
@@ -355,7 +438,8 @@ function EditableAgendaRow({
   const handleShortcut = (event: KeyboardEvent<HTMLElement>) => {
     if ((event.metaKey || event.ctrlKey) && event.key === "Enter") {
       event.preventDefault();
-      void handleSave();
+      if (row.available) void handleAvailableSave();
+      else void handleSave();
     }
   };
 
@@ -380,44 +464,232 @@ function EditableAgendaRow({
   };
 
   if (row.available) {
+    const inlineInputClass =
+      "h-8 w-full rounded-md border border-emerald-200 bg-white px-2 text-[10px] font-semibold text-slate-800 outline-none transition placeholder:text-slate-400 focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100";
+
     return (
-      <tr className="group border-b border-slate-200 bg-white hover:bg-emerald-50/40">
-        <td
-          className="sticky left-0 z-10 w-[78px] border-r border-slate-200 bg-white px-2 py-2 text-center text-xs font-bold text-slate-700 group-hover:bg-emerald-50"
-        >
-          {row.locationId === "leo" ? "LIBRE" : row.displayTime}
+      <tr className="group border-b border-emerald-100 bg-emerald-50/30 align-top">
+        <td className="sticky left-0 z-10 w-[78px] border-r border-emerald-100 bg-emerald-50/60 px-1.5 py-1 text-center text-xs font-black text-slate-800">
+          {row.locationId === "leo" ? (
+            <input
+              type="time"
+              value={manualTime}
+              onChange={(event) => setManualTime(event.target.value)}
+              onKeyDown={handleShortcut}
+              aria-label="Hora"
+              className="h-8 w-[68px] rounded-md border border-emerald-200 bg-white px-1 text-[10px] font-bold outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
+            />
+          ) : (
+            row.displayTime
+          )}
         </td>
-        <td
-          className="sticky left-[78px] z-10 w-[128px] border-r border-slate-200 bg-white px-2 py-2 text-xs text-slate-300 group-hover:bg-emerald-50"
-        >
-          —
+        <td className="sticky left-[78px] z-10 w-[128px] border-r border-emerald-100 bg-emerald-50/60 p-1">
+          <input
+            value={manualNss}
+            onChange={(event) => setManualNss(event.target.value)}
+            onKeyDown={handleShortcut}
+            aria-label="NSS"
+            placeholder="Escribir NSS…"
+            inputMode="numeric"
+            className={inlineInputClass}
+          />
         </td>
-        <td
-          className="sticky left-[206px] z-10 w-[244px] border-r border-slate-200 bg-white px-3 py-2 group-hover:bg-emerald-50"
-        >
-          <span className="inline-flex items-center gap-2 text-xs font-semibold text-emerald-700">
-            <span className="h-2 w-2 rounded-full bg-emerald-500" />
-            {row.locationId === "leo" ? "Lugar LEO disponible" : "Lugar disponible"}
-          </span>
+        <td className="sticky left-[206px] z-10 w-[244px] border-r border-emerald-100 bg-emerald-50/60 p-1">
+          <input
+            value={manualCliente}
+            onChange={(event) => setManualCliente(event.target.value.toUpperCase())}
+            onKeyDown={handleShortcut}
+            aria-label="Cliente"
+            placeholder="Escribir cliente…"
+            className={inlineInputClass}
+          />
         </td>
-        <td
-          className="sticky left-[450px] z-10 w-[190px] border-r border-slate-200 bg-white px-2 py-2 text-xs text-slate-300 group-hover:bg-emerald-50"
-        >
-          —
+        <td className="sticky left-[450px] z-10 w-[190px] border-r border-emerald-100 bg-emerald-50/60 p-1">
+          <input
+            value={manualAsesor}
+            onChange={(event) => setManualAsesor(event.target.value.toUpperCase())}
+            onKeyDown={handleShortcut}
+            aria-label="Asesor"
+            placeholder="Escribir asesor…"
+            className={inlineInputClass}
+          />
         </td>
-        <td colSpan={row.kind === "biometricos" ? 3 : 4} className="border-r border-slate-200 px-3 py-2 text-xs text-slate-400">
-          {row.locationId === "leo"
-            ? "Disponible para captura manual. No consume cupo de Biométricos."
-            : "Espacio libre en la hoja."}
+
+        {row.kind === "firmas" ? (
+          <>
+            <td className="p-0">
+              <ResultCell
+                value={draft.notificationResultRaw}
+                color={draft.notificationColor}
+                label="Notificación"
+                listId={"free-notif-" + row.rowId}
+                suggestions={suggestions.notificacion}
+                disabled={saving}
+                compact={compact}
+                onValueChange={(value) =>
+                  setDraft((prev) => ({ ...prev, notificationResultRaw: value }))
+                }
+                onColorChange={(value) =>
+                  setDraft((prev) => ({ ...prev, notificationColor: value }))
+                }
+                onShortcut={handleShortcut}
+              />
+            </td>
+            <td className="p-0">
+              <ResultCell
+                value={draft.signatureResultRaw}
+                color={draft.signatureColor}
+                label="Firmó"
+                listId={"free-firmo-" + row.rowId}
+                suggestions={suggestions.firmo}
+                disabled={saving}
+                compact={compact}
+                onValueChange={(value) =>
+                  setDraft((prev) => ({ ...prev, signatureResultRaw: value }))
+                }
+                onColorChange={(value) =>
+                  setDraft((prev) => ({ ...prev, signatureColor: value }))
+                }
+                onShortcut={handleShortcut}
+              />
+            </td>
+            <td className="p-0">
+              <ResultCell
+                value={draft.biometricResultRaw}
+                color={draft.biometricColor}
+                label="Firma"
+                listId={"free-firma-" + row.rowId}
+                suggestions={suggestions.firma}
+                disabled={saving}
+                compact={compact}
+                onValueChange={(value) =>
+                  setDraft((prev) => ({ ...prev, biometricResultRaw: value }))
+                }
+                onColorChange={(value) =>
+                  setDraft((prev) => ({ ...prev, biometricColor: value }))
+                }
+                onShortcut={handleShortcut}
+              />
+            </td>
+          </>
+        ) : (
+          <>
+            <td className="p-0">
+              <ResultCell
+                value={draft.biometricResultRaw}
+                color={draft.biometricColor}
+                label={row.kind === "biometricos" ? "Biométricos" : "Resultado"}
+                listId={"free-bio-" + row.rowId}
+                suggestions={suggestions.biometricos}
+                disabled={saving}
+                compact={compact}
+                onValueChange={(value) =>
+                  setDraft((prev) => ({ ...prev, biometricResultRaw: value }))
+                }
+                onColorChange={(value) =>
+                  setDraft((prev) => ({ ...prev, biometricColor: value }))
+                }
+                onShortcut={handleShortcut}
+              />
+            </td>
+            <td className="p-0">
+              <ResultCell
+                value={draft.notificationResultRaw}
+                color={draft.notificationColor}
+                label="Notificación"
+                listId={"free-notif-" + row.rowId}
+                suggestions={suggestions.notificacion}
+                disabled={saving}
+                compact={compact}
+                onValueChange={(value) =>
+                  setDraft((prev) => ({ ...prev, notificationResultRaw: value }))
+                }
+                onColorChange={(value) =>
+                  setDraft((prev) => ({ ...prev, notificationColor: value }))
+                }
+                onShortcut={handleShortcut}
+              />
+            </td>
+            {row.kind !== "biometricos" ? (
+              <td className="p-0">
+                <ResultCell
+                  value={draft.signatureResultRaw}
+                  color={draft.signatureColor}
+                  label="Firma"
+                  listId={"free-sign-" + row.rowId}
+                  suggestions={suggestions.firma}
+                  disabled={saving}
+                  compact={compact}
+                  onValueChange={(value) =>
+                    setDraft((prev) => ({ ...prev, signatureResultRaw: value }))
+                  }
+                  onColorChange={(value) =>
+                    setDraft((prev) => ({ ...prev, signatureColor: value }))
+                  }
+                  onShortcut={handleShortcut}
+                />
+              </td>
+            ) : null}
+          </>
+        )}
+
+        <td className="min-w-[235px] border-r border-emerald-100 p-1">
+          <input
+            value={draft.notesRaw}
+            onChange={(event) =>
+              setDraft((prev) => ({ ...prev, notesRaw: event.target.value }))
+            }
+            onKeyDown={handleShortcut}
+            aria-label="Notas operativas"
+            placeholder="Notas…"
+            className={inlineInputClass}
+          />
         </td>
-        <td className="min-w-[150px] px-2 py-2 text-center">
-          <button
-            type="button"
-            onClick={() => onAddManual(row)}
-            className="whitespace-nowrap rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-800 transition hover:border-indigo-300 hover:bg-indigo-100"
-          >
-            {row.locationId === "leo" ? "+ Agregar cliente" : "+ Captura manual"}
-          </button>
+        <td className="min-w-[155px] p-1">
+          <div className="flex items-center gap-1">
+            <span className="shrink-0 rounded-full border border-emerald-200 bg-emerald-50 px-1.5 py-0.5 text-[8px] font-black text-emerald-700">
+              Disponible
+            </span>
+            <button
+              type="button"
+              disabled={!availableCanSave || saving}
+              onClick={() => void handleAvailableSave()}
+              className={cx(
+                "h-8 flex-1 rounded-md border px-2 text-[10px] font-black transition",
+                availableCanSave
+                  ? "border-indigo-700 bg-indigo-700 text-white hover:bg-indigo-800"
+                  : "border-slate-200 bg-slate-100 text-slate-400",
+                "disabled:cursor-not-allowed",
+              )}
+            >
+              {saving ? "Guardando…" : "Guardar"}
+            </button>
+            <button
+              type="button"
+              onClick={() => onAddManual(row)}
+              disabled={saving}
+              className="h-8 rounded-md border border-slate-200 bg-white px-2 text-[10px] font-black text-slate-500 hover:bg-slate-50 disabled:opacity-40"
+              title="Abrir formulario completo"
+              aria-label="Abrir formulario completo"
+            >
+              ⋯
+            </button>
+          </div>
+          {manualNss.trim() && manualNssDigits.length !== 11 ? (
+            <span className="mt-0.5 block text-[8px] font-bold text-red-600">
+              NSS: 11 dígitos
+            </span>
+          ) : null}
+          {message ? (
+            <span
+              className={cx(
+                "mt-0.5 block text-center text-[8px] font-bold",
+                message === "Guardado" ? "text-emerald-700" : "text-red-700",
+              )}
+            >
+              {message === "Guardado" ? "✓ Guardado" : message}
+            </span>
+          ) : null}
         </td>
       </tr>
     );
@@ -1801,6 +2073,7 @@ export function MesaAgendaHojaOperativaClient() {
             <span><b>Ajustar todo</b> = filas compactas y legibles, sin zoom diminuto ni scroll vertical interno</span>
             <span><b>Biométricos</b> = Biométricos + Notificación</span>
             <span><b>Firmas</b> = Notificación + Firmó + Firma, igual que Drive</span>
+            <span><b>Lugar disponible</b> = escribe directo en la fila y guarda, sin abrir formulario</span>
             <span><b>⌘/Ctrl + Enter</b> = guardar fila</span>
           </div>
         </section>
