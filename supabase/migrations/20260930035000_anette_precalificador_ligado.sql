@@ -390,6 +390,123 @@ REVOKE ALL ON FUNCTION public.asesor_preparar_precalificacion_nss_only_ligada(TE
 GRANT EXECUTE ON FUNCTION public.asesor_preparar_precalificacion_nss_only_ligada(TEXT, TEXT)
   TO authenticated, service_role;
 
+CREATE OR REPLACE FUNCTION public.asesor_inbox_counts_for_precalificador(
+  p_precalificador_origen_id UUID
+)
+RETURNS JSONB
+LANGUAGE plpgsql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+SET statement_timeout = '25s'
+AS $function$
+DECLARE
+  v_actor UUID := public.current_profile_id();
+  v_counts JSONB;
+  v_programas JSONB;
+BEGIN
+  IF v_actor IS NULL THEN
+    RAISE EXCEPTION 'asesor_inbox_counts_for_precalificador: no autenticado'
+      USING ERRCODE = '42501';
+  END IF;
+
+  IF p_precalificador_origen_id IS NULL
+     OR NOT EXISTS (
+       SELECT 1
+       FROM public.asesor_precalificadores_ligados l
+       JOIN public.profiles titular ON titular.id = l.asesor_titular_id
+       WHERE l.asesor_titular_id = v_actor
+         AND l.precalificador_id = p_precalificador_origen_id
+         AND l.active = true
+         AND titular.active = true
+         AND titular.app_role = 'asesor'
+     ) THEN
+    RAISE EXCEPTION 'asesor_inbox_counts_for_precalificador: precalificador no ligado al asesor'
+      USING ERRCODE = '42501';
+  END IF;
+
+  WITH base AS MATERIALIZED (
+    SELECT
+      e.id,
+      public.asesor_inbox_programa_ui(e.programa) AS programa_ui,
+      public.asesor_inbox_resultado_real(
+        e.submitted_to_mesa,
+        e.subestado::text,
+        e.ciclo_estado::text,
+        ed.decision::text
+      ) AS resultado_real,
+      public.asesor_inbox_estado_efectivo(e.id) AS estado_efectivo,
+      public.asesor_inbox_pendiente_agendar_biometricos(
+        e.submitted_to_mesa, e.etapa_actual, e.id
+      ) AS pendiente_agendar_biometricos,
+      public.asesor_inbox_pendiente_agendar_firma(
+        e.submitted_to_mesa, e.etapa_actual, e.id
+      ) AS pendiente_agendar_firma,
+      public.asesor_inbox_pendiente_subir_acuse(
+        e.submitted_to_mesa, e.etapa_actual, e.id
+      ) AS pendiente_subir_acuse
+    FROM public.expedientes e
+    LEFT JOIN public.editor_decisions ed ON ed.expediente_id = e.id
+    WHERE e.deleted_at IS NULL
+      AND e.asesor_id = v_actor
+      AND e.precalificador_origen_id = p_precalificador_origen_id
+  ),
+  agg AS (
+    SELECT
+      count(*)::bigint AS total,
+      count(*) FILTER (WHERE resultado_real = 'aprobado_editor')::bigint AS aprobados_editor,
+      count(*) FILTER (WHERE resultado_real = 'no_cumple_editor')::bigint AS no_cumple,
+      count(*) FILTER (WHERE estado_efectivo = 'en_tramite')::bigint AS en_tramite,
+      count(*) FILTER (WHERE estado_efectivo = 'rechazado_mesa')::bigint AS rechazados_mesa,
+      count(*) FILTER (WHERE estado_efectivo = 'cancelado')::bigint AS cancelados,
+      count(*) FILTER (WHERE estado_efectivo = 'correccion_requerida')::bigint AS correccion_requerida,
+      count(*) FILTER (WHERE estado_efectivo = 'correccion_enviada')::bigint AS correccion_enviada,
+      count(*) FILTER (WHERE pendiente_agendar_biometricos)::bigint AS agendar_biometricos,
+      count(*) FILTER (WHERE pendiente_agendar_firma)::bigint AS agendar_firma,
+      count(*) FILTER (WHERE pendiente_subir_acuse)::bigint AS subir_acuse
+    FROM base
+  ),
+  programas AS (
+    SELECT coalesce(
+      jsonb_agg(p.programa_ui ORDER BY p.programa_ui),
+      '[]'::jsonb
+    ) AS arr
+    FROM (
+      SELECT DISTINCT programa_ui
+      FROM base
+      WHERE trim(coalesce(programa_ui, '')) <> ''
+    ) p
+  )
+  SELECT
+    jsonb_build_object(
+      'total', a.total,
+      'aprobados_editor', a.aprobados_editor,
+      'no_cumple', a.no_cumple,
+      'en_tramite', a.en_tramite,
+      'rechazados_mesa', a.rechazados_mesa,
+      'cancelados', a.cancelados,
+      'correccion_requerida', a.correccion_requerida,
+      'correccion_enviada', a.correccion_enviada,
+      'agendar_biometricos', a.agendar_biometricos,
+      'agendar_firma', a.agendar_firma,
+      'subir_acuse', a.subir_acuse
+    ),
+    p.arr
+  INTO v_counts, v_programas
+  FROM agg a, programas p;
+
+  RETURN jsonb_build_object(
+    'counts', coalesce(v_counts, '{}'::jsonb),
+    'programas_unicos', coalesce(v_programas, '[]'::jsonb)
+  );
+END;
+$function$;
+
+REVOKE ALL ON FUNCTION public.asesor_inbox_counts_for_precalificador(UUID)
+  FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.asesor_inbox_counts_for_precalificador(UUID)
+  TO authenticated, service_role;
+
 -- Overload nuevo: mismo inbox vigente + filtro opcional por origen de precalificación.
 CREATE OR REPLACE FUNCTION public.asesor_list_expedientes_page(p_page integer DEFAULT 1, p_page_size integer DEFAULT 25, p_buscar text DEFAULT NULL::text, p_decision text DEFAULT NULL::text, p_estatus_operativo text DEFAULT NULL::text, p_resultado_real text DEFAULT NULL::text, p_programa text DEFAULT NULL::text, p_etapa_exacta integer DEFAULT NULL::integer, p_fecha_desde date DEFAULT NULL::date, p_fecha_hasta date DEFAULT NULL::date, p_quick_filter text DEFAULT 'todos'::text, p_owner_asesor_id uuid DEFAULT NULL::uuid, p_precalificador_origen_id uuid DEFAULT NULL::uuid)
  RETURNS jsonb
