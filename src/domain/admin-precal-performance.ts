@@ -169,6 +169,24 @@ function mapAdvisor(raw: Record<string, unknown>): AdminPrecalPerformanceAdvisor
   };
 }
 
+function mapNssAdvisor(
+  raw: Record<string, unknown>,
+): AdminPrecalNssAdvisorBreakdown {
+  return {
+    asesorId: str(raw.asesor_id),
+    asesorNombre: strOrNull(raw.asesor_nombre),
+    asesorEmail: strOrNull(raw.asesor_email),
+    precalificaciones: num(raw.precalificaciones),
+    reprecalificaciones: num(raw.reprecalificaciones),
+    aprobadas: num(raw.aprobadas),
+    noCumple: num(raw.no_cumple),
+    pendientes: num(raw.pendientes),
+    expedientes: num(raw.expedientes),
+    expedientesEnMesa: num(raw.expedientes_en_mesa),
+    montoPromedio: num(raw.monto_promedio),
+  };
+}
+
 function mapItem(raw: Record<string, unknown>): AdminPrecalPerformanceItem {
   return {
     attemptKey: str(raw.attempt_key),
@@ -177,6 +195,13 @@ function mapItem(raw: Record<string, unknown>): AdminPrecalPerformanceItem {
     fecha: str(raw.fecha),
     nss: str(raw.nss),
     nssPrecalHistoricas: num(raw.nss_precal_historicas),
+    nssPrecalPeriodo: num(raw.nss_precal_periodo),
+    isReprecalificacion: bool(raw.is_reprecalificacion),
+    compartidoEntreAsesores: bool(raw.compartido_entre_asesores),
+    asesoresNssCount: num(raw.asesores_nss_count),
+    asesoresNss: (Array.isArray(raw.asesores_nss) ? raw.asesores_nss : []).map(
+      (row) => mapNssAdvisor(row as Record<string, unknown>),
+    ),
     clienteNombre: str(raw.cliente_nombre),
     asesorId: str(raw.asesor_id),
     asesorNombre: strOrNull(raw.asesor_nombre),
