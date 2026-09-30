@@ -8,6 +8,13 @@ const migration = readFileSync(
   join(root, "supabase/migrations/20260930035000_anette_precalificador_ligado.sql"),
   "utf8",
 );
+const anetteDuplicateOverrideMigration = readFileSync(
+  join(
+    root,
+    "supabase/migrations/20260930203500_anette_precal_permitir_nss_activo.sql",
+  ),
+  "utf8",
+);
 const dashboard = readFileSync(
   join(root, "src/components/asesor/PrecalificadorNssOnlyDashboard.tsx"),
   "utf8",
@@ -40,6 +47,21 @@ describe("precalificador ligado NSS-only", () => {
     assert.doesNotMatch(dashboard, /cliente_datos/);
     assert.match(asesorPage, /precalificador_nss_only/);
     assert.match(nuevaLayout, /PrecalificadorNssOnlyDashboard/);
+  });
+
+  it("solo Anette puede repetir un NSS activo pre-Mesa desde su precalificador ligado", () => {
+    assert.match(
+      anetteDuplicateOverrideMigration,
+      /NOT public\.asesor_es_anette_externa\(v_target\.id\)[\s\S]*AND EXISTS/,
+    );
+    assert.match(
+      anetteDuplicateOverrideMigration,
+      /nss_bloqueado_en_mesa/,
+    );
+    assert.doesNotMatch(
+      anetteDuplicateOverrideMigration,
+      /Anette ya tiene un expediente activo con este NSS/,
+    );
   });
 
   it("Anette puede filtrar listado y KPIs por precalificador", () => {
