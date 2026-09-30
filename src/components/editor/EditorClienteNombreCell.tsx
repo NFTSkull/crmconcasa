@@ -1,10 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { isPorCapturarNombre } from "@/components/editor/editor-cliente-nombre";
 import { supabaseBrowser } from "@/lib/supabaseBrowser";
-import { filterPersonNameInput, normalizePersonName } from "@/lib/clienteDatosFieldFormats";
+import {
+  filterPersonNameInput,
+  normalizePersonName,
+} from "@/lib/clienteDatosFieldFormats";
 
 type Props = {
   expedienteId: string;
@@ -13,63 +16,81 @@ type Props = {
 };
 
 /**
- * Contenido de la celda Cliente (sin &lt;td&gt;): texto plano, o input si
- * el nombre es exactamente POR CAPTURAR → RPC editor_fill_nombre_infonavit.
+ * Nombre editable para TODAS las precalificaciones del Editor.
+ * Blur/Enter guarda solo si cambió el valor.
  */
 export function EditorClienteNombreCell({
   expedienteId,
   clienteNombre,
   onApplied,
 }: Props) {
-  const [draft, setDraft] = useState("");
+  const initialValue = isPorCapturarNombre(clienteNombre)
+    ? ""
+    : clienteNombre || "";
+  const [draft, setDraft] = useState(initialValue);
   const [saving, setSaving] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
 
-  if (!isPorCapturarNombre(clienteNombre)) {
-    return (
-      <span className="truncate" title={clienteNombre || undefined}>
-        {clienteNombre || "—"}
-      </span>
+  useEffect(() => {
+    setDraft(
+      isPorCapturarNombre(clienteNombre) ? "" : clienteNombre || "",
     );
-  }
+    setAviso(null);
+  }, [clienteNombre]);
 
   async function commit() {
+    if (saving) return;
     const nombre = normalizePersonName(draft);
-    if (!nombre || saving) return;
+    if (!nombre) return;
+
+    const actual = normalizePersonName(
+      isPorCapturarNombre(clienteNombre) ? "" : clienteNombre,
+    );
+    if (nombre === actual) return;
+
     if (!supabaseBrowser) {
-      setAviso("No se pudo aplicar");
+      setAviso("No se pudo guardar");
       return;
     }
+
     setSaving(true);
     setAviso(null);
     try {
       const { data, error } = await supabaseBrowser.rpc(
-        "editor_fill_nombre_infonavit",
+        "editor_update_precal_nombre",
         {
           p_expediente_id: expedienteId,
           p_nombre_completo: nombre,
         },
       );
-      const ok =
+      const payload =
+        data != null && typeof data === "object"
+          ? (data as { ok?: unknown; nombre_completo?: unknown })
+          : null;
+      const applied =
         !error &&
-        data != null &&
-        typeof data === "object" &&
-        (data as { ok?: unknown }).ok === true;
-      if (!ok) {
-        setAviso("No se pudo aplicar");
+        payload?.ok === true &&
+        typeof payload.nombre_completo === "string" &&
+        payload.nombre_completo.trim().length > 0;
+
+      if (!applied) {
+        setAviso(error?.message || "No se pudo guardar");
         return;
       }
-      onApplied(nombre);
-      setDraft("");
+
+      const savedName = String(payload!.nombre_completo);
+      setDraft(savedName);
+      onApplied(savedName);
+      setAviso("Guardado");
     } catch {
-      setAviso("No se pudo aplicar");
+      setAviso("No se pudo guardar");
     } finally {
       setSaving(false);
     }
   }
 
   return (
-    <div className="min-w-[10rem]">
+    <div className="min-w-[11rem]">
       <label className="flex items-center gap-1.5">
         <span
           className="shrink-0 text-gray-400"
@@ -84,8 +105,11 @@ export function EditorClienteNombreCell({
           disabled={saving}
           placeholder="Nombre completo"
           aria-label="Capturar nombre del cliente"
-          className="min-h-[32px] w-full rounded border border-amber-300 bg-amber-50 px-2 py-1 text-sm uppercase text-gray-900 outline-none focus:border-amber-500"
-          onChange={(e) => setDraft(filterPersonNameInput(e.target.value))}
+          className="min-h-[32px] w-full rounded border border-gray-300 bg-white px-2 py-1 text-sm uppercase text-gray-900 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 disabled:bg-gray-100"
+          onChange={(e) => {
+            setDraft(filterPersonNameInput(e.target.value));
+            setAviso(null);
+          }}
           onBlur={() => {
             void commit();
           }}
@@ -98,7 +122,15 @@ export function EditorClienteNombreCell({
         />
       </label>
       {aviso ? (
-        <span className="mt-1 block text-[10px] text-red-600">{aviso}</span>
+        <span
+          className={
+            aviso === "Guardado"
+              ? "mt-1 block text-[10px] text-green-600"
+              : "mt-1 block text-[10px] text-red-600"
+          }
+        >
+          {aviso}
+        </span>
       ) : null}
     </div>
   );
