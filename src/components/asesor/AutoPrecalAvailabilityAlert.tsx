@@ -12,7 +12,7 @@ const POLL_MS = 10_000;
  * No bloquea la captura ni el envío de precalificaciones.
  * Cambiar a false cuando se confirme que Bansefi/Infonavit volvió estable.
  */
-const FORCE_BANSEFI_TEMPORARY_OUTAGE_NOTICE = true;
+const FORCE_BANSEFI_TEMPORARY_OUTAGE_NOTICE = false;
 
 type HealthPayload = {
   ok?: boolean;
