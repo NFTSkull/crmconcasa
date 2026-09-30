@@ -220,7 +220,7 @@ export function AdminPrecalificacionesPerformanceSection() {
           sub: `${summary.pendientes.toLocaleString("es-MX")} pendientes`,
         },
         {
-          label: "Monto promedio aprobado",
+          label: "Promedio aprobado Mejoravit",
           value: formatMontoMX(summary.montoPromedioAprobado),
           sub: "Mejoravit se analiza con tope operativo de $169,000",
         },
@@ -240,9 +240,9 @@ export function AdminPrecalificacionesPerformanceSection() {
           sub: `${summary.topados169kAMesa.toLocaleString("es-MX")} llegaron a Mesa · ${pct(summary.conversionTopadosMesa)}`,
         },
         {
-          label: "Monto aprobado total",
+          label: "Monto aprobado Mejoravit",
           value: formatMontoMX(summary.montoTotalAprobado),
-          sub: "Suma operativa del periodo",
+          sub: "Suma operativa Mejoravit del periodo",
         },
       ]
     : [];
@@ -403,7 +403,7 @@ export function AdminPrecalificacionesPerformanceSection() {
                       <th className="py-2 pr-3 text-right">Repetidas</th>
                       <th className="py-2 pr-3 text-right">Aprob.</th>
                       <th className="py-2 pr-3 text-right">Tasa aprob.</th>
-                      <th className="py-2 pr-3 text-right">Promedio</th>
+                      <th className="py-2 pr-3 text-right">Prom. Mejoravit</th>
                       <th className="py-2 pr-3 text-right">Topados</th>
                       <th className="py-2 pr-3 text-right">A Mesa</th>
                       <th className="py-2 text-right">Conversión</th>
