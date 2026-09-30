@@ -593,6 +593,7 @@ export class MockExpedientesRepo implements ExpedientesRepo {
   async getAsesorInboxSummary(
     notifLimit?: number,
     _ownerAsesorId?: string | null,
+    _precalificadorOrigenId?: string | null,
   ): Promise<AsesorInboxSummaryResult> {
     const email = readMockSessionAsesorEmail();
     if (!email) {

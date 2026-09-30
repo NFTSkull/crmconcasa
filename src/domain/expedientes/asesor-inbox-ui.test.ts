@@ -74,6 +74,26 @@ describe("asesor-inbox-ui B1", () => {
     assert.equal(input.quick_filter, "agendar_biometricos");
   });
 
+  it("precalificador_origen_id viaja al input cuando Anette filtra el usuario ligado", () => {
+    const precalificadorId = "00000000-0000-4000-8001-000000000077";
+    const input = buildAsesorInboxListInput({
+      page: 1,
+      precalificadorOrigenId: precalificadorId,
+      filters: {
+        buscar: "",
+        decision: "",
+        estatusOperativo: "",
+        resultadoReal: "",
+        programa: "",
+        etapaExacta: "",
+        fechaDesde: "",
+        fechaHasta: "",
+      },
+      quickFilter: "todos",
+    });
+    assert.equal(input.precalificador_origen_id, precalificadorId);
+  });
+
   it("P208 owner_asesor_id viaja al RPC cuando se indica titular delegado", () => {
     const ownerId = "00000000-0000-4000-8001-000000000042";
     const input = buildAsesorInboxListInput({
