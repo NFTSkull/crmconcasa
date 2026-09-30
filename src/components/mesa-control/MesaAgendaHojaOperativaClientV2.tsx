@@ -188,12 +188,26 @@ type RowDraft = {
 };
 
 function draftFromRow(row: AgendaHojaRow): RowDraft {
+  // Compatibilidad con proyecciones anteriores donde FIRMÓ/FIRMA se guardaban
+  // juntos como "FIRMÓ / FIRMA". La proyección nueva ya los separa.
+  let firmo = row.signatureResultRaw;
+  let firma = row.biometricResultRaw;
+  if (
+    row.kind === "firmas" &&
+    !firma.trim() &&
+    firmo.includes(" / ")
+  ) {
+    const [legacyFirmo, ...legacyFirmaParts] = firmo.split(" / ");
+    firmo = legacyFirmo?.trim() ?? "";
+    firma = legacyFirmaParts.join(" / ").trim();
+  }
+
   return {
-    biometricResultRaw: row.biometricResultRaw,
+    biometricResultRaw: firma,
     biometricColor: row.biometricColor,
     notificationResultRaw: row.notificationResultRaw,
     notificationColor: row.notificationColor,
-    signatureResultRaw: row.signatureResultRaw,
+    signatureResultRaw: firmo,
     signatureColor: row.signatureColor,
     notesRaw: row.notesRaw,
   };
