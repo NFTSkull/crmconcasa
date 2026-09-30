@@ -44,11 +44,11 @@ describe("Admin UX B3 montaje Bernardo en /admin", () => {
     assert.ok(bernardoIdx < logoutIdx, "Reporte del día debe ir antes de Cerrar sesión");
   });
 
-  it("Bernardo no aparece en las cuatro pestañas principales", () => {
+  it("Bernardo no aparece en las pestañas principales", () => {
     assert.doesNotMatch(tabsUi, />\s*Bernardo\s*</);
     assert.equal(
-      (tabsHelper.match(/id: "resumen"|id: "expedientes"|id: "reportes"|id: "produccion"/g) ?? [])
-        .length >= 4,
+      (tabsHelper.match(/id: "resumen"|id: "expedientes"|id: "precalificaciones"|id: "reportes"|id: "produccion"/g) ?? [])
+        .length >= 5,
       true,
     );
     assert.match(tabsHelper, /"bernardo"/);
