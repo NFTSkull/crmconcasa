@@ -74,6 +74,7 @@ export interface ExpedientesRepo {
   getAsesorInboxSummary(
     notifLimit?: number,
     ownerAsesorId?: string | null,
+    precalificadorOrigenId?: string | null,
   ): Promise<AsesorInboxSummaryResult>;
   /** P197: estado efectivo del inbox (detalle consume el mismo helper SQL). */
   getAsesorInboxEstadoEfectivo(expedienteId: string): Promise<string | null>;
