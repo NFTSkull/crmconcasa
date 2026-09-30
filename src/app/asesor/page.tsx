@@ -1135,6 +1135,7 @@ function AsesorDashboardNormalPage({
           fecha_hasta: null,
           owner_asesor_id:
             canIntegrateForAny && ownerAsesorId ? ownerAsesorId : null,
+          precalificador_origen_id: precalificadorOrigenId || null,
         },
         pageSize: ASESOR_INBOX_MAX_PAGE_SIZE,
         asesorEmail: currentUser.email,
@@ -1164,6 +1165,7 @@ function AsesorDashboardNormalPage({
     currentUser?.email,
     exportProgramaFilter,
     ownerAsesorId,
+    precalificadorOrigenId,
     repo,
   ]);
 
