@@ -38,7 +38,7 @@ export const ADMIN_TABS: readonly AdminTabDef[] = [
     id: "precalificaciones",
     label: "Precalificaciones",
     description:
-      "Rendimiento por asesor: NSS repetidos, montos, topados y conversión a Mesa.",
+      "Rendimiento por asesor: re-precalificaciones, NSS compartidos, montos, topados y conversión a Mesa.",
   },
   {
     id: "reportes",
