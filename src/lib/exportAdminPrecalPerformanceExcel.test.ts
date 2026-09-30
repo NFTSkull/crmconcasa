@@ -22,6 +22,9 @@ const fixture: AdminPrecalPerformanceResult = {
     expedientesGenerados: 2,
     expedientesEnMesa: 1,
     conversionMesaPct: 50,
+    casosMayor20k: 2,
+    casosMayor20kEnMesa: 1,
+    conversionMayor20kPct: 50,
     topadosNss: 1,
     topadosNssEnMesa: 1,
     topadosConversionPct: 100,
@@ -37,6 +40,8 @@ const fixture: AdminPrecalPerformanceResult = {
       reprecalificaciones: 1,
       expedientesGenerados: 2,
       expedientesEnMesa: 1,
+      casosMayor20k: 2,
+      casosMayor20kEnMesa: 1,
       aprobadas: 2,
       noCumple: 1,
       pendientes: 0,
@@ -45,6 +50,7 @@ const fixture: AdminPrecalPerformanceResult = {
       topadosNss: 1,
       topadosNssEnMesa: 1,
       conversionMesaPct: 50,
+      conversionMayor20kPct: 50,
     },
   ],
   items: [
@@ -97,6 +103,7 @@ const fixture: AdminPrecalPerformanceResult = {
       programa: "mejoravit",
       decision: "aprobado",
       montoAprobado: 169000,
+      aprobadoMayor20k: true,
       topado169k: true,
       submittedToMesa: true,
       fechaEnvioMesa: "2026-09-30T17:00:00.000Z",
@@ -126,6 +133,7 @@ const fixture: AdminPrecalPerformanceResult = {
       programa: "mejoravit",
       decision: "aprobado",
       montoAprobado: 120000,
+      aprobadoMayor20k: true,
       topado169k: false,
       submittedToMesa: true,
       fechaEnvioMesa: "2026-09-30T17:00:00.000Z",
@@ -191,6 +199,9 @@ describe("Excel rendimiento de precalificaciones", () => {
       { header: 1 },
     );
     assert.ok((rows[0] ?? []).includes("Casos precalificados distintos"));
-    assert.ok((rows[0] ?? []).includes("Expedientes a Mesa"));
+    assert.ok((rows[0] ?? []).includes("Casos aprobados > $20k"));
+    assert.ok((rows[0] ?? []).includes("> $20k a Mesa"));
+    assert.ok((rows[0] ?? []).includes("% > $20k a Mesa"));
+    assert.ok(!(rows[0] ?? []).includes("% conversión a Mesa"));
   });
 });

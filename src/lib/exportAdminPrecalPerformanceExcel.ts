@@ -200,8 +200,9 @@ export function buildAdminPrecalPerformanceWorkbook(input: {
     ["Monto promedio aprobado", summary.montoPromedio],
     ["Monto aprobado operativo", summary.montoTotalAdmin],
     ["Casos precalificados distintos", summary.expedientesGenerados],
-    ["Expedientes enviados a Mesa", summary.expedientesEnMesa],
-    ["% conversión a Mesa", formatPct(summary.conversionMesaPct)],
+    ["Casos aprobados > $20,000", summary.casosMayor20k],
+    ["De > $20,000 enviados a Mesa", summary.casosMayor20kEnMesa],
+    ["% conversión > $20,000 a Mesa", formatPct(summary.conversionMayor20kPct)],
     ["NSS topados $169,000", summary.topadosNss],
     ["Topados enviados a Mesa", summary.topadosNssEnMesa],
     ["% conversión topados", formatPct(summary.topadosConversionPct)],
@@ -216,8 +217,8 @@ export function buildAdminPrecalPerformanceWorkbook(input: {
       "El mismo NSS fue precalificado por dos o más asesores distintos dentro del periodo.",
     ],
     [
-      "Expediente enviado a Mesa",
-      "Caso que sí fue enviado a Mesa; no es simplemente un registro creado por una precalificación.",
+      "Conversión > $20,000 a Mesa",
+      "Casos aprobados con monto mayor a $20,000 que llegaron a Mesa / casos aprobados con monto mayor a $20,000. Las aprobadas de $20,000 o menos no forman parte del porcentaje.",
     ],
     [
       "Tope Mejoravit",
@@ -226,7 +227,7 @@ export function buildAdminPrecalPerformanceWorkbook(input: {
   ];
   const resumen = XLSX.utils.aoa_to_sheet(resumenAoa);
   resumen["!cols"] = [{ wch: 34 }, { wch: 72 }];
-  for (const ref of ["B16", "B21", "B24"]) {
+  for (const ref of ["B16", "B22", "B25"]) {
     if (resumen[ref]) resumen[ref].z = "0.0%";
   }
   for (const ref of ["B17", "B18"]) {
@@ -246,11 +247,12 @@ export function buildAdminPrecalPerformanceWorkbook(input: {
       "No cumple",
       "Pendientes",
       "% aprobación",
+      "Casos aprobados > $20k",
+      "> $20k a Mesa",
+      "% > $20k a Mesa",
       "Monto promedio",
       "Topados $169k",
       "Topados a Mesa",
-      "Expedientes a Mesa",
-      "% conversión a Mesa",
     ],
     ...data.asesores.map((row: AdminPrecalPerformanceAdvisor) => [
       safeText(advisorLabel(row.asesorNombre, row.asesorEmail, row.asesorId)),
@@ -263,23 +265,24 @@ export function buildAdminPrecalPerformanceWorkbook(input: {
       row.noCumple,
       row.pendientes,
       formatPct(row.tasaAprobacionPct),
+      row.casosMayor20k,
+      row.casosMayor20kEnMesa,
+      formatPct(row.conversionMayor20kPct),
       row.montoPromedio,
       row.topadosNss,
       row.topadosNssEnMesa,
-      row.expedientesEnMesa,
-      formatPct(row.conversionMesaPct),
     ]),
   ];
   const advisors = XLSX.utils.aoa_to_sheet(advisorAoa);
   applySheetLayout(
     advisors,
-    [32, 18, 14, 20, 18, 28, 12, 12, 12, 16, 18, 16, 18, 20, 20],
-    `A1:O${advisorAoa.length}`,
+    [32, 18, 14, 20, 18, 28, 12, 12, 12, 16, 22, 18, 20, 18, 16, 18],
+    `A1:P${advisorAoa.length}`,
   );
   for (let row = 2; row <= advisorAoa.length; row += 1) {
     if (advisors[`J${row}`]) advisors[`J${row}`].z = "0.0%";
-    if (advisors[`K${row}`]) advisors[`K${row}`].z = "$#,##0.00";
-    if (advisors[`O${row}`]) advisors[`O${row}`].z = "0.0%";
+    if (advisors[`M${row}`]) advisors[`M${row}`].z = "0.0%";
+    if (advisors[`N${row}`]) advisors[`N${row}`].z = "$#,##0.00";
   }
   XLSX.utils.book_append_sheet(wb, advisors, "Rendimiento por asesor");
 
@@ -296,6 +299,7 @@ export function buildAdminPrecalPerformanceWorkbook(input: {
       "Asesores que comparten NSS",
       "Resultado",
       "Monto aprobado",
+      "Aprobado > $20k",
       "Topado $169k",
       "Expediente a Mesa",
       "Fecha envío Mesa",
@@ -322,6 +326,7 @@ export function buildAdminPrecalPerformanceWorkbook(input: {
       ),
       safeText(labelEditorDecision(item.decision)),
       item.montoAprobado,
+      item.aprobadoMayor20k ? "Sí" : "No",
       item.topado169k ? "Sí" : "No",
       item.submittedToMesa ? "Sí" : "No",
       item.fechaEnvioMesa ? formatDateTimeMx(item.fechaEnvioMesa) : null,
@@ -334,8 +339,8 @@ export function buildAdminPrecalPerformanceWorkbook(input: {
   const detail = XLSX.utils.aoa_to_sheet(detailAoa);
   applySheetLayout(
     detail,
-    [21, 14, 34, 30, 28, 22, 16, 18, 54, 18, 18, 15, 20, 21, 24, 16, 28, 30],
-    `A1:R${detailAoa.length}`,
+    [21, 14, 34, 30, 28, 22, 16, 18, 54, 18, 18, 18, 15, 20, 21, 24, 16, 28, 30],
+    `A1:S${detailAoa.length}`,
   );
   setTextColumn(detail, "B", detailAoa.length);
   for (let row = 2; row <= detailAoa.length; row += 1) {

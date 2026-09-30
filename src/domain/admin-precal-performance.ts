@@ -4,6 +4,7 @@ export type AdminPrecalPerformanceDetailFilter =
   | "todos"
   | "compartidos"
   | "reprecalificaciones"
+  | "mayor_20k"
   | "topados"
   | "mesa"
   | "no_mesa";
@@ -23,6 +24,9 @@ export type AdminPrecalPerformanceSummary = Readonly<{
   expedientesGenerados: number;
   expedientesEnMesa: number;
   conversionMesaPct: number;
+  casosMayor20k: number;
+  casosMayor20kEnMesa: number;
+  conversionMayor20kPct: number;
   topadosNss: number;
   topadosNssEnMesa: number;
   topadosConversionPct: number;
@@ -38,6 +42,8 @@ export type AdminPrecalPerformanceAdvisor = Readonly<{
   reprecalificaciones: number;
   expedientesGenerados: number;
   expedientesEnMesa: number;
+  casosMayor20k: number;
+  casosMayor20kEnMesa: number;
   aprobadas: number;
   noCumple: number;
   pendientes: number;
@@ -46,6 +52,7 @@ export type AdminPrecalPerformanceAdvisor = Readonly<{
   topadosNss: number;
   topadosNssEnMesa: number;
   conversionMesaPct: number;
+  conversionMayor20kPct: number;
 }>;
 
 export type AdminPrecalNssAdvisorBreakdown = Readonly<{
@@ -84,6 +91,7 @@ export type AdminPrecalPerformanceItem = Readonly<{
   programa: string;
   decision: string;
   montoAprobado: number | null;
+  aprobadoMayor20k: boolean;
   topado169k: boolean;
   submittedToMesa: boolean;
   fechaEnvioMesa: string | null;
@@ -141,6 +149,9 @@ function mapSummary(raw: Record<string, unknown>): AdminPrecalPerformanceSummary
     expedientesGenerados: num(raw.expedientes_generados),
     expedientesEnMesa: num(raw.expedientes_en_mesa),
     conversionMesaPct: num(raw.conversion_mesa_pct),
+    casosMayor20k: num(raw.casos_mayor_20k),
+    casosMayor20kEnMesa: num(raw.casos_mayor_20k_en_mesa),
+    conversionMayor20kPct: num(raw.conversion_mayor_20k_pct),
     topadosNss: num(raw.topados_nss),
     topadosNssEnMesa: num(raw.topados_nss_en_mesa),
     topadosConversionPct: num(raw.topados_conversion_pct),
@@ -158,6 +169,8 @@ function mapAdvisor(raw: Record<string, unknown>): AdminPrecalPerformanceAdvisor
     reprecalificaciones: num(raw.reprecalificaciones),
     expedientesGenerados: num(raw.expedientes_generados),
     expedientesEnMesa: num(raw.expedientes_en_mesa),
+    casosMayor20k: num(raw.casos_mayor_20k),
+    casosMayor20kEnMesa: num(raw.casos_mayor_20k_en_mesa),
     aprobadas: num(raw.aprobadas),
     noCumple: num(raw.no_cumple),
     pendientes: num(raw.pendientes),
@@ -166,6 +179,7 @@ function mapAdvisor(raw: Record<string, unknown>): AdminPrecalPerformanceAdvisor
     topadosNss: num(raw.topados_nss),
     topadosNssEnMesa: num(raw.topados_nss_en_mesa),
     conversionMesaPct: num(raw.conversion_mesa_pct),
+    conversionMayor20kPct: num(raw.conversion_mayor_20k_pct),
   };
 }
 
@@ -213,6 +227,7 @@ function mapItem(raw: Record<string, unknown>): AdminPrecalPerformanceItem {
     decision: str(raw.decision),
     montoAprobado:
       raw.monto_aprobado == null ? null : num(raw.monto_aprobado),
+    aprobadoMayor20k: bool(raw.aprobado_mayor_20k),
     topado169k: bool(raw.topado_169k),
     submittedToMesa: bool(raw.submitted_to_mesa),
     fechaEnvioMesa: strOrNull(raw.fecha_envio_mesa),
