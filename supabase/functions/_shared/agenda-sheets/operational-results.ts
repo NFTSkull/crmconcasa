@@ -39,6 +39,10 @@ export type OperationalResultUpsertRow = {
   slot_time: string | null;
   booking_id: string | null;
   expediente_id: string | null;
+  visible_nss: string | null;
+  visible_name: string | null;
+  visible_advisor: string | null;
+  source_block: "leo" | null;
   biometric_result_class: OperationalResultClass;
   biometric_result_raw: string | null;
   notification_result_class: OperationalResultClass;
@@ -166,6 +170,16 @@ function isReagendadosBlockHeader(a: string): boolean {
   return n.includes("REAGENDAD");
 }
 
+function isLeoBlockHeader(a: string): boolean {
+  const n = a
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toUpperCase();
+  return n === "LEO" || n.startsWith("LEO ");
+}
+
 function metricColorsForKind(input: {
   kind: string;
   eiBackgrounds: ReadonlyArray<EffectiveBackground> | null | undefined;
@@ -179,7 +193,7 @@ function metricColorsForKind(input: {
   if (input.kind === "biometricos") {
     return { biometric_color: e, notification_color: f, signature_color: "UNKNOWN" };
   }
-  return { biometric_color: "UNKNOWN", notification_color: "UNKNOWN", signature_color: f };
+  return { biometric_color: "UNKNOWN", notification_color: e, signature_color: f };
 }
 
 export function classifyOperationalRow(input: {
@@ -232,8 +246,8 @@ export function classifyOperationalRow(input: {
   return {
     biometric_result_class: "PENDING",
     biometric_result_raw: null,
-    notification_result_class: "PENDING",
-    notification_result_raw: null,
+    notification_result_class: classifyNotificationResult(e),
+    notification_result_raw: nullIfEmpty(e),
     signature_result_class: classifySignatureResult(firmo, firma),
     signature_result_raw: formatSignatureResultRaw(firmo, firma),
     ...colors,
@@ -259,6 +273,7 @@ export function buildOperationalResultUpsertRows(input: {
   let section: { kind: string; location_id: string } | null = null;
   let headerRow: ReadonlyArray<string | null | undefined> | null = null;
   let inReagendadosBlock = false;
+  let sourceBlock: "leo" | null = null;
 
   for (let i = 0; i < input.grid.length; i++) {
     const row = input.grid[i] ?? [];
@@ -266,6 +281,18 @@ export function buildOperationalResultUpsertRows(input: {
     const sec = parseSection(a);
     if (sec) {
       section = { kind: sec.kind, location_id: sec.sede };
+      headerRow = null;
+      inReagendadosBlock = false;
+      sourceBlock = null;
+      continue;
+    }
+    if (
+      a &&
+      isLeoBlockHeader(a) &&
+      section?.kind === "biometricos" &&
+      section.location_id === "monterrey"
+    ) {
+      sourceBlock = "leo";
       headerRow = null;
       inReagendadosBlock = false;
       continue;
@@ -326,8 +353,12 @@ export function buildOperationalResultUpsertRows(input: {
       kind: section.kind,
       location_id: section.location_id,
       slot_time: slotTime,
-      booking_id: asUuidOrNull(cell(row, 15)),
-      expediente_id: asUuidOrNull(cell(row, 16)),
+      booking_id: sourceBlock === "leo" ? null : asUuidOrNull(cell(row, 15)),
+      expediente_id: sourceBlock === "leo" ? null : asUuidOrNull(cell(row, 16)),
+      visible_nss: nullIfEmpty(cell(row, 1)),
+      visible_name: nullIfEmpty(cell(row, 2)),
+      visible_advisor: nullIfEmpty(cell(row, 3)),
+      source_block: sourceBlock,
       ...classified,
       ...inscripcionRebookFields({
         kind: section.kind,
@@ -415,6 +446,10 @@ export function buildOperationalResultFromRow(input: {
     slot_time: slotTime,
     booking_id: asUuidOrNull(cell(input.row, 15)),
     expediente_id: asUuidOrNull(cell(input.row, 16)),
+    visible_nss: nullIfEmpty(cell(input.row, 1)),
+    visible_name: nullIfEmpty(cell(input.row, 2)),
+    visible_advisor: nullIfEmpty(cell(input.row, 3)),
+    source_block: null,
     ...classified,
     ...inscripcionRebookFields({
       kind: input.kind,
