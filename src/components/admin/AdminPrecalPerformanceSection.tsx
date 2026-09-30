@@ -230,7 +230,9 @@ export function AdminPrecalPerformanceSection({
           que el mismo NSS fue precalificado por dos o más asesores distintos dentro
           del periodo. La <strong>conversión a Mesa</strong> se calcula únicamente
           sobre los <strong>casos aprobados con monto mayor a $20,000</strong>:
-          casos &gt; $20k enviados a Mesa / casos &gt; $20k. Para Mejoravit,
+          casos &gt; $20k enviados a Mesa / casos &gt; $20k. Cada expediente
+          cuenta una sola vez en este porcentaje aunque haya re-precalificaciones.
+          Para Mejoravit,
           promedio y monto operativo respetan el tope de{" "}
           <strong>$169,000</strong>.
         </div>
@@ -276,7 +278,7 @@ export function AdminPrecalPerformanceSection({
                 hint: "Suma de aprobaciones del periodo",
               },
               {
-                label: "Aprobadas > $20k",
+                label: "Casos aprobados > $20k",
                 value: summary.casosMayor20k.toLocaleString("es-MX"),
                 hint: `${summary.casosMayor20kEnMesa.toLocaleString("es-MX")} a Mesa · ${pct(summary.conversionMayor20kPct)} de conversión`,
               },
@@ -352,7 +354,7 @@ export function AdminPrecalPerformanceSection({
                         <span className="block">aprobación</span>
                       </th>
                       <th className="px-1 py-2 text-right">
-                        <span className="block">Aprob.</span>
+                        <span className="block">Casos</span>
                         <span className="block">&gt; $20k</span>
                       </th>
                       <th className="px-1 py-2 text-right">
