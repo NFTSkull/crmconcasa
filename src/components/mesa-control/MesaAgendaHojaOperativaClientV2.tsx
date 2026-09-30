@@ -376,7 +376,7 @@ function EditableAgendaRow({
         >
           —
         </td>
-        <td colSpan={4} className="border-r border-slate-200 px-3 py-2 text-xs text-slate-400">
+        <td colSpan={row.kind === "biometricos" ? 3 : 4} className="border-r border-slate-200 px-3 py-2 text-xs text-slate-400">
           Espacio libre en la hoja.
         </td>
         <td className="min-w-[150px] px-2 py-2 text-center">
@@ -499,24 +499,26 @@ function EditableAgendaRow({
           onShortcut={handleShortcut}
         />
       </td>
-      <td className="p-0">
-        <ResultCell
-          value={draft.signatureResultRaw}
-          color={draft.signatureColor}
-          label="Firma"
-          listId={"firma-" + row.rowId}
-          suggestions={suggestions.firma}
-          disabled={!row.editable || saving}
-          compact={compact}
-          onValueChange={(value) =>
-            setDraft((prev) => ({ ...prev, signatureResultRaw: value }))
-          }
-          onColorChange={(value) =>
-            setDraft((prev) => ({ ...prev, signatureColor: value }))
-          }
-          onShortcut={handleShortcut}
-        />
-      </td>
+      {row.kind !== "biometricos" ? (
+        <td className="p-0">
+          <ResultCell
+            value={draft.signatureResultRaw}
+            color={draft.signatureColor}
+            label={row.kind === "firmas" ? "Firmó / Firma" : "Firma"}
+            listId={"firma-" + row.rowId}
+            suggestions={suggestions.firma}
+            disabled={!row.editable || saving}
+            compact={compact}
+            onValueChange={(value) =>
+              setDraft((prev) => ({ ...prev, signatureResultRaw: value }))
+            }
+            onColorChange={(value) =>
+              setDraft((prev) => ({ ...prev, signatureColor: value }))
+            }
+            onShortcut={handleShortcut}
+          />
+        </td>
+      ) : null}
       <td className={cx("min-w-[235px] border-r border-slate-200 p-1.5", alert && "bg-red-50/40")}>
         <textarea
           value={draft.notesRaw}
@@ -786,6 +788,10 @@ export function MesaAgendaHojaOperativaClient() {
   const [filterMode, setFilterMode] = useState<FilterMode>("all");
   const [sectionFilter, setSectionFilter] = useState<SectionFilter>("all");
   const [compact, setCompact] = useState(true);
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(
+    () => new Set(),
+  );
+  const [leoCollapsed, setLeoCollapsed] = useState(false);
 
   const mockRole = getEffectiveMockRole();
   const canAccess =
@@ -883,6 +889,29 @@ export function MesaAgendaHojaOperativaClient() {
       }).filter((section) => section.rows.length > 0),
     [filteredRows],
   );
+
+  const toggleSection = (key: string) => {
+    setCollapsedSections((current) => {
+      const next = new Set(current);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  };
+
+  const collapseAll = () => {
+    setCollapsedSections(
+      new Set(
+        SECTIONS.map((section) => section.locationId + ":" + section.kind),
+      ),
+    );
+    setLeoCollapsed(true);
+  };
+
+  const expandAll = () => {
+    setCollapsedSections(new Set());
+    setLeoCollapsed(false);
+  };
 
   const handleManualSubmit = async (input: {
     nss: string;
@@ -1162,6 +1191,21 @@ export function MesaAgendaHojaOperativaClient() {
               {compact ? "✓ Compacto" : "Vista cómoda"}
             </button>
 
+            <button
+              type="button"
+              onClick={collapseAll}
+              className="h-10 rounded-xl border border-slate-300 bg-white px-3 text-xs font-bold text-slate-600 transition hover:bg-slate-50"
+            >
+              − Minimizar todo
+            </button>
+            <button
+              type="button"
+              onClick={expandAll}
+              className="h-10 rounded-xl border border-slate-300 bg-white px-3 text-xs font-bold text-slate-600 transition hover:bg-slate-50"
+            >
+              + Mostrar todo
+            </button>
+
             {(search || filterMode !== "all" || sectionFilter !== "all") ? (
               <button
                 type="button"
@@ -1214,6 +1258,18 @@ export function MesaAgendaHojaOperativaClient() {
                 </button>
               );
             })}
+            <button
+              type="button"
+              onClick={() => {
+                setSectionFilter("all");
+                document
+                  .getElementById("leo-hacer-pagares")
+                  ?.scrollIntoView({ behavior: "smooth", block: "center" });
+              }}
+              className="whitespace-nowrap rounded-full border border-orange-300 bg-orange-50 px-3 py-1.5 text-[10px] font-black text-orange-700 transition hover:bg-orange-100"
+            >
+              LEO / Hacer pagarés
+            </button>
           </div>
 
           <p className="mt-2 text-[10px] font-medium text-slate-400">
@@ -1293,6 +1349,19 @@ export function MesaAgendaHojaOperativaClient() {
             <div className={cx("px-4 py-2.5 text-white", sectionTone(section.kind))}>
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => toggleSection(section.key)}
+                    className="flex h-6 w-6 items-center justify-center rounded-md border border-white/25 bg-white/10 text-sm font-black text-white transition hover:bg-white/20"
+                    aria-label={
+                      collapsedSections.has(section.key)
+                        ? "Mostrar sección " + section.label
+                        : "Minimizar sección " + section.label
+                    }
+                    title={collapsedSections.has(section.key) ? "Mostrar" : "Minimizar"}
+                  >
+                    {collapsedSections.has(section.key) ? "+" : "−"}
+                  </button>
                   <h3 className="text-sm font-black tracking-wide">
                     {section.label}
                   </h3>
@@ -1312,8 +1381,12 @@ export function MesaAgendaHojaOperativaClient() {
               </div>
             </div>
 
+            {!collapsedSections.has(section.key) ? (
             <div className="max-h-[68vh] overflow-auto">
-              <table className="w-full min-w-[1500px] table-fixed border-collapse text-left">
+              <table className={cx(
+                "w-full table-fixed border-collapse text-left",
+                section.kind === "biometricos" ? "min-w-[1320px]" : "min-w-[1500px]",
+              )}>
                 <thead className="sticky top-0 z-20 bg-slate-100 text-[10px] font-black uppercase tracking-wide text-slate-600 shadow-[0_1px_0_rgba(148,163,184,0.35)]">
                   <tr>
                     <th className="sticky left-0 z-30 w-[78px] border-r border-slate-200 bg-slate-100 px-2 py-2 text-center">
@@ -1334,9 +1407,11 @@ export function MesaAgendaHojaOperativaClient() {
                     <th className="w-[178px] border-r border-slate-200 px-2 py-2">
                       Notificación
                     </th>
-                    <th className="w-[178px] border-r border-slate-200 px-2 py-2">
-                      Firma
-                    </th>
+                    {section.kind !== "biometricos" ? (
+                      <th className="w-[178px] border-r border-slate-200 px-2 py-2">
+                        {section.kind === "firmas" ? "Firmó / Firma" : "Firma"}
+                      </th>
+                    ) : null}
                     <th className="w-[235px] border-r border-slate-200 px-2 py-2">
                       Notas
                     </th>
@@ -1368,8 +1443,74 @@ export function MesaAgendaHojaOperativaClient() {
                 </tbody>
               </table>
             </div>
+            ) : (
+              <div className="flex items-center justify-between gap-3 bg-white px-4 py-2 text-[10px] font-medium text-slate-500">
+                <span>Sección minimizada para tener mayor control visual.</span>
+                <button
+                  type="button"
+                  onClick={() => toggleSection(section.key)}
+                  className="font-black text-indigo-700 hover:underline"
+                >
+                  Mostrar
+                </button>
+              </div>
+            )}
           </section>
         ))}
+
+        <section
+          id="leo-hacer-pagares"
+          className="overflow-hidden rounded-2xl border border-orange-300 bg-white shadow-sm"
+        >
+          <div className="flex flex-wrap items-center justify-between gap-2 bg-orange-500 px-4 py-2.5 text-white">
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setLeoCollapsed((value) => !value)}
+                className="flex h-6 w-6 items-center justify-center rounded-md border border-white/30 bg-white/10 text-sm font-black transition hover:bg-white/20"
+                aria-label={leoCollapsed ? "Mostrar LEO / Hacer pagarés" : "Minimizar LEO / Hacer pagarés"}
+              >
+                {leoCollapsed ? "+" : "−"}
+              </button>
+              <h3 className="text-sm font-black tracking-wide">
+                LEO / HACER PAGARÉS
+              </h3>
+            </div>
+            <span className="rounded-full border border-white/30 bg-white/10 px-2 py-0.5 text-[9px] font-black">
+              Bloque auxiliar del Drive
+            </span>
+          </div>
+          {!leoCollapsed ? (
+            <div className="grid gap-3 p-4 md:grid-cols-2">
+              <div className="rounded-xl border border-orange-200 bg-orange-50 px-4 py-4">
+                <p className="text-xs font-black uppercase tracking-wide text-orange-700">LEO</p>
+                <p className="mt-1 text-xs leading-5 text-slate-600">
+                  Se muestra como bloque operativo independiente, igual que en CITAS 2026. No consume cupo de biométricos ni se mezcla con las citas.
+                </p>
+              </div>
+              <div className="rounded-xl border border-orange-200 bg-orange-50 px-4 py-4">
+                <p className="text-xs font-black uppercase tracking-wide text-orange-700">HACER PAGARÉS</p>
+                <p className="mt-1 text-xs leading-5 text-slate-600">
+                  Se conserva separado de la agenda para evitar que una captura manual se interprete como cita o altere los 15 lugares.
+                </p>
+              </div>
+              <p className="md:col-span-2 text-[10px] font-medium text-slate-500">
+                En Drive este bloque es manual y está protegido por la sincronización: el CRM no lo incorpora al inventario de citas. Aquí queda visible para que la pantalla tenga las mismas secciones operativas sin romper cupos ni etapas.
+              </p>
+            </div>
+          ) : (
+            <div className="flex items-center justify-between px-4 py-2 text-[10px] font-medium text-slate-500">
+              <span>LEO / Hacer pagarés minimizado.</span>
+              <button
+                type="button"
+                onClick={() => setLeoCollapsed(false)}
+                className="font-black text-orange-700 hover:underline"
+              >
+                Mostrar
+              </button>
+            </div>
+          )}
+        </section>
 
         <section className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[10px] font-medium text-slate-500">
@@ -1378,6 +1519,7 @@ export function MesaAgendaHojaOperativaClient() {
             <span><b className="text-red-700">× Rojo</b> = incidencia / no asistió</span>
             <span><b className="text-orange-700">! Naranja</b> = pendiente / seguimiento</span>
             <span><b>○ Sin color</b> = sin clasificación</span>
+            <span><b>Biométricos</b> = Biométricos + Notificación, igual que Drive</span>
             <span><b>⌘/Ctrl + Enter</b> = guardar fila</span>
           </div>
         </section>
