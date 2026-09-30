@@ -19,6 +19,7 @@ import {
 } from "@/lib/mesaAgendaCitasUi";
 import {
   AgendaHojaCrmError,
+  addAgendaLeoManual,
   addAgendaManual,
   cancelAgendaManual,
   fetchAgendaHojaCrm,
@@ -358,7 +359,7 @@ function EditableAgendaRow({
         <td
           className="sticky left-0 z-10 w-[78px] border-r border-slate-200 bg-white px-2 py-2 text-center text-xs font-bold text-slate-700 group-hover:bg-emerald-50"
         >
-          {row.displayTime}
+          {row.locationId === "leo" ? "LIBRE" : row.displayTime}
         </td>
         <td
           className="sticky left-[78px] z-10 w-[128px] border-r border-slate-200 bg-white px-2 py-2 text-xs text-slate-300 group-hover:bg-emerald-50"
@@ -370,7 +371,7 @@ function EditableAgendaRow({
         >
           <span className="inline-flex items-center gap-2 text-xs font-semibold text-emerald-700">
             <span className="h-2 w-2 rounded-full bg-emerald-500" />
-            Lugar disponible
+            {row.locationId === "leo" ? "Lugar LEO disponible" : "Lugar disponible"}
           </span>
         </td>
         <td
@@ -379,7 +380,9 @@ function EditableAgendaRow({
           —
         </td>
         <td colSpan={row.kind === "biometricos" ? 3 : 4} className="border-r border-slate-200 px-3 py-2 text-xs text-slate-400">
-          Espacio libre en la hoja.
+          {row.locationId === "leo"
+            ? "Disponible para captura manual. No consume cupo de Biométricos."
+            : "Espacio libre en la hoja."}
         </td>
         <td className="min-w-[150px] px-2 py-2 text-center">
           <button
@@ -387,7 +390,7 @@ function EditableAgendaRow({
             onClick={() => onAddManual(row)}
             className="whitespace-nowrap rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-800 transition hover:border-indigo-300 hover:bg-indigo-100"
           >
-            + Captura manual
+            {row.locationId === "leo" ? "+ Agregar cliente" : "+ Captura manual"}
           </button>
         </td>
       </tr>
@@ -602,6 +605,18 @@ type ManualTarget = Pick<
   "bookingDate" | "logicalTime" | "displayTime" | "kind" | "locationId"
 >;
 
+type ManualCaptureInput = {
+  bookingTime: string;
+  nss: string;
+  clienteNombre: string;
+  asesorNombre: string;
+  biometricResultRaw: string;
+  biometricColor: AgendaHojaColor;
+  notificationResultRaw: string;
+  notificationColor: AgendaHojaColor;
+  notes: string;
+};
+
 function ManualCapturePanel({
   target,
   saving,
@@ -613,16 +628,21 @@ function ManualCapturePanel({
   saving: boolean;
   error: string | null;
   onClose: () => void;
-  onSubmit: (input: {
-    nss: string;
-    clienteNombre: string;
-    asesorNombre: string;
-    notes: string;
-  }) => Promise<void>;
+  onSubmit: (input: ManualCaptureInput) => Promise<void>;
 }>) {
+  const isLeo = target.locationId === "leo";
+  const [bookingTime, setBookingTime] = useState(
+    isLeo ? "" : target.logicalTime,
+  );
   const [nss, setNss] = useState("");
   const [clienteNombre, setClienteNombre] = useState("");
   const [asesorNombre, setAsesorNombre] = useState("");
+  const [biometricResultRaw, setBiometricResultRaw] = useState("");
+  const [biometricColor, setBiometricColor] =
+    useState<AgendaHojaColor>("UNKNOWN");
+  const [notificationResultRaw, setNotificationResultRaw] = useState("");
+  const [notificationColor, setNotificationColor] =
+    useState<AgendaHojaColor>("UNKNOWN");
   const [notes, setNotes] = useState("");
 
   return (
@@ -639,13 +659,13 @@ function ManualCapturePanel({
         <div className="flex items-start justify-between gap-3 border-b border-indigo-100 bg-indigo-50 px-5 py-4">
           <div>
             <p className="text-[11px] font-bold uppercase tracking-[0.18em] text-indigo-500">
-              Nuevo espacio manual
+              {isLeo ? "Nuevo lugar LEO" : "Nuevo espacio manual"}
             </p>
             <h2 className="mt-1 text-lg font-bold text-indigo-950">
-              Captura manual CRM
+              {isLeo ? "Agregar cliente a LEO / Hacer pagarés" : "Captura manual CRM"}
             </h2>
             <p className="mt-1 text-xs font-medium text-indigo-700">
-              {target.bookingDate} · {target.displayTime} · {target.locationId.toUpperCase()} · {target.kind.toUpperCase()}
+              {target.bookingDate} · {isLeo ? "5 lugares manuales" : target.displayTime} · {target.locationId.toUpperCase()} · {target.kind.toUpperCase()}
             </p>
           </div>
           <button
@@ -660,12 +680,25 @@ function ManualCapturePanel({
         </div>
 
         <div className="grid gap-4 p-5 md:grid-cols-4">
+          {isLeo ? (
+            <label className="text-xs font-bold text-slate-700">
+              Hora *
+              <input
+                type="time"
+                value={bookingTime}
+                onChange={(event) => setBookingTime(event.target.value)}
+                className="mt-1.5 w-full rounded-xl border border-orange-300 bg-white px-3 py-2.5 text-sm font-bold outline-none focus:border-orange-500 focus:ring-2 focus:ring-orange-100"
+              />
+            </label>
+          ) : null}
           <label className="text-xs font-bold text-slate-700">
-            NSS
+            NSS{isLeo ? " *" : ""}
             <input
               value={nss}
               onChange={(event) => setNss(event.target.value)}
               placeholder="11 dígitos"
+              inputMode="numeric"
+              maxLength={11}
               className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
             />
           </label>
@@ -680,7 +713,7 @@ function ManualCapturePanel({
             />
           </label>
           <label className="text-xs font-bold text-slate-700">
-            Asesor
+            Asesor{isLeo ? " *" : ""}
             <input
               value={asesorNombre}
               onChange={(event) => setAsesorNombre(event.target.value)}
@@ -688,6 +721,60 @@ function ManualCapturePanel({
               className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium outline-none focus:border-indigo-400 focus:ring-2 focus:ring-indigo-100"
             />
           </label>
+          {isLeo ? (
+            <>
+              <label className="text-xs font-bold text-slate-700 md:col-span-2">
+                Biométricos
+                <input
+                  value={biometricResultRaw}
+                  onChange={(event) => setBiometricResultRaw(event.target.value)}
+                  placeholder="Ej. CESI MTY, X..."
+                  className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
+                />
+              </label>
+              <label className="text-xs font-bold text-slate-700">
+                Color biométricos
+                <select
+                  value={biometricColor}
+                  onChange={(event) =>
+                    setBiometricColor(event.target.value as AgendaHojaColor)
+                  }
+                  className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium outline-none"
+                >
+                  <option value="UNKNOWN">Sin color</option>
+                  <option value="GREEN">Verde</option>
+                  <option value="RED">Rojo</option>
+                  <option value="ORANGE">Naranja</option>
+                  <option value="OTHER">Neutro</option>
+                </select>
+              </label>
+              <label className="text-xs font-bold text-slate-700 md:col-span-2">
+                Notificación
+                <input
+                  value={notificationResultRaw}
+                  onChange={(event) => setNotificationResultRaw(event.target.value)}
+                  placeholder="Ej. BETTY 1, NO ASISTIÓ..."
+                  className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium outline-none focus:border-orange-400 focus:ring-2 focus:ring-orange-100"
+                />
+              </label>
+              <label className="text-xs font-bold text-slate-700">
+                Color notificación
+                <select
+                  value={notificationColor}
+                  onChange={(event) =>
+                    setNotificationColor(event.target.value as AgendaHojaColor)
+                  }
+                  className="mt-1.5 w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm font-medium outline-none"
+                >
+                  <option value="UNKNOWN">Sin color</option>
+                  <option value="GREEN">Verde</option>
+                  <option value="RED">Rojo</option>
+                  <option value="ORANGE">Naranja</option>
+                  <option value="OTHER">Neutro</option>
+                </select>
+              </label>
+            </>
+          ) : null}
           <label className="text-xs font-bold text-slate-700 md:col-span-4">
             Notas
             <textarea
@@ -711,7 +798,9 @@ function ManualCapturePanel({
 
         <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-100 bg-slate-50 px-5 py-4">
           <p className="max-w-xl text-[11px] leading-4 text-slate-500">
-            Consume cupo físico, pero no crea una cita operativa falsa ni mueve la etapa del expediente.
+            {isLeo
+              ? "LEO tiene máximo 5 lugares por día. Esta captura NO consume los 15 cupos de Biométricos y no crea una cita ni mueve etapas."
+              : "Consume cupo físico, pero no crea una cita operativa falsa ni mueve la etapa del expediente."}
           </p>
           <div className="flex gap-2">
             <Button type="button" variant="outline" disabled={saving} onClick={onClose}>
@@ -719,12 +808,33 @@ function ManualCapturePanel({
             </Button>
             <Button
               type="button"
-              disabled={saving || !clienteNombre.trim()}
+              disabled={
+                saving ||
+                !clienteNombre.trim() ||
+                (isLeo &&
+                  (!bookingTime ||
+                    nss.replace(/\D/g, "").length !== 11 ||
+                    !asesorNombre.trim()))
+              }
               onClick={() =>
-                void onSubmit({ nss, clienteNombre, asesorNombre, notes })
+                void onSubmit({
+                  bookingTime: isLeo ? bookingTime : target.logicalTime,
+                  nss,
+                  clienteNombre,
+                  asesorNombre,
+                  biometricResultRaw,
+                  biometricColor,
+                  notificationResultRaw,
+                  notificationColor,
+                  notes,
+                })
               }
             >
-              {saving ? "Guardando…" : "Ocupar lugar"}
+              {saving
+                ? "Guardando…"
+                : isLeo
+                  ? "Agregar a LEO"
+                  : "Ocupar lugar"}
             </Button>
           </div>
         </div>
@@ -829,9 +939,12 @@ export function MesaAgendaHojaOperativaClient() {
     [selectedDate],
   );
 
-  const occupied = rows.filter((row) => !row.available).length;
-  const available = rows.filter((row) => row.available).length;
-  const manualCrm = rows.filter((row) => row.originLabel === "Manual CRM").length;
+  const capacityRows = rows.filter((row) => row.locationId !== "leo");
+  const occupied = capacityRows.filter((row) => !row.available).length;
+  const available = capacityRows.filter((row) => row.available).length;
+  const manualCrm = capacityRows.filter(
+    (row) => row.originLabel === "Manual CRM",
+  ).length;
   const pending = rows.filter((row) => !row.available && !rowHasResult(row)).length;
   const alerts = rows.filter((row) => !row.available && rowHasAlert(row)).length;
 
@@ -912,20 +1025,33 @@ export function MesaAgendaHojaOperativaClient() {
     setCollapsedSections(new Set());
   };
 
-  const handleManualSubmit = async (input: {
-    nss: string;
-    clienteNombre: string;
-    asesorNombre: string;
-    notes: string;
-  }) => {
+  const handleManualSubmit = async (input: ManualCaptureInput) => {
     if (!manualTarget) return;
     setManualSaving(true);
     setManualError(null);
     try {
-      await addAgendaManual({
-        ...manualTarget,
-        ...input,
-      });
+      if (manualTarget.locationId === "leo") {
+        await addAgendaLeoManual({
+          bookingDate: manualTarget.bookingDate,
+          bookingTime: input.bookingTime,
+          nss: input.nss,
+          clienteNombre: input.clienteNombre,
+          asesorNombre: input.asesorNombre,
+          biometricResultRaw: input.biometricResultRaw,
+          biometricColor: input.biometricColor,
+          notificationResultRaw: input.notificationResultRaw,
+          notificationColor: input.notificationColor,
+          notes: input.notes,
+        });
+      } else {
+        await addAgendaManual({
+          ...manualTarget,
+          nss: input.nss,
+          clienteNombre: input.clienteNombre,
+          asesorNombre: input.asesorNombre,
+          notes: input.notes,
+        });
+      }
       setManualTarget(null);
       await loadRows();
     } catch (err) {
@@ -1374,7 +1500,9 @@ export function MesaAgendaHojaOperativaClient() {
                 </div>
                 {section.locationId === "leo" ? (
                   <div className="flex items-center gap-2 text-[10px] font-bold text-white/90">
-                    <span>{section.rows.length} registros del Drive</span>
+                    <span>{section.occupied}/5 ocupados</span>
+                    <span>·</span>
+                    <span>{section.available} libres</span>
                     <span>·</span>
                     <span>no consumen cupo</span>
                   </div>
@@ -1394,7 +1522,7 @@ export function MesaAgendaHojaOperativaClient() {
             <div>
               {section.locationId === "leo" ? (
                 <div className="border-b border-orange-200 bg-orange-50 px-4 py-2 text-[10px] font-medium text-orange-900">
-                  Mismo bloque que aparece inmediatamente debajo de Monterrey Biométricos en CITAS 2026. Se leen Hora, NSS, Nombre, Asesor, Biométricos, Notificación y Notas directamente de Drive; no cuenta dentro de los 15 lugares.
+                  LEO siempre mantiene 5 lugares. Los registros existentes del Drive se respetan y los espacios libres se pueden llenar manualmente desde CRM con Hora, NSS, Cliente, Asesor, Biométricos, Notificación y Notas. No cuenta dentro de los 15 lugares de Biométricos.
                 </div>
               ) : null}
               <div className="max-h-[68vh] overflow-auto">
