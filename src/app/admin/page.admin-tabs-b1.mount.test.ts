@@ -4,7 +4,7 @@ import { join } from "node:path";
 import { describe, it } from "node:test";
 
 /**
- * Admin UX B1 — montaje de la reorganización en 4 pestañas.
+ * Admin UX B1 — montaje de la reorganización en 5 pestañas.
  * Verifica por análisis estático que la página Admin conserva todos los
  * módulos y comportamientos existentes, solo reorganizados visualmente.
  */
@@ -28,7 +28,7 @@ describe("Admin UX B1 montaje en /admin", () => {
   });
 
   it("hay un tabpanel por pestaña, oculto con hidden (contenido montado, sin duplicar consultas)", () => {
-    for (const id of ["resumen", "expedientes", "reportes", "produccion"]) {
+    for (const id of ["resumen", "expedientes", "precalificaciones", "reportes", "produccion"]) {
       assert.match(
         page,
         new RegExp(
@@ -85,6 +85,12 @@ describe("Admin UX B1 montaje en /admin", () => {
     assert.match(page, /openTimeline/);
     assert.match(page, /AdminExpedienteDrawer|Precalificaciones/);
     assert.match(page, /listPrecalificacionesPage|precalItems/);
+  });
+
+  it("Precalificaciones: panel dedicado de rendimiento y conversión", () => {
+    assert.match(page, /AdminPrecalPerformanceSection/);
+    assert.match(page, /adminTabPanelId\("precalificaciones"\)/);
+    assert.match(page, /activeTab !== "precalificaciones"/);
   });
 
   it("Reportes: subtabs internos sin jerga técnica visible", () => {

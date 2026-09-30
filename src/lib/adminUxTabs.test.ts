@@ -16,14 +16,14 @@ import {
 } from "@/lib/adminUxTabs";
 
 describe("Admin UX B1 — pestañas del panel Admin", () => {
-  it("existen exactamente las cuatro pestañas en orden", () => {
+  it("existen las cinco pestañas principales en orden", () => {
     assert.deepEqual(
       ADMIN_TABS.map((t) => t.id),
-      ["resumen", "expedientes", "reportes", "produccion"],
+      ["resumen", "expedientes", "precalificaciones", "reportes", "produccion"],
     );
     assert.deepEqual(
       ADMIN_TABS.map((t) => t.label),
-      ["Resumen", "Expedientes", "Reportes", "Producción"],
+      ["Resumen", "Expedientes", "Precalificaciones", "Reportes", "Producción"],
     );
   });
 
@@ -37,6 +37,7 @@ describe("Admin UX B1 — pestañas del panel Admin", () => {
   it("query param válido conserva la pestaña; inválido cae a Resumen", () => {
     assert.equal(ADMIN_TAB_QUERY_PARAM, "adminTab");
     assert.equal(parseAdminTabParam("expedientes"), "expedientes");
+    assert.equal(parseAdminTabParam("precalificaciones"), "precalificaciones");
     assert.equal(parseAdminTabParam("reportes"), "reportes");
     assert.equal(parseAdminTabParam("produccion"), "produccion");
     assert.equal(parseAdminTabParam("bernardo"), "bernardo");
@@ -56,16 +57,18 @@ describe("Admin UX B1 — pestañas del panel Admin", () => {
     assert.equal(nextAdminTabIdOnKey("resumen", "ArrowRight"), "expedientes");
     assert.equal(nextAdminTabIdOnKey("produccion", "ArrowRight"), "resumen");
     assert.equal(nextAdminTabIdOnKey("resumen", "ArrowLeft"), "produccion");
-    assert.equal(nextAdminTabIdOnKey("reportes", "ArrowLeft"), "expedientes");
+    assert.equal(nextAdminTabIdOnKey("reportes", "ArrowLeft"), "precalificaciones");
+    assert.equal(nextAdminTabIdOnKey("precalificaciones", "ArrowLeft"), "expedientes");
     assert.equal(nextAdminTabIdOnKey("reportes", "Home"), "resumen");
     assert.equal(nextAdminTabIdOnKey("expedientes", "End"), "produccion");
     assert.equal(nextAdminTabIdOnKey("resumen", "Enter"), null);
     assert.equal(nextAdminTabIdOnKey("resumen", "Tab"), null);
   });
 
-  it("los filtros globales se muestran en Resumen, Expedientes y Producción; no en Reportes ni Bernardo", () => {
+  it("los filtros globales se muestran en Resumen, Expedientes, Precalificaciones y Producción; no en Reportes ni Bernardo", () => {
     assert.equal(adminGlobalFiltersVisible("resumen"), true);
     assert.equal(adminGlobalFiltersVisible("expedientes"), true);
+    assert.equal(adminGlobalFiltersVisible("precalificaciones"), true);
     assert.equal(adminGlobalFiltersVisible("produccion"), true);
     assert.equal(adminGlobalFiltersVisible("reportes"), false);
     assert.equal(adminGlobalFiltersVisible("bernardo"), false);
