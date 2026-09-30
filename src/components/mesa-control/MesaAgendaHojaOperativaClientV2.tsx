@@ -73,6 +73,7 @@ const COLOR_ACTIONS: ReadonlyArray<{
 
 const SECTIONS = [
   { locationId: "monterrey", kind: "biometricos", label: "MONTERREY · BIOMÉTRICOS", short: "MTY Biométricos" },
+  { locationId: "leo", kind: "biometricos", label: "LEO / HACER PAGARÉS", short: "LEO / Hacer pagarés" },
   { locationId: "apodaca", kind: "biometricos", label: "APODACA · BIOMÉTRICOS", short: "Apodaca Biométricos" },
   { locationId: "monterrey", kind: "firmas", label: "MONTERREY · FIRMAS", short: "MTY Firmas" },
   { locationId: "apodaca", kind: "firmas", label: "APODACA · FIRMAS", short: "Apodaca Firmas" },
@@ -105,6 +106,7 @@ function cellTone(color: AgendaHojaColor): string {
 function originTone(origin: string): string {
   if (origin === "Manual CRM") return "border-indigo-200 bg-indigo-50 text-indigo-800";
   if (origin === "Manual Drive") return "border-amber-200 bg-amber-50 text-amber-800";
+  if (origin.startsWith("LEO")) return "border-orange-300 bg-orange-50 text-orange-800";
   if (origin === "Disponible") return "border-emerald-200 bg-emerald-50 text-emerald-800";
   return "border-sky-200 bg-sky-50 text-sky-800";
 }
@@ -791,7 +793,6 @@ export function MesaAgendaHojaOperativaClient() {
   const [collapsedSections, setCollapsedSections] = useState<Set<string>>(
     () => new Set(),
   );
-  const [leoCollapsed, setLeoCollapsed] = useState(false);
 
   const mockRole = getEffectiveMockRole();
   const canAccess =
@@ -905,12 +906,10 @@ export function MesaAgendaHojaOperativaClient() {
         SECTIONS.map((section) => section.locationId + ":" + section.kind),
       ),
     );
-    setLeoCollapsed(true);
   };
 
   const expandAll = () => {
     setCollapsedSections(new Set());
-    setLeoCollapsed(false);
   };
 
   const handleManualSubmit = async (input: {
@@ -1258,18 +1257,7 @@ export function MesaAgendaHojaOperativaClient() {
                 </button>
               );
             })}
-            <button
-              type="button"
-              onClick={() => {
-                setSectionFilter("all");
-                document
-                  .getElementById("leo-hacer-pagares")
-                  ?.scrollIntoView({ behavior: "smooth", block: "center" });
-              }}
-              className="whitespace-nowrap rounded-full border border-orange-300 bg-orange-50 px-3 py-1.5 text-[10px] font-black text-orange-700 transition hover:bg-orange-100"
-            >
-              LEO / Hacer pagarés
-            </button>
+
           </div>
 
           <p className="mt-2 text-[10px] font-medium text-slate-400">
@@ -1344,9 +1332,22 @@ export function MesaAgendaHojaOperativaClient() {
         {sections.map((section) => (
           <section
             key={section.key}
-            className="overflow-hidden rounded-2xl border border-slate-300 bg-white shadow-sm"
+            id={section.locationId === "leo" ? "leo-hacer-pagares" : undefined}
+            className={cx(
+              "overflow-hidden rounded-2xl bg-white shadow-sm",
+              section.locationId === "leo"
+                ? "border border-orange-300"
+                : "border border-slate-300",
+            )}
           >
-            <div className={cx("px-4 py-2.5 text-white", sectionTone(section.kind))}>
+            <div
+              className={cx(
+                "px-4 py-2.5 text-white",
+                section.locationId === "leo"
+                  ? "bg-orange-500"
+                  : sectionTone(section.kind),
+              )}
+            >
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <button
@@ -1371,18 +1372,32 @@ export function MesaAgendaHojaOperativaClient() {
                     </span>
                   ) : null}
                 </div>
-                <div className="flex items-center gap-2 text-[10px] font-bold text-white/80">
-                  <span>{section.occupied} ocupados</span>
-                  <span>·</span>
-                  <span>{section.available} libres</span>
-                  <span>·</span>
-                  <span>{section.pending} sin resultado</span>
-                </div>
+                {section.locationId === "leo" ? (
+                  <div className="flex items-center gap-2 text-[10px] font-bold text-white/90">
+                    <span>{section.rows.length} registros del Drive</span>
+                    <span>·</span>
+                    <span>no consumen cupo</span>
+                  </div>
+                ) : (
+                  <div className="flex items-center gap-2 text-[10px] font-bold text-white/80">
+                    <span>{section.occupied} ocupados</span>
+                    <span>·</span>
+                    <span>{section.available} libres</span>
+                    <span>·</span>
+                    <span>{section.pending} sin resultado</span>
+                  </div>
+                )}
               </div>
             </div>
 
             {!collapsedSections.has(section.key) ? (
-            <div className="max-h-[68vh] overflow-auto">
+            <div>
+              {section.locationId === "leo" ? (
+                <div className="border-b border-orange-200 bg-orange-50 px-4 py-2 text-[10px] font-medium text-orange-900">
+                  Mismo bloque que aparece inmediatamente debajo de Monterrey Biométricos en CITAS 2026. Se leen Hora, NSS, Nombre, Asesor, Biométricos, Notificación y Notas directamente de Drive; no cuenta dentro de los 15 lugares.
+                </div>
+              ) : null}
+              <div className="max-h-[68vh] overflow-auto">
               <table className={cx(
                 "w-full table-fixed border-collapse text-left",
                 section.kind === "biometricos" ? "min-w-[1320px]" : "min-w-[1500px]",
@@ -1442,10 +1457,15 @@ export function MesaAgendaHojaOperativaClient() {
                   ))}
                 </tbody>
               </table>
+              </div>
             </div>
             ) : (
               <div className="flex items-center justify-between gap-3 bg-white px-4 py-2 text-[10px] font-medium text-slate-500">
-                <span>Sección minimizada para tener mayor control visual.</span>
+                <span>
+                  {section.locationId === "leo"
+                    ? "LEO / Hacer pagarés minimizado."
+                    : "Sección minimizada para tener mayor control visual."}
+                </span>
                 <button
                   type="button"
                   onClick={() => toggleSection(section.key)}
@@ -1457,60 +1477,6 @@ export function MesaAgendaHojaOperativaClient() {
             )}
           </section>
         ))}
-
-        <section
-          id="leo-hacer-pagares"
-          className="overflow-hidden rounded-2xl border border-orange-300 bg-white shadow-sm"
-        >
-          <div className="flex flex-wrap items-center justify-between gap-2 bg-orange-500 px-4 py-2.5 text-white">
-            <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setLeoCollapsed((value) => !value)}
-                className="flex h-6 w-6 items-center justify-center rounded-md border border-white/30 bg-white/10 text-sm font-black transition hover:bg-white/20"
-                aria-label={leoCollapsed ? "Mostrar LEO / Hacer pagarés" : "Minimizar LEO / Hacer pagarés"}
-              >
-                {leoCollapsed ? "+" : "−"}
-              </button>
-              <h3 className="text-sm font-black tracking-wide">
-                LEO / HACER PAGARÉS
-              </h3>
-            </div>
-            <span className="rounded-full border border-white/30 bg-white/10 px-2 py-0.5 text-[9px] font-black">
-              Bloque auxiliar del Drive
-            </span>
-          </div>
-          {!leoCollapsed ? (
-            <div className="grid gap-3 p-4 md:grid-cols-2">
-              <div className="rounded-xl border border-orange-200 bg-orange-50 px-4 py-4">
-                <p className="text-xs font-black uppercase tracking-wide text-orange-700">LEO</p>
-                <p className="mt-1 text-xs leading-5 text-slate-600">
-                  Se muestra como bloque operativo independiente, igual que en CITAS 2026. No consume cupo de biométricos ni se mezcla con las citas.
-                </p>
-              </div>
-              <div className="rounded-xl border border-orange-200 bg-orange-50 px-4 py-4">
-                <p className="text-xs font-black uppercase tracking-wide text-orange-700">HACER PAGARÉS</p>
-                <p className="mt-1 text-xs leading-5 text-slate-600">
-                  Se conserva separado de la agenda para evitar que una captura manual se interprete como cita o altere los 15 lugares.
-                </p>
-              </div>
-              <p className="md:col-span-2 text-[10px] font-medium text-slate-500">
-                En Drive este bloque es manual y está protegido por la sincronización: el CRM no lo incorpora al inventario de citas. Aquí queda visible para que la pantalla tenga las mismas secciones operativas sin romper cupos ni etapas.
-              </p>
-            </div>
-          ) : (
-            <div className="flex items-center justify-between px-4 py-2 text-[10px] font-medium text-slate-500">
-              <span>LEO / Hacer pagarés minimizado.</span>
-              <button
-                type="button"
-                onClick={() => setLeoCollapsed(false)}
-                className="font-black text-orange-700 hover:underline"
-              >
-                Mostrar
-              </button>
-            </div>
-          )}
-        </section>
 
         <section className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-[10px] font-medium text-slate-500">
