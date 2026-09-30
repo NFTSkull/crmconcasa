@@ -2,7 +2,8 @@ import { isSupabaseConfigured, supabaseBrowser } from "@/lib/supabaseBrowser";
 
 export type AdminPrecalPerformanceDetailFilter =
   | "todos"
-  | "repetidos"
+  | "compartidos"
+  | "reprecalificaciones"
   | "topados"
   | "mesa"
   | "no_mesa";
@@ -10,8 +11,8 @@ export type AdminPrecalPerformanceDetailFilter =
 export type AdminPrecalPerformanceSummary = Readonly<{
   totalPrecalificaciones: number;
   nssUnicos: number;
-  nssRepetidos: number;
-  repeticionesExtraPeriodo: number;
+  nssCompartidos: number;
+  reprecalificaciones: number;
   aprobadas: number;
   noCumple: number;
   pendientes: number;
@@ -33,7 +34,8 @@ export type AdminPrecalPerformanceAdvisor = Readonly<{
   asesorEmail: string | null;
   totalPrecalificaciones: number;
   nssUnicos: number;
-  nssRepetidos: number;
+  nssCompartidos: number;
+  reprecalificaciones: number;
   expedientesGenerados: number;
   expedientesEnMesa: number;
   aprobadas: number;
