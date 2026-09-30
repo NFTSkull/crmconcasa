@@ -5,6 +5,7 @@ import {
   assertExportHasNoPii,
   assertMesaExportHasNoEmail,
   buildAdminProductionWorkbook,
+  summarizeAdminPrecalNssRepeats,
 } from "./exportAdminProductionExcel";
 import type { AdminPrecalSummary } from "@/domain/admin-production/repo";
 import {
@@ -61,7 +62,7 @@ describe("exportAdminProductionExcel — paginación completa", () => {
     );
   });
 
-  it("25. workbook no incluye PII en encabezados", () => {
+  it("25. workbook Admin incluye NSS como texto y marca repetidos sin exponer otros campos prohibidos", () => {
     const summary: AdminProductionSummary = {
       enviadosAMesa: 1,
       precalificacionesAprobadas: 1,
@@ -97,6 +98,9 @@ describe("exportAdminProductionExcel — paginación completa", () => {
           aprobadoAt: "2026-07-17T12:00:00.000Z",
           noCumpleAt: null,
           clienteNombre: "Cliente Demo",
+          nss: "09077702364",
+          nssExpedientesTotal: 1,
+          nssPrecalificacionesTotal: 4,
           asesorId: "as1",
           asesorNombre: "Asesor",
           asesorEmail: "a@x.com",
@@ -112,9 +116,65 @@ describe("exportAdminProductionExcel — paginación completa", () => {
     const aoa = XLSX.utils.sheet_to_json<(string | number | null)[]>(ws, {
       header: 1,
     });
-    assertExportHasNoPii(aoa as unknown[][]);
+    assertExportHasNoPii(aoa as unknown[][], { allowNss: true });
     assert.equal(aoa[0]?.[0], "Fecha canónica");
-    assert.ok(!(aoa[0] ?? []).some((c) => String(c).toLowerCase().includes("nss")));
+    assert.equal(aoa[0]?.[1], "NSS");
+    assert.equal(aoa[1]?.[1], "09077702364");
+    assert.equal(aoa[1]?.[7], 4);
+    assert.equal(aoa[1]?.[8], 1);
+    assert.equal(aoa[1]?.[9], "Sí");
+
+    const repetidos = wb.Sheets["NSS repetidos"]!;
+    const repAoa = XLSX.utils.sheet_to_json<(string | number | null)[]>(repetidos, {
+      header: 1,
+    });
+    assert.equal(repAoa[0]?.[0], "NSS");
+    assert.equal(repAoa[1]?.[0], "09077702364");
+    assert.equal(repAoa[1]?.[1], 4);
+  });
+
+  it("resumen NSS agrupa el mismo NSS y conserva la repetición histórica máxima", () => {
+    const rows = summarizeAdminPrecalNssRepeats([
+      {
+        expedienteId: "e1",
+        fecha: "2026-07-17T12:00:00.000Z",
+        aprobadoAt: "2026-07-17T12:00:00.000Z",
+        noCumpleAt: null,
+        clienteNombre: "CLIENTE UNO",
+        nss: "09077702364",
+        nssExpedientesTotal: 2,
+        nssPrecalificacionesTotal: 5,
+        asesorId: "a1",
+        asesorNombre: "ASESOR UNO",
+        asesorEmail: null,
+        decision: "aprobado",
+        montoAprobadoAlAprobar: 1000,
+        montoAprobadoActual: 1000,
+        programa: "mejoravit",
+      },
+      {
+        expedienteId: "e2",
+        fecha: "2026-07-18T12:00:00.000Z",
+        aprobadoAt: "2026-07-18T12:00:00.000Z",
+        noCumpleAt: null,
+        clienteNombre: "CLIENTE DOS",
+        nss: "09077702364",
+        nssExpedientesTotal: 2,
+        nssPrecalificacionesTotal: 5,
+        asesorId: "a2",
+        asesorNombre: "ASESOR DOS",
+        asesorEmail: null,
+        decision: "aprobado",
+        montoAprobadoAlAprobar: 2000,
+        montoAprobadoActual: 2000,
+        programa: "mejoravit",
+      },
+    ]);
+    assert.equal(rows.length, 1);
+    assert.equal(rows[0]?.nss, "09077702364");
+    assert.equal(rows[0]?.precalificacionesHistoricas, 5);
+    assert.equal(rows[0]?.expedientesConNss, 2);
+    assert.equal(rows[0]?.filasEnReporte, 2);
   });
 
   it("hoja Expedientes sin correo ni UUID; asesor sin nombre → fallback", () => {
