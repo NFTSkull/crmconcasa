@@ -159,7 +159,7 @@ export default function AdminExpedientesPage() {
   return (
     <div className="min-h-screen bg-slate-100">
       <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-3 px-4 py-4">
+        <div className="mx-auto flex w-full max-w-[1760px] flex-wrap items-center justify-between gap-3 px-3 py-4 sm:px-4 xl:px-5">
           <div>
             <h1 className="text-2xl font-semibold text-slate-950">Administración</h1>
             <p className="text-sm text-slate-600">Inventario completo y trazabilidad de expedientes.</p>
@@ -175,7 +175,7 @@ export default function AdminExpedientesPage() {
 
       <AdminTabs active="expedientes" onChange={handleTabChange} />
 
-      <main className="mx-auto max-w-7xl space-y-5 px-4 py-6">
+      <main className="mx-auto w-full max-w-[1760px] space-y-5 px-3 py-5 sm:px-4 xl:px-5">
         <AdminFiscalRevisionManualPanel />
 
         <section className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
