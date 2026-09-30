@@ -106,6 +106,7 @@ import { AdminBernardoDashboard } from "@/components/admin/AdminBernardoDashboar
 import { AdminSearchResultadosSection } from "@/components/admin/AdminSearchResultadosSection";
 import { AdminSearchExpedientePanel } from "@/components/admin/AdminSearchExpedientePanel";
 import { AdminResumenEtapasActividad } from "@/components/admin/AdminResumenEtapasActividad";
+import { AdminPrecalificacionesPerformanceSection } from "@/components/admin/AdminPrecalificacionesPerformanceSection";
 import {
   ADMIN_REPORTES_SUBTABS,
   ADMIN_TAB_QUERY_PARAM,
@@ -1649,6 +1650,16 @@ export default function AdminDashboardPage() {
               </div>
             </section>
             )}
+        </div>
+
+        <div
+          role="tabpanel"
+          id={adminTabPanelId("precalificaciones")}
+          aria-labelledby={adminTabButtonId("precalificaciones")}
+          hidden={activeTab !== "precalificaciones"}
+          className="space-y-6"
+        >
+          <AdminPrecalificacionesPerformanceSection />
         </div>
 
         <div
