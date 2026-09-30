@@ -207,6 +207,7 @@ function ResultCell({
   suggestions,
   disabled,
   compact,
+  dense,
   onValueChange,
   onColorChange,
   onShortcut,
@@ -218,6 +219,7 @@ function ResultCell({
   suggestions: string[];
   disabled: boolean;
   compact: boolean;
+  dense: boolean;
   onValueChange: (value: string) => void;
   onColorChange: (value: AgendaHojaColor) => void;
   onShortcut: (event: KeyboardEvent<HTMLElement>) => void;
@@ -226,7 +228,7 @@ function ResultCell({
     <div
       className={cx(
         "min-w-[178px] border transition-colors",
-        compact ? "p-1" : "p-1.5",
+        dense ? "flex items-center gap-1 p-0.5" : compact ? "p-1" : "p-1.5",
         cellTone(color),
       )}
     >
@@ -241,7 +243,11 @@ function ResultCell({
         placeholder="Escribir resultado…"
         className={cx(
           "w-full rounded border border-transparent bg-transparent px-1.5 font-semibold text-slate-900 outline-none placeholder:font-normal placeholder:text-slate-400 focus:border-slate-300 focus:bg-white/80 disabled:cursor-default",
-          compact ? "py-1 text-[11px]" : "py-1.5 text-xs",
+          dense
+            ? "min-w-0 flex-1 py-0.5 text-[10px] leading-4"
+            : compact
+              ? "py-1 text-[11px]"
+              : "py-1.5 text-xs",
         )}
       />
       <datalist id={listId}>
@@ -249,7 +255,13 @@ function ResultCell({
           <option key={suggestion} value={suggestion} />
         ))}
       </datalist>
-      <div className="mt-1 flex items-center gap-1" aria-label={label + " color"}>
+      <div
+        className={cx(
+          "flex items-center",
+          dense ? "mt-0 shrink-0 gap-0.5" : "mt-1 gap-1",
+        )}
+        aria-label={label + " color"}
+      >
         {COLOR_ACTIONS.map((action) => (
           <button
             key={action.value}
@@ -259,16 +271,19 @@ function ResultCell({
             title={action.label}
             aria-label={label + ": " + action.label}
             className={cx(
-              "flex h-5 w-5 items-center justify-center rounded-full border text-[10px] font-black transition disabled:cursor-default disabled:opacity-60",
+              "flex items-center justify-center rounded-full border font-black transition disabled:cursor-default disabled:opacity-60",
+              dense ? "h-4 w-4 text-[8px]" : "h-5 w-5 text-[10px]",
               color === action.value ? action.active : action.inactive,
             )}
           >
             {action.symbol}
           </button>
         ))}
-        <span className="ml-1 truncate text-[9px] font-medium text-slate-500">
-          {COLOR_ACTIONS.find((item) => item.value === color)?.label || "Sin color"}
-        </span>
+        {!dense ? (
+          <span className="ml-1 truncate text-[9px] font-medium text-slate-500">
+            {COLOR_ACTIONS.find((item) => item.value === color)?.label || "Sin color"}
+          </span>
+        ) : null}
       </div>
     </div>
   );
@@ -277,12 +292,14 @@ function ResultCell({
 function EditableAgendaRow({
   row,
   compact,
+  dense,
   suggestions,
   onReload,
   onAddManual,
 }: Readonly<{
   row: AgendaHojaRow;
   compact: boolean;
+  dense: boolean;
   suggestions: {
     biometricos: string[];
     notificacion: string[];
@@ -401,6 +418,7 @@ function EditableAgendaRow({
     <tr
       className={cx(
         "group border-b border-slate-200 align-top transition-colors",
+        dense && "h-[34px]",
         alert
           ? "bg-red-50/70 hover:bg-red-50"
           : dirty
@@ -410,18 +428,19 @@ function EditableAgendaRow({
     >
       <td
         className={cx(
-          "sticky left-0 z-10 w-[78px] border-r border-slate-200 px-2 text-center text-xs font-black text-slate-900",
-          compact ? "py-2" : "py-3",
+          "sticky left-0 z-10 w-[78px] border-r border-slate-200 px-2 text-center font-black text-slate-900",
+          dense ? "py-1 text-[10px] leading-3" : "text-xs",
+          dense ? "" : compact ? "py-2" : "py-3",
           stickyTone,
         )}
       >
         {row.displayTime}
-        {row.logicalTime !== row.displayTime ? (
+        {!dense && row.logicalTime !== row.displayTime ? (
           <span className="mt-0.5 block text-[9px] font-medium text-slate-400">
             CRM {row.logicalTime}
           </span>
         ) : null}
-        {row.sheetRow ? (
+        {!dense && row.sheetRow ? (
           <span className="mt-1 block text-[9px] font-normal text-slate-400">
             Fila {row.sheetRow}
           </span>
@@ -429,8 +448,9 @@ function EditableAgendaRow({
       </td>
       <td
         className={cx(
-          "sticky left-[78px] z-10 w-[128px] border-r border-slate-200 px-2 font-mono text-[11px] font-semibold text-slate-700",
-          compact ? "py-2" : "py-3",
+          "sticky left-[78px] z-10 w-[128px] border-r border-slate-200 px-2 font-mono font-semibold text-slate-700",
+          dense ? "py-1 text-[9px] leading-3" : "text-[11px]",
+          dense ? "" : compact ? "py-2" : "py-3",
           stickyTone,
         )}
       >
@@ -438,22 +458,28 @@ function EditableAgendaRow({
       </td>
       <td
         className={cx(
-          "sticky left-[206px] z-10 w-[244px] border-r border-slate-200 px-3 text-xs font-bold text-slate-950",
-          compact ? "py-2" : "py-3",
+          "sticky left-[206px] z-10 w-[244px] border-r border-slate-200 px-3 font-bold text-slate-950",
+          dense ? "py-1 text-[10px] leading-3" : "text-xs",
+          dense ? "" : compact ? "py-2" : "py-3",
           stickyTone,
         )}
       >
         {row.expedienteId ? (
           <Link
             href={"/mesa-control/" + row.expedienteId}
-            className="leading-4 hover:text-indigo-700 hover:underline"
+            className={cx(
+              "hover:text-indigo-700 hover:underline",
+              dense ? "leading-3" : "leading-4",
+            )}
           >
             {row.clienteNombre || "Cliente"}
           </Link>
         ) : (
-          <span className="leading-4">{row.clienteNombre || "—"}</span>
+          <span className={dense ? "leading-3" : "leading-4"}>
+            {row.clienteNombre || "—"}
+          </span>
         )}
-        {alert ? (
+        {alert && !dense ? (
           <span className="mt-1 flex w-fit items-center gap-1 rounded-full border border-red-200 bg-red-100 px-1.5 py-0.5 text-[9px] font-bold text-red-700">
             ⚠ Incidencia
           </span>
@@ -461,8 +487,9 @@ function EditableAgendaRow({
       </td>
       <td
         className={cx(
-          "sticky left-[450px] z-10 w-[190px] border-r border-slate-200 px-2 text-[11px] font-semibold text-slate-700",
-          compact ? "py-2" : "py-3",
+          "sticky left-[450px] z-10 w-[190px] border-r border-slate-200 px-2 font-semibold text-slate-700",
+          dense ? "py-1 text-[9px] leading-3" : "text-[11px]",
+          dense ? "" : compact ? "py-2" : "py-3",
           stickyTone,
         )}
       >
@@ -477,6 +504,7 @@ function EditableAgendaRow({
           suggestions={suggestions.biometricos}
           disabled={!row.editable || saving}
           compact={compact}
+          dense={dense}
           onValueChange={(value) =>
             setDraft((prev) => ({ ...prev, biometricResultRaw: value }))
           }
@@ -495,6 +523,7 @@ function EditableAgendaRow({
           suggestions={suggestions.notificacion}
           disabled={!row.editable || saving}
           compact={compact}
+          dense={dense}
           onValueChange={(value) =>
             setDraft((prev) => ({ ...prev, notificationResultRaw: value }))
           }
@@ -524,72 +553,129 @@ function EditableAgendaRow({
           />
         </td>
       ) : null}
-      <td className={cx("min-w-[235px] border-r border-slate-200 p-1.5", alert && "bg-red-50/40")}>
-        <textarea
-          value={draft.notesRaw}
-          disabled={!row.editable || saving}
-          onChange={(event) =>
-            setDraft((prev) => ({ ...prev, notesRaw: event.target.value }))
-          }
-          onKeyDown={(event) => handleShortcut(event)}
-          aria-label="Notas operativas"
-          placeholder="Notas operativas…"
-          rows={compact ? 2 : 3}
-          className="w-full resize-none rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[11px] leading-4 text-slate-800 outline-none transition focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
-        />
+      <td
+        className={cx(
+          "min-w-[235px] border-r border-slate-200",
+          dense ? "p-0.5" : "p-1.5",
+          alert && "bg-red-50/40",
+        )}
+      >
+        {dense ? (
+          <input
+            value={draft.notesRaw}
+            disabled={!row.editable || saving}
+            onChange={(event) =>
+              setDraft((prev) => ({ ...prev, notesRaw: event.target.value }))
+            }
+            onKeyDown={(event) => handleShortcut(event)}
+            aria-label="Notas operativas"
+            placeholder="Notas…"
+            className="h-6 w-full rounded border border-slate-200 bg-white px-1.5 text-[9px] text-slate-800 outline-none transition focus:border-indigo-300 focus:ring-1 focus:ring-indigo-100"
+          />
+        ) : (
+          <textarea
+            value={draft.notesRaw}
+            disabled={!row.editable || saving}
+            onChange={(event) =>
+              setDraft((prev) => ({ ...prev, notesRaw: event.target.value }))
+            }
+            onKeyDown={(event) => handleShortcut(event)}
+            aria-label="Notas operativas"
+            placeholder="Notas operativas…"
+            rows={compact ? 2 : 3}
+            className="w-full resize-none rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[11px] leading-4 text-slate-800 outline-none transition focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+          />
+        )}
       </td>
-      <td className={cx("min-w-[155px] px-2", compact ? "py-2" : "py-3")}>
-        <span
-          className={cx(
-            "inline-flex rounded-full border px-2 py-0.5 text-[9px] font-bold",
-            originTone(row.originLabel),
-          )}
-        >
-          {row.originLabel}
-        </span>
-        {row.crmOverride ? (
-          <span className="mt-1 block text-[9px] font-bold text-indigo-600">
-            Editado en CRM
-          </span>
-        ) : null}
-        <div className="mt-2 flex flex-col gap-1.5">
-          <button
-            type="button"
-            disabled={!dirty || saving}
-            onClick={() => void handleSave()}
-            className={cx(
-              "rounded-lg border px-2 py-1.5 text-[10px] font-bold transition",
-              dirty
-                ? "border-indigo-700 bg-indigo-700 text-white hover:bg-indigo-800"
-                : "border-slate-200 bg-slate-100 text-slate-400",
-              "disabled:cursor-not-allowed",
-            )}
-          >
-            {saving ? "Guardando…" : dirty ? "Guardar cambios" : "Sin cambios"}
-          </button>
-          {dirty ? (
-            <span className="text-center text-[9px] font-medium text-amber-700">
-              ⌘/Ctrl + Enter
+      <td
+        className={cx(
+          "min-w-[155px] px-2",
+          dense ? "py-1" : compact ? "py-2" : "py-3",
+        )}
+      >
+        {dense ? (
+          <div className="flex items-center gap-1">
+            <span
+              className={cx(
+                "max-w-[72px] truncate rounded-full border px-1.5 py-0.5 text-[8px] font-bold",
+                originTone(row.originLabel),
+              )}
+              title={row.originLabel}
+            >
+              {row.originLabel}
             </span>
-          ) : null}
-          {row.originLabel === "Manual CRM" && row.manualOccupancyId ? (
             <button
               type="button"
-              disabled={saving}
-              onClick={() => void handleCancelManual()}
-              className="rounded-lg border border-red-200 bg-red-50 px-2 py-1 text-[10px] font-bold text-red-700 hover:bg-red-100 disabled:opacity-40"
+              disabled={!dirty || saving}
+              onClick={() => void handleSave()}
+              className={cx(
+                "h-6 flex-1 rounded border px-1 text-[9px] font-black transition",
+                dirty
+                  ? "border-indigo-700 bg-indigo-700 text-white hover:bg-indigo-800"
+                  : "border-slate-200 bg-slate-50 text-slate-400",
+                "disabled:cursor-not-allowed",
+              )}
             >
-              Liberar lugar
+              {saving ? "…" : dirty ? "Guardar" : "✓"}
             </button>
-          ) : null}
-        </div>
+          </div>
+        ) : (
+          <>
+            <span
+              className={cx(
+                "inline-flex rounded-full border px-2 py-0.5 text-[9px] font-bold",
+                originTone(row.originLabel),
+              )}
+            >
+              {row.originLabel}
+            </span>
+            {row.crmOverride ? (
+              <span className="mt-1 block text-[9px] font-bold text-indigo-600">
+                Editado en CRM
+              </span>
+            ) : null}
+            <div className="mt-2 flex flex-col gap-1.5">
+              <button
+                type="button"
+                disabled={!dirty || saving}
+                onClick={() => void handleSave()}
+                className={cx(
+                  "rounded-lg border px-2 py-1.5 text-[10px] font-bold transition",
+                  dirty
+                    ? "border-indigo-700 bg-indigo-700 text-white hover:bg-indigo-800"
+                    : "border-slate-200 bg-slate-100 text-slate-400",
+                  "disabled:cursor-not-allowed",
+                )}
+              >
+                {saving ? "Guardando…" : dirty ? "Guardar cambios" : "Sin cambios"}
+              </button>
+              {dirty ? (
+                <span className="text-center text-[9px] font-medium text-amber-700">
+                  ⌘/Ctrl + Enter
+                </span>
+              ) : null}
+              {row.originLabel === "Manual CRM" && row.manualOccupancyId ? (
+                <button
+                  type="button"
+                  disabled={saving}
+                  onClick={() => void handleCancelManual()}
+                  className="rounded-lg border border-red-200 bg-red-50 px-2 py-1 text-[10px] font-bold text-red-700 hover:bg-red-100 disabled:opacity-40"
+                >
+                  Liberar lugar
+                </button>
+              ) : null}
+            </div>
+          </>
+        )}
         {message ? (
           <span
             className={cx(
-              "mt-1.5 block rounded px-1.5 py-1 text-center text-[9px] font-bold",
-              message === "Guardado"
-                ? "bg-emerald-50 text-emerald-700"
-                : "bg-red-50 text-red-700",
+              dense
+                ? "mt-0.5 block text-center text-[8px] font-bold"
+                : "mt-1.5 block rounded px-1.5 py-1 text-center text-[9px] font-bold",
+              message === "Guardado" ? "text-emerald-700" : "text-red-700",
+              !dense &&
+                (message === "Guardado" ? "bg-emerald-50" : "bg-red-50"),
             )}
           >
             {message === "Guardado" ? "✓ Guardado" : message}
@@ -990,6 +1076,9 @@ export function MesaAgendaHojaOperativaClient() {
         return {
           ...section,
           key: section.locationId + ":" + section.kind,
+          dense:
+            section.locationId === "monterrey" &&
+            section.kind === "biometricos",
           rows: sectionRows,
           occupied: sectionRows.filter((row) => !row.available).length,
           available: sectionRows.filter((row) => row.available).length,
@@ -1468,7 +1557,8 @@ export function MesaAgendaHojaOperativaClient() {
           >
             <div
               className={cx(
-                "px-4 py-2.5 text-white",
+                "px-4 text-white",
+                section.dense ? "py-1.5" : "py-2.5",
                 section.locationId === "leo"
                   ? "bg-orange-500"
                   : sectionTone(section.kind),
@@ -1492,6 +1582,11 @@ export function MesaAgendaHojaOperativaClient() {
                   <h3 className="text-sm font-black tracking-wide">
                     {section.label}
                   </h3>
+                  {section.dense ? (
+                    <span className="rounded-full border border-white/25 bg-white/10 px-2 py-0.5 text-[9px] font-black">
+                      15 en pantalla
+                    </span>
+                  ) : null}
                   {section.alerts > 0 ? (
                     <span className="rounded-full border border-white/25 bg-red-500 px-2 py-0.5 text-[9px] font-black">
                       {section.alerts} alerta{section.alerts === 1 ? "" : "s"}
@@ -1525,40 +1620,78 @@ export function MesaAgendaHojaOperativaClient() {
                   LEO siempre mantiene 5 lugares. Los registros existentes del Drive se respetan y los espacios libres se pueden llenar manualmente desde CRM con Hora, NSS, Cliente, Asesor, Biométricos, Notificación y Notas. No cuenta dentro de los 15 lugares de Biométricos.
                 </div>
               ) : null}
-              <div className="max-h-[68vh] overflow-auto">
+              <div
+                className={cx(
+                  section.dense
+                    ? "overflow-x-auto overflow-y-visible"
+                    : "max-h-[68vh] overflow-auto",
+                )}
+              >
               <table className={cx(
                 "w-full table-fixed border-collapse text-left",
                 section.kind === "biometricos" ? "min-w-[1320px]" : "min-w-[1500px]",
               )}>
-                <thead className="sticky top-0 z-20 bg-slate-100 text-[10px] font-black uppercase tracking-wide text-slate-600 shadow-[0_1px_0_rgba(148,163,184,0.35)]">
+                <thead
+                  className={cx(
+                    "sticky top-0 z-20 bg-slate-100 font-black uppercase tracking-wide text-slate-600 shadow-[0_1px_0_rgba(148,163,184,0.35)]",
+                    section.dense ? "text-[9px]" : "text-[10px]",
+                  )}
+                >
                   <tr>
-                    <th className="sticky left-0 z-30 w-[78px] border-r border-slate-200 bg-slate-100 px-2 py-2 text-center">
+                    <th className={cx(
+                      "sticky left-0 z-30 w-[78px] border-r border-slate-200 bg-slate-100 px-2 text-center",
+                      section.dense ? "py-1" : "py-2",
+                    )}>
                       Hora
                     </th>
-                    <th className="sticky left-[78px] z-30 w-[128px] border-r border-slate-200 bg-slate-100 px-2 py-2">
+                    <th className={cx(
+                      "sticky left-[78px] z-30 w-[128px] border-r border-slate-200 bg-slate-100 px-2",
+                      section.dense ? "py-1" : "py-2",
+                    )}>
                       NSS
                     </th>
-                    <th className="sticky left-[206px] z-30 w-[244px] border-r border-slate-200 bg-slate-100 px-3 py-2">
+                    <th className={cx(
+                      "sticky left-[206px] z-30 w-[244px] border-r border-slate-200 bg-slate-100 px-3",
+                      section.dense ? "py-1" : "py-2",
+                    )}>
                       Cliente
                     </th>
-                    <th className="sticky left-[450px] z-30 w-[190px] border-r border-slate-200 bg-slate-100 px-2 py-2">
+                    <th className={cx(
+                      "sticky left-[450px] z-30 w-[190px] border-r border-slate-200 bg-slate-100 px-2",
+                      section.dense ? "py-1" : "py-2",
+                    )}>
                       Asesor
                     </th>
-                    <th className="w-[178px] border-r border-slate-200 px-2 py-2">
+                    <th className={cx(
+                      "w-[178px] border-r border-slate-200 px-2",
+                      section.dense ? "py-1" : "py-2",
+                    )}>
                       Biométricos
                     </th>
-                    <th className="w-[178px] border-r border-slate-200 px-2 py-2">
+                    <th className={cx(
+                      "w-[178px] border-r border-slate-200 px-2",
+                      section.dense ? "py-1" : "py-2",
+                    )}>
                       Notificación
                     </th>
                     {section.kind !== "biometricos" ? (
-                      <th className="w-[178px] border-r border-slate-200 px-2 py-2">
+                      <th className={cx(
+                      "w-[178px] border-r border-slate-200 px-2",
+                      section.dense ? "py-1" : "py-2",
+                    )}>
                         {section.kind === "firmas" ? "Firmó / Firma" : "Firma"}
                       </th>
                     ) : null}
-                    <th className="w-[235px] border-r border-slate-200 px-2 py-2">
+                    <th className={cx(
+                      "w-[235px] border-r border-slate-200 px-2",
+                      section.dense ? "py-1" : "py-2",
+                    )}>
                       Notas
                     </th>
-                    <th className="w-[155px] px-2 py-2">
+                    <th className={cx(
+                      "w-[155px] px-2",
+                      section.dense ? "py-1" : "py-2",
+                    )}>
                       Estado / acción
                     </th>
                   </tr>
@@ -1569,6 +1702,7 @@ export function MesaAgendaHojaOperativaClient() {
                       key={row.rowSource + "-" + row.rowId}
                       row={row}
                       compact={compact}
+                      dense={section.dense}
                       suggestions={suggestions}
                       onReload={loadRows}
                       onAddManual={(availableRow) => {
@@ -1613,6 +1747,7 @@ export function MesaAgendaHojaOperativaClient() {
             <span><b className="text-red-700">× Rojo</b> = incidencia / no asistió</span>
             <span><b className="text-orange-700">! Naranja</b> = pendiente / seguimiento</span>
             <span><b>○ Sin color</b> = sin clasificación</span>
+            <span><b>MTY Biométricos</b> = vista ultracompacta para ver los 15 sin scroll vertical</span>
             <span><b>Biométricos</b> = Biométricos + Notificación, igual que Drive</span>
             <span><b>⌘/Ctrl + Enter</b> = guardar fila</span>
           </div>
