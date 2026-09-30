@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
 import { AutoPrecalAvailabilityAlert } from "@/components/asesor/AutoPrecalAvailabilityAlert";
 import { Button } from "@/components/ui/Button";
@@ -22,6 +22,13 @@ type LinkedContext = Readonly<{
   asesor_titular_email?: string | null;
 }>;
 
+type ReadonlyResult = Readonly<{
+  nss: string;
+  resultado: "pendiente" | "aprobado" | "no_cumple";
+  montoAprobado: number | null;
+  createdAt: string;
+}>;
+
 function friendlyError(message: string): string {
   const clean = String(message ?? "").trim();
   if (!clean) return "No se pudo precalificar el NSS.";
@@ -29,6 +36,66 @@ function friendlyError(message: string): string {
   const index = clean.toLowerCase().indexOf(prefix);
   if (index >= 0) return clean.slice(index + prefix.length).trim();
   return clean;
+}
+
+function parseReadonlyResults(payload: unknown): ReadonlyResult[] {
+  if (!payload || typeof payload !== "object") return [];
+  const rawItems = (payload as { items?: unknown }).items;
+  if (!Array.isArray(rawItems)) return [];
+
+  return rawItems.flatMap((raw) => {
+    if (!raw || typeof raw !== "object") return [];
+    const row = raw as Record<string, unknown>;
+    const resultadoRaw = String(row.resultado ?? "pendiente").trim();
+    const resultado: ReadonlyResult["resultado"] =
+      resultadoRaw === "aprobado" || resultadoRaw === "no_cumple"
+        ? resultadoRaw
+        : "pendiente";
+    const monto =
+      row.monto_aprobado == null ? null : Number(row.monto_aprobado);
+
+    return [{
+      nss: String(row.nss ?? "").trim(),
+      resultado,
+      montoAprobado:
+        monto != null && Number.isFinite(monto) ? monto : null,
+      createdAt: String(row.created_at ?? ""),
+    }];
+  });
+}
+
+function formatMonto(value: number | null): string {
+  if (value == null) return "—";
+  return new Intl.NumberFormat("es-MX", {
+    style: "currency",
+    currency: "MXN",
+    maximumFractionDigits: 0,
+  }).format(value);
+}
+
+function formatFecha(value: string): string {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "—";
+  return new Intl.DateTimeFormat("es-MX", {
+    timeZone: "America/Monterrey",
+    day: "2-digit",
+    month: "2-digit",
+    year: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  }).format(date);
+}
+
+function resultadoLabel(value: ReadonlyResult["resultado"]): string {
+  if (value === "aprobado") return "Aprobado";
+  if (value === "no_cumple") return "No cumple";
+  return "Pendiente";
+}
+
+function resultadoClass(value: ReadonlyResult["resultado"]): string {
+  if (value === "aprobado") return "bg-emerald-100 text-emerald-800";
+  if (value === "no_cumple") return "bg-rose-100 text-rose-800";
+  return "bg-amber-100 text-amber-800";
 }
 
 export function PrecalificadorNssOnlyDashboard() {
@@ -40,6 +107,28 @@ export function PrecalificadorNssOnlyDashboard() {
   const [message, setMessage] = useState<
     { tone: "ok" | "error"; text: string } | null
   >(null);
+  const [results, setResults] = useState<ReadonlyResult[]>([]);
+  const [loadingResults, setLoadingResults] = useState(false);
+  const [resultsError, setResultsError] = useState<string | null>(null);
+
+  const loadResults = useCallback(async () => {
+    if (!supabaseBrowser) return;
+    setLoadingResults(true);
+    setResultsError(null);
+    try {
+      const { data, error } = await supabaseBrowser.rpc(
+        "asesor_precalificador_resultados",
+        { p_limit: 100 },
+      );
+      if (error) {
+        setResultsError("No se pudieron actualizar tus precalificaciones.");
+        return;
+      }
+      setResults(parseReadonlyResults(data));
+    } finally {
+      setLoadingResults(false);
+    }
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
@@ -67,6 +156,15 @@ export function PrecalificadorNssOnlyDashboard() {
       cancelled = true;
     };
   }, []);
+
+  useEffect(() => {
+    if (!context?.enabled) return;
+    void loadResults();
+    const interval = window.setInterval(() => {
+      void loadResults();
+    }, 15000);
+    return () => window.clearInterval(interval);
+  }, [context?.enabled, loadResults]);
 
   async function submit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -130,6 +228,7 @@ export function PrecalificadorNssOnlyDashboard() {
           ? "NSS enviado a Anette y a precalificación automática."
           : "NSS registrado para Anette. La precalificación automática quedó pendiente de reintento.",
       });
+      await loadResults();
     } catch (err) {
       setMessage({
         tone: "error",
@@ -151,7 +250,9 @@ export function PrecalificadorNssOnlyDashboard() {
         <div className="mx-auto flex max-w-2xl items-center justify-between gap-3 px-4 py-4">
           <div>
             <h1 className="text-lg font-semibold text-slate-950">Precalificaciones</h1>
-            <p className="text-sm text-slate-600">Captura únicamente el NSS.</p>
+            <p className="text-sm text-slate-600">
+              Captura NSS y consulta únicamente tus resultados.
+            </p>
           </div>
           <Button
             type="button"
@@ -163,7 +264,7 @@ export function PrecalificadorNssOnlyDashboard() {
         </div>
       </header>
 
-      <main className="mx-auto max-w-xl px-4 py-8">
+      <main className="mx-auto max-w-2xl space-y-5 px-4 py-8">
         <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
           <h2 className="text-lg font-semibold text-slate-950">Nueva precalificación</h2>
           <p className="mt-1 text-sm text-slate-600">
@@ -218,6 +319,77 @@ export function PrecalificadorNssOnlyDashboard() {
             </p>
           ) : null}
         </section>
+
+        {context?.enabled ? (
+          <section className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+            <div className="flex flex-wrap items-start justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-950">
+                  Mis precalificaciones
+                </h2>
+                <p className="mt-1 text-sm text-slate-600">
+                  Solo puedes ver los NSS que tú precalificaste, su resultado y el monto aprobado.
+                  El expediente completo únicamente lo administra {titular}.
+                </p>
+              </div>
+              <Button
+                type="button"
+                variant="secondary"
+                onClick={() => void loadResults()}
+                disabled={loadingResults}
+              >
+                {loadingResults ? "Actualizando…" : "Actualizar"}
+              </Button>
+            </div>
+
+            {resultsError ? (
+              <p className="mt-4 rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+                {resultsError}
+              </p>
+            ) : null}
+
+            {!loadingResults && results.length === 0 ? (
+              <p className="mt-5 rounded-lg bg-slate-50 px-4 py-5 text-center text-sm text-slate-600">
+                Todavía no tienes precalificaciones.
+              </p>
+            ) : (
+              <div className="mt-4 space-y-2">
+                {results.map((row, index) => (
+                  <div
+                    key={`${row.nss}-${row.createdAt}-${index}`}
+                    className="rounded-lg border border-slate-200 px-4 py-3"
+                  >
+                    <div className="flex flex-wrap items-start justify-between gap-3">
+                      <div>
+                        <p className="font-mono text-sm font-semibold text-slate-950">
+                          NSS {row.nss || "—"}
+                        </p>
+                        <p className="mt-1 text-xs text-slate-500">
+                          {formatFecha(row.createdAt)}
+                        </p>
+                      </div>
+                      <span
+                        className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${resultadoClass(row.resultado)}`}
+                      >
+                        {resultadoLabel(row.resultado)}
+                      </span>
+                    </div>
+                    <div className="mt-3 border-t border-slate-100 pt-3">
+                      <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                        Monto aprobado
+                      </p>
+                      <p className="mt-1 text-xl font-semibold tabular-nums text-slate-950">
+                        {row.resultado === "aprobado"
+                          ? formatMonto(row.montoAprobado)
+                          : "—"}
+                      </p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        ) : null}
       </main>
     </div>
   );

@@ -15,6 +15,13 @@ const anetteDuplicateOverrideMigration = readFileSync(
   ),
   "utf8",
 );
+const readonlyResultsMigration = readFileSync(
+  join(
+    root,
+    "supabase/migrations/20260930221000_precalificador_resultados_readonly.sql",
+  ),
+  "utf8",
+);
 const dashboard = readFileSync(
   join(root, "src/components/asesor/PrecalificadorNssOnlyDashboard.tsx"),
   "utf8",
@@ -22,6 +29,10 @@ const dashboard = readFileSync(
 const asesorPage = readFileSync(join(root, "src/app/asesor/page.tsx"), "utf8");
 const nuevaLayout = readFileSync(
   join(root, "src/app/asesor/nueva/layout.tsx"),
+  "utf8",
+);
+const expedienteLayout = readFileSync(
+  join(root, "src/app/asesor/expediente/[id]/layout.tsx"),
   "utf8",
 );
 const repo = readFileSync(
@@ -42,7 +53,7 @@ describe("precalificador ligado NSS-only", () => {
 
   it("el usuario restringido solo usa la RPC NSS ligada", () => {
     assert.match(dashboard, /asesor_preparar_precalificacion_nss_only_ligada/);
-    assert.match(dashboard, /Captura únicamente el NSS/);
+    assert.match(dashboard, /Captura NSS y consulta únicamente tus resultados/);
     assert.doesNotMatch(dashboard, /DocumentDropzone/);
     assert.doesNotMatch(dashboard, /cliente_datos/);
     assert.match(asesorPage, /precalificador_nss_only/);
@@ -54,10 +65,7 @@ describe("precalificador ligado NSS-only", () => {
       anetteDuplicateOverrideMigration,
       /NOT public\.asesor_es_anette_externa\(v_target\.id\)[\s\S]*AND EXISTS/,
     );
-    assert.match(
-      anetteDuplicateOverrideMigration,
-      /nss_bloqueado_en_mesa/,
-    );
+    assert.match(anetteDuplicateOverrideMigration, /nss_bloqueado_en_mesa/);
     assert.doesNotMatch(
       anetteDuplicateOverrideMigration,
       /Anette ya tiene un expediente activo con este NSS/,
@@ -70,5 +78,29 @@ describe("precalificador ligado NSS-only", () => {
     assert.match(repo, /p_precalificador_origen_id/);
     assert.match(repo, /asesor_inbox_counts_for_precalificador/);
     assert.match(migration, /p_precalificador_origen_id UUID DEFAULT NULL/);
+  });
+
+  it("el precalificador ve únicamente sus resultados sin acceso al expediente", () => {
+    assert.match(dashboard, /asesor_precalificador_resultados/);
+    assert.match(dashboard, /Mis precalificaciones/);
+    assert.match(dashboard, /Monto aprobado/);
+    assert.doesNotMatch(dashboard, /href=.*asesor\/expediente/);
+
+    assert.match(readonlyResultsMigration, /e\.precalificador_origen_id = v_actor/);
+    assert.match(
+      readonlyResultsMigration,
+      /e\.asesor_id = v_link\.asesor_titular_id/,
+    );
+    assert.match(readonlyResultsMigration, /'nss'/);
+    assert.match(readonlyResultsMigration, /'resultado'/);
+    assert.match(readonlyResultsMigration, /'monto_aprobado'/);
+    assert.doesNotMatch(readonlyResultsMigration, /'expediente_id'/);
+    assert.doesNotMatch(readonlyResultsMigration, /'cliente_nombre'/);
+    assert.doesNotMatch(readonlyResultsMigration, /'telefono_cliente'/);
+  });
+
+  it("una URL directa de expediente regresa al precalificador a su dashboard", () => {
+    assert.match(expedienteLayout, /asesor_precalificador_ligado_context/);
+    assert.match(expedienteLayout, /router\.replace\("\/asesor"\)/);
   });
 });
