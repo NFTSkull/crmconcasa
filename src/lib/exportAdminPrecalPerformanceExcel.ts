@@ -316,7 +316,7 @@ export function buildAdminPrecalPerformanceWorkbook(input: {
           )
           .join(" | "),
       ),
-      safeText(labelEditorDecision(item.decision as never)),
+      safeText(labelEditorDecision(item.decision)),
       item.montoAprobado,
       item.topado169k ? "Sí" : "No",
       item.submittedToMesa ? "Sí" : "No",
@@ -386,7 +386,7 @@ export function buildAdminPrecalPerformanceWorkbook(input: {
         item.nss.trim() || null,
         safeText(item.clienteNombre),
         safeText(advisorLabel(item.asesorNombre, item.asesorEmail, item.asesorId)),
-        safeText(labelEditorDecision(item.decision as never)),
+        safeText(labelEditorDecision(item.decision)),
         item.montoAprobado,
         item.compartidoEntreAsesores ? "Sí" : "No",
         item.submittedToMesa ? "Sí" : "No",
