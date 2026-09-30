@@ -2,7 +2,8 @@ import { isSupabaseConfigured, supabaseBrowser } from "@/lib/supabaseBrowser";
 
 export type AdminPrecalPerformanceDetailFilter =
   | "todos"
-  | "repetidos"
+  | "compartidos"
+  | "reprecalificaciones"
   | "topados"
   | "mesa"
   | "no_mesa";
@@ -10,8 +11,8 @@ export type AdminPrecalPerformanceDetailFilter =
 export type AdminPrecalPerformanceSummary = Readonly<{
   totalPrecalificaciones: number;
   nssUnicos: number;
-  nssRepetidos: number;
-  repeticionesExtraPeriodo: number;
+  nssCompartidos: number;
+  reprecalificaciones: number;
   aprobadas: number;
   noCumple: number;
   pendientes: number;
@@ -33,7 +34,8 @@ export type AdminPrecalPerformanceAdvisor = Readonly<{
   asesorEmail: string | null;
   totalPrecalificaciones: number;
   nssUnicos: number;
-  nssRepetidos: number;
+  nssCompartidos: number;
+  reprecalificaciones: number;
   expedientesGenerados: number;
   expedientesEnMesa: number;
   aprobadas: number;
@@ -46,6 +48,20 @@ export type AdminPrecalPerformanceAdvisor = Readonly<{
   conversionMesaPct: number;
 }>;
 
+export type AdminPrecalNssAdvisorBreakdown = Readonly<{
+  asesorId: string;
+  asesorNombre: string | null;
+  asesorEmail: string | null;
+  precalificaciones: number;
+  reprecalificaciones: number;
+  aprobadas: number;
+  noCumple: number;
+  pendientes: number;
+  expedientes: number;
+  expedientesEnMesa: number;
+  montoPromedio: number;
+}>;
+
 export type AdminPrecalPerformanceItem = Readonly<{
   attemptKey: string;
   intentoId: string | null;
@@ -53,6 +69,11 @@ export type AdminPrecalPerformanceItem = Readonly<{
   fecha: string;
   nss: string;
   nssPrecalHistoricas: number;
+  nssPrecalPeriodo: number;
+  isReprecalificacion: boolean;
+  compartidoEntreAsesores: boolean;
+  asesoresNssCount: number;
+  asesoresNss: readonly AdminPrecalNssAdvisorBreakdown[];
   clienteNombre: string;
   asesorId: string;
   asesorNombre: string | null;
@@ -108,8 +129,8 @@ function mapSummary(raw: Record<string, unknown>): AdminPrecalPerformanceSummary
   return {
     totalPrecalificaciones: num(raw.total_precalificaciones),
     nssUnicos: num(raw.nss_unicos),
-    nssRepetidos: num(raw.nss_repetidos),
-    repeticionesExtraPeriodo: num(raw.repeticiones_extra_periodo),
+    nssCompartidos: num(raw.nss_compartidos),
+    reprecalificaciones: num(raw.reprecalificaciones),
     aprobadas: num(raw.aprobadas),
     noCumple: num(raw.no_cumple),
     pendientes: num(raw.pendientes),
@@ -133,7 +154,8 @@ function mapAdvisor(raw: Record<string, unknown>): AdminPrecalPerformanceAdvisor
     asesorEmail: strOrNull(raw.asesor_email),
     totalPrecalificaciones: num(raw.total_precalificaciones),
     nssUnicos: num(raw.nss_unicos),
-    nssRepetidos: num(raw.nss_repetidos),
+    nssCompartidos: num(raw.nss_compartidos),
+    reprecalificaciones: num(raw.reprecalificaciones),
     expedientesGenerados: num(raw.expedientes_generados),
     expedientesEnMesa: num(raw.expedientes_en_mesa),
     aprobadas: num(raw.aprobadas),
@@ -147,6 +169,24 @@ function mapAdvisor(raw: Record<string, unknown>): AdminPrecalPerformanceAdvisor
   };
 }
 
+function mapNssAdvisor(
+  raw: Record<string, unknown>,
+): AdminPrecalNssAdvisorBreakdown {
+  return {
+    asesorId: str(raw.asesor_id),
+    asesorNombre: strOrNull(raw.asesor_nombre),
+    asesorEmail: strOrNull(raw.asesor_email),
+    precalificaciones: num(raw.precalificaciones),
+    reprecalificaciones: num(raw.reprecalificaciones),
+    aprobadas: num(raw.aprobadas),
+    noCumple: num(raw.no_cumple),
+    pendientes: num(raw.pendientes),
+    expedientes: num(raw.expedientes),
+    expedientesEnMesa: num(raw.expedientes_en_mesa),
+    montoPromedio: num(raw.monto_promedio),
+  };
+}
+
 function mapItem(raw: Record<string, unknown>): AdminPrecalPerformanceItem {
   return {
     attemptKey: str(raw.attempt_key),
@@ -155,6 +195,13 @@ function mapItem(raw: Record<string, unknown>): AdminPrecalPerformanceItem {
     fecha: str(raw.fecha),
     nss: str(raw.nss),
     nssPrecalHistoricas: num(raw.nss_precal_historicas),
+    nssPrecalPeriodo: num(raw.nss_precal_periodo),
+    isReprecalificacion: bool(raw.is_reprecalificacion),
+    compartidoEntreAsesores: bool(raw.compartido_entre_asesores),
+    asesoresNssCount: num(raw.asesores_nss_count),
+    asesoresNss: (Array.isArray(raw.asesores_nss) ? raw.asesores_nss : []).map(
+      (row) => mapNssAdvisor(row as Record<string, unknown>),
+    ),
     clienteNombre: str(raw.cliente_nombre),
     asesorId: str(raw.asesor_id),
     asesorNombre: strOrNull(raw.asesor_nombre),
