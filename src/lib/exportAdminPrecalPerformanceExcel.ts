@@ -123,31 +123,35 @@ export async function fetchAllAdminPrecalPerformanceForExcel(input: {
   });
 
   const items: AdminPrecalPerformanceItem[] = [...first.items];
-  let page = 2;
+  const totalPages = Math.max(
+    1,
+    Math.ceil(first.totalCount / EXPORT_PAGE_SIZE),
+  );
+  const CONCURRENCY = 6;
 
-  while (items.length < first.totalCount) {
-    const next = await fetchAdminPrecalPerformance({
-      ...input,
-      page,
-      pageSize: EXPORT_PAGE_SIZE,
-      detailFilter: "todos",
-    });
+  for (let startPage = 2; startPage <= totalPages; startPage += CONCURRENCY) {
+    const pages = Array.from(
+      { length: Math.min(CONCURRENCY, totalPages - startPage + 1) },
+      (_, index) => startPage + index,
+    );
+    const batch = await Promise.all(
+      pages.map((page) =>
+        fetchAdminPrecalPerformance({
+          ...input,
+          page,
+          pageSize: EXPORT_PAGE_SIZE,
+          detailFilter: "todos",
+        }),
+      ),
+    );
 
-    if (next.totalCount !== first.totalCount) {
-      throw new Error(
-        `La información cambió durante la exportación (${first.totalCount}→${next.totalCount}). Reintenta para evitar un Excel incompleto.`,
-      );
-    }
-    if (next.items.length === 0) {
-      throw new Error(
-        `Exportación incompleta: se recuperaron ${items.length} de ${first.totalCount} precalificaciones.`,
-      );
-    }
-    items.push(...next.items);
-    page += 1;
-
-    if (page > 10_000) {
-      throw new Error("Exportación abortada: demasiadas páginas.");
+    for (const next of batch) {
+      if (next.totalCount !== first.totalCount) {
+        throw new Error(
+          `La información cambió durante la exportación (${first.totalCount}→${next.totalCount}). Reintenta para evitar un Excel incompleto.`,
+        );
+      }
+      items.push(...next.items);
     }
   }
 
