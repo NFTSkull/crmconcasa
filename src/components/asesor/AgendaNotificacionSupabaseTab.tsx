@@ -183,10 +183,6 @@ export function AgendaNotificacionSupabaseTab({
           <span className="font-medium">Sede:</span>{" "}
           {formatMesaAgendaSedeLabel(activeNotificacion.locationId)}
         </p>
-        <p className="text-[11px] text-amber-800">
-          El expediente permanece en etapa 3 hasta que Mesa apruebe la notificación.
-        </p>
-
         <label className="block text-[11px] font-semibold text-gray-700">
           Nueva fecha (reagendar)
           <input

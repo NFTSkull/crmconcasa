@@ -25,6 +25,28 @@ describe("P177/P178 agenda tabs Inscripción", () => {
     join(root, "src/domain/agenda-inscripcion/supabase.repo.ts"),
     "utf8",
   );
+  const notif = readFileSync(
+    join(root, "src/components/asesor/AgendaNotificacionSupabaseTab.tsx"),
+    "utf8",
+  );
+  const notifConstants = readFileSync(
+    join(root, "src/domain/agenda-biometricos/notificacion-constants.ts"),
+    "utf8",
+  );
+  const sharedDriveMigration = readFileSync(
+    join(
+      root,
+      "supabase/migrations/20260930183000_notificacion_comparte_inscripcion_drive.sql",
+    ),
+    "utf8",
+  );
+  const sharedOrdinalMigration = readFileSync(
+    join(
+      root,
+      "supabase/migrations/20260930183100_inscripcion_link_slot_ordinal_auto.sql",
+    ),
+    "utf8",
+  );
 
   it("tabs visibles: Biométricos | Notificación | Inscripción", () => {
     assert.match(bio, /AgendaEtapa3Tab = "biometricos" \| "notificacion" \| "inscripcion"/);
@@ -94,5 +116,46 @@ describe("P177/P178 agenda tabs Inscripción", () => {
     assert.match(bio, /AgendaNotificacionSupabaseTab/);
     assert.match(bio, /agenda-tab-panel-notificacion/);
     assert.match(bio, /AdvisorAgendaSlotPicker/);
+  });
+
+  it("Notificación comparte el pool físico de Inscripción en Drive", () => {
+    assert.doesNotMatch(
+      notif,
+      /El expediente permanece en etapa 3 hasta que Mesa apruebe la notificación/,
+    );
+    assert.match(
+      notifConstants,
+      /en Monterrey comparte el mismo cupo de Inscripción en Drive/,
+    );
+    assert.doesNotMatch(notifConstants, /cupo ilimitado/);
+
+    assert.match(
+      sharedDriveMigration,
+      /NEW\.kind::TEXT <> 'notificacion'/,
+    );
+    assert.match(
+      sharedDriveMigration,
+      /i\.kind = 'inscripcion'/,
+    );
+    assert.match(
+      sharedDriveMigration,
+      /i\.sheet_slot_time = TIME '11:00'/,
+    );
+    assert.match(
+      sharedDriveMigration,
+      /'kind', 'inscripcion'/,
+    );
+    assert.match(
+      sharedDriveMigration,
+      /'booking_kind', 'notificacion'/,
+    );
+    assert.match(
+      sharedOrdinalMigration,
+      /p_kind::TEXT = 'inscripcion'/,
+    );
+    assert.match(
+      sharedOrdinalMigration,
+      /generate_series\(1, 100\)/,
+    );
   });
 });
