@@ -1467,7 +1467,7 @@ export default function AdminDashboardPage() {
                 description={
                   etapaFiltroNombreCorto
                     ? `Resultados del periodo actualmente en ${etapaFiltroNombreCorto}.`
-                    : "El periodo aplica a aprobadas y rechazadas; pendientes muestra el estado actual."
+                    : "El periodo aplica a aprobadas y rechazadas; pendientes muestra el estado actual. NSS y «Precal. NSS» permiten detectar re-precalificaciones y NSS repetidos."
                 }
                 trailing={
                   <Select
@@ -1543,6 +1543,8 @@ export default function AdminDashboardPage() {
                     <thead className="border-b border-gray-200 text-xs uppercase text-gray-700">
                       <tr>
                         <th className="py-2 pr-3 font-semibold">Fecha</th>
+                        <th className="py-2 pr-3 font-semibold">NSS</th>
+                        <th className="py-2 pr-3 font-semibold">Precal. NSS</th>
                         <th className="py-2 pr-3 font-semibold">Cliente</th>
                         <th className="py-2 pr-3 font-semibold">Asesor</th>
                         <th className="py-2 pr-3 font-semibold">Decisión</th>
@@ -1559,6 +1561,34 @@ export default function AdminDashboardPage() {
                               : r.fecha
                                 ? formatDateTimeMx(r.fecha)
                                 : "—"}
+                          </td>
+                          <td className="py-2 pr-3 whitespace-nowrap font-mono text-gray-900">
+                            {r.nss || "—"}
+                          </td>
+                          <td className="py-2 pr-3 text-gray-900">
+                            {(() => {
+                              const repeticiones = Math.max(
+                                1,
+                                r.nssPrecalificacionesTotal ?? 1,
+                              );
+                              const expedientesNss = Math.max(
+                                1,
+                                r.nssExpedientesTotal ?? 1,
+                              );
+                              return (
+                                <span
+                                  className={
+                                    repeticiones > 1
+                                      ? "inline-flex rounded-md bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900"
+                                      : "inline-flex rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700"
+                                  }
+                                  title={`${repeticiones} precalificación${repeticiones === 1 ? "" : "es"} histórica${repeticiones === 1 ? "" : "s"} · ${expedientesNss} expediente${expedientesNss === 1 ? "" : "s"} con este NSS`}
+                                >
+                                  {repeticiones}
+                                  {repeticiones > 1 ? " · Repetido" : ""}
+                                </span>
+                              );
+                            })()}
                           </td>
                           <td className="py-2 pr-3 text-gray-900">{r.clienteNombre}</td>
                           <td className="py-2 pr-3 text-gray-900">

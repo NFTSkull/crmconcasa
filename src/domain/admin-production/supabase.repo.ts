@@ -68,6 +68,9 @@ function mapMesaItem(raw: Record<string, unknown>): AdminMesaEnvioEvent {
     expedienteId: str(raw.expediente_id),
     fechaEnvioMesa: str(raw.fecha_envio_mesa),
     clienteNombre: str(raw.cliente_nombre),
+    nss: strOrNull(raw.nss),
+    nssExpedientesTotal: num(raw.nss_expedientes_total),
+    nssPrecalificacionesTotal: num(raw.nss_precalificaciones_total),
     asesorId: str(raw.asesor_id),
     asesorNombre: strOrNull(raw.asesor_nombre),
     programa: str(raw.programa),
@@ -427,6 +430,41 @@ export class SupabaseAdminProductionRepo implements AdminProductionRepo {
     const items = (Array.isArray(row.items) ? row.items : []).map((x) =>
       mapPrecalItem(x as Record<string, unknown>),
     );
+    if (items.length > 0) {
+      const { data: nssData, error: nssError } = await client.rpc(
+        "admin_precal_nss_enrichment",
+        {
+          p_expediente_ids: items.map((item) => item.expedienteId),
+        },
+      );
+      if (nssError) {
+        throw new Error(
+          nssError.message || "No se pudo cargar NSS de precalificaciones",
+        );
+      }
+      const byExpediente = new Map<
+        string,
+        { nss: string | null; expedientesTotal: number; precalificacionesTotal: number }
+      >();
+      for (const raw of Array.isArray(nssData) ? nssData : []) {
+        const r = raw as Record<string, unknown>;
+        byExpediente.set(str(r.expediente_id), {
+          nss: strOrNull(r.nss),
+          expedientesTotal: num(r.nss_expedientes_total),
+          precalificacionesTotal: num(r.nss_precalificaciones_total),
+        });
+      }
+      for (let index = 0; index < items.length; index += 1) {
+        const extra = byExpediente.get(items[index].expedienteId);
+        if (!extra) continue;
+        items[index] = {
+          ...items[index],
+          nss: extra.nss,
+          nssExpedientesTotal: extra.expedientesTotal,
+          nssPrecalificacionesTotal: extra.precalificacionesTotal,
+        };
+      }
+    }
     return {
       items,
       totalCount: num(row.total_count),

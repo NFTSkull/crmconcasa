@@ -22,6 +22,12 @@ export type AdminMesaEnvioEvent = Readonly<{
   expedienteId: string;
   fechaEnvioMesa: string;
   clienteNombre: string;
+  /** NSS completo visible solo en Super Admin / export Admin. Siempre tratar como texto. */
+  nss?: string | null;
+  /** Expedientes no eliminados que comparten este NSS dentro de la organización. */
+  nssExpedientesTotal?: number;
+  /** Veces históricas que este NSS fue precalificado: intento inicial + re-precalificaciones. */
+  nssPrecalificacionesTotal?: number;
   asesorId: string;
   /** Nombre visible; nunca correo (fallback UI: «Asesor sin nombre registrado»). */
   asesorNombre: string | null;
