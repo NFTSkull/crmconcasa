@@ -11,7 +11,7 @@ const panel = readFileSync(
   "utf8",
 );
 const migration = readFileSync(
-  join(root, "supabase/migrations/20260930201500_admin_precal_shared_advisor_semantics.sql"),
+  join(root, "supabase/migrations/20260930203500_admin_precal_over20k_conversion.sql"),
   "utf8",
 );
 
@@ -35,8 +35,8 @@ describe("Admin — rendimiento de precalificaciones", () => {
     assert.match(panel, /NSS compartidos entre asesores/);
     assert.match(panel, /Re-precalificaciones/);
     assert.match(panel, /Monto promedio aprobado/);
-    assert.match(panel, /Expedientes enviados a Mesa/);
-    assert.match(panel, /Expedientes a Mesa/);
+    assert.match(panel, /Aprobadas > \$20k/);
+    assert.match(panel, /% >\$20k/);
     assert.match(panel, /Topados \$169k/);
     assert.match(panel, /Rendimiento por asesor/);
   });
@@ -50,12 +50,17 @@ describe("Admin — rendimiento de precalificaciones", () => {
     assert.match(migration, /is_reprecalificacion/);
     assert.match(migration, /count\(\*\) FILTER \(WHERE is_reprecalificacion\)/);
     assert.match(migration, /submitted_to_mesa/);
+    assert.match(migration, /aprobado_mayor_20k/);
+    assert.match(migration, /casos_mayor_20k_en_mesa/);
+    assert.match(migration, /conversion_mayor_20k_pct/);
+    assert.match(migration, /monto_aprobado, 0\) > 20000/);
     assert.match(migration, /least\(monto_aprobado, 169000\)/);
   });
 
   it("el detalle separa compartidos, re-precalificaciones, topados y conversión", () => {
     assert.match(panel, /value: "compartidos"/);
     assert.match(panel, /value: "reprecalificaciones"/);
+    assert.match(panel, /value: "mayor_20k"/);
     assert.match(panel, /value: "topados"/);
     assert.match(panel, /value: "mesa"/);
     assert.match(panel, /value: "no_mesa"/);
