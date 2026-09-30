@@ -188,12 +188,26 @@ type RowDraft = {
 };
 
 function draftFromRow(row: AgendaHojaRow): RowDraft {
+  // Compatibilidad con proyecciones anteriores donde FIRMÓ/FIRMA se guardaban
+  // juntos como "FIRMÓ / FIRMA". La proyección nueva ya los separa.
+  let firmo = row.signatureResultRaw;
+  let firma = row.biometricResultRaw;
+  if (
+    row.kind === "firmas" &&
+    !firma.trim() &&
+    firmo.includes(" / ")
+  ) {
+    const [legacyFirmo, ...legacyFirmaParts] = firmo.split(" / ");
+    firmo = legacyFirmo?.trim() ?? "";
+    firma = legacyFirmaParts.join(" / ").trim();
+  }
+
   return {
-    biometricResultRaw: row.biometricResultRaw,
+    biometricResultRaw: firma,
     biometricColor: row.biometricColor,
     notificationResultRaw: row.notificationResultRaw,
     notificationColor: row.notificationColor,
-    signatureResultRaw: row.signatureResultRaw,
+    signatureResultRaw: firmo,
     signatureColor: row.signatureColor,
     notesRaw: row.notesRaw,
   };
@@ -297,6 +311,7 @@ function EditableAgendaRow({
   suggestions: {
     biometricos: string[];
     notificacion: string[];
+    firmo: string[];
     firma: string[];
   };
   onReload: () => Promise<void>;
@@ -479,62 +494,123 @@ function EditableAgendaRow({
       >
         {row.asesorNombre || "—"}
       </td>
-      <td className="p-0">
-        <ResultCell
-          value={draft.biometricResultRaw}
-          color={draft.biometricColor}
-          label="Biométricos"
-          listId={"bio-" + row.rowId}
-          suggestions={suggestions.biometricos}
-          disabled={!row.editable || saving}
-          compact={compact}
-          onValueChange={(value) =>
-            setDraft((prev) => ({ ...prev, biometricResultRaw: value }))
-          }
-          onColorChange={(value) =>
-            setDraft((prev) => ({ ...prev, biometricColor: value }))
-          }
-          onShortcut={handleShortcut}
-        />
-      </td>
-      <td className="p-0">
-        <ResultCell
-          value={draft.notificationResultRaw}
-          color={draft.notificationColor}
-          label="Notificación"
-          listId={"notif-" + row.rowId}
-          suggestions={suggestions.notificacion}
-          disabled={!row.editable || saving}
-          compact={compact}
-          onValueChange={(value) =>
-            setDraft((prev) => ({ ...prev, notificationResultRaw: value }))
-          }
-          onColorChange={(value) =>
-            setDraft((prev) => ({ ...prev, notificationColor: value }))
-          }
-          onShortcut={handleShortcut}
-        />
-      </td>
-      {row.kind !== "biometricos" ? (
-        <td className="p-0">
-          <ResultCell
-            value={draft.signatureResultRaw}
-            color={draft.signatureColor}
-            label={row.kind === "firmas" ? "Firmó / Firma" : "Firma"}
-            listId={"firma-" + row.rowId}
-            suggestions={suggestions.firma}
-            disabled={!row.editable || saving}
-            compact={compact}
-            onValueChange={(value) =>
-              setDraft((prev) => ({ ...prev, signatureResultRaw: value }))
-            }
-            onColorChange={(value) =>
-              setDraft((prev) => ({ ...prev, signatureColor: value }))
-            }
-            onShortcut={handleShortcut}
-          />
-        </td>
-      ) : null}
+      {row.kind === "firmas" ? (
+        <>
+          <td className="p-0">
+            <ResultCell
+              value={draft.notificationResultRaw}
+              color={draft.notificationColor}
+              label="Notificación"
+              listId={"notif-" + row.rowId}
+              suggestions={suggestions.notificacion}
+              disabled={!row.editable || saving}
+              compact={compact}
+              onValueChange={(value) =>
+                setDraft((prev) => ({ ...prev, notificationResultRaw: value }))
+              }
+              onColorChange={(value) =>
+                setDraft((prev) => ({ ...prev, notificationColor: value }))
+              }
+              onShortcut={handleShortcut}
+            />
+          </td>
+          <td className="p-0">
+            <ResultCell
+              value={draft.signatureResultRaw}
+              color={draft.signatureColor}
+              label="Firmó"
+              listId={"firmo-" + row.rowId}
+              suggestions={suggestions.firmo}
+              disabled={!row.editable || saving}
+              compact={compact}
+              onValueChange={(value) =>
+                setDraft((prev) => ({ ...prev, signatureResultRaw: value }))
+              }
+              onColorChange={(value) =>
+                setDraft((prev) => ({ ...prev, signatureColor: value }))
+              }
+              onShortcut={handleShortcut}
+            />
+          </td>
+          <td className="p-0">
+            <ResultCell
+              value={draft.biometricResultRaw}
+              color={draft.biometricColor}
+              label="Firma"
+              listId={"firma-" + row.rowId}
+              suggestions={suggestions.firma}
+              disabled={!row.editable || saving}
+              compact={compact}
+              onValueChange={(value) =>
+                setDraft((prev) => ({ ...prev, biometricResultRaw: value }))
+              }
+              onColorChange={(value) =>
+                setDraft((prev) => ({ ...prev, biometricColor: value }))
+              }
+              onShortcut={handleShortcut}
+            />
+          </td>
+        </>
+      ) : (
+        <>
+          <td className="p-0">
+            <ResultCell
+              value={draft.biometricResultRaw}
+              color={draft.biometricColor}
+              label={row.kind === "biometricos" ? "Biométricos" : "Resultado"}
+              listId={"bio-" + row.rowId}
+              suggestions={suggestions.biometricos}
+              disabled={!row.editable || saving}
+              compact={compact}
+              onValueChange={(value) =>
+                setDraft((prev) => ({ ...prev, biometricResultRaw: value }))
+              }
+              onColorChange={(value) =>
+                setDraft((prev) => ({ ...prev, biometricColor: value }))
+              }
+              onShortcut={handleShortcut}
+            />
+          </td>
+          <td className="p-0">
+            <ResultCell
+              value={draft.notificationResultRaw}
+              color={draft.notificationColor}
+              label="Notificación"
+              listId={"notif-" + row.rowId}
+              suggestions={suggestions.notificacion}
+              disabled={!row.editable || saving}
+              compact={compact}
+              onValueChange={(value) =>
+                setDraft((prev) => ({ ...prev, notificationResultRaw: value }))
+              }
+              onColorChange={(value) =>
+                setDraft((prev) => ({ ...prev, notificationColor: value }))
+              }
+              onShortcut={handleShortcut}
+            />
+          </td>
+          {row.kind !== "biometricos" ? (
+            <td className="p-0">
+              <ResultCell
+                value={draft.signatureResultRaw}
+                color={draft.signatureColor}
+                label="Firma"
+                listId={"firma-" + row.rowId}
+                suggestions={suggestions.firma}
+                disabled={!row.editable || saving}
+                compact={compact}
+                onValueChange={(value) =>
+                  setDraft((prev) => ({ ...prev, signatureResultRaw: value }))
+                }
+                onColorChange={(value) =>
+                  setDraft((prev) => ({ ...prev, signatureColor: value }))
+                }
+                onShortcut={handleShortcut}
+              />
+            </td>
+          ) : null}
+        </>
+      )}
       <td
         className={cx(
           "min-w-[235px] border-r border-slate-200",
@@ -1024,9 +1100,22 @@ export function MesaAgendaHojaOperativaClient() {
 
   const suggestions = useMemo(
     () => ({
-      biometricos: uniqueValues(rows.map((row) => row.biometricResultRaw)),
+      biometricos: uniqueValues(
+        rows
+          .filter((row) => row.kind === "biometricos")
+          .map((row) => row.biometricResultRaw),
+      ),
       notificacion: uniqueValues(rows.map((row) => row.notificationResultRaw)),
-      firma: uniqueValues(rows.map((row) => row.signatureResultRaw)),
+      firmo: uniqueValues(
+        rows
+          .filter((row) => row.kind === "firmas")
+          .map((row) => row.signatureResultRaw),
+      ),
+      firma: uniqueValues(
+        rows
+          .filter((row) => row.kind === "firmas")
+          .map((row) => row.biometricResultRaw),
+      ),
     }),
     [rows],
   );
@@ -1624,17 +1713,33 @@ export function MesaAgendaHojaOperativaClient() {
                     <th className="sticky left-[450px] z-30 w-[190px] border-r border-slate-200 bg-slate-100 px-2 py-2">
                       Asesor
                     </th>
-                    <th className="w-[178px] border-r border-slate-200 px-2 py-2">
-                      Biométricos
-                    </th>
-                    <th className="w-[178px] border-r border-slate-200 px-2 py-2">
-                      Notificación
-                    </th>
-                    {section.kind !== "biometricos" ? (
-                      <th className="w-[178px] border-r border-slate-200 px-2 py-2">
-                        {section.kind === "firmas" ? "Firmó / Firma" : "Firma"}
-                      </th>
-                    ) : null}
+                    {section.kind === "firmas" ? (
+                      <>
+                        <th className="w-[178px] border-r border-slate-200 px-2 py-2">
+                          Notificación
+                        </th>
+                        <th className="w-[178px] border-r border-slate-200 px-2 py-2">
+                          Firmó
+                        </th>
+                        <th className="w-[178px] border-r border-slate-200 px-2 py-2">
+                          Firma
+                        </th>
+                      </>
+                    ) : (
+                      <>
+                        <th className="w-[178px] border-r border-slate-200 px-2 py-2">
+                          Biométricos
+                        </th>
+                        <th className="w-[178px] border-r border-slate-200 px-2 py-2">
+                          Notificación
+                        </th>
+                        {section.kind !== "biometricos" ? (
+                          <th className="w-[178px] border-r border-slate-200 px-2 py-2">
+                            Firma
+                          </th>
+                        ) : null}
+                      </>
+                    )}
                     <th className="w-[235px] border-r border-slate-200 px-2 py-2">
                       Notas
                     </th>
@@ -1694,7 +1799,8 @@ export function MesaAgendaHojaOperativaClient() {
             <span><b className="text-orange-700">! Naranja</b> = pendiente / seguimiento</span>
             <span><b>○ Sin color</b> = sin clasificación</span>
             <span><b>Ajustar todo</b> = filas compactas y legibles, sin zoom diminuto ni scroll vertical interno</span>
-            <span><b>Biométricos</b> = Biométricos + Notificación, igual que Drive</span>
+            <span><b>Biométricos</b> = Biométricos + Notificación</span>
+            <span><b>Firmas</b> = Notificación + Firmó + Firma, igual que Drive</span>
             <span><b>⌘/Ctrl + Enter</b> = guardar fila</span>
           </div>
         </section>

@@ -169,6 +169,7 @@ function metricColorsForKind(input: {
 } {
   const e = colorFromEiCell(input.eiBackgrounds, 0);
   const f = colorFromEiCell(input.eiBackgrounds, 1);
+  const g = colorFromEiCell(input.eiBackgrounds, 2);
   if (input.kind === "biometricos") {
     return {
       biometric_color: e,
@@ -177,7 +178,9 @@ function metricColorsForKind(input: {
     };
   }
   return {
-    biometric_color: "UNKNOWN",
+    // En FIRMAS el modelo reutiliza biometric_* como campo auxiliar de FIRMA (col G).
+    // No cuenta como biométrico porque kind='firmas'.
+    biometric_color: g,
     notification_color: e,
     signature_color: f,
   };
@@ -243,12 +246,14 @@ export function classifyOperationalRow(input: {
 
   const { firmo, firma } = extractFirmoFirmaCells(input.row);
   return {
+    // FIRMAS en Drive: E=NOTIFICACION, F=FIRMO, G=FIRMA.
+    // biometric_* se reutiliza como auxiliar de FIRMA (G) solo para esta vista.
     biometric_result_class: "PENDING",
-    biometric_result_raw: null,
+    biometric_result_raw: nullIfEmpty(firma),
     notification_result_class: classifyNotificationResult(e),
     notification_result_raw: nullIfEmpty(e),
     signature_result_class: classifySignatureResult(firmo, firma),
-    signature_result_raw: formatSignatureResultRaw(firmo, firma),
+    signature_result_raw: nullIfEmpty(firmo),
     ...colors,
     biometric_effective_result: "PENDING",
     notification_effective_result: "PENDING",
