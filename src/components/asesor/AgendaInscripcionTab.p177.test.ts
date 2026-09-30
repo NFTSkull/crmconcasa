@@ -40,6 +40,13 @@ describe("P177/P178 agenda tabs Inscripción", () => {
     ),
     "utf8",
   );
+  const sharedOrdinalMigration = readFileSync(
+    join(
+      root,
+      "supabase/migrations/20260930183100_inscripcion_link_slot_ordinal_auto.sql",
+    ),
+    "utf8",
+  );
 
   it("tabs visibles: Biométricos | Notificación | Inscripción", () => {
     assert.match(bio, /AgendaEtapa3Tab = "biometricos" \| "notificacion" \| "inscripcion"/);
@@ -141,6 +148,14 @@ describe("P177/P178 agenda tabs Inscripción", () => {
     assert.match(
       sharedDriveMigration,
       /'booking_kind', 'notificacion'/,
+    );
+    assert.match(
+      sharedOrdinalMigration,
+      /p_kind::TEXT = 'inscripcion'/,
+    );
+    assert.match(
+      sharedOrdinalMigration,
+      /generate_series\(1, 100\)/,
     );
   });
 });
