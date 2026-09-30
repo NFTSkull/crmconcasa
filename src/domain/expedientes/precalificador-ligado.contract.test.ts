@@ -22,6 +22,13 @@ const readonlyResultsMigration = readFileSync(
   ),
   "utf8",
 );
+const nombreRfcResultsMigration = readFileSync(
+  join(
+    root,
+    "supabase/migrations/20260930230000_precalificador_nombre_rfc_readonly.sql",
+  ),
+  "utf8",
+);
 const dashboard = readFileSync(
   join(root, "src/components/asesor/PrecalificadorNssOnlyDashboard.tsx"),
   "utf8",
@@ -80,9 +87,11 @@ describe("precalificador ligado NSS-only", () => {
     assert.match(migration, /p_precalificador_origen_id UUID DEFAULT NULL/);
   });
 
-  it("el precalificador ve únicamente sus resultados sin acceso al expediente", () => {
+  it("el precalificador ve sus resultados con nombre y RFC Bansefi, sin acceso al expediente", () => {
     assert.match(dashboard, /asesor_precalificador_resultados/);
     assert.match(dashboard, /Mis precalificaciones/);
+    assert.match(dashboard, /Nombre/);
+    assert.match(dashboard, /RFC Bansefi/);
     assert.match(dashboard, /Monto aprobado/);
     assert.doesNotMatch(dashboard, /href=.*asesor\/expediente/);
 
@@ -97,6 +106,13 @@ describe("precalificador ligado NSS-only", () => {
     assert.doesNotMatch(readonlyResultsMigration, /'expediente_id'/);
     assert.doesNotMatch(readonlyResultsMigration, /'cliente_nombre'/);
     assert.doesNotMatch(readonlyResultsMigration, /'telefono_cliente'/);
+
+    assert.match(nombreRfcResultsMigration, /'nombre'/);
+    assert.match(nombreRfcResultsMigration, /'rfc_infonavit'/);
+    assert.match(nombreRfcResultsMigration, /ed\.rfc_infonavit/);
+    assert.doesNotMatch(nombreRfcResultsMigration, /'expediente_id'/);
+    assert.doesNotMatch(nombreRfcResultsMigration, /'telefono_cliente'/);
+    assert.doesNotMatch(nombreRfcResultsMigration, /'registro_patronal_infonavit'/);
   });
 
   it("una URL directa de expediente regresa al precalificador a su dashboard", () => {
