@@ -1009,7 +1009,7 @@ export default function AdminDashboardPage() {
                   </p>
                   <p className="mt-2 text-slate-600">
                     En Precalificaciones se usan periodo, asesor y búsqueda; sus controles
-                    internos permiten aislar NSS repetidos, topados y conversión a Mesa.
+                    internos separan re-precalificaciones de NSS compartidos entre asesores, además de topados y conversión a Mesa.
                     En las demás vistas se conservan los filtros operativos de etapa, estado y corrección.
                   </p>
                 </div>
