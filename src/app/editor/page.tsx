@@ -29,6 +29,7 @@ import {
 } from "./editor-decision";
 import { createEditorPendingAutosave } from "./editor-pending-autosave";
 import { EditorClienteNombreCell } from "@/components/editor/EditorClienteNombreCell";
+import { EditorPrecalMetadataCell } from "@/components/editor/EditorPrecalMetadataCell";
 
 const SUPABASE_SAVE_DEBOUNCE_MS = 750;
 const SEARCH_DEBOUNCE_MS = 300;
@@ -628,12 +629,14 @@ export default function EditorDashboardPage() {
         ) : null}
 
         <section className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
-          <table className="min-w-[1500px] w-full table-fixed divide-y divide-gray-200 text-sm">
+          <table className="min-w-[1900px] w-full table-fixed divide-y divide-gray-200 text-sm">
             <colgroup>
               <col className="w-[108px]" />
               <col className="w-[88px]" />
               <col className="w-[104px]" />
-              <col className="w-[128px]" />
+              <col className="w-[190px]" />
+              <col className="w-[160px]" />
+              <col className="w-[220px]" />
               <col className="w-[108px]" />
               <col className="w-[96px]" />
               <col className="w-[116px]" />
@@ -651,8 +654,14 @@ export default function EditorDashboardPage() {
                 <th className="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">
                   NSS
                 </th>
-                <th className="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">
-                  Cliente
+                <th className="bg-sky-50/70 px-3 py-2 text-left text-xs font-semibold uppercase text-gray-700">
+                  Nombre completo
+                </th>
+                <th className="bg-sky-50/70 px-3 py-2 text-left text-xs font-semibold uppercase text-gray-700">
+                  Registro patronal
+                </th>
+                <th className="bg-sky-50/70 px-3 py-2 text-left text-xs font-semibold uppercase text-gray-700">
+                  Empresa
                 </th>
                 <th className="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">
                   Teléfono
@@ -675,7 +684,7 @@ export default function EditorDashboardPage() {
               {loading && rows.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={9}
+                    colSpan={11}
                     className="px-4 py-8 text-center text-sm text-gray-500"
                   >
                     Cargando expedientes…
@@ -684,7 +693,7 @@ export default function EditorDashboardPage() {
               ) : rows.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={9}
+                    colSpan={11}
                     className="px-4 py-8 text-center text-sm text-gray-500"
                   >
                     No hay expedientes para revisar.
@@ -723,18 +732,20 @@ export default function EditorDashboardPage() {
                       <td className="truncate px-3 py-2 text-sm text-gray-600">
                         {p.nss || "—"}
                       </td>
-                      <td className="px-3 py-2 text-sm text-gray-900">
+                      <td className="bg-sky-50/30 px-2 py-2 text-sm text-gray-900">
                         <EditorClienteNombreCell
                           expedienteId={p.id}
                           clienteNombre={p.cliente_nombre}
                           onApplied={(nombre) => {
-                            setRows((prev) =>
-                              prev.map((r) =>
+                            setRows((prev) => {
+                              const next = prev.map((r) =>
                                 r.id === p.id
                                   ? { ...r, cliente_nombre: nombre }
                                   : r,
-                              ),
-                            );
+                              );
+                              rowsRef.current = next;
+                              return next;
+                            });
                           }}
                         />
                         {p.esReingreso ? (
@@ -742,6 +753,46 @@ export default function EditorDashboardPage() {
                             Reingreso · revalidar monto
                           </span>
                         ) : null}
+                      </td>
+                      <td className="bg-sky-50/30 px-2 py-2">
+                        <EditorPrecalMetadataCell
+                          expedienteId={p.id}
+                          field="registro_patronal"
+                          value={p.registro_patronal}
+                          placeholder="Registro patronal"
+                          ariaLabel="Capturar registro patronal"
+                          maxLength={80}
+                          onApplied={(registroPatronal) => {
+                            setRows((prev) => {
+                              const next = prev.map((r) =>
+                                r.id === p.id
+                                  ? { ...r, registro_patronal: registroPatronal }
+                                  : r,
+                              );
+                              rowsRef.current = next;
+                              return next;
+                            });
+                          }}
+                        />
+                      </td>
+                      <td className="bg-sky-50/30 px-2 py-2">
+                        <EditorPrecalMetadataCell
+                          expedienteId={p.id}
+                          field="empresa"
+                          value={p.empresa}
+                          placeholder="Nombre de la empresa"
+                          ariaLabel="Capturar nombre de la empresa"
+                          maxLength={200}
+                          onApplied={(empresa) => {
+                            setRows((prev) => {
+                              const next = prev.map((r) =>
+                                r.id === p.id ? { ...r, empresa } : r,
+                              );
+                              rowsRef.current = next;
+                              return next;
+                            });
+                          }}
+                        />
                       </td>
                       <td className="truncate px-3 py-2 text-sm text-gray-600">
                         {p.telefono_cliente || "—"}
