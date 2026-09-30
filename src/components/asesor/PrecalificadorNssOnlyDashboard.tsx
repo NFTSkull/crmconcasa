@@ -24,6 +24,8 @@ type LinkedContext = Readonly<{
 
 type ReadonlyResult = Readonly<{
   nss: string;
+  nombre: string | null;
+  rfcInfonavit: string | null;
   resultado: "pendiente" | "aprobado" | "no_cumple";
   montoAprobado: number | null;
   createdAt: string;
@@ -54,8 +56,13 @@ function parseReadonlyResults(payload: unknown): ReadonlyResult[] {
     const monto =
       row.monto_aprobado == null ? null : Number(row.monto_aprobado);
 
+    const nombre = String(row.nombre ?? "").trim();
+    const rfcInfonavit = String(row.rfc_infonavit ?? "").trim().toUpperCase();
+
     return [{
       nss: String(row.nss ?? "").trim(),
+      nombre: nombre && nombre !== "POR CAPTURAR" ? nombre : null,
+      rfcInfonavit: rfcInfonavit || null,
       resultado,
       montoAprobado:
         monto != null && Number.isFinite(monto) ? monto : null,
@@ -328,8 +335,9 @@ export function PrecalificadorNssOnlyDashboard() {
                   Mis precalificaciones
                 </h2>
                 <p className="mt-1 text-sm text-slate-600">
-                  Solo puedes ver los NSS que tú precalificaste, su resultado y el monto aprobado.
-                  El expediente completo únicamente lo administra {titular}.
+                  Solo puedes ver los NSS que tú precalificaste, el nombre y RFC devueltos por
+                  Bansefi/Infonavit, su resultado y el monto aprobado. El expediente completo
+                  únicamente lo administra {titular}.
                 </p>
               </div>
               <Button
@@ -373,6 +381,24 @@ export function PrecalificadorNssOnlyDashboard() {
                       >
                         {resultadoLabel(row.resultado)}
                       </span>
+                    </div>
+                    <div className="mt-3 grid gap-3 border-t border-slate-100 pt-3 sm:grid-cols-2">
+                      <div>
+                        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                          Nombre
+                        </p>
+                        <p className="mt-1 text-sm font-semibold text-slate-950">
+                          {row.nombre || "—"}
+                        </p>
+                      </div>
+                      <div>
+                        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+                          RFC Bansefi
+                        </p>
+                        <p className="mt-1 font-mono text-sm font-semibold text-slate-950">
+                          {row.rfcInfonavit || "—"}
+                        </p>
+                      </div>
                     </div>
                     <div className="mt-3 border-t border-slate-100 pt-3">
                       <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
