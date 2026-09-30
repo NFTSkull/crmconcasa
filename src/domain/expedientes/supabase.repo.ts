@@ -825,6 +825,7 @@ async function fetchAsesorInboxPage(
 async function fetchAsesorInboxSummary(
   notifLimit?: number,
   ownerAsesorId?: string | null,
+  precalificadorOrigenId?: string | null,
 ): Promise<AsesorInboxSummaryResult> {
   const { client } = await requireSupabaseSession();
   const limit = Math.min(
@@ -853,6 +854,31 @@ async function fetchAsesorInboxSummary(
     throw new ExpedientesSupabaseError(
       "Respuesta inválida al cargar el resumen del inbox asesor.",
     );
+  }
+
+  const precalificadorId = String(precalificadorOrigenId ?? "").trim();
+  if (precalificadorId) {
+    const { data: linkedData, error: linkedError } = await client.rpc(
+      "asesor_inbox_counts_for_precalificador",
+      { p_precalificador_origen_id: precalificadorId },
+    );
+    if (linkedError) {
+      throw new ExpedientesSupabaseError(
+        linkedError.message ||
+          "No se pudo cargar el resumen del precalificador seleccionado.",
+      );
+    }
+    const linkedParsed = asesorInboxOwnerCountsResultSchema.safeParse(linkedData);
+    if (!linkedParsed.success) {
+      throw new ExpedientesSupabaseError(
+        "Respuesta inválida al cargar el resumen del precalificador seleccionado.",
+      );
+    }
+    return {
+      ...parsed.data,
+      counts: linkedParsed.data.counts,
+      programas_unicos: linkedParsed.data.programas_unicos,
+    };
   }
 
   const ownerId = String(ownerAsesorId ?? "").trim();
@@ -1025,8 +1051,13 @@ export class SupabaseExpedientesRepo implements ExpedientesRepo {
   async getAsesorInboxSummary(
     notifLimit?: number,
     ownerAsesorId?: string | null,
+    precalificadorOrigenId?: string | null,
   ): Promise<AsesorInboxSummaryResult> {
-    return fetchAsesorInboxSummary(notifLimit, ownerAsesorId);
+    return fetchAsesorInboxSummary(
+      notifLimit,
+      ownerAsesorId,
+      precalificadorOrigenId,
+    );
   }
 
   async getAsesorInboxEstadoEfectivo(expedienteId: string): Promise<string | null> {
