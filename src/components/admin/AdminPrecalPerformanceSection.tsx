@@ -36,7 +36,8 @@ const FILTERS: readonly {
   label: string;
 }[] = [
   { value: "todos", label: "Todas" },
-  { value: "repetidos", label: "NSS repetidos" },
+  { value: "compartidos", label: "Compartidos entre asesores" },
+  { value: "reprecalificaciones", label: "Re-precalificaciones" },
   { value: "topados", label: "Topados $169k" },
   { value: "mesa", label: "Entraron a Mesa" },
   { value: "no_mesa", label: "No entraron a Mesa" },
@@ -140,12 +141,13 @@ export function AdminPrecalPerformanceSection({
       <section className="rounded-lg border border-slate-200 bg-white p-4">
         <AdminSectionHeader
           title="Rendimiento de precalificaciones"
-          description={`Cohorte de precalificaciones del periodo ${periodoLabel}. Mide qué se precalifica, cuánto aprueba, qué NSS se repiten y cuántos expedientes terminan entrando a Mesa.`}
+          description={`Cohorte de precalificaciones del periodo ${periodoLabel}. Separa re-precalificaciones del mismo asesor de NSS compartidos entre asesores distintos, y mide monto, aprobación y conversión a Mesa.`}
         />
         <div className="mt-3 rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-xs leading-relaxed text-blue-900">
-          <strong>Cómo leerlo:</strong> “Entró a Mesa” usa el estado actual del
-          expediente. Así puedes seleccionar un periodo anterior y ver cuántas de
-          esas precalificaciones terminaron convirtiéndose en trámite. Para
+          <strong>Cómo leerlo:</strong> una re-precalificación del mismo asesor
+          <strong> no cuenta como NSS compartido</strong>. “NSS compartido” significa
+          que el mismo NSS fue precalificado por dos o más asesores distintos dentro
+          del periodo. “Entró a Mesa” usa el estado actual del expediente. Para
           Mejoravit, promedio y monto operativo respetan el tope de{" "}
           <strong>$169,000</strong>.
         </div>
@@ -153,7 +155,7 @@ export function AdminPrecalPerformanceSection({
 
       {summary ? (
         <>
-          <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <section className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
             {[
               {
                 label: "Precalificaciones",
@@ -161,9 +163,14 @@ export function AdminPrecalPerformanceSection({
                 hint: `${summary.nssUnicos.toLocaleString("es-MX")} NSS únicos`,
               },
               {
-                label: "NSS repetidos",
-                value: summary.nssRepetidos.toLocaleString("es-MX"),
-                hint: `${summary.repeticionesExtraPeriodo.toLocaleString("es-MX")} repeticiones extra dentro del periodo`,
+                label: "Re-precalificaciones",
+                value: summary.reprecalificaciones.toLocaleString("es-MX"),
+                hint: "Mismo expediente vuelve a consultarse; no cuenta como NSS compartido",
+              },
+              {
+                label: "NSS compartidos entre asesores",
+                value: summary.nssCompartidos.toLocaleString("es-MX"),
+                hint: "Mismo NSS precalificado por 2+ asesores distintos en el periodo",
               },
               {
                 label: "Aprobadas",
@@ -184,6 +191,11 @@ export function AdminPrecalPerformanceSection({
                 label: "Monto aprobado operativo",
                 value: formatMontoMX(summary.montoTotalAdmin),
                 hint: "Suma de aprobaciones del periodo",
+              },
+              {
+                label: "Expedientes generados",
+                value: summary.expedientesGenerados.toLocaleString("es-MX"),
+                hint: "Expedientes únicos detrás de las precalificaciones",
               },
               {
                 label: "Entraron a Mesa",
@@ -216,7 +228,7 @@ export function AdminPrecalPerformanceSection({
           <section className="rounded-lg border border-slate-200 bg-white p-4">
             <AdminSectionHeader
               title="Rendimiento por asesor"
-              description="Compara volumen, repetición, aprobación, monto y conversión a Mesa. Usa «Ver solo» para aislar a un asesor con el filtro global."
+              description="Compara volumen, re-precalificación, NSS compartidos con otros asesores, aprobación, monto y conversión a Mesa. Usa «Ver solo» para aislar a un asesor."
             />
             {advisorRows.length === 0 ? (
               <AdminEmptyState
@@ -225,13 +237,14 @@ export function AdminPrecalPerformanceSection({
               />
             ) : (
               <div className="mt-3 overflow-x-auto">
-                <table className="min-w-[1180px] text-left text-sm text-slate-900">
+                <table className="min-w-[1320px] text-left text-sm text-slate-900">
                   <thead className="border-b border-slate-200 text-xs uppercase text-slate-600">
                     <tr>
                       <th className="py-2 pr-3">Asesor</th>
                       <th className="py-2 pr-3 text-right">Precals</th>
                       <th className="py-2 pr-3 text-right">NSS únicos</th>
-                      <th className="py-2 pr-3 text-right">NSS repetidos</th>
+                      <th className="py-2 pr-3 text-right">Re-precals</th>
+                      <th className="py-2 pr-3 text-right">NSS compartidos</th>
                       <th className="py-2 pr-3 text-right">Expedientes</th>
                       <th className="py-2 pr-3 text-right">Aprobadas</th>
                       <th className="py-2 pr-3 text-right">% aprobación</th>
@@ -262,7 +275,10 @@ export function AdminPrecalPerformanceSection({
                             {row.nssUnicos}
                           </td>
                           <td className="py-2.5 pr-3 text-right tabular-nums">
-                            {row.nssRepetidos}
+                            {row.reprecalificaciones}
+                          </td>
+                          <td className="py-2.5 pr-3 text-right tabular-nums">
+                            {row.nssCompartidos}
                           </td>
                           <td className="py-2.5 pr-3 text-right tabular-nums">
                             {row.expedientesGenerados}
@@ -315,7 +331,7 @@ export function AdminPrecalPerformanceSection({
       <section className="rounded-lg border border-slate-200 bg-white p-4">
         <AdminSectionHeader
           title="Detalle de precalificaciones"
-          description="Cada fila representa una precalificación real. Las re-precalificaciones aparecen como intentos separados para que el volumen no quede oculto."
+          description="Cada fila representa una precalificación real. Las re-precalificaciones se muestran aparte y NO hacen que un NSS se marque como compartido. Para cruzar dos asesores: usa «Ver solo» en el primero, activa «Compartidos entre asesores» y escribe el nombre del segundo en Buscar."
         />
 
         <div className="mt-3 flex flex-wrap gap-2">
@@ -350,7 +366,7 @@ export function AdminPrecalPerformanceSection({
         ) : data ? (
           <>
             <div className="mt-3 overflow-x-auto">
-              <table className="min-w-[1380px] text-left text-sm text-slate-900">
+              <table className="min-w-[1640px] text-left text-sm text-slate-900">
                 <thead className="border-b border-slate-200 text-xs uppercase text-slate-600">
                   <tr>
                     <th className="py-2 pr-3">Fecha</th>
@@ -410,13 +426,54 @@ export function AdminPrecalPerformanceSection({
                           </span>
                         ) : null}
                       </td>
-                      <td className="py-2.5 pr-3">
-                        {item.nssPrecalHistoricas > 1 ? (
-                          <span className="inline-flex rounded-md bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900">
-                            {item.nssPrecalHistoricas} históricas
-                          </span>
+                      <td className="min-w-[20rem] py-2.5 pr-3">
+                        <div className="flex flex-wrap gap-1">
+                          {item.compartidoEntreAsesores ? (
+                            <span className="inline-flex rounded-md bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-900">
+                              Compartido · {item.asesoresNssCount} asesores
+                            </span>
+                          ) : (
+                            <span className="inline-flex rounded-md bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700">
+                              1 asesor
+                            </span>
+                          )}
+                          {item.isReprecalificacion ? (
+                            <span className="inline-flex rounded-md bg-blue-100 px-2 py-0.5 text-xs font-semibold text-blue-900">
+                              Re-precalificación
+                            </span>
+                          ) : null}
+                        </div>
+                        {item.compartidoEntreAsesores ? (
+                          <div className="mt-1.5 space-y-1 text-xs text-slate-600">
+                            {item.asesoresNss.map((advisor) => (
+                              <div key={advisor.asesorId}>
+                                <strong className="font-medium text-slate-800">
+                                  {formatAsesorExpedienteLabel({
+                                    fullName: advisor.asesorNombre,
+                                    email: advisor.asesorEmail,
+                                    fallbackId: advisor.asesorId,
+                                  })}
+                                </strong>
+                                {" · "}
+                                {advisor.precalificaciones} precal
+                                {advisor.precalificaciones === 1 ? "" : "s"}
+                                {" · "}
+                                {advisor.montoPromedio > 0
+                                  ? `${formatMontoMX(advisor.montoPromedio)} prom.`
+                                  : "sin monto prom."}
+                                {" · "}
+                                {advisor.expedientesEnMesa} Mesa
+                              </div>
+                            ))}
+                          </div>
+                        ) : item.isReprecalificacion ? (
+                          <p className="mt-1 text-xs text-slate-500">
+                            Mismo asesor; no se considera NSS compartido.
+                          </p>
                         ) : (
-                          <span className="text-xs text-slate-500">Único</span>
+                          <p className="mt-1 text-xs text-slate-500">
+                            Sin cruce con otro asesor en el periodo.
+                          </p>
                         )}
                       </td>
                       <td className="py-2.5 pr-3">
