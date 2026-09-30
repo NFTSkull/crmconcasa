@@ -12,6 +12,7 @@ export interface EditorPrecalRow {
   programa: string;
   nss: string;
   cliente_nombre: string;
+  registro_patronal: string;
   telefono_cliente: string;
   asesorId: string;
   createdAt: string;
@@ -42,6 +43,7 @@ export function mapExpedienteToEditorRow(
     programa: e.base.programa,
     nss: e.base.nss,
     cliente_nombre: e.base.cliente_nombre,
+    registro_patronal: e.editorDecision.registro_patronal_infonavit ?? "",
     telefono_cliente: e.base.telefono_cliente,
     asesorId: e.base.asesorId,
     createdAt: e.base.createdAt,
