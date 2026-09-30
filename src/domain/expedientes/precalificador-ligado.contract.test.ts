@@ -1,0 +1,52 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
+import { describe, it } from "node:test";
+
+const root = process.cwd();
+const migration = readFileSync(
+  join(root, "supabase/migrations/20260930035000_anette_precalificador_ligado.sql"),
+  "utf8",
+);
+const dashboard = readFileSync(
+  join(root, "src/components/asesor/PrecalificadorNssOnlyDashboard.tsx"),
+  "utf8",
+);
+const asesorPage = readFileSync(join(root, "src/app/asesor/page.tsx"), "utf8");
+const nuevaLayout = readFileSync(
+  join(root, "src/app/asesor/nueva/layout.tsx"),
+  "utf8",
+);
+const repo = readFileSync(
+  join(root, "src/domain/expedientes/supabase.repo.ts"),
+  "utf8",
+);
+
+describe("precalificador ligado NSS-only", () => {
+  it("el expediente queda a nombre del titular y conserva procedencia", () => {
+    assert.match(migration, /asesor_precalificadores_ligados/);
+    assert.match(migration, /precalificador_origen_id/);
+    assert.match(
+      migration,
+      /INSERT INTO public\.expedientes[\s\S]*v_target\.id[\s\S]*v_actor/,
+    );
+    assert.match(migration, /expedientes_guard_precalificador_nss_only/);
+  });
+
+  it("el usuario restringido solo usa la RPC NSS ligada", () => {
+    assert.match(dashboard, /asesor_preparar_precalificacion_nss_only_ligada/);
+    assert.match(dashboard, /Captura únicamente el NSS/);
+    assert.doesNotMatch(dashboard, /DocumentDropzone/);
+    assert.doesNotMatch(dashboard, /cliente_datos/);
+    assert.match(asesorPage, /precalificador_nss_only/);
+    assert.match(nuevaLayout, /PrecalificadorNssOnlyDashboard/);
+  });
+
+  it("Anette puede filtrar listado y KPIs por precalificador", () => {
+    assert.match(asesorPage, /Origen de precalificación/);
+    assert.match(asesorPage, /precalificadorOrigenId/);
+    assert.match(repo, /p_precalificador_origen_id/);
+    assert.match(repo, /asesor_inbox_counts_for_precalificador/);
+    assert.match(migration, /p_precalificador_origen_id UUID DEFAULT NULL/);
+  });
+});
