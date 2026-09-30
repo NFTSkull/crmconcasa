@@ -164,6 +164,16 @@ function formatDateChip(ymd: string): { weekday: string; day: string } {
   };
 }
 
+function sectionFitZoom(rowCount: number, compact: boolean): number {
+  if (!compact) return 1;
+  if (rowCount >= 14) return 0.58;
+  if (rowCount >= 12) return 0.64;
+  if (rowCount >= 10) return 0.72;
+  if (rowCount >= 8) return 0.8;
+  if (rowCount >= 5) return 0.9;
+  return 1;
+}
+
 function uniqueValues(values: string[]): string[] {
   const seen = new Set<string>();
   const result: string[] = [];
@@ -207,7 +217,6 @@ function ResultCell({
   suggestions,
   disabled,
   compact,
-  dense,
   onValueChange,
   onColorChange,
   onShortcut,
@@ -219,7 +228,6 @@ function ResultCell({
   suggestions: string[];
   disabled: boolean;
   compact: boolean;
-  dense: boolean;
   onValueChange: (value: string) => void;
   onColorChange: (value: AgendaHojaColor) => void;
   onShortcut: (event: KeyboardEvent<HTMLElement>) => void;
@@ -228,7 +236,7 @@ function ResultCell({
     <div
       className={cx(
         "min-w-[178px] border transition-colors",
-        dense ? "flex items-center gap-1 p-0.5" : compact ? "p-1" : "p-1.5",
+        compact ? "p-1" : "p-1.5",
         cellTone(color),
       )}
     >
@@ -243,11 +251,7 @@ function ResultCell({
         placeholder="Escribir resultado…"
         className={cx(
           "w-full rounded border border-transparent bg-transparent px-1.5 font-semibold text-slate-900 outline-none placeholder:font-normal placeholder:text-slate-400 focus:border-slate-300 focus:bg-white/80 disabled:cursor-default",
-          dense
-            ? "min-w-0 flex-1 py-0.5 text-[10px] leading-4"
-            : compact
-              ? "py-1 text-[11px]"
-              : "py-1.5 text-xs",
+          compact ? "py-1 text-[11px]" : "py-1.5 text-xs",
         )}
       />
       <datalist id={listId}>
@@ -255,13 +259,7 @@ function ResultCell({
           <option key={suggestion} value={suggestion} />
         ))}
       </datalist>
-      <div
-        className={cx(
-          "flex items-center",
-          dense ? "mt-0 shrink-0 gap-0.5" : "mt-1 gap-1",
-        )}
-        aria-label={label + " color"}
-      >
+      <div className="mt-1 flex items-center gap-1" aria-label={label + " color"}>
         {COLOR_ACTIONS.map((action) => (
           <button
             key={action.value}
@@ -271,19 +269,16 @@ function ResultCell({
             title={action.label}
             aria-label={label + ": " + action.label}
             className={cx(
-              "flex items-center justify-center rounded-full border font-black transition disabled:cursor-default disabled:opacity-60",
-              dense ? "h-4 w-4 text-[8px]" : "h-5 w-5 text-[10px]",
+              "flex h-5 w-5 items-center justify-center rounded-full border text-[10px] font-black transition disabled:cursor-default disabled:opacity-60",
               color === action.value ? action.active : action.inactive,
             )}
           >
             {action.symbol}
           </button>
         ))}
-        {!dense ? (
-          <span className="ml-1 truncate text-[9px] font-medium text-slate-500">
-            {COLOR_ACTIONS.find((item) => item.value === color)?.label || "Sin color"}
-          </span>
-        ) : null}
+        <span className="ml-1 truncate text-[9px] font-medium text-slate-500">
+          {COLOR_ACTIONS.find((item) => item.value === color)?.label || "Sin color"}
+        </span>
       </div>
     </div>
   );
@@ -292,14 +287,12 @@ function ResultCell({
 function EditableAgendaRow({
   row,
   compact,
-  dense,
   suggestions,
   onReload,
   onAddManual,
 }: Readonly<{
   row: AgendaHojaRow;
   compact: boolean;
-  dense: boolean;
   suggestions: {
     biometricos: string[];
     notificacion: string[];
@@ -418,7 +411,6 @@ function EditableAgendaRow({
     <tr
       className={cx(
         "group border-b border-slate-200 align-top transition-colors",
-        dense && "h-[34px]",
         alert
           ? "bg-red-50/70 hover:bg-red-50"
           : dirty
@@ -428,19 +420,18 @@ function EditableAgendaRow({
     >
       <td
         className={cx(
-          "sticky left-0 z-10 w-[78px] border-r border-slate-200 px-2 text-center font-black text-slate-900",
-          dense ? "py-1 text-[10px] leading-3" : "text-xs",
-          dense ? "" : compact ? "py-2" : "py-3",
+          "sticky left-0 z-10 w-[78px] border-r border-slate-200 px-2 text-center text-xs font-black text-slate-900",
+          compact ? "py-2" : "py-3",
           stickyTone,
         )}
       >
         {row.displayTime}
-        {!dense && row.logicalTime !== row.displayTime ? (
+        {row.logicalTime !== row.displayTime ? (
           <span className="mt-0.5 block text-[9px] font-medium text-slate-400">
             CRM {row.logicalTime}
           </span>
         ) : null}
-        {!dense && row.sheetRow ? (
+        {row.sheetRow ? (
           <span className="mt-1 block text-[9px] font-normal text-slate-400">
             Fila {row.sheetRow}
           </span>
@@ -448,9 +439,8 @@ function EditableAgendaRow({
       </td>
       <td
         className={cx(
-          "sticky left-[78px] z-10 w-[128px] border-r border-slate-200 px-2 font-mono font-semibold text-slate-700",
-          dense ? "py-1 text-[9px] leading-3" : "text-[11px]",
-          dense ? "" : compact ? "py-2" : "py-3",
+          "sticky left-[78px] z-10 w-[128px] border-r border-slate-200 px-2 font-mono text-[11px] font-semibold text-slate-700",
+          compact ? "py-2" : "py-3",
           stickyTone,
         )}
       >
@@ -458,28 +448,22 @@ function EditableAgendaRow({
       </td>
       <td
         className={cx(
-          "sticky left-[206px] z-10 w-[244px] border-r border-slate-200 px-3 font-bold text-slate-950",
-          dense ? "py-1 text-[10px] leading-3" : "text-xs",
-          dense ? "" : compact ? "py-2" : "py-3",
+          "sticky left-[206px] z-10 w-[244px] border-r border-slate-200 px-3 text-xs font-bold text-slate-950",
+          compact ? "py-2" : "py-3",
           stickyTone,
         )}
       >
         {row.expedienteId ? (
           <Link
             href={"/mesa-control/" + row.expedienteId}
-            className={cx(
-              "hover:text-indigo-700 hover:underline",
-              dense ? "leading-3" : "leading-4",
-            )}
+            className="leading-4 hover:text-indigo-700 hover:underline"
           >
             {row.clienteNombre || "Cliente"}
           </Link>
         ) : (
-          <span className={dense ? "leading-3" : "leading-4"}>
-            {row.clienteNombre || "—"}
-          </span>
+          <span className="leading-4">{row.clienteNombre || "—"}</span>
         )}
-        {alert && !dense ? (
+        {alert ? (
           <span className="mt-1 flex w-fit items-center gap-1 rounded-full border border-red-200 bg-red-100 px-1.5 py-0.5 text-[9px] font-bold text-red-700">
             ⚠ Incidencia
           </span>
@@ -487,9 +471,8 @@ function EditableAgendaRow({
       </td>
       <td
         className={cx(
-          "sticky left-[450px] z-10 w-[190px] border-r border-slate-200 px-2 font-semibold text-slate-700",
-          dense ? "py-1 text-[9px] leading-3" : "text-[11px]",
-          dense ? "" : compact ? "py-2" : "py-3",
+          "sticky left-[450px] z-10 w-[190px] border-r border-slate-200 px-2 text-[11px] font-semibold text-slate-700",
+          compact ? "py-2" : "py-3",
           stickyTone,
         )}
       >
@@ -504,7 +487,6 @@ function EditableAgendaRow({
           suggestions={suggestions.biometricos}
           disabled={!row.editable || saving}
           compact={compact}
-          dense={dense}
           onValueChange={(value) =>
             setDraft((prev) => ({ ...prev, biometricResultRaw: value }))
           }
@@ -523,7 +505,6 @@ function EditableAgendaRow({
           suggestions={suggestions.notificacion}
           disabled={!row.editable || saving}
           compact={compact}
-          dense={dense}
           onValueChange={(value) =>
             setDraft((prev) => ({ ...prev, notificationResultRaw: value }))
           }
@@ -553,129 +534,72 @@ function EditableAgendaRow({
           />
         </td>
       ) : null}
-      <td
-        className={cx(
-          "min-w-[235px] border-r border-slate-200",
-          dense ? "p-0.5" : "p-1.5",
-          alert && "bg-red-50/40",
-        )}
-      >
-        {dense ? (
-          <input
-            value={draft.notesRaw}
-            disabled={!row.editable || saving}
-            onChange={(event) =>
-              setDraft((prev) => ({ ...prev, notesRaw: event.target.value }))
-            }
-            onKeyDown={(event) => handleShortcut(event)}
-            aria-label="Notas operativas"
-            placeholder="Notas…"
-            className="h-6 w-full rounded border border-slate-200 bg-white px-1.5 text-[9px] text-slate-800 outline-none transition focus:border-indigo-300 focus:ring-1 focus:ring-indigo-100"
-          />
-        ) : (
-          <textarea
-            value={draft.notesRaw}
-            disabled={!row.editable || saving}
-            onChange={(event) =>
-              setDraft((prev) => ({ ...prev, notesRaw: event.target.value }))
-            }
-            onKeyDown={(event) => handleShortcut(event)}
-            aria-label="Notas operativas"
-            placeholder="Notas operativas…"
-            rows={compact ? 2 : 3}
-            className="w-full resize-none rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[11px] leading-4 text-slate-800 outline-none transition focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
-          />
-        )}
+      <td className={cx("min-w-[235px] border-r border-slate-200 p-1.5", alert && "bg-red-50/40")}>
+        <textarea
+          value={draft.notesRaw}
+          disabled={!row.editable || saving}
+          onChange={(event) =>
+            setDraft((prev) => ({ ...prev, notesRaw: event.target.value }))
+          }
+          onKeyDown={(event) => handleShortcut(event)}
+          aria-label="Notas operativas"
+          placeholder="Notas operativas…"
+          rows={compact ? 2 : 3}
+          className="w-full resize-none rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-[11px] leading-4 text-slate-800 outline-none transition focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+        />
       </td>
-      <td
-        className={cx(
-          "min-w-[155px] px-2",
-          dense ? "py-1" : compact ? "py-2" : "py-3",
-        )}
-      >
-        {dense ? (
-          <div className="flex items-center gap-1">
-            <span
-              className={cx(
-                "max-w-[72px] truncate rounded-full border px-1.5 py-0.5 text-[8px] font-bold",
-                originTone(row.originLabel),
-              )}
-              title={row.originLabel}
-            >
-              {row.originLabel}
+      <td className={cx("min-w-[155px] px-2", compact ? "py-2" : "py-3")}>
+        <span
+          className={cx(
+            "inline-flex rounded-full border px-2 py-0.5 text-[9px] font-bold",
+            originTone(row.originLabel),
+          )}
+        >
+          {row.originLabel}
+        </span>
+        {row.crmOverride ? (
+          <span className="mt-1 block text-[9px] font-bold text-indigo-600">
+            Editado en CRM
+          </span>
+        ) : null}
+        <div className="mt-2 flex flex-col gap-1.5">
+          <button
+            type="button"
+            disabled={!dirty || saving}
+            onClick={() => void handleSave()}
+            className={cx(
+              "rounded-lg border px-2 py-1.5 text-[10px] font-bold transition",
+              dirty
+                ? "border-indigo-700 bg-indigo-700 text-white hover:bg-indigo-800"
+                : "border-slate-200 bg-slate-100 text-slate-400",
+              "disabled:cursor-not-allowed",
+            )}
+          >
+            {saving ? "Guardando…" : dirty ? "Guardar cambios" : "Sin cambios"}
+          </button>
+          {dirty ? (
+            <span className="text-center text-[9px] font-medium text-amber-700">
+              ⌘/Ctrl + Enter
             </span>
+          ) : null}
+          {row.originLabel === "Manual CRM" && row.manualOccupancyId ? (
             <button
               type="button"
-              disabled={!dirty || saving}
-              onClick={() => void handleSave()}
-              className={cx(
-                "h-6 flex-1 rounded border px-1 text-[9px] font-black transition",
-                dirty
-                  ? "border-indigo-700 bg-indigo-700 text-white hover:bg-indigo-800"
-                  : "border-slate-200 bg-slate-50 text-slate-400",
-                "disabled:cursor-not-allowed",
-              )}
+              disabled={saving}
+              onClick={() => void handleCancelManual()}
+              className="rounded-lg border border-red-200 bg-red-50 px-2 py-1 text-[10px] font-bold text-red-700 hover:bg-red-100 disabled:opacity-40"
             >
-              {saving ? "…" : dirty ? "Guardar" : "✓"}
+              Liberar lugar
             </button>
-          </div>
-        ) : (
-          <>
-            <span
-              className={cx(
-                "inline-flex rounded-full border px-2 py-0.5 text-[9px] font-bold",
-                originTone(row.originLabel),
-              )}
-            >
-              {row.originLabel}
-            </span>
-            {row.crmOverride ? (
-              <span className="mt-1 block text-[9px] font-bold text-indigo-600">
-                Editado en CRM
-              </span>
-            ) : null}
-            <div className="mt-2 flex flex-col gap-1.5">
-              <button
-                type="button"
-                disabled={!dirty || saving}
-                onClick={() => void handleSave()}
-                className={cx(
-                  "rounded-lg border px-2 py-1.5 text-[10px] font-bold transition",
-                  dirty
-                    ? "border-indigo-700 bg-indigo-700 text-white hover:bg-indigo-800"
-                    : "border-slate-200 bg-slate-100 text-slate-400",
-                  "disabled:cursor-not-allowed",
-                )}
-              >
-                {saving ? "Guardando…" : dirty ? "Guardar cambios" : "Sin cambios"}
-              </button>
-              {dirty ? (
-                <span className="text-center text-[9px] font-medium text-amber-700">
-                  ⌘/Ctrl + Enter
-                </span>
-              ) : null}
-              {row.originLabel === "Manual CRM" && row.manualOccupancyId ? (
-                <button
-                  type="button"
-                  disabled={saving}
-                  onClick={() => void handleCancelManual()}
-                  className="rounded-lg border border-red-200 bg-red-50 px-2 py-1 text-[10px] font-bold text-red-700 hover:bg-red-100 disabled:opacity-40"
-                >
-                  Liberar lugar
-                </button>
-              ) : null}
-            </div>
-          </>
-        )}
+          ) : null}
+        </div>
         {message ? (
           <span
             className={cx(
-              dense
-                ? "mt-0.5 block text-center text-[8px] font-bold"
-                : "mt-1.5 block rounded px-1.5 py-1 text-center text-[9px] font-bold",
-              message === "Guardado" ? "text-emerald-700" : "text-red-700",
-              !dense &&
-                (message === "Guardado" ? "bg-emerald-50" : "bg-red-50"),
+              "mt-1.5 block rounded px-1.5 py-1 text-center text-[9px] font-bold",
+              message === "Guardado"
+                ? "bg-emerald-50 text-emerald-700"
+                : "bg-red-50 text-red-700",
             )}
           >
             {message === "Guardado" ? "✓ Guardado" : message}
@@ -1076,9 +1000,6 @@ export function MesaAgendaHojaOperativaClient() {
         return {
           ...section,
           key: section.locationId + ":" + section.kind,
-          dense:
-            section.locationId === "monterrey" &&
-            section.kind === "biometricos",
           rows: sectionRows,
           occupied: sectionRows.filter((row) => !row.available).length,
           available: sectionRows.filter((row) => row.available).length,
@@ -1402,7 +1323,7 @@ export function MesaAgendaHojaOperativaClient() {
                   : "border-slate-300 bg-white text-slate-600",
               )}
             >
-              {compact ? "✓ Compacto" : "Vista cómoda"}
+              {compact ? "✓ Ajustar todo" : "Vista amplia"}
             </button>
 
             <button
@@ -1476,7 +1397,9 @@ export function MesaAgendaHojaOperativaClient() {
           </div>
 
           <p className="mt-2 text-[10px] font-medium text-slate-400">
-            Escribe directo en la celda, cambia el color con un clic y usa ⌘/Ctrl + Enter para guardar la fila.
+            {compact
+              ? "Modo Ajustar todo: cada sección muestra todas sus filas dentro de un solo recuadro, sin scroll vertical interno."
+              : "Vista amplia: escribe directo en la celda, cambia el color con un clic y usa ⌘/Ctrl + Enter para guardar la fila."}
           </p>
         </section>
 
@@ -1557,8 +1480,7 @@ export function MesaAgendaHojaOperativaClient() {
           >
             <div
               className={cx(
-                "px-4 text-white",
-                section.dense ? "py-1.5" : "py-2.5",
+                "px-4 py-2.5 text-white",
                 section.locationId === "leo"
                   ? "bg-orange-500"
                   : sectionTone(section.kind),
@@ -1582,9 +1504,9 @@ export function MesaAgendaHojaOperativaClient() {
                   <h3 className="text-sm font-black tracking-wide">
                     {section.label}
                   </h3>
-                  {section.dense ? (
+                  {compact ? (
                     <span className="rounded-full border border-white/25 bg-white/10 px-2 py-0.5 text-[9px] font-black">
-                      15 en pantalla
+                      Todas visibles
                     </span>
                   ) : null}
                   {section.alerts > 0 ? (
@@ -1620,78 +1542,43 @@ export function MesaAgendaHojaOperativaClient() {
                   LEO siempre mantiene 5 lugares. Los registros existentes del Drive se respetan y los espacios libres se pueden llenar manualmente desde CRM con Hora, NSS, Cliente, Asesor, Biométricos, Notificación y Notas. No cuenta dentro de los 15 lugares de Biométricos.
                 </div>
               ) : null}
-              <div
+              <div className="overflow-x-auto overflow-y-visible">
+              <table
                 className={cx(
-                  section.dense
-                    ? "overflow-x-auto overflow-y-visible"
-                    : "max-h-[68vh] overflow-auto",
+                  "w-full table-fixed border-collapse text-left origin-top-left",
+                  section.kind === "biometricos" ? "min-w-[1320px]" : "min-w-[1500px]",
                 )}
+                style={{ zoom: sectionFitZoom(section.rows.length, compact) }}
               >
-              <table className={cx(
-                "w-full table-fixed border-collapse text-left",
-                section.kind === "biometricos" ? "min-w-[1320px]" : "min-w-[1500px]",
-              )}>
-                <thead
-                  className={cx(
-                    "sticky top-0 z-20 bg-slate-100 font-black uppercase tracking-wide text-slate-600 shadow-[0_1px_0_rgba(148,163,184,0.35)]",
-                    section.dense ? "text-[9px]" : "text-[10px]",
-                  )}
-                >
+                <thead className="sticky top-0 z-20 bg-slate-100 text-[10px] font-black uppercase tracking-wide text-slate-600 shadow-[0_1px_0_rgba(148,163,184,0.35)]">
                   <tr>
-                    <th className={cx(
-                      "sticky left-0 z-30 w-[78px] border-r border-slate-200 bg-slate-100 px-2 text-center",
-                      section.dense ? "py-1" : "py-2",
-                    )}>
+                    <th className="sticky left-0 z-30 w-[78px] border-r border-slate-200 bg-slate-100 px-2 py-2 text-center">
                       Hora
                     </th>
-                    <th className={cx(
-                      "sticky left-[78px] z-30 w-[128px] border-r border-slate-200 bg-slate-100 px-2",
-                      section.dense ? "py-1" : "py-2",
-                    )}>
+                    <th className="sticky left-[78px] z-30 w-[128px] border-r border-slate-200 bg-slate-100 px-2 py-2">
                       NSS
                     </th>
-                    <th className={cx(
-                      "sticky left-[206px] z-30 w-[244px] border-r border-slate-200 bg-slate-100 px-3",
-                      section.dense ? "py-1" : "py-2",
-                    )}>
+                    <th className="sticky left-[206px] z-30 w-[244px] border-r border-slate-200 bg-slate-100 px-3 py-2">
                       Cliente
                     </th>
-                    <th className={cx(
-                      "sticky left-[450px] z-30 w-[190px] border-r border-slate-200 bg-slate-100 px-2",
-                      section.dense ? "py-1" : "py-2",
-                    )}>
+                    <th className="sticky left-[450px] z-30 w-[190px] border-r border-slate-200 bg-slate-100 px-2 py-2">
                       Asesor
                     </th>
-                    <th className={cx(
-                      "w-[178px] border-r border-slate-200 px-2",
-                      section.dense ? "py-1" : "py-2",
-                    )}>
+                    <th className="w-[178px] border-r border-slate-200 px-2 py-2">
                       Biométricos
                     </th>
-                    <th className={cx(
-                      "w-[178px] border-r border-slate-200 px-2",
-                      section.dense ? "py-1" : "py-2",
-                    )}>
+                    <th className="w-[178px] border-r border-slate-200 px-2 py-2">
                       Notificación
                     </th>
                     {section.kind !== "biometricos" ? (
-                      <th className={cx(
-                      "w-[178px] border-r border-slate-200 px-2",
-                      section.dense ? "py-1" : "py-2",
-                    )}>
+                      <th className="w-[178px] border-r border-slate-200 px-2 py-2">
                         {section.kind === "firmas" ? "Firmó / Firma" : "Firma"}
                       </th>
                     ) : null}
-                    <th className={cx(
-                      "w-[235px] border-r border-slate-200 px-2",
-                      section.dense ? "py-1" : "py-2",
-                    )}>
+                    <th className="w-[235px] border-r border-slate-200 px-2 py-2">
                       Notas
                     </th>
-                    <th className={cx(
-                      "w-[155px] px-2",
-                      section.dense ? "py-1" : "py-2",
-                    )}>
+                    <th className="w-[155px] px-2 py-2">
                       Estado / acción
                     </th>
                   </tr>
@@ -1702,7 +1589,6 @@ export function MesaAgendaHojaOperativaClient() {
                       key={row.rowSource + "-" + row.rowId}
                       row={row}
                       compact={compact}
-                      dense={section.dense}
                       suggestions={suggestions}
                       onReload={loadRows}
                       onAddManual={(availableRow) => {
@@ -1747,7 +1633,7 @@ export function MesaAgendaHojaOperativaClient() {
             <span><b className="text-red-700">× Rojo</b> = incidencia / no asistió</span>
             <span><b className="text-orange-700">! Naranja</b> = pendiente / seguimiento</span>
             <span><b>○ Sin color</b> = sin clasificación</span>
-            <span><b>MTY Biométricos</b> = vista ultracompacta para ver los 15 sin scroll vertical</span>
+            <span><b>Ajustar todo</b> = todas las filas visibles por sección, sin scroll vertical interno</span>
             <span><b>Biométricos</b> = Biométricos + Notificación, igual que Drive</span>
             <span><b>⌘/Ctrl + Enter</b> = guardar fila</span>
           </div>
