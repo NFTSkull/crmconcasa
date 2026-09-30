@@ -36,7 +36,8 @@ const FILTERS: readonly {
   label: string;
 }[] = [
   { value: "todos", label: "Todas" },
-  { value: "repetidos", label: "NSS repetidos" },
+  { value: "compartidos", label: "Compartidos entre asesores" },
+  { value: "reprecalificaciones", label: "Re-precalificaciones" },
   { value: "topados", label: "Topados $169k" },
   { value: "mesa", label: "Entraron a Mesa" },
   { value: "no_mesa", label: "No entraron a Mesa" },
@@ -140,12 +141,13 @@ export function AdminPrecalPerformanceSection({
       <section className="rounded-lg border border-slate-200 bg-white p-4">
         <AdminSectionHeader
           title="Rendimiento de precalificaciones"
-          description={`Cohorte de precalificaciones del periodo ${periodoLabel}. Mide qué se precalifica, cuánto aprueba, qué NSS se repiten y cuántos expedientes terminan entrando a Mesa.`}
+          description={`Cohorte de precalificaciones del periodo ${periodoLabel}. Separa re-precalificaciones del mismo asesor de NSS compartidos entre asesores distintos, y mide monto, aprobación y conversión a Mesa.`}
         />
         <div className="mt-3 rounded-md border border-blue-100 bg-blue-50 px-3 py-2 text-xs leading-relaxed text-blue-900">
-          <strong>Cómo leerlo:</strong> “Entró a Mesa” usa el estado actual del
-          expediente. Así puedes seleccionar un periodo anterior y ver cuántas de
-          esas precalificaciones terminaron convirtiéndose en trámite. Para
+          <strong>Cómo leerlo:</strong> una re-precalificación del mismo asesor
+          <strong> no cuenta como NSS compartido</strong>. “NSS compartido” significa
+          que el mismo NSS fue precalificado por dos o más asesores distintos dentro
+          del periodo. “Entró a Mesa” usa el estado actual del expediente. Para
           Mejoravit, promedio y monto operativo respetan el tope de{" "}
           <strong>$169,000</strong>.
         </div>
