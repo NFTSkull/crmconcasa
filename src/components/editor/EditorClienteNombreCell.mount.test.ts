@@ -10,38 +10,47 @@ describe("EditorClienteNombreCell montaje", () => {
     join(process.cwd(), "src/components/editor/EditorClienteNombreCell.tsx"),
     "utf8",
   );
+  const registroCell = readFileSync(
+    join(process.cwd(), "src/components/editor/EditorRegistroPatronalCell.tsx"),
+    "utf8",
+  );
   const page = readFileSync(
     join(process.cwd(), "src/app/editor/page.tsx"),
     "utf8",
   );
 
-  it('POR CAPTURAR muestra input editable; nombre normal texto plano', () => {
+  it("nombre es editable para todas las filas y POR CAPTURAR inicia vacío", () => {
     assert.equal(isPorCapturarNombre("POR CAPTURAR"), true);
-    assert.equal(isPorCapturarNombre("  POR CAPTURAR  "), true);
     assert.equal(isPorCapturarNombre("MARIA LOPEZ"), false);
-    assert.equal(isPorCapturarNombre(""), false);
     assert.match(cell, /isPorCapturarNombre/);
-    assert.match(cell, /<input/);
+    assert.match(cell, /value=\{draft\}/);
     assert.match(cell, /placeholder="Nombre completo"/);
-    assert.match(cell, /clienteNombre \|\| "—"/);
+    assert.doesNotMatch(cell, /return \(\s*<span className="truncate"/);
   });
 
-  it("al confirmar (blur/Enter) llama editor_fill_nombre_infonavit con args correctos", () => {
-    assert.match(cell, /editor_fill_nombre_infonavit/);
+  it("al confirmar nombre llama el RPC manual del Editor", () => {
+    assert.match(cell, /editor_update_precal_nombre/);
     assert.match(cell, /p_expediente_id:\s*expedienteId/);
     assert.match(cell, /p_nombre_completo:\s*nombre/);
     assert.match(cell, /normalizePersonName\(draft\)/);
     assert.match(cell, /filterPersonNameInput\(e\.target\.value\)/);
     assert.match(cell, /onBlur/);
     assert.match(cell, /Enter/);
-    assert.doesNotMatch(cell, /auto_fill_nombre_infonavit/);
   });
 
-  it("editor lista monta la celda (sin <td> interno) y conserva badge Reingreso", () => {
+  it("registro patronal es editable en todas las filas y guarda por blur/Enter", () => {
+    assert.match(registroCell, /editor_update_precal_registro_patronal/);
+    assert.match(registroCell, /placeholder="Registro patronal"/);
+    assert.match(registroCell, /onBlur/);
+    assert.match(registroCell, /Enter/);
+  });
+
+  it("editor monta ambas celdas y conserva badge Reingreso", () => {
     assert.match(page, /EditorClienteNombreCell/);
-    assert.match(page, /onApplied=\{/);
-    assert.match(page, /cliente_nombre:\s*nombre/);
+    assert.match(page, /EditorRegistroPatronalCell/);
+    assert.match(page, /registro_patronal:\s*registro/);
     assert.match(page, /Reingreso · revalidar monto/);
     assert.doesNotMatch(cell, /<td[\s>]/);
+    assert.doesNotMatch(registroCell, /<td[\s>]/);
   });
 });
