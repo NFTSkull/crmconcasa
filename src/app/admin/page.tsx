@@ -106,6 +106,7 @@ import { AdminBernardoDashboard } from "@/components/admin/AdminBernardoDashboar
 import { AdminSearchResultadosSection } from "@/components/admin/AdminSearchResultadosSection";
 import { AdminSearchExpedientePanel } from "@/components/admin/AdminSearchExpedientePanel";
 import { AdminResumenEtapasActividad } from "@/components/admin/AdminResumenEtapasActividad";
+import { AdminPrecalPerformanceSection } from "@/components/admin/AdminPrecalPerformanceSection";
 import {
   ADMIN_REPORTES_SUBTABS,
   ADMIN_TAB_QUERY_PARAM,
@@ -1649,6 +1650,29 @@ export default function AdminDashboardPage() {
               </div>
             </section>
             )}
+        </div>
+
+        <div
+          role="tabpanel"
+          id={adminTabPanelId("precalificaciones")}
+          aria-labelledby={adminTabButtonId("precalificaciones")}
+          hidden={activeTab !== "precalificaciones"}
+          className="space-y-6"
+        >
+          {bounds ? (
+            <AdminPrecalPerformanceSection
+              fromIso={bounds.fromIso}
+              toExclusiveIso={bounds.toExclusiveIso}
+              periodoLabel={periodoLabel}
+              asesorId={asesorId || null}
+              search={buscarDebounced || null}
+              onSelectAsesor={applyAsesorFilter}
+            />
+          ) : (
+            <section className="rounded-lg border border-slate-200 bg-white p-4 text-sm text-slate-600">
+              Selecciona un periodo válido para analizar las precalificaciones.
+            </section>
+          )}
         </div>
 
         <div
