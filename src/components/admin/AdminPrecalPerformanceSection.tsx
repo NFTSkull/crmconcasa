@@ -52,6 +52,18 @@ function pct(value: number): string {
   return `${Number.isFinite(value) ? value.toFixed(1) : "0.0"}%`;
 }
 
+function advisorLabel(
+  nombre: string | null,
+  email: string | null,
+  id: string,
+): string {
+  return formatAsesorExpedienteLabel({
+    fullName: nombre,
+    email,
+    fallbackId: id,
+  });
+}
+
 function originLabel(item: AdminPrecalPerformanceResult["items"][number]): string {
   if (!item.precalificadorOrigenId) return "Asesor";
   return (
