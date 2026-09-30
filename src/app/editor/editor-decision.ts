@@ -18,6 +18,8 @@ export interface EditorPrecalRow {
   decision: string;
   monto_aprobado: number | null;
   notas_revision: string;
+  registro_patronal: string;
+  empresa: string;
   esReingreso: boolean;
   esReprecalPendiente: boolean;
   reprecalificacionPendienteId: string | null;
@@ -48,6 +50,9 @@ export function mapExpedienteToEditorRow(
     decision: revision.decision,
     monto_aprobado: revision.monto_aprobado,
     notas_revision: revision.notas_revision,
+    registro_patronal:
+      e.editorDecision?.registro_patronal_infonavit?.trim() ?? "",
+    empresa: e.editorDecision?.empresa_infonavit?.trim() ?? "",
     esReingreso: Boolean(
       e.reingreso?.expedienteAnteriorId && e.reingreso?.rechazoId,
     ),

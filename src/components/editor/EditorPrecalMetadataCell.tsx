@@ -3,51 +3,45 @@
 import { useEffect, useState } from "react";
 
 import { supabaseBrowser } from "@/lib/supabaseBrowser";
-import {
-  filterPersonNameInput,
-  normalizePersonName,
-} from "@/lib/clienteDatosFieldFormats";
+
+type Field = "registro_patronal" | "empresa";
 
 type Props = {
   expedienteId: string;
-  clienteNombre: string;
-  onApplied: (nombre: string) => void;
+  field: Field;
+  value: string;
+  placeholder: string;
+  ariaLabel: string;
+  maxLength?: number;
+  onApplied: (value: string) => void;
 };
 
-function initialNombre(value: string): string {
-  const normalized = normalizePersonName(value ?? "");
-  if (
-    normalized === "POR CAPTURAR" ||
-    normalized === "SIN NOMBRE" ||
-    normalized === "NOMBRE COMPLETO"
-  ) {
-    return "";
-  }
-  return normalized;
+function normalize(value: string): string {
+  return value.trim().replace(/\s+/g, " ").toUpperCase();
 }
 
-/**
- * Nombre editable para TODAS las precalificaciones del Editor.
- * Guarda en expedientes.cliente_nombre sin tocar decisión, monto ni notas.
- */
-export function EditorClienteNombreCell({
+export function EditorPrecalMetadataCell({
   expedienteId,
-  clienteNombre,
+  field,
+  value,
+  placeholder,
+  ariaLabel,
+  maxLength = 200,
   onApplied,
 }: Props) {
-  const [draft, setDraft] = useState(() => initialNombre(clienteNombre));
+  const [draft, setDraft] = useState(() => normalize(value ?? ""));
   const [saving, setSaving] = useState(false);
   const [aviso, setAviso] = useState<string | null>(null);
 
   useEffect(() => {
-    setDraft(initialNombre(clienteNombre));
+    setDraft(normalize(value ?? ""));
     setAviso(null);
-  }, [clienteNombre, expedienteId]);
+  }, [expedienteId, value]);
 
   async function commit() {
-    const nombre = normalizePersonName(draft);
-    const current = initialNombre(clienteNombre);
-    if (!nombre || saving || nombre === current) return;
+    const next = normalize(draft);
+    const current = normalize(value ?? "");
+    if (saving || next === current) return;
 
     if (!supabaseBrowser) {
       setAviso("No se pudo guardar");
@@ -61,8 +55,8 @@ export function EditorClienteNombreCell({
         "editor_update_precal_field",
         {
           p_expediente_id: expedienteId,
-          p_field: "cliente_nombre",
-          p_value: nombre,
+          p_field: field,
+          p_value: next,
         },
       );
 
@@ -77,8 +71,8 @@ export function EditorClienteNombreCell({
         return;
       }
 
-      setDraft(nombre);
-      onApplied(nombre);
+      setDraft(next);
+      onApplied(next);
       setAviso("Guardado");
       window.setTimeout(() => setAviso(null), 1600);
     } catch (error) {
@@ -89,15 +83,16 @@ export function EditorClienteNombreCell({
   }
 
   return (
-    <div className="min-w-[11rem]">
+    <div className="min-w-[10rem]">
       <input
         type="text"
         value={draft}
         disabled={saving}
-        placeholder="Nombre completo"
-        aria-label="Capturar nombre del cliente"
-        className="min-h-[34px] w-full rounded border border-slate-300 bg-white px-2 py-1 text-sm font-medium uppercase text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-gray-50"
-        onChange={(e) => setDraft(filterPersonNameInput(e.target.value))}
+        placeholder={placeholder}
+        aria-label={ariaLabel}
+        maxLength={maxLength}
+        className="min-h-[34px] w-full rounded border border-slate-300 bg-white px-2 py-1 text-xs font-medium uppercase text-gray-900 outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-100 disabled:bg-gray-50"
+        onChange={(e) => setDraft(e.target.value.toUpperCase())}
         onBlur={() => {
           void commit();
         }}
