@@ -29,6 +29,7 @@ import {
 } from "./editor-decision";
 import { createEditorPendingAutosave } from "./editor-pending-autosave";
 import { EditorClienteNombreCell } from "@/components/editor/EditorClienteNombreCell";
+import { EditorRegistroPatronalCell } from "@/components/editor/EditorRegistroPatronalCell";
 
 const SUPABASE_SAVE_DEBOUNCE_MS = 750;
 const SEARCH_DEBOUNCE_MS = 300;
@@ -628,12 +629,13 @@ export default function EditorDashboardPage() {
         ) : null}
 
         <section className="overflow-x-auto rounded-lg border border-gray-200 bg-white shadow-sm">
-          <table className="min-w-[1500px] w-full table-fixed divide-y divide-gray-200 text-sm">
+          <table className="min-w-[1680px] w-full table-fixed divide-y divide-gray-200 text-sm">
             <colgroup>
               <col className="w-[108px]" />
               <col className="w-[88px]" />
               <col className="w-[104px]" />
-              <col className="w-[128px]" />
+              <col className="w-[190px]" />
+              <col className="w-[170px]" />
               <col className="w-[108px]" />
               <col className="w-[96px]" />
               <col className="w-[116px]" />
@@ -652,7 +654,10 @@ export default function EditorDashboardPage() {
                   NSS
                 </th>
                 <th className="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">
-                  Cliente
+                  Nombre
+                </th>
+                <th className="bg-amber-50/60 px-3 py-2 text-left text-xs font-semibold uppercase text-gray-700">
+                  Registro patronal
                 </th>
                 <th className="px-3 py-2 text-left text-xs font-medium uppercase text-gray-500">
                   Teléfono
@@ -675,7 +680,7 @@ export default function EditorDashboardPage() {
               {loading && rows.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={9}
+                    colSpan={10}
                     className="px-4 py-8 text-center text-sm text-gray-500"
                   >
                     Cargando expedientes…
@@ -684,7 +689,7 @@ export default function EditorDashboardPage() {
               ) : rows.length === 0 ? (
                 <tr>
                   <td
-                    colSpan={9}
+                    colSpan={10}
                     className="px-4 py-8 text-center text-sm text-gray-500"
                   >
                     No hay expedientes para revisar.
@@ -742,6 +747,21 @@ export default function EditorDashboardPage() {
                             Reingreso · revalidar monto
                           </span>
                         ) : null}
+                      </td>
+                      <td className="bg-amber-50/20 px-3 py-2 text-sm text-gray-900">
+                        <EditorRegistroPatronalCell
+                          expedienteId={p.id}
+                          registroPatronal={p.registro_patronal}
+                          onApplied={(registro) => {
+                            setRows((prev) =>
+                              prev.map((r) =>
+                                r.id === p.id
+                                  ? { ...r, registro_patronal: registro }
+                                  : r,
+                              ),
+                            );
+                          }}
+                        />
                       </td>
                       <td className="truncate px-3 py-2 text-sm text-gray-600">
                         {p.telefono_cliente || "—"}
