@@ -196,7 +196,16 @@ BEGIN
       count(*) FILTER (WHERE decision = 'no_cumple')::INTEGER AS no_cumple,
       count(*) FILTER (WHERE decision = 'pendiente')::INTEGER AS pendientes,
       count(*) FILTER (WHERE decision IN ('aprobado', 'no_cumple'))::INTEGER AS resueltas,
-      coalesce(avg(monto_aprobado) FILTER (WHERE decision = 'aprobado' AND monto_aprobado > 0), 0)::NUMERIC(14,2) AS monto_promedio,
+      coalesce(avg(
+        CASE
+          WHEN decision = 'aprobado' AND monto_aprobado > 0
+            THEN CASE
+              WHEN lower(programa) = 'mejoravit' THEN least(monto_aprobado, 169000)
+              ELSE monto_aprobado
+            END
+          ELSE NULL
+        END
+      ), 0)::NUMERIC(14,2) AS monto_promedio,
       coalesce(sum(monto_aprobado) FILTER (WHERE decision = 'aprobado' AND monto_aprobado > 0), 0)::NUMERIC(16,2) AS monto_total_raw,
       coalesce(sum(
         CASE
@@ -227,7 +236,16 @@ BEGIN
       count(*) FILTER (WHERE p.decision = 'aprobado')::INTEGER AS aprobadas,
       count(*) FILTER (WHERE p.decision = 'no_cumple')::INTEGER AS no_cumple,
       count(*) FILTER (WHERE p.decision = 'pendiente')::INTEGER AS pendientes,
-      coalesce(avg(p.monto_aprobado) FILTER (WHERE p.decision = 'aprobado' AND p.monto_aprobado > 0), 0)::NUMERIC(14,2) AS monto_promedio,
+      coalesce(avg(
+        CASE
+          WHEN p.decision = 'aprobado' AND p.monto_aprobado > 0
+            THEN CASE
+              WHEN lower(p.programa) = 'mejoravit' THEN least(p.monto_aprobado, 169000)
+              ELSE p.monto_aprobado
+            END
+          ELSE NULL
+        END
+      ), 0)::NUMERIC(14,2) AS monto_promedio,
       count(DISTINCT p.nss) FILTER (WHERE p.topado_169k)::INTEGER AS topados_nss,
       count(DISTINCT p.nss) FILTER (WHERE p.topado_169k AND p.submitted_to_mesa)::INTEGER AS topados_nss_en_mesa
     FROM period_base p
