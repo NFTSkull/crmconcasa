@@ -7,6 +7,7 @@
 export type AdminMainTabId =
   | "resumen"
   | "expedientes"
+  | "precalificaciones"
   | "reportes"
   | "produccion";
 
@@ -32,6 +33,12 @@ export const ADMIN_TABS: readonly AdminTabDef[] = [
     label: "Expedientes",
     description:
       "Flujo operativo de Mesa y precalificaciones, con búsqueda y filtros.",
+  },
+  {
+    id: "precalificaciones",
+    label: "Precalificaciones",
+    description:
+      "Rendimiento por asesor: volumen, NSS repetidos, montos y conversión a Mesa.",
   },
   {
     id: "reportes",
@@ -111,7 +118,11 @@ export function nextAdminTabIdOnKey(
  * propios; Bernardo tiene periodo propio — ahí la barra se oculta.
  */
 export function adminGlobalFiltersVisible(tab: AdminTabId): boolean {
-  return tab !== "reportes" && tab !== "bernardo";
+  return (
+    tab !== "precalificaciones" &&
+    tab !== "reportes" &&
+    tab !== "bernardo"
+  );
 }
 
 // --- Subtabs de Reportes -----------------------------------------------------
