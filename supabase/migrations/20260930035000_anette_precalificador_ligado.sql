@@ -1119,8 +1119,7 @@ BEGIN
     'has_more', (v_from + v_size) < v_total
   );
 END;
-$function$
-
+$function$;
 
 REVOKE ALL ON FUNCTION public.asesor_list_expedientes_page(
   INTEGER, INTEGER, TEXT, TEXT, TEXT, TEXT, TEXT, INTEGER, DATE, DATE, TEXT, UUID, UUID
