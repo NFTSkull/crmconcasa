@@ -502,12 +502,16 @@ export function AdminResumenEtapasActividad({
             <h2 className="mt-1 text-lg font-semibold text-slate-950">
               {selectedStage
                 ? `Paso ${selectedStage.pasoAdmin} de ${TOTAL_PASOS_ADMIN_VISIBLES} · ${selectedStage.nombre}`
-                : `¿Dónde están hoy los ${cohortTotalDisplay} ingresos del periodo?`}
+                : isMovementsMode
+                  ? `¿Dónde están hoy los ${movementsTotalDisplay} expedientes con movimiento?`
+                  : `¿Dónde están hoy los ${cohortTotalDisplay} ingresos del periodo?`}
             </h2>
             <p className="mt-1 text-sm leading-relaxed text-slate-600">
               {selectedStage
                 ? `${periodoLabel} · Esta vista explica la etapa seleccionada sin cambiar los KPI generales del periodo.`
-                : `${periodoLabel} · Seguimiento de los expedientes que entraron a Mesa dentro del rango seleccionado.`}
+                : isMovementsMode
+                  ? `${periodoLabel} · Expedientes únicos que registraron al menos un cambio de etapa dentro del rango seleccionado.`
+                  : `${periodoLabel} · Seguimiento de los expedientes que entraron a Mesa dentro del rango seleccionado.`}
             </p>
           </div>
           {updatedAt ? (
@@ -570,24 +574,52 @@ export function AdminResumenEtapasActividad({
           </div>
         ) : (
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
-            <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3">
+            <button
+              type="button"
+              aria-pressed={!isMovementsMode}
+              onClick={() => {
+                setFocusMode("cohort");
+                setMovementStageFilter(null);
+              }}
+              className={`rounded-xl border px-4 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
+                !isMovementsMode
+                  ? "border-blue-300 bg-blue-50 ring-1 ring-blue-100"
+                  : "border-slate-200 bg-white hover:border-blue-200 hover:bg-blue-50/40"
+              }`}
+            >
               <p className="text-[11px] font-semibold uppercase tracking-wide text-blue-700">
                 Ingresaron a Mesa
               </p>
               <p className="mt-1 text-3xl font-semibold tabular-nums text-slate-950">
                 {cohortTotalDisplay}
               </p>
-              <p className="mt-1 text-xs text-slate-600">Base del periodo seleccionado</p>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              <p className="mt-1 text-xs text-slate-600">
+                Clic para ver dónde están hoy los ingresos del periodo
+              </p>
+            </button>
+            <button
+              type="button"
+              aria-pressed={isMovementsMode}
+              onClick={() => {
+                setFocusMode("movements");
+                setMovementStageFilter(null);
+              }}
+              className={`rounded-xl border px-4 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
+                isMovementsMode
+                  ? "border-blue-300 bg-blue-50 ring-1 ring-blue-100"
+                  : "border-slate-200 bg-white hover:border-blue-200 hover:bg-blue-50/40"
+              }`}
+            >
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
                 Expedientes con movimiento
               </p>
               <p className="mt-1 text-3xl font-semibold tabular-nums text-slate-950">
                 {movementsTotalDisplay}
               </p>
-              <p className="mt-1 text-xs text-slate-500">Incluye expedientes de periodos anteriores</p>
-            </div>
+              <p className="mt-1 text-xs font-medium text-blue-700">
+                Clic para ver cuáles son y dónde están hoy →
+              </p>
+            </button>
             <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                 Total actual del CRM
