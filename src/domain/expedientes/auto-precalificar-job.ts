@@ -288,6 +288,10 @@ export async function runAutoPrecalificarJob(input: {
         p_decision: "no_cumple",
         p_monto_aprobado: null,
         p_motivo: decision.motivo,
+        p_rfc: payload.rfc ?? null,
+        p_registro_patronal: payload.registroPatronal ?? null,
+        p_empresa: payload.empresa ?? null,
+        p_advertencia_inscripcion: payload.advertenciaInscripcion ?? null,
       });
       if (rpcErr) {
         console.error(
@@ -296,8 +300,35 @@ export async function runAutoPrecalificarJob(input: {
         );
         return { resultado, razon };
       }
+
+      // La identidad del titular también pertenece al resultado de la consulta,
+      // aunque la decisión sea "No cumple". Persistirla permite mostrar Nombre/RFC
+      // al usuario precalificador sin abrir acceso al expediente completo.
+      const nombreNormalizado = normalizeInfonavitScraperPersonName(
+        payload.nombre,
+      );
+      if (nombreNormalizado) {
+        const { error: nombreErr } = await supabase.rpc(
+          "auto_fill_nombre_infonavit",
+          {
+            p_expediente_id: expedienteId,
+            p_nombre_completo: nombreNormalizado,
+          },
+        );
+        if (nombreErr) {
+          console.error(
+            `[auto-precalificar] RPC auto_fill_nombre_infonavit no_cumple falló expediente_id=${expedienteId}`,
+            nombreErr.message,
+          );
+        }
+      } else if (payload.nombre) {
+        console.warn(
+          `[auto-precalificar] nombre scraper inválido en no_cumple; se omite autofill expediente_id=${expedienteId}`,
+        );
+      }
+
       console.log(
-        `[auto-precalificar] no_cumple expediente_id=${expedienteId} nss=${nss}`,
+        `[auto-precalificar] no_cumple expediente_id=${expedienteId} nss=${nss} rfc=${payload.rfc ?? "null"}`,
       );
       return { resultado, razon };
     } catch (err) {
