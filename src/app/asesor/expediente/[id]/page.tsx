@@ -14,7 +14,7 @@ import {
 } from "@/domain/agenda-contingencia";
 import { isSupabaseConfigured } from "@/lib/supabaseBrowser";
 import { AsesorAgendaFirmasSupabaseGate } from "@/components/asesor/AsesorAgendaFirmasSupabaseGate";
-import { RetencionAcuseAvisoSupabaseCard } from "@/components/asesor/RetencionAcuseAvisoSupabaseCard";
+import { AsesorRetencionAcuseSupabaseGate } from "@/components/asesor/AsesorRetencionAcuseSupabaseGate";
 import { AsesorIntegracionDocsUpload } from "@/components/asesor/AsesorIntegracionDocsUpload";
 import { AsesorEvidenciaSection } from "@/components/asesor/AsesorEvidenciaSection";
 import { AsesorVigenciaDerechosSection } from "@/components/asesor/AsesorVigenciaDerechosSection";
@@ -67,7 +67,6 @@ import {
 } from "@/domain/expedientes/mock.repo";
 import { isDataModeSupabase } from "@/lib/dataMode";
 import { parseMontoAprobado } from "@/lib/monto";
-import { canShowAsesorRetencionSupabasePanel } from "@/domain/expediente-retencion";
 import { hasAcusePrincipalValido } from "@/lib/asesorTareasPendientes";
 import {
   DOCUMENTO_CATALOGO_MAP,
@@ -2895,25 +2894,22 @@ export default function AsesorExpedientePage() {
                 onUpdated={() => void loadExpediente()}
               />
             ) : null}
-            {canShowAsesorRetencionSupabasePanel({
-              dataModeSupabase: isDataModeSupabase(),
-              etapaActual: operativo?.etapaActual,
-              submittedToMesa: operativo?.submittedToMesa ?? false,
-            }) &&
+            {isDataModeSupabase() &&
             precal?.id &&
             !expedienteCancelado &&
             !bloquearAgendaPorRechazoVigente ? (
               <div id={ASESOR_SECCION_RETENCION_ID}>
-              <RetencionAcuseAvisoSupabaseCard
-                expedienteId={String(precal.id)}
-                archivosResumen={archivosResumen}
-                etapaActual={operativo?.etapaActual}
-                firmaAgendableDesde={operativo?.firmaAgendableDesde ?? null}
-                onUpdated={async () => {
-                  await refreshArchivos();
-                  await loadExpediente();
-                }}
-              />
+                <AsesorRetencionAcuseSupabaseGate
+                  expedienteId={String(precal.id)}
+                  submittedToMesa={operativo?.submittedToMesa ?? false}
+                  etapaActual={operativo?.etapaActual}
+                  archivosResumen={archivosResumen}
+                  firmaAgendableDesde={operativo?.firmaAgendableDesde ?? null}
+                  onUpdated={async () => {
+                    await refreshArchivos();
+                    await loadExpediente();
+                  }}
+                />
               </div>
             ) : null}
           </>
