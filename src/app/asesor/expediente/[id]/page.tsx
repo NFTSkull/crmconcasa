@@ -2903,6 +2903,7 @@ export default function AsesorExpedientePage() {
                   expedienteId={String(precal.id)}
                   submittedToMesa={operativo?.submittedToMesa ?? false}
                   etapaActual={operativo?.etapaActual}
+                  fechaCita={operativo?.fechaCita}
                   archivosResumen={archivosResumen}
                   firmaAgendableDesde={operativo?.firmaAgendableDesde ?? null}
                   onUpdated={async () => {
