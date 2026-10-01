@@ -26,6 +26,7 @@ type ReadonlyResult = Readonly<{
   nss: string;
   nombre: string | null;
   rfcInfonavit: string | null;
+  motivoRechazo: string | null;
   resultado: "pendiente" | "aprobado" | "no_cumple";
   montoAprobado: number | null;
   createdAt: string;
@@ -58,11 +59,13 @@ function parseReadonlyResults(payload: unknown): ReadonlyResult[] {
 
     const nombre = String(row.nombre ?? "").trim();
     const rfcInfonavit = String(row.rfc_infonavit ?? "").trim().toUpperCase();
+    const motivoRechazo = String(row.motivo_rechazo ?? "").trim();
 
     return [{
       nss: String(row.nss ?? "").trim(),
       nombre: nombre && nombre !== "POR CAPTURAR" ? nombre : null,
       rfcInfonavit: rfcInfonavit || null,
+      motivoRechazo: motivoRechazo || null,
       resultado,
       montoAprobado:
         monto != null && Number.isFinite(monto) ? monto : null,
@@ -336,8 +339,8 @@ export function PrecalificadorNssOnlyDashboard() {
                 </h2>
                 <p className="mt-1 text-sm text-slate-600">
                   Solo puedes ver los NSS que tú precalificaste, el nombre y RFC devueltos por
-                  Bansefi/Infonavit, su resultado y el monto aprobado. El expediente completo
-                  únicamente lo administra {titular}.
+                  Bansefi/Infonavit, su resultado, el motivo cuando no cumple y el monto aprobado.
+                  El expediente completo únicamente lo administra {titular}.
                 </p>
               </div>
               <Button
@@ -400,6 +403,16 @@ export function PrecalificadorNssOnlyDashboard() {
                         </p>
                       </div>
                     </div>
+                    {row.resultado === "no_cumple" ? (
+                      <div className="mt-3 rounded-md border border-rose-100 bg-rose-50 px-3 py-2">
+                        <p className="text-xs font-medium uppercase tracking-wide text-rose-700">
+                          Motivo del rechazo
+                        </p>
+                        <p className="mt-1 text-sm font-medium leading-relaxed text-rose-900">
+                          {row.motivoRechazo || "Sin motivo registrado"}
+                        </p>
+                      </div>
+                    ) : null}
                     <div className="mt-3 border-t border-slate-100 pt-3">
                       <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
                         Monto aprobado
