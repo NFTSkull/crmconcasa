@@ -35,6 +35,31 @@ type ResumenEtapasActividad = Readonly<{
   historyCompleteForPeriod: boolean;
 }>;
 
+type MovimientoDetalleItem = Readonly<{
+  expedienteId: string;
+  clienteNombre: string;
+  nss: string;
+  programa: string;
+  asesorNombre: string;
+  etapaActual: number;
+  pasoAdminActual: number | null;
+  primerMovimientoAt: string | null;
+  ultimoMovimientoAt: string | null;
+  movimientosCount: number;
+  pasosMovidosCount: number;
+  pasosAdmin: readonly number[];
+  ingresoEnPeriodo: boolean;
+}>;
+
+type MovimientoDetalle = Readonly<{
+  totalCount: number;
+  limit: number;
+  truncated: boolean;
+  items: readonly MovimientoDetalleItem[];
+  byCurrentPasoAdmin: readonly StockPasoAdmin[];
+  generatedAt: string | null;
+}>;
+
 type CohortBucket = Readonly<{
   etapa: number;
   count: number;
@@ -170,6 +195,87 @@ function parseResumen(raw: unknown): ResumenEtapasActividad {
   };
 }
 
+function parseMovimientoDetalle(raw: unknown): MovimientoDetalle {
+  const root = record(raw);
+  const itemsRaw = Array.isArray(root.items) ? root.items : [];
+  const byCurrentRaw = Array.isArray(root.by_current_paso_admin)
+    ? root.by_current_paso_admin
+    : [];
+
+  return {
+    totalCount: num(root.total_count),
+    limit: num(root.limit),
+    truncated: Boolean(root.truncated),
+    generatedAt: strOrNull(root.generated_at),
+    byCurrentPasoAdmin: byCurrentRaw
+      .map((item) => {
+        const r = record(item);
+        return {
+          pasoAdmin: num(r.paso_admin),
+          count: num(r.count),
+        };
+      })
+      .filter(
+        (item) =>
+          item.pasoAdmin >= 1 && item.pasoAdmin <= TOTAL_PASOS_ADMIN_VISIBLES,
+      ),
+    items: itemsRaw
+      .map((item) => {
+        const r = record(item);
+        const pasosAdmin = Array.isArray(r.pasos_admin)
+          ? r.pasos_admin
+              .map((value) => num(value))
+              .filter(
+                (value) =>
+                  value >= 1 && value <= TOTAL_PASOS_ADMIN_VISIBLES,
+              )
+          : [];
+        const pasoAdminActual = num(r.paso_admin_actual);
+        return {
+          expedienteId: String(r.expediente_id ?? ""),
+          clienteNombre: String(r.cliente_nombre ?? "").trim() || "Sin nombre",
+          nss: String(r.nss ?? "").trim(),
+          programa: String(r.programa ?? "").trim(),
+          asesorNombre: String(r.asesor_nombre ?? "").trim() || "—",
+          etapaActual: num(r.etapa_actual),
+          pasoAdminActual:
+            pasoAdminActual >= 1 &&
+            pasoAdminActual <= TOTAL_PASOS_ADMIN_VISIBLES
+              ? pasoAdminActual
+              : null,
+          primerMovimientoAt: strOrNull(r.primer_movimiento_at),
+          ultimoMovimientoAt: strOrNull(r.ultimo_movimiento_at),
+          movimientosCount: num(r.movimientos_count),
+          pasosMovidosCount: num(r.pasos_movidos_count),
+          pasosAdmin,
+          ingresoEnPeriodo: Boolean(r.ingreso_en_periodo),
+        };
+      })
+      .filter((item) => item.expedienteId !== ""),
+  };
+}
+
+function formatMovementDate(iso: string | null): string {
+  if (!iso) return "—";
+  const dt = new Date(iso);
+  if (Number.isNaN(dt.getTime())) return "—";
+  return dt.toLocaleString("es-MX", {
+    timeZone: "America/Monterrey",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function stageNameByPaso(pasoAdmin: number | null): string {
+  if (!pasoAdmin) return "Fuera del flujo visible";
+  return (
+    ADMIN_VISIBLE_STAGES.find((stage) => stage.pasoAdmin === pasoAdmin)?.nombre ??
+    `Paso ${pasoAdmin}`
+  );
+}
+
 function formatCoverageDate(iso: string | null): string {
   if (!iso) return "fecha no disponible";
   const dt = new Date(iso);
@@ -243,6 +349,10 @@ export function AdminResumenEtapasActividad({
   const [data, setData] = useState<ResumenEtapasActividad | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [focusMode, setFocusMode] = useState<"cohort" | "movements">("cohort");
+  const [movementDetail, setMovementDetail] = useState<MovimientoDetalle | null>(null);
+  const [movementDetailError, setMovementDetailError] = useState<string | null>(null);
+  const [movementStageFilter, setMovementStageFilter] = useState<number | null>(null);
   const seqRef = useRef(0);
 
   const selectedStage = useMemo(() => {
@@ -267,6 +377,7 @@ export function AdminResumenEtapasActividad({
     const seq = ++seqRef.current;
     setLoading(true);
     setError(null);
+    setMovementDetailError(null);
 
     if (!isSupabaseConfigured() || !supabaseBrowser) {
       setError("Supabase no configurado");
@@ -275,19 +386,40 @@ export function AdminResumenEtapasActividad({
     }
 
     try {
-      const { data: raw, error: rpcError } = await supabaseBrowser.rpc(
-        "admin_resumen_movimientos_etapas",
-        {
+      const [summaryResult, detailResult] = await Promise.all([
+        supabaseBrowser.rpc("admin_resumen_movimientos_etapas", {
           p_from: bounds.fromIso,
           p_to_exclusive: bounds.toExclusiveIso,
           p_asesor_id: asesorId,
           p_estado: estado === "todos" ? null : estado,
           p_buscar: null,
-        },
-      );
-      if (rpcError) throw new Error(rpcError.message || "No se pudo cargar el resumen");
+        }),
+        supabaseBrowser.rpc("admin_movimientos_expedientes_detalle", {
+          p_from: bounds.fromIso,
+          p_to_exclusive: bounds.toExclusiveIso,
+          p_asesor_id: asesorId,
+          p_estado: estado === "todos" ? null : estado,
+          p_buscar: null,
+          p_limit: 250,
+        }),
+      ]);
+      if (summaryResult.error) {
+        throw new Error(
+          summaryResult.error.message || "No se pudo cargar el resumen",
+        );
+      }
       if (seq !== seqRef.current) return;
-      setData(parseResumen(raw));
+      setData(parseResumen(summaryResult.data));
+
+      if (detailResult.error) {
+        setMovementDetail(null);
+        setMovementDetailError(
+          detailResult.error.message ||
+            "No se pudo cargar el detalle de expedientes con movimiento",
+        );
+      } else {
+        setMovementDetail(parseMovimientoDetalle(detailResult.data));
+      }
     } catch (e) {
       if (seq !== seqRef.current) return;
       setError(
@@ -315,7 +447,29 @@ export function AdminResumenEtapasActividad({
     () => new Map((data?.stockAdmin ?? []).map((r) => [r.pasoAdmin, r.count])),
     [data],
   );
-  const updatedAt = newestIso(data?.generatedAt ?? null, cohortGeneratedAt);
+  const movementCurrentByPasoAdmin = useMemo(
+    () =>
+      new Map(
+        (movementDetail?.byCurrentPasoAdmin ?? []).map((r) => [
+          r.pasoAdmin,
+          r.count,
+        ]),
+      ),
+    [movementDetail],
+  );
+  const movementItemsFiltered = useMemo(
+    () =>
+      movementStageFilter == null
+        ? movementDetail?.items ?? []
+        : (movementDetail?.items ?? []).filter(
+            (item) => item.pasoAdminActual === movementStageFilter,
+          ),
+    [movementDetail, movementStageFilter],
+  );
+  const updatedAt = newestIso(
+    newestIso(data?.generatedAt ?? null, movementDetail?.generatedAt ?? null),
+    cohortGeneratedAt,
+  );
 
   const cohortTotalDisplay =
     cohortLoading && cohortBuckets.length === 0 ? "…" : String(cohortTotal);
@@ -323,6 +477,9 @@ export function AdminResumenEtapasActividad({
     loading && !data ? "…" : error ? "—" : String(data?.totalExpedientesMovidos ?? 0);
   const stockTotalDisplay =
     loading && !data ? "…" : error ? "—" : String(data?.stockTotal ?? 0);
+  const movementTotal =
+    movementDetail?.totalCount ?? data?.totalExpedientesMovidos ?? 0;
+  const isMovementsMode = !selectedStage && focusMode === "movements";
 
   const selectedMovement = selectedStage
     ? movimientosByPasoAdmin.get(selectedStage.pasoAdmin)
