@@ -35,6 +35,31 @@ type ResumenEtapasActividad = Readonly<{
   historyCompleteForPeriod: boolean;
 }>;
 
+type MovimientoDetalleItem = Readonly<{
+  expedienteId: string;
+  clienteNombre: string;
+  nss: string;
+  programa: string;
+  asesorNombre: string;
+  etapaActual: number;
+  pasoAdminActual: number | null;
+  primerMovimientoAt: string | null;
+  ultimoMovimientoAt: string | null;
+  movimientosCount: number;
+  pasosMovidosCount: number;
+  pasosAdmin: readonly number[];
+  ingresoEnPeriodo: boolean;
+}>;
+
+type MovimientoDetalle = Readonly<{
+  totalCount: number;
+  limit: number;
+  truncated: boolean;
+  items: readonly MovimientoDetalleItem[];
+  byCurrentPasoAdmin: readonly StockPasoAdmin[];
+  generatedAt: string | null;
+}>;
+
 type CohortBucket = Readonly<{
   etapa: number;
   count: number;
@@ -170,6 +195,87 @@ function parseResumen(raw: unknown): ResumenEtapasActividad {
   };
 }
 
+function parseMovimientoDetalle(raw: unknown): MovimientoDetalle {
+  const root = record(raw);
+  const itemsRaw = Array.isArray(root.items) ? root.items : [];
+  const byCurrentRaw = Array.isArray(root.by_current_paso_admin)
+    ? root.by_current_paso_admin
+    : [];
+
+  return {
+    totalCount: num(root.total_count),
+    limit: num(root.limit),
+    truncated: Boolean(root.truncated),
+    generatedAt: strOrNull(root.generated_at),
+    byCurrentPasoAdmin: byCurrentRaw
+      .map((item) => {
+        const r = record(item);
+        return {
+          pasoAdmin: num(r.paso_admin),
+          count: num(r.count),
+        };
+      })
+      .filter(
+        (item) =>
+          item.pasoAdmin >= 1 && item.pasoAdmin <= TOTAL_PASOS_ADMIN_VISIBLES,
+      ),
+    items: itemsRaw
+      .map((item) => {
+        const r = record(item);
+        const pasosAdmin = Array.isArray(r.pasos_admin)
+          ? r.pasos_admin
+              .map((value) => num(value))
+              .filter(
+                (value) =>
+                  value >= 1 && value <= TOTAL_PASOS_ADMIN_VISIBLES,
+              )
+          : [];
+        const pasoAdminActual = num(r.paso_admin_actual);
+        return {
+          expedienteId: String(r.expediente_id ?? ""),
+          clienteNombre: String(r.cliente_nombre ?? "").trim() || "Sin nombre",
+          nss: String(r.nss ?? "").trim(),
+          programa: String(r.programa ?? "").trim(),
+          asesorNombre: String(r.asesor_nombre ?? "").trim() || "—",
+          etapaActual: num(r.etapa_actual),
+          pasoAdminActual:
+            pasoAdminActual >= 1 &&
+            pasoAdminActual <= TOTAL_PASOS_ADMIN_VISIBLES
+              ? pasoAdminActual
+              : null,
+          primerMovimientoAt: strOrNull(r.primer_movimiento_at),
+          ultimoMovimientoAt: strOrNull(r.ultimo_movimiento_at),
+          movimientosCount: num(r.movimientos_count),
+          pasosMovidosCount: num(r.pasos_movidos_count),
+          pasosAdmin,
+          ingresoEnPeriodo: Boolean(r.ingreso_en_periodo),
+        };
+      })
+      .filter((item) => item.expedienteId !== ""),
+  };
+}
+
+function formatMovementDate(iso: string | null): string {
+  if (!iso) return "—";
+  const dt = new Date(iso);
+  if (Number.isNaN(dt.getTime())) return "—";
+  return dt.toLocaleString("es-MX", {
+    timeZone: "America/Monterrey",
+    month: "short",
+    day: "numeric",
+    hour: "2-digit",
+    minute: "2-digit",
+  });
+}
+
+function stageNameByPaso(pasoAdmin: number | null): string {
+  if (!pasoAdmin) return "Fuera del flujo visible";
+  return (
+    ADMIN_VISIBLE_STAGES.find((stage) => stage.pasoAdmin === pasoAdmin)?.nombre ??
+    `Paso ${pasoAdmin}`
+  );
+}
+
 function formatCoverageDate(iso: string | null): string {
   if (!iso) return "fecha no disponible";
   const dt = new Date(iso);
@@ -243,6 +349,10 @@ export function AdminResumenEtapasActividad({
   const [data, setData] = useState<ResumenEtapasActividad | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [focusMode, setFocusMode] = useState<"cohort" | "movements">("cohort");
+  const [movementDetail, setMovementDetail] = useState<MovimientoDetalle | null>(null);
+  const [movementDetailError, setMovementDetailError] = useState<string | null>(null);
+  const [movementStageFilter, setMovementStageFilter] = useState<number | null>(null);
   const seqRef = useRef(0);
 
   const selectedStage = useMemo(() => {
@@ -267,6 +377,7 @@ export function AdminResumenEtapasActividad({
     const seq = ++seqRef.current;
     setLoading(true);
     setError(null);
+    setMovementDetailError(null);
 
     if (!isSupabaseConfigured() || !supabaseBrowser) {
       setError("Supabase no configurado");
@@ -275,19 +386,40 @@ export function AdminResumenEtapasActividad({
     }
 
     try {
-      const { data: raw, error: rpcError } = await supabaseBrowser.rpc(
-        "admin_resumen_movimientos_etapas",
-        {
+      const [summaryResult, detailResult] = await Promise.all([
+        supabaseBrowser.rpc("admin_resumen_movimientos_etapas", {
           p_from: bounds.fromIso,
           p_to_exclusive: bounds.toExclusiveIso,
           p_asesor_id: asesorId,
           p_estado: estado === "todos" ? null : estado,
           p_buscar: null,
-        },
-      );
-      if (rpcError) throw new Error(rpcError.message || "No se pudo cargar el resumen");
+        }),
+        supabaseBrowser.rpc("admin_movimientos_expedientes_detalle", {
+          p_from: bounds.fromIso,
+          p_to_exclusive: bounds.toExclusiveIso,
+          p_asesor_id: asesorId,
+          p_estado: estado === "todos" ? null : estado,
+          p_buscar: null,
+          p_limit: 250,
+        }),
+      ]);
+      if (summaryResult.error) {
+        throw new Error(
+          summaryResult.error.message || "No se pudo cargar el resumen",
+        );
+      }
       if (seq !== seqRef.current) return;
-      setData(parseResumen(raw));
+      setData(parseResumen(summaryResult.data));
+
+      if (detailResult.error) {
+        setMovementDetail(null);
+        setMovementDetailError(
+          detailResult.error.message ||
+            "No se pudo cargar el detalle de expedientes con movimiento",
+        );
+      } else {
+        setMovementDetail(parseMovimientoDetalle(detailResult.data));
+      }
     } catch (e) {
       if (seq !== seqRef.current) return;
       setError(
@@ -315,7 +447,29 @@ export function AdminResumenEtapasActividad({
     () => new Map((data?.stockAdmin ?? []).map((r) => [r.pasoAdmin, r.count])),
     [data],
   );
-  const updatedAt = newestIso(data?.generatedAt ?? null, cohortGeneratedAt);
+  const movementCurrentByPasoAdmin = useMemo(
+    () =>
+      new Map(
+        (movementDetail?.byCurrentPasoAdmin ?? []).map((r) => [
+          r.pasoAdmin,
+          r.count,
+        ]),
+      ),
+    [movementDetail],
+  );
+  const movementItemsFiltered = useMemo(
+    () =>
+      movementStageFilter == null
+        ? movementDetail?.items ?? []
+        : (movementDetail?.items ?? []).filter(
+            (item) => item.pasoAdminActual === movementStageFilter,
+          ),
+    [movementDetail, movementStageFilter],
+  );
+  const updatedAt = newestIso(
+    newestIso(data?.generatedAt ?? null, movementDetail?.generatedAt ?? null),
+    cohortGeneratedAt,
+  );
 
   const cohortTotalDisplay =
     cohortLoading && cohortBuckets.length === 0 ? "…" : String(cohortTotal);
@@ -323,6 +477,9 @@ export function AdminResumenEtapasActividad({
     loading && !data ? "…" : error ? "—" : String(data?.totalExpedientesMovidos ?? 0);
   const stockTotalDisplay =
     loading && !data ? "…" : error ? "—" : String(data?.stockTotal ?? 0);
+  const movementTotal =
+    movementDetail?.totalCount ?? data?.totalExpedientesMovidos ?? 0;
+  const isMovementsMode = !selectedStage && focusMode === "movements";
 
   const selectedMovement = selectedStage
     ? movimientosByPasoAdmin.get(selectedStage.pasoAdmin)
@@ -345,12 +502,16 @@ export function AdminResumenEtapasActividad({
             <h2 className="mt-1 text-lg font-semibold text-slate-950">
               {selectedStage
                 ? `Paso ${selectedStage.pasoAdmin} de ${TOTAL_PASOS_ADMIN_VISIBLES} · ${selectedStage.nombre}`
-                : `¿Dónde están hoy los ${cohortTotalDisplay} ingresos del periodo?`}
+                : isMovementsMode
+                  ? `¿Dónde están hoy los ${movementsTotalDisplay} expedientes con movimiento?`
+                  : `¿Dónde están hoy los ${cohortTotalDisplay} ingresos del periodo?`}
             </h2>
             <p className="mt-1 text-sm leading-relaxed text-slate-600">
               {selectedStage
                 ? `${periodoLabel} · Esta vista explica la etapa seleccionada sin cambiar los KPI generales del periodo.`
-                : `${periodoLabel} · Seguimiento de los expedientes que entraron a Mesa dentro del rango seleccionado.`}
+                : isMovementsMode
+                  ? `${periodoLabel} · Expedientes únicos que registraron al menos un cambio de etapa dentro del rango seleccionado.`
+                  : `${periodoLabel} · Seguimiento de los expedientes que entraron a Mesa dentro del rango seleccionado.`}
             </p>
           </div>
           {updatedAt ? (
@@ -413,24 +574,52 @@ export function AdminResumenEtapasActividad({
           </div>
         ) : (
           <div className="mt-4 grid gap-3 sm:grid-cols-3">
-            <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3">
+            <button
+              type="button"
+              aria-pressed={!isMovementsMode}
+              onClick={() => {
+                setFocusMode("cohort");
+                setMovementStageFilter(null);
+              }}
+              className={`rounded-xl border px-4 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
+                !isMovementsMode
+                  ? "border-blue-300 bg-blue-50 ring-1 ring-blue-100"
+                  : "border-slate-200 bg-white hover:border-blue-200 hover:bg-blue-50/40"
+              }`}
+            >
               <p className="text-[11px] font-semibold uppercase tracking-wide text-blue-700">
                 Ingresaron a Mesa
               </p>
               <p className="mt-1 text-3xl font-semibold tabular-nums text-slate-950">
                 {cohortTotalDisplay}
               </p>
-              <p className="mt-1 text-xs text-slate-600">Base del periodo seleccionado</p>
-            </div>
-            <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+              <p className="mt-1 text-xs text-slate-600">
+                Clic para ver dónde están hoy los ingresos del periodo
+              </p>
+            </button>
+            <button
+              type="button"
+              aria-pressed={isMovementsMode}
+              onClick={() => {
+                setFocusMode("movements");
+                setMovementStageFilter(null);
+              }}
+              className={`rounded-xl border px-4 py-3 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600 ${
+                isMovementsMode
+                  ? "border-blue-300 bg-blue-50 ring-1 ring-blue-100"
+                  : "border-slate-200 bg-white hover:border-blue-200 hover:bg-blue-50/40"
+              }`}
+            >
+              <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-600">
                 Expedientes con movimiento
               </p>
               <p className="mt-1 text-3xl font-semibold tabular-nums text-slate-950">
                 {movementsTotalDisplay}
               </p>
-              <p className="mt-1 text-xs text-slate-500">Incluye expedientes de periodos anteriores</p>
-            </div>
+              <p className="mt-1 text-xs font-medium text-blue-700">
+                Clic para ver cuáles son y dónde están hoy →
+              </p>
+            </button>
             <div className="rounded-xl border border-slate-200 bg-white px-4 py-3">
               <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
                 Total actual del CRM
@@ -491,31 +680,62 @@ export function AdminResumenEtapasActividad({
             <div className="flex flex-wrap items-end justify-between gap-2">
               <div>
                 <h3 className="text-base font-semibold text-slate-950">
-                  Distribución actual de los ingresos del periodo
+                  {isMovementsMode
+                    ? "Distribución actual de los expedientes con movimiento"
+                    : "Distribución actual de los ingresos del periodo"}
                 </h3>
                 <p className="mt-1 text-xs text-slate-500">
-                  La cifra grande indica cuántos de los {cohortTotalDisplay} ingresos están hoy en cada etapa. “CRM hoy” muestra la carga total vigente de esa etapa.
+                  {isMovementsMode
+                    ? `La cifra grande indica dónde están hoy los ${movementsTotalDisplay} expedientes que se movieron en el periodo. Debajo se muestra quiénes son.`
+                    : `La cifra grande indica cuántos de los ${cohortTotalDisplay} ingresos están hoy en cada etapa. “CRM hoy” muestra la carga total vigente de esa etapa.`}
                 </p>
               </div>
-              <p className="text-xs text-slate-500">10 etapas · de Integración a Pago a ConCasa</p>
+              <p className="text-xs text-slate-500">
+                {isMovementsMode
+                  ? "Clic en una etapa para filtrar la lista"
+                  : "10 etapas · de Integración a Pago a ConCasa"}
+              </p>
             </div>
 
             <div className="mt-4 divide-y divide-slate-100 rounded-xl border border-slate-200 bg-white">
               {ADMIN_VISIBLE_STAGES.map((stage) => {
-                const siguenAqui = cohortByPasoAdmin.get(stage.pasoAdmin) ?? 0;
-                const siguenPct = percent(siguenAqui, cohortTotal);
+                const siguenAqui = isMovementsMode
+                  ? movementCurrentByPasoAdmin.get(stage.pasoAdmin) ?? 0
+                  : cohortByPasoAdmin.get(stage.pasoAdmin) ?? 0;
+                const universo = isMovementsMode ? movementTotal : cohortTotal;
+                const siguenPct = percent(siguenAqui, universo);
                 const totalActual = stockByPasoAdmin.get(stage.pasoAdmin) ?? 0;
-                const ubicacionDisponible =
-                  !cohortError && !(cohortLoading && cohortBuckets.length === 0);
+                const movieronPorAqui =
+                  movimientosByPasoAdmin.get(stage.pasoAdmin)?.llegaronCount ?? 0;
+                const ubicacionDisponible = isMovementsMode
+                  ? movementDetail != null && !movementDetailError
+                  : !cohortError &&
+                    !(cohortLoading && cohortBuckets.length === 0);
                 const stockDisponible = !error && (data != null || !loading);
+                const activeMovementFilter =
+                  isMovementsMode && movementStageFilter === stage.pasoAdmin;
 
                 return (
                   <button
                     key={stage.pasoAdmin}
                     type="button"
-                    onClick={() => onStagePress(stage.etapaCanonDisplay)}
-                    className="group grid w-full gap-3 px-4 py-3 text-left transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600 md:grid-cols-[15rem_minmax(0,1fr)_7rem] md:items-center"
-                    title={`Ver expedientes de ${stage.nombre}`}
+                    onClick={() => {
+                      if (isMovementsMode) {
+                        setMovementStageFilter((current) =>
+                          current === stage.pasoAdmin ? null : stage.pasoAdmin,
+                        );
+                        return;
+                      }
+                      onStagePress(stage.etapaCanonDisplay);
+                    }}
+                    className={`group grid w-full gap-3 px-4 py-3 text-left transition hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-blue-600 md:grid-cols-[15rem_minmax(0,1fr)_7rem] md:items-center ${
+                      activeMovementFilter ? "bg-blue-50/70" : ""
+                    }`}
+                    title={
+                      isMovementsMode
+                        ? `Filtrar expedientes que hoy están en ${stage.nombre}`
+                        : `Ver expedientes de ${stage.nombre}`
+                    }
                   >
                     <div className="flex min-w-0 items-center gap-2">
                       <span
@@ -533,7 +753,9 @@ export function AdminResumenEtapasActividad({
                         <div className="h-2 flex-1 overflow-hidden rounded-full bg-slate-100">
                           <div
                             className={`h-full rounded-full transition-all ${progressClass(stage.pasoAdmin)}`}
-                            style={{ width: `${Math.min(100, Math.max(0, siguenPct))}%` }}
+                            style={{
+                              width: `${Math.min(100, Math.max(0, siguenPct))}%`,
+                            }}
                           />
                         </div>
                         <span className="w-14 shrink-0 text-right text-xs font-medium tabular-nums text-slate-500">
@@ -542,27 +764,152 @@ export function AdminResumenEtapasActividad({
                       </div>
                       <p className="mt-1 text-[11px] text-slate-500">
                         {ubicacionDisponible
-                          ? `${siguenAqui} de ${cohortTotal} ingresos están hoy aquí`
+                          ? isMovementsMode
+                            ? `${siguenAqui} de ${movementTotal} expedientes con movimiento están hoy aquí`
+                            : `${siguenAqui} de ${cohortTotal} ingresos están hoy aquí`
                           : "Ubicación no disponible"}
                       </p>
                     </div>
 
                     <div className="text-left md:text-right">
                       <p className="text-lg font-semibold leading-none tabular-nums text-slate-950">
-                        {cohortLoading && cohortBuckets.length === 0
+                        {loading && !data
                           ? "…"
                           : ubicacionDisponible
                             ? siguenAqui
                             : "—"}
                       </p>
                       <p className="mt-1 text-[11px] text-slate-500">
-                        CRM hoy: <strong className="font-semibold tabular-nums text-slate-700">{stockDisponible ? totalActual : "—"}</strong>
+                        {isMovementsMode ? (
+                          <>
+                            Tocaron esta etapa:{" "}
+                            <strong className="font-semibold tabular-nums text-slate-700">
+                              {movieronPorAqui}
+                            </strong>
+                          </>
+                        ) : (
+                          <>
+                            CRM hoy:{" "}
+                            <strong className="font-semibold tabular-nums text-slate-700">
+                              {stockDisponible ? totalActual : "—"}
+                            </strong>
+                          </>
+                        )}
                       </p>
                     </div>
                   </button>
                 );
               })}
             </div>
+
+            {isMovementsMode ? (
+              <div className="mt-5 rounded-xl border border-blue-200 bg-blue-50/30">
+                <div className="flex flex-wrap items-start justify-between gap-3 border-b border-blue-100 px-4 py-3">
+                  <div>
+                    <h4 className="text-sm font-semibold text-slate-950">
+                      Expedientes que se movieron
+                    </h4>
+                    <p className="mt-1 text-xs text-slate-600">
+                      {movementStageFilter == null
+                        ? `${movementTotal} expedientes únicos con al menos un cambio de etapa en ${periodoLabel}.`
+                        : `${movementItemsFiltered.length} de ${movementTotal} están hoy en ${stageNameByPaso(movementStageFilter)}.`}
+                    </p>
+                  </div>
+                  {movementStageFilter != null ? (
+                    <button
+                      type="button"
+                      onClick={() => setMovementStageFilter(null)}
+                      className="rounded-md border border-slate-200 bg-white px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-600"
+                    >
+                      Ver los {movementTotal}
+                    </button>
+                  ) : null}
+                </div>
+
+                {movementDetailError ? (
+                  <div className="px-4 py-4 text-sm text-red-700">
+                    No se pudo cargar cuáles expedientes se movieron: {movementDetailError}
+                  </div>
+                ) : movementDetail == null ? (
+                  <div className="px-4 py-4 text-sm text-slate-500">
+                    Cargando detalle de movimientos…
+                  </div>
+                ) : movementItemsFiltered.length === 0 ? (
+                  <div className="px-4 py-4 text-sm text-slate-500">
+                    No hay expedientes para este filtro.
+                  </div>
+                ) : (
+                  <>
+                    <div className="overflow-x-auto">
+                      <table className="min-w-[860px] w-full border-collapse text-left text-sm">
+                        <thead className="bg-white/80 text-xs text-slate-600">
+                          <tr className="border-b border-blue-100">
+                            <th className="px-4 py-2.5 font-semibold">Cliente / NSS</th>
+                            <th className="px-4 py-2.5 font-semibold">Asesor</th>
+                            <th className="px-4 py-2.5 font-semibold">Movimiento del periodo</th>
+                            <th className="px-4 py-2.5 font-semibold">Dónde está hoy</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white">
+                          {movementItemsFiltered.map((item) => (
+                            <tr
+                              key={item.expedienteId}
+                              className="border-b border-slate-100 last:border-b-0"
+                            >
+                              <td className="px-4 py-3 align-top">
+                                <p className="font-semibold text-slate-900">
+                                  {item.clienteNombre}
+                                </p>
+                                <p className="mt-0.5 font-mono text-xs text-slate-500">
+                                  NSS {item.nss || "—"}
+                                </p>
+                                <p className="mt-1 text-[11px] text-slate-500">
+                                  {item.ingresoEnPeriodo
+                                    ? "Ingresó a Mesa en este periodo"
+                                    : "Ya venía de un periodo anterior"}
+                                </p>
+                              </td>
+                              <td className="px-4 py-3 align-top text-slate-700">
+                                {item.asesorNombre}
+                              </td>
+                              <td className="px-4 py-3 align-top">
+                                <p className="font-medium text-slate-800">
+                                  {item.pasosAdmin.length > 0
+                                    ? `Pasos ${item.pasosAdmin.join(" → ")}`
+                                    : "Movimiento registrado"}
+                                </p>
+                                <p className="mt-1 text-xs text-slate-500">
+                                  {item.movimientosCount}{" "}
+                                  {item.movimientosCount === 1
+                                    ? "movimiento"
+                                    : "movimientos"}{" "}
+                                  · último {formatMovementDate(item.ultimoMovimientoAt)}
+                                </p>
+                              </td>
+                              <td className="px-4 py-3 align-top">
+                                <span
+                                  className={`inline-flex rounded px-2 py-1 text-xs font-semibold ${stageBadgeClass(item.pasoAdminActual ?? 1)}`}
+                                >
+                                  {item.pasoAdminActual
+                                    ? `Paso ${item.pasoAdminActual} · ${stageNameByPaso(item.pasoAdminActual)}`
+                                    : "Fuera del flujo visible"}
+                                </span>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                    {movementDetail.truncated ? (
+                      <p className="border-t border-blue-100 px-4 py-2 text-xs text-amber-800">
+                        Se muestran los {movementDetail.limit} movimientos más recientes de{" "}
+                        {movementDetail.totalCount}. La distribución superior sí usa el total completo.
+                      </p>
+                    ) : null}
+                  </>
+                )}
+              </div>
+            ) : null}
           </>
         )}
 
