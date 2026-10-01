@@ -4,7 +4,6 @@ import {
   RETENCION_ETAPA_OPERATIVA_ID,
   retencionDocListoParaEnvioMesa,
 } from "@/domain/expediente-archivos/retencion-acuse-aviso";
-import { canShowAsesorRetencionSupabasePanel } from "@/domain/expediente-retencion";
 import type {
   ExpedienteRetencionEnvioMesa,
   RetencionOpcion,
