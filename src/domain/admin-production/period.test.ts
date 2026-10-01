@@ -43,6 +43,20 @@ describe("admin-production period", () => {
     assert.equal(bounds.toDateInclusive, "2026-07-17");
   });
 
+  it("mes anterior cubre el mes calendario anterior completo", () => {
+    const now = new Date("2026-07-17T18:00:00.000Z");
+    const bounds = resolveAdminPeriodBounds({ preset: "mes_anterior", now });
+    assert.equal(bounds.fromDate, "2026-06-01");
+    assert.equal(bounds.toDateInclusive, "2026-06-30");
+  });
+
+  it("mes anterior cruza correctamente de enero al diciembre previo", () => {
+    const now = new Date("2026-01-15T18:00:00.000Z");
+    const bounds = resolveAdminPeriodBounds({ preset: "mes_anterior", now });
+    assert.equal(bounds.fromDate, "2025-12-01");
+    assert.equal(bounds.toDateInclusive, "2025-12-31");
+  });
+
   it("rango personalizado incluye ambos extremos", () => {
     const bounds = resolveAdminPeriodBounds({
       preset: "personalizado",
