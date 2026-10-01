@@ -63,18 +63,22 @@ export function writeRetencionOpcionDraft(
   }
 }
 
-/** Panel retención asesor: etapa ≥ 8 (Acuse no bloquea firma; visible también en 9+). */
+/**
+ * Panel Acuse asesor:
+ * - etapas 3–7: solo cuando ya existe cita biométrica activa;
+ * - etapa ≥8: conserva visibilidad histórica.
+ */
 export function canShowAsesorRetencionSupabasePanel(params: {
   dataModeSupabase: boolean;
   etapaActual: number | null | undefined;
   submittedToMesa: boolean;
+  hasActiveBiometricosBooking?: boolean;
 }): boolean {
-  return (
-    params.dataModeSupabase &&
-    params.submittedToMesa === true &&
-    typeof params.etapaActual === "number" &&
-    params.etapaActual >= RETENCION_ETAPA_OPERATIVA_ID
-  );
+  if (!params.dataModeSupabase || params.submittedToMesa !== true) return false;
+  const etapa = params.etapaActual;
+  if (typeof etapa !== "number" || etapa < 3) return false;
+  if (etapa >= RETENCION_ETAPA_OPERATIVA_ID) return true;
+  return params.hasActiveBiometricosBooking === true;
 }
 
 export function retencionDocEstatusLabelAsesor(

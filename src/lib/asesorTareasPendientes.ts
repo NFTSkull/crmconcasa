@@ -193,20 +193,25 @@ export function hasAcusePrincipalValido(
 }
 
 /**
- * Pendiente subir acuse (P132): etapa ≥ 8, panel retención visible y sin Acuse
- * principal válido (opción A/B ausente o rechazado). No exige etapa === 8.
+ * Pendiente subir Acuse:
+ * - etapas 3–7: únicamente con cita biométrica activa;
+ * - etapa ≥8: conserva la regla histórica;
+ * - deja de contar cuando ya existe Acuse/Carta principal listo.
  */
 export function isAsesorPendienteSubirAcuse(input: AsesorTareaExpedienteInput): boolean {
   if (!isAsesorExpedienteAccionable(input)) return false;
   const etapa = input.etapaActual;
-  if (typeof etapa !== "number" || etapa < RETENCION_ETAPA_OPERATIVA_ID) {
-    return false;
-  }
+  if (typeof etapa !== "number" || etapa < 3) return false;
+
+  const hasActiveBiometricosBooking =
+    input.agendaBiometricos?.hasActiveBooking === true;
+
   if (
     !canShowAsesorRetencionSupabasePanel({
       dataModeSupabase: input.dataModeSupabase === true,
       etapaActual: etapa,
       submittedToMesa: input.submittedToMesa,
+      hasActiveBiometricosBooking,
     })
   ) {
     return false;
@@ -265,5 +270,5 @@ export function countAsesorTareasPendientes(
   return { agendarBiometricos, agendarFirma, subirAcuse };
 }
 
-export const ASESOR_TAREAS_ETAPAS_AGENDA = [3, 4, 5, 9, 10] as const;
+export const ASESOR_TAREAS_ETAPAS_AGENDA = [3, 4, 5, 6, 7, 9, 10] as const;
 export const ASESOR_TAREAS_ETAPA_RETENCION = RETENCION_ETAPA_OPERATIVA_ID;

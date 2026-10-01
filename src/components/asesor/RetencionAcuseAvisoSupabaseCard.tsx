@@ -292,9 +292,9 @@ export function RetencionAcuseAvisoSupabaseCard({
         </p>
       ) : null}
       <p className="mt-1 text-xs text-gray-600">
-        Debes completar el Acuse / Aviso de retención (opción A o B y documento principal en PDF o
-        imagen JPG/PNG). Al subir el principal en etapa 8 el expediente avanza a Listo agendar
-        firma
+        Desde que tienes una cita de biométricos activa puedes subir el Acuse / Aviso de retención
+        (opción A o B y documento principal en PDF o imagen JPG/PNG). Al subir el principal, el
+        expediente pasa a Listo para agendar firma
         {firmaAgendableDesdeLabel ? ` (puedes agendar desde ${firmaAgendableDesdeLabel})` : ""}.
       </p>
 
