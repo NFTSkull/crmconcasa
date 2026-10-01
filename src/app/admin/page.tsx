@@ -968,6 +968,7 @@ export default function AdminDashboardPage() {
                   ["hoy", "Hoy"],
                   ["semana", "Esta semana"],
                   ["mes", "Este mes"],
+                  ["mes_anterior", "Mes anterior"],
                   ["personalizado", "Personalizado"],
                 ] as const
               ).map(([key, label]) => (

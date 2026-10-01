@@ -71,7 +71,7 @@ describe("Admin filters contract E1-E9 R1", () => {
     assert.match(page, /Periodo: <strong className="font-semibold tabular-nums">\{periodoLabel\}<\/strong>/);
   });
 
-  it("period bounds helpers: hoy/semana/mes/personalizado", () => {
+  it("period bounds helpers: hoy/semana/mes/mes anterior/personalizado", () => {
     const custom = resolveAdminPeriodBounds({
       preset: "personalizado",
       customFrom: "2026-08-01",
@@ -80,6 +80,14 @@ describe("Admin filters contract E1-E9 R1", () => {
     assert.equal(custom.fromDate, "2026-08-01");
     assert.equal(custom.toDateInclusive, "2026-08-20");
     assert.match(custom.toExclusiveIso, /2026-08-21/);
+
+    const previousMonth = resolveAdminPeriodBounds({
+      preset: "mes_anterior",
+      now: new Date("2026-10-01T18:00:00.000Z"),
+    });
+    assert.equal(previousMonth.fromDate, "2026-09-01");
+    assert.equal(previousMonth.toDateInclusive, "2026-09-30");
+    assert.match(page, /\["mes_anterior", "Mes anterior"\]/);
   });
 
   it("R1 UI visible sin la palabra cohorte", () => {
