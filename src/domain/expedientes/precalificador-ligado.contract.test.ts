@@ -29,6 +29,13 @@ const nombreRfcResultsMigration = readFileSync(
   ),
   "utf8",
 );
+const motivoRechazoMigration = readFileSync(
+  join(
+    root,
+    "supabase/migrations/20261001153500_precalificador_motivo_rechazo.sql",
+  ),
+  "utf8",
+);
 const dashboard = readFileSync(
   join(root, "src/components/asesor/PrecalificadorNssOnlyDashboard.tsx"),
   "utf8",
@@ -113,6 +120,17 @@ describe("precalificador ligado NSS-only", () => {
     assert.doesNotMatch(nombreRfcResultsMigration, /'expediente_id'/);
     assert.doesNotMatch(nombreRfcResultsMigration, /'telefono_cliente'/);
     assert.doesNotMatch(nombreRfcResultsMigration, /'registro_patronal_infonavit'/);
+  });
+
+  it("el precalificador ve el motivo cuando el resultado es No cumple", () => {
+    assert.match(dashboard, /Motivo del rechazo/);
+    assert.match(dashboard, /motivoRechazo/);
+    assert.match(motivoRechazoMigration, /ed\.notas_revision/);
+    assert.match(motivoRechazoMigration, /ed\.decision = 'no_cumple'/);
+    assert.match(motivoRechazoMigration, /'motivo_rechazo'/);
+    assert.doesNotMatch(motivoRechazoMigration, /'expediente_id'/);
+    assert.doesNotMatch(motivoRechazoMigration, /'registro_patronal_infonavit'/);
+    assert.doesNotMatch(motivoRechazoMigration, /'empresa_infonavit'/);
   });
 
   it("una URL directa de expediente regresa al precalificador a su dashboard", () => {
