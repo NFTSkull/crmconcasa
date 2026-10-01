@@ -46,6 +46,17 @@ describe("AdminResumenEtapasActividad contrato visual", () => {
     assert.match(source, /esta vista conserva las cifras generales del periodo/);
   });
 
+  it("permite abrir el KPI de movimientos y ver cuáles expedientes son", () => {
+    assert.match(source, /aria-pressed=\{isMovementsMode\}/);
+    assert.match(source, /setFocusMode\("movements"\)/);
+    assert.match(source, /admin_movimientos_expedientes_detalle/);
+    assert.match(source, /Distribución actual de los expedientes con movimiento/);
+    assert.match(source, /Expedientes que se movieron/);
+    assert.match(source, /movementItemsFiltered/);
+    assert.match(source, /pasosAdmin\.join\(" → "\)/);
+    assert.match(source, /Dónde está hoy/);
+  });
+
   it("conserva cobertura histórica y fuentes read-only", () => {
     assert.match(source, /historyCompleteForPeriod/);
     assert.match(source, /historyCoverageFrom/);
