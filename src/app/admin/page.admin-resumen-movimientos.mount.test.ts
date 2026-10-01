@@ -26,6 +26,13 @@ describe("Admin resumen — métricas claras + 10 etapas visibles", () => {
     ),
     "utf8",
   );
+  const migrationMovementDetail = readFileSync(
+    join(
+      process.cwd(),
+      "supabase/migrations/20261001150000_admin_movimientos_click_detalle.sql",
+    ),
+    "utf8",
+  );
 
   it("monta una sola vista y reutiliza las fuentes read-only existentes", () => {
     assert.doesNotMatch(page, /title="Etapas del periodo"/);
@@ -87,5 +94,17 @@ describe("Admin resumen — métricas claras + 10 etapas visibles", () => {
     assert.doesNotMatch(migrationAdmin10, /\bUPDATE\b/i);
     assert.doesNotMatch(migrationAdmin10, /\bDELETE\b/i);
     assert.doesNotMatch(migrationAdmin10, /\bINSERT\b/i);
+  });
+
+  it("detalle de movimientos es read-only y conserva el universo del KPI", () => {
+    assert.match(migrationMovementDetail, /admin_movimientos_expedientes_detalle/);
+    assert.match(migrationMovementDetail, /LANGUAGE plpgsql\s+STABLE\s+SECURITY DEFINER/);
+    assert.match(migrationMovementDetail, /t\.fecha_entrada >= p_from/);
+    assert.match(migrationMovementDetail, /t\.fecha_entrada < p_to_exclusive/);
+    assert.match(migrationMovementDetail, /'by_current_paso_admin'/);
+    assert.match(migrationMovementDetail, /'items'/);
+    assert.doesNotMatch(migrationMovementDetail, /\bUPDATE\b/i);
+    assert.doesNotMatch(migrationMovementDetail, /\bDELETE\b/i);
+    assert.doesNotMatch(migrationMovementDetail, /\bINSERT\b/i);
   });
 });
