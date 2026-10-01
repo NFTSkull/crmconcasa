@@ -93,6 +93,68 @@ function liveSyncCorsPreflight(): Response {
   return withLiveSyncCors(new Response(null, { status: 204 }));
 }
 
+type MonterreySharedSection = "firmas" | "inscripcion" | "notificacion" | null;
+
+function normalizeSheetLabel(value: unknown): string {
+  return String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function hasVisibleBookingData(row: ReadonlyArray<unknown>): boolean {
+  return Boolean(
+    String(row[1] ?? "").trim() ||
+      String(row[2] ?? "").trim() ||
+      String(row[3] ?? "").trim()
+  );
+}
+
+function countMonterreySharedPhysical(
+  grid: ReadonlyArray<ReadonlyArray<unknown>>,
+): number {
+  let section: MonterreySharedSection = null;
+  let total = 0;
+
+  for (const row of grid) {
+    const a = normalizeSheetLabel(row?.[0]);
+
+    if (a === "MONTERREY FIRMAS") {
+      section = "firmas";
+      continue;
+    }
+    if (a === "MONTERREY INSCRIPCION") {
+      section = "inscripcion";
+      continue;
+    }
+    if (a.startsWith("NOTIFICACIONES CRM")) {
+      section = "notificacion";
+      continue;
+    }
+    if (
+      a.startsWith("APODACA ") ||
+      a.includes("BIOMETRICOS") ||
+      /^LEO\b/.test(a)
+    ) {
+      section = null;
+      continue;
+    }
+    if (!section || a === "HORA" || !hasVisibleBookingData(row ?? [])) continue;
+
+    const isClock = /^\d{1,2}:\d{2}/.test(a);
+    const isNotificationRow = /^NOTIFICACION\b/.test(a);
+    const counts =
+      (section === "firmas" && isClock) ||
+      (section === "inscripcion" && isClock && /^11:00/.test(a)) ||
+      (section === "notificacion" && (isClock || isNotificationRow));
+    if (counts) total += 1;
+  }
+
+  return total;
+}
+
 Deno.serve(async (req) => {
   try {
     if (req.method === "OPTIONS") {
@@ -331,6 +393,33 @@ Deno.serve(async (req) => {
     const titleRaw = String(targetTab.title ?? "");
     const titleEsc = `'${titleRaw.replace(/'/g, "''")}'`;
     const grid = await adapter.getValues(`${titleEsc}!A1:U200`);
+    const sharedPhysicalOccupancy = countMonterreySharedPhysical(grid);
+    const { error: sharedSnapshotError } = await supabase.rpc(
+      "agenda_mty_shared_pool_snapshot_upsert",
+      {
+        p_organization_id: orgId,
+        p_booking_date: bookingDate,
+        p_physical_occupancy: sharedPhysicalOccupancy,
+        p_source: mode === "book_gate" ? "live_sync_book_gate" : "live_sync_availability",
+      },
+    );
+    if (sharedSnapshotError) {
+      console.error("agenda-sheet-live-sync shared snapshot", {
+        message: String(sharedSnapshotError.message ?? "").slice(0, 180),
+      });
+      if (
+        mode === "book_gate" &&
+        locationId === "monterrey" &&
+        (kind === "firmas" || kind === "inscripcion")
+      ) {
+        return liveSyncJsonError(
+          503,
+          "shared_capacity_unverified",
+          "No fue posible validar el cupo combinado de Firmas + Inscripción + Notificación.",
+        );
+      }
+    }
+
     const { rows, issues } = buildInventoryUpsertRows({
       organizationId: orgId,
       spreadsheetId,
@@ -413,13 +502,42 @@ Deno.serve(async (req) => {
         physical_total: c.physicalTotal,
       });
     }
-    const slots = [...byTime.entries()]
+    let slots = [...byTime.entries()]
       .sort(([a], [b]) => a.localeCompare(b))
       .map(([slot_time, v]) => ({
         slot_time,
         available: v.available,
         physical_total: v.physical_total,
       }));
+
+    let sharedDailyOccupancy: number | null = null;
+    let sharedDailyRemaining: number | null = null;
+    if (
+      locationId === "monterrey" &&
+      (kind === "firmas" || kind === "inscripcion")
+    ) {
+      const [{ data: sharedOcc, error: sharedOccErr }, { data: sharedRem, error: sharedRemErr }] =
+        await Promise.all([
+          supabase.rpc("agenda_mty_shared_pool_occupancy", {
+            p_org: orgId,
+            p_date: bookingDate,
+          }),
+          supabase.rpc("agenda_mty_shared_pool_remaining", {
+            p_org: orgId,
+            p_date: bookingDate,
+          }),
+        ]);
+      if (!sharedOccErr && sharedOcc != null && Number.isFinite(Number(sharedOcc))) {
+        sharedDailyOccupancy = Math.max(0, Math.trunc(Number(sharedOcc)));
+      }
+      if (!sharedRemErr && sharedRem != null && Number.isFinite(Number(sharedRem))) {
+        sharedDailyRemaining = Math.max(0, Math.trunc(Number(sharedRem)));
+        slots = slots.map((slot) => ({
+          ...slot,
+          available: Math.min(slot.available, sharedDailyRemaining ?? slot.available),
+        }));
+      }
+    }
 
     const crmIds = [
       ...new Set(
@@ -543,6 +661,18 @@ Deno.serve(async (req) => {
         canBook = gate.allow;
         gateMessage = gate.message;
       }
+
+      if (
+        canBook &&
+        sharedDailyRemaining != null &&
+        sharedDailyRemaining < 1 &&
+        locationId === "monterrey" &&
+        (kind === "firmas" || kind === "inscripcion")
+      ) {
+        canBook = false;
+        gateMessage =
+          "Firmas + Inscripción + Notificación ya completaron los 15 lugares de Monterrey para ese día.";
+      }
     }
 
     return liveSyncJsonOk({
@@ -561,6 +691,12 @@ Deno.serve(async (req) => {
       daily_occupancy: dailyMeta.occupancy,
       daily_remaining: dailyMeta.remaining,
       daily_overcapacity: dailyMeta.overcapacity,
+      shared_daily_capacity:
+        locationId === "monterrey" && (kind === "firmas" || kind === "inscripcion")
+          ? 15
+          : undefined,
+      shared_daily_occupancy: sharedDailyOccupancy ?? undefined,
+      shared_daily_remaining: sharedDailyRemaining ?? undefined,
       firmas_daily_cap_contract: kind === "firmas" ? firmasContract.enabled : undefined,
       tab_resolve: tabResolve,
     });
