@@ -49,6 +49,12 @@ export function mapBookNotificacionRpcError(error: {
     );
   }
 
+  if (msg.includes("sin_cupo_combinado_mty_15")) {
+    return new AgendaBiometricosSupabaseError(
+      "Firmas + Inscripción + Notificación ya completaron los 15 lugares de Monterrey para ese día.",
+    );
+  }
+
   if (msg.includes("fecha debe ser futura")) {
     return new AgendaBiometricosSupabaseError(
       "La fecha de notificación debe ser futura.",
