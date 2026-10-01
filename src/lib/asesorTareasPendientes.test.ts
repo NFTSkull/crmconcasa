@@ -412,16 +412,42 @@ describe("isAsesorPendienteSubirAcuse", () => {
     );
   });
 
-  it("etapa 7 no cuenta", () => {
+  it("etapa 7 solo cuenta cuando ya existe cita biométrica activa", () => {
     assert.equal(
       isAsesorPendienteSubirAcuse(
         baseInput({
           etapaActual: 7,
+          agendaBiometricos: { hasActiveBooking: false, hasLastCancelledBooking: false },
           archivos: [],
           retencion: { opcion: null, envio: null },
         }),
       ),
       false,
+    );
+    assert.equal(
+      isAsesorPendienteSubirAcuse(
+        baseInput({
+          etapaActual: 7,
+          agendaBiometricos: { hasActiveBooking: true, hasLastCancelledBooking: false },
+          archivos: [],
+          retencion: { opcion: null, envio: null },
+        }),
+      ),
+      true,
+    );
+  });
+
+  it("etapa 3 con cita biométrica activa ya puede subir Acuse", () => {
+    assert.equal(
+      isAsesorPendienteSubirAcuse(
+        baseInput({
+          etapaActual: 3,
+          agendaBiometricos: { hasActiveBooking: true, hasLastCancelledBooking: false },
+          archivos: [],
+          retencion: { opcion: null, envio: null },
+        }),
+      ),
+      true,
     );
   });
 
