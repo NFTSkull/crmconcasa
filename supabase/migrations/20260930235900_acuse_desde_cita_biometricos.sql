@@ -470,8 +470,7 @@ BEGIN
     'firma_agendable_desde', v_firma_desde
   );
 END;
-$function$
-
+$function$;
 
 CREATE OR REPLACE FUNCTION public.asesor_inbox_pendiente_subir_acuse(p_submitted_to_mesa boolean, p_etapa_actual smallint, p_expediente_id uuid)
  RETURNS boolean
@@ -500,8 +499,7 @@ AS $function$
     ) THEN false
     ELSE true
   END;
-$function$
-
+$function$;
 
 COMMENT ON FUNCTION public.register_expediente_documento_retencion(uuid, text, text, text, text, bigint) IS
   'Asesor: registra documentos retención. Principal Acuse/Carta puede cargarse desde cita biométrica activa (etapas 3–7) o etapa >=8; al cargar en 3–8 deja expediente en etapa 9 listo para agendar Firma.';
