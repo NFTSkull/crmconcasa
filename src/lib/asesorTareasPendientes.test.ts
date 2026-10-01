@@ -412,43 +412,21 @@ describe("isAsesorPendienteSubirAcuse", () => {
     );
   });
 
-  it("etapa 7 solo cuenta cuando ya existe cita biométrica activa", () => {
-    assert.equal(
-      isAsesorPendienteSubirAcuse(
-        baseInput({
-          etapaActual: 7,
-          agendaBiometricos: { hasActiveBooking: false, hasLastCancelledBooking: false },
-          archivos: [],
-          retencion: { opcion: null, envio: null },
-        }),
-      ),
-      false,
-    );
-    assert.equal(
-      isAsesorPendienteSubirAcuse(
-        baseInput({
-          etapaActual: 7,
-          agendaBiometricos: { hasActiveBooking: true, hasLastCancelledBooking: false },
-          archivos: [],
-          retencion: { opcion: null, envio: null },
-        }),
-      ),
-      true,
-    );
-  });
-
-  it("etapa 3 con cita biométrica activa ya puede subir Acuse", () => {
-    assert.equal(
-      isAsesorPendienteSubirAcuse(
-        baseInput({
-          etapaActual: 3,
-          agendaBiometricos: { hasActiveBooking: true, hasLastCancelledBooking: false },
-          archivos: [],
-          retencion: { opcion: null, envio: null },
-        }),
-      ),
-      true,
-    );
+  it("etapas 3–7 no inflan el pendiente aunque exista cita biométrica activa", () => {
+    for (const etapaActual of [3, 4, 5, 6, 7] as const) {
+      assert.equal(
+        isAsesorPendienteSubirAcuse(
+          baseInput({
+            etapaActual,
+            agendaBiometricos: { hasActiveBooking: true, hasLastCancelledBooking: false },
+            archivos: [],
+            retencion: { opcion: null, envio: null },
+          }),
+        ),
+        false,
+        `etapa ${etapaActual} no debe contar como tarea Subir Acuse`,
+      );
+    }
   });
 
   it("P132: etapas 9/10/11/12 sin Acuse cuentan; con Acuse no", () => {
