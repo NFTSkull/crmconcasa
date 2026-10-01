@@ -433,8 +433,7 @@ BEGIN
     'firma_agendable_desde', v_firma_desde
   );
 END;
-$function$
-
+$function$;
 
 COMMENT ON FUNCTION public.register_expediente_documento_retencion(uuid,text,text,text,text,bigint) IS
   'Asesor: registra documentos de retención. Acuse/Carta principal queda disponible desde Biométricos y no se bloquea por vigencia documental; al cargar en etapas 3–8 avanza a etapa 9 y habilita Firma.';
