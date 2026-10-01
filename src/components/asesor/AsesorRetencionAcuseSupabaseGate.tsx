@@ -10,6 +10,7 @@ export type AsesorRetencionAcuseSupabaseGateProps = Readonly<{
   expedienteId: string;
   submittedToMesa: boolean;
   etapaActual: number | null | undefined;
+  fechaCita?: string | null;
   firmaAgendableDesde?: string | null;
   archivosResumen: ExpedienteArchivoResumen[] | null;
   onUpdated: () => void | Promise<void>;
@@ -23,6 +24,7 @@ export function AsesorRetencionAcuseSupabaseGate({
   expedienteId,
   submittedToMesa,
   etapaActual,
+  fechaCita = null,
   firmaAgendableDesde = null,
   archivosResumen,
   onUpdated,
@@ -85,7 +87,7 @@ export function AsesorRetencionAcuseSupabaseGate({
     return () => {
       cancelled = true;
     };
-  }, [etapaActual, expedienteId, repo, submittedToMesa]);
+  }, [etapaActual, expedienteId, fechaCita, repo, submittedToMesa]);
 
   if (!resolved || !visible) return null;
 
