@@ -1,7 +1,7 @@
 /** Zona de negocio para cortes de periodo Admin (P081). */
 export const ADMIN_BUSINESS_TIMEZONE = "America/Monterrey" as const;
 
-export type AdminPeriodPreset = "hoy" | "semana" | "mes" | "personalizado";
+export type AdminPeriodPreset = "hoy" | "semana" | "mes" | "mes_anterior" | "personalizado";
 
 export type AdminPeriodBounds = Readonly<{
   preset: AdminPeriodPreset;
@@ -141,6 +141,15 @@ function startOfMonth(ymd: string): string {
   return `${m[1]}-${m[2]}-01`;
 }
 
+function endOfMonth(ymd: string): string {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(ymd);
+  if (!m) throw new Error("Fecha inválida");
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const last = new Date(Date.UTC(y, mo, 0)).getUTCDate();
+  return formatYmd(y, mo, last);
+}
+
 export function resolveAdminPeriodBounds(input: {
   preset: AdminPeriodPreset;
   /** Requerido si preset=personalizado */
@@ -168,6 +177,15 @@ export function resolveAdminPeriodBounds(input: {
       fromDate = startOfMonth(today);
       toDateInclusive = today;
       break;
+    case "mes_anterior": {
+      const prevMonth = todayParts.month === 1 ? 12 : todayParts.month - 1;
+      const prevYear =
+        todayParts.month === 1 ? todayParts.year - 1 : todayParts.year;
+      const anchor = formatYmd(prevYear, prevMonth, 1);
+      fromDate = startOfMonth(anchor);
+      toDateInclusive = endOfMonth(anchor);
+      break;
+    }
     case "personalizado": {
       fromDate = (input.customFrom ?? "").trim();
       toDateInclusive = (input.customToInclusive ?? "").trim();
