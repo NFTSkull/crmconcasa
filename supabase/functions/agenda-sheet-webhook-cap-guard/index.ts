@@ -65,6 +65,86 @@ function rowHasVisibleManualData(row: ReadonlyArray<unknown>): boolean {
   );
 }
 
+type MonterreySharedSection = "firmas" | "inscripcion" | "notificacion" | null;
+
+function normalizeSheetLabel(value: unknown): string {
+  return String(value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toUpperCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function inspectMonterreySharedPool(
+  grid: ReadonlyArray<ReadonlyArray<unknown>>,
+  targetRowNumber: number,
+): { physicalTotal: number; targetInPool: boolean } {
+  let section: MonterreySharedSection = null;
+  let physicalTotal = 0;
+  let targetInPool = false;
+
+  for (let i = 0; i < grid.length; i++) {
+    const row = grid[i] ?? [];
+    const a = normalizeSheetLabel(row[COL_INDEX.hora]);
+
+    if (a === "MONTERREY FIRMAS") {
+      section = "firmas";
+      continue;
+    }
+    if (a === "MONTERREY INSCRIPCION") {
+      section = "inscripcion";
+      continue;
+    }
+    if (a.startsWith("NOTIFICACIONES CRM")) {
+      section = "notificacion";
+      continue;
+    }
+    if (
+      a.startsWith("APODACA ") ||
+      a.includes("BIOMETRICOS") ||
+      /^LEO\b/.test(a)
+    ) {
+      section = null;
+      continue;
+    }
+    if (!section || a === "HORA") continue;
+
+    const isClock = /^\d{1,2}:\d{2}/.test(a);
+    const isNotificationRow = /^NOTIFICACION\b/.test(a);
+    const isPoolSlot =
+      (section === "firmas" && isClock) ||
+      (section === "inscripcion" && isClock && /^11:00/.test(a)) ||
+      (section === "notificacion" && (isClock || isNotificationRow));
+
+    if (!isPoolSlot) continue;
+    if (i + 1 === targetRowNumber) targetInPool = true;
+    if (rowHasVisibleManualData(row)) physicalTotal += 1;
+  }
+
+  return { physicalTotal, targetInPool };
+}
+
+async function upsertMonterreySharedSnapshot(
+  supabase: ReturnType<typeof createClient>,
+  input: {
+    organizationId: string;
+    bookingDate: string;
+    physicalOccupancy: number;
+    source: string;
+  },
+): Promise<void> {
+  const { error } = await supabase.rpc("agenda_mty_shared_pool_snapshot_upsert", {
+    p_organization_id: input.organizationId,
+    p_booking_date: input.bookingDate,
+    p_physical_occupancy: input.physicalOccupancy,
+    p_source: input.source,
+  });
+  if (error) {
+    throw new Error(`shared_pool_snapshot_upsert:${error.message}`);
+  }
+}
+
 /**
  * LEO / HACER PAGARÉS es un bloque operativo manual ajeno a la agenda CRM.
  * Desde la fila cuyo A empieza con "LEO" hasta el siguiente encabezado real
@@ -310,7 +390,6 @@ Deno.serve(async (req) => {
       !baseUrl ||
       !serviceKey ||
       !organizationId ||
-      body.source === "crm" ||
       body.spreadsheetId !== expectedSpreadsheet ||
       typeof body.sheetId !== "number" ||
       !Number.isFinite(body.sheetId) ||
@@ -354,6 +433,106 @@ Deno.serve(async (req) => {
 
     const titleEsc = `'${String(body.sheetTitle).replace(/'/g, "''")}'`;
     const grid = await adapter.getValues(`${titleEsc}!A1:U200`);
+    const sharedPool = inspectMonterreySharedPool(grid, body.rowNumber);
+
+    const { data: priorSharedRaw } = await supabase
+      .from("agenda_mty_shared_pool_snapshot")
+      .select("physical_occupancy")
+      .eq("organization_id", organizationId)
+      .eq("booking_date", bookingDate)
+      .maybeSingle();
+    const priorSharedCount =
+      priorSharedRaw &&
+      Number.isFinite(Number((priorSharedRaw as { physical_occupancy?: number }).physical_occupancy))
+        ? Number((priorSharedRaw as { physical_occupancy?: number }).physical_occupancy)
+        : null;
+
+    const targetPhysicalRow = grid[body.rowNumber - 1] ?? [];
+    const targetBookingCell = String(
+      targetPhysicalRow[COL_INDEX.bookingId] ?? "",
+    ).trim();
+    const targetVisible = rowHasVisibleManualData(targetPhysicalRow);
+
+    // El webhook relee A:U completo: mantener un snapshot exacto del pool físico
+    // Monterrey Firmas + Inscripción + Notificación. Esto hace que el trigger DB
+    // pueda bloquear la persona #16 aun cuando el Drive use bloques distintos.
+    if (
+      body.source !== "crm" &&
+      sharedPool.targetInPool &&
+      !targetBookingCell &&
+      targetVisible &&
+      sharedPool.physicalTotal > 15 &&
+      (priorSharedCount == null || sharedPool.physicalTotal > priorSharedCount)
+    ) {
+      const cleared = await clearRejectedRow(
+        adapter,
+        body.sheetTitle,
+        body.rowNumber,
+      );
+      if (!cleared) {
+        return json(503, {
+          ok: false,
+          code: "shared_daily_capacity_reject_clear_failed",
+          message:
+            "El cupo combinado ya está completo y no fue posible limpiar la fila nueva. Revisa la hoja antes de continuar.",
+        });
+      }
+
+      await upsertMonterreySharedSnapshot(supabase, {
+        organizationId,
+        bookingDate,
+        physicalOccupancy: Math.max(0, sharedPool.physicalTotal - 1),
+        source: "webhook_shared_rejected",
+      });
+
+      try {
+        await supabase.from("action_log").insert({
+          organization_id: organizationId,
+          actor_id: null,
+          action: "manual_shared_daily_capacity_rejected",
+          entity_type: "agenda_sheet_slot_inventory",
+          entity_id: null,
+          payload: {
+            code: "SHARED_MTY_DAILY_CAP_REJECTED",
+            sheet_title: body.sheetTitle,
+            sheet_id: body.sheetId,
+            sheet_row: body.rowNumber,
+            booking_date: bookingDate,
+            physical_occupancy_attempted: sharedPool.physicalTotal,
+            capacity: 15,
+          },
+        });
+      } catch {
+        // auditoría best-effort
+      }
+
+      return json(409, {
+        ok: false,
+        code: "shared_daily_capacity_full",
+        message:
+          "Firmas + Inscripción + Notificación ya completaron los 15 lugares de Monterrey. La fila nueva fue retirada.",
+        capacity: 15,
+        occupancy: sharedPool.physicalTotal - 1,
+        row_cleared: true,
+      });
+    }
+
+    await upsertMonterreySharedSnapshot(supabase, {
+      organizationId,
+      bookingDate,
+      physicalOccupancy: sharedPool.physicalTotal,
+      source: body.source === "crm" ? "webhook_crm" : "webhook_sheet",
+    });
+
+    // Escrituras originadas por CRM solo refrescan el snapshot compartido y
+    // continúan por el core exacto; jamás se limpian como captura manual.
+    if (body.source === "crm") {
+      const core = await proxyCore(baseUrl, secret, raw);
+      return new Response(core.text, {
+        status: core.response.status,
+        headers: { "Content-Type": core.response.headers.get("content-type") ?? "application/json" },
+      });
+    }
 
     // LEO / HACER PAGARÉS es captura manual independiente. Nunca enviarla al
     // core, nunca limpiarla y nunca incorporarla al inventario/cupo CRM.
@@ -365,12 +544,6 @@ Deno.serve(async (req) => {
         message: "LEO / HACER PAGARÉS: captura manual guardada; CRM no modifica esta fila.",
       });
     }
-
-    const targetPhysicalRow = grid[body.rowNumber - 1] ?? [];
-    const targetBookingCell = String(
-      targetPhysicalRow[COL_INDEX.bookingId] ?? "",
-    ).trim();
-    const targetVisible = rowHasVisibleManualData(targetPhysicalRow);
 
     // Booking ya sincronizado: nunca interferir con sus columnas/operación.
     if (targetBookingCell) {
