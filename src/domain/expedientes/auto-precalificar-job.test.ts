@@ -119,13 +119,15 @@ describe("runAutoPrecalificarJob", () => {
     });
   });
 
-  it("no_cumple no envía parámetros Infonavit al RPC", async () => {
+  it("no_cumple conserva identidad Infonavit y nombre para la vista del precalificador", async () => {
     const scraperBody = {
       califica: false,
       mensaje: "SIN RELACION LABORAL VIGENTE",
       rfc: "XAXX010101000",
-      registroPatronal: "A1234567890",
-      empresa: "NO DEBE PASAR",
+      nombre: "PEREZ LOPEZ ANA MARIA",
+      registroPatronal: null,
+      empresa: null,
+      advertenciaInscripcion: null,
     };
 
     globalThis.fetch = (async () =>
@@ -135,9 +137,10 @@ describe("runAutoPrecalificarJob", () => {
       })) as typeof fetch;
 
     const { supabase, rpcCalls } = mockSupabase();
+    const expedienteId = "33333333-3333-4333-8333-333333333333";
 
-    await runAutoPrecalificarJob({
-      expedienteId: "33333333-3333-4333-8333-333333333333",
+    const result = await runAutoPrecalificarJob({
+      expedienteId,
       nss: "11111111111",
       programa: "mejoravit",
       scraperUrl: "https://scraper.test",
@@ -145,14 +148,24 @@ describe("runAutoPrecalificarJob", () => {
       supabase: supabase as never,
     });
 
-    assert.equal(rpcCalls.length, 1);
+    assert.deepEqual(result, { resultado: "no_cumple", razon: null });
+    assert.equal(rpcCalls.length, 2);
+    assert.equal(rpcCalls[0]?.fn, "auto_upsert_editor_decision");
     assert.deepEqual(rpcCalls[0]?.args, {
-      p_expediente_id: "33333333-3333-4333-8333-333333333333",
+      p_expediente_id: expedienteId,
       p_decision: "no_cumple",
       p_monto_aprobado: null,
       p_motivo: "SIN RELACION LABORAL VIGENTE",
+      p_rfc: "XAXX010101000",
+      p_registro_patronal: null,
+      p_empresa: null,
+      p_advertencia_inscripcion: null,
     });
-    assert.equal("p_rfc" in (rpcCalls[0]?.args ?? {}), false);
+    assert.equal(rpcCalls[1]?.fn, "auto_fill_nombre_infonavit");
+    assert.deepEqual(rpcCalls[1]?.args, {
+      p_expediente_id: expedienteId,
+      p_nombre_completo: "PEREZ LOPEZ ANA MARIA",
+    });
   });
 
   it("compro_tu_casa usa montoCredito en el RPC", async () => {
