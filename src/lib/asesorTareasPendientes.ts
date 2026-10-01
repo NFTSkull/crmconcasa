@@ -193,29 +193,17 @@ export function hasAcusePrincipalValido(
 }
 
 /**
- * Pendiente subir Acuse:
- * - etapas 3–7: únicamente con cita biométrica activa;
- * - etapa ≥8: conserva la regla histórica;
+ * Pendiente del dashboard «Subir Acuse»:
+ * - inicia en etapa 8, como la regla operativa histórica;
+ * - la carga anticipada desde cita biométrica sigue disponible dentro del expediente,
+ *   pero no debe inflar el contador/listado de tareas;
  * - deja de contar cuando ya existe Acuse/Carta principal listo.
  */
 export function isAsesorPendienteSubirAcuse(input: AsesorTareaExpedienteInput): boolean {
   if (!isAsesorExpedienteAccionable(input)) return false;
   const etapa = input.etapaActual;
-  if (typeof etapa !== "number" || etapa < 3) return false;
-
-  const hasActiveBiometricosBooking =
-    input.agendaBiometricos?.hasActiveBooking === true;
-
-  if (
-    !canShowAsesorRetencionSupabasePanel({
-      dataModeSupabase: input.dataModeSupabase === true,
-      etapaActual: etapa,
-      submittedToMesa: input.submittedToMesa,
-      hasActiveBiometricosBooking,
-    })
-  ) {
-    return false;
-  }
+  if (typeof etapa !== "number" || etapa < 8) return false;
+  if (!input.submittedToMesa) return false;
 
   return !hasAcusePrincipalValido(input.archivos);
 }
