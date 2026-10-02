@@ -1,8 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { RetencionAcuseAvisoSupabaseCard } from "@/components/asesor/RetencionAcuseAvisoSupabaseCard";
-import { useAgendaBiometricosBookingRepo } from "@/domain/agenda-biometricos";
 import { canShowAsesorRetencionSupabasePanel } from "@/domain/expediente-retencion";
 import type { ExpedienteArchivoResumen } from "@/domain/expediente-archivos";
 
@@ -17,79 +15,25 @@ export type AsesorRetencionAcuseSupabaseGateProps = Readonly<{
 }>;
 
 /**
- * Habilita Acuse desde que existe cita biométrica activa.
- * Etapa >=8 conserva el flujo histórico y no depende de la cita.
+ * El Acuse se captura en su etapa canónica (8).
+ * Etapas anteriores no muestran este panel para evitar saltos 3–7 → 9.
+ * Etapa >=8 conserva reemplazo/consulta histórica.
  */
 export function AsesorRetencionAcuseSupabaseGate({
   expedienteId,
   submittedToMesa,
   etapaActual,
-  fechaCita = null,
   firmaAgendableDesde = null,
   archivosResumen,
   onUpdated,
 }: AsesorRetencionAcuseSupabaseGateProps) {
-  const repo = useAgendaBiometricosBookingRepo();
-  const [visible, setVisible] = useState(false);
-  const [resolved, setResolved] = useState(false);
+  const visible = canShowAsesorRetencionSupabasePanel({
+    dataModeSupabase: true,
+    etapaActual,
+    submittedToMesa,
+  });
 
-  useEffect(() => {
-    const etapa = typeof etapaActual === "number" ? etapaActual : null;
-
-    if (!submittedToMesa || etapa == null || etapa < 3) {
-      setVisible(false);
-      setResolved(true);
-      return;
-    }
-
-    if (etapa >= 8) {
-      setVisible(
-        canShowAsesorRetencionSupabasePanel({
-          dataModeSupabase: true,
-          etapaActual: etapa,
-          submittedToMesa,
-          hasActiveBiometricosBooking: false,
-        }),
-      );
-      setResolved(true);
-      return;
-    }
-
-    if (!repo) {
-      setVisible(false);
-      setResolved(true);
-      return;
-    }
-
-    let cancelled = false;
-    setResolved(false);
-
-    void repo
-      .getActiveBooking(expedienteId)
-      .then((active) => {
-        if (cancelled) return;
-        setVisible(
-          canShowAsesorRetencionSupabasePanel({
-            dataModeSupabase: true,
-            etapaActual: etapa,
-            submittedToMesa,
-            hasActiveBiometricosBooking: active != null,
-          }),
-        );
-      })
-      .catch(() => {
-        if (!cancelled) setVisible(false);
-      })
-      .finally(() => {
-        if (!cancelled) setResolved(true);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [etapaActual, expedienteId, fechaCita, repo, submittedToMesa]);
-
-  if (!resolved || !visible) return null;
+  if (!visible) return null;
 
   return (
     <RetencionAcuseAvisoSupabaseCard

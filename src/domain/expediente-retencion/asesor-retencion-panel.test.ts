@@ -18,7 +18,7 @@ const envioEnviado: ExpedienteRetencionEnvioMesa = {
 };
 
 describe("canShowAsesorRetencionSupabasePanel", () => {
-  it("desde etapa 3–7 exige cita biométrica activa; etapa ≥8 conserva visibilidad", () => {
+  it("solo muestra Acuse desde etapa 8, aunque exista cita biométrica activa", () => {
     assert.equal(
       canShowAsesorRetencionSupabasePanel({
         dataModeSupabase: true,
@@ -26,7 +26,7 @@ describe("canShowAsesorRetencionSupabasePanel", () => {
         submittedToMesa: true,
         hasActiveBiometricosBooking: true,
       }),
-      true,
+      false,
     );
     assert.equal(
       canShowAsesorRetencionSupabasePanel({
@@ -34,15 +34,6 @@ describe("canShowAsesorRetencionSupabasePanel", () => {
         etapaActual: 7,
         submittedToMesa: true,
         hasActiveBiometricosBooking: true,
-      }),
-      true,
-    );
-    assert.equal(
-      canShowAsesorRetencionSupabasePanel({
-        dataModeSupabase: true,
-        etapaActual: 7,
-        submittedToMesa: true,
-        hasActiveBiometricosBooking: false,
       }),
       false,
     );
@@ -67,15 +58,6 @@ describe("canShowAsesorRetencionSupabasePanel", () => {
         dataModeSupabase: false,
         etapaActual: 8,
         submittedToMesa: true,
-      }),
-      false,
-    );
-    assert.equal(
-      canShowAsesorRetencionSupabasePanel({
-        dataModeSupabase: true,
-        etapaActual: 2,
-        submittedToMesa: true,
-        hasActiveBiometricosBooking: true,
       }),
       false,
     );
