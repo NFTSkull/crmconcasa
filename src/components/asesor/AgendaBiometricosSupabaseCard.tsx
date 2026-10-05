@@ -252,7 +252,8 @@ export function AgendaBiometricosSupabaseCard({
       setActiveNotificacion(notificacion);
       setLastCancelledBooking(booking || notificacion ? null : cancelled);
       if (notificacion && !booking) setAgendaTab("notificacion");
-      if (booking) setAgendaTab("biometricos");
+      if (booking && etapaActual === 5) setAgendaTab("notificacion");
+      else if (booking) setAgendaTab("biometricos");
 
       const tz = weekly?.timezone ?? "America/Monterrey";
       const today = todayYmdInTimezone(tz);
@@ -281,7 +282,7 @@ export function AgendaBiometricosSupabaseCard({
     } finally {
       setLoading(false);
     }
-  }, [expedienteId, repo]);
+  }, [etapaActual, expedienteId, repo]);
 
   /** Recarga cupos/bookings sin resetear la selección del asesor (p. ej. tras carrera por último cupo). */
   const refreshAvailability = useCallback(async () => {
@@ -762,6 +763,7 @@ export function AgendaBiometricosSupabaseCard({
           config={config}
           repo={repo}
           activeNotificacion={activeNotificacion}
+          mode={etapaActual >= 4 ? "postBiometricos" : "etapa3"}
           onUpdated={() => {
             void load();
             onUpdated();
@@ -932,6 +934,34 @@ export function AgendaBiometricosSupabaseCard({
             </p>
           ) : (
             renderNotificacionTab()
+          )}
+        </div>
+      </div>
+    );
+  }
+
+  if (etapaActual === 5 && activeBooking) {
+    return (
+      <div className="space-y-3">
+        <AsesorAgendaDecisionNotice
+          expedienteId={expedienteId}
+          kinds={["biometricos", "notificacion"]}
+        />
+        <div className="rounded-xl border border-emerald-200 bg-emerald-50/60 p-4 shadow-sm">
+          <p className="text-sm font-semibold text-emerald-900">Biométricos realizados</p>
+          <p className="mt-1 text-[11px] leading-snug text-emerald-900/80">
+            El resultado biométrico se conserva. Si ahora requiere Notificación, agéndala como una
+            cita posterior; no uses conversión ni canceles Biométricos.
+          </p>
+          {renderAgendaTabs()}
+          {agendaTab === "inscripcion" ? (
+            renderInscripcionTab()
+          ) : agendaTab === "notificacion" ? (
+            renderNotificacionTab()
+          ) : (
+            <p className="mt-3 rounded-md border border-emerald-200 bg-white/80 px-3 py-2 text-xs text-emerald-950">
+              Biométricos ya están realizados. Continúa desde Notificación o Inscripción según corresponda.
+            </p>
           )}
         </div>
       </div>
