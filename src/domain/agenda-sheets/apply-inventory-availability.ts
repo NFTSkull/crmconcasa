@@ -23,6 +23,14 @@ export type InventoryAvailabilityResponse = Readonly<{
   dailyRemaining?: number | null;
 }>;
 
+export function failClosedSlotsWhileInventoryRefreshing(
+  slots: readonly AgendaBiometricosSlotAvailability[],
+  refreshing: boolean,
+): AgendaBiometricosSlotAvailability[] {
+  if (!refreshing) return [...slots];
+  return slots.map((slot) => ({ ...slot, remaining: 0 }));
+}
+
 function normalizeInvTime(raw: string): HhmmTime | null {
   const t = String(raw ?? "").trim().slice(0, 5);
   if (!/^\d{2}:\d{2}$/.test(t)) return null;
