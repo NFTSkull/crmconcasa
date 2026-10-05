@@ -717,7 +717,7 @@ export function AgendaBiometricosSupabaseCard({
 
   const renderAgendaTabs = () => (
     <div
-      className="mt-3 flex flex-wrap gap-1 border-b border-gray-100 pb-2"
+      className="mt-3 grid grid-cols-1 gap-2 border-b border-gray-100 pb-3 sm:grid-cols-3"
       data-testid="agenda-asesor-tabs"
     >
       {AGENDA_TAB_ITEMS.map(({ id, label, activeClass }) => (
@@ -730,7 +730,7 @@ export function AgendaBiometricosSupabaseCard({
             setError(null);
             setSuccessMsg(null);
           }}
-          className={`rounded-md px-2.5 py-1 text-[11px] font-medium transition ${
+          className={`w-full rounded-md px-3 py-2 text-center text-xs font-semibold transition ${
             agendaTab === id
               ? activeClass
               : "bg-gray-100 text-gray-700 hover:bg-gray-200"
@@ -763,7 +763,7 @@ export function AgendaBiometricosSupabaseCard({
           config={config}
           repo={repo}
           activeNotificacion={activeNotificacion}
-          mode={etapaActual >= 4 ? "postBiometricos" : "etapa3"}
+          mode={(etapaActual ?? 0) >= 4 ? "postBiometricos" : "etapa3"}
           onUpdated={() => {
             void load();
             onUpdated();
