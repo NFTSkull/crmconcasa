@@ -406,6 +406,53 @@ export class SupabaseAgendaBiometricosBookingRepo implements AgendaBiometricosBo
     };
   }
 
+  async bookNotificacionPostBiometricos(params: {
+    expedienteId: string;
+    bookingDate: string;
+    locationId: string;
+    note?: string | null;
+  }): Promise<BookNotificacionResult> {
+    const { client } = await requireSupabaseSession();
+
+    const { data, error } = await client.rpc("book_notificacion_post_biometricos", {
+      p_expediente_id: params.expedienteId,
+      p_booking_date: params.bookingDate,
+      p_location_id: params.locationId,
+      p_note: params.note ?? null,
+    });
+
+    if (error) {
+      throw new AgendaBiometricosSupabaseError(
+        String(error.message ?? "No se pudo agendar la notificación después de biométricos.")
+          .replace(/^book_notificacion_post_biometricos:\s*/i, ""),
+      );
+    }
+
+    if (!data || typeof data !== "object") {
+      throw new AgendaBiometricosSupabaseError(
+        "Respuesta inválida al agendar la notificación después de biométricos.",
+      );
+    }
+
+    const row = data as NotificacionRpcRow;
+    if (!row.ok) {
+      throw new AgendaBiometricosSupabaseError(
+        "La RPC no confirmó la notificación después de biométricos.",
+      );
+    }
+
+    return {
+      ok: true,
+      bookingId: String(row.booking_id ?? ""),
+      expedienteId: String(row.expediente_id ?? params.expedienteId),
+      scheduledAt: String(row.scheduled_at ?? ""),
+      bookingDate: String(row.booking_date ?? params.bookingDate),
+      bookingTime: normalizeBookingTime(String(row.booking_time ?? "12:00")),
+      locationId: String(row.location_id ?? params.locationId),
+      etapaActual: Number(row.etapa_actual ?? 5),
+    };
+  }
+
   async convertBiometricosToNotificacion(params: {
     expedienteId: string;
     bookingDate: string;
@@ -488,6 +535,39 @@ export class SupabaseAgendaBiometricosBookingRepo implements AgendaBiometricosBo
     };
   }
 
+  async cancelNotificacionPostBiometricos(params: {
+    expedienteId: string;
+    motivo?: string | null;
+  }): Promise<CancelNotificacionResult> {
+    const { client } = await requireSupabaseSession();
+
+    const { data, error } = await client.rpc("cancel_notificacion_post_biometricos", {
+      p_expediente_id: params.expedienteId,
+      p_motivo: params.motivo?.trim() || null,
+    });
+
+    if (error) {
+      throw new AgendaBiometricosSupabaseError(
+        String(error.message ?? "No se pudo cancelar la notificación.")
+          .replace(/^cancel_notificacion_post_biometricos:\s*/i, ""),
+      );
+    }
+    if (!data || typeof data !== "object") {
+      throw new AgendaBiometricosSupabaseError("Respuesta inválida al cancelar la notificación.");
+    }
+    const row = data as CancelRpcRow;
+    if (!row.ok) {
+      throw new AgendaBiometricosSupabaseError("La RPC no confirmó la cancelación.");
+    }
+    return {
+      ok: true,
+      expedienteId: String(row.expediente_id ?? params.expedienteId),
+      bookingId: String(row.booking_id ?? ""),
+      status: "cancelled",
+      etapaActual: Number(row.etapa_actual ?? 5),
+    };
+  }
+
   async reagendarNotificacionEtapa3(params: {
     expedienteId: string;
     bookingDate: string;
@@ -531,6 +611,48 @@ export class SupabaseAgendaBiometricosBookingRepo implements AgendaBiometricosBo
       status: "booked",
       kind: "notificacion",
       etapaActual: Number(row.etapa_actual ?? 3),
+    };
+  }
+
+  async reagendarNotificacionPostBiometricos(params: {
+    expedienteId: string;
+    bookingDate: string;
+    locationId: string;
+    note?: string | null;
+  }): Promise<ReagendarNotificacionResult> {
+    const { client } = await requireSupabaseSession();
+
+    const { data, error } = await client.rpc("reagendar_notificacion_post_biometricos", {
+      p_expediente_id: params.expedienteId,
+      p_booking_date: params.bookingDate,
+      p_location_id: params.locationId,
+      p_note: params.note ?? null,
+    });
+
+    if (error) {
+      throw new AgendaBiometricosSupabaseError(
+        String(error.message ?? "No se pudo reagendar la notificación.")
+          .replace(/^reagendar_notificacion_post_biometricos:\s*/i, ""),
+      );
+    }
+    if (!data || typeof data !== "object") {
+      throw new AgendaBiometricosSupabaseError("Respuesta inválida al reagendar la notificación.");
+    }
+    const row = data as ReagendarRpcRow;
+    if (!row.ok) {
+      throw new AgendaBiometricosSupabaseError("La RPC no confirmó el reagendado.");
+    }
+    return {
+      ok: true,
+      expedienteId: String(row.expediente_id ?? params.expedienteId),
+      bookingAnteriorId: String(row.booking_anterior_id ?? ""),
+      bookingNuevoId: String(row.booking_nuevo_id ?? row.booking_id ?? ""),
+      scheduledAt: String(row.scheduled_at ?? ""),
+      bookingDate: String(row.booking_date ?? params.bookingDate),
+      bookingTime: normalizeBookingTime(String(row.booking_time ?? "12:00")),
+      status: "booked",
+      kind: "notificacion",
+      etapaActual: Number(row.etapa_actual ?? 5),
     };
   }
 

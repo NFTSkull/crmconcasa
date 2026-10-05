@@ -169,6 +169,12 @@ export interface AgendaBiometricosBookingRepo {
     locationId: string;
     note?: string | null;
   }): Promise<BookNotificacionResult>;
+  bookNotificacionPostBiometricos(params: {
+    expedienteId: string;
+    bookingDate: string;
+    locationId: string;
+    note?: string | null;
+  }): Promise<BookNotificacionResult>;
   convertBiometricosToNotificacion(params: {
     expedienteId: string;
     bookingDate: string;
@@ -179,7 +185,17 @@ export interface AgendaBiometricosBookingRepo {
     expedienteId: string;
     motivo?: string | null;
   }): Promise<CancelNotificacionResult>;
+  cancelNotificacionPostBiometricos(params: {
+    expedienteId: string;
+    motivo?: string | null;
+  }): Promise<CancelNotificacionResult>;
   reagendarNotificacionEtapa3(params: {
+    expedienteId: string;
+    bookingDate: string;
+    locationId: string;
+    note?: string | null;
+  }): Promise<ReagendarNotificacionResult>;
+  reagendarNotificacionPostBiometricos(params: {
     expedienteId: string;
     bookingDate: string;
     locationId: string;

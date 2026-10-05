@@ -24,6 +24,7 @@ export type AgendaNotificacionSupabaseTabProps = Readonly<{
   config: AgendaBiometricosWeeklyConfig | null;
   repo: AgendaBiometricosBookingRepo;
   activeNotificacion: AgendaNotificacionActiveBooking | null;
+  mode?: "etapa3" | "postBiometricos";
   onUpdated: () => void;
 }>;
 
@@ -55,6 +56,7 @@ export function AgendaNotificacionSupabaseTab({
   config,
   repo,
   activeNotificacion,
+  mode = "etapa3",
   onUpdated,
 }: AgendaNotificacionSupabaseTabProps) {
   const [dateYmd, setDateYmd] = useState<YmdDate>(() =>
@@ -80,7 +82,11 @@ export function AgendaNotificacionSupabaseTab({
 
     setSaving(true);
     try {
-      await repo.bookNotificacionEtapa3({
+      const book =
+        mode === "postBiometricos"
+          ? repo.bookNotificacionPostBiometricos.bind(repo)
+          : repo.bookNotificacionEtapa3.bind(repo);
+      await book({
         expedienteId,
         bookingDate: dateYmd,
         locationId: sedeId,
@@ -96,7 +102,7 @@ export function AgendaNotificacionSupabaseTab({
     } finally {
       setSaving(false);
     }
-  }, [config, dateYmd, expedienteId, onUpdated, repo, sedeId]);
+  }, [config, dateYmd, expedienteId, mode, onUpdated, repo, sedeId]);
 
   const handleCancel = useCallback(async () => {
     if (!window.confirm("¿Confirmas cancelar la notificación agendada?")) return;
@@ -105,7 +111,11 @@ export function AgendaNotificacionSupabaseTab({
     setSuccessMsg(null);
     setSaving(true);
     try {
-      await repo.cancelNotificacionEtapa3({
+      const cancel =
+        mode === "postBiometricos"
+          ? repo.cancelNotificacionPostBiometricos.bind(repo)
+          : repo.cancelNotificacionEtapa3.bind(repo);
+      await cancel({
         expedienteId,
         motivo: motivo.trim() || null,
       });
@@ -120,7 +130,7 @@ export function AgendaNotificacionSupabaseTab({
     } finally {
       setSaving(false);
     }
-  }, [expedienteId, onUpdated, repo]);
+  }, [expedienteId, mode, onUpdated, repo]);
 
   const handleReagendar = useCallback(async () => {
     if (!config || !dateYmd || !activeNotificacion || !sedeId) return;
@@ -134,7 +144,11 @@ export function AgendaNotificacionSupabaseTab({
 
     setSaving(true);
     try {
-      await repo.reagendarNotificacionEtapa3({
+      const reagendar =
+        mode === "postBiometricos"
+          ? repo.reagendarNotificacionPostBiometricos.bind(repo)
+          : repo.reagendarNotificacionEtapa3.bind(repo);
+      await reagendar({
         expedienteId,
         bookingDate: dateYmd,
         locationId: sedeId,
@@ -150,7 +164,7 @@ export function AgendaNotificacionSupabaseTab({
     } finally {
       setSaving(false);
     }
-  }, [activeNotificacion, config, dateYmd, expedienteId, onUpdated, repo, sedeId]);
+  }, [activeNotificacion, config, dateYmd, expedienteId, mode, onUpdated, repo, sedeId]);
 
   const sedeSelect = (
     <label className="block text-[11px] font-semibold text-gray-700">
@@ -238,7 +252,9 @@ export function AgendaNotificacionSupabaseTab({
   return (
     <div className="space-y-3">
       <p className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-[11px] leading-snug text-amber-950">
-        {NOTIFICACION_UI_HINT}
+        {mode === "postBiometricos"
+          ? "Biométricos ya realizados: esta cita de Notificación se agrega después y conserva intacto el resultado biométrico. No cancela ni reemplaza Biométricos."
+          : NOTIFICACION_UI_HINT}
       </p>
 
       <label className="block text-[11px] font-semibold text-gray-700">

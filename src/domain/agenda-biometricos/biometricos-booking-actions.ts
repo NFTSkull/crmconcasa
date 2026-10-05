@@ -32,7 +32,7 @@ export function canShowAsesorBiometricosSupabaseCard(params: {
   const etapa = params.etapaActual;
   if (etapa === 3 || etapa === 4) return true;
   if (etapa === 5) {
-    return !params.hasActiveBooking && Boolean(params.hasLastCancelledBooking);
+    return Boolean(params.hasActiveBooking) || Boolean(params.hasLastCancelledBooking);
   }
   return false;
 }

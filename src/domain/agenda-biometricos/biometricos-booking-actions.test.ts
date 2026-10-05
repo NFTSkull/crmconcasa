@@ -90,7 +90,7 @@ describe("canShowAsesorBiometricosSupabaseCard", () => {
         hasActiveBooking: true,
         hasLastCancelledBooking: true,
       }),
-      false,
+      true,
     );
   });
 });
