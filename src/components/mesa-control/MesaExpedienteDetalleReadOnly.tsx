@@ -156,6 +156,7 @@ import { useMesaExpedientePresenciaDetalle } from "@/hooks/useMesaExpedientePres
 import { formatMesaAbiertoAhoraBadge } from "@/lib/mesaExpedientePresenciaUi";
 import { MesaExpedienteOpsSection } from "@/components/mesa-control/MesaExpedienteOpsSection";
 import { MesaAsesorCambiosPanel } from "@/components/mesa-control/MesaAsesorCambiosPanel";
+import { MesaCorreccionesHistorialPanel } from "@/components/mesa-control/MesaCorreccionesHistorialPanel";
 import { MesaControlManualEtapaSection } from "@/components/mesa-control/MesaControlManualEtapaSection";
 import { MesaRechazoOperativoAbiertoBanner } from "@/components/mesa-control/MesaRechazoOperativoAbiertoBanner";
 import { MesaRechazoOperativoPostBiometricosCard } from "@/components/mesa-control/MesaRechazoOperativoPostBiometricosCard";
@@ -1997,6 +1998,11 @@ export function MesaExpedienteDetalleReadOnly() {
         loadReady={loadState === "ready"}
         puedeMarcarRevisados={puedeOperarMesa}
         onPreviewDocumento={handlePreviewDocumentoById}
+      />
+
+      <MesaCorreccionesHistorialPanel
+        expedienteId={routeExpedienteId}
+        loadReady={loadState === "ready"}
       />
 
       <MesaIneValidityGuard expedienteId={routeExpedienteId} />
