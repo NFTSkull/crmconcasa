@@ -160,6 +160,9 @@ export function MesaReagendarCitaDialog({
     if (!entry || !open) return;
     setLoading(true);
     setLoadError(null);
+    setSheetInventory(null);
+    setInventoryRefreshing(true);
+    setFixedSharedAvailability(null);
     try {
       if (entry.kind === "firmas") {
         if (!firmasRepo) throw new AgendaFirmasSupabaseError("Modo Supabase requerido.");
@@ -626,7 +629,10 @@ export function MesaReagendarCitaDialog({
                     value={dateYmd}
                     min={todayYmdInTimezone("America/Monterrey")}
                     disabled={saving}
-                    onChange={(e) => setDateYmd(e.target.value as YmdDate)}
+                    onChange={(e) => {
+                      setFixedSharedAvailability(null);
+                      setDateYmd(e.target.value as YmdDate);
+                    }}
                   />
                 </label>
                 <label className="block text-xs font-semibold text-gray-800">
@@ -635,9 +641,10 @@ export function MesaReagendarCitaDialog({
                     className="mt-1 w-full rounded-md border border-gray-200 px-3 py-2 text-sm"
                     value={notificacionSedeId}
                     disabled={saving}
-                    onChange={(e) =>
-                      setNotificacionSedeId(e.target.value as CynthiaSedeId)
-                    }
+                    onChange={(e) => {
+                      setFixedSharedAvailability(null);
+                      setNotificacionSedeId(e.target.value as CynthiaSedeId);
+                    }}
                     data-testid="mesa-reagendar-fixed-sede"
                   >
                     <option value={CYNTHIA_SEDE_MONTERREY_ID}>Monterrey</option>
@@ -685,10 +692,22 @@ export function MesaReagendarCitaDialog({
                 availabilityInsight={availabilityInsight}
                 accentRingClass="focus-visible:ring-indigo-500"
                 saving={saving}
-                onSedeChange={setSedeCanonicalId}
-                onDateChange={setDateYmd}
+                onSedeChange={(id) => {
+                  setSheetInventory(null);
+                  setInventoryRefreshing(true);
+                  setSedeCanonicalId(id);
+                  setTimeHhmm("");
+                }}
+                onDateChange={(date) => {
+                  setSheetInventory(null);
+                  setInventoryRefreshing(true);
+                  setDateYmd(date);
+                  setTimeHhmm("");
+                }}
                 onTimeChange={setTimeHhmm}
                 onGoToNextAvailability={(date, time) => {
+                  setSheetInventory(null);
+                  setInventoryRefreshing(true);
                   setDateYmd(date);
                   setTimeHhmm(time);
                 }}
