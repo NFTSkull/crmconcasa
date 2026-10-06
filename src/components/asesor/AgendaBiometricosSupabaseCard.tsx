@@ -427,13 +427,36 @@ export function AgendaBiometricosSupabaseCard({
 
   const availabilityInsight = useMemo(() => {
     if (!config || !selectedSede) return null;
-    return buildAdvisorDateAvailabilityInsight({
+
+    const base = buildAdvisorDateAvailabilityInsight({
       config,
       bookedSlots,
       date: dateYmd,
       sede: selectedSede,
     });
-  }, [bookedSlots, config, dateYmd, selectedSede]);
+
+    const hasRealSlot = disponibilidadSlots.some((slot) => slot.remaining > 0);
+    if (hasRealSlot || sheetInventory?.enforced !== true) return base;
+
+    return {
+      emptyReason: "all_full" as const,
+      emptyReasonMessage:
+        sheetInventory?.fresh === true
+          ? "Los cupos reales de esta fecha ya están llenos en Drive."
+          : "No se pudo verificar un cupo real en Drive para esta fecha.",
+      next: null,
+      nextFormatted: null,
+      noFutureMessage:
+        "Selecciona otra fecha para consultar su disponibilidad real en Drive.",
+    };
+  }, [
+    bookedSlots,
+    config,
+    dateYmd,
+    disponibilidadSlots,
+    selectedSede,
+    sheetInventory,
+  ]);
 
   const citaIso =
     activeBooking && config
@@ -818,12 +841,16 @@ export function AgendaBiometricosSupabaseCard({
         availabilityInsight={availabilityInsight}
         saving={saving}
         onSedeChange={(id) => {
+          setSheetInventory(null);
+          setInventoryRefreshing(true);
           setSedeCanonicalId(id);
           setTimeHhmm("");
           setError(null);
           setBookGateError(null);
         }}
         onDateChange={(date) => {
+          setSheetInventory(null);
+          setInventoryRefreshing(true);
           setDateYmd(date);
           setTimeHhmm("");
           setError(null);
@@ -835,6 +862,8 @@ export function AgendaBiometricosSupabaseCard({
           setBookGateError(null);
         }}
         onGoToNextAvailability={(date, time) => {
+          setSheetInventory(null);
+          setInventoryRefreshing(true);
           setDateYmd(date);
           setTimeHhmm(time);
           setError(null);
