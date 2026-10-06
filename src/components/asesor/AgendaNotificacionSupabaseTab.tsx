@@ -292,7 +292,11 @@ export function AgendaNotificacionSupabaseTab({
         className="mt-0.5 w-full rounded-md border border-gray-200 px-2 py-1.5 text-xs text-gray-900"
         value={sedeId}
         disabled={saving || !config?.enabled}
-        onChange={(e) => setSedeId(e.target.value as CynthiaSedeId)}
+        onChange={(e) => {
+          setSharedAvailability(null);
+          setAvailabilityLoading(true);
+          setSedeId(e.target.value as CynthiaSedeId);
+        }}
         data-testid="notificacion-sede-select"
       >
         <option value={CYNTHIA_SEDE_MONTERREY_ID}>Monterrey</option>
@@ -323,7 +327,11 @@ export function AgendaNotificacionSupabaseTab({
             className="mt-0.5 w-full rounded-md border border-gray-200 px-2 py-1.5 text-xs text-gray-900"
             value={dateYmd}
             min={config ? todayYmdInTimezone(config.timezone) : undefined}
-            onChange={(e) => setDateYmd(e.target.value as YmdDate)}
+            onChange={(e) => {
+              setSharedAvailability(null);
+              setAvailabilityLoading(true);
+              setDateYmd(e.target.value as YmdDate);
+            }}
             disabled={saving || !config?.enabled}
           />
         </label>
@@ -395,7 +403,11 @@ export function AgendaNotificacionSupabaseTab({
           className="mt-0.5 w-full rounded-md border border-gray-200 px-2 py-1.5 text-xs text-gray-900"
           value={dateYmd}
           min={config ? todayYmdInTimezone(config.timezone) : undefined}
-          onChange={(e) => setDateYmd(e.target.value as YmdDate)}
+          onChange={(e) => {
+            setSharedAvailability(null);
+            setAvailabilityLoading(true);
+            setDateYmd(e.target.value as YmdDate);
+          }}
           disabled={saving || !config?.enabled}
         />
       </label>
