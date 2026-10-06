@@ -747,12 +747,16 @@ export function AgendaFirmasSupabaseCard({
         accentRingClass="focus-visible:ring-violet-500"
         saving={saving}
         onSedeChange={(id) => {
+          setSheetInventory(null);
+          setInventoryRefreshing(true);
           setSedeCanonicalId(id);
           setTimeHhmm("");
           setError(null);
           setBookGateError(null);
         }}
         onDateChange={(date) => {
+          setSheetInventory(null);
+          setInventoryRefreshing(true);
           setDateYmd(date);
           setTimeHhmm("");
           setError(null);
@@ -764,6 +768,8 @@ export function AgendaFirmasSupabaseCard({
           setBookGateError(null);
         }}
         onGoToNextAvailability={(date, time) => {
+          setSheetInventory(null);
+          setInventoryRefreshing(true);
           setDateYmd(date);
           setTimeHhmm(time);
           setError(null);
