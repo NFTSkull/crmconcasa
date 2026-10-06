@@ -841,12 +841,16 @@ export function AgendaBiometricosSupabaseCard({
         availabilityInsight={availabilityInsight}
         saving={saving}
         onSedeChange={(id) => {
+          setSheetInventory(null);
+          setInventoryRefreshing(true);
           setSedeCanonicalId(id);
           setTimeHhmm("");
           setError(null);
           setBookGateError(null);
         }}
         onDateChange={(date) => {
+          setSheetInventory(null);
+          setInventoryRefreshing(true);
           setDateYmd(date);
           setTimeHhmm("");
           setError(null);
@@ -858,6 +862,8 @@ export function AgendaBiometricosSupabaseCard({
           setBookGateError(null);
         }}
         onGoToNextAvailability={(date, time) => {
+          setSheetInventory(null);
+          setInventoryRefreshing(true);
           setDateYmd(date);
           setTimeHhmm(time);
           setError(null);
