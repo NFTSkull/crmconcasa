@@ -34,6 +34,15 @@ import {
   type WeeklyLocationLike,
 } from "@/lib/agendaCynthiaLocations";
 import { mesaAgendaCancelDialogKindLabel } from "@/lib/mesaAgendaCitasUi";
+import {
+  applySheetInventoryToSlots,
+  type InventoryAvailabilityResponse,
+} from "@/domain/agenda-sheets/apply-inventory-availability";
+import {
+  fetchBiometricSheetAvailability,
+  invokeAgendaSheetLiveSync,
+} from "@/domain/agenda-sheets/live-inventory-sync";
+import { supabaseBrowser } from "@/lib/supabaseBrowser";
 
 export type MesaReagendarConfirmPayload =
   | {
@@ -125,6 +134,14 @@ export function MesaReagendarCitaDialog({
   const [dateYmd, setDateYmd] = useState<YmdDate>("2026-01-01" as YmdDate);
   const [timeHhmm, setTimeHhmm] = useState<HhmmTime | "">("");
   const [note, setNote] = useState("");
+  const [sheetInventory, setSheetInventory] =
+    useState<InventoryAvailabilityResponse | null>(null);
+  const [inventoryRefreshing, setInventoryRefreshing] = useState(false);
+  const [fixedSharedAvailability, setFixedSharedAvailability] = useState<{
+    available: number;
+    capacity: number;
+    verified: boolean;
+  } | null>(null);
 
   const kind = entry?.kind ?? "biometricos";
   const activeConfig = kind === "firmas" ? firmasConfig : bioConfig;
@@ -211,8 +228,196 @@ export function MesaReagendarCitaDialog({
     if (open && entry) void loadPickerData();
   }, [open, entry, loadPickerData]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    if (
+      !open ||
+      !entry ||
+      (entry.kind !== "biometricos" && entry.kind !== "firmas") ||
+      !selectedSede ||
+      !dateYmd ||
+      !supabaseBrowser
+    ) {
+      setSheetInventory(null);
+      setInventoryRefreshing(false);
+      return;
+    }
+
+    void (async () => {
+      setInventoryRefreshing(true);
+      try {
+        let inventory: InventoryAvailabilityResponse | null = null;
+
+        if (entry.kind === "biometricos") {
+          inventory = await fetchBiometricSheetAvailability(supabaseBrowser, {
+            bookingDate: dateYmd,
+            locationId: selectedSede.canonicalId,
+          });
+        } else {
+          const live = await invokeAgendaSheetLiveSync(supabaseBrowser, {
+            bookingDate: dateYmd,
+            kind: "firmas",
+            locationId: selectedSede.canonicalId,
+            mode: "availability",
+          });
+          if (live?.fresh === true) {
+            inventory = live;
+          } else {
+            const { data, error: rpcError } = await supabaseBrowser.rpc(
+              "agenda_sheet_inventory_availability",
+              {
+                p_kind: "firmas",
+                p_date: dateYmd,
+                p_location_id: selectedSede.canonicalId,
+              },
+            );
+            if (!rpcError && data && typeof data === "object") {
+              inventory = data as InventoryAvailabilityResponse;
+            }
+          }
+        }
+
+        if (!cancelled) {
+          setSheetInventory(
+            inventory ?? { fresh: false, enforced: true, slots: [] },
+          );
+        }
+      } catch {
+        if (!cancelled) {
+          setSheetInventory({ fresh: false, enforced: true, slots: [] });
+        }
+      } finally {
+        if (!cancelled) setInventoryRefreshing(false);
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [dateYmd, entry, open, selectedSede]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const isFixedShared =
+      entry?.kind === "notificacion" || entry?.kind === "inscripcion";
+
+    if (
+      !open ||
+      !entry ||
+      !isFixedShared ||
+      notificacionSedeId !== CYNTHIA_SEDE_MONTERREY_ID ||
+      !dateYmd ||
+      !supabaseBrowser
+    ) {
+      setFixedSharedAvailability(null);
+      return;
+    }
+
+    void (async () => {
+      try {
+        try {
+          await invokeAgendaSheetLiveSync(supabaseBrowser, {
+            bookingDate: dateYmd,
+            kind: "inscripcion",
+            locationId: "monterrey",
+            mode: "availability",
+          });
+        } catch {
+          // El RPC SQL conserva el read-model sincronizado y fail-closed.
+        }
+
+        const { data, error: rpcError } = await supabaseBrowser.rpc(
+          "agenda_sheet_inventory_availability",
+          {
+            p_kind: "inscripcion",
+            p_date: dateYmd,
+            p_location_id: "monterrey",
+          },
+        );
+
+        if (cancelled) return;
+        if (rpcError || !data || typeof data !== "object") {
+          setFixedSharedAvailability({
+            available: 0,
+            capacity: 4,
+            verified: false,
+          });
+          return;
+        }
+
+        const payload = data as {
+          fresh?: boolean;
+          daily_capacity?: number | null;
+          daily_remaining?: number | null;
+          slots?: ReadonlyArray<{
+            slot_time?: string;
+            sheet_slot_time?: string | null;
+            available?: number;
+          }>;
+        };
+        if (payload.fresh !== true) {
+          setFixedSharedAvailability({
+            available: 0,
+            capacity: 4,
+            verified: false,
+          });
+          return;
+        }
+
+        const slot = (payload.slots ?? []).find((row) => {
+          const t = String(row.sheet_slot_time ?? row.slot_time ?? "").slice(0, 5);
+          return t === "11:00";
+        });
+        const physicalAvailable = Math.max(0, Number(slot?.available ?? 0));
+        const dailyRemaining =
+          payload.daily_remaining == null
+            ? physicalAvailable
+            : Math.max(0, Number(payload.daily_remaining));
+        const capacity =
+          payload.daily_capacity == null
+            ? 4
+            : Math.max(0, Number(payload.daily_capacity));
+        let available = Math.min(physicalAvailable, dailyRemaining, capacity);
+
+        if (
+          entry.bookingDate === dateYmd &&
+          String(entry.locationId ?? "").trim().toLowerCase() === "monterrey"
+        ) {
+          available = Math.min(capacity, available + 1);
+        }
+
+        setFixedSharedAvailability({
+          available,
+          capacity,
+          verified: true,
+        });
+      } catch {
+        if (!cancelled) {
+          setFixedSharedAvailability({
+            available: 0,
+            capacity: 4,
+            verified: false,
+          });
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [dateYmd, entry, notificacionSedeId, open]);
+
   const disponibilidadSlots = useMemo(() => {
-    if (!entry || !activeConfig || entry.kind === "notificacion" || !selectedSede) return [];
+    if (
+      !entry ||
+      !activeConfig ||
+      entry.kind === "notificacion" ||
+      entry.kind === "inscripcion" ||
+      !selectedSede
+    ) {
+      return [];
+    }
     const base = computeAdvisorSlotAvailability({
       config: activeConfig,
       bookedSlots,
@@ -222,18 +427,67 @@ export function MesaReagendarCitaDialog({
       capacityPerSlot: selectedSede.capacityPerSlot,
       capacityByTime: selectedSede.capacityByTime,
     });
-    return adjustSlotsForReagendar(base, entry, dateYmd, selectedSede, activeConfig.locations);
-  }, [activeConfig, bookedSlots, dateYmd, entry, selectedSede]);
+    const adjusted = adjustSlotsForReagendar(
+      base,
+      entry,
+      dateYmd,
+      selectedSede,
+      activeConfig.locations,
+    );
+    return applySheetInventoryToSlots(
+      adjusted,
+      sheetInventory,
+      dateYmd,
+    ).slots;
+  }, [
+    activeConfig,
+    bookedSlots,
+    dateYmd,
+    entry,
+    selectedSede,
+    sheetInventory,
+  ]);
 
   const availabilityInsight = useMemo(() => {
-    if (!activeConfig || entry?.kind === "notificacion" || !selectedSede) return null;
-    return buildAdvisorDateAvailabilityInsight({
+    if (
+      !activeConfig ||
+      entry?.kind === "notificacion" ||
+      entry?.kind === "inscripcion" ||
+      !selectedSede
+    ) {
+      return null;
+    }
+
+    const base = buildAdvisorDateAvailabilityInsight({
       config: activeConfig,
       bookedSlots,
       date: dateYmd,
       sede: selectedSede,
     });
-  }, [activeConfig, bookedSlots, dateYmd, entry?.kind, selectedSede]);
+
+    const hasRealSlot = disponibilidadSlots.some((slot) => slot.remaining > 0);
+    if (hasRealSlot || sheetInventory?.enforced !== true) return base;
+
+    return {
+      emptyReason: "all_full" as const,
+      emptyReasonMessage:
+        sheetInventory?.fresh === true
+          ? "Los cupos reales de esta fecha ya están llenos en Drive."
+          : "No se pudo verificar un cupo real en Drive para esta fecha.",
+      next: null,
+      nextFormatted: null,
+      noFutureMessage:
+        "Selecciona otra fecha para consultar su disponibilidad real en Drive.",
+    };
+  }, [
+    activeConfig,
+    bookedSlots,
+    dateYmd,
+    disponibilidadSlots,
+    entry?.kind,
+    selectedSede,
+    sheetInventory,
+  ]);
 
   const handleConfirm = useCallback(async () => {
     if (!entry) return;
@@ -308,10 +562,25 @@ export function MesaReagendarCitaDialog({
   if (!open || !entry) return null;
 
   const kindLabel = mesaAgendaCancelDialogKindLabel(entry.kind);
+  const fixedSharedBlocked =
+    (entry.kind === "notificacion" || entry.kind === "inscripcion") &&
+    notificacionSedeId === CYNTHIA_SEDE_MONTERREY_ID &&
+    (fixedSharedAvailability?.verified !== true ||
+      fixedSharedAvailability.available <= 0);
+
+  const selectedRealSlotAvailable =
+    entry.kind === "biometricos" || entry.kind === "firmas"
+      ? disponibilidadSlots.some(
+          (slot) => slot.time === timeHhmm && slot.remaining > 0,
+        )
+      : true;
+
   const canSubmit =
     entry.kind === "notificacion" || entry.kind === "inscripcion"
-      ? Boolean(dateYmd)
-      : Boolean(selectedSede && dateYmd && timeHhmm);
+      ? Boolean(dateYmd) && !fixedSharedBlocked
+      : Boolean(selectedSede && dateYmd && timeHhmm) &&
+        selectedRealSlotAvailable &&
+        !inventoryRefreshing;
 
   return (
     <div
@@ -387,6 +656,22 @@ export function MesaReagendarCitaDialog({
                     ? "11:00 AM"
                     : NOTIFICACION_FIXED_TIME_DISPLAY}
                 </p>
+                {notificacionSedeId === CYNTHIA_SEDE_MONTERREY_ID ? (
+                  <p
+                    className={`rounded-md border px-3 py-2 text-xs font-medium ${
+                      fixedSharedAvailability?.verified === true &&
+                      fixedSharedAvailability.available > 0
+                        ? "border-emerald-200 bg-emerald-50 text-emerald-900"
+                        : "border-amber-200 bg-amber-50 text-amber-950"
+                    }`}
+                  >
+                    {fixedSharedAvailability?.verified === true
+                      ? fixedSharedAvailability.available > 0
+                        ? `Cupo real Drive: ${fixedSharedAvailability.available} de ${fixedSharedAvailability.capacity} disponible${fixedSharedAvailability.available === 1 ? "" : "s"}.`
+                        : "Cupo real Drive: sin lugares disponibles."
+                      : "Verificando cupo real en Drive…"}
+                  </p>
+                ) : null}
               </>
             ) : (
               <AdvisorAgendaSlotPicker
