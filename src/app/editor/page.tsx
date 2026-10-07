@@ -33,6 +33,7 @@ import { EditorPrecalMetadataCell } from "@/components/editor/EditorPrecalMetada
 
 const SUPABASE_SAVE_DEBOUNCE_MS = 750;
 const SEARCH_DEBOUNCE_MS = 300;
+const EDITOR_REPRECAL_AUTO_REFRESH_MS = 5_000;
 
 function DecisionBadge({ decision }: { decision?: string }) {
   const d = decision ?? "pendiente";
@@ -267,6 +268,23 @@ export default function EditorDashboardPage() {
       document.removeEventListener("visibilitychange", onVis);
     };
   }, [currentUser, loadData]);
+
+  useEffect(() => {
+    if (!currentUser || !dataSupabase) return;
+    const timer = window.setInterval(() => {
+      if (
+        typeof document !== "undefined" &&
+        document.visibilityState === "hidden"
+      ) {
+        return;
+      }
+      if (pendingAutosaveRef.current?.hasLocalWork()) return;
+      if (!rowsRef.current.some((row) => row.esReprecalPendiente)) return;
+      loadData();
+    }, EDITOR_REPRECAL_AUTO_REFRESH_MS);
+
+    return () => window.clearInterval(timer);
+  }, [currentUser, dataSupabase, loadData]);
 
   useEffect(() => {
     if (!currentUser || dataSupabase) return;
