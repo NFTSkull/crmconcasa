@@ -159,18 +159,26 @@ export async function runAutoReprecalificarJob(input: {
       return { resultado, razon };
     }
 
+    const rfcActual = String(payload.rfc ?? "").trim().toUpperCase() || null;
+    const registroPatronalActual =
+      String(payload.registroPatronal ?? "").trim() || null;
+    const empresaActual = String(payload.empresa ?? "").trim() || null;
+    const advertenciaActual =
+      String(payload.advertenciaInscripcion ?? "").trim() || null;
+    const nombreActual = normalizeInfonavitScraperPersonName(payload.nombre);
+
+    if (!nombreActual && payload.nombre) {
+      console.warn(
+        `[auto-reprecalificar] nombre scraper inválido; se conserva identidad previa intento_id=${intentoId} nss=${nss}`,
+      );
+    }
+
     if (decision.kind === "aprobado") {
       resultado = "aprobado";
       razon = null;
-      const rfcActual = String(payload.rfc ?? "").trim().toUpperCase() || null;
-      const registroPatronalActual =
-        String(payload.registroPatronal ?? "").trim() || null;
-      const empresaActual = String(payload.empresa ?? "").trim() || null;
-      const advertenciaActual =
-        String(payload.advertenciaInscripcion ?? "").trim() || null;
 
       const { error: rpcErr } = await supabase.rpc(
-        "auto_resolver_reprecalificacion",
+        "auto_resolver_reprecalificacion_v2",
         {
           p_intento_id: intentoId,
           p_decision: "aprobado",
@@ -180,36 +188,17 @@ export async function runAutoReprecalificarJob(input: {
           p_registro_patronal: registroPatronalActual,
           p_empresa: empresaActual,
           p_advertencia_inscripcion: advertenciaActual,
+          p_nombre_completo: nombreActual,
         },
       );
       if (rpcErr) {
         console.error(
-          `[auto-reprecalificar] RPC aprobado falló intento_id=${intentoId} nss=${nss}`,
+          `[auto-reprecalificar] RPC v2 aprobado falló intento_id=${intentoId} nss=${nss}`,
           rpcErr.message,
         );
         resultado = "pending_error";
         razon = "rpc_failed";
         return { resultado, razon };
-      }
-      const nombreActual = normalizeInfonavitScraperPersonName(payload.nombre);
-      if (nombreActual) {
-        const { error: nombreErr } = await supabase.rpc(
-          "auto_refresh_nombre_infonavit_reprecal",
-          {
-            p_intento_id: intentoId,
-            p_nombre_completo: nombreActual,
-          },
-        );
-        if (nombreErr) {
-          console.error(
-            `[auto-reprecalificar] RPC auto_refresh_nombre_infonavit_reprecal falló intento_id=${intentoId} nss=${nss}`,
-            nombreErr.message,
-          );
-        }
-      } else if (payload.nombre) {
-        console.warn(
-          `[auto-reprecalificar] nombre scraper inválido; se omite refresh intento_id=${intentoId} nss=${nss}`,
-        );
       }
 
       console.log(
@@ -221,17 +210,22 @@ export async function runAutoReprecalificarJob(input: {
     resultado = "no_cumple";
     razon = null;
     const { error: rpcErr } = await supabase.rpc(
-      "auto_resolver_reprecalificacion",
+      "auto_resolver_reprecalificacion_v2",
       {
         p_intento_id: intentoId,
         p_decision: "no_cumple",
         p_monto_aprobado: null,
         p_motivo: decision.motivo,
+        p_rfc: rfcActual,
+        p_registro_patronal: registroPatronalActual,
+        p_empresa: empresaActual,
+        p_advertencia_inscripcion: advertenciaActual,
+        p_nombre_completo: nombreActual,
       },
     );
     if (rpcErr) {
       console.error(
-        `[auto-reprecalificar] RPC no_cumple falló intento_id=${intentoId} nss=${nss}`,
+        `[auto-reprecalificar] RPC v2 no_cumple falló intento_id=${intentoId} nss=${nss}`,
         rpcErr.message,
       );
       resultado = "pending_error";
@@ -239,7 +233,7 @@ export async function runAutoReprecalificarJob(input: {
       return { resultado, razon };
     }
     console.log(
-      `[auto-reprecalificar] no_cumple intento_id=${intentoId} nss=${nss}`,
+      `[auto-reprecalificar] no_cumple intento_id=${intentoId} nss=${nss} rfc=${rfcActual ?? "null"}`,
     );
     return { resultado, razon };
   } catch (err) {
