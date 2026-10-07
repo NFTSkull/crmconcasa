@@ -196,13 +196,15 @@ export function ExpedienteClienteDatosFormSection({
     { puedeIntegrar, esReingresoActivo },
   );
   const saveLabel =
-    esCorreccionRechazo && alertaAccionDgActiva
-      ? "Guardar corrección"
-      : submittedToMesa && clienteDatosMeta
-        ? "Guardar cambios"
-        : dataSupabase
-          ? "Guardar datos"
-          : "Guardar borrador";
+    dataSupabase && camposFaltantes.length > 0
+      ? "Guardar borrador"
+      : esCorreccionRechazo && alertaAccionDgActiva
+        ? "Guardar corrección"
+        : submittedToMesa && clienteDatosMeta
+          ? "Guardar cambios"
+          : dataSupabase
+            ? "Guardar datos"
+            : "Guardar borrador";
 
   const err = (key: ClienteDatosFieldKey) =>
     showFieldErrors ? fieldErrors[key] : undefined;
@@ -251,7 +253,7 @@ export function ExpedienteClienteDatosFormSection({
             ) : null}
             {dataSupabase && camposFaltantes.length > 0 ? (
               <p className="mt-1 text-xs text-amber-800" role="status">
-                Incompleto: faltan {camposFaltantes.length} campo(s) obligatorio(s).
+                Incompleto: faltan {camposFaltantes.length} campo(s) obligatorio(s). Lo capturado se guarda como borrador y puedes continuar después.
               </p>
             ) : null}
             {!dataSupabase ? (
@@ -282,10 +284,12 @@ export function ExpedienteClienteDatosFormSection({
             ) : null}
             {localDraftSaved || hasUnsavedLocalChanges ? (
               <p className="mt-1 text-xs text-gray-500" role="status">
-                {localDraftSaved ? "Borrador guardado automáticamente." : null}
+                {localDraftSaved
+                  ? "Borrador guardado automáticamente. Puedes salir y volver sin perder la captura."
+                  : null}
                 {localDraftSaved && hasUnsavedLocalChanges ? " · " : null}
                 {hasUnsavedLocalChanges && !localDraftSaved
-                  ? "Tienes cambios sin guardar"
+                  ? "Guardando borrador…"
                   : null}
               </p>
             ) : null}
