@@ -67,8 +67,8 @@ describe("runAutoReprecalificarJob", () => {
     });
 
     assert.deepEqual(result, { resultado: "aprobado", razon: null });
-    assert.equal(rpcCalls.length, 2);
-    assert.equal(rpcCalls[0]?.fn, "auto_resolver_reprecalificacion");
+    assert.equal(rpcCalls.length, 1);
+    assert.equal(rpcCalls[0]?.fn, "auto_resolver_reprecalificacion_v2");
     assert.deepEqual(rpcCalls[0]?.args, {
       p_intento_id: intentoId,
       p_decision: "aprobado",
@@ -78,10 +78,6 @@ describe("runAutoReprecalificarJob", () => {
       p_registro_patronal: "A1234567890",
       p_empresa: "ACME SA",
       p_advertencia_inscripcion: null,
-    });
-    assert.equal(rpcCalls[1]?.fn, "auto_refresh_nombre_infonavit_reprecal");
-    assert.deepEqual(rpcCalls[1]?.args, {
-      p_intento_id: intentoId,
       p_nombre_completo: "PEREZ MUÑOZ ANA MARIA",
     });
     assert.equal(inserts.length, 1);
@@ -93,13 +89,17 @@ describe("runAutoReprecalificarJob", () => {
     });
   });
 
-  it("no_cumple llama RPC sin campos Infonavit y registra intento", async () => {
+  it("no_cumple conserva monto vigente y sí persiste identidad nueva", async () => {
     globalThis.fetch = (async () =>
       new Response(
         JSON.stringify({
           califica: false,
           mensaje: "SIN APORTACIONES",
-          rfc: "NO",
+          rfc: "xaxx010101000",
+          nombre: "PEREZ MU#OZ ANA MARIA",
+          registroPatronal: "A1234567890",
+          empresa: "ACME SA",
+          advertenciaInscripcion: "SIN FORMULARIO",
         }),
         { status: 200, headers: { "Content-Type": "application/json" } },
       )) as typeof fetch;
@@ -114,12 +114,17 @@ describe("runAutoReprecalificarJob", () => {
       supabase: supabase as never,
     });
 
-    assert.equal(rpcCalls[0]?.fn, "auto_resolver_reprecalificacion");
+    assert.equal(rpcCalls[0]?.fn, "auto_resolver_reprecalificacion_v2");
     assert.deepEqual(rpcCalls[0]?.args, {
       p_intento_id: intentoId,
       p_decision: "no_cumple",
       p_monto_aprobado: null,
       p_motivo: "SIN APORTACIONES",
+      p_rfc: "XAXX010101000",
+      p_registro_patronal: "A1234567890",
+      p_empresa: "ACME SA",
+      p_advertencia_inscripcion: "SIN FORMULARIO",
+      p_nombre_completo: "PEREZ MUÑOZ ANA MARIA",
     });
     assert.deepEqual(inserts[0]?.row, {
       intento_id: intentoId,
