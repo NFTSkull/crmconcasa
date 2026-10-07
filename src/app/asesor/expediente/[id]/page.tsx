@@ -161,6 +161,11 @@ import {
   type ClienteDatosDraft,
   type ClienteDatosDraftFlushSnapshot,
 } from "@/lib/clienteDatosDraftLocalStorage";
+import {
+  readClienteDatosDraftServer,
+  removeClienteDatosDraftServer,
+  saveClienteDatosDraftServer,
+} from "@/lib/clienteDatosDraftRecovery";
 import { asesorDebeUsarCorreccionClienteDatos } from "@/domain/expediente-archivos/asesor-correccion-post-mesa";
 import {
   ASESOR_CORRECCION_FOCUS_PARAM,
@@ -568,27 +573,34 @@ export default function AsesorExpedientePage() {
     clienteDatosDraftUserKey === "anette.perez@concasa.mx";
   const cargoFijoCobro = resolveCargoFijoCobroPorAsesorEmail(currentUser?.email);
 
-  const persistClienteDatosDraftNow = useCallback(() => {
-    if (!hasHydratedClienteDatosRef.current) return;
-    if (!hasUserEditedClienteDatos.current) return;
-    if (suppressDraftAutosave.current) return;
-    if (!precal?.id || !clienteDatosDraftUserKey) return;
+  const persistClienteDatosDraftNow = useCallback((): ClienteDatosDraft | null => {
+    if (!hasHydratedClienteDatosRef.current) return null;
+    if (!hasUserEditedClienteDatos.current) return null;
+    if (suppressDraftAutosave.current) return null;
+    if (!precal?.id || !clienteDatosDraftUserKey) return null;
     const persistCasa = clienteDatosRequiereContactoMesa(
       perfilCapturaClienteDatos,
     );
-    flushClienteDatosDraftSnapshot(
+    const draft = flushClienteDatosDraftSnapshot(
       clienteDatosDraftUserKey,
       String(precal.id),
       clienteDatosDraftFlushRef.current,
       { persistTelefonoCasa: persistCasa },
     );
     setClienteDatosLocalDraftSaved(true);
+    return draft;
   }, [
     clienteDatosDraftUserKey,
     precal?.id,
     perfilCapturaClienteDatos,
     operativo?.origenMesa,
   ]);
+
+  const persistClienteDatosDraftServerNow = useCallback(async () => {
+    const draft = persistClienteDatosDraftNow();
+    if (!draft) return false;
+    return saveClienteDatosDraftServer(draft);
+  }, [persistClienteDatosDraftNow]);
 
   /**
    * Escritura inmediata a localStorage (síncrona).
@@ -752,8 +764,9 @@ export default function AsesorExpedientePage() {
           officialUpdatedAt,
         )
       ) {
-        removeClienteDatosDraft(clienteDatosDraftUserKey, expedienteId);
-          return;
+        // No borrar por heurística/timestamp. El borrador solo se elimina
+        // tras guardado oficial confirmado o descarte explícito.
+        return;
       }
 
       // Restore automático: sin click "Restaurar".
@@ -775,10 +788,56 @@ export default function AsesorExpedientePage() {
     ],
   );
 
+  const autoRestoreClienteDatosServerDraftIfPending = useCallback(
+    async (
+      expedienteId: string,
+      hydratedDatos: ClienteDatosFormState,
+      hydratedDireccion: string,
+      hydratedTelefonoCasa: string,
+      officialUpdatedAt?: string | null,
+    ) => {
+      const draft = await readClienteDatosDraftServer(expedienteId);
+      if (!draft) return;
+      // Si el usuario ya empezó a capturar o un borrador local ya se restauró,
+      // nunca pisar el estado vivo con una respuesta de red tardía.
+      if (hasUserEditedClienteDatos.current) return;
+      if (
+        !shouldAutoRestoreClienteDatosDraft(
+          draft,
+          hydratedDatos,
+          hydratedDireccion,
+          hydratedTelefonoCasa,
+          officialUpdatedAt,
+        )
+      ) {
+        return;
+      }
+      applyClienteDatosDraftToForm(draft, { persistCasa: true });
+      // Rehidrata también el respaldo local para salidas/recargas inmediatas.
+      if (clienteDatosDraftUserKey) {
+        flushClienteDatosDraftSnapshot(
+          clienteDatosDraftUserKey,
+          expedienteId,
+          {
+            clienteDatos: draft.clienteDatos,
+            direccionOpcional: draft.direccionOpcional ?? "",
+            telefonoCasa: draft.telefonoCasa ?? "",
+          },
+          { persistTelefonoCasa: true },
+        );
+      }
+    },
+    [
+      applyClienteDatosDraftToForm,
+      clienteDatosDraftUserKey,
+    ],
+  );
+
   const handleDiscardClienteDatosDraft = useCallback(() => {
     if (!precal?.id) return;
     const expedienteId = String(precal.id);
     clearClienteDatosLocalDraft(expedienteId);
+    void removeClienteDatosDraftServer(expedienteId);
     forceClienteDatosOfficialReloadRef.current = true;
     // Dispara rehidratación oficial vía efecto (mismo evento que save).
     window.dispatchEvent(
@@ -816,25 +875,56 @@ export default function AsesorExpedientePage() {
   ]);
 
   useEffect(() => {
+    if (!hasHydratedClienteDatosRef.current) return;
+    if (!hasUserEditedClienteDatos.current) return;
+    if (!precal?.id || !clienteDatosDraftUserKey) return;
+
+    // Respaldo remoto desacoplado del autosave local inmediato.
+    const timer = window.setTimeout(() => {
+      void persistClienteDatosDraftServerNow();
+    }, 1200);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    clienteDatos,
+    direccionOpcional,
+    telefonoCasaValue,
+    clienteDatosDraftUserKey,
+    persistClienteDatosDraftServerNow,
+    precal?.id,
+  ]);
+
+  useEffect(() => {
     if (!clienteDatosHasUnsavedChanges && !clienteDatosLocalDraftSaved) return;
     const onPageHide = () => {
       persistClienteDatosDraftNow();
+      void persistClienteDatosDraftServerNow();
     };
     const onBeforeUnload = (event: BeforeUnloadEvent) => {
       persistClienteDatosDraftNow();
+      void persistClienteDatosDraftServerNow();
       event.preventDefault();
       event.returnValue = "";
     };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "hidden") {
+        persistClienteDatosDraftNow();
+        void persistClienteDatosDraftServerNow();
+      }
+    };
     window.addEventListener("pagehide", onPageHide);
     window.addEventListener("beforeunload", onBeforeUnload);
+    document.addEventListener("visibilitychange", onVisibilityChange);
     return () => {
       window.removeEventListener("pagehide", onPageHide);
       window.removeEventListener("beforeunload", onBeforeUnload);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, [
     clienteDatosHasUnsavedChanges,
     clienteDatosLocalDraftSaved,
     persistClienteDatosDraftNow,
+    persistClienteDatosDraftServerNow,
   ]);
 
   const handleTelefonoCasaChange = useCallback(
@@ -1749,6 +1839,12 @@ export default function AsesorExpedientePage() {
           domicilioOficial,
           "",
         );
+        void autoRestoreClienteDatosServerDraftIfPending(
+          expedienteId,
+          datosSinOficial,
+          domicilioOficial,
+          "",
+        );
         finishClienteDatosHydration(expedienteId);
         return;
       }
@@ -1823,6 +1919,13 @@ export default function AsesorExpedientePage() {
         casaOficial,
         found.updatedAt,
       );
+      void autoRestoreClienteDatosServerDraftIfPending(
+        expedienteId,
+        datosHidratados,
+        domicilioOficial,
+        casaOficial,
+        found.updatedAt,
+      );
       finishClienteDatosHydration(expedienteId);
     };
 
@@ -1883,6 +1986,7 @@ export default function AsesorExpedientePage() {
     };
   }, [
     autoRestoreClienteDatosDraftIfPending,
+    autoRestoreClienteDatosServerDraftIfPending,
     cargoFijoCobro,
     clienteDatosRepo,
     currentUser?.email,
@@ -1951,6 +2055,10 @@ export default function AsesorExpedientePage() {
     if (!currentUser?.email) {
       return { ok: false, message: "Sesión inválida." };
     }
+    const draftGuardadoAntesDeValidar = persistClienteDatosDraftNow();
+    if (draftGuardadoAntesDeValidar) {
+      void saveClienteDatosDraftServer(draftGuardadoAntesDeValidar);
+    }
     if (isClienteDatosPerfilPendiente(perfilCapturaClienteDatos)) {
       const message =
         "Aún se está validando el perfil del expediente. Intenta de nuevo en un momento.";
@@ -1987,6 +2095,12 @@ export default function AsesorExpedientePage() {
     if (!validation.isValid) {
       setClienteDatosShowValidation(true);
       setClienteDatosFieldErrors(validation.errors);
+      if (camposFaltantesClienteDatos.length > 0) {
+        setClienteDatosError(null);
+        setClienteDatosLocalDraftSaved(true);
+        setClienteDatosHasUnsavedChanges(true);
+        return { ok: true };
+      }
       const message = formatClienteDatosValidationSummary(validation);
       setClienteDatosError(message);
       return { ok: false, message };
@@ -2072,6 +2186,7 @@ export default function AsesorExpedientePage() {
       });
       setClienteDatosSaved(true);
       clearClienteDatosLocalDraft(String(precal.id));
+      void removeClienteDatosDraftServer(String(precal.id));
       // Guardar ≠ enviar: tras corrección, enfocar panel/CTA de reenvío (sin auto-enviar).
       if (usarCorreccion && typeof window !== "undefined") {
         window.setTimeout(() => {
@@ -2114,6 +2229,8 @@ export default function AsesorExpedientePage() {
     requiereContactoMesa,
     telefonoCasaValue,
     loadExpediente,
+    persistClienteDatosDraftNow,
+    camposFaltantesClienteDatos,
   ]);
 
   if (currentUser === undefined) {
