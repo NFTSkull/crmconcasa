@@ -219,6 +219,43 @@ test("CASO A3c — draft con nombre inválido no revive artefacto # sobre oficia
   );
 });
 
+
+
+test("CASO A3d — draft con más captura se recupera aunque reloj local vaya atrasado", () => {
+  const draft: ClienteDatosDraft = {
+    expedienteId: "exp-clock-skew",
+    updatedAt: "2026-10-07T12:00:00.000Z",
+    draftVersion: CLIENTE_DATOS_DRAFT_VERSION,
+    clienteDatos: {
+      ...EMPTY,
+      nombreCliente: "CLIENTE DEMO",
+      nss: "12345678901",
+      celular: "8111111111",
+      correo: "demo@example.com",
+      empresa: "EMPRESA DEMO",
+      beneficiario: { nombre: "BENEFICIARIO DEMO", parentesco: "HIJO" },
+    } as ClienteDatosDraft["clienteDatos"],
+    direccionOpcional: "CALLE DEMO 123",
+    telefonoCasa: "8188888888",
+  };
+  const official = {
+    ...EMPTY,
+    nombreCliente: "CLIENTE DEMO",
+    nss: "12345678901",
+  } as ClienteDatosDraft["clienteDatos"];
+
+  assert.equal(
+    shouldAutoRestoreClienteDatosDraft(
+      draft,
+      official,
+      "",
+      "",
+      "2026-10-07T12:05:00.000Z",
+    ),
+    true,
+  );
+});
+
 test("CASO A4 — sin timestamp oficial conserva compatibilidad", () => {
   const draft: ClienteDatosDraft = {
     expedienteId: "exp-no-ts",
