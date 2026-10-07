@@ -173,21 +173,58 @@ function draftHasInvalidPersonNameWhileOfficialIsValid(
   });
 }
 
+function clienteDatosSnapshotFilledCount(
+  datos: ExpedienteClienteDatos["datos"],
+  direccionOpcional: string,
+  telefonoCasa = "",
+): number {
+  return (
+    coreClienteDatosFilledCount(datos) +
+    (String(direccionOpcional ?? "").trim() ? 1 : 0) +
+    (String(telefonoCasa ?? "").trim() ? 1 : 0)
+  );
+}
+
 function draftIsSuspiciouslySparseVsOfficial(
   draft: ClienteDatosDraft,
   officialDatos: ExpedienteClienteDatos["datos"],
   officialDireccionOpcional: string,
+  officialTelefonoCasa = "",
 ): boolean {
-  const draftCount =
-    coreClienteDatosFilledCount(draft.clienteDatos) +
-    (String(draft.direccionOpcional ?? "").trim() ? 1 : 0);
-  const officialCount =
-    coreClienteDatosFilledCount(officialDatos) +
-    (String(officialDireccionOpcional ?? "").trim() ? 1 : 0);
+  const draftCount = clienteDatosSnapshotFilledCount(
+    draft.clienteDatos,
+    draft.direccionOpcional ?? "",
+    draft.telefonoCasa ?? "",
+  );
+  const officialCount = clienteDatosSnapshotFilledCount(
+    officialDatos,
+    officialDireccionOpcional,
+    officialTelefonoCasa,
+  );
 
   // Protege reingresos/correcciones contra un snapshot local vacío o casi vacío
-  // que, por timestamp, podría tapar una captura oficial ya completa.
+  // que podría tapar una captura oficial ya completa.
   return officialCount >= 4 && draftCount <= 1;
+}
+
+function draftIsRicherThanOfficial(
+  draft: ClienteDatosDraft,
+  officialDatos: ExpedienteClienteDatos["datos"],
+  officialDireccionOpcional: string,
+  officialTelefonoCasa = "",
+): boolean {
+  return (
+    clienteDatosSnapshotFilledCount(
+      draft.clienteDatos,
+      draft.direccionOpcional ?? "",
+      draft.telefonoCasa ?? "",
+    ) >
+    clienteDatosSnapshotFilledCount(
+      officialDatos,
+      officialDireccionOpcional,
+      officialTelefonoCasa,
+    )
+  );
 }
 
 /** Decidir si el borrador debe aplicarse automáticamente al hidratar. */
@@ -198,38 +235,48 @@ export function shouldAutoRestoreClienteDatosDraft(
   officialTelefonoCasa = "",
   officialUpdatedAt?: string | null,
 ): boolean {
-  // Nunca permitir que un borrador local viejo tape información más reciente.
-  if (
-    officialUpdatedAt &&
-    !isDraftNewerThanOfficial(draft.updatedAt, officialUpdatedAt)
-  ) {
-    return false;
-  }
+  const differs = clienteDatosDraftDiffersFromOfficial(
+    draft,
+    officialDatos,
+    officialDireccionOpcional,
+    officialTelefonoCasa,
+  );
+  if (!differs) return false;
 
-  // Aunque sea más nuevo, un draft casi vacío nunca debe ocultar una captura
-  // oficial completa. Este caso puede aparecer por pestañas antiguas/reingresos.
+  // Un snapshot casi vacío nunca debe ocultar una captura oficial completa.
   if (
     draftIsSuspiciouslySparseVsOfficial(
       draft,
       officialDatos,
       officialDireccionOpcional,
+      officialTelefonoCasa,
     )
   ) {
     return false;
   }
 
   // Si una automatización antigua dejó un artefacto inválido (ej. PI#A),
-  // preferimos el valor oficial válido y descartamos ese draft local.
+  // preferimos el valor oficial válido.
   if (draftHasInvalidPersonNameWhileOfficialIsValid(draft, officialDatos)) {
     return false;
   }
 
-  return clienteDatosDraftDiffersFromOfficial(
-    draft,
-    officialDatos,
-    officialDireccionOpcional,
-    officialTelefonoCasa,
-  );
+  if (
+    officialUpdatedAt &&
+    !isDraftNewerThanOfficial(draft.updatedAt, officialUpdatedAt)
+  ) {
+    // El reloj de la PC puede ir atrasado respecto al servidor. Si el borrador
+    // contiene más captura que el snapshot oficial, se recupera en vez de
+    // ignorarlo solo por timestamp.
+    return draftIsRicherThanOfficial(
+      draft,
+      officialDatos,
+      officialDireccionOpcional,
+      officialTelefonoCasa,
+    );
+  }
+
+  return true;
 }
 
 /** @deprecated Usar `shouldAutoRestoreClienteDatosDraft`. */
