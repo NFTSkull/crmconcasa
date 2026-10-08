@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   formatMesaAbiertoAhoraBadge,
+  formatMesaOtrosActivosLabel,
+  mesaPresenciaOtrosUsuarios,
   type MesaPresenciaUser,
 } from "./mesaExpedientePresenciaUi";
 
@@ -48,6 +50,35 @@ describe("formatMesaAbiertoAhoraBadge", () => {
     assert.equal(
       formatMesaAbiertoAhoraBadge([{ userId: "x", fullName: null }]),
       "Abierto ahora por Usuario Mesa",
+    );
+  });
+});
+
+
+describe("presencia compartida Mesa", () => {
+  it("excluye al operador actual y deduplica por userId", () => {
+    const current = "00000000-0000-4000-8000-000000000001";
+    const other = "00000000-0000-4000-8000-000000000002";
+    const result = mesaPresenciaOtrosUsuarios(
+      [
+        u("Yo", current),
+        u("Sara", other),
+        u("Sara otra pestaña", other),
+      ],
+      current,
+    );
+    assert.equal(result.length, 1);
+    assert.equal(result[0]?.userId, other);
+  });
+
+  it("copy de aviso indica quién lo tiene abierto sin bloquear", () => {
+    const current = "00000000-0000-4000-8000-000000000001";
+    assert.equal(
+      formatMesaOtrosActivosLabel(
+        [u("Yo", current), u("Sara", "00000000-0000-4000-8000-000000000002")],
+        current,
+      ),
+      "Sara lo tiene abierto ahora",
     );
   });
 });
