@@ -2670,6 +2670,7 @@ export default function MesaControlPage() {
                   role={actorRoleForAcciones}
                   currentUserId={currentUserId}
                   ops={c.mesaOps}
+                  presenciaUsers={presenciaByExp.get(c.id) ?? []}
                   tieneDatos={Boolean(c.tieneDatos)}
                   siguienteCtx={{
                     etapaActual: c.etapaActual,
