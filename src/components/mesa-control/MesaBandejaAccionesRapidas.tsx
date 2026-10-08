@@ -13,6 +13,10 @@ import {
   type MesaSiguienteEtapaContext,
 } from "@/lib/mesaBandejaAccionesRapidas";
 import type { MesaExpedienteOpsRow } from "@/domain/mesa-ops/types";
+import {
+  formatMesaOtrosActivosLabel,
+  type MesaPresenciaUser,
+} from "@/lib/mesaExpedientePresenciaUi";
 
 export type MesaBandejaAccionesRapidasProps = Readonly<{
   expedienteId: string;
@@ -20,6 +24,7 @@ export type MesaBandejaAccionesRapidasProps = Readonly<{
   role: string | null | undefined;
   currentUserId: string | null | undefined;
   ops: MesaExpedienteOpsRow | null | undefined;
+  presenciaUsers?: readonly MesaPresenciaUser[];
   tieneDatos: boolean;
   siguienteCtx: MesaSiguienteEtapaContext;
   onSiguienteEtapa: (expedienteId: string) => Promise<void>;
@@ -46,6 +51,7 @@ export function MesaBandejaAccionesRapidas({
   role,
   currentUserId,
   ops,
+  presenciaUsers = [],
   tieneDatos,
   siguienteCtx,
   onSiguienteEtapa,
@@ -74,6 +80,14 @@ export function MesaBandejaAccionesRapidas({
     assignedDisplayName: ops?.assignedToName ?? null,
   });
   const canMarcador = canMesaToggleMarcadorRole(role);
+  const otrosActivosLabel = formatMesaOtrosActivosLabel(
+    presenciaUsers,
+    currentUserId,
+  );
+  const trabajoCompartidoLabel =
+    otrosActivosLabel ??
+    (tomar.assignedToOther ? tomar.assignedLabel : null);
+  const requiereConfirmacionCompartida = Boolean(trabajoCompartidoLabel);
 
   const stop = (e: SyntheticEvent) => {
     e.stopPropagation();
@@ -134,6 +148,12 @@ export function MesaBandejaAccionesRapidas({
   const handleTomar = (e: MouseEvent) => {
     stop(e);
     if (!tomar.visible || busy) return;
+    if (requiereConfirmacionCompartida && trabajoCompartidoLabel) {
+      const ok = window.confirm(
+        `${trabajoCompartidoLabel}. Puedes trabajar este expediente también; no se bloqueará a la otra persona.\n\n¿Confirmas que no hay problema en trabajarlo al mismo tiempo?`,
+      );
+      if (!ok) return;
+    }
     void run("tomar", () => onTomarExpediente(expedienteId));
   };
 
@@ -170,6 +190,16 @@ export function MesaBandejaAccionesRapidas({
       onClick={stop}
       onKeyDown={stop}
     >
+      {requiereConfirmacionCompartida && trabajoCompartidoLabel ? (
+        <div
+          className="mb-2 rounded-md border border-amber-300 bg-amber-50 px-2.5 py-2 text-[11px] leading-snug text-amber-950"
+          data-testid="mesa-bandeja-trabajo-compartido-aviso"
+        >
+          <span className="font-semibold">Atención:</span>{" "}
+          {trabajoCompartidoLabel}. Puedes continuar y trabajar también; este aviso no
+          bloquea ninguna acción.
+        </div>
+      ) : null}
       <div className="flex flex-wrap items-center gap-2">
         {siguiente.kind === "etapa_final" ? (
           <span
@@ -261,7 +291,11 @@ export function MesaBandejaAccionesRapidas({
             onClick={handleTomar}
             data-testid="mesa-bandeja-tomar-expediente"
           >
-            {busy === "tomar" ? "Tomando…" : "Tomar expediente"}
+            {busy === "tomar"
+              ? "Tomando…"
+              : requiereConfirmacionCompartida
+                ? "Trabajar también"
+                : "Tomar expediente"}
           </Button>
         ) : null}
 
