@@ -6,11 +6,13 @@ test('buildHealthPayload reporta present/absent sin valores', () => {
   const prevKey = process.env.CAPSOLVER_API_KEY
   const prevSecret = process.env.SAT_VALIDATOR_SECRET
   const prevMode = process.env.SAT_VALIDATOR_MODE
+  const prevRelaySecret = process.env.CAPTCHA_RELAY_SECRET
   const prevProxy = process.env.SAT_PROXY_URL
   try {
     process.env.SAT_VALIDATOR_MODE = 'live'
     process.env.CAPSOLVER_API_KEY = 'sk-test-never-log'
     process.env.SAT_VALIDATOR_SECRET = 'secret-test-never-log'
+    process.env.CAPTCHA_RELAY_SECRET = 'relay-secret-never-log'
     delete process.env.SAT_PROXY_URL
     const withBoth = buildHealthPayload()
     assert.deepEqual(withBoth, {
@@ -18,6 +20,7 @@ test('buildHealthPayload reporta present/absent sin valores', () => {
       mode: 'live',
       CAPSOLVER_API_KEY: 'present',
       SAT_VALIDATOR_SECRET: 'present',
+      CAPTCHA_RELAY_SECRET: 'present',
       proxy: 'absent',
     })
     assert.doesNotMatch(JSON.stringify(withBoth), /sk-test|secret-test/)
@@ -29,10 +32,12 @@ test('buildHealthPayload reporta present/absent sin valores', () => {
 
     delete process.env.CAPSOLVER_API_KEY
     delete process.env.SAT_VALIDATOR_SECRET
+    delete process.env.CAPTCHA_RELAY_SECRET
     delete process.env.SAT_PROXY_URL
     const absent = buildHealthPayload()
     assert.equal(absent.CAPSOLVER_API_KEY, 'absent')
     assert.equal(absent.SAT_VALIDATOR_SECRET, 'absent')
+    assert.equal(absent.CAPTCHA_RELAY_SECRET, 'absent')
     assert.equal(absent.proxy, 'absent')
   } finally {
     if (prevKey === undefined) delete process.env.CAPSOLVER_API_KEY
@@ -41,6 +46,8 @@ test('buildHealthPayload reporta present/absent sin valores', () => {
     else process.env.SAT_VALIDATOR_SECRET = prevSecret
     if (prevMode === undefined) delete process.env.SAT_VALIDATOR_MODE
     else process.env.SAT_VALIDATOR_MODE = prevMode
+    if (prevRelaySecret === undefined) delete process.env.CAPTCHA_RELAY_SECRET
+    else process.env.CAPTCHA_RELAY_SECRET = prevRelaySecret
     if (prevProxy === undefined) delete process.env.SAT_PROXY_URL
     else process.env.SAT_PROXY_URL = prevProxy
   }
@@ -163,3 +170,59 @@ async function fetchDiag(app, secret) {
     })
   }
 }
+
+
+test('POST /internal/solve-image-captcha exige secret y normaliza a 5 caracteres', async () => {
+  const prevRelaySecret = process.env.CAPTCHA_RELAY_SECRET
+  const prevKey = process.env.CAPSOLVER_API_KEY
+  process.env.CAPTCHA_RELAY_SECRET = 'relay-secret'
+  process.env.CAPSOLVER_API_KEY = 'solver-key'
+  const calls = []
+  const app = createApp({
+    solveCaptcha: async (bytes, key, options) => {
+      calls.push({ bytes: bytes.length, key, websiteURL: options?.websiteURL })
+      return 'ab12c'
+    },
+  })
+
+  const server = await new Promise((resolve) => {
+    const s = app.listen(0, '127.0.0.1', () => resolve(s))
+  })
+  try {
+    const { port } = server.address()
+    const body = JSON.stringify({
+      imageBase64: Buffer.from('fake-image-bytes'.repeat(10)).toString('base64'),
+      websiteURL: 'https://example.test/login',
+    })
+    const unauthorized = await fetch(
+      `http://127.0.0.1:${port}/internal/solve-image-captcha`,
+      { method: 'POST', headers: { 'content-type': 'application/json' }, body },
+    )
+    assert.equal(unauthorized.status, 401)
+    assert.equal(calls.length, 0)
+
+    const ok = await fetch(
+      `http://127.0.0.1:${port}/internal/solve-image-captcha`,
+      {
+        method: 'POST',
+        headers: {
+          'content-type': 'application/json',
+          'x-captcha-relay-secret': 'relay-secret',
+        },
+        body,
+      },
+    )
+    assert.equal(ok.status, 200)
+    assert.deepEqual(await ok.json(), { ok: true, text: 'AB12C' })
+    assert.equal(calls.length, 1)
+    assert.equal(calls[0].key, 'solver-key')
+  } finally {
+    await new Promise((resolve, reject) => {
+      server.close((err) => (err ? reject(err) : resolve()))
+    })
+    if (prevRelaySecret === undefined) delete process.env.CAPTCHA_RELAY_SECRET
+    else process.env.CAPTCHA_RELAY_SECRET = prevRelaySecret
+    if (prevKey === undefined) delete process.env.CAPSOLVER_API_KEY
+    else process.env.CAPSOLVER_API_KEY = prevKey
+  }
+})
