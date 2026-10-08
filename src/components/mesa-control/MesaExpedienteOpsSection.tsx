@@ -24,6 +24,10 @@ import {
   mesaOpsTakePromptStorageKey,
 } from "@/lib/mesaOpsUi";
 import { hasAlertMessage, notifyMesaOpsUpdated } from "@/lib/hasAlertMessage";
+import {
+  formatMesaOtrosActivosLabel,
+  type MesaPresenciaUser,
+} from "@/lib/mesaExpedientePresenciaUi";
 
 type MesaExpedienteOpsSectionProps = Readonly<{
   expedienteId: string;
@@ -32,6 +36,7 @@ type MesaExpedienteOpsSectionProps = Readonly<{
   appRole?: string | null;
   mockRoleFallback?: string | null;
   ops: MesaExpedienteOpsRow | null;
+  presenciaUsers?: readonly MesaPresenciaUser[];
   onOpsChange: (next: MesaExpedienteOpsRow | null) => void;
 }>;
 
@@ -61,6 +66,7 @@ export function MesaExpedienteOpsSection({
   appRole = null,
   mockRoleFallback = null,
   ops,
+  presenciaUsers = [],
   onOpsChange,
 }: MesaExpedienteOpsSectionProps) {
   const mesaOpsRepo = useMesaOpsRepo();
@@ -78,6 +84,17 @@ export function MesaExpedienteOpsSection({
   const sinAsignar = isSinAsignarOps(ops);
   const assignedToMe = isAssignedToCurrentUser(ops, currentUserId);
   const assignedToOther = Boolean(ops?.assignedTo && !assignedToMe);
+  const otrosActivosLabel = formatMesaOtrosActivosLabel(
+    presenciaUsers,
+    currentUserId,
+  );
+  const trabajoCompartidoLabel =
+    otrosActivosLabel ??
+    (assignedToOther
+      ? ops?.assignedToName?.trim()
+        ? `Actualmente lo trabaja ${ops.assignedToName.trim()}`
+        : "Actualmente lo trabaja otro usuario de Mesa"
+      : null);
   const canAdminRelease =
     assignedToOther &&
     resolveMesaOpsAdminCanRelease({
@@ -107,6 +124,12 @@ export function MesaExpedienteOpsSection({
 
   const handleTake = useCallback(async () => {
     if (!mesaOpsRepo) return;
+    if (trabajoCompartidoLabel) {
+      const ok = window.confirm(
+        `${trabajoCompartidoLabel}. Puedes trabajar este expediente también; no se bloqueará a la otra persona.\n\n¿Confirmas que no hay problema en trabajarlo al mismo tiempo?`,
+      );
+      if (!ok) return;
+    }
     setActionLoading(true);
     setActionError(null);
     setSuccessMessage(null);
@@ -140,6 +163,7 @@ export function MesaExpedienteOpsSection({
     ops,
     onOpsChange,
     dismissTakePrompt,
+    trabajoCompartidoLabel,
   ]);
 
   const openReleaseDialog = useCallback((asAdmin: boolean) => {
@@ -211,6 +235,17 @@ export function MesaExpedienteOpsSection({
 
       {bodyCopy ? <p className="mt-3 text-sm text-slate-700">{bodyCopy}</p> : null}
 
+      {trabajoCompartidoLabel ? (
+        <div
+          className="mt-3 rounded-md border border-amber-300 bg-amber-50 px-3 py-2 text-sm text-amber-950"
+          data-testid="mesa-ops-trabajo-compartido-aviso"
+        >
+          <span className="font-semibold">Atención:</span>{" "}
+          {trabajoCompartidoLabel}. Puedes trabajar el expediente también; no se
+          bloquea para nadie. Al tomarlo, te pediremos confirmación.
+        </div>
+      ) : null}
+
       {successMessage ? (
         <p
           role="status"
@@ -234,7 +269,11 @@ export function MesaExpedienteOpsSection({
             onClick={() => void handleTake()}
             data-testid="mesa-ops-tomar-expediente"
           >
-            {actionLoading ? "Tomando…" : "Tomar expediente"}
+            {actionLoading
+              ? "Tomando…"
+              : trabajoCompartidoLabel
+                ? "Trabajar también"
+                : "Tomar expediente"}
           </Button>
         ) : null}
         {assignedToMe ? (
