@@ -36,3 +36,35 @@ export function formatMesaAbiertoAhoraBadge(
   const rest = names.length - 2;
   return `Abierto ahora por ${names[0]}, ${names[1]} +${rest}`;
 }
+
+
+/** Usuarios activos distintos del operador actual; dedupe por userId. */
+export function mesaPresenciaOtrosUsuarios(
+  users: readonly MesaPresenciaUser[] | null | undefined,
+  currentUserId: string | null | undefined,
+): readonly MesaPresenciaUser[] {
+  if (!users?.length) return [];
+  const current = String(currentUserId ?? "").trim();
+  const seen = new Set<string>();
+  const out: MesaPresenciaUser[] = [];
+  for (const user of users) {
+    const id = String(user.userId ?? "").trim();
+    if (!id || (current && id === current) || seen.has(id)) continue;
+    seen.add(id);
+    out.push(user);
+  }
+  return out;
+}
+
+/** Copy corto para advertencia de trabajo simultáneo. */
+export function formatMesaOtrosActivosLabel(
+  users: readonly MesaPresenciaUser[] | null | undefined,
+  currentUserId: string | null | undefined,
+): string | null {
+  const others = mesaPresenciaOtrosUsuarios(users, currentUserId);
+  if (others.length === 0) return null;
+  const names = others.map(mesaPresenciaDisplayName);
+  if (names.length === 1) return `${names[0]} lo tiene abierto ahora`;
+  if (names.length === 2) return `${names[0]} y ${names[1]} lo tienen abierto ahora`;
+  return `${names[0]}, ${names[1]} +${names.length - 2} lo tienen abierto ahora`;
+}
