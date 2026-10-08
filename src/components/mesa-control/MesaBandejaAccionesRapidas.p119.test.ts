@@ -17,6 +17,9 @@ describe("MesaBandejaAccionesRapidas UI wiring P119.3/P119.4/P133", () => {
     assert.match(ui, /etapa_final|Etapa final|siguiente\.label/);
     assert.match(ui, /MESA_AVANZAR_11_12_CONFIRM|Pago ConCasa|Pago a ConCasa/);
     assert.match(ui, /Tomar expediente/);
+    assert.match(ui, /Trabajar también/);
+    assert.match(ui, /mesa-bandeja-trabajo-compartido-aviso/);
+    assert.match(ui, /no se bloqueará a la otra persona/);
     assert.match(ui, /Quitar marca/);
     assert.match(ui, /Tiene documentos/);
     assert.doesNotMatch(ui, /"Tiene datos"/);
@@ -60,5 +63,14 @@ describe("MesaBandejaAccionesRapidas UI wiring P119.3/P119.4/P133", () => {
     assert.match(detalle, /handleDecidirPagoConcasa/);
     assert.match(detalle, /deriveAvanceOperativo11a12View/);
     assert.match(detalle, /mostrar: false/);
+    assert.match(detalle, /presenciaUsers=\{presenciaUsers\}/);
+
+    const opsSection = readFileSync(
+      path.join(ROOT, "src/components/mesa-control/MesaExpedienteOpsSection.tsx"),
+      "utf8",
+    );
+    assert.match(opsSection, /mesa-ops-trabajo-compartido-aviso/);
+    assert.match(opsSection, /Trabajar también/);
+    assert.match(opsSection, /no se bloqueará a la otra persona/);
   });
 });
