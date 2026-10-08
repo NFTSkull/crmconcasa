@@ -3,6 +3,7 @@ import PQueue from 'p-queue'
 import { validateRequestPayload, fixtureValidationResult } from './contracts.js'
 import { probeSatRfcPageLoad, validateFiscalLive } from './live-validator.js'
 import { satProxyPresence } from './proxy-config.js'
+import { solveImageCaptcha } from './capsolver.js'
 
 const PORT = Number(process.env.PORT || 3002)
 
@@ -16,6 +17,10 @@ function currentSecret() {
   return String(process.env.SAT_VALIDATOR_SECRET || '').trim()
 }
 
+function captchaRelaySecret() {
+  return String(process.env.CAPTCHA_RELAY_SECRET || '').trim()
+}
+
 /** present/absent — nunca valores de secretos. */
 export function buildHealthPayload() {
   return {
@@ -25,6 +30,7 @@ export function buildHealthPayload() {
       ? 'present'
       : 'absent',
     SAT_VALIDATOR_SECRET: currentSecret() ? 'present' : 'absent',
+    CAPTCHA_RELAY_SECRET: captchaRelaySecret() ? 'present' : 'absent',
     proxy: satProxyPresence(),
   }
 }
@@ -32,8 +38,9 @@ export function buildHealthPayload() {
 export function createApp(options = {}) {
   const probeSat = options.probeSat ?? probeSatRfcPageLoad
   const validateLive = options.validateLive ?? validateFiscalLive
+  const solveCaptcha = options.solveCaptcha ?? solveImageCaptcha
   const app = express()
-  app.use(express.json({ limit: '32kb' }))
+  app.use(express.json({ limit: '256kb' }))
   const queue = new PQueue({
     concurrency: Math.max(1, Number(process.env.SAT_MAX_CONCURRENCY || 1)),
   })
@@ -49,6 +56,56 @@ export function createApp(options = {}) {
 
   app.get('/health', (_req, res) => {
     res.json(buildHealthPayload())
+  })
+
+  /**
+   * Relay interno para resolver el CAPTCHA visual del portal de precalificación.
+   * No recibe NSS, RFC, CURP ni credenciales: únicamente una imagen base64.
+   * Permite reutilizar la llave de CapSolver del validador SAT sin copiarla
+   * entre servicios.
+   */
+  app.post('/internal/solve-image-captcha', async (req, res) => {
+    const secret = captchaRelaySecret()
+    if (!secret || req.header('x-captcha-relay-secret') !== secret) {
+      return res.status(401).json({ ok: false, code: 'UNAUTHORIZED' })
+    }
+
+    const imageBase64 =
+      typeof req.body?.imageBase64 === 'string' ? req.body.imageBase64.trim() : ''
+    const websiteURL =
+      typeof req.body?.websiteURL === 'string' ? req.body.websiteURL.trim() : ''
+
+    if (
+      !imageBase64 ||
+      imageBase64.length > 220_000 ||
+      !/^[A-Za-z0-9+/]+={0,2}$/.test(imageBase64)
+    ) {
+      return res.status(400).json({ ok: false, code: 'INVALID_IMAGE' })
+    }
+
+    try {
+      const imageBytes = Buffer.from(imageBase64, 'base64')
+      if (imageBytes.length < 64 || imageBytes.length > 160_000) {
+        return res.status(400).json({ ok: false, code: 'INVALID_IMAGE_SIZE' })
+      }
+      const text = await solveCaptcha(imageBytes, process.env.CAPSOLVER_API_KEY, {
+        websiteURL: websiteURL || undefined,
+      })
+      const normalized = String(text || '').trim().toUpperCase()
+      if (!/^[A-Z0-9]{5}$/.test(normalized)) {
+        return res.status(422).json({ ok: false, code: 'INVALID_CAPTCHA_RESULT' })
+      }
+      return res.json({ ok: true, text: normalized })
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error)
+      console.error('[sat-validator] captcha relay failed', message)
+      return res.status(503).json({
+        ok: false,
+        code: message.includes('ERROR_KEY_DENIED_ACCESS')
+          ? 'CAPSOLVER_KEY_DENIED'
+          : 'CAPTCHA_SOLVER_FAILED',
+      })
+    }
   })
 
   /**
@@ -125,7 +182,7 @@ if (process.env.SAT_VALIDATOR_NO_LISTEN !== '1') {
   app.listen(PORT, '0.0.0.0', () => {
     const health = buildHealthPayload()
     console.log(
-      `[sat-validator] listening port=${PORT} mode=${health.mode} CAPSOLVER_API_KEY=${health.CAPSOLVER_API_KEY} SAT_VALIDATOR_SECRET=${health.SAT_VALIDATOR_SECRET}`,
+      `[sat-validator] listening port=${PORT} mode=${health.mode} CAPSOLVER_API_KEY=${health.CAPSOLVER_API_KEY} SAT_VALIDATOR_SECRET=${health.SAT_VALIDATOR_SECRET} CAPTCHA_RELAY_SECRET=${health.CAPTCHA_RELAY_SECRET}`,
     )
   })
 }
