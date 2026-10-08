@@ -1989,6 +1989,7 @@ export function MesaExpedienteDetalleReadOnly() {
           appRole={mesaOpsAppRole}
           mockRoleFallback={mesaMockRole}
           ops={mesaOps}
+          presenciaUsers={presenciaUsers}
           onOpsChange={setMesaOps}
         />
       ) : null}
