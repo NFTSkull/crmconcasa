@@ -20,6 +20,8 @@ describe("selectAutoReprecalRetryCandidates", () => {
   const old = "2026-08-28T11:00:00.000Z"; // 60 min ago
   const recent = "2026-08-28T11:57:00.000Z"; // 3 min ago (< 5 min)
   const exactlyFive = "2026-08-28T11:55:00.000Z"; // 5 min ago (límite inclusive)
+  const exactlyTwentySeconds = "2026-08-28T11:59:40.000Z";
+  const tenSecondsAgo = "2026-08-28T11:59:50.000Z";
 
   it("excluye cero intentos cuando no hay fecha de creación confiable", () => {
     const ids = selectAutoReprecalRetryCandidates({
@@ -30,12 +32,17 @@ describe("selectAutoReprecalRetryCandidates", () => {
     assert.deepEqual(ids, []);
   });
 
-  it("rescata cero intentos desde el límite de cinco minutos", () => {
+  it("rescata cero intentos desde 20 segundos sin esperar el cooldown de fallos reales", () => {
     assert.deepEqual(selectAutoReprecalRetryCandidates({
-      pendingIntentoIds: ["old", "boundary", "recent"],
-      pendingSinceById: { old, boundary: exactlyFive, recent },
-      intentos: [], nowMs: now,
-    }), ["old", "boundary"]);
+      pendingIntentoIds: ["old", "boundary20", "recent10"],
+      pendingSinceById: {
+        old,
+        boundary20: exactlyTwentySeconds,
+        recent10: tenSecondsAgo,
+      },
+      intentos: [],
+      nowMs: now,
+    }), ["old", "boundary20"]);
   });
 
   it("excluye fechas ausentes, inválidas o futuras", () => {
