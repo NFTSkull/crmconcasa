@@ -92,14 +92,13 @@ describe("P177/P178 agenda tabs Inscripción", () => {
     assert.match(insc, /isInscripcionSelfServiceVisible/);
   });
 
-  it("pending/booked/rebook CTAs + Monterrey-only + 11:00", () => {
+  it("pending/booked/rebook CTAs + sede por elegibilidad + 11:00", () => {
     assert.match(insc, /Agendar inscripción/);
     assert.match(insc, /Reagendar inscripción/);
     assert.match(insc, /Cancelar cita/);
-    assert.match(insc, /INSCRIPCION_SEDE = "monterrey"/);
-    assert.doesNotMatch(insc, /Apodaca/);
+    assert.match(insc, /eligibility\?\.locationId === "apodaca"/);
     assert.match(insc, /INSCRIPCION_FIXED_TIME_DISPLAY/);
-    assert.match(insc, /locationId: INSCRIPCION_SEDE/);
+    assert.match(insc, /locationId: inscripcionSede/);
   });
 
   it("no crea requirement desde frontend; solo book RPC", () => {

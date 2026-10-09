@@ -33,8 +33,6 @@ export type AgendaInscripcionSupabaseCardProps = Readonly<{
   embedded?: boolean;
 }>;
 
-/** P175/P178 V1: inscripción solo Monterrey. */
-const INSCRIPCION_SEDE = "monterrey" as const;
 
 function todayYmdMonterrey(): string {
   return new Intl.DateTimeFormat("en-CA", {
@@ -96,6 +94,8 @@ export function AgendaInscripcionSupabaseCard({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [mode, setMode] = useState<"idle" | "book" | "reagendar">("idle");
+  // Apodaca solo cuando la elegibilidad RPC autoriza la excepcion del expediente.
+  const inscripcionSede = eligibility?.locationId === "apodaca" ? "apodaca" : "monterrey";
 
   const reload = useCallback(async () => {
     if (!repo) {
@@ -114,7 +114,7 @@ export function AgendaInscripcionSupabaseCard({
       if (active) {
         setDate(active.bookingDate);
       }
-      if (!req && repo.getAsesorEligibility) {
+      if (repo.getAsesorEligibility) {
         const elig = await repo.getAsesorEligibility(expedienteId);
         setEligibility(elig);
       } else {
@@ -142,7 +142,7 @@ export function AgendaInscripcionSupabaseCard({
           kind: "inscripcion",
           mode: "availability",
           bookingDate: date,
-          locationId: INSCRIPCION_SEDE,
+          locationId: inscripcionSede,
         });
       } catch {
         // fail-soft: inventory RPC sigue
@@ -150,7 +150,7 @@ export function AgendaInscripcionSupabaseCard({
       const slots = await repo.listAvailability({
         fromDate: date,
         toDate: date,
-        locationId: INSCRIPCION_SEDE,
+        locationId: inscripcionSede,
       });
       const slot = slots[0];
       setAvailable(slot?.available ?? 0);
@@ -161,7 +161,7 @@ export function AgendaInscripcionSupabaseCard({
     } finally {
       setAvailLoading(false);
     }
-  }, [repo, date]);
+  }, [repo, date, inscripcionSede]);
 
   const showRequirementCard =
     requirement != null &&
@@ -207,7 +207,7 @@ export function AgendaInscripcionSupabaseCard({
     : false;
   const cupoLabel = formatInscripcionCupoLabel(available, capacity);
   const noCupo = available <= 0;
-  const sedeLabel = formatMesaAgendaSedeLabel(INSCRIPCION_SEDE);
+  const sedeLabel = formatMesaAgendaSedeLabel(inscripcionSede);
   const showBookForm = selfService || mode === "book" || mode === "reagendar";
 
   const handleBook = async () => {
@@ -229,7 +229,7 @@ export function AgendaInscripcionSupabaseCard({
       const result = await repo.book({
         expedienteId,
         bookingDate: date,
-        locationId: INSCRIPCION_SEDE,
+        locationId: inscripcionSede,
       });
       if (!result.ok) {
         setError(result.message ?? BOOK_SLOT_JUST_TAKEN_MESSAGE);
@@ -264,7 +264,7 @@ export function AgendaInscripcionSupabaseCard({
       const result = await repo.reagendar({
         expedienteId,
         bookingDate: date,
-        locationId: INSCRIPCION_SEDE,
+        locationId: inscripcionSede,
       });
       if (!result.ok) {
         setError(result.message ?? BOOK_SLOT_JUST_TAKEN_MESSAGE);
@@ -396,7 +396,7 @@ export function AgendaInscripcionSupabaseCard({
             <div className="block text-xs text-teal-900">
               Sede
               <p className="mt-1 rounded-md border border-teal-100 bg-teal-50/60 px-2 py-1.5 text-sm font-medium text-teal-950">
-                Monterrey
+                {sedeLabel}
               </p>
             </div>
           </div>
