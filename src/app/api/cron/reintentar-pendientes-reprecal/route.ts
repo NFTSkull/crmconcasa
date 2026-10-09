@@ -10,14 +10,8 @@ import { resolveProgramaParaMonto } from "@/domain/expedientes/auto-precalificar
 import { runAutoReprecalificarJob } from "@/domain/expedientes/auto-reprecalificar-job";
 
 export const runtime = "nodejs";
-/** Hasta 1 job × SCRAPER_TIMEOUT_MS(150s); secuencial. */
+/** Hasta 2 jobs secuenciales; compite por el mismo lease que la precal normal. */
 export const maxDuration = 300;
-/**
- * Vercel Cron solo tiene granularidad de minuto. Este pequeño retraso deja que
- * el cron de precal nueva tome primero el lease global cuando ambos caen en el
- * mismo minuto; si el scraper ya está ocupado, reprecal sale sin escribir busy.
- */
-export const AUTO_REPRECAL_CRON_STAGGER_MS = 8_000;
 
 function serviceClient() {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL?.trim();
@@ -65,10 +59,6 @@ async function handleRetryPendientesReprecal(
   }
 
   const supabase = serviceClient();
-
-  await new Promise((resolve) =>
-    setTimeout(resolve, AUTO_REPRECAL_CRON_STAGGER_MS),
-  );
 
   const { data: pendingRows, error: pendingErr } = await supabase
     .from("expediente_precalificacion_intentos")

@@ -230,4 +230,70 @@ describe("runAutoReprecalificarJob", () => {
     assert.equal(fetchCalls, 0);
     assert.deepEqual(inserts, []);
   });
+
+  it("espera hasta 10s por el lease igual que una precalificación normal", async () => {
+    let claimCalls = 0;
+    let fetchCalls = 0;
+    let nowMs = 0;
+    const inserts: InsertCall[] = [];
+
+    globalThis.fetch = (async () => {
+      fetchCalls += 1;
+      return new Response(
+        JSON.stringify({
+          califica: false,
+          mensaje: "SIN APORTACIONES",
+        }),
+        { status: 200, headers: { "Content-Type": "application/json" } },
+      );
+    }) as typeof fetch;
+
+    const supabase = {
+      rpc(fn: string) {
+        if (fn === "auto_precal_scraper_try_claim") {
+          claimCalls += 1;
+          return Promise.resolve({ error: null, data: claimCalls >= 2 });
+        }
+        if (fn === "auto_precal_scraper_release") {
+          return Promise.resolve({ error: null, data: null });
+        }
+        return Promise.resolve({ error: null, data: null });
+      },
+      from(table: string) {
+        return {
+          insert(row: Record<string, unknown>) {
+            inserts.push({ table, row });
+            return Promise.resolve({ error: null });
+          },
+        };
+      },
+    };
+
+    const result = await runAutoReprecalificarJob({
+      intentoId,
+      nss: "12345678901",
+      programa: "mejoravit",
+      scraperUrl: "https://scraper.test",
+      scraperSecret: "secret",
+      supabase: supabase as never,
+      scraperBusyWaitMs: 10_000,
+      scraperLeaseWaitDeps: {
+        now: () => nowMs,
+        sleep: async (ms: number) => {
+          nowMs += ms;
+        },
+      },
+    });
+
+    assert.equal(claimCalls, 2);
+    assert.equal(fetchCalls, 1);
+    assert.deepEqual(result, { resultado: "no_cumple", razon: null });
+    assert.equal(inserts.length, 1);
+    assert.deepEqual(inserts[0]?.row, {
+      intento_id: intentoId,
+      resultado: "no_cumple",
+      razon: null,
+    });
+  });
+
 });
