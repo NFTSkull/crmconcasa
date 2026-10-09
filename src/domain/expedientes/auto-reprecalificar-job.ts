@@ -12,8 +12,11 @@ import {
 } from "@/domain/expedientes/auto-precalificar-decision";
 import {
   AUTO_PRECAL_SCRAPER_BUSY_REASON,
+  clampAutoPrecalScraperBusyWaitMs,
   releaseAutoPrecalScraperLease,
   tryClaimAutoPrecalScraperLease,
+  waitForAutoPrecalScraperLease,
+  type ScraperLeaseWaitDeps,
 } from "@/domain/expedientes/auto-precal-scraper-lease";
 import {
   SCRAPER_TIMEOUT_MS,
@@ -94,11 +97,53 @@ export async function runAutoReprecalificarJob(input: {
   scraperUrl: string;
   scraperSecret: string;
   supabase?: SupabaseClient;
+  /**
+   * Igual que la precalificación normal: el disparo inicial puede esperar hasta
+   * 10s por el lease global antes de caer al cron. Default 0 para cron.
+   */
+  scraperBusyWaitMs?: number;
+  /** Solo tests: sleep/reloj inyectables para la espera del lease. */
+  scraperLeaseWaitDeps?: ScraperLeaseWaitDeps;
 }): Promise<AutoPrecalJobResult> {
   const { intentoId, nss, scraperUrl, scraperSecret } = input;
   const supabase = input.supabase ?? serviceClient();
 
-  const scraperLease = await tryClaimAutoPrecalScraperLease(supabase);
+  let scraperLease = await tryClaimAutoPrecalScraperLease(supabase);
+  const scraperBusyWaitMs = clampAutoPrecalScraperBusyWaitMs(
+    input.scraperBusyWaitMs,
+  );
+  if (
+    !scraperLease.claimed &&
+    !scraperLease.claimError &&
+    scraperBusyWaitMs > 0
+  ) {
+    console.log(
+      `[auto-reprecalificar] scraper ocupado; espera corta intento_id=${intentoId} max_wait_ms=${scraperBusyWaitMs}`,
+    );
+    const waited = await waitForAutoPrecalScraperLease(
+      supabase,
+      scraperBusyWaitMs,
+      input.scraperLeaseWaitDeps,
+    );
+    scraperLease = {
+      claimed: waited.claimed,
+      ownerToken: waited.ownerToken,
+      claimError: waited.claimError,
+    };
+    if (waited.claimed) {
+      console.log(
+        `[auto-reprecalificar] lease adquirido tras espera intento_id=${intentoId} waited_ms=${waited.waitedMs}`,
+      );
+    } else if (waited.claimError) {
+      console.error(
+        `[auto-reprecalificar] espera de lease abortada por error intento_id=${intentoId} waited_ms=${waited.waitedMs}`,
+      );
+    } else {
+      console.log(
+        `[auto-reprecalificar] lease sigue ocupado tras espera intento_id=${intentoId} waited_ms=${waited.waitedMs}`,
+      );
+    }
+  }
   if (!scraperLease.claimed) {
     // No hubo intento real contra Infonavit: solo perdimos el turno del lease.
     // No persistir scraper_busy evita inflar historial y alterar cooldowns/reintentos.
