@@ -20,7 +20,7 @@ export type AgendaInscripcionAsesorEligibility = Readonly<{
   reasonCode: string;
   hasOpenRequirement?: boolean;
   hasActiveBooking?: boolean;
-  locationId?: "monterrey";
+  locationId?: "monterrey" | "apodaca";
   fixedTime?: "11:00";
   etapaActual?: number;
 }>;
