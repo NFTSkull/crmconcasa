@@ -231,7 +231,7 @@ export class SupabaseAgendaInscripcionRepo implements AgendaInscripcionRepo {
         reasonCode: String(row?.reason_code ?? "unknown"),
         hasOpenRequirement: row?.has_open_requirement === true,
         hasActiveBooking: row?.has_active_booking === true,
-        locationId: "monterrey",
+        locationId: row?.location_id === "apodaca" ? "apodaca" : "monterrey",
         fixedTime: "11:00",
         etapaActual:
           typeof row?.etapa_actual === "number" ? row.etapa_actual : undefined,
