@@ -7,7 +7,7 @@
 
 import { isAutoPrecalRetryablePendingReason } from "./auto-precal-retry";
 
-export const AUTO_REPRECAL_RETRY_MIN_AGE_MS = 5 * 60 * 1000;
+export const AUTO_REPRECAL_RETRY_MIN_AGE_MS = 2 * 60 * 1000;
 /** Si el job 202 no alcanzó el lease, rescatar pronto sin esperar el cooldown de un fallo real. */
 export const AUTO_REPRECAL_ZERO_ATTEMPT_MIN_AGE_MS = 20 * 1000;
 /** 2 candidatos/tick (riesgo OOM aceptado en Railway 1GB hasta upgrade de plan). */
@@ -36,7 +36,7 @@ export type ReprecalRetryCandidateInput = {
  * Filtra candidatos:
  * - al menos un intento pending_error + razón reintentable
  * - sin tope de intentos totales (ambiguous_payload solo nunca entra por sí mismo)
- * - último intento hace ≥ minAgeMs (default 5 min)
+ * - último intento hace ≥ minAgeMs (default 2 min, igual que precal normal)
  * - sin intentos: creación hace ≥ zeroAttemptMinAgeMs (default 20 s); fecha ausente/inválida excluye
  * - orden: último intento más antiguo primero
  * - limit (default 2)
