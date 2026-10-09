@@ -136,6 +136,7 @@ export async function POST(request: Request, { params }: RouteParams) {
         programa,
         scraperUrl,
         scraperSecret,
+        scraperBusyWaitMs: 10_000,
       }).catch((err) => {
         console.error(
           `[auto-reprecalificar] job falló intento_id=${intentoId} nss=${nss}`,
