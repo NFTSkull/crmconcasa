@@ -1,13 +1,15 @@
 /**
  * Selección pura de candidatos a reintento auto-reprecal (sin I/O).
  * Espejo de auto-precal-retry: scraper_failed | infonavit_system_error;
- * rescata pendientes sin intentos tras el cooldown; nunca ambiguous_payload por sí solo.
+ * rescata pendientes sin intentos rápidamente; fallos reales conservan cooldown; nunca ambiguous_payload por sí solo.
  * Sin tope de intentos totales (ilimitado mientras siga pendiente + razón reintentable).
  */
 
 import { isAutoPrecalRetryablePendingReason } from "./auto-precal-retry";
 
 export const AUTO_REPRECAL_RETRY_MIN_AGE_MS = 5 * 60 * 1000;
+/** Si el job 202 no alcanzó el lease, rescatar pronto sin esperar el cooldown de un fallo real. */
+export const AUTO_REPRECAL_ZERO_ATTEMPT_MIN_AGE_MS = 20 * 1000;
 /** 2 candidatos/tick (riesgo OOM aceptado en Railway 1GB hasta upgrade de plan). */
 export const AUTO_REPRECAL_RETRY_LIMIT = 2;
 
@@ -26,6 +28,7 @@ export type ReprecalRetryCandidateInput = {
   pendingSinceById?: Record<string, string>;
   nowMs?: number;
   minAgeMs?: number;
+  zeroAttemptMinAgeMs?: number;
   limit?: number;
 };
 
@@ -34,7 +37,7 @@ export type ReprecalRetryCandidateInput = {
  * - al menos un intento pending_error + razón reintentable
  * - sin tope de intentos totales (ambiguous_payload solo nunca entra por sí mismo)
  * - último intento hace ≥ minAgeMs (default 5 min)
- * - sin intentos: creación hace ≥ minAgeMs; fecha ausente/inválida excluye
+ * - sin intentos: creación hace ≥ zeroAttemptMinAgeMs (default 20 s); fecha ausente/inválida excluye
  * - orden: último intento más antiguo primero
  * - limit (default 2)
  */
@@ -43,6 +46,8 @@ export function selectAutoReprecalRetryCandidates(
 ): string[] {
   const nowMs = input.nowMs ?? Date.now();
   const minAgeMs = input.minAgeMs ?? AUTO_REPRECAL_RETRY_MIN_AGE_MS;
+  const zeroAttemptMinAgeMs =
+    input.zeroAttemptMinAgeMs ?? AUTO_REPRECAL_ZERO_ATTEMPT_MIN_AGE_MS;
   const limit = input.limit ?? AUTO_REPRECAL_RETRY_LIMIT;
 
   const pending = new Set(input.pendingIntentoIds);
@@ -83,7 +88,7 @@ export function selectAutoReprecalRetryCandidates(
     const since = input.pendingSinceById?.[id];
     if (!since) continue;
     const sinceMs = Date.parse(since);
-    if (!Number.isFinite(sinceMs) || nowMs - sinceMs < minAgeMs) continue;
+    if (!Number.isFinite(sinceMs) || nowMs - sinceMs < zeroAttemptMinAgeMs) continue;
     scored.push({ id, lastMs: sinceMs });
   }
 
