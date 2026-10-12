@@ -3,7 +3,10 @@ import {
   REASON_INFONAVIT_SYSTEM_ERROR,
 } from "./auto-precalificar-decision";
 
-export const AUTO_PRECAL_AKAMAI_ALERT_MAX_AGE_MS = 5 * 60 * 1000;
+// Mantener el aviso durante una indisponibilidad sostenida aunque los reintentos
+// se espacien o se pausen. La primera precalificación exitosa posterior lo retira.
+// Caduca tras un día sin actividad para no anunciar una caída histórica indefinidamente.
+export const AUTO_PRECAL_AKAMAI_ALERT_MAX_AGE_MS = 24 * 60 * 60 * 1000;
 export const AUTO_PRECAL_SCRAPER_FAILURE_ALERT_THRESHOLD = 3;
 
 export type AutoPrecalHealthEvent = Readonly<{

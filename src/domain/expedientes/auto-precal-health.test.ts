@@ -155,11 +155,24 @@ describe("resolveAutoPrecalHealth", () => {
     assert.equal(state.portalUnavailable, false);
   });
 
-  it("un bloqueo viejo no deja la alerta pegada", () => {
+  it("conserva el aviso si hay fallos repetidos y pasan más de cinco minutos sin resultados", () => {
+    const state = resolveAutoPrecalHealth(
+      [
+        { intentado_en: "2026-09-28T06:35:00.000Z", resultado: "pending_error", razon: "scraper_failed" },
+        { intentado_en: "2026-09-28T06:34:00.000Z", resultado: "pending_error", razon: "scraper_failed" },
+        { intentado_en: "2026-09-28T06:33:00.000Z", resultado: "pending_error", razon: "scraper_failed" },
+      ],
+      now,
+    );
+    assert.equal(state.portalUnavailable, true);
+    assert.equal(state.reason, "sustained_scraper_failure");
+  });
+
+  it("un bloqueo de más de un día sin actividad no deja la alerta pegada", () => {
     const state = resolveAutoPrecalHealth(
       [
         {
-          intentado_en: "2026-09-28T06:30:00.000Z",
+          intentado_en: "2026-09-27T05:30:00.000Z",
           resultado: "pending_error",
           razon: "akamai_access_denied",
         },
