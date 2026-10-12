@@ -85,7 +85,7 @@ function isHistoricalSharedPoolRow(row: ReadonlyArray<unknown>): boolean {
   const status = normalizeSheetLabel(row?.[14]);
   const hasHistoricalBookingId = Boolean(String(row?.[15] ?? "").trim());
   return hasHistoricalBookingId &&
-    /^(REAGENDADO|CANCELAD[AO]|ANULAD[AO]|REPROGRAMAD[AO])(?:\\s|$)/.test(status);
+    /^(REAGENDADO|CANCELAD[AO]|ANULAD[AO]|REPROGRAMAD[AO])(?:\s|$)/.test(status);
 }
 
 function inspectMonterreySharedPool(
