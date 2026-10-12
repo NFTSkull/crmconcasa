@@ -52,9 +52,9 @@ export function NotificationsBell({
   const rootRef = useRef<HTMLDivElement>(null);
   const panelId = useId();
   const resolvedUserKey = String(userKey ?? "").trim() || "local";
-  const [reads, setReads] = useState<DashboardNotificationReadsDoc>(() =>
-    loadReads(String(userKey ?? "").trim() || "local"),
-  );
+  // Render the same initial value on server and client; hydrate browser reads
+  // in the effect below so a previously read badge does not reappear on refresh.
+  const [reads, setReads] = useState<DashboardNotificationReadsDoc>(emptyReads);
   const [markError, setMarkError] = useState<string | null>(null);
 
   const reloadReads = useCallback(() => {
