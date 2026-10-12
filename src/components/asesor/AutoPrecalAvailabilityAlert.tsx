@@ -8,11 +8,9 @@ import { supabaseBrowser } from "@/lib/supabaseBrowser";
 const POLL_MS = 10_000;
 
 /**
- * Aviso operativo temporal solicitado por Mesa/operación.
- * No bloquea la captura ni el envío de precalificaciones.
- * Cambiar a false cuando se confirme que Bansefi/Infonavit volvió estable.
+ * Solo informativo. La API de salud detecta fallas sostenidas y se normaliza
+ * automáticamente ante un resultado válido. Nunca bloquea el envío.
  */
-const FORCE_BANSEFI_TEMPORARY_OUTAGE_NOTICE = true;
 
 type HealthPayload = {
   ok?: boolean;
@@ -82,10 +80,7 @@ export function AutoPrecalAvailabilityAlert() {
     };
   }, []);
 
-  const visible =
-    FORCE_BANSEFI_TEMPORARY_OUTAGE_NOTICE || unavailable;
-
-  if (!visible) return null;
+  if (!unavailable) return null;
 
   return (
     <div
@@ -101,10 +96,10 @@ export function AutoPrecalAvailabilityAlert() {
         </span>
         <div>
           <p className="text-base font-bold">
-            Bansefi / Infonavit presenta una caída temporal.
+            La página de Infonavit / Bansefi presenta fallas temporales.
           </p>
           <p className="mt-1 font-medium">
-            Sí puedes seguir precalificando normalmente.
+            Puedes seguir capturando y enviando precalificaciones normalmente.
           </p>
           <p className="mt-1">
             Si Bansefi no responde en ese momento, la solicitud quedará
@@ -113,8 +108,8 @@ export function AutoPrecalAvailabilityAlert() {
           </p>
           <p className="mt-2 text-xs font-semibold">
             No es necesario volver a capturar el NSS. Este aviso es temporal y
-            se retirará en cuanto se confirme que el portal volvió a funcionar
-            de forma estable.
+            se retirará automáticamente cuando el sistema registre que el
+            servicio volvió a responder correctamente.
           </p>
         </div>
       </div>
