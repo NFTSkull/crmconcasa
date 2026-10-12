@@ -56,6 +56,18 @@ describe("Monterrey shared capacity Firmas + Inscripción + Notificación", () =
     assert.match(liveSync, /completaron los 15 lugares/);
   });
 
+  it("no cuenta firmas reagendadas o canceladas en el pool físico, en ambos lectores", () => {
+    assert.match(liveSync, /function isHistoricalSharedPoolRow/);
+    assert.match(webhookGuard, /function isHistoricalSharedPoolRow/);
+    assert.match(liveSync, /isHistoricalSharedPoolRow\(row/);
+    assert.match(webhookGuard, /!isHistoricalSharedPoolRow\(row\)/);
+    assert.match(webhookGuard, /!isHistoricalSharedPoolRow\(targetPhysicalRow\)/);
+    for (const source of [liveSync, webhookGuard]) {
+      assert.match(source, /REAGENDADO\|CANCELAD/);
+      assert.match(source, /hasHistoricalBookingId/);
+    }
+  });
+
   it("Notificación shows a clear shared-cap message", () => {
     assert.match(notificationErrors, /sin_cupo_combinado_mty_15/);
     assert.match(notificationErrors, /15 lugares de Monterrey/);

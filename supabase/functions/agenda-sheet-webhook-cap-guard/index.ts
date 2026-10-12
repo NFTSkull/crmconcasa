@@ -76,6 +76,18 @@ function normalizeSheetLabel(value: unknown): string {
     .trim();
 }
 
+/**
+ * Los movimientos históricos siguen visibles en Drive, pero NO consumen un
+ * lugar adicional del cupo combinado. Exigimos UUID de cita histórica para
+ * no ignorar por error una captura manual que aún no fue vinculada.
+ */
+function isHistoricalSharedPoolRow(row: ReadonlyArray<unknown>): boolean {
+  const status = normalizeSheetLabel(row?.[14]);
+  const hasHistoricalBookingId = Boolean(String(row?.[15] ?? "").trim());
+  return hasHistoricalBookingId &&
+    /^(REAGENDADO|CANCELAD[AO]|ANULAD[AO]|REPROGRAMAD[AO])(?:\s|$)/.test(status);
+}
+
 function inspectMonterreySharedPool(
   grid: ReadonlyArray<ReadonlyArray<unknown>>,
   targetRowNumber: number,
@@ -119,7 +131,7 @@ function inspectMonterreySharedPool(
 
     if (!isPoolSlot) continue;
     if (i + 1 === targetRowNumber) targetInPool = true;
-    if (rowHasVisibleManualData(row)) physicalTotal += 1;
+    if (rowHasVisibleManualData(row) && !isHistoricalSharedPoolRow(row)) physicalTotal += 1;
   }
 
   return { physicalTotal, targetInPool };
@@ -451,7 +463,8 @@ Deno.serve(async (req) => {
     const targetBookingCell = String(
       targetPhysicalRow[COL_INDEX.bookingId] ?? "",
     ).trim();
-    const targetVisible = rowHasVisibleManualData(targetPhysicalRow);
+    const targetVisible = rowHasVisibleManualData(targetPhysicalRow) &&
+      !isHistoricalSharedPoolRow(targetPhysicalRow);
 
     // El webhook relee A:U completo: mantener un snapshot exacto del pool físico
     // Monterrey Firmas + Inscripción + Notificación. Esto hace que el trigger DB
