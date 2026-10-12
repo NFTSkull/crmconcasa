@@ -17,6 +17,29 @@ describe("NotificationsBell mark-read montaje", () => {
     "utf8",
   );
 
+  it("muestra todas las notificaciones, no solo cinco con un badge mayor", () => {
+    assert.match(bell, /<NotificationsList items=\{notifications\}/);
+    assert.doesNotMatch(bell, /notifications\.slice\(0,\s*maxItems\)/);
+    assert.match(bell, /notifications\.length/);
+  });
+
+  it("marca como leídas fuera del updater de React, al abrir y no al cerrar", () => {
+    const toggle = bell.match(/const handleToggle = useCallback\(\(\) => \{([\s\S]*?)\}, \[open, close, notifications, persistMarkRead\]\);/);
+    assert.ok(toggle, "toggle handler exists");
+    assert.match(toggle[1]!, /if \(open\) \{\s*close\(\);\s*return;/);
+    assert.match(toggle[1]!, /persistMarkRead\(notifications\);\s*setOpen\(true\);/);
+    assert.doesNotMatch(toggle[1]!, /setOpen\(\(prev\)/);
+  });
+
+  it("hidrata lecturas después del montaje para evitar badge obsoleto", () => {
+    assert.match(bell, /useState<DashboardNotificationReadsDoc>\(emptyReads\)/);
+    assert.doesNotMatch(bell, /useState<DashboardNotificationReadsDoc>\(\(\) =>/);
+  });
+
+  it("cambio de perfil recarga estado leído por cuenta", () => {
+    assert.match(bell, /useEffect\(\(\) => \{\s*reloadReads\(\);\s*setOpen\(false\);\s*setMarkError\(null\);/);
+  });
+
   it("campana usa unreadCount y marca leídas al abrir", () => {
     assert.match(bell, /countUnreadDashboardNotifications/);
     assert.match(bell, /markDashboardNotificationsRead/);

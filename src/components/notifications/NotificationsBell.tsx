@@ -13,7 +13,6 @@ import { NotificationsList } from "./notifications-ui";
 
 type NotificationsBellProps = {
   notifications: readonly DashboardNotificationItem[];
-  maxItems?: number;
   /** Clave por usuario (profile id / email) para persistir leídas. */
   userKey?: string | null;
 };
@@ -47,21 +46,28 @@ function loadReads(userKey: string): DashboardNotificationReadsDoc {
 
 export function NotificationsBell({
   notifications,
-  maxItems = 5,
   userKey = null,
 }: NotificationsBellProps) {
   const [open, setOpen] = useState(false);
   const rootRef = useRef<HTMLDivElement>(null);
   const panelId = useId();
   const resolvedUserKey = String(userKey ?? "").trim() || "local";
-  const [reads, setReads] = useState<DashboardNotificationReadsDoc>(() =>
-    loadReads(String(userKey ?? "").trim() || "local"),
-  );
+  // Render the same initial value on server and client; hydrate browser reads
+  // in the effect below so a previously read badge does not reappear on refresh.
+  const [reads, setReads] = useState<DashboardNotificationReadsDoc>(emptyReads);
   const [markError, setMarkError] = useState<string | null>(null);
 
   const reloadReads = useCallback(() => {
     setReads(loadReads(resolvedUserKey));
   }, [resolvedUserKey]);
+
+  // Advisor / Mesa may switch accounts without remounting the header.
+  // Never show another user's persisted read acknowledgements.
+  useEffect(() => {
+    reloadReads();
+    setOpen(false);
+    setMarkError(null);
+  }, [reloadReads]);
 
   useEffect(() => {
     const onStorage = (e: StorageEvent) => {
@@ -78,10 +84,6 @@ export function NotificationsBell({
     };
   }, [reloadReads]);
 
-  const visible = useMemo(
-    () => notifications.slice(0, maxItems),
-    [notifications, maxItems],
-  );
   const unreadCount = useMemo(
     () => countUnreadDashboardNotifications(notifications, reads),
     [notifications, reads],
@@ -121,12 +123,15 @@ export function NotificationsBell({
   const close = useCallback(() => setOpen(false), []);
 
   const handleToggle = useCallback(() => {
-    setOpen((prev) => {
-      if (prev) return false;
-      persistMarkRead(notifications);
-      return true;
-    });
-  }, [notifications, persistMarkRead]);
+    if (open) {
+      close();
+      return;
+    }
+    // Acknowledge every loaded notification on a real click (never as a React
+    // state-updater side effect). The list remains visible after marking read.
+    persistMarkRead(notifications);
+    setOpen(true);
+  }, [open, close, notifications, persistMarkRead]);
 
   const handleNavigate = useCallback(() => {
     persistMarkRead(notifications);
@@ -184,20 +189,22 @@ export function NotificationsBell({
         >
           <div className="border-b border-slate-100 px-3 py-2">
             <p className="text-xs font-semibold text-slate-900">Notificaciones</p>
-            {unreadCount > 0 ? (
-              <p className="text-[10px] text-slate-500">
-                {unreadCount} nueva{unreadCount === 1 ? "" : "s"}
-              </p>
-            ) : (
-              <p className="text-[10px] text-slate-500">Sin notificaciones nuevas</p>
-            )}
+            <p className="text-[10px] text-slate-500">
+              {notifications.length} notificación{notifications.length === 1 ? "" : "es"} en total
+              {" · "}
+              {unreadCount > 0
+                ? `${unreadCount} nueva${unreadCount === 1 ? "" : "s"}`
+                : "Sin notificaciones nuevas"}
+            </p>
             {markError ? (
               <p className="mt-1 text-[10px] text-red-600" role="alert">
                 {markError}
               </p>
             ) : null}
           </div>
-          <NotificationsList items={visible} compact onNavigate={handleNavigate} />
+          {/* Badge counts the entire feed: show the same entire feed (scrollable)
+              rather than silently truncating it to five. */}
+          <NotificationsList items={notifications} compact onNavigate={handleNavigate} />
         </div>
       ) : null}
     </div>
