@@ -112,6 +112,18 @@ function hasVisibleBookingData(row: ReadonlyArray<unknown>): boolean {
   );
 }
 
+/**
+ * Los movimientos históricos siguen visibles en Drive, pero NO consumen un
+ * lugar adicional del cupo combinado. Exigimos UUID de cita histórica para
+ * no ignorar por error una captura manual que aún no fue vinculada.
+ */
+function isHistoricalSharedPoolRow(row: ReadonlyArray<unknown>): boolean {
+  const status = normalizeSheetLabel(row?.[14]);
+  const hasHistoricalBookingId = Boolean(String(row?.[15] ?? "").trim());
+  return hasHistoricalBookingId &&
+    /^(REAGENDADO|CANCELAD[AO]|ANULAD[AO]|REPROGRAMAD[AO])(?:\\s|$)/.test(status);
+}
+
 function countMonterreySharedPhysical(
   grid: ReadonlyArray<ReadonlyArray<unknown>>,
 ): number {
@@ -142,6 +154,7 @@ function countMonterreySharedPhysical(
       continue;
     }
     if (!section || a === "HORA" || !hasVisibleBookingData(row ?? [])) continue;
+    if (isHistoricalSharedPoolRow(row ?? [])) continue;
 
     const isClock = /^\d{1,2}:\d{2}/.test(a);
     const isNotificationRow = /^NOTIFICACION\b/.test(a);
