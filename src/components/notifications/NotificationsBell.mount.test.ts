@@ -31,6 +31,11 @@ describe("NotificationsBell mark-read montaje", () => {
     assert.doesNotMatch(toggle[1]!, /setOpen\(\(prev\)/);
   });
 
+  it("hidrata lecturas después del montaje para evitar badge obsoleto", () => {
+    assert.match(bell, /useState<DashboardNotificationReadsDoc>\(emptyReads\)/);
+    assert.doesNotMatch(bell, /useState<DashboardNotificationReadsDoc>\(\(\) =>/);
+  });
+
   it("cambio de perfil recarga estado leído por cuenta", () => {
     assert.match(bell, /useEffect\(\(\) => \{\s*reloadReads\(\);\s*setOpen\(false\);\s*setMarkError\(null\);/);
   });
