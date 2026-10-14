@@ -164,10 +164,10 @@ describe("buildAdvisorDateAvailabilityInsight", () => {
     assert.ok(!insight?.nextFormatted?.includes("mty-centro"));
   });
 
-  it("anticipación mínima en fecha seleccionada", () => {
+  it("corte a las 14:30 en Monterrey bloquea cita para mañana", () => {
     const config = { ...baseConfig(), minLeadHours: 72 };
     const monterrey = sedeFromConfig(config, "monterrey");
-    const now = new Date("2026-06-25T18:00:00.000Z");
+    const now = new Date("2026-06-25T20:30:00.000Z");
     const insight = buildAdvisorDateAvailabilityInsight({
       config,
       bookedSlots: [],
@@ -176,7 +176,7 @@ describe("buildAdvisorDateAvailabilityInsight", () => {
       now,
     });
     assert.equal(insight?.emptyReason, "min_lead_blocked");
-    assert.match(insight?.emptyReasonMessage ?? "", /anticipación mínima/);
+    assert.match(insight?.emptyReasonMessage ?? "", /2:30 p\. m\./);
     assert.ok(insight?.next);
   });
 
