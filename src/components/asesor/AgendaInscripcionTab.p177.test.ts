@@ -118,6 +118,30 @@ describe("P177/P178 agenda tabs Inscripción", () => {
     assert.match(sql, /OLD\.etapa_actual IN \(4,5\)/);
   });
 
+  it("fecha mínima posterior a biométricos y disponibilidad solo con Drive vigente", () => {
+    assert.match(insc, /min=\{minBookingDate\}/);
+    assert.match(insc, /eligibility\?\.minBookingDate/);
+    assert.match(insc, /availabilityGeneration/);
+    assert.match(repo, /min_booking_date/);
+    assert.match(repo, /payload\.fresh !== true/);
+    assert.match(repo, /payload\.enforced !== true/);
+    const helper = readFileSync(
+      join(root, "supabase/migrations/20261014235000_inscripcion_fecha_posterior_biometricos.sql"),
+      "utf8",
+    );
+    const booking = readFileSync(
+      join(root, "supabase/migrations/20261014235200_inscripcion_reservar_posterior_a_biometricos.sql"),
+      "utf8",
+    );
+    const rebooking = readFileSync(
+      join(root, "supabase/migrations/20261014235300_inscripcion_reagendar_posterior_a_biometricos.sql"),
+      "utf8",
+    );
+    assert.match(helper, /booking_date\) \+ 1/);
+    assert.match(booking, /INSCRIPCION_ANTES_DE_BIOMETRICOS/);
+    assert.match(rebooking, /INSCRIPCION_ANTES_DE_BIOMETRICOS/);
+  });
+
   it("pending/booked/rebook CTAs + sede por elegibilidad + 11:00", () => {
     assert.match(insc, /Agendar inscripción/);
     assert.match(insc, /Reagendar inscripción/);
