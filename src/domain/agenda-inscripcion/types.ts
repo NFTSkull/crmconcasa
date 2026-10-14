@@ -23,6 +23,8 @@ export type AgendaInscripcionAsesorEligibility = Readonly<{
   locationId?: "monterrey" | "apodaca";
   fixedTime?: "11:00";
   etapaActual?: number;
+  /** Primera fecha permitida si aún tiene biométricos futuros en etapa 4. */
+  minBookingDate?: string;
 }>;
 
 export type AgendaInscripcionRequirement = Readonly<{
