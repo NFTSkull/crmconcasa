@@ -225,6 +225,7 @@ export class SupabaseAgendaInscripcionRepo implements AgendaInscripcionRepo {
         location_id?: string;
         fixed_time?: string;
         etapa_actual?: number;
+        min_booking_date?: string | null;
       } | null;
       return {
         eligible: row?.eligible === true,
@@ -235,6 +236,7 @@ export class SupabaseAgendaInscripcionRepo implements AgendaInscripcionRepo {
         fixedTime: "11:00",
         etapaActual:
           typeof row?.etapa_actual === "number" ? row.etapa_actual : undefined,
+        minBookingDate: typeof row?.min_booking_date === "string" ? row.min_booking_date : undefined,
       };
     } catch {
       return { eligible: false, reasonCode: "eligibility_error" };
@@ -273,6 +275,8 @@ export class SupabaseAgendaInscripcionRepo implements AgendaInscripcionRepo {
 
     const payload = data as {
       ok?: boolean;
+      fresh?: boolean;
+      enforced?: boolean;
       daily_capacity?: number | null;
       daily_remaining?: number | null;
       daily_occupancy?: number | null;
@@ -285,6 +289,10 @@ export class SupabaseAgendaInscripcionRepo implements AgendaInscripcionRepo {
       }>;
     } | null;
 
+    // La disponibilidad no se considera reservable si no está confirmada por Drive.
+    if (payload?.ok !== true || payload.fresh !== true || payload.enforced !== true) {
+      throw new AgendaInscripcionError(LIVE_SYNC_CUPOS_UNVERIFIED_MESSAGE);
+    }
     const slots = payload?.slots ?? [];
     const match = slots.find((s) => {
       const t = normalizeTime(String(s.sheet_slot_time ?? s.slot_time ?? ""));
