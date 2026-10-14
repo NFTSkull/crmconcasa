@@ -76,6 +76,7 @@ import { EXPEDIENTE_CLIENTE_DATOS_UPDATED_EVENT } from "@/domain/expediente-clie
 import { formatMontoMX } from "@/lib/monto";
 import { NotificationsBell } from "@/components/notifications/NotificationsBell";
 import { AsesorAgendaCalendarButton } from "@/components/asesor/AsesorAgendaCalendarButton";
+import { AsesorInscripcionCuposButton } from "@/components/asesor/AsesorInscripcionCuposButton";
 import type { DashboardNotificationItem } from "@/lib/dashboardNotifications";
 import {
   listContingenciaPendientesAsesor,
@@ -1480,6 +1481,7 @@ function AsesorDashboardNormalPage({
               userKey={currentUser.email}
             />
             <AsesorAgendaCalendarButton />
+            <AsesorInscripcionCuposButton />
             <Button
               variant="outline"
               onClick={async () => {
