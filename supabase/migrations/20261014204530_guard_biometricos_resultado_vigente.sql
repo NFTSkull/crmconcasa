@@ -42,11 +42,11 @@ BEGIN
 
   IF NOT FOUND THEN RETURN NEW; END IF;
 
-  v_completed := (
+  v_completed := COALESCE((
     v_booking.projection_status='CURRENT'
     AND v_booking.biometric_effective_result='COMPLETED_CURRENT'
     AND COALESCE(v_booking.operational_red_veto,false)=false
-  );
+  ), false);
 
   -- Jamás indicar 'realizados' o avanzar con una cita biométrica futura
   -- que sigue pendiente, incluso en movimientos de etapa extraordinarios.
