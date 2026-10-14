@@ -90,6 +90,8 @@ export function AgendaInscripcionSupabaseCard({
   const [available, setAvailable] = useState(0);
   const [capacity, setCapacity] = useState(0);
   const [availLoading, setAvailLoading] = useState(false);
+  const [availabilityChecked, setAvailabilityChecked] = useState(false);
+  const [availabilityFailed, setAvailabilityFailed] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
@@ -136,6 +138,8 @@ export function AgendaInscripcionSupabaseCard({
   const refreshAvailability = useCallback(async () => {
     if (!repo || !date) return;
     setAvailLoading(true);
+    setAvailabilityChecked(false);
+    setAvailabilityFailed(false);
     try {
       try {
         await invokeAgendaSheetLiveSync(supabaseBrowser!, {
@@ -158,7 +162,9 @@ export function AgendaInscripcionSupabaseCard({
     } catch {
       setAvailable(0);
       setCapacity(0);
+      setAvailabilityFailed(true);
     } finally {
+      setAvailabilityChecked(true);
       setAvailLoading(false);
     }
   }, [repo, date, inscripcionSede]);
@@ -207,6 +213,7 @@ export function AgendaInscripcionSupabaseCard({
     : false;
   const cupoLabel = formatInscripcionCupoLabel(available, capacity);
   const noCupo = available <= 0;
+  const cupoNoConfirmado = availLoading || !availabilityChecked || availabilityFailed;
   const sedeLabel = formatMesaAgendaSedeLabel(inscripcionSede);
   const showBookForm = selfService || mode === "book" || mode === "reagendar";
 
@@ -326,10 +333,18 @@ export function AgendaInscripcionSupabaseCard({
         </h3>
         {selfService ? (
           <span
-            className="rounded-full bg-emerald-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-emerald-900 ring-1 ring-emerald-200"
-            data-testid="inscripcion-badge-disponible"
+            className={`rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase ring-1 ${
+              cupoNoConfirmado
+                ? "bg-amber-100 text-amber-950 ring-amber-200"
+                : noCupo
+                  ? "bg-gray-100 text-gray-700 ring-gray-200"
+                  : "bg-emerald-100 text-emerald-900 ring-emerald-200"
+            }`}
+            data-testid={cupoNoConfirmado ? "inscripcion-badge-verificando" : noCupo ? "inscripcion-badge-sin-cupo" : "inscripcion-badge-disponible"}
           >
-            Disponible
+            {cupoNoConfirmado
+              ? (availabilityFailed ? "Cupo no verificado" : "Verificando cupo")
+              : noCupo ? "Sin cupo" : "Disponible"}
           </span>
         ) : (
           <span className="rounded-full bg-teal-100 px-2 py-0.5 text-[10px] font-semibold uppercase text-teal-900 ring-1 ring-teal-200">
@@ -339,7 +354,11 @@ export function AgendaInscripcionSupabaseCard({
       </div>
       <p className="mt-1 text-xs text-teal-900">
         {selfService
-          ? "Si el cliente necesita regresar para concluir su inscripción, puedes separar un lugar."
+          ? cupoNoConfirmado
+            ? "Si el cliente necesita regresar para concluir su inscripción, consulta los lugares antes de reservar."
+            : noCupo
+              ? "El expediente puede solicitar inscripción, pero esta fecha no tiene cupos reservables. Selecciona otra fecha."
+              : "Si el cliente necesita regresar para concluir su inscripción, puedes separar un lugar."
           : "Los biométricos del cliente ya fueron realizados, pero necesita regresar para concluir su inscripción."}
       </p>
 
@@ -403,13 +422,15 @@ export function AgendaInscripcionSupabaseCard({
           <p className="text-xs text-teal-900">
             Hora: <strong>{INSCRIPCION_FIXED_TIME_DISPLAY}</strong>
             <span className="ml-2 text-teal-700">
-              {availLoading ? LIVE_SYNC_LOADING_LABEL : cupoLabel}
+              {cupoNoConfirmado
+                ? (availabilityFailed ? "No se pudo verificar el cupo real. Actualiza o elige otra fecha." : LIVE_SYNC_LOADING_LABEL)
+                : cupoLabel}
             </span>
           </p>
           <div className="flex flex-wrap gap-2">
             <Button
               type="button"
-              disabled={saving || availLoading || noCupo}
+              disabled={saving || cupoNoConfirmado || noCupo}
               onClick={() =>
                 void (mode === "reagendar" ? handleReagendar() : handleBook())
               }
