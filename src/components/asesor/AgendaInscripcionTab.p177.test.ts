@@ -92,6 +92,32 @@ describe("P177/P178 agenda tabs Inscripción", () => {
     assert.match(insc, /isInscripcionSelfServiceVisible/);
   });
 
+  it("no anuncia cupo ni permite reservar si el inventario/pool es cero o no verificable", () => {
+    assert.match(insc, /inscripcion-badge-sin-cupo/);
+    assert.match(insc, /inscripcion-badge-verificando/);
+    assert.match(insc, /availabilityFailed/);
+    assert.match(insc, /disabled=\{saving \|\| cupoNoConfirmado \|\| noCupo\}/);
+    const sql = readFileSync(
+      join(root, "supabase/migrations/20261014204600_inscripcion_disponibilidad_cupo_compartido.sql"),
+      "utf8",
+    );
+    assert.match(sql, /agenda_mty_shared_pool_remaining\(v_org,p_date\)/);
+    assert.match(sql, /v_kind = 'inscripcion'/);
+  });
+
+  it("una cita de biométricos futura no aparece como resultado completado", () => {
+    assert.match(bio, /citaBiometricaAunFutura/);
+    assert.match(bio, /Cita de biométricos pendiente/);
+    assert.match(bio, /Todavía no ha ocurrido/);
+    const sql = readFileSync(
+      join(root, "supabase/migrations/20261014204530_guard_biometricos_resultado_vigente.sql"),
+      "utf8",
+    );
+    assert.match(sql, /BIOMETRICOS_RESULTADO_PENDIENTE/);
+    assert.match(sql, /COMPLETED_CURRENT/);
+    assert.match(sql, /OLD\.etapa_actual IN \(4,5\)/);
+  });
+
   it("pending/booked/rebook CTAs + sede por elegibilidad + 11:00", () => {
     assert.match(insc, /Agendar inscripción/);
     assert.match(insc, /Reagendar inscripción/);
