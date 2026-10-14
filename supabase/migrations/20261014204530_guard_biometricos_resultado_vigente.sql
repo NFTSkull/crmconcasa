@@ -50,7 +50,8 @@ BEGIN
 
   -- Jamás indicar 'realizados' o avanzar con una cita biométrica futura
   -- que sigue pendiente, incluso en movimientos de etapa extraordinarios.
-  IF v_booking.booking_date > v_today AND NOT v_completed THEN
+  IF (v_booking.booking_date + v_booking.booking_time) >
+     (now() AT TIME ZONE 'America/Monterrey') THEN
     RAISE EXCEPTION
       'BIOMETRICOS_PENDIENTES: cita biométrica futura del %, no se puede avanzar el expediente',
       v_booking.booking_date
