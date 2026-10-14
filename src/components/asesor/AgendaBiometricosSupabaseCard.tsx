@@ -969,6 +969,44 @@ export function AgendaBiometricosSupabaseCard({
     );
   }
 
+  // Defensa visual: una etapa adelantada por error nunca debe anunciar
+  // "Biométricos realizados" mientras la cita activa aún está en el futuro.
+  // La regla de servidor evita el nuevo error; esto protege datos históricos.
+  const citaBiometricaAunFutura = (() => {
+    if (!activeBooking) return false;
+    try {
+      const scheduledAt = buildScheduledAtIso(
+        activeBooking.bookingDate as YmdDate,
+        activeBooking.bookingTime.slice(0, 5) as HhmmTime,
+        config?.timezone ?? "America/Monterrey",
+      );
+      return new Date(scheduledAt).getTime() > Date.now();
+    } catch {
+      return false;
+    }
+  })();
+
+  if (etapaActual === 5 && activeBooking && citaBiometricaAunFutura) {
+    return (
+      <div className="space-y-3">
+        <AsesorAgendaDecisionNotice
+          expedienteId={expedienteId}
+          kinds={["biometricos", "notificacion"]}
+        />
+        <div className="rounded-xl border border-amber-200 bg-amber-50/70 p-4 shadow-sm">
+          <p className="text-sm font-semibold text-amber-950">
+            Cita de biométricos pendiente
+          </p>
+          <p className="mt-2 text-xs text-amber-900">
+            La cita sigue agendada para el {activeBooking.bookingDate} a las{" "}
+            {activeBooking.bookingTime.slice(0, 5)}. Todavía no ha ocurrido.
+            Mesa debe revisar la etapa del expediente; no es necesario cancelar ni volver a agendar.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
   if (etapaActual === 5 && activeBooking) {
     return (
       <div className="space-y-3">
