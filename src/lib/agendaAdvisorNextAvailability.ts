@@ -38,7 +38,7 @@ const NO_FUTURE_MSG =
 const EMPTY_REASON_MESSAGES: Record<AdvisorEmptyDateReason, string> = {
   no_config: "No hay disponibilidad configurada para esta sede. Pide a Mesa que revise la agenda.",
   day_not_enabled: "Este día no está habilitado para citas.",
-  min_lead_blocked: "Esta fecha no cumple la anticipación mínima configurada.",
+  min_lead_blocked: "Las citas para mañana cierran a las 2:30 p. m. (hora de Monterrey). Selecciona una fecha posterior.",
   all_full: "Los horarios de esta fecha ya están llenos.",
 };
 
