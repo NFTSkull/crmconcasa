@@ -96,6 +96,10 @@ export function AgendaInscripcionSupabaseCard({
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [mode, setMode] = useState<"idle" | "book" | "reagendar">("idle");
+  const availabilityGeneration = useRef(0);
+  const minBookingDate =
+    eligibility?.minBookingDate && eligibility.minBookingDate > todayYmdMonterrey()
+      ? eligibility.minBookingDate : todayYmdMonterrey();
   // Apodaca solo cuando la elegibilidad RPC autoriza la excepcion del expediente.
   const inscripcionSede = eligibility?.locationId === "apodaca" ? "apodaca" : "monterrey";
 
@@ -135,8 +139,25 @@ export function AgendaInscripcionSupabaseCard({
     void reload();
   }, [reload]);
 
+  useEffect(() => {
+    if (date && date < minBookingDate) {
+      // En etapa 4, seleccionar automáticamente el primer día posterior a biométricos.
+      setAvailabilityChecked(false);
+      setAvailable(0);
+      setCapacity(0);
+      setDate(minBookingDate);
+    }
+  }, [date, minBookingDate]);
+
   const refreshAvailability = useCallback(async () => {
     if (!repo || !date) return;
+    const generation = ++availabilityGeneration.current;
+    if (date < minBookingDate) {
+      setAvailable(0);
+      setCapacity(0);
+      setAvailabilityChecked(false);
+      return;
+    }
     setAvailLoading(true);
     setAvailabilityChecked(false);
     setAvailabilityFailed(false);
@@ -149,25 +170,29 @@ export function AgendaInscripcionSupabaseCard({
           locationId: inscripcionSede,
         });
       } catch {
-        // fail-soft: inventory RPC sigue
+        // Fail closed via availability RPC: nunca ofrecer cupos sin inventario vigente.
       }
       const slots = await repo.listAvailability({
         fromDate: date,
         toDate: date,
         locationId: inscripcionSede,
       });
+      if (generation !== availabilityGeneration.current) return;
       const slot = slots[0];
       setAvailable(slot?.available ?? 0);
       setCapacity(slot?.capacity ?? 0);
     } catch {
+      if (generation !== availabilityGeneration.current) return;
       setAvailable(0);
       setCapacity(0);
       setAvailabilityFailed(true);
     } finally {
-      setAvailabilityChecked(true);
-      setAvailLoading(false);
+      if (generation === availabilityGeneration.current) {
+        setAvailabilityChecked(true);
+        setAvailLoading(false);
+      }
     }
-  }, [repo, date, inscripcionSede]);
+  }, [repo, date, minBookingDate, inscripcionSede]);
 
   const showRequirementCard =
     requirement != null &&
@@ -213,12 +238,16 @@ export function AgendaInscripcionSupabaseCard({
     : false;
   const cupoLabel = formatInscripcionCupoLabel(available, capacity);
   const noCupo = available <= 0;
-  const cupoNoConfirmado = availLoading || !availabilityChecked || availabilityFailed;
+  const cupoNoConfirmado = availLoading || !availabilityChecked || availabilityFailed || date < minBookingDate;
   const sedeLabel = formatMesaAgendaSedeLabel(inscripcionSede);
   const showBookForm = selfService || mode === "book" || mode === "reagendar";
 
   const handleBook = async () => {
     if (busyRef.current || !repo) return;
+    if (date < minBookingDate) {
+      setError(`La inscripción debe programarse a partir del ${minBookingDate}, después de biométricos.`);
+      return;
+    }
     if (
       !window.confirm(
         `¿Confirmas la cita de inscripción para el ${date} a las ${INSCRIPCION_FIXED_TIME_DISPLAY} en ${sedeLabel}?`,
@@ -255,6 +284,10 @@ export function AgendaInscripcionSupabaseCard({
 
   const handleReagendar = async () => {
     if (busyRef.current || !repo) return;
+    if (date < minBookingDate) {
+      setError(`La inscripción debe programarse a partir del ${minBookingDate}, después de biométricos.`);
+      return;
+    }
     if (
       !window.confirm(
         `¿Confirmas reagendar la cita de inscripción al ${date} a las ${INSCRIPCION_FIXED_TIME_DISPLAY} en ${sedeLabel}?`,
@@ -406,7 +439,7 @@ export function AgendaInscripcionSupabaseCard({
               <input
                 type="date"
                 className="mt-1 w-full rounded-md border border-teal-200 px-2 py-1.5 text-sm"
-                min={todayYmdMonterrey()}
+                min={minBookingDate}
                 value={date}
                 disabled={saving}
                 onChange={(e) => {
@@ -415,7 +448,7 @@ export function AgendaInscripcionSupabaseCard({
                   setAvailabilityChecked(false);
                   setAvailable(0);
                   setCapacity(0);
-                  setDate(e.target.value);
+                  setDate(e.target.value < minBookingDate ? minBookingDate : e.target.value);
                 }}
               />
             </label>
@@ -426,6 +459,11 @@ export function AgendaInscripcionSupabaseCard({
               </p>
             </div>
           </div>
+          {eligibility?.minBookingDate && eligibility.minBookingDate > todayYmdMonterrey() ? (
+            <p className="text-xs text-amber-900" role="status">
+              Biométricos programados: la inscripción puede separarse a partir del {eligibility.minBookingDate}, siempre sujeta a cupo.
+            </p>
+          ) : null}
           <p className="text-xs text-teal-900">
             Hora: <strong>{INSCRIPCION_FIXED_TIME_DISPLAY}</strong>
             <span className="ml-2 text-teal-700">
