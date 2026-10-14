@@ -193,18 +193,30 @@ function countBookedForAdvisorSede(
   return n;
 }
 
+/** Hora de corte operativa del día anterior: 14:30 America/Monterrey.
+ * Reemplaza la regla legacy de 24 horas sin alterar cupos ni inventario de Drive.
+ */
 function meetsMinLeadHours(
   dateYmd: YmdDate,
   timeHhmm: HhmmTime,
   timeZone: string,
-  minLeadHours: number,
+  _minLeadHours: number,
   now: Date,
 ): boolean {
   try {
-    const scheduledIso = buildScheduledAtIso(dateYmd, timeHhmm, timeZone);
-    const scheduledMs = new Date(scheduledIso).getTime();
-    const minMs = now.getTime() + Math.max(0, minLeadHours) * 3_600_000;
-    return scheduledMs > now.getTime() && scheduledMs >= minMs;
+    const scheduledMs = new Date(buildScheduledAtIso(dateYmd, timeHhmm, timeZone)).getTime();
+    if (!Number.isFinite(scheduledMs) || scheduledMs <= now.getTime()) return false;
+    const parts = Object.fromEntries(new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Monterrey",
+      year: "numeric", month: "2-digit", day: "2-digit",
+      hour: "2-digit", minute: "2-digit", hourCycle: "h23",
+    }).formatToParts(now).map((p) => [p.type, p.value]));
+    const today = `${parts.year}-${parts.month}-${parts.day}` as YmdDate;
+    if (dateYmd <= today) return false;
+    if (dateYmd === addDaysYmd(today, 1) && `${parts.hour}:${parts.minute}` > "14:30") {
+      return false;
+    }
+    return true;
   } catch {
     return false;
   }
