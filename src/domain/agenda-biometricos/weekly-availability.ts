@@ -213,7 +213,7 @@ function meetsMinLeadHours(
     }).formatToParts(now).map((p) => [p.type, p.value]));
     const today = `${parts.year}-${parts.month}-${parts.day}` as YmdDate;
     if (dateYmd <= today) return false;
-    if (dateYmd === addDaysYmd(today, 1) && `${parts.hour}:${parts.minute}` > "14:30") {
+    if (dateYmd === addDaysYmd(today, 1) && `${parts.hour}:${parts.minute}` >= "14:30") {
       return false;
     }
     return true;
