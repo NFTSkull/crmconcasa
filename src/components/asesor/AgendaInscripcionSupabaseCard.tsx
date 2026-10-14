@@ -409,7 +409,14 @@ export function AgendaInscripcionSupabaseCard({
                 min={todayYmdMonterrey()}
                 value={date}
                 disabled={saving}
-                onChange={(e) => setDate(e.target.value)}
+                onChange={(e) => {
+                  // Invalidar inmediatamente la disponibilidad de la fecha anterior.
+                  // Nunca permitir agendar mientras consulta el nuevo día.
+                  setAvailabilityChecked(false);
+                  setAvailable(0);
+                  setCapacity(0);
+                  setDate(e.target.value);
+                }}
               />
             </label>
             <div className="block text-xs text-teal-900">
