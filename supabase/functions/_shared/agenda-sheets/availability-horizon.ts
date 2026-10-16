@@ -6,7 +6,42 @@
 import { parseTabDate } from "./parsers.ts";
 import { buildInventoryUpsertRows } from "./inventory-from-grid.ts";
 import type { AgendaSheetTimeAlias } from "./time-aliases.ts";
-import type { InventoryUpsertRow } from "./inventory-from-grid.ts";
+import type { InventoryUpsertRow, InventoryParseIssue } from "./inventory-from-grid.ts";
+
+/**
+ * Fila desaparecida de Drive: solo se puede desactivar su inventario técnico
+ * tras una lectura íntegra y sin problemas de estructura, nunca desde un batch parcial.
+ * El RPC de DB protege linked/claimed y cualquier booking_id vigente.
+ */
+export type InventoryPruneScope = {
+  kind: string;
+  locationId: string;
+  seenRows: number[];
+};
+export function safeInventoryPruneScopes(input: {
+  grid: readonly string[][];
+  rows: readonly InventoryUpsertRow[];
+  issues: readonly InventoryParseIssue[];
+}): InventoryPruneScope[] {
+  if (input.grid.length === 0 || input.rows.length === 0 || input.issues.length > 0) return [];
+  const seen = new Map<string, InventoryPruneScope>();
+  const rowUniq = new Set<number>();
+  for (const r of input.rows) {
+    if (!Number.isInteger(r.sheet_row) || r.sheet_row < 1 ||
+        r.sheet_row > input.grid.length || rowUniq.has(r.sheet_row)) return [];
+    rowUniq.add(r.sheet_row);
+    const key = `${r.kind}|\u0000|${r.location_id}`;
+    let scope = seen.get(key);
+    if (!scope) {
+      scope = {kind: r.kind, locationId: r.location_id, seenRows: []};
+      seen.set(key, scope);
+    }
+    scope.seenRows.push(r.sheet_row);
+  }
+  return [...seen.values()].map(s => ({
+    ...s, seenRows: s.seenRows.sort((a, b) => a - b),
+  }));
+}
 
 export const AVAILABILITY_HORIZON_TZ = "America/Monterrey";
 export const AVAILABILITY_HORIZON_DAYS = 60;
@@ -192,6 +227,11 @@ export async function runAvailabilityHorizon(input: {
   upsertBatch: (
     rows: InventoryUpsertRow[],
   ) => Promise<{ error: { message?: string } | null }>;
+  /** Solo marca inventario huérfano disabled; no borra citas ni toca Google. */
+  pruneScope?: (input: {
+    date: string; sheetId: number; kind: string; locationId: string;
+    seenRows: number[];
+  }) => Promise<{error: {message?: string} | null}>;
 }): Promise<HorizonRunResult> {
   const selected = selectHorizonTabs({
     tabs: input.tabs,
@@ -215,7 +255,7 @@ export async function runAvailabilityHorizon(input: {
   for (const tab of selected) {
     const range = a1TabGridRange(tab.title);
     const grid = grids.get(range) ?? [];
-    const { rows } = buildInventoryUpsertRows({
+    const { rows, issues } = buildInventoryUpsertRows({
       organizationId: input.organizationId,
       spreadsheetId: input.spreadsheetId,
       sheetId: tab.sheetId,
@@ -246,6 +286,23 @@ export async function runAvailabilityHorizon(input: {
         break;
       }
       tabUpserted += chunk.length;
+    }
+    if (failed) continue;
+    // Solo después de upsert completo y lectura física válida.
+    // Fallos de estructura: sin pruning, la disponibilidad de ese día queda conservadora.
+    if (input.pruneScope) {
+      const scopes = safeInventoryPruneScopes({grid, rows, issues});
+      for (const scope of scopes) {
+        const result = await input.pruneScope({
+          date: tab.bookingDate, sheetId: tab.sheetId,
+          kind: scope.kind, locationId: scope.locationId, seenRows: scope.seenRows,
+        });
+        if (result.error) {
+          failures.push({date: tab.bookingDate, code: "inventory_prune_failed", tab: tab.title.trim().slice(0, 40)});
+          failed = true;
+          break;
+        }
+      }
     }
     if (failed) continue;
     const available = rows.filter((r) => r.status === "available").length;
