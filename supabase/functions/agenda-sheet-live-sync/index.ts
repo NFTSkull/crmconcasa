@@ -34,6 +34,7 @@ import {
   horizonHttpStatus,
   horizonPublicBody,
   runAvailabilityHorizon,
+  safeInventoryPruneScopes,
 } from "../_shared/agenda-sheets/availability-horizon.ts";
 import {
   parseTabMapJson,
@@ -324,6 +325,18 @@ Deno.serve(async (req) => {
             );
             return { error };
           },
+          pruneScope: async ({date, sheetId, kind: scopeKind, locationId: scopeLocation, seenRows}) => {
+            const { error } = await supabase.rpc("agenda_sheet_inventory_prune_scope", {
+              p_organization_id: orgId,
+              p_spreadsheet_id: spreadsheetId,
+              p_sheet_id: sheetId,
+              p_booking_date: date,
+              p_kind: scopeKind,
+              p_location_id: scopeLocation,
+              p_seen_rows: seenRows,
+            });
+            return {error};
+          },
         });
         console.error("agenda-sheet-live-sync horizon done", {
           from: horizon.from,
@@ -474,6 +487,32 @@ Deno.serve(async (req) => {
         );
       }
       upserted += chunk.length;
+    }
+
+    // Una lectura completa y sin anomalías puede limpiar filas que ya
+    // desaparecieron de Sheets. La función SQL jamás toca booking_id/linked/claimed.
+    // Esta llamada se aplica antes del conteo SQL, evitando falsos 'sin cupo'.
+    const pruneScopes = safeInventoryPruneScopes({ grid, rows: filtered, issues });
+    for (const scope of pruneScopes) {
+      const { error: pruneError } = await supabase.rpc("agenda_sheet_inventory_prune_scope", {
+        p_organization_id: orgId,
+        p_spreadsheet_id: spreadsheetId,
+        p_sheet_id: targetTab.sheetId,
+        p_booking_date: bookingDate,
+        p_kind: scope.kind,
+        p_location_id: scope.locationId,
+        p_seen_rows: scope.seenRows,
+      });
+      if (pruneError) {
+        console.error("agenda-sheet-live-sync inventory_prune_failed", {
+          date: bookingDate,
+          kind: scope.kind,
+          location: scope.locationId,
+          code: String(pruneError.code ?? "").slice(0, 30),
+        });
+        return liveSyncJsonError(503, "inventory_prune_failed",
+          "No se pudo completar la conciliación del inventario con Drive.");
+      }
     }
 
     // Siempre calcular cupo desde la relectura física (no depender de RPC user-scoped).
