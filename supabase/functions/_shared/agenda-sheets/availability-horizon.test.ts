@@ -10,6 +10,7 @@ import {
   horizonHttpStatus,
   horizonPublicBody,
   runAvailabilityHorizon,
+  safeInventoryPruneScopes,
   selectHorizonTabs,
   ymdInTimeZone,
 } from "./availability-horizon.ts";
@@ -148,6 +149,80 @@ describe("P188 live-sync scope=horizon helpers", () => {
       tabs.some((t) => t.hidden),
       false,
     );
+  });
+});
+
+describe("Inventario sin celdas fantasma: cleanup conservador", () => {
+  it("solo incluye filas físicas de un snapshot íntegro; no toca otras secciones", () => {
+    const grid = [
+      ["MONTERREY BIOMETRICOS"],
+      ["9:00", "11111111111", "Cliente 1", "Asesor"],
+      ["9:00", "", "", ""],
+      ["LEO"],
+    ];
+    const rows: InventoryUpsertRow[] = [
+      {organization_id: ORG,spreadsheet_id: SHEET,sheet_id: 21,sheet_title: "21 OCTUBRE",
+        booking_date: "2026-10-21",sheet_row: 2,kind:"biometricos",location_id:"monterrey",
+        slot_time:"09:00:00",sheet_slot_time:"09:00:00",slot_key:"a",status:"linked",
+        visible_nss:null,visible_name:null,visible_advisor:null,booking_id:"id",expediente_id:null,occupancy_source:"crm"},
+      {organization_id: ORG,spreadsheet_id: SHEET,sheet_id: 21,sheet_title: "21 OCTUBRE",
+        booking_date: "2026-10-21",sheet_row: 3,kind:"biometricos",location_id:"monterrey",
+        slot_time:"09:00:00",sheet_slot_time:"09:00:00",slot_key:"b",status:"available",
+        visible_nss:null,visible_name:null,visible_advisor:null,booking_id:null,expediente_id:null,occupancy_source:"reconciliation"},
+    ];
+    assert.deepEqual(safeInventoryPruneScopes({grid, rows, issues:[]}), [{
+      kind: "biometricos", locationId:"monterrey", seenRows:[2,3],
+    }]);
+    // Google no entregó la pestaña completa / anomalía de estructura:
+    assert.deepEqual(safeInventoryPruneScopes({grid:[],rows,issues:[]}), []);
+    assert.deepEqual(safeInventoryPruneScopes({grid,rows,issues:[{code:"MANUAL_ENTRY_WITHOUT_SLOT",sheet_row:4,message:""}]}), []);
+    assert.deepEqual(safeInventoryPruneScopes({grid,rows:[rows[0]!,rows[0]!],issues:[]}), []);
+  });
+
+  it("horizon: prune solo después de upsert exitoso y con filas observadas", async () => {
+    const title="15 AGOSTO";
+    const events:string[]=[];
+    const {from,to}=availabilityHorizonBounds(NOW);
+    const result=await runAvailabilityHorizon({
+      tabs:[{sheetId:9,title,hidden:false}],from,to,year:2026,
+      organizationId:ORG,spreadsheetId:SHEET,timeAliases:[],
+      batchGetValues:async()=>new Map([[a1(title),fullPhysicalFirmasGrid()]]),
+      upsertBatch:async(rows)=>{events.push("upsert "+rows.length);return {error:null};},
+      pruneScope:async(input)=>{
+        assert.equal(input.date,"2026-08-15");
+        assert.equal(input.kind,"firmas");
+        assert.equal(input.locationId,"monterrey");
+        assert.deepEqual(input.seenRows,[2,3,4]);
+        events.push("prune");
+        return {error:null};
+      }
+    });
+    assert.deepEqual(events,["upsert 3","prune"]);
+    assert.equal(result.failed,0);
+  });
+
+  it("horizon: si falla upsert nunca ejecuta prune; si falla prune no reporta éxito", async () => {
+    const title="15 AGOSTO";
+    const {from,to}=availabilityHorizonBounds(NOW);
+    let called=0;
+    const base={
+      tabs:[{sheetId:9,title,hidden:false}],from,to,year:2026,
+      organizationId:ORG,spreadsheetId:SHEET,timeAliases:[],
+      batchGetValues:async()=>new Map([[a1(title),fullPhysicalFirmasGrid()]]),
+    };
+    const failed=await runAvailabilityHorizon({
+      ...base,upsertBatch:async()=>({error:{message:"upsert_failed"}}),
+      pruneScope:async()=>{called++;return {error:null};},
+    });
+    assert.equal(called,0);
+    assert.equal(failed.failed,1);
+    const pruneFailed=await runAvailabilityHorizon({
+      ...base,upsertBatch:async()=>({error:null}),
+      pruneScope:async()=>({error:{message:"denied"}}),
+    });
+    assert.equal(pruneFailed.failed,1);
+    assert.equal(pruneFailed.succeeded,0);
+    assert.equal(pruneFailed.failures[0]?.code,"inventory_prune_failed");
   });
 });
 
