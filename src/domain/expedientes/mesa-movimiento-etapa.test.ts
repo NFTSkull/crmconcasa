@@ -179,6 +179,16 @@ test("extrae códigos estables sin depender del texto posterior", () => {
   );
 });
 
+test("errores biométricos muestran causa concreta sin reintentar ni ocultar guard", () => {
+  const pending = {message: "BIOMETRICOS_RESULTADO_PENDIENTE: Mesa debe confirmar resultado vigente en Drive",code:"22023"};
+  const future = {message: "BIOMETRICOS_PENDIENTES: cita biométrica futura",code:"22023"};
+  assert.equal(getMesaMovimientoErrorCode(pending),"BIOMETRICOS_RESULTADO_PENDIENTE");
+  assert.match(mapMesaMovimientoRpcError(pending).message,/resultado biométrico/);
+  assert.equal(getMesaMovimientoErrorCode(future),"BIOMETRICOS_PENDIENTES");
+  assert.match(mapMesaMovimientoRpcError(future).message,/cita biométrica futura/);
+  assert.equal(shouldAutoRetryMesaMovimiento(pending),false);
+});
+
 test("conflicto 40001 / MESA_MOVE_STAGE_CONFLICT es definitivo sin retry", () => {
   const rpcErr = {
     message: "MESA_MOVE_STAGE_CONFLICT: etapa actual 10, esperada 8",
