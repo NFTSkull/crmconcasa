@@ -81,6 +81,10 @@ const MESA_MOVE_MESSAGES: Readonly<Record<string, string>> = {
   MESA_MOVE_REASON_TOO_LONG: "El motivo no puede exceder 500 caracteres.",
   MESA_MOVE_STAGE_CONFLICT:
     "El expediente ya cambió de etapa. Actualizamos la información.",
+  BIOMETRICOS_PENDIENTES:
+    "Hay una cita biométrica futura pendiente. No se pudo completar el avance automático; revisa el expediente o solicita un movimiento manual autorizado a Mesa.",
+  BIOMETRICOS_RESULTADO_PENDIENTE:
+    "El resultado biométrico aún no está confirmado en Drive. El avance automático debe esperar su validación.",
 };
 
 /** Conflicto optimista (SQLSTATE 40001 / MESA_MOVE_STAGE_CONFLICT): definitivo, sin retry. */
