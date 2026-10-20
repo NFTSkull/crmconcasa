@@ -300,7 +300,7 @@ export function AgendaNotificacionSupabaseTab({
         data-testid="notificacion-sede-select"
       >
         <option value={CYNTHIA_SEDE_MONTERREY_ID}>Monterrey</option>
-        <option value={CYNTHIA_SEDE_APODACA_ID}>Apodaca</option>
+        <option value={CYNTHIA_SEDE_APODACA_ID} disabled>Apodaca — suspendida hasta nuevo aviso</option>
       </select>
     </label>
   );
@@ -369,7 +369,7 @@ export function AgendaNotificacionSupabaseTab({
             type="button"
             variant="primary"
             className="flex-1 text-xs"
-            disabled={saving || !config?.enabled || !dateYmd || !sedeId || monterreyCupoBlocked}
+            disabled={saving || !config?.enabled || !dateYmd || !sedeId || sedeId === CYNTHIA_SEDE_APODACA_ID || monterreyCupoBlocked}
             onClick={() => void handleReagendar()}
           >
             {saving ? "Guardando…" : "Reagendar notificación"}
@@ -448,7 +448,7 @@ export function AgendaNotificacionSupabaseTab({
         type="button"
         variant="primary"
         className="w-full text-xs"
-        disabled={saving || !config?.enabled || !dateYmd || !sedeId || monterreyCupoBlocked}
+        disabled={saving || !config?.enabled || !dateYmd || !sedeId || sedeId === CYNTHIA_SEDE_APODACA_ID || monterreyCupoBlocked}
         onClick={() => void handleBook()}
       >
         {saving ? "Agendando…" : "Agendar notificación"}
