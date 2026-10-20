@@ -580,7 +580,7 @@ export function MesaReagendarCitaDialog({
 
   const canSubmit =
     entry.kind === "notificacion" || entry.kind === "inscripcion"
-      ? Boolean(dateYmd) && !fixedSharedBlocked
+      ? Boolean(dateYmd) && notificacionSedeId !== CYNTHIA_SEDE_APODACA_ID && !fixedSharedBlocked
       : Boolean(selectedSede && dateYmd && timeHhmm) &&
         selectedRealSlotAvailable &&
         !inventoryRefreshing;
@@ -648,7 +648,7 @@ export function MesaReagendarCitaDialog({
                     data-testid="mesa-reagendar-fixed-sede"
                   >
                     <option value={CYNTHIA_SEDE_MONTERREY_ID}>Monterrey</option>
-                    <option value={CYNTHIA_SEDE_APODACA_ID}>Apodaca</option>
+                    <option value={CYNTHIA_SEDE_APODACA_ID} disabled>Apodaca — suspendida hasta nuevo aviso</option>
                   </select>
                 </label>
                 <p
