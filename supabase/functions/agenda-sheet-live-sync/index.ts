@@ -286,6 +286,31 @@ Deno.serve(async (req) => {
     const supabase = createClient(supabaseUrl, serviceKey, {
       auth: { persistSession: false, autoRefreshToken: false },
     });
+
+    // Cierre operativo de sede desde 21/oct. Respuesta cerrada y explícita
+    // para TODOS los tipos. No alterar horizonte/inventario de Monterrey.
+    if (scopeDecision.kind !== "horizon" && locationId === "apodaca" &&
+        bookingDate >= "2026-10-21") {
+      const { data: suspended, error: suspensionError } = await supabase.rpc(
+        "agenda_sede_suspendida", {
+          p_org: orgId, p_location: "apodaca", p_date: bookingDate,
+        },
+      );
+      if (suspensionError || suspended == null) {
+        return liveSyncJsonError(503, "sede_suspension_unverified",
+          "No fue posible verificar la disponibilidad de Apodaca.");
+      }
+      if (suspended === true) {
+        return liveSyncJsonOk({
+          ok: true, refreshed: false, fresh: true, enforced: true, upserted: 0,
+          slots: [], canBook: false, daily_capacity: 0, daily_occupancy: 0,
+          daily_remaining: 0, daily_overcapacity: false,
+          location_closed: true,
+          gateMessage: "Apodaca suspendida desde el 21/10/2026 hasta nuevo aviso. Solicita reagenda en una sede habilitada.",
+          bookMessage: "La sede Apodaca no tiene agenda disponible hasta nuevo aviso.",
+        });
+      }
+    }
     const adapter = await createGoogleSheetsAdapter({
       spreadsheetId,
       serviceAccountEmail: email,
