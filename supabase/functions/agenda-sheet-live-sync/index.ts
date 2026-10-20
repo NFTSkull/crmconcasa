@@ -643,6 +643,31 @@ Deno.serve(async (req) => {
       } else {
         dailyOcc = Number(occData);
       }
+    } else if (kind === "biometricos" && locationId) {
+      // La lectura de Drive no incluye reservas de CRM aún sin fila asignada.
+      // Usar la misma ocupación SQL que el servidor que permite reservar.
+      const { data: sqlOcc, error: sqlOccErr } = await supabase.rpc(
+        "agenda_daily_active_occupancy",
+        {
+          p_org: orgId,
+          p_kind: "biometricos",
+          p_date: bookingDate,
+          p_location: locationId,
+        },
+      );
+      if (sqlOccErr || sqlOcc == null || !Number.isFinite(Number(sqlOcc))) {
+        console.error("agenda-sheet-live-sync biometric SQL occupancy unavailable", {
+          date: bookingDate,
+          location: locationId,
+          code: String(sqlOccErr?.code ?? "").slice(0, 30),
+        });
+        return liveSyncJsonError(
+          503,
+          "biometric_daily_occupancy_unverified",
+          "No fue posible confirmar el cupo diario de biométricos.",
+        );
+      }
+      dailyOcc = Math.max(0, Math.trunc(Number(sqlOcc)));
     } else {
       dailyOcc = agendaDailyActiveOccupancy({
         bookings: crmIds.map((id) => ({ id, status: "booked" })),
@@ -687,6 +712,15 @@ Deno.serve(async (req) => {
           overcapacity: dailyOcc > effectiveCapacity,
         };
       }
+    }
+
+    // No ofrecer espacios en verde si el cupo diario ya está comprometido.
+    // physical_total se conserva para auditoría del inventario de Drive.
+    if (kind === "biometricos") {
+      slots = slots.map((slot) => ({
+        ...slot,
+        available: Math.min(slot.available, dailyMeta.remaining),
+      }));
     }
 
     let canBook = true;
