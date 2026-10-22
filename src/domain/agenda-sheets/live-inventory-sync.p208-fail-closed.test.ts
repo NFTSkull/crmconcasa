@@ -1,3 +1,5 @@
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
@@ -194,5 +196,33 @@ describe("P208 FE fail-closed live-sync → 0 book RPC", () => {
     });
     assert.equal(result, "booked");
     assert.equal(calls, 1);
+  });
+});
+
+describe("ConCasa agenda: protección contra pestañas antiguas", () => {
+  it("bloquea si Google devuelve dos pestañas para la misma fecha", () => {
+    const result = shouldBlockBookWithoutLiveSync({
+      kind: "biometricos",
+      locationId: "monterrey",
+      bookingDate: "2026-11-03",
+      gate: { fresh: false, canBook: false, code: "ambiguous_sheet_for_date" },
+    });
+    assert.equal(result.block, true);
+  });
+
+  it("la selección rápida de noviembre exige el sheet_id canónico", () => {
+    const source = readFileSync(
+      join(process.cwd(), "supabase/functions/agenda-sheet-live-sync/index.ts"),
+      "utf8",
+    );
+    const from = source.indexOf("const yearNum = Number.isFinite(year)");
+    const to = source.indexOf("let upserted = 0;", from);
+    assert.ok(from >= 0 && to > from);
+    const block = source.slice(from, to);
+    assert.match(block, /\.eq\("sheet_id", expectedSheetId\)/);
+    assert.match(block, /knownCalendarDate/);
+    assert.match(block, /if \(!targetTab\)/);
+    assert.match(block, /adapter\.listSheets\(\)/);
+    assert.doesNotMatch(block, /\.eq\("booking_date", bookingDate\)\s*\.limit\(1\)/);
   });
 });
