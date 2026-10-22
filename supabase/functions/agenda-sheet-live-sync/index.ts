@@ -381,51 +381,83 @@ Deno.serve(async (req) => {
     }
 
     const yearNum = Number.isFinite(year) ? year : 2026;
-    // La metadata ACTUAL de Google es la autoridad: jamás elegir un sheet_id
-    // usando .limit(1) del inventario (puede conservar IDs de hojas eliminadas).
-    // Una fecha ambigua o sin pestaña válida se cierra por seguridad.
-    const liveTabs = await adapter.listSheets();
-    const resolved = resolveSheetTabForDate({
+    const tabMap = parseTabMapJson(
+      Deno.env.get("GOOGLE_SHEETS_TAB_MAP_JSON") ?? "{}",
+    );
+    const mapHit = resolveSheetTabForDate({
       bookingDate,
-      tabMap: {},
-      liveTabs,
+      tabMap,
+      liveTabs: [],
       year: yearNum,
     });
-    if (resolved.status !== "resolved_from_live_metadata") {
-      console.error("agenda-sheet-live-sync no unique live tab", {
-        bookingDate,
-        status: resolved.status,
-      });
-      return liveSyncJsonOk({
-        ok: false,
-        code: resolved.status,
-        fresh: false,
-        enforced: bookingDate >= START,
-        refreshed: false,
-        upserted: 0,
-        slots: [],
-        canBook: false,
-        gateMessage: "No se pudo verificar una pestaña única en Google Drive.",
-        bookMessage: "La agenda está en validación; no se puede agendar hasta sincronizar.",
-        tab_resolve: "live_metadata_unavailable",
-      });
-    }
-    const targetTab = { sheetId: resolved.sheetId, title: resolved.title };
-    const tabResolve = "live_metadata";
 
-    // El mapa opcional puede quedar obsoleto tras recrear pestañas.
-    // Se registra la discrepancia para revisión; nunca reemplaza a Google.
-    const configuredTab = parseTabMapJson(
-      Deno.env.get("GOOGLE_SHEETS_TAB_MAP_JSON") ?? "{}",
-    )[bookingDate];
-    if (configuredTab &&
-        (Number(configuredTab.sheetId) !== targetTab.sheetId ||
-          String(configuredTab.title) !== targetTab.title)) {
-      console.warn("agenda-sheet-live-sync stale configured tab", {
+    let targetTab: { sheetId: number; title: string } | null = null;
+    let tabResolve = "verified_inventory";
+
+    // Octubre/noviembre 2026: metadatos verificados contra Google Drive.
+    // El sheet_id vigente coincide con YYYYMMDD (no con un ID de copia).
+    // Consultar esta fila concreta evita el costoso listSheets() en cada book.
+    const knownCalendarDate =
+      bookingDate >= "2026-10-21" && bookingDate <= "2026-11-30";
+    const expectedSheetId = Number(bookingDate.replace(/-/g, ""));
+    if (knownCalendarDate) {
+      const { data: canonical, error: canonicalError } = await supabase
+        .from("agenda_sheet_slot_inventory")
+        .select("sheet_id, sheet_title")
+        .eq("organization_id", orgId)
+        .eq("spreadsheet_id", spreadsheetId)
+        .eq("booking_date", bookingDate)
+        .eq("sheet_id", expectedSheetId)
+        .limit(1)
+        .maybeSingle();
+      if (!canonicalError && canonical &&
+          Number(canonical.sheet_id) === expectedSheetId &&
+          String(canonical.sheet_title ?? "").length > 0) {
+        targetTab = {
+          sheetId: expectedSheetId,
+          title: String(canonical.sheet_title),
+        };
+      }
+    }
+    if (!targetTab && mapHit.status === "resolved_from_tab_map" &&
+        (!knownCalendarDate || mapHit.sheetId === expectedSheetId)) {
+      targetTab = { sheetId: mapHit.sheetId, title: mapHit.title };
+      tabResolve = "tab_map";
+    }
+
+    if (!targetTab) {
+      // NUNCA elegir una pestaña con .limit(1) sobre inventario de la fecha:
+      // puede devolver el sheet_id antiguo de una pestaña ya sustituida.
+      // Se consulta metadata real SOLO cuando no hay referencia verificada.
+      const liveTabs = await adapter.listSheets();
+      const liveHit = resolveSheetTabForDate({
         bookingDate,
-        configured_sheet_id: configuredTab.sheetId,
-        live_sheet_id: targetTab.sheetId,
+        tabMap: {},
+        liveTabs,
+        year: yearNum,
       });
+      if (liveHit.status === "resolved_from_live_metadata") {
+        targetTab = { sheetId: liveHit.sheetId, title: liveHit.title };
+        tabResolve = "live_metadata";
+      } else {
+        console.error("agenda-sheet-live-sync tab unresolved", {
+          bookingDate,
+          code: liveHit.status,
+        });
+        return liveSyncJsonOk({
+          ok: false,
+          code: liveHit.status,
+          fresh: false,
+          enforced: bookingDate >= START,
+          refreshed: false,
+          upserted: 0,
+          slots: [],
+          canBook: false,
+          gateMessage: "No fue posible verificar una pestaña única en Drive.",
+          bookMessage: "No se pudo validar la agenda. Vuelve a intentarlo más tarde.",
+          tab_resolve: "unverified",
+        });
+      }
     }
 
     let upserted = 0;
