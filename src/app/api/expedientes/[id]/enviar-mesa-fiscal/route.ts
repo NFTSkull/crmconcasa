@@ -464,8 +464,10 @@ export function classifyFiscalWorkerForMesa(body: FiscalWorkerBody):
 
 /**
  * Respaldo fiscal SOLO para un falso negativo probable del OCR:
- * - Infonavit y Datos Generales deben traer exactamente el mismo RFC full13.
- * - La base10 debe coincidir con la CURP validada localmente.
+ * - Infonavit full13 debe coincidir exactamente con Datos Generales full13;
+ *   si Infonavit solo proporciona base10 (sin homoclave), esa base debe coincidir
+ *   exactamente con la del RFC full13 de Datos Generales.
+ * - La fecha YYMMDD del RFC completo debe coincidir con la CURP validada localmente.
  * - El RFC corroborado debe ser distinto del leído del Estado de Cuenta.
  *
  * Aun cumpliendo esto, el respaldo NO autoriza Mesa por sí solo: siempre se
@@ -487,18 +489,27 @@ export function pickCorroboratedBackupRfc(args: {
     return { ok: false, reason: "captured_sources_incomplete" };
   }
 
-  // Expedientes históricos pueden no tener rfc_infonavit persistido. En ese
-  // caso, DG full13 + fecha compatible con CURP puede ir a SAT como respaldo;
-  // nunca autoriza Mesa por sí solo.
-  if (infonavit && rfcShape(infonavit) !== "full13") {
+  // Infonavit puede conservar solo la base10, sin homoclave. En ese caso,
+  // corroborar DG full13 contra esa base10 y la fecha de CURP; nunca construir
+  // una homoclave estimada ni tomar el respaldo como validación oficial.
+  // SAT live sigue siendo obligatorio antes del envío a Mesa.
+  const infonavitShape = rfcShape(infonavit);
+  if (infonavit && infonavitShape !== "full13" && infonavitShape !== "base10") {
     return { ok: false, reason: "captured_sources_incomplete" };
   }
-  if (infonavit && infonavit !== datosGenerales) {
+  if (
+    infonavit &&
+    (infonavitShape === "full13"
+      ? infonavit !== datosGenerales
+      : infonavit !== datosGenerales.slice(0, 10))
+  ) {
     return { ok: false, reason: "captured_sources_disagree" };
   }
 
   const picked = pickCapturedBackupRfc({
-    rfcInfonavit: infonavit || null,
+    // El helper general exige RFC full13 cuando se suministra Infonavit;
+    // para Infonavit base10 el candidato verificable es el full13 de DG.
+    rfcInfonavit: infonavitShape === "base10" ? null : infonavit || null,
     rfcDatosGenerales: datosGenerales,
     curpValidadaLocalmente: args.curpValidadaLocalmente,
   });
