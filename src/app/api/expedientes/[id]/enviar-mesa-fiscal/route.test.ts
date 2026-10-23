@@ -219,6 +219,53 @@ describe("pickCorroboratedBackupRfc", () => {
     );
   });
 
+  it("acepta RFC DG completo cuando Infonavit tiene solo base10, sin autorizar Mesa sin SAT", () => {
+    assert.deepEqual(
+      pickCorroboratedBackupRfc({
+        rfcInfonavit: "ABCD900805",
+        rfcDatosGenerales: "ABCD900805XYZ",
+        curpValidadaLocalmente: "ABCD900805HDFRRL09",
+        pdfRfc: null,
+      }),
+      { ok: true, rfc: "ABCD900805XYZ", field: "rfc_datos_generales" },
+    );
+  });
+
+  it("rechaza base10 de Infonavit distinta al RFC completo capturado", () => {
+    assert.deepEqual(
+      pickCorroboratedBackupRfc({
+        rfcInfonavit: "ABCD900805",
+        rfcDatosGenerales: "ABCD900805XYZ".replace("ABCD", "WXYZ"),
+        curpValidadaLocalmente: "ABCD900805HDFRRL09",
+        pdfRfc: null,
+      }),
+      { ok: false, reason: "captured_sources_disagree" },
+    );
+  });
+
+  it("rechaza RFC completo con fecha de nacimiento distinta a CURP", () => {
+    const result = pickCorroboratedBackupRfc({
+      rfcInfonavit: "ABCD900805",
+      rfcDatosGenerales: "ABCD900805XYZ",
+      curpValidadaLocalmente: "ABCD910805HDFRRL09",
+      pdfRfc: null,
+    });
+    assert.equal(result.ok, false);
+    if (!result.ok) assert.equal(result.reason, "curp_base_mismatch");
+  });
+
+  it("no reutiliza RFC como respaldo si ya se leyó del PDF", () => {
+    assert.deepEqual(
+      pickCorroboratedBackupRfc({
+        rfcInfonavit: "ABCD900805",
+        rfcDatosGenerales: "ABCD900805XYZ",
+        curpValidadaLocalmente: "ABCD900805HDFRRL09",
+        pdfRfc: "ABCD900805XYZ",
+      }),
+      { ok: false, reason: "same_as_pdf" },
+    );
+  });
+
   it("no usa respaldo si Infonavit y DG no coinciden exactamente", () => {
     const result = pickCorroboratedBackupRfc({
       rfcInfonavit: "ABCD900805XYZ",
