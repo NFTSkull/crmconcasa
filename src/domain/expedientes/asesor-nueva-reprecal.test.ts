@@ -205,6 +205,30 @@ describe("P181 /asesor/nueva reprecal propio", () => {
     assert.match(MSG_NUEVA_REPRECAL_CHANGE_SUCCESS, /no cambiará hasta/i);
   });
 
+  it("pre-Mesa ajeno → abrir expediente de titular, no create ni re-precal", () => {
+    const decision = decideNuevaAfterGate(
+      gate({
+        status: "open_existing_pre_mesa",
+        expediente_id: EXP_B,
+        asesor_nombre: "ERIKA ALCOCER",
+        message: "Expediente compartido sin enviar a Mesa",
+      }),
+    );
+    assert.deepEqual(decision, {
+      action: "open_existing",
+      expedienteId: EXP_B,
+      asesorNombre: "ERIKA ALCOCER",
+      message: "Expediente compartido sin enviar a Mesa",
+    });
+  });
+
+  it("pre-Mesa ajeno sin expediente_id → falla cerrado, no duplica", () => {
+    const decision = decideNuevaAfterGate(
+      gate({ status: "open_existing_pre_mesa", expediente_id: null }),
+    );
+    assert.equal(decision.action, "confirm_missing_expediente");
+  });
+
   it("F) P179 other pre-Mesa ok_create → create, no confirm", () => {
     const d = decideNuevaAfterGate(gate({ status: "ok_create" }));
     assert.equal(d.action, "create");
