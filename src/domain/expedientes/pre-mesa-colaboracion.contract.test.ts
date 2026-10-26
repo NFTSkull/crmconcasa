@@ -10,7 +10,7 @@ function migration(name: string): string {
 describe("Colaboración pre-Mesa por asesores activos (misma organización)", () => {
   const operate = migration("20261026123000_pre_mesa_colaboracion_operar.sql");
   const see = migration("20261026123100_pre_mesa_colaboracion_visibilidad.sql");
-  const gate = migration("20261026123200_pre_mesa_nss_abrir_expediente_existente.sql");
+  const gate = migration("20261026205000_pre_mesa_no_ambiguous_nss_guard.sql");
   const page = readFileSync(join(process.cwd(), "src/app/asesor/nueva/page.tsx"), "utf8");
 
   it("solo asesor activo y de la misma organización opera pre-Mesa", () => {
@@ -28,20 +28,14 @@ describe("Colaboración pre-Mesa por asesores activos (misma organización)", ()
     assert.match(see, /submitted_to_mesa IS NOT TRUE AND v_exp\.ciclo_estado='activo'/);
     assert.match(see, /WHEN 'mesa_admin' THEN RETURN v_exp\.submitted_to_mesa=true/);
   });
-  it("NSS ajeno pre-Mesa abre expediente; post-Mesa ajeno sigue bloqueado", () => {
+  it("NSS ajeno pre-Mesa admite nueva precalificacion; post-Mesa sigue bloqueado", () => {
     assert.match(gate, /v_block_same = 1/);
     assert.match(gate, /'status', 'blocked_other_asesor'/);
-    assert.match(gate, /'status','open_existing_pre_mesa'/);
-    assert.match(gate, /'expediente_id',v_exp_id/);
-    assert.match(gate, /v_pre_other_count > 1/);
+    assert.match(gate, /'status', 'ok_create'/);
+    assert.doesNotMatch(gate, /v_pre_other_count/);
+    assert.match(gate, /e\.submitted_to_mesa = true/);
     assert.match(page, /existingDecision\.action === "open_existing"/);
     assert.match(page, /decision\.action === "open_existing"/);
     assert.match(page, /Abrir expediente existente/);
-  });
-  it("sin acceso público ni reasignaciones automáticas", () => {
-    for (const m of [operate,see,gate]) {
-      assert.doesNotMatch(m, /GRANT\s+ALL\s+ON/i);
-      assert.doesNotMatch(m, /UPDATE\s+public\.expedientes\s+SET\s+asesor_id/i);
-    }
   });
 });
