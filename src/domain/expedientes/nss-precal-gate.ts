@@ -4,12 +4,14 @@ import type { ExpedienteProgramaUi } from "./create-expediente.input";
 /**
  * Status del gate RO `asesor_lookup_nss_precal_gate` (P155/P168/P169/P179).
  * P179: `blocked_other_asesor` solo si el expediente bloqueante tiene
- * `submitted_to_mesa=true`. Pre-Mesa ajeno → `ok_create`.
+ * `submitted_to_mesa=true`. Colaboración pre-Mesa ajena → `open_existing_pre_mesa`
+ * para usar el mismo expediente sin crear un duplicado.
  * `reprecal_own_mesa` / `reprecal_change_programa` = expediente propio **activo**
  * (pre o post Mesa); se conservan por compat de `/asesor/nueva` y detalle.
  */
 export const nssPrecalGateStatusSchema = z.enum([
   "ok_create",
+  "open_existing_pre_mesa",
   "reprecal_own_mesa",
   "reprecal_change_programa",
   "blocked_other_asesor",
@@ -29,6 +31,7 @@ export const nssPrecalGateResultSchema = z.object({
   programa_solicitado: z.string().optional(),
   cambio_programa: z.boolean().optional(),
   expediente_id: z.string().uuid().optional().nullable(),
+  asesor_nombre: z.string().optional().nullable(),
   reprecalificacion_pendiente_id: z.string().uuid().optional().nullable(),
 });
 
@@ -94,6 +97,8 @@ export function messageForNssPrecalGateStatus(
       return MSG_NSS_AMBIGUOUS;
     case "blocked_programa_mismatch":
       return MSG_NSS_PROGRAMA_MISMATCH;
+    case "open_existing_pre_mesa":
+      return fallback?.trim() || "Este expediente todavía no se ha enviado a Mesa. Puedes abrirlo y trabajar con el asesor titular.";
     case "ok_create":
       return fallback?.trim() || "Puedes crear una nueva precalificación.";
     default:
