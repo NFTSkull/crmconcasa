@@ -36,6 +36,7 @@ import {
 import { isDataModeSupabase } from "@/lib/dataMode";
 import { supabaseBrowser } from "@/lib/supabaseBrowser";
 import { AutoPrecalAvailabilityAlert } from "@/components/asesor/AutoPrecalAvailabilityAlert";
+import { SharedPreMesaExpedienteHints } from "@/components/asesor/SharedPreMesaExpedienteHints";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { Select } from "@/components/ui/Select";
@@ -67,6 +68,7 @@ export default function NuevaPrecalificacionPage() {
   const dataSupabase = isDataModeSupabase();
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [blockedNss, setBlockedNss] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
   const [existingPreMesa, setExistingPreMesa] = useState<ExistingPreMesaState | null>(null);
@@ -210,6 +212,7 @@ export default function NuevaPrecalificacionPage() {
     setErrorMsg(null);
     setSuccessMsg(null);
     setExistingPreMesa(null);
+    setBlockedNss(null);
 
     const form = e.currentTarget;
     const input = await readForm(form);
@@ -236,6 +239,11 @@ export default function NuevaPrecalificacionPage() {
         const existingDecision = decideNuevaAfterGate(existingGate);
         if (existingDecision.action === "open_existing") {
           setExistingPreMesa({ expedienteId: existingDecision.expedienteId, asesorNombre: existingDecision.asesorNombre, message: existingDecision.message });
+          return;
+        }
+        if (existingDecision.action === "blocked") {
+          setErrorMsg(existingDecision.message);
+          setBlockedNss(input.nss);
           return;
         }
         const created = await liderRepo.createExpedienteForAsesor({
@@ -284,6 +292,7 @@ export default function NuevaPrecalificacionPage() {
 
         if (decision.action === "blocked") {
           setErrorMsg(decision.message);
+          setBlockedNss(input.nss);
           setConfirm(null);
           return;
         }
@@ -436,6 +445,7 @@ export default function NuevaPrecalificacionPage() {
               {errorMsg}
             </p>
           ) : null}
+          {blockedNss ? <SharedPreMesaExpedienteHints nss={blockedNss} /> : null}
           {successMsg ? (
             <p
               role="status"
