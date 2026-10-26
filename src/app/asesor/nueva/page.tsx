@@ -53,6 +53,12 @@ type ConfirmState = {
   gate: NssPrecalGateResult;
 };
 
+type ExistingPreMesaState = {
+  expedienteId: string;
+  asesorNombre: string | null;
+  message: string;
+};
+
 export default function NuevaPrecalificacionPage() {
   const router = useRouter();
   const { currentUser } = useSessionRepo();
@@ -63,6 +69,7 @@ export default function NuevaPrecalificacionPage() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [confirm, setConfirm] = useState<ConfirmState | null>(null);
+  const [existingPreMesa, setExistingPreMesa] = useState<ExistingPreMesaState | null>(null);
   const [canCreateForAny, setCanCreateForAny] = useState(false);
   const [asesoresOrg, setAsesoresOrg] = useState<readonly AsesorActivoOrg[]>(
     [],
@@ -202,6 +209,7 @@ export default function NuevaPrecalificacionPage() {
     e.preventDefault();
     setErrorMsg(null);
     setSuccessMsg(null);
+    setExistingPreMesa(null);
 
     const form = e.currentTarget;
     const input = await readForm(form);
@@ -223,6 +231,13 @@ export default function NuevaPrecalificacionPage() {
     setSubmitting(true);
     try {
       if (dataSupabase && canCreateForAny && targetAsesorId.trim()) {
+        // También para líderes: evitar duplicar un expediente pre-Mesa ajeno.
+        const existingGate = await expedientesRepo.lookupNssPrecalGate(input.nss, input.programa);
+        const existingDecision = decideNuevaAfterGate(existingGate);
+        if (existingDecision.action === "open_existing") {
+          setExistingPreMesa({ expedienteId: existingDecision.expedienteId, asesorNombre: existingDecision.asesorNombre, message: existingDecision.message });
+          return;
+        }
         const created = await liderRepo.createExpedienteForAsesor({
           asesorId: targetAsesorId.trim(),
           programa: input.programa,
@@ -276,6 +291,12 @@ export default function NuevaPrecalificacionPage() {
         if (decision.action === "confirm_missing_expediente") {
           setErrorMsg(decision.message);
           setConfirm(null);
+          return;
+        }
+
+        if (decision.action === "open_existing") {
+          setConfirm(null);
+          setExistingPreMesa({ expedienteId: decision.expedienteId, asesorNombre: decision.asesorNombre, message: decision.message });
           return;
         }
 
@@ -504,6 +525,21 @@ export default function NuevaPrecalificacionPage() {
           </div>
         </form>
       </main>
+
+      {existingPreMesa ? (
+        <div role="dialog" aria-modal="true" aria-labelledby="pre-mesa-existente-title" className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-md rounded-lg border border-amber-200 bg-white p-5 shadow-lg">
+            <h2 id="pre-mesa-existente-title" className="text-base font-semibold text-gray-900">Este cliente ya tiene expediente</h2>
+            <p className="mt-3 text-sm text-gray-700">{existingPreMesa.message}</p>
+            <p className="mt-2 text-sm text-gray-700">Asesor titular: <strong>{existingPreMesa.asesorNombre || "Otro asesor de ConCasa"}</strong>.</p>
+            <p className="mt-2 text-sm text-gray-700">Todavía no se ha enviado a Mesa. Puedes trabajar y subir documentos en el mismo expediente; la titularidad no cambia. Confirma que no hay inconveniente con quien ya lo está trabajando.</p>
+            <div className="mt-5 flex flex-wrap justify-end gap-2">
+              <Button type="button" variant="outline" onClick={() => setExistingPreMesa(null)}>Cancelar</Button>
+              <Button type="button" variant="primary" onClick={() => router.push(nuevaExpedienteDetallePath(existingPreMesa.expedienteId))}>Abrir expediente existente</Button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {confirm ? (
         <div

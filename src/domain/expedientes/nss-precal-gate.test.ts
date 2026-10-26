@@ -95,6 +95,18 @@ describe("nss-precal-gate P155/P164", () => {
     assert.equal(isNssPrecalGateReprecalAllowed("ok_create"), false);
   });
 
+  it("pre-Mesa compartido parsea dueño y expediente sin habilitar re-precal", () => {
+    const result = nssPrecalGateResultSchema.parse({
+      status: "open_existing_pre_mesa",
+      expediente_id: "48814376-7d80-4c95-b4f7-2c0c620084c0",
+      asesor_nombre: "ERIKA ALCOCER",
+      message: "Puedes trabajar el mismo expediente.",
+    });
+    assert.equal(result.asesor_nombre, "ERIKA ALCOCER");
+    assert.equal(isNssPrecalGateBlocked(result.status), false);
+    assert.equal(isNssPrecalGateReprecalAllowed(result.status), false);
+  });
+
   it("P179: post-Mesa other sigue blocked UI", () => {
     assert.equal(isNssPrecalGateBlocked("blocked_other_asesor"), true);
     assert.equal(

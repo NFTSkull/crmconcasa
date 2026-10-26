@@ -37,6 +37,7 @@ export const MSG_NUEVA_REPRECAL_MISSING_EXPEDIENTE =
 export type NuevaAfterGateDecision =
   | { action: "blocked"; message: string }
   | { action: "create" }
+  | { action: "open_existing"; expedienteId: string; asesorNombre: string | null; message: string }
   | { action: "confirm_same"; expedienteId: string }
   | { action: "confirm_change"; expedienteId: string }
   | { action: "confirm_missing_expediente"; message: string };
@@ -49,6 +50,13 @@ export function decideNuevaAfterGate(
   }
   if (gate.status === "ok_create") {
     return { action: "create" };
+  }
+  if (gate.status === "open_existing_pre_mesa") {
+    const expedienteId = String(gate.expediente_id ?? "").trim();
+    if (!expedienteId) {
+      return { action: "confirm_missing_expediente", message: MSG_NUEVA_REPRECAL_MISSING_EXPEDIENTE };
+    }
+    return { action: "open_existing", expedienteId, asesorNombre: gate.asesor_nombre ?? null, message: gate.message };
   }
   const expedienteId = String(gate.expediente_id ?? "").trim();
   if (gate.status === "reprecal_own_mesa") {
