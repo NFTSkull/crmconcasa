@@ -6,6 +6,8 @@ import {
   mapAppRoleToMockRole,
   mapMockRoleToSessionRole,
   SupabaseSessionError,
+  isAuthServiceUnavailable,
+  MSG_AUTH_SERVICE_UNAVAILABLE,
 } from "@/domain/session/supabase.repo";
 
 test("mapAppRoleToMockRole: mapea roles productivos a mock UI", () => {
@@ -168,4 +170,29 @@ test("useSessionRepo: listener SIGNED_OUT no se resuscribe por cada cambio del s
   assert.match(src, /bridgeLogout\(\);/);
   assert.match(src, /\}, \[bridgeLogout, supabaseAuthEnabled\]\);/);
   assert.doesNotMatch(src, /\}, \[store, supabaseAuthEnabled\]\);/);
+});
+
+test("auth 5xx, timeout y error de red no se confunden con contraseña incorrecta", () => {
+  assert.equal(isAuthServiceUnavailable({ status: 555, name: "AuthApiError" }), true);
+  assert.equal(isAuthServiceUnavailable({ status: 503, code: "unexpected_failure" }), true);
+  assert.equal(isAuthServiceUnavailable({ name: "AuthRetryableFetchError" }), true);
+  assert.equal(isAuthServiceUnavailable({ code: "request_timeout" }), true);
+  assert.equal(isAuthServiceUnavailable(new TypeError("Failed to fetch")), true);
+  assert.equal(isAuthServiceUnavailable({ status: 400, code: "invalid_credentials" }), false);
+  assert.equal(isAuthServiceUnavailable({ status: 401, code: "invalid_credentials" }), false);
+  assert.equal(isAuthServiceUnavailable(null), false);
+  assert.match(MSG_AUTH_SERVICE_UNAVAILABLE, /servicio de inicio de sesión/);
+});
+
+test("una caída de Supabase Auth no borra los datos locales de sesión", () => {
+  const src = readFileSync(
+    join(process.cwd(), "src/domain/session/supabase.repo.ts"),
+    "utf8",
+  );
+  assert.match(
+    src,
+    /if \(sessionError && isAuthServiceUnavailable\(sessionError\)\) \{[\s\S]*?return null;/,
+  );
+  assert.match(src, /isAuthServiceUnavailable\(signInError\)/);
+  assert.match(src, /MSG_AUTH_SERVICE_UNAVAILABLE/);
 });

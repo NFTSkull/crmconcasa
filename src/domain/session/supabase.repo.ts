@@ -46,6 +46,30 @@ export type ResolvedSupabaseProfile = Readonly<{
   tipoAsesorOrigen: string | null;
 }>;
 
+export const MSG_AUTH_SERVICE_UNAVAILABLE =
+  "El servicio de inicio de sesión de ConCasa no está respondiendo. Tus credenciales no se han rechazado; vuelve a intentar cuando se restablezca la conexión. No cambies tu contraseña.";
+
+export function isAuthServiceUnavailable(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const value = error as {
+    status?: unknown;
+    name?: unknown;
+    code?: unknown;
+    message?: unknown;
+  };
+  const status = typeof value.status === "number" ? value.status : Number(value.status);
+  const name = String(value.name ?? "");
+  const code = String(value.code ?? "");
+  const message = String(value.message ?? "");
+  return (
+    (Number.isFinite(status) && status >= 500 && status < 600) ||
+    name === "AuthRetryableFetchError" ||
+    code === "request_timeout" ||
+    code === "unexpected_failure" ||
+    (name === "TypeError" && /failed to fetch|networkerror|network request failed/i.test(message))
+  );
+}
+
 export class SupabaseSessionError extends Error {
   constructor(message: string) {
     super(message);
@@ -173,6 +197,13 @@ export class SupabaseSessionRepo implements SessionRepo {
       error: sessionError,
     } = await client.auth.getSession();
 
+    if (sessionError && isAuthServiceUnavailable(sessionError)) {
+      // Error 5xx/timeout de Auth: no devolver usuario autenticado, pero
+      // tampoco eliminar tokens o el puente local por una falla del proveedor.
+      // Se podrá revalidar cuando el servicio se recupere.
+      return null;
+    }
+
     if (sessionError || !session?.user) {
       // Fail closed: si Supabase perdió/invalidó la sesión, el puente legacy
       // jamás debe mantener la UI autenticada por sí solo.
@@ -220,6 +251,14 @@ export class SupabaseSessionRepo implements SessionRepo {
       });
 
     if (signInError || !signInData.user) {
+      if (isAuthServiceUnavailable(signInError)) {
+        throw new SupabaseSessionError(MSG_AUTH_SERVICE_UNAVAILABLE);
+      }
+      if (signInError?.status === 429) {
+        throw new SupabaseSessionError(
+          "Demasiados intentos de acceso. No cambies tu contraseña; vuelve a intentarlo después.",
+        );
+      }
       throw new SupabaseSessionError(
         "Correo o contraseña incorrectos. Verifica tus datos e intenta de nuevo.",
       );
