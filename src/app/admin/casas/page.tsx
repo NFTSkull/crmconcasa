@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState, type FormEvent, type ReactNo
 
 import { useSessionRepo } from "@/domain/session";
 import { supabaseBrowser } from "@/lib/supabaseBrowser";
+import { CasaChecklistDocumental } from "@/components/casas/CasaChecklistDocumental";
 import {
   CASA_CAMPO_DETALLE,
   cargarFotosCasa,
@@ -413,6 +414,14 @@ export default function CasasAdminPage() {
                         <p className="mt-2 whitespace-pre-wrap text-sm text-rose-800">{selected.motivo_rechazo}</p>
                       </div>
                     ) : null}
+
+                    <CasaChecklistDocumental
+                      key={selected.id}
+                      solicitudId={selected.id}
+                      organizationId={selected.organization_id}
+                      estado={selected.estado}
+                      conyugeAplica={selected.conyuge_aplica}
+                    />
 
                     <section className="rounded-xl border border-slate-200 p-5">
                       <div className="flex items-center justify-between gap-3">
