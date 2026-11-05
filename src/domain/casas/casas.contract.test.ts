@@ -47,10 +47,10 @@ describe("Compra de casas: contrato de aislamiento y revisión",()=>{
     assert.match(advisor,/Nueva oportunidad de compra/);
     assert.match(advisor,/Todos los datos son opcionales/);
     assert.match(nav,/href="\/admin\/casas"/);
-    assert.doesNotMatch(advisorIndex,/href="\/asesor\/casas"/);
-    const disabledLayout=source("src/app/asesor/casas/layout.tsx");
-    assert.match(disabledLayout,/Compra de casas no disponible/);
-    assert.doesNotMatch(disabledLayout,/\{children\}/);
+    assert.match(advisorIndex,/href="\/asesor\/casas"/);
+    const activeLayout=source("src/app/asesor/casas/layout.tsx");
+    assert.match(activeLayout,/\{children\}/);
+    assert.doesNotMatch(activeLayout,/Compra de casas no disponible/);
     assert.doesNotMatch(migration,/UPDATE\s+public\.expedientes/i);
     assert.doesNotMatch(migration,/enviar_a_mesa/i);
   });
