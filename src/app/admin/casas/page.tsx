@@ -116,6 +116,23 @@ export default function CasasAdminPage() {
       if (loadError) throw new Error(loadError.message);
       const items = (data ?? []) as CasaSolicitud[];
       setList(items);
+
+      // Al ABRIR la bandeja, marcar vistas solamente las casas recibidas
+      // que sí llegaron en esta carga, sin ocultar entradas posteriores.
+      // La cifra de «Por revisar» no cambia y exige oferta o rechazo aparte.
+      const ultimaRecibida = items.reduce<string | null>((last, casa) => {
+        const enviadaAt = casa.enviada_at;
+        return enviadaAt && (!last || enviadaAt > last) ? enviadaAt : last;
+      }, null);
+      if (ultimaRecibida) {
+        const { error: vistaError } = await client.rpc("casas_admin_marcar_bandeja_vista", {
+          p_hasta: ultimaRecibida,
+        });
+        if (vistaError) {
+          setError("Se cargaron las casas, pero no se pudo actualizar la lectura de notificaciones: " + vistaError.message);
+        }
+      }
+
       const ids = [...new Set(items.map((c) => c.asesor_id))];
       if (ids.length) {
         const names = await client.from("profiles").select("id,full_name").in("id", ids);
