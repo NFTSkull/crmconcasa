@@ -93,7 +93,7 @@ CREATE POLICY casas_solicitudes_create_draft ON public.casas_solicitudes
 FOR INSERT TO authenticated WITH CHECK (
   estado='borrador' AND enviada_at IS NULL AND revisada_at IS NULL
   AND revisada_por IS NULL AND oferta_mxn IS NULL AND motivo_rechazo IS NULL
-  AND asesor_id=(SELECT auth.uid())
+  AND asesor_id=(SELECT auth.uid()) AND nota_admin IS NULL
   AND EXISTS (SELECT 1 FROM public.profiles p
     WHERE p.id=(SELECT auth.uid()) AND p.active AND p.app_role='asesor'
     AND p.organization_id=casas_solicitudes.organization_id)
@@ -213,7 +213,7 @@ BEGIN
  RETURN v_row;
 END $$;
 
-REVOKE ALL ON TABLE public.casas_solicitudes,public.casas_fotos,public.casas_historial FROM PUBLIC,anon;
+REVOKE ALL ON TABLE public.casas_solicitudes,public.casas_fotos,public.casas_historial FROM PUBLIC,anon,authenticated;
 GRANT SELECT,INSERT ON public.casas_solicitudes TO authenticated;
 GRANT SELECT,INSERT,DELETE ON public.casas_fotos TO authenticated;
 GRANT SELECT ON public.casas_historial TO authenticated;
