@@ -96,20 +96,18 @@ export function AutoPrecalAvailabilityAlert() {
         </span>
         <div>
           <p className="text-base font-bold">
-            La página de Infonavit / Bansefi presenta fallas temporales.
+            Aviso importante: el portal de Infonavit / Bansefi presenta fallas.
           </p>
           <p className="mt-1 font-medium">
-            Puedes seguir capturando y enviando precalificaciones normalmente.
+            La precalificación automática está temporalmente afectada y los resultados pueden tardar en llegar.
           </p>
           <p className="mt-1">
-            Si Bansefi no responde en ese momento, la solicitud quedará
-            pendiente y el sistema seguirá intentando procesarla cuando el
-            servicio vuelva a responder.
+            Puedes seguir registrando solicitudes. Si el portal no responde,
+            quedarán pendientes hasta que se restablezca el servicio y puedan procesarse.
           </p>
           <p className="mt-2 text-xs font-semibold">
-            No es necesario volver a capturar el NSS. Este aviso es temporal y
-            se retirará automáticamente cuando el sistema registre que el
-            servicio volvió a responder correctamente.
+            No necesitas volver a capturar ni enviar varias veces el mismo NSS.
+            Este aviso se quitará automáticamente cuando vuelvan a registrarse resultados válidos.
           </p>
         </div>
       </div>
