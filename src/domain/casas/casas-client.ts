@@ -9,6 +9,7 @@ export type CasaSolicitud = {
   organization_id: string;
   asesor_id: string;
   estado: CasaEstado;
+  conyuge_aplica: boolean | null;
   nombre_contacto: string | null;
   telefono_contacto: string | null;
   municipio: string | null;

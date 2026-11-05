@@ -5,6 +5,7 @@ import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState, type ChangeEvent } from "react";
 import { useSessionRepo } from "@/domain/session";
 import { supabaseBrowser } from "@/lib/supabaseBrowser";
+import { CasaChecklistDocumental } from "@/components/casas/CasaChecklistDocumental";
 import {
   CASA_CAMPO_DETALLE,cargarFotosCasa,casaEstadoLabel,casaEstadoStyle,casaTitulo,fechaCasa,pesos,
   type CasaEvento,type CasaFotoConUrl,type CasaSolicitud,
@@ -25,6 +26,15 @@ export default function CasaDetalleAsesorPage() {
   const [error,setError] = useState<string|null>(null);
   const [notice,setNotice] = useState<string|null>(null);
   const [confirmSend,setConfirmSend] = useState(false);
+  const [checklistStatus,setChecklistStatus] = useState({
+    ineTitular:false,ineConyuge:false,cargando:true,
+  });
+  const onChecklistChange = useCallback((value:{ineTitular:boolean;ineConyuge:boolean;cargando:boolean})=>{
+    setChecklistStatus(value);
+  },[]);
+  const onConyugeChange = useCallback((value:boolean|null)=>{
+    setCasa(prev=>prev?{...prev,conyuge_aplica:value}:null);
+  },[]);
 
   const reload = useCallback(async () => {
     const client = supabaseBrowser;
@@ -95,6 +105,10 @@ export default function CasaDetalleAsesorPage() {
 
   async function send() {
     if(!supabaseBrowser||!casa||casa.estado!=="borrador"||busy)return;
+    if(!checklistStatus.ineTitular || (casa.conyuge_aplica===true&&!checklistStatus.ineConyuge)) {
+      setError("Antes de enviar, adjunta la INE del titular y la INE del cónyuge si aplica.");
+      return;
+    }
     setBusy(true);setError(null);setNotice(null);
     try {
       const {error:sendError}=await supabaseBrowser.rpc("casas_enviar",{p_solicitud_id:casa.id});
@@ -157,12 +171,21 @@ export default function CasaDetalleAsesorPage() {
              </div>}
           </section>
         </div>
-        {casa.estado==="borrador"?<section className="rounded-2xl border border-emerald-200 bg-white p-6 shadow-sm"><div className="flex flex-wrap items-start justify-between gap-5"><div><h2 className="text-lg font-bold text-slate-950">Enviar al administrador</h2><p className="mt-1 max-w-xl text-sm text-slate-600">Una vez enviada, el formulario y las fotos quedan en consulta; podrás ver aquí si te ofrecen un monto o si rechazan la compra.</p></div><button disabled={busy} onClick={()=>setConfirmSend(true)} className="rounded-xl bg-emerald-800 px-5 py-3 text-sm font-bold text-white disabled:opacity-50 hover:bg-emerald-900">Enviar casa a Admin →</button></div></section>
+        <CasaChecklistDocumental
+          solicitudId={casa.id}
+          organizationId={casa.organization_id}
+          estado={casa.estado}
+          conyugeAplica={casa.conyuge_aplica}
+          editable
+          onChecklistChange={onChecklistChange}
+          onConyugeChange={onConyugeChange}
+        />
+        {casa.estado==="borrador"?<section className="rounded-2xl border border-emerald-200 bg-white p-6 shadow-sm"><div className="flex flex-wrap items-start justify-between gap-5"><div><h2 className="text-lg font-bold text-slate-950">Enviar al administrador</h2><p className="mt-1 max-w-xl text-sm text-slate-600">Para enviar la casa necesitas las INE correspondientes. Los otros documentos y las fotos son opcionales; después del envío quedan en consulta.</p></div><button disabled={busy || checklistStatus.cargando || !checklistStatus.ineTitular || (casa.conyuge_aplica===true&&!checklistStatus.ineConyuge)} onClick={()=>setConfirmSend(true)} className="rounded-xl bg-emerald-800 px-5 py-3 text-sm font-bold text-white disabled:opacity-50 hover:bg-emerald-900">Enviar casa a Admin →</button></div></section>
         :<section className="rounded-2xl border border-slate-200 bg-white p-5 text-sm text-slate-600">La casa se envió a Admin el {fechaCasa(casa.enviada_at)}. {casa.estado==="enviada"?"Está pendiente de revisión.":"La decisión está registrada y puedes consultarla arriba."}</section>}
 
         {history.length>0?<section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"><h2 className="font-bold text-slate-900">Historial de respuestas</h2><ol className="mt-4 space-y-3">{history.map(item=><li key={item.id} className="flex flex-wrap items-start justify-between gap-2 border-b border-slate-100 pb-3 text-sm"><span className="font-medium text-slate-800">{item.accion==="envio"?"Enviada a administrador":item.accion==="oferta"?"Oferta: "+pesos(item.monto_mxn):"Rechazada"}{item.nota?<span className="block text-xs font-normal text-slate-500">{item.nota}</span>:null}</span><time className="text-xs text-slate-500">{fechaCasa(item.created_at)}</time></li>)}</ol></section>:null}
       </>}
     </div>
-    {confirmSend?<div role="dialog" aria-modal="true" aria-labelledby="confirm-casa-envio" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4"><div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"><h2 id="confirm-casa-envio" className="text-xl font-bold text-slate-950">¿Enviar esta propiedad?</h2><p className="mt-2 text-sm text-slate-600">Se notificará en la bandeja de Compra de casas del administrador. No va a Mesa. Después del envío podrás consultar la respuesta, pero no agregar fotos.</p><div className="mt-6 flex justify-end gap-3"><button onClick={()=>setConfirmSend(false)} className="rounded-xl border border-slate-300 px-4 py-2 text-sm" disabled={busy}>Cancelar</button><button onClick={()=>void send()} disabled={busy} className="rounded-xl bg-emerald-800 px-5 py-2 text-sm font-semibold text-white disabled:opacity-50">{busy?"Enviando…":"Sí, enviar a Admin"}</button></div></div></div>:null}
+    {confirmSend?<div role="dialog" aria-modal="true" aria-labelledby="confirm-casa-envio" className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-4"><div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl"><h2 id="confirm-casa-envio" className="text-xl font-bold text-slate-950">¿Enviar esta propiedad?</h2><p className="mt-2 text-sm text-slate-600">Se notificará en la bandeja de Compra de casas del administrador. No va a Mesa. Después del envío podrás consultar la respuesta, pero no agregar documentos ni fotografías.</p><div className="mt-6 flex justify-end gap-3"><button onClick={()=>setConfirmSend(false)} className="rounded-xl border border-slate-300 px-4 py-2 text-sm" disabled={busy}>Cancelar</button><button onClick={()=>void send()} disabled={busy} className="rounded-xl bg-emerald-800 px-5 py-2 text-sm font-semibold text-white disabled:opacity-50">{busy?"Enviando…":"Sí, enviar a Admin"}</button></div></div></div>:null}
   </main>;
 }

@@ -15,13 +15,13 @@ type CasaFormulario = {
   municipio: string; colonia: string; direccion: string;
   tipo_inmueble: string; situacion_inmueble: string;
   adeudo_tipo: string; adeudo_aproximado_mxn: string;
-  precio_esperado_mxn: string; comentarios: string;
+  precio_esperado_mxn: string; comentarios: string; conyuge_aplica: string;
 };
 const EMPTY: CasaFormulario = {
   nombre_contacto: "", telefono_contacto: "", municipio: "", colonia: "",
   direccion: "", tipo_inmueble: "", situacion_inmueble: "",
   adeudo_tipo: "", adeudo_aproximado_mxn: "",
-  precio_esperado_mxn: "", comentarios: "",
+  precio_esperado_mxn: "", comentarios: "", conyuge_aplica: "",
 };
 const textInput = "w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-900 shadow-sm outline-none transition focus:border-emerald-500 focus:ring-2 focus:ring-emerald-100";
 const label = "block text-xs font-semibold uppercase tracking-wide text-slate-600 mb-1.5";
@@ -92,6 +92,7 @@ export default function CompraCasasAsesorPage() {
           adeudo_aproximado_mxn: parseMonto(form.adeudo_aproximado_mxn),
           precio_esperado_mxn: parseMonto(form.precio_esperado_mxn),
           comentarios: onlyText(form.comentarios),
+          conyuge_aplica: form.conyuge_aplica === "" ? null : form.conyuge_aplica === "si",
         }).select("id").single();
       if (createError || !data) throw new Error(createError?.message || "No se pudo crear la casa.");
       router.push("/asesor/casas/" + data.id);
@@ -172,13 +173,23 @@ export default function CompraCasasAsesorPage() {
                 </div>
               </section>
               <section>
-                <h3 className="mb-4 text-base font-semibold text-slate-900">04. Observaciones</h3>
+                <h3 className="mb-4 text-base font-semibold text-slate-900">04. Titular y cónyuge</h3>
+                <div className="rounded-xl border border-amber-100 bg-amber-50/50 p-4">
+                  <label htmlFor="casa-conyuge" className={label}>¿Participa un cónyuge?</label>
+                  <select id="casa-conyuge" className={textInput} value={form.conyuge_aplica} onChange={e=>change("conyuge_aplica",e.target.value)}>
+                    <option value="">Por definir</option><option value="si">Sí, aplica</option><option value="no">No aplica</option>
+                  </select>
+                  <p className="mt-2 text-xs leading-5 text-amber-800">Para enviar la propiedad se solicitará la INE del titular y, si corresponde, la INE del cónyuge. Los demás documentos del checklist son opcionales.</p>
+                </div>
+              </section>
+              <section>
+                <h3 className="mb-4 text-base font-semibold text-slate-900">05. Observaciones</h3>
                 <label htmlFor="casa-notas" className={label}>Detalles que conviene conocer</label>
                 <textarea id="casa-notas" rows={4} maxLength={4000} className={textInput} value={form.comentarios} onChange={e=>change("comentarios",e.target.value)} placeholder="Por qué quiere vender, características, estado de papeles o cualquier dato útil..." />
               </section>
               <div className="flex flex-wrap items-center justify-between gap-4 border-t border-slate-100 pt-6">
-                <p className="max-w-md text-xs text-slate-500">Se guardará como borrador. En la siguiente pantalla podrás subir hasta 12 fotografías y enviarla al administrador. No se enviará a Mesa de Control.</p>
-                <button type="submit" disabled={saving} className="rounded-xl bg-emerald-800 px-6 py-3 text-sm font-semibold text-white disabled:opacity-50 hover:bg-emerald-900">{saving ? "Guardando casa..." : "Continuar a fotografías →"}</button>
+                <p className="max-w-md text-xs text-slate-500">Se guardará como borrador. Después podrás adjuntar documentos organizados por titular, cónyuge, servicios y exención, además de 12 fotografías. El envío será únicamente al administrador, nunca a Mesa de Control.</p>
+                <button type="submit" disabled={saving} className="rounded-xl bg-emerald-800 px-6 py-3 text-sm font-semibold text-white disabled:opacity-50 hover:bg-emerald-900">{saving ? "Guardando casa..." : "Continuar a documentos →"}</button>
               </div>
             </div>
           </form>
