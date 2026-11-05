@@ -25,10 +25,11 @@ describe("alerta visible de disponibilidad auto-precal", () => {
     assert.match(component, /blocked_by_akamai === true/);
     assert.match(component, /if \(!unavailable\) return null/);
     assert.doesNotMatch(component, /FORCE_BANSEFI_TEMPORARY_OUTAGE_NOTICE/);
-    assert.match(component, /La página de Infonavit \/ Bansefi presenta fallas temporales/);
-    assert.match(component, /Puedes seguir capturando y enviando precalificaciones normalmente/);
-    assert.match(component, /solicitud quedará/);
-    assert.match(component, /se retirará automáticamente/);
+    assert.match(component, /Aviso importante: el portal de Infonavit \/ Bansefi presenta fallas/);
+    assert.match(component, /La precalificación automática está temporalmente afectada/);
+    assert.match(component, /quedarán pendientes/);
+    assert.match(component, /se quitará automáticamente/);
+    assert.match(component, /No necesitas volver a capturar ni enviar varias veces el mismo NSS/);
   });
 
   it("está montada en ambas pantallas de captura", () => {
