@@ -2,7 +2,8 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useRef } from "react";
+import { useEffect, useRef, useState } from "react";
+import { supabaseBrowser } from "@/lib/supabaseBrowser";
 import {
   ADMIN_TABS,
   DEFAULT_ADMIN_TAB,
@@ -31,6 +32,23 @@ type AdminTabsProps = {
 export function AdminTabs({ active, onChange }: AdminTabsProps) {
   const router = useRouter();
   const listRef = useRef<HTMLDivElement | null>(null);
+  const [pendingCasas, setPendingCasas] = useState<number | null>(null);
+
+  useEffect(() => {
+    const client = supabaseBrowser;
+    if (!client) return;
+    let mounted = true;
+    const read = async () => {
+      const { count, error } = await client.from("casas_solicitudes")
+        .select("id", { count: "exact", head: true })
+        .eq("estado", "enviada");
+      if (mounted && !error) setPendingCasas(count ?? 0);
+    };
+    void read();
+    const interval = window.setInterval(() => void read(), 30_000);
+    return () => { mounted = false; window.clearInterval(interval); };
+  }, []);
+
   const selectedMain: AdminMainTabId | null = isAdminMainTabId(active)
     ? active
     : null;
@@ -92,6 +110,16 @@ export function AdminTabs({ active, onChange }: AdminTabsProps) {
           })}
         </div>
 
+        <Link
+          href="/admin/casas"
+          className="whitespace-nowrap border-b-2 border-transparent px-4 py-3 text-sm font-semibold text-emerald-800 outline-none transition hover:border-emerald-500 hover:bg-emerald-50 focus-visible:ring-2 focus-visible:ring-emerald-800 focus-visible:ring-offset-1"
+        >
+          🏠 Compra de casas {pendingCasas != null && pendingCasas > 0 ? (
+            <span aria-label={`${pendingCasas} casas pendientes`} className="ml-1 inline-flex min-w-5 items-center justify-center rounded-full bg-emerald-700 px-1.5 py-0.5 text-[10px] font-bold text-white">
+              {pendingCasas}
+            </span>
+          ) : null}
+        </Link>
         <Link
           href="/admin/agenda"
           className="whitespace-nowrap border-b-2 border-transparent px-4 py-3 text-sm font-medium text-slate-500 outline-none transition hover:border-slate-300 hover:text-slate-800 focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-1"
