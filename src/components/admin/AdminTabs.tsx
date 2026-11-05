@@ -93,6 +93,12 @@ export function AdminTabs({ active, onChange }: AdminTabsProps) {
         </div>
 
         <Link
+          href="/admin/casas"
+          className="whitespace-nowrap border-b-2 border-transparent px-4 py-3 text-sm font-semibold text-emerald-800 outline-none transition hover:border-emerald-500 hover:bg-emerald-50 focus-visible:ring-2 focus-visible:ring-emerald-800 focus-visible:ring-offset-1"
+        >
+          🏠 Compra de casas
+        </Link>
+        <Link
           href="/admin/agenda"
           className="whitespace-nowrap border-b-2 border-transparent px-4 py-3 text-sm font-medium text-slate-500 outline-none transition hover:border-slate-300 hover:text-slate-800 focus-visible:ring-2 focus-visible:ring-slate-900 focus-visible:ring-offset-1"
         >
