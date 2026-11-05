@@ -15,14 +15,14 @@ const pausado = src("src/app/asesor/casas/layout.tsx");
 describe("Compra de casas · checklist documental", () => {
   it("replica cuatro apartados y 17 tipos; validación INE tachada se excluye", () => {
     for (const group of ["titular", "conyuge", "servicios", "exencion"]) {
-      assert.match(catalogo, new RegExp("id: \\"" + group + "\\""));
+      assert.match(catalogo, new RegExp('id: "' + group + '"'));
     }
     for (const type of [
       "escritura", "estado_cuenta_infonavit", "ine_titular", "acta_nacimiento_titular",
       "curp_titular", "rfc_titular", "acta_matrimonio", "acta_divorcio",
       "ine_conyuge", "acta_nacimiento_conyuge", "curp_conyuge", "rfc_conyuge",
       "predial", "agua_drenaje", "cfe", "gas", "factura_2014_calculo_impuesto"
-    ]) assert.match(catalogo, new RegExp("id: \\"" + type + "\\""));
+    ]) assert.match(catalogo, new RegExp('id: "' + type + '"'));
     assert.doesNotMatch(migration, /validacion_ine/);
     assert.doesNotMatch(catalogo, /id: "validacion_ine"/);
   });
