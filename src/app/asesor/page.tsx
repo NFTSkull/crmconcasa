@@ -1635,6 +1635,13 @@ function AsesorDashboardNormalPage({
                 className="w-full rounded-md border border-gray-300 bg-white px-2.5 py-1.5 text-sm text-gray-900 shadow-sm placeholder:text-gray-500 focus:border-blue-500 focus:outline-none focus:ring-1 focus:ring-blue-500"
               />
             </div>
+            <Link
+              href="/asesor/casas"
+              className="inline-flex h-9 shrink-0 items-center justify-center gap-2 rounded-lg bg-emerald-800 px-4 text-sm font-semibold text-white shadow-sm transition hover:bg-emerald-900 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-800"
+              aria-label="Abrir Compra de casas"
+            >
+              <span aria-hidden="true">⌂</span> Compra de casas
+            </Link>
             <Link href="/asesor/nueva" className="shrink-0">
               <Button
                 variant="primary"

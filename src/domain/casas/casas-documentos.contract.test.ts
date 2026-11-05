@@ -53,10 +53,14 @@ describe("Compra de casas · checklist documental", () => {
     assert.doesNotMatch(admin, /<CasaChecklistDocumental[^>]*editable/);
   });
 
-  it("mantiene inhabilitado acceso del asesor hasta autorización expresa", () => {
-    assert.match(pausado, /Compra de casas no disponible/);
-    assert.match(migration, /REVOKE ALL ON FUNCTION public\.casas_enviar\(uuid\) FROM PUBLIC,anon,authenticated/);
-    assert.match(migration, /REVOKE ALL ON FUNCTION public\.casas_configurar_conyuge\(uuid,boolean\)/);
-    assert.doesNotMatch(migration, /GRANT EXECUTE ON FUNCTION public\.casas_enviar/);
+  it("el acceso del asesor está reactivado sin desproteger sus documentos", () => {
+    const reactivacion = src("supabase/migrations/20261105211000_reactivar_compra_casas_asesores.sql");
+    assert.doesNotMatch(pausado, /Compra de casas no disponible/);
+    assert.match(pausado, /\{children\}/);
+    assert.match(reactivacion, /GRANT EXECUTE ON FUNCTION public\.casas_enviar\(uuid\) TO authenticated/);
+    assert.match(reactivacion, /GRANT EXECUTE ON FUNCTION public\.casas_configurar_conyuge\(uuid,boolean\)/);
+    assert.match(reactivacion, /GRANT SELECT,INSERT ON public\.casas_solicitudes TO authenticated/);
+    assert.match(reactivacion, /p\.app_role='asesor'/);
+    assert.match(reactivacion, /s\.estado='borrador'/);
   });
 });
