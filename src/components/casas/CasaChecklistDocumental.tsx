@@ -190,7 +190,7 @@ export function CasaChecklistDocumental({
       <div className="mt-6 space-y-5">
         {CASA_GRUPOS_DOCUMENTALES.map((grupo, idx) => {
           const grupoDocs = grupo.items.filter((item) => tiposPresentes.has(item.id)).length;
-          const noAplica = grupo.id === "conyuge" && conyugeAplica === false;
+          const noAplica = grupo.id === "conyuge" && conyugeAplica === false && grupoDocs === 0;
           return (
             <div key={grupo.id} className="overflow-hidden rounded-xl border border-slate-200">
               <div className="flex flex-wrap items-center justify-between gap-3 bg-slate-50 px-4 py-4">
