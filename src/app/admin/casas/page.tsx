@@ -65,12 +65,6 @@ function estiloEstado(estado: CasaSolicitud["estado"]): string {
   return "border-rose-200 bg-rose-50 text-rose-800";
 }
 
-const ICONO_ESTADO: Record<Exclude<EstadoFiltro, "todos">, "clock" | "check" | "x"> = {
-  enviada: "clock",
-  ofertada: "check",
-  rechazada: "x",
-};
-
 function SeccionVacia({ titulo, descripcion }: { titulo: string; descripcion: string }) {
   return (
     <div className="flex min-h-56 flex-col items-center justify-center px-6 py-12 text-center">
