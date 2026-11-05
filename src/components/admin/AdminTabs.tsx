@@ -32,21 +32,37 @@ type AdminTabsProps = {
 export function AdminTabs({ active, onChange }: AdminTabsProps) {
   const router = useRouter();
   const listRef = useRef<HTMLDivElement | null>(null);
-  const [pendingCasas, setPendingCasas] = useState<number | null>(null);
+  // Notificaciones NUEVAS sin leer, no el total de casas aún pendientes.
+  // El estado de lectura se conserva por administrador en Supabase.
+  const [nuevasCasas, setNuevasCasas] = useState<number | null>(null);
 
   useEffect(() => {
     const client = supabaseBrowser;
     if (!client) return;
     let mounted = true;
+    let latestRequest = 0;
     const read = async () => {
-      const { count, error } = await client.from("casas_solicitudes")
-        .select("id", { count: "exact", head: true })
-        .eq("estado", "enviada");
-      if (mounted && !error) setPendingCasas(count ?? 0);
+      const requestId = ++latestRequest;
+      const { data, error } = await client.rpc("casas_admin_nuevas_count");
+      if (mounted && requestId === latestRequest && !error) {
+        const count = Number(data ?? 0);
+        if (Number.isFinite(count) && count >= 0) setNuevasCasas(count);
+      }
     };
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") void read();
+    };
+    const onFocus = () => void read();
     void read();
-    const interval = window.setInterval(() => void read(), 30_000);
-    return () => { mounted = false; window.clearInterval(interval); };
+    const interval = window.setInterval(() => void read(), 20_000);
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    window.addEventListener("focus", onFocus);
+    return () => {
+      mounted = false;
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      window.removeEventListener("focus", onFocus);
+    };
   }, []);
 
   const selectedMain: AdminMainTabId | null = isAdminMainTabId(active)
@@ -114,9 +130,13 @@ export function AdminTabs({ active, onChange }: AdminTabsProps) {
           href="/admin/casas"
           className="whitespace-nowrap border-b-2 border-transparent px-4 py-3 text-sm font-semibold text-emerald-800 outline-none transition hover:border-emerald-500 hover:bg-emerald-50 focus-visible:ring-2 focus-visible:ring-emerald-800 focus-visible:ring-offset-1"
         >
-          🏠 Compra de casas {pendingCasas != null && pendingCasas > 0 ? (
-            <span aria-label={`${pendingCasas} casas pendientes`} className="ml-1 inline-flex min-w-5 items-center justify-center rounded-full bg-emerald-700 px-1.5 py-0.5 text-[10px] font-bold text-white">
-              {pendingCasas}
+          🏠 Compra de casas {nuevasCasas != null && nuevasCasas > 0 ? (
+            <span
+              aria-label={`${nuevasCasas} casas nuevas sin revisar`}
+              title={`${nuevasCasas} casas nuevas desde tu última visita. Entra para marcarlas como vistas.`}
+              className="ml-1 inline-flex min-w-5 items-center justify-center rounded-full bg-rose-600 px-1.5 py-0.5 text-[10px] font-bold tabular-nums text-white"
+            >
+              {nuevasCasas > 99 ? "99+" : nuevasCasas}
             </span>
           ) : null}
         </Link>
