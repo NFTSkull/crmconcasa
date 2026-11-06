@@ -1,0 +1,32 @@
+name: WhatsApp pilot validation (read-only)
+on:
+  push:
+    branches: [feat/whatsapp-meta-test-concasa-operativo]
+    paths:
+      - src/app/asesor/whatsapp-piloto/**
+      - src/components/whatsapp/WhatsAppPilotEntry.tsx
+      - src/app/asesor/page.tsx
+      - .github/workflows/whatsapp-pilot-compile.yml
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  compile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci --ignore-scripts --no-audit --no-fund
+      - run: npm run typecheck
+      - name: Build Next.js without production credentials
+        env:
+          NEXT_TELEMETRY_DISABLED: '1'
+          NEXT_PUBLIC_USE_SUPABASE_AUTH: 'false'
+          NEXT_PUBLIC_DATA_MODE: mock
+          NEXT_PUBLIC_SUPABASE_URL: https://dummy.supabase.local
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: dummy
+        run: npm run build
