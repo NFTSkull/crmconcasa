@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useSessionRepo } from "@/domain/session";
 import { Button } from "@/components/ui/Button";
+import { WhatsAppPilotEntry } from "@/components/whatsapp/WhatsAppPilotEntry";
 import { Select } from "@/components/ui/Select";
 import { formatDateTimeMx } from "@/lib/filters";
 import {
@@ -1476,6 +1477,7 @@ function AsesorDashboardNormalPage({
             <span className="min-w-0 truncate text-sm text-gray-500">
               {currentUser.email}
             </span>
+            <WhatsAppPilotEntry />
             <NotificationsBell
               notifications={dashboardNotifications}
               userKey={currentUser.email}
