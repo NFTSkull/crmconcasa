@@ -213,6 +213,10 @@ export default function WhatsAppPilotProductionPage() {
             <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-950">
               Número de prueba conectado: {connection.display_phone_number || "Meta TEST"}.
               No se han conectado teléfonos de asesores reales.
+              <Link href="/asesor/whatsapp/conectar"
+                className="ml-0 mt-2 inline-flex text-sm font-semibold text-emerald-900 underline sm:ml-3 sm:mt-0">
+                Revisar preparación para conectar mi WhatsApp Business
+              </Link>
             </div>
             <div className="flex flex-wrap items-center gap-3">
               <button type="button" onClick={() => void syncTestMessages()}
